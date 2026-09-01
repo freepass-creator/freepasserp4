@@ -19,6 +19,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { SALES_SHEET_ID } from '../lib/domain/legacy-sheets';
+import { pickPublishedSalesTabs } from '../lib/domain/sales-published-tabs';
 
 type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim();
@@ -47,8 +48,13 @@ const sheets = async (u: string): Promise<Rec> => {
   return JSON.parse(t);
 };
 const meta = await sheets(`https://sheets.googleapis.com/v4/spreadsheets/${SALES_SHEET_ID}?fields=sheets.properties(title)`);
-const tabs = ((meta.sheets || []) as Rec[]).map((s) => S(s.properties?.title))
-  .filter((t) => /^(상품리스트|손오공구독|오플구독)/.test(t));
+/**
+ * ★★탭 이름을 손으로 박지 않는다 — 정본은 `SALES_PUBLISHED_TAB_PREFIXES`(4탭)다.
+ *   2026-09-01 까지 여기엔 셋만 박혀 있었다. **픽업구독을 안 읽으니 픽업 차가 통째로
+ *   「판매시트에 없는 차」로 보였고**, `--apply` 를 켰다면 손오공 픽업(T카)을 몽땅 「출고불가」로
+ *   내릴 뻔했다. 이 자는 «없으면 내리는» 도구라 탭 하나를 빠뜨리는 것이 곧 오출고정지다.
+ */
+const tabs = pickPublishedSalesTabs(((meta.sheets || []) as Rec[]).map((s) => S(s.properties?.title))).map((t) => t.title);
 const inSheet = new Set<string>();
 for (const tab of tabs) {
   const v = await sheets(`https://sheets.googleapis.com/v4/spreadsheets/${SALES_SHEET_ID}/values/${encodeURIComponent(tab)}`);

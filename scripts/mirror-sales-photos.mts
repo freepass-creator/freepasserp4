@@ -19,6 +19,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { SALES_SHEET_ID } from '../lib/domain/legacy-sheets';
 import { isPhotoUrl } from '../lib/domain/photo-link-guard';
+import { pickPublishedSalesTabs } from '../lib/domain/sales-published-tabs';
 
 type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim();
@@ -49,7 +50,14 @@ const linkOf = (c: Rec | undefined): string => {
 
 // ── 판매시트: 차번 → 사진링크(차량번호 셀 링크 · 「사진링크」 열이 있으면 그것도) ──────────
 const meta = await call(`https://sheets.googleapis.com/v4/spreadsheets/${SALES_SHEET_ID}?fields=sheets.properties(title)`);
-const tabs = ((meta.sheets || []) as Rec[]).map((s) => S(s.properties?.title)).filter((t) => /^(상품리스트|손오공구독|오플구독)/.test(t));
+/**
+ * ★탭 이름을 손으로 박지 않는다 — 정본은 `SALES_PUBLISHED_TAB_PREFIXES`(4탭)다.
+ *   2026-09-01 까지 여기엔 `상품리스트|손오공구독|오플구독` 셋만 박혀 있었다. **픽업구독이 빠져**
+ *   손오공 픽업(T카) 차들은 시트에서 사진을 고쳐도 ERP 로 영영 오지 않았다.
+ *   (2026-08-30 에 고친 `audit-status-drift` 의 「판매탭 3개」 하드코딩과 **같은 병**이다 —
+ *    2026-08-28 에 픽업 탭이 붙으면서 손으로 박은 자리마다 하나씩 어긋났다.)
+ */
+const tabs = pickPublishedSalesTabs(((meta.sheets || []) as Rec[]).map((s) => S(s.properties?.title))).map((t) => t.title);
 const wantPhoto = new Map<string, string>();
 for (const tab of tabs) {
   const grid = await call(`https://sheets.googleapis.com/v4/spreadsheets/${SALES_SHEET_ID}?ranges=${encodeURIComponent(`'${tab.replace(/'/g, "''")}'!A1:BZ900`)}&includeGridData=true&fields=${encodeURIComponent('sheets(data(rowData(values(formattedValue,hyperlink,textFormatRuns(format(link)),userEnteredFormat(textFormat(link)),chipRuns(chip(richLinkProperties(uri)))))))')}`);
@@ -79,6 +87,21 @@ const prods = JSON.parse(await (await fetch(`${DB}/v4/products.json?access_token
 
 type Job = { key: string; plate: string; from: string; to: string; kind: '바꿈' | '비움' | '채움' };
 const jobs: Job[] = [];
+/**
+ * ★★**갤러리를 줄이지 않는다** (2026-09-01 실측으로 막은 함정).
+ *
+ *   ERP `photo_link` 는 사진을 **콤마로 여러 장** 들고 있다(롯데 10장·손오공 10장…).
+ *   그런데 판매시트가 주는 것은 차량번호 셀에 걸린 **대표 한 장**뿐이다.
+ *   그대로 「정본」이라며 덮으면 **164대가 10장 → 1장**이 된다(픽업구독 탭을 넣고 재본 값).
+ *   손님 상세의 사진이 통째로 사라지는 것이라 «갱신»이 아니라 «손실»이다.
+ *
+ *   그래서 **출처(호스트)가 같은데 장수만 줄어드는 것은 손대지 않는다.**
+ *   출처가 «바뀐» 것(남의 차 폴더 → 제 폴더)은 원래 목적이므로 그대로 고친다.
+ */
+const urlsOf = (v: unknown) => S(v).split(/[\s,]+/).filter(Boolean);
+const hostsOf = (v: unknown) => new Set(urlsOf(v).map((u) => { try { return new URL(u).hostname.replace(/^www\./, '').toLowerCase(); } catch { return u; } }));
+const sameHosts = (a: unknown, b: unknown) => { const x = hostsOf(a), y = hostsOf(b); return x.size === y.size && [...x].every((h) => y.has(h)); };
+let 갤러리보존 = 0;
 for (const [key, p] of Object.entries<Rec>(prods)) {
   if (!p || typeof p !== 'object') continue;
   if (p._deleted === true || S(p.status) === 'deleted') continue;
@@ -86,10 +109,12 @@ for (const [key, p] of Object.entries<Rec>(prods)) {
   const to = S(wantPhoto.get(plate));
   const from = S(p.photo_link);
   if (from === to) continue;
+  if (to && from && urlsOf(to).length < urlsOf(from).length && sameHosts(from, to)) { 갤러리보존++; continue; }
   jobs.push({ key, plate, from, to, kind: !to ? '비움' : (!from ? '채움' : '바꿈') });
 }
 const by = (k: Job['kind']) => jobs.filter((j) => j.kind === k).length;
 console.log(`\n■ ERP 사진링크 고칠 차 ${jobs.length}대 — 바꿈 ${by('바꿈')} · 채움 ${by('채움')} · 비움 ${by('비움')} ${APPLY ? '(반영)' : '(dry-run)'}`);
+if (갤러리보존) console.log(`   ※ 그대로 둔 차 ${갤러리보존}대 — 시트가 대표 한 장뿐이라 덮으면 갤러리가 줄어든다(같은 출처)`);
 for (const j of jobs.slice(0, 25)) console.log(`   ${j.plate.padEnd(10)} ${j.kind}  ${(j.from || '(빈칸)').slice(-28).padEnd(30)} → ${(j.to || '(빈칸)').slice(-28)}`);
 if (jobs.length > 25) console.log(`   … 그 밖 ${jobs.length - 25}대`);
 writeFileSync('tmp/mirror-sales-photos.json', JSON.stringify(jobs, null, 2));

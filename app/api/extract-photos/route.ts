@@ -9,10 +9,15 @@
 import { NextResponse } from 'next/server';
 import { readFile } from 'node:fs/promises';
 import { sign } from 'node:crypto';
+/**
+ * ★긁는 규칙은 **`lib/domain/scrape-photos` 한 벌뿐**이다(2026-09-01 합침).
+ *   전에는 여기와 `scripts/adopt-web-photos.mts` 가 각자 복사본을 들고 있어 갈라졌다 —
+ *   화면에 뜨는 사진과 드라이브로 받아 두는 사진이 달라지면 안 된다.
+ */
+import { scrapePage, isScrapableHost } from '@/lib/domain/scrape-photos';
 
 export const runtime = 'nodejs';
 
-const SCRAPABLE_HOSTS = ['moderentcar.co.kr', 'autoplus.co.kr'];
 const SHORTENER_HOSTS = ['tinyurl.com', 'bit.ly'];
 type ServiceAccount = { client_email: string; private_key: string; token_uri?: string };
 let driveTokenCache: { value: string; expiresAt: number } | null = null;
@@ -85,15 +90,6 @@ function extractDriveFolderId(value: string): string {
   return /^[a-zA-Z0-9_-]{20,}$/.test(s) ? s : '';
 }
 
-function isScrapableHost(pageUrl: string): boolean {
-  try {
-    const u = new URL(pageUrl);
-    if (!/^https?:$/.test(u.protocol)) return false;
-    const host = u.hostname.toLowerCase();
-    return SCRAPABLE_HOSTS.some((h) => host === h || host.endsWith('.' + h));
-  } catch { return false; }
-}
-
 function isShortenerHost(pageUrl: string): boolean {
   try {
     const u = new URL(pageUrl);
@@ -151,34 +147,6 @@ async function scrapeFolder(folderId: string, size: string): Promise<string[]> {
   return [];
 }
 
-// 외부 상세페이지(모던렌트카·오토플러스) HTML → 차량 이미지 URL. 로고/썸네일 제외.
-async function scrapePage(pageUrl: string): Promise<string[]> {
-  const host = new URL(pageUrl).hostname.toLowerCase();
-  const resp = await fetch(pageUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Accept-Language': 'ko-KR,ko;q=0.9,en;q=0.8' }, redirect: 'follow', signal: AbortSignal.timeout(10000) });
-  if (!resp.ok) throw new Error(`페이지 로드 실패 HTTP ${resp.status}`);
-  const html = (await resp.text()).slice(0, 8 * 1024 * 1024);
-  const out: string[] = []; const seen = new Set<string>();
-  const add = (raw: string) => { let u = String(raw || '').trim(); if (!u) return; if (u.startsWith('http://')) u = 'https://' + u.slice(7); if (seen.has(u)) return; seen.add(u); out.push(u); };
-  if (host.includes('moderentcar.co.kr')) {
-    const re = /["'](https?:\/\/moren-images\.s3[^"'\s]+?\.(?:jpg|jpeg|png|webp))["']/gi;
-    let m: RegExpExecArray | null;
-    while ((m = re.exec(html)) !== null) { const u = m[1]; if (u.includes('/thumb/') || !u.includes('/data/files/')) continue; add(u); }
-  } else {
-    const bad = ['logo', 'favicon', 'sprite', 'btn_', '/adm/', '/assets/ico', '/icon/'];
-    for (const attr of ['data-src', 'data-original', 'data-lazy', 'data-bg', 'data-image', 'src']) {
-      const re = new RegExp(`${attr}=["'](https?:\\/\\/[^"'\\s]+?\\.(?:jpg|jpeg|png|webp))["']`, 'gi');
-      let m: RegExpExecArray | null;
-      while ((m = re.exec(html)) !== null) { const u = m[1]; if (bad.some((b) => u.toLowerCase().includes(b))) continue; add(u); }
-    }
-    const bgRe = /background(?:-image)?\s*:\s*url\(["']?(https?:\/\/[^"')]+?\.(?:jpg|jpeg|png|webp))["']?\)/gi;
-    let bm: RegExpExecArray | null;
-    while ((bm = bgRe.exec(html)) !== null) { const u = bm[1]; if (!bad.some((b) => u.toLowerCase().includes(b))) add(u); }
-    const aRe = /href=["'](https?:\/\/[^"'\s]+?\.(?:jpg|jpeg|png|webp))["']/gi;
-    let am: RegExpExecArray | null;
-    while ((am = aRe.exec(html)) !== null) { const u = am[1]; if (!bad.some((b) => u.toLowerCase().includes(b))) add(u); }
-  }
-  return out;
-}
 
 export async function GET(request: Request): Promise<Response> {
   const params = new URL(request.url).searchParams;

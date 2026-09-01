@@ -21,6 +21,8 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { SHEET_NAME_MATCH, isOurNonInventoryTab, supplierSheetLabel } from '../lib/domain/supplier-template-sheet';
 import { countPlatesByUrl, driveIdOf, isPhotoUrl, judgePhotoLink } from '../lib/domain/photo-link-guard';
+/** ★긁는 규칙은 화면(`app/api/extract-photos`)과 **같은 한 벌**을 쓴다 — 2026-09-01 에 복사본을 지우고 합쳤다. */
+import { scrapePage } from '../lib/domain/scrape-photos';
 
 type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim(); const norm = (v: unknown) => S(v).replace(/\s+/g, '');
@@ -69,29 +71,6 @@ const ensureFolder = async (name: string, parent: string) => {
   const made = await call(`${DRIVE}?${EXTRA}`, { method: 'POST', body: JSON.stringify({ name, mimeType: 'application/vnd.google-apps.folder', parents: [parent] }) });
   return S(made.id);
 };
-
-/** 앱(`app/api/extract-photos`)과 같은 규칙으로 상세페이지에서 사진 주소를 뽑는다. */
-async function scrapePage(pageUrl: string): Promise<string[]> {
-  const host = new URL(pageUrl).hostname.toLowerCase();
-  const resp = await fetch(pageUrl, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36', 'Accept-Language': 'ko-KR,ko;q=0.9,en;q=0.8' }, redirect: 'follow', signal: AbortSignal.timeout(15000) });
-  if (!resp.ok) throw new Error(`페이지 HTTP ${resp.status}`);
-  const html = (await resp.text()).slice(0, 8 * 1024 * 1024);
-  const out: string[] = []; const seen = new Set<string>();
-  const add = (raw: string) => { let u = S(raw); if (!u) return; if (u.startsWith('http://')) u = 'https://' + u.slice(7); if (seen.has(u)) return; seen.add(u); out.push(u); };
-  if (host.includes('moderentcar.co.kr')) {
-    const re = /["'](https?:\/\/moren-images\.s3[^"'\s]+?\.(?:jpg|jpeg|png|webp))["']/gi;
-    let m: RegExpExecArray | null;
-    while ((m = re.exec(html)) !== null) { const u = m[1]; if (u.includes('/thumb/') || !u.includes('/data/files/')) continue; add(u); }
-  } else {
-    const bad = ['logo', 'favicon', 'sprite', 'btn_', '/adm/', '/assets/ico', '/icon/'];
-    for (const attr of ['data-src', 'data-original', 'data-lazy', 'data-bg', 'data-image', 'src']) {
-      const re = new RegExp(`${attr}=["'](https?:\\/\\/[^"'\\s]+?\\.(?:jpg|jpeg|png|webp))["']`, 'gi');
-      let m: RegExpExecArray | null;
-      while ((m = re.exec(html)) !== null) { const u = m[1]; if (bad.some((b) => u.toLowerCase().includes(b))) continue; add(u); }
-    }
-  }
-  return out;
-}
 
 const uploadImage = async (name: string, buf: Buffer, mime: string, parent: string) => {
   const boundary = '-----fp4web-----';
@@ -168,7 +147,7 @@ let cars = 0, up = 0, already = 0, failed = 0;
 for (const j of (LIMIT ? jobs.slice(0, LIMIT) : jobs)) {
   cars++;
   let shots: string[] = [];
-  try { shots = await scrapePage(j.url); } catch (e) { console.log(`   ⚠ ${j.plate} 페이지 못 읽음 — ${(e as Error).message.slice(0, 80)}`); failed++; continue; }
+  try { shots = await scrapePage(j.url, 15_000); } catch (e) { console.log(`   ⚠ ${j.plate} 페이지 못 읽음 — ${(e as Error).message.slice(0, 80)}`); failed++; continue; }
   if (!shots.length) { console.log(`   ⚠ ${j.plate} 사진을 못 찾음 — ${j.url.slice(0, 60)}`); failed++; continue; }
   const sup = pickSupplierFolder(j.label);
   const supId = sup.id || (await ensureFolder(sup.name, PICS));

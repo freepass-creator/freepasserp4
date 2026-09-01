@@ -20,6 +20,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { SALES_SHEET_ID } from '../lib/domain/legacy-sheets';
+import { pickPublishedSalesTabs } from '../lib/domain/sales-published-tabs';
 
 type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim();
@@ -44,7 +45,8 @@ const call = async (u: string): Promise<Rec> => {
 
 // ── 판매시트: 차번 → 제조사 · 모델 · 차명 ────────────────────────────────────
 const meta = await call(`https://sheets.googleapis.com/v4/spreadsheets/${SALES_SHEET_ID}?fields=sheets.properties(title)`);
-const tabs = ((meta.sheets || []) as Rec[]).map((s) => S(s.properties?.title)).filter((t) => /^(상품리스트|손오공구독|오플구독)/.test(t));
+/** ★탭 이름을 손으로 박지 않는다 — 정본은 `SALES_PUBLISHED_TAB_PREFIXES`(4탭). 2026-09-01 까지 픽업구독이 빠져 있었다. */
+const tabs = pickPublishedSalesTabs(((meta.sheets || []) as Rec[]).map((s) => S(s.properties?.title))).map((t) => t.title);
 type Want = { maker: string; model: string; name: string };
 const want = new Map<string, Want>();
 for (const tab of tabs) {

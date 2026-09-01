@@ -7,7 +7,14 @@
  */
 import { type EntityRecord } from '@/lib/intake/entities';
 
-const NEEDS_SERVER_RE = /drive\.google\.com\/(drive\/folders\/|drive\/u\/\d+\/folders\/)|moderentcar\.co\.kr|autoplus\.co\.kr|tinyurl\.com|bit\.ly/;
+/**
+ * 서버가 «풀어야» 사진이 되는 주소 — 폴더·상세페이지. 여기 없으면 `<img src=…>` 로 날것이 박힌다.
+ *
+ * ★`ironrentcar.com` 은 2026-09-01 에 넣었다. 사진칸에 상세페이지 주소가 들어와 있었는데
+ *   여기 없어서 「그림 주소」로 취급됐고, 브라우저에서 **4대가 깨져 보였다**.
+ *   (`/api/extract-photos` 가 그 페이지를 긁어 23장을 준다 — 같은 날 화이트리스트에 추가.)
+ */
+const NEEDS_SERVER_RE = /drive\.google\.com\/(drive\/folders\/|drive\/u\/\d+\/folders\/)|moderentcar\.co\.kr|autoplus\.co\.kr|ironrentcar\.com|tinyurl\.com|bit\.ly/;
 /**
  * 프록시로 보낼 외부 이미지 호스트 — **서버 화이트리스트(lib/net/proxy-hosts.ts)와 같은 집합**이어야 한다.
  *
