@@ -162,7 +162,7 @@ const CUR_FRONT: string[] = ['접수일',
   '고객명', '고객연락처',
   '상품구분', '계약기간', '렌탈료', '보증금', '차량가액', '분납여부',
   PAPER_BOX, DONE_BOX, '인도일', '청구년', '청구월',
-  CANCEL_BOX, NEXT_DAY, CLAW_BOX, CLAW_WHY, CLAW_DAY, CLAW_AMT, '상태'];
+  CANCEL_BOX, NEXT_DAY, CLAW_BOX, CLAW_WHY, CLAW_DAY, CLAW_AMT];
 /** 팀장이 손대는 칸 — 이 밖은 기계 칸이라 잠근다. */
 // ★공급사는 «청구할 상대»라 앞에 선다. 기계가 채우는 칸이다.
 // ★접수년·접수월은 뺐다 — 접수일 하나가 원자다(2026-08-26). 청구년·청구월은 남는다.
@@ -225,7 +225,6 @@ const HINT: Record<string, string> = {
   인도완료: '★차가 나가면 체크. 그날이 인도일이 되고 청구월이 박힙니다 — 청구의 관문입니다. 켜면 계약서도 저절로 켜집니다.',
   인도일: '**선택입니다.** 체크한 날과 실제 인도일이 다를 때만 적습니다. 적으면 그 값이 이깁니다.',
   계약취소: '계약금이 들어왔다가 취소되면 체크. 체크하면 줄이 붉어지고 기계가 「취소」 탭으로 옮깁니다.',
-  상태: '예정대로 «안 간 일»만 적습니다 — 환수 · 연장. 취소는 옆의 「계약취소」 체크로 합니다. 비어 있으면 계약중입니다.',
 };
 /**
  * ★**상태는 «예정대로 안 간 일»만 적는다. 셋뿐이다.**
@@ -862,7 +861,7 @@ for (const [DTAB, DBODY] of [[CUR, curBody], [CANCEL, cancel], [PAY, pay], [DONE
    */
   // 드롭다운은 «적는 탭»에만 건다. 보는 탭에 걸면 못 고치는데 목록만 뜬다.
   const DROPS: Record<string, string[]> = DTAB === CUR
-    ? { 상품구분: PRODUCTS, 분납여부: PAY_KINDS, 상태: STATES }
+    ? { 상품구분: PRODUCTS, 분납여부: PAY_KINDS }
     : OPEN_HERE.includes(CLAW_WHY) ? { [CLAW_WHY]: CLAW_WHYS } : {};   // 잠긴 탭엔 안 건다 — 목록만 뜨고 못 고친다
   for (let c = 0; c < CUR_HEAD.length; c++) {
     const h = CUR_HEAD[c];
