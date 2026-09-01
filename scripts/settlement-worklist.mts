@@ -164,3 +164,10 @@ if (MONTH) {
 
 const urgent = withAlerts.filter((x) => levelOf(x.alerts) === '급함').length;
 console.log(`\n${urgent ? `⛔ 급한 것 ${urgent}건 — 돈이 걸려 있다.` : '■ 급한 것 없음.'}\n`);
+/**
+ * ★**끝나면 죽는다.** firebase-admin 은 연결을 열어 둬서 이게 없으면 프로세스가 안 끝난다.
+ *   사람이 터미널에서 쓸 때는 출력은 보이니 «느리네» 하고 넘어가지만,
+ *   자동으로 돌릴 때(CI·백그라운드)는 «끝난 줄 모르고» 매달려 있다가 시간초과로 잡힌다.
+ *   실측 2026-09-01 — 10분 넘게 붙잡혀 출력이 한 글자도 안 나왔다.
+ */
+process.exit(urgent ? 1 : 0);
