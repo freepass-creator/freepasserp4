@@ -515,25 +515,26 @@ html[data-fp-filter="0"] .fp-finder > .fp-sidebar { display: none; }
   /**
    * ★★**행 수는 `app/finder/page.tsx` 의 «자식 수»와 반드시 같아야 한다.**
    *
-   *   지금 자식은 **둘**이다 — `FinderToolbar` · `.fp-finder-pane`.
-   *   («퀵필터»는 형제가 아니라 툴바에 `quickFilters={…}` **prop 으로** 들어간다.)
-   *   그래서 행도 둘이다: 툴바(고정) · 목록(남는 높이 전부).
+   *   지금 자식은 **셋**이다 — `FinderToolbar` · `{!mobile ? <FinderQuickFilters/> : null}` · `.fp-finder-pane`.
+   *   그래서 행도 셋이다: 툴바(고정) · 퀵필터(auto) · 목록(남는 높이 전부).
+   *   ★**세는 자가 있다 — `npm run check:finder-rows`.** 눈으로 세지 말고 그걸 돌려라.
    *
    * ⚠ **틀리면 목록이 통째로 사라진다 — 오류도 안 난다.**
    *   행이 자식보다 «적으면» 목록이 암시적 `auto` 행으로 밀려 높이 0이 되고,
    *   행이 자식보다 «많으면» 목록이 가운데 `auto` 행에 들어가 역시 높이 0이 된다.
    *   2026-08-31 ~ 09-01 에 이 두 방향을 **양쪽 다** 겪었다:
-   *     · 옛 마크업(자식 셋)에 2행을 배포 → 웹 상품찾기가 **하루 넘게 0대**로 보였다
-   *     · 그 3행을 새 마크업(자식 둘)에 배포 → 같은 증상이 **다시** 났다
+   *     · 자식 셋에 2행을 배포 → 웹 상품찾기가 **하루 넘게 0대**로 보였다
+   *     · 그 뒤 «커밋 안 된 로컬 리팩터»(자식 둘)를 보고 2행으로 또 바꿔 → 같은 증상이 **다시** 났다
+   *   ★**작업트리를 보고 정하지 마라. 배포되는 가지(`origin/main`)의 자식을 세라.**
    *   퀵필터를 툴바 안팎으로 옮기는 커밋은 **반드시 이 값을 같이 고쳐야 한다.**
    *
    * ⚠ 모바일은 이 값을 안 쓴다 — 아래 미디어쿼리가 `display:flex; grid-template-rows:none` 으로 바꾼다.
    *   그러니 「모바일이 어떻다」는 이유로 여기를 고치지 마라. **웹 자식 수만 본다.**
    */
-  grid-template-rows: var(--fp-bar-h) minmax(0, 1fr);
+  grid-template-rows: var(--fp-bar-h) auto minmax(0, 1fr);
 }
-/* 판매시트 보기도 같은 마크업(자식 둘)이다 — 행 수를 위와 다르게 두지 마라. */
-.fp-finder-main.is-sheet-view { grid-template-rows: var(--fp-bar-h) minmax(0, 1fr); }
+/* 판매시트 보기도 같은 마크업이다 — 행 수를 위와 다르게 두지 마라. */
+.fp-finder-main.is-sheet-view { grid-template-rows: var(--fp-bar-h) auto minmax(0, 1fr); }
 .fp-finder-main.is-sheet-view .fp-finder-body.is-excel {
   padding: 0;
   background: var(--bg-card);

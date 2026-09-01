@@ -15,12 +15,34 @@
  *   npx tsx scripts/check-finder-rows.mts
  */
 import { readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
 
 const CSS = 'app/globals.css';
 const PAGE = 'app/finder/page.tsx';
+/**
+ * ★**두 파일을 «같은 출처»에서 읽는다.** 섞으면 엉뚱한 답이 나온다.
+ *   기본 = 작업트리(지금 커밋하려는 것) · `--deployed` = `origin/main`(지금 운영에 나가는 것).
+ *
+ * ⚠★2026-09-01 밤에 이걸로 사고가 났다 — **커밋 안 된 로컬 리팩터**(자식 둘)를 보고 CSS 를
+ *   2행으로 바꿔 올렸는데, 배포되는 `main` 의 마크업은 자식 셋이라 목록이 또 사라졌다.
+ *   로컬 실행은 «초록불»이었고 CI(main)만 잡았다. 그래서 아래에서 **작업트리와 배포본이 다르면
+ *   그 사실부터 크게 알린다** — 「내 화면에선 되는데」의 정체가 그것이다.
+ */
+const DEPLOYED = process.argv.includes('--deployed');
+const fromGit = (path: string): string | null => {
+  try { return execFileSync('git', ['show', `origin/main:${path}`], { encoding: 'utf8', maxBuffer: 32e6 }); }
+  catch { return null; }
+};
+const read = (path: string): string => (DEPLOYED ? (fromGit(path) ?? readFileSync(path, 'utf8')) : readFileSync(path, 'utf8'));
 /** ⚠ 주석을 먼저 걷는다 — 주석에 적어 둔 `grid-template-rows:none` 을 «값»으로 읽어 한 번 틀렸다. */
-const css = readFileSync(CSS, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
-const page = readFileSync(PAGE, 'utf8');
+const css = read(CSS).replace(/\/\*[\s\S]*?\*\//g, '');
+const page = read(PAGE);
+/** 작업트리와 배포본이 다르면, 여기서 통과해도 운영은 다를 수 있다. */
+const norm = (s: string) => s.replace(/\r\n/g, '\n');
+const drifted = DEPLOYED ? [] : [CSS, PAGE].filter((p) => {
+  const dep = fromGit(p);
+  return dep !== null && norm(dep) !== norm(readFileSync(p, 'utf8'));
+});
 
 /** `.fp-finder-main { … grid-template-rows: <값> }` 의 트랙 수. 미디어쿼리(none)·subgrid 는 뺀다. */
 function trackCounts(): { rule: string; tracks: number; raw: string }[] {
@@ -110,8 +132,12 @@ function childCount(): number {
 const rules = trackCounts();
 const kids = childCount();
 
-console.log('■ 상품찾기 격자 — 행 수 ↔ 자식 수');
+console.log(`■ 상품찾기 격자 — 행 수 ↔ 자식 수  (${DEPLOYED ? 'origin/main = 배포본' : '작업트리'} 기준)`);
 console.log(`   ${PAGE} · .fp-finder-main 직계 자식 ${kids}개`);
+if (drifted.length) {
+  console.log(`   ⚠ 작업트리가 배포본과 다르다: ${drifted.join(' · ')}`);
+  console.log('      → 여기서 통과해도 운영은 다를 수 있다. `--deployed` 로 «나가는 것»을 한 번 더 재라.');
+}
 let bad = 0;
 for (const r of rules) {
   const ok = r.tracks === kids;
