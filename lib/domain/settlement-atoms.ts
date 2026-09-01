@@ -164,8 +164,33 @@ export const SETTLEMENT_ATOMS: Atom[] = [
     why: '**청구서를 실제로 보냈나.** 안 적으면 다음 달에 같은 건을 또 청구한다.' },
   { id: 'collected', name: '수금', group: '진행', kind: '체크', fill: '사람', need: '권장',
     why: '**돈이 들어왔나.** 청구와 다른 축이다 — 보냈는데 안 들어온 건이 여기서 드러난다.' },
+  /**
+   * ★★**정산 조건 7축** — 2026-09-01 신설.
+   *   그동안 「계약번호」 칸에 «메모»로 적혀 있던 말이다(실측 92줄 · 44종류).
+   *   글자라 기계가 못 읽어서, 태윤 매니저가 매달 손으로 걸러내고 있었다.
+   *   ⇒ 뜻마다 칸을 세워 기계가 읽게 한다.
+   */
+  { id: 'settleTarget', name: '정산대상', group: '정산', kind: '택1', fill: '사람', need: '권장',
+    why: '**이 달엔 어느 쪽을 정산하나.** 공급사에서 지난달 이미 받았으면 이번 달은 「영업사만」이다. '
+      + '실측 — 「영업사만 정산해야함」·「공급사 만 정산」이 그 뜻이었다.',
+    opts: ['양쪽', '공급사만', '영업사만'] },
+  { id: 'settleRatio', name: '정산비율', group: '정산', kind: '수', fill: '사람', need: '있으면',
+    why: '**얼마를 정산하나.** 기본 1. 분납 1회분만 받았으면 0.5 — 공급사·영업채널 «양쪽»에 건다. '
+      + '실증: 133호1997 판매수수료 1,688,750 × 0.5 = 844,375.' },
+  { id: 'billHold', name: '청구보류', group: '정산', kind: '체크', fill: '사람', need: '있으면',
+    why: '**이번 달 청구가 아니다.** 「후불」·「무보증 후불」이 그 뜻이다. 지우는 게 아니라 미루는 것이라 체크로 둔다.' },
+  { id: 'settleExclude', name: '정산제외', group: '정산', kind: '체크', fill: '사람', need: '있으면',
+    why: '**아예 정산 안 한다.** 「정산X」·「반납 정산 X」·「전손 정산 X」. 보류와 다르다 — 다음 달에도 안 선다.' },
+  { id: 'settledAlready', name: '정산완료', group: '정산', kind: '체크', fill: '사람', need: '있으면',
+    why: '**이미 끝났다.** 「공급사 7월 정산했음」. ⚠ 청구·수금 체크와 다르다 — 이건 «이 원장 밖에서» 끝난 것이다.' },
+  { id: 'vatIncluded', name: '부가세포함', group: '정산', kind: '체크', fill: '사람', need: '있으면',
+    why: '**적힌 금액에 부가세가 들었나.** 「부가세 포함」·「vat포함」. 안 가르면 10%가 두 번 붙거나 빠진다.' },
+  { id: 'settleTerms', name: '배분특약', group: '정산', kind: '글', fill: '사람', need: '있으면',
+    why: '요율표 «밖»의 약정. 실측 21줄 — 「웰릭스 20 프리 10」(13줄)·「고객 10 / 영업자 10 적용」. '
+      + '⚠ 지금은 글로 받는다. 규칙이 굳으면 그때 칸을 쪼갠다 — 굳기 전에 쪼개면 안 맞는 칸이 남는다.' },
   { id: 'clawback', name: '환수', group: '진행', kind: '체크', fill: '사람', need: '권장',
-    why: '이미 청구한 건이 깨졌다. **청구는 안 고치고 그 달에 마이너스 줄로 새로 선다.**' },
+    why: '이미 청구한 건이 깨졌다. **청구는 안 고치고 그 달에 마이너스 줄로 새로 선다.** '
+      + '⚠ 금액·날짜는 `v4/settlement_clawbacks` 에 담는다(차번이 열쇠) — 한 차가 여러 번 환수될 수 있다.' },
   { id: 'clawbackReason', name: '환수사유', group: '진행', kind: '글', fill: '사람', need: '있으면',
     why: '왜 깨졌나. 드롭다운을 두지 않는다 — 사유는 매번 다르다(사장님 2026-08-26).' },
   { id: 'clawbackAt', name: '환수일', group: '진행', kind: '날짜', fill: '사람', need: '권장',
@@ -311,6 +336,39 @@ export const atomByName = (name: string): Atom | undefined =>
  * **원본 머리글 → 원자.** 자리가 아니라 «이름»으로 붙인다.
  * ★원본 37탭 중 28개 열의 자리가 흔들린다(실측 2026-08-26) — 자리로 옮기면 한 칸 밀린 값이 돈이 된다.
  */
+/**
+ * ★★**안 바뀌는가 · 바뀌는가 · 기계가 내는가.**
+ *
+ * 사장님 2026-09-01 「실적관리 청구할때 필요한 원자항목 만들고 **상태값이 바뀌는거랑 불변데이터랑 구분**해서」
+ *
+ * ```
+ * 불변  계약이 설 때 정해지고 그 뒤로 «안 바뀐다». 바뀌면 그건 다른 계약이다.
+ *       ⇒ 한 번 넣고 안 건드린다. 바뀌었다면 «왜»를 먼저 묻는다.
+ * 가변  사람이 «일이 진행되면서» 바꾼다. 이력이 남아야 한다.
+ *       ⇒ 화면에서 열고(EDITABLE_FIELDS), 고치면 `v4/settlement_events` 에 남긴다.
+ * 파생  기계가 «낸다». **저장하지 않는다** — 저장하면 계산값과 갈리고, 갈리면 어느 쪽이 맞는지 아무도 모른다.
+ * ```
+ * ⚠ **요율은 «불변»이다.** 계약 시점에 동결한다 — 나중에 요율표가 바뀌어도 지난 계약은 그 값으로 정산한다.
+ * ⚠ **«적힌» 수수료(판매·출고)는 «가변»이다.** 실제로 계산서를 끊은 금액이라 조율되면 바뀐다.
+ */
+export type AtomLife = '불변' | '가변' | '파생';
+
+/** 불변 — 계약이 설 때 정해진다. */
+const FIXED = new Set([
+  'plate', 'receivedAt', 'supplier', 'supplierCode', 'channel', 'channelCode',
+  'agent', 'agentCode', 'agentPhone', 'customer', 'phone', 'age', 'model',
+  'product', 'rentKind', 'contractType', 'term', 'rent', 'deposit', 'price', 'payKind',
+  'supplierRate', 'agentRate', 'region', 'contractRent', 'upsell',
+]);
+/** 파생 — 기계가 낸다. 저장 금지. */
+const DERIVED = new Set(['billingY', 'billingM', 'claimVat', 'claimTotal', 'payVat', 'payTotal', 'nextRound']);
+
+export const lifeOf = (id: string): AtomLife =>
+  (FIXED.has(id) ? '불변' : DERIVED.has(id) ? '파생' : '가변');
+
+/** 그 갈래의 원자들. 화면·검사가 「무엇을 열고 무엇을 잠글지」를 여기서 읽는다. */
+export const atomsByLife = (life: AtomLife) => SETTLEMENT_ATOMS.filter((a) => lifeOf(a.id) === life);
+
 export function bySource(header: string): Atom | undefined {
   const h = flat(header);
   if (!h) return undefined;
