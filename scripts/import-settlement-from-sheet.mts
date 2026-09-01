@@ -61,12 +61,23 @@ if (!getApps().length) {
 }
 const db = getDatabase();
 const jwt = new JWT({ email: sa.client_email, key: sa.private_key, subject: 'pyh@teamjpk.com', scopes: ['https://www.googleapis.com/auth/spreadsheets'] });
+/**
+ * ★**502·503 은 구글 쪽 일시 오류다** — 세 번까지 다시 물어본다(늘어나는 간격).
+ *   2026-09-01 에 「완납실적」이 502 로 한 번 빠졌다. 여기서 그냥 던지면 탭 넷 중 셋만 읽고
+ *   멈추는데, 그건 «올리다 만» 것이 아니라 «읽다 만» 것이라 다시 돌리면 그만이다.
+ *   ⚠ 다시 물어봐도 안 되면 «던진다». 빈 배열로 돌려주면 그 탭 줄이 통째로 「시트에 없는 줄」이
+ *     되어, `--overwrite` 로 돌릴 때 멀쩡한 ERP 줄을 못 알아본다.
+ */
 const sheet = async (range: string) => {
-  const t = (await jwt.getAccessToken()).token;
-  const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${LEDGER}/values/${encodeURIComponent(range)}?valueRenderOption=UNFORMATTED_VALUE`, { headers: { Authorization: `Bearer ${t}` } });
-  const x = await r.text();
-  if (!r.ok) throw new Error(`${r.status} ${x.slice(0, 200)}`);
-  return ((JSON.parse(x).values || []) as unknown[][]).map((v) => (v || []).map(S));
+  for (let tryN = 1; ; tryN += 1) {
+    const t = (await jwt.getAccessToken()).token;
+    const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${LEDGER}/values/${encodeURIComponent(range)}?valueRenderOption=UNFORMATTED_VALUE`, { headers: { Authorization: `Bearer ${t}` } });
+    const x = await r.text();
+    if (r.ok) return ((JSON.parse(x).values || []) as unknown[][]).map((v) => (v || []).map(S));
+    if ((r.status < 500 && r.status !== 429) || tryN >= 3) throw new Error(`${r.status} ${x.slice(0, 200)}`);
+    console.log(`   … ${range} ${r.status} — 다시 물어봅니다 (${tryN}/3)`);
+    await new Promise((ok) => setTimeout(ok, tryN * 1500));
+  }
 };
 
 console.log(`\n■ 시트 → 파이어베이스 올리기 ${APPLY ? (OVERWRITE ? '(반영 · 다른 칸도 덮음)' : '(반영 · 새 줄만)') : '(대조만)'}\n`);
@@ -158,9 +169,9 @@ if (OVERWRITE) {
     const got = have[code];
     if (!got) continue;
     const lockedFields = touched.get(eventKey(S(want.plate), S(want.receivedAt))) || new Set<string>();
-    // ★ERP 에서 고친 줄은 통째로 비켜 간다 — 어느 칸을 고쳤는지 이력 이름과 원자 이름이
-    //   1:1 이 아니라(이력은 시트 열 이름으로 남는다), 칸 단위로 가리려다 틀리느니 줄을 비킨다.
-    if (lockedFields.size) { refused += 1; continue; }
+    // ★먼저 «덮을 것이 있나»부터 센다. 잠긴 줄이라도 바뀔 칸이 없으면 비켜 간 게 아니다 —
+    //   그냥 같은 줄이다. 이걸 refused 로 세면 「10줄을 못 덮었다」가 실제로는 0줄이면서
+    //   사람이 시트를 뒤지게 만든다(코덱스 오더 2026-08-28 ④).
     const next: Record<string, unknown> = { ...got };
     let changed = false;
     for (const k of Object.keys(want) as (keyof SettlementRecord)[]) {
@@ -169,7 +180,11 @@ if (OVERWRITE) {
       if (!a || a === S(got[k])) continue;
       next[k as string] = want[k]; changed = true;
     }
-    if (changed) { patch[code] = normalizeRecord({ ...(next as Partial<SettlementRecord>), code, updatedAt: Date.now() }); overwritten += 1; }
+    if (!changed) continue;
+    // ★ERP 에서 고친 줄은 통째로 비켜 간다 — 어느 칸을 고쳤는지 이력 이름과 원자 이름이
+    //   1:1 이 아니라(이력은 시트 열 이름으로 남는다), 칸 단위로 가리려다 틀리느니 줄을 비킨다.
+    if (lockedFields.size) { refused += 1; continue; }
+    patch[code] = normalizeRecord({ ...(next as Partial<SettlementRecord>), code, updatedAt: Date.now() }); overwritten += 1;
   }
 }
 if (!Object.keys(patch).length) { console.log('\n   올릴 것이 없습니다.\n'); process.exit(0); }

@@ -45,15 +45,46 @@ const jwt = new JWT({ email: sa.client_email, key: sa.private_key, subject: 'pyh
 
 console.log('\n■ 시트 ↔ ERP 갈라짐\n');
 
+/**
+ * **한 탭이라도 못 읽으면 «아무 말도 하지 않는다».**
+ *
+ * ⚠ 2026-09-01 에 이 검사가 「완납실적」을 502 로 못 읽고도 그냥 넘어가서(`continue`)
+ *   시트를 105줄로 세고 「ERP 에만 있다 337줄」이라는 «허수»를 냈다.
+ *   ★더 나쁜 쪽은 그 반대다 — 「접수」 탭이 빠지면 안 옮겨진 줄이 통째로 안 보여서
+ *   **10줄이 갈렸는데도 「안 갈렸습니다」 초록이 뜬다.** 초록은 조용해서 아무도 다시 안 본다.
+ *
+ * ⇒ 못 읽은 탭이 하나라도 있으면 «갈렸나»를 판단하지 않고 그 자리에서 멈춘다.
+ *   판단을 못 하는 것과 「안 갈렸다」는 완전히 다른 말이다.
+ */
+async function readTab(tab: string): Promise<string[][]> {
+  // 502·503 은 구글 쪽 일시 오류다 — 세 번까지 다시 물어본다(늘어나는 간격).
+  for (let tryN = 1; ; tryN += 1) {
+    const t = (await jwt.getAccessToken()).token;
+    const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${LEDGER}/values/${encodeURIComponent(`${a1(tab)}!A1:BZ3000`)}?valueRenderOption=UNFORMATTED_VALUE`, { headers: { Authorization: `Bearer ${t}` } });
+    if (r.ok) return (((await r.json()) as { values?: unknown[][] }).values || []).map((v) => (v || []).map(S));
+    const retriable = r.status >= 500 || r.status === 429;
+    if (!retriable || tryN >= 3) {
+      console.log(`\n   ✕ 「${tab}」 탭을 못 읽었습니다 (${r.status}, ${tryN}번 시도)`);
+      console.log('   ★탭 하나가 비면 갈라짐을 «셀 수 없습니다». 「안 갈렸다」고 말하지 않습니다.');
+      console.log('   → 잠시 뒤 다시 돌리세요. 계속 같으면 시트 권한·탭 이름을 봅니다.\n');
+      process.exit(2);
+    }
+    console.log(`   … 「${tab}」 ${r.status} — 다시 물어봅니다 (${tryN}/3)`);
+    await new Promise((ok) => setTimeout(ok, tryN * 1500));
+  }
+}
+
 // ── 시트 ──────────────────────────────────────────────────
 const sheet = new Map<string, { tab: string; row: number; supplier: string; customer: string }>();
 for (const tab of ['접수', '취소', '분납실적', '완납실적']) {
-  const t = (await jwt.getAccessToken()).token;
-  const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${LEDGER}/values/${encodeURIComponent(`${a1(tab)}!A1:BZ3000`)}?valueRenderOption=UNFORMATTED_VALUE`, { headers: { Authorization: `Bearer ${t}` } });
-  if (!r.ok) { console.log(`   ✕ 「${tab}」 못 읽음 ${r.status}`); continue; }
-  const all = (((await r.json()) as { values?: unknown[][] }).values || []).map((v) => (v || []).map(S));
+  const all = await readTab(tab);
   const hi = all.findIndex((x) => x.includes('차량번호'));
-  if (hi < 0) continue;
+  // ★머리글을 못 찾은 것도 «못 읽은» 것이다. 빈 탭으로 쳐서 넘어가면 그 탭 줄이 통째로 사라진다.
+  if (hi < 0) {
+    console.log(`\n   ✕ 「${tab}」 에서 머리글(차량번호) 줄을 못 찾았습니다.`);
+    console.log('   ★자리가 아니라 이름으로 찾습니다 — 탭이 비었거나 머리글이 바뀐 것입니다.\n');
+    process.exit(2);
+  }
   const h = all[hi];
   const at = (n: string) => h.indexOf(n);
   all.slice(hi + 1).forEach((row, k) => {
@@ -81,7 +112,8 @@ if (onlySheet.length) {
     const x = sheet.get(k)!;
     console.log(`      ${x.tab} ${x.row}행  ${k}  ${x.supplier || '공급사?'} ${x.customer || ''}`);
   }
-  console.log('      → npx tsx scripts/migrate-settlement-to-erp.mts --apply 로 끌어온다');
+  console.log('      → npm run settlement:import -- --apply 로 «새 줄만» 끌어온다');
+  console.log('      ⚠ migrate-settlement-to-erp 는 쓰지 마세요 — ERP 전체를 시트 값으로 덮습니다(ERP 수정분이 날아갑니다).');
 }
 if (onlyErp.length) {
   console.log(`\n   ERP 에만 있다 ${onlyErp.length}줄 — ERP 에서 접수한 것이면 정상이다`);
