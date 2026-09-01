@@ -122,7 +122,29 @@ async function refreshLiveStatuses(entry: FinderDataEntry) {
   }
 }
 
+/**
+ * ★★**꺼 둔다 — 상품찾기는 «상품리스트» 하나만 본다.** (사장님 2026-09-01)
+ *
+ * > 「댓수가 올라오면 **580 몇 대에서 한 1초 있다가 680 몇 대로 바뀐다**. 왜 이렇게 바뀌냐고.
+ * >  우리는 **그대로 상품 리스트를 연동해서 갖고 오는 거밖에 없는데.** 그럼 상품 바로 뜨면 되지.」
+ *
+ * 무슨 일이었나 — 화면이 **두 번** 그려졌다.
+ *   1차(즉시)  ERP 목록 그대로                                     582대
+ *   2차(1초 뒤) `/api/sheet/live-status` = `runSheetLiveStatusSync` 가
+ *              **브라우저를 열 때마다 공급사 시트들을 그 자리에서 다시 읽어** 상태를 덮어씀 → 대수가 늘어남
+ *   게다가 `SHEET_LIVE_STATUS_POLL_MS`(60초)마다 **보고 있는 중에도 또** 바뀌었다.
+ *
+ * 연동지도상 시트를 읽어 ERP 에 반영하는 일은 **매시간 자동동기(`hourly-sync`)의 몫**이다.
+ * 화면이 그 일을 한 번 더 하면, 대수가 두 군데서 세어져 **어느 숫자도 못 믿게 된다.**
+ * 상태가 늦게 반영되는 것은 회차가 해결한다 — 화면은 ERP 가 말하는 것만 말한다.
+ *
+ * ⚠ 되살리려면 **대수가 바뀌지 않는 방식**이어야 한다(상태 글자만 갱신 · 목록에 없던 차를 세우지 않음).
+ *   그게 안 되면 켜지 마라. 밑의 `refreshLiveStatuses`·`withLiveStatuses` 는 그때 쓰라고 남겨 둔다.
+ */
+const LIVE_STATUS_OVERLAY = false;
+
 function startLiveStatuses(entry: FinderDataEntry, params: FinderDataParams) {
+  if (!LIVE_STATUS_OVERLAY) return;
   if (!firebaseReady() || !params.authReady || !params.sessionUid || entry.statusTimer != null) return;
   entry.statusController = new AbortController();
   const refresh = () => { void refreshLiveStatuses(entry); };

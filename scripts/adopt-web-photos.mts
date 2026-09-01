@@ -24,6 +24,11 @@ import { countPlatesByUrl, driveIdOf, isPhotoUrl, judgePhotoLink } from '../lib/
 /** ★긁는 규칙은 화면(`app/api/extract-photos`)과 **같은 한 벌**을 쓴다 — 2026-09-01 에 복사본을 지우고 합쳤다. */
 import { scrapePage } from '../lib/domain/scrape-photos';
 
+/** 티카(롯데렌터카 이미지 서버) — 가져오지 않고 링크 그대로 둔다. 호스트로 가른다(`tcar` 글자로 가르면 모던·아이언이 딸려온다). */
+const isTcar = (url: string): boolean => {
+  try { return /(^|\.)lotterentacar\.net$/i.test(new URL(url).hostname); } catch { return false; }
+};
+
 type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim(); const norm = (v: unknown) => S(v).replace(/\s+/g, '');
 const arg = (k: string) => (process.argv.find((a) => a.startsWith(`--${k}=`)) || '').slice(k.length + 3);
@@ -121,6 +126,14 @@ for (const b of books) {
       const val = S(r[li]?.formattedValue); const cur = linkOf(r[pi]);
       const url = isPhotoUrl(val) ? val : cur;
       if (!isPhotoUrl(url) || driveIdOf(url)) continue;           // 드라이브면 그대로 둔다
+      /**
+       * ★**티카(롯데)는 가져오지 않는다** — 사장님 2026-09-01 「상품리스트에 티카 거는 **그냥 티카 링크를
+       *   그대로** 걸고, ERP 에서는 **티카에 있는 사진만 연동해서** 그냥 볼 수 있게끔」.
+       *   픽업(T카) 331대는 실제 이미지 파일이고 핫링크도 안 막혀 그대로 뜬다(실측 2026-09-01).
+       *   옮길 이유가 없고 드라이브 용량·시간만 든다 — 대신 프록시 화이트리스트에 넣어 화면에서 태운다.
+       *   ⚠ 「남의 서버니까 다 가져오자」로 이 줄을 지우지 마라. **331대가 딸려 온다.**
+       */
+      if (isTcar(url)) continue;
       const model = S(r[gi]?.formattedValue) || S(r[ci]?.formattedValue).split(/\s+/)[0];
       cands.push({ bookId: b.id, label: b.label, tab: title, gid, rn: k, pi, li, plate, model, url, cur });
     }

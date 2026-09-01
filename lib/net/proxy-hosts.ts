@@ -4,8 +4,16 @@
  * allowlist 방식이라 내부IP·localhost·메타데이터·임의 도메인은 자동 차단됨.
  */
 
-// 이미지 원본: 구글계열(lh3·drive·googleapis·firebasestorage) + 파트너(autoplus·moderentcar) + moren S3
-const IMG_ALLOW = /(^|\.)(googleusercontent\.com|drive\.google\.com|googleapis\.com|firebasestorage\.app|autoplus\.co\.kr|moderentcar\.co\.kr)$|^moren-images\.s3[a-z0-9.-]*\.amazonaws\.com$/i;
+/**
+ * 이미지 원본: 구글계열(lh3·drive·googleapis·firebasestorage) + 파트너(autoplus·moderentcar·티카) + moren S3
+ *
+ * ★**티카(롯데렌터카 이미지 서버 `img-mycarsave.lotterentacar.net`)** 는 2026-09-01 에 넣었다 —
+ *   사장님 「상품리스트에 티카 거는 **그냥 티카 링크를 그대로** 걸고, ERP 에서는 **티카에 있는 사진만
+ *   연동해서** 그냥 볼 수 있게끔」. 즉 픽업(T카) 331대는 **드라이브로 옮기지 않는다.**
+ *   실측 2026-09-01: 핫링크 차단이 없어 참조를 걸어도 200 이지만, 프록시를 태워 두면
+ *   저쪽이 referrer 정책을 바꿔도 안 깨진다.
+ */
+const IMG_ALLOW = /(^|\.)(googleusercontent\.com|drive\.google\.com|googleapis\.com|firebasestorage\.app|autoplus\.co\.kr|moderentcar\.co\.kr|lotterentacar\.net)$|^moren-images\.s3[a-z0-9.-]*\.amazonaws\.com$/i;
 
 // 시트: 구글 독스/게시 CSV 호스트만
 const SHEET_ALLOW = /(^|\.)(docs\.google\.com|googleusercontent\.com|google\.com)$/i;
