@@ -131,6 +131,39 @@ try {
 } catch (e) { console.log(`  ⚠ 차종마스터를 못 읽어 «차종코드»는 못 채운다 — ${String((e as Error).message).slice(0, 60)}`); }
 
 /**
+ * 이름 축 폐쇄성 — 모델·세부모델·세부트림은 라이브 차종마스터에 있는 글자만 쓴다.
+ *
+ * ★사장님 2026-09-01: 정제칸·상품리스트·ERP가 새 이름을 만들면 안 된다. 이 경로는
+ * 차종마스터의 한 행을 그대로 복사하는 길이어야 한다. 과거 artifact/결정 파일에 남은
+ * 라이브 원장에 없는 값은 여기서 아래 축부터 비운다. 마스터를 고치기 전에는 비어 있는
+ * 것이 맞고, 비슷한 행으로 바꾸거나 코드만 떼어 쓰지 않는다.
+ */
+function closeNamesToLiveMaster(want: Record<string, string>): { changed: boolean; reason: string } {
+  if (!BOOK.rows.length) return { changed: false, reason: '' }; // 원장을 못 읽었을 때 추측 보정 금지
+  const maker = canonMakerDisplay(S(want['제조사(정제)']));
+  const model = S(want['모델']);
+  const sub = S(want['세부모델']);
+  const trim = S(want['세부트림']);
+  if (!model) return { changed: false, reason: '' };
+  const active = BOOK.rows.filter((row) => row.usageTier !== 'blocked'
+    && canonMakerDisplay(row.maker) === maker);
+  const sameModel = active.filter((row) => row.model === model);
+  if (!sameModel.length) {
+    want['모델'] = ''; want['세부모델'] = ''; want['세부트림'] = '';
+    return { changed: true, reason: `모델 「${model}」이 라이브 차종마스터에 없음` };
+  }
+  if (!sub) return { changed: false, reason: '' };
+  const sameSub = sameModel.filter((row) => row.subModel === sub);
+  if (!sameSub.length) {
+    want['세부모델'] = ''; want['세부트림'] = '';
+    return { changed: true, reason: `세부모델 「${sub}」이 라이브 차종마스터에 없음` };
+  }
+  if (!trim || sameSub.some((row) => row.trim === trim)) return { changed: false, reason: '' };
+  want['세부트림'] = '';
+  return { changed: true, reason: `세부트림 「${trim}」이 라이브 차종마스터에 없음` };
+}
+
+/**
  * ★★**차량번호 정본이 먼저다 — 상품마스터의 확정 차종코드**(사장님 2026-08-18 —
  *   「차종마스터를 안 거치고 왔어?? 정제시트 AI 칸에 모델·세부모델·세부트림 미리 정제해 놓고 갖다 쓰기로 했잖아 — 완전 엉망이네」).
  *   실측: 손오공 375어8056 은 상품마스터에 「카니발 KA4 · 프레스티지」 확정 코드가 있는데, 정제칸은 글자 스냅으로
@@ -239,6 +272,9 @@ let staleSheetCode = 0; const staleList: string[] = [];
 /** 코드를 따라 표시칸을 고친 수 — 코드가 정본임이 실제로 지켜진 자리다. */
 let codeFixed = 0;
 const codeFixList: string[] = [];
+/** 라이브 차종마스터 밖 이름을 비운 수 — 새 이름을 만들지 않는 폐쇄성 게이트. */
+let nameClosed = 0;
+const nameClosedList: string[] = [];
 /** 왜 못 박았나 — 갈래별로 세야 «마스터에 뭘 넣어야 하는지»가 보인다. */
 const codeWhy = new Map<string, number>();
 const codeByWhy = new Map<string, string[]>();
@@ -458,6 +494,14 @@ for (const t of targets) {
         else forceSnap = true;   // 정본은 없지만 확신 high — 지금 공급사 글자에서 나온 값으로 맞춘다(옛 스냅 값이 남아 있으면 바로잡음)
       }
 
+      // artifact·결정 파일이 라이브 원장보다 앞서가도, 그 이름을 정제칸으로 내보내지 않는다.
+      // 마스터에 없는 값은 아래 축부터 비우며, 이후 발행기는 빈칸만 그대로 옮긴다.
+      const nameClosure = closeNamesToLiveMaster(want);
+      if (nameClosure.changed) {
+        nameClosed++;
+        if (nameClosedList.length < 20) nameClosedList.push(`${t.name} ${plate} — ${nameClosure.reason}`);
+      }
+
       /**
        * ★차종분류는 한 칸(준대형 세단) + 코드(vc-15). 판매시트는 이 조합값을 싣는다.
        *   모델+세부모델+세부트림도 차명(정제) 한 칸. 렉스턴 스포츠는 픽업이 이긴다.
@@ -547,10 +591,10 @@ for (const t of targets) {
           } else if (now) kept++;
           continue;
         }
-        if (normal && ['차종코드', '제조사(정제)', '모델', '세부모델', '세부트림', '배기량(정제)', '연료(정제)', '배터리용량(정제)', '구동방식'].includes(name)) {
+        if ((normal || nameClosure.changed) && ['차종코드', '제조사(정제)', '모델', '세부모델', '세부트림', '배기량(정제)', '연료(정제)', '배터리용량(정제)', '구동방식'].includes(name)) {
           const target = S(want[name]);
           // 정본(부분 결정)에 트림이 없을 때: 지금 칸의 트림이 공급사 원문(원문보존·결정 supplier_text)에 있으면 남기고, 근거 없으면 비운다(2026-08-19 「트림 없는 거는 비운다」).
-          if (name === '세부트림' && !target && normal.source !== 'code' && now && trimEvidenced(plate, now, carName)) { kept++; continue; }
+          if (name === '세부트림' && !target && !nameClosure.changed && normal?.source !== 'code' && now && trimEvidenced(plate, now, carName)) { kept++; continue; }
           if (now !== target) {
             if (now) { codeFixed++; if (codeFixList.length < 20) codeFixList.push(`${t.name} ${plate} ${name} 「${now}」 → 「${target || '(빈칸)'}」`); }
             else if (target) filled++;
@@ -619,6 +663,11 @@ for (const t of targets) {
 console.log(`\n  ${'─'.repeat(58)}`);
 console.log(`  모두 ${totCars}대 · 채울 칸 ${totFilled} · 이미 있어 그대로 둔 칸 ${totKept}`);
 console.log(`  차량번호 정본으로 정한 차 ${normalUsed}대 (코드 ${pmCodeUsed} · 시트 코드와 달라 바로잡음 ${pmCodeOverrode}) · 정본 없고 확신 낮아 비운 칸 ${clearedLow}`);
+if (nameClosed) {
+  console.log(`  ▲ 라이브 차종마스터 밖 이름을 비운 차 ${nameClosed}대`);
+  for (const line of nameClosedList) console.log(`     ${line}`);
+  if (nameClosed > nameClosedList.length) console.log(`     … 그 밖 ${nameClosed - nameClosedList.length}대`);
+}
 for (const x of clearedList) console.log(`     ${x}`);
 console.log(`  정본 없음·확신 high 스냅으로 바로잡은 칸 ${snapFixed}`);
 if (staleSheetCode) { console.log(`  시트에 남은 코드가 원문과 달라 안 믿은 차 ${staleSheetCode}대`); for (const l of staleList) console.log(`     ${l}`); }
