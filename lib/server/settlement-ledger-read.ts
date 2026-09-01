@@ -119,7 +119,7 @@ export async function readLedger(token: string): Promise<{ row: SettlementRow; t
           receivedAt: toDate(r[at('접수일')]), deliveredAt: toDate(r[at('인도일')]), clawbackAt: toDate(r[at('환수일')]),
           clawbackAmount: N(r[at('환수금액')]),
           paper: ON(r[at('계약서')]), delivered: !!toDate(r[at('인도일')]),
-          cancelled: ON(r[at('계약취소')]), clawback: ON(r[at('환수')]),
+          cancelled: ON(r[at('취소')] ?? r[at('계약취소')]), clawback: ON(r[at('환수')]),
           claimWritten: N(r[at('판매수수료')]), payWritten: N(r[at('출고수수료')]),
           supplierRate: N(r[at('공급사수수료율')]), agentRate: N(r[at('에이전시수수료율')]),
         },

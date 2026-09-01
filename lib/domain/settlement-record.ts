@@ -166,7 +166,8 @@ export function recordFromSheet(cell: (name: string) => string, opts?: { code?: 
     // ★인도완료는 «인도일이라는 사실»에서 끌어낸다 — 글자는 안 고치고 넘어가기 쉽다.
     delivered: !!dayOf(cell('인도일')),
     deliveredAt: dayOf(cell('인도일')),
-    cancelled: B(cell('계약취소')),
+    // ★2026-09-01 이름이 「계약취소」 → 「취소」 로 바뀌었다. 옛 이름도 읽는다(백업·옛 시트).
+    cancelled: B(cell('취소') || cell('계약취소')),
     clawback: B(cell('환수')),
     clawbackReason: S(cell('환수사유')),
     clawbackAt: dayOf(cell('환수일')),

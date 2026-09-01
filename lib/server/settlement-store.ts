@@ -52,7 +52,14 @@ const S = (v: unknown) => String(v ?? '').trim();
  *
  * ★환경변수로도 갈 수 있다 — 배포에서 한 번 되돌려 보고 싶을 때.
  */
-export const STORE: 'erp' | 'sheet' = S(process.env.SETTLEMENT_STORE) === 'sheet' ? 'sheet' : 'erp';
+/**
+ * 전환 기간의 운영 정본은 직원이 쓰는 시트다.
+ *
+ * ERP 반영본은 `settlement-sheet-import`가 시트에서 **한 방향으로** 올린다. 환경변수를
+ * 빼먹었을 때 ERP 직접입력으로 조용히 바뀌면 정본이 둘이 되므로, ERP 직접 운영은 명시적으로
+ * `SETTLEMENT_STORE=erp`를 지정한 경우에만 연다.
+ */
+export const STORE: 'erp' | 'sheet' = S(process.env.SETTLEMENT_STORE) === 'erp' ? 'erp' : 'sheet';
 
 /** 한 줄을 가리키는 열쇠. ⚠ ERP 이관 때 `stl_` 로 바뀐다 — 그때 여기만 고친다. */
 export type LedgerKey = { plate: string; receivedAt: string };
@@ -65,7 +72,10 @@ export const keyOf = (k: LedgerKey) => `${S(k.plate)}|${S(k.receivedAt)}`;
  */
 export const EDITABLE_FIELDS: Record<string, '체크' | '날짜' | '돈' | '수' | '글'> = {
   // 진행 — 실적의 관문
-  계약서: '체크', 인도완료: '체크', 계약취소: '체크', 환수: '체크',
+  // ★2026-09-01 「계약취소」 → 「취소」(사장님 「계약취소 아니고 그냥 취소만」).
+  //   옛 이름도 열어 둔다 — 옛 화면·백업이 그 이름으로 보낼 수 있다.
+  계약서: '체크', 인도완료: '체크', 취소: '체크', 계약취소: '체크', 환수: '체크',
+  청구: '체크', 수금: '체크',
   인도일: '날짜', 환수일: '날짜', 환수금액: '돈', 환수사유: '글',
   /**
    * 뼈대·조건 — 사람이 적는 칸이라 사람이 고칠 수 있어야 한다(오타·조건 변경).
@@ -281,7 +291,7 @@ export async function appendIntake(input: IntakeInput): Promise<StoreResult & { 
     계약서: paperOn ? 'TRUE' : 'FALSE',
     인도완료: delivOn ? 'TRUE' : 'FALSE',
     인도일: delivDay,
-    계약취소: 'FALSE', 환수: 'FALSE',
+    취소: 'FALSE', 환수: 'FALSE',
   };
   const data = Object.entries(put)
     .map(([k, v]) => ({ col: head.indexOf(k), v }))
