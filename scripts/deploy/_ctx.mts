@@ -11,6 +11,8 @@ import { readFileSync } from 'node:fs';
 export const DATABASE_URL = 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app';
 export const PROJECT_ID = 'freepasserp3';
 export const SA_PATH = process.env.GOOGLE_APPLICATION_CREDENTIALS || 'tmp/firebase-auth/sa.json';
+/** 데이터 이관은 백업 도구와 같은 루트·manifest를 써야 대상 DB를 교차확인할 수 있다. */
+export const RTDB_BACKUP_ROOT = process.env.RTDB_BACKUP_DIR || 'D:/backup/freepasserp4-rtdb';
 
 /** 규칙 REST 엔드포인트. firebase CLI 로그인 대신 서비스계정 토큰을 쓴다. */
 export const RULES_URL = `${DATABASE_URL}/.settings/rules.json`;

@@ -8,11 +8,18 @@ import { useRouter } from 'next/navigation';
 import { type User } from 'firebase/auth';
 import { login, signup, logout, resetPassword, writeUserProfile } from '@/lib/firebase/auth';
 import { getSession, firebaseReadySafe } from '@/lib/login-helpers';
-import { fmtPhone, C, FS, FW, R, ctrlPadX } from '@/components/ui';
+import { fmtPhone, C, FS, FW, R, CTRL, ICON, ctrlPadX, Btn, Input, Select, Checkbox, Loading } from '@/components/ui';
 import { BRAND_MAIN, BRAND_SUB } from '@/lib/brand';
 import { LEGAL_VERSION } from '@/lib/legal';
 import { toast } from '@/components/Toaster';
-/** 로그인은 v3 CSS 섬(44/48·브랜드 hex). Input/Btn 원자 높이(32/40)와 충돌 → raw 유지. */
+/**
+ * ★2026-08-30 — 현관도 공용 원자로 선다(`docs/건물도면.md` §4 1순위).
+ *   전에는 「v3 CSS 섬(44/48)이 원자 높이(32/40)와 충돌 → raw 유지」였다.
+ *   그래서 원자에 `lg`(웹 44 / 모바일 48) 한 단을 더했다 — **이 파일이 쓰던 값 그대로**라
+ *   보이는 것은 그대로고, 규격만 `tokens.ts` 한 곳으로 모였다.
+ *   사장님 2026-08-30 「원자 규격을 통일해서 그게 달라지면 거길 바꾸면 되니까」
+ *   ⚠ 남은 CSS 는 «치수»가 아니라 그릇·워드마크·모바일 흰 바탕뿐이다. 여기에 height 를 다시 적지 말 것.
+ */
 
 type Mode = 'login' | 'signup' | 'reset';
 
@@ -36,6 +43,27 @@ function koreanAuthMsg(err: unknown, fallback: string): string {
   return (code && AUTH_MSG[code]) || (err as { message?: string })?.message || fallback;
 }
 
+/** Firebase에 보내기 전에 공백·대소문자를 정리하고, 명백히 잘못된 주소는 화면에서 막는다. */
+function normalizedEmail(value: string): string {
+  return value.trim().toLowerCase();
+}
+function hasEmailShape(value: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+/** 인증 폼 입력칸 공통 — 한 줄로 모아 둬야 열여덟 칸이 따로 놀지 않는다. */
+const FIELD = { size: 'lg', full: true } as const;
+
+/** 라벨 위·칸 아래. `<label>` 로 감싸 라벨을 눌러도 칸이 잡힌다(id/htmlFor 짝이 필요 없다). */
+function Field({ label, children }: { label: React.ReactNode; children: React.ReactNode }) {
+  return <label className="login-field"><span>{label}</span>{children}</label>;
+}
+
+/** 처리 중 덮개 — 카드 위를 덮고 공용 `Loading` 원자를 세운다(스피너 손롤 금지). */
+function BusyVeil() {
+  return <div className="login-busy" aria-busy><Loading label="처리 중…" /></div>;
+}
+
 type Agree = { terms: boolean; privacy: boolean };
 
 /**
@@ -45,22 +73,23 @@ type Agree = { terms: boolean; privacy: boolean };
 function ConsentBox({ agree, setAgree }: { agree: Agree; setAgree: (a: Agree) => void }) {
   const all = agree.terms && agree.privacy;
   // 기본 체크박스는 13px라 손가락으로 누르기 어렵다. 상자를 키우고 행 자체를 눌러도 켜지게 한다.
-  const row: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 10, minHeight: 44, fontSize: FS.sub, color: C.ink, lineHeight: 1.5, cursor: 'pointer' };
-  const box: React.CSSProperties = { width: 18, height: 18, flex: '0 0 auto', accentColor: C.brand, cursor: 'pointer' };
-  // 링크는 글자 높이(16px)뿐이라 위아래로 여백을 줘 실제로 누를 수 있게 만든다.
-  const link: React.CSSProperties = { color: C.accent, textDecoration: 'underline', textUnderlineOffset: 2, minHeight: 44, padding: '0 2px', display: 'inline-flex', alignItems: 'center' };
+  // 높이는 숫자로 적지 않는다 — 터치 타깃은 CTRL.lg(44)가 정본이다.
+  const row: React.CSSProperties = { display: 'flex', alignItems: 'center', gap: 10, minHeight: CTRL.lg.web, fontSize: FS.sub, color: C.ink, lineHeight: 1.5, cursor: 'pointer' };
+  const box: React.CSSProperties = { width: ICON.lg, height: ICON.lg, flex: '0 0 auto', accentColor: C.brand, cursor: 'pointer' };
+  // 링크는 글자 높이뿐이라 위아래로 여백을 줘 실제로 누를 수 있게 만든다.
+  const link: React.CSSProperties = { color: C.accent, textDecoration: 'underline', textUnderlineOffset: 2, minHeight: CTRL.lg.web, padding: '0 2px', display: 'inline-flex', alignItems: 'center' };
   return (
     <div style={{ border: `1px solid ${C.line}`, borderRadius: R, padding: `10px ${ctrlPadX(true)}px`, margin: '0 0 10px', display: 'flex', flexDirection: 'column', gap: 8, textAlign: 'left' }}>
       <label style={{ ...row, fontWeight: FW.strong, paddingBottom: 8, borderBottom: `1px solid ${C.line}` }}>
-        <input type="checkbox" style={box} checked={all} onChange={(e) => setAgree({ terms: e.target.checked, privacy: e.target.checked })} />
+        <Checkbox style={box} checked={all} ariaLabel="전체 동의" onChange={(checked) => setAgree({ terms: checked, privacy: checked })} />
         전체 동의
       </label>
       <label style={row}>
-        <input type="checkbox" style={box} checked={agree.terms} onChange={(e) => setAgree({ ...agree, terms: e.target.checked })} />
+        <Checkbox style={box} checked={agree.terms} ariaLabel="이용약관 동의(필수)" onChange={(checked) => setAgree({ ...agree, terms: checked })} />
         <span>[필수] <a href="/terms" target="_blank" rel="noopener noreferrer" style={link} onClick={(e) => e.stopPropagation()}>이용약관</a>에 동의합니다</span>
       </label>
       <label style={row}>
-        <input type="checkbox" style={box} checked={agree.privacy} onChange={(e) => setAgree({ ...agree, privacy: e.target.checked })} />
+        <Checkbox style={box} checked={agree.privacy} ariaLabel="개인정보 수집·이용 동의(필수)" onChange={(checked) => setAgree({ ...agree, privacy: checked })} />
         <span>[필수] <a href="/privacy" target="_blank" rel="noopener noreferrer" style={link} onClick={(e) => e.stopPropagation()}>개인정보 수집·이용</a>에 동의합니다</span>
       </label>
       <p style={{ margin: 0, fontSize: FS.cap, color: C.faint, lineHeight: 1.5 }}>
@@ -111,8 +140,11 @@ export default function LoginPage() {
 
   const doLogin = async (e: React.FormEvent) => {
     e.preventDefault(); if (busy) return;
+    const loginEmail = normalizedEmail(email);
+    if (!hasEmailShape(loginEmail)) { say('이메일 형식을 확인해주세요. 예: name@company.com', 'err'); return; }
+    if (!pw) { say('비밀번호를 입력해주세요.', 'err'); return; }
     setBusy(true); say('');
-    try { await login(email.trim(), pw); await waitForSession(); router.replace(loginDestination()); }
+    try { await login(loginEmail, pw); await waitForSession(); router.replace(loginDestination()); }
     catch (err) { console.error('[login]', err); say(koreanAuthMsg(err, '로그인 실패'), 'err'); setBusy(false); }
   };
 
@@ -137,13 +169,14 @@ export default function LoginPage() {
 
   const doSignup = async (e: React.FormEvent) => {
     e.preventDefault(); if (busy) return;
-    if (!su.email.trim() || !su.pw || su.pw.length < 6) { say('이메일·비밀번호(6자 이상) 필수', 'err'); return; }
+    const signupEmail = normalizedEmail(su.email);
+    if (!hasEmailShape(signupEmail) || !su.pw || su.pw.length < 6) { say('이메일 형식과 비밀번호(6자 이상)를 확인해주세요', 'err'); return; }
     if (su.pw !== su.pw2) { say('비밀번호가 일치하지 않습니다', 'err'); return; }
     if (!su.name.trim()) { say('이름을 입력해주세요', 'err'); return; }
     if (!agree.terms || !agree.privacy) { say('이용약관·개인정보 수집·이용에 모두 동의해야 가입할 수 있습니다', 'err'); return; }
     setBusy(true); say('');
     let authUser: User;
-    try { authUser = await signup(su.email.trim(), su.pw); }
+    try { authUser = await signup(signupEmail, su.pw); }
     catch (authErr) {
       const m = (authErr as { code?: string })?.code === 'auth/email-already-in-use'
         ? '이미 가입된 이메일입니다. 로그인해주세요.'
@@ -174,13 +207,14 @@ export default function LoginPage() {
 
   const doReset = async (e: React.FormEvent) => {
     e.preventDefault(); if (busy) return;
-    if (!rpEmail.trim()) { say('이메일을 입력해주세요', 'err'); return; }
+    const resetEmail = normalizedEmail(rpEmail);
+    if (!hasEmailShape(resetEmail)) { say('이메일 형식을 확인해주세요. 예: name@company.com', 'err'); return; }
     setBusy(true); say('전송 중…', 'muted');
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
       // 진 쪽 타이머를 안 끄면 15초 뒤 처리되지 않은 reject 가 남는다.
       const timeout = new Promise((_, rej) => { timer = setTimeout(() => rej(new Error('요청 시간 초과 — 잠시 후 다시 시도해주세요')), 15000); });
-      await Promise.race([resetPassword(rpEmail.trim()), timeout]);
+      await Promise.race([resetPassword(resetEmail), timeout]);
       say('재설정 메일 전송됨. 이메일(스팸함 포함)을 확인하세요. 안 오면 몇 분 뒤 다시 보내주세요.', 'ok');
     } catch (err) { console.error('[reset]', err); say(koreanAuthMsg(err, '전송 실패'), 'err'); }
     finally {
@@ -201,12 +235,13 @@ export default function LoginPage() {
         </div>
 
         {mode === 'login' && (
-          <form className={`login-card${busy ? ' is-loading' : ''}`} onSubmit={doLogin} noValidate>
+          <form className="login-card" onSubmit={doLogin} noValidate>
+            {busy && <BusyVeil />}
             <header className="login-head"><h2 className="login-title">로그인</h2><p className="login-sub">이메일과 비밀번호를 입력해주세요.</p></header>
             <div className="login-form">
-              <div className="login-field"><label htmlFor="loginEmail">이메일</label><input id="loginEmail" type="email" placeholder="name@company.com" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required /></div>
-              <div className="login-field"><label htmlFor="loginPw">비밀번호</label><input id="loginPw" type="password" placeholder="비밀번호 입력" autoComplete="current-password" value={pw} onChange={(e) => setPw(e.target.value)} required /></div>
-              <button type="submit" className="login-submit" disabled={busy}>로그인</button>
+              <Field label="이메일"><Input type="email" placeholder="name@company.com" autoComplete="username" value={email} onChange={setEmail} {...FIELD} /></Field>
+              <Field label="비밀번호"><Input type="password" placeholder="비밀번호 입력" autoComplete="current-password" value={pw} onChange={setPw} {...FIELD} /></Field>
+              <Btn type="submit" size="lg" full disabled={busy} style={{ marginTop: 4 }}>로그인</Btn>
             </div>
             <div className="login-links">
               <a href="#" onClick={(e) => { e.preventDefault(); switchMode('signup'); }}>계정 만들기</a>
@@ -218,21 +253,31 @@ export default function LoginPage() {
         )}
 
         {mode === 'signup' && (
-          <form className={`login-card${busy ? ' is-loading' : ''}`} onSubmit={doSignup} noValidate>
+          <form className="login-card" onSubmit={doSignup} noValidate>
+            {busy && <BusyVeil />}
             <header className="login-head"><h2 className="login-title">계정 만들기</h2><p className="login-sub">가입 후 상품찾기와 계약 업무를 이용할 수 있습니다.</p></header>
             {msg.text && <p className="login-msg" style={{ margin: 0, color: msgColor, textAlign: 'center', fontWeight: FW.strong }} aria-live="polite">{msg.text}</p>}
             <div className="login-form">
-              <div className="login-field"><label htmlFor="suEmail">이메일 (필수)</label><input id="suEmail" type="email" placeholder="name@company.com" autoComplete="username" value={su.email} onChange={(e) => setSu({ ...su, email: e.target.value })} required /></div>
-              <div className="login-field"><label htmlFor="suPw">비밀번호</label><input id="suPw" type="password" placeholder="6자 이상" autoComplete="new-password" value={su.pw} onChange={(e) => setSu({ ...su, pw: e.target.value })} required /></div>
-              <div className="login-field"><label htmlFor="suPw2">비밀번호 확인</label><input id="suPw2" type="password" placeholder="비밀번호 재입력" autoComplete="new-password" value={su.pw2} onChange={(e) => setSu({ ...su, pw2: e.target.value })} required />{su.pw2 && su.pw !== su.pw2 && <p className="biz-no-match is-miss">비밀번호가 일치하지 않습니다</p>}</div>
-              <div className="login-field"><label htmlFor="suName">이름</label><input id="suName" placeholder="홍길동" value={su.name} onChange={(e) => setSu({ ...su, name: e.target.value })} required /></div>
-              <div className="login-field"><label htmlFor="suPhone">연락처</label><input id="suPhone" type="tel" placeholder="010-0000-0000" value={su.phone} onChange={(e) => setSu({ ...su, phone: fmtPhone(e.target.value) })} /></div>
-              <div className="login-field"><label htmlFor="suCompany">소속 회사명 (선택)</label><input id="suCompany" placeholder="나중에 입력해도 됩니다" value={su.company} onChange={(e) => setSu({ ...su, company: e.target.value })} /></div>
-              <div className="login-field"><label htmlFor="suType">활동 유형 (선택)</label><select id="suType" value={su.type} onChange={(e) => setSu({ ...su, type: e.target.value })}><option value="">나중에 지정</option><option value="공급">공급사</option><option value="영업">영업(소속)</option><option value="개인">개인영업</option></select></div>
-              <div className="login-field"><label htmlFor="suBizNo">소속 사업자번호 (선택)</label><input id="suBizNo" inputMode="numeric" placeholder="나중에 입력해도 됩니다" autoComplete="off" value={su.bizNo} onChange={(e) => onBizNo(e.target.value)} />{bizMatch.text && <p className={`biz-no-match${bizMatch.cls ? ` is-${bizMatch.cls}` : ''}`}>{bizMatch.text}</p>}</div>
+              <Field label="이메일 (필수)"><Input type="email" placeholder="name@company.com" autoComplete="username" value={su.email} onChange={(v) => setSu({ ...su, email: v })} {...FIELD} /></Field>
+              <Field label="비밀번호"><Input type="password" placeholder="6자 이상" autoComplete="new-password" value={su.pw} onChange={(v) => setSu({ ...su, pw: v })} {...FIELD} /></Field>
+              <Field label="비밀번호 확인">
+                <Input type="password" placeholder="비밀번호 재입력" autoComplete="new-password" value={su.pw2} onChange={(v) => setSu({ ...su, pw2: v })} {...FIELD} />
+                {su.pw2 && su.pw !== su.pw2 && <p className="biz-no-match is-miss">비밀번호가 일치하지 않습니다</p>}
+              </Field>
+              <Field label="이름"><Input placeholder="홍길동" value={su.name} onChange={(v) => setSu({ ...su, name: v })} {...FIELD} /></Field>
+              <Field label="연락처"><Input type="tel" inputMode="tel" placeholder="010-0000-0000" value={su.phone} onChange={(v) => setSu({ ...su, phone: fmtPhone(v) })} {...FIELD} /></Field>
+              <Field label="소속 회사명 (선택)"><Input placeholder="나중에 입력해도 됩니다" value={su.company} onChange={(v) => setSu({ ...su, company: v })} {...FIELD} /></Field>
+              <Field label="활동 유형 (선택)">
+                <Select value={su.type} onChange={(v) => setSu({ ...su, type: v })} size="lg" full ariaLabel="활동 유형"
+                  options={[{ value: '', label: '나중에 지정' }, { value: '공급', label: '공급사' }, { value: '영업', label: '영업(소속)' }, { value: '개인', label: '개인영업' }]} />
+              </Field>
+              <Field label="소속 사업자번호 (선택)">
+                <Input inputMode="numeric" placeholder="나중에 입력해도 됩니다" noAutofill value={su.bizNo} onChange={onBizNo} {...FIELD} />
+                {bizMatch.text && <p className={`biz-no-match${bizMatch.cls ? ` is-${bizMatch.cls}` : ''}`}>{bizMatch.text}</p>}
+              </Field>
               <p className="login-msg" style={{ margin: '4px 0 8px', color: C.mute, fontSize: FS.sub, lineHeight: 1.4, textAlign: 'left' }}>처음에는 개인 영업자로 시작합니다. 실제 회사·채널 소속은 관리자 확인 후 연결됩니다.</p>
               <ConsentBox agree={agree} setAgree={setAgree} />
-              <button type="submit" className="login-submit" disabled={busy || !agree.terms || !agree.privacy}>계정 만들기</button>
+              <Btn type="submit" size="lg" full disabled={busy || !agree.terms || !agree.privacy} style={{ marginTop: 4 }}>계정 만들기</Btn>
             </div>
             <div className="login-links"><a href="#" onClick={(e) => { e.preventDefault(); switchMode('login'); }}>로그인으로 돌아가기</a></div>
             {msg.text && <p className="login-msg" style={{ color: msgColor }} aria-live="polite">{msg.text}</p>}
@@ -240,11 +285,12 @@ export default function LoginPage() {
         )}
 
         {mode === 'reset' && (
-          <form className={`login-card${busy ? ' is-loading' : ''}`} onSubmit={doReset} noValidate>
+          <form className="login-card" onSubmit={doReset} noValidate>
+            {busy && <BusyVeil />}
             <header className="login-head"><h2 className="login-title">비밀번호 재설정</h2><p className="login-sub">가입한 이메일로 재설정 링크를 보내드립니다.</p></header>
             <div className="login-form">
-              <div className="login-field"><label htmlFor="rpEmail">이메일</label><input id="rpEmail" type="email" placeholder="name@company.com" autoComplete="username" value={rpEmail} onChange={(e) => setRpEmail(e.target.value)} required /></div>
-              <button type="submit" className="login-submit" disabled={busy}>재설정 메일 전송</button>
+              <Field label="이메일"><Input type="email" placeholder="name@company.com" autoComplete="username" value={rpEmail} onChange={setRpEmail} {...FIELD} /></Field>
+              <Btn type="submit" size="lg" full disabled={busy} style={{ marginTop: 4 }}>재설정 메일 전송</Btn>
             </div>
             <div className="login-links"><a href="#" onClick={(e) => { e.preventDefault(); switchMode('login'); }}>로그인으로 돌아가기</a></div>
             {msg.text && <p className="login-msg" style={{ color: msgColor }} aria-live="polite">{msg.text}</p>}
@@ -269,39 +315,34 @@ const LOGIN_CSS = `
 .fp-login .login-brand-main{font-weight:600;color:var(--brand);}
 .fp-login .login-brand-sub{font-weight:300;color:var(--text-sub);}
 .fp-login .login-card{position:relative;width:100%;max-width:400px;background:var(--bg-card);border:none;border-radius:2px;padding:40px 32px;box-shadow:var(--shadow-md);display:grid;gap:24px;overflow:hidden;margin:0;}
-.fp-login .login-card.is-loading::after{content:'';position:absolute;inset:0;background:color-mix(in srgb, var(--bg-card) 85%, transparent);z-index:10;}
-.fp-login .login-card.is-loading::before{content:'';position:absolute;top:50%;left:50%;width:32px;height:32px;margin:-16px 0 0 -16px;border:3px solid var(--border-strong);border-top-color:var(--brand);border-radius:50%;animation:fp-login-spin .6s linear infinite;z-index:11;}
-@keyframes fp-login-spin{to{transform:rotate(360deg)}}
+/* ★처리 중 덮개 — 스피너를 CSS 로 손롤하지 않는다. 공용 Loading 원자가 그린다. */
+.fp-login .login-busy{position:absolute;inset:0;z-index:10;display:grid;place-items:center;background:color-mix(in srgb, var(--bg-card) 85%, transparent);}
 .fp-login .login-head{display:grid;gap:8px;}
 .fp-login .login-title{margin:0;font-size:20px;font-weight:600;color:var(--text-main);line-height:1.3;letter-spacing:-0.02em;}
 .fp-login .login-sub{margin:0;font-size:13px;color:var(--text-sub);line-height:1.5;}
 .fp-login .login-form{display:grid;gap:16px;}
+/* ★칸의 «치수»는 여기 없다 — Input/Select/Btn 원자(size=lg)가 정한다. 높이를 다시 적지 말 것. */
 .fp-login .login-field{display:grid;gap:6px;}
-.fp-login .login-field label{font-size:12px;font-weight:500;color:var(--text-sub);line-height:1.4;}
-.fp-login .login-field input,.fp-login .login-field select{width:100%;height:44px;padding:0 12px;border:1px solid var(--border);border-radius:2px;background:var(--bg-card);font-size:13px;color:var(--text-main);outline:none;box-sizing:border-box;letter-spacing:-0.01em;transition:border-color 100ms;}
-.fp-login .login-field input::placeholder{color:var(--text-weak);}
-.fp-login .login-field input:hover,.fp-login .login-field select:hover{border-color:var(--border-strong);}
-.fp-login .login-field input:focus,.fp-login .login-field select:focus{border-color:var(--brand);}
-.fp-login .login-submit{width:100%;height:44px;margin-top:4px;padding:0 12px;border:0;border-radius:4px;background:var(--brand);color:var(--text-inverse);font-size:13px;font-weight:600;cursor:pointer;letter-spacing:-0.01em;transition:background-color 100ms,box-shadow 100ms;}
-.fp-login .login-submit:hover{background:var(--brand-h);box-shadow:var(--shadow-sm);}
-.fp-login .login-submit:active{background:var(--brand-h);filter:brightness(0.92);}
-.fp-login .login-submit:disabled{background:var(--bg-disabled);color:var(--text-weak);cursor:default;box-shadow:none;}
+.fp-login .login-field>span{font-size:12px;font-weight:500;color:var(--text-sub);line-height:1.4;}
 .fp-login .login-links{display:flex;align-items:center;justify-content:center;gap:8px;font-size:11px;color:var(--text-weak);}
 .fp-login .login-links a{color:var(--brand);font-weight:500;text-decoration:none;padding:8px 4px;display:inline-block;}
 .fp-login .login-links a:hover{color:var(--brand-h);}
 .fp-login .login-links-sep{color:var(--text-muted);}
-.fp-login .login-msg{margin:0;min-height:16px;font-size:11px;color:var(--text-weak);text-align:center;}
-.fp-login .biz-no-match{margin:2px 0 0;min-height:14px;font-size:11px;line-height:1.4;color:var(--text-weak);letter-spacing:-0.01em;}
+.fp-login .login-msg{margin:0;font-size:11px;color:var(--text-weak);text-align:center;}
+.fp-login .biz-no-match{margin:2px 0 0;font-size:11px;line-height:1.4;color:var(--text-weak);letter-spacing:-0.01em;}
 .fp-login .biz-no-match.is-ok{color:var(--green-text);}
 .fp-login .biz-no-match.is-miss{color:var(--red-text);}
 @media (max-width:768px){
 .fp-login .login-page{align-items:stretch;padding:max(24px,env(safe-area-inset-top)) 0 max(24px,env(safe-area-inset-bottom));gap:20px;}
 .fp-login .login-brand,.fp-login .login-brand span{font-size:22px;text-align:center;}
 .fp-login .login-brand{padding:0 24px;}
-.fp-login .login-card{box-shadow:none;border:0;border-radius:0;padding:0 24px;gap:20px;max-width:none;}
-.fp-login .login-field input,.fp-login .login-field select{height:48px;font-size:16px;border-radius:4px;padding:0 16px;}
-.fp-login .login-field label{font-size:13px;}
-.fp-login .login-submit{height:48px;font-size:16px;border-radius:4px;}
+/* ★모바일 로그인은 **한 면이 흰 바탕**이다(사장님 2026-08-23 「모바일 로그인 화면에 배경하고 로그인 박스랑 좀 다르고」).
+   카드에서 테두리·그림자·모서리를 걷어 전체폭으로 폈는데 **배경만 흰색(--bg-card)으로 남아**,
+   회색 페이지(--bg-page) 위에 경계 없는 흰 띠가 떠 보였다(실측 412px: 페이지 234,237,242 / 카드 255,255,255).
+   카드 배경을 투명으로 두고 **바탕을 흰색으로** 올린다 — 부팅 중 html.fp-pending-m 도 흰색이라 깜빡임도 사라진다. */
+.fp-login,.fp-login .login-page{background:var(--bg-card);}
+.fp-login .login-card{box-shadow:none;border:0;border-radius:0;padding:0 24px;gap:20px;max-width:none;background:transparent;}
+.fp-login .login-field>span{font-size:13px;}
 .fp-login .login-links{font-size:13px;gap:12px;}
 }
 `;

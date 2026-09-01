@@ -151,6 +151,7 @@ export const DISPLAY_SECTIONS: DisplaySection[] = [
       f('company_ceo', '임대인 대표자', '파트너', false),
       f('company_biz_no', '임대인 사업자등록번호', '파트너', false),
       f('rental_business_no', '자동차대여사업 등록번호', '파트너', false),
+      f('engine_cc', '배기량', '재고', false),
       f('color_interior', '내부 색상', '재고', false),
       f('vin', '차대번호', '재고', false),
       f('options', '옵션', '재고', false),

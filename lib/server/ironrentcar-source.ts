@@ -1,31 +1,10 @@
 import { load } from 'cheerio';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { snapToMaster, unpackVehicleSignals } from '@/lib/domain/vehicle-master-match';
-import type { MasterEntry } from '@/lib/domain/vehicle-master-types';
 import type { EntityRecord } from '@/lib/intake/entities';
 
-/**
- * 차종마스터 — 서버에서는 파일로 읽는다.
- * `vehicle-master-load` 는 브라우저용(`fetch('/data/...')`)이라 여기서는 못 쓴다.
+/*
+ * 차종마스터 파일(public/data/vehicle-master.json 1.7MB)을 읽던 자리였다 — 2026-08-23 걷어냈다.
+ * 이 소스가 만드는 값은 미러 시트의 «왼쪽(원문)»에만 실리고, 세대·트림은 정제칸이 든다.
  */
-let masterCache: MasterEntry[] | null = null;
-function masterEntries(): MasterEntry[] {
-  if (masterCache) return masterCache;
-  try {
-    // ★상대경로로 읽으면 실행 위치(서버리스 번들·크론)에 따라 못 찾는다 — cwd 기준으로 못 박는다.
-    const raw = JSON.parse(readFileSync(join(process.cwd(), 'public/data/vehicle-master.json'), 'utf8')) as { entries?: MasterEntry[] } | MasterEntry[];
-    const entries = (Array.isArray(raw) ? raw : raw.entries) || [];
-    // 비어 있으면 캐시하지 않는다. 한 번 실패했다고 프로세스가 사는 동안 규격화를 영영 끄면,
-    //  «되긴 되는데 차종이 안 붙는» 상태가 조용히 굳는다(2026-08-09 리뷰 지적).
-    if (entries.length) masterCache = entries;
-    return entries;
-  } catch (e) {
-    // 마스터를 못 읽으면 규격화만 건너뛴다 — 수집 자체를 막지는 않는다. 다만 조용히 넘기지 않는다.
-    console.warn('[ironrentcar] 차종마스터 로드 실패 — 규격화 건너뜀:', (e as Error).message);
-    return [];
-  }
-}
 
 export const IRONRENTCAR_BASE_URL = 'https://ironrentcar.com';
 export const IRONRENTCAR_PROVIDER_CODE = 'RP006';
@@ -234,21 +213,19 @@ export function parseIronRentcarDetail(
   };
 
   /**
-   * ★홈페이지 값을 **우리 원자로 규격화**한다 — 시트 유입과 같은 길(차종마스터 스냅)을 쓴다.
+   * ★**차종마스터 스냅을 걷어냈다**(사장님 2026-08-23 「차종마스터 관련 싹 다 걷어내고 정제칸을 정확히 반영한다」).
    *
-   * 안 하면 `sub_model` 에 모델명이 그대로 복사돼 「아반떼」·「K5」 로 남는다. 그 값이 반영되면
-   * 재고의 「더 뉴 아반떼 CN7」 이 「아반떼」 로 덮여 세대가 사라진다(실측 2026-08-08: 33대 대상).
-   * 스냅이 세대를 못 찾으면 원본을 그대로 두어 «없던 정보를 지어내지» 않는다.
+   *   예전엔 여기서 홈페이지 값을 차종마스터에 스냅해 `maker`·`model`·`sub_model` 을 마스터 이름으로 갈아끼웠다.
+   *   그 시절엔 그럴 만했다 — 세대(「더 뉴 아반떼 CN7」)를 아는 곳이 마스터뿐이었으니까.
+   *
+   *   지금은 아니다. 아이언은 **정제시트 4곳 중 하나**이고, 여기서 만든 값은 미러 시트의 «왼쪽(원문)»에만 실린다
+   *   (mirror-iron-source 는 「제조사」·「모델명」만 쓴다). 세대·트림은 그 오른쪽 **정제칸**이 들고,
+   *   ERP 로 가는 길은 판매시트 하나뿐이다. 여기서 이름을 «맞히면» 정제칸과 갈리기만 한다 —
+   *   마스터 이름엔 개발 코드까지 박혀 있어 더 그렇다(「디 올 뉴 싼타페 MX5」).
+   *
+   * ⚠ `sub_model` 을 여기서 지어내지 마라. 비어 있으면 비운 채로 둔다 —
+   *   `soft-merge` 가 빈 값을 무시하므로 정제칸에서 온 값이 그대로 남는다. 그게 «오류 없게»의 뜻이다.
    */
-  const entries = masterEntries();
-  const snapped = entries.length ? snapToMaster(unpackVehicleSignals(product, entries), entries) : null;
-  if (snapped) {
-    product.maker = snapped.maker || product.maker;
-    product.model = snapped.model || product.model;
-    product.sub_model = snapped.sub_model || product.sub_model;
-    if (snapped.gen_code) product.catalog_id = snapped.gen_code;
-    product._snap_confidence = snapped.confidence;
-  }
 
   const privateProduct: EntityRecord = {
     product_code: product.product_code,

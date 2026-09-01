@@ -19,7 +19,7 @@ type Update = (patch: Partial<FilterBag> | ((current: FilterBag) => FilterBag)) 
  * 맨 앞 「세부」= 사이드 대신 떠 있는 메뉴로 전체 조건 패널.
  * 모델·색상·기간·대여료·보증금·주행거리·연식·연료·우대·심사 — 드롭다운.
  */
-export function FinderQuickFilters({ value, present, products, update, onReset, filterOpen, onToggleFilter, onCloseFilter, sidebarActiveCount, detailPanel }: {
+export function FinderQuickFilters({ value, present, products, update, onReset, filterOpen, onToggleFilter, onCloseFilter, sidebarActiveCount, detailPanel, mobile = false }: {
   value: FilterBag;
   present: ReturnType<typeof presentFilterOptions>;
   products: EntityRecord[];
@@ -31,6 +31,8 @@ export function FinderQuickFilters({ value, present, products, update, onReset, 
   onCloseFilter: () => void;
   sidebarActiveCount: number;
   detailPanel: FinderFilterPanelModel;
+  /** 모바일 = 검색창 밑 한 줄, 4개(모델·기간·대여료·심사조건)만 · 「세부」 버튼 없음(툴바의 필터 버튼이 전체 조건, 사장님 2026-08-22 「웹에 있는 것 중 4개 정도」). */
+  mobile?: boolean;
 }) {
   const [open, setOpen] = useState<QuickKey | null>(null);
   const [openRight, setOpenRight] = useState(false);
@@ -92,6 +94,9 @@ export function FinderQuickFilters({ value, present, products, update, onReset, 
     { key: 'perk', label: '우대조건', count: value.perks.size },
     { key: 'credit', label: '심사조건', count: value.credit.size },
   ];
+  /** 모바일 4개 — 웹 차례에서 고름. */
+  const MOBILE_KEYS: QuickKey[] = ['vehicle', 'period', 'rent', 'credit'];
+  const shownCategories = mobile ? categories.filter((c) => MOBILE_KEYS.includes(c.key)) : categories;
 
   const options = open === 'period' ? present.months
     : open === 'rent' ? present.rent
@@ -175,7 +180,8 @@ export function FinderQuickFilters({ value, present, products, update, onReset, 
   });
 
   return (
-    <div className="fp-quick-filter-bar" ref={root} role="group" aria-label="퀵필터">
+    <div className={`fp-quick-filter-bar${mobile ? ' is-mobile' : ''}`} ref={root} role="group" aria-label="퀵필터">
+      {!mobile && (
       <span className="fp-quick-filter-wrap" ref={detailAnchor} style={{ position: 'relative', flex: '0 0 auto' }}>
         <Btn
           size="sm"
@@ -201,7 +207,8 @@ export function FinderQuickFilters({ value, present, products, update, onReset, 
           </div>
         ) : null}
       </span>
-      {categories.map((category) => (
+      )}
+      {shownCategories.map((category) => (
         <div
           className="fp-quick-filter-wrap"
           key={category.key}

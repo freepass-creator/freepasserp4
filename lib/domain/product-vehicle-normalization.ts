@@ -17,11 +17,14 @@
  */
 import type { VehicleTrimMasterArtifact, VehicleTrimMasterRecord } from './vehicle-trim-master';
 import type { ProductVehicleReviewDecision } from './product-vehicle-review-decisions';
+import { isNoTrimLabel, canonSalesTrim } from './vehicle-master-options';
+import { applyLatinBrandTokens } from './vehicle-master-lock';
 
 export type NormalizedVehicleName = {
   maker: string; model: string; sub_model: string; powertrain: string; trim: string;
   /** 차종마스터 행의 연료·정확배기량(사장님 2026-08-18 「차종마스터 탭 활용하면 되고」) — 코드가 있으면 이 값이 판매시트 연료·배기량을 이긴다 */
   fuel: string; engine_cc: number | null;
+  battery_kwh: number | null;
   /** code = 상품마스터 차종코드, decision = 3축 검토 결정 */
   source: 'code' | 'decision';
   trim_row_key: string;
@@ -83,8 +86,12 @@ export function normalizedNameForKey(
     model: pick(master.model, spec?.model),
     sub_model: pick(master.sub_model, spec?.sub_model),
     powertrain: S(master.powertrain),
-    trim: pick(master.trim, spec?.trim),
+    trim: canonSalesTrim(pick(master.maker, spec?.maker), pick(master.model, spec?.model), pick(master.sub_model, spec?.sub_model), (() => {
+      const t = applyLatinBrandTokens(pick(master.trim, spec?.trim));
+      return isNoTrimLabel(t) ? '' : t;
+    })()),
     fuel: S(master.fuel), engine_cc: master.engine_cc == null ? null : Number(master.engine_cc),
+    battery_kwh: master.battery_kwh == null ? null : Number(master.battery_kwh),
     source: 'code', trim_row_key: key,
     adopted: Boolean(spec),
     vehicle_class: adoptedVehicleClassText(spec),
@@ -142,10 +149,12 @@ export function buildPlateNormalization(input: {
     const samePowertrain = candidateNames.length && candidateNames.every((c) => c.powertrain === candidateNames[0].powertrain);
     const sameFuel = candidateNames.length && candidateNames.every((c) => c.fuel === candidateNames[0].fuel);
     const sameCc = candidateNames.length && candidateNames.every((c) => c.engine_cc === candidateNames[0].engine_cc);
+    const sameBattery = candidateNames.length && candidateNames.every((c) => c.battery_kwh === candidateNames[0].battery_kwh);
     byPlate.set(plate, {
       maker: subUniform?.maker || S(d.maker), model: subUniform?.model || S(d.model), sub_model: subUniform?.sub_model || S(d.sub_model),
-      powertrain: samePowertrain ? candidateNames[0].powertrain : '', trim: uniform?.trim || S(d.trim),
+      powertrain: samePowertrain ? candidateNames[0].powertrain : '', trim: applyLatinBrandTokens(uniform?.trim || canonSalesTrim(subUniform?.maker || S(d.maker), subUniform?.model || S(d.model), subUniform?.sub_model || S(d.sub_model), S(d.trim))),
       fuel: sameFuel ? candidateNames[0].fuel : '', engine_cc: sameCc ? candidateNames[0].engine_cc : null,
+      battery_kwh: sameBattery ? candidateNames[0].battery_kwh : null,
       source: 'decision', trim_row_key: '', adopted: Boolean(subUniform?.adopted),
       vehicle_class: subUniform?.vehicle_class || '',
     });

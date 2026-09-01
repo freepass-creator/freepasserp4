@@ -7,6 +7,7 @@
  *   · 상태 어휘: 연동중(지금 읽는다) · 정본(운영)(문패·허브·판매시트·원천대장처럼 늘 쓰는 우리 시트) · 구버전·폐기(아무도 안 읽는다) · 외부 원본(공급사 소유, 우리는 읽기만).
  */
 import { MIRROR_SOURCES, type MirrorSource } from './mirror-sources';
+import { MIRROR_OWNER_RULE } from './mirror-sheet-mapping';
 import { HUB_CODE_SHEET_ID, HUB_HUMAN_SHEET_ID, LEGACY_SHEETS, MASTER_SHEET_ID, SALES_SHEET_ID, type LegacySheet } from './legacy-sheets';
 import { LEGACY_NOTICE_TAB, LEGACY_SHEET_PREFIX, SHEET_IDENTITY_TAB } from './supplier-template-sheet';
 
@@ -43,7 +44,7 @@ export const STATUS_HELP: Record<SheetStatus, string> = {
 
 const FLOW_OUT_SUPPLIER = (code: string, label: string) => [
   `문패 「공급사시트정리」의 ${code} ${label} 줄이 이 시트를 가리킨다 → 아래 셋이 이 시트를 읽는다`,
-  '① 판매시트 「프리패스 상품리스트」 — 재고 탭 줄이 그대로(출고불가 제외 · 빈 대여료 「-」 · 차명은 정본→정제칸→원문). 탭 3개: 상품리스트 / 손오공 구독재고는 「손오공구독」(보증금 반납형·12~60개월 반납형·보증금 인수형·36/48/60개월 인수형) / 오토플러스는 「오플구독」(12개월 2만km … 36개월 3만km) — 갈래 탭엔 우리 공통 대여료 블록이 없고 그 공급사 기간별 대여료가 선다. 같은 차는 한 탭에만.',
+  '① 판매시트 「프리패스 상품리스트」 — 재고 탭 줄이 그대로(출고불가 제외 · 빈 대여료 「-」 · 차명은 정본→정제칸→원문). 탭 4개: 상품리스트 / 손오공 구독재고는 「손오공구독」(보증금 반납형·12~60개월 반납형·보증금 인수형·36/48/60개월 인수형) / 손오공 픽업재고(T카)는 「픽업구독」(손오공구독과 같은 반납형·인수형, 2026-08-27) / 오토플러스는 「오플구독」(12개월 2만km … 36개월 3만km) — 갈래 탭엔 우리 공통 대여료 블록이 없고 그 공급사 기간별 대여료가 선다. 같은 차는 한 탭에만.',
   '② 원천대장 「상품마스터」 — 상태·정책·기간별 대여료/보증금(차종코드·차명 칸은 안 덮음) → 발행된 상품리스트 값으로 한 번 더 맞춤(⑤′) → ERP(매일 02:00 KST 일일 동기).',
   '③ 검수·채움 — 정제칸 채우기(fill-supplier-ai-columns) · 돈 대조(audit-sheet-vs-sales) · 빈 칸(audit-stock-gaps) · 정제칸 대조(audit-vehicle-refine).',
 ];
@@ -79,8 +80,8 @@ function describe(x: SheetIdentityInput): string {
     case '정제시트': return `[정제] ${x.label || '공급사'}는 자기 시트/홈페이지(원본)를 쓰고, 프리패스가 그걸 우리 규격으로 옮겨 담는 시트. 문패·발행기·상품마스터는 원본이 아니라 이 시트를 읽는다(「상품마스터로 올 때는 어찌됐든 정제시트 통해서」).`;
     case '문패': return '공급사코드 → 「발행기·상품마스터가 읽을 시트 주소」 표. 여기 적힌 주소가 그 공급사 재고의 정본이다(21곳 전부 우리 「프리패스 재고」 시트). 코드가 읽는 표 — 사람이 보는 정리표는 허브.';
     case '허브': return '사람이 보는 공급사 정리표(공급사명·코드·나눠 준 시트·지금 읽는 주소·대수·상태). publish-supplier-hub 가 찍는다. ERP 관리자 화면의 partner.sheet_url 동기(sheet-hub-sync)도 이 표를 읽는다.';
-    case '판매시트': return '영업자가 보는 표 — 탭 3개(「상품리스트」·「손오공구독」·「오플구독」, 2026-08-19 회귀). 기계가 문패 21곳 재고를 모아 같은 발행기로 찍는 사본 — 손으로 고치지 않는다(다음 발행에 사라진다). ERP 는 세 탭의 합과 정확히 같아야 한다(⑤′).';
-    case '원천대장': return '차종마스터(사전·Gemini 원장) · 상품마스터(차량번호→차종코드, ERP 입력 정본) · 규격검토/규격채택 · 시트 지도 · 정제칸 대조 · AI 운영 매뉴얼이 사는 우리 운영 원장.';
+    case '판매시트': return '영업자가 보는 표 — 탭 4개(「상품리스트」·「손오공구독」·「픽업구독」(T카, 2026-08-27)·「오플구독」). 기계가 문패 21곳 재고를 모아 같은 발행기로 찍는 사본 — 손으로 고치지 않는다(다음 발행에 사라진다). ERP 는 네 탭의 합과 정확히 같아야 한다(⑤′).';
+    case '원천대장': return '상품마스터(차량번호→ERP 차종코드 mf-) · 차종마스터 탭(mf- 보관, Gemini) · 규격검토/규격채택 · 시트 지도 · 정제칸 대조 · AI 운영 매뉴얼. 차명·제원 사전은 엔카 차종마스터 시트.';
     case '외부 원본': return `${x.label || '공급사'} 소유 원본. 프리패스는 읽기만 하고(정제시트로 옮김) 여기에 쓰지 않는다.`;
     default: return `${x.legacy?.kind || '옛 시트'} — ${x.legacy?.retiredOn || ''} 부터 프리패스 어디에서도 읽지 않는다(폐기). ${x.legacy?.note || ''}`.trim();
   }
@@ -102,15 +103,15 @@ function reads(x: SheetIdentityInput): [string, string][] {
   switch (x.kind) {
     case '제공시트': return [
       ['재고 탭 렌트사 칸(차량번호·상태·차명·대여료·보증금…) · 정책 탭 = 공급사 담당자가 직접 적는다(링크로 편집). 원본은 이 시트 자체 — 다른 데서 오지 않는다.', ''],
-      ['정제칸(차종코드·제조사(정제)·모델·세부모델·세부트림·연료·배기량…) ← 차량번호 정본(원천대장 상품마스터 차종코드 → 규격채택 이름 · 3축 결정 파일). 정본이 있으면 정본이 이기고, 없으면 차종마스터 대조로 결정, 그래도 없으면 빈칸.', 'npx tsx scripts/fill-supplier-ai-columns.mts --apply'],
+      ['정제칸(차종코드·제조사(정제)·모델·세부모델·세부트림·연료·배기량…) ← 우리 차종마스터. 상품마스터 차종코드가 있으면 그 마스터 행 이름. 신규 차종은 마스터에 넣은 뒤에만 박고, 없으면 빈칸.', 'npx tsx scripts/fill-supplier-ai-columns.mts --apply'],
       ['정책코드 ← 이 시트 「정책」 탭의 코드(사람이 고른다). 비면 「(프리패스 기본)」.', ''],
     ];
     case '정제시트': {
       const m = x.mirror; const src = m?.kind === 'iron' ? 'ironrentcar.com(홈페이지 수집)' : m?.from ? `원본 시트 ${sheetUrl(m.from)}` : '원본(mirror-sources)';
       return [
-        [`원본 = ${src} — 상태·대여료는 미러할 때마다(live), 정제칸·정책코드는 우리 것(ours), 나머지(차명·색·연식…)는 처음 한 번(once). 줄은 안 지운다(사라진 차는 출고불가). 보증금은 계산하지 않는다.`, 'lib/domain/mirror-sources.ts · npx tsx scripts/sync-mirror-all.mts --apply (사장님이 수식 연동을 걸면 이 코드는 끈다 — 둘이 서로 덮는다)'],
+        [`원본 = ${src} — ${MIRROR_OWNER_RULE}`, 'lib/domain/mirror-sources.ts · npx tsx scripts/sync-mirror-all.mts --apply (사장님이 수식 연동을 걸면 이 코드는 끈다 — 둘이 서로 덮는다)'],
         [m?.policies ? '정책 탭 ← 원본 줄별 조건 칸(대인·대물·자차…)을 접어 코드로(sync-mirror-policies).' : (m?.code === 'RP006' ? '정책 탭 = 홈페이지 공개조건을 RP006_WEB 에 손으로.' : '정책 탭 = 원본에 조건 칸이 없어 「(프리패스 기본)」.'), ''],
-        ['정제칸 ← 차량번호 정본(상품마스터 코드·3축 결정) — 제공시트와 같다.', 'fill-supplier-ai-columns --apply --include-mirror'],
+        ['정제칸 ← 우리 차종마스터(상품마스터 코드가 있으면 그 마스터 행 이름). 마스터에 없는 신규 차종은 먼저 마스터화하고, 그전엔 빈칸.', 'fill-supplier-ai-columns --apply --include-mirror'],
       ];
     }
     case '문패': return [['사람이 적는다(주소 정본). 공급사 시트를 새로 만들거나 바꾸면 여기 줄을 고친다 — 아직 비어 있는 새 시트를 적으면 그 공급사 재고가 통째로 0 이 된다.', 'switch-supplier-sheet.mts · tmp/hub-switch-log.txt(되돌릴 주소)']];
@@ -141,7 +142,7 @@ function cadence(x: SheetIdentityInput): string {
     case '문패': return '주소가 바뀔 때만(사람).';
     case '허브': return '문패·시트가 바뀐 뒤 publish-supplier-hub 로 다시 찍는다.';
     case '판매시트': return '매일 run-daily(자동 09:10 / 수동) 때 새 탭 「상품리스트 MM.DD HH:MM · N대」로 갈아 끼운다.';
-    case '원천대장': return '상품마스터: run-daily 때 갱신·맞춤 → ERP 02:00. 차종마스터: 원장(Gemini) 수시.';
+    case '원천대장': return '상품마스터: run-daily 때 갱신·맞춤 → ERP 02:00. 원장 「차종마스터」 탭(mf-): 수시. 차명·제원 사전: 엔카 차종마스터 시트.';
     case '외부 원본': return '공급사 수시.';
     default: return '없음(폐기).';
   }
@@ -153,7 +154,7 @@ function fixes(x: SheetIdentityInput): [string, string][] {
       ['정책 조건이 틀림/빔 → 이 시트 「정책」 탭. 차 이름이 틀림 → 정본(상품마스터 차종코드·결정 파일) — 정제칸을 손으로 고치지 말 것.', 'AI 운영 매뉴얼 7장'],
     ];
     case '정제시트': return [
-      ['상태·대여료 → 원본(공급사 시트/홈페이지)에서 — 여기서 고쳐도 다음 미러가 되돌린다. 차명·색·연식(once 칸)·정제칸·정책코드 → 여기서.', ''],
+      ['상태·대여료·차명·옵션 → 원본(공급사 시트/홈페이지)에서 — 여기서 고쳐도 다음 미러가 되돌린다. 색·연식·가격(once 칸)·정제칸·정책코드 → 여기서.', ''],
       ['원본 주소가 바뀜 → lib/domain/mirror-sources.ts(문패는 안 바뀐다).', ''],
     ];
     case '문패': return [['주소가 틀리면 여기 줄을 고치고 run-daily. 되돌릴 옛 주소는 tmp/hub-switch-log.txt.', '']];
@@ -167,7 +168,7 @@ function fixes(x: SheetIdentityInput): [string, string][] {
 function donts(x: SheetIdentityInput): string[] {
   switch (x.kind) {
     case '제공시트': return ['열 이름·차례 바꾸기 · 줄 지우기(안 파는 차는 상태만 출고불가) · 정제칸(보라)에 적기 · 표(Table) 삭제(값까지 지운다).'];
-    case '정제시트': return ['여기서 상태·대여료 고치기(되돌아간다) · 미러와 수식 연동을 같이 켜기 · 원본에 쓰기 · 열·줄 구조 바꾸기.'];
+    case '정제시트': return ['여기서 상태·대여료·차명·옵션 고치기(되돌아간다) · 미러와 수식 연동을 같이 켜기 · 원본에 쓰기 · 열·줄 구조 바꾸기.'];
     case '문패': return ['비어 있는 새 시트 적기 · 정제시트 대신 원본 주소 적기(발행기가 원본 구조를 못 읽는다).'];
     case '허브': return ['이 표를 문패로 착각하기(코드는 「공급사시트정리」 1TVeVXyJ… 만 읽는다).'];
     case '판매시트': return ['손으로 값 고치기 · 탭 지우기 · @제외를 상품마스터 규칙으로 쓰기.'];

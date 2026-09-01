@@ -36,6 +36,9 @@
   /* --brand-soft = 엑셀 머리띠. 흰색에 가까우면 머리가 본문에 묻힌다. */
   --brand: #1B2A4A;   --brand-h: #0F1B35;   --brand-bg: #e6ecf5;   --brand-soft: #eaeff7;
   --sky: #9EC5F3;     --sky-bg: #eef5fe;
+  /* 모바일 상단바 띠 — 전자계약 머리(.sign-root .c-head)와 «같은 면». themeColor(#1B2A4A)와도 같다.
+     ⚠ --brand 를 그대로 쓰지 않는다: 다크에서 --brand 는 «밝은 하늘색»이라 띠로 쓰면 글자가 죽는다. */
+  --fp-bar-navy: #1B2A4A;
   --focus-ring: rgba(27, 42, 74, 0.18);
 
   /* Accent palette (soft bg + saturated text) */
@@ -130,6 +133,7 @@ html[data-theme="dark"] {
 
   --brand: #9EC5F3;   --brand-h: #b8d7f7;   --brand-bg: #1a2740;   --brand-soft: #141c28;
   --sky: #9EC5F3;     --sky-bg: #1a2740;
+  --fp-bar-navy: #16202f;
   --focus-ring: rgba(158, 197, 243, 0.22);
 
   --red-bg: #2a1515;    --red-text: #fca5a5;    --red-border: #7f1d1d;
@@ -409,6 +413,13 @@ button, input, select, textarea { font-family: inherit; }
   .fp-action-dock__actions { gap: 6px !important; overflow: hidden; }
   .fp-action-dock__actions > .fp-press[data-variant="solid"] { flex: 1 1 auto; min-width: 104px; }
   .fp-action-dock__actions > .fp-press[data-variant="ghost"] { flex: 0 0 auto; }
+  /* ★모바일 하단독 = **꽉 채운 두 칸** — 전자계약 `.c-footer.wiz` 와 같은 짜임
+     (사장님 2026-08-30 「하단에 버튼을 좀 꽉 채워서 주요 버튼 · 비주요 버튼 두 개만 … 착한거래 하단 버튼처럼」).
+       비주요(이전) = 고정폭 92 · 주요(공유 등) = 나머지 전부(위 solid 규칙의 flex:1).
+     92 는 `.sign-root .btn-prev{min-width:92px}` 와 같은 값이다 — 손님 화면과 우리 화면의 «돌아가기»가 같은 폭이다.
+     ⚠ `[data-variant="ghost"]` 로 좁힌다: 라벨 없는 아이콘형 이전(IconBtn)은 data-variant 가 없어
+       여기 안 걸린다 — 정사각 40 표적이 92 로 늘어나면 안 된다. */
+  .fp-action-dock__row > .fp-press[data-variant="ghost"] { flex: 0 0 auto; min-width: 92px; }
 
   /* ★상단바 좌우 여백은 **CSS 가 정한다**(사장님 2026-08-23 「상품찾기 상단 아이콘 위치가 틀어지는 거 같은데 ·
      새로고침 하면 괜찮아지고」).
@@ -722,7 +733,10 @@ html[data-fp-filter="0"] .fp-finder > .fp-sidebar { display: none; }
   overflow: visible;
 }
 /* 모바일 퀵필터 한 줄 — 가로 스크롤, 칩 4개(사장님 2026-08-22). 팝오버가 잘리지 않게 overflow 는 세로만 숨김 없이. */
-.fp-quick-filter-bar.is-mobile { padding: 4px 10px; gap: 6px; overflow-x: auto; overflow-y: visible; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+/* ★좌우는 --fp-bar-pad-x(모바일 12) — 생숫자 10 이 박혀 있었다(2026-08-29).
+     위(검색 바)와 아래(목록 행)가 12 인데 이 줄만 10 이라 스크롤할 때 왼쪽 선이 2px 흔들렸다.
+     세로만 촘촘하게 두고(4px) 좌우는 프레임과 같은 값을 쓴다. */
+.fp-quick-filter-bar.is-mobile { padding: 4px var(--fp-bar-pad-x); gap: 6px; overflow-x: auto; overflow-y: visible; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
 .fp-quick-filter-bar.is-mobile::-webkit-scrollbar { display: none; }
 .fp-quick-filter-wrap { position: relative; flex: 0 0 auto; }
 .fp-quick-filter-wrap > button { position: relative; }
@@ -867,6 +881,12 @@ html[data-fp-filter="0"] .fp-finder > .fp-sidebar { display: none; }
     --fp-ctrl-h: 40px;
     --fp-bar-pad-y: 8px;
     --fp-bar-pad-x: 12px;
+    /* ★모바일 상단바만 48 — 다른 바(하단 홈바·독)는 56 그대로.
+       머리에서 «누르는 것»을 다 내려서 상태 한 줄만 남았는데(2026-08-30), 56 은 그 한 줄에 비해 너무 높다.
+       빈 높이가 위아래로 남으면 머리가 목록에서 떨어져 «붕» 뜬다
+       (사장님 2026-08-30 「헤드도 지금 상하로 좀 커가지고 붕 떠 보이는 느낌 … 붕 떠 보이게 하면 안 돼」).
+       터치 대상이 아니므로 40 규격에 묶일 이유도 없다. */
+    --topbar-h: 48px;
   }
   /* 모바일 = 스크롤바 거터 예약 끄기(우측만 넓어져 검색·필터 좌우 여백이 갈라짐) */
   .fp-main-pad {
@@ -1036,6 +1056,42 @@ html[data-fp-filter="0"] .fp-finder > .fp-sidebar { display: none; }
   .fp-search-tb { max-width: none; }
 }
 .fp-filter-apply { display: none; }
+
+/* ═══ 상단바 = 남색 띠(전자계약 머리와 같은 면) — 웹·모바일 «동일» ═══════════════
+   사장님 2026-08-30 「웹도 상단 헤더 똑같이 남색의 반전으로 하자 · 모바일이랑 동일하게」.
+
+     [아이콘] 상품찾기 1,234대                        (좌: 메뉴 · 우: 오늘·소속·이름)
+
+   띠(면)는 전자계약 머리(`components/sign/sign.css` .c-head)와 같은 색·같은 짜임이다.
+   ★**브랜드 표식은 안 세운다** — 마크도 워드마크도 없다(2026-08-30 「노브랜드로 아무것도 안 보여야」).
+   themeColor 도 #1B2A4A 라 폰에서는 상태바가 이 띠에 그대로 붙는다.
+
+   ★색을 원자에 «칠하지» 않는다 — 띠 안쪽(.fp-onbar)에서 «토큰만» 뒤집으면
+     C.* 를 쓰는 원자(PageStatus·Btn·IconBtn·CountPill·페이지 액션·세션정보)가 전부 알아서 따라온다.
+     ⚠ 전체메뉴 «패널»은 .fp-onbar 밖(NavMenu 버튼에만 걸었다)이라 흰 종이 그대로다 —
+       패널까지 뒤집히면 메뉴 글자가 남색 위 남색이 된다.
+   ★칠하는 주체는 CSS 다(JS useIsMobile 아님) — 첫 방문엔 쿠키(fp_m)가 없어 SSR 이 데스크톱으로
+     잡히므로, JS 로 칠하면 흰 띠가 한 번 번쩍이고 남색으로 바뀐다. */
+.fp-topbar {
+  background: var(--fp-bar-navy) !important;
+  border-bottom-color: transparent !important;
+}
+.fp-topbar .fp-onbar {
+  --brand: #ffffff;
+  --brand-h: rgba(255, 255, 255, 0.86);
+  --bg-card: var(--fp-bar-navy);   /* ghost 버튼 면 = 띠와 같은 면 · solid 버튼 글자색 */
+  --bg-header: rgba(255, 255, 255, 0.12);
+  --bg-hover: rgba(255, 255, 255, 0.16);
+  --bg-selected: rgba(255, 255, 255, 0.20);
+  --text-main: #ffffff;
+  --text-sub: rgba(255, 255, 255, 0.74);
+  --text-weak: rgba(255, 255, 255, 0.52);
+  --text-inverse: var(--fp-bar-navy);
+  --text-link: #cfe0fb;
+  --border: rgba(255, 255, 255, 0.28);
+  --border-soft: rgba(255, 255, 255, 0.16);
+  --border-strong: rgba(255, 255, 255, 0.36);
+}
 
 /* 모바일 하단 슬라이딩 탭 스트립 — 스크롤바 숨김(터치로 좌우 슬라이드). */
 .fp-tabstrip { scrollbar-width: none; -ms-overflow-style: none; }
@@ -1342,7 +1398,8 @@ button, a, [role="button"], .fp-press, .fp-chip {
 
 @media (max-width: 760px) {
   .fp-finder-main.is-sheet-view .fp-finder-body.is-excel { display: flex; flex-direction: column; overflow: hidden; padding: 0 0 var(--fp-finder-dock-h); }
-  .fp-sheet-view__toolbar { gap: 8px; padding: 0 8px; }
+  /* 좌우는 프레임과 같은 --fp-bar-pad-x(모바일 12). 8 이 박혀 있어 시트보기만 왼쪽으로 4px 밀려 있었다. */
+  .fp-sheet-view__toolbar { gap: 8px; padding: 0 var(--fp-bar-pad-x); }
   .fp-sheet-view__result-count { display: none; }
   .fp-sheet-view__tab-meta { display: none; }
 }

@@ -14,22 +14,35 @@ import { BRAND } from '@/lib/brand';
  */
 export default function robots(): MetadataRoute.Robots {
   return {
-    rules: {
-      userAgent: '*',
-      allow: '/',
-      disallow: [
-        '/q/', // 손님 견적 — 담당자가 뿌리는 링크. 찾아지는 것이 아니다
-        '/sign/', // 전자서명 — 주민번호·면허·서명이 들어가는 입력창
-        '/api/',
-        '/chat',
-        '/inventory',
-        '/members',
-        '/settlement',
-        '/settings',
-        '/esign',
-        '/m', // 영업자 업무화면
-      ],
-    },
+    rules: [
+      // 검색 노출과 AI 학습 수집은 목적이 다르다. 일반 검색엔진은 공개 브랜드·법적
+      // 문서만 발견할 수 있게 두되, AI 학습용 크롤러에는 전 경로를 제공하지 않는다.
+      // robots.txt는 준수형 수집기용 신호일 뿐 보안 경계가 아니므로, 업무·고객 데이터는
+      // 계속 인증 API와 서버 측 권한검사로 보호한다.
+      ...[
+        'GPTBot', 'ChatGPT-User', 'OAI-SearchBot',
+        'ClaudeBot', 'anthropic-ai',
+        'Google-Extended', 'GoogleOther',
+        'PerplexityBot', 'CCBot', 'Bytespider',
+        'Amazonbot', 'meta-externalagent', 'meta-externalfetcher',
+      ].map((userAgent) => ({ userAgent, disallow: '/' })),
+      {
+        userAgent: '*',
+        allow: '/',
+        disallow: [
+          '/q/', // 손님 견적 — 담당자가 뿌리는 링크. 찾아지는 것이 아니다
+          '/sign/', // 전자서명 — 주민번호·면허·서명이 들어가는 입력창
+          '/api/',
+          '/chat',
+          '/inventory',
+          '/members',
+          '/settlement',
+          '/settings',
+          '/esign',
+          '/m', // 영업자 업무화면
+        ],
+      },
+    ],
     sitemap: `https://${BRAND}/sitemap.xml`,
     host: `https://${BRAND}`,
   };

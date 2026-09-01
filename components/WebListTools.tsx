@@ -5,7 +5,8 @@ import { Btn, C, FS, FW, SearchInput, Select } from '@/components/ui';
 
 /**
  * 데스크톱 목록 도구 SSOT.
- * WorkPage와 일반 Page가 같은 검색 → 정렬 → 필터 → 적용조건 순서를 공유한다.
+ * 업무 목록 = 검색 → 필터(축은 FilterGroup+FilterChips). 정렬 Select는 두지 않는다 — 바꿀 일은 필터 안 칩.
+ * sort 슬롯은 레거시·비업무 화면용으로만 남아 있다.
  */
 export function WebListTools({ tools }: { tools?: ListToolsConfig }) {
   if (!tools) return null;

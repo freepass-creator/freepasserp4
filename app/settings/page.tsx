@@ -1,7 +1,8 @@
 'use client';
 import { useEffect, useState } from 'react';
+import dynamic from 'next/dynamic';
 import {
-  Page, Btn, ButtonLabel, C, SectionLabel, DetailGrid, ListGroup, ListRow, FilterChips, NUM, Input, Select, FS, R, fmtPhone, ICON,
+  Page, Btn, ButtonLabel, SectionLabel, ListRow, FilterChips, Input, Select, Message, WorkTable, WorkRow, WorkInput, fmtPhone, ICON,
 } from '@/components/ui';
 import { Copy, Download, KeyRound, LoaderCircle, LogIn, LogOut, Save } from 'lucide-react';
 import { useSession } from '@/lib/auth-context';
@@ -21,12 +22,20 @@ import { useIsMobile } from '@/lib/use-mobile';
 import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { isStockedProduct } from '@/lib/domain/product';
-import { downloadInventoryPhotoArchives } from '@/lib/client/download-photo-zip';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { NAV_LABEL } from '@/lib/tabbar';
 import { copyText } from '@/lib/clipboard';
-import { ProductPreferences } from '@/features/settings/ProductPreferences';
-import { MyFiles } from '@/features/settings/MyFiles';
+// 설정의 파일/상품 선호 패널은 스크롤 아래의 보조 기능이다. 계정·화면 설정을 먼저
+// 반응시키고, 해당 섹션이 필요할 때만 불러온다.
+const ProductPreferences = dynamic(() => import('@/features/settings/ProductPreferences').then((m) => m.ProductPreferences), {
+  ssr: false,
+});
+const MyFiles = dynamic(() => import('@/features/settings/MyFiles').then((m) => m.MyFiles), {
+  ssr: false,
+});
+const EsignManualOfferSettings = dynamic(() => import('@/features/settings/EsignManualOfferSettings').then((m) => m.EsignManualOfferSettings), {
+  ssr: false,
+});
 /** 로컬 미인증 데모 — 관리자 승격 금지. */
 const DEMO_ROLES: { key: Role; label: string }[] = [
   { key: 'agent', label: '영업자' },
@@ -228,6 +237,9 @@ export default function Settings() {
         okLabel: '사진 받기',
       });
       if (!approved) return;
+      // ZIP 생성기와 사진 resolver는 관리자만 가끔 쓰는 무거운 경로다. 설정을 열 때
+      // 내려받지 않고, 실제 다운로드를 확정한 뒤에만 가져온다.
+      const { downloadInventoryPhotoArchives } = await import('@/lib/client/download-photo-zip');
       const result = await downloadInventoryPhotoArchives(targets, ({ batch, batches }) => setPhotoDownloadLabel(`사진 묶는 중 ${batch}/${batches}`));
       toast(`ZIP ${result.archives}개 · 차량 ${result.vehicles}대 · 사진 ${result.photos}장${result.noPhoto ? ` · 사진없음 ${result.noPhoto}대` : ''}${result.failed ? ` · 실패 ${result.failed}장` : ''}`, result.failed ? 'info' : 'ok');
     } catch (error) {
@@ -250,7 +262,8 @@ export default function Settings() {
     <Page title="설정">
       {/* 웹 = 폭 활용 2단(섹션 원자는 그대로, 배열만 컬럼) · 모바일 = 단일 세로 스크롤. */}
       <style>{`
-        .fp-settings-grid { max-width: 560px; width: 100%; box-sizing: border-box; margin: 0 auto; padding: 12px 0; display: flex; flex-direction: column; gap: 20px; }
+        /* 그룹 간 16 — 섹션 리듬(12)보다 한 단 넓게(제목이 얇은 글자라 12면 그룹이 붙어 보임), 20은 과했다(2026-08-22 공통규격 정리). */
+        .fp-settings-grid { max-width: 560px; width: 100%; box-sizing: border-box; margin: 0 auto; padding: 12px 0; display: flex; flex-direction: column; gap: 16px; }
         @media (min-width: 760px) {
           .fp-settings-grid { max-width: 960px; padding: 18px 16px 28px; display: block; column-count: 2; column-gap: 30px; }
           .fp-settings-grid > * { break-inside: avoid; -webkit-column-break-inside: avoid; margin-bottom: 22px; }
@@ -258,33 +271,27 @@ export default function Settings() {
       `}</style>
       <div className="fp-settings-grid">
         <div>
-          <SectionLabel mt={0}>계정</SectionLabel>
+          <WorkTable title="계정">
+            {visibleSession ? (
+              <>
+                <WorkRow label="이름"><WorkInput value={pName} onChange={setPName} placeholder="이름" /></WorkRow>
+                <WorkRow label="연락처"><WorkInput value={pPhone} onChange={(v) => setPPhone(fmtPhone(v))} inputMode="tel" placeholder="010-0000-0000" /></WorkRow>
+              </>
+            ) : (
+              <WorkRow label="이름">{name}</WorkRow>
+            )}
+            <WorkRow label="역할">{ROLE_LABEL[role] || role}</WorkRow>
+            <WorkRow label="이메일">{email}</WorkRow>
+            {company ? <WorkRow label="회사">{company}</WorkRow> : null}
+            <WorkRow label="상태">{statusLabel}</WorkRow>
+          </WorkTable>
           {visibleSession ? (
-            <div style={{ display: 'grid', gap: 10, marginBottom: 12 }}>
-              <label style={{ fontSize: FS.sub, color: C.faint }}>이름
-                <div style={{ marginTop: 4 }}><Input value={pName} onChange={setPName} full placeholder="이름" /></div>
-              </label>
-              <label style={{ fontSize: FS.sub, color: C.faint }}>연락처
-                <div style={{ marginTop: 4 }}><Input value={pPhone} onChange={(v) => setPPhone(fmtPhone(v))} inputMode="tel" full placeholder="010-0000-0000" /></div>
-              </label>
-              <div>
-                <Btn title={savingProfile ? '내 정보 저장 중' : '내 정보 저장'} size="sm" onClick={saveProfile} disabled={!profileDirty || savingProfile}>
-                  <ButtonLabel icon={<Save size={ICON.md} aria-hidden />}>{savingProfile ? '저장 중…' : '내 정보 저장'}</ButtonLabel>
-                </Btn>
-              </div>
+            <div style={{ marginTop: 8 }}>
+              <Btn title={savingProfile ? '내 정보 저장 중' : '내 정보 저장'} size="sm" onClick={saveProfile} disabled={!profileDirty || savingProfile}>
+                <ButtonLabel icon={<Save size={ICON.md} aria-hidden />}>{savingProfile ? '저장 중…' : '내 정보 저장'}</ButtonLabel>
+              </Btn>
             </div>
           ) : null}
-          {/* DetailGrid 는 카드 안에 사는 규격(행 좌우 12). 카드 없이 두면 라벨만 안으로 밀려
-              섹션 제목·버튼과 좌측 기준선이 두 갈래가 된다. */}
-          <ListGroup>
-            <DetailGrid rows={[
-              ...(visibleSession ? [] : [['이름', name] as [string, string]]),
-              ['역할', ROLE_LABEL[role] || role],
-              ['이메일', email],
-              ...(company ? [['회사', company] as [string, string]] : []),
-              ['상태', statusLabel],
-            ]} />
-          </ListGroup>
           <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
             {visibleSession ? (
               <Btn title={pwdBusy ? '재설정 메일 전송 중' : '비밀번호 변경'} variant="ghost" full onClick={changePassword} disabled={pwdBusy}>
@@ -303,11 +310,9 @@ export default function Settings() {
         {visibleSession && shareUrl ? (
           <div>
             <SectionLabel mt={0}>카탈로그 공유</SectionLabel>
-            <div style={{ fontSize: FS.sub, color: C.faint, marginBottom: 8, lineHeight: 1.45 }}>
-              내 영업자 정보가 연결된 상품 안내 링크입니다. 카톡·문자로 손님에게 공유하세요.
-            </div>
+            <Message variant="info">내 영업자 정보가 연결된 상품 안내 링크입니다. 카톡·문자로 손님에게 공유하세요.</Message>
             <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-              <div style={{ flex: 1, minWidth: 0, fontSize: FS.sub, color: C.ink, background: C.head, borderRadius: R, padding: '8px 10px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{shareUrl}</div>
+              <Input value={shareUrl} onChange={() => {}} readOnly full ariaLabel="카탈로그 공유 링크" />
               <Btn title="카탈로그 링크 복사" size="sm" onClick={copyShare}>
                 <ButtonLabel icon={<Copy size={ICON.md} aria-hidden />}>복사</ButtonLabel>
               </Btn>
@@ -317,31 +322,24 @@ export default function Settings() {
 
         <div>
           <SectionLabel mt={0}>화면</SectionLabel>
-          <div style={{ fontSize: FS.sub, color: C.faint, marginBottom: 8 }}>테마</div>
           <FilterChips value={theme} onChange={(k) => onTheme(k as ThemePref)} options={THEMES} />
         </div>
 
         <div>
           <SectionLabel mt={0}>피드백</SectionLabel>
-          <div style={{ fontSize: FS.sub, color: C.faint, marginBottom: 8 }}>햅틱(진동)</div>
           <FilterChips
             value={hapticOn ? 'on' : 'off'}
             onChange={(k) => onHaptic(k as 'on' | 'off')}
             options={HAPTIC_OPTS}
           />
-          <div style={{ marginTop: 8, fontSize: FS.sub, color: C.faint, lineHeight: 1.45 }}>
-            모바일에서 탭·전환 시 짧은 진동. 미지원 기기는 자동으로 무시됩니다.
-          </div>
+          <Message variant="info">모바일에서 탭·전환 시 짧은 진동. 미지원 기기는 자동으로 무시됩니다.</Message>
         </div>
 
         {visibleSession ? (
           <div>
             <SectionLabel mt={0}>보안</SectionLabel>
-            <div style={{ fontSize: FS.sub, color: C.faint, marginBottom: 8 }}>자동 로그아웃 (자리비움)</div>
             <FilterChips value={String(idleMin)} onChange={(k) => onIdle(Number(k))} options={IDLE_OPTS} />
-            <div style={{ marginTop: 8, fontSize: FS.sub, color: C.faint, lineHeight: 1.45 }}>
-              설정한 시간 동안 활동이 없으면 자동 로그아웃됩니다. 공용 PC에서 유용.
-            </div>
+            <Message variant="info">설정한 시간 동안 활동이 없으면 자동 로그아웃됩니다. 공용 PC에서 유용.</Message>
           </div>
         ) : null}
 
@@ -353,6 +351,7 @@ export default function Settings() {
           favoriteCount={favN}
           passed={passed}
           hidden={hidden}
+          showInterest={!mobile}
         />
 
         {demoRole ? (
@@ -363,16 +362,17 @@ export default function Settings() {
               onChange={(k) => switchRole(k as Role)}
               options={DEMO_ROLES}
             />
-            <div style={{ marginTop: 8, fontSize: FS.sub, color: C.faint, lineHeight: 1.45 }}>
+            <Message variant="info">
               미로그인 데모용(영업·공급). 관리자 메뉴는 관리자 계정 로그인이 필요합니다.
               손님 공유 링크는 카탈로그·상품 안내(`/catalog`, `/q/…`)로 전달하세요.
-            </div>
+            </Message>
           </div>
         ) : null}
 
         {visibleSession?.role === 'admin' ? (
           <div>
             <SectionLabel mt={0}>관리</SectionLabel>
+            <EsignManualOfferSettings />
             {!mobile && (
               <div style={{ marginBottom: 12 }}>
                 <div style={{ marginBottom: 6 }}>
@@ -389,11 +389,10 @@ export default function Settings() {
                     {photoDownloadLabel}
                   </ButtonLabel>
                 </Btn>
-                <div style={{ marginTop: 6, fontSize: FS.sub, color: C.faint, lineHeight: 1.45 }}>
-                  선택한 공급사의 사진을 차량번호 폴더로 정리해 차량 10대 단위 ZIP으로 저장합니다. PC에서만 이용할 수 있습니다.
-                </div>
+                <Message variant="info">선택한 공급사의 사진을 차량번호 폴더로 정리해 차량 10대 단위 ZIP으로 저장합니다. PC에서만 이용할 수 있습니다.</Message>
               </div>
             )}
+            {/* 관리자 전용 화면(월별정산·계약서관리 등) 입구는 모바일도 햄버거다(2026-08-22 밤 「관리자 햄버거 ㅇㅋ」 — 여기 두면 중복). */}
             <ListRow main="개발도구" href="/dev" />
             <ListRow main={NAV_LABEL.dataCheck} href="/data-check" />
             <ListRow main={NAV_LABEL.audit} href="/audit" />
@@ -401,17 +400,12 @@ export default function Settings() {
         ) : null}
 
         <div>
-          <SectionLabel mt={0}>앱</SectionLabel>
-          <ListGroup>
-            <DetailGrid rows={[
-              ['이름', BRAND],
-              ['버전', VERSION],
-              ['환경', appEnv],
-            ]} />
-          </ListGroup>
-          <div style={{ marginTop: 10, fontSize: FS.sub, color: C.faint, lineHeight: 1.5 }}>
-            화이트라벨 렌터카 중개 ERP.
-          </div>
+          <WorkTable title="앱">
+            <WorkRow label="이름">{BRAND}</WorkRow>
+            <WorkRow label="버전">{VERSION}</WorkRow>
+            <WorkRow label="환경">{appEnv}</WorkRow>
+          </WorkTable>
+          <Message variant="info">화이트라벨 렌터카 중개 ERP.</Message>
         </div>
       </div>
     </Page>

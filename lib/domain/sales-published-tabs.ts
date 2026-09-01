@@ -1,18 +1,25 @@
 /**
- * **판매시트에서 «발행된 표»로 치는 탭들** — 상품리스트 · 손오공구독 · 오플구독 (사장님 2026-08-19 「탭 3개로 회귀」).
+ * **판매시트에서 «발행된 표»로 치는 탭들** — 상품리스트 · 손오공구독 · 픽업구독 · 오플구독.
+ * (사장님 2026-08-19 「탭 3개로 회귀」 → 2026-08-28 손오공 픽업이 붙어 **4탭**. 개수를 손으로 박지 말고 이 배열을 쓴다)
  *
  * ★세 탭은 같은 발행기(publish-origin-tab, --only 로 갈래만 다름)가 같은 열·같은 정본 차명으로 찍는다.
  *   손오공구독·오플구독은 우리 공통 대여료 블록(단기보증·1개월·12개월·장기보증·24~60개월) 대신 **그 공급사의 기간별 대여료**를 그 자리에 둔다
  *   (사장님 2026-08-19 — 「우리 공통 기간별 대여료는 없애도 되고, 손오공이랑 오플은 그들의 기간별 대여료를 해 주면 됨 · 손오공 반납형은 보증금(연수×대여료)이랑
  *   기간별 대여료만 · 오플은 12개월 3만Km 이렇게」, publish-sonogong-tab).
- *   그래서 «판매시트에 실린 차 = 세 탭의 합»이고, 상품마스터 맞춤(⑤′)·돈 대조·ERP 대조가 표준 칸(12·24·36개월…)을 찾을 땐 아래 별칭으로 되찾는다.
+ *   그래서 «판매시트에 실린 차 = 네 탭의 합»이고, 상품마스터 맞춤(⑤′)·돈 대조·ERP 대조가 표준 칸(12·24·36개월…)을 찾을 땐 아래 별칭으로 되찾는다.
  *   상품리스트 한 탭만 읽으면 오플 88·손오공 구독 43대가 «없는 차»로 보인다(2026-08-18 저녁 하루는 한 탭이었다).
  * ★탭 이름은 「접두 MM.DD HH:MM · N대」. 접두마다 한 장만 산다(발행기가 같은 접두 탭을 갈아 끼움).
  */
-import { isImportBrand } from './sheet-import';
+import { isImportBrand } from './vehicle-origin';
 
-export const SALES_PUBLISHED_TAB_PREFIXES = ['상품리스트', '손오공구독', '오플구독'] as const;
+/** 보이는 탭 막대 왼쪽부터 이 차례. 발행기가 `--at` 없이 찍어도 이 자리를 지킨다. */
+export const SALES_PUBLISHED_TAB_PREFIXES = ['상품리스트', '손오공구독', '픽업구독', '오플구독'] as const;
 export type SalesPublishedPrefix = (typeof SALES_PUBLISHED_TAB_PREFIXES)[number];
+
+export function salesPublishedTabIndex(prefix: string): number {
+  const at = (SALES_PUBLISHED_TAB_PREFIXES as readonly string[]).indexOf(prefix);
+  return at >= 0 ? at : 0;
+}
 
 /** 탭 이름 목록에서 접두마다 발행 탭 하나씩(숨김 제외는 호출자가). 없는 접두는 뺀다. */
 export function pickPublishedSalesTabs(titles: string[]): { prefix: SalesPublishedPrefix; title: string }[] {
@@ -34,6 +41,11 @@ export const NATIVE_MONEY_BLOCK: Record<Exclude<SalesPublishedPrefix, '상품리
     src: '1WIFn5ObK_nCVGLTjj6rO96i6vxub1QzJmiVW0BpJLcA', srcTab: '구독재고',
     // 반납형: 보증금(글자 「연수×대여료」)+기간별 대여료 · 인수형: 보증금+36/48/60(12·24 인수형은 안 판다 — 값이 생기면 여기 늘린다)
     block: ['보증금 반납형', '12개월 반납형', '24개월 반납형', '36개월 반납형', '48개월 반납형', '60개월 반납형', '보증금 인수형', '36개월 인수형', '48개월 인수형', '60개월 인수형'],
+  },
+  픽업구독: {
+    // T카(TCAR_EXTERNAL) — 손오공 재고시트 「픽업재고」. 인수형도 반납형과 같은 12~60 전 기간(사장님 2026-08-27 「인수형도 반납형이랑 같아」 — T카는 상세 estimates에 인수형 12·24가 있다).
+    src: '1WIFn5ObK_nCVGLTjj6rO96i6vxub1QzJmiVW0BpJLcA', srcTab: '픽업재고',
+    block: ['보증금 반납형', '12개월 반납형', '24개월 반납형', '36개월 반납형', '48개월 반납형', '60개월 반납형', '보증금 인수형', '12개월 인수형', '24개월 인수형', '36개월 인수형', '48개월 인수형', '60개월 인수형'],
   },
   오플구독: {
     src: '1Tvd5IioF5y_yu3L1BQMRP4J1R8hcZHwkgl3vl-TsgY0', srcTab: '재고',
@@ -69,6 +81,10 @@ export const SALES_TAB_MONEY_ALIASES: Record<SalesPublishedPrefix, Partial<Recor
     장기보증: ['보증금 반납형'],
     '12개월': ['12개월 반납형'], '24개월': ['24개월 반납형'], '36개월': ['36개월 반납형'], '48개월': ['48개월 반납형'], '60개월': ['60개월 반납형'],
   },
+  픽업구독: {
+    장기보증: ['보증금 반납형'],
+    '12개월': ['12개월 반납형'], '24개월': ['24개월 반납형'], '36개월': ['36개월 반납형'], '48개월': ['48개월 반납형'], '60개월': ['60개월 반납형'],
+  },
   오플구독: {
     '12개월': ['12개월3만', '12개월 3만km'], '24개월': ['24개월2만', '24개월 2만km'], '36개월': ['36개월2만', '36개월 2만km'],
   },
@@ -81,4 +97,29 @@ export function standardMoneyIndex(prefix: SalesPublishedPrefix, header: string[
   const aliases = (SALES_TAB_MONEY_ALIASES[prefix] as Record<string, string[] | undefined>)[name] || [];
   for (const a of aliases) { const i = header.findIndex((h) => normHead(h) === normHead(a)); if (i >= 0) return i; }
   return -1;
+}
+
+/**
+ * 「AI 인계」 @매핑의 기본 열을 갈래 탭의 최종 열로 바꾼다.
+ * publish-sonogong-tab 기본 동작과 감사기가 공유하는 스키마 계약이다.
+ */
+export function publishedSalesColumns(prefix: SalesPublishedPrefix, baseColumns: string[]): string[] {
+  if (prefix === '상품리스트') return [...baseColumns];
+  const native = NATIVE_MONEY_BLOCK[prefix];
+  const labels = native.block.map(nativeMoneyLabel);
+  const norm = (value: unknown) => String(value ?? '').trim().replace(/\s+/g, '').replace(/km$/i, '').replace(/[()（）]/g, '');
+  const nativeNames = [...native.block, ...labels, ...(native.lead ? [native.lead.name] : [])];
+  // 갈래 탭(손오공구독·픽업구독·오플구독)엔 그 공급사가 안 쓰는 빈 칸을 빼둔다 — 상품리스트에만 남긴다(사장님 2026-08-27 「6개월 어정쩡하게 붙은 거 날려줘」).
+  const 갈래제외 = ['6개월'];
+  const removed = (header: string) =>
+    nativeNames.some((name) => norm(name) === norm(header))
+    || (STANDARD_MONEY_COLUMNS as readonly string[]).some((name) => norm(name) === norm(header))
+    || 갈래제외.some((name) => norm(name) === norm(header));
+  const kept = baseColumns.filter((header) => !removed(header));
+  const classIndex = kept.findIndex((header) => norm(header) === norm('차종구분'));
+  const kmIndex = kept.findIndex((header) => /^(km|주행거리)$/i.test(norm(header)));
+  const anchorIndex = classIndex >= 0 ? classIndex : kmIndex;
+  const insertAt = anchorIndex >= 0 ? anchorIndex + 1 : kept.length;
+  const block = [...(native.lead ? [native.lead.name] : []), ...labels];
+  return [...kept.slice(0, insertAt), ...block, ...kept.slice(insertAt)];
 }

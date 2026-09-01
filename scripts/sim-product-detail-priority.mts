@@ -35,7 +35,11 @@ const vehicle = sections[0];
 assert.equal(vehicle.kind, 'kv');
 if (vehicle.kind === 'kv') {
   const labels = vehicle.rows.map(([label]) => label);
-  assert.ok(labels.includes('차량'));
+  /*
+   * 「차명」 줄은 2026-08-28 에 없앴다 — 맨 위 제목이 같은 이름(정제 세부모델+세부트림)을 이미 든다.
+   * 그래서 «있어야 한다»가 아니라 **«없어야 한다»**를 지킨다(사장님 「중복 반복 안 되게」).
+   */
+  assert.ok(!labels.includes('차명'), '차명이 제목과 겹쳐 두 번 나옵니다.');
   assert.ok(labels.includes('연식 · 주행'));
   assert.ok(labels.includes('동력'));
   assert.ok(labels.includes('색상'));
@@ -48,8 +52,16 @@ const detailSource = readFileSync(new URL('../components/ProductDetail.tsx', imp
 const priceSource = readFileSync(new URL('../components/ProductPriceTable.tsx', import.meta.url), 'utf8');
 const detailPageSource = readFileSync(new URL('../app/m/[code]/page.tsx', import.meta.url), 'utf8');
 const assistSource = readFileSync(new URL('../components/ProductAssistPanel.tsx', import.meta.url), 'utf8');
-assert.match(detailSource, /aria-label="보험 보장한도와 면책금"/, '보험 비교표의 접근성 이름이 없습니다.');
-assert.match(priceSource, /aria-label="기간별 대여료와 보증금"/, '기간별 요금표의 접근성 이름이 없습니다.');
+/*
+ * 접근성 이름은 **DetailTable 이 붙인다** — `aria-label={label || title}`.
+ * 예전엔 두 파일에서 `aria-label="…"` 글자를 찾았는데, 이름 붙이는 자리가 공용 컴포넌트로
+ * 올라간 뒤로 이 줄이 계속 틀린 곳을 보고 있었다(코드는 멀쩡한데 sim 만 깨져 있었다).
+ * 그래서 «누가 이름을 붙이나»를 검사한다.
+ */
+const uiDetailSource = readFileSync(new URL('../components/ui/detail.tsx', import.meta.url), 'utf8');
+assert.match(uiDetailSource, /<table aria-label=\{label \|\| \(typeof title/, 'DetailTable 이 표에 접근성 이름을 안 붙입니다.');
+assert.match(detailSource, /label="보험 보장한도와 면책금"/, '보험 비교표의 접근성 이름이 없습니다.');
+assert.match(priceSource, /<DetailTable/, '기간별 요금표가 DetailTable(접근성 이름 포함)을 안 씁니다.');
 assert.doesNotMatch(detailSource, /priceAside/, '가격이 다시 우측 패널 분기로 분리됐습니다.');
 assert.doesNotMatch(assistSource, /ProductPriceTable/, '업무 보조패널에 가격이 다시 중복됐습니다.');
 assert.match(detailPageSource, /role === 'provider'/, '공급사 문의 보조패널 진입 조건이 사라졌습니다.');

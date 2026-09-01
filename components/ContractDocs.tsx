@@ -4,9 +4,9 @@ import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { getRole, actor, ROLE_LABEL, type Role } from '@/lib/domain/deal';
 import { isContractCancelled } from '@/lib/domain/contract';
-import { C, R, FS, FW, Btn, ButtonLabel, Dropzone, SCRIM, ICON } from '@/components/ui';
+import { C, R, FS, FW, Btn, ButtonLabel, CenterNote, Dropzone, ListRow, Message, Loading, SectionLabel, SCRIM, ICON } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
-import { Paperclip, FileText, X, Download, Trash2 } from 'lucide-react';
+import { Paperclip, X, Download, Trash2 } from 'lucide-react';
 import { toast } from '@/components/Toaster';
 import { deleteManagedFile, uploadManagedFile, type DriveBackupStatus } from '@/lib/firebase/storage-files';
 import { findRoomForContract } from '@/features/chat/room-display';
@@ -81,7 +81,6 @@ function coerceAtt(raw: unknown): Att | null {
 export function ContractDocs({ contractCode, roomId, readOnly = false }: { contractCode: string; roomId?: string; readOnly?: boolean }) {
   const mobile = useIsMobile();
   const co = getCompanyId();
-  const thumb = mobile ? 40 : 34;
   const [atts, setAtts] = useState<Att[]>([]);
   const [chatAtts, setChatAtts] = useState<Att[]>([]);
   const [drag, setDrag] = useState(false);
@@ -271,13 +270,9 @@ export function ContractDocs({ contractCode, roomId, readOnly = false }: { contr
   const merged = [...atts, ...chatAtts.filter((c) => !manualKeys.has(c.url))].sort((a, b) => a.at - b.at);
 
   return (
-    <div style={{ padding: '12px 14px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-        <span style={{ fontSize: FS.sub, fontWeight: FW.title, color: C.ink }}>첨부 서류</span>
-        <span style={{ fontSize: FS.cap, color: C.faint }}>{loadState === 'ready' ? merged.length : '—'}</span>
-        <span style={{ flex: 1 }} />
-        <span style={{ fontSize: FS.cap, color: C.faint }}>{readOnly ? '취소 계약 · 읽기 전용' : 'Storage 원본 · Drive 백업(설정 시)'}</span>
-      </div>
+    <div>
+      <SectionLabel mt={0}>첨부 서류{loadState === 'ready' ? ` · ${merged.length}` : ''}</SectionLabel>
+      <Message variant="info">{readOnly ? '취소 계약 · 읽기 전용' : 'Storage 원본 · Drive 백업(설정 시)'}</Message>
 
       {!readOnly && loadState === 'ready' ? (
         <Dropzone
@@ -296,47 +291,55 @@ export function ContractDocs({ contractCode, roomId, readOnly = false }: { contr
           <input ref={inputRef} type="file" multiple disabled={busy} onChange={(e) => void addFiles(e.target.files)} style={{ display: 'none' }} onClick={(e) => e.stopPropagation()} />
         </Dropzone>
       ) : !readOnly ? (
-        <div style={{ marginBottom: 8, padding: '12px 10px', textAlign: 'center', border: `1px solid ${C.line}`, borderRadius: R, color: loadState === 'error' ? C.danger : C.faint, fontSize: FS.cap }}>
-          {loadState === 'error' ? '첨부 서류를 불러오지 못했습니다. 새로고침 후 다시 시도하세요.' : '첨부 서류 불러오는 중…'}
-        </div>
+        loadState === 'error' ? (
+          <Message variant="danger">첨부 서류를 불러오지 못했습니다. 새로고침 후 다시 시도하세요.</Message>
+        ) : (
+          <Loading label="첨부 서류 불러오는 중…" minHeight={80} />
+        )
       ) : null}
 
-      {loadState !== 'ready' ? null : merged.length === 0 ? <div style={{ fontSize: FS.cap, color: C.faint, textAlign: 'center', padding: '6px 0' }}>첨부된 서류가 없습니다.</div> :
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-          {merged.map((a, i) => {
-            const sizeLabel = sz(a.size);
-            return (
-              <div key={`${a.url || a.name}-${a.at}-${i}`} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '6px 9px', border: `1px solid ${C.line}`, borderRadius: R, background: C.taupeBg }}>
-                {isImg(a) && a.url
-                  ? <img src={a.url} alt="" onClick={() => setPreview(a)} style={{ width: thumb, height: thumb, objectFit: 'cover', borderRadius: R, cursor: 'zoom-in', flex: '0 0 auto', background: C.placeholder }} />
-                  : <span onClick={() => canPreview(a) && setPreview(a)} style={{ display: 'flex', flex: '0 0 auto', cursor: canPreview(a) ? 'pointer' : 'default' }}>{isPdf(a) ? <FileText size={ICON.md} color={C.danger} /> : <FileText size={ICON.sm} color={C.mute} />}</span>}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <span
-                    onClick={() => canPreview(a) ? setPreview(a) : a.url && window.open(a.url, '_blank')}
-                    title={a.name}
-                    style={{ fontSize: FS.sub, fontWeight: FW.strong, color: C.ink, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block', cursor: 'pointer' }}
-                  >{a.name}</span>
-                  <span style={{ fontSize: FS.micro, color: C.faint }}>
-                    {[sizeLabel, a.fromChat ? '채팅' : '', [a.by_role, a.by_name].filter(Boolean).join(' ')].filter(Boolean).join(' · ')}
-                    {(a.by_name || a.by_role) && !a.fromChat ? ' 첨부' : ''}
-                    {!a.fromChat && a.drive_backup_status === 'saved' ? ' · Drive 백업됨' : ''}
-                    {!a.fromChat && a.drive_backup_status === 'failed' ? ' · Drive 백업 실패' : ''}
-                    {!a.fromChat && a.drive_backup_status === 'disabled' ? ' · Drive 미설정' : ''}
-                  </span>
-                </div>
-                {a.fromChat
-                  ? <span style={{ fontSize: FS.micro, fontWeight: FW.label, color: C.brand, background: C.selected, borderRadius: R, padding: '1px 5px', flex: '0 0 auto' }}>채팅</span>
-                  : null}
-                {a.url && <a href={a.url} download={a.name} aria-label="다운로드" style={{ color: C.faint, display: 'flex', flex: '0 0 auto' }}><Download size={ICON.sm} /></a>}
-                {!a.fromChat && !readOnly ? (
-                  <Btn size="sm" variant="danger" title="삭제" disabled={busy} onClick={() => remove(a)}>
-                    <ButtonLabel icon={<Trash2 size={ICON.md} aria-hidden />}>삭제</ButtonLabel>
-                  </Btn>
-                ) : null}
-              </div>
-            );
-          })}
-        </div>}
+      {loadState !== 'ready' ? null : merged.length === 0 ? <CenterNote minHeight={48}>첨부된 서류가 없습니다.</CenterNote> : (
+        merged.map((a, i) => {
+          const sizeLabel = sz(a.size);
+          const kind = a.fromChat ? '채팅' : isPdf(a) ? 'PDF' : isImg(a) ? '사진' : '파일';
+          const meta = [
+            sizeLabel,
+            [a.by_role, a.by_name].filter(Boolean).join(' '),
+            (a.by_name || a.by_role) && !a.fromChat ? '첨부' : '',
+            !a.fromChat && a.drive_backup_status === 'saved' ? 'Drive 백업됨' : '',
+            !a.fromChat && a.drive_backup_status === 'failed' ? 'Drive 백업 실패' : '',
+            !a.fromChat && a.drive_backup_status === 'disabled' ? 'Drive 미설정' : '',
+          ].filter(Boolean).join(' · ');
+          return (
+            <ListRow
+              key={`${a.url || a.name}-${a.at}-${i}`}
+              badge={kind}
+              badgeTone={a.fromChat ? 'blue' : isPdf(a) ? 'red' : 'gray'}
+              main={a.name}
+              sub={meta}
+              right={(
+                <>
+                  {a.url ? (
+                    <Btn
+                      size="sm"
+                      variant="ghost"
+                      title="열기"
+                      onClick={() => canPreview(a) ? setPreview(a) : window.open(a.url, '_blank')}
+                    >
+                      <ButtonLabel icon={<Download size={ICON.md} aria-hidden />}>열기</ButtonLabel>
+                    </Btn>
+                  ) : null}
+                  {!a.fromChat && !readOnly ? (
+                    <Btn size="sm" variant="danger" title="삭제" disabled={busy} onClick={() => remove(a)}>
+                      <ButtonLabel icon={<Trash2 size={ICON.md} aria-hidden />}>삭제</ButtonLabel>
+                    </Btn>
+                  ) : null}
+                </>
+              )}
+            />
+          );
+        })
+      )}
 
       {preview && preview.url && (
         <div onClick={() => setPreview(null)} style={{ position: 'fixed', inset: 0, zIndex: 90, background: SCRIM.black, display: 'flex', flexDirection: 'column', padding: 12 }}>

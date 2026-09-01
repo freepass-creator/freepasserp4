@@ -31,7 +31,7 @@
  * ⚠ 대신 같은 pt 에서 Roboto 보다 **넓고 크다.** 열너비 계수(7.9)와 행높이(24px)를
  *   같이 키워 뒀다. 글꼴만 바꾸고 이 둘을 안 바꾸면 40열이 빽빽해지고 글자가 위아래로 낀다.
  */
-import { SALES_NOTES } from './sales-sheet-mapping';
+import { SALES_NOTES, SALES_HIDDEN_COLUMNS } from './sales-sheet-mapping';
 import { COLOR_INK } from './color-master';
 import { MASTER_CATEGORY_COLORS } from './category-colors';
 
@@ -63,8 +63,12 @@ export const RENT_COLUMNS = [
   '36개월(인수형)', '48개월(인수형)', '60개월(인수형)',
 ];
 
-/** 긴 글이 드는 칸은 왼쪽 — 가운데로 두면 줄마다 시작 위치가 달라 눈이 세로로 못 훑는다. */
-export const LEFT_COLUMNS = ['제조사', '모델', '차명', '옵션', '트림', '차종분류'];
+/**
+ * **글자 칸은 왼쪽** — 가운데로 두면 줄마다 시작 위치가 달라 눈이 세로로 못 훑는다.
+ * ★차명 축 넷(제조사·모델·**세부모델·세부트림**)은 한 덩어리로 읽는 이름이라 반드시 같이 왼쪽이다
+ *   (사장님 2026-08-22 「모델 세부모델 세부트림 정렬은 좌측 정렬」 — 새로 세운 두 칸이 기본값 가운데로 떨어져 있었다).
+ */
+export const LEFT_COLUMNS = ['제조사', '모델', '세부모델', '세부트림', '차명', '차명(원문)', '옵션', '옵션(원문)', '트림', '차종분류', '차종구분', '원산지', '구동'];
 
 /**
  * 숫자 칸은 오른쪽(사장님 2026-08-14 — 「금액 주행거리 숫자 형은 우측 정렬」).
@@ -72,13 +76,17 @@ export const LEFT_COLUMNS = ['제조사', '모델', '차명', '옵션', '트림'
  * ⚠ 「무한/30」·「400/50~100」 같은 보험 칸은 숫자가 아니라 **글**이다 — 가운데로 둔다.
  */
 export const RIGHT_COLUMNS = [
-  'Km', '주행거리', '배기량', '소비자가격', '차량가격',
+  // 배터리용량 = kWh 숫자 — 배기량과 같은 갈래라 같이 오른쪽 정렬(2026-08-23).
+  'Km', '주행거리', '배기량', '배터리용량', '소비자가격', '차량가격',
   '단기보증', '장기보증', '보증금',
   '1개월', '6개월', '12개월', '24개월', '36개월', '48개월', '60개월',
   '보증금 반납형', '12개월 반납형', '24개월 반납형', '36개월 반납형', '48개월 반납형', '60개월 반납형',
   '보증금 인수형', '12개월 인수형', '24개월 인수형', '36개월 인수형', '48개월 인수형', '60개월 인수형',
   '36개월(인수형)', '48개월(인수형)', '60개월(인수형)',
-  '21세', '23세', '1만+',
+  '21세', '23세', '21세+', '23세+', '1만+',
+  // 인승은 숫자 — 오른쪽(2026-08-22 신설). 「5」·「9」가 세로로 맞아야 승합차를 눈으로 고른다.
+  '인승',
+  '배터리용량',
 ];
 
 /** 날짜는 가운데(사장님 2026-08-14). 바탕 서식이 이미 가운데라 «굳혀 두는» 뜻이다. */
@@ -96,7 +104,7 @@ export const COL_INK: Record<string, string> = {
   // ★차량번호는 **검정 굵게**(사장님 2026-08-19 — 「사진 링크 있는 것과 없는 게 같은 색이라 … 검정에 진하게」).
   //   사진 링크가 있는 차만 발행기가 글자 서식(run)으로 파랑 밑줄을 건다 — 있고 없고가 눈에 갈린다.
   차량번호: '000000',
-  분납: 'FF0000', '21세': 'FF0000', '23세': 'FF0000', '1만+': 'FF0000',
+  분납: 'FF0000', '21세': 'FF0000', '23세': 'FF0000', '21세+': 'FF0000', '23세+': 'FF0000', '1만+': 'FF0000',
   전용계좌: 'FF0000', 비고: 'FF0000',
 };
 
@@ -168,7 +176,8 @@ export const STATE_INK: [string, string][] = [
 ];
 
 /** 자유텍스트라 상한을 더 낮게 묶는 칸. */
-const NARROW = new Set(['옵션', '비고', '차명', '트림']);
+// 원문 두 칸(2026-08-23 「2중 보관」)은 글이 길어 좁게 잡는다 — 넓히면 표가 원문에 먹힌다.
+const NARROW = new Set(['옵션', '옵션(원문)', '비고', '차명', '차명(원문)', '트림']);
 const MAX_PX = 300;
 const NARROW_PX = 240;
 
@@ -231,6 +240,11 @@ export type FormatInput = {
   tabTitle?: string;
   /** 머리글 메모 추가분(SALES_NOTES 에 없는 칸 — 갈래 탭 원본 요금 칸 등). */
   extraNotes?: Record<string, string>;
+  /**
+   * 찍은 본문 줄(머리행 아래). **차량번호 셀에 사진 링크를 거는 데 쓴다.**
+   * 안 주면 링크를 안 건다 — 값은 그대로다.
+   */
+  body?: string[][];
 };
 
 /**
@@ -350,6 +364,9 @@ export function buildSalesFormatRequests(input: FormatInput): Record<string, unk
     }
   };
   byValue('구분', GUBUN_INK);
+  // 손오공 구독과 T카 픽업구독은 같은 공급사여도 서로 다른 매물 갈래다.
+  // 상태 색(green·amber·blue·orange·red)과 겹치지 않게 보라/자홍으로 가른다.
+  byValue('분류', [['중고구독', '7E57C2'], ['픽업구독', 'C2185B']]);
   byValue('배차상태', STATE_INK);
   byValue('상태', STATE_INK);
   // ★구분되는 값은 눈에 확 오게(사장님 2026-08-19 「제조사 색깔 넣기로 했었고 · 세단 SUV 색깔 다르게 · 차량 색상 텍스트에 색깔」)
@@ -410,9 +427,66 @@ export function buildSalesFormatRequests(input: FormatInput): Record<string, unk
     properties: { pixelSize: px }, fields: 'pixelSize',
   } }));
 
+  /**
+   * ★**영업자 눈에서 치우는 열** — 값은 그대로 두고 열만 접는다(`SALES_HIDDEN_COLUMNS`).
+   *   「사진」은 차번 링크를 만드는 재료라 지우면 링크가 같이 죽는다.
+   */
+  for (const name of SALES_HIDDEN_COLUMNS) {
+    const i = idx(name);
+    if (i < 0) continue;
+    out.push({ updateDimensionProperties: {
+      range: { sheetId: gid, dimension: 'COLUMNS', startIndex: i, endIndex: i + 1 },
+      properties: { hiddenByUser: true }, fields: 'hiddenByUser',
+    } });
+  }
+
   // 표 오른쪽에 남은 빈 열을 잘라 낸다 — 「빈 칸인데 300px」 같은 자리가 생긴다.
   const now = input.columnCountNow || n;
   if (now > n) out.push({ deleteDimension: { range: { sheetId: gid, dimension: 'COLUMNS', startIndex: n, endIndex: now } } });
+
+  /**
+   * ★**차량번호를 누르면 사진 폴더로 간다** — 세 탭이 같은 규칙을 쓴다.
+   *   사장님 2026-08-24 「손오공하고 오플은 들어가 있는데 상품리스트에는 링크가 없다고 사진링크가」.
+   *   사장님이 «사진링크»라고 부르시는 것은 「사진」 칸의 주소 «글자»가 아니라 **차번 셀의 파란 링크**다 —
+   *   원본 오토플러스 시트가 「★★★ 차량번호 클릭 후 차량이미지 다운로드 가능합니다 ★★★」라고
+   *   가르쳐 놓았다. 갈래 탭 발행기만 이 일을 하고 상품리스트 발행기는 안 해서 갈렸다
+   *   (「같은 건데 왜 몇 개만 저러냐」). 그래서 발행기가 아니라 **여기 한 곳**에 둔다.
+   *
+   * ⚠ **판단하지 않는다.** 「사진」 칸에 있는 주소를 그대로 건다. 그 주소가 그 차 것인지는
+   *   **공급사 시트에 넣을 때** 문지기(`photo-link-guard`)가 이미 봤다. 나르는 길에서 또 고르면
+   *   빠지는 차가 생긴다(「니가 빼면 안 되고 있는 걸 그대로 갖고 오는 거잖아」).
+   * ⚠ **맨 끝이어야 한다.** 뒤에 `repeatCell` 이 오면 링크가 통째로 지워진다.
+   * ⚠ 사진이 빠진 차는 옛 링크를 걷어낸다 — 안 지우면 지난번 주소가 남아 남의 차로 간다.
+   */
+  const ipl = idx('차량번호');
+  const iph = idx('사진');
+  if (ipl >= 0 && iph >= 0 && input.body) {
+    out.push({ repeatCell: {
+      range: { sheetId: gid, startRowIndex: H + 1, startColumnIndex: ipl, endColumnIndex: ipl + 1 },
+      cell: { userEnteredFormat: { textFormat: {} } },
+      fields: 'userEnteredFormat.textFormat.link',
+    } });
+    input.body.forEach((r, i) => {
+      // 「사진」 칸이 여러 장(콤마·줄바꿈)이면 차번 셀 링크는 «첫 장»만 건다 — 전체를 href로 넣으면 깨진 링크가 된다.
+      const uri = String(r[iph] ?? '').split(/\s*[\n,]\s*/)[0].trim();
+      const plate = String(r[ipl] ?? '').trim();
+      if (!plate || !/^https?:\/\//i.test(uri)) return;
+      out.push({ updateCells: {
+        range: {
+          sheetId: gid, startRowIndex: H + 1 + i, endRowIndex: H + 2 + i,
+          startColumnIndex: ipl, endColumnIndex: ipl + 1,
+        },
+        rows: [{ values: [{
+          userEnteredValue: { stringValue: plate },
+          textFormatRuns: [{ startIndex: 0, format: {
+            link: { uri }, foregroundColor: rgb(LINK), underline: true,
+            italic: ITALIC, fontFamily: FONT, fontSize: SIZE,
+          } }],
+        }] }],
+        fields: 'userEnteredValue,textFormatRuns',
+      } });
+    });
+  }
 
   return out;
 }

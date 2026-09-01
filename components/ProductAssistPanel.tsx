@@ -11,7 +11,7 @@ import { actor, findExistingRoom, type Role } from '@/lib/domain/deal';
 import { contractStage, isContractCancelled } from '@/lib/domain/contract';
 import { ChatThread } from '@/components/ChatThread';
 import { ContractPanel } from '@/components/ContractPanel';
-import { Badge, C, FS, FW, NUM, PaneHead } from '@/components/ui';
+import { Badge, Btn, C, FS, FW, NUM, Loading, CenterNote, Message, PaneHead } from '@/components/ui';
 import { NAV_LABEL } from '@/lib/tabbar';
 import { useIsMobile } from '@/lib/use-mobile';
 import { getSession } from '@/lib/auth-session';
@@ -188,23 +188,15 @@ export function ProductAssistPanel({ product, role, top }: { product: EntityReco
   const chatBody = roomId ? (
     <ChatThread roomId={roomId} />
   ) : (
-    <div
-      aria-live="polite"
-      style={{ padding: 16, display: 'grid', gap: 10, justifyItems: 'start', color: C.mute }}
-    >
-      <div style={{ fontSize: FS.sub, fontWeight: FW.title, color: C.warn }}>{CHAT_NOTICE_TITLE}</div>
-      <div style={{ fontSize: FS.cap, lineHeight: 1.5, color: C.warn }}>{CHAT_NOTICE_BODY}</div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
+    <div style={{ padding: 16 }}>
+      <Message variant="warning">
+        {CHAT_NOTICE_TITLE} — {CHAT_NOTICE_BODY}{' '}
         {CHAT_NOTICE_CONTACTS.map((contact) => (
-          <a
-            key={contact.phone}
-            href={`tel:${contact.phone.replace(/\D/g, '')}`}
-            style={{ color: C.warn, fontSize: FS.cap, fontWeight: FW.head, fontFamily: NUM, textDecoration: 'none' }}
-          >
+          <Btn key={contact.phone} size="sm" variant="ghost" href={`tel:${contact.phone.replace(/\D/g, '')}`}>
             {contact.name} {contact.phone}
-          </a>
+          </Btn>
         ))}
-      </div>
+      </Message>
     </div>
   );
 
@@ -243,11 +235,9 @@ export function ProductAssistPanel({ product, role, top }: { product: EntityReco
       fixedH={narrow ? '40dvh' : stacked ? '38dvh' : undefined}
     >
       {inbox === null ? (
-        <div style={{ padding: 12, fontSize: FS.cap, color: C.faint }}>불러오는 중…</div>
+        <Loading label="불러오는 중…" minHeight={80} />
       ) : inbox.length === 0 ? (
-        <div style={{ padding: 12, fontSize: FS.cap, color: C.faint, lineHeight: 1.5 }}>
-          아직 이 차에 들어온 문의가 없습니다.
-        </div>
+        <CenterNote minHeight={80}>아직 이 차에 들어온 문의가 없습니다.</CenterNote>
       ) : (
         // 계약문의 페이지가 쓰는 **그 행 원자 그대로**(ChatRoomRow) — 같은 문의가 두 화면에서
         //  다르게 생기면 «같은 것»으로 안 읽힌다. 상태 아이콘·안읽음·시각 규칙도 따라온다.

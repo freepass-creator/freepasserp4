@@ -91,6 +91,9 @@ check('약관 문단은 왼쪽 맞춤·글자 경계 줄바꿈이다',
   /\.terms-cols p\{[^}]*text-align:left[^}]*\}/.test(contractHtml)
     && /\.terms-cols p\{[^}]*word-break:normal[^}]*\}/.test(contractHtml)
     && !/\.terms-cols p\{[^}]*text-align:justify[^}]*\}/.test(contractHtml));
+check('약관 본문은 10.5px·1.32 행간으로 읽기 여유를 둔다',
+  /--fs-terms:10\.5px/.test(contractHtml)
+    && /terms-cols" style="[^"]*line-height:1\.32/.test(contractHtml));
 check('승계수수료 항은 같은 단에서 자동 병합한다',
   /<p>③ 임차인이 회사가 승인한 신규 임차인/.test(contractHtml)
     && contractHtml.includes("next.getAttribute('data-flow-group')===group"));

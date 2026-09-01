@@ -1,35 +1,20 @@
 /**
- * 차종마스터 JSON 단일 로더 — 페이지·픽커·SheetSync가 각각 fetch 하던 중복 제거.
+ * 차종마스터 JSON 로더 — **폐기됨(2026-08-25).**
+ * 정본은 원천대장 「차종마스터」시트. 로컬 이름은 `vehicle-trim-master.json`(시트에서 생성).
  */
 import type { MasterEntry } from '@/lib/domain/vehicle-master-match';
 
-let cached: MasterEntry[] | null = null;
-let inflight: Promise<MasterEntry[]> | null = null;
+const DISCARD = 'vehicle-master.json 폐기(2026-08-25). 정본=원천대장 「차종마스터」시트 · 로컬=vehicle-trim-master.json';
 
 export function peekVehicleMaster(): MasterEntry[] | null {
-  return cached;
+  return null;
 }
 
-/** 메모리 캐시 히트 시 즉시. 미스면 한 번만 fetch(동시 호출 coalesce). */
+/** @deprecated 호출하면 바로 실패한다. 시트/트림마스터를 써라. */
 export function loadVehicleMaster(): Promise<MasterEntry[]> {
-  if (cached?.length) return Promise.resolve(cached);
-  if (inflight) return inflight;
-  inflight = fetch('/data/vehicle-master.json')
-    .then((r) => {
-      if (!r.ok) throw new Error(`마스터 HTTP ${r.status}`);
-      return r.json();
-    })
-    .then((d) => {
-      const entries = (d.entries || d) as MasterEntry[];
-      if (!Array.isArray(entries) || !entries.length) throw new Error('마스터 entries 비어 있음');
-      cached = entries;
-      return entries;
-    })
-    .finally(() => { inflight = null; });
-  return inflight;
+  return Promise.reject(new Error(DISCARD));
 }
 
 export function clearVehicleMasterCache(): void {
-  cached = null;
-  inflight = null;
+  /* no-op */
 }

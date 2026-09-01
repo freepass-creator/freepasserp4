@@ -36,7 +36,7 @@ export function reconcileToMasterEngine(
       maker: applied.maker, model: applied.model, sub_model: applied.sub_model, catalog_id: applied.catalog_id,
       gen_year_start: applied.gen_year_start, gen_year_end: applied.gen_year_end,
       variant: applied.variant, trim_name: applied.trim_name,
-      fuel_type: applied.fuel_type, engine_cc: applied.engine_cc, seats: applied.seats, drive_type: applied.drive_type,
+      fuel_type: applied.fuel_type, engine_cc: applied.engine_cc, battery_capacity: applied.battery_capacity, seats: applied.seats, drive_type: applied.drive_type,
       year: applied.year, vehicle_class: applied.vehicle_class, _snap_confidence: result.confidence,
       _raw_vehicle: applied._raw_vehicle, _snapped: true,
       _snap_at: applied._snap_at, _snap_history: applied._snap_history,

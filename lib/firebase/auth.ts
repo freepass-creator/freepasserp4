@@ -57,12 +57,17 @@ async function clearScopedStoreCache(): Promise<void> {
   }
 }
 
-/** 구 승인제에서 pending으로 남은 미배정 자가가입자만 서버 검증을 거쳐 즉시 활성화한다. */
+/**
+ * pending 을 서버 검증을 거쳐 즉시 활성화한다 — 두 갈래다.
+ *   ① 구 승인제에서 pending 으로 남은 미배정 자가가입자
+ *   ② **우리 워크스페이스 직원**(사장님 2026-08-26 「우리 워크스페이스 직원들은 자동으로 통과되게」)
+ */
 async function activateLegacySelfSignup(
   user: User,
   profile: Record<string, unknown>,
 ): Promise<Record<string, unknown>> {
-  if (!selfServeActivationDecision(profile, user.uid).eligible) return profile;
+  // ★여기 판정은 «미리 걸러 보는 것»일 뿐이다. 진짜 판정은 서버가 토큰으로 다시 한다.
+  if (!selfServeActivationDecision(profile, user.uid, { email: user.email || '', emailVerified: user.emailVerified }).eligible) return profile;
   try {
     const response = await fetch('/api/auth/self-activate', {
       method: 'POST',
@@ -126,7 +131,7 @@ export function initAuth(): Promise<void> {
             clearLegacyGuestState();
             setSession({
               uid: user.uid, email: user.email || '', role, rawRole,
-              name: String(profile.name || user.email || ''), code,
+              name: String(profile.name || user.email || ''), phone: String(profile.phone || ''), code,
               company_code, agent_channel_code, user_code: user_code || user.uid,
               status: String(profile.status || ''),
               // 관리자가 끈 계정을 앱 게이트가 판정할 수 있게 세션에 싣는다(예전엔 status만 실려
@@ -142,14 +147,14 @@ export function initAuth(): Promise<void> {
             // 귀속키 최소=uid. 빈 code면 actor가 usr_park 폴백 → 타 영업 방/계약에 붙는 사고 방지.
             setSession({
               uid: user.uid, email: user.email || '', role: 'agent', rawRole: '',
-              name: user.email || '', code: user.uid, company_code: '',
+              name: user.email || '', phone: '', code: user.uid, company_code: '',
               agent_channel_code: '', user_code: user.uid,
             });
           }
         } else if (user && !db) {
           setSession({
             uid: user.uid, email: user.email || '', role: 'agent', rawRole: '',
-            name: user.email || '', code: user.uid, company_code: '',
+            name: user.email || '', phone: '', code: user.uid, company_code: '',
             agent_channel_code: '', user_code: user.uid,
           });
         } else {
@@ -316,7 +321,9 @@ export async function updateMyProfile(fields: { name?: string; phone?: string; c
   if (!Object.keys(patch).length) return;
   await update(ref(db, `users/${uid}`), patch);
   const s = getSession(); // 상단바·설정에 이름 즉시 반영
-  if (s && patch.name != null) setSession({ ...s, name: String(patch.name) });
+  if (s && (patch.name != null || patch.phone != null)) {
+    setSession({ ...s, ...(patch.name != null ? { name: String(patch.name) } : {}), ...(patch.phone != null ? { phone: String(patch.phone) } : {}) });
+  }
 }
 
 /** 현재 버전 약관·개인정보 처리방침 재동의 증적을 본인 프로필에 기록한다. */

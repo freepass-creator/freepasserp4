@@ -9,8 +9,9 @@
  * ★**돈은 해석하지 않는다.** 요금·보증금·상태는 시트 칸에 있는 글자를 그 자리에 옮길 뿐이다.
  *   보증금을 규칙으로 계산하지 않고, 기간을 자리로 짐작하지 않는다 — 오늘 틀린 게 전부 그거였다.
  * ★**차명도 해석하지 않는다**(사장님 2026-08-19 — 「제조사·모델까지만, 안 틀리는 게 중요」).
- *   제조사·모델은 공급사 「제조사(정제)/제조사」「모델명/모델」만. 차명은 「차명(세부모델+트림)」 원문 그대로.
- *   세부모델·세부트림·차종마스터 스냅·상품마스터 3축 정본으로 **올리지 않는다**(틀린 세부축이 붙느니 원문이 낫다).
+ *   제조사·모델은 공급사 「제조사(정제)/제조사」「모델명/모델」만.
+ *   차명은 「차명(정제)」(모델+세부모델+세부트림 한 칸)을 싣고, 없으면 공급사 원문.
+ *   차종구분은 「차종분류」 한 칸(준대형 세단) 또는 「차종분류코드」가 가리키는 글자.
  *   ⚠ 그래서 공급사 시트가 틀리면 여기도 틀린다. 그건 «공급사에 물어볼 일»이 되고,
  *     영업자가 우리를 의심할 일은 없어진다 — 이 표의 값어치는 정확히 거기에 있다.
  * ★읽는 법만 `readSupplierSheet` 를 쓴다(숨긴 행·숨긴 탭·어댑터 헤더). 그건 «해석»이 아니라
@@ -29,18 +30,41 @@ import { companyAlias, supplierNameKeys } from '../lib/domain/identity';
 import { fetchHubPartners } from '../lib/domain/sheet-hub-sync';
 import { buildSalesFormatRequests, columnWidths, rgb, LINK, FONT, SIZE, ITALIC } from '../lib/domain/sales-sheet-format';
 import { productType } from '../lib/domain/sales-sheet-clean';
-import { SALES_ALIAS, SALES_COLUMNS, SALES_RETIRED_COLUMNS } from '../lib/domain/sales-sheet-mapping';
+import { parsePublishedSalesMapping, SALES_ALIAS, SALES_COLUMNS } from '../lib/domain/sales-sheet-mapping';
+import { salesPublishedTabIndex } from '../lib/domain/sales-published-tabs';
 import { HANDOVER_TAB, STALE_DAYS, daysSince, readLog } from '../lib/domain/supplier-handover-log';
 import { SHEET_NAME_MATCH, isOurNonInventoryTab, supplierSheetLabel } from '../lib/domain/supplier-template-sheet';
 import { mileageCompact, pickPolicy, policyCell, readPolicyTab, type PolicyBook } from '../lib/domain/supplier-policy-read';
 import { POLICY_TAB_ALIASES } from '../lib/domain/supplier-template-sheet';
+import { classifyVehicleClass, composeRefinedVehicleName } from '../lib/domain/vehicle-class';
+import { vehicleClassDisplay } from '../lib/domain/vehicle-class-catalog';
+import { substFromAiRefineRows } from '../lib/domain/ai-refine-guard';
 /** 정책 탭 값 — 「운영정책」 먼저, 없으면 옛 「정책」(사장님 2026-08-19 탭 개명 · 아직 안 바꾼 시트 호환). */
-async function readPolicyValues(id: string): Promise<string[][]> {
-  for (const tab of POLICY_TAB_ALIASES) {
+/**
+ * 정책 탭을 읽는다. 이름이 「운영정책」·「정책」이 아닐 수 있다 —
+ * ★**관계사가 한 문서를 나눠 쓰면 「빌린카운영정책」·「엘씨운영정책」처럼 회사 이름이 앞에 붙는다.**
+ *   별칭 둘만 찾던 예전 코드는 그 여섯 곳(빌린카·엘씨·스타·스카이·경진카·경진렌트)을 통째로 못 읽어,
+ *   재고 탭에 정책코드가 멀쩡히 있어도 **정책 칸이 전부 비어 나갔다**(실측 2026-08-21 · 67대).
+ *   그래서 탭 목록을 받아 «이름에 정책이 든 탭»을 차례로 본다. `brand` 가 있으면 그 회사 탭을 먼저 본다.
+ */
+async function readPolicyValues(id: string, brand = ''): Promise<string[][]> {
+  let titles: string[] = [];
+  try {
+    const meta = await api(`https://sheets.googleapis.com/v4/spreadsheets/${id}?fields=sheets.properties(title,hidden)`) as Rec;
+    titles = ((meta.sheets || []) as Rec[]).map((sh) => S(sh.properties?.title)).filter((t) => /정책/.test(t));
+  } catch { /* 목록을 못 받으면 별칭만 본다 */ }
+  const b = norm(brand).replace(/재고/g, '');
+  const order = [
+    ...(b ? titles.filter((t) => norm(t).includes(b)) : []),
+    ...POLICY_TAB_ALIASES.filter((t) => titles.includes(t)),
+    ...titles,
+    ...POLICY_TAB_ALIASES,
+  ];
+  for (const tab of [...new Set(order)]) {
     try {
-      const pv = await api(`https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${encodeURIComponent(`'${tab}'`)}`) as { values?: string[][] };
+      const pv = await api(`https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${encodeURIComponent(`'${tab.replace(/'/g, "''")}'`)}`) as { values?: string[][] };
       if (pv.values?.length) return pv.values as string[][];
-    } catch { /* 다음 별칭 */ }
+    } catch { /* 다음 후보 */ }
   }
   return [];
 }
@@ -59,11 +83,11 @@ const TAB = arg('tab', '상품리스트');
 /**
  * ★`--only=공급사코드[:탭글자]` — 그 공급사(그 탭)만 실어 **별도 탭**을 찍는다(사장님 2026-08-19 「상품리스트 · 손오공구독(반납/인수) · 오플구독 탭 3개로 회귀」).
  *   같은 발행기·같은 정본 차명·같은 열이라 상품리스트와 규격이 갈리지 않는다. @제외는 무시한다(그 공급사를 실으려는 것이니까).
- *   예) --only=RP012:구독 --tab=손오공구독 --at=1 · --only=RP023 --tab=오플구독 --at=2 (그 뒤 publish-sonogong-tab 이 원본 요금 블록을 덧붙인다)
- * ★`--at=N` — 새 탭을 만들 때 자리(0=맨 앞). 상품리스트 0 · 손오공구독 1 · 오플구독 2.
+ *   예) --only=RP012:구독 --tab=손오공구독 · --only=RP023 --tab=오플구독 (그 뒤 publish-sonogong-tab 이 원본 요금 블록을 덧붙인다)
+ * ★탭 자리 — 상품리스트 0 · 손오공구독 1 · 오플구독 2 (`salesPublishedTabIndex`). `--at=N` 은 덮어쓸 때만.
  */
 const ONLY = (() => { const v = arg('only'); if (!v) return null; const [code, tab = ''] = v.split(':'); return { code: code.trim(), tab: tab.trim() }; })();
-const AT = Number(arg('at', '0')) || 0;
+const AT = process.argv.some((a) => a.startsWith('--at=')) ? (Number(arg('at')) || 0) : salesPublishedTabIndex(TAB);
 const inScope = (code: string, tabTitle: string) => !ONLY || (ONLY.code === code && (!ONLY.tab || S(tabTitle).includes(ONLY.tab)));
 const DB = 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app';
 /** 「공급사시트정리」 — 공급사명 | 공급사코드 | 시트주소. 주소의 정본이다. */
@@ -172,39 +196,10 @@ for (const p of Object.values<Rec>(partners)) {
   try {
     const v = await api(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET}/values/${encodeURIComponent("'AI 인계'!A1:C400")}`) as { values?: string[][] };
     const rows = (v.values || []) as string[][];
-    const from = rows.findIndex((r) => S(r[0]) === '@매핑');
-    if (from < 0) throw new Error('@매핑 줄이 없다');
-    const map: Record<string, string[]> = {};
-    for (const r of rows.slice(from + 1)) {
-      if (S(r[0]) === '@매핑끝') break;
-      const col = S(r[1]);
-      const cands = S(r[2]).split(',').map((x) => x.trim()).filter((x) => x && !x.startsWith('('));
-      if (col && cands.length) map[col] = cands;
-    }
-    if (!Object.keys(map).length) throw new Error('@매핑 표가 비었다');
-    ALIAS = map;
-    // 표에 적힌 차례가 곧 열 차례다. 「공급사」는 문패 이름으로 채우므로 후보가 없어도 열은 세운다.
-    const order: string[] = [];
-    for (const r of rows.slice(from + 1)) {
-      if (S(r[0]) === '@매핑끝') break;
-      const col = S(r[1]);
-      if (col) order.push(col);
-    }
-    // ★뺀 열(SALES_RETIRED_COLUMNS)은 시트 @매핑에 남아 있어도 세우지 않는다(사장님 2026-08-18 — 파워트레인 · 2026-08-19 — 세부모델·세부트림).
-    const retired = order.filter((c) => SALES_RETIRED_COLUMNS.includes(c));
-    if (order.length) COLUMNS = order.filter((c) => !SALES_RETIRED_COLUMNS.includes(c));
-    for (const c of retired) delete ALIAS[c];
-    // ★제조사·모델·차명 후보는 코드 정본(시트에 옛 「모델,차종」이 남아 있어도 모델명 우선).
-    for (const k of ['제조사', '모델', '차명'] as const) {
-      if (SALES_ALIAS[k]) ALIAS[k] = SALES_ALIAS[k];
-    }
-    // 시트 @매핑에 「차명」이 없으면 모델 다음에 끼워 넣는다.
-    if (!COLUMNS.includes('차명')) {
-      const at = COLUMNS.indexOf('모델');
-      COLUMNS = at >= 0
-        ? [...COLUMNS.slice(0, at + 1), '차명', ...COLUMNS.slice(at + 1)]
-        : [...COLUMNS.slice(0, 3), '차명', ...COLUMNS.slice(3)];
-    }
+    const parsed = parsePublishedSalesMapping(rows);
+    ALIAS = parsed.aliases;
+    COLUMNS = parsed.columns;
+    const retired = parsed.retired;
     console.log(`  매핑을 판매시트 「AI 인계」에서 읽었다 — ${COLUMNS.length}열 · 후보 있는 칸 ${Object.keys(ALIAS).length}${retired.length ? ` · 뺀 열 ${retired.join('·')} 은 안 세운다` : ''}
 `);
   } catch (e) {
@@ -220,13 +215,10 @@ for (const p of Object.values<Rec>(partners)) {
  */
 const SUBST = new Map<string, string>();
 try {
-  const v = await api(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET}/values/${encodeURIComponent("'AI 정제'!A1:D2000")}`) as { values?: string[][] };
-  for (const r of ((v.values || []) as string[][])) {
-    const kind = S(r[0]), from = S(r[1]), to = S(r[2]);
-    if (!kind.startsWith('@') || kind === '@설명' || !from || !to) continue;
-    SUBST.set(`${kind.slice(1)}|${from}`, to);
-  }
-  console.log(`  치환 사전 「AI 정제」 ${SUBST.size}줄\n`);
+  const v = await api(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET}/values/${encodeURIComponent("'AI 정제'!A1:D4000")}`) as { values?: string[][] };
+  const subst = substFromAiRefineRows((v.values || []) as string[][]);
+  for (const [k, val] of subst.map) SUBST.set(k, val);
+  console.log(`  치환 사전 「AI 정제」 ${SUBST.size}줄${subst.skipped ? ` · 개발코드 떨기 ${subst.skipped}줄 무시` : ''}\n`);
 } catch (e) { console.log(`  ⚠ 「AI 정제」를 못 읽어 치환 없이 돈다 — ${String((e as Error).message).slice(0, 60)}\n`); }
 /** 열 이름 그대로 사전을 찾는다 — 외장/내장/제조사/모델/차명. */
 const clean = (col: string, val: string) => {
@@ -423,7 +415,7 @@ for (const [code, p] of [...byCode].sort()) {
    */
   let book: PolicyBook = new Map();
   try {
-    book = readPolicyTab(await readPolicyValues(readId));
+    book = readPolicyTab(await readPolicyValues(readId, S(p.partner_name || p.name)));
   } catch { /* 정책 탭이 없는 시트도 있다 */ }
   if (book.size) policySource['문패시트']++;
   else {
@@ -431,7 +423,7 @@ for (const [code, p] of [...byCode].sort()) {
     const mine = ourPolicySheetFor(S(p.partner_name || p.name), code);
     if (mine && mine.id !== readId) {
       try {
-        book = readPolicyTab(await readPolicyValues(mine.id));
+        book = readPolicyTab(await readPolicyValues(mine.id, S(p.partner_name || p.name)));
       } catch { /* 우리 시트에 정책 탭이 없으면 아래에서 센다 */ }
     }
     if (book.size) policySource['우리제공시트']++; else policySource['없음']++;
@@ -472,17 +464,38 @@ for (const [code, p] of [...byCode].sort()) {
      */
     const pickAll = (name: string) => (ALIAS[name] || []).map((c) => hdr.indexOf(c)).filter((i) => i >= 0);
     const idx = new Map(COLUMNS.map((c) => [c, pickAll(c)]));
+    /**
+     * ★**규격 밖 요금 열** — 「그 밖 요금」 한 칸에 모아 ERP 로 나른다
+     *   (사장님 2026-08-23 「ERP 에는 다 반영할 수 있고 기존 시트에는 우리 규격만」).
+     *   공급사가 「72개월」·「18개월2만」처럼 우리 열에 없는 기간을 쓰면 그 요금이 통째로 버려졌다.
+     *   여기서 **판매시트 열·별칭 어디에도 안 잡힌 요금 헤더**를 골라 둔다.
+     */
+    const claimed = new Set<number>();
+    for (const list of idx.values()) for (const i of list) claimed.add(i);
+    const FEE_HEADER = /^(\d+)개월(?:[1-9]\d*만|[（(]?(?:인수형|반납형)[)）]?)?$/;
+    const extraFeeAt = hdr
+      .map((h, i) => ({ name: S(h).replace(/\s+/g, ''), i }))
+      .filter(({ name, i }) => name && !claimed.has(i) && FEE_HEADER.test(name));
     const first = (c: string) => (idx.get(c) || [])[0] ?? -1;
     if (first('차량번호') < 0) continue;
     for (const r of t.table.slice(1)) {
       const plate = norm(r[first('차량번호')]);
-      if (!plate) continue;
-      // 같은 차가 두 탭에 있으면 먼저 나온 쪽만 싣는다 — 영업자 표에 같은 차가 두 줄이면 안 된다.
-      if (seenPlate.has(plate)) { dupes++; continue; }
-      seenPlate.add(plate);
-      // 그 탭에서 뽑힌 사진 링크가 있으면 담아 둔다(맨 마지막에 셀에 건다).
-      const photo = S((t as Rec).photoByPlate?.[plate] || (t as Rec).photoByPlate?.[S(r[first('차량번호')])]);
-      if (photo.startsWith('http')) photoOf.set(plate, photo);
+      /**
+       * ★**번호 전 신차도 싣는다 — 차대번호가 있으면**(사장님 2026-08-21).
+       *   출고가 확정돼도 번호판은 며칠 뒤에 나온다. 그때까지 영업자 표에서 빠지면 팔 수가 없다.
+       *   차량번호 칸은 비워 두고(없는 번호를 지어내지 않는다) 「차대번호」로 그 차를 가린다.
+       * ⚠ 둘 다 없으면 여전히 안 싣는다 — 그 줄은 어느 차인지 알 방법이 없다.
+       */
+      const vinAt = first('차대번호');
+      const vin = vinAt >= 0 ? norm(r[vinAt]) : '';
+      if (!plate && !vin) continue;
+      const key = plate || `VIN:${vin}`;
+      if (seenPlate.has(key)) { dupes++; continue; }
+      seenPlate.add(key);
+
+      // 사진은 번호판·폴더·OCR 증거를 승인한 별도 복구 경로에서만 넣는다.
+      // 원본 행의 URL을 여기서 그대로 재발행하면 외부 정제시트의 사진 오매칭이
+      // 중앙 판매시트와 ERP까지 다시 전파된다.
       /** 후보를 차례로 보고 **값이 든 첫 칸**을 쓴다. 정제칸이 비면 공급사 원문으로 떨어진다. */
       const cell = (c: string) => { for (const i of idx.get(c) || []) { const v = S(r[i]); if (v) return v; } return ''; };
       /**
@@ -504,6 +517,19 @@ for (const [code, p] of [...byCode].sort()) {
       fromOurs.set(plate, ours);
       rows.push(COLUMNS.map((c) => {
         if (c === '공급사') return who;
+        /**
+         * 「그 밖 요금」 = 규격 밖 기간의 요금을 `이름:값|이름:값` 로 모은다. 값이 없으면 빈칸.
+         * ⚠ 사람이 읽는 칸이 아니다 — `sheet-import` 가 풀어서 `price` 에 담는다.
+         */
+        if (c === '그 밖 요금') {
+          const parts: string[] = [];
+          for (const { name, i } of extraFeeAt) {
+            const raw = S(r[i]).replace(/[^\d]/g, '');
+            const n = Number(raw);
+            if (n > 0) parts.push(`${name}:${n}`);
+          }
+          return parts.join('|');
+        }
         if (c === '입고일자') return '';          // 원본도 비어 있다. 자리만 지킨다.
         /**
          * ★구분은 **세 가지로만** 선다 — 신차렌트·중고렌트·중고구독(사장님 2026-08-14).
@@ -511,6 +537,46 @@ for (const [code, p] of [...byCode].sort()) {
          *   같은 상품이 네 이름으로 서고 필터가 안 걸린다. 뜻은 그대로 두고 «이름»만 캐논으로 갈아 넣는다.
          */
         if (c === '구분') return productType(clean(c, cell(c)));
+        /**
+         * ★**정책 칸 — ERP 가 조인할 수 있는 값을 싣는다**(사장님 2026-08-28 「ERP 에서 받을 수
+         *   있게끔」 · 「판매시트에도 반영될 수 있게끔」).
+         *
+         *   예전엔 공급사 정책 탭의 `__uid`(pol_…)를 그대로 실었다. 그런데 **ERP 정책 레코드에는
+         *   그 UID 가 어디에도 없다**(실측 2026-08-28: 정책 80건 중 uid 칸을 가진 것 0건).
+         *   그래서 매물이 `pol_…` 를 들고도 정책을 못 찾아, 863대 중 39대만 정책이 붙어 있었다.
+         *   ERP 가 아는 이름은 **정책코드**(POL-0020 · FP-RP012-RENT …)다 — 그걸 싣는다.
+         *
+         *   ⚠ 못 정했으면 **비운다.** 짐작해 넣으면 남의 조건이 그 차에 붙는다.
+         *   ⚠ 언젠가 ERP 정책이 UID 를 갖게 되면 그때 UID 로 바꾼다(이름이 바뀌어도 안 깨지므로).
+         *     지금 UID 를 싣는 것은 «아무도 못 읽는 이름»을 싣는 것이다.
+         */
+        if (c === '정책UID') return picked.code;
+        /**
+         * ★차종구분 = 정제칸 「차종분류」 한 칸(준대형 세단). 코드면 표에서 글자를 불러온다.
+         *   크기+구분을 붙이지 않는다(실측 2026-08-21 A6=중형 SUV · 팰리세이드=대형 MPV).
+         */
+        if (c === '차종구분') {
+          const classAt = hdr.indexOf('차종분류');
+          const codeAt = hdr.indexOf('차종분류코드');
+          const fromClass = vehicleClassDisplay(classAt >= 0 ? S(r[classAt]) : '');
+          const fromCode = vehicleClassDisplay(codeAt >= 0 ? S(r[codeAt]) : '');
+          if (fromClass) return fromClass;
+          if (fromCode) return fromCode;
+          const own2 = vehicleClassDisplay(clean(c, cell(c)));
+          if (own2) return own2;
+          return classifyVehicleClass({ model: cell('모델'), sub_model: cell('차명') } as never);
+        }
+        if (c === '차명') {
+          const refinedAt = hdr.indexOf('차명(정제)');
+          const refined = refinedAt >= 0 ? S(r[refinedAt]) : '';
+          if (refined) return refined;
+          const combined = composeRefinedVehicleName(
+            S(r[hdr.indexOf('모델')] || ''),
+            S(r[hdr.indexOf('세부모델')] || ''),
+            S(r[hdr.indexOf('세부트림')] || ''),
+          );
+          if (combined) return combined;
+        }
         /**
          * ★재고탭에 값이 있으면 **그쪽이 이긴다** — 그 차만의 예외일 수 있다.
          *   없을 때만 「정책」 탭에서 가져온다. 정책은 «그 공급사의 기본 조건»이다.
@@ -571,10 +637,22 @@ const stateAt0 = COLUMNS.indexOf('배차상태');
    */
   const REAL_PLATE = /^\d{2,3}[가-힣]\d{4}$/;
   const beforePlate = rows.length;
-  const withPlate = rows.filter((r) => REAL_PLATE.test(S(r[plateAt0]).replace(/\s/g, '')));
-  const noPlate = beforePlate - withPlate.length;
-  rows.length = 0; rows.push(...withPlate);
-  if (noPlate) console.log(`  차량번호 미정 ${noPlate}대도 안 싣는다(번호가 나오면 다음 발행에 합류) → ${rows.length}대`);
+  /**
+   * ★**번호가 없어도 차대번호가 있으면 싣는다**(사장님 2026-08-21 「실제로 출고 확정되면 차량번호 없이 올린다고 ·
+   *   차량번호 없이 노출 구현할 수 있을 거 같은데 · 그렇게 해야 해」).
+   *   출고 확정과 번호판 발급 사이에 며칠이 뜬다. 그 사이 표에서 빠지면 팔 수가 없다.
+   *   차량번호 칸은 **비워 둔 채** 「차대번호」로 그 차를 가린다 — 없는 번호를 지어내지 않는다.
+   *   VIN 은 번호 나오기 전에도 안 바뀌어서, 실번호가 붙는 날 같은 차로 이어붙는다(product.vehicleIdentity).
+   * ⚠ 둘 다 없는 줄만 뺀다. 그건 어느 차인지 알 방법이 없다.
+   */
+  const vinAt0 = COLUMNS.indexOf('차대번호');
+  const keep = rows.filter((r) => REAL_PLATE.test(S(r[plateAt0]).replace(/\s/g, ''))
+    || (vinAt0 >= 0 && S(r[vinAt0]).replace(/\s/g, '').length >= 6));
+  const noPlate = beforePlate - keep.length;
+  const vinOnly = keep.filter((r) => !REAL_PLATE.test(S(r[plateAt0]).replace(/\s/g, ''))).length;
+  rows.length = 0; rows.push(...keep);
+  if (noPlate) console.log(`  차번·차대번호가 다 없는 ${noPlate}대는 안 싣는다 → ${rows.length}대`);
+  if (vinOnly) console.log(`  번호 전 신차 ${vinOnly}대는 차대번호로 싣는다(번호가 나오면 같은 차로 이어붙는다)`);
   console.log('');
 }
 const rentAt = RENT_COLUMNS.map((c) => COLUMNS.indexOf(c)).filter((i) => i >= 0);
@@ -705,7 +783,7 @@ const title = `${TAB} ${stamp.slice(5, 10).replace('-', '.')} ${stamp.slice(11, 
 await api(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET}:batchUpdate`, {
   method: 'POST',
   body: JSON.stringify({ requests: [
-    { updateSheetProperties: { properties: { sheetId: gid, title }, fields: 'title' } },
+    { updateSheetProperties: { properties: { sheetId: gid, title, index: AT }, fields: 'title,index' } },
     // 옛 내용을 지우고 새로 쓴다. 값만 지운다 — 서식은 아래에서 다시 입힌다.
     { updateCells: { range: { sheetId: gid }, fields: 'userEnteredValue' } },
   ] }),
@@ -732,36 +810,17 @@ await api(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET}/values/${encod
       conditionalFormatCount: ((me.conditionalFormats || []) as unknown[]).length,
       widths: columnWidths(COLUMNS, rows),
       tabTitle: title,
+      // 차량번호 셀에 사진 링크를 거는 데 쓴다(서식층 맨 끝).
+      body: rows,
     }) }),
   });
 }
-/**
- * ★차량번호 셀에 사진링크를 건다.
- * ⚠ **맨 마지막에** 넣는다 — 뒤에 `repeatCell` 이 한 번이라도 오면 링크가 통째로 지워진다.
- * ⚠ 글자 서식(run)이 칸 서식을 덮으므로 링크 색·밑줄을 여기에도 준다.
- */
+// 차량번호 셀의 사진 링크는 서식층(`buildSalesFormatRequests` 맨 끝)이 세 탭에 똑같이 건다.
+// ⚠ 여기서 따로 걸지 마라 — 여기 있던 코드는 「사진」 칸이 아니라 «원본 차번 셀 링크»만 봐서
+//    갈래 탭은 되고 상품리스트만 0대로 남았다(사장님 2026-08-24 「사진링크를 좀 동일하게 처리해줘야지」).
 {
-  const rgbLink = rgb(LINK);
-  const pi = COLUMNS.indexOf('차량번호');
-  const linked = rows
-    .map((r, k) => ({ row: k + 1, plate: S(r[pi]), url: photoOf.get(norm(r[pi])) || '' }))
-    .filter((x) => pi >= 0 && x.plate && x.url.startsWith('http'));
-  for (let k = 0; k < linked.length; k += 200) {
-    await api(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET}:batchUpdate`, {
-      method: 'POST',
-      body: JSON.stringify({ requests: linked.slice(k, k + 200).map((x) => ({
-        updateCells: {
-          range: { sheetId: gid, startRowIndex: x.row, endRowIndex: x.row + 1, startColumnIndex: pi, endColumnIndex: pi + 1 },
-          rows: [{ values: [{
-            userEnteredValue: { stringValue: x.plate },
-            // ⚠ 글꼴을 여기 손으로 적지 마라 — 서식 모듈만 바꾸면 이 칸만 옛 글꼴로 남는다(실측 2026-08-14).
-            textFormatRuns: [{ startIndex: 0, format: { link: { uri: x.url }, foregroundColor: rgbLink, underline: true, italic: ITALIC, fontFamily: FONT, fontSize: SIZE } }],
-          }] }],
-          fields: 'userEnteredValue,textFormatRuns',
-        },
-      })) }),
-    });
-  }
-  console.log(`  차량번호에 사진링크 ${linked.length}대 · 링크 없는 차 ${rows.length - linked.length}대는 글자만`);
+  const pi = COLUMNS.indexOf('사진');
+  const linked = pi < 0 ? 0 : rows.filter((r) => S(r[pi]).startsWith('http')).length;
+  console.log(`  차량번호에 사진링크 ${linked}대 · 링크 없는 차 ${rows.length - linked}대는 글자만`);
 }
 console.log(`\n  반영 완료 — 탭 「${title}」\n  https://docs.google.com/spreadsheets/d/${SHEET}/edit#gid=${gid}\n`);

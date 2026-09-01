@@ -31,6 +31,11 @@ export type MasterEntry = {
   id: string;
   maker: string;
   model: string;
+  /**
+   * 세부모델(세대) 정본. 모델이 구분만 되면 된다 — **모델+개발코드**.
+   * 풀체인지 첫 줄=`아반떼 CN8` · 같은 코드 페리=`더 뉴 아반떼 CN8`.
+   * `디 올 뉴`/`올 뉴`는 aliases. 세부모델에 넣으면 다음 페리가 `더 뉴 디 올 뉴 …`가 된다.
+   */
   sub_model: string;
   gen_code: string;
   origin: string;
@@ -67,6 +72,8 @@ export type SnapResult = {
   trim_name?: string;
   fuel_type?: string;
   engine_cc?: string;
+  /** 전기·플러그인 kWh. 내연은 비는 게 정상. 트림이 없어도 세부모델에서 하나로 모이면 채운다. */
+  battery_kwh?: string;
   seats?: string;
   drive_type?: string;
   year?: string;

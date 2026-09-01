@@ -122,6 +122,8 @@ export type AutoplusTablesImportOptions = {
   promoRaw: string[][];
   providerCode: string;
   entries: MasterEntry[];
+  /** 이미 정제된 판매시트 탭을 읽을 때 차종마스터·색상 재해석을 금지한다. */
+  authoritativeRefinedRows?: boolean;
   profile?: MappingProfile;
   profileHeaders?: MappingHeaderSignature;
   headerRow?: number;
@@ -145,7 +147,8 @@ export function importAutoplusTables(opts: AutoplusTablesImportOptions): Autoplu
    * ★프로모션 탭은 이제 없을 수 있다 — 판매시트 기본 세팅이 탭 3개(상품리스트·손오공구독·오플구독)로 굳었다(사장님 2026-08-19).
    *   호출 쪽이 같은 탭을 두 번 넘기면(프로모션 자리에 오플구독) «프로모션 없음»으로 읽는다. 서로 다른 탭이면 예전처럼 둘을 합친다.
    */
-  const promoSameAsMain = (opts.promoGid || '') === (opts.mainGid || '');
+  const promoSameAsMain = !opts.promoRaw.length
+    || (opts.promoGid || '') === (opts.mainGid || '');
   if (!promoSameAsMain) assertDistinctSheetTable(tabResponses, opts.promoRaw, `프로모션 gid ${opts.promoGid || AUTOPLUS_GID_PROMO}`);
   const mainT = SHEET_ADAPTERS.autoplus.prepareTable(opts.mainRaw, { headerRow });
   const promoT = promoSameAsMain ? [] : prepareAutoplusPromoTable(opts.promoRaw);
@@ -160,9 +163,11 @@ export function importAutoplusTables(opts: AutoplusTablesImportOptions): Autoplu
     plateAllocator: opts.plateAllocator,
     pendingOccurrence: opts.pendingOccurrence,
     photoByPlate: opts.mainPhotos,
+    authoritativeRefinedRows: opts.authoritativeRefinedRows,
   });
   const emptyImport = (): ReturnType<typeof importSheetTable> => importSheetTable([['차량번호']], {
     providerCode: opts.providerCode, entries: opts.entries, depositRule: opts.depositRule,
+    authoritativeRefinedRows: opts.authoritativeRefinedRows,
   });
   const promo = promoT.length < 2 ? emptyImport() : importSheetTable(promoT, {
     providerCode: opts.providerCode,
@@ -174,6 +179,7 @@ export function importAutoplusTables(opts: AutoplusTablesImportOptions): Autoplu
     pendingOccurrence: opts.pendingOccurrence,
     // 프로모션 탭에 링크가 없으면 본탭 지도로 메운다 — 같은 차라 차번 키가 같다.
     photoByPlate: { ...(opts.mainPhotos || {}), ...(opts.promoPhotos || {}) },
+    authoritativeRefinedRows: opts.authoritativeRefinedRows,
   });
 
   for (const product of main.products) {

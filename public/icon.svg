@@ -1,12 +1,12 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <!-- 브라우저·PWA 아이콘 = 상품(CarFront) -->
+  <!--
+    브라우저·PWA 아이콘 = **메인컬러(네이비) + 흰 체크**(사장님 2026-08-22 「그냥 메인컬러에 착한거래처럼 체크로,
+    굳이 차 모양보다 메인컬러에 체크가 훨씬 나음」). 착한거래(app/icon.svg)와 같은 골격 — 색만 우리 브랜드.
+
+    ⚠ 정중앙 규격: 체크 꼭짓점 (128,264)-(208,344)-(384,168), stroke 52(반경 26).
+       잉크 x = 128−26 … 384+26 = 102…410 (중심 256) · y = 168−26 … 344+26 = 142…370 (중심 256).
+       차(CarFront) 글리프를 쓸 때는 글리프 박스와 잉크 중심이 달라 늘 아래로 처졌다 — 체크는 좌표를 직접 잡아 그 문제가 없다.
+  -->
   <rect width="512" height="512" rx="96" fill="#1B2A4A"/>
-  <g transform="translate(64 96) scale(16)" fill="none" stroke="#9EC5F3" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
-    <path d="m21 8-2 2-1.5-3.7A2 2 0 0 0 15.646 5H8.354a2 2 0 0 0-1.838 1.3L5 10 3 8"/>
-    <path d="M7 14h.01"/>
-    <path d="M17 14h.01"/>
-    <rect width="18" height="8" x="3" y="10" rx="2"/>
-    <path d="M5 18v2"/>
-    <path d="M19 18v2"/>
-  </g>
+  <path d="M128 264 l80 80 L384 168" fill="none" stroke="#ffffff" stroke-width="52" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

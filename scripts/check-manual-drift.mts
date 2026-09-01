@@ -68,7 +68,9 @@ const guards: [string, string, RegExp][] = [
   ['판매 차명 시트만', 'scripts/publish-origin-tab.mts', /제조사·모델·차명만 시트에서 옮긴다/],
   ['모델명 빈칸 보고', 'scripts/publish-origin-tab.mts', /missingModel\.push/],
   ['정제칸 빈 칸만 채움', 'scripts/fill-supplier-ai-columns.mts', /if \(now\) \{ kept\+\+; continue; \}/],
-  ['배기량 되짚기', 'scripts/fill-supplier-ai-columns.mts', /Math\.abs\(rawCc - snapCc\) \/ rawCc > 0\.07/],
+  ['차명에서 배기', 'scripts/fill-supplier-ai-columns.mts', /ccFromCarName/],
+  ['차명 신호', 'scripts/fill-supplier-ai-columns.mts', /vehicle_name:\s*carName/],
+  ['stamp 행키만', 'scripts/stamp-encar-codes-on-supplier.mts', /assertStampColumnAllowed/],
   ['전후 견주기', 'scripts/publish-origin-tab.mts', /const dump = arg\('dump'\)/],
   // 대수를 «우리/아닌/총» 으로 세는 장치와 «팔 수 있는데 금액 없는 차» 표시
   ['대수 세 갈래', 'scripts/publish-origin-tab.mts', /우리 시트 \$\{all\.ours\}대 · 아닌 시트 \$\{all\.other\}대 · 총 \$\{all\.all\}대/],

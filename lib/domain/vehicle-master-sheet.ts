@@ -1,5 +1,9 @@
 /**
- * **「ERP4 차종마스터 원천대장」을 읽는 한 곳.**
+ * **라이브 원천대장 「차종마스터」를 읽는 한 곳 — ERP `차종코드`(mf- 트림행키).**
+ *
+ * ★차명·제원 사전은 `public/data/vehicle-master.json`(규격채택)이다. 엔카 원자 시트는 시세 행키용.
+ *   이 파일은 상품마스터·공급사 「차종코드」 칸이 쓰는 **mf- 키 책**이다. 여기 ID를 엔카 시트로 바꾸지 마라.
+ *   이 탭에는 **쓰지 않는다** (`assertNotLiveVehicleMasterTabWrite`). 코드 의미 변경·재사용 금지.
  *
  * ★왜(사장님 2026-08-14 — 「그 차에 대해서 코드를 박아두면 절대 틀릴 일이 없음.
  *   차량번호에 코드 박아두면 되잖아」)
@@ -17,15 +21,19 @@
  *   파워트레인을 구별할 방법이 없다. 시트에는 순번이 있어 구별된다.
  * ⚠ 신규 후보는 상태 정책을 통과한 행만 쓴다. `검증중/1차확인·교차확인`은 수동 선택,
  *   `확정/확정`은 자동 선택까지 허용하고 나머지는 과거 코드 조회에만 남긴다.
+ * ⚠ 라이브 「차종마스터」 탭에는 쓰지 않는다(`assertNotLiveVehicleMasterWrite`).
  */
 
+import { ENCAR_MASTER_SHEET_ID } from './legacy-sheets';
+import { resolvePowertrainLabel } from './vehicle-powertrain-label';
 import {
   vehicleTrimUsageTier,
   type MasterManagementStatus,
   type MasterVerificationStatus,
   type VehicleTrimUsageTier,
 } from './vehicle-trim-master';
-import { resolvePowertrainLabel } from './vehicle-powertrain-label';
+export { ENCAR_MASTER_SHEET_ID, assertNotLiveVehicleMasterWrite } from './legacy-sheets';
+export { assertNotLiveVehicleMasterTabWrite } from './vehicle-master-lock';
 
 const S = (v: unknown) => String(v ?? '').trim();
 
@@ -279,6 +287,53 @@ export function masterCells(row: MasterRow | undefined): Record<string, string> 
     '파워트레인': row.powertrain,
     '세부트림': row.trim,
     '배기량(정제)': row.cc,
+    '배터리용량(정제)': row.batteryKwh && Number(row.batteryKwh) > 0
+      ? String(Number(Number(row.batteryKwh).toFixed(2)))
+      : '',
     '연료(정제)': row.fuel,
+    '구동방식': row.driveType,
+    /**
+     * ★인승 — 정제칸 신설(2026-08-22 · 사장님 「구동 뒤에 인승 넣어줘」).
+     *   원장 「인승」 열은 숫자만 남겨 두므로(readMasterSheet `seat`) 그대로 흘린다.
+     *   그전까지 인승은 정제칸에 자리가 없어 ERP 스냅만 들고 있었고, 마스터 참조를 끊은 뒤로는 새 차가 못 채워졌다.
+     */
+    '인승': row.seat,
+  };
+}
+
+/**
+ * 세부모델 제원 — 라이브 코드 책에서 **값이 하나로 모일 때만**.
+ * 트림이 없어도 연료·배기량·배터리·구동은 모이면 채운다. 갈리거나 없으면 빈값.
+ */
+export function uniqueBookSpecs(
+  book: MasterBook,
+  maker: unknown,
+  model: unknown,
+  subModel: unknown,
+  hint?: { fuel?: string },
+): { fuel?: string; engine_cc?: string; battery_kwh?: string; drive_type?: string } {
+  const key = [maker, model, subModel].map((v) => S(v).replace(/\s+/g, ' ').toLowerCase()).join('|');
+  let rows = book.rows.filter((r) => r.usageTier !== 'blocked'
+    && [r.maker, r.model, r.subModel].map((v) => S(v).replace(/\s+/g, ' ').toLowerCase()).join('|') === key);
+  const fuelHint = S(hint?.fuel);
+  if (fuelHint) {
+    const narrowed = rows.filter((r) => S(r.fuel) === fuelHint);
+    if (narrowed.length) rows = narrowed;
+  }
+  if (!rows.length) return {};
+  const one = (vals: string[]) => {
+    const xs = vals.map((v) => S(v));
+    if (!xs.length || xs.some((x) => !x)) return undefined;
+    return new Set(xs).size === 1 ? xs[0] : undefined;
+  };
+  const kwh = (v: unknown) => {
+    const n = Number(String(v ?? '').replace(/[^\d.]/g, ''));
+    return n > 0 ? String(Number(n.toFixed(2))) : '';
+  };
+  return {
+    fuel: one(rows.map((r) => r.fuel)),
+    engine_cc: one(rows.map((r) => r.cc)),
+    battery_kwh: one(rows.map((r) => kwh(r.batteryKwh))),
+    drive_type: one(rows.map((r) => r.driveType)),
   };
 }

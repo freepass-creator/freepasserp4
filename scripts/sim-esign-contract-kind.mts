@@ -84,13 +84,16 @@ check('인수형 12개월은 10%', penaltyAmount('인수형', 10_000_000, 12).ra
 check('위약금 계산', penaltyAmount('반납형', 10_000_000, 24).amount === 2_000_000);
 check('잔여액 0이면 0원', penaltyAmount('반납형', 0, 24).amount === 0);
 
-// ── 표준계약서 3벌 × 인수/반납, 공급사로 안 좁힌다 ──
-check('표준계약서는 정확히 3벌', ALL_TEMPLATES.length === 3, ALL_TEMPLATES.map((item) => item.label));
+// ── 프리패스 표준 3벌 + 손오공 전용 4벌. 전용 양식은 표준 3벌을 대체하지 않는다. ──
+const freepassStandardTemplates = ALL_TEMPLATES.filter((item) => item.id.startsWith('freepass-'));
+const sonogongTemplates = ALL_TEMPLATES.filter((item) => item.id.startsWith('sonogong-'));
+check('프리패스 표준계약서는 정확히 3벌', freepassStandardTemplates.length === 3, freepassStandardTemplates.map((item) => item.label));
+check('손오공 전용 양식 4벌이 별도로 등록됨', sonogongTemplates.length === 4, sonogongTemplates.map((item) => item.label));
 check('렌트 1벌·구독 보험포함 1벌·구독 보험별도 1벌',
-  ALL_TEMPLATES.map((item) => `${item.contractKind}:${item.insuranceSide}`).join('|')
+  freepassStandardTemplates.map((item) => `${item.contractKind}:${item.insuranceSide}`).join('|')
   === '렌탈:회사포함|구독:회사포함|구독:고객직접');
 check('3벌 모두 인수/반납 선택 가능',
-  ALL_TEMPLATES.flatMap((template) => [
+  freepassStandardTemplates.flatMap((template) => [
     contractKindFor(template, '인수형'), contractKindFor(template, '반납형'),
   ]).length === 6);
 const rentTemplate = findTemplate('freepass-rent-standard')!;
@@ -105,16 +108,16 @@ check('구독 보험포함서식 + 보험별도 정책 조합 차단',
 check('구독 보험별도서식 + 보험별도 정책 조합 통과',
   standardTemplateSelectionError(subSeparateTemplate, contractKindFor(subSeparateTemplate, '인수형'), { insurance_included: '개인보험형(손님 직접)' }) === '');
 check('공급사가 달라도 표준계약서 3벌은 같다',
-  templatesForContract(r({ provider_company_code: 'RP023' })).length === 3
-  && templatesForContract(r({ provider_company_code: 'RP012' })).length === 3);
+  templatesForContract(r({ provider_company_code: 'RP023' })).filter((item) => item.id.startsWith('freepass-')).length === 3
+  && templatesForContract(r({ provider_company_code: 'RP012' })).filter((item) => item.id.startsWith('freepass-')).length === 3);
 check('유형 미확정 계약에는 임의 기본을 박지 않음', sentTemplateOf(r({})) === null);
 check('기발행 구독 보험별도형 복원',
   sentTemplateOf(r({ contract_kind: 'sub_buyout', esign_insurance_side: '고객직접' }))?.id
   === 'freepass-subscription-insurance-separate');
 check('모르는 표준계약서는 null', findTemplate('없는유형') === null);
-check('렌트 정본만 운영 가능하고 구독 2종은 샘플로 잠긴다',
+check('렌트 정본만 운영 가능하고 구독·손오공 양식은 샘플로 잠긴다',
   ALL_TEMPLATES.filter((t) => !t.isSample).map((t) => t.id).join('|') === 'freepass-rent-standard'
-  && ALL_TEMPLATES.filter((t) => t.isSample).length === 2);
+  && ALL_TEMPLATES.filter((t) => t.isSample).length === 6);
 
 // ── 섹션 구성 — 기존 계약서 내용이 다 들어갔는가 ──
 const groups = buildConsentGroups(contract, policy, '회사포함');
@@ -137,13 +140,24 @@ check('사고 다발 해지가 실린다',
   rowsOf('accident').includes('3회') && rowsOf('accident').includes('계약 해지'),
   rowsOf('accident').slice(0, 160));
 check('보험사가 실린다', rowsOf('accident').includes('렌터카 공제조합'));
-check('GPS 특약이 실린다', rowsOf('service').includes('GPS'));
+check('특약은 정적 문구가 아니라 계약별 합의로 확인한다', !rowsOf('service').includes('GPS') && rowsOf('service').includes('특약사항=없음'));
 check('대차 불가가 실린다', rowsOf('service').includes('대차서비스 지원 불가'));
 // 과태료 절차는 약관 제16조로 보냈다(IN_AGREEMENT) — 섹션에 있으면 같은 말을 두 번 읽힌다.
 check('과태료 절차는 약관으로 보냈다', !rowsOf('service').includes('보증금에서 차감'));
 // 면책금은 정책 단일값이 아니라 연령에서 파생된다(계약서 「운전자 연령 선택시 자동입력」).
 check('면책금은 연령에서 파생', rowsOf('accident').includes('대인 30만원'), rowsOf('accident').slice(0, 80));
 check('연령 모르면 계약 불가 안내', deductibleForAge('').includes('만 21세 미만 계약 불가'));
+const selectedTermsGroups = buildConsentGroups(r({
+  ...contract,
+  driver_age_snapshot: '만 21세 이상',
+  annual_mileage_snapshot: '연 4만km',
+  special_terms_snapshot: '주말 인도',
+  contract_draft: JSON.stringify({ special_terms: '변경 전 초안' }),
+}), policy, '회사포함');
+const selectedRows = (key: string) => selectedTermsGroups.find((group) => group.key === key)!.rows;
+check('고객 동의에는 선택한 약정주행거리가 실린다', selectedRows('rental').some((row) => row.label === '약정 주행거리' && row.value === '연 4만km'));
+check('고객 동의에는 선택한 운전자 연령이 실린다', selectedRows('driver').some((row) => row.label === '운전자 연령' && row.value.includes('21')));
+check('고객 동의에는 실제 특약 전문이 실린다', selectedRows('service').some((row) => row.label === '특약사항' && row.value === '주말 인도'));
 
 // ── 화면 규격 — 1섹션 = 1화면, 쪼개지 않는다 ──
 const pages = paginateForMobile(groups);

@@ -9,7 +9,7 @@ import type { GuardedProductPatch } from '@/lib/domain/product-write-guard';
 /** 시트 유입이 건드리면 안 되는 시스템/식별 필드 */
 const PROTECTED = new Set([
   '_key', 'product_code', 'companyId', 'createdAt', 'createdBy', 'deletedAt', 'deletedReason', '_deleted',
-  'updatedAt', '_sheet_manual_fields', '_sheet_contract_status', '_sheet_price_scope',
+  'updatedAt', '_sheet_manual_fields', '_sheet_contract_status', '_sheet_price_scope', '_sales_sheet_authoritative',
   // importSheetTable은 fresh row를 매번 master snap 하므로 이 둘에는 실행시각이 들어간다.
   // 기존 매물 soft-merge에서 받아들이면 동일 시트 재검증도 전 건 "내용수정"이 되고,
   // 저장할 때마다 이력·감사로그가 불어난다. 신규 create에는 원본 record 그대로 보존된다.
@@ -19,9 +19,9 @@ const PROTECTED = new Set([
 /** 공급사가 시트에서 책임지고 갱신하는 재고 원자. 원본에 값이 오면 ERP 수기값보다 우선한다. */
 export const SUPPLIER_OWNED_PRODUCT_FIELDS = new Set([
   'vehicle_status', 'status_label_raw', 'product_type',
-  'maker', 'model', 'sub_model', 'variant', 'trim_name', 'trim_extra', 'supplier_vehicle_name',
+  'maker', 'model', 'sub_model', 'variant', 'trim_name', 'trim_extra', 'supplier_vehicle_name', 'supplier_options',
   'year', 'first_registration_date', 'fuel_type', 'engine_cc', 'mileage',
-  'ext_color', 'int_color', 'seats', 'drive_type', 'vehicle_class', 'usage',
+  'ext_color', 'int_color', 'seats', 'drive_type', 'battery_capacity', 'vehicle_class', 'usage',
   'options', 'photo_link', 'location', 'price',
   'policy_code',
   'sheet_source_gid', 'sheet_source_tab', 'sheet_source_row',
@@ -34,8 +34,39 @@ export const SUPPLIER_OWNED_PRODUCT_FIELDS = new Set([
  */
 const PRODUCT_MASTER_IDENTITY_FIELDS = new Set([
   'maker', 'model', 'sub_model', 'catalog_id', 'trim_row_key',
-  'variant', 'trim_name', 'fuel_type', 'engine_cc', 'seats', 'drive_type',
+  'variant', 'trim_name', 'fuel_type', 'engine_cc', 'seats', 'drive_type', 'battery_capacity',
   'vehicle_class', 'gen_year_start', 'gen_year_end',
+]);
+
+/** 판매시트 3탭이 현재값(빈칸 포함)을 소유하는 공개 필드. */
+export const SALES_EXACT_PRODUCT_FIELDS = new Set([
+  'vehicle_status', 'status_label_raw', 'product_type',
+  'maker', 'model', 'sub_model', 'variant', 'trim_name', 'trim_extra', 'supplier_vehicle_name', 'supplier_options',
+  'year', 'first_registration_date', 'fuel_type', 'engine_cc', 'mileage',
+  'ext_color', 'int_color', 'seats', 'drive_type', 'battery_capacity', 'vehicle_class', 'origin', 'usage',
+  /**
+   * ⚠ `photo_link` 는 여기 **없다.** 유입이 판매시트 경로에서 사진을 일부러 버리기 때문이다
+   *   (`sheet-import`: 「사진은 번호판·폴더 증거를 검증하기 전까지 판매 정본에서 ERP 로 자동 반영하지 않는다」).
+   *   그런데 이 목록에 넣어 두면 «키가 없다»고 **공급사 19곳을 통째로 보류**시킨다 —
+   *   실측 2026-08-23: 재고를 리셋해 ERP 사진이 사라지자 그날로 동기가 멈췄다.
+   *   두 규칙이 서로를 막고 있었다. 사진을 판매시트로 나르기로 정하면 그때 다시 넣는다.
+   */
+  /**
+   * ★**`policy_code` 는 여기서 뺐다**(2026-08-28) — 판매시트가 **빈칸까지 소유**하는 자리다.
+   *
+   *   2026-08-25 에 사장님 지시로 「정책UID」 열을 상품리스트에서 뺐다(「영업자가 볼 것이 아니다」).
+   *   그런데 `policy_code` 가 이 목록에 남아 있어, 그 뒤로 동기가 돌 때마다 **시트에 없는 값 = 빈칸**
+   *   으로 매물의 정책 연결을 지웠다. 실측 2026-08-28: 863대 중 489대 빈칸 · 정책이 붙은 차 39대.
+   *   정책에 아무리 좋은 값을 넣어도 차가 그 정책을 안 가리키니 화면엔 안 나왔다.
+   *
+   *   열을 도로 세우는 것은 사장님 결정을 되돌리는 일이고, 값을 시트가 지우게 두는 것은 연결을 잃는 일이다.
+   *   → **시트가 값을 주면 그 값을 쓰고(SUPPLIER_OWNED_PRODUCT_FIELDS 에는 그대로 있다),
+   *      안 주면 ERP 가 들고 있던 것을 지키지 않는다**로 갈랐다.
+   *   ⚠ 되돌리려면 「정책UID」 열을 판매시트에 다시 세우는 것이 먼저다. 열 없이 이 줄만 되살리면
+   *     같은 사고가 그대로 재현된다.
+   */
+  'options', 'location', 'price', 'partner_memo',
+  'sheet_source_gid', 'sheet_source_tab', 'sheet_source_row',
 ]);
 
 function isBlank(v: unknown): boolean {
@@ -112,9 +143,22 @@ export function isSheetOwnedBlock(row: EntityRecord): boolean {
   return currentMarker || isLegacySheetOwnedBlock(row);
 }
 
+/**
+ * 계약 엔진이 소유한 상태인지 판정한다.
+ * 계약 엔진이 기록한 `locked_by_contract`의 실제 참값만 잠근다.
+ * 판매시트의 `계약중` 상태 자체나 빈/거짓 락 표시는 엔진 락으로 추정하지 않는다.
+ */
+export function isContractEngineLocked(row: EntityRecord): boolean {
+  const raw = row.locked_by_contract;
+  if (typeof raw === 'boolean') return raw;
+  if (typeof raw === 'number') return raw !== 0;
+  const lock = String(raw ?? '').trim();
+  return !!lock && !/^(?:0|false|null|undefined|none|-)$/i.test(lock);
+}
+
 /** 시트가 자동 해제하면 안 되는 운영자/공급사 수기 출고불가. */
 export function isManualSheetHold(row: EntityRecord): boolean {
-  const engineLocked = !isBlank(row.locked_by_contract) || productStatus(row) === '계약중';
+  const engineLocked = isContractEngineLocked(row);
   return productStatus(row) === '출고불가'
     && !engineLocked
     && !isSheetOwnedBlock(row)
@@ -125,10 +169,9 @@ export function isManualSheetHold(row: EntityRecord): boolean {
  *  _raw_vehicle = 최초 원본 유지. 기존 매물의 volatile snap 시각/이력은 유지. */
 export function softMergeProduct(existing: EntityRecord, incoming: EntityRecord): EntityRecord {
   const out: EntityRecord = { ...existing };
-  // legacy 계약중 매물은 locked_by_contract가 비어 있을 수 있다. 시트가 출고가능으로 풀어
-  // 중복판매시키는 것보다 운영자가 락 정합을 복구할 때까지 상태를 보존하는 쪽이 안전하다.
-  const engineLocked = !isBlank(existing.locked_by_contract)
-    || String(existing.vehicle_status || '').trim() === '계약중';
+  // 계약 상태 문자열만으로 엔진 락을 추정하지 않는다. 실제 락 표지가 있을 때만
+  // 판매시트 상태보다 우선하여 보존한다.
+  const engineLocked = isContractEngineLocked(existing);
   const legacySheetOwnedBlock = isLegacySheetOwnedBlock(existing);
   const sheetOwnedBlock = isSheetOwnedBlock(existing);
   const manualBlocked = isManualSheetHold(existing);
@@ -139,15 +182,42 @@ export function softMergeProduct(existing: EntityRecord, incoming: EntityRecord)
   );
   const incomingMasterIdentity = incoming._product_master_identity_authoritative === true;
   const existingMasterIdentity = existing._product_master_identity_authoritative === true;
+  const incomingSalesAuthoritative = incoming._sales_sheet_authoritative === true;
   let reactivatedLegacySheetBlock = false;
   for (const [k, v] of Object.entries(incoming)) {
     if (PROTECTED.has(k)) continue;
+    if (incomingSalesAuthoritative && SALES_EXACT_PRODUCT_FIELDS.has(k)) {
+      // 계약 엔진 락만 판매시트 상태보다 우선한다. 나머지 필드는 판매시트의 현재
+      // 빈칸까지 그대로 반영해 옛 차명·금액·사진이 ERP에 남지 않게 한다.
+      if (k === 'vehicle_status' && engineLocked) continue;
+      if (k === 'price') {
+        out.price = v && typeof v === 'object' && !Array.isArray(v) ? { ...(v as Record<string, unknown>) } : {};
+      } else {
+        out[k] = v == null ? '' : v;
+        if (k === 'vehicle_status'
+          && String(v || '') !== '계약중'
+          && existing.sheet_status_owner === 'sheet'
+          && String(existing.sheet_block_reason || '') === 'source_contract_status') {
+          out.sheet_status_owner = null;
+          out.sheet_block_reason = null;
+          out.sheet_blocked_at = null;
+        }
+      }
+      continue;
+    }
     if (isBlank(v)) continue;
     if (PRODUCT_MASTER_IDENTITY_FIELDS.has(k)) {
       // 미매칭 상품마스터 행은 공급사 원문일 뿐 정제 식별자가 아니다.
       if (incomingIsProductMaster && !incomingMasterIdentity) continue;
-      // 한 번 차종마스터로 확정된 값은 직접 공급사 시트가 다시 추정해 덮지 못한다.
-      if (!incomingIsProductMaster && existingMasterIdentity) continue;
+      /**
+       * ★**옛 차종마스터 확정값이 판매시트 정제값을 막지 못한다**(사장님 2026-08-22
+       *   「ERP 에는 정제를 쓰는 게 맞고 정제만 잘해 두면 되니까」·「차종마스터 이제 참조 안 한다」).
+       *
+       * 예전 규칙은 `existingMasterIdentity` 면 시트가 못 덮게 했다 — 시트 값이 «공급사 원문 추정»이던 시절의 방어다.
+       * 지금 유입은 **판매시트**이고 그 값은 공급사 정제칸(세부모델 100%·세부트림 88%, 실측 2026-08-22)이라 추정이 아니다.
+       * 상품마스터 경로도 기본으로 건너뛴다(hourly-sync ⑥′ `--with-product-master` 로만) — 남은 플래그는 옛 경로의 잔재다.
+       * 이 방어를 그대로 두면 판매시트엔 있는데 ERP 만 빈 차 219대가 영원히 안 채워진다(실측).
+       */
     }
     const authoritativeIdentityField = incomingMasterIdentity && PRODUCT_MASTER_IDENTITY_FIELDS.has(k);
     if (manualFields.has(k)
@@ -271,7 +341,11 @@ export function resolveSheetReviveTarget(
   return key ? { key, expected: preferred } : null;
 }
 
-const SHEET_PRIVATE_PRODUCT_FIELDS = new Set(['vehicle_price', 'vin', 'account_number']);
+const SHEET_PRIVATE_PRODUCT_FIELDS = new Set([
+  'vehicle_price', 'vin', 'account_number',
+  // 파서/병합 사이에서만 쓰는 표식. 신규 create에도 저장되면 안 된다.
+  '_sales_sheet_authoritative', '_sheet_price_scope', '_sheet_contract_status',
+]);
 const SHEET_PRIVATE_PRICE_FIELDS = new Set(['fee', 'commission', 'fee_memo']);
 
 /**
@@ -289,8 +363,10 @@ export function stripSheetPrivatePatchFields(patch: EntityRecord): EntityRecord 
         publicPrice[period] = rawTerms;
         continue;
       }
-      publicPrice[period] = Object.fromEntries(Object.entries(rawTerms as Record<string, unknown>)
+      const publicTerms = Object.fromEntries(Object.entries(rawTerms as Record<string, unknown>)
         .filter(([field]) => !SHEET_PRIVATE_PRICE_FIELDS.has(field)));
+      // 수수료만 있던 기간을 빈 객체로 남기면 기존 공개 price 기간을 빈값으로 덮을 수 있다.
+      if (Object.keys(publicTerms).length) publicPrice[period] = publicTerms;
     }
     output.price = publicPrice;
   }
@@ -344,7 +420,15 @@ export function planProductUpsert(incoming: EntityRecord[], existing: EntityReco
       continue;
     }
     const merged = softMergeProduct(prev, rec);
-    const changed = changedPatch(prev, merged);
+    // readProducts는 공개 rent/deposit와 private fee를 합쳐 반환한다. 판매시트는 공개 가격만
+    // 소유하므로 비교 때 fee를 제거하지 않으면 실제 공개값이 같아도 매 실행 price patch가 난다.
+    const beforeForDiff = rec._sales_sheet_authoritative === true
+      ? {
+          ...prev,
+          price: stripSheetPrivatePatchFields({ price: prev.price }).price || {},
+        }
+      : prev;
+    const changed = changedPatch(beforeForDiff, merged);
     const publicChanged = changed ? stripSheetPrivatePatchFields(changed) : null;
     const patch = publicChanged && Object.keys(publicChanged).length ? publicChanged : null;
     if (patch) {
@@ -583,7 +667,7 @@ export type AbsentPlan = {
 
 /**
  * 시트에 이번 유입에 없는 같은 공급사 매물 → 출고불가 patch (삭제 금지).
- * locked_by_contract 있거나 레거시 계약중이면 스킵. 이미 출고불가면 집계만.
+ * 실제 locked_by_contract가 있으면 스킵. 이미 출고불가면 집계만.
  */
 export function planAbsentBlocked(opts: {
   existing: EntityRecord[];
@@ -614,10 +698,8 @@ export function planAbsentBlocked(opts: {
       already_blocked++;
       continue;
     }
-    // 레거시 데이터에는 계약중인데 locked_by_contract가 비어 있는 행이 있다.
-    // 내용 merge와 동일하게 계약중 자체를 엔진 락으로 취급해야 부재처리 경로가
-    // 계약 차량 상태를 출고불가로 덮지 않는다.
-    if (!isBlank(r.locked_by_contract) || String(r.vehicle_status || '').trim() === '계약중') {
+    // 계약 상태 문자열이 아니라 계약 엔진이 기록한 실제 락만 보호한다.
+    if (isContractEngineLocked(r)) {
       skipped_locked++;
       continue;
     }

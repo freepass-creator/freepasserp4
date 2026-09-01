@@ -6,11 +6,15 @@
 사용:
   python scripts/audit_photo_plate_ocr.py <사진루트> [--per 3] [--out tmp/photo-ocr-audit.json]
     <사진루트> 아래 「<공급사>/<차량번호 …>/<사진들>」 구조를 그대로 읽는다(tmp/pics 가 그 모양).
-판정:
+판정(읽기 전용):
   맞음      — 읽힌 번호판 중 폴더 번호와 같은 것이 있다
-  숫자만맞음 — 한글은 못 읽었지만 앞뒤 숫자가 같다(번호판 맞음으로 본다)
+  숫자만맞음 — 한글은 못 읽었지만 앞뒤 숫자가 같다(확정 금지)
   다름      — 읽힌 번호판이 있는데 폴더 번호와 다르다  ← 사진이 남의 차
   못읽음    — 어느 장에서도 번호판을 못 읽었다(각도·가림 — 사람이 볼 것)
+
+이 도구는 사진 링크를 새 차량번호로 재연결하지 않는다. 결과는 기존 링크를
+유지할지, 격리할지, 사람이 검토할지 결정하기 위한 증거일 뿐이다. 특히
+`숫자만맞음`은 한글 OCR 오인식 가능성이 있어 자동 통과·자동 연결 근거가 아니다.
 """
 import glob
 import json
@@ -97,10 +101,18 @@ def main():
             verdict = '다름'
         else:
             verdict = '못읽음'
+        # OCR은 후보 증거만 만든다. 사진 속 다른 차번이 읽혀도 그 차에 자동으로
+        # 연결하면 행 밀림·중복 번호판 때문에 다시 오매칭된다.
+        if verdict == '다름':
+            recommendation = '격리: 기존 사진 링크를 끄고 사람 검토'
+        elif verdict in ('숫자만맞음', '못읽음', '폴더번호없음'):
+            recommendation = '사람 검토: 자동 유지·재연결 금지'
+        else:
+            recommendation = '유지 후보: 원본 링크·공급사·중복 여부를 별도 확인'
         tally[verdict] = tally.get(verdict, 0) + 1
         rows.append({'folder': name, 'supplier': os.path.basename(os.path.dirname(folder)), 'want': want,
                      'found': sorted(found), 'foundDigits': sorted(foundDigits), 'verdict': verdict,
-                     'images': len(images), 'texts': texts})
+                     'recommendation': recommendation, 'images': len(images), 'texts': texts})
         if n % 20 == 0 or verdict == '다름':
             print(f'   {n}/{len(folders)} {name[:28]} → {verdict} {sorted(found)[:3]}', flush=True)
 

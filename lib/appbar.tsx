@@ -14,6 +14,18 @@ export type AppBarSlots = {
   left?: ReactNode;
   /** 상단바 우측 액션(페이지별). IconBtn/Btn. */
   actions?: ReactNode;
+  /**
+   * ★모바일 상단 돋보기 — **검색창을 목록 위에 깔지 않는다**(사장님 2026-08-30 「검색 창을 없애는 게 나을 거 같고,
+   * 검색 버튼을 누르면 검색과 필터가 나오는 그런 형태로」 — 당근 구성).
+   * 목록은 첫 줄부터 «상품»이 오고, 검색어·조건은 이 버튼 하나 뒤에 같이 든다.
+   * 글리프·자리는 TopBar 가 그린다(페이지가 아이콘 버튼을 손으로 짜지 않는다 = SSOT).
+   */
+  search?: {
+    onOpen: () => void;
+    /** 검색어나 조건이 걸려 있음 — 돋보기에 불이 들어온다. */
+    active?: boolean;
+    label?: string;
+  };
 };
 
 const Ctx = createContext<{ slots: AppBarSlots; set: (s: AppBarSlots) => void }>({ slots: {}, set: () => {} });

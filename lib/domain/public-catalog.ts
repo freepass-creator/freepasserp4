@@ -3,7 +3,7 @@
  *
  * ★왜 필요한가
  *   fp4 의 손님 페이지는 브라우저가 RTDB 를 **직접** 읽게 돼 있었다. 규칙이 인증을 요구하므로
- *   비로그인 손님에게는 401 이 떨어져 «견적을 찾을 수 없습니다»만 보였다(2026-07-30 QA · 2026-08-07 실측).
+ *   비로그인 손님에게는 401 이 떨어져 «견적을 찾을 수 없습니다»만 보였다(2026-07-30 QA · 2026-08-28 실측).
  *   규칙을 열어 해결하면 원가·수수료·회원까지 함께 새므로, erp3(`api/catalog-feed.js`)와 같이
  *   **서버가 서비스계정으로 읽고 걸러서** 준다. RTDB 규칙은 한 줄도 건드리지 않는다.
  *
@@ -36,7 +36,7 @@ const PUBLIC_POLICY_FIELDS = [
   'own_damage_min_deductible', 'own_damage_max_deductible',
   'annual_roadside_assistance', 'roadside_assistance',
   'annual_mileage', 'mileage_upcharge_per_10000km',
-  'deposit_installment', 'deposit_card_payment', 'payment_method', 'payment_timing',
+  'deposit_installment', 'deposit_card_payment', 'rental_card_payment', 'payment_method', 'payment_timing',
   'penalty_condition', 'rental_region', 'delivery_fee',
   'basic_driver_age', 'driver_age_lowering', 'age_lowering_cost', 'driver_age_upper_limit', 'license_period',
   'personal_driver_scope', 'business_driver_scope',
@@ -83,9 +83,14 @@ function publicImages(p: Rec): string[] {
 }
 
 export function publicPolicy(policy: Rec | null | undefined): Rec | null {
-  // 공급사 정책이 없거나 일부만 입력돼도 손님·영업 화면은 프리패스 기본 정책으로
-  // 같은 답을 낸다. 명시된 공급사 값은 유지하고 빈 항목만 보충한다.
-  const effective = applyPolicyDefaults(policy || {}).next as Rec;
+  /**
+   * 정책이 **붙어 있을 때만** 빈 항목을 프리패스 표준으로 보충한다.
+   * 아예 안 붙은 매물은 «모르는 것»이라 지어내지 않는다(사장님 2026-08-28 「없으면 없다」).
+   * 손님 화면에 지어낸 조건이 서면 그게 곧 약속이 된다 — 위 rtdb-records 의 같은 판단.
+   */
+  const effective = (policy && Object.keys(policy).length
+    ? applyPolicyDefaults(policy).next
+    : {}) as Rec;
   const out: Rec = {};
   for (const k of PUBLIC_POLICY_FIELDS) {
     const v = effective[k];

@@ -3,14 +3,14 @@
 import { useCallback, useEffect, useRef, useState, type DragEvent } from 'react';
 import { ChatThread } from '@/components/ChatThread';
 import {
-  Btn, ButtonLabel, CountPill, C, Dropzone, FS, FW, ICON, IconBtn, Message, NUM, PaneBody, PaneHead, R, VSplit, ctrlPadX,
+  Btn, ButtonLabel, CenterNote, CountPill, C, Dropzone, FS, FW, ICON, IconBtn, ListRow, Message, PaneBody, PaneHead, VSplit, ctrlPadX,
 } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { getRole, type ConsultApp } from '@/lib/domain/deal';
 import { listMessages, sendFile, isAcceptedChatFile, CHAT_FILE_ACCEPT } from '@/lib/domain/messaging';
 import { fileSizeText } from '@/lib/format';
 import { toast } from '@/components/Toaster';
-import { ChevronDown, ChevronUp, Download, FileText, Paperclip } from 'lucide-react';
+import { ChevronDown, ChevronUp, Download, Paperclip } from 'lucide-react';
 
 // 견적기 좌측 차량 레일(400px)과 좌우 균형을 맞춘 폭. 채팅 말풍선·첨부행이 320 에선 답답했다.
 const PANEL_W = 420;
@@ -199,39 +199,19 @@ export function ConsultPanel({
         </Dropzone>
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
           {files.length === 0 ? (
-            <div style={{ fontSize: FS.cap, color: C.faint, textAlign: 'center', padding: '6px 0' }}>
-              첨부된 서류가 없습니다.
-            </div>
+            <CenterNote minHeight={48}>첨부된 서류가 없습니다.</CenterNote>
           ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 5 }}>
-              {files.map((f) => {
-                const sizeLabel = fileSizeText(f.size);
-                const isPdf = /pdf/i.test(f.type) || /\.pdf$/i.test(f.name);
-                return (
-                  <div
-                    key={f.id}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: 8, padding: '6px 9px',
-                      border: `1px solid ${C.line}`, borderRadius: R, background: C.taupeBg,
-                    }}
-                  >
-                    <FileText size={isPdf ? ICON.md : ICON.sm} color={isPdf ? C.danger : C.mute} aria-hidden />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <span
-                        title={f.name}
-                        style={{
-                          fontSize: FS.sub, fontWeight: FW.strong, color: C.ink,
-                          whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', display: 'block',
-                        }}
-                      >
-                        {f.name}
-                      </span>
-                      {sizeLabel ? (
-                        <span style={{ fontSize: FS.micro, color: C.faint, fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>
-                          {sizeLabel}
-                        </span>
-                      ) : null}
-                    </div>
+            files.map((f) => {
+              const sizeLabel = fileSizeText(f.size);
+              const isPdf = /pdf/i.test(f.type) || /\.pdf$/i.test(f.name);
+              return (
+                <ListRow
+                  key={f.id}
+                  badge={isPdf ? 'PDF' : undefined}
+                  badgeTone="red"
+                  main={f.name}
+                  sub={sizeLabel || undefined}
+                  right={(
                     <Btn
                       size="sm"
                       variant="ghost"
@@ -240,10 +220,10 @@ export function ConsultPanel({
                     >
                       <ButtonLabel icon={<Download size={ICON.md} aria-hidden />}>열기</ButtonLabel>
                     </Btn>
-                  </div>
-                );
-              })}
-            </div>
+                  )}
+                />
+              );
+            })
           )}
         </div>
       </div>

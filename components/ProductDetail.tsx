@@ -5,17 +5,17 @@ import { detailSections, type Audience } from '@/lib/domain/product';
 import { useProductPhotoState } from '@/components/use-product-photos';
 import { getRole } from '@/lib/domain/deal';
 import { Badge, C, R, NUM, FW, FS, ICON, CloseBtn, IconBtn, SCRIM, DetailTable, DT, KV_LABEL_W } from '@/components/ui';
+import { ImageOff } from 'lucide-react';
 import { toast } from '@/components/Toaster';
-import { downloadSinglePhoto } from '@/lib/client/download-photo-zip';
 import {
-  badges, Plate, idParts, CardBenefits, CardEvents, OptionChips,
+  SignalMarks, MetaIcon, Plate, idParts, CardBenefits, CardEvents, OptionChips, plateSpecLine,
 } from '@/components/product-card-atoms';
 import { FavHeart } from '@/components/FavHeart';
 import { ProductStateMarks } from '@/components/ProductStateMarks';
 import { ProductPhotoImage, ProductPhotoPlaceholder } from '@/components/ProductPhoto';
 import { ProductPriceTable } from '@/components/ProductPriceTable';
 import { useIsMobile } from '@/lib/use-mobile';
-import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Download } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp } from 'lucide-react';
 import { sectionIcon } from '@/components/section-icons';
 
 /**
@@ -117,15 +117,6 @@ export function ProductDetail({ p, audience, layout = 'brochure' }: {
   };
   const secs = detailSections(p, aud);
   const { idMain, idExt } = idParts(p);
-  const photoFileName = String(p.car_number || p.vehicle_no || p.plate_no || p.product_code || idMain || '차량사진');
-  const downloadOnePhoto = async (url: string, index: number) => {
-    try {
-      await downloadSinglePhoto(url, index, photoFileName);
-      toast(`사진 ${index + 1} 저장 완료`, 'ok');
-    } catch (error) {
-      toast(String((error as Error)?.message || '사진 다운로드 실패'), 'error');
-    }
-  };
   /** work = 차량번호를 요약바가 이미 들고 있다. 세부표에서 한 번 더 찍지 않는다(같은 값 세 번 → 표가 길어 보인다). */
   const kvRows = (rows: [string, string][]) => (work ? rows.filter(([k]) => k !== '차량번호') : rows);
 
@@ -146,13 +137,16 @@ export function ProductDetail({ p, audience, layout = 'brochure' }: {
           marginTop: work ? 0 : 8, rowGap: 6,
         }}>
           {aud !== 'customer' && !work && <Plate p={p} />}
-          {/* work = 차번·상태를 요약바가 이미 들고 있다. 같은 값을 두 번 찍지 않는다. */}
-          {badges(p, false, false, false, aud, { hideStatus: work })}
+          {!work && plateSpecLine(p) && (
+            <span style={{ fontSize: FS.sub, color: C.mute, fontVariantNumeric: 'tabular-nums' }}>{plateSpecLine(p)}</span>
+          )}
+          {/* 상자 대신 아이콘+글자. 심사는 우대조건 줄. (사장님 2026-08-30 「08-28 게 맞다」) */}
+          <SignalMarks p={p} audience={aud} hideStatus={work} />
           <CardBenefits p={p} inline />
           <CardEvents p={p} inline />
           {/* 사진 없음도 매물의 성질이다 — 별도 줄을 잡아먹지 않게 칩으로 붙인다.
               (안 그리면 «없는 건지 안 뜬 건지»를 모른다. 사진 없는 차가 절반 가까이다.) */}
-          {work && photos.length === 0 && !pending && <Badge tone="gray" variant="quiet" title="등록된 사진이 없습니다">사진없음</Badge>}
+          {work && photos.length === 0 && !pending && <MetaIcon icon={ImageOff} text="사진없음" size={ICON.sm} strong iconColor={C.mute} title="등록된 사진이 없습니다" />}
           {work && aud !== 'customer' && <ProductStateMarks p={p} />}
           {work && aud !== 'customer' && <FavHeart p={p} compact />}
         </div>
@@ -163,8 +157,8 @@ export function ProductDetail({ p, audience, layout = 'brochure' }: {
       <div>
       {(photos.length ? (
         <div style={work ? { maxWidth: WORK_PHOTO_W, marginBottom: 4 } : undefined}>
-          {/* 「전체받기」는 우측 영업자 패널의 「사진 N장 내려받기」가 맡는다 — 같은 동작을 두 곳에 두지 않는다
-              (사장님 2026-08-20). 여기는 이름표만 남긴다. */}
+          {/* ★사진 «받기»는 이 화면에 없다(사장님 2026-08-30 「다 삭제해 버리고 싶으니까」) —
+              사진은 파일로 주고받지 않고 링크로 보낸다. 여기는 이름표만 남긴다. */}
           {!mobile ? (
             <div style={{ fontSize: FS.title, fontWeight: FW.title, color: C.ink, marginBottom: 4 }}>차량사진</div>
           ) : null}
@@ -227,7 +221,12 @@ export function ProductDetail({ p, audience, layout = 'brochure' }: {
             )}
             <span style={{ position: 'absolute', right: 8, bottom: 8, background: SCRIM.heavy, color: C.inverse, fontSize: FS.cap, fontWeight: FW.strong, padding: '2px 8px', borderRadius: R, fontFamily: NUM, fontVariantNumeric: 'tabular-nums', pointerEvents: 'none' }}>{mainIdx + 1} / {photos.length}</span>
           </div>
-          {photos.length > 1 && (
+          {/* ★세로 썸네일 칸 = **웹 전용**(사장님 2026-08-30 「모바일에선 그거 필요없어, 그냥 바로 눌러서 볼 거기 때문에」).
+              폰에서는 사진을 «고르지» 않는다 — 큰 사진을 좌우로 밀거나 눌러서 크게 본다.
+              그 위에 72px 칸이 붙으면 큰 사진이 그만큼 좁아지는데, 정작 그 칸으로 고르는 사람이 없다.
+              넘김 수단은 그대로 남는다: 스와이프 · ‹ › · 우하단 「N / M」 · 눌러서 전체화면.
+              ⚠ 썸네일 스크롤 효과들(thumbRef)은 ref 가 null 이면 스스로 물러나므로 여기만 막으면 된다. */}
+          {!mobile && photos.length > 1 && (
             <div style={{ flex: `0 0 ${THUMB_COL_W}px`, position: 'relative' }}>
               {thumbOverflow && (
                 <IconBtn
@@ -398,15 +397,6 @@ export function ProductDetail({ p, audience, layout = 'brochure' }: {
           <div onClick={(e) => e.stopPropagation()} style={{ maxWidth: 880, margin: '0 auto', display: 'flex', flexDirection: 'column', gap: 12 }}>
             {photos.map((ph, i) => (
               <div key={i} style={{ position: 'relative' }}>
-                {(
-                  <IconBtn
-                    title={`사진 ${i + 1} 한 장 받기`}
-                    onClick={(e) => { e.stopPropagation(); void downloadOnePhoto(ph, i); }}
-                    style={{ position: 'absolute', top: 10, right: 10, zIndex: 1, background: SCRIM.heavy, color: C.inverse, border: 'none' }}
-                  >
-                    <Download size={ICON.md} aria-hidden />
-                  </IconBtn>
-                )}
                 <ProductPhotoImage
                   src={ph}
                   alt=""

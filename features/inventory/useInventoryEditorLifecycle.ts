@@ -2,7 +2,7 @@
 
 import { useState, type Dispatch, type SetStateAction } from 'react';
 import { getStore } from '@/lib/store';
-import type { EntityRecord } from '@/lib/intake/entities';
+import { ENTITIES, type EntityRecord } from '@/lib/intake/entities';
 import { actor, getRole, type Role } from '@/lib/domain/deal';
 import { newId } from '@/lib/domain/ids';
 import { joinEventTags, vehicleName } from '@/lib/domain/product';
@@ -80,6 +80,24 @@ export function useInventoryEditorLifecycle({
     if (saving) return;
     if (!String(form.product_code || '').trim()) {
       toast('상품코드는 필수입니다', 'error');
+      return;
+    }
+    /**
+     * ★**필수는 차량번호 · 모델명 둘뿐**(사장님 2026-08-23 「필수입력은 차량번호야 모델명인 거지」).
+     *
+     * ⚠ 전에는 `entities` 에 `required: true` 를 달아도 **여기서 안 봤다** — 화면에 빨간 별표만 뜨고
+     *   빈 채로 그대로 저장됐다. 「필수」라고 적어 두고 안 막는 것은 안 적은 것보다 나쁘다(막힌 줄 알고 넘어간다).
+     *   그래서 선언(`ENTITIES.product.fields[].required`)을 **여기가 강제**한다 — 필수를 늘리려면 선언만 고치면 된다.
+     *
+     * ⚠ 필수를 함부로 늘리지 마라. 막히면 사람이 아무 값이나 적어 넣는다 —
+     *   빈칸은 «모른다»지만 아무 값이나는 «틀린 값»이고, 틀린 값은 손님에게 나간다.
+     *   (2026-08-23 실측: 판매가능 474대 중 모델명·차번이 빈 차는 0대라 이 게이트가 기존 차를 막지 않는다)
+     */
+    const missing = ENTITIES.product.fields
+      .filter((field) => field.required && !String(form[field.key] ?? '').trim())
+      .map((field) => field.label);
+    if (missing.length) {
+      toast(`${missing.join(' · ')} 은(는) 필수입니다`, 'error');
       return;
     }
     setSaving(true);

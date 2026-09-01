@@ -10,6 +10,7 @@
  * ★시트에 그 차번이 없으면 넘어간다. 폴더가 있다고 없는 차를 만들지 않는다.
  *
  *   npx tsx scripts/link-photo-folders.mts
+ *   npx tsx scripts/link-photo-folders.mts --plates=161허1334,58마8818
  *   npx tsx scripts/link-photo-folders.mts --apply
  */
 import { readFileSync } from 'node:fs';
@@ -21,6 +22,9 @@ const S = (v: unknown) => String(v ?? '').trim();
 const norm = (v: unknown) => S(v).replace(/\s+/g, '');
 const APPLY = process.argv.includes('--apply');
 const OVERWRITE = process.argv.includes('--overwrite');
+/** 명시한 차량만 링크한다. 사진 일괄 반영 때 다른 기존 폴더를 건드리지 않기 위한 범위 가드다. */
+const ONLY_PLATES = new Set((process.argv.find((a) => a.startsWith('--plates=')) || '')
+  .slice('--plates='.length).split(',').map(norm).filter(Boolean));
 const ROOT = '1X98iGOqEB7ZjGBdkrtesuFcQzvqIMClZ';   // freepasspics
 const DB = 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app';
 const PLATE_RE = /^\d{2,3}[가-힣]\d{4}$/;
@@ -49,13 +53,18 @@ for (const sup of await ls(ROOT)) {
     if (!S(car.mimeType).includes('folder')) continue;
     const plate = norm(S(car.name).split(/\s+/)[0]);
     if (!PLATE_RE.test(plate)) continue;
+    // 지정 반영은 대상 폴더의 사진 수만 읽는다. 전수 폴더를 열면 읽기만 수십 분 걸린다.
+    if (ONLY_PLATES.size && !ONLY_PLATES.has(plate)) continue;
     const shots = (await ls(S(car.id))).filter((f) => !S(f.mimeType).includes('folder')).length;
     if (!shots) continue;
     byPlate.set(plate, { url: `https://drive.google.com/drive/folders/${S(car.id)}`, supplier: S(sup.name), shots });
   }
 }
+if (ONLY_PLATES.size) {
+  for (const plate of byPlate.keys()) if (!ONLY_PLATES.has(plate)) byPlate.delete(plate);
+}
 console.log(`■ 사진 폴더 ↔ 시트 사진링크 잇기 ${APPLY ? '(반영)' : '(dry-run)'}\n`);
-console.log(`  사진이 든 차량 폴더 ${byPlate.size}개\n`);
+console.log(`  사진이 든 차량 폴더 ${byPlate.size}개${ONLY_PLATES.size ? ` (지정 차량 ${ONLY_PLATES.size}대만)` : ''}\n`);
 
 const [t3, t4] = await Promise.all(['partners', 'v4/partners'].map(async (n) =>
   JSON.parse(await (await fetch(`${DB}/${n}.json?access_token=${dbT}`)).text()) || {}));

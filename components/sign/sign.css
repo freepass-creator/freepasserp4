@@ -1,0 +1,350 @@
+/* ============================================================
+   전자계약 «손님 화면» 스타일 — 프리패스ERP · 착한거래 **공용 정본**
+
+   출발점: chakhandeal `app/globals.css` + `docs/UIUX-SSOT.md` (S01–S30) 를 그대로 옮겼다.
+   앞으로는 **여기가 정본**이다(사장님 2026-08-21 「그대로 가져오고 우리 거에 맞춰 개선하고
+   착한거래가 배워가게 할 거야」). 고칠 일이 생기면 여기를 고치고, 착한거래가 받아 간다.
+
+   ★모든 규칙을 `.sign-root` 아래로 가둔다 — ERP 화면에 한 글자도 새면 안 된다.
+     ERP 는 「B2B는 조밀하게」로 만든 화면이고, 여기 값은 정반대다.
+   ★색 변수는 착한거래 이름 그대로 둔다(--navy/--safe/--ink…). 옮길 때 이름을 안 바꿔도 되게.
+
+   지켜야 할 것(SSOT 발췌)
+     S02 라운드 8 단일 — 진짜 원(50%)·알약(999)만 예외
+     S06 손님 단계 화면은 .c-body — 카드 남발 금지
+     S07 손님 타이포는 .slabel → .stitle → .sdesc 세 단
+     S10 주 CTA 는 하단 .c-footer · S24 주요 터치 높이 ≥ 40px
+   ============================================================ */
+.sign-root{
+  /* ★색은 «우리 것»을 쓴다(사장님 2026-08-21 「색깔은 우리 꺼 써야지」).
+     착한거래에서 가져온 것은 «구조·여백·타이포»이고, 색은 ERP 토큰에 얹는다.
+     이렇게 두면 다크모드도 ERP 를 따라간다 — 값을 박아 두면 밤에 흰 종이가 된다.
+     오른쪽 대체값은 착한거래 원값이다. 그 저장소로 옮기면 대체값이 자동으로 선다. */
+  --navy:var(--brand, #1B2A4A);
+  --navy2:var(--brand-h, #0F1B35);
+  --navy50:var(--brand-bg, #e6ecf5);
+  --fp-sky:var(--sky, #9EC5F3);
+  --fp-sky-bg:var(--sky-bg, #eef5fe);
+  --safe:var(--green-text, #15803d);
+  --safe50:var(--green-bg, #f0fdf4);
+  --safe2:#16a34a;
+  --safe3:#15803d;
+  --warn:var(--orange-text, #b9821a);--warn50:var(--orange-bg, #fbf3e2);
+  --danger:var(--red-text, #c0392b);--danger50:var(--red-bg, #fbeae8);
+  --ink:var(--text-main, #1b2733);
+  --ink2:var(--text-sub, #445466);
+  --ink3:var(--text-weak, #7c8a98);
+  --line:var(--border, #e6ebf1);
+  --line2:var(--border-soft, #eef2f6);
+  --bg:var(--bg-page, #f4f6f9);
+  --white:var(--bg-card, #fff);
+  --shadow:0 1px 2px rgba(22,49,77,.06),0 4px 16px rgba(22,49,77,.06);
+  --sat:env(safe-area-inset-top,0px);--sab:env(safe-area-inset-bottom,0px);
+  --radius:8px;
+
+  font-family:var(--font, "Pretendard Variable", Pretendard, 'Apple SD Gothic Neo', -apple-system, system-ui, sans-serif);
+  background:var(--bg);color:var(--ink);font-size:15px;line-height:1.6;
+  -webkit-font-smoothing:antialiased;word-break:keep-all;overflow-wrap:break-word;
+  display:flex;flex-direction:column;flex:1 1 0;min-height:0;overflow:hidden;
+}
+/* 이 화면이 «페이지 전체»일 때 — .sign-root 는 flex:1 이라 부모가 높이를 줘야 선다.
+   앱 레이아웃 안에 끼워 쓸 때는 이 클래스를 안 붙이면 된다. */
+.sign-root.sign-page{height:100dvh;flex:none}
+
+.sign-root .sign-frame{
+  width:100%;max-width:760px;margin:0 auto;min-width:0;min-height:0;flex:1;
+  display:flex;flex-direction:column;overflow:hidden;background:var(--white);
+}
+.sign-root *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+.sign-root button,.sign-root input,.sign-root select,.sign-root textarea{font-family:inherit;font-size:inherit;color:inherit}
+
+/* ── 여기부터 착한거래 원문 (셀렉터만 .sign-root 로 가둠) ───────────── */
+.sign-root .header{background:var(--navy);color:#fff;padding:calc(16px + var(--sat)) 0 16px}
+.sign-root .header .wrap{max-width:none;margin:0;padding:0 20px;display:flex;align-items:center;gap:10px}
+.sign-root .header .logo{width:30px;height:30px;border-radius:var(--radius);background:var(--safe);display:grid;place-items:center;font-weight:900;font-size:16px;color:#fff}
+.sign-root .header h1{font-size:18px;font-weight:800;letter-spacing:-.3px}
+.sign-root .header .sub{font-size:12px;opacity:.75;font-weight:500}
+.sign-root .field{display:flex;flex-direction:column;gap:6px}
+.sign-root .field.full{grid-column:1/-1}
+/* .field 를 <label> 로 감싸면 «라벨을 눌러도 칸이 잡힌다» — 폰에서 표적이 두 배가 된다.
+   그래서 안쪽 라벨은 span(.flabel)이다. 착한거래의 `.field label` 규격을 그대로 받는다. */
+.sign-root .field label,.sign-root .field .flabel{font-size:13px;font-weight:700;color:var(--ink2)}
+.sign-root .field label .req,.sign-root .field .flabel .req{color:var(--danger);margin-left:2px}
+.sign-root .field label .opt,.sign-root .field .flabel .opt{color:var(--ink3);font-weight:500;font-size:11.5px;margin-left:4px;font-style:normal}
+/* 칸끼리는 18px — 라벨(위)과 값(아래)이 6px 로 붙어 있으니 칸 사이는 그보다 확실히 넓어야
+   「어디까지가 한 칸인가」가 보인다. */
+.sign-root .c-body > .field,.sign-root .c-body > .cc,.sign-root .c-body .cc{margin-bottom:18px}
+.sign-root .c-body:not(.shoot-body) .shoot-wrap{margin:0 0 18px}
+.sign-root .field input,.sign-root .field select,.sign-root .field textarea,.sign-root .inp{width:100%;border:1px solid var(--line);border-radius:var(--radius);padding:12px 14px;background:#fff;outline:none;transition:.12s;font-size:16px;font-family:inherit;color:var(--ink)}
+.sign-root .field input:focus,.sign-root .field select:focus,.sign-root .field textarea:focus,.sign-root .inp:focus{border-color:var(--navy2);box-shadow:0 0 0 3px var(--navy50)}
+.sign-root .btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;padding:12px 20px;border-radius:var(--radius);border:1px solid var(--line);background:#fff;color:var(--ink);font-weight:700;font-size:14px;cursor:pointer;transition:.12s}
+.sign-root .btn:hover{border-color:var(--ink3)}
+.sign-root .btn:active{transform:scale(.99)}
+.sign-root .btn-primary{background:var(--navy);border-color:var(--navy);color:#fff}
+.sign-root .btn-primary:hover{background:var(--navy2)}
+.sign-root .btn-danger{background:#fff;border-color:var(--danger);color:var(--danger)}
+.sign-root .btn-safe{background:var(--safe);border-color:var(--safe);color:#fff}
+.sign-root .btn-sm{padding:10px 14px;min-height:40px;font-size:13px;border-radius:var(--radius)}
+.sign-root .btn-block{width:100%;padding:13px 14px}
+.sign-root .btn:disabled{opacity:.4;cursor:not-allowed}
+.sign-root .footnotes{list-style:none;margin:12px 0 6px;display:flex;flex-direction:column;gap:5px}
+.sign-root .footnotes li{position:relative;padding-left:16px;font-size:11.5px;line-height:1.55;color:var(--ink3)}
+.sign-root .footnotes li::before{content:"※";position:absolute;left:0}
+.sign-root .anim-in{animation:screenIn .14s ease both}
+.sign-root .steps{display:flex;gap:6px;padding:16px 22px 8px;flex-shrink:0}
+.sign-root .c-head.compact + .steps{padding-bottom:10px}
+.sign-root .steps.has-labels{padding-bottom:12px;gap:8px}
+.sign-root .steps .s-wrap{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+.sign-root .steps .s{height:4px;border-radius:2px;background:var(--line);transition:background .2s ease;width:100%}
+.sign-root .steps .s.on{background:var(--navy)}
+.sign-root .steps .s.cur{box-shadow:0 0 0 1px color-mix(in srgb, var(--navy) 25%, transparent)}
+.sign-root .steps .s-label{font-size:11px;font-weight:700;color:var(--ink3);letter-spacing:-.2px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sign-root .steps .s-label.on{color:var(--navy)}
+.sign-root .steps .s-label.cur{font-weight:800}
+.sign-root .c-body{padding:18px 22px 8px;flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;scrollbar-gutter:stable}
+
+.sign-root .c-body.c-center{display:flex;flex-direction:column;justify-content:center}
+.sign-root .slabel{font-size:12px;font-weight:800;color:var(--navy);margin-bottom:7px;letter-spacing:.3px}
+.sign-root .stitle{font-size:18px;font-weight:800;margin-bottom:6px;letter-spacing:-.3px;line-height:1.3}
+.sign-root .sdesc{font-size:14px;color:var(--ink3);margin-bottom:22px}
+.sign-root .auth-opt{display:flex;align-items:center;gap:14px;width:100%;border:1.5px solid var(--line);border-radius:var(--radius);padding:17px;margin-bottom:11px;cursor:pointer;font:inherit;font-weight:700;font-size:15px;color:inherit;text-align:left;background:#fff;transition:transform .08s,border-color .12s,background .12s;min-height:62px;box-sizing:border-box}
+.sign-root .auth-opt:active{transform:scale(.98);background:var(--navy50)}
+.sign-root .auth-opt.rec{border-color:var(--navy);background:var(--navy50)}
+.sign-root .auth-opt.rec .arr{color:var(--navy);font-weight:800}
+.sign-root .auth-opt.sel{border-color:var(--navy);background:var(--navy50);box-shadow:0 0 0 2px var(--navy50)}
+.sign-root .auth-opt.sel .arr{color:var(--navy);font-weight:800}
+.sign-root .auth-opt .ic{width:38px;height:38px;border-radius:var(--radius);display:grid;place-items:center;font-size:18px;flex-shrink:0;color:#fff;font-weight:900}
+.sign-root .auth-opt .ic.phone{background:#3a6ea5}
+.sign-root .auth-opt .ic.id{background:var(--navy)}
+.sign-root .auth-opt .ic.safe{background:var(--safe)}
+.sign-root .auth-opt .ic.kakao{background:#FEE500;color:#3c1e1e}
+.sign-root .auth-opt .ic.toss{background:#3182f6}
+.sign-root .auth-opt .tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.sign-root .auth-opt .tx small{display:block;font-size:11.5px;color:var(--ink3);font-weight:600;margin-top:1px}
+.sign-root .auth-opt .arr{margin-left:auto;color:var(--ink3);font-size:20px;flex-shrink:0}
+.sign-root .panel{border:1px solid var(--line);border-radius:var(--radius);background:#fff;margin-bottom:14px;text-align:left;overflow:hidden}
+/* 머리가 없는 판은 예전처럼 안쪽 여백을 스스로 갖는다 */
+.sign-root .panel > :first-child:not(.panel-title){margin-top:14px}
+.sign-root .panel > *:not(.panel-title){margin-left:16px;margin-right:16px}
+.sign-root .panel > :last-child{margin-bottom:14px}
+.sign-root .panel .panel-title{
+  display:block;font-size:14px;font-weight:700;color:#fff;letter-spacing:-.3px;
+  background:var(--navy);padding:11px 14px;margin:0
+}
+.sign-root .panel .panel-head{font-weight:800;margin-bottom:8px;color:var(--navy)}
+.sign-root .panel .sdesc,.sign-root .panel .hint{margin:10px 0 0}
+.sign-root .c-footer{flex-shrink:0;padding:12px 22px calc(14px + var(--sab));background:#fff;border-top:1px solid var(--line)}
+.sign-root .c-footer.wiz{display:flex;gap:10px}
+.sign-root .btn-prev{flex:0 0 auto;min-width:92px}
+.sign-root .btn-next{flex:1}
+.sign-root .c-body > .btn{margin-bottom:11px}
+.sign-root .c-body .field{margin-bottom:18px}
+.sign-root .sig{margin:0 0 14px}
+.sign-root .sig-canvas{width:100%;height:180px;background:#fff;border:1.5px dashed var(--navy2);border-radius:var(--radius);touch-action:none;display:block;cursor:crosshair;color:var(--ink)}
+.sign-root .sig-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px}
+.sign-root .sig-bar .hint{margin:0}
+@keyframes screenIn{from{opacity:0}to{opacity:1}}
+.sign-root .anim-in{animation:screenIn .14s ease both}
+.sign-root .skel{height:52px;border-radius:var(--radius);background:linear-gradient(100deg,var(--line2) 30%,#f6f8fb 50%,var(--line2) 70%);background-size:200% 100%;animation:skel 1.2s linear infinite}
+.sign-root .skel+.skel{margin-top:8px}
+@keyframes skel{from{background-position:200% 0}to{background-position:-200% 0}}
+
+/* ── 여기부터 프리패스ERP 에서 더한 것 (착한거래가 배워 갈 자리) ─────────
+   착한거래에는 «라벨│값 한 줄»이 없다. 회원 콘솔은 .card 안에서 자유 배치였고,
+   손님 화면엔 그런 표가 필요 없었다. 우리는 계약 요약을 보여 줘야 해서 새로 만든다.
+   .panel 안에서 쓰며, 라벨 폭을 고정해 값 시작선을 맞춘다. */
+.sign-root .srow{display:flex;align-items:flex-start;gap:12px;padding:11px 0;border-top:1px solid var(--line)}
+.sign-root .panel > .srow:first-of-type{border-top:0;padding-top:2px}
+.sign-root .srow-l{flex:0 0 88px;max-width:88px;font-size:13px;font-weight:700;color:var(--ink2);line-height:1.5}
+.sign-root .srow-v{flex:1;min-width:0;font-size:15px;color:var(--ink);line-height:1.6;overflow-wrap:break-word}
+
+/* 조문 아코디언 — 약관 28조를 폰에서 읽게 하는 자리. 착한거래에는 없다(약관이 짧다). */
+.sign-root details.sacc{border-top:1px solid var(--line)}
+.sign-root details.sacc > summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:8px;
+  padding:13px 2px;font-size:15px;font-weight:700;color:var(--ink);line-height:1.5}
+.sign-root details.sacc > summary::-webkit-details-marker{display:none}
+.sign-root details.sacc > summary .caret{flex:0 0 auto;color:var(--ink3);font-size:12px;transition:transform .15s ease}
+.sign-root details.sacc[open] > summary .caret{transform:rotate(90deg)}
+.sign-root details.sacc > .sacc-body{padding:0 2px 14px 20px;font-size:14px;color:var(--ink2);line-height:1.7;overflow-wrap:anywhere}
+
+/* 읽기 진행률 — .steps 와 같은 문법(얇은 막대)으로 맞춘다. */
+.sign-root .sprog{display:grid;gap:6px;margin-bottom:14px}
+.sign-root .sprog-head{display:flex;align-items:baseline;gap:8px;font-size:12px;color:var(--ink3)}
+.sign-root .sprog-head b{margin-left:auto;font-weight:800}
+.sign-root .sprog-bar{height:4px;border-radius:2px;background:var(--line);overflow:hidden}
+.sign-root .sprog-bar > i{display:block;height:100%;background:var(--navy);transition:width .2s ease}
+
+/* 진행 막대는 프리패스 네이비. 초록은 ERP에서 «정상·완료»라 단계 진행과 겹친다. */
+
+/* 머리 한 줄 — 착한거래 FlowHeader compact 그대로.
+   [마크] freepass | 전자계약  계약 확인                    1 / 8
+   색만 프리패스 네이비 헤더 + 스카이 마크. */
+.sign-root .c-head{
+  background:var(--navy);color:#fff;padding:calc(20px + var(--sat)) 22px 22px;flex-shrink:0
+}
+.sign-root .c-head.compact{padding:calc(10px + var(--sat)) 22px 8px}
+.sign-root .c-head-row{display:flex;align-items:center;gap:8px;min-width:0}
+.sign-root .c-head-brand{display:inline-flex;align-items:center;gap:7px;color:#fff;flex:none}
+/* CI 워드마크 규격 — freepass 600(뒤에 붙는 erp.com·mobility 는 300).
+   800 은 우리가 임의로 올린 값이었다. 옆의 「전자계약」(800)과 굵기가 같아 둘 다 제목처럼 보였다. */
+.sign-root .c-head-brand b{font-size:13px;font-weight:600;letter-spacing:-.2px}
+.sign-root .c-head-div{width:1px;height:12px;background:rgba(255,255,255,.28);flex:none}
+.sign-root .c-head-now{display:flex;align-items:baseline;gap:6px;min-width:0;flex:1}
+.sign-root .c-head-title{color:#fff;font-size:14px;font-weight:800;letter-spacing:-.35px;flex:none}
+.sign-root .c-head-sub{color:rgba(255,255,255,.72);font-size:12px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sign-root .c-head-count{flex:none;font-size:11px;font-weight:700;color:rgba(255,255,255,.72);font-variant-numeric:tabular-nums}
+.sign-root .c-head h1{font-size:18px;font-weight:800;margin-top:5px;letter-spacing:-.3px}
+.sign-root .c-head .co{font-size:13px;opacity:.85;margin-top:8px;display:flex;align-items:center;gap:6px;min-height:1.35em}
+.sign-root .c-head .co::before{content:"";width:6px;height:6px;border-radius:50%;background:var(--fp-sky);flex-shrink:0}
+/* ★마크는 CI 정본(`public/icon.svg`)의 «기하»를 그대로 쓴다.
+     라운드 96/512 = 18.75% · 체크 획 52/512 = 10.16% · 체크 잉크 폭 102…410 = 60%.
+     비율(%)로 적어 두면 20px 이든 34px 이든 CI 와 같은 모양으로 선다.
+     전에는 라운드 25% · 획 6.5% · lucide 체크라 «비슷하지만 다른» 마크였다.
+   ⚠ 좌표를 고칠 일이 생기면 `public/icon.svg` 와 같이 고친다. */
+/* ★색은 «반전»한다 — 흰 네모 + 남색 체크(사장님 2026-08-28 「하얀 네모에 체크는 남색이라야 임팩트」).
+     CI 원본은 네이비 네모 + 흰 체크로 대비 13.9:1 이다. 네이비 머리 위에 그대로 쓰면 네모가 안 보이므로
+     밝기 관계를 뒤집는데, «흰 네모 + 남색 체크»가 14.1:1 로 CI 와 같은 세기다.
+     스카이 네모 + 흰 체크는 1.8:1 밖에 안 나와 체크가 뭉갠다 — 그래서 안 쓴다. */
+.sign-root .brand-mark{
+  width:34px;height:34px;border-radius:18.75%;background:#fff;color:var(--navy);
+  display:grid;place-items:center;box-shadow:var(--shadow);flex-shrink:0
+}
+.sign-root .brand-mark svg{width:100%;height:100%;display:block}
+.sign-root .brand-mark-compact{width:20px;height:20px;box-shadow:none}
+
+/* ═══ 촬영 화면 ═══════════════════════════════════════════════════
+   ★착한거래(CameraCapture)는 getUserMedia 로 «화면 안에» 미리보기를 띄운다.
+     우리는 `<input capture>` 로 «기기 카메라 앱»을 연다 — 초점·플래시·화질이 기기 것이라
+     신분증 글씨가 훨씬 잘 읽히고, 카메라 권한 거절로 막히는 길이 없다.
+     대신 화면 안에 실시간 틀을 못 그리므로, «틀 그림»을 눌러 여는 자리로 세운다.
+
+   한 화면에 이것 하나만 둔다 — 신분증·얼굴을 같이 두면 폰에서 스크롤이 생기고,
+   무엇을 찍는 중인지 흐려진다(사장님 2026-08-21 「한 화면에서 처리하면서 다음으로」). */
+.sign-root .shoot{width:100%;border:2px dashed var(--line);border-radius:var(--radius);background:var(--white);
+  display:grid;place-items:center;gap:10px;padding:22px 16px;cursor:pointer;position:relative;overflow:hidden;
+  transition:border-color .12s,background .12s,transform .08s;font:inherit;color:inherit;text-align:center}
+.sign-root .shoot:active{transform:scale(.99);background:var(--navy50)}
+.sign-root .shoot:focus-visible{outline:none;border-color:var(--navy2);box-shadow:0 0 0 3px var(--navy50)}
+/* 찍고 나면 «점선(비었음)»에서 «실선 초록(찼음)»으로 — 상태를 글이 아니라 테두리가 말한다 */
+.sign-root .shoot.done{border-style:solid;border-color:var(--navy);background:var(--navy50);padding:0}
+.sign-root .shoot-ic{width:56px;height:56px;border-radius:50%;background:var(--navy50);color:var(--navy);
+  display:grid;place-items:center}
+.sign-root .shoot-t{font-size:15px;font-weight:800;color:var(--ink)}
+.sign-root .shoot-d{font-size:13px;color:var(--ink3);line-height:1.5}
+/* 신분증은 카드 비율(85.6×54), 얼굴은 세로로 세운다 — 틀이 곧 「어떻게 찍어라」다 */
+.sign-root .shoot.id{aspect-ratio:85.6/54}
+.sign-root .shoot.face{aspect-ratio:3/4;max-height:46vh;margin:0 auto}
+/* 첨부서류 칸 — 사진 «또는» PDF 라 카드 비율 틀을 씌우지 않는다.
+   틀이 「찍어라」로 읽히면 PDF 를 가진 손님이 헤맨다. 낮은 상자 하나면 된다. */
+.sign-root .shoot.doc{padding:14px 16px;gap:6px;text-align:left;place-items:start}
+.sign-root .shoot.doc .shoot-ic{width:38px;height:38px}
+.sign-root .shoot.doc .shoot-t{font-size:14px}
+
+/* 서명판 — 손가락으로 긋는 자리. 첨부칸이 아니라 «판»이다.
+   점선을 두르면 「파일을 놓아라」로 읽힌다. 실선 한 겹과 옅은 바탕이면 된다. */
+.sign-root .signpad{width:100%;border:1px solid var(--line);border-radius:var(--radius);
+  background:var(--line2);overflow:hidden;touch-action:none}
+.sign-root .shoot img{width:100%;height:100%;object-fit:cover;display:block}
+/* 다시 찍기 — 사진 위에 얹는다(사진을 밀어내지 않는다) */
+.sign-root .shoot-again{position:absolute;right:10px;bottom:10px;display:inline-flex;align-items:center;gap:5px;
+  background:rgba(0,0,0,.62);color:#fff;border:0;border-radius:999px;padding:8px 13px;font:inherit;font-size:12.5px;
+  font-weight:700;cursor:pointer;backdrop-filter:blur(2px)}
+/* 촬영 화면은 몸통을 꽉 채운다 — 아래로 스크롤할 것이 없어야 한다 */
+.sign-root .c-body.shoot-body{display:flex;flex-direction:column}
+.sign-root .c-body.shoot-body .shoot-wrap{flex:1;min-height:180px;display:flex;align-items:center}
+
+/* ── 계약 카드 · 항목명 위 / 값 아래 (착한거래 LabEsignFlow 그릇, 색만 프리패스) ── */
+.sign-root .scard{
+  background:var(--white);border:1px solid var(--line);border-radius:var(--radius);
+  box-shadow:var(--shadow);margin-bottom:14px;overflow:hidden
+}
+.sign-root .scard.is-done{border-color:var(--navy);opacity:.72}
+.sign-root .scard.is-locked{border-style:dashed}
+/* ★판 머리는 «남색 띠 + 흰 글씨»다 — ERP 상품상세와 같은 규격
+     (사장님 2026-08-28 「상품상세처럼 남색 헤드에 하얀 글씨로 세련되게」).
+     흰 머리 + 회색 밑줄은 판이 어디서 시작하는지 약했다. 색 띠가 시작선을 대신 긋는다.
+   ⚠ 띠 안에 «밝은 칩»을 얹지 않는다 — 머리에 주인공이 둘 생긴다.
+     오른쪽 곁말은 흐린 흰 글씨로만 둔다(메모 「상자 뱃지 금지」). */
+.sign-root .scard-head{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:11px 14px;border-bottom:0;background:var(--navy);color:#fff
+}
+.sign-root .scard-title{font-size:14px;font-weight:700;color:#fff;letter-spacing:-.3px;min-width:0}
+.sign-root .scard-badge{flex:none;font-size:11.5px;font-weight:600;white-space:nowrap;color:rgba(255,255,255,.62)}
+.sign-root .scard-badge.done{color:var(--fp-sky)}
+.sign-root .scard-note{margin:0;padding:10px 14px 0;font-size:12px;line-height:1.6;color:var(--ink2)}
+.sign-root .scard-body{padding:2px 14px 12px}
+.sign-root .scard-foot{padding:11px 14px;border-top:1px solid var(--line2);background:var(--line2)}
+.sign-root .scard-foot.is-done{background:var(--navy50)}
+
+.sign-root .sfact{padding:12px 0;border-bottom:1px solid var(--line2)}
+.sign-root .sfact:last-child{border-bottom:0}
+.sign-root .sfact-k{display:block;margin-bottom:4px;font-size:12px;font-weight:600;color:var(--ink3);letter-spacing:-.1px}
+.sign-root .sfact-v{margin:0;font-size:15px;font-weight:700;color:var(--ink);line-height:1.5;letter-spacing:-.2px;word-break:keep-all;font-variant-numeric:tabular-nums}
+.sign-root .sfact-v.long{font-size:14px;font-weight:400;line-height:1.7;white-space:pre-line}
+.sign-root .sfact-art{font-size:12px;font-weight:600;color:var(--ink3);margin-top:3px}
+
+.sign-root .smatrix-wrap{overflow-x:auto;margin:10px 0 2px}
+.sign-root .smatrix{width:100%;border-collapse:collapse}
+.sign-root .smatrix th,.sign-root .smatrix td{padding:9px 6px;text-align:right;font-size:13px;white-space:nowrap}
+.sign-root .smatrix thead th{font-size:11px;font-weight:600;color:var(--ink3);border-bottom:1px solid var(--line)}
+.sign-root .smatrix tbody td{font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;border-bottom:1px solid var(--line2)}
+.sign-root .smatrix tbody tr:last-child td{border-bottom:0}
+.sign-root .smatrix th:first-child,.sign-root .smatrix td:first-child{text-align:left;padding-left:0;font-size:12px;font-weight:600;color:var(--ink3)}
+.sign-root .smatrix-empty{color:var(--line)}
+
+.sign-root .cc{
+  display:flex;align-items:flex-start;gap:11px;padding:15px 16px;border:1.5px solid var(--line);
+  border-radius:var(--radius);cursor:pointer;font-weight:700;font-size:14.5px;transition:.12s;line-height:1.45
+}
+.sign-root .cc.on{border-color:var(--navy);background:var(--navy50)}
+.sign-root .cc input{width:21px;height:21px;accent-color:var(--navy);flex-shrink:0;margin:1px 0 0;cursor:pointer}
+.sign-root .cc small{display:block;font-size:12px;font-weight:600;color:var(--ink3);margin-top:3px}
+.sign-root .cc.cc-disabled{opacity:.55;cursor:not-allowed;background:var(--bg)}
+.sign-root .cc.cc-disabled input{cursor:not-allowed}
+
+/* 설명은 박스 없이. ERP Message(주황/파란 면)는 손님 화면에 안 쓴다. */
+.sign-root .hint{font-size:12px;color:var(--ink3);margin:10px 0 6px;line-height:1.55}
+.sign-root .auth-err{color:var(--danger);font-size:13px;font-weight:600;margin:10px 0 0;line-height:1.5}
+
+/* 「— 약관 끝 —」 — 알림도 각주도 아니다. «여기서 끝났다»는 표시다.
+   박스를 씌우면 마지막 조문처럼 보이고, ※ 로 두면 각주처럼 보인다. 가운데 흐린 한 줄이면 된다. */
+.sign-root .terms-end{text-align:center;font-size:12px;font-weight:600;color:var(--ink3);
+  padding:16px 0 4px;letter-spacing:.02em}
+
+/* 작성한 계약서 — 폰에서는 A4 를 축소하지 않고 «흐름»으로 읽는다.
+   높이를 화면의 절반쯤으로 두어 «문서 안»과 «화면»의 스크롤이 헷갈리지 않게 한다. */
+.sign-root .doc-flow{width:100%;height:52vh;min-height:320px;border:1px solid var(--line);
+  border-radius:var(--radius);background:var(--white);display:block}
+
+/* 곁 버튼 — 「삭제」·「지우기」처럼 판 머리에 붙는 작은 것.
+   주 CTA(.btn-primary)와 무게가 같으면 안 된다. 손님이 «지우기»를 «다음»으로 착각한다.
+   ⚠ 그래도 터치 표적은 40 아래로 내리지 않는다(S24) — 작아 보이되 누르기는 쉬워야 한다. */
+.sign-root .btn-mini{padding:8px 12px;min-height:36px;font-size:12.5px;font-weight:700;
+  border-color:var(--line);background:transparent;color:var(--ink2)}
+.sign-root .btn-mini:active{background:var(--line2)}
+
+/* 알림 상자 — «막혔다»와 «끝났다» 둘뿐이다(ESIGN-UIUX-SPEC §3-2).
+   설명은 상자가 아니라 ※ 각주다. 상자를 잇달아 쌓으면 전부 중요해져 아무것도 안 읽힌다.
+   ERP Message 를 쓰지 않는다 — 그건 업무화면 톤이라 손님 화면에서 경고가 과하게 선다. */
+.sign-root .snote{border:1px solid;border-radius:var(--radius);padding:12px 14px;
+  font-size:13.5px;line-height:1.55;word-break:keep-all}
+.sign-root .snote.warn{border-color:var(--warn);background:var(--warn50);color:var(--warn)}
+.sign-root .snote.ok{border-color:var(--safe);background:var(--safe50);color:var(--safe)}
+
+/* ═══ 동의 ════════════════════════════════════════════════════════
+   ★한 동의 = 한 덩어리다. 고지(무엇을·왜·얼마나·거부하면)와 그 동의 체크는 «같은 판»에 있어야 한다.
+     예전엔 고지 표 N개를 세우고 밑에 체크 표를 따로 뒀는데, 손님이
+     「위 표랑 아래 표가 뭐지」 하고 물었다(사장님 2026-08-28). 남남처럼 보였던 것이다.
+   ★체크칸은 CI 마크와 «같은 체크»를 쓴다 — 라운드 18.75% · 획 52/512(public/icon.svg). */
+.sign-root .sagree{display:flex;align-items:center;gap:11px;width:100%;margin-top:11px;padding:13px 0 1px;
+  border:0;border-top:1px solid var(--line);background:none;cursor:pointer;font:inherit;font-size:14px;
+  font-weight:700;color:var(--ink);text-align:left;min-height:48px;box-sizing:border-box}
+.sign-root .sagree:active{opacity:.7}
+.sign-root .sagree .req{font-size:11.5px;font-weight:700;color:var(--ink3);margin-left:5px;white-space:nowrap}
+.sign-root .sbox{width:21px;height:21px;border-radius:18.75%;border:1.5px solid var(--line);background:#fff;
+  display:grid;place-items:center;flex:none;transition:.12s;color:transparent}
+.sign-root .sbox svg{width:100%;height:100%;display:block}
+/* 켜짐 = 남색 체크 + 남색 테두리. 네모를 남색으로 «채우면» 머리 마크와 반대가 되어 한 화면에 두 규격이 선다. */
+.sign-root .sagree[aria-checked="true"] .sbox{border-color:var(--navy);color:var(--navy)}
+

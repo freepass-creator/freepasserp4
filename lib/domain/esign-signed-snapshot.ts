@@ -1,4 +1,3 @@
-import { residentIdInfo } from '@/lib/domain/esign-resident-id';
 
 export type SignedSnapshotRecord = Record<string, unknown>;
 
@@ -8,6 +7,37 @@ function record(value: unknown): SignedSnapshotRecord | null {
   return value && typeof value === 'object' && !Array.isArray(value)
     ? value as SignedSnapshotRecord
     : null;
+}
+
+function signedAtText(value: unknown): string {
+  const at = Number(value || 0);
+  if (!Number.isFinite(at) || at <= 0) return '';
+  return new Intl.DateTimeFormat('ko-KR', {
+    timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  }).format(new Date(at)).replace(/\. /g, '.').replace(/\.$/, '').replace(',', '');
+}
+
+function frozenConsentEvidence(snapshot: SignedSnapshotRecord, submission: SignedSnapshotRecord) {
+  const profile = record(snapshot.consentProfile);
+  const keys = Array.isArray(profile?.requiredKeys)
+    ? profile!.requiredKeys.map(S).filter(Boolean)
+    : [];
+  const times = record(submission.consentTimes) || {};
+  // 제출 API가 이미 이 값들을 검증하지만, 완료 PDF를 만드는 마지막 경계에서도
+  // 누락된 동의를 "완료"로 표기하지 않는다.
+  if (!keys.length || keys.some((key) => !Number(times[key] || 0))) {
+    return { keys: '', status: '', summary: '' };
+  }
+  const atoms = Array.isArray(profile?.atoms) ? profile!.atoms.map(record).filter((row): row is SignedSnapshotRecord => !!row) : [];
+  const labels = keys.map((key) => key === 'rental_terms'
+    ? '자동차 임대차 계약 약관'
+    : S(atoms.find((atom) => S(atom.key) === key)?.label) || key);
+  return {
+    keys: keys.join(','),
+    status: `${keys.length}건 필수 동의·계약조건 확인 완료`,
+    summary: labels.join(' · '),
+  };
 }
 
 /**
@@ -22,22 +52,39 @@ export function snapshotWithPrivateSubmission(
   if (!submission) return snapshot;
   const currentFields = record(snapshot.templateFields) || {};
   const driverLicenseNo = S(submission.driver_license_no);
-  const resident = residentIdInfo(submission.customer_id);
   const additionalDrivers = Array.isArray(submission.additional_drivers)
     ? submission.additional_drivers.map(record).filter((row): row is SignedSnapshotRecord => !!row).slice(0, 3)
     : [];
+  const insuranceEvidence = record(submission.customer_insurance_evidence);
+  const insuranceEvidenceHash = S(insuranceEvidence?.sha256);
+  const consentEvidence = frozenConsentEvidence(snapshot, submission);
   const confirmedFields: SignedSnapshotRecord = {
     customer_name: S(submission.customer_name),
     customer_phone: S(submission.customer_phone),
-    customer_id: S(submission.customer_id),
+    customer_id: S(submission.customer_id) || S(submission.customer_birth),
     customer_address: S(submission.customer_address),
-    customer_birth: resident?.birthDate || '',
+    // 개인 계약은 주민번호가 아니라 생년월일만 받는다. RRN은 매출증빙을 위해
+    // 고객이 명시적으로 선택한 경우에만 private node에 암호문으로 남고 PDF에는 싣지 않는다.
+    customer_birth: S(submission.customer_birth),
     driver_license_no: driverLicenseNo,
     driver_or_biz_no: driverLicenseNo,
-    emergency_contact: [S(submission.emergency_name), S(submission.emergency_phone)]
+    tax_biz_name: S(submission.tax_biz_name), tax_biz_no: S(submission.tax_biz_no), tax_ceo: S(submission.tax_ceo),
+    tax_biz_type_item: S(submission.tax_biz_type_item), tax_email: S(submission.tax_email), tax_biz_address: S(submission.tax_biz_address),
+    tax_issue_type: S(submission.tax_issue_type),
+    signer_name: S(submission.signer_name),
+    signer_role: S(submission.signer_role),
+    emergency_contact: [S(submission.emergency_relation), S(submission.emergency_name), S(submission.emergency_phone)]
       .filter(Boolean)
       .join(' · '),
     additional_driver: additionalDrivers.length ? `${additionalDrivers.length}인 지정` : '없음',
+    esign_signed_at: signedAtText(submission.submittedAt),
+    esign_consent_status: consentEvidence.status,
+    esign_consent_keys: consentEvidence.keys,
+    esign_consent_summary: consentEvidence.summary,
+    esign_supporting_document_count: String(Array.isArray(submission.supporting_documents) ? submission.supporting_documents.length : 0),
+    customer_insurance_evidence: insuranceEvidenceHash
+      ? `가입증명서 제출·관리자 확인 (${insuranceEvidenceHash.slice(0, 12)})`
+      : '',
   };
   additionalDrivers.forEach((driver, index) => {
     const slot = index + 1;

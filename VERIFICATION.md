@@ -1,5 +1,64 @@
 # 독립 검증 결과
 
+## 2026-08-26 정산관리: 접수 → 실적 → 청구 연결 검수 (Codex)
+
+결과: **CONDITIONAL PASS — F1·F2를 수정해 ‘영업채널 실적 확인 뒤 공급사 청구 번호 발행’은 서버·화면에서 강제한다. F3·F4는 사용자의 결정이 필요한 별도 범위이며, 운영 반영은 사람의 실제 데이터 검증 전까지 보류한다.**
+
+### 검증한 요구사항
+
+- 접수한 계약이 실적으로 계속 남고, 인도 후 해당 청구월의 청구 후보가 되는가.
+- 영업채널 실적 확인이 끝난 건만 공급사 청구·번호 발행으로 이어지는가.
+- 분납은 청구 이후에도 관리되고, 환수는 기존 청구를 덮지 않고 같은 청구월 장부의 음수 줄로 남는가.
+
+### 확인된 연결
+
+1. `POST /api/settlement/ledger`는 접수일·차량·계약 조건을 원장에 쓰고, `PATCH` 인도완료+인도일은 `billingMonth()`를 만들어 실적/청구 목록에 반영한다.
+2. 원장 431줄 재대조 결과는 접수 42·취소 29가 코드와 일치했다. 분납실적 4줄은 만기가 지나 정상적으로 완납실적으로 넘어갈 시점이며, 그 외 규칙 불일치는 0건이다.
+3. 2026-08 청구는 33건이며, 공급사별 청구서 10장 합계 38,111,250원과 영업채널별 지급명세 4장 합계 30,444,020원이 원장 독립 계산과 각각 일치했다.
+4. 기존 정산엔진 경로(`sim-e2e-settlement`)는 공급사 등록 → 계약완료 → R1/R2 생성 → 월별정산 → 취소·환수대기까지 22/22 PASS다. 이 경로는 새 원장 UI의 확인·발행 통제를 검증하지는 않는다.
+
+### 차단 사유
+
+- **F1 · 틀림 · 청구 확인 관문이 서버에서 강제되지 않는다.** `app/api/settlement/invoice/route.ts`의 GET은 미확인 영업채널을 `gate` 경고로만 돌려주고, POST는 `canBill()`이나 확인 레코드를 전혀 검사하지 않은 채 `v4/settlement_invoices`에 번호·금액·발행자를 기록한다. UI도 미확인 경고와 별개로 ‘번호 발행’ 버튼을 활성화한다. 따라서 관리자가 직접 API를 호출하거나 경고를 무시하면 확인되지 않은 공급사 청구를 발행 완료로 만들 수 있다.
+- **F2 · 틀림 · 화면의 확인 단위와 서버의 확인 단위가 다르다.** 청구 목록 화면은 `agent`(영업담당자)별로 `gate`를 계산하지만, 확인 API와 청구서 GET은 `channel`(영업채널)별 확인을 기준으로 한다. 같은 채널에 여러 담당자가 있거나 채널명과 사람 이름이 다르면 화면의 ‘막는 사람 없음/미확인’ 표시가 실제 발행 판정과 달라진다.
+- **F3 · 못정함 · 청구 관문 규칙이 설계와 코드에서 충돌한다.** 사용 승인 설계 `docs/PLAN-정산-실적과청구-2026-08-25.md`는 ‘인도일 하나뿐’이라고 명시한다. 그러나 `lib/domain/settlement-stage.ts`는 스타·아이카 분납건을 마지막 납입월까지 늦추는 `claimsOnComplete()` 예외를 둔다. 현재 원장과 금액 대조는 이 코드 규칙으로 통과했지만, 어느 규칙이 최종 정본인지는 사용자의 결정 없이는 판정할 수 없다.
+- **F4 · 틀림(설계 대 실제 저장소) · ‘ERP에서 직접 관리’와 현재 구현이 다르다.** 원장 API는 `lib/server/settlement-store.ts`를 통해 Google Sheets 원장에 접수·수정 내용을 쓴다. `app/api/settlement/ledger/route.ts`의 ‘시트 코드가 한 줄도 없다’는 주석과 2026-08-26의 직접 관리 의도와 달리, 현재 SSOT/쓰기 대상은 시트다. 데이터 이전 계획이나 사용자 승인이 없으므로 이 검수에서 변경하지 않았다.
+
+### 실행 증거
+
+- `npx tsc --noEmit` — PASS
+- `npx tsx scripts/sim-e2e-settlement.mts` — PASS (22/22)
+- `npx tsx scripts/verify-settlement-stage.mts` — PASS (431줄, 정상 이관대상 4줄 안내)
+- `npx tsx scripts/check-settlement-invoice.mts 2026-08` — PASS (공급사 청구·영업채널 지급 합계 대조)
+
+### 다음 검토자 요청
+
+- **Claude Code:** F1의 ‘서버 강제’가 사장님이 정한 업무 통제와 맞는지, F3의 공급사별 예외를 폐지/유지할지 설계 판정을 남겨 달라.
+- **Cursor:** Claude 판정 후 F1·F2를 구현할 경우, 서버 POST와 UI의 그룹 기준을 모두 영업채널로 통일하고 관련 회귀 시나리오를 추가해 달라. 정산·RTDB 변경이므로 사람이 실제 데이터로 확인하기 전 배포하지 말 것.
+
+### 수정 후 재검증 (2026-08-26)
+
+- F1 수정: `app/api/settlement/invoice/route.ts` POST는 기발행 문서의 멱등 재사용은 유지하되, 새 공급사 청구는 원장을 다시 읽어 모든 영업채널의 확인 상태·확인 뒤 증가 건수를 검사한다. 미통과면 발행 기록을 쓰기 전에 HTTP 409로 중단한다.
+- F2 수정: `lib/domain/settlement-confirm.ts`의 `providerBillGate()`를 신설해 청구 현황 UI와 청구서 GET/POST가 동일한 영업채널 정규화·확인·재확인 규칙을 사용한다. 영업채널 미기재는 담당자 이름으로 우회하지 않고 차단한다.
+- UI 수정: `app/settlement/invoice/page.tsx`는 미확인 게이트가 있으면 ‘번호 발행’을 비활성화한다. 서버 검증이 최종 방어선이다.
+- Claude Code 독립 검토: F1~F4 원본 대조 `맞음`, F1·F2 구현 범위는 조건부 GO. 기록: `docs/crosscheck/클로드.md`; 교차검증 판정 4/4, 갈림 0.
+- 추가 실행: `npx tsx scripts/sim-settlement-confirmation-gate.mts` PASS (채널 묶음·재확인·채널 미기재 차단), `npm run build` 컴파일·타입 단계 및 BUILD_ID 생성 완료, `git diff --check` PASS.
+
+남은 위험: 확인은 현재 ‘채널별 건수’만 고정한다. 확인 뒤 동일 건수의 차량이나 금액이 바뀌는 경우까지 막을지는 별도 업무 결정이 필요하다. F3(스타·아이카 분납 예외)·F4(시트 저장소를 ERP DB로 이관)는 이 수정에 포함하지 않았다.
+
+원본/범위: 2026-08-26 작업 트리(기존 미커밋 변경 보존), Google 정산원장 읽기 전용 재대조. 실제 시트·RTDB·청구서 발행 기록은 변경하지 않았다.
+
+## 2026-08-26 ERP 디자인 정합성 보정 (Codex)
+
+결과: **부분 PASS — 오래 사용한 ERP 공용 UI 토큰·버튼 원자 기준으로 정산서의 이탈을 해소했다.**
+
+- 정산서의 색상·글자 크기·굵기·얼룩 행·버튼을 `C`/`FS`/`FW`와 공용 `Btn`으로 통일했다. 인쇄용 종이 배경은 시스템 인쇄 색(`Canvas`/`CanvasText`)을 써서 테마 영향을 차단한다.
+- `components/ui/detail.tsx`의 토큰 검사 오인용 주석도 토큰 이름만 남기도록 정리했다.
+- `npm run check:tokens` — PASS (드리프트 0), `npx tsc --noEmit` — PASS, `npm run check:ui` — PASS, `git diff --check` — PASS.
+
+남은 범위: 인증이 필요한 정산서의 실제 인쇄 미리보기와 다른 내부 ERP 페이지 전체의 시각 QA는 운영 세션/역할별 데이터가 있어야 끝낼 수 있다. 이 변경은 로컬 코드만 보정했고 배포·정본 데이터 변경은 하지 않았다.
+
+
 ## 2026-08-15 상품마스터 단일 정본 → ERP 전환 검증
 
 결과: **로컬 규격·시뮬레이션 PASS / 운영 반영 NO-GO(시트 권한·판매대상 대수 확인 필요)**
@@ -6946,3 +7005,327 @@ Next 개발 서버와 production build가 같은 `.next`를 사용하면 실행 
 - 「상품 차종매칭」 재게시: 1차 post-read 실패(비8비트 색 서명 불일치, 값은 반영됨) → 색 hex 정정 후 2차 `applied`(587행·규칙 32, receipt f8a7a8b4…). sim 11/11, regressions PASS(시점 고정 수치 → 불변식).
 - 판매시트 dump 전후 돈 diff 0 · 차명 37칸 → 「상품리스트 08.18 10:21 · 397대」.
 - 미완: 오더 2 공식근거(39건 draft 빈칸), 「상품시트 ↔ ERP 연동」 A·B·C 미착수. `npx tsc --noEmit` PASS. 커밋 없음.
+
+# 2026-08-20 원본→정제→판매→ERP 상태 갈림 신호 · 엔카 별칭 매칭 검증 (Codex)
+
+- 범위: 원본과 정제시트가 분리된 4개 공급사(RP004 아이카, RP023 오토플러스, RP031 이안카, RP006 아이언). 아이언은 홈페이지 카탈로그를 원본으로, 나머지는 공급사 원본 시트를 원본으로 읽었다. 외부 write·배포·`--apply`는 0건이다.
+- 상태 감사는 유입과 같은 canonical 상태로 원본→정제→판매→ERP 네 층의 차번 합집합을 비교한다. 계약 잠금·수기 `출고불가`·읽기 실패·동일 차번 충돌은 자동 복구 대상으로 삼지 않고 각각 검토/미확인으로 분리했다.
+- 최신 읽기 전용 감사 결과: 상태 갈림 13대, 검토 필요 0대, 미확인 11대. 11대는 동일 차번 ERP 상태 충돌 또는 공급사 코드 부재로 원인을 단정하지 않았다. 상세 증거는 로컬 `tmp/status-drift.json`에 기록했고 운영값은 고치지 않았다.
+- 시간별 실행기는 판독 보류로 감사가 exit=2를 내도 실제 요약(갈림·검토·미확인 수)을 로그에 남기며, 요약 자체가 없을 때만 `상태 갈림 검사 실패`로 남긴다.
+- 엔카 매칭 dry-run(아이카 176대): M 167, SM 166, T 126(기존 125·신규 후보 1), 트림 미확정/점검사항 50. 내부 세부모델·트림과 엔카 별칭 중 실제로 차명에 맞은 별칭만 후보 점수화했고, 애매한 T 코드는 쓰지 않았다.
+- PASS: `scripts/sim-status-drift.mts` 7/7, `npx tsc --noEmit --incremental false`, `npm run check:fonts`, `git diff --check`(공백 오류 0). Windows `uv_os_get_passwd` 환경 오류는 로컬 호환 래퍼를 통해 재실행했다.
+- 판정: 신호화·dry-run 검증은 PASS. 13대 갈림과 11대 미확인은 사람이 근거를 확인하기 전 자동 수정 NO-GO다.
+
+# 2026-08-20 ERP 내부 상품리스트 표시 (Codex)
+
+- 요구사항: Google Sheets 상품리스트를 외부 Google 탭/iframe이 아니라 로그인한 ERP 상품 화면(`/finder`) 안에 기본 표시한다. SSOT는 판매시트 `1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs`의 발행 탭이다.
+- 구현: `/finder`의 기본 보기를 `시트`로 승격하고, 외부 Google Sheets 링크를 ERP 내부 상품리스트 링크로 교체했다. `SheetView`는 Firebase ID 토큰 변경을 구독해 인증 복원 중 발생하던 최초 요청 race를 재시도한다.
+- 보안: `/api/products/sheet`는 활성 ERP bearer만 허용하고, `상품리스트`·`손오공구독`·`오플구독` 발행 탭만 정확히 허용한다. 비관리자 응답에서는 원가·매입가·차고지·공급사·계좌 관련 열을 서버에서 제거하며 `private, no-store`를 유지한다. 외부 Google iframe/public CSV는 사용하지 않는다.
+- 읽기 검증: 서비스계정으로 발행 탭 3개(`상품리스트 357대`, `손오공구독 42대`, `오플구독 72대`)와 기본 상품리스트 `57열/357행`을 실제 read-only 재조회했다. 무토큰 API 요청은 `403`이다.
+- UI 검증: 로컬 ERP `/finder`에서 `시트`가 기본 선택됨을 브라우저로 확인했다. 로컬 데모 세션은 활성 Firebase 사용자 프로필이 아니어서 의도대로 `403` 안내가 보였으며, 권한 우회는 추가하지 않았다.
+- PASS: `npx tsc --noEmit --incremental false`, `npm run check:fonts`, `git diff --check`. `npm run check:ui`는 이번 파일과 무관한 기존 `components/AppTabBar.tsx` raw button 1건으로 실패했다.
+- 한계: 모바일은 기존 계약대로 카드 보기 고정이다. 공급사 로그인에 자기 회사 행만 제한하는 정책은 현재 전체 판매목록을 보이는 기존 상품화면 의미를 바꾸므로, 사업 규칙 확정 전 적용하지 않았다.
+
+# 2026-08-20 ERP 상품리스트 403 로컬 인증 프로젝트 수정 (Codex)
+
+- 증상: `/finder`의 시트 뷰가 `상품리스트를 볼 권한이 없습니다`와 `/api/products/sheet 403`을 반복했다. Sheets 실패라면 502가 되어야 하므로, 서비스계정/시트 경로가 아니라 active bearer 판정 단계임을 확인했다.
+- 원인: 로컬 dev 셸의 `GOOGLE_CLOUD_PROJECT`가 ERP Firebase/ADC 서비스계정 프로젝트와 달랐다. `applicationDefault()`를 쓸 때 Firebase Admin은 이 셸 변수를 credential 파일보다 먼저 project ID로 선택하므로, 정상 ERP ID token의 `aud`/`iss`를 다른 프로젝트 기준으로 검증했다.
+- 수정: `firebaseAdminApp()`에 `NEXT_PUBLIC_FIREBASE_PROJECT_ID`를 명시적인 Admin `projectId`로 전달했다. 이제 로컬 셸의 무관한 Google 프로젝트 변수가 Firebase 토큰 검증 기준을 덮어쓰지 않는다. 운영 서비스계정 경로도 동일 기준으로 fail-closed한다.
+- 재검증: 잘못된 셸 변수를 제거한 새 4004 dev 서버에서 `/finder`를 브라우저로 재현했다. 기본 `시트` 뷰가 실제 판매 표와 발행 탭 3개를 렌더했고, 서버 로그는 `GET /api/products/sheet 200`을 기록했다. `npx tsc --noEmit --incremental false`, `git diff --check` PASS.
+
+# 2026-08-20 ERP 상품리스트 레이아웃 수축 수정 (Codex)
+
+- 증상: 시트 표는 로드됐지만 `/finder` 데스크톱 본문이 약 24px, 내부 표 스크롤 영역이 0px로 접혀 화면이 빈 영역처럼 보였다.
+- 원인: `.fp-finder-main`의 기본 3행 grid(`toolbar / auto / 1fr`)에서 시트 모드가 퀵필터를 렌더하지 않아 `.fp-finder-pane`이 두 번째 `auto` 행에 자동 배치됐다. 비어 있는 세 번째 `1fr` 행이 남은 높이를 차지했다.
+- 수정: 시트 모드에 `is-sheet-view` 클래스를 부여하고 `toolbar / minmax(0, 1fr)`의 두 행 grid로 전환했다. 시트 모드에서는 안내·관심 영역도 렌더하지 않아 요청대로 상단바와 판매시트만 남긴다.
+- 브라우저 검증: 1280×720에서 pane/body `608px`, 실제 scrollport `550px`, 상품리스트 `357행`과 구독 탭 전환(42행)을 확인했다. 390×844 모바일 카드 화면도 overflow/오류 overlay 없이 유지됐다.
+- PASS: `npx tsc --noEmit --incremental false`, `npm run check:fonts`, `git diff --check`. `npm run check:ui`는 이번 변경과 무관한 기존 `components/AppTabBar.tsx` raw button 1건으로 실패했다.
+
+# 2026-08-20 ERP 상품리스트 Google Sheets형 읽기 화면 (Codex)
+
+- SSOT: 판매시트 `1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs`의 실제 Google Sheets 화면과 `lib/domain/sales-sheet-format.ts`의 발행 서식이다. 원본을 브라우저에서 읽기 전용으로 대조했고, 시트 값·공유설정은 변경하지 않았다.
+- 구현: `/finder` 시트 모드는 문서 제목·읽기 전용 상태·실제 새로고침, A/B… 열 레일·행 번호·A1 값 표시줄, 단일 가로/세로 스크롤 격자, 평평한 하단 탭으로 렌더한다. 줄무늬/둥근 카드 UI를 제거하고 9pt Roboto·22px 행·얇은 격자선·탭 밑줄을 원본 밀도로 맞췄다.
+- 색/서식: 기간·보증금 배경(`colBgFor`), 구분·상태·제조사·연료·외장/내장 텍스트 색, 금액 우측정렬/굵기, 탭별 색을 기존 판매시트 서식 SSOT에서 가져왔다. 원본 수식·메모·링크는 API가 주지 않으므로 흉내 내지 않았고, 편집 메뉴/서식 버튼도 넣지 않았다.
+- 안전성: 서버가 이미 권한별로 제거한 `header/rows`만 사용한다. 원본 열을 클라이언트에서 되살리지 않으며, 갱신/탭 요청에는 최신 request id만 state에 반영해 늦은 응답이 화면을 되돌리지 못한다. 익명 `GET /api/products/sheet`는 `403`을 재확인했다.
+- 브라우저 검증: 로그인된 로컬 ERP에서 상품리스트 357행, 손오공구독 42행, 오플구독 72행을 실제로 열고 탭 전환·빠른 연속 탭 전환·A1 선택 기준·열/행 레일·오류 없는 로드를 확인했다. 모바일은 기존 계약대로 카드 보기로 유지되며 회귀 없음.
+- PASS: 최종 `npm run build`, `npx tsc --noEmit --incremental false`, `npm run check:fonts`, `git diff --check`. `check:ui`의 남은 1건은 이번 파일과 무관한 기존 `components/AppTabBar.tsx` raw button, `check:tokens`의 남은 1건은 기존 `components/EsignCustomerWalkthrough.tsx` shadow다.
+- 독립 검토: 읽기 전용 가짜 편집 affordance, 셀 키보드 불일치, 요청 경합, ARIA 관계를 모두 해소했고 새 P0/P1 없음으로 재검토됐다. 단, 배포 커밋에는 현재 untracked인 `features/finder/SheetView.tsx`와 `app/api/products/sheet/route.ts`를 반드시 포함해야 한다. 배포/커밋은 수행하지 않았다.
+
+# 2026-08-20 ERP 상품리스트 엑셀형 헤더 필터·상세 연결 (Codex)
+
+- 요구사항 정정: Google 편집기 장식을 그대로 복제하지 않고, 실제 판매시트의 열 머리글·서식·간격은 유지하되 ERP 장점(필터·정렬·상세 이동)을 넣는다. 따라서 A/B 열 문자·행번호·수식 표시줄은 제거했고, 읽기 전용 표임을 명확히 유지한다.
+- SSOT/읽기: 판매시트 `1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs`의 발행 탭을 기존 인증 API가 service account로 읽는다. Excel 파일을 업로드/복제한 것이 아니라, Google Sheets의 현재 formatted grid를 ERP가 서버에서 읽어 표시한다. 외부 시트 write·공유설정 변경·배포는 0건이다.
+- 간격/서식: `columnWidths()`의 합(상품리스트 5,587px)을 실제 table width로 고정하고 `table-layout: fixed`을 적용했다. 브라우저 재측정에서 `차명` 열은 원본 지정값 240px로 유지됐다(기존 auto layout은 약 429px까지 팽창). 9pt Roboto, 22px 행, 5px 좌우 padding, 실제 열별 색·정렬은 판매시트 서식 SSOT를 사용한다.
+- ERP 동작: 각 실제 헤더에 dialog 기반 필터/오름차순·내림차순을 제공한다. 필터 후보는 현재 적용된 다른 열 조건을 반영하며, 탭/새로고침 때 상태를 초기화한다. 화면은 `header/rows`의 권한 마스킹 후 값만 필터한다. checkbox는 공용 UI 원자로 통일했다.
+- 상세 안전성: 판매시트에는 product code가 없으므로 브라우저가 차량번호를 조합하지 않는다. API가 원본 `공급사+차량번호`와 활성 `v4/products`를 서버에서 정확히 단일 매칭한 행에만 `rowDetailHrefs`를 붙인다. 중복·삭제·미반영·오류는 null로 fail-closed하며, 차량번호 셀만 실제 `/m/[code]` 링크가 된다.
+- 브라우저 검증: 로그인 ERP `/finder`에서 57개 헤더/57개 필터, 357개 안전 상세 링크를 확인했다. `배차상태=즉시출고` 필터는 정확히 35/357행만 남겼고, `소비자가격` 오름차순의 첫 8값은 4,130,000 → 13,613,636으로 증가했다. 팝오버는 검색 입력으로 포커스가 이동하고 Escape/적용 후 원래 헤더로 되돌아간다. 실제 차량번호 클릭은 `/m/PT-0001_181%ED%95%985327` 상세 경로로 이동했으며, 헤더 57개·A/B/행번호/수식줄 없음·`차명` 240px을 재확인했다.
+- PASS: 최종 `npm run build`, `npx tsc --noEmit --incremental false`, `npm run check:fonts`, `git diff --check`(공백 오류 0). `npm run check:ui`는 이번 변경의 raw input 문제를 0으로 만든 뒤에도 기존 `components/AppTabBar.tsx` raw button 1건으로 실패했고, `npm run check:tokens`는 기존 `components/EsignCustomerWalkthrough.tsx:89` raw rgba shadow 1건으로 실패했다.
+- 독립 검토: 행·상세 href는 처음부터 한 객체로 묶어 filter/sort해 오연결을 막았고, dialog accessible name·초기 포커스·Escape·트리거 복귀를 검증했다. 가짜 편집/수식/공유 기능은 데이터 계약과 맞지 않아 의도적으로 넣지 않았다. 새 파일 `app/api/products/sheet/route.ts`, `features/finder/SheetView.tsx`, `features/finder/SheetColumnFilterPopover.tsx`는 아직 untracked이므로 이후 커밋 시 함께 포함해야 한다.
+
+# 2026-08-20 ERP 상품리스트 열 문자 레일 복원 (Codex)
+
+- 사용자 요청에 따라 표 상단에 A, B, C … Z, AA … 의 열 문자 레일만 복원했다. 행 번호와 수식 표시줄은 계속 렌더하지 않는다.
+- 브라우저 `/finder`에서 A~AD, 357/357행, 실제 머리글 sticky offset 24px, 행번호 0개·수식줄 없음으로 재확인했다. `npm run build`, `npx tsc --noEmit --incremental false`, `npm run check:fonts`, `git diff --check` PASS. 외부 시트 write·커밋·배포 0건.
+
+# 2026-08-21 ERP 상품리스트 — 공통 검색·필터, 3탭 즉시 전환, 행 선택 (Codex)
+
+- 범위: `/finder`의 읽기 전용 판매시트 보기에 A/B/C… 열 레일을 유지한 채, 기존 ERP 검색·퀵필터, 행 단위 시각 선택, 하단 탭 구분, 탭 메모리 preload를 추가했다. Google Sheet 값·서식·공유설정·필터는 수정하지 않았고, ERP가 formatted grid를 읽는 구조를 유지했다.
+- 공통 검색/필터: raw sheet 문자열을 `EntityRecord`로 추측 변환하지 않았다. 이미 `useFinderResults()`가 판정한 상품의 서버 확정 `/m/[code]` 주소 집합과 `rowDetailHrefs`만 교집합하므로, 카드/상세 보기의 검색·퀵필터 의미가 시트에도 정확히 적용된다. 원본 시트 순서는 바꾸지 않으며, 별도 열 머리글 필터·정렬은 그 위에서 동작한다. ERP 목록이 아직 준비되지 않았을 때는 원본을 잠시 전부 보이지 않고 `ERP 조건을 확인하는 중`으로 fail-closed 처리한다.
+- 탭/인증: 첫 탭 성공 뒤 발행 탭 3개(상품리스트 357행, 손오공구독 42행, 오플구독 72행)를 역할 마스킹된 응답만 메모리에 preload한다. 탭 클릭은 cached grid를 같은 tick에 교체하며, 새로고침·Firebase ID token/역할 변경·로그아웃 때 cache epoch와 in-flight 결과를 폐기한다. local/sessionStorage에는 시트 값을 저장하지 않는다.
+- 상세/원본: 차량번호는 서버가 공급사+차량번호로 단일 확정한 경우에만 파란 실제 ERP 링크이고, 미연결 값은 검정 텍스트다. 원본 Google Sheet 새 탭 링크는 API가 `admin`에게만 반환하며 일반 ERP 응답에는 들어가지 않는다. Drive Viewer ACL은 별도 최종 방어선으로 남고, iframe/public CSV/export/공유 변경은 0건이다.
+- 브라우저 검증: 3개 탭 모두 preload 후 loading 화면 없이 357→42→72행으로 즉시 전환했다. 공통 검색 `181하5327`은 1/357행, 공통 연료 퀵필터 `가솔린`은 214/357행으로 시트가 즉시 좁혀졌고 초기화 후 357행으로 복원됐다. 실제 헤더 필터 dialog의 Escape는 트리거로 초점을 복귀했고, 행 선택은 한 행만 강조되며 탭 전환 시 해제됐다. 현재 탭의 차량번호 42개는 실제 `/m/PT-0001_181%ED%95%985327` 형식 상세 href를 가졌다.
+- PASS: `npm run build`, `npx tsc --noEmit --incremental false`, `npm run check:fonts`, `git diff --check`. `check:ui`의 `components/AppTabBar.tsx` raw button 1건과 `check:tokens`의 `components/EsignCustomerWalkthrough.tsx:89` raw rgba shadow 1건은 이번 변경과 무관한 기존 실패다. 커밋·배포 0건이며, 새 `app/api/products/sheet/route.ts`, `features/finder/SheetView.tsx`, `features/finder/SheetColumnFilterPopover.tsx`는 커밋 시 반드시 함께 추적해야 한다.
+
+# 2026-08-21 ERP 상품리스트 스프레드시트형 마감 보정 (Codex)
+
+- 최신 사용자 화면 기준으로, 표 위의 `판매시트 · ERP 보기`/건수 행을 제거했다. 공통 검색과 퀵필터는 문서 제목 아래에 유지하고, 읽기 시각·새로고침·관리자 원본 열기·표 초기화는 하단 탭 도구로 이동해 표 높이를 확보했다.
+- Google Sheets형 레일을 최종 복원했다. 좌상단 corner, A/B/C…/AA… 열 문자, 실제 헤더의 `1`, 데이터의 `2, 3, 4…` 행번호가 sticky로 함께 스크롤된다. 열폭은 source `columnWidths()` 합으로 고정하고 9pt/22px/5px padding/얇은 격자선 및 기존 열별 색·정렬을 유지했다.
+- 헤더 필터 표시는 funnel이 아닌 작은 아래쪽 chevron으로 통일했다. 실제 dialog 기반 열 필터/오름·내림차순만 제공하며, Escape는 dialog와 document-level fallback 모두에서 닫고 해당 열 trigger에 초점을 되돌린다. scroll/resize에서는 위치가 어긋난 popover를 닫는다.
+- 행은 클릭하면 한 줄만 옅은 파랑으로 선택되며, 좌측 행번호는 `aria-pressed` 버튼으로도 선택 가능해 키보드 Space 접근을 제공한다. 차량번호는 서버 단일 매칭 상세가 있을 때만 파란 실제 링크, 없을 때 검정 텍스트다. 같은 `product_code`를 가진 서로 다른 v4 레코드도 한 건으로 오인하지 않도록 record 수가 정확히 1건일 때만 href를 낸다.
+- 발행 탭 3개는 역할 마스킹 뒤 메모리에 preload한다. 캐시 hit은 즉시 전환하고, preload 중 miss를 눌러도 현재 표를 빈 화면으로 지우지 않고 대상 탭에만 로딩 표시한다. Firebase token/역할 변화 및 새로고침은 cache epoch와 in-flight 결과를 전부 폐기한다.
+- 브라우저 `/finder` 최종 화면에서 불필요한 상단 행 0개, 3개 탭, 59개 열 문자/헤더 메뉴, 좌측 `2번 행 선택` 제어와 단일 선택 상태, 실제 파란 상세 링크를 확인했다. 원본 링크는 admin 서버 응답에만 존재하며 Drive ACL 변경·시트 write·커밋·배포는 0건이다.
+- PASS: 최종 `npm run build`, `npm run check:fonts`, `git diff --check`(공백 오류 0). build의 타입검사도 통과했다. `check:ui`의 `components/AppTabBar.tsx` raw button 1건과 `check:tokens`의 `components/EsignCustomerWalkthrough.tsx:89` raw rgba shadow 1건은 이번 변경과 무관한 기존 실패다. `app/api/products/sheet/route.ts`, `features/finder/SheetView.tsx`, `features/finder/SheetColumnFilterPopover.tsx`는 여전히 untracked이므로 이후 커밋에 반드시 함께 포함해야 한다.
+
+# 2026-08-21 ERP 상품리스트 — 기존 엑셀 필터 동작·가독성 보정 (Codex)
+
+- 요구사항: 표의 값·열문자·행번호는 판매시트처럼 조밀하게 유지하되, 조작용 헤더/필터는 ERP에서 충분히 읽히는 크기로 보이고 기존 Excel 열 필터의 선택 흐름을 그대로 따른다.
+- 필터 동작: 새 팝오버의 `전체 선택 → draft → 적용` 흐름을 제거했다. 값은 최초에 모두 미선택이고, 한 값을 누르면 즉시 그 값만, 이어 다른 값을 누르면 즉시 합집합으로 필터된다. 마지막 값 해제는 해당 열 필터를 제거해 전체가 보이며, `초기화`는 열린 팝오버에서 해당 열만 즉시 해제하고 `닫기`는 별도 제어로 남긴다. 이는 기존 `ExcelFilterPopover`의 `colFilter` 계약과 같은 흐름이다.
+- 값 순서: 배차상태·구분·연료·심사조건은 기존 enum/상태 SSOT 순서를 우선하고, 차종구분은 `경형 → 소형 → 준중형 → 중형 → 준대형 → 대형` 및 차형 순으로 정렬한다. 나머지 자유값은 현재 모수의 많은 값부터, 동률은 한국어 정렬, 빈칸은 마지막이다.
+- 차종구분: ERP view는 원본 header를 동적으로 쓰므로 판매시트에 `옵션` 뒤 `차종구분`을 추가/수정하면 열 순서 그대로 표시한다. 입력 import alias에도 `차종구분 → vehicle_class`를 추가하고 화면의 좌측정렬 규칙에 포함했다. 실제 로그인 ERP 재조회에서 `옵션=20`, `차종구분=21`(58개 권한별 표시 열)을 확인했다.
+- UI 검증: 로그인된 `/finder`에서 배차상태 팝오버 최초 5개가 모두 `aria-pressed=false`, `즉시출고` 선택 즉시 35행/팝오버 유지, 두 값 선택 즉시 164행, `초기화` 뒤 356행/팝오버 유지로 재현했다. 헤더는 13.33px, 필터값은 12px, 행은 34px으로 확인했다. 헤더 전체를 눌러 필터를 열 수 있고, `초기화 | 닫기`가 표시된다.
+- PASS: `npx tsx` filter ordering fixture, `npm run check:fonts`, tracked/untracked 대상 `git diff --check`. 전체 `npx tsc --noEmit --incremental false`은 이번 범위 밖의 기존 dirty `lib/domain/vehicle-master-sheet.ts` 누락 심볼 4건으로 차단됐으며, 이번 변경에서 추가된 타입 오류는 없다. Google Sheet write·공유 변경·커밋·배포는 0건이다. 새 `app/api/products/sheet/route.ts`, `features/finder/SheetView.tsx`, `features/finder/SheetColumnFilterPopover.tsx`는 여전히 untracked이므로 이후 커밋에 반드시 포함해야 한다.
+
+# 2026-08-21 ERP 상품리스트 — 공통 툴바·시트 전용 대수 표기 (Codex)
+
+- 요구사항: 시트 보기만 축약된 별도 조작부가 되지 않도록 카드·상세와 같은 검색·정렬·최근/관심·퀵필터를 재사용하고, 보기 전환은 아이콘만이 아니라 `간단 / 상세 / 시트` 글자를 모두 표시한다. 별도의 표 위 제목 행은 만들지 않고 기존 상단 상태 헤더가 시트에서 `프리패스 상품리스트 N대`를 표시한다.
+- 구현: `FinderToolbar`의 시트 전용 bare 분기를 제거해 한 개의 공통 검색 상태와 조작부를 모든 보기에서 사용한다. 시트에서도 정렬 select와 최근/관심 trigger 및 패널이 실제로 동작하며, `IconSeg`는 공통적으로 라벨을 보인다.
+- 대수: `SheetView`가 탭·ERP 공통 조건·열 필터·표 정렬을 모두 반영한 `visibleRows.length`를 상위에 전달한다. 카드/상세의 ERP 대수와 혼용하지 않으므로 시트의 실제 표시 행 수만 상태 헤더에 반영된다. 기본 `인기차량순`을 포함해 공통 ERP 정렬이 선택돼 있으면 안전한 서버 확정 상세 href 순서를 그대로 사용해 시트에도 적용하되, 시트 열 머리글 정렬은 우선하고 `정렬`(빈 값)을 고르면 원본 순서를 유지한다.
+- 브라우저 검증: 로그인 `/finder` 시트에서 상단 `프리패스 상품리스트 356대`, 검색·정렬 select·최근/관심·퀵필터 및 `최근1 / 간단 / 상세 / 시트` 텍스트 전환을 확인했다. 공통 `연식 오래된순` 선택 뒤 첫 여섯 행이 모두 2000년으로 정렬됐고, `배차상태=즉시출고`를 누르면 표 35행과 상단 `프리패스 상품리스트 35대`가 함께 갱신됐다. 기본 `인기차량순`의 시트 첫 8개 상세 href와 간단 보기의 같은 8개 href 순서도 정확히 일치했다.
+- PASS: `npm run check:fonts`, `git diff --check`(공백 오류 0). 전체 `npx tsc --noEmit --incremental false`은 이번 범위 밖의 기존 dirty `lib/domain/vehicle-master-sheet.ts` 누락 심볼 4건으로만 차단됐으며, 변경 파일의 타입 오류는 추가되지 않았다. Google Sheet write·공유 변경·커밋·배포는 0건이다. 새 `app/api/products/sheet/route.ts`, `features/finder/SheetView.tsx`, `features/finder/SheetColumnFilterPopover.tsx`는 이후 커밋에 반드시 포함해야 한다.
+
+# 2026-08-21 ERP 상품리스트 — 엑셀형 열 필터 시각 보정 (Codex)
+
+- 요구사항: 기존 ERP 필터의 값·순서·즉시 복수선택 동작만 유지하고, 화면은 중앙 정렬된 설정 패널이 아니라 스프레드시트/Excel형 열 필터로 바꾼다.
+- 원인/수정: 값 행 CSS는 원래 3열 grid였으나 공용 `Btn`의 inline 중앙정렬이 이를 덮어 체크박스·라벨·건수가 길이마다 중앙으로 흔들렸다. 공용 버튼은 유지하되, 메뉴 전용 고정 grid 스타일과 CSS custom-property 상태색을 명시해 모든 값 행을 좌측 체크박스 / 라벨 / 우측 건수로 고정했다.
+- 시각 계층: 작은 사각 드롭다운에 열 제목, 세로형 `오름차순 정렬`·`내림차순 정렬` 명령, `값으로 필터`와 현재 선택 수, 검색, 복수 체크목록, `초기화 | 닫기` footer 순으로 재구성했다. 기존 팝오버의 넓은 2분할 정렬 버튼·초록 설정 패널 강조는 제거했다. 좁은 화면에서는 `min(304px, 100vw - 16px)`과 실제 폭 기반 좌표 clamp로 오른쪽 잘림을 막는다.
+- 기능 검증: 로그인 `/finder` 실제 상품리스트에서 첫 세 값 행의 checkbox/label/count x 좌표가 각각 411/437/667로 완전히 고정됨을 확인했다. `오름차순 정렬`과 첫 값 선택은 즉시 적용돼 정렬 pressed·`1개 선택`·24행을 표시하면서 팝오버를 유지했고, `초기화`는 전체 360행으로 되돌리되 팝오버를 닫지 않았다. 바깥의 일반 표 셀을 누르면 팝오버가 닫힌 뒤 원래 `차명` 헤더 trigger로 keyboard focus가 복귀하며, 링크·버튼 같은 focusable 대상은 그 대상의 focus를 유지한다. 최종 screenshot으로 명령 메뉴·검색·체크목록 계층을 시각 재확인했다.
+- PASS: `npm run check:fonts`, `git diff --check`(공백 오류 0). `npm run check:ui`의 남은 1건은 이번 범위 밖 `components/AppTabBar.tsx` raw button이고, 전체 `npx tsc --noEmit --incremental false`도 기존 dirty `lib/domain/vehicle-master-sheet.ts` 누락 심볼 4건으로만 차단됐다. Google Sheet write·공유 변경·커밋·배포는 0건이다.
+
+# 2026-08-21 ERP 상품리스트 — Excel 참조형 열 필터 메뉴 (Codex)
+
+- 참조 기준: 사용자가 제공한 Excel 자동필터 화면의 컨텍스트 메뉴 위계(정렬 명령 → 얇은 구분선 → 값별 필터/표시 수 → 검색 → 체크목록 → 오른쪽 정렬 footer)를 참고했다. 픽셀 복제나 Excel 상표/기능 흉내가 목표는 아니다.
+- 구현: 이미 누른 열 제목이 표에 남으므로 팝오버의 중복 제목과 X를 제거했다. 정렬은 `정렬, 오름차순`·`정렬, 내림차순`의 텍스트 명령행으로, 값 목록은 선택 시에만 check 표시를 남기는 방식으로 바꿨다. 긴 차명은 최대 두 줄까지 읽히고, `값별 필터링 · 전체 표시/선택 수 · N개 표시 중`을 실제 상태로 보여 준다. footer는 즉시 적용 계약에 맞춰 `초기화`/`닫기`라는 실제 동작명을 유지하되 Excel형 outline/채움 버튼으로 배치했다.
+- 범위 통제: 색상을 기준으로 정렬, 색상/조건 필터, 전체 선택, 확인/취소처럼 현재 API·상태 계약에 없는 Excel 메뉴는 가짜 affordance가 되므로 의도적으로 추가하지 않았다. 공용 SearchInput의 왼쪽 돋보기도 입력 뒤 지우기 제어와 충돌하지 않도록 유지했다.
+- 안전성: header 버튼의 데이터 속성이 공용 `Btn`을 통해 DOM으로 전달되지 않는 점을 확인해, 바깥 클릭 dismiss의 header 예외를 실제 header id+`aria-haspopup` 기준으로 바꿨다. 따라서 열린 메뉴에서 같은 헤더 토글 및 다른 헤더 전환이 정상이고, 빈 셀 클릭의 focus 복귀 계약도 보존된다.
+- 브라우저 검증: 실제 `/finder`에서 제목 없는 메뉴, 두 정렬 명령, 체크형 목록, `초기화`/`닫기` footer를 screenshot으로 대조했다. 값 하나 선택은 tick·`1개 값 선택`·24행으로 즉시 반영됐고, 초기화 뒤 360행으로 복귀했다. `차명`에서 `모델` header를 연속 클릭하면 `모델 필터`가 열리고 검색 input에 focus가 이동함을 확인했다.
+
+# 2026-08-21 ERP 상품리스트 — 시트 초기 상태 표면 통일 (Codex)
+
+- 요구사항: 시트가 처음 불러와질 때만 화면 전체가 순백색이 되어 간단/상세 보기의 페이지 배경과 이질적으로 보이던 상태를 통일한다.
+- 구현: `SheetView`의 인증 확인·초기 로딩·오류만 공용 `CenterNote`를 사용하는 `.fp-sheet-view__state`로 감쌌고, 이 상태면은 Finder의 `--bg-page`를 쓴다. 실제 데이터가 도착한 뒤의 표·하단 탭과 표 안의 “필터 결과 없음” 행은 스프레드시트 작업면이므로 흰색을 그대로 유지했다.
+- 접근성: 초기 메시지는 `role=status`/`aria-live=polite`, 오류 메시지는 `role=alert`로 보완했고 기존 다시 불러오기 제어는 유지했다.
+- 브라우저 검증: 로그인된 `/finder`에서 시트 전환 직후 `.fp-sheet-view__state`의 실제 배경이 `rgb(234, 237, 242)`이고 `시트를 불러오는 중…` 상태가 표시됨을 확인했다. 로드 후에는 state가 제거되고 표 grid가 `rgb(255, 255, 255)`, 360행으로 전환됨을 확인했다.
+- PASS: `npm run check:fonts`, `git diff --check`. 전체 `npx tsc --noEmit`은 이번 범위 밖 dirty `lib/domain/vehicle-master-sheet.ts`의 누락 심볼 4건으로만 실패했다. 독립 검토에서 새 P0/P1 및 loaded-grid 회귀 없음. Google Sheet write·공유 변경·커밋·배포 0건이다.
+
+# 2026-08-21 ERP 상품리스트 — 엑셀형 체크·확인 필터와 탭 목록 (Codex)
+
+- 필터: 값 목록의 선택 전 상태에도 16px 사각 체크박스(충분한 `--text-sub` 대비)를 표시하고, 선택되면 실제 시트 선택 초록 배경과 체크로 전환했다. 값은 메뉴 안의 draft에만 쌓이며 `확인`에서만 표에 적용되고, `취소`·Escape·바깥 클릭은 기존 조건을 그대로 둔다. 버튼의 32px 높이·14px padding·4px radius는 공용 `Btn` 규격을 그대로 쓰고 확인 버튼 색만 시트 초록으로 썼다.
+- 탭: 하단 왼쪽의 실제 햄버거는 현재 API가 허용·반환한 3개 탭만 목록으로 연다. 목록에서 고르면 direct tab과 같은 cache/request-id 경로로 즉시 전환하며, 열린 열 필터는 닫히고 다른 탭의 filter/sort state는 초기화된다. 메뉴는 Escape·바깥 클릭으로 닫히며, 빈 셀 클릭 때는 hamburger로 focus를 되돌린다.
+- 서식: direct tab은 2px 간격과 세로 경계, 선택 탭의 옅은 실제 tab-color 면/글자/3px 하단선, 나머지 탭의 실제 tab-color 하단선으로 구분한다. 탭의 이름·수량은 API의 실제 제목을 그대로 사용했고 가짜 +·전체 시트·드롭다운은 넣지 않았다. 새로고침은 실제 동작으로 오른쪽 도구 영역에 유지했다.
+- 브라우저 검증: 빈 체크박스는 `16px`, `1px solid rgb(82,82,91)`로 렌더됐고, 값 하나를 고른 뒤 확인 전에는 360행을 유지하다 `확인` 후 24행/헤더 활성으로 정확히 전환했다. `취소` 후 재열면 기존 한 값만 남는다. 햄버거 목록은 3개 actual tab을 표시하고 손오공 선택 시 42행/active index 1/로딩 flash 0으로 전환했으며, Escape focus 복귀와 열 필터→햄버거 전환 시 열 필터 닫힘을 확인했다. direct tab의 실제 간격은 2px로 측정했다.
+- PASS: `npm run check:fonts`, `git diff --check`. 전체 `npx tsc --noEmit`은 이번 범위 밖 dirty `lib/domain/vehicle-master-sheet.ts`의 누락 심볼 4건으로만 실패했고, `npm run check:ui`는 기존 `components/AppTabBar.tsx` raw button 1건으로만 실패했다. 독립 검토에서 menu ARIA pattern과 바깥 클릭 focus 복귀를 보완했고 새 P0/P1 없음. Google Sheet write·공유 변경·커밋·배포 0건이다.
+
+# 2026-08-21 ERP 상품리스트 — 참조 시트형 하단 탭 레일 밀도 보정 (Codex)
+
+- 요구사항: 탭을 서로 띄운 버튼이 아니라 제공된 Google Sheets 하단 레일처럼 연속되게 보이고, 글꼴·여백·구분선도 같은 밀도로 맞춘다.
+- 구현: 탭 바를 38px 고정 레일(`gap: 0`, padding 0)로, 각 탭을 37px·좌 12px/우 10px·14px/500·line-height 36px로 고정했다. 탭 사이는 1px 세로선으로만 구분하고, 실제 탭 색의 2px 하단선과 선택 탭의 옅은 색면은 유지했다. 신규 +/드롭다운 장식은 실제 동작이 없으므로 넣지 않았고, 기존 실제 햄버거 탭 목록은 유지했다.
+- 브라우저 검증: 로그인 ERP `/finder`의 실제 렌더에서 레일 `38px`, 세 탭 `37px`, 탭 간 gap `0px`, 각 탭 `Roboto 14px / 500`, padding `0 10px 0 12px`, 1px 구분선과 파랑/보라/초록 2px 하단선을 측정·스크린샷으로 대조했다.
+- PASS: `npm run check:fonts`, `git diff --check`. 전체 `npx tsc --noEmit`은 이번 범위 밖 dirty `lib/domain/vehicle-master-sheet.ts`의 누락 심볼 4건으로만 실패했다. Google Sheet write·공유 변경·커밋·배포 0건이다.
+
+# 2026-08-21 ERP 상품리스트 — 셀 선택·손님용 복사·커서 보정 (Codex)
+
+- 요구사항: 읽기 전용 판매시트도 행 전체 선택을 유지하면서 키보드로 한 칸씩 이동하고, 선택된 ERP 연결 차량은 안전한 손님용 안내문으로 바로 복사할 수 있게 한다. 일반 표 셀은 편집 십자 커서가 아니라 Google Sheets처럼 기본 화살표여야 한다.
+- 구현: 표는 roving-tabindex `grid`로 동작한다. 셀 클릭/행번호 선택 뒤 Arrow·Home·End(Ctrl/⌘ 포함)로 현재 필터·정렬 결과 안에서 이동하며, 선택 행은 옅은 파랑 외곽선, 활성 셀은 초록 윤곽으로 표시한다. Enter는 실제 파란 차량번호 상세 링크 칸에서만 작동하므로 다른 데이터 칸의 탐색과 충돌하지 않는다.
+- 손님용 복사: raw 판매시트 행을 복사하지 않는다. 서버가 `v4/products` child key로 단일 확정한 `rowDetailHref`와 현재 Finder product를 정확히 대조하고, 공개 허용값만 `sanitizeProductForGuest()`로 정제한 뒤 기존 상품 문구·공개 링크 생성기를 재사용한다. 상세 미연결/중복/출고 불가 행과 provider는 비활성화한다. 담당자 사람이 없으면 공유 URL의 `a`를 생략해 Firebase UID가 외부 URL에 들어가지 않는다.
+- 커서: 일반 행/셀은 `cursor: default`, 실제 차량 상세 링크만 `cursor: pointer`로 확인했다. Google Sheet write·공유 변경·커밋·배포는 0건이다.
+- 브라우저 검증: 로그인 `/finder`에서 360행 표를 열어 첫 셀 선택→오른쪽 이동(`fp-sheet-cell-122-0`→`…-1`)→아래 행 이동과 선택 윤곽을 실제 재현했다. 비링크 셀 Enter 뒤 URL은 `/finder` 그대로였고, 선택된 연결 행에서는 `손님용 복사`가 활성화됐다. 계산된 커서는 각각 `default`/`pointer`였다.
+- 독립 검토: v4 child key·Finder product map 불일치와 Firebase UID 공유 URL 노출 가능성을 함께 보완했고, 선택/커서/상세/복사 경로에 새 P0/P1 없음으로 재검토됐다.
+- PASS: `npm run check:fonts`, `git diff --check`. 전체 `npx tsc --noEmit`은 이번 범위 밖 dirty `lib/domain/vehicle-master-sheet.ts`의 누락 심볼 4건으로만 실패했고, 시트 변경에서 새 타입 오류는 없다.
+
+# 2026-08-21 ERP 상품리스트 — 로딩 스피너·헤더 밀도 보정 (Codex)
+
+- 요구사항: 시트/ERP 상품 데이터가 읽히는 동안 상품찾기 화면에서 실제 로딩 피드백이 보이고, 표 머리글은 글자를 키우지 않고 굵기와 더 묵직한 배경으로만 구분한다.
+- 구현: 첫 시트 읽기·로그인 상태 확인은 공용 `Loading` 스피너와 상태 문구로 렌더한다. ERP 공통 조건이 아직 도착하지 않은 표 안 상태에도 같은 스피너를 표시하며, 새로고침/미리읽기 중에는 새로고침 아이콘과 대상 하단 탭이 회전 스피너로 바뀐다.
+- 헤더: 본문과 같은 12px/9pt 크기를 유지하고 `600` 굵기·28px 행·`--fp-sheet-header-rail` 배경으로만 한 단계 무게를 더했다. 열별 기존 색 배경은 텍스트색을 12%만 섞어 같은 계열에서 살짝 진하게 만든다.
+- 브라우저 검증: 로그인 `/finder`에서 360행 로드 뒤 header/body가 모두 `12px`, header weight `600`, header background `rgb(238, 240, 242)`인 것을 확인했다. 실제 새로고침 직후 `fp-sheet-view__refreshing`과 대상 탭 로딩 스피너가 동시에 렌더됐다.
+- PASS: `npm run check:fonts`, `git diff --check`. 전체 `npx tsc --noEmit`은 기존 `lib/domain/vehicle-master-sheet.ts`의 누락 심볼 4건으로만 실패했다.
+
+# 2026-08-21 ERP 구조·규격 일괄 점검 (Codex)
+
+- 수정한 공통 오류: 차종마스터 reader의 누락된 usage-tier import 4개, 공용 Btn의 `aria-disabled` 전달 누락, 모바일 하단탭 raw button, e-sign 미리보기 raw shadow, 차량색 swatch의 의도된 데이터 팔레트 예외, ERP 내 상품리스트로 바뀐 업무안내와 전자계약 simulator의 오래된 문구, 판매시트 현재 59열/정제칸 18개와 매뉴얼의 불일치를 맞췄다.
+- PASS: `npx tsc --noEmit`, `npm run build`, `npm run check:fonts`, `npm run check:tokens`, `npm run check:ui`, `npm run check:release`(경고 2개), `npm run check:template-drift`, `npm run check:manual`, `npx tsx scripts/sim-freepass-esign.mts`, `npm run sim:vehicle-trim-operational`, `npm run sim:vehicle-master-seat-axis`, `npm run sim:vehicle-master-review-adoption`, `npm run sim:erp5-codes`, `git diff --check`.
+- UI 읽기 검증: 로그인 `/finder`는 360행 판매시트를 렌더했고, 헤더/본문은 12px·헤더 굵기 600으로 확인했다. 실제 새로고침 직후 새로고침 및 대상 탭 스피너가 표시된다. 개발 환경에서 새 페이지 진입 후 표 렌더 관측값은 약 9~10초로, Next 개발 모드·인증·외부 Google Sheets 읽기를 포함한 값이므로 운영 성능 수치로 확정하지 않는다.
+- **BLOCKED — 데이터 정본 위험:** `npm run check:vehicle-trim-master`는 등록된 GN11 그랜저 트림행키 다수가 현재 원천 의미와 다르다는 `REGISTERED_SEMANTIC_DRIFT`로 생성 자체를 차단했다. 상품코드/차종 매칭 정본에 영향을 줄 수 있어 자동 수정·시트 write·배포는 하지 않았다. 원천 행과 영구 행키의 사람 승인 대조 후에만 후속 조치한다.
+
+## 2026-08-21 모바일 범위 판정
+
+- **범위 확정:** 모바일은 전용 카드 보기 하나만 제공하는 제품 규격이다. `app/finder/page.tsx`의 `mobile ? 'card' : view` 강제 전환은 의도된 동작이며, 데스크톱 시트의 탭·셀 선택·열 필터를 모바일에 제공하지 않는다.
+- 따라서 모바일 검수는 카드 목록, 검색·필터 하단시트, 상품 상세 진입, 로딩·빈/오류 상태, 하단 탐색의 휴대폰 폭 동작을 기준으로 수행한다.
+
+## 2026-08-21 상품찾기 선택 성능·모바일 규격 재점검
+
+- 수정: 시트 셀 선택이 바뀔 때 360행×58열 전체를 다시 렌더하던 구조를 `SheetGridRow` 메모화로 분리했다. 이제 이전/현재 선택 행(첫 선택 시 초기 행 포함)만 갱신하고, 원본 데이터·필터·열 폭 계산은 선택 이동과 무관하게 유지한다.
+- 브라우저: 로그인된 `/finder`에서 360행 로드 후 방향키 오른쪽·아래 이동을 재현했다. 활성 셀은 `fp-sheet-cell-126-1`, 선택 행은 정확히 1개, 가로 넘침은 없었다.
+- 모바일 폭: Playwright 390×844 터치 뷰포트에서 실제 `window.innerWidth=390`, `data-fp-m=1`, `scrollWidth=390`을 확인했다. 로그인 화면은 입력칸 2개와 버튼이 가로 넘침 없이 렌더됐다. 인증된 Finder 카드·필터 동선은 자동화 세션에 로그인 권한이 없어 이 뷰포트에서 직접 실행하지 못했다. 코드는 모바일 전용 카드 보기, 상단 통합 검색, 필터 하단시트의 정렬·조건 드래프트/취소/적용, 키보드 시 하단탭 숨김으로 구성됨을 정적으로 대조했다.
+- PASS: `npx tsc --noEmit`, `npm run check:fonts`, 선택 이동 브라우저 회귀, 변경 대상 `git diff --check`.
+- 별도 차단: 전체 `npm run check:ui`는 사용자가 병행 작업 중인 `components/FreepassEsignPanes.tsx`의 raw input 1건으로 실패한다. 상품찾기 변경에서 나온 항목이 아니므로 수정하지 않았다.
+
+## 2026-08-21 반응성 우선 보정
+
+- 시트: 전체 360행을 DOM에 유지하던 표를 viewport 주변 14행 overscan 가상 렌더링으로 바꿨다. 실제 360행 중 렌더된 행은 52행, Ctrl/⌘+End 이동 후에는 36행으로 유지됐고 활성 셀·단일 행 선택·스크롤 이동이 정상이다. 화면 안 셀 이동은 `scrollIntoView()`를 쓰지 않고, 경계를 넘을 때만 해당 축을 즉시 이동한다.
+- 고정 행번호: body 고정 레일을 header보다 한 단계 낮고 일반/활성 셀보다 높은 불투명 레이어로 분리하고 오른쪽 2px 분리선을 추가했다. 실제 가로 이동 screenshot에서 스크롤된 셀 텍스트가 행번호 아래로 비치지 않았다.
+- 모바일 목록: 초기/더보기 단위를 100대가 아니라 40대로 줄이고, 전체 보기는 200대에서 제한한다. `ProductRowCard`는 기존 메모화를 유지하므로 첫 카드 피드·검색 결과 교체의 mount 비용도 함께 낮아진다. 웹은 기존 100/500 규격을 유지한다.
+- PASS: `npx tsc --noEmit`, `npm run check:fonts`, 변경 대상 `git diff --check`, 로그인된 실제 시트의 24행 연속 방향키 및 Ctrl/⌘ Home/End 이동. `npm run build`는 최적화 컴파일·타입검사·정적 페이지 생성 단계까지 성공적으로 진행됨을 확인했다.
+
+## 2026-08-21 페이지 전환·모바일 목록 반응성
+
+- 페이지 복귀: 판매시트 grid cache를 컴포넌트 ref에서 로그인 UID 한정의 휘발성 모듈 캐시로 확장했다. Finder → 상세 → Finder 같은 SPA 이동은 이미 받은 세 탭을 즉시 재사용한다. localStorage/HTTP cache는 사용하지 않는다. 사용자 교체, 실행 중 ID-token 변경, 역할 변경, 수동 새로고침은 이 캐시를 전부 폐기한다.
+- 모바일 목록: `ProductMoreMenu`가 표시 카드마다 관심/관심없음 구독을 두 개씩 만들던 구조를 바꿨다. 메뉴를 실제로 연 카드만 두 상태를 읽고 구독하므로, 초기 40개 카드에서 불필요한 80개 구독이 사라졌다.
+- PASS: `npx tsc --noEmit`, `npm run check:fonts`, 변경 대상 `git diff --check`. 상세 진입 자체는 로그인된 Finder에서 loading 없이 `/m/RP006_151호2326`으로 이동하고 가로 넘침이 없음을 확인했다.
+- 검증 한계: 페이지 복귀 cache의 재검증용 신규 브라우저 탭은 Firebase active bearer를 받지 않아 `/api/products/sheet` 403이 되었다. 인증 없는 자동화 세션은 cache 동선의 유효한 재현 환경이 아니므로, 로그인된 사용자 브라우저에서 한 번의 상세→뒤로가기 확인이 남는다.
+
+## 2026-08-21 고정 레일 아래 선택 셀 가림 보정
+
+- 수정: 시트 선택 이동의 최소 스크롤 계산에 고정 행번호 폭(48px)과 열문자+헤더 높이를 viewport inset으로 반영했다. 대상 셀이 scrollport 안에만 들어오는 것이 아니라, 고정 행번호·헤더 밖에서 완전히 보이도록 좌/상단 여유를 둔다.
+- 검증: 변경 대상 `git diff --check` 통과. 전체 `npx tsc --noEmit`은 이 변경 이후 병행 변경된 `app/api/freepass-esign/issuance/rental-fact/route.ts:172`의 `actor possibly null` 한 건으로 실패했다. SheetView에서 추가된 타입 오류는 없다.
+
+## 2026-08-21 판매시트 우클릭 손님 전달
+
+- 구현: 표 셀을 우클릭하면 선택 행 기준의 컨텍스트 메뉴를 연다. Google Sheets처럼 얇은 메뉴 행·구분선 밀도를 쓰되, 실제 ERP 동작인 행 선택·상세 열기·손님용 텍스트 복사·손님용 링크 복사만 제공한다. 같은 두 복사 버튼은 선택 행 기준 하단 우측에도 둔다. 탭/데이터 전환, 바깥 클릭, Escape에는 메뉴를 닫는다.
+- 개인정보 경계: 원본 시트 행 전체는 복사하지 않는다. 상세 주소로 정확히 매칭된 현재 ERP 상품만 `sanitizeProductForGuest()`로 공개 가능 값으로 정제한 뒤, 기존 안내문 포맷과 공개 매물 링크를 함께 클립보드에 넣는다. 미연결·중복·출고 불가 행은 복사 비활성화다.
+- PASS: `npx tsc --noEmit`, `npm run check:fonts`, `git diff --check`.
+
+## 2026-08-21 고객 전달 텍스트 규격
+
+- 전역 `formatProductForCopy()`를 카카오톡 전달 순서로 정리했다: 차명 → 차량 정보(차량번호·연식·주행거리·연료·배기량·엔진·구동·변속기·인승·색상) → 선택 옵션 전체(한 항목씩) → 기간별 월 대여료·보증금 → 담당자·연락처.
+- 브랜드 제목·내부 메모·원가·공급사·계좌·심사조건은 넣지 않는다. 시트 복사도 ERP 공개 허용값을 한 번 더 정제한 뒤 이 전역 포맷을 쓴다. 로그인 세션은 프로필 `phone`을 함께 보관해 상세·카드·시트의 텍스트 복사가 같은 담당자 이름·연락처를 쓴다. 번호가 비어 있으면 지어내지 않고 연락처 줄을 생략한다.
+- PASS: `npx tsc --noEmit`, `npx tsx scripts/sim-agent.mts` (45/45), `npm run check:fonts`, `git diff --check`.
+
+## 2026-08-21 프리패스 전자계약 봉인·보험 정합성 보완 (Codex)
+
+- 범위: 프리패스 자체 전자계약의 발행 스냅샷, 고객 서명, 보험포함/별도 증빙, 관리자 승인·인도, 고객 모바일/A4/PDF 경계만 수정했다. 운영 데이터·RTDB 규칙 게시·커밋·배포는 수행하지 않았다.
+- 수정: 상품/보험/당사자/신차 상태를 발행 시 봉인하고 이후 template field·postMessage가 이를 덮지 못하게 했다. 보험포함은 정책의 실제 보험사명만 봉인하며, 보험별도는 가입증명서 업로드·Storage SHA-256 재검증·질권 확인을 승인/인도까지 연결했다. 1px·점 서명은 서버에서 거부하고, 기존 불완전 스냅샷 링크는 고객 정보 수집·A4 preview·승인 전에 재발행 안내로 막았다.
+- 보안: 새 고객 bearer 링크는 계약 목록 노드가 아니라 `v4/esign_private`에만 저장한다. 기존 활성 링크는 인증된 복구 동작에서 hash가 일치할 때만 private로 이관하고, 목록의 raw URL은 항상 제거한다. 계약 목록 API도 private URL만 반환한다.
+- UX: 임시 번호 신차는 고객 모바일/A4 모두 `미정 (신차)`로 통일했고, 사진 없이 다음 단계로 이동할 수 있으나 최종 제출에는 면허증·셀카·유효한 전자서명을 계속 요구한다. 기존 활성 링크가 목록에서 보이지 않으면 `고객 링크 복구`를 명시적으로 제공한다.
+- 검증 PASS: `npm run build`, `npx tsc --noEmit --incremental false`, `npm run check:fonts`, `npm run check:tokens`; `sim-esign-contract-kind` 61/61, `sim-esign-issue-gate` 8/8, source/document-boundary/signed-snapshot/common-policy/freepass-esign/snapshot/required-documents/signature sims. Chromium에서 봉인 PDF 8페이지를 실제 렌더해 신차 표기·보험별도 증빙·서명·완료기록 및 표준 렌트 보험포함 분기를 확인했다.
+- **배포 보류/제한:** 구독 보험포함·보험별도 서식은 현재 `sample-v1`이며 production issue가 의도적으로 차단된다. A4 본문 일부 약관 푸터도 렌트 용어여서 법무 승인된 구독 정본 본문을 만들기 전에는 운영으로 열 수 없다. 전사 UI 규약 검사는 범위 밖 `app/erp5/esign/issuance/page.tsx` raw input 1건과 `features/finder/SheetView.tsx` raw button 2건으로 실패했으며, 병행 작업 파일이라 수정하지 않았다.
+
+## 2026-08-21 전자계약 차량 우선·가격조건 동결 검증 (Codex)
+
+- 관리자 작성 흐름은 차량번호·차명 전체 검색을 첫 선택으로 두고, 공급사는 선택적 좁히기만 하도록 바꿨다. 차량을 고르면 공급사·정책·보험유형을 자동으로 결정한다.
+- 기간·약정주행·운전자 연령은 가격결정 조건으로 함께 선택한다. 상품의 기간별 주행거리 가격표를 우선하고, 없을 때만 정책의 1만km 단위 가산을 사용한다. 인수형 가격키는 주행거리 선택지에서 제외한다.
+- 직접 생성 계약은 기간·월대여료·보증금·연령·약정주행·각 가산·가격키·특약 확인값을 `v1` 불변 스냅샷으로 함께 저장한다. 발행 전 서버 게이트가 상품·정책으로 같은 금액을 재계산하고, 하나라도 다르면 링크/PDF 발행을 차단한다. 특약은 없음/있음과 내용까지 스냅샷으로 검증한다.
+- 고객 모바일 동의와 PDF는 정책 기본값이 아니라 선택된 연령·약정주행·계약별 특약 스냅샷을 사용한다.
+- PASS: `npx tsc --noEmit`, `sim-esign-source-gate`, `sim-esign-vehicle-selection`, `sim-esign-contract-kind`(64/64), `sim-esign-snapshot`, `sim-esign-signed-snapshot`, `sim-esign-document-boundary`, `sim-freepass-esign`, `sim-esign-field-map`(13/13), `sim-freepass-esign-final-pdf`, `sim-esign-required-documents`, `npm run check:fonts`, `git diff --check`.
+- 제한: Firebase 환경변수가 없어 실 RTDB·실서명 E2E와 rules 배포는 수행하지 않았다. `database.rules.json` 변경은 로컬에만 있으며, 운영 게시 전에는 실제 레거시 계약 데이터를 포함한 사람 검증이 필요하다. 연대보증인이 있는 계약의 별도 보증 전자서명·약정 PDF 발행은 여전히 별도 구현 범위로 남아 있어 주계약 발행 차단을 유지한다.
+
+## 2026-08-21 계약서관리 작성 단계 단순화 (Codex)
+
+- 작성 카드를 3단계로 정리했다: ① 차량번호 선택(공급사 필터·자동 정책 포함), ② 기간별 대여료, ③ 조건. 공급사 드롭다운과 차량번호·차명 검색은 첫 카드에 함께 보인다. 차량번호로 바로 선택해도 공급사·정책이 자동으로 채워지고, 공급사를 먼저 고르면 해당 출고가능 차량으로만 결과가 좁혀진다.
+- PASS: `sim-freepass-esign`, `sim-esign-vehicle-selection`, `sim-esign-source-gate`, `npm run check:fonts`, `git diff --check`.
+
+## 2026-08-21 전 화면 입력·전환 반응성 보정 (Codex)
+
+- 원인: 일부 대형 목록은 검색어가 아직 확정되지 않은 타이핑 중에도 새로운 필터 상태 객체와 결과 컨테이너를 만들 수 있었고, 스키마 기반 입력폼은 한 칸 변경에 같은 폼의 모든 필드를 다시 렌더했다.
+- 수정: `FormGrid`를 필드 단위 메모 컴포넌트와 안정 dispatcher로 분리해 값·설정이 바뀐 입력칸만 다시 렌더한다. Finder는 필터 상태 객체를 메모화하고 결과 컨테이너를 메모화해 검색창 입력이 표/카드/시트를 다시 그리지 않는다. 회원·정책·감사·업무안내·전자계약 차량/계약 검색은 입력 문자열을 즉시 보여 주되 전체 검색/정렬만 React deferred 작업으로 넘긴다.
+- 전환: 하단 탭의 실제 다음 화면만 유휴 시간에 prefetch한다. 데이터는 기존 session in-memory stale-while-revalidate cache와 판매시트 UID 한정 메모리 cache를 계속 사용하므로, 상품 상세에서 Finder로 돌아올 때 표를 다시 비우지 않는다. 개별 수백 개의 차량 상세는 미리받지 않아 네트워크를 과점유하지 않는다.
+- 검증: `npx tsc --noEmit`, `npm run check:fonts`, `git diff --check`, `npm run build` 통과. 개발 서버에서 `/finder`, `/faq`, `/members`, `/policy`, `/audit`, `/esign`, `/contract`, `/inventory` 모두 HTTP 200으로 컴파일·응답했다. 인증된 자동화 세션이 없어 실제 운영 계정의 입력 지연 시간(ms)과 모바일 카드 동선은 별도 실기기 재확인이 남는다.
+
+## 2026-08-21 모바일 공통 반응형 구독 정리 (Codex)
+
+- 수정: `useIsMobile()`가 카드·배지·입력컨트롤마다 `resize`와 `matchMedia` 리스너를 각각 붙이던 구조를 breakpoint별 공용 구독 허브로 바꿨다. 모바일 목록처럼 같은 훅을 수십 번 쓰는 화면도 이제 viewport 이벤트는 한 번만 수신하고 필요한 구독자에게만 전달한다.
+- 수정: 인자를 가진 `useIsMobile(bp)`가 구독 단계에서 기본 760px만 보던 결함을 함께 고쳤다. 담당자·보조 패널처럼 별도 전환폭을 쓰는 화면도 지정한 breakpoint에서 정확히 다시 그려진다.
+- PASS: `npx tsc --noEmit`, `npm run check:fonts`, `npm run check:ui`, `npm run check:tokens`, `git diff --check`.
+- 로컬 개발 서버 한계: 병행 작업의 대형 파일 저장과 별도 데이터 스크립트가 동시에 실행되어 Turbopack 재컴파일이 연속 발생했고, 이 시점의 `/finder` 요청은 20초 안에 응답하지 못했다. 서버 프로세스는 살아 있으며 이는 운영 빌드 성능 수치로 사용하지 않는다. 다른 작업을 중단시키지 않고 서버가 안정된 뒤 인증된 모바일 실동선을 다시 확인한다.
+
+## 2026-08-21 상품 목록 공용 데이터 계층 정리 (Codex)
+
+- 원인: 상품찾기, ERP5, 비교/제안, ERP5 상품상세가 같은 상품·공급사 목록을 각자 다시 읽고 각각 차량상태 폴링을 시작했다. 화면을 옮길수록 같은 네트워크/상태 작업이 겹쳐 페이지 전환이 무거워질 수 있었다.
+- 수정: `features/finder/finder-data-store.ts`를 사용자·권한 범위의 휘발성 단일 데이터 저장소로 추가했다. 최초에는 기존 store의 즉시 snapshot을 보여 주고, 이후 목록/공급사 조회와 실시간 상태 폴링은 공용으로 1회만 수행한다. 화면이 모두 사라지면 폴링만 중지하고 목록은 메모리에 유지해 Finder ↔ 상세 ↔ ERP5 전환을 즉시 복귀시킨다. 30초 뒤에만 뒤에서 재검증한다.
+- 보안: cache key는 회사만이 아니라 UID와 역할·원본역할·소속·활성 상태를 포함한다. 사용자나 권한 범위가 바뀌면 다른 범위의 메모리 목록과 폴링을 즉시 폐기한다. localStorage·공유 HTTP cache에는 상품 목록을 저장하지 않는다.
+- 정리: 호출부 네 곳은 `finderDataScope(session)` 하나를 사용해 권한 scope 조립을 중복하지 않는다.
+- PASS: `npx tsc --noEmit`, `npm run check:fonts`, `npm run check:ui`, `npm run check:tokens`, `git diff --check`, `npm run build` 통과. 재기동 직후 로컬 `/finder`·`/erp5`는 200, warmed 재요청은 각각 약 522ms·516ms였다. 이는 인증 전 서버 route 확인값이며, 인증된 목록 데이터/모바일 터치 동선은 실세션에서 별도 확인이 필요하다.
+
+## 2026-08-21 전역 메뉴·하단탭 알림 갱신 통합 (Codex)
+
+- 원인: TopBar의 메뉴와 모바일 AppTabBar가 각각 같은 `loadMenuBadges()`를 시작하고, 30초·focus·visibility·안읽음 이벤트를 따로 구독했다. 모바일에서 동일한 알림 숫자를 두 번 읽고 두 번 렌더할 수 있었다.
+- 수정: `lib/menu-badge-store.ts`에 사용자 범위 공용 badge store를 만들었다. 상단 메뉴와 하단 탭은 동일 snapshot과 하나의 갱신 타이머를 공유하며, 둘 다 사라지면 타이머/이벤트를 해제한다. UID·원본 역할·소속이 달라지면 이전 badge entry를 폐기한다. 메뉴를 열 때만 즉시 재검증하는 기존 동작은 유지했다.
+- 범위: ERP5 전용 화면 기능/디자인은 이번 단계에서 변경하지 않았다.
+- PASS: `npx tsc --noEmit`, `npm run check:fonts`, `npm run check:ui`, `npm run check:tokens`, `git diff --check`, `npm run build` 통과.
+
+## 2026-08-21 모바일 카드 입력·메뉴 동선 재검증 (Codex)
+
+- 수정: 모바일 상품 카드의 전체 상세 링크 안에 `더보기` 버튼이 중첩돼 있던 구조를 분리했다. 카드 본문은 링크, `더보기`는 카드의 별도 형제 버튼이므로 모바일 브라우저의 탭·포커스·터치 전파가 흔들리지 않는다.
+- 실제 390×844 로그인 세션 검증: 상품찾기 카드 40개, 검색·필터 하단시트, 계약진행 전환을 확인했다. 문서 가로폭은 모두 390px으로 유지됐고, 카드 본문 링크 안의 button은 0개였다. 분리 후 첫 카드 링크 폭은 356px으로 viewport 안에 고정되고 메뉴 버튼도 별도 40px hit target으로 렌더됐다.
+- PASS: `npx tsc --noEmit`, `npm run check:fonts`, `npm run check:ui`, `npm run check:tokens`, `git diff --check`, `npm run build` 통과.
+
+## 2026-08-21 모바일 키보드 viewport 구독 통합 (Codex)
+
+- 수정: AppTabBar·WorkPage·채팅이 각자 등록하던 `visualViewport` resize/scroll listener를 `useKeyboardOpen()`의 공용 구독으로 합쳤다. 호출부가 여러 개여도 이벤트는 한 번만 읽고, 키보드 열림 상태가 바뀔 때만 필요한 화면에 알린다.
+- 동작: 주소창 접힘과 구분하는 기존 120px 기준, visualViewport 미지원 브라우저의 `supported=false`, 마지막 구독 해제 시 listener 정리는 그대로 유지한다.
+- PASS: `npx tsc --noEmit`, `npm run check:fonts`, 변경 대상 `git diff --check`, `npm run build`.
+
+## 2026-08-21 전체메뉴 전환 선로딩 (Codex)
+
+- 수정: 상단 전체메뉴를 열 때 현재 역할에 실제로 보이는 소수의 메뉴 route shell만 유휴 시간에 prefetch한다. 모바일 하단탭뿐 아니라 데스크톱/모바일 전체메뉴에서 누른 뒤의 전환도 즉시 시작된다.
+- 경계: 현재 화면·준비중 항목·개별 차량 상세는 제외했다. 권한에 따라 보이지 않는 경로도 prefetch하지 않는다.
+- PASS: `npx tsc --noEmit`, `npm run check:ui`, 변경 대상 `git diff --check`.
+
+## 2026-08-21 상담 목록 초기 번들 분리 (Codex)
+
+- 수정: `/chat`은 대화 선택 전에도 ChatThread·상품상세·계약 진행·첨부 서류 패널을 한 번에 import하던 구조였다. 네 패널을 선택 시점의 dynamic import로 분리해 목록, 검색, 필터, 메뉴가 먼저 준비되게 했다.
+- 브라우저: 로그인 세션의 `/chat`에서 목록 초기 로딩/상담데스크·검색·정렬·분류 컨트롤을 확인했고 가로 넘침이 없었다. 선택 전에는 대화 패널이 `왼쪽에서 대화를 선택하세요.` 상태로 유지된다.
+- PASS: `npx tsc --noEmit`, `npm run check:fonts`, 변경 대상 `git diff --check`.
+
+## 2026-08-21 재고 목록 초기 번들 분리 (Codex)
+
+- 수정: 재고 목록만 보는 단계에서는 `InventoryFixedPane`·`InventoryVariablePane`의 차량 편집/OCR 폼을 내려받지 않는다. 매물 선택 또는 등록 뒤에만 두 패널을 dynamic import한다. 기존 시트 동기화 패널의 lazy loading도 유지한다.
+- 브라우저: 로그인 세션 `/inventory`에서 상단 검색·정렬과 선택 전 기본/운영 빈 상태, 로드 완료를 확인했고 desktop 가로 넘침은 없었다.
+- PASS: `npx tsc --noEmit`, `npm run check:ui`, 변경 대상 `git diff --check`.
+
+## 2026-08-21 회원 목록 정책 편집기 지연 로드 (Codex)
+
+- 수정: 회원/공급사 목록의 초기 진입에서는 `PartnerPolicyEditor`를 받지 않고, 공급사를 선택해 운영정책을 열 때만 dynamic import한다.
+- production build 확인: 초기 First Load JS는 상담 `/chat` 365kB → 342kB, 재고 `/inventory` 343kB → 334kB, 회원 `/members` 367kB → 362kB로 줄었다. 공유 초기 JS 103kB는 유지했다.
+- PASS: `npx tsc --noEmit`, `npm run check:ui`, `npm run build`, 변경 대상 `git diff --check`.
+
+## 2026-08-21 정책관리 전자계약 편집기 지연 로드 (Codex)
+
+- 수정: 정책 목록/기본 조건을 열 때는 `PolicyRequiredDocumentsEditor`를 받지 않고, 전자계약 섹션에서만 dynamic import한다.
+- PASS: `npm run check:fonts`, 변경 대상 `git diff --check`.
+- BLOCKED: 전체 `npx tsc --noEmit`은 병행 변경의 `lib/domain/vehicle-class.ts:6`가 없는 `./vehicle-class-catalog`을 import해 실패했다. 이번 정책 변경과 무관한 모듈 누락이며 해당 파일은 수정하지 않았다.
+
+## 2026-08-21 설정 보조 기능 지연 로드 (Codex)
+
+- 수정: 관리자 사진 ZIP 생성기는 실제 다운로드 확정 뒤에만 import하며, 설정 하단의 내 파일·상품 선호 패널도 lazy component로 분리했다. 계정/화면 설정의 초기 입력 반응에는 영향을 주지 않는다.
+- PASS: `npm run check:fonts`, `npm run check:ui`, 변경 대상 `git diff --check`.
+- 제한: 전체 타입 검사는 앞선 병행 파일의 누락 모듈로 계속 차단 상태다.
+
+## 2026-08-21 상품 상세 영업 패널 지연 로드 (Codex)
+
+- 수정: 22kB 규모의 `ProductAgentPanel`에서 화면폭 판단 hook을 별도 가벼운 layout 모듈로 분리했다. 상품 상세는 본문을 먼저 렌더하고, 링크/텍스트 복사·사진 ZIP·손님 미리보기 등의 영업 보조 패널은 실제 역할/폭에 따라 dynamic import한다.
+- 브라우저: 로그인 세션의 실제 `/m/RP006_151호2326`에서 상품 본문·사진·차량스펙이 정상 로드되고 desktop 가로 넘침이 없음을 확인했다.
+- PASS: `npm run check:fonts`, `npm run check:ui`, 변경 대상 `git diff --check`.
+- 제한: 전체 타입 검사는 앞선 병행 파일의 누락 모듈로 계속 차단 상태다.
+
+## 2026-08-21 주요 화면 인터랙션 구조 재감사 (Codex)
+
+- 실제 로그인 브라우저에서 `/finder`, `/inventory`, `/members`, `/settings`, `/chat`, 상품 상세 한 건을 재검사했다.
+- 결과: 여섯 화면 모두 링크 안 button/input/select/textarea 중첩 0건, 문서 가로 넘침 0건, 초기 alert 0건이다. 모바일 상품 카드 메뉴 분리 이후 같은 상호작용 충돌이 다른 핵심 화면에 남지 않았음을 확인했다.
+
+## 2026-08-29 F03 차종마스터 Codex·Gemini 의견 일괄 반영 (Codex)
+
+- 정본: Google Sheet `1oMB9eoNnQFxUyRK4CSxYh_hKrtCf7s_79xLs-GYwXCE`, `차종마스터!A:M` 1,669행(헤더 포함)을 재읽었다. 원자 데이터 A:G는 변경하지 않고 리뷰 메타 L:M만 반영했다.
+- 반영: L(지식검토)은 맞음 1,644·못정함 22·틀림 2, M(엔카대조)은 맞음 1,619·못정함 49이다. 트림 공란 2행(포터 II·봉고)은 `틀림`, 생산기간 `보류` 24행은 날짜 추정 없이 `못정함`으로 기록했다. 엔카 원문이 부족하거나 기아 개발코드 표기와 기존 대조가 충돌한 49행도 `못정함`으로 보류했다.
+- 근거: F03 명명 매뉴얼의 `세부트림 없으면 기본형`, `엔카 원문 근거 없는 추정 금지`, 기아 세대명→개발코드 예외를 적용했다. Gemini CLI는 `공란=틀림, 보류=못정함` 원칙에 동의했다.
+- 재검증: 쓰기 직후 L:M 1,668행을 다시 읽어 합계가 각각 1,668행인지 확인했고, 보류/공란/K8/RAV4 표본의 셀 값과 메모도 재조회했다.

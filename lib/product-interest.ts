@@ -19,8 +19,13 @@ export type InterestSnap = {
 
 const RECENT_KEY = 'fp4_recent_products';
 const FAV_KEY = 'fp4_fav_products';
-const MAX_RECENT = 16;
-const MAX_FAV = 40;
+/**
+ * 최근·관심 상한 = **둘 다 20**(사장님 2026-08-20 「최대 20개까지만 돌아가게 하던지 관심도 20개까지」).
+ * 패널이 본문을 밀고 통째로 펼쳐지므로, 높이는 스크롤로 막지 않고 «담는 수»로 막는다.
+ * 16/40 으로 서로 달랐던 탓에 최근은 금방 밀려 사라지고 관심은 화면을 넘겼다.
+ */
+const MAX_RECENT = 20;
+const MAX_FAV = 20;
 const EVT = 'fp:interest';
 const listeners = new Set<() => void>();
 

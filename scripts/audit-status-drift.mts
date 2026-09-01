@@ -19,7 +19,7 @@ import { MIRROR_SOURCES, type MirrorSource } from '../lib/domain/mirror-sources'
 import { canonSheetVehicleStatus } from '../lib/domain/sheet-import';
 import { findPlateAndStatusColumns, readSupplierSheet, SHEET_GRID_FIELDS } from '../lib/domain/supplier-sheet-read';
 import { isOurNonInventoryTab } from '../lib/domain/supplier-template-sheet';
-import { pickPublishedSalesTabs } from '../lib/domain/sales-published-tabs';
+import { pickPublishedSalesTabs, SALES_PUBLISHED_TAB_PREFIXES } from '../lib/domain/sales-published-tabs';
 import { assessStatusPipeline, type StatusObservation } from '../lib/domain/status-drift';
 import type { EntityRecord } from '../lib/intake/entities';
 
@@ -239,7 +239,15 @@ async function readSalesLayers(partners: EntityRecord[]): Promise<SalesLayers> {
       .filter((sheet) => !sheet.properties?.hidden)
       .map((sheet) => S(sheet.properties?.title));
     const tabs = pickPublishedSalesTabs(titles);
-    if (tabs.length !== 3) result.errors.push('판매시트 발행 탭 3개가 아님: ' + tabs.map((tab) => tab.title).join(' / '));
+    /* ★탭 수를 손으로 박지 않는다 — 정본은 SALES_PUBLISHED_TAB_PREFIXES 다.
+       3 이 박혀 있어 픽업구독을 더한 «4탭» 을 오류로 보고, 그 오류 하나 때문에 판매 레이어가
+       통째로 complete=false → 차 559대가 미확인(unknownRows)이 됐다(코덱스 4차 2026-08-30). */
+    if (tabs.length !== SALES_PUBLISHED_TAB_PREFIXES.length) {
+      result.errors.push(
+        `판매시트 발행 탭 ${SALES_PUBLISHED_TAB_PREFIXES.length}개가 아님(${tabs.length}개): `
+        + tabs.map((tab) => tab.title).join(' / '),
+      );
+    }
     const providers = providerIndex(partners);
     for (const tab of tabs) {
       const values = await getJson(

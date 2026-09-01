@@ -4,7 +4,7 @@ import { getCompanyId } from '@/lib/tenant';
 import { PRODUCT_TYPES, type EntityRecord } from '@/lib/intake/entities';
 import { getRole } from '@/lib/domain/deal';
 import { VEHICLE_DISPLAY_STATUSES, canonProductType, normalizeVehicleDisplayStatus, vehicleName } from '@/lib/domain/product';
-import { PaneHead, PaneBody, Btn, C, Loading, CenterNote, Page, ToggleChips, FilterGroup, PageActions, FW, FS, FeedRowSkeleton } from '@/components/ui';
+import { PaneHead, PaneBody, Btn, C, Loading, CenterNote, Message, Page, ToggleChips, FilterChips, FilterGroup, WorkDock, workMode, FW, FS, FeedRowSkeleton } from '@/components/ui';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
 import { useResolvedLinkPhotos } from '@/components/use-product-photos';
 import dynamic from 'next/dynamic';
@@ -13,13 +13,12 @@ import { NAV_LABEL } from '@/lib/tabbar';
 import { toggleInSet } from '@/lib/set';
 import { useInventoryResults, type InventorySort as InvSort } from '@/features/inventory/useInventoryResults';
 import { InventoryListPanel, type InventoryListPanelModel } from '@/features/inventory/InventoryListPanel';
-import {
-  InventoryFixedPane, InventoryVariablePane, type InventoryEditorModel,
-} from '@/features/inventory/InventoryEditorPanes';
+import type { InventoryEditorModel } from '@/features/inventory/InventoryEditorPanes';
 import { useInventoryVehicleTools } from '@/features/inventory/useInventoryVehicleTools';
 import { useInventoryEditorLifecycle } from '@/features/inventory/useInventoryEditorLifecycle';
 import { useInventoryAccessEffects, useInventoryData } from '@/features/inventory/useInventoryData';
 import { retainVisibleSelection } from '@/features/work-list-display';
+import { EMPTY_CATALOG, type VehicleCatalog } from '@/lib/domain/vehicle-catalog';
 const INV_SORTS: { value: InvSort; label: string }[] = [
   { value: 'status', label: '상태순' },
   { value: 'name', label: '차명순' },
@@ -38,6 +37,16 @@ function sameStringSet(a: Set<string>, b: Set<string>): boolean {
 const SheetSync = dynamic(() => import('@/components/SheetSync').then((m) => m.SheetSync), {
   ssr: false,
   loading: () => <CenterNote>시트 연동 불러오는 중…</CenterNote>,
+});
+// 목록을 훑는 단계에서는 차량 기본·운영 편집폼이 보이지 않는다. OCR/폼 구성까지 초기 번들에
+// 넣지 않고, 실제 매물을 선택한 뒤에만 가져와 재고 목록과 검색의 첫 반응을 가볍게 한다.
+const InventoryFixedPane = dynamic(() => import('@/features/inventory/InventoryEditorPanes').then((m) => m.InventoryFixedPane), {
+  ssr: false,
+  loading: () => <CenterNote>기본 정보를 여는 중…</CenterNote>,
+});
+const InventoryVariablePane = dynamic(() => import('@/features/inventory/InventoryEditorPanes').then((m) => m.InventoryVariablePane), {
+  ssr: false,
+  loading: () => <CenterNote>운영 정보를 여는 중…</CenterNote>,
 });
 
 // 재고관리 4프레임 = [매물 목록 | 기본 | 운영 | 연동·반영].
@@ -60,6 +69,21 @@ export default function Inventory() {
     loadProducts: load,
   } = useInventoryData(co);
   const [sel, setSel] = useState<string | null>(null);
+  /**
+   * ★차종사전(신규마스터) — 차명 축의 선택지(사장님 2026-08-23 「기존 재고관리 상품등록은 신규마스터를 반영해서 입력값을 만든다」).
+   *   `public/data/vehicle-catalog.json` 은 공급사 정제칸에서 파생한다(`scripts/build-vehicle-catalog.mts`).
+   * ⚠ 못 받아도 화면은 그대로 돈다 — 선택지가 비고 손입력만 남을 뿐, 등록을 막지 않는다.
+   *   옛 차종마스터(1.7MB)와 달리 이 파일은 작아 첫 화면을 붙잡지 않는다.
+   */
+  const [catalog, setCatalog] = useState<VehicleCatalog>(EMPTY_CATALOG);
+  useEffect(() => {
+    let alive = true;
+    fetch('/data/vehicle-catalog.json')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => { if (alive && data?.rows) setCatalog(data as VehicleCatalog); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, []);
   const [form, setForm] = useState<EntityRecord>({});
   const [dirty, setDirty] = useState(false);
   const [q, setQ] = useState(''); // 검색창 즉시 반영(입력·힌트·조건해제)
@@ -75,16 +99,11 @@ export default function Inventory() {
   const [editing, setEditing] = useState(false);
   const supplierPhotos = useResolvedLinkPhotos(form);
   const {
-    loadMaster,
     selectProduct: selectP,
-    normalizeVehicle,
-    applyMasterPick,
     runOcr,
     ocrBusy,
     ocrInputRef: ocrRef,
   } = useInventoryVehicleTools({
-    form,
-    selectedCode: sel,
     setSelectedCode: setSel,
     setForm,
     setDirty,
@@ -130,7 +149,6 @@ export default function Inventory() {
     setPolicies,
     setAccess: setOk,
     setGateMessage: setGateMsg,
-    loadMaster,
     clearSelection: clearSel,
   });
 
@@ -239,12 +257,11 @@ export default function Inventory() {
     partners,
     supplierPhotos,
     isAdmin,
+    catalog,
     onReset: resetForm,
     onCopy: copyForm,
     onPaste: pasteForm,
     onOcrFiles: runOcr,
-    onMasterPick: applyMasterPick,
-    onRematch: normalizeVehicle,
     onFieldChange: onChange,
     onPriceChange: (price) => {
       setForm((current) => ({ ...current, price }));
@@ -272,28 +289,33 @@ export default function Inventory() {
     <>
       <PaneHead title="연동 안내" />
       <PaneBody pad>
-        <div style={{ fontSize: FS.cap, fontWeight: FW.strong, color: C.ink, lineHeight: 1.55 }}>
-          공급사 원본은 참고·자료 제출용입니다.
-        </div>
-        <div style={{ marginTop: 6, fontSize: FS.cap, color: C.mute, lineHeight: 1.55 }}>
-          관리자가 상품마스터를 확인한 뒤 ERP에 일괄 반영합니다. 공급사 원본은 비교·갱신 자료이며 ERP 재고를 직접 덮어쓰지 않습니다.
-        </div>
+        <Message variant="info">
+          공급사 원본은 참고·자료 제출용입니다. 관리자가 상품마스터를 확인한 뒤 ERP에 일괄 반영합니다. 공급사 원본은 비교·갱신 자료이며 ERP 재고를 직접 덮어쓰지 않습니다.
+        </Message>
       </PaneBody>
     </>
   );
 
   // 목록을 포함한 4번째 프레임이 연동·반영이다. 모바일은 해당 페인을 제외한다.
   const panes: WorkPane[] = [
-    { key: 'fixed', title: '기본', node: fixedPane },
-    { key: 'var', title: '운영', node: varPane },
+    { key: 'fixed', title: '기본 정보', node: fixedPane },
+    { key: 'var', title: '운영 조건', node: varPane },
     ...(mobile ? [] : [{ key: 'sync', title: '연동·반영', node: syncPane }]),
   ];
   // 하단바 = 편집 컨텍스트만(수정·삭제 / 취소·저장). 등록 = 목록 맨 위 행(InventoryCreateRow).
-  const dockActions = creating || editing ? (
-    <PageActions cancel={{ onClick: cancelEdit, disabled: saving }} save={{ onClick: save, disabled: !dirty || saving, label: saving ? '저장 중…' : undefined }} />
-  ) : selectedIsVisible ? (
-    <PageActions edit={{ onClick: startEdit }} remove={{ onClick: removeP }} />
-  ) : undefined;
+  const dockActions = (
+    <WorkDock
+      mode={workMode(creating, editing)}
+      selected={selectedIsVisible}
+      saving={saving}
+      dirty={dirty}
+      onCancel={cancelEdit}
+      onSave={save}
+      onEdit={startEdit}
+      onRemove={removeP}
+      saveLabel={saving ? '저장 중…' : undefined}
+    />
+  );
   const fltCount = (stFlt.size ? 1 : 0) + (typeFlt.size ? 1 : 0);
   return (
     <>
@@ -308,9 +330,8 @@ export default function Inventory() {
         actions={dockActions}
         listTools={{
           search: { value: q, onChange: setQ, placeholder: '차번·차명·옵션·공급사·메모…' },
-          sort: { value: sort, onChange: (v) => setSort(v as InvSort | ''), options: INV_SORTS, defaultValue: 'status' },
           filter: {
-            count: fltCount,
+            count: fltCount + (sort !== 'status' ? 1 : 0),
             title: '조건 검색',
             previewCount: draftPreviewCount,
             previewUnit: '대',
@@ -328,6 +349,7 @@ export default function Inventory() {
               setTypeFlt(new Set(draftTypeFlt));
             },
             onClear: () => {
+              setSort('status');
               if (mobile) {
                 setDraftStFlt(new Set());
                 setDraftTypeFlt(new Set());
@@ -341,10 +363,23 @@ export default function Inventory() {
                 <CenterNote minHeight={120}>재고와 필터를 불러오는 중…</CenterNote>
               ) : <>
                 <FilterGroup
+                  title="정렬"
+                  count={sort !== 'status' ? 1 : 0}
+                  defaultOpen
+                  first
+                  onClear={() => setSort('status')}
+                >
+                  <FilterChips
+                    value={sort || 'status'}
+                    onChange={(value) => setSort(value)}
+                    options={INV_SORTS.map((option) => ({ key: option.value, label: option.label }))}
+                    clearKey="status"
+                  />
+                </FilterGroup>
+                <FilterGroup
                   title="상품상태"
                   count={(mobile ? draftStFlt : stFlt).size}
                   defaultOpen
-                  first={!mobile}
                   onClear={() => mobile ? setDraftStFlt(new Set()) : setStFlt(new Set())}
                 >
                   <ToggleChips

@@ -11,6 +11,7 @@ import { hasTermFrozen } from '@/lib/domain/contract';
 import { vehicleNameOf } from '@/lib/domain/vehicle-name';
 import { businessRegistrationNumberOf } from '@/lib/domain/business-identity';
 import { applyPolicyDefaults } from '@/lib/domain/policy-defaults';
+import { canonProductType } from '@/lib/domain/product';
 import { handoverStartOf, rentalPeriodEnd, rentalPeriodText } from '@/lib/domain/rental-period';
 
 export type ContractPayload = Record<string, string>;
@@ -30,6 +31,24 @@ function priceText(price: unknown): string {
 function moneyCell(n: unknown): string {
   const v = Number(n) || 0;
   return v ? v.toLocaleString() : '';
+}
+
+function engineCcCell(value: unknown): string {
+  const raw = String(value ?? '').trim();
+  if (!raw) return '';
+  const matched = raw.match(/^([\d,]+)\s*(?:cc|㏄)?$/i);
+  if (!matched) return raw;
+  const cc = Number(matched[1].replace(/,/g, ''));
+  return Number.isFinite(cc) && cc > 0 ? `${cc.toLocaleString('ko-KR')}cc` : '';
+}
+
+function mileageCell(value: unknown): string {
+  const raw = String(value ?? '').trim();
+  if (!raw) return '';
+  if (/km\b/i.test(raw)) return raw;
+  const numeric = raw.replace(/[\s,]/g, '');
+  if (!/^\d+(?:\.\d+)?$/.test(numeric)) return raw;
+  return `${Number(numeric).toLocaleString('ko-KR')}km`;
 }
 
 /** 계약(+매물·정책·파트너) → 템플릿 setData 페이로드. */
@@ -95,9 +114,15 @@ export async function buildContractPayload(contractCode: string): Promise<{
     car_number: car || String(product?.car_number || ''),
     vehicle_name: vehicleNameOf({ kind: 'contract', contract, product }, { tier: 'full', fallback: 'none' }),
     fuel: String(contract.fuel_type_snapshot || product?.fuel_type || ''),
+    engine_cc: engineCcCell(product?.engine_cc),
     model_year: yr ? (/년식/.test(yr) ? yr : `${yr}년식`) : '',
     options: Array.isArray(product?.options) ? (product!.options as string[]).join(', ') : String(product?.options || ''),
     vehicle_price: product ? priceText(product.price) : '',
+    vin: String(product?.vin || ''),
+    color_exterior: String(product?.ext_color || ''),
+    color_interior: String(product?.int_color || ''),
+    odometer_delivery: mileageCell(product?.mileage),
+    vehicle_classification: canonProductType(product?.product_type),
     customer_name: String(contract.customer_name || ''),
     customer_phone: String(contract.customer_phone || ''),
     rent_amount: moneyCell(contract.rent_amount_snapshot),

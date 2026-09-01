@@ -18,8 +18,8 @@ import {
 } from '@/lib/domain/product-filters';
 import { matchHay } from '@/lib/domain/search';
 import { useFinderData } from '@/features/finder/useFinderData';
+import { finderDataScope } from '@/features/finder/finder-data-store';
 import { useProductPhotoState } from '@/components/use-product-photos';
-import { PRODUCT_SHEET_URL } from '@/lib/product-sheet';
 import { Btn, FS, FW, ICON, NUM, SearchInput } from '@/components/ui';
 import styles from './workspace.module.css';
 
@@ -118,7 +118,7 @@ export default function Erp5ProductFinder() {
   const authReady = useAuthReady();
   const session = useSession();
   const role = organizationRole(session);
-  const { rows, hiddenCodes } = useFinderData({ companyId, authReady, sessionUid: session?.uid });
+  const { rows, hiddenCodes } = useFinderData({ companyId, authReady, sessionUid: session?.uid, sessionScope: finderDataScope(session) });
   const isProvider = role === 'admin' || role?.startsWith('provider');
   const [query, setQuery] = useState('');
   const deferredQuery = useDeferredValue(query);
@@ -203,7 +203,7 @@ export default function Erp5ProductFinder() {
 
   return <div className={styles.workspace} style={rootStyle}>
     <main className={styles.main}>
-      <header className={styles.finderHeader}><div className={styles.finderTitle}><Btn variant="bare" className={styles.menuButton} aria-label={menuOpen ? '업무 메뉴 닫기' : '업무 메뉴 열기'} aria-expanded={menuOpen} onClick={() => setMenuOpen((open) => !open)}>{menuOpen ? <X size={ICON.md} /> : <Menu size={ICON.md} />}</Btn><span className={styles.headerBrand}>T5</span><div><span>PRODUCT FINDER</span><h1>상품찾기</h1></div></div><div className={styles.finderSearch}><SearchInput value={query} onChange={setQuery} placeholder="차명, 차량번호, 옵션, 공급사 검색" full /></div><a href={PRODUCT_SHEET_URL} target="_blank" rel="noreferrer">구글 시트 <ArrowUpRight size={ICON.sm} /></a></header>
+      <header className={styles.finderHeader}><div className={styles.finderTitle}><Btn variant="bare" className={styles.menuButton} aria-label={menuOpen ? '업무 메뉴 닫기' : '업무 메뉴 열기'} aria-expanded={menuOpen} onClick={() => setMenuOpen((open) => !open)}>{menuOpen ? <X size={ICON.md} /> : <Menu size={ICON.md} />}</Btn><span className={styles.headerBrand}>T5</span><div><span>PRODUCT FINDER</span><h1>상품찾기</h1></div></div><div className={styles.finderSearch}><SearchInput value={query} onChange={setQuery} placeholder="차명, 차량번호, 옵션, 공급사 검색" full /></div><a href="/finder">상품리스트 <ArrowUpRight size={ICON.sm} /></a></header>
       <section className={styles.filterDock}>
         <div className={styles.quickFilters}>{quickKeys.map((key) => <div className={styles.quickFilterWrap} key={key}><Btn variant="bare" className={styles.quickFilter} data-active={quickValue(key) ? 'true' : 'false'} onClick={() => setOpenQuick(openQuick === key ? null : key)}>{QUICK_LABEL[key]}{quickValue(key) ? <b>{quickValue(key)}</b> : null}<ChevronDown size={ICON.sm} /></Btn>{openQuick === key ? <QuickPopover kind={key} filters={filters} setFilter={setFilter} makers={makers} models={models} onClose={() => setOpenQuick(null)} /> : null}</div>)}</div>
         <Btn variant="bare" className={styles.detailFilterButton} onClick={() => setDrawerOpen(true)}><SlidersHorizontal size={ICON.sm} /> 세부필터{activeCount ? <b>{activeCount}</b> : null}</Btn>

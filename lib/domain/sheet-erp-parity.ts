@@ -15,11 +15,11 @@
 /** 규칙 한 줄 = [무엇, 어떻게, 어디(코드·도구)] */
 export type ParityRule = [what: string, how: string, where: string];
 
-export const SHEET_ERP_PARITY_VERSION = '2026-08-20 v1';
+export const SHEET_ERP_PARITY_VERSION = '2026-08-23 v2';
 
 export const SHEET_ERP_PARITY_RULES: ParityRule[] = [
   ['① ERP 가 읽는 원본',
-    '**영업자 상품리스트(판매시트) 3탭**(상품리스트·손오공구독·오플구독)을 그대로 읽는다. 상품마스터는 안 거친다(취급 이력 원장으로만 남는다). 되돌리려면 환경변수 SHEET_DAILY_SOURCE=product_master.',
+    '**영업자 상품리스트(판매시트) 3탭**(상품리스트·손오공구독·오플구독)만 그대로 읽는다. 상품마스터·차종마스터 우회 경로는 없다.',
     'lib/server/sheet-daily-sync.ts · lib/server/sales-inventory-sheet.ts'],
   ['② 판매시트에 싣는 줄',
     '공급사 시트에서 **출고불가만 빼고** 다 싣는다. 출고협의·상품화중·계약중은 싣는다. **차량번호가 없는 줄(「미정」)은 안 싣는다** — 번호가 열쇠라 ERP·계약·사진 어디에도 못 붙는다(번호가 나오면 다음 발행에 자동 합류).',
@@ -31,17 +31,20 @@ export const SHEET_ERP_PARITY_RULES: ParityRule[] = [
     'ERP 도 **계약중 그대로** 둔다(예전엔 출고불가로 투영해 목록에서 사라졌다 — 실측 손오공구독 2대). ERP 계약 엔진의 락은 이와 별개이고 시트가 만들지도 풀지도 못한다.',
     'lib/domain/sheet-daily-sync.ts projectSheetContractStatus'],
   ['⑤ 차명·모델 표기',
-    '**모델 = 공급사 「모델명」(엔카 기준 이름)** · **차명 = 공급사 「차명(세부모델+트림)」 원문 그대로**. ERP 상품찾기 표도 제조사·모델·차명 세 칸이다(세부모델·파워트레인·세부트림은 화면에서 감춰 뒀다 — 나중에 스위치 하나로 연다).',
-    'lib/domain/vehicle-detail-axes.ts · lib/domain/product-master-import.ts'],
+    '정제칸의 **제조사·모델·세부모델·세부트림**을 축 그대로 쓴다. 화면 차명 표현은 `세부모델 + 세부트림`이고 파워트레인 축은 쓰지 않는다. 판매시트 유입에서 차종마스터 스냅으로 다시 해석하지 않는다.',
+    'lib/domain/sales-inventory-sheet.ts · lib/domain/sheet-import.ts · lib/domain/vehicle-detail-axes.ts'],
   ['⑥ 스펙(연식·배기량·연료)',
     '3사(손오공·스위치·웰릭스) **자산 탭이 정본**이다(등록증 기반). 다르면 자산 값으로 우리 시트를 고친다. 그 밖의 공급사는 공급사 원문을 그대로 쓴다.',
     'tmp/fill-ours-from-ops.mts'],
   ['⑦ 맞는지 확인하는 법',
-    '`npx tsx scripts/audit-sheet-erp-parity.mts` — 판매시트 대수와 ERP 목록 대수를 세고 **다른 차를 이유별로** 보여 준다. 매시 자동 동기의 마지막 단계로도 돈다.',
+    '`npm run audit:sales-erp-parity` — 차량번호 집합·중복·상태·제조사/모델/세부모델/세부트림·연료/배기량·전체 기간 대여료/보증금을 대조한다. 하나라도 다르면 실패한다.',
     'scripts/audit-sheet-erp-parity.mts · scripts/hourly-sync.mts'],
   ['⑧ 그래도 다를 수 있는 것(정상)',
-    '**ERP 에만 있는 차** = 계약 엔진 락이 걸린 차(시트엔 공급사가 출고불가로 적어 둔 경우) — 공급사에 「계약중」으로 고쳐 달라고 하면 같아진다. **시트에만 있는 차**는 0 이어야 한다(있으면 버그).',
-    'audit-sheet-erp-parity 「ERP 에만」 목록'],
+    '**시트에만 있는 차는 항상 오류**다. **ERP 에만 있는 차**는 계약 엔진 락과 현재 상위 시트 출고불가 근거가 둘 다 확인된 경우만 예외다. 판매시트에는 출고불가 행이 실리지 않으므로 상위 근거가 없으면 자동 합격하지 않는다.',
+    'audit-sheet-erp-parity extra.verdict · audit-status-drift'],
+  ['⑨ 화면 필드 순서',
+    '재고관리와 상품찾기는 제조사 → 모델 → 세부모델 → 세부트림 → 외장 → 내장 → 연식 → 주행 → 연료 → 배기량 → 차종구분 순서를 유지한다. 파워트레인은 표시하지 않는다.',
+    'features/inventory/InventoryEditorPanes.tsx · features/finder/ExcelResultsTable.tsx'],
 ];
 
 /** 사람이 읽는 한 문단 — 시트 탭·문서 머리에 넣는다. */

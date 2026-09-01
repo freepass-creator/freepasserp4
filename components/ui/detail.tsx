@@ -2,7 +2,7 @@
 import React from 'react';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { ChevronDown } from 'lucide-react';
-import { C, R, R_CARD, NUM, ctrlH, ctrlInputFs, FW, FS, SH, KV_LABEL_W, PILL_R } from './tokens';
+import { C, R, R_CARD, NUM, ctrlH, ctrlInputFs, FW, FS, SH, KV_LABEL_W } from './tokens';
 import { useIsMobile } from '@/lib/use-mobile';
 
 /* 상세 — 섹션/그리드/행 */
@@ -51,14 +51,14 @@ export function SectionLabel({ children, mt = 2, mb = 5 }: { children: React.Rea
   return <div style={{ fontSize: FS.sub, fontWeight: FW.title, color: C.ink, margin: `${mt}px 0 ${mb}px` }}>{children}</div>;
 }
 
-/** 폼 구역 카드 — SectionLabel + 테두리·패딩. 재고·정책·회원 편집 SSOT.
- *  섹션 무게(main/sub/영업자전용)가 필요한 상세 화면은 FormCard 가 아니라 `DetailTable` 을 쓴다. */
+/** 표가 아닌 블록(드롭존·칩 묶음)용 카드. 라벨|값 섹션은 FormGrid/FormReadList → DetailTable.
+ *  모서리는 상세 표와 같게 R_CARD. */
 export function FormCard({ title, hint, children }: { title?: React.ReactNode; hint?: React.ReactNode; children: React.ReactNode }) {
   return (
     <div>
       {title != null && title !== '' ? <SectionLabel mt={0}>{title}</SectionLabel> : null}
       {hint ? <div style={{ fontSize: FS.cap, color: C.faint, margin: title != null ? '-2px 0 8px' : '0 0 8px', lineHeight: 1.4 }}>{hint}</div> : null}
-      <div style={{ border: `1px solid ${C.line}`, borderRadius: R, background: C.taupeBg, padding: '10px 12px' }}>
+      <div style={{ border: `1px solid ${C.line}`, borderRadius: R_CARD, background: C.taupeBg, padding: '10px 12px' }}>
         {children}
       </div>
     </div>
@@ -83,8 +83,11 @@ export const DT = {
   } as React.CSSProperties,
   /** 섹션 이름을 인 머리띠 — 모든 섹션이 이 회색 띠로 시작한다(카드가 달라도 시작선이 같다). */
   band: {
-    padding: '7px 10px', textAlign: 'left', background: C.head,
-    borderBottom: `1px solid ${C.line}`, fontWeight: FW.body,
+    /* C.head는 흰 카드와 붙어 띠가 사라졌고, --border도 폰에서는 「아직 배경이랑 거의 동일」
+       (사장님 2026-08-22 두 번 지적) — 한 단계 더 올려 --border-strong. 무채 유지, 글자는 C.ink 그대로. */
+    padding: '7px 10px', textAlign: 'left', background: 'var(--border-strong)',
+    /* 밑줄 없음(2026-08-21 사장님 「굳이 라인 없어도 되는 곳에 라인」) — 띠 배경이 이미 경계다. */
+    fontWeight: FW.body,
   } as React.CSSProperties,
   /** 값 칸이 여러 개인 표만 쓰는 열이름 줄(기간·월대여료·보증금 / 보장한도·면책금). */
   colTh: {
@@ -92,6 +95,14 @@ export const DT = {
     fontWeight: FW.strong, borderBottom: `1px solid ${C.line2}`, whiteSpace: 'nowrap',
   } as React.CSSProperties,
   /** 항목(라벨) 칸 — 폭이 모든 섹션에서 같아 섹션이 달라도 값 시작선이 맞는다. */
+  /**
+   * 항목(라벨) 칸.
+   *
+   * ⚠ **면도 선도 넣지 않는다.** 배경 틴트와 세로 실선을 차례로 넣어 봤다가 둘 다 되돌렸다
+   *   (2026-08-20): 2열 표에서 라벨 칸이 네 군데라 면은 바둑판처럼 답답해지고, 선은 격자를 더한다.
+   *   가르는 일은 이미 «글자색(보조색 vs 먹색)»과 «폭 고정 116px»이 하고 있다 — 그걸로 충분하다.
+   * ⚠ 이 스타일은 보험표·대여료표·영업자 패널이 다 같이 쓴다. 한 곳을 칠하면 엉뚱한 표까지 물든다.
+   */
   labelTh: {
     width: KV_LABEL_W, padding: '7px 10px', textAlign: 'left', verticalAlign: 'top',
     color: C.mute, fontWeight: FW.strong, fontSize: FS.body, overflowWrap: 'anywhere',
@@ -115,10 +126,56 @@ export const DT = {
 
 /**
  * 상세 섹션 표 — 머리띠 + (열이름 줄) + 본문. 상세의 모든 섹션이 이걸 쓴다.
- *   tone: main=흰 카드(핵심) · sub=테두리만 옅은 카드(부가) · agent=좌측 네이비 바(손님 화면에서 통째로 빠지는 칸)
+ *   tone: main=흰 카드(핵심) · sub=테두리만 옅은 카드(부가) · agent=main 과 같은 카드(소속은 머리띠가 말한다)
  */
 export type DetailTone = 'main' | 'sub' | 'agent';
-export function DetailTable({ title, hint, mark, icon, tone = 'main', headTone = 'plain', span, cols, widths, label, children }: {
+
+/**
+ * **머리띠 무게** — 색으로 섹션의 «중요도»를 말한다. 성격이 아니라 중요도다.
+ *
+ * 처음엔 섹션마다 다른 색(초록=보장·앰버=의무…)을 줬다가 되돌렸다 — 사장님 2026-08-20
+ * 「섹션마다 색깔을 너무 다르게 하지 말고, 중요한 섹션은 메인 컬러로 하고 부가적인 건 좀 다르게」.
+ * 다섯 갈래 색은 상세를 스크롤할 때 무지개가 되고, 어느 게 중요한지는 오히려 안 보인다.
+ *
+ *   main  **반전 남색** — 차를 고르는 데 필요한 것(차량스펙·대여료조건)
+ *   sub   무채        — 조건·규칙(보험·계약)
+ *   trace 흐린 무채    — 식별값(기타사항). 읽는 값이 아니라 대조하는 값
+ *
+ * ★반전 남색은 원래 영업자 패널의 문법이었는데 **본문 중요 섹션으로 옮겼다**
+ *   (사장님 2026-08-20 「섹션헤드 컬러를 영업자용 거를 메인으로 손님용에서 쓰고」).
+ *   제일 센 표현은 제일 많이 보는 곳 — 손님과 함께 보는 본문 — 이 가져가는 게 맞다.
+ *   영업자 패널은 «참고하는 곳»이라 무채로 내려갔다(「강조할 곳은 아니니까」).
+ *
+ * ⚠ 몸통은 칠하지 않는다. 면을 통째로 물들이면 섹션마다 카드 색이 달라져 «같은 규격»이 깨진다.
+ */
+export type SectionAccent = 'main' | 'sub' | 'trace' | 'agent';
+const ACCENT: Record<SectionAccent, { bg: string; line: string; ink: string }> = {
+  // main 은 아래에서 반전으로 그린다 — 이 값은 폴백(반전이 꺼진 경우)일 뿐이다.
+  main: { bg: 'var(--brand-bg)', line: 'var(--brand)', ink: C.brand },
+  /*
+   * sub 는 «부가»지 «없는 것»이 아니다 — 보험·계약은 상담 중에 실제로 읽는 구간이다.
+   * 두 번 올렸다: C.head(#eef1f6) → --bg-sunken(#e2e6ec) → **--border(#d5dae2)**.
+   * 앞 둘은 흰 카드와 붙어 띠가 사라졌다(사장님 2026-08-20 「너무 맹하다, 너무 연해」).
+   * 테두리 밝기를 «면»으로 쓰는 게 어색해 보이지만, 무채 계열에서 반전(1단) 바로 아래 칸을 채우려면
+   * 이 밝기가 필요하다. 글자를 C.ink 로 올려 대비도 같이 확보한다.
+   */
+  sub: { bg: 'var(--border)', line: 'var(--border-strong)', ink: C.ink },
+  /** trace 만 한 단 연하다 — 기타사항은 대조용 식별값이라 «있는 줄만 알면» 된다. */
+  trace: { bg: C.sunken, line: C.line, ink: C.mute },
+  /**
+   * 영업자 패널 — **스카이**(사장님 2026-08-20 「영업자용 거를 조금 다른 색깔로」).
+   * 새 색을 들이지 않는다: `--sky` 는 네이비와 짝으로 이미 팔레트에 있는 우리 색이다.
+   * 본문(네이비 반전)보다 약하고 부가 섹션(무채)과는 확실히 다르다 — «다른 구역인데 더 세지는 않다».
+   */
+  agent: {
+    bg: 'var(--sky-bg)',
+    // --sky(#9EC5F3) 를 그대로 선에 쓰면 띠가 또렷해져 본문보다 눈에 먼저 든다.
+    // 한 겹 죽여 «구역은 갈리되 부르지는 않게» 둔다(사장님 2026-08-20 「영업자용은 약간 연하게」).
+    line: 'color-mix(in srgb, var(--sky) 55%, transparent)',
+    ink: 'color-mix(in srgb, var(--brand) 72%, transparent)',
+  },
+};
+export function DetailTable({ title, hint, mark, icon, tone = 'main', headTone = 'plain', accent = 'sub', span, cols, widths, label, children }: {
   title: React.ReactNode;
   hint?: React.ReactNode;
   /** 제목 옆 작은 딱지(예: 「영업자 전용」). 바탕색만으로는 무슨 뜻인지 안 읽힌다. */
@@ -137,6 +194,8 @@ export function DetailTable({ title, hint, mark, icon, tone = 'main', headTone =
    * 둘을 갈라 두면 «본문이냐 패널이냐»가 색 하나로 읽힌다(사장님 2026-08-20 「반전 표로 꾸며봐」).
    */
   headTone?: 'plain' | 'invert';
+  /** 머리띠 성질색 — 섹션이 무엇을 말하는 구간인지(SectionAccent 주석 참고). invert 일 때는 무시된다. */
+  accent?: SectionAccent;
   /** 열 수 — 머리띠가 가로지를 칸 수. */
   span: number;
   /** 열이름 줄의 `<th>`들. 값 칸이 하나뿐인 표(항목│내용)는 안 준다 — 「항목 내용」은 매 카드 반복되는 빈말이다. */
@@ -148,36 +207,44 @@ export function DetailTable({ title, hint, mark, icon, tone = 'main', headTone =
   children: React.ReactNode;
 }) {
   const box: React.CSSProperties = tone === 'agent'
-    // 영업자 것 = **좌측 4px 네이비 바**. 면을 앰버로 통째로 칠하면 「주의·수기입력」과 뜻이 겹치고,
-    // 옆 섹션들과 바탕색이 달라져 «같은 규격» 이 깨진다. 한 변만 물들이면 소속은 말하되 규격은 지킨다.
-    // (2026-08-20 외부 시안 6벌 중 5벌이 좌측 바로 모였다. 손님 화면에선 이 블록이 통째로 빠진다.)
-    ? { border: `1px solid ${C.line}`, borderLeft: `4px solid ${C.brand}`, background: C.taupeBg }
+    // 영업자 것 = **머리띠(headTone='invert' 반전 남색)만으로** 말한다. 면을 따로 칠하지 않는다.
+    //   · 앰버로 칠하면 「주의·수기입력」과 뜻이 겹치고 옆 섹션과 바탕이 달라져 «같은 규격»이 깨진다.
+    //   · 좌측 4px 바도 뺐다 — 블록을 감싸는 인용문처럼 읽힌다(사장님 2026-08-20 「좌측에 바로 감싸는 느낌, 별로」).
+    // 소속은 이미 패널 위치(우측 칼럼)와 머리띠 색이 말하므로, 몸통은 본문 섹션과 똑같이 둔다.
+    // 영업자 판(ProductAgentColumn) 안에 얹히는 블록 — 판이 이미 테두리를 가졌으니 여기서 또 두르지 않는다.
+    // 구획은 머리띠(스카이)가 나눈다. «상자 속 상자»를 만들지 않는 게 이 톤의 존재 이유다.
+    ? { border: 'none', background: 'transparent' }
     // sub 를 투명(=페이지 회색)으로 두면 머리띠(C.head)가 배경과 거의 같은 색이라 사라진다.
     // 「모든 섹션이 같은 띠로 시작」이 규격이므로 바탕은 다 흰 카드로 두고, 무게는 테두리 굵기로만 준다.
     : tone === 'sub'
       ? { border: `1px solid ${C.line2}`, background: C.taupeBg }
       : { border: `1px solid ${C.line}`, background: C.taupeBg };
-  const inverted = headTone === 'invert';
+  const inverted = headTone === 'invert' || accent === 'main';
+  const ac = ACCENT[accent] || ACCENT.sub;
   return (
-    <div style={{ ...box, borderRadius: R_CARD, overflow: 'hidden' }}>
+    <div style={{ ...box, borderRadius: R_CARD, overflow: 'hidden', flexShrink: 0 }}>
       <table aria-label={label || (typeof title === 'string' ? title : undefined)} style={DT.table}>
         {widths ? <colgroup>{widths.map((w, i) => <col key={i} style={w == null ? undefined : { width: w }} />)}</colgroup> : null}
         <thead>
           <tr>
-            <th scope="col" colSpan={span} style={inverted ? { ...DT.band, background: C.brand, borderBottomColor: C.brand } : DT.band}>
+            <th scope="col" colSpan={span} style={inverted
+              ? { ...DT.band, background: C.brand }
+              /* 색 밴드(ACCENT) 되돌림(사장님 2026-08-22 「색깔도 그렇고 원래 상태랑 봐봐」) — 섹션 머리띠는 원래 회색 하나다. */
+              : DT.band}>
               <span style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                 {icon ? (
                   <span aria-hidden style={{ display: 'inline-flex', color: inverted ? C.inverse : C.mute, opacity: inverted ? 0.85 : 1 }}>{icon}</span>
                 ) : null}
                 <span style={{ fontSize: FS.sub, fontWeight: FW.title, color: inverted ? C.inverse : C.ink }}>{title}</span>
                 {hint ? <span style={{ fontSize: FS.cap, color: inverted ? C.inverse : C.faint, opacity: inverted ? 0.75 : 1 }}>{hint}</span> : null}
+                {/* 딱지 — 뱃지와 같은 사각(R). 알약을 섞지 않는다(사장님 2026-08-20 「라운드 규격 통일」).
+                    연한 네이비 틴트로 «강조는 하되 소리치지 않게» 둔다 — 값보다 세면 안 된다. */}
                 {mark ? (
                   <span style={{
-                    fontSize: FS.micro, fontWeight: FW.label,
-                    color: inverted ? C.inverse : C.warn,
-                    border: `1px solid ${inverted ? C.inverse : C.warn}`,
-                    borderRadius: PILL_R, padding: '0 6px', lineHeight: 1.6,
-                    opacity: inverted ? 0.85 : 1,
+                    fontSize: FS.micro, fontWeight: FW.label, borderRadius: R, padding: '1px 6px', lineHeight: 1.6,
+                    ...(inverted
+                      ? { color: C.inverse, background: `color-mix(in srgb, ${C.inverse} 18%, transparent)` }
+                      : { color: C.brand, background: 'var(--brand-bg)' }),
                   }}>{mark}</span>
                 ) : null}
               </span>
@@ -193,6 +260,22 @@ export function DetailTable({ title, hint, mark, icon, tone = 'main', headTone =
 
 /* 빈값 폴백 대시 — 인라인 '—' 통일. */
 export function Dash() { return <span style={{ color: C.faint }}>—</span>; }
+
+/** 상세 표 한 줄(라벨|값). 페이지가 tr/th/td 를 손대지 않게. 빈 값은 — . */
+export function DtRow({ i, label, children, valueStyle }: {
+  i: number;
+  label: React.ReactNode;
+  children?: React.ReactNode;
+  valueStyle?: React.CSSProperties;
+}) {
+  const empty = children == null || children === '';
+  return (
+    <tr style={DT.tr(i)}>
+      <th scope="row" style={DT.labelTh}>{label}</th>
+      <td style={{ ...DT.td, ...valueStyle }}>{empty ? <Dash /> : children}</td>
+    </tr>
+  );
+}
 
 /* 접이식 항목 — 제목 줄만 보이고 눌러야 펼쳐진다(QnA·도움말).
  * Sec(페이지 섹션: 숨김·드래그 정렬 포함)과 별개. 이건 목록 안 한 줄짜리.

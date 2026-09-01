@@ -1,0 +1,8301 @@
+{
+  "built": "2026-08-23",
+  "rows": [
+    {
+      "maker": "기아",
+      "model": "니로",
+      "sub_model": "니로",
+      "trim_name": "노블레스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "니로",
+      "sub_model": "니로",
+      "trim_name": "럭셔리",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "니로",
+      "sub_model": "니로",
+      "trim_name": "프레스티지",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "니로",
+      "sub_model": "니로 플러스",
+      "trim_name": "라이트",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "니로",
+      "sub_model": "니로 플러스",
+      "trim_name": "어스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "니로",
+      "sub_model": "니로 플러스",
+      "trim_name": "에어",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "니로",
+      "sub_model": "니로 EV",
+      "trim_name": "노블레스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "니로",
+      "sub_model": "니로 EV",
+      "trim_name": "프레스티지",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "니로",
+      "sub_model": "더 뉴 니로",
+      "trim_name": "노블레스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "니로",
+      "sub_model": "더 뉴 니로",
+      "trim_name": "노블레스 스페셜",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "니로",
+      "sub_model": "더 뉴 니로",
+      "trim_name": "럭셔리",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "니로",
+      "sub_model": "더 뉴 니로",
+      "trim_name": "시그니처",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "니로",
+      "sub_model": "더 뉴 니로",
+      "trim_name": "트렌디",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "니로",
+      "sub_model": "더 뉴 니로",
+      "trim_name": "프레스티지",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "니로",
+      "sub_model": "더 뉴 니로 부분변경",
+      "trim_name": "시그니처",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "니로",
+      "sub_model": "더 뉴 니로 부분변경",
+      "trim_name": "트렌디",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "니로",
+      "sub_model": "더 뉴 니로 부분변경",
+      "trim_name": "프레스티지",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "니로",
+      "sub_model": "디 올 뉴 니로",
+      "trim_name": "시그니처",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "니로",
+      "sub_model": "디 올 뉴 니로",
+      "trim_name": "에어",
+      "n": 1,
+      "from": "정제칸"
+    },
+    {
+      "maker": "기아",
+      "model": "니로",
+      "sub_model": "디 올 뉴 니로",
+      "trim_name": "트렌디",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "니로",
+      "sub_model": "디 올 뉴 니로",
+      "trim_name": "프레스티지",
+      "n": 2,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "니로",
+      "sub_model": "디 올 뉴 니로 EV",
+      "trim_name": "어스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "니로",
+      "sub_model": "디 올 뉴 니로 EV",
+      "trim_name": "에어",
+      "n": 6,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "레이",
+      "sub_model": "더 뉴 레이",
+      "trim_name": "",
+      "n": 2,
+      "from": "정제칸"
+    },
+    {
+      "maker": "기아",
+      "model": "레이",
+      "sub_model": "더 뉴 레이",
+      "trim_name": "고급형",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "레이",
+      "sub_model": "더 뉴 레이",
+      "trim_name": "기본형",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "레이",
+      "sub_model": "더 뉴 레이",
+      "trim_name": "럭셔리",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "레이",
+      "sub_model": "더 뉴 레이",
+      "trim_name": "럭셔리 스페셜",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "레이",
+      "sub_model": "더 뉴 레이",
+      "trim_name": "베스트 셀렉션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "레이",
+      "sub_model": "더 뉴 레이",
+      "trim_name": "스탠다드",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "레이",
+      "sub_model": "더 뉴 레이",
+      "trim_name": "시그니처",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "레이",
+      "sub_model": "더 뉴 레이",
+      "trim_name": "트렌디",
+      "n": 17,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "레이",
+      "sub_model": "더 뉴 레이",
+      "trim_name": "프레스티지",
+      "n": 15,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "레이",
+      "sub_model": "더 뉴 레이",
+      "trim_name": "프레스티지 스페셜",
+      "n": 5,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "레이",
+      "sub_model": "더 뉴 레이",
+      "trim_name": "X-Line",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "레이",
+      "sub_model": "더 뉴 레이 밴",
+      "trim_name": "프레스티지 스페셜",
+      "n": 2,
+      "from": "정제칸"
+    },
+    {
+      "maker": "기아",
+      "model": "레이",
+      "sub_model": "더 뉴 레이 EV",
+      "trim_name": "에어",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "레이",
+      "sub_model": "레이",
+      "trim_name": "기본",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "레이",
+      "sub_model": "레이",
+      "trim_name": "디럭스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "레이",
+      "sub_model": "레이",
+      "trim_name": "디럭스 스페셜",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "레이",
+      "sub_model": "레이",
+      "trim_name": "럭셔리",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "레이",
+      "sub_model": "레이",
+      "trim_name": "에어",
+      "n": 1,
+      "from": "정제칸"
+    },
+    {
+      "maker": "기아",
+      "model": "레이",
+      "sub_model": "레이",
+      "trim_name": "프레스티지",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "레이",
+      "sub_model": "레이 EV",
+      "trim_name": "EV",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "모닝",
+      "sub_model": "뉴모닝",
+      "trim_name": "SLX 스페셜",
+      "n": 1,
+      "from": "정제칸"
+    },
+    {
+      "maker": "기아",
+      "model": "모닝",
+      "sub_model": "더 뉴 모닝",
+      "trim_name": "디럭스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "모닝",
+      "sub_model": "더 뉴 모닝",
+      "trim_name": "럭셔리",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "모닝",
+      "sub_model": "더 뉴 모닝",
+      "trim_name": "스마트",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "모닝",
+      "sub_model": "더 뉴 모닝",
+      "trim_name": "스포츠 RUN HIGH",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "모닝",
+      "sub_model": "더 뉴 모닝",
+      "trim_name": "시그니처",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "모닝",
+      "sub_model": "더 뉴 모닝",
+      "trim_name": "트렌디",
+      "n": 2,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "모닝",
+      "sub_model": "더 뉴 모닝",
+      "trim_name": "프레스티지",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "모닝",
+      "sub_model": "더 뉴 모닝",
+      "trim_name": "GT-Line",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "모닝",
+      "sub_model": "모닝",
+      "trim_name": "트렌디",
+      "n": 3,
+      "from": "정제칸"
+    },
+    {
+      "maker": "기아",
+      "model": "모닝",
+      "sub_model": "모닝 어반",
+      "trim_name": "기본형",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "모닝",
+      "sub_model": "모닝 어반",
+      "trim_name": "마이너스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "모닝",
+      "sub_model": "모닝 어반",
+      "trim_name": "베스트 셀렉션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "모닝",
+      "sub_model": "모닝 어반",
+      "trim_name": "엣지-UP",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "모닝",
+      "sub_model": "모닝 어반",
+      "trim_name": "프레스티지",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "모닝",
+      "sub_model": "모닝 어반 밴",
+      "trim_name": "기본형",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "모닝",
+      "sub_model": "모닝 어반 밴",
+      "trim_name": "스페셜",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "모닝",
+      "sub_model": "올 뉴 모닝",
+      "trim_name": "디럭스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "모닝",
+      "sub_model": "올 뉴 모닝",
+      "trim_name": "럭셔리",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "모닝",
+      "sub_model": "올 뉴 모닝",
+      "trim_name": "레이디",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "모닝",
+      "sub_model": "올 뉴 모닝",
+      "trim_name": "베이직 플러스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "모닝",
+      "sub_model": "올 뉴 모닝",
+      "trim_name": "트렌디",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "모닝",
+      "sub_model": "올 뉴 모닝",
+      "trim_name": "프레스티지",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "모하비",
+      "sub_model": "더 뉴 모하비",
+      "trim_name": "노블레스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "모하비",
+      "sub_model": "더 뉴 모하비",
+      "trim_name": "프레지던트",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "모하비",
+      "sub_model": "더 뉴 모하비",
+      "trim_name": "VIP",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "모하비",
+      "sub_model": "모하비 더 마스터",
+      "trim_name": "마스터즈",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "모하비",
+      "sub_model": "모하비 더 마스터",
+      "trim_name": "마스터즈 그래비티",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "모하비",
+      "sub_model": "모하비 더 마스터",
+      "trim_name": "플래티넘",
+      "n": 2,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "셀토스",
+      "sub_model": "더 뉴 셀토스",
+      "trim_name": "그래비티",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "셀토스",
+      "sub_model": "더 뉴 셀토스",
+      "trim_name": "시그니처",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "셀토스",
+      "sub_model": "더 뉴 셀토스",
+      "trim_name": "트렌디",
+      "n": 7,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "셀토스",
+      "sub_model": "더 뉴 셀토스",
+      "trim_name": "프레스티지",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "셀토스",
+      "sub_model": "디 올 뉴 셀토스",
+      "trim_name": "시그니처",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "셀토스",
+      "sub_model": "디 올 뉴 셀토스",
+      "trim_name": "트렌디",
+      "n": 3,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "셀토스",
+      "sub_model": "디 올 뉴 셀토스",
+      "trim_name": "프레스티지",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "셀토스",
+      "sub_model": "디 올 뉴 셀토스",
+      "trim_name": "X-Line",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "셀토스",
+      "sub_model": "셀토스",
+      "trim_name": "그래비티",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "셀토스",
+      "sub_model": "셀토스",
+      "trim_name": "노블레스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "셀토스",
+      "sub_model": "셀토스",
+      "trim_name": "시그니처",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "셀토스",
+      "sub_model": "셀토스",
+      "trim_name": "트렌디",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "셀토스",
+      "sub_model": "셀토스",
+      "trim_name": "프레스티지",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "스포티지",
+      "sub_model": "더 뉴 스포티지",
+      "trim_name": "노블레스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "스포티지",
+      "sub_model": "더 뉴 스포티지",
+      "trim_name": "시그니처",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "스포티지",
+      "sub_model": "더 뉴 스포티지",
+      "trim_name": "프레스티지",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "스포티지",
+      "sub_model": "더 뉴 스포티지 X-Line",
+      "trim_name": "X-Line",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "스포티지",
+      "sub_model": "스포티지",
+      "trim_name": "",
+      "n": 2,
+      "from": "정제칸"
+    },
+    {
+      "maker": "기아",
+      "model": "스포티지",
+      "sub_model": "스포티지",
+      "trim_name": "30주년 에디션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "스포티지",
+      "sub_model": "스포티지",
+      "trim_name": "그래비티",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "스포티지",
+      "sub_model": "스포티지",
+      "trim_name": "기본형",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "스포티지",
+      "sub_model": "스포티지",
+      "trim_name": "노블레스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "스포티지",
+      "sub_model": "스포티지",
+      "trim_name": "노블레스 그래비티",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "스포티지",
+      "sub_model": "스포티지",
+      "trim_name": "스타일 에디션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "스포티지",
+      "sub_model": "스포티지",
+      "trim_name": "스페셜",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "스포티지",
+      "sub_model": "스포티지",
+      "trim_name": "시그니처",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "스포티지",
+      "sub_model": "스포티지",
+      "trim_name": "시그니처 그래비티",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "스포티지",
+      "sub_model": "스포티지",
+      "trim_name": "트렌디",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "스포티지",
+      "sub_model": "스포티지",
+      "trim_name": "프레스티지",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "스포티지",
+      "sub_model": "스포티지",
+      "trim_name": "플러스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "스포티지",
+      "sub_model": "스포티지 더 볼드",
+      "trim_name": "노블레스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "스포티지",
+      "sub_model": "스포티지 더 볼드",
+      "trim_name": "럭셔리",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "스포티지",
+      "sub_model": "스포티지 더 볼드",
+      "trim_name": "시그니처",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "스포티지",
+      "sub_model": "스포티지 더 볼드",
+      "trim_name": "시그니처 그래비티",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "스포티지",
+      "sub_model": "스포티지 더 볼드",
+      "trim_name": "인텔리전트",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "스포티지",
+      "sub_model": "스포티지 더 볼드",
+      "trim_name": "트렌디",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "스포티지",
+      "sub_model": "스포티지 더 볼드",
+      "trim_name": "프레스티지",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "스포티지",
+      "sub_model": "스포티지 더 볼드",
+      "trim_name": "프레스티지 그래비티",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "쏘렌토",
+      "sub_model": "더 뉴 쏘렌토",
+      "trim_name": "",
+      "n": 1,
+      "from": "정제칸"
+    },
+    {
+      "maker": "기아",
+      "model": "쏘렌토",
+      "sub_model": "더 뉴 쏘렌토",
+      "trim_name": "그래비티",
+      "n": 2,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "쏘렌토",
+      "sub_model": "더 뉴 쏘렌토",
+      "trim_name": "넘버원 에디션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "쏘렌토",
+      "sub_model": "더 뉴 쏘렌토",
+      "trim_name": "노블레스",
+      "n": 4,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "쏘렌토",
+      "sub_model": "더 뉴 쏘렌토",
+      "trim_name": "노블레스 스페셜",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "쏘렌토",
+      "sub_model": "더 뉴 쏘렌토",
+      "trim_name": "럭셔리",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "쏘렌토",
+      "sub_model": "더 뉴 쏘렌토",
+      "trim_name": "마스터",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "쏘렌토",
+      "sub_model": "더 뉴 쏘렌토",
+      "trim_name": "마스터 스페셜",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "쏘렌토",
+      "sub_model": "더 뉴 쏘렌토",
+      "trim_name": "시그니처",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "쏘렌토",
+      "sub_model": "더 뉴 쏘렌토",
+      "trim_name": "시그니처 X라인",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "쏘렌토",
+      "sub_model": "더 뉴 쏘렌토",
+      "trim_name": "프레스티지",
+      "n": 3,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "쏘렌토",
+      "sub_model": "더 뉴 쏘렌토",
+      "trim_name": "X-Line",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "쏘렌토",
+      "sub_model": "쏘렌토",
+      "trim_name": "그래비티",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "쏘렌토",
+      "sub_model": "쏘렌토",
+      "trim_name": "노블레스",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "쏘렌토",
+      "sub_model": "쏘렌토",
+      "trim_name": "시그니처",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "쏘렌토",
+      "sub_model": "쏘렌토",
+      "trim_name": "트렌디",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "쏘렌토",
+      "sub_model": "쏘렌토",
+      "trim_name": "프레스티지",
+      "n": 2,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "쏘렌토",
+      "sub_model": "올 뉴 쏘렌토",
+      "trim_name": "노블레스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "쏘렌토",
+      "sub_model": "올 뉴 쏘렌토",
+      "trim_name": "노블레스 스페셜",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "쏘렌토",
+      "sub_model": "올 뉴 쏘렌토",
+      "trim_name": "프레스티지",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "카니발",
+      "sub_model": "더 뉴 카니발",
+      "trim_name": "",
+      "n": 1,
+      "from": "정제칸"
+    },
+    {
+      "maker": "기아",
+      "model": "카니발",
+      "sub_model": "더 뉴 카니발",
+      "trim_name": "그래비티",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "카니발",
+      "sub_model": "더 뉴 카니발",
+      "trim_name": "노블레스",
+      "n": 6,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "카니발",
+      "sub_model": "더 뉴 카니발",
+      "trim_name": "노블레스 스페셜",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "카니발",
+      "sub_model": "더 뉴 카니발",
+      "trim_name": "디럭스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "카니발",
+      "sub_model": "더 뉴 카니발",
+      "trim_name": "럭셔리",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "카니발",
+      "sub_model": "더 뉴 카니발",
+      "trim_name": "시그니처",
+      "n": 3,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "카니발",
+      "sub_model": "더 뉴 카니발",
+      "trim_name": "프레스티지",
+      "n": 13,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "카니발",
+      "sub_model": "더 뉴 카니발",
+      "trim_name": "프레지던트",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "카니발",
+      "sub_model": "더 뉴 카니발",
+      "trim_name": "VIP",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "카니발",
+      "sub_model": "더 뉴 카니발",
+      "trim_name": "X-Line",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "카니발",
+      "sub_model": "더 뉴 카니발 하이루프",
+      "trim_name": "하이루프 노블레스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "카니발",
+      "sub_model": "더 뉴 카니발 하이루프",
+      "trim_name": "하이루프 시그니처",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "카니발",
+      "sub_model": "올 뉴 카니발",
+      "trim_name": "노블레스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "카니발",
+      "sub_model": "올 뉴 카니발",
+      "trim_name": "노블레스 스페셜",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "카니발",
+      "sub_model": "올 뉴 카니발",
+      "trim_name": "디럭스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "카니발",
+      "sub_model": "올 뉴 카니발",
+      "trim_name": "럭셔리",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "카니발",
+      "sub_model": "올 뉴 카니발",
+      "trim_name": "매직스페이스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "카니발",
+      "sub_model": "올 뉴 카니발",
+      "trim_name": "프레스티지",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "카니발",
+      "sub_model": "올 뉴 카니발",
+      "trim_name": "프레스티지 하이루프",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "카니발",
+      "sub_model": "올 뉴 카니발",
+      "trim_name": "프레지던트",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "카니발",
+      "sub_model": "올 뉴 카니발",
+      "trim_name": "VIP",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "카니발",
+      "sub_model": "카니발",
+      "trim_name": "",
+      "n": 1,
+      "from": "정제칸"
+    },
+    {
+      "maker": "기아",
+      "model": "카니발",
+      "sub_model": "카니발",
+      "trim_name": "노블레스",
+      "n": 5,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "카니발",
+      "sub_model": "카니발",
+      "trim_name": "시그니처",
+      "n": 4,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "카니발",
+      "sub_model": "카니발",
+      "trim_name": "프레스티지",
+      "n": 2,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "카니발",
+      "sub_model": "카니발 R",
+      "trim_name": "프리미엄",
+      "n": 1,
+      "from": "정제칸"
+    },
+    {
+      "maker": "기아",
+      "model": "EV6",
+      "sub_model": "더 뉴 EV6",
+      "trim_name": "라이트",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "EV6",
+      "sub_model": "더 뉴 EV6",
+      "trim_name": "어스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "EV6",
+      "sub_model": "더 뉴 EV6",
+      "trim_name": "에어",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "EV6",
+      "sub_model": "더 뉴 EV6",
+      "trim_name": "GT-Line",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "EV6",
+      "sub_model": "더 뉴 EV6 GT",
+      "trim_name": "GT",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "EV6",
+      "sub_model": "EV6",
+      "trim_name": "",
+      "n": 3,
+      "from": "정제칸"
+    },
+    {
+      "maker": "기아",
+      "model": "EV6",
+      "sub_model": "EV6",
+      "trim_name": "라이트",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "EV6",
+      "sub_model": "EV6",
+      "trim_name": "어스",
+      "n": 7,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "EV6",
+      "sub_model": "EV6",
+      "trim_name": "에어",
+      "n": 2,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "EV6",
+      "sub_model": "EV6",
+      "trim_name": "GT",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "EV6",
+      "sub_model": "EV6",
+      "trim_name": "GT-Line",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K3",
+      "sub_model": "더 뉴 K3",
+      "trim_name": "",
+      "n": 1,
+      "from": "정제칸"
+    },
+    {
+      "maker": "기아",
+      "model": "K3",
+      "sub_model": "더 뉴 K3",
+      "trim_name": "기본형",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K3",
+      "sub_model": "더 뉴 K3",
+      "trim_name": "노블레스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K3",
+      "sub_model": "더 뉴 K3",
+      "trim_name": "디럭스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K3",
+      "sub_model": "더 뉴 K3",
+      "trim_name": "스타일",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K3",
+      "sub_model": "더 뉴 K3",
+      "trim_name": "스페셜",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K3",
+      "sub_model": "더 뉴 K3",
+      "trim_name": "시그니처",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K3",
+      "sub_model": "더 뉴 K3",
+      "trim_name": "트렌디",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K3",
+      "sub_model": "더 뉴 K3",
+      "trim_name": "프레스티지",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K3",
+      "sub_model": "더 뉴 K3",
+      "trim_name": "A 타입",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K3",
+      "sub_model": "더 뉴 K3",
+      "trim_name": "C 타입",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K3",
+      "sub_model": "더 뉴 K3",
+      "trim_name": "E 타입",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K3",
+      "sub_model": "더 뉴 K3 유로",
+      "trim_name": "노블레스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K3",
+      "sub_model": "더 뉴 K3 쿱",
+      "trim_name": "노블레스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K3",
+      "sub_model": "더 뉴 K3 쿱",
+      "trim_name": "럭셔리",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K3",
+      "sub_model": "올 뉴 K3",
+      "trim_name": "5도어 GT 베이직",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K3",
+      "sub_model": "올 뉴 K3",
+      "trim_name": "5도어 GT 시그니처",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K3",
+      "sub_model": "올 뉴 K3",
+      "trim_name": "5도어 GT 플러스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K3",
+      "sub_model": "올 뉴 K3",
+      "trim_name": "노블레스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K3",
+      "sub_model": "올 뉴 K3",
+      "trim_name": "럭셔리",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K3",
+      "sub_model": "올 뉴 K3",
+      "trim_name": "스탠다드",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K3",
+      "sub_model": "올 뉴 K3",
+      "trim_name": "시그니처",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K3",
+      "sub_model": "올 뉴 K3",
+      "trim_name": "트렌디",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K3",
+      "sub_model": "올 뉴 K3",
+      "trim_name": "프레스티지",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K3",
+      "sub_model": "올 뉴 K3",
+      "trim_name": "GT 플러스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K5",
+      "sub_model": "더 뉴 K5",
+      "trim_name": "",
+      "n": 3,
+      "from": "정제칸"
+    },
+    {
+      "maker": "기아",
+      "model": "K5",
+      "sub_model": "더 뉴 K5",
+      "trim_name": "기본형",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K5",
+      "sub_model": "더 뉴 K5",
+      "trim_name": "노블레스",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K5",
+      "sub_model": "더 뉴 K5",
+      "trim_name": "노블레스 스페셜",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K5",
+      "sub_model": "더 뉴 K5",
+      "trim_name": "디럭스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K5",
+      "sub_model": "더 뉴 K5",
+      "trim_name": "럭셔리",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K5",
+      "sub_model": "더 뉴 K5",
+      "trim_name": "베스트 셀렉션",
+      "n": 2,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K5",
+      "sub_model": "더 뉴 K5",
+      "trim_name": "스마트 셀렉션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K5",
+      "sub_model": "더 뉴 K5",
+      "trim_name": "스페셜",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K5",
+      "sub_model": "더 뉴 K5",
+      "trim_name": "시그니처",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K5",
+      "sub_model": "더 뉴 K5",
+      "trim_name": "월드컵 에디션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K5",
+      "sub_model": "더 뉴 K5",
+      "trim_name": "인텔리전트",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K5",
+      "sub_model": "더 뉴 K5",
+      "trim_name": "트렌디",
+      "n": 6,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K5",
+      "sub_model": "더 뉴 K5",
+      "trim_name": "프레스티지",
+      "n": 10,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K5",
+      "sub_model": "K5",
+      "trim_name": "",
+      "n": 6,
+      "from": "정제칸"
+    },
+    {
+      "maker": "기아",
+      "model": "K5",
+      "sub_model": "K5",
+      "trim_name": "기본형",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K5",
+      "sub_model": "K5",
+      "trim_name": "노블레스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K5",
+      "sub_model": "K5",
+      "trim_name": "노블레스 스페셜",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K5",
+      "sub_model": "K5",
+      "trim_name": "디럭스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K5",
+      "sub_model": "K5",
+      "trim_name": "럭셔리",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K5",
+      "sub_model": "K5",
+      "trim_name": "스타일 에디션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K5",
+      "sub_model": "K5",
+      "trim_name": "스탠다드",
+      "n": 2,
+      "from": "정제칸"
+    },
+    {
+      "maker": "기아",
+      "model": "K5",
+      "sub_model": "K5",
+      "trim_name": "스페셜",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K5",
+      "sub_model": "K5",
+      "trim_name": "스페셜 에디션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K5",
+      "sub_model": "K5",
+      "trim_name": "시그니처",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K5",
+      "sub_model": "K5",
+      "trim_name": "트렌디",
+      "n": 4,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K5",
+      "sub_model": "K5",
+      "trim_name": "프레스티지",
+      "n": 4,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K5",
+      "sub_model": "K5",
+      "trim_name": "GT",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K5",
+      "sub_model": "K5",
+      "trim_name": "GT라인",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K7",
+      "sub_model": "올 뉴 K7",
+      "trim_name": "",
+      "n": 2,
+      "from": "정제칸"
+    },
+    {
+      "maker": "기아",
+      "model": "K7",
+      "sub_model": "올 뉴 K7",
+      "trim_name": "기본형",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K7",
+      "sub_model": "올 뉴 K7",
+      "trim_name": "노블레스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K7",
+      "sub_model": "올 뉴 K7",
+      "trim_name": "노블레스 스페셜",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K7",
+      "sub_model": "올 뉴 K7",
+      "trim_name": "디럭스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K7",
+      "sub_model": "올 뉴 K7",
+      "trim_name": "리미티드",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K7",
+      "sub_model": "올 뉴 K7",
+      "trim_name": "리미티드 에디션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K7",
+      "sub_model": "올 뉴 K7",
+      "trim_name": "리미티드 플러스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K7",
+      "sub_model": "올 뉴 K7",
+      "trim_name": "스페셜",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K7",
+      "sub_model": "올 뉴 K7",
+      "trim_name": "월드컵 에디션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K7",
+      "sub_model": "올 뉴 K7",
+      "trim_name": "프레스티지",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K7",
+      "sub_model": "K7 프리미어",
+      "trim_name": "",
+      "n": 1,
+      "from": "정제칸"
+    },
+    {
+      "maker": "기아",
+      "model": "K7",
+      "sub_model": "K7 프리미어",
+      "trim_name": "노블레스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K7",
+      "sub_model": "K7 프리미어",
+      "trim_name": "스탠다드",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K7",
+      "sub_model": "K7 프리미어",
+      "trim_name": "시그니처",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K7",
+      "sub_model": "K7 프리미어",
+      "trim_name": "트렌디",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K7",
+      "sub_model": "K7 프리미어",
+      "trim_name": "프레스티지",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K7",
+      "sub_model": "K7 프리미어",
+      "trim_name": "X 에디션",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K8",
+      "sub_model": "더 뉴 K8",
+      "trim_name": "",
+      "n": 1,
+      "from": "정제칸"
+    },
+    {
+      "maker": "기아",
+      "model": "K8",
+      "sub_model": "더 뉴 K8",
+      "trim_name": "노블레스",
+      "n": 3,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K8",
+      "sub_model": "더 뉴 K8",
+      "trim_name": "노블레스 라이트",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K8",
+      "sub_model": "더 뉴 K8",
+      "trim_name": "베스트 셀렉션",
+      "n": 9,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K8",
+      "sub_model": "더 뉴 K8",
+      "trim_name": "시그니처",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K8",
+      "sub_model": "더 뉴 K8",
+      "trim_name": "시그니처 블랙",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K8",
+      "sub_model": "더 뉴 K8",
+      "trim_name": "프레스티지",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K8",
+      "sub_model": "K8",
+      "trim_name": "",
+      "n": 1,
+      "from": "정제칸"
+    },
+    {
+      "maker": "기아",
+      "model": "K8",
+      "sub_model": "K8",
+      "trim_name": "노블레스",
+      "n": 2,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K8",
+      "sub_model": "K8",
+      "trim_name": "노블레스 라이트",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K8",
+      "sub_model": "K8",
+      "trim_name": "스탠다드",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K8",
+      "sub_model": "K8",
+      "trim_name": "시그니처",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K8",
+      "sub_model": "K8",
+      "trim_name": "시그니처 스페셜",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K8",
+      "sub_model": "K8",
+      "trim_name": "트렌디",
+      "n": 2,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K8",
+      "sub_model": "K8",
+      "trim_name": "프레스티지",
+      "n": 4,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K8",
+      "sub_model": "K8",
+      "trim_name": "플래티넘",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K9",
+      "sub_model": "더 뉴 K9",
+      "trim_name": "노블레스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K9",
+      "sub_model": "더 뉴 K9",
+      "trim_name": "이그제큐티브",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K9",
+      "sub_model": "더 뉴 K9",
+      "trim_name": "퀀텀",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K9",
+      "sub_model": "더 뉴 K9",
+      "trim_name": "프레스티지",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K9",
+      "sub_model": "더 뉴 K9",
+      "trim_name": "VIP",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K9",
+      "sub_model": "더 K9",
+      "trim_name": "그랜드 마스터즈",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K9",
+      "sub_model": "더 K9",
+      "trim_name": "그랜드 플래티넘",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K9",
+      "sub_model": "더 K9",
+      "trim_name": "마스터즈",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K9",
+      "sub_model": "더 K9",
+      "trim_name": "마스터즈 II",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K9",
+      "sub_model": "더 K9",
+      "trim_name": "마스터즈 III",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K9",
+      "sub_model": "더 K9",
+      "trim_name": "베스트 셀렉션 I",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K9",
+      "sub_model": "더 K9",
+      "trim_name": "베스트 셀렉션 II",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K9",
+      "sub_model": "더 K9",
+      "trim_name": "퀀텀",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K9",
+      "sub_model": "더 K9",
+      "trim_name": "플래티넘 I",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K9",
+      "sub_model": "더 K9",
+      "trim_name": "플래티넘 II",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K9",
+      "sub_model": "더 K9",
+      "trim_name": "플래티넘 III",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K9",
+      "sub_model": "더 K9",
+      "trim_name": "플래티넘Ⅱ",
+      "n": 1,
+      "from": "정제칸"
+    },
+    {
+      "maker": "기아",
+      "model": "K9",
+      "sub_model": "K9",
+      "trim_name": "마스터즈",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K9",
+      "sub_model": "K9",
+      "trim_name": "베스트 셀렉션 I",
+      "n": 2,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K9",
+      "sub_model": "K9",
+      "trim_name": "베스트 셀렉션 II",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "기아",
+      "model": "K9",
+      "sub_model": "K9",
+      "trim_name": "플래티넘",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "르노",
+      "model": "그랑 콜레오스",
+      "sub_model": "그랑 콜레오스",
+      "trim_name": "아이코닉",
+      "n": 11,
+      "from": "마스터"
+    },
+    {
+      "maker": "르노",
+      "model": "그랑 콜레오스",
+      "sub_model": "그랑 콜레오스",
+      "trim_name": "에스카파드",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "르노",
+      "model": "그랑 콜레오스",
+      "sub_model": "그랑 콜레오스",
+      "trim_name": "에스프리 알핀",
+      "n": 5,
+      "from": "마스터"
+    },
+    {
+      "maker": "르노",
+      "model": "그랑 콜레오스",
+      "sub_model": "그랑 콜레오스",
+      "trim_name": "테크노",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "르노",
+      "model": "아르카나",
+      "sub_model": "아르카나",
+      "trim_name": "",
+      "n": 7,
+      "from": "정제칸"
+    },
+    {
+      "maker": "르노",
+      "model": "아르카나",
+      "sub_model": "아르카나",
+      "trim_name": "아이코닉",
+      "n": 7,
+      "from": "마스터"
+    },
+    {
+      "maker": "르노",
+      "model": "아르카나",
+      "sub_model": "아르카나",
+      "trim_name": "아이코닉 컬러패키지",
+      "n": 3,
+      "from": "마스터"
+    },
+    {
+      "maker": "르노",
+      "model": "아르카나",
+      "sub_model": "아르카나",
+      "trim_name": "에스프리 알핀",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "르노",
+      "model": "아르카나",
+      "sub_model": "아르카나",
+      "trim_name": "테크노",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "르노",
+      "model": "QM6",
+      "sub_model": "더 뉴 QM6",
+      "trim_name": "dCi RE",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "르노",
+      "model": "QM6",
+      "sub_model": "더 뉴 QM6",
+      "trim_name": "dCi RE 시그니처",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "르노",
+      "model": "QM6",
+      "sub_model": "QM6",
+      "trim_name": "GDe RE",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "르노",
+      "model": "QM6",
+      "sub_model": "QM6",
+      "trim_name": "LE",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "르노",
+      "model": "QM6",
+      "sub_model": "QM6",
+      "trim_name": "LPe LE",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "르노",
+      "model": "QM6",
+      "sub_model": "QM6",
+      "trim_name": "LPe RE",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "르노",
+      "model": "QM6",
+      "sub_model": "QM6",
+      "trim_name": "RE",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "르노",
+      "model": "QM6",
+      "sub_model": "QM6",
+      "trim_name": "RE 시그니처",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "르노",
+      "model": "QM6",
+      "sub_model": "QM6",
+      "trim_name": "RE 플러스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "르노",
+      "model": "QM6",
+      "sub_model": "QM6",
+      "trim_name": "SE",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "르노",
+      "model": "SM3",
+      "sub_model": "SM3 네오",
+      "trim_name": "LE",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "르노",
+      "model": "SM3",
+      "sub_model": "SM3 네오",
+      "trim_name": "PE",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "르노",
+      "model": "SM3",
+      "sub_model": "SM3 네오",
+      "trim_name": "R4U Edition",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "르노",
+      "model": "SM3",
+      "sub_model": "SM3 네오",
+      "trim_name": "RE",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "르노",
+      "model": "SM3",
+      "sub_model": "SM3 네오",
+      "trim_name": "SE",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "르노",
+      "model": "SM3",
+      "sub_model": "SM3 네오",
+      "trim_name": "SE Plus",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "르노",
+      "model": "SM3",
+      "sub_model": "SM3 Z.E.",
+      "trim_name": "RE",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "르노",
+      "model": "SM3",
+      "sub_model": "SM3 Z.E.",
+      "trim_name": "SE",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "르노",
+      "model": "SM3",
+      "sub_model": "SM3 Z.E.",
+      "trim_name": "SE Plus",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "르노",
+      "model": "SM7",
+      "sub_model": "SM7 1세대",
+      "trim_name": "LE",
+      "n": 1,
+      "from": "정제칸"
+    },
+    {
+      "maker": "르노",
+      "model": "XM3",
+      "sub_model": "XM3",
+      "trim_name": "",
+      "n": 12,
+      "from": "정제칸"
+    },
+    {
+      "maker": "르노",
+      "model": "XM3",
+      "sub_model": "XM3",
+      "trim_name": "E-TECH 인스파이어 디자인 패키지",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "르노",
+      "model": "XM3",
+      "sub_model": "XM3",
+      "trim_name": "E-TECH 인스파이어 e-시프터",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "르노",
+      "model": "XM3",
+      "sub_model": "XM3",
+      "trim_name": "E-TECH RE",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "르노",
+      "model": "XM3",
+      "sub_model": "XM3",
+      "trim_name": "GTe 인스파이어",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "르노",
+      "model": "XM3",
+      "sub_model": "XM3",
+      "trim_name": "GTe LE",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "르노",
+      "model": "XM3",
+      "sub_model": "XM3",
+      "trim_name": "GTe LE Plus",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "르노",
+      "model": "XM3",
+      "sub_model": "XM3",
+      "trim_name": "GTe RE",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "르노",
+      "model": "XM3",
+      "sub_model": "XM3",
+      "trim_name": "GTe SE",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "르노",
+      "model": "XM3",
+      "sub_model": "XM3",
+      "trim_name": "TCe LE",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "르노",
+      "model": "XM3",
+      "sub_model": "XM3",
+      "trim_name": "TCe RE",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "르노",
+      "model": "XM3",
+      "sub_model": "XM3",
+      "trim_name": "TCe RE 인스파이어",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "르노",
+      "model": "XM3",
+      "sub_model": "XM3",
+      "trim_name": "TCe RE Signature",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "미니",
+      "model": "에이스맨",
+      "sub_model": "에이스맨 1세대",
+      "trim_name": "E 클래식",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "미니",
+      "model": "에이스맨",
+      "sub_model": "에이스맨 1세대",
+      "trim_name": "JCW",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "미니",
+      "model": "에이스맨",
+      "sub_model": "에이스맨 1세대",
+      "trim_name": "SE",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "미니",
+      "model": "컨트리맨",
+      "sub_model": "쿠퍼 컨트리맨 일렉트릭",
+      "trim_name": "E Classic",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "미니",
+      "model": "컨트리맨",
+      "sub_model": "쿠퍼 컨트리맨 일렉트릭",
+      "trim_name": "SE ALL4 Favoured",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "미니",
+      "model": "컨트리맨",
+      "sub_model": "쿠퍼 컨트리맨 일렉트릭",
+      "trim_name": "SE ALL4 JCW",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "미니",
+      "model": "컨트리맨",
+      "sub_model": "쿠퍼 S 컨트리맨",
+      "trim_name": "",
+      "n": 1,
+      "from": "정제칸"
+    },
+    {
+      "maker": "미니",
+      "model": "컨트리맨",
+      "sub_model": "쿠퍼 S 컨트리맨",
+      "trim_name": "JCW ALL4",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "미니",
+      "model": "컨트리맨",
+      "sub_model": "쿠퍼 S 컨트리맨",
+      "trim_name": "S ALL4 Classic",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "미니",
+      "model": "컨트리맨",
+      "sub_model": "쿠퍼 S 컨트리맨",
+      "trim_name": "S ALL4 Essential",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "미니",
+      "model": "컨트리맨",
+      "sub_model": "쿠퍼 S 컨트리맨",
+      "trim_name": "S ALL4 Favoured",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "미니",
+      "model": "컨트리맨",
+      "sub_model": "쿠퍼 S 컨트리맨",
+      "trim_name": "S ALL4 Tailored/First Edition",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "미니",
+      "model": "쿠퍼",
+      "sub_model": "쿠퍼 일렉트릭",
+      "trim_name": "쿠퍼 SE 페이버드",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "미니",
+      "model": "쿠퍼",
+      "sub_model": "쿠퍼 일렉트릭",
+      "trim_name": "JCW",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "미니",
+      "model": "쿠퍼",
+      "sub_model": "쿠퍼 일렉트릭",
+      "trim_name": "SE 클래식",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "미니",
+      "model": "쿠퍼",
+      "sub_model": "쿠퍼 C",
+      "trim_name": "",
+      "n": 2,
+      "from": "정제칸"
+    },
+    {
+      "maker": "미니",
+      "model": "쿠퍼",
+      "sub_model": "쿠퍼 C",
+      "trim_name": "5도어 브리즈 에디션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "미니",
+      "model": "쿠퍼",
+      "sub_model": "쿠퍼 C",
+      "trim_name": "5도어 에센셜",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "미니",
+      "model": "쿠퍼",
+      "sub_model": "쿠퍼 C",
+      "trim_name": "5도어 클래식",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "미니",
+      "model": "쿠퍼",
+      "sub_model": "쿠퍼 C",
+      "trim_name": "에센셜",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "미니",
+      "model": "쿠퍼",
+      "sub_model": "쿠퍼 C",
+      "trim_name": "클래식",
+      "n": 4,
+      "from": "마스터"
+    },
+    {
+      "maker": "미니",
+      "model": "쿠퍼",
+      "sub_model": "쿠퍼 S",
+      "trim_name": "5도어 페이버드",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "미니",
+      "model": "쿠퍼",
+      "sub_model": "쿠퍼 S",
+      "trim_name": "페이버드",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "미니",
+      "model": "쿠퍼",
+      "sub_model": "쿠퍼 S",
+      "trim_name": "JCW",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "A-클래스",
+      "sub_model": "A-클래스",
+      "trim_name": "A 180 d Style",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "A-클래스",
+      "sub_model": "A-클래스",
+      "trim_name": "A 200",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "A-클래스",
+      "sub_model": "A-클래스",
+      "trim_name": "A 200 d",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "A-클래스",
+      "sub_model": "A-클래스",
+      "trim_name": "A 250 4MATIC",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "A-클래스",
+      "sub_model": "A-클래스",
+      "trim_name": "Mercedes-AMG A 45 4MATIC",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "C-클래스",
+      "sub_model": "C-클래스",
+      "trim_name": "",
+      "n": 1,
+      "from": "정제칸"
+    },
+    {
+      "maker": "벤츠",
+      "model": "C-클래스",
+      "sub_model": "C-클래스",
+      "trim_name": "C200 아방가르드",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "C-클래스",
+      "sub_model": "C-클래스",
+      "trim_name": "C200 AMG Line",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "C-클래스",
+      "sub_model": "C-클래스",
+      "trim_name": "C220d 아방가르드",
+      "n": 2,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "C-클래스",
+      "sub_model": "C-클래스",
+      "trim_name": "C220d AMG Line",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "C-클래스",
+      "sub_model": "C-클래스",
+      "trim_name": "C300 AMG Line",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "C-클래스",
+      "sub_model": "C-클래스",
+      "trim_name": "Mercedes-AMG C43 4MATIC",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "E-클래스",
+      "sub_model": "E-클래스",
+      "trim_name": "",
+      "n": 1,
+      "from": "정제칸"
+    },
+    {
+      "maker": "벤츠",
+      "model": "E-클래스",
+      "sub_model": "E-클래스",
+      "trim_name": "AMG E53 e 4MATIC+",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "E-클래스",
+      "sub_model": "E-클래스",
+      "trim_name": "E200 아방가르드",
+      "n": 13,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "E-클래스",
+      "sub_model": "E-클래스",
+      "trim_name": "E200 아방가르드 리미티드",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "E-클래스",
+      "sub_model": "E-클래스",
+      "trim_name": "E200 AMG Line",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "E-클래스",
+      "sub_model": "E-클래스",
+      "trim_name": "E220d 아방가르드",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "E-클래스",
+      "sub_model": "E-클래스",
+      "trim_name": "E220d 익스클루시브",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "E-클래스",
+      "sub_model": "E-클래스",
+      "trim_name": "E220d 카브리올레",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "E-클래스",
+      "sub_model": "E-클래스",
+      "trim_name": "E220d 쿠페",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "E-클래스",
+      "sub_model": "E-클래스",
+      "trim_name": "E220d AMG Line",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "E-클래스",
+      "sub_model": "E-클래스",
+      "trim_name": "E250 아방가르드",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "E-클래스",
+      "sub_model": "E-클래스",
+      "trim_name": "E250 익스클루시브",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "E-클래스",
+      "sub_model": "E-클래스",
+      "trim_name": "E250 AMG Line",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "E-클래스",
+      "sub_model": "E-클래스",
+      "trim_name": "E300 아방가르드",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "E-클래스",
+      "sub_model": "E-클래스",
+      "trim_name": "E300 익스클루시브",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "E-클래스",
+      "sub_model": "E-클래스",
+      "trim_name": "E300 익스클루시브 스탠다드",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "E-클래스",
+      "sub_model": "E-클래스",
+      "trim_name": "E300 AMG Line",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "E-클래스",
+      "sub_model": "E-클래스",
+      "trim_name": "E300 AMG Line 프리미어 스페셜",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "E-클래스",
+      "sub_model": "E-클래스",
+      "trim_name": "E300e 익스클루시브",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "E-클래스",
+      "sub_model": "E-클래스",
+      "trim_name": "E350 아방가르드",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "E-클래스",
+      "sub_model": "E-클래스",
+      "trim_name": "E350 익스클루시브",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "E-클래스",
+      "sub_model": "E-클래스",
+      "trim_name": "E350 AMG Line",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "E-클래스",
+      "sub_model": "E-클래스",
+      "trim_name": "E350 AMG Line 에디션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "E-클래스",
+      "sub_model": "E-클래스",
+      "trim_name": "E350d",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "E-클래스",
+      "sub_model": "E-클래스",
+      "trim_name": "E350e",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "E-클래스",
+      "sub_model": "E-클래스",
+      "trim_name": "E400 익스클루시브",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "E-클래스",
+      "sub_model": "E-클래스",
+      "trim_name": "E450",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "E-클래스",
+      "sub_model": "E-클래스",
+      "trim_name": "E450 익스클루시브",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "E-클래스",
+      "sub_model": "E-클래스",
+      "trim_name": "E450 카브리올레",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "E-클래스",
+      "sub_model": "E-클래스",
+      "trim_name": "E450 AMG Line",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "E-클래스",
+      "sub_model": "E-클래스",
+      "trim_name": "E53 AMG 4MATIC+",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "E-클래스",
+      "sub_model": "E-클래스",
+      "trim_name": "Mercedes-AMG E53 4MATIC+ 쿠페",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "S-클래스",
+      "sub_model": "S-클래스",
+      "trim_name": "마이바흐 S500",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "S-클래스",
+      "sub_model": "S-클래스",
+      "trim_name": "마이바흐 S560",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "S-클래스",
+      "sub_model": "S-클래스",
+      "trim_name": "마이바흐 S580 4MATIC",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "S-클래스",
+      "sub_model": "S-클래스",
+      "trim_name": "마이바흐 S600",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "S-클래스",
+      "sub_model": "S-클래스",
+      "trim_name": "마이바흐 S650",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "S-클래스",
+      "sub_model": "S-클래스",
+      "trim_name": "마이바흐 S650 풀만",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "S-클래스",
+      "sub_model": "S-클래스",
+      "trim_name": "마이바흐 S680 4MATIC",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "S-클래스",
+      "sub_model": "S-클래스",
+      "trim_name": "S350 BlueTEC",
+      "n": 2,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "S-클래스",
+      "sub_model": "S-클래스",
+      "trim_name": "S350d",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "S-클래스",
+      "sub_model": "S-클래스",
+      "trim_name": "S350d 4MATIC",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "S-클래스",
+      "sub_model": "S-클래스",
+      "trim_name": "S350d AMG Line",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "S-클래스",
+      "sub_model": "S-클래스",
+      "trim_name": "S350L",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "S-클래스",
+      "sub_model": "S-클래스",
+      "trim_name": "S350L BlueTEC",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "S-클래스",
+      "sub_model": "S-클래스",
+      "trim_name": "S400 쿠페",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "S-클래스",
+      "sub_model": "S-클래스",
+      "trim_name": "S400L",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "S-클래스",
+      "sub_model": "S-클래스",
+      "trim_name": "S400Ld",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "S-클래스",
+      "sub_model": "S-클래스",
+      "trim_name": "S450 4MATIC",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "S-클래스",
+      "sub_model": "S-클래스",
+      "trim_name": "S450L",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "S-클래스",
+      "sub_model": "S-클래스",
+      "trim_name": "S500 4MATIC",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "S-클래스",
+      "sub_model": "S-클래스",
+      "trim_name": "S500L",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "S-클래스",
+      "sub_model": "S-클래스",
+      "trim_name": "S560e L",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "S-클래스",
+      "sub_model": "S-클래스",
+      "trim_name": "S560L",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "S-클래스",
+      "sub_model": "S-클래스",
+      "trim_name": "S580 4MATIC",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "S-클래스",
+      "sub_model": "S-클래스",
+      "trim_name": "S63 AMG",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "S-클래스",
+      "sub_model": "S-클래스",
+      "trim_name": "S63 AMG 4MATIC+",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "S-클래스",
+      "sub_model": "S-클래스",
+      "trim_name": "S63 AMG 쿠페",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "벤츠",
+      "model": "S-클래스",
+      "sub_model": "S-클래스",
+      "trim_name": "S65 AMG",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "볼보",
+      "model": "V60",
+      "sub_model": "V60 크로스컨트리 2세대",
+      "trim_name": "B5 프로",
+      "n": 1,
+      "from": "정제칸"
+    },
+    {
+      "maker": "볼보",
+      "model": "V60",
+      "sub_model": "V60 크로스컨트리 2세대",
+      "trim_name": "B5 Ultra",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "볼보",
+      "model": "V60",
+      "sub_model": "V60 크로스컨트리 2세대",
+      "trim_name": "T5",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "볼보",
+      "model": "V60",
+      "sub_model": "V60 크로스컨트리 2세대",
+      "trim_name": "T5 프로",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "볼보",
+      "model": "XC40",
+      "sub_model": "XC40",
+      "trim_name": "B4 인스크립션",
+      "n": 1,
+      "from": "정제칸"
+    },
+    {
+      "maker": "볼보",
+      "model": "XC40",
+      "sub_model": "XC40",
+      "trim_name": "Plus Bright",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "볼보",
+      "model": "XC40",
+      "sub_model": "XC40",
+      "trim_name": "T4 모멘텀",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "볼보",
+      "model": "XC40",
+      "sub_model": "XC40",
+      "trim_name": "T4 인스크립션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "볼보",
+      "model": "XC40",
+      "sub_model": "XC40",
+      "trim_name": "T4 R-디자인",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "볼보",
+      "model": "XC40",
+      "sub_model": "XC40",
+      "trim_name": "Ultra Bright",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "볼보",
+      "model": "XC40",
+      "sub_model": "XC40",
+      "trim_name": "Ultra Dark",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "볼보",
+      "model": "XC40",
+      "sub_model": "XC40 Recharge Electric",
+      "trim_name": "Recharge Twin",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "말리부",
+      "sub_model": "더 뉴 말리부",
+      "trim_name": "기본형",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "말리부",
+      "sub_model": "더 뉴 말리부",
+      "trim_name": "디럭스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "말리부",
+      "sub_model": "더 뉴 말리부",
+      "trim_name": "스페셜",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "말리부",
+      "sub_model": "더 뉴 말리부",
+      "trim_name": "퍼펙트 블랙",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "말리부",
+      "sub_model": "더 뉴 말리부",
+      "trim_name": "프라임 세이프티",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "말리부",
+      "sub_model": "더 뉴 말리부",
+      "trim_name": "프리미어",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "말리부",
+      "sub_model": "더 뉴 말리부",
+      "trim_name": "프리미엄",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "말리부",
+      "sub_model": "더 뉴 말리부",
+      "trim_name": "LT",
+      "n": 1,
+      "from": "정제칸"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "말리부",
+      "sub_model": "올 뉴 말리부",
+      "trim_name": "기본형",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "말리부",
+      "sub_model": "올 뉴 말리부",
+      "trim_name": "디럭스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "말리부",
+      "sub_model": "올 뉴 말리부",
+      "trim_name": "퍼펙트 블랙",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "말리부",
+      "sub_model": "올 뉴 말리부",
+      "trim_name": "프리미엄",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "말리부",
+      "sub_model": "올 뉴 말리부",
+      "trim_name": "프리미엄 세이프티",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "말리부",
+      "sub_model": "올 뉴 말리부",
+      "trim_name": "LTZ",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "말리부",
+      "sub_model": "올 뉴 말리부",
+      "trim_name": "LTZ 프리미엄 세이프티",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "볼트 EUV",
+      "sub_model": "볼트 EUV",
+      "trim_name": "프리미어",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "스파크",
+      "sub_model": "더 넥스트 스파크",
+      "trim_name": "기본형",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "스파크",
+      "sub_model": "더 넥스트 스파크",
+      "trim_name": "에코 LTZ",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "스파크",
+      "sub_model": "더 넥스트 스파크",
+      "trim_name": "패션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "스파크",
+      "sub_model": "더 넥스트 스파크",
+      "trim_name": "퍼펙트 블랙",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "스파크",
+      "sub_model": "더 넥스트 스파크",
+      "trim_name": "플러스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "스파크",
+      "sub_model": "더 넥스트 스파크",
+      "trim_name": "LTZ",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "스파크",
+      "sub_model": "더 뉴 스파크",
+      "trim_name": "기본형",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "스파크",
+      "sub_model": "더 뉴 스파크",
+      "trim_name": "베이직",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "스파크",
+      "sub_model": "더 뉴 스파크",
+      "trim_name": "프리미어",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "스파크",
+      "sub_model": "더 뉴 스파크",
+      "trim_name": "LT",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "스파크",
+      "sub_model": "스파크",
+      "trim_name": "LT",
+      "n": 1,
+      "from": "정제칸"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "콜로라도",
+      "sub_model": "리얼 뉴 콜로라도",
+      "trim_name": "익스트림",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "콜로라도",
+      "sub_model": "리얼 뉴 콜로라도",
+      "trim_name": "익스트림-X",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "콜로라도",
+      "sub_model": "리얼 뉴 콜로라도",
+      "trim_name": "Z71-X",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "콜로라도",
+      "sub_model": "리얼 뉴 콜로라도",
+      "trim_name": "Z71-X 미드나잇",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "콜로라도",
+      "sub_model": "올 뉴 콜로라도",
+      "trim_name": "Z71",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "콜로라도",
+      "sub_model": "콜로라도",
+      "trim_name": "기본형",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "콜로라도",
+      "sub_model": "콜로라도",
+      "trim_name": "사이드 레일",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "콜로라도",
+      "sub_model": "콜로라도",
+      "trim_name": "스포츠 바",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "콜로라도",
+      "sub_model": "콜로라도",
+      "trim_name": "익스트림",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "트랙스",
+      "sub_model": "더 뉴 트랙스",
+      "trim_name": "기본형",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "트랙스",
+      "sub_model": "더 뉴 트랙스",
+      "trim_name": "디럭스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "트랙스",
+      "sub_model": "더 뉴 트랙스",
+      "trim_name": "코어",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "트랙스",
+      "sub_model": "더 뉴 트랙스",
+      "trim_name": "퍼펙트 블랙",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "트랙스",
+      "sub_model": "더 뉴 트랙스",
+      "trim_name": "프리미어",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "트랙스",
+      "sub_model": "더 뉴 트랙스",
+      "trim_name": "LT 코어",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "트랙스",
+      "sub_model": "더 뉴 트랙스",
+      "trim_name": "LTZ",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "트랙스",
+      "sub_model": "트랙스",
+      "trim_name": "퍼펙트 블랙",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "트랙스",
+      "sub_model": "트랙스",
+      "trim_name": "프리미엄",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "트랙스",
+      "sub_model": "트랙스",
+      "trim_name": "LS",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "트랙스",
+      "sub_model": "트랙스",
+      "trim_name": "LS 디럭스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "트랙스",
+      "sub_model": "트랙스",
+      "trim_name": "LT",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "트랙스",
+      "sub_model": "트랙스",
+      "trim_name": "LT 디럭스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "트랙스",
+      "sub_model": "트랙스",
+      "trim_name": "LT 레더 패키지",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "트랙스",
+      "sub_model": "트랙스",
+      "trim_name": "LTZ",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "트랙스",
+      "sub_model": "트랙스 크로스오버 9BQC",
+      "trim_name": "",
+      "n": 1,
+      "from": "정제칸"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "트랙스",
+      "sub_model": "트랙스 크로스오버 9BQC",
+      "trim_name": "기본형",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "트랙스",
+      "sub_model": "트랙스 크로스오버 9BQC",
+      "trim_name": "플러스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "트랙스",
+      "sub_model": "트랙스 크로스오버 9BQC",
+      "trim_name": "RS",
+      "n": 8,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "트레일블레이저",
+      "sub_model": "더 뉴 트레일블레이저 9BYC",
+      "trim_name": "액티브",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "트레일블레이저",
+      "sub_model": "더 뉴 트레일블레이저 9BYC",
+      "trim_name": "액티브 리미티드 에디션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "트레일블레이저",
+      "sub_model": "더 뉴 트레일블레이저 9BYC",
+      "trim_name": "프리미어",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "트레일블레이저",
+      "sub_model": "더 뉴 트레일블레이저 9BYC",
+      "trim_name": "LT",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "트레일블레이저",
+      "sub_model": "더 뉴 트레일블레이저 9BYC",
+      "trim_name": "RS",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "트레일블레이저",
+      "sub_model": "트레일블레이저 9BYC",
+      "trim_name": "액티브",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "트레일블레이저",
+      "sub_model": "트레일블레이저 9BYC",
+      "trim_name": "프리미어",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "트레일블레이저",
+      "sub_model": "트레일블레이저 9BYC",
+      "trim_name": "LS",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "트레일블레이저",
+      "sub_model": "트레일블레이저 9BYC",
+      "trim_name": "LT",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "쉐보레",
+      "model": "트레일블레이저",
+      "sub_model": "트레일블레이저 9BYC",
+      "trim_name": "RS",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "아우디",
+      "model": "A6",
+      "sub_model": "뉴 A6",
+      "trim_name": "40 TFSI 프리미엄 밀라노 에디션",
+      "n": 1,
+      "from": "정제칸"
+    },
+    {
+      "maker": "아우디",
+      "model": "A6",
+      "sub_model": "뉴 A6",
+      "trim_name": "C6",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "아우디",
+      "model": "A6",
+      "sub_model": "뉴 A6",
+      "trim_name": "C7",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "아우디",
+      "model": "A6",
+      "sub_model": "A6",
+      "trim_name": "40 TDI",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "아우디",
+      "model": "A6",
+      "sub_model": "A6",
+      "trim_name": "40 TDI premium",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "아우디",
+      "model": "A6",
+      "sub_model": "A6",
+      "trim_name": "40 TFSI advanced",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "아우디",
+      "model": "A6",
+      "sub_model": "A6",
+      "trim_name": "40 TFSI S line",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "아우디",
+      "model": "A6",
+      "sub_model": "A6",
+      "trim_name": "45 TDI premium",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "아우디",
+      "model": "A6",
+      "sub_model": "A6",
+      "trim_name": "45 TFSI",
+      "n": 3,
+      "from": "마스터"
+    },
+    {
+      "maker": "아우디",
+      "model": "A6",
+      "sub_model": "A6",
+      "trim_name": "45 TFSI premium",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "아우디",
+      "model": "A6",
+      "sub_model": "A6",
+      "trim_name": "45 TFSI S line",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "아우디",
+      "model": "A6",
+      "sub_model": "A6",
+      "trim_name": "50 TDI premium",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "아우디",
+      "model": "A6",
+      "sub_model": "A6",
+      "trim_name": "55 TFSI S line",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "아우디",
+      "model": "Q5",
+      "sub_model": "Q5",
+      "trim_name": "40 TDI",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "아우디",
+      "model": "Q5",
+      "sub_model": "Q5",
+      "trim_name": "40 TDI 스포트백",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "아우디",
+      "model": "Q5",
+      "sub_model": "Q5",
+      "trim_name": "40 TDI 프리미엄",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "아우디",
+      "model": "Q5",
+      "sub_model": "Q5",
+      "trim_name": "40 TDI 프리미엄 스포트백",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "아우디",
+      "model": "Q5",
+      "sub_model": "Q5",
+      "trim_name": "45 TFSI",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "아우디",
+      "model": "Q5",
+      "sub_model": "Q5",
+      "trim_name": "45 TFSI 스포트백",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "아우디",
+      "model": "Q5",
+      "sub_model": "Q5",
+      "trim_name": "45 TFSI 프리미엄",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "아우디",
+      "model": "Q5",
+      "sub_model": "Q5",
+      "trim_name": "45 TFSI 프리미엄 스포트백",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "아우디",
+      "model": "Q5",
+      "sub_model": "Q5",
+      "trim_name": "50 TDI 프리미엄",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "아우디",
+      "model": "Q5",
+      "sub_model": "Q5",
+      "trim_name": "8R",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "아우디",
+      "model": "Q5",
+      "sub_model": "Q5 80A",
+      "trim_name": "40 TDI S Line",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "아우디",
+      "model": "Q5",
+      "sub_model": "Q5 80A",
+      "trim_name": "40 TDI S Line 블랙 에디션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "아우디",
+      "model": "Q5",
+      "sub_model": "Q5 80A",
+      "trim_name": "40 TDI S Line 스포트백",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "아우디",
+      "model": "Q5",
+      "sub_model": "Q5 80A",
+      "trim_name": "40 TFSI 어드밴스드",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "아우디",
+      "model": "Q5",
+      "sub_model": "Q5 80A",
+      "trim_name": "40 TFSI 어드밴스드 스포트백",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "아우디",
+      "model": "Q5",
+      "sub_model": "Q5 80A",
+      "trim_name": "40 TFSI S Line 스포트백",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "아우디",
+      "model": "Q5",
+      "sub_model": "Q5 80A",
+      "trim_name": "45 TFSI S Line",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "아우디",
+      "model": "Q5",
+      "sub_model": "Q5 80A",
+      "trim_name": "45 TFSI S Line 블랙 에디션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "아우디",
+      "model": "Q5",
+      "sub_model": "Q5 80A",
+      "trim_name": "45 TFSI S Line 블랙 에디션 스포트백",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "아우디",
+      "model": "Q5",
+      "sub_model": "Q5 80A",
+      "trim_name": "45 TFSI S Line 스포트백",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "제네시스",
+      "model": "EQ900",
+      "sub_model": "EQ900",
+      "trim_name": "프레스티지",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "제네시스",
+      "model": "G70",
+      "sub_model": "G70",
+      "trim_name": "",
+      "n": 1,
+      "from": "정제칸"
+    },
+    {
+      "maker": "제네시스",
+      "model": "G70",
+      "sub_model": "G70",
+      "trim_name": "그래파이트 에디션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "제네시스",
+      "model": "G70",
+      "sub_model": "G70",
+      "trim_name": "기본형",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "제네시스",
+      "model": "G70",
+      "sub_model": "G70",
+      "trim_name": "슈프림",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "제네시스",
+      "model": "G70",
+      "sub_model": "G70",
+      "trim_name": "스포츠 패키지",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "제네시스",
+      "model": "G70",
+      "sub_model": "G70",
+      "trim_name": "어드밴스드",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "제네시스",
+      "model": "G70",
+      "sub_model": "G70",
+      "trim_name": "엘리트",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "제네시스",
+      "model": "G70",
+      "sub_model": "G70",
+      "trim_name": "프레스티지",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "제네시스",
+      "model": "G70",
+      "sub_model": "G70 슈팅 브레이크",
+      "trim_name": "기본형",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "제네시스",
+      "model": "G70",
+      "sub_model": "G70 슈팅 브레이크",
+      "trim_name": "스포츠 모델",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "제네시스",
+      "model": "G80",
+      "sub_model": "G80",
+      "trim_name": "",
+      "n": 6,
+      "from": "정제칸"
+    },
+    {
+      "maker": "제네시스",
+      "model": "G80",
+      "sub_model": "G80",
+      "trim_name": "기본형",
+      "n": 25,
+      "from": "마스터"
+    },
+    {
+      "maker": "제네시스",
+      "model": "G80",
+      "sub_model": "G80",
+      "trim_name": "럭셔리",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "제네시스",
+      "model": "G80",
+      "sub_model": "G80",
+      "trim_name": "럭셔리 스페셜",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "제네시스",
+      "model": "G80",
+      "sub_model": "G80",
+      "trim_name": "런칭",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "제네시스",
+      "model": "G80",
+      "sub_model": "G80",
+      "trim_name": "스포츠",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "제네시스",
+      "model": "G80",
+      "sub_model": "G80",
+      "trim_name": "스포츠 패키지",
+      "n": 3,
+      "from": "마스터"
+    },
+    {
+      "maker": "제네시스",
+      "model": "G80",
+      "sub_model": "G80",
+      "trim_name": "파이니스트",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "제네시스",
+      "model": "G80",
+      "sub_model": "G80",
+      "trim_name": "프레스티지",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "제네시스",
+      "model": "G80",
+      "sub_model": "G80",
+      "trim_name": "프리미엄 럭셔리",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "제네시스",
+      "model": "G80",
+      "sub_model": "G80 부분변경",
+      "trim_name": "",
+      "n": 2,
+      "from": "정제칸"
+    },
+    {
+      "maker": "제네시스",
+      "model": "G80",
+      "sub_model": "G80 EV",
+      "trim_name": "e 87.2kWh",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "제네시스",
+      "model": "G80",
+      "sub_model": "G80 EV FL",
+      "trim_name": "e 94.5kWh",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "제네시스",
+      "model": "G80",
+      "sub_model": "G80 FL",
+      "trim_name": "기본형",
+      "n": 6,
+      "from": "마스터"
+    },
+    {
+      "maker": "제네시스",
+      "model": "G80",
+      "sub_model": "G80 FL",
+      "trim_name": "스포츠 패키지",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "제네시스",
+      "model": "G80",
+      "sub_model": "G80 FL",
+      "trim_name": "Black",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "제네시스",
+      "model": "G90",
+      "sub_model": "G90",
+      "trim_name": "기본",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "제네시스",
+      "model": "G90",
+      "sub_model": "G90",
+      "trim_name": "기본형",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "제네시스",
+      "model": "G90",
+      "sub_model": "G90",
+      "trim_name": "럭셔리",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "제네시스",
+      "model": "G90",
+      "sub_model": "G90",
+      "trim_name": "리무진 프레스티지",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "제네시스",
+      "model": "G90",
+      "sub_model": "G90",
+      "trim_name": "프레스티지",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "제네시스",
+      "model": "G90",
+      "sub_model": "G90",
+      "trim_name": "프리미엄 럭셔리",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "제네시스",
+      "model": "G90",
+      "sub_model": "G90",
+      "trim_name": "Black",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "제네시스",
+      "model": "G90",
+      "sub_model": "G90 1세대 부분변경",
+      "trim_name": "프레스티지",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "제네시스",
+      "model": "G90",
+      "sub_model": "G90 롱휠베이스",
+      "trim_name": "롱휠베이스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "제네시스",
+      "model": "G90",
+      "sub_model": "G90 롱휠베이스",
+      "trim_name": "롱휠베이스 Black",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "제네시스",
+      "model": "GV70",
+      "sub_model": "GV70",
+      "trim_name": "",
+      "n": 2,
+      "from": "정제칸"
+    },
+    {
+      "maker": "제네시스",
+      "model": "GV70",
+      "sub_model": "GV70",
+      "trim_name": "기본형",
+      "n": 9,
+      "from": "마스터"
+    },
+    {
+      "maker": "제네시스",
+      "model": "GV70",
+      "sub_model": "GV70 EV",
+      "trim_name": "e 77.4kWh",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "제네시스",
+      "model": "GV70",
+      "sub_model": "GV70 EV FL",
+      "trim_name": "e 84.0kWh",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "제네시스",
+      "model": "GV70",
+      "sub_model": "GV70 FL",
+      "trim_name": "기본형",
+      "n": 2,
+      "from": "마스터"
+    },
+    {
+      "maker": "제네시스",
+      "model": "GV70",
+      "sub_model": "GV70 FL",
+      "trim_name": "스포츠 패키지",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "제네시스",
+      "model": "GV80",
+      "sub_model": "GV80",
+      "trim_name": "",
+      "n": 1,
+      "from": "정제칸"
+    },
+    {
+      "maker": "제네시스",
+      "model": "GV80",
+      "sub_model": "GV80",
+      "trim_name": "기본 사양",
+      "n": 5,
+      "from": "마스터"
+    },
+    {
+      "maker": "제네시스",
+      "model": "GV80",
+      "sub_model": "GV80 쿠페",
+      "trim_name": "기본형",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "제네시스",
+      "model": "GV80",
+      "sub_model": "GV80 쿠페",
+      "trim_name": "Black",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "제네시스",
+      "model": "GV80",
+      "sub_model": "GV80 FL",
+      "trim_name": "기본형",
+      "n": 5,
+      "from": "마스터"
+    },
+    {
+      "maker": "제네시스",
+      "model": "GV80",
+      "sub_model": "GV80 FL",
+      "trim_name": "Black",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "지프",
+      "model": "어벤저",
+      "sub_model": "어벤저",
+      "trim_name": "알티튜드",
+      "n": 2,
+      "from": "마스터"
+    },
+    {
+      "maker": "캐딜락",
+      "model": "XT6",
+      "sub_model": "XT6",
+      "trim_name": "SPORT",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "테슬라",
+      "model": "모델 3",
+      "sub_model": "모델 3",
+      "trim_name": "기본형",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "테슬라",
+      "model": "모델 3",
+      "sub_model": "모델 3",
+      "trim_name": "Long Range",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "테슬라",
+      "model": "모델 3",
+      "sub_model": "모델 3",
+      "trim_name": "Performance",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "테슬라",
+      "model": "모델 3",
+      "sub_model": "모델 3",
+      "trim_name": "Standard Range Plus",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "테슬라",
+      "model": "모델 3",
+      "sub_model": "모델 3 FL",
+      "trim_name": "Long Range",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "테슬라",
+      "model": "모델 3",
+      "sub_model": "모델 3 FL",
+      "trim_name": "Performance",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "테슬라",
+      "model": "모델 3",
+      "sub_model": "모델 3 FL",
+      "trim_name": "Premium Long Range",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "테슬라",
+      "model": "모델 3",
+      "sub_model": "모델 3 FL",
+      "trim_name": "Standard",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "테슬라",
+      "model": "모델 Y",
+      "sub_model": "모델 Y",
+      "trim_name": "Long Range",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "테슬라",
+      "model": "모델 Y",
+      "sub_model": "모델 Y",
+      "trim_name": "Performance",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "테슬라",
+      "model": "모델 Y",
+      "sub_model": "모델 Y FL",
+      "trim_name": "Launch Series Long Range",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "테슬라",
+      "model": "모델 Y",
+      "sub_model": "모델 Y FL",
+      "trim_name": "Premium",
+      "n": 10,
+      "from": "마스터"
+    },
+    {
+      "maker": "테슬라",
+      "model": "모델 Y",
+      "sub_model": "모델 Y FL",
+      "trim_name": "Premium Long Range",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "테슬라",
+      "model": "모델 Y",
+      "sub_model": "모델 Y L",
+      "trim_name": "Model Y L",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "토요타",
+      "model": "RAV4",
+      "sub_model": "RAV4 5세대",
+      "trim_name": "",
+      "n": 2,
+      "from": "정제칸"
+    },
+    {
+      "maker": "토요타",
+      "model": "RAV4",
+      "sub_model": "RAV4 5세대",
+      "trim_name": "XLE",
+      "n": 2,
+      "from": "정제칸"
+    },
+    {
+      "maker": "포드",
+      "model": "익스플로러",
+      "sub_model": "익스플로러",
+      "trim_name": "",
+      "n": 1,
+      "from": "정제칸"
+    },
+    {
+      "maker": "포드",
+      "model": "익스플로러",
+      "sub_model": "익스플로러",
+      "trim_name": "5세대",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "포드",
+      "model": "익스플로러",
+      "sub_model": "익스플로러",
+      "trim_name": "기본형",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "포드",
+      "model": "익스플로러",
+      "sub_model": "익스플로러",
+      "trim_name": "Limited",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "포드",
+      "model": "익스플로러",
+      "sub_model": "익스플로러",
+      "trim_name": "Platinum",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "포드",
+      "model": "익스플로러",
+      "sub_model": "익스플로러",
+      "trim_name": "ST-Line",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "폭스바겐",
+      "model": "골프",
+      "sub_model": "골프 8세대",
+      "trim_name": "프리미엄",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "폭스바겐",
+      "model": "골프",
+      "sub_model": "골프 8세대",
+      "trim_name": "GTI",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "폭스바겐",
+      "model": "골프",
+      "sub_model": "골프 8세대",
+      "trim_name": "Prestige",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "폴스타",
+      "model": "폴스타 2",
+      "sub_model": "폴스타 2",
+      "trim_name": "Long range Dual motor",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "그랜저",
+      "sub_model": "그랜저",
+      "trim_name": "",
+      "n": 1,
+      "from": "정제칸"
+    },
+    {
+      "maker": "현대",
+      "model": "그랜저",
+      "sub_model": "그랜저",
+      "trim_name": "기본형",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "그랜저",
+      "sub_model": "그랜저",
+      "trim_name": "노블",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "그랜저",
+      "sub_model": "그랜저",
+      "trim_name": "럭셔리",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "그랜저",
+      "sub_model": "그랜저",
+      "trim_name": "로얄",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "그랜저",
+      "sub_model": "그랜저",
+      "trim_name": "모던",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "그랜저",
+      "sub_model": "그랜저",
+      "trim_name": "모던 컬렉션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "그랜저",
+      "sub_model": "그랜저",
+      "trim_name": "셀러브리티",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "그랜저",
+      "sub_model": "그랜저",
+      "trim_name": "스페셜",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "그랜저",
+      "sub_model": "그랜저",
+      "trim_name": "아너스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "그랜저",
+      "sub_model": "그랜저",
+      "trim_name": "이그제큐티브",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "그랜저",
+      "sub_model": "그랜저",
+      "trim_name": "익스클루시브",
+      "n": 15,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "그랜저",
+      "sub_model": "그랜저",
+      "trim_name": "익스클루시브 스페셜",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "그랜저",
+      "sub_model": "그랜저",
+      "trim_name": "캘리그래피",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "그랜저",
+      "sub_model": "그랜저",
+      "trim_name": "프라임",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "그랜저",
+      "sub_model": "그랜저",
+      "trim_name": "프리미엄",
+      "n": 5,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "그랜저",
+      "sub_model": "그랜저",
+      "trim_name": "프리미엄 컬렉션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "그랜저",
+      "sub_model": "그랜저",
+      "trim_name": "프리미엄 플러스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "그랜저",
+      "sub_model": "더 뉴 그랜저",
+      "trim_name": "",
+      "n": 2,
+      "from": "정제칸"
+    },
+    {
+      "maker": "현대",
+      "model": "그랜저",
+      "sub_model": "더 뉴 그랜저",
+      "trim_name": "르블랑",
+      "n": 2,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "그랜저",
+      "sub_model": "더 뉴 그랜저",
+      "trim_name": "모던",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "그랜저",
+      "sub_model": "더 뉴 그랜저",
+      "trim_name": "블랙 잉크",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "그랜저",
+      "sub_model": "더 뉴 그랜저",
+      "trim_name": "익스클루시브",
+      "n": 3,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "그랜저",
+      "sub_model": "더 뉴 그랜저",
+      "trim_name": "캘리그래피",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "그랜저",
+      "sub_model": "더 뉴 그랜저",
+      "trim_name": "프리미엄",
+      "n": 5,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "그랜저",
+      "sub_model": "더 뉴 그랜저",
+      "trim_name": "프리미엄 초이스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "베뉴",
+      "sub_model": "베뉴",
+      "trim_name": "스마트",
+      "n": 10,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "베뉴",
+      "sub_model": "베뉴",
+      "trim_name": "프리미엄",
+      "n": 2,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "베뉴",
+      "sub_model": "베뉴",
+      "trim_name": "FLUX",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "스타렉스",
+      "sub_model": "그랜드 스타렉스",
+      "trim_name": "디럭스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "스타렉스",
+      "sub_model": "그랜드 스타렉스",
+      "trim_name": "럭셔리",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "스타렉스",
+      "sub_model": "그랜드 스타렉스",
+      "trim_name": "리무진",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "스타렉스",
+      "sub_model": "그랜드 스타렉스",
+      "trim_name": "모던",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "스타렉스",
+      "sub_model": "그랜드 스타렉스",
+      "trim_name": "모던 스페셜",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "스타렉스",
+      "sub_model": "그랜드 스타렉스",
+      "trim_name": "밸류",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "스타렉스",
+      "sub_model": "그랜드 스타렉스",
+      "trim_name": "스마트",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "스타렉스",
+      "sub_model": "그랜드 스타렉스",
+      "trim_name": "스마트 스페셜",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "스타렉스",
+      "sub_model": "그랜드 스타렉스",
+      "trim_name": "어린이보호차",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "스타렉스",
+      "sub_model": "그랜드 스타렉스",
+      "trim_name": "캠핑카",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "스타렉스",
+      "sub_model": "그랜드 스타렉스",
+      "trim_name": "프리미엄",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "스타렉스",
+      "sub_model": "그랜드 스타렉스",
+      "trim_name": "VIP PACK",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "스타렉스",
+      "sub_model": "더 뉴 그랜드 스타렉스",
+      "trim_name": "리무진",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "스타렉스",
+      "sub_model": "더 뉴 그랜드 스타렉스",
+      "trim_name": "모던",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "스타렉스",
+      "sub_model": "더 뉴 그랜드 스타렉스",
+      "trim_name": "스마트",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "스타렉스",
+      "sub_model": "더 뉴 그랜드 스타렉스",
+      "trim_name": "스타일",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "스타렉스",
+      "sub_model": "더 뉴 그랜드 스타렉스",
+      "trim_name": "어린이보호차",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "스타렉스",
+      "sub_model": "더 뉴 그랜드 스타렉스",
+      "trim_name": "익스클루시브",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "스타렉스",
+      "sub_model": "더 뉴 그랜드 스타렉스",
+      "trim_name": "캠핑카",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "스타렉스",
+      "sub_model": "더 뉴 그랜드 스타렉스",
+      "trim_name": "프리미엄",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "스타렉스",
+      "sub_model": "더 뉴 그랜드 스타렉스",
+      "trim_name": "프리미엄 스페셜",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "스타렉스",
+      "sub_model": "더 뉴 그랜드 스타렉스",
+      "trim_name": "하이루프",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "스타리아",
+      "sub_model": "더 뉴 스타리아 라운지",
+      "trim_name": "인스퍼레이션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "스타리아",
+      "sub_model": "더 뉴 스타리아 라운지",
+      "trim_name": "프레스티지",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "스타리아",
+      "sub_model": "더 뉴 스타리아 리무진",
+      "trim_name": "인스퍼레이션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "스타리아",
+      "sub_model": "더 뉴 스타리아 카고",
+      "trim_name": "모던",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "스타리아",
+      "sub_model": "더 뉴 스타리아 카고",
+      "trim_name": "스마트",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "스타리아",
+      "sub_model": "더 뉴 스타리아 투어러",
+      "trim_name": "모던",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "스타리아",
+      "sub_model": "더 뉴 스타리아 투어러",
+      "trim_name": "스마트",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "스타리아",
+      "sub_model": "스타리아",
+      "trim_name": "모던",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "스타리아",
+      "sub_model": "스타리아",
+      "trim_name": "스마트",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "스타리아",
+      "sub_model": "스타리아",
+      "trim_name": "인스퍼레이션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "스타리아",
+      "sub_model": "스타리아",
+      "trim_name": "프레스티지",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "스타리아",
+      "sub_model": "스타리아 라운지",
+      "trim_name": "인스퍼레이션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "스타리아",
+      "sub_model": "스타리아 라운지",
+      "trim_name": "프레스티지",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "스타리아",
+      "sub_model": "스타리아 리무진",
+      "trim_name": "리무진",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "스타리아",
+      "sub_model": "스타리아 카고",
+      "trim_name": "모던",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "스타리아",
+      "sub_model": "스타리아 투어러",
+      "trim_name": "모던",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "싼타페",
+      "sub_model": "더 뉴 싼타페",
+      "trim_name": "익스클루시브",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "싼타페",
+      "sub_model": "더 뉴 싼타페",
+      "trim_name": "캘리그래피",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "싼타페",
+      "sub_model": "더 뉴 싼타페",
+      "trim_name": "프레스티지",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "싼타페",
+      "sub_model": "더 뉴 싼타페",
+      "trim_name": "프레스티지 초이스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "싼타페",
+      "sub_model": "더 뉴 싼타페",
+      "trim_name": "프리미엄",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "싼타페",
+      "sub_model": "더 뉴 싼타페",
+      "trim_name": "프리미엄 초이스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "싼타페",
+      "sub_model": "디 올 뉴 싼타페",
+      "trim_name": "블랙 잉크",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "싼타페",
+      "sub_model": "디 올 뉴 싼타페",
+      "trim_name": "익스클루시브",
+      "n": 61,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "싼타페",
+      "sub_model": "디 올 뉴 싼타페",
+      "trim_name": "캘리그래피",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "싼타페",
+      "sub_model": "디 올 뉴 싼타페",
+      "trim_name": "프레스티지",
+      "n": 5,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "싼타페",
+      "sub_model": "디 올 뉴 싼타페",
+      "trim_name": "H-픽",
+      "n": 8,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "싼타페",
+      "sub_model": "싼타페",
+      "trim_name": "모던",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "싼타페",
+      "sub_model": "싼타페",
+      "trim_name": "익스클루시브",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "싼타페",
+      "sub_model": "싼타페",
+      "trim_name": "익스클루시브 스페셜",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "싼타페",
+      "sub_model": "싼타페",
+      "trim_name": "인스퍼레이션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "싼타페",
+      "sub_model": "싼타페",
+      "trim_name": "프레스티지",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "싼타페",
+      "sub_model": "싼타페",
+      "trim_name": "프리미엄",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "싼타페",
+      "sub_model": "싼타페 더 프라임",
+      "trim_name": "1 밀리언 에디션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "싼타페",
+      "sub_model": "싼타페 더 프라임",
+      "trim_name": "1 밀리언 에디션 스타일",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "싼타페",
+      "sub_model": "싼타페 더 프라임",
+      "trim_name": "1 밀리언 에디션 얼티밋",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "싼타페",
+      "sub_model": "싼타페 더 프라임",
+      "trim_name": "모던",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "싼타페",
+      "sub_model": "싼타페 더 프라임",
+      "trim_name": "밸류 플러스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "싼타페",
+      "sub_model": "싼타페 더 프라임",
+      "trim_name": "스마트",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "싼타페",
+      "sub_model": "싼타페 더 프라임",
+      "trim_name": "익스클루시브",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "싼타페",
+      "sub_model": "싼타페 더 프라임",
+      "trim_name": "익스클루시브 스페셜",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "싼타페",
+      "sub_model": "싼타페 더 프라임",
+      "trim_name": "프리미엄",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "쏘나타",
+      "sub_model": "쏘나타",
+      "trim_name": "기본형",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "쏘나타",
+      "sub_model": "쏘나타",
+      "trim_name": "모던",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "쏘나타",
+      "sub_model": "쏘나타",
+      "trim_name": "모던 스페셜",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "쏘나타",
+      "sub_model": "쏘나타",
+      "trim_name": "밀레니얼",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "쏘나타",
+      "sub_model": "쏘나타",
+      "trim_name": "스마트",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "쏘나타",
+      "sub_model": "쏘나타",
+      "trim_name": "스타일",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "쏘나타",
+      "sub_model": "쏘나타",
+      "trim_name": "스페셜",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "쏘나타",
+      "sub_model": "쏘나타",
+      "trim_name": "익스클루시브",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "쏘나타",
+      "sub_model": "쏘나타",
+      "trim_name": "인스퍼레이션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "쏘나타",
+      "sub_model": "쏘나타",
+      "trim_name": "케어플러스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "쏘나타",
+      "sub_model": "쏘나타",
+      "trim_name": "패밀리",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "쏘나타",
+      "sub_model": "쏘나타",
+      "trim_name": "프리미엄",
+      "n": 2,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "쏘나타",
+      "sub_model": "쏘나타",
+      "trim_name": "프리미엄 밀레니얼",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "쏘나타",
+      "sub_model": "쏘나타",
+      "trim_name": "프리미엄 스페셜",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "쏘나타",
+      "sub_model": "쏘나타",
+      "trim_name": "프리미엄 패밀리",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "쏘나타",
+      "sub_model": "쏘나타",
+      "trim_name": "프리미엄 플러스",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "쏘나타",
+      "sub_model": "쏘나타 뉴 라이즈",
+      "trim_name": "기본형",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "쏘나타",
+      "sub_model": "쏘나타 뉴 라이즈",
+      "trim_name": "마이 시티 에디션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "쏘나타",
+      "sub_model": "쏘나타 뉴 라이즈",
+      "trim_name": "모던",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "쏘나타",
+      "sub_model": "쏘나타 뉴 라이즈",
+      "trim_name": "스마트",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "쏘나타",
+      "sub_model": "쏘나타 뉴 라이즈",
+      "trim_name": "스마트 스페셜",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "쏘나타",
+      "sub_model": "쏘나타 뉴 라이즈",
+      "trim_name": "스마트 초이스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "쏘나타",
+      "sub_model": "쏘나타 뉴 라이즈",
+      "trim_name": "스타일",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "쏘나타",
+      "sub_model": "쏘나타 뉴 라이즈",
+      "trim_name": "스페셜",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "쏘나타",
+      "sub_model": "쏘나타 뉴 라이즈",
+      "trim_name": "익스클루시브",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "쏘나타",
+      "sub_model": "쏘나타 뉴 라이즈",
+      "trim_name": "프리미엄",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "쏘나타",
+      "sub_model": "쏘나타 뉴 라이즈",
+      "trim_name": "프리미엄 스페셜",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "쏘나타",
+      "sub_model": "쏘나타 디 엣지",
+      "trim_name": "비즈니스",
+      "n": 6,
+      "from": "정제칸"
+    },
+    {
+      "maker": "현대",
+      "model": "쏘나타",
+      "sub_model": "쏘나타 디 엣지",
+      "trim_name": "비즈니스 1",
+      "n": 3,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "쏘나타",
+      "sub_model": "쏘나타 디 엣지",
+      "trim_name": "비즈니스 2",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "쏘나타",
+      "sub_model": "쏘나타 디 엣지",
+      "trim_name": "익스클루시브",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "쏘나타",
+      "sub_model": "쏘나타 디 엣지",
+      "trim_name": "인스퍼레이션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "쏘나타",
+      "sub_model": "쏘나타 디 엣지",
+      "trim_name": "프리미엄",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "쏘나타",
+      "sub_model": "쏘나타 디 엣지",
+      "trim_name": "N Line",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "쏘나타",
+      "sub_model": "쏘나타 디 엣지",
+      "trim_name": "S",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "아반떼",
+      "sub_model": "더 뉴 아반떼",
+      "trim_name": "",
+      "n": 1,
+      "from": "정제칸"
+    },
+    {
+      "maker": "현대",
+      "model": "아반떼",
+      "sub_model": "더 뉴 아반떼",
+      "trim_name": "모던",
+      "n": 2,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "아반떼",
+      "sub_model": "더 뉴 아반떼",
+      "trim_name": "모던 라이트",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "아반떼",
+      "sub_model": "더 뉴 아반떼",
+      "trim_name": "스마트",
+      "n": 10,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "아반떼",
+      "sub_model": "더 뉴 아반떼",
+      "trim_name": "스마트 초이스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "아반떼",
+      "sub_model": "더 뉴 아반떼",
+      "trim_name": "스타일",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "아반떼",
+      "sub_model": "더 뉴 아반떼",
+      "trim_name": "인스퍼레이션",
+      "n": 8,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "아반떼",
+      "sub_model": "더 뉴 아반떼",
+      "trim_name": "프리미엄",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "아반떼",
+      "sub_model": "더 뉴 아반떼",
+      "trim_name": "N",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "아반떼",
+      "sub_model": "더 뉴 아반떼",
+      "trim_name": "N Line",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "아반떼",
+      "sub_model": "더 뉴 아반떼 CN7",
+      "trim_name": "스마트",
+      "n": 1,
+      "from": "정제칸"
+    },
+    {
+      "maker": "현대",
+      "model": "아반떼",
+      "sub_model": "아반떼",
+      "trim_name": "기본형",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "아반떼",
+      "sub_model": "아반떼",
+      "trim_name": "모던",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "아반떼",
+      "sub_model": "아반떼",
+      "trim_name": "밸류플러스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "아반떼",
+      "sub_model": "아반떼",
+      "trim_name": "법인전용",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "아반떼",
+      "sub_model": "아반떼",
+      "trim_name": "스마트",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "아반떼",
+      "sub_model": "아반떼",
+      "trim_name": "스타일",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "아반떼",
+      "sub_model": "아반떼",
+      "trim_name": "스페셜",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "아반떼",
+      "sub_model": "아반떼",
+      "trim_name": "익스트림 셀렉션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "아반떼",
+      "sub_model": "아반떼",
+      "trim_name": "인스퍼레이션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "아반떼",
+      "sub_model": "아반떼",
+      "trim_name": "프리미엄",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "아반떼",
+      "sub_model": "아반떼",
+      "trim_name": "N",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "아이오닉5",
+      "sub_model": "더 뉴 아이오닉5",
+      "trim_name": "모던",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "아이오닉5",
+      "sub_model": "더 뉴 아이오닉5",
+      "trim_name": "영업용",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "아이오닉5",
+      "sub_model": "더 뉴 아이오닉5",
+      "trim_name": "익스클루시브",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "아이오닉5",
+      "sub_model": "더 뉴 아이오닉5",
+      "trim_name": "인스퍼레이션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "아이오닉5",
+      "sub_model": "더 뉴 아이오닉5",
+      "trim_name": "프레스티지",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "아이오닉5",
+      "sub_model": "더 뉴 아이오닉5",
+      "trim_name": "프레스티지 N Line",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "아이오닉5",
+      "sub_model": "더 뉴 아이오닉5",
+      "trim_name": "프리미엄",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "아이오닉5",
+      "sub_model": "더 뉴 아이오닉5",
+      "trim_name": "E-라이트",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "아이오닉5",
+      "sub_model": "더 뉴 아이오닉5",
+      "trim_name": "E-밸류 플러스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "아이오닉5",
+      "sub_model": "더 뉴 아이오닉5",
+      "trim_name": "N Line",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "아이오닉5",
+      "sub_model": "아이오닉5",
+      "trim_name": "영업용",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "아이오닉5",
+      "sub_model": "아이오닉5",
+      "trim_name": "영업용 롱레인지",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "아이오닉5",
+      "sub_model": "아이오닉5",
+      "trim_name": "익스클루시브",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "아이오닉5",
+      "sub_model": "아이오닉5",
+      "trim_name": "프레스티지",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "아이오닉5",
+      "sub_model": "아이오닉5",
+      "trim_name": "E-라이트",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "아이오닉5",
+      "sub_model": "아이오닉5",
+      "trim_name": "N",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "아이오닉6",
+      "sub_model": "더 뉴 아이오닉6",
+      "trim_name": "익스클루시브",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "아이오닉6",
+      "sub_model": "더 뉴 아이오닉6",
+      "trim_name": "프레스티지",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "아이오닉6",
+      "sub_model": "더 뉴 아이오닉6",
+      "trim_name": "E-라이트",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "아이오닉6",
+      "sub_model": "더 뉴 아이오닉6",
+      "trim_name": "E-밸류 플러스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "아이오닉6",
+      "sub_model": "더 뉴 아이오닉6",
+      "trim_name": "N Line",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "아이오닉6",
+      "sub_model": "아이오닉6",
+      "trim_name": "익스클루시브",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "아이오닉6",
+      "sub_model": "아이오닉6",
+      "trim_name": "익스클루시브 플러스",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "아이오닉6",
+      "sub_model": "아이오닉6",
+      "trim_name": "프레스티지",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "아이오닉6",
+      "sub_model": "아이오닉6",
+      "trim_name": "E-라이트",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "엑센트",
+      "sub_model": "엑센트(신형)",
+      "trim_name": "",
+      "n": 1,
+      "from": "정제칸"
+    },
+    {
+      "maker": "현대",
+      "model": "엑센트",
+      "sub_model": "엑센트(신형)",
+      "trim_name": "럭셔리",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "엑센트",
+      "sub_model": "엑센트(신형)",
+      "trim_name": "모던",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "엑센트",
+      "sub_model": "엑센트(신형)",
+      "trim_name": "스마트",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "엑센트",
+      "sub_model": "엑센트(신형)",
+      "trim_name": "스마트스페셜",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "엑센트",
+      "sub_model": "엑센트(신형)",
+      "trim_name": "스페셜",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "엑센트",
+      "sub_model": "엑센트(신형)",
+      "trim_name": "위트 블루세이버",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "엑센트",
+      "sub_model": "엑센트(신형)",
+      "trim_name": "위트 탑",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "엑센트",
+      "sub_model": "엑센트(신형)",
+      "trim_name": "위트 프리미어",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "엑센트",
+      "sub_model": "엑센트(신형)",
+      "trim_name": "탑",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "엑센트",
+      "sub_model": "엑센트(신형)",
+      "trim_name": "프리미어",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "엑센트",
+      "sub_model": "엑센트(신형)",
+      "trim_name": "프리미엄",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "캐스퍼",
+      "sub_model": "더 뉴 캐스퍼",
+      "trim_name": "디 에센셜",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "캐스퍼",
+      "sub_model": "더 뉴 캐스퍼",
+      "trim_name": "스마트",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "캐스퍼",
+      "sub_model": "더 뉴 캐스퍼",
+      "trim_name": "스마트 초이스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "캐스퍼",
+      "sub_model": "더 뉴 캐스퍼",
+      "trim_name": "인스퍼레이션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "캐스퍼",
+      "sub_model": "캐스퍼",
+      "trim_name": "",
+      "n": 1,
+      "from": "정제칸"
+    },
+    {
+      "maker": "현대",
+      "model": "캐스퍼",
+      "sub_model": "캐스퍼",
+      "trim_name": "디 에센셜",
+      "n": 2,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "캐스퍼",
+      "sub_model": "캐스퍼",
+      "trim_name": "디 에센셜 라이트",
+      "n": 2,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "캐스퍼",
+      "sub_model": "캐스퍼",
+      "trim_name": "모던",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "캐스퍼",
+      "sub_model": "캐스퍼",
+      "trim_name": "스마트",
+      "n": 4,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "캐스퍼",
+      "sub_model": "캐스퍼",
+      "trim_name": "스마트 초이스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "캐스퍼",
+      "sub_model": "캐스퍼",
+      "trim_name": "인스퍼레이션",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "캐스퍼",
+      "sub_model": "캐스퍼 일렉트릭",
+      "trim_name": "라운지",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "캐스퍼",
+      "sub_model": "캐스퍼 일렉트릭",
+      "trim_name": "인스퍼레이션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "캐스퍼",
+      "sub_model": "캐스퍼 일렉트릭",
+      "trim_name": "크로스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "캐스퍼",
+      "sub_model": "캐스퍼 일렉트릭",
+      "trim_name": "프리미엄",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "코나",
+      "sub_model": "더 뉴 코나",
+      "trim_name": "모던",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "코나",
+      "sub_model": "더 뉴 코나",
+      "trim_name": "모던 초이스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "코나",
+      "sub_model": "더 뉴 코나",
+      "trim_name": "스마트",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "코나",
+      "sub_model": "더 뉴 코나",
+      "trim_name": "인스퍼레이션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "코나",
+      "sub_model": "더 뉴 코나",
+      "trim_name": "N",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "코나",
+      "sub_model": "더 뉴 코나",
+      "trim_name": "N Line 인스퍼레이션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "코나",
+      "sub_model": "디 올 뉴 코나",
+      "trim_name": "모던",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "코나",
+      "sub_model": "디 올 뉴 코나",
+      "trim_name": "블랙 익스테리어",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "코나",
+      "sub_model": "디 올 뉴 코나",
+      "trim_name": "인스퍼레이션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "코나",
+      "sub_model": "디 올 뉴 코나",
+      "trim_name": "프리미엄",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "코나",
+      "sub_model": "디 올 뉴 코나",
+      "trim_name": "H-픽",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "코나",
+      "sub_model": "디 올 뉴 코나",
+      "trim_name": "N Line",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "코나",
+      "sub_model": "디 올 뉴 코나 EV",
+      "trim_name": "인스퍼레이션 롱레인지",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "코나",
+      "sub_model": "디 올 뉴 코나 EV",
+      "trim_name": "인스퍼레이션 스탠다드",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "코나",
+      "sub_model": "디 올 뉴 코나 EV",
+      "trim_name": "프리미엄 롱레인지",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "코나",
+      "sub_model": "디 올 뉴 코나 EV",
+      "trim_name": "프리미엄 스탠다드",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "코나",
+      "sub_model": "코나",
+      "trim_name": "모던",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "코나",
+      "sub_model": "코나",
+      "trim_name": "모던 스페셜",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "코나",
+      "sub_model": "코나",
+      "trim_name": "모던 아트",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "코나",
+      "sub_model": "코나",
+      "trim_name": "모던 초이스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "코나",
+      "sub_model": "코나",
+      "trim_name": "모던 테크",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "코나",
+      "sub_model": "코나",
+      "trim_name": "모던 팝",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "코나",
+      "sub_model": "코나",
+      "trim_name": "스마트",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "코나",
+      "sub_model": "코나",
+      "trim_name": "스마트 스페셜",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "코나",
+      "sub_model": "코나",
+      "trim_name": "프리미엄",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "코나",
+      "sub_model": "코나",
+      "trim_name": "프리미엄 스페셜",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "코나",
+      "sub_model": "코나 EV",
+      "trim_name": "모던 롱레인지",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "코나",
+      "sub_model": "코나 EV",
+      "trim_name": "모던 저용량",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "코나",
+      "sub_model": "코나 EV",
+      "trim_name": "택시형 롱레인지",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "코나",
+      "sub_model": "코나 EV",
+      "trim_name": "택시형 저용량",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "코나",
+      "sub_model": "코나 EV",
+      "trim_name": "프리미엄 롱레인지",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "코나",
+      "sub_model": "코나 EV",
+      "trim_name": "프리미엄 저용량",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "투싼",
+      "sub_model": "더 뉴 투싼",
+      "trim_name": "모던",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "투싼",
+      "sub_model": "더 뉴 투싼",
+      "trim_name": "인스퍼레이션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "투싼",
+      "sub_model": "더 뉴 투싼",
+      "trim_name": "프리미엄",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "투싼",
+      "sub_model": "더 뉴 투싼",
+      "trim_name": "H-픽",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "투싼",
+      "sub_model": "더 뉴 투싼",
+      "trim_name": "N Line 인스퍼레이션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "투싼",
+      "sub_model": "더 뉴 투싼",
+      "trim_name": "N Line 프리미엄",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "투싼",
+      "sub_model": "올 뉴 투싼",
+      "trim_name": "모던",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "투싼",
+      "sub_model": "올 뉴 투싼",
+      "trim_name": "모던 피버",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "투싼",
+      "sub_model": "올 뉴 투싼",
+      "trim_name": "스마트",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "투싼",
+      "sub_model": "올 뉴 투싼",
+      "trim_name": "스타일",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "투싼",
+      "sub_model": "올 뉴 투싼",
+      "trim_name": "스타일 스페셜",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "투싼",
+      "sub_model": "올 뉴 투싼",
+      "trim_name": "스타일 피버",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "투싼",
+      "sub_model": "올 뉴 투싼",
+      "trim_name": "얼티밋 에디션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "투싼",
+      "sub_model": "올 뉴 투싼",
+      "trim_name": "익스트림 에디션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "투싼",
+      "sub_model": "올 뉴 투싼",
+      "trim_name": "인스퍼레이션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "투싼",
+      "sub_model": "올 뉴 투싼",
+      "trim_name": "프리미엄",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "투싼",
+      "sub_model": "투싼",
+      "trim_name": "모던",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "투싼",
+      "sub_model": "투싼",
+      "trim_name": "어드벤처",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "투싼",
+      "sub_model": "투싼",
+      "trim_name": "인스퍼레이션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "투싼",
+      "sub_model": "투싼",
+      "trim_name": "프리미엄",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "투싼",
+      "sub_model": "투싼",
+      "trim_name": "N Line 인스퍼레이션",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "팰리세이드",
+      "sub_model": "더 뉴 팰리세이드",
+      "trim_name": "르블랑",
+      "n": 2,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "팰리세이드",
+      "sub_model": "더 뉴 팰리세이드",
+      "trim_name": "익스클루시브",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "팰리세이드",
+      "sub_model": "더 뉴 팰리세이드",
+      "trim_name": "캘리그래피",
+      "n": 2,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "팰리세이드",
+      "sub_model": "더 뉴 팰리세이드",
+      "trim_name": "캘리그래피 블랙에디션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "팰리세이드",
+      "sub_model": "더 뉴 팰리세이드",
+      "trim_name": "프레스티지",
+      "n": 3,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "팰리세이드",
+      "sub_model": "더 뉴 팰리세이드",
+      "trim_name": "VIP",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "팰리세이드",
+      "sub_model": "팰리세이드",
+      "trim_name": "익스클루시브",
+      "n": 3,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "팰리세이드",
+      "sub_model": "팰리세이드",
+      "trim_name": "캘리그래피",
+      "n": 2,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "팰리세이드",
+      "sub_model": "팰리세이드",
+      "trim_name": "프레스티지",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "현대",
+      "model": "팰리세이드",
+      "sub_model": "팰리세이드",
+      "trim_name": "VIP",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "1시리즈",
+      "sub_model": "1시리즈",
+      "trim_name": "118d 스포츠 5도어",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "1시리즈",
+      "sub_model": "1시리즈",
+      "trim_name": "118d Joy",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "1시리즈",
+      "sub_model": "1시리즈",
+      "trim_name": "118d Joy 5-door",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "1시리즈",
+      "sub_model": "1시리즈",
+      "trim_name": "118d Joy First Edition",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "1시리즈",
+      "sub_model": "1시리즈",
+      "trim_name": "118d M Sport",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "1시리즈",
+      "sub_model": "1시리즈",
+      "trim_name": "118d M Sport Shadow 5-door",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "1시리즈",
+      "sub_model": "1시리즈",
+      "trim_name": "118d Sport",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "1시리즈",
+      "sub_model": "1시리즈",
+      "trim_name": "118d Sport Special Edition 5-door",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "1시리즈",
+      "sub_model": "1시리즈",
+      "trim_name": "118d Urban 5-door",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "1시리즈",
+      "sub_model": "1시리즈",
+      "trim_name": "118d Urban Pack1 5-door",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "1시리즈",
+      "sub_model": "1시리즈",
+      "trim_name": "120",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "1시리즈",
+      "sub_model": "1시리즈",
+      "trim_name": "120 M Sport",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "1시리즈",
+      "sub_model": "1시리즈",
+      "trim_name": "120d M Sport 5-door",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "1시리즈",
+      "sub_model": "1시리즈",
+      "trim_name": "120d Sport Pack1 5-door",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "1시리즈",
+      "sub_model": "1시리즈",
+      "trim_name": "120i Advantage",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "1시리즈",
+      "sub_model": "1시리즈",
+      "trim_name": "120i M Sport",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "1시리즈",
+      "sub_model": "1시리즈",
+      "trim_name": "120i Sport",
+      "n": 2,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "1시리즈",
+      "sub_model": "1시리즈",
+      "trim_name": "M135 xDrive",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "1시리즈",
+      "sub_model": "1시리즈",
+      "trim_name": "M135 xDrive Pro First Edition",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "1시리즈",
+      "sub_model": "1시리즈",
+      "trim_name": "M135i",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "1시리즈",
+      "sub_model": "1시리즈",
+      "trim_name": "M135i xDrive 프리즘",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "2시리즈",
+      "sub_model": "2시리즈",
+      "trim_name": "220d M 스포츠 쿠페",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "2시리즈",
+      "sub_model": "2시리즈",
+      "trim_name": "M240i 온라인 익스클루시브 쿠페",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "2시리즈",
+      "sub_model": "2시리즈",
+      "trim_name": "M240i 쿠페",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "2시리즈",
+      "sub_model": "2시리즈 그란쿠페",
+      "trim_name": "218d 어드밴티지",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "2시리즈",
+      "sub_model": "2시리즈 그란쿠페",
+      "trim_name": "218d M 스포츠",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "2시리즈",
+      "sub_model": "2시리즈 그란쿠페",
+      "trim_name": "220 M 스포츠",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "2시리즈",
+      "sub_model": "2시리즈 그란쿠페",
+      "trim_name": "220 M 스포츠 디자인",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "2시리즈",
+      "sub_model": "2시리즈 그란쿠페",
+      "trim_name": "220d 럭셔리",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "2시리즈",
+      "sub_model": "2시리즈 그란쿠페",
+      "trim_name": "220d 어드밴티지",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "2시리즈",
+      "sub_model": "2시리즈 그란쿠페",
+      "trim_name": "220i 스포츠",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "2시리즈",
+      "sub_model": "2시리즈 그란쿠페",
+      "trim_name": "220i 어드밴티지",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "2시리즈",
+      "sub_model": "2시리즈 그란쿠페",
+      "trim_name": "220i M 스포츠",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "2시리즈",
+      "sub_model": "2시리즈 그란쿠페",
+      "trim_name": "228 M 스포츠",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "2시리즈",
+      "sub_model": "2시리즈 그란쿠페",
+      "trim_name": "M235",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "2시리즈",
+      "sub_model": "2시리즈 그란쿠페",
+      "trim_name": "M235i",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "2시리즈",
+      "sub_model": "2시리즈 액티브 투어러",
+      "trim_name": "218d 럭셔리",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "2시리즈",
+      "sub_model": "2시리즈 액티브 투어러",
+      "trim_name": "218d 어드밴티지",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "2시리즈",
+      "sub_model": "2시리즈 액티브 투어러",
+      "trim_name": "218d M 스포츠 퍼스트 에디션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "2시리즈",
+      "sub_model": "2시리즈 액티브 투어러",
+      "trim_name": "220i 럭셔리",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "2시리즈",
+      "sub_model": "2시리즈 액티브 투어러",
+      "trim_name": "220i 어드밴티지",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "2시리즈",
+      "sub_model": "2시리즈 액티브 투어러",
+      "trim_name": "220i M 스포츠",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "2시리즈",
+      "sub_model": "2시리즈 액티브 투어러",
+      "trim_name": "220i M 스포츠 디자인",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "2시리즈",
+      "sub_model": "2시리즈 액티브 투어러",
+      "trim_name": "럭셔리",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "2시리즈",
+      "sub_model": "2시리즈 액티브 투어러",
+      "trim_name": "스포츠 파이널 에디션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "2시리즈",
+      "sub_model": "2시리즈 액티브 투어러",
+      "trim_name": "어드밴티지",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "2시리즈",
+      "sub_model": "2시리즈 액티브 투어러",
+      "trim_name": "조이",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "5시리즈",
+      "sub_model": "5시리즈",
+      "trim_name": "",
+      "n": 1,
+      "from": "정제칸"
+    },
+    {
+      "maker": "BMW",
+      "model": "5시리즈",
+      "sub_model": "5시리즈",
+      "trim_name": "520d 럭셔리",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "5시리즈",
+      "sub_model": "5시리즈",
+      "trim_name": "520d M 스포츠",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "5시리즈",
+      "sub_model": "5시리즈",
+      "trim_name": "520i",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "5시리즈",
+      "sub_model": "5시리즈",
+      "trim_name": "520i 럭셔리",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "5시리즈",
+      "sub_model": "5시리즈",
+      "trim_name": "520i M 스포츠",
+      "n": 2,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "5시리즈",
+      "sub_model": "5시리즈",
+      "trim_name": "523d",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "5시리즈",
+      "sub_model": "5시리즈",
+      "trim_name": "523d M 스포츠",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "5시리즈",
+      "sub_model": "5시리즈",
+      "trim_name": "523d xDrive M 스포츠",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "5시리즈",
+      "sub_model": "5시리즈",
+      "trim_name": "530e 럭셔리",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "5시리즈",
+      "sub_model": "5시리즈",
+      "trim_name": "530e M 스포츠",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "5시리즈",
+      "sub_model": "5시리즈",
+      "trim_name": "530i 럭셔리",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "5시리즈",
+      "sub_model": "5시리즈",
+      "trim_name": "530i M 스포츠",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "5시리즈",
+      "sub_model": "5시리즈",
+      "trim_name": "530i xDrive",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "5시리즈",
+      "sub_model": "5시리즈",
+      "trim_name": "530i xDrive M 스포츠",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "X1",
+      "sub_model": "X1",
+      "trim_name": "",
+      "n": 2,
+      "from": "정제칸"
+    },
+    {
+      "maker": "BMW",
+      "model": "X1",
+      "sub_model": "X1",
+      "trim_name": "18d",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "X1",
+      "sub_model": "X1",
+      "trim_name": "18d 어드밴티지",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "X1",
+      "sub_model": "X1",
+      "trim_name": "18d 조이",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "X1",
+      "sub_model": "X1",
+      "trim_name": "18d 프리미엄",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "X1",
+      "sub_model": "X1",
+      "trim_name": "18d M 스포츠",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "X1",
+      "sub_model": "X1",
+      "trim_name": "18d xLine",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "X1",
+      "sub_model": "X1",
+      "trim_name": "20d",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "X1",
+      "sub_model": "X1",
+      "trim_name": "20d 조이",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "X1",
+      "sub_model": "X1",
+      "trim_name": "20d M 스포츠",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "X1",
+      "sub_model": "X1",
+      "trim_name": "20d xLine",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "X1",
+      "sub_model": "X1",
+      "trim_name": "20i 어드밴티지",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "X1",
+      "sub_model": "X1",
+      "trim_name": "20i M 스포츠",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "X1",
+      "sub_model": "X1",
+      "trim_name": "20i xLine",
+      "n": 1,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "X1",
+      "sub_model": "X1",
+      "trim_name": "M35i",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "X1",
+      "sub_model": "X1",
+      "trim_name": "M35i 스페셜 에디션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "X1",
+      "sub_model": "X1",
+      "trim_name": "sDrive 18d M 스포츠",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "X1",
+      "sub_model": "X1",
+      "trim_name": "sDrive 18d xLine",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "X1",
+      "sub_model": "X1",
+      "trim_name": "sDrive 20i M 스포츠",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "X4",
+      "sub_model": "X4",
+      "trim_name": "20d",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "X4",
+      "sub_model": "X4",
+      "trim_name": "20d M 스포츠",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "X4",
+      "sub_model": "X4",
+      "trim_name": "20d M 스포츠 온라인 익스클루시브 에디션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "X4",
+      "sub_model": "X4",
+      "trim_name": "20d M 스포츠 X",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "X4",
+      "sub_model": "X4",
+      "trim_name": "20d SAC 에디션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "X4",
+      "sub_model": "X4",
+      "trim_name": "20d xLine",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "X4",
+      "sub_model": "X4",
+      "trim_name": "20i M 스포츠",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "X4",
+      "sub_model": "X4",
+      "trim_name": "20i M 스포츠 프로",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "X4",
+      "sub_model": "X4",
+      "trim_name": "20i M 스포츠 프로 스페셜 에디션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "X4",
+      "sub_model": "X4",
+      "trim_name": "20i M 스포츠 X",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "X4",
+      "sub_model": "X4",
+      "trim_name": "20i M 스포츠 X 온라인 익스클루시브 에디션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "X4",
+      "sub_model": "X4",
+      "trim_name": "20i xLine",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "X4",
+      "sub_model": "X4",
+      "trim_name": "30d M 스포츠",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "X4",
+      "sub_model": "X4",
+      "trim_name": "M40d",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BMW",
+      "model": "X4",
+      "sub_model": "X4",
+      "trim_name": "M40i",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "BYD(비야디)",
+      "model": "돌핀",
+      "sub_model": "돌핀",
+      "trim_name": "",
+      "n": 1,
+      "from": "정제칸"
+    },
+    {
+      "maker": "KGM",
+      "model": "렉스턴",
+      "sub_model": "렉스턴",
+      "trim_name": "럭셔리",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "렉스턴",
+      "sub_model": "렉스턴",
+      "trim_name": "마제스티",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "렉스턴",
+      "sub_model": "렉스턴",
+      "trim_name": "마제스티 스페셜",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "렉스턴",
+      "sub_model": "렉스턴",
+      "trim_name": "유라시아 에디션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "렉스턴",
+      "sub_model": "렉스턴",
+      "trim_name": "프라임",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "렉스턴",
+      "sub_model": "렉스턴",
+      "trim_name": "헤리티지",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "렉스턴",
+      "sub_model": "렉스턴",
+      "trim_name": "헤리티지 스페셜",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "렉스턴",
+      "sub_model": "렉스턴",
+      "trim_name": "화이트 에디션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "렉스턴",
+      "sub_model": "렉스턴 스포츠",
+      "trim_name": "노블레스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "렉스턴",
+      "sub_model": "렉스턴 스포츠",
+      "trim_name": "다이내믹 에디션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "렉스턴",
+      "sub_model": "렉스턴 스포츠",
+      "trim_name": "어드벤처",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "렉스턴",
+      "sub_model": "렉스턴 스포츠",
+      "trim_name": "와일드",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "렉스턴",
+      "sub_model": "렉스턴 스포츠",
+      "trim_name": "프레스티지",
+      "n": 2,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "렉스턴",
+      "sub_model": "렉스턴 스포츠",
+      "trim_name": "프레스티지 스페셜",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "렉스턴",
+      "sub_model": "렉스턴 스포츠 칸",
+      "trim_name": "프레스티지",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "렉스턴",
+      "sub_model": "렉스턴 스포츠 칸",
+      "trim_name": "프레스티지 스페셜",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "렉스턴",
+      "sub_model": "렉스턴 W",
+      "trim_name": "노블레스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "렉스턴",
+      "sub_model": "렉스턴 W",
+      "trim_name": "디럭스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "렉스턴",
+      "sub_model": "렉스턴 W",
+      "trim_name": "럭셔리",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "렉스턴",
+      "sub_model": "렉스턴 W",
+      "trim_name": "브라운 스페셜",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "렉스턴",
+      "sub_model": "렉스턴 W",
+      "trim_name": "어드벤처 60th 에디션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "렉스턴",
+      "sub_model": "렉스턴 W",
+      "trim_name": "프레스티지",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "렉스턴",
+      "sub_model": "올 뉴 렉스턴",
+      "trim_name": "더 블랙",
+      "n": 1,
+      "from": "정제칸"
+    },
+    {
+      "maker": "KGM",
+      "model": "렉스턴",
+      "sub_model": "올 뉴 렉스턴",
+      "trim_name": "프레스티지",
+      "n": 1,
+      "from": "정제칸"
+    },
+    {
+      "maker": "KGM",
+      "model": "토레스",
+      "sub_model": "더 뉴 토레스",
+      "trim_name": "블랙에디션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "토레스",
+      "sub_model": "더 뉴 토레스",
+      "trim_name": "블랙엣지",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "토레스",
+      "sub_model": "더 뉴 토레스",
+      "trim_name": "T5",
+      "n": 4,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "토레스",
+      "sub_model": "더 뉴 토레스",
+      "trim_name": "T7",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "토레스",
+      "sub_model": "더 뉴 토레스",
+      "trim_name": "TL7",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "토레스",
+      "sub_model": "더 뉴 토레스",
+      "trim_name": "TV5",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "토레스",
+      "sub_model": "더 뉴 토레스",
+      "trim_name": "TV7",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "토레스",
+      "sub_model": "토레스",
+      "trim_name": "블랙에디션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "토레스",
+      "sub_model": "토레스",
+      "trim_name": "E5",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "토레스",
+      "sub_model": "토레스",
+      "trim_name": "E7",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "토레스",
+      "sub_model": "토레스",
+      "trim_name": "T5",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "토레스",
+      "sub_model": "토레스",
+      "trim_name": "T7",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "토레스",
+      "sub_model": "토레스",
+      "trim_name": "TL7",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "토레스",
+      "sub_model": "토레스",
+      "trim_name": "TV7",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "티볼리",
+      "sub_model": "더 뉴 티볼리",
+      "trim_name": "V1",
+      "n": 6,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "티볼리",
+      "sub_model": "더 뉴 티볼리",
+      "trim_name": "V3",
+      "n": 3,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "티볼리",
+      "sub_model": "더 뉴 티볼리",
+      "trim_name": "V5",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "티볼리",
+      "sub_model": "더 뉴 티볼리",
+      "trim_name": "V7",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "티볼리",
+      "sub_model": "더 뉴 티볼리 에어",
+      "trim_name": "A5",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "티볼리",
+      "sub_model": "더 뉴 티볼리 에어",
+      "trim_name": "A7",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "티볼리",
+      "sub_model": "베리 뉴 티볼리",
+      "trim_name": "리미티드 에디션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "티볼리",
+      "sub_model": "베리 뉴 티볼리",
+      "trim_name": "R 플러스 화이트",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "티볼리",
+      "sub_model": "베리 뉴 티볼리",
+      "trim_name": "V1",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "티볼리",
+      "sub_model": "베리 뉴 티볼리",
+      "trim_name": "V3",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "티볼리",
+      "sub_model": "베리 뉴 티볼리",
+      "trim_name": "V3 스페셜",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "티볼리",
+      "sub_model": "베리 뉴 티볼리",
+      "trim_name": "V5",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "티볼리",
+      "sub_model": "베리 뉴 티볼리",
+      "trim_name": "V7",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "티볼리",
+      "sub_model": "티볼리",
+      "trim_name": "고급형",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "티볼리",
+      "sub_model": "티볼리",
+      "trim_name": "기본형",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "티볼리",
+      "sub_model": "티볼리",
+      "trim_name": "삼바 에디션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "티볼리",
+      "sub_model": "티볼리",
+      "trim_name": "엣지 에디션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "티볼리",
+      "sub_model": "티볼리",
+      "trim_name": "최고급형",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "티볼리",
+      "sub_model": "티볼리",
+      "trim_name": "LX",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "티볼리",
+      "sub_model": "티볼리",
+      "trim_name": "TX",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "티볼리",
+      "sub_model": "티볼리",
+      "trim_name": "VX",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "티볼리",
+      "sub_model": "티볼리 아머",
+      "trim_name": "기어 에디션",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "티볼리",
+      "sub_model": "티볼리 아머",
+      "trim_name": "기어 플러스",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "티볼리",
+      "sub_model": "티볼리 아머",
+      "trim_name": "기어 플러스 II",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "티볼리",
+      "sub_model": "티볼리 아머",
+      "trim_name": "드라이빙 기어",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "티볼리",
+      "sub_model": "티볼리 아머",
+      "trim_name": "LX",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "티볼리",
+      "sub_model": "티볼리 아머",
+      "trim_name": "TX",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "티볼리",
+      "sub_model": "티볼리 아머",
+      "trim_name": "VX",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "티볼리",
+      "sub_model": "티볼리 에어",
+      "trim_name": "업비트",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "티볼리",
+      "sub_model": "티볼리 에어",
+      "trim_name": "A1",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "티볼리",
+      "sub_model": "티볼리 에어",
+      "trim_name": "A3",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "티볼리",
+      "sub_model": "티볼리 에어",
+      "trim_name": "A7",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "티볼리",
+      "sub_model": "티볼리 에어",
+      "trim_name": "AX",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "티볼리",
+      "sub_model": "티볼리 에어",
+      "trim_name": "IX",
+      "n": 0,
+      "from": "마스터"
+    },
+    {
+      "maker": "KGM",
+      "model": "티볼리",
+      "sub_model": "티볼리 에어",
+      "trim_name": "RX",
+      "n": 0,
+      "from": "마스터"
+    }
+  ]
+}

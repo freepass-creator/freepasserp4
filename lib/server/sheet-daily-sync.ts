@@ -1,8 +1,6 @@
 import 'server-only';
 
 import type { Database } from 'firebase-admin/database';
-import { readFileSync } from 'node:fs';
-import { join } from 'node:path';
 import {
   planDailySheetSync,
   planProductMasterProviderBatches,
@@ -12,11 +10,9 @@ import {
 import { productPatchPreconditionMatches } from '@/lib/domain/product-write-guard';
 import { mergeProductPrivate, splitProductPrivate } from '@/lib/firebase/rtdb-products';
 import { toV4Record } from '@/lib/firebase/rtdb-records';
-import type { MasterEntry } from '@/lib/domain/vehicle-master-types';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { firebaseAdminDatabase } from '@/lib/server/firebase-admin';
 import type { SheetConflictResolution } from '@/lib/domain/sheet-conflict-resolution';
-import { fetchProductMasterSheet } from '@/lib/server/product-master-sheet';
 import { fetchSalesInventorySheet } from '@/lib/server/sales-inventory-sheet';
 import { isolateProductMasterBlockedProviders } from '@/lib/domain/product-master-import';
 import { newId } from '@/lib/domain/ids';
@@ -31,10 +27,39 @@ export type DailySheetSyncResult = {
   ok: boolean;
   status: DailyRunStatus;
   runId: string;
+  backupId?: string;
   blockReason?: string;
   counts?: DailySheetSyncPlan['counts'];
   notes?: string[];
   providers?: DailySheetSyncProviderResult[];
+};
+
+export type ProductSyncBackupEntry = {
+  key: string;
+  existed: boolean;
+  before?: EntityRecord;
+  providerCode: string;
+};
+
+type ProductSyncBackup = {
+  schema_version: 1;
+  run_id: string;
+  company_id: string;
+  status: 'prepared' | 'completed' | 'partial' | 'rolled_back';
+  created_at: number;
+  entries: ProductSyncBackupEntry[];
+  providers: Array<{ code: string; touched: number }>;
+};
+
+export type DailySheetSyncRollbackResult = {
+  ok: boolean;
+  status: 'dry_run' | 'rolled_back' | 'blocked' | 'failed';
+  sourceRunId: string;
+  rollbackRunId: string;
+  restorable: number;
+  untouched: number;
+  conflicts: number;
+  blockReason?: string;
 };
 
 export type DailySheetSyncProviderResult = {
@@ -55,6 +80,71 @@ const clean = <T>(value: T): T => {
   }
   return value;
 };
+
+function canonicalJson(value: unknown): string {
+  const normalize = (item: unknown): unknown => {
+    if (Array.isArray(item)) return item.map(normalize);
+    if (item && typeof item === 'object') {
+      return Object.fromEntries(Object.entries(item as Record<string, unknown>)
+        .filter(([, nested]) => nested !== undefined)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([key, nested]) => [key, normalize(nested)]));
+    }
+    return item;
+  };
+  return JSON.stringify(normalize(value));
+}
+
+function sameStoredProduct(left: unknown, right: unknown): boolean {
+  return canonicalJson(left ?? null) === canonicalJson(right ?? null);
+}
+
+async function writeProductSyncBackup(
+  db: Database,
+  companyId: string,
+  runId: string,
+  plans: ProductMasterProviderPlan[],
+): Promise<ProductSyncBackup> {
+  const rawProducts = ((await db.ref('v4/products').get()).val() || {}) as Record<string, EntityRecord>;
+  const ownerByKey = new Map<string, string>();
+  for (const item of plans) {
+    for (const key of [
+      ...item.plan.patches.map((patch) => patch.key),
+      ...item.plan.creates.map((record) => String(record.product_code || record._key || '')),
+    ].filter(Boolean)) {
+      const existingOwner = ownerByKey.get(key);
+      if (existingOwner && existingOwner !== item.code) {
+        throw new Error('백업 대상 상품키가 둘 이상의 공급사 계획에 포함됐습니다');
+      }
+      ownerByKey.set(key, item.code);
+    }
+  }
+  const entries = [...ownerByKey.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([key, providerCode]) => {
+    const existed = Object.prototype.hasOwnProperty.call(rawProducts, key);
+    return clean<ProductSyncBackupEntry>({
+      key,
+      existed,
+      before: existed ? rawProducts[key] : undefined,
+      providerCode,
+    });
+  });
+  const backup = clean<ProductSyncBackup>({
+    schema_version: 1,
+    run_id: runId,
+    company_id: companyId,
+    status: 'prepared',
+    created_at: Date.now(),
+    entries,
+    providers: plans.map((item) => ({
+      code: item.code,
+      touched: entries.filter((entry) => entry.providerCode === item.code).length,
+    })),
+  });
+  // 운영 반영보다 먼저 같은 RTDB 안에 영향 키의 정확한 공개 노드 원본을 남긴다.
+  // 이 쓰기가 실패하면 제품 반영은 시작하지 않는다.
+  await db.ref(`v4/sheet_sync_backups/${runId}`).set(backup);
+  return backup;
+}
 
 function normalizedRows(
   entity: 'partner' | 'product' | 'contract',
@@ -90,7 +180,7 @@ export async function readProducts(db: Database, companyId: string): Promise<{
   active: EntityRecord[];
   deleted: EntityRecord[];
 }> {
-  // ERP4 재고는 상품마스터 정본에서 구축한다. ERP3 products는 채팅·계약·정산 이력과 달리
+  // ERP4 재고는 중앙 판매시트 3탭 정본에서 구축한다. ERP3 products는 채팅·계약·정산 이력과 달리
   // 연동 정본도 fallback도 아니다. 여기서 섞으면 초기화한 낡은 재고가 다시 살아난다.
   const [v4, privateSnap] = await Promise.all([
     db.ref('v4/products').get(),
@@ -109,7 +199,7 @@ export async function readProducts(db: Database, companyId: string): Promise<{
   };
 }
 
-async function readContracts(db: Database, companyId: string): Promise<EntityRecord[]> {
+export async function readContracts(db: Database, companyId: string): Promise<EntityRecord[]> {
   const [v3, v4] = await Promise.all([db.ref('contracts').get(), db.ref('v4/contracts').get()]);
   return mergeRows(
     normalizedRows('contract', v3.val(), companyId),
@@ -117,20 +207,17 @@ async function readContracts(db: Database, companyId: string): Promise<EntityRec
   );
 }
 
-async function readResolutions(db: Database): Promise<SheetConflictResolution[]> {
+export async function readResolutions(db: Database): Promise<SheetConflictResolution[]> {
   const snapshot = await db.ref('v4/sheet_conflict_resolutions').get();
   return Object.values((snapshot.val() || {}) as Record<string, SheetConflictResolution>)
     .filter((item) => item && typeof item === 'object');
 }
 
-export function masterEntries(): MasterEntry[] {
-  const raw = JSON.parse(readFileSync(join(process.cwd(), 'public/data/vehicle-master.json'), 'utf8')) as {
-    entries?: MasterEntry[];
-  } | MasterEntry[];
-  const entries = Array.isArray(raw) ? raw : raw.entries;
-  if (!entries?.length) throw new Error('차종마스터 없음');
-  return entries;
-}
+/*
+ * `masterEntries()` 를 지웠다(2026-08-23 · 사장님 「차종마스터 관련 싹 다 걷어내고 정제칸을 정확히 반영한다」).
+ * 이미 **부르는 곳이 없는 죽은 export** 였다 — 일일 동기는 판매시트만 읽는다.
+ * 남겨 두면 «여기서 마스터를 쓰는구나» 로 오해해서 되살리는 사람이 나온다.
+ */
 
 async function acquireLease(db: Database, runId: string, now: number): Promise<void> {
   const result = await db.ref(LOCK_PATH).transaction((current) => {
@@ -139,6 +226,173 @@ async function acquireLease(db: Database, runId: string, now: number): Promise<v
     return { run_id: runId, status: 'running', started_at: now, expires_at: now + LEASE_MS };
   }, undefined, false);
   if (!result.committed) throw new Error('다른 일일 시트 동기화가 실행 중입니다');
+}
+
+function backupEntries(raw: unknown): ProductSyncBackupEntry[] {
+  const entries = Array.isArray(raw)
+    ? raw
+    : Object.values((raw || {}) as Record<string, ProductSyncBackupEntry>);
+  return entries.filter((entry): entry is ProductSyncBackupEntry => (
+    !!entry && typeof entry === 'object' && !!String(entry.key || '').trim()
+  ));
+}
+
+export function classifyRollbackEntries(
+  sourceRunId: string,
+  entries: ProductSyncBackupEntry[],
+  products: Record<string, EntityRecord>,
+): { restorable: ProductSyncBackupEntry[]; untouched: ProductSyncBackupEntry[]; conflicts: ProductSyncBackupEntry[] } {
+  const restorable: ProductSyncBackupEntry[] = [];
+  const untouched: ProductSyncBackupEntry[] = [];
+  const conflicts: ProductSyncBackupEntry[] = [];
+  for (const entry of entries) {
+    const current = products[entry.key];
+    if (String(current?.sheet_sync_run_id || '') === sourceRunId) {
+      restorable.push(entry);
+      continue;
+    }
+    const before = entry.existed ? entry.before : undefined;
+    if (sameStoredProduct(current, before)) untouched.push(entry);
+    else conflicts.push(entry);
+  }
+  return { restorable, untouched, conflicts };
+}
+
+/**
+ * 한 번의 ERP 판매시트 반영이 찍은 공개 상품 노드만 원상복구한다.
+ * 기본 dry-run이며, 이후 다른 실행/수기 변경이 닿은 키가 하나라도 있으면 전체 롤백을 중단한다.
+ */
+export async function rollbackDailySheetSyncBackup(opts: {
+  sourceRunId: string;
+  dryRun?: boolean;
+}): Promise<DailySheetSyncRollbackResult> {
+  const sourceRunId = String(opts.sourceRunId || '').trim();
+  const rollbackRunId = newId('run');
+  if (!/^[A-Za-z0-9_-]{1,160}$/.test(sourceRunId)) {
+    return {
+      ok: false, status: 'blocked', sourceRunId, rollbackRunId,
+      restorable: 0, untouched: 0, conflicts: 0,
+      blockReason: '잘못된 원본 실행 ID',
+    };
+  }
+  const db = firebaseAdminDatabase();
+  const backupPath = `v4/sheet_sync_backups/${sourceRunId}`;
+  const [backupSnap, productsSnap] = await Promise.all([
+    db.ref(backupPath).get(),
+    db.ref('v4/products').get(),
+  ]);
+  const backup = backupSnap.val() as ProductSyncBackup | null;
+  if (!backup || backup.schema_version !== 1 || String(backup.run_id || '') !== sourceRunId) {
+    return {
+      ok: false, status: 'blocked', sourceRunId, rollbackRunId,
+      restorable: 0, untouched: 0, conflicts: 0,
+      blockReason: '유효한 동기화 백업을 찾지 못했습니다',
+    };
+  }
+  if (backup.status === 'rolled_back') {
+    return {
+      ok: false, status: 'blocked', sourceRunId, rollbackRunId,
+      restorable: 0, untouched: backupEntries(backup.entries).length, conflicts: 0,
+      blockReason: '이미 롤백된 실행입니다',
+    };
+  }
+  const entries = backupEntries(backup.entries);
+  const products = (productsSnap.val() || {}) as Record<string, EntityRecord>;
+  const initial = classifyRollbackEntries(sourceRunId, entries, products);
+  const initialResult = {
+    sourceRunId,
+    rollbackRunId,
+    restorable: initial.restorable.length,
+    untouched: initial.untouched.length,
+    conflicts: initial.conflicts.length,
+  };
+  if (initial.conflicts.length) {
+    return {
+      ok: false, status: 'blocked', ...initialResult,
+      blockReason: '반영 이후 다른 변경이 감지되어 전체 롤백을 중단했습니다',
+    };
+  }
+  if (opts.dryRun !== false) return { ok: true, status: 'dry_run', ...initialResult };
+
+  await acquireLease(db, rollbackRunId, Date.now());
+  try {
+    let transactionConflict = false;
+    const tx = await db.ref('v4/products').transaction((current) => {
+      const currentProducts = current && typeof current === 'object'
+        ? { ...(current as Record<string, EntityRecord>) }
+        : {};
+      const fresh = classifyRollbackEntries(sourceRunId, entries, currentProducts);
+      if (fresh.conflicts.length) {
+        transactionConflict = true;
+        return;
+      }
+      for (const entry of fresh.restorable) {
+        if (entry.existed) currentProducts[entry.key] = clean(entry.before || {});
+        else delete currentProducts[entry.key];
+      }
+      return currentProducts;
+    }, undefined, false);
+    if (!tx.committed) {
+      throw new Error(transactionConflict
+        ? '롤백 직전 다른 상품 변경이 감지됐습니다'
+        : '상품 원상복구 transaction이 커밋되지 않았습니다');
+    }
+    const at = Date.now();
+    const auditId = `AL-${at}-sheet-rollback`;
+    await db.ref('v4').update({
+      [`sheet_sync_backups/${sourceRunId}/status`]: 'rolled_back',
+      [`sheet_sync_backups/${sourceRunId}/rolled_back_at`]: at,
+      [`sheet_sync_backups/${sourceRunId}/rollback_run_id`]: rollbackRunId,
+      [`sheet_sync_rollback_runs/${rollbackRunId}`]: {
+        run_id: rollbackRunId,
+        source_run_id: sourceRunId,
+        status: 'rolled_back',
+        finished_at: at,
+        restored: initial.restorable.length,
+        untouched: initial.untouched.length,
+      },
+      [`audit_logs/${auditId}`]: {
+        _key: auditId,
+        entity: 'product',
+        target_key: `sheet-daily:${sourceRunId}`,
+        action: 'sheet_daily_sync_rollback',
+        at,
+        actor_uid: 'system:sheet-daily',
+        actor_role: 'system',
+        actor_name: '판매시트 연동 롤백',
+        summary: `원상복구 ${initial.restorable.length}건`,
+        changes: [],
+      },
+      'system_locks/sheet_daily_sync': {
+        run_id: rollbackRunId,
+        source_run_id: sourceRunId,
+        status: 'rolled_back',
+        finished_at: at,
+        expires_at: at,
+      },
+    });
+    return { ok: true, status: 'rolled_back', ...initialResult };
+  } catch (error) {
+    const message = String((error as Error)?.message || error);
+    const at = Date.now();
+    await db.ref('v4').update({
+      [`sheet_sync_rollback_runs/${rollbackRunId}`]: {
+        run_id: rollbackRunId,
+        source_run_id: sourceRunId,
+        status: 'failed',
+        finished_at: at,
+        error: message,
+      },
+      'system_locks/sheet_daily_sync': {
+        run_id: rollbackRunId,
+        source_run_id: sourceRunId,
+        status: 'failed',
+        finished_at: at,
+        expires_at: at,
+      },
+    }).catch(() => {});
+    return { ok: false, status: 'failed', ...initialResult, blockReason: message };
+  }
 }
 
 async function writeRun(
@@ -334,13 +588,17 @@ export async function runDailySheetSync(opts: { dryRun?: boolean; providerCodes?
   const runId = newId('run');
   const companyId = String(process.env.SHEET_SYNC_COMPANY_ID || 'freepass').trim();
   const db = firebaseAdminDatabase();
-  await acquireLease(db, runId, Date.now());
+  let backupId: string | undefined;
+  // dry-run은 계획 계산만 한다. 락·상태·실행이력도 운영 데이터 쓰기이므로 만들지 않는다.
+  if (!opts.dryRun) await acquireLease(db, runId, Date.now());
   try {
-    await db.ref(STATUS_PATH).set({
-      run_id: runId,
-      status: 'running',
-      started_at: Date.now(),
-    });
+    if (!opts.dryRun) {
+      await db.ref(STATUS_PATH).set({
+        run_id: runId,
+        status: 'running',
+        started_at: Date.now(),
+      });
+    }
     const [partners, initialState, initialContracts, initialResolutions] = await Promise.all([
       readPartners(db, companyId),
       readProducts(db, companyId),
@@ -349,24 +607,13 @@ export async function runDailySheetSync(opts: { dryRun?: boolean; providerCodes?
     ]);
     const requestedCodes = [...new Set((opts.providerCodes || []).map((code) => String(code).trim()).filter(Boolean))];
     /**
-     * ★어디서 읽나 — 기본은 **영업자 상품리스트(판매시트)**다(사장님 2026-08-20 「영업자가 보는 거랑 우리 ERP랑 바로 연동하자 · 일단 상품마스터 안 거치고」).
-     *   판매시트는 매시간 공급사 시트에서 새로 발행되므로 영업자가 보는 화면과 ERP 가 같은 표를 본다.
-     *   상품마스터 경유로 되돌리려면 SHEET_DAILY_SOURCE=product_master.
+     * ERP 직접 정본은 판매시트 3탭으로 고정한다. 환경변수나 상품마스터로 우회하면
+     * 영업자가 보는 현재값과 ERP가 다시 갈리므로 대체 경로를 두지 않는다.
      */
-    const source = String(process.env.SHEET_DAILY_SOURCE || 'sales_inventory').trim();
-    const rawFetched = source === 'product_master'
-      ? await fetchProductMasterSheet({
-        partners,
-        providerCodes: requestedCodes,
-        knownProviderCodes: initialState.active
-          .map((row) => String(row.provider_company_code || row.partner_code || '').trim())
-          .filter(Boolean),
-      })
-      : await fetchSalesInventorySheet({
-        partners,
-        entries: masterEntries(),
-        providerCodes: requestedCodes,
-      });
+    const rawFetched = await fetchSalesInventorySheet({
+      partners,
+      providerCodes: requestedCodes,
+    });
     const isolated = isolateProductMasterBlockedProviders(rawFetched);
     const fetched = isolated.fetched;
     const manualBlockedResults: DailySheetSyncProviderResult[] = isolated.blocked.map((item) => ({
@@ -395,12 +642,6 @@ export async function runDailySheetSync(opts: { dryRun?: boolean; providerCodes?
       if (!initialRunnable.length) {
         const blockReason = initialBlocked.map((item) => `${item.label}: ${item.blockReason}`).join(' · ')
           || '반영 가능한 공급사가 없습니다';
-        await writeRun(db, runId, 'blocked', {
-          block_reason: blockReason,
-          counts: initialCounts,
-          notes: initialNotes,
-          providers: initialResults,
-        });
         return {
           ok: false,
           status: 'blocked',
@@ -411,11 +652,6 @@ export async function runDailySheetSync(opts: { dryRun?: boolean; providerCodes?
           providers: initialResults,
         };
       }
-      await writeRun(db, runId, 'dry_run', {
-        counts: initialCounts,
-        notes: initialNotes,
-        providers: initialResults,
-      });
       return {
         ok: true,
         status: 'dry_run',
@@ -426,7 +662,7 @@ export async function runDailySheetSync(opts: { dryRun?: boolean; providerCodes?
       };
     }
 
-    // 상품마스터 정본을 읽은 뒤 ERP가 바뀌었는지 write 직전에 한 번 더 확인한다.
+    // 판매시트 정본을 읽은 뒤 ERP가 바뀌었는지 write 직전에 한 번 더 확인한다.
     // 공급사별 계획을 다시 만들고, 충돌한 공급사만 보류한다.
     const [freshState, freshContracts, freshResolutions] = await Promise.all([
       readProducts(db, companyId),
@@ -458,6 +694,11 @@ export async function runDailySheetSync(opts: { dryRun?: boolean; providerCodes?
       });
       return { ok: false, status: 'blocked', runId, blockReason, counts: aggregateCounts([]), notes, providers };
     }
+
+    // 제품 노드를 하나라도 쓰기 전에 이번 계획이 닿는 정확한 RTDB child 원본을 보관한다.
+    // 백업 실패 시 아래 공급사별 apply loop에는 진입하지 않는다.
+    const backup = await writeProductSyncBackup(db, companyId, runId, freshRunnable);
+    backupId = backup.run_id;
 
     const applied: ProductMasterProviderPlan[] = [];
     for (const item of freshRunnable) {
@@ -515,19 +756,24 @@ export async function runDailySheetSync(opts: { dryRun?: boolean; providerCodes?
     const blockedCount = providers.filter((item) => item.status === 'blocked').length;
     const failed = providers.filter((item) => item.status === 'failed');
     const notes = [
-      `상품마스터 ${counts.imported}대 → ERP 반영`,
+      `판매시트 ${counts.imported}대 → ERP 반영`,
       ...(blockedCount ? [`보류 공급사 ${blockedCount}곳은 상태·가격·부재처리 제외`] : []),
     ];
     if (failed.length) {
       const blockReason = `공급사별 반영 실패 ${failed.length}곳 — ${failed.map((item) => `${item.label}: ${item.blockReason}`).join(', ')}`;
-      await writeRun(db, runId, 'failed', { error: blockReason, counts, notes, providers });
-      return { ok: false, status: 'failed', runId, blockReason, counts, notes, providers };
+      await db.ref(`v4/sheet_sync_backups/${runId}/status`).set('partial');
+      await writeRun(db, runId, 'failed', { error: blockReason, backup_id: backupId, counts, notes, providers });
+      return { ok: false, status: 'failed', runId, backupId, blockReason, counts, notes, providers };
     }
-    await writeRun(db, runId, 'completed', { counts, notes, providers });
-    return { ok: true, status: 'completed', runId, counts, notes, providers };
+    await db.ref(`v4/sheet_sync_backups/${runId}/status`).set('completed');
+    await writeRun(db, runId, 'completed', { backup_id: backupId, counts, notes, providers });
+    return { ok: true, status: 'completed', runId, backupId, counts, notes, providers };
   } catch (error) {
     const message = String((error as Error)?.message || error);
-    await writeRun(db, runId, 'failed', { error: message }).catch(() => {});
-    return { ok: false, status: 'failed', runId, blockReason: message };
+    if (!opts.dryRun && backupId) {
+      await db.ref(`v4/sheet_sync_backups/${backupId}/status`).set('partial').catch(() => {});
+    }
+    if (!opts.dryRun) await writeRun(db, runId, 'failed', { error: message }).catch(() => {});
+    return { ok: false, status: 'failed', runId, backupId, blockReason: message };
   }
 }

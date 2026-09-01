@@ -1,16 +1,17 @@
 ﻿'use client';
 import { useEffect, useState } from 'react';
+import dynamic from 'next/dynamic';
 import { useParams, useRouter } from 'next/navigation';
 import { getStore, peekCached } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { seedIfEmpty } from '@/lib/seed';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { isOfferableProduct, isStockedProduct, vehicleName } from '@/lib/domain/product';
-import { Btn, BottomNav, Loading, CenterNote, C, FS, R } from '@/components/ui';
+import { Btn, BottomNav, Loading, CenterNote, Message } from '@/components/ui';
 import { ProductDetail } from '@/components/ProductDetail';
 import { SimpleInquiry } from '@/components/SimpleInquiry';
 import { ReportButton } from '@/components/ReportButton';
-import { ProductAgentPanel, ProductAgentColumn, useAgentColumn, AGENT_COL_GAP } from '@/components/ProductAgentPanel';
+import { useAgentColumn, AGENT_COL_GAP } from '@/components/product-agent-layout';
 import { getRole } from '@/lib/domain/deal';
 import { touchRecent } from '@/lib/product-interest';
 import { useAuthReady } from '@/lib/auth-context';
@@ -21,6 +22,18 @@ import { PageStatus } from '@/components/PageStatus';
 import { NAV_ICON } from '@/lib/tabbar';
 import { useContentColumn } from '@/lib/content-column';
 import { fetchSheetLiveStatuses, SHEET_LIVE_STATUS_POLL_MS } from '@/lib/firebase/sheet-live-status-client';
+
+// 가격/전달/사진 보조 패널은 상품 본문보다 늦게 떠도 된다. 상세 첫 페인트에서는
+// 가벼운 layout hook만 쓰고, 실제 영업 보조 UI는 역할·폭이 필요한 시점에 불러온다.
+const ProductAgentPanel = dynamic(() => import('@/components/ProductAgentPanel').then((m) => m.ProductAgentPanel), {
+  ssr: false,
+  loading: () => <Loading label="영업 도구를 여는 중…" />,
+});
+const ProductAgentShareActions = dynamic(() => import('@/components/ProductAgentPanel').then((m) => m.ProductAgentShareActions), { ssr: false });
+const ProductAgentColumn = dynamic(() => import('@/components/ProductAgentPanel').then((m) => m.ProductAgentColumn), {
+  ssr: false,
+  loading: () => <Loading label="영업 도구를 여는 중…" />,
+});
 
 // 매물 상세(전체화면) = ProductDetail 원자 + 하단 액션바(이전·소통·손님공유·계약).
 export default function Detail() {
@@ -56,11 +69,12 @@ export default function Detail() {
         <PageStatus
           icon={NAV_ICON.product}
           label="상품상세"
-          secondaryLabel={detailName || undefined}
+          /* 모바일 상단바엔 차명 안 붙인다 — 바로 밑 상세 머리·모델명 칸에 다 있다(사장님 2026-08-22 「상단바에는 상품모델명 빼도 돼」). */
+          secondaryLabel={!mobile ? detailName || undefined : undefined}
         />
       ),
     },
-    [detailName],
+    [detailName, mobile],
   );
 
   useEffect(() => {
@@ -151,20 +165,31 @@ export default function Detail() {
   const canUseAssist = role === 'agent' || role === 'admin' || role === 'provider';
   const assistShown = wideAgentColumn && canUseAssist;
   /**
-   * 하단독은 **검수 요청만** 남긴다(2026-08-20).
-   *
-   * 손님 전달·텍스트 복사·사진·손님 화면 미리보기는 우측 **영업자 패널**로 옮겼다. 예전엔 여기 있었는데
-   * ①`offerable`(대여료 있음)로 묶여 요금 미입력 매물에선 통째로 사라졌고 ②독이 스크롤 따라 움직여
-   * 사장님이 «전혀 구현이 안되고 있는데»라고 볼 만큼 안 잡혔다. 같은 버튼을 독과 패널에 둘 다 두면
-   * 한 동작이 화면에 두 번 있게 되므로 한쪽만 남긴다.
+   * 하단독 = 이전 + **링크 공유 하나**(+넓은 화면 영업자는 검수 요청) — 사장님 2026-08-22
+   * 「텍스트복사 빼자, 링크 공유하기 버튼만 · 바로 공유할 수 있게끔 · 웹도 링크 공유로」.
+   * 누르면 바로 OS 공유시트(카톡·문자), 없으면 링크 복사(ProductAgentShareActions).
    */
-  const dockActions = canDeal ? <ReportButton p={p} /> : undefined;
+  /**
+   * ★감싸개는 `display:contents` — 자기는 상자를 만들지 않고 자식을 독의 «직계»로 내보낸다.
+   *   독의 폭 규칙(`.fp-action-dock__actions > .fp-press[...]`)은 «직계»에만 걸리는데,
+   *   전에는 이 span 이 사이에 끼어 있어 공유 버튼이 그 규칙을 못 받고 제 글자폭만 차지했다.
+   *   그래서 「꽉 채우기」가 안 먹었다(2026-08-30).
+   */
+  const dockActions = canUseAssist ? (
+    <span style={{ display: 'contents' }}>
+      <ProductAgentShareActions p={p} />
+      {/* 검수 요청은 넓은 화면 독에만 — 모바일은 뺀다(사장님 2026-08-22 「요청보내기 버튼 없애 주고」). */}
+      {canDeal && assistShown ? <ReportButton p={p} /> : null}
+    </span>
+  ) : undefined;
 
   return (
     <>
       {/* 본문(브로슈어) + 보조 spacer. 보조 실패널은 fixed(뷰포트 고정) — 매물정보가 스크롤돼도 안 움직임.
           좁으면 칼럼이 사라지고 하단독 「계약문의」 → /chat 동선 그대로다. */}
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-start', gap: AGENT_COL_GAP, width: '100%', padding: '14px 16px 0', boxSizing: 'border-box' }}>
+      {/* 여백 공통규격(사장님 2026-08-22 「상하좌우 여백 다 맞춰야 하고 섹션칸끼리 공통규격」):
+          모바일 좌우 12 = 상단바·검색줄·목록·하단독 한 선 · 상단 12 = 섹션 사이 간격(12)과 같은 리듬. 웹은 16/14 유지. */}
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'flex-start', gap: AGENT_COL_GAP, width: '100%', padding: mobile ? '12px 12px 0' : '14px 16px 0', boxSizing: 'border-box' }}>
         {/* minWidth:0 — 없으면 본문이 안 줄어들어 보조 칼럼이 화면 밖으로 밀린다(flex 기본 min-content). */}
         {/* 본문 칼럼의 위치를 크롬에 알린다 — 상단 햄버거가 이 왼쪽 선을 따라온다. */}
         <main ref={colRef} style={{
@@ -186,9 +211,9 @@ export default function Detail() {
             : '0 0 calc(var(--fp-bar-h) + var(--fp-tabbar-h, 0px) + var(--fp-dock-safe, env(safe-area-inset-bottom)) + 20px)',
         }}>
           {!offerable ? (
-            <div role="status" style={{ marginBottom: 12, padding: '11px 14px', border: `1px solid ${C.warn}`, borderRadius: R, color: C.warn, background: C.warnBg, fontSize: FS.sub }}>
+            <Message variant="warning">
               대여료 미입력 상품입니다. 재고·차량 정보는 확인할 수 있지만 손님 안내·계약은 요금 입력 후 가능합니다.
-            </div>
+            </Message>
           ) : null}
           <ProductDetail p={p} />
           {/* 간단문의는 **딜을 진행하지 않는 사람**(손님·공급사)에게만. 영업자·관리자에게는
@@ -199,7 +224,9 @@ export default function Detail() {
               sticky bottom = 스크롤 중엔 화면 아래에 붙고, 상세 끝에 오면 거기서 멈춘다. */}
           {/* 좁은 화면: 상세 끝나는 자리에 계약진행 → 대화 순으로 쌓는다. */}
           {/* 좁은 화면 = 칼럼이 없으니 상세 끝에 그대로 쌓는다. 항목은 웹과 같다(폭만 다르다). */}
-          {!assistShown && canUseAssist ? <div style={{ marginTop: 14 }}><ProductAgentPanel p={p} /></div> : null}
+          {/* 모바일 패널: 대여료표 없이(본문 대여료 표와 중복) 경계 바+섹션표, 공유는 하단독이 갖는다(pinnedShare — 중복 금지).
+              marginTop 12 = 섹션 사이 공통 간격(사장님 2026-08-22 「섹션칸끼리 공통규격」). */}
+          {!assistShown && canUseAssist ? <div style={{ marginTop: 12 }}><ProductAgentPanel p={p} pinnedShare /></div> : null}
           {assistShown ? <BottomNav sticky gapTop={14} maxWidth={920} padX={16} backShowLabel actions={dockActions} /> : null}
         </main>
         {/* 우측은 **영업자가 보는 것만**(대여료 목록·영업 정보·전달·사진). 계약·대화는 여기 없다 —

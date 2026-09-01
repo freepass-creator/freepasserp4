@@ -13,7 +13,7 @@ export type FilterBag = {
   interest: Set<InterestKey>;
 };
 
-/** 정렬 옵션 SSOT — 툴바 드롭다운·필터패널 Select 공용. 키는 useFinderResults 정렬 switch와 일치. */
+/** 정렬 옵션 SSOT — 필터 패널 FilterChips. 키는 useFinderResults 정렬 switch와 일치. */
 export const FINDER_SORTS: { value: string; label: string }[] = [
   /** ★매물이 많은 차종부터(사장님 2026-08-20 「정렬에 인기차량순 · 매물 많은 거부터 보여주는 거지」). */
   { value: 'popular', label: '인기차량순' },

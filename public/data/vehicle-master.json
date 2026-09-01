@@ -67,7 +67,7 @@
           "trims": [
             "노블레스",
             "시그니처",
-            "X라인",
+            "X Line",
             "그래비티"
           ]
         },
@@ -82,7 +82,7 @@
           "trims": [
             "노블레스",
             "시그니처",
-            "X라인",
+            "X Line",
             "그래비티"
           ]
         },
@@ -98,7 +98,7 @@
             "프레스티지",
             "노블레스",
             "시그니처",
-            "X라인",
+            "X Line",
             "그래비티"
           ]
         },
@@ -156,7 +156,7 @@
         }
       ],
       "trims": [
-        "X라인",
+        "X Line",
         "그래비티",
         "노블레스",
         "시그니처",
@@ -734,7 +734,7 @@
             "노블레스",
             "시그니처",
             "그래비티",
-            "시그니처 X라인"
+            "시그니처 X Line"
           ]
         },
         {
@@ -764,7 +764,7 @@
             "노블레스",
             "시그니처",
             "그래비티",
-            "시그니처 X라인"
+            "시그니처 X Line"
           ]
         },
         {
@@ -779,7 +779,7 @@
             "프레스티지",
             "노블레스",
             "시그니처",
-            "시그니처 X라인"
+            "시그니처 X Line"
           ]
         },
         {
@@ -810,7 +810,7 @@
         "그래비티",
         "노블레스",
         "시그니처",
-        "시그니처 X라인",
+        "시그니처 X Line",
         "프레스티지"
       ]
     },
@@ -1661,7 +1661,7 @@
           "trims": [
             "프레스티지",
             "노블레스",
-            "GT라인"
+            "GT Line"
           ],
           "default": true
         },
@@ -1711,7 +1711,7 @@
       "trims": [
         "(세부등급 없음)",
         "GT",
-        "GT라인",
+        "GT Line",
         "노블레스",
         "노블레스 스페셜",
         "디럭스",
@@ -1938,7 +1938,7 @@
             "프레스티지",
             "노블레스",
             "시그니처",
-            "시그니처 X라인"
+            "시그니처 X Line"
           ],
           "default": true
         },
@@ -1954,7 +1954,7 @@
             "프레스티지",
             "노블레스",
             "시그니처",
-            "시그니처 X라인"
+            "시그니처 X Line"
           ]
         },
         {
@@ -1982,7 +1982,7 @@
           "trims": [
             "노블레스",
             "시그니처",
-            "시그니처 X라인"
+            "시그니처 X Line"
           ]
         },
         {
@@ -1997,14 +1997,14 @@
             "프레스티지",
             "노블레스",
             "시그니처",
-            "시그니처 X라인"
+            "시그니처 X Line"
           ]
         }
       ],
       "trims": [
         "노블레스",
         "시그니처",
-        "시그니처 X라인",
+        "시그니처 X Line",
         "프레스티지"
       ]
     },
@@ -2521,7 +2521,7 @@
             "프레스티지",
             "시그니처",
             "그래비티",
-            "시그니처 X라인"
+            "시그니처 X Line"
           ],
           "default": true
         },
@@ -2544,7 +2544,7 @@
         "라이트",
         "스탠다드",
         "시그니처",
-        "시그니처 X라인",
+        "시그니처 X Line",
         "에어",
         "트렌디",
         "프레스티지",
@@ -2594,7 +2594,7 @@
         "라이트",
         "스탠다드",
         "시그니처",
-        "시그니처 X라인",
+        "시그니처 X Line",
         "에어",
         "트렌디",
         "프레스티지",
@@ -2839,13 +2839,13 @@
             "트렌디",
             "프레스티지",
             "시그니처",
-            "GT라인"
+            "GT Line"
           ],
           "default": true
         }
       ],
       "trims": [
-        "GT라인",
+        "GT Line",
         "시그니처",
         "트렌디",
         "프레스티지"
@@ -2877,7 +2877,7 @@
         }
       ],
       "trims": [
-        "GT라인",
+        "GT Line",
         "시그니처",
         "트렌디",
         "프레스티지"
@@ -4405,12 +4405,17 @@
       "id": "mf-002.md-064.sm-sp3",
       "maker": "기아",
       "model": "셀토스",
-      "sub_model": "더 2026 셀토스 SP3",
+      "sub_model": "셀토스 SP3",
       "gen_code": "SP3",
       "origin": "국산",
       "year_start": "2026",
       "year_end": "현재",
-      "title": "기아 더 2026 셀토스 SP3",
+      "title": "기아 셀토스 SP3",
+      "aliases": [
+        "더 2026 셀토스 SP3",
+        "더 2026 셀토스",
+        "디 올 뉴 셀토스 SP3"
+      ],
       "variants": [
         {
           "label": "가솔린 1.6 2WD",
@@ -4424,7 +4429,7 @@
             "트렌디",
             "프레스티지",
             "시그니처",
-            "X라인",
+            "X Line",
             "트렌드"
           ]
         },
@@ -4440,7 +4445,7 @@
             "트렌디",
             "프레스티지",
             "시그니처",
-            "X라인"
+            "X Line"
           ]
         },
         {
@@ -4455,7 +4460,7 @@
         }
       ],
       "trims": [
-        "X라인",
+        "X Line",
         "시그니처",
         "트렌디",
         "프레스티지",
@@ -4832,9 +4837,9 @@
       "title": "기아 더 뉴 니로 SG2",
       "variants": [
         {
-          "label": "",
-          "fuel": null,
-          "displacement_l": null,
+          "label": "하이브리드 1.6",
+          "fuel": "하이브리드",
+          "displacement_l": 1.6,
           "turbo": false,
           "drivetrain": null,
           "seat": null,
@@ -4843,7 +4848,8 @@
             "트렌디",
             "프레스티지",
             "시그니처"
-          ]
+          ],
+          "default": true
         }
       ],
       "trims": [
@@ -4888,12 +4894,20 @@
       "id": "mf-002.md-061.sm-sg2__디-new-니로-sg2",
       "maker": "기아",
       "model": "니로",
-      "sub_model": "디 올 뉴 니로 SG2",
+      "sub_model": "니로 SG2",
       "gen_code": "SG2",
       "origin": "국산",
       "year_start": "2022",
       "year_end": "2025",
-      "title": "기아 디 올 뉴 니로 SG2",
+      "title": "기아 니로 SG2",
+      "aliases": [
+        "디 올 뉴 니로 SG2",
+        "디 올 뉴 니로",
+        "디 올뉴 니로",
+        "디올뉴니로",
+        "디 올 뉴 니로 EV",
+        "디올뉴니로EV"
+      ],
       "variants": [
         {
           "label": "하이브리드 1.6",
@@ -5563,7 +5577,7 @@
           "trims": [
             "에어",
             "어스",
-            "GT라인",
+            "GT Line",
             "GT"
           ]
         },
@@ -5579,14 +5593,14 @@
             "라이트",
             "에어",
             "어스",
-            "GT라인"
+            "GT Line"
           ],
           "default": true
         }
       ],
       "trims": [
         "GT",
-        "GT라인",
+        "GT Line",
         "라이트",
         "어스",
         "에어"
@@ -5615,7 +5629,7 @@
             "라이트",
             "에어",
             "어스",
-            "GT라인"
+            "GT Line"
           ]
         },
         {
@@ -5629,12 +5643,12 @@
           "trims": [
             "에어",
             "어스",
-            "GT라인"
+            "GT Line"
           ]
         }
       ],
       "trims": [
-        "GT라인",
+        "GT Line",
         "라이트",
         "어스",
         "에어"
@@ -6441,14 +6455,14 @@
           "seat": null,
           "battery_kwh": null,
           "trims": [
-            "GT라인",
+            "GT Line",
             "어스",
             "에어"
           ]
         }
       ],
       "trims": [
-        "GT라인",
+        "GT Line",
         "어스",
         "에어"
       ]
@@ -6626,7 +6640,7 @@
           "seat": 7,
           "battery_kwh": null,
           "trims": [
-            "GT라인",
+            "GT Line",
             "어스",
             "에어"
           ],
@@ -6647,7 +6661,7 @@
         }
       ],
       "trims": [
-        "GT라인",
+        "GT Line",
         "어스",
         "에어"
       ]
@@ -6873,14 +6887,14 @@
           "seat": null,
           "battery_kwh": null,
           "trims": [
-            "GT라인",
+            "GT Line",
             "어스",
             "에어"
           ]
         }
       ],
       "trims": [
-        "GT라인",
+        "GT Line",
         "어스",
         "에어"
       ]
@@ -6917,7 +6931,7 @@
           "seat": null,
           "battery_kwh": null,
           "trims": [
-            "GT라인",
+            "GT Line",
             "어스",
             "에어"
           ],
@@ -6925,7 +6939,7 @@
         }
       ],
       "trims": [
-        "GT라인",
+        "GT Line",
         "어스",
         "에어"
       ]
@@ -8836,12 +8850,19 @@
       "id": "mf-001.md-017.sm-mx5",
       "maker": "현대",
       "model": "싼타페",
-      "sub_model": "디 올 뉴 싼타페 MX5",
+      "sub_model": "싼타페 MX5",
       "gen_code": "MX5",
       "origin": "국산",
       "year_start": "2023",
       "year_end": "현재",
-      "title": "현대 디 올 뉴 싼타페 MX5",
+      "title": "현대 싼타페 MX5",
+      "aliases": [
+        "디 올 뉴 싼타페 MX5",
+        "디 올 뉴 싼타페",
+        "디 올뉴 싼타페",
+        "디올뉴싼타페",
+        "The all new 싼타페"
+      ],
       "variants": [
         {
           "label": "가솔린 2.5 2WD",
@@ -8872,7 +8893,7 @@
             "프레스티지",
             "프레스티지 플러스",
             "캘리그래피",
-            "H-Pick",
+            "H-PICK",
             "디자인플러스"
           ]
         },
@@ -8926,7 +8947,7 @@
         }
       ],
       "trims": [
-        "H-Pick",
+        "H-PICK",
         "익스클루시브",
         "캘리그래피",
         "프레스티지",
@@ -9482,6 +9503,58 @@
       ]
     },
     {
+      "id": "mf-001.md-019.sm-cn8",
+      "maker": "현대",
+      "model": "아반떼",
+      "sub_model": "아반떼 CN8",
+      "gen_code": "CN8",
+      "origin": "국산",
+      "year_start": "2026",
+      "year_end": "현재",
+      "title": "현대 아반떼 CN8",
+      "aliases": [
+        "디 올 뉴 아반떼",
+        "올 뉴 아반떼",
+        "8세대 아반떼"
+      ],
+      "variants": [
+        {
+          "label": "가솔린 2.0",
+          "fuel": "가솔린",
+          "displacement_l": 2,
+          "turbo": false,
+          "drivetrain": null,
+          "seat": null,
+          "battery_kwh": null,
+          "trims": [
+            "모던",
+            "프리미엄",
+            "인스퍼레이션"
+          ],
+          "default": true
+        },
+        {
+          "label": "하이브리드 1.6",
+          "fuel": "하이브리드",
+          "displacement_l": 1.6,
+          "turbo": false,
+          "drivetrain": null,
+          "seat": null,
+          "battery_kwh": null,
+          "trims": [
+            "모던",
+            "프리미엄",
+            "인스퍼레이션"
+          ]
+        }
+      ],
+      "trims": [
+        "모던",
+        "프리미엄",
+        "인스퍼레이션"
+      ]
+    },
+    {
       "id": "mf-001.md-019.sm-cn7",
       "maker": "현대",
       "model": "아반떼",
@@ -9489,7 +9562,7 @@
       "gen_code": "CN7",
       "origin": "국산",
       "year_start": "2023",
-      "year_end": "현재",
+      "year_end": "2026",
       "title": "현대 더 뉴 아반떼 CN7",
       "variants": [
         {
@@ -9515,10 +9588,10 @@
           "trims": [
             "스마트",
             "모던",
-            "모던 N라인",
+            "모던 N Line",
             "인스퍼레이션",
-            "인스퍼레이션 N라인",
-            "N라인"
+            "인스퍼레이션 N Line",
+            "N Line"
           ],
           "default": true
         },
@@ -9545,9 +9618,9 @@
           "trims": [
             "스마트",
             "모던",
-            "모던 N라인",
+            "모던 N Line",
             "인스퍼레이션",
-            "인스퍼레이션 N라인"
+            "인스퍼레이션 N Line"
           ]
         },
         {
@@ -9563,12 +9636,12 @@
       ],
       "trims": [
         "N",
-        "N라인",
+        "N Line",
         "모던",
-        "모던 N라인",
+        "모던 N Line",
         "스마트",
         "인스퍼레이션",
-        "인스퍼레이션 N라인"
+        "인스퍼레이션 N Line"
       ]
     },
     {
@@ -10175,6 +10248,12 @@
       "year_start": "2023",
       "year_end": "현재",
       "title": "현대 쏘나타 디 엣지 DN8",
+      "aliases": [
+        "쏘나타 DN8 디 엣지",
+        "디 엣지 쏘나타 DN8",
+        "쏘나타 디엣지 DN8",
+        "The Edge"
+      ],
       "variants": [
         {
           "label": "가솔린 2.0",
@@ -10203,7 +10282,7 @@
             "프리미엄",
             "익스클루시브",
             "인스퍼레이션",
-            "N라인"
+            "N Line"
           ],
           "default": true
         },
@@ -10230,12 +10309,12 @@
           "seat": null,
           "battery_kwh": null,
           "trims": [
-            "N라인"
+            "N Line"
           ]
         }
       ],
       "trims": [
-        "N라인",
+        "N Line",
         "S",
         "익스클루시브",
         "인스퍼레이션",
@@ -11486,7 +11565,7 @@
             "모던",
             "프리미엄",
             "인스퍼레이션",
-            "N라인 인스퍼레이션",
+            "N Line 인스퍼레이션",
             "H Pick"
           ],
           "default": true
@@ -11503,7 +11582,7 @@
             "모던",
             "프리미엄",
             "인스퍼레이션",
-            "N라인 인스퍼레이션"
+            "N Line 인스퍼레이션"
           ]
         },
         {
@@ -11544,9 +11623,9 @@
           "trims": [
             "모던",
             "프리미엄",
-            "N라인 프리미엄",
+            "N Line 프리미엄",
             "인스퍼레이션",
-            "N라인 인스퍼레이션",
+            "N Line 인스퍼레이션",
             "H Pick"
           ]
         },
@@ -11561,15 +11640,15 @@
           "trims": [
             "프리미엄",
             "인스퍼레이션",
-            "N라인 인스퍼레이션",
+            "N Line 인스퍼레이션",
             "H Pick"
           ]
         }
       ],
       "trims": [
         "H Pick",
-        "N라인 인스퍼레이션",
-        "N라인 프리미엄",
+        "N Line 인스퍼레이션",
+        "N Line 프리미엄",
         "모던",
         "인스퍼레이션",
         "프리미엄"
@@ -11597,7 +11676,7 @@
           "trims": [
             "프리미엄",
             "인스퍼레이션",
-            "N라인 인스퍼레이션"
+            "N Line 인스퍼레이션"
           ]
         },
         {
@@ -11612,7 +11691,7 @@
             "모던",
             "프리미엄",
             "인스퍼레이션",
-            "N라인 인스퍼레이션"
+            "N Line 인스퍼레이션"
           ],
           "default": true
         },
@@ -11628,7 +11707,7 @@
             "모던",
             "프리미엄",
             "인스퍼레이션",
-            "N라인 인스퍼레이션",
+            "N Line 인스퍼레이션",
             "어드벤처"
           ]
         },
@@ -11643,7 +11722,7 @@
           "trims": [
             "모던",
             "프리미엄",
-            "N라인 인스퍼레이션"
+            "N Line 인스퍼레이션"
           ]
         },
         {
@@ -11676,7 +11755,7 @@
         }
       ],
       "trims": [
-        "N라인 인스퍼레이션",
+        "N Line 인스퍼레이션",
         "모던",
         "어드벤처",
         "인스퍼레이션",
@@ -12456,12 +12535,18 @@
       "id": "mf-001.md-055.sm-sx2",
       "maker": "현대",
       "model": "코나",
-      "sub_model": "디 올 뉴 코나 SX2",
+      "sub_model": "코나 SX2",
       "gen_code": "SX2",
       "origin": "국산",
       "year_start": "2023",
       "year_end": "현재",
-      "title": "현대 디 올 뉴 코나 SX2",
+      "title": "현대 코나 SX2",
+      "aliases": [
+        "디 올 뉴 코나 SX2",
+        "디 올 뉴 코나",
+        "디 올뉴 코나",
+        "디올뉴코나"
+      ],
       "variants": [
         {
           "label": "가솔린 1.6T 2WD",
@@ -12474,9 +12559,9 @@
           "trims": [
             "모던",
             "모던 플러스",
-            "H-Pick",
+            "H-PICK",
             "프리미엄",
-            "프리미엄 N라인",
+            "프리미엄 N Line",
             "인스퍼레이션"
           ],
           "default": true
@@ -12492,9 +12577,9 @@
           "trims": [
             "모던",
             "프리미엄",
-            "프리미엄 N라인",
+            "프리미엄 N Line",
             "인스퍼레이션",
-            "인스퍼레이션 N라인"
+            "인스퍼레이션 N Line"
           ]
         },
         {
@@ -12534,11 +12619,11 @@
           "battery_kwh": null,
           "trims": [
             "모던",
-            "H-Pick",
+            "H-PICK",
             "프리미엄",
-            "프리미엄 N라인",
+            "프리미엄 N Line",
             "인스퍼레이션",
-            "인스퍼레이션 N라인"
+            "인스퍼레이션 N Line"
           ]
         },
         {
@@ -12555,13 +12640,13 @@
         }
       ],
       "trims": [
-        "H-Pick",
+        "H-PICK",
         "모던",
         "모던 플러스",
         "인스퍼레이션",
-        "인스퍼레이션 N라인",
+        "인스퍼레이션 N Line",
         "프리미엄",
-        "프리미엄 N라인"
+        "프리미엄 N Line"
       ]
     },
     {
@@ -12603,7 +12688,7 @@
           "trims": [
             "모던",
             "인스퍼레이션",
-            "N라인 인스퍼레이션"
+            "N Line 인스퍼레이션"
           ]
         },
         {
@@ -12619,7 +12704,7 @@
             "모던",
             "모던 초이스",
             "인스퍼레이션",
-            "N라인 인스퍼레이션"
+            "N Line 인스퍼레이션"
           ]
         },
         {
@@ -12640,7 +12725,7 @@
       ],
       "trims": [
         "N",
-        "N라인 인스퍼레이션",
+        "N Line 인스퍼레이션",
         "모던",
         "모던 초이스",
         "스마트",
@@ -12750,6 +12835,57 @@
         "택시형",
         "프리미엄",
         "프리미엄 스페셜"
+      ]
+    },
+    {
+      "id": "mf-001.md-062.sm-ax1e",
+      "maker": "현대",
+      "model": "캐스퍼",
+      "sub_model": "캐스퍼 일렉트릭 AX1e",
+      "gen_code": "AX1e",
+      "origin": "국산",
+      "year_start": "2024",
+      "year_end": "현재",
+      "title": "현대 캐스퍼 일렉트릭 AX1e",
+      "aliases": [
+        "캐스퍼 일렉트릭",
+        "캐스퍼 전기",
+        "CASPER Electric",
+        "캐스퍼 EV",
+        "AX1e"
+      ],
+      "variants": [
+        {
+          "label": "전기 42kWh",
+          "fuel": "전기",
+          "displacement_l": null,
+          "turbo": false,
+          "drivetrain": null,
+          "seat": 4,
+          "battery_kwh": 42,
+          "trims": [
+            "프리미엄"
+          ]
+        },
+        {
+          "label": "전기 49kWh",
+          "fuel": "전기",
+          "displacement_l": null,
+          "turbo": false,
+          "drivetrain": null,
+          "seat": 4,
+          "battery_kwh": 49,
+          "trims": [
+            "인스퍼레이션",
+            "크로스"
+          ],
+          "default": true
+        }
+      ],
+      "trims": [
+        "프리미엄",
+        "인스퍼레이션",
+        "크로스"
       ]
     },
     {
@@ -12879,20 +13015,6 @@
             "스마트",
             "스마트 초이스"
           ]
-        },
-        {
-          "label": "전기",
-          "fuel": "전기",
-          "displacement_l": null,
-          "turbo": false,
-          "drivetrain": null,
-          "seat": 4,
-          "battery_kwh": null,
-          "trims": [
-            "프리미엄",
-            "인스퍼레이션",
-            "크로스"
-          ]
         }
       ],
       "trims": [
@@ -12901,9 +13023,168 @@
         "모던",
         "스마트",
         "스마트 초이스",
-        "인스퍼레이션",
-        "크로스",
-        "프리미엄"
+        "인스퍼레이션"
+      ]
+    },
+    {
+      "id": "mf-001.md-060.sm-us4-cargo-ev",
+      "maker": "현대",
+      "model": "스타리아",
+      "sub_model": "더 뉴 스타리아 카고 US4",
+      "gen_code": "US4",
+      "origin": "국산",
+      "year_start": "2026",
+      "year_end": "현재",
+      "title": "현대 더 뉴 스타리아 카고 US4",
+      "aliases": [
+        "더 뉴 스타리아 일렉트릭 카고",
+        "스타리아 일렉트릭 카고",
+        "스타리아 카고 일렉트릭"
+      ],
+      "variants": [
+        {
+          "label": "전기 84kWh",
+          "fuel": "전기",
+          "displacement_l": null,
+          "turbo": false,
+          "drivetrain": null,
+          "seat": 3,
+          "battery_kwh": 84,
+          "trims": [
+            "카고"
+          ],
+          "default": true
+        },
+        {
+          "label": "전기 84kWh",
+          "fuel": "전기",
+          "displacement_l": null,
+          "turbo": false,
+          "drivetrain": null,
+          "seat": 5,
+          "battery_kwh": 84,
+          "trims": [
+            "카고"
+          ]
+        }
+      ],
+      "trims": [
+        "카고"
+      ]
+    },
+    {
+      "id": "mf-001.md-060.sm-us4-tourer-ev",
+      "maker": "현대",
+      "model": "스타리아",
+      "sub_model": "더 뉴 스타리아 투어러 US4",
+      "gen_code": "US4",
+      "origin": "국산",
+      "year_start": "2026",
+      "year_end": "현재",
+      "title": "현대 더 뉴 스타리아 투어러 US4",
+      "aliases": [
+        "더 뉴 스타리아 일렉트릭 투어러",
+        "스타리아 일렉트릭 투어러"
+      ],
+      "variants": [
+        {
+          "label": "전기 84kWh",
+          "fuel": "전기",
+          "displacement_l": null,
+          "turbo": false,
+          "drivetrain": null,
+          "seat": 11,
+          "battery_kwh": 84,
+          "trims": [
+            "투어러"
+          ],
+          "default": true
+        }
+      ],
+      "trims": [
+        "투어러"
+      ]
+    },
+    {
+      "id": "mf-001.md-060.sm-us4-lounge-ev",
+      "maker": "현대",
+      "model": "스타리아",
+      "sub_model": "더 뉴 스타리아 라운지 US4",
+      "gen_code": "US4",
+      "origin": "국산",
+      "year_start": "2026",
+      "year_end": "현재",
+      "title": "현대 더 뉴 스타리아 라운지 US4",
+      "aliases": [
+        "더 뉴 스타리아 일렉트릭",
+        "더 뉴 스타리아 일렉트릭 라운지",
+        "스타리아 일렉트릭",
+        "스타리아 EV",
+        "스타리아 전기",
+        "더 뉴 스타리아 EV"
+      ],
+      "variants": [
+        {
+          "label": "전기 84kWh",
+          "fuel": "전기",
+          "displacement_l": null,
+          "turbo": false,
+          "drivetrain": null,
+          "seat": 11,
+          "battery_kwh": 84,
+          "trims": [
+            "라운지"
+          ],
+          "default": true
+        },
+        {
+          "label": "전기 84kWh",
+          "fuel": "전기",
+          "displacement_l": null,
+          "turbo": false,
+          "drivetrain": null,
+          "seat": 7,
+          "battery_kwh": 84,
+          "trims": [
+            "라운지"
+          ]
+        }
+      ],
+      "trims": [
+        "라운지"
+      ]
+    },
+    {
+      "id": "mf-001.md-060.sm-us4-limo-ev",
+      "maker": "현대",
+      "model": "스타리아",
+      "sub_model": "더 뉴 스타리아 리무진 US4",
+      "gen_code": "US4",
+      "origin": "국산",
+      "year_start": "2026",
+      "year_end": "현재",
+      "title": "현대 더 뉴 스타리아 리무진 US4",
+      "aliases": [
+        "더 뉴 스타리아 일렉트릭 리무진",
+        "스타리아 일렉트릭 리무진"
+      ],
+      "variants": [
+        {
+          "label": "전기 84kWh",
+          "fuel": "전기",
+          "displacement_l": null,
+          "turbo": false,
+          "drivetrain": null,
+          "seat": 6,
+          "battery_kwh": 84,
+          "trims": [
+            "리무진"
+          ],
+          "default": true
+        }
+      ],
+      "trims": [
+        "리무진"
       ]
     },
     {
@@ -13518,6 +13799,40 @@
       ]
     },
     {
+      "id": "mf-001.md-061.sm-ne-n",
+      "maker": "현대",
+      "model": "아이오닉5",
+      "sub_model": "아이오닉5 N",
+      "gen_code": "NE",
+      "origin": "국산",
+      "year_start": "2023",
+      "year_end": "현재",
+      "title": "현대 아이오닉5 N",
+      "aliases": [
+        "아이오닉 5 N",
+        "IONIQ 5 N",
+        "아이오닉5N"
+      ],
+      "variants": [
+        {
+          "label": "전기 84kWh AWD",
+          "fuel": "전기",
+          "displacement_l": null,
+          "turbo": false,
+          "drivetrain": "AWD",
+          "seat": null,
+          "battery_kwh": 84,
+          "trims": [
+            "에센셜"
+          ],
+          "default": true
+        }
+      ],
+      "trims": [
+        "에센셜"
+      ]
+    },
+    {
       "id": "mf-001.md-061.sm-ne",
       "maker": "현대",
       "model": "아이오닉5",
@@ -13552,18 +13867,18 @@
           "battery_kwh": 84,
           "trims": [
             "익스클루시브",
-            "N라인",
+            "N Line",
             "프레스티지",
-            "프레스티지 N라인"
+            "프레스티지 N Line"
           ]
         }
       ],
       "trims": [
         "E-Value Plus",
-        "N라인",
+        "N Line",
         "익스클루시브",
         "프레스티지",
-        "프레스티지 N라인"
+        "프레스티지 N Line"
       ]
     },
     {
@@ -13576,6 +13891,10 @@
       "year_start": "2021",
       "year_end": "현재",
       "title": "현대 아이오닉5 NE",
+      "aliases": [
+        "아이오닉 5 NE",
+        "IONIQ 5 NE"
+      ],
       "variants": [
         {
           "label": "전기",
@@ -14291,7 +14610,7 @@
           "seat": null,
           "battery_kwh": null,
           "trims": [
-            "N라인",
+            "N Line",
             "스포츠",
             "스포츠 에센스 에디션",
             "스포츠 프리미엄"
@@ -14328,7 +14647,7 @@
         }
       ],
       "trims": [
-        "N라인",
+        "N Line",
         "모던",
         "스마트",
         "스타일",
@@ -14897,14 +15216,14 @@
           "seat": null,
           "battery_kwh": 84,
           "trims": [
-            "프레스티지 N라인"
+            "프레스티지 N Line"
           ]
         }
       ],
       "trims": [
         "N",
         "익스클루시브",
-        "프레스티지 N라인"
+        "프레스티지 N Line"
       ]
     },
     {
@@ -16507,6 +16826,13 @@
       "year_start": "2020",
       "year_end": "현재",
       "title": "제네시스 G80 RG3",
+      "aliases": [
+        "G80 RG3 FL",
+        "G80 부분변경 RG3",
+        "더 뉴 G80",
+        "더 뉴 G80 RG3",
+        "G80 페이스리프트"
+      ],
       "variants": [
         {
           "label": "가솔린 2.5T AWD",
@@ -16530,8 +16856,7 @@
           "seat": null,
           "battery_kwh": null,
           "trims": [
-            "(세부등급 없음)",
-            "기본형"
+            "(세부등급 없음)"
           ]
         },
         {
@@ -16574,8 +16899,7 @@
       ],
       "trims": [
         "(세부등급 없음)",
-        "런칭",
-        "기본형"
+        "런칭"
       ]
     },
     {
@@ -16758,6 +17082,12 @@
       "year_start": "2020",
       "year_end": "현재",
       "title": "제네시스 GV80 JX1",
+      "aliases": [
+        "GV80 JX1 FL",
+        "GV80 부분변경",
+        "더 뉴 GV80",
+        "더 뉴 GV80 JX1"
+      ],
       "variants": [
         {
           "label": "가솔린 2.5 AWD",
@@ -16876,6 +17206,12 @@
       "year_start": "2021",
       "year_end": "현재",
       "title": "제네시스 GV70 JK1",
+      "aliases": [
+        "GV70 JK1 FL",
+        "신형 GV70",
+        "더 뉴 GV70",
+        "더 뉴 GV70 JK1"
+      ],
       "variants": [
         {
           "label": "가솔린 2.5 2WD",
@@ -48320,6 +48656,13 @@
       "year_start": "2020",
       "year_end": "현재",
       "title": "테슬라 모델 Y",
+      "aliases": [
+        "모델 Y FL",
+        "더 뉴 모델 Y",
+        "New Model Y",
+        "Juniper",
+        "모델Y FL"
+      ],
       "variants": [
         {
           "label": "전기 AWD",
@@ -48394,6 +48737,13 @@
       "year_start": "2017",
       "year_end": "현재",
       "title": "테슬라 모델 3",
+      "aliases": [
+        "모델 3 FL",
+        "더 뉴 모델 3",
+        "Highland",
+        "New Model 3",
+        "모델3 FL"
+      ],
       "variants": [
         {
           "label": "전기 AWD",

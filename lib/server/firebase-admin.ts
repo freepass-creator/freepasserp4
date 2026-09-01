@@ -39,6 +39,18 @@ function demoEmulatorProjectId(): string {
   return projectId.startsWith('demo-') ? projectId : '';
 }
 
+/**
+ * Firebase Auth 토큰의 aud/iss 기준은 브라우저가 실제로 로그인한 ERP 프로젝트다.
+ *
+ * 로컬은 applicationDefault()를 쓰는데 Firebase Admin은 이 credential 파일의 project_id보다
+ * 셸의 GOOGLE_CLOUD_PROJECT를 먼저 본다. 다른 Google 작업을 하던 셸에서 dev 서버를 띄우면
+ * 정상 ERP 토큰까지 다른 프로젝트 토큰으로 오인해 401/403이 된다. 브라우저 공개 설정은 서버도
+ * 이미 필요로 하는 같은 프로젝트 식별자이므로, 여기서 명시해 그 우선순위 혼선을 막는다.
+ */
+function configuredFirebaseProjectId(): string {
+  return String(process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || '').trim();
+}
+
 export function firebaseAdminApp(): App {
   const existing = getApps().find((app) => app.name === APP_NAME);
   if (existing) return existing;
@@ -48,7 +60,12 @@ export function firebaseAdminApp(): App {
   // 운영 환경이 우연히 한 변수만 가진 경우에는 아래 서비스계정 검증으로 fail-closed한다.
   const emulatorProjectId = demoEmulatorProjectId();
   if (emulatorProjectId) return initializeApp({ projectId: emulatorProjectId, databaseURL }, APP_NAME);
-  return initializeApp({ credential: serverCredential(), databaseURL }, APP_NAME);
+  const projectId = configuredFirebaseProjectId();
+  return initializeApp({
+    credential: serverCredential(),
+    databaseURL,
+    ...(projectId ? { projectId } : {}),
+  }, APP_NAME);
 }
 
 export function firebaseAdminDatabase(): Database {

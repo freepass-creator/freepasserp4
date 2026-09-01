@@ -1,6 +1,6 @@
 /**
- * 국산 마스터 트림 영문 잔재 → 한글 SSOT.
- * 수집 영문은 TRIM_EN_KO로 들어오고, JSON 노드는 한글만.
+ * 국산 마스터 트림 — 등급어는 한글, 제조사 라틴 고유명은 라틴 정본.
+ * H-PICK · N Line · X Line · GT-Line. 홀로 선 N 은 고성능 라인이라 건드리지 않는다.
  */
 import fs from 'fs';
 
@@ -9,15 +9,15 @@ const raw = JSON.parse(fs.readFileSync(path, 'utf8')) as { entries?: any[] } | a
 const entries = Array.isArray(raw) ? raw : raw.entries;
 
 const REPLACERS: [RegExp, string][] = [
-  [/\bX[\s\-]*Line\b/gi, 'X라인'],
-  [/X[\s\-]*라인\s*\(\s*X\s*라인\s*\)/gi, 'X라인'],
-  [/X[\s\-]*라인\s*\(\s*X[\s\-]*Line\s*\)/gi, 'X라인'],
-  [/X[\s\-]+라인/g, 'X라인'],
-  [/\bN[\s\-]*Line\b/gi, 'N라인'],
-  [/N[\s\-]+라인/g, 'N라인'],
-  [/\bGT[\s\-]*LIne\b/gi, 'GT라인'], // typo in master
-  [/\bGT[\s\-]*LINE\b/gi, 'GT라인'],
-  [/\bGT[\s\-]*Line\b/gi, 'GT라인'],
+  [/\bH[\s\-]*Pick\b/gi, 'H-PICK'],
+  [/H[\s\-]*픽/gi, 'H-PICK'],
+  [/\bN[\s\-]*Line\b/gi, 'N Line'],
+  [/N[\s\-]*라인/g, 'N Line'],
+  [/엔\s*라인/g, 'N Line'],
+  [/\bX[\s\-]*Line\b/gi, 'X Line'],
+  [/X[\s\-]*라인/g, 'X Line'],
+  [/\bGT[\s\-]*Line\b/gi, 'GT-Line'],
+  [/GT[\s\-]*라인/g, 'GT-Line'],
 ];
 
 function fixTrim(s: string): string {

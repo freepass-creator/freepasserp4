@@ -18,15 +18,34 @@ type Allow = { reason: string; counts?: Partial<Record<string, number>>; all?: b
 
 const RAW_ALLOW = new Map<string, Allow>([
   ['app/global-error.tsx', { all: true, reason: '루트 레이아웃·globals.css까지 실패한 독립 최종 방어선' }],
-  ['app/login/page.tsx', { all: true, reason: '앱 셸 전의 인증·동의 네이티브 폼 섬' }],
+  /* app/login/page.tsx 는 2026-08-30 에 공용 원자로 갈아 raw 0 이 됐다(도면 §4 1순위).
+     원자 높이(32/40)와 충돌해 예외였던 자리인데, CTRL 에 lg(44/48)를 더해 해소했다.
+     ★다시 raw 를 쓰기 시작하면 여기 예외를 되살리지 말고 원자를 고칠 것. */
   ['app/m/page.tsx', { all: true, reason: '업무 화면이 아닌 모바일 프로모션 미리보기 섬' }],
-  ['app/sign/[token]/page.tsx', { counts: { input: 4 }, reason: '신분증·셀카·추가운전자 면허증·공급사 요청서류의 숨김 파일 선택기' }],
+  /* 손님 서명 화면은 착한거래 규격이라 ERP 원자를 «안 쓰는 게» 규격이다(docs/ESIGN-UIUX-SPEC.md).
+     raw 는 sign.css 의 .btn/.auth-opt/.sagree/.field 가 제 규격으로 입힌다 —
+     ERP 원자가 섞이지 않았는지는 check-esign-uiux 가 매번 「ERP 원자 0개」로 확인한다. */
+  ['app/sign/[token]/page.tsx', {
+    counts: { button: 14, input: 4, select: 2 },
+    reason: '착한거래 규격 화면 — 단계 버튼·숨김 파일 선택기(신분증·얼굴·추가운전자 면허증·요청서류)·선택 칸',
+  }],
+  ['components/sign/atoms.tsx', {
+    counts: { button: 2, input: 1 },
+    reason: '착한거래 «원자 파일» 자체 — SignOption·SignConsent·SignInput 의 본체(components/ui 와 같은 지위)',
+  }],
   ['components/ContractDocs.tsx', { counts: { input: 1 }, reason: '숨김 파일 선택기' }],
   ['components/ChatThread.tsx', { counts: { button: 3, input: 1, textarea: 1 }, reason: '첨부 목록 토글·사진 확대·앨범 타일·숨김 파일 선택기·브라우저 자동완성 방지 채팅 입력기' }],
   ['components/ConsultPanel.tsx', { counts: { input: 1 }, reason: '드롭존과 연결된 숨김 다중 파일 선택기' }],
   ['components/PhotoUpload.tsx', { counts: { input: 1 }, reason: '숨김 사진 선택기' }],
   ['features/inventory/InventoryEditorPanes.tsx', { counts: { input: 1 }, reason: '숨김 OCR 파일 선택기' }],
   ['app/settlement/page.tsx', { counts: { input: 1 }, reason: '숨김 정산 엑셀 선택기' }],
+  /**
+   * 우클릭 메뉴 한 장 안에서 «상세 보기»는 <a>, «ERP 상세 미연결»은 <span>, 복사 둘은 <button>이다.
+   * 셋이 .fp-sheet-view__context-action 한 클래스로 **똑같이 보여야** 하는데, Btn은 bare에서도
+   * padding·background·display를 인라인으로 덮어써 클래스를 이긴다 — 원자를 넣으면 그 줄만 어긋난다.
+   * 개수를 2로 못 박아 새 raw 컨트롤은 계속 걸리게 둔다. 갚을 빚: components/ui/ContextMenu SSOT 로 옮긴다.
+   */
+  ['features/finder/SheetView.tsx', { counts: { button: 2 }, reason: '한 클래스로 <a>·<span>과 같은 모양이어야 하는 우클릭 메뉴 항목' }],
 ]);
 
 // 기능상 native 요소가 필요한 명시 예외: 파일 선택기와 이미지 갤러리의 행/셀 버튼.
@@ -35,9 +54,7 @@ RAW_ALLOW.set('components/ConsultPanel.tsx', { counts: { input: 1 }, reason: '�
 
 const RADIUS_ISLANDS = new Set([
   'app/global-error.tsx',
-  'app/login/page.tsx',
   'app/m/page.tsx',
-  'app/sign/[token]/page.tsx',
 ]);
 
 const hits: string[] = [];
@@ -161,8 +178,11 @@ if (contractRowsReadyAt < 0 || settlementBackgroundAt < 0 || contractRowsReadyAt
   hits.push('app/contract/page.tsx: 계약 목록 표시는 정산 선조회 완료보다 먼저 처리');
 }
 // 계약서관리(/esign)는 EsignSendCenter 하나가 목록 데이터를 직접 읽는다 — 페이지에서 엔진을 복제하지 않는다.
+// 서버가 새 direct 계약을 만든 직후에는 cache health를 확인해 fresh read를 할 수 있으므로,
+// `getStore().list(...)` 한 줄 형태가 아니라 같은 store 인스턴스의 목록 read를 확인한다.
 const esignCenterSource = readFileSync(join(ROOT, 'components/EsignSendCenter.tsx'), 'utf8');
-if (!esignCenterSource.includes("getStore().list('contract', companyId)")) {
+if (!esignCenterSource.includes('const store = getStore()')
+  || !esignCenterSource.includes("store.list('contract', companyId)")) {
   hits.push('components/EsignSendCenter.tsx: 계약 목록 데이터 직접 조립 유지');
 }
 

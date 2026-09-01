@@ -102,7 +102,7 @@ export function normalizeTrim(raw: string): string {
 
 /**
  * 영문↔한글 이표기 — 비교할 때만 쓴다.
- * 「GT Line」과 「GT라인」은 같은 트림인데, 접지 않으면 결손과 «우리만»에 **양쪽 계상**된다.
+ * 「GT-Line」과 「GT라인」·「GT Line」은 같은 트림인데, 접지 않으면 결손과 «우리만»에 **양쪽 계상**된다.
  */
 const CMP_WORDS: Array<[RegExp, string]> = [
   [/line/g, '라인'], [/black/g, '블랙'], [/edition/g, '에디션'], [/special/g, '스페셜'],

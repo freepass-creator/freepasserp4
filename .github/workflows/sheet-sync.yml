@@ -10,9 +10,8 @@ name: 시트 동기화·발행
 # ⚠ 자격증명은 `GOOGLE_SA_JSON` 시크릿 하나뿐이다. 리포에 키를 커밋하지 마라.
 
 on:
-  schedule:
-    # 매일 09:10 KST (UTC 00:10) — 공급사가 아침에 손보고 난 뒤를 노린다.
-    - cron: '10 0 * * *'
+  # 정제시트를 쓰는 이전 일괄 작업은 자동 실행을 중단한다.
+  # 원본→정제는 전담 작업이, 정제→판매→천이→ERP는 sales-erp-hourly.yml이 맡는다.
   workflow_dispatch:
     inputs:
       apply:
@@ -28,7 +27,8 @@ concurrency:
 jobs:
   sync:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # run-daily 가 한 번에 도는 일이 늘었다(판매시트 3탭 + 공급사 「상품시트」 탭 + 영업채널 카드시트).
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -48,57 +48,30 @@ jobs:
           mkdir -p tmp/firebase-auth
           printf '%s' "$SA" > tmp/firebase-auth/sa.json
 
-      # ── ① 정제시트 갱신 — 자체시트(또는 홈페이지)를 쓰는 곳 전부(`lib/domain/mirror-sources.ts`)
-      #    아이카·오토플러스·이안카(시트)·아이언(ironrentcar.com). 문패는 이 네 곳 모두 정제시트를 가리킨다(2026-08-18).
-      #    30분마다는 mirror-sync.yml 이 돌고, 여기서는 발행 직전에 한 번 더 — 발행이 낡은 미러를 싣지 않게.
-      - name: 정제시트 일괄 갱신
+      # ── ① 일일 반영 한 방 — 단계를 여기 나열하지 않는다.
+      #    ★사장님 2026-08-21 「워크플로가 run-daily 하나만 부르게」.
+      #      전에는 스텝을 하나씩 적어 뒀는데, 그러면 코드에 단계가 늘어도 워크플로가 따라오지 못한다.
+      #      실제로 폐기된 「손오공인수형구독」 스텝이 남아 돌고 있었고(08-19 3탭 체제로 바뀜),
+      #      08-21 에 더한 ④″ 영업채널 카드시트는 아예 돌지 않았다. 차례의 정본은 scripts/run-daily.mts 다.
+      #    돌리는 차례: ① 정제시트 갱신(--with-mirror) → ①″ 정제칸 원문 재정렬 → ② 정제칸 채움 →
+      #      ③ 못 정한 차 결정 → ④ 판매시트 3탭 + 공급사 「상품시트」 탭 → ④″ 영업채널 카드시트 →
+      #      ⑤ 상품마스터 → ⑤′ 상품리스트 맞춤 → ⑥ 검수.
+      #    ⚠ 한 단계가 실패하면 run-daily 가 거기서 멈추고 1 로 끝난다 — 낡은 값을 다음 단계로 넘기지 않는다.
+      #      발행 가드(공급사 하나가 0대로 줄면 멈춤)에 걸리면 사람이 확인하고 --force-shrink 로 다시 돌린다.
+      - name: 일일 반영(run-daily)
         run: |
-          npx tsx scripts/sync-mirror-all.mts             ${{ (github.event_name == 'schedule' || inputs.apply) && '--apply' || '' }}
+          npx tsx scripts/run-daily.mts --with-mirror ${{ (github.event_name == 'schedule' || inputs.apply) && '--apply' || '' }}
 
-      # ── ② 새로 들어온 차의 정제칸 채우기
-      #    빈 칸에만 쓴다 — 사람이 고친 값도, 지난번에 채운 값도 안 덮는다. 그래서 매일 돌려도 안전하다.
-      #    ⚠ 이걸 안 돌리면 새 차가 정제 없이 발행돼 파워트레인·세부트림이 빈 채로 나간다.
-      - name: 정제칸 채우기
-        run: |
-          npx tsx scripts/fill-supplier-ai-columns.mts \
-            ${{ (github.event_name == 'schedule' || inputs.apply) && '--apply' || '' }}
+      - name: 일일 반영 요약
+        if: always()
+        run: cat tmp/run-daily-report.txt || echo '(요약 파일 없음 — run-daily 가 시작도 못 했다)'
 
-      # ── ②.5 상품마스터 live 칸 일일 갱신 (판매시트 발행 직전 — 같은 시각 공급사 스냅)
-      #    상태·정책·기간별 돈만. 차종코드·잠금칸·ERP 직접쓰기 금지. 기본은 워크플로 apply 플래그 따름.
-      - name: 상품마스터 live 갱신
-        run: |
-          npx tsx scripts/sync-product-master-live.mts \
-            --dump=tmp/product-master-live-dump.json \
-            ${{ (github.event_name == 'schedule' || inputs.apply) && '--apply' || '' }}
-
-      # ── ③ 영업자 시트 발행
-      #    발행기가 스스로 멈추는 자리가 있다 — 0대이거나 직전보다 20% 넘게 줄면 죽는다.
-      #    그게 여기서 «빨간 불»로 보이는 것이 이 워크플로의 값어치다.
-      - name: 상품리스트 발행
-        run: |
-          npx tsx scripts/publish-origin-tab.mts \
-            ${{ (github.event_name == 'schedule' || inputs.apply) && '--apply' || '' }}
-
-      - name: 손오공인수형구독 발행
-        run: |
-          npx tsx scripts/publish-sonogong-tab.mts \
-            ${{ (github.event_name == 'schedule' || inputs.apply) && '--apply' || '' }}
-
-      # ── ③.5 ★상품마스터 ← 상품리스트 맞춤 — 발행값이 정본. ERP 는 상품마스터를 읽으므로 이걸로 영업자 표 = ERP(사장님 2026-08-18).
-      #    상태·1·12·24·36·48·60개월 대여료·보증금만. 되읽어 0 어긋남 아니면 1 로 끝난다.
-      - name: 상품마스터 ← 상품리스트 맞춤
-        run: |
-          npx tsx scripts/sync-product-master-from-sales.mts             ${{ (github.event_name == 'schedule' || inputs.apply) && '--apply' || '' }}
-
-      # ── ④ 돈이 맞는지 본다. 어긋나면 1 로 끝나 빨간 불이 뜬다.
+      # ── ② 게이트 — run-daily 는 검수 결과를 «보여만» 준다. 여기서 다시 돌려 어긋나면 1 로 끝내고 빨간 불을 켠다.
+      #    ⚠ 상품마스터·ERP 게이트는 뺐다(사장님 2026-08-21 「상품마스터 연동 안함」).
+      #      상품마스터를 안 맞추는데 ERP 와 같은지 따지면 매번 빨간 불이 뜬다 — 그러면 빨간 불이 뜻을 잃는다.
+      #      ERP 를 다시 맞출 때는 사람이 `npx tsx scripts/run-daily.mts --with-master --apply` 로 돌린다.
       - name: 돈 대조
         run: npx tsx scripts/audit-sheet-vs-sales.mts
-
-      - name: 상품리스트 ↔ 상품마스터(→ERP) 일치 게이트
-        run: npx tsx scripts/sync-product-master-from-sales.mts --audit-only
-
-      - name: 판매시트↔ERP 정합
-        run: npx tsx scripts/audit-sales-sheet-vs-erp.mts --out=tmp/sales-sheet-vs-erp.json
 
       - name: 제공시트 양식 대조
         run: npx tsx scripts/audit-supplier-schema.mts

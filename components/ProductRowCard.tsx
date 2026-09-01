@@ -1,11 +1,11 @@
-'use client';
+﻿'use client';
 import { memo } from 'react';
 import Link from 'next/link';
 import type { CSSProperties, ReactNode } from 'react';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
-import { C, R, SH } from '@/components/ui';
+import { C, R, SH, FW } from '@/components/ui';
 import {
   CardTitle, CardSpecs, CardPerkLine, CardThumb,
   PricePeekRoot, PriceAmounts, PeriodChips, PeriodRange, OptionChips,
@@ -55,7 +55,10 @@ function PerkPeriodRow({ p }: { p: EntityRecord }) {
       gap: 8, minWidth: 0, width: '100%',
     }}>
       <div style={{ flex: '1 1 96px', minWidth: 0 }}>
-        <CardPerkLine p={p} dense={false} />
+        {/* withCredit = 「무심사」도 이 줄에 선다(모바일 행과 같은 규칙). 심사는 «지금 살 수 있나»가 아니라
+            «어떤 조건인가»라 머리가 아니라 조건 줄이 든다(사장님 2026-08-23). 전에는 웹만 꺼져 있어
+            같은 값이 폰에는 보이고 웹에는 안 보였다. */}
+        <CardPerkLine p={p} dense={false} withCredit />
       </div>
       <div style={{ flex: '2 1 168px', minWidth: 0, maxWidth: '100%' }}>
         <PeriodChips align="end" clamp />
@@ -114,26 +117,34 @@ function WebRow({ p, focusMonth }: { p: EntityRecord; focusMonth?: number }) {
 function MobileRow({ p, focusMonth }: { p: EntityRecord; focusMonth?: number }) {
   const href = `/m/${encodeURIComponent(String(p.product_code || p._key))}`;
   return (
+    /* ★밀도 = **업무용**이다(사장님 2026-08-30 「완전 B2C는 아니니까 정보가 조금 더 많이 보이는 게 좋거든 ·
+         상하 간격을 쪼끔씩 더 좁히고 · 사진은 좌우로 조금 더 줄여도」).
+         · 사진은 «있는지·어떤 모델인지»만 보이면 된다 → 68. (56 은 분간이 안 됐고, 88 은 한 화면에서
+           행 수를 잡아먹었다. 그 사이에서 멈춘다.)
+         · 좌우 12 = 상단바 여백(--fp-bar-pad-x)과 «같은 세로선». 16 이면 머리 제목과 목록 글이 어긋난다.
+         · 상하 9 · 줄사이 4 — 한 화면에 한 행이라도 더. 줄 구성(4줄)과 담는 내용은 그대로다. */
     <Link href={href} onClick={() => haptic.nav()} className="fp-card fp-card-row" style={{
-      display: 'flex', gap: 12, alignItems: 'stretch',
+      display: 'flex', gap: 10, alignItems: 'stretch',
       borderRadius: 0,
-      padding: '10px 12px',
+      padding: '9px 12px',
       borderBottom: `1px solid ${C.line2}`,
       textDecoration: 'none', color: 'inherit',
     } satisfies CSSProperties}>
       {/* 모바일 목록 = 찜 없음(썸네일 버튼은 상세에서만). 웹 가로카드는 heart 유지. */}
-      <CardThumb p={p} w={56} marks={false} />
+      <CardThumb p={p} w={68} marks={false} />
 
       <PricePeekRoot p={p} focusMonth={focusMonth} style={{
         display: 'flex',
         flexDirection: 'column',
-        gap: 5,
+        gap: 4,
         flex: '1 1 auto',
         minWidth: 0,
         alignSelf: 'stretch',
         justifyContent: 'center',
       }}>
-        <CardTitle p={p} />
+        {/* 1 차량명 = 이 행의 «머리». 금액(FW.head)과 같은 무게로 세워야 눈이 여기부터 읽는다 —
+            650 이면 바로 아래 금액이 더 굵어서 이름이 부제처럼 밀린다. */}
+        <CardTitle p={p} weight={FW.head} />
 
         {/* 2 차량번호 · 연식 */}
         <CardSpecs p={p} plateYear />
@@ -152,7 +163,7 @@ function MobileRow({ p, focusMonth }: { p: EntityRecord; focusMonth?: number }) 
         </div>
 
         {/* 4 심사기준 우선 · 우대 — 모바일 영업 스캔 순서 */}
-        <CardPerkLine p={p} inline creditFirst />
+        <CardPerkLine p={p} inline withCredit />
       </PricePeekRoot>
     </Link>
   );

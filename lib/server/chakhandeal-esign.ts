@@ -79,6 +79,12 @@ export function getChakhandealConfig(): ChakhandealConfig | null {
     'freepass-rent-standard': text(process.env.CHAKHANDEAL_RENT_TEMPLATE_ID),
     'freepass-subscription-insurance-included': text(process.env.CHAKHANDEAL_SUBSCRIPTION_INSURANCE_INCLUDED_TEMPLATE_ID),
     'freepass-subscription-insurance-separate': text(process.env.CHAKHANDEAL_SUBSCRIPTION_INSURANCE_SEPARATE_TEMPLATE_ID),
+    // 손오공 구독은 검토 양식이다. 별도 외부 템플릿과 발행 검증이 준비되기 전까지
+    // 빈 값으로 유지해 provider 설정만으로 발행되지 않게 한다.
+    'sonogong-rent-draft': '',
+    'sonogong-subscription-insurance-included': '',
+    'sonogong-subscription-insurance-separate': '',
+    'sonogong-pickup-confirmation': '',
   };
   if (!rawBase || !apiKey || !memberCompany || Object.values(templateIds).some((id) => !id)) return null;
 

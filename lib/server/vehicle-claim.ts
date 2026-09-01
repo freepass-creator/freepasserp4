@@ -4,8 +4,10 @@ import { createHash } from 'node:crypto';
 import type { Database } from 'firebase-admin/database';
 import type { ActiveBearer } from '@/lib/server/firebase-admin';
 import type { EntityRecord } from '@/lib/intake/entities';
-import { hasDepositClaim } from '@/lib/domain/contract';
+import { hasDepositClaim, hasTermFrozen, isContractCancelled } from '@/lib/domain/contract';
 import { vehicleIdentity } from '@/lib/domain/product';
+import { verifyFreepassDirectContractCompletion } from '@/lib/server/freepass-esign';
+import { contractSettlementSealMatchesContract, hasGenericAgreementPrerequisites, readContractSettlementSeal } from '@/lib/server/contract-settlement-seal';
 import {
   canTransitionVehicleClaim,
   markVehicleClaimReleasing,
@@ -32,7 +34,21 @@ function mergeMaps(legacyRaw: unknown, overlayRaw: unknown): Record<string, Enti
   const overlay = asMap(overlayRaw);
   const keys = new Set([...Object.keys(legacy), ...Object.keys(overlay)]);
   const out: Record<string, EntityRecord> = {};
-  for (const key of keys) out[key] = { ...(legacy[key] || {}), ...(overlay[key] || {}), _key: key } as EntityRecord;
+  for (const key of keys) {
+    const legacyRow = legacy[key] || {};
+    const overlayRow = overlay[key] || {};
+    const merged = { ...legacyRow, ...overlayRow, _key: key } as EntityRecord;
+    // 계약은 어느 원장 한 쪽이라도 취소·폐기면 되살리지 않는다. 단순 spread 병합이면
+    // v3 취소에 v4 "계약요청" overlay를 써서 차량 선점이 다시 열리는 문제가 생긴다.
+    if (isContractCancelled(legacyRow as EntityRecord) || isContractCancelled(overlayRow as EntityRecord)) {
+      merged.contract_status = '계약취소';
+    }
+    if (legacyRow._deleted === true || !!legacyRow.deletedAt || overlayRow._deleted === true || !!overlayRow.deletedAt) {
+      merged._deleted = true;
+      merged.deletedAt = legacyRow.deletedAt || overlayRow.deletedAt || 'tombstone';
+    }
+    out[key] = merged;
+  }
   return out;
 }
 
@@ -59,12 +75,37 @@ async function loadSnapshot(db: Database) {
   };
 }
 
-function assertTransition(actor: ActiveBearer, contract: EntityRecord, key: VehicleClaimStepKey) {
+async function assertTransition(
+  db: Database,
+  actor: ActiveBearer,
+  contract: EntityRecord,
+  contractCode: string,
+  key: VehicleClaimStepKey,
+  value: string,
+) {
   if (!canTransitionVehicleClaim(actor, contract, key)) {
     throw new VehicleClaimConflictError('이 계약의 입금 선점을 변경할 권한이 없습니다.');
   }
-  if (text(contract.contract_status) === '계약취소') {
+  if (text(contract.contract_status) === '계약취소' || contract._deleted === true || !!contract.deletedAt) {
     throw new VehicleClaimConflictError('취소된 계약은 차량을 선점할 수 없습니다.');
+  }
+  // 직접 전자계약은 고객 서명·관리자 승인·완료본 검증이 모두 끝난 뒤에만 새 선점을
+  // 만들 수 있다. 해제는 미완료 계약을 묶어두지 않도록 계속 허용한다.
+  if (value === 'yes') {
+    if (!hasTermFrozen(contract)) {
+      throw new VehicleClaimConflictError('약정에서 대여기간·월 대여료를 먼저 확정해 주세요.');
+    }
+    const completion = await verifyFreepassDirectContractCompletion({ db, contract, contractCode });
+    if (completion.required && !completion.ok) throw new VehicleClaimConflictError(completion.reason);
+    if (!completion.required) {
+      if (text(contract.provider_agreement_done) !== 'yes' || !hasGenericAgreementPrerequisites(contract)) {
+        throw new VehicleClaimConflictError('출고·서류 승인과 손님 정보가 포함된 약정작성완료를 먼저 확인해 주세요.');
+      }
+      const genericSeal = await readContractSettlementSeal(db, contractCode);
+      if (!genericSeal || genericSeal.status !== 'sealed' || !contractSettlementSealMatchesContract(genericSeal, contract)) {
+        throw new VehicleClaimConflictError('서버 정산 기준이 동결되지 않은 계약은 차량을 선점할 수 없습니다. 약정완료를 다시 진행하거나 관리자에게 확인을 요청해 주세요.');
+      }
+    }
   }
 }
 
@@ -75,7 +116,7 @@ function rivalForIdentity(
   exceptContractCode: string,
 ): string {
   for (const [code, contract] of Object.entries(contracts)) {
-    if (code === exceptContractCode || text(contract.contract_status) === '계약취소') continue;
+    if (code === exceptContractCode || text(contract.contract_status) === '계약취소' || contract._deleted === true || !!contract.deletedAt) continue;
     if (identityOf(contract, products) !== identity) continue;
     if (text(contract.contract_status) === '계약완료' || hasDepositClaim(contract)) return code;
   }
@@ -114,7 +155,7 @@ export async function transitionVehicleClaim(
   const snapshot = await loadSnapshot(db);
   const contract = snapshot.contracts[input.contractCode];
   if (!contract) throw new VehicleClaimConflictError('계약을 찾을 수 없습니다.');
-  assertTransition(actor, contract, input.key);
+  await assertTransition(db, actor, contract, input.contractCode, input.key, input.value);
 
   const productCode = text(contract.product_code);
   const product = snapshot.products[productCode];

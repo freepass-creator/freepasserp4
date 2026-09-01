@@ -1,5 +1,6 @@
 'use client';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import dynamic from 'next/dynamic';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
@@ -10,14 +11,14 @@ import { approveUser, adminSetUserActive, adminUpdateUserIdentity } from '@/lib/
 import { readAllPartnersPrivate, readAllUsersPrivate, writePartnerPrivate, writeUserPrivate } from '@/lib/domain/private-fields';
 import { newId } from '@/lib/domain/ids';
 import {
-  PaneHead, PaneBody, Btn, Badge, DetailRow, FormGrid, FormReadList, FormCard,
-  ButtonLabel, C, NUM, Loading, CenterNote, FilterChips, FilterGroup, Message, PageActions, FW, FS, ICON,
+  PaneHead, PaneBody, Btn, Badge, WorkFields, WorkModeBanner, WorkDock, WorkTable, WorkRow, workMode,
+  DetailTable, DtRow,
+  ButtonLabel, C, NUM, Loading, CenterNote, FilterChips, FilterGroup, Message, FW, FS, ICON, KV_LABEL_W,
 } from '@/components/ui';
 import { RotateCcw, UserCheck, UserRoundX } from 'lucide-react';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
 import { confirmDialog, toast } from '@/components/Toaster';
 import { haptic } from '@/lib/haptics';
-import { useIsMobile } from '@/lib/use-mobile';
 import { NAV_LABEL } from '@/lib/tabbar';
 import {
   MEMBER_ACTIVE_OPTIONS as MEM_ACTIVE,
@@ -45,11 +46,17 @@ import { businessRegistrationNumberOf, normalizeBusinessRegistrationNumber } fro
 import { parseDepositRule } from '@/lib/domain/sheet-import';
 import { isAutoplusPartner } from '@/lib/domain/sheet-autoplus';
 import { canIssueContract, partnerUsesFreepassContract } from '@/lib/domain/policy-tier';
-import { PartnerPolicyEditor } from '@/components/PartnerPolicyEditor';
 import { ESIGN_RESUME_URL } from '@/lib/domain/policy-navigation';
 import { isContractAvailableVehicle } from '@/lib/domain/esign-vehicle-selection';
 import { isStockedProduct } from '@/lib/domain/product';
 import { missingProviderContractIdentity, providerContractIdentity } from '@/lib/domain/esign-template-profile';
+
+// 회원 목록을 훑을 때는 공급사별 운영정책 편집기를 렌더·다운로드할 이유가 없다.
+// 공급사를 선택해 정책을 실제로 열었을 때만 준비해 관리자 목록 전환을 가볍게 한다.
+const PartnerPolicyEditor = dynamic(() => import('@/components/PartnerPolicyEditor').then((m) => m.PartnerPolicyEditor), {
+  ssr: false,
+  loading: () => <Loading label="운영정책을 여는 중…" />,
+});
 // 사용자·파트너 관리(관리자) — 역할·활성·영업지급율(user) / 유형·공급사수수료율(partner). 여기 율이 정산 R1/R2 SSOT.
 // status(가입승인)는 폼에서 제외 — v4 오버레이가 아니라 approveUser 로 "최상위"에 기록해야 게이트가 인식. 아래 승인 버튼 전용.
 const idFieldOf = (t: Tab) => (t === 'user' ? 'uid' : 'partner_code');
@@ -82,19 +89,12 @@ const memberBelongsToPartner = (row: EntityRecord, partnerCode: string, partners
   }));
   return candidateCodes.size === 1 && candidateCodes.has(partnerCode);
 };
-const depositRuleLabel = (value: unknown) => {
-  const rule = String(value ?? '');
-  if (rule === 'months_per_year') return '기간 1년당 월대여료 1개월치';
-  if (rule === 'rent_multiple') return '국산 2개월치 · 수입 3개월치';
-  return '미설정 · 시트 보증금만 사용';
-};
 
 export default function Members() {
   const co = getCompanyId();
   const router = useRouter();
   const searchParams = useSearchParams();
   const requestedTab: Tab = searchParams.get('tab') === 'partner' ? 'partner' : 'user';
-  const mobile = useIsMobile();
   const [ok, setOk] = useState<boolean | null>(null);
   const [tab, setTab] = useState<Tab>(requestedTab);
   const [rows, setRows] = useState<EntityRecord[]>([]);
@@ -110,6 +110,8 @@ export default function Members() {
   const [saving, setSaving] = useState(false);
   const [approveBusy, setApproveBusy] = useState(false);
   const [q, setQ] = useState('');
+  // 입력값은 즉시 보이고, 수백 건의 회원/파트너 검색·정렬만 낮은 우선순위로 보낸다.
+  const deferredQ = useDeferredValue(q);
   const [sort, setSort] = useState<MemSort | ''>('name');
   const [roleFlt, setRoleFlt] = useState<'all' | 'sales' | 'provider'>('all');
   const [activeFlt, setActiveFlt] = useState<MemActive>('all');
@@ -632,8 +634,8 @@ export default function Members() {
   };
 
   const shown = useMemo(() => filterMembers({
-    rows, tab, query: q, sort, role: roleFlt, active: activeFlt, partnerType: ptypeFlt,
-  }), [rows, tab, q, sort, roleFlt, activeFlt, ptypeFlt]);
+    rows, tab, query: deferredQ, sort, role: roleFlt, active: activeFlt, partnerType: ptypeFlt,
+  }), [rows, tab, deferredQ, sort, roleFlt, activeFlt, ptypeFlt]);
 
   const selectedPartnerCode = tab === 'partner'
     ? String(form.partner_code || form._key || '').trim()
@@ -746,23 +748,29 @@ export default function Members() {
     ? (roleGroup === 'sales' ? fieldsIn(['agent_payout_rate', 'is_team_manager']) : [])
     : fieldsIn(['fee_rate', 'sheet_url', 'sheet_tab', 'header_row', 'adapter_id', 'deposit_rule']);
   const canEdit = creating || editing;
-  const readAsRows = mobile && !canEdit;
-  const modeBanner = creating ? (
-    <Message variant="info">{tab === 'user' ? '기존 가입회원 연결' : '신규 파트너사'} — 필수 항목을 입력한 뒤 저장하세요.</Message>
-  ) : editing ? (
-    <Message variant="warning">수정 중 · 저장해야 반영됩니다</Message>
-  ) : null;
+  const mode = workMode(creating, editing);
+  const modeBanner = (
+    <WorkModeBanner
+      mode={mode}
+      create={tab === 'user' ? '기존 가입회원 연결 — 필수 항목을 입력한 뒤 저장하세요.' : '신규 파트너사 — 필수 항목을 입력한 뒤 저장하세요.'}
+    />
+  );
   const accountState = memberAccountState(form);
   const inactive = accountState === 'inactive';
   const pending = accountState === 'pending';
   // 하단바 = 편집 컨텍스트만(수정·삭제 / 취소·저장). 회원·파트너사는 서로 다른 데이터 축이다.
-  const editActions = creating || editing ? (
-    <PageActions cancel={{ onClick: cancelEdit, disabled: saving }} save={{ onClick: save, disabled: !dirty || saving, label: saving ? '저장 중…' : undefined }} />
-  ) : sel ? (
-    <PageActions
-      edit={{ onClick: startEdit }}
-      remove={tab === 'partner' ? { onClick: removeRec } : undefined}
-      extra={tab === 'user' && !pending ? (
+  const editActions = (
+    <WorkDock
+      mode={mode}
+      selected={!!sel}
+      saving={saving}
+      dirty={dirty}
+      onCancel={cancelEdit}
+      onSave={save}
+      onEdit={startEdit}
+      onRemove={tab === 'partner' ? removeRec : undefined}
+      saveLabel={saving ? '저장 중…' : undefined}
+      extra={tab === 'user' && !pending && mode === 'view' ? (
         <Btn
           size="sm"
           variant={inactive ? 'solid' : 'danger'}
@@ -773,7 +781,7 @@ export default function Members() {
         </Btn>
       ) : undefined}
     />
-  ) : null;
+  );
 
   const accessTitle = tab === 'user' ? '소속·권한' : '계약·정책';
   const operationTitle = tab === 'user' ? '영업설정' : '소속·운영';
@@ -834,96 +842,48 @@ export default function Members() {
   const memberSelectOptions = tab === 'user'
     ? { ...(roleSelectOptions || {}), company_code: affiliationOptions }
     : undefined;
-  const memberSection = (title: string | undefined, fields: Field[], hint?: string, selectOptions?: typeof memberSelectOptions) => {
+  const paneCount = creating ? '신규 입력' : editing ? '수정 중' : sel ? '조회' : undefined;
+  const memberSection = (title: string, fields: Field[], hint?: string, selectOptions?: typeof memberSelectOptions, accent: 'main' | 'sub' = 'main') => {
     if (!fields.length) return null;
-    if (readAsRows) {
-      return <FormReadList header={title} footer={hint} fields={fields} form={form} selectOptions={selectOptions} />;
-    }
     return (
-      <FormCard title={title} hint={hint}>
-        <FormGrid fields={fields} form={form} onChange={onChange} cols={2} disabled={!canEdit} selectOptions={selectOptions} />
-      </FormCard>
+      <WorkFields
+        mode={mode}
+        title={title}
+        hint={hint}
+        accent={accent}
+        fields={fields}
+        form={form}
+        onChange={onChange}
+        cols={2}
+        selectOptions={selectOptions}
+      />
     );
   };
 
-  const basicRead = tab === 'user' ? null : (
-    <>
-      <DetailRow label="상호/이름" value={strOf(form.name)} />
-      <DetailRow
-        label="유형"
-        value={(() => {
-          const type = partnerTypeLabel(form.partner_type, form.partner_code || form._key);
-          return <Badge tone={type === '공급사' ? 'blue' : type === '분류 필요' ? 'red' : 'gray'}>{type}</Badge>;
-        })()}
-      />
-      <DetailRow label="사업자번호" value={businessRegistrationNumberOf(form, 'partner')} />
-      <DetailRow label="연락처" value={strOf(form.contact)} />
-    </>
-  );
-  const contractIdentityRead = tab === 'partner' && selectedPartnerType === '공급사' ? (
-    <FormCard
-      title="계약서 회사정보"
-      hint="임대인 정보와 대여료 입금 안내에 사용하는 공급사 기준값입니다."
-    >
-      <DetailRow label="대표자" value={strOf(form.ceo)} />
-      <DetailRow label="대표번호" value={strOf(form.phone)} />
-      <DetailRow label="사업장 주소" value={strOf(form.address)} stacked={!!strOf(form.address)} />
-      <DetailRow label="대여사업 등록번호" value={strOf(form.rental_business_no)} />
-      <DetailRow label="입금계좌" value={[strOf(form.bank_name), strOf(form.bank_account), strOf(form.bank_holder)].filter(Boolean).join(' · ')} stacked />
-    </FormCard>
-  ) : null;
-
-  const accessRead = tab === 'user' ? null : (
-    <>
-      <DetailRow
-        label="프리패스 전자계약"
-        value={<Badge tone={partnerContractEnabled ? 'green' : 'gray'} variant="quiet">{partnerContractEnabled ? '사용' : '미사용'}</Badge>}
-      />
-      <DetailRow
-        label="계약서 회사정보"
-        value={<Badge tone={contractIdentityReady ? 'green' : 'red'} variant="quiet">{contractIdentityReady ? '완성' : `${missingContractIdentity.length}개 확인`}</Badge>}
-      />
-      <DetailRow label="출고가능 차량" value={`${availableVehicleCount.toLocaleString('ko-KR')}대`} />
-      <DetailRow label="계약정책" value={`${linkedPolicies.length.toLocaleString('ko-KR')}개 · 발송가능 ${contractReadyPolicyCount.toLocaleString('ko-KR')}개`} />
-    </>
-  );
-
-  const operationRead = tab === 'user'
-    ? null
-    : <>
-        <DetailRow label="소속 회원" value={`${affiliatedMembers.length.toLocaleString('ko-KR')}명`} />
-        <DetailRow label="공급사 수수료율" value={ratePct(form.fee_rate)} />
-        <DetailRow label="구글시트 URL" value={strOf(form.sheet_url)} stacked={!!strOf(form.sheet_url)} />
-        <DetailRow label="시트 gid" value={strOf(form.sheet_tab)} />
-        <DetailRow label="헤더 행" value={strOf(form.header_row)} />
-        <DetailRow label="시트 어댑터" value={strOf(form.adapter_id) || (autoplusForm ? '오토플러스식 · 자동' : '일반 · 기본')} />
-        <DetailRow label="보증금 계산규칙" value={depositRuleLabel(form.deposit_rule)} />
-      </>;
-
-  const paneHint = (text: string) => (
-    <div style={{ fontSize: FS.micro, color: C.faint, marginTop: 8 }}>{text}</div>
-  );
+  const editingPartnerPolicy = policyEditor?.mode === 'edit'
+    ? linkedPolicies.find((policy) => String(policy.policy_code || policy._key || '').trim() === policyEditor.code) ?? null
+    : null;
   const supplierContractTools = tab === 'partner' && selectedPartnerType === '공급사' && selectedPartnerCode ? (
-    <div style={{ display: 'grid', gap: 8 }}>
+    <>
       {!contractIdentityReady ? (
         <Message variant="warning">계약서 회사정보를 먼저 채워주세요: {missingContractIdentity.join(' · ')}</Message>
       ) : null}
-      {/* 공급사별 정책 — 여기서 등록·수정·삭제(사장님 2026-08-19: 정책관리는 메뉴가 아니라 파트너사관리 안). 편집 화면(/policy)은 이 공급사 스코프로 열린다. */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: 2 }}>
-        {linkedPolicies.map((policy) => {
-          const code = String(policy.policy_code || policy._key || '').trim();
-          const ready = canIssueContract(policy, form).ok;
-          const editingThis = policyEditor?.mode === 'edit' && policyEditor.code === code;
-          // 좁은 패널이라 두 줄 — 위: 이름·코드·상태, 아래: 수정·삭제(오른쪽). 한 줄에 다 넣으면 삭제가 잘린다(2026-08-19 실측).
-          return (
-            <div key={code} style={{ padding: '6px 0', borderBottom: `1px solid ${C.line}` }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <div style={{ flex: 1, minWidth: 0, fontSize: FS.body, color: C.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {String(policy.policy_name || code)} <span style={{ color: C.faint, fontSize: FS.micro }}>{code}</span>
-                </div>
+      <WorkTable
+        title={`계약정책 ${linkedPolicies.length.toLocaleString('ko-KR')}개 · 발송가능 ${contractReadyPolicyCount.toLocaleString('ko-KR')}개`}
+        hint="이 공급사의 정책을 여기서 등록·수정·삭제합니다. 시트 「운영정책」 탭 값이 들어오는 자리이고, 계약서는 이 값을 읽습니다."
+      >
+        {creating ? (
+          <WorkRow label="정책">
+            <Message variant="info">파트너사를 먼저 저장하면 정책을 등록할 수 있습니다.</Message>
+          </WorkRow>
+        ) : linkedPolicies.length ? (
+          linkedPolicies.map((policy) => {
+            const code = String(policy.policy_code || policy._key || '').trim();
+            const ready = canIssueContract(policy, form).ok;
+            const editingThis = policyEditor?.mode === 'edit' && policyEditor.code === code;
+            return (
+              <WorkRow key={code} label={String(policy.policy_name || code)}>
                 <Badge tone={ready ? 'green' : 'amber'} variant="quiet">{ready ? '발송가능' : '입력 부족'}</Badge>
-              </div>
-              <div style={{ display: 'flex', gap: 6, justifyContent: 'flex-end', marginTop: 2 }}>
                 <Btn
                   size="sm"
                   variant={editingThis ? 'solid' : 'ghost'}
@@ -933,21 +893,25 @@ export default function Members() {
                   {editingThis ? '닫기' : '수정'}
                 </Btn>
                 <Btn size="sm" variant="ghost" onClick={() => void removePartnerPolicy(policy)}>삭제</Btn>
-              </div>
-              {editingThis ? (
-                <PartnerPolicyEditor
-                  providerCode={selectedPartnerCode}
-                  providerName={partnerCompanyDisplayName(form) || selectedPartnerCode}
-                  policy={policy}
-                  onSaved={async () => { await refreshPolicies(); setPolicyEditor(null); }}
-                  onCancel={() => setPolicyEditor(null)}
-                />
-              ) : null}
-            </div>
-          );
-        })}
-      </div>
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+              </WorkRow>
+            );
+          })
+        ) : (
+          <WorkRow label="정책">
+            <Message variant="warning">연결된 계약정책이 없습니다. 정책을 추가해야 계약서를 만들 수 있습니다.</Message>
+          </WorkRow>
+        )}
+      </WorkTable>
+      {editingPartnerPolicy && !creating ? (
+        <PartnerPolicyEditor
+          providerCode={selectedPartnerCode}
+          providerName={partnerCompanyDisplayName(form) || selectedPartnerCode}
+          policy={editingPartnerPolicy}
+          onSaved={async () => { await refreshPolicies(); setPolicyEditor(null); }}
+          onCancel={() => setPolicyEditor(null)}
+        />
+      ) : null}
+      {!creating ? (
         <Btn
           size="sm"
           variant={policyEditor?.mode === 'new' ? 'ghost' : 'solid'}
@@ -956,8 +920,8 @@ export default function Members() {
         >
           {policyEditor?.mode === 'new' ? '등록 닫기' : '정책 추가'}
         </Btn>
-      </div>
-      {policyEditor?.mode === 'new' ? (
+      ) : null}
+      {policyEditor?.mode === 'new' && !creating ? (
         <PartnerPolicyEditor
           providerCode={selectedPartnerCode}
           providerName={partnerCompanyDisplayName(form) || selectedPartnerCode}
@@ -966,84 +930,94 @@ export default function Members() {
           onCancel={() => setPolicyEditor(null)}
         />
       ) : null}
-      {!linkedPolicies.length ? (
-        <Message variant="warning">연결된 계약정책이 없습니다. 정책을 추가해야 계약서를 만들 수 있습니다.</Message>
-      ) : contractReadyPolicyCount === 0 && partnerContractEnabled ? (
+      {!creating && linkedPolicies.length > 0 && contractReadyPolicyCount === 0 && partnerContractEnabled ? (
         <Message variant="warning">계약서에 필요한 값이 모두 입력된 정책이 없습니다. 정책을 열어 빈 항목을 확인하세요.</Message>
       ) : null}
-    </div>
+    </>
   ) : null;
   const affiliatedMemberTools = tab === 'partner' && selectedPartnerCode ? (
-    <FormCard
+    <WorkTable
       title={`소속 회원 ${affiliatedMembers.length.toLocaleString('ko-KR')}명`}
       hint={partnerReferenceLoadError
         ? `연결 데이터 확인 실패: ${partnerReferenceLoadError} · 삭제와 유형 변경을 잠갔습니다.`
         : `회원 ${selectedPartnerReferences.members} · 정책 ${selectedPartnerReferences.policies} · 차량 ${selectedPartnerReferences.products} · 계약 ${selectedPartnerReferences.contracts} 연결. 회원을 누르면 권한과 소속을 바로 확인할 수 있습니다.`}
     >
       {partnerReferenceLoadError ? (
-        <Message variant="warning">연결 현황을 모두 불러오지 못했습니다. 새로고침 후 다시 확인하세요.</Message>
+        <WorkRow label="연결">
+          <Message variant="warning">연결 현황을 모두 불러오지 못했습니다. 새로고침 후 다시 확인하세요.</Message>
+        </WorkRow>
       ) : null}
       {affiliatedMembers.length ? (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+        <>
           {affiliatedMembers.slice(0, 12).map((member) => {
             const uid = String(member.uid || member._key || '');
             return (
-              <Btn key={uid} size="sm" variant="ghost" onClick={() => { void openAffiliatedMember(member); }}>
-                {String(member.name || member.user_code || uid)} · {memberTypeLabel(member.role, member.company_code)}
-              </Btn>
+              <WorkRow key={uid} label={memberTypeLabel(member.role, member.company_code)}>
+                <Btn size="sm" variant="ghost" onClick={() => { void openAffiliatedMember(member); }}>
+                  {String(member.name || member.user_code || uid)}
+                </Btn>
+              </WorkRow>
             );
           })}
           {affiliatedMembers.length > 12 ? (
-            <span style={{ alignSelf: 'center', fontSize: FS.cap, color: C.faint }}>외 {affiliatedMembers.length - 12}명</span>
+            <WorkRow label="외">{`${affiliatedMembers.length - 12}명`}</WorkRow>
           ) : null}
-        </div>
+        </>
       ) : (
-        <div style={{ fontSize: FS.body, color: C.faint }}>연결된 회원이 없습니다.</div>
+        <WorkRow label="회원">연결된 회원이 없습니다.</WorkRow>
       )}
-    </FormCard>
+    </WorkTable>
   ) : null;
 
   // 4프레임 = 목록 1 + 업무 패널 3 (HANDOFF·정책/재고와 동일). 필드 그룹만 패널로 나눈다.
   const memberStatusRead = tab === 'user' && sel && !pending ? (
-    <FormCard>
-      <DetailRow
-        label="상태"
-        value={<Badge tone={inactive ? 'gray' : 'green'} variant="quiet">{inactive ? '비활성' : '활성'}</Badge>}
-      />
-    </FormCard>
+    <DetailTable title="계정" accent="sub" span={2} widths={[KV_LABEL_W, undefined]}>
+      <DtRow i={0} label="상태">
+        <Badge tone={inactive ? 'gray' : 'green'} variant="quiet">{inactive ? '비활성' : '활성'}</Badge>
+      </DtRow>
+    </DetailTable>
+  ) : null;
+  const esignReturnMsg = returnToEsign ? (
+    <Message variant="info">
+      전자계약 작성 중입니다 — 여기서 고치고 돌아가면 작성하던 내용이 그대로 이어집니다.{' '}
+      <Btn size="sm" href={ESIGN_RESUME_URL}>← 작성 중이던 전자계약으로</Btn>
+    </Message>
   ) : null;
   const basicPane = (
     <>
-      <PaneHead title="기본정보" />
+      <PaneHead title="기본정보" count={sel ? strOf(form[idFieldOf(tab)]) || paneCount : paneCount} />
       <PaneBody pad>
         {sel ? (
           <>
             {modeBanner}
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, fontSize: FS.cap, color: C.faint, marginBottom: 8 }}>
-              <span style={{ fontFamily: NUM, fontVariantNumeric: 'tabular-nums', fontWeight: FW.strong, color: C.mute }}>{strOf(form[idFieldOf(tab)])}</span>
-            </div>
+            {esignReturnMsg}
             {tab === 'user' ? (
-              memberSection(undefined, basicFields, basicHint)
-            ) : canEdit ? (
-              <div style={{ display: 'grid', gap: 14 }}>
-                <FormCard hint={basicHint}>
-                  <FormGrid fields={basicFields} form={form} onChange={onChange} cols={2} />
-                </FormCard>
-                {contractIdentityFields.length ? (
-                  <FormCard title="계약서 회사정보" hint="전자계약 사용 전 상호·대표자·사업자번호·대표번호·주소를 모두 확인하세요.">
-                    <FormGrid fields={contractIdentityFields} form={form} onChange={onChange} cols={2} />
-                  </FormCard>
-                ) : null}
-              </div>
+              memberSection('회원', basicFields, basicHint, undefined, 'main')
             ) : (
-              <div style={{ display: 'grid', gap: 14 }}>
-                <div>{basicRead}{paneHint(basicHint)}</div>
-                {contractIdentityRead}
-              </div>
+              <>
+                <WorkFields mode={mode} title="회사" hint={basicHint} accent="main" fields={basicFields} form={form} onChange={onChange} cols={2} />
+                {contractIdentityFields.length ? (
+                  <WorkFields
+                    mode={mode}
+                    title="계약서 회사정보"
+                    hint={mode === 'view'
+                      ? '임대인 정보와 대여료 입금 안내에 사용하는 공급사 기준값입니다.'
+                      : '전자계약 사용 전 상호·대표자·사업자번호·대표번호·주소를 모두 확인하세요.'}
+                    accent="main"
+                    fields={contractIdentityFields}
+                    form={form}
+                    onChange={onChange}
+                    cols={2}
+                  />
+                ) : null}
+              </>
             )}
           </>
         ) : (
-          <CenterNote>{tab === 'user' ? '회원을' : '파트너사를'} 선택하거나 신규로 추가하세요.</CenterNote>
+          <>
+            {esignReturnMsg}
+            <CenterNote>{tab === 'user' ? '회원을' : '파트너사를'} 선택하거나 신규로 추가하세요.</CenterNote>
+          </>
         )}
       </PaneBody>
     </>
@@ -1051,25 +1025,21 @@ export default function Members() {
 
   const accessPane = (
     <>
-      <PaneHead title={accessTitle} />
+      <PaneHead title={accessTitle} count={paneCount} />
       <PaneBody pad>
         {sel ? (
           tab === 'user' ? (
-            <div style={{ display: 'grid', gap: 14 }}>
+            <>
               {approveBar}
               {memberStatusRead}
-              {memberSection(undefined, accessFields, accessHint, memberSelectOptions)}
-            </div>
+              {memberSection(accessTitle, accessFields, accessHint, memberSelectOptions, 'sub')}
+            </>
           ) : (
             <>
               {selectedPartnerType !== '공급사' ? (
                 <CenterNote>계약서와 계약정책은 공급사에서만 관리합니다.</CenterNote>
-              ) : canEdit ? (
-                <FormCard hint={accessHint}>
-                  <FormGrid fields={accessFields} form={form} onChange={onChange} cols={2} />
-                </FormCard>
               ) : (
-                <>{accessRead}{paneHint(accessHint)}</>
+                <WorkFields mode={mode} title={accessTitle} hint={accessHint} accent="sub" fields={accessFields} form={form} onChange={onChange} cols={2} />
               )}
               {supplierContractTools}
             </>
@@ -1083,38 +1053,36 @@ export default function Members() {
 
   const operationPane = (
     <>
-      <PaneHead title={operationTitle} />
+      <PaneHead title={operationTitle} count={paneCount} />
       <PaneBody pad>
         {sel ? (
           tab === 'user' ? (
             operationFields.length
-              ? memberSection(undefined, operationFields, operationHint)
+              ? memberSection(operationTitle, operationFields, operationHint, undefined, 'sub')
               : <CenterNote>공급사 직원의 영업지급율은 없습니다. 데이터 범위는 소속 공급사로 정해집니다.</CenterNote>
           ) : (
             <>
-              {canEdit ? (
-                <FormCard hint={operationHint}>
-                  <FormGrid
-                    fields={operationFields}
-                    form={form}
-                    onChange={onChange}
-                    cols={2}
-                    selectOptions={{
-                      deposit_rule: [
-                        { value: '', label: '미설정 · 시트 보증금만 사용' },
-                        { value: 'months_per_year', label: '기간 1년당 월대여료 1개월치' },
-                        { value: 'rent_multiple', label: autoplusForm
-                          ? '국산 2개월치 · 수입 3개월치 · 오토플러스'
-                          : '국산 2개월치 · 수입 3개월치' },
-                      ],
-                    }}
-                  />
-                </FormCard>
-              ) : (
-                <>{operationRead}{paneHint(operationHint)}</>
-              )}
-              <div style={{ marginTop: 14 }}>{affiliatedMemberTools}</div>
-              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10 }}>
+              <WorkFields
+                  mode={mode}
+                  title={operationTitle}
+                  hint={operationHint}
+                  accent="sub"
+                  fields={operationFields}
+                  form={form}
+                  onChange={onChange}
+                  cols={2}
+                  selectOptions={{
+                    deposit_rule: [
+                      { value: '', label: '미설정 · 시트 보증금만 사용' },
+                      { value: 'months_per_year', label: '기간 1년당 월대여료 1개월치' },
+                      { value: 'rent_multiple', label: autoplusForm
+                        ? '국산 2개월치 · 수입 3개월치 · 오토플러스'
+                        : '국산 2개월치 · 수입 3개월치' },
+                    ],
+                  }}
+                />
+              {affiliatedMemberTools}
+              <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
                 <Btn title="깨진 컬럼 매핑과 헤더 서명만 초기화" size="sm" variant="ghost" onClick={resetSheetMapping} disabled={saving}>
                   <ButtonLabel icon={<RotateCcw size={ICON.md} aria-hidden />}>시트 매핑 초기화</ButtonLabel>
                 </Btn>
@@ -1129,18 +1097,18 @@ export default function Members() {
   );
 
   // ── 파트너사 4패널(사장님 2026-08-19 「목록 · 기본정보 · 운영정책 · 수수료정책 — 각 패널 규격 맞추기」)
-  //   규격: 패널 = PaneHead + PaneBody(pad), 안은 FormCard(제목·힌트) 묶음 · 읽기 = DetailRow, 편집 = 같은 카드 안 FormGrid.
-  //   카드 제목·힌트는 두 모드가 같다 — 어디에 무엇이 있는지 모드가 바뀌어도 자리가 안 바뀐다.
+  //   규격: 패널 = PaneHead + PaneBody(pad), 안은 WorkFields/WorkTable. 표가 아닌 묶음만 FormCard.
   const partnerCard = (
-    title: string, hint: string, fields: Field[], read: React.ReactNode,
-    extra?: React.ReactNode, selectOptions?: Parameters<typeof FormGrid>[0]['selectOptions'],
+    title: string, hint: string, fields: Field[],
+    extra?: ReactNode, selectOptions?: Parameters<typeof WorkFields>[0]['selectOptions'],
+    accent: 'main' | 'sub' = 'main',
   ) => (
-    <FormCard title={title} hint={hint}>
-      {canEdit && fields.length
-        ? <FormGrid fields={fields} form={form} onChange={onChange} cols={2} selectOptions={selectOptions} />
-        : read}
+    <>
+      {fields.length
+        ? <WorkFields mode={mode} title={title} hint={hint} accent={accent} fields={fields} form={form} onChange={onChange} cols={2} selectOptions={selectOptions} />
+        : null}
       {extra}
-    </FormCard>
+    </>
   );
   const partnerCompanyFields = fieldsIn(['name', 'alias', 'partner_type', 'business_number', 'corporate_registration_no', 'biz_category']);
   const partnerContactFields = fieldsIn(['contact_name', 'contact_phone', 'contact_email', 'contact'])
@@ -1150,20 +1118,16 @@ export default function Members() {
   const partnerSheetFields = fieldsIn(['sheet_url', 'website']);
   const partnerFeeFields = fieldsIn(['fee_rate']);
   const partnerIsSupplier = selectedPartnerType === '공급사';
-  const partnerTypeBadge = (() => {
-    const type = partnerTypeLabel(form.partner_type, form.partner_code || form._key);
-    return <Badge tone={type === '공급사' ? 'blue' : type === '분류 필요' ? 'red' : 'gray'}>{type}</Badge>;
-  })();
   const partnerCode = strOf(form.partner_code || form._key);
   const partnerEmpty = (what: string) => <CenterNote>목록에서 파트너사를 선택하면 {what}을 확인할 수 있습니다.</CenterNote>;
   // 모드 배너(신규/수정 중)는 첫 패널(기본정보)에만 — 세 패널에 같은 문구를 세 번 띄우지 않는다.
-  const partnerPaneBody = (children: React.ReactNode, what: string, withBanner = false) => (
+  const partnerPaneBody = (children: ReactNode, what: string, withBanner = false) => (
     <PaneBody pad>
       {sel ? (
-        <div style={{ display: 'grid', gap: 14 }}>
+        <>
           {withBanner ? modeBanner : null}
           {children}
-        </div>
+        </>
       ) : partnerEmpty(what)}
     </PaneBody>
   );
@@ -1171,39 +1135,12 @@ export default function Members() {
   // 2 기본정보 — 회사 · 담당자 · 계약서 회사정보(공급사) · 소속 회원
   const partnerBasicPane = (
     <>
-      <PaneHead title="기본정보" />
+      <PaneHead title="기본정보" count={!creating && partnerCode ? partnerCode : paneCount} />
       {partnerPaneBody((
         <>
-          {!creating && partnerCode ? (
-            <div style={{ fontFamily: NUM, fontVariantNumeric: 'tabular-nums', fontWeight: FW.strong, color: C.mute, fontSize: FS.cap }}>{partnerCode}</div>
-          ) : null}
-          {partnerCard('회사', '상호·유형·사업자등록번호 — 목록·계약서·정산의 신원 기준입니다.', partnerCompanyFields, (
-            <>
-              <DetailRow label="상호/이름" value={strOf(form.name)} />
-              <DetailRow label="별칭" value={strOf(form.alias)} />
-              <DetailRow label="유형" value={partnerTypeBadge} />
-              <DetailRow label="사업자등록번호" value={businessRegistrationNumberOf(form, 'partner')} />
-              <DetailRow label="법인등록번호" value={strOf(form.corporate_registration_no)} />
-              <DetailRow label="업태 · 종목" value={strOf(form.biz_category)} />
-            </>
-          ))}
-          {partnerCard('담당자', '프리패스가 연락할 사람 — 제공시트 「회사정보」 탭과 같은 항목입니다.', partnerContactFields, (
-            <>
-              <DetailRow label="담당자" value={strOf(form.contact_name)} />
-              <DetailRow label="담당자 연락처" value={strOf(form.contact_phone)} />
-              <DetailRow label="담당자 이메일" value={strOf(form.contact_email)} />
-              <DetailRow label="기타 연락처(메모)" value={strOf(form.contact)} />
-            </>
-          ))}
-          {partnerIsSupplier ? partnerCard('계약서 회사정보', '계약서 임대인 칸과 대여료 입금 안내에 그대로 실립니다 — 전자계약 전 모두 채우세요.', contractIdentityFields, (
-            <>
-              <DetailRow label="대표자" value={strOf(form.ceo)} />
-              <DetailRow label="대표번호" value={strOf(form.phone)} />
-              <DetailRow label="사업장 주소" value={strOf(form.address)} stacked={!!strOf(form.address)} />
-              <DetailRow label="대여사업 등록번호" value={strOf(form.rental_business_no)} />
-              <DetailRow label="입금계좌" value={[strOf(form.bank_name), strOf(form.bank_account), strOf(form.bank_holder)].filter(Boolean).join(' · ')} stacked />
-            </>
-          )) : null}
+          {partnerCard('회사', '상호·유형·사업자등록번호 — 목록·계약서·정산의 신원 기준입니다.', partnerCompanyFields)}
+          {partnerCard('담당자', '프리패스가 연락할 사람 — 제공시트 「회사정보」 탭과 같은 항목입니다.', partnerContactFields, undefined, undefined, 'sub')}
+          {partnerIsSupplier ? partnerCard('계약서 회사정보', '계약서 임대인 칸과 대여료 입금 안내에 그대로 실립니다 — 전자계약 전 모두 채우세요.', contractIdentityFields) : null}
           {affiliatedMemberTools}
         </>
       ), '회사 정보', true)}
@@ -1213,34 +1150,19 @@ export default function Members() {
   // 3 운영정책 — 전자계약 · 계약정책(등록·수정·삭제) · 재고 시트 연결. 공급사만.
   const partnerPolicyPane = (
     <>
-      <PaneHead title="운영정책" />
+      <PaneHead title="운영정책" count={paneCount} />
       {partnerPaneBody(partnerIsSupplier ? (
         <>
-          {partnerCard('전자계약', '프리패스 전자계약을 사용하는 공급사만 계약작성 회사 선택에 나옵니다.', partnerEsignFields, (
-            <>
-              <DetailRow
-                label="프리패스 전자계약"
-                value={<Badge tone={partnerContractEnabled ? 'green' : 'gray'} variant="quiet">{partnerContractEnabled ? '사용' : '미사용'}</Badge>}
-              />
-              <DetailRow
-                label="계약서 회사정보"
-                value={<Badge tone={contractIdentityReady ? 'green' : 'red'} variant="quiet">{contractIdentityReady ? '완성' : `${missingContractIdentity.length}개 확인`}</Badge>}
-              />
-              <DetailRow label="출고가능 차량" value={`${availableVehicleCount.toLocaleString('ko-KR')}대`} />
-            </>
-          ))}
-          <FormCard
-            title={`계약정책 ${linkedPolicies.length.toLocaleString('ko-KR')}개 · 발송가능 ${contractReadyPolicyCount.toLocaleString('ko-KR')}개`}
-            hint="이 공급사의 정책을 여기서 등록·수정·삭제합니다. 시트 「운영정책」 탭 값이 들어오는 자리이고, 계약서는 이 값을 읽습니다."
-          >
-            {creating ? <Message variant="info">파트너사를 먼저 저장하면 정책을 등록할 수 있습니다.</Message> : supplierContractTools}
-          </FormCard>
-          {partnerCard('시트 · 홈페이지', '공급사 재고 시트 주소와 홈페이지 주소만 적습니다. 연동(탭·헤더·어댑터)은 프리패스가 맞춥니다.', partnerSheetFields, (
-            <>
-              <DetailRow label="구글시트 URL" value={strOf(form.sheet_url)} stacked={!!strOf(form.sheet_url)} />
-              <DetailRow label="홈페이지 주소" value={strOf(form.website)} stacked={!!strOf(form.website)} />
-            </>
-          ))}
+          {partnerCard('전자계약', '프리패스 전자계약을 사용하는 공급사만 계약작성 회사 선택에 나옵니다.', partnerEsignFields, !canEdit ? (
+            <DetailTable title="상태" accent="sub" span={2} widths={[KV_LABEL_W, undefined]}>
+              <DtRow i={0} label="계약서 회사정보">
+                <Badge tone={contractIdentityReady ? 'green' : 'red'} variant="quiet">{contractIdentityReady ? '완성' : `${missingContractIdentity.length}개 확인`}</Badge>
+              </DtRow>
+              <DtRow i={1} label="출고가능 차량">{`${availableVehicleCount.toLocaleString('ko-KR')}대`}</DtRow>
+            </DetailTable>
+          ) : null, undefined, 'sub')}
+          {supplierContractTools}
+          {partnerCard('시트 · 홈페이지', '공급사 재고 시트 주소와 홈페이지 주소만 적습니다. 연동(탭·헤더·어댑터)은 프리패스가 맞춥니다.', partnerSheetFields, undefined, undefined, 'sub')}
         </>
       ) : (
         <CenterNote>운영정책(전자계약 · 계약정책 · 재고 시트)은 공급사에서만 관리합니다.</CenterNote>
@@ -1257,24 +1179,19 @@ export default function Members() {
   const channelPayoutUnset = channelPayoutRows.length - channelPayoutSet.length;
   const partnerFeePane = (
     <>
-      <PaneHead title="수수료정책" />
+      <PaneHead title="수수료정책" count={paneCount} />
       {partnerPaneBody(partnerIsSupplier ? (
-        partnerCard('공급사 수수료율', '정산 R1(공급사→프리패스) = 월대여료 × 수수료율. 계약 생성 때 동결되며, 미설정이면 기본 10%로 잡힙니다(목록 「수수료 기본」 표시).', partnerFeeFields, (
-          <>
-            <DetailRow label="공급사 수수료율" value={ratePct(form.fee_rate) || <Badge tone="amber" variant="quiet">미설정 · 기본 10%</Badge>} />
-            <DetailRow label="정산 기준" value="월대여료 × 수수료율 · 계약 생성 때 동결" stacked />
-          </>
-        ))
+        partnerCard('공급사 수수료율', '정산 R1(공급사→프리패스) = 월대여료 × 수수료율. 계약 생성 때 동결되며, 미설정이면 기본 10%로 잡힙니다(목록 「수수료 기본」 표시).', partnerFeeFields, undefined, undefined, 'sub')
       ) : (
-        <FormCard title="영업 지급율" hint="영업채널의 지급율(정산 R2)은 회원별로 정합니다 — 회원관리 › 영업설정. 여기서는 소속 영업자의 현재 값만 보입니다.">
+        <DetailTable title="영업 지급율" hint="영업채널의 지급율(정산 R2)은 회원별로 정합니다 — 회원관리 › 영업설정. 여기서는 소속 영업자의 현재 값만 보입니다." accent="sub" span={2} widths={[KV_LABEL_W, undefined]}>
           {channelPayoutRows.length ? (
             <>
-              {channelPayoutSet.slice(0, 30).map((row) => <DetailRow key={row.key} label={row.name} value={row.rate} />)}
-              {channelPayoutSet.length > 30 ? <DetailRow label="…" value={`외 ${channelPayoutSet.length - 30}명 설정됨`} /> : null}
-              {channelPayoutUnset ? <DetailRow label={channelPayoutSet.length ? '그 밖의 영업자' : '소속 영업자'} value={<Badge tone="amber" variant="quiet">{channelPayoutUnset}명 미설정 · 기본 4%</Badge>} /> : null}
+              {channelPayoutSet.slice(0, 30).map((row, i) => <DtRow key={row.key} i={i} label={row.name}>{row.rate}</DtRow>)}
+              {channelPayoutSet.length > 30 ? <DtRow i={30} label="…">{`외 ${channelPayoutSet.length - 30}명 설정됨`}</DtRow> : null}
+              {channelPayoutUnset ? <DtRow i={31} label={channelPayoutSet.length ? '그 밖의 영업자' : '소속 영업자'}><Badge tone="amber" variant="quiet">{channelPayoutUnset}명 미설정 · 기본 4%</Badge></DtRow> : null}
             </>
-          ) : <div style={{ fontSize: FS.body, color: C.faint }}>소속 영업자가 없습니다.</div>}
-        </FormCard>
+          ) : <DtRow i={0} label="소속 영업자">소속 영업자가 없습니다.</DtRow>}
+        </DetailTable>
       ), '수수료정책')}
     </>
   );
@@ -1296,28 +1213,32 @@ export default function Members() {
     : (ptypeFlt !== 'all' ? 1 : 0);
 
   return (
-    <>
-      {returnToEsign ? (
-        <div style={{ padding: '8px 12px' }}>
-          <Message variant="info">
-            전자계약 작성 중입니다 — 여기서 고치고 돌아가면 작성하던 내용이 그대로 이어집니다.{' '}
-            <Btn size="sm" href={ESIGN_RESUME_URL}>← 작성 중이던 전자계약으로</Btn>
-          </Message>
-        </div>
-      ) : null}
       <WorkPage title={tab === 'partner' ? NAV_LABEL.partners : NAV_LABEL.members} listCount={shown.length} list={listEl} panes={panes} selected={!!sel} onBack={clearSel}
         contextTitle={sel ? (creating ? (tab === 'user' ? '가입회원 연결' : '신규 파트너사') : String(form.name || form.partner_code || form.user_code || '')) : undefined}
         actions={editActions}
         listTools={{
           search: { value: q, onChange: setQ, placeholder: '이름·코드·회사·연락처·역할…' },
-          sort: { value: sort, onChange: (v) => setSort(v as MemSort | ''), options: MEM_SORTS, defaultValue: 'name' },
           filter: {
-            count: fltCount,
+            count: fltCount + (sort !== 'name' ? 1 : 0),
             title: '조건 검색',
-            onClear: () => { setRoleFlt('all'); setActiveFlt('all'); setPtypeFlt('all'); },
+            onClear: () => { setSort('name'); setRoleFlt('all'); setActiveFlt('all'); setPtypeFlt('all'); },
             body: (
               <>
-                <FilterGroup title="목록" count={0} defaultOpen first={!mobile}>
+                <FilterGroup
+                  title="정렬"
+                  count={sort !== 'name' ? 1 : 0}
+                  defaultOpen
+                  first
+                  onClear={() => setSort('name')}
+                >
+                  <FilterChips
+                    value={sort || 'name'}
+                    onChange={(value) => setSort(value)}
+                    options={MEM_SORTS.map((option) => ({ key: option.value, label: option.label }))}
+                    clearKey="name"
+                  />
+                </FilterGroup>
+                <FilterGroup title="목록" count={0} defaultOpen>
                   <FilterChips
                     value={tab}
                     onChange={(next) => { void switchTab(next as Tab); }}
@@ -1367,6 +1288,5 @@ export default function Members() {
           onClearHints: () => { setQ(''); setSort('name'); setRoleFlt('all'); setActiveFlt('all'); setPtypeFlt('all'); },
         }}
       />
-    </>
   );
 }

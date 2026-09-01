@@ -1,6 +1,6 @@
 'use client';
 import { useRef, useState } from 'react';
-import { AddTile, Btn, CloseBtn, IconBtn, C, R, FS, FW, THUMB_W, ICON } from '@/components/ui';
+import { AddTile, Btn, CloseBtn, IconBtn, CenterNote, FormCard, Message, C, R, FS, FW, THUMB_W, ICON } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
 import { toast } from '@/components/Toaster';
@@ -162,18 +162,14 @@ export function PhotoUpload({
   const fullIsInterior = fullIdx != null && !!list[fullIdx] && interior === list[fullIdx];
 
   return (
-    <div style={{ border: `1px solid ${C.line}`, borderRadius: R, background: C.taupeBg, padding: '10px 12px' }}>
-      {!hideTitle && (
-        <div style={{ fontSize: FS.sub, fontWeight: FW.title, color: C.ink, marginBottom: 7 }}>{title} <span style={{ color: C.faint, fontWeight: FW.strong }}>{list.length}</span>
-          <span style={{ fontSize: FS.micro, color: C.faint, fontWeight: FW.body, marginLeft: 6 }}>
-            {readOnly ? '· 탭=크게' : mobile ? '· 탭=크게 · 꾹=메뉴' : '· 클릭=크게 · 메뉴는 확대 화면'}
-          </span>
-        </div>
-      )}
+    <FormCard
+      title={hideTitle ? undefined : <>{title} {list.length}</>}
+      hint={hideTitle ? undefined : (readOnly ? '탭=크게' : mobile ? '탭=크게 · 꾹=메뉴' : '클릭=크게 · 메뉴는 확대 화면')}
+    >
       {list.length === 0 && (
-        <div style={{ fontSize: FS.sub, color: C.mute, marginBottom: 8, lineHeight: 1.45 }}>
-          {readOnly ? '사진 없음' : <>사진 없음 — <b style={{ color: C.brand }}>+</b> 칸을 눌러 추가하세요</>}
-        </div>
+        <CenterNote minHeight={0}>
+          {readOnly ? '사진 없음' : '사진 없음 — + 칸을 눌러 추가하세요'}
+        </CenterNote>
       )}
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'stretch' }}>
         {list.map((u, i) => {
@@ -222,7 +218,7 @@ export function PhotoUpload({
           <input ref={fileRef} type="file" accept="image/*" multiple disabled={busy} onChange={(e) => void add(e.target.files)} style={{ display: 'none' }} />
         </div> : null}
       </div>
-      <div style={{ marginTop: 6, fontSize: FS.micro, color: C.faint }}>이미지 · 3MB/장 · Storage 원본 + Drive 백업(설정 시)</div>
+      <Message variant="info">이미지 · 3MB/장 · Storage 원본 + Drive 백업(설정 시)</Message>
 
       {/* 모바일 꾹 메뉴 */}
       {!readOnly && sheet != null && sheetUrl && (
@@ -308,6 +304,6 @@ export function PhotoUpload({
           <img src={list[fullIdx]} alt="" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain', borderRadius: R }} />
         </div>
       )}
-    </div>
+    </FormCard>
   );
 }

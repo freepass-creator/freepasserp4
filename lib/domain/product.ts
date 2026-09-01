@@ -20,10 +20,18 @@ export function parseProductOptions(raw: unknown): string[] {
   return String(raw ?? '').split(/[,/]/).map((s) => s.trim()).filter(Boolean);
 }
 
-/** 외부·시트 옵션 문자열 → `,`/`/` 구분만 남기고 저장용 한 줄. (`·` `;` `|` 개행 → `,`) */
+/**
+ * 외부·시트 옵션 문자열 → `,`/`/` 구분만 남기고 저장용 한 줄. (`·` `;` `|` 개행 → `,`)
+ *
+ * ★**콤마 뒤에 공백을 넣지 않는다**(2026-08-23 — 「있는 걸 그대로 나르기」).
+ *   예전에는 `join(', ')` 이라 판매시트 「전동사이드미러,열선시트」가 ERP 에서 「전동사이드미러, 열선시트」가 됐다
+ *   (audit:passthrough 실측 143건). 값이 틀린 건 아니지만 **옮기는 길에서 글자를 바꾸는 것**이라 시트와 ERP 가 갈렸다.
+ *   보기 좋게 만드는 일은 화면이 한다 — 표시·칩·검색·상세는 전부 `parseProductOptions` 를 거치고 그쪽이 조각을 trim 한다.
+ * ⚠ 구분자 통일(`·` `;` `|` 개행 → `,`)은 그대로 둔다. 그건 표기 가공이 아니라 «구분자를 하나로»다.
+ */
 export function normalizeProductOptionsText(raw: unknown): string {
   const cleaned = String(raw ?? '').replace(/[·;|｜\n\r]+/g, ',');
-  return parseProductOptions(cleaned).join(', ');
+  return parseProductOptions(cleaned).join(',');
 }
 
 /** 상품구분 캐논 — 재렌트→중고렌트 · 재구독→중고구독. 필터·뱃지·매칭 SSOT. */
@@ -299,6 +307,115 @@ export function acquisitionPriceList(p: EntityRecord): Price[] {
 /** 인수형(만기 인수) 상품이 붙은 매물 — 라인업 칩·필터 축(가상 상품구분 값)에서 쓴다. */
 export function hasAcquisitionPlan(p: EntityRecord): boolean { return acquisitionPriceList(p).length > 0; }
 
+/**
+ * **주행거리별 대여료** — `price[「N_M만」]` 을 그대로 뽑는다(오토플러스 12개월3만·24개월2만 …).
+ *
+ * ★왜(사장님 2026-08-23 「입력할 때 기간에 입력하는데 그때 **주행거리 정해서 넣고 싶으면 그렇게 넣게** 하고
+ *   **ERP 에 표시해 주는 거지 상세페이지에**」)
+ *   위 `priceList` 는 주행거리 변형을 **기간별 하나로 접는다**(2만 우선). 표준 표가 두 줄로 갈리면
+ *   «얼마인가»에 답이 둘이 되기 때문이다. 그래서 3만km 요금이 화면에서 통째로 사라졌다 —
+ *   실측 2026-08-23: 오토플러스 79대가 12_3만·18_3만·24_3만·36_2만 … 을 갖고도 상세에 안 보였다.
+ *   접는 것은 그대로 두고, **여기서 원본을 따로 꺼내 상세에 보여 준다**(인수형과 같은 방식).
+ *
+ * ⚠ 공급사가 주행거리를 안 적으면 이 표는 빈다 — 그때 주행 약정은 **정책값**이 든다(계약조건 「주행 약정」).
+ */
+export type PricePlan = {
+  /** 기간(개월) */
+  m: number;
+  /** 이 요금의 조건 — 「연 3만km」·「만기인수」처럼 **기간마다 다른 것**만. 없으면 빈 문자열. */
+  condition: string;
+  rent: number;
+  deposit: number;
+  /** 표준(반납형)인가 — 최저가 표시는 표준만 대상으로 한다. */
+  standard: boolean;
+  /**
+   * 만기 **인수형**인가 — 화면에서 반납형과 갈라 세우는 근거(사장님 2026-08-28
+   * 「반납형 기본하고 인수형 정보가 있으면 구분해서 써주기로 했잖아 · 구분되게」).
+   * ⚠ 조건 **글자**(「만기인수」)로 판정하지 않는다 — 표기가 바뀌면 갈래가 통째로 무너진다.
+   */
+  acquisition: boolean;
+};
+
+/**
+ * **기간 × 조건 × 대여료 × 보증금** — 상세 대여료 표가 쓰는 한 장짜리 목록.
+ *
+ * ★왜(사장님 2026-08-23 「ERP 표에 기간 대여료 보증금만 있는데 · **기간 조건 대여료 보증금**,
+ *   조건에 만 26세 이상·연간 3만km 약정 이런 식으로 당겨와서 기간별 표시해 주면 어때?
+ *   그럼 오플 거도 무난하게 담고 직관적이고 좋을 거 같은데」)
+ *
+ *   전에는 표를 셋으로 갈랐다 — 표준(`priceList`, 기간별 하나로 접음) · 주행거리별 · 인수형.
+ *   접는 바람에 오플 3만km 요금이 화면에서 사라졌고, 갈라 놓으니 «같은 차의 요금»이 세 군데 흩어졌다.
+ *   **조건을 한 열로 세우면** 접을 이유가 없다 — 같은 기간에 조건이 둘이면 두 줄로 서면 그만이다.
+ *
+ * ⚠ 위생 규칙은 `priceList` 와 같다(대여료 10만~2천만 · 운영 기간만).
+ * ⚠ 연령·보험처럼 **모든 줄에 같은 조건**은 여기 안 넣는다 — 표 아래 한 줄로 붙인다(같은 말 반복 금지).
+ */
+const planCache = new WeakMap<object, PricePlan[]>();
+export function pricePlanList(p: EntityRecord): PricePlan[] {
+  const cached = planCache.get(p as object);
+  if (cached) return cached;
+  const price = (p.price || {}) as Record<string, { rent?: number; deposit?: number }>;
+  const pol = (p._policy || {}) as Record<string, unknown>;
+  /** 공급사가 요금에 주행거리를 안 붙였으면 정책 약정이 그 조건이다(없으면 조건 없음 — 지어내지 않는다). */
+  const policyMileage = String(pol.annual_mileage ?? '').trim();
+  /**
+   * ★**조건 칸에 보험까지 적는다**(사장님 2026-08-28 「보험료 포함 여부 주행거리 이런 거 조건에 표시해 줘야지」).
+   *   보험 포함 여부는 «이 값에 무엇이 들어 있나»라 대여료를 비교할 때 주행 약정과 같은 무게다.
+   *   그동안 표 아래 「기준」 한 줄에만 있어서, 기간별로 훑는 눈에는 안 들어왔다.
+   *   판정은 전자계약과 같은 규칙(`/별도|개인/`)을 쓴다 — 두 곳이 갈리면 화면과 계약서가 어긋난다.
+   */
+  const insLabel = (() => {
+    const raw = String(pol.insurance_included ?? '').trim();
+    if (!raw) return '';
+    return /별도|개인|고객직접/.test(raw) ? '보험 별도' : '보험 포함';
+  })();
+  const out: PricePlan[] = [];
+  for (const [k, v] of Object.entries(price)) {
+    const rawRent = num(v?.rent); if (rawRent <= 0) continue;
+    const { rent, deposit } = normalizeWonPair(rawRent, v?.deposit);
+    if (rent < 100_000 || rent > 20_000_000) continue;
+    const bar = k.indexOf('_');
+    const m = Number(bar >= 0 ? k.slice(0, bar) : k);
+    if (!isOperatedPeriod(m)) continue;
+    const variant = bar >= 0 ? k.slice(bar + 1) : '';
+    const km = /^[1-9]\d*만$/.test(variant) ? `연 ${variant}km` : '';
+    /*
+     * 인수형도 조건은 **다른 줄과 똑같이** 주행·보험을 적는다.
+     * 예전엔 조건 칸에 「만기인수」라고 적었는데, 이제 표에서 **갈래 줄**이 그 말을 하므로
+     * 같은 말을 두 번 하게 된다(사장님 2026-08-28 「반납형은 그냥 기존과 동일하게 하고
+     * 인수형만 표현하면 되고」).
+     */
+    const condition = [km || policyMileage, insLabel].filter(Boolean).join(' · ');
+    out.push({ m, condition, rent, deposit, standard: !variant || !!km, acquisition: variant === ACQUISITION_VARIANT });
+  }
+  // 기간 오름차순 → 같은 기간이면 싼 것 먼저(조건이 헐한 쪽이 위로).
+  out.sort((a, b) => a.m - b.m || a.rent - b.rent);
+  planCache.set(p as object, out);
+  return out;
+}
+
+const mileageCache = new WeakMap<object, { m: number; mileage: string; rent: number; deposit: number }[]>();
+export function mileagePriceList(p: EntityRecord): { m: number; mileage: string; rent: number; deposit: number }[] {
+  const cached = mileageCache.get(p as object);
+  if (cached) return cached;
+  const price = (p.price || {}) as Record<string, { rent?: number; deposit?: number }>;
+  const out: { m: number; mileage: string; rent: number; deposit: number }[] = [];
+  for (const [k, v] of Object.entries(price)) {
+    const hit = /^(\d+)_([1-9]\d*만)$/.exec(k);
+    if (!hit) continue;
+    const rawRent = num(v?.rent); if (rawRent <= 0) continue;
+    const { rent, deposit } = normalizeWonPair(rawRent, v?.deposit);
+    if (rent < 100_000 || rent > 20_000_000) continue;
+    const months = Number(hit[1]);
+    if (!isOperatedPeriod(months)) continue;
+    out.push({ m: months, mileage: hit[2], rent, deposit });
+  }
+  // 기간 오름차순 → 같은 기간이면 주행거리 오름차순(2만 → 3만).
+  out.sort((a, b) => a.m - b.m || Number(a.mileage.replace('만', '')) - Number(b.mileage.replace('만', '')));
+  mileageCache.set(p as object, out);
+  return out;
+}
+
 /** 선택 기간의 가격 (없으면 가장 가까운 기간) */
 export function priceAt(p: EntityRecord, target: number): Price | null {
   const l = priceList(p);
@@ -381,9 +498,26 @@ export function shortExperience(p: EntityRecord): boolean {
  */
 export type ProductSignal = { key: string; label: string; kind: 'program' | 'status' | 'trust' | 'benefit' | 'event' | 'spec' };
 
-export function benefitSignals(p: EntityRecord): ProductSignal[] {
+export function benefitSignals(p: EntityRecord, opts?: { withCredit?: boolean }): ProductSignal[] {
   // 비필수 혜택 — 상세카드 좌하단. 분납·무보증·연령·경력·무사고.
   const out: ProductSignal[] = [];
+  /**
+   * ★**심사조건은 우대조건 줄 맨 앞**(사장님 2026-08-28 「목록 카드에 아래 분납가능 21세 ·
+   *   이 맨 앞에 심사조건 넣자고」 — 목록 카드와 상품 간단보기 둘 다).
+   *
+   *   목록을 훑는 사람이 제일 먼저 거르는 값이 「살 수 있는 손님인가」다. 무심사냐 소득확인이냐에
+   *   따라 아예 못 파는 손님이 갈리는데, 분납·연령보다 뒤에 있으면 안 된다.
+   *
+   *   ⚠ **뱃지가 아니다.** 우대조건 줄은 아이콘+글자다(사장님 2026-08-20 「우대조건은 아이콘+텍스트지」).
+   *     한 번 이걸 카드 «뱃지»로 읽고 목록 뱃지 줄을 건드렸다가 배열을 흔들어 되돌렸다(08-28).
+   *
+   *   ⚠ **옵션인 이유** — 상세 머리에서도 같은 줄(CardBenefits)을 쓰는데, 거기엔 아래 「계약조건」
+   *     섹션이 이미 「심사」 줄을 들고 있다. 기본으로 켜면 한 화면에 같은 값이 두 번 선다.
+   */
+  if (opts?.withCredit) {
+    const credit = creditDisplay(p);
+    if (credit) out.push({ key: 'cd', label: credit, kind: 'benefit' });
+  }
   if (installmentOk(p)) out.push({ key: 'ins', label: '분납가능', kind: 'benefit' });
   if (noDeposit(p)) out.push({ key: 'nd', label: '무보증', kind: 'benefit' });
   const age = minAge(p);
@@ -501,7 +635,7 @@ export function hasMinimumListingFields(p: EntityRecord): boolean {
 /**
  * **목록에 실을 수 있는 상품** — 상품찾기·카탈로그·최근·관심.
  *
- * = 재고 전체매물 − 출고불가(·삭제). 차번·대여료 없어도 목록에 올린다(2026-08-07 사장님).
+ * = 재고 전체매물 − 출고불가(·삭제). 차번·대여료 없어도 목록에 올린다(2026-08-28 사장님).
  * 차종 검수 대기(`_needs_master_review`)도 빼지 않는다 — 미확정은 «표시»로 알린다.
  *
  * ★단건(공유 링크 `/q`, 상세 `/m`)은 `isOfferableProduct` 가 따로 판단한다 —
@@ -580,7 +714,15 @@ export function agentContractRows(p: EntityRecord, audience: Audience = 'agent')
   const pol = policyOf(p);
   const rec = p as Record<string, unknown>;
   const s = (k: string) => { const v = pol[k] ?? rec[k]; return v == null ? '' : String(v); };
-  const g = (a: unknown[]) => a.filter(Boolean).join(' · ');
+  /**
+   * 조각을 이어 붙인다 — **같은 값은 한 번만**.
+   *
+   * 예전엔 중복을 안 걸러서 한 칸에 같은 글자가 두 번 찍혔다(실측 2026-08-28):
+   *   상품 = RP014_188호3065 · RP014_188호3065   (product_code 와 _key 가 같은 값)
+   *   정책 = 무심사 · 무심사                      (policy_name 과 policy_type 이 같은 말)
+   * 두 칸을 이어 붙이는 자리는 «둘이 다를 수도 있다»는 뜻이지 «둘 다 찍는다»는 뜻이 아니다.
+   */
+  const g = (a: unknown[]) => [...new Set(a.filter(Boolean).map((x) => String(x).trim()).filter(Boolean))].join(' · ');
   // 제출서류 = 시트 체크 6 + 기타. 「무슨 서류 필요해요?」에 영업자가 바로 답해야 한다.
   const docs = policyEsignRequiredDocuments(pol).map((d) => d.label).join(' · ');
   /**
@@ -613,7 +755,19 @@ export function agentContractRows(p: EntityRecord, audience: Audience = 'agent')
  */
 export type DetailTier = 'main' | 'sub' | 'agent';
 export type DetailSection =
-  | { title: string; hint?: string; tier?: DetailTier; kind: 'kv'; rows: KvRow[]; chips?: string[]; chipsLabel?: string; chipsAfter?: number }
+  | {
+      title: string; hint?: string; tier?: DetailTier; kind: 'kv'; rows: KvRow[];
+      chips?: string[]; chipsLabel?: string; chipsAfter?: number;
+      /**
+       * **짝지어 흐르는 격자**(웹 2열). 값이 짧고 서로 대등해 «비교»가 아니라 «훑기»인 섹션만.
+       *
+       * 섹션의 성격은 장식이 아니라 «값이 어떻게 행동하는가»에서 나온다(사장님 2026-08-20
+       * 「차량스펙만의 느낌, 대여료만의 느낌이 있어야」). 차량스펙은 값이 한 낱말이라 두 열로 흘려도
+       * 읽히지만, 계약조건은 값이 문장이라 두 열로 쪼개면 줄이 접혀 오히려 못 읽는다.
+       * 그래서 2열/1열 차이는 취향이 아니라 값 길이가 정한다 — 규격을 어겨도 어색하지 않은 이유다.
+       */
+      pair?: boolean;
+    }
   | { title: string; hint?: string; tier?: DetailTier; kind: 'ins'; rows: InsRow[]; note?: string }
   | { title: string; hint?: string; tier?: DetailTier; kind: 'price' }
   | { title: string; hint?: string; tier?: DetailTier; kind: 'chips'; items: string[] };
@@ -643,7 +797,15 @@ export function agentPanelRows(p: EntityRecord, audience: Audience = 'agent'): K
   const rec = p as Record<string, unknown>;
   const pv = (k: string) => { const v = rec[k]; return v == null ? '' : String(v); };
   const s = (k: string) => { const v = pol[k] ?? rec[k]; return v == null ? '' : String(v); };
-  const g = (a: unknown[]) => a.filter(Boolean).join(' · ');
+  /**
+   * 조각을 이어 붙인다 — **같은 값은 한 번만**.
+   *
+   * 예전엔 중복을 안 걸러서 한 칸에 같은 글자가 두 번 찍혔다(실측 2026-08-28):
+   *   상품 = RP014_188호3065 · RP014_188호3065   (product_code 와 _key 가 같은 값)
+   *   정책 = 무심사 · 무심사                      (policy_name 과 policy_type 이 같은 말)
+   * 두 칸을 이어 붙이는 자리는 «둘이 다를 수도 있다»는 뜻이지 «둘 다 찍는다»는 뜻이 아니다.
+   */
+  const g = (a: unknown[]) => [...new Set(a.filter(Boolean).map((x) => String(x).trim()).filter(Boolean))].join(' · ');
   const raw = (k: string) => pol[k] ?? rec[k];
   /**
    * 정액·정률 겸용 칸이라 **그대로 찍으면 안 된다** — 같은 뜻이 「30%」·「0.3」·「200원」·200 으로 섞여 들어온다.
@@ -668,8 +830,13 @@ export function agentPanelRows(p: EntityRecord, audience: Audience = 'agent'): K
     // 계약이 «안 되는» 조건 — 상담 초반에 손님을 거르는 값이라 심사 바로 뒤에 둔다.
     //  시트의 불가조건 1~4 는 `policy-sheet-to-erp` 가 「·」로 이어 한 칸으로 만든다.
     ['불가조건', s('disqualification_conditions')],
+    /* 1인당 계약 대수 — 불가조건 바로 뒤. 「이 사람에게 팔 수 있나」를 가르는 값이라 상담 초반에 본다.
+       불가조건과 다른 자리다: 불가조건은 처음부터 안 되는 것이고, 이건 «첫 대는 되고 둘째 대가 막히는» 것이다. */
+    ['1인당 계약 대수', s('contracts_per_customer_limit')],
     ['영업 특이사항', s('sales_notes')],
     ['보증금 분납', s('deposit_installment')],
+    // ★두 칸 다 「불가」 아니면 수수료율이 적힌다(2026-08-21) — 값을 그대로 보인다.
+    ['대여료 카드결제', s('rental_card_payment')],
     ['보증금 카드결제', s('deposit_card_payment')],
     // 요율 두 칸이 비면 상담 표기(penalty_condition)로 물러선다 — 빈 줄보다 낫다.
     ['중도해지 위약금', rates ? `${rates} · 잔여 대여료 기준` : s('penalty_condition')],
@@ -694,17 +861,59 @@ export function detailSections(p: EntityRecord, audience: Audience = 'agent'): D
   const pv = (k: string) => { const v = rec[k]; return v == null ? '' : String(v); };
   const s = (k: string) => { const v = pol[k] ?? rec[k]; return v == null ? '' : String(v); }; // 정책 우선 → 매물 폴백
 
-  const g = (a: unknown[]) => a.filter(Boolean).join(' · ');
+  /**
+   * 조각을 이어 붙인다 — **같은 값은 한 번만**.
+   *
+   * 예전엔 중복을 안 걸러서 한 칸에 같은 글자가 두 번 찍혔다(실측 2026-08-28):
+   *   상품 = RP014_188호3065 · RP014_188호3065   (product_code 와 _key 가 같은 값)
+   *   정책 = 무심사 · 무심사                      (policy_name 과 policy_type 이 같은 말)
+   * 두 칸을 이어 붙이는 자리는 «둘이 다를 수도 있다»는 뜻이지 «둘 다 찍는다»는 뜻이 아니다.
+   */
+  const g = (a: unknown[]) => [...new Set(a.filter(Boolean).map((x) => String(x).trim()).filter(Boolean))].join(' · ');
   // 묶음 슬롯 = 빠진 칸도 `-`로 자리 유지(동력·분류처럼 같이 쓰는 축).
   const gSlots = (parts: (string | number | false | null | undefined)[]) =>
     parts.map((x) => (x != null && x !== '' && x !== false ? String(x) : '미입력')).join(' · ');
+  /**
+   * 배기량 자리 — **전기차는 배터리 용량이 그 자리를 든다**(사장님 2026-08-23 「배터리용량 등등 쓸 수 있는 거 쭈욱」).
+   * 전기차에 `engine_cc` 가 비는 것은 정상이라 그동안 이 칸이 늘 「미입력」이었다.
+   * 둘 다 없을 때만 미입력 — 「있는 것만 쓴다」.
+   */
   const ccLabel = (() => {
+    const kwh = Number(p.battery_capacity) || 0;
+    if (kwh > 0) return `${kwh}kWh`;
     const n = Number(p.engine_cc) || fuelEmbeddedCc(p.fuel_type);
     return n > 0 ? `${n.toLocaleString()}cc` : '미입력';
   })();
   // 1) 차량스펙(제조사 기준) = 신원 → 옵션칩 → 연식·주행 / 동력 / 색상 / 분류 / 최초등록
   const carRows: KvRow[] = [
-    ['차량', [pv('maker'), pv('sub_model') || pv('model'), pv('variant'), pv('trim_name')].filter(Boolean).join(' ') || '미입력'],
+    /**
+      * **모델명 = 전문(全文)**. 제조사 + 모델 + 세부모델·트림까지 다 붙인다
+      * (사장님 2026-08-20 「여기에 위에 풀로 다 들어가야지」).
+      *
+      * 한 번 「제조사 + 모델」로 줄였다가 되돌렸다. 줄인 이유는 «제목과 겹친다»였는데, 실제로는
+      * **제목이 한 줄로 잘린다** — 목록·상세 머리의 차명은 폭을 넘으면 «…»로 끝난다.
+      * 그래서 전문을 끝까지 읽을 수 있는 자리가 이 칸뿐이다. 겹치는 게 아니라 «잘린 것을 펴는» 자리다.
+      * 값 칸은 `DT.td`(overflowWrap:anywhere)라 길면 줄을 바꿔 다 보인다.
+      *
+      * ★조립은 vehicle-name SSOT(T2 full — 상세·계약·공유가 쓰는 그 이름)로 — 손조립을 쓰면
+      *   제목·공유 문구와 글자가 어긋난다(사장님 2026-08-22 「표 안에 차명도 동일하게」).
+      */
+    /**
+     * ★**차명 = 세부모델 + 세부트림**(사장님 2026-08-22 「표현은 기본이 차명 = 세부모델 + 세부트림」).
+     *   제조사는 뺀다 — 바로 위 제목 줄이 이미 들고 있고, 정제칸이 축을 갈라 둔 뒤로는
+     *   «차명»이라 부르는 것이 곧 이 두 축이다(배기량·연료 같은 제원은 아래 부가정보 줄이 든다).
+     */
+    /*
+     * ★**「차명」 줄은 없앴다**(사장님 2026-08-28 「차종도 세부모델 세부트림을 정제한 거 활용해서
+     *   맨 위에 적고 · 상세페이지도 기존에 활용하던 게 있어 · 중복 반복 안 되게 하자고 했고」).
+     *
+     *   맨 위 제목이 이미 «제조사 + 세부모델 + 세부트림»(vehicle-name SSOT, 정제칸)을 든다.
+     *   이 줄은 거기서 제조사만 뺀 같은 글자라, 한 화면에서 같은 이름을 두 번 읽게 했다.
+     *   한 번 「제목이 한 줄로 잘리니 전문을 펴는 자리」라며 살려 뒀는데, 잘림은 제목 쪽에서
+     *   풀 문제지 같은 값을 한 번 더 찍어서 풀 문제가 아니다(제목에 title 속성이 붙어 있다).
+     *
+     *   공급사 원문 이름은 아래 「기타사항 › 공급사 차명」이 따로 든다 — 그건 다른 값이라 남긴다.
+     */
     // 차량번호는 손님에게도 보인다 — 공유 견적서에서 «어느 차인지»를 특정하는 유일한 값이다.
     //  (없는 매물이 있다: 재렌트·재구독은 공급사 시트에 번호판을 안 적는 경우가 있어
     //   빈 줄을 만들지 않도록 값이 있을 때만 넣는다. 나머지 행의 `-` 규칙과 다른 이유다.)
@@ -714,19 +923,49 @@ export function detailSections(p: EntityRecord, audience: Audience = 'agent'): D
       const acc = pv('accident_history');
       return acc ? `${base} · ${acc}` : base;
     })()],
+    /*
+     * **한 줄에는 한 축만 넣는다**(사장님 2026-08-20 「인승과 동력이 무슨 상관이고 · 차종 크기 구분을 상품분류랑 같이 넣어놓고」).
+     *
+     * 예전엔 이렇게 섞여 있었다:
+     *   동력 = 연료 · 구동 · 배기량 · **인승**        ← 인승은 «차의 몸»이지 동력이 아니다
+     *   분류 = 차급 · 용도 · **중고렌트**             ← 중고렌트는 «상품 형태»지 차종 분류가 아니다
+     * 값이 옆에 나란히 서면 사람은 «같은 갈래»로 읽는다. 그래서 축을 갈라 세운다:
+     *   동력 = 엔진이 어떻게 굴러가나 (연료 · 구동 · 배기량)
+     *   차종 = 차가 어떤 몸인가       (차급 · 인승 · 용도)
+     * 상품 형태(신차렌트·중고구독)는 여기서 뺀다 — 카드·상세 머리의 CORE 뱃지가 이미 들고 있어
+     * 같은 값이 한 화면에 두 번 찍힌다(「한 칸 한 원자」).
+     */
     ['동력', gSlots([
       fuelDisplay(p.fuel_type) || pv('fuel_type'),
       pv('drive_type'),
       ccLabel,
-      p.seats ? `${p.seats}인승` : '',
     ])],
-    ['색상', [
-      `외장색 ${pv('ext_color') || '미입력'}`,
-      `내장색 ${pv('int_color') || '미입력'}`,
-    ].join(' · ')],
-    ['분류', gSlots([pv('vehicle_class'), pv('usage'), canonProductType(p.product_type)])],
-    // 공급사 원본이 `25-11-5` 처럼 들쭉날쭉해서 표기만 YYYY-MM-DD 로 맞춘다(못 읽으면 원본 그대로).
-    ['최초등록', ymdDisplay(pv('first_registration_date')) || '미입력'],
+    /*
+     * 색은 «빈칸»과 «하이픈»이 같은 뜻이다 — 공급사 시트에 `-`·`—`·`.`·`N/A` 가 값으로 들어온다
+     * (사장님 2026-08-20 「내장색 미입력으로 가 줘야 하고」 — 화면에 「내장색 -」로 찍히고 있었다).
+     * 빈 문자열만 걸러 내면 하이픈이 색 이름 행세를 한다. 여기서 한 번에 미입력으로 눕힌다.
+     */
+    ['색상', (() => {
+      const colorOf = (key: string) => {
+        const v = pv(key);
+        return !v || /^[-–—.]+$/.test(v) || /^(n\/?a|없음|미정)$/i.test(v) ? '미입력' : v;
+      };
+      return [`외장색 ${colorOf('ext_color')}`, `내장색 ${colorOf('int_color')}`].join(' · ');
+    })()],
+    /*
+     * 차종 = 차급 + 인승. **용도(자가용/영업용/관용)는 뺐다**(사장님 2026-08-20 「용도 빼」) —
+     * 등록증에서 오는 값인데 우리 데이터엔 대부분 비어 있고, 렌터카는 어차피 대여용이라
+     * 상담에서 쓸 일이 없다. 빈 칸이 「미입력」으로 서서 «무엇이 빈 건지»만 헷갈리게 했다.
+     * 빈 값은 자리를 남기지 않는다(`gSlots` 아님) — 성격이 다른 값이 모인 줄이라 있는 것만 잇는다.
+     */
+    /* 차종 = 차급 · 인승 · 원산지. 원산지를 여기 세운 것은 «쓸 수 있는 원자는 쭉 쓴다»(사장님 2026-08-23)에 따른 것 —
+       98% 차 있는데 화면 어디에도 안 서 있었다. 국산/수입은 **보증금 배율(국산 ×2 · 수입 ×3)의 근거**라
+       표시값이 아니라 돈이 걸린 값이다. 빈 값은 자리를 남기지 않는다(`g`) — 있는 것만 잇는다. */
+    /* 이름은 **「차종구분」**(사장님 2026-08-19 판매시트 열 이름, 2026-08-28 상세도 같게).
+       판매시트는 「차종구분」인데 상세만 「차종」이라, 같은 값을 두 이름으로 부르고 있었다. */
+    ['차종구분', g([pv('vehicle_class'), p.seats ? `${p.seats}인승` : '', pv('origin')])],
+    /* 최초등록일은 「기타사항」으로 옮겼다(사장님 2026-08-23 「최초등록일은 기타사항에 들어가 주는 거고」) —
+       차를 고르는 값이 아니라 참고값이다. 차량스펙은 «어떤 차인가»를 가르는 원자만 든다. */
   ];
   /**
    * 차량가격 = 공급사 시트 「차량가격」(별칭 소비자가격·차량가·차량가액 — `sheet-import`) = **차량 출고가**.
@@ -769,7 +1008,7 @@ export function detailSections(p: EntityRecord, audience: Audience = 'agent'): D
   // 3) 계약조건 = 심사·약정·담보·결제·운전자·물류·서비스
   const meta = (rec.sheet_meta || {}) as Record<string, unknown>;
   const m2 = (k: string) => { const v = meta[k]; return v == null ? '' : String(v); };
-  const autoplusMileage = isAutoplusProduct(p) ? autoplusMileageUpchargeLabel(p) : '';
+  /* 오토플러스 전용 주행 상향요금 라벨은 뺐다(2026-08-23) — 주행 약정은 정책값만 쓴다. 위 「주행 약정」 주석 참고. */
   /**
    * 계약조건 = **손님이 고르는 데 필요한 정책**(운영정책 시트에서 `use: 상품시트 | 둘다`).
    *
@@ -780,11 +1019,26 @@ export function detailSections(p: EntityRecord, audience: Audience = 'agent'): D
    */
   const condRows: KvRow[] = [
     ...(audience === 'customer' ? [] : [['심사', creditDisplay(p)] as KvRow]),
-    ['주행 약정', isAutoplusProduct(p)
-      ? g(['연 2만km', autoplusMileage && `1만km 추가 ${autoplusMileage}`])
-      : g([s('annual_mileage'), s('mileage_upcharge_per_10000km') && `1만km초과 ${s('mileage_upcharge_per_10000km')}`])],
+    /**
+     * ★**주행 약정 = 정책값. 없으면 「미입력」**(사장님 2026-08-23 「정책에 주행거리가 비어 있으면
+     *   그냥 빈 주행거리가 미입력으로 되는 거지 뭐」).
+     * ⚠ 전에는 오토플러스만 **「연 2만km」를 코드에 박아** 보여 줬다. 그런데 실측 2026-08-23 —
+     *   오플 79대의 정책(`pol_freepassstd`) 기본주행이 **빈칸**이라, 화면은 「연 2만km」라고 말하는데
+     *   12개월 요금은 실제로 **3만km 조건**이었다. 없는 값을 코드가 지어내면 그게 곧 거짓말이 된다.
+     *   요금이 몇 km 기준인지는 아래 대여료 표의 **「주행거리별」 줄**이 글자 그대로 보여 준다.
+     */
+    ['주행 약정', g([s('annual_mileage'), s('mileage_upcharge_per_10000km') && `1만km초과 ${s('mileage_upcharge_per_10000km')}`]) || '미입력'],
     ['보증금', g([s('deposit_installment') && `분납 ${s('deposit_installment')}`, s('deposit_card_payment') && `카드 ${s('deposit_card_payment')}`])],
-    ['결제 · 위약', g([s('payment_method'), s('penalty_condition') && `위약 ${s('penalty_condition')}`])],
+    ['대여료 카드결제', s('rental_card_payment')],
+    /*
+     * **손님 화면에는 위약금을 안 싣는다**(사장님 2026-08-20 「손님 보는 거에는 위약금이나 이런 패널티 조항은 빼자」).
+     * 상담 자리에서 «어떤 차를 얼마에» 를 보는 화면인데 벌칙 조항이 같이 서면 계약서를 읽는 화면이 된다.
+     * 위약 조건 자체는 없애는 게 아니라 **말할 사람이 말하도록** 옮긴 것이다 —
+     * 영업자 패널의 「중도해지 위약금」이 그대로 들고 있고, 확정된 조건은 전자계약서가 든다.
+     */
+    ...(audience === 'customer'
+      ? [['결제', s('payment_method')] as KvRow]
+      : [['결제 · 위약', g([s('payment_method'), s('penalty_condition') && `위약 ${s('penalty_condition')}`])] as KvRow]),
     // 연령인하·하향 요금은 시트 규격 칸(`driver_age_lowering`·`age_lowering_cost`). 옛 sheet_meta 21·23세 칸은 뒤에 남겨 둔다.
     ['운전 연령', g([
       s('basic_driver_age') && `기본 ${s('basic_driver_age')}`,
@@ -803,6 +1057,22 @@ export function detailSections(p: EntityRecord, audience: Audience = 'agent'): D
   const opts = parseProductOptions(p.options);
   const memo = String(p.partner_memo ?? p.note ?? '').trim();
   const otherRows: KvRow[] = [];
+  /**
+   * ★**공급사 차명 원문**(사장님 2026-08-22 「상세페이지 기타에 공급사 차명을 넣어주자, 정제된 거 말고 · 모바일도」).
+   *   위 「차명」 칸은 정제값(세부모델+세부트림)이다. 이 칸은 **공급사가 시트에 적은 글자 그대로**라
+   *   둘이 다르면 «우리가 어떻게 바꿔 읽었나»가 한눈에 보인다 — 담당자가 공급사와 통화할 때 쓰는 이름이기도 하다.
+   *   ⚠ **정제값과 같아 보여도 세운다**(사장님 2026-08-23 「정제하지 말고 넣어주자고 혹시나 해서」) —
+   *     띄어쓰기 한 칸만 달라도 공급사와 말이 어긋나는 자리라, «없다»와 «같다»를 담당자가 구분할 수 있어야 한다.
+   */
+  const supplierName = audience === 'customer' ? '' : String(p.supplier_vehicle_name ?? '').trim();
+  const supplierOptions = audience === 'customer' ? '' : String(p.supplier_options ?? '').trim();
+  // 손님 화면엔 안 낸다 — 우리가 어떻게 바꿔 읽었는지는 내부 대조용이다(화이트리스트에도 없어 값 자체가 안 온다).
+  if (supplierName) otherRows.push(['공급사 차명', supplierName]);
+  // 「2중 보관」의 나머지 반쪽(사장님 2026-08-23) — 위 「선택옵션」은 정제값이고 이 줄은 공급사가 적은 글자다.
+  if (supplierOptions) otherRows.push(['공급사 옵션', supplierOptions]);
+  // 공급사 원본이 `25-11-5` 처럼 들쭉날쭉해서 표기만 YYYY-MM-DD 로 맞춘다(못 읽으면 원본 그대로).
+  const firstReg = ymdDisplay(pv('first_registration_date'));
+  if (firstReg) otherRows.push(['최초등록', firstReg]);
   if (memo) otherRows.push(['특이사항', memo]);
   // 관리자 진단값 — 데이터가 맞는지 확인하는 칸이라 상담에 안 쓴다(상담용은 우측 패널 `agentPanelRows`).
   //  공급사·차고지·수수료 환수는 패널이 들고 있어 여기서 뺐다 — 같은 값을 두 번 찍지 않는다.
@@ -810,8 +1080,16 @@ export function detailSections(p: EntityRecord, audience: Audience = 'agent'): D
     otherRows.push(
       ['차령 · 차대', g([pv('vehicle_age_expiry_date') && `만료 ${ymdDisplay(pv('vehicle_age_expiry_date'))}`, pv('vin')])],
       ['등록증', g([pv('transmission'), pv('cert_car_name'), pv('type_number'), pv('engine_type')])],
+      /**
+       * ★**「상품」 줄은 없앴다**(사장님 2026-08-28 「상품 중복됐던 건 아예 정보가 없어도 되지 ·
+       *   위에 차량번호 같은 거 다 있는데」). product_code 는 대부분 `RP014_188호3065` 처럼
+       *   **공급사코드 + 차량번호를 붙인 것**이라, 위 차량스펙의 「차량번호」와 같은 말을 두 번 한다.
+       *   기계가 매물을 세는 열쇠지 사람이 읽는 값이 아니다 — 진단이 필요하면 URL·개발도구에 있다.
+       *
+       * 정책은 남긴다. 단 **관리자만** — 영업자·손님에겐 코드가 필요 없다(사장님 같은 날
+       * 「정책코드도 영업자나 손님은 볼 필요 없다」). 이 블록 전체가 `isAdmin` 안이라 이미 그렇다.
+       */
       ['정책', g([String(pol.policy_name ?? p.policy_name ?? ''), String(pol.policy_code ?? p.policy_code ?? ''), String(pol.policy_type ?? '')])],
-      ['상품', g([pv('product_code'), String(p._key ?? '')])],
     );
   }
 
@@ -819,7 +1097,7 @@ export function detailSections(p: EntityRecord, audience: Audience = 'agent'): D
   // 사진(뷰) → 차량스펙(제조사) → 대여료조건 → 보험조건 → 계약조건 → 기타사항.
   //  영업자 전용 값은 본문이 아니라 **우측 영업자 패널**(`agentPanelRows`)이 들고 간다.
   const out: DetailSection[] = [
-    { title: '차량스펙', hint: '제조사 기준', tier: 'main', kind: 'kv', rows: carRows, chips: opts, chipsLabel: '선택옵션', chipsAfter: 1 },
+    { title: '차량스펙', hint: '제조사 기준', tier: 'main', kind: 'kv', rows: carRows, chips: opts, chipsLabel: '선택옵션', chipsAfter: 1, pair: true },
     { title: '대여료조건', hint: '기간별 대여료 · 보증금', tier: 'main', kind: 'price' },
     { title: '보험조건', hint: '보장한도 · 면책', tier: 'sub', kind: 'ins', rows: insRows, note: insNote },
     { title: '계약조건', hint: '심사 · 약정 · 운전자', tier: 'sub', kind: 'kv', rows: condRows },

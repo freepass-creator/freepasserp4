@@ -2,7 +2,7 @@
 import Link from 'next/link';
 import { useEffect, useState, type MouseEvent } from 'react';
 import { Star, History, StarOff, Trash2, X, MessageCircle } from 'lucide-react';
-import { C, R, Btn, ButtonLabel, IconBtn, NUM, ctrlH, ctrlFs, FW, FS, ICON } from '@/components/ui';
+import { C, R, Btn, ButtonLabel, IconBtn, NUM, ctrlH, ctrlFs, FW, FS, ICON, CenterNote } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { vehicleName, cheapest, isStockedProduct } from '@/lib/domain/product';
 import {
@@ -86,8 +86,12 @@ export function InterestTriggers({
   const chip = (k: InterestTab, n: number, Icon: typeof History, label: string) => {
     if (!n) return null;
     const on = tab === k;
-    const accent = C.brand;
-    const accentBg = C.selected;
+    /**
+     * 켜짐 = **1단 반전**(네이비 면 + 흰 글자). 연한 면(2단)으로 뒀다가 올렸다 —
+     * 이 칩은 «패널을 여는 스위치»라 지금 열려 있는지가 한눈에 보여야 한다(사장님 2026-08-20
+     * 「눌리면 버튼 색깔이 반전되면서 메인컬러가 가야 하는 거 아니냐」).
+     * 2단(연한 면)은 «선택된 줄»이 쓰는 세기다 — 사다리에서 같은 단을 두 뜻으로 쓰지 않는다.
+     */
     return (
       <Btn
         key={k}
@@ -100,9 +104,9 @@ export function InterestTriggers({
         style={{
           flex: '0 0 auto', minWidth: h,
           padding: mobile ? '0 10px' : '0 8px',
-          border: `1px solid ${on ? accent : C.line}`,
-          background: on ? accentBg : C.taupeBg,
-          color: on ? accent : C.mute, fontWeight: FW.label, fontSize: ctrlFs(mobile),
+          border: `1px solid ${on ? C.brand : C.line}`,
+          background: on ? C.brand : C.taupeBg,
+          color: on ? C.inverse : C.mute, fontWeight: on ? FW.title : FW.label, fontSize: ctrlFs(mobile),
           fontFamily: NUM, fontVariantNumeric: 'tabular-nums', boxShadow: 'none', gap: 4,
         }}
       >
@@ -266,9 +270,9 @@ export function InterestPanel({
         <Btn mobileIcon={<X size={ICON.lg} />} title="관심함 닫기" size="sm" variant="ghost" haptic="back" onClick={onClose}>닫기</Btn>
       </div>
       {items.length === 0 ? (
-        <div style={{ fontSize: FS.sub, color: C.faint, padding: '4px 0' }}>
+        <CenterNote minHeight={48}>
           {tab === 'recent' ? '아직 본 상품이 없습니다' : tab === 'fav' ? '관심 상품이 없습니다' : '문의한 상품이 없습니다'}
-        </div>
+        </CenterNote>
       ) : (
         <div style={{
           display: 'grid', width: '100%',

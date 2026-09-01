@@ -84,7 +84,9 @@ if (spi < 0) throw new Error(`「${tabTitle}」 머리행에 차량번호가 없
 // 이미 붙어 있던 블록(원본 이름·표시 이름 둘 다)과 — 기본 모드면 — 우리 공통 대여료 블록을 걷어 낸다(재실행 멱등)
 const isBlockCol = (h: string) => BLOCK.some((b) => normHead(b) === normHead(h)) || LABEL.some((b) => normHead(b) === normHead(h)) || (!!LEAD && normHead(LEAD.name) === normHead(h));
 const isStdCol = (h: string) => (STANDARD_MONEY_COLUMNS as readonly string[]).some((c) => normHead(c) === normHead(h));
-const removed = (h: string) => isBlockCol(h) || (!KEEP_STANDARD && isStdCol(h));
+// 갈래 탭(손오공구독·픽업구독·오플구독)에선 그 공급사가 안 쓰는 빈 칸을 뺀다 — 상품리스트엔 남긴다(사장님 2026-08-27 「6개월 어정쩡한 거 날려줘」).
+const 갈래빈칸 = ['6개월'];
+const removed = (h: string) => isBlockCol(h) || (!KEEP_STANDARD && isStdCol(h)) || 갈래빈칸.some((c) => normHead(c) === normHead(h));
 const firstRemoved = shdr0.findIndex(removed);
 const keepIdx = shdr0.map((h, i) => (removed(h) ? -1 : i)).filter((i) => i >= 0);
 const shdr = keepIdx.map((i) => shdr0[i]);
@@ -161,28 +163,13 @@ await api(`${SH}/${SHEET}/values/${encodeURIComponent(`'${tabTitle.replace(/'/g,
       conditionalFormatCount: ((me.conditionalFormats || []) as unknown[]).length,
       widths: columnWidths(COLUMNS, rows),
       tabTitle,
+      // 차량번호 셀에 사진 링크를 거는 데 쓴다(서식층 맨 끝).
+      body: rows,
     }) }),
   });
 }
-// ⚠ 사진링크는 맨 마지막. 뒤에 repeatCell 이 오면 링크가 통째로 지워진다.
-{
-  const rgbLink = rgb(LINK);
-  const linked = rows.map((r, k) => ({ row: k + 1, plate: S(r[p]), url: photoOf.get(norm(r[p])) || '' })).filter((x) => x.url.startsWith('http'));
-  for (let i = 0; i < linked.length; i += 200) {
-    await api(`${SH}/${SHEET}:batchUpdate`, {
-      method: 'POST',
-      body: JSON.stringify({ requests: linked.slice(i, i + 200).map((x) => ({
-        updateCells: {
-          range: { sheetId: gid, startRowIndex: x.row, endRowIndex: x.row + 1, startColumnIndex: p, endColumnIndex: p + 1 },
-          rows: [{ values: [{
-            userEnteredValue: { stringValue: x.plate },
-            textFormatRuns: [{ startIndex: 0, format: { link: { uri: x.url }, foregroundColor: rgbLink, underline: true, italic: ITALIC, fontFamily: FONT, fontSize: SIZE } }],
-          }] }],
-          fields: 'userEnteredValue,textFormatRuns',
-        },
-      })) }),
-    });
-  }
-  console.log(`  차량번호에 사진링크 ${linked.length}대`);
-}
+// 차량번호 셀의 사진 링크는 서식층(`buildSalesFormatRequests` 맨 끝)이 세 탭에 똑같이 건다.
+// ⚠ 여기서 따로 걸지 마라 — 갈래 탭만 되고 상품리스트는 안 되던 게 그래서였다.
+console.log(`  차량번호에 사진링크 ${rows.filter((r) => S(r[COLUMNS.indexOf('사진')]).startsWith('http')).length}대`);
+
 console.log(`\n  반영 완료 — 탭 「${tabTitle}」 (+${BLOCK.length}칸)\n  https://docs.google.com/spreadsheets/d/${SHEET}/edit#gid=${gid}\n`);

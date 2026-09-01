@@ -1,6 +1,6 @@
 'use client';
 import React from 'react';
-import { C, R, PILL_R, NUM, FW, FS, SH, SCRIM } from './tokens';
+import { C, R, NUM, FW, FS, SH, SCRIM } from './tokens';
 import { companyTone, companyShort } from '@/lib/companies';
 import { useIsMobile } from '@/lib/use-mobile';
 
@@ -31,17 +31,10 @@ export function toneAccent(tone: BadgeTone): string { return (BADGE[tone] || BAD
 export const ACTOR_TONE: Record<string, BadgeTone> = { agent: 'blue', provider: 'green', admin: 'orange' };
 export function actorColor(actor: string): string { return toneText(ACTOR_TONE[actor] || 'gray'); }
 
-export function Badge({ children, tone = 'gray', overlay = false, title, variant = 'line', frosted = false, pulse = false, size, shape = 'rect' }: {
+export function Badge({ children, tone = 'gray', overlay = false, title, variant = 'line', frosted = false, pulse = false, size }: {
   children: React.ReactNode; tone?: BadgeTone; overlay?: boolean; title?: string;
   /** line=기본 · quiet=무채 · solid=약한틴트 · perk=혜택(면은 분류와 같고 글자만 주색). 박스 크기 동일, 색만 다름. 좌측 | 바 없음. */
   variant?: 'line' | 'quiet' | 'solid' | 'fill' | 'perk';
-  /**
-   * ⚠ **뱃지는 전부 사각(R)이다.** 알약을 섞어 봤다가 되돌렸다(2026-08-20 사장님
-   *   「알약처럼 동그랗게 하는 건 뭐야, 통일도 안 됐고」) — 한 줄에 모양이 섞이면
-   *   «뜻이 다르다»가 아니라 «규격을 안 맞췄다»로 읽힌다. 종류는 색과 자리로 가른다.
-   *   이 prop 은 캡슐이 필요한 낱개 칩(있다면)만 쓰고, 목록·상세 뱃지에는 쓰지 않는다.
-   */
-  shape?: 'pill' | 'rect';
   /** 사진 위 — 상세와 동일 톤·variant, 배경만 반투명+블러 */
   frosted?: boolean;
   /** 계약중 등 — 은은한 주황 펄스 */
@@ -57,11 +50,9 @@ export function Badge({ children, tone = 'gray', overlay = false, title, variant
   const pulseCls = pulse ? 'fp-badge-pulse' : undefined;
 
   const shell: React.CSSProperties = {
-    display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+    display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 3,
     height: h, boxSizing: 'border-box',
-    // 알약은 둥근 끝이 글자를 먹어 사각보다 좌우를 1px 더 준다.
-    padding: frosted ? '0 6px' : (shape === 'pill' ? '0 8px' : '0 7px'),
-    borderRadius: shape === 'pill' ? PILL_R : R,
+    padding: frosted ? '0 6px' : '0 7px', borderRadius: R,
     fontSize: fs, fontWeight: FW.strong,
     whiteSpace: 'nowrap', letterSpacing: '-0.01em',
     lineHeight: 1,
@@ -197,6 +188,8 @@ export function SevTag({ high }: { high: boolean }) {
 
 export const PRODUCT_TYPE_TONE: Record<string, BadgeTone> = {
   '신차렌트': 'blue', '신차구독': 'blue', '중고렌트': 'gray', '중고구독': 'gray',
+  // 픽업구독(손오공 T카) = 중고구독과 다른 갈래라 색도 가른다(2026-08-28).
+  '픽업구독': 'teal',
   '신차': 'blue', '중고': 'gray',
 };
 

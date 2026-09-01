@@ -16,6 +16,7 @@ import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { snapColorOrEtc } from '../lib/domain/color-master';
 import { loadColorMasterAliases } from '../lib/domain/color-master-sheet';
+import { substFromAiRefineRows } from '../lib/domain/ai-refine-guard';
 import { SHEET_NAME_MATCH, isOurNonInventoryTab, supplierSheetLabel } from '../lib/domain/supplier-template-sheet';
 
 type Rec = Record<string, any>;
@@ -42,8 +43,9 @@ const SH = 'https://sheets.googleapis.com/v4/spreadsheets';
 // 치환 사전(발행기·fill 과 같은 것)
 const SUBST = new Map<string, string>();
 try {
-  const v = await call(`${SH}/${SALES_SHEET}/values/${encodeURIComponent("'AI 정제'!A1:C2000")}`) as { values?: string[][] };
-  for (const r of ((v.values || []) as string[][])) { const kind = S(r[0]), from = S(r[1]), to = S(r[2]); if (!kind.startsWith('@') || kind === '@설명' || !from || !to) continue; SUBST.set(`${kind.slice(1)}|${from}`, to); }
+  const v = await call(`${SH}/${SALES_SHEET}/values/${encodeURIComponent("'AI 정제'!A1:C4000")}`) as { values?: string[][] };
+  const subst = substFromAiRefineRows((v.values || []) as string[][]);
+  for (const [k, val] of subst.map) SUBST.set(k, val);
 } catch { /* 없으면 치환 없이 */ }
 const clean = (col: string, val: string) => SUBST.get(`${col}|${S(val)}`) ?? S(val);
 try { await loadColorMasterAliases(call as (u: string) => Promise<Record<string, unknown>>); } catch { /* 코드 별칭만 */ }
@@ -52,7 +54,11 @@ const q = `name contains '${SHEET_NAME_MATCH}' and mimeType = 'application/vnd.g
 const found = await call(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name)&pageSize=100&includeItemsFromAllDrives=true&supportsAllDrives=true`);
 const suppliers = ((found.files || []) as Rec[]).map((f) => ({ id: S(f.id), name: supplierSheetLabel(S(f.name)) })).sort((a, b) => a.name.localeCompare(b.name, 'ko'));
 console.log(`■ 정제칸(선택옵션·외장색상·내장색상) 원문 기준 재정렬 ${APPLY ? '반영' : '미리보기'} — ${suppliers.length}곳`);
-const PAIRS: [string, string, (v: string) => string][] = [['옵션', '선택옵션', (v) => clean('옵션', v)], ['외부색상', '외장색상', (v) => snapColorOrEtc(v, 'ext')], ['내부색상', '내장색상', (v) => snapColorOrEtc(v, 'int')]];
+const PAIRS: { rawCols: string[]; derivedCol: string; fn: (v: string) => string }[] = [
+  { rawCols: ['옵션'], derivedCol: '선택옵션', fn: (v) => clean('옵션', v) },
+  { rawCols: ['외부색상', '외장색', '색상'], derivedCol: '외장색상', fn: (v) => snapColorOrEtc(v, 'ext') },
+  { rawCols: ['내부색상', '내장색'], derivedCol: '내장색상', fn: (v) => snapColorOrEtc(v, 'int') },
+];
 let fixed = 0; const list: string[] = [];
 for (const t of suppliers) {
   const m = await call(`${SH}/${t.id}?fields=sheets.properties(title,hidden)`);
@@ -64,13 +70,14 @@ for (const t of suppliers) {
     const updates: { range: string; values: string[][] }[] = [];
     rows.slice(hi + 1).forEach((r, k) => {
       const plate = norm(r[pi]); if (!plate) return;
-      for (const [rawCol, derivedCol, fn] of PAIRS) {
-        const ri = at(rawCol), di = at(derivedCol); if (ri < 0 || di < 0) continue;
+      for (const { rawCols, derivedCol, fn } of PAIRS) {
+        const ri = rawCols.map((c) => at(c)).find((i) => i >= 0) ?? -1;
+        const di = at(derivedCol); if (ri < 0 || di < 0) continue;
         const raw = S(r[ri]); const want = raw ? fn(raw) : ''; const now = S(r[di]);
         if (want === now) continue;
         if (!raw) continue;   // 원문이 비면 손대지 않는다(정제시트 once 칸·옛 채움이 남아 있을 수 있다 — 지우는 건 사람이)
         updates.push({ range: `'${title.replace(/'/g, "''")}'!${colA1(di)}${hi + 2 + k}`, values: [[want]] });
-        fixed++; if (list.length < 25) list.push(`${t.name} ${plate} ${derivedCol} 「${now.slice(0, 30)}」 → 「${want.slice(0, 30)}」`);
+        fixed++; if (list.length < 25) list.push(`${t.name} ${plate} ${derivedCol} 「${now.slice(0, 30) || '(빔)'}」 → 「${want.slice(0, 30)}」`);
       }
     });
     if (updates.length && APPLY) { for (let i = 0; i < updates.length; i += 400) await call(`${SH}/${t.id}/values:batchUpdate`, { method: 'POST', body: JSON.stringify({ valueInputOption: 'RAW', data: updates.slice(i, i + 400) }) }); await sleep(400); }

@@ -1,23 +1,17 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { getRole } from '@/lib/domain/deal';
-import { Page, Section, DetailGrid, SectionLabel, Disclosure, CopyBlock, CenterNote, Loading, Btn, C, FW, FS, R } from '@/components/ui';
+import { Page, Section, DetailGrid, SectionLabel, Disclosure, CopyBlock, CenterNote, Loading, Btn, ListRow, Message, C, FS } from '@/components/ui';
 import { GUIDE, FAQ, matchFaq } from '@/lib/domain/faq';
 import { NAV_LABEL } from '@/lib/tabbar';
 
 // 위 = 업무 절차 안내(항상 펼침) · 아래 = QnA(제목만, 눌러야 펼침).
 // 내용 SSOT는 lib/domain/faq.ts — 여기서는 배열·검색만 한다.
-function Para({ lines }: { lines: string[] }) {
-  return (
-    <div style={{ padding: '8px 12px', fontSize: FS.sub, lineHeight: 1.7, color: C.ink }}>
-      {lines.map((p, i) => <p key={i} style={{ margin: i ? '6px 0 0' : 0 }}>{p}</p>)}
-    </div>
-  );
-}
 
 export default function Faq() {
   const [role, setRole] = useState<string | null>(null);
   const [q, setQ] = useState('');
+  const deferredQ = useDeferredValue(q);
 
   useEffect(() => {
     setRole(getRole());
@@ -26,24 +20,26 @@ export default function Faq() {
     return () => window.removeEventListener('fp:role', on);
   }, []);
 
+  const searching = q.trim() !== '';
+  const groups = useMemo(() => FAQ
+    .map((g) => ({ ...g, items: g.items.filter((it) => matchFaq(it, deferredQ)) }))
+    .filter((g) => g.items.length > 0), [deferredQ]);
+  const hits = groups.reduce((n, g) => n + g.items.length, 0);
+
   if (role === null) return <Loading />;
   // 관리자는 전부 볼 수 있어야 한다(내용 검수·문의 대응). 영업자 대상 안내지만 관리자를 막지 않는다.
   if (role !== 'agent' && role !== 'admin') {
     return (
       <Page title={NAV_LABEL.faq}>
-        <CenterNote>영업자·관리자에게 제공되는 안내입니다</CenterNote>
-        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}>
-          <Btn title="홈으로" href="/" size="sm">홈으로</Btn>
-        </div>
+        <CenterNote>
+          영업자·관리자에게 제공되는 안내입니다
+          <span style={{ display: 'block', marginTop: 12 }}>
+            <Btn title="홈으로" href="/" size="sm">홈으로</Btn>
+          </span>
+        </CenterNote>
       </Page>
     );
   }
-
-  const searching = q.trim() !== '';
-  const groups = FAQ
-    .map((g) => ({ ...g, items: g.items.filter((it) => matchFaq(it, q)) }))
-    .filter((g) => g.items.length > 0);
-  const hits = groups.reduce((n, g) => n + g.items.length, 0);
 
   return (
     <Page
@@ -55,29 +51,15 @@ export default function Faq() {
       {/* 검색 중에는 안내를 접고 QnA 결과만 — 찾는 걸 바로 보여준다 */}
       {!searching && GUIDE.map((s) => (
         <Section key={s.title} title={s.title}>
-          {s.desc ? (
-            <div style={{ padding: '8px 12px 2px', fontSize: FS.cap, color: C.faint }}>{s.desc}</div>
-          ) : null}
-          {s.steps?.length ? (
-            <div style={{ padding: '6px 12px 4px' }}>
-              {s.steps.map((st, i) => (
-                <div key={i} style={{ display: 'flex', gap: 10, padding: '5px 0', fontSize: FS.sub, lineHeight: 1.55 }}>
-                  <span style={{ flex: '0 0 auto', width: 18, color: C.faint, fontVariantNumeric: 'tabular-nums' }}>{i + 1}</span>
-                  <span style={{ flex: 1 }}>
-                    {st.main}
-                    {st.sub ? <span style={{ display: 'block', color: C.faint, fontSize: FS.cap }}>{st.sub}</span> : null}
-                  </span>
-                </div>
-              ))}
-            </div>
-          ) : null}
+          {s.desc ? <Message variant="info">{s.desc}</Message> : null}
+          {s.steps?.length ? s.steps.map((st, i) => (
+            <ListRow key={i} badge={String(i + 1)} main={st.main} sub={st.sub} />
+          )) : null}
           {s.rows?.length ? <DetailGrid rows={s.rows} /> : null}
-          {s.copyText ? (
-            <div style={{ padding: '4px 12px 12px' }}>
-              <CopyBlock text={s.copyText} />
-            </div>
-          ) : null}
-          {s.a?.length ? <Para lines={s.a} /> : null}
+          {s.copyText ? <CopyBlock text={s.copyText} /> : null}
+          {s.a?.length ? s.a.map((p, i) => (
+            <p key={i} style={{ margin: i ? '6px 12px 0' : '8px 12px 0', fontSize: FS.sub, lineHeight: 1.7, color: C.ink }}>{p}</p>
+          )) : null}
         </Section>
       ))}
 
@@ -86,20 +68,14 @@ export default function Faq() {
         <CenterNote>검색 결과 없음</CenterNote>
       ) : (
         groups.map((g) => (
-          <div key={g.title} style={{ marginBottom: 14 }}>
-            <div style={{ fontSize: FS.cap, fontWeight: FW.strong, color: C.faint, margin: '10px 0 2px' }}>{g.title}</div>
+          <div key={g.title}>
+            <SectionLabel mt={10}>{g.title}</SectionLabel>
             {g.items.map((it) => (
               <Disclosure key={it.q} title={it.q} defaultOpen={searching}>
-                {it.a?.length ? (
-                  <div style={{ fontSize: FS.sub, lineHeight: 1.7, color: C.ink }}>
-                    {it.a.map((p, i) => <p key={i} style={{ margin: i ? '6px 0 0' : 0 }}>{p}</p>)}
-                  </div>
-                ) : null}
-                {it.rows?.length ? (
-                  <div style={{ marginTop: it.a?.length ? 8 : 0, border: `1px solid ${C.line}`, borderRadius: R, overflow: 'hidden', background: C.taupeBg }}>
-                    <DetailGrid rows={it.rows} />
-                  </div>
-                ) : null}
+                {it.a?.length ? it.a.map((p, i) => (
+                  <p key={i} style={{ margin: i ? '6px 0 0' : 0, fontSize: FS.sub, lineHeight: 1.7, color: C.ink }}>{p}</p>
+                )) : null}
+                {it.rows?.length ? <DetailGrid rows={it.rows} /> : null}
               </Disclosure>
             ))}
           </div>

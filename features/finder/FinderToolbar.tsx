@@ -1,8 +1,8 @@
 ﻿'use client';
 
-import { LayoutGrid, List, SlidersHorizontal, Sheet } from 'lucide-react';
+import { LayoutGrid, List, Sheet } from 'lucide-react';
 import { InterestTriggers, type InterestTab } from '@/components/InterestRail';
-import { Btn, C, CountPill, IconSeg, SearchInput, Select, ICON } from '@/components/ui';
+import { IconSeg, SearchInput, Select, ICON } from '@/components/ui';
 import { FINDER_SORTS } from './filter-state';
 
 const VIEWS = [
@@ -45,46 +45,16 @@ export function FinderToolbar(props: Props) {
     />
   );
 
-  if (props.mobile) {
-    /**
-     * 모바일 = **검색창 한 줄이 화면 끝까지, 필터는 그 «안» 우측**(사장님 2026-08-22).
-     * 박스(IconBtn 테두리·바탕) 없이 아이콘만 — 입력칸이 이미 테두리를 가졌는데 그 안에 또 상자를 두면 겹친다.
-     * 필터 칸 = 검색칸과 같은 높이(ctrlH). 글리프는 돋보기·하단탭과 같은 ICON.xl.
-     * 조건 개수는 옆 숫자가 아니라 CountPill(탭·메뉴와 같은 자리).
-     */
-    const on = props.filterSheetOpen || props.filterBadge > 0;
-    return (
-      <div className="fp-finder-toolbar">
-        <SearchInput
-          value={props.query}
-          onChange={props.onQuery}
-          placeholder="예: 21세 그랜저, 무보증 쏘나타"
-          ariaLabel="차량과 조건 통합검색"
-          full
-          style={{ flex: '1 1 auto', minWidth: 0 }}
-          trailing={(
-            <span style={{ position: 'relative', display: 'inline-flex', width: '100%', height: '100%' }}>
-              <Btn
-                variant="bare"
-                title={props.filterBadge > 0 ? `조건 ${props.filterBadge}개 · 필터` : '필터'}
-                aria-label={props.filterBadge > 0 ? `조건 ${props.filterBadge}개 · 필터` : '필터'}
-                aria-pressed={props.filterSheetOpen}
-                onClick={props.onToggleFilterSheet}
-                style={{ width: '100%', height: '100%', color: on ? C.accent : C.mute }}
-              >
-                <SlidersHorizontal size={ICON.xl} strokeWidth={on ? 2.4 : 2} />
-              </Btn>
-              {props.filterBadge > 0 ? (
-                <span className="fp-icon-count">
-                  <CountPill n={props.filterBadge} tone="accent" />
-                </span>
-              ) : null}
-            </span>
-          )}
-        />
-      </div>
-    );
-  }
+  /**
+   * ★모바일 = **툴바가 없다**(사장님 2026-08-30 「검색 창을 없애는 게 나을 거 같고, 검색 버튼을 누르면
+   * 검색과 필터가 나오는 그런 형태로 — 당근이랑 아주 동일하게」).
+   *
+   *   전에는 검색창 한 줄이 목록 위를 가로질렀다(2026-08-22 규격). 그 한 줄은 폰에서 카드 반 장 값이고,
+   *   실제로 매번 치는 것도 아니다. 검색어·조건은 **상단 돋보기 하나 뒤**로 같이 들어갔다 —
+   *   자리는 `lib/appbar` search 슬롯, 내용은 finder 의 「검색·조건」 시트다.
+   *   그래서 목록은 이제 **첫 줄부터 상품**이다.
+   */
+  if (props.mobile) return null;
 
   return (
     <div className="fp-finder-toolbar fp-finder-toolbar--primary">

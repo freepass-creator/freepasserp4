@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useEffect, useMemo, useState, type CSSProperties } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getStore, clearStoreCache, peekList } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { seedIfEmpty } from '@/lib/seed';
@@ -12,7 +12,7 @@ import { loadVehicleMaster } from '@/lib/domain/vehicle-master-load';
 import { checkInventory } from '@/lib/domain/data-check';
 import { confirmDialog, toast } from '@/components/Toaster';
 import {
-  Page, Btn, C, R, Loading, CenterNote, SectionLabel, Badge, FS, NUM,
+  Page, Btn, Loading, CenterNote, Badge, FormCard, CopyBlock, Message,
   PaneHead, PaneBody, FeedListRow, FeedThumbIcon, FeedTitle, FeedSub,
 } from '@/components/ui';
 import { MasterFitSummary } from '@/components/MasterFitSummary';
@@ -340,7 +340,6 @@ export default function DevTools() {
   }
 
   const masterReady = !!(master && master.length);
-  const card: CSSProperties = { border: `1px solid ${C.line}`, borderRadius: R, background: C.taupeBg, padding: 14 };
 
   /**
    * 도구 목록 — 계약·문의·정책과 같은 [목록 | 패널] 규격(WorkPage).
@@ -358,9 +357,7 @@ export default function DevTools() {
       tone: 'blue' as const,
       render: () => (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0 }}>
-          <div style={{ fontSize: FS.sub, color: C.mute, lineHeight: 1.5 }}>
-            공급사 시트와 홈페이지는 작성 참고용입니다. 확정된 판매용 4개 탭을 한 번에 검증한 뒤 ERP에 반영합니다.
-          </div>
+          <Message variant="info">공급사 시트와 홈페이지는 작성 참고용입니다. 확정된 판매용 4개 탭을 한 번에 검증한 뒤 ERP에 반영합니다.</Message>
           <SheetSync co={co} onImported={() => { void reload(); }} />
         </div>
       ),
@@ -373,12 +370,10 @@ export default function DevTools() {
       tone: 'green' as const,
       render: () => (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div style={{ ...card, background: C.selected }}>
-            <SectionLabel mt={0}>지금 있는 매물 → 차종마스터</SectionLabel>
-            <div style={{ fontSize: FS.cap, color: C.faint, lineHeight: 1.5, marginBottom: 10 }}>
-              거친 표기·흩어진 칸을 모아 마스터 트리(제조사→모델→세대→파워→트림)에 스냅.
-              high·중만 저장, 애매하면 미선택·검수. 임의 재조합 금지.
-            </div>
+          <FormCard
+            title="지금 있는 매물 → 차종마스터"
+            hint="거친 표기·흩어진 칸을 모아 마스터 트리(제조사→모델→세대→파워→트림)에 스냅. high·중만 저장, 애매하면 미선택·검수. 임의 재조합 금지."
+          >
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
               <Btn onClick={convertAll} disabled={busy || !masterReady || !rows?.length}>
                 {busy ? '변환 중…' : `지금 매물 변환하기${rows ? ` (${rows.length})` : ''}`}
@@ -387,16 +382,15 @@ export default function DevTools() {
                 {master === null ? '마스터 로딩' : masterReady ? `마스터 ${master!.length.toLocaleString()}세대` : '마스터 실패'}
               </Badge>
             </div>
-            {log && <pre style={{ margin: '10px 0 0', fontSize: FS.cap, color: C.mute, whiteSpace: 'pre-wrap', fontFamily: NUM }}>{log}</pre>}
-          </div>
-          <div style={card}>
-            <SectionLabel mt={0}>마스터 정합 현황</SectionLabel>
+            {log ? <CopyBlock text={log} label="로그 복사" /> : null}
+          </FormCard>
+          <FormCard title="마스터 정합 현황">
             {!fit ? (
-              <div style={{ fontSize: FS.sub, color: C.faint }}>{rows === null ? '매물 로딩…' : '집계 중…'}</div>
+              <CenterNote minHeight={48}>{rows === null ? '매물 로딩…' : '집계 중…'}</CenterNote>
             ) : (
               <MasterFitSummary fit={fit} />
             )}
-          </div>
+          </FormCard>
         </div>
       ),
     },
@@ -407,19 +401,17 @@ export default function DevTools() {
       icon: ArrowLeftRight,
       tone: 'amber' as const,
       render: () => (
-        <div style={{ ...card, background: C.selected }}>
-          <SectionLabel mt={0}>v3 매물 → v4 복사 (소스 전환 준비)</SectionLabel>
-          <div style={{ fontSize: FS.cap, color: C.faint, lineHeight: 1.5, marginBottom: 10 }}>
-            운영 전수감사에서 child key 공통이 1개뿐이고 차량번호 중복·계약·채팅 참조가 확인됐습니다.
-            직접 복사는 중복 재고와 참조 단절 위험 때문에 잠겨 있으며, 여기서는 읽기 전용 진단만 제공합니다.
-          </div>
+        <FormCard
+          title="v3 매물 → v4 복사 (소스 전환 준비)"
+          hint="운영 전수감사에서 child key 공통이 1개뿐이고 차량번호 중복·계약·채팅 참조가 확인됐습니다. 직접 복사는 중복 재고와 참조 단절 위험 때문에 잠겨 있으며, 여기서는 읽기 전용 진단만 제공합니다."
+        >
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
             <Btn variant="ghost" onClick={runDiag} disabled={migBusy}>중복 진단(쓰기 없음)</Btn>
             <Btn variant="ghost" onClick={() => runMigrate(true)} disabled={migBusy}>미리보기(복사 안 함)</Btn>
           </div>
-          {diagLog && <pre style={{ margin: '10px 0 0', fontSize: FS.cap, color: C.mute, whiteSpace: 'pre-wrap', fontFamily: NUM, lineHeight: 1.6 }}>{diagLog}</pre>}
-          {migLog && <pre style={{ margin: '10px 0 0', fontSize: FS.cap, color: C.mute, whiteSpace: 'pre-wrap', fontFamily: NUM }}>{migLog}</pre>}
-        </div>
+          {diagLog ? <CopyBlock text={diagLog} label="진단 복사" /> : null}
+          {migLog ? <CopyBlock text={migLog} label="미리보기 복사" /> : null}
+        </FormCard>
       ),
     },
     {
@@ -430,48 +422,36 @@ export default function DevTools() {
       tone: 'red' as const,
       render: () => (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <div style={{ ...card, background: C.warnBg }}>
-            <SectionLabel mt={0}>민감 매물 필드 → private 이동</SectionLabel>
-            <div style={{ fontSize: FS.cap, color: C.mute, lineHeight: 1.6, marginBottom: 10 }}>
-              원가·VIN·기간별 내부 수수료를 <code>v4/products_private</code>에 보존한 뒤
-              v3/v4 공개 상품에서 제거합니다. 먼저 미리보기로 대상과 삭제 경로 수를 확인하세요.
-            </div>
+          <Message variant="warning">원가·VIN·기간별 내부 수수료를 v4/products_private에 보존한 뒤 v3/v4 공개 상품에서 제거합니다. 먼저 미리보기로 대상과 삭제 경로 수를 확인하세요.</Message>
+          <FormCard title="민감 매물 필드 → private 이동">
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <Btn variant="ghost" onClick={() => runPrivateMigration(true)} disabled={migBusy}>민감 필드 미리보기</Btn>
               <Btn variant="danger" onClick={() => runPrivateMigration(false)} disabled={migBusy}>
                 {migBusy ? '처리 중…' : 'private 이동 실행'}
               </Btn>
             </div>
-            {privateMigLog && <pre style={{ margin: '10px 0 0', fontSize: FS.cap, color: C.mute, whiteSpace: 'pre-wrap', fontFamily: NUM }}>{privateMigLog}</pre>}
-          </div>
-          <div style={{ ...card, background: C.warnBg }}>
-            <SectionLabel mt={0}>정산 금액 → 역할별 private 이동</SectionLabel>
-            <div style={{ fontSize: FS.cap, color: C.mute, lineHeight: 1.6, marginBottom: 10 }}>
-              공급사 청구(R1), 영업 지급(R2), 관리자 순수익을 각 private 노드에 보존한 뒤 공개 정산에서 제거합니다.
-              실제 실행 전 미리보기와 RTDB 백업이 필요합니다.
-            </div>
+            {privateMigLog ? <CopyBlock text={privateMigLog} label="로그 복사" /> : null}
+          </FormCard>
+          <Message variant="warning">공급사 청구(R1), 영업 지급(R2), 관리자 순수익을 각 private 노드에 보존한 뒤 공개 정산에서 제거합니다. 실제 실행 전 미리보기와 RTDB 백업이 필요합니다.</Message>
+          <FormCard title="정산 금액 → 역할별 private 이동">
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <Btn variant="ghost" onClick={() => runSettlementMigration(true)} disabled={migBusy}>정산 이동 미리보기</Btn>
               <Btn variant="danger" onClick={() => runSettlementMigration(false)} disabled={migBusy}>
                 {migBusy ? '처리 중…' : '정산 private 이동 실행'}
               </Btn>
             </div>
-            {settlementMigLog && <pre style={{ margin: '10px 0 0', fontSize: FS.cap, color: C.mute, whiteSpace: 'pre-wrap', fontFamily: NUM }}>{settlementMigLog}</pre>}
-          </div>
-          <div style={{ ...card, background: C.warnBg }}>
-            <SectionLabel mt={0}>회원 email · 공급사 수수료율 → private 이동</SectionLabel>
-            <div style={{ fontSize: FS.cap, color: C.mute, lineHeight: 1.6, marginBottom: 10 }}>
-              회원 email과 공급사 fee_rate를 users_private / partners_private에 보존한 뒤 본노드에서 제거합니다.
-              규칙 게시 전에 실행하면 오류로 남고 본노드 값은 유지됩니다.
-            </div>
+            {settlementMigLog ? <CopyBlock text={settlementMigLog} label="로그 복사" /> : null}
+          </FormCard>
+          <Message variant="warning">회원 email과 공급사 fee_rate를 users_private / partners_private에 보존한 뒤 본노드에서 제거합니다. 규칙 게시 전에 실행하면 오류로 남고 본노드 값은 유지됩니다.</Message>
+          <FormCard title="회원 email · 공급사 수수료율 → private 이동">
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <Btn variant="ghost" onClick={() => runMemberPrivateMigration(true)} disabled={migBusy}>회원·파트너 미리보기</Btn>
               <Btn variant="danger" onClick={() => runMemberPrivateMigration(false)} disabled={migBusy}>
                 {migBusy ? '처리 중…' : '이관 실행'}
               </Btn>
             </div>
-            {memberPrivateLog && <pre style={{ margin: '10px 0 0', fontSize: FS.cap, color: C.mute, whiteSpace: 'pre-wrap', fontFamily: NUM }}>{memberPrivateLog}</pre>}
-          </div>
+            {memberPrivateLog ? <CopyBlock text={memberPrivateLog} label="로그 복사" /> : null}
+          </FormCard>
         </div>
       ),
     },
@@ -482,25 +462,19 @@ export default function DevTools() {
       icon: Stethoscope,
       tone: 'gray' as const,
       render: () => (
-        <div style={card}>
-          <SectionLabel mt={0}>데이터 이상</SectionLabel>
-          <div style={{ fontSize: FS.sub, color: C.mute, marginBottom: 8 }}>
-            자동감지 {issues.length}종 · 표시 {issueHits}건
-          </div>
-          <Btn href="/data-check" size="sm" variant="ghost">데이터 점검 상세</Btn>
-          <div style={{ marginTop: 14 }}>
-            <SectionLabel>개인채널 백필</SectionLabel>
-            <div style={{ fontSize: FS.cap, color: C.mute, lineHeight: 1.6, marginBottom: 10 }}>
-              SP999·빈 채널 개인 영업자를 user_code 채널로 고유화합니다. 실행 전 미리보기로 대상을 확인하세요.
-            </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <FormCard title="데이터 이상" hint={`자동감지 ${issues.length}종 · 표시 ${issueHits}건`}>
+            <Btn href="/data-check" size="sm" variant="ghost">데이터 점검 상세</Btn>
+          </FormCard>
+          <FormCard title="개인채널 백필" hint="SP999·빈 채널 개인 영업자를 user_code 채널로 고유화합니다. 실행 전 미리보기로 대상을 확인하세요.">
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <Btn variant="ghost" onClick={() => runChannelBackfill(true)} disabled={migBusy}>개인채널 백필 미리보기</Btn>
               <Btn variant="danger" onClick={() => runChannelBackfill(false)} disabled={migBusy}>
                 {migBusy ? '처리 중…' : '백필 실행'}
               </Btn>
             </div>
-            {channelBackfillLog && <pre style={{ margin: '10px 0 0', fontSize: FS.cap, color: C.mute, whiteSpace: 'pre-wrap', fontFamily: NUM }}>{channelBackfillLog}</pre>}
-          </div>
+            {channelBackfillLog ? <CopyBlock text={channelBackfillLog} label="로그 복사" /> : null}
+          </FormCard>
         </div>
       ),
     },
@@ -511,8 +485,7 @@ export default function DevTools() {
       icon: Link2,
       tone: 'gray' as const,
       render: () => (
-        <div style={card}>
-          <SectionLabel mt={0}>바로가기</SectionLabel>
+        <FormCard title="바로가기">
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
             <Btn href="/inventory" size="sm" variant="ghost">{NAV_LABEL.inventory}</Btn>
             <Btn href="/audit" size="sm" variant="ghost">감사로그</Btn>
@@ -526,7 +499,7 @@ export default function DevTools() {
               스토어 캐시 비우기
             </Btn>
           </div>
-        </div>
+        </FormCard>
       ),
     },
   ];

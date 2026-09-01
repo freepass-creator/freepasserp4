@@ -5,6 +5,7 @@ import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
 import { C, R, FS, FW, ICON, ctrlH } from '@/components/ui/tokens';
 import { type BadgeTone, toneSoft, toneText } from '@/components/ui/badges';
+import { Btn } from '@/components/ui/buttons';
 
 /**
  * 업무 목록 2줄(카톡형) — ①주제·메타 ②맥락·안읽음.
@@ -71,6 +72,8 @@ export function FeedListRow({
   attentionTone,
   onClick,
   href,
+  create,
+  ariaLabel,
 }: {
   thumb?: ReactNode;
   /** 일반 목록 = 2줄 SSOT. (상품 파인더 ProductRowCard는 별도) */
@@ -80,6 +83,9 @@ export function FeedListRow({
   attentionTone?: 'amber' | 'red';
   onClick?: () => void;
   href?: string;
+  /** 목록 맨 위 등록 행 — CSS `data-create` (주황 바·배경). */
+  create?: boolean;
+  ariaLabel?: string;
 }) {
   const mobile = useIsMobile();
   const lineH = [FEED_LINE.title, FEED_LINE.sub];
@@ -89,8 +95,7 @@ export function FeedListRow({
     alignItems: 'center',
     padding: mobile ? '8px 12px' : '7px 14px', // 모바일 좌우 12 = 툴바·독과 좌측 정렬 일치
     borderBottom: `1px solid ${C.line}`,
-    // 선택은 배경으로만 표시한다. 상태는 썸네일 아이콘·배지·카운트로 전달한다.
-    background: selected ? C.selected : undefined, // 짝수 행 지브라는 globals.css(.fp-card-row:nth-child(even))가 담당
+    // 선택은 data-selected CSS(globals). 인라인 배경이면 :hover 가 먹지 않는다.
     textDecoration: 'none',
     color: 'inherit',
     cursor: href || onClick ? 'pointer' : 'default',
@@ -126,11 +131,15 @@ export function FeedListRow({
     </>
   );
   if (href) {
-    return <a href={href} className="fp-card fp-card-row" data-attention={attentionTone} style={style} onClick={() => haptic.nav()}>{body}</a>;
+    return <a href={href} className="fp-card fp-card-row" data-selected={selected ? 'true' : undefined} data-create={create ? 'true' : undefined} data-attention={attentionTone} aria-label={ariaLabel} style={style} onClick={() => haptic.nav()}>{body}</a>;
   }
   return (
     <div role={onClick ? 'button' : undefined} tabIndex={onClick ? 0 : undefined}
-      aria-current={onClick && selected ? 'true' : undefined}
+      aria-current={!create && onClick && selected ? 'true' : undefined}
+      aria-pressed={create ? (selected || undefined) : undefined}
+      aria-label={ariaLabel}
+      data-selected={selected ? 'true' : undefined}
+      data-create={create ? 'true' : undefined}
       data-attention={attentionTone}
       className="fp-card fp-card-row"
       onClick={onClick ? () => { haptic.tap(); onClick(); } : undefined}
@@ -198,6 +207,48 @@ export function FeedTitleRow({ title, meta }: { title: ReactNode; meta?: ReactNo
     }}>
       <div style={{ flex: '1 1 0', minWidth: 0, overflow: 'hidden' }}>{title}</div>
       {meta != null ? <div style={{ flex: '0 0 auto', lineHeight: 1 }}>{meta}</div> : null}
+    </div>
+  );
+}
+
+/**
+ * 목록 하단 더보기 — 업무 목록·매물 목록이 같은 패딩·버튼을 쓴다.
+ * 전량 표시하는 목록(계약서관리)은 이 줄을 그리지 않는다.
+ */
+export function ListMoreBar({
+  shown,
+  total,
+  unit,
+  pageSize,
+  onMore,
+  onShowAll,
+}: {
+  shown: number;
+  total: number;
+  unit: string;
+  pageSize: number;
+  onMore: () => void;
+  onShowAll?: () => void;
+}) {
+  const remaining = Math.max(0, total - shown);
+  if (remaining <= 0) return null;
+  const next = Math.min(pageSize, remaining);
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
+      flexWrap: 'wrap', padding: '12px 14px', borderTop: `1px solid ${C.line2}`,
+    }}>
+      <span style={{ fontSize: FS.sub, color: C.mute }}>
+        {shown.toLocaleString()} / {total.toLocaleString()}{unit}
+      </span>
+      <Btn title={`더보기 ${next.toLocaleString()}${unit}`} variant="ghost" size="sm" onClick={onMore}>
+        더보기 · {next.toLocaleString()}{unit}
+      </Btn>
+      {onShowAll ? (
+        <Btn title={`전체 ${total.toLocaleString()}${unit} 보기`} variant="ghost" size="sm" onClick={onShowAll}>
+          전체 보기
+        </Btn>
+      ) : null}
     </div>
   );
 }

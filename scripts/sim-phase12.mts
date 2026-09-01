@@ -211,7 +211,7 @@ const settingsPageSrc = fs.readFileSync(path.join(root, 'app/settings/page.tsx')
 const reportButtonSrc = fs.readFileSync(path.join(root, 'components/ReportButton.tsx'), 'utf8');
 const inventoryEditorSrc = fs.readFileSync(path.join(root, 'features/inventory/InventoryEditorPanes.tsx'), 'utf8');
 const productPreferencesSrc = fs.readFileSync(path.join(root, 'features/settings/ProductPreferences.tsx'), 'utf8');
-const formGridSrc = fs.readFileSync(path.join(root, 'components/ui/form-grid.tsx'), 'utf8');
+const workModeSrc = fs.readFileSync(path.join(root, 'components/ui/work-mode.tsx'), 'utf8');
 const priceMatrixSrc = fs.readFileSync(path.join(root, 'components/PriceMatrix.tsx'), 'utf8');
 const photoUploadSrc = fs.readFileSync(path.join(root, 'components/PhotoUpload.tsx'), 'utf8');
 const publicSignPageSrc = fs.readFileSync(path.join(root, 'app/sign/[token]/page.tsx'), 'utf8');
@@ -238,9 +238,9 @@ check('D 설정 주요 액션 아이콘+텍스트', settingsPageSrc.includes('<S
 check('D 상품 검수 요청 아이콘+텍스트', reportButtonSrc.includes('<Flag') && reportButtonSrc.includes('<Send') && reportButtonSrc.includes('<ButtonLabel'));
 check('D 재고 편집 도구 아이콘+텍스트', inventoryEditorSrc.includes('<RotateCcw') && inventoryEditorSrc.includes('<ClipboardPaste') && inventoryEditorSrc.includes('<ButtonLabel'));
 check('D 설정 관심상품 관리 아이콘+텍스트', productPreferencesSrc.includes('<StarOff') && productPreferencesSrc.includes('<Trash2') && productPreferencesSrc.includes('<ButtonLabel'));
-check('D 모바일 조회폼은 공통 정보행 SSOT', formGridSrc.includes('export function FormReadList') && formGridSrc.includes('<DetailRow'));
-check('D 모바일 정책 조회·편집 분리', policyPageSrc.includes('mobile && !canEdit') && policyPageSrc.includes('<FormReadList'));
-check('D 모바일 재고 조회·편집 분리', inventoryEditorSrc.includes('const readAsRows = mobile') && inventoryEditorSrc.includes('<FormReadList'));
+check('D 업무 필드 표 SSOT', workModeSrc.includes('export function WorkFields') && workModeSrc.includes('disabled={view}'));
+check('D 정책은 WorkFields', policyPageSrc.includes('<WorkFields') && !policyPageSrc.includes('<FormReadList'));
+check('D 재고는 WorkFields', inventoryEditorSrc.includes('<WorkFields') && !inventoryEditorSrc.includes('<FormReadList'));
 check('D 재고 가격 조회는 입력 컨트롤 제거', priceMatrixSrc.includes('readOnly = false') && priceMatrixSrc.includes("fmt(rentN) || '—'") && priceMatrixSrc.includes('{!readOnly ? <div'));
 check('D 재고 사진 조회는 추가·편집 제거', photoUploadSrc.includes('readOnly = false') && photoUploadSrc.includes('!readOnly ? <div') && photoUploadSrc.includes('!readOnly && sheet'));
 check('D 공개 전자서명 한글 인코딩 정상', publicSignPageSrc.includes('본인확인 자료와 전자서명 제출') && publicSignPageSrc.includes('확인하고 전자서명 제출') && !/[媛紐吏李泥]|\?[먯꾩쒕]/.test(publicSignPageSrc));

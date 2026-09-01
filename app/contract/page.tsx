@@ -19,8 +19,9 @@ import { canAccessOwnedRecord, organizationRole } from '@/lib/domain/authorizati
 import { providerNameMap, withProviderNames } from '@/lib/domain/identity';
 import { initAuth } from '@/lib/firebase/auth';
 import { man } from '@/lib/format';
-import { PaneHead, PaneBody, Badge, Btn, ButtonLabel, Input, won, C, R, NUM, Loading, CenterNote, ListGroup, SETTLEMENT_STATUS_TONE, FilterChips, FilterGroup, Select, FW, FS, FeedRowSkeleton, KV_LABEL_W, rowPadY, ICON, Modal, FormGrid } from '@/components/ui';
+import { PaneHead, PaneBody, Badge, Btn, ButtonLabel, won, C, NUM, Loading, CenterNote, Message, SETTLEMENT_STATUS_TONE, FilterChips, FilterGroup, Select, FW, FS, FeedRowSkeleton, KV_LABEL_W, rowPadY, ICON, Modal, WorkFields, WorkInput, DetailTable, DT, ListMoreBar } from '@/components/ui';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
+import { MyLedger } from '@/components/MyLedger';
 import { ContractPanel } from '@/components/ContractPanel';
 import { ContractDocs } from '@/components/ContractDocs';
 import { ContractCreateRow, ContractListRow } from '@/components/list-rows';
@@ -66,9 +67,12 @@ function AmtInput({ val, label, onCommit }: { val: number; label: string; onComm
   };
   return (
     <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 6 }}>
-      <Input value={draft} onChange={setDraft} placeholder="0" ariaLabel={`${label} 금액`} inputMode="numeric" size="sm" full
+      <WorkInput value={draft} onChange={setDraft} placeholder="—" ariaLabel={`${label} 금액`} inputMode="numeric" full
         disabled={saving}
-        style={{ fontFamily: NUM, fontVariantNumeric: 'tabular-nums', textAlign: 'right', background: dirty ? C.warnBg : undefined }} />
+        style={{
+          fontFamily: NUM, fontVariantNumeric: 'tabular-nums', textAlign: 'right',
+          ...(dirty ? { background: C.warnBg } : {}),
+        }} />
       <Btn
         title={`${label} 저장`}
         size="sm"
@@ -84,7 +88,8 @@ function AmtInput({ val, label, onCommit }: { val: number; label: string; onComm
   );
 }
 
-export default function ContractsSettlement() {
+/** 관리자 책상 — 계약을 «만들고 굴리는» 곳. 금액이 다 보인다. */
+function ContractsAdminDesk() {
   const co = getCompanyId();
   const mobile = useIsMobile();
   // 같은 세션의 문의→계약 이동에서는 이미 권한 스코프로 읽은 계약 캐시를 즉시 그린다.
@@ -475,7 +480,7 @@ export default function ContractsSettlement() {
           등록은 «목록 맨 위 한 자리»로 — 재고(InventoryCreateRow)·정책(PolicyCreateRow)과 같은 규격.
           보통 계약은 매물에서 파생되지만, 재고에 없는 차인데 계약서만 보내는 경우가 있다.
         */}
-        {canCreateBlank && <ContractCreateRow onClick={() => { void newBlankContract(); }} />}
+        {canCreateBlank && <ContractCreateRow selected={!!blank} onClick={() => { void newBlankContract(); }} />}
         {shown.map((c) => (
           <ContractListRow
             key={String(c.contract_code)}
@@ -487,28 +492,22 @@ export default function ContractsSettlement() {
             onClick={() => { void selectContract(c); }}
           />
         ))}
-        {moreCount > 0 && (
-          <div style={{ display: 'flex', justifyContent: 'center', padding: '10px 0 14px' }}>
-            <Btn
-              title={`더보기 ${Math.min(PAGE, moreCount)}건`}
-              variant="ghost"
-              size="sm"
-              onClick={() => setLimit((n) => n + PAGE)}
-            >
-              {`더보기 · ${Math.min(PAGE, moreCount).toLocaleString()}건`}
-            </Btn>
-          </div>
-        )}
+        <ListMoreBar
+          shown={shown.length}
+          total={shown.length + moreCount}
+          unit="건"
+          pageSize={PAGE}
+          onMore={() => setLimit((n) => n + PAGE)}
+        />
       </div>
     );
 
-  // 라벨 열 폭은 DetailGrid(116)와 같은 값 하나로. 110/120 두 갈래라 값 시작선이 10px 어긋났다.
-  //  구분선은 ListGroup이 자식마다 그어 주므로 여기서 borderTop을 또 긋지 않는다(카드선과 2겹).
-  const kv = (k: string, v: React.ReactNode, valueColor?: string) => (
-    <div style={{ display: 'flex', padding: '8px 12px', fontSize: FS.sub }}>
-      <span style={{ width: KV_LABEL_W, flex: `0 0 ${KV_LABEL_W}px`, color: C.mute }}>{k}</span>
-      <span style={{ fontWeight: valueColor ? FW.head : FW.strong, color: valueColor || C.ink, fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{v}</span>
-    </div>
+  // 라벨 열 폭은 DetailTable(116)과 같다.
+  const kv = (k: string, v: React.ReactNode, valueColor?: string, i = 0) => (
+    <tr key={k} style={DT.tr(i)}>
+      <th scope="row" style={DT.labelTh}>{k}</th>
+      <td style={{ ...DT.td, fontWeight: valueColor ? FW.head : FW.strong, color: valueColor || C.ink, fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{v}</td>
+    </tr>
   );
 
   const setStatus = async (to: string) => {
@@ -551,13 +550,15 @@ export default function ContractsSettlement() {
     }
     return true;
   };
-  const amtRow = (label: string, field: 'fee_amount' | 'agent_payout', val: number, code: string) => (
-    <div style={{ display: 'flex', alignItems: 'center', padding: '8px 12px', fontSize: FS.sub }}>
-      <span style={{ width: KV_LABEL_W, flex: `0 0 ${KV_LABEL_W}px`, color: C.mute }}>{label}</span>
-      {role === 'admin'
-        ? <AmtInput key={`${code}-${field}`} val={val} label={label} onCommit={(n) => setAmount(code, field, n)} />
-        : <span style={{ fontWeight: FW.head, color: C.brand, fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{won(val)}원</span>}
-    </div>
+  const amtRow = (label: string, field: 'fee_amount' | 'agent_payout', val: number, code: string, i: number) => (
+    <tr key={field} style={DT.tr(i)}>
+      <th scope="row" style={DT.labelTh}>{label}</th>
+      <td style={DT.td}>
+        {role === 'admin'
+          ? <AmtInput key={`${code}-${field}`} val={val} label={label} onCommit={(n) => setAmount(code, field, n)} />
+          : <span style={{ fontWeight: FW.head, color: C.brand, fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{won(val)}원</span>}
+      </td>
+    </tr>
   );
   const detailSettle = () => {
     if (!selC) return <CenterNote>계약 완료 시 정산이 자동 생성됩니다.</CenterNote>;
@@ -569,7 +570,7 @@ export default function ContractsSettlement() {
       <div>
         {/* 형제(뱃지·버튼)가 전부 nowrap 이라 축소 부담을 코드 혼자 져서 'ST_…-01' 이 두 줄로 쪼개졌다.
             코드는 말줄임으로 접고, 액션이 안 들어가면 줄을 바꾼다. */}
-        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, rowGap: rowPadY(true), padding: '12px 12px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8, rowGap: rowPadY(true) }}>
           <span style={{ fontSize: FS.body, fontWeight: FW.title, fontFamily: NUM, fontVariantNumeric: 'tabular-nums', minWidth: 0, flex: '0 1 auto', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{String(s.settlement_code)}</span>
           <Badge tone={SETTLEMENT_STATUS_TONE[st] || 'gray'}>{st}</Badge>
           <span style={{ flex: 1 }} />
@@ -594,15 +595,18 @@ export default function ContractsSettlement() {
             </Btn>
           )}
         </div>
-        <div style={{ margin: '0 12px' }}>
-        <ListGroup>
-          {role !== 'agent' && amtRow('공급사 청구 (R1)', 'fee_amount', Number(s.fee_amount) || 0, String(s.settlement_code))}
-          {role !== 'provider' && amtRow('영업자 지급 (R2)', 'agent_payout', Number(s.agent_payout) || 0, String(s.settlement_code))}
-          {role === 'admin' && kv('순수익 (R1−R2)', `${won(net)}원`, C[settlementNetTone(net)])}
-          {cb > 0 ? kv('환수액', `${won(cb)}원`) : null}
-        </ListGroup>
-        </div>
-        <div style={{ padding: '10px 12px', fontSize: FS.cap, color: C.faint, lineHeight: 1.6 }}>공급사에서 <b>받은 금액(R1)</b>·영업자에 <b>준 금액(R2)</b>을 실측 기록(관리자 편집, 율=기본값). 순수익=R1−R2. 중도취소 시 환수(경과비례).</div>
+        <DetailTable
+          title="정산 금액"
+          hint="공급사에서 받은 금액(R1)·영업자에 준 금액(R2)을 실측 기록(관리자 편집, 율=기본값). 순수익=R1−R2. 중도취소 시 환수(경과비례)."
+          accent="sub"
+          span={2}
+          widths={[KV_LABEL_W, undefined]}
+        >
+          {role !== 'agent' && amtRow('공급사 청구 (R1)', 'fee_amount', Number(s.fee_amount) || 0, String(s.settlement_code), 0)}
+          {role !== 'provider' && amtRow('영업자 지급 (R2)', 'agent_payout', Number(s.agent_payout) || 0, String(s.settlement_code), 1)}
+          {role === 'admin' && kv('순수익 (R1−R2)', `${won(net)}원`, C[settlementNetTone(net)], 2)}
+          {cb > 0 ? kv('환수액', `${won(cb)}원`, undefined, 3) : null}
+        </DetailTable>
       </div>
     );
   };
@@ -631,12 +635,12 @@ export default function ContractsSettlement() {
     ? [
       { key: 'progress', title: '진행', icon: ListChecks, node: <PaneBody>{progressBody}</PaneBody> },
       { key: 'docs', title: '서류', icon: Files, node: <PaneBody>{docsBody}</PaneBody> },
-      { key: 'settle', title: '정산', icon: WalletCards, node: <PaneBody>{detailSettle()}</PaneBody> },
+      { key: 'settle', title: '정산', icon: WalletCards, node: <PaneBody pad>{detailSettle()}</PaneBody> },
     ]
     : [
       { key: 'progress', title: '진행', icon: ListChecks, node: <><PaneHead title="계약 진행상황" /><PaneBody>{progressBody}</PaneBody></> },
       { key: 'docs', title: '서류', icon: Files, node: <><PaneHead title="첨부 서류" /><PaneBody>{docsBody}</PaneBody></> },
-      { key: 'settle', title: '정산', icon: WalletCards, node: <><PaneHead title="정산상태" /><PaneBody>{detailSettle()}</PaneBody></> },
+      { key: 'settle', title: '정산', icon: WalletCards, node: <><PaneHead title="정산상태" /><PaneBody pad>{detailSettle()}</PaneBody></> },
     ];
 
   return (
@@ -660,9 +664,9 @@ export default function ContractsSettlement() {
         listTools={{
           search: { value: qInput, onChange: setQInput, placeholder: '계약·차번·계약자·전화·영업·공급…' },
           action: !mobile && setts.length ? { label: '엑셀', icon: Download, onClick: () => downloadSettlementsExcel(setts, new Date().toISOString().slice(0, 10), role) } : undefined,
-          sort: { value: sort, onChange: (v) => setSort(v as ContSort | ''), options: CONT_SORTS, defaultValue: 'date' },
+          /* 모바일 = 정렬 없음(기본 최근순) — 사장님 2026-08-22 「계약진행도 어려운 필터 없이 최대한 심플하게」. */
           filter: {
-            count: filterActive,
+            count: filterActive + (!mobile && sort !== 'date' ? 1 : 0),
             title: '조건 검색',
             previewCount: draftPreviewCount,
             previewUnit: '건',
@@ -672,34 +676,60 @@ export default function ContractsSettlement() {
             commit: () => { setFlt(draftFlt); setMonthFlt(draftMonthFlt); },
             onClear: () => {
               if (mobile) { setDraftFlt('진행'); setDraftMonthFlt(''); }
-              else { setFlt('진행'); setMonthFlt(''); }
+              else { setFlt('진행'); setMonthFlt(''); setSort('date'); }
             },
             body: (
               <>
+                {/* 정렬·계약월은 웹만 — 모바일 필터는 업무단계 칩 하나로(사장님 2026-08-22 「어려운 필터 없이 최대한 심플하게」). */}
+                {!mobile && (
+                <FilterGroup
+                  title="정렬"
+                  count={sort !== 'date' ? 1 : 0}
+                  defaultOpen
+                  first
+                  onClear={() => setSort('date')}
+                >
+                  <FilterChips
+                    value={sort || 'date'}
+                    onChange={(value) => setSort(value)}
+                    options={CONT_SORTS.map((option) => ({ key: option.value, label: option.label }))}
+                    clearKey="date"
+                  />
+                </FilterGroup>
+                )}
+                {!mobile && (
                 <FilterGroup
                   title="계약월"
                   count={uiMonth ? 1 : 0}
                   defaultOpen
-                  first={!mobile}
-                  onClear={() => mobile ? setDraftMonthFlt('') : setMonthFlt('')}
+                  onClear={() => setMonthFlt('')}
                 >
                   <div style={{ flex: '1 1 100%', width: '100%', minWidth: 0 }}>
                     <Select
                       full
                       value={uiMonth}
-                      onChange={(v) => mobile ? setDraftMonthFlt(v) : setMonthFlt(v)}
+                      onChange={(v) => setMonthFlt(v)}
                       placeholder="전체"
                       options={monthOptions}
                     />
                   </div>
                 </FilterGroup>
+                )}
                 <FilterGroup
                   title="업무단계"
                   count={uiFlt === '진행' ? 0 : 1}
                   defaultOpen
+                  first={mobile}
                   onClear={() => mobile ? setDraftFlt('진행') : setFlt('진행')}
                 >
-                  <FilterChips value={uiFlt} onChange={mobile ? setDraftFlt : setFlt} options={CONT_FILTERS} />
+                  {/* 모바일 = 굵은 다섯 칩만(단계별 «N 진행»·테스트 제외) — 단계 상세는 열 눌러 보는 게 아니라 카드가 이미 보여 준다. */}
+                  <FilterChips
+                    value={uiFlt}
+                    onChange={mobile ? setDraftFlt : setFlt}
+                    options={mobile
+                      ? CONT_FILTERS.filter((o) => ['all', '진행', '확인 필요', '계약완료', '계약취소'].includes(String(o.key)))
+                      : CONT_FILTERS}
+                  />
                 </FilterGroup>
               </>
             ),
@@ -735,7 +765,8 @@ export default function ContractsSettlement() {
           }
         >
           <div style={{ display: 'grid', gap: 10 }}>
-            <FormGrid
+            <WorkFields
+              mode="create"
               cols={2}
               showNotes
               form={blank as unknown as EntityRecord}
@@ -756,13 +787,52 @@ export default function ContractsSettlement() {
                 { key: 'vehicleName', label: '차명', type: 'text', note: '' },
               ]}
             />
-            <p style={{ margin: 0, fontSize: 12, lineHeight: 1.6, color: C.mute }}>
+            <Message variant="info">
               대여기간·월 대여료·보증금은 약정에서 확정합니다. 수수료율은 매물이 없어 지금 굳히지 않고
               정산 시점에 해석합니다.
-            </p>
+            </Message>
           </div>
         </Modal>
       )}
     </>
   );
+}
+
+/**
+ * **계약·정산확인 — 영업자·공급사가 «가지고 가는» 화면. 아직 준비중이다.**
+ *
+ * ★사장님 2026-08-26 「계약정산확인은 아직 준비중으로 해주고」.
+ *   화면과 API 는 다 살아 있다(`MyLedger` · `/api/settlement/mine` · 실적 확인 문).
+ *   막아 둔 이유는 **영업자 계정이 아직 정비 안 됐기 때문**이다 —
+ *   실측 2026-08-26: 8월 영업담당자 9명 중 1명은 계정이 아예 없고, 코드가 안 박힌 줄도 40개다.
+ *   그 상태로 열면 「내 실적이 왜 이것뿐이냐」는 문의부터 받는다.
+ *
+ * ★★**열려면 아래 한 줄만 바꾼다.** 걷어낸 게 아니라 잠가 둔 것이다 —
+ *   `READY = true`. 지우고 다시 짜는 것보다 이게 되돌리기 쉽다.
+ *
+ * ⚠ 관리자는 여기서 기존 «계약 책상»(RTDB 계약·서류·전자계약)을 그대로 쓴다.
+ *   원장(정산관리)과 축이 다른 화면이라 섞지 않았다.
+ */
+const READY = false;
+
+export default function ContractPage() {
+  const [role, setRole] = useState<Role | null>(null);
+  useEffect(() => {
+    const read = () => setRole((getSession()?.role as Role) || getRole());
+    read();
+    window.addEventListener('fp:session', read);
+    window.addEventListener('fp:role', read);
+    return () => { window.removeEventListener('fp:session', read); window.removeEventListener('fp:role', read); };
+  }, []);
+  if (role === null) return <Loading />;
+  if (role === 'admin') return <ContractsAdminDesk />;
+  if (!READY) {
+    return (
+      <CenterNote>
+        준비중입니다.<br />
+        내 계약·실적은 곧 여기서 보실 수 있습니다. 그때까지는 담당자에게 문의해 주세요.
+      </CenterNote>
+    );
+  }
+  return <MyLedger />;
 }

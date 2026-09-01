@@ -21,10 +21,11 @@ export function findSalesBlock(header: readonly string[]): { start: number; colu
   for (let i = dividerAt + 1; i < header.length; i++) { const h = String(header[i] ?? '').trim(); if (!isSalesBlockColumn(h)) break; columns.push(fromBlockHeader(h)); }
   return { start: dividerAt + 1, columns, dividerAt };
 }
-/** 재고 탭 → 그 줄이 실리는 판매 탭(블록 머리의 정본). 손오공 구독재고 → 손오공구독 · 오토플러스(RP023) → 오플구독 · 그 밖 → 상품리스트. */
-export function salesTabForStockTab(providerCode: string, tabTitle: string): '상품리스트' | '손오공구독' | '오플구독' {
+/** 재고 탭 → 그 줄이 실리는 판매 탭(블록 머리의 정본). 손오공 구독재고 → 손오공구독 · 픽업재고 → 픽업구독 · 오토플러스(RP023) → 오플구독 · 그 밖 → 상품리스트. */
+export function salesTabForStockTab(providerCode: string, tabTitle: string): '상품리스트' | '손오공구독' | '픽업구독' | '오플구독' {
   const t = String(tabTitle ?? '').trim();
   if (providerCode === 'RP023') return '오플구독';
+  if (providerCode === 'RP012' && /픽업/.test(t)) return '픽업구독';
   if (providerCode === 'RP012' && /구독/.test(t)) return '손오공구독';
   return '상품리스트';
 }

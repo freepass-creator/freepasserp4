@@ -1,7 +1,7 @@
 import type { EntityRecord } from '@/lib/intake/entities';
 import { moneyOrRateText, moneyOrRateWon } from './policy-money-rate';
 import type { EsignTemplate } from '@/lib/domain/esign-templates';
-import { isStockedProduct, priceList, vehicleName, type Price } from '@/lib/domain/product';
+import { isStockedProduct, priceList, priceVariants, vehicleName, type Price } from '@/lib/domain/product';
 
 const S = (value: unknown) => String(value ?? '').trim();
 const digits = (value: unknown) => S(value).replace(/\D/g, '');
@@ -85,10 +85,9 @@ export function searchContractVehicles(
   query: string,
 ): EntityRecord[] {
   const normalized = S(query).replace(/\s/g, '').toLowerCase();
-  if (!providerCode) return [];
   const numberQuery = digits(normalized);
   return products
-    .filter((product) => S(product.provider_company_code) === providerCode)
+    .filter((product) => !providerCode || S(product.provider_company_code) === providerCode)
     .filter((product) => !template || productMatchesTemplate(product, template))
     // 계약서에 배정하는 선택창이므로 판매 카탈로그와 달리 출고가능 재고만 노출한다.
     // 대여료가 아직 없어도 차량은 보여 주고 이번 계약에서 최종 금액을 직접 확정한다.
@@ -142,6 +141,68 @@ export function contractVehicleSnapshot(product: EntityRecord): ContractVehicleS
 
 export type DriverAgeOption = { age: number; label: string; surcharge: number };
 
+export type ContractMileageOption = {
+  /** 계약서에 남기는 사람 읽기용 약정. */
+  label: string;
+  /** 상품 가격표 원본 키. 없으면 정책 가산으로 계산한 가격이다. */
+  priceVariantKey: string;
+  mileageSurcharge: number;
+  source: '상품 가격표' | '정책 가산';
+};
+
+function mileageKm(value: unknown): number {
+  if (typeof value === 'number' && Number.isFinite(value)) return Math.max(0, Math.round(value));
+  const raw = S(value).replace(/,/g, '').toLowerCase();
+  const man = raw.match(/(\d+(?:\.\d+)?)\s*만/);
+  if (man) return Math.round(Number(man[1]) * 10_000);
+  const km = raw.match(/(\d+(?:\.\d+)?)\s*km/);
+  return km ? Math.round(Number(km[1])) : 0;
+}
+
+function mileageLabel(value: unknown): string {
+  const km = mileageKm(value);
+  if (!km) return S(value);
+  return km % 10_000 === 0 ? `연 ${km / 10_000}만km` : `연 ${km.toLocaleString('ko-KR')}km`;
+}
+
+/**
+ * 계약의 약정주행거리는 자유입력이 아니다. 차량 가격표에 기간별 선택값이 있으면 그것을
+ * 그대로 쓰고, 없을 때만 정책이 명시한 1만km 상향요금으로 기본+1만 옵션을 만든다.
+ */
+export function contractMileageOptions(
+  product: EntityRecord | null | undefined,
+  months: number,
+  policy: EntityRecord | null | undefined,
+): ContractMileageOption[] {
+  if (!product || !months) return [];
+  const variants = priceVariants(product).filter((price) => price.m === months && mileageKm(price.mileage) > 0);
+  if (variants.length) return variants.map((price) => ({
+    label: mileageLabel(price.mileage),
+    priceVariantKey: price.key,
+    mileageSurcharge: 0,
+    source: '상품 가격표',
+  }));
+
+  const base = mileageKm(policy?.annual_mileage);
+  const baseLabel = mileageLabel(policy?.annual_mileage);
+  if (!base || !baseLabel) return [];
+  const baseRent = priceList(product).find((price) => price.m === months)?.rent || 0;
+  const upcharge = Math.max(0, moneyOrRateWon(policy?.mileage_upcharge_per_10000km, baseRent, { legacy: 'won' }) || 0);
+  const options: ContractMileageOption[] = [{
+    label: baseLabel,
+    priceVariantKey: '',
+    mileageSurcharge: 0,
+    source: '정책 가산',
+  }];
+  if (upcharge > 0) options.push({
+    label: mileageLabel(base + 10_000),
+    priceVariantKey: '',
+    mileageSurcharge: upcharge,
+    source: '정책 가산',
+  });
+  return options;
+}
+
 /**
  * 연령 하향 가산(월) — 「10만원」은 그대로, 「대여료의 10%」는 이번 계약 월 대여료로 굳힌다(사장님 2026-08-19 정액·정률 겸용).
  *   월 대여료를 아직 모르면 정률은 0으로 두고 라벨만 보인다 — 계약서에는 rentAmount 가 정해진 뒤 다시 계산돼 실린다.
@@ -190,4 +251,29 @@ export function contractRentForAge(
   const option = contractDriverAgeOptions(policy).find((row) => row.age === driverAge);
   const ageSurcharge = option?.surcharge || 0;
   return { rent: price.rent + ageSurcharge, deposit: price.deposit, ageSurcharge };
+}
+
+/** 기간·약정주행·연령을 동시에 반영한, 계약 생성 직전의 월 대여료. */
+export function contractRentForTerms(
+  product: EntityRecord | null | undefined,
+  months: number,
+  policy: EntityRecord | null | undefined,
+  driverAge: number,
+  mileage: ContractMileageOption | null | undefined,
+): { rent: number; deposit: number; ageSurcharge: number; mileageSurcharge: number; priceVariantKey: string } | null {
+  if (!product || !months || !mileage) return null;
+  const variant = mileage.priceVariantKey
+    ? priceVariants(product).find((row) => row.key === mileage.priceVariantKey)
+    : null;
+  const base = variant || priceList(product).find((price) => price.m === months);
+  if (!base) return null;
+  const ageOption = contractDriverAgeOptions(policy, base.rent + mileage.mileageSurcharge).find((row) => row.age === driverAge);
+  const ageSurcharge = ageOption?.surcharge || 0;
+  return {
+    rent: base.rent + mileage.mileageSurcharge + ageSurcharge,
+    deposit: base.deposit,
+    ageSurcharge,
+    mileageSurcharge: mileage.mileageSurcharge,
+    priceVariantKey: mileage.priceVariantKey,
+  };
 }

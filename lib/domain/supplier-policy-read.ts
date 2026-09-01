@@ -63,14 +63,33 @@ export type PolicyBook = Map<string, Map<string, string>>;
 export function readPolicyTab(rows: string[][]): PolicyBook {
   const book: PolicyBook = new Map();
   if (!rows.length) return book;
-  // ── 가로: 첫 줄이 「정책코드 · 정책명 · …」
-  if (norm(rows[0]?.[0]) === '정책코드' && norm(rows[0]?.[1]) === '정책명' && S(rows[0]?.[2])) {
+  /**
+   * ── 가로: 첫 줄에 「정책코드」·「정책명」이 있는 표.
+   * ★**열 자리를 못 박지 않는다 — 이름으로 찾는다.**
+   *   예전엔 A열=정책코드·B열=정책명으로 굳혀 두었는데, 2026-08-21 앞에 「정책UID」 열을 하나 끼우자
+   *   그 판정이 깨져 **정책 탭을 통째로 못 읽었다**. 열은 언제든 하나 더 생긴다.
+   */
+  const headAt = rows[0]?.map((c) => norm(c)) || [];
+  const codeCol = headAt.indexOf('정책코드');
+  const nameCol = headAt.indexOf('정책명');
+  if (codeCol >= 0 && nameCol >= 0) {
     const hdr = rows[0].map(S);
     for (const r of rows.slice(1)) {
       if (!policyRowLive(hdr, r)) continue;
-      const code = /프리패스 기본/.test(S(r[0])) ? '' : S(r[0]);
+      /**
+       * ★**정책코드와 정책명이 둘 다 비면 정책이 아니다 — 건너뛴다.**
+       *   ⚠ 실측 2026-08-25 렌트존: 보험 칸 몇 개만 남은 «유령 줄»이 있었는데
+       *     코드가 빈 줄이라 키가 `''` 로 같아져 **「프리패스 표준」 줄을 통째로 덮었다.**
+       *     그 줄엔 전용계좌가 없어 판매시트 계좌 칸이 빈 채로 나갔다.
+       *   프리패스 기본 줄은 코드(「(프리패스 기본)」)든 이름(「프리패스 표준」)이든 하나는 적혀 있다.
+       */
+      if (!S(r[codeCol]) && !S(r[nameCol])) continue;
+      const code = /프리패스 기본/.test(S(r[codeCol])) ? '' : S(r[codeCol]);
       const m = new Map<string, string>();
-      hdr.forEach((h, i) => { if (h && !/^정책코드$|^정책명$/.test(norm(h))) { const v = policyCellValue(h, r[i]); if (v) setWithAliases(m, h, v); } });
+      hdr.forEach((h, i) => { if (h && !/^정책코드$|^정책명$|^정책uid$/.test(norm(h).toLowerCase())) { const v = policyCellValue(h, r[i]); if (v) setWithAliases(m, h, v); } });
+      /** UID 는 값이 아니라 이름표다 — 정책 값 묶음에 섞지 않고 따로 담는다(ERP·계약서가 이걸 참조한다). */
+      const uidCol = headAt.findIndex((h) => h.toLowerCase() === '정책uid');
+      if (uidCol >= 0 && S(r[uidCol])) m.set('__uid', S(r[uidCol]));
       book.set(code, m);
     }
     return book;
@@ -93,7 +112,12 @@ export function readPolicyTab(rows: string[][]): PolicyBook {
 }
 
 /** 정책을 어떻게 골랐나 — 조용히 틀린 값이 나가지 않게 밖에서 셀 수 있어야 한다. */
-export type PolicyPick = { p: Map<string, string>; how: '코드' | '유일' | '기본' | '없음' };
+export type PolicyPick = {
+  p: Map<string, string>;
+  how: '코드' | '유일' | '기본' | '없음';
+  /** 고른 정책의 **코드**. 판매시트가 이걸 실어야 ERP 가 정책을 찾는다(못 정했으면 빈칸). */
+  code: string;
+};
 
 /**
  * 그 차에 적용될 정책.
@@ -106,12 +130,13 @@ export type PolicyPick = { p: Map<string, string>; how: '코드' | '유일' | '�
  */
 export function pickPolicy(book: PolicyBook, code: string): PolicyPick {
   const c = S(code);
-  if (c && book.has(c)) return { p: book.get(c)!, how: '코드' };
+  if (c && book.has(c)) return { p: book.get(c)!, how: '코드', code: c };
   const own = [...book.entries()].filter(([k]) => k);
-  if (!c && own.length === 1) return { p: own[0][1], how: '유일' };
+  if (!c && own.length === 1) return { p: own[0][1], how: '유일', code: own[0][0] };
   const base = book.get('');
-  if (base) return { p: base, how: '기본' };
-  return { p: new Map(), how: '없음' };
+  // 프리패스 기본 줄은 그 공급사 정책이 아니다 — 코드를 딸려 보내지 않는다(남의 조건이 붙는다).
+  if (base) return { p: base, how: '기본', code: '' };
+  return { p: new Map(), how: '없음', code: '' };
 }
 
 /** 값만 필요할 때. 어떻게 골랐는지도 봐야 하면 `pickPolicy` 를 쓴다. */
@@ -165,7 +190,9 @@ function manOnly(v: string): string {
 }
 
 /**
- * 자차 — 「차량가액 / 수리비 20%, 최대 50~100만원」(사장님 2026-08-19). 보상기준 / 자기부담률, 면책 최소~최대(만원).
+ * 자차 — 「차량가액 / **수리비의** 20%, 최대 50~100만원」. 보상기준 / 자기부담률, 면책 최소~최대(만원).
+ * ★사장님 2026-08-25 「자차는 수리비의 00%, 최대 00~000만원이고」 — 「수리비 20%」가 아니라 **「수리비의 20%」**다.
+ *   조사 하나 차이지만 「수리비 20만원」으로 읽히던 것을 「수리비의 20%」로 못 박는다.
  * 자기부담률이 없으면 「차량가액 / 최대 50~100만원」, 최소=최대면 「최대 100만원」.
  */
 export function ownDamageCell(p: Map<string, string>): string {
@@ -174,7 +201,7 @@ export function ownDamageCell(p: Map<string, string>): string {
   const lo = manOnly(S(p.get('자차최소면책금')));
   const hi = manOnly(S(p.get('자차최대면책금')));
   const range = lo && hi && lo !== hi ? `${lo}~${hi}만원` : (lo || hi ? `${lo || hi}만원` : '');
-  const parts = [rate ? `수리비 ${rate}` : '', range ? `최대 ${range}` : ''].filter(Boolean).join(', ');
+  const parts = [rate ? `수리비의 ${rate}` : '', range ? `최대 ${range}` : ''].filter(Boolean).join(', ');
   if (cover && parts) return `${cover} / ${parts}`;
   return cover || parts || '';
 }
@@ -189,7 +216,14 @@ export function insuranceSeparate(p: Map<string, string>): boolean {
  */
 export function ageCell(p: Map<string, string>, age: 21 | 23): string {
   const scope = S(p.get('연령인하'));
-  const fee = S(p.get('연령 하향 요금'));
+  /**
+   * ★그 나이 칸이 있으면 **그것이 이긴다**(사장님 2026-08-21 「정책에도 21세+ 23세+ 넣어줘」).
+   *   나이마다 할증이 다른 집이 있다. 없으면 예전처럼 「연령 하향 요금」 한 값을 두 나이에 같이 쓴다.
+   */
+  const own = S(p.get(`${age}세+`));
+  const fee = own || S(p.get('연령 하향 요금'));
+  if (own && /불가/.test(own)) return '불가';
+  if (own && !scope) return manOnly(own) || own;
   if (!scope) return '';
   if (/불가/.test(scope)) return '불가';
   if (/협의/.test(scope)) return '협의';
@@ -430,8 +464,8 @@ export function policyCell(column: string, p: Map<string, string>): string {
   if (column === '보험료') return S(p.get('보험료')).replace(/^보험료\s*/, '');   // 머리글이 「보험료」라 칸에는 포함/별도만
   if (column === '승계') return successionCell(p);
   if (column === '운전자범위') return driverScopeCell(p);
-  if (column === '21세') return ageCell(p, 21);
-  if (column === '23세') return ageCell(p, 23);
+  if (column === '21세' || column === '21세+') return ageCell(p, 21);
+  if (column === '23세' || column === '23세+') return ageCell(p, 23);
   // 추가운전(가능 여부)·추가운전 요금(N인까지 · 1인당 월 M만원) — 옛 머리글(추가운전자·추가운전자 요금)도 읽는다.
   if (column === '추가운전') return extraDriverCell(p);
   if (column === '추가운전 요금') return extraDriverFeeCell(p);

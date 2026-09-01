@@ -106,7 +106,12 @@ for (const f of ((files.files || []) as Rec[])) {
     /** 정책 탭 — 가로 규격(1행 = 정책코드|정책명|…). 이름으로 잇는다 — 순서를 믿지 않는다. */
     if (title === POLICY_TAB) {
       const hdr = (grid[0] || []).map(S);
-      if (hdr[0] !== '정책코드') return;
+      /**
+       * ★가로 규격인지는 **이름으로** 본다 — 자리로 보지 않는다(2026-08-21).
+       *   「정책UID」가 맨 앞에 생기면서 「정책코드」가 둘째 칸으로 밀렸다. 자리를 박아 둔 검사가
+       *   정책 탭을 통째로 건너뛰었고, 아무 소리도 안 났다 — 조용한 실패가 제일 나쁘다.
+       */
+      if (!hdr.some((h) => h === '정책코드')) return;
       for (const r of grid.slice(1)) {
         if (!r || !r.some((c) => S(c))) continue;
         const o: Row = { 공급사: who };

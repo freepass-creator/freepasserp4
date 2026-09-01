@@ -12,7 +12,7 @@ import { auditMasterFit, type MasterEntry } from '@/lib/domain/vehicle-master-ma
 import { loadVehicleMaster } from '@/lib/domain/vehicle-master-load';
 import { setReportStatus } from '@/lib/domain/report';
 import { toast } from '@/components/Toaster';
-import { Page, C, R, NUM, Loading, Btn, CenterNote, FormCard, SectionLabel, Badge, toneText, FW, FS } from '@/components/ui';
+import { Page, C, NUM, Loading, Btn, CenterNote, FormCard, SectionLabel, Badge, toneText, FW, FS, Message, ListRow } from '@/components/ui';
 import { MasterFitSummary } from '@/components/MasterFitSummary';
 import { NAV_LABEL } from '@/lib/tabbar';
 import { haptic } from '@/lib/haptics';
@@ -75,25 +75,27 @@ export default function DataCheck() {
 
   return (
     <Page title={NAV_LABEL.dataCheck} meta={meta} countSuffix="">
-      <FormCard title="차종마스터 규격" hint="제조사·모델·세부모델이 마스터 실경로인지">
+      <FormCard
+        title="차종마스터 규격"
+        hint={master && masterFit
+          ? `제조사·모델·세부모델이 마스터 실경로인지. 마스터 ${master.length.toLocaleString()}세대 기준. 자동변환= high+중 · 검수= 검토+미매칭+신호없음.`
+          : '제조사·모델·세부모델이 마스터 실경로인지'}
+      >
         {master === null ? (
           <CenterNote minHeight={48}>마스터 불러오는 중…</CenterNote>
         ) : !master.length ? (
-          <div style={{ fontSize: FS.sub, color: toneText('red') }}>마스터 로드 실패 — `/data/vehicle-master.json` 확인</div>
+          <Message variant="danger">마스터 로드 실패 — `/data/vehicle-master.json` 확인</Message>
         ) : !masterFit ? (
           <CenterNote minHeight={48}>집계 중…</CenterNote>
         ) : (
           <>
-            <div style={{ fontSize: FS.sub, color: C.mute, marginBottom: 10, lineHeight: 1.5 }}>
-              마스터 {master.length.toLocaleString()}세대 기준. 자동변환= high+중 · 검수= 검토+미매칭+신호없음.
-            </div>
             <MasterFitSummary
               fit={masterFit}
               showSamples
               footer={
-                <div style={{ fontSize: FS.cap, color: C.faint, marginTop: 10 }}>
-                  일괄 변환은 <Link href="/dev" style={{ color: C.accent }}>개발도구</Link>에서 · 단건은 재고에서 매칭.
-                </div>
+                <Message variant="info">
+                  일괄 변환은 <Link href="/dev">개발도구</Link>에서 · 단건은 재고에서 매칭.
+                </Message>
               }
             />
           </>
@@ -103,32 +105,31 @@ export default function DataCheck() {
       {openReports.length > 0 && (
         <div style={{ marginTop: 18 }}>
           <SectionLabel mt={0}>영업자 검수 요청 · {openReports.length}건</SectionLabel>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-            {openReports.map((r) => {
+          {openReports.map((r) => {
               const p = byCode.get(String(r.product_code));
               return (
-                <div
+                <ListRow
                   key={String(r.report_code)}
-                  style={{
-                    border: `1px solid ${C.warn}`, borderRadius: R, background: C.warnBg,
-                    padding: '9px 12px', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap',
-                  }}
-                >
-                  <Link
-                    href={`/m/${encodeURIComponent(String(r.product_code))}`}
-                    style={{ fontSize: FS.sub, fontWeight: FW.strong, color: C.ink, textDecoration: 'none', fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}
-                  >
-                    {String(r.car_number || r.product_code)}
-                  </Link>
-                  <Badge tone="amber">{String(r.reason)}</Badge>
-                  {p && <span style={{ fontSize: FS.cap, color: C.mute }}>{vehicleName(p)}</span>}
-                  {r.memo ? <span style={{ fontSize: FS.cap, color: C.faint, flex: 1, minWidth: 0 }}>“{String(r.memo)}”</span> : <span style={{ flex: 1 }} />}
-                  <span style={{ fontSize: FS.cap, color: C.faint }}>{String(r.reporter_name || '')} · {String(r.provider_company_code || '')}</span>
-                  <Btn size="sm" variant="ghost" onClick={() => resolve(String(r.report_code))}>처리완료</Btn>
-                </div>
+                  badge={String(r.reason)}
+                  badgeTone="amber"
+                  main={String(r.car_number || r.product_code)}
+                  sub={[
+                    p ? vehicleName(p) : '',
+                    r.memo ? `“${String(r.memo)}”` : '',
+                    [r.reporter_name, r.provider_company_code].filter(Boolean).join(' · '),
+                  ].filter(Boolean).join(' · ')}
+                  onClick={() => router.push(`/m/${encodeURIComponent(String(r.product_code))}`)}
+                  right={(
+                    <span
+                      onClick={(e) => e.stopPropagation()}
+                      onKeyDown={(e) => e.stopPropagation()}
+                    >
+                      <Btn size="sm" variant="ghost" onClick={() => resolve(String(r.report_code))}>처리완료</Btn>
+                    </span>
+                  )}
+                />
               );
             })}
-          </div>
         </div>
       )}
 
@@ -191,19 +192,15 @@ export default function DataCheck() {
                             key={i}
                             href={`/m/${encodeURIComponent(h.code)}`}
                             title={p ? vehicleName(p) : ''}
-                            style={{
-                              fontSize: FS.cap, color: C.ink, background: C.head,
-                              border: `1px solid ${C.line}`, borderRadius: R,
-                              padding: '3px 8px', textDecoration: 'none', fontFamily: NUM, fontVariantNumeric: 'tabular-nums',
-                            }}
+                            style={{ textDecoration: 'none' }}
                           >
-                            {h.car}{h.note ? <span style={{ color: C.faint }}> · {h.note}</span> : ''}
+                            <Badge tone="gray">{h.car}{h.note ? ` · ${h.note}` : ''}</Badge>
                           </Link>
                         );
                       })}
                     </div>
                   ) : (
-                    <div style={{ fontSize: FS.sub, color: C.faint }}>펼치면 해당 매물 링크를 봅니다.</div>
+                    <CenterNote minHeight={48}>펼치면 해당 매물 링크를 봅니다.</CenterNote>
                   )}
                 </FormCard>
               );

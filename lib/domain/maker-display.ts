@@ -15,7 +15,7 @@ const key = (v: unknown) => S(v).toLowerCase().replace(/[\s_\-./·()（）]/g, '
 
 /** 표준 이름 → 옛/다른 표기. 왼쪽이 시트에 적는 이름이다. */
 export const MAKER_ALIASES: Record<string, string[]> = {
-  르노: ['르노삼성', '르노(삼성)', '르노코리아', '르노코리아자동차', '삼성', '삼성자동차', 'renault', 'renaultkorea', 'rsm', '르노삼성자동차'],
+  르노: ['르노삼성', '르노(삼성)', '르노코리아', '르노코리아(삼성)', '르노코리아자동차', '삼성', '삼성자동차', 'renault', 'renaultkorea', 'rsm', '르노삼성자동차'],
   KGM: ['kg모빌리티', 'kg모빌리티(쌍용)', 'kg 모빌리티', '케이지모빌리티', '쌍용', '쌍용자동차', 'kg', 'kgmobility', 'ssangyong'],
   쉐보레: ['쉐보레(대우)', '한국지엠', '한국gm', 'gm대우', '대우', '시보레', 'chevrolet', 'chevy'],
   벤츠: ['메르세데스', '메르세데스벤츠', '메르세데스-벤츠', 'mercedes', 'mercedesbenz', 'benz'],

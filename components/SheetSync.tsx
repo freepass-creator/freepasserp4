@@ -4,7 +4,7 @@ import { getStore } from '@/lib/store';
 import { useAuthReady } from '@/lib/auth-context';
 import { getRole, actor } from '@/lib/domain/deal';
 import { confirmDialog, toast } from '@/components/Toaster';
-import { Btn, C, FS, FW, ICON, Input, Modal, PillTabs, R, SCRIM, SH, Select, SectionLabel, Textarea, NUM, td, th } from '@/components/ui';
+import { Btn, ButtonLabel, C, CenterNote, CopyBlock, FormCard, FS, FW, ICON, Input, Message, Modal, PillTabs, R, SCRIM, SH, Select, SectionLabel, Textarea, NUM, td, th } from '@/components/ui';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { type MasterEntry } from '@/lib/domain/vehicle-master-match';
 import {
@@ -41,7 +41,7 @@ const IRON_FETCH_TIMEOUT_MS = 90_000;
 /** 재고 스냅샷은 서버가 6천 건을 훑어 투영한다 — 다른 관리자 API 보다 넉넉히 준다. */
 const RECONCILE_FETCH_TIMEOUT_MS = 60_000;
 import { SyncPreview } from '@/components/SyncPreview';
-import { loadVehicleMaster, peekVehicleMaster } from '@/lib/domain/vehicle-master-load';
+import { peekVehicleMaster } from '@/lib/domain/vehicle-master-load';
 import { ADAPTER_OPTIONS, resolveAdapter, type SheetAdapterId } from '@/lib/domain/sheet-adapters';
 import {
   listSheetPartners,
@@ -619,14 +619,6 @@ export function SheetSync({ co, onImported, compact = false }: {
     }
   }, [readPartnerConfig]);
 
-  useEffect(() => {
-    loadVehicleMaster()
-      .then((entries) => setMaster(entries))
-      .catch(() => {
-        setMaster([]);
-        toast('차종마스터 로드 실패 — 변환·입고 불가', 'error');
-      });
-  }, []);
   useEffect(() => { refreshRoster(); }, [refreshRoster]);
   useEffect(() => { void refreshDailyStatus(); }, [refreshDailyStatus]);
   useEffect(() => {
@@ -2058,29 +2050,24 @@ export function SheetSync({ co, onImported, compact = false }: {
   if (isAdmin) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }} aria-busy={busy}>
-        <div style={{ border: `1px solid ${C.line}`, borderRadius: R, background: C.selected, padding: 12 }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, flexWrap: 'wrap' }}>
-            <div>
-              <div style={{ fontSize: FS.sub, fontWeight: FW.title, color: C.brand }}>상품마스터 → ERP</div>
-              <div style={{ marginTop: 3, fontSize: FS.cap, color: C.mute, lineHeight: 1.5 }}>
-                공급사 원본은 비교·갱신용입니다. ERP는 규격화된 상품마스터만 읽으며, 필터·숨김 행은 재고 삭제로 보지 않습니다.
-              </div>
-            </div>
-            <a
-              href={PRODUCT_MASTER_SHEET_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              style={{ color: C.brand, fontSize: FS.cap, fontWeight: FW.strong, textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: 4 }}
-            >
-              상품마스터 열기 <ExternalLink size={ICON.sm} aria-hidden />
-            </a>
-          </div>
-          <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+        <FormCard
+          title="상품마스터 → ERP"
+          hint="공급사 원본은 비교·갱신용입니다. ERP는 규격화된 상품마스터만 읽으며, 필터·숨김 행은 재고 삭제로 보지 않습니다."
+        >
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <Btn size="md" variant="ghost" onClick={() => validateAll()} disabled={busy}>
               {sheetAction === 'validate' ? '검증 중…' : '데이터 검증'}
             </Btn>
             <Btn size="md" onClick={() => syncNow()} disabled={busy}>
               {sheetAction === 'sync' ? 'ERP 반영 중…' : 'ERP 연동하기'}
+            </Btn>
+            <Btn
+              size="md"
+              variant="ghost"
+              title="상품마스터 열기"
+              onClick={() => window.open(PRODUCT_MASTER_SHEET_URL, '_blank', 'noopener,noreferrer')}
+            >
+              <ButtonLabel icon={<ExternalLink size={ICON.sm} aria-hidden />}>상품마스터 열기</ButtonLabel>
             </Btn>
           </div>
           <div style={{ marginTop: 9, fontSize: FS.micro, color: dailyRunColor, lineHeight: 1.45 }}>
@@ -2093,16 +2080,10 @@ export function SheetSync({ co, onImported, compact = false }: {
               : ''}
           </div>
           {(dailyStatusError || lastDailyRun?.block_reason || lastDailyRun?.error) ? (
-            <div style={{ marginTop: 6, fontSize: FS.micro, color: C.danger, lineHeight: 1.45 }}>
-              {dailyStatusError || lastDailyRun?.block_reason || lastDailyRun?.error}
-            </div>
+            <Message variant="danger">{dailyStatusError || lastDailyRun?.block_reason || lastDailyRun?.error}</Message>
           ) : null}
-          {!compact && bulkLog ? (
-            <pre style={{ margin: '10px 0 0', padding: 9, borderRadius: R, background: C.bg, color: C.mute, fontSize: FS.micro, whiteSpace: 'pre-wrap' }}>
-              {bulkLog}
-            </pre>
-          ) : null}
-        </div>
+          {!compact && bulkLog ? <CopyBlock text={bulkLog} label="로그 복사" /> : null}
+        </FormCard>
       </div>
     );
   }
@@ -2181,30 +2162,30 @@ export function SheetSync({ co, onImported, compact = false }: {
               {lastDailyProviderBlockedDetail}
             </div>
           ) : null}
-          <div style={{ display: compact ? 'none' : 'block', fontSize: FS.cap, color: C.faint, lineHeight: 1.5, marginBottom: 8 }}>
-          공급사마다 등록된 전용 원본을 같은 상품 연동 절차로 처리합니다. 먼저 검증해 신규·상태변경·정보수정을 확인한 뒤 반영하며, 원본에 없는 차량은 삭제하지 않고 출고불가로 전환합니다. 조회 실패·급감·소유 충돌은 자동 차단하고 기존 계약 스냅샷은 바꾸지 않습니다.
-          </div>
+          <Message variant="info">
+            공급사마다 등록된 전용 원본을 같은 상품 연동 절차로 처리합니다. 먼저 검증해 신규·상태변경·정보수정을 확인한 뒤 반영하며, 원본에 없는 차량은 삭제하지 않고 출고불가로 전환합니다. 조회 실패·급감·소유 충돌은 자동 차단하고 기존 계약 스냅샷은 바꾸지 않습니다.
+          </Message>
           <div style={{ display: compact ? 'none' : 'block', marginBottom: 5, fontSize: FS.cap, fontWeight: FW.title, color: C.ink }}>
             공급사 상품 연동 · {roster.length + 1}곳
           </div>
           {compact ? null : rosterError ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-              <div style={{ fontSize: FS.cap, color: C.danger, fontWeight: FW.strong, flex: 1, minWidth: 0 }}>
-                상품 연동 설정 오류 · {rosterError} — 회원·파트너에서 해당 공급사 설정을 수정하세요.
-              </div>
-              <Btn title="공급사 시트 설정 다시 읽기" size="sm" variant="ghost" onClick={refreshRoster} disabled={busy}>
-                설정 다시 읽기
-              </Btn>
-            </div>
+            <Message variant="danger">
+              상품 연동 설정 오류 · {rosterError} — 회원·파트너에서 해당 공급사 설정을 수정하세요.
+              <span style={{ display: 'block', marginTop: 12 }}>
+                <Btn title="공급사 시트 설정 다시 읽기" size="sm" variant="ghost" onClick={refreshRoster} disabled={busy}>
+                  설정 다시 읽기
+                </Btn>
+              </span>
+            </Message>
           ) : roster.length === 0 ? (
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-              <div style={{ fontSize: FS.cap, color: C.mute, flex: 1, minWidth: 0 }}>
-                등록된 시트 없음 → 「설정 다시 읽기」 후에도 0개면 `/members`에서 구글시트 URL을 확인하세요.
-              </div>
-              <Btn title="공급사 시트 설정 다시 읽기" size="sm" variant="ghost" onClick={refreshRoster} disabled={busy}>
-                설정 다시 읽기
-              </Btn>
-            </div>
+            <Message variant="info">
+              등록된 시트 없음 → 「설정 다시 읽기」 후에도 0개면 `/members`에서 구글시트 URL을 확인하세요.
+              <span style={{ display: 'block', marginTop: 12 }}>
+                <Btn title="공급사 시트 설정 다시 읽기" size="sm" variant="ghost" onClick={refreshRoster} disabled={busy}>
+                  설정 다시 읽기
+                </Btn>
+              </span>
+            </Message>
           ) : (
             // 공급사가 17곳인데 190px 면 네 줄만 보인다 — 어느 곳이 «미연동»인지 확인하려고
             // 매번 안쪽 스크롤을 뒤져야 했다. 화면 높이를 쓰되 상한을 둬 아래 요약이 안 밀리게 한다.
@@ -2679,13 +2660,10 @@ export function SheetSync({ co, onImported, compact = false }: {
         width={1080}
         footer={<Btn variant="ghost" onClick={() => setDecisionQueueOpen(false)}>닫기</Btn>}
       >
-        <div style={{
-          padding: '9px 10px', marginBottom: 10, border: `1px solid ${C.line}`, borderRadius: R,
-          background: C.selected, color: C.mute, fontSize: FS.cap, lineHeight: 1.5,
-        }}>
+        <Message variant="info">
           이 화면은 차량별 관리자 판단을 기록하는 검토함입니다. 기록만으로 재고·삭제이력·공급사 귀속은 바뀌지 않으며,
           동기화 차단도 해제되지 않습니다. 계약보호 또는 관련 상품이 하나로 특정되지 않는 건은 선택할 수 없습니다.
-        </div>
+        </Message>
         <div style={{
           display: 'flex', flexWrap: 'wrap', gap: '4px 12px', marginBottom: 10,
           color: C.mute, fontSize: FS.cap, lineHeight: 1.5,
@@ -2778,9 +2756,9 @@ export function SheetSync({ co, onImported, compact = false }: {
             </table>
           </div>
         ) : (
-          <div style={{ padding: 20, textAlign: 'center', color: C.faint, fontSize: FS.sub }}>
+          <CenterNote minHeight={80}>
             현재 검증 스냅샷에 소유권·삭제 결정 대상이 없습니다.
-          </div>
+          </CenterNote>
         )}
       </Modal>
 
@@ -2803,13 +2781,10 @@ export function SheetSync({ co, onImported, compact = false }: {
           </>
         )}
       >
-        <div style={{
-          padding: '9px 10px', marginBottom: 10, border: `1px solid ${C.line}`, borderRadius: R,
-          background: C.selected, color: C.mute, fontSize: FS.cap, lineHeight: 1.5,
-        }}>
+        <Message variant="info">
           공급사 없는 삭제이력과 임시번호의 신원 원자를 현재 Sheet와 대조해 차량별 관리자 판단을 기록합니다.
           동일 차량 수정인지 다른 실물 교체인지는 자동 판단하지 않습니다. 결정은 별도 원장에만 남고 재고·번호·삭제이력·동기화 차단은 바뀌지 않습니다.
-        </div>
+        </Message>
         {pending?.identityConflictReview.rows.length ? (
           <div style={{ maxHeight: '62vh', overflow: 'auto', border: `1px solid ${C.line}`, borderRadius: R }}>
             <table style={{ width: '100%', minWidth: 1280, borderCollapse: 'collapse', background: C.taupeBg }}>
@@ -2890,9 +2865,9 @@ export function SheetSync({ co, onImported, compact = false }: {
             </table>
           </div>
         ) : (
-          <div style={{ padding: 20, textAlign: 'center', color: C.faint, fontSize: FS.sub }}>
+          <CenterNote minHeight={80}>
             현재 검증 스냅샷에 신원·미확정 검토 대상이 없습니다.
-          </div>
+          </CenterNote>
         )}
       </Modal>
 

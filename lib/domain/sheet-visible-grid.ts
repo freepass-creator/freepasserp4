@@ -60,8 +60,8 @@ export type VisibleSheetTable = {
   photoByPlate?: Record<string, string>;
 };
 
-/** 한국 번호판 — `12가3456` · `123가4567` · 영업용 `34호9160`. 앞 지역명은 떼고 본다. */
-const PLATE_RE = /(\d{2,3}[가-힣]\d{4})/;
+/** 한국 번호판 — `12가3456` · `123가4567` · 영업용 `34호9160`. */
+const FULL_PLATE_RE = /^\d{2,3}[가-힣]\d{4}$/;
 
 function cellText(cell: SheetGridCell | undefined): string {
   if (!cell) return '';
@@ -91,6 +91,8 @@ export function visibleRowsFromGridResponse(
 
   const byIndex = new Map<number, string[]>();
   const photoByPlate: Record<string, string> = {};
+  /** 같은 차번 셀에서 서로 다른 URL이 나오면 어느 쪽도 신뢰하지 않는다. */
+  const ambiguousPhotoPlate = new Set<string>();
   let hiddenRowCount = 0;
   for (const grid of sheet.data || []) {
     const start = Number(grid.startRow) || 0;
@@ -106,18 +108,19 @@ export function visibleRowsFromGridResponse(
         continue;
       }
       const row = (rowData[index]?.values || []).map(cellText);
-      // 링크는 대개 차번 셀에 걸린다. 같은 행의 번호판을 키로 잡아 표가 잘려도 안 어긋나게 한다.
-      // 한 행에 링크가 여럿이면 먼저 찾은 것을 쓴다(공급사가 두 개를 거는 경우는 없었다).
+      // 사진 링크는 **정확한 차량번호가 적힌 그 셀**에서만 받는다. 행 전체의 첫 URL과
+      // 부분 번호판을 묶으면 메모·사진링크 열·인접 셀 때문에 남의 차량 사진이 붙는다.
+      // 같은 차번에 URL이 둘이면 추측하지 않고 아예 넘긴다.
       {
-        let url = '';
         for (const cell of rowData[index]?.values || []) {
-          const found = photoUrlFromCell(cell);
-          if (found) { url = found; break; }
-        }
-        if (url) {
-          for (const text of row) {
-            const plate = String(text || '').replace(/\s/g, '').match(PLATE_RE)?.[1];
-            if (plate) { if (!photoByPlate[plate]) photoByPlate[plate] = url; break; }
+          const plate = cellText(cell).replace(/\s/g, '');
+          const url = photoUrlFromCell(cell);
+          if (!url || !FULL_PLATE_RE.test(plate) || ambiguousPhotoPlate.has(plate)) continue;
+          const before = photoByPlate[plate];
+          if (!before) photoByPlate[plate] = url;
+          else if (before !== url) {
+            delete photoByPlate[plate];
+            ambiguousPhotoPlate.add(plate);
           }
         }
       }

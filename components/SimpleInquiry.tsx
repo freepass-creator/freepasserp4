@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { getRole, actor, ensureRoom, findExistingRoom, type Role } from '@/lib/domain/deal';
 import { sendText, listMessages, isMine } from '@/lib/domain/messaging';
-import { C, R, FS, FW, Btn, ButtonLabel, Input, ICON } from '@/components/ui';
+import { C, R, FS, FW, Btn, ButtonLabel, FormCard, Input, ICON } from '@/components/ui';
 import { MessagesSquare, Send } from 'lucide-react';
 import { toast } from '@/components/Toaster';
 import { ChatSenderLabel } from '@/components/ChatSenderLabel';
@@ -146,27 +146,20 @@ export function SimpleInquiry({ p }: { p: EntityRecord }) {
 
   return (
     <section style={{ marginTop: 22 }}>
-      <div style={{ borderRadius: R, background: C.selected, padding: '14px 14px 12px', border: `1px solid ${C.line}` }}>
-        <div style={{ fontSize: FS.title, fontWeight: FW.title, color: C.ink, marginBottom: 2 }}>
-          {msgs.length ? '이어가는 문의' : '궁금한 게 있으신가요?'}
-        </div>
-        <div style={{ fontSize: FS.cap, color: C.mute, marginBottom: 10, display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          {msgs.length ? (
-            <>
-              <span>주고받은 {msgs.length}건 · 계약문의로 이어집니다</span>
-              <Btn title="전체 대화 보기" variant="ghost" size="sm" onClick={openFull}>
-                <ButtonLabel icon={<MessagesSquare size={ICON.md} aria-hidden />}>전체 대화 보기</ButtonLabel>
-              </Btn>
-            </>
-          ) : '출고·조건 뭐든 여기에 바로 문의하세요. 계약문의로 이어집니다.'}
-        </div>
-        {msgs.length > 0 && (
-          <div style={{ background: C.taupeBg, borderRadius: R, border: `1px solid ${C.line2}`, padding: '8px 10px', marginBottom: 8 }}>
-            {thread}
+      <FormCard
+        title={msgs.length ? '이어가는 문의' : '궁금한 게 있으신가요?'}
+        hint={msgs.length ? `주고받은 ${msgs.length}건 · 계약문의로 이어집니다` : '출고·조건 뭐든 여기에 바로 문의하세요. 계약문의로 이어집니다.'}
+      >
+        {msgs.length ? (
+          <div style={{ marginBottom: 8 }}>
+            <Btn title="전체 대화 보기" variant="ghost" size="sm" onClick={openFull}>
+              <ButtonLabel icon={<MessagesSquare size={ICON.md} aria-hidden />}>전체 대화 보기</ButtonLabel>
+            </Btn>
           </div>
-        )}
+        ) : null}
+        {msgs.length > 0 ? thread : null}
         {inputRow}
-      </div>
+      </FormCard>
     </section>
   );
 }

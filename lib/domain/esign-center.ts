@@ -1,7 +1,7 @@
 import type { EntityRecord } from '@/lib/intake/entities';
 import { parseMoneyOrRate } from './policy-money-rate';
 import { canIssueContract } from '@/lib/domain/policy-tier';
-import { contractDriverAgeOptions } from '@/lib/domain/esign-vehicle-selection';
+import { contractDriverAgeOptions, contractMileageOptions, contractRentForTerms } from '@/lib/domain/esign-vehicle-selection';
 
 export type EsignContractSource = 'erp' | 'excel' | 'direct';
 /**
@@ -184,11 +184,20 @@ export function validateEsignCenterContract(
   else add('rent_month', '계약기간', 'PASS', '계약기간 확인');
 
   const depositChoice = S(contractDraft.deposit_installment);
+  /*
+   * ★빈칸을 0 으로 삼키지 않는다(사장님 2026-08-21 「없으면 없는 걸로 입력해야 함」).
+   *   빈칸은 «직원이 안 채웠다»로 읽히고, 0원은 «그렇게 합의했다»로 읽힌다.
+   *   예전엔 `rawDeposit === '' ? 0` 이라 안 적어도 PASS 였고, 보증금 얘기가 없는 계약서가 나갔다.
+   */
   const rawDeposit = row.deposit_amount_snapshot;
-  const depositAmount = rawDeposit == null || rawDeposit === '' ? 0 : Number(rawDeposit);
-  if (!Number.isFinite(depositAmount) || depositAmount < 0) {
-    add('deposit_amount', '보증금', 'BLOCK', '보증금은 0원 이상으로 입력해 주세요');
-  } else add('deposit_amount', '보증금', 'PASS', '보증금 확인');
+  if (rawDeposit == null || S(rawDeposit) === '') {
+    add('deposit_amount', '보증금', 'BLOCK', '보증금을 입력해 주세요 — 없으면 0 이라고 적어 주세요');
+  } else {
+    const depositAmount = Number(rawDeposit);
+    if (!Number.isFinite(depositAmount) || depositAmount < 0) {
+      add('deposit_amount', '보증금', 'BLOCK', '보증금은 0원 이상으로 입력해 주세요');
+    } else add('deposit_amount', '보증금', 'PASS', '보증금 확인');
+  }
   if (isIndependentEsignSource(row)) {
     // 정책의 「N회까지」는 영업 말이다. 계약서엔 «이 계약은 일시납/N회»가 굳어야 한다 — 비면 빈칸 계약서가 나간다.
     if (N(rawDeposit) > 0 && !depositChoice) add('deposit_installment', '보증금 납부', 'BLOCK', '일시납 또는 분납 회차를 선택해 주세요');
@@ -242,7 +251,11 @@ export function validateEsignCenterContract(
     }
   }
 
-  if (policy) {
+  // 기본 운전자 연령 자체가 정책 완성도에서 BLOCK이면, 계약에 남은 과거 연령값을
+  // 다시 대조해 같은 원인을 두 번 경고하지 않는다. 정책을 보완하면 아래 대조가
+  // 자동으로 다시 켜져 가격·면책 기준을 검증한다.
+  const policyMissingBasicDriverAge = policyIssueGate?.missing.some((field) => field.key === 'basic_driver_age') === true;
+  if (policy && !policyMissingBasicDriverAge) {
     const ageText = S(row.driver_age_snapshot || contractDraft.driver_age || policy.basic_driver_age);
     if (ageText) {
       const age = Number(ageText.match(/\d{2}/)?.[0] || 0);
@@ -253,12 +266,54 @@ export function validateEsignCenterContract(
     }
   }
 
+  // 독립 작성 계약은 가격근거 v1이 있어야 한다. 이 값이 없으면 RTDB를 직접 호출해
+  // 임의의 월대여료를 넣은 뒤 발행 서버의 요율만 적용하는 우회가 가능하다.
+  if (isIndependentEsignSource(row) && S(row.pricing_snapshot_version) !== 'v1') {
+    add('pricing_snapshot_version', '대여료 산정', 'BLOCK', '기간·약정주행거리·연령 기준 가격근거가 없는 계약은 발행할 수 없습니다');
+  }
+
+  // v1 직접 전자계약은 기간·약정주행·연령이 금액을 결정한다. 생성 화면 밖에서
+  // 숫자만 바꾼 계약이 봉인 PDF로 나가지 않도록 발행 전 같은 계산을 한 번 더 대조한다.
+  if (S(row.pricing_snapshot_version) === 'v1') {
+    const months = Number(row.rent_month_snapshot);
+    const age = Number(S(row.driver_age_snapshot).match(/(\d{2})/)?.[1] || 0);
+    // v1은 계약 레코드의 불변 snapshot만 정본이다. 수정 가능한 contract_draft를
+    // fallback으로 쓰면 발행 직전에 조건을 바꿔도 봉인값처럼 보일 수 있다.
+    const annualMileage = S(row.annual_mileage_snapshot);
+    const priceVariantKey = S(row.price_variant_snapshot);
+    const option = contractMileageOptions(product as EntityRecord | null, months, policy as EntityRecord | null)
+      .find((item) => item.label === annualMileage && item.priceVariantKey === priceVariantKey);
+    const calculated = contractRentForTerms(product as EntityRecord | null, months, policy as EntityRecord | null, age, option);
+    if (!option || !calculated) {
+      add('pricing_snapshot', '대여료 산정', 'BLOCK', '기간·약정주행거리의 가격근거를 다시 선택해 주세요');
+    } else if (
+      calculated.rent !== Number(row.rent_amount_snapshot)
+      || calculated.deposit !== Number(row.deposit_amount_snapshot)
+      || calculated.mileageSurcharge !== Number(row.mileage_surcharge_snapshot)
+      || calculated.ageSurcharge !== Number(row.age_surcharge_snapshot)
+    ) {
+      add('pricing_snapshot', '대여료 산정', 'BLOCK', '기간·약정주행거리·연령 조건과 최종 대여료가 일치하지 않습니다');
+    } else add('pricing_snapshot', '대여료 산정', 'PASS', '기간·주행거리·연령 기준 금액 확인');
+    const specialTermsChoice = S(row.special_terms_choice_snapshot);
+    const specialTerms = S(row.special_terms_snapshot);
+    if (!['없음', '있음'].includes(specialTermsChoice)) {
+      add('special_terms_choice', '특약 확인', 'BLOCK', '특약사항 없음 또는 있음 여부를 확인해 주세요');
+    } else if (specialTermsChoice === '있음' && (!specialTerms || specialTerms === '없음')) {
+      add('special_terms', '특약사항', 'BLOCK', '특약이 있다고 선택했으면 내용을 입력해 주세요');
+    } else add('special_terms_choice', '특약 확인', 'PASS', specialTermsChoice);
+  }
+
   const vehicleName = S(
     row.vehicle_name_snapshot || row.model_snapshot
     || product?.vehicle_name || product?.sub_model || product?.model || product?.car_name,
   );
   if (!vehicleName) add('vehicle', '차량', 'BLOCK', '차량명을 확인해 주세요');
   else add('vehicle', '차량', 'PASS', '차량 확인');
+  /* 차량번호도 필수다. 다만 신차는 차량번호 없이 계약하므로 빈칸 대신 「미정」이라고
+     적으면 통과시킨다 — 안 그러면 신차 계약을 아예 못 보낸다. */
+  const plate = S(row.car_number_snapshot || row.car_number);
+  if (!plate) add('car_number', '차량번호', 'BLOCK', '차량번호를 입력해 주세요 — 신차라 아직 없으면 「미정」이라고 적어 주세요');
+  else add('car_number', '차량번호', 'PASS', '차량번호 확인');
 
   const additionalDriverText = S(row.additional_driver || contractDraft.additional_driver);
   const drivers = [1, 2, 3].map((slot) => [
@@ -413,6 +468,11 @@ export type EsignDraftInput = {
   modelYear?: string;
   fuel?: string;
   options?: string;
+  /** 계약서 02 「차량가액」 — 재고의 vehicle_price(관리자 전용 원가)와 다른 값이다.
+   *  신차는 출고가, 중고는 취득가액. 지금은 영업이 직접 넣고, 신차견적기와 붙으면 그때 자동으로 받는다. */
+  vehiclePrice?: string;
+  /** 계약서 02 「비고」 — 차에만 붙는 특이사항 한 줄. */
+  vehicleRemark?: string;
   colorExterior?: string;
   currentMileage?: string;
   rentMonths: string;
@@ -422,13 +482,24 @@ export type EsignDraftInput = {
   paymentDueDate?: string;
   depositInstallment?: string;
   annualMileage?: string;
+  priceVariantKey?: string;
+  mileageSurcharge?: number;
+  ageSurcharge?: number;
   buyoutPrice?: string;
   driverAge?: string;
   driverScope?: string;
   maintenanceProduct?: string;
+  maintenanceExclusions?: string;
+  insuranceDeductible?: string;
+  insuranceCoverage?: string;
+  overMileageRate?: string;
+  earlyTerminationTerms?: string;
+  returnDeliveryFee?: string;
+  serviceItems?: string;
   emergencyContact?: string;
   emergencyRelation?: string;
   specialTerms?: string;
+  specialTermsChoice?: '없음' | '있음' | '';
   additionalDriverCount?: number;
   additionalDriverName?: string;
   additionalDriverRelation?: string;
@@ -475,6 +546,8 @@ export function emptyEsignDraftInput(source: 'excel' | 'direct', date: string): 
     modelYear: '',
     fuel: '',
     options: '',
+    vehiclePrice: '',
+    vehicleRemark: '',
     colorExterior: '',
     currentMileage: '',
     rentMonths: '',
@@ -484,13 +557,24 @@ export function emptyEsignDraftInput(source: 'excel' | 'direct', date: string): 
     paymentDueDate: '',
     depositInstallment: '',
     annualMileage: '',
+    priceVariantKey: '',
+    mileageSurcharge: 0,
+    ageSurcharge: 0,
     buyoutPrice: '',
     driverAge: '',
     driverScope: '',
     maintenanceProduct: '',
+    maintenanceExclusions: '',
+    insuranceDeductible: '',
+    insuranceCoverage: '',
+    overMileageRate: '',
+    earlyTerminationTerms: '',
+    returnDeliveryFee: '',
+    serviceItems: '',
     emergencyContact: '',
     emergencyRelation: '',
     specialTerms: '',
+    specialTermsChoice: '',
     additionalDriverCount: 0,
     additionalDriverName: '',
     additionalDriverRelation: '',
@@ -520,6 +604,13 @@ export function draftInputRecord(form: EsignDraftInput): EntityRecord {
     rent_month_snapshot: N(form.rentMonths),
     rent_amount_snapshot: N(form.rentAmount),
     deposit_amount_snapshot: N(form.depositAmount),
+    annual_mileage_snapshot: S(form.annualMileage),
+    price_variant_snapshot: S(form.priceVariantKey),
+    mileage_surcharge_snapshot: Number(form.mileageSurcharge) || 0,
+    age_surcharge_snapshot: Number(form.ageSurcharge) || 0,
+    pricing_snapshot_version: 'v1',
+    special_terms_choice_snapshot: S(form.specialTermsChoice),
+    special_terms_snapshot: form.specialTermsChoice === '없음' ? '없음' : S(form.specialTerms),
     payment_timing_snapshot: form.paymentTiming,
     auto_debit_date: form.paymentDueDate,
     emergency_contact: form.emergencyContact,
@@ -552,19 +643,25 @@ export function draftTemplateFields(form: EsignDraftInput): Record<string, strin
     fuel: S(form.fuel),
     model_year: S(form.modelYear),
     options: S(form.options),
+    contract_vehicle_price: S(form.vehiclePrice),
+    vehicle_remark: S(form.vehicleRemark),
     color_exterior: S(form.colorExterior),
     odometer_delivery: S(form.currentMileage),
     auto_debit_date: S(form.paymentDueDate),
     payment_timing: S(form.paymentTiming),
     deposit_installment: S(form.depositInstallment),
     annual_mileage: S(form.annualMileage),
+    price_variant_snapshot: S(form.priceVariantKey),
+    mileage_surcharge_snapshot: String(Number(form.mileageSurcharge) || 0),
+    age_surcharge_snapshot: String(Number(form.ageSurcharge) || 0),
     buyback_price: S(form.buyoutPrice),
     driver_age: S(form.driverAge),
     driver_scope: S(form.driverScope),
     maintenance_product: S(form.maintenanceProduct),
     emergency_contact: [S(form.emergencyRelation), S(form.emergencyContact)].filter(Boolean).join(' · '),
     emergency_relation: S(form.emergencyRelation),
-    special_terms: S(form.specialTerms),
+    special_terms: form.specialTermsChoice === '없음' ? '없음' : S(form.specialTerms),
+    special_terms_choice: S(form.specialTermsChoice),
     additional_driver: additionalDriverCount ? `${additionalDriverCount}인 지정` : '없음',
     drv1_name: S(form.additionalDriverName),
     drv1_relation: S(form.additionalDriverRelation),

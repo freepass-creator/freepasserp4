@@ -1,13 +1,13 @@
 'use client';
 import { useState, type CSSProperties } from 'react';
-import { C, R, NUM, FW, FS, Input, Btn, thFlat, thFlatR, ICON } from '@/components/ui';
+import { C, NUM, FW, FS, Input, Btn, ICON, DetailTable, DT, R } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { PERIODS as STD_PERIODS, isOperatedPeriod, isStandardPeriod } from '@/lib/domain/product';
 import { X } from 'lucide-react';
 
 /**
  * 대여료·보증금 편집 = 상세(/m) 요금표와 같은 표 언어.
- * 기간 | 월대여료 | 보증금 — 표로 스캔, 칸 안 Input. 섹션 라벨은 페이지.
+ * 보기=글자. 수정=값 칸 Input.
  */
 const STD = STD_PERIODS.map(String);
 const num = (v: unknown) => { const n = Number(String(v ?? '').replace(/[^\d]/g, '')); return isNaN(n) ? 0 : n; };
@@ -78,40 +78,31 @@ export function PriceMatrix({ price, onChange, readOnly = false }: { price: unkn
   const padX = mobile ? 10 : 10;
   const padY = mobile ? 6 : 4;
   const cellPad = `${padY}px ${padX}px`;
-  const fs = mobile ? FS.body : FS.sub;
 
-  const cellInp = (filledRent: boolean): CSSProperties => ({
+  const cellInp = (filledRent: boolean, empty: boolean): CSSProperties => ({
     textAlign: 'right',
     fontFamily: NUM, fontVariantNumeric: 'tabular-nums',
     fontWeight: FW.head,
     color: filledRent ? C.brand : C.ink,
-    border: 'none',
-    borderRadius: 0,
-    background: 'transparent',
-    boxShadow: 'none',
-    padding: '0 4px',
-    width: '100%',
+    background: empty ? C.head : undefined,
   });
 
   return (
-    <div style={{ border: `1px solid ${C.line}`, borderRadius: R, overflow: 'hidden', background: C.taupeBg }}>
-      <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed', fontSize: fs }}>
-        <colgroup>
-          <col style={{ width: mobile ? '26%' : '24%' }} />
-          <col style={{ width: mobile ? '37%' : '38%' }} />
-          <col style={{ width: mobile ? '37%' : '38%' }} />
-        </colgroup>
-        <thead>
-          <tr>
-            <th style={{ ...thFlat, padding: cellPad }}>기간</th>
-            <th style={{ ...thFlatR, padding: cellPad }}>월대여료</th>
-            <th style={{ ...thFlatR, padding: cellPad }}>보증금</th>
-          </tr>
-        </thead>
-        <tbody>
+    <DetailTable
+      title="대여료 · 보증금"
+      hint="넣은 기간만 상품에 노출"
+      accent="main"
+      span={3}
+      widths={[mobile ? '26%' : '24%', mobile ? '37%' : '38%', mobile ? '37%' : '38%']}
+      cols={<>
+        <th scope="col" style={DT.colTh}>기간</th>
+        <th scope="col" style={{ ...DT.colTh, textAlign: 'right' }}>월대여료</th>
+        <th scope="col" style={{ ...DT.colTh, textAlign: 'right' }}>보증금</th>
+      </>}
+    >
           {readOnly && keys.length === 0 ? (
             <tr>
-              <td colSpan={3} style={{ padding: '14px 12px', textAlign: 'center', color: C.faint }}>등록된 금액 없음</td>
+              <td colSpan={3} style={{ ...DT.td, textAlign: 'center', color: C.faint }}>등록된 금액 없음</td>
             </tr>
           ) : null}
           {keys.map((k, i) => {
@@ -123,14 +114,12 @@ export function PriceMatrix({ price, onChange, readOnly = false }: { price: unkn
               <tr
                 key={k}
                 style={{
-                  borderTop: i ? `1px solid ${C.line2}` : 'none',
-                  background: isCheap ? C.selected : (i % 2 ? C.zebra : C.taupeBg),
+                  ...DT.tr(i),
+                  background: isCheap ? C.selected : 'transparent',
                 }}
               >
-                <td style={{ padding: cellPad, verticalAlign: 'middle' }}>
+                <td style={{ ...DT.td, padding: cellPad, verticalAlign: 'middle' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 4, minWidth: 0 }}>
-                    {/* 「최저」 배지는 flex:0 0 auto라 축소가 안 된다 — 개월 텍스트가 안 줄면 배지가 셀 밖으로 밀려
-                        그 행만 우측 여백이 깎였다. 축소 부담은 텍스트가 진다. */}
                     <span style={{
                       fontWeight: FW.head, color: C.ink, fontFamily: NUM, fontVariantNumeric: 'tabular-nums',
                       whiteSpace: 'nowrap', minWidth: 0, overflow: 'hidden',
@@ -152,7 +141,7 @@ export function PriceMatrix({ price, onChange, readOnly = false }: { price: unkn
                     )}
                   </div>
                 </td>
-                <td style={{ padding: cellPad, verticalAlign: 'middle', background: rentN > 0 ? 'transparent' : undefined }}>
+                <td style={{ ...DT.td, padding: cellPad, verticalAlign: 'middle' }}>
                   {readOnly ? (
                     <span style={{ display: 'block', textAlign: 'right', fontFamily: NUM, fontVariantNumeric: 'tabular-nums', fontWeight: FW.head, color: rentN > 0 ? C.brand : C.faint }}>
                       {fmt(rentN) || '—'}
@@ -165,14 +154,11 @@ export function PriceMatrix({ price, onChange, readOnly = false }: { price: unkn
                       placeholder="입력"
                       value={fmt(rentN)}
                       onChange={(v) => setCell(k, 'rent', v)}
-                      style={{
-                        ...cellInp(rentN > 0),
-                        background: rentN > 0 ? 'transparent' : C.head,
-                      }}
+                      style={cellInp(rentN > 0, rentN <= 0)}
                     />
                   )}
                 </td>
-                <td style={{ padding: cellPad, verticalAlign: 'middle' }}>
+                <td style={{ ...DT.td, padding: cellPad, verticalAlign: 'middle' }}>
                   {readOnly ? (
                     <span style={{ display: 'block', textAlign: 'right', fontFamily: NUM, fontVariantNumeric: 'tabular-nums', fontWeight: FW.head, color: depN > 0 ? C.ink : C.faint }}>
                       {fmt(depN) || '—'}
@@ -185,45 +171,39 @@ export function PriceMatrix({ price, onChange, readOnly = false }: { price: unkn
                       placeholder="입력"
                       value={fmt(depN)}
                       onChange={(v) => setCell(k, 'deposit', v)}
-                      style={{
-                        ...cellInp(false),
-                        background: depN > 0 ? 'transparent' : C.head,
-                      }}
+                      style={cellInp(false, depN <= 0)}
                     />
                   )}
                 </td>
               </tr>
             );
           })}
-        </tbody>
-      </table>
-
-      {!readOnly ? <div style={{
-        display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
-        padding: mobile ? '10px 12px' : '8px 10px',
-        borderTop: `1px solid ${C.line}`, background: C.head,
-      }}>
-        <span style={{ fontSize: FS.cap, fontWeight: FW.strong, color: C.mute, flex: '0 0 auto' }}>별도기간</span>
-        <Input
-          inputMode="numeric"
-          placeholder="6"
-          value={extraM}
-          onChange={(v) => { setExtraM(v); setHint(''); }}
-          onEnter={addExtra}
-          width={64}
-          size="sm"
-          style={{ textAlign: 'right', fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}
-        />
-        <span style={{ fontSize: FS.sub, color: C.mute }}>개월</span>
-        <Btn title="별도 기간 추가" size="sm" variant="ghost" onClick={addExtra}>추가</Btn>
-        {hint ? (
-          <span style={{ fontSize: FS.cap, color: C.danger, width: '100%' }}>{hint}</span>
-        ) : (
-          <span style={{ fontSize: FS.cap, color: C.faint, flex: '1 1 120px', minWidth: 0 }}>
-            대여료 넣은 기간만 매물에 노출
-          </span>
-        )}
-      </div> : null}
-    </div>
+      {!readOnly ? (
+        <tr>
+          <td colSpan={3} style={{ ...DT.td, background: C.head }}>
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap',
+            }}>
+              <span style={{ fontSize: FS.cap, fontWeight: FW.strong, color: C.mute, flex: '0 0 auto' }}>별도기간</span>
+              <Input
+                inputMode="numeric"
+                placeholder="6"
+                value={extraM}
+                onChange={(v) => { setExtraM(v); setHint(''); }}
+                onEnter={addExtra}
+                width={64}
+                size="sm"
+                style={{ textAlign: 'right', fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}
+              />
+              <span style={{ fontSize: FS.sub, color: C.mute }}>개월</span>
+              <Btn title="별도 기간 추가" size="sm" variant="ghost" onClick={addExtra}>추가</Btn>
+              {hint ? (
+                <span style={{ fontSize: FS.cap, color: C.danger, width: '100%' }}>{hint}</span>
+              ) : null}
+            </div>
+          </td>
+        </tr>
+      ) : null}
+    </DetailTable>
   );
 }

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { MemberCreateRow, MemberListRow } from '@/components/list-rows';
-import { Btn, C, CenterNote, FS } from '@/components/ui';
+import { Btn, CenterNote, ListMoreBar } from '@/components/ui';
 import { toast } from '@/components/Toaster';
 import type { MemberTab } from './member-filter';
 
@@ -31,7 +31,6 @@ export function MembersList({
   }, [tab, rows.length]);
 
   const shown = rows.slice(0, limit);
-  const remaining = Math.max(0, rows.length - limit);
   // 등록 중엔 등록 행이 «선택됨»으로 남는다 — 계약서관리 「새 계약 만들기」와 같은 규격(사장님 2026-08-19).
   //   예전엔 생성 코드(sup_…)를 이름으로 한 유령 행이 목록 맨 위에 생겨 「왜 그래 되지」였다.
   const draftFillsSlot = creating && selected === 'new';
@@ -61,34 +60,21 @@ export function MembersList({
               />
             );
           })}
-          {remaining > 0 && (
-            <div style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10,
-              flexWrap: 'wrap', padding: '12px 14px', borderTop: `1px solid ${C.line2}`,
-            }}>
-              <span style={{ fontSize: FS.sub, color: C.mute }}>
-                {shown.length.toLocaleString()} / {rows.length.toLocaleString()}명
-              </span>
-              <Btn title={`더보기 ${Math.min(PAGE, remaining)}명`} variant="ghost" size="sm" onClick={() => setLimit((current) => current + PAGE)}>
-                더보기 · {Math.min(PAGE, remaining).toLocaleString()}명
-              </Btn>
-              <Btn
-                title={`전체 ${rows.length}명 보기`}
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  if (rows.length > PAGE_HARD) {
-                    setLimit(PAGE_HARD);
-                    toast(`성능상 ${PAGE_HARD.toLocaleString()}명까지 표시합니다. 검색·필터로 좁혀주세요.`, 'info');
-                  } else {
-                    setLimit(rows.length);
-                  }
-                }}
-              >
-                전체 보기
-              </Btn>
-            </div>
-          )}
+          <ListMoreBar
+            shown={shown.length}
+            total={rows.length}
+            unit="명"
+            pageSize={PAGE}
+            onMore={() => setLimit((current) => current + PAGE)}
+            onShowAll={() => {
+              if (rows.length > PAGE_HARD) {
+                setLimit(PAGE_HARD);
+                toast(`성능상 ${PAGE_HARD.toLocaleString()}명까지 표시합니다. 검색·필터로 좁혀주세요.`, 'info');
+              } else {
+                setLimit(rows.length);
+              }
+            }}
+          />
         </>
       )}
     </>

@@ -7,7 +7,7 @@
  *
  * ★안전장치
  *   · 이름을 전부 「[샘플]」로 시작한다 — 목록에서 실제 매물과 섞여도 사람이 한눈에 안다.
- *   · 차량번호는 실제로 존재할 수 없는 「00가0001」 꼴.
+ *   · 차량번호는 실제로 존재할 수 없는 「00가0001」 꼴이며, 신차 임시상태로 명시한다.
  *   · 키가 고정이라 여러 번 돌려도 같은 레코드를 덮어쓴다(중복 생성 없음).
  *   · `--remove` 로 통째로 지운다(휴지통 규칙과 같게 _deleted 표시).
  *   ⚠ 출고가능 상태라야 계약서를 만들 수 있어 **영업자 상품찾기에도 보인다** — 그래서 이름에 「[샘플]」을 박는다.
@@ -24,6 +24,7 @@ import { serializeEsignRequiredDocuments } from '../lib/domain/esign-required-do
 import { applyPolicyDefaults } from '../lib/domain/policy-defaults';
 import { sheetPolicyToErp } from '../lib/domain/policy-sheet-to-erp';
 import { validateEsignCenterContract, depositInstallmentOptions } from '../lib/domain/esign-center';
+import { freepassVehicleStateIssueError } from '../lib/domain/esign-template-fields';
 
 type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim();
@@ -102,6 +103,12 @@ const policy: Rec = {
   policy_name: '[샘플] 렌트 · 보험포함 (테스트용)',
   policy_type: '신차렌트',
   provider_company_code: PARTNER_CODE,
+  // 보험포함 완료본은 체결일 당시 가입처를 봉인한다. 기본 안내문으로는 발행하지 않는다.
+  insurer_name: '[샘플] 프리패스테스트손해보험',
+  // CMS 출금동의·예금주 인증은 별도 흐름이므로, 고객 링크 전체 E2E 샘플은
+  // 자동수납이 아닌 계좌이체로 고정한다. 이 값이 없으면 기본 CMS 정책으로
+  // 서명 뒤 인도 단계에서 멈출 수 있다.
+  payment_method: '계좌이체',
   contract_authoring: '프리패스가 작성',
   esign_required_documents: fromSheet.esign_required_documents
     || serializeEsignRequiredDocuments(POLICY_DOCUMENT_CHECKS.map((d) => ({ key: d.key, label: d.name, note: d.note, required: true }))),
@@ -115,6 +122,8 @@ const vehicle = (n: number, over: Rec): Rec => ({
   partner_code: PARTNER_CODE,
   provider_name: '[샘플] 테스트렌터카',
   car_number: `00가000${n}`,
+  // 실차번호가 아닌 테스트 번호는 등록완료로 단정하지 않는다. 완료본에는 「미정(신차)」로 표시한다.
+  is_pending_plate: true,
   vehicle_status: '출고가능',
   product_type: '신차렌트',
   policy_code: POLICY_CODE,
@@ -163,9 +172,11 @@ function checkSendable(): string[] {
     additional_driver: '없음',
     contract_draft: JSON.stringify({ deposit_installment: depositInstallmentOptions(policy, price.deposit)[0] || '일시납' }),
   };
-  return validateEsignCenterContract(draft, partner, policy, car)
+  const blocks = validateEsignCenterContract(draft, partner, policy, car)
     .filter((c) => c.level === 'BLOCK')
     .map((c) => `${c.label}: ${c.message}`);
+  const vehicleStateError = freepassVehicleStateIssueError(draft, car);
+  return vehicleStateError ? [...blocks, `차량 상태: ${vehicleStateError}`] : blocks;
 }
 
 console.log(`■ 샘플 공급사 ${REMOVE ? '삭제' : '만들기'} ${APPLY ? '— 실제 반영' : '(dry-run)'}\n`);

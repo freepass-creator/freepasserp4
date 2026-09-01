@@ -1,12 +1,12 @@
 'use client';
 
-import type { CSSProperties, Dispatch, MouseEvent, RefObject, SetStateAction } from 'react';
+import { memo, type CSSProperties, type Dispatch, type MouseEvent, type RefObject, type SetStateAction } from 'react';
 import type { EntityRecord } from '@/lib/intake/entities';
 import type { ColSort } from './excel-columns';
 import { ProductCard } from '@/components/ProductCard';
 import { ProductRowCard } from '@/components/ProductRowCard';
-import { Btn, C, CenterNote, EXCEL_ROW_H, FS, R, SH, Skeleton, ctrlH } from '@/components/ui';
-import { ExcelResultsTable } from './ExcelResultsTable';
+import { Btn, C, CenterNote, EXCEL_ROW_H, ListMoreBar, R, SH, Skeleton, ctrlH } from '@/components/ui';
+import { SheetView } from './SheetView';
 
 // 뷰 컨테이너 스타일 SSOT — 실제 렌더와 로딩 스켈레톤이 같은 상수를 공유(재타이핑 드리프트=레이아웃 점프 방지).
 const CARD_GRID: CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 14 };
@@ -17,7 +17,9 @@ const LIST_GRID: CSSProperties = {
   gridTemplateColumns: 'repeat(auto-fill, minmax(max(400px, calc((100% - 12px) / 3)), 1fr))',
   gap: 6,
 };
-const MOBILE_FEED_WRAP: CSSProperties = { background: C.taupeBg, borderTop: `1px solid ${C.line2}` };
+/* 라인형 피드(사장님 2026-08-22 「가로라인 구분이 무난, 제일 넓게 쓰는 방법」 — 박스형은 하루 써 보고 회귀).
+   행이 화면 끝까지 서고 경계는 행 하단 hairline. 여백은 행 안(8×12)에만 — 감싸는 쪽 gap·padding 금지(이중 여백). */
+const MOBILE_FEED_WRAP: CSSProperties = { background: C.taupeBg };
 
 type Props = {
   bodyRef: RefObject<HTMLDivElement>;
@@ -41,24 +43,43 @@ type Props = {
   openCol: { field: string; x: number; y: number } | null;
   setOpenCol: Dispatch<SetStateAction<{ field: string; x: number; y: number } | null>>;
   moreCount: number;
+  pageSize: number;
   onMore: () => void;
   onShowAll: () => void;
   /** 보기 전환(startTransition) 중 — 프리즈 체감 완화용 dim */
   pending?: boolean;
+  /** 판매시트에 같은 ERP 검색·필터 결과를 적용하기 위한 서버 확정 상세 주소 목록. */
+  sheetFinderFilterActive?: boolean;
+  sheetFinderFilterReady?: boolean;
+  sheetFinderAllowedDetailHrefs?: string[];
+  sheetFinderSortActive?: boolean;
+  onSheetVisibleCountChange?: (count: number | null) => void;
 };
 
-export function FinderResults(props: Props) {
+export const FinderResults = memo(function FinderResults(props: Props) {
   const loading = props.rows == null;
   // 로딩 중 is-excel 금지 — 엑셀 flex/overflow 레이아웃에 리스트 스켈레톤이 끼면
   // 중간 공백·아래쪽 떠 있는 행(잔상)이 생긴다.
-  const excelBody = !loading && props.view === 'excel';
+  /* 시트 본문 = flex + 자체 스크롤. 기본 본문은 블록이라 SheetView 의 flex:1 이 높이를 못 받아 0으로 접힌다. */
+  const excelBody = props.view === 'excel';
   return (
     <div
       ref={props.bodyRef}
       className={`fp-finder-body${excelBody ? ' is-excel' : ''}`}
       style={props.pending ? { opacity: 0.55, transition: 'opacity .15s ease', pointerEvents: 'none' } : undefined}
     >
-      {loading ? (
+      {/* 시트 값은 서버에서 직접 읽되, ERP 검색·필터 결과는 서버 확정 상세 주소로만 안전하게 교집합한다. */}
+      {props.view === 'excel' ? (
+        <SheetView
+          mobile={props.mobile}
+          finderFilterActive={props.sheetFinderFilterActive}
+          finderFilterReady={props.sheetFinderFilterReady}
+          finderAllowedDetailHrefs={props.sheetFinderAllowedDetailHrefs}
+          finderSortActive={props.sheetFinderSortActive}
+          sheetProducts={props.rows || []}
+          onVisibleCountChange={props.onSheetVisibleCountChange}
+        />
+      ) : loading ? (
         <FinderSkeleton view={props.view} mobile={props.mobile} />
       ) : props.list.length === 0 ? (
         <CenterNote>
@@ -89,37 +110,20 @@ export function FinderResults(props: Props) {
             </div>
           ))}
         </div>
-      ) : (
-        <ExcelResultsTable
-          rows={props.shown}
-          list={props.list}
-          months={props.months}
-          filterOpen={props.filterOpen}
-          colFilter={props.colFilter}
-          setColFilter={props.setColFilter}
-          colSort={props.colSort}
-          setColSort={props.setColSort}
-          openCol={props.openCol}
-          setOpenCol={props.setOpenCol}
-          onRowClick={props.onOpenProduct}
-          onRowContextMenu={props.onProductContext}
+      ) : null}
+      {props.view !== 'excel' && !loading && (
+        <ListMoreBar
+          shown={props.shown.length}
+          total={props.shown.length + props.moreCount}
+          unit="대"
+          pageSize={props.pageSize}
+          onMore={props.onMore}
+          onShowAll={props.onShowAll}
         />
-      )}
-      {!loading && props.moreCount > 0 && (
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10, flexWrap: 'wrap',
-          ...(props.mobile ? { padding: '10px 12px', borderTop: `1px solid ${C.line2}` } : { marginTop: 14 }),
-        }}>
-          <span style={{ fontSize: props.mobile ? FS.body : FS.sub, color: C.mute }}>
-            {props.shown.length.toLocaleString()} / {(props.shown.length + props.moreCount).toLocaleString()}대
-          </span>
-          <Btn title={`더보기 ${Math.min(100, props.moreCount)}대`} variant="ghost" onClick={props.onMore}>더보기 · {Math.min(100, props.moreCount).toLocaleString()}대</Btn>
-          <Btn title={`전체 ${props.shown.length + props.moreCount}대 보기`} variant="ghost" onClick={props.onShowAll}>전체 보기</Btn>
-        </div>
       )}
     </div>
   );
-}
+});
 
 /**
  * 뷰별 로딩 스켈레톤 — 각 뷰의 실제 컨테이너 dims를 그대로 미러링해 데이터 도착 시 레이아웃 shift 0.

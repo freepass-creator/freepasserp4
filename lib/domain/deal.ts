@@ -8,7 +8,6 @@ import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { type EntityRecord, ROLE_LABEL_RAW } from '@/lib/intake/entities';
 import { priceAt, creditDisplay } from '@/lib/domain/product';
-import { resolveRates } from '@/lib/domain/settlement-engine';
 import { getSession } from '@/lib/auth-session';
 import { BRAND_MAIN } from '@/lib/brand';
 import { requirePositiveRentAmount } from '@/lib/domain/contract-money';
@@ -355,7 +354,6 @@ export async function createContractRequest(
       };
     }
   }
-  const { feeRate, payoutRate, feeResolved } = await resolveRates({ provider_company_code: product.provider_company_code, agent_code: ag.code }, product); // 율은 생성 시 스냅샷(공급사율 해석 가능할 때만)
   const d = new Date();
   const p2 = (n: number) => String(n).padStart(2, '0');
   const issued = issueContractIdentity(d);
@@ -369,6 +367,7 @@ export async function createContractRequest(
     contract_code: code, contract_number: issued.number,
     contract_status: '계약요청', contract_date: `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}`,
     product_code: String(product.product_code || ''),
+    product_type_snapshot: String(product.product_type || '').trim(),
     car_number_snapshot: String(product.car_number || ''),
     maker_snapshot: String(product.maker || ''),
     model_snapshot: String(product.model || ''),
@@ -382,14 +381,12 @@ export async function createContractRequest(
     customer_name: String(opt.customerName || ''), customer_phone: String(opt.customerPhone || ''),
     agent_uid: parties.agent_uid, agent_code: ag.code, agent_name: ag.name, agent_channel_code: parties.agent_channel_code,
     provider_company_code: parties.provider_company_code,
-    credit_grade_snapshot: creditDisplay(product), payout_rate_snapshot: payoutRate,
-    // ⚠ 공급사율을 못 찾았으면 **굽지 않는다.** fee_rate_snapshot 은 규칙상 생성 시 1회 확정이라
-    //  기본 0.1 을 넣는 순간 그 계약은 영구히 10% 다(관리자도 못 고침). 요율이 아직 미정인 지금
-    //  이걸 그대로 두면 오픈 첫날 계약이 전부 10% 로 굳는다.
-    //  비워 두면 정산 생성 시점에 다시 해석하고, 정산 금액은 관리자가 고칠 수 있다.
-    ...(feeResolved ? { fee_rate_snapshot: feeRate } : {}),
-    // 출고문의를 소통에서 이미 마쳤으면 계약 1단계(출고문의·출고응답) 프리필 → 계약 진행은 서류부터.
-    ...(deliveryResponse ? { agent_delivery_inquiry: 'yes', provider_delivery_response: deliveryResponse } : {}),
+    credit_grade_snapshot: creditDisplay(product),
+    // 수수료율은 브라우저가 굳히지 않는다. 전자계약 발행 서버 또는 관리자가 private
+    // 기준값을 확인한 뒤에만 동결하며, 미확정 계약의 정산은 fail-closed 한다.
+    // 출고 응답은 공급사 역할의 독립 확인값이다. 상담에서 받은 말이라도 계약 최초 저장에
+    // 함께 주입하면 역할 경계가 사라지므로 영업자의 문의만 남긴다.
+    ...(deliveryResponse ? { agent_delivery_inquiry: 'yes' } : {}),
   }]);
   if (roomId) await store.update('room', co, roomId, { linked_contract: code });
   return code;
@@ -480,6 +477,7 @@ export async function createDirectEsignContract(opt: {
   customerCompanyName?: string;
   customerBusinessNumber?: string;
   productCode?: string;
+  productType?: string;
   carNumber?: string;
   vehicleName: string;
   modelYear?: string;
@@ -489,6 +487,12 @@ export async function createDirectEsignContract(opt: {
   depositAmount?: number;
   paymentTiming?: '선불' | '후불' | '';
   driverAge?: string;
+  annualMileage?: string;
+  priceVariantKey?: string;
+  mileageSurcharge?: number;
+  ageSurcharge?: number;
+  specialTermsChoice?: '없음' | '있음' | '';
+  specialTerms?: string;
   templateFields?: Record<string, string>;
 }): Promise<string> {
   const source = opt.source === 'excel' ? 'excel' : 'direct';
@@ -513,6 +517,10 @@ export async function createDirectEsignContract(opt: {
   if (!Number.isFinite(depositAmount) || depositAmount < 0) throw new Error('보증금은 0원 이상으로 입력해 주세요.');
   if (!['선불', '후불'].includes(paymentTiming)) throw new Error('대여료 선불·후불 조건을 선택해 주세요.');
   requirePositiveRentAmount(rentAmount, '계약서 생성');
+  const specialTermsChoice = opt.specialTermsChoice;
+  const specialTerms = String(opt.specialTerms || '').trim();
+  if (!['없음', '있음'].includes(specialTermsChoice || '')) throw new Error('특약사항 없음 또는 있음 여부를 확인해 주세요.');
+  if (specialTermsChoice === '있음' && !specialTerms) throw new Error('특약이 있으면 내용을 입력해 주세요.');
 
   const co = getCompanyId();
   const store = getStore();
@@ -540,6 +548,7 @@ export async function createDirectEsignContract(opt: {
     esign_import_template_id: String(opt.importTemplateId || '').trim(),
     esign_import_adapter_id: String(opt.importAdapterId || '').trim(),
     product_code: String(opt.productCode || '').trim(),
+    product_type_snapshot: String(opt.productType || '').trim(),
     policy_code: policyCode,
     standard_template_id: String(opt.standardTemplateId || '').trim(),
     contract_kind: String(opt.contractKind || '').trim(),
@@ -551,6 +560,13 @@ export async function createDirectEsignContract(opt: {
     deposit_amount_snapshot: depositAmount,
     payment_timing_snapshot: paymentTiming,
     driver_age_snapshot: String(opt.driverAge || '').trim(),
+    annual_mileage_snapshot: String(opt.annualMileage || '').trim(),
+    price_variant_snapshot: String(opt.priceVariantKey || '').trim(),
+    mileage_surcharge_snapshot: Number(opt.mileageSurcharge) || 0,
+    age_surcharge_snapshot: Number(opt.ageSurcharge) || 0,
+    pricing_snapshot_version: 'v1',
+    special_terms_choice_snapshot: specialTermsChoice,
+    special_terms_snapshot: specialTermsChoice === '있음' ? specialTerms : '없음',
     ...(source === 'excel' ? {
       customer_name: customerName,
       customer_phone: customerPhone,
@@ -586,9 +602,15 @@ export async function freezeContractTerm(
   }
   const m = Number(period) || 0;
   if (m <= 0) throw new Error('약정 동결: 대여기간을 선택해 주세요.');
+  const store = getStore();
+  // 운영 RTDB에서는 기간만 따로 동결할 수 없다. 손님 정보와 약정확인을 함께 받는
+  // ContractPanel의 약정작성완료 서버 전이만 정산 기준 seal을 만들 수 있다.
+  if (store.backend.startsWith('rtdb')) {
+    throw new Error('운영 계약은 기간만 동결할 수 없습니다. 손님 정보까지 입력한 약정작성완료로 진행해 주세요.');
+  }
   const pr = priceAt(product, m);
   const rentAmount = requirePositiveRentAmount(pr?.rent, '약정 동결');
-  await getStore().update('contract', getCompanyId(), code, {
+  await store.update('contract', getCompanyId(), code, {
     rent_month_snapshot: m,
     rent_amount_snapshot: rentAmount,
     deposit_amount_snapshot: pr?.deposit ?? 0,

@@ -7,7 +7,7 @@ import { STEPS, contractStage, isContractCancelled, isContractCompleted, isDone,
 import { applyStepCheck, cancelContract, finalizeContractIfReady } from '@/lib/domain/settlement-engine';
 import { actor, createContractRequest, ensureRoom, freezeContractTerm, getRole, roleSlotLabel, type Role } from '@/lib/domain/deal';
 import { cheapest, priceAt, priceList } from '@/lib/domain/product';
-import { Btn, ButtonLabel, IconBtn, Badge, C, R, NUM, ICON, Input, fmtPhone, actorColor, DetailRow, ListGroup, ToggleChips, FW, FS, won } from '@/components/ui';
+import { Btn, ButtonLabel, IconBtn, Badge, C, NUM, ICON, Input, fmtPhone, actorColor, DetailRow, ListGroup, Loading, Message, ToggleChips, FW, FS, won } from '@/components/ui';
 import { ContractMemos } from '@/components/ContractMemos';
 import { confirmDialog, toast } from '@/components/Toaster';
 import { useIsMobile } from '@/lib/use-mobile';
@@ -129,11 +129,17 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
     setBusy(true);
     try {
       await runContractMutation(async () => {
-        if (!hasTermFrozen(contract)) {
-          await freezeContractTerm(contract, product, m);
+        const store = getStore();
+        if (store.backend.startsWith('rtdb')) {
+          // 운영에서는 기간·금액·요율·고객연락처·약정완료를 서버 한 전이로 묶는다.
+          // 한 항목만 성공해 마지막 단계에서 정산이 막히는 부분완료를 만들지 않는다.
+          const { completeContractAgreementFromClient } = await import('@/lib/firebase/contract-term-client');
+          await completeContractAgreementFromClient(co, String(contract.contract_code), m, cust.name.trim(), cust.phone.trim());
+          return;
         }
-        await getStore().update('contract', co, String(contract.contract_code), { customer_name: cust.name.trim(), customer_phone: cust.phone.trim() });
-        const fresh = (await getStore().get('contract', co, String(contract.contract_code))) || contract;
+        if (!hasTermFrozen(contract)) await freezeContractTerm(contract, product, m);
+        await store.update('contract', co, String(contract.contract_code), { customer_name: cust.name.trim(), customer_phone: cust.phone.trim() });
+        const fresh = (await store.get('contract', co, String(contract.contract_code))) || contract;
         await applyStepCheck(fresh, 'provider_agreement_done', 'yes');
       }, () => load(epoch), notifyChange);
     } catch (e) { toast(String((e as Error)?.message || e), 'error'); } finally {
@@ -189,7 +195,7 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
   const stepDoneArr = STEPS.map((s) => s.checks.every((ch) => isDone(cval(ch.key))));
   const activeIdx = stepDoneArr.findIndex((d) => !d);
 
-  if (contract === undefined) return <div style={{ padding: 20, color: C.faint, fontSize: FS.sub }}>불러오는 중…</div>;
+  if (contract === undefined) return <Loading label="불러오는 중…" minHeight={80} />;
 
   const cancelled = isContractCancelled(c);
   const stage = contractStage(c);
@@ -410,9 +416,9 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
     const theirTodo = focusStep.checks.filter((ch) => !isDone(cval(ch.key)) && !isMyCheck(ch));
     if (cancelled) {
       return (
-        <div style={{ padding: '8px 10px', fontSize: FS.sub, color: C.mute }}>
+        <Message variant="info">
           계약이 취소되었습니다{c?.contract_code ? ` · ${String(c.contract_number || c.contract_code)}` : ''}
-        </div>
+        </Message>
       );
     }
     const waitLine = theirTodo.length
@@ -433,12 +439,14 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
         </div>
 
         {needsFinalize && (
-          <div style={{ border: `1px solid ${C.warn}`, borderRadius: R, padding: '8px 10px', background: C.warnBg, display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ flex: 1, fontSize: FS.cap, color: C.ink, lineHeight: 1.4 }}>정산·완료 처리가 남았습니다.</span>
+          <Message variant="warning">
+            <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ flex: 1 }}>정산·완료 처리가 남았습니다.</span>
             {(role === 'admin' || role === 'provider') && (
               <Btn title="완료 처리 재시도" size="sm" onClick={retryFinalize} disabled={busy}>재시도</Btn>
             )}
-          </div>
+            </span>
+          </Message>
         )}
 
         {myTodo.length > 0 ? (
@@ -495,14 +503,16 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
       </div>
 
       {needsFinalize && (
-        <div style={{ border: `1px solid ${C.warn}`, borderRadius: R, padding: '9px 10px', background: C.warnBg, display: 'flex', alignItems: 'center', gap: 8, marginTop: 8 }}>
-          <span style={{ flex: 1, fontSize: FS.cap, color: C.ink, lineHeight: 1.5 }}>5단계 체크는 끝났지만 정산·완료 처리가 남았습니다.</span>
+        <Message variant="warning">
+          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span style={{ flex: 1 }}>5단계 체크는 끝났지만 정산·완료 처리가 남았습니다.</span>
           {(role === 'admin' || role === 'provider') && (
             <Btn title="완료 처리 재시도" size="sm" onClick={retryFinalize} disabled={busy}>
               <ButtonLabel icon={<RefreshCw size={ICON.md} aria-hidden />}>완료 처리 재시도</ButtonLabel>
             </Btn>
           )}
-        </div>
+          </span>
+        </Message>
       )}
 
       {STEPS.map((_, i) => {

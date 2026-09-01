@@ -5,14 +5,14 @@ import { getCompanyId } from '@/lib/tenant';
 import { ENTITIES, type EntityRecord, type Field } from '@/lib/intake/entities';
 import { newId } from '@/lib/domain/ids';
 import { applyPolicyDefaults } from '@/lib/domain/policy-defaults';
-import { PART_COLOR, PART_LABEL, POLICY_DOCUMENT_CHECKS } from '@/lib/domain/policy-sheet-layout';
+import { PART_LABEL, POLICY_DOCUMENT_CHECKS } from '@/lib/domain/policy-sheet-layout';
 import {
   DOC_CHECK_NAMES, VIRTUAL_DOCS_KEY, partnerPolicyFormParts, virtualDisqKey, virtualDocExtraKey, virtualExtraTermKey,
 } from '@/lib/domain/partner-policy-form';
 import {
   normalizeEsignRequiredDocuments, serializeEsignRequiredDocuments, type EsignRequiredDocument,
 } from '@/lib/domain/esign-required-documents';
-import { Btn, C, FS, FW, FormCard, FormGrid, Message, R } from '@/components/ui';
+import { WorkFields, WorkModeBanner, WorkDock, workMode } from '@/components/ui';
 import { toast } from '@/components/Toaster';
 import { haptic } from '@/lib/haptics';
 
@@ -165,36 +165,29 @@ export function PartnerPolicyEditor({
   };
 
   return (
-    <div
-      data-testid="partner-policy-editor"
-      style={{ display: 'grid', gap: 12, padding: '10px 0 4px', borderTop: `2px solid ${C.ink}`, marginTop: 6 }}
-    >
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
-        <div style={{ fontSize: FS.body, fontWeight: FW.strong, color: C.ink }}>
-          {isNew ? '정책 등록' : '정책 수정'} · {providerName}
-        </div>
-        <span style={{ fontSize: FS.micro, color: C.faint, fontVariantNumeric: 'tabular-nums' }}>{S(form.policy_code)}</span>
-        <span style={{ fontSize: FS.micro, color: C.faint }}>— 공급사 운영정책 시트와 같은 차례·같은 선택지</span>
-      </div>
-      <FormGrid fields={headFields} form={gridForm} onChange={onChange} cols={2} />
+    <div data-testid="partner-policy-editor" style={{ display: 'grid', gap: 12, padding: '10px 0 4px' }}>
+      <WorkModeBanner mode={workMode(isNew, true)} create="신규 정책 — 저장해야 반영됩니다" />
+      <WorkFields
+        mode={workMode(isNew, true)}
+        title={isNew ? '정책 등록' : '정책 수정'}
+        hint={`${providerName} · ${S(form.policy_code)} · 공급사 운영정책 시트와 같은 차례`}
+        fields={headFields}
+        form={gridForm}
+        onChange={onChange}
+        cols={2}
+      />
       {partFields.map(({ part, fields }) => (
-        <FormCard
-          key={part}
-          title={(
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-              <span aria-hidden style={{ width: 10, height: 10, borderRadius: R, background: `#${PART_COLOR[part]}`, border: `1px solid ${C.line}` }} />
-              {PART_LABEL[part]}
-            </span>
-          )}
-        >
-          <FormGrid fields={fields} form={gridForm} onChange={onChange} cols={2} />
-        </FormCard>
+        <WorkFields key={part} mode={workMode(isNew, true)} title={PART_LABEL[part]} accent="sub" fields={fields} form={gridForm} onChange={onChange} cols={2} />
       ))}
-      {dirty ? <Message variant="warning">수정 중 · 저장해야 반영됩니다</Message> : null}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
-        <Btn size="sm" variant="ghost" onClick={onCancel} disabled={saving}>취소</Btn>
-        <Btn size="sm" onClick={() => void save()} disabled={saving || (!isNew && !dirty)}>{saving ? '저장 중…' : isNew ? '정책 등록' : '저장'}</Btn>
-      </div>
+      <WorkDock
+        mode={workMode(isNew, true)}
+        selected
+        saving={saving}
+        dirty={isNew ? undefined : dirty}
+        onCancel={onCancel}
+        onSave={() => void save()}
+        saveLabel={saving ? '저장 중…' : isNew ? '정책 등록' : '저장'}
+      />
     </div>
   );
 }

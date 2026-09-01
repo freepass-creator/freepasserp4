@@ -1,40 +1,35 @@
-/** 레거시 — 상품리스트→ERP 계획 검수. 외부 write 없음.
- * ★2026-08-18: 판매시트↔ERP↔상품마스터 3방향 정합은 `audit-sales-sheet-vs-erp.mts`(오더 B)로 대체.
- *   이 파일은 지우지 말고 참고·회귀용으로만 둔다.
- */
-import { readFileSync } from 'node:fs';
-import { fetchSalesInventorySheet } from '../lib/server/sales-inventory-sheet';
+/** 판매시트 3탭 → ERP 반영 예정 diff 검수. 외부 write 없음. */
+import nextEnv from '@next/env';
 import { planDailySheetSync } from '../lib/domain/sheet-daily-sync';
 import { findSheetSyncExistingConflicts } from '../lib/domain/sheet-sync-all';
 import { applySheetConflictResolutions } from '../lib/domain/sheet-conflict-resolution';
-import type { SheetConflictResolution } from '../lib/domain/sheet-conflict-resolution';
 import { buildPriceChangesValue } from '../lib/domain/sheet-conflict-report';
-import type { EntityRecord } from '../lib/intake/entities';
-import type { MasterEntry } from '../lib/domain/vehicle-master-types';
-import { mergeNodes, snapshot } from './lib/db-snapshot.mts';
+
+nextEnv.loadEnvConfig(process.cwd());
+process.env.NEXT_PUBLIC_DATA_BACKEND = 'rtdb';
+
+const [{ firebaseAdminDatabase }, { fetchSalesInventorySheet }, {
+  readContracts,
+  readPartners,
+  readProducts,
+  readResolutions,
+}] = await Promise.all([
+  import('../lib/server/firebase-admin'),
+  import('../lib/server/sales-inventory-sheet'),
+  import('../lib/server/sheet-daily-sync'),
+]);
 
 const S = (value: unknown) => String(value ?? '').trim();
-const snap = await snapshot({ refresh: process.argv.includes('--refresh') });
-const partners = Object.values(mergeNodes(snap.partners, snap.v4Partners)) as EntityRecord[];
-const allProducts = Object.entries(snap.v4Products || {}).map(([key, row]) => ({ ...row, _key: key })) as EntityRecord[];
-const active = allProducts.filter((row) => row._deleted !== true && !row.deletedAt && S(row.status) !== 'deleted');
-const deleted = allProducts.filter((row) => row._deleted === true || !!row.deletedAt || S(row.status) === 'deleted');
-const contracts = Object.values(mergeNodes(snap.contracts, snap.v4Contracts)) as EntityRecord[];
-let resolutions: SheetConflictResolution[] = [];
-if (process.argv.includes('--live-resolutions')) {
-  const { initializeApp, cert, getApps } = await import('firebase-admin/app');
-  const { getDatabase } = await import('firebase-admin/database');
-  const app = getApps()[0] || initializeApp({
-    credential: cert(JSON.parse(readFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS || 'tmp/firebase-auth/sa.json', 'utf8'))),
-    databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL
-      || 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app',
-  });
-  const value = (await getDatabase(app).ref('v4/sheet_conflict_resolutions').get()).val() || {};
-  resolutions = Object.values(value).filter((item): item is SheetConflictResolution => !!item && typeof item === 'object');
-}
-const raw = JSON.parse(readFileSync('public/data/vehicle-master.json', 'utf8')) as { entries?: MasterEntry[] } | MasterEntry[];
-const entries = Array.isArray(raw) ? raw : raw.entries || [];
-const fetched = await fetchSalesInventorySheet({ partners, entries });
+const companyId = S(process.env.SHEET_SYNC_COMPANY_ID || 'freepass');
+const db = firebaseAdminDatabase();
+const [partners, erpState, contracts, resolutions] = await Promise.all([
+  readPartners(db, companyId),
+  readProducts(db, companyId),
+  readContracts(db, companyId),
+  readResolutions(db),
+]);
+const { active, deleted } = erpState;
+const fetched = await fetchSalesInventorySheet({ partners });
 const plan = planDailySheetSync({ fetched, existing: active, deleted, partners, contracts, resolutions });
 const conflicts = findSheetSyncExistingConflicts(fetched, active, deleted);
 const remainingConflicts = applySheetConflictResolutions({
@@ -98,4 +93,7 @@ console.log(JSON.stringify({
 // Firebase Admin 소켓이 열린 채 남으면 Windows에서 감사 명령이 결과를 출력하고도 끝나지 않는다.
 const { deleteApp, getApps } = await import('firebase-admin/app');
 await Promise.all(getApps().map((app) => deleteApp(app)));
-if (!plan.ok) process.exitCode = 2;
+const repeatFailed = !!secondPlan && (!secondPlan.ok
+  || secondPlan.counts.created > 0
+  || secondPlan.counts.updated > 0);
+if (!plan.ok || repeatFailed) process.exitCode = 2;

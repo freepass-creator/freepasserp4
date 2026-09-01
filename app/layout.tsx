@@ -9,6 +9,7 @@ import { MobileBpProvider, MobileBoot } from '@/lib/use-mobile';
 import TopBar from '@/components/TopBar';
 import AppTabBar from '@/components/AppTabBar';
 import { Toaster } from '@/components/Toaster';
+import { VersionWatcher } from '@/components/VersionWatcher';
 import ClientErrorReporter from '@/components/ClientErrorReporter';
 
 export const viewport: Viewport = {
@@ -138,6 +139,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   <AppTabBar />
                 </div>
                 <Toaster />
+                {/* 배포 자동 반영 — 살아 있는 탭이 새 배포를 감지해 스스로 새로고침(입력 중엔 미룸). */}
+                <VersionWatcher />
               </TabBarProvider>
             </AppBarProvider>
           </AuthProvider>

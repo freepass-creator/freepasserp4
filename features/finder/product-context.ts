@@ -33,6 +33,7 @@ export function buildProductContextItems(
     onClick: async () => {
       const text = formatProductForCopy(product, {
         name: session?.name || currentActor.name,
+        phone: session?.phone,
         company: session?.company_code,
         roleLabel: ROLE_LABEL[role],
       });

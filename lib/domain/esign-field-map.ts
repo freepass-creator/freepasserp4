@@ -17,7 +17,7 @@
 import { CONTRACT_KINDS, type ContractKindSpec, type MaturityKind } from '@/lib/domain/esign-contract-kind';
 
 /** 값의 출처. `고정`=계약서 인쇄문구 · `파생`=다른 원자에서 계산 · `미정`=수집 경로 없음. */
-export type AtomSource = '계약' | '재고' | '정책' | '파트너' | '입력' | '본인확인' | '고정' | '파생' | '표기' | '미정';
+export type AtomSource = '계약' | '재고' | '정책' | '파트너' | '입력' | '수기' | '본인확인' | '고정' | '파생' | '표기' | '미정';
 
 export type FieldMap = {
   /** erp3 템플릿의 `data-field` 이름. */
@@ -66,9 +66,28 @@ export const FIELD_MAP: FieldMap[] = [
   { field: 'customer_name', label: '성명', from: '계약', atom: 'customer_name' },
   { field: 'customer_phone', label: '전화번호', from: '계약', atom: 'customer_phone' },
   { field: 'customer_address', label: '주소', from: '계약', atom: 'customer_address' },
-  { field: 'customer_birth', label: '생년월일', from: '본인확인', note: '주민등록번호에서 완료본 생성 시 파생' },
-  { field: 'customer_id', label: '주민등록번호', from: '본인확인', note: '계약·세금계산서 발행에 필요한 범위에서 확인' },
+  { field: 'customer_birth', label: '생년월일', from: '본인확인', note: '개인 계약에서 직접 입력' },
+  { field: 'customer_id', label: '법인등록번호', from: '본인확인', note: '법인 계약에서만 수집' },
+  { field: 'signer_name', label: '법인 서명자 성명', from: '본인확인', note: '법인 계약에서만 수집' },
+  { field: 'signer_role', label: '법인과의 관계', from: '본인확인', note: '대표이사 또는 위임받은 임직원' },
   { field: 'driver_license_no', label: '면허번호', from: '본인확인', note: '면허증 첨부자료에서 확인' },
+  { field: 'customer_insurance_evidence', label: '개인보험 가입증명서 확인', from: '본인확인', note: '보험별도형에서 고객 제출 증명서의 해시로 확인' },
+
+  /* ── 전자서명 봉인 기록(완료본 전용) ── */
+  { field: 'deposit_installments', label: '보증금 분납 횟수', from: '수기', note: '완납은 1회. 상한 없음 — 회차별 칸을 두지 않는 이유' },
+  { field: 'deposit_split_method', label: '보증금 분납 방식', from: '수기', note: '1회면 「일시납」, 2회 이상이면 「매회 분납비율대로 분할」' },
+  { field: 'accident_termination_total_count', label: '사고다발 계약해지 총 횟수', from: '수기', note: '약관 제7조 제1항 제7호 기준(직전 1년·과실 50% 이상)' },
+  { field: 'vehicle_remark', label: '차량 비고', from: '수기', note: '차량에만 붙는 한 줄(색상 특이·옵션 예외 등). 조건 관련은 약정 비고로' },
+  { field: 'drive_type', label: '구동방식', from: '재고', note: '2WD·FWD·RWD·AWD·4WD — 부가 사양' },
+  { field: 'seats', label: '승차정원', from: '재고', note: '자동차등록증 표기. 「인승」은 값에 붙는 말이라 항목명으로 쓰지 않는다' },
+  { field: 'vehicle_classification', label: '대여 방식(렌터카/구독서비스)', from: '재고', note: '상품구분 칸 뒤쪽 — 「신차 / 렌터카」 형태' },
+  { field: 'vehicle_condition_type', label: '차량 상태(신차/중고차)', from: '재고', note: '상품구분 칸 앞쪽. 신차는 차량번호 없이 계약 — 목적물은 차명·옵션·차량가액으로 특정' },
+  { field: 'contract_vehicle_price', label: '차량가액', from: '수기', note: '영업 직접 입력. 재고 vehicle_price(관리자 전용 원가)와 다른 값 — 신차견적기 연동 시 대체' },
+  { field: 'esign_consent_status', label: '전자계약 동의 상태', from: '파생', note: '필수 동의·계약조건 확인 완료' },
+  { field: 'esign_consent_summary', label: '전자계약 동의 항목', from: '파생', note: '고객이 체크한 동의 항목 요약 — 봉인본 「동의 항목」 줄' },
+  { field: 'esign_signed_at', label: '전자서명 시각', from: '파생', note: '고객 제출 시각' },
+  { field: 'esign_seal_hash', label: '전자문서 봉인 해시', from: '파생', note: '완료 PDF 봉인 SHA-256의 단축 참조' },
+  { field: 'esign_verify_path', label: '전자문서 검증 경로', from: '표기', note: '프리패스 ERP 봉인 검증' },
   { field: 'driver_or_biz_no', label: '주민/사업자번호', from: '본인확인' },
   { field: 'emergency_contact', label: '비상연락처', from: '입력', atom: 'emergency_contact' },
 
@@ -89,6 +108,7 @@ export const FIELD_MAP: FieldMap[] = [
   { field: 'vin', label: '차대번호', from: '재고', atom: 'vin' },
   { field: 'model_year', label: '연식', from: '계약', atom: 'year_snapshot' },
   { field: 'fuel', label: '유종', from: '계약', atom: 'fuel_type_snapshot' },
+  { field: 'engine_cc', label: '배기량', from: '재고', atom: 'engine_cc', note: '전기·수소 차량은 공란' },
   { field: 'options', label: '옵션', from: '재고', atom: 'options' },
   { field: 'color_exterior', label: '외부 색상', from: '재고', atom: 'ext_color' },
   { field: 'color_interior', label: '내부 색상', from: '재고', atom: 'int_color' },
@@ -99,9 +119,6 @@ export const FIELD_MAP: FieldMap[] = [
   { field: 'deposit_amount', label: '보증금', from: '계약', atom: 'deposit_amount_snapshot' },
   { field: 'deposit_total', label: '보증금 총액', from: '파생' },
   { field: 'deposit_installment', label: '보증금 분납 여부', from: '입력', atom: 'deposit_installment_count' },
-  { field: 'deposit_round_1', label: '보증금 1회차', from: '입력', conditional: '분납' },
-  { field: 'deposit_round_2', label: '보증금 2회차', from: '입력', conditional: '분납' },
-  { field: 'deposit_round_3', label: '보증금 3회차', from: '입력', conditional: '분납' },
   { field: 'deposit_return_term', label: '보증금 반환 조건', from: '고정' },
   { field: 'payment_cycle', label: '대여료 결제주기', from: '고정' },
   { field: 'payment_timing', label: '대여료 납부 조건', from: '계약', atom: 'payment_timing_snapshot' },
@@ -198,7 +215,6 @@ export const FIELD_MAP: FieldMap[] = [
   { field: 'handover_location', label: '인도 장소', from: '미정' },
   { field: 'handover_agent_name', label: '인도 담당자', from: '미정' },
   { field: 'odometer_delivery', label: '출고 시 주행거리', from: '재고', atom: 'mileage' },
-  { field: 'vehicle_classification', label: '차량 구분', from: '재고', atom: 'product_type' },
   { field: 'fuel_gauge_delivery', label: '인도 시 연료량', from: '미정' },
   { field: 'damage_delivery', label: '인도 시 손상', from: '미정' },
   { field: 'return_datetime', label: '반납 일시', from: '미정', onlyMaturity: '반납형' },

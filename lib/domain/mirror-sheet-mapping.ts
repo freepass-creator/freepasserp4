@@ -8,6 +8,8 @@
  *
  * ★**값은 그대로 옮긴다.** 규격값으로 맞추는 건 셋뿐이다 — 상태(`canonSheetVehicleStatus`, ERP 와 같은 판정) ·
  *   분류(`canonProductType`) · 연료(`normFuel`). 돈·주행거리·색·차명은 공급사 글자 그대로다.
+ * ★칸 소유: 상태·대여료·보증금은 매번. **차명·옵션도 원본을 매번 따른다**(`MIRROR_FOLLOW_SOURCE`).
+ *   정제칸·정책코드는 우리 것. 색·연식·주행거리·차량가격은 처음 한 번.
  *   보증금을 규칙으로 계산하지 않는다(오토플러스처럼 시트에 없으면 비운다 — ERP 가 partner.deposit_rule 로 처리).
  * ★열 이름은 공백을 뗀 뒤 견준다. 여기 없는 원본 열 이름은 **같은 이름**일 때만 옮겨진다
  *   (오토플러스 「12개월2만」·「18개월3만」 같은 주행 구간 열이 그렇다 — 정제시트 머리행에 같은 이름을 둔다).
@@ -21,6 +23,18 @@ import { MAKER_ALIASES, canonMakerDisplay, isStandardMaker } from './maker-displ
 const S = (v: unknown) => String(v ?? '').trim();
 export const normName = (v: unknown) => S(v).replace(/\s+/g, '');
 
+/**
+ * 정제시트에서 원본을 **매번** 따라가는 칸.
+ * `columnOwner` 는 제공시트 기준(차명·옵션 = once)이라 정제시트에서만 이 목록이 덮는다.
+ * 매뉴얼(정제시트 안내 · 시트 지도 · AI 운영 매뉴얼)도 이 목록을 본다 — 글과 코드가 갈리면 매뉴얼을 고친다.
+ */
+export const MIRROR_FOLLOW_SOURCE = ['차명(세부모델+트림)', '옵션'] as const;
+export const isMirrorFollowSource = (name: unknown) =>
+  MIRROR_FOLLOW_SOURCE.some((c) => normName(c) === normName(name));
+/** 정제시트 칸 소유 한 줄 — 「이 시트는」·시트 지도·공급사 데이터 매뉴얼이 같은 글을 쓴다. */
+export const MIRROR_OWNER_RULE =
+  '상태·대여료·보증금은 매번(live). 차명(세부모델+트림)·옵션도 원본을 매번 따른다(원본이 바뀌면 정제시트 왼쪽 원문도 같이 바뀜). 정제칸·정책코드는 우리 것(ours). 색·연식·주행거리·차량가격은 처음 한 번(once). 줄은 안 지운다(사라진 차는 출고불가). 보증금은 계산하지 않는다.';
+
 /** [우리 규격 열, 원본 열 이름 후보(앞이 우선)]. 후보는 공백 없이 견준다. */
 export const MIRROR_ALIAS: [string, string[]][] = [
   ['차량번호', ['차량번호', '차번']],
@@ -31,8 +45,8 @@ export const MIRROR_ALIAS: [string, string[]][] = [
   // ★모델명(사장님 2026-08-19 「제조사·모델명만 검색되면 되고 · 차명은 공급사가 올려준 것」) — 원본 차종/모델 칸에서 제조사 말·연료 꼬리를 떼어 «검색되는 모델 이름»만.
   //   정제시트에 「모델명」 열이 있을 때만 쓰인다(sync-mirror-sheet). 제조사 칸이 원본에 없으면 여기서 떼어 낸 제조사 말을 쓴다.
   ['모델명', ['차종', '모델', '차종분류']],
-  // 차명은 아래 composeVehicleName 이 차종/차종분류·세부모델·트림을 합쳐 만든다.
-  //   ★「모델명」 열이 있는 정제시트는 합치지 않고 공급사 원문(모델명(트림풀명)) 그대로 — 「차명원문」 으로 따로 내보낸다.
+  // 차명은 composeVehicleName 이 차종/차종분류·세부모델·트림을 겹치지 않게 합친다.
+  //   정제시트 「모델명」 열은 검색용. 차명 칸을 트림만으로 바꾸지 않는다.
   ['차명(세부모델+트림)', ['차명(세부모델+트림)', '모델명(트림풀명)', '모델명(풀명)', '모델명(트림)', '차명', '모델명', '세부모델', '트림']],
   ['옵션', ['옵션', '선택옵션']],
   ['외부색상', ['외부색상', '외장색상', '외장색', '외장', '색상']],
@@ -155,8 +169,11 @@ export function projectSourceRow(row: Map<string, string>): Map<string, string> 
   for (const [ours, cands] of MIRROR_ALIAS) {
     let v = pick(cands);
     if (ours === '차명(세부모델+트림)') {
-      if (v) out.set('차명원문', tidyDuplicateWords(composeVehicleName('', v, pick(TRIM_SUFFIX_CANDIDATES))));   // ★「모델명」 열이 있는 정제시트는 이것을 차명(세부모델+트림)에 쓴다 — 공급사 원문 그대로(차종 안 붙임, 트림 글자가 따로 있으면 뒤에 한 번만)
-      v = composeVehicleName(pick(MODEL_PREFIX_CANDIDATES), v, pick(TRIM_SUFFIX_CANDIDATES));
+      const prefixRaw = pick(MODEL_PREFIX_CANDIDATES);
+      const sp = splitMakerModel(prefixRaw);
+      const prefix = [sp.maker, sp.model].filter(Boolean).join(' ') || prefixRaw;
+      if (v) out.set('차명원문', tidyDuplicateWords(composeVehicleName('', v, pick(TRIM_SUFFIX_CANDIDATES))));
+      v = tidyDuplicateWords(composeVehicleName(prefix, v, pick(TRIM_SUFFIX_CANDIDATES)));
     }
     if (ours === '모델명' && v) {
       const sp = splitMakerModel(v);

@@ -18,6 +18,7 @@ import { FONT_DEFAULT, SIZE } from '../lib/domain/sales-sheet-format';
 type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim();
 const APPLY = process.argv.includes('--apply');
+const ONLY_SHEET = S((process.argv.find((a) => a.startsWith('--sheet=')) || '').slice('--sheet='.length));
 const sleep = (ms: number) => new Promise((ok) => setTimeout(ok, ms));
 const TAB = AI_MANUAL_TITLE;
 const VISIBLE_BOOKS: { id: string; name: string }[] = [
@@ -53,7 +54,9 @@ const SH = 'https://sheets.googleapis.com/v4/spreadsheets';
 const q = `name contains '${SHEET_NAME_MATCH}' and mimeType = 'application/vnd.google-apps.spreadsheet' and trashed = false`;
 const found = await call(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name)&pageSize=100&includeItemsFromAllDrives=true&supportsAllDrives=true`);
 const suppliers = ((found.files || []) as Rec[]).map((f) => ({ id: S(f.id), name: supplierSheetLabel(S(f.name)) })).sort((a, b) => a.name.localeCompare(b.name, 'ko'));
-const targets = [...VISIBLE_BOOKS.map((b) => ({ ...b, hidden: false })), ...HIDDEN_BOOKS.map((b) => ({ ...b, hidden: true })), ...suppliers.map((b) => ({ ...b, hidden: true }))];
+const allTargets = [...VISIBLE_BOOKS.map((b) => ({ ...b, hidden: false })), ...HIDDEN_BOOKS.map((b) => ({ ...b, hidden: true })), ...suppliers.map((b) => ({ ...b, hidden: true }))];
+const targets = ONLY_SHEET ? allTargets.filter((t) => t.id === ONLY_SHEET) : allTargets;
+if (ONLY_SHEET && targets.length !== 1) throw new Error(`unknown --sheet target: ${ONLY_SHEET}`);
 console.log(`■ 「${TAB}」 ${APPLY ? '반영' : '미리보기'} — ${targets.length}곳(보임 ${VISIBLE_BOOKS.length} · 숨김 ${targets.length - VISIBLE_BOOKS.length}) · ${rows.length}줄`);
 if (!APPLY) { console.log('※ dry-run. 반영은 --apply'); process.exit(0); }
 const rgb = (hex: string) => ({ red: parseInt(hex.slice(0, 2), 16) / 255, green: parseInt(hex.slice(2, 4), 16) / 255, blue: parseInt(hex.slice(4, 6), 16) / 255 });

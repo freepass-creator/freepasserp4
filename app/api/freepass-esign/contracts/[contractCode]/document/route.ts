@@ -4,11 +4,14 @@ import {
   canAccessFreepassEsignContract,
   canManageFreepassEsign,
   buildFreepassIssueSnapshot,
+  freepassDirectSealMatchesContract,
   loadFreepassEsignBundle,
+  readFreepassDirectContractSeal,
   sessionHashFromContract,
   validContractCode,
   type EsignRecord,
 } from '@/lib/server/freepass-esign';
+import { isIndependentEsignSource } from '@/lib/domain/esign-center';
 import { snapshotWithPrivateSubmission } from '@/lib/domain/esign-signed-snapshot';
 import {
   buildFrozenFreepassHtml,
@@ -51,15 +54,33 @@ export async function GET(
   const format = url.searchParams.get('format') === 'pdf' ? 'pdf' : 'html';
 
   if (draft && String(bundle.contract.esign_provider || '') !== 'freepass') {
+    const sealSnap = await bundle.db.ref(`v4/esign_contract_seals/${contractCode}`).get().catch(() => null);
+    const seal = readFreepassDirectContractSeal(sealSnap?.val());
+    if (!seal && (!bundle.legacyContractExists || isIndependentEsignSource(bundle.contract))) {
+      return json({ error: '이 직접·엑셀 계약 초안은 서버 동결 기준이 없어 미리볼 수 없습니다. 새 계약서로 다시 만들어 주세요.' }, 409);
+    }
+    if (seal && (!freepassDirectSealMatchesContract(bundle.contract, seal.contract) || seal.contractCode !== contractCode)) {
+      return json({ error: '서버가 동결한 계약 기준과 현재 계약값이 달라 미리볼 수 없습니다. 새 계약서를 만들어 주세요.' }, 409);
+    }
+    const source = seal ? {
+      contract: seal.contract,
+      policy: seal.policy,
+      product: seal.product,
+      partner: seal.partner,
+      standardTemplateId: seal.templateId,
+      contractKind: seal.contractKind,
+    } : {
+      contract: bundle.contract,
+      policy: bundle.policy,
+      product: bundle.product,
+      partner: bundle.partner,
+      standardTemplateId: String(bundle.contract.standard_template_id || ''),
+      contractKind: String(bundle.contract.contract_kind || ''),
+    };
     let previewSnapshot: EsignRecord;
     try {
       previewSnapshot = buildFreepassIssueSnapshot({
-        contract: bundle.contract,
-        policy: bundle.policy,
-        product: bundle.product,
-        partner: bundle.partner,
-        standardTemplateId: String(bundle.contract.standard_template_id || ''),
-        contractKind: String(bundle.contract.contract_kind || ''),
+        ...source,
       });
     } catch (error) {
       return json({ error: error instanceof Error ? error.message : 'A4 계약서 초안을 만들 수 없습니다.' }, 409);

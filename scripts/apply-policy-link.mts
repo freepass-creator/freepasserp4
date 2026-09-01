@@ -1,117 +1,146 @@
 /**
- * 매물에 공급사 정책을 붙인다 — 기본 dry-run, 반영은 --apply.
+ * 공급사 정책 연결 — 「없으면 없다」로.
  *
- * 정책코드가 없으면 심사·연령·보증금 같은 판매조건이 통째로 없다(화면 「미입력」).
- * 정책은 이미 등록돼 있으므로 만들 게 아니라 잇는 문제다.
+ * 사장님 2026-08-28 「연동되게 해야 하는데… 없으면 없다 · 미입력이면 미입력이다 ·
+ * 차라리 대여료만 맞게 보여주는 게 낫지」, 그리고
+ * 「공급업체별로 정책은 기본적으로 관리자가 알려줄 수 있으니까 일단 내용 없는 건 없으면 없는 거로 연동될 수 있게끔」.
  *
- * ★부여 규칙 (2026-08-06 사용자 결정)
- *   · 공급사 정책이 **하나뿐이면 그 정책으로 일괄 통일**한다. 비어 있는 것뿐 아니라
- *     **다른 정책이 붙어 있는 것도 덮는다** — 정책이 하나인 회사에 남의 정책이 붙어 있으면
- *     그건 틀린 것이다(실측: 남의 공급사 정책이 붙은 매물 26대).
- *   · 정책이 **둘 이상이면 «먼저 등록한»**(`created_at` 최소) 것을 쓴다.
- *     단 이미 그 공급사 정책 중 하나가 붙어 있으면 유지한다 — 손오공 구독/렌트처럼
- *     의미 있게 갈린 것을 뭉개지 않는다.
- *   · 쓰는 필드는 `policy_code` 하나.
+ * ── 무엇이 깨져 있었나
+ * 매물이 든 `policy_code` 는 erp3 시절 코드(`pol_freepassstd` 244대 · 빈칸 514대)인데
+ * 정책 노드의 키는 절연 때 새로 발급한 `FP-RP0xx-RENT` 다. **한 대도 안 붙는다.**
+ * 조인이 실패하면 `applyPolicyDefaults` 가 빈 정책을 프리패스 표준으로 채워
+ * 816대가 전부 같은 조건을 보인다 — 그 공급사가 주지도 않은 조건이다.
  *
- *   npx tsx scripts/apply-policy-link.mts
- *   npx tsx scripts/apply-policy-link.mts --apply
+ * ── 이 스크립트가 하는 일 (둘 다 되돌릴 수 있게 백업을 먼저 뜬다)
+ *  ① 공급사 정책 셸(`FP-{공급사}-RENT`)에서 **기본값으로 채워진 칸을 걷어낸다.**
+ *     FP-* 21건은 값이 6칸(전부 이름·코드)만 다른 **똑같은 기본 묶음**이라 공급사 사실이 하나도 없다.
+ *     대신 그 공급사가 실제로 준 정책(시트 유래 `RP0xx_S**` · v3 `RP0xx_P**`)의 값은 살려서 얹는다.
+ *     비운 칸이 다시 채워지지 않도록 `policy_default_pack` 을 박는다(applyPolicyDefaults 의 기존 약속).
+ *  ② 매물의 `policy_code` 를 자기 공급사의 `FP-{공급사}-RENT` 로 건다.
+ *
+ * 그러면 화면은 «아는 것만» 말한다. 나머지는 미입력으로 서서, 관리자가 공급사에게 받아 채우면
+ * 그 공급사 매물 전부가 한 번에 바뀐다.
+ *
+ * ★★**이 스크립트만으로는 안 된다 — 동기가 되돌린다**(실측 2026-08-28).
+ *   반영 한 시간 뒤 다시 재 보니 **863대 중 824대가 옛 코드로 되돌아가 있었다**(살아남은 건 39대).
+ *   `policy_code` 는 `SALES_EXACT_PRODUCT_FIELDS` 에 들어 있어 **판매시트가 현재값(빈칸 포함)을 소유**한다.
+ *   시트의 「정책UID」 열이 아직 erp3 시절 `pol_…` 를 들고 있어서, 동기가 돌 때마다 그 값으로 덮인다.
+ *
+ *   → **고칠 자리는 시트다.** 판매시트 「정책UID」 열을 새 코드(FP-RP0xx-RENT)로 갈아 끼운다.
+ *     그 전까지 이 스크립트는 «지금 화면을 잠깐 맞추는» 용도로만 쓴다.
+ *   → 별칭표(옛 코드 → 새 코드)로 유입에서 옮겨 읽는 길은 **안 통한다** —
+ *     가장 많은 `pol_freepassstd`(241대)가 공급사를 가리지 않아 하나로 못 옮긴다.
+ *
+ * 실행: npx tsx scripts/apply-policy-link.mts          (드라이런 — 아무것도 안 쓴다)
+ *       npx tsx scripts/apply-policy-link.mts --apply  (백업 뜨고 반영)
  */
-import { readFileSync } from 'node:fs';
-import { isListableProduct } from '../lib/domain/product';
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
+import { JWT } from 'google-auth-library';
+import { POLICY_DEFAULTS, FREEPASS_POLICY_PACK } from '../lib/domain/policy-defaults';
 
-type Rec = Record<string, any>;
+const APPLY = process.argv.includes('--apply');
 const S = (v: unknown) => String(v ?? '').trim();
-const dead = (r: Rec) => r?._deleted === true || S(r?.status) === 'deleted';
+const sa = JSON.parse(readFileSync('tmp/firebase-auth/sa.json', 'utf8'));
+const t = (await new JWT({ email: sa.client_email, key: sa.private_key,
+  scopes: ['https://www.googleapis.com/auth/firebase.database', 'https://www.googleapis.com/auth/userinfo.email'] }).getAccessToken()).token;
+const DB = 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app';
+const read = async (p: string) => JSON.parse(await (await fetch(`${DB}/${p}.json?access_token=${t}`)).text()) || {};
+const patch = async (p: string, body: unknown) => {
+  const r = await fetch(`${DB}/${p}.json?access_token=${t}`, { method: 'PATCH', body: JSON.stringify(body) });
+  if (!r.ok) throw new Error(`PATCH ${p} 실패 ${r.status} ${await r.text()}`);
+};
 
-async function main() {
-  const apply = process.argv.includes('--apply');
-  const { initializeApp, cert, getApps } = await import('firebase-admin/app');
-  const { getDatabase } = await import('firebase-admin/database');
-  if (!getApps().length) {
-    const sa = JSON.parse(readFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS || 'tmp/firebase-auth/sa.json', 'utf8'));
-    initializeApp({ credential: cert(sa), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' });
-  }
-  const db = getDatabase();
-  const [v4s, p3, p4, pl, po] = await Promise.all([
-    db.ref('v4/products').get(), db.ref('policies').get(), db.ref('v4/policies').get(),
-    db.ref('partners').get(), db.ref('v4/partners').get(),
-  ]);
-  const v4 = (v4s.val() || {}) as Record<string, Rec>;
-  const policies: Record<string, Rec> = { ...((p3.val() || {}) as Rec), ...((p4.val() || {}) as Rec) };
-  const live = (pl.val() || {}) as Record<string, Rec>;
-  const over = (po.val() || {}) as Record<string, Rec>;
-  const partners: Record<string, Rec> = {};
-  for (const k of new Set([...Object.keys(live), ...Object.keys(over)])) partners[k] = { ...(live[k] || {}), ...(over[k] || {}) };
-  const nameOf = (c: string) => S(Object.values(partners).find((x) => S(x.partner_code) === c)?.partner_name
-    || Object.values(partners).find((x) => S(x.partner_code) === c)?.company_name) || c;
+const products = await read('v4/products');
+const policies = { ...(await read('policies')), ...(await read('v4/policies')) } as Record<string, any>;
+const dead = (p: any) => p?._deleted === true || !!p?.deletedAt || S(p?.status) === 'deleted';
+const live = Object.entries<any>(products).filter(([, p]) => p && typeof p === 'object' && !dead(p));
 
-  /** 공급사 → 정책코드들. 먼저 등록한 것이 앞에 오도록 `created_at` 오름차순. */
-  const byCo = new Map<string, { code: string; screening: string; at: number }[]>();
-  for (const [k, p] of Object.entries(policies)) {
-    if (dead(p)) continue;
-    const code = S(p.policy_code) || k;
-    const co = S(p.provider_company_code) || S(p.partner_code) || (code.includes('_') ? code.split('_')[0] : '');
-    if (!co) continue;
-    const at = Number(p.created_at ?? p.createdAt ?? 0) || Number.MAX_SAFE_INTEGER;
-    byCo.set(co, [...(byCo.get(co) || []), { code, screening: S(p.screening_criteria), at }]);
-  }
-  for (const list of byCo.values()) list.sort((a, b) => a.at - b.at);
+// 기본값과 «글자까지 같은» 칸만 걷어낸다 — 사람이 손으로 넣은 값은 건드리지 않는다.
+const DEFAULT_BY_KEY = new Map(POLICY_DEFAULTS.filter((d) => d.value !== null).map((d) => [d.key, String(d.value)]));
+// 신원 칸은 남긴다 — 이게 없으면 정책이 자기가 누구 것인지 잃는다.
+const KEEP = new Set(['policy_code', 'policy_name', 'provider_company_code', 'term_code', 'term_name', 'createdAt', 'updatedAt', '_key']);
 
-  const plans: { key: string; co: string; code: string; screening: string; name: string; was: string }[] = [];
-  const skipped = new Map<string, number>();
-  for (const [key, r] of Object.entries(v4)) {
-    if (dead(r) || !isListableProduct(r as any)) continue;
-    const co = S(r.provider_company_code);
-    const list = byCo.get(co) || [];
-    if (!list.length) { skipped.set(co || '(미지정)', (skipped.get(co || '(미지정)') || 0) + 1); continue; }
-    const cur = S(r.policy_code);
-    const own = new Set(list.map((x) => x.code));
-    let pick: typeof list[number] | null = null;
-    if (list.length === 1) {
-      // 하나뿐 = 일괄 통일. 다른 정책이 붙어 있으면 그건 남의 것이라 덮는다.
-      if (cur !== list[0].code) pick = list[0];
-    } else if (!cur) {
-      // 여럿 = 먼저 등록한 것. 이미 그 공급사 정책이 붙어 있으면 손대지 않는다.
-      pick = list[0];
-    } else if (!own.has(cur)) {
-      // 여럿인데 «남의» 정책이 붙어 있다 — 이것도 틀린 것이므로 먼저 등록한 것으로 되돌린다.
-      pick = list[0];
-    }
-    if (!pick) continue;
-    plans.push({ key, co, code: pick.code, screening: pick.screening, name: `${S(r.maker)} ${S(r.model)}`.trim(), was: cur });
-  }
-
-  console.log(`\n══ 정책코드 붙이기 ${apply ? '반영' : '미리보기(dry-run)'} ══\n`);
-  console.log(`  붙일 대상 ${plans.length}대 · 건너뜀 ${[...skipped.values()].reduce((a, b) => a + b, 0)}대\n`);
-
-  const byTarget = new Map<string, { n: number; code: string; screening: string }>();
-  for (const p of plans) {
-    const e = byTarget.get(p.co) || { n: 0, code: p.code, screening: p.screening };
-    e.n++; byTarget.set(p.co, e);
-  }
-  console.log('■ 공급사별 — 붙일 정책과 심사조건');
-  for (const [co, e] of [...byTarget].sort((a, b) => b[1].n - a[1].n)) {
-    console.log(`   ${String(e.n).padStart(4)}대  ${co.padEnd(10)} ${e.code.padEnd(14)} 심사«${e.screening || '-'}»  ${nameOf(co)}`);
-  }
-  if (skipped.size) {
-    console.log('\n■ 건너뜀 — 정책이 여럿이거나 없음');
-    for (const [co, n] of [...skipped].sort((a, b) => b[1] - a[1])) {
-      const cnt = (byCo.get(co) || []).length;
-      console.log(`   ${String(n).padStart(4)}대  ${co.padEnd(10)} 정책 ${cnt}건  ${nameOf(co)}`);
+type Plan = { code: string; clear: string[]; keepReal: Record<string, string>; from: string[] };
+const plans: Plan[] = [];
+for (const [code, pol] of Object.entries(policies)) {
+  const m = /^FP-(RP\d{3})-RENT$/.exec(code);
+  if (!m) continue;
+  const prov = m[1];
+  // 그 공급사가 실제로 준 정책 = 시트 유래(S**) · v3(P**). 여기 값은 사실이라 살린다.
+  // 시트 유래 `RP031_S01` · v3 `RP004_P01` 꼴. 정규식 이스케이프를 파일에 담다 한 번 먹혀
+  //  `\d` 가 `d` 로 새어 0건이 나왔다 — 그래서 글자로 판정한다.
+  const isRealSourceKey = (k: string) => {
+    if (!k.startsWith(`${prov}_`)) return false;
+    const tail = k.slice(prov.length + 1);
+    return tail.length >= 2 && (tail[0] === 'S' || tail[0] === 'P') && /^[0-9]+$/.test(tail.slice(1));
+  };
+  const realSources = Object.entries(policies).filter(([k]) => k !== code && isRealSourceKey(k));
+  const keepReal: Record<string, string> = {};
+  for (const [, src] of realSources) {
+    for (const [k, v] of Object.entries<any>(src)) {
+      if (KEEP.has(k) || k.startsWith('_') || S(v) === '') continue;
+      if (keepReal[k] == null) keepReal[k] = S(v);
     }
   }
-
-  if (!apply) { console.log(`\n※ dry-run. 반영은 --apply\n`); return; }
-
-  let done = 0;
-  const errors: string[] = [];
-  for (const p of plans) {
-    try { await db.ref(`v4/products/${p.key}`).update({ policy_code: p.code }); done++; }
-    catch (e) { errors.push(`${p.key}: ${(e as Error)?.message || String(e)}`); }
+  const clear: string[] = [];
+  for (const [k, v] of Object.entries<any>(pol)) {
+    if (KEEP.has(k) || k.startsWith('_') || S(v) === '') continue;
+    if (keepReal[k] != null) continue;              // 공급사가 준 값이 덮을 자리
+    if (DEFAULT_BY_KEY.get(k) === S(v)) clear.push(k); // 기본값 그대로 = 우리가 지어낸 값
   }
-  console.log(`\n  반영 ${done}대`);
-  if (errors.length) { console.log(`  ❌ 오류 ${errors.length}건`); for (const e of errors.slice(0, 10)) console.log(`     ${e}`); }
-  console.log(`\n끝. 확인: npx tsx scripts/audit-policy-code.mts\n`);
+  plans.push({ code, clear, keepReal, from: realSources.map(([k]) => k) });
 }
 
-main().then(() => process.exit(0)).catch((e) => { console.error(e); process.exit(1); });
+// 매물 → 자기 공급사 정책
+const linkable: [string, string, string][] = []; // [매물키, 지금코드, 걸 코드]
+const noPolicy = new Map<string, number>();
+for (const [key, p] of live) {
+  const prov = S(p.provider_company_code);
+  const want = `FP-${prov}-RENT`;
+  if (!policies[want]) { noPolicy.set(prov, (noPolicy.get(prov) || 0) + 1); continue; }
+  if (S(p.policy_code) === want) continue;
+  linkable.push([key, S(p.policy_code) || '(빈칸)', want]);
+}
+
+console.log(`${APPLY ? '★반영' : '드라이런(아무것도 안 씀)'}\n`);
+console.log(`── ① 공급사 정책 셸에서 기본값 걷어내기 (FP-* ${plans.length}건) ──`);
+for (const pl of plans.sort((a, b) => b.clear.length - a.clear.length).slice(0, 6)) {
+  console.log(`   ${pl.code.padEnd(16)} 기본값 ${String(pl.clear.length).padStart(2)}칸 비움` +
+    (pl.from.length ? ` · 공급사 실제값 ${Object.keys(pl.keepReal).length}칸 얹음(${pl.from.join(',')})` : ''));
+}
+const totalClear = plans.reduce((n, p) => n + p.clear.length, 0);
+const totalReal = plans.reduce((n, p) => n + Object.keys(p.keepReal).length, 0);
+console.log(`   … 합계 ${totalClear}칸 비움 · 공급사 실제값 ${totalReal}칸 살림\n`);
+
+console.log('── ② 매물 → 공급사 정책 연결 ──');
+const byWant = new Map<string, number>();
+for (const [, , w] of linkable) byWant.set(w, (byWant.get(w) || 0) + 1);
+for (const [w, n] of [...byWant].sort((a, b) => b[1] - a[1])) console.log(`   ${String(n).padStart(4)}대 → ${w}`);
+console.log(`   합계 ${linkable.length}대 연결`);
+if (noPolicy.size) {
+  console.log('\n   ★그 공급사 정책이 없어 못 거는 매물:');
+  for (const [c, n] of noPolicy) console.log(`      ${String(n).padStart(4)}대  ${c}  → 정책을 만들거나 미연결로 둔다`);
+}
+
+if (!APPLY) { console.log('\n반영하려면 --apply'); process.exit(0); }
+
+mkdirSync('tmp/backup', { recursive: true });
+const stamp = S(process.env.STAMP) || 'policy-link';
+writeFileSync(`tmp/backup/${stamp}-policies.json`, JSON.stringify(policies, null, 2), 'utf8');
+writeFileSync(`tmp/backup/${stamp}-product-policy-codes.json`,
+  JSON.stringify(Object.fromEntries(live.map(([k, p]) => [k, S(p.policy_code)])), null, 2), 'utf8');
+console.log(`\n백업 → tmp/backup/${stamp}-*.json`);
+
+for (const pl of plans) {
+  const body: Record<string, unknown> = { ...pl.keepReal };
+  for (const k of pl.clear) body[k] = null;             // null = RTDB 에서 칸 삭제
+  if (pl.clear.length || Object.keys(pl.keepReal).length) {
+    body.policy_default_pack = FREEPASS_POLICY_PACK;    // 비운 칸이 다시 안 채워지도록
+    await patch(`v4/policies/${pl.code}`, body);
+  }
+}
+console.log(`① 정책 ${plans.length}건 정리 완료`);
+
+let n = 0;
+for (const [key, , want] of linkable) { await patch(`v4/products/${key}`, { policy_code: want }); n++; if (n % 100 === 0) console.log(`   … ${n}대`); }
+console.log(`② 매물 ${n}대 연결 완료`);

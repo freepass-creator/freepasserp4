@@ -8,7 +8,7 @@ import { guestShareUrl } from '@/lib/domain/product-share';
 import { vehicleName } from '@/lib/domain/product';
 import { copyText } from '@/lib/clipboard';
 import { toast } from '@/components/Toaster';
-import { Btn, Modal, C, FS, FW, ICON, R } from '@/components/ui';
+import { Btn, Modal, Message, C, FS, ICON, R } from '@/components/ui';
 
 /** 손님 폰 화면 프레임 폭·높이 — 일반 폰 논리 해상도(390×780). 스크롤은 프레임 안에서. */
 const FRAME_W = 390;
@@ -60,7 +60,7 @@ export function CustomerPreviewButton({ p, full }: { p: EntityRecord; full?: boo
               <iframe title="손님 화면" src={url} style={{ width: '100%', height: '100%', border: 0, display: 'block', background: C.bg }} />
             </div>
           </div>
-          <div style={{ fontSize: FS.cap, color: C.faint, textAlign: 'center', padding: '4px 0 8px', fontWeight: FW.meta }}>실제 손님 화면과 같은 주소(/q)입니다 · 로그인 없이 열립니다</div>
+          <Message variant="info">실제 손님 화면과 같은 주소(/q)입니다 · 로그인 없이 열립니다</Message>
         </Modal>,
         document.body,
       )}

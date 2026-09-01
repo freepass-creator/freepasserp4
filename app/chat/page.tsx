@@ -1,5 +1,6 @@
 'use client';
 import { useCallback, useEffect, useRef, useState, useMemo, type ReactNode } from 'react';
+import dynamic from 'next/dynamic';
 import { getStore, type StoreAdapter } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
 import { seedIfEmpty } from '@/lib/seed';
@@ -10,13 +11,9 @@ import { getRole, actor, type Role } from '@/lib/domain/deal';
 import { replyAttentionFor, roomsWithUnread, unreadFor, unreadRoomCount } from '@/lib/domain/messaging';
 import { contractStage, isInquiryOnly, isContractCancelled } from '@/lib/domain/contract';
 import { providerNameMap, withProviderNames } from '@/lib/domain/identity';
-import { PaneHead, Btn, IconBtn, Badge, C, R, Loading, CenterNote, PaneBody, FilterChips, FilterGroup, FS, FW, NUM, ICON, FeedRowSkeleton } from '@/components/ui';
+import { PaneHead, Btn, IconBtn, Badge, C, Loading, CenterNote, Message, PaneBody, FilterChips, FilterGroup, FS, FW, NUM, ICON, FeedRowSkeleton, FeedListRow, FeedTitle, FeedSub, FeedTitleRow, FeedThumbIcon } from '@/components/ui';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
 import { CHAT_NOTICE_BODY, CHAT_NOTICE_CONTACTS, CHAT_NOTICE_TITLE, showChatNotice } from '@/lib/domain/chat-notice';
-import { ChatThread } from '@/components/ChatThread';
-import { ProductDetail } from '@/components/ProductDetail';
-import { ContractPanel } from '@/components/ContractPanel';
-import { ContractDocs } from '@/components/ContractDocs';
 import { haptic } from '@/lib/haptics';
 import { ChatRoomRow } from '@/components/list-rows';
 import { NAV_LABEL } from '@/lib/tabbar';
@@ -54,7 +51,7 @@ import {
 } from '@/features/chat/room-filter';
 import { deskItemOf } from '@/features/chat/admin-queue';
 import { joinMetaText, workPartyParts } from '@/features/work-list-display';
-import { ListChecks, MessageCircle, ClipboardList } from 'lucide-react';
+import { ListChecks, MessageCircle, ClipboardList, CarFront } from 'lucide-react';
 import { ChatRoomList } from '@/features/chat/ChatRoomList';
 import { useProductPhotoState } from '@/components/use-product-photos';
 import {
@@ -63,6 +60,25 @@ import {
   verifyDuplicateRoomMessages,
   type EmptyRoomDedupeEvidence,
 } from '@/features/chat/room-dedupe';
+
+// 상담 목록을 여는 순간에는 대화·상품·계약·서류 패널이 보이지 않는다. 무거운 편집기까지
+// 같은 초기 번들에 넣지 않고, 실제 방을 선택한 뒤에만 가져와 목록/검색/메뉴 전환을 가볍게 한다.
+const ChatThread = dynamic(() => import('@/components/ChatThread').then((m) => m.ChatThread), {
+  ssr: false,
+  loading: () => <Loading label="대화를 여는 중…" />,
+});
+const ProductDetail = dynamic(() => import('@/components/ProductDetail').then((m) => m.ProductDetail), {
+  ssr: false,
+  loading: () => <Loading label="상품 정보를 여는 중…" />,
+});
+const ContractPanel = dynamic(() => import('@/components/ContractPanel').then((m) => m.ContractPanel), {
+  ssr: false,
+  loading: () => <Loading label="계약 진행상황을 여는 중…" />,
+});
+const ContractDocs = dynamic(() => import('@/components/ContractDocs').then((m) => m.ContractDocs), {
+  ssr: false,
+  loading: () => <Loading label="첨부 서류를 여는 중…" />,
+});
 
 async function emptyRoomDedupeEvidence(
   rooms: EntityRecord[],
@@ -98,35 +114,26 @@ function AdminVehicleSummary({
   const { photos, pending } = useProductPhotoState(product || {});
   const status = String(product?.vehicle_status || room?.vehicle_status || '').trim();
   return (
-    <div style={{
-      flex: '0 0 auto', minHeight: 68, padding: '8px 12px', boxSizing: 'border-box',
-      display: 'flex', alignItems: 'center', gap: 10,
-      borderBottom: `1px solid ${C.line}`, background: C.head,
-    }}>
-      <div style={{
-        width: 72, height: 50, flex: '0 0 auto', overflow: 'hidden', borderRadius: R,
-        border: `1px solid ${C.line}`, background: C.taupeBg,
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        color: C.faint, fontSize: FS.cap,
-      }}>
-        {photos[0]
-          ? <img src={photos[0]} alt="" loading="lazy" decoding="async" style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-          : pending ? '사진 확인 중' : '사진 없음'}
-      </div>
-      <div style={{ minWidth: 0, flex: 1 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6, minWidth: 0, flexWrap: 'wrap' }}>
-          <strong style={{ minWidth: 0, maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: FS.body, color: C.ink }}>
-            {title || '차량명 미확인'}
-          </strong>
-          {plate ? <span style={{ fontFamily: NUM, fontSize: FS.sub, color: C.mute }}>{plate}</span> : null}
-          {status ? <Badge tone={status === '출고불가' ? 'red' : 'gray'}>{status}</Badge> : null}
-          <Badge tone={photos.length ? 'blue' : 'gray'}>{photos.length ? `차량사진 ${photos.length}` : pending ? '사진 확인 중' : '차량사진 없음'}</Badge>
-        </div>
-        <div style={{ marginTop: 4, color: C.mute, fontSize: FS.sub, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {[provider, agent && `담당 ${agent}`].filter(Boolean).join(' · ') || '공급사·담당자 미확인'}
-        </div>
-      </div>
-    </div>
+    <FeedListRow
+      thumb={<FeedThumbIcon icon={CarFront} tone={status === '출고불가' ? 'red' : 'gray'} title={status || '차량'} decorative />}
+      lines={[
+        <FeedTitleRow
+          key="t"
+          title={<FeedTitle>{title || '차량명 미확인'}</FeedTitle>}
+          meta={(
+            <span style={{ display: 'inline-flex', gap: 4, alignItems: 'center' }}>
+              {status ? <Badge tone={status === '출고불가' ? 'red' : 'gray'}>{status}</Badge> : null}
+              <Badge tone={photos.length ? 'blue' : 'gray'}>
+                {photos.length ? `차량사진 ${photos.length}` : pending ? '사진 확인 중' : '차량사진 없음'}
+              </Badge>
+            </span>
+          )}
+        />,
+        <FeedSub key="s">
+          {[plate, provider, agent && `담당 ${agent}`].filter(Boolean).join(' · ') || '공급사·담당자 미확인'}
+        </FeedSub>,
+      ]}
+    />
   );
 }
 
@@ -458,7 +465,7 @@ export default function Chat() {
     ? <ContractDocs key={`${String(sel)}:${docCode}`} contractCode={docCode} roomId={sel || undefined} readOnly={isContractCancelled(selContract)} />
     : <CenterNote>계약문의를 시작하면 서류를 첨부할 수 있습니다.</CenterNote>;
   const vehicleBlock = selProduct
-    ? <>{selProduct._fromHistory ? <div style={{ fontSize: FS.cap, color: C.faint, marginBottom: 8 }}>재고에서 내려간 매물 · 계약 이력 기준</div> : null}<ProductDetail p={selProduct} /></>
+    ? <>{selProduct._fromHistory ? <Message variant="info">재고에서 내려간 매물 · 계약 이력 기준</Message> : null}<ProductDetail p={selProduct} /></>
     : <CenterNote>이 매물의 이력이 없습니다.</CenterNote>;
 
   // 계약진행 이동 = 하단 swap + 상단 우측(erp3 headerRight 클립보드).
@@ -565,53 +572,17 @@ export default function Chat() {
       attentionCount={rooms === null ? undefined : inquiryUnreadN}
       listCount={rooms === null ? null : shownRooms.length}
       list={rooms === null ? <FeedRowSkeleton /> : roomListEl}
-      listHeader={role === 'admin' && rooms !== null ? (
-        <div className="fp-chat-queue-summary" aria-label="상담 처리 현황">
-          <Btn size="sm" variant={flt === 'all' ? 'solid' : 'ghost'} onClick={() => setFlt('all')}>
-            전체 <Badge tone="gray">{activityRooms.length}</Badge>
-          </Btn>
-          <Btn size="sm" variant={flt === '미확인' ? 'solid' : 'ghost'} onClick={() => setFlt('미확인')}>
-            미확인 <Badge tone={inquiryUnreadN ? 'red' : 'gray'} variant={inquiryUnreadN ? 'solid' : 'fill'}>{inquiryUnreadN}</Badge>
-          </Btn>
-          <Btn size="sm" variant={flt === '미회신' ? 'solid' : 'ghost'} onClick={() => setFlt('미회신')}>
-            미회신 <Badge tone={inquiryUnrepliedN ? 'red' : 'gray'} variant={inquiryUnrepliedN ? 'solid' : 'fill'}>{inquiryUnrepliedN}</Badge>
-          </Btn>
-          <Btn size="sm" variant={flt === '내차례' ? 'solid' : 'ghost'} onClick={() => setFlt('내차례')}>
-            내 차례 <Badge tone={myTurnN ? 'amber' : 'gray'}>{myTurnN}</Badge>
-          </Btn>
-        </div>
-      ) : showChatNotice(role) ? (
-        /**
-         * 채팅을 고치는 동안은 카톡이 빠르다 — 그 사실을 «채팅 화면에서» 알린다.
-         * 보내는 것은 막지 않는다. 진행 중인 대화가 갈 곳을 잃는다.
-         * 안내를 내릴 때는 `CHAT_NOTICE_ON` 하나만 끄면 된다.
-         */
-        <div
-          role="status"
-          style={{
-            display: 'flex', flexDirection: 'column', gap: 4,
-            padding: '10px 12px', borderRadius: R,
-            background: C.warnBg, border: `1px solid ${C.warn}`,
-          }}
-        >
-          <div style={{ fontSize: FS.sub, fontWeight: FW.title, color: C.warn }}>{CHAT_NOTICE_TITLE}</div>
-          <div style={{ fontSize: FS.cap, color: C.warn }}>{CHAT_NOTICE_BODY}</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10, marginTop: 2 }}>
-            {CHAT_NOTICE_CONTACTS.map((c) => (
-              // 전화 링크로 둔다 — 모바일에서 번호를 옮겨 적게 하지 않는다.
-              <a
-                key={c.phone}
-                href={`tel:${c.phone.replace(/\D/g, '')}`}
-                style={{ fontSize: FS.cap, fontWeight: FW.head, color: C.warn, textDecoration: 'none', fontFamily: NUM }}
-              >
-                {c.name} {c.phone}
-              </a>
-            ))}
-          </div>
-        </div>
+      listHeader={showChatNotice(role) ? (
+        <Message variant="warning">
+          {CHAT_NOTICE_TITLE} — {CHAT_NOTICE_BODY}{' '}
+          {CHAT_NOTICE_CONTACTS.map((c) => (
+            <Btn key={c.phone} size="sm" variant="ghost" href={`tel:${c.phone.replace(/\D/g, '')}`}>
+              {c.name} {c.phone}
+            </Btn>
+          ))}
+        </Message>
       ) : undefined}
       panes={mobile ? mobilePanes : webPanes}
-      listMaxWidth={!mobile && role === 'admin' ? 390 : undefined}
       hideWebDock={role === 'admin'}
       selected={!!sel}
       onBack={clearSel}
@@ -651,14 +622,8 @@ export default function Chat() {
       countSuffix="건"
       listTools={{
         search: { value: qInput, onChange: setQInput, placeholder: '차번·상품·영업…' },
-        sort: {
-          value: sort,
-          onChange: (v) => setSort(v as ChatSort | ''),
-          options: CHAT_SORTS,
-          defaultValue: 'recent',
-        },
         filter: {
-          count: flt === CHAT_FILTER_DEFAULT ? 0 : 1,
+          count: (flt === CHAT_FILTER_DEFAULT ? 0 : 1) + (sort && sort !== 'recent' ? 1 : 0),
           title: '조건 검색',
           previewCount: draftPreviewCount,
           previewUnit: '건',
@@ -666,15 +631,33 @@ export default function Chat() {
           capture: () => setDraftFlt(flt),
           restore: () => setDraftFlt(flt),
           commit: () => setFlt(draftFlt),
-          onClear: () => mobile ? setDraftFlt(CHAT_FILTER_DEFAULT) : setFlt(CHAT_FILTER_DEFAULT),
+          onClear: () => {
+            setSort(chatSortDefaultFor(role));
+            if (mobile) setDraftFlt(CHAT_FILTER_DEFAULT);
+            else setFlt(CHAT_FILTER_DEFAULT);
+          },
             body: (
-              <FilterGroup
-                title="분류"
-                count={(mobile ? draftFlt : flt) === CHAT_FILTER_DEFAULT ? 0 : 1}
-                defaultOpen
-                first={!mobile}
-                onClear={() => mobile ? setDraftFlt(CHAT_FILTER_DEFAULT) : setFlt(CHAT_FILTER_DEFAULT)}
-              >
+              <>
+                <FilterGroup
+                  title="정렬"
+                  count={sort && sort !== 'recent' ? 1 : 0}
+                  defaultOpen
+                  first
+                  onClear={() => setSort(chatSortDefaultFor(role))}
+                >
+                  <FilterChips
+                    value={sort || 'recent'}
+                    onChange={(value) => setSort(value)}
+                    options={CHAT_SORTS.map((option) => ({ key: option.value, label: option.label }))}
+                    clearKey="recent"
+                  />
+                </FilterGroup>
+                <FilterGroup
+                  title="분류"
+                  count={(mobile ? draftFlt : flt) === CHAT_FILTER_DEFAULT ? 0 : 1}
+                  defaultOpen
+                  onClear={() => mobile ? setDraftFlt(CHAT_FILTER_DEFAULT) : setFlt(CHAT_FILTER_DEFAULT)}
+                >
                 <FilterChips
                   value={mobile ? draftFlt : flt}
                   onChange={mobile ? setDraftFlt : setFlt}
@@ -689,6 +672,7 @@ export default function Chat() {
                   ))}
                 />
               </FilterGroup>
+              </>
             ),
         },
         hints: [

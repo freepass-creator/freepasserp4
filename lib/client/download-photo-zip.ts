@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import type { EntityRecord } from '@/lib/intake/entities';
 import { productPhotos, resolveServerPhotos } from '@/lib/domain/product-photos';
@@ -94,26 +94,11 @@ function saveBlob(blob: Blob, filename: string): void {
 }
 
 /** 상세 라이트박스에서 현재 사진 한 장만 원본 형식으로 저장한다. */
-export async function downloadSinglePhoto(url: string, index: number, vehicleName: string): Promise<string> {
-  const file = await fetchPhoto(url, index, vehicleName);
-  const buffer = new ArrayBuffer(file.bytes.byteLength);
-  new Uint8Array(buffer).set(file.bytes);
-  saveBlob(new Blob([buffer]), file.name);
-  return file.name;
-}
-
-export async function downloadPhotoZip(urls: string[], vehicleName: string): Promise<{ saved: number; failed: number }> {
-  const settled = await Promise.allSettled(urls.map((url, index) => fetchPhoto(url, index, vehicleName)));
-  const files = settled.flatMap((result) => result.status === 'fulfilled' ? [result.value] : []);
-  if (!files.length) throw new Error('다운로드 가능한 사진이 없습니다.');
-
-  const zip = createPhotoZip(files);
-  const zipBuffer = new ArrayBuffer(zip.byteLength);
-  new Uint8Array(zipBuffer).set(zip);
-  const blob = new Blob([zipBuffer], { type: 'application/zip' });
-  saveBlob(blob, `${safeName(vehicleName)}_사진_${files.length}장.zip`);
-  return { saved: files.length, failed: settled.length - files.length };
-}
+/*
+ * 매물 «한 장 받기»(downloadSinglePhoto)·«묶음 받기»(downloadPhotoZip)는 걷었다(2026-08-30).
+ * 사장님: 사진은 파일로 주고받지 않고 링크로 보낸다. 상세·영업자 패널의 다운로드 버튼이 같이 사라졌다.
+ * 아래 재고 아카이브(설정 › 전체 사진 내려받기)는 성격이 다르다 — 그건 «백업»이라 남긴다.
+ */
 
 export type InventoryPhotoProgress = { batch: number; batches: number; vehicles: number; totalVehicles: number };
 
