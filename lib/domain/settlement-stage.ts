@@ -165,22 +165,61 @@ export const nextInstalment = (r: SettlementRow, now = new Date()) => {
 };
 
 /**
- * ★**선지급이 없는 공급사.** 분납건은 분납이 다 들어와야 청구·지급한다.
- *   부러지면 수수료 지급이 아예 없다(사장님 2026-08-25 「스타랑 아이카는 분납부러지면 수수료지급 없음」).
+ * ★**분납 부러지면 «지급»이 아예 없는 공급사.**
+ *   사장님 2026-08-25 「스타랑 아이카는 분납부러지면 수수료지급 없음」.
+ *   ⚠ 이건 «지급» 규칙이다. 「언제 청구하나」는 아래 `claimsOnComplete` 로 옮겼다 —
+ *     2026-09-01 부터 «모든» 분납건이 완료시점 청구라서, 이 목록은 더 이상 청구월을 안 정한다.
  */
-export const CLAIM_ON_COMPLETE = [/스타/, /아이카/];
-export const claimsOnComplete = (r: SettlementRow) =>
-  roundsOf(r.payKind) >= 2 && CLAIM_ON_COMPLETE.some((re) => re.test(r.supplier || ''));
+export const NO_PAY_IF_BROKEN = [/스타/, /아이카/];
+export const noPayIfBroken = (r: SettlementRow) =>
+  NO_PAY_IF_BROKEN.some((re) => re.test(r.supplier || ''));
+/** @deprecated 이름이 「청구월을 정한다」로 읽혀서 옮겼다. `NO_PAY_IF_BROKEN` 을 쓴다. */
+export const CLAIM_ON_COMPLETE = NO_PAY_IF_BROKEN;
+
+/**
+ * ★★**분납건은 «분납이 끝나야» 청구한다 — 공급사를 가리지 않는다.**
+ *
+ *   사장님 2026-09-01 「접수 → 분납완료시점이 청구예정일 → 분납완료시점에서 청구」.
+ *   ⚠ 2026-08-31 까지는 스타·아이카만 그랬다. 그 둘만 선지급이 없다고 봤기 때문인데,
+ *     실제 원본 정산시트는 «모든» 분납건을 완료시점에 정산하고 있었다(실측 2026-09-01).
+ */
+export const claimsOnComplete = (r: SettlementRow) => roundsOf(r.payKind) >= 2;
 
 /**
  * **청구월** — 인도가 관문이다.
- * ★스타·아이카 분납건만 «마지막 납입월»이고, 그 밖은 «인도월»이다(선납).
+ *
+ * ```
+ * 일시납            인도월                      (선납)
+ * 분납 · 정상        마지막 납입월 = 인도일+(회차−1)개월
+ * 분납 · 부러짐      ★«부러진 그 시점»           받은 회차까지의 달
+ * ```
+ * ★**부러지면 기다리지 않는다**(사장님 2026-09-01 「분납이 완료가 안되면 안된 시점에서
+ *   그냥 그 청구금액에 맞춰 청구」). 끝나기를 기다리면 영영 안 끝나는 건이 영영 청구가 안 된다.
+ *   금액은 받은 회차에 비례해 깎는다 — `moneyOf` 가 한다.
  * ★인도 전이면 청구가 없다 — `null` 이다. 「없다」가 아니라 「아직」이다.
  */
-export const billingMonth = (r: SettlementRow): string | null => {
+export const billingMonth = (r: SettlementRow, now = new Date()): string | null => {
   if (!r.deliveredAt) return null;
-  const at = claimsOnComplete(r) ? lastPaymentDate(r) : r.deliveredAt;
-  return at ? ym(at) : null;
+  if (!claimsOnComplete(r)) return ym(r.deliveredAt);
+  // ★부러졌으면 그 자리에서 청구한다 — 마지막으로 받은 회차가 든 달이다.
+  if (brokenOf(r, now)) return ym(addMonths(r.deliveredAt, Math.max(0, paidRoundsOf(r, now) - 1)));
+  const at = lastPaymentDate(r);
+  return at ? ym(at) : ym(r.deliveredAt);
+};
+
+/**
+ * **받은 만큼의 몫** — 부러진 분납은 «받은 회차 / 전체 회차» 로 깎는다.
+ *
+ * ★실증(2026-09-01) — 원본 정산시트 `133호1997` 우리캐피탈, 판매수수료 1,688,750,
+ *   2회분납 중 1회만 받아 「계약번호」 칸에 「0.5」 라고 적혀 있었고 태윤이 844,375 로 정산했다.
+ *   1,688,750 × 1/2 = 844,375 — 사람이 손으로 하던 계산이 이것이다.
+ * ⚠ **적힌 회차가 있어야 «부러졌다»고 말할 수 있다.** 안 적혀 있으면 기간 비례라 늘 「받은 것」이 되고,
+ *   그건 사실이 아니라 「아직 아니라고 말한 사람이 없다」는 뜻이다(`brokenOf` 주석).
+ */
+export const paidRatioOf = (r: SettlementRow, now = new Date()): number => {
+  const n = roundsOf(r.payKind);
+  if (n < 2 || !brokenOf(r, now)) return 1;
+  return paidRoundsOf(r, now) / n;
 };
 
 /**
@@ -251,9 +290,17 @@ export type Money = {
  * ★**적혀 있으면 그 값이 이긴다** — 실제로 계산서를 끊은 금액이다.
  *   없을 때만 요율로 낸다. 이것이 「청구는 안 고친다」를 지키는 방법이다.
  */
-export const moneyOf = (r: SettlementRow): Money => {
-  const claim = r.claimWritten || feeOf(r.supplierRate || 0, r);
-  const pay = r.payWritten || feeOf(r.agentRate || 0, r);
+export const moneyOf = (r: SettlementRow, now = new Date()): Money => {
+  /**
+   * ★**부러진 분납은 받은 만큼만**(사장님 2026-09-01 「안된 시점에서 그냥 그 청구금액에 맞춰 청구」).
+   *   ⚠ «적힌» 수수료(claimWritten)에도 건다 — 적힌 값은 «다 받았을 때»의 금액이라
+   *     부러진 줄에 그대로 쓰면 안 받은 회차까지 청구하게 된다.
+   */
+  const k = paidRatioOf(r, now);
+  const claim = Math.round((r.claimWritten || feeOf(r.supplierRate || 0, r)) * k);
+  /** ★스타·아이카는 부러지면 지급이 «아예» 없다 — 비례가 아니라 0 이다. */
+  const payFull = r.payWritten || feeOf(r.agentRate || 0, r);
+  const pay = k < 1 && noPayIfBroken(r) ? 0 : Math.round(payFull * k);
   const claimVat = Math.round(claim * VAT);
   const payVat = Math.round(pay * VAT);
   const claw = r.clawback ? r.clawbackAmount || 0 : 0;

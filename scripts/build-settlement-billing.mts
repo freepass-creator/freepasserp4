@@ -31,6 +31,8 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { SETTLEMENT_LEDGER_ID as LEDGER } from '../lib/domain/settlement-ledger';
+import { readLedger, sheetsToken, iso } from '../lib/server/settlement-ledger-read';
+import { billingMonth, moneyOf } from '../lib/domain/settlement-stage';
 
 const TAB = '청구';
 const PAY = '분납실적', DONE = '완납실적', CUR = '접수', CANCEL = '취소';
@@ -49,7 +51,8 @@ const FROM = '2026-08'; // 이 달부터 쌓는다
  * ⚠ **받은 회차는 기계가 모른다**(회차별 입금 자료가 없다). 실적 탭에서 「환수」에 체크하고
  *   못 받은 몫을 환수금액에 적으면 그만큼 빠진다 — 2회분납 1회차만 받았으면 «절반»이 환수액이다.
  */
-const CLAIM_ON_COMPLETE = [/스타/, /아이카/];
+/** ★분납 부러지면 «지급»이 아예 없는 공급사. 청구월은 이제 이 목록과 무관하다(위 주석). */
+const NO_PAY_IF_BROKEN = [/스타/, /아이카/];
 const BLANK = 40;
 const VAT = 0.1;
 /** ★탭 머리에 붙는 설명. A1 은 탭 이름, B1 부터가 설명이다 — 고정 열과는 합칠 수 없다. */
@@ -107,6 +110,12 @@ const COPY: Partial<Record<(typeof OUT)[number], string>> = {
 };
 
 const APPLY = process.argv.includes('--apply');
+/**
+ * 월을 지정하면 그 탭만 갱신한다. 월 마감 검토 중에 다른 달 장부까지 다시 쓰면
+ * 이미 확인한 값·비고가 엉킬 수 있으므로, 운영 반영은 이 제한 경로를 사용한다.
+ */
+const MONTH_ARG = process.argv.find((v) => v.startsWith('--month='))?.slice('--month='.length) || '';
+if (MONTH_ARG && !/^\d{4}-\d{2}$/.test(MONTH_ARG)) throw new Error('--month 는 YYYY-MM 형식이어야 합니다.');
 const S = (v: unknown) => String(v ?? '').trim();
 const N = (v: unknown) => { const n = Number(S(v).replace(/[,\s원]/g, '')); return Number.isFinite(n) ? n : 0; };
 const a1 = (t: string) => "'" + t.replace(/'/g, "''") + "'";
@@ -207,10 +216,16 @@ const saved = new Map<string, Record<string, string>>();
 }
 
 const out: string[][] = [];
-let refund = 0, skipped = 0, computed = 0, kept = 0, clawRows = 0;
+let refund = 0, skipped = 0, cancelled = 0, undelivered = 0, computed = 0, kept = 0, clawRows = 0;
 /** 환수인데 달을 못 정한 줄 — 환수일이 없거나 시작 달보다 앞이다. */
 const noClawMonth: string[] = [];
 for (const x of rows) {
+  // 취소 체크가 남은 탭에 아직 이동되지 않았더라도 청구 장부에는 절대 올리지 않는다.
+  // `settlement-stage.ts`와 같은 우선순위다. 탭 위치보다 계약취소 원자가 이긴다.
+  if (ON(get(x, '계약취소'))) { cancelled++; continue; }
+  // 청구의 관문은 인도완료 체크다. 인도일 글자만 남은 행은 과거 입력 흔적일 수 있으므로
+  // 청구 대상에 넣지 않는다. 직원 검토 탭과 ERP 정산서가 같은 기준을 보게 한다.
+  if (!ON(get(x, '인도완료'))) { undelivered++; continue; }
   // ★열쇠는 「2026-08」 — 나뉜 두 칸(청구년·청구월)을 이어 붙여 만든다.
   const ymKey = (y: string, m: string) => (S(y) && S(m) ? `${S(y)}-${String(Number(m)).padStart(2, '0')}` : '');
   let bill = ymKey(get(x, '청구년'), get(x, '청구월')) || monthOf(get(x, '청구월'));
@@ -241,7 +256,13 @@ for (const x of rows) {
     const byDel = `${del.getFullYear()}-${p2(del.getMonth() + 1)}`;
     if (byDel >= FROM) bill = byDel;
   }
-  const late = !!due && CLAIM_ON_COMPLETE.some((re) => re.test(get(x, '공급사')));
+  /**
+   * ★★**분납건은 공급사를 가리지 않고 «완료시점»이 청구월이다**(사장님 2026-09-01).
+   *   2026-08-31 까지는 스타·아이카만 그랬는데, 원본 정산시트는 «모든» 분납건을 그렇게 하고 있었다.
+   *   ⚠ 정본은 `lib/domain/settlement-stage.ts` `claimsOnComplete` 다 — 여기는 시트 발행용 사본이다.
+   *     둘이 갈리면 화면과 시트가 다른 달을 말한다. 바꿀 때 같이 바꾼다.
+   */
+  const late = !!due;
   // ★**마지막 납입은 인도일 + (회차−1)개월**이다 — 1회차를 인도 때 내기 때문이다.
   const lastPay = m && del && Number(m[1]) >= 2 ? addM(del, Number(m[1]) - 1) : null;
   if (late && lastPay) bill = `${lastPay.getFullYear()}-${p2(lastPay.getMonth() + 1)}`;
@@ -310,6 +331,38 @@ const col = (n: (typeof OUT)[number]) => OUT.indexOf(n);
 /** ★한 줄의 청구월 열쇠 — 나뉜 두 칸을 이어 붙인다. */
 const key = (o: string[]) => (S(o[col('청구년')]) && S(o[col('청구월')]) ? `${o[col('청구년')]}-${String(Number(o[col('청구월')])).padStart(2, '0')}` : '');
 /**
+ * 월별 검토 탭은 현재 정산 정본과 한 줄·한 금액까지 같아야 한다. 이 스크립트의 옛 탭
+ * 해석은 보조일 뿐이고, 인도완료·취소·분납 규칙은 `settlement-stage.ts` 한 곳이 이긴다.
+ */
+const canonicalToken = await sheetsToken();
+if (!canonicalToken) throw new Error('정산 정본 시트를 읽을 토큰이 없습니다.');
+const canonicalRows = await readLedger(canonicalToken);
+const canonical = new Map(canonicalRows
+  .filter((x) => x.row.delivered && !x.row.cancelled && (billingMonth(x.row) || '') >= FROM)
+  .map((x) => {
+    const month = billingMonth(x.row)!;
+    const money = moneyOf(x.row);
+    return [`${x.row.plate}|${iso(x.row.receivedAt)}`, { month, money }] as const;
+  }));
+const canonicalized = out.filter((o) => {
+  if (S(o[col('구분')]) !== KIND_BILL) return false;
+  const hit = canonical.get(`${S(o[col('차량번호')])}|${S(o[col('접수일')])}`);
+  if (!hit) return false;
+  const { month, money } = hit;
+  o[col('청구년')] = month.slice(0, 4);
+  o[col('청구월')] = String(Number(month.slice(5, 7)));
+  o[col('청구액')] = String(money.claim);
+  o[col('청구부가세')] = String(money.claimVat);
+  o[col('청구합계')] = String(money.claimTotal);
+  o[col('지급액')] = String(money.pay);
+  o[col('지급부가세')] = String(money.payVat);
+  o[col('지급합계')] = String(money.payTotal);
+  o[col('우리몫')] = String(money.margin);
+  return true;
+});
+out.splice(0, out.length, ...canonicalized);
+console.log(`   정본 대조 — 인도완료 청구 ${canonicalized.length}줄만 남김`);
+/**
  * ★**월별로 모은다**(사장님 2026-08-25 「청구는 월별로 모으자」).
  *   청구월 ↓ → 공급사 → 차량번호. 그러면 «그 달 그 공급사» 줄들이 한 덩어리로 붙어
  *   그대로 계산서 한 장이 된다. 달이 바뀌는 자리에는 굵은 선을 긋는다.
@@ -345,9 +398,14 @@ const gap = out.filter((o) => {
 const sum = (c: (typeof OUT)[number], mm?: string) => out.filter((o) => !mm || key(o) === mm).reduce((a, o) => a + N(o[col(c)]), 0);
 const won = (n: number) => n.toLocaleString('ko-KR');
 const months = [...new Set(out.map(key).filter(Boolean))].sort().reverse();
+if (MONTH_ARG && !months.includes(MONTH_ARG)) {
+  throw new Error(`${MONTH_ARG} 청구내역이 없습니다. 시트 원장과 청구월을 확인하세요.`);
+}
 
 console.log(`\n■ 청구 장부 — ${FROM} 부터 ${APPLY ? '(반영)' : '(dry-run)'}\n`);
 console.log(`   청구 ${out.length - refund}줄 · 환수 ${refund}줄 = 모두 ${out.length}줄`);
+if (cancelled) console.log(`   계약취소 ${cancelled}줄은 청구에서 뺐다.`);
+if (undelivered) console.log(`   인도완료 전 ${undelivered}줄은 청구에서 뺐다.`);
 console.log(`   과거(${FROM} 앞) ${skipped}줄은 안 담았다 — 이미 청구가 끝났고 완납실적에 그대로 있다.`);
 console.log(`   금액 — 계산서 끊은 값 그대로 ${kept}줄 · 요율로 계산 ${computed}줄\n`);
 console.log(`   ${'월'.padEnd(9)}${'줄'.padStart(4)}   ${'청구액'.padStart(12)} ${'지급액'.padStart(12)} ${'우리몫'.padStart(11)}`);
@@ -387,7 +445,13 @@ if (bad.length) { console.log('\n⛔ 짝이 어긋난 채로는 안 쓴다.\n');
 const tabOf = (k: string) => `${k.slice(2, 4)}년${k.slice(5, 7)}월`;
 const meta = await api(`${SH}/${LEDGER}?fields=sheets.properties(sheetId,title)`);
 const byMonth = new Map<string, string[][]>();
-for (const o of out) { const k = key(o); if (!k) continue; const a = byMonth.get(k) || []; a.push(o); byMonth.set(k, a); }
+for (const o of out) {
+  const k = key(o);
+  if (!k || (MONTH_ARG && k !== MONTH_ARG)) continue;
+  const a = byMonth.get(k) || [];
+  a.push(o);
+  byMonth.set(k, a);
+}
 let wroteTabs = 0;
 for (const [mk, outM] of [...byMonth].sort()) {
   const MTAB = tabOf(mk);
@@ -405,7 +469,8 @@ for (const [mk, outM] of [...byMonth].sort()) {
   await api(`${SH}/${LEDGER}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests: [{ unmergeCells: { range: { sheetId: Number(gid), startRowIndex: 0, endRowIndex: 1 } } }] }) });
   await api(`${SH}/${LEDGER}/values/${encodeURIComponent(`${a1(MTAB)}!A1`)}?valueInputOption=USER_ENTERED`, {
     method: 'PUT',
-    body: JSON.stringify({ values: [[MTAB, ABOUT], [...OUT], ...out] }),
+    // ★월별 탭에는 그 달 줄만 쓴다. `out` 전체를 쓰면 8월 탭에도 9월·12월 줄이 섞인다.
+    body: JSON.stringify({ values: [[MTAB, ABOUT], [...OUT], ...outM] }),
   });
   // ★월 칸은 RAW 로 — USER_ENTERED 는 "2026-08" 을 날짜로 바꿔 버린다. 값은 3행부터다.
   for (const c of [] as (typeof OUT)[number][]) {   // 연·월이 숫자 칸이 돼 RAW 손질이 필요 없다
@@ -453,6 +518,10 @@ for (const [mk, outM] of [...byMonth].sort()) {
   const plain = (['청구년', '청구월', '계약기간'] as const).map(col).filter((i) => i >= 0);
   /** ★날짜는 `yy-mm-dd` — 실적 탭과 같은 규격이다. */
   const dates = (['접수일', '인도일', '분납만료'] as const).map(col).filter((i) => i >= 0);
+  const claw = col(CLAW_BOX);
+  const clawMonth = col('환수월');
+  const clawAmount = col('환수금액');
+  const net = col('순액');
   const last = Math.max(outM.length + 2, 3);
   const band = (c0: number, c1: number, r: number, g: number, b: number) => ({
     repeatCell: { range: { sheetId: Number(gid), startRowIndex: 1, endRowIndex: 2, startColumnIndex: c0, endColumnIndex: c1 }, cell: { userEnteredFormat: { backgroundColor: { red: r, green: g, blue: b } } }, fields: 'userEnteredFormat.backgroundColor' },
@@ -475,12 +544,12 @@ for (const [mk, outM] of [...byMonth].sort()) {
         band(col('공급사요율'), col('청구합계') + 1, 0.9, 0.96, 0.9),
         band(col('영업자요율'), col('지급합계') + 1, 1, 0.95, 0.88),
         band(col('우리몫'), col('우리몫') + 1, 0.99, 0.92, 0.96),
-        band(col(CLAW_BOX), col('순액') + 1, 1, 0.9, 0.88),
+        ...(claw >= 0 && net >= claw ? [band(claw, net + 1, 1, 0.9, 0.88)] : []),
         // ★환수 셋은 사람 칸 — 연노랑으로 «여기만 적으세요»를 말한다.
-        { repeatCell: { range: { sheetId: Number(gid), startRowIndex: 2, endRowIndex: last, startColumnIndex: col(CLAW_BOX), endColumnIndex: col('환수금액') + 1 }, cell: { userEnteredFormat: { backgroundColor: { red: 1, green: 0.98, blue: 0.88 } } }, fields: 'userEnteredFormat.backgroundColor' } },
+        ...(claw >= 0 && clawAmount >= claw ? [{ repeatCell: { range: { sheetId: Number(gid), startRowIndex: 2, endRowIndex: last, startColumnIndex: claw, endColumnIndex: clawAmount + 1 }, cell: { userEnteredFormat: { backgroundColor: { red: 1, green: 0.98, blue: 0.88 } } }, fields: 'userEnteredFormat.backgroundColor' } }] : []),
         { repeatCell: { range: { sheetId: Number(gid), startRowIndex: 2, endRowIndex: last, startColumnIndex: col('비고'), endColumnIndex: col('비고') + 1 }, cell: { userEnteredFormat: { backgroundColor: { red: 1, green: 0.98, blue: 0.88 } } }, fields: 'userEnteredFormat.backgroundColor' } },
         // 환수 — 체크박스
-        { setDataValidation: { range: { sheetId: Number(gid), startRowIndex: 2, endRowIndex: last, startColumnIndex: col(CLAW_BOX), endColumnIndex: col(CLAW_BOX) + 1 }, rule: { condition: { type: 'BOOLEAN' }, showCustomUi: true } } },
+        ...(claw >= 0 ? [{ setDataValidation: { range: { sheetId: Number(gid), startRowIndex: 2, endRowIndex: last, startColumnIndex: claw, endColumnIndex: claw + 1 }, rule: { condition: { type: 'BOOLEAN' }, showCustomUi: true } } }] : []),
         ...money.map((c) => ({
           repeatCell: { range: { sheetId: Number(gid), startRowIndex: 2, startColumnIndex: c, endColumnIndex: c + 1 }, cell: { userEnteredFormat: { numberFormat: { type: 'NUMBER', pattern: '#,##0;[Red]-#,##0;""' }, horizontalAlignment: 'RIGHT' } }, fields: 'userEnteredFormat(numberFormat,horizontalAlignment)' },
         })),
@@ -497,14 +566,14 @@ for (const [mk, outM] of [...byMonth].sort()) {
          * ★줄 색 — 환수 체크된 줄은 붉다. 그중 **환수월이 비면 그 칸만 주황**으로 더 짚는다.
          *   주황이 먼저 걸려야 붉은색에 안 덮인다(구글은 먼저 걸린 규칙이 이긴다).
          */
-        { addConditionalFormatRule: { rule: {
+        ...(claw >= 0 && clawMonth >= 0 ? [{ addConditionalFormatRule: { rule: {
           ranges: [{ sheetId: Number(gid), startRowIndex: 2, endRowIndex: last, startColumnIndex: col('환수월'), endColumnIndex: col('환수월') + 1 }],
           booleanRule: { condition: { type: 'CUSTOM_FORMULA', values: [{ userEnteredValue: `=AND($${colA1(col(CLAW_BOX))}3=TRUE,$${colA1(col('환수월'))}3="")` }] }, format: { backgroundColor: { red: 1, green: 0.85, blue: 0.6 } } },
-        }, index: 0 } },
-        { addConditionalFormatRule: { rule: {
+        }, index: 0 } }] : []),
+        ...(claw >= 0 ? [{ addConditionalFormatRule: { rule: {
           ranges: [{ sheetId: Number(gid), startRowIndex: 2, endRowIndex: last, startColumnIndex: 0, endColumnIndex: OUT.length }],
           booleanRule: { condition: { type: 'CUSTOM_FORMULA', values: [{ userEnteredValue: `=$${colA1(col(CLAW_BOX))}3=TRUE` }] }, format: { backgroundColor: { red: 0.99, green: 0.9, blue: 0.9 } } },
-        }, index: 1 } },
+        }, index: 1 } }] : []),
         { setBasicFilter: { filter: { range: { sheetId: Number(gid), startRowIndex: 1, startColumnIndex: 0, endColumnIndex: OUT.length } } } },
         /**
          * ★달이 바뀌는 줄 위에 굵은 선 — 월 덩어리가 눈으로 갈린다.
@@ -550,7 +619,7 @@ for (const [mk, outM] of [...byMonth].sort()) {
 /** ★옛 한 장짜리 「청구」 탭은 지운다 — 두 벌이 되면 어느 쪽이 맞는지 알 수 없다. */
 {
   const after = await api(`${SH}/${LEDGER}?fields=sheets.properties(sheetId,title)`);
-  const old1 = ((after.sheets || []) as any[]).map((x) => x.properties).find((x: any) => S(x.title) === TAB);
+  const old1 = !MONTH_ARG && ((after.sheets || []) as any[]).map((x) => x.properties).find((x: any) => S(x.title) === TAB);
   if (old1) { await api(`${SH}/${LEDGER}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests: [{ deleteSheet: { sheetId: old1.sheetId } }] }) }); console.log(`   ✓ 옛 「${TAB}」 탭 지움`); }
 }
 console.log(`   ✓ 월별 탭 ${wroteTabs}개 · 사람 칸 ${HUMAN.join('·')} (환수는 실적 탭에서 적습니다)`);
