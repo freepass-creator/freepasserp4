@@ -182,8 +182,21 @@ export const CLAIM_ON_COMPLETE = NO_PAY_IF_BROKEN;
  *   사장님 2026-09-01 「접수 → 분납완료시점이 청구예정일 → 분납완료시점에서 청구」.
  *   ⚠ 2026-08-31 까지는 스타·아이카만 그랬다. 그 둘만 선지급이 없다고 봤기 때문인데,
  *     실제 원본 정산시트는 «모든» 분납건을 완료시점에 정산하고 있었다(실측 2026-09-01).
+ *
+ * ★★★**시행일이 있다 — 「앞으로는」이다.**
+ *   사장님 2026-09-01 「자 **앞으로는** … 분납완료시점에서 청구」 / 「**일단** 시트기준으로 맞출거야」.
+ *   ⇒ 이미 지나간 달을 새 규칙으로 다시 계산하면 «태윤이 손으로 맞춰 둔 8월»이 통째로 흔들린다
+ *     (실측: 오토플러스 분납 무리 10줄이 9월로 나가고 7월분 12줄이 8월로 들어왔다).
+ *   ⇒ **인도일이 시행일 앞이면 옛 규칙(인도월)** 그대로 둔다. 뒤부터 새 규칙이다.
+ *   ⚠ 날짜를 «인도일»에 건다. 청구월에 걸면 규칙이 자기 결과를 보고 자기를 정하게 된다.
  */
-export const claimsOnComplete = (r: SettlementRow) => roundsOf(r.payKind) >= 2;
+export const CLAIM_ON_COMPLETE_SINCE = '2026-09';
+export const claimsOnComplete = (r: SettlementRow) => {
+  if (roundsOf(r.payKind) < 2) return false;
+  // 인도 전이면 앞으로 인도될 것이므로 새 규칙을 따른다.
+  if (!r.deliveredAt) return true;
+  return ym(r.deliveredAt) >= CLAIM_ON_COMPLETE_SINCE || noPayIfBroken(r);
+};
 
 /**
  * **청구월** — 인도가 관문이다.
