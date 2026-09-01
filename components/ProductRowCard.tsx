@@ -78,7 +78,9 @@ function WebRow({ p, focusMonth }: { p: EntityRecord; focusMonth?: number }) {
       boxShadow: SH.cardRest,
       textDecoration: 'none', color: 'inherit',
     } satisfies CSSProperties}>
-      <CardThumb p={p} w={88} marks={false} heart coreBadges />
+      {/* ★`coreBadges` 는 `a466b0aa`(2026-08-31 「간단카드도 아이콘+글자로 — 마지막 남은 박스 뱃지를 걷는다」)
+          에서 `CardThumb` 과 함께 걷어냈다. PR #10 머지가 이 «한 줄만» 옛 쪽을 골라 짝이 깨졌다(타입 오류). */}
+      <CardThumb p={p} w={88} marks={false} heart />
 
       <PricePeekRoot p={p} focusMonth={focusMonth} style={{
         display: 'grid',
