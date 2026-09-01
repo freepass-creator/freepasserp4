@@ -14,7 +14,6 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 
 const REFINE = 'sonokong/tmp/손오공정제.json';
-const MASTER = 'public/data/vehicle-master.json';
 
 if (!existsSync(REFINE)) {
   console.error(`✗ ${REFINE} 이 없습니다 — 손오공 정제를 한 번 돌린 뒤에 부르세요.`);
@@ -35,24 +34,22 @@ for (const raw of refined.미스?.트림연식없음 ?? []) {
   todos.push({ 차번: m[1], 제조사: m[2], 모델: m[3], 트림: m[4], 최초등록: m[5] });
 }
 
-/** 라이브 차종마스터에 그 «모델»이 이미 있나 — 있으면 트림 한 줄만 보태면 된다. */
-const masterModels = new Set<string>();
-if (existsSync(MASTER)) {
-  /* ★차종마스터 정본은 `{ entries: [...] }` 다. 처음에 `rows` 로 읽어 0행이 나왔고,
-     그 바람에 «아반떼·셀토스·투싼»까지 「마스터에 없는 모델」로 찍혔다 —
-     사장님이 그 표를 그대로 믿었으면 있는 차종을 새로 만들 뻔했다. */
-  const book = JSON.parse(readFileSync(MASTER, 'utf8')) as { entries?: Record<string, unknown>[] };
-  const rows = Array.isArray(book.entries) ? book.entries : [];
-  if (!rows.length) {
-    console.error('✗ 차종마스터를 못 읽었습니다 — 분류가 무의미하므로 멈춥니다.');
-    process.exit(1);
-  }
-  for (const row of rows) {
-    const maker = String(row.maker ?? '').trim();
-    const model = String(row.model ?? '').trim();
-    if (maker && model) masterModels.add(`${maker} ${model}`);
-  }
-}
+/**
+ * ★★분류를 지웠다 — **내가 엉뚱한 마스터를 보고 있었다.**
+ *
+ *   정제 엔진(`sonokong/lib/vehicle-refine.mjs` 머리)이 말한다:
+ *     「정본 마스터 = **라이브 「차종마스터」시트(1T_RrE)**. 시트에 있는 행의 모델·세부모델·세부트림만
+ *      복사한다. F03 작업시트로 이름을 지어내지 않는다.」
+ *
+ *   나는 `public/data/vehicle-master.json`(로컬 사본)과 견줘 「①모델 있음 / ②없음」을 갈랐다.
+ *   그 결과 «셀토스 프레스티지»·«아반떼 모던»처럼 **로컬 JSON 에는 있는데 라이브 시트에는 없는** 것이
+ *   「이미 있으니 트림만 보태면 됨」으로 찍혔다. 그대로 채웠으면 헛일이었다.
+ *   (앞서 같은 파일에서 `rows` vs `entries` 로 한 번 틀렸는데, 이번엔 «어느 마스터냐»로 또 틀렸다.)
+ *
+ *   ★분류하려면 **라이브 시트를 읽어야 한다.** 그건 구글 API 를 쓰므로 «자동회차 사이»에 해야 한다
+ *   (회차 중에 읽으면 할당량을 다퉈 회차가 밀린다 — 2026-08-30 실측).
+ *   그때까지는 «무엇이 안 붙었나»만 있는 그대로 보여 준다. 없는 근거로 가르지 않는다.
+ */
 
 /** 같은 «모델+트림»을 한 줄로 묶는다 — 마스터는 차 한 대가 아니라 «차종»을 담는 표다. */
 const groups = new Map<string, { 제조사: string; 모델: string; 트림: string; 대수: number; 연식: Set<string>; 차번: string[] }>();
@@ -65,8 +62,6 @@ for (const t of todos) {
   if (g.차번.length < 4) g.차번.push(t.차번);
 }
 const all = [...groups.values()].sort((a, b) => b.대수 - a.대수);
-const 모델있음 = all.filter((g) => masterModels.has(`${g.제조사} ${g.모델}`));
-const 모델없음 = all.filter((g) => !masterModels.has(`${g.제조사} ${g.모델}`));
 
 const pad = (v: unknown, n: number) => String(v).padEnd(n);
 const line = (g: typeof all[number]) =>
@@ -75,16 +70,11 @@ const line = (g: typeof all[number]) =>
 console.log(`■ 차종마스터에 채울 것 — 손오공 ${todos.length}대 · ${all.length}가지 «모델+트림»`);
 console.log('   (정제된 차 ' + refined.결과.length + '대는 정상. 아래는 마스터에 행이 없어 트림을 비운 것들이다)');
 
-if (모델있음.length) {
-  console.log(`\n■ ① 모델은 마스터에 있다 — **트림 한 줄만 보태면 된다** (${모델있음.length}가지)`);
-  console.log(`   ${pad('제조사', 5)} ${pad('모델', 14)} ${pad('보탤 트림', 14)} 대수  연식        보기(차번)`);
-  for (const g of 모델있음) console.log(line(g));
-}
-if (모델없음.length) {
-  console.log(`\n■ ② 모델부터 마스터에 없다 — **행을 새로 만들어야 한다** (${모델없음.length}가지)`);
-  console.log(`   ${pad('제조사', 5)} ${pad('모델', 14)} ${pad('트림', 14)} 대수  연식        보기(차번)`);
-  for (const g of 모델없음) console.log(line(g));
-}
+console.log('\n■ 라이브 「차종마스터」에 없어서 트림이 빈 조합');
+console.log('   (있는 그대로다. 「행을 새로 만들지 · 트림만 보탤지」는 라이브 시트를 봐야 갈린다 —');
+console.log('    로컬 vehicle-master.json 으로 가르면 «틀린다». 그건 사본이지 정본이 아니다)');
+console.log(`   ${pad('제조사', 5)} ${pad('모델', 16)} ${pad('트림', 16)} 대수  연식        보기(차번)`);
+for (const g of all) console.log(line(g));
 if (refined.미스?.모델없음?.length) {
   console.log(`\n■ ③ 모델 자체를 못 찾은 차 ${refined.미스.모델없음.length}대`);
   for (const x of refined.미스.모델없음.slice(0, 10)) console.log(`   ${x}`);
