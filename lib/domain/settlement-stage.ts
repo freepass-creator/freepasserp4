@@ -332,18 +332,48 @@ export const moneyOf = (r: SettlementRow, now = new Date()): Money => {
  *     이미 계산서를 끊은 달이 바뀐다(사장님 「청구한거는 변함이 없게하고」).
  * ★환수일이 없으면 어느 달에 넣을지 모른다 — 넣지 않고 `unassignedClawback` 로 짚어 준다.
  */
-export type BillingLine = { month: string; kind: '청구' | '환수'; amount: number; vat: number; total: number };
+export type BillingLine = {
+  month: string; kind: '청구' | '환수';
+  /** 공급사에 «받을» 몫. 환수면 음수다. */
+  amount: number; vat: number; total: number;
+  /** ★영업자에게 «줄» 몫. 환수면 음수다. */
+  pay: number; payVat: number; payTotal: number;
+};
 export const billingLines = (r: SettlementRow): { lines: BillingLine[]; unassignedClawback: boolean } => {
   const lines: BillingLine[] = [];
   const m = billingMonth(r);
   const money = moneyOf(r);
-  if (m && !r.cancelled) lines.push({ month: m, kind: '청구', amount: money.claim, vat: money.claimVat, total: money.claimTotal });
+  if (m && !r.cancelled) {
+    lines.push({
+      month: m, kind: '청구',
+      amount: money.claim, vat: money.claimVat, total: money.claimTotal,
+      pay: money.pay, payVat: money.payVat, payTotal: money.payTotal,
+    });
+  }
   let unassigned = false;
   if (r.clawback && r.clawbackAmount) {
     if (r.clawbackAt) {
       const v = Math.round(r.clawbackAmount);
       const vat = Math.round(v * VAT);
-      lines.push({ month: ym(r.clawbackAt), kind: '환수', amount: -v, vat: -vat, total: -(v + vat) });
+      /**
+       * ★★**환수는 공급사·영업자가 «같이» 마이너스다**(사장님 2026-09-01 「환수는 공급사 영업자 같이 - 되니까」).
+       *   되받는 것은 우리가 받은 수수료만이 아니다 — 영업자에게 준 것도 같이 돌아온다.
+       *   ⚠ 예전에는 청구에서만 뺐다. 그러면 환수가 날 때마다 «우리 몫»이 실제보다 작아진다
+       *     (준 돈은 그대로 나간 것으로 두고 받을 돈만 깎았으니).
+       *
+       * ★얼마나 빼나 — **그 줄의 지급/청구 비율 그대로**다. 환수금액은 «공급사 기준»으로 적히기 때문이다.
+       *   실증(2026-09-01) 원본 `394우1198` 오토플러스 — 환수 665,455 · 시트의 영업자 환수 532,364.
+       *   그 줄은 정액 청구 1,000,000 / 지급 800,000 이라 비율 0.8. 665,455 × 0.8 = 532,364 ✓
+       * ⚠ 청구가 0 이면 비율을 못 낸다 — 그때는 지급도 0 으로 둔다(지어내지 않는다).
+       */
+      const ratio = money.claim > 0 ? money.pay / money.claim : 0;
+      const pv = Math.round(v * ratio);
+      const pvat = Math.round(pv * VAT);
+      lines.push({
+        month: ym(r.clawbackAt), kind: '환수',
+        amount: -v, vat: -vat, total: -(v + vat),
+        pay: -pv, payVat: -pvat, payTotal: -(pv + pvat),
+      });
     } else unassigned = true;
   }
   return { lines, unassignedClawback: unassigned };
