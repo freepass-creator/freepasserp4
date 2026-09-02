@@ -129,17 +129,30 @@ export const FEE_TIMING: { who: string; case: string; how: string; broken: strin
 
 const HEAD = (s: string) => s.replace(/\s|주식회사|㈜|렌터카|렌트카|모빌리티|\(.*\)/g, '');
 /**
- * 그 계약에 맞는 규칙을 찾는다. **이름은 앞머리로 맞춘다** — 원장은 줄여 적고 표는 정식 상호다.
- * ★찾는 차례 ① 공급사+갈래+기간 ② 공급사+갈래+기간무관 ③ 없으면 undefined(= 사람이 정한다)
+ * **같은 회사를 다르게 부르는 것** — 원장은 줄여 적고 표는 다른 말을 쓴다.
+ * ★원자 사전에도 같은 메모가 있다(「판매시트 「SA」 = 에스에이」).
+ * ⚠ 확실한 것만 적는다. 모르면 안 적는 게 낫다 — 잘못 붙이면 «남의 요율»로 청구한다.
  */
-export function feeRuleFor(supplier: string, kind: FeeRule['kind'], term: number, form?: string): FeeRule | undefined {
+const ALIAS: Record<string, string> = { 에스에이: 'SA', SA: '에스에이', 스타스카이: '스타', 스타: '스타스카이' };
+
+/**
+ * 그 계약에 맞는 규칙을 찾는다. **이름은 앞머리로 맞춘다** — 원장은 줄여 적고 표는 정식 상호다.
+ * ★찾는 차례 ① 공급사+형태+기간 ② 기간무관 ③ 형태 무시 ④ **전기차 특약이 없으면 일반 갈래로 내려간다**
+ *   ⚠ 2026-09-01 — 「모델Y」를 전기차로 읽었는데 아이언에는 전기차 특약이 없어 통째로 «표에 없다»가 됐다.
+ *     특약이 없으면 «없는 것»이 아니라 «일반 규칙»이다.
+ */
+export function feeRuleFor(supplier: string, kind: FeeRule['kind'], term: number, form?: string, fallbackKind?: FeeRule['kind']): FeeRule | undefined {
   const s = HEAD(supplier);
   if (!s) return undefined;
-  const mine = FEE_RULES.filter((r) => { const t = HEAD(r.supplier); return t && (s.startsWith(t) || t.startsWith(s)); });
+  const names = [s, ALIAS[supplier] ? HEAD(ALIAS[supplier]) : ''].filter(Boolean);
+  const mine = FEE_RULES.filter((r) => { const t = HEAD(r.supplier); return t && names.some((n) => n.startsWith(t) || t.startsWith(n)); });
   if (!mine.length) return undefined;
-  const byForm = form ? mine.filter((r) => r.form === form) : mine;
-  return byForm.find((r) => r.kind === kind && r.term === term)
-    || byForm.find((r) => r.kind === kind && r.term === 0)
-    || mine.find((r) => r.kind === kind && r.term === term)
-    || mine.find((r) => r.kind === kind && r.term === 0);
+  const pick = (k: FeeRule['kind']) => {
+    const byForm = form ? mine.filter((r) => r.form === form) : mine;
+    return byForm.find((r) => r.kind === k && r.term === term)
+      || byForm.find((r) => r.kind === k && r.term === 0)
+      || mine.find((r) => r.kind === k && r.term === term)
+      || mine.find((r) => r.kind === k && r.term === 0);
+  };
+  return pick(kind) || (fallbackKind ? pick(fallbackKind) : undefined);
 }

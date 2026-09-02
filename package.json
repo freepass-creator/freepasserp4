@@ -93,7 +93,8 @@
     "settlement:atomize": "tsx scripts/atomize-settlement-month.mts",
     "settlement:publish": "tsx scripts/publish-settlement-month.mts",
     "settlement:feecheck": "tsx scripts/check-fee-consistency.mts",
-    "settlement:feetable": "tsx scripts/publish-fee-table.mts"
+    "settlement:feetable": "tsx scripts/publish-fee-table.mts",
+    "settlement:calc": "tsx scripts/build-invoice-from-atoms.mts"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",

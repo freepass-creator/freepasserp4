@@ -29,11 +29,13 @@ const db = getDatabase();
 
 /** 원장 말 → 표의 말. 전기차 특약은 모델명으로 가른다. */
 const EV = /EV\b|EV6|아이오닉|모델\s*[3YXS]|테슬라|니로|코나|아이포드|택시|폴스타/i;
-const kindOf = (product: string, model: string): { kind: FeeRule['kind']; form?: string } => {
+/** ★전기차 특약이 있으면 그것이 이기되, 없으면 «일반 갈래»로 내려간다(fallback). */
+const kindOf = (product: string, model: string): { kind: FeeRule['kind']; form?: string; fallback?: FeeRule['kind'] } => {
   if (/견적출고/.test(product)) return { kind: '신차', form: '매칭출고' };
-  if (/선출고/.test(product)) return EV.test(model) ? { kind: '전기차' } : { kind: '신차', form: '선출고' };
+  const ev = EV.test(model);
+  if (/선출고/.test(product)) return ev ? { kind: '전기차', fallback: '신차', form: undefined } : { kind: '신차', form: '선출고' };
   if (/구독/.test(product)) return { kind: '구독' };
-  return EV.test(model) ? { kind: '전기차' } : { kind: '재렌트' };
+  return ev ? { kind: '전기차', fallback: '재렌트' } : { kind: '재렌트' };
 };
 
 type Row = Record<string, unknown>;
@@ -47,8 +49,8 @@ let ok = 0; const judge: string[] = []; const diff: string[] = []; const none: s
 for (const r of rows) {
   const sup = S(r.supplier); const product = S(r.product); const term = N(r.term); const model = S(r.model);
   const claim = N(r.claimWritten);
-  const { kind, form } = kindOf(product, model);
-  const f = feeRuleFor(sup, kind, term, form);
+  const { kind, form, fallback } = kindOf(product, model);
+  const f = feeRuleFor(sup, kind, term, form, fallback);
   if (!f) { none.push(`   ${S(r.plate).padEnd(11)} ${(sup || '(미기재)').padEnd(12)} ${product}${term || ''} — 표에 그 공급사·갈래가 없다  청구 ${won(claim)}`); continue; }
   if (!f.auto) { judge.push(`   ${S(r.plate).padEnd(11)} ${sup.padEnd(12)} ${f.kind}${f.term ? ` ${f.term}개월` : ''} ${f.form} — 표가 「${f.claim}」 ⇒ 사람이 정한다.  청구 ${won(claim)}`); continue; }
   const rate = Number(f.claim);
