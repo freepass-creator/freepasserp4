@@ -28,6 +28,7 @@
  */
 import { appendFileSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { Worker } from 'node:worker_threads';
 
 const APPLY = process.argv.includes('--apply');
@@ -215,6 +216,12 @@ let allOk = true;
  */
 const RATE_LIMIT = /\b429\b|rate.?limit|quota|RESOURCE_EXHAUSTED|\b50[0234]\b|UNAVAILABLE|ECONNRESET|ETIMEDOUT|socket hang up|spawn\s+(UNKNOWN|EBUSY|EAGAIN|ENOMEM)/i;
 /**
+ * tsx 실행기의 «파일 경로» — npx 를 안 거치려고 직접 짚는다(run() 주석 참고).
+ * ⚠ `require.resolve('tsx/dist/cli.mjs')` 는 안 된다 — tsx 가 그 경로를 export 하지 않아
+ *   `ERR_PACKAGE_PATH_NOT_EXPORTED` 가 난다. 그래서 **파일 자리로** 짚는다.
+ */
+const TSX_CLI = fileURLToPath(new URL('../node_modules/tsx/dist/cli.mjs', import.meta.url));
+/**
  * 동기 대기 — `Atomics.wait` 로 **잠든다**. 바쁜 대기(while 루프)로 짰다가 코덱스에게 잡혔다:
  * 30초×2회면 1분을 코어 하나 100% 로 태운다. 이 스크립트는 단계가 순서대로만 도는
  * 동기 오케스트레이터라 async 로 바꿀 필요 없이 «진짜로 자는» 방법만 있으면 된다.
@@ -230,8 +237,17 @@ const sleep = (ms: number) => { Atomics.wait(new Int32Array(new SharedArrayBuffe
  *   exit 2 «말고» 다른 실패(1·크래시)는 그대로 실패다 — 재는 자 자체가 죽은 것이므로.
  */
 const run = (label: string, args: string[], pick: RegExp, runner: 'npx' | 'node' = 'npx', signal2ok = false): { ok: boolean; picked: string[] } => {
-  const bin = runner === 'node' ? 'node' : (process.platform === 'win32' ? 'npx.cmd' : 'npx');
-  const argv = runner === 'node' ? args : ['tsx', ...args];
+  /**
+   * ★**npx 를 안 거친다 · 셸도 안 쓴다.**
+   *   `npx.cmd` 는 안에서 `CALL "C:\Program Files\nodejs\node.exe" …` 를 부르는데, `shell:true` 로 넘기면
+   *   **경로의 공백(`Program Files`)에서 따옴표가 깨져** 그대로 죽는다:
+   *     「'CALL "C:\Program Files\nodejs\node.exe" …' 은(는) 명령 또는 외부 명령…이 아닙니다」
+   *   2026-09-02 에 이것으로 회차가 네 번 멎었다(15:31·16:31·20:01·20:09) — 그때마다 발행·ERP 가 안 돌았다.
+   *   아침의 `spawn UNKNOWN`(⑦⑧⑨) 도 같은 뿌리다. 셸을 한 겹 더 태워서 생긴 일이다.
+   *   지금 도는 node(`process.execPath`)로 **tsx 를 직접** 부르면 따옴표 문제 자체가 없어진다.
+   */
+  const bin = process.execPath;
+  const argv = runner === 'node' ? args : [TSX_CLI, ...args];
   const stepStarted = Date.now();
   for (let attempt = 1; ; attempt += 1) {
     touchLock();   // 시작 «전»에도 만진다 — 자식이 도는 동안은 못 만지므로 공백을 절반으로 줄인다
@@ -241,7 +257,7 @@ const run = (label: string, args: string[], pick: RegExp, runner: 'npx' | 'node'
        매달릴 수 있었고, 그 사이 잠금이 stale 로 보여 남이 가져갔다(코덱스 8차 시나리오 1단계).
        실측 최장 단계는 몇 분이라 30분이면 넉넉하다. 넘으면 그 회차는 실패로 끝난다. */
     const r = spawnSync(bin, argv, {
-      encoding: 'utf8', shell: process.platform === 'win32', env: process.env,
+      encoding: 'utf8', env: process.env,   // ⚠ shell 을 쓰지 않는다 — 위 주석(따옴표 깨짐)
       maxBuffer: 64 * 1024 * 1024, timeout: 30 * 60_000,
     });
     const raw = `${r.stdout || ''}\n${r.stderr || ''}`;

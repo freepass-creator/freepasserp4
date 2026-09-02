@@ -12,7 +12,14 @@
  *   npx tsx scripts/sync-mirror-all.mts --only=RP023,RP006 --apply
  */
 import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { MIRROR_SOURCES } from '../lib/domain/mirror-sources';
+
+/**
+ * tsx 실행기의 «파일 경로». npx 를 안 거치려고 직접 짚는다(아래 run() 주석 참고).
+ * ⚠ `require.resolve('tsx/dist/cli.mjs')` 는 tsx 가 export 를 안 해서 실패한다(ERR_PACKAGE_PATH_NOT_EXPORTED).
+ */
+const TSX_CLI = fileURLToPath(new URL('../node_modules/tsx/dist/cli.mjs', import.meta.url));
 
 const S = (v: unknown) => String(v ?? '').trim();
 const arg = (k: string, d = '') => (process.argv.find((a) => a.startsWith(`--${k}=`)) || '').slice(k.length + 3) || d;
@@ -43,7 +50,15 @@ const targets = MIRROR_SOURCES.filter((m) => !ONLY.size || ONLY.has(m.code));
 const TRANSIENT = /\b429\b|rate.?limit|quota|RESOURCE_EXHAUSTED|\b50[0234]\b|UNAVAILABLE|ECONNRESET|ETIMEDOUT|socket hang up|spawn\s+(UNKNOWN|EBUSY|EAGAIN|ENOMEM)|EPERM|EBUSY/i;
 const run = (args: string[]): { ok: boolean; lines: string[]; why: string } => {
   for (let attempt = 1; ; attempt += 1) {
-    const r = spawnSync(process.platform === 'win32' ? 'npx.cmd' : 'npx', ['tsx', ...args], { encoding: 'utf8', shell: process.platform === 'win32', env: process.env });
+    /**
+     * ★**npx 를 안 거친다.** `npx.cmd` 는 안에서 `CALL "C:\Program Files\nodejs\node.exe" …` 를 부르는데,
+     *   `shell:true` 로 넘기면 **경로의 공백(`Program Files`)에서 따옴표가 깨져** 그대로 죽는다:
+     *     「'CALL "C:\Program Files\nodejs\node.exe" …' 은(는) 명령 또는 외부 명령…이 아닙니다」
+     *   2026-09-02 에 이것으로 회차가 네 번 멎었다(15:31·16:31·20:01·20:09). 발행·ERP 가 그때마다 안 돌았다.
+     *   `spawn UNKNOWN` 으로 보이던 것도 같은 뿌리다 — 셸을 한 겹 더 태워서 생긴 일이다.
+     *   그래서 **지금 도는 node 로 tsx 를 직접** 부른다. 셸도 안 쓴다(`shell` 없음 = 따옴표 문제 자체가 없다).
+     */
+    const r = spawnSync(process.execPath, [TSX_CLI, ...args], { encoding: 'utf8', env: process.env });
     const raw = `${r.stdout || ''}\n${r.stderr || ''}`;
     const out = raw.split(/\r?\n/).map((l) => l.trimEnd()).filter((l) => l && !/Assertion|\[fp4\]/.test(l));
     const ok = r.status === 0;
