@@ -97,15 +97,27 @@ const monthOf = (r: Row): string => {
 
 type Line = { plate: string; model: string; cust: string; sup: string; ch: string; agent: string;
   product: string; term: number; rent: number; recv: string; deliv: string; supRate: number; agRate: number;
-  claim: number; pay: number; target: string; ratio: number; why: string; billed: boolean; collected: boolean; kind: string;
+  claim: number; pay: number; cvat: number; pvat: number; target: string; ratio: number; why: string; billed: boolean; collected: boolean; kind: string;
   /** ── 산출근거 (사람이 «따라 칠 수 있게») ── */
   rule: string; how: string; calc: number | null; adj: number; adjWhy: string };
 const lineOf = (r: Row, month: string): Line => {
   const target = settleTargetOf(r.settleTarget);
   const ratio = N(r.settleRatio) || 1;
   const hold = r.billHold === true; const excl = r.settleExclude === true;
-  const claim = excl || target === '영업' || hold ? 0 : Math.round(N(r.claimWritten) * ratio);
-  const pay = excl || target === '공급' ? 0 : Math.round(N(r.payWritten) * ratio);
+  const claimRaw = excl || target === '영업' || hold ? 0 : Math.round(N(r.claimWritten) * ratio);
+  const payRaw = excl || target === '공급' ? 0 : Math.round(N(r.payWritten) * ratio);
+  /**
+   * ★★**「부가세 포함」이면 적힌 금액이 «총액»이다** — 태윤 매니저 2026-09-02
+   *   「스타스카이 부가세 포함으로 정산만 수정되면 됩니다 · 나머진 다 맞습니다」.
+   *   ⚠ `vatIncluded` 는 원자에 이미 박혀 있었는데(메모에서 옮긴 축) 아무도 안 봤다.
+   *     그래서 스타스카이 2줄이 780,000 → 858,000 · 1,650,000 → 1,815,000 으로 부풀어 나갔다.
+   *   ⇒ 청구액 칸에는 «공급가»를 세우고 부가세를 거꾸로 뽑는다. 합계는 적힌 값 그대로가 된다.
+   */
+  const gross = r.vatIncluded === true;
+  const claim = gross ? Math.round(claimRaw / (1 + VAT)) : claimRaw;
+  const pay = gross ? Math.round(payRaw / (1 + VAT)) : payRaw;
+  const cvat = gross ? claimRaw - claim : Math.round(claim * VAT);
+  const pvat = gross ? payRaw - pay : Math.round(pay * VAT);
   // ── 표 산출 — 원자에 수수료표를 걸어 «기계가» 낸 값 ──
   const product = S(r.product); const term = N(r.term); const model = S(r.model);
   const { kind, form, fallback } = feeKindOf(product, model);
@@ -131,7 +143,7 @@ const lineOf = (r: Row, month: string): Line => {
     plate: S(r.plate) || '(차번없음)', model: S(r.model), cust: S(r.customer), sup: S(r.supplier) || '(미기재)',
     ch: S(r.channel) || '(미기재)', agent: S(r.agent), product: S(r.product), term: N(r.term), rent: N(r.rent),
     recv: S(r.receivedAt), deliv: S(r.deliveredAt), supRate: N(r.supplierRate), agRate: N(r.agentRate),
-    claim, pay, target, ratio,
+    claim, pay, cvat, pvat, target, ratio,
     why: [target !== '모두' ? target : '', ratio !== 1 ? `비율 ${ratio}` : '', hold ? '청구보류' : '',
       excl ? '정산제외' : '', r.settledAlready === true ? '정산완료' : '', r.vatIncluded === true ? '부가세포함' : '',
       S(r.settleNote) || S(r.note)].filter(Boolean).join(' · '),
@@ -156,7 +168,7 @@ const rulesOf = new Map((meta.sheets || []).map((s) => [s.properties.title, (s.c
 /** 한 탭을 찍는다. 없으면 만든다. */
 async function publish(tab: string, lines: Line[], about: string) {
   const body = lines.map((l) => {
-    const cv = Math.round(l.claim * VAT); const pv = Math.round(l.pay * VAT);
+    const cv = l.cvat; const pv = l.pvat;
     return [serial(l.recv), l.plate, l.model, l.cust, l.sup, l.ch, l.agent, l.product, l.term || '', l.rent || '',
       serial(l.deliv), l.kind, rateCell(l.supRate), l.claim, cv, l.claim + cv, rateCell(l.agRate), l.pay, pv, l.pay + pv,
       l.claim - l.pay, l.claim > 0 ? Number(((l.claim - l.pay) / l.claim).toFixed(4)) : '',
@@ -164,7 +176,7 @@ async function publish(tab: string, lines: Line[], about: string) {
       l.rule, l.how, l.calc ?? '', l.adj || '', l.adjWhy, l.why];
   });
   const tc = lines.reduce((a, b) => a + b.claim, 0); const tp = lines.reduce((a, b) => a + b.pay, 0);
-  const tcv = Math.round(tc * VAT); const tpv = Math.round(tp * VAT);
+  const tcv = lines.reduce((a, b) => a + b.cvat, 0); const tpv = lines.reduce((a, b) => a + b.pvat, 0);
   // ★합계줄도 산출근거 영역까지 채운다 — 표 산출 합과 가감 합이 있어야 「얼마를 조정했나」가 보인다
   const tCalc = lines.reduce((a, b) => a + (b.calc ?? b.claim), 0);
   const tAdj = lines.reduce((a, b) => a + (b.adj || 0), 0);
@@ -355,7 +367,7 @@ for (const m of months) {
   for (const c of claws.filter((x) => S(x.month) === m)) {
     lines.push({ plate: S(c.plate), model: '', cust: '', sup: S(c.supplier) || '(미기재)', ch: S(c.channel) || '(미기재)', agent: '',
       product: '', term: 0, rent: 0, recv: '', deliv: S(c.at), supRate: 0, agRate: 0,
-      claim: -Math.round(N(c.supplierAmt)), pay: -Math.round(N(c.agentAmt)), target: '양쪽', ratio: 1,
+      claim: -Math.round(N(c.supplierAmt)), pay: -Math.round(N(c.agentAmt)), cvat: -Math.round(N(c.supplierAmt) * VAT), pvat: -Math.round(N(c.agentAmt) * VAT), target: '양쪽', ratio: 1,
       rule: '', how: '환수 — 수수료표로 내는 값이 아니다', calc: null, adj: 0, adjWhy: '',
       why: `환수 — ${S(c.reason) || '사유 미기재'}`, billed: false, collected: false, kind: '환수' });
   }

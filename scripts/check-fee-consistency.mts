@@ -59,4 +59,37 @@ console.log(`   ○ 표대로 ${ok}줄 · ⚠ 표와 다름 ${diff.length}줄 ·
 if (diff.length) { console.log('■ ⚠ 표와 «다른» 줄 — 여기를 봐야 한다\n'); for (const d of diff) console.log(d); console.log(''); }
 if (judge.length) { console.log('■ ★사람이 정하는 줄 — 표가 한 값으로 안 떨어진다\n'); for (const j of judge) console.log(j); console.log(''); }
 if (none.length) { console.log('■ ? 표에 없는 공급사 — 표에 줄을 더해야 한다\n'); for (const n of none) console.log(n); }
+
+/**
+ * ★★**표가 「(VAT 포함)」이라고 «적어 놨는데» 계산이 부가세를 또 붙이는가.**
+ *
+ * 태윤 매니저 2026-09-02 「스타스카이 부가세 포함으로 정산만 수정되면 됩니다」
+ *                        「**표기된것도 못잡아내면** 더 하셔야할거같습니다」
+ *
+ * ⚠ 맞는 말이다. 두 군데가 말하고 있었다 —
+ *   ① 수수료표 규칙에 「한 달 렌탈료(VAT 포함)」이라고 «글자로» 적혀 있었고
+ *   ② 원자에 `vatIncluded=true` 가 «이미» 박혀 있었다(메모에서 옮긴 축).
+ *   그런데 계산하는 쪽이 둘 다 안 읽어서 780,000 이 858,000 으로 나갔다.
+ * ⇒ 사람이 눈으로 볼 일이 아니다. **글자와 원자가 어긋나면 기계가 잡는다.**
+ */
+const vatSaid = (f: FeeRule) => /VAT\s*포함/.test(`${f.claim} ${f.pay} ${f.note || ''}`);
+const vatGap: string[] = [];
+for (const r of rows) {
+  const { kind, form, fallback } = feeKindOf(S(r.product), S(r.model));
+  const f = feeRuleFor(S(r.supplier), kind, N(r.term), form, fallback);
+  if (!f) continue;
+  const said = vatSaid(f); const marked = r.vatIncluded === true;
+  if (said === marked) continue;
+  vatGap.push(said
+    ? `   ⚠ ${S(r.plate).padEnd(11)} ${S(r.supplier).padEnd(11)} 표는 「${f.claim}」 ← VAT 포함이라 적혀 있는데 원자는 아니다.  청구 ${won(N(r.claimWritten))}`
+    : `   ⚠ ${S(r.plate).padEnd(11)} ${S(r.supplier).padEnd(11)} 원자는 VAT 포함인데 표에는 그 말이 없다 — 표를 고칠지 원자를 고칠지 정할 것.  청구 ${won(N(r.claimWritten))}`);
+}
+if (vatGap.length) {
+  console.log('\n■ ⚠ 부가세 — «표에 적힌 말»과 «원자»가 어긋난다\n');
+  for (const v of vatGap) console.log(v);
+  console.log('\n   ★어긋난 채로 두면 부가세를 두 번 받거나 한 번도 못 받는다. 둘 중 하나로 맞춰야 한다.');
+} else {
+  console.log('   ○ 부가세 — 표에 적힌 말과 원자가 같다.');
+}
+
 process.exit(diff.length ? 1 : 0);

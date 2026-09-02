@@ -44,6 +44,8 @@ export type SettlementRecord = {
   settleRatio?: number;
   billHold?: boolean;
   settleExclude?: boolean;
+  /** ★적힌 금액이 «부가세 포함»인가(스타스카이 재렌트). 참이면 그 값이 총액이다. */
+  vatIncluded?: boolean;
 
   // ── 뼈대
   plate: string;
@@ -232,6 +234,7 @@ export function normalizeRecord(r: Partial<SettlementRecord>): SettlementRecord 
     settleRatio: Number(r.settleRatio) || undefined,
     billHold: r.billHold === true || undefined,
     settleExclude: r.settleExclude === true || undefined,
+    vatIncluded: r.vatIncluded === true || undefined,
     cancelled: !!r.cancelled, clawback: !!r.clawback,
     clawbackReason: S(r.clawbackReason), clawbackAt: S(r.clawbackAt), clawbackAmount: N(r.clawbackAmount),
     supplierRate: N(r.supplierRate), agentRate: N(r.agentRate),

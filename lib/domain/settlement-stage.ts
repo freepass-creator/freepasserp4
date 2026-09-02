@@ -52,6 +52,8 @@ export type SettlementRow = SettlementChecks & {
   settleRatio?: number;
   billHold?: boolean;
   settleExclude?: boolean;
+  /** ★적힌 금액이 «부가세 포함»인가. 참이면 그 값이 총액이다 — 부가세를 또 붙이지 않는다. */
+  vatIncluded?: boolean;
   plate: string;
   supplier: string;
   agent: string;
@@ -392,14 +394,24 @@ export const moneyOf = (r: SettlementRow, now = new Date()): Money => {
   const payFull = r.payWritten || feeOf(r.agentRate || 0, r);
   const pay = excl || target === '공급' ? 0
     : (paidRatioOf(r, now) < 1 && noPayIfBroken(r) ? 0 : Math.round(payFull * k));
-  const claimVat = Math.round(claim * VAT);
-  const payVat = Math.round(pay * VAT);
+  /**
+   * ★★**「부가세 포함」이면 적힌 금액이 «총액»이다** — 거기에 부가세를 또 붙이면 두 번 받는다.
+   *   태윤 매니저 2026-09-02 「스타스카이 부가세 포함으로 정산만 수정되면 됩니다 · 나머진 다 맞습니다」.
+   *   ⚠ `vatIncluded` 는 원자에 «이미» 박혀 있었는데(2026-09-01 메모에서 옮긴 축) 아무도 안 봤다.
+   *     그래서 스타스카이 2줄이 780,000 → 858,000 · 1,650,000 → 1,815,000 으로 나갔다.
+   *   ★수수료표도 그렇게 말하고 있다 — 스타 재렌트 「한 달 렌탈료(VAT 포함)」.
+   */
+  const gross = r.vatIncluded === true;
+  const claimNet = gross ? Math.round(claim / (1 + VAT)) : claim;
+  const claimVat = gross ? claim - claimNet : Math.round(claim * VAT);
+  const payNet = gross ? Math.round(pay / (1 + VAT)) : pay;
+  const payVat = gross ? pay - payNet : Math.round(pay * VAT);
   const claw = r.clawback ? r.clawbackAmount || 0 : 0;
   return {
-    claim, claimVat, claimTotal: claim + claimVat,
-    pay, payVat, payTotal: pay + payVat,
-    margin: claim - pay,
-    net: claim - pay - claw,
+    claim: claimNet, claimVat, claimTotal: claimNet + claimVat,
+    pay: payNet, payVat, payTotal: payNet + payVat,
+    margin: claimNet - payNet,
+    net: claimNet - payNet - claw,
   };
 };
 
