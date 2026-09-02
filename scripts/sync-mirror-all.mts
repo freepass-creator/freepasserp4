@@ -33,7 +33,14 @@ const targets = MIRROR_SOURCES.filter((m) => !ONLY.size || ONLY.has(m.code));
  * ⚠ 재시도는 **일시적일 때만** 한다(시작 실패·요청한도·5xx). 「돌다가 어긋난 것」은 다시 해도 같다.
  *   쓰기 도구지만 매번 «지금 시트»와 견줘 바뀔 칸만 쓰므로, 한 번 더 돌아도 같은 값을 두 번 쓰지 않는다.
  */
-const TRANSIENT = /\b429\b|rate.?limit|quota|RESOURCE_EXHAUSTED|\b50[0234]\b|UNAVAILABLE|ECONNRESET|ETIMEDOUT|socket hang up/i;
+/**
+ * ⚠ **자식이 «또 자식을» 못 띄운 것도 일시적이다.** 2026-09-02 15:31·16:31 회차가
+ *   「이안카 정책 — Error: spawn UNKNOWN」으로 멎었다. 그때 발행·ERP 가 통째로 안 돌았다.
+ *   `r.error` 는 «내가» 자식을 못 띄웠을 때만 선다 — 자식이 그 안에서 또 spawn 하다 실패하면
+ *   그건 자식의 stdout 으로 나오고 종료코드 1 이 된다. 그래서 글자로도 잡는다.
+ *   (윈도에서 EBUSY·UNKNOWN·EAGAIN 은 그 순간 기계가 바빴다는 뜻이지 코드가 틀렸다는 뜻이 아니다)
+ */
+const TRANSIENT = /\b429\b|rate.?limit|quota|RESOURCE_EXHAUSTED|\b50[0234]\b|UNAVAILABLE|ECONNRESET|ETIMEDOUT|socket hang up|spawn\s+(UNKNOWN|EBUSY|EAGAIN|ENOMEM)|EPERM|EBUSY/i;
 const run = (args: string[]): { ok: boolean; lines: string[]; why: string } => {
   for (let attempt = 1; ; attempt += 1) {
     const r = spawnSync(process.platform === 'win32' ? 'npx.cmd' : 'npx', ['tsx', ...args], { encoding: 'utf8', shell: process.platform === 'win32', env: process.env });

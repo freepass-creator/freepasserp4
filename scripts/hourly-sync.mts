@@ -208,7 +208,12 @@ let allOk = true;
  *   잠깐 안 받아 준 것이다. 503 은 429 보다 더 명백한 「잠깐 밀린 것」인데 재시도 대상이 아니라
  *   그냥 실패로 끝났다 — 우리 데이터는 멀쩡한데 회차가 빨간불이 됐다.
  */
-const RATE_LIMIT = /\b429\b|rate.?limit|quota|RESOURCE_EXHAUSTED|\b50[0234]\b|UNAVAILABLE|ECONNRESET|ETIMEDOUT|socket hang up/i;
+/**
+ * ⚠ `spawn UNKNOWN`·`EBUSY` 도 «잠깐 밀린 것»이다 — 2026-09-02 에 이안카 정책이 그것으로 죽어
+ *   ①에서 회차가 멈췄고 발행·ERP 가 두 시각 안 돌았다. 자식이 «또 자식을» 못 띄운 경우라
+ *   부모의 `r.error` 는 서지 않는다. 그래서 «글자»로도 잡는다.
+ */
+const RATE_LIMIT = /\b429\b|rate.?limit|quota|RESOURCE_EXHAUSTED|\b50[0234]\b|UNAVAILABLE|ECONNRESET|ETIMEDOUT|socket hang up|spawn\s+(UNKNOWN|EBUSY|EAGAIN|ENOMEM)/i;
 /**
  * 동기 대기 — `Atomics.wait` 로 **잠든다**. 바쁜 대기(while 루프)로 짰다가 코덱스에게 잡혔다:
  * 30초×2회면 1분을 코어 하나 100% 로 태운다. 이 스크립트는 단계가 순서대로만 도는
