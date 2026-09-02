@@ -19,6 +19,7 @@ import { readFileSync } from 'node:fs';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getDatabase } from 'firebase-admin/database';
 import { feeKindOf, feeRuleFor } from '../lib/domain/settlement-fee-table';
+import { settleTargetOf } from '../lib/domain/settlement-stage';
 
 const MONTH = (process.argv.find((a) => /^\d{4}-\d{2}$/.test(a)) || '2026-08').trim();
 const VAT = 0.1;
@@ -41,7 +42,7 @@ type L = { plate: string; sup: string; ch: string; model: string; product: strin
 const lines: L[] = [];
 for (const r of rows) {
   const sup = S(r.supplier); const product = S(r.product); const term = N(r.term); const model = S(r.model);
-  const target = S(r.settleTarget) || '양쪽'; const ratio = N(r.settleRatio) || 1;
+  const target = settleTargetOf(r.settleTarget); const ratio = N(r.settleRatio) || 1;
   const { kind, form, fallback } = feeKindOf(product, model);
   const f = feeRuleFor(sup, kind, term, form, fallback);
   let calcC: number | null = null; let calcP: number | null = null; let why = '';
@@ -52,13 +53,13 @@ for (const r of rows) {
     calcC = Math.round((f.basis === '정액' ? Number(f.claim) : base * Number(f.claim)) * ratio);
     calcP = Math.round((f.basis === '정액' ? Number(f.pay) : base * Number(f.pay)) * ratio);
     // ★정산대상이 한쪽이면 반대쪽은 0 이다 — 요율과 무관하다
-    if (target === '영업사만') calcC = 0;
-    if (target === '공급사만') calcP = 0;
+    if (target === '영업') calcC = 0;
+    if (target === '공급') calcP = 0;
   }
   lines.push({
     plate: S(r.plate) || '(차번없음)', sup: sup || '(미기재)', ch: S(r.channel) || '(미기재)', model, product, term,
-    writeC: target === '영업사만' || r.settleExclude === true ? 0 : Math.round(N(r.claimWritten) * ratio),
-    writeP: target === '공급사만' || r.settleExclude === true ? 0 : Math.round(N(r.payWritten) * ratio),
+    writeC: target === '영업' || r.settleExclude === true ? 0 : Math.round(N(r.claimWritten) * ratio),
+    writeP: target === '공급' || r.settleExclude === true ? 0 : Math.round(N(r.payWritten) * ratio),
     calcC, calcP, why, target, ratio,
   });
 }

@@ -17,6 +17,7 @@ import { readFileSync } from 'node:fs';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getDatabase } from 'firebase-admin/database';
 import { FEE_RULES, feeKindOf, feeRuleFor } from '../lib/domain/settlement-fee-table';
+import { settleTargetOf } from '../lib/domain/settlement-stage';
 
 const MONTH = (process.argv.find((a) => /^\d{4}-\d{2}$/.test(a)) || '2026-08').trim();
 const S = (v: unknown) => String(v ?? '').trim();
@@ -40,9 +41,9 @@ for (const r of rows) {
   const sup = S(r.supplier); const product = S(r.product); const term = N(r.term); const model = S(r.model);
   // ★정산조건이 먼저다 — 「영업사만」·정산제외·청구보류는 공급사 청구가 0 이고, 비율은 양쪽에 똑같이 곱한다.
   //   ⚠ 2026-09-02 — 이걸 안 봐서 박지원(영업사만)이 「표와 다름」으로 잘못 섰다. 청구탭은 맞게 찍고 있었다.
-  const target = S(r.settleTarget) || '양쪽';
+  const target = settleTargetOf(r.settleTarget);
   const ratio = N(r.settleRatio) || 1;
-  const zero = target === '영업사만' || r.settleExclude === true || r.billHold === true;
+  const zero = target === '영업' || r.settleExclude === true || r.billHold === true;
   const claim = zero ? 0 : Math.round(N(r.claimWritten) * ratio);
   const { kind, form, fallback } = feeKindOf(product, model);
   const f = feeRuleFor(sup, kind, term, form, fallback);

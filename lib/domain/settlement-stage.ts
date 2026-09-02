@@ -40,7 +40,7 @@ export type SettlementRow = SettlementChecks & {
    * ★★**정산 조건 넷** — 원장 「계약번호」 칸에 메모로 적혀 있던 것을 원자로 푼 것이다
    *   (실측 2026-09-01, 92줄에 메모가 들어 있었다).
    * ```
-   * settleTarget   '양쪽' | '공급사만' | '영업사만'   한쪽만 정산하는 건
+   * settleTarget   '모두' | '영업' | '공급'      한쪽만 정산하는 건 (settleTargetOf 로 읽는다)
    * settleRatio    0.5 = 절반만                   「50% 완납 후 50%」
    * billHold       이번 달 청구 아님                 「후불」·보류
    * settleExclude  아예 정산 대상 아님
@@ -349,6 +349,28 @@ export type Money = {
  * ★**적혀 있으면 그 값이 이긴다** — 실제로 계산서를 끊은 금액이다.
  *   없을 때만 요율로 낸다. 이것이 「청구는 안 고친다」를 지키는 방법이다.
  */
+/**
+ * **정산 대상 — 「모두 · 영업 · 공급」 셋뿐이다.**
+ *
+ * ★사장님 2026-09-02 「정산대상을 영업 공급 이렇게 하면 되지 굳이 불필요한 뭐뭐사만~ 이렇게 할필요있다?
+ *   모두 영업 공급 이렇게 드롭다운 하면 되잖아」
+ * ```
+ * 모두   양쪽 다 정산한다 (거의 전부)
+ * 영업   영업채널에만 준다 — 공급사 청구가 0 이다 (지난달 이미 받은 건)
+ * 공급   공급사에만 청구한다 — 영업 지급이 0 이다
+ * ```
+ * ★옛 말(「양쪽」·「영업사만」·「공급사만」)도 그대로 읽는다 — 원장에 이미 그렇게 적힌 줄이 있다.
+ *   ⚠ 글자를 바꾸면서 «읽기»를 안 넓히면, 이미 적힌 줄이 조용히 「모두」가 되어 청구가 되살아난다.
+ */
+export const SETTLE_TARGETS = ['모두', '영업', '공급'] as const;
+export type SettleTarget = (typeof SETTLE_TARGETS)[number];
+export const settleTargetOf = (v: unknown): SettleTarget => {
+  const t = String(v ?? '').trim();
+  if (t.includes('영업')) return '영업';
+  if (t.includes('공급')) return '공급';
+  return '모두';
+};
+
 export const moneyOf = (r: SettlementRow, now = new Date()): Money => {
   /**
    * ★**부러진 분납은 받은 만큼만**(사장님 2026-09-01 「안된 시점에서 그냥 그 청구금액에 맞춰 청구」).
@@ -359,16 +381,16 @@ export const moneyOf = (r: SettlementRow, now = new Date()): Money => {
    * ★**정산 조건이 먼저다.** 「영업사만」이면 공급사 청구가 0 이고, 「0.5」면 양쪽 절반이며,
    *   청구보류·정산제외면 그 달에 안 선다. 부러진 비례(`paidRatioOf`)와 «곱해서» 같이 건다.
    */
-  const target = String(r.settleTarget ?? '').trim() || '양쪽';
+  const target = settleTargetOf(r.settleTarget);
   const share = Number(r.settleRatio) || 1;
   const hold = r.billHold === true;
   const excl = r.settleExclude === true;
   const k = paidRatioOf(r, now) * share;
   const claimFull = r.claimWritten || feeOf(r.supplierRate || 0, r);
-  const claim = excl || hold || target === '영업사만' ? 0 : Math.round(claimFull * k);
+  const claim = excl || hold || target === '영업' ? 0 : Math.round(claimFull * k);
   /** ★스타·아이카는 부러지면 지급이 «아예» 없다 — 비례가 아니라 0 이다. */
   const payFull = r.payWritten || feeOf(r.agentRate || 0, r);
-  const pay = excl || target === '공급사만' ? 0
+  const pay = excl || target === '공급' ? 0
     : (paidRatioOf(r, now) < 1 && noPayIfBroken(r) ? 0 : Math.round(payFull * k));
   const claimVat = Math.round(claim * VAT);
   const payVat = Math.round(pay * VAT);

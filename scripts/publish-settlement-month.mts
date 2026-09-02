@@ -28,6 +28,7 @@ import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getDatabase } from 'firebase-admin/database';
 import { SETTLEMENT_LEDGER_ID as LEDGER } from '../lib/domain/settlement-ledger';
 import { feeKindOf, feeRuleFor } from '../lib/domain/settlement-fee-table';
+import { SETTLE_TARGETS, settleTargetOf } from '../lib/domain/settlement-stage';
 import { FONT_DEFAULT } from '../lib/domain/sales-sheet-format';
 
 const APPLY = process.argv.includes('--apply');
@@ -100,11 +101,11 @@ type Line = { plate: string; model: string; cust: string; sup: string; ch: strin
   /** ── 산출근거 (사람이 «따라 칠 수 있게») ── */
   rule: string; how: string; calc: number | null; adj: number; adjWhy: string };
 const lineOf = (r: Row, month: string): Line => {
-  const target = S(r.settleTarget) || '양쪽';
+  const target = settleTargetOf(r.settleTarget);
   const ratio = N(r.settleRatio) || 1;
   const hold = r.billHold === true; const excl = r.settleExclude === true;
-  const claim = excl || target === '영업사만' || hold ? 0 : Math.round(N(r.claimWritten) * ratio);
-  const pay = excl || target === '공급사만' ? 0 : Math.round(N(r.payWritten) * ratio);
+  const claim = excl || target === '영업' || hold ? 0 : Math.round(N(r.claimWritten) * ratio);
+  const pay = excl || target === '공급' ? 0 : Math.round(N(r.payWritten) * ratio);
   // ── 표 산출 — 원자에 수수료표를 걸어 «기계가» 낸 값 ──
   const product = S(r.product); const term = N(r.term); const model = S(r.model);
   const { kind, form, fallback } = feeKindOf(product, model);
@@ -114,13 +115,13 @@ const lineOf = (r: Row, month: string): Line => {
   if (f && f.auto) {
     const rate = Number(f.claim);
     const base = f.basis === '정액' ? 0 : (f.basis === '차량가액' ? N(r.price) : N(r.rent) * term);
-    calc = target === '영업사만' || excl || hold ? 0 : Math.round((f.basis === '정액' ? rate : base * rate) * ratio);
+    calc = target === '영업' || excl || hold ? 0 : Math.round((f.basis === '정액' ? rate : base * rate) * ratio);
     const rs = rate < 1 ? `${(rate * 100).toFixed(2)}%` : won(rate);
     how = f.basis === '정액' ? `건당 ${won(rate)}`
       : f.basis === '차량가액' ? `차량가액 ${won(N(r.price))} × ${rs}`
         : `렌탈료 ${won(N(r.rent))} × ${term}개월 × ${rs}`;
     if (ratio !== 1) how += ` × 비율 ${ratio}`;
-    if (target === '영업사만') how = '공급사 청구 없음 — 영업사만 정산';
+    if (target === '영업') how = '공급사 청구 없음 — 영업만 정산';
     if (hold) how = '청구보류 — 이번 달 청구 아님';
   } else if (f) how = `표가 「${f.claim}」 — 기계가 한 값으로 못 낸다`;
   else how = '수수료표에 그 공급사·갈래가 없다';
@@ -131,7 +132,7 @@ const lineOf = (r: Row, month: string): Line => {
     ch: S(r.channel) || '(미기재)', agent: S(r.agent), product: S(r.product), term: N(r.term), rent: N(r.rent),
     recv: S(r.receivedAt), deliv: S(r.deliveredAt), supRate: N(r.supplierRate), agRate: N(r.agentRate),
     claim, pay, target, ratio,
-    why: [target !== '양쪽' ? target : '', ratio !== 1 ? `비율 ${ratio}` : '', hold ? '청구보류' : '',
+    why: [target !== '모두' ? target : '', ratio !== 1 ? `비율 ${ratio}` : '', hold ? '청구보류' : '',
       excl ? '정산제외' : '', r.settledAlready === true ? '정산완료' : '', r.vatIncluded === true ? '부가세포함' : '',
       S(r.settleNote) || S(r.note)].filter(Boolean).join(' · '),
     billed: claim !== 0, collected: (COLLECTED[month] || []).includes(S(r.supplier)), kind: '청구',
@@ -142,7 +143,7 @@ const rateCell = (r: number): number | string => (r >= 1 ? '정액' : r || '');
 /** ★「산출근거」는 «별도 영역»이다 — 머리 색을 달리해서 금액 칸과 눈으로 갈린다. */
 const BASIS_COLS = ['적용한 표 규칙', '산출근거 (이대로 계산했습니다)', '표 산출', '가감', '가감 사유'];
 const HEAD = ['접수일', '차량 번호', '모델명', '고객명', '공급사', '영업채널', '영업 담당자', '상품 구분', '계약 기간', '렌탈료',
-  '인도일', '구분', '공급사 요율', '청구액', '청구 부가세', '청구 합계', '영업자 요율', '지급액', '지급 부가세', '지급 합계',
+  '인도일', '구분', '청구 요율', '청구액', '청구 부가세', '청구 합계', '지급 요율', '지급액', '지급 부가세', '지급 합계',
   '이익', '이익률', '정산 대상', '정산 비율', '청구', '수금', ...BASIS_COLS, '비고'];
 
 const meta = await (await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${LEDGER}?fields=sheets(properties,conditionalFormats)`, { headers: { Authorization: `Bearer ${await tok()}` } })).json() as {
@@ -251,7 +252,7 @@ async function publish(tab: string, lines: Line[], about: string) {
     ...[iBill, iColl].map((j) => ({ setDataValidation: { range: { sheetId: id, startRowIndex: 2, endRowIndex: body.length + 2, startColumnIndex: j, endColumnIndex: j + 1 }, rule: { condition: { type: 'BOOLEAN' }, strict: true, showCustomUi: true } } })),
     ...money.map((j) => ({ repeatCell: { range: { sheetId: id, startRowIndex: 2, endRowIndex: body.length + 3, startColumnIndex: j, endColumnIndex: j + 1 }, cell: { userEnteredFormat: { numberFormat: { type: 'NUMBER', pattern: '#,##0' } } }, fields: 'userEnteredFormat.numberFormat' } })),
     { repeatCell: { range: { sheetId: id, startRowIndex: 2, endRowIndex: body.length + 3, startColumnIndex: iRate, endColumnIndex: iRate + 1 }, cell: { userEnteredFormat: { numberFormat: { type: 'PERCENT', pattern: '0.0%' } } }, fields: 'userEnteredFormat.numberFormat' } },
-    ...[HEAD.indexOf('공급사 요율'), HEAD.indexOf('영업자 요율')].map((j) => ({ repeatCell: { range: { sheetId: id, startRowIndex: 2, endRowIndex: body.length + 2, startColumnIndex: j, endColumnIndex: j + 1 }, cell: { userEnteredFormat: { numberFormat: { type: 'PERCENT', pattern: '0.00%' } } }, fields: 'userEnteredFormat.numberFormat' } })),
+    ...[HEAD.indexOf('청구 요율'), HEAD.indexOf('지급 요율')].map((j) => ({ repeatCell: { range: { sheetId: id, startRowIndex: 2, endRowIndex: body.length + 2, startColumnIndex: j, endColumnIndex: j + 1 }, cell: { userEnteredFormat: { numberFormat: { type: 'PERCENT', pattern: '0.00%' } } }, fields: 'userEnteredFormat.numberFormat' } })),
     ...[HEAD.indexOf('접수일'), HEAD.indexOf('인도일')].map((j) => ({ repeatCell: { range: { sheetId: id, startRowIndex: 2, endRowIndex: body.length + 2, startColumnIndex: j, endColumnIndex: j + 1 }, cell: { userEnteredFormat: { numberFormat: { type: 'DATE', pattern: 'yyyy-mm-dd' } } }, fields: 'userEnteredFormat.numberFormat' } })),
     { repeatCell: { range: { sheetId: id, startRowIndex: 2, endRowIndex: body.length + 2, startColumnIndex: HEAD.indexOf('계약 기간'), endColumnIndex: HEAD.indexOf('계약 기간') + 1 }, cell: { userEnteredFormat: { numberFormat: { type: 'NUMBER', pattern: '0"개월"' } } }, fields: 'userEnteredFormat.numberFormat' } },
     { repeatCell: { range: { sheetId: id, startRowIndex: 2, endRowIndex: body.length + 2, startColumnIndex: HEAD.indexOf('차량 번호'), endColumnIndex: HEAD.indexOf('차량 번호') + 1 }, cell: { userEnteredFormat: { numberFormat: { type: 'TEXT' } } }, fields: 'userEnteredFormat.numberFormat' } },
@@ -273,6 +274,13 @@ async function publish(tab: string, lines: Line[], about: string) {
     // ★아래에서 위로 꽂는다 — index:0 로 넣으면 나중에 넣은 것이 «앞»에 선다. 「청구만」을 먼저 꽂아 뒤로 밀고, 「둘 다」를 앞에 세운다
     band(`=AND(${cell(iB)}=TRUE, ${cell(iC)}<>TRUE)`, { red: 1.00, green: 0.96, blue: 0.80 }),
     band(`=AND(${cell(iB)}=TRUE, ${cell(iC)}=TRUE)`, { red: 0.85, green: 0.94, blue: 0.85 }),
+    /**
+     * ★**「정산 대상」은 드롭다운 셋뿐이다** — 사장님 2026-09-02
+     *   「영업 공급 이렇게 하면 되지 굳이 불필요한 뭐뭐사만~ … 모두 영업 공급 이렇게 드롭다운 하면 되잖아」.
+     *   손으로 치면 「영업사만」·「영업만」·「영업 사」가 다 생긴다. 골라 넣게 하면 그럴 일이 없다.
+     */
+    { setDataValidation: { range: { sheetId: id, startRowIndex: 2, endRowIndex: Math.max(3, body.length + 3), startColumnIndex: HEAD.indexOf('정산 대상'), endColumnIndex: HEAD.indexOf('정산 대상') + 1 },
+      rule: { condition: { type: 'ONE_OF_LIST', values: SETTLE_TARGETS.map((v) => ({ userEnteredValue: v })) }, showCustomUi: true, strict: false } } },
     { autoResizeDimensions: { dimensions: { sheetId: id, dimension: 'COLUMNS', startIndex: 0, endIndex: HEAD.length } } },
     /**
      * ★★**자동폭 뒤에 «긴 글 칸»은 손으로 박는다.**
@@ -358,8 +366,15 @@ for (const m of months) {
    */
   const bulk = new Map<string, { n: number; amt: number }>();
   for (const l of lines) { const g = bulk.get(l.sup) || { n: 0, amt: 0 }; g.n += 1; g.amt += l.claim; bulk.set(l.sup, g); }
+  /**
+   * ★**차번 없는 줄(기타 정산)은 «맨 아래»**(사장님 2026-09-02 「차번없음을 맨 아래 … 기타 정산은 맨 아래」).
+   *   업무지원비처럼 차가 없는 정산은 «차를 훑는 눈»의 흐름을 끊는다. 공급사 묶음이 다 끝난 뒤에 선다.
+   */
+  const etc = (l: Line) => (l.plate === '(차번없음)' ? 1 : 0);
   lines.sort((a, b) => {
+    if (etc(a) !== etc(b)) return etc(a) - etc(b);
     if (a.sup === b.sup) return a.plate.localeCompare(b.plate);
+    if (etc(a)) return b.claim - a.claim || a.sup.localeCompare(b.sup);
     const x = bulk.get(a.sup)!; const y = bulk.get(b.sup)!;
     return y.n - x.n || y.amt - x.amt || a.sup.localeCompare(b.sup);
   });

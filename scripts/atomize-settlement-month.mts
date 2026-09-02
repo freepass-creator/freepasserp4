@@ -62,11 +62,11 @@ const ymd = (v: unknown): string => {
  * ★확인된 것만 여기 담는다 — 원장 전체 44종류는 사람이 갈라 준 뒤에 넣는다.
  */
 const AXIS: Record<string, Partial<Atom>> = {
-  '영업사만 정산해야함': { settleTarget: '영업사만' },
-  '프리패스지급 (공급사미청구)': { settleTarget: '영업사만' },
-  '업무지원비': { settleTarget: '영업사만' },
-  '공급사만 정산': { settleTarget: '공급사만' },
-  '공급사정산 완료': { settleTarget: '영업사만', settledAlready: true },
+  '영업사만 정산해야함': { settleTarget: '영업' },
+  '프리패스지급 (공급사미청구)': { settleTarget: '영업' },
+  '업무지원비': { settleTarget: '영업' },
+  '공급사만 정산': { settleTarget: '공급' },
+  '공급사정산 완료': { settleTarget: '영업', settledAlready: true },
   '0.5': { settleRatio: 0.5 },
   /**
    * ⚠ **「후불」은 «청구보류»가 아니다.** 2026-09-01 에 그렇게 읽어 퍼시픽 49호3059 를
