@@ -27,7 +27,7 @@ import { getDatabase } from 'firebase-admin/database';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { normalizeRecord, type SettlementRecord } from '../lib/domain/settlement-record';
-import { billingMonth, type SettlementRow } from '../lib/domain/settlement-stage';
+import { billingMonthIn, lockedMonthsOf, type SettlementRow } from '../lib/domain/settlement-stage';
 import { EMPTY_PARTY, buildInvoice, type InvoiceParty } from '../lib/domain/settlement-invoice';
 import { invoiceDocHtml, invoicePageHtml } from '../lib/server/settlement-invoice-html';
 import { invoiceXlsx, invoiceFileName } from '../lib/server/settlement-invoice-xlsx';
@@ -105,8 +105,29 @@ const partyOf = (alias: string): InvoiceParty => {
 }
 
 const rows = Object.values((await db.ref('v4/settlement_rows').get()).val() || {}).map((r) => normalizeRecord(r as SettlementRecord));
-const live = rows.filter((r) => !r.cancelled && billingMonth(asRow(r)) === MONTH);
-const backs = rows.filter((r) => r.clawback && S(r.clawbackAt).slice(0, 7) === MONTH);
+// ★박힌 달은 닫혀 있다 — 계산으로 늦게 들어오는 줄이 확정된 달을 흔들면 종이가 시트와 갈린다.
+const locked = lockedMonthsOf(rows.map(asRow));
+const live = rows.filter((r) => !r.cancelled && billingMonthIn(asRow(r), locked) === MONTH);
+/**
+ * ★★**환수는 «따로 사는 노드»에 있다** — `v4/settlement_clawbacks`.
+ *   사장님 2026-09-01 「환수는 환수데이터를 따로 넣을거야 차량번호에 맞춰서」.
+ *   ⚠ 여기서 `settlement_rows` 의 clawback 칸만 보다 8월 환수 1건을 통째로 놓쳤다 —
+ *     종이가 43,846,575 로 나가고 시트는 43,181,120 이었다(차 665,455).
+ * ★환수는 «양쪽 다» — 공급사에게 되돌려받고 영업채널에게도 되돌려받는다.
+ *   그래서 축마다 금액이 다르다(supplierAmt / agentAmt).
+ */
+type Claw = { plate?: string; supplier?: string; channel?: string; supplierAmt?: number; agentAmt?: number; reason?: string; at?: string; month?: string };
+const claws = (Object.values((await db.ref('v4/settlement_clawbacks').get().catch(() => null))?.val() || {}) as Claw[])
+  .filter((c) => S(c.month) === MONTH);
+const backsFor = (axis: '공급사' | '영업채널', party: string) => claws
+  .filter((c) => (axis === '공급사' ? S(c.supplier) : S(c.channel)) === party)
+  .map((c) => ({
+    plate: S(c.plate), supplier: S(c.supplier), channel: S(c.channel),
+    clawback: true, clawbackAt: D(c.at),
+    clawbackAmount: Math.round(Number(axis === '공급사' ? c.supplierAmt : c.agentAmt) || 0),
+    clawbackReason: S(c.reason),
+  } as unknown as SettlementRow & { clawbackReason: string }));
+const backs = claws;
 const confs = (Object.values((await db.ref('v4/settlement_confirmations').get().catch(() => null))?.val() || {}) as Confirmation[])
   .filter((c) => S(c.month) === MONTH);
 
@@ -134,7 +155,7 @@ for (const axis of (['영업채널', '공급사'] as const)) {
     const inv = buildInvoice({
       axis, month: MONTH, party, issuer: US, receiver: partyOf(party),
       rows: mine.map(asRow),
-      clawbacks: backs.filter((r) => pick(r) === party).map((r) => ({ ...asRow(r), clawbackReason: r.clawbackReason })),
+      clawbacks: backsFor(axis, party),
     });
 
     // ★공급사 청구서는 영업자 실적 확인이 끝나야 나간다.

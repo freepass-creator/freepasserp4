@@ -29,6 +29,29 @@ export type SettlementChecks = {
 };
 
 export type SettlementRow = SettlementChecks & {
+  /**
+   * ★★**사람이 «박은» 청구월** — 있으면 계산보다 이긴다.
+   *   2026-08 은 태윤 매니저 원장에 맞춰 47줄 43,181,120 으로 박아 둔 달이다.
+   *   ⚠ 계산이 그걸 덮으면 이미 나간 청구서와 정산서가 갈린다 —
+   *     실측 2026-09-02, 안 보고 계산하니 39건 46,604,613 이 나왔다.
+   */
+  billMonth?: string;
+  /**
+   * ★★**정산 조건 넷** — 원장 「계약번호」 칸에 메모로 적혀 있던 것을 원자로 푼 것이다
+   *   (실측 2026-09-01, 92줄에 메모가 들어 있었다).
+   * ```
+   * settleTarget   '양쪽' | '공급사만' | '영업사만'   한쪽만 정산하는 건
+   * settleRatio    0.5 = 절반만                   「50% 완납 후 50%」
+   * billHold       이번 달 청구 아님                 「후불」·보류
+   * settleExclude  아예 정산 대상 아님
+   * ```
+   *   ⚠ 이 넷을 안 보면 종이가 시트와 갈린다 — 실측 2026-09-02, 안 보고 뽑으니
+   *     8월이 56,164,240 으로 나왔다(확정 43,181,120 · 차 12,983,120).
+   */
+  settleTarget?: string;
+  settleRatio?: number;
+  billHold?: boolean;
+  settleExclude?: boolean;
   plate: string;
   supplier: string;
   agent: string;
@@ -212,6 +235,9 @@ export const claimsOnComplete = (r: SettlementRow) => {
  * ★인도 전이면 청구가 없다 — `null` 이다. 「없다」가 아니라 「아직」이다.
  */
 export const billingMonth = (r: SettlementRow, now = new Date()): string | null => {
+  // ★★박힌 청구월이 이긴다 — 사람이 정한 달을 계산이 덮으면 종이가 시트와 갈린다.
+  const written = String(r.billMonth ?? '').trim();
+  if (written) return written;
   if (!r.deliveredAt) return null;
   if (!claimsOnComplete(r)) return ym(r.deliveredAt);
   // ★부러졌으면 그 자리에서 청구한다 — 마지막으로 받은 회차가 든 달이다.
@@ -229,6 +255,26 @@ export const billingMonth = (r: SettlementRow, now = new Date()): string | null 
  * ⚠ **적힌 회차가 있어야 «부러졌다»고 말할 수 있다.** 안 적혀 있으면 기간 비례라 늘 「받은 것」이 되고,
  *   그건 사실이 아니라 「아직 아니라고 말한 사람이 없다」는 뜻이다(`brokenOf` 주석).
  */
+/**
+ * **박힌 달에는 «박힌 줄만» 선다.**
+ *
+ * ★사람이 한 달을 맞춰 놓았으면(2026-08 = 태윤 매니저 원장 47줄 43,181,120) 그 달은 닫힌 것이다.
+ *   계산으로 늦게 들어오는 줄이 확정된 달을 흔들면 이미 나간 청구서와 정산서가 갈린다.
+ *   ⚠ 실측 2026-09-02 — 이걸 안 보고 뽑으니 8월이 56건 68,204,345 로 부풀었다.
+ *     박힌 46줄에 «이미 지난달까지 청구된» 10줄이 계산으로 따라 들어온 것이다.
+ * ★버리는 게 아니다 — `null` 이 된 줄은 「청구월미정」으로 가서 사람이 정한다.
+ */
+export const billingMonthIn = (r: SettlementRow, locked: ReadonlySet<string>, now = new Date()): string | null => {
+  const written = String(r.billMonth ?? '').trim();
+  if (written) return written;
+  const m = billingMonth(r, now);
+  return m && locked.has(m) ? null : m;
+};
+
+/** 그 줄들 안에서 «박힌» 달들. `billingMonthIn` 에 그대로 넘긴다. */
+export const lockedMonthsOf = (rows: readonly SettlementRow[]): Set<string> =>
+  new Set(rows.map((r) => String(r.billMonth ?? '').trim()).filter(Boolean));
+
 export const paidRatioOf = (r: SettlementRow, now = new Date()): number => {
   const n = roundsOf(r.payKind);
   if (n < 2 || !brokenOf(r, now)) return 1;
@@ -309,11 +355,21 @@ export const moneyOf = (r: SettlementRow, now = new Date()): Money => {
    *   ⚠ «적힌» 수수료(claimWritten)에도 건다 — 적힌 값은 «다 받았을 때»의 금액이라
    *     부러진 줄에 그대로 쓰면 안 받은 회차까지 청구하게 된다.
    */
-  const k = paidRatioOf(r, now);
-  const claim = Math.round((r.claimWritten || feeOf(r.supplierRate || 0, r)) * k);
+  /**
+   * ★**정산 조건이 먼저다.** 「영업사만」이면 공급사 청구가 0 이고, 「0.5」면 양쪽 절반이며,
+   *   청구보류·정산제외면 그 달에 안 선다. 부러진 비례(`paidRatioOf`)와 «곱해서» 같이 건다.
+   */
+  const target = String(r.settleTarget ?? '').trim() || '양쪽';
+  const share = Number(r.settleRatio) || 1;
+  const hold = r.billHold === true;
+  const excl = r.settleExclude === true;
+  const k = paidRatioOf(r, now) * share;
+  const claimFull = r.claimWritten || feeOf(r.supplierRate || 0, r);
+  const claim = excl || hold || target === '영업사만' ? 0 : Math.round(claimFull * k);
   /** ★스타·아이카는 부러지면 지급이 «아예» 없다 — 비례가 아니라 0 이다. */
   const payFull = r.payWritten || feeOf(r.agentRate || 0, r);
-  const pay = k < 1 && noPayIfBroken(r) ? 0 : Math.round(payFull * k);
+  const pay = excl || target === '공급사만' ? 0
+    : (paidRatioOf(r, now) < 1 && noPayIfBroken(r) ? 0 : Math.round(payFull * k));
   const claimVat = Math.round(claim * VAT);
   const payVat = Math.round(pay * VAT);
   const claw = r.clawback ? r.clawbackAmount || 0 : 0;

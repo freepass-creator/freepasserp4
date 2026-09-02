@@ -71,11 +71,11 @@ const claws = Object.values((await db.ref('v4/settlement_clawbacks').get()).val(
 /**
  * ★★**엔진과 «같은» 규칙이어야 한다** — `lib/domain/settlement-stage.ts` `billingMonth`.
  *   여기서 따로 세면 화면과 시트가 다른 달을 말한다.
- * ★분납 완료시점 청구는 **인도일이 2026-09 이후**인 건부터다(`CLAIM_ON_COMPLETE_SINCE`).
- *   ⚠ 시행일을 안 지키면 8월이 47줄 → 62줄로 부푼다(실측 2026-09-01) —
- *     지난 달 인도한 분납건이 죄다 8월로 밀려 들어온다.
+ * ★**달을 지키는 것은 «박힌 청구월»이다**(`monthFor`) — 날짜 빗장이 아니다.
+ *   ⚠ 예전엔 「인도일이 2026-09 이후인 건부터 완료시점 청구」로 막았다. 그러자 8월에 인도된
+ *     2회분납 9줄이 «8월 청구»로 계산됐는데 8월은 이미 닫혀 갈 데가 없어졌다(2026-09-02 실측).
+ *     빗장은 뺐다 — 박힌 줄은 계산이 못 건드리므로 8월 47줄은 그대로다.
  */
-const SINCE = '2026-09';
 const monthOf = (r: Row): string => {
   const written = S(r.billMonth);
   if (written) return written;
