@@ -48,14 +48,19 @@ console.log(`■ ${MONTH} 청구 ${rows.length}줄을 표와 맞댄다\n`);
 let ok = 0; const judge: string[] = []; const diff: string[] = []; const none: string[] = [];
 for (const r of rows) {
   const sup = S(r.supplier); const product = S(r.product); const term = N(r.term); const model = S(r.model);
-  const claim = N(r.claimWritten);
+  // ★정산조건이 먼저다 — 「영업사만」·정산제외·청구보류는 공급사 청구가 0 이고, 비율은 양쪽에 똑같이 곱한다.
+  //   ⚠ 2026-09-02 — 이걸 안 봐서 박지원(영업사만)이 「표와 다름」으로 잘못 섰다. 청구탭은 맞게 찍고 있었다.
+  const target = S(r.settleTarget) || '양쪽';
+  const ratio = N(r.settleRatio) || 1;
+  const zero = target === '영업사만' || r.settleExclude === true || r.billHold === true;
+  const claim = zero ? 0 : Math.round(N(r.claimWritten) * ratio);
   const { kind, form, fallback } = kindOf(product, model);
   const f = feeRuleFor(sup, kind, term, form, fallback);
   if (!f) { none.push(`   ${S(r.plate).padEnd(11)} ${(sup || '(미기재)').padEnd(12)} ${product}${term || ''} — 표에 그 공급사·갈래가 없다  청구 ${won(claim)}`); continue; }
   if (!f.auto) { judge.push(`   ${S(r.plate).padEnd(11)} ${sup.padEnd(12)} ${f.kind}${f.term ? ` ${f.term}개월` : ''} ${f.form} — 표가 「${f.claim}」 ⇒ 사람이 정한다.  청구 ${won(claim)}`); continue; }
   const rate = Number(f.claim);
   const base = f.basis === '정액' ? 0 : (f.basis === '차량가액' ? N(r.price) : N(r.rent) * term);
-  const want = f.basis === '정액' ? rate : Math.round(base * rate);
+  const want = zero ? 0 : Math.round((f.basis === '정액' ? rate : base * rate) * ratio);
   if (Math.abs(claim - want) < 2) { ok += 1; continue; }
   diff.push(`   ${S(r.plate).padEnd(11)} ${sup.padEnd(12)} ${f.kind}${f.term ? ` ${f.term}개월` : ''} ${model.slice(0, 8).padEnd(9)} 청구 ${won(claim).padStart(11)} · 표 ${won(want).padStart(11)} · 차 ${won(claim - want).padStart(11)}  [${f.basis} ${typeof f.claim === 'number' && f.claim < 1 ? `${(f.claim * 100).toFixed(2)}%` : won(rate)}]`);
 }

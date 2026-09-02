@@ -27,6 +27,7 @@ import { JWT } from 'google-auth-library';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getDatabase } from 'firebase-admin/database';
 import { SETTLEMENT_LEDGER_ID as LEDGER } from '../lib/domain/settlement-ledger';
+import { feeRuleFor, type FeeRule } from '../lib/domain/settlement-fee-table';
 
 const APPLY = process.argv.includes('--apply');
 const FROM = (process.argv.find((a) => /^\d{4}-\d{2}$/.test(a)) || '').trim();
@@ -84,16 +85,53 @@ const monthOf = (r: Row): string => {
   return ymOf(onComplete ? new Date(d.getFullYear(), d.getMonth() + (n - 1), d.getDate()) : d);
 };
 
+/**
+ * ★**산출근거를 «같은 탭»에 둔다**(사장님 2026-09-01 「청구탭에 산출근거를 넣으면 되잖아
+ *   별도 영역으로 칸만 추가 하면 될거 같은데」). 탭을 따로 만들면 금액과 근거가 갈라져
+ *   어느 쪽이 최신인지 또 물어야 한다.
+ */
+const EV = /EV\b|EV6|아이오닉|모델\s*[3YXS]|테슬라|니로|코나|폴스타/i;
+const kindOf = (product: string, model: string): { kind: FeeRule['kind']; form?: string; fallback?: FeeRule['kind'] } => {
+  if (/견적출고/.test(product)) return { kind: '신차', form: '매칭출고' };
+  const ev = EV.test(model);
+  if (/선출고/.test(product)) return ev ? { kind: '전기차', fallback: '신차' } : { kind: '신차', form: '선출고' };
+  if (/구독/.test(product)) return { kind: '구독' };
+  return ev ? { kind: '전기차', fallback: '재렌트' } : { kind: '재렌트' };
+};
+
 type Line = { plate: string; model: string; cust: string; sup: string; ch: string; agent: string;
   product: string; term: number; rent: number; recv: string; deliv: string; supRate: number; agRate: number;
-  claim: number; pay: number; target: string; ratio: number; why: string; billed: boolean; collected: boolean; kind: string };
+  claim: number; pay: number; target: string; ratio: number; why: string; billed: boolean; collected: boolean; kind: string;
+  /** ── 산출근거 (사람이 «따라 칠 수 있게») ── */
+  rule: string; how: string; calc: number | null; adj: number; adjWhy: string };
 const lineOf = (r: Row, month: string): Line => {
   const target = S(r.settleTarget) || '양쪽';
   const ratio = N(r.settleRatio) || 1;
   const hold = r.billHold === true; const excl = r.settleExclude === true;
   const claim = excl || target === '영업사만' || hold ? 0 : Math.round(N(r.claimWritten) * ratio);
   const pay = excl || target === '공급사만' ? 0 : Math.round(N(r.payWritten) * ratio);
+  // ── 표 산출 — 원자에 수수료표를 걸어 «기계가» 낸 값 ──
+  const product = S(r.product); const term = N(r.term); const model = S(r.model);
+  const { kind, form, fallback } = kindOf(product, model);
+  const f = feeRuleFor(S(r.supplier), kind, term, form, fallback);
+  let rule = ''; let how = ''; let calc: number | null = null;
+  if (f) rule = `${f.supplier} · ${f.kind}${f.term ? ` ${f.term}개월` : ' 기간무관'}${f.form ? ` · ${f.form}` : ''}`;
+  if (f && f.auto) {
+    const rate = Number(f.claim);
+    const base = f.basis === '정액' ? 0 : (f.basis === '차량가액' ? N(r.price) : N(r.rent) * term);
+    calc = target === '영업사만' || excl || hold ? 0 : Math.round((f.basis === '정액' ? rate : base * rate) * ratio);
+    const rs = rate < 1 ? `${(rate * 100).toFixed(2)}%` : won(rate);
+    how = f.basis === '정액' ? `건당 ${won(rate)}`
+      : f.basis === '차량가액' ? `차량가액 ${won(N(r.price))} × ${rs}`
+        : `렌탈료 ${won(N(r.rent))} × ${term}개월 × ${rs}`;
+    if (ratio !== 1) how += ` × 비율 ${ratio}`;
+    if (target === '영업사만') how = '공급사 청구 없음 — 영업사만 정산';
+    if (hold) how = '청구보류 — 이번 달 청구 아님';
+  } else if (f) how = `표가 「${f.claim}」 — 기계가 한 값으로 못 낸다`;
+  else how = '수수료표에 그 공급사·갈래가 없다';
   return {
+    rule, how, calc, adj: calc === null ? 0 : claim - calc,
+    adjWhy: calc !== null && claim !== calc ? (S(r.adjustReason) || S(r.settleNote) || S(r.note) || '★사유 없음 — 확인 필요') : '',
     plate: S(r.plate) || '(차번없음)', model: S(r.model), cust: S(r.customer), sup: S(r.supplier) || '(미기재)',
     ch: S(r.channel) || '(미기재)', agent: S(r.agent), product: S(r.product), term: N(r.term), rent: N(r.rent),
     recv: S(r.receivedAt), deliv: S(r.deliveredAt), supRate: N(r.supplierRate), agRate: N(r.agentRate),
@@ -106,9 +144,11 @@ const lineOf = (r: Row, month: string): Line => {
 };
 
 const rateCell = (r: number): number | string => (r >= 1 ? '정액' : r || '');
+/** ★「산출근거」는 «별도 영역»이다 — 머리 색을 달리해서 금액 칸과 눈으로 갈린다. */
+const BASIS_COLS = ['적용한 표 규칙', '산출근거 (이대로 계산했습니다)', '표 산출', '가감', '가감 사유'];
 const HEAD = ['접수일', '차량번호', '모델명', '고객명', '공급사', '영업채널', '영업담당자', '상품구분', '계약기간', '렌탈료',
   '인도일', '구분', '공급사요율', '청구액', '청구부가세', '청구합계', '영업자요율', '지급액', '지급부가세', '지급합계',
-  '이익', '이익률', '정산대상', '정산비율', '청구', '수금', '비고'];
+  '이익', '이익률', '정산대상', '정산비율', '청구', '수금', ...BASIS_COLS, '비고'];
 
 const meta = await (await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${LEDGER}?fields=sheets.properties`, { headers: { Authorization: `Bearer ${await tok()}` } })).json() as {
   sheets?: { properties: { sheetId: number; title: string; gridProperties: { rowCount: number; columnCount: number } } }[] };
@@ -121,12 +161,17 @@ async function publish(tab: string, lines: Line[], about: string) {
     return [serial(l.recv), l.plate, l.model, l.cust, l.sup, l.ch, l.agent, l.product, l.term || '', l.rent || '',
       serial(l.deliv), l.kind, rateCell(l.supRate), l.claim, cv, l.claim + cv, rateCell(l.agRate), l.pay, pv, l.pay + pv,
       l.claim - l.pay, l.claim > 0 ? Number(((l.claim - l.pay) / l.claim).toFixed(4)) : '',
-      l.target, l.ratio, l.billed, l.collected, l.why];
+      l.target, l.ratio, l.billed, l.collected,
+      l.rule, l.how, l.calc ?? '', l.adj || '', l.adjWhy, l.why];
   });
   const tc = lines.reduce((a, b) => a + b.claim, 0); const tp = lines.reduce((a, b) => a + b.pay, 0);
   const tcv = Math.round(tc * VAT); const tpv = Math.round(tp * VAT);
+  // ★합계줄도 산출근거 영역까지 채운다 — 표 산출 합과 가감 합이 있어야 「얼마를 조정했나」가 보인다
+  const tCalc = lines.reduce((a, b) => a + (b.calc ?? b.claim), 0);
+  const tAdj = lines.reduce((a, b) => a + (b.adj || 0), 0);
   const total = ['', `합계 ${lines.length}줄`, '', '', '', '', '', '', '', '', '', '', '',
-    tc, tcv, tc + tcv, '', tp, tpv, tp + tpv, tc - tp, tc > 0 ? Number(((tc - tp) / tc).toFixed(4)) : '', '', '', '', '', ''];
+    tc, tcv, tc + tcv, '', tp, tpv, tp + tpv, tc - tp, tc > 0 ? Number(((tc - tp) / tc).toFixed(4)) : '', '', '',
+    '', '', '', '', tCalc, tAdj || '', '', ''];
   if (!APPLY) return;
 
   let prop = sheetOf.get(tab);
@@ -149,28 +194,39 @@ async function publish(tab: string, lines: Line[], about: string) {
   await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${LEDGER}/values/${encodeURIComponent(`'${tab}'!A1:BZ500`)}:clear`, { method: 'POST', headers: { Authorization: `Bearer ${await tok()}`, 'Content-Type': 'application/json' }, body: '{}' });
   const w = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${LEDGER}/values/${encodeURIComponent(`'${tab}'!A1`)}?valueInputOption=RAW`, {
     method: 'PUT', headers: { Authorization: `Bearer ${await tok()}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ values: [[tab, about], HEAD, ...body, total] }),
+    body: JSON.stringify({ values: [[tab, '', about], HEAD, ...body, total] }),
   });
   if (!w.ok) { console.log(`      ✕ 쓰기 ${w.status} ${(await w.text()).slice(0, 160)}`); return; }
 
   const id = prop.sheetId;
   const iBill = HEAD.indexOf('청구'); const iColl = HEAD.indexOf('수금'); const iRate = HEAD.indexOf('이익률');
-  const money = HEAD.map((h, j) => (/액$|합계|부가세|이익$|렌탈료/.test(h) ? j : -1)).filter((j) => j >= 0);
+  const money = HEAD.map((h, j) => (/액$|합계|부가세|이익$|렌탈료|^표 산출$|^가감$/.test(h) ? j : -1)).filter((j) => j >= 0);
   const RIGHT = ['렌탈료', '청구액', '청구부가세', '청구합계', '지급액', '지급부가세', '지급합계', '이익'];
-  const LEFT = ['모델명', '비고'];
+  const LEFT = ['모델명', '비고', '적용한 표 규칙', '산출근거 (이대로 계산했습니다)', '가감 사유'];
   const reqs: Record<string, unknown>[] = [
     { unmergeCells: { range: { sheetId: id } } },
+    /**
+     * ★**얼리지 않은 상태에서 머리를 합친다.**
+     *   이미 찍힌 탭은 A·B 가 얼어 있어, B1~끝을 합치면 「고정된 열과 고정되지 않은 열을 병합할 수 없습니다」로 400 이 난다.
+     *   ⇒ 먼저 풀고, 합치고, 맨 뒤에서 다시 언다(2026-09-02 재발행 때 잡힘).
+     */
+    { updateSheetProperties: { properties: { sheetId: id, gridProperties: { frozenRowCount: 0, frozenColumnCount: 0 } }, fields: 'gridProperties(frozenRowCount,frozenColumnCount)' } },
     /**
      * ★**맨 윗줄 = 「탭 이름 | 설명 한 줄」.**
      *   설명이 B1 «한 칸»에 갇히면 좁은 열에서 접혀 읽을 수가 없다(사장님 2026-09-01 스크린샷).
      *   ⇒ B1 부터 끝까지 «가로로 합쳐» 한 줄로 펴고, 줄 높이를 키우고, 왼쪽에 붙인다.
      */
-    { mergeCells: { range: { sheetId: id, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 1, endColumnIndex: HEAD.length }, mergeType: 'MERGE_ALL' } },
+    { mergeCells: { range: { sheetId: id, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 2, endColumnIndex: HEAD.length }, mergeType: 'MERGE_ALL' } },
     { updateDimensionProperties: { range: { sheetId: id, dimension: 'ROWS', startIndex: 0, endIndex: 1 }, properties: { pixelSize: 46 }, fields: 'pixelSize' } },
-    { repeatCell: { range: { sheetId: id, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 1 }, cell: { userEnteredFormat: { backgroundColor: { red: 0.18, green: 0.24, blue: 0.38 }, textFormat: { bold: true, fontSize: 12, foregroundColor: { red: 1, green: 1, blue: 1 } }, horizontalAlignment: 'CENTER', verticalAlignment: 'MIDDLE' } }, fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment)' } },
-    { repeatCell: { range: { sheetId: id, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 1, endColumnIndex: HEAD.length }, cell: { userEnteredFormat: { backgroundColor: { red: 0.95, green: 0.96, blue: 0.98 }, textFormat: { bold: false, fontSize: 9, foregroundColor: { red: 0.25, green: 0.28, blue: 0.33 } }, horizontalAlignment: 'LEFT', verticalAlignment: 'MIDDLE', wrapStrategy: 'WRAP', padding: { left: 8, right: 8, top: 2, bottom: 2 } } }, fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment,wrapStrategy,padding)' } },
+    { repeatCell: { range: { sheetId: id, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 2 }, cell: { userEnteredFormat: { backgroundColor: { red: 0.18, green: 0.24, blue: 0.38 }, textFormat: { bold: true, fontSize: 12, foregroundColor: { red: 1, green: 1, blue: 1 } }, horizontalAlignment: 'CENTER', verticalAlignment: 'MIDDLE' } }, fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment)' } },
+    { repeatCell: { range: { sheetId: id, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 2, endColumnIndex: HEAD.length }, cell: { userEnteredFormat: { backgroundColor: { red: 0.95, green: 0.96, blue: 0.98 }, textFormat: { bold: false, fontSize: 9, foregroundColor: { red: 0.25, green: 0.28, blue: 0.33 } }, horizontalAlignment: 'LEFT', verticalAlignment: 'MIDDLE', wrapStrategy: 'WRAP', padding: { left: 8, right: 8, top: 2, bottom: 2 } } }, fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment,wrapStrategy,padding)' } },
     { updateSheetProperties: { properties: { sheetId: id, gridProperties: { frozenRowCount: 2, frozenColumnCount: 2 } }, fields: 'gridProperties(frozenRowCount,frozenColumnCount)' } },
     { repeatCell: { range: { sheetId: id, startRowIndex: 1, endRowIndex: 2 }, cell: { userEnteredFormat: { backgroundColor: { red: 0.85, green: 0.90, blue: 0.97 }, textFormat: { bold: true, fontSize: 10 }, horizontalAlignment: 'CENTER', verticalAlignment: 'MIDDLE', wrapStrategy: 'WRAP' } }, fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment,wrapStrategy)' } },
+    /** ★「산출근거」 영역 — 머리를 연한 보라로 칠해 금액 칸과 눈으로 갈린다. */
+    { repeatCell: { range: { sheetId: id, startRowIndex: 1, endRowIndex: 2, startColumnIndex: HEAD.indexOf(BASIS_COLS[0]), endColumnIndex: HEAD.indexOf(BASIS_COLS[0]) + BASIS_COLS.length }, cell: { userEnteredFormat: { backgroundColor: { red: 0.90, green: 0.87, blue: 0.96 }, textFormat: { bold: true, fontSize: 10 }, horizontalAlignment: 'CENTER', verticalAlignment: 'MIDDLE', wrapStrategy: 'WRAP' } }, fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment,wrapStrategy)' } },
+    { repeatCell: { range: { sheetId: id, startRowIndex: 2, endRowIndex: body.length + 3, startColumnIndex: HEAD.indexOf(BASIS_COLS[0]), endColumnIndex: HEAD.indexOf(BASIS_COLS[0]) + BASIS_COLS.length }, cell: { userEnteredFormat: { backgroundColor: { red: 0.975, green: 0.97, blue: 0.99 } } }, fields: 'userEnteredFormat.backgroundColor' } },
+    /** ★가감이 «있는» 줄만 그 칸을 주황으로 — 볼 곳이 한눈에 든다. */
+    ...lines.map((l, i) => (l.adj ? { repeatCell: { range: { sheetId: id, startRowIndex: i + 2, endRowIndex: i + 3, startColumnIndex: HEAD.indexOf('가감'), endColumnIndex: HEAD.indexOf('가감 사유') + 1 }, cell: { userEnteredFormat: { backgroundColor: { red: 1.0, green: 0.90, blue: 0.78 } } }, fields: 'userEnteredFormat.backgroundColor' } } : null)).filter(Boolean) as Record<string, unknown>[],
     // 정렬 — 돈은 우측 · 글은 좌측 · 나머지 가운데
     ...HEAD.map((h, j) => ({ repeatCell: { range: { sheetId: id, startRowIndex: 2, endRowIndex: body.length + 3, startColumnIndex: j, endColumnIndex: j + 1 }, cell: { userEnteredFormat: { horizontalAlignment: RIGHT.includes(h) ? 'RIGHT' : LEFT.includes(h) ? 'LEFT' : 'CENTER', verticalAlignment: 'MIDDLE' } }, fields: 'userEnteredFormat(horizontalAlignment,verticalAlignment)' } })),
     ...[iBill, iColl].map((j) => ({ setDataValidation: { range: { sheetId: id, startRowIndex: 2, endRowIndex: body.length + 2, startColumnIndex: j, endColumnIndex: j + 1 }, rule: { condition: { type: 'BOOLEAN' }, strict: true, showCustomUi: true } } })),
@@ -217,6 +273,7 @@ for (const m of months) {
     lines.push({ plate: S(c.plate), model: '', cust: '', sup: S(c.supplier) || '(미기재)', ch: S(c.channel) || '(미기재)', agent: '',
       product: '', term: 0, rent: 0, recv: '', deliv: S(c.at), supRate: 0, agRate: 0,
       claim: -Math.round(N(c.supplierAmt)), pay: -Math.round(N(c.agentAmt)), target: '양쪽', ratio: 1,
+      rule: '', how: '환수 — 수수료표로 내는 값이 아니다', calc: null, adj: 0, adjWhy: '',
       why: `환수 — ${S(c.reason) || '사유 미기재'}`, billed: false, collected: false, kind: '환수' });
   }
   lines.sort((a, b) => (a.sup === b.sup ? a.plate.localeCompare(b.plate) : a.sup.localeCompare(b.sup)));
