@@ -55,9 +55,37 @@ console.log(`\n■ ${MONTH} → 정산원장 「${TAB}」 ${APPLY ? '(반영)' :
 type Row = Record<string, unknown>;
 const rows = Object.values((await db.ref('v4/settlement_rows').get()).val() || {}) as Row[];
 const claws = Object.values((await db.ref('v4/settlement_clawbacks').get()).val() || {}) as Row[];
-const mine = rows.filter((r) => S(r.billMonth) === MONTH);
+
+/**
+ * ★★**청구월은 «적힌 값»이 이긴다.**
+ *   사장님 2026-09-01 「인도예정일은 없어도돼 **청구월만 표기해서 그 탭에 반영**해두면 되지」.
+ *   ⇒ 접수하는 순간 사람이 청구월을 적으면 그 달 탭에 «미리» 선다. 인도를 기다리지 않는다.
+ * ★적힌 값이 없으면 «계산»한다 — 일시납은 인도월, 분납은 인도월+(회차−1)개월.
+ *   ⇒ 이미 인도된 줄은 사람이 안 적어도 제 달에 선다.
+ * ⚠ 둘 다 없으면 그 줄은 어느 달에도 안 선다. 「없다」가 아니라 «아직»이다 —
+ *   아래에서 몇 줄이 그런지 세어 알린다. 조용히 빠지면 청구가 통째로 누락된다.
+ */
+const D = (v: unknown) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(S(v)); return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null; };
+const ymOf = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+const roundsOf = (k: string) => { const m = /(\d)\s*회/.exec(S(k)); const n = m ? Number(m[1]) : 1; return n >= 2 ? n : 1; };
+const monthOf = (r: Row): string => {
+  const written = S(r.billMonth);
+  if (written) return written;
+  const d = D(r.deliveredAt);
+  if (!d) return '';
+  const n = roundsOf(S(r.payKind));
+  return ymOf(n >= 2 ? new Date(d.getFullYear(), d.getMonth() + (n - 1), d.getDate()) : d);
+};
+const mine = rows.filter((r) => r.cancelled !== true && monthOf(r) === MONTH);
 const myClaws = claws.filter((c) => S(c.month) === MONTH);
-if (!mine.length) { console.log(`   ✕ ${MONTH} 원자가 없다 — 먼저 atomize-settlement-month 를 돌리세요`); process.exit(1); }
+const noMonth = rows.filter((r) => r.cancelled !== true && !monthOf(r));
+if (noMonth.length) {
+  console.log(`   ⚠ 청구월이 «아직 없는» 줄 ${noMonth.length}건 — 인도도 안 됐고 청구월도 안 적혔다`);
+  for (const r of noMonth.slice(0, 8)) console.log(`      ${S(r.plate).padEnd(11)} ${(S(r.supplier) || '(미기재)').padEnd(10)} 접수 ${S(r.receivedAt) || '—'} ${S(r.payKind)}`);
+  if (noMonth.length > 8) console.log(`      … 외 ${noMonth.length - 8}건`);
+  console.log('      → 접수 탭 「청구월」에 적으면 그 달 탭에 미리 섭니다.\n');
+}
+if (!mine.length && !myClaws.length) { console.log(`   ✕ ${MONTH} 에 설 줄이 없다 — 청구월을 적었는지 보세요\n`); process.exit(1); }
 
 const collectedSup = new Set(COLLECTED[MONTH] || []);
 type Line = {
