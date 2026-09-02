@@ -170,6 +170,25 @@ for (const tab of TABS) {
       },
     });
   });
+  /**
+   * ★★**연락처·차량번호는 TEXT 다.**
+   *   사장님 2026-09-01 「영업자 연락처를 하이픈없으면 그냥 텍스트로 인식해야지」.
+   *   ⚠ `01012345678` 을 숫자로 읽으면 «앞의 0 이 날아가» `1012345678` 이 된다.
+   *     하이픈이 있으면 글자로 읽히지만, 없으면 숫자가 되어 조용히 한 자리가 사라진다.
+   *   ⇒ 숫자로 읽힐 여지가 있는 «식별자» 칸은 전부 TEXT 로 못 박는다.
+   */
+  const TEXT_COLS = ['고객연락처', '영업자연락처', '차량번호', '영업자코드', '계약번호'];
+  for (const name of TEXT_COLS) {
+    const j = next.indexOf(name);
+    if (j < 0) continue;
+    requests.push({
+      repeatCell: {
+        range: { sheetId: p.sheetId, startRowIndex: HEAD_ROW + 1, endRowIndex: p.gridProperties.rowCount, startColumnIndex: j, endColumnIndex: j + 1 },
+        cell: { userEnteredFormat: { numberFormat: { type: 'TEXT' } } },
+        fields: 'userEnteredFormat.numberFormat',
+      },
+    });
+  }
   // 머리글 줄 고정 — 스크롤해도 색이 따라온다
   requests.push({ updateSheetProperties: { properties: { sheetId: p.sheetId, gridProperties: { frozenRowCount: HEAD_ROW + 1 } }, fields: 'gridProperties.frozenRowCount' } });
 
