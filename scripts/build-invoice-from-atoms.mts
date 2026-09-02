@@ -18,7 +18,7 @@
 import { readFileSync } from 'node:fs';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getDatabase } from 'firebase-admin/database';
-import { feeRuleFor, type FeeRule } from '../lib/domain/settlement-fee-table';
+import { feeKindOf, feeRuleFor } from '../lib/domain/settlement-fee-table';
 
 const MONTH = (process.argv.find((a) => /^\d{4}-\d{2}$/.test(a)) || '2026-08').trim();
 const VAT = 0.1;
@@ -30,15 +30,6 @@ const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS)
 if (!getApps().length) initializeApp({ credential: cert(sa), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' });
 const db = getDatabase();
 
-const EV = /EV\b|EV6|아이오닉|모델\s*[3YXS]|테슬라|니로|코나|폴스타/i;
-/** ★전기차 특약이 있으면 그것이 이기되, 없으면 «일반 갈래»로 내려간다(fallback). */
-const kindOf = (product: string, model: string): { kind: FeeRule['kind']; form?: string; fallback?: FeeRule['kind'] } => {
-  if (/견적출고/.test(product)) return { kind: '신차', form: '매칭출고' };
-  const ev = EV.test(model);
-  if (/선출고/.test(product)) return ev ? { kind: '전기차', fallback: '신차', form: undefined } : { kind: '신차', form: '선출고' };
-  if (/구독/.test(product)) return { kind: '구독' };
-  return ev ? { kind: '전기차', fallback: '재렌트' } : { kind: '재렌트' };
-};
 
 type Row = Record<string, unknown>;
 const rows = (Object.values((await db.ref('v4/settlement_rows').get()).val() || {}) as Row[])
@@ -51,7 +42,7 @@ const lines: L[] = [];
 for (const r of rows) {
   const sup = S(r.supplier); const product = S(r.product); const term = N(r.term); const model = S(r.model);
   const target = S(r.settleTarget) || '양쪽'; const ratio = N(r.settleRatio) || 1;
-  const { kind, form, fallback } = kindOf(product, model);
+  const { kind, form, fallback } = feeKindOf(product, model);
   const f = feeRuleFor(sup, kind, term, form, fallback);
   let calcC: number | null = null; let calcP: number | null = null; let why = '';
   if (!f) why = '표에 그 공급사·갈래가 없다';

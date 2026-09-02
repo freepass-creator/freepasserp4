@@ -27,7 +27,7 @@ import { JWT } from 'google-auth-library';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getDatabase } from 'firebase-admin/database';
 import { SETTLEMENT_LEDGER_ID as LEDGER } from '../lib/domain/settlement-ledger';
-import { feeRuleFor, type FeeRule } from '../lib/domain/settlement-fee-table';
+import { feeKindOf, feeRuleFor } from '../lib/domain/settlement-fee-table';
 import { FONT_DEFAULT } from '../lib/domain/sales-sheet-format';
 
 const APPLY = process.argv.includes('--apply');
@@ -86,19 +86,6 @@ const monthOf = (r: Row): string => {
   return ymOf(onComplete ? new Date(d.getFullYear(), d.getMonth() + (n - 1), d.getDate()) : d);
 };
 
-/**
- * ★**산출근거를 «같은 탭»에 둔다**(사장님 2026-09-01 「청구탭에 산출근거를 넣으면 되잖아
- *   별도 영역으로 칸만 추가 하면 될거 같은데」). 탭을 따로 만들면 금액과 근거가 갈라져
- *   어느 쪽이 최신인지 또 물어야 한다.
- */
-const EV = /EV\b|EV6|아이오닉|모델\s*[3YXS]|테슬라|니로|코나|폴스타/i;
-const kindOf = (product: string, model: string): { kind: FeeRule['kind']; form?: string; fallback?: FeeRule['kind'] } => {
-  if (/견적출고/.test(product)) return { kind: '신차', form: '매칭출고' };
-  const ev = EV.test(model);
-  if (/선출고/.test(product)) return ev ? { kind: '전기차', fallback: '신차' } : { kind: '신차', form: '선출고' };
-  if (/구독/.test(product)) return { kind: '구독' };
-  return ev ? { kind: '전기차', fallback: '재렌트' } : { kind: '재렌트' };
-};
 
 type Line = { plate: string; model: string; cust: string; sup: string; ch: string; agent: string;
   product: string; term: number; rent: number; recv: string; deliv: string; supRate: number; agRate: number;
@@ -113,7 +100,7 @@ const lineOf = (r: Row, month: string): Line => {
   const pay = excl || target === '공급사만' ? 0 : Math.round(N(r.payWritten) * ratio);
   // ── 표 산출 — 원자에 수수료표를 걸어 «기계가» 낸 값 ──
   const product = S(r.product); const term = N(r.term); const model = S(r.model);
-  const { kind, form, fallback } = kindOf(product, model);
+  const { kind, form, fallback } = feeKindOf(product, model);
   const f = feeRuleFor(S(r.supplier), kind, term, form, fallback);
   let rule = ''; let how = ''; let calc: number | null = null;
   if (f) rule = `${f.supplier} · ${f.kind}${f.term ? ` ${f.term}개월` : ' 기간무관'}${f.form ? ` · ${f.form}` : ''}`;

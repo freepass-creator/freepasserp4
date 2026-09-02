@@ -19,10 +19,9 @@
  *   npx tsx scripts/learn-settlement-fees.mts
  */
 import { readFileSync } from 'node:fs';
-import { JWT } from 'google-auth-library';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getDatabase } from 'firebase-admin/database';
-import { SETTLEMENT_LEDGER_ID as LEDGER } from '../lib/domain/settlement-ledger';
+import { feeKindOf, feeRuleFor } from '../lib/domain/settlement-fee-table';
 
 const S = (v: unknown) => String(v ?? '').trim();
 const N = (v: unknown) => { const n = Number(S(v).replace(/[,\s원₩]/g, '')); return Number.isFinite(n) ? n : 0; };
@@ -32,7 +31,6 @@ const pc = (n: number) => `${(n * 100).toFixed(2)}%`;
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 if (!getApps().length) initializeApp({ credential: cert(sa), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' });
 const db = getDatabase();
-const jwt = new JWT({ email: sa.client_email, key: sa.private_key, subject: 'pyh@teamjpk.com', scopes: ['https://www.googleapis.com/auth/spreadsheets'] });
 
 type Row = Record<string, unknown>;
 const rows = (Object.values((await db.ref('v4/settlement_rows').get()).val() || {}) as Row[]).filter((r) => r.cancelled !== true);
@@ -117,27 +115,90 @@ if (skip.length) {
   if (skip.length > 12) console.log(`   … 외 ${skip.length - 12}줄`);
 }
 
-// ── 지금 수수료표와 대조 ──
-const tok = (await jwt.getAccessToken()).token;
-const fr = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${LEDGER}/values/${encodeURIComponent("'수수료표'!A1:H40")}?valueRenderOption=UNFORMATTED_VALUE`, { headers: { Authorization: `Bearer ${tok}` } });
-const ft = (((await fr.json()) as { values?: unknown[][] }).values || []).map((v) => (v || []).map(S));
-type Fee = { sup: string; product: string; term: string; basis: string; sr: number; ar: number };
-const fees: Fee[] = [];
-for (const x of ft) if (x[3] && /고정|차량가액|대여료/.test(x[3])) fees.push({ sup: S(x[0]), product: S(x[1]), term: S(x[2]), basis: S(x[3]), sr: N(x[4]), ar: N(x[5]) });
-console.log('\n\n■ 지금 「수수료표」와 배운 것이 다른 곳\n');
-const seen = new Set<string>(); let diffN = 0;
-for (const l of learned) {
-  if (l.n < 2) continue;
-  const f = fees.find((x) => x.sup === l.sup && x.product === l.product && (!x.term || x.term === l.term))
-    || fees.find((x) => !x.sup && x.product === l.product && (!x.term || x.term === l.term));
-  const tag = `${l.product}|${l.term}`;
-  if (!f) { console.log(`   ✕ 표에 «없다» — ${l.sup} ${l.product}${l.term ? ` ${l.term}개월` : ''}  배운 값 ${l.basis === '고정' ? won(l.cr) : pc(l.cr)} / ${l.basis === '고정' ? won(l.ar) : pc(l.ar)}  (${l.n}건)`); diffN += 1; continue; }
-  if (Math.abs(f.sr - l.cr) > 1e-9 || Math.abs(f.ar - l.ar) > 1e-9) {
-    if (seen.has(tag) && !f.sup) continue;
-    seen.add(tag);
-    console.log(`   ⚠ ${(`${l.sup} ${l.product}${l.term ? ` ${l.term}` : ''}`).padEnd(24)} 표 ${l.basis === '고정' ? won(f.sr) : pc(f.sr)} / ${l.basis === '고정' ? won(f.ar) : pc(f.ar)}   →   배운 값 ${l.basis === '고정' ? won(l.cr) : pc(l.cr)} / ${l.basis === '고정' ? won(l.ar) : pc(l.ar)}  (${l.agree}/${l.n}건이 이 값)`);
-    diffN += 1;
+// ── 표가 «어디까지» 맞나 — 태윤 매니저 원장 전수 대조 ──
+/**
+ * ★사장님 2026-09-02 「태윤이가 지금껏 했던 정산데이터 기준으로 어디까지 맞는지 학습해와」
+ *
+ * ★★**수수료표는 코드가 정본이다** — 시트를 파싱하지 않는다.
+ *   ⚠ 2026-09-01 에 시트를 읽다가, 표를 다시 찍는 순간 검사가 통째로 깨졌다(45줄이 「공급사 없음」).
+ *
+ * 네 갈래로만 가른다 — ○ 표대로 · ⚠ 표와 다름 · ★사람이 정함(auto:false) · ? 표에 없음.
+ * ★**「다름」과 「사람이 정함」은 다른 말이다.** 앞은 표가 틀렸거나 건별 협의고,
+ *   뒤는 표가 이미 「한 값으로 안 떨어진다」고 «말하고 있는» 것이다.
+ */
+const VERDICT = { ok: 0, gap: 0, human: 0, none: 0 };
+type Judge = { plate: string; sup: string; kind: string; term: number; model: string; claim: number; want: number; basis: string };
+const gaps: Judge[] = []; const humans: string[] = []; const nones = new Map<string, { n: number; amt: number }>();
+type Per = { n: number; ok: number; gap: number; human: number; none: number; amt: number; gapAmt: number };
+const per = new Map<string, Per>();
+const bump = (k: string): Per => per.get(k) || per.set(k, { n: 0, ok: 0, gap: 0, human: 0, none: 0, amt: 0, gapAmt: 0 }).get(k)!;
+
+for (const r of rows) {
+  const claim = N(r.claimWritten);
+  if (!claim) continue;
+  const sup = S(r.supplier) || '(미기재)'; const term = N(r.term); const model = S(r.model);
+  const g = bump(sup); g.n += 1; g.amt += claim;
+  const { kind, form, fallback } = feeKindOf(S(r.product), model);
+  const f = feeRuleFor(S(r.supplier), kind, term, form, fallback);
+  if (!f) {
+    VERDICT.none += 1; g.none += 1;
+    const k = `${sup} · ${kind}${term ? ` ${term}개월` : ''}`;
+    const c = nones.get(k) || { n: 0, amt: 0 }; c.n += 1; c.amt += claim; nones.set(k, c);
+    continue;
   }
+  if (!f.auto) {
+    VERDICT.human += 1; g.human += 1;
+    humans.push(`   ${S(r.plate).padEnd(11)} ${sup.padEnd(11)} ${f.kind}${f.term ? ` ${f.term}개월` : ''} — 표가 「${f.claim}」  청구 ${won(claim)}`);
+    continue;
+  }
+  const rate = Number(f.claim);
+  const base = f.basis === '정액' ? 0 : (f.basis === '차량가액' ? N(r.price) : N(r.rent) * term);
+  // ★밑값(차량가액·대여료)이 없으면 «틀렸다»가 아니라 «못 센다»다.
+  if (f.basis !== '정액' && !base) { VERDICT.none += 1; g.none += 1; continue; }
+  const want = f.basis === '정액' ? rate : Math.round(base * rate);
+  if (Math.abs(claim - want) < 2) { VERDICT.ok += 1; g.ok += 1; continue; }
+  VERDICT.gap += 1; g.gap += 1; g.gapAmt += claim - want;
+  gaps.push({ plate: S(r.plate) || '(차번없음)', sup, kind: f.kind, term, model, claim, want, basis: f.basis });
 }
-if (!diffN) console.log('   ○ 표와 배운 것이 같다.');
+
+const tot = VERDICT.ok + VERDICT.gap + VERDICT.human + VERDICT.none;
+const pct = (a: number, b: number) => (b ? `${((a / b) * 100).toFixed(1)}%` : '—');
+console.log('\n\n■■ 태윤 매니저 원장 전수 — «지금 수수료표»로 어디까지 설명되나\n');
+console.log(`   금액이 적힌 ${tot}줄 기준`);
+console.log(`      ○ 표대로 떨어짐        ${String(VERDICT.ok).padStart(4)}줄  ${pct(VERDICT.ok, tot).padStart(6)}`);
+console.log(`      ⚠ 표와 다름            ${String(VERDICT.gap).padStart(4)}줄  ${pct(VERDICT.gap, tot).padStart(6)}`);
+console.log(`      ★ 표가 «사람이 정한다»   ${String(VERDICT.human).padStart(4)}줄  ${pct(VERDICT.human, tot).padStart(6)}   (틀린 게 아니다 — 표가 이미 그렇게 말한다)`);
+console.log(`      ? 표에 없거나 못 셈     ${String(VERDICT.none).padStart(4)}줄  ${pct(VERDICT.none, tot).padStart(6)}`);
+const decidable = VERDICT.ok + VERDICT.gap;
+console.log(`\n   ★기계가 셀 수 있는 ${decidable}줄 중 ${VERDICT.ok}줄이 표대로 = ${pct(VERDICT.ok, decidable)}`);
+
+console.log('\n\n■ 공급사별 — 어디는 표를 믿어도 되나\n');
+console.log('   공급사         줄수  표대로   다름  사람  없음    적중률       청구합        다른 금액');
+for (const [k, g] of [...per].sort((a, b) => b[1].amt - a[1].amt)) {
+  const dec = g.ok + g.gap;
+  const hit = dec ? pct(g.ok, dec) : '—';
+  const flag = !dec ? '' : g.ok === dec ? '  ○ 믿어도 된다' : g.ok === 0 ? '  ✕ 못 믿는다' : '  ⚠ 갈린다';
+  console.log(`   ${k.padEnd(12)} ${String(g.n).padStart(4)} ${String(g.ok).padStart(6)} ${String(g.gap).padStart(6)} ${String(g.human).padStart(5)} ${String(g.none).padStart(5)} ${hit.padStart(8)} ${won(g.amt).padStart(13)} ${(g.gapAmt ? won(g.gapAmt) : '').padStart(13)}${flag}`);
+}
+
+if (gaps.length) {
+  console.log('\n\n■ ⚠ 표와 «다른» 줄 — 표가 못 따라가는 자리\n');
+  console.log('   차량번호      공급사       갈래  기준          적힌 값        표 산출          차        배수');
+  for (const g of gaps.sort((a, b) => Math.abs(b.claim - b.want) - Math.abs(a.claim - a.want)).slice(0, 30)) {
+    const x = g.want ? (g.claim / g.want).toFixed(2) : '—';
+    console.log(`   ${g.plate.padEnd(12)} ${g.sup.padEnd(11)} ${g.kind.padEnd(4)} ${g.basis.padEnd(12)} ${won(g.claim).padStart(11)} ${won(g.want).padStart(12)} ${won(g.claim - g.want).padStart(12)}  ${x}배`);
+  }
+  if (gaps.length > 30) console.log(`   … 외 ${gaps.length - 30}줄`);
+}
+
+if (nones.size) {
+  console.log('\n\n■ ? 표에 없는 조합 — 표에 줄을 더해야 하는 자리\n');
+  for (const [k, c] of [...nones].sort((a, b) => b[1].amt - a[1].amt).slice(0, 20)) console.log(`   ${k.padEnd(28)} ${String(c.n).padStart(3)}줄  청구 ${won(c.amt).padStart(12)}`);
+}
+if (humans.length) {
+  console.log(`\n\n■ ★표가 «사람이 정한다»고 말하는 ${humans.length}줄 — 적힌 값을 그대로 쓴다\n`);
+  for (const h of humans.slice(0, 12)) console.log(h);
+  if (humans.length > 12) console.log(`   … 외 ${humans.length - 12}줄`);
+}
+console.log('\n   ⚠ 청구서는 «적힌 값»으로 나간다 — 표 산출로 덮으면 실제로 끊은 계산서와 갈린다.\n');
 process.exit(0);

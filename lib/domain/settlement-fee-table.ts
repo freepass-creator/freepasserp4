@@ -141,6 +141,25 @@ const HEAD = (s: string) => s.replace(/\s|주식회사|㈜|렌터카|렌트카|�
 const ALIAS: Record<string, string> = { 에스에이: 'SA', SA: '에스에이', 스타스카이: '스타', 스타: '스타스카이', 엘씨렌트: '빌린카', 빌린카: '엘씨렌트' };
 
 /**
+ * **원장의 「상품구분 + 차명」을 표의 「갈래」로 옮긴다 — 판정은 여기 한 곳이다.**
+ *
+ * ⚠ 2026-09-02 까지 이 함수가 스크립트 셋에 «서로 다른 정규식으로» 복사돼 있었다
+ *   (한 쪽에만 「택시」·「아이포드」가 있었다). 같은 줄을 두고 청구탭과 학습기가
+ *   다른 갈래로 읽으면 «어느 값도 못 믿게» 된다. CLAUDE.md 「판정은 한 곳」.
+ *
+ * ★찾는 차례 — 전기차 특약이 있으면 그것이 이기되, 없으면 `fallback` 으로 «일반 갈래»로 내려간다.
+ */
+export const EV_MODEL = /EV\b|EV6|아이오닉|모델\s*[3YXS]|테슬라|니로|코나|폴스타|택시/i;
+
+export const feeKindOf = (product: string, model: string): { kind: FeeRule['kind']; form?: string; fallback?: FeeRule['kind'] } => {
+  if (/견적출고/.test(product)) return { kind: '신차', form: '매칭출고' };
+  const ev = EV_MODEL.test(model);
+  if (/선출고/.test(product)) return ev ? { kind: '전기차', fallback: '신차' } : { kind: '신차', form: '선출고' };
+  if (/구독/.test(product)) return { kind: '구독' };
+  return ev ? { kind: '전기차', fallback: '재렌트' } : { kind: '재렌트' };
+};
+
+/**
  * 그 계약에 맞는 규칙을 찾는다. **이름은 앞머리로 맞춘다** — 원장은 줄여 적고 표는 정식 상호다.
  * ★찾는 차례 ① 공급사+형태+기간 ② 기간무관 ③ 형태 무시 ④ **전기차 특약이 없으면 일반 갈래로 내려간다**
  *   ⚠ 2026-09-01 — 「모델Y」를 전기차로 읽었는데 아이언에는 전기차 특약이 없어 통째로 «표에 없다»가 됐다.
