@@ -166,7 +166,15 @@ const NAVY = CORP_COLOR.main;
 const DEEP = CORP_COLOR.deep;
 
 /** 우리 마크 — `public/icon.svg` 그대로. 헤더 밴드 위라 바탕을 흰색으로 뒤집는다. */
-const MARK = '<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">'
+/**
+ * ⛔⛔ **쓰지 않는다 — 우리 CI 에는 «심볼이 없다».**
+ *   사장님 2026-09-02 「정산서에 ci 붙여주는거 그거 반영안됐고」.
+ *   CI 센터(`C:/dev/ci_center/index.html`)를 열어 보면 정의된 것은 **워드마크뿐**이다 —
+ *   freepass(600) + mobility(300), 국문 프리패스(600)+모빌리티(300). 심볼 파일이 아예 없다.
+ *   ⇒ 여기 있던 「둥근 네모 + 체크」는 우리 것이 아니라 **지어낸 표식**이었고, 그게 종이마다 찍혔다.
+ *   ★없는 것을 지어내지 않는다. 워드마크가 CI 다 — `.hd .wm` 이 그것을 세운다.
+ */
+const _UNUSED_MARK = '<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">'
   + '<rect width="512" height="512" rx="96" fill="#ffffff"/>'
   + `<path d="M128 264 l80 80 L384 168" fill="none" stroke="${NAVY}" stroke-width="52" `
   + 'stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -234,36 +242,33 @@ const CAP_LAST = 11;
 /**
  * 줄을 장으로 자른다.
  *
- * ★**장수를 먼저 정하고, 그 다음에 고르게 나눈다.**
- *   앞 장부터 꽉꽉 채우면 마지막에 자투리가 남는다 — 2026-08-27 에 29줄이
- *   14 / **1** / 14 로 갈려 가운데 장에 한 줄만 덩그러니 있었다.
- *   장수는 어차피 3장으로 같은데 보기만 흉하다. 9 / 12 / 8 이 낫다.
+ * ★★**꼬리에 닿을 때까지 채우고, 닿으려 하면 그때 넘긴다.**
+ *   사장님 2026-09-02 「정산줄이 하단바 가까이는 가야지 거기서 하단바에 닿으려고 하면 페이지 넘어가야지」.
+ *   ⚠ 전에는 «고르게» 나눴다(2026-08-27, 한 줄짜리 가운데 장이 흉해서). 그러니 쪽마다 아래가 텅 비었다 —
+ *     35줄이 11/15/9 로 갈려 마지막 쪽에 207px 이 남았다. 채우는 게 먼저다.
+ *   ★다만 «마지막 쪽에 한 줄만» 남는 것은 여전히 막는다 — 앞 쪽에서 하나 내려 준다.
  *
- * ⚠ 장마다 «표 밖»이 먹는 자리가 달라서 담을 수 있는 줄이 다르다.
- *   그래서 그냥 n/장수 로 나누면 안 되고, 장별 상한에 «비례»해서 나눈다.
+ * ⚠ 장마다 «표 밖»이 먹는 자리가 달라 담을 수 있는 줄이 다르다 —
+ *   첫 장은 정보·요약이, 마지막 장은 계좌·맺음이 같이 앉는다. 그래서 상한이 넷이다.
  */
 function paginate<T>(lines: T[]): T[][] {
   const n = lines.length;
   if (n <= CAP_SOLO) return [lines.slice()];
-
-  // ① 몇 장이면 담기나 — 가장 적은 장수를 찾는다
-  const capsFor = (p: number) => p === 1 ? [CAP_SOLO]
-    : [CAP_FIRST, ...Array<number>(Math.max(0, p - 2)).fill(CAP_MID), CAP_LAST];
-  let pages = 2;
-  while (capsFor(pages).reduce((a, c) => a + c, 0) < n) pages++;
-  const caps = capsFor(pages);
-
-  // ② 상한에 비례해 나눠 담고, 남는 줄은 여유 있는 장에 하나씩
-  const room = caps.reduce((a, c) => a + c, 0);
-  const take = caps.map((c) => Math.floor((n * c) / room));
-  let rest = n - take.reduce((a, c) => a + c, 0);
-  for (let i = 0; rest > 0; i = (i + 1) % pages) {
-    if (take[i] < caps[i]) { take[i]++; rest--; }
-  }
-
   const out: T[][] = [];
   let i = 0;
-  for (const t of take) { out.push(lines.slice(i, i + t)); i += t; }
+  while (i < n) {
+    const first = out.length === 0;
+    // 이 쪽이 «마지막»이면 계좌·맺음이 같이 앉아 자리가 적다.
+    const capLast = first ? CAP_SOLO : CAP_LAST;
+    const cap = first ? CAP_FIRST : CAP_MID;
+    const rest = n - i;
+    const take = rest <= capLast ? rest : Math.min(rest, cap);
+    out.push(lines.slice(i, i + take));
+    i += take;
+  }
+  // ★마지막 쪽에 «한 줄만» 남으면 앞 쪽에서 하나 내려 준다 — 한 줄짜리 쪽은 흉하다.
+  const L = out.length;
+  if (L >= 2 && out[L - 1].length === 1 && out[L - 2].length > 2) out[L - 1].unshift(out[L - 2].pop() as T);
   return out;
 }
 
@@ -569,7 +574,6 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
   const head = (page: number) => `
   <div class="hd">
     <div class="bl">
-      <div class="mk">${MARK}</div>
       <div class="wm">
         <div class="co"><b>${esc(CORP.markMain)}</b><i>${esc(CORP.markSub)}</i></div>
         <div class="ko">${spread(CORP.name)}</div>
@@ -679,7 +683,7 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
       <td class="no">${no}</td>
       <th class="rl">${esc(l.plate)}</th>
       <td class="day">${esc(l.receivedAt) || '&nbsp;'}</td>
-      <td class="l">${shown(l.model)}<span class="sub">${
+      <td class="l">${l.minus && !S(l.model) ? '환수 건' : shown(l.model)}<span class="sub">${
     // 계약조건 — 누구에게·무슨 상품·몇 개월
     // ★★고객 이름은 «여기서» 가린다 — 「문세준」 → 「문*준」(사장님 2026-08-27).
     //   이 종이는 남의 회사가 본다. 회원사는 차량번호로 그 건을 찾으니
