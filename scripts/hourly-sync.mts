@@ -464,6 +464,9 @@ line.push('정제칸 ok');
 const s1c = run('①″ 라이브 이름 폐쇄', ['scripts/close-refined-names-to-live-master.mts', '--include-mirror', ...A], /미리보기|반영|라이브 행 폐쇄|Error/);
 if (!s1c.ok) stop('라이브 이름 폐쇄 실패');
 line.push('이름폐쇄 ok');
+const s1d = run('①‴ 원문-디올뉴 게이트', ['scripts/audit-raw-ad-prefix.mts'], /게이트 ok|게이트 실패|Error/);
+if (!s1d.ok) stop('원문 없는 디올뉴 게이트 실패');
+line.push('원문철자 ok');
 
 // ② 차명 중복 정리 → ③ 모델명 통일(엔카 기준)
 if (SAME_SCOPE) skip('② 차명 중복 정리', 'aiops 범위 밖(--같은범위)');
@@ -610,10 +613,33 @@ if (손오공탭발행) {
  * ⑪ 자기검수 — 판매↔ERP 요금 정합. 「판매엔 있는데 ERP 요금 0」인 차 수를 남긴다.
  *   정상 기준선 3대(협의·더미 차번). 갑자기 늘면 원산지·정제칸 구멍이다.
  */
-const fee = run('⑪ 요금 검수(판매↔ERP)', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/audit-sales-vs-erp.mts'], /없는 차 \d+대|유효가격 0|살아있음 \d+/);   /* ⑪ 는 어긋나도 exit 0 이라 signal2ok 이 무의미하다(코덱스 3차) */
-const feeN = /ERP 목록에 없는 차 (\d+)대/.exec(fee.picked.join(' ') || '');
-line.push(feeN ? `요금검수 ${feeN[1]}대` : '요금검수 ok');
-if (feeN && Number(feeN[1]) > 6) out.push(`\n⚠ 요금검수 — 판매엔 있는데 ERP 요금 0인 차 ${feeN[1]}대(>6). 원산지·정제칸 구멍 의심`);
+/**
+ * ★**총계로 울리지 않는다 — «누구 몫»으로 울린다.** (2026-09-02)
+ *
+ * 전에는 「ERP 목록에 없는 차 N대」가 6을 넘으면 경보였다. 그런데 그 N 은
+ * **공급사가 요금을 안 적은 차까지 다 더한 수**다. 공급사가 새로 들어오면 저절로 늘고,
+ * 그러면 매시간 「요금이 샌다」가 울린다 — 실제로 2026-09-02 에 580→708대로 늘며 7→13이 됐고,
+ * 열어 보니 **내 몫은 0건**이었다(전부 공급사 빈칸).
+ *
+ * 재는 자(`audit-sales-vs-erp`)가 이제 넷으로 가르므로, 경보는 **내가 고칠 수 있는 것**에만 건다:
+ *   · 「나르다 빠졌다」 = 대여료·보증금이 다 있는데 ERP 가 0 → **파이프라인이 흘린 것. 울린다.**
+ *   · 「보증금이 비었다」 = 공급사가 채우면 사는 차 → 세어서 «보여만» 준다(사장님이 공급사에 요청).
+ *   · 「시트에도 대여료 없음」 = 공급사 몫. 울리지 않는다.
+ * **거짓 빨간불을 없애야 진짜 빨간불을 믿는다.**
+ */
+const fee = run('⑪ 요금 검수(판매↔ERP)', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/audit-sales-vs-erp.mts'], /없는 차 \d+대|나르다 빠졌다|보증금이 비었다|살아있음 \d+/);
+const feeAll = fee.picked.join(' ');
+const feeN = /ERP 목록에 없는 차 (\d+)대/.exec(feeAll);
+const 흘림 = Number(/(\d+)대\s+대여료·보증금 다 있는데/.exec(feeAll)?.[1] || 0);
+const 보증금빔 = Number(/(\d+)대\s+★대여료는 있는데 보증금이 비었다/.exec(feeAll)?.[1] || 0);
+line.push(feeN
+  ? `요금검수 ${feeN[1]}대(내몫 ${흘림} · 보증금빔 ${보증금빔})`
+  : '요금검수 ok');
+if (흘림 > 0) {
+  out.push(`\n⚠ ★요금검수 — **나르다 빠뜨린 차 ${흘림}대**. 대여료·보증금이 다 있는데 ERP 가 0이다. 원산지·정제칸 구멍 의심`);
+  allOk = false;   // 내 몫이 생겼으면 그 회차는 성공이 아니다
+}
+if (보증금빔 > 0) out.push(`\n· 요금검수 — 공급사가 보증금만 채우면 사는 차 ${보증금빔}대(경보 아님 — 사장님이 공급사에 요청)`);
 
 const seconds = Math.round((Date.now() - started) / 1000);
 out.push(`\n■ ${allOk ? '끝' : '끝(일부 실패)'} ${kst()} KST · ${seconds}초`);
