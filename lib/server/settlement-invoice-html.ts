@@ -226,10 +226,10 @@ const ico = (k: keyof typeof ICO | string) => `<svg class="i" viewBox="0 0 24 24
  *   옛 상한(9·14·18·13)은 실제보다 낮아서 29줄이 «세 장»에 10·11·8 로 흩어졌고
  *   장마다 아래 40% 가 흰 종이였다. 지금은 «두 장»에 16·13 으로 선다.
  */
-const CAP_SOLO = 9;
-const CAP_FIRST = 16;
-const CAP_MID = 21;
-const CAP_LAST = 13;
+const CAP_SOLO = 8;
+const CAP_FIRST = 14;
+const CAP_MID = 18;
+const CAP_LAST = 11;
 
 /**
  * 줄을 장으로 자른다.
@@ -422,6 +422,13 @@ export const INVOICE_CSS = `
   .ctab tbody tr:last-child th:first-child, .ctab tbody tr:last-child td:first-child { border-bottom-left-radius:var(--r-box); }
   .ctab tbody tr:last-child td:last-child { border-bottom-right-radius:var(--r-box); }
   .ctab .rl { text-align:left; background:#fafbfd; color:var(--mut); font-weight:600; white-space:nowrap; width:110px; }
+  /**
+   * ★**정산번호(연번)** — 사장님 2026-09-02 「정산내역에 정산번호가 있으면 좋겟네 몇건인지 바로 셀수 잇으니까」.
+   *   쪽이 넘어가도 번호는 «이어진다» — 2쪽 첫 줄이 다시 1이 되면 세는 뜻이 없다.
+   */
+  .ctab .no { width:34px; text-align:center; color:var(--faint); font-size:10px; font-weight:600;
+    font-variant-numeric:tabular-nums; background:#fafbfd; }
+  .ctab thead th.no { color:#fff; background:var(--tl-d); font-size:10px; }
   /* ★금액 가로 요약표 — 이 종이가 말하는 단 하나. 마지막 칸이 결론이다. */
   .stab { width:100%; border-collapse:separate; border-spacing:0; }
   .stab th { background:var(--tl); color:#fff; font-size:10.5px; font-weight:700; padding:5px 12px; text-align:right; }
@@ -471,10 +478,21 @@ export const INVOICE_CSS = `
   /* 한 줄 짜리 — 회원사·계좌. 표로 만들 만큼의 내용이 아니다. */
   .ctab td { font-variant-numeric:tabular-nums; }
   .ctab td.l { text-align:left; }
-  .ctab .sub { display:block; font-size:10px; color:var(--mut); font-weight:400; margin-top:1px; }
+  /** ★금액은 «우측정렬»이다 — 사장님 2026-09-02 「정렬 금액은 우측정렬이어야하고」. 자릿수가 세로로 맞아야 눈으로 읽힌다. */
+  .ctab td.n, .ctab thead th.n { text-align:right; }
+  /** ★접수일 — 사장님 2026-09-02 「접수날짜도 있어야하는데」. 회원사가 그 건을 짚는 두 번째 열쇠다. */
+  .ctab td.day { font-size:10px; color:var(--mut); font-variant-numeric:tabular-nums; white-space:nowrap; }
+  /**
+   * ★**곁줄은 «옆»에 붙인다.** 사장님 2026-09-02 「공간이 좀있는데 줄바뀜이 되네 … 여백 확인좀」.
+   *   display:block 이라 칸에 자리가 남아도 «무조건» 두 줄이 됐다 — 줄마다 높이가 두 배였다.
+   *   ⇒ inline 으로 눕히고 가운뎃점으로 가른다. 자리가 모자랄 때만 «자연스럽게» 넘어간다.
+   */
+  .ctab .sub { display:inline; font-size:10px; color:var(--mut); font-weight:400; margin-left:6px; }
+  .ctab .sub::before { content:'·'; margin-right:6px; color:var(--faint); }
   /* ★수수료 산출조건 — 제 칸을 갖는다. 표가 스스로 «어떻게 나왔는지»를 말한다. */
   .ctab td.calc { font-size:10px; color:var(--mut); }
-  .ctab td.calc .rt { display:block; font-size:9.5px; color:var(--faint); margin-top:1px; }
+  .ctab td.calc .rt { display:inline; font-size:9.5px; color:var(--faint); margin-left:6px; }
+  .ctab td.calc .rt::before { content:'·'; margin-right:6px; }
   .ctab tr.neg td.calc, .ctab tr.neg td.calc .rt { color:var(--neg); }
   .ctab tr.neg td, .ctab tr.neg th.rl { color:var(--neg); }
   .ctab tr.pay th.rl { color:var(--tl-d); font-weight:800; background:#eef2f8; }
@@ -656,9 +674,11 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
   </div>`;
 
   /** 표 한 줄 — 차량번호가 좌측 라벨열이라 뱃지가 필요 없다. */
-  const row = (l: Invoice['lines'][number]) => `
+  const row = (l: Invoice['lines'][number], no: number) => `
     <tr${l.minus ? ' class="neg"' : ''}>
+      <td class="no">${no}</td>
       <th class="rl">${esc(l.plate)}</th>
+      <td class="day">${esc(l.receivedAt) || '&nbsp;'}</td>
       <td class="l">${shown(l.model)}<span class="sub">${
     // 계약조건 — 누구에게·무슨 상품·몇 개월
     // ★★고객 이름은 «여기서» 가린다 — 「문세준」 → 「문*준」(사장님 2026-08-27).
@@ -673,9 +693,9 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
     //   사장님 2026-08-27 「정산내역에 수수료산출조건 이런거 하나 더 있어서」
     l.minus ? esc(join('환수', l.reason)) : esc(l.base)
   }<span class="rt">${l.minus ? '' : esc(feeShow(l.rate))}</span></td>
-      <td>${num(l.amount)}</td>
-      <td>${num(l.vat)}</td>
-      <td><b>${num(l.total)}</b></td>
+      <td class="n">${num(l.amount)}</td>
+      <td class="n">${num(l.vat)}</td>
+      <td class="n"><b>${num(l.total)}</b></td>
     </tr>`;
 
   /**
@@ -765,11 +785,11 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
       pages.length > 1 ? `${from}–${from + chunk.length - 1} / ${inv.lines.length}건` : `${plus.length}건`
     } · 단위 원</span></div>
     <table class="ctab">
-      <colgroup><col style="width:13%"><col><col style="width:23%"><col style="width:12%"><col style="width:10%"><col style="width:13%"></colgroup>
-      <thead><tr><th class="rl">차량번호</th><th>차량 · 계약조건</th><th>수수료 산출조건</th><th>공급가액</th><th>부가세</th><th>합계</th></tr></thead>
+      <colgroup><col style="width:5%"><col style="width:11%"><col style="width:8%"><col><col style="width:18%"><col style="width:11%"><col style="width:10%"><col style="width:12%"></colgroup>
+      <thead><tr><th class="no">No.</th><th class="rl">차량번호</th><th>접수일</th><th>차량 · 계약조건</th><th>수수료 산출조건</th><th class="n">공급가액</th><th class="n">부가세</th><th class="n">합계</th></tr></thead>
       <tbody>
-        ${chunk.map(row).join('')}
-        ${last ? `<tr class="pay"><th class="rl">합계</th><td class="l" colspan="2">${plus.length}건</td><td>${num(inv.supply)}</td><td>${num(inv.vat)}</td><td><b>${num(inv.total)}</b></td></tr>` : ''}
+        ${chunk.map((l, k) => row(l, from + k)).join('')}
+        ${last ? `<tr class="pay"><td class="no"></td><th class="rl">합계</th><td class="l" colspan="3">${plus.length}건</td><td class="n">${num(inv.supply)}</td><td class="n">${num(inv.vat)}</td><td class="n"><b>${num(inv.total)}</b></td></tr>` : ''}
       </tbody>
     </table>
   </div>
