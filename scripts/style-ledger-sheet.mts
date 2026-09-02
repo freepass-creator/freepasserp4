@@ -29,6 +29,8 @@ const HEAD_ROW = 1;
 
 /** 새로 붙일 체크칸. 이미 있으면 안 만든다. */
 const NEW_BOXES = ['청구', '수금'];
+/** ★가감 — 수수료표에서 더하거나 뺀 금액과 «왜». 사장님 2026-09-01. */
+const NEW_COLS = ['청구가감', '지급가감', '가감사유'];
 
 /**
  * **이름 바꾸기** — 값·서식은 그대로 두고 머리글 글자만 고친다.
@@ -63,7 +65,7 @@ const AREA: { name: string; color: { red: number; green: number; blue: number };
   { name: '정산', color: { red: 1.00, green: 0.95, blue: 0.80 }, // 연한 노랑
     cols: ['공급사수수료율', '판매수수료', '공급사인센티브', '공급사부가세', '에이전시수수료율', '출고수수료', '에이전시인센티브', '계약서대행료', '에이전시부가세'] },
   { name: '청구', color: { red: 1.00, green: 0.88, blue: 0.75 }, // 연한 주황
-    cols: ['청구년', '청구월', '청구금액', '지급액', '청구', '수금'] },
+    cols: ['청구년', '청구월', '청구금액', '지급액', '청구', '수금', '청구가감', '지급가감', '가감사유'] },
   { name: '환수', color: { red: 0.98, green: 0.82, blue: 0.82 }, // 연한 빨강
     cols: ['환수', '환수사유', '환수일', '환수금액'] },
 ];
@@ -125,8 +127,10 @@ for (const tab of TABS) {
     cut.push({ deleteDimension: { range: { sheetId: p.sheetId, dimension: 'COLUMNS', startIndex: d.col, endIndex: d.col + 1 } } });
 
   const add = NEW_BOXES.filter((n) => !cur.includes(n));
+  const addCols = NEW_COLS.filter((n) => !cur.includes(n));
   const next = [...cur];
   for (const n of add) next.push(n);
+  for (const n of addCols) next.push(n);
   // 머리글 칸이 모자라면 열을 늘린다 (지운 만큼 줄어든 뒤로 센다)
   const needCols = next.length;
   const afterCut = p.gridProperties.columnCount - drops.length;
@@ -135,7 +139,7 @@ for (const tab of TABS) {
   }
   const a1 = (j: number) => { let s = ''; let n = j; while (n >= 0) { s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26) - 1; } return s; };
   // ★머리글 줄을 통째로 다시 쓴다 — 지운 칸·이름 바꾼 칸·새 칸을 한 번에.
-  if (renamed.length || add.length || drops.length) {
+  if (renamed.length || add.length || addCols.length || drops.length) {
     valueWrites.push({ range: `'${tab}'!A${HEAD_ROW + 1}:${a1(next.length - 1)}${HEAD_ROW + 1}`, values: [next] });
   }
   if (add.length) {
@@ -194,7 +198,7 @@ for (const tab of TABS) {
 
   const tally = new Map<string, number>();
   for (const g of groups) tally.set(g, (tally.get(g) || 0) + 1);
-  console.log(`   ${tab.padEnd(6)} ${next.length}칸  ${add.length ? `+ 새 체크칸 ${add.join('·')}` : '체크칸 이미 있음'}${renamed.length ? `  · 이름 ${renamed.join('·')}` : ''}`);
+  console.log(`   ${tab.padEnd(6)} ${next.length}칸  ${addCols.length ? `+ 칸 ${addCols.join("·")} ` : ""}${add.length ? `+ 새 체크칸 ${add.join('·')}` : '체크칸 이미 있음'}${renamed.length ? `  · 이름 ${renamed.join('·')}` : ''}`);
   console.log(`          영역 — ${[...tally].map(([k, n]) => `${k} ${n}`).join(' · ')}`);
 }
 
