@@ -250,8 +250,37 @@ const run = (label: string, args: string[], pick: RegExp, runner: 'npx' | 'node'
       sleep(30_000);
       continue;
     }
-    out.push(`\n── ${label} ${ok ? '✓' : '✗'}${attempt > 1 ? ` (${attempt}회)` : ''}`, ...lines.slice(-40).map((l) => `   ${l.slice(0, 300)}`));
+    /**
+     * ★**«시작조차 못 한 것»은 한 번 더 해 본다.**
+     *   `r.error` 는 자식이 실행되지 못했다는 뜻이다(ENOENT·EBUSY·EAGAIN…). 이건 그 단계가
+     *   틀렸다는 신호가 아니라 **그 순간 기계가 바빴다**는 신호다 — 2026-09-02 09:16 에 ⑦⑧⑨ 가
+     *   연달아 이렇게 죽었고, 손으로 돌리니 셋 다 멀쩡했다. 한 번 죽었다고 회차를 버릴 이유가 없다.
+     *   ⚠ 다만 «돌다가 실패한 것»(종료코드 ≠ 0)은 재시도하지 않는다 — 그건 진짜 어긋남이고,
+     *      쓰기 단계를 두 번 돌리면 같은 것을 두 번 쓸 수 있다.
+     */
+    if (!ok && r.error && attempt < 3) {
+      const code = (r.error as NodeJS.ErrnoException).code || '';
+      console.log(`── ${label} ⏳ 실행이 시작되지 않았다(${code}) — 15초 쉬고 다시 (${attempt}/3)`);
+      out.push(`\n── ${label} ⏳ 시작 실패 재시도 ${attempt} — ${code} ${r.error.message}`);
+      sleep(15_000);
+      continue;
+    }
+    /**
+     * ★**실패했으면 «왜»를 반드시 한 줄 남긴다.**
+     *
+     * ⚠ 2026-09-02 09:16 회차에서 ⑦⑧⑨ 가 **출력 한 줄 없이** ✗ 로 끝났다. 손으로 돌리면 셋 다 멀쩡했다.
+     *   원인을 못 찾은 이유는 여기 있었다 — `spawnSync` 의 **`r.error` 를 아무도 안 봤다.**
+     *   자식이 «시작조차 못 하면»(ENOENT·EBUSY·EAGAIN 등) stdout/stderr 가 통째로 비어
+     *   `lines` 가 빈 배열이 되고, 기록에는 `── ⑦ ERP 일일 동기 ✗` 한 줄만 남는다.
+     *   **이유 없는 빨간불은 다음에 아무도 안 믿는다.** 종료코드·신호·실행오류를 같이 적는다.
+     */
+    const 진단 = !ok
+      ? [`   ✗ 왜 — ${r.error ? `실행 자체가 안 됐다(${(r.error as NodeJS.ErrnoException).code || ''} ${r.error.message})` : `종료코드 ${r.status ?? '없음'}`}`
+         + `${r.signal ? ` · 신호 ${r.signal}` : ''}${lines.length ? '' : ' · 자식이 아무것도 못 찍었다'}`]
+      : [];
+    out.push(`\n── ${label} ${ok ? '✓' : '✗'}${attempt > 1 ? ` (${attempt}회)` : ''}`, ...진단, ...lines.slice(-40).map((l) => `   ${l.slice(0, 300)}`));
     console.log(`── ${label} ${ok ? '✓' : '✗'}${attempt > 1 ? ` (${attempt}회)` : ''}`);
+    for (const l of 진단) console.log(l);
     for (const l of picked.slice(0, 6)) console.log(`   ${l.slice(0, 220)}`);
     /* ★단계 결과를 남긴다. 「경고로 넘긴 단계」도 상태로그에서는 성공이 아니다.
        (코덱스 2026-08-30: 「⑩ 이 실패해도 ok:true 로 기록해 천이가 조용히 낡을 수 있다」) */
@@ -260,7 +289,9 @@ const run = (label: string, args: string[], pick: RegExp, runner: 'npx' | 'node'
        단계별 시간이 없어 «어디가 느렸는지» 끝내 못 좁혔다. 결과값은 멀쩡했다 — 시간만 셋이 됐다.
        느려지는 것은 대개 «무엇이 무너지기 전»의 첫 신호다. 그걸 보려면 재 두어야 한다. */
     const 초 = Math.round((Date.now() - stepStarted) / 1000);
-    steps.push({ 단계: label, ok, 초, ...(신호 ? { 신호: '어긋남 있음' } : null), ...(picked.length ? { 요약: picked.slice(0, 3).join(' | ').slice(0, 300) } : null) });
+    /** ★실패면 «이유»를 상태로그에도 싣는다 — 상태판·메일이 읽는 곳이 여기다. 요약이 비면 아무도 이유를 못 본다. */
+    const 요약 = picked.length ? picked.slice(0, 3).join(' | ').slice(0, 300) : (진단[0] || '').trim().slice(0, 300);
+    steps.push({ 단계: label, ok, 초, ...(신호 ? { 신호: '어긋남 있음' } : null), ...(요약 ? { 요약 } : null) });
     if (초 >= 300) {   // 5분 넘게 걸린 단계는 눈에 띄게 남긴다
       const w = `${label} 이 ${Math.round(초 / 60)}분 걸렸다(평소보다 오래)`;
       warnings.push(w); console.log(`   ⏱ ${w}`);
@@ -430,6 +461,9 @@ line.push(`정제시트 ${s1.picked.find((l) => /새 차/.test(l))?.replace(/\s+
 const s1b = run('①′ 정제칸 채움', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/fill-supplier-ai-columns.mts', '--include-mirror', ...A], /차량번호 정본|채움|모두 |바로잡|Error/);
 if (!s1b.ok) stop('정제칸 채움 실패');
 line.push('정제칸 ok');
+const s1c = run('①″ 라이브 이름 폐쇄', ['scripts/close-refined-names-to-live-master.mts', '--include-mirror', ...A], /미리보기|반영|라이브 행 폐쇄|Error/);
+if (!s1c.ok) stop('라이브 이름 폐쇄 실패');
+line.push('이름폐쇄 ok');
 
 // ② 차명 중복 정리 → ③ 모델명 통일(엔카 기준)
 if (SAME_SCOPE) skip('② 차명 중복 정리', 'aiops 범위 밖(--같은범위)');
