@@ -141,13 +141,16 @@ const lineOf = (r: Row, month: string): Line => {
 const rateCell = (r: number): number | string => (r >= 1 ? '정액' : r || '');
 /** ★「산출근거」는 «별도 영역»이다 — 머리 색을 달리해서 금액 칸과 눈으로 갈린다. */
 const BASIS_COLS = ['적용한 표 규칙', '산출근거 (이대로 계산했습니다)', '표 산출', '가감', '가감 사유'];
-const HEAD = ['접수일', '차량번호', '모델명', '고객명', '공급사', '영업채널', '영업담당자', '상품구분', '계약기간', '렌탈료',
-  '인도일', '구분', '공급사요율', '청구액', '청구부가세', '청구합계', '영업자요율', '지급액', '지급부가세', '지급합계',
-  '이익', '이익률', '정산대상', '정산비율', '청구', '수금', ...BASIS_COLS, '비고'];
+const HEAD = ['접수일', '차량 번호', '모델명', '고객명', '공급사', '영업채널', '영업 담당자', '상품 구분', '계약 기간', '렌탈료',
+  '인도일', '구분', '공급사 요율', '청구액', '청구 부가세', '청구 합계', '영업자 요율', '지급액', '지급 부가세', '지급 합계',
+  '이익', '이익률', '정산 대상', '정산 비율', '청구', '수금', ...BASIS_COLS, '비고'];
 
-const meta = await (await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${LEDGER}?fields=sheets.properties`, { headers: { Authorization: `Bearer ${await tok()}` } })).json() as {
-  sheets?: { properties: { sheetId: number; title: string; gridProperties: { rowCount: number; columnCount: number } } }[] };
+const meta = await (await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${LEDGER}?fields=sheets(properties,conditionalFormats)`, { headers: { Authorization: `Bearer ${await tok()}` } })).json() as {
+  sheets?: { properties: { sheetId: number; title: string; gridProperties: { rowCount: number; columnCount: number } };
+    conditionalFormats?: unknown[] }[] };
 const sheetOf = new Map((meta.sheets || []).map((s) => [s.properties.title, s.properties]));
+/** ★조건부 서식은 «쌓인다» — 다시 찍기 전에 그 탭에 있던 것을 먼저 걷어야 규칙이 두 벌이 안 된다. */
+const rulesOf = new Map((meta.sheets || []).map((s) => [s.properties.title, (s.conditionalFormats || []).length]));
 
 /** 한 탭을 찍는다. 없으면 만든다. */
 async function publish(tab: string, lines: Line[], about: string) {
@@ -196,8 +199,28 @@ async function publish(tab: string, lines: Line[], about: string) {
   const id = prop.sheetId;
   const iBill = HEAD.indexOf('청구'); const iColl = HEAD.indexOf('수금'); const iRate = HEAD.indexOf('이익률');
   const money = HEAD.map((h, j) => (/액$|합계|부가세|이익$|렌탈료|^표 산출$|^가감$/.test(h) ? j : -1)).filter((j) => j >= 0);
-  const RIGHT = ['렌탈료', '청구액', '청구부가세', '청구합계', '지급액', '지급부가세', '지급합계', '이익'];
+  const RIGHT = ['렌탈료', '청구액', '청구 부가세', '청구 합계', '지급액', '지급 부가세', '지급 합계', '이익'];
   const LEFT = ['모델명', '비고', '적용한 표 규칙', '산출근거 (이대로 계산했습니다)', '가감 사유'];
+  /**
+   * ★★**청구·수금은 «누르면 바로» 색이 바뀌어야 한다** — 사장님 2026-09-02
+   *   「청구 수금 둘다 눌려지면 초록색 … 청구만 하면 청구 색깔」.
+   *   ⇒ 정적으로 칠하지 않고 **조건부 서식**으로 건다. 사람이 시트에서 체크하는 순간 따라온다
+   *     (정적으로 칠하면 다음 발행 때까지 색이 안 바뀐다 — 그건 「눌렀는데 그대로」다).
+   * ```
+   * 청구 ☑ + 수금 ☑   초록   돈이 들어왔다. 끝난 줄
+   * 청구 ☑            노랑   청구서는 나갔고 아직 안 받았다  ★여기가 볼 자리
+   * 아무것도           흰색   아직 청구 전
+   * ```
+   *   ⚠ 위 규칙이 먼저 맞으면 아래는 안 본다 — 그래서 「둘 다」를 먼저 건다.
+   */
+  const iB = HEAD.indexOf('청구'); const iC = HEAD.indexOf('수금');
+  const cell = (j: number) => `$${colA1(j)}3`;
+  const band = (formula: string, bg: { red: number; green: number; blue: number }) => ({
+    addConditionalFormatRule: { index: 0, rule: {
+      ranges: [{ sheetId: id, startRowIndex: 2, endRowIndex: Math.max(3, body.length + 3), startColumnIndex: 0, endColumnIndex: HEAD.length }],
+      booleanRule: { condition: { type: 'CUSTOM_FORMULA', values: [{ userEnteredValue: formula }] }, format: { backgroundColor: bg } },
+    } },
+  });
   const reqs: Record<string, unknown>[] = [
     { unmergeCells: { range: { sheetId: id } } },
     /**
@@ -222,19 +245,34 @@ async function publish(tab: string, lines: Line[], about: string) {
     { repeatCell: { range: { sheetId: id, startRowIndex: 1, endRowIndex: 2, startColumnIndex: HEAD.indexOf(BASIS_COLS[0]), endColumnIndex: HEAD.indexOf(BASIS_COLS[0]) + BASIS_COLS.length }, cell: { userEnteredFormat: { backgroundColor: { red: 0.90, green: 0.87, blue: 0.96 }, textFormat: { bold: true, fontSize: 10 }, horizontalAlignment: 'CENTER', verticalAlignment: 'MIDDLE', wrapStrategy: 'WRAP' } }, fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment,wrapStrategy)' } },
     { repeatCell: { range: { sheetId: id, startRowIndex: 2, endRowIndex: body.length + 3, startColumnIndex: HEAD.indexOf(BASIS_COLS[0]), endColumnIndex: HEAD.indexOf(BASIS_COLS[0]) + BASIS_COLS.length }, cell: { userEnteredFormat: { backgroundColor: { red: 0.975, green: 0.97, blue: 0.99 } } }, fields: 'userEnteredFormat.backgroundColor' } },
     /** ★가감이 «있는» 줄만 그 칸을 주황으로 — 볼 곳이 한눈에 든다. */
-    ...lines.map((l, i) => (l.adj ? { repeatCell: { range: { sheetId: id, startRowIndex: i + 2, endRowIndex: i + 3, startColumnIndex: HEAD.indexOf('가감'), endColumnIndex: HEAD.indexOf('가감 사유') + 1 }, cell: { userEnteredFormat: { backgroundColor: { red: 1.0, green: 0.90, blue: 0.78 } } }, fields: 'userEnteredFormat.backgroundColor' } } : null)).filter(Boolean) as Record<string, unknown>[],
+    ...lines.map((l, i) => (l.adj ? { repeatCell: { range: { sheetId: id, startRowIndex: i + 2, endRowIndex: i + 3, startColumnIndex: HEAD.indexOf('가감'), endColumnIndex: HEAD.indexOf('가감 사유') + 1 }, cell: { userEnteredFormat: { textFormat: { bold: true, foregroundColor: { red: 0.75, green: 0.20, blue: 0.10 } } } }, fields: 'userEnteredFormat.textFormat(bold,foregroundColor)' } } : null)).filter(Boolean) as Record<string, unknown>[],
     // 정렬 — 돈은 우측 · 글은 좌측 · 나머지 가운데
     ...HEAD.map((h, j) => ({ repeatCell: { range: { sheetId: id, startRowIndex: 2, endRowIndex: body.length + 3, startColumnIndex: j, endColumnIndex: j + 1 }, cell: { userEnteredFormat: { horizontalAlignment: RIGHT.includes(h) ? 'RIGHT' : LEFT.includes(h) ? 'LEFT' : 'CENTER', verticalAlignment: 'MIDDLE' } }, fields: 'userEnteredFormat(horizontalAlignment,verticalAlignment)' } })),
     ...[iBill, iColl].map((j) => ({ setDataValidation: { range: { sheetId: id, startRowIndex: 2, endRowIndex: body.length + 2, startColumnIndex: j, endColumnIndex: j + 1 }, rule: { condition: { type: 'BOOLEAN' }, strict: true, showCustomUi: true } } })),
     ...money.map((j) => ({ repeatCell: { range: { sheetId: id, startRowIndex: 2, endRowIndex: body.length + 3, startColumnIndex: j, endColumnIndex: j + 1 }, cell: { userEnteredFormat: { numberFormat: { type: 'NUMBER', pattern: '#,##0' } } }, fields: 'userEnteredFormat.numberFormat' } })),
     { repeatCell: { range: { sheetId: id, startRowIndex: 2, endRowIndex: body.length + 3, startColumnIndex: iRate, endColumnIndex: iRate + 1 }, cell: { userEnteredFormat: { numberFormat: { type: 'PERCENT', pattern: '0.0%' } } }, fields: 'userEnteredFormat.numberFormat' } },
-    ...[HEAD.indexOf('공급사요율'), HEAD.indexOf('영업자요율')].map((j) => ({ repeatCell: { range: { sheetId: id, startRowIndex: 2, endRowIndex: body.length + 2, startColumnIndex: j, endColumnIndex: j + 1 }, cell: { userEnteredFormat: { numberFormat: { type: 'PERCENT', pattern: '0.00%' } } }, fields: 'userEnteredFormat.numberFormat' } })),
+    ...[HEAD.indexOf('공급사 요율'), HEAD.indexOf('영업자 요율')].map((j) => ({ repeatCell: { range: { sheetId: id, startRowIndex: 2, endRowIndex: body.length + 2, startColumnIndex: j, endColumnIndex: j + 1 }, cell: { userEnteredFormat: { numberFormat: { type: 'PERCENT', pattern: '0.00%' } } }, fields: 'userEnteredFormat.numberFormat' } })),
     ...[HEAD.indexOf('접수일'), HEAD.indexOf('인도일')].map((j) => ({ repeatCell: { range: { sheetId: id, startRowIndex: 2, endRowIndex: body.length + 2, startColumnIndex: j, endColumnIndex: j + 1 }, cell: { userEnteredFormat: { numberFormat: { type: 'DATE', pattern: 'yyyy-mm-dd' } } }, fields: 'userEnteredFormat.numberFormat' } })),
-    { repeatCell: { range: { sheetId: id, startRowIndex: 2, endRowIndex: body.length + 2, startColumnIndex: HEAD.indexOf('계약기간'), endColumnIndex: HEAD.indexOf('계약기간') + 1 }, cell: { userEnteredFormat: { numberFormat: { type: 'NUMBER', pattern: '0"개월"' } } }, fields: 'userEnteredFormat.numberFormat' } },
-    { repeatCell: { range: { sheetId: id, startRowIndex: 2, endRowIndex: body.length + 2, startColumnIndex: HEAD.indexOf('차량번호'), endColumnIndex: HEAD.indexOf('차량번호') + 1 }, cell: { userEnteredFormat: { numberFormat: { type: 'TEXT' } } }, fields: 'userEnteredFormat.numberFormat' } },
+    { repeatCell: { range: { sheetId: id, startRowIndex: 2, endRowIndex: body.length + 2, startColumnIndex: HEAD.indexOf('계약 기간'), endColumnIndex: HEAD.indexOf('계약 기간') + 1 }, cell: { userEnteredFormat: { numberFormat: { type: 'NUMBER', pattern: '0"개월"' } } }, fields: 'userEnteredFormat.numberFormat' } },
+    { repeatCell: { range: { sheetId: id, startRowIndex: 2, endRowIndex: body.length + 2, startColumnIndex: HEAD.indexOf('차량 번호'), endColumnIndex: HEAD.indexOf('차량 번호') + 1 }, cell: { userEnteredFormat: { numberFormat: { type: 'TEXT' } } }, fields: 'userEnteredFormat.numberFormat' } },
     ...lines.map((l, i) => (l.kind === '환수' ? { repeatCell: { range: { sheetId: id, startRowIndex: i + 2, endRowIndex: i + 3 }, cell: { userEnteredFormat: { backgroundColor: { red: 0.99, green: 0.90, blue: 0.90 } } }, fields: 'userEnteredFormat.backgroundColor' } } : null)).filter(Boolean) as Record<string, unknown>[],
-    ...lines.map((l, i) => (l.collected ? { repeatCell: { range: { sheetId: id, startRowIndex: i + 2, endRowIndex: i + 3 }, cell: { userEnteredFormat: { backgroundColor: { red: 0.90, green: 0.96, blue: 0.90 } } }, fields: 'userEnteredFormat.backgroundColor' } } : null)).filter(Boolean) as Record<string, unknown>[],
     { repeatCell: { range: { sheetId: id, startRowIndex: body.length + 2, endRowIndex: body.length + 3 }, cell: { userEnteredFormat: { backgroundColor: { red: 0.95, green: 0.95, blue: 0.90 }, textFormat: { bold: true } } }, fields: 'userEnteredFormat(backgroundColor,textFormat)' } },
+    /**
+     * ★★**머리는 «두 줄»로 세운다** — 사장님 2026-09-02 「테이블헤더를 2줄로 해서 잘리는거 없게」.
+     *   머리에 필터 화살표가 앉아 20px 을 먹는다. 한 줄로 다 넣으려면 열을 그만큼 넓혀야 하고,
+     *   32칸짜리 표가 가로로 더 길어진다. ⇒ 머리만 접고 열은 «데이터가 필요한 만큼»만 준다.
+     *   ⚠ WRAP 만 켜면 안 접힌다 — 행 높이가 이미 굳어 있으면 글자가 잘린다(실측 2026-09-02 스크린샷).
+     *     높이를 «명시»해야 두 줄이 보인다.
+     *   ★접히는 자리는 HEAD 의 공백이 정한다 — 「청구 부가세」. 공백이 없으면 「청구부/가세」로 잘린다.
+     */
+    { updateDimensionProperties: { range: { sheetId: id, dimension: 'ROWS', startIndex: 1, endIndex: 2 }, properties: { pixelSize: 40 }, fields: 'pixelSize' } },
+    /** ★데이터 줄은 24 — 기본 21 은 숫자가 붙어 보인다(사장님 「간격좀 보자」). */
+    { updateDimensionProperties: { range: { sheetId: id, dimension: 'ROWS', startIndex: 2, endIndex: Math.max(3, body.length + 3) }, properties: { pixelSize: 24 }, fields: 'pixelSize' } },
+    // ★있던 조건부 규칙을 먼저 걷는다(뒤에서부터 — 앞에서 지우면 번호가 밀린다)
+    ...Array.from({ length: rulesOf.get(tab) || 0 }, (_, k) => ({ deleteConditionalFormatRule: { sheetId: id, index: (rulesOf.get(tab) || 0) - 1 - k } })),
+    // ★아래에서 위로 꽂는다 — index:0 로 넣으면 나중에 넣은 것이 «앞»에 선다. 「청구만」을 먼저 꽂아 뒤로 밀고, 「둘 다」를 앞에 세운다
+    band(`=AND(${cell(iB)}=TRUE, ${cell(iC)}<>TRUE)`, { red: 1.00, green: 0.96, blue: 0.80 }),
+    band(`=AND(${cell(iB)}=TRUE, ${cell(iC)}=TRUE)`, { red: 0.85, green: 0.94, blue: 0.85 }),
     { autoResizeDimensions: { dimensions: { sheetId: id, dimension: 'COLUMNS', startIndex: 0, endIndex: HEAD.length } } },
     /**
      * ★★**자동폭 뒤에 «긴 글 칸»은 손으로 박는다.**
@@ -259,7 +297,12 @@ async function publish(tab: string, lines: Line[], about: string) {
  *   ⚠ 구글은 글자 폭을 안 알려준다 ⇒ 한글 9.5px · 그 밖 5.5px 로 재고 여백 12 + 화살표 20 을 더한다.
  *   넘치는 칸은 건드리지 않는다 — «모자란 칸만» 넓힌다.
  */
-const needPx = (t: string) => Math.ceil([...t].reduce((a, c) => a + (/[가-힣ㄱ-ㆎ]/.test(c) ? 9.5 : c === ' ' ? 3.5 : 5.5), 0)) + 32;
+/**
+ * ★머리가 «두 줄로 접히»므로, 열은 «가장 긴 어절»만 들어가면 된다 — 「청구 부가세」는 「부가세」 폭이면 된다.
+ *   그래서 표가 짧아진다(실측 2,788px → 더 줄어든다). 한글 9.5px · 그 밖 5.5px + 여백 12 + 필터 화살표 20.
+ */
+const wordPx = (w: string) => Math.ceil([...w].reduce((a, c) => a + (/[가-힣ㄱ-ㆎ]/.test(c) ? 9.5 : 5.5), 0));
+const needPx = (t: string) => Math.max(...t.split(' ').map(wordPx), 12) + 32;
 const colA1 = (n: number) => (n < 26 ? '' : String.fromCharCode(64 + Math.floor(n / 26))) + String.fromCharCode(65 + (n % 26));
 async function fitHeaders(id: number, tab: string) {
   const range = `'${tab}'!A2:${colA1(HEAD.length - 1)}2`;
@@ -308,7 +351,18 @@ for (const m of months) {
       rule: '', how: '환수 — 수수료표로 내는 값이 아니다', calc: null, adj: 0, adjWhy: '',
       why: `환수 — ${S(c.reason) || '사유 미기재'}`, billed: false, collected: false, kind: '환수' });
   }
-  lines.sort((a, b) => (a.sup === b.sup ? a.plate.localeCompare(b.plate) : a.sup.localeCompare(b.sup)));
+  /**
+   * ★**공급사별로 «많은 순»**(사장님 2026-09-02 「공급사별로 많은 순으로 정렬 … 공급사 청구가 먼저니까」).
+   *   가나다순은 「어디부터 청구하나」를 안 알려 준다. 줄이 많은 곳부터 세우면 그 순서가 곧 일하는 순서다.
+   *   줄 수가 같으면 청구 큰 곳이 먼저다. 한 공급사 안에서는 차번순.
+   */
+  const bulk = new Map<string, { n: number; amt: number }>();
+  for (const l of lines) { const g = bulk.get(l.sup) || { n: 0, amt: 0 }; g.n += 1; g.amt += l.claim; bulk.set(l.sup, g); }
+  lines.sort((a, b) => {
+    if (a.sup === b.sup) return a.plate.localeCompare(b.plate);
+    const x = bulk.get(a.sup)!; const y = bulk.get(b.sup)!;
+    return y.n - x.n || y.amt - x.amt || a.sup.localeCompare(b.sup);
+  });
   const tc = lines.reduce((a, b) => a + b.claim, 0); const tp = lines.reduce((a, b) => a + b.pay, 0);
   grand += tc;
   console.log(`   ${tabOf(m).padEnd(9)} ${String(lines.length).padStart(3)}줄  청구 ${won(tc).padStart(12)} · 지급 ${won(tp).padStart(12)} · 이익 ${won(tc - tp).padStart(11)}${lines.length ? '' : '   (아직 없음 — 탭만 세워 둔다)'}`);
