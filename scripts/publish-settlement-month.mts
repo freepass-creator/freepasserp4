@@ -28,6 +28,7 @@ import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getDatabase } from 'firebase-admin/database';
 import { SETTLEMENT_LEDGER_ID as LEDGER } from '../lib/domain/settlement-ledger';
 import { feeRuleFor, type FeeRule } from '../lib/domain/settlement-fee-table';
+import { FONT_DEFAULT } from '../lib/domain/sales-sheet-format';
 
 const APPLY = process.argv.includes('--apply');
 const FROM = (process.argv.find((a) => /^\d{4}-\d{2}$/.test(a)) || '').trim();
@@ -216,6 +217,7 @@ async function publish(tab: string, lines: Line[], about: string) {
      *   설명이 B1 «한 칸»에 갇히면 좁은 열에서 접혀 읽을 수가 없다(사장님 2026-09-01 스크린샷).
      *   ⇒ B1 부터 끝까지 «가로로 합쳐» 한 줄로 펴고, 줄 높이를 키우고, 왼쪽에 붙인다.
      */
+    { mergeCells: { range: { sheetId: id, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 2 }, mergeType: 'MERGE_ALL' } },
     { mergeCells: { range: { sheetId: id, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 2, endColumnIndex: HEAD.length }, mergeType: 'MERGE_ALL' } },
     { updateDimensionProperties: { range: { sheetId: id, dimension: 'ROWS', startIndex: 0, endIndex: 1 }, properties: { pixelSize: 46 }, fields: 'pixelSize' } },
     { repeatCell: { range: { sheetId: id, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 2 }, cell: { userEnteredFormat: { backgroundColor: { red: 0.18, green: 0.24, blue: 0.38 }, textFormat: { bold: true, fontSize: 12, foregroundColor: { red: 1, green: 1, blue: 1 } }, horizontalAlignment: 'CENTER', verticalAlignment: 'MIDDLE' } }, fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment)' } },
@@ -240,9 +242,45 @@ async function publish(tab: string, lines: Line[], about: string) {
     ...lines.map((l, i) => (l.collected ? { repeatCell: { range: { sheetId: id, startRowIndex: i + 2, endRowIndex: i + 3 }, cell: { userEnteredFormat: { backgroundColor: { red: 0.90, green: 0.96, blue: 0.90 } } }, fields: 'userEnteredFormat.backgroundColor' } } : null)).filter(Boolean) as Record<string, unknown>[],
     { repeatCell: { range: { sheetId: id, startRowIndex: body.length + 2, endRowIndex: body.length + 3 }, cell: { userEnteredFormat: { backgroundColor: { red: 0.95, green: 0.95, blue: 0.90 }, textFormat: { bold: true } } }, fields: 'userEnteredFormat(backgroundColor,textFormat)' } },
     { autoResizeDimensions: { dimensions: { sheetId: id, dimension: 'COLUMNS', startIndex: 0, endIndex: HEAD.length } } },
+    /**
+     * ★★**자동폭 뒤에 «긴 글 칸»은 손으로 박는다.**
+     *   설명 한 줄이 C1 부터 합쳋있어, 자동폭이 그 길이에 맞춰 C열(모델명)을 통째로 벌렸다
+     *   (사장님 2026-09-02 스크린샷 — 모델명 칸이 화면을 다 먹었다).
+     *   자동폭은 합쳄진 칸을 같이 재다 — 그러니 재고 난 뒤에 다시 씩워야 한다.
+     */
+    ...([['모델명', 150], ['고객명', 80], ['적용한 표 규칙', 190], ['산출근거 (이대로 계산했습니다)', 250], ['가감 사유', 200], ['비고', 200]] as [string, number][])
+      .map(([h, w]) => ({ updateDimensionProperties: { range: { sheetId: id, dimension: 'COLUMNS', startIndex: HEAD.indexOf(h), endIndex: HEAD.indexOf(h) + 1 }, properties: { pixelSize: w }, fields: 'pixelSize' } })),
+    /** ★글꼴은 맨 마지막에 «fontFamily 하나만» 덮는다 — 사장님 2026-08-18 「모든 구글시트 Roboto 로 통일」. */
+    { repeatCell: { range: { sheetId: id }, cell: { userEnteredFormat: { textFormat: { fontFamily: FONT_DEFAULT } } }, fields: 'userEnteredFormat.textFormat.fontFamily' } },
   ];
   const b = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${LEDGER}:batchUpdate`, { method: 'POST', headers: { Authorization: `Bearer ${await tok()}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ requests: reqs }) });
   if (!b.ok) console.log(`      ⚠ 서식 ${b.status} ${(await b.text()).slice(0, 160)}`);
+  await fitHeaders(id, tab);
+}
+
+/**
+ * ★★**머리글이 «접히면» 사람이 못 읽는다 — 찍고 나서 되읽어 모자란 칸만 넓힌다.**
+ *   사장님 2026-09-02 「이렇게 월만 줄바뀜 되는거 이런거 좀 모니터링해서 알아서 좀 넓혀주고」
+ *   — 「26년08월」이 「26년08 / 월」로 접혔다. 자동폭은 필터 화살표를 안 세고, 합쳄진 칸은 잘못 재다.
+ *   ⚠ 구글은 글자 폭을 안 알려준다 ⇒ 한글 9.5px · 그 밖 5.5px 로 재고 여백 12 + 화살표 20 을 더한다.
+ *   넘치는 칸은 건드리지 않는다 — «모자란 칸만» 넓힌다.
+ */
+const needPx = (t: string) => Math.ceil([...t].reduce((a, c) => a + (/[가-힣ㄱ-ㆎ]/.test(c) ? 9.5 : c === ' ' ? 3.5 : 5.5), 0)) + 32;
+const colA1 = (n: number) => (n < 26 ? '' : String.fromCharCode(64 + Math.floor(n / 26))) + String.fromCharCode(65 + (n % 26));
+async function fitHeaders(id: number, tab: string) {
+  const range = `'${tab}'!A2:${colA1(HEAD.length - 1)}2`;
+  const m = await (await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${LEDGER}?ranges=${encodeURIComponent(range)}&fields=sheets(properties(sheetId),data(columnMetadata(pixelSize)))`, { headers: { Authorization: `Bearer ${await tok()}` } })).json() as {
+    sheets?: { properties: { sheetId: number }; data?: { columnMetadata?: { pixelSize?: number }[] }[] }[] };
+  const sh = (m.sheets || []).find((x) => x.properties.sheetId === id);
+  const wide = sh?.data?.[0]?.columnMetadata || [];
+  const grow: { j: number; from: number; to: number }[] = [];
+  HEAD.forEach((h, j) => { const now = Number(wide[j]?.pixelSize || 0); const want = needPx(h); if (now && now < want) grow.push({ j, from: now, to: want }); });
+  if (!grow.length) return;
+  const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${LEDGER}:batchUpdate`, {
+    method: 'POST', headers: { Authorization: `Bearer ${await tok()}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requests: grow.map((g) => ({ updateDimensionProperties: { range: { sheetId: id, dimension: 'COLUMNS', startIndex: g.j, endIndex: g.j + 1 }, properties: { pixelSize: g.to }, fields: 'pixelSize' } })) }),
+  });
+  console.log(`      ↳ 머리글이 접힐 칸 ${grow.length}개 넓혔다 — ${grow.map((g) => `${HEAD[g.j]} ${g.from}→${g.to}`).join(' · ')}${r.ok ? '' : ' (⚠ 실패)'}`);
 }
 
 /**

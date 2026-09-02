@@ -234,20 +234,25 @@ for (let i = hi + 1; i < all.length; i++) {
 }
 
 // ── 기존 원자와 열쇠 맞추기 (차번|접수일 → stl_ 코드) ─────
-const have = ((await db.ref(ROWS_NODE).get().catch(() => null))?.val() || {}) as Record<string, { plate?: string; receivedAt?: string; code?: string; payWritten?: number; claimWritten?: number }>;
-const codeOf = new Map(Object.values(have).map((r) => [`${S(r.plate).replace(/\s/g, '')}|${S(r.receivedAt)}`, S(r.code)]));
+const have = ((await db.ref(ROWS_NODE).get().catch(() => null))?.val() || {}) as Record<string, { plate?: string; receivedAt?: string; code?: string; payWritten?: number; claimWritten?: number; channel?: string; customer?: string; billMonth?: string; fromSheet?: string }>;
 /**
- * ★**차번 없는 줄의 열쇠** — 「업무지원비」처럼 차가 없는 정산이 있다(사장님 2026-09-01
- *   「차량번호 없이 주는것도 있고」). 차번을 열쇠로 못 쓰니 «달+탭줄»로 붙인다.
- *   ⚠ 그 줄은 시트에서 자리가 밀리면 열쇠가 바뀐다 — 그래서 메모까지 넣어 흔들림을 줄인다.
+ * ★★**차번 없는 줄의 열쇠에 «줄 번호»를 쓰지 않는다.**
+ *   「업무지원비」처럼 차가 없는 정산이 있다(사장님 2026-09-01 「차량번호 없이 주는것도 있고」).
+ *   ⚠ 2026-09-02 — 열쇠에 sourceRow 가 들어 있었다. 박지원 줄을 살리자 그 아래가 한 칸씩 밀렸고,
+ *     최사랑 업무지원비 10만원이 51행→52행이 되면서 «다른 줄»로 잡혀 새 코드가 하나 더 생겼다.
+ *     화면에는 똑같은 10만원이 두 줄로 섰다. 위에 한 줄만 끼어도 깨지는 열쇠는 열쇠가 아니다.
+ *   ⇒ 자리가 아니라 «내용»으로 묶는다 — 달·채널·고객·청구·지급.
  */
-const keyOf = (a: Atom) => (a.plate
-  ? `${a.plate.replace(/\s/g, '')}|${a.receivedAt}`
-  : `무차번|${MONTH}|${a.channel}|${a.settleNote || a.note || a.sourceRow}`);
+const rowKey = (plate: string, recv: string, month: string, ch: string, cust: string, claim: number, pay: number) => (plate
+  ? `${plate.replace(/\s/g, '')}|${recv}`
+  : `무차번|${month}|${ch}|${cust}|${claim}|${pay}`);
+const codeOf = new Map(Object.values(have).map((r) => [
+  rowKey(S(r.plate), S(r.receivedAt), S(r.billMonth) || MONTH, S(r.channel), S(r.customer), N(r.claimWritten), N(r.payWritten)), S(r.code)]));
+const keyOf = (a: Atom) => rowKey(a.plate, a.receivedAt, a.billMonth || MONTH, a.channel, a.customer, a.claimWritten, a.payWritten);
 let matched = 0; const fresh: Atom[] = []; const fixes: string[] = [];
 for (const a of atoms) {
   const key = keyOf(a);
-  const code = a.plate ? codeOf.get(key) : undefined;
+  const code = codeOf.get(key);  // ★차번 없는 줄도 붙인다 — 안 붙이면 돌릴 때마다 새 줄이 선다
   if (code) {
     a.code = code; matched++;
     const old = have[code];
@@ -269,11 +274,25 @@ for (const a of ax) console.log(`      ${a.plate.padEnd(11)} 대상 ${a.settleTa
 console.log(`\n   ★환수 ${claws.length}건`);
 for (const c of claws) console.log(`      ${S(c.plate).padEnd(11)} ${S(c.supplier).padEnd(10)} 공급사 ${won(N(c.supplierAmt))} · 영업자 ${won(N(c.agentAmt))} · 환수일 ${S(c.at) || '(없음 — 사람이 채워야 한다)'}`);
 
+/**
+ * ★**이 탭에서 올렸던 줄인데 이번엔 «없는» 줄 = 묵은 줄.**
+ *   시트에서 지웠거나, 예전 열쇠로 잘못 선 줄이다. 안 걷으면 화면에 유령이 남는다
+ *   (2026-09-02 최사랑 10만원 두 줄이 그랬다). 걷은 것은 반드시 «이름을 대고» 지운다.
+ */
+const alive = new Set(atoms.map((a) => a.code));
+const stale = Object.entries(have).filter(([k, r]) => S(r.fromSheet) === TAB && !alive.has(k));
+if (stale.length) {
+  console.log(`
+   ★묵은 줄 ${stale.length}개 — 이 탭에서 올렸는데 이번 취합엔 «없다». 걷는다`);
+  for (const [k, r] of stale) console.log(`      ${(S(r.plate) || '(차번없음)').padEnd(11)} ${S(r.customer).padEnd(8)} 청구 ${won(N(r.claimWritten))} · 지급 ${won(N(r.payWritten))}   [${k}]`);
+}
+
 if (!APPLY) { console.log('\n※ dry-run — 아무것도 안 썼다. --apply 로 올린다.\n'); process.exit(0); }
 
 const patch: Record<string, unknown> = {};
 for (const a of atoms) patch[`${ROWS_NODE}/${a.code}`] = { ...a, updatedAt: Date.now(), fromSheet: TAB };
 for (const c of claws) patch[`${CLAW_NODE}/${S(c.plate).replace(/[.$#[\]/\s]/g, '_')}_${MONTH}`] = c;
+for (const [k] of stale) patch[`${ROWS_NODE}/${k}`] = null;  // ★묵은 줄은 걷는다
 await db.ref().update(patch);
 console.log(`\n   ✓ ${Object.keys(patch).length}개 올림 — 원자 ${atoms.length} · 환수 ${claws.length}`);
 
