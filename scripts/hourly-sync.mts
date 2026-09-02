@@ -461,6 +461,18 @@ line.push(`정제시트 ${s1.picked.find((l) => /새 차/.test(l))?.replace(/\s+
 const s1b = run('①′ 정제칸 채움', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/fill-supplier-ai-columns.mts', '--include-mirror', ...A], /차량번호 정본|채움|모두 |바로잡|Error/);
 if (!s1b.ok) stop('정제칸 채움 실패');
 line.push('정제칸 ok');
+/**
+ * ①′-손 **손오공 원산지 채움** — ①′ 가 손오공을 «안 타서» 아무도 안 채우던 칸이다.
+ *
+ * ★원산지는 표시값이 아니라 «돈»이다 — 보증금 배율(국산 ×2 · 수입 ×3)의 근거라
+ *   비면 보증금 계산이 막히고 **요금이 통째로 사라진다**(2026-08-28 오플 실사고).
+ * ⚠ 실측 2026-09-02: 손오공구독 72대 중 원산지가 24%밖에 안 차 있었다 — 91칸이 비어 있었고
+ *   손으로 채웠다. **비는 이유가 「담당이 없다」였으므로 회차에 붙인다.** 안 붙이면 새 차마다 또 빈다.
+ *   빈 칸만 채우므로 사람이 적은 값은 안 덮는다.
+ */
+const s1bs = run('①′-손 손오공 원산지', ['scripts/fill-sonokong-origin.mts', ...A], /빈 칸|채웠다|채울 칸|Error/);
+if (!s1bs.ok) stop('손오공 원산지 채움 실패');
+line.push(s1bs.picked.find((l) => /채웠다|채울 칸/.test(l))?.replace(/^.*?—\s*/, '원산지 ') || '원산지 ok');
 const s1c = run('①″ 라이브 이름 폐쇄', ['scripts/close-refined-names-to-live-master.mts', '--include-mirror', ...A], /미리보기|반영|라이브 행 폐쇄|Error/);
 if (!s1c.ok) stop('라이브 이름 폐쇄 실패');
 line.push('이름폐쇄 ok');
