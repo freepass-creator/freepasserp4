@@ -82,7 +82,14 @@ const monthOf = (r: Row): string => {
   const d = D(r.deliveredAt);
   if (!d) return '';
   const n = roundsOf(S(r.payKind));
-  const onComplete = n >= 2 && ymOf(d) >= SINCE;
+  /**
+   * ★★**청구월이 «안 박힌» 줄은 아직 청구 안 된 줄이다 — 새 규칙(분납완료시점)을 태운다.**
+   *   `SINCE` 는 «이미 나간 청구서»를 안 흔들려고 둔 빗장이다. 그런데 그건 «박힌 줄»이
+   *   이미 막아 준다(monthFor). 인도일로 또 막으면, 8월에 인도된 2회분납이
+   *   «8월 청구»로 계산되고 8월은 이미 닫혔으니 갈 데가 없어진다 — 실측 9줄이 그렇게 떠 있었다.
+   *   분납은 끝나야 청구한다(사장님 2026-09-01 「분납완료시점에서 청구」) — 8월 인도는 9월에 끝난다.
+   */
+  const onComplete = n >= 2;
   return ymOf(onComplete ? new Date(d.getFullYear(), d.getMonth() + (n - 1), d.getDate()) : d);
 };
 
@@ -311,20 +318,32 @@ for (const m of months) {
 }
 
 // ── 청구월이 안 정해진 줄 — 한 줄도 안 빠지게 ─────────────
-const pending = rows.filter((r) => !monthFor(r));
+/**
+ * ★★**「완납실적」에서 온 줄은 «이미 끝난» 줄이다 — 미정으로 세우지 않는다.**
+ *   원장의 「완납실적」 331줄은 지난달까지 달마다 청구된 것이고, 계산월이
+ *   «전부» 2026-08 이하다(실측 331/331). 그걸 「사람이 정해야 한다」고 세우면
+ *   지난 청구가 다시 줄을 서서 «진짜 볼 것»이 묻힌다.
+ *   ⚠ 대신 「분납실적」에서 왔는데 완료월이 이미 지난 줄은 남긴다 —
+ *     끝났어야 할 분납이 아직 분납실적에 있다는 것은 «부러졌다»는 뜻이다. 거기가 돈이 새는 자리다.
+ */
+const DONE_TAB = '완납실적';
+const settled = rows.filter((r) => !monthFor(r) && S(r.fromSheet) === DONE_TAB);
+const pending = rows.filter((r) => !monthFor(r) && S(r.fromSheet) !== DONE_TAB);
 const bumpedSet = new Set(bumped.map((r) => S(r.code)));
 console.log(`\n   ${PENDING_TAB.padEnd(9)} ${String(pending.length).padStart(3)}줄  ★어느 달에도 못 선 줄 — 사람이 정해야 한다`);
-console.log(`      ├ 잠긴 달로 «계산»된 줄        ${bumped.length}건  이미 확정된 달이라 못 넣는다. 어느 달로 보낼지 정할 것`);
-console.log(`      └ 인도도 청구월도 «없는» 줄     ${pending.length - bumped.length}건  접수만 된 상태`);
+const broke = pending.filter((r) => bumpedSet.has(S(r.code)));
+console.log(`      ├ 분납이 «부러졌다»          ${broke.length}건  완료월이 이미 지났는데 아직 분납실적에 있다 — 회차를 확인할 것`);
+console.log(`      └ 인도도 청구월도 «없는» 줄     ${pending.length - broke.length}건  접수만 된 상태`);
+console.log(`      ※ 「완납실적」에서 온 ${settled.length}줄은 지난달까지 이미 청구된 것이라 여기 안 세운다`);
 for (const r of pending.slice(0, 12)) {
-  const why = bumpedSet.has(S(r.code)) ? `계산상 ${monthOf(r)} — 그 달은 확정됨` : '인도·청구월 없음';
+  const why = bumpedSet.has(S(r.code)) ? `분납 완료월 ${monthOf(r)} 이 지났다 — 회차 확인` : '인도·청구월 없음';
   console.log(`      ${S(r.plate).padEnd(11)} ${(S(r.supplier) || '(미기재)').padEnd(10)} 접수 ${(S(r.receivedAt) || '—').padEnd(11)} ${S(r.payKind).padEnd(6)} ${why}`);
 }
 if (pending.length > 12) console.log(`      … 외 ${pending.length - 12}건`);
 await publish(PENDING_TAB, pending.map((r) => {
   const l = lineOf(r, '');
   // ★왜 여기 있는지를 «줄마다» 적는다. 사유를 모르면 사람이 어느 달로 보낼지 못 정한다.
-  const why = bumpedSet.has(S(r.code)) ? `계산상 ${monthOf(r)} 인데 그 달은 이미 확정됨 — 어느 달로 보낼지 정하세요` : '인도도 청구월도 없음 — 접수만 된 상태';
+  const why = bumpedSet.has(S(r.code)) ? `분납 완료월이 ${monthOf(r)} 인데 아직 분납실적에 있습니다 — 회차가 다 들어왔는지 확인하세요` : '인도도 청구월도 없음 — 접수만 된 상태';
   return { ...l, why: [l.why, why].filter(Boolean).join(' · ') };
 }), '어느 달에도 «못 선» 줄입니다. ★접수 탭 「청구월」에 적으면 그 달 탭으로 옮겨 갑니다. '
   + '여기 있는 동안은 어느 달에도 청구되지 않습니다. '
