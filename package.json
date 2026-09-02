@@ -25,6 +25,8 @@
     "check:design": "tsx scripts/check-design-locked.mts",
     "check:building": "tsx scripts/check-building.mts",
     "check:order": "tsx scripts/check-order.mts",
+    "check:deployed": "tsx scripts/check-deployed.mts --fetch",
+    "check:finder-rows": "tsx scripts/check-finder-rows.mts",
     "check:template-drift": "tsx scripts/check-template-drift.mts",
     "check:release": "tsx scripts/check-release.mts",
     "check:b2b-release": "tsx scripts/check-b2b-release.mts",
@@ -80,11 +82,16 @@
     "fix:refine-class": "tsx scripts/fix-refine-vehicle-class.mts",
     "audit:passthrough": "tsx scripts/audit-passthrough.mts",
     "audit:live-master-names": "tsx scripts/audit-live-master-name-copy.mts",
+    "close:live-names": "tsx scripts/close-refined-names-to-live-master.mts",
     "settlement:codes": "tsx scripts/backfill-party-code.mts",
     "settlement:codes:apply": "tsx scripts/backfill-party-code.mts --apply",
     "check:party-code": "tsx scripts/check-party-code.mts",
     "settlement:progress": "tsx scripts/build-progress-tab.mts",
-    "settlement:progress:apply": "tsx scripts/build-progress-tab.mts --apply"
+    "settlement:progress:apply": "tsx scripts/build-progress-tab.mts --apply",
+    "settlement:fees": "tsx scripts/learn-settlement-fees.mts",
+    "settlement:check": "tsx scripts/check-settlement-month.mts",
+    "settlement:atomize": "tsx scripts/atomize-settlement-month.mts",
+    "settlement:publish": "tsx scripts/publish-settlement-month.mts"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",
