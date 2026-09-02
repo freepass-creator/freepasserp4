@@ -100,13 +100,21 @@ console.log(`   청구 ${won(tc)} (VAT포함 ${won(tc + Math.round(tc * VAT))}) 
 const col = new Set(lines.filter((l) => l.collected).map((l) => l.sup));
 console.log(`   ★수금완료 표시 — ${[...col].join(' · ') || '없음'} (${lines.filter((l) => l.collected).length}줄)`);
 
+/**
+ * ★**수수료 기준이 둘이다** — 정률(0.0325)과 «건당 정액»(1,000,000)이 한 칸에 섞여 있다.
+ *   매뉴얼 §7 「요율이 1 이상이면 건당 고정액」. 그대로 %를 씌우면 `100000000.00%` 가 찍힌다.
+ *   ⇒ 사장님 2026-09-01 「공급사 요율에 퍼센트로 안하고 오플같은경우는 그냥 **정액** 이라고 하는거야」.
+ *   ⇒ 칸을 새로 만들지 않고 **요율 칸에 「정액」이라고 글자로 적는다.**
+ *     글자 셀은 숫자 서식을 안 타므로 한 칸에 %와 「정액」이 같이 서도 안 깨진다.
+ */
+const rateCell = (r: number): number | string => (r >= 1 ? '정액' : r || '');
 const HEAD = ['접수일', '차량번호', '모델명', '고객명', '공급사', '영업채널', '영업담당자', '상품구분', '계약기간', '렌탈료',
   '인도일', '구분', '공급사요율', '청구액', '청구부가세', '청구합계', '영업자요율', '지급액', '지급부가세', '지급합계',
   '이익', '이익률', '정산대상', '정산비율', '청구', '수금', '비고'];
 const body = lines.map((l) => {
   const cv = Math.round(l.claim * VAT); const pv = Math.round(l.pay * VAT);
   return [serial(l.recv), l.plate, l.model, l.cust, l.sup, l.ch, l.agent, l.product, l.term || '', l.rent || '',
-    serial(l.deliv), l.kind, l.supRate || '', l.claim, cv, l.claim + cv, l.agRate || '', l.pay, pv, l.pay + pv,
+    serial(l.deliv), l.kind, rateCell(l.supRate), l.claim, cv, l.claim + cv, rateCell(l.agRate), l.pay, pv, l.pay + pv,
     l.claim - l.pay, l.claim > 0 ? Number((((l.claim - l.pay) / l.claim)).toFixed(4)) : '',
     l.target, l.ratio, l.billed, l.collected, l.why];
 });
@@ -172,13 +180,33 @@ const reqs: Record<string, unknown>[] = [
    *   날짜 `yyyy-mm-dd` · 돈 `#,##0` · 율 `0.00%` · 기간 `0"개월"` · 차번은 TEXT.
    *   ⚠ 차번을 TEXT 로 안 두면 `142호1065` 같은 건 괜찮아도 숫자로 읽히는 차번이 지수 표기로 깨진다.
    */
-  ...[HEAD.indexOf('접수일'), HEAD.indexOf('인도일')].map((j) => ({ repeatCell: { range: { sheetId: prop!.sheetId, startRowIndex: 2, endRowIndex: body.length + 2, startColumnIndex: j, endColumnIndex: j + 1 }, cell: { userEnteredFormat: { numberFormat: { type: 'DATE', pattern: 'yyyy-mm-dd' }, horizontalAlignment: 'CENTER' } }, fields: 'userEnteredFormat(numberFormat,horizontalAlignment)' } })),
-  { repeatCell: { range: { sheetId: prop.sheetId, startRowIndex: 2, endRowIndex: body.length + 2, startColumnIndex: HEAD.indexOf('계약기간'), endColumnIndex: HEAD.indexOf('계약기간') + 1 }, cell: { userEnteredFormat: { numberFormat: { type: 'NUMBER', pattern: '0"개월"' }, horizontalAlignment: 'CENTER' } }, fields: 'userEnteredFormat(numberFormat,horizontalAlignment)' } },
+  ...[HEAD.indexOf('접수일'), HEAD.indexOf('인도일')].map((j) => ({ repeatCell: { range: { sheetId: prop!.sheetId, startRowIndex: 2, endRowIndex: body.length + 2, startColumnIndex: j, endColumnIndex: j + 1 }, cell: { userEnteredFormat: { numberFormat: { type: 'DATE', pattern: 'yyyy-mm-dd' } } }, fields: 'userEnteredFormat.numberFormat' } })),
+  { repeatCell: { range: { sheetId: prop.sheetId, startRowIndex: 2, endRowIndex: body.length + 2, startColumnIndex: HEAD.indexOf('계약기간'), endColumnIndex: HEAD.indexOf('계약기간') + 1 }, cell: { userEnteredFormat: { numberFormat: { type: 'NUMBER', pattern: '0"개월"' } } }, fields: 'userEnteredFormat.numberFormat' } },
   { repeatCell: { range: { sheetId: prop.sheetId, startRowIndex: 2, endRowIndex: body.length + 2, startColumnIndex: HEAD.indexOf('차량번호'), endColumnIndex: HEAD.indexOf('차량번호') + 1 }, cell: { userEnteredFormat: { numberFormat: { type: 'TEXT' } } }, fields: 'userEnteredFormat.numberFormat' } },
   /** ★환수 줄은 붉게 — 마이너스라 눈에 먼저 들어와야 한다. */
   ...lines.map((l, i) => (l.kind === '환수' ? { repeatCell: { range: { sheetId: prop!.sheetId, startRowIndex: i + 2, endRowIndex: i + 3 }, cell: { userEnteredFormat: { backgroundColor: { red: 0.99, green: 0.90, blue: 0.90 } } }, fields: 'userEnteredFormat.backgroundColor' } } : null)).filter(Boolean) as Record<string, unknown>[],
   /** ★수금 끝난 줄은 초록 — 「이건 이미 받았다」가 한눈에 보여야 다시 청구하지 않는다. */
   ...lines.map((l, i) => (l.collected ? { repeatCell: { range: { sheetId: prop!.sheetId, startRowIndex: i + 2, endRowIndex: i + 3 }, cell: { userEnteredFormat: { backgroundColor: { red: 0.90, green: 0.96, blue: 0.90 } } }, fields: 'userEnteredFormat.backgroundColor' } } : null)).filter(Boolean) as Record<string, unknown>[],
+  /**
+   * ★**정렬은 칸 «성격»대로**(사장님 2026-09-01 「금액 정렬은 우측 정렬이고 퍼센트는 가운데고
+   *   사람이름이나 이런것들은 가운데 차종같은거는 좌측 날짜는 가운데」).
+   * ```
+   * 우측  돈 — 자릿수를 세로로 맞춰야 눈으로 큰 수를 안 놓친다
+   * 가운데 날짜 · 율 · 이름 · 구분 — 길이가 고른 것들
+   * 좌측  글 — 모델명 · 비고. 길이가 제각각이라 왼쪽을 맞춰야 읽힌다
+   * ```
+   */
+  ...(() => {
+    const RIGHT = ['렌탈료', '청구액', '청구부가세', '청구합계', '지급액', '지급부가세', '지급합계', '이익'];
+    const LEFT = ['모델명', '비고'];
+    return HEAD.map((h, j) => ({
+      repeatCell: {
+        range: { sheetId: prop!.sheetId, startRowIndex: 2, endRowIndex: body.length + 3, startColumnIndex: j, endColumnIndex: j + 1 },
+        cell: { userEnteredFormat: { horizontalAlignment: RIGHT.includes(h) ? 'RIGHT' : LEFT.includes(h) ? 'LEFT' : 'CENTER', verticalAlignment: 'MIDDLE' } },
+        fields: 'userEnteredFormat(horizontalAlignment,verticalAlignment)',
+      },
+    }));
+  })(),
   { autoResizeDimensions: { dimensions: { sheetId: prop.sheetId, dimension: 'COLUMNS', startIndex: 0, endIndex: HEAD.length } } },
 ];
 const b = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${LEDGER}:batchUpdate`, { method: 'POST', headers: { Authorization: `Bearer ${await tok()}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ requests: reqs }) });
