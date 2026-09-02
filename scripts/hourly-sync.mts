@@ -391,6 +391,7 @@ const stop = (why: string) => {
 
 /**
  * ⓪ 손오공(D경로) — API pull → 차종마스터 매칭 정제 → 재고시트.
+ * 정제칸은 **빈 칸만 한 번**. 상태·요금만 매번 갱신. 이미 있는 이름칸은 안 덮는다.
  *
  * ★2026-08-30 aiops 에서 옮겨왔다(사장님 「프리패스는 AIOps 를 쓰지 않아. 프리패스 자체적으로」).
  *   전에는 `C:/dev/aiops/scripts/손오공-매일.mjs` 가 이 셋을 돌리고 나머지는 여기 스크립트를 불렀다 —
@@ -470,8 +471,8 @@ line.push('정제칸 ok');
  *   손으로 채웠다. **비는 이유가 「담당이 없다」였으므로 회차에 붙인다.** 안 붙이면 새 차마다 또 빈다.
  *   빈 칸만 채우므로 사람이 적은 값은 안 덮는다.
  */
-const s1bs = run('①′-손 손오공 원산지', ['scripts/fill-sonokong-origin.mts', ...A], /빈 칸|채웠다|채울 칸|Error/);
-if (!s1bs.ok) stop('손오공 원산지 채움 실패');
+const s1bs = run('①′-손 원산지 채움(전 공급사)', ['scripts/fill-origin.mts', ...A], /빈 칸|채웠다|채울 칸|Error/);
+if (!s1bs.ok) stop('원산지 채움 실패');
 line.push(s1bs.picked.find((l) => /채웠다|채울 칸/.test(l))?.replace(/^.*?—\s*/, '원산지 ') || '원산지 ok');
 const s1c = run('①″ 라이브 이름 폐쇄', ['scripts/close-refined-names-to-live-master.mts', '--include-mirror', ...A], /미리보기|반영|라이브 행 폐쇄|Error/);
 if (!s1c.ok) stop('라이브 이름 폐쇄 실패');
