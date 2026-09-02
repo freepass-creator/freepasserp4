@@ -160,8 +160,17 @@ async function publish(tab: string, lines: Line[], about: string) {
   const LEFT = ['모델명', '비고'];
   const reqs: Record<string, unknown>[] = [
     { unmergeCells: { range: { sheetId: id } } },
+    /**
+     * ★**맨 윗줄 = 「탭 이름 | 설명 한 줄」.**
+     *   설명이 B1 «한 칸»에 갇히면 좁은 열에서 접혀 읽을 수가 없다(사장님 2026-09-01 스크린샷).
+     *   ⇒ B1 부터 끝까지 «가로로 합쳐» 한 줄로 펴고, 줄 높이를 키우고, 왼쪽에 붙인다.
+     */
+    { mergeCells: { range: { sheetId: id, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 1, endColumnIndex: HEAD.length }, mergeType: 'MERGE_ALL' } },
+    { updateDimensionProperties: { range: { sheetId: id, dimension: 'ROWS', startIndex: 0, endIndex: 1 }, properties: { pixelSize: 46 }, fields: 'pixelSize' } },
+    { repeatCell: { range: { sheetId: id, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 1 }, cell: { userEnteredFormat: { backgroundColor: { red: 0.18, green: 0.24, blue: 0.38 }, textFormat: { bold: true, fontSize: 12, foregroundColor: { red: 1, green: 1, blue: 1 } }, horizontalAlignment: 'CENTER', verticalAlignment: 'MIDDLE' } }, fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment)' } },
+    { repeatCell: { range: { sheetId: id, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 1, endColumnIndex: HEAD.length }, cell: { userEnteredFormat: { backgroundColor: { red: 0.95, green: 0.96, blue: 0.98 }, textFormat: { bold: false, fontSize: 9, foregroundColor: { red: 0.25, green: 0.28, blue: 0.33 } }, horizontalAlignment: 'LEFT', verticalAlignment: 'MIDDLE', wrapStrategy: 'WRAP', padding: { left: 8, right: 8, top: 2, bottom: 2 } } }, fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment,wrapStrategy,padding)' } },
     { updateSheetProperties: { properties: { sheetId: id, gridProperties: { frozenRowCount: 2, frozenColumnCount: 2 } }, fields: 'gridProperties(frozenRowCount,frozenColumnCount)' } },
-    { repeatCell: { range: { sheetId: id, startRowIndex: 1, endRowIndex: 2 }, cell: { userEnteredFormat: { backgroundColor: { red: 0.85, green: 0.90, blue: 0.97 }, textFormat: { bold: true, fontSize: 10 }, horizontalAlignment: 'CENTER', wrapStrategy: 'WRAP' } }, fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,wrapStrategy)' } },
+    { repeatCell: { range: { sheetId: id, startRowIndex: 1, endRowIndex: 2 }, cell: { userEnteredFormat: { backgroundColor: { red: 0.85, green: 0.90, blue: 0.97 }, textFormat: { bold: true, fontSize: 10 }, horizontalAlignment: 'CENTER', verticalAlignment: 'MIDDLE', wrapStrategy: 'WRAP' } }, fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment,wrapStrategy)' } },
     // 정렬 — 돈은 우측 · 글은 좌측 · 나머지 가운데
     ...HEAD.map((h, j) => ({ repeatCell: { range: { sheetId: id, startRowIndex: 2, endRowIndex: body.length + 3, startColumnIndex: j, endColumnIndex: j + 1 }, cell: { userEnteredFormat: { horizontalAlignment: RIGHT.includes(h) ? 'RIGHT' : LEFT.includes(h) ? 'LEFT' : 'CENTER', verticalAlignment: 'MIDDLE' } }, fields: 'userEnteredFormat(horizontalAlignment,verticalAlignment)' } })),
     ...[iBill, iColl].map((j) => ({ setDataValidation: { range: { sheetId: id, startRowIndex: 2, endRowIndex: body.length + 2, startColumnIndex: j, endColumnIndex: j + 1 }, rule: { condition: { type: 'BOOLEAN' }, strict: true, showCustomUi: true } } })),
