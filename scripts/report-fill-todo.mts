@@ -100,4 +100,36 @@ if (보강.length > 15) console.log(`   … 그 밖 ${보강.length - 15}가지`
 console.log(`\n■ ② 공급사에 받을 것 — 옵션이 빈 차 ${옵션없음.length}대`);
 for (const [k, v] of [...옵션별.entries()].sort((a, b) => b[1].length - a[1].length)) console.log(`   ${k.padEnd(12)} ${v.length}대`);
 
+/**
+ * ★**«늘었나»를 본다 — 새 차가 들어온 그 시각에 알기 위해.**
+ *
+ * 사장님 2026-09-03 「새로운 차 나오면 그걸 연동을 못 하네.」
+ *   새 차가 유입되면 라이브 차종마스터에 그 차종 행이 없어 **정제칸이 빈 채로 상품리스트에 나간다.**
+ *   마스터에 행을 «자동으로» 넣는 것은 금지다(지어내기 · 코덱스 NO-GO · 2026-08-28 사고).
+ *   대신 **「채울 것」을 매시간 갱신하고, 늘면 그 자리에서 알린다.** 사람이 채우는 일만 남긴다.
+ *
+ * 지난 회차 값과 견줘 «새로 생긴 차종»을 이름으로 집는다 — 총계만 보면 들어오고 나간 게 상쇄된다.
+ */
+const STATE = 'tmp/보강-차종마스터-지난회차.json';
+type Snap = { at: string; 차종: string[] };
+const 이름 = (g: { 제조사: string; 모델: string; 세부모델: string; 차명원문: string }) => `${g.제조사}|${g.모델}|${g.세부모델}|${g.차명원문}`;
+let 지난: Snap | null = null;
+try { 지난 = JSON.parse(readFileSync(STATE, 'utf8')) as Snap; } catch { /* 첫 실행 */ }
+const 지금차종 = 보강.map(이름);
+const 새로생김 = 지난 ? 지금차종.filter((k) => !지난!.차종.includes(k)) : [];
+writeFileSync(STATE, JSON.stringify({ at: new Date().toISOString(), 차종: 지금차종 }, null, 1));
+
+if (!지난) {
+  console.log('\n■ 늘었나 — 첫 실행이라 견줄 지난 값이 없다(다음 회차부터 잰다)');
+} else if (새로생김.length) {
+  console.log(`\n■ ★새로 생긴 «마스터에 없는 차종» ${새로생김.length}가지 — 새 차가 들어왔다`);
+  for (const k of 새로생김.slice(0, 10)) {
+    const g = 보강.find((x) => 이름(x) === k)!;
+    console.log(`   ${g.제조사} ${g.모델} ${g.세부모델} ${g.대수}대  ← 「${g.차명원문.slice(0, 40)}」`);
+  }
+  console.log('   → tmp/보강-차종마스터.tsv 를 마스터에 붙여넣으면 다음 회차에 채워진다');
+} else {
+  console.log('\n■ 늘었나 — 새로 생긴 차종 없다 ✓');
+}
+
 console.log('\n기록  tmp/보강-차종마스터.tsv · tmp/요청-공급사옵션.tsv  (탭 구분 — 시트에 그대로 붙여넣기)');
