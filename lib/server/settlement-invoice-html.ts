@@ -234,10 +234,15 @@ const ico = (k: keyof typeof ICO | string) => `<svg class="i" viewBox="0 0 24 24
  *   옛 상한(9·14·18·13)은 실제보다 낮아서 29줄이 «세 장»에 10·11·8 로 흩어졌고
  *   장마다 아래 40% 가 흰 종이였다. 지금은 «두 장»에 16·13 으로 선다.
  */
+/**
+ * ★★**짐작하지 않고 «잰» 값이다**(2026-09-02, `tmp` 계측 — 쪽마다 여유와 한 줄 높이를 실측).
+ *   한 줄 = 39.7~43.5px · 첫 장 여유 208px(12줄) · 가운데 338px(14줄) · 끝 244px(9줄).
+ *   ⇒ 첫 16 · 가운데 21 · 끝 14 · 한 장짜리 8. 사장님 2026-09-02 「아직도 약 2줄정도가 더 들어갈수 있다」.
+ */
 const CAP_SOLO = 8;
-const CAP_FIRST = 14;
-const CAP_MID = 18;
-const CAP_LAST = 11;
+const CAP_FIRST = 16;
+const CAP_MID = 21;
+const CAP_LAST = 14;
 
 /**
  * 줄을 장으로 자른다.
@@ -254,21 +259,24 @@ const CAP_LAST = 11;
 function paginate<T>(lines: T[]): T[][] {
   const n = lines.length;
   if (n <= CAP_SOLO) return [lines.slice()];
+
+  // ① 몇 장이면 담기나 — 가장 적은 장수
+  const capsFor = (p: number) => (p === 1 ? [CAP_SOLO]
+    : [CAP_FIRST, ...Array<number>(Math.max(0, p - 2)).fill(CAP_MID), CAP_LAST]);
+  let pages = 2;
+  while (capsFor(pages).reduce((a, c) => a + c, 0) < n) pages++;
+  const caps = capsFor(pages);
+
+  // ② 상한에 «비례»해 나눈다 — 쪽마다 남는 여백이 비슷해진다.
+  //    장별로 표 밖이 먹는 자리가 달라(첫 장 정보·요약 / 끝 장 계좌·맺음) 그냥 n/장수 로 나누면 한 쪽만 빈다.
+  const room = caps.reduce((a, c) => a + c, 0);
+  const take = caps.map((c) => Math.floor((n * c) / room));
+  let rest = n - take.reduce((a, c) => a + c, 0);
+  for (let i = 0; rest > 0; i = (i + 1) % pages) if (take[i] < caps[i]) { take[i]++; rest--; }
+
   const out: T[][] = [];
   let i = 0;
-  while (i < n) {
-    const first = out.length === 0;
-    // 이 쪽이 «마지막»이면 계좌·맺음이 같이 앉아 자리가 적다.
-    const capLast = first ? CAP_SOLO : CAP_LAST;
-    const cap = first ? CAP_FIRST : CAP_MID;
-    const rest = n - i;
-    const take = rest <= capLast ? rest : Math.min(rest, cap);
-    out.push(lines.slice(i, i + take));
-    i += take;
-  }
-  // ★마지막 쪽에 «한 줄만» 남으면 앞 쪽에서 하나 내려 준다 — 한 줄짜리 쪽은 흉하다.
-  const L = out.length;
-  if (L >= 2 && out[L - 1].length === 1 && out[L - 2].length > 2) out[L - 1].unshift(out[L - 2].pop() as T);
+  for (const t of take) { out.push(lines.slice(i, i + t)); i += t; }
   return out;
 }
 
@@ -492,11 +500,12 @@ export const INVOICE_CSS = `
    *   display:block 이라 칸에 자리가 남아도 «무조건» 두 줄이 됐다 — 줄마다 높이가 두 배였다.
    *   ⇒ inline 으로 눕히고 가운뎃점으로 가른다. 자리가 모자랄 때만 «자연스럽게» 넘어간다.
    */
-  .ctab .sub { display:inline; font-size:10px; color:var(--mut); font-weight:400; margin-left:6px; }
+  /** ★곁줄은 «안 접힌다» — 한 글자가 넘어가면서 줄 높이가 두 배가 되고, 그만큼 쪽이 일찍 넘어간다. */
+  .ctab .sub { display:inline; font-size:10px; color:var(--mut); font-weight:400; margin-left:6px; white-space:nowrap; }
   .ctab .sub::before { content:'·'; margin-right:6px; color:var(--faint); }
   /* ★수수료 산출조건 — 제 칸을 갖는다. 표가 스스로 «어떻게 나왔는지»를 말한다. */
   .ctab td.calc { font-size:10px; color:var(--mut); }
-  .ctab td.calc .rt { display:inline; font-size:9.5px; color:var(--faint); margin-left:6px; }
+  .ctab td.calc .rt { display:inline; font-size:9.5px; color:var(--faint); margin-left:6px; white-space:nowrap; }
   .ctab td.calc .rt::before { content:'·'; margin-right:6px; }
   .ctab tr.neg td.calc, .ctab tr.neg td.calc .rt { color:var(--neg); }
   .ctab tr.neg td, .ctab tr.neg th.rl { color:var(--neg); }
@@ -789,7 +798,7 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
       pages.length > 1 ? `${from}–${from + chunk.length - 1} / ${inv.lines.length}건` : `${plus.length}건`
     } · 단위 원</span></div>
     <table class="ctab">
-      <colgroup><col style="width:5%"><col style="width:11%"><col style="width:8%"><col><col style="width:18%"><col style="width:11%"><col style="width:10%"><col style="width:12%"></colgroup>
+      <colgroup><col style="width:4%"><col style="width:10%"><col style="width:8%"><col><col style="width:17%"><col style="width:11%"><col style="width:9%"><col style="width:11%"></colgroup>
       <thead><tr><th class="no">No.</th><th class="rl">차량번호</th><th>접수일</th><th>차량 · 계약조건</th><th>수수료 산출조건</th><th class="n">공급가액</th><th class="n">부가세</th><th class="n">합계</th></tr></thead>
       <tbody>
         ${chunk.map((l, k) => row(l, from + k)).join('')}
