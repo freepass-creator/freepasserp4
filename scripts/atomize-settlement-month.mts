@@ -68,7 +68,15 @@ const AXIS: Record<string, Partial<Atom>> = {
   '공급사만 정산': { settleTarget: '공급사만' },
   '공급사정산 완료': { settleTarget: '영업사만', settledAlready: true },
   '0.5': { settleRatio: 0.5 },
-  '후불': { billHold: true },
+  /**
+   * ⚠ **「후불」은 «청구보류»가 아니다.** 2026-09-01 에 그렇게 읽어 퍼시픽 49호3059 를
+   *   8월 청구에서 0 원으로 뺐는데, 태윤 매니저가 「퍼시픽 청구건 0원으로 되어있습니다 · 1,435,200원입니다」로
+   *   바로잡았다. 후불은 «고객이» 뒤에 내는 조건이지 «우리 청구»를 미루는 말이 아니다.
+   *   ⇒ 축으로 옮기지 않고 메모로만 남긴다.
+   */
+  '후불': { settleNote: '후불 — 고객 납부 조건. 청구는 그대로 나간다' },
+  '무보증 후불': { settleNote: '무보증 후불 — 고객 납부 조건. 청구는 그대로 나간다' },
+  '렌탈료 후불': { settleNote: '렌탈료 후불 — 고객 납부 조건. 청구는 그대로 나간다' },
   '부가세 포함': { vatIncluded: true },
   '한번에 정산': { settleNote: '한번에 정산 — 적힌 금액(수식X)이 이미 그 뜻이다' },
 };
@@ -154,10 +162,15 @@ for (let i = hi + 1; i < all.length; i++) {
   const x = all[i] || [];
   const st = S(x[C.state]);
   if (!st && !S(x[C.plate])) continue;
-  // ★시트 필터가 숨긴 줄 — 사람이 「이 달 아님」이라 한 것이다.
-  let hide = false;
-  for (const [c, set] of hidden) if (set.has(S(x[c]))) hide = true;
-  if (hide) { skipped.push(`${i + 1}행 ${S(x[C.plate]) || '(차번없음)'} — 시트 필터가 숨긴 줄「${S(x[C.memo])}」`); continue; }
+  /**
+   * ⚠⚠ **시트 필터를 «뜻으로 읽지 않는다».**
+   *   2026-09-01 에 8월 탭의 A열 필터(「공급사만 정산」 숨김)를 「이 달 아님」으로 읽고 52행을 뺐다.
+   *   태윤 매니저가 「**박지원 누락입니다 · 박지원 공급사만 정산입니다**」로 바로잡았다 —
+   *   숨긴 것은 «작업하려고» 걸어 둔 필터였지 「빼라」가 아니었다.
+   *   ⇒ 필터는 «보여주기»일 뿐이다. 한 줄도 빼지 않고 다 담는다.
+   *     (9월 탭 필터가 C열 업체명을 숨긴 것도 같은 종류였다 — 뜻이 아니라 작업 흔적이다.)
+   */
+  if (hidden.size) { /* 읽기만 하고 «거르지 않는다» */ }
 
   const memo = S(x[C.memo]);
   const ax = AXIS[memo] || {};
@@ -195,6 +208,29 @@ for (let i = hi + 1; i < all.length; i++) {
     note: AXIS[memo] ? '' : memo, sourceRow: i + 1, sourceTab: TAB,
     billMonth: st === '계약진행중' ? '' : MONTH,
   });
+}
+
+/**
+ * ★★**똑같은 줄이 두 번 있으면 하나로 접는다.**
+ *   태윤 매니저 2026-09-01 「웰릭스정산 **이경훈 중복**」 — 원본 8월 11·12행이 글자 하나 안 틀리고 같았다
+ *   (142호1065 · 이경훈 · 청구 967,200 · 지급 744,000). 그대로 두면 웰릭스에 96만을 더 청구하고
+ *   하허호에 74만을 더 준다.
+ * ⚠ **접수일까지 같아야 «중복»이다.** 같은 차가 다른 날 다시 계약될 수 있다 — 차번만으로 접으면 진짜 계약이 사라진다.
+ */
+{
+  const seen = new Map<string, Atom>();
+  const dup: string[] = [];
+  for (const a of atoms) {
+    const k = `${a.plate.replace(/\s/g, '')}|${a.receivedAt}|${a.claimWritten}|${a.payWritten}|${a.customer}`;
+    if (a.plate && seen.has(k)) { dup.push(`${a.sourceRow}행 ${a.plate} ${a.supplier} ${a.customer} — 앞줄과 «똑같다»`); continue; }
+    if (a.plate) seen.set(k, a);
+  }
+  if (dup.length) {
+    console.log(`\n   ★똑같은 줄을 접었다 ${dup.length}건`);
+    for (const d of dup) console.log(`      ${d}`);
+    const keep = new Set([...seen.values()]);
+    for (let i = atoms.length - 1; i >= 0; i -= 1) if (atoms[i].plate && !keep.has(atoms[i])) atoms.splice(i, 1);
+  }
 }
 
 // ── 기존 원자와 열쇠 맞추기 (차번|접수일 → stl_ 코드) ─────
