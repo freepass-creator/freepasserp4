@@ -52,7 +52,9 @@ const rows = (Object.values((await db.ref('v4/settlement_rows').get()).val() || 
 const claws = (Object.values((await db.ref('v4/settlement_clawbacks').get()).val() || {}) as Row[]).filter((c) => S(c.month) === MONTH);
 
 type L = { plate: string; sup: string; ch: string; model: string; product: string; term: number;
-  calc: number | null; final: number; adj: number; reason: string; basis: string; rate: string };
+  calc: number | null; final: number; adj: number; reason: string; basis: string; rate: string;
+  /** ★산출근거 — 「무엇에 무엇을 곱했나」를 사람이 읽을 수 있게 한 줄로. */
+  rule: string; how: string };
 const lines: L[] = [];
 for (const r of rows) {
   const sup = S(r.supplier) || '(미기재)'; const product = S(r.product); const term = N(r.term); const model = S(r.model);
@@ -60,16 +62,23 @@ for (const r of rows) {
   const { kind, form, fallback } = kindOf(product, model);
   const f = feeRuleFor(S(r.supplier), kind, term, form, fallback);
   const final = target === '영업사만' || r.settleExclude === true ? 0 : Math.round(N(r.claimWritten) * ratio);
-  let calc: number | null = null; let basis = ''; let rate = '';
+  let calc: number | null = null; let basis = ''; let rate = ''; let rule = ''; let how = '';
+  if (f) rule = `${f.supplier} · ${f.kind}${f.term ? ` ${f.term}개월` : ' 기간무관'}${f.form ? ` · ${f.form}` : ''}`;
   if (f && f.auto) {
     const base = f.basis === '정액' ? 0 : (f.basis === '차량가액' ? N(r.price) : N(r.rent) * term);
     calc = target === '영업사만' ? 0 : Math.round((f.basis === '정액' ? Number(f.claim) : base * Number(f.claim)) * ratio);
     basis = f.basis;
     rate = typeof f.claim === 'number' && f.claim < 1 ? `${(Number(f.claim) * 100).toFixed(2)}%` : won(Number(f.claim));
-  } else if (f) { basis = f.basis; rate = String(f.claim); } else { basis = '표에 없음'; }
+    /** ★산출근거 — 사람이 «계산기로 따라 칠 수 있게» 식을 그대로 적는다. 결과만 있으면 확인이 안 된다. */
+    how = f.basis === '정액' ? `건당 ${won(Number(f.claim))}`
+      : f.basis === '차량가액' ? `차량가액 ${won(N(r.price))} × ${rate}`
+        : `렌탈료 ${won(N(r.rent))} × ${term}개월 × ${rate}`;
+    if (ratio !== 1) how += ` × 비율 ${ratio}`;
+    if (target === '영업사만') how = '공급사 청구 없음 — 영업사만 정산';
+  } else if (f) { basis = f.basis; rate = String(f.claim); how = `표가 「${f.claim}」 — 기계가 한 값으로 못 낸다`; } else { basis = '표에 없음'; how = '수수료표에 그 공급사·갈래가 없다'; }
   lines.push({
     plate: S(r.plate) || '(차번없음)', sup, ch: S(r.channel) || '(미기재)', model, product, term,
-    calc, final, adj: calc === null ? 0 : final - calc,
+    calc, final, adj: calc === null ? 0 : final - calc, rule, how,
     reason: S(r.adjustReason) || S(r.settleNote) || S(r.note) || (target !== '양쪽' ? target : ''),
     basis, rate,
   });
@@ -77,6 +86,7 @@ for (const r of rows) {
 for (const c of claws) lines.push({
   plate: S(c.plate), sup: S(c.supplier) || '(미기재)', ch: S(c.channel) || '(미기재)', model: '', product: '환수', term: 0,
   calc: -N(c.supplierAmt), final: -N(c.supplierAmt), adj: 0, reason: `환수 — ${S(c.reason) || '사유 미기재'}`, basis: '환수', rate: '',
+  rule: '환수', how: '환수 — 공급사·영업자 양쪽 마이너스',
 });
 
 // ── 업체별로 접는다 ──
@@ -93,17 +103,29 @@ for (const [sup, ls] of sups) {
   const fin = ls.reduce((a, b) => a + b.final, 0);
   const adj = fin - calc; TC += fin; TA += adj;
   body.push([sup, ls.length, calc, adj || '', fin, Math.round(fin * VAT), fin + Math.round(fin * VAT), '', '']);
-  // 가감이 있는 줄만 아래에 자세히 — 확인할 곳만 보여 준다
-  for (const l of ls.filter((x) => x.adj !== 0)) {
-    detail.push([`   └ ${l.plate}`, `${l.model} ${l.product}${l.term || ''}`, l.calc ?? '', l.adj, l.final, '', '',
-      '', l.reason || '★사유가 비어 있습니다 — 왜 다른지 적어 주세요']);
+  /**
+   * ★**전 줄에 산출근거를 편다**(사장님 2026-09-01 「산출근거를 근데 사람이 확인은 해야지」).
+   *   결과만 있으면 «맞는지»를 사람이 못 본다. 「무엇에 무엇을 곱했나」가 있어야 계산기로 따라 칠 수 있다.
+   *   가감이 있는 줄만 보여 주면 «표대로인 줄이 정말 표대로인지»를 아무도 못 본다.
+   */
+  for (const l of ls) {
+    detail.push([l.plate, `${l.model} ${l.product}${l.term || ''}`.trim(), l.rule, l.how,
+      l.calc ?? '', l.adj || '', l.final, l.adj ? (l.reason || '★사유 없음 — 왜 다른지 적어 주세요') : '', '']);
   }
 }
 console.log(`\n■ ${MONTH} 업체별 산출확인 — 공급사 ${sups.length}곳 · 표 산출과 다른 줄 ${lines.filter((l) => l.adj !== 0).length}건 ${APPLY ? '(반영)' : '(대조만)'}\n`);
 console.log('   공급사          건    표 산출        가감        최종 청구');
 for (const b of body) console.log(`   ${String(b[0]).padEnd(14)} ${String(b[1]).padStart(2)} ${won(Number(b[2])).padStart(12)} ${(b[3] ? won(Number(b[3])) : '—').padStart(11)} ${won(Number(b[4])).padStart(13)}`);
 console.log(`   ${'합계'.padEnd(14)}    ${won(TC - TA).padStart(12)} ${(TA ? won(TA) : '—').padStart(11)} ${won(TC).padStart(13)}`);
-if (detail.length) { console.log('\n   ★확인이 필요한 줄'); for (const d of detail) console.log(`   ${String(d[0]).padEnd(14)} ${String(d[1]).padEnd(20)} 표 ${won(Number(d[2])).padStart(11)} → 최종 ${won(Number(d[4])).padStart(11)}  ${d[8]}`); }
+const odd = lines.filter((l) => l.adj !== 0);
+if (odd.length) {
+  console.log('\n   ★표 산출과 다른 줄 — 산출근거를 같이 본다');
+  for (const l of odd) {
+    console.log(`   ${l.plate.padEnd(11)} ${l.sup.padEnd(9)} ${l.rule}`);
+    console.log(`      근거  ${l.how}  =  ${won(l.calc ?? 0)}`);
+    console.log(`      최종  ${won(l.final)}  (가감 ${won(l.adj)})   사유 ${l.reason || '★없음 — 물어볼 자리'}`);
+  }
+}
 if (!APPLY) { console.log('\n※ dry-run — 아무것도 안 썼다. --apply 로 찍는다.\n'); process.exit(0); }
 
 // ── 탭에 찍는다 ──
@@ -122,13 +144,13 @@ if (!prop) {
 if (!prop) process.exit(1);
 const about = `${MONTH} 업체별 산출확인 — 박태윤 매니저님 확인 부탁드립니다. `
   + '「표 산출」은 원자(차량가액·대여료·기간)에 수수료표를 걸어 기계가 낸 값이고, 「최종 청구」는 실제로 나갈 금액입니다. '
-  + '「가감」이 «—」이면 표대로라 볼 것이 없습니다. 숫자가 있는 줄만 아래에 자세히 폈습니다 — 그 줄만 봐 주시면 됩니다. '
+  + '「가감」이 «—」이면 표대로입니다. ★아래에 «전 줄의 산출근거»를 폈습니다 — 「무엇에 무엇을 곱했는지」가 적혀 있으니 계산기로 따라 쳐 보실 수 있습니다. '
   + '★「가감」과 「사유」는 기계가 산출해 넣은 것입니다 — 맞으면 「확인」에 ○, 다르면 맞는 금액과 이유를 오른쪽에 적어 주세요.';
 const total = ['합계', lines.length, TC - TA, TA || '', TC, Math.round(TC * VAT), TC + Math.round(TC * VAT), '', ''];
 
 await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${LEDGER}/values/${encodeURIComponent(`'${TAB}'!A1:Z300`)}:clear`, { method: 'POST', headers: { Authorization: `Bearer ${await tok()}`, 'Content-Type': 'application/json' }, body: '{}' });
-const values = [[TAB, about], HEAD, ...body, total, [], ['★ 표 산출과 «다른» 줄 — 여기만 봐 주시면 됩니다'],
-  ['차량번호', '차량·상품', '표 산출', '가감', '최종 청구', '', '', '확인', '사유 / 맞는 금액'], ...detail];
+const values = [[TAB, about], HEAD, ...body, total, [], ['★ 산출근거 — 한 줄씩 «어떻게» 나온 값인지'],
+  ['차량번호', '차량·상품', '적용한 표 규칙', '산출근거 (이대로 계산했습니다)', '표 산출', '가감', '최종 청구', '가감 사유', '확인'], ...detail];
 const w = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${LEDGER}/values/${encodeURIComponent(`'${TAB}'!A1`)}?valueInputOption=RAW`, {
   method: 'PUT', headers: { Authorization: `Bearer ${await tok()}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ values }),
 });
@@ -137,6 +159,7 @@ if (!w.ok) process.exit(1);
 
 const id = prop.sheetId; const last = body.length + 3; const dHead = last + 3;
 const money = [2, 3, 4, 5, 6];
+// ★아래 산출근거 표는 열 뜻이 다르다 — 표산출4·가감5·최종6 이라 위와 겹친다(그대로 맞다)
 const reqs: Record<string, unknown>[] = [
   { unmergeCells: { range: { sheetId: id } } },
   { mergeCells: { range: { sheetId: id, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 1, endColumnIndex: HEAD.length }, mergeType: 'MERGE_ALL' } },
