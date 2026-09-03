@@ -185,7 +185,7 @@ const payShow = (v: number | string): string => {
  *   「수수료 탭 뭐여 ㅡㅡ;;; 본거 맞아??」). 안 본 채로 찍은 내 잘못이다.
  *
  * ★채널이 묻는 것은 하나다 — **「이걸 팔면 얼마 받나」**. 그래서 세 칸이면 족하다.
- *   무엇을 팔면 │ 이렇게 드립니다 │ 예를 들면
+ *   상품 구분 │ 지급 수수료 │ 산출 예시
  */
 /** 은/는 — 받침이 있으면 「은」. 「손오공 는」 같은 말이 나가면 그 자리에서 신뢰가 깎인다. */
 const eun = (w: string) => {
@@ -203,8 +203,8 @@ const HOWMUCH = (r: FeeRule) => {
   return p;
 };
 const EXAMPLE = (r: FeeRule) => {
-  if (typeof r.pay !== 'number') return r.auto ? '' : '영업자와 조율해 정합니다';
-  if (r.basis === '정액') return '건수대로 드립니다';
+  if (typeof r.pay !== 'number') return r.auto ? '' : '영업자 조율';
+  if (r.basis === '정액') return '';
   if (r.basis === '차량가액') return `차량가액 4,000만원이면  ${won(40_000_000 * r.pay)}원`;
   if (r.basis === '대여료×기간' && r.term) return `월 80만원 × ${r.term}개월이면  ${won(800_000 * r.term * r.pay)}원`;
   return '';
@@ -224,8 +224,16 @@ export async function ensureFeeTab(tok: Tok, bookId: string): Promise<boolean> {
 
   /** 공급사별 «규칙 묶음»을 지문으로 만든다 — 지문이 같으면 같은 조건이다. */
   const sig = (r: FeeRule) => `${KIND(r)}\u0001${HOWMUCH(r)}`;
+  /**
+   * ★**판매하지 않는 곳은 표에서 버린다** — 사장님 2026-09-03 「스위치는 판매 안하니까 그냥 빼」.
+   *   수수료표에는 남아 있지만 영업채널이 팔 수 없는 곳이다. 보이면 「이건 왜 있나」가 된다.
+   */
+  const NOT_SOLD = ['스위치'];
   const bySup = new Map<string, FeeRule[]>();
-  for (const r of FEE_RULES) bySup.set(r.supplier, [...(bySup.get(r.supplier) || []), r]);
+  for (const r of FEE_RULES) {
+    if (NOT_SOLD.some((n) => r.supplier.includes(n))) continue;
+    bySup.set(r.supplier, [...(bySup.get(r.supplier) || []), r]);
+  }
   const finger = new Map<string, string>();
   for (const [sup, rs] of bySup) finger.set(sup, rs.map(sig).sort().join('\u0002'));
   const groups = new Map<string, string[]>();
@@ -234,11 +242,16 @@ export async function ensureFeeTab(tok: Tok, bookId: string): Promise<boolean> {
   const stdRules = bySup.get(stdSups[0]) || [];
   const others = [...bySup.keys()].filter((s) => finger.get(s) !== stdFinger);
 
-  const HEAD = ['무엇을 팔면', '이렇게 드립니다', '예를 들면'];
+  /**
+   * ★**머리는 «이름», 본문은 «문장»** — 사장님 2026-09-03 「무엇을 팔면 / 이렇게 드립니다 … 오글거린다」.
+   *   표 머리에 말을 붙이면 느끼하다. 머리글은 라벨이지 인사말이 아니다.
+   */
+  const HEAD = ['상품 구분', '지급 수수료', '산출 예시'];
   const rows: (string | number)[][] = [
-    [`영업수수료 — ${CORP.name} 가 드리는 값입니다`, '', ''],
+    [`영업수수료 지급 기준 — ${CORP.name}   ·   요율은 모두 «부가세 별도»입니다`, '', ''],
     HEAD,
-    [`■ 아래 ${stdSups.length}곳은 조건이 같습니다`, stdSups.join(' · '), ''],
+    [`■ 프리패스 표준 수수료 정책 — ${stdSups.length}개사 공통`, '', ''],
+    ['해당 공급사', stdSups.join(' · '), ''],
     ...stdRules.map((r) => [KIND(r), HOWMUCH(r), EXAMPLE(r)]),
   ];
   /**
@@ -260,13 +273,13 @@ export async function ensureFeeTab(tok: Tok, bookId: string): Promise<boolean> {
      *   안 적으면 구독 다섯 줄만 보고 「재렌트는 어떻게 되나」를 되묻는다.
      */
     const only = [...new Set(diff.map((r) => r.kind))].join('·');
-    rows.push([same
-      ? `■ ${sup} — ${only}만 조건이 다릅니다   (나머지는 위 표준과 같습니다)`
-      : `■ ${sup} — 조건이 다릅니다`, '', '']);
+    rows.push([`■ ${sup} — 예외 조건${same ? '   (그 외는 프리패스 표준 수수료 정책과 동일)' : ''}`, '', '']);
     for (const r of (diff.length ? diff : rs)) rows.push([KIND(r), HOWMUCH(r), EXAMPLE(r)]);
   }
   rows.push(['', '', '']);
-  rows.push(['여기 적힌 값으로 매달 정산해 드립니다. 다르면 알려 주시면 고쳐 드립니다.', '', '']);
+  rows.push(['※ 위 요율은 부가세 별도입니다 — 정산할 때 부가세 10%를 더해 드립니다.', '', '']);
+  rows.push(['※ 「VAT 포함」이라 적힌 줄은 그 값이 이미 부가세를 담고 있는 것입니다.', '', '']);
+  rows.push(['※ 이 기준으로 매달 정산합니다. 다른 부분이 있으면 알려 주세요.', '', '']);
 
   const id = await addTab(tok, bookId, TAB, 2, rows.length + 10, 3);
   if (id === undefined) return false;
@@ -320,7 +333,7 @@ export async function ensureCompanyTab(tok: Tok, bookId: string): Promise<boolea
   /** [항목, 설명] — 항목이 「①②③」로 시작하면 섹션 머리. */
   const FIELDS: [string, string][] = [
     ['① 사업자등록증 정보', '사업자등록증에 적힌 대로 적어 주세요. 정산서 「지급처」 칸에 그대로 실립니다.'],
-    ['상호(법인명)', '예: 주식회사 하허호'],
+    ['상호(법인명)', '예: 주식회사 ○○모빌리티'],
     ['사업자등록번호', '숫자와 - 만 · 예: 110-81-83379'],
     ['대표자', '예: 홍길동'],
     ['사업장 주소', '도로명 주소'],
