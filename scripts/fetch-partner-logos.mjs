@@ -30,7 +30,8 @@ const SITES = [
   ['우리캐피탈', 'https://wooricap-rentacar.com'],
   ['스타스카이', 'https://sratskyrent.wixsite.com/starskyrentcar'],
   ['하허호', 'https://xn--o39aj0d24m.com'],
-  ['렌트야', 'https://nae-cha.com'],
+  // ★2026-09-03 — nae-cha.com 은 주소가 안 풀린다. F02 거래처시트가 적어 둔 주소로 바꾼다.
+  ['렌트야', 'https://sggo.kr'],
   ['카핑', 'https://carping1.com'],
 ];
 const ROOT = 'assets/partner-logo/_후보';
