@@ -265,24 +265,21 @@ const CAP_LAST = 28;
 function paginate<T>(lines: T[]): T[][] {
   const n = lines.length;
   if (n <= CAP_SOLO) return [lines.slice()];
-
-  // ① 몇 장이면 담기나 — 가장 적은 장수
-  const capsFor = (p: number) => (p === 1 ? [CAP_SOLO]
-    : [CAP_FIRST, ...Array<number>(Math.max(0, p - 2)).fill(CAP_MID), CAP_LAST]);
-  let pages = 2;
-  while (capsFor(pages).reduce((a, c) => a + c, 0) < n) pages++;
-  const caps = capsFor(pages);
-
-  // ② 상한에 «비례»해 나눈다 — 쪽마다 남는 여백이 비슷해진다.
-  //    장별로 표 밖이 먹는 자리가 달라(첫 장 정보·요약 / 끝 장 계좌·맺음) 그냥 n/장수 로 나누면 한 쪽만 빈다.
-  const room = caps.reduce((a, c) => a + c, 0);
-  const take = caps.map((c) => Math.floor((n * c) / room));
-  let rest = n - take.reduce((a, c) => a + c, 0);
-  for (let i = 0; rest > 0; i = (i + 1) % pages) if (take[i] < caps[i]) { take[i]++; rest--; }
-
   const out: T[][] = [];
   let i = 0;
-  for (const t of take) { out.push(lines.slice(i, i + t)); i += t; }
+  while (i < n) {
+    const first = out.length === 0;
+    // 이 장이 «마지막»이면 계좌·맺음 인사가 같이 앉아 자리가 적다.
+    const capLast = first ? CAP_SOLO : CAP_LAST;
+    const rest = n - i;
+    if (rest <= capLast) { out.push(lines.slice(i)); break; }   // 여기서 끝난다
+    let take = Math.min(rest, first ? CAP_FIRST : CAP_MID);     // 아니면 꽉 채운다
+    // ★마지막 장에 «한두 줄»만 남기지 않는다 — 그건 장이 아니라 자투리다.
+    const left = rest - take;
+    if (left > 0 && left < 3) take -= 3 - left;
+    out.push(lines.slice(i, i + take));
+    i += take;
+  }
   return out;
 }
 

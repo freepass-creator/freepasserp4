@@ -34,6 +34,7 @@ const SITES = [
   // ★2026-09-03 — nae-cha.com 은 주소가 안 풀린다. F02 거래처시트가 적어 둔 주소로 바꾼다.
   ['렌트야', 'https://sggo.kr'],
   ['카핑', 'https://carping1.com'],
+  ['오토원트', 'https://www.autowant.co.kr'],  // 사장님 2026-09-03
 ];
 const ROOT = 'assets/partner-logo/_후보';
 const want = process.argv.slice(2);
