@@ -498,6 +498,14 @@ export const INVOICE_CSS = `
   .stab th:first-child { border-top-left-radius:var(--r-box); text-align:left; }
   .stab th:last-child { border-top-right-radius:var(--r-box); }
   /**
+   * ★**네 모서리가 다 둥글어야 «한 덩어리»다** — 사장님 2026-09-03 「청구금액쪽 좌하단이 뾰족하네」.
+   *   ⚠ 요약표를 내역표 짜임으로 다시 쓰면서 아래 왼쪽 라운드를 빠뜨렸다. 오른쪽만 둥글면
+   *     표가 한쪽으로 기울어 보인다 — 바탕색을 깔아 놓으니 더 도드라졌다.
+   */
+  .stab tbody tr:last-child td:first-child { border-bottom-left-radius:var(--r-box); }
+  /** ★셈 표시(①−②)는 머리글에 «작게» 붙는다 — 칸 이름을 밀어내지 않는다. */
+  .stab th em { font-style:normal; font-size:8.5px; font-weight:600; opacity:.72; margin-left:4px; }
+  /**
    * ★**아래 합계줄과 «같은 바탕»을 준다** — 사장님 2026-09-03
    *   「라인 없는 청구금액은 살짝 배경색을 하늘색으로 살짝 줘서 끝단과 동일하다라는걸 보여주면 좋겠네」.
    *   맞다. 위의 「청구 금액」과 아래 「합계」는 «같은 숫자»다. 같은 바탕을 깔면 눈이 그걸 잇는다.
@@ -771,7 +779,13 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
         <col style="width:13%"><col style="width:11%"><col style="width:13%">
       </colgroup>
       <thead><tr>
-        <th>구분</th>${inv.clawback ? '<th>정산 수수료</th><th>환수</th>' : ''}<th>공급가액</th><th>부가세</th>
+        <!--
+          ★**셈에 번호를 붙인다** — 사장님 2026-09-03 「정산수수료 1 · 환수 2 · 공급가액(1-2)
+            이거 하잖아 보통 동그란숫자로 해서」. 계산서에서 늘 쓰는 표기다.
+            번호는 «셈에 들어가는 칸»에만 붙인다 — 부가세·청구금액까지 붙이면 번호가 다섯이라 되레 헷갈린다.
+        -->
+        <th>구분</th>${inv.clawback ? '<th>① 정산 수수료</th><th>② 환수</th>' : ''}
+        <th>${inv.clawback ? '③ 공급가액<em>①−②</em>' : '공급가액'}</th><th>부가세</th>
         <th>${claim ? '청구 금액' : '지급 금액'}</th>
       </tr></thead>
       <tbody><tr>
