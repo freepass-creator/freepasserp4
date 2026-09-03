@@ -135,13 +135,6 @@ export async function ensureGuideTab(tok: Tok, bookId: string): Promise<boolean>
   const heads = CHANNEL_GUIDE.map(([a], i) => (a.startsWith('■') ? g0 + i : -1)).filter((i) => i >= 0);
   await format(tok, bookId, [
     ...dress(id, 3, [170, 560, 330]),
-    ...heads.flatMap((r) => [
-      { mergeCells: { range: { sheetId: id, startRowIndex: r, endRowIndex: r + 1, startColumnIndex: 0, endColumnIndex: 3 }, mergeType: 'MERGE_ALL' } },
-      { repeatCell: { range: { sheetId: id, startRowIndex: r, endRowIndex: r + 1, startColumnIndex: 0, endColumnIndex: 3 },
-        cell: { userEnteredFormat: { backgroundColor: NAVY, textFormat: { bold: true, fontSize: 11, foregroundColor: { red: 1, green: 1, blue: 1 } }, verticalAlignment: 'MIDDLE', padding: { left: 10, right: 10, top: 2, bottom: 2 } } },
-        fields: 'userEnteredFormat(backgroundColor,textFormat,verticalAlignment,padding)' } },
-      { updateDimensionProperties: { range: { sheetId: id, dimension: 'ROWS', startIndex: r, endIndex: r + 1 }, properties: { pixelSize: 34 }, fields: 'pixelSize' } },
-    ]),
     { repeatCell: { range: { sheetId: id, startRowIndex: g0, endRowIndex: rows.length, startColumnIndex: 0, endColumnIndex: 1 },
       cell: { userEnteredFormat: { textFormat: { bold: true }, verticalAlignment: 'MIDDLE', horizontalAlignment: 'LEFT', wrapStrategy: 'WRAP' } },
       fields: 'userEnteredFormat(textFormat,verticalAlignment,horizontalAlignment,wrapStrategy)' } },
@@ -151,6 +144,14 @@ export async function ensureGuideTab(tok: Tok, bookId: string): Promise<boolean>
     { repeatCell: { range: { sheetId: id, startRowIndex: g0, endRowIndex: rows.length, startColumnIndex: 2, endColumnIndex: 3 },
       cell: { userEnteredFormat: { verticalAlignment: 'MIDDLE', wrapStrategy: 'WRAP', textFormat: { fontSize: 9, foregroundColor: { red: 0.42, green: 0.45, blue: 0.5 } } } },
       fields: 'userEnteredFormat(verticalAlignment,wrapStrategy,textFormat)' } },
+    /** ★섹션 머리는 «맨 나중»에 — 먼저 칠하면 뒤의 칸 서식이 덮어 남색 위 검은 글씨가 된다.*/
+    ...heads.flatMap((r) => [
+      { mergeCells: { range: { sheetId: id, startRowIndex: r, endRowIndex: r + 1, startColumnIndex: 0, endColumnIndex: 3 }, mergeType: 'MERGE_ALL' } },
+      { repeatCell: { range: { sheetId: id, startRowIndex: r, endRowIndex: r + 1, startColumnIndex: 0, endColumnIndex: 3 },
+        cell: { userEnteredFormat: { backgroundColor: NAVY, textFormat: { bold: true, fontSize: 11, foregroundColor: { red: 1, green: 1, blue: 1 } }, verticalAlignment: 'MIDDLE', padding: { left: 10, right: 10, top: 2, bottom: 2 } } },
+        fields: 'userEnteredFormat(backgroundColor,textFormat,verticalAlignment,padding)' } },
+      { updateDimensionProperties: { range: { sheetId: id, dimension: 'ROWS', startIndex: r, endIndex: r + 1 }, properties: { pixelSize: 34 }, fields: 'pixelSize' } },
+    ]),
   ]);
   return true;
 }
@@ -250,18 +251,26 @@ export async function ensureFeeTab(tok: Tok, bookId: string): Promise<boolean> {
   const heads = rows.map((r, i) => (String(r[0]).startsWith('■') ? i : -1)).filter((i) => i > 0);
   await format(tok, bookId, [
     ...dress(id, 3, [230, 300, 330]),
-    ...heads.flatMap((r) => [
-      { repeatCell: { range: { sheetId: id, startRowIndex: r, endRowIndex: r + 1, startColumnIndex: 0, endColumnIndex: 3 },
-        cell: { userEnteredFormat: { backgroundColor: NAVY, textFormat: { bold: true, fontSize: 11, foregroundColor: { red: 1, green: 1, blue: 1 } }, verticalAlignment: 'MIDDLE', padding: { left: 10, right: 10, top: 2, bottom: 2 } } },
-        fields: 'userEnteredFormat(backgroundColor,textFormat,verticalAlignment,padding)' } },
-      { updateDimensionProperties: { range: { sheetId: id, dimension: 'ROWS', startIndex: r, endIndex: r + 1 }, properties: { pixelSize: 34 }, fields: 'pixelSize' } },
-    ]),
     { repeatCell: { range: { sheetId: id, startRowIndex: 2, endRowIndex: rows.length, startColumnIndex: 0, endColumnIndex: 2 },
       cell: { userEnteredFormat: { verticalAlignment: 'MIDDLE', wrapStrategy: 'WRAP', textFormat: { bold: true } } }, fields: 'userEnteredFormat(verticalAlignment,wrapStrategy,textFormat)' } },
     /** ★「예를 들면」은 곁다리 — 흐리게 두어 «얼마»가 먼저 읽히게 한다. */
     { repeatCell: { range: { sheetId: id, startRowIndex: 2, endRowIndex: rows.length, startColumnIndex: 2, endColumnIndex: 3 },
       cell: { userEnteredFormat: { verticalAlignment: 'MIDDLE', wrapStrategy: 'WRAP', textFormat: { fontSize: 9, bold: false, foregroundColor: { red: 0.42, green: 0.45, blue: 0.5 } } } },
       fields: 'userEnteredFormat(verticalAlignment,wrapStrategy,textFormat)' } },
+    /**
+     * ★★★**섹션 머리는 «맨 나중»에 칠한다.**
+     *   먼저 칠하면 뒤에 오는 «칸 서식»(굵은 검은 글씨 · 흐린 작은 글씨)이 그 줄까지 덮어
+     *   남색 바탕에 검은 글씨가 된다 — 그냥 «안 보인다»(실측 2026-09-03 사장님 화면).
+     *   정산탭에서 「차량번호」가 남색 위 남색이 됐던 것과 «같은 실수»다. 순서가 곧 규칙이다.
+     * ★글은 A칸에만 두고 A:C 를 병합한다 — 길어도 접히지 않고 끝까지 넘어간다.
+     */
+    ...heads.flatMap((r) => [
+      { mergeCells: { range: { sheetId: id, startRowIndex: r, endRowIndex: r + 1, startColumnIndex: 0, endColumnIndex: 3 }, mergeType: 'MERGE_ALL' } },
+      { repeatCell: { range: { sheetId: id, startRowIndex: r, endRowIndex: r + 1, startColumnIndex: 0, endColumnIndex: 3 },
+        cell: { userEnteredFormat: { backgroundColor: NAVY, textFormat: { bold: true, fontSize: 11, foregroundColor: { red: 1, green: 1, blue: 1 } }, verticalAlignment: 'MIDDLE', horizontalAlignment: 'LEFT', wrapStrategy: 'OVERFLOW_CELL', padding: { left: 10, right: 10, top: 2, bottom: 2 } } },
+        fields: 'userEnteredFormat(backgroundColor,textFormat,verticalAlignment,horizontalAlignment,wrapStrategy,padding)' } },
+      { updateDimensionProperties: { range: { sheetId: id, dimension: 'ROWS', startIndex: r, endIndex: r + 1 }, properties: { pixelSize: 34 }, fields: 'pixelSize' } },
+    ]),
   ]);
   return true;
 }
@@ -316,12 +325,6 @@ export async function ensureCompanyTab(tok: Tok, bookId: string): Promise<boolea
   const inputs = FIELDS.map(([a], i) => (/^[①②③]/.test(a) ? -1 : g0 + i)).filter((i) => i >= 0);
   await format(tok, bookId, [
     ...dress(id, 3, [190, 320, 460]),
-    ...heads.flatMap((r) => [
-      { repeatCell: { range: { sheetId: id, startRowIndex: r, endRowIndex: r + 1, startColumnIndex: 0, endColumnIndex: 3 },
-        cell: { userEnteredFormat: { backgroundColor: NAVY, textFormat: { bold: true, fontSize: 11, foregroundColor: { red: 1, green: 1, blue: 1 } }, verticalAlignment: 'MIDDLE', padding: { left: 10, right: 10, top: 2, bottom: 2 } } },
-        fields: 'userEnteredFormat(backgroundColor,textFormat,verticalAlignment,padding)' } },
-      { updateDimensionProperties: { range: { sheetId: id, dimension: 'ROWS', startIndex: r, endIndex: r + 1 }, properties: { pixelSize: 34 }, fields: 'pixelSize' } },
-    ]),
     /** ★적을 칸은 «노랗게» — 어디에 적어야 하나를 묻지 않게 한다. */
     ...inputs.map((r) => ({ repeatCell: { range: { sheetId: id, startRowIndex: r, endRowIndex: r + 1, startColumnIndex: 1, endColumnIndex: 2 },
       cell: { userEnteredFormat: { backgroundColor: { red: 1, green: 0.98, blue: 0.82 }, textFormat: { bold: true } } }, fields: 'userEnteredFormat(backgroundColor,textFormat)' } })),
@@ -331,6 +334,13 @@ export async function ensureCompanyTab(tok: Tok, bookId: string): Promise<boolea
     { repeatCell: { range: { sheetId: id, startRowIndex: g0, endRowIndex: rows.length, startColumnIndex: 2, endColumnIndex: 3 },
       cell: { userEnteredFormat: { verticalAlignment: 'MIDDLE', wrapStrategy: 'WRAP', textFormat: { fontSize: 9, foregroundColor: { red: 0.42, green: 0.45, blue: 0.5 } } } },
       fields: 'userEnteredFormat(verticalAlignment,wrapStrategy,textFormat)' } },
+    /** ★섹션 머리는 «맨 나중»에 — 먼저 칠하면 뒤의 칸 서식이 덮어 남색 위 검은 글씨가 된다.*/
+    ...heads.flatMap((r) => [
+      { repeatCell: { range: { sheetId: id, startRowIndex: r, endRowIndex: r + 1, startColumnIndex: 0, endColumnIndex: 3 },
+        cell: { userEnteredFormat: { backgroundColor: NAVY, textFormat: { bold: true, fontSize: 11, foregroundColor: { red: 1, green: 1, blue: 1 } }, verticalAlignment: 'MIDDLE', padding: { left: 10, right: 10, top: 2, bottom: 2 } } },
+        fields: 'userEnteredFormat(backgroundColor,textFormat,verticalAlignment,padding)' } },
+      { updateDimensionProperties: { range: { sheetId: id, dimension: 'ROWS', startIndex: r, endIndex: r + 1 }, properties: { pixelSize: 34 }, fields: 'pixelSize' } },
+    ]),
   ]);
   return true;
 }
