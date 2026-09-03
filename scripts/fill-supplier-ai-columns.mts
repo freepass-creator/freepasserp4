@@ -89,19 +89,7 @@ const fuelFromCarName = (name: string) => {
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 const gT = (await new JWT({ email: sa.client_email, key: sa.private_key,
   scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive'], subject: 'pyh@teamjpk.com' }).getAccessToken()).token;
-
-// ★차종마스터 단일정본 = RTDB vehicle_master. 파일 사본 드리프트를 없앤다. 통째로 한 번만 읽는다(저비용).
-//   RTDB 실패·빈값이면 위 파일 폴백을 그대로 쓴다(파이프라인 안 멈추게).
-try {
-  const { initializeApp, cert, getApps } = await import('firebase-admin/app');
-  const { getDatabase } = await import('firebase-admin/database');
-  const { masterEntriesFromRtdbValue } = await import('../lib/domain/vehicle-master-rtdb');
-  const app = getApps().find((a) => a.name === 'fill-master')
-    || initializeApp({ credential: cert({ projectId: sa.project_id, clientEmail: sa.client_email, privateKey: String(sa.private_key).replace(/\\n/g, '\n') }), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' }, 'fill-master');
-  const rtdb = masterEntriesFromRtdbValue((await getDatabase(app).ref('vehicle_master').get()).val());
-  if (rtdb.length) { MASTER = rtdb; console.log(`  차종마스터 = RTDB 정본 ${MASTER.length}원자`); }
-  else console.log('  ⚠ 차종마스터 RTDB 빈값 — 파일 폴백');
-} catch (e) { console.log(`  ⚠ 차종마스터 RTDB 실패 — 파일 폴백 (${(e as Error)?.message?.slice(0, 60)})`); }
+// ★차종마스터 = 파일(vehicle-master.json). 정적 데이터라 RTDB 안 쓴다(2026-09-03 사장님 — 실시간 아니면 RTDB 비용만 남는다).
 
 /** ⚠ 18곳을 연달아 읽으면 429 가 난다. 재시도가 없으면 그 집이 «안 채워진 채» 조용히 넘어간다. */
 const api = async (url: string, init?: RequestInit): Promise<Rec> => {
