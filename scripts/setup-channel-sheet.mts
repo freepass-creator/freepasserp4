@@ -93,6 +93,8 @@ console.log(`   ${await ensureCompanyTab(tok, id) ? '+ 「회사정보」 만듦
 const now = new Date();
 const NEXT = (process.argv.find((a) => a.startsWith('--month=')) || '').slice('--month='.length)
   || `${new Date(now.getFullYear(), now.getMonth() + 1, 1).getFullYear()}-${String(new Date(now.getFullYear(), now.getMonth() + 1, 1).getMonth() + 1).padStart(2, '0')}`;
+/** ★다음 달 탭은 «빈 자리»라 --redo 에서 같이 다시 짓는다(값이 든 달 탭은 안 건드린다). */
+await redo(`${NEXT.slice(2, 4)}년${NEXT.slice(5)}월 정산`);
 console.log(`   ${await ensureMonthTab(tok, id, NEXT) ? `+ 「${NEXT.slice(2, 4)}년${NEXT.slice(5)}월 정산」 미리 만듦` : `○ 「${NEXT.slice(2, 4)}년${NEXT.slice(5)}월 정산」 있음 — 손대지 않음`}`);
 
 /** ★새 시트에 딸려 오는 빈 「시트1」은 값이 없을 때만 걷는다. */
@@ -107,6 +109,23 @@ if (blank && (m.sheets || []).length > 1) {
       body: JSON.stringify({ requests: [{ deleteSheet: { sheetId: blank.properties.sheetId } }] }) });
   }
 }
+
+/**
+ * ★★**달별 정산 탭을 «달력 차례»로 세운다.**
+ *   9월을 미리 만들고 8월을 나중에 붙였더니 9월이 앞에 섰다 — 차례가 곧 달력이라는 뜻이 깨진다.
+ *   매번 끝에서 한 번 줄을 세운다.
+ */
+const fin = await (await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${id}?fields=sheets.properties(sheetId,index,title)`, { headers: { Authorization: `Bearer ${await tok()}` } })).json() as {
+  sheets?: { properties: { sheetId: number; index: number; title: string } }[] };
+const months = (fin.sheets || []).filter((s) => /^\d\d년\d\d월 정산/.test(s.properties.title))
+  .sort((a, b) => a.properties.title.localeCompare(b.properties.title));
+const base = (fin.sheets || []).length - months.length;
+for (const [k, sh] of months.entries()) {
+  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${id}:batchUpdate`, {
+    method: 'POST', headers: { Authorization: `Bearer ${await tok()}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requests: [{ updateSheetProperties: { properties: { sheetId: sh.properties.sheetId, index: base + k + 1 }, fields: 'index' } }] }) });
+}
+if (months.length > 1) console.log(`   ↔ 달 탭 차례 — ${months.map((s) => s.properties.title).join(' → ')}`);
 
 console.log(`\n   https://docs.google.com/spreadsheets/d/${id}\n`);
 process.exit(0);

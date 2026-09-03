@@ -64,6 +64,19 @@ const put = (tok: Tok, bookId: string, range: string, values: (string | number)[
 const format = (tok: Tok, bookId: string, requests: Record<string, unknown>[]) =>
   api(tok, `https://sheets.googleapis.com/v4/spreadsheets/${bookId}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests }) });
 
+/**
+ * ★**틀고정** — 사장님 2026-09-03 「채널시트에 틀고정 할거 재대로 해주고」.
+ * ```
+ * 뼈대 탭(공지·안내·수수료·회사정보)   머리 두 줄   제목 띠 + 머리글
+ * 달별 정산 탭                       머리 네 줄   제목 + 합계 + 머리글
+ * ```
+ * ⚠ **행만 얼린다 — 열은 안 얼린다.** 제목 띠가 A:끝으로 병합돼 있어, 열을 얼리면 병합이
+ *   얼린 칸을 가로질러 시트가 통째로 거부한다(실측 2026-09-03 그것으로 12곳이 400 났다).
+ */
+const freezeRows = (id: number, n: number) => ({ updateSheetProperties: {
+  properties: { sheetId: id, gridProperties: { frozenRowCount: n, frozenColumnCount: 0 } },
+  fields: 'gridProperties(frozenRowCount,frozenColumnCount)' } });
+
 /** 제목 띠 + 머리줄 + 열너비 — 두 탭이 같은 짜임을 쓴다. */
 const dress = (id: number, cols: number, widths: number[]) => [
   { mergeCells: { range: { sheetId: id, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: cols }, mergeType: 'MERGE_ALL' } },
@@ -76,6 +89,7 @@ const dress = (id: number, cols: number, widths: number[]) => [
     fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment)' } },
   ...widths.map((w, c) => ({ updateDimensionProperties: { range: { sheetId: id, dimension: 'COLUMNS', startIndex: c, endIndex: c + 1 }, properties: { pixelSize: w }, fields: 'pixelSize' } })),
   { repeatCell: { range: { sheetId: id }, cell: { userEnteredFormat: { textFormat: { fontFamily: 'Roboto' } } }, fields: 'userEnteredFormat.textFormat.fontFamily' } },
+  freezeRows(id, 2),
 ];
 
 /**
@@ -181,7 +195,7 @@ const eun = (w: string) => {
 };
 const KIND = (r: FeeRule) => `${r.kind}${r.form ? ` (${r.form})` : ''}${r.term ? ` ${r.term}개월` : ''}`;
 const HOWMUCH = (r: FeeRule) => {
-  const p = payShow(r.pay);
+  const p = payShow(r.pay).replace('12개월구독료 100%', '12개월 구독료의 100%');
   if (typeof r.pay === 'string') return p;
   if (r.basis === '정액') return p;
   if (r.basis === '차량가액') return `차량가액의 ${p}`;
@@ -238,7 +252,17 @@ export async function ensureFeeTab(tok: Tok, bookId: string): Promise<boolean> {
     const rs = bySup.get(sup) || [];
     const diff = rs.filter((r) => !stdSet.has(sig(r)));
     const same = rs.length - diff.length;
-    rows.push([`■ ${eun(sup)} 따로 정합니다`, same ? '그 밖 조건은 위 표준과 같습니다' : '', '']);
+    /**
+     * ★★**「따로 정합니다」는 쓰지 않는다** — 사장님 2026-09-03 「손오공은 따로 정합니다 이거 뭐냐??」
+     *   그 말은 «값을 그때그때 협의한다»로 읽힌다. 받는 사람은 「내 수수료가 고정이 아니구나」 한다.
+     *   뜻은 그게 아니다 — «표준과 다른 줄이 있다»일 뿐이고, 그 값도 이미 정해져 있다.
+     * ★손오공은 «구독만» 다르고 재렌트·신차는 표준과 같다. 그것까지 머리줄에 적는다 —
+     *   안 적으면 구독 다섯 줄만 보고 「재렌트는 어떻게 되나」를 되묻는다.
+     */
+    const only = [...new Set(diff.map((r) => r.kind))].join('·');
+    rows.push([same
+      ? `■ ${sup} — ${only}만 조건이 다릅니다   (나머지는 위 표준과 같습니다)`
+      : `■ ${sup} — 조건이 다릅니다`, '', '']);
     for (const r of (diff.length ? diff : rs)) rows.push([KIND(r), HOWMUCH(r), EXAMPLE(r)]);
   }
   rows.push(['', '', '']);
@@ -396,6 +420,7 @@ export async function ensureMonthTab(tok: Tok, bookId: string, month: string): P
       cell: { userEnteredFormat: { textFormat: { fontSize: 10, italic: true, foregroundColor: { red: 0.42, green: 0.45, blue: 0.5 } } } }, fields: 'userEnteredFormat.textFormat' } },
     ...CHANNEL_SETTLE_WIDTH.map((w, c) => ({ updateDimensionProperties: { range: { sheetId: id, dimension: 'COLUMNS', startIndex: c, endIndex: c + 1 }, properties: { pixelSize: w }, fields: 'pixelSize' } })),
     { repeatCell: { range: { sheetId: id }, cell: { userEnteredFormat: { textFormat: { fontFamily: 'Roboto' } } }, fields: 'userEnteredFormat.textFormat.fontFamily' } },
+    freezeRows(id, 4),
   ]);
   return true;
 }

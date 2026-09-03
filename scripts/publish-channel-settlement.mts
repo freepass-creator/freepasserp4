@@ -435,7 +435,12 @@ for (const j of jobs) {
       range: { sheetId: id, startRowIndex: r0, endRowIndex: last + 1, startColumnIndex: c, endColumnIndex: c + 1 },
       left: { style: 'SOLID', width: 1, color: LINE } } })),
     /** ★틀고정은 «안 건다» — 사장님 2026-09-03 「틀고정 필요없음」. 한 화면에 드는 표다. */
-    { updateSheetProperties: { properties: { sheetId: id, gridProperties: { frozenRowCount: 0, frozenColumnCount: 0 } }, fields: 'gridProperties(frozenRowCount,frozenColumnCount)' } },
+    /**
+     * ★**틀고정 — 머리 네 줄**(사장님 2026-09-03 「채널시트에 틀고정 할거 재대로 해주고」).
+     *   줄이 서른이 넘으면 내려가다 «어느 칸인지»를 잃는다. 제목·합계·머리글까지 얼린다.
+     * ⚠ 열은 안 얼린다 — 제목 띄가 A:끝으로 병합돼 있어 열을 얼리면 시트가 거부한다.
+     */
+    { updateSheetProperties: { properties: { sheetId: id, gridProperties: { frozenRowCount: 4, frozenColumnCount: 0 } }, fields: 'gridProperties(frozenRowCount,frozenColumnCount)' } },
     /**
      * ★★**필터를 걸어 둔다** — 사장님 2026-09-03 「공급사를 나누지 말고 그냥 필터 잡게만 해줘」.
      *   탭을 가르는 대신 공급사·상품 구분으로 «그 자리에서» 추린다.
