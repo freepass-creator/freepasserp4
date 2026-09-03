@@ -597,6 +597,8 @@ export const INVOICE_CSS = `
   .ctab tbody tr:last-child th, .ctab tbody tr:last-child td { border-bottom:0; }
 
   /** ★표 밑 한 줄 — 상자가 아니다. 테두리도 바탕도 없다. 표에 붙어 있어야 «표의 꼬리»로 읽힌다. */
+  /** ★이어짐 표시 — 표 바로 밑 오른쪽에 조용히. 종이의 «말»이지 칸이 아니다. */
+  .cont { margin-top:8px; padding:0 2px; text-align:right; font-size:10px; color:var(--faint); font-weight:500; }
   .payline { margin-top:10px; padding:0 2px; }
   .payline p { margin:0; font-size:11px; color:var(--ink); font-weight:600; line-height:1.75; font-variant-numeric:tabular-nums; }
   .payline b.d { color:var(--tl-d); font-size:12.5px; font-weight:800; letter-spacing:-.2px; }
@@ -908,7 +910,12 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
         ${last ? `<tr class="pay"><td class="no"></td><th class="rl">합계</th><td class="l" colspan="2">${plus.length}건</td><td class="n">${num(inv.supply)}</td><td class="n">${num(inv.vat)}</td><td class="n"><b>${num(inv.total)}</b></td></tr>` : ''}
       </tbody>
     </table>
-    ${last ? payLine : ''}
+    ${last ? payLine : `
+      <!--
+        ★**끝이 아니라 «이어진다»고 말한다** — 사장님 2026-09-03 「2페이지에서 계속 이런거 하나 코멘트 보조글씨로」.
+          ⚠ 표가 뚝 끊기면 받는 쪽은 「여기까지인가」 한다. 뒷장이 있다고 종이가 말해 줘야 한다.
+      -->
+      <div class="cont">다음 장에 이어집니다 · ${page + 2} / ${pages.length}</div>`}
   </div>
   ${last ? note : ''}
   ${foot(page)}
