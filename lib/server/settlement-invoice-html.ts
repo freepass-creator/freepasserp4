@@ -236,13 +236,14 @@ const ico = (k: keyof typeof ICO | string) => `<svg class="i" viewBox="0 0 24 24
  */
 /**
  * ★★**짐작하지 않고 «잰» 값이다**(2026-09-02, `tmp` 계측 — 쪽마다 여유와 한 줄 높이를 실측).
- *   한 줄 = 39.7~43.5px · 첫 장 여유 208px(12줄) · 가운데 338px(14줄) · 끝 244px(9줄).
- *   ⇒ 첫 16 · 가운데 21 · 끝 14 · 한 장짜리 8. 사장님 2026-09-02 「아직도 약 2줄정도가 더 들어갈수 있다」.
+ *   한 줄 = 40~45px. ★2026-09-03 「청구 안내」 상자를 걷어내자 자리가 확 늘어 «다시» 쟀다 —
+ *   한 장짜리 7줄에 여유 345px(→14) · 첫 장 11줄에 277px(→17) · 가운데(→21) · 끝 장 9줄에 449px(→18).
+ *   ⇒ 상자 하나가 끝 장에서 «네 줄»을 먹고 있었다. 하허호 35줄이 3쪽 → 2쪽이 된다.
  */
-const CAP_SOLO = 8;
-const CAP_FIRST = 16;
+const CAP_SOLO = 14;
+const CAP_FIRST = 17;
 const CAP_MID = 21;
-const CAP_LAST = 14;
+const CAP_LAST = 18;
 
 /**
  * 줄을 장으로 자른다.
@@ -514,6 +515,12 @@ export const INVOICE_CSS = `
   .ctab tr.pay b { color:var(--tl-d); font-size:15px; font-weight:800; }
   .ctab tbody tr:last-child th, .ctab tbody tr:last-child td { border-bottom:0; }
 
+  /** ★표 밑 한 줄 — 상자가 아니다. 테두리도 바탕도 없다. 표에 붙어 있어야 «표의 꼬리»로 읽힌다. */
+  .payline { margin-top:9px; padding:0 2px; font-size:11px; color:var(--mut); line-height:1.7; }
+  .payline b { color:var(--tl-d); font-size:12.5px; font-weight:800; letter-spacing:-.2px; font-variant-numeric:tabular-nums; }
+  .payline .sp { margin-left:14px; color:var(--ink); font-weight:600; font-variant-numeric:tabular-nums; }
+  .payline em { font-style:normal; margin-left:14px; color:var(--faint); font-size:10px; }
+
   /* 발송 전 확인 — 우리끼리 보는 표시. 인쇄하면 사라진다. */
   .warn { margin-top:var(--sec); font-size:10px; color:#c0392b; font-weight:600; }
   .miss { color:#c0392b; font-weight:700; }
@@ -716,77 +723,22 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
    *   「하단에 위와 같이 청구합니다」 「아래쪽에도 입금계좌나 보조설명같은거도 위 양식 제대로 맞춰봐」.
    * ★방향에 따라 우리 계좌 / 상대 계좌로 뒤집힌다.
    */
-  const payKv = `
-  <div class="sec">
-    <div class="sec-h">${ico('계좌')}${claim ? '청구 안내' : '지급 안내'}</div>
-    <table class="vtab">
-      <colgroup><col style="width:82px"><col style="width:34%"><col style="width:82px"><col></colgroup>
-      <tbody>
-        <!-- ★날짜와 계좌는 «한 줄을 다» 쓴다 — 사장님 2026-08-27 「입금계좌를 한줄 다 주면」.
-             계좌는 은행·번호·예금주가 붙어 길고, 날짜는 이 칸에서 제일 먼저 찾는 값이라
-             둘 다 옆에 뭘 붙이면 좁아진다. 짧은 넷만 두 쌍으로 앉힌다. -->
-        <tr>
-          <th>${claim ? '입금 요청일' : '지급 예정일'}</th>
-          <td class="mono due" colspan="3">${esc(dueDay(inv.month))}<em>${claim ? '까지' : ''}</em><em class="cav">${
-    // ★계산서는 «줄을 따로 주지 않는다». 날짜 뒤에 붙이면 한 줄로 끝난다
-    //   (사장님 2026-08-27 「입금 요청일 까지 로 해놓고 그뒤에 세금계산서 내용을 써주면 되잖아」).
-    claim ? '세금계산서는 별도 발행해 드립니다' : '세금계산서 발행 부탁드립니다'
-  }</em></td>
-        </tr>
-        <tr>
-          <th>${claim ? '입금 계좌' : '지급 계좌'}</th><td class="mono" colspan="3">${
-    /**
-     * ★청구서(우리가 받는다)는 «우리 계좌»가 반드시 있어야 한다 — 없으면 「미입력」으로 세워 눈에 띄게 둔다.
-     * ★지급명세서(우리가 준다)는 상대 계좌가 종이에 없어도 된다 — 사장님 2026-09-03 「프리패스 계좌만 있으면 되고」.
-     *   ⚠ 그래도 「미입력」이라 찍으면 «우리가 뭘 빠뜨린 것»처럼 읽힌다. 사실대로 적는다.
-     */
-    claim || S(accText) ? shown(accText) : '알려주신 계좌로 지급됩니다'
-  }</td>
-        </tr>
-        <tr>
-          <th>담당</th><td>${esc(CORP.staff)}</td>
-          <th>연락처</th><td class="mono">${esc(S(CORP.staffPhone) || CORP.phone)}</td>
-        </tr>
-        <tr>
-          <th>이메일</th><td>${esc(CORP.email)}</td>
-          <th>팩스</th><td class="mono">${shown(CORP.fax)}</td>
-        </tr>
-        <!-- ★비고 — 맨 아래 한 줄을 다 쓴다(사장님 2026-08-27).
-             ⚠ **비워 두는 게 맞다.** 채울 값이 아직 없다 — 지어서 넣으면
-               모든 회원사에게 같은 말이 나간다. 종이에 적을 일이 생기면 여기다 쓴다. -->
-        <tr>
-          <th>비고</th><td class="memo" colspan="3">${esc(S((inv as { memo?: string }).memo))}</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-  <div class="closing">
-    ${claim ? '위와 같이 청구합니다' : '위와 같이 지급합니다'}
-    <span>${esc(day(issued))}</span>
-  </div>
-  <!-- ★인사는 «맨 아래 가운데». 사장님 2026-08-27
-       「하단 중앙에 좀 크게 회색으로 프리패스모빌리티 일동 이렇게 써서 가야지
-         청구합니다 위에 쓰면 우짜냐」.
-       맞다. 「위와 같이 청구합니다」는 «문서의 맺음»이고 인사는 «사람의 말»이다.
-       맺음 앞에 끼우면 인사가 청구문의 머리말처럼 읽힌다. 뒤로 물러나 혼자 서야 인사가 된다.
-     ⚠ 길게 늘이지 마라. 두 줄이면 인사고, 넉 줄이면 광고다. -->
-  <div class="thx">
-    <div>${claim ? '이번 한 달도 함께해 주셔서 감사합니다.' : '이번 한 달도 애써 주셔서 감사합니다.'}</div>
-    <!-- ★「주식회사」를 붙이지 않는다 — 서명은 법인격이 아니라 «사람들»의 이름이다
-         (사장님 2026-08-27 「프리패스모빌리티 일동」).
-         법인격은 꼬리(발행인)에서 이미 밝혔다. -->
-    <div class="by">${esc(CORP.koMain + CORP.koSub)} 일동</div>
-  </div>`;
-
   /**
-   * ★**안내 박스를 두지 않는다.** 사장님 2026-08-27 「하단에 이런표도 의미없어」.
-   *   산출 방식은 표의 「수수료 산출조건」 칸이 줄마다 이미 말한다 —
-   *   같은 말을 아래에 또 적으면 종이만 길어지고 아무도 안 읽는다.
-   *   ⚠ 다시 넣고 싶어지면 «그 문장이 없어서 곤란한 사람이 있나»를 먼저 물어라.
-   *
-   * ★남긴 것은 «발송 전 확인» 한 줄뿐이다. 그건 상대에게 보이는 글이 아니라
-   *   **우리끼리 보는 표시**라 `noprint` 다 — 인쇄하면 사라진다.
+   * ★★**표 밑에 «한 줄»로 붙인다 — 상자를 또 세우지 않는다.**
+   *   사장님 2026-09-03 「굳이 청구 안내를 적을필요는 없을거 같은데 … 입금기한만 코멘트로 표 하단에
+   *   계좌랑 심플하게 적자 … 표 박스를 또 만들어서 섹션을 두는건 어색하다 그냥 표만 있으면 되는데」.
+   *   ⚠ 전에는 「청구 안내」라는 상자(세로표)를 하나 더 세워 입금일·계좌·담당·연락처·이메일·팩스·비고를
+   *     칸칸이 늘어놨다. 종이에 상자가 셋(정보·내역·안내)이면 눈이 어디를 볼지 못 정한다.
+   *   ⇒ 내역표 «바로 밑»에 한 줄. 날짜 · 계좌 · 담당·연락처, 그게 다다.
    */
+  const payLine = `
+    <div class="payline">
+      <b>${esc(dueDay(inv.month))}</b>${claim ? ' 까지 입금 부탁드립니다' : ' 지급 예정입니다'}
+      <span class="sp">${claim || S(accText) ? esc(accText) : '알려주신 계좌로 지급됩니다'}</span>
+      <span class="sp">${esc(CORP.staff)} ${esc(S(CORP.staffPhone) || CORP.phone)}</span>
+      <em>${claim ? '세금계산서는 별도 발행해 드립니다' : '세금계산서 발행 부탁드립니다'}</em>
+    </div>`;
+
   const note = inv.missing.length
     ? `<div class="warn noprint">발송 전 확인 — ${esc(inv.missing.join(' / '))}</div>`
     : '';
@@ -812,8 +764,9 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
         ${last ? `<tr class="pay"><td class="no"></td><th class="rl">합계</th><td class="l" colspan="3">${plus.length}건</td><td class="n">${num(inv.supply)}</td><td class="n">${num(inv.vat)}</td><td class="n"><b>${num(inv.total)}</b></td></tr>` : ''}
       </tbody>
     </table>
+    ${last ? payLine : ''}
   </div>
-  ${last ? payKv + note : ''}
+  ${last ? note : ''}
   ${foot(page)}
 </div>`;
   }).join('');
