@@ -54,7 +54,7 @@ const docId = (car: string) => car.replace(/\s/g, '').replace(/[/#.$\[\]]/g, '_'
 const seen = new Set<string>(); let dups = 0;
 type Item = { id: string; atom: Record<string, any>; state: string };
 const items: Item[] = [];
-const stat: Record<string, number> = { 유효보존: 0, snap치유high: 0, snap치유med: 0, 원문없음: 0, 매칭실패: 0 };
+const stat: Record<string, number> = { 유효보존: 0, snap치유high: 0, snap치유med: 0, 원문없음: 0, 매칭실패: 0, 트림보강: 0 };
 
 for (const v of rows) {
   const id = docId(S(v.car_number)); if (seen.has(id)) { dups++; continue; } seen.add(id);
@@ -64,8 +64,18 @@ for (const v of rows) {
 
   const kept = validCanon(v.maker, v.model, v.sub_model);
   if (kept) {
-    // 이미 계층 유효 → 보존(제조사만 정본표기로 교정). 트림은 저장값 유지.
-    identity = { ...kept, trim_name: S(v.trim_name), origin: S(v.origin) };
+    // 이미 계층 유효 → 세부모델 보존(제조사만 정본표기로 교정).
+    // ★트림은 저장값 유지하되, «비었으면」 원문 재정제로 보강한다 — 세부모델은 안 바꾼다.
+    //   snap 이 «같은 세부모델」로 수렴할 때만 그 트림을 취함(다른 모델 트림 오입 방지).
+    //   실측 2026-09-03: 「카니발 노블레스」·「K8 시그니처」·「QM6 LE」가 원문엔 있는데 저장트림이 비어 누락됐다.
+    let trim = S(v.trim_name);
+    if (!trim && raw) {
+      const snap: any = snapToMaster({ maker: v.maker, model: v.model, vehicle_name: raw, sub_model: raw, fuel_type: v.fuel_type, year: v.year } as EntityRecord, MASTER);
+      if (snap && (snap.confidence === 'high' || snap.confidence === 'medium') && S(snap.trim_name) && N(snap.model) === N(kept.model) && N(snap.sub_model) === N(kept.sub_model)) {
+        trim = S(snap.trim_name); stat.트림보강++;
+      }
+    }
+    identity = { ...kept, trim_name: trim, origin: S(v.origin) };
     state = '유효보존'; stat.유효보존++;
   } else {
     // 무효·빈칸 → snap 치유
@@ -103,7 +113,7 @@ for (const v of rows) {
 console.log(`상품 ${rows.length} → 원자 ${items.length} (차번중복 ${dups})`);
 if (dups > 0) { console.error(`✗ 차번 겹침 ${dups} — 오류. 중단.`); process.exit(1); }
 const confirmedN = stat.유효보존 + stat.snap치유high;
-console.log(`확정 ${confirmedN} = 유효보존 ${stat.유효보존} + snap치유(high) ${stat.snap치유high}`);
+console.log(`확정 ${confirmedN} = 유효보존 ${stat.유효보존} + snap치유(high) ${stat.snap치유high}  (그중 빈트림 원문보강 ${stat.트림보강})`);
 console.log(`검수대기 ${items.length - confirmedN} = snap치유(med) ${stat.snap치유med} + 매칭실패 ${stat.매칭실패} + 원문없음 ${stat.원문없음}`);
 console.log('치유 표본(무효·빈칸 → 정제):');
 for (const it of items.filter((x) => x.state.startsWith('snap')).slice(0, 5)) console.log(`  ${it.atom.car_number}  「${S(it.atom['원문']?.['차명']).slice(0, 26)}」 → ${it.atom.model} ${it.atom.sub_model} ${it.atom.trim_name}`);
@@ -112,7 +122,8 @@ if (!APPLY) { console.log(`\n미리보기 — Firestore 「products」에 정제
 let written = 0;
 for (let i = 0; i < items.length; i += 400) {
   const batch = fs.batch();
-  for (const { id, atom } of items.slice(i, i + 400)) { batch.set(fs.collection('products').doc(id), { ...atom, _refined_at: Date.now() }); written++; }
+  // merge — 식별·트림만 쓰고 변동·렌더 필드(sync-variable 가 얹은 것)는 보존. 원자 키는 항상 전체라 stale 없음.
+  for (const { id, atom } of items.slice(i, i + 400)) { batch.set(fs.collection('products').doc(id), { ...atom, _refined_at: Date.now() }, { merge: true }); written++; }
   await batch.commit();
   console.log(`  ${Math.min(i + 400, items.length)}/${items.length}…`);
 }
