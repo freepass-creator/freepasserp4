@@ -6,11 +6,21 @@
  * ★★**왜 여기인가.** 공급사는 이미 「○○ 프리패스 재고」 시트를 열어 보고 있다.
  *   거기에 붙이면 링크를 새로 줄 일도, 파일을 보낼 일도 없고, 달마다 탭이 «쌓인다».
  *
- * ★★**그 공급사 줄만 담는다.** 남의 정산이 섞이면 그 순간 사고다 —
- *   시트 이름의 별칭과 원장 공급사 이름을 맞춰 «하나»로 떨어질 때만 붙이고, 아니면 건너뛴다.
+ * ★★★**이 탭은 «종이(PDF)의 사본»이 아니다 — 시트는 «따져 보는 자리»다.**
+ *   사장님 2026-09-03 「청구서 PDF랑 동일하게 하지말고 정산서는 탭 우측으로 하고
+ *   산출조건도 있어야하고 매달매달 탭으로 줄거야 임차인정보도 있어야하고」
+ * ```
+ * 종이(PDF)   규격만 — 차량 · 금액. 읽고 결재하는 것
+ * 이 탭        임차인정보 + 산출조건까지 — 「왜 이 금액인가」를 «따라 칠 수 있게»
+ * ```
+ *   ⇒ 열은 원장 청구탭과 «같은 이름»을 쓴다(적용한 표 규칙 · 산출근거). 이름이 갈리면
+ *     공급사가 묻는 칸과 우리가 보는 칸이 달라져 통화가 길어진다.
+ *
+ * ★**탭은 «맨 오른쪽»에 선다.** 공급사가 매일 여는 것은 재고 탭이다 — 정산이 맨 앞에 서면
+ *   자기 시트를 여는데 남의 서식이 먼저 뜬다. 달마다 오른쪽으로 쌓이면 차례가 곧 달력이 된다.
  *
  * ⚠ 이 시트들은 「링크 아는 사람 누구나」로 열려 있다(2026-09-03 실측 22곳 중 21곳).
- *   정산 금액에는 «요율»이 드러난다 — 링크가 새면 다른 공급사가 그 요율을 안다.
+ *   정산 금액에는 «요율»이, 이제는 «임차인 이름»까지 드러난다 — 링크가 새면 그대로 샌다.
  *   그래서 기본이 dry-run 이다. 사람이 알고 눌러야 쓴다.
  *
  *   npx tsx scripts/publish-supplier-settlement.mts 2026-08
@@ -23,6 +33,7 @@ import { getDatabase } from 'firebase-admin/database';
 import { CORP } from '../lib/domain/corporate-ci';
 import { dueDate } from '../lib/domain/settlement-cycle';
 import { settleTargetOf } from '../lib/domain/settlement-stage';
+import { feeKindOf, feeRuleFor } from '../lib/domain/settlement-fee-table';
 
 const MONTH = (process.argv.find((a) => /^\d{4}-\d{2}$/.test(a)) || '').trim();
 const APPLY = process.argv.includes('--apply');
@@ -39,12 +50,6 @@ const dayKo = (d: Date | null) => (d ? `${d.getFullYear()}. ${String(d.getMonth(
 /** 이름 맞추기 — 「스타」와 「스타스카이」, 「에스에이」와 「에스에이렌터카」가 같은 곳으로 떨어지게. */
 const key = (v: unknown) => S(v).toLowerCase().replace(/[\s()·\-_.]/g, '')
   .replace(/(주식회사|㈜|렌터카|렌트카|모빌리티)/g, '');
-/**
- * ★**고객 이름은 가린다** — 종이(PDF)와 «같은 규칙»이다. 「이해원」 → 「이*원」.
- *   ⚠ 이 시트는 「링크 아는 사람 누구나」로 열려 있다. 종이는 가리는데 시트만 온전히 두면
- *     가린 뜻이 없어진다. 공급사는 차량번호로 그 건을 찾으므로 이름은 곁다리다.
- */
-const mask = (v: unknown) => { const t = S(v); return t.length < 2 ? t : t.length === 2 ? `${t[0]}*` : `${t[0]}${'*'.repeat(t.length - 2)}${t[t.length - 1]}`; };
 
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 if (!getApps().length) initializeApp({ credential: cert(sa), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' });
@@ -59,8 +64,13 @@ const rows = (Object.values((await db.ref('v4/settlement_rows').get()).val() || 
 const claws = (Object.values((await db.ref('v4/settlement_clawbacks').get()).val() || {}) as Row[])
   .filter((c) => S(c.month) === MONTH);
 
-type Line = { plate: string; recv: string; what: string; net: number; vat: number; total: number };
-/** ★청구탭·정산서와 «같은 규칙»으로 센다 — 정산 대상·비율·보류·부가세포함. */
+type Line = { plate: string; recv: string; deliv: string; model: string; cust: string; product: string;
+  term: number; rent: number; rule: string; how: string; net: number; vat: number; total: number };
+/**
+ * ★청구탭·정산서와 «같은 규칙»으로 센다 — 정산 대상·비율·보류·부가세포함.
+ * ★★**산출조건은 원장 청구탭 `lineOf` 와 «같은 식»이다**(`적용한 표 규칙` · `산출근거`).
+ *   갈리면 공급사가 보는 근거와 우리가 보는 근거가 달라진다.
+ */
 const lineOf = (r: Row): Line => {
   const target = settleTargetOf(r.settleTarget);
   const ratio = N(r.settleRatio) || 1;
@@ -69,9 +79,24 @@ const lineOf = (r: Row): Line => {
   const gross = r.vatIncluded === true;
   const net = gross ? Math.round(raw / (1 + VAT)) : raw;
   const vat = gross ? raw - net : Math.round(net * VAT);
+
+  const product = S(r.product); const term = N(r.term); const model = S(r.model);
+  const { kind, form, fallback } = feeKindOf(product, model);
+  const f = feeRuleFor(S(r.supplier), kind, term, form, fallback);
+  let rule = ''; let how = '';
+  if (f) rule = `${f.supplier} · ${f.kind}${f.term ? ` ${f.term}개월` : ' 기간무관'}${f.form ? ` · ${f.form}` : ''}`;
+  if (f && f.auto) {
+    const rate = Number(f.claim);
+    const rs = rate < 1 ? `${(rate * 100).toFixed(2)}%` : won(rate);
+    how = f.basis === '정액' ? `건당 ${won(rate)}`
+      : f.basis === '차량가액' ? `차량가액 ${won(N(r.price))} × ${rs}`
+        : `렌탈료 ${won(N(r.rent))} × ${term}개월 × ${rs}`;
+    if (ratio !== 1) how += ` × 비율 ${ratio}`;
+  } else if (f) how = `표 규칙 「${f.claim}」 — 개별 협의분`;
+  else how = '개별 협의분';
   return {
-    plate: S(r.plate) || '(차번없음)', recv: S(r.receivedAt),
-    what: [S(r.model), mask(r.customer), S(r.product), N(r.term) ? `${N(r.term)}개월` : ''].filter(Boolean).join(' · '),
+    plate: S(r.plate) || '(차번없음)', recv: S(r.receivedAt), deliv: S(r.deliveredAt),
+    model, cust: S(r.customer), product, term, rent: N(r.rent), rule, how,
     net, vat, total: net + vat,
   };
 };
@@ -105,78 +130,116 @@ for (const sup of sups) {
 }
 for (const j of jobs) {
   console.log(`   ${j.sup.padEnd(11)} ${String(j.lines.length).padStart(2)}줄  합계 ${won(j.net + j.vat).padStart(12)}${j.claw ? `  (환수 -${won(j.claw)})` : ''}`);
-  console.log(`   ${''.padEnd(11)}  → ${aliasOf(j.sheetName)} 시트 「${tabOf(MONTH)}」`);
+  console.log(`   ${''.padEnd(11)}  → ${aliasOf(j.sheetName)} 시트 「${tabOf(MONTH)}」 (맨 오른쪽)`);
 }
 if (skip.length) { console.log('\n   ⚠ 건너뛴 곳 — 시트를 «하나»로 못 맞췄습니다'); for (const m of skip) console.log(`      ${m}`); }
 if (!APPLY) { console.log('\n※ dry-run — 아무 시트도 안 건드렸습니다. --apply 로 붙입니다.\n'); process.exit(0); }
 
 const NAVY = { red: 0.06, green: 0.11, blue: 0.21 };
 const TINT = { red: 0.93, green: 0.95, blue: 0.98 };
-const HEAD = ['No.', '차량번호', '접수일', '차량 · 계약조건', '공급가액', '부가세', '합계'];
-const WIDTH = [46, 92, 88, 250, 100, 88, 108];
+/** ★산출조건은 «별도 영역» — 원장 청구탭과 같은 연보라를 쓴다. */
+const BASIS_HEAD = { red: 0.90, green: 0.87, blue: 0.96 };
+const BASIS_BODY = { red: 0.975, green: 0.97, blue: 0.99 };
+/** 임차인정보 ── 산출조건 ── 금액. 이름은 원장 청구탭과 같게 둔다. */
+const BASIS = ['적용한 표 규칙', '산출근거 (이대로 계산했습니다)'];
+const HEAD = ['No.', '차량번호', '접수일', '인도일', '모델명', '임차인', '상품 구분', '계약 기간', '렌탈료',
+  ...BASIS, '공급가액', '부가세', '합계'];
+const WIDTH = [40, 92, 84, 84, 150, 76, 112, 76, 92, 190, 250, 100, 88, 108];
+const iB = HEAD.indexOf(BASIS[0]);          // 산출조건 첫 칸
+const iM = HEAD.indexOf('공급가액');          // 돈 첫 칸
+const LEFT = ['모델명', ...BASIS];
+const MONEY = ['렌탈료', '공급가액', '부가세', '합계'];
 
 for (const j of jobs) {
   const tab = tabOf(MONTH);
   const meta = await (await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${j.sheetId}?fields=sheets.properties`, { headers: { Authorization: `Bearer ${await tok()}` } })).json() as {
     sheets?: { properties: { sheetId: number; title: string } }[] };
-  let id = (meta.sheets || []).find((s) => s.properties.title === tab)?.properties.sheetId;
+  const all = meta.sheets || [];
+  let id = all.find((s) => s.properties.title === tab)?.properties.sheetId;
+  const rowsNeed = j.lines.length + 20;
   if (id === undefined) {
     const add = await (await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${j.sheetId}:batchUpdate`, {
       method: 'POST', headers: { Authorization: `Bearer ${await tok()}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ requests: [{ addSheet: { properties: { title: tab, index: 0, gridProperties: { rowCount: j.lines.length + 30, columnCount: HEAD.length } } } }] }),
+      body: JSON.stringify({ requests: [{ addSheet: { properties: { title: tab, index: all.length, gridProperties: { rowCount: rowsNeed, columnCount: HEAD.length } } } }] }),
     })).json() as { replies?: { addSheet?: { properties?: { sheetId?: number } } }[] };
     id = add.replies?.[0]?.addSheet?.properties?.sheetId;
+  } else {
+    /** ★이미 있던 탭 — 칸을 넓히고 «맨 오른쪽»으로 옮긴다(예전 판은 맨 앞 7칸이었다). */
+    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${j.sheetId}:batchUpdate`, {
+      method: 'POST', headers: { Authorization: `Bearer ${await tok()}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requests: [{ updateSheetProperties: { properties: { sheetId: id, index: all.length - 1, gridProperties: { rowCount: rowsNeed, columnCount: HEAD.length } }, fields: 'index,gridProperties(rowCount,columnCount)' } }] }),
+    });
   }
   if (id === undefined) { console.log(`   x ${j.sup} — 탭을 못 만들었습니다`); continue; }
 
-  const body: (string | number)[][] = j.lines.map((l, i) => [i + 1, l.plate, l.recv, l.what, l.net, l.vat, l.total]);
-  if (j.claw) body.push(['', '환수', '', '지난 정산분 환수', -j.claw, -Math.round(j.claw * VAT), -(j.claw + Math.round(j.claw * VAT))]);
+  const pad = (n: number) => Array.from({ length: n }, () => '');
+  const body: (string | number)[][] = j.lines.map((l, i) => [i + 1, l.plate, l.recv, l.deliv, l.model, l.cust,
+    l.product, l.term || '', l.rent || '', l.rule, l.how, l.net, l.vat, l.total]);
+  if (j.claw) body.push(['', '환수', '', '', '지난 정산분 환수', '', '', '', '', '', '수수료표로 내는 값이 아니다',
+    -j.claw, -Math.round(j.claw * VAT), -(j.claw + Math.round(j.claw * VAT))]);
   const values: (string | number)[][] = [
-    [`${monthKo(MONTH)} 정산서`, `${j.sup} 귀중 · ${CORP.name} 발행`, '', '', '', '', ''],
-    ['', '', '', '', '공급가액', '부가세', '청구 금액'],
-    ['', '', '', '', j.net, j.vat, j.net + j.vat],
+    [`${monthKo(MONTH)} 정산서`, `${j.sup} 귀중 · ${CORP.name} 발행`, ...pad(HEAD.length - 2)],
+    [...pad(HEAD.length - 3), '공급가액', '부가세', '청구 금액'],
+    [...pad(HEAD.length - 3), j.net, j.vat, j.net + j.vat],
     HEAD,
     ...body,
-    ['', '합계', `${j.lines.length}건`, '', j.net, j.vat, j.net + j.vat],
+    ['', '합계', `${j.lines.length}건`, ...pad(iM - 3), j.net, j.vat, j.net + j.vat],
     [],
-    [`${dayKo(dueDate(MONTH))} 까지 입금 부탁드립니다`, '', '', '', '', '', ''],
-    [`${CORP.staff} · ${S(CORP.staffPhone) || CORP.phone} · ${CORP.email}`, '', '', '', '', '', ''],
-    ['한 달간 함께해 주셔서 감사합니다 · 프리패스모빌리티 주식회사 임직원 일동', '', '', '', '', '', ''],
+    [`${dayKo(dueDate(MONTH))} 까지 입금 부탁드립니다`, ...pad(HEAD.length - 1)],
+    [`${CORP.staff} · ${S(CORP.staffPhone) || CORP.phone} · ${CORP.email}`, ...pad(HEAD.length - 1)],
+    ['한 달간 함께해 주셔서 감사합니다 · 프리패스모빌리티 주식회사 임직원 일동', ...pad(HEAD.length - 1)],
   ];
-  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${j.sheetId}/values/${encodeURIComponent(`'${tab}'!A1:G${values.length + 5}`)}?valueInputOption=RAW`, {
+  const endCol = String.fromCharCode(64 + HEAD.length);
+  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${j.sheetId}/values/${encodeURIComponent(`'${tab}'!A1:${endCol}${values.length + 5}`)}?valueInputOption=RAW`, {
     method: 'PUT', headers: { Authorization: `Bearer ${await tok()}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ values }),
   });
 
   const r0 = 3;                        // 머리줄
   const last = r0 + 1 + body.length;   // 합계줄
-  const bar = (row: number, right: boolean) => ({ repeatCell: {
-    range: { sheetId: id, startRowIndex: row, endRowIndex: row + 1, startColumnIndex: 0, endColumnIndex: HEAD.length },
-    cell: { userEnteredFormat: { backgroundColor: NAVY, textFormat: { bold: true, fontSize: 10, foregroundColor: { red: 1, green: 1, blue: 1 } }, horizontalAlignment: right ? 'RIGHT' : 'CENTER', verticalAlignment: 'MIDDLE' } },
-    fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment)' } });
-  const tint = (row: number) => ({ repeatCell: { range: { sheetId: id, startRowIndex: row, endRowIndex: row + 1, startColumnIndex: 0, endColumnIndex: HEAD.length },
+  const all1 = (a: number, b: number) => ({ sheetId: id, startRowIndex: a, endRowIndex: b, startColumnIndex: 0, endColumnIndex: HEAD.length });
+  const bar = (row: number, right: boolean) => ({ repeatCell: { range: all1(row, row + 1),
+    cell: { userEnteredFormat: { backgroundColor: NAVY, textFormat: { bold: true, fontSize: 10, foregroundColor: { red: 1, green: 1, blue: 1 } }, horizontalAlignment: right ? 'RIGHT' : 'CENTER', verticalAlignment: 'MIDDLE', wrapStrategy: 'WRAP' } },
+    fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment,wrapStrategy)' } });
+  const tint = (row: number) => ({ repeatCell: { range: all1(row, row + 1),
     cell: { userEnteredFormat: { backgroundColor: TINT, textFormat: { bold: true } } }, fields: 'userEnteredFormat(backgroundColor,textFormat)' } });
+  const col = (h: string, r: { startRowIndex: number; endRowIndex: number }, cell: Record<string, unknown>, fields: string) => ({
+    repeatCell: { range: { sheetId: id, ...r, startColumnIndex: HEAD.indexOf(h), endColumnIndex: HEAD.indexOf(h) + 1 }, cell: { userEnteredFormat: cell }, fields } });
+  const DATA = { startRowIndex: r0 + 1, endRowIndex: last + 1 };
 
   const reqs: Record<string, unknown>[] = [
     { unmergeCells: { range: { sheetId: id } } },
-    { updateSheetProperties: { properties: { sheetId: id, gridProperties: { frozenRowCount: 0 } }, fields: 'gridProperties.frozenRowCount' } },
+    { updateSheetProperties: { properties: { sheetId: id, gridProperties: { frozenRowCount: 0, frozenColumnCount: 0 } }, fields: 'gridProperties(frozenRowCount,frozenColumnCount)' } },
     { mergeCells: { range: { sheetId: id, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 1, endColumnIndex: HEAD.length }, mergeType: 'MERGE_ALL' } },
-    { repeatCell: { range: { sheetId: id, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: HEAD.length },
+    { repeatCell: { range: all1(0, 1),
       cell: { userEnteredFormat: { backgroundColor: NAVY, textFormat: { bold: true, fontSize: 12, foregroundColor: { red: 1, green: 1, blue: 1 } }, verticalAlignment: 'MIDDLE', padding: { left: 10, right: 10, top: 2, bottom: 2 } } },
       fields: 'userEnteredFormat(backgroundColor,textFormat,verticalAlignment,padding)' } },
     { updateDimensionProperties: { range: { sheetId: id, dimension: 'ROWS', startIndex: 0, endIndex: 1 }, properties: { pixelSize: 40 }, fields: 'pixelSize' } },
     bar(1, true), bar(r0, false), tint(2), tint(last),
-    { repeatCell: { range: { sheetId: id, startRowIndex: 2, endRowIndex: last + 1, startColumnIndex: 4, endColumnIndex: 7 },
-      cell: { userEnteredFormat: { numberFormat: { type: 'NUMBER', pattern: '#,##0' }, horizontalAlignment: 'RIGHT' } }, fields: 'userEnteredFormat(numberFormat,horizontalAlignment)' } },
-    { repeatCell: { range: { sheetId: id, startRowIndex: r0 + 1, endRowIndex: last, startColumnIndex: 1, endColumnIndex: 4 },
-      cell: { userEnteredFormat: { horizontalAlignment: 'LEFT' } }, fields: 'userEnteredFormat.horizontalAlignment' } },
-    { repeatCell: { range: { sheetId: id, startRowIndex: r0 + 1, endRowIndex: last, startColumnIndex: 0, endColumnIndex: 1 },
-      cell: { userEnteredFormat: { horizontalAlignment: 'CENTER' } }, fields: 'userEnteredFormat.horizontalAlignment' } },
-    { repeatCell: { range: { sheetId: id, startRowIndex: last + 2, endRowIndex: last + 5, startColumnIndex: 0, endColumnIndex: HEAD.length },
+    /** ★머리줄 40 — 「산출근거 (이대로 계산했습니다)」가 두 줄로 접혀야 안 잘린다. */
+    { updateDimensionProperties: { range: { sheetId: id, dimension: 'ROWS', startIndex: r0, endIndex: r0 + 1 }, properties: { pixelSize: 40 }, fields: 'pixelSize' } },
+    { updateDimensionProperties: { range: { sheetId: id, dimension: 'ROWS', startIndex: r0 + 1, endIndex: last + 1 }, properties: { pixelSize: 24 }, fields: 'pixelSize' } },
+    /** ★산출조건 영역 — 머리는 연보라, 줄은 아주 연하게. 금액 칸과 «눈으로» 갈린다. */
+    { repeatCell: { range: { sheetId: id, startRowIndex: r0, endRowIndex: r0 + 1, startColumnIndex: iB, endColumnIndex: iB + BASIS.length },
+      cell: { userEnteredFormat: { backgroundColor: BASIS_HEAD, textFormat: { bold: true, fontSize: 10, foregroundColor: NAVY }, horizontalAlignment: 'CENTER', verticalAlignment: 'MIDDLE', wrapStrategy: 'WRAP' } },
+      fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment,wrapStrategy)' } },
+    { repeatCell: { range: { sheetId: id, startRowIndex: r0 + 1, endRowIndex: last, startColumnIndex: iB, endColumnIndex: iB + BASIS.length },
+      cell: { userEnteredFormat: { backgroundColor: BASIS_BODY, textFormat: { fontSize: 9 } } }, fields: 'userEnteredFormat(backgroundColor,textFormat)' } },
+    // 정렬 — 돈은 우측 · 글은 좌측 · 나머지 가운데
+    ...HEAD.map((h, c) => ({ repeatCell: { range: { sheetId: id, ...DATA, startColumnIndex: c, endColumnIndex: c + 1 },
+      cell: { userEnteredFormat: { horizontalAlignment: MONEY.includes(h) ? 'RIGHT' : LEFT.includes(h) ? 'LEFT' : 'CENTER', verticalAlignment: 'MIDDLE' } },
+      fields: 'userEnteredFormat(horizontalAlignment,verticalAlignment)' } })),
+    { repeatCell: { range: { sheetId: id, startRowIndex: 2, endRowIndex: 3, startColumnIndex: iM, endColumnIndex: HEAD.length },
+      cell: { userEnteredFormat: { horizontalAlignment: 'RIGHT' } }, fields: 'userEnteredFormat.horizontalAlignment' } },
+    ...MONEY.map((h) => col(h, { startRowIndex: 2, endRowIndex: last + 1 }, { numberFormat: { type: 'NUMBER', pattern: '#,##0' } }, 'userEnteredFormat.numberFormat')),
+    col('계약 기간', DATA, { numberFormat: { type: 'NUMBER', pattern: '0"개월"' } }, 'userEnteredFormat.numberFormat'),
+    col('차량번호', DATA, { numberFormat: { type: 'TEXT' } }, 'userEnteredFormat.numberFormat'),
+    { repeatCell: { range: all1(last + 2, last + 5),
       cell: { userEnteredFormat: { textFormat: { fontSize: 10 }, horizontalAlignment: 'LEFT' } }, fields: 'userEnteredFormat(textFormat,horizontalAlignment)' } },
     ...WIDTH.map((w, c) => ({ updateDimensionProperties: { range: { sheetId: id, dimension: 'COLUMNS', startIndex: c, endIndex: c + 1 }, properties: { pixelSize: w }, fields: 'pixelSize' } })),
     { repeatCell: { range: { sheetId: id }, cell: { userEnteredFormat: { textFormat: { fontFamily: 'Roboto' } } }, fields: 'userEnteredFormat.textFormat.fontFamily' } },
-    { updateSheetProperties: { properties: { sheetId: id, gridProperties: { frozenRowCount: r0 + 1 } }, fields: 'gridProperties.frozenRowCount' } },
+    /** ★머리 네 줄 + 차량번호까지 얼린다 — 산출조건까지 가로로 미는 표라 차번을 잃으면 못 읽는다. */
+    { updateSheetProperties: { properties: { sheetId: id, gridProperties: { frozenRowCount: r0 + 1, frozenColumnCount: 2 } }, fields: 'gridProperties(frozenRowCount,frozenColumnCount)' } },
   ];
   const fr = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${j.sheetId}:batchUpdate`, {
     method: 'POST', headers: { Authorization: `Bearer ${await tok()}`, 'Content-Type': 'application/json' },
