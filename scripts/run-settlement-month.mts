@@ -14,6 +14,7 @@
  * ⑤ 정산서        PDF·엑셀·HTML         issue-settlement-invoices
  * ⑥ 쪽 검사       A4 에 넘치는지          check-invoice-overflow
  * ⑦ 드라이브       업체별로 올린다         upload-settlement-docs
+ * ⑧ 공급사 시트   그 달 정산 탭을 붙인다     publish-supplier-settlement
  * ```
  *
  * ★**②는 옛 판을 걷는다.** 다시 돌리면 묵은 줄을 이름 대고 지운다.
@@ -49,6 +50,7 @@ const steps: Step[] = [
     before: () => { rmSync(`tmp/정산서-${MONTH}`, { recursive: true, force: true }); } },
   { no: '⑥', what: '쪽 검사 (A4)', cmd: ['node', 'scripts/check-invoice-overflow.mjs', `tmp/정산서-${MONTH}`] },
   { no: '⑦', what: '드라이브에 올리기', cmd: ['npx', 'tsx', 'scripts/upload-settlement-docs.mts', MONTH, ...A], needApply: true },
+  { no: '⑧', what: '공급사 시트에 정산 탭 붙이기', cmd: ['npx', 'tsx', 'scripts/publish-supplier-settlement.mts', MONTH, ...A], needApply: true },
 ];
 
 console.log(`\n■■ ${MONTH} 한 달 정산 — ${APPLY ? '반영' : 'dry-run (아무것도 안 바꾼다)'}\n`);

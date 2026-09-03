@@ -39,6 +39,12 @@ const dayKo = (d: Date | null) => (d ? `${d.getFullYear()}. ${String(d.getMonth(
 /** 이름 맞추기 — 「스타」와 「스타스카이」, 「에스에이」와 「에스에이렌터카」가 같은 곳으로 떨어지게. */
 const key = (v: unknown) => S(v).toLowerCase().replace(/[\s()·\-_.]/g, '')
   .replace(/(주식회사|㈜|렌터카|렌트카|모빌리티)/g, '');
+/**
+ * ★**고객 이름은 가린다** — 종이(PDF)와 «같은 규칙»이다. 「이해원」 → 「이*원」.
+ *   ⚠ 이 시트는 「링크 아는 사람 누구나」로 열려 있다. 종이는 가리는데 시트만 온전히 두면
+ *     가린 뜻이 없어진다. 공급사는 차량번호로 그 건을 찾으므로 이름은 곁다리다.
+ */
+const mask = (v: unknown) => { const t = S(v); return t.length < 2 ? t : t.length === 2 ? `${t[0]}*` : `${t[0]}${'*'.repeat(t.length - 2)}${t[t.length - 1]}`; };
 
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 if (!getApps().length) initializeApp({ credential: cert(sa), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' });
@@ -65,7 +71,7 @@ const lineOf = (r: Row): Line => {
   const vat = gross ? raw - net : Math.round(net * VAT);
   return {
     plate: S(r.plate) || '(차번없음)', recv: S(r.receivedAt),
-    what: [S(r.model), S(r.customer), S(r.product), N(r.term) ? `${N(r.term)}개월` : ''].filter(Boolean).join(' · '),
+    what: [S(r.model), mask(r.customer), S(r.product), N(r.term) ? `${N(r.term)}개월` : ''].filter(Boolean).join(' · '),
     net, vat, total: net + vat,
   };
 };
