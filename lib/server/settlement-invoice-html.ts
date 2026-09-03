@@ -240,10 +240,10 @@ const ico = (k: keyof typeof ICO | string) => `<svg class="i" viewBox="0 0 24 24
  *   한 장짜리 7줄에 여유 345px(→14) · 첫 장 11줄에 277px(→17) · 가운데(→21) · 끝 장 9줄에 449px(→18).
  *   ⇒ 상자 하나가 끝 장에서 «네 줄»을 먹고 있었다. 하허호 35줄이 3쪽 → 2쪽이 된다.
  */
-const CAP_SOLO = 14;
-const CAP_FIRST = 17;
-const CAP_MID = 21;
-const CAP_LAST = 18;
+const CAP_SOLO = 16;
+const CAP_FIRST = 20;
+const CAP_MID = 24;
+const CAP_LAST = 22;
 
 /**
  * 줄을 장으로 자른다.
@@ -505,7 +505,13 @@ export const INVOICE_CSS = `
   .ctab .sub { display:inline; font-size:10px; color:var(--mut); font-weight:400; margin-left:6px; white-space:nowrap; }
   .ctab .sub::before { content:'·'; margin-right:6px; color:var(--faint); }
   /* ★수수료 산출조건 — 제 칸을 갖는다. 표가 스스로 «어떻게 나왔는지»를 말한다. */
-  .ctab td.calc { font-size:10px; color:var(--mut); }
+  /**
+   * ★★**산출조건은 «한 줄»이어야 한다.** 여기가 접히면 줄 높이가 43px 이 되고 쪽이 일찍 넘어간다
+   *   (사장님 2026-09-03 「토플거만 봤을때 페이지 넘김이 왜 저러냐??」 — 16줄이 2쪽으로 갈렸다).
+   *   「대여료 930,000 × 24개월 · 건당 800,000」이 17% 칸에서 세 줄로 접히고 있었다.
+   *   ⇒ 칸을 24% 로 넓히고 안 접히게 묶는다.
+   */
+  .ctab td.calc { font-size:10px; color:var(--mut); white-space:nowrap; }
   .ctab td.calc .rt { display:inline; font-size:9.5px; color:var(--faint); margin-left:6px; white-space:nowrap; }
   .ctab td.calc .rt::before { content:'·'; margin-right:6px; }
   .ctab tr.neg td.calc, .ctab tr.neg td.calc .rt { color:var(--neg); }
@@ -516,10 +522,10 @@ export const INVOICE_CSS = `
   .ctab tbody tr:last-child th, .ctab tbody tr:last-child td { border-bottom:0; }
 
   /** ★표 밑 한 줄 — 상자가 아니다. 테두리도 바탕도 없다. 표에 붙어 있어야 «표의 꼬리»로 읽힌다. */
-  .payline { margin-top:9px; padding:0 2px; font-size:11px; color:var(--mut); line-height:1.7; }
-  .payline b { color:var(--tl-d); font-size:12.5px; font-weight:800; letter-spacing:-.2px; font-variant-numeric:tabular-nums; }
-  .payline .sp { margin-left:14px; color:var(--ink); font-weight:600; font-variant-numeric:tabular-nums; }
-  .payline em { font-style:normal; margin-left:14px; color:var(--faint); font-size:10px; }
+  .payline { margin-top:10px; padding:0 2px; }
+  .payline p { margin:0; font-size:11px; color:var(--ink); font-weight:600; line-height:1.75; font-variant-numeric:tabular-nums; }
+  .payline b { color:var(--tl-d); font-size:12.5px; font-weight:800; letter-spacing:-.2px; }
+  .payline p.cav { color:var(--faint); font-size:10px; font-weight:500; margin-top:1px; }
 
   /* 발송 전 확인 — 우리끼리 보는 표시. 인쇄하면 사라진다. */
   .warn { margin-top:var(--sec); font-size:10px; color:#c0392b; font-weight:600; }
@@ -731,12 +737,20 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
    *     칸칸이 늘어놨다. 종이에 상자가 셋(정보·내역·안내)이면 눈이 어디를 볼지 못 정한다.
    *   ⇒ 내역표 «바로 밑»에 한 줄. 날짜 · 계좌 · 담당·연락처, 그게 다다.
    */
+  /**
+   * ★★**표 밑 보조설명 — «한 줄 한 줄» 텍스트다. 표로 만들지 않는다.**
+   *   사장님 2026-09-03 「담당자 연락처는 별도로 한줄 한줄 좀 쓰자고 … 표로 만들지 말고
+   *   그냥 텍스트로 보조설명처럼 쓰자고 했잖아」.
+   *   ⚠ 한 줄에 다 이으니 「세금계산서는 별 / 도 발행해 드립니다」로 접혔다 — 접히면 그게 두 줄인데
+   *     읽는 사람은 «왜 저기서 끊겼나»를 먼저 본다. 처음부터 줄을 나눠 준다.
+   */
   const payLine = `
     <div class="payline">
-      <b>${esc(dueDay(inv.month))}</b>${claim ? ' 까지 입금 부탁드립니다' : ' 지급 예정입니다'}
-      <span class="sp">${claim || S(accText) ? esc(accText) : '알려주신 계좌로 지급됩니다'}</span>
-      <span class="sp">${esc(CORP.staff)} ${esc(S(CORP.staffPhone) || CORP.phone)}</span>
-      <em>${claim ? '세금계산서는 별도 발행해 드립니다' : '세금계산서 발행 부탁드립니다'}</em>
+      <p><b>${esc(dueDay(inv.month))}</b> ${claim ? '까지 입금 부탁드립니다' : '지급 예정입니다'}</p>
+      <p>${claim || S(accText) ? esc(accText) : '알려주신 계좌로 지급됩니다'}</p>
+      <p>${esc(CORP.staff)} · ${esc(S(CORP.staffPhone) || CORP.phone)} · ${esc(CORP.email)}${
+    CORP.fax ? ` · 팩스 ${esc(CORP.fax)}` : ''}</p>
+      <p class="cav">${claim ? '세금계산서는 별도 발행해 드립니다' : '세금계산서 발행 부탁드립니다'}</p>
     </div>`;
 
   const note = inv.missing.length
@@ -757,7 +771,7 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
       pages.length > 1 ? `${from}–${from + chunk.length - 1} / ${inv.lines.length}건` : `${plus.length}건`
     } · 단위 원</span></div>
     <table class="ctab">
-      <colgroup><col style="width:4%"><col style="width:10%"><col style="width:8%"><col><col style="width:17%"><col style="width:11%"><col style="width:9%"><col style="width:11%"></colgroup>
+      <colgroup><col style="width:4%"><col style="width:12%"><col style="width:8%"><col><col style="width:22%"><col style="width:11%"><col style="width:9%"><col style="width:11%"></colgroup>
       <thead><tr><th class="no">No.</th><th class="rl">차량번호</th><th>접수일</th><th>차량 · 계약조건</th><th>수수료 산출조건</th><th class="n">공급가액</th><th class="n">부가세</th><th class="n">합계</th></tr></thead>
       <tbody>
         ${chunk.map((l, k) => row(l, from + k)).join('')}

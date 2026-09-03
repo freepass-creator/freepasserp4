@@ -74,15 +74,28 @@ const payd = files.filter((f) => f.includes('지급명세서'));
 console.log(`\n■ ${MONTH} 정산서 ${files.length}장 — 공급사 청구서 ${bill.length} · 영업채널 지급명세서 ${payd.length}`);
 console.log(`\n■ 폴더 ${APPLY ? '' : '(대조만)'}`);
 const root = await folder(ROOT);
-const mon = await folder(MONTH, root);
-const fBill = await folder('공급사 청구서', mon);
-const fPay = await folder('영업채널 지급명세서', mon);
+const fBill = await folder('공급사 청구서', root);
+const fPay = await folder('영업채널 지급명세서', root);
 
 if (!APPLY) { console.log('\n※ dry-run — 아무것도 안 올렸다. --apply 로 올린다.\n'); process.exit(0); }
 
+/**
+ * ★★**업체마다 «제 폴더»를 준다 — 달마다 그 안에 쌓인다.**
+ *   사장님 2026-09-03 「각 거래처별 청구서가 쌓이게 … 영업채널, 공급사 각 청구 지급 폴더를
+ *   만들어서 계속 누적되게 해드리면 좋을거 같음」.
+ *   ⇒ `공급사 청구서/오토플러스/2026-08 …pdf` 꼴. 달 폴더를 위에 두면 업체가 자기 것을 보려고
+ *     달마다 들어가야 한다 — 업체를 위에 두면 «그 업체의 전부»가 한 자리에 선다.
+ *   ★파일 이름 앞에 달이 붙어 있어 폴더 안에서 저절로 시간순이 된다.
+ */
+const nameOf = (f: string) => S(f).replace(/^\d{4}-\d\d /, '').replace(/ 영업수수료 (청구서|지급명세서).*$/, '');
 for (const [label, list, into] of [['공급사 청구서', bill, fBill], ['영업채널 지급명세서', payd, fPay]] as [string, string[], string][]) {
   console.log(`\n■ ${label} ${list.length}장`);
-  for (const f of list) { const id = await put(join(DIR, f), f, into); console.log(`   ${id ? '○' : '✕'} ${f}`); }
+  for (const f of list) {
+    const who = nameOf(f) || '(이름없음)';
+    const dir = await folder(who, into);
+    const id = await put(join(DIR, f), f, dir);
+    console.log(`   ${id ? '○' : '✕'} ${who.padEnd(18)} ${f}`);
+  }
 }
 
 // ★공유는 회사 사람까지. 「링크 아는 사람 누구나」로 열지 않는다.
@@ -92,7 +105,6 @@ const share = await fetch(`https://www.googleapis.com/drive/v3/files/${root}/per
 console.log(`\n■ 공유 — teamjpk.com 회사 사람 전부 ${share.ok ? '✓' : `(이미 되어 있거나 실패 ${share.status})`}`);
 console.log('\n■ 링크');
 console.log(`   정산서 전체   https://drive.google.com/drive/folders/${root}`);
-console.log(`   ${MONTH}       https://drive.google.com/drive/folders/${mon}`);
 console.log(`   공급사 청구서   https://drive.google.com/drive/folders/${fBill}`);
 console.log(`   영업채널 지급   https://drive.google.com/drive/folders/${fPay}\n`);
 process.exit(0);
