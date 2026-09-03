@@ -288,7 +288,12 @@ export async function ensureFeeTab(tok: Tok, bookId: string): Promise<boolean> {
      */
     [`영업수수료 지급 기준 — ${CORP.name}`, '', '', '', ''],
     HEAD,
-    ...stdRules.map((r) => ['', KIND(r), HOWMUCH(r), VATOF(r), EXAMPLE(r)]),
+    /**
+     * ★공급사 칸을 «비워 두지 않는다» — 사장님 2026-09-03
+     *   「여기에 공급사를 표준정책 회원사 라고 해줘야지」.
+     *   빈 칸은 «빠진 것»으로 보인다. 이름을 적어 두면 그 줄이 누구 것인지 줄마다 말한다.
+     */
+    ...stdRules.map((r) => ['표준정책 회원사', KIND(r), HOWMUCH(r), VATOF(r), EXAMPLE(r)]),
   ];
   /**
    * ★★**표준과 «같은 줄»은 다시 적지 않는다.**
@@ -336,7 +341,7 @@ export async function ensureFeeTab(tok: Tok, bookId: string): Promise<boolean> {
   const notes = rows.map((r, i) => (String(r[0]).startsWith('※') ? i : -1)).filter((i) => i > 0);
   const wide = rows.map((r, i) => (i > 1 && !String(r[0]).startsWith('■') && String(r[1]).length > 40 && !String(r[2]) ? i : -1)).filter((i) => i > 0);
   await format(tok, bookId, [
-    ...dress(id, HEAD.length, [110, 200, 230, 60, 300]),
+    ...dress(id, HEAD.length, [130, 200, 230, 60, 300]),
     { repeatCell: { range: { sheetId: id, startRowIndex: 2, endRowIndex: rows.length, startColumnIndex: 0, endColumnIndex: 3 },
       cell: { userEnteredFormat: { verticalAlignment: 'MIDDLE', wrapStrategy: 'WRAP', textFormat: { bold: false } } }, fields: 'userEnteredFormat(verticalAlignment,wrapStrategy,textFormat)' } },
     /** ★「부가세」는 «별도/포함» 두 글자다 — 가운데 세우고 굵게 둔다. 흐리면 못 보고 지나친다. */
