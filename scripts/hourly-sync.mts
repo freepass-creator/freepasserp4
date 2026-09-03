@@ -28,6 +28,7 @@
  */
 import { appendFileSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { Worker } from 'node:worker_threads';
 
 const APPLY = process.argv.includes('--apply');
@@ -208,7 +209,18 @@ let allOk = true;
  *   잠깐 안 받아 준 것이다. 503 은 429 보다 더 명백한 「잠깐 밀린 것」인데 재시도 대상이 아니라
  *   그냥 실패로 끝났다 — 우리 데이터는 멀쩡한데 회차가 빨간불이 됐다.
  */
-const RATE_LIMIT = /\b429\b|rate.?limit|quota|RESOURCE_EXHAUSTED|\b50[0234]\b|UNAVAILABLE|ECONNRESET|ETIMEDOUT|socket hang up/i;
+/**
+ * ⚠ `spawn UNKNOWN`·`EBUSY` 도 «잠깐 밀린 것»이다 — 2026-09-02 에 이안카 정책이 그것으로 죽어
+ *   ①에서 회차가 멈췄고 발행·ERP 가 두 시각 안 돌았다. 자식이 «또 자식을» 못 띄운 경우라
+ *   부모의 `r.error` 는 서지 않는다. 그래서 «글자»로도 잡는다.
+ */
+const RATE_LIMIT = /\b429\b|rate.?limit|quota|RESOURCE_EXHAUSTED|\b50[0234]\b|UNAVAILABLE|ECONNRESET|ETIMEDOUT|socket hang up|spawn\s+(UNKNOWN|EBUSY|EAGAIN|ENOMEM)/i;
+/**
+ * tsx 실행기의 «파일 경로» — npx 를 안 거치려고 직접 짚는다(run() 주석 참고).
+ * ⚠ `require.resolve('tsx/dist/cli.mjs')` 는 안 된다 — tsx 가 그 경로를 export 하지 않아
+ *   `ERR_PACKAGE_PATH_NOT_EXPORTED` 가 난다. 그래서 **파일 자리로** 짚는다.
+ */
+const TSX_CLI = fileURLToPath(new URL('../node_modules/tsx/dist/cli.mjs', import.meta.url));
 /**
  * 동기 대기 — `Atomics.wait` 로 **잠든다**. 바쁜 대기(while 루프)로 짰다가 코덱스에게 잡혔다:
  * 30초×2회면 1분을 코어 하나 100% 로 태운다. 이 스크립트는 단계가 순서대로만 도는
@@ -225,8 +237,17 @@ const sleep = (ms: number) => { Atomics.wait(new Int32Array(new SharedArrayBuffe
  *   exit 2 «말고» 다른 실패(1·크래시)는 그대로 실패다 — 재는 자 자체가 죽은 것이므로.
  */
 const run = (label: string, args: string[], pick: RegExp, runner: 'npx' | 'node' = 'npx', signal2ok = false): { ok: boolean; picked: string[] } => {
-  const bin = runner === 'node' ? 'node' : (process.platform === 'win32' ? 'npx.cmd' : 'npx');
-  const argv = runner === 'node' ? args : ['tsx', ...args];
+  /**
+   * ★**npx 를 안 거친다 · 셸도 안 쓴다.**
+   *   `npx.cmd` 는 안에서 `CALL "C:\Program Files\nodejs\node.exe" …` 를 부르는데, `shell:true` 로 넘기면
+   *   **경로의 공백(`Program Files`)에서 따옴표가 깨져** 그대로 죽는다:
+   *     「'CALL "C:\Program Files\nodejs\node.exe" …' 은(는) 명령 또는 외부 명령…이 아닙니다」
+   *   2026-09-02 에 이것으로 회차가 네 번 멎었다(15:31·16:31·20:01·20:09) — 그때마다 발행·ERP 가 안 돌았다.
+   *   아침의 `spawn UNKNOWN`(⑦⑧⑨) 도 같은 뿌리다. 셸을 한 겹 더 태워서 생긴 일이다.
+   *   지금 도는 node(`process.execPath`)로 **tsx 를 직접** 부르면 따옴표 문제 자체가 없어진다.
+   */
+  const bin = process.execPath;
+  const argv = runner === 'node' ? args : [TSX_CLI, ...args];
   const stepStarted = Date.now();
   for (let attempt = 1; ; attempt += 1) {
     touchLock();   // 시작 «전»에도 만진다 — 자식이 도는 동안은 못 만지므로 공백을 절반으로 줄인다
@@ -236,7 +257,7 @@ const run = (label: string, args: string[], pick: RegExp, runner: 'npx' | 'node'
        매달릴 수 있었고, 그 사이 잠금이 stale 로 보여 남이 가져갔다(코덱스 8차 시나리오 1단계).
        실측 최장 단계는 몇 분이라 30분이면 넉넉하다. 넘으면 그 회차는 실패로 끝난다. */
     const r = spawnSync(bin, argv, {
-      encoding: 'utf8', shell: process.platform === 'win32', env: process.env,
+      encoding: 'utf8', env: process.env,   // ⚠ shell 을 쓰지 않는다 — 위 주석(따옴표 깨짐)
       maxBuffer: 64 * 1024 * 1024, timeout: 30 * 60_000,
     });
     const raw = `${r.stdout || ''}\n${r.stderr || ''}`;
@@ -250,8 +271,37 @@ const run = (label: string, args: string[], pick: RegExp, runner: 'npx' | 'node'
       sleep(30_000);
       continue;
     }
-    out.push(`\n── ${label} ${ok ? '✓' : '✗'}${attempt > 1 ? ` (${attempt}회)` : ''}`, ...lines.slice(-40).map((l) => `   ${l.slice(0, 300)}`));
+    /**
+     * ★**«시작조차 못 한 것»은 한 번 더 해 본다.**
+     *   `r.error` 는 자식이 실행되지 못했다는 뜻이다(ENOENT·EBUSY·EAGAIN…). 이건 그 단계가
+     *   틀렸다는 신호가 아니라 **그 순간 기계가 바빴다**는 신호다 — 2026-09-02 09:16 에 ⑦⑧⑨ 가
+     *   연달아 이렇게 죽었고, 손으로 돌리니 셋 다 멀쩡했다. 한 번 죽었다고 회차를 버릴 이유가 없다.
+     *   ⚠ 다만 «돌다가 실패한 것»(종료코드 ≠ 0)은 재시도하지 않는다 — 그건 진짜 어긋남이고,
+     *      쓰기 단계를 두 번 돌리면 같은 것을 두 번 쓸 수 있다.
+     */
+    if (!ok && r.error && attempt < 3) {
+      const code = (r.error as NodeJS.ErrnoException).code || '';
+      console.log(`── ${label} ⏳ 실행이 시작되지 않았다(${code}) — 15초 쉬고 다시 (${attempt}/3)`);
+      out.push(`\n── ${label} ⏳ 시작 실패 재시도 ${attempt} — ${code} ${r.error.message}`);
+      sleep(15_000);
+      continue;
+    }
+    /**
+     * ★**실패했으면 «왜»를 반드시 한 줄 남긴다.**
+     *
+     * ⚠ 2026-09-02 09:16 회차에서 ⑦⑧⑨ 가 **출력 한 줄 없이** ✗ 로 끝났다. 손으로 돌리면 셋 다 멀쩡했다.
+     *   원인을 못 찾은 이유는 여기 있었다 — `spawnSync` 의 **`r.error` 를 아무도 안 봤다.**
+     *   자식이 «시작조차 못 하면»(ENOENT·EBUSY·EAGAIN 등) stdout/stderr 가 통째로 비어
+     *   `lines` 가 빈 배열이 되고, 기록에는 `── ⑦ ERP 일일 동기 ✗` 한 줄만 남는다.
+     *   **이유 없는 빨간불은 다음에 아무도 안 믿는다.** 종료코드·신호·실행오류를 같이 적는다.
+     */
+    const 진단 = !ok
+      ? [`   ✗ 왜 — ${r.error ? `실행 자체가 안 됐다(${(r.error as NodeJS.ErrnoException).code || ''} ${r.error.message})` : `종료코드 ${r.status ?? '없음'}`}`
+         + `${r.signal ? ` · 신호 ${r.signal}` : ''}${lines.length ? '' : ' · 자식이 아무것도 못 찍었다'}`]
+      : [];
+    out.push(`\n── ${label} ${ok ? '✓' : '✗'}${attempt > 1 ? ` (${attempt}회)` : ''}`, ...진단, ...lines.slice(-40).map((l) => `   ${l.slice(0, 300)}`));
     console.log(`── ${label} ${ok ? '✓' : '✗'}${attempt > 1 ? ` (${attempt}회)` : ''}`);
+    for (const l of 진단) console.log(l);
     for (const l of picked.slice(0, 6)) console.log(`   ${l.slice(0, 220)}`);
     /* ★단계 결과를 남긴다. 「경고로 넘긴 단계」도 상태로그에서는 성공이 아니다.
        (코덱스 2026-08-30: 「⑩ 이 실패해도 ok:true 로 기록해 천이가 조용히 낡을 수 있다」) */
@@ -260,7 +310,9 @@ const run = (label: string, args: string[], pick: RegExp, runner: 'npx' | 'node'
        단계별 시간이 없어 «어디가 느렸는지» 끝내 못 좁혔다. 결과값은 멀쩡했다 — 시간만 셋이 됐다.
        느려지는 것은 대개 «무엇이 무너지기 전»의 첫 신호다. 그걸 보려면 재 두어야 한다. */
     const 초 = Math.round((Date.now() - stepStarted) / 1000);
-    steps.push({ 단계: label, ok, 초, ...(신호 ? { 신호: '어긋남 있음' } : null), ...(picked.length ? { 요약: picked.slice(0, 3).join(' | ').slice(0, 300) } : null) });
+    /** ★실패면 «이유»를 상태로그에도 싣는다 — 상태판·메일이 읽는 곳이 여기다. 요약이 비면 아무도 이유를 못 본다. */
+    const 요약 = picked.length ? picked.slice(0, 3).join(' | ').slice(0, 300) : (진단[0] || '').trim().slice(0, 300);
+    steps.push({ 단계: label, ok, 초, ...(신호 ? { 신호: '어긋남 있음' } : null), ...(요약 ? { 요약 } : null) });
     if (초 >= 300) {   // 5분 넘게 걸린 단계는 눈에 띄게 남긴다
       const w = `${label} 이 ${Math.round(초 / 60)}분 걸렸다(평소보다 오래)`;
       warnings.push(w); console.log(`   ⏱ ${w}`);
@@ -360,6 +412,7 @@ const stop = (why: string) => {
 
 /**
  * ⓪ 손오공(D경로) — API pull → 차종마스터 매칭 정제 → 재고시트.
+ * 정제칸은 **빈 칸만 한 번**. 상태·요금만 매번 갱신. 이미 있는 이름칸은 안 덮는다.
  *
  * ★2026-08-30 aiops 에서 옮겨왔다(사장님 「프리패스는 AIOps 를 쓰지 않아. 프리패스 자체적으로」).
  *   전에는 `C:/dev/aiops/scripts/손오공-매일.mjs` 가 이 셋을 돌리고 나머지는 여기 스크립트를 불렀다 —
@@ -428,8 +481,47 @@ line.push(`정제시트 ${s1.picked.find((l) => /새 차/.test(l))?.replace(/\s+
  *   (2026-08-28 오플에서 실측). RTDB 를 쓰므로 server-only 심이 필요하다.
  */
 const s1b = run('①′ 정제칸 채움', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/fill-supplier-ai-columns.mts', '--include-mirror', ...A], /차량번호 정본|채움|모두 |바로잡|Error/);
-if (!s1b.ok) stop('정제칸 채움 실패');
-line.push('정제칸 ok');
+/**
+ * ★**①′ 는 «경고»다 — 여기서 회차를 끝내지 않는다** (사장님 2026-09-03 「제대로 업데이트 좀 해봐」).
+ *
+ *   왜 바꿨나 — ①′ 는 «멈춤»이었다. 그런데 2026-09-03 실측으로 이 단계가 **매 회차 91분을 돌며
+ *   구글 요청한도를 다 쓰고 `ETIMEDOUT` 으로 죽었고**, 채운 칸은 **0칸**이었다. 그 뒤 ⑥ 판매 4탭
+ *   발행이 아예 안 돌아 **판매시트가 14:16 판에 멈춰 있었다**(사장님이 「또 이상해졌다」고 하신 그것).
+ *   ①″ 「라이브 이름 폐쇄」도 이 뒤라 같이 못 돌았다 — 이름이 마스터에서 어긋난 채 쌓였다.
+ *
+ *   ★**왜 멈추지 않아도 되나** — ①′ 는 정제칸을 «채우는» 일이지 «발행할 값»을 만드는 일이 아니다.
+ *     매뉴얼 §0 이 못 박은 대로 **정제칸이 비어 있으면 비운 채로 나른다.** 그러니 ①′ 가 실패해도
+ *     ⑥ 은 «있는 값 그대로» 옳게 발행한다. 여기서 멈추면 «덜 채워진 표»가 아니라 **«어제 표»**가 남는다.
+ *     둘 중 나쁜 것은 어제 표다 — 영업자가 그걸 손님 앞에서 읽는다.
+ *
+ * ⚠ **성공으로 적지 않는다.** 매뉴얼 §1-③ 「경고」 그대로 — 상태로그 `ok:false` · 종료코드 1 · 메일.
+ *   `run()` 이 이미 `allOk=false` 와 경고를 남긴다. 조용히 넘어가는 것이 아니다.
+ * ⚠ **원산지는 여전히 지킨다** — 2026-08-28 오플 사고(원산지 없음 → 보증금 배율 불가 → 요금 소실)는
+ *   ①′ 가 아니라 바로 아래 ①′-손 `fill-origin` 이 맡는다. 그 단계는 «멈춤»으로 남겨 둔다.
+ */
+if (!s1b.ok) {
+  warnings.push('①′ 정제칸 채움 실패 — 발행은 계속한다(정제칸은 있는 값 그대로 나간다)');
+  console.log('   ▲ ①′ 실패 — 그래도 ⑥ 발행까지 간다(멈추면 «어제 표»가 남는다). 상태로그는 ok:false 다.');
+}
+line.push(s1b.ok ? '정제칸 ok' : '정제칸 ✗(경고)');
+/**
+ * ①′-손 **손오공 원산지 채움** — ①′ 가 손오공을 «안 타서» 아무도 안 채우던 칸이다.
+ *
+ * ★원산지는 표시값이 아니라 «돈»이다 — 보증금 배율(국산 ×2 · 수입 ×3)의 근거라
+ *   비면 보증금 계산이 막히고 **요금이 통째로 사라진다**(2026-08-28 오플 실사고).
+ * ⚠ 실측 2026-09-02: 손오공구독 72대 중 원산지가 24%밖에 안 차 있었다 — 91칸이 비어 있었고
+ *   손으로 채웠다. **비는 이유가 「담당이 없다」였으므로 회차에 붙인다.** 안 붙이면 새 차마다 또 빈다.
+ *   빈 칸만 채우므로 사람이 적은 값은 안 덮는다.
+ */
+const s1bs = run('①′-손 원산지 채움(전 공급사)', ['scripts/fill-origin.mts', ...A], /빈 칸|채웠다|채울 칸|Error/);
+if (!s1bs.ok) stop('원산지 채움 실패');
+line.push(s1bs.picked.find((l) => /채웠다|채울 칸/.test(l))?.replace(/^.*?—\s*/, '원산지 ') || '원산지 ok');
+const s1c = run('①″ 라이브 이름 폐쇄', ['scripts/close-refined-names-to-live-master.mts', '--include-mirror', ...A], /미리보기|반영|라이브 행 폐쇄|Error/);
+if (!s1c.ok) stop('라이브 이름 폐쇄 실패');
+line.push('이름폐쇄 ok');
+const s1d = run('①‴ 원문-디올뉴 게이트', ['scripts/audit-raw-ad-prefix.mts'], /게이트 ok|게이트 실패|Error/);
+if (!s1d.ok) stop('원문 없는 디올뉴 게이트 실패');
+line.push('원문철자 ok');
 
 // ② 차명 중복 정리 → ③ 모델명 통일(엔카 기준)
 if (SAME_SCOPE) skip('② 차명 중복 정리', 'aiops 범위 밖(--같은범위)');
@@ -576,10 +668,80 @@ if (손오공탭발행) {
  * ⑪ 자기검수 — 판매↔ERP 요금 정합. 「판매엔 있는데 ERP 요금 0」인 차 수를 남긴다.
  *   정상 기준선 3대(협의·더미 차번). 갑자기 늘면 원산지·정제칸 구멍이다.
  */
-const fee = run('⑪ 요금 검수(판매↔ERP)', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/audit-sales-vs-erp.mts'], /없는 차 \d+대|유효가격 0|살아있음 \d+/);   /* ⑪ 는 어긋나도 exit 0 이라 signal2ok 이 무의미하다(코덱스 3차) */
-const feeN = /ERP 목록에 없는 차 (\d+)대/.exec(fee.picked.join(' ') || '');
-line.push(feeN ? `요금검수 ${feeN[1]}대` : '요금검수 ok');
-if (feeN && Number(feeN[1]) > 6) out.push(`\n⚠ 요금검수 — 판매엔 있는데 ERP 요금 0인 차 ${feeN[1]}대(>6). 원산지·정제칸 구멍 의심`);
+/**
+ * ★**총계로 울리지 않는다 — «누구 몫»으로 울린다.** (2026-09-02)
+ *
+ * 전에는 「ERP 목록에 없는 차 N대」가 6을 넘으면 경보였다. 그런데 그 N 은
+ * **공급사가 요금을 안 적은 차까지 다 더한 수**다. 공급사가 새로 들어오면 저절로 늘고,
+ * 그러면 매시간 「요금이 샌다」가 울린다 — 실제로 2026-09-02 에 580→708대로 늘며 7→13이 됐고,
+ * 열어 보니 **내 몫은 0건**이었다(전부 공급사 빈칸).
+ *
+ * 재는 자(`audit-sales-vs-erp`)가 이제 넷으로 가르므로, 경보는 **내가 고칠 수 있는 것**에만 건다:
+ *   · 「나르다 빠졌다」 = 대여료·보증금이 다 있는데 ERP 가 0 → **파이프라인이 흘린 것. 울린다.**
+ *   · 「보증금이 비었다」 = 공급사가 채우면 사는 차 → 세어서 «보여만» 준다(사장님이 공급사에 요청).
+ *   · 「시트에도 대여료 없음」 = 공급사 몫. 울리지 않는다.
+ * **거짓 빨간불을 없애야 진짜 빨간불을 믿는다.**
+ */
+const fee = run('⑪ 요금 검수(판매↔ERP)', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/audit-sales-vs-erp.mts'], /없는 차 \d+대|나르다 빠졌다|보증금이 비었다|살아있음 \d+/);
+const feeAll = fee.picked.join(' ');
+const feeN = /ERP 목록에 없는 차 (\d+)대/.exec(feeAll);
+const 흘림 = Number(/(\d+)대\s+대여료·보증금 다 있는데/.exec(feeAll)?.[1] || 0);
+const 보증금빔 = Number(/(\d+)대\s+★대여료는 있는데 보증금이 비었다/.exec(feeAll)?.[1] || 0);
+line.push(feeN
+  ? `요금검수 ${feeN[1]}대(내몫 ${흘림} · 보증금빔 ${보증금빔})`
+  : '요금검수 ok');
+if (흘림 > 0) {
+  out.push(`\n⚠ ★요금검수 — **나르다 빠뜨린 차 ${흘림}대**. 대여료·보증금이 다 있는데 ERP 가 0이다. 원산지·정제칸 구멍 의심`);
+  allOk = false;   // 내 몫이 생겼으면 그 회차는 성공이 아니다
+}
+if (보증금빔 > 0) out.push(`\n· 요금검수 — 공급사가 보증금만 채우면 사는 차 ${보증금빔}대(경보 아님 — 사장님이 공급사에 요청)`);
+
+/**
+ * ⑫ **채울 것 목록 갱신 — 새 차가 들어온 그 시각에 안다.**
+ *
+ * ★사장님 2026-09-03 「**새로운 차 나오면 그걸 연동을 못 하네.**」
+ *   새 차가 유입되면 라이브 차종마스터에 그 차종 행이 없어 **정제칸이 빈 채로 상품리스트에 나간다.**
+ *   마스터에 행을 «자동으로» 넣는 것은 금지다 — 지어내기이고, 코덱스 NO-GO 이며,
+ *   2026-08-28 에 그렇게 하다 픽업 모델 135/341 을 잃었다.
+ *   그래서 **채우는 것은 사람에게 남기되, «무엇을 채워야 하나»는 매시간 자동으로 갱신한다.**
+ *   지난 회차와 견줘 «새로 생긴 차종»이 있으면 그 자리에서 알린다(총계만 보면 상쇄돼 안 보인다).
+ *
+ * ⚠ 읽기 전용이다 — 시트도 ERP 도 안 건드린다. 실패해도 회차를 멈추지 않는다(경고만).
+ */
+const todo = run('⑫ 채울 것 목록', ['scripts/report-fill-todo.mts'], /넣을 것|받을 것|새로 생긴|늘었나/);
+const 새차종 = /★새로 생긴 «마스터에 없는 차종» (\d+)가지/.exec(todo.picked.join(' '))?.[1];
+line.push(새차종 ? `★마스터에 없는 새 차종 ${새차종}가지` : (todo.ok ? '채울것 ok' : '채울것 실패'));
+if (새차종) {
+  out.push(`\n■ ★새 차가 들어왔는데 차종마스터에 행이 없다 — ${새차종}가지`);
+  out.push('   tmp/보강-차종마스터.tsv 를 마스터에 붙여넣으면 다음 회차에 정제칸이 채워진다');
+}
+
+/**
+ * ⑬ **차종마스터 «영구계약» 지킴이 — 아무도 안 보고 있었다.**
+ *
+ * ⚠ 실측 2026-09-03 — 시트에서 「H-PICK」을 「H-픽」으로 바꾼 편집 18건 때문에
+ *   `audit-vehicle-trim-key-contract` 가 FAIL, `generate-vehicle-trim-master` 가 생성 차단이었다.
+ *   **8일간 아무도 몰랐다.** 이유는 단순하다 — 그 검사가 **회차에도 CI 에도 안 붙어 있었다**
+ *   (실측: `hourly-sync`·`ci.yml` 어디에도 호출이 없고 `package.json` 스크립트로만 존재).
+ *   장치를 만들어 두고 «부르지 않으면» 없는 것과 같다.
+ *
+ * ★`--register-new` 로 돈다 — 계약 문서(`VEHICLE_MASTER_KEY_CONTRACT.md`)가 「**추가만 가능**」이라 했으므로
+ *   «새 코드»는 기준판에 자동 등록하고 지나간다. 그래야 사람이 마스터에 행을 넣어도 파이프라인이 안 막힌다.
+ *   반대로 «삭제·재사용·순번변경·의미변경»은 그 자리에서 거부된다(도구가 이미 그렇게 갈라 놨다).
+ *
+ * ⚠ **멈추지는 않는다(경고).** 의미가 바뀐 값은 이미 시트에 들어간 뒤라, 발행을 막아도 되돌려지지 않는다.
+ *   오히려 오늘처럼 18건으로 8일간 발행이 멈추면 그게 더 큰 손해다. **알리되 흐름은 잇는다.**
+ */
+const master = run('⑬ 차종마스터 계약', ['scripts/audit-vehicle-trim-key-contract.mts', '--register-new'], /PASS|위반|거부|새 키/);
+const 새키 = /새 키 (\d+)개만 기준판에 추가/.exec(master.picked.join(' '))?.[1];
+line.push(master.ok ? (새키 ? `마스터계약 ok(새 키 ${새키})` : '마스터계약 ok') : '★마스터계약 위반');
+if (!master.ok) {
+  allOk = false;
+  out.push('\n■ ★차종마스터 영구계약이 깨졌다 — 같은 코드가 다른 차를 가리킬 수 있다');
+  out.push('   누가 시트에서 «의미 열»(세부모델·세부트림·제원)을 고쳤다. 표기만 어긋난 것이면:');
+  out.push('   npx tsx scripts/fix-latin-trim-canon.mts        (라틴 표기를 정본으로 되돌린다)');
+  out.push('   그 밖이면 사람이 판단해야 한다 — 계약은 「기존 코드 제외 보존 + 새 코드 추가」다');
+}
 
 const seconds = Math.round((Date.now() - started) / 1000);
 out.push(`\n■ ${allOk ? '끝' : '끝(일부 실패)'} ${kst()} KST · ${seconds}초`);
