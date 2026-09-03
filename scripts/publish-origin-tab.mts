@@ -231,6 +231,17 @@ const clean = (col: string, val: string) => {
   return col === '제조사' ? canonMakerDisplay(v) : v;
 };
 
+/**
+ * ★**깨진 수식은 값이 아니다** (실측 2026-09-03 빌린카 `08주6722`).
+ *   공급사 시트 칸이 `#REF!` 로 깨져 있으면 발행기가 그 «글자»를 그대로 실었다.
+ *   배차상태가 `#REF!` 라 「출고불가 빼기」 판정도 못 받고 목록에 서 버린다 —
+ *   영업자는 그 줄을 «팔 수 있는 차»로 읽는다.
+ * ★비우고 «못 읽었다»로 센다. 지어내지 않고, 조용히 넘기지도 않는다.
+ */
+const SHEET_ERROR = /^#(REF|VALUE|N\/A|NAME|DIV\/0|NUM|ERROR|GETTING_DATA)[!?]?$/i;
+/** [공급사 차번 「열=오류값」] — 화면에 찍어 공급사에 고쳐 달라고 한다. */
+const brokenCells: string[] = [];
+
 /** 모델명이 비어 영업자가 분류를 못 하는 차 — 세어 화면에 보인다. */
 const missingModel: string[] = [];
 
@@ -509,7 +520,16 @@ for (const [code, p] of [...byCode].sort()) {
       // 원본 행의 URL을 여기서 그대로 재발행하면 외부 정제시트의 사진 오매칭이
       // 중앙 판매시트와 ERP까지 다시 전파된다.
       /** 후보를 차례로 보고 **값이 든 첫 칸**을 쓴다. 정제칸이 비면 공급사 원문으로 떨어진다. */
-      const cell = (c: string) => { for (const i of idx.get(c) || []) { const v = S(r[i]); if (v) return v; } return ''; };
+      const cell = (c: string) => {
+        for (const i of idx.get(c) || []) {
+          const v = S(r[i]);
+          if (!v) continue;
+          /* 깨진 수식은 «값»이 아니다 — 비우고 세어 둔 뒤 다음 후보 칸을 본다. */
+          if (SHEET_ERROR.test(v)) { brokenCells.push(`${who} ${S(r[first('차량번호')])} 「${c}=${v}」`); continue; }
+          return v;
+        }
+        return '';
+      };
       /**
        * ★제조사·모델·차명만 시트에서 옮긴다(사장님 2026-08-19).
        *   마스터 스냅·상품마스터 3축·정제칸 재판단 없음 — 틀린 세부축이 붙느니 원문이 낫다.
@@ -740,6 +760,13 @@ if (noPolicy.length) {
   console.log('');
   console.log(`  ▲ 정책 탭을 못 읽은 공급사 ${noPolicy.length} — 그 집 부가정보가 빈다 (정책 출처: 문패시트 ${policySource['문패시트']} · 우리 제공시트 ${policySource['우리제공시트']} · 없음 ${policySource['없음']})`);
   console.log(`     ${noPolicy.join(' · ')}`);
+}
+if (brokenCells.length) {
+  console.log(`
+  ▲ 공급사 시트 칸이 깨져 있다 ${brokenCells.length}곳 — 그 칸은 비우고 실었다(«#REF!» 를 값으로 싣지 않는다)`);
+  for (const b of brokenCells.slice(0, 15)) console.log(`     ${b}`);
+  if (brokenCells.length > 15) console.log(`     … 모두 ${brokenCells.length}곳`);
+  console.log('     공급사 시트의 그 수식을 고쳐야 값이 실린다.');
 }
 if (missingModel.length) {
   console.log(`

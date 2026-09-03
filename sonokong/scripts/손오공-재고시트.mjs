@@ -1,13 +1,14 @@
 /** 손오공 API → 손오공 재고시트(1WIFn…) 원본칸 채우기.
  *
  *  구독재고 ← SON_NO_KONG(중고구독) · 픽업재고(없으면 신설) ← TCAR_EXTERNAL(픽업구독).
- *  정제칸(정책코드~차명(정제))·차종마스터는 freepasserp4 툴이 채운다 — 여기선 안 건드림.
+ *  정제칸 모델·세부모델·세부트림 = hourly-sync ⓪ `손오공-정제.mjs`(라이브 「차종마스터」 행 복사).
+ *  ★한 번 채우면 끝(2026-09-02). 빈 칸만 쓴다. 이미 있는 이름·제원 칸은 매시간 안 덮는다.
+ *  fill-supplier-ai-columns 는 이 시트를 안 탄다.
  *
  *  안전규칙:
  *   · ALWAYS  = 변동값(상태·주행거리·차량가격·인수형/반납형 가격·보증금 인수형)만 API로 갱신
- *   · FILLIFEMPTY = 기존 값 있으면 보존(옵션·사진링크·차대번호·입고일자·점검사항·내부색상·최초등록일)
+ *   · FILLIFEMPTY = 정제칸·내부색상·최초등록일 — 기존 값 있으면 보존, 빈 칸만 채움
  *   · IDENTITY = 정체값(차번·분류·제조사·모델명·차명·외부색상·연식·연료·배기량·보증금반납형)
- *   · 정제칸/그 외 = 기존 그대로 보존, 신규는 빈칸
  *
  *    node scripts/손오공-재고시트.mjs            미리보기(라이브 안 건드림)
  *    node scripts/손오공-재고시트.mjs --쓰기      백업 후 반영
@@ -96,8 +97,23 @@ function 값맵(c, 분류) {
   // 정제값 — 모델·세부모델·세부트림·원산지 = 차종마스터 시트 매칭(정제맵). 제원(배기량·연료·외장·구동·인승·차종·내장) = 팩트.
   const isT = c.버킷 === 'TCAR_EXTERNAL';
   const M = 정제맵.get(씻(c.차번)) || {}; // 차종마스터 시트 규격(없으면 {} → 그 칸 빈칸)
+  // 이름칸: 값이 있는 축만, 그리고 빈 칸만(FILLIFEMPTY). 한 번 채운 모델·세부모델을 매시간 다시 쓰지 않는다.
+  const 이름칸 = M.모델 ? {
+    '모델': M.모델,
+    ...(M.제조사 ? { '제조사(정제)': M.제조사 } : {}),
+    ...(M.세부모델 ? { '세부모델': M.세부모델 } : {}),
+    ...(M.세부트림 ? { '세부트림': M.세부트림 } : {}),
+    ...(M.원산지 ? { '원산지': M.원산지 } : {}),
+    ...(M.세부모델 ? {
+      '차명(정제)': (() => {
+        const sub = String(M.세부모델 || '').trim();
+        const trim = String(M.세부트림 || '').trim();
+        const flat = (s) => s.replace(/\s/g, '');
+        return trim && !flat(sub).includes(flat(trim)) ? `${sub} ${trim}` : sub;
+      })(),
+    } : {}),
+  } : {};
   const 정제값 = {
-    '제조사(정제)': M.제조사 || '', '모델': M.모델 || '', '세부모델': M.세부모델 || '', '세부트림': M.세부트림 || '', '원산지': M.원산지 || '',
     '외장색상': (isT ? L.외장 : c.외장) || '', '연료(정제)': 연료정규(isT ? L.연료 : c.연료), '배기량(정제)': (isT ? L.배기량 : c.배기량) || '',
     // T카는 롯데 제원(내장·구동·인승·차종)까지. SON은 carName에서 뽑히는 구동·인승만(차종·내장은 손오공 소스 없음).
     ...(isT
@@ -121,11 +137,17 @@ function 값맵(c, 분류) {
       // 옵션·선택옵션 = 유상옵션(참고용) 원문. 없으면 빈칸(사장님 2026-08-27 「옵션이 잘못됐어·유상옵션 가져오라」).
       // 기본장비 목록(options[])은 노이즈라 안 쓴다 → 덮어써서 잘못된 기존 덤프도 걷어냄.
       '옵션': c.유료옵션 || '', '선택옵션': c.유료옵션 || '',
+      // ★차번링크 = 티카 상세페이지(픽업만). 사장님 2026-08-28 「픽업차의 차량번호 셀을 누르면 티카 상세페이지로」.
+      //   ⚠ 「사진링크」에 넣으면 안 된다 — 그 칸은 ERP가 <img>로 그려서 HTML을 넣으면 사진이 깨진다
+      //     (2026-08-28 실측 337대). 그래서 «전용 칸»을 따로 둔다.
+      //   SON은 상세url이 없어 빈칸이고, 판매 발행은 빈칸이면 예전처럼 사진 첫 장으로 떨어진다.
+      '차번링크': /^https?:\/\//.test(String(c.상세url || '')) ? c.상세url : '',
     },
     // ★T카 정제칸 — 롯데 티카 페이지에서 정제해온 값(c.정제). SON은 c.정제=null이라 안 채움(차종마스터 팀 담당).
     //   값 있을 때만 씀(SETIFVALUE) — 규격이름(모델·세부모델·세부트림)은 T카는 롯데가 정본(사장님 2026-08-27 「티카꺼만 정제해서」).
-    SETIFVALUE: 정제값,
     FILLIFEMPTY: {
+      ...이름칸,
+      ...정제값,
       '내부색상': c.내장 || '', '최초등록일': 날(c.최초등록),
     },
   };
@@ -138,11 +160,14 @@ function 행빌드(header, 기존, c, 분류) {
     const i = header.indexOf(name);
     if (i < 0) return;
     if (mode === 'ALWAYS' || mode === 'IDENTITY') row[i] = v;
-    else if (mode === 'SETIFVALUE') { if (v !== '' && v != null) row[i] = v; }
-    else if (mode === 'FILLIFEMPTY') { if (!String(row[i] ?? '').trim() && v !== '') row[i] = v; }
+    else if (mode === 'NAMES' || mode === 'FILLIFEMPTY') {
+      if (!String(row[i] ?? '').trim() && v !== '' && v != null) row[i] = v;
+    }
+    else if (mode === 'SETIFVALUE') { if (v !== '' && v != null && !String(row[i] ?? '').trim()) row[i] = v; }
   };
   for (const [k, v] of Object.entries(m.IDENTITY)) put(k, v, 'IDENTITY');
   for (const [k, v] of Object.entries(m.ALWAYS)) put(k, v, 'ALWAYS');
+  for (const [k, v] of Object.entries(m.NAMES || {})) put(k, v, 'NAMES');
   for (const [k, v] of Object.entries(m.SETIFVALUE || {})) put(k, v, 'SETIFVALUE');
   for (const [k, v] of Object.entries(m.FILLIFEMPTY)) put(k, v, 'FILLIFEMPTY');
   // ★사진링크 = «이미지» URL. ERP가 이 칸을 <img>로 그린다 → 반드시 이미지라야 뜬다.
