@@ -33,7 +33,7 @@ import { getDatabase } from 'firebase-admin/database';
 import { CORP } from '../lib/domain/corporate-ci';
 import { dueDate } from '../lib/domain/settlement-cycle';
 import { settleTargetOf } from '../lib/domain/settlement-stage';
-import { feeKindOf, feeRuleFor } from '../lib/domain/settlement-fee-table';
+import { feeKindOf, feeRuleFor, SUPPLIER_ALIAS } from '../lib/domain/settlement-fee-table';
 
 const MONTH = (process.argv.find((a) => /^\d{4}-\d{2}$/.test(a)) || '').trim();
 const APPLY = process.argv.includes('--apply');
@@ -112,25 +112,44 @@ const aliasOf = (name: string) => S(name).replace(/^\[[^\]]*\]\s*/, '').replace(
 const sups = [...new Set(rows.map((r) => S(r.supplier)).filter(Boolean))];
 console.log(`\n■ ${MONTH} — 공급사 ${sups.length}곳 · 재고 시트 ${sheets.length}개 ${APPLY ? '(반영)' : '(대조만)'}\n`);
 
-type Job = { sup: string; sheetId: string; sheetName: string; lines: Line[]; net: number; vat: number; claw: number };
+const findSheet = (name: string) => live.filter((f) => {
+  const a = key(aliasOf(f.name)); const b = key(name);
+  return a && b && (a === b || a.startsWith(b) || b.startsWith(a));
+});
+
+type Job = { sup: string; sheetId: string; sheetName: string; tab: string; via: string; lines: Line[]; net: number; vat: number; claw: number };
 const jobs: Job[] = []; const skip: string[] = [];
 for (const sup of sups) {
   if (ONLY && !sup.includes(ONLY)) continue;
-  const hit = live.filter((f) => {
-    const a = key(aliasOf(f.name)); const b = key(sup);
-    return a && b && (a === b || a.startsWith(b) || b.startsWith(a));
-  });
+  let hit = findSheet(sup); let via = '';
+  /**
+   * ★★**시트를 «같이 쓰는» 곳이 있다** — 사장님 2026-09-03 「빌린카에 같이 쓰고 있잖아」.
+   *   엘씨렌트는 제 재고 시트가 없고 빌린카 시트를 같이 쓴다(수수료표에서도 같은 회사).
+   *   ⇒ 제 이름으로 못 찾으면 «별칭»으로 한 번 더 찾는다. 별칭도 SSOT(`SUPPLIER_ALIAS`)를 쓴다.
+   */
+  if (hit.length !== 1 && SUPPLIER_ALIAS[sup]) {
+    const alt = findSheet(SUPPLIER_ALIAS[sup]);
+    if (alt.length === 1) { hit = alt; via = SUPPLIER_ALIAS[sup]; }
+  }
   const mine = rows.filter((r) => S(r.supplier) === sup).map(lineOf).filter((l) => l.total !== 0);
   const cl = claws.filter((c) => S(c.supplier) === sup).reduce((a, c) => a + N(c.supplierAmt), 0);
   if (!mine.length && !cl) continue;
   if (hit.length !== 1) { skip.push(`${sup} — 재고 시트를 ${hit.length === 0 ? '못 찾음' : `${hit.length}개나 찾음`}`); continue; }
   const net = mine.reduce((a, b) => a + b.net, 0) - cl;
   const vat = mine.reduce((a, b) => a + b.vat, 0) - Math.round(cl * VAT);
-  jobs.push({ sup, sheetId: hit[0].id, sheetName: hit[0].name, lines: mine, net, vat, claw: cl });
+  jobs.push({ sup, sheetId: hit[0].id, sheetName: hit[0].name, tab: tabOf(MONTH), via, lines: mine, net, vat, claw: cl });
+}
+/**
+ * ★★**한 시트에 두 곳이 들어오면 탭 이름에 «누구 것»을 붙인다.**
+ *   청구서는 빌린카·엘씨 «두 장»이 따로 나간다. 금액을 한 탭에 합치면 어느 종이와도 안 맞는다.
+ *   ⇒ 종이 한 장 = 탭 하나. 같은 시트에 둘이면 「26년08월 정산 · 엘씨렌트」로 갈라 세운다.
+ */
+for (const j of jobs) {
+  if (jobs.filter((k) => k.sheetId === j.sheetId).length > 1) j.tab = `${tabOf(MONTH)} · ${j.sup}`;
 }
 for (const j of jobs) {
   console.log(`   ${j.sup.padEnd(11)} ${String(j.lines.length).padStart(2)}줄  합계 ${won(j.net + j.vat).padStart(12)}${j.claw ? `  (환수 -${won(j.claw)})` : ''}`);
-  console.log(`   ${''.padEnd(11)}  → ${aliasOf(j.sheetName)} 시트 「${tabOf(MONTH)}」 (맨 오른쪽)`);
+  console.log(`   ${''.padEnd(11)}  → ${aliasOf(j.sheetName)} 시트 「${j.tab}」 (맨 오른쪽)${j.via ? `  ※ ${j.via} 시트를 같이 씀` : ''}`);
 }
 if (skip.length) { console.log('\n   ⚠ 건너뛴 곳 — 시트를 «하나»로 못 맞췄습니다'); for (const m of skip) console.log(`      ${m}`); }
 if (!APPLY) { console.log('\n※ dry-run — 아무 시트도 안 건드렸습니다. --apply 로 붙입니다.\n'); process.exit(0); }
@@ -145,18 +164,45 @@ const BASIS = ['적용한 표 규칙', '산출근거 (이대로 계산했습니�
 const HEAD = ['No.', '차량번호', '접수일', '인도일', '모델명', '임차인', '상품 구분', '계약 기간', '렌탈료',
   ...BASIS, '공급가액', '부가세', '합계'];
 const WIDTH = [40, 92, 84, 84, 150, 76, 112, 76, 92, 190, 250, 100, 88, 108];
+/**
+ * ★★★**영업자 «지급» 수수료는 공급사 시트에 «절대» 안 들어간다** — 사장님 2026-09-03
+ *   「절대 영업자 지급 수수료가 얼만지 공급사시트에는 반영되면 안돼」.
+ *
+ *   공급사가 우리 지급률을 보면 그 자리에서 «우리를 건너뛴 값»이 계산된다. 판이 깨진다.
+ *   ⇒ 이 탭이 세는 것은 «청구» 한 축뿐이다 — `claimWritten` · `f.claim`. `payWritten`·
+ *     `agentRate`·`channel`·`agent` 는 이 파일에서 «읽지 않는다».
+ *   ⇒ 말로만 두지 않고 «기계가» 막는다. 아래 빗장에 걸리면 붙이기 전에 멈춘다.
+ */
+const FORBIDDEN = /지급|영업\s?채널|영업\s?담당|영업\s?수수료|이익|마진|payWritten|agentRate/;
+const leak = HEAD.filter((h) => FORBIDDEN.test(h));
+if (leak.length) { console.log(`\n  ✕ 멈춥니다 — 공급사 시트에 못 넣는 칸이 있습니다: ${leak.join(' · ')}\n`); process.exit(1); }
+
 const iB = HEAD.indexOf(BASIS[0]);          // 산출조건 첫 칸
 const iM = HEAD.indexOf('공급가액');          // 돈 첫 칸
 const LEFT = ['모델명', ...BASIS];
 const MONEY = ['렌탈료', '공급가액', '부가세', '합계'];
 
 for (const j of jobs) {
-  const tab = tabOf(MONTH);
+  const tab = j.tab;
   const meta = await (await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${j.sheetId}?fields=sheets.properties`, { headers: { Authorization: `Bearer ${await tok()}` } })).json() as {
     sheets?: { properties: { sheetId: number; title: string } }[] };
   const all = meta.sheets || [];
   let id = all.find((s) => s.properties.title === tab)?.properties.sheetId;
   const rowsNeed = j.lines.length + 20;
+  /**
+   * ★**이름을 «가른» 첫 달에는 이름 없는 옛 탭이 남는다** — 그것을 «고쳐 쓴다».
+   *   지우지 않는다(남의 시트다). 이름만 바꿔 이어 쓰면 유령 탭이 안 생긴다.
+   */
+  if (id === undefined && tab !== tabOf(MONTH)) {
+    const plain = all.find((s) => s.properties.title === tabOf(MONTH))?.properties.sheetId;
+    if (plain !== undefined) {
+      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${j.sheetId}:batchUpdate`, {
+        method: 'POST', headers: { Authorization: `Bearer ${await tok()}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requests: [{ updateSheetProperties: { properties: { sheetId: plain, title: tab }, fields: 'title' } }] }),
+      });
+      id = plain;
+    }
+  }
   if (id === undefined) {
     const add = await (await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${j.sheetId}:batchUpdate`, {
       method: 'POST', headers: { Authorization: `Bearer ${await tok()}`, 'Content-Type': 'application/json' },

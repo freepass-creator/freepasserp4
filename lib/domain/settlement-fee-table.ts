@@ -138,7 +138,7 @@ const HEAD = (s: string) => s.replace(/\s|주식회사|㈜|렌터카|렌트카|�
  * ★「엘씨렌트」는 표의 「빌린카(LC)」와 «같은 회사»다 — LC = 엘씨.
  *   2026-09-02 까지 둘을 따로 세서 둘 다 「표에 없다」로 섬다.
  */
-const ALIAS: Record<string, string> = { 에스에이: 'SA', SA: '에스에이', 스타스카이: '스타', 스타: '스타스카이', 엘씨렌트: '빌린카', 빌린카: '엘씨렌트' };
+export const SUPPLIER_ALIAS: Record<string, string> = { 에스에이: 'SA', SA: '에스에이', 스타스카이: '스타', 스타: '스타스카이', 엘씨렌트: '빌린카', 빌린카: '엘씨렌트' };
 
 /**
  * **원장의 「상품구분 + 차명」을 표의 「갈래」로 옮긴다 — 판정은 여기 한 곳이다.**
@@ -168,7 +168,7 @@ export const feeKindOf = (product: string, model: string): { kind: FeeRule['kind
 export function feeRuleFor(supplier: string, kind: FeeRule['kind'], term: number, form?: string, fallbackKind?: FeeRule['kind']): FeeRule | undefined {
   const s = HEAD(supplier);
   if (!s) return undefined;
-  const names = [s, ALIAS[supplier] ? HEAD(ALIAS[supplier]) : ''].filter(Boolean);
+  const names = [s, SUPPLIER_ALIAS[supplier] ? HEAD(SUPPLIER_ALIAS[supplier]) : ''].filter(Boolean);
   const mine = FEE_RULES.filter((r) => { const t = HEAD(r.supplier); return t && names.some((n) => n.startsWith(t) || t.startsWith(n)); });
   if (!mine.length) return undefined;
   const pick = (k: FeeRule['kind']) => {
