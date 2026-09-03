@@ -11,7 +11,9 @@ import { JWT } from 'google-auth-library';
 import { buildSalesFormatRequests, columnWidths } from '../lib/domain/sales-sheet-format';
 
 const S = (v: unknown) => String(v ?? '').trim();
-const OLD_SAMPLE = '1u5SHyK0--fWPzGePCzauD6WK94-3crSRZZ4XaORtDMQ';   // 직전 샘플 → 휴지통
+// ★고정 샘플시트 — 매번 새로 만들지 않고 «이 한 시트」를 제자리에서 갱신한다(링크 안 바뀜).
+//   env SAMPLE_SHEET_ID 로 덮어쓸 수 있고, 없으면 새로 만들어 ID 를 찍는다(그걸 여기 박으면 고정된다).
+const SAMPLE_SHEET_ID = S(process.env.SAMPLE_SHEET_ID) || '1J7dcGCTI0hiHBSdbHx0SqKJKrBg57xkgsX-I8qyfv3c';
 const sa = JSON.parse(readFileSync('tmp/firebase-auth/sa.json', 'utf8'));
 initializeApp({ credential: cert({ projectId: sa.project_id, clientEmail: sa.client_email, privateKey: sa.private_key.replace(/\\n/g, '\n') }) });
 const jwt = new JWT({ email: sa.client_email, key: sa.private_key, scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive'], subject: 'pyh@teamjpk.com' });
@@ -54,29 +56,43 @@ const rowOf = (v: any) => [S(v.status), S(v.product_type), S(v.car_number), S(v.
 console.log('탭 구성:'); for (const t of tabs) console.log(`  ${t} ${groups[t].length}대`);
 const total = tabs.reduce((a, t) => a + groups[t].length, 0);
 
-const created = await api('https://sheets.googleapis.com/v4/spreadsheets', {
-  method: 'POST',
-  body: JSON.stringify({ properties: { title: `프리패스 샘플 — 올릴수있는 ${total}대 · 상태디테일 (${new Date().toISOString().slice(0, 16).replace('T', ' ')})` }, sheets: tabs.map((t, i) => ({ properties: { sheetId: i, title: `${t} ${groups[t].length}` } })) }),
-});
-const sheetId = created.spreadsheetId;
 const bodies: Record<string, string[][]> = {};
-const data = tabs.map((t) => {
-  const rows = groups[t].sort((a, b) => S(a.provider_company_code).localeCompare(S(b.provider_company_code)) || S(a.car_number).localeCompare(S(b.car_number))).map(rowOf);
-  bodies[t] = rows;
-  return { range: `'${(t + ' ' + groups[t].length).replace(/'/g, "''")}'!A1`, values: [HEAD, ...rows] };
-});
-await api(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values:batchUpdate`, { method: 'POST', body: JSON.stringify({ valueInputOption: 'RAW', data }) });
-// ★집안 서식 그대로 — Roboto·배차상태색·구분색·헤더·탭색·금액굵기(기존 판매시트와 통일). 탭 제목은 색맵용으로 순수 이름 전달.
-const fmt: Record<string, unknown>[] = [];
-tabs.forEach((t, i) => {
-  fmt.push({ updateSheetProperties: { properties: { sheetId: i, gridProperties: { frozenRowCount: 1 } }, fields: 'gridProperties.frozenRowCount' } });
-  fmt.push(...buildSalesFormatRequests({ gid: i, columns: HEAD, widths: columnWidths(HEAD, bodies[t]), tabTitle: t, body: bodies[t] }));
-});
-for (let i = 0; i < fmt.length; i += 200) await api(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests: fmt.slice(i, i + 200) }) });
-await api(`https://www.googleapis.com/drive/v3/files/${sheetId}/permissions?sendNotificationEmail=false`, { method: 'POST', body: JSON.stringify({ role: 'writer', type: 'user', emailAddress: 'jpkpyh@gmail.com' }) }).catch((e) => console.warn('공유 경고:', e.message));
-await api(`https://www.googleapis.com/drive/v3/files/${sheetId}/permissions`, { method: 'POST', body: JSON.stringify({ role: 'reader', type: 'anyone' }) }).catch((e) => console.warn('링크뷰 경고:', e.message));
-// 이전 6탭 샘플 휴지통
-await api(`https://www.googleapis.com/drive/v3/files/${OLD_SAMPLE}?supportsAllDrives=true`, { method: 'PATCH', body: JSON.stringify({ trashed: true }) }).then(() => console.log('이전 샘플 휴지통 처리됨')).catch((e) => console.warn('이전 샘플 정리 경고:', e.message));
+for (const t of tabs) bodies[t] = groups[t].sort((a, b) => S(a.provider_company_code).localeCompare(S(b.provider_company_code)) || S(a.car_number).localeCompare(S(b.car_number))).map(rowOf);
 
-console.log(`\n★ 새 샘플시트:\nhttps://docs.google.com/spreadsheets/d/${sheetId}/edit`);
+// 고정 시트를 «제자리 갱신» — 없으면 새로 만든다(그 ID 를 SAMPLE_SHEET_ID 에 박으면 다음부터 고정).
+let sheetId = SAMPLE_SHEET_ID;
+let fresh = false;
+const meta = SAMPLE_SHEET_ID.startsWith('1FZ8placeholder')
+  ? null
+  : await api(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?fields=sheets.properties(sheetId,title)`).catch(() => null);
+if (!meta) {
+  const created = await api('https://sheets.googleapis.com/v4/spreadsheets', { method: 'POST', body: JSON.stringify({ properties: { title: '프리패스 — Firestore 상품시트(샘플)' }, sheets: tabs.map((t, i) => ({ properties: { sheetId: i, title: t } })) }) });
+  sheetId = created.spreadsheetId; fresh = true;
+  await api(`https://www.googleapis.com/drive/v3/files/${sheetId}/permissions?sendNotificationEmail=false`, { method: 'POST', body: JSON.stringify({ role: 'writer', type: 'user', emailAddress: 'jpkpyh@gmail.com' }) }).catch((e) => console.warn('공유 경고:', e.message));
+  await api(`https://www.googleapis.com/drive/v3/files/${sheetId}/permissions`, { method: 'POST', body: JSON.stringify({ role: 'reader', type: 'anyone' }) }).catch((e) => console.warn('링크뷰 경고:', e.message));
+} else {
+  // 필요한 탭이 없으면 추가(제목 고정). 남는 탭은 비운다.
+  const have = new Map<string, number>((meta.sheets || []).map((s: any) => [s.properties.title, s.properties.sheetId]));
+  const addReqs: any[] = [];
+  let nextId = Math.max(0, ...[...have.values()]) + 1;
+  for (const t of tabs) if (!have.has(t)) { addReqs.push({ addSheet: { properties: { sheetId: nextId, title: t } } }); have.set(t, nextId); nextId++; }
+  if (addReqs.length) await api(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests: addReqs }) });
+  await api(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values:batchClear`, { method: 'POST', body: JSON.stringify({ ranges: tabs.map((t) => `'${t.replace(/'/g, "''")}'`) }) });
+}
+const gidOf = (t: string, i: number) => fresh ? i : ((meta.sheets || []).find((s: any) => s.properties.title === t)?.properties.sheetId ?? i);
+
+const data = tabs.map((t) => ({ range: `'${t.replace(/'/g, "''")}'!A1`, values: [HEAD, ...bodies[t]] }));
+await api(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values:batchUpdate`, { method: 'POST', body: JSON.stringify({ valueInputOption: 'RAW', data }) });
+
+// ★집안 서식 — Roboto·배차상태색·구분색·헤더·탭색·금액굵기(기존 판매시트와 통일).
+const fmt: Record<string, unknown>[] = [];
+for (let i = 0; i < tabs.length; i++) {
+  const t = tabs[i], gid = fresh ? i : gidOf(t, i);
+  fmt.push({ updateSheetProperties: { properties: { sheetId: gid, gridProperties: { frozenRowCount: 1 } }, fields: 'gridProperties.frozenRowCount' } });
+  fmt.push(...buildSalesFormatRequests({ gid, columns: HEAD, widths: columnWidths(HEAD, bodies[t]), tabTitle: t, body: bodies[t] }));
+}
+for (let i = 0; i < fmt.length; i += 200) await api(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests: fmt.slice(i, i + 200) }) });
+
+console.log(`\n★ ${fresh ? '새로 만든' : '제자리 갱신'} 상품시트(${total}대):\nhttps://docs.google.com/spreadsheets/d/${sheetId}/edit`);
+if (fresh) console.log(`\n※ 이 ID 를 scripts/make-sample-sheet-google.mts 의 SAMPLE_SHEET_ID 에 박으면 다음부터 이 시트가 고정됩니다:\n   ${sheetId}`);
 process.exit(0);
