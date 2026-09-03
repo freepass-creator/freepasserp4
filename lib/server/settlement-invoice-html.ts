@@ -137,6 +137,11 @@ const num = (n: number) => Math.round(n).toLocaleString('ko-KR');
  *     «우리도 우리 계좌를 모른다»는 소리가 된다. 그냥 아직 안 적은 칸이다.
  */
 const miss = '<span class="miss">미입력</span>';
+/** 상호에서 법인 표기만 뗀다. 「주식회사 손오공렌터카」 → 「손오공렌터카」. */
+const shortName = (v: unknown) => S(v)
+  .replace(/(주식회사|유한회사|유한책임회사|\(주\)|\(유\)|㈜)/g, '')
+  .replace(/\s+/g, ' ')
+  .trim();
 const shown = (v: unknown) => (S(v) ? esc(v) : miss);
 const join = (...v: unknown[]) => v.map(S).filter(Boolean).join(' · ');
 const p2 = (n: number) => String(n).padStart(2, '0');
@@ -736,7 +741,12 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
       <div class="lock">
         ${logoImg(inv.party)}
         <div>
-          <div class="nm">${shown(inv.receiver.name)}<span>귀중</span></div>
+          <!--
+            ★**「주식회사」는 뗀다** — 사장님 2026-09-03 「청구서에 주식회사 이거 빼자 그냥 회사 이름만 심플하게」.
+              바로 아래 사업자등록번호가 그 법인을 특정하므로 상호를 줄여도 누구인지 흔들리지 않는다.
+            ⚠ 발행인(우리) 상호는 «꼬리»에 온전히 남는다 — 문서를 내는 쪽은 법인명을 다 적는다.
+          -->
+          <div class="nm">${shown(shortName(inv.receiver.name))}<span>귀중</span></div>
           <!-- ★회원사 «대표명»은 안 찍는다(사장님 2026-08-27 「회원사 대표명은 빼자」).
                상호와 사업자등록번호면 어느 법인인지 어긋날 데가 없다.
                대표는 바뀌는데 종이는 안 바뀐다 — 틀린 이름이 남느니 없는 게 낫다.

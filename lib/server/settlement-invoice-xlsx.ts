@@ -113,6 +113,11 @@ export function invoiceXlsx(inv: Invoice, opts?: { invoiceNo?: string; issuedAt?
  * ★파일 이름에 못 쓰는 글자는 털어낸다 — 윈도 탐색기가 거부한다.
  */
 export const invoiceFileName = (inv: Invoice, ext: 'xlsx' | 'html' | 'pdf'): string => {
-  const who = (S(inv.receiver.name) || S(inv.party)).replace(/[\\/:*?"<>|]/g, '').trim();
+  /** ★파일 이름에도 「주식회사」를 안 쓴다 — 메일에 붙는 이름이라 종이와 같아야 한다(사장님 2026-09-03). */
+  const who = (S(inv.receiver.name) || S(inv.party))
+    .replace(/(주식회사|유한회사|유한책임회사|\(주\)|\(유\)|㈜)/g, '')
+    .replace(/[\\/:*?"<>|]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
   return `${inv.month} ${who} 영업수수료 ${inv.kind}.${ext}`;
 };
