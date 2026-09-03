@@ -117,7 +117,7 @@
  * ```
  */
 import { logoOf } from '@/lib/domain/partner-logo';
-import { dueDate } from '@/lib/domain/settlement-cycle';
+import { dueDate, payDate } from '@/lib/domain/settlement-cycle';
 import { CORP, CORP_COLOR } from '@/lib/domain/corporate-ci';
 import { feeShow, maskName, type Invoice } from '@/lib/domain/settlement-invoice';
 
@@ -165,7 +165,11 @@ const period = (m: string) => {
  * ★종이와 알림이 «같은 날짜»를 봐야 한다 — 한쪽만 고치면
  *   「10일까지」라고 보내 놓고 15일에야 독촉하게 된다.
  */
-const dueDay = (m: string) => { const d = dueDate(m); return d ? day(d) : ''; };
+/**
+ * ★**받는 날과 주는 날이 다르다** — 청구서는 10일(받는다), 지급명세서는 15일(준다).
+ *   사장님 2026-09-03 「영업채널은 9월 15일 지급예정」. 받아서 주는 구조라 받는 날이 앞서야 한다.
+ */
+const dueDay = (m: string, claim: boolean) => { const d = claim ? dueDate(m) : payDate(m); return d ? day(d) : ''; };
 
 const NAVY = CORP_COLOR.main;
 const DEEP = CORP_COLOR.deep;
@@ -608,9 +612,9 @@ export const INVOICE_CSS = `
    *   ⚠ 글꼴이 안 실리는 자리에서도 읽혀야 하므로 뒤에 본문 글꼴을 받쳐 둔다.
    */
   .thx { margin-top:26px; text-align:right; line-height:1.5;
-    font-family:'Nanum Pen Script','Pretendard Variable',Pretendard,'Malgun Gothic',cursive; }
-  .thx span { display:block; font-size:19px; color:var(--tl-d); letter-spacing:.2px; }
-  .thx b { display:block; font-size:15px; font-weight:400; color:var(--mut); margin-top:2px; }
+    font-family:'Gaegu','Pretendard Variable',Pretendard,'Malgun Gothic',cursive; }
+  .thx span { display:block; font-size:18px; font-weight:700; color:var(--tl-d); letter-spacing:.2px; }
+  .thx b { display:block; font-size:15px; font-weight:400; color:var(--mut); margin-top:3px; }
 
   /* 발송 전 확인 — 우리끼리 보는 표시. 인쇄하면 사라진다. */
   .warn { margin-top:var(--sec); font-size:10px; color:#c0392b; font-weight:600; }
@@ -868,7 +872,7 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
    */
   const payLine = `
     <div class="payline">
-      <p><b class="d">${esc(dueDay(inv.month))}</b> ${claim ? '까지 입금 부탁드립니다' : '지급 예정입니다'}</p>
+      <p><b class="d">${esc(dueDay(inv.month, claim))}</b> ${claim ? '까지 입금 부탁드립니다' : '지급 예정입니다'}</p>
       <p>${claim || S(accText) ? esc(accText) : '알려주신 계좌로 지급됩니다'}</p>
       <p>${esc(CORP.staff)} · ${esc(S(CORP.staffPhone) || CORP.phone)} · ${esc(CORP.email)}${
     CORP.fax ? ` · 팩스 ${esc(CORP.fax)}` : ''}</p>
@@ -914,8 +918,10 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
       <!--
         ★**끝이 아니라 «이어진다»고 말한다** — 사장님 2026-09-03 「2페이지에서 계속 이런거 하나 코멘트 보조글씨로」.
           ⚠ 표가 뚝 끊기면 받는 쪽은 「여기까지인가」 한다. 뒷장이 있다고 종이가 말해 줘야 한다.
+          ⚠ «쪽 번호를 붙이지 않는다» — 사장님 2026-09-03 「2/2 이러면 지금이 2/2 인지 헷갈리니까」.
+            쪽 번호는 꼬리(.ft)가 이미 말한다. 여기서 또 말하면 «지금 쪽»인지 «다음 쪽»인지가 헷갈린다.
       -->
-      <div class="cont">다음 장에 이어집니다 · ${page + 2} / ${pages.length}</div>`}
+      <div class="cont">다음 장에 이어집니다</div>`}
   </div>
   ${last ? note : ''}
   ${foot(page)}
@@ -931,5 +937,5 @@ export const invoicePageHtml = (title: string, docs: string) =>
   + `<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">`
   // ★워드마크 전용 — CI 센터가 쓰는 그 서체다. 본문에는 안 쓴다.
   + `<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>`
-  + `<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@300;600&family=Nanum+Pen+Script&display=swap">`
+  + `<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@300;600&family=Gaegu:wght@400;700&display=swap">`
   + `<style>${INVOICE_CSS}</style></head><body>${docs}</body></html>`;

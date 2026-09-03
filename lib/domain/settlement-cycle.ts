@@ -21,6 +21,12 @@
 export const BILL_DAY = 3;
 /** 결제일 — 다음 달 며칠. ★「기한」이라 부르지 않는다 — 밀린 사람한테 쓰는 말이다. */
 export const DUE_DAY = 10;
+/**
+ * ★**영업채널에 «주는» 날은 따로다 — 다음 달 15일**(사장님 2026-09-03 「영업채널은 9월 15일 지급예정」).
+ *   받아서 주는 구조라 «받는 날(10일)»이 «주는 날(15일)»보다 앞서야 한다.
+ *   ⚠ 두 날을 한 값으로 쓰면 아직 안 들어온 돈을 주기로 적게 된다.
+ */
+export const PAY_DAY = 15;
 
 const YM = /^(\d{4})-(\d{2})$/;
 
@@ -34,6 +40,12 @@ export function billDate(month: string): Date | null {
 export function dueDate(month: string): Date | null {
   const x = YM.exec(String(month ?? '').trim());
   return x ? new Date(Number(x[1]), Number(x[2]), DUE_DAY) : null;
+}
+
+/** 정산월 `2026-08` → 영업채널 지급 예정일 `2026-09-15` */
+export function payDate(month: string): Date | null {
+  const x = YM.exec(String(month ?? '').trim());
+  return x ? new Date(Number(x[1]), Number(x[2]), PAY_DAY) : null;
 }
 
 /**

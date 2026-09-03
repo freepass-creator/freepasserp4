@@ -21,8 +21,14 @@
 import * as XLSX from 'xlsx';
 import { CORP } from '@/lib/domain/corporate-ci';
 import { feeShow, type Invoice } from '@/lib/domain/settlement-invoice';
+import { dueDate, payDate } from '@/lib/domain/settlement-cycle';
 
 const S = (v: unknown) => String(v ?? '').trim();
+
+/** `2026-08` → `2026년 8월` */
+const monthKo = (m: string) => { const x = /^(\d{4})-(\d{2})$/.exec(S(m)); return x ? `${x[1]}년 ${Number(x[2])}월` : S(m); };
+/** 종이와 «같은 날»을 쓴다 — 받는 날 10일 · 주는 날 15일. */
+const dayKo = (d: Date | null) => (d ? `${d.getFullYear()}. ${String(d.getMonth() + 1).padStart(2, '0')}. ${String(d.getDate()).padStart(2, '0')}` : '');
 
 /** `2026-08` → `2026.08.01 ~ 2026.08.31` */
 const periodOf = (m: string) => {
@@ -47,31 +53,6 @@ export function invoiceXlsx(inv: Invoice, opts?: { invoiceNo?: string; issuedAt?
   const issued = opts?.issuedAt ? new Date(opts.issuedAt) : new Date();
   const day = `${issued.getFullYear()}-${String(issued.getMonth() + 1).padStart(2, '0')}-${String(issued.getDate()).padStart(2, '0')}`;
 
-  /** 표지 — 「누가·누구에게·얼마」. 두 칸짜리 세로 표라 붙여 넣어도 안 깨진다. */
-  const cover: (string | number)[][] = [
-    ['항목', '내용'],
-    ['문서', `영업수수료 ${inv.kind}`],
-    ['문서번호', S(opts?.invoiceNo) || '(발행 전)'],
-    ['정산월', inv.month],
-    ['정산대상기간', periodOf(inv.month)],
-    ['발행일자', day],
-    ['', ''],
-    [claim ? '청구처' : '지급처', S(inv.receiver.name) || inv.party],
-    ['사업자등록번호', S(inv.receiver.bizNo)],
-    ['대표자', S(inv.receiver.ceo)],
-    ['', ''],
-    ['발행자', CORP.name],
-    ['사업자등록번호', CORP.bizNo],
-    ['대표자', CORP.ceo],
-    ['', ''],
-    ['정산 건수', inv.lines.filter((l) => !l.minus).length],
-    ['공급가액', inv.supply],
-    ['부가세', inv.vat],
-    ...(inv.clawback ? [['환수 차감', -Math.abs(inv.clawback)] as (string | number)[]] : []),
-    [money, inv.total],
-    [claim ? '입금계좌' : '지급계좌', [acc.bank, acc.account, acc.holder].map(S).filter(Boolean).join(' ')],
-  ];
-
   /** 내역 — 한 줄이 한 건. 환수는 음수로 같은 표에 선다. */
   /**
    * ★★**엑셀이 «백데이터»다 — 산출식은 여기에 디테일하게 적는다.**
@@ -91,18 +72,59 @@ export function invoiceXlsx(inv: Invoice, opts?: { invoiceNo?: string; issuedAt?
   ]);
   const foot = ['', '', '합계', '', '', '', '', '', '', '', inv.supply, inv.vat, inv.total];
 
+  /**
+   * ★★**엑셀은 «가로로 보는» 것이고, 인쇄는 «따로 한 탭»이다.**
+   *   사장님 2026-09-03 「엑셀 정산서 산출식이랑 … 출력용 아니고 가로로 보는용이야.
+   *   뭐 거기에 출력용 탭을 만들어서 엑셀로도 출력할수 있게 해주면 좋고. 정산내역 정산서출력용 탭」.
+   * ```
+   * 정산내역      가로로 길게 — 산정 기준·적용 요율까지 다 있다. 대조하고 검산하는 자리
+   * 정산서 출력용   종이(PDF)와 같은 차례로 세로로 — 엑셀에서 그대로 인쇄한다
+   * ```
+   *   ★차례는 「정산내역」이 먼저다 — 열면 «일하는 표»가 먼저 보여야 한다.
+   */
   const wb = XLSX.utils.book_new();
 
-  const s1 = XLSX.utils.aoa_to_sheet(cover);
-  s1['!cols'] = [{ wch: 18 }, { wch: 46 }];
-  XLSX.utils.book_append_sheet(wb, s1, '정산서');
-
-  const s2 = XLSX.utils.aoa_to_sheet([head, ...body, foot]);
-  s2['!cols'] = [{ wch: 5 }, { wch: 12 }, { wch: 12 }, { wch: 20 }, { wch: 10 }, { wch: 14 }, { wch: 13 },
+  // ── ① 정산내역 — 가로로 보는 표 ──
+  const s1 = XLSX.utils.aoa_to_sheet([head, ...body, foot]);
+  s1['!cols'] = [{ wch: 5 }, { wch: 12 }, { wch: 12 }, { wch: 20 }, { wch: 10 }, { wch: 14 }, { wch: 13 },
     { wch: 28 }, { wch: 15 }, { wch: 7 }, { wch: 13 }, { wch: 11 }, { wch: 13 }];
   // 머리글 한 줄 고정 — 줄이 많으면 스크롤할 때 무슨 칸인지 잃는다
-  s2['!freeze'] = { xSplit: '0', ySplit: '1' } as unknown as XLSX.WorkSheet['!freeze'];
-  XLSX.utils.book_append_sheet(wb, s2, '정산내역');
+  s1['!freeze'] = { xSplit: '0', ySplit: '1' } as unknown as XLSX.WorkSheet['!freeze'];
+  XLSX.utils.book_append_sheet(wb, s1, '정산내역');
+
+  // ── ② 정산서 출력용 — 종이와 «같은 차례»로 세로 ──
+  const P: (string | number)[][] = [
+    [claim ? '영업수수료 청구서' : '영업수수료 지급명세서'],
+    [`${monthKo(inv.month)} · ${periodOf(inv.month)}`],
+    [],
+    [claim ? '청구처' : '지급처', S(inv.receiver.name) || inv.party, '', '사업자등록번호', S(inv.receiver.bizNo)],
+    [],
+    ['구분', ...(inv.clawback ? ['① 정산 수수료', '② 환수'] : []), inv.clawback ? '③ 공급가액 ①−②' : '공급가액', '부가세', money],
+    [`${monthKo(inv.month)} 정산`, ...(inv.clawback ? [inv.supply + inv.clawback, -Math.abs(inv.clawback)] : []),
+      inv.supply, inv.vat, inv.total],
+    [],
+    ['No.', '차량번호', '접수일', '차량 · 계약조건', '공급가액', '부가세', '합계'],
+    ...inv.lines.map((l, i) => [i + 1, S(l.plate), S(l.receivedAt),
+      [S(l.model) || (l.minus ? '환수' : ''), l.minus ? S(l.reason) : [S(l.customer), S(l.product), l.term ? `${l.term}개월` : ''].filter(Boolean).join(' · ')].filter(Boolean).join(' · '),
+      l.amount, l.vat, l.total]),
+    ['', '합계', `${inv.lines.filter((l) => !l.minus).length}건`, '', inv.supply, inv.vat, inv.total],
+    [],
+    [`${dayKo(claim ? dueDate(inv.month) : payDate(inv.month))} ${claim ? '까지 입금 부탁드립니다' : '지급 예정입니다'}`],
+    [claim || acc.account ? [acc.bank, acc.account, acc.holder].map(S).filter(Boolean).join(' · ') : '알려주신 계좌로 지급됩니다'],
+    [`${CORP.staff} · ${S(CORP.staffPhone) || CORP.phone} · ${CORP.email}${CORP.fax ? ` · 팩스 ${CORP.fax}` : ''}`],
+    [claim ? '세금계산서는 별도 발행해 드립니다' : '세금계산서 발행 부탁드립니다'],
+    [],
+    ['', '', '', '', '', '', '한 달간 함께해 주셔서 감사합니다'],
+    ['', '', '', '', '', '', `${CORP.name} 임직원 일동`],
+    [],
+    [`${CORP.name} · 사업자등록번호 ${CORP.bizNo} · 대표 ${CORP.ceo}`],
+    [CORP.addr],
+  ];
+  const s2 = XLSX.utils.aoa_to_sheet(P);
+  s2['!cols'] = [{ wch: 6 }, { wch: 14 }, { wch: 12 }, { wch: 34 }, { wch: 14 }, { wch: 12 }, { wch: 15 }];
+  /** ★A4 세로 한 장에 맞춘다 — 엑셀에서 바로 인쇄해도 종이와 같은 모양이 나온다. */
+  s2['!margins'] = { left: 0.5, right: 0.5, top: 0.6, bottom: 0.6, header: 0.3, footer: 0.3 };
+  XLSX.utils.book_append_sheet(wb, s2, '정산서 출력용');
 
   return XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }) as Buffer;
 }
