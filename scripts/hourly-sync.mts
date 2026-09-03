@@ -695,6 +695,33 @@ if (새차종) {
   out.push('   tmp/보강-차종마스터.tsv 를 마스터에 붙여넣으면 다음 회차에 정제칸이 채워진다');
 }
 
+/**
+ * ⑬ **차종마스터 «영구계약» 지킴이 — 아무도 안 보고 있었다.**
+ *
+ * ⚠ 실측 2026-09-03 — 시트에서 「H-PICK」을 「H-픽」으로 바꾼 편집 18건 때문에
+ *   `audit-vehicle-trim-key-contract` 가 FAIL, `generate-vehicle-trim-master` 가 생성 차단이었다.
+ *   **8일간 아무도 몰랐다.** 이유는 단순하다 — 그 검사가 **회차에도 CI 에도 안 붙어 있었다**
+ *   (실측: `hourly-sync`·`ci.yml` 어디에도 호출이 없고 `package.json` 스크립트로만 존재).
+ *   장치를 만들어 두고 «부르지 않으면» 없는 것과 같다.
+ *
+ * ★`--register-new` 로 돈다 — 계약 문서(`VEHICLE_MASTER_KEY_CONTRACT.md`)가 「**추가만 가능**」이라 했으므로
+ *   «새 코드»는 기준판에 자동 등록하고 지나간다. 그래야 사람이 마스터에 행을 넣어도 파이프라인이 안 막힌다.
+ *   반대로 «삭제·재사용·순번변경·의미변경»은 그 자리에서 거부된다(도구가 이미 그렇게 갈라 놨다).
+ *
+ * ⚠ **멈추지는 않는다(경고).** 의미가 바뀐 값은 이미 시트에 들어간 뒤라, 발행을 막아도 되돌려지지 않는다.
+ *   오히려 오늘처럼 18건으로 8일간 발행이 멈추면 그게 더 큰 손해다. **알리되 흐름은 잇는다.**
+ */
+const master = run('⑬ 차종마스터 계약', ['scripts/audit-vehicle-trim-key-contract.mts', '--register-new'], /PASS|위반|거부|새 키/);
+const 새키 = /새 키 (\d+)개만 기준판에 추가/.exec(master.picked.join(' '))?.[1];
+line.push(master.ok ? (새키 ? `마스터계약 ok(새 키 ${새키})` : '마스터계약 ok') : '★마스터계약 위반');
+if (!master.ok) {
+  allOk = false;
+  out.push('\n■ ★차종마스터 영구계약이 깨졌다 — 같은 코드가 다른 차를 가리킬 수 있다');
+  out.push('   누가 시트에서 «의미 열»(세부모델·세부트림·제원)을 고쳤다. 표기만 어긋난 것이면:');
+  out.push('   npx tsx scripts/fix-latin-trim-canon.mts        (라틴 표기를 정본으로 되돌린다)');
+  out.push('   그 밖이면 사람이 판단해야 한다 — 계약은 「기존 코드 제외 보존 + 새 코드 추가」다');
+}
+
 const seconds = Math.round((Date.now() - started) / 1000);
 out.push(`\n■ ${allOk ? '끝' : '끝(일부 실패)'} ${kst()} KST · ${seconds}초`);
 writeFileSync('tmp/hourly-sync-last.txt', out.join('\n'));
