@@ -56,6 +56,24 @@ const policyOf = (v: any) => polByCode.get(S(v.policy_code)) || polByKey.get(S(v
 const docs = (await getFirestore().collection('products').get()).docs.map((d) => d.data());
 const listable = docs.filter((v) => v.listable === true);
 
+// ★픽업구독 = 티카 링크를 시트에 그대로 박는다(사장님 2026-09-03). 손오공 「픽업재고」 탭의 「차번링크」 열.
+//   원자엔 없고 소스 시트에만 있어 여기서 차번↔티카링크를 읽어 온다.
+const NKEY = (c: unknown) => S(c).replace(/\s/g, '');
+const ticaByCar = new Map<string, string>();
+{
+  const SONO = '1WIFn5ObK_nCVGLTjj6rO96i6vxub1QzJmiVW0BpJLcA';   // 손오공 프리패스 재고
+  try {
+    const jm = await api(`https://sheets.googleapis.com/v4/spreadsheets/${SONO}?fields=sheets.properties(title)`);
+    const pkTab = (jm.sheets || []).map((s: any) => s.properties.title).find((t: string) => /픽업/.test(t));
+    if (pkTab) {
+      const vv = await api(`https://sheets.googleapis.com/v4/spreadsheets/${SONO}/values/${encodeURIComponent(`'${pkTab}'!A1:BZ2000`)}`);
+      const rr = vv.values || []; const hd = (rr[0] || []).map(S); const ci = hd.indexOf('차량번호'), li = hd.indexOf('차번링크');
+      if (ci >= 0 && li >= 0) for (const r of rr.slice(1)) { const c = NKEY(r[ci]), l = S(r[li]); if (c && /^https?:/i.test(l)) ticaByCar.set(c, l); }
+    }
+    console.log(`티카 링크(픽업재고 차번링크) ${ticaByCar.size}개 로드`);
+  } catch (e) { console.warn('티카 링크 로드 실패:', (e as Error).message); }
+}
+
 // 탭 배정 = 발행기 규칙
 const tabOf = (v: any): string => {
   const prov = S(v.provider_company_code), pt = S(v.product_type);
@@ -129,8 +147,9 @@ const cell = (col: string, v: any): string => {
     '승계': S(pol.succession_allowed) + (pol.succession_fee ? ` (${money(pol.succession_fee)})` : ''),
   };
   if (col in direct) return direct[col];
+  if (col === '차번링크') return ticaByCar.get(NKEY(v.car_number)) || '';   // 픽업 = 티카 상품링크
   if (/보증|개월|반납형|인수형|만km|장기보증/.test(col)) return priceCell(v.price, col);
-  return '';   // 차번링크·소비자가격·그 밖 요금·연주행·탁송비·분납·사고다발 = 원천 없음(빈칸)
+  return '';   // 소비자가격·그 밖 요금·연주행·탁송비·분납·사고다발 = 원천 없음(빈칸)
 };
 
 // ── 고정 시트 제자리 갱신 ──
