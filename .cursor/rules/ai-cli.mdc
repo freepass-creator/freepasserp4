@@ -1,0 +1,18 @@
+---
+description: 클로드·코덱스·제미나이는 scripts/ai-cli.mts 로 부른다.
+alwaysApply: true
+---
+
+# 다른 AI CLI
+
+교차 검토·클로드/코덱스/제미나이 오더가 필요하면 셸에서 `claude`/`codex`/`gemini`를 직접 치지 말고:
+
+```
+npx tsx scripts/ai-cli.mts claude "오더"
+npx tsx scripts/ai-cli.mts codex "오더"
+npx tsx scripts/ai-cli.mts gemini "오더"
+npx tsx scripts/ai-cli.mts all "오더"
+npm run ai:ping
+```
+
+기본은 읽기 전용. 차종마스터·mf- 키·`database.rules.json`·v3 쓰기를 넘기지 않는다. 채팅창 연동이 아니라 이 PC CLI 로그인이다.
