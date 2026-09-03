@@ -15,7 +15,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
-import { channelSheetName, ensureNoticeTab, ensureGuideTab, ensureFeeTab } from '../lib/server/channel-sheet-tabs';
+import { channelSheetName, ensureNoticeTab, ensureGuideTab, ensureFeeTab, ensureCompanyTab } from '../lib/server/channel-sheet-tabs';
 
 const S = (v: unknown) => String(v ?? '').trim();
 const APPLY = process.argv.includes('--apply');
@@ -82,6 +82,8 @@ await redo('영업안내');
 console.log(`   ${await ensureGuideTab(tok, id) ? '+ 「영업안내」 만듦 (절차·서류·양식·탁송비)' : '○ 「영업안내」 있음 — 손대지 않음'}`);
 await redo('수수료');
 console.log(`   ${await ensureFeeTab(tok, id) ? '+ 「수수료」 만듦 (지급 요율만)' : '○ 「수수료」 있음 — 손대지 않음'}`);
+await redo('회사정보');
+console.log(`   ${await ensureCompanyTab(tok, id) ? '+ 「회사정보」 만듦 (채널이 적는 칸)' : '○ 「회사정보」 있음 — 손대지 않음'}`);
 
 /** ★새 시트에 딸려 오는 빈 「시트1」은 값이 없을 때만 걷는다. */
 const m = await (await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${id}?fields=sheets.properties(sheetId,title)`, { headers: { Authorization: `Bearer ${await tok()}` } })).json() as {

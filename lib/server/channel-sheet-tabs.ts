@@ -207,3 +207,72 @@ export async function ensureFeeTab(tok: Tok, bookId: string): Promise<boolean> {
   ]);
   return true;
 }
+
+/**
+ * 「회사정보」 — **채널이 «한 번만» 적는 칸.**
+ *
+ * ★사장님 2026-09-03 「영업채널별 정산시트에 여기도 회사정보 있어야겟네」.
+ *   공급사 재고 시트의 「회사정보」와 «같은 짜임»이다 — 다만 축이 뒤집힌다.
+ * ```
+ * 공급사 회사정보   대여료·보증금을 «받을» 계좌      우리가 그 회사에 준다
+ * 채널 회사정보     정산금을 «받을» 계좌 · 세금계산서  우리가 그 회사에 준다
+ * ```
+ *   ⇒ 정산서의 「지급처」 칸과 지급 계좌가 여기서 채워진다. 지금은 우리가 카톡으로 물어
+ *     받아 적고 있어 달마다 다시 묻는다 — 시트에 두면 «한 번 적으면 끝»이다.
+ *
+ * ★노란 칸(B열)에 값만 적게 한다 — 어디에 적어야 하나를 묻지 않게.
+ * ⚠ 이미 있으면 손대지 않는다 — 적어 둔 값이 날아간다.
+ */
+export async function ensureCompanyTab(tok: Tok, bookId: string): Promise<boolean> {
+  const TAB = '회사정보';
+  if ((await tabs(tok, bookId)).some((s) => s.properties.title === TAB)) return false;
+  /** [항목, 설명] — 항목이 「①②③」로 시작하면 섹션 머리. */
+  const FIELDS: [string, string][] = [
+    ['① 사업자등록증 정보', '사업자등록증에 적힌 대로 적어 주세요. 정산서 「지급처」 칸에 그대로 실립니다.'],
+    ['상호(법인명)', '예: 주식회사 하허호'],
+    ['사업자등록번호', '숫자와 - 만 · 예: 110-81-83379'],
+    ['대표자', '예: 홍길동'],
+    ['사업장 주소', '도로명 주소'],
+    ['업태 · 종목', '참고 · 예: 서비스 · 자동차임대중개'],
+    ['② 연락처', '정산 자료를 보낼 곳입니다.'],
+    ['담당자 이름', '프리패스가 연락할 사람'],
+    ['담당자 연락처', '휴대전화 · 예: 010-0000-0000'],
+    ['정산서 받을 이메일', '매달 정산서가 이 주소로 갑니다'],
+    ['세금계산서 담당 이메일', '위와 같으면 「위와 같음」이라고 적어 주세요'],
+    ['③ 정산금 받을 계좌', '수수료가 들어갈 계좌입니다. 예금주는 상호와 같아야 합니다.'],
+    ['은행', '예: 신한'],
+    ['계좌번호', '숫자와 - 만'],
+    ['예금주', '상호와 다르면 사유를 「설명」 칸에 적어 주세요'],
+  ];
+  const rows: (string | number)[][] = [
+    [`회사정보 — ${CORP.name} 정산용`, '', ''],
+    ['항목', '입력 (여기에 적어 주세요)', '설명'],
+    ...FIELDS.map(([a, b]) => [a, '', b]),
+  ];
+  const id = await addTab(tok, bookId, TAB, 3, rows.length + 10, 3);
+  if (id === undefined) return false;
+  await put(tok, bookId, `'${TAB}'!A1:C${rows.length}`, rows);
+
+  const g0 = 2;
+  const heads = FIELDS.map(([a], i) => (/^[①②③]/.test(a) ? g0 + i : -1)).filter((i) => i >= 0);
+  const inputs = FIELDS.map(([a], i) => (/^[①②③]/.test(a) ? -1 : g0 + i)).filter((i) => i >= 0);
+  await format(tok, bookId, [
+    ...dress(id, 3, [190, 320, 460]),
+    ...heads.flatMap((r) => [
+      { repeatCell: { range: { sheetId: id, startRowIndex: r, endRowIndex: r + 1, startColumnIndex: 0, endColumnIndex: 3 },
+        cell: { userEnteredFormat: { backgroundColor: NAVY, textFormat: { bold: true, fontSize: 11, foregroundColor: { red: 1, green: 1, blue: 1 } }, verticalAlignment: 'MIDDLE', padding: { left: 10, right: 10, top: 2, bottom: 2 } } },
+        fields: 'userEnteredFormat(backgroundColor,textFormat,verticalAlignment,padding)' } },
+      { updateDimensionProperties: { range: { sheetId: id, dimension: 'ROWS', startIndex: r, endIndex: r + 1 }, properties: { pixelSize: 34 }, fields: 'pixelSize' } },
+    ]),
+    /** ★적을 칸은 «노랗게» — 어디에 적어야 하나를 묻지 않게 한다. */
+    ...inputs.map((r) => ({ repeatCell: { range: { sheetId: id, startRowIndex: r, endRowIndex: r + 1, startColumnIndex: 1, endColumnIndex: 2 },
+      cell: { userEnteredFormat: { backgroundColor: { red: 1, green: 0.98, blue: 0.82 }, textFormat: { bold: true } } }, fields: 'userEnteredFormat(backgroundColor,textFormat)' } })),
+    ...inputs.map((r) => ({ updateDimensionProperties: { range: { sheetId: id, dimension: 'ROWS', startIndex: r, endIndex: r + 1 }, properties: { pixelSize: 28 }, fields: 'pixelSize' } })),
+    { repeatCell: { range: { sheetId: id, startRowIndex: g0, endRowIndex: rows.length, startColumnIndex: 0, endColumnIndex: 1 },
+      cell: { userEnteredFormat: { textFormat: { bold: true }, verticalAlignment: 'MIDDLE', wrapStrategy: 'WRAP' } }, fields: 'userEnteredFormat(textFormat,verticalAlignment,wrapStrategy)' } },
+    { repeatCell: { range: { sheetId: id, startRowIndex: g0, endRowIndex: rows.length, startColumnIndex: 2, endColumnIndex: 3 },
+      cell: { userEnteredFormat: { verticalAlignment: 'MIDDLE', wrapStrategy: 'WRAP', textFormat: { fontSize: 9, foregroundColor: { red: 0.42, green: 0.45, blue: 0.5 } } } },
+      fields: 'userEnteredFormat(verticalAlignment,wrapStrategy,textFormat)' } },
+  ]);
+  return true;
+}
