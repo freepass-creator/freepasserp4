@@ -734,7 +734,14 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
   }</em></td>
         </tr>
         <tr>
-          <th>${claim ? '입금 계좌' : '지급 계좌'}</th><td class="mono" colspan="3">${shown(accText)}</td>
+          <th>${claim ? '입금 계좌' : '지급 계좌'}</th><td class="mono" colspan="3">${
+    /**
+     * ★청구서(우리가 받는다)는 «우리 계좌»가 반드시 있어야 한다 — 없으면 「미입력」으로 세워 눈에 띄게 둔다.
+     * ★지급명세서(우리가 준다)는 상대 계좌가 종이에 없어도 된다 — 사장님 2026-09-03 「프리패스 계좌만 있으면 되고」.
+     *   ⚠ 그래도 「미입력」이라 찍으면 «우리가 뭘 빠뜨린 것»처럼 읽힌다. 사실대로 적는다.
+     */
+    claim || S(accText) ? shown(accText) : '알려주신 계좌로 지급됩니다'
+  }</td>
         </tr>
         <tr>
           <th>담당</th><td>${esc(CORP.staff)}</td>
