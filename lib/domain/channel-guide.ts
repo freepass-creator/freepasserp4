@@ -19,8 +19,8 @@ export const CHANNEL_GUIDE: [string, string, string][] = [
   ['■ 프리패스모빌리티입니다', '', ''],
   ['담당', '강지수 팀장  010-2925-1798', ''],
   ['주말·업무시간 외', '박영협 대표  010-6384-9260', ''],
-  ['상품리스트', 'https://docs.google.com/spreadsheets/d/1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs/edit?gid=205661918#gid=205661918', '★재고는 여기서 확인합니다'],
-  ['프리패스 ERP', 'https://freepasserp.com', '상품 찾기 · 계약 진행'],
+  ['상품리스트', 'https://docs.google.com/spreadsheets/d/1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs/edit?gid=205661918#gid=205661918', '재고 전체를 한 번에 보는 목록입니다'],
+  ['프리패스 ERP', 'https://freepasserp.com', '같은 재고를 검색으로 찾습니다 · 손님에게 「담당자 이름」으로 상품 링크를 보낼 수 있습니다'],
   ['등기서류 발송 주소', '김포 아라육로 152번길 45, 247호 (프리패스)', '강지수 팀장 010-2925-1798'],
 
   ['■ 계약 진행 절차', '', ''],
@@ -105,9 +105,8 @@ export function channelNoticeText(): string {
     if (form && !b) { out.push(`> ${a} : ${c ? `(${c})` : ''}`.trimEnd()); continue; }
     if (/^\d+$/.test(a)) out.push(`${a}. ${b}`);
     else if (!b) out.push(`▸ ${a}`);
-    else if (b.startsWith('http')) { out.push(`▸ ${a}${c ? ` (${c})` : ''}`, b); if (c) continue; }
     else out.push(`▸ ${a}`, b);
-    if (c && !b.startsWith('http')) out.push(`   ※ ${c}`);
+    if (c) out.push(`   ※ ${c}`);
   }
   return out.join('\n');
 }
