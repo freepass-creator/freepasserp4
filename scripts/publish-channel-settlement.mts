@@ -30,6 +30,7 @@ import { CORP } from '../lib/domain/corporate-ci';
 import { payDate, payDayOf, PAY_DAY_BY_SUPPLIER } from '../lib/domain/settlement-cycle';
 import { settleTargetOf } from '../lib/domain/settlement-stage';
 import { feeKindOf, feeRuleFor } from '../lib/domain/settlement-fee-table';
+import { channelSheetName } from '../lib/server/channel-sheet-tabs';
 
 const MONTH = (process.argv.find((a) => /^\d{4}-\d{2}$/.test(a)) || '').trim();
 const APPLY = process.argv.includes('--apply');
@@ -118,11 +119,7 @@ const drive = async (q: string) => (((await (await fetch(`https://www.googleapis
  *   F01~F05 뼈대 · F50~F70 공급사 재고 · **F80~ 영업채널 정산**(2026-09-03 새로 뗌).
  * ⚠ 번호는 «지도가 정본»이다 — 새 채널을 만들면 여기 표와 SHEET_MAP 을 «같이» 고친다.
  */
-const F_CODE: Record<string, string> = { 하허호: 'F80', 카핑: 'F81', 렌트야: 'F82', 오토원트: 'F83', SMC: 'F84' };
-const sheetName = (ch: string) => {
-  const f = Object.entries(F_CODE).find(([k]) => key(ch).includes(key(k)))?.[1];
-  return `[${f || 'F8?'} 사용중] ${ch} 프리패스 정산`;
-};
+const sheetName = channelSheetName;
 
 const chans = [...new Set(rows.map((r) => S(r.channel)).filter(Boolean))];
 console.log(`\n■ ${MONTH} — 영업채널 ${chans.length}곳 ${APPLY ? '(반영)' : '(대조만)'}\n`);
@@ -162,6 +159,10 @@ const NAVY = { red: 0.06, green: 0.11, blue: 0.21 };
 const TINT = { red: 0.93, green: 0.95, blue: 0.98 };
 const BASIS_HEAD = { red: 0.90, green: 0.87, blue: 0.96 };
 const BASIS_BODY = { red: 0.975, green: 0.97, blue: 0.99 };
+/** 얼룩 줄 · 구역 칸막이 · 환수 줄 — 읽는 결을 만드는 세 가지. */
+const ZEBRA = { red: 0.972, green: 0.976, blue: 0.984 };
+const LINE = { red: 0.78, green: 0.80, blue: 0.85 };
+const BACK_ROW = { red: 0.99, green: 0.92, blue: 0.92 };
 /**
  * ★**「적용한 표 규칙」은 뺀다** — 사장님 2026-09-03 「적용한 규칙이랑은 뺀도 된다고」.
  *   상대가 알 것은 «어떻게 나왔나»이지 우리 표의 줄 이름이 아니다. 산출근거 한 칸이면 족하다.
@@ -399,6 +400,17 @@ for (const j of jobs) {
     bar(1, true), bar(r0, false), tint(2), tint(last),
     { updateDimensionProperties: { range: { sheetId: id, dimension: 'ROWS', startIndex: r0, endIndex: r0 + 1 }, properties: { pixelSize: 40 }, fields: 'pixelSize' } },
     { updateDimensionProperties: { range: { sheetId: id, dimension: 'ROWS', startIndex: r0 + 1, endIndex: last + 1 }, properties: { pixelSize: 24 }, fields: 'pixelSize' } },
+    /**
+     * ★★**얼룩 줄** — 사장님 2026-09-03 「읽기 편하게 써줘야하는데」.
+     *   칸이 열일곱이라 눈이 가로로 가다 «줄을 놓친다». 한 줄 걸러 연하게 깔면 끝까지 따라간다.
+     * ⚠ 조건부 서식으로 하면 «쌓인다» — 다시 찍을 때마다 규칙이 한 벌씩 늘어난다.
+     *   그래서 줄마다 «그려» 둔다. 다시 찍으면 그대로 덮여 늘어나지 않는다.
+     */
+    ...body.map((_, i) => (i % 2 === 1 ? { repeatCell: { range: all1(r0 + 1 + i, r0 + 2 + i),
+      cell: { userEnteredFormat: { backgroundColor: ZEBRA } }, fields: 'userEnteredFormat.backgroundColor' } } : null)).filter(Boolean) as Record<string, unknown>[],
+    /** ★환수 줄은 연한 붉은빛 — «빼는 돈»이라 숫자만 음수면 눈에 안 들어온다. */
+    ...j.backs.map((_, i) => ({ repeatCell: { range: all1(r0 + 1 + j.lines.length + i, r0 + 2 + j.lines.length + i),
+      cell: { userEnteredFormat: { backgroundColor: BACK_ROW } }, fields: 'userEnteredFormat.backgroundColor' } })),
     { repeatCell: { range: { sheetId: id, startRowIndex: r0, endRowIndex: r0 + 1, startColumnIndex: iB, endColumnIndex: iB + BASIS.length },
       cell: { userEnteredFormat: { backgroundColor: BASIS_HEAD, textFormat: { bold: true, fontSize: 10, foregroundColor: NAVY }, horizontalAlignment: 'CENTER', verticalAlignment: 'MIDDLE', wrapStrategy: 'WRAP' } },
       fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment,wrapStrategy)' } },
@@ -416,6 +428,13 @@ for (const j of jobs) {
       cell: { userEnteredFormat: { textFormat: { fontSize: 10 }, horizontalAlignment: 'LEFT' } }, fields: 'userEnteredFormat(textFormat,horizontalAlignment)' } },
     ...WIDTH.map((w, c) => ({ updateDimensionProperties: { range: { sheetId: id, dimension: 'COLUMNS', startIndex: c, endIndex: c + 1 }, properties: { pixelSize: w }, fields: 'pixelSize' } })),
     { repeatCell: { range: { sheetId: id }, cell: { userEnteredFormat: { textFormat: { fontFamily: 'Roboto' } } }, fields: 'userEnteredFormat.textFormat.fontFamily' } },
+    /**
+     * ★★**구역 칸막이** — «차·임차인 │ 산정 기준 │ 금액 │ 확인» 사이에 생겨 줄 하나.
+     *   색만으로 가르면 인쇄하거나 흑백으로 볼 때 구역이 사라진다. 선은 남는다.
+     */
+    ...[iB, iM, HEAD.indexOf('확인')].filter((c) => c > 0).map((c) => ({ updateBorders: {
+      range: { sheetId: id, startRowIndex: r0, endRowIndex: last + 1, startColumnIndex: c, endColumnIndex: c + 1 },
+      left: { style: 'SOLID', width: 1, color: LINE } } })),
     /** ★틀고정은 «안 건다» — 사장님 2026-09-03 「틀고정 필요없음」. 한 화면에 드는 표다. */
     { updateSheetProperties: { properties: { sheetId: id, gridProperties: { frozenRowCount: 0, frozenColumnCount: 0 } }, fields: 'gridProperties(frozenRowCount,frozenColumnCount)' } },
     /**

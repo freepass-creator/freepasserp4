@@ -160,6 +160,10 @@ const TINT = { red: 0.93, green: 0.95, blue: 0.98 };
 /** ★산출조건은 «별도 영역» — 원장 청구탭과 같은 연보라를 쓴다. */
 const BASIS_HEAD = { red: 0.90, green: 0.87, blue: 0.96 };
 const BASIS_BODY = { red: 0.975, green: 0.97, blue: 0.99 };
+/** 얼룩 줄 · 구역 칸막이 · 환수 줄 — 읽는 결을 만드는 세 가지. */
+const ZEBRA = { red: 0.972, green: 0.976, blue: 0.984 };
+const LINE = { red: 0.78, green: 0.80, blue: 0.85 };
+const BACK_ROW = { red: 0.99, green: 0.92, blue: 0.92 };
 /** 임차인정보 ── 산출조건 ── 금액. 이름은 원장 청구탭과 같게 둔다. */
 /**
  * ★**「적용한 표 규칙」은 뺀다** — 사장님 2026-09-03 「적용한 규칙이랑은 뺀도 된다고」.
@@ -316,6 +320,18 @@ for (const j of jobs) {
     /** ★머리줄 40 — 「수수료 산정 기준」이 안 잘리게 두 줄 자리를 준다. */
     { updateDimensionProperties: { range: { sheetId: id, dimension: 'ROWS', startIndex: r0, endIndex: r0 + 1 }, properties: { pixelSize: 40 }, fields: 'pixelSize' } },
     { updateDimensionProperties: { range: { sheetId: id, dimension: 'ROWS', startIndex: r0 + 1, endIndex: last + 1 }, properties: { pixelSize: 24 }, fields: 'pixelSize' } },
+    /**
+     * ★★**얼룩 줄** — 사장님 2026-09-03 「읽기 편하게 써줘야하는데」.
+     *   칸이 열다섯이라 눈이 가로로 가다 «줄을 놓친다». 한 줄 건너 연하게 깔아 두면
+     *   손가락 없이도 같은 줄을 끝까지 따라간다.
+     * ⚠ 조건부 서식으로 하면 «쌓인다» — 다시 찍을 때마다 규칙이 한 벌씩 늘어난다.
+     *   그래서 줄마다 «그려» 둔다. 다시 찍으면 그대로 덮여 늘어나지 않는다.
+     */
+    ...body.map((_, i) => (i % 2 === 1 ? { repeatCell: { range: all1(r0 + 1 + i, r0 + 2 + i),
+      cell: { userEnteredFormat: { backgroundColor: ZEBRA } }, fields: 'userEnteredFormat.backgroundColor' } } : null)).filter(Boolean) as Record<string, unknown>[],
+    /** ★환수 줄은 연한 붉은빛 — «빼는 돈»이라 숫자만 음수면 눈에 안 들어온다. */
+    ...(j.claw ? [body.length - 1] : []).map((i: number) => ({ repeatCell: { range: all1(r0 + 1 + i, r0 + 2 + i),
+      cell: { userEnteredFormat: { backgroundColor: BACK_ROW } }, fields: 'userEnteredFormat.backgroundColor' } })),
     /** ★산출조건 영역 — 머리는 연보라, 줄은 아주 연하게. 금액 칸과 «눈으로» 갈린다. */
     { repeatCell: { range: { sheetId: id, startRowIndex: r0, endRowIndex: r0 + 1, startColumnIndex: iB, endColumnIndex: iB + BASIS.length },
       cell: { userEnteredFormat: { backgroundColor: BASIS_HEAD, textFormat: { bold: true, fontSize: 10, foregroundColor: NAVY }, horizontalAlignment: 'CENTER', verticalAlignment: 'MIDDLE', wrapStrategy: 'WRAP' } },
@@ -343,6 +359,13 @@ for (const j of jobs) {
     { setBasicFilter: { filter: { range: { sheetId: id, startRowIndex: r0, endRowIndex: last, startColumnIndex: 0, endColumnIndex: HEAD.length } } } },
     /** ★「확인」은 체크칸으로 — 공급사가 누르기만 하면 된다. */
     { setDataValidation: { range: { sheetId: id, startRowIndex: r0 + 1, endRowIndex: last, startColumnIndex: HEAD.indexOf('확인'), endColumnIndex: HEAD.indexOf('확인') + 1 }, rule: { condition: { type: 'BOOLEAN' }, strict: true, showCustomUi: true } } },
+    /**
+     * ★★**구역 칸막이** — «차·임차인 │ 산정 기준 │ 금액 │ 확인» 사이에 생겨 줄 하나.
+     *   색만으로 가르면 인쇄하거나 흑백으로 볼 때 구역이 사라진다. 선은 남는다.
+     */
+    ...[iB, iM, HEAD.indexOf('확인')].filter((c) => c > 0).map((c) => ({ updateBorders: {
+      range: { sheetId: id, startRowIndex: r0, endRowIndex: last + 1, startColumnIndex: c, endColumnIndex: c + 1 },
+      left: { style: 'SOLID', width: 1, color: LINE } } })),
     /** ★틀고정은 «안 건다» — 사장님 2026-09-03 「틀고정 필요없음」. 한 화면에 드는 표다. */
     { updateSheetProperties: { properties: { sheetId: id, gridProperties: { frozenRowCount: 0, frozenColumnCount: 0 } }, fields: 'gridProperties(frozenRowCount,frozenColumnCount)' } },
   ];
