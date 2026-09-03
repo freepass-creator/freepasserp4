@@ -31,6 +31,16 @@ const FROM = arg('from'); const TO = arg('to'); const CODE = arg('code');
 if (!FROM || !TO || !CODE) throw new Error('--from=<원본ID> --to=<정제시트ID> --code=RP0xx 가 필요하다');
 const DB = 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app';
 
+/**
+ * 원본 재고표에 없는, 공급사가 확정해 준 계약 자격 조건.
+ * 원본 표에는 아이카의 연령 열이 없으므로 단순히 정제시트 셀만 고치면 다음 미러에서
+ * 사라진다. 이 값은 RP004의 모든 생성 정책에 명시해 계약·상품 화면·ERP가 같은
+ * 기준(만 26세 이상, 연령 하향 불가)을 보게 한다.
+ */
+const REQUIRED_POLICY_FIELDS: Record<string, Rec> = {
+  RP004: { basic_driver_age: '만 26세 이상', driver_age_lowering: '불가' },
+};
+
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 const jwt = new JWT({ email: sa.client_email, key: sa.private_key, scopes: ['https://www.googleapis.com/auth/spreadsheets'], subject: 'pyh@teamjpk.com' });
 const dbT = (await new JWT({ email: sa.client_email, key: sa.private_key, scopes: ['https://www.googleapis.com/auth/firebase.database', 'https://www.googleapis.com/auth/userinfo.email'] }).getAccessToken()).token;
@@ -63,7 +73,8 @@ for (const t of read.tabs) {
   for (const r of t.table.slice(1)) {
     const plate = norm(r[pi]);
     if (!plate || plateOrder.includes(plate)) continue;
-    const fields = policyFieldsFrom(hdr, r.map(S));
+    // 원본 조건을 먼저 읽고, 원본에 없는 공급사 확정 조건만 뒤에서 명시한다.
+    const fields = { ...policyFieldsFrom(hdr, r.map(S)), ...(REQUIRED_POLICY_FIELDS[CODE] || {}) };
     if (!Object.keys(fields).some((k) => (POLICY_SAME_KEYS as readonly string[]).includes(k))) continue;   // 돈 칸이 하나도 없으면 정책 근거 없음
     rowsSeen++;
     plateOrder.push(plate);

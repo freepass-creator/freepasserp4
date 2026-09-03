@@ -23,7 +23,13 @@ const NEEDS_SERVER_RE = /drive\.google\.com\/(drive\/folders\/|drive\/u\/\d+\/fo
  *   서버는 허용하는데 클라이언트가 프록시로 안 보내니, 모던렌트카(아이카·손오공·웰릭스) 사진이
  *   원본 주소로 직접 로드돼 안 떴다(실측 2026-08-07). 리전이 들어간 S3 주소를 그대로 받는다.
  */
-const PROXY_HOSTS_RE = /(^|\.)(googleusercontent\.com|drive\.google\.com|autoplus\.co\.kr|moderentcar\.co\.kr)$|^moren-images\.s3[a-z0-9.-]*\.amazonaws\.com$/i;
+/**
+ * ★**티카(`lotterentacar.net`)** 를 2026-09-01 에 더했다 — 픽업(T카) 331대의 사진은 드라이브로
+ *   옮기지 않고 **링크 그대로 ERP 에 띄운다**(사장님 「티카에 있는 사진만 연동해서 그냥 볼 수 있게끔」).
+ *   서버 화이트리스트(`lib/net/proxy-hosts.ts`)와 **같이** 고쳐야 한다 — 한쪽만 고치면
+ *   서버는 허용하는데 클라이언트가 프록시로 안 보내(또는 그 반대) 사진이 안 뜬다. 위 S3 사고가 그것이었다.
+ */
+const PROXY_HOSTS_RE = /(^|\.)(googleusercontent\.com|drive\.google\.com|autoplus\.co\.kr|moderentcar\.co\.kr|lotterentacar\.net)$|^moren-images\.s3[a-z0-9.-]*\.amazonaws\.com$/i;
 
 /** 외부 이미지 URL → /api/img 프록시(cross-origin referrer/CORS/rate-limit 회피). data:/blob:/동일오리진/화이트리스트외는 그대로. */
 export function toProxiedImage(url: string): string {

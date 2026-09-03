@@ -8,7 +8,7 @@ import { C, R_CARD, SH } from '@/components/ui';
 import {
   CardTitle, CardSpecs, CardThumb, SignalMarks,
   OptionChips,
-  PricePeekRoot, PriceAmounts,
+  PricePeekRoot, PriceAmounts, PeriodPerkBand,
 } from '@/components/product-card-atoms';
 import { type Audience } from '@/lib/domain/product';
 
@@ -61,11 +61,12 @@ export const ProductCard = memo(function ProductCard({ p, audience = 'agent', hr
         <OptionChips p={p} clamp />
         <CardSpecs p={p} audience={audience} dense listing />
 
-        <PricePeekRoot p={p} style={{
+        <PricePeekRoot p={p} focusMonth={focusMonth} style={{
           display: 'flex', flexDirection: 'column', alignItems: 'stretch',
           gap, minWidth: 0, width: '100%', flex: '0 0 auto',
         }}>
           <PriceAmounts align="start" />
+          <PeriodPerkBand p={p} dense gap={gap} />
         </PricePeekRoot>
       </div>
     </Link>
