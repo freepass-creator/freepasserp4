@@ -21,7 +21,6 @@ import { useAppBar } from '@/lib/appbar';
 import { PageStatus } from '@/components/PageStatus';
 import { NAV_ICON } from '@/lib/tabbar';
 import { useContentColumn } from '@/lib/content-column';
-import { fetchSheetLiveStatuses, SHEET_LIVE_STATUS_POLL_MS } from '@/lib/firebase/sheet-live-status-client';
 
 // 가격/전달/사진 보조 패널은 상품 본문보다 늦게 떠도 된다. 상세 첫 페인트에서는
 // 가벼운 layout hook만 쓰고, 실제 영업 보조 UI는 역할·폭이 필요한 시점에 불러온다.
@@ -96,53 +95,6 @@ export default function Detail() {
     })();
     return () => { alive = false; };
   }, [key, co, authReady]);
-
-  // 상세를 오래 열어 둬도 상품마스터의 상태를 놓치지 않는다. 제원·가격은 현재
-  // 상세 스냅샷을 유지하고 vehicle_status 한 원자만 교체한다.
-  useEffect(() => {
-    if (!authReady) return;
-    let alive = true;
-    let refreshing = false;
-    const controller = new AbortController();
-    const refresh = async () => {
-      if (!alive || refreshing || document.visibilityState === 'hidden') return;
-      refreshing = true;
-      try {
-        const statuses = await fetchSheetLiveStatuses(controller.signal);
-        if (!alive || !statuses) return;
-        setP((current) => {
-          if (!current) return current;
-          const statusKey = String(current._key || current.product_code || key);
-          if (!Object.prototype.hasOwnProperty.call(statuses, statusKey)) return current;
-          const status = String(statuses[statusKey] || '').trim();
-          return String(current.vehicle_status || '').trim() !== status
-            ? { ...current, vehicle_status: status }
-            : current;
-        });
-      } catch (error) {
-        if ((error as Error)?.name !== 'AbortError') {
-          console.warn('[detail] 차량상태 실시간 갱신 실패(기존 상태 유지):', (error as Error).message);
-        }
-      } finally {
-        refreshing = false;
-      }
-    };
-    const onFocus = () => { void refresh(); };
-    const onVisibility = () => {
-      if (document.visibilityState === 'visible') void refresh();
-    };
-    void refresh();
-    const timer = window.setInterval(() => { void refresh(); }, SHEET_LIVE_STATUS_POLL_MS);
-    window.addEventListener('focus', onFocus);
-    document.addEventListener('visibilitychange', onVisibility);
-    return () => {
-      alive = false;
-      controller.abort();
-      window.clearInterval(timer);
-      window.removeEventListener('focus', onFocus);
-      document.removeEventListener('visibilitychange', onVisibility);
-    };
-  }, [authReady, key]);
 
   useEffect(() => { if (p && isStockedProduct(p)) touchRecent(p); }, [p]);
 

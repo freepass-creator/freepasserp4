@@ -208,6 +208,11 @@ function NavMenu({ mobile, open: openProp, setOpen: setOpenProp }: {
   const [openLocal, setOpenLocal] = useState(false);
   const open = openProp ?? openLocal;
   const setOpen = setOpenProp ?? setOpenLocal;
+  const path = usePathname();
+  const searchParams = useSearchParams();
+  // 영업자의 기본 흐름은 상품 찾기·공유다. 이 화면에서는 메뉴 뱃지 때문에
+  // 방·계약 원장을 30초마다 읽지 않고, 해당 업무 화면에서만 조회한다.
+  const needsWorkspaceBadges = path.startsWith('/chat') || path.startsWith('/contract') || path.startsWith('/settlement');
   // SSR·첫 클라 동일 — getRole()은 마운트 후(hydration mismatch 방지).
   const [role, setRole] = useState<Role>('agent');
   const [badges, setBadges] = useState<MenuBadgeMap>({});
@@ -228,6 +233,10 @@ function NavMenu({ mobile, open: openProp, setOpen: setOpenProp }: {
     };
   }, [session]);
   useEffect(() => {
+    if (!needsWorkspaceBadges) {
+      setBadges({});
+      return;
+    }
     // 앞선 요청은 취소하고 다시 — 취소자를 버리면 언마운트 뒤 늦은 응답이 setState 한다.
     let cancel = refreshBadges(role);
     const run = () => { cancel(); cancel = refreshBadges(role); };
@@ -245,12 +254,10 @@ function NavMenu({ mobile, open: openProp, setOpen: setOpenProp }: {
       document.removeEventListener('visibilitychange', tick);
       window.removeEventListener('fp:unread', run);
     };
-  }, [role, refreshBadges]);
+  }, [needsWorkspaceBadges, role, refreshBadges]);
   useEffect(() => {
-    if (open) refreshBadges(role);
-  }, [open, role, refreshBadges]);
-  const path = usePathname();
-  const searchParams = useSearchParams();
+    if (needsWorkspaceBadges && open) refreshBadges(role);
+  }, [needsWorkspaceBadges, open, role, refreshBadges]);
   // 메뉴 href 가 쿼리(`/members?tab=partner`)를 가질 수 있다 — 경로는 pathname, 쿼리는 searchParams 로 각각 대조.
   // 파트너사관리·회원관리는 같은 /members 라 쿼리까지 봐야 하나만 켜진다.
   const isActive = (href?: string): boolean => {
