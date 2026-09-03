@@ -757,17 +757,26 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
           ⇒ 금액 세 칸의 폭을 아래 표의 마지막 세 칸(11% · 9% · 10%)에 그대로 맞춘다.
             환수 칸이 끼면 그만큼 「구분」에서 덜어 낸다 — 오른쪽 끝은 언제나 같은 자리다.
       -->
+      <!--
+        ★★**셈을 «펼쳐» 보인다** — 사장님 2026-09-03
+          「기존 공급가액에서 환수가 얼마여서 최종 청구금액이 얼마다를 한눈에 보여주고」.
+          ⚠ 공급가액은 «이미 환수를 뺀» 값이라, 그것만 보면 원래 얼마였는지가 안 보인다.
+            15,000,000 에서 665,455 를 뺀 14,334,545 인데 종이에는 14,334,545 만 있었다.
+          ⇒ 환수가 있는 달만 「정산 수수료 − 환수 = 공급가액」을 한 줄에 펼친다.
+            환수가 없으면 칸을 세우지 않는다 — 늘 있는 칸이면 빈칸이 매달 서 있게 된다.
+        ★오른쪽 세 칸(공급가액·부가세·청구금액)은 «언제나» 아래 표와 같은 자리다.
+      -->
       <colgroup>
-        <col style="width:${inv.clawback ? 52 : 63}%">${inv.clawback ? '<col style="width:11%">' : ''}
+        <col style="width:${inv.clawback ? 39 : 63}%">${inv.clawback ? '<col style="width:13%"><col style="width:11%">' : ''}
         <col style="width:13%"><col style="width:11%"><col style="width:13%">
       </colgroup>
       <thead><tr>
-        <th>구분</th>${inv.clawback ? '<th class="cb">환수</th>' : ''}<th>공급가액</th><th>부가세</th>
+        <th>구분</th>${inv.clawback ? '<th>정산 수수료</th><th>환수</th>' : ''}<th>공급가액</th><th>부가세</th>
         <th>${claim ? '청구 금액' : '지급 금액'}</th>
       </tr></thead>
       <tbody><tr>
         <td>${esc(monthKo(inv.month))} 정산</td>
-        ${inv.clawback ? `<td class="neg">−${num(inv.clawback)}</td>` : ''}
+        ${inv.clawback ? `<td>${num(inv.supply + inv.clawback)}</td><td class="neg">−${num(inv.clawback)}</td>` : ''}
         <td>${num(inv.supply)}</td>
         <td>${num(inv.vat)}</td>
         <td class="k">${num(inv.total)}</td>
