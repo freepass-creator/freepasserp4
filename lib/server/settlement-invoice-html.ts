@@ -440,15 +440,29 @@ export const INVOICE_CSS = `
    */
   .ctab th, .ctab td { border-bottom:1px solid #edf0f4; padding:4px 7px; text-align:center; }
   .ctab td.day { padding-left:3px; padding-right:3px; }
-  .ctab thead th { background:var(--tl); color:#fff; font-weight:700; border-bottom:0; font-size:10.5px; }
+  .ctab thead th { background:var(--tl-d); color:#fff; font-weight:700; border-bottom:0; font-size:10.5px; }
   /** ★모서리는 «첫 칸»만 둥글다 — 순번(No.)이 생겨 차량번호는 이제 첫 칸이 아니다(사장님 2026-09-03). */
-  .ctab thead th.rl { background:var(--tl-d); color:#fff; text-align:left; }
-  .ctab thead th:first-child { background:var(--tl-d); color:#fff; border-top-left-radius:var(--r-box); }
+  /**
+   * ★★**머리는 «한 색·한 줄»이다** — 사장님 2026-09-03 「이게 왜 한줄처럼 안보이지?? … 색깔도 그렇고」.
+   *   ⚠ 첫 칸만 진하게 칠하고 있었는데, 그 «진한 칸»의 폭이 두 표에서 달랐다
+   *     (내역표 5% · 요약표 63%). 그래서 위아래 바의 경계가 어긋나 아구가 안 맞아 보였다.
+   *   ⇒ 머리 전체를 한 색으로. 바가 하나면 어긋날 것도 없다.
+   */
+  .ctab thead th.rl { text-align:left; }
+  .ctab thead th:first-child { border-top-left-radius:var(--r-box); }
   .ctab thead th:last-child { border-top-right-radius:var(--r-box); }
   /* ★아래쪽도 둥글게 — 위만 둥글면 표가 각져 보인다. */
   .ctab tbody tr:last-child td:first-child { border-bottom-left-radius:var(--r-box); }
   .ctab tbody tr:last-child td:last-child { border-bottom-right-radius:var(--r-box); }
-  .ctab .rl { text-align:left; background:#fafbfd; color:var(--mut); font-weight:600; white-space:nowrap; font-size:10.5px; padding-left:6px; padding-right:6px; }
+  /**
+   * ★★**색 블록을 줄인다** — 사장님 2026-09-03 「뭔가 조잡한게 막 누더기로 붙여놓은거같아」.
+   *   ⚠ 한 장에 파란·회색 덩어리가 넷이었다 — 요약표 청구금액 칸 · 내역표 합계줄 · 차량번호 열 회색 띠 ·
+   *     그리고 상자 둘. 덩어리가 많으면 눈이 어디를 볼지 못 정하고 «붙여 놓은 것»으로 읽힌다.
+   *   ⇒ 차량번호 열의 회색 띠를 걷는다. 글자를 굵게 두면 그것으로 충분히 «라벨»로 읽힌다.
+   */
+  .ctab .rl { text-align:left; white-space:nowrap; font-size:10.5px; padding-left:6px; padding-right:6px; }
+  /** ⚠ 몸통에만 건다 — 머리(thead)까지 먹으면 남색 위 남색이 되어 「차량번호」가 사라진다(실측 2026-09-03). */
+  .ctab tbody .rl { color:var(--ink); font-weight:700; }
   /**
    * ★**정산번호(연번)** — 사장님 2026-09-02 「정산내역에 정산번호가 있으면 좋겟네 몇건인지 바로 셀수 잇으니까」.
    *   쪽이 넘어가도 번호는 «이어진다» — 2쪽 첫 줄이 다시 1이 되면 세는 뜻이 없다.
@@ -458,8 +472,8 @@ export const INVOICE_CSS = `
   .ctab thead th.no { color:#fff; background:var(--tl-d); font-size:10px; }
   /* ★금액 가로 요약표 — 이 종이가 말하는 단 하나. 마지막 칸이 결론이다. */
   .stab { width:100%; table-layout:fixed; border-collapse:separate; border-spacing:0; }
-  .stab th { background:var(--tl); color:#fff; font-size:10px; font-weight:700; padding:5px 5px; text-align:right; }
-  .stab th:first-child { background:var(--tl-d); border-top-left-radius:var(--r-box); text-align:left; }
+  .stab th { background:var(--tl-d); color:#fff; font-size:10px; font-weight:700; padding:5px 5px; text-align:right; }
+  .stab th:first-child { border-top-left-radius:var(--r-box); text-align:left; }
   .stab th:last-child { border-top-right-radius:var(--r-box); }
   .stab td:first-child { border-bottom-left-radius:var(--r-box); }
   .stab td { padding:11px 5px; text-align:right; font-size:11.5px; font-weight:600; font-variant-numeric:tabular-nums;
@@ -467,7 +481,8 @@ export const INVOICE_CSS = `
   .stab td:first-child { border-left:1px solid var(--ln); text-align:left; font-size:11.5px; font-weight:600; color:var(--mut); }
   .stab td.neg { color:var(--neg); }
   /** ★큰 숫자도 «같은 격자» 안에 있어야 한다 — 20px 면 아래 표의 합계 칸을 넘는다(실측 카핑 6,001,655). */
-  .stab td.k { background:var(--bg); color:var(--tl-d); font-size:13px; font-weight:800; letter-spacing:-.3px;
+  /** ★청구 금액은 «글자»로 강조한다 — 배경까지 칠하면 아래 합계줄 띠와 두 덩어리가 된다. */
+  .stab td.k { color:var(--tl-d); font-size:14px; font-weight:800; letter-spacing:-.3px;
     border-bottom-right-radius:var(--r-box); }
   /* ★세로 표 — 라벨이 왼쪽 열, 값이 오른쪽. 사장님 2026-08-27
      「가로로 나열하지말고 세로로 쓰는게 맞을거 같거든」.
@@ -545,7 +560,7 @@ export const INVOICE_CSS = `
   /** ★표 밑 한 줄 — 상자가 아니다. 테두리도 바탕도 없다. 표에 붙어 있어야 «표의 꼬리»로 읽힌다. */
   .payline { margin-top:10px; padding:0 2px; }
   .payline p { margin:0; font-size:11px; color:var(--ink); font-weight:600; line-height:1.75; font-variant-numeric:tabular-nums; }
-  .payline b { color:var(--tl-d); font-size:12.5px; font-weight:800; letter-spacing:-.2px; }
+  .payline b.d { color:var(--tl-d); font-size:12.5px; font-weight:800; letter-spacing:-.2px; }
   .payline p.cav { color:var(--faint); font-size:10px; font-weight:500; margin-top:1px; }
 
   /* 발송 전 확인 — 우리끼리 보는 표시. 인쇄하면 사라진다. */
@@ -738,7 +753,7 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
       <td class="no">${no}</td>
       <th class="rl">${esc(l.plate)}</th>
       <td class="day">${esc(S(l.receivedAt).replace(/^20/, '')) || '&nbsp;'}</td>
-      <td class="l">${l.minus ? (shown(l.model) || '환수') : shown(l.model)}<span class="sub">${
+      <td class="l">${l.minus ? (S(l.model) ? esc(l.model) : '환수') : shown(l.model)}<span class="sub">${
     // 계약조건 — 누구에게·무슨 상품·몇 개월
     // ★★고객 이름은 «여기서» 가린다 — 「문세준」 → 「문*준」(사장님 2026-08-27).
     //   이 종이는 남의 회사가 본다. 회원사는 차량번호로 그 건을 찾으니
@@ -749,7 +764,7 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
      * ★산출식 칸을 뺐다(사장님 2026-09-03 「산출식은 뭐 따로 정해둔게 있어서 줄마다 산출식은 필요없을거 같음」).
      *   수수료표가 따로 있으니 종이가 줄마다 다시 설명할 일이 아니다. 그 자리를 이 칸이 받는다.
      */
-    l.minus ? esc(join('환수', l.reason)) : (esc(join(maskName(l.customer), l.product, l.term ? `${l.term}개월` : '')) || '&nbsp;')
+    l.minus ? (esc(S(l.reason)) || '사유 미기재') : (esc(join(maskName(l.customer), l.product, l.term ? `${l.term}개월` : '')) || '&nbsp;')
   }</span></td>
       <td class="n">${num(l.amount)}</td>
       <td class="n">${num(l.vat)}</td>
@@ -778,7 +793,7 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
    */
   const payLine = `
     <div class="payline">
-      <p><b>${esc(dueDay(inv.month))}</b> ${claim ? '까지 입금 부탁드립니다' : '지급 예정입니다'}</p>
+      <p><b class="d">${esc(dueDay(inv.month))}</b> ${claim ? '까지 입금 부탁드립니다' : '지급 예정입니다'}</p>
       <p>${claim || S(accText) ? esc(accText) : '알려주신 계좌로 지급됩니다'}</p>
       <p>${esc(CORP.staff)} · ${esc(S(CORP.staffPhone) || CORP.phone)} · ${esc(CORP.email)}${
     CORP.fax ? ` · 팩스 ${esc(CORP.fax)}` : ''}</p>
