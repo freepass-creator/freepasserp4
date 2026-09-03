@@ -160,7 +160,9 @@ for (const axis of (['영업채널', '공급사'] as const)) {
   const parties = [...new Set(live.map(pick).filter(Boolean))]
     .sort((a, b) => live.filter((r) => pick(r) === b).length - live.filter((r) => pick(r) === a).length);
 
-  console.log(`■ ${axis === '공급사' ? '청구서(공급사)' : '지급명세서(영업채널)'} ${parties.length}장`);
+  // ★「장」이 아니라 「곳」이다 — 금액이 0 인 곳은 종이가 안 난다. 장 수는 아래 목록이 말한다.
+  console.log(`■ ${axis === '공급사' ? '청구서(공급사)' : '지급명세서(영업채널)'} 대상 ${parties.length}곳`);
+  const none: string[] = [];
   for (const party of parties) {
     const mine = live.filter((r) => pick(r) === party);
     const inv = buildInvoice({
@@ -168,6 +170,16 @@ for (const axis of (['영업채널', '공급사'] as const)) {
       rows: mine.map(asRow),
       clawbacks: backsFor(axis, party),
     });
+
+    /**
+     * ★★**금액이 0이면 종이를 만들지 않는다.**
+     *   사장님 2026-09-03 「아이언은 이번달에 청구가 아예 없는거지? 그럼 청구서가 없는거지」.
+     *   ⚠ 실측 — 01호8419 는 정산 대상이 「영업」이라 공급사 청구가 0 인데, 그래도 청구서가 한 장 났다.
+     *     받는 쪽에서는 「0원 청구서」가 「이게 뭐냐」가 된다. 청구가 없으면 청구서도 없다.
+     *   ★환수만 있어 «마이너스»인 곳은 만든다 — 돈이 오가기 때문이다. 0 일 때만 안 만든다.
+     *   ★조용히 빠지지 않는다 — 아래에서 «이름을 대고» 알린다. 말없이 사라지면 그게 누락이다.
+     */
+    if (!inv.total) { none.push(`${party} (${mine.length}줄)`); continue; }
 
     // ★공급사 청구서는 영업자 실적 확인이 끝나야 나간다.
     const gate = axis === '공급사'
@@ -188,6 +200,7 @@ for (const axis of (['영업채널', '공급사'] as const)) {
     console.log(`   ${gate.length ? '⛔' : '○'} ${party.padEnd(10)} ${String(inv.lines.length).padStart(2)}줄 ${won(inv.total).padStart(12)}원  ${inv.receiver.name}${tag}`);
     for (const g of gate) console.log(`        ${g.channel} (${g.lines}건) — ${g.why}`);
   }
+  if (none.length) console.log(`   – 금액이 0 이라 안 만든 곳 ${none.length} — ${none.join(' · ')}`);
   console.log();
 }
 
