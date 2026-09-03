@@ -88,7 +88,6 @@ const dress = (id: number, cols: number, widths: number[]) => [
     cell: { userEnteredFormat: { backgroundColor: TINT, textFormat: { bold: true, fontSize: 10 }, horizontalAlignment: 'CENTER', verticalAlignment: 'MIDDLE' } },
     fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment)' } },
   ...widths.map((w, c) => ({ updateDimensionProperties: { range: { sheetId: id, dimension: 'COLUMNS', startIndex: c, endIndex: c + 1 }, properties: { pixelSize: w }, fields: 'pixelSize' } })),
-  { repeatCell: { range: { sheetId: id }, cell: { userEnteredFormat: { textFormat: { fontFamily: 'Roboto' } } }, fields: 'userEnteredFormat.textFormat.fontFamily' } },
   freezeRows(id, 2),
 ];
 
@@ -119,7 +118,13 @@ export async function ensureNoticeTab(tok: Tok, bookId: string): Promise<boolean
     { repeatCell: { range: { sheetId: id, startRowIndex: 2, startColumnIndex: 0, endColumnIndex: 2 },
       cell: { userEnteredFormat: { horizontalAlignment: 'CENTER' } }, fields: 'userEnteredFormat.horizontalAlignment' } },
     { setBasicFilter: { filter: { range: { sheetId: id, startRowIndex: 1, endRowIndex: rows.length, startColumnIndex: 0, endColumnIndex: 3 } } } },
-  ]);
+    /**
+     * ★★**글꼴은 «맨 나중»에 깔린다** — 사장님 2026-09-03 「폰트가 로보토로 통일하기로 했잖아」.
+     *   먼저 깔면 뒤에 오는 textFormat 서식이 «글꼴까지 통째로» 덮어써 기본 글꼴로 돌아간다.
+     *   남색 머리줄과 같은 이치 — 순서가 곷 규칙이다.
+     */
+    { repeatCell: { range: { sheetId: id }, cell: { userEnteredFormat: { textFormat: { fontFamily: 'Roboto' } } }, fields: 'userEnteredFormat.textFormat.fontFamily' } },
+]);
   return true;
 }
 
@@ -166,7 +171,13 @@ export async function ensureGuideTab(tok: Tok, bookId: string): Promise<boolean>
         fields: 'userEnteredFormat(backgroundColor,textFormat,verticalAlignment,padding)' } },
       { updateDimensionProperties: { range: { sheetId: id, dimension: 'ROWS', startIndex: r, endIndex: r + 1 }, properties: { pixelSize: 34 }, fields: 'pixelSize' } },
     ]),
-  ]);
+    /**
+     * ★★**글꼴은 «맨 나중»에 깔린다** — 사장님 2026-09-03 「폰트가 로보토로 통일하기로 했잖아」.
+     *   먼저 깔면 뒤에 오는 textFormat 서식이 «글꼴까지 통째로» 덮어써 기본 글꼴로 돌아간다.
+     *   남색 머리줄과 같은 이치 — 순서가 곷 규칙이다.
+     */
+    { repeatCell: { range: { sheetId: id }, cell: { userEnteredFormat: { textFormat: { fontFamily: 'Roboto' } } }, fields: 'userEnteredFormat.textFormat.fontFamily' } },
+]);
   return true;
 }
 
@@ -269,10 +280,14 @@ export async function ensureFeeTab(tok: Tok, bookId: string): Promise<boolean> {
    */
   const HEAD = ['공급사', '상품 구분', '지급 수수료', '부가세', '산출 예시'];
   const rows: (string | number)[][] = [
+    /**
+     * ★**표준은 머리를 안 세운다** — 사장님 2026-09-03
+     *   「프리패스 표준은 따로 안써도 될거 같아」 · 「예외만 공급사 알려주면 되는거지」.
+     *   ⇒ 기본이 기본이니 이름을 안 붙인다. 공급사 칸이 «비어 있으면 모두 해당»이다.
+     *     머리는 «예외» 하나만 선다 — 그게 예외를 예외로 보이게 하는 가장 짧은 길이다.
+     */
     [`영업수수료 지급 기준 — ${CORP.name}`, '', '', '', ''],
     HEAD,
-    [`■ 프리패스 표준 수수료 정책 — ${stdSups.length}개사 공통  ·  ${VATTAG(stdRules)}`, '', '', '', ''],
-    ['해당 공급사', stdSups.join(' · '), '', '', ''],
     ...stdRules.map((r) => ['', KIND(r), HOWMUCH(r), VATOF(r), EXAMPLE(r)]),
   ];
   /**
@@ -300,8 +315,7 @@ export async function ensureFeeTab(tok: Tok, bookId: string): Promise<boolean> {
     if (same) partial.push(sup);
   }
   if (exc.length) {
-    rows.push(['■ 예외 공급사 — 아래 줄만 조건이 다릅니다', '', '', '', '']);
-    if (partial.length) rows.push(['', `${partial.join(' · ')} 는 아래 줄 밖의 조건은 프리패스 표준 수수료 정책과 같습니다`, '', '', '']);
+    rows.push(['■ 예외 — 아래 공급사만 조건이 다릅니다  (적힌 줄 밖의 조건은 위와 같습니다)', '', '', '', '']);
     rows.push(...exc);
   }
   rows.push(['', '', '', '', '']);
@@ -314,14 +328,30 @@ export async function ensureFeeTab(tok: Tok, bookId: string): Promise<boolean> {
   await put(tok, bookId, `'${TAB}'!A1:E${rows.length}`, rows);
 
   const heads = rows.map((r, i) => (String(r[0]).startsWith('■') ? i : -1)).filter((i) => i > 0);
+  /**
+   * ★**긴 글 줄은 «줄 전체로» 펜다** — 사장님 2026-09-03 「이런거도 정리좀하고」.
+   *   ※ 줄과 「해당 공급사」 줄이 110px 짜리 첫 칸에 갇혀 세로로 늘어졌다.
+   *   칸이 아니라 «문장»인 줄은 병합해야 한 줄로 읽힌다.
+   */
+  const notes = rows.map((r, i) => (String(r[0]).startsWith('※') ? i : -1)).filter((i) => i > 0);
+  const wide = rows.map((r, i) => (i > 1 && !String(r[0]).startsWith('■') && String(r[1]).length > 40 && !String(r[2]) ? i : -1)).filter((i) => i > 0);
   await format(tok, bookId, [
     ...dress(id, HEAD.length, [110, 200, 230, 60, 300]),
     { repeatCell: { range: { sheetId: id, startRowIndex: 2, endRowIndex: rows.length, startColumnIndex: 0, endColumnIndex: 3 },
-      cell: { userEnteredFormat: { verticalAlignment: 'MIDDLE', wrapStrategy: 'WRAP', textFormat: { bold: true } } }, fields: 'userEnteredFormat(verticalAlignment,wrapStrategy,textFormat)' } },
+      cell: { userEnteredFormat: { verticalAlignment: 'MIDDLE', wrapStrategy: 'WRAP', textFormat: { bold: false } } }, fields: 'userEnteredFormat(verticalAlignment,wrapStrategy,textFormat)' } },
     /** ★「부가세」는 «별도/포함» 두 글자다 — 가운데 세우고 굵게 둔다. 흐리면 못 보고 지나친다. */
+    /**
+     * ★★**부가세는 «색»으로 가른다** — 사장님 2026-09-03
+     *   「부가세 별도 포함 이런거 구분값이 보기 쉽게 색구분이나 이런거....」
+     *   두 글자라 글자만으로는 스츠로 지나간다. «포함»에만 주황을 깔아 눈에 걸리게 한다.
+     *   ⇒ 많은 쪽(별도)이 조용하고 드문 쪽(포함)이 틄다 — 둘 다 칠하면 둘 다 안 보인다.
+     */
     { repeatCell: { range: { sheetId: id, startRowIndex: 2, endRowIndex: rows.length, startColumnIndex: 3, endColumnIndex: 4 },
-      cell: { userEnteredFormat: { verticalAlignment: 'MIDDLE', horizontalAlignment: 'CENTER', textFormat: { fontSize: 10, bold: true } } },
-      fields: 'userEnteredFormat(verticalAlignment,horizontalAlignment,textFormat)' } },
+      cell: { userEnteredFormat: { verticalAlignment: 'MIDDLE', horizontalAlignment: 'CENTER', backgroundColor: { red: 1, green: 1, blue: 1 }, textFormat: { fontSize: 10, bold: false, foregroundColor: { red: 0.42, green: 0.45, blue: 0.5 } } } },
+      fields: 'userEnteredFormat(verticalAlignment,horizontalAlignment,backgroundColor,textFormat)' } },
+    ...rows.map((r, i) => (String(r[3]) === '포함' ? { repeatCell: { range: { sheetId: id, startRowIndex: i, endRowIndex: i + 1, startColumnIndex: 3, endColumnIndex: 4 },
+      cell: { userEnteredFormat: { backgroundColor: { red: 1, green: 0.90, blue: 0.76 }, textFormat: { fontSize: 10, bold: true, foregroundColor: { red: 0.60, green: 0.29, blue: 0.04 } } } },
+      fields: 'userEnteredFormat(backgroundColor,textFormat)' } } : null)).filter(Boolean) as Record<string, unknown>[],
     /** ★「산출 예시」는 곁다리 — 흐리게 두어 «얼마»가 먼저 읽히게 한다. */
     { repeatCell: { range: { sheetId: id, startRowIndex: 2, endRowIndex: rows.length, startColumnIndex: 4, endColumnIndex: 5 },
       cell: { userEnteredFormat: { verticalAlignment: 'MIDDLE', wrapStrategy: 'WRAP', textFormat: { fontSize: 9, bold: false, foregroundColor: { red: 0.42, green: 0.45, blue: 0.5 } } } },
@@ -333,6 +363,19 @@ export async function ensureFeeTab(tok: Tok, bookId: string): Promise<boolean> {
      *   정산탭에서 「차량번호」가 남색 위 남색이 됐던 것과 «같은 실수»다. 순서가 곧 규칙이다.
      * ★글은 A칸에만 두고 줄 전체를 병합한다 — 길어도 접히지 않고 끝까지 넘어간다.
      */
+    /**
+     * ★**긴 글은 칸에 가두지 않는다** — 사장님 2026-09-03
+     *   「칸에 갇히게 하지 말자고... 좀 옆에칸이 남으면 좀 그거 보고 하던가」.
+     *   ※ 줄과 「해당 공급사」 줄이 110px 첫 칸에 갇혀 세로로 늘어졌었다.
+     *   ⇒ 병합하지 않고 OVERFLOW_CELL 로 둔다 — 오른쪽이 비어 있으면 그리로 흘러간다.
+     *     병합은 나중에 틀고정·필터와 부딪힌다 — 오늘만 그것으로 두 번 튀겼다.
+     */
+    ...notes.map((r) => ({ repeatCell: { range: { sheetId: id, startRowIndex: r, endRowIndex: r + 1, startColumnIndex: 0, endColumnIndex: HEAD.length },
+      cell: { userEnteredFormat: { horizontalAlignment: 'LEFT', verticalAlignment: 'MIDDLE', wrapStrategy: 'OVERFLOW_CELL', textFormat: { bold: false, fontSize: 10, fontFamily: 'Roboto', foregroundColor: { red: 0.42, green: 0.45, blue: 0.5 } } } },
+      fields: 'userEnteredFormat(horizontalAlignment,verticalAlignment,wrapStrategy,textFormat)' } })),
+    ...wide.map((r) => ({ repeatCell: { range: { sheetId: id, startRowIndex: r, endRowIndex: r + 1, startColumnIndex: 1, endColumnIndex: HEAD.length },
+      cell: { userEnteredFormat: { verticalAlignment: 'MIDDLE', wrapStrategy: 'OVERFLOW_CELL', textFormat: { bold: false, fontSize: 10, fontFamily: 'Roboto' } } },
+      fields: 'userEnteredFormat(verticalAlignment,wrapStrategy,textFormat)' } })),
     ...heads.flatMap((r) => [
       { mergeCells: { range: { sheetId: id, startRowIndex: r, endRowIndex: r + 1, startColumnIndex: 0, endColumnIndex: HEAD.length }, mergeType: 'MERGE_ALL' } },
       { repeatCell: { range: { sheetId: id, startRowIndex: r, endRowIndex: r + 1, startColumnIndex: 0, endColumnIndex: HEAD.length },
@@ -340,7 +383,13 @@ export async function ensureFeeTab(tok: Tok, bookId: string): Promise<boolean> {
         fields: 'userEnteredFormat(backgroundColor,textFormat,verticalAlignment,horizontalAlignment,wrapStrategy,padding)' } },
       { updateDimensionProperties: { range: { sheetId: id, dimension: 'ROWS', startIndex: r, endIndex: r + 1 }, properties: { pixelSize: 34 }, fields: 'pixelSize' } },
     ]),
-  ]);
+    /**
+     * ★★**글꼴은 «맨 나중»에 깔린다** — 사장님 2026-09-03 「폰트가 로보토로 통일하기로 했잖아」.
+     *   먼저 깔면 뒤에 오는 textFormat 서식이 «글꼴까지 통째로» 덮어써 기본 글꼴로 돌아간다.
+     *   남색 머리줄과 같은 이치 — 순서가 곷 규칙이다.
+     */
+    { repeatCell: { range: { sheetId: id }, cell: { userEnteredFormat: { textFormat: { fontFamily: 'Roboto' } } }, fields: 'userEnteredFormat.textFormat.fontFamily' } },
+]);
   return true;
 }
 
@@ -410,7 +459,13 @@ export async function ensureCompanyTab(tok: Tok, bookId: string): Promise<boolea
         fields: 'userEnteredFormat(backgroundColor,textFormat,verticalAlignment,padding)' } },
       { updateDimensionProperties: { range: { sheetId: id, dimension: 'ROWS', startIndex: r, endIndex: r + 1 }, properties: { pixelSize: 34 }, fields: 'pixelSize' } },
     ]),
-  ]);
+    /**
+     * ★★**글꼴은 «맨 나중»에 깔린다** — 사장님 2026-09-03 「폰트가 로보토로 통일하기로 했잖아」.
+     *   먼저 깔면 뒤에 오는 textFormat 서식이 «글꼴까지 통째로» 덮어써 기본 글꼴로 돌아간다.
+     *   남색 머리줄과 같은 이치 — 순서가 곷 규칙이다.
+     */
+    { repeatCell: { range: { sheetId: id }, cell: { userEnteredFormat: { textFormat: { fontFamily: 'Roboto' } } }, fields: 'userEnteredFormat.textFormat.fontFamily' } },
+]);
   return true;
 }
 
@@ -466,6 +521,12 @@ export async function ensureMonthTab(tok: Tok, bookId: string, month: string): P
     ...CHANNEL_SETTLE_WIDTH.map((w, c) => ({ updateDimensionProperties: { range: { sheetId: id, dimension: 'COLUMNS', startIndex: c, endIndex: c + 1 }, properties: { pixelSize: w }, fields: 'pixelSize' } })),
     { repeatCell: { range: { sheetId: id }, cell: { userEnteredFormat: { textFormat: { fontFamily: 'Roboto' } } }, fields: 'userEnteredFormat.textFormat.fontFamily' } },
     freezeRows(id, 4),
-  ]);
+    /**
+     * ★★**글꼴은 «맨 나중»에 깔린다** — 사장님 2026-09-03 「폰트가 로보토로 통일하기로 했잖아」.
+     *   먼저 깔면 뒤에 오는 textFormat 서식이 «글꼴까지 통째로» 덮어써 기본 글꼴로 돌아간다.
+     *   남색 머리줄과 같은 이치 — 순서가 곷 규칙이다.
+     */
+    { repeatCell: { range: { sheetId: id }, cell: { userEnteredFormat: { textFormat: { fontFamily: 'Roboto' } } }, fields: 'userEnteredFormat.textFormat.fontFamily' } },
+]);
   return true;
 }
