@@ -221,8 +221,12 @@ try {
   console.log(`  치환 사전 「AI 정제」 ${SUBST.size}줄${subst.skipped ? ` · 개발코드 떨기 ${subst.skipped}줄 무시` : ''}\n`);
 } catch (e) { console.log(`  ⚠ 「AI 정제」를 못 읽어 치환 없이 돈다 — ${String((e as Error).message).slice(0, 60)}\n`); }
 /** 열 이름 그대로 사전을 찾는다 — 외장/내장/제조사/모델/차명. */
+const LIVE_NAME_COLS = new Set(['모델', '세부모델', '세부트림']);
 const clean = (col: string, val: string) => {
-  const v = SUBST.get(`${col}|${S(val)}`) ?? S(val);
+  // 모델·세부모델·세부트림 = 라이브 행 복사. 「AI 정제」가 디 올 뉴를 깎아도 안 탄다(2026-09-01).
+  const raw = S(val);
+  if (LIVE_NAME_COLS.has(col)) return raw;
+  const v = SUBST.get(`${col}|${raw}`) ?? raw;
   // ★제조사 표기 규격(maker-display) — 사장님 2026-08-18 「르노라고만 하고 KGM」. 치환 사전보다 뒤에, 사전에 없어도 맞춘다.
   return col === '제조사' ? canonMakerDisplay(v) : v;
 };
@@ -503,7 +507,7 @@ for (const [code, p] of [...byCode].sort()) {
        *   마스터 스냅·상품마스터 3축·정제칸 재판단 없음 — 틀린 세부축이 붙느니 원문이 낫다.
        *   모델이 비면 목록에만 남긴다(지어내지 않는다).
        */
-      if (!cell('모델')) missingModel.push(`${who} ${S(r[first('차량번호')])} 「${cell('차명').slice(0, 44)}」`);
+      if (!cell('모델')) missingModel.push(`${who} ${S(r[first('차량번호')])} 「${cell('차명(원문)').slice(0, 44)}」`);
       /**
        * 그 차에 적용될 정책. 코드가 비면 그 공급사 정책이 **하나뿐일 때 그것**을 쓴다.
        * ⚠ 여럿인데 비면 «못 정했다»로 세어 화면에 알린다 — 짐작해 붙이면 그게 우리 오류다.
@@ -564,7 +568,7 @@ for (const [code, p] of [...byCode].sort()) {
           if (fromCode) return fromCode;
           const own2 = vehicleClassDisplay(clean(c, cell(c)));
           if (own2) return own2;
-          return classifyVehicleClass({ model: cell('모델'), sub_model: cell('차명') } as never);
+          return classifyVehicleClass({ model: cell('모델'), sub_model: cell('차명(원문)') } as never);
         }
         if (c === '차명') {
           const refinedAt = hdr.indexOf('차명(정제)');
@@ -653,6 +657,45 @@ const stateAt0 = COLUMNS.indexOf('배차상태');
   rows.length = 0; rows.push(...keep);
   if (noPlate) console.log(`  차번·차대번호가 다 없는 ${noPlate}대는 안 싣는다 → ${rows.length}대`);
   if (vinOnly) console.log(`  번호 전 신차 ${vinOnly}대는 차대번호로 싣는다(번호가 나오면 같은 차로 이어붙는다)`);
+  /**
+   * ★**«이 빠진» 줄은 싣지 않는다**(사장님 2026-09-03 — 「내가 봤을 때 빈 곳 없어야 하고,
+   *   저딴 식으로 이가 나간 것처럼 보이면 안 된다」).
+   *   공급사 재고탭에는 «차번만 미리 적어 둔 자리»가 섞인다. 지금까지는 열쇠(차번)만 있으면
+   *   실어서, 영업자 표에 **차번 한 칸 빼고 전부 빈 줄**이 났다
+   *   (실측 2026-09-03: 322대 중 15줄 — 상태·구분·차·돈이 «전부» 비었다).
+   *   그런 줄은 팔 수도, 손님에게 말할 수도 없다. 표에 서 있을 이유가 없다.
+   *
+   * ⚠ **버리는 게 아니라 «못 실었다»로 센다.** 목록으로 찍어 공급사에 채워 달라고 해야 한다 —
+   *   조용히 빼면 「내 차가 왜 없냐」가 되고, 그때는 어디서 빠졌는지 아무도 모른다.
+   * ⚠ 판정은 **«전부 비었을 때»만**이다. 한 칸이라도 있으면 싣는다 — 빈 칸은 지어내지 않는다는
+   *   규칙(모델명 없는 차 28대)과 여기는 다른 이야기다. 저쪽은 «덜 아는 차», 이쪽은 «차가 아닌 줄».
+   */
+  {
+    /** 차 자체를 말하는 칸. 하나라도 있으면 «아는 차»다. */
+    const CAR_COLS = ['제조사', '모델', '세부모델', '세부트림', '차명(원문)', '연식', 'Km', '연료', '배기량', '차종구분'];
+    /** 돈. 위 「-」 채움을 지난 뒤라 숫자가 있는지로 본다(「-」는 돈이 아니다). */
+    const MONEY_COLS2 = ['단기보증', '장기보증', '1개월', '6개월', '12개월', '24개월', '36개월', '48개월', '60개월'];
+    const carAt = CAR_COLS.map((c) => COLUMNS.indexOf(c)).filter((i) => i >= 0);
+    const moneyAt = MONEY_COLS2.map((c) => COLUMNS.indexOf(c)).filter((i) => i >= 0);
+    const stateAt = COLUMNS.indexOf('배차상태');
+    const kindAt = COLUMNS.indexOf('구분');
+    const supplierAt = COLUMNS.indexOf('공급사');
+    const filled = (r: string[], at: number) => at >= 0 && !!S(r[at]);
+    const hollow = (r: string[]) => !carAt.some((i) => S(r[i]))
+      && !moneyAt.some((i) => /\d/.test(S(r[i])))
+      && !filled(r, stateAt) && !filled(r, kindAt);
+    const empties = rows.filter(hollow);
+    if (empties.length) {
+      const keep2 = rows.filter((r) => !hollow(r));
+      rows.length = 0; rows.push(...keep2);
+      console.log(`  ★차번만 있고 «전부 빈» ${empties.length}줄은 안 싣는다(표에 이가 나간다) → ${rows.length}대`);
+      for (const r of empties.slice(0, 20)) {
+        console.log(`     ${S(r[supplierAt]).padEnd(10)} ${S(r[plateAt0])}`);
+      }
+      if (empties.length > 20) console.log(`     … 모두 ${empties.length}줄`);
+      console.log('     공급사 시트에서 그 줄을 채우거나 지워야 한다 — 우리가 지어내지 않는다.');
+    }
+  }
   console.log('');
 }
 const rentAt = RENT_COLUMNS.map((c) => COLUMNS.indexOf(c)).filter((i) => i >= 0);
