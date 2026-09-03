@@ -1,12 +1,16 @@
 'use client';
 
-import { memo, type CSSProperties, type Dispatch, type MouseEvent, type RefObject, type SetStateAction } from 'react';
+import { memo, useEffect, useRef, type CSSProperties, type Dispatch, type MouseEvent, type RefObject, type SetStateAction } from 'react';
+import dynamic from 'next/dynamic';
 import type { EntityRecord } from '@/lib/intake/entities';
 import type { ColSort } from './excel-columns';
-import { ProductCard } from '@/components/ProductCard';
-import { ProductRowCard } from '@/components/ProductRowCard';
-import { Btn, C, CenterNote, EXCEL_ROW_H, ListMoreBar, R, SH, Skeleton, ctrlH } from '@/components/ui';
+import { Btn, C, CenterNote, EXCEL_ROW_H, R, SH, Skeleton, ctrlH } from '@/components/ui';
 import { SheetView } from './SheetView';
+
+// 기본 웹 진입은 판매시트(엑셀)다. 카드 두 종류는 사용자가 보기를 전환할 때만 내려받아
+// 첫 진입 JS 파싱·실행을 줄인다. 모바일은 카드가 기본이지만 필요한 번들만 즉시 요청된다.
+const ProductCard = dynamic(() => import('@/components/ProductCard').then((module) => module.ProductCard));
+const ProductRowCard = dynamic(() => import('@/components/ProductRowCard').then((module) => module.ProductRowCard));
 
 // 뷰 컨테이너 스타일 SSOT — 실제 렌더와 로딩 스켈레톤이 같은 상수를 공유(재타이핑 드리프트=레이아웃 점프 방지).
 const CARD_GRID: CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: 14 };
@@ -43,9 +47,7 @@ type Props = {
   openCol: { field: string; x: number; y: number } | null;
   setOpenCol: Dispatch<SetStateAction<{ field: string; x: number; y: number } | null>>;
   moreCount: number;
-  pageSize: number;
   onMore: () => void;
-  onShowAll: () => void;
   /** 보기 전환(startTransition) 중 — 프리즈 체감 완화용 dim */
   pending?: boolean;
   /** 판매시트에 같은 ERP 검색·필터 결과를 적용하기 위한 서버 확정 상세 주소 목록. */
@@ -58,6 +60,20 @@ type Props = {
 
 export const FinderResults = memo(function FinderResults(props: Props) {
   const loading = props.rows == null;
+  const moreRef = useRef<HTMLDivElement>(null);
+  // 수동 "더보기" 대신 스크롤 끝 360px 전에서 다음 묶음을 붙인다. bodyRef가 실제 스크롤 컨테이너라
+  // 웹/모바일 모두 viewport 기준 오작동 없이 같은 규칙을 쓴다.
+  useEffect(() => {
+    if (props.view === 'excel' || loading || props.moreCount <= 0) return;
+    const target = moreRef.current;
+    const root = props.bodyRef.current;
+    if (!target || !root) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) props.onMore();
+    }, { root, rootMargin: '360px 0px', threshold: 0 });
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [props.bodyRef, props.moreCount, props.onMore, props.shown.length, props.view, loading]);
   // 로딩 중 is-excel 금지 — 엑셀 flex/overflow 레이아웃에 리스트 스켈레톤이 끼면
   // 중간 공백·아래쪽 떠 있는 행(잔상)이 생긴다.
   /* 시트 본문 = flex + 자체 스크롤. 기본 본문은 블록이라 SheetView 의 flex:1 이 높이를 못 받아 0으로 접힌다. */
@@ -91,7 +107,7 @@ export const FinderResults = memo(function FinderResults(props: Props) {
       ) : props.view === 'card' ? (
         props.mobile ? (
           <div style={MOBILE_FEED_WRAP}>
-            {props.shown.map((product) => <ProductRowCard key={String(product.product_code || product._key)} p={product} focusMonth={props.focusMonth} />)}
+            {props.shown.map((product) => <div key={String(product.product_code || product._key)} style={{ contentVisibility: 'auto', containIntrinsicSize: '86px' }}><ProductRowCard p={product} focusMonth={props.focusMonth} /></div>)}
           </div>
         ) : (
           <div style={CARD_GRID}>
@@ -105,22 +121,13 @@ export const FinderResults = memo(function FinderResults(props: Props) {
       ) : props.view === 'list' ? (
         <div style={LIST_GRID}>
           {props.shown.map((product) => (
-            <div key={String(product.product_code || product._key)} onContextMenu={(event) => props.onProductContext(event, product)}>
+            <div key={String(product.product_code || product._key)} onContextMenu={(event) => props.onProductContext(event, product)} style={{ contentVisibility: 'auto', containIntrinsicSize: '112px' }}>
               <ProductRowCard p={product} focusMonth={props.focusMonth} />
             </div>
           ))}
         </div>
       ) : null}
-      {props.view !== 'excel' && !loading && (
-        <ListMoreBar
-          shown={props.shown.length}
-          total={props.shown.length + props.moreCount}
-          unit="대"
-          pageSize={props.pageSize}
-          onMore={props.onMore}
-          onShowAll={props.onShowAll}
-        />
-      )}
+      {props.view !== 'excel' && !loading && props.moreCount > 0 && <div ref={moreRef} aria-hidden style={{ height: 1 }} />}
     </div>
   );
 });

@@ -34,7 +34,9 @@ export type FreepassConsentProfile = {
 };
 
 export function freepassConsentOperationalBlocker(profile: FreepassConsentProfile): string {
-  if (profile.paymentMethod === FREEPASS_SUPPORTED_PAYMENT_METHOD || profile.paymentMethod === 'CMS 자동이체') return '';
+  // CMS 동의 항목을 계약 프로필에 동결하는 것과 실제 출금 위임·본인인증 연동은 다르다.
+  // 후자가 준비되기 전에는 계좌이체만 발행한다.
+  if (profile.paymentMethod === FREEPASS_SUPPORTED_PAYMENT_METHOD) return '';
   const method = S(profile.paymentMethod) || '자동수납';
   return `${method} 상품은 수납 위임·본인인증 절차를 연결한 뒤 전자계약을 발행할 수 있습니다. 현재는 계좌이체 정책만 사용해 주세요.`;
 }
@@ -100,6 +102,24 @@ function gpsAtom(): ConsentAtom {
   };
 }
 
+/**
+ * GPS 위치정보 동의와 차량 보호·회수 절차 확인은 목적이 다르다.
+ * 전자는 위치정보 처리의 동의이고, 후자는 계약 제24조의 통지·안전한 회수 절차를
+ * 실제로 제시받았다는 계약조건 확인이다. GPS 장착 계약에서만 함께 동결한다.
+ */
+function recoveryProcedureAtom(): ConsentAtom {
+  return {
+    key: 'recovery_procedure',
+    label: '차량 보호·회수 절차 확인',
+    group: 'customer',
+    required: true,
+    items: ['미납·미반환 시 사전 통지', '안전한 상태에서의 운행제한·시동제어', '적법한 절차에 따른 차량 보호·회수'],
+    purpose: '계약 제24조의 차량 보호·회수 절차와 안전 제한을 확인',
+    retention: '계약 종료 후 분쟁·채권 관련 절차가 끝날 때까지',
+    refusalNote: 'GPS 장착 차량의 보호·회수 절차를 확인하지 않으면 해당 계약을 체결할 수 없습니다.',
+  };
+}
+
 function cmsAtom(landlordCompanyName: string): ConsentAtom {
   return {
     key: 'cms_debit',
@@ -161,7 +181,7 @@ export function buildFreepassConsentProfile(input: {
   const landlordCompanyName = S(input.landlordCompanyName);
   const atoms: ConsentAtom[] = [privacyAtom(landlordCompanyName, S(input.customerType))];
   if (paymentMethod === 'CMS 자동이체') atoms.push(cmsAtom(landlordCompanyName));
-  if (gpsInstalled === '장착') atoms.push(gpsAtom());
+  if (gpsInstalled === '장착') atoms.push(gpsAtom(), recoveryProcedureAtom());
   const documents = supportingDocumentsAtom(input.requiredDocuments, landlordCompanyName);
   if (documents) atoms.push(documents);
 
@@ -185,10 +205,10 @@ export function isFrozenFreepassConsentProfile(value: unknown): value is Freepas
   if (S(row.version) !== FREEPASS_CONSENT_PROFILE_VERSION) return false;
   if (!['무심사', '소득확인'].includes(S(row.screeningCriteria))) return false;
   if (!['장착', '미장착'].includes(S(row.gpsInstalled))) return false;
-  if (![FREEPASS_SUPPORTED_PAYMENT_METHOD, 'CMS 자동이체'].includes(S(row.paymentMethod))) return false;
-  if (S(row.paymentMethod) === 'CMS 자동이체' && row.cmsRequiredBeforeHandover !== true) return false;
-  if (S(row.paymentMethod) === 'CMS 자동이체' && !keys.includes('cms_debit')) return false;
-  if (S(row.paymentMethod) === FREEPASS_SUPPORTED_PAYMENT_METHOD && row.requiresExternalPaymentAuthorization !== false) return false;
+  // 현재 고객 링크는 CMS 출금 위임·본인인증을 실제로 수행하지 않으므로,
+  // CMS 동의 줄만 갖춘 profile을 유효 계약 profile로 승인하지 않는다.
+  if (S(row.paymentMethod) !== FREEPASS_SUPPORTED_PAYMENT_METHOD) return false;
+  if (row.requiresExternalPaymentAuthorization !== false) return false;
   if (!keys.includes('rental_terms') || !keys.includes('privacy')) return false;
   if ((S(row.gpsInstalled) === '장착') !== keys.includes('gps')) return false;
   const allowed = new Set(['rental_terms', ...atoms.map((atom) => S((atom as Record<string, unknown>)?.key)).filter(Boolean)]);

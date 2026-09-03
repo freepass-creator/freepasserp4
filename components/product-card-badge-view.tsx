@@ -2,7 +2,7 @@
 
 import type { EntityRecord } from '@/lib/intake/entities';
 import { type Audience } from '@/lib/domain/product';
-import { ICON } from '@/components/ui';
+import { C, ICON } from '@/components/ui';
 import { CircleCheck, Clock, CircleSlash, CircleDot, Tag, FileCheck, type LucideIcon } from 'lucide-react';
 import { toneText } from '@/components/ui/badges';
 import { MetaIcon } from '@/components/product-card-perks';
@@ -32,13 +32,15 @@ const SIGNAL_ICON = (key: string, label: string): LucideIcon => {
   return Clock; // 계약중·상품화중·출고협의 = 기다려야 하는 상태
 };
 
-export function SignalMarks({ p, audience = 'agent', keys, hideStatus, dense }: {
+export function SignalMarks({ p, audience = 'agent', keys, hideStatus, dense, onPhoto = false }: {
   p: EntityRecord;
   audience?: Audience;
   /** 안 주면 하단 뱃지 차례(심사 → 출고상태 → 상품구분). */
   keys?: readonly string[];
   hideStatus?: boolean;
   dense?: boolean;
+  /** 사진 위에서는 상자 대신 하단 공용 그라디언트 위에 흰 글자로 올린다. */
+  onPhoto?: boolean;
 }) {
   const order = keys ?? HEAD_BADGE_KEYS;  // 기본 = 출고상태 · 상품구분(심사는 우대조건 줄이 든다)
   const byKey = new Map(badgeSpecs(p, false, false, audience).map((spec) => [spec.key, spec]));
@@ -58,7 +60,10 @@ export function SignalMarks({ p, audience = 'agent', keys, hideStatus, dense }: 
           text={spec.label}
           size={ICON.sm}
           strong
-          iconColor={toneText(spec.tone)}
+          /* 사진 위는 글자와 아이콘을 함께 반전한다. 특히 회색 계열인 「중고렌트」는
+             글자만 흰색이고 태그 그림이 회색이면 그라디언트에 묻어 아이콘이 없는 것처럼 보였다. */
+          iconColor={onPhoto ? C.inverse : toneText(spec.tone)}
+          textColor={onPhoto ? C.inverse : undefined}
           title={badgeTip(spec.key, spec.label)}
         />
       ))}

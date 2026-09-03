@@ -59,7 +59,11 @@ assert.match(assetRoute, /supporting-\(\[a-z0-9\]/);
 assert.match(customerPage, /kind: 'documents'/);
 assert.match(customerPage, /uploadSupportingDocuments/);
 assert.match(customerPage, /accept="image\/\*,application\/pdf"/);
-assert.match(customerPage, /렌터카사 요청서류/);
+// 화면 문구는 UI 정본에서 바뀔 수 있다. 다만 고객에게 필요한 서류라는 의미와
+// 필수/선택·업로드 경로가 유지되는지를 기능적으로 확인한다.
+assert.match(customerPage, /필요한 부속서류를 제출해 주세요/);
+assert.match(customerPage, /FormCard title="요청 서류"/);
+assert.match(customerPage, /document\.required \? '필수' : '선택'/);
 assert.match(policyPage, /PolicyRequiredDocumentsEditor/);
 assert.match(approvalRoute, /가입증명서에서 회사 질권 설정을 확인한 뒤 승인/);
 assert.match(assetRoute, /supportingDocument/);

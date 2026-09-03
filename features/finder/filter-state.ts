@@ -15,8 +15,8 @@ export type FilterBag = {
 
 /** 정렬 옵션 SSOT — 필터 패널 FilterChips. 키는 useFinderResults 정렬 switch와 일치. */
 export const FINDER_SORTS: { value: string; label: string }[] = [
-  /** ★매물이 많은 차종부터(사장님 2026-08-20 「정렬에 인기차량순 · 매물 많은 거부터 보여주는 거지」). */
-  { value: 'popular', label: '인기차량순' },
+  /** 차종별 상품 수가 많은 순 — 인기 추정이 아니라 현재 보유 상품 수 기준이다. */
+  { value: 'popular', label: '상품 많은 순' },
   { value: 'asc', label: '대여료 낮은순' },
   { value: 'desc', label: '대여료 높은순' },
   { value: 'dep_asc', label: '보증금 낮은순' },
@@ -27,8 +27,7 @@ export const FINDER_SORTS: { value: string; label: string }[] = [
   { value: 'old', label: '연식 오래된순' },
 ];
 /**
- * ★**기본 정렬은 「인기차량순」**(사장님 2026-08-20 「기본 정렬을 인기차량순으로 해줘」) —
- *   매물이 많은 차종이 먼저 보인다. 처음 여는 화면이 곧 우리가 제일 많이 들고 있는 차다.
+ * ★**기본 정렬은 「상품 많은 순」** — 매물이 많은 차종이 먼저 보인다.
  */
 export const FINDER_DEFAULT_SORT = 'popular';
 

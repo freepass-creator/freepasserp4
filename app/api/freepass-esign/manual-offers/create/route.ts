@@ -48,6 +48,28 @@ function text(value: unknown, label: string, max = 120) {
   if (!result || result.length > max || /[\u0000-\u001f\u007f]/.test(result)) throw new InputError(`${label}을(를) 확인해 주세요.`);
   return result;
 }
+function optionalText(value: unknown, label: string, max = 300) {
+  const result = String(value ?? '').replace(/\r\n?/g, '\n').trim();
+  if (!result) return '';
+  if (result.length > max || /\u0000|\u007f/.test(result)) throw new InputError(`${label}을(를) 확인해 주세요.`);
+  return result;
+}
+function vehiclePresentation(body: EsignRecord, requireIdentity: boolean) {
+  const identity = (key: 'carNumber' | 'vehicleName', label: string, max: number) => requireIdentity
+    ? text(body[key], label, max)
+    : optionalText(body[key], label, max);
+  return {
+    carNumber: identity('carNumber', '차량번호', 40),
+    vehicleName: identity('vehicleName', '차종', 160),
+    modelYear: optionalText(body.modelYear, '연식', 30),
+    fuel: optionalText(body.fuel, '유종', 60),
+    options: optionalText(body.options, '옵션', 500),
+    colorExterior: optionalText(body.colorExterior, '외장색상', 80),
+    currentMileage: optionalText(body.currentMileage, '출고 시 주행거리', 40),
+    vehiclePrice: optionalText(body.vehiclePrice, '차량가액', 40),
+    vehicleRemark: optionalText(body.vehicleRemark, '차량 비고', 500),
+  };
+}
 function date(value: unknown) {
   const result = text(value, '계약일', 10);
   const parsed = new Date(`${result}T00:00:00.000Z`);
@@ -84,13 +106,7 @@ export async function POST(request: Request) {
     const rentMonths = productCode ? Number(body.rentMonths) : 0;
     if (productCode && !/^[A-Za-z0-9_-]{3,100}$/.test(productCode)) throw new InputError('차량 식별값 형식이 올바르지 않습니다.');
     if (productCode && (!Number.isInteger(rentMonths) || rentMonths < 1 || rentMonths > 120)) throw new InputError('계약 기간을 확인해 주세요.');
-    if (productCode && ['carNumber', 'vehicleName', 'modelYear', 'fuel'].some((key) => Object.hasOwn(body, key))) {
-      throw new InputError('ERP 차량 계약에는 차량 정보를 직접 넣을 수 없습니다.');
-    }
-    const carNumber = productCode ? '' : text(body.carNumber, '차량번호', 40);
-    const vehicleName = productCode ? '' : text(body.vehicleName, '차종', 160);
-    const modelYear = productCode ? '' : S(body.modelYear);
-    const fuel = productCode ? '' : S(body.fuel);
+    const requestedVehicle = vehiclePresentation(body, !productCode);
     const db = firebaseAdminDatabase();
     const offersSnap = await db.ref('v4/esign_manual_offers').get();
     const rows = offersSnap.val() && typeof offersSnap.val() === 'object' ? offersSnap.val() as Record<string, unknown> : {};
@@ -139,6 +155,11 @@ export async function POST(request: Request) {
       // 인수/반납 선택값이나 가격은 이 경계로 들어오지 못한다.
       ...(templateRow.id.startsWith('sonogong-') && templateRow.id !== 'sonogong-pickup-confirmation' ? { buyback_option: '만기 협의' } : {}),
       ...(offer.buyoutPrice != null ? { buyback_price: String(offer.buyoutPrice) } : {}),
+      options: requestedVehicle.options,
+      color_exterior: requestedVehicle.colorExterior,
+      odometer_delivery: requestedVehicle.currentMileage,
+      contract_vehicle_price: requestedVehicle.vehiclePrice,
+      vehicle_remark: requestedVehicle.vehicleRemark,
     });
     const contractDraft = canonicalFreepassDirectManualTermsDraft(manualTerms);
     if (!manualTerms || !contractDraft) throw new InputError('수기 오퍼 조건을 동결하지 못했습니다.');
@@ -147,15 +168,15 @@ export async function POST(request: Request) {
       throw new InputError('선택한 기간의 차량 가격표를 확인할 수 없습니다.');
     }
     const productVehicle = product ? contractVehicleSnapshot(product as never) : null;
-    const sealedCarNumber = productVehicle?.carNumber || carNumber;
-    const sealedVehicleName = productVehicle?.vehicleName || vehicleName;
-    const sealedModelYear = productVehicle?.modelYear || modelYear;
-    const sealedFuel = productVehicle?.fuel || fuel;
+    const sealedCarNumber = requestedVehicle.carNumber || productVehicle?.carNumber || '';
+    const sealedVehicleName = requestedVehicle.vehicleName || productVehicle?.vehicleName || '';
+    const sealedModelYear = requestedVehicle.modelYear || productVehicle?.modelYear || '';
+    const sealedFuel = requestedVehicle.fuel || productVehicle?.fuel || '';
     const sealedMonths = productPrice?.m || offer.rentMonths;
     const sealedRent = productPrice?.rent || offer.rentAmount;
     const sealedDeposit = productPrice?.deposit ?? offer.depositAmount;
     const sealedMileage = product ? (S(product.annual_mileage) || offer.annualMileage) : offer.annualMileage;
-    const requestHash = sha256(JSON.stringify({ actorUid: actor.uid, manualOfferId, contractDate, productCode, rentMonths, carNumber: sealedCarNumber, vehicleName: sealedVehicleName, modelYear: sealedModelYear, fuel: sealedFuel }));
+    const requestHash = sha256(JSON.stringify({ actorUid: actor.uid, manualOfferId, contractDate, productCode, rentMonths, carNumber: sealedCarNumber, vehicleName: sealedVehicleName, modelYear: sealedModelYear, fuel: sealedFuel, vehicleTerms: manualTerms }));
     const requestRef = db.ref(`v4/esign_create_requests/${actor.uid}/${requestId}`);
     const now = Date.now();
     const allocation = await requestRef.transaction((current) => {
@@ -177,7 +198,13 @@ export async function POST(request: Request) {
     const user = (await db.ref(`users/${actor.uid}`).get()).val() as EsignRecord | null;
     const agentChannelCode = S(actor.agentChannelCode || user?.agent_channel_code || actor.uid);
     if (!agentChannelCode) throw new InputError('담당 영업 채널을 확인할 수 없습니다.');
-    const sealedProduct: EsignRecord = product ? product as EsignRecord : { provider_company_code: offer.providerCompanyCode, product_type: offer.productType, car_number: sealedCarNumber, vehicle_name: sealedVehicleName, year: sealedModelYear, fuel_type: sealedFuel };
+    const sealedProduct: EsignRecord = {
+      ...(product ? product as EsignRecord : { provider_company_code: offer.providerCompanyCode, product_type: offer.productType }),
+      car_number: sealedCarNumber, vehicle_name: sealedVehicleName, year: sealedModelYear, fuel_type: sealedFuel,
+      ...(requestedVehicle.options ? { options: requestedVehicle.options } : {}),
+      ...(requestedVehicle.colorExterior ? { ext_color: requestedVehicle.colorExterior } : {}),
+      ...(requestedVehicle.currentMileage ? { mileage: requestedVehicle.currentMileage } : {}),
+    };
     const settlementRateBasis = await resolveFreepassSettlementRateBasis({ db, contract: { agent_uid: actor.uid, provider_company_code: offer.providerCompanyCode }, product: sealedProduct });
     const createdAt = Number(claimed?.createdAt) || now;
     const contract: EsignRecord = {

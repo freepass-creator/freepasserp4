@@ -398,11 +398,11 @@ export class RtdbAdapter implements StoreAdapter {
   }
 
   // v3 라이브 ∪ v4 오버레이 필드단위 병합(같은 _key는 오버레이 필드 우선). 필터 전 전량.
-  private async merged(entity: string, co: string, strict = false): Promise<EntityRecord[]> {
+  private async merged(entity: string, co: string, strict = false, includeProviderNames = true): Promise<EntityRecord[]> {
     try {
       // 매물 = 공급사이름 부착용 파트너 목록을 정책·매물 조회와 동시에 선발사(직렬 워터폴 제거).
       //  partnersForNames는 내부에서 .catch(() => []) 처리 → 아래 흐름이 먼저 throw해도 미처리 reject 없음.
-      const partnersP = entity === 'product'
+      const partnersP = entity === 'product' && includeProviderNames
         ? (strict ? this.merged('partner', co, true) : this.partnersForNames(co))
         : undefined;
       let joinMap: Rec | undefined;
@@ -487,7 +487,9 @@ export class RtdbAdapter implements StoreAdapter {
           product,
           privateMap.get(String(product.product_code || product._key)),
         ));
-        return withProviderNames(mergedProducts, await partnersP!);
+        // 상품찾기 첫 화면은 공급사명 보정이 늦더라도 상품·가격·정책을 먼저 보여 준다.
+        // 일반 목록은 기존처럼 여기서 이름까지 보정해 화면 간 표시 계약을 유지한다.
+        return includeProviderNames ? withProviderNames(mergedProducts, await partnersP!) : mergedProducts;
       }
       return result;
     } catch (e) {
@@ -510,6 +512,14 @@ export class RtdbAdapter implements StoreAdapter {
     const rows = (await this.merged(entity, co)).filter((r) => !r._deleted && !r.deletedAt);
     if (entity !== 'product') return rows;
     // erp3 소프트삭제 정합: status==='deleted' 도 제외(_deleted 불리언과 별개 마커 — 이걸 안 걸러 재고가 부풀었음)
+    const live = rows.filter((r) => String((r as Rec).status) !== 'deleted');
+    const shown = dedupeProductsByVehicle(live.filter((r) => !isExcludedProduct(r as Rec)));
+    return shown.map((r) => (canSeeProductCost(r) ? r : stripProductCost(r)));
+  }
+
+  /** 상품찾기 전용 선조회. 공급사명만 후속 보정하고, 목록·정책·가격·권한 필터는 일반 list와 같다. */
+  async listForFinder(co: string): Promise<EntityRecord[]> {
+    const rows = (await this.merged('product', co, false, false)).filter((r) => !r._deleted && !r.deletedAt);
     const live = rows.filter((r) => String((r as Rec).status) !== 'deleted');
     const shown = dedupeProductsByVehicle(live.filter((r) => !isExcludedProduct(r as Rec)));
     return shown.map((r) => (canSeeProductCost(r) ? r : stripProductCost(r)));

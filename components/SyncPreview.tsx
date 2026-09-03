@@ -255,7 +255,7 @@ export function SyncPreview({
               style={{ border: `1px solid ${C.line}`, borderRadius: R, overflow: 'hidden', background: C.bg }}
             >
               {/* 사진은 엑셀 보기에 열이 없다 — 간단 보기로만 확인된다. 목록 카드와 같은 썸네일을 쓴다. */}
-              <CardThumb p={p} audience="admin" fill marks={false} />
+              <CardThumb p={p} audience="admin" fill />
               <div style={{ padding: '8px 10px 10px', minWidth: 0 }}>
                 <div style={{ fontSize: FS.sub, fontWeight: FW.title, color: C.ink, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                   {vehicleName(p) || '(차종 미확정)'}

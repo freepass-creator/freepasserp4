@@ -172,6 +172,19 @@ export function softMergeProduct(existing: EntityRecord, incoming: EntityRecord)
   // 계약 상태 문자열만으로 엔진 락을 추정하지 않는다. 실제 락 표지가 있을 때만
   // 판매시트 상태보다 우선하여 보존한다.
   const engineLocked = isContractEngineLocked(existing);
+  /**
+   * ★**「계약중」이면 락 칸이 비어 있어도 시트가 못 푼다.**
+   *
+   * 2026-08-31 `f53df5a0` 이 보호 기준을 「엔글 락(`locked_by_contract`)만」으로 좁혔다.
+   * 락 표지가 없는 **옛 매물**(v3 시절·수기 계약중)은 시트가 「출고가능」이라 말하면 그대로 풀린다 —
+   * 그러면 **이미 계약금을 받은 차가 다시 목록에 서서 두 번 팔린다.** 같은 파일 383행이 경고하는
+   * 「트윈 중복판매」가 바로 그것이다. 돈이 걸린 자리라 «모르면 안 푼다»가 맞다.
+   * (`sim-sheet-merge` 의 「legacy 계약중도 시트가 출고가능으로 해제하지 않음」이 이 규칙이다.)
+   *
+   * ⚠ **상태(`vehicle_status`)에만** 건다. 차명·요금·사진까지 얼리면 계약중인 차의 정보가
+   *   영영 낡은 채로 남는다.
+   */
+  const contractHeld = engineLocked || productStatus(existing) === '계약중';
   const legacySheetOwnedBlock = isLegacySheetOwnedBlock(existing);
   const sheetOwnedBlock = isSheetOwnedBlock(existing);
   const manualBlocked = isManualSheetHold(existing);
@@ -189,7 +202,7 @@ export function softMergeProduct(existing: EntityRecord, incoming: EntityRecord)
     if (incomingSalesAuthoritative && SALES_EXACT_PRODUCT_FIELDS.has(k)) {
       // 계약 엔진 락만 판매시트 상태보다 우선한다. 나머지 필드는 판매시트의 현재
       // 빈칸까지 그대로 반영해 옛 차명·금액·사진이 ERP에 남지 않게 한다.
-      if (k === 'vehicle_status' && engineLocked) continue;
+      if (k === 'vehicle_status' && contractHeld) continue;
       if (k === 'price') {
         out.price = v && typeof v === 'object' && !Array.isArray(v) ? { ...(v as Record<string, unknown>) } : {};
       } else {
@@ -226,7 +239,7 @@ export function softMergeProduct(existing: EntityRecord, incoming: EntityRecord)
     // 엔진 락(계약중·출고불가)의 상태는 settlement-engine 소관 — 시트 재동기화가 덮으면 재고가 통째로 풀린다.
     // 락 주인이 없는 매물(공급사 수기 출고불가 등)은 그대로 시트가 갱신하도록 둔다.
     if (k === 'vehicle_status') {
-      if (engineLocked) continue;
+      if (contractHeld) continue;
       // ★상품마스터(ERP 입력 정본)에서 온 상태는 표식 없는 출고불가(=수기 보류로 간주하던 것)도 덮는다.
       //   사장님 2026-08-19 「시트는 512대고 ERP 는 482대인데 왜 안 맞지 — 시트랑 맞아야 하는데」: 실측 30대가
       //   ERP 만 출고불가(표식 없음)인 채로 남아 시트가 출고가능이라 해도 영원히 안 살아났다. 보류는 상품마스터
@@ -698,8 +711,14 @@ export function planAbsentBlocked(opts: {
       already_blocked++;
       continue;
     }
-    // 계약 상태 문자열이 아니라 계약 엔진이 기록한 실제 락만 보호한다.
-    if (isContractEngineLocked(r)) {
+    /**
+     * ★**락 표지가 있거나 「계약중」이면 내리지 않는다.**
+     * 부재(시트에서 사라짐)는 «판매 안 함»의 신호지 «계약을 없던 일로»가 아니다.
+     * 락 칸이 빈 옛 계약중 매물까지 출고불가로 내리면, 계약 화면에서 그 차가 사라져
+     * 진행 중인 계약을 못 찾는다. **모르면 안 건드린다.**
+     * (`sim-sheet-merge` 「락·레거시 계약중 매물은 부재 patch 스킵」)
+     */
+    if (isContractEngineLocked(r) || String(r.vehicle_status || '') === '계약중') {
       skipped_locked++;
       continue;
     }

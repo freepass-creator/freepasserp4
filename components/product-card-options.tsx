@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import type { EntityRecord } from '@/lib/intake/entities';
 import {
-  C, R, FW, FS, EXCEL_OPT_BOX_H, EXCEL_OPT_CHIP_H, EXCEL_OPT_ROW_GAP, EXCEL_BADGE_GAP_X,
+  C, FW, FS, R, EXCEL_OPT_BOX_H, EXCEL_OPT_ROW_GAP, EXCEL_BADGE_GAP_X, EXCEL_OPT_CHIP_H,
 } from '@/components/ui';
 import { parseProductOptions } from '@/lib/domain/product';
 
@@ -15,7 +15,7 @@ import { parseProductOptions } from '@/lib/domain/product';
  */
 const OPT_CHIP_MAX = 40;
 
-/** 칩·엑셀용 — 도메인 `parseProductOptions`(구분 `,` `/`) 래퍼. */
+/** 옵션 텍스트용 — 도메인 `parseProductOptions`(구분 `,` `/`) 래퍼. */
 export function productOptions(product: EntityRecord): string[] {
   return parseProductOptions(product.options);
 }
@@ -87,13 +87,13 @@ export function OptionChips({ p, clamp, lines = 1, expand }: {
     );
   }
   if (expand) {
-    const chip: CSSProperties = {
+    const optionChip: CSSProperties = {
       fontSize: FS.cap, color: C.mute, background: C.head, borderRadius: R,
       padding: '2px 8px', whiteSpace: 'nowrap',
     };
     return (
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, minWidth: 0, width: '100%' }}>
-        {options.map((option, index) => <span key={index} style={chip}>{option}</span>)}
+        {options.map((option, index) => <span key={index} style={optionChip}>{option}</span>)}
       </div>
     );
   }

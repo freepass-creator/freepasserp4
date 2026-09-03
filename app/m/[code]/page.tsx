@@ -10,7 +10,6 @@ import { isOfferableProduct, isStockedProduct, vehicleName } from '@/lib/domain/
 import { Btn, BottomNav, Loading, CenterNote, Message } from '@/components/ui';
 import { ProductDetail } from '@/components/ProductDetail';
 import { SimpleInquiry } from '@/components/SimpleInquiry';
-import { ReportButton } from '@/components/ReportButton';
 import { useAgentColumn, AGENT_COL_GAP } from '@/components/product-agent-layout';
 import { getRole } from '@/lib/domain/deal';
 import { touchRecent } from '@/lib/product-interest';
@@ -21,7 +20,6 @@ import { useAppBar } from '@/lib/appbar';
 import { PageStatus } from '@/components/PageStatus';
 import { NAV_ICON } from '@/lib/tabbar';
 import { useContentColumn } from '@/lib/content-column';
-import { fetchSheetLiveStatuses, SHEET_LIVE_STATUS_POLL_MS } from '@/lib/firebase/sheet-live-status-client';
 
 // 가격/전달/사진 보조 패널은 상품 본문보다 늦게 떠도 된다. 상세 첫 페인트에서는
 // 가벼운 layout hook만 쓰고, 실제 영업 보조 UI는 역할·폭이 필요한 시점에 불러온다.
@@ -97,53 +95,6 @@ export default function Detail() {
     return () => { alive = false; };
   }, [key, co, authReady]);
 
-  // 상세를 오래 열어 둬도 상품마스터의 상태를 놓치지 않는다. 제원·가격은 현재
-  // 상세 스냅샷을 유지하고 vehicle_status 한 원자만 교체한다.
-  useEffect(() => {
-    if (!authReady) return;
-    let alive = true;
-    let refreshing = false;
-    const controller = new AbortController();
-    const refresh = async () => {
-      if (!alive || refreshing || document.visibilityState === 'hidden') return;
-      refreshing = true;
-      try {
-        const statuses = await fetchSheetLiveStatuses(controller.signal);
-        if (!alive || !statuses) return;
-        setP((current) => {
-          if (!current) return current;
-          const statusKey = String(current._key || current.product_code || key);
-          if (!Object.prototype.hasOwnProperty.call(statuses, statusKey)) return current;
-          const status = String(statuses[statusKey] || '').trim();
-          return String(current.vehicle_status || '').trim() !== status
-            ? { ...current, vehicle_status: status }
-            : current;
-        });
-      } catch (error) {
-        if ((error as Error)?.name !== 'AbortError') {
-          console.warn('[detail] 차량상태 실시간 갱신 실패(기존 상태 유지):', (error as Error).message);
-        }
-      } finally {
-        refreshing = false;
-      }
-    };
-    const onFocus = () => { void refresh(); };
-    const onVisibility = () => {
-      if (document.visibilityState === 'visible') void refresh();
-    };
-    void refresh();
-    const timer = window.setInterval(() => { void refresh(); }, SHEET_LIVE_STATUS_POLL_MS);
-    window.addEventListener('focus', onFocus);
-    document.addEventListener('visibilitychange', onVisibility);
-    return () => {
-      alive = false;
-      controller.abort();
-      window.clearInterval(timer);
-      window.removeEventListener('focus', onFocus);
-      document.removeEventListener('visibilitychange', onVisibility);
-    };
-  }, [authReady, key]);
-
   useEffect(() => { if (p && isStockedProduct(p)) touchRecent(p); }, [p]);
 
   if (!authReady || p === undefined) return <Loading />;
@@ -160,12 +111,11 @@ export default function Detail() {
 
   const role = getRole();
   const offerable = isOfferableProduct(p);
-  const canDeal = role === 'agent' || role === 'admin';
   /** 내부 역할의 계약·문의 보조 칼럼. 가격은 역할·폭과 무관하게 본문에만 둔다. */
   const canUseAssist = role === 'agent' || role === 'admin' || role === 'provider';
   const assistShown = wideAgentColumn && canUseAssist;
   /**
-   * 하단독 = 이전 + **링크 공유 하나**(+넓은 화면 영업자는 검수 요청) — 사장님 2026-08-22
+   * 하단독 = 이전 + **링크 공유 하나** — 사장님 2026-08-22
    * 「텍스트복사 빼자, 링크 공유하기 버튼만 · 바로 공유할 수 있게끔 · 웹도 링크 공유로」.
    * 누르면 바로 OS 공유시트(카톡·문자), 없으면 링크 복사(ProductAgentShareActions).
    */
@@ -178,8 +128,6 @@ export default function Detail() {
   const dockActions = canUseAssist ? (
     <span style={{ display: 'contents' }}>
       <ProductAgentShareActions p={p} />
-      {/* 검수 요청은 넓은 화면 독에만 — 모바일은 뺀다(사장님 2026-08-22 「요청보내기 버튼 없애 주고」). */}
-      {canDeal && assistShown ? <ReportButton p={p} /> : null}
     </span>
   ) : undefined;
 

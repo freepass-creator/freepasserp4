@@ -14,7 +14,6 @@ import { isContractCancelled, isInquiryOnly, isContractInProgress } from '@/lib/
 import { activeChatRooms, chatRowContract, isWorkspaceChatRoom } from '@/features/chat/room-filter';
 import { buildContractIndex } from '@/features/chat/room-display';
 import { deskItemOf } from '@/features/chat/admin-queue';
-import { settlementNeedsAttention } from '@/lib/domain/settlement-display';
 
 export type MenuBadgeMap = Record<string, number>;
 
@@ -60,14 +59,6 @@ export async function loadMenuBadges(role: Role, co = getCompanyId()): Promise<M
     const inProgress = mineContracts.filter((c) => isContractInProgress(c)).length;
     if (inProgress > 0) out['/contract'] = inProgress;
   } catch { /* ignore */ }
-
-  if (role === 'admin') {
-    try {
-      const setts = await store.list('settlement', co);
-      const pending = setts.filter((s) => s._deleted !== true && settlementNeedsAttention(s)).length;
-      if (pending > 0) out['/settlement'] = pending;
-    } catch { /* ignore */ }
-  }
 
   return out;
 }

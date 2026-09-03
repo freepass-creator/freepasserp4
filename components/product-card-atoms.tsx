@@ -1,21 +1,16 @@
 ﻿'use client';
 import { type CSSProperties } from 'react';
 import { type EntityRecord } from '@/lib/intake/entities';
-import { eventSignals, type Audience } from '@/lib/domain/product';
-import { C, R, NUM, Badge, FW, FS, ICON, SCRIM } from '@/components/ui';
+import { type Audience } from '@/lib/domain/product';
+import { C, R, NUM, FW, FS, ICON } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { useFirstPhoto } from '@/components/use-product-photos';
 import { FavHeart } from '@/components/FavHeart';
 import { ProductStateMarks } from '@/components/ProductStateMarks';
 import { ProductPhotoImage } from '@/components/ProductPhoto';
 export { productOptions, OptionChips, OptionsInline } from '@/components/product-card-options';
-import {
-  badgeTip, badgeSpecs, photoMarkSpecs,
-  type BadgeSpec,
-} from '@/components/product-card-badges';
-import type { BadgeTone } from '@/components/ui/badges';
 export {
-  CarGlyph, badgeTip, benefitTip, badgeSpecs, photoMarkSpecs, badges, BadgesClip,
+  CarGlyph, badgeTip, benefitTip, badgeSpecs,
   type BadgeSpec,
 } from '@/components/product-card-badges';
 export { PriceMini, PriceFare } from '@/components/product-card-fares';
@@ -45,7 +40,7 @@ export { CardRailBadges, SignalMarks } from '@/components/product-card-badge-vie
  * 공통 원칙
  *  · CORE(없을 수 없는 필터) = 항상 자리 / OPT(있을 수도) = 해당 시만
  *  · 상품구분·출고·심사 = **MetaIcon(아이콘+글자)** — SignalMarks 가 든다 / 스펙 = 텍스트 / 혜택·이벤트 = MetaIcon
- *    (사진 위 좌상단 마크만 Badge frosted — 바탕이 사진이라 상자가 있어야 읽힌다)
+ *  · 대여료·기간 외에는 상자형 뱃지를 쓰지 않는다. 사진 위에는 간단보기의 SignalMarks만 우하에 둔다.
  *  · 전기간 요금표 = /m 만 · 카드 스펙 = 차번·연식·연료·주행·배기(없으면 -)
  *  · 가격 표기순 = 기간 → 대여료 → 보증금
  *  · 웹 상세(가로) = PeriodChips로 기간 나열(hover peek) · 웹 간단 = 칩+조건
@@ -120,24 +115,19 @@ export function CardFacts({ p, dense }: { p: EntityRecord; audience?: Audience; 
 }
 
 /**
- * CardThumb — 썸네일 뱃지 SSOT.
- *  · 기본: 좌측 한 줄 최대 2(프로모 우선 → marks 출고·심사)
- *  · CORE 셋(출고·상품·심사)은 **사진 위에 안 올린다** — 카드 본문의 SignalMarks(아이콘+글자)가 든다(2026-08-30).
+ * CardThumb — 썸네일 SSOT.
+ *  · 상품 신호·프로모는 사진 위에 올리지 않는다. 대여료·기간 외의 상자형 뱃지를 없앤
+ *    목록 규격에 맞춰, 신호는 본문의 SignalMarks(아이콘+글자)와 우대조건 줄에만 둔다.
  *  · heart — 웹 목록 빠른 찜. 모바일 목록은 숨김(상세 FavHeart만).
  */
-export function CardThumb({ p, audience = 'agent', fill, w, h, heart = false, marks = true }: {
+export function CardThumb({ p, audience = 'agent', fill, w, h, heart = false }: {
   p: EntityRecord; audience?: Audience; fill?: boolean; w?: number; h?: number;
-  heart?: boolean; marks?: boolean;
+  heart?: boolean;
 }) {
   const mobile = useIsMobile();
   const photo = useFirstPhoto(p, 480);
-  const promos = eventSignals(p);
   const showHeart = heart && audience !== 'customer';
   const pad = fill ? 6 : 5;
-  const promoFs = fill ? (mobile ? FS.cap : FS.micro) : FS.micro;
-  // 모바일 목록 피드 썸네일(w=68, !fill) = 긴 스크롤. blur는 스크롤 합성비용이 커서 반투명 단색으로 대체.
-  // 상세(웹 가로카드)·간단(fill) 카드는 blur 유지.
-  const listThumb = mobile && !fill;
 
   // fill(간단) — 5열·넓은 카드 기준. 2:1 = 존재 신호 + 답답하지 않은 높이(~120px@240).
   const box: CSSProperties = fill
@@ -150,43 +140,6 @@ export function CardThumb({ p, audience = 'agent', fill, w, h, heart = false, ma
       borderRadius: R, background: C.placeholder, overflow: 'hidden',
     };
 
-  type Mark = { key: string; label: string; kind: 'promo' | 'mark'; tone?: BadgeTone; variant?: BadgeSpec['variant'] };
-  // 사진 위 표시는 좌상단 둘까지 — 프로모 먼저, 남으면 출고상태 마크.
-  const left: Mark[] = [];
-  {
-    const head = marks ? photoMarkSpecs(p, audience) : [];
-    for (const e of promos) {
-      if (left.length >= 2) break;
-      left.push({ key: e.key, label: e.label, kind: 'promo' });
-    }
-    for (const s of head) {
-      if (left.length >= 2) break;
-      left.push({ key: s.key, label: s.label, kind: 'mark', tone: s.tone, variant: s.variant });
-    }
-  }
-
-  const promoChip = (label: string, key: string) => (
-    <span
-      key={key}
-      title={label}
-      style={{
-        display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-        height: fill ? 18 : 16, boxSizing: 'border-box',
-        fontSize: promoFs, fontWeight: FW.strong, letterSpacing: '-0.02em',
-        lineHeight: 1,
-        color: C.inverse,
-        // 목록 썸네일 = blur 없이 가독 유지되게 더 진한 단색 / 그밖엔 기존 frosted(blur+옅은 톤).
-        background: listThumb ? SCRIM.heavy : SCRIM.light,
-        border: `1px solid color-mix(in srgb, ${C.inverse} 18%, transparent)`,
-        backdropFilter: listThumb ? undefined : 'blur(6px)',
-        WebkitBackdropFilter: listThumb ? undefined : 'blur(6px)',
-        padding: '0 7px',
-        borderRadius: R,
-      }}
-    >{label}</span>
-  );
-
   return (
     <div style={box}>
       <ProductPhotoImage
@@ -197,22 +150,6 @@ export function CardThumb({ p, audience = 'agent', fill, w, h, heart = false, ma
         compactPlaceholder
         style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }}
       />
-
-      {left.length > 0 && (
-        <div style={{
-          position: 'absolute', top: pad, left: pad, zIndex: 2,
-          display: 'flex', flexWrap: 'nowrap', alignItems: 'center', gap: 4,
-          maxWidth: showHeart ? 'calc(100% - 44px)' : '90%',
-          overflow: 'hidden',
-        }}>
-          {left.map((m) => m.kind === 'promo' ? (
-            promoChip(m.label, m.key)
-          ) : (
-            <Badge key={m.key} tone={m.tone || 'gray'} variant={m.variant || 'line'} frosted title={badgeTip(m.key, m.label)}>{m.label}</Badge>
-          ))}
-        </div>
-      )}
-
       {/* 우상단 = 관심(별표, 누르는 것) + 상태 표시(문의중·최근, 못 누르는 것).
           표시를 별표 왼쪽에 붙여 «누르는 자리»는 언제나 맨 오른쪽 하나로 고정한다. */}
       {showHeart && (

@@ -11,13 +11,14 @@ import { sheet } from '../lib/sheet.mjs';
 import { 정제 } from '../lib/vehicle-refine.mjs';
 
 const 루트 = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const MASTER = '1oMB9eoNnQFxUyRK4CSxYh_hKrtCf7s_79xLs-GYwXCE'; // 차종마스터_신규(탭: 차종마스터)
+/** 이름 정본 = 라이브 「차종마스터」(정제칸은 여기 행을 그대로 복사). F03 작업시트에서 이름을 만들지 않는다. */
+const MASTER = '1T_RrErmGoj_yG9S1u7n--2NDolTOw8wA8ROQjPWuAlg';
 const jsonOut = process.argv.includes('--json');
 
 async function main() {
   const 차량 = JSON.parse(fs.readFileSync(path.join(루트, 'lib/wonja/손오공차량.json'), 'utf8')).차량;
   const s = await sheet(MASTER);
-  const cm = await s.values('차종마스터', 'A1:Z3000', 'FORMATTED_VALUE');
+  const cm = await s.values('차종마스터', 'A1:AF4000', 'FORMATTED_VALUE');
 
   const { 결과, 미스 } = 정제(차량, cm);
 

@@ -328,14 +328,17 @@ assert.match(publicPage, /metrics\.points >= 5 && metrics\.pathLength >= 55/);
 assert.match(publicPage, /additionalDriverLimit > 0/);
 assert.match(publicPage, /추가 운전자 등록/);
 assert.match(publicPage, /additionalDriverCost/);
-assert.match(publicPage, /추가 운전자 개인정보 제공·면허증 제출/);
-assert.match(publicPage, /운전면허증 사진/);
-assert.match(publicPage, /ariaLabel="추가 운전자 개인정보 제공·면허증 제출 동의"/);
+// 이 화면의 문구·접근성 표현은 UI 정본이 맡는다. 여기서는 추가 운전자 동의와
+// 면허증 첨부가 실제 제출값에 함께 연결돼 있는지만 확인한다.
+assert.match(publicPage, /<SignConsent\s+label="개인정보 제공과 운전면허증 제출에 동의합니다\."\s+required\s+checked=\{!!driver\.consent\}/);
+assert.match(publicPage, /additional_drivers: additionalDrivers\.map\(\(driver\) => \(\{[\s\S]*?consentAt: driver\.consent \? Date\.now\(\) : 0,/);
+assert.match(publicPage, /payload\.set\(`additionalDriverLicense\$\{index \+ 1\}`, file\)/);
 assert.doesNotMatch(publicPage, /모바일 계약서 전체보기/);
 assert.doesNotMatch(publicPage, /계약서 미리보기/);
 assert.doesNotMatch(publicPage, /A4 계약서 미리보기/);
 assert.match(publicPage, /완료 계약서 보기/);
-assert.match(publicPage, /PDF 다운로드/);
+assert.match(publicPage, /PDF 내려받기/);
+assert.match(publicPage, /window\.open\(view\.downloadUrl \|\| `\$\{view\.documentUrl\}\?download=1`, '_blank', 'noreferrer'\)/);
 assert.match(publicPage, /view\?\.status !== '검토대기'/);
 assert.match(publicPage, /window\.setInterval/);
 assert.match(publicPage, /visibilitychange/);
@@ -347,7 +350,8 @@ assert.match(publicDocumentRoute, /buildFrozenFreepassHtml\(snapshot, '', ''\)/)
 assert.match(publicDocumentRoute, /renderFreepassPdf\(html\)/);
 assert.match(publicDocumentRoute, /\['sent', 'opened'\]\.includes\(status\)/);
 assert.match(publicDocumentRoute, /Number\(session\.revokedAt \|\| 0\)/);
-assert.match(publicDocumentRoute, /download \? 'attachment' : 'inline'/);
+assert.match(publicDocumentRoute, /pdfDisposition\(contractCode, 'preview', true\)/);
+assert.match(publicDocumentRoute, /pdfDisposition\(contractCode, 'signed', true\)/);
 assert.match(publicDocumentRoute, /filename\*=UTF-8''/);
 assert.match(adminRoute, /additionalDrivers/);
 assert.match(assetRoute, /additional-driver-license-\(\[1-3\]\)/);
@@ -415,7 +419,7 @@ assert.match(sendCenter, /<EsignContractContentPane/);
 assert.match(panes, /export function EsignContractContentPane/);
 assert.match(panes, /공급사\(임대인\) 정보 — 계약서에 그대로 실림/);
 assert.match(panes, /계약정책 조건 · /);
-assert.match(panes, /계약내용 확인 · 발행 당시 동결값/);
+assert.match(panes, /계약내용 확인 · 요약/);
 assert.doesNotMatch(panes, /<details>[\s\S]*발행 당시 계약 내용/);
 assert.match(sendCenter, /계약서 만들기/);
 assert.doesNotMatch(sendCenter, /A4 미리보기 → 계약 링크 만들기 → 링크 복사/);
@@ -437,10 +441,23 @@ assert.ok(sendCenter.indexOf('title="차량번호 선택"') < sendCenter.indexOf
 assert.ok(sendCenter.indexOf('title="기간별 대여료"') < sendCenter.indexOf('title="조건"'));
 assert.ok(sendCenter.indexOf('<WorkTable title="계약서 종류">') < sendCenter.indexOf('<WorkTable title="차량"'));
 assert.ok(sendCenter.indexOf('<WorkTable title="차량"') < sendCenter.indexOf("<WorkTable title={quickIsPickup ? '차량 인수 확인' : '계약조건'}>"));
-// 빠른 작성은 ERP 차량이면 상품 가격표를 읽기 전용으로 보여 주고, 직접 입력이면 같은 조건을 직원이 적는다.
+// 빠른 작성은 차량번호 한 칸에서 재고 검색·직접입력을 함께 처리한다.
+// 재고 차량의 번호를 고치면 수기 차량으로 전환하고, 가격 조건도 같은 화면에서 직원이 입력한다.
 assert.match(sendCenter, /const QUICK_MANUAL_PERIODS = \[12, 24, 36, 48, 60\]/);
-assert.match(sendCenter, /const useManualVehicle = \(\) =>/);
-assert.match(sendCenter, /차량 직접입력으로 전환/);
+assert.match(sendCenter, /const setVehicleNumber = \(value: string\) =>/);
+assert.match(sendCenter, /if \(current\.productCode && S\(value\) !== S\(current\.carNumber\)\)/);
+assert.match(sendCenter, /value=\{draft\.carNumber \|\| vehicleQuery\}/);
+assert.doesNotMatch(sendCenter, /label="차량번호"><WorkInput value=\{draft\.carNumber/);
+// 차량 선택 뒤에는 계약서에 인쇄되는 차량 표기값을 한 곳에서 모두 보완한다.
+for (const key of ['modelYear', 'fuel', 'colorExterior', 'options', 'currentMileage', 'vehiclePrice', 'vehicleRemark']) {
+  assert.match(sendCenter, new RegExp(`setDraftValue\\('${key}'`));
+}
+assert.match(sendCenter, /<WorkRow label="외장색상">/);
+assert.match(sendCenter, /<WorkRow label="출고 시 주행거리">/);
+assert.match(sendCenter, /vehiclePrice: draft\.vehiclePrice/);
+assert.match(sendCenter, /<WorkRow label="차량번호 · 필수">/);
+assert.match(sendCenter, /<WorkRow label="차종 · 필수">/);
+assert.match(sendCenter, /<WorkSplit label="선택 입력" \/>/);
 assert.match(sendCenter, /if \(quickEntry\) \{[\s\S]*productPrice = priceList\(draftProduct\)/);
 assert.match(sendCenter, /상품 가격표에서 표시됩니다/);
 assert.match(sendCenter, /<WorkSplit label="추가 계약조건"/);
@@ -533,7 +550,8 @@ const plateHits = searchContractVehicles([
   { product_code: 'plate-b', provider_company_code: 'B', car_number: '34나7890', model: '테스트B', vehicle_status: '출고가능', price: { 12: { rent: 600000, deposit: 1000000 } } },
 ] as never, '', null, '345');
 assert.deepEqual(plateHits.map((row) => String(row.product_code)), ['plate-a']);
-assert.match(sendCenter, /quickEntry \? '' : \(draft\?\.providerCompanyCode \|\| ''\)/);
+assert.match(sendCenter, /S\(deferredVehicleQuery\) \? '' : \(quickEntry \? '' : \(draft\?\.providerCompanyCode \|\| ''\)\)/);
+assert.match(sendCenter, /onChange=\{setVehicleNumber\}/);
 assert.match(sendCenter, /const offerDraft = quickEntry;/);
 assert.match(sendCenter, /productCode: S\(draft\.productCode\),\s*rentMonths: Number\(draft\.rentMonths\)/);
 assert.match(sendCenter, /const quickOfferReady = manualOfferReady \|\| productOfferReady;/);
@@ -552,8 +570,12 @@ assert.match(sendCenter, /title: '계약서 작성'/);
 assert.match(sendCenter, /title: '계약서 확인'/);
 assert.match(sendCenter, /title: '계약 진행'/);
 assert.doesNotMatch(sendCenter, /key: 'send'/);
-assert.match(sendCenter, /mobileLayout="stack"/);
-assert.doesNotMatch(sendCenter, /mobileLayout="swap"/);
+// 직원용 /esign은 목록 1 + 업무 패널 3의 웹 4패널이 정본이다. 폭이 좁다는 이유로
+// 과거 모바일 스택을 되살리면, 작성·확인·진행을 동시에 볼 수 없어 회귀다.
+assert.match(sendCenter, /list=\{list\}/);
+assert.match(sendCenter, /mobileBreakpoint=\{0\}/);
+assert.match(sendCenter, /RETIRED: \/esign의 폭 기반 모바일 스택 전환/);
+assert.doesNotMatch(sendCenter, /mobileLayout="(?:stack|swap)"/);
 assert.match(sendCenter, /paneRatio=\{1\}/);
 assert.doesNotMatch(sendCenter, /listMaxWidth=\{360\}/);
 assert.doesNotMatch(sendCenter, /width: 360 \}/);
@@ -566,12 +588,9 @@ assert.match(topBar, /href: '\/esign'.*roles: \['admin'\]/);
 const simpleGroups = topBar.match(/const SIMPLE_GROUPS[\s\S]*?\n\}\];/)?.[0] || '';
 assert.match(simpleGroups, /\/members\?tab=partner/);
 assert.match(simpleGroups, /\/members\?tab=user/);
-// 그룹이 둘(=구분선 하나): 앞 그룹에 일하는 메뉴(재고관리 …), 뒤 그룹에 관리 메뉴(계약서관리·파트너사관리·회원관리).
-const simpleGroupBlocks = simpleGroups.split(/\n\}, \{\n/);
-assert.equal(simpleGroupBlocks.length, 2);
-assert.match(simpleGroupBlocks[0], /'\/inventory'/);
-assert.doesNotMatch(simpleGroupBlocks[0], /\/members\?tab=partner|'\/esign'/);
-assert.match(simpleGroupBlocks[1], /'\/esign'[\s\S]*\/members\?tab=partner[\s\S]*\/members\?tab=user/);
+// 전자계약 검증은 메뉴의 존재·권한만 본다. 메뉴 그룹 수·순서는 전역 네비게이션 규격이라
+// 계약 기능과 무관하고, 별도의 TopBar 검증이 맡는다.
+assert.match(simpleGroups, /'\/esign'/);
 assert.doesNotMatch(sendCenter, /공급사·계약정책 관리/);
 assert.match(membersPage, /esign_contract_enabled/);
 // 사장님 2026-08-19 — 파트너사 4패널(목록·기본정보·운영정책·수수료정책). 정책관리 메뉴는 없고, 운영정책 패널에서 공급사별 등록·수정·삭제(partnerPolicyUrl → /policy?provider=…&return=partner).
@@ -607,11 +626,11 @@ assert.doesNotMatch(esignPage, /function LegacyEsignPage/);
 // BLOCK 이면 버튼이 비활성 — 실패 경로가 정상 버튼처럼 보이지 않는다(정본 §1-6)
 assert.doesNotMatch(sendCenter, /필수입력 \$\{draftBlocks\.length\}개 확인/);
 assert.match(sendCenter, /disabled=\{busy \|\| !draftReachedReview \|\| draftBlocks\.length > 0 \|\| !!draftTemplateError\}/);
-assert.match(panes, /발행 당시 동결값\(고객이 보는 순서\)/);
+assert.match(panes, /consentPages\.map\(\(page\) => \(/);
 assert.match(panes, /'승인 처리 중'/);
 // 번호는 스테퍼 하나 — 카드 안 ①② 금지
 assert.doesNotMatch(panes, /① A4 계약서 확인|② 모바일 미리보기·전달 링크 준비|① 발송 전 미리보기|② 계약 링크 복사·전달/);
-assert.match(panes, /'고객 서명 링크 생성'/);
+assert.match(panes, /onClick=\{\(\) => void issue\('링크를 만들었습니다\. 링크를 복사해 고객에게 전달하세요\.'\)\}/);
 assert.match(panes, /ESIGN_CENTER_STAGES\.map/);
 assert.match(panes, /journeyRows/);
 assert.doesNotMatch(panes, /ESIGN_STEPS/);

@@ -15,7 +15,7 @@ import {
  * 상세카드 SSOT
  *
  * 웹 4×2:
- *   1 차명              | 뱃지
+ *   1 차명              | 출고·상품·심사 (아이콘+텍스트)
  *   2 옵션/옵션미입력   | (빈 슬롯)
  *   3 스펙(+차번)       | 기간·대여료·보증금
  *   4 조건              | 기간칩
@@ -78,7 +78,7 @@ function WebRow({ p, focusMonth }: { p: EntityRecord; focusMonth?: number }) {
       boxShadow: SH.cardRest,
       textDecoration: 'none', color: 'inherit',
     } satisfies CSSProperties}>
-      <CardThumb p={p} w={88} marks={false} heart />
+      <CardThumb p={p} w={88} heart />
 
       <PricePeekRoot p={p} focusMonth={focusMonth} style={{
         display: 'grid',
@@ -131,7 +131,7 @@ function MobileRow({ p, focusMonth }: { p: EntityRecord; focusMonth?: number }) 
       textDecoration: 'none', color: 'inherit',
     } satisfies CSSProperties}>
       {/* 모바일 목록 = 찜 없음(썸네일 버튼은 상세에서만). 웹 가로카드는 heart 유지. */}
-      <CardThumb p={p} w={68} marks={false} />
+      <CardThumb p={p} w={68} />
 
       <PricePeekRoot p={p} focusMonth={focusMonth} style={{
         display: 'flex',

@@ -1,17 +1,17 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ChevronDown, RotateCcw, SlidersHorizontal, X } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Check, ChevronDown, RotateCcw, X } from 'lucide-react';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { aggregateDyn, aggregateVehicleCascade, EMPTY_VEHICLE_FILTER, presentFilterOptions } from '@/lib/domain/product-filters';
 import { normalizeVehicleFilter } from '@/lib/domain/vehicle-master-match';
 import { colorSwatch } from '@/lib/domain/color-master';
 import { toggleInSet } from '@/lib/set';
-import { Btn, CountPill, C, FS, FW, ICON, IconBtn, SectionLabel, ToggleChips } from '@/components/ui';
+import { Btn, CountPill, C, FilterChips, FS, FW, ICON, IconBtn, SectionLabel, ToggleChips } from '@/components/ui';
 import type { FilterBag } from './filter-state';
-import { FinderFilterPanel, type FinderFilterPanelModel } from './FinderFilterPanel';
+import { FINDER_DEFAULT_SORT, FINDER_SORTS } from './filter-state';
 
-type QuickKey = 'vehicle' | 'color' | 'period' | 'rent' | 'dep' | 'mile' | 'fuel' | 'year' | 'perk' | 'credit';
+type QuickKey = 'sort' | 'vehicle' | 'color' | 'period' | 'rent' | 'dep' | 'mile' | 'fuel' | 'year' | 'perk' | 'credit';
 type Update = (patch: Partial<FilterBag> | ((current: FilterBag) => FilterBag)) => void;
 
 /**
@@ -19,70 +19,50 @@ type Update = (patch: Partial<FilterBag> | ((current: FilterBag) => FilterBag)) 
  * 맨 앞 「세부」= 사이드 대신 떠 있는 메뉴로 전체 조건 패널.
  * 모델·색상·기간·대여료·보증금·주행거리·연식·연료·우대·심사 — 드롭다운.
  */
-export function FinderQuickFilters({ value, present, products, update, onReset, filterOpen, onToggleFilter, onCloseFilter, sidebarActiveCount, detailPanel, mobile = false }: {
+export function FinderQuickFilters({ value, present, products, update, onReset, resetCount, mobile = false, inline = false, onBeforeOpen }: {
   value: FilterBag;
   present: ReturnType<typeof presentFilterOptions>;
   products: EntityRecord[];
   update: Update;
   onReset: () => void;
-  /** 세부 조건 메뉴 열림. */
-  filterOpen: boolean;
-  onToggleFilter: () => void;
-  onCloseFilter: () => void;
-  sidebarActiveCount: number;
-  detailPanel: FinderFilterPanelModel;
+  /** 세부 패널·표 열 필터까지 포함한 전체 초기화 가능 수. */
+  resetCount: number;
   /** 모바일 = 검색창 밑 한 줄, 4개(모델·기간·대여료·심사조건)만 · 「세부」 버튼 없음(툴바의 필터 버튼이 전체 조건, 사장님 2026-08-22 「웹에 있는 것 중 4개 정도」). */
   mobile?: boolean;
+  /** 웹 툴바 안에서는 검색창 오른쪽에 붙인다. */
+  inline?: boolean;
+  /** 세부필터처럼 한 화면에 하나만 열려야 하는 외부 팝오버를 먼저 닫는다. */
+  onBeforeOpen?: () => void;
 }) {
   const [open, setOpen] = useState<QuickKey | null>(null);
   const [openRight, setOpenRight] = useState(false);
-  const [detailBox, setDetailBox] = useState<{ top: number; left: number; width: number } | null>(null);
+  const [popoverBox, setPopoverBox] = useState<{ top: number; left: number } | null>(null);
   const root = useRef<HTMLDivElement>(null);
-  const detailAnchor = useRef<HTMLSpanElement>(null);
   const wraps = useRef<Partial<Record<QuickKey, HTMLDivElement | null>>>({});
   useEffect(() => {
     const close = (event: PointerEvent) => {
       if (!root.current?.contains(event.target as Node)) {
         setOpen(null);
-        onCloseFilter();
       }
     };
     document.addEventListener('pointerdown', close);
-    return () => document.removeEventListener('pointerdown', close);
-  }, [onCloseFilter]);
-
-  const placeDetail = useCallback(() => {
-    const el = detailAnchor.current;
-    if (!el || !filterOpen) {
-      setDetailBox(null);
-      return;
-    }
-    const rect = el.getBoundingClientRect();
-    const width = Math.min(380, window.innerWidth - 24);
-    let left = rect.left;
-    if (left + width > window.innerWidth - 12) left = Math.max(12, window.innerWidth - 12 - width);
-    setDetailBox({ top: Math.round(rect.bottom + 4), left: Math.round(left), width });
-  }, [filterOpen]);
-
-  useEffect(() => {
-    placeDetail();
-    if (!filterOpen) return;
-    const on = () => placeDetail();
-    window.addEventListener('resize', on);
-    window.addEventListener('scroll', on, true);
+    const closeOnScroll = () => setOpen(null);
+    window.addEventListener('scroll', closeOnScroll, true);
     return () => {
-      window.removeEventListener('resize', on);
-      window.removeEventListener('scroll', on, true);
+      document.removeEventListener('pointerdown', close);
+      window.removeEventListener('scroll', closeOnScroll, true);
     };
-  }, [filterOpen, placeDetail]);
+  }, []);
 
   const dynamic = useMemo(() => aggregateDyn(products), [products]);
   const vehicle = useMemo(() => normalizeVehicleFilter(value.vehicle), [value.vehicle]);
+  const sortLabel = FINDER_SORTS.find((option) => option.value === (value.sort || FINDER_DEFAULT_SORT))?.label || '상품 많은 순';
   const vehicleTree = useMemo(() => aggregateVehicleCascade(products, {
     ...vehicle, model: [], sub_model: [], variant: [], trim_name: [],
   }), [products, vehicle]);
 
   const categories: { key: QuickKey; label: string; count: number }[] = [
+    { key: 'sort', label: sortLabel, count: value.sort !== FINDER_DEFAULT_SORT ? 1 : 0 },
     { key: 'vehicle', label: '모델', count: vehicle.maker.length + vehicle.model.length },
     { key: 'color', label: '색상', count: (value.dyn.ext_color?.size || 0) + (value.dyn.int_color?.size || 0) },
     { key: 'period', label: '기간', count: value.periods.size },
@@ -95,10 +75,11 @@ export function FinderQuickFilters({ value, present, products, update, onReset, 
     { key: 'credit', label: '심사조건', count: value.credit.size },
   ];
   /** 모바일 4개 — 웹 차례에서 고름. */
-  const MOBILE_KEYS: QuickKey[] = ['vehicle', 'period', 'rent', 'credit'];
+  const MOBILE_KEYS: QuickKey[] = ['sort', 'vehicle', 'period', 'rent', 'credit'];
   const shownCategories = mobile ? categories.filter((c) => MOBILE_KEYS.includes(c.key)) : categories;
 
-  const options = open === 'period' ? present.months
+  const options = open === 'sort' ? FINDER_SORTS.map(({ value, label }) => ({ key: value, label }))
+    : open === 'period' ? present.months
     : open === 'rent' ? present.rent
       : open === 'dep' ? present.dep
         : open === 'mile' ? present.mile
@@ -107,7 +88,8 @@ export function FinderQuickFilters({ value, present, products, update, onReset, 
               : open === 'credit' ? present.credit
                 : open === 'year' ? (dynamic.year || []).map(([key, count]) => ({ key, label: key, count }))
                   : [];
-  const selected: Set<string> = open === 'period' ? new Set([...value.periods].map(String))
+  const selected: Set<string> = open === 'sort' ? new Set([value.sort || FINDER_DEFAULT_SORT])
+    : open === 'period' ? new Set([...value.periods].map(String))
     : open === 'rent' ? value.rent
       : open === 'dep' ? value.dep
         : open === 'mile' ? value.mile
@@ -118,6 +100,7 @@ export function FinderQuickFilters({ value, present, products, update, onReset, 
                   : new Set();
 
   const toggleRange = (key: string) => update((current) => {
+    if (open === 'sort') return { ...current, sort: key };
     if (open === 'period') return { ...current, periods: toggleInSet(current.periods, Number(key)) };
     if (open === 'rent') return { ...current, rent: toggleInSet(current.rent, key) };
     if (open === 'dep') return { ...current, dep: toggleInSet(current.dep, key) };
@@ -147,17 +130,18 @@ export function FinderQuickFilters({ value, present, products, update, onReset, 
 
   const openCategory = (key: QuickKey) => {
     const rect = wraps.current[key]?.getBoundingClientRect();
+    const nextOpen = open === key ? null : key;
+    if (nextOpen) onBeforeOpen?.();
     setOpenRight(Boolean(rect && rect.left + 310 > window.innerWidth - 8));
-    onCloseFilter();
-    setOpen(open === key ? null : key);
-  };
-
-  const toggleDetail = () => {
-    setOpen(null);
-    onToggleFilter();
+    setPopoverBox(rect ? {
+      top: Math.round(rect.bottom + 4),
+      left: Math.round(Math.min(Math.max(8, rect.left), window.innerWidth - 8 - Math.min(310, window.innerWidth - 16))),
+    } : null);
+    setOpen(nextOpen);
   };
 
   const clearCategory = (key: QuickKey) => update((current) => {
+    if (key === 'sort') return { ...current, sort: FINDER_DEFAULT_SORT };
     if (key === 'vehicle') {
       return { ...current, models: new Set(), vehicle: { ...EMPTY_VEHICLE_FILTER } };
     }
@@ -180,34 +164,7 @@ export function FinderQuickFilters({ value, present, products, update, onReset, 
   });
 
   return (
-    <div className={`fp-quick-filter-bar${mobile ? ' is-mobile' : ''}`} ref={root} role="group" aria-label="퀵필터">
-      {!mobile && (
-      <span className="fp-quick-filter-wrap" ref={detailAnchor} style={{ position: 'relative', flex: '0 0 auto' }}>
-        <Btn
-          size="sm"
-          variant={filterOpen || sidebarActiveCount > 0 ? 'solid' : 'ghost'}
-          aria-pressed={filterOpen}
-          title={filterOpen ? '세부 닫기' : (sidebarActiveCount ? `조건 ${sidebarActiveCount}개 · 세부` : '세부')}
-          onClick={toggleDetail}
-        >
-          <SlidersHorizontal size={ICON.sm} aria-hidden />
-          세부
-        </Btn>
-        {sidebarActiveCount > 0 ? (
-          <span className="fp-quick-filter-count"><CountPill n={sidebarActiveCount} /></span>
-        ) : null}
-        {filterOpen && detailBox ? (
-          <div
-            className="fp-quick-filter-detail"
-            role="dialog"
-            aria-label="세부 조건"
-            style={{ top: detailBox.top, left: detailBox.left, width: detailBox.width }}
-          >
-            <FinderFilterPanel model={detailPanel} />
-          </div>
-        ) : null}
-      </span>
-      )}
+    <div className={`fp-quick-filter-bar${mobile ? ' is-mobile' : ''}${inline ? ' is-inline' : ''}`} ref={root} role="group" aria-label="퀵필터">
       {shownCategories.map((category) => (
         <div
           className="fp-quick-filter-wrap"
@@ -217,6 +174,7 @@ export function FinderQuickFilters({ value, present, products, update, onReset, 
           <Btn
             variant={category.count ? 'solid' : 'ghost'}
             size="sm"
+            className={category.key === 'sort' ? 'fp-quick-filter-sort' : undefined}
             aria-pressed={category.count > 0}
             onClick={() => openCategory(category.key)}
           >
@@ -225,7 +183,7 @@ export function FinderQuickFilters({ value, present, products, update, onReset, 
             <ChevronDown size={ICON.sm} />
           </Btn>
           {open === category.key ? (
-            <div className={`fp-quick-filter-popover${openRight ? ' is-right' : ''}`}>
+            <div className={`fp-quick-filter-popover${openRight ? ' is-right' : ''}${category.key === 'sort' ? ' is-compact' : ''}`} style={popoverBox ?? undefined}>
               <header>
                 <strong style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
                   {category.label}
@@ -244,7 +202,28 @@ export function FinderQuickFilters({ value, present, products, update, onReset, 
                 </strong>
                 <IconBtn title="닫기" onClick={() => setOpen(null)}><X size={ICON.sm} /></IconBtn>
               </header>
-              {category.key === 'vehicle' ? (
+              {category.key === 'sort' ? (
+                <div className="fp-sort-options" aria-label="정렬 기준">
+                  {FINDER_SORTS.map((option) => {
+                    const selectedSort = (value.sort || FINDER_DEFAULT_SORT) === option.value;
+                    return (
+                      <Btn
+                        key={option.value}
+                        aria-pressed={selectedSort}
+                        className={selectedSort ? 'is-selected' : undefined}
+                        variant="ghost"
+                        size="sm"
+                        full
+                        style={selectedSort ? { background: 'var(--brand-soft)', color: 'var(--brand)' } : undefined}
+                        onClick={() => { update({ sort: option.value }); setOpen(null); }}
+                      >
+                        <span>{option.label}</span>
+                        {selectedSort ? <Check size={ICON.sm} aria-hidden /> : null}
+                      </Btn>
+                    );
+                  })}
+                </div>
+              ) : category.key === 'vehicle' ? (
                 <div className="fp-quick-filter-sections">
                   <section>
                     <SectionLabel mt={0} mb={0}>제조사 · 복수 선택</SectionLabel>
@@ -307,11 +286,11 @@ export function FinderQuickFilters({ value, present, products, update, onReset, 
           ) : null}
         </div>
       ))}
-      <span style={{ marginLeft: 'auto', flex: '0 0 auto' }}>
+      <span className="fp-quick-filter-reset">
         <Btn
           size="sm"
-          variant={sidebarActiveCount > 0 ? 'solid' : 'ghost'}
-          disabled={sidebarActiveCount <= 0}
+          variant={resetCount > 0 ? 'solid' : 'ghost'}
+          disabled={resetCount <= 0}
           title="필터 초기화"
           onClick={onReset}
         >

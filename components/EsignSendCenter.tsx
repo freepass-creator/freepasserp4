@@ -98,6 +98,7 @@ import {
   WorkInput,
   WorkTextarea,
   FS,
+  FW,
   ICON,
   Loading,
   PaneBody,
@@ -115,6 +116,8 @@ const S = (value: unknown) => String(value ?? '').trim();
 function ContractDraftStep({
   children,
   anchorRef,
+  title,
+  description,
 }: {
   number?: number;
   title?: string;
@@ -123,7 +126,13 @@ function ContractDraftStep({
   children?: ReactNode;
   anchorRef?: RefObject<HTMLElement>;
 }) {
-  return <section ref={anchorRef} style={{ scrollMarginTop: 8 }}>{children}</section>;
+  return (
+    <section ref={anchorRef} style={{ display: 'grid', gap: 8, scrollMarginTop: 8 }}>
+      {title ? <div style={{ color: C.brandDeep, fontSize: FS.title, fontWeight: FW.title }}>{title}</div> : null}
+      {description ? <div style={{ color: C.mute, fontSize: FS.sub }}>{description}</div> : null}
+      {children}
+    </section>
+  );
 }
 
 const today = () => {
@@ -154,8 +163,14 @@ const OPTIONAL_TERM_FIELDS: Field[] = [
 
 const VEHICLE_CONTRACT_FIELDS: Field[] = [
   { key: 'vehicleName', label: '차종', type: 'text', required: true, manual: true, note: 'ERP에서 불러온 차종을 실제 계약서 표기에 맞게 수정할 수 있습니다' },
-  { key: 'carNumber', label: '차량번호', type: 'text', manual: true, note: '신차는 비워 두면 차량번호 미정으로 표시됩니다' },
+  { key: 'carNumber', label: '차량번호', type: 'text', required: true, manual: true, note: '신차는 「미정」으로 입력합니다' },
+  { key: 'modelYear', label: '연식', type: 'text', manual: true, note: '계약서 차량 정보에 인쇄됩니다' },
+  { key: 'fuel', label: '유종', type: 'text', manual: true, note: '계약서 차량 정보에 인쇄됩니다' },
+  { key: 'colorExterior', label: '외장색상', type: 'text', manual: true, note: '계약서 차량 정보에 인쇄됩니다' },
   { key: 'options', label: '옵션', type: 'text', manual: true, note: '계약서에 기재할 선택 옵션만 입력합니다' },
+  { key: 'currentMileage', label: '출고 시 주행거리', type: 'text', manual: true, note: '계약서 차량 정보에 인쇄됩니다' },
+  { key: 'vehiclePrice', label: '차량가액', type: 'text', manual: true, note: '재고 원가와 다른 계약서 기재 금액입니다' },
+  { key: 'vehicleRemark', label: '차량 비고', type: 'text', manual: true, note: '이 계약에만 적용되는 차량 특이사항입니다' },
 ];
 
 const RENT_PAYMENT_FIELDS: Field[] = [
@@ -476,9 +491,10 @@ export function EsignSendCenter({
   // 차량 후보는 «회사만» 정해지면 열린다 — 계약서 종류는 고른 차가 정한다.
   const vehicleResults = useMemo(() => searchContractVehicles(
     products,
-    // 빠른 작성의 차량번호 자동완성은 기존 선택 차량의 공급사에 갇히지 않는다.
-    // 몇 자리 번호만 입력해도 전체 출고가능 재고에서 바로 찾는다.
-    quickEntry ? '' : (draft?.providerCompanyCode || ''),
+    // 번호·차종을 입력하는 순간에는 공급사로 가두지 않는다.
+    // 직원은 번호 몇 자리만으로 어느 공급사 재고든 찾아 고른 뒤, 그 차량의 공급사·정책을 이어받는다.
+    // 빈 검색창만 현재 선택한 공급사 재고로 유지해 최초 선택 목록이 불필요하게 커지지 않게 한다.
+    S(deferredVehicleQuery) ? '' : (quickEntry ? '' : (draft?.providerCompanyCode || '')),
     null,
     deferredVehicleQuery,
   ), [deferredVehicleQuery, draft?.providerCompanyCode, products, quickEntry]);
@@ -609,7 +625,7 @@ export function EsignSendCenter({
 
   const selectVehicle = (product: EntityRecord) => {
     const snapshot = contractVehicleSnapshot(product);
-    setVehicleQuery('');
+    setVehicleQuery(S(snapshot.carNumber));
     setVehiclePickerOpen(false);
     /**
      * ★차량이 정책을 데려온다(사장님 2026-08-20 「차량선택(정책없으면 정책까지 선택)」).
@@ -646,14 +662,24 @@ export function EsignSendCenter({
     } : current);
   };
 
-  /** 선택 차량의 가격표를 비우고, 차량번호·차종을 직접 적는 계약으로 전환한다. */
-  const useManualVehicle = () => {
-    setVehicleQuery('');
-    setVehiclePickerOpen(false);
-    setDraft((current) => current ? resetVehicleDraft(current, {
-      providerCompanyCode: '',
-      ...policyDraftPatch(null),
-    }) : current);
+  /**
+   * 차량번호 입력칸은 검색칸이면서 직접입력칸이다.
+   * ERP 차량을 고른 뒤 번호를 고치면 그 순간부터는 재고 가격표를 쓰지 않는 수기 차량으로 전환한다.
+   */
+  const setVehicleNumber = (value: string) => {
+    setVehicleQuery(value);
+    setVehiclePickerOpen(true);
+    setDraft((current) => {
+      if (!current) return current;
+      if (current.productCode && S(value) !== S(current.carNumber)) {
+        return resetVehicleDraft(current, {
+          providerCompanyCode: '',
+          ...policyDraftPatch(null),
+          carNumber: value,
+        });
+      }
+      return { ...current, carNumber: value };
+    });
   };
 
   const selectPeriod = (months: number) => {
@@ -768,11 +794,17 @@ export function EsignSendCenter({
           expectedTemplateId: quickTemplateId,
           productCode: S(draft.productCode),
           rentMonths: Number(draft.rentMonths),
+          carNumber: S(draft.carNumber), vehicleName: S(draft.vehicleName),
+          modelYear: S(draft.modelYear), fuel: S(draft.fuel), options: S(draft.options),
+          colorExterior: S(draft.colorExterior), currentMileage: S(draft.currentMileage),
+          vehiclePrice: S(draft.vehiclePrice), vehicleRemark: S(draft.vehicleRemark),
         } : {
           contractDate: draft.contractDate,
           expectedTemplateId: quickTemplateId,
           carNumber: S(draft.carNumber), vehicleName: S(draft.vehicleName),
           modelYear: S(draft.modelYear), fuel: S(draft.fuel),
+          options: S(draft.options), colorExterior: S(draft.colorExterior),
+          currentMileage: S(draft.currentMileage), vehiclePrice: S(draft.vehiclePrice), vehicleRemark: S(draft.vehicleRemark),
         };
         if ('productCode' in input) {
           if (!input.productCode || !input.rentMonths) throw new Error('차량과 계약 기간을 선택해 주세요.');
@@ -806,6 +838,15 @@ export function EsignSendCenter({
         buyoutPrice: draft.buyoutPrice,
         driverScope: draft.driverScope,
         maintenanceProduct: draft.maintenanceProduct,
+        carNumber: draft.carNumber || '',
+        vehicleName: draft.vehicleName,
+        modelYear: draft.modelYear,
+        fuel: draft.fuel,
+        options: draft.options,
+        colorExterior: draft.colorExterior,
+        currentMileage: draft.currentMileage,
+        vehiclePrice: draft.vehiclePrice,
+        vehicleRemark: draft.vehicleRemark,
       };
       const fingerprint = JSON.stringify(input);
       if (!directCreateRequest.current || directCreateRequest.current.fingerprint !== fingerprint) {
@@ -909,7 +950,7 @@ export function EsignSendCenter({
             <WorkRow label="발송 상태" valueStyle={{ color: C.warn }}>{quickIsPickup ? '인수 확인 미리보기만 가능합니다.' : '선택한 계약서의 승인 조건을 서버에서 확인한 뒤 고객 링크를 만듭니다.'}</WorkRow>
           </WorkTable>
           <WorkTable title="차량">
-            <WorkRow label="차량번호 또는 차종">
+            <WorkRow label="차량번호 · 필수">
               <div
                 style={{ position: 'relative', zIndex: vehiclePickerOpen ? 20 : undefined }}
                 onFocusCapture={() => setVehiclePickerOpen(true)}
@@ -919,9 +960,9 @@ export function EsignSendCenter({
                 }}
               >
                 <SearchInput
-                  value={vehicleQuery}
-                  onChange={(value) => { setVehicleQuery(value); setVehiclePickerOpen(true); }}
-                  placeholder={draftProduct ? '차량번호 또는 차종 검색 · 선택 차량 변경' : '차량번호 또는 차종 검색'}
+                  value={draft.carNumber || vehicleQuery}
+                  onChange={setVehicleNumber}
+                  placeholder="차량번호 입력 또는 차종 검색"
                   full
                 />
                 {vehiclePickerOpen ? (
@@ -936,21 +977,18 @@ export function EsignSendCenter({
                 ) : null}
               </div>
             </WorkRow>
-            {draftProduct ? <>
-              <WorkRow label="선택 차량">{`${draft.carNumber || '차량번호 미정'} · ${draft.vehicleName || '차종 미정'}`}</WorkRow>
-              <WorkRow label="입력 방식"><Btn variant="ghost" size="sm" onClick={useManualVehicle}>차량 직접입력으로 전환</Btn></WorkRow>
+            {/* ERP 선택값도 아래 차종 칸에서 바로 고칠 수 있다. 차량번호는 위 입력칸 하나만 쓴다. */}
+            <WorkRow label="차종 · 필수"><WorkInput value={draft.vehicleName} onChange={(v) => setDraftValue('vehicleName', v)} placeholder="차종" full /></WorkRow>
+            {!quickIsPickup ? <>
+              <WorkSplit label="선택 입력" />
+              <WorkRow label="연식"><WorkInput value={draft.modelYear || ''} onChange={(v) => setDraftValue('modelYear', v)} placeholder={erpHint(draftProduct?.year, '연식')} inputMode="numeric" full /></WorkRow>
+              <WorkRow label="유종"><WorkInput value={draft.fuel || ''} onChange={(v) => setDraftValue('fuel', v)} placeholder={erpHint(draftProduct?.fuel_type, '유종')} full /></WorkRow>
+              <WorkRow label="외장색상"><WorkInput value={draft.colorExterior || ''} onChange={(v) => setDraftValue('colorExterior', v)} placeholder={erpHint(draftProduct?.ext_color, '외장색상')} full /></WorkRow>
+              <WorkRow label="옵션"><WorkInput value={draft.options || ''} onChange={(v) => setDraftValue('options', v)} placeholder={erpHint(draftProduct?.options, '옵션')} full /></WorkRow>
+              <WorkRow label="출고 시 주행거리"><WorkInput value={draft.currentMileage || ''} onChange={(v) => setDraftValue('currentMileage', v)} placeholder="출고 시 주행거리(km)" inputMode="numeric" full /></WorkRow>
+              <WorkRow label="차량가액"><WorkInput value={draft.vehiclePrice || ''} onChange={(v) => setDraftValue('vehiclePrice', v)} placeholder="예: 34,900,000" inputMode="numeric" full /></WorkRow>
+              <WorkRow label="차량 비고"><WorkInput value={draft.vehicleRemark || ''} onChange={(v) => setDraftValue('vehicleRemark', v)} placeholder="차에 붙는 특이사항 한 줄" full /></WorkRow>
             </> : null}
-          </WorkTable>
-
-          {/*
-            ★ERP 차량을 골랐어도 차량번호·차종은 «고칠 수 있어야» 한다(사장님 2026-08-21).
-              값이 있으면 ERP 에서 끌어오고, 없거나 다르면 그 자리에서 덮어쓴다.
-              신차는 재고에 없는 차를 계약하고, 재고 값이 옛것일 수도 있다 — 골랐다고 잠그면
-              직원이 계약서를 못 고치고 재고부터 바꾸러 가야 했다.
-          */}
-          <WorkTable title={draftProduct ? '차량 정보 — ERP 값, 고칠 수 있습니다' : '차량 직접입력'}>
-            <WorkRow label="차량번호"><WorkInput value={draft.carNumber || ''} onChange={(v) => setDraftValue('carNumber', v)} placeholder="신차라 아직 없으면 「미정」" full /></WorkRow>
-            <WorkRow label="차종"><WorkInput value={draft.vehicleName} onChange={(v) => setDraftValue('vehicleName', v)} placeholder="차종" full /></WorkRow>
           </WorkTable>
           <WorkTable title={quickIsPickup ? '차량 인수 확인' : '계약조건'}>
             {quickIsPickup ? <>
@@ -1001,12 +1039,6 @@ export function EsignSendCenter({
               <WorkRow label="정비 제외 항목"><WorkInput value={draft.maintenanceExclusions || ''} onChange={(v) => setDraftValue('maintenanceExclusions', v)} placeholder="정비 제외 항목" full /></WorkRow>
               {quickContractType !== 'sonogong-subscription' ? <WorkRow label="납부 주기"><WorkSelect value={draft.paymentTiming} onChange={(v) => setDraftValue('paymentTiming', v)} full placeholder="납부 주기" options={[{ value: '선불', label: '선불' }, { value: '후불', label: '후불' }]} /></WorkRow> : null}
               <WorkRow label="자동이체일"><WorkInput value={draft.paymentDueDate || ''} onChange={(v) => setDraftValue('paymentDueDate', v)} placeholder="자동이체일" full /></WorkRow>
-              <WorkRow label="연료"><WorkInput value={draft.fuel || ''} onChange={(v) => setDraftValue('fuel', v)} placeholder={erpHint(draftProduct?.fuel_type, '연료')} full /></WorkRow>
-              <WorkRow label="현재 주행거리"><WorkInput value={draft.currentMileage || ''} onChange={(v) => setDraftValue('currentMileage', v)} placeholder="현재 주행거리(km)" inputMode="numeric" full /></WorkRow>
-              <WorkRow label="옵션"><WorkInput value={draft.options || ''} onChange={(v) => setDraftValue('options', v)} placeholder={erpHint(draftProduct?.options, '옵션')} full /></WorkRow>
-              {/* 차량가액은 재고 원가가 아니라 «계약서에 적을 값»이라 여기서 직접 받는다. */}
-              <WorkRow label="차량가액"><WorkInput value={draft.vehiclePrice || ''} onChange={(v) => setDraftValue('vehiclePrice', v)} placeholder="예: 34,900,000" full /></WorkRow>
-              <WorkRow label="차량 비고"><WorkInput value={draft.vehicleRemark || ''} onChange={(v) => setDraftValue('vehicleRemark', v)} placeholder="차에 붙는 특이사항 한 줄" full /></WorkRow>
               <WorkRow label="반납 탁송료"><WorkInput value={draft.returnDeliveryFee || ''} onChange={(v) => setDraftValue('returnDeliveryFee', v)} placeholder="반납 탁송료(원)" inputMode="numeric" full /></WorkRow>
               <WorkRow label="제공 서비스"><WorkInput value={draft.serviceItems || ''} onChange={(v) => setDraftValue('serviceItems', v)} placeholder="제공 서비스" /></WorkRow>
             </> : null}
@@ -1084,10 +1116,7 @@ export function EsignSendCenter({
                 >
                   <SearchInput
                     value={vehicleQuery}
-                    onChange={(value) => {
-                      setVehicleQuery(value);
-                      setVehiclePickerOpen(true);
-                    }}
+                    onChange={setVehicleNumber}
                     placeholder={draftProduct ? '다른 출고가능 차량을 검색하거나 눌러서 변경' : '출고가능 차량번호·차종 검색 또는 눌러서 선택'}
                     full
                   />
@@ -1532,7 +1561,9 @@ export function EsignSendCenter({
       selected={!!selected || !!draft}
       onBack={clearSelection}
       backKind={draft ? 'cancel' : 'list'}
-      mobileLayout="stack"
+      // RETIRED: /esign의 폭 기반 모바일 스택 전환. 직원 발송은 목록·작성·확인·진행 4패널 고정이며,
+      // 손님용 모바일 계약은 /sign/[token]이 별도로 담당한다. 이 값을 되살리지 않는다.
+      mobileBreakpoint={0}
       search={{ value: query, onChange: setQuery, placeholder: '고객·차량·계약번호 검색' }}
       listTools={{
         search: { value: query, onChange: setQuery, placeholder: '고객·차량·계약번호 검색' },

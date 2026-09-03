@@ -11,6 +11,9 @@ const S = (value: unknown) => String(value ?? '').trim();
 
 export const FREEPASS_DIRECT_MANUAL_TERM_KEYS = [
   'deposit_installment', 'deposit_round_1', 'deposit_round_2', 'deposit_round_3',
+  // 재고 식별값(product_code·VIN)은 서버 정본으로 고정한다. 아래는 그 차량을
+  // 이 계약서에 어떻게 적을지만 정하는 계약별 표기값이다.
+  'options', 'color_exterior', 'odometer_delivery', 'contract_vehicle_price', 'vehicle_remark',
   'auto_debit_date', 'buyback_option', 'buyback_price', 'driver_scope', 'maintenance_product',
   'special_terms', 'special_terms_choice', 'additional_driver',
   'drv1_name', 'drv1_relation', 'drv1_phone', 'drv2_name', 'drv2_relation', 'drv2_phone',

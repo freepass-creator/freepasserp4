@@ -3,12 +3,13 @@
 import { useMemo, useRef, type CSSProperties, type MouseEvent } from 'react';
 import type { EntityRecord } from '@/lib/intake/entities';
 import {
-  priceList, creditDisplay, vehicleTone, excelCondSignals, canonProductType,
+  priceList, creditDisplay, excelCondSignals,
 } from '@/lib/domain/product';
 import { yearDisplay, makerDisplay } from '@/lib/domain/vehicle-master-match';
-import { productOptions, OptionChips } from '@/components/product-card-atoms';
+import { productOptions, OptionChips, SignalMarks } from '@/components/product-card-atoms';
+import { ConditionMarks } from '@/components/product-card-perks';
 import {
-  C, NUM, FW, FS, Badge, CountPill, productTypeStyle, CREDIT_TONE,
+  C, NUM, FW, FS, CountPill,
   thX, thXR, thXC, tdX, tdXR, tdXC, colLock, colLockChars, colChars, colOpts, clipN, cellClamp2,
   EXCEL_W, EXCEL_MAX,
   excelPriceW, excelPadX, excelPadY, excelColMode,
@@ -183,8 +184,8 @@ export function ExcelResultsTable({
             style={{ cursor: 'pointer', background: bg }}
           >
             <td style={{ ...tdXC, ...cellPad, ...colLock(EXCEL_MAX.plate, padX), background: bg, fontFamily: NUM, fontVariantNumeric: 'tabular-nums', fontWeight: FW.strong }} title={String(p.car_number || '') || undefined}>{String(p.car_number || '') || DASH}</td>
-            {show('vehicle_status') && <td style={{ ...tdXC, ...cellPad, ...colLock(EXCEL_W.status) }}>{st ? <Badge tone={vehicleTone(st)} variant={st === '계약중' ? 'solid' : 'line'} pulse={st === '계약중'}>{st}</Badge> : DASH}</td>}
-            {show('product_type') && <td style={{ ...tdXC, ...cellPad, ...colLock(EXCEL_W.ptype) }}>{pt ? (() => { const c = canonProductType(pt) || pt; const s = productTypeStyle(c); return <Badge tone={s.tone} variant={s.variant}>{c}</Badge>; })() : DASH}</td>}
+            {show('vehicle_status') && <td style={{ ...tdXC, ...cellPad, ...colLock(EXCEL_W.status) }}>{st ? <SignalMarks p={p} keys={['st']} dense /> : DASH}</td>}
+            {show('product_type') && <td style={{ ...tdXC, ...cellPad, ...colLock(EXCEL_W.ptype) }}>{pt ? <SignalMarks p={p} keys={['pt']} dense /> : DASH}</td>}
             {show('maker') && <td style={{ ...tdX, ...cellPad, ...colLockChars(makerChars, true, padX) }}>{clipMax(makerDisplay(p.maker) || p.maker, makerChars)}</td>}
             {show('model') && <td style={{ ...tdX, ...cellPad, ...colLockChars(makerChars, true, padX) }}>{clipMax(p.model, makerChars)}</td>}
             {show('sub_model') && <td style={{ ...tdX, ...cellPad, ...colChars(subChars, nameSqueeze, true, padX) }}>{clamp2(p.sub_model)}</td>}
@@ -202,10 +203,10 @@ export function ExcelResultsTable({
               </td>
             )}
             {showProv && <td style={{ ...tdX, ...cellPad, ...colLockChars(EXCEL_MAX.provider, true, padX) }}>{clipMax(p.provider_name || p.provider_company_code, EXCEL_MAX.provider)}</td>}
-            {showCredit && <td style={{ ...tdXC, ...cellPad, ...colLock(EXCEL_W.credit) }}>{(() => { const c = creditDisplay(p); return c ? <Badge tone={CREDIT_TONE(c)}>{c}</Badge> : DASH; })()}</td>}
+            {showCredit && <td style={{ ...tdXC, ...cellPad, ...colLock(EXCEL_W.credit) }}>{creditDisplay(p) ? <SignalMarks p={p} keys={['cd']} dense /> : DASH}</td>}
             {showCond && (
             <td style={{ ...tdX, ...cellPad, ...colLock(EXCEL_W.cond), whiteSpace: 'normal', overflow: 'hidden' }}>
-              {conds.length ? clamp2(conds.map((c) => c.label).join(' · ')) : (
+              {conds.length ? <ConditionMarks items={conds} dense /> : (
                 <span style={{ color: C.faint, fontSize: FS.sub }}>조건없음</span>
               )}
             </td>

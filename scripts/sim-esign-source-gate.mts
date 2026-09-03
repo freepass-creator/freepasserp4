@@ -26,6 +26,8 @@ const valid = {
   provider_company_code: 'RP012', policy_code: 'POL-1', product_code: sourceProduct.product_code, customer_name: '테스트 고객', customer_phone: '01012345678',
   customer_address: '서울특별시 테스트구 1', auto_debit_date: '매월 10일',
   vehicle_name_snapshot: '테스트 차량', rent_month_snapshot: 48, rent_amount_snapshot: 600_000,
+  // 차량번호는 반드시 적되, 번호판 전 신차는 매뉴얼 정본대로 「미정」으로 동결한다.
+  car_number_snapshot: '미정',
   deposit_amount_snapshot: 0,
   // v1 직접/Excel 작성도 기간·주행거리·연령 기준을 계약 시점에 동결해야 한다.
   // 상품 가격표를 함께 주지 않는 이 공통 source gate에서는 존재·형식만 확인한다.
@@ -128,6 +130,14 @@ const missingVehicle = esignIssueBlockers(
   policy,
 );
 assert.ok(missingVehicle.some((row) => row.key === 'vehicle'), '차량명이 없는 계약은 고객에게 발행할 수 없어야 한다');
+
+const missingPlate = esignIssueBlockers(
+  { ...valid, contract_source: 'direct', car_number_snapshot: '' },
+  partner,
+  policy,
+  sourceProduct,
+);
+assert.ok(missingPlate.some((row) => row.key === 'car_number'), '신차라도 차량번호 칸은 「미정」으로 명시하지 않으면 발행할 수 없어야 한다');
 
 const fractionalTerm = esignIssueBlockers(
   { ...valid, contract_source: 'direct', rent_month_snapshot: 36.5 },

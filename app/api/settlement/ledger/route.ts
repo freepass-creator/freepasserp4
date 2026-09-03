@@ -20,6 +20,7 @@ import { billingMonth, bucketOf, moneyOf, nextInstalment, stageOf } from '@/lib/
 import { billStateOf, issuedKey } from '@/lib/domain/settlement-billstate';
 import { iso, ledgerUrl } from '@/lib/server/settlement-ledger-read';
 import { appendIntake, listRows, patchRow, storeError, type IntakeInput } from '@/lib/server/settlement-store';
+import { readLegacyAugust } from '@/lib/server/settlement-legacy-month';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -66,8 +67,10 @@ export async function GET(req: Request) {
     billState: billStateOf(row, issued),
   }));
 
+  // 2026-08은 사람 검토가 끝난 원본 월 탭이 정본이다. 새 장부의 자동 계산값과 섞지 않는다.
+  const legacyAugust = await readLegacyAugust();
   return NextResponse.json({
-    ok: true, readAt: new Date().toISOString(), ledgerUrl: ledgerUrl(), count: rows.length, rows,
+    ok: true, readAt: new Date().toISOString(), ledgerUrl: ledgerUrl(), count: rows.length, rows, legacyAugust,
   });
 }
 

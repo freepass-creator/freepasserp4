@@ -213,12 +213,6 @@ export function ProductDetail({ p, audience, layout = 'brochure' }: {
                 ><ChevronRight size={ICON.xl} strokeWidth={2.5} /></IconBtn>
               </>
             )}
-            {aud !== 'customer' && !work && (
-              <span style={{ position: 'absolute', top: 8, right: 8, zIndex: 2, display: 'inline-flex', alignItems: 'center', gap: 5 }}>
-                <ProductStateMarks p={p} onPhoto />
-                <FavHeart p={p} onPhoto />
-              </span>
-            )}
             <span style={{ position: 'absolute', right: 8, bottom: 8, background: SCRIM.heavy, color: C.inverse, fontSize: FS.cap, fontWeight: FW.strong, padding: '2px 8px', borderRadius: R, fontFamily: NUM, fontVariantNumeric: 'tabular-nums', pointerEvents: 'none' }}>{mainIdx + 1} / {photos.length}</span>
           </div>
           {/* ★세로 썸네일 칸 = **웹 전용**(사장님 2026-08-30 「모바일에선 그거 필요없어, 그냥 바로 눌러서 볼 거기 때문에」).
@@ -291,7 +285,6 @@ export function ProductDetail({ p, audience, layout = 'brochure' }: {
       ) : (
         <div style={{ position: 'relative', aspectRatio: '16 / 10', background: C.placeholder, borderRadius: R, overflow: 'hidden' }}>
           <ProductPhotoPlaceholder style={{ position: 'absolute', inset: 0 }} />
-          {aud !== 'customer' && <span style={{ position: 'absolute', top: 8, right: 8 }}><FavHeart p={p} onPhoto /></span>}
         </div>
       ))}
       </div>
@@ -346,40 +339,67 @@ export function ProductDetail({ p, audience, layout = 'brochure' }: {
               </tr>
             </DetailTable>
           ) : (
+            /* 차량스펙은 이미 pair:true 로 선언돼 있다. 넓은 웹 본문에서는 두 항목쌍을 한 줄에
+               놓고, 모바일과 문장형 조건표는 기존 한 항목쌍 표를 그대로 쓴다. */
+            (() => {
+              const paired = !!sec.pair && !mobile;
+              const rows = kvRows(sec.rows);
+              const hasChips = !!sec.chips && sec.chips.length > 0;
+              const value = (v: ReactNode) => v ? dimDashes(v) : <span style={{ color: C.faint }}>—</span>;
+              const chipRow = (key: string, i: number) => (
+                <tr key={key} style={DT.tr(i)}>
+                  <th scope="row" style={DT.labelTh}>{sec.chipsLabel || '선택옵션'}</th>
+                  <td colSpan={paired ? 3 : undefined} style={DT.td}><OptionChips p={p} expand /></td>
+                </tr>
+              );
+
+              return (
             <DetailTable
               title={sec.title}
               hint={sec.hint}
               icon={sectionIcon(sec.title)}
               tone={sec.tier}
               headTone={sec.title === '차량스펙' ? 'invert' : 'plain'}
-              span={2}
+              span={paired ? 4 : 2}
               mark={sec.tier === 'agent' ? '영업자 전용' : undefined}
-              widths={[KV_LABEL_W, undefined]}
+              widths={paired ? [KV_LABEL_W, undefined, KV_LABEL_W, undefined] : [KV_LABEL_W, undefined]}
             >
               {(() => {
                 /* 선택옵션은 «칸 하나»가 아니라 이 표의 한 줄이다 — 칩 뭉치가 표 밖으로 빠지면
                    차량스펙 표만 문법이 달라진다. 칩이 없으면 줄 자체를 안 만든다(빈 줄 방지). */
-                const chipRow = (key: string, i: number) => (
-                  <tr key={key} style={DT.tr(i)}>
-                    <th scope="row" style={DT.labelTh}>{sec.chipsLabel || '선택옵션'}</th>
-                    <td style={DT.td}><OptionChips p={p} expand /></td>
-                  </tr>
-                );
-                const hasChips = !!sec.chips && sec.chips.length > 0;
                 const out: ReactNode[] = [];
-                kvRows(sec.rows).forEach(([k, v], i) => {
+                if (paired) {
+                  for (let i = 0; i < rows.length;) {
+                    const [leftK, leftV] = rows[i];
+                    // 차량스펙 첫 행(세부모델)은 긴 정제값을 온전히 보여 주고, 선택옵션 칩도
+                    // 바로 다음 한 줄에 둔다. 그 뒤의 짧은 제원만 기존 2열 짝 구성으로 흐른다.
+                    const firstSingle = hasChips && sec.chipsAfter === 0 && i === 0;
+                    const right = firstSingle ? undefined : rows[i + 1];
+                    out.push(
+                      <tr key={`${leftK}-${i}`} style={DT.tr(out.length)}>
+                        <th scope="row" style={DT.labelTh}>{leftK}</th>
+                        <td colSpan={right ? undefined : 3} style={DT.td}>{value(leftV)}</td>
+                        {right ? <><th scope="row" style={DT.labelTh}>{right[0]}</th><td style={DT.td}>{value(right[1])}</td></> : null}
+                      </tr>,
+                    );
+                    if (hasChips && i === sec.chipsAfter) out.push(chipRow('chips', out.length));
+                    i += right ? 2 : 1;
+                  }
+                } else rows.forEach(([k, v], i) => {
                   out.push(
                     <tr key={`${k}-${i}`} style={DT.tr(out.length)}>
                       <th scope="row" style={DT.labelTh}>{k}</th>
-                      <td style={DT.td}>{v ? dimDashes(v) : <span style={{ color: C.faint }}>—</span>}</td>
+                      <td style={DT.td}>{value(v)}</td>
                     </tr>,
                   );
-                  if (hasChips && sec.chipsAfter === 1 && i === 0) out.push(chipRow('chips', out.length));
+                  if (hasChips && i === sec.chipsAfter) out.push(chipRow('chips', out.length));
                 });
                 if (hasChips && sec.chipsAfter == null) out.push(chipRow('chips', out.length));
                 return out;
               })()}
             </DetailTable>
+              );
+            })()
           )}
         </section>
       ))}

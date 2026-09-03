@@ -111,10 +111,18 @@ const publicRoute = readFileSync('app/api/freepass-esign/public/[token]/route.ts
 const chakhandealPreviewRoute = readFileSync('app/api/chakhandeal/contracts/[contractCode]/template-fields/route.ts', 'utf8');
 const chakhandealSendRoute = readFileSync('app/api/chakhandeal/contracts/send/route.ts', 'utf8');
 assert.match(issueRoute, /v4\/esign_sessions\/\$\{hash\}[\s\S]*snapshot,/);
-assert.match(issueRoute, /activeSession\(currentSession\) && hasFrozenFreepassTemplateState\(currentSession\)/);
+assert.match(
+  issueRoute,
+  /activeSession\(currentSession\)[\s\S]{0,200}hasFrozenFreepassTemplateState\(currentSession\)[\s\S]{0,200}hasFrozenFreepassConsentProfile\(currentSession\)/,
+  '재사용 링크는 활성 상태·동결 서식·동결 동의 프로필을 모두 확인해야 합니다.',
+);
 assert.match(publicRoute, /session\.snapshot/);
 assert.match(publicRoute, /hasFrozenFreepassTemplateState\(session\)/);
-assert.match(publicRoute, /status !== 'signed' && !hasFrozenFreepassTemplateState\(session\)/);
+assert.match(
+  publicRoute,
+  /status !== 'signed' && \(!hasFrozenFreepassTemplateState\(session\) \|\| !hasFrozenFreepassConsentProfile\(session\)\)/,
+  '완료 전 고객 링크는 동결 서식과 동결 동의 프로필을 모두 확인해야 합니다.',
+);
 assert.match(issueRoute, /hasFrozenFreepassTemplateState\(session\)/);
 assert.doesNotMatch(publicRoute, /buildFreepassIssueSnapshot/);
 assert.match(chakhandealPreviewRoute, /product:\s*bundle\.product/);

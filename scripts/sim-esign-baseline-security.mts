@@ -9,6 +9,7 @@ import { buildFreepassConsentProfile, freepassConsentOperationalBlocker, isFroze
 
 const publicRoute = readFileSync('app/api/freepass-esign/public/[token]/route.ts', 'utf8');
 const documentRoute = readFileSync('app/api/freepass-esign/public/[token]/document/route.ts', 'utf8');
+const approvalRoute = readFileSync('app/api/freepass-esign/contracts/[contractCode]/route.ts', 'utf8');
 const server = readFileSync('lib/server/freepass-esign.ts', 'utf8');
 const signPage = readFileSync('app/sign/[token]/page.tsx', 'utf8');
 
@@ -26,6 +27,8 @@ assert.match(publicRoute, /submissionClaimAvailable/, '중복 제출 경쟁상�
 
 // 주민번호·신분증 등은 공개 계약 노드가 아니라 암호문/비공개 저장소에만 둔다.
 assert.match(publicRoute, /residentIdEncrypted: encryptRrn/, '매출증빙 주민번호 암호화 저장이 없습니다');
+assert.match(publicRoute, /customer_id: parsed\.corporate \? S\(payload\.customer_id\) : encryptRrn\(payload\.customer_id\)/, '개인 계약자 주민번호 암호화 저장이 없습니다');
+assert.match(approvalRoute, /customer_id: decryptRrn\(\(signedSubmission as Record<string, unknown>\)\.customer_id\)/, '봉인 직전 개인 계약자 주민번호 복호화 경로가 없습니다');
 assert.match(publicRoute, /esign_private\//, '고객 제출값의 비공개 저장 경로가 없습니다');
 assert.match(server, /cacheControl: 'private, no-store, max-age=0'/, '신분증·서명 파일의 private cache 방어가 없습니다');
 
@@ -45,8 +48,8 @@ const cmsProfile = buildFreepassConsentProfile({
   screeningCriteria: '무심사', requiredDocuments: [], customerType: '개인',
 });
 assert.ok(cmsProfile.requiredKeys.includes('cms_debit'), 'CMS 계약에는 출금 동의가 필수여야 합니다');
-assert.equal(freepassConsentOperationalBlocker(cmsProfile), '', 'CMS 계약은 고객 링크에서 입력·동의를 받아야 합니다');
-assert.ok(isFrozenFreepassConsentProfile(cmsProfile), 'CMS 동의 프로필을 발행 시점에 동결하지 못했습니다');
+assert.notEqual(freepassConsentOperationalBlocker(cmsProfile), '', '수납 위임·본인인증 연동 전 CMS 계약은 발행을 차단해야 합니다');
+assert.equal(isFrozenFreepassConsentProfile(cmsProfile), false, '현재 CMS 동의 프로필을 발행 가능한 것으로 동결하면 안 됩니다');
 assert.match(publicRoute, /cms_debit/, 'CMS 출금 동의 제출값이 없습니다');
 assert.match(publicRoute, /accountNoEncrypted: encryptPrivateValue/, 'CMS 계좌번호 암호화 저장이 없습니다');
 assert.match(server, /const cmsComplete/, 'CMS 출금정보 완료 검증이 없습니다');

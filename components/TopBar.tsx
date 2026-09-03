@@ -53,27 +53,18 @@ const GROUPS: { title: string; items: { href?: string; label: string; icon: Luci
 ];
 
 /** 라우트 → 상태 라벨(앱바 title 없을 때). */
-// 그룹 사이에는 구분선이 그어진다(렌더가 gi>0 이면 borderTop) — 재고관리 아래 선 하나로 «일하는 메뉴»와 «관리 메뉴»를 가른다(사장님 2026-08-19).
-//   · 계약진행(/contract) = «내 계약이 어디까지 왔나» — 목록 + 5단계 진행상황(사장님 2026-08-19: 목록이랑 어디까지 진행중인지 보는 페이지).
-//   · 계약서관리(/esign, 계약서 만들어 보내기·서명추적) = 관리 메뉴 맨 위(파트너사관리 위).
-//   · 하단탭(lib/tabbar appTabsFor)도 같은 규칙.
+// 전체메뉴는 업무 진입점 일곱 개만 둔다. 계약 진행 상태는 계약서관리 안에서,
+// 월별 정산은 정산관리 원장 안에서 다룬다. 모바일 하단탭은 상품 탐색 전용이라 별도 유지한다.
 const SIMPLE_GROUPS: typeof GROUPS = [{
   title: '',
   items: [
     { href: '/finder', label: '상품찾기', icon: NAV_ICON.product, roles: ALL_ROLES },
-    { href: '/contract', label: '계약진행', icon: NAV_ICON.contract, roles: ALL_ROLES },
-    { href: '/settlement', label: '정산확인', icon: FileText, roles: ['admin'] },
     { href: '/inventory', label: '재고관리', icon: NAV_ICON.inventory, roles: ['provider', 'admin'] },
-    // 정책관리(/policy)는 메뉴에서 뺐다(사장님 2026-08-19 「이제 필요 없고, 파트너사관리에서 공급사별로 등록·수정·삭제」).
-    //  /policy 는 파트너사관리 › 계약정책에서 여는 편집 화면으로만 산다(provider=코드 스코프 · return=partner). 공급사 정책 입력은 제공시트 「운영정책」 탭.
-  ],
-}, {
-  title: '',
-  items: [
-    // 관리자 전용 — 페이지(/members)는 하나, 탭 쿼리로 파트너사·회원을 가른다(사장님 2026-08-19: 메뉴에 있어야 함).
     { href: '/esign', label: NAV_LABEL.esign, icon: NAV_ICON.esign, roles: ['admin'] },
+    { href: '/settlement/ledger', label: NAV_LABEL.ledger, icon: NAV_ICON.ledger, roles: ['admin'] },
     { href: '/members?tab=partner', label: NAV_LABEL.partners, icon: Users, roles: ['admin'] },
     { href: '/members?tab=user', label: NAV_LABEL.members, icon: Users, roles: ['admin'] },
+    { href: '/settings', label: NAV_LABEL.settings, icon: NAV_ICON.settings, roles: ALL_ROLES },
   ],
 }];
 
@@ -208,6 +199,11 @@ function NavMenu({ mobile, open: openProp, setOpen: setOpenProp }: {
   const [openLocal, setOpenLocal] = useState(false);
   const open = openProp ?? openLocal;
   const setOpen = setOpenProp ?? setOpenLocal;
+  const path = usePathname();
+  const searchParams = useSearchParams();
+  // 지금의 영업 흐름은 상품 찾기·공유다. 그 화면에서는 뱃지 숫자를 위해 방·계약
+  // 원장을 30초마다 읽을 이유가 없다. 업무 화면에 들어갔을 때만 조회를 켠다.
+  const needsWorkspaceBadges = path.startsWith('/chat') || path.startsWith('/contract') || path.startsWith('/settlement');
   // SSR·첫 클라 동일 — getRole()은 마운트 후(hydration mismatch 방지).
   const [role, setRole] = useState<Role>('agent');
   const [badges, setBadges] = useState<MenuBadgeMap>({});
@@ -228,6 +224,10 @@ function NavMenu({ mobile, open: openProp, setOpen: setOpenProp }: {
     };
   }, [session]);
   useEffect(() => {
+    if (!needsWorkspaceBadges) {
+      setBadges({});
+      return;
+    }
     // 앞선 요청은 취소하고 다시 — 취소자를 버리면 언마운트 뒤 늦은 응답이 setState 한다.
     let cancel = refreshBadges(role);
     const run = () => { cancel(); cancel = refreshBadges(role); };
@@ -245,12 +245,10 @@ function NavMenu({ mobile, open: openProp, setOpen: setOpenProp }: {
       document.removeEventListener('visibilitychange', tick);
       window.removeEventListener('fp:unread', run);
     };
-  }, [role, refreshBadges]);
+  }, [needsWorkspaceBadges, role, refreshBadges]);
   useEffect(() => {
-    if (open) refreshBadges(role);
-  }, [open, role, refreshBadges]);
-  const path = usePathname();
-  const searchParams = useSearchParams();
+    if (needsWorkspaceBadges && open) refreshBadges(role);
+  }, [needsWorkspaceBadges, open, role, refreshBadges]);
   // 메뉴 href 가 쿼리(`/members?tab=partner`)를 가질 수 있다 — 경로는 pathname, 쿼리는 searchParams 로 각각 대조.
   // 파트너사관리·회원관리는 같은 /members 라 쿼리까지 봐야 하나만 켜진다.
   const isActive = (href?: string): boolean => {

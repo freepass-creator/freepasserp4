@@ -68,6 +68,7 @@ const guards: [string, string, RegExp][] = [
   ['판매 차명 시트만', 'scripts/publish-origin-tab.mts', /제조사·모델·차명만 시트에서 옮긴다/],
   ['모델명 빈칸 보고', 'scripts/publish-origin-tab.mts', /missingModel\.push/],
   ['정제칸 빈 칸만 채움', 'scripts/fill-supplier-ai-columns.mts', /if \(now\) \{ kept\+\+; continue; \}/],
+  ['손오공 정제칸 빈 칸만', 'sonokong/scripts/손오공-재고시트.mjs', /한 번 채우면 끝/],
   ['차명에서 배기', 'scripts/fill-supplier-ai-columns.mts', /ccFromCarName/],
   ['차명 신호', 'scripts/fill-supplier-ai-columns.mts', /vehicle_name:\s*carName/],
   ['stamp 행키만', 'scripts/stamp-encar-codes-on-supplier.mts', /assertStampColumnAllowed/],

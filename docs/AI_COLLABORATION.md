@@ -20,6 +20,8 @@
 
 **차종마스터·mf- 코드 쓰기 = 커서만**(2026-08-23). 클로드·코덱스·제미나이는 요령(`lib/domain/vehicle-master-playbook.ts`)대로 가져다 쓰기만 하고, 키·이름을 바꾸지 않는다.
 
+**★정제칸 이름 = 지금 원문 철자 + 라이브 세대**(2026-09-02). 클로드는 자동화(`hourly-sync` ⓪ 손오공-정제 · ①′ fill)가 이 규칙을 지키게 한다. 코덱스는 `npm run audit:raw-ad-prefix` · `npm run audit:live-master-names` 로 검사만 한다(고치지 않음). 원문에 없는 디 올 뉴를 붙이거나 상품마스터 차번으로 이름을 덮거나 상품시트·ERP만 덮지 않는다. 정본 `docs/차종명명-정제-매뉴얼.md` §1-0 · `docs/자동동기-매뉴얼.md`.
+
 ## 최우선 원칙
 
 최종 검증 기준은 Claude Code의 설계 문서가 아니라 **사용자의 원래 요구사항**이다.
@@ -137,6 +139,20 @@ Codex의 역할은 문제를 나열하는 데서 끝나지 않는다. 요청 범
 문서끼리 충돌하거나 오래된 문서가 발견되면 조용히 하나를 선택하지 않는다. 충돌
 내용과 선택 근거를 인수인계 문서에 기록한다.
 
+## CLI 연동 (2026-09-02)
+
+채팅창을 서로 붙인 것이 아니다. 이 PC에 로그인된 **Claude Code · Codex · Gemini CLI**를 커서가 비대화형으로 부른다.
+
+```
+npm run ai:ping
+npx tsx scripts/ai-cli.mts claude "오더"
+npx tsx scripts/ai-cli.mts codex "오더"
+npx tsx scripts/ai-cli.mts gemini "오더"
+npx tsx scripts/ai-cli.mts all "오더"
+```
+
+기본은 읽기 전용. 차종마스터·mf- 키·`database.rules.json`·v3 쓰기는 넘기지 않는다. REST API 키는 쓰지 않는다(각 CLI 로그인).
+
 ## FreepassERP4 기본 검증
 
 구조 변경 후 최소 검증:
@@ -146,6 +162,7 @@ npm.cmd run typecheck
 npm.cmd run build
 npx.cmd tsx scripts/sim-agent.mts
 npx.cmd tsx scripts/sim-phase12.mts
+npm.cmd run audit:live-master-names
 ```
 
 계약·차량 상태·정산을 수정했다면 관련 생애주기와 정산 시뮬레이션을 추가로 실행한다.

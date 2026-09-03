@@ -30,6 +30,11 @@ jobs:
       - name: Design token guard
         run: npm run check:tokens
 
+      # 상품찾기 격자의 «행 수»가 마크업의 «자식 수»와 어긋나면 목록이 통째로 안 보인다.
+      # 타입검사도 빌드도 통과하는 종류라 화면을 열어야만 알 수 있었다 — 2026-08-31~09-01 에 두 번 났다.
+      - name: 상품찾기 격자 — 행 수 = 자식 수
+        run: npm run check:finder-rows
+
       - name: Sim — 시트 병합(soft-merge·락 보호)
         run: npx tsx scripts/sim-sheet-merge.mts
 

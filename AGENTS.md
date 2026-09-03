@@ -31,6 +31,7 @@
 - 판정은 `맞음` · `틀림` · `못정함` 셋뿐. 갈리면 **고치지 말고 사장님께 올린다.**
 - 판 = `docs/CROSSCHECK-<날짜>.md` · 판정 = `docs/crosscheck/<이름>.md`(자기 파일만 고친다).
 - 확인: `npm run check:crosscheck`
+- **살아있는 CLI 호출**(2026-09-02): `npx tsx scripts/ai-cli.mts claude|codex|gemini|all "오더"` — 기본 읽기 전용. 확인 `npm run ai:ping`. 채팅창 연동이 아니라 이 PC에 로그인된 CLI다.
 
 ## 불변 규칙 (어기면 앱·보안 깨짐)
 
@@ -45,6 +46,7 @@
   - 검사: `npm run check:sync`(축 선언+열 계약+매뉴얼) · `npm run audit:axes`(값이 실제로 ERP 까지 갔나) · `npm run audit:passthrough`(**글자가 도중에 안 바뀌나**) — 전부 초록이어야 배포.
   - ★**옮기는 길에서 값을 «가공»하지 마라**(2026-08-23 사장님 「니가 빼면 안 되고 있는 걸 그대로 갖고 오는 거잖아 · 그렇게 로직을 짜야 해」). 정제칸 원자를 **그대로 나르고**, 붙이는 일(차명 = 세부모델+세부트림)만 ERP·화면에서 한다. 값이 틀렸으면 **정제시트·차종마스터를 고치지, 발행기·유입·표시에 치환을 끼워 넣지 않는다.** 실제로 08-23 오전에 개발코드를 깎다가 정제칸을 덮었다 — 자세한 내력·경계·남은 «바뀜» 3갈래는 **`docs/MEMO-정제칸-원자-그대로-2026-08-23.md`**.
 - **차종마스터·코드 쓰기 = 커서만**(2026-08-23 사장님). json 이름·aliases·mf- 키 의미·「AI 정제」 정본 매핑. 다른 AI(클로드·코덱스·제미나이)는 `snapToMaster`·fill·stamp 로 **가져다 쓰기만**. 맞추는 요령은 AI 운영 매뉴얼 0″장 · `lib/domain/vehicle-master-playbook.ts`. 키를 새로 만들거나 개발코드를 떼거나 라이브 차종마스터 탭에 쓰지 마라. 이슈만 남긴다.
+- **★정제칸 이름 = 지금 원문 철자 + 라이브 세대**(2026-09-02). 세대는 라이브 탭 행만. 철자는 지금 왼쪽 차명. 원문에 없는 `디 올 뉴` 금지. 상품마스터 차번은 이름 입력이 아님. F03으로 이름 생성·FL/YP 붙이거나 떼기 금지. 없으면 검수대기. 상품시트·ERP만 고쳐 맞추지 않는다. 손오공 = hourly-sync ⓪ `손오공-정제.mjs`. 그 외 = ①′ fill. 정본 `docs/차종명명-정제-매뉴얼.md` §1-0. 검사 `npm run audit:raw-ad-prefix`(181허5305) · `npm run audit:live-master-names`.
 - **`database.rules.json` 게시는 사람이 실데이터로 검증 후에만.** 로컬 에뮬레이터 통과 ≠ 실데이터 안전(레거시 스냅샷/필드로 정당 write가 막힐 수 있음).
 - **RTDB v3+v4 이중읽기 tolerance**(`.catch(() => [])`)를 throw로 바꾸지 않는다 — 계약·정산 페이지가 통째로 안 열린다.
 - **디자인 토큰 SSOT**(`components/ui/tokens.ts`): 색·폰트·컨트롤 치수 하드코딩 금지. 뱃지 색 = `--bdg-*` CSS 변수.
@@ -57,6 +59,8 @@ npx tsc --noEmit        # 빌드 게이트(린트 미설정)
 npm run check:fonts     # 폰트/토큰 드리프트 0
 npx tsx scripts/check-vehicle-master-lock.mts   # 차종마스터·코드 잠금
 npx tsx scripts/verify-master-pass.mts          # 차명 스냅 회귀
+npm run audit:raw-ad-prefix                     # 원문 없는 디올뉴 0 · 181허5305=싼타페 MX5
+npm run audit:live-master-names                 # 라이브에 없는 세대 · 375어8085
 # ★시트·판매시트·ERP 연동을 건드렸으면 (docs/상품리스트-연동.md)
 npm run check:sync      # 축 선언 대조 + 발행 열 계약 + 매뉴얼 일치 (셋 묶음)
 npm run audit:axes      # 값이 실제로 ERP 까지 갔나 — 정제칸 ▶ 판매시트 ▶ ERP 채움률

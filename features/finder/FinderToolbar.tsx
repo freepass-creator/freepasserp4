@@ -1,81 +1,84 @@
-﻿'use client';
+'use client';
 
-import { LayoutGrid, List, Sheet } from 'lucide-react';
-import { InterestTriggers, type InterestTab } from '@/components/InterestRail';
-import { IconSeg, SearchInput, Select, ICON } from '@/components/ui';
-import { FINDER_SORTS } from './filter-state';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { LayoutGrid, List, Sheet, SlidersHorizontal } from 'lucide-react';
+import { Btn, CountPill, IconSeg, SearchInput, ICON } from '@/components/ui';
+import { FinderFilterPanel, type FinderFilterPanelModel } from './FinderFilterPanel';
 
 const VIEWS = [
   { key: 'card', label: '간단', Icon: LayoutGrid },
   { key: 'list', label: '상세', Icon: List },
-  /**
-   * 「시트」 = 판매시트 그대로 보기(features/finder/SheetView.tsx).
-   * 예전 「엑셀」(우리가 그리던 표)을 **대체**한다 — 상품리스트의 정본이 시트라 우리가 흉내 낼 이유가 없다.
-   * 키는 `excel` 그대로 둔다: 저장된 세션·즐겨찾기 링크가 그 값을 들고 있어서 바꾸면 뷰가 초기화된다.
-   */
-  { key: 'excel', label: '시트', Icon: Sheet },
+  { key: 'excel', label: '엑셀', Icon: Sheet },
 ];
 
 type Props = {
   mobile: boolean;
   query: string;
   onQuery: (value: string) => void;
-  filterBadge: number;
-  filterSheetOpen: boolean;
-  onToggleFilterSheet: () => void;
+  filterOpen: boolean;
+  onToggleFilter: () => void;
+  onCloseFilter: () => void;
+  sidebarActiveCount: number;
+  detailPanel: FinderFilterPanelModel;
   view: string;
   onView: (value: string) => void;
-  recentCount: number;
-  favoriteCount: number;
-  interestTab: InterestTab | null;
-  onInterestTab: (tab: InterestTab | null) => void;
-  sort: string;
-  onSort: (value: string) => void;
+  quickFilters: ReactNode;
 };
 
+/** 웹 검색줄 = 세부필터 → 검색 → 퀵필터 → 보기. 최근·관심과 독립 정렬 Select는 두지 않는다. */
 export function FinderToolbar(props: Props) {
-  const search = (
-    <SearchInput
-      value={props.query}
-      onChange={props.onQuery}
-      placeholder="예: 21세 그랜저, 무보증 쏘나타"
-      ariaLabel="차량과 조건 통합검색"
-      style={{ flex: '1 1 0', minWidth: 0 }}
-      /* 선택색(파랑) 배경은 305caf4f 가 넣은 것 — 원래의 흰 바탕+얇은 테두리로 되돌림(사장님 2026-08-22 「원래 느낌이 아니잖아, 딱 깔끔하게」). */
-    />
-  );
+  // 엑셀 보기는 시트 헤더가 열별 필터·정렬의 단일 진입점이다. 같은 조건을 상단에
+  // 다시 세우면 카드 보기와 서로 다른 결과를 만들 수 있으므로 웹 퀵/세부필터를 숨긴다.
+  const useSheetHeaderFilters = props.view === 'excel';
+  const root = useRef<HTMLDivElement>(null);
+  const detailAnchor = useRef<HTMLSpanElement>(null);
+  const [detailBox, setDetailBox] = useState<{ top: number; left: number; width: number } | null>(null);
+  const placeDetail = useCallback(() => {
+    const el = detailAnchor.current;
+    if (!el || !props.filterOpen) { setDetailBox(null); return; }
+    const rect = el.getBoundingClientRect();
+    const width = Math.min(380, window.innerWidth - 24);
+    const left = Math.min(Math.max(12, rect.left), window.innerWidth - 12 - width);
+    setDetailBox({ top: Math.round(rect.bottom + 4), left: Math.round(left), width });
+  }, [props.filterOpen]);
+  useEffect(() => {
+    placeDetail();
+    if (!props.filterOpen) return;
+    const on = () => placeDetail();
+    window.addEventListener('resize', on);
+    window.addEventListener('scroll', on, true);
+    return () => { window.removeEventListener('resize', on); window.removeEventListener('scroll', on, true); };
+  }, [props.filterOpen, placeDetail]);
+  useEffect(() => {
+    const close = (event: PointerEvent) => {
+      if (!root.current?.contains(event.target as Node)) props.onCloseFilter();
+    };
+    document.addEventListener('pointerdown', close);
+    return () => document.removeEventListener('pointerdown', close);
+  }, [props.onCloseFilter]);
 
-  /**
-   * ★모바일 = **툴바가 없다**(사장님 2026-08-30 「검색 창을 없애는 게 나을 거 같고, 검색 버튼을 누르면
-   * 검색과 필터가 나오는 그런 형태로 — 당근이랑 아주 동일하게」).
-   *
-   *   전에는 검색창 한 줄이 목록 위를 가로질렀다(2026-08-22 규격). 그 한 줄은 폰에서 카드 반 장 값이고,
-   *   실제로 매번 치는 것도 아니다. 검색어·조건은 **상단 돋보기 하나 뒤**로 같이 들어갔다 —
-   *   자리는 `lib/appbar` search 슬롯, 내용은 finder 의 「검색·조건」 시트다.
-   *   그래서 목록은 이제 **첫 줄부터 상품**이다.
-   */
   if (props.mobile) return null;
-
   return (
-    <div className="fp-finder-toolbar fp-finder-toolbar--primary">
+    <div className={`fp-finder-toolbar fp-finder-toolbar--primary${useSheetHeaderFilters ? ' is-sheet' : ''}`} ref={root}>
       <div className="fp-finder-toolbar-main">
         <div className="fp-finder-search-group">
-          {search}
-          <span className="fp-finder-sort">
-            <Select value={props.sort} onChange={props.onSort} placeholder="정렬" width={132} options={FINDER_SORTS} />
-          </span>
+          {!useSheetHeaderFilters ? <span className="fp-finder-detail-trigger" ref={detailAnchor}>
+            <Btn size="sm" variant={props.filterOpen || props.sidebarActiveCount > 0 ? 'solid' : 'ghost'} aria-pressed={props.filterOpen}
+              title={props.filterOpen ? '세부필터 닫기' : (props.sidebarActiveCount ? `조건 ${props.sidebarActiveCount}개 · 세부필터` : '세부필터')}
+              onClick={props.onToggleFilter}><SlidersHorizontal size={ICON.sm} aria-hidden />세부필터</Btn>
+            {props.sidebarActiveCount > 0 ? <span className="fp-quick-filter-count"><CountPill n={props.sidebarActiveCount} /></span> : null}
+            {props.filterOpen && detailBox ? (
+              <div className="fp-quick-filter-detail" role="dialog" aria-label="세부 조건" style={{ top: detailBox.top, left: detailBox.left, width: detailBox.width }}>
+                <FinderFilterPanel model={props.detailPanel} />
+              </div>
+            ) : null}
+          </span> : null}
+          <SearchInput value={props.query} onChange={props.onQuery} placeholder="예: 21세 그랜저, 무보증 쏘나타" ariaLabel="차량과 조건 통합검색" style={{ flex: '1 1 0', minWidth: 0 }} />
         </div>
-        <div className="fp-finder-interest-group">
-          <InterestTriggers recentN={props.recentCount} favN={props.favoriteCount} tab={props.interestTab} onTab={props.onInterestTab} />
-        </div>
+        {!useSheetHeaderFilters ? <div className="fp-finder-quick-inline">{props.quickFilters}</div> : null}
         <div className="fp-finder-view-group">
           <span className="fp-finder-view-switch" role="group" aria-label="상품 보기 방식">
-            <IconSeg
-              showLabel
-              value={props.view}
-              onChange={props.onView}
-              options={VIEWS.map(({ key, label, Icon }) => ({ key, label, icon: <Icon size={ICON.md} /> }))}
-            />
+            <IconSeg showLabel value={props.view} onChange={props.onView} options={VIEWS.map(({ key, label, Icon }) => ({ key, label, icon: <Icon size={ICON.md} /> }))} />
           </span>
         </div>
       </div>

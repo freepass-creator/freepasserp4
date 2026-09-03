@@ -13,8 +13,14 @@ for (const section of A4_WEB_SECTION_ALIGNMENT) {
   assert.match(a4, new RegExp(`>${section.a4}<`), `A4 ${section.a4}번 섹션이 원문에 없습니다`);
   assert.match(a4, new RegExp(`>${section.title}<`), `A4 ${section.a4} ${section.title} 제목이 원문과 다릅니다`);
 }
-assert.match(web, /계약서 원본과 자동차 대여약관의 전체 내용을 확인했고 이에 동의합니다/,
-  '웹에 A4 원문·약관 전체 동의가 없습니다');
+// 전자계약 작성 중에는 A4 축소본 대신, 같은 동결 원문을 웹 흐름으로 끝까지 읽고
+// 명시 동의한다. 화면 카피가 변경되어도 읽기 증적과 최종 동의 가드는 빠지면 안 된다.
+assert.match(web, /agreementReadAt/,
+  '웹에 약관 전문 읽기 증적이 없습니다');
+assert.match(web, /readThrough\.agreement/,
+  '웹에 약관 끝까지 읽기 가드가 없습니다');
+assert.match(web, /세부 계약과 자동차 대여약관의 전체 내용을 확인했습니다\. 전자서명으로 최종 동의합니다/,
+  '웹에 세부 계약·약관 전체 최종 동의가 없습니다');
 assert.match(web, /conditionsConfirmed/, '웹에 주요 계약조건 확인이 없습니다');
 
 const core = ['vehicle', 'rental', 'payment', 'driver', 'insurance', 'accident', 'service']

@@ -75,7 +75,10 @@ export default function AppTabBar() {
       ? session.role
       : role;
 
-  const { badges } = useMenuBadges(tabRole, `${session?.uid || ''}:${session?.rawRole || ''}:${session?.company_code || ''}`);
+  // 상품찾기·공유 화면에서는 전역 메뉴 숫자를 갱신하지 않는다. 이 숫자는 방·계약·정산
+  // 원장 전체 조회를 수반하므로, 읽기 중심 화면에서는 불필요한 RTDB 다운로드가 된다.
+  const needsWorkspaceBadges = path.startsWith('/chat') || path.startsWith('/contract') || path.startsWith('/settlement');
+  const { badges } = useMenuBadges(needsWorkspaceBadges ? tabRole : null, `${session?.uid || ''}:${session?.rawRole || ''}:${session?.company_code || ''}`);
 
   const tabs = tabRole ? appTabsFor(tabRole) : [];
   // 고정 하단 탭은 다음 이동 후보가 2~4개로 매우 작다. 유휴 시간에 route shell만

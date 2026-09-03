@@ -903,17 +903,9 @@ export function detailSections(p: EntityRecord, audience: Audience = 'agent'): D
      *   제조사는 뺀다 — 바로 위 제목 줄이 이미 들고 있고, 정제칸이 축을 갈라 둔 뒤로는
      *   «차명»이라 부르는 것이 곧 이 두 축이다(배기량·연료 같은 제원은 아래 부가정보 줄이 든다).
      */
-    /*
-     * ★**「차명」 줄은 없앴다**(사장님 2026-08-28 「차종도 세부모델 세부트림을 정제한 거 활용해서
-     *   맨 위에 적고 · 상세페이지도 기존에 활용하던 게 있어 · 중복 반복 안 되게 하자고 했고」).
-     *
-     *   맨 위 제목이 이미 «제조사 + 세부모델 + 세부트림»(vehicle-name SSOT, 정제칸)을 든다.
-     *   이 줄은 거기서 제조사만 뺀 같은 글자라, 한 화면에서 같은 이름을 두 번 읽게 했다.
-     *   한 번 「제목이 한 줄로 잘리니 전문을 펴는 자리」라며 살려 뒀는데, 잘림은 제목 쪽에서
-     *   풀 문제지 같은 값을 한 번 더 찍어서 풀 문제가 아니다(제목에 title 속성이 붙어 있다).
-     *
-     *   공급사 원문 이름은 아래 「기타사항 › 공급사 차명」이 따로 든다 — 그건 다른 값이라 남긴다.
-     */
+    // 상세 제조사 기준 표는 정제 축을 그대로 보여 준다. 표기명은 「세부모델」이지만,
+    // 값은 세부모델 + 세부트림이며 바로 아래 선택옵션을 둔다(사용자 확정, 2026-08-31).
+    ['세부모델', g([pv('sub_model'), pv('trim_name')])],
     // 차량번호는 손님에게도 보인다 — 공유 견적서에서 «어느 차인지»를 특정하는 유일한 값이다.
     //  (없는 매물이 있다: 재렌트·재구독은 공급사 시트에 번호판을 안 적는 경우가 있어
     //   빈 줄을 만들지 않도록 값이 있을 때만 넣는다. 나머지 행의 `-` 규칙과 다른 이유다.)
@@ -1097,7 +1089,7 @@ export function detailSections(p: EntityRecord, audience: Audience = 'agent'): D
   // 사진(뷰) → 차량스펙(제조사) → 대여료조건 → 보험조건 → 계약조건 → 기타사항.
   //  영업자 전용 값은 본문이 아니라 **우측 영업자 패널**(`agentPanelRows`)이 들고 간다.
   const out: DetailSection[] = [
-    { title: '차량스펙', hint: '제조사 기준', tier: 'main', kind: 'kv', rows: carRows, chips: opts, chipsLabel: '선택옵션', chipsAfter: 1, pair: true },
+    { title: '차량스펙', hint: '제조사 기준', tier: 'main', kind: 'kv', rows: carRows, chips: opts, chipsLabel: '선택옵션', chipsAfter: 0, pair: true },
     { title: '대여료조건', hint: '기간별 대여료 · 보증금', tier: 'main', kind: 'price' },
     { title: '보험조건', hint: '보장한도 · 면책', tier: 'sub', kind: 'ins', rows: insRows, note: insNote },
     { title: '계약조건', hint: '심사 · 약정 · 운전자', tier: 'sub', kind: 'kv', rows: condRows },

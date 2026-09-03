@@ -12,9 +12,15 @@ import { classifyVehicleClass, composeRefinedVehicleName } from '../lib/domain/v
 import { vehicleClassCodeFromLabel } from '../lib/domain/vehicle-class-catalog';
 import { stripModelCode } from '../lib/domain/submodel-code';
 import { isForbiddenSubmodelStrip } from '../lib/domain/ai-refine-guard';
+import { closeNamesToLiveMaster, isDiAllNewUpgrade, preferLiveDiAllNewSpelling, RAW_AD_PREFIX_SENTINEL } from '../lib/domain/live-master-name-copy';
+import type { MasterRow } from '../lib/domain/vehicle-master-sheet';
 
 const stamp = readFileSync('scripts/stamp-encar-codes-on-supplier.mts', 'utf8');
 const fill = readFileSync('scripts/fill-supplier-ai-columns.mts', 'utf8');
+const closer = readFileSync('scripts/close-refined-names-to-live-master.mts', 'utf8');
+const hourly = readFileSync('scripts/hourly-sync.mts', 'utf8');
+const sonoRefine = readFileSync('sonokong/lib/vehicle-refine.mjs', 'utf8');
+const sonoStock = readFileSync('sonokong/scripts/손오공-재고시트.mjs', 'utf8');
 const lock = readFileSync('lib/domain/vehicle-master-lock.ts', 'utf8');
 const sheet = readFileSync('lib/domain/vehicle-master-sheet.ts', 'utf8');
 const pub = readFileSync('scripts/publish-origin-tab.mts', 'utf8');
@@ -120,7 +126,28 @@ check('차명 조합', composeRefinedVehicleName('아반떼', '아반떼 CN8', '
   check('fill이 코드떨기 사전을 막음', fill.includes('substFromAiRefineRows'), 'ai-refine-guard');
   check('발행기가 코드떨기 사전을 막음', pub.includes('substFromAiRefineRows'), 'publish-origin-tab');
   check('K5 DL3→K5 매핑 거부', isForbiddenSubmodelStrip('K5 DL3', 'K5'), 'ai-refine-guard');
-  check('디올뉴 MX5→싼타페 MX5 는 허용', !isForbiddenSubmodelStrip('디 올 뉴 싼타페 MX5', '싼타페 MX5'), '광고 접두만 별칭');
+  check('디올뉴 MX5→싼타페 MX5 거부', isForbiddenSubmodelStrip('디 올 뉴 싼타페 MX5', '싼타페 MX5'), '라이브 행 접두 안 깎음');
+  check('fill이 원문없는 디올뉴를 되돌림', fill.includes('isDiAllNewUpgrade') && fill.includes('preferLiveDiAllNewSpelling'), '렌트존 싼타페 MX5');
+  check('fill이 상품마스터를 이름에 안 씀', !/^import .*(product-master|product-vehicle|adopted-spec)/m.test(fill), 'import 없음');
+  check('손오공 원문 없는 디올뉴', sonoRefine.includes('원문디올뉴'), 'vehicle-refine.mjs');
+  check('손오공 정제칸 빈칸만', sonoStock.includes('한 번 채우면 끝') && /FILLIFEMPTY/.test(sonoStock), '재고시트 이름칸 덮어쓰기 금지');
+  check('폐쇄기가 채운 칸을 안 비움', closer.includes('한 번 채우면 끝') && closer.includes('isDiAllNewUpgrade(next, now)'), 'keepFilled');
+  check('폐쇄기가 라이브 철자로 안 덮음', closer.includes('closeNamesToLiveMaster') && !/want\['세부모델'\] = .*\.subModel/.test(closer), '철자 유지');
+  check('폐쇄기가 차명(정제) 디올뉴를 되돌림', closer.includes('isDiAllNewUpgrade') && closer.includes('nameDirty'), '68로3386');
+  check('hourly 원문 게이트', hourly.includes('audit-raw-ad-prefix'), '①‴');
+  check('게이트 차번', RAW_AD_PREFIX_SENTINEL.plate === '181허5305' && RAW_AD_PREFIX_SENTINEL.wantSub === '싼타페 MX5', RAW_AD_PREFIX_SENTINEL.plate);
+  {
+    const liveMx5 = { usageTier: 'automatic', maker: '현대', model: '싼타페', subModel: '디 올 뉴 싼타페 MX5', trim: '익스클루시브' } as MasterRow;
+    const want = { 모델: '싼타페', 세부모델: '싼타페 MX5', 세부트림: '익스클루시브', '제조사(정제)': '현대' };
+    closeNamesToLiveMaster(want, [liveMx5]);
+    check('싼타페 MX5 폐쇄 유지', want['세부모델'] === '싼타페 MX5', want['세부모델']);
+    check('디올뉴 업그레이드 감지', isDiAllNewUpgrade('싼타페 MX5', '디 올 뉴 싼타페 MX5'), '접두만 다름');
+    const fromRaw = { 모델: '싼타페', 세부모델: '싼타페 MX5' };
+    preferLiveDiAllNewSpelling(fromRaw, [liveMx5], '싼타페 MX5 26MY 익스클루시브');
+    check('원문 MX5는 접두 안 붙임', fromRaw['세부모델'] === '싼타페 MX5', fromRaw['세부모델']);
+    preferLiveDiAllNewSpelling(fromRaw, [liveMx5], '디 올뉴 싼타페 가솔린 2.5');
+    check('원문 디올뉴는 라이브 철자', fromRaw['세부모델'] === '디 올 뉴 싼타페 MX5', fromRaw['세부모델']);
+  }
 }
 
 for (const col of FILL_OWNED_COLUMNS) {

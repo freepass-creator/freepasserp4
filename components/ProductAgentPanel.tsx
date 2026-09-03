@@ -26,8 +26,8 @@ import { won, Btn, C, R, PILL_R, NUM, FW, FS, ICON, DetailTable, DT, R_CARD } fr
  *   ③ 손님 전달 — 링크 복사·텍스트 복사(보내는 것)
  *   ④ 손님 화면 보기(내가 «확인»하는 것) — 손님에게 «보내는» 버튼과 모양을 달리 세운다
  *
- * ★**반전(남색) 머리띠 = 이 패널의 문법**(사장님 「반전 표로 잘 꾸며봐」).
- *   상세 본문 표는 회색 머리띠(`DT.band`), 패널 표는 반전 머리띠 — 색 하나로 «본문이냐 패널이냐»가 갈린다.
+ * ★대여료는 본문보다 한 단계만 또렷하게 한다. 패널 전체를 남색으로 뒤집으면 대여료가
+ *   화면의 주인공이 돼 정보 읽기 흐름을 끊으므로, 옅은 네이비 헤더와 최저 행만 강조한다.
  *
  * ★손님 화면(`/q`)에는 이 패널이 **붙지 않는다.** 「모드 토글」로 가리지 않는 이유는,
  *   손님과 화면을 같이 보다가 잘못 눌러 공급사·원가가 새기 때문이다. 붙이지 않으면 샐 수가 없다.
@@ -49,13 +49,6 @@ const CHROME_GAP = 14;
 export function useAgentColumn(): boolean {
   return !useIsMobile(AGENT_COL_BP);
 }
-
-/** 남색 면 위의 선·글자 — 반전면에서는 C.line·C.mute 가 안 보인다(어두운 바탕에 어두운 선). */
-const INV = {
-  line: 'color-mix(in srgb, var(--text-inverse) 24%, transparent)',
-  soft: 'color-mix(in srgb, var(--text-inverse) 12%, transparent)',
-  dim: 'color-mix(in srgb, var(--text-inverse) 70%, transparent)',
-};
 
 /**
  * 손님에게 **보내는** 두 버튼 — 좌우 2열.
@@ -111,41 +104,37 @@ export function ProductAgentPanel({ p, audience, pinnedShare }: {
   /** 우측 칼럼이 없으면 본문 「기간별 대여료」와 같은 표가 바로 위에 있다. 그때는 패널 대여료표를 두지 않는다. */
   const sideCol = useAgentColumn();
 
-  /* 반전 표 칸 규격 — 본문 표(DT)와 같은 리듬, 색만 반전. */
+  /* 대여료 표 = 본문 표와 같은 밝은 면. 헤더·최저 행만 옅은 네이비로 구분한다. */
   /**
-   * **구조 띠**(열이름 줄 · 「인수형」 갈래 줄) — 진한 남색.
-   * 선택된 행(최저)과 같은 옅은 틴트를 쓰면 «고른 줄»인지 «구역 나눔»인지 구분이 안 됐다
-   * (사장님 2026-08-20 「섹션 나누는거랑 최저가 선택돼서 배경 있는거랑 구분좀」).
-   *   구조 = 진하게(brandDeep) · 선택 = 옅게(INV.soft) + 왼쪽 굵은 바.
+   * 구조 띠는 옅은 네이비, 최저 행은 선택 면+왼쪽 네이비 바로 구분한다.
    */
-  const invTh: CSSProperties = {
+  const priceTh: CSSProperties = {
     padding: '5px 10px', textAlign: 'left', fontSize: FS.cap, fontWeight: FW.strong,
-    color: INV.dim, background: C.brandDeep, whiteSpace: 'nowrap',
+    color: C.brand, background: 'color-mix(in srgb, var(--brand) 8%, var(--bg-card))', whiteSpace: 'nowrap',
   };
-  const invThR: CSSProperties = { ...invTh, textAlign: 'right' };
-  const invLabel: CSSProperties = {
+  const priceThR: CSSProperties = { ...priceTh, textAlign: 'right' };
+  const priceLabel: CSSProperties = {
     padding: '6px 10px', textAlign: 'left', fontWeight: FW.strong, fontSize: FS.body,
-    color: C.inverse, whiteSpace: 'nowrap',
+    color: C.ink, whiteSpace: 'nowrap',
   };
-  const invTd: CSSProperties = {
-    padding: '6px 10px', textAlign: 'right', color: C.inverse,
+  const priceTd: CSSProperties = {
+    padding: '6px 10px', textAlign: 'right', color: C.ink,
     fontFamily: NUM, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap',
   };
-  const invTr = (i: number, on = false): CSSProperties => ({
-    borderTop: i ? `1px solid ${INV.line}` : 'none',
-    background: on ? INV.soft : 'transparent',
+  const priceTr = (i: number, on = false): CSSProperties => ({
+    borderTop: i ? `1px solid ${C.line2}` : 'none',
+    background: on ? C.selected : 'transparent',
   });
-  /** 선택된 행 표시 = 왼쪽 굵은 바. 바탕만으로는 구조 띠와 헷갈린다. */
-  const pickBar = (on: boolean): CSSProperties => (on ? { boxShadow: `inset 3px 0 0 ${C.inverse}` } : {});
+  const pickBar = (on: boolean): CSSProperties => (on ? { boxShadow: `inset 3px 0 0 ${C.brand}` } : {});
 
   const priceRow = (kind: string, m: number, rent: number, deposit: number, i: number, best: boolean) => (
-    <tr key={`${kind}:${m}`} style={invTr(i, best)}>
-      <th scope="row" style={{ ...invLabel, ...pickBar(best) }}>
+    <tr key={`${kind}:${m}`} style={priceTr(i, best)}>
+      <th scope="row" style={{ ...priceLabel, ...pickBar(best) }}>
         {m}개월
-        {best ? <span style={{ marginLeft: 5, fontSize: FS.micro, fontWeight: FW.label, color: INV.dim }}>최저</span> : null}
+        {best ? <span style={{ marginLeft: 5, fontSize: FS.micro, fontWeight: FW.label, color: C.brand }}>최저</span> : null}
       </th>
-      <td style={{ ...invTd, fontWeight: FW.head, fontSize: FS.title }}>{won(rent)}</td>
-      <td style={invTd}>{deposit > 0 ? won(deposit) : '무보증'}</td>
+      <td style={{ ...priceTd, fontWeight: FW.head, fontSize: FS.title, color: best ? C.brand : C.ink }}>{won(rent)}</td>
+      <td style={priceTd}>{deposit > 0 ? won(deposit) : '무보증'}</td>
     </tr>
   );
 
@@ -171,16 +160,16 @@ export function ProductAgentPanel({ p, audience, pinnedShare }: {
         }}>손님 화면엔 없음</span>
       </div>
 
-      {/* ① 대여료 — 전 기간 목록(반전). 패널이 늘 떠 있으니 본문 위로 올라가지 않아도 «얼마»가 보인다.
+      {/* ① 대여료 — 전 기간 목록. 패널이 늘 떠 있으니 본문 위로 올라가지 않아도 «얼마»가 보인다.
           모바일·좁은 화면은 본문 표와 중복이라 뺀다(사장님 2026-08-22). */}
       {sideCol ? (
-      <div style={{ background: C.brand, color: C.inverse, borderRadius: R, overflow: 'hidden' }}>
+      <div style={{ border: `1px solid ${C.line}`, background: C.taupeBg, borderRadius: R, overflow: 'hidden' }}>
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, padding: '9px 10px' }}>
-          <span style={{ fontSize: FS.body, fontWeight: FW.title, minWidth: 0, overflowWrap: 'anywhere' }}>{vehicleName(p)}</span>
+          <span style={{ fontSize: FS.body, fontWeight: FW.title, color: C.ink, minWidth: 0, overflowWrap: 'anywhere' }}>{vehicleName(p)}</span>
           {plate ? (
             <span style={{
               flex: '0 0 auto', fontFamily: NUM, fontSize: FS.cap, fontWeight: FW.strong,
-              border: `1px solid ${INV.line}`, background: INV.soft, borderRadius: R, padding: '1px 6px',
+              color: C.mute, border: `1px solid ${C.line}`, background: C.head, borderRadius: R, padding: '1px 6px',
             }}>{plate}</span>
           ) : null}
         </div>
@@ -189,9 +178,9 @@ export function ProductAgentPanel({ p, audience, pinnedShare }: {
             <colgroup><col style={{ width: '34%' }} /><col style={{ width: '34%' }} /><col style={{ width: '32%' }} /></colgroup>
             <thead>
               <tr>
-                <th scope="col" style={invTh}>기간</th>
-                <th scope="col" style={invThR}>월대여료</th>
-                <th scope="col" style={invThR}>보증금</th>
+                <th scope="col" style={priceTh}>기간</th>
+                <th scope="col" style={priceThR}>월대여료</th>
+                <th scope="col" style={priceThR}>보증금</th>
               </tr>
             </thead>
             <tbody>
@@ -200,7 +189,7 @@ export function ProductAgentPanel({ p, audience, pinnedShare }: {
                 <>
                   {/* 인수형은 «같은 기간의 다른 상품» — 표를 쪼개지 않고 갈래 줄 하나로 나눈다(본문 표와 같은 규칙). */}
                   <tr>
-                    <th scope="colgroup" colSpan={3} style={{ ...invTh, borderTop: `2px solid ${C.inverse}` }}>
+                    <th scope="colgroup" colSpan={3} style={{ ...priceTh, borderTop: `2px solid ${C.lineStrong}` }}>
                       인수형 · 만기 인수
                     </th>
                   </tr>
@@ -210,7 +199,7 @@ export function ProductAgentPanel({ p, audience, pinnedShare }: {
             </tbody>
           </table>
         ) : (
-          <div style={{ padding: '0 10px 10px', fontSize: FS.cap, color: INV.dim }}>
+          <div style={{ padding: '0 10px 10px', fontSize: FS.cap, color: C.mute }}>
             대여료 미입력 — 손님 안내 전에 요금을 넣어야 합니다.
           </div>
         )}
@@ -308,9 +297,9 @@ export function ProductAgentColumn({ p, audience }: { p: EntityRecord; audience?
           position: 'fixed',
           // 사진 윗선에 맞추지 않는다 — 사진 크기에 따라 시작 높이가 달라지면 패널이 매번 다른 자리에 선다.
           top: `calc(var(--topbar-h) + ${CHROME_GAP}px)`,
-          // 바닥은 **하단바와 같은 선**(사장님 2026-08-20 「하단에 박아달라는 거였어 하단바처럼」).
-          //  독 위로 띄우면 공유 줄만 붕 떠서 «독의 일부»로 안 읽힌다.
-          bottom: 0,
+          // 우측 패널은 독이 아니라 보조 정보다. 화면 하단에 맞닿으면 잘린 것처럼 보여
+          // 공통 바 여백만큼 띄운다. 스크롤 영역은 이 안에서 끝나므로 내용도 가려지지 않는다.
+          bottom: 'var(--fp-bar-pad-y)',
           left: box ? box.left : undefined,
           width: box ? box.width : AGENT_COL_W,
           // 측정 전엔 숨긴다 — 한 프레임 점프 방지
@@ -329,23 +318,8 @@ export function ProductAgentColumn({ p, audience }: { p: EntityRecord; audience?
         <div style={{ flex: '1 1 auto', minHeight: 0, overflowY: 'auto', overscrollBehavior: 'contain' }}>
           <ProductAgentPanel p={p} audience={audience} pinnedShare />
         </div>
-        {/*
-          바닥 고정 — 링크·텍스트 복사는 **스크롤 위치와 상관없이 늘 손에 닿아야 한다**
-          (사장님 2026-08-20). 겹치는 게 아니라 형제로 두었으니 본문이 밑으로 파고들지 않는다.
-        */}
-        {/*
-          바닥 고정 줄 — **하단바(BottomNav)와 같은 규격**으로 맞춘다.
-          같은 세로 패딩(`--fp-bar-pad-y`)을 써야 버튼 중심이 옆 「이전·검수 요청」과 한 선에 선다.
-          숫자를 손으로 찍으면 바 높이가 바뀔 때 이 줄만 어긋난다.
-        */}
-        <div style={{
-          flex: '0 0 auto',
-          background: C.bg,
-          padding: 'var(--fp-bar-pad-y) 0',
-          paddingBottom: 'calc(var(--fp-bar-pad-y) + var(--fp-dock-safe, 0px))',
-        }}>
-          <ProductAgentShareActions p={p} />
-        </div>
+        {/* 공유는 본문 하단 BottomNav가 단일 진입점이다. 우측 칼럼에 같은 버튼을 다시
+            고정하면 넓은 화면에서 링크 공유가 두 번 렌더링된다. */}
       </aside>
     </>
   );

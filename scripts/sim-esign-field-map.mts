@@ -8,6 +8,7 @@ import {
   FIELD_MAP, coverageByKind, coverageBySource, fieldsForKind, unmappedFields,
 } from '../lib/domain/esign-field-map';
 import { CONTRACT_KINDS, findContractKind } from '../lib/domain/esign-contract-kind';
+import { buildTemplateFieldsFromRecords } from '../lib/domain/esign-template-fields';
 
 let pass = 0;
 let fail = 0;
@@ -51,6 +52,28 @@ check('반납형에만 인수 옵션(선택)',
 // 구독·렌탈은 만기 축이 같으면 필드가 같다 — 문서명·호칭만 다르다.
 check('같은 만기면 필드 구성 동일',
   fieldsForKind(findContractKind('sub_return')!).length === fieldsForKind(ret).length);
+
+// ERP 차량을 고르면 차량번호·차종만 가져오고 나머지가 사라지는 회귀를 막는다.
+// 계약 식별값은 contract snapshot, 세부 제원은 서버가 동결한 ERP product에서 읽는다.
+const erpVehicleFields = buildTemplateFieldsFromRecords({
+  contract: {
+    contract_code: 'sim-vehicle', contract_date: '2026-08-31',
+    car_number_snapshot: '12가3456', vehicle_name_snapshot: '검증 차종',
+    year_snapshot: '2026', fuel_type_snapshot: '전기',
+    rent_month_snapshot: 36, rent_amount_snapshot: 550_000, deposit_amount_snapshot: 0,
+  },
+  product: {
+    car_number: '12가3456', vehicle_name: '검증 차종', year: '2026', fuel_type: '전기',
+    vin: 'KMH-SIM-0001', engine_cc: '0', options: '파노라마 선루프', ext_color: '오프화이트',
+    int_color: '블랙', mileage: '18', drive_type: 'AWD', seats: '5', product_type: '신차구독',
+  },
+  policy: {}, partner: { name: '검증 공급사' },
+}).fields;
+for (const [field, expected] of Object.entries({
+  car_number: '12가3456', vehicle_name: '검증 차종', model_year: '2026년식', fuel: '전기',
+  vin: 'KMH-SIM-0001', options: '파노라마 선루프', color_exterior: '오프화이트',
+  color_interior: '블랙', odometer_delivery: '18km', drive_type: 'AWD', seats: '5인승',
+})) check(`ERP 차량값 → 계약서 ${field}`, erpVehicleFields[field] === expected, erpVehicleFields[field]);
 
 // ── 실제 템플릿과 대조 — 이게 없으면 표가 곧 거짓말이 된다 ──
 const TPL = 'public/contract-template/rental-contract.html';

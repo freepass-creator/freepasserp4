@@ -92,6 +92,19 @@ function priceTerms(row: EntityRecord): Record<string, Record<string, unknown>> 
     : {};
 }
 
+/**
+ * ★**판매시트에 «값이 한 번이라도 있는 칸»만 견준다.**
+ *   한 줄도 값이 없으면 그 열은 발행에 없는 것이다(정책코드가 그렇다 — 아래 주석).
+ *   먼저 전수로 한 번 세어 두고, 아래 비교에서 쓴다.
+ */
+const salesHasColumn = new Map<string, boolean>();
+for (const [, item] of salesIndex.byIdentity) {
+  for (const [, key] of coreFields) {
+    if (salesHasColumn.get(key)) continue;
+    if (text(item.row[key])) salesHasColumn.set(key, true);
+  }
+}
+
 for (const [identity, salesItem] of salesIndex.byIdentity) {
   const erpItem = allErpIndex.byIdentity.get(identity);
   if (!erpItem) continue;
@@ -108,6 +121,19 @@ for (const [identity, salesItem] of salesIndex.byIdentity) {
       lockedStatusOverrides.push({ plate: p, sales: left, erp: right, contract: S(erp.locked_by_contract) });
       continue;
     }
+    /**
+     * ★**판매시트에 «그 열이 없는» 것을 「값이 다르다」로 세지 않는다.**
+     *
+     * ⚠ 실측 2026-09-01·09-03 — 「정책코드 370대 불일치」가 매 회차 떴는데, 열어 보니
+     *   판매시트에는 **정책 «코드» 열이 아예 없다**. 정책은 «값 43열»로 펼쳐 나간다
+     *   (`ai-operating-manual.ts:79` 「판매시트 정책 43열은 여기서 나간다」·`audit-policy-code-drift.mts:4-6`).
+     *   없는 열을 빈칸으로 읽으니 **ERP 에 값이 있는 차가 전부 「다르다」**가 됐다.
+     *   371대 중 370대가 그것이었다 — 진짜 차이는 한 자릿수다.
+     *   **없는 열은 「모른다」다. 「다르다」가 아니다.** 거짓 빨간불을 없애야 진짜를 믿는다.
+     *
+     * 판정: 그 열이 판매시트 어느 줄에도 값이 없으면(=열 자체가 없다고 본다) 견주지 않는다.
+     */
+    if (!left && !salesHasColumn.get(key)) continue;
     fields.push({ field: label, sales: left, erp: right });
   }
 

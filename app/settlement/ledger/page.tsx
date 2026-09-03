@@ -57,6 +57,12 @@ type Row = {
   billState: BillState; phone: string;
 };
 type Payload = { ok: boolean; reason?: string; count: number; readAt: string; ledgerUrl: string; rows: Row[] };
+type LegacyAugust = {
+  month: '2026-08'; candidates: number; completed: number; hold: number; claimRows: number; payRows: number;
+  claim: number; claimVat: number; claimTotal: number; pay: number; payVat: number; payTotal: number; margin: number;
+  grossMargin: number; channelAdjustment: number; freepassSettlement: number; recovery: number;
+};
+type LedgerPayload = Payload & { legacyAugust?: LegacyAugust | null };
 
 /** 접수상태 — 계약이 어디까지 왔나. 「진행중」은 담당자가 매일 보는 두 칸을 합친 것이다. */
 const STAGES = ['진행중', '당월접수', '미완료', '분납실적', '완납실적', '취소'] as const;
@@ -267,7 +273,7 @@ function LedgerCreateForm({
 }
 
 export default function SettlementLedgerPage() {
-  const [data, setData] = useState<Payload | null>(null);
+  const [data, setData] = useState<LedgerPayload | null>(null);
   const [err, setErr] = useState('');
   const [busy, setBusy] = useState(false);
   /** 상세에서 손댄 칸 — 저장 전까지만 여기 있다. 줄을 바꾸면 비운다. */
@@ -302,7 +308,7 @@ export default function SettlementLedgerPage() {
   const load = async () => {
     try {
       const res = await ledgerFetch('/api/settlement/ledger');
-      const body = await res.json() as Payload;
+      const body = await res.json() as LedgerPayload;
       if (!body.ok) { setErr(body.reason || '읽지 못했습니다'); return; }
       setErr(''); setData(body);
     } catch (e) { setErr(String((e as Error)?.message || e)); }
@@ -633,6 +639,18 @@ export default function SettlementLedgerPage() {
         ⚠ 이름을 손으로 치게 하지 않는다 — 원장에 뜬 채널만 누른다. 오타는 아무 문도 안 연다.
       */}
       {month && (
+        month === '2026-08' && data?.legacyAugust ? (
+          <DetailTable title="2026년 8월 원본 검토 정산" hint="원본 ‘프리패스 26/8’ 49건과 확정 마감 보정값입니다. 자동 인도·분납 계산값은 참고용이며 이 월을 덮어쓰지 않습니다." accent="main" span={2} widths={[KV_LABEL_W, undefined]}>
+            <DtRow i={0} label="검토대상">{data.legacyAugust.candidates}건 · 계약완료 {data.legacyAugust.completed}건 · 보류 {data.legacyAugust.hold}건</DtRow>
+            <DtRow i={1} label="매출">{won(data.legacyAugust.claim)} <span style={{ color: C.mute }}>· 공급사 청구 {data.legacyAugust.claimRows}줄 · 회수 1건 50% 정산 {won(data.legacyAugust.recovery)} 반영 · 부가세 {won(data.legacyAugust.claimVat)} · 청구합계 {won(data.legacyAugust.claimTotal)}</span></DtRow>
+            <DtRow i={2} label="매입">{won(data.legacyAugust.pay)} <span style={{ color: C.mute }}>· 영업채널 지급 {data.legacyAugust.payRows}줄 · 부가세 {won(data.legacyAugust.payVat)} · 지급합계 {won(data.legacyAugust.payTotal)}</span></DtRow>
+            <DtRow i={3} label="매출이익">{won(data.legacyAugust.margin)} <span style={{ color: C.mute }}>· 공급가 기준 매출 − 매입</span></DtRow>
+            <DtRow i={4} label="프리패스 정산차액">{won(data.legacyAugust.freepassSettlement)} <span style={{ color: C.mute }}>· 합계 차액 {won(data.legacyAugust.grossMargin)} − 카핑 {won(data.legacyAugust.channelAdjustment)}</span></DtRow>
+          </DetailTable>
+        ) : null
+      )}
+
+      {month && (
         <WorkTable
           title="영업채널 실적 확인"
           hint={gate.length === 0
@@ -678,13 +696,13 @@ export default function SettlementLedgerPage() {
           <ListRow
             key={sup}
             main={sup}
-            sub={`${v.n}건 · 청구 ${won(v.claim)} · 수익 ${won(v.claim - v.pay)}`}
+            sub={`${v.n}건 · 매출 ${won(v.claim)} · 매출이익 ${won(v.claim - v.pay)}`}
             right={(
-              <Btn variant="bare" disabled={!month}
+              <Btn variant="bare" disabled={!month || month === '2026-08'}
                 onClick={() => window.open(
                   `/settlement/invoice?month=${encodeURIComponent(month)}&axis=${encodeURIComponent('공급사')}&party=${encodeURIComponent(sup)}`,
                   '_blank',
-                )}>청구서</Btn>
+                )}>{month === '2026-08' ? '원본검토' : '청구서'}</Btn>
             )}
           />
         ))}
@@ -699,9 +717,9 @@ export default function SettlementLedgerPage() {
         >
           <DtRow i={0} label="청구상태"><Badge tone={BILL_TONE[picked.billState]}>{picked.billState}</Badge></DtRow>
           <DtRow i={1} label="청구월">{picked.billingMonth || '인도 전'}</DtRow>
-          <DtRow i={2} label="청구액" valueStyle={{ fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{picked.money.claim ? won(picked.money.claim) : ''}</DtRow>
-          <DtRow i={3} label="지급액" valueStyle={{ fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{picked.money.pay ? won(picked.money.pay) : ''}</DtRow>
-          <DtRow i={4} label="우리몫" valueStyle={{ fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{picked.money.margin ? won(picked.money.margin) : ''}</DtRow>
+          <DtRow i={2} label="매출" valueStyle={{ fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{picked.money.claim ? won(picked.money.claim) : ''}</DtRow>
+          <DtRow i={3} label="매입" valueStyle={{ fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{picked.money.pay ? won(picked.money.pay) : ''}</DtRow>
+          <DtRow i={4} label="매출이익" valueStyle={{ fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}>{picked.money.margin ? won(picked.money.margin) : ''}</DtRow>
         </DetailTable>
       )}
     </>

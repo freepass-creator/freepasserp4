@@ -1,4 +1,6 @@
 
+import { residentIdInfo } from '@/lib/domain/esign-resident-id';
+
 export type SignedSnapshotRecord = Record<string, unknown>;
 
 const S = (value: unknown) => String(value ?? '').trim();
@@ -52,6 +54,11 @@ export function snapshotWithPrivateSubmission(
   if (!submission) return snapshot;
   const currentFields = record(snapshot.templateFields) || {};
   const driverLicenseNo = S(submission.driver_license_no);
+  const submittedCustomerId = S(submission.customer_id);
+  // 제출 경로에서 개인 주민번호는 암호화 보관되고, 승인·봉인 직전에만 복호화되어
+  // 이 함수로 전달된다. 완료 문서에는 원본 계약자번호와 함께 파생 생년월일을 일관되게
+  // 남긴다. 법인등록번호나 비정상 입력값에서 생년월일을 추정하지 않는다.
+  const derivedCustomerBirth = residentIdInfo(submittedCustomerId)?.birthDate || '';
   const additionalDrivers = Array.isArray(submission.additional_drivers)
     ? submission.additional_drivers.map(record).filter((row): row is SignedSnapshotRecord => !!row).slice(0, 3)
     : [];
@@ -61,11 +68,11 @@ export function snapshotWithPrivateSubmission(
   const confirmedFields: SignedSnapshotRecord = {
     customer_name: S(submission.customer_name),
     customer_phone: S(submission.customer_phone),
-    customer_id: S(submission.customer_id) || S(submission.customer_birth),
+    customer_id: submittedCustomerId || S(submission.customer_birth),
     customer_address: S(submission.customer_address),
-    // 개인 계약은 주민번호가 아니라 생년월일만 받는다. RRN은 매출증빙을 위해
-    // 고객이 명시적으로 선택한 경우에만 private node에 암호문으로 남고 PDF에는 싣지 않는다.
-    customer_birth: S(submission.customer_birth),
+    // 개인 계약의 주민번호는 private node에 암호문으로만 보관한다. 승인·봉인 시에만
+    // 복호화한 원문에서 생년월일을 보강하며, 공개 계약 노드에는 복제하지 않는다.
+    customer_birth: S(submission.customer_birth) || derivedCustomerBirth,
     driver_license_no: driverLicenseNo,
     driver_or_biz_no: driverLicenseNo,
     tax_biz_name: S(submission.tax_biz_name), tax_biz_no: S(submission.tax_biz_no), tax_ceo: S(submission.tax_ceo),

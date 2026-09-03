@@ -188,7 +188,7 @@ export function isDirectEditableField(from: AtomSource | string | null | undefin
 // 아래는 본 계약에 적어도 무방한 계약별 입력만 허용하고, 나머지는 authoritative record에서만 만든다.
 const ISSUE_INPUT_FIELDS = new Set([
   'deposit_installment',
-  'contract_vehicle_price', 'vehicle_remark',
+  'options', 'color_exterior', 'odometer_delivery', 'contract_vehicle_price', 'vehicle_remark',
   'auto_debit_date', 'buyback_option', 'buyback_price', 'driver_scope', 'maintenance_product',
   'special_terms', 'special_terms_choice',
   'additional_driver',

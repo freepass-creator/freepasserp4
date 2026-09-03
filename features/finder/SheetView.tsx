@@ -444,15 +444,6 @@ export function SheetView({
     }
   }, [authUser]);
 
-  const preloadTabs = useCallback((tabs: string[], currentTab: string) => {
-    for (const title of tabs) {
-      if (title === currentTab || gridCache.current.has(title)) continue;
-      void fetchGrid(title).catch(() => {
-        // 현재 보이는 탭은 정상이어야 한다. 백그라운드 탭 실패는 사용자가 누를 때만 안내한다.
-      });
-    }
-  }, [fetchGrid]);
-
   const load = useCallback(async (want: string) => {
     const request = ++activeRequest.current;
     setError('');
@@ -464,7 +455,9 @@ export function SheetView({
       if (request !== activeRequest.current) return;
       setGrid(loaded);
       setTab(loaded.tab);
-      preloadTabs(loaded.tabs, loaded.tab);
+      // 처음 열 때는 현재 탭만 읽는다. 원본 시트의 나머지 탭을 동시에 미리 받으면
+      // 대용량 응답·JSON 파싱이 겹쳐 온라인에서 표 스크롤과 입력이 버벅인다.
+      // 탭을 누르는 순간에는 fetchGrid의 세션 캐시/중복요청 방지가 그대로 적용된다.
     } catch (caught) {
       if (request !== activeRequest.current) return;
       const failure = caught as GridLoadError;
@@ -478,15 +471,14 @@ export function SheetView({
         setLoadingTab(null);
       }
     }
-  }, [fetchGrid, preloadTabs]);
+  }, [fetchGrid]);
 
   useEffect(() => {
     if (authReady) void load('');
   }, [authReady, authVersion, load]);
 
   const refreshAllTabs = useCallback(() => {
-    // 강제 새로고침은 현재 탭만 즉시 다시 읽고, 성공 뒤 나머지 공개 탭을 백그라운드에서
-    // 채운다. 기존 preload 응답은 epoch가 달라 캐시에 되살아나지 않는다.
+    // 강제 새로고침도 현재 탭만 다시 읽는다. 나머지는 사용자가 탭을 열 때 가져온다.
     invalidateGridCache(true);
     void load(tab);
   }, [invalidateGridCache, load, tab]);

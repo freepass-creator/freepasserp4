@@ -3,7 +3,7 @@
 import type { CSSProperties } from 'react';
 import { Wallet, UserRound, Briefcase, ShieldCheck, Sparkles, Coins, FileCheck, type LucideIcon } from 'lucide-react';
 import { type EntityRecord } from '@/lib/intake/entities';
-import { benefitSignals, eventSignals } from '@/lib/domain/product';
+import { benefitSignals, eventSignals, type ProductSignal } from '@/lib/domain/product';
 import { C, FW, FS, ICON } from '@/components/ui';
 import { toneText, CREDIT_TONE } from '@/components/ui/badges';
 import { benefitTip } from '@/components/product-card-badges';
@@ -54,20 +54,40 @@ function benefitIconColor(key: string, label?: string): string {
 }
 
 /** MetaIcon — 혜택용. iconColor로 아이콘만 색(혜택 신호). */
-export function MetaIcon({ icon: Icon, text, size = ICON.sm, strong, iconColor, title }: {
-  icon: LucideIcon; text: string; size?: number; strong?: boolean; iconColor?: string; title?: string;
+export function MetaIcon({ icon: Icon, text, size = ICON.sm, strong, iconColor, textColor, title }: {
+  icon: LucideIcon; text: string; size?: number; strong?: boolean; iconColor?: string; textColor?: string; title?: string;
 }) {
   return (
     <span
       title={title}
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 3, flex: '0 0 auto', whiteSpace: 'nowrap',
-        fontWeight: strong ? FW.strong : FW.body, color: strong ? C.ink : undefined,
+        fontWeight: strong ? FW.strong : FW.body, color: textColor ?? (strong ? C.ink : undefined),
         cursor: title ? 'help' : undefined,
       }}
     >
       <Icon size={size} strokeWidth={2.2} aria-hidden style={{ color: iconColor || C.faint, flex: '0 0 auto' }} />
       <span>{text}</span>
+    </span>
+  );
+}
+
+/** 표·카드 공용 조건 표현. 조건도 상자가 아니라 같은 아이콘+글자 문법을 쓴다. */
+export function ConditionMarks({ items, dense }: { items: ProductSignal[]; dense?: boolean }) {
+  if (!items.length) return null;
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: dense ? 7 : 9, minWidth: 0, whiteSpace: 'nowrap' }}>
+      {items.map((s) => (
+        <MetaIcon
+          key={s.key}
+          icon={benefitIcon(s.key)}
+          text={s.label}
+          size={ICON.sm}
+          strong
+          iconColor={benefitIconColor(s.key, s.label)}
+          title={benefitTip(s.key, s.label)}
+        />
+      ))}
     </span>
   );
 }
