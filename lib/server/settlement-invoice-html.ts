@@ -422,6 +422,13 @@ export const INVOICE_CSS = `
   .sec-h { font-size:11.5px; font-weight:700; color:var(--tl-d); letter-spacing:-.1px; margin-bottom:var(--sec-h);
     display:flex; align-items:center; gap:6px; }
   .sec-h .i { width:13px; height:13px; flex:none; opacity:.85; }
+  /**
+   * ★**아래 섹션은 «한 톤 연하게»** — 사장님 2026-09-03
+   *   「청구금액 섹션타이틀 색깔보다 정산내역이 약간 더 연했으면 좋겠네 하위니까」.
+   *   맞다. 「청구 금액」이 이 종이의 결론이고 「정산 내역」은 그 근거다. 위계가 색으로 보여야 한다.
+   */
+  .sec-h.sub { color:var(--tl); font-weight:600; }
+  .sec-h.sub .i { opacity:.6; }
   .sec-h .muted { font-weight:500; color:var(--mut); font-size:10px; margin-left:auto; }
   .ctab thead .pgn { font-weight:500; opacity:.75; margin-left:6px; }
 
@@ -467,18 +474,25 @@ export const INVOICE_CSS = `
    * ★**정산번호(연번)** — 사장님 2026-09-02 「정산내역에 정산번호가 있으면 좋겟네 몇건인지 바로 셀수 잇으니까」.
    *   쪽이 넘어가도 번호는 «이어진다» — 2쪽 첫 줄이 다시 1이 되면 세는 뜻이 없다.
    */
-  .ctab .no { width:34px; text-align:center; color:var(--faint); font-size:10px; font-weight:600;
-    font-variant-numeric:tabular-nums; background:#fafbfd; }
+  .ctab .no { text-align:center; color:var(--faint); font-size:10px; font-weight:600;
+    font-variant-numeric:tabular-nums; }
   .ctab thead th.no { color:#fff; background:var(--tl-d); font-size:10px; }
   /* ★금액 가로 요약표 — 이 종이가 말하는 단 하나. 마지막 칸이 결론이다. */
   .stab { width:100%; table-layout:fixed; border-collapse:separate; border-spacing:0; }
-  .stab th { background:var(--tl-d); color:#fff; font-size:10px; font-weight:700; padding:5px 5px; text-align:right; }
+  /**
+   * ★★**아래 「정산 내역」 표와 «같은 짜임»이다** — 사장님 2026-09-03
+   *   「왜 목록이 한번에 만든거 같은 느낌이 안들지??」 · 「공급가액이랑 좀 튀지」.
+   *   ⚠ 요약표만 «사방 격자»(칸마다 세로·가로 테두리 + 바깥 상자)였고, 내역표는 «가로줄»만이었다.
+   *     짜임이 다르면 아무리 폭을 맞춰도 두 표가 따로 만든 것으로 읽힌다.
+   *   ⇒ 머리 색·글자 크기·여백·테두리를 내역표와 «같은 값»으로 맞춘다. 세로 칸막이는 없앤다.
+   */
+  .stab th { background:var(--tl-d); color:#fff; font-size:10.5px; font-weight:700; padding:4px 7px; text-align:right; }
   .stab th:first-child { border-top-left-radius:var(--r-box); text-align:left; }
   .stab th:last-child { border-top-right-radius:var(--r-box); }
-  .stab td:first-child { border-bottom-left-radius:var(--r-box); }
-  .stab td { padding:11px 5px; text-align:right; font-size:11.5px; font-weight:600; font-variant-numeric:tabular-nums;
-    border:1px solid var(--ln); border-top:0; border-left:0; background:#fff; }
-  .stab td:first-child { border-left:1px solid var(--ln); text-align:left; font-size:11.5px; font-weight:600; color:var(--mut); }
+  .stab td { padding:9px 7px; text-align:right; font-size:12px; font-weight:600; font-variant-numeric:tabular-nums;
+    border-bottom:1px solid #edf0f4; }
+  .stab tbody tr:last-child td { border-bottom:0; }
+  .stab td:first-child { text-align:left; font-size:11.5px; font-weight:600; color:var(--mut); }
   .stab td.neg { color:var(--neg); }
   /** ★큰 숫자도 «같은 격자» 안에 있어야 한다 — 20px 면 아래 표의 합계 칸을 넘는다(실측 카핑 6,001,655). */
   /** ★청구 금액은 «글자»로 강조한다 — 배경까지 칠하면 아래 합계줄 띠와 두 덩어리가 된다. */
@@ -814,7 +828,7 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
   <div class="pad"></div>
   ${page === 0 ? info + summary : ''}
   <div class="sec">
-    <div class="sec-h">${ico('내역')}정산 내역<span class="muted">${
+    <div class="sec-h sub">${ico('내역')}정산 내역<span class="muted">${
       pages.length > 1 ? `${from}–${from + chunk.length - 1} / ${inv.lines.length}건` : `${plus.length}건`
     } · 단위 원</span></div>
     <table class="ctab">
