@@ -44,6 +44,8 @@ const withRaw = items.filter((x) => x.atom['원문']).length;
 const blankSub = items.filter((x) => !S(x.atom.sub_model)).length;
 
 console.log(`RTDB v4/products(차번有·살아있음) ${rows.length} → Firestore products 원자 ${items.length} (차번중복 ${dups})`);
+// ★차량번호는 유일 — 겹치면 오류다(사장님 2026-09-03 「겹친다면 오류임」). 겹치면 쓰지 않고 멈춘다.
+if (dups > 0) { console.error(`\n✗ 차번 겹침 ${dups}건 — 오류. 원자에 같은 번호 2개 불가. 중복 해소 전 반영 중단.`); process.exit(1); }
 console.log(`정제 ${REFINED.length}필드 + 원문(차명·옵션) · 원문있음 ${withRaw} · 세부모델 아직 빈 것 ${blankSub}(정제개선 시 최신화)`);
 console.log('샘플 3:');
 for (const { id, atom } of items.slice(0, 3)) console.log(`  products/${id}  정제「${S(atom.maker)} ${S(atom.model)} ${S(atom.sub_model)} ${S(atom.trim_name)}」 · 원문「${S(atom['원문']?.['차명']).slice(0, 30)}」`);
