@@ -373,7 +373,8 @@ export const INVOICE_CSS = `
        높이는 상호(19)+신원(10.5) 두 줄에 맞춘 값이다 — 재서 맞춘다
        (node scripts/measure-ci-lockup.mjs). */
   .titlerow .tr .lock { display:flex; align-items:center; justify-content:flex-end; gap:12px; }
-  .titlerow .tr .plogo { height:43px; max-width:110px; flex:none;
+  /** ★로고 자리 — 그림이 있든 없든 «같은 크기»다. 없으면 빈 칸으로 선다. */
+  .titlerow .tr .plogo { height:43px; width:110px; max-width:110px; flex:none;
     object-fit:contain; object-position:right center; }
   .titlerow .tr .nm span { margin-left:8px; font-size:12px; font-weight:600; color:var(--mut); letter-spacing:0; }
   .titlerow .tr .id { margin-top:5px; font-size:10.5px; color:var(--faint); }
@@ -662,7 +663,13 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
    */
   const logoImg = (alias: string) => {
     const src = logoOf(alias);
-    return src ? `<img class="plogo" src="${src}" alt="">` : '';
+    /**
+     * ★★**로고가 없어도 «자리»는 잡는다** — 사장님 2026-09-03 「회사 CI로 공간만 확보해두고」.
+     *   ⚠ 없을 때 아무것도 안 그리면 상호가 왼쪽으로 밀려, 로고 있는 종이와 없는 종이의
+     *     이름 자리가 달라진다. 열여덟 장을 나란히 놓으면 그게 «따로 만든 것»으로 보인다.
+     *   ⇒ 빈 칸을 같은 크기로 세워 둔다. 나중에 파일만 넣으면 그 자리에 그림이 앉는다.
+     */
+    return src ? `<img class="plogo" src="${src}" alt="">` : '<span class="plogo"></span>';
   };
 
   const spread = (text: string) => text
