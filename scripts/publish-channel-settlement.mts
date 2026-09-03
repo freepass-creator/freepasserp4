@@ -30,7 +30,7 @@ import { CORP } from '../lib/domain/corporate-ci';
 import { payDate, payDayOf, PAY_DAY_BY_SUPPLIER } from '../lib/domain/settlement-cycle';
 import { settleTargetOf } from '../lib/domain/settlement-stage';
 import { feeKindOf, feeRuleFor } from '../lib/domain/settlement-fee-table';
-import { channelSheetName } from '../lib/server/channel-sheet-tabs';
+import { channelSheetName, CHANNEL_SETTLE_HEAD, CHANNEL_SETTLE_WIDTH, SETTLE_BASIS, SETTLE_NOTE, settleTabOf } from '../lib/server/channel-sheet-tabs';
 
 const MONTH = (process.argv.find((a) => /^\d{4}-\d{2}$/.test(a)) || '').trim();
 const APPLY = process.argv.includes('--apply');
@@ -177,10 +177,9 @@ const BASIS = ['수수료 산정 기준'];
  *   「에이전시가 체크한 내용 메모남길수 있게 해줘 공급사도 마찬가지고」.
  *   ⚠⚠ 매달 다시 찍을 때 «적어 둔 것을 덮으면 안 된다» — 차량번호로 찾아 그대로 되돌려 놓는다.
  */
-const NOTE = ['확인', '메모'];
-const HEAD = ['No.', '차량번호', '접수일', '인도일', '공급사', '모델명', '임차인', '상품 구분', '계약 기간', '렌탈료',
-  ...BASIS, '공급가액', '부가세', '합계', '지급 예정일', ...NOTE];
-const WIDTH = [40, 92, 84, 84, 92, 150, 76, 112, 76, 92, 250, 100, 88, 108, 96, 56, 260];
+const NOTE = SETTLE_NOTE;
+const HEAD = CHANNEL_SETTLE_HEAD;
+const WIDTH = CHANNEL_SETTLE_WIDTH;
 /**
  * ★★★**청구액은 영업채널 시트에 «절대» 안 들어간다** — 공급사 쪽 빗장의 거울.
  *   말로 두지 않고 머리글을 기계가 본다. 걸리면 붙이기 전에 멈춘다.

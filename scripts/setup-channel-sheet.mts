@@ -15,7 +15,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
-import { channelSheetName, ensureNoticeTab, ensureGuideTab, ensureFeeTab, ensureCompanyTab } from '../lib/server/channel-sheet-tabs';
+import { channelSheetName, ensureNoticeTab, ensureGuideTab, ensureFeeTab, ensureCompanyTab, ensureMonthTab } from '../lib/server/channel-sheet-tabs';
 
 const S = (v: unknown) => String(v ?? '').trim();
 const APPLY = process.argv.includes('--apply');
@@ -84,6 +84,16 @@ await redo('수수료');
 console.log(`   ${await ensureFeeTab(tok, id) ? '+ 「수수료」 만듦 (지급 요율만)' : '○ 「수수료」 있음 — 손대지 않음'}`);
 await redo('회사정보');
 console.log(`   ${await ensureCompanyTab(tok, id) ? '+ 「회사정보」 만듦 (채널이 적는 칸)' : '○ 「회사정보」 있음 — 손대지 않음'}`);
+
+/**
+ * ★**다음 달 탭을 미리 열어 둔다** — 사장님 2026-09-03 「회사정보 옆으로는 9월 탭 미리 만들어놓아」.
+ *   달이 바뀌자마자 «둘 곳»이 있어야 한다. 마감 뒤 publish-channel-settlement 가 이 탭을 찾아 채운다.
+ * ⚠ `--month=2026-09` 로 달을 직접 줄 수 있다. 안 주면 «다음 달».
+ */
+const now = new Date();
+const NEXT = (process.argv.find((a) => a.startsWith('--month=')) || '').slice('--month='.length)
+  || `${new Date(now.getFullYear(), now.getMonth() + 1, 1).getFullYear()}-${String(new Date(now.getFullYear(), now.getMonth() + 1, 1).getMonth() + 1).padStart(2, '0')}`;
+console.log(`   ${await ensureMonthTab(tok, id, NEXT) ? `+ 「${NEXT.slice(2, 4)}년${NEXT.slice(5)}월 정산」 미리 만듦` : `○ 「${NEXT.slice(2, 4)}년${NEXT.slice(5)}월 정산」 있음 — 손대지 않음`}`);
 
 /** ★새 시트에 딸려 오는 빈 「시트1」은 값이 없을 때만 걷는다. */
 const m = await (await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${id}?fields=sheets.properties(sheetId,title)`, { headers: { Authorization: `Bearer ${await tok()}` } })).json() as {

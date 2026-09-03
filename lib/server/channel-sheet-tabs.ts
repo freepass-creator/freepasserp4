@@ -15,7 +15,7 @@
  * ⚠ **이미 있으면 손대지 않는다.** 공지사항은 사람이 적는 칸이고, 수수료는 채널과 «합의한» 값이라
  *   매달 돌 때마다 덮으면 적어 둔 것도 고쳐 둔 값도 날아간다.
  */
-import { FEE_RULES } from '@/lib/domain/settlement-fee-table';
+import { FEE_RULES, type FeeRule } from '@/lib/domain/settlement-fee-table';
 import { CHANNEL_GUIDE } from '@/lib/domain/channel-guide';
 import { CORP } from '@/lib/domain/corporate-ci';
 
@@ -159,51 +159,109 @@ export async function ensureGuideTab(tok: Tok, bookId: string): Promise<boolean>
 const payShow = (v: number | string): string => {
   if (typeof v === 'string') return v;
   if (!v) return '';
-  return v >= 1 ? `건당 ${won(v)}` : `${Number((v * 100).toFixed(2))}%`;
+  return v >= 1 ? `건당 ${won(v)}원` : `${Number((v * 100).toFixed(2))}%`;
 };
 
 /**
- * 「수수료」 — **영업채널에 «주는» 요율만.** 공급사별로 한 줄씩.
+ * **한 줄을 «파는 사람 말»로 옮긴다.**
  *
- * ★빈 표를 주지 않는다 — 지금 쓰는 값(`FEE_RULES.pay`)을 미리 채워 두고 「다르면 고쳐 달라」고 한다.
- *   빈 표를 주면 상대가 자기에게 유리한 값을 새로 적는다(공급사 수수료 탭에서 배운 것).
+ * ⚠ 첫 판은 `FEE_RULES` 를 그대로 쏟아 154줄이 나갔다 — 기준·언제 드리나·비고까지 우리 내부 말이
+ *   그대로 실렸고, 그 채널이 팔지도 않는 공급사가 스물둘 다 들어갔다(사장님 2026-09-03
+ *   「수수료 탭 뭐여 ㅡㅡ;;; 본거 맞아??」). 안 본 채로 찍은 내 잘못이다.
+ *
+ * ★채널이 묻는 것은 하나다 — **「이걸 팔면 얼마 받나」**. 그래서 세 칸이면 족하다.
+ *   무엇을 팔면 │ 이렇게 드립니다 │ 예를 들면
+ */
+/** 은/는 — 받침이 있으면 「은」. 「손오공 는」 같은 말이 나가면 그 자리에서 신뢰가 깎인다. */
+const eun = (w: string) => {
+  const last = w.trim().slice(-1).charCodeAt(0);
+  const hangul = last >= 0xac00 && last <= 0xd7a3;
+  return `${w}${hangul && (last - 0xac00) % 28 ? '은' : '는'}`;
+};
+const KIND = (r: FeeRule) => `${r.kind}${r.form ? ` (${r.form})` : ''}${r.term ? ` ${r.term}개월` : ''}`;
+const HOWMUCH = (r: FeeRule) => {
+  const p = payShow(r.pay);
+  if (typeof r.pay === 'string') return p;
+  if (r.basis === '정액') return p;
+  if (r.basis === '차량가액') return `차량가액의 ${p}`;
+  if (r.basis === '대여료×기간') return `대여료 × 계약기간 × ${p}`;
+  return p;
+};
+const EXAMPLE = (r: FeeRule) => {
+  if (typeof r.pay !== 'number') return r.auto ? '' : '영업자와 조율해 정합니다';
+  if (r.basis === '정액') return '건수대로 드립니다';
+  if (r.basis === '차량가액') return `차량가액 4,000만원이면  ${won(40_000_000 * r.pay)}원`;
+  if (r.basis === '대여료×기간' && r.term) return `월 80만원 × ${r.term}개월이면  ${won(800_000 * r.term * r.pay)}원`;
+  return '';
+};
+
+/**
+ * 「수수료」 — **영업채널에 «주는» 요율만.**
+ *
+ * ★★**표준을 한 번만 적는다.** 공급사 스물둘 가운데 열여섯 곳이 «똑같은 사다리»를 쓴다.
+ *   그걸 스물두 번 되풀이하면 표가 아니라 벽이 된다. 표준을 한 덩이로 세우고,
+ *   «다른 곳»만 아래에 따로 적는다. 그러면 한 화면에 든다.
  * ⚠ `claim`(공급사에게 받는 값)은 이 탭에 «한 칸도» 넣지 않는다.
  */
 export async function ensureFeeTab(tok: Tok, bookId: string): Promise<boolean> {
   const TAB = '수수료';
   if ((await tabs(tok, bookId)).some((s) => s.properties.title === TAB)) return false;
-  const HEAD = ['공급사', '상품 구분', '계약 기간', '기준', '지급 요율', '언제 드리나', '비고'];
-  const WIDTH = [110, 130, 84, 110, 130, 190, 260];
-  const body = FEE_RULES.map((r) => [
-    r.supplier,
-    [r.kind, r.form].filter(Boolean).join(' · '),
-    r.term ? `${r.term}개월` : '기간무관',
-    r.basis,
-    payShow(r.pay),
-    r.when,
-    [r.auto ? '' : '★사람이 정하는 줄', S(r.note)].filter(Boolean).join(' · '),
-  ]);
-  /** ★수수료는 셋째 — 공지사항 · 영업안내 다음이다. 그 뒤로 달별 정산 탭이 쌓인다. */
-  const id = await addTab(tok, bookId, TAB, 2, body.length + 12, HEAD.length);
-  if (id === undefined) return false;
-  await put(tok, bookId, `'${TAB}'!A1:G${body.length + 4}`, [
-    [`영업수수료 지급 요율표 — ${CORP.name} 가 드리는 값입니다`, '', '', '', '', '', ''],
+
+  /** 공급사별 «규칙 묶음»을 지문으로 만든다 — 지문이 같으면 같은 조건이다. */
+  const sig = (r: FeeRule) => `${KIND(r)}\u0001${HOWMUCH(r)}`;
+  const bySup = new Map<string, FeeRule[]>();
+  for (const r of FEE_RULES) bySup.set(r.supplier, [...(bySup.get(r.supplier) || []), r]);
+  const finger = new Map<string, string>();
+  for (const [sup, rs] of bySup) finger.set(sup, rs.map(sig).sort().join('\u0002'));
+  const groups = new Map<string, string[]>();
+  for (const [sup, f] of finger) groups.set(f, [...(groups.get(f) || []), sup]);
+  const [stdFinger, stdSups] = [...groups].sort((a, b) => b[1].length - a[1].length)[0];
+  const stdRules = bySup.get(stdSups[0]) || [];
+  const others = [...bySup.keys()].filter((s) => finger.get(s) !== stdFinger);
+
+  const HEAD = ['무엇을 팔면', '이렇게 드립니다', '예를 들면'];
+  const rows: (string | number)[][] = [
+    [`영업수수료 — ${CORP.name} 가 드리는 값입니다`, '', ''],
     HEAD,
-    ...body,
-    ['', '', '', '', '', '', ''],
-    ['※ 여기 적힌 값으로 매달 정산합니다. 다르면 이 표를 고쳐 주세요 — 고친 값이 다음 정산부터 쓰입니다.', '', '', '', '', '', ''],
-  ]);
-  const last = body.length + 2;   // 머리줄(2) + 본문
+    [`■ 아래 ${stdSups.length}곳은 조건이 같습니다`, stdSups.join(' · '), ''],
+    ...stdRules.map((r) => [KIND(r), HOWMUCH(r), EXAMPLE(r)]),
+  ];
+  /**
+   * ★★**표준과 «같은 줄»은 다시 적지 않는다.**
+   *   손오공은 표준 사다리에 구독 다섯 줄이 «더해진» 것뿐인데,
+   *   통째로 다시 찍으면 같은 사다리가 스물두 번 나온다 — 그게 바로 첫 판이 벽이 된 까닭이다.
+   *   ⇒ «다른 줄»만 적고, 나머지는 「위와 같습니다」 한 줄로 말한다.
+   */
+  const stdSet = new Set(stdRules.map(sig));
+  for (const sup of others) {
+    const rs = bySup.get(sup) || [];
+    const diff = rs.filter((r) => !stdSet.has(sig(r)));
+    const same = rs.length - diff.length;
+    rows.push([`■ ${eun(sup)} 따로 정합니다`, same ? '그 밖 조건은 위 표준과 같습니다' : '', '']);
+    for (const r of (diff.length ? diff : rs)) rows.push([KIND(r), HOWMUCH(r), EXAMPLE(r)]);
+  }
+  rows.push(['', '', '']);
+  rows.push(['여기 적힌 값으로 매달 정산해 드립니다. 다르면 알려 주시면 고쳐 드립니다.', '', '']);
+
+  const id = await addTab(tok, bookId, TAB, 2, rows.length + 10, 3);
+  if (id === undefined) return false;
+  await put(tok, bookId, `'${TAB}'!A1:C${rows.length}`, rows);
+
+  const heads = rows.map((r, i) => (String(r[0]).startsWith('■') ? i : -1)).filter((i) => i > 0);
   await format(tok, bookId, [
-    ...dress(id, HEAD.length, WIDTH),
-    { repeatCell: { range: { sheetId: id, startRowIndex: 2, endRowIndex: last, startColumnIndex: 0, endColumnIndex: HEAD.length },
-      cell: { userEnteredFormat: { verticalAlignment: 'MIDDLE', wrapStrategy: 'WRAP' } }, fields: 'userEnteredFormat(verticalAlignment,wrapStrategy)' } },
-    { repeatCell: { range: { sheetId: id, startRowIndex: 2, endRowIndex: last, startColumnIndex: 4, endColumnIndex: 5 },
-      cell: { userEnteredFormat: { horizontalAlignment: 'RIGHT', textFormat: { bold: true } } }, fields: 'userEnteredFormat(horizontalAlignment,textFormat)' } },
-    { repeatCell: { range: { sheetId: id, startRowIndex: 2, endRowIndex: last, startColumnIndex: 1, endColumnIndex: 4 },
-      cell: { userEnteredFormat: { horizontalAlignment: 'CENTER' } }, fields: 'userEnteredFormat.horizontalAlignment' } },
-    /** ★필터 — 공급사·상품 구분으로 그 자리에서 추린다(정산 탭과 같은 규격). */
-    { setBasicFilter: { filter: { range: { sheetId: id, startRowIndex: 1, endRowIndex: last, startColumnIndex: 0, endColumnIndex: HEAD.length } } } },
+    ...dress(id, 3, [230, 300, 330]),
+    ...heads.flatMap((r) => [
+      { repeatCell: { range: { sheetId: id, startRowIndex: r, endRowIndex: r + 1, startColumnIndex: 0, endColumnIndex: 3 },
+        cell: { userEnteredFormat: { backgroundColor: NAVY, textFormat: { bold: true, fontSize: 11, foregroundColor: { red: 1, green: 1, blue: 1 } }, verticalAlignment: 'MIDDLE', padding: { left: 10, right: 10, top: 2, bottom: 2 } } },
+        fields: 'userEnteredFormat(backgroundColor,textFormat,verticalAlignment,padding)' } },
+      { updateDimensionProperties: { range: { sheetId: id, dimension: 'ROWS', startIndex: r, endIndex: r + 1 }, properties: { pixelSize: 34 }, fields: 'pixelSize' } },
+    ]),
+    { repeatCell: { range: { sheetId: id, startRowIndex: 2, endRowIndex: rows.length, startColumnIndex: 0, endColumnIndex: 2 },
+      cell: { userEnteredFormat: { verticalAlignment: 'MIDDLE', wrapStrategy: 'WRAP', textFormat: { bold: true } } }, fields: 'userEnteredFormat(verticalAlignment,wrapStrategy,textFormat)' } },
+    /** ★「예를 들면」은 곁다리 — 흐리게 두어 «얼마»가 먼저 읽히게 한다. */
+    { repeatCell: { range: { sheetId: id, startRowIndex: 2, endRowIndex: rows.length, startColumnIndex: 2, endColumnIndex: 3 },
+      cell: { userEnteredFormat: { verticalAlignment: 'MIDDLE', wrapStrategy: 'WRAP', textFormat: { fontSize: 9, bold: false, foregroundColor: { red: 0.42, green: 0.45, blue: 0.5 } } } },
+      fields: 'userEnteredFormat(verticalAlignment,wrapStrategy,textFormat)' } },
   ]);
   return true;
 }
@@ -273,6 +331,61 @@ export async function ensureCompanyTab(tok: Tok, bookId: string): Promise<boolea
     { repeatCell: { range: { sheetId: id, startRowIndex: g0, endRowIndex: rows.length, startColumnIndex: 2, endColumnIndex: 3 },
       cell: { userEnteredFormat: { verticalAlignment: 'MIDDLE', wrapStrategy: 'WRAP', textFormat: { fontSize: 9, foregroundColor: { red: 0.42, green: 0.45, blue: 0.5 } } } },
       fields: 'userEnteredFormat(verticalAlignment,wrapStrategy,textFormat)' } },
+  ]);
+  return true;
+}
+
+/**
+ * **달별 정산 탭의 «머리글» — 여기가 정본이다.**
+ *
+ * ★`publish-channel-settlement`(값을 채운다)와 `ensureMonthTab`(빈 탭을 미리 세운다)이
+ *   «같은 칸»을 써야 한다. 따로 적으면 미리 세운 탭과 나중에 채운 탭의 칸이 어긋난다.
+ */
+export const SETTLE_BASIS = ['수수료 산정 기준'];
+export const SETTLE_NOTE = ['확인', '메모'];
+export const CHANNEL_SETTLE_HEAD = ['No.', '차량번호', '접수일', '인도일', '공급사', '모델명', '임차인',
+  '상품 구분', '계약 기간', '렌탈료', ...SETTLE_BASIS, '공급가액', '부가세', '합계', '지급 예정일', ...SETTLE_NOTE];
+export const CHANNEL_SETTLE_WIDTH = [40, 92, 84, 84, 92, 150, 76, 112, 76, 92, 250, 100, 88, 108, 96, 56, 260];
+export const settleTabOf = (m: string) => `${m.slice(2, 4)}년${m.slice(5)}월 정산`;
+
+/**
+ * 「26년09월 정산」 같은 **빈 달 탭을 미리 세운다.**
+ *
+ * ★사장님 2026-09-03 「회사정보 옆으로는 9월 탭 미리 만들어놔」.
+ *   ⇒ 달이 바뀌자마자 «둘 곳»이 이미 있어야 한다. 그 달 마감 뒤 `publish-channel-settlement`
+ *     가 이 탭을 그대로 찾아 채운다(있으면 새로 만들지 않고 고쳐 쓴다).
+ * ★빈 표를 그냥 두지 않고 «언제 채워지는지»를 적어 둔다 — 안 그러면 「왜 비어 있냐」가 된다.
+ */
+export async function ensureMonthTab(tok: Tok, bookId: string, month: string): Promise<boolean> {
+  const TAB = settleTabOf(month);
+  if ((await tabs(tok, bookId)).some((s) => s.properties.title === TAB)) return false;
+  const H = CHANNEL_SETTLE_HEAD;
+  const rows: (string | number)[][] = [
+    [`${month.slice(0, 4)}년 ${Number(month.slice(5))}월 정산서    ·    ${CORP.name} 발행`, ...H.slice(1).map(() => '')],
+    [...H.slice(0, H.length - 3).map(() => ''), '공급가액', '부가세', '지급 금액'],
+    [...H.slice(0, H.length - 3).map(() => ''), '', '', ''],
+    H,
+    [`${Number(month.slice(5))}월이 마감되면 이 탭에 채워 드립니다.`, ...H.slice(1).map(() => '')],
+  ];
+  const id = await addTab(tok, bookId, TAB, (await tabs(tok, bookId)).length, 60, H.length);
+  if (id === undefined) return false;
+  await put(tok, bookId, `'${TAB}'!A1:${String.fromCharCode(64 + H.length)}${rows.length}`, rows);
+  await format(tok, bookId, [
+    { mergeCells: { range: { sheetId: id, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: H.length }, mergeType: 'MERGE_ALL' } },
+    { repeatCell: { range: { sheetId: id, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: H.length },
+      cell: { userEnteredFormat: { backgroundColor: NAVY, textFormat: { bold: true, fontSize: 12, foregroundColor: { red: 1, green: 1, blue: 1 } }, verticalAlignment: 'MIDDLE', padding: { left: 10, right: 10, top: 2, bottom: 2 } } },
+      fields: 'userEnteredFormat(backgroundColor,textFormat,verticalAlignment,padding)' } },
+    { updateDimensionProperties: { range: { sheetId: id, dimension: 'ROWS', startIndex: 0, endIndex: 1 }, properties: { pixelSize: 40 }, fields: 'pixelSize' } },
+    ...[1, 3].map((r) => ({ repeatCell: { range: { sheetId: id, startRowIndex: r, endRowIndex: r + 1, startColumnIndex: 0, endColumnIndex: H.length },
+      cell: { userEnteredFormat: { backgroundColor: NAVY, textFormat: { bold: true, fontSize: 10, foregroundColor: { red: 1, green: 1, blue: 1 } }, horizontalAlignment: r === 1 ? 'RIGHT' : 'CENTER', verticalAlignment: 'MIDDLE', wrapStrategy: 'WRAP' } },
+      fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment,wrapStrategy)' } })),
+    { updateDimensionProperties: { range: { sheetId: id, dimension: 'ROWS', startIndex: 3, endIndex: 4 }, properties: { pixelSize: 40 }, fields: 'pixelSize' } },
+    { repeatCell: { range: { sheetId: id, startRowIndex: 2, endRowIndex: 3, startColumnIndex: 0, endColumnIndex: H.length },
+      cell: { userEnteredFormat: { backgroundColor: TINT } }, fields: 'userEnteredFormat.backgroundColor' } },
+    { repeatCell: { range: { sheetId: id, startRowIndex: 4, endRowIndex: 5, startColumnIndex: 0, endColumnIndex: H.length },
+      cell: { userEnteredFormat: { textFormat: { fontSize: 10, italic: true, foregroundColor: { red: 0.42, green: 0.45, blue: 0.5 } } } }, fields: 'userEnteredFormat.textFormat' } },
+    ...CHANNEL_SETTLE_WIDTH.map((w, c) => ({ updateDimensionProperties: { range: { sheetId: id, dimension: 'COLUMNS', startIndex: c, endIndex: c + 1 }, properties: { pixelSize: w }, fields: 'pixelSize' } })),
+    { repeatCell: { range: { sheetId: id }, cell: { userEnteredFormat: { textFormat: { fontFamily: 'Roboto' } } }, fields: 'userEnteredFormat.textFormat.fontFamily' } },
   ]);
   return true;
 }
