@@ -43,7 +43,9 @@ export function collectVehicleSignals(product: EntityRecord): string[] {
   for (const key of VEHICLE_SIGNAL_KEYS) {
     const value = source[key];
     if (value == null || value === '') continue;
-    const signal = String(value).trim();
+    // ★「F/L」(슬래시 페이스리프트 표기)→「FL」 — 매처는 FL 을 세대신호로 읽는데 슬래시가 있으면 못 읽는다.
+    //   실측 2026-09-03: 「그랜저 IG F/L」→ 그랜저 IG(구세대) 오매칭. 「FL」이면 더 뉴 그랜저 IG 로 맞는다.
+    const signal = String(value).trim().replace(/\bF\s*\/\s*L\b/gi, 'FL');
     if (signal) signals.push(signal);
   }
   return signals;
