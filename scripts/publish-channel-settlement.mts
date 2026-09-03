@@ -16,8 +16,8 @@
  *   ⚠ 만들기만 하고 «밖으로는 안 연다». 공유는 회사(teamjpk.com)까지다 — 채널에 주는 것은
  *     사람이 확인하고 누를 일이다.
  *
- * ★**공급사를 갈라야 하는 채널이 있다** — 하허호는 오토플러스 건을 따로 본다(SPLIT).
- *   탭을 「26년08월 지급 · 오토플러스」로 갈라 세운다.
+ * ★**지급일이 다른 공급사는 «탭을 가른다»** — 오토플러스는 익월 25일(나머지 15일).
+ *   한 탭에 15일 몫과 25일 몫이 섞이면 종이에 찍힌 날이 절반은 틀린 말이 된다.
  *
  *   npx tsx scripts/publish-channel-settlement.mts 2026-08
  *   npx tsx scripts/publish-channel-settlement.mts 2026-08 --apply --only=하허호
@@ -27,7 +27,7 @@ import { JWT } from 'google-auth-library';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getDatabase } from 'firebase-admin/database';
 import { CORP } from '../lib/domain/corporate-ci';
-import { payDate } from '../lib/domain/settlement-cycle';
+import { payDate, payDayOf, PAY_DAY_BY_SUPPLIER } from '../lib/domain/settlement-cycle';
 import { settleTargetOf } from '../lib/domain/settlement-stage';
 import { feeKindOf, feeRuleFor } from '../lib/domain/settlement-fee-table';
 
@@ -45,8 +45,15 @@ const monthKo = (m: string) => `${m.slice(0, 4)}년 ${Number(m.slice(5))}월`;
 const dayKo = (d: Date | null) => (d ? `${d.getFullYear()}. ${String(d.getMonth() + 1).padStart(2, '0')}. ${String(d.getDate()).padStart(2, '0')}` : '');
 const key = (v: unknown) => S(v).toLowerCase().replace(/[\s()·\-_.]/g, '').replace(/(주식회사|㈜|무심사|모빌리티)/g, '');
 
-/** ★**갈라 봐야 하는 채널** — 사장님 2026-09-03 「하허호는 오플거 분리해주고」. */
-const SPLIT: Record<string, string[]> = { 하허호: ['오토플러스'] };
+/**
+ * ★★**왜 가르나 — «지급일이 달라서»다.** 사장님 2026-09-03
+ *   「하허호는 오플거 분리해주고」 → 「하허호보니까 **오플 지급일이 달라서** 따로 정리해놨어」.
+ *
+ *   그러니 가르는 기준을 손으로 적지 않는다. 지급일이 다른 공급사(`PAY_DAY_BY_SUPPLIER`)를
+ *   그대로 «가를 목록»으로 쓴다 — 날짜가 바뀌면 가름도 같이 따라온다. 채널마다 적으면 또 어긋난다.
+ *   ⚠ 한 탭에 15일 몫과 25일 몫이 섞이면 «종이에 찍힌 날이 절반은 틀린 말»이 된다.
+ */
+const SPLIT_SUPPLIERS = Object.keys(PAY_DAY_BY_SUPPLIER);
 
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 if (!getApps().length) initializeApp({ credential: cert(sa), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' });
@@ -121,7 +128,8 @@ const chans = [...new Set(rows.map((r) => S(r.channel)).filter(Boolean))];
 console.log(`\n■ ${MONTH} — 영업채널 ${chans.length}곳 ${APPLY ? '(반영)' : '(대조만)'}\n`);
 
 type Back = { plate: string; sup: string; amt: number; why: string };
-type Job = { ch: string; tab: string; lines: Line[]; backs: Back[]; net: number; vat: number };
+/** `paySup` = 이 탭이 «어느 공급사 지급일»을 따르나. 빈칸이면 기본(익월 15일). */
+type Job = { ch: string; tab: string; paySup: string; lines: Line[]; backs: Back[]; net: number; vat: number };
 const jobs: Job[] = [];
 for (const ch of chans) {
   if (ONLY && !ch.includes(ONLY)) continue;
@@ -130,26 +138,26 @@ for (const ch of chans) {
     .map((c) => ({ plate: S(c.plate), sup: S(c.supplier), amt: N(c.agentAmt), why: S(c.reason) }))
     .filter((b) => b.amt !== 0);
   if (!mine.length && !mineBacks.length) continue;
-  const cut = Object.entries(SPLIT).find(([k]) => key(ch).includes(key(k)))?.[1] || [];
+  const cut = SPLIT_SUPPLIERS;
   const isCut = (sup: string) => cut.some((s) => key(sup).includes(key(s)));
   /** 갈라 볼 공급사는 «제 탭»으로, 나머지는 한 탭으로. 환수도 «제 공급사» 탭을 따라간다. */
-  const groups: [string, Line[], Back[]][] = [];
+  const groups: [string, string, Line[], Back[]][] = [];
   for (const sup of cut) {
     const g = mine.filter((l) => key(l.sup).includes(key(sup)));
     const gb = mineBacks.filter((b) => key(b.sup).includes(key(sup)));
-    if (g.length || gb.length) groups.push([`${tabOf(MONTH)} · ${sup}`, g, gb]);
+    if (g.length || gb.length) groups.push([`${tabOf(MONTH)} · ${sup}`, sup, g, gb]);
   }
   const rest = mine.filter((l) => !isCut(l.sup));
   const restBacks = mineBacks.filter((b) => !isCut(b.sup));
-  if (rest.length || restBacks.length) groups.push([tabOf(MONTH), rest, restBacks]);
-  for (const [tab, lines, backs] of groups) {
+  if (rest.length || restBacks.length) groups.push([tabOf(MONTH), '', rest, restBacks]);
+  for (const [tab, paySup, lines, backs] of groups) {
     const cl = backs.reduce((a, b) => a + b.amt, 0);
-    jobs.push({ ch, tab, lines, backs,
+    jobs.push({ ch, tab, paySup, lines, backs,
       net: lines.reduce((a, b) => a + b.net, 0) - cl,
       vat: lines.reduce((a, b) => a + b.vat, 0) - Math.round(cl * VAT) });
   }
 }
-for (const j of jobs) console.log(`   ${j.ch.padEnd(12)} ${String(j.lines.length).padStart(2)}줄 · 지급 ${won(j.net + j.vat).padStart(12)}${j.backs.length ? `  (환수 -${won(j.backs.reduce((a, b) => a + b.amt, 0))})` : ''}  →  「${j.tab}」`);
+for (const j of jobs) console.log(`   ${j.ch.padEnd(12)} ${String(j.lines.length).padStart(2)}줄 · 지급 ${won(j.net + j.vat).padStart(12)}${j.backs.length ? `  (환수 -${won(j.backs.reduce((a, b) => a + b.amt, 0))})` : ''}  →  「${j.tab}」  익월 ${payDayOf(j.paySup)}일`);
 if (!APPLY) { console.log('\n※ dry-run — 아무것도 안 만들고 안 썼습니다. --apply 로 붙입니다.\n'); process.exit(0); }
 
 const NAVY = { red: 0.06, green: 0.11, blue: 0.21 };
@@ -247,7 +255,8 @@ for (const j of jobs) {
     ...body,
     ['', '합계', `${j.lines.length}건`, ...pad(iM - 3), j.net, j.vat, j.net + j.vat],
     [],
-    [`${dayKo(payDate(MONTH))} 지급 예정입니다`, ...pad(HEAD.length - 1)],
+    /** ★지급일은 «그 탭의 공급사»를 따른다 — 오플은 익월 25일, 나머지는 15일. */
+    [`${dayKo(payDate(MONTH, j.paySup))} 지급 예정입니다${j.paySup ? ` (${j.paySup} 건 · 매월 ${payDayOf(j.paySup)}일)` : ''}`, ...pad(HEAD.length - 1)],
     [`${CORP.staff} · ${S(CORP.staffPhone) || CORP.phone} · ${CORP.email}`, ...pad(HEAD.length - 1)],
     ['세금계산서 발행 부탁드립니다 · 한 달간 함께해 주셔서 감사합니다', ...pad(HEAD.length - 1)],
   ];

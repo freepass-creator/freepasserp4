@@ -42,10 +42,26 @@ export function dueDate(month: string): Date | null {
   return x ? new Date(Number(x[1]), Number(x[2]), DUE_DAY) : null;
 }
 
-/** 정산월 `2026-08` → 영업채널 지급 예정일 `2026-09-15` */
-export function payDate(month: string): Date | null {
+/**
+ * ★★**공급사마다 «주는 날»이 다른 경우가 있다** — 사장님 2026-09-03
+ *   「하허호보니까 오플 지급일이 달라서 따로 정리해놨어」 · 오토플러스는 **익월 25일**.
+ *
+ *   ⚠ 그래서 하허호 지급명세서는 «한 장이 아니다» — 09/15 몫과 09/25 몫이 섞이면
+ *     종이에 찍힌 날이 절반은 틀린 말이 된다. 갈라서 낸다.
+ *   ★날짜는 여기 «한 곳»에서만 갈린다. 스크립트마다 따로 적으면 또 어긋난다.
+ */
+export const PAY_DAY_BY_SUPPLIER: Record<string, number> = { 오토플러스: 25 };
+
+/** 그 공급사에게 주는 날은 며칠인가 — 표에 없으면 기본 15일. */
+export const payDayOf = (supplier?: string): number => {
+  const s = String(supplier ?? '').trim();
+  return (s && Object.entries(PAY_DAY_BY_SUPPLIER).find(([k]) => s.includes(k))?.[1]) || PAY_DAY;
+};
+
+/** 정산월 `2026-08` → 영업채널 지급 예정일 `2026-09-15` (공급사를 주면 그쪽 날) */
+export function payDate(month: string, supplier?: string): Date | null {
   const x = YM.exec(String(month ?? '').trim());
-  return x ? new Date(Number(x[1]), Number(x[2]), PAY_DAY) : null;
+  return x ? new Date(Number(x[1]), Number(x[2]), payDayOf(supplier)) : null;
 }
 
 /**
