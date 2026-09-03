@@ -233,7 +233,7 @@ export function useFreepassEsign(contract: EntityRecord | null, onChanged: () =>
   const polling = !!code && issued && stage !== '완료';
   useEffect(() => {
     if (!polling) return;
-    const timer = window.setInterval(() => { void load(); }, 5000);
+    const timer = window.setInterval(() => { if (document.visibilityState === 'visible') void load(); }, 5000);
     return () => window.clearInterval(timer);
   }, [load, polling]);
 

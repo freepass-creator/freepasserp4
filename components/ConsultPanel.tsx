@@ -98,7 +98,7 @@ export function ConsultPanel({
     if (!roomId) return;
     const on = () => { void reloadAtts(); };
     window.addEventListener('fp:unread', on);
-    const id = window.setInterval(on, 5000);
+    const id = window.setInterval(() => { if (document.visibilityState === 'visible') on(); }, 5000);
     return () => {
       window.removeEventListener('fp:unread', on);
       window.clearInterval(id);
