@@ -80,9 +80,7 @@ async function put(path: string, name: string, parent: string): Promise<string> 
 const files = readdirSync(DIR).filter((f) => f.endsWith('.pdf') || f.endsWith('.xlsx'));
 const bill = files.filter((f) => f.includes('청구서'));
 const payd = files.filter((f) => f.includes('지급명세서'));
-/** ★「장」이 아니라 「건」으로 센다 — 한 건에 PDF·엑셀 두 파일이라 장 수를 쓰면 두 배로 읽힌다. */
-const n = (a: string[]) => a.filter((f) => f.endsWith('.pdf')).length;
-console.log(`\n■ ${MONTH} 정산서 ${n(files)}건 · ${files.length}파일(PDF+엑셀) — 공급사 청구서 ${n(bill)} · 영업채널 지급명세서 ${n(payd)}`);
+console.log(`\n■ ${MONTH} 정산서 ${files.length}장 — 공급사 청구서 ${bill.length} · 영업채널 지급명세서 ${payd.length}`);
 console.log(`\n■ 폴더 ${APPLY ? '' : '(대조만)'}`);
 const root = await folder(ROOT);
 const mon = await folder(MONTH, root);

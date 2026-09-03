@@ -30,7 +30,7 @@ import { normalizeRecord, type SettlementRecord } from '../lib/domain/settlement
 import { billingMonthIn, lockedMonthsOf, type SettlementRow } from '../lib/domain/settlement-stage';
 import { EMPTY_PARTY, buildInvoice, type InvoiceParty } from '../lib/domain/settlement-invoice';
 import { invoiceDocHtml, invoicePageHtml } from '../lib/server/settlement-invoice-html';
-import { invoiceXlsx, invoiceFileName } from '../lib/server/settlement-invoice-xlsx';
+import { invoiceFileName } from '../lib/server/settlement-invoice-xlsx';
 import { providerBillGate, type Confirmation } from '../lib/domain/settlement-confirm';
 import { CORP } from '../lib/domain/corporate-ci';
 import { ciOf } from '../lib/domain/partner-ci';
@@ -190,7 +190,12 @@ for (const axis of (['영업채널', '공급사'] as const)) {
     const tag = gate.length ? ' (확인대기)' : '';
     const base = `${OUT}/${invoiceFileName(inv, 'html').replace(/\.html$/, '')}${tag}`;
     writeFileSync(`${base}.html`, invoicePageHtml(`${MONTH} ${inv.kind} ${party}`, invoiceDocHtml(inv)), 'utf8');
-    writeFileSync(`${base}.xlsx`, invoiceXlsx(inv));
+    /**
+     * ⛔**엑셀은 더 안 만든다** — 사장님 2026-09-03 「정산엑셀은 없애자 그냥 정산서만 pdf로」.
+     *   세부내역·산출식이 갈 자리는 «공급사 시트의 월별 정산서 탭»으로 옮긴다 —
+     *   공급사가 이미 열어 보는 시트라 파일을 따로 보낼 일이 없다.
+     *   ★`invoiceXlsx` 는 남겨 둔다. ERP 화면의 「엑셀 받기」가 그걸 쓴다.
+     */
     made.push(`${base}.html`);
     for (const m of inv.missing) missing.add(`${party} — ${m}`);
 
