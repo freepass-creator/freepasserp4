@@ -103,7 +103,19 @@ const lineOf = (r: Row): Line => {
 
 const H = { Authorization: `Bearer ${await tok()}` };
 const drive = async (q: string) => (((await (await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name)&pageSize=60&orderBy=name&supportsAllDrives=true&includeItemsFromAllDrives=true`, { headers: H })).json()) as { files?: { id: string; name: string }[] }).files) || [];
-const sheetName = (ch: string) => `[영업] ${ch} 프리패스 정산`;
+/**
+ * ★★**우리 시트는 «파일 이름에 F코드»를 박는다** — 사장님 2026-09-03 「우리 시트들 지금 파일명에
+ *   시트 코드박고 있지?」. `[F5N 사용중] ○○ 프리패스 재고` 와 같은 규칙이다.
+ *   코드가 없으면 지도(`aiops/docs/SHEET_MAP.md`)에 못 올라가고, 다음 사람이 이 시트를 «없는 것»으로 안다.
+ *
+ *   F01~F05 뼈대 · F50~F70 공급사 재고 · **F80~ 영업채널 정산**(2026-09-03 새로 뗌).
+ * ⚠ 번호는 «지도가 정본»이다 — 새 채널을 만들면 여기 표와 SHEET_MAP 을 «같이» 고친다.
+ */
+const F_CODE: Record<string, string> = { 하허호: 'F80', 카핑: 'F81', 렌트야: 'F82', 오토원트: 'F83', SMC: 'F84' };
+const sheetName = (ch: string) => {
+  const f = Object.entries(F_CODE).find(([k]) => key(ch).includes(key(k)))?.[1];
+  return `[${f || 'F8?'} 사용중] ${ch} 프리패스 정산`;
+};
 
 const chans = [...new Set(rows.map((r) => S(r.channel)).filter(Boolean))];
 console.log(`\n■ ${MONTH} — 영업채널 ${chans.length}곳 ${APPLY ? '(반영)' : '(대조만)'}\n`);
@@ -166,17 +178,26 @@ const bookOf = new Map<string, string>();
 async function book(ch: string): Promise<string> {
   if (bookOf.has(ch)) return bookOf.get(ch)!;
   const name = sheetName(ch);
-  const found = await drive(`name='${name.replace(/'/g, "\\'")}' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`);
+  /** ★찾을 때는 «코드를 뺀 몸통»으로 — 코드가 바뀌어도 두 벌이 생기지 않는다. */
+  const found = (await drive(`name contains '${ch} 프리패스 정산' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`))
+    .filter((f) => !/구버전|폐기|백업/.test(S(f.name)));
   let id = found[0]?.id || '';
   if (!id) {
     const r = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
       method: 'POST', headers: { Authorization: `Bearer ${await tok()}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ properties: { title: name, locale: 'ko_KR', timeZone: 'Asia/Seoul' } }) });
     id = S((await r.json() as { spreadsheetId?: string }).spreadsheetId);
-    // ★공유는 회사 사람까지. 채널에 주는 것은 사람이 확인하고 누른다.
-    await fetch(`https://www.googleapis.com/drive/v3/files/${id}/permissions?supportsAllDrives=true`, {
-      method: 'POST', headers: { Authorization: `Bearer ${await tok()}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'domain', domain: 'teamjpk.com', role: 'writer' }) });
+    /**
+     * ★공유는 «우리 쪽»까지. 채널에 주는 것은 사람이 확인하고 누른다.
+     * ⚠ 회사 도메인만 열면 «대표님이 못 연다» — 재고 시트들은 링크 공개라 열렸을 뿐이고,
+     *   이 시트는 아니다(실측 2026-09-03 「파일 안열리는데??」). 대표 계정도 같이 연다.
+     */
+    for (const perm of [{ type: 'domain', domain: 'teamjpk.com', role: 'writer' },
+      { type: 'user', emailAddress: 'jpkpyh@gmail.com', role: 'writer' }]) {
+      await fetch(`https://www.googleapis.com/drive/v3/files/${id}/permissions?sendNotificationEmail=false&supportsAllDrives=true`, {
+        method: 'POST', headers: { Authorization: `Bearer ${await tok()}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(perm) });
+    }
     console.log(`   + 시트를 만들었습니다 — ${name}`);
   }
   bookOf.set(ch, id);
