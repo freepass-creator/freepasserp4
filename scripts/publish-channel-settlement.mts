@@ -73,7 +73,7 @@ const claws = (Object.values((await db.ref('v4/settlement_clawbacks').get()).val
   .filter((c) => S(c.month) === MONTH);
 
 type Line = { plate: string; recv: string; deliv: string; model: string; cust: string; sup: string; product: string;
-  term: number; rent: number; rule: string; how: string; net: number; vat: number; total: number };
+  term: number; rent: number; how: string; net: number; vat: number; total: number };
 /**
  * ★원장 청구탭·지급명세서와 «같은 규칙»으로 센다 — 정산 대상·비율·제외·부가세포함.
  * ★★**여기서 세는 것은 «지급» 한 축뿐이다.** `claimWritten` 은 이 파일이 읽지 않는다.
@@ -90,8 +90,7 @@ const lineOf = (r: Row): Line => {
   const product = S(r.product); const term = N(r.term); const model = S(r.model);
   const { kind, form, fallback } = feeKindOf(product, model);
   const f = feeRuleFor(S(r.supplier), kind, term, form, fallback);
-  let rule = ''; let how = '';
-  if (f) rule = `${f.supplier} · ${f.kind}${f.term ? ` ${f.term}개월` : ' 기간무관'}${f.form ? ` · ${f.form}` : ''}`;
+  let how = '';
   if (f && f.auto && typeof f.pay === 'number') {
     const rate = f.pay;
     const rs = rate < 1 ? `${(rate * 100).toFixed(2)}%` : won(rate);
@@ -103,7 +102,7 @@ const lineOf = (r: Row): Line => {
   else how = '개별 협의분';
   return {
     plate: S(r.plate) || '(차번없음)', recv: S(r.receivedAt), deliv: S(r.deliveredAt),
-    model, cust: S(r.customer), sup: S(r.supplier) || '(미기재)', product, term, rent: N(r.rent), rule, how,
+    model, cust: S(r.customer), sup: S(r.supplier) || '(미기재)', product, term, rent: N(r.rent), how,
     net, vat, total: net + vat,
   };
 };
@@ -164,10 +163,14 @@ const NAVY = { red: 0.06, green: 0.11, blue: 0.21 };
 const TINT = { red: 0.93, green: 0.95, blue: 0.98 };
 const BASIS_HEAD = { red: 0.90, green: 0.87, blue: 0.96 };
 const BASIS_BODY = { red: 0.975, green: 0.97, blue: 0.99 };
-const BASIS = ['적용한 표 규칙', '산출근거 (이대로 계산했습니다)'];
+/**
+ * ★**「적용한 표 규칙」은 뺀다** — 사장님 2026-09-03 「적용한 규칙이랑은 뺀도 된다고」.
+ *   상대가 알 것은 «어떻게 나왔나»이지 우리 표의 줄 이름이 아니다. 산출근거 한 칸이면 족하다.
+ */
+const BASIS = ['산출근거 (이대로 계산했습니다)'];
 const HEAD = ['No.', '차량번호', '접수일', '인도일', '공급사', '모델명', '임차인', '상품 구분', '계약 기간', '렌탈료',
   ...BASIS, '공급가액', '부가세', '합계'];
-const WIDTH = [40, 92, 84, 84, 92, 150, 76, 112, 76, 92, 190, 250, 100, 88, 108];
+const WIDTH = [40, 92, 84, 84, 92, 150, 76, 112, 76, 92, 250, 100, 88, 108];
 /**
  * ★★★**청구액은 영업채널 시트에 «절대» 안 들어간다** — 공급사 쪽 빗장의 거울.
  *   말로 두지 않고 머리글을 기계가 본다. 걸리면 붙이기 전에 멈춘다.
@@ -240,15 +243,19 @@ for (const j of jobs) {
 
   const pad = (n: number) => Array.from({ length: n }, () => '');
   const body: (string | number)[][] = j.lines.map((l, i) => [i + 1, l.plate, l.recv, l.deliv, l.sup, l.model, l.cust,
-    l.product, l.term || '', l.rent || '', l.rule, l.how, l.net, l.vat, l.total]);
+    l.product, l.term || '', l.rent || '', l.how, l.net, l.vat, l.total]);
   /** ★환수는 «같은 표»에 음수로 선다 — 표를 둘로 쪼개면 합계를 두 번 보게 된다. */
   for (const b of j.backs) {
-    body.push(['', b.plate, '', '', b.sup, '지난 지급분 환수', '', '', '', '', '', b.why || '수수료표로 내는 값이 아니다',
+    body.push(['', b.plate, '', '', b.sup, '지난 지급분 환수', '', '', '', '', b.why || '수수료표로 내는 값이 아니다',
       -b.amt, -Math.round(b.amt * VAT), -(b.amt + Math.round(b.amt * VAT))]);
   }
   const values: (string | number)[][] = [
-    /** ★제목 띠는 C1 부터 병합 — 얼린 칸(A·B)을 가로지르면 시트가 통째로 거부한다. */
-    ['', '', `${monthKo(MONTH)} 지급명세서    ·    ${j.ch} 귀중 · ${CORP.name} 발행`, ...pad(HEAD.length - 3)],
+    /**
+     * ★**제목은 «맨 앞»에서 시작한다** — 사장님 2026-09-03 「여기 제목을 앞으로 보내고 틀고정 필요없음」.
+     *   ⚠ C1 부터 밀어 놓았던 것은 «틀고정 때문»이었다(병합이 얼린 칸을 가로지르면 시트가 거부한다).
+     *     틀고정을 걷었으니 그 이유가 사라졌다 — A1 부터 한 줄로 병합한다.
+     */
+    [`${monthKo(MONTH)} 지급명세서    ·    ${j.ch} 귀중 · ${CORP.name} 발행`, ...pad(HEAD.length - 1)],
     [...pad(HEAD.length - 3), '공급가액', '부가세', '지급 금액'],
     [...pad(HEAD.length - 3), j.net, j.vat, j.net + j.vat],
     HEAD,
@@ -280,7 +287,7 @@ for (const j of jobs) {
 
   const reqs: Record<string, unknown>[] = [
     { unmergeCells: { range: { sheetId: id } } },
-    { mergeCells: { range: { sheetId: id, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 2, endColumnIndex: HEAD.length }, mergeType: 'MERGE_ALL' } },
+    { mergeCells: { range: { sheetId: id, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: HEAD.length }, mergeType: 'MERGE_ALL' } },
     { repeatCell: { range: all1(0, 1),
       cell: { userEnteredFormat: { backgroundColor: NAVY, textFormat: { bold: true, fontSize: 12, foregroundColor: { red: 1, green: 1, blue: 1 } }, verticalAlignment: 'MIDDLE', padding: { left: 10, right: 10, top: 2, bottom: 2 } } },
       fields: 'userEnteredFormat(backgroundColor,textFormat,verticalAlignment,padding)' } },
@@ -305,7 +312,8 @@ for (const j of jobs) {
       cell: { userEnteredFormat: { textFormat: { fontSize: 10 }, horizontalAlignment: 'LEFT' } }, fields: 'userEnteredFormat(textFormat,horizontalAlignment)' } },
     ...WIDTH.map((w, c) => ({ updateDimensionProperties: { range: { sheetId: id, dimension: 'COLUMNS', startIndex: c, endIndex: c + 1 }, properties: { pixelSize: w }, fields: 'pixelSize' } })),
     { repeatCell: { range: { sheetId: id }, cell: { userEnteredFormat: { textFormat: { fontFamily: 'Roboto' } } }, fields: 'userEnteredFormat.textFormat.fontFamily' } },
-    { updateSheetProperties: { properties: { sheetId: id, gridProperties: { frozenRowCount: r0 + 1, frozenColumnCount: 2 } }, fields: 'gridProperties(frozenRowCount,frozenColumnCount)' } },
+    /** ★틀고정은 «안 건다» — 사장님 2026-09-03 「틀고정 필요없음」. 한 화면에 드는 표다. */
+    { updateSheetProperties: { properties: { sheetId: id, gridProperties: { frozenRowCount: 0, frozenColumnCount: 0 } }, fields: 'gridProperties(frozenRowCount,frozenColumnCount)' } },
   ];
   const fr = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${bookId}:batchUpdate`, {
     method: 'POST', headers: { Authorization: `Bearer ${await tok()}`, 'Content-Type': 'application/json' },

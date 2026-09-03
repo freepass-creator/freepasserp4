@@ -13,7 +13,7 @@
  * 종이(PDF)   규격만 — 차량 · 금액. 읽고 결재하는 것
  * 이 탭        임차인정보 + 산출조건까지 — 「왜 이 금액인가」를 «따라 칠 수 있게»
  * ```
- *   ⇒ 열은 원장 청구탭과 «같은 이름»을 쓴다(적용한 표 규칙 · 산출근거). 이름이 갈리면
+ *   ⇒ 산출근거는 원장 청구탭과 «같은 이름·같은 식»이다. 이름이 갈리면
  *     공급사가 묻는 칸과 우리가 보는 칸이 달라져 통화가 길어진다.
  *
  * ★**탭은 «맨 오른쪽»에 선다.** 공급사가 매일 여는 것은 재고 탭이다 — 정산이 맨 앞에 서면
@@ -65,10 +65,10 @@ const claws = (Object.values((await db.ref('v4/settlement_clawbacks').get()).val
   .filter((c) => S(c.month) === MONTH);
 
 type Line = { plate: string; recv: string; deliv: string; model: string; cust: string; product: string;
-  term: number; rent: number; rule: string; how: string; net: number; vat: number; total: number };
+  term: number; rent: number; how: string; net: number; vat: number; total: number };
 /**
  * ★청구탭·정산서와 «같은 규칙»으로 센다 — 정산 대상·비율·보류·부가세포함.
- * ★★**산출조건은 원장 청구탭 `lineOf` 와 «같은 식»이다**(`적용한 표 규칙` · `산출근거`).
+ * ★★**산출조건은 원장 청구탭 `lineOf` 와 «같은 식»이다**(`산출근거`).
  *   갈리면 공급사가 보는 근거와 우리가 보는 근거가 달라진다.
  */
 const lineOf = (r: Row): Line => {
@@ -83,8 +83,7 @@ const lineOf = (r: Row): Line => {
   const product = S(r.product); const term = N(r.term); const model = S(r.model);
   const { kind, form, fallback } = feeKindOf(product, model);
   const f = feeRuleFor(S(r.supplier), kind, term, form, fallback);
-  let rule = ''; let how = '';
-  if (f) rule = `${f.supplier} · ${f.kind}${f.term ? ` ${f.term}개월` : ' 기간무관'}${f.form ? ` · ${f.form}` : ''}`;
+  let how = '';
   if (f && f.auto) {
     const rate = Number(f.claim);
     const rs = rate < 1 ? `${(rate * 100).toFixed(2)}%` : won(rate);
@@ -96,7 +95,7 @@ const lineOf = (r: Row): Line => {
   else how = '개별 협의분';
   return {
     plate: S(r.plate) || '(차번없음)', recv: S(r.receivedAt), deliv: S(r.deliveredAt),
-    model, cust: S(r.customer), product, term, rent: N(r.rent), rule, how,
+    model, cust: S(r.customer), product, term, rent: N(r.rent), how,
     net, vat, total: net + vat,
   };
 };
@@ -160,10 +159,14 @@ const TINT = { red: 0.93, green: 0.95, blue: 0.98 };
 const BASIS_HEAD = { red: 0.90, green: 0.87, blue: 0.96 };
 const BASIS_BODY = { red: 0.975, green: 0.97, blue: 0.99 };
 /** 임차인정보 ── 산출조건 ── 금액. 이름은 원장 청구탭과 같게 둔다. */
-const BASIS = ['적용한 표 규칙', '산출근거 (이대로 계산했습니다)'];
+/**
+ * ★**「적용한 표 규칙」은 뺀다** — 사장님 2026-09-03 「적용한 규칙이랑은 뺀도 된다고」.
+ *   상대가 알 것은 «어떻게 나왔나»이지 우리 표의 줄 이름이 아니다. 산출근거 한 칸이면 족하다.
+ */
+const BASIS = ['산출근거 (이대로 계산했습니다)'];
 const HEAD = ['No.', '차량번호', '접수일', '인도일', '모델명', '임차인', '상품 구분', '계약 기간', '렌탈료',
   ...BASIS, '공급가액', '부가세', '합계'];
-const WIDTH = [40, 92, 84, 84, 150, 76, 112, 76, 92, 190, 250, 100, 88, 108];
+const WIDTH = [40, 92, 84, 84, 150, 76, 112, 76, 92, 250, 100, 88, 108];
 /**
  * ★★★**영업자 «지급» 수수료는 공급사 시트에 «절대» 안 들어간다** — 사장님 2026-09-03
  *   「절대 영업자 지급 수수료가 얼만지 공급사시트에는 반영되면 안돼」.
@@ -229,16 +232,17 @@ for (const j of jobs) {
 
   const pad = (n: number) => Array.from({ length: n }, () => '');
   const body: (string | number)[][] = j.lines.map((l, i) => [i + 1, l.plate, l.recv, l.deliv, l.model, l.cust,
-    l.product, l.term || '', l.rent || '', l.rule, l.how, l.net, l.vat, l.total]);
-  if (j.claw) body.push(['', '환수', '', '', '지난 정산분 환수', '', '', '', '', '', '수수료표로 내는 값이 아니다',
+    l.product, l.term || '', l.rent || '', l.how, l.net, l.vat, l.total]);
+  if (j.claw) body.push(['', '환수', '', '', '지난 정산분 환수', '', '', '', '', '수수료표로 내는 값이 아니다',
     -j.claw, -Math.round(j.claw * VAT), -(j.claw + Math.round(j.claw * VAT))]);
   const values: (string | number)[][] = [
     /**
-     * ★★**제목 띠는 «C1 부터» 병합한다** — 얼린 칸(A·B)을 가로지르면 시트가 통째로 거부한다
-     *   (「병합된 셀의 일부만 포함된 열을 고정할 수 없습니다」 · 실측 2026-09-03 12곳 전부).
-     *   A1:B1 은 글 없이 남색만 칠해 «한 줄 띠»로 보이게 한다 — 원장 청구탭과 같은 짜임.
+     * ★**제목은 «맨 앞»에서 시작한다** — 사장님 2026-09-03 「여기 제목을 앞으로 보내고 틀고정 필요없음」.
+     *   ⚠ C1 부터 밀어 놓았던 것은 «틀고정 때문»이었다 — 병합이 얼린 칸을 가로지르면 시트가 통째로
+     *     거부한다(「병합된 셀의 일부만 포함된 열을 고정할 수 없습니다」 · 실측 12곳 전부).
+     *     틀고정을 걷었으니 그 이유가 사라졌다. 병합을 A1 부터 한 줄로 편다.
      */
-    ['', '', `${monthKo(MONTH)} 정산서    ·    ${j.sup} 귀중 · ${CORP.name} 발행`, ...pad(HEAD.length - 3)],
+    [`${monthKo(MONTH)} 정산서    ·    ${j.sup} 귀중 · ${CORP.name} 발행`, ...pad(HEAD.length - 1)],
     [...pad(HEAD.length - 3), '공급가액', '부가세', '청구 금액'],
     [...pad(HEAD.length - 3), j.net, j.vat, j.net + j.vat],
     HEAD,
@@ -270,7 +274,7 @@ for (const j of jobs) {
   const reqs: Record<string, unknown>[] = [
     { unmergeCells: { range: { sheetId: id } } },
     { updateSheetProperties: { properties: { sheetId: id, gridProperties: { frozenRowCount: 0, frozenColumnCount: 0 } }, fields: 'gridProperties(frozenRowCount,frozenColumnCount)' } },
-    { mergeCells: { range: { sheetId: id, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 2, endColumnIndex: HEAD.length }, mergeType: 'MERGE_ALL' } },
+    { mergeCells: { range: { sheetId: id, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: HEAD.length }, mergeType: 'MERGE_ALL' } },
     { repeatCell: { range: all1(0, 1),
       cell: { userEnteredFormat: { backgroundColor: NAVY, textFormat: { bold: true, fontSize: 12, foregroundColor: { red: 1, green: 1, blue: 1 } }, verticalAlignment: 'MIDDLE', padding: { left: 10, right: 10, top: 2, bottom: 2 } } },
       fields: 'userEnteredFormat(backgroundColor,textFormat,verticalAlignment,padding)' } },
@@ -299,7 +303,8 @@ for (const j of jobs) {
     ...WIDTH.map((w, c) => ({ updateDimensionProperties: { range: { sheetId: id, dimension: 'COLUMNS', startIndex: c, endIndex: c + 1 }, properties: { pixelSize: w }, fields: 'pixelSize' } })),
     { repeatCell: { range: { sheetId: id }, cell: { userEnteredFormat: { textFormat: { fontFamily: 'Roboto' } } }, fields: 'userEnteredFormat.textFormat.fontFamily' } },
     /** ★머리 네 줄 + 차량번호까지 얼린다 — 산출조건까지 가로로 미는 표라 차번을 잃으면 못 읽는다. */
-    { updateSheetProperties: { properties: { sheetId: id, gridProperties: { frozenRowCount: r0 + 1, frozenColumnCount: 2 } }, fields: 'gridProperties(frozenRowCount,frozenColumnCount)' } },
+    /** ★틀고정은 «안 건다» — 사장님 2026-09-03 「틀고정 필요없음」. 한 화면에 드는 표다. */
+    { updateSheetProperties: { properties: { sheetId: id, gridProperties: { frozenRowCount: 0, frozenColumnCount: 0 } }, fields: 'gridProperties(frozenRowCount,frozenColumnCount)' } },
   ];
   const fr = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${j.sheetId}:batchUpdate`, {
     method: 'POST', headers: { Authorization: `Bearer ${await tok()}`, 'Content-Type': 'application/json' },
