@@ -743,6 +743,23 @@ if (!master.ok) {
   out.push('   그 밖이면 사람이 판단해야 한다 — 계약은 「기존 코드 제외 보존 + 새 코드 추가」다');
 }
 
+/**
+ * ⑭ **RTDB → Firestore 미러 + ⑮ 원자 변경 검증.**  (사장님 2026-09-03 「추천대로」)
+ *   재고를 Firestore 로 옮기는 중 — hourly-sync 가 RTDB 를 갱신한 뒤, 그 상태를 Firestore 원자에 비춘다.
+ *   그래야 파인더가 Firestore 를 읽어도 «공급사 변화 → 1시간 내 반영»이 된다(RTDB 대역폭 컷).
+ *   ⑮ 는 지난 스냅샷과 견줘 상태전이·대여료변경을 기록한다. 둘 다 «읽고 Firestore 만 쓴다» — 시트·ERP 안 건드림.
+ * ⚠ best-effort — 실패해도 회차를 멈추지 않는다(경고만). --apply 회차에만 돈다.
+ */
+if (APPLY) {
+  const mir = run('⑭ Firestore 미러', ['scripts/mirror-to-firestore.mts', '--apply'], /미러 완료|중단|✗/);
+  line.push(mir.ok ? (mir.picked.find((l) => /미러 완료/.test(l))?.replace('미러 완료 — ', '') || '미러 ok') : '★미러 실패');
+  if (!mir.ok) warnings.push('Firestore 미러 실패');
+  const det = run('⑮ 원자 변경 검증', ['scripts/detect-atom-changes.mts'], /상태 전이|대여료 변경|기준선/);
+  const stN = /상태 전이 (\d+)건/.exec(det.picked.join(' '))?.[1];
+  const prN = /대여료 변경 (\d+)건/.exec(det.picked.join(' '))?.[1];
+  line.push(det.ok ? `변경 상태${stN ?? '?'}·요금${prN ?? '?'}` : '검증 실패');
+}
+
 const seconds = Math.round((Date.now() - started) / 1000);
 out.push(`\n■ ${allOk ? '끝' : '끝(일부 실패)'} ${kst()} KST · ${seconds}초`);
 writeFileSync('tmp/hourly-sync-last.txt', out.join('\n'));
