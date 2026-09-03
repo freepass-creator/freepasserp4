@@ -448,6 +448,14 @@ export const INVOICE_CSS = `
   .ctab th, .ctab td { border-bottom:1px solid #edf0f4; padding:4px 7px; text-align:center; }
   .ctab td.day { padding-left:3px; padding-right:3px; }
   .ctab thead th { background:var(--tl-d); color:#fff; font-weight:700; border-bottom:0; font-size:10.5px; }
+  /**
+   * ★★**머리는 «한 줄로 쭉» 잇고 «구분선»으로 나눈다** — 사장님 2026-09-03
+   *   「1자로 쭉 이어놓고 거기에 구분선을 넣어야하는데」 · 「왜 끊어지는느낌이 들지??」.
+   *   ⚠ 글자만 띄엄띄엄 놓으면 바가 «끊어진» 것으로 읽힌다. 남색은 이어져 있는데도 그렇다.
+   *   ⇒ 칸 사이에 머리카락 같은 흰 선을 넣는다. 그러면 «끊어진» 게 아니라 «나뉜» 것이 된다.
+   *   ★두 표에 같은 선을 넣는다 — 그래야 위아래가 한 벌로 읽힌다.
+   */
+  .ctab thead th + th, .stab thead th + th { border-left:1px solid rgba(255,255,255,.16); }
   /** ★모서리는 «첫 칸»만 둥글다 — 순번(No.)이 생겨 차량번호는 이제 첫 칸이 아니다(사장님 2026-09-03). */
   /**
    * ★★**머리는 «한 색·한 줄»이다** — 사장님 2026-09-03 「이게 왜 한줄처럼 안보이지?? … 색깔도 그렇고」.
@@ -489,8 +497,14 @@ export const INVOICE_CSS = `
   .stab th { background:var(--tl-d); color:#fff; font-size:10.5px; font-weight:700; padding:4px 7px; text-align:right; }
   .stab th:first-child { border-top-left-radius:var(--r-box); text-align:left; }
   .stab th:last-child { border-top-right-radius:var(--r-box); }
+  /**
+   * ★**아래 합계줄과 «같은 바탕»을 준다** — 사장님 2026-09-03
+   *   「라인 없는 청구금액은 살짝 배경색을 하늘색으로 살짝 줘서 끝단과 동일하다라는걸 보여주면 좋겠네」.
+   *   맞다. 위의 「청구 금액」과 아래 「합계」는 «같은 숫자»다. 같은 바탕을 깔면 눈이 그걸 잇는다.
+   *   ⇒ 내역표 합계줄과 똑같은 #eef2f8. 새 색을 만들지 않는다.
+   */
   .stab td { padding:9px 7px; text-align:right; font-size:12px; font-weight:600; font-variant-numeric:tabular-nums;
-    border-bottom:1px solid #edf0f4; }
+    background:#eef2f8; border-bottom:1px solid #edf0f4; }
   .stab tbody tr:last-child td { border-bottom:0; }
   .stab td:first-child { text-align:left; font-size:11.5px; font-weight:600; color:var(--mut); }
   .stab td.neg { color:var(--neg); }
