@@ -33,17 +33,24 @@ const api = async (url: string, init?: RequestInit): Promise<any> => {
 // ── 데이터 ──
 const db = getDatabase();
 const policies = (await db.ref('v4/policies').get()).val() as Record<string, any> || {};
+// 코드 정규화 — 접미사 앞자리 0 차이 흡수(RP031_S1 ↔ RP031_S01). 사장님 2026-09-03 실측 123대.
+const normCode = (c: unknown) => S(c).toLowerCase().replace(/_([a-z]+)0*(\d+)/g, '_$1$2');
 const polByCode = new Map<string, any>();     // policy_code 필드
 const polByKey = new Map<string, any>();      // 노드 키
-const polByProvider = new Map<string, any>(); // 공급사 기본정책(FP-{공급사}-RENT) 폴백용
+const polByNorm = new Map<string, any>();     // 정규화 코드(퍼지)
+const provPolicies = new Map<string, any[]>();
 for (const [k, p] of Object.entries(policies)) {
   if (!p || typeof p !== 'object') continue;
-  polByKey.set(k, p);
-  if (S((p as any).policy_code)) polByCode.set(S((p as any).policy_code), p);
+  polByKey.set(k, p); polByNorm.set(normCode(k), p);
+  const code = S((p as any).policy_code);
+  if (code) { polByCode.set(code, p); polByNorm.set(normCode(code), p); }
   const prov = S((p as any).provider_company_code);
-  if (prov && /RENT/i.test(k)) polByProvider.set(prov, p);   // 공통 렌트 정책을 그 공급사 기본으로
+  if (prov) { const a = provPolicies.get(prov) || []; if (!a.includes(p)) a.push(p); provPolicies.set(prov, a); }
 }
-const policyOf = (v: any) => polByCode.get(S(v.policy_code)) || polByKey.get(S(v.policy_code)) || polByProvider.get(S(v.provider_company_code)) || {};
+// ★공급사 정책이 «하나뿐」이면 그 공급사 차 전부에 적용(사장님 규칙). 둘 이상이면 코드로만(차번별 매칭은 이후 수집작업).
+const provSingle = new Map<string, any>();
+for (const [prov, arr] of provPolicies) if (arr.length === 1) provSingle.set(prov, arr[0]);
+const policyOf = (v: any) => polByCode.get(S(v.policy_code)) || polByKey.get(S(v.policy_code)) || polByNorm.get(normCode(v.policy_code)) || provSingle.get(S(v.provider_company_code)) || {};
 const docs = (await getFirestore().collection('products').get()).docs.map((d) => d.data());
 const listable = docs.filter((v) => v.listable === true);
 
