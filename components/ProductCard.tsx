@@ -33,7 +33,7 @@ export const ProductCard = memo(function ProductCard({ p, audience = 'agent', hr
   const gap = mobile ? 5 : 6; // = ProductRowCard rowGap SSOT
 
   return (
-    <Link href={to} onClick={() => haptic.nav()}
+    <Link href={to} prefetch={false} onClick={() => haptic.nav()}
       className="fp-card"
       style={{
         display: 'flex', flexDirection: 'column', borderRadius: R_CARD, overflow: 'hidden',

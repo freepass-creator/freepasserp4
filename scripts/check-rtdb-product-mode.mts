@@ -18,6 +18,11 @@ if (read('app/api/sheet/live-status/route.ts').includes('runSheetLiveStatusSync'
   failures.push('상태 API가 브라우저 요청으로 동기화를 실행합니다.');
 }
 
+const sheetView = read('features/finder/SheetView.tsx');
+if (!sheetView.includes('href={detailHref!}\n              prefetch={false}')) {
+  failures.push('시트 목록의 상세 링크 자동 선로딩이 꺼져 있지 않습니다.');
+}
+
 if (failures.length) {
   console.error(failures.join('\n'));
   process.exit(1);

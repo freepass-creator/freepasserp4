@@ -70,7 +70,7 @@ function PerkPeriodRow({ p }: { p: EntityRecord }) {
 function WebRow({ p, focusMonth }: { p: EntityRecord; focusMonth?: number }) {
   const href = `/m/${encodeURIComponent(String(p.product_code || p._key))}`;
   return (
-    <Link href={href} onClick={() => haptic.nav()} className="fp-card" style={{
+    <Link href={href} prefetch={false} onClick={() => haptic.nav()} className="fp-card" style={{
       display: 'flex', gap: 14, alignItems: 'stretch',
       borderRadius: R,
       padding: '10px 12px',
@@ -125,7 +125,7 @@ function MobileRow({ p, focusMonth }: { p: EntityRecord; focusMonth?: number }) 
            행 수를 잡아먹었다. 그 사이에서 멈춘다.)
          · 좌우 12 = 상단바 여백(--fp-bar-pad-x)과 «같은 세로선». 16 이면 머리 제목과 목록 글이 어긋난다.
          · 상하 9 · 줄사이 4 — 한 화면에 한 행이라도 더. 줄 구성(4줄)과 담는 내용은 그대로다. */
-    <Link href={href} onClick={() => haptic.nav()} className="fp-card fp-card-row" style={{
+    <Link href={href} prefetch={false} onClick={() => haptic.nav()} className="fp-card fp-card-row" style={{
       display: 'flex', gap: 10, alignItems: 'stretch',
       borderRadius: 0,
       padding: '9px 12px',

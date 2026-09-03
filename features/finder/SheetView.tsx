@@ -269,6 +269,7 @@ const SheetGridRow = memo(function SheetGridRow({
           >{isDetailCell ? (
             <Link
               href={detailHref!}
+              prefetch={false}
               className="fp-sheet-view__detail-link"
               tabIndex={-1}
               aria-label={`차량번호 ${value} · ERP 상품 상세 열기`}
@@ -988,6 +989,7 @@ export function SheetView({
               role="menuitem"
               className="fp-sheet-view__context-action"
               href={contextRow.detailHref}
+              prefetch={false}
               onClick={() => setContextMenu(null)}
             ><ExternalLink size={16} strokeWidth={1.9} aria-hidden />상세 보기</Link>
           ) : (
