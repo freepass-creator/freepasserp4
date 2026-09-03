@@ -7337,3 +7337,4 @@ Next 개발 서버와 production build가 같은 `.next`를 사용하면 실행 
 - 범위: 정산 API 자체와 정산 데이터는 바꾸지 않았다. `settlement_rows`의 정확한 호출자는 정적 분석만으로 확정할 수 없으므로, 정산 화면·청구 API 사용 시의 전체 읽기는 별도 관측 대상으로 남긴다.
 - 검증: `npm run check:rtdb-product-mode`, `npx tsc --noEmit`, `npm run check:fonts`, `npm run check:finder-rows`, 운영 환경변수 `npm run build`, 미리보기 배포, 운영 `/finder` 로그인 세션에서 306대 판매시트 로드 및 콘솔 오류 0을 확인했다.
 - 배포: `dpl_55LFND7wjNs8q4sqq74pN372QAZ3` (`freepasserp.com` 별칭 연결) · 기준 커밋 `51eadc4`.
+- 후속 관측·배포: 시트 목록이 보이는 상품 링크를 Next.js가 자동 선로딩하면서, 클릭 전에도 다수 `/m/[code]` 요청이 Vercel 로그에 발생함을 확인했다. 목록·카드의 상품 상세 링크를 `prefetch={false}`로 바꿨고, `dpl_2jCuom1SgP56DHVSLQtqh2HbDYVW`를 운영에 배포했다. 같은 운영 `/finder` 재검사 후 38개 상품 링크가 보여도 로그에는 `/m/[code]` 요청 0건, 목록 API·콘솔 오류 0건이었다.
