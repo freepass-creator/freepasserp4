@@ -3,9 +3,9 @@
 import type { EntityRecord } from '@/lib/intake/entities';
 import { getStore, peekList } from '@/lib/store';
 import { seedIfEmpty } from '@/lib/seed';
-import { firebaseReady } from '@/lib/firebase/client';
-import { fetchSheetLiveStatuses, SHEET_LIVE_STATUS_POLL_MS } from '@/lib/firebase/sheet-live-status-client';
+import { firebaseReady, getAuthClient } from '@/lib/firebase/client';
 import { withProviderNames } from '@/lib/domain/identity';
+import { finderFromFirestoreEnabled, subscribeFirestoreProducts, shapeFinderRows } from '@/lib/firebase/firestore-products-client';
 
 export type FinderDataParams = {
   companyId: string;
@@ -29,10 +29,10 @@ export function finderDataScope(session: FinderSessionScope): string {
 
 type FinderDataEntry = {
   key: string; companyId: string; sessionUid?: string; rows: EntityRecord[] | null;
-  liveStatuses: Record<string, string> | null; listeners: Set<() => void>;
-  loading: boolean; loadedAt: number; retryAfter: number; requestId: number; statusRefreshing: boolean;
-  statusController: AbortController | null; statusTimer: number | null;
-  onFocus: (() => void) | null; onVisibility: (() => void) | null;
+  listeners: Set<() => void>;
+  loading: boolean; loadedAt: number; retryAfter: number; requestId: number;
+  /** Firestore 읽기 경로(플래그 ON)일 때 onSnapshot 해지 핸들 + 공급사명 조인용 파트너 캐시. */
+  fsUnsub?: () => void; partners?: EntityRecord[];
 };
 
 const entries = new Map<string, FinderDataEntry>();
@@ -44,19 +44,6 @@ function entryKey({ companyId, sessionUid, sessionScope }: FinderDataParams) {
   return `${companyId}::${sessionUid || 'anonymous'}::${sessionScope || 'default'}`;
 }
 
-function withLiveStatuses(rows: EntityRecord[], statuses: Record<string, string>): EntityRecord[] {
-  let changed = false;
-  const next = rows.map((row) => {
-    const key = String(row._key || row.product_code || '');
-    if (!Object.prototype.hasOwnProperty.call(statuses, key)) return row;
-    const status = String(statuses[key] || '').trim();
-    if (String(row.vehicle_status || '').trim() === status) return row;
-    changed = true;
-    return { ...row, vehicle_status: status };
-  });
-  return changed ? next : rows;
-}
-
 function notify(entry: FinderDataEntry) { for (const listener of entry.listeners) listener(); }
 
 function getEntry(params: FinderDataParams): FinderDataEntry {
@@ -65,9 +52,8 @@ function getEntry(params: FinderDataParams): FinderDataEntry {
   if (existing) return existing;
   const entry: FinderDataEntry = {
     key, companyId: params.companyId, sessionUid: params.sessionUid,
-    rows: peekList('product', params.companyId), liveStatuses: null, listeners: new Set(),
-    loading: false, loadedAt: 0, retryAfter: 0, requestId: 0, statusRefreshing: false, statusController: null,
-    statusTimer: null, onFocus: null, onVisibility: null,
+    rows: peekList('product', params.companyId), listeners: new Set(),
+    loading: false, loadedAt: 0, retryAfter: 0, requestId: 0,
   };
   entries.set(key, entry);
   return entry;
@@ -83,15 +69,32 @@ async function loadProducts(entry: FinderDataEntry) {
       promise,
       new Promise<T>((_, reject) => window.setTimeout(() => reject(new Error('finder list timeout')), 15_000)),
     ]);
-    const [products, partners] = await timeout(Promise.all([
-      getStore().list('product', entry.companyId), getStore().list('partner', entry.companyId),
-    ]));
+    // 상품은 손님에게 바로 보이는 핵심 데이터다. 공급사명 보정까지 Promise.all로 묶으면
+    // 느린 partner read 하나 때문에 이미 받은 상품 목록도 빈 화면에 묶인다.
+    const store = getStore();
+    // RtdbAdapter는 상품찾기에서만 공급사명 조인을 미뤄, 목록을 먼저 반환한다.
+    // 다른 어댑터는 표준 list로 동일하게 동작한다.
+    const products = await timeout(
+      typeof store.listForFinder === 'function'
+        ? store.listForFinder(entry.companyId)
+        : store.list('product', entry.companyId),
+    );
     if (entries.get(entry.key) !== entry || requestId !== entry.requestId) return;
-    const named = withProviderNames(products, partners);
-    entry.rows = entry.liveStatuses ? withLiveStatuses(named, entry.liveStatuses) : named;
+    entry.rows = products;
     entry.loadedAt = Date.now();
     entry.retryAfter = 0;
     notify(entry);
+
+    // 공급사명은 후속 보정이다. 실패하거나 늦어도 상품 표시를 되돌리거나 막지 않는다.
+    try {
+      const partners = await timeout(getStore().list('partner', entry.companyId));
+      if (entries.get(entry.key) !== entry || requestId !== entry.requestId) return;
+      const named = withProviderNames(products, partners);
+      entry.rows = named;
+      notify(entry);
+    } catch (error) {
+      console.warn('[finder] 공급사명 보정 실패(상품 목록은 유지):', error);
+    }
   } catch (error) {
     console.warn('[finder] 매물 로드 실패:', error);
     if (entries.get(entry.key) === entry && requestId === entry.requestId) {
@@ -104,52 +107,40 @@ async function loadProducts(entry: FinderDataEntry) {
   }
 }
 
-async function refreshLiveStatuses(entry: FinderDataEntry) {
-  if (entry.statusRefreshing || document.visibilityState === 'hidden') return;
-  entry.statusRefreshing = true;
+/**
+ * Firestore 읽기 경로(플래그 ON) — onSnapshot 로 구독해 «바뀐 문서만」 받는다(RTDB 대역폭 컷).
+ * 가시성·원가 규칙은 shapeFinderRows(=listForFinder 와 동일 함수)로 재적용, 공급사명은 후속 조인.
+ */
+function startFirestore(entry: FinderDataEntry) {
+  if (entry.fsUnsub) return;
+  entry.fsUnsub = subscribeFirestoreProducts((raw) => {
+    if (entries.get(entry.key) !== entry) return;
+    const shaped = shapeFinderRows(raw);
+    entry.rows = entry.partners ? withProviderNames(shaped, entry.partners) : shaped;
+    entry.loadedAt = Date.now();
+    entry.retryAfter = 0;
+    notify(entry);
+    if (!entry.partners) void loadFinderPartners(entry);
+  });
+}
+
+/** 공급사명 조인용 파트너를 한 번 읽어 캐시(작고 드물게 바뀜). 실패해도 상품 표시는 유지. */
+async function loadFinderPartners(entry: FinderDataEntry) {
   try {
-    const statuses = await fetchSheetLiveStatuses(entry.statusController?.signal);
-    if (!statuses || entries.get(entry.key) !== entry) return;
-    entry.liveStatuses = statuses;
-    if (entry.rows) {
-      const next = withLiveStatuses(entry.rows, statuses);
-      if (next !== entry.rows) { entry.rows = next; notify(entry); }
-    }
+    const partners = await getStore().list('partner', entry.companyId);
+    if (entries.get(entry.key) !== entry) return;
+    entry.partners = partners;
+    if (entry.rows) { entry.rows = withProviderNames(entry.rows, partners); notify(entry); }
   } catch (error) {
-    if ((error as Error)?.name !== 'AbortError') console.warn('[finder] 차량상태 실시간 갱신 실패(기존 상태 유지):', (error as Error).message);
-  } finally {
-    if (entries.get(entry.key) === entry) entry.statusRefreshing = false;
+    console.warn('[finder] 공급사명 보정 실패(상품 목록은 유지):', error);
   }
-}
-
-function startLiveStatuses(entry: FinderDataEntry, params: FinderDataParams) {
-  if (!firebaseReady() || !params.authReady || !params.sessionUid || entry.statusTimer != null) return;
-  entry.statusController = new AbortController();
-  const refresh = () => { void refreshLiveStatuses(entry); };
-  entry.onFocus = refresh;
-  entry.onVisibility = () => { if (document.visibilityState === 'visible') refresh(); };
-  refresh();
-  entry.statusTimer = window.setInterval(refresh, SHEET_LIVE_STATUS_POLL_MS);
-  window.addEventListener('focus', entry.onFocus);
-  document.addEventListener('visibilitychange', entry.onVisibility);
-}
-
-function stopLiveStatuses(entry: FinderDataEntry) {
-  entry.statusController?.abort();
-  entry.statusController = null;
-  if (entry.statusTimer != null) window.clearInterval(entry.statusTimer);
-  entry.statusTimer = null;
-  if (entry.onFocus) window.removeEventListener('focus', entry.onFocus);
-  if (entry.onVisibility) document.removeEventListener('visibilitychange', entry.onVisibility);
-  entry.onFocus = null;
-  entry.onVisibility = null;
 }
 
 /** 현재 세션 외의 목록은 메모리에서 즉시 폐기해 역할/사용자 전환 때 재사용하지 않는다. */
 export function discardOtherFinderData(sessionUid?: string, sessionScope?: string) {
   for (const [key, entry] of entries) {
     if (entry.sessionUid === sessionUid && entry.key === entryKey({ companyId: entry.companyId, authReady: true, sessionUid, sessionScope })) continue;
-    stopLiveStatuses(entry);
+    entry.fsUnsub?.();
     entries.delete(key);
   }
 }
@@ -157,14 +148,22 @@ export function discardOtherFinderData(sessionUid?: string, sessionScope?: strin
 export function subscribeFinderData(params: FinderDataParams, listener: () => void) {
   const entry = getEntry(params);
   entry.listeners.add(listener);
+  // Firestore 읽기 경로(플래그 ON): onSnapshot 한 번만 걸고 poll 은 타지 않는다.
+  if (finderFromFirestoreEnabled() && firebaseReady()) {
+    startFirestore(entry);
+    return () => { entry.listeners.delete(listener); };
+  }
   const now = Date.now();
   const stale = entry.loadedAt === 0 || now - entry.loadedAt >= REVALIDATE_AFTER_MS;
-  if (!(firebaseReady() && !params.authReady) && stale && now >= entry.retryAfter) void loadProducts(entry);
-  startLiveStatuses(entry, params);
+  // AuthProvider의 화면 보호용 ready 타이머(최대 6초)는 Firebase 사용자 복원보다 먼저
+  // 끝날 수 있다. 그러면 bearer 없는 요청이 한 번 실패하고 재시도로 목록이 더 늦어진다.
+  // 실 인증 UID와 세션 UID가 같을 때만 한 번 시작한다.
+  const firebaseUserReady = !!params.sessionUid
+    && getAuthClient()?.currentUser?.uid === params.sessionUid;
+  const canLoad = !firebaseReady() || firebaseUserReady;
+  if (canLoad && stale && now >= entry.retryAfter) void loadProducts(entry);
   return () => {
     entry.listeners.delete(listener);
-    // Finder → 상세 → Finder 전환에서는 목록을 재사용하되, 보이지 않는 동안은 폴링하지 않는다.
-    if (entry.listeners.size === 0) stopLiveStatuses(entry);
   };
 }
 
