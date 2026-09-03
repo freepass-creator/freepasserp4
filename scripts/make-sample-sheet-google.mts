@@ -50,11 +50,9 @@ for (const [k, p] of Object.entries(policies)) {
 // ★공급사 정책이 «하나뿐」이면 그 공급사 차 전부에 적용(사장님 규칙). 둘 이상이면 코드로만(차번별 매칭은 이후 수집작업).
 const provSingle = new Map<string, any>();
 for (const [prov, arr] of provPolicies) if (arr.length === 1) provSingle.set(prov, arr[0]);
-// ★「대부분 정책은 거의 하나」(사장님 2026-09-03) — 공급사 «프리패스 공통 렌트」(FP-공급사-RENT)를 기본으로.
-//   추측이 아니라 그 공급사에 «등록된 공통정책」이라 시트가 틀리지 않는다. 코드가 특정 정책을 가리키면 그게 우선.
-const provCommon = new Map<string, any>();
-for (const [k, p] of Object.entries(policies)) { if (!p || typeof p !== 'object') continue; const pr = S((p as any).provider_company_code); if (pr && /RENT/i.test(k) && !provCommon.has(pr)) provCommon.set(pr, p); }
-const policyOf = (v: any) => polByCode.get(S(v.policy_code)) || polByKey.get(S(v.policy_code)) || polByNorm.get(normCode(v.policy_code)) || provSingle.get(S(v.provider_company_code)) || provCommon.get(S(v.provider_company_code)) || {};
+// ★「프리패스 공통 렌트」를 정책 2개+ 공급사에 씌우지 «않는다»(사장님 2026-09-03 「공통정책으로 다 채운 건 안 됨」).
+//   실제로 맞는 것만: 코드(정확·퍼지) + 정책이 «진짜 하나뿐인 공급사」. 나머지는 빈칸 — 내일 구형 시트로 실제 정책 채움.
+const policyOf = (v: any) => polByCode.get(S(v.policy_code)) || polByKey.get(S(v.policy_code)) || polByNorm.get(normCode(v.policy_code)) || provSingle.get(S(v.provider_company_code)) || {};
 const docs = (await getFirestore().collection('products').get()).docs.map((d) => d.data());
 const listable = docs.filter((v) => v.listable === true);
 
