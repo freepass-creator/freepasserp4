@@ -9,7 +9,7 @@
  * CI · 법인    teamjpk(팀제이피케이) · freepassmobility(프리패스모빌리티)
  * BI · 브랜드   chakhandeal(착한거래) · renman(렌터카매니저) · freepasserp.com(프리패스이알피닷컴)
  * ```
- *   청구서·지급명세서는 **법인이 발행하는 문서**다 — 그래서 `freepassmobility` 를 쓴다.
+ *   청구서·정산서는 **법인이 발행하는 문서**다 — 그래서 `freepassmobility` 를 쓴다.
  *   `freepasserp.com` 은 서비스 브랜드라 화면(ERP)에는 맞지만 대외 문서 발행인 자리에는 안 맞다.
  *   ⚠ 처음에 그걸 틀리게 썼다(2026-08-26). 문서 발행인은 «법인»이다.
  *

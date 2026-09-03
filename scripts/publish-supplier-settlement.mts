@@ -131,6 +131,8 @@ for (const sup of sups) {
     if (alt.length === 1) { hit = alt; via = SUPPLIER_ALIAS[sup]; }
   }
   const mine = rows.filter((r) => S(r.supplier) === sup).map(lineOf).filter((l) => l.total !== 0);
+  /** ★차례는 «접수일 순» — 영업채널 시트와 같은 규칙이다(사장님 2026-09-03 「접수일자 순으로」). */
+  mine.sort((a, b) => `${a.recv || '9999-99-99'}|${a.plate}`.localeCompare(`${b.recv || '9999-99-99'}|${b.plate}`));
   const cl = claws.filter((c) => S(c.supplier) === sup).reduce((a, c) => a + N(c.supplierAmt), 0);
   if (!mine.length && !cl) continue;
   if (hit.length !== 1) { skip.push(`${sup} — 재고 시트를 ${hit.length === 0 ? '못 찾음' : `${hit.length}개나 찾음`}`); continue; }
@@ -163,10 +165,16 @@ const BASIS_BODY = { red: 0.975, green: 0.97, blue: 0.99 };
  * ★**「적용한 표 규칙」은 뺀다** — 사장님 2026-09-03 「적용한 규칙이랑은 뺀도 된다고」.
  *   상대가 알 것은 «어떻게 나왔나»이지 우리 표의 줄 이름이 아니다. 산출근거 한 칸이면 족하다.
  */
-const BASIS = ['산출근거 (이대로 계산했습니다)'];
+const BASIS = ['수수료 산정 기준'];
+/**
+ * ★★**「확인」·「메모」는 «공급사가 적는 칸»이다** — 사장님 2026-09-03
+ *   「에이전시가 체크한 내용 메모남길수 있게 해줘 공급사도 마찬가지고」.
+ *   ⚠⚠ 매달 다시 찍을 때 «적어 둔 것을 덮으면 안 된다» — 차량번호로 찾아 그대로 되돌려 놓는다.
+ */
+const NOTE = ['확인', '메모'];
 const HEAD = ['No.', '차량번호', '접수일', '인도일', '모델명', '임차인', '상품 구분', '계약 기간', '렌탈료',
-  ...BASIS, '공급가액', '부가세', '합계'];
-const WIDTH = [40, 92, 84, 84, 150, 76, 112, 76, 92, 250, 100, 88, 108];
+  ...BASIS, '공급가액', '부가세', '합계', ...NOTE];
+const WIDTH = [40, 92, 84, 84, 150, 76, 112, 76, 92, 250, 100, 88, 108, 56, 260];
 /**
  * ★★★**영업자 «지급» 수수료는 공급사 시트에 «절대» 안 들어간다** — 사장님 2026-09-03
  *   「절대 영업자 지급 수수료가 얼만지 공급사시트에는 반영되면 안돼」.
@@ -230,12 +238,36 @@ for (const j of jobs) {
   }
   if (id === undefined) { console.log(`   x ${j.sup} — 탭을 못 만들었습니다`); continue; }
 
+  /**
+   * ★**적어 둔 「확인·메모」를 먼저 거둔다.** 머리글 이름으로 칸을 찾으므로 열이 늘거나 자리가 바뀌어도
+   *   따라온다. 열쇠는 차량번호 — 줄 차례는 접수일 순이라 달마다 바뀐다.
+   */
+  const kept = new Map<string, [boolean, string]>();
+  {
+    const got = await (await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${j.sheetId}/values/${encodeURIComponent(`'${tab}'!A1:AZ400`)}`, { headers: { Authorization: `Bearer ${await tok()}` } })).json() as { values?: unknown[][] };
+    const g = got.values || [];
+    const hi = g.findIndex((r) => (r || []).some((c) => S(c) === '차량번호'));
+    if (hi >= 0) {
+      const h = (g[hi] || []).map(S);
+      const [cp, cc, cm] = ['차량번호', '확인', '메모'].map((n) => h.indexOf(n));
+      if (cp >= 0 && (cc >= 0 || cm >= 0)) {
+        for (const r of g.slice(hi + 1)) {
+          const p = S((r || [])[cp]);
+          const chk = cc >= 0 && /^(TRUE|true|1|Y|O|v|✓)$/.test(S((r || [])[cc]));
+          const memo = cm >= 0 ? S((r || [])[cm]) : '';
+          if (p && (chk || memo)) kept.set(p, [chk, memo]);
+        }
+      }
+    }
+  }
+  const note = (p: string): [boolean, string] => kept.get(p) || [false, ''];
+
   const pad = (n: number) => Array.from({ length: n }, () => '');
-  const body: (string | number)[][] = j.lines.map((l, i) => [i + 1, l.plate, l.recv, l.deliv, l.model, l.cust,
-    l.product, l.term || '', l.rent || '', l.how, l.net, l.vat, l.total]);
+  const body: (string | number | boolean)[][] = j.lines.map((l, i) => [i + 1, l.plate, l.recv, l.deliv, l.model, l.cust,
+    l.product, l.term || '', l.rent || '', l.how, l.net, l.vat, l.total, ...note(l.plate)]);
   if (j.claw) body.push(['', '환수', '', '', '지난 정산분 환수', '', '', '', '', '수수료표로 내는 값이 아니다',
-    -j.claw, -Math.round(j.claw * VAT), -(j.claw + Math.round(j.claw * VAT))]);
-  const values: (string | number)[][] = [
+    -j.claw, -Math.round(j.claw * VAT), -(j.claw + Math.round(j.claw * VAT)), false, '']);
+  const values: (string | number | boolean)[][] = [
     /**
      * ★**제목은 «맨 앞»에서 시작한다** — 사장님 2026-09-03 「여기 제목을 앞으로 보내고 틀고정 필요없음」.
      *   ⚠ C1 부터 밀어 놓았던 것은 «틀고정 때문»이었다 — 병합이 얼린 칸을 가로지르면 시트가 통째로
@@ -243,11 +275,12 @@ for (const j of jobs) {
      *     틀고정을 걷었으니 그 이유가 사라졌다. 병합을 A1 부터 한 줄로 편다.
      */
     [`${monthKo(MONTH)} 정산서    ·    ${j.sup} 귀중 · ${CORP.name} 발행`, ...pad(HEAD.length - 1)],
-    [...pad(HEAD.length - 3), '공급가액', '부가세', '청구 금액'],
-    [...pad(HEAD.length - 3), j.net, j.vat, j.net + j.vat],
+    /** 돈 세 칸은 «자리로» 놓는다 — 뒤에 「확인·메모」가 붙었으므로 끝에서부터 세면 안 된다. */
+    [...pad(iM), '공급가액', '부가세', '청구 금액', ...pad(HEAD.length - iM - 3)],
+    [...pad(iM), j.net, j.vat, j.net + j.vat, ...pad(HEAD.length - iM - 3)],
     HEAD,
     ...body,
-    ['', '합계', `${j.lines.length}건`, ...pad(iM - 3), j.net, j.vat, j.net + j.vat],
+    ['', '합계', `${j.lines.length}건`, ...pad(iM - 3), j.net, j.vat, j.net + j.vat, ...pad(HEAD.length - iM - 3)],
     [],
     [`${dayKo(dueDate(MONTH))} 까지 입금 부탁드립니다`, ...pad(HEAD.length - 1)],
     [`${CORP.staff} · ${S(CORP.staffPhone) || CORP.phone} · ${CORP.email}`, ...pad(HEAD.length - 1)],
@@ -280,7 +313,7 @@ for (const j of jobs) {
       fields: 'userEnteredFormat(backgroundColor,textFormat,verticalAlignment,padding)' } },
     { updateDimensionProperties: { range: { sheetId: id, dimension: 'ROWS', startIndex: 0, endIndex: 1 }, properties: { pixelSize: 40 }, fields: 'pixelSize' } },
     bar(1, true), bar(r0, false), tint(2), tint(last),
-    /** ★머리줄 40 — 「산출근거 (이대로 계산했습니다)」가 두 줄로 접혀야 안 잘린다. */
+    /** ★머리줄 40 — 「수수료 산정 기준」이 안 잘리게 두 줄 자리를 준다. */
     { updateDimensionProperties: { range: { sheetId: id, dimension: 'ROWS', startIndex: r0, endIndex: r0 + 1 }, properties: { pixelSize: 40 }, fields: 'pixelSize' } },
     { updateDimensionProperties: { range: { sheetId: id, dimension: 'ROWS', startIndex: r0 + 1, endIndex: last + 1 }, properties: { pixelSize: 24 }, fields: 'pixelSize' } },
     /** ★산출조건 영역 — 머리는 연보라, 줄은 아주 연하게. 금액 칸과 «눈으로» 갈린다. */
@@ -303,6 +336,13 @@ for (const j of jobs) {
     ...WIDTH.map((w, c) => ({ updateDimensionProperties: { range: { sheetId: id, dimension: 'COLUMNS', startIndex: c, endIndex: c + 1 }, properties: { pixelSize: w }, fields: 'pixelSize' } })),
     { repeatCell: { range: { sheetId: id }, cell: { userEnteredFormat: { textFormat: { fontFamily: 'Roboto' } } }, fields: 'userEnteredFormat.textFormat.fontFamily' } },
     /** ★머리 네 줄 + 차량번호까지 얼린다 — 산출조건까지 가로로 미는 표라 차번을 잃으면 못 읽는다. */
+    /**
+     * ★**필터를 걸어 둔다** — 상품 구분·모델로 그 자리에서 추린다(영업채널 시트와 같은 규격).
+     *   ⚠ 범위는 머리줄~마지막 줄까지 — 합계줄이 들어가면 걸러도 합계가 따라 사라진다.
+     */
+    { setBasicFilter: { filter: { range: { sheetId: id, startRowIndex: r0, endRowIndex: last, startColumnIndex: 0, endColumnIndex: HEAD.length } } } },
+    /** ★「확인」은 체크칸으로 — 공급사가 누르기만 하면 된다. */
+    { setDataValidation: { range: { sheetId: id, startRowIndex: r0 + 1, endRowIndex: last, startColumnIndex: HEAD.indexOf('확인'), endColumnIndex: HEAD.indexOf('확인') + 1 }, rule: { condition: { type: 'BOOLEAN' }, strict: true, showCustomUi: true } } },
     /** ★틀고정은 «안 건다» — 사장님 2026-09-03 「틀고정 필요없음」. 한 화면에 드는 표다. */
     { updateSheetProperties: { properties: { sheetId: id, gridProperties: { frozenRowCount: 0, frozenColumnCount: 0 } }, fields: 'gridProperties(frozenRowCount,frozenColumnCount)' } },
   ];

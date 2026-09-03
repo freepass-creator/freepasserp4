@@ -72,8 +72,8 @@ export type InvoiceLine = {
 
 export type Invoice = {
   axis: '공급사' | '영업채널';
-  /** 「청구서」인지 「지급명세서」인지 — 축이 문서의 뜻을 바꾼다. */
-  kind: '청구서' | '지급명세서';
+  /** 「청구서」인지 「정산서」인지 — 축이 문서의 뜻을 바꾼다. */
+  kind: '청구서' | '정산서';
   month: string;
   party: string;
   issuer: InvoiceParty;
@@ -164,7 +164,7 @@ export function buildInvoice(opts: {
       receivedAt: dayOf(r.receivedAt),
       plate: S(r.plate), model: S(r.model), customer: S(r.customer), product: S(r.product),
       term: Number(r.term) || 0, base: baseOf(r),
-      // ★청구서는 공급사 요율, 지급명세서는 영업자 요율. 축을 따라간다.
+      // ★청구서는 공급사 요율, 정산서는 영업자 요율. 축을 따라간다.
       rate: Number(claim ? r.supplierRate : r.agentRate) || 0,
       amount, vat, total: amount + vat,
     };
@@ -219,7 +219,7 @@ export function buildInvoice(opts: {
 
   return {
     axis: opts.axis,
-    kind: claim ? '청구서' : '지급명세서',
+    kind: claim ? '청구서' : '정산서',
     month: opts.month,
     party: opts.party,
     issuer: opts.issuer,

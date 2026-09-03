@@ -1,5 +1,5 @@
 /**
- * **그 달 지급명세서를 «영업채널 시트»에 탭으로 붙인다.** 기본 dry-run, 반영은 `--apply`.
+ * **그 달 정산서를 «영업채널 시트»에 탭으로 붙인다.** 기본 dry-run, 반영은 `--apply`.
  *
  * ★사장님 2026-09-03 「야 영업채널거는 구글시트로 만들어줘야지」 · 「하허호는 오플거 분리해주고」
  *
@@ -40,7 +40,8 @@ const VAT = 0.1;
 const S = (v: unknown) => String(v ?? '').trim();
 const N = (v: unknown) => { const n = Number(S(v).replace(/[,\s원]/g, '')); return Number.isFinite(n) ? n : 0; };
 const won = (n: number) => Math.round(n).toLocaleString('ko-KR');
-const tabOf = (m: string) => `${m.slice(2, 4)}년${m.slice(5)}월 지급`;
+/** ★탭 이름도 「정산」이다 — 공급사 시트와 같은 말을 쓴다(사장님 2026-09-03 「정산서가 맞을거 같은데」). */
+const tabOf = (m: string) => `${m.slice(2, 4)}년${m.slice(5)}월 정산`;
 const monthKo = (m: string) => `${m.slice(0, 4)}년 ${Number(m.slice(5))}월`;
 const dayKo = (d: Date | null) => (d ? `${d.getFullYear()}. ${String(d.getMonth() + 1).padStart(2, '0')}. ${String(d.getDate()).padStart(2, '0')}` : '');
 const key = (v: unknown) => S(v).toLowerCase().replace(/[\s()·\-_.]/g, '').replace(/(주식회사|㈜|무심사|모빌리티)/g, '');
@@ -75,7 +76,7 @@ const claws = (Object.values((await db.ref('v4/settlement_clawbacks').get()).val
 type Line = { plate: string; recv: string; deliv: string; model: string; cust: string; sup: string; product: string;
   term: number; rent: number; how: string; net: number; vat: number; total: number };
 /**
- * ★원장 청구탭·지급명세서와 «같은 규칙»으로 센다 — 정산 대상·비율·제외·부가세포함.
+ * ★원장 청구탭·정산서와 «같은 규칙»으로 센다 — 정산 대상·비율·제외·부가세포함.
  * ★★**여기서 세는 것은 «지급» 한 축뿐이다.** `claimWritten` 은 이 파일이 읽지 않는다.
  */
 const lineOf = (r: Row): Line => {
@@ -127,8 +128,9 @@ const chans = [...new Set(rows.map((r) => S(r.channel)).filter(Boolean))];
 console.log(`\n■ ${MONTH} — 영업채널 ${chans.length}곳 ${APPLY ? '(반영)' : '(대조만)'}\n`);
 
 type Back = { plate: string; sup: string; amt: number; why: string };
-/** `paySup` = 이 탭이 «어느 공급사 지급일»을 따르나. 빈칸이면 기본(익월 15일). */
-type Job = { ch: string; tab: string; paySup: string; lines: Line[]; backs: Back[]; net: number; vat: number };
+type Job = { ch: string; tab: string; lines: Line[]; backs: Back[]; net: number; vat: number };
+/** 지급일이 다른 공급사인가 — 맨 아래로 내리는 기준이자 줄마다 찍는 날의 기준. */
+const isLate = (sup: string) => SPLIT_SUPPLIERS.some((s) => key(sup).includes(key(s)));
 const jobs: Job[] = [];
 for (const ch of chans) {
   if (ONLY && !ch.includes(ONLY)) continue;
@@ -137,26 +139,23 @@ for (const ch of chans) {
     .map((c) => ({ plate: S(c.plate), sup: S(c.supplier), amt: N(c.agentAmt), why: S(c.reason) }))
     .filter((b) => b.amt !== 0);
   if (!mine.length && !mineBacks.length) continue;
-  const cut = SPLIT_SUPPLIERS;
-  const isCut = (sup: string) => cut.some((s) => key(sup).includes(key(s)));
-  /** 갈라 볼 공급사는 «제 탭»으로, 나머지는 한 탭으로. 환수도 «제 공급사» 탭을 따라간다. */
-  const groups: [string, string, Line[], Back[]][] = [];
-  for (const sup of cut) {
-    const g = mine.filter((l) => key(l.sup).includes(key(sup)));
-    const gb = mineBacks.filter((b) => key(b.sup).includes(key(sup)));
-    if (g.length || gb.length) groups.push([`${tabOf(MONTH)} · ${sup}`, sup, g, gb]);
-  }
-  const rest = mine.filter((l) => !isCut(l.sup));
-  const restBacks = mineBacks.filter((b) => !isCut(b.sup));
-  if (rest.length || restBacks.length) groups.push([tabOf(MONTH), '', rest, restBacks]);
-  for (const [tab, paySup, lines, backs] of groups) {
-    const cl = backs.reduce((a, b) => a + b.amt, 0);
-    jobs.push({ ch, tab, paySup, lines, backs,
-      net: lines.reduce((a, b) => a + b.net, 0) - cl,
-      vat: lines.reduce((a, b) => a + b.vat, 0) - Math.round(cl * VAT) });
-  }
+  /**
+   * ★★**탭은 «하나»다 — 가르지 않는다.** 사장님 2026-09-03
+   *   「공급사를 나누지 말고 그냥 필터 잡게만 해줘」 · 「탭 하나로 합쳐서 구분만 해주면됨」
+   *   「나중에 어디든 오토플러스는 맨 아래쪽에 접수일자 순으로 써주면 되고」
+   *
+   *   ⇒ 갈라야 했던 까닭(지급일이 다르다)은 «줄마다 지급 예정일을 찍어» 푼다.
+   *     탭을 가르면 합계를 두 번 보게 되고, 공급사로 훑을 때마다 탭을 옮겨야 한다.
+   *   ⇒ 차례 = «지급일이 늦은 공급사(오토플러스)를 맨 아래», 그 안에서 접수일 순.
+   */
+  const ord = (l: Line) => `${isLate(l.sup) ? '1' : '0'}|${l.recv || '9999-99-99'}|${l.plate}`;
+  mine.sort((a, b) => ord(a).localeCompare(ord(b)));
+  const cl = mineBacks.reduce((a, b) => a + b.amt, 0);
+  jobs.push({ ch, tab: tabOf(MONTH), lines: mine, backs: mineBacks,
+    net: mine.reduce((a, b) => a + b.net, 0) - cl,
+    vat: mine.reduce((a, b) => a + b.vat, 0) - Math.round(cl * VAT) });
 }
-for (const j of jobs) console.log(`   ${j.ch.padEnd(12)} ${String(j.lines.length).padStart(2)}줄 · 지급 ${won(j.net + j.vat).padStart(12)}${j.backs.length ? `  (환수 -${won(j.backs.reduce((a, b) => a + b.amt, 0))})` : ''}  →  「${j.tab}」  익월 ${payDayOf(j.paySup)}일`);
+for (const j of jobs) console.log(`   ${j.ch.padEnd(12)} ${String(j.lines.length).padStart(2)}줄 · 지급 ${won(j.net + j.vat).padStart(12)}${j.backs.length ? `  (환수 -${won(j.backs.reduce((a, b) => a + b.amt, 0))})` : ''}  →  「${j.tab}」`);
 if (!APPLY) { console.log('\n※ dry-run — 아무것도 안 만들고 안 썼습니다. --apply 로 붙입니다.\n'); process.exit(0); }
 
 const NAVY = { red: 0.06, green: 0.11, blue: 0.21 };
@@ -167,10 +166,20 @@ const BASIS_BODY = { red: 0.975, green: 0.97, blue: 0.99 };
  * ★**「적용한 표 규칙」은 뺀다** — 사장님 2026-09-03 「적용한 규칙이랑은 뺀도 된다고」.
  *   상대가 알 것은 «어떻게 나왔나»이지 우리 표의 줄 이름이 아니다. 산출근거 한 칸이면 족하다.
  */
-const BASIS = ['산출근거 (이대로 계산했습니다)'];
+const BASIS = ['수수료 산정 기준'];
+/**
+ * ★**「지급 예정일」을 줄마다 찍는다** — 사장님 2026-09-03 「지급일자 써주고」.
+ *   탭을 가르지 않는 대신 이 칸이 날을 말한다. 오토플러스 익월 25일 · 그 밖 익월 15일.
+ */
+/**
+ * ★★**「확인」·「메모」는 «상대가 적는 칸»이다** — 사장님 2026-09-03
+ *   「에이전시가 체크한 내용 메모남길수 있게 해줘 공급사도 마찬가지고」.
+ *   ⚠⚠ 매달 다시 찍을 때 «적어 둔 것을 덮으면 안 된다» — 차량번호로 찾아 그대로 되돌려 놓는다.
+ */
+const NOTE = ['확인', '메모'];
 const HEAD = ['No.', '차량번호', '접수일', '인도일', '공급사', '모델명', '임차인', '상품 구분', '계약 기간', '렌탈료',
-  ...BASIS, '공급가액', '부가세', '합계'];
-const WIDTH = [40, 92, 84, 84, 92, 150, 76, 112, 76, 92, 250, 100, 88, 108];
+  ...BASIS, '공급가액', '부가세', '합계', '지급 예정일', ...NOTE];
+const WIDTH = [40, 92, 84, 84, 92, 150, 76, 112, 76, 92, 250, 100, 88, 108, 96, 56, 260];
 /**
  * ★★★**청구액은 영업채널 시트에 «절대» 안 들어간다** — 공급사 쪽 빗장의 거울.
  *   말로 두지 않고 머리글을 기계가 본다. 걸리면 붙이기 전에 멈춘다.
@@ -183,6 +192,47 @@ const iB = HEAD.indexOf(BASIS[0]);
 const iM = HEAD.indexOf('공급가액');
 const LEFT = ['모델명', ...BASIS];
 const MONEY = ['렌탈료', '공급가액', '부가세', '합계'];
+
+/**
+ * ★★**「공지사항」 탭 — 프로모션을 알리는 자리.** 사장님 2026-09-03
+ *   「공지사항같은거 주면 좋을거 같아 프로모션하는거 알려주고하면 될거 같음」.
+ *   공급사 재고 시트의 「공지사항」과 «같은 규격»이다(`publish-supplier-tabs`).
+ *
+ * ★**맨 왼쪽에 둔다** — 채널이 시트를 열면 이것이 먼저 보여야 알림이 알림 노릇을 한다.
+ * ⚠⚠ **있으면 손대지 않는다.** 사람이 적는 칸이다 — 매달 돌 때마다 덮으면 적어 둔 공지가 날아간다.
+ */
+async function notice(bookId: string) {
+  const m = await (await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${bookId}?fields=sheets.properties(sheetId,title)`, { headers: { Authorization: `Bearer ${await tok()}` } })).json() as {
+    sheets?: { properties: { sheetId: number; title: string } }[] };
+  if ((m.sheets || []).some((s) => s.properties.title === '공지사항')) return;
+  const add = await (await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${bookId}:batchUpdate`, {
+    method: 'POST', headers: { Authorization: `Bearer ${await tok()}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requests: [{ addSheet: { properties: { title: '공지사항', index: 0, gridProperties: { rowCount: 200, columnCount: 3 } } } }] }),
+  })).json() as { replies?: { addSheet?: { properties?: { sheetId?: number } } }[] };
+  const id = add.replies?.[0]?.addSheet?.properties?.sheetId;
+  if (id === undefined) return;
+  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${bookId}/values/${encodeURIComponent("'공지사항'!A1:C2")}?valueInputOption=RAW`, {
+    method: 'PUT', headers: { Authorization: `Bearer ${await tok()}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ values: [[`프리패스 공지사항 · 프로모션 — ${CORP.name} 가 적는 칸입니다`, '', ''], ['날짜', '구분', '내용']] }),
+  });
+  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${bookId}:batchUpdate`, {
+    method: 'POST', headers: { Authorization: `Bearer ${await tok()}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requests: [
+      { mergeCells: { range: { sheetId: id, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 3 }, mergeType: 'MERGE_ALL' } },
+      { repeatCell: { range: { sheetId: id, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 3 },
+        cell: { userEnteredFormat: { backgroundColor: { red: 0.06, green: 0.11, blue: 0.21 }, textFormat: { bold: true, fontSize: 12, foregroundColor: { red: 1, green: 1, blue: 1 } }, verticalAlignment: 'MIDDLE', padding: { left: 10, right: 10, top: 2, bottom: 2 } } },
+        fields: 'userEnteredFormat(backgroundColor,textFormat,verticalAlignment,padding)' } },
+      { updateDimensionProperties: { range: { sheetId: id, dimension: 'ROWS', startIndex: 0, endIndex: 1 }, properties: { pixelSize: 40 }, fields: 'pixelSize' } },
+      { repeatCell: { range: { sheetId: id, startRowIndex: 1, endRowIndex: 2, startColumnIndex: 0, endColumnIndex: 3 },
+        cell: { userEnteredFormat: { backgroundColor: { red: 0.93, green: 0.95, blue: 0.98 }, textFormat: { bold: true, fontSize: 10 }, horizontalAlignment: 'CENTER', verticalAlignment: 'MIDDLE' } },
+        fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment)' } },
+      ...[110, 90, 760].map((w, c) => ({ updateDimensionProperties: { range: { sheetId: id, dimension: 'COLUMNS', startIndex: c, endIndex: c + 1 }, properties: { pixelSize: w }, fields: 'pixelSize' } })),
+      { repeatCell: { range: { sheetId: id, startRowIndex: 2, startColumnIndex: 2, endColumnIndex: 3 }, cell: { userEnteredFormat: { wrapStrategy: 'WRAP', verticalAlignment: 'TOP' } }, fields: 'userEnteredFormat(wrapStrategy,verticalAlignment)' } },
+      { repeatCell: { range: { sheetId: id }, cell: { userEnteredFormat: { textFormat: { fontFamily: 'Roboto' } } }, fields: 'userEnteredFormat.textFormat.fontFamily' } },
+    ] }),
+  });
+  console.log('   + 「공지사항」 탭을 만들었습니다 (프로모션 알림용)');
+}
 
 /** 채널 시트 — 있으면 쓰고 없으면 «만든다». 만든 것은 회사 안까지만 연다. */
 const bookOf = new Map<string, string>();
@@ -211,6 +261,7 @@ async function book(ch: string): Promise<string> {
     }
     console.log(`   + 시트를 만들었습니다 — ${name}`);
   }
+  await notice(id);
   bookOf.set(ch, id);
   return id;
 }
@@ -223,6 +274,20 @@ for (const j of jobs) {
   const all = meta.sheets || [];
   let id = all.find((s) => s.properties.title === tab)?.properties.sheetId;
   const rowsNeed = j.lines.length + 20;
+  /**
+   * ★**옛 이름(「26년08월 지급」)은 «이름만 바꿔» 이어 쓴다** — 지우면 상대가 적어 둔 메모가 날아간다.
+   *   사장님 2026-09-03 「정산서가 맞을거 같은데 지급명세서?? 이거 잘 생각해보고」.
+   */
+  if (id === undefined) {
+    const old = all.find((s) => s.properties.title === tab.replace('정산', '지급'))?.properties.sheetId;
+    if (old !== undefined) {
+      await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${bookId}:batchUpdate`, {
+        method: 'POST', headers: { Authorization: `Bearer ${await tok()}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requests: [{ updateSheetProperties: { properties: { sheetId: old, title: tab }, fields: 'title' } }] }) });
+      id = old;
+      console.log(`   ~ 탭 이름을 「${tab}」으로 고쳤습니다`);
+    }
+  }
   if (id === undefined) {
     const add = await (await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${bookId}:batchUpdate`, {
       method: 'POST', headers: { Authorization: `Bearer ${await tok()}`, 'Content-Type': 'application/json' },
@@ -240,30 +305,69 @@ for (const j of jobs) {
     });
   }
   if (id === undefined) { console.log(`   x ${j.ch} — 탭을 못 만들었습니다`); continue; }
+  /**
+   * ★**갈라 놨던 탭은 걷는다** — 이제 한 탭이다. 「26년08월 지급 · 오토플러스」가 남아 있으면
+   *   같은 달이 두 벌이 되어 어느 쪽이 맞는지 아무도 모른다. 우리가 오늘 만든 탭만 지운다.
+   */
+  for (const s of all) {
+    if (!s.properties.title.startsWith(`${tab} · `)) continue;
+    await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${bookId}:batchUpdate`, {
+      method: 'POST', headers: { Authorization: `Bearer ${await tok()}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requests: [{ deleteSheet: { sheetId: s.properties.sheetId } }] }) });
+    console.log(`   - 갈라 놨던 탭을 걷었습니다 — ${s.properties.title}`);
+  }
+
+  /**
+   * ★**적어 둔 「확인·메모」를 먼저 거둔다.** 머리글 이름으로 칸을 찾으므로 열이 늘거나 자리가 바뀌어도
+   *   따라온다. 열쇠는 차량번호 — 줄 차례는 달마다 바뀐다(오플이 아래로 내려간다).
+   */
+  const kept = new Map<string, [boolean, string]>();
+  {
+    const got = await (await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${bookId}/values/${encodeURIComponent(`'${tab}'!A1:AZ400`)}`, { headers: { Authorization: `Bearer ${await tok()}` } })).json() as { values?: unknown[][] };
+    const g = got.values || [];
+    const hi = g.findIndex((r) => (r || []).some((c) => S(c) === '차량번호'));
+    if (hi >= 0) {
+      const h = (g[hi] || []).map(S);
+      const [cp, cc, cm] = ['차량번호', '확인', '메모'].map((n) => h.indexOf(n));
+      if (cp >= 0 && (cc >= 0 || cm >= 0)) {
+        for (const r of g.slice(hi + 1)) {
+          const p = S((r || [])[cp]);
+          const chk = cc >= 0 && /^(TRUE|true|1|Y|O|v|✓)$/.test(S((r || [])[cc]));
+          const memo = cm >= 0 ? S((r || [])[cm]) : '';
+          if (p && (chk || memo)) kept.set(p, [chk, memo]);
+        }
+      }
+    }
+  }
+  const note = (p: string): [boolean, string] => kept.get(p) || [false, ''];
 
   const pad = (n: number) => Array.from({ length: n }, () => '');
-  const body: (string | number)[][] = j.lines.map((l, i) => [i + 1, l.plate, l.recv, l.deliv, l.sup, l.model, l.cust,
-    l.product, l.term || '', l.rent || '', l.how, l.net, l.vat, l.total]);
+  /** 돈 세 칸이 서는 자리 — 뒤에 「지급 예정일」이 붙었으므로 «끝에서부터» 세지 않는다. */
+  const tail = (a: string | number, b: string | number, c: string | number) =>
+    [...pad(iM), a, b, c, ...pad(HEAD.length - iM - 3)];
+  const payKo = (sup: string) => dayKo(payDate(MONTH, sup));
+  const body: (string | number | boolean)[][] = j.lines.map((l, i) => [i + 1, l.plate, l.recv, l.deliv, l.sup, l.model, l.cust,
+    l.product, l.term || '', l.rent || '', l.how, l.net, l.vat, l.total, payKo(l.sup), ...note(l.plate)]);
   /** ★환수는 «같은 표»에 음수로 선다 — 표를 둘로 쪼개면 합계를 두 번 보게 된다. */
   for (const b of j.backs) {
     body.push(['', b.plate, '', '', b.sup, '지난 지급분 환수', '', '', '', '', b.why || '수수료표로 내는 값이 아니다',
-      -b.amt, -Math.round(b.amt * VAT), -(b.amt + Math.round(b.amt * VAT))]);
+      -b.amt, -Math.round(b.amt * VAT), -(b.amt + Math.round(b.amt * VAT)), payKo(b.sup), ...note(b.plate)]);
   }
-  const values: (string | number)[][] = [
+  const values: (string | number | boolean)[][] = [
     /**
      * ★**제목은 «맨 앞»에서 시작한다** — 사장님 2026-09-03 「여기 제목을 앞으로 보내고 틀고정 필요없음」.
      *   ⚠ C1 부터 밀어 놓았던 것은 «틀고정 때문»이었다(병합이 얼린 칸을 가로지르면 시트가 거부한다).
      *     틀고정을 걷었으니 그 이유가 사라졌다 — A1 부터 한 줄로 병합한다.
      */
-    [`${monthKo(MONTH)} 지급명세서    ·    ${j.ch} 귀중 · ${CORP.name} 발행`, ...pad(HEAD.length - 1)],
-    [...pad(HEAD.length - 3), '공급가액', '부가세', '지급 금액'],
-    [...pad(HEAD.length - 3), j.net, j.vat, j.net + j.vat],
+    [`${monthKo(MONTH)} 정산서    ·    ${j.ch} 귀중 · ${CORP.name} 발행`, ...pad(HEAD.length - 1)],
+    tail('공급가액', '부가세', '지급 금액'),
+    tail(j.net, j.vat, j.net + j.vat),
     HEAD,
     ...body,
-    ['', '합계', `${j.lines.length}건`, ...pad(iM - 3), j.net, j.vat, j.net + j.vat],
+    ['', '합계', `${j.lines.length}건`, ...pad(iM - 3), j.net, j.vat, j.net + j.vat, ...pad(HEAD.length - iM - 3)],
     [],
-    /** ★지급일은 «그 탭의 공급사»를 따른다 — 오플은 익월 25일, 나머지는 15일. */
-    [`${dayKo(payDate(MONTH, j.paySup))} 지급 예정입니다${j.paySup ? ` (${j.paySup} 건 · 매월 ${payDayOf(j.paySup)}일)` : ''}`, ...pad(HEAD.length - 1)],
+    /** ★날은 «줄마다» 적혀 있다 — 여기서는 규칙만 한 줄로 말한다. */
+    [`지급 예정일은 줄마다 적었습니다 — ${SPLIT_SUPPLIERS.map((s) => `${s} 매월 ${payDayOf(s)}일`).join(' · ')} · 그 밖 매월 ${payDayOf('')}일`, ...pad(HEAD.length - 1)],
     [`${CORP.staff} · ${S(CORP.staffPhone) || CORP.phone} · ${CORP.email}`, ...pad(HEAD.length - 1)],
     ['세금계산서 발행 부탁드립니다 · 한 달간 함께해 주셔서 감사합니다', ...pad(HEAD.length - 1)],
   ];
@@ -314,6 +418,14 @@ for (const j of jobs) {
     { repeatCell: { range: { sheetId: id }, cell: { userEnteredFormat: { textFormat: { fontFamily: 'Roboto' } } }, fields: 'userEnteredFormat.textFormat.fontFamily' } },
     /** ★틀고정은 «안 건다» — 사장님 2026-09-03 「틀고정 필요없음」. 한 화면에 드는 표다. */
     { updateSheetProperties: { properties: { sheetId: id, gridProperties: { frozenRowCount: 0, frozenColumnCount: 0 } }, fields: 'gridProperties(frozenRowCount,frozenColumnCount)' } },
+    /**
+     * ★★**필터를 걸어 둔다** — 사장님 2026-09-03 「공급사를 나누지 말고 그냥 필터 잡게만 해줘」.
+     *   탭을 가르는 대신 공급사·상품 구분으로 «그 자리에서» 추린다.
+     *   ⚠ 범위는 머리줄~마지막 줄까지 — 합계줄이 들어가면 걸러도 합계가 따라 사라진다.
+     */
+    { setBasicFilter: { filter: { range: { sheetId: id, startRowIndex: r0, endRowIndex: last, startColumnIndex: 0, endColumnIndex: HEAD.length } } } },
+    /** ★「확인」은 체크칸으로 — 상대가 누르기만 하면 된다. */
+    { setDataValidation: { range: { sheetId: id, startRowIndex: r0 + 1, endRowIndex: last, startColumnIndex: HEAD.indexOf('확인'), endColumnIndex: HEAD.indexOf('확인') + 1 }, rule: { condition: { type: 'BOOLEAN' }, strict: true, showCustomUi: true } } },
   ];
   const fr = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${bookId}:batchUpdate`, {
     method: 'POST', headers: { Authorization: `Bearer ${await tok()}`, 'Content-Type': 'application/json' },

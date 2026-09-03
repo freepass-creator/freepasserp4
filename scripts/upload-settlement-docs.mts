@@ -8,7 +8,7 @@
  * 프리패스 정산서/
  *   2026-08/
  *     공급사 청구서/         받을 돈 — ★영업자 실적 확인 전이면 이름에 (확인대기)가 붙어 있다
- *     영업채널 지급명세서/     줄 돈
+ *     영업채널 정산서/     줄 돈
  * ```
  * ★**폴더는 «있으면 쓰고 없으면 만든다».** 같은 이름을 두 번 만들지 않는다 — 두 벌이 생기면
  *   어느 쪽이 최신인지 아무도 모른다.
@@ -79,17 +79,17 @@ async function put(path: string, name: string, parent: string): Promise<string> 
  */
 const files = readdirSync(DIR).filter((f) => f.endsWith('.pdf') || f.endsWith('.xlsx'));
 const bill = files.filter((f) => f.includes('청구서'));
-const payd = files.filter((f) => f.includes('지급명세서'));
-console.log(`\n■ ${MONTH} 정산서 ${files.length}장 — 공급사 청구서 ${bill.length} · 영업채널 지급명세서 ${payd.length}`);
+const payd = files.filter((f) => f.includes('정산서'));
+console.log(`\n■ ${MONTH} 정산서 ${files.length}장 — 공급사 청구서 ${bill.length} · 영업채널 정산서 ${payd.length}`);
 console.log(`\n■ 폴더 ${APPLY ? '' : '(대조만)'}`);
 const root = await folder(ROOT);
 const mon = await folder(MONTH, root);
 const fBill = await folder('공급사 청구서', mon);
-const fPay = await folder('영업채널 지급명세서', mon);
+const fPay = await folder('영업채널 정산서', mon);
 
 if (!APPLY) { console.log('\n※ dry-run — 아무것도 안 올렸다. --apply 로 올린다.\n'); process.exit(0); }
 
-for (const [label, list, into] of [['공급사 청구서', bill, fBill], ['영업채널 지급명세서', payd, fPay]] as [string, string[], string][]) {
+for (const [label, list, into] of [['공급사 청구서', bill, fBill], ['영업채널 정산서', payd, fPay]] as [string, string[], string][]) {
   console.log(`\n■ ${label} ${list.length}장`);
   for (const f of list) { const id = await put(join(DIR, f), f, into); console.log(`   ${id ? '○' : '✕'} ${f}`); }
 }

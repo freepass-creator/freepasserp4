@@ -94,7 +94,7 @@ export function invoiceXlsx(inv: Invoice, opts?: { invoiceNo?: string; issuedAt?
 
   // ── ② 정산서 출력용 — 종이와 «같은 차례»로 세로 ──
   const P: (string | number)[][] = [
-    [claim ? '영업수수료 청구서' : '영업수수료 지급명세서'],
+    [claim ? '영업수수료 청구서' : '영업수수료 정산서'],
     [`${monthKo(inv.month)} · ${periodOf(inv.month)}`],
     [],
     [claim ? '청구처' : '지급처', S(inv.receiver.name) || inv.party, '', '사업자등록번호', S(inv.receiver.bizNo)],
