@@ -236,14 +236,14 @@ const ico = (k: keyof typeof ICO | string) => `<svg class="i" viewBox="0 0 24 24
  */
 /**
  * ★★**짐작하지 않고 «잰» 값이다**(2026-09-02, `tmp` 계측 — 쪽마다 여유와 한 줄 높이를 실측).
- *   한 줄 = 40~45px. ★2026-09-03 「청구 안내」 상자를 걷어내자 자리가 확 늘어 «다시» 쟀다 —
- *   한 장짜리 7줄에 여유 345px(→14) · 첫 장 11줄에 277px(→17) · 가운데(→21) · 끝 장 9줄에 449px(→18).
- *   ⇒ 상자 하나가 끝 장에서 «네 줄»을 먹고 있었다. 하허호 35줄이 3쪽 → 2쪽이 된다.
+ *   ★2026-09-03 «줄을 한 줄로 묶은 뒤» 다시 재다 — 한 줄이 43.5 → **26.3px**으로 가지런해졌다.
+ *   한 장짜리 7줄에 여유 422px(→22) · 첫 장 17줄에 280px(→26) · 끝 장 18줄에 325px(→29).
+ *   ⇒ 22 / 26 / 30 / 28. 줄 높이가 같아야 칸을 셀 수 있다 — 접히는 칸이 있으면 재도 소용없다.
  */
-const CAP_SOLO = 16;
-const CAP_FIRST = 20;
-const CAP_MID = 24;
-const CAP_LAST = 22;
+const CAP_SOLO = 22;
+const CAP_FIRST = 26;
+const CAP_MID = 30;
+const CAP_LAST = 28;
 
 /**
  * 줄을 장으로 자른다.
@@ -430,10 +430,12 @@ export const INVOICE_CSS = `
   .ctab { width:100%; border-collapse:separate; border-spacing:0; }
   .ctab th, .ctab td { border-bottom:1px solid #edf0f4; padding:var(--cell); text-align:center; }
   .ctab thead th { background:var(--tl); color:#fff; font-weight:700; border-bottom:0; font-size:10.5px; }
-  .ctab thead th:first-child, .ctab thead th.rl { background:var(--tl-d); color:#fff; border-top-left-radius:var(--r-box); text-align:left; }
+  /** ★모서리는 «첫 칸»만 둥글다 — 순번(No.)이 생겨 차량번호는 이제 첫 칸이 아니다(사장님 2026-09-03). */
+  .ctab thead th.rl { background:var(--tl-d); color:#fff; text-align:left; }
+  .ctab thead th:first-child { background:var(--tl-d); color:#fff; border-top-left-radius:var(--r-box); }
   .ctab thead th:last-child { border-top-right-radius:var(--r-box); }
   /* ★아래쪽도 둥글게 — 위만 둥글면 표가 각져 보인다. */
-  .ctab tbody tr:last-child th:first-child, .ctab tbody tr:last-child td:first-child { border-bottom-left-radius:var(--r-box); }
+  .ctab tbody tr:last-child td:first-child { border-bottom-left-radius:var(--r-box); }
   .ctab tbody tr:last-child td:last-child { border-bottom-right-radius:var(--r-box); }
   .ctab .rl { text-align:left; background:#fafbfd; color:var(--mut); font-weight:600; white-space:nowrap; width:110px; }
   /**
@@ -491,7 +493,13 @@ export const INVOICE_CSS = `
 
   /* 한 줄 짜리 — 회원사·계좌. 표로 만들 만큼의 내용이 아니다. */
   .ctab td { font-variant-numeric:tabular-nums; }
-  .ctab td.l { text-align:left; }
+  /**
+   * ★★**한 줄로 묶는다 — 줄마다 높이가 다르면 표가 «막» 보인다.**
+   *   사장님 2026-09-03 「이런거 안넘어가게 해야지 … 뭐 왜 막 칸이 저러냐」.
+   *   ⚠ 곁줄(.sub)만 묶어 놨더니 «모델명»이 접혔다 — 「K5 / HEV」·「아이오닉 / 6」·「그랜저 / HEV」.
+   *     그 줄만 두 배가 되어 표가 들쭉날쭉했다. 칸 전체를 묶어야 한 줄이 된다.
+   */
+  .ctab td.l { text-align:left; white-space:nowrap; }
   /** ★금액은 «우측정렬»이다 — 사장님 2026-09-02 「정렬 금액은 우측정렬이어야하고」. 자릿수가 세로로 맞아야 눈으로 읽힌다. */
   .ctab td.n, .ctab thead th.n { text-align:right; }
   /** ★접수일 — 사장님 2026-09-02 「접수날짜도 있어야하는데」. 회원사가 그 건을 짚는 두 번째 열쇠다. */
@@ -502,6 +510,7 @@ export const INVOICE_CSS = `
    *   ⇒ inline 으로 눕히고 가운뎃점으로 가른다. 자리가 모자랄 때만 «자연스럽게» 넘어간다.
    */
   /** ★곁줄은 «안 접힌다» — 한 글자가 넘어가면서 줄 높이가 두 배가 되고, 그만큼 쪽이 일찍 넘어간다. */
+  .ctab td.l { font-size:11px; }
   .ctab .sub { display:inline; font-size:10px; color:var(--mut); font-weight:400; margin-left:6px; white-space:nowrap; }
   .ctab .sub::before { content:'·'; margin-right:6px; color:var(--faint); }
   /* ★수수료 산출조건 — 제 칸을 갖는다. 표가 스스로 «어떻게 나왔는지»를 말한다. */
@@ -771,7 +780,7 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
       pages.length > 1 ? `${from}–${from + chunk.length - 1} / ${inv.lines.length}건` : `${plus.length}건`
     } · 단위 원</span></div>
     <table class="ctab">
-      <colgroup><col style="width:4%"><col style="width:12%"><col style="width:8%"><col><col style="width:22%"><col style="width:11%"><col style="width:9%"><col style="width:11%"></colgroup>
+      <colgroup><col style="width:4%"><col style="width:11%"><col style="width:8%"><col><col style="width:21%"><col style="width:11%"><col style="width:9%"><col style="width:10%"></colgroup>
       <thead><tr><th class="no">No.</th><th class="rl">차량번호</th><th>접수일</th><th>차량 · 계약조건</th><th>수수료 산출조건</th><th class="n">공급가액</th><th class="n">부가세</th><th class="n">합계</th></tr></thead>
       <tbody>
         ${chunk.map((l, k) => row(l, from + k)).join('')}
