@@ -61,17 +61,28 @@ async function put(path: string, name: string, parent: string): Promise<string> 
     ? `https://www.googleapis.com/upload/drive/v3/files/${old[0].id}?uploadType=multipart&fields=id,webViewLink&supportsAllDrives=true`
     : 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,webViewLink&supportsAllDrives=true';
   const B = '===fp===';
-  const pre = `--${B}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n--${B}\r\nContent-Type: application/pdf\r\n\r\n`;
+  /** ★파일 종류를 «확장자로» 정한다 — 엑셀을 application/pdf 로 올리면 드라이브가 못 연다. */
+  const mime = name.endsWith('.xlsx')
+    ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : 'application/pdf';
+  const pre = `--${B}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${JSON.stringify(meta)}\r\n--${B}\r\nContent-Type: ${mime}\r\n\r\n`;
   const buf = Buffer.concat([Buffer.from(pre, 'utf8'), body, Buffer.from(`\r\n--${B}--`, 'utf8')]);
   const r = await fetch(url, { method: old.length ? 'PATCH' : 'POST', headers: { ...H, 'Content-Type': `multipart/related; boundary=${B}` }, body: buf });
   if (!r.ok) { console.log(`      ✕ ${name} — ${r.status} ${(await r.text()).slice(0, 120)}`); return ''; }
   return S((await r.json() as { id?: string }).id);
 }
 
-const files = readdirSync(DIR).filter((f) => f.endsWith('.pdf'));
+/**
+ * ★★**PDF 와 엑셀을 «한 벌»로 올린다** — 사장님 2026-09-03 「엑셀파일은??」.
+ *   ⚠ 여태 PDF 만 올라갔다. 엑셀은 로컬에만 있어서 드라이브를 여는 사람은 반쪽만 봤다.
+ *     보내는 것이 「청구서 + 세부내역 엑셀」 한 벌이니 쌓이는 곳도 한 벌이어야 한다.
+ *   ★HTML 은 안 올린다 — 우리끼리 보는 미리보기다.
+ */
+const files = readdirSync(DIR).filter((f) => f.endsWith('.pdf') || f.endsWith('.xlsx'));
 const bill = files.filter((f) => f.includes('청구서'));
 const payd = files.filter((f) => f.includes('지급명세서'));
-console.log(`\n■ ${MONTH} 정산서 ${files.length}장 — 공급사 청구서 ${bill.length} · 영업채널 지급명세서 ${payd.length}`);
+/** ★「장」이 아니라 「건」으로 센다 — 한 건에 PDF·엑셀 두 파일이라 장 수를 쓰면 두 배로 읽힌다. */
+const n = (a: string[]) => a.filter((f) => f.endsWith('.pdf')).length;
+console.log(`\n■ ${MONTH} 정산서 ${n(files)}건 · ${files.length}파일(PDF+엑셀) — 공급사 청구서 ${n(bill)} · 영업채널 지급명세서 ${n(payd)}`);
 console.log(`\n■ 폴더 ${APPLY ? '' : '(대조만)'}`);
 const root = await folder(ROOT);
 const mon = await folder(MONTH, root);
