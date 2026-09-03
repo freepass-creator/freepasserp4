@@ -17,8 +17,8 @@
 /** `■` 로 시작하는 줄은 «섹션 머리»다. 그 밖은 [항목, 내용, 참고] 세 칸. */
 export const CHANNEL_GUIDE: [string, string, string][] = [
   ['■ 프리패스모빌리티입니다', '', ''],
-  ['담당', '프리패스 강지수 팀장', '010-2925-1798'],
-  ['주말·급한 건', '강지수 팀장 010-2925-1798 · 박영협 담당자 010-6384-9260', ''],
+  ['담당', '강지수 팀장 010-2925-1798  ·  박영협 대표 010-6384-9260', '주말·급한 건도 이 번호로'],
+  ['프리패스 ERP', 'https://freepasserp.com', '상품 찾기 · 계약 진행을 여기서 합니다'],
   ['상품리스트', 'https://docs.google.com/spreadsheets/d/1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs/edit?gid=205661918#gid=205661918', '재고는 여기서 확인'],
   ['등기서류 발송 주소', '김포 아라육로 152번길 45, 247호 (프리패스)', '강지수 팀장 010-2925-1798'],
 
@@ -76,12 +76,24 @@ export const CHANNEL_GUIDE: [string, string, string][] = [
  * ★수수료는 «안 넣는다». 요율은 대표와 우리 사이의 값이고, 영업사원 방에 뿌릴 것이 아니다.
  */
 export function channelNoticeText(): string {
+  /**
+   * ★★★**카톡은 «줄이 길면 접힌다».** 폰 화면이 좁아 한 줄이 두세 줄로 밀리고,
+   *   그러면 아홉 단계가 스무 줄로 불어 아무도 안 읽는다. 그래서 —
+   * ```
+   * 참고는 «다음 줄»로       ※ 로 내려 붙인다. 뒤에 —  로 이으면 그 줄이 통째로 길어진다
+   * 주소는 «제 줄»로         http 로 시작하면 줄을 바꾼다. 글자에 붙으면 링크가 안 잡히기도 한다
+   * 섹션 머리는 «짧게»       「— 설명」 이 달려 있으면 떼어 아랫줄로 내린다
+   * 글머리 앞에 빈칸 없음     카톡이 왼쪽 여백을 지워 들쭉날쭉해 보인다
+   * ```
+   */
   const out: string[] = ['[프리패스모빌리티 영업 안내]'];
   let form = false;                       // 지금 «계약접수 양식» 섹션 안인가
   for (const [a, b, c] of CHANNEL_GUIDE) {
     if (a.startsWith('■')) {
       form = a.includes('계약접수 양식');
-      out.push('', a);
+      const [head, ...rest] = a.replace(/^■\s*/, '').split(' — ');
+      out.push('', `■ ${head}`);
+      if (rest.length) out.push(rest.join(' — '));
       continue;
     }
     /**
@@ -90,9 +102,11 @@ export function channelNoticeText(): string {
      *   다만 «칸이 아닌 설명»(내용이 차 있는 줄)은 양식 밖으로 빼 줄로 적는다.
      */
     if (form && !b) { out.push(`> ${a} : ${c ? `(${c})` : ''}`.trimEnd()); continue; }
-    const body = [b, c].filter(Boolean).join('  —  ');
-    const sep = /^\d+$/.test(a) ? '.' : ':';
-    out.push(body ? ` · ${a}${sep} ${body}` : ` · ${a}`);
+    if (/^\d+$/.test(a)) out.push(`${a}. ${b}`);
+    else if (!b) out.push(`▸ ${a}`);
+    else if (b.startsWith('http')) { out.push(`▸ ${a}${c ? ` (${c})` : ''}`, b); if (c) continue; }
+    else out.push(`▸ ${a}`, b);
+    if (c && !b.startsWith('http')) out.push(`   ※ ${c}`);
   }
   return out.join('\n');
 }
