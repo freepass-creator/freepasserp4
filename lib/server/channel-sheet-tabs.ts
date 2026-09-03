@@ -79,54 +79,78 @@ const dress = (id: number, cols: number, widths: number[]) => [
 ];
 
 /**
- * 「공지사항」 — 맨 왼쪽 탭. **두 부분이다.**
+ * 「공지사항」 — 맨 왼쪽 탭. **공지·프로모션만.**
  *
- * ★사장님 2026-09-03 「공지사항에 공지해줄 내용을 정리해보자고」.
- * ```
- * 위   공지 · 프로모션    날짜 | 구분 | 내용 — 그때그때 우리가 적는다(빈 줄을 남겨 둔다)
- * 아래 상시 안내          계약 절차 · 서류 · 접수양식 · 탁송비 — `channel-guide` 가 정본
- * ```
- * ★자주 바뀌는 것이 위다. 채널이 시트를 열면 «새 소식»이 먼저 보여야 알림 노릇을 한다.
+ * ★사장님 2026-09-03 「공지사항과 영업안내탭을 만들고」 — 둘을 «가른다».
+ *   여긴 그때그때 바뀌는 것(프로모션·변경 안내)만 선다. 안 바뀌는 절차는 「영업안내」다.
+ *   섞으면 새 소식이 긴 안내문에 묻힌다.
  * ⚠ 이미 있으면 손대지 않는다 — 적어 둔 공지가 날아간다.
  */
 export async function ensureNoticeTab(tok: Tok, bookId: string): Promise<boolean> {
   const TAB = '공지사항';
   if ((await tabs(tok, bookId)).some((s) => s.properties.title === TAB)) return false;
-  const BLANK = 6;                       // 우리가 적을 빈 줄
+  const BLANK = 20;                      // 우리가 적을 빈 줄
   const rows: (string | number)[][] = [
     [`${TAB} · 프로모션 — ${CORP.name}`, '', ''],
-    ['■ 공지 · 프로모션', '', ''],
     ['날짜', '구분', '내용'],
     ...Array.from({ length: BLANK }, () => ['', '', '']),
-    ['', '', ''],
-    ...CHANNEL_GUIDE.map(([a, b]) => [a, b, '']),
   ];
-  const id = await addTab(tok, bookId, TAB, 0, rows.length + 20, 3);
+  const id = await addTab(tok, bookId, TAB, 0, rows.length + 40, 3);
+  if (id === undefined) return false;
+  await put(tok, bookId, `'${TAB}'!A1:C${rows.length}`, rows);
+  await format(tok, bookId, [
+    ...dress(id, 3, [110, 110, 800]),
+    { repeatCell: { range: { sheetId: id, startRowIndex: 2, startColumnIndex: 0, endColumnIndex: 3 },
+      cell: { userEnteredFormat: { verticalAlignment: 'TOP', wrapStrategy: 'WRAP' } }, fields: 'userEnteredFormat(verticalAlignment,wrapStrategy)' } },
+    { repeatCell: { range: { sheetId: id, startRowIndex: 2, startColumnIndex: 0, endColumnIndex: 2 },
+      cell: { userEnteredFormat: { horizontalAlignment: 'CENTER' } }, fields: 'userEnteredFormat.horizontalAlignment' } },
+    { setBasicFilter: { filter: { range: { sheetId: id, startRowIndex: 1, endRowIndex: rows.length, startColumnIndex: 0, endColumnIndex: 3 } } } },
+  ]);
+  return true;
+}
+
+/**
+ * 「영업안내」 — 계약 절차 · 필요 서류 · 접수 양식 · 탁송비.
+ *
+ * ★사장님 2026-09-03 「영업절차나 안내 아까 올린거 올려줬으면 좋겠어」 ·
+ *   「진행절차랑 좀 잘 정리해서 올리고 싶고」.
+ * ★**세 칸으로 읽는다** — 항목 | 내용 | 참고. 조건(얼마·며칠)이 «참고»로 빠져 줄이 안 접힌다.
+ * ★내용의 정본은 `lib/domain/channel-guide`. 절차가 바뀌면 «거기»를 고친다 —
+ *   그래야 카톡방마다 옛 판이 남는 일이 안 생긴다.
+ */
+export async function ensureGuideTab(tok: Tok, bookId: string): Promise<boolean> {
+  const TAB = '영업안내';
+  if ((await tabs(tok, bookId)).some((s) => s.properties.title === TAB)) return false;
+  const rows: (string | number)[][] = [
+    [`영업안내 — ${CORP.name}`, '', ''],
+    ['항목', '내용', '참고'],
+    ...CHANNEL_GUIDE.map(([a, b, c]) => [a, b, c]),
+  ];
+  const id = await addTab(tok, bookId, TAB, 1, rows.length + 20, 3);
   if (id === undefined) return false;
   await put(tok, bookId, `'${TAB}'!A1:C${rows.length}`, rows);
 
-  const g0 = 3 + BLANK + 1;              // 상시 안내가 시작하는 줄(0-based)
-  /** 「■ …」 로 시작하는 줄은 섹션 머리 — 줄을 통째로 병합해 «칸이 아니라 제목»으로 보이게 한다. */
-  const heads = [1, ...CHANNEL_GUIDE.map(([a], i) => (a.startsWith('■') ? g0 + i : -1)).filter((i) => i >= 0)];
-  /** 안내 줄은 «내용»이 넓어야 읽힌다 — B:C 를 붙여 한 칸으로 쓴다. */
-  const bodies = CHANNEL_GUIDE.map(([a], i) => (a.startsWith('■') ? -1 : g0 + i)).filter((i) => i >= 0);
+  const g0 = 2;                          // 안내가 시작하는 줄(0-based)
+  /** 「■ …」 는 섹션 머리 — 줄을 통째로 병합해 «칸이 아니라 제목»으로 보이게 한다. */
+  const heads = CHANNEL_GUIDE.map(([a], i) => (a.startsWith('■') ? g0 + i : -1)).filter((i) => i >= 0);
   await format(tok, bookId, [
-    ...dress(id, 3, [180, 90, 730]),
-    { repeatCell: { range: { sheetId: id, startRowIndex: 2, endRowIndex: 3, startColumnIndex: 0, endColumnIndex: 3 },
-      cell: { userEnteredFormat: { backgroundColor: TINT, textFormat: { bold: true, fontSize: 10 }, horizontalAlignment: 'CENTER', verticalAlignment: 'MIDDLE' } },
-      fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment)' } },
+    ...dress(id, 3, [170, 560, 330]),
     ...heads.flatMap((r) => [
       { mergeCells: { range: { sheetId: id, startRowIndex: r, endRowIndex: r + 1, startColumnIndex: 0, endColumnIndex: 3 }, mergeType: 'MERGE_ALL' } },
       { repeatCell: { range: { sheetId: id, startRowIndex: r, endRowIndex: r + 1, startColumnIndex: 0, endColumnIndex: 3 },
-        cell: { userEnteredFormat: { backgroundColor: TINT, textFormat: { bold: true, fontSize: 11, foregroundColor: NAVY }, verticalAlignment: 'MIDDLE', padding: { left: 8, right: 8, top: 2, bottom: 2 } } },
+        cell: { userEnteredFormat: { backgroundColor: NAVY, textFormat: { bold: true, fontSize: 11, foregroundColor: { red: 1, green: 1, blue: 1 } }, verticalAlignment: 'MIDDLE', padding: { left: 10, right: 10, top: 2, bottom: 2 } } },
         fields: 'userEnteredFormat(backgroundColor,textFormat,verticalAlignment,padding)' } },
-      { updateDimensionProperties: { range: { sheetId: id, dimension: 'ROWS', startIndex: r, endIndex: r + 1 }, properties: { pixelSize: 32 }, fields: 'pixelSize' } },
+      { updateDimensionProperties: { range: { sheetId: id, dimension: 'ROWS', startIndex: r, endIndex: r + 1 }, properties: { pixelSize: 34 }, fields: 'pixelSize' } },
     ]),
-    ...bodies.map((r) => ({ mergeCells: { range: { sheetId: id, startRowIndex: r, endRowIndex: r + 1, startColumnIndex: 1, endColumnIndex: 3 }, mergeType: 'MERGE_ALL' } })),
     { repeatCell: { range: { sheetId: id, startRowIndex: g0, endRowIndex: rows.length, startColumnIndex: 0, endColumnIndex: 1 },
-      cell: { userEnteredFormat: { textFormat: { bold: true }, verticalAlignment: 'TOP', wrapStrategy: 'WRAP' } }, fields: 'userEnteredFormat(textFormat,verticalAlignment,wrapStrategy)' } },
-    { repeatCell: { range: { sheetId: id, startRowIndex: 3, endRowIndex: rows.length, startColumnIndex: 1, endColumnIndex: 3 },
-      cell: { userEnteredFormat: { verticalAlignment: 'TOP', wrapStrategy: 'WRAP' } }, fields: 'userEnteredFormat(verticalAlignment,wrapStrategy)' } },
+      cell: { userEnteredFormat: { textFormat: { bold: true }, verticalAlignment: 'MIDDLE', horizontalAlignment: 'LEFT', wrapStrategy: 'WRAP' } },
+      fields: 'userEnteredFormat(textFormat,verticalAlignment,horizontalAlignment,wrapStrategy)' } },
+    { repeatCell: { range: { sheetId: id, startRowIndex: g0, endRowIndex: rows.length, startColumnIndex: 1, endColumnIndex: 2 },
+      cell: { userEnteredFormat: { verticalAlignment: 'MIDDLE', wrapStrategy: 'WRAP' } }, fields: 'userEnteredFormat(verticalAlignment,wrapStrategy)' } },
+    /** ★「참고」는 곁다리다 — 흐린 글씨로 두어 «내용»이 먼저 읽히게 한다. */
+    { repeatCell: { range: { sheetId: id, startRowIndex: g0, endRowIndex: rows.length, startColumnIndex: 2, endColumnIndex: 3 },
+      cell: { userEnteredFormat: { verticalAlignment: 'MIDDLE', wrapStrategy: 'WRAP', textFormat: { fontSize: 9, foregroundColor: { red: 0.42, green: 0.45, blue: 0.5 } } } },
+      fields: 'userEnteredFormat(verticalAlignment,wrapStrategy,textFormat)' } },
   ]);
   return true;
 }
@@ -159,7 +183,8 @@ export async function ensureFeeTab(tok: Tok, bookId: string): Promise<boolean> {
     r.when,
     [r.auto ? '' : '★사람이 정하는 줄', S(r.note)].filter(Boolean).join(' · '),
   ]);
-  const id = await addTab(tok, bookId, TAB, 1, body.length + 12, HEAD.length);
+  /** ★수수료는 셋째 — 공지사항 · 영업안내 다음이다. 그 뒤로 달별 정산 탭이 쌓인다. */
+  const id = await addTab(tok, bookId, TAB, 2, body.length + 12, HEAD.length);
   if (id === undefined) return false;
   await put(tok, bookId, `'${TAB}'!A1:G${body.length + 4}`, [
     [`영업수수료 지급 요율표 — ${CORP.name} 가 드리는 값입니다`, '', '', '', '', '', ''],

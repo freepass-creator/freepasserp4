@@ -15,7 +15,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
-import { channelSheetName, ensureNoticeTab, ensureFeeTab } from '../lib/server/channel-sheet-tabs';
+import { channelSheetName, ensureNoticeTab, ensureGuideTab, ensureFeeTab } from '../lib/server/channel-sheet-tabs';
 
 const S = (v: unknown) => String(v ?? '').trim();
 const APPLY = process.argv.includes('--apply');
@@ -77,7 +77,9 @@ async function redo(title: string) {
 }
 
 await redo('공지사항');
-console.log(`   ${await ensureNoticeTab(tok, id) ? '+ 「공지사항」 만듦 (공지·프로모션 + 상시 안내)' : '○ 「공지사항」 있음 — 손대지 않음'}`);
+console.log(`   ${await ensureNoticeTab(tok, id) ? '+ 「공지사항」 만듦 (공지·프로모션)' : '○ 「공지사항」 있음 — 손대지 않음'}`);
+await redo('영업안내');
+console.log(`   ${await ensureGuideTab(tok, id) ? '+ 「영업안내」 만듦 (절차·서류·양식·탁송비)' : '○ 「영업안내」 있음 — 손대지 않음'}`);
 await redo('수수료');
 console.log(`   ${await ensureFeeTab(tok, id) ? '+ 「수수료」 만듦 (지급 요율만)' : '○ 「수수료」 있음 — 손대지 않음'}`);
 
