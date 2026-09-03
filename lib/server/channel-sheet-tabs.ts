@@ -194,8 +194,20 @@ const eun = (w: string) => {
   return `${w}${hangul && (last - 0xac00) % 28 ? '은' : '는'}`;
 };
 const KIND = (r: FeeRule) => `${r.kind}${r.form ? ` (${r.form})` : ''}${r.term ? ` ${r.term}개월` : ''}`;
+/**
+ * ★★**부가세는 «칸»이다** — 사장님 2026-09-03 「부가세 포함 여부도 중요한데??」 ·
+ *   「이러면 다 부가세 별도인줄 알아 표준 각 섹션에 부가세 여부 표시해줘」.
+ *   제목에 한 줄 적어 두면 «줄마다 다른 것»을 못 말한다 — 스타 재렌트는 포함이다.
+ *   ⇒ 줄마다 별도/포함을 찍고, 섹션 머리에도 그 구역이 무엇인지 적는다.
+ */
+const VATOF = (r: FeeRule) => (/VAT\s*포함|부가세\s*포함/.test(String(r.pay)) ? '포함' : '별도');
+/** 섹션 안 줄들이 다 같으면 「부가세 별도」, 섞이면 「부가세 줄마다 다름」. */
+const VATTAG = (rs: FeeRule[]) => {
+  const set = new Set(rs.map(VATOF));
+  return set.size === 1 ? `부가세 ${[...set][0]}` : '부가세 줄마다 다름';
+};
 const HOWMUCH = (r: FeeRule) => {
-  const p = payShow(r.pay).replace('12개월구독료 100%', '12개월 구독료의 100%');
+  const p = payShow(r.pay).replace('12개월구독료 100%', '12개월 구독료의 100%').replace(/\s*\(?VAT\s*포함\)?/g, '');
   if (typeof r.pay === 'string') return p;
   if (r.basis === '정액') return p;
   if (r.basis === '차량가액') return `차량가액의 ${p}`;
@@ -246,13 +258,22 @@ export async function ensureFeeTab(tok: Tok, bookId: string): Promise<boolean> {
    * ★**머리는 «이름», 본문은 «문장»** — 사장님 2026-09-03 「무엇을 팔면 / 이렇게 드립니다 … 오글거린다」.
    *   표 머리에 말을 붙이면 느끼하다. 머리글은 라벨이지 인사말이 아니다.
    */
-  const HEAD = ['상품 구분', '지급 수수료', '산출 예시'];
+  /**
+   * ★★**예외는 «한 줄씩» 눕힌다** — 사장님 2026-09-03
+   *   「이렇게 해두니까 여기가 뭔가 대단한거 처럼 보이는데」 · 「손오공 스타 오토플러스 아이카
+   *   이런데들을 뭔가 별도 조건으로 취급하는게 좋을거 같거든?? 그냥 한줄 한줄 한줄 이런식으로」
+   *
+   *   공급사마다 남색 머리를 세웠더니 예외 하나하나가 «구역»이 되어 대단해 보였다.
+   *   예외는 예외답게 — 머리는 «표준»과 «예외 공급사» 둘뿐이고, 그 아래는 평평한 줄이다.
+   *   ⇒ 그래서 「공급사」가 칸으로 선다. 표준 줄은 비워 두고(머리가 대신 말한다) 예외 줄만 이름을 쓴다.
+   */
+  const HEAD = ['공급사', '상품 구분', '지급 수수료', '부가세', '산출 예시'];
   const rows: (string | number)[][] = [
-    [`영업수수료 지급 기준 — ${CORP.name}   ·   요율은 모두 «부가세 별도»입니다`, '', ''],
+    [`영업수수료 지급 기준 — ${CORP.name}`, '', '', '', ''],
     HEAD,
-    [`■ 프리패스 표준 수수료 정책 — ${stdSups.length}개사 공통`, '', ''],
-    ['해당 공급사', stdSups.join(' · '), ''],
-    ...stdRules.map((r) => [KIND(r), HOWMUCH(r), EXAMPLE(r)]),
+    [`■ 프리패스 표준 수수료 정책 — ${stdSups.length}개사 공통  ·  ${VATTAG(stdRules)}`, '', '', '', ''],
+    ['해당 공급사', stdSups.join(' · '), '', '', ''],
+    ...stdRules.map((r) => ['', KIND(r), HOWMUCH(r), VATOF(r), EXAMPLE(r)]),
   ];
   /**
    * ★★**표준과 «같은 줄»은 다시 적지 않는다.**
@@ -261,6 +282,8 @@ export async function ensureFeeTab(tok: Tok, bookId: string): Promise<boolean> {
    *   ⇒ «다른 줄»만 적고, 나머지는 「위와 같습니다」 한 줄로 말한다.
    */
   const stdSet = new Set(stdRules.map(sig));
+  /** 예외 줄을 모아 «한 구역»으로 세운다 — 공급사별로 머리를 세우지 않는다. */
+  const exc: (string | number)[][] = []; const partial: string[] = [];
   for (const sup of others) {
     const rs = bySup.get(sup) || [];
     const diff = rs.filter((r) => !stdSet.has(sig(r)));
@@ -272,26 +295,35 @@ export async function ensureFeeTab(tok: Tok, bookId: string): Promise<boolean> {
      * ★손오공은 «구독만» 다르고 재렌트·신차는 표준과 같다. 그것까지 머리줄에 적는다 —
      *   안 적으면 구독 다섯 줄만 보고 「재렌트는 어떻게 되나」를 되묻는다.
      */
-    const only = [...new Set(diff.map((r) => r.kind))].join('·');
-    rows.push([`■ ${sup} — 예외 조건${same ? '   (그 외는 프리패스 표준 수수료 정책과 동일)' : ''}`, '', '']);
-    for (const r of (diff.length ? diff : rs)) rows.push([KIND(r), HOWMUCH(r), EXAMPLE(r)]);
+    const show = diff.length ? diff : rs;
+    exc.push(...show.map((r) => [sup, KIND(r), HOWMUCH(r), VATOF(r), EXAMPLE(r)]));
+    if (same) partial.push(sup);
   }
-  rows.push(['', '', '']);
-  rows.push(['※ 위 요율은 부가세 별도입니다 — 정산할 때 부가세 10%를 더해 드립니다.', '', '']);
-  rows.push(['※ 「VAT 포함」이라 적힌 줄은 그 값이 이미 부가세를 담고 있는 것입니다.', '', '']);
-  rows.push(['※ 이 기준으로 매달 정산합니다. 다른 부분이 있으면 알려 주세요.', '', '']);
+  if (exc.length) {
+    rows.push(['■ 예외 공급사 — 아래 줄만 조건이 다릅니다', '', '', '', '']);
+    if (partial.length) rows.push(['', `${partial.join(' · ')} 는 아래 줄 밖의 조건은 프리패스 표준 수수료 정책과 같습니다`, '', '', '']);
+    rows.push(...exc);
+  }
+  rows.push(['', '', '', '', '']);
+  rows.push(['※ 「별도」 줄은 정산할 때 부가세 10%를 더해 드립니다.', '', '', '', '']);
+  rows.push(['※ 「포함」 줄은 적힌 값이 이미 부가세를 담고 있습니다 — 더 더하지 않습니다.', '', '', '', '']);
+  rows.push(['※ 이 기준으로 매달 정산합니다. 다른 부분이 있으면 알려 주세요.', '', '', '', '']);
 
-  const id = await addTab(tok, bookId, TAB, 2, rows.length + 10, 3);
+  const id = await addTab(tok, bookId, TAB, 2, rows.length + 10, HEAD.length);
   if (id === undefined) return false;
-  await put(tok, bookId, `'${TAB}'!A1:C${rows.length}`, rows);
+  await put(tok, bookId, `'${TAB}'!A1:E${rows.length}`, rows);
 
   const heads = rows.map((r, i) => (String(r[0]).startsWith('■') ? i : -1)).filter((i) => i > 0);
   await format(tok, bookId, [
-    ...dress(id, 3, [230, 300, 330]),
-    { repeatCell: { range: { sheetId: id, startRowIndex: 2, endRowIndex: rows.length, startColumnIndex: 0, endColumnIndex: 2 },
+    ...dress(id, HEAD.length, [110, 200, 230, 60, 300]),
+    { repeatCell: { range: { sheetId: id, startRowIndex: 2, endRowIndex: rows.length, startColumnIndex: 0, endColumnIndex: 3 },
       cell: { userEnteredFormat: { verticalAlignment: 'MIDDLE', wrapStrategy: 'WRAP', textFormat: { bold: true } } }, fields: 'userEnteredFormat(verticalAlignment,wrapStrategy,textFormat)' } },
-    /** ★「예를 들면」은 곁다리 — 흐리게 두어 «얼마»가 먼저 읽히게 한다. */
-    { repeatCell: { range: { sheetId: id, startRowIndex: 2, endRowIndex: rows.length, startColumnIndex: 2, endColumnIndex: 3 },
+    /** ★「부가세」는 «별도/포함» 두 글자다 — 가운데 세우고 굵게 둔다. 흐리면 못 보고 지나친다. */
+    { repeatCell: { range: { sheetId: id, startRowIndex: 2, endRowIndex: rows.length, startColumnIndex: 3, endColumnIndex: 4 },
+      cell: { userEnteredFormat: { verticalAlignment: 'MIDDLE', horizontalAlignment: 'CENTER', textFormat: { fontSize: 10, bold: true } } },
+      fields: 'userEnteredFormat(verticalAlignment,horizontalAlignment,textFormat)' } },
+    /** ★「산출 예시」는 곁다리 — 흐리게 두어 «얼마»가 먼저 읽히게 한다. */
+    { repeatCell: { range: { sheetId: id, startRowIndex: 2, endRowIndex: rows.length, startColumnIndex: 4, endColumnIndex: 5 },
       cell: { userEnteredFormat: { verticalAlignment: 'MIDDLE', wrapStrategy: 'WRAP', textFormat: { fontSize: 9, bold: false, foregroundColor: { red: 0.42, green: 0.45, blue: 0.5 } } } },
       fields: 'userEnteredFormat(verticalAlignment,wrapStrategy,textFormat)' } },
     /**
@@ -299,11 +331,11 @@ export async function ensureFeeTab(tok: Tok, bookId: string): Promise<boolean> {
      *   먼저 칠하면 뒤에 오는 «칸 서식»(굵은 검은 글씨 · 흐린 작은 글씨)이 그 줄까지 덮어
      *   남색 바탕에 검은 글씨가 된다 — 그냥 «안 보인다»(실측 2026-09-03 사장님 화면).
      *   정산탭에서 「차량번호」가 남색 위 남색이 됐던 것과 «같은 실수»다. 순서가 곧 규칙이다.
-     * ★글은 A칸에만 두고 A:C 를 병합한다 — 길어도 접히지 않고 끝까지 넘어간다.
+     * ★글은 A칸에만 두고 줄 전체를 병합한다 — 길어도 접히지 않고 끝까지 넘어간다.
      */
     ...heads.flatMap((r) => [
-      { mergeCells: { range: { sheetId: id, startRowIndex: r, endRowIndex: r + 1, startColumnIndex: 0, endColumnIndex: 3 }, mergeType: 'MERGE_ALL' } },
-      { repeatCell: { range: { sheetId: id, startRowIndex: r, endRowIndex: r + 1, startColumnIndex: 0, endColumnIndex: 3 },
+      { mergeCells: { range: { sheetId: id, startRowIndex: r, endRowIndex: r + 1, startColumnIndex: 0, endColumnIndex: HEAD.length }, mergeType: 'MERGE_ALL' } },
+      { repeatCell: { range: { sheetId: id, startRowIndex: r, endRowIndex: r + 1, startColumnIndex: 0, endColumnIndex: HEAD.length },
         cell: { userEnteredFormat: { backgroundColor: NAVY, textFormat: { bold: true, fontSize: 11, foregroundColor: { red: 1, green: 1, blue: 1 } }, verticalAlignment: 'MIDDLE', horizontalAlignment: 'LEFT', wrapStrategy: 'OVERFLOW_CELL', padding: { left: 10, right: 10, top: 2, bottom: 2 } } },
         fields: 'userEnteredFormat(backgroundColor,textFormat,verticalAlignment,horizontalAlignment,wrapStrategy,padding)' } },
       { updateDimensionProperties: { range: { sheetId: id, dimension: 'ROWS', startIndex: r, endIndex: r + 1 }, properties: { pixelSize: 34 }, fields: 'pixelSize' } },
