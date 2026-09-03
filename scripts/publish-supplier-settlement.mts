@@ -269,7 +269,7 @@ for (const j of jobs) {
   const pad = (n: number) => Array.from({ length: n }, () => '');
   const body: (string | number | boolean)[][] = j.lines.map((l, i) => [i + 1, l.plate, l.recv, l.deliv, l.model, l.cust,
     l.product, l.term || '', l.rent || '', l.how, l.net, l.vat, l.total, ...note(l.plate)]);
-  if (j.claw) body.push(['', '환수', '', '', '지난 정산분 환수', '', '', '', '', '수수료표로 내는 값이 아니다',
+  if (j.claw) body.push(['', '환수', '', '', '지난 정산분 환수', '', '', '', '', '',
     -j.claw, -Math.round(j.claw * VAT), -(j.claw + Math.round(j.claw * VAT)), false, '']);
   const values: (string | number | boolean)[][] = [
     /**
@@ -320,24 +320,9 @@ for (const j of jobs) {
     /** ★머리줄 40 — 「수수료 산정 기준」이 안 잘리게 두 줄 자리를 준다. */
     { updateDimensionProperties: { range: { sheetId: id, dimension: 'ROWS', startIndex: r0, endIndex: r0 + 1 }, properties: { pixelSize: 40 }, fields: 'pixelSize' } },
     { updateDimensionProperties: { range: { sheetId: id, dimension: 'ROWS', startIndex: r0 + 1, endIndex: last + 1 }, properties: { pixelSize: 24 }, fields: 'pixelSize' } },
-    /**
-     * ★★**얼룩 줄** — 사장님 2026-09-03 「읽기 편하게 써줘야하는데」.
-     *   칸이 열다섯이라 눈이 가로로 가다 «줄을 놓친다». 한 줄 건너 연하게 깔아 두면
-     *   손가락 없이도 같은 줄을 끝까지 따라간다.
-     * ⚠ 조건부 서식으로 하면 «쌓인다» — 다시 찍을 때마다 규칙이 한 벌씩 늘어난다.
-     *   그래서 줄마다 «그려» 둔다. 다시 찍으면 그대로 덮여 늘어나지 않는다.
-     */
-    ...body.map((_, i) => (i % 2 === 1 ? { repeatCell: { range: all1(r0 + 1 + i, r0 + 2 + i),
-      cell: { userEnteredFormat: { backgroundColor: ZEBRA } }, fields: 'userEnteredFormat.backgroundColor' } } : null)).filter(Boolean) as Record<string, unknown>[],
     /** ★환수 줄은 연한 붉은빛 — «빼는 돈»이라 숫자만 음수면 눈에 안 들어온다. */
     ...(j.claw ? [body.length - 1] : []).map((i: number) => ({ repeatCell: { range: all1(r0 + 1 + i, r0 + 2 + i),
       cell: { userEnteredFormat: { backgroundColor: BACK_ROW } }, fields: 'userEnteredFormat.backgroundColor' } })),
-    /** ★산출조건 영역 — 머리는 연보라, 줄은 아주 연하게. 금액 칸과 «눈으로» 갈린다. */
-    { repeatCell: { range: { sheetId: id, startRowIndex: r0, endRowIndex: r0 + 1, startColumnIndex: iB, endColumnIndex: iB + BASIS.length },
-      cell: { userEnteredFormat: { backgroundColor: BASIS_HEAD, textFormat: { bold: true, fontSize: 10, foregroundColor: NAVY }, horizontalAlignment: 'CENTER', verticalAlignment: 'MIDDLE', wrapStrategy: 'WRAP' } },
-      fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment,wrapStrategy)' } },
-    { repeatCell: { range: { sheetId: id, startRowIndex: r0 + 1, endRowIndex: last, startColumnIndex: iB, endColumnIndex: iB + BASIS.length },
-      cell: { userEnteredFormat: { backgroundColor: BASIS_BODY, textFormat: { fontSize: 9 } } }, fields: 'userEnteredFormat(backgroundColor,textFormat)' } },
     // 정렬 — 돈은 우측 · 글은 좌측 · 나머지 가운데
     ...HEAD.map((h, c) => ({ repeatCell: { range: { sheetId: id, ...DATA, startColumnIndex: c, endColumnIndex: c + 1 },
       cell: { userEnteredFormat: { horizontalAlignment: MONEY.includes(h) ? 'RIGHT' : LEFT.includes(h) ? 'LEFT' : 'CENTER', verticalAlignment: 'MIDDLE' } },

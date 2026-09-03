@@ -322,9 +322,24 @@ for (const j of jobs) {
    *   따라온다. 열쇠는 차량번호 — 줄 차례는 달마다 바뀐다(오플이 아래로 내려간다).
    */
   const kept = new Map<string, [boolean, string]>();
+  /**
+   * ★**「누락분」에 적어 둔 줄도 거둔다** — 사장님 2026-09-03
+   *   「정산시트에 누락된거 있으면 몇개 넣을수 있게끔 몇줄 만들어 놓자」 ·
+   *   「정산서 밑에 여백이 5개 넣어두면 추가하라고 빠진거 있으면 추가해달라고」.
+   *   ⚠⚠ 다시 찍을 때 «적어 둔 줄을 덮으면» 그게 사고다 — 빠진 건을 적어 놨는데 지워지는 셈이다.
+   */
+  const missed: string[][] = [];
   {
     const got = await (await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${bookId}/values/${encodeURIComponent(`'${tab}'!A1:AZ400`)}`, { headers: { Authorization: `Bearer ${await tok()}` } })).json() as { values?: unknown[][] };
     const g = got.values || [];
+    const mi = g.findIndex((r) => S((r || [])[1]) === '합계');
+    if (mi >= 0) {
+      for (const r of g.slice(mi + 1)) {
+        const cells = (r || []).map(S);
+        if (cells.some((c) => c.startsWith('지급 예정일은') || c.startsWith('세금계산서') || c.includes(CORP.email))) break;
+        if (cells.some((c) => c && !c.startsWith('빠진 건이'))) missed.push(cells);
+      }
+    }
     const hi = g.findIndex((r) => (r || []).some((c) => S(c) === '차량번호'));
     if (hi >= 0) {
       const h = (g[hi] || []).map(S);
@@ -350,7 +365,7 @@ for (const j of jobs) {
     l.product, l.term || '', l.rent || '', l.how, l.net, l.vat, l.total, payKo(l.sup), ...note(l.plate)]);
   /** ★환수는 «같은 표»에 음수로 선다 — 표를 둘로 쪼개면 합계를 두 번 보게 된다. */
   for (const b of j.backs) {
-    body.push(['', b.plate, '', '', b.sup, '지난 지급분 환수', '', '', '', '', b.why || '수수료표로 내는 값이 아니다',
+    body.push(['', b.plate, '', '', b.sup, '지난 지급분 환수', '', '', '', '', b.why,
       -b.amt, -Math.round(b.amt * VAT), -(b.amt + Math.round(b.amt * VAT)), payKo(b.sup), ...note(b.plate)]);
   }
   const values: (string | number | boolean)[][] = [
@@ -365,6 +380,17 @@ for (const j of jobs) {
     HEAD,
     ...body,
     ['', '합계', `${j.lines.length}건`, ...pad(iM - 3), j.net, j.vat, j.net + j.vat, ...pad(HEAD.length - iM - 3)],
+    /**
+     * ★★**합계 아래에 «빈 다섯 줄»을 둔다** — 사장님 2026-09-03
+     *   「정산서 밑에 여백이 5개 넣어두면 추가하라고 빠진거 있으면 추가해달라고」 ·
+     *   「살짝 흐리게 써놔주면 되지」 · 「메모에 써도 되겄네」.
+     *   빠진 건이 있을 때 «어디에 적나»를 묻지 않게, 자리를 먼저 내어 둔다.
+     * ⚠⚠ 다시 찍을 때 «적어 둔 줄은 그대로 되돌려 놓는다»(missed) — 안 그러면 적어 놓은 게 지워진다.
+     */
+    ...missed.map((r) => [...r, ...pad(Math.max(0, HEAD.length - r.length))].slice(0, HEAD.length)),
+    ...Array.from({ length: Math.max(0, 5 - missed.length) }, (_, k) => (k === 0 && !missed.length
+      ? [...pad(HEAD.length - 1), '빠진 건이 있으면 이 줄부터 적어 주세요']
+      : pad(HEAD.length))),
     [],
     /** ★날은 «줄마다» 적혀 있다 — 여기서는 규칙만 한 줄로 말한다. */
     [`지급 예정일은 줄마다 적었습니다 — ${SPLIT_SUPPLIERS.map((s) => `${s} 매월 ${payDayOf(s)}일`).join(' · ')} · 그 밖 매월 ${payDayOf('')}일`, ...pad(HEAD.length - 1)],
@@ -399,22 +425,23 @@ for (const j of jobs) {
     bar(1, true), bar(r0, false), tint(2), tint(last),
     { updateDimensionProperties: { range: { sheetId: id, dimension: 'ROWS', startIndex: r0, endIndex: r0 + 1 }, properties: { pixelSize: 40 }, fields: 'pixelSize' } },
     { updateDimensionProperties: { range: { sheetId: id, dimension: 'ROWS', startIndex: r0 + 1, endIndex: last + 1 }, properties: { pixelSize: 24 }, fields: 'pixelSize' } },
-    /**
-     * ★★**얼룩 줄** — 사장님 2026-09-03 「읽기 편하게 써줘야하는데」.
-     *   칸이 열일곱이라 눈이 가로로 가다 «줄을 놓친다». 한 줄 걸러 연하게 깔면 끝까지 따라간다.
-     * ⚠ 조건부 서식으로 하면 «쌓인다» — 다시 찍을 때마다 규칙이 한 벌씩 늘어난다.
-     *   그래서 줄마다 «그려» 둔다. 다시 찍으면 그대로 덮여 늘어나지 않는다.
-     */
-    ...body.map((_, i) => (i % 2 === 1 ? { repeatCell: { range: all1(r0 + 1 + i, r0 + 2 + i),
-      cell: { userEnteredFormat: { backgroundColor: ZEBRA } }, fields: 'userEnteredFormat.backgroundColor' } } : null)).filter(Boolean) as Record<string, unknown>[],
     /** ★환수 줄은 연한 붉은빛 — «빼는 돈»이라 숫자만 음수면 눈에 안 들어온다. */
     ...j.backs.map((_, i) => ({ repeatCell: { range: all1(r0 + 1 + j.lines.length + i, r0 + 2 + j.lines.length + i),
       cell: { userEnteredFormat: { backgroundColor: BACK_ROW } }, fields: 'userEnteredFormat.backgroundColor' } })),
-    { repeatCell: { range: { sheetId: id, startRowIndex: r0, endRowIndex: r0 + 1, startColumnIndex: iB, endColumnIndex: iB + BASIS.length },
-      cell: { userEnteredFormat: { backgroundColor: BASIS_HEAD, textFormat: { bold: true, fontSize: 10, foregroundColor: NAVY }, horizontalAlignment: 'CENTER', verticalAlignment: 'MIDDLE', wrapStrategy: 'WRAP' } },
-      fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment,wrapStrategy)' } },
+    /**
+     * ★**「수수료 산정 기준」 머리도 «남색 그대로»** — 사장님 2026-09-03 「칸헤더 왜 색깔이 다르지??」
+     *   한 칸만 보라로 칠해 두니 «다른 표»처럼 보였다. 같은 표의 한 칸이면 머리도 같아야 한다.
+     *   ⇒ 구역을 가르는 것은 색이 아니라 «세로 칸막이»(updateBorders)로 충분하다.
+     */
     { repeatCell: { range: { sheetId: id, startRowIndex: r0 + 1, endRowIndex: last, startColumnIndex: iB, endColumnIndex: iB + BASIS.length },
-      cell: { userEnteredFormat: { backgroundColor: BASIS_BODY, textFormat: { fontSize: 9 } } }, fields: 'userEnteredFormat(backgroundColor,textFormat)' } },
+      cell: { userEnteredFormat: { textFormat: { fontSize: 9 } } }, fields: 'userEnteredFormat.textFormat' } },
+    /**
+     * ★**빈 다섯 줄 안내는 «흐린 기울임»** — 사장님 2026-09-03 「살짝 흐리게 써놓아주면 되지」.
+     *   진하게 적으면 «정산 줄»로 오해한다. 적으시라는 자리표지지 내용이 아니다.
+     */
+    { repeatCell: { range: { sheetId: id, startRowIndex: last + 1, endRowIndex: last + 6, startColumnIndex: 0, endColumnIndex: HEAD.length },
+      cell: { userEnteredFormat: { textFormat: { italic: true, fontSize: 10, foregroundColor: { red: 0.62, green: 0.65, blue: 0.70 } } } }, fields: 'userEnteredFormat.textFormat' } },
+    { updateDimensionProperties: { range: { sheetId: id, dimension: 'ROWS', startIndex: last + 1, endIndex: last + 6 }, properties: { pixelSize: 24 }, fields: 'pixelSize' } },
     ...HEAD.map((h, c) => ({ repeatCell: { range: { sheetId: id, ...DATA, startColumnIndex: c, endColumnIndex: c + 1 },
       cell: { userEnteredFormat: { horizontalAlignment: MONEY.includes(h) ? 'RIGHT' : LEFT.includes(h) ? 'LEFT' : 'CENTER', verticalAlignment: 'MIDDLE' } },
       fields: 'userEnteredFormat(horizontalAlignment,verticalAlignment)' } })),
