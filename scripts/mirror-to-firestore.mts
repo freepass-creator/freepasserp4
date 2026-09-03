@@ -45,9 +45,22 @@ const snapOf = (v: Record<string, any>) => {
   return snapToMaster({ maker: v.maker, model: v.model, vehicle_name: raw, sub_model: raw, fuel_type: v.fuel_type, year: v.year } as EntityRecord, MASTER) as any;
 };
 
-// 변동·렌더 필드
+// 변동·렌더 필드. ★vehicle_price·vin·account_number 는 «담지 않는다»(공급사 원가·차대번호·계좌 = private).
 const VARIABLE = ['vehicle_status', 'status_label_raw', 'price', 'mileage', 'policy_code'];
 const CARRY = ['product_code', 'product_type', 'provider_company_code', 'partner_code', 'photo_link', 'location', 'options', 'usage'];
+// 요금표 안의 private 항목(수수료·커미션) — 손님·영업자에 노출 금지. 공개 문서엔 deposit·rent 만.
+const PRIVATE_PRICE_FIELDS = new Set(['fee', 'commission', 'fee_memo']);
+function publicPrice(price: unknown): unknown {
+  if (!price || typeof price !== 'object' || Array.isArray(price)) return price;
+  const out: Record<string, any> = {};
+  for (const [period, terms] of Object.entries(price as Record<string, any>)) {
+    if (!terms || typeof terms !== 'object' || Array.isArray(terms)) { out[period] = terms; continue; }
+    const pub: Record<string, any> = {};
+    for (const [k, val] of Object.entries(terms)) if (!PRIVATE_PRICE_FIELDS.has(k)) pub[k] = val;
+    out[period] = pub;
+  }
+  return out;
+}
 const SPEC = ['ext_color', 'int_color', 'year', 'fuel_type', 'engine_cc', 'vehicle_class', 'drive_type', 'seats', 'battery_capacity', 'first_registration_date'];
 
 const isObj = (v: unknown): v is Record<string, any> => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -98,7 +111,10 @@ for (const v of rows) {
     _mirror_at: Date.now(),
   };
   for (const f of SPEC) doc[f] = S(v[f]);
-  for (const f of [...VARIABLE, ...CARRY]) if (v[f] !== undefined && v[f] !== '' && v[f] !== null) doc[f] = v[f];
+  for (const f of [...VARIABLE, ...CARRY]) {
+    if (v[f] === undefined || v[f] === '' || v[f] === null) continue;
+    doc[f] = f === 'price' ? publicPrice(v[f]) : v[f];   // price 는 private 항목(수수료) 걷어내고 공개분만
+  }
   const rawObj: Record<string, any> = {};
   if (raw) rawObj['차명'] = raw;
   if (S(v.supplier_options)) rawObj['옵션'] = v.supplier_options;
