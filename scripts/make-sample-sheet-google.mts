@@ -8,9 +8,10 @@ import { readFileSync } from 'node:fs';
 import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { JWT } from 'google-auth-library';
+import { buildSalesFormatRequests, columnWidths } from '../lib/domain/sales-sheet-format';
 
 const S = (v: unknown) => String(v ?? '').trim();
-const OLD_SAMPLE = '13L1xYYChJNweVFw54uQWWHyak5cPFn4ary-toT-XKJM';   // 직전 샘플 → 휴지통
+const OLD_SAMPLE = '1u5SHyK0--fWPzGePCzauD6WK94-3crSRZZ4XaORtDMQ';   // 직전 샘플 → 휴지통
 const sa = JSON.parse(readFileSync('tmp/firebase-auth/sa.json', 'utf8'));
 initializeApp({ credential: cert({ projectId: sa.project_id, clientEmail: sa.client_email, privateKey: sa.private_key.replace(/\\n/g, '\n') }) });
 const jwt = new JWT({ email: sa.client_email, key: sa.private_key, scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive'], subject: 'pyh@teamjpk.com' });
@@ -42,15 +43,13 @@ const groups: Record<string, any[]> = {};
 for (const v of listable) { const t = tabOf(v); (groups[t] = groups[t] || []).push(v); }
 const tabs = [...TAB_ORDER.filter((t) => groups[t]?.length), ...Object.keys(groups).filter((t) => !TAB_ORDER.includes(t))];
 
-const repRent = (price: any) => {
-  if (!price || typeof price !== 'object') return ['', '', ''];
-  const terms = Object.keys(price).map(Number).filter((n) => n).sort((a, b) => a - b);
-  const t = terms[terms.length - 1]; if (!t) return ['', '', ''];
-  const o = price[String(t)] || {};
-  return [String(t), String(o.rent ?? ''), String(o.deposit ?? '')];
-};
-const HEAD = ['배차상태', '상태분류', '상태이유', '올림', '구분', '차량번호', '제조사', '모델', '세부모델', '세부트림', '연식', '연료', '배기량', '차종구분', '외장', '내장', '주행km', '최초등록', '대표개월', '월대여료', '보증금', '차명(원문)', '원산지', '구동', '인승', '공급사', '확정', '검수상태'];
-const rowOf = (v: any) => { const [term, rent, dep] = repRent(v.price); return [S(v.status), S(v.status_kind), S(v.status_reason), v.listable ? 'O' : 'X', S(v.product_type), S(v.car_number), S(v.maker), S(v.model), S(v.sub_model), S(v.trim_name), S(v.year), S(v.fuel_type), S(v.engine_cc), S(v.vehicle_class), S(v.ext_color), S(v.int_color), S(v.mileage), S(v.first_registration_date), term, rent, dep, S(v['원문']?.['차명']), S(v.origin), S(v.drive_type), S(v.seats), S(v.provider_company_code), S(v['확정']), S(v['검수상태'])]; };
+// ★열은 «기존 판매시트 이름 그대로»(통일) — 상태분류·상태이유·올림 같은 내부값은 안 올린다(우리만 봄).
+//   배차상태·구분 이름을 맞춰야 집안 서식이 값별 색을 입힌다.
+const money = (v: unknown) => { const n = Number(v); return n ? n.toLocaleString() : ''; };
+const rentOf = (price: any, term: number) => (price && typeof price === 'object' && price[String(term)]?.rent != null ? money(price[String(term)].rent) : '');
+const depOf = (price: any) => { if (!price || typeof price !== 'object') return ''; const terms = Object.keys(price).map(Number).filter((n) => n).sort((a, b) => b - a); for (const t of terms) if (price[String(t)]?.deposit != null) return money(price[String(t)].deposit); return ''; };
+const HEAD = ['배차상태', '구분', '차량번호', '제조사', '모델', '세부모델', '세부트림', '외장', '내장', '연식', 'Km', '연료', '배기량', '차종구분', '장기보증', '12개월', '24개월', '36개월', '48개월', '60개월', '차명(원문)', '옵션(원문)', '원산지', '구동', '인승', '배터리용량', '최초등록', '사진', '정책UID'];
+const rowOf = (v: any) => [S(v.status), S(v.product_type), S(v.car_number), S(v.maker), S(v.model), S(v.sub_model), S(v.trim_name), S(v.ext_color), S(v.int_color), S(v.year), S(v.mileage), S(v.fuel_type), S(v.engine_cc), S(v.vehicle_class), depOf(v.price), rentOf(v.price, 12), rentOf(v.price, 24), rentOf(v.price, 36), rentOf(v.price, 48), rentOf(v.price, 60), S(v['원문']?.['차명']), S(v['원문']?.['옵션']), S(v.origin), S(v.drive_type), S(v.seats), S(v.battery_capacity), S(v.first_registration_date), S(v.photo_link), S(v.policy_code)];
 
 console.log('탭 구성:'); for (const t of tabs) console.log(`  ${t} ${groups[t].length}대`);
 const total = tabs.reduce((a, t) => a + groups[t].length, 0);
@@ -60,9 +59,20 @@ const created = await api('https://sheets.googleapis.com/v4/spreadsheets', {
   body: JSON.stringify({ properties: { title: `프리패스 샘플 — 올릴수있는 ${total}대 · 상태디테일 (${new Date().toISOString().slice(0, 16).replace('T', ' ')})` }, sheets: tabs.map((t, i) => ({ properties: { sheetId: i, title: `${t} ${groups[t].length}` } })) }),
 });
 const sheetId = created.spreadsheetId;
-const data = tabs.map((t, i) => ({ range: `'${(t + ' ' + groups[t].length).replace(/'/g, "''")}'!A1`, values: [HEAD, ...groups[t].sort((a, b) => S(a.provider_company_code).localeCompare(S(b.provider_company_code)) || S(a.car_number).localeCompare(S(b.car_number))).map(rowOf)] }));
+const bodies: Record<string, string[][]> = {};
+const data = tabs.map((t) => {
+  const rows = groups[t].sort((a, b) => S(a.provider_company_code).localeCompare(S(b.provider_company_code)) || S(a.car_number).localeCompare(S(b.car_number))).map(rowOf);
+  bodies[t] = rows;
+  return { range: `'${(t + ' ' + groups[t].length).replace(/'/g, "''")}'!A1`, values: [HEAD, ...rows] };
+});
 await api(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values:batchUpdate`, { method: 'POST', body: JSON.stringify({ valueInputOption: 'RAW', data }) });
-await api(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests: tabs.map((_, i) => ({ updateSheetProperties: { properties: { sheetId: i, gridProperties: { frozenRowCount: 1 } }, fields: 'gridProperties.frozenRowCount' } })) }) });
+// ★집안 서식 그대로 — Roboto·배차상태색·구분색·헤더·탭색·금액굵기(기존 판매시트와 통일). 탭 제목은 색맵용으로 순수 이름 전달.
+const fmt: Record<string, unknown>[] = [];
+tabs.forEach((t, i) => {
+  fmt.push({ updateSheetProperties: { properties: { sheetId: i, gridProperties: { frozenRowCount: 1 } }, fields: 'gridProperties.frozenRowCount' } });
+  fmt.push(...buildSalesFormatRequests({ gid: i, columns: HEAD, widths: columnWidths(HEAD, bodies[t]), tabTitle: t, body: bodies[t] }));
+});
+for (let i = 0; i < fmt.length; i += 200) await api(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests: fmt.slice(i, i + 200) }) });
 await api(`https://www.googleapis.com/drive/v3/files/${sheetId}/permissions?sendNotificationEmail=false`, { method: 'POST', body: JSON.stringify({ role: 'writer', type: 'user', emailAddress: 'jpkpyh@gmail.com' }) }).catch((e) => console.warn('공유 경고:', e.message));
 await api(`https://www.googleapis.com/drive/v3/files/${sheetId}/permissions`, { method: 'POST', body: JSON.stringify({ role: 'reader', type: 'anyone' }) }).catch((e) => console.warn('링크뷰 경고:', e.message));
 // 이전 6탭 샘플 휴지통
