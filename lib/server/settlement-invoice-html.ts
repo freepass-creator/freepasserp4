@@ -604,6 +604,14 @@ export const INVOICE_CSS = `
   .payline p { margin:0; font-size:11px; color:var(--ink); font-weight:600; line-height:1.75; font-variant-numeric:tabular-nums; }
   .payline b.d { color:var(--tl-d); font-size:12.5px; font-weight:800; letter-spacing:-.2px; }
   .payline p.cav { color:var(--faint); font-size:10px; font-weight:500; margin-top:1px; }
+  /**
+   * ★맺음 인사 — 오른쪽 아래. 한글 필기체(나눔 펜)로 «손으로 적은 것»처럼 둔다.
+   *   ⚠ 글꼴이 안 실리는 자리에서도 읽혀야 하므로 뒤에 본문 글꼴을 받쳐 둔다.
+   */
+  .thx { margin-top:26px; text-align:right; line-height:1.5;
+    font-family:'Nanum Pen Script','Pretendard Variable',Pretendard,'Malgun Gothic',cursive; }
+  .thx span { display:block; font-size:19px; color:var(--tl-d); letter-spacing:.2px; }
+  .thx b { display:block; font-size:15px; font-weight:400; color:var(--mut); margin-top:2px; }
 
   /* 발송 전 확인 — 우리끼리 보는 표시. 인쇄하면 사라진다. */
   .warn { margin-top:var(--sec); font-size:10px; color:#c0392b; font-weight:600; }
@@ -866,6 +874,16 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
       <p>${esc(CORP.staff)} · ${esc(S(CORP.staffPhone) || CORP.phone)} · ${esc(CORP.email)}${
     CORP.fax ? ` · 팩스 ${esc(CORP.fax)}` : ''}</p>
       <p class="cav">${claim ? '세금계산서는 별도 발행해 드립니다' : '세금계산서 발행 부탁드립니다'}</p>
+      <!--
+        ★**맺음 인사** — 사장님 2026-09-03 「한달간 함께해주셔서 감사드린다는거 … 우측 하단 부분에」
+          「약간 필체를 한글 필기체나 예쁜 글씨로 써주면 좋을거 같아 인상적으로」.
+          ⚠ 숫자만 있는 종이에 사람 목소리 한 줄이 있는 것과 없는 것은 다르다.
+            글씨체를 달리해 «손으로 적은 것»처럼 둔다 — 인쇄체로 쓰면 또 하나의 문구가 될 뿐이다.
+      -->
+      <div class="thx">
+        <span>한 달간 함께해 주셔서 감사합니다</span>
+        <b>${esc(CORP.name)} 임직원 일동</b>
+      </div>
     </div>`;
 
   const note = inv.missing.length
@@ -909,5 +927,5 @@ export const invoicePageHtml = (title: string, docs: string) =>
   + `<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">`
   // ★워드마크 전용 — CI 센터가 쓰는 그 서체다. 본문에는 안 쓴다.
   + `<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>`
-  + `<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@300;600&display=swap">`
+  + `<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@300;600&family=Nanum+Pen+Script&display=swap">`
   + `<style>${INVOICE_CSS}</style></head><body>${docs}</body></html>`;
