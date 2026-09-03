@@ -60,10 +60,21 @@ const asRow = (r: SettlementRecord): SettlementRow => ({
  * 우리 법인 — **계좌는 등록에서 온다. 없으면 비운다.**
  * ⚠ 계좌를 지어내지 않는다. 빈 채로 나가면 종이가 「모름」이라고 말한다.
  */
-const partners = {
-  ...((await db.ref('v4/partners').get().catch(() => null))?.val() || {}),
-  ...((await db.ref('partners').get().catch(() => null))?.val() || {}),
-} as Record<string, Record<string, unknown>>;
+/**
+ * ★★**v4 오버레이가 이긴다 — 칸 단위로.**
+ *   ⚠ 2026-09-02 까지 순서가 거꾸로였다(v3 을 나중에 펼쳐 v3 이 이겼다). 그래서
+ *     v4 에 계좌를 넣어도 v3 의 «빈칸»이 그것을 덮었다 — 넣어도 종이엔 안 나온다.
+ *   ★칸 단위로 덮는다. 레코드째 갈아 끼우면 v4 에 없는 칸(상호·사업자번호)이 통째로 사라진다.
+ *   ⇒ CLAUDE.md 「읽기 = v3 라이브 ∪ v4 오버레이 필드단위 병합 · 쓰기는 전부 v4」.
+ */
+const v3p = ((await db.ref('partners').get().catch(() => null))?.val() || {}) as Record<string, Record<string, unknown>>;
+const v4p = ((await db.ref('v4/partners').get().catch(() => null))?.val() || {}) as Record<string, Record<string, unknown>>;
+const partners: Record<string, Record<string, unknown>> = {};
+for (const k of new Set([...Object.keys(v3p), ...Object.keys(v4p)])) {
+  const base = { ...(v3p[k] || {}) };
+  for (const [f, v] of Object.entries(v4p[k] || {})) if (S(v)) base[f] = v;   // ★빈칸은 안 덮는다
+  partners[k] = base;
+}
 const us = partners['OP001'] || {};
 const US: InvoiceParty = {
   name: CORP.name, bizNo: CORP.bizNo, ceo: CORP.ceo, address: CORP.addr, phone: CORP.phone,
