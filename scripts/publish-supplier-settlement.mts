@@ -164,10 +164,19 @@ for (const j of jobs) {
     })).json() as { replies?: { addSheet?: { properties?: { sheetId?: number } } }[] };
     id = add.replies?.[0]?.addSheet?.properties?.sheetId;
   } else {
-    /** ★이미 있던 탭 — 칸을 넓히고 «맨 오른쪽»으로 옮긴다(예전 판은 맨 앞 7칸이었다). */
+    /**
+     * ★이미 있던 탭 — 칸을 넓히고 «맨 오른쪽»으로 옮긴다(예전 판은 맨 앞 7칸이었다).
+     * ★★**옮길 때 index 는 «뺀 뒤» 기준이다** — `all.length - 1` 로 주면 끝에서 한 칸 당겨져
+     *   「AI 운영 매뉴얼」 앞에 선다(실측 2026-09-03). 끝에 세우려면 `all.length`.
+     * ★★**병합은 값을 쓰기 «전»에 푼다.** 병합 안쪽 칸에 값을 쓰면 시트가 «조용히 버린다» —
+     *   서식 단계에서 풀면 이미 늦어서 제목 줄이 빈 채로 남는다(실측 2026-09-03).
+     */
     await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${j.sheetId}:batchUpdate`, {
       method: 'POST', headers: { Authorization: `Bearer ${await tok()}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ requests: [{ updateSheetProperties: { properties: { sheetId: id, index: all.length - 1, gridProperties: { rowCount: rowsNeed, columnCount: HEAD.length } }, fields: 'index,gridProperties(rowCount,columnCount)' } }] }),
+      body: JSON.stringify({ requests: [
+        { updateSheetProperties: { properties: { sheetId: id, index: all.length, gridProperties: { rowCount: rowsNeed, columnCount: HEAD.length, frozenRowCount: 0, frozenColumnCount: 0 } }, fields: 'index,gridProperties(rowCount,columnCount,frozenRowCount,frozenColumnCount)' } },
+        { unmergeCells: { range: { sheetId: id } } },
+      ] }),
     });
   }
   if (id === undefined) { console.log(`   x ${j.sup} — 탭을 못 만들었습니다`); continue; }
@@ -178,7 +187,12 @@ for (const j of jobs) {
   if (j.claw) body.push(['', '환수', '', '', '지난 정산분 환수', '', '', '', '', '', '수수료표로 내는 값이 아니다',
     -j.claw, -Math.round(j.claw * VAT), -(j.claw + Math.round(j.claw * VAT))]);
   const values: (string | number)[][] = [
-    [`${monthKo(MONTH)} 정산서`, `${j.sup} 귀중 · ${CORP.name} 발행`, ...pad(HEAD.length - 2)],
+    /**
+     * ★★**제목 띠는 «C1 부터» 병합한다** — 얼린 칸(A·B)을 가로지르면 시트가 통째로 거부한다
+     *   (「병합된 셀의 일부만 포함된 열을 고정할 수 없습니다」 · 실측 2026-09-03 12곳 전부).
+     *   A1:B1 은 글 없이 남색만 칠해 «한 줄 띠»로 보이게 한다 — 원장 청구탭과 같은 짜임.
+     */
+    ['', '', `${monthKo(MONTH)} 정산서    ·    ${j.sup} 귀중 · ${CORP.name} 발행`, ...pad(HEAD.length - 3)],
     [...pad(HEAD.length - 3), '공급가액', '부가세', '청구 금액'],
     [...pad(HEAD.length - 3), j.net, j.vat, j.net + j.vat],
     HEAD,
@@ -210,7 +224,7 @@ for (const j of jobs) {
   const reqs: Record<string, unknown>[] = [
     { unmergeCells: { range: { sheetId: id } } },
     { updateSheetProperties: { properties: { sheetId: id, gridProperties: { frozenRowCount: 0, frozenColumnCount: 0 } }, fields: 'gridProperties(frozenRowCount,frozenColumnCount)' } },
-    { mergeCells: { range: { sheetId: id, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 1, endColumnIndex: HEAD.length }, mergeType: 'MERGE_ALL' } },
+    { mergeCells: { range: { sheetId: id, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 2, endColumnIndex: HEAD.length }, mergeType: 'MERGE_ALL' } },
     { repeatCell: { range: all1(0, 1),
       cell: { userEnteredFormat: { backgroundColor: NAVY, textFormat: { bold: true, fontSize: 12, foregroundColor: { red: 1, green: 1, blue: 1 } }, verticalAlignment: 'MIDDLE', padding: { left: 10, right: 10, top: 2, bottom: 2 } } },
       fields: 'userEnteredFormat(backgroundColor,textFormat,verticalAlignment,padding)' } },
