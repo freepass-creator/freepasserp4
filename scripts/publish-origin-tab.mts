@@ -318,7 +318,8 @@ const noPolicy: string[] = [];
 /** 정책이 여럿인데 코드가 비어 «어느 정책인지 못 정한» 차. */
 const ambiguous: string[] = [];
 const who0 = (p: Rec) => companyAlias(S(p.partner_name || p.name)) || S(p.partner_name || p.name);
-const seenPlate = new Set<string>();
+/** 차번 → `rows` 안 그 차의 자리. 같은 차가 또 오면 «더 찬 줄»로 갈아 끼운다(자리는 그대로). */
+const seenPlate = new Map<string, number>();
 /**
  * ★차량번호 셀에 걸 **공급사가 올려놓은 사진 링크**(사장님 2026-08-14).
  *   시트에는 사진 «열»이 없다 — 공급사는 차번 칸에 링크를 건다
@@ -494,8 +495,15 @@ for (const [code, p] of [...byCode].sort()) {
       const vin = vinAt >= 0 ? norm(r[vinAt]) : '';
       if (!plate && !vin) continue;
       const key = plate || `VIN:${vin}`;
-      if (seenPlate.has(key)) { dupes++; continue; }
-      seenPlate.add(key);
+      /**
+       * ★**같은 차가 두 번 나오면 «값이 더 찬 줄»이 이긴다** (사장님 2026-09-03 「이 빠진 거 매뉴얼대로 채워」).
+       *   예전엔 «먼저 나온 줄»이 이겼다. 그런데 공급사 시트에는 «차번만 미리 적어 둔 자리»가 섞여 있고,
+       *   그게 먼저 나오면 **뒤에 있는 제대로 찬 줄이 통째로 버려졌다** — 표에 이가 나간 자리가 그것이다.
+       *   실측 2026-09-03: 건너뛴 줄 22 · 차번만 남은 줄 15.
+       * ★버리는 것이 아니라 «고르는» 것이다 — 둘 다 그 차의 줄이고, 우리는 더 많이 아는 쪽을 싣는다.
+       *   값을 섞지 않는다(반쪽씩 합치면 어느 시트 값인지 아무도 모른다). 줄 하나를 통째로 고른다.
+       */
+      const dupAt = seenPlate.get(key);
 
       // 사진은 번호판·폴더·OCR 증거를 승인한 별도 복구 경로에서만 넣는다.
       // 원본 행의 URL을 여기서 그대로 재발행하면 외부 정제시트의 사진 오매칭이
@@ -519,7 +527,7 @@ for (const [code, p] of [...byCode].sort()) {
         ambiguous.push(`${who} ${S(r[first('차량번호')])}`);
       }
       fromOurs.set(plate, ours);
-      rows.push(COLUMNS.map((c) => {
+      const built = COLUMNS.map((c) => {
         if (c === '공급사') return who;
         /**
          * 「그 밖 요금」 = 규격 밖 기간의 요금을 `이름:값|이름:값` 로 모은다. 값이 없으면 빈칸.
@@ -593,7 +601,16 @@ for (const [code, p] of [...byCode].sort()) {
           return bank || policyCell(c, pol);
         }
         return policyCell(c, pol);
-      }));
+      });
+      /** 그 줄이 «얼마나 아는가» — 공급사 이름처럼 우리가 늘 채우는 칸은 세지 않는다. */
+      const known = (r: string[]) => r.reduce((k, v, i) => k + (S(v) && COLUMNS[i] !== '공급사' && COLUMNS[i] !== '차량번호' ? 1 : 0), 0);
+      if (dupAt !== undefined) {
+        dupes++;
+        if (known(built) > known(rows[dupAt])) rows[dupAt] = built;   // 더 아는 줄로 갈아 끼운다
+        continue;
+      }
+      seenPlate.set(key, rows.length);
+      rows.push(built);
       n++;
     }
   }
