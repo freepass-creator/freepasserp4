@@ -20,7 +20,7 @@
  */
 import * as XLSX from 'xlsx';
 import { CORP } from '@/lib/domain/corporate-ci';
-import type { Invoice } from '@/lib/domain/settlement-invoice';
+import { feeShow, type Invoice } from '@/lib/domain/settlement-invoice';
 
 const S = (v: unknown) => String(v ?? '').trim();
 
@@ -73,13 +73,23 @@ export function invoiceXlsx(inv: Invoice, opts?: { invoiceNo?: string; issuedAt?
   ];
 
   /** 내역 — 한 줄이 한 건. 환수는 음수로 같은 표에 선다. */
-  const head = ['차량번호', '모델명', '고객', '상품', '계약기간(개월)', '산정 기준', '구분', '공급가액', '부가세', '합계'];
-  const body = inv.lines.map((l) => [
-    S(l.plate), S(l.model), S(l.customer), S(l.product),
-    Number(l.term) || 0, S(l.base), l.minus ? '환수' : '정산',
+  /**
+   * ★★**엑셀이 «백데이터»다 — 산출식은 여기에 디테일하게 적는다.**
+   *   사장님 2026-09-03 「딱 정해진 규격에 필요한 정보만 보면 되고 산출식은 … 줄마다 필요없을거 같음」
+   *                 「엑셀로 만드는 정산서 백데이터에 디테일하게 적자 … 첨부에 산출식 엑셀파일 같이 메일로」
+   *                 「청구서 + 세부내역 엑셀을 같이 주는거지」
+   *   ⇒ 종이(PDF)는 규격만, 엑셀은 «어떻게 나왔는지»까지. 둘을 같이 보낸다.
+   *   ★번호를 맨 앞에 둔다 — 종이의 No. 와 같은 번호라 둘을 나란히 놓고 짚을 수 있다.
+   */
+  const head = ['No.', '접수일', '차량번호', '모델명', '고객', '상품', '계약기간(개월)',
+    '산정 기준', '적용 요율', '구분', '공급가액', '부가세', '합계'];
+  const body = inv.lines.map((l, i) => [
+    i + 1, S(l.receivedAt), S(l.plate), S(l.model), S(l.customer), S(l.product),
+    Number(l.term) || 0, l.minus ? S(l.reason) : S(l.base), l.minus ? '' : feeShow(l.rate),
+    l.minus ? '환수' : '정산',
     l.amount, l.vat, l.total,
   ]);
-  const foot = ['합계', '', '', '', '', '', '', inv.supply, inv.vat, inv.total];
+  const foot = ['', '', '합계', '', '', '', '', '', '', '', inv.supply, inv.vat, inv.total];
 
   const wb = XLSX.utils.book_new();
 
@@ -88,8 +98,8 @@ export function invoiceXlsx(inv: Invoice, opts?: { invoiceNo?: string; issuedAt?
   XLSX.utils.book_append_sheet(wb, s1, '정산서');
 
   const s2 = XLSX.utils.aoa_to_sheet([head, ...body, foot]);
-  s2['!cols'] = [{ wch: 12 }, { wch: 22 }, { wch: 10 }, { wch: 16 }, { wch: 13 }, { wch: 24 }, { wch: 7 },
-    { wch: 13 }, { wch: 11 }, { wch: 13 }];
+  s2['!cols'] = [{ wch: 5 }, { wch: 12 }, { wch: 12 }, { wch: 20 }, { wch: 10 }, { wch: 14 }, { wch: 13 },
+    { wch: 28 }, { wch: 15 }, { wch: 7 }, { wch: 13 }, { wch: 11 }, { wch: 13 }];
   // 머리글 한 줄 고정 — 줄이 많으면 스크롤할 때 무슨 칸인지 잃는다
   s2['!freeze'] = { xSplit: '0', ySplit: '1' } as unknown as XLSX.WorkSheet['!freeze'];
   XLSX.utils.book_append_sheet(wb, s2, '정산내역');

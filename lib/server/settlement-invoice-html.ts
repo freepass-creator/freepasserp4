@@ -427,8 +427,19 @@ export const INVOICE_CSS = `
 
   /* ★vcard — 좌 «정산월·건수» / 우 «금액». 상대 이름은 여기 안 넣는다(위 머리말 참고). */
   /* 표 — 견적서 .ctab 그대로. 차량번호는 좌측 라벨열(.rl)이라 뱃지가 필요 없다. */
-  .ctab { width:100%; border-collapse:separate; border-spacing:0; }
-  .ctab th, .ctab td { border-bottom:1px solid #edf0f4; padding:var(--cell); text-align:center; }
+  /**
+   * ★★**격자를 «고정»한다** — 사장님 2026-09-03 「규격이 왜 안맞냐고 … 한번에 만든거 같아야」.
+   *   ⚠ table-layout 이 auto 라 칸이 내용대로 늘어났다. 그래서 **문서마다 표 폭이 달랐다**
+   *     (실측 — 경진카 오른쪽 끝 1019.7px · 오토플러스 1148.1px). 같은 서식인데 종이마다 달라 보였다.
+   *   ⇒ fixed 로 못 박으면 colgroup 이 «그대로» 지켜지고, 위 요약표와 세로줄이 맞는다.
+   */
+  .ctab { width:100%; table-layout:fixed; border-collapse:separate; border-spacing:0; }
+  /**
+   * ★칸이 여덟이라 A4 폭이 빠듯하다 — 좌우 여백을 10 → 7px 로 줄여 «글자 자리»를 만든다.
+   *   8칸 × 양쪽 = 48px 이 생긴다. 그 48px 이 「차량·계약조건」과 「산출조건」의 넘침을 없앤다.
+   */
+  .ctab th, .ctab td { border-bottom:1px solid #edf0f4; padding:4px 7px; text-align:center; }
+  .ctab td.day { padding-left:3px; padding-right:3px; }
   .ctab thead th { background:var(--tl); color:#fff; font-weight:700; border-bottom:0; font-size:10.5px; }
   /** ★모서리는 «첫 칸»만 둥글다 — 순번(No.)이 생겨 차량번호는 이제 첫 칸이 아니다(사장님 2026-09-03). */
   .ctab thead th.rl { background:var(--tl-d); color:#fff; text-align:left; }
@@ -437,7 +448,7 @@ export const INVOICE_CSS = `
   /* ★아래쪽도 둥글게 — 위만 둥글면 표가 각져 보인다. */
   .ctab tbody tr:last-child td:first-child { border-bottom-left-radius:var(--r-box); }
   .ctab tbody tr:last-child td:last-child { border-bottom-right-radius:var(--r-box); }
-  .ctab .rl { text-align:left; background:#fafbfd; color:var(--mut); font-weight:600; white-space:nowrap; width:110px; }
+  .ctab .rl { text-align:left; background:#fafbfd; color:var(--mut); font-weight:600; white-space:nowrap; font-size:10.5px; padding-left:6px; padding-right:6px; }
   /**
    * ★**정산번호(연번)** — 사장님 2026-09-02 「정산내역에 정산번호가 있으면 좋겟네 몇건인지 바로 셀수 잇으니까」.
    *   쪽이 넘어가도 번호는 «이어진다» — 2쪽 첫 줄이 다시 1이 되면 세는 뜻이 없다.
@@ -446,16 +457,17 @@ export const INVOICE_CSS = `
     font-variant-numeric:tabular-nums; background:#fafbfd; }
   .ctab thead th.no { color:#fff; background:var(--tl-d); font-size:10px; }
   /* ★금액 가로 요약표 — 이 종이가 말하는 단 하나. 마지막 칸이 결론이다. */
-  .stab { width:100%; border-collapse:separate; border-spacing:0; }
-  .stab th { background:var(--tl); color:#fff; font-size:10.5px; font-weight:700; padding:5px 12px; text-align:right; }
+  .stab { width:100%; table-layout:fixed; border-collapse:separate; border-spacing:0; }
+  .stab th { background:var(--tl); color:#fff; font-size:10px; font-weight:700; padding:5px 5px; text-align:right; }
   .stab th:first-child { background:var(--tl-d); border-top-left-radius:var(--r-box); text-align:left; }
   .stab th:last-child { border-top-right-radius:var(--r-box); }
   .stab td:first-child { border-bottom-left-radius:var(--r-box); }
-  .stab td { padding:11px 12px; text-align:right; font-size:14px; font-weight:600; font-variant-numeric:tabular-nums;
+  .stab td { padding:11px 5px; text-align:right; font-size:11.5px; font-weight:600; font-variant-numeric:tabular-nums;
     border:1px solid var(--ln); border-top:0; border-left:0; background:#fff; }
   .stab td:first-child { border-left:1px solid var(--ln); text-align:left; font-size:11.5px; font-weight:600; color:var(--mut); }
   .stab td.neg { color:var(--neg); }
-  .stab td.k { background:var(--bg); color:var(--tl-d); font-size:20px; font-weight:800; letter-spacing:-.6px;
+  /** ★큰 숫자도 «같은 격자» 안에 있어야 한다 — 20px 면 아래 표의 합계 칸을 넘는다(실측 카핑 6,001,655). */
+  .stab td.k { background:var(--bg); color:var(--tl-d); font-size:13px; font-weight:800; letter-spacing:-.3px;
     border-bottom-right-radius:var(--r-box); }
   /* ★세로 표 — 라벨이 왼쪽 열, 값이 오른쪽. 사장님 2026-08-27
      「가로로 나열하지말고 세로로 쓰는게 맞을거 같거든」.
@@ -503,16 +515,16 @@ export const INVOICE_CSS = `
   /** ★금액은 «우측정렬»이다 — 사장님 2026-09-02 「정렬 금액은 우측정렬이어야하고」. 자릿수가 세로로 맞아야 눈으로 읽힌다. */
   .ctab td.n, .ctab thead th.n { text-align:right; }
   /** ★접수일 — 사장님 2026-09-02 「접수날짜도 있어야하는데」. 회원사가 그 건을 짚는 두 번째 열쇠다. */
-  .ctab td.day { font-size:10px; color:var(--mut); font-variant-numeric:tabular-nums; white-space:nowrap; }
+  .ctab td.day { font-size:9.5px; color:var(--mut); font-variant-numeric:tabular-nums; white-space:nowrap; }
   /**
    * ★**곁줄은 «옆»에 붙인다.** 사장님 2026-09-02 「공간이 좀있는데 줄바뀜이 되네 … 여백 확인좀」.
    *   display:block 이라 칸에 자리가 남아도 «무조건» 두 줄이 됐다 — 줄마다 높이가 두 배였다.
    *   ⇒ inline 으로 눕히고 가운뎃점으로 가른다. 자리가 모자랄 때만 «자연스럽게» 넘어간다.
    */
   /** ★곁줄은 «안 접힌다» — 한 글자가 넘어가면서 줄 높이가 두 배가 되고, 그만큼 쪽이 일찍 넘어간다. */
-  .ctab td.l { font-size:11px; }
-  .ctab .sub { display:inline; font-size:10px; color:var(--mut); font-weight:400; margin-left:6px; white-space:nowrap; }
-  .ctab .sub::before { content:'·'; margin-right:6px; color:var(--faint); }
+  .ctab td.l { font-size:10px; }
+  .ctab .sub { display:inline; font-size:9px; color:var(--mut); font-weight:400; margin-left:5px; white-space:nowrap; }
+  .ctab .sub::before { content:'·'; margin-right:5px; color:var(--faint); }
   /* ★수수료 산출조건 — 제 칸을 갖는다. 표가 스스로 «어떻게 나왔는지»를 말한다. */
   /**
    * ★★**산출조건은 «한 줄»이어야 한다.** 여기가 접히면 줄 높이가 43px 이 되고 쪽이 일찍 넘어간다
@@ -520,14 +532,14 @@ export const INVOICE_CSS = `
    *   「대여료 930,000 × 24개월 · 건당 800,000」이 17% 칸에서 세 줄로 접히고 있었다.
    *   ⇒ 칸을 24% 로 넓히고 안 접히게 묶는다.
    */
-  .ctab td.calc { font-size:10px; color:var(--mut); white-space:nowrap; }
-  .ctab td.calc .rt { display:inline; font-size:9.5px; color:var(--faint); margin-left:6px; white-space:nowrap; }
-  .ctab td.calc .rt::before { content:'·'; margin-right:6px; }
+  .ctab td.calc { font-size:9px; color:var(--mut); white-space:nowrap; padding-left:4px; padding-right:4px; }
+  .ctab td.calc .rt { display:inline; font-size:8.5px; color:var(--faint); margin-left:5px; white-space:nowrap; }
+  .ctab td.calc .rt::before { content:'·'; margin-right:5px; }
   .ctab tr.neg td.calc, .ctab tr.neg td.calc .rt { color:var(--neg); }
   .ctab tr.neg td, .ctab tr.neg th.rl { color:var(--neg); }
   .ctab tr.pay th.rl { color:var(--tl-d); font-weight:800; background:#eef2f8; }
   .ctab tr.pay td { background:#eef2f8; font-weight:700; }
-  .ctab tr.pay b { color:var(--tl-d); font-size:15px; font-weight:800; }
+  .ctab tr.pay b { color:var(--tl-d); font-size:11px; font-weight:800; }
   .ctab tbody tr:last-child th, .ctab tbody tr:last-child td { border-bottom:0; }
 
   /** ★표 밑 한 줄 — 상자가 아니다. 테두리도 바탕도 없다. 표에 붙어 있어야 «표의 꼬리»로 읽힌다. */
@@ -694,15 +706,27 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
   <div class="sec">
     <div class="sec-h">${ico('금액')}${claim ? '청구 금액' : '지급 금액'}<span class="muted">${plus.length}건 · 단위 원</span></div>
     <table class="stab">
+      <!--
+        ★★**아래 「정산 내역」 표와 «같은 격자»에 세운다.**
+          사장님 2026-09-03 「규격이 왜 안맞냐고 … 한번에 만든거 같아야 하는데 누더기 되게 하지마」.
+          ⚠ 같은 「공급가액 1,127,700」이 위 표에서는 가운데, 아래 표에서는 오른쪽에 있었다.
+            값이 같은데 자리가 다르면 두 표가 «따로 만든 것»으로 읽힌다.
+          ⇒ 금액 세 칸의 폭을 아래 표의 마지막 세 칸(11% · 9% · 10%)에 그대로 맞춘다.
+            환수 칸이 끼면 그만큼 「구분」에서 덜어 낸다 — 오른쪽 끝은 언제나 같은 자리다.
+      -->
+      <colgroup>
+        <col style="width:${inv.clawback ? 52 : 63}%">${inv.clawback ? '<col style="width:11%">' : ''}
+        <col style="width:13%"><col style="width:11%"><col style="width:13%">
+      </colgroup>
       <thead><tr>
-        <th>구분</th><th>공급가액</th><th>부가세</th>${inv.clawback ? '<th>환수</th>' : ''}
+        <th>구분</th>${inv.clawback ? '<th class="cb">환수</th>' : ''}<th>공급가액</th><th>부가세</th>
         <th>${claim ? '청구 금액' : '지급 금액'}</th>
       </tr></thead>
       <tbody><tr>
         <td>${esc(monthKo(inv.month))} 정산</td>
+        ${inv.clawback ? `<td class="neg">−${num(inv.clawback)}</td>` : ''}
         <td>${num(inv.supply)}</td>
         <td>${num(inv.vat)}</td>
-        ${inv.clawback ? `<td class="neg">−${num(inv.clawback)}</td>` : ''}
         <td class="k">${num(inv.total)}</td>
       </tr></tbody>
     </table>
@@ -713,21 +737,20 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
     <tr${l.minus ? ' class="neg"' : ''}>
       <td class="no">${no}</td>
       <th class="rl">${esc(l.plate)}</th>
-      <td class="day">${esc(l.receivedAt) || '&nbsp;'}</td>
-      <td class="l">${l.minus && !S(l.model) ? '환수 건' : shown(l.model)}<span class="sub">${
+      <td class="day">${esc(S(l.receivedAt).replace(/^20/, '')) || '&nbsp;'}</td>
+      <td class="l">${l.minus ? (shown(l.model) || '환수') : shown(l.model)}<span class="sub">${
     // 계약조건 — 누구에게·무슨 상품·몇 개월
     // ★★고객 이름은 «여기서» 가린다 — 「문세준」 → 「문*준」(사장님 2026-08-27).
     //   이 종이는 남의 회사가 본다. 회원사는 차량번호로 그 건을 찾으니
     //   이름은 «같은 차 다른 계약»을 가르는 곁다리다. 가운데만 가려도 그 구실은 그대로 한다.
     //   ⚠ 엑셀에는 온전한 이름이 남는다 — 엑셀은 우리가 대조할 때 쓰는 것이다.
     //     ★엑셀을 밖으로 보내면 가린 게 소용없다. 나가는 건 PDF 다.
-    esc(join(maskName(l.customer), l.product, l.term ? `${l.term}개월` : '')) || '&nbsp;'
+    /**
+     * ★산출식 칸을 뺐다(사장님 2026-09-03 「산출식은 뭐 따로 정해둔게 있어서 줄마다 산출식은 필요없을거 같음」).
+     *   수수료표가 따로 있으니 종이가 줄마다 다시 설명할 일이 아니다. 그 자리를 이 칸이 받는다.
+     */
+    l.minus ? esc(join('환수', l.reason)) : (esc(join(maskName(l.customer), l.product, l.term ? `${l.term}개월` : '')) || '&nbsp;')
   }</span></td>
-      <td class="l calc">${
-    // ★산출조건 — 이 수수료가 «어떻게 나왔는지». 칸으로 세워야 표가 스스로 설명한다.
-    //   사장님 2026-08-27 「정산내역에 수수료산출조건 이런거 하나 더 있어서」
-    l.minus ? esc(join('환수', l.reason)) : esc(l.base)
-  }<span class="rt">${l.minus ? '' : esc(feeShow(l.rate))}</span></td>
       <td class="n">${num(l.amount)}</td>
       <td class="n">${num(l.vat)}</td>
       <td class="n"><b>${num(l.total)}</b></td>
@@ -780,11 +803,11 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
       pages.length > 1 ? `${from}–${from + chunk.length - 1} / ${inv.lines.length}건` : `${plus.length}건`
     } · 단위 원</span></div>
     <table class="ctab">
-      <colgroup><col style="width:4%"><col style="width:11%"><col style="width:8%"><col><col style="width:21%"><col style="width:11%"><col style="width:9%"><col style="width:10%"></colgroup>
-      <thead><tr><th class="no">No.</th><th class="rl">차량번호</th><th>접수일</th><th>차량 · 계약조건</th><th>수수료 산출조건</th><th class="n">공급가액</th><th class="n">부가세</th><th class="n">합계</th></tr></thead>
+      <colgroup><col style="width:5%"><col style="width:11%"><col style="width:9%"><col><col style="width:13%"><col style="width:11%"><col style="width:13%"></colgroup>
+      <thead><tr><th class="no">No.</th><th class="rl">차량번호</th><th>접수일</th><th>차량 · 계약조건</th><th class="n">공급가액</th><th class="n">부가세</th><th class="n">합계</th></tr></thead>
       <tbody>
         ${chunk.map((l, k) => row(l, from + k)).join('')}
-        ${last ? `<tr class="pay"><td class="no"></td><th class="rl">합계</th><td class="l" colspan="3">${plus.length}건</td><td class="n">${num(inv.supply)}</td><td class="n">${num(inv.vat)}</td><td class="n"><b>${num(inv.total)}</b></td></tr>` : ''}
+        ${last ? `<tr class="pay"><td class="no"></td><th class="rl">합계</th><td class="l" colspan="2">${plus.length}건</td><td class="n">${num(inv.supply)}</td><td class="n">${num(inv.vat)}</td><td class="n"><b>${num(inv.total)}</b></td></tr>` : ''}
       </tbody>
     </table>
     ${last ? payLine : ''}
