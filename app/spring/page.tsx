@@ -37,6 +37,12 @@ function priceLow(price: unknown): string {
 const SRC_LABEL: Record<string, string> = { sheet: '시트', iron: '홈피', sonokong: '손오공' };
 const TONE_COLOR: Record<string, string> = { green: C.ok, red: C.danger, orange: C.warn, amber: C.warn, blue: C.accent, gray: C.mute };
 
+// ★공통(칸으로 묶는) 필드 = 구조 칸이 이미 보여준다. HIDE = 내부·중복(원자엔 있지만 여기선 안 보임).
+//   그 밖의 «회사마다 다른» 비공통 필드는 «원자 그대로» 마지막 칸에 쭉(사장님 2026-09-05).
+const STRUCTURED = new Set(['car_number', 'maker', 'model', 'sub_model', 'trim_name', 'ext_color', 'int_color', 'year', 'fuel_type', 'engine_cc', 'drive_type', 'seats', 'origin', 'status', 'mileage', 'price', 'policy_code', 'product_type', 'provider_company_code', 'source', 'sheet_source_tab']);
+const HIDE = new Set(['partner_code', 'status_kind', 'status_reason', 'status_label_raw', 'vehicle_status', 'listable', 'product_code', 'first_registration_date', 'source_schema', 'sheet_source_row', '원문', '확정', '검수상태', '_key']);
+const rawExtras = (r: EntityRecord) => Object.entries(r).filter(([k, v]) => v != null && v !== '' && !STRUCTURED.has(k) && !HIDE.has(k) && !k.startsWith('_')).map(([k, v]) => `${k}: ${typeof v === 'object' ? JSON.stringify(v).slice(0, 40) : S(v).slice(0, 40)}`);
+
 export default function SpringPage() {
   const [rows, setRows] = useState<EntityRecord[] | null>(null);
   const [err, setErr] = useState('');
@@ -84,7 +90,7 @@ export default function SpringPage() {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: FS.sub, whiteSpace: 'nowrap' }}>
             <thead>
               <tr style={{ background: C.head, color: C.mute, fontSize: FS.cap, fontWeight: FW.label, textAlign: 'left' }}>
-                {['차번', '차명(제조사·모델·세부모델·트림)', '색', '연식·연료', '상태', '대여료', '공급사', '원천', '갱신', '확정'].map((h) => (
+                {['차번', '차명(제조사·모델·세부모델·트림)', '색', '제원(연식·연료·배기·구동·인승·원산지)', '상태', '주행', '대여료', '정책', '구분', '공급사', '원천', '갱신', '확정', '비공통 원자(회사마다 다른 것)'].map((h) => (
                   <th key={h} style={{ padding: '7px 9px', borderBottom: `1px solid ${C.line}`, position: 'sticky', top: 0, background: C.head }}>{h}</th>
                 ))}
               </tr>
@@ -100,15 +106,19 @@ export default function SpringPage() {
                       {[S(r.maker), S(r.model), S(r.sub_model), S(r.trim_name)].filter(Boolean).join(' · ') || <span style={{ color: C.faint }}>—</span>}
                     </td>
                     <td style={{ padding: '6px 9px', color: C.mute }}>{[S(r.ext_color), S(r.int_color)].filter(Boolean).join('/') || '—'}</td>
-                    <td style={{ padding: '6px 9px', color: C.mute, fontFamily: NUM }}>{[S(r.year), S(r.fuel_type)].filter(Boolean).join(' ') || '—'}</td>
+                    <td style={{ padding: '6px 9px', color: C.mute, fontSize: FS.cap }}>{[S(r.year), S(r.fuel_type), S(r.engine_cc) && `${S(r.engine_cc)}cc`, S(r.drive_type), S(r.seats) && `${S(r.seats)}인`, S(r.origin)].filter(Boolean).join(' · ') || '—'}</td>
                     <td style={{ padding: '6px 9px' }}>
                       <span style={{ color: TONE_COLOR[toneName] || C.mute, fontWeight: FW.strong }}>{S(r.status) || S(r.status_kind) || '—'}</span>
                     </td>
+                    <td style={{ padding: '6px 9px', fontFamily: NUM, color: C.mute }}>{S(r.mileage) ? `${Number(r.mileage).toLocaleString()}km` : '—'}</td>
                     <td style={{ padding: '6px 9px', fontFamily: NUM, color: C.ink }}>{priceLow(r.price) || <span style={{ color: C.faint }}>—</span>}</td>
+                    <td style={{ padding: '6px 9px', color: C.mute, fontSize: FS.cap }}>{S(r.policy_code) || '—'}</td>
+                    <td style={{ padding: '6px 9px', color: C.mute, fontSize: FS.cap }}>{S(r.product_type) || '—'}</td>
                     <td style={{ padding: '6px 9px', color: C.mute }}>{S(r.provider_company_code) || S(r.partner_code) || '—'}</td>
                     <td style={{ padding: '6px 9px', color: C.mute, fontSize: FS.cap }}>{SRC_LABEL[S(r.source)] || S(r.source) || '—'}{S(r.sheet_source_tab) ? ` · ${S(r.sheet_source_tab)}` : ''}</td>
                     <td style={{ padding: '6px 9px', fontFamily: NUM, color: upd && now - upd < 3600_000 ? C.ok : C.mute, fontSize: FS.cap }}>{ago(upd, now)} 전</td>
                     <td style={{ padding: '6px 9px', fontSize: FS.cap, color: r.확정 === true ? C.ok : C.warn }}>{r.확정 === true ? '확정' : S(r.검수상태) || '검수'}</td>
+                    <td style={{ padding: '6px 9px', color: C.faint, fontSize: FS.cap, whiteSpace: 'normal', maxWidth: 320 }}>{rawExtras(r).join(' · ') || '—'}</td>
                   </tr>
                 );
               })}
