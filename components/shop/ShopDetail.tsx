@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   ArrowLeft, Car, CarFront, Check, ChevronLeft, ChevronRight, Coins, FileText, Gauge, Heart,
-  IdCard, ImageOff, Info, LifeBuoy, PackageCheck, Phone, Share2, ShieldCheck, Wrench,
+  IdCard, ImageOff, PackageCheck, Phone, ReceiptText, Share2, Wallet,
   type LucideIcon,
 } from 'lucide-react';
 import type { EntityRecord } from '@/lib/intake/entities';
@@ -157,93 +157,77 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
    *     달라지는 것은 «놓는 방식»뿐이다.
    */
 
-  /** 보험 — 결정적인 값 하나(내 돈이 나가는 면책)와 나머지 보장 나열. */
-  const deductible = S('own_damage_min_deductible') && S('own_damage_max_deductible')
-    ? `${S('own_damage_min_deductible')} ~ ${S('own_damage_max_deductible')}`
-    : S('own_damage_min_deductible');
-  const coverage = [
-    /* ⚠ `insurance_included` 는 여기서 뺐다 — 아래 「대여료에 포함」 격자가 그 칸을 든다(2026-09-05). */
-    S('injury_compensation_limit') ? `대인 ${S('injury_compensation_limit')}` : '',
-    S('property_compensation_limit') ? `대물 ${S('property_compensation_limit')}` : '',
-    S('self_body_accident') ? `자기신체 ${S('self_body_accident')}` : '',
-    S('own_damage_compensation') ? `자기차량 ${S('own_damage_compensation')}` : '',
-    S('own_damage_repair_ratio') ? `수리비 ${S('own_damage_repair_ratio')}` : '',
-  ].filter(Boolean).join(' · ');
-
-  /** 계약 — 서로 독립된 짧은 답들. 보증금 관련이 앞이다(이 손님층의 1번 장벽이 목돈이다). */
-  const contract = rows([
-    ['보증금 분납', S('deposit_installment')],
-    ['보증금 카드', S('deposit_card_payment')],
-    ['대여료 카드', S('rental_card_payment')],
-    ['납부 방법', join(S('payment_method'), S('payment_timing') && S('payment_timing') !== S('payment_method') ? S('payment_timing') : '')],
-    /* ⚠ 「약정 주행」도 여기서 뺐다 — 「대여료에 포함」 격자로 옮겼다(2026-09-05). */
-    /*
-     * ⚠⚠ **중도해지 위약금은 손님 화면에 안 낸다.** 여기 있던 줄을 뺐다(2026-09-05).
-     *   업무동 정본이 이미 그렇게 정해 두었는데(`lib/domain/product.ts` condRows —
-     *   「상담 자리에서 «어떤 차를 얼마에» 를 보는 화면인데 **벌칙 조항이 같이 서면 계약서를 읽는
-     *   화면이 된다**」), 내가 가게를 새로 지으면서 그 판단을 안 보고 다시 넣었다.
-     *   없애는 게 아니라 **말할 사람이 말하도록** 옮긴 것이다 — 영업자 패널이 그대로 들고 있고,
-     *   확정된 조건은 전자계약서가 든다.
-     */
-  ]);
-
-  /** 운전 — 「내가 탈 수 있나」. 나이 범위 하나가 결정적이라 그것만 크게 세운다. */
   /*
-   * 나이는 «범위»라 양끝만 남긴다. 원천은 「만 26세 이상」·「만 70세 이하」처럼 꼬리말을 달고 오는데,
-   * 그대로 이으면 「만21세 ~ 만 70세 이하」가 되어 «이하»가 두 번 말하는 꼴이 된다.
-   * 띄어쓰기도 원천마다 갈려(「만21세」·「만 26세」) 한 꼴로 맞춘다.
+   * ★★★**구역은 «손님이 묻는 순서»다**(사장님 2026-09-05 「손님 입장에서 뭐가 궁금할지를
+   *   한번 생각을 해봐」).
+   *
+   * ⚠⚠ 여기 「대여료에 포함」 격자가 있었다. **걷었다.** 사장님 「대여료에 포함은 의미가 없어.」
+   *   맞다 — 실측하면 이 차에서 그 격자가 보여 준 것은 **「보험 별도 · 정비 담당자 확인 ·
+   *   대차 불가」**였다. **「포함」이라 써 놓고 아무것도 포함 안 된 칸**이라, 없느니만 못했다.
+   *   남들(Autonomy·Vamos·Kinto)이 그 블록을 갖는 것은 그들이 **정말로 다 포함**하는 상품이기
+   *   때문이다. 우리는 «따로 붙이는» 상품이다. **남의 구성이 아니라 우리 상품을 보고 짜야 한다.**
+   *
+   * ⇒ 저신용·무심사로 차를 구하는 손님이 이 화면에서 묻는 것은 넷이고, 순서까지 이 순서다.
+   *     ① 얼마냐            → 대여료
+   *     ② **내가 될까**      → 탈 수 있는 조건 (나이·면허·운전 범위)
+   *     ③ **처음에 얼마 드나** → 보증금과 그걸 «나눠 낼 수 있나»  ← 이 손님층의 1번 장벽은 목돈이다
+   *     ④ **나중에 더 드나**  → 사고 시 내 부담 · 초과주행 · 추가 운전자 · 탁송
+   *   그다음에야 ⑤ 차에 딸려 오는 것 · ⑥ 이 차가 무엇인가를 본다.
+   * ★★④가 특히 중요하다 — 조사에서 **남들이 전부 틀리는 자리**가 여기다.
+   *   Hertz 는 큰 숫자 셋 옆에 실제 지불액을 바꾸는 넷($250·$1,000·$699·세금)을 각주로 미뤘고,
+   *   Cinch 는 초과주행이 두 군데에 다른 값(4p/12p)으로 적혀 있었다.
+   *   **나중에 더 내는 돈은 각주가 아니라 제 구역을 갖는다.**
    */
+
+  /** ② 탈 수 있는 조건 — 나이 하나가 결정적이라 그것만 크게. */
   const age = (v: string) => v.replace(/\s*(이상|이하|까지|부터)\s*$/, '').replace(/^만\s*/, '만 ').trim();
   const ageRange = S('basic_driver_age') && S('driver_age_upper_limit')
     ? `${age(S('driver_age_lowering') || S('basic_driver_age'))} ~ ${age(S('driver_age_upper_limit'))}`
     : age(S('basic_driver_age'));
-  const driving = [
-    S('driver_age_lowering') && meaningful(S('age_lowering_cost'))
-      ? `${age(S('driver_age_lowering'))}까지 낮추면 ${S('age_lowering_cost')}` : '',
-    meaningful(S('license_period')) ? `면허 ${S('license_period')}` : '',
-    meaningful(S('personal_driver_scope')) ? S('personal_driver_scope') : '',
-    meaningful(join(S('additional_driver_allowance_count'), S('additional_driver_cost')))
-      ? `추가 운전자 ${join(S('additional_driver_allowance_count'), S('additional_driver_cost'))}` : '',
-  ].filter(Boolean).join(' · ');
+  const canDrive = rows([
+    ['면허', S('license_period')],
+    ['운전 범위', S('personal_driver_scope')],
+  ]);
 
-  /** 기타 — 참고만 하는 값. 제일 조용하게 한 줄로 흘린다. */
-  /** 「긴급출동 연간 5회」처럼 «이름 + 값»으로 잇되, 값이 뜻이 없으면(협의·기타…) 통째로 뺀다. */
-  const pair = (label: string, v: string) => (meaningful(v) ? `${label} ${v}` : '');
-  const etc = [
-    /* ⚠ 긴급출동·정비·대차는 「대여료에 포함」 격자로 갔다 — 여기 남기면 같은 말을 두 번 한다. */
-    pair('이용 지역', S('rental_region')),
-    pair('차량 인도', S('delivery_fee')),
-  ].filter(Boolean).join(' · ');
+  /** ③ 처음에 드는 돈 — 보증금은 «고른 기간»의 값이라 화면에서 바로 읽는다. */
+  const upfront = rows([
+    ['보증금 분납', S('deposit_installment')],
+    ['보증금 카드', S('deposit_card_payment')],
+    ['대여료 카드', S('rental_card_payment')],
+    ['납부 방법', join(S('payment_method'), S('payment_timing') && S('payment_timing') !== S('payment_method') ? S('payment_timing') : '')],
+  ]);
 
-  /*
-   * ★★**「대여료에 포함」 격자** — 새로 만든 구역이다(2026-09-05).
-   *
-   * 왜. 조사한 열두 곳이 **거의 전부** 이 덩어리를 갖고 있었다(항목 3·4·4·5·5·7·8·8·9~11).
-   * Autonomy 는 「What's included」 아이콘 격자, Vamos 는 체크리스트 일곱, Hertz 는 혜택 여덟,
-   * Kinto 는 「All-inclusive」 넷. **손님이 「월 얼마」 다음으로 묻는 게 「그 안에 뭐가 들었나」**다.
-   * 그런데 우리는 그 답이 **네 군데로 흩어져** 있었다 — 보험 나열 · 계약 타일 · 기타 한 줄.
-   * 흩어져 있으면 어느 하나도 «혜택»으로 안 읽히고 그냥 조항으로 읽힌다.
-   *
-   * ★새 데이터가 **0개**다. 있는 정책칸을 모아 놓았을 뿐이다.
-   * ★★**「포함」이라고 단정하지 않는다 — 값을 그대로 보여준다.** 보험이 「별도」인 차가 실재한다
-   *   (이 화면 실측: `insurance_included` = 「보험료 별도」). 격자 제목만 보고 포함이라 쓰면 그건 거짓말이다.
-   * ★초과주행료를 약정주행 «옆에» 붙인다 — 조사에서 Kinto MY 하나만 그렇게 했고 제일 정직했다.
-   *   나중에 더 내는 돈을 각주로 미룬 곳(Hertz·Cinch·Bipi)은 전부 숫자가 어긋나 있었다.
-   * ⚠ 값이 없으면 「담당자 확인」이다 — 「없음」이 아니다(모르는 것과 없는 것은 다르다).
-   *   다만 다섯 칸이 «전부» 비면 격자를 안 그린다. 「담당자 확인」만 다섯 개면 그건 구역이 아니다.
-   */
-  const included: { icon: LucideIcon; label: string; value: string; known: boolean }[] =
-    ([
-      [ShieldCheck, '보험', S('insurance_included')],
-      [Wrench, '정비', S('maintenance_service')],
-      [CarFront, '대차', S('replacement_car_policy')],
-      [LifeBuoy, '긴급출동', S('annual_roadside_assistance') || S('roadside_assistance')],
-      [Gauge, '약정 주행', join(S('annual_mileage'),
-        S('mileage_upcharge_per_10000km') ? `초과 1만km당 ${S('mileage_upcharge_per_10000km')}` : '')],
-    ] as [LucideIcon, string, string][]).map(([icon, label, v]) => ({
-      icon, label, known: meaningful(v), value: meaningful(v) ? v : '담당자 확인',
-    }));
-  const hasIncluded = included.some((x) => x.known);
+  /** ④ 나중에 «더» 드는 돈 — 사고 시 내 부담이 제일 무섭다. */
+  const deductible = S('own_damage_min_deductible') && S('own_damage_max_deductible')
+    ? `${S('own_damage_min_deductible')} ~ ${S('own_damage_max_deductible')}`
+    : S('own_damage_min_deductible');
+  const later = rows([
+    /* 약정주행과 초과료는 «붙여서» 쓴다 — 떼면 손님이 어느 선을 넘어야 무는지 모른다(Kinto MY 방식). */
+    ['초과 주행', join(S('annual_mileage'),
+      S('mileage_upcharge_per_10000km') ? `초과 1만km당 ${S('mileage_upcharge_per_10000km')}` : '')],
+    ['추가 운전자', join(S('additional_driver_allowance_count'), S('additional_driver_cost'))],
+    ['연령 낮추기', S('driver_age_lowering') && meaningful(S('age_lowering_cost'))
+      ? `${age(S('driver_age_lowering'))}까지 ${S('age_lowering_cost')}` : ''],
+    ['차량 인도', S('delivery_fee')],
+  ]);
+
+  /** ⑤ 차에 딸려 오는 것 — 값을 그대로 쓴다. 이 차는 보험이 「별도」다. */
+  const bundled = rows([
+    ['보험', S('insurance_included')],
+    ['보장 한도', [
+      S('injury_compensation_limit') ? `대인 ${S('injury_compensation_limit')}` : '',
+      S('property_compensation_limit') ? `대물 ${S('property_compensation_limit')}` : '',
+      S('self_body_accident') ? `자기신체 ${S('self_body_accident')}` : '',
+      S('own_damage_compensation') ? `자기차량 ${S('own_damage_compensation')}` : '',
+      S('own_damage_repair_ratio') ? `수리비 ${S('own_damage_repair_ratio')}` : '',
+    ].filter(Boolean).join(' · ')],
+    ['정비', S('maintenance_service')],
+    ['대차', S('replacement_car_policy')],
+    ['긴급출동', S('annual_roadside_assistance') || S('roadside_assistance')],
+    ['이용 지역', S('rental_region')],
+  ]);
+
+  const hasPolicy = !!(ageRange || canDrive.length || upfront.length || later.length || bundled.length);
 
   const options = parseProductOptions(p.options);
   const phone = String(agentPhone || '').trim();
@@ -454,40 +438,37 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
       <Rule mobile={mobile} />
       {priceCard}
 
-      {hasIncluded ? (
-        <>
-          <Rule mobile={mobile} />
-          <section aria-label="대여료에 포함">
-            <SecTitle icon={PackageCheck}>대여료에 포함</SecTitle>
-            <div style={{
-              display: 'grid', gap: 8,
-              gridTemplateColumns: `repeat(${mobile ? 2 : 5}, minmax(0, 1fr))`,
-            }}>
-              {included.map((x) => (
-                <div key={x.label} style={{
-                  /*
-                   * 칸마다 «면»을 깐다 — 격자가 되려면 칸이 보여야 한다. 글자만 놓으면
-                   * 아래 타일 구역과 같은 얼굴이 되고, 그러면 이 구역을 새로 만든 뜻이 없다.
-                   */
-                  padding: mobile ? '13px 12px' : '15px 14px',
-                  borderRadius: SHOP.r.card, background: C.zebra,
-                  minWidth: 0,
-                }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
-                    <x.icon size={16} aria-hidden style={{ flex: '0 0 auto', color: x.known ? C.brand : C.faint }} />
-                    <span style={{ fontSize: SHOP.fs.cap, color: C.mute, fontWeight: 600 }}>{x.label}</span>
-                  </div>
-                  <div style={{
-                    fontSize: SHOP.fs.sub, fontWeight: x.known ? 700 : 400,
-                    color: x.known ? C.ink : C.faint,
-                    wordBreak: 'keep-all', lineHeight: 1.45,
-                  }}>{x.value}</div>
-                </div>
-              ))}
-            </div>
-          </section>
-        </>
-      ) : null}
+      {/*
+        ② **탈 수 있는 조건** — 저신용 손님이 요금 다음으로 묻는 것은 「내가 될까」다.
+           나이 하나가 결정적이라 그것만 크게 세운다.
+      */}
+      <Tiles title="탈 수 있는 조건" rows={canDrive} cols={mobile ? 2 : 4} mobile={mobile} icon={IdCard}
+        lead={ageRange ? { label: '운전 가능 연령', value: ageRange } : undefined} />
+
+      {/*
+        ③ **처음에 드는 돈** — 이 손님층의 1번 장벽은 월요금이 아니라 **목돈**이다.
+           그래서 보증금을 크게 세우고, 바로 옆에 「나눠 낼 수 있나 · 카드 되나」를 붙인다.
+        ★보증금은 «고른 기간»의 값이다 — 위 표에서 줄을 바꾸면 이 숫자도 같이 바뀐다.
+      */}
+      <Tiles title="처음에 드는 돈" rows={upfront} cols={mobile ? 2 : 4} mobile={mobile} icon={Wallet}
+        lead={plan ? {
+          label: '보증금',
+          value: plan.deposit > 0 ? manWon(plan.deposit) : '없음',
+        } : undefined} />
+
+      {/*
+        ④ **나중에 더 드는 돈** — 조사에서 **남들이 전부 틀리는 자리**다.
+           Hertz 는 큰 숫자 셋 옆에 실제 지불액을 바꾸는 넷을 각주로 미뤘고, Cinch 는 초과주행이
+           두 군데에 다른 값으로 적혀 있었다. **각주로 미루지 않고 제 구역을 준다.**
+      */}
+      <Tiles title="나중에 더 드는 돈" rows={later} cols={mobile ? 2 : 4} mobile={mobile} icon={ReceiptText}
+        lead={deductible ? { label: '사고 시 내 부담', value: deductible } : undefined} />
+
+      {/*
+        ⑤ **차에 딸려 오는 것** — 값을 그대로 쓴다. 「포함」이라 단정하지 않는다.
+           이 차는 보험이 「별도」다 — 제목만 보고 포함이라 쓰면 그건 거짓말이다.
+      */}
+      <Tiles title="차에 딸려 오는 것" rows={bundled} cols={mobile ? 2 : 3} mobile={mobile} icon={PackageCheck} />
 
       {/*
         ★★**차량 정보 = 「이 차가 무엇인가」 한 덩어리**(사장님 2026-09-05).
@@ -568,41 +549,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
         </>
       ) : null}
 
-      {/*
-        보험 — **하나가 결정적이다.** 이 표에서 손님 지갑에서 실제로 돈이 나가는 유일한 값이
-        「사고 났을 때 내 부담(면책금)」이다. 그것만 크게 세우고 보장 한도들은 흐린 한 줄로 흘린다.
-        라벨을 「자기차량손해」가 아니라 **「사고 시 내 부담」**으로 쓴다 — 손님이 읽는 말이라야 읽는다.
-      */}
-      <Lead title="보험 조건" mobile={mobile} icon={ShieldCheck}
-        label={deductible ? '사고 시 내 부담' : ''} value={deductible} note={coverage} />
-
-      {/*
-        계약 — 서로 «독립된 짧은 답»들이다(된다/안 된다/얼마). 견줄 것이 아니라 하나씩 확인하는 값이라
-        표가 아니라 **타일**로 놓는다. 보증금 관련이 앞이다 — 이 손님층의 1번 장벽은 월요금이 아니라 목돈이다.
-      */}
-      {/*
-        ★웹은 **네 칸**이다. 「약정 주행」을 「대여료에 포함」 격자로 옮기면서 이 구역이 최대 넷이 됐는데,
-          세 칸으로 두면 넷째가 혼자 둘째 줄에 내려앉아 오른쪽 두 칸이 빈 채로 남는다 —
-          «덜 채운 표»로 보인다. 차량 정보(넷)와 같은 칸 수라 두 구역의 격자가 서로 맞기도 한다.
-      */}
-      <Tiles title="계약 조건" rows={contract} cols={mobile ? 2 : 4} mobile={mobile} icon={FileText} />
-
-      {/* 운전 — 「내가 탈 수 있나」. 나이 범위 하나가 결정적이라 그것만 크게. */}
-      <Lead title="운전 조건" mobile={mobile} icon={IdCard}
-        label={ageRange ? '운전 가능 연령' : ''} value={ageRange} note={driving} />
-
-      {/* 기타 — 참고만 하는 값. 제일 조용하게 한 줄. */}
-      {etc ? (
-        <>
-          <Rule mobile={mobile} />
-          <section aria-label="기타 사항">
-            <SecTitle icon={Info}>기타 사항</SecTitle>
-            <div style={{ fontSize: SHOP.fs.sub, color: C.mute, lineHeight: 1.9 }}>{etc}</div>
-          </section>
-        </>
-      ) : null}
-
-      {(deductible || coverage || contract.length || ageRange || driving || etc) ? (
+      {hasPolicy ? (
         <p style={{ margin: '20px 0 0', fontSize: SHOP.fs.cap, color: C.faint, lineHeight: 1.7 }}>
           위 조건은 공급사가 제공한 운영정책이며 계약 시 최종 확정됩니다. 자세한 내용은 담당자에게 확인해 주세요.
         </p>
@@ -783,21 +730,50 @@ function TopBar({ code, title, listHref, mobile }: {
  * 그러면 눈이 왼쪽 라벨 열을 훑을 필요 없이 «값만» 읽고 지나간다.
  * ★속이 비면 통째로 안 그린다 — 제목만 있고 아래가 빈 칸은 「안 채웠다」로 보인다.
  */
-function Tiles({ title, rows, cols, mobile, icon }: {
+function Tiles({ title, rows, cols, mobile, icon, lead }: {
   title: string; rows: [string, string][]; cols: number; mobile?: boolean; icon?: LucideIcon;
+  /**
+   * **하나가 결정적인 구역의 그 하나** — 나이·보증금·면책금.
+   * 항목이 대여섯인데 그중 하나만 손님의 «결정»을 바꾸는 구역이 있다. 그 하나를 크게 위에 세우고
+   * 나머지는 타일로 흘린다. 다 같은 크기로 늘어놓으면 결정적인 하나가 나머지에 묻힌다.
+   */
+  lead?: { label: string; value: string };
 }) {
-  if (!rows.length) return null;
+  if (!rows.length && !lead) return null;
   return (
     <>
       <Rule mobile={mobile} />
       <section aria-label={title}>
         <SecTitle icon={icon}>{title}</SecTitle>
+        {lead ? (
+          /*
+           * ★라벨을 «흰 알약»으로 얹는다. 큰 값 옆에 같은 굵기로 두면 둘이 다투는데,
+           *   알약에 얹으면 「이건 이름표」라고 한눈에 읽혀 값이 혼자 선다.
+           * ⚠ 값에 색을 주지 않는다 — 구역 아이콘이 이미 신호다. 여기까지 색을 주면
+           *   강조가 셋(아이콘·면·글자색)이 되어 그때부터 소란이다.
+           */
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+            padding: mobile ? '14px' : '16px', marginBottom: rows.length ? 8 : 0,
+            borderRadius: SHOP.r.card, background: C.zebra,
+          }}>
+            <span style={{
+              flex: '0 0 auto', padding: '4px 10px', borderRadius: 999,
+              background: C.bg, color: C.mute, fontSize: SHOP.fs.cap, fontWeight: 600,
+            }}>{lead.label}</span>
+            <span style={{
+              fontSize: mobile ? 21 : 22, fontWeight: 800, color: C.ink,
+              letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums',
+            }}>{lead.value}</span>
+          </div>
+        ) : null}
         {/*
          * ★타일에 **연한 면**을 깐다(2026-09-05). 라벨·값만 허공에 놓으면 넓은 화면에서
          *   글자 몇 개가 흩어진 것으로 보여 «안 채운 칸»처럼 읽힌다. 면을 깔면 그게 «칸»이 되고,
          *   값이 짧아도 구역이 비어 보이지 않는다.
          * ⚠ 면은 `C.zebra`(가장 옅은 것) 하나뿐이다 — 테두리를 두르면 선이 다시 늘어난다.
          */}
+        {rows.length ? (
         <div style={{
           display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
           gap: 8,
@@ -815,62 +791,6 @@ function Tiles({ title, rows, cols, mobile, icon }: {
             </div>
           ))}
         </div>
-      </section>
-    </>
-  );
-}
-
-/**
- * **큰 값 하나 + 흐린 나열** — 하나가 결정적인 구역(보험의 면책 · 운전의 나이).
- *
- * 이 구역들은 항목이 대여섯인데 그중 하나만 손님의 «결정»을 바꾼다.
- * 보험에서는 사고 났을 때 내 돈이 얼마 나가는지고, 운전에서는 내 나이로 탈 수 있는지다.
- * 나머지(보장 한도·면허 경력·운전 범위)는 그 결정을 «확인»해 주는 값이라 뒤에 흐리게 흘린다.
- * 여섯을 같은 크기로 늘어놓으면 결정적인 하나가 나머지에 묻힌다.
- */
-function Lead({ title, label, value, note, mobile, icon }: {
-  title: string; label: string; value: string; note: string; mobile: boolean; icon?: LucideIcon;
-}) {
-  if (!value && !note) return null;
-  return (
-    <>
-      <Rule mobile={mobile} />
-      <section aria-label={title}>
-        <SecTitle icon={icon}>{title}</SecTitle>
-        {value ? (
-          /*
-           * ★라벨을 «연한 면 위 작은 글자»로 얹는다. 큰 값 옆에 같은 굵기로 두면 둘이 다투는데,
-           *   면에 얹으면 「이건 이름표」라고 한눈에 읽혀 값이 혼자 선다.
-           * ⚠ 값에 색을 주지 않는다 — 구역 아이콘이 이미 신호이고, 여기까지 색을 주면
-           *   화면에 강조가 셋(아이콘·면·글자색)이 되어 그때부터 소란이다.
-           */
-          /*
-           * ★★값을 **면 위에** 올린다(2026-09-05). 다른 구역이 전부 칸(면)을 갖게 되자
-           *   여기만 흰 바닥에 글자가 떠 있어 «아직 안 만든 구역»처럼 보였다.
-           *   면은 다른 구역과 같은 `C.zebra` 하나 — 새 색을 만들지 않는다.
-           */
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
-            padding: mobile ? '14px 14px' : '16px 16px',
-            borderRadius: SHOP.r.card, background: C.zebra,
-          }}>
-            <span style={{
-              flex: '0 0 auto', padding: '4px 10px', borderRadius: 999,
-              background: C.bg, color: C.mute,
-              fontSize: SHOP.fs.cap, fontWeight: 600,
-            }}>{label}</span>
-            <span style={{
-              fontSize: mobile ? 21 : 22, fontWeight: 800, color: C.ink,
-              letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums',
-            }}>{value}</span>
-          </div>
-        ) : null}
-        {note ? (
-          /* 나열은 «면 밖»에 둔다 — 결정적인 값 하나만 면 위에 서야 그 하나가 선다. */
-          <div style={{
-            marginTop: value ? 12 : 0,
-            fontSize: SHOP.fs.sub, color: C.mute, lineHeight: 1.9,
-          }}>{note}</div>
         ) : null}
       </section>
     </>
