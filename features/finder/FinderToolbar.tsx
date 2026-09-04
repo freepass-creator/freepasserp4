@@ -1,7 +1,7 @@
 ﻿'use client';
 
+import type { ReactNode } from 'react';
 import { LayoutGrid, List, Sheet } from 'lucide-react';
-import { InterestTriggers, type InterestTab } from '@/components/InterestRail';
 import { IconSeg, SearchInput, Select, ICON } from '@/components/ui';
 import { FINDER_SORTS } from './filter-state';
 
@@ -25,12 +25,14 @@ type Props = {
   onToggleFilterSheet: () => void;
   view: string;
   onView: (value: string) => void;
-  recentCount: number;
-  favoriteCount: number;
-  interestTab: InterestTab | null;
-  onInterestTab: (tab: InterestTab | null) => void;
   sort: string;
   onSort: (value: string) => void;
+  /**
+   * ★조건 드롭다운 줄(FinderQuickFilters)을 **검색창과 같은 줄**에 받는다
+   * (사장님 2026-08-31 「검색창이랑 필터버튼 한 줄로」).
+   * 전에는 툴바 아래 «두 번째 줄»로 따로 섰다 — 목록이 그만큼 내려가고, 오른쪽은 양쪽 다 비어 있었다.
+   */
+  quick?: ReactNode;
 };
 
 export function FinderToolbar(props: Props) {
@@ -65,9 +67,8 @@ export function FinderToolbar(props: Props) {
             <Select value={props.sort} onChange={props.onSort} placeholder="정렬" width={132} options={FINDER_SORTS} />
           </span>
         </div>
-        <div className="fp-finder-interest-group">
-          <InterestTriggers recentN={props.recentCount} favN={props.favoriteCount} tab={props.interestTab} onTab={props.onInterestTab} />
-        </div>
+        {/* 최근·관심은 걷었다(사장님 2026-08-31 「최근 관심 이거 기능 자체를 빼기로」) — 그 자리를 조건 줄이 쓴다. */}
+        <div className="fp-finder-quick-slot">{props.quick}</div>
         <div className="fp-finder-view-group">
           <span className="fp-finder-view-switch" role="group" aria-label="상품 보기 방식">
             <IconSeg

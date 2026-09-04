@@ -43,7 +43,7 @@ export function canonProductType(raw: unknown): string {
   if (s.includes('신차') && s.includes('구독')) return '신차구독';
   if (s.includes('신차')) return '신차렌트';
   if (s.includes('구독')) return '중고구독';
-  if (s.includes('렌트') || s.includes('재렌')) return '중고렌트';
+  if (s.includes('렌트') || s.includes('재렌') || s.includes('재랜')) return '중고렌트';   // 재랜트=재렌트 오탈자 변형(이안카)
   return s;
 }
 

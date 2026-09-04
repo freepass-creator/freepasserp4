@@ -15,7 +15,7 @@ import { refreshCurrentPage } from '@/lib/page-refresh';
 import { PageStatus, statusIconFor } from '@/components/PageStatus';
 import { getStore, peekList } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
-import { BRAND, VERSION, BUILD } from '@/lib/brand';
+import { VERSION, BUILD } from '@/lib/brand';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { companyAlias } from '@/lib/domain/identity';
 
@@ -147,7 +147,10 @@ function WebSessionMeta() {
   useEffect(() => {
     const code = String(session?.company_code || '').trim();
     if (!code) {
-      setOrg(role === 'admin' ? BRAND : '');
+      // ★소속이 없으면 «빈칸». 예전엔 관리자에게 우리 브랜드를 찍었는데, 그게 상단바에 우리 이름이
+      //   서는 마지막 자리였다(사장님 2026-08-31 「freepasserp.com 이거 또 회귀했네」).
+      //   공급사·영업자가 같이 쓰는 판이라 어디에도 우리 이름이 서면 안 된다 — 노브랜드.
+      setOrg('');
       return;
     }
     const co = getCompanyId();
@@ -330,7 +333,8 @@ function NavMenu({ mobile, open: openProp, setOpen: setOpenProp }: {
           ))}
           {/* 배포 버전(설정 항목 바로 아래) — 배포 확인용. lib/brand VERSION SSOT. */}
           <div style={{ borderTop: `1px solid ${line}`, padding: mobile ? '11px 20px' : '8px 12px 5px', fontSize: FS.micro, color: weak, fontFamily: NUM, fontVariantNumeric: 'tabular-nums', letterSpacing: '0.02em' }}>
-            {BRAND} · v{VERSION}{BUILD ? ` · ${BUILD}` : ''}
+            {/* 브랜드명은 안 쓴다(노브랜드) — 배포 확인에 필요한 «판»만 남긴다. */}
+            v{VERSION}{BUILD ? ` · ${BUILD}` : ''}
           </div>
         </div>
       </>)}

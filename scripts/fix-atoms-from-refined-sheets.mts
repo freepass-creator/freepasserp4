@@ -23,7 +23,7 @@ const jwt = new JWT({ email: sa.client_email, key: sa.private_key, scopes: ['htt
 const api = async (u: string) => { const t = (await jwt.getAccessToken()).token; const r = await fetch(u, { headers: { Authorization: `Bearer ${t}` } }); return JSON.parse(await r.text()); };
 
 // 정제시트 → 차번별 {트림, 색, 주행} (공급사코드 붙여)
-type Truth = { trim: string; color: string; mileage: string };
+type Truth = { maker: string; model: string; sub: string; trim: string; color: string; mileage: string };
 const truth = new Map<string, Truth>();   // `${code}|${car}` → Truth
 for (const src of MIRROR_SOURCES) {
   try {
@@ -34,10 +34,16 @@ for (const src of MIRROR_SOURCES) {
       const rows = vv.values || []; if (rows.length < 2) continue;
       const hd = (rows[0] || []).map(S);
       const ci = hd.indexOf('차량번호'), ti = hd.indexOf('세부트림'), coi = hd.indexOf('외장색상'), ki = hd.indexOf('주행거리');
+      // 제조사·모델·세부모델 = 정제칸(차종마스터 행 복사). 제조사(정제) 우선, 없으면 원문 제조사.
+      const mki = hd.indexOf('제조사(정제)') >= 0 ? hd.indexOf('제조사(정제)') : hd.indexOf('제조사');
+      const moi = hd.indexOf('모델'), smi = hd.indexOf('세부모델');
       if (ci < 0) continue;
       for (const r of rows.slice(1)) {
         const car = NKEY(r[ci]); if (!car) continue;
-        truth.set(`${src.code}|${car}`, { trim: ti >= 0 ? S(r[ti]) : '', color: coi >= 0 ? S(r[coi]) : '', mileage: ki >= 0 ? S(r[ki]) : '' });
+        truth.set(`${src.code}|${car}`, {
+          maker: mki >= 0 ? S(r[mki]) : '', model: moi >= 0 ? S(r[moi]) : '', sub: smi >= 0 ? S(r[smi]) : '',
+          trim: ti >= 0 ? S(r[ti]) : '', color: coi >= 0 ? S(r[coi]) : '', mileage: ki >= 0 ? S(r[ki]) : '',
+        });
       }
     }
     console.log(`${src.name}(${src.code}) 정제시트 읽음`);

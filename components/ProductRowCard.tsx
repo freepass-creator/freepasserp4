@@ -7,7 +7,7 @@ import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
 import { C, R, SH, FW } from '@/components/ui';
 import {
-  CardTitle, CardSpecs, CardPerkLine, CardThumb,
+  CardTitle, CardSpecs, CardPerkLine, CardThumb, CardRailBadges,
   PricePeekRoot, PriceAmounts, PeriodChips, PeriodRange, OptionChips,
 } from '@/components/product-card-atoms';
 
@@ -15,7 +15,7 @@ import {
  * 상세카드 SSOT
  *
  * 웹 4×2:
- *   1 차명              | (빈 슬롯)  — 출고·상품·심사는 썸네일 우하
+ *   1 차명              | 출고·상품 (아이콘+글자 · 심사는 4행 조건 줄)
  *   2 옵션/옵션미입력   | (빈 슬롯)
  *   3 스펙(+차번)       | 기간·대여료·보증금
  *   4 조건              | 기간칩
@@ -78,8 +78,7 @@ function WebRow({ p, focusMonth }: { p: EntityRecord; focusMonth?: number }) {
       boxShadow: SH.cardRest,
       textDecoration: 'none', color: 'inherit',
     } satisfies CSSProperties}>
-      {/* ★`coreBadges` 는 `a466b0aa`(2026-08-31 「간단카드도 아이콘+글자로 — 마지막 남은 박스 뱃지를 걷는다」)
-          에서 `CardThumb` 과 함께 걷어냈다. PR #10 머지가 이 «한 줄만» 옛 쪽을 골라 짝이 깨졌다(타입 오류). */}
+      {/* 사진 위에는 신호를 안 올린다 — 아이콘+글자는 사진 바탕에서 안 읽힌다(a466b0aa). */}
       <CardThumb p={p} w={88} marks={false} heart />
 
       <PricePeekRoot p={p} focusMonth={focusMonth} style={{
@@ -98,7 +97,12 @@ function WebRow({ p, focusMonth }: { p: EntityRecord; focusMonth?: number }) {
             <CardTitle p={p} />
           </div>
         </Cell>
-        <Cell right />
+        {/* ★1행 우측 = 출고상태·상품구분 **아이콘+글자**(CardRailBadges → SignalMarks).
+            2026-08-31 커서 커밋 d930f89d 가 이걸 지우고 썸네일 우하 «박스 뱃지»로 되돌렸고
+            (사장님 2026-08-28·08-30 「박스 뱃지 쓰지 말고 아이콘 텍스트로, 모든 곳에서」를 거스른다),
+            PR #10 머지가 두 쪽을 섞으면서 결국 «아무것도 없는» 상태가 됐다. 원래 규격으로 되돌린다.
+            ⚠ check-design-locked 가 이 줄의 존재를 «1곳»으로 못 박고 있다 — 지우면 게이트가 잡는다. */}
+        <Cell right><CardRailBadges p={p} /></Cell>
 
         <Cell><OptionChips p={p} clamp /></Cell>
         <Cell right />
