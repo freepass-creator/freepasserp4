@@ -52,14 +52,19 @@ const picked = (on: boolean) => ({
 
 export function CatalogFilters({ axes, count, onClearAll, mobile }: {
   axes: FilterAxis[];
-  /** 「전체차량 N대」 — 조건칸의 머리다. 목록이 오기 전엔 `—`. */
-  count: string;
+  /**
+   * 「전체차량 N대」 — 조건칸의 머리다. 목록이 오기 전엔 `—`.
+   * ★**넘기지 않으면 안 그린다.** 폰에서는 목록 머리가 이미 대수를 크게 세고 있어,
+   *   여기서 또 세면 한 화면에 같은 숫자가 둘이 된다(2026-09-04 실측).
+   */
+  count?: string;
   onClearAll?: () => void;
   mobile?: boolean;
 }) {
   const anyOn = axes.some((a) => a.selected.size > 0);
   return (
     <div>
+      {count != null ? (
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 7, paddingBottom: mobile ? 12 : 18 }}>
         <span style={{ fontSize: mobile ? FS.sub : FS.body, fontWeight: FW.meta, color: C.mute }}>전체차량</span>
         <span style={{
@@ -68,6 +73,7 @@ export function CatalogFilters({ axes, count, onClearAll, mobile }: {
         }}>{count}</span>
         <span style={{ fontSize: mobile ? FS.sub : FS.body, fontWeight: FW.title }}>대</span>
       </div>
+      ) : null}
 
       <div style={{
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',

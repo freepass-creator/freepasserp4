@@ -7,10 +7,9 @@ import { ProductCard } from '@/components/ProductCard';
 import { CatalogCard } from '@/components/CatalogCard';
 import { CatalogFilters, type FilterAxis } from '@/components/CatalogFilters';
 import {
-  RENT_BANDS, DEP_BANDS, MILE_BANDS, CREDITS, CATALOG_PERKS, hasPerk,
-  presentFilterOptions,
+  RENT_BANDS, DEP_BANDS, MILE_BANDS, CREDITS, CATALOG_PERKS, hasPerk, type Band,
 } from '@/lib/domain/product-filters';
-import { fuelDisplay, makerDisplay, yearDisplay } from '@/lib/domain/vehicle-master-format';
+import { fuelDisplay, makerDisplay, yearFullDisplay } from '@/lib/domain/vehicle-master-format';
 import { CUSTOMER_VEHICLE_CLASSES, customerVehicleClass } from '@/lib/domain/catalog-facets';
 import { RotateCcw } from 'lucide-react';
 import { Btn, C, FW, FS, ICON, CenterNote, FilterChips, FilterGroup, ListMoreBar, Message, SearchInput, Select, ToggleChips, ProductCardSkeleton } from '@/components/ui';
@@ -131,15 +130,47 @@ export function CatalogView({ wl = FREEPASS }: { wl?: Whitelabel }) {
   useEffect(() => { setLimit(PAGE); }, [q, rent, credit, perks, vclass, maker, dep, year, mile, fuel, sort]);
 
   /**
-   * 옵션·건수 = **finder 와 같은 SSOT**(`presentFilterOptions`). 따로 세면 「웹에선 걸리는데
-   * 손님 화면엔 안 걸리는」 숨은 필터가 생긴다. 값이 없는 축·칩은 알아서 숨는다.
-   * ★차종·제조사·연식은 여기 없어 직접 센다 — 판정식은 finder 와 같은 표시함수를 쓴다.
+   * 축의 «값과 건수» — **손님 데이터로 직접 센다.**
+   *
+   * ⚠ 업무동 `presentFilterOptions` 를 쓰면 안 된다(2026-09-04 실측 사고).
+   *   그건 모수를 `isStockedProduct` 로 거르는데, 그 함수는 **공급사 코드가 있어야** 재고로 친다.
+   *   그런데 손님 공개 API 는 `provider_company_code` 를 **일부러 지운다**(누구 차인지 손님이
+   *   알 필요가 없다). 그래서 손님 화면에서는 모수가 0건이 되고, 폴백이 있는 축만 살아남아
+   *   **보증금·주행거리·연료가 통째로 사라졌다.** 영업자용 도구를 손님 화면에 가져다 쓴 탓이다.
+   *
+   * ★밴드 정의(RENT/DEP/MILE)는 그대로 쓴다 — 구간의 «의미»는 한 곳이어야 한다.
+   *   여기서 다시 정하는 것은 «모수»뿐이다(목록에 실리는 차 = `isListableProduct`).
+   * ★값이 하나도 없는 축은 숨는다 — 눌러도 0건인 조건을 세워 두지 않는다.
    */
-  const facets = useMemo(() => presentFilterOptions(rows || []), [rows]);
+  const facets = useMemo(() => {
+    const pool = (rows || []).filter(isListableProduct);
+    const band = (bands: Band[], pick: (p: EntityRecord, b: Band) => boolean) =>
+      bands.map((b) => ({ key: b.k, label: b.label, count: pool.filter((p) => pick(p, b)).length }))
+        .filter((x) => x.count > 0);
+    const tally = (get: (p: EntityRecord) => string) => {
+      const m = new Map<string, number>();
+      for (const p of pool) { const v = get(p); if (v) m.set(v, (m.get(v) || 0) + 1); }
+      return m;
+    };
+    const fuelMap = tally((p) => fuelDisplay(p.fuel_type) || String(p.fuel_type || '').trim());
+    const creditMap = tally((p) => creditDisplay(p));
+    const perkMap = new Map(CATALOG_PERKS.map((pk) => [pk, pool.filter((p) => hasPerk(p, pk)).length]));
+    return {
+      rent: band(RENT_BANDS, (p, b) => priceList(p).some((x) => x.rent > b.lo && x.rent <= b.hi)),
+      dep: band(DEP_BANDS, (p, b) => priceList(p).some((x) => x.deposit > b.lo && x.deposit <= b.hi)),
+      mile: band(MILE_BANDS, (p, b) => { const km = Number(p.mileage) || 0; return km > b.lo && km <= b.hi; }),
+      fuel: [...fuelMap].sort((a, b) => b[1] - a[1]).map(([k, n]) => ({ key: k, label: k, count: n })),
+      // 심사는 손님이 아는 낱말 순서로 고정한다 — 대수 순으로 흔들리면 매번 자리가 바뀐다.
+      credit: CREDITS.filter((c) => creditMap.get(c)).map((c) => ({ key: c, label: c, count: creditMap.get(c)! })),
+      perks: CATALOG_PERKS.filter((pk) => perkMap.get(pk)).map((pk) => ({ key: pk, label: pk, count: perkMap.get(pk)! })),
+    };
+  }, [rows]);
+
   const dynFacets = useMemo(() => {
+    const pool = (rows || []).filter(isListableProduct);
     const count = (get: (p: EntityRecord) => string) => {
       const m = new Map<string, number>();
-      for (const p of rows || []) { const v = get(p); if (v) m.set(v, (m.get(v) || 0) + 1); }
+      for (const p of pool) { const v = get(p); if (v) m.set(v, (m.get(v) || 0) + 1); }
       return [...m.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'ko'));
     };
     return {
@@ -151,8 +182,9 @@ export function CatalogView({ wl = FREEPASS }: { wl?: Whitelabel }) {
       })(),
       // 제조사는 대수 많은 순 열둘까지 — 손님 화면에 스무 개를 세우면 그게 또 벽이다.
       maker: count((p) => makerDisplay(p.maker)).slice(0, 12),
-      // 연식은 최신순.
-      year: count((p) => yearDisplay(p.year)).sort((a, b) => b[0].localeCompare(a[0], 'ko')),
+      // 연식은 최신순. 값이 이상한 것(00년 등)은 원천 문제라 여기서 지우지 않는다 — 그건 관제탑이 볼 일이다.
+      // 카드가 네 자리로 쓰므로 칩도 네 자리다 — 한 화면에서 같은 값을 두 말로 쓰지 않는다.
+      year: count((p) => yearFullDisplay(p.year)).sort((a, b) => b[0].localeCompare(a[0], 'ko')),
     };
   }, [rows]);
 
@@ -172,7 +204,7 @@ export function CatalogView({ wl = FREEPASS }: { wl?: Whitelabel }) {
       if (fuel.size && !fuel.has(fuelDisplay(p.fuel_type) || String(p.fuel_type || ''))) return false;
       if (vclass.size && !vclass.has(customerVehicleClass(p))) return false;
       if (maker.size && !maker.has(makerDisplay(p.maker))) return false;
-      if (year.size && !year.has(yearDisplay(p.year))) return false;
+      if (year.size && !year.has(yearFullDisplay(p.year))) return false;
       if (credit.size && !credit.has(creditDisplay(p))) return false;
       if (perks.size && ![...perks].every((pk) => hasPerk(p, pk))) return false;
       return true;
@@ -323,7 +355,14 @@ export function CatalogView({ wl = FREEPASS }: { wl?: Whitelabel }) {
                   <span style={{ fontSize: FS.sub, fontWeight: FW.title }}>대</span>
                 </span>
               ) : (
-                <span style={{ fontSize: FS.body, color: C.mute, fontVariantNumeric: 'tabular-nums' }}>{countText}대</span>
+                /*
+                 * 웹은 왼 기둥이 이미 「전체차량 N대」를 크게 세운다. 여기서 같은 숫자를 또 쓰면
+                 * 한 화면에 대수가 둘이 되어 «어느 쪽이 진짜냐»가 된다(2026-09-04 실측).
+                 * 그래서 목록 머리는 전체가 아니라 **지금 보이는 만큼**을 말한다.
+                 */
+                <span style={{ fontSize: FS.body, color: C.mute, fontVariantNumeric: 'tabular-nums' }}>
+                  {rows === null ? '불러오는 중' : `${countText}대 중 1–${shown.length}`}
+                </span>
               )}
               <div style={{ flex: 1 }} />
               {sortRow}
@@ -331,7 +370,7 @@ export function CatalogView({ wl = FREEPASS }: { wl?: Whitelabel }) {
 
             {mobile ? (
               <div style={{ marginBottom: 16 }}>
-                <CatalogFilters axes={axes} count={countText} onClearAll={clearAll} mobile />
+                <CatalogFilters axes={axes} onClearAll={clearAll} mobile />
               </div>
             ) : null}
             {cards}
