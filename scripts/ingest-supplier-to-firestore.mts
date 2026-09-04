@@ -78,6 +78,23 @@ const yearOf = (firstReg: string) => {
   const yy = s.match(/^\s*(\d{2})[.\-/]/); return yy ? `20${yy[1]}` : '';
 };
 
+// 상태 디테일 — mirror-to-firestore 와 «같은» 분류(한 값에 안 뭉침). status·status_kind·status_reason·listable.
+const AVAIL = new Set(['즉시출고', '출고가능']);
+function statusDetail(rawStatus: string, locked?: unknown) {
+  const raw = S(rawStatus);
+  let cur = canonSheetVehicleStatus(raw) || '차량검수';
+  if (/계약중/.test(raw)) cur = '계약중';
+  else if (/점검|검수|정비/.test(raw)) cur = '차량검수';
+  let kind = '불가', reason = '';
+  if (cur === '즉시출고' || cur === '출고가능') kind = '가용';
+  else if (cur === '출고협의') { kind = '협의'; reason = '공급사협의'; }
+  else if (cur === '상품화중') { kind = '준비'; reason = '상품화중'; }
+  else if (cur === '차량검수') { kind = '준비'; reason = '검수대기'; }
+  else if (cur === '계약중') { kind = '선점'; reason = locked ? '계약선점' : '공급사표기'; }
+  else if (cur === '출고불가') { kind = '불가'; reason = (AVAIL.has(raw) || raw === '출고협의') ? '시트이탈' : (raw ? '공급사불가' : '정보없음'); }
+  return { status: cur, status_kind: kind, status_reason: reason, listable: kind !== '불가', status_label_raw: raw };
+}
+
 // ── 원본 열 자동 해석 (MIRROR_ALIAS) ───────────────────────────────────────
 const aliasOf = (our: string) => MIRROR_ALIAS.find(([k]) => k === our)?.[1] || [our];
 function resolveCols(hdr: string[]) {
@@ -177,7 +194,7 @@ function atomize(row: Row, pinned: Map<string, Record<string, unknown>>): Atom {
     car_number: car,
     maker: identity.maker, model: identity.model, sub_model: identity.sub_model, trim_name: identity.trim_name, origin: identity.origin, ...spec,
     product_type: canonProductType(row.kind),
-    status: canonSheetVehicleStatus(row.status), mileage: row.km, options: row.opt,
+    ...statusDetail(row.status, pin?.locked_by_contract), mileage: row.km, options: row.opt,
     확정: confirmed, 검수상태: confirmed ? '확정' : (identity.sub_model ? '검수대기' : (vname ? '매칭실패' : '원문없음')),
     _pin_state: state,
     원문: { 차명: vname, ...(row.opt ? { 옵션: row.opt } : null) },
@@ -218,20 +235,46 @@ const gone = [...cur.keys()].filter((k) => !ingestedCars.has(k)); // 우리 것�
 const fresh = now.filter((a) => !cur.has(a.car_number)).length; // 원천엔 있는데 우리 것에 없던 새 차
 console.log(`  대조: 아는 차 불변일치 ${both ? Math.round((idSame / both) * 100) : 0}% (${idSame}/${both}) · 새 차 ${fresh} · 사라진 차(정리대상) ${gone.length}`);
 
-if (!APPLY) { console.log(`\n미리보기 — Firestore 안 씀. 쓰려면 --apply.`); process.exit(0); }
+const VARIABLE = process.argv.includes('--variable');
+const docId = (car: string) => car.replace(/\s/g, '').replace(/[/#.$[\]]/g, '_');
+const VAR_FIELDS = ['status', 'status_kind', 'status_reason', 'listable', 'status_label_raw', 'mileage'] as const;
 
-// ── 반영 — 불변 merge(pin) + (--retire 일 때만) 사라진 차 listable=false ──
+if (!APPLY) { console.log(`\n미리보기 — Firestore 안 씀. 쓰려면 --apply${VARIABLE ? '(변동만)' : ''}.`); process.exit(0); }
+
+// ── 변동 폴링(--variable) — 아는 차의 상태·주행만 delta. 불변은 «절대» 안 건드린다. ──
+//   사장님 「한 번 정확히 가져오면 그 다음은 상태값만 읽어 바뀐 거 체크. 제일 바뀌는 게 차량상태.」
+if (VARIABLE) {
+  const items = now.filter((a) => cur.has(a.car_number)); // 아는 차만(새 차는 --apply 몫)
+  let changed = 0, sChg = 0, mChg = 0;
+  for (let i = 0; i < items.length; i += 400) {
+    const batch = fs.batch(); let any = false;
+    for (const a of items.slice(i, i + 400)) {
+      const c = cur.get(a.car_number)!;
+      const sMoved = S(a.status) !== S(c.status) || a.listable !== c.listable || S(a.status_kind) !== S(c.status_kind);
+      const mMoved = S(a.mileage) !== S(c.mileage);
+      if (!sMoved && !mMoved) continue;
+      const upd: Record<string, unknown> = { _var_polled_at: Date.now() };
+      for (const f of VAR_FIELDS) upd[f] = a[f];
+      batch.set(fs.collection('products').doc(docId(a.car_number)), upd, { merge: true });
+      changed++; if (sMoved) sChg++; if (mMoved) mChg++; any = true;
+    }
+    if (any) await batch.commit();
+  }
+  console.log(`\n변동 폴링 완료 — ${PROV} 아는 차 ${items.length} 중 바뀐 ${changed} 씀 (상태 ${sChg} · 주행 ${mChg}). 불변 안 건드림.`);
+  process.exit(0);
+}
+
+// ── 전체 반영(불변+상태) = «한 번 정확히» + (--retire 일 때만) 사라진 차 listable=false ──
 // ⚠ 사라진-차 마킹은 오탐이 곧 «차가 사라져 보임»이라 별도 플래그(--retire)로만. 안전판도 함께:
 //   수집분이 우리 것의 절반도 안 되면(원천 읽기 실패 의심) 마킹하지 않는다.
 const RETIRE = process.argv.includes('--retire');
 const safeToRetire = RETIRE && (cur.size === 0 || now.length >= cur.size * 0.5);
-const docId = (car: string) => car.replace(/\s/g, '').replace(/[/#.$[\]]/g, '_');
 let wrote = 0, retired = 0;
 for (let i = 0; i < now.length; i += 400) {
   const batch = fs.batch();
   for (const a of now.slice(i, i + 400)) {
-    const { status, mileage, ...invariant } = a; void status; void mileage; // 변동은 폴링 몫
-    batch.set(fs.collection('products').doc(docId(a.car_number)), { ...invariant, listable: true, _direct_ingest_at: Date.now() }, { merge: true });
+    const { _pin_state, ...doc } = a; void _pin_state;
+    batch.set(fs.collection('products').doc(docId(a.car_number)), { ...doc, _direct_ingest_at: Date.now() }, { merge: true });
     wrote++;
   }
   await batch.commit();
@@ -245,5 +288,5 @@ if (safeToRetire && gone.length) {
 } else if (gone.length) {
   console.log(`  · 사라진 차 ${gone.length}건 마킹 안 함 — ${RETIRE ? `안전판(수집 ${now.length} < 우리 것 ${cur.size}의 절반, 원천 읽기 의심)` : '--retire 없음(오탐 방지, 기본 끔)'}.`);
 }
-console.log(`\n반영 완료 — ${PROV} 직접 원자 ${wrote}건 merge(불변) · 사라진 차 listable=false ${retired}건. 변동(상태·요금·주행)은 폴링 몫.`);
+console.log(`\n반영 완료 — ${PROV} 직접 원자 ${wrote}건 merge(불변+상태) · 사라진 차 listable=false ${retired}건. 요금은 별도(가격블록).`);
 process.exit(0);
