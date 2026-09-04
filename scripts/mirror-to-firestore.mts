@@ -67,8 +67,12 @@ const SPEC = ['ext_color', 'int_color', 'year', 'fuel_type', 'engine_cc', 'vehic
 //   ★출고불가는 「공급사가 불가」와 「시트에서 사라짐」이 다르다 — 원시가 가용/협의였는데 불가면 사라진 것.
 const AVAIL = new Set(['즉시출고', '출고가능']);
 const statusDetail = (v: Record<string, any>) => {
-  const cur = S(v.vehicle_status) || '차량검수';        // 공급사가 상태 안 줌 = 차량검수
   const raw = S(v.status_label_raw);
+  // ★계약중·점검중은 «출고불가로 접지 않는다»(사장님 2026-09-04 「계약중·점검중도 데이터 비우지 말고 보여줘」).
+  //   계약중은 사라진 게 아니라 잡힌 것(선점). 원시가 계약중/점검이면 vehicle_status 가 출고불가여도 살린다.
+  let cur = S(v.vehicle_status) || '차량검수';
+  if (/계약중/.test(raw)) cur = '계약중';
+  else if (/점검|검수|정비/.test(raw)) cur = '차량검수';
   let kind = '불가', reason = '';
   if (cur === '즉시출고' || cur === '출고가능') kind = '가용';
   else if (cur === '출고협의') { kind = '협의'; reason = '공급사협의'; }

@@ -108,6 +108,8 @@ for (const t of TAB_ORDER) {
   const v = await api(`https://sheets.googleapis.com/v4/spreadsheets/${SRC_SHEET}/values/${encodeURIComponent(`'${title.replace(/'/g, "''")}'!A1:BZ1`)}`);
   headerCache[t] = ((v.values || [[]])[0] as string[]).map(S).filter(Boolean);
 }
+// ★픽업구독 보증금 열 이름 = 「반납형보증금/인수형보증금」(사장님 2026-09-04). 값(대여료×연수 최대3배)은 그대로.
+if (headerCache['픽업구독']) headerCache['픽업구독'] = headerCache['픽업구독'].map((h) => h === '보증금 반납형' ? '반납형보증금' : h === '보증금 인수형' ? '인수형보증금' : h);
 
 // ── 열 이름 → 값 ──
 const money = (v: unknown) => { const n = Number(v); return n ? n.toLocaleString() : ''; };
@@ -117,8 +119,8 @@ const priceCell = (price: any, col: string): string => {
   const rentK = (k: string) => (P[k]?.rent != null ? money(P[k].rent) : '');
   const depAny = (suffix = '') => { for (const t of ['60', '48', '36', '24', '12']) { const k = suffix ? `${t}${suffix}` : t; if (P[k]?.deposit != null) return money(P[k].deposit); } return ''; };
   const m = col.match(/(\d+)개월/);
-  if (/보증금\s*반납형|^보증금$|장기보증/.test(col)) return depAny();
-  if (/보증금\s*인수형/.test(col)) return depAny('_인수형');
+  if (/반납형\s*보증금|보증금\s*반납형|^보증금$|장기보증/.test(col)) return depAny();
+  if (/인수형\s*보증금|보증금\s*인수형/.test(col)) return depAny('_인수형');
   if (m) {
     const n = m[1];
     if (/인수형/.test(col)) return rentK(`${n}_인수형`);
