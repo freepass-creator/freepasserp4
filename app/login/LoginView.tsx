@@ -10,6 +10,7 @@ import { login, signup, logout, resetPassword, writeUserProfile } from '@/lib/fi
 import { getSession, firebaseReadySafe } from '@/lib/login-helpers';
 import { fmtPhone, C, FS, FW, R, CTRL, ICON, ctrlPadX, Btn, Input, Select, Checkbox, Loading } from '@/components/ui';
 import { BRAND_MAIN, BRAND_SUB } from '@/lib/brand';
+import { FREEPASS, hasBrand, whitelabelVars, type Whitelabel } from '@/lib/whitelabel';
 import { LEGAL_VERSION } from '@/lib/legal';
 import { toast } from '@/components/Toaster';
 /**
@@ -117,7 +118,15 @@ function loginDestination(): string {
   return next.startsWith('/') && !next.startsWith('//') ? next : '/finder';
 }
 
-export default function LoginPage() {
+/**
+ * ★★현관도 «채널 이름»으로 선다(사장님 2026-09-05 「손님 페이지는 로그인이 필요 없지, 그냥 유니오토
+ *   이름으로 나가잖아. 근데 거기서 로그인을 할 수 있어요. 그러니까 **로그인 페이지부터 다른 거야**」).
+ *
+ *   유니오토 주소로 들어온 사람이 로그인하려는 순간 `freepasserp.com` 워드마크가 뜨면,
+ *   앞에서 감춘 것이 거기서 다 새어 나간다. 손님 화면과 «같은 호스트»인데 현관만 우리 이름인 것이다.
+ *   브랜드는 서버 껍데기(`page.tsx`)가 호스트를 보고 정해서 넘긴다 — 목록·상세와 같은 규칙이다.
+ */
+export default function LoginView({ wl = FREEPASS }: { wl?: Whitelabel }) {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>('login');
   const [busy, setBusy] = useState(false);
@@ -226,13 +235,37 @@ export default function LoginPage() {
 
   const msgColor = msg.tone === 'ok' ? C.ok : msg.tone === 'err' ? C.danger : C.faint;
 
+  const branded = hasBrand(wl);
+
   return (
-    <div className="fp-login">
+    /*
+     * 채널 주소면 `.fp-wl` 로 «토큰만» 뒤집는다 — 로그인 버튼·링크·포커스링이 전부 채널색을 따라온다.
+     * 원자에 색을 칠하지 않는 그 규칙 그대로다(globals.css `.fp-wl`).
+     */
+    <div className={branded ? 'fp-login fp-wl' : 'fp-login'}
+      style={branded ? (whitelabelVars(wl) as React.CSSProperties) : undefined}>
       <div className="login-page">
-        <div className="login-brand" aria-label={`${BRAND_MAIN}${BRAND_SUB}`}>
-          <span className="login-brand-main">{BRAND_MAIN}</span>
-          <span className="login-brand-sub">{BRAND_SUB}</span>
-        </div>
+        {branded ? (
+          /*
+           * 채널 워드마크 — `.login-brand` 클래스를 안 쓴다. 그 규격은 우리 CI 전용이라
+           * `text-transform: lowercase` 와 Exo 2 가 걸려 있어 「UNI AUTO PLAN」이 「uni auto plan」이 된다.
+           * 남의 회사 이름을 우리 서체 규칙으로 눕히면 그건 그 회사 이름이 아니다.
+           * 손님 머리띠(`WhitelabelFrame`)와 «같은 짜임»으로 세운다 — 같은 주소에서 두 얼굴이 되면 안 된다.
+           */
+          <div aria-label={wl.name} style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 9 }}>
+            <span style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.03em', color: C.brand }}>
+              {wl.wordmark.main}
+            </span>
+            <span style={{ fontSize: 15, fontWeight: FW.meta, letterSpacing: '0.15em', color: C.ink }}>
+              {wl.wordmark.sub}
+            </span>
+          </div>
+        ) : (
+          <div className="login-brand" aria-label={`${BRAND_MAIN}${BRAND_SUB}`}>
+            <span className="login-brand-main">{BRAND_MAIN}</span>
+            <span className="login-brand-sub">{BRAND_SUB}</span>
+          </div>
+        )}
 
         {mode === 'login' && (
           <form className="login-card" onSubmit={doLogin} noValidate>
