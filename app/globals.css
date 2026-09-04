@@ -1122,6 +1122,12 @@ html[data-fp-filter="0"] .fp-finder > .fp-sidebar { display: none; }
 }
 .fp-finder-quick-slot > .fp-quick-filter-bar::-webkit-scrollbar { display: none; }
 
+/* 사진 위 유리바 안 — 글자·그림을 흰색으로. 사진은 밝기가 제각각이라 톤색 그대로면 안 읽힌다.
+   ★갈래 구분은 «색»이 아니라 «그림 모양»이 진다(정본 §2: 출고상태만 상태에 따라 ○ ⏱ ⊘ 로 갈린다).
+   낱개 상자를 씌우는 대신 그릇 하나를 두르고 안쪽을 흰색으로 통일한다. */
+.fp-onphoto { --text-main: #ffffff; color: #ffffff; }
+.fp-onphoto svg { color: #ffffff !important; }
+
 /* 모바일 하단 슬라이딩 탭 스트립 — 스크롤바 숨김(터치로 좌우 슬라이드). */
 .fp-tabstrip { scrollbar-width: none; -ms-overflow-style: none; }
 .fp-tabstrip::-webkit-scrollbar { display: none; }

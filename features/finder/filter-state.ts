@@ -1,4 +1,4 @@
-import { EMPTY_VEHICLE_FILTER, normalizeVehicleFilter, type VehicleFilter } from '@/lib/domain/product-filters';
+﻿import { EMPTY_VEHICLE_FILTER, normalizeVehicleFilter, type VehicleFilter } from '@/lib/domain/product-filters';
 import { FILTER_SS } from '@/lib/finder-session';
 
 export type InterestKey = 'recent' | 'fav';
@@ -15,8 +15,12 @@ export type FilterBag = {
 
 /** 정렬 옵션 SSOT — 필터 패널 FilterChips. 키는 useFinderResults 정렬 switch와 일치. */
 export const FINDER_SORTS: { value: string; label: string }[] = [
-  /** ★매물이 많은 차종부터(사장님 2026-08-20 「정렬에 인기차량순 · 매물 많은 거부터 보여주는 거지」). */
-  { value: 'popular', label: '인기차량순' },
+  /**
+   * ★매물이 많은 차종부터(사장님 2026-08-20 「정렬에 인기차량순 · 매물 많은 거부터 보여주는 거지」).
+   * 라벨은 **「상품 많은 순」**이다(사장님 2026-09-04) — 「인기」는 우리가 재는 값이 아니라 오해를 부른다.
+   * 값(`popular`)은 그대로 둔다: 저장된 세션·즐겨찾기가 이 키를 들고 있다.
+   */
+  { value: 'popular', label: '상품 많은 순' },
   { value: 'asc', label: '대여료 낮은순' },
   { value: 'desc', label: '대여료 높은순' },
   { value: 'dep_asc', label: '보증금 낮은순' },

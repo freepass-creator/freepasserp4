@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { ChevronDown, RotateCcw, SlidersHorizontal, X } from 'lucide-react';
@@ -84,8 +84,9 @@ export function FinderQuickFilters({ value, present, products, update, onReset, 
 
   const categories: { key: QuickKey; label: string; count: number }[] = [
     { key: 'vehicle', label: '모델', count: vehicle.maker.length + vehicle.model.length },
-    { key: 'color', label: '색상', count: (value.dyn.ext_color?.size || 0) + (value.dyn.int_color?.size || 0) },
-    { key: 'period', label: '기간', count: value.periods.size },
+    /* ★색상·기간은 이 줄에서 뺐다(사장님 2026-09-04 「세부 필터 같은 거 검색창에 좀 줄여달라」).
+       지우는 게 아니라 «접는» 것이다 — 「세부」 안 전체 조건 패널에는 그대로 있다.
+       폰 빠른필터에서도 같은 이유로 웹에만 남겼던 축이다. */
     { key: 'rent', label: '대여료', count: value.rent.size },
     { key: 'dep', label: '보증금', count: value.dep.size },
     { key: 'mile', label: '주행거리', count: value.mile.size },
@@ -95,7 +96,7 @@ export function FinderQuickFilters({ value, present, products, update, onReset, 
     { key: 'credit', label: '심사조건', count: value.credit.size },
   ];
   /** 모바일 4개 — 웹 차례에서 고름. */
-  const MOBILE_KEYS: QuickKey[] = ['vehicle', 'period', 'rent', 'credit'];
+  const MOBILE_KEYS: QuickKey[] = ['vehicle', 'rent', 'credit'];
   const shownCategories = mobile ? categories.filter((c) => MOBILE_KEYS.includes(c.key)) : categories;
 
   const options = open === 'period' ? present.months

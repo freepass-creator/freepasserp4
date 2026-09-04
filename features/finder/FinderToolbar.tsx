@@ -61,15 +61,15 @@ export function FinderToolbar(props: Props) {
   return (
     <div className="fp-finder-toolbar fp-finder-toolbar--primary">
       <div className="fp-finder-toolbar-main">
-        <div className="fp-finder-search-group">
-          {search}
-          <span className="fp-finder-sort">
-            <Select value={props.sort} onChange={props.onSort} placeholder="정렬" width={132} options={FINDER_SORTS} />
-          </span>
-        </div>
+        {/* ★검색 바로 뒤가 「세부」다(사장님 2026-09-04 「세부필터를 맨 앞쪽으로 옮겨 달라」).
+            정렬은 «조건»이 아니라 «보는 방식»이라 우측 보기 스위치 옆으로 보낸다. */}
+        <div className="fp-finder-search-group">{search}</div>
         {/* 최근·관심은 걷었다(사장님 2026-08-31 「최근 관심 이거 기능 자체를 빼기로」) — 그 자리를 조건 줄이 쓴다. */}
         <div className="fp-finder-quick-slot">{props.quick}</div>
         <div className="fp-finder-view-group">
+          <span className="fp-finder-sort">
+            <Select value={props.sort} onChange={props.onSort} placeholder="정렬" width={132} options={FINDER_SORTS} />
+          </span>
           <span className="fp-finder-view-switch" role="group" aria-label="상품 보기 방식">
             <IconSeg
               showLabel

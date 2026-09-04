@@ -35,6 +35,7 @@ export {
 } from '@/components/product-card-identity';
 export { Plate, CardTitle } from '@/components/product-card-identity-view';
 export { CardRailBadges, SignalMarks } from '@/components/product-card-badge-view';
+import { SignalMarks } from '@/components/product-card-badge-view';
 
 /**
  * ═══════════════════════════════════════════════════════════
@@ -122,12 +123,18 @@ export function CardFacts({ p, dense }: { p: EntityRecord; audience?: Audience; 
 /**
  * CardThumb — 썸네일 뱃지 SSOT.
  *  · 기본: 좌측 한 줄 최대 2(프로모 우선 → marks 출고·심사)
- *  · CORE 셋(출고·상품·심사)은 **사진 위에 안 올린다** — 카드 본문의 SignalMarks(아이콘+글자)가 든다(2026-08-30).
+ *  · `coreBadges`(간단카드·목록 카드) = **사진 우하**에 출고상태·상품구분.
+ *    ★정본 = `docs/DESIGN_CONFIRMED_LIST_CARD.md` §2 「뱃지 = 상태·상품구분. **사진 우하**」.
+ *    ★모양은 **아이콘 + 글자**(SignalMarks) — 낱개 «박스 뱃지» 아님(2026-08-28 「박스 뱃지 쓰지 말고」).
+ *      다만 **한 덩어리 유리바**를 그릇으로 두른다: 같은 문서가 「사진 위 한 덩어리 유리바는 그대로 —
+ *      낱개 상자가 아니라 사진 위 가독을 위한 그릇이다」라고 못 박았다. 사진 바탕에서는 글자가 안 읽힌다.
+ *    ⚠ 2026-08-31 에 이 자리를 본문으로 «내렸다가» 되돌렸다(사장님 2026-09-04
+ *      「간단 웹에서는 출고가능·중고렌트는 썸네일 우측 하단에 들어가기로 했잖아」). 자리를 옮기지 마라.
  *  · heart — 웹 목록 빠른 찜. 모바일 목록은 숨김(상세 FavHeart만).
  */
-export function CardThumb({ p, audience = 'agent', fill, w, h, heart = false, marks = true }: {
+export function CardThumb({ p, audience = 'agent', fill, w, h, heart = false, marks = true, coreBadges = false }: {
   p: EntityRecord; audience?: Audience; fill?: boolean; w?: number; h?: number;
-  heart?: boolean; marks?: boolean;
+  heart?: boolean; marks?: boolean; coreBadges?: boolean;
 }) {
   const mobile = useIsMobile();
   const photo = useFirstPhoto(p, 480);
@@ -197,6 +204,24 @@ export function CardThumb({ p, audience = 'agent', fill, w, h, heart = false, ma
         compactPlaceholder
         style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }}
       />
+
+      {/* ★사진 우하 = 출고상태 · 상품구분. 한 덩어리 «유리바» 안에 아이콘+글자(정본 §2).
+          그릇이 하나라 낱개 상자가 아니고, 사진이 밝든 어둡든 글자가 읽힌다. */}
+      {coreBadges && (
+        <div style={{
+          position: 'absolute', bottom: pad, right: pad, zIndex: 2,
+          maxWidth: '92%', minWidth: 0,
+          display: 'inline-flex', alignItems: 'center',
+          padding: '3px 8px', borderRadius: R,
+          background: SCRIM.heavy,
+          border: `1px solid color-mix(in srgb, ${C.inverse} 18%, transparent)`,
+          color: C.inverse,
+        }}>
+          <span className="fp-onphoto">
+            <SignalMarks p={p} audience={audience} dense />
+          </span>
+        </div>
+      )}
 
       {left.length > 0 && (
         <div style={{

@@ -6,7 +6,7 @@ import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
 import { C, R_CARD, SH } from '@/components/ui';
 import {
-  CardTitle, CardSpecs, CardThumb, SignalMarks,
+  CardTitle, CardSpecs, CardThumb, CardPerkLine,
   OptionChips,
   PricePeekRoot, PriceAmounts, PeriodPerkBand,
 } from '@/components/product-card-atoms';
@@ -41,22 +41,20 @@ export const ProductCard = memo(function ProductCard({ p, audience = 'agent', hr
         border: `1px solid ${C.line}`,
         boxShadow: SH.cardRest,
       }}>
-      {/* 1 — 사진만. CORE 셋은 아래 본문 첫 줄이 든다. */}
-      <CardThumb p={p} audience={audience} fill marks={false} />
+      {/* 1 — 사진 + **우하 뱃지**(출고상태·상품구분). 정본 = docs/DESIGN_CONFIRMED_LIST_CARD.md §2.
+          ★본문으로 내리지 마라 — 2026-08-31 에 내렸다가 2026-09-04 에 되돌렸다.
+          심사(무심사)는 여기 아니라 **아래 우대조건 줄 맨 앞**이다(같은 문서). */}
+      <CardThumb p={p} audience={audience} fill marks={false} coreBadges />
 
       <div style={{
         padding: mobile ? '10px 12px' : '10px 12px',
         display: 'flex', flexDirection: 'column', gap, flex: 1, minWidth: 0,
       }}>
-        {/* ★출고가능 · 픽업구독 · 무심사 = **아이콘 + 글자**(사장님 2026-08-30 · 2026-08-28 「박스 뱃지 쓰지 말고
-            아이콘 텍스트로, 모든 곳에서」). 사진 위에 두면 바탕 때문에 안 읽혀서 상자를 씌우게 되므로 본문에 둔다.
-            ★자리는 **이름 «바로 뒤»**다(사장님 2026-08-23 「뱃지가 어떤 건 우측정렬 어떤 건 차종 뒤에 붙고,
-            중구난방인데 규격 통일 좀」 → product-card-badge-view 가 「이름 뒤」로 못 박았다).
-            한때 이름 «위»에 뒀다가 되돌렸다 — 뱃지는 그 차를 설명하는 말이라 이름보다 먼저 오면 안 된다. */}
         <CardTitle p={p} />
-        <SignalMarks p={p} audience={audience} keys={['st', 'pt', 'cd']} dense />
         <OptionChips p={p} clamp />
         <CardSpecs p={p} audience={audience} dense listing />
+        {/* 우대조건 줄 — **맨 앞이 심사조건**(정본 §2 · withCredit). */}
+        <CardPerkLine p={p} dense withCredit />
 
         <PricePeekRoot p={p} focusMonth={focusMonth} style={{
           display: 'flex', flexDirection: 'column', alignItems: 'stretch',
