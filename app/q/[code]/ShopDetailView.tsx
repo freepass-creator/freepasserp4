@@ -28,6 +28,8 @@ export function ShopDetailView({ wl }: { wl: Whitelabel }) {
   const key = decodeURIComponent(String(code));
   const [p, setP] = useState<EntityRecord | null | undefined>(undefined);
   const [agent, setAgent] = useState<EntityRecord | null>(null);
+  /** 담당 귀속 — 「목록으로」에도 물려 보낸다. 돌아갔을 때 담당자가 바뀌면 그게 곧 퍼널이 끊기는 것이다. */
+  const [attr, setAttr] = useState('');
 
   useEffect(() => { (async () => {
     // 담당 귀속(?a=)은 목록에서 기억해 둔 것을 이어 쓴다 — 손님이 목록·상세를 오가도 담당자가 안 바뀐다.
@@ -35,6 +37,7 @@ export function ShopDetailView({ wl }: { wl: Whitelabel }) {
       ? (new URLSearchParams(window.location.search).get('a') || localStorage.getItem('fp4_attr'))
       : null;
     if (a && typeof window !== 'undefined') localStorage.setItem('fp4_attr', a);
+    setAttr(a || '');
     try {
       const q = new URLSearchParams({ code: key });
       if (a) q.set('a', a);
@@ -77,7 +80,8 @@ export function ShopDetailView({ wl }: { wl: Whitelabel }) {
 
   return (
     <WhitelabelFrame wl={wl} agentName={agentName} agentPhone={phone} notice={false} dock={false}>
-      <ShopDetail p={p} agentName={agentName} agentPhone={phone} />
+      <ShopDetail p={p} agentName={agentName} agentPhone={phone}
+        listHref={`/shop${attr ? `?a=${encodeURIComponent(attr)}` : ''}`} />
     </WhitelabelFrame>
   );
 }

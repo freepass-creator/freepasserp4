@@ -1210,6 +1210,21 @@ html[data-fp-filter="0"] .fp-finder > .fp-sidebar { display: none; }
 }
 .fp-shop-stick.is-stuck::after { opacity: 1; }
 
+/*
+ * 상세 사진 — **손가락으로 민다.** 화살표만 두면 폰에서 아무도 안 누른다(사진은 미는 것이라고
+ * 손이 이미 알고 있다). 브라우저의 스크롤을 그대로 쓰므로 관성·고무줄이 공짜로 따라온다 —
+ * JS 로 드래그를 흉내 내면 그 둘이 없어 «싸구려 같은» 움직임이 된다.
+ * ★`scroll-snap` 이 한 장씩 딱 멈추게 한다. 없으면 두 장 사이에 어정쩡하게 선다.
+ * ★막대는 숨긴다 — 사진 밑에 회색 줄이 그어진 꼴이 된다.
+ */
+.fp-shop-gallery {
+  display: flex; overflow-x: auto; overflow-y: hidden;
+  scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; -ms-overflow-style: none;
+}
+.fp-shop-gallery::-webkit-scrollbar { display: none; }
+.fp-shop-gallery > * { flex: 0 0 100%; scroll-snap-align: center; }
+
 @media (prefers-reduced-motion: reduce) {
   .fp-shop-press, .fp-shop-card, .fp-shop-card .fp-shop-thumb > img { transition: none; }
   .fp-shop-press:active, .fp-shop-card:hover { transform: none; }

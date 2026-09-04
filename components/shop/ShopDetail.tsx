@@ -1,6 +1,7 @@
 'use client';
-import { useMemo, useState } from 'react';
-import { ChevronLeft, ChevronRight, ImageOff, Phone } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
+import { ArrowLeft, Check, ChevronLeft, ChevronRight, Heart, ImageOff, Phone, Share2 } from 'lucide-react';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { Badge, C, FS, ICON, PERK_TONE, CREDIT_TONE, type BadgeTone } from '@/components/ui';
 import { SHOP } from '@/components/shop/shop-ui';
@@ -34,10 +35,12 @@ import { kmDisplay, manWon } from '@/lib/format';
  * ★★값을 지어내지 않는다. 없는 항목은 **줄째로 빠진다** — 손님 화면에 뜬 조건은 곧 약속이라
  *   「협의」나 빈칸을 그럴듯하게 채우면 그게 분쟁이 된다(public-catalog 의 같은 판단).
  */
-export function ShopDetail({ p, agentName, agentPhone }: {
+export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
   p: EntityRecord;
   agentName?: string;
   agentPhone?: string;
+  /** 「목록으로」가 가는 곳. 담당 귀속(`?a=`)을 물고 가야 손님이 돌아가도 담당자가 안 바뀐다. */
+  listHref?: string;
 }) {
   const mobile = useIsMobile();
   const title = vehicleNameOf({ kind: 'product', product: p }, { tier: 'full', fallback: 'none' }) || '차량';
@@ -154,9 +157,14 @@ export function ShopDetail({ p, agentName, agentPhone }: {
 
   const options = parseProductOptions(p.options);
   const phone = String(agentPhone || '').trim();
+  const code = String(p.product_code || '');
   const telHref = phone ? `tel:${phone.replace(/[^0-9+]/g, '')}` : '';
 
   const gallery = <Gallery p={p} />;
+
+  const bar = (
+    <TopBar code={code} title={title} listHref={listHref} />
+  );
 
   const priceCard = (
     <section aria-label="대여료">
@@ -245,6 +253,7 @@ export function ShopDetail({ p, agentName, agentPhone }: {
       // 하단 고정독이 마지막 줄을 덮지 않게 그만큼 비운다.
       padding: mobile ? '16px 16px 108px' : '26px 24px 40px',
     }}>
+      {bar}
       {mobile ? (
         <>
           {gallery}
@@ -347,6 +356,92 @@ export function ShopDetail({ p, agentName, agentPhone }: {
   );
 }
 
+const FAV_KEY = 'fp4_shop_fav';
+
+/**
+ * 상세 맨 위 실행줄 — **목록으로 · 관심 · 공유**.
+ *
+ * 왜 있어야 하나(2026-09-04 실측). 이 화면에서 손님이 할 수 있는 일이 «전화» 하나뿐이었다.
+ *   ㉠ 목록으로 돌아갈 길이 없다 — 브라우저 뒤로가기를 아는 사람만 나간다.
+ *   ㉡ **이 차를 누구에게도 못 보낸다.** 저신용 렌트는 본인 혼자 정하는 일이 드물다(배우자·부모와
+ *      상의한다). 공유가 막히면 손님이 화면을 찍어 보내고, 그러면 담당자 귀속이 끊긴다 —
+ *      우리 장사에서 이건 기능 하나가 아니라 **퍼널이 끊기는 것**이다.
+ *   ㉢ 담아 둘 수 없다 — 목록에는 하트가 있는데 상세에 없어서, 들어와서 마음에 들면 뒤로 나가
+ *      다시 하트를 눌러야 했다.
+ *
+ * ★사진 «위»에 얹지 않는다(사장님 2026-09-04 「사진에 들어갈 필요는 없을 것 같고」).
+ *   사진 위 단추는 어떤 사진이 오느냐에 따라 보이기도 하고 안 보이기도 한다. 위에 자리를 만든다.
+ * ★공유는 **기기가 아는 방법**을 먼저 쓴다(`navigator.share`) — 카톡·문자가 바로 뜨는 그 창이다.
+ *   없는 기기(대부분 데스크톱)에서는 주소를 복사하고 「복사했습니다」로 알린다.
+ *   ⚠ 주소를 «지금 주소 그대로» 넘긴다 — `?a=` 담당 귀속이 물려 있어야 받은 사람이 눌러도
+ *     같은 담당자에게 간다. 손으로 조립하면 그 파라미터를 흘린다.
+ */
+function TopBar({ code, title, listHref }: { code: string; title: string; listHref: string }) {
+  const [faved, setFaved] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    try { setFaved(new Set(JSON.parse(localStorage.getItem(FAV_KEY) || '[]') as string[]).has(code)); }
+    catch { /* 저장을 못 읽어도 화면은 돈다 */ }
+  }, [code]);
+
+  const toggleFav = () => {
+    haptic.tap();
+    setFaved((was) => {
+      const next = !was;
+      try {
+        const set = new Set(JSON.parse(localStorage.getItem(FAV_KEY) || '[]') as string[]);
+        if (next) set.add(code); else set.delete(code);
+        localStorage.setItem(FAV_KEY, JSON.stringify([...set]));
+      } catch { /* 저장 실패는 화면을 막지 않는다 */ }
+      return next;
+    });
+  };
+
+  const share = async () => {
+    haptic.tap();
+    const url = window.location.href;
+    try {
+      if (navigator.share) { await navigator.share({ title, url }); return; }
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch { /* 손님이 취소한 것도 여기로 온다 — 아무 말도 하지 않는다 */ }
+  };
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '2px 0 12px' }}>
+      <Link href={listHref} onClick={() => haptic.nav()} className="fp-shop-press"
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+          height: 40, padding: '0 12px 0 8px', borderRadius: SHOP.r.chip,
+          textDecoration: 'none', color: C.sub, fontSize: SHOP.fs.sub, fontWeight: 600,
+        }}>
+        <ArrowLeft size={ICON.lg} aria-hidden />목록으로
+      </Link>
+      <div style={{ flex: 1 }} />
+      <button type="button" onClick={toggleFav} className="fp-shop-press"
+        aria-pressed={faved} aria-label={faved ? '관심 차량에서 빼기' : '관심 차량으로 담기'}
+        style={{
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          width: 40, height: 40, borderRadius: 999, border: 'none', background: 'transparent',
+          cursor: 'pointer', color: faved ? C.danger : C.sub,
+        }}>
+        <Heart size={ICON.lg} aria-hidden fill={faved ? 'currentColor' : 'none'} />
+      </button>
+      <button type="button" onClick={share} className="fp-shop-press" aria-label="이 차량 공유하기"
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+          height: 40, padding: '0 12px', borderRadius: 999, border: 'none', background: 'transparent',
+          cursor: 'pointer', color: copied ? C.ok : C.sub, fontSize: SHOP.fs.sub, fontWeight: 600,
+        }}>
+        {copied ? <Check size={ICON.lg} aria-hidden /> : <Share2 size={ICON.lg} aria-hidden />}
+        {copied ? '복사했습니다' : '공유'}
+      </button>
+    </div>
+  );
+}
+
 /**
  * 조건 구역 하나 — **속이 비면 통째로 안 그린다.** 제목만 있고 아래가 빈 칸은
  * 「우리가 안 채웠다」로 보이고, 손님은 그걸 「이 회사가 대충 한다」로 읽는다.
@@ -422,27 +517,50 @@ function Table({ rows, mobile }: { rows: [string, string][]; mobile: boolean }) 
 }
 
 /**
- * 사진 — 큰 것 하나 + 좌우로 넘기기 + 「n / N」.
+ * 사진 — **손가락으로 미는** 갤러리.
  *
- * ★사진이 한 장뿐이면 화살표도 세는 표시도 안 그린다 — 누를 데가 없는 단추를 두지 않는다.
+ * ★브라우저의 가로 스크롤 + `scroll-snap` 을 그대로 쓴다. 관성·고무줄이 공짜로 따라오고
+ *   한 장씩 딱 멈춘다. JS 로 드래그를 흉내 내면 그 둘이 없어 «싸구려 같은» 움직임이 된다.
+ * ★화살표는 마우스 쓰는 사람 몫이다 — 폰에서는 아무도 안 누른다(사진은 미는 것이라고 손이 안다).
+ * ★사진이 한 장뿐이면 화살표도 점도 세는 표시도 안 그린다 — 누를 데가 없는 단추를 두지 않는다.
  * ★사진이 없으면 «없다»고 조용히 말한다. 실측 28%가 그렇다 — 회색 판만 두면 고장으로 보인다.
  */
 function Gallery({ p }: { p: EntityRecord }) {
   const photos = useProductPhotos(p, 1280);
+  const railRef = useRef<HTMLDivElement>(null);
   const [i, setI] = useState(0);
   const n = photos.length;
-  const at = n ? photos[Math.min(i, n - 1)] : '';
-  const go = (d: number) => setI((v) => (v + d + n) % n);
+
+  /** 어느 장을 보고 있나 — 스크롤 위치를 폭으로 나눈다. 스크롤이 정본이라 손·화살표가 안 갈린다. */
+  const onScroll = () => {
+    const el = railRef.current;
+    if (!el || !el.clientWidth) return;
+    setI(Math.round(el.scrollLeft / el.clientWidth));
+  };
+  const go = (d: number) => {
+    const el = railRef.current;
+    if (!el) return;
+    const next = Math.min(Math.max(i + d, 0), n - 1);
+    // 세는 표시를 «먼저» 바꾼다 — 부드럽게 미끄러지는 동안 숫자가 옛 장에 머물면 눌린 것 같지 않다.
+    // (스크롤이 끝나면 onScroll 이 같은 값으로 다시 맞추므로 손으로 민 것과도 안 갈린다.)
+    setI(next);
+    el.scrollTo({ left: next * el.clientWidth, behavior: 'smooth' });
+  };
 
   return (
     <div style={{
       position: 'relative', aspectRatio: '4 / 3', overflow: 'hidden',
       borderRadius: SHOP.r.card, background: C.placeholder,
     }}>
-      {at ? (
-        // eslint-disable-next-line @next/next/no-img-element -- 원본은 외부 도메인(프록시 경유)이라 next/image 최적화 대상이 아니다.
-        <img src={at} alt="" decoding="async"
-          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+      {n ? (
+        <div ref={railRef} onScroll={onScroll} className="fp-shop-gallery"
+          style={{ width: '100%', height: '100%' }}>
+          {photos.map((src, k) => (
+            // eslint-disable-next-line @next/next/no-img-element -- 원본은 외부 도메인(프록시 경유)이라 next/image 최적화 대상이 아니다.
+            <img key={src} src={src} alt="" decoding="async" loading={k === 0 ? 'eager' : 'lazy'}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+          ))}
+        </div>
       ) : (
         <div style={{
           position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
@@ -455,14 +573,29 @@ function Gallery({ p }: { p: EntityRecord }) {
 
       {n > 1 ? (
         <>
-          <GalleryArrow side="left" onClick={() => go(-1)} />
-          <GalleryArrow side="right" onClick={() => go(1)} />
+          {i > 0 ? <GalleryArrow side="left" onClick={() => go(-1)} /> : null}
+          {i < n - 1 ? <GalleryArrow side="right" onClick={() => go(1)} /> : null}
           <span style={{
             position: 'absolute', right: 12, bottom: 12,
             padding: '4px 10px', borderRadius: 999,
             background: 'rgba(0,0,0,0.55)', color: '#fff',
             fontSize: SHOP.fs.cap, fontWeight: 700, fontVariantNumeric: 'tabular-nums',
-          }}>{Math.min(i, n - 1) + 1} / {n}</span>
+          }}>{Math.min(i + 1, n)} / {n}</span>
+          {/* 점 — 몇 장인지·어디쯤인지를 «보지 않고도» 안다. 여덟 장 넘으면 줄이 길어져 세는 표시만 남긴다. */}
+          {n <= 8 ? (
+            <div aria-hidden style={{
+              position: 'absolute', left: 0, right: 0, bottom: 14,
+              display: 'flex', justifyContent: 'center', gap: 6,
+            }}>
+              {photos.map((src, k) => (
+                <span key={src} style={{
+                  width: k === i ? 18 : 6, height: 6, borderRadius: 999,
+                  background: k === i ? '#fff' : 'rgba(255,255,255,0.55)',
+                  transition: 'width .2s ease',
+                }} />
+              ))}
+            </div>
+          ) : null}
         </>
       ) : null}
     </div>
