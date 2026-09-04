@@ -124,15 +124,12 @@ const yearOf = (firstReg: string) => {
   const yy = s.match(/^\s*(\d{2})[.\-/]/); return yy ? `20${yy[1]}` : '';
 };
 
-// ★전기차 규칙 — 이름이 전기차(일렉트리파이드·일렉트릭)면 연료=전기, 전기/수소면 배기량은 없다
-//   (내연 형제의 998·1580·3500cc 가 새어 든다). 사장님 2026-09-05.
-const NAME_EV = /일렉트리파이드|일렉트릭|electric/i;
+// ★전기차 배기량 청소 — «원천 연료»가 전기·수소면 배기량은 없다(내연 형제의 998·1580cc 가 샌 것).
+//   ⚠ 세부모델 «이름»(일렉트리파이드 등)으로는 «판단하지 않는다» — 이름이 오매핑될 수 있다.
+//     실측 2026-09-05: 원문 「가솔린 2.5 G80」이 세부모델 「일렉트리파이드 G80」으로 잘못 붙어 있었다.
+//     이름을 믿고 연료를 전기로 바꾸면 가솔린차를 가짜 전기차로 만든다. 원천 연료만 믿는다.
 const FUEL_EV = /^(전기|수소)$|\bev\b|electric|fcev/i;
-function evClean(name: string, fuel: string, cc: string): { fuel_type: string; engine_cc: string } {
-  let f = fuel;
-  if (NAME_EV.test(name) && !FUEL_EV.test(f)) f = '전기';
-  return { fuel_type: f, engine_cc: (FUEL_EV.test(f) || NAME_EV.test(name)) ? '' : cc };
-}
+const evEngineCc = (fuel: string, cc: string): string => (FUEL_EV.test(fuel) ? '' : cc);
 
 // 상태 디테일 — mirror-to-firestore 와 «같은» 분류(한 값에 안 뭉침). status·status_kind·status_reason·listable.
 const AVAIL = new Set(['즉시출고', '출고가능']);
@@ -268,10 +265,9 @@ function atomize(row: Row, pinned: Map<string, Record<string, unknown>>): Atom {
       engine_cc: row.cc, vehicle_class: row.klass, first_registration_date: row.firstReg,
     };
   }
-  const ev = evClean(`${identity.sub_model} ${identity.model} ${identity.trim_name} ${vname}`, S(spec.fuel_type), S(spec.engine_cc));
   return {
     car_number: car,
-    maker: identity.maker, model: identity.model, sub_model: identity.sub_model, trim_name: identity.trim_name, origin: identity.origin, ...spec, ...ev,
+    maker: identity.maker, model: identity.model, sub_model: identity.sub_model, trim_name: identity.trim_name, origin: identity.origin, ...spec, engine_cc: evEngineCc(S(spec.fuel_type), S(spec.engine_cc)),
     product_type: canonProductType(row.kind),
     ...statusDetail(row.status, pin?.locked_by_contract), mileage: row.km, options: row.opt,
     ...(Object.keys(row.price).length ? { price: row.price } : null),
