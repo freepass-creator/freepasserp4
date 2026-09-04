@@ -32,7 +32,7 @@ import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getDatabase } from 'firebase-admin/database';
 import { CORP } from '../lib/domain/corporate-ci';
 import { dueDate } from '../lib/domain/settlement-cycle';
-import { settleTargetOf } from '../lib/domain/settlement-stage';
+import { settleTargetOf, billingMonthIn, lockedMonthsOf, type SettlementRow } from '../lib/domain/settlement-stage';
 import { feeKindOf, feeRuleFor, SUPPLIER_ALIAS } from '../lib/domain/settlement-fee-table';
 
 const MONTH = (process.argv.find((a) => /^\d{4}-\d{2}$/.test(a)) || '').trim();
@@ -59,8 +59,27 @@ const jwt = new JWT({ email: sa.client_email, key: sa.private_key, subject: 'pyh
 const tok = async () => (await jwt.getAccessToken()).token;
 
 type Row = Record<string, unknown>;
-const rows = (Object.values((await db.ref('v4/settlement_rows').get()).val() || {}) as Row[])
-  .filter((r) => r.cancelled !== true && S(r.billMonth) === MONTH);
+/**
+ * ★★★**달을 세는 규칙은 «원장과 같은 것»을 쓴다** — 사장님 2026-09-04
+ *   「정산원장에 잘 반영해서 그거 기반으로 각자 시트에 뿌려질수 있도록 해줘고」.
+ *
+ *   ⚠ 여태 시트는 `billMonth` «적힌 값»만 보고, 원장·정산서는 `billingMonthIn`
+ *     (적힌 값이 이기되, 없으면 인도일에서 계산)을 봤다. 그래서 2026-09 원장엔
+ *     줄이 다섯 공급사나 있는데 시트는 «0줄»이었다. 같은 달을 두 규칙으로 세면 어느 것도 못 믿는다.
+ *   ⇒ 원장·정산서·시트가 «한 규칙»을 본다. 정본은 `settlement-stage`.
+ */
+/**
+ * ★★★**달을 세는 규칙은 «종이와 같은 것»을 쓴다** — `billingMonthIn`.
+ *   시트는 상대가 받은 청구서·정산서와 «줄 수까지» 같아야 한다. 어긋나면 그 자리에서 묻는다.
+ * ⚠ 원장(`publish-settlement-month`)은 아직 제 규칙(`settlementMonthOf`)을 쓴다 —
+ *   그것을 씨우면 2026-08 이 34줄 → 50줄로 불어 이미 나간 종이와 갈라졌다(실측 2026-09-04).
+ *   둘을 합치는 것은 «이미 나간 청구서»를 흔드는 일이라 사람 확인이 먼저다.
+ */
+const D = (v: unknown) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(S(v)); return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null; };
+const asRow = (r: Row) => ({ ...r, receivedAt: D(r.receivedAt), deliveredAt: D(r.deliveredAt) } as unknown as SettlementRow);
+const allRows = Object.values((await db.ref('v4/settlement_rows').get()).val() || {}) as Row[];
+const locked = lockedMonthsOf(allRows.map(asRow));
+const rows = allRows.filter((r) => r.cancelled !== true && billingMonthIn(asRow(r), locked) === MONTH);
 const claws = (Object.values((await db.ref('v4/settlement_clawbacks').get()).val() || {}) as Row[])
   .filter((c) => S(c.month) === MONTH);
 

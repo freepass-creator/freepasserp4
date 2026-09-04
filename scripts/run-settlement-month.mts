@@ -44,13 +44,14 @@ const A = APPLY ? ['--apply'] : [];
 const steps: Step[] = [
   { no: '①', what: '시트 → ERP (새 줄만)', cmd: ['npm', 'run', 'settlement:import', '--', ...A] },
   { no: '②', what: '원자화 (묵은 줄은 걷는다)', cmd: ['npx', 'tsx', 'scripts/atomize-settlement-month.mts', MONTH, ...A] },
+  /** ★환수 짝은 «원장을 찍기 전»에 본다 — 한쪽만 있는 환수가 원장에 실리면 그대로 종이까지 간다. */
+  { no: '②½', what: '환수 크로스체크 — 한쪽만 있는 환수', cmd: ['npx', 'tsx', 'scripts/check-clawback-pairs.mts', MONTH], advisory: true },
   { no: '③', what: '달 탭 발행 (앞으로 5달)', cmd: ['npx', 'tsx', 'scripts/publish-settlement-month.mts', MONTH, '--ahead=5', ...A] },
   { no: '④', what: '수수료 검산', cmd: ['npx', 'tsx', 'scripts/check-fee-consistency.mts', MONTH], advisory: true },
   { no: '⑤', what: '정산서 만들기', cmd: ['npx', 'tsx', 'scripts/issue-settlement-invoices.mts', MONTH],
     before: () => { rmSync(`tmp/정산서-${MONTH}`, { recursive: true, force: true }); } },
   { no: '⑥', what: '쪽 검사 (A4)', cmd: ['node', 'scripts/check-invoice-overflow.mjs', `tmp/정산서-${MONTH}`] },
   { no: '⑦', what: '드라이브에 올리기', cmd: ['npx', 'tsx', 'scripts/upload-settlement-docs.mts', MONTH, ...A], needApply: true },
-  { no: '①½', what: '환수 크로스체크 — 한쪽만 있는 환수', cmd: ['npx', 'tsx', 'scripts/check-clawback-pairs.mts', MONTH], needApply: false },
   { no: '⑧', what: '공급사 시트에 정산 탭 붙이기', cmd: ['npx', 'tsx', 'scripts/publish-supplier-settlement.mts', MONTH, ...A], needApply: true },
   { no: '⑨', what: '영업채널 시트에 정산 탭 붙이기', cmd: ['npx', 'tsx', 'scripts/publish-channel-settlement.mts', MONTH, ...A], needApply: true },
 ];
