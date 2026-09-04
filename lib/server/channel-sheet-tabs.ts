@@ -482,9 +482,21 @@ export async function ensureCompanyTab(tok: Tok, bookId: string): Promise<boolea
  */
 export const SETTLE_BASIS = ['수수료 산정 기준'];
 export const SETTLE_NOTE = ['확인', '메모'];
-export const CHANNEL_SETTLE_HEAD = ['No.', '차량번호', '접수일', '인도일', '공급사', '모델명', '임차인',
-  '상품 구분', '계약 기간', '렌탈료', ...SETTLE_BASIS, '공급가액', '부가세', '합계', '지급 예정일', ...SETTLE_NOTE];
-export const CHANNEL_SETTLE_WIDTH = [40, 92, 84, 84, 92, 150, 76, 112, 76, 92, 250, 100, 88, 108, 96, 56, 260];
+/**
+ * ★★**칸 넷을 더 붙였다** — 하허호가 8월 정산 탭 메모에 적어 둔 그대로다(2026-09-04
+ *   「헤더에 **보증금 납입방식, 영업사 명, 신차인 경우 차량 가격**도 표시되어야 합니다」).
+ * ```
+ * 차량 가격(신차)   신차는 수수료가 «차량가액 × 요율»이라, 값이 없으면 산정 기준을 검산 못 한다
+ * 영업사           채널이 «누가 판 건인지»로 제 안에서 나눈다 — 우리 표에만 있고 저쪽엔 없었다
+ * 보증금 · 납입 방식  일시납이냐 분납이냐가 청구월을 가른다(2회분납 = 접수월+1)
+ * ```
+ *   ⚠ 「보증금 납입방식」은 두 칸으로 갈랐다 — 금액과 방식은 서식(숫자/글)이 달라 한 칸에 묶으면
+ *     오른쪽 정렬도 천단위도 못 준다. 두 칸이 나란히 서면 읽기는 한 가지다.
+ *   ⚠ 신차가 아니면 차량 가격은 «빈칸»이다 — 0 을 찍으면 「값이 0원」으로 읽는다.
+ */
+export const CHANNEL_SETTLE_HEAD = ['No.', '차량번호', '접수일', '인도일', '공급사', '모델명', '차량 가격(신차)', '임차인', '영업사',
+  '상품 구분', '계약 기간', '렌탈료', '보증금', '납입 방식', ...SETTLE_BASIS, '공급가액', '부가세', '합계', '지급 예정일', ...SETTLE_NOTE];
+export const CHANNEL_SETTLE_WIDTH = [40, 92, 84, 84, 92, 150, 108, 76, 76, 112, 76, 92, 96, 84, 250, 100, 88, 108, 96, 56, 260];
 export const settleTabOf = (m: string) => `${m.slice(2, 4)}년${m.slice(5)}월 정산`;
 
 /**
@@ -497,7 +509,6 @@ export const settleTabOf = (m: string) => `${m.slice(2, 4)}년${m.slice(5)}월 �
  */
 export async function ensureMonthTab(tok: Tok, bookId: string, month: string): Promise<boolean> {
   const TAB = settleTabOf(month);
-  if ((await tabs(tok, bookId)).some((s) => s.properties.title === TAB)) return false;
   const H = CHANNEL_SETTLE_HEAD;
   const rows: (string | number)[][] = [
     [`${month.slice(0, 4)}년 ${Number(month.slice(5))}월 정산서    ·    ${CORP.name} 발행`, ...H.slice(1).map(() => '')],
@@ -506,7 +517,26 @@ export async function ensureMonthTab(tok: Tok, bookId: string, month: string): P
     H,
     [`${Number(month.slice(5))}월이 마감되면 이 탭에 채워 드립니다.`, ...H.slice(1).map(() => '')],
   ];
-  const id = await addTab(tok, bookId, TAB, (await tabs(tok, bookId)).length, 60, H.length);
+  /**
+   * ★★**이미 세워 둔 «빈» 탭은 머리글을 «다시 맞춘다»** — 2026-09-04 에 칸이 넷 늘었는데
+   *   미리 세워 둔 다음 달 탭만 옛 칸(17)으로 남으면, 채널이 8월과 9월을 나란히 놓고
+   *   「왜 또 바뀌었냐」고 묻는다. 규격을 고치면 «미리 세워 둔 것까지» 따라와야 한다.
+   * ⚠ 손을 댄 탭은 건드리지 않는다 — 안내줄(5행) 아래에 한 글자라도 적혀 있으면 그대로 둔다.
+   */
+  const list = await tabs(tok, bookId);
+  const found = list.find((s) => s.properties.title === TAB);
+  let id: number | undefined;
+  if (found) {
+    const got = await (await api(tok, `https://sheets.googleapis.com/v4/spreadsheets/${bookId}/values/${encodeURIComponent(`'${TAB}'!A1:BZ200`)}`)).json() as { values?: unknown[][] };
+    const g = got.values || [];
+    if (g.slice(5).some((r) => (r || []).some((c) => String(c ?? '').trim()))) return false;
+    if ((g[3] || []).length === H.length) return false;
+    id = found.properties.sheetId;
+    await format(tok, bookId, [
+      { updateSheetProperties: { properties: { sheetId: id, gridProperties: { columnCount: H.length } }, fields: 'gridProperties.columnCount' } },
+      { unmergeCells: { range: { sheetId: id } } },
+    ]);
+  } else id = await addTab(tok, bookId, TAB, list.length, 60, H.length);
   if (id === undefined) return false;
   await put(tok, bookId, `'${TAB}'!A1:${String.fromCharCode(64 + H.length)}${rows.length}`, rows);
   await format(tok, bookId, [
@@ -534,4 +564,117 @@ export async function ensureMonthTab(tok: Tok, bookId: string, month: string): P
     { repeatCell: { range: { sheetId: id }, cell: { userEnteredFormat: { textFormat: { fontFamily: 'Roboto' } } }, fields: 'userEnteredFormat.textFormat.fontFamily' } },
 ]);
   return true;
+}
+
+/**
+ * **달 탭의 «서식»은 여기가 정본이다.**
+ *
+ * ★★2026-09-04 에 하허호 지난 기록(26년 1~7월)을 같은 시트에 얹으면서 갈릴 뻔했다 —
+ *   발행기가 둘이 되면 «색·너비·틀고정·필터·글꼴 차례»가 두 벌이 되고, 그 순간
+ *   같은 시트 안에서 탭마다 생김새가 다른 시트가 된다(사장님이 매번 「왜 또 바뀌냐」 하시는 그것).
+ *   ⇒ 값을 짓는 일은 발행기마다 다르되, **서식은 이 함수 하나만 낸다.**
+ *
+ * 줄 자리(0부터) — `r0` 이 머리글이다.
+ * ```
+ * 0                  제목 띠(A:끝 병합)
+ * 1 · 2              요약 — 「공급가액 · 부가세 · 지급 금액」과 그 숫자
+ * r0                 머리글
+ * r0+1 …             표 줄 (bodyLen 줄 · 환수는 backAt 자리)
+ * last               합계            = r0 + 1 + bodyLen
+ * last+1 …           「빠진 건」 빈 줄 (blanks 줄 · 지난 달 기록이면 0)
+ * last+blanks+1      빈 줄 하나
+ * 그 아래 footLen 줄   꼬리 안내
+ * ```
+ */
+export type SettleTabSpec = {
+  sheetId: number;
+  head: readonly string[];
+  width: readonly number[];
+  r0: number;
+  bodyLen: number;
+  /** 연분홍으로 칠할 줄 — 표 안 자리(0부터). 환수·회수처럼 «빼는 돈». */
+  backAt: readonly number[];
+  blanks: number;
+  footLen: number;
+  basisLen: number;
+  money: readonly string[];
+  left: readonly string[];
+};
+
+/** 환수 줄 — «연한 분홍 바탕»만(사장님 2026-09-04 「두껍게 이런건 하지마」). */
+const BACK_ROW = { red: 1, green: 0.945, blue: 0.955 };
+/** 구역 칸막이 — 색만으로 가르면 인쇄·흑백에서 사라진다. 선은 남는다. */
+const CUT_LINE = { red: 0.78, green: 0.80, blue: 0.85 };
+
+export function settleTabFormat(s: SettleTabSpec): Record<string, unknown>[] {
+  const { sheetId: id, head: H, width: W, r0, bodyLen, backAt, blanks, footLen, basisLen, money, left } = s;
+  const last = r0 + 1 + bodyLen;
+  const foot0 = last + blanks + 2;
+  const iB = H.indexOf('수수료 산정 기준');
+  const iM = H.indexOf('공급가액');
+  const wide = (a: number, b: number) => ({ sheetId: id, startRowIndex: a, endRowIndex: b, startColumnIndex: 0, endColumnIndex: H.length });
+  const bar = (row: number, right: boolean) => ({ repeatCell: { range: wide(row, row + 1),
+    cell: { userEnteredFormat: { backgroundColor: NAVY, textFormat: { bold: true, fontSize: 10, foregroundColor: { red: 1, green: 1, blue: 1 } }, horizontalAlignment: right ? 'RIGHT' : 'CENTER', verticalAlignment: 'MIDDLE', wrapStrategy: 'WRAP' } },
+    fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment,verticalAlignment,wrapStrategy)' } });
+  const tintRow = (row: number) => ({ repeatCell: { range: wide(row, row + 1),
+    cell: { userEnteredFormat: { backgroundColor: TINT, textFormat: { bold: true } } }, fields: 'userEnteredFormat(backgroundColor,textFormat)' } });
+  const DATA = { startRowIndex: r0 + 1, endRowIndex: last + 1 };
+  const col = (h: string, r: { startRowIndex: number; endRowIndex: number }, cell: Record<string, unknown>, fields: string) => ({
+    repeatCell: { range: { sheetId: id, ...r, startColumnIndex: H.indexOf(h), endColumnIndex: H.indexOf(h) + 1 }, cell: { userEnteredFormat: cell }, fields } });
+
+  return [
+    { unmergeCells: { range: { sheetId: id } } },
+    { mergeCells: { range: wide(0, 1), mergeType: 'MERGE_ALL' } },
+    { repeatCell: { range: wide(0, 1),
+      cell: { userEnteredFormat: { backgroundColor: NAVY, textFormat: { bold: true, fontSize: 12, foregroundColor: { red: 1, green: 1, blue: 1 } }, verticalAlignment: 'MIDDLE', padding: { left: 10, right: 10, top: 2, bottom: 2 } } },
+      fields: 'userEnteredFormat(backgroundColor,textFormat,verticalAlignment,padding)' } },
+    { updateDimensionProperties: { range: { sheetId: id, dimension: 'ROWS', startIndex: 0, endIndex: 1 }, properties: { pixelSize: 40 }, fields: 'pixelSize' } },
+    bar(1, true), bar(r0, false), tintRow(2), tintRow(last),
+    { updateDimensionProperties: { range: { sheetId: id, dimension: 'ROWS', startIndex: r0, endIndex: r0 + 1 }, properties: { pixelSize: 40 }, fields: 'pixelSize' } },
+    { updateDimensionProperties: { range: { sheetId: id, dimension: 'ROWS', startIndex: r0 + 1, endIndex: last + 1 }, properties: { pixelSize: 24 }, fields: 'pixelSize' } },
+    ...backAt.map((k) => ({ repeatCell: { range: wide(r0 + 1 + k, r0 + 2 + k),
+      cell: { userEnteredFormat: { backgroundColor: BACK_ROW, textFormat: { bold: false } } }, fields: 'userEnteredFormat(backgroundColor,textFormat)' } })),
+    /**
+     * ★「수수료 산정 기준」 머리도 «남색 그대로» — 사장님 2026-09-03 「칸헤더 왜 색깔이 다르지??」
+     *   한 칸만 달리 칠하면 «다른 표»처럼 보인다. 구역은 색이 아니라 세로 칸막이로 가른다.
+     */
+    { repeatCell: { range: { sheetId: id, startRowIndex: r0 + 1, endRowIndex: last, startColumnIndex: iB, endColumnIndex: iB + basisLen },
+      cell: { userEnteredFormat: { textFormat: { fontSize: 9 } } }, fields: 'userEnteredFormat.textFormat' } },
+    /** ★「빠진 건」 빈 줄 안내는 «흐린 기울임» — 진하게 적으면 정산 줄로 오해한다. */
+    ...(blanks ? [
+      { repeatCell: { range: wide(last + 1, last + 1 + blanks),
+        cell: { userEnteredFormat: { textFormat: { italic: true, fontSize: 10, foregroundColor: { red: 0.62, green: 0.65, blue: 0.70 } } } }, fields: 'userEnteredFormat.textFormat' } },
+      { updateDimensionProperties: { range: { sheetId: id, dimension: 'ROWS', startIndex: last + 1, endIndex: last + 1 + blanks }, properties: { pixelSize: 24 }, fields: 'pixelSize' } },
+    ] : []),
+    ...H.map((h, c) => ({ repeatCell: { range: { sheetId: id, ...DATA, startColumnIndex: c, endColumnIndex: c + 1 },
+      cell: { userEnteredFormat: { horizontalAlignment: money.includes(h) ? 'RIGHT' : left.includes(h) ? 'LEFT' : 'CENTER', verticalAlignment: 'MIDDLE' } },
+      fields: 'userEnteredFormat(horizontalAlignment,verticalAlignment)' } })),
+    { repeatCell: { range: { sheetId: id, startRowIndex: 2, endRowIndex: 3, startColumnIndex: iM, endColumnIndex: H.length },
+      cell: { userEnteredFormat: { horizontalAlignment: 'RIGHT' } }, fields: 'userEnteredFormat.horizontalAlignment' } },
+    ...money.map((h) => col(h, { startRowIndex: 2, endRowIndex: last + 1 }, { numberFormat: { type: 'NUMBER', pattern: '#,##0' } }, 'userEnteredFormat.numberFormat')),
+    col('계약 기간', DATA, { numberFormat: { type: 'NUMBER', pattern: '0"개월"' } }, 'userEnteredFormat.numberFormat'),
+    col('차량번호', DATA, { numberFormat: { type: 'TEXT' } }, 'userEnteredFormat.numberFormat'),
+    /**
+     * ★★**꼬리는 «합계에서 빈 줄 수만큼 내려간 자리»다.**
+     *   여기를 `last+2` 로 박아 두었더니 빈 줄만 칠하고 꼬리는 손도 못 댔다(2026-09-04 발견).
+     */
+    { repeatCell: { range: wide(foot0, foot0 + footLen),
+      cell: { userEnteredFormat: { textFormat: { fontSize: 10 }, horizontalAlignment: 'LEFT' } }, fields: 'userEnteredFormat(textFormat,horizontalAlignment)' } },
+    ...W.map((w, c) => ({ updateDimensionProperties: { range: { sheetId: id, dimension: 'COLUMNS', startIndex: c, endIndex: c + 1 }, properties: { pixelSize: w }, fields: 'pixelSize' } })),
+    /**
+     * ★★**글꼴은 «맨 나중»에 깔린다** — 먼저 깔면 뒤에 오는 textFormat 이 글꼴까지 통째로 덮는다.
+     *   ⚠ 아래 칸막이·틀고정·필터는 textFormat 을 안 건드리므로 이 뒤에 와도 된다.
+     */
+    { repeatCell: { range: { sheetId: id }, cell: { userEnteredFormat: { textFormat: { fontFamily: 'Roboto' } } }, fields: 'userEnteredFormat.textFormat.fontFamily' } },
+    /** ★구역 칸막이 — «차·임차인 │ 산정 기준 │ 금액 │ 확인» 사이 세로 선 하나. */
+    ...[iB, iM, H.indexOf('확인')].filter((c) => c > 0).map((c) => ({ updateBorders: {
+      range: { sheetId: id, startRowIndex: r0, endRowIndex: last + 1, startColumnIndex: c, endColumnIndex: c + 1 },
+      left: { style: 'SOLID', width: 1, color: CUT_LINE } } })),
+    /** ★틀고정 머리 네 줄 — 줄이 서른이 넘으면 내려가다 «어느 칸인지»를 잃는다. 열은 안 얼린다(제목이 병합돼 있다). */
+    { updateSheetProperties: { properties: { sheetId: id, gridProperties: { frozenRowCount: r0 + 1, frozenColumnCount: 0 } }, fields: 'gridProperties(frozenRowCount,frozenColumnCount)' } },
+    /** ★필터 — 공급사·상품 구분으로 그 자리에서 추린다. 합계줄은 넣지 않는다(걸러도 따라 사라진다). */
+    { setBasicFilter: { filter: { range: { sheetId: id, startRowIndex: r0, endRowIndex: last, startColumnIndex: 0, endColumnIndex: H.length } } } },
+    /** ★「확인」은 체크칸 — 상대가 누르기만 하면 된다. */
+    { setDataValidation: { range: { sheetId: id, startRowIndex: r0 + 1, endRowIndex: last, startColumnIndex: H.indexOf('확인'), endColumnIndex: H.indexOf('확인') + 1 }, rule: { condition: { type: 'BOOLEAN' }, strict: true, showCustomUi: true } } },
+  ];
 }

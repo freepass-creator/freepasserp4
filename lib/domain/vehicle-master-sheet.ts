@@ -1,4 +1,4 @@
-/**
+﻿/**
  * **라이브 원천대장 「차종마스터」를 읽는 한 곳 — ERP `차종코드`(mf- 트림행키).**
  *
  * ★차명·제원 사전은 `public/data/vehicle-master.json`(규격채택)이다. 엔카 원자 시트는 시세 행키용.
@@ -37,8 +37,15 @@ export { assertNotLiveVehicleMasterTabWrite } from './vehicle-master-lock';
 
 const S = (v: unknown) => String(v ?? '').trim();
 
-/** 문서 — 사장님이 만든 원천대장. 탭 「차종마스터」가 트림 단위 표다. */
-export const MASTER_SHEET_ID = '1T_RrErmGoj_yG9S1u7n--2NDolTOw8wA8ROQjPWuAlg';
+/**
+ * 문서 — 사장님이 만든 원천대장. 탭 「차종마스터」가 트림 단위 표다.
+ *
+ * ★ID 는 **`legacy-sheets.ts` 가 정본**이다(시트 ID 문패가 거기 다 모여 있다).
+ *   2026-09-04 까지 같은 ID 문자열이 여기에도 «복사»돼 있었다 — 시트를 갈아끼우면 한쪽이 남고,
+ *   그때부터 두 코드가 서로 다른 문서를 읽는다. 값이 같아서 아무도 못 알아챈다.
+ *   여기서는 **가져다 다시 내보내기만** 한다(부르던 곳은 그대로 쓴다).
+ */
+export { MASTER_SHEET_ID } from './legacy-sheets';
 export const MASTER_TAB = '차종마스터';
 
 /** 한 줄이 곧 «한 차종»이다. 여기 있는 값이 상품시트 차종 칸의 정본이 된다. */

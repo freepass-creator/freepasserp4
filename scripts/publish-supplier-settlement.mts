@@ -32,8 +32,9 @@ import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getDatabase } from 'firebase-admin/database';
 import { CORP } from '../lib/domain/corporate-ci';
 import { dueDate } from '../lib/domain/settlement-cycle';
-import { settleTargetOf } from '../lib/domain/settlement-stage';
+import { settleTargetOf, billingMonthIn, lockedMonthsOf, type SettlementRow } from '../lib/domain/settlement-stage';
 import { feeKindOf, feeRuleFor, SUPPLIER_ALIAS } from '../lib/domain/settlement-fee-table';
+import { outwardText } from '../lib/domain/outward-text';
 
 const MONTH = (process.argv.find((a) => /^\d{4}-\d{2}$/.test(a)) || '').trim();
 const APPLY = process.argv.includes('--apply');
@@ -59,8 +60,27 @@ const jwt = new JWT({ email: sa.client_email, key: sa.private_key, subject: 'pyh
 const tok = async () => (await jwt.getAccessToken()).token;
 
 type Row = Record<string, unknown>;
-const rows = (Object.values((await db.ref('v4/settlement_rows').get()).val() || {}) as Row[])
-  .filter((r) => r.cancelled !== true && S(r.billMonth) === MONTH);
+/**
+ * ★★★**달을 세는 규칙은 «원장과 같은 것»을 쓴다** — 사장님 2026-09-04
+ *   「정산원장에 잘 반영해서 그거 기반으로 각자 시트에 뿌려질수 있도록 해줘고」.
+ *
+ *   ⚠ 여태 시트는 `billMonth` «적힌 값»만 보고, 원장·정산서는 `billingMonthIn`
+ *     (적힌 값이 이기되, 없으면 인도일에서 계산)을 봤다. 그래서 2026-09 원장엔
+ *     줄이 다섯 공급사나 있는데 시트는 «0줄»이었다. 같은 달을 두 규칙으로 세면 어느 것도 못 믿는다.
+ *   ⇒ 원장·정산서·시트가 «한 규칙»을 본다. 정본은 `settlement-stage`.
+ */
+/**
+ * ★★★**달을 세는 규칙은 «종이와 같은 것»을 쓴다** — `billingMonthIn`.
+ *   시트는 상대가 받은 청구서·정산서와 «줄 수까지» 같아야 한다. 어긋나면 그 자리에서 묻는다.
+ * ⚠ 원장(`publish-settlement-month`)은 아직 제 규칙(`settlementMonthOf`)을 쓴다 —
+ *   그것을 씨우면 2026-08 이 34줄 → 50줄로 불어 이미 나간 종이와 갈라졌다(실측 2026-09-04).
+ *   둘을 합치는 것은 «이미 나간 청구서»를 흔드는 일이라 사람 확인이 먼저다.
+ */
+const D = (v: unknown) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(S(v)); return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null; };
+const asRow = (r: Row) => ({ ...r, receivedAt: D(r.receivedAt), deliveredAt: D(r.deliveredAt) } as unknown as SettlementRow);
+const allRows = Object.values((await db.ref('v4/settlement_rows').get()).val() || {}) as Row[];
+const locked = lockedMonthsOf(allRows.map(asRow));
+const rows = allRows.filter((r) => r.cancelled !== true && billingMonthIn(asRow(r), locked) === MONTH);
 const claws = (Object.values((await db.ref('v4/settlement_clawbacks').get()).val() || {}) as Row[])
   .filter((c) => S(c.month) === MONTH);
 
@@ -108,7 +128,12 @@ const live = sheets.filter((f) => !/구버전|폐기|백업/.test(S(f.name)));
 /** 「[F50 사용중] 손오공 프리패스 재고」에서 「손오공」만 뽑는다. */
 const aliasOf = (name: string) => S(name).replace(/^\[[^\]]*\]\s*/, '').replace(/\s*프리패스 재고.*$/, '');
 
-const sups = [...new Set(rows.map((r) => S(r.supplier)).filter(Boolean))];
+/**
+ * ★**환수만 있는 달도 세다** — 사장님 2026-09-04 「리더스에 저거 환수 정산시트에 반영해줘」.
+ *   공급사 목록을 «정산 줄»에서만 돌렸더니, 그 달에 정산 줄은 없고 환수만 있는 곳이 통째로 빠졌다.
+ *   ⇒ 환수에만 이름이 있는 공급사도 목록에 넣는다. 환수도 «그 달에 오가는 돈»이다.
+ */
+const sups = [...new Set([...rows.map((r) => S(r.supplier)), ...claws.map((c) => S(c.supplier))].filter(Boolean))];
 console.log(`\n■ ${MONTH} — 공급사 ${sups.length}곳 · 재고 시트 ${sheets.length}개 ${APPLY ? '(반영)' : '(대조만)'}\n`);
 
 const findSheet = (name: string) => live.filter((f) => {
@@ -116,7 +141,9 @@ const findSheet = (name: string) => live.filter((f) => {
   return a && b && (a === b || a.startsWith(b) || b.startsWith(a));
 });
 
-type Job = { sup: string; sheetId: string; sheetName: string; tab: string; via: string; lines: Line[]; net: number; vat: number; claw: number };
+/** `backs` — 환수를 «줄로» 든다. 합산만 들고 있으면 어느 차인지를 못 적는다. */
+type Back = { plate: string; amt: number; why: string };
+type Job = { sup: string; sheetId: string; sheetName: string; tab: string; via: string; lines: Line[]; backs: Back[]; net: number; vat: number; claw: number };
 const jobs: Job[] = []; const skip: string[] = [];
 for (const sup of sups) {
   if (ONLY && !sup.includes(ONLY)) continue;
@@ -133,12 +160,22 @@ for (const sup of sups) {
   const mine = rows.filter((r) => S(r.supplier) === sup).map(lineOf).filter((l) => l.total !== 0);
   /** ★차례는 «접수일 순» — 영업채널 시트와 같은 규칙이다(사장님 2026-09-03 「접수일자 순으로」). */
   mine.sort((a, b) => `${a.recv || '9999-99-99'}|${a.plate}`.localeCompare(`${b.recv || '9999-99-99'}|${b.plate}`));
-  const cl = claws.filter((c) => S(c.supplier) === sup).reduce((a, c) => a + N(c.supplierAmt), 0);
+  const backs: Back[] = claws.filter((c) => S(c.supplier) === sup)
+    /**
+     * ★★★**사유에서 «우리끼리 하는 말»을 걷는다** — 사장님 2026-09-04
+     *   「공급사에 보여지는건 내부 문서가 아닌데」.
+     *   ⚠ 사람 이름·내부 처리 말뿐 아니라 **남의 상호**가 새는 것이 사고다 —
+     *     리더스가 「하허호」를 볼 이유가 없다. 지급 요율을 가린 것과 같은 까닭이다.
+     */
+    .map((c) => ({ plate: S(c.plate), amt: N(c.supplierAmt),
+      why: outwardText(c.reason, [S(c.channel), ...[...new Set(rows.map((r) => S(r.channel)))]]) }))
+    .filter((b) => b.amt !== 0);
+  const cl = backs.reduce((a, b) => a + b.amt, 0);
   if (!mine.length && !cl) continue;
   if (hit.length !== 1) { skip.push(`${sup} — 재고 시트를 ${hit.length === 0 ? '못 찾음' : `${hit.length}개나 찾음`}`); continue; }
   const net = mine.reduce((a, b) => a + b.net, 0) - cl;
   const vat = mine.reduce((a, b) => a + b.vat, 0) - Math.round(cl * VAT);
-  jobs.push({ sup, sheetId: hit[0].id, sheetName: hit[0].name, tab: tabOf(MONTH), via, lines: mine, net, vat, claw: cl });
+  jobs.push({ sup, sheetId: hit[0].id, sheetName: hit[0].name, tab: tabOf(MONTH), via, lines: mine, backs, net, vat, claw: cl });
 }
 /**
  * ★★**한 시트에 두 곳이 들어오면 탭 이름에 «누구 것»을 붙인다.**
@@ -163,7 +200,8 @@ const BASIS_BODY = { red: 0.975, green: 0.97, blue: 0.99 };
 /** 얼룩 줄 · 구역 칸막이 · 환수 줄 — 읽는 결을 만드는 세 가지. */
 const ZEBRA = { red: 0.972, green: 0.976, blue: 0.984 };
 const LINE = { red: 0.78, green: 0.80, blue: 0.85 };
-const BACK_ROW = { red: 0.99, green: 0.92, blue: 0.92 };
+/** ★환수 줄 — «연한 분홍 바탕»만(사장님 2026-09-04 「두껍게 이런건 하지마」). */
+const BACK_ROW = { red: 1, green: 0.945, blue: 0.955 };
 /** 임차인정보 ── 산출조건 ── 금액. 이름은 원장 청구탭과 같게 둔다. */
 /**
  * ★**「적용한 표 규칙」은 뺀다** — 사장님 2026-09-03 「적용한 규칙이랑은 뺀도 된다고」.
@@ -269,8 +307,11 @@ for (const j of jobs) {
   const pad = (n: number) => Array.from({ length: n }, () => '');
   const body: (string | number | boolean)[][] = j.lines.map((l, i) => [i + 1, l.plate, l.recv, l.deliv, l.model, l.cust,
     l.product, l.term || '', l.rent || '', l.how, l.net, l.vat, l.total, ...note(l.plate)]);
-  if (j.claw) body.push(['', '환수', '', '', '지난 정산분 환수', '', '', '', '', '',
-    -j.claw, -Math.round(j.claw * VAT), -(j.claw + Math.round(j.claw * VAT)), false, '']);
+  /** ★환수 줄은 «차번을 적는다» — 어느 차인지 못 보면 상대가 바로 묻는다. */
+  for (const b of j.backs) {
+    body.push(['', b.plate, '', '', '지난 정산분 환수', '', '', '', '', b.why,
+      -b.amt, -Math.round(b.amt * VAT), -(b.amt + Math.round(b.amt * VAT)), false, '']);
+  }
   const values: (string | number | boolean)[][] = [
     /**
      * ★**제목은 «맨 앞»에서 시작한다** — 사장님 2026-09-03 「여기 제목을 앞으로 보내고 틀고정 필요없음」.
@@ -285,7 +326,12 @@ for (const j of jobs) {
     HEAD,
     ...body,
     ['', '합계', `${j.lines.length}건`, ...pad(iM - 3), j.net, j.vat, j.net + j.vat, ...pad(HEAD.length - iM - 3)],
-    [],
+    /**
+     * ★빈 줄도 «칸 수만큼» 적는다 — `[]` 로 두면 그 줄을 안 건드려 «옷 글이 남는다».
+     *   실측 2026-09-04 — 환수 줄이 늘면서 꼬리가 한 칸 밀렸는데 옷 꼬리가 그대로 남아
+     *   「입금 부탁드립니다」가 두 줄 나왔다.
+     */
+    pad(HEAD.length),
     [`${dayKo(dueDate(MONTH))} 까지 입금 부탁드립니다`, ...pad(HEAD.length - 1)],
     [`${CORP.staff} · ${S(CORP.staffPhone) || CORP.phone} · ${CORP.email}`, ...pad(HEAD.length - 1)],
     ['한 달간 함께해 주셔서 감사합니다 · 프리패스모빌리티 주식회사 임직원 일동', ...pad(HEAD.length - 1)],
@@ -322,7 +368,7 @@ for (const j of jobs) {
     { updateDimensionProperties: { range: { sheetId: id, dimension: 'ROWS', startIndex: r0 + 1, endIndex: last + 1 }, properties: { pixelSize: 24 }, fields: 'pixelSize' } },
     /** ★환수 줄은 연한 붉은빛 — «빼는 돈»이라 숫자만 음수면 눈에 안 들어온다. */
     ...(j.claw ? [body.length - 1] : []).map((i: number) => ({ repeatCell: { range: all1(r0 + 1 + i, r0 + 2 + i),
-      cell: { userEnteredFormat: { backgroundColor: BACK_ROW } }, fields: 'userEnteredFormat.backgroundColor' } })),
+      cell: { userEnteredFormat: { backgroundColor: BACK_ROW, textFormat: { bold: false } } }, fields: 'userEnteredFormat(backgroundColor,textFormat)' } })),
     // 정렬 — 돈은 우측 · 글은 좌측 · 나머지 가운데
     ...HEAD.map((h, c) => ({ repeatCell: { range: { sheetId: id, ...DATA, startColumnIndex: c, endColumnIndex: c + 1 },
       cell: { userEnteredFormat: { horizontalAlignment: MONEY.includes(h) ? 'RIGHT' : LEFT.includes(h) ? 'LEFT' : 'CENTER', verticalAlignment: 'MIDDLE' } },

@@ -1,10 +1,12 @@
-// UI 토큰 SSOT(리프 — ui 다른 파일은 이걸 import, 순환 없음). globals.css 변수 브릿지.
+﻿// UI 토큰 SSOT(리프 — ui 다른 파일은 이걸 import, 순환 없음). globals.css 변수 브릿지.
 export const C = {
   ink: 'var(--text-main)', mute: 'var(--text-sub)', sub: 'var(--text-sub)', faint: 'var(--text-weak)',
   line: 'var(--border)', line2: 'var(--border-soft)', lineStrong: 'var(--border-strong)',
   bg: 'var(--bg-page)', zebra: 'var(--bg-stripe)', head: 'var(--bg-header)', hover: 'var(--bg-hover)',
   danger: 'var(--red-text)', ok: 'var(--green-text)', warn: 'var(--orange-text)', accent: 'var(--text-link)',
-  brand: 'var(--brand)', brandDeep: 'var(--brand-h)', taupe: 'var(--text-sub)', taupeBg: 'var(--bg-card)', taupeLine: 'var(--border)',
+  brand: 'var(--brand)', brandDeep: 'var(--brand-h)',
+  /** 네이비의 짝 — 색 사다리 4단(영업자 패널 면). docs/DESIGN_COLOR_LADDER.md */
+  sky: 'var(--sky)', skyBg: 'var(--sky-bg)', taupe: 'var(--text-sub)', taupeBg: 'var(--bg-card)', taupeLine: 'var(--border)',
   placeholder: 'var(--bg-placeholder)', // 사진/빈 서피스 배경
   sunken: 'var(--bg-sunken)',           // 한 겹 내려앉은 바닥 — 그 위에 흰 카드가 얹힌다(영업자 칼럼 등)
   selected: 'var(--bg-selected)',       // 선택 행/항목 강조 배경

@@ -37,7 +37,7 @@ import { finderDataScope } from '@/features/finder/finder-data-store';
 import { useFinderResults } from '@/features/finder/useFinderResults';
 import { buildProductContextItems } from '@/features/finder/product-context';
 import { FinderToolbar } from '@/features/finder/FinderToolbar';
-import { FinderQuickFilters } from '@/features/finder/FinderQuickFilters';
+import { FinderQuickFilters, FinderDetailButton } from '@/features/finder/FinderQuickFilters';
 import { FinderResults } from '@/features/finder/FinderResults';
 import { AgentWorkflowGuide } from '@/components/AgentWorkflowGuide';
 
@@ -482,44 +482,41 @@ export default function Finder() {
           onToggleFilterSheet={toggleFilterSheet}
           view={effView}
           onView={setView}
-          recentCount={interestRecent.length}
-          favoriteCount={interestFavs.length}
-          interestTab={interestTab}
-          onInterestTab={setInterestTab}
           sort={sort}
           onSort={setSort}
+          /* ★「세부 조건」은 검색창 «안» 우측(사장님 2026-09-04 「세부필터는 검색창에 놨었다고」).
+             SearchInput 의 trailing 슬롯이 그 자리다 — 검색줄이 두 컨트롤로 안 갈린다. */
+          detail={!mobile ? (
+            <FinderDetailButton
+              open={filterOpen}
+              onToggle={() => setFilterOpen((open) => !open)}
+              onClose={closeFilter}
+              activeCount={sidebarAc}
+              panel={filterPanelModel}
+            />
+          ) : null}
+          /* ★조건 줄은 «검색창과 같은 줄»이다(사장님 2026-08-31 「검색창이랑 필터버튼 한 줄로」).
+             전에는 툴바 밑에 두 번째 줄로 따로 섰다 — 목록이 그만큼 내려가고 양쪽 줄 오른쪽이 다 비어 있었다.
+             모바일은 툴바 자체가 없다(FinderToolbar 가 null) → 조건은 하단 「검색」 시트가 든다. */
+          quick={!mobile ? (
+            <FinderQuickFilters
+              value={v}
+              present={present}
+              products={rows || []}
+              update={bump}
+              onReset={reset}
+              filterOpen={filterOpen}
+              onToggleFilter={() => setFilterOpen((open) => !open)}
+              onCloseFilter={closeFilter}
+              sidebarActiveCount={sidebarAc}
+              detailPanel={filterPanelModel}
+            />
+          ) : null}
         />
-        {/* 퀵필터 한 줄 — 웹만. 모바일은 검색창+필터 버튼만 깔끔하게(사장님 2026-08-22 「모바일은 퀵필터 넣지 말자」). */}
-        {!mobile ? (
-          <FinderQuickFilters
-            value={v}
-            present={present}
-            products={rows || []}
-            update={bump}
-            onReset={reset}
-            filterOpen={filterOpen}
-            onToggleFilter={() => setFilterOpen((open) => !open)}
-            onCloseFilter={closeFilter}
-            sidebarActiveCount={sidebarAc}
-            detailPanel={filterPanelModel}
-          />
-        ) : null}
-        {/* pane = 관심함 틀고정 + 목록 스크롤(카드) / 엑셀은 본문 안 시트 스크롤 */}
+        {/* pane = 목록 스크롤(카드) / 엑셀은 본문 안 시트 스크롤. 관심함 레일은 걷었다(2026-08-31). */}
         <div className="fp-finder-pane">
           {/* 안내 배너 = 웹만 — 버튼 둘(엑셀 상품리스트·전자계약) 다 모바일에 없는 동선이고 목록 한 줄 반을 먹는다(사장님 2026-08-22 「모바일은 불필요한 거 다 걷어내자」). */}
           {!sheetOnly && !mobile && <AgentWorkflowGuide />}
-          {!mobile && (
-            <div className="fp-finder-interest-bar">
-              <InterestPanel
-                rows={rows || []}
-                tab={interestTab}
-                recent={interestRecent}
-                favs={interestFavs}
-                inquiries={[]}
-                onClose={() => setInterestTab(null)}
-              />
-            </div>
-          )}
           <FinderResults
             bodyRef={finderBodyRef}
             rows={rows}

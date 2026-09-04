@@ -369,6 +369,25 @@ export function buildSalesFormatRequests(input: FormatInput): Record<string, unk
   byValue('분류', [['중고구독', '7E57C2'], ['픽업구독', 'C2185B']]);
   byValue('배차상태', STATE_INK);
   byValue('상태', STATE_INK);
+  /**
+   * ★계약중 = «잡힌 차»라 행 전체에 가운데줄(strikethrough)을 긋는다(사장님 2026-09-04
+   *   「계약중 차량은 그 가운데 사선 긋는거 그거 해줘도 좋을거 같음」). 데이터는 지우지 않고(상태값만 계약중)
+   *   눈으로 «선점»임이 한눈에 보이게. 한 열(배차상태) 값으로 행 전체를 꾸미려면 CUSTOM_FORMULA + 전열 범위.
+   */
+  const stCol = idx('배차상태') >= 0 ? idx('배차상태') : idx('상태');
+  if (stCol >= 0) {
+    const colA1 = ((k: number) => { let s = ''; k += 1; while (k > 0) { const m = (k - 1) % 26; s = String.fromCharCode(65 + m) + s; k = Math.floor((k - 1) / 26); } return s; })(stCol);
+    out.push({ addConditionalFormatRule: {
+      index: 0,
+      rule: {
+        ranges: [{ sheetId: gid, startRowIndex: H + 1, startColumnIndex: 0, endColumnIndex: n }],
+        booleanRule: {
+          condition: { type: 'CUSTOM_FORMULA', values: [{ userEnteredValue: `=$${colA1}${H + 2}="계약중"` }] },
+          format: { textFormat: { strikethrough: true } },
+        },
+      },
+    } });
+  }
   // ★구분되는 값은 눈에 확 오게(사장님 2026-08-19 「제조사 색깔 넣기로 했었고 · 세단 SUV 색깔 다르게 · 차량 색상 텍스트에 색깔」)
   //   제조사·차체형태 색은 원천대장 규격검토와 같은 표(vehicle-master-sheet-format.MASTER_CATEGORY_COLORS) — 한 문서로 읽히게.
   const byContains = (column: string, pairs: [string, string][]) => {

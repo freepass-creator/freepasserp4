@@ -67,8 +67,12 @@ const SPEC = ['ext_color', 'int_color', 'year', 'fuel_type', 'engine_cc', 'vehic
 //   ★출고불가는 「공급사가 불가」와 「시트에서 사라짐」이 다르다 — 원시가 가용/협의였는데 불가면 사라진 것.
 const AVAIL = new Set(['즉시출고', '출고가능']);
 const statusDetail = (v: Record<string, any>) => {
-  const cur = S(v.vehicle_status) || '차량검수';        // 공급사가 상태 안 줌 = 차량검수
   const raw = S(v.status_label_raw);
+  // ★계약중·점검중은 «출고불가로 접지 않는다»(사장님 2026-09-04 「계약중·점검중도 데이터 비우지 말고 보여줘」).
+  //   계약중은 사라진 게 아니라 잡힌 것(선점). 원시가 계약중/점검이면 vehicle_status 가 출고불가여도 살린다.
+  let cur = S(v.vehicle_status) || '차량검수';
+  if (/계약중/.test(raw)) cur = '계약중';
+  else if (/점검|검수|정비/.test(raw)) cur = '차량검수';
   let kind = '불가', reason = '';
   if (cur === '즉시출고' || cur === '출고가능') kind = '가용';
   else if (cur === '출고협의') { kind = '협의'; reason = '공급사협의'; }
@@ -135,6 +139,9 @@ for (const v of rows) {
   const sd = statusDetail(v);
   doc.status = sd.status; doc.status_kind = sd.status_kind; doc.status_reason = sd.status_reason; doc.listable = sd.listable;
   doc.vehicle_status = sd.status;   // 빈 → 차량검수 로 정규화
+  // ★데이터가 «아예 없는» 차(원문도 식별도 없음)는 내린다 — 팔 수 없으니 목록에서 뺀다(사장님 2026-09-04 「데이터 아예 없는 건 내려야지, 의미 없잖아」).
+  //   계약중이어도 마찬가지 — 스펙·요금이 하나도 없으면 상품이 아니다. 원문은 있는데 매칭만 실패한 차(매칭실패)는 살린다(제조사·원문은 보인다).
+  if (doc.검수상태 === '원문없음') doc.listable = false;
   const rawObj: Record<string, any> = {};
   if (raw) rawObj['차명'] = raw;
   if (S(v.supplier_options)) rawObj['옵션'] = v.supplier_options;

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import type { EntityRecord } from '@/lib/intake/entities';
 import { type Audience } from '@/lib/domain/product';
@@ -32,13 +32,20 @@ const SIGNAL_ICON = (key: string, label: string): LucideIcon => {
   return Clock; // 계약중·상품화중·출고협의 = 기다려야 하는 상태
 };
 
-export function SignalMarks({ p, audience = 'agent', keys, hideStatus, dense }: {
+export function SignalMarks({ p, audience = 'agent', keys, hideStatus, dense, chip }: {
   p: EntityRecord;
   audience?: Audience;
   /** 안 주면 하단 뱃지 차례(심사 → 출고상태 → 상품구분). */
   keys?: readonly string[];
   hideStatus?: boolean;
   dense?: boolean;
+  /**
+   * ★사진 위(썸네일 우하)일 때만 — **낱개마다 얇은 칩**을 두른다.
+   * 사장님 2026-09-04 「두 개를 한 박스에 넣어놨잖아 · 박스를 달리해서 텍스트에 딱 붙여 두 개로」.
+   * 한 그릇에 담으면 「출고가능 픽업구독」이 한 덩어리 문장처럼 읽힌다 — 둘은 «다른 갈래»다.
+   * 칩은 글자에 딱 붙는다(좌우 6 · 상하 2) — 상자를 키우면 사진을 가린다.
+   */
+  chip?: boolean;
 }) {
   const order = keys ?? HEAD_BADGE_KEYS;  // 기본 = 출고상태 · 상품구분(심사는 우대조건 줄이 든다)
   const byKey = new Map(badgeSpecs(p, false, false, audience).map((spec) => [spec.key, spec]));
@@ -48,20 +55,25 @@ export function SignalMarks({ p, audience = 'agent', keys, hideStatus, dense }: 
   if (!specs.length) return null;
   return (
     <div style={{
-      display: 'flex', alignItems: 'center', gap: dense ? 8 : 10,
+      display: 'flex', alignItems: 'center', gap: chip ? 4 : (dense ? 8 : 10),
       flexWrap: 'nowrap', overflow: 'hidden', minWidth: 0, flex: '0 1 auto', lineHeight: 1.35,
     }}>
-      {specs.map((spec) => (
-        <MetaIcon
-          key={spec.key}
-          icon={SIGNAL_ICON(spec.key, spec.label)}
-          text={spec.label}
-          size={ICON.sm}
-          strong
-          iconColor={toneText(spec.tone)}
-          title={badgeTip(spec.key, spec.label)}
-        />
-      ))}
+      {specs.map((spec) => {
+        const mark = (
+          <MetaIcon
+            icon={SIGNAL_ICON(spec.key, spec.label)}
+            text={spec.label}
+            size={ICON.sm}
+            strong
+            iconColor={chip ? undefined : toneText(spec.tone)}
+            title={badgeTip(spec.key, spec.label)}
+          />
+        );
+        if (!chip) return <span key={spec.key}>{mark}</span>;
+        return (
+          <span key={spec.key} className="fp-signal-chip">{mark}</span>
+        );
+      })}
     </div>
   );
 }

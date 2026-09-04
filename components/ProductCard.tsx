@@ -6,7 +6,7 @@ import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
 import { C, R_CARD, SH } from '@/components/ui';
 import {
-  CardTitle, CardSpecs, CardThumb, SignalMarks,
+  CardTitle, CardSpecs, CardThumb, CardPerkLine,
   OptionChips,
   PricePeekRoot, PriceAmounts, PeriodPerkBand,
 } from '@/components/product-card-atoms';
@@ -41,25 +41,20 @@ export const ProductCard = memo(function ProductCard({ p, audience = 'agent', hr
         border: `1px solid ${C.line}`,
         boxShadow: SH.cardRest,
       }}>
-      {/* 1 — 사진만. CORE 셋은 아래 본문 첫 줄이 든다. */}
-      <CardThumb p={p} audience={audience} fill marks={false} />
+      {/* 1 — 사진 + **우하 뱃지**(출고상태·상품구분). 정본 = docs/DESIGN_CONFIRMED_LIST_CARD.md §2.
+          ★본문으로 내리지 마라 — 2026-08-31 에 내렸다가 2026-09-04 에 되돌렸다.
+          심사(무심사)는 여기 아니라 **아래 우대조건 줄 맨 앞**이다(같은 문서). */}
+      <CardThumb p={p} audience={audience} fill marks={false} coreBadges />
 
       <div style={{
         padding: mobile ? '10px 12px' : '10px 12px',
         display: 'flex', flexDirection: 'column', gap, flex: 1, minWidth: 0,
       }}>
-        {/* ★출고가능 · 픽업구독 · 무심사 = **아이콘 + 글자**(사장님 2026-08-30 「웹화면에서도 …
-            카드목록에 아이콘+텍스트 형태로」 · 2026-08-28 「박스 뱃지 쓰지 말고 … 모든 곳에서 그렇게 하자」).
-
-            ⚠ 간단카드만 그 전환에서 빠져 있었다 — 다른 카드는 SignalMarks(아이콘+글자)를 타는데
-              여기만 «사진 위 박스 뱃지»(CardThumb coreBadges)라는 다른 길이었다. 길을 하나로 합친다.
-            ★사진에서 «내려» 본문 첫 줄로 세운다. 아이콘+글자는 바탕이 사진이면 못 읽는다 —
-              그래서 사진 위에 두려면 결국 상자를 씌워야 하고, 그러면 다시 박스 뱃지가 된다.
-              읽는 차례도 이게 맞다: 이름 바로 위에서 «지금 살 수 있나»가 먼저 걸러진다. */}
-        <SignalMarks p={p} audience={audience} keys={['st', 'pt', 'cd']} dense />
         <CardTitle p={p} />
         <OptionChips p={p} clamp />
         <CardSpecs p={p} audience={audience} dense listing />
+        {/* 우대조건 줄 — **맨 앞이 심사조건**(정본 §2 · withCredit). */}
+        <CardPerkLine p={p} dense withCredit />
 
         <PricePeekRoot p={p} focusMonth={focusMonth} style={{
           display: 'flex', flexDirection: 'column', alignItems: 'stretch',

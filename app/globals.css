@@ -527,14 +527,18 @@ html[data-fp-filter="0"] .fp-finder > .fp-sidebar { display: none; }
    *     · 그 뒤 «커밋 안 된 로컬 리팩터»(자식 둘)를 보고 2행으로 또 바꿔 → 같은 증상이 **다시** 났다
    *   ★**작업트리를 보고 정하지 마라. 배포되는 가지(`origin/main`)의 자식을 세라.**
    *   퀵필터를 툴바 안팎으로 옮기는 커밋은 **반드시 이 값을 같이 고쳐야 한다.**
+   *   · 2026-09-04 — 조건 줄을 툴바 «안»으로 넣어(사장님 「검색창이랑 필터버튼 한 줄로」) 자식이 **둘**이
+   *     됐는데 행은 셋 그대로여서, 목록이 가운데 `auto` 행에 앉아 또 0이 됐다. 이번엔 리팩터가
+   *     «커밋»됐으므로 행도 둘로 내린다. 세 번째다 — 다음에 옮길 때도 **자식부터 세라.**
    *
    * ⚠ 모바일은 이 값을 안 쓴다 — 아래 미디어쿼리가 `display:flex; grid-template-rows:none` 으로 바꾼다.
    *   그러니 「모바일이 어떻다」는 이유로 여기를 고치지 마라. **웹 자식 수만 본다.**
    */
-  grid-template-rows: var(--fp-bar-h) auto minmax(0, 1fr);
+  /* 자식 둘 = FinderToolbar(조건 드롭다운이 그 안) · .fp-finder-pane */
+  grid-template-rows: var(--fp-bar-h) minmax(0, 1fr);
 }
 /* 판매시트 보기도 같은 마크업이다 — 행 수를 위와 다르게 두지 마라. */
-.fp-finder-main.is-sheet-view { grid-template-rows: var(--fp-bar-h) auto minmax(0, 1fr); }
+.fp-finder-main.is-sheet-view { grid-template-rows: var(--fp-bar-h) minmax(0, 1fr); }
 .fp-finder-main.is-sheet-view .fp-finder-body.is-excel {
   padding: 0;
   background: var(--bg-card);
@@ -725,7 +729,10 @@ html[data-fp-filter="0"] .fp-finder > .fp-sidebar { display: none; }
 }
 .fp-finder-toolbar-main {
   display: grid;
-  grid-template-columns: minmax(320px, 560px) auto 1fr;
+  /* ★한 줄 = [검색+정렬] [조건 드롭다운(남는 폭 전부, 좁으면 가로스크롤)] [보기 스위치]
+     (사장님 2026-08-31 「검색창이랑 필터버튼 한 줄로」). 전에는 조건이 «두 번째 줄»로 따로 서서
+     목록이 그만큼 내려가고, 두 줄 다 오른쪽이 비어 있었다. 최근·관심 칸은 걷어 그 폭을 조건이 쓴다. */
+  grid-template-columns: minmax(300px, 480px) minmax(0, 1fr) auto;
   align-items: center;
   gap: 10px;
   width: 100%;
@@ -849,7 +856,7 @@ html[data-fp-filter="0"] .fp-finder > .fp-sidebar { display: none; }
 
 /* 화면 전체가 아니라 필터를 제외한 실제 상품 목록 폭에 반응한다. */
 @container finder-toolbar (max-width: 1180px) {
-  .fp-finder-toolbar-main { grid-template-columns: minmax(280px, 1fr) auto auto; }
+  .fp-finder-toolbar-main { grid-template-columns: minmax(240px, 380px) minmax(0, 1fr) auto; }
 }
 @container finder-toolbar (max-width: 1040px) {
   .fp-finder-toolbar-main,
@@ -1104,6 +1111,29 @@ html[data-fp-filter="0"] .fp-finder > .fp-sidebar { display: none; }
   --border-soft: rgba(255, 255, 255, 0.16);
   --border-strong: rgba(255, 255, 255, 0.36);
 }
+
+/* 조건 드롭다운 줄이 툴바 «안»에 들어왔다 — 좁아지면 잘리지 말고 가로로 굴린다.
+   팝오버가 잘리면 안 되므로 세로는 visible 로 둔다(모바일 퀵필터 줄과 같은 처리). */
+.fp-finder-quick-slot { min-width: 0; display: flex; align-items: center; }
+.fp-finder-quick-slot > .fp-quick-filter-bar {
+  flex: 1 1 auto; min-width: 0;
+  padding: 0; border-bottom: 0; background: transparent; min-height: 0;
+  overflow-x: auto; overflow-y: visible; scrollbar-width: none;
+}
+.fp-finder-quick-slot > .fp-quick-filter-bar::-webkit-scrollbar { display: none; }
+
+/* 사진 위 유리바 안 — 글자·그림을 흰색으로. 사진은 밝기가 제각각이라 톤색 그대로면 안 읽힌다.
+   ★갈래 구분은 «색»이 아니라 «그림 모양»이 진다(정본 §2: 출고상태만 상태에 따라 ○ ⏱ ⊘ 로 갈린다).
+   낱개 상자를 씌우는 대신 그릇 하나를 두르고 안쪽을 흰색으로 통일한다. */
+.fp-onphoto { --text-main: #ffffff; color: #ffffff; }
+/* 사진 위 낱개 칩 — 글자에 «딱» 붙는다(좌우 6 · 상하 2). 키우면 사진을 가린다. */
+.fp-signal-chip {
+  display: inline-flex; align-items: center;
+  padding: 2px 6px; border-radius: var(--radius);
+  background: var(--scrim-heavy);
+  border: 1px solid color-mix(in srgb, #ffffff 18%, transparent);
+}
+.fp-onphoto svg { color: #ffffff !important; }
 
 /* 모바일 하단 슬라이딩 탭 스트립 — 스크롤바 숨김(터치로 좌우 슬라이드). */
 .fp-tabstrip { scrollbar-width: none; -ms-overflow-style: none; }

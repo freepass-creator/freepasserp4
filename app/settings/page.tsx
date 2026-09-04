@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import {
@@ -9,7 +9,7 @@ import { useSession } from '@/lib/auth-context';
 import { getRole, setRole, actor, ROLE_LABEL, type Role } from '@/lib/domain/deal';
 import { clearLegacyGuestState } from '@/lib/auth-session';
 import { haptic } from '@/lib/haptics';
-import { BRAND, VERSION } from '@/lib/brand';
+import { VERSION } from '@/lib/brand';
 import { listHidden, subscribeHidden, type HiddenSnap } from '@/lib/product-hide';
 import { listPassed, subscribePassed, type PassSnap } from '@/lib/product-pass';
 import { listRecent, listFavs, subscribeInterest } from '@/lib/product-interest';
@@ -401,7 +401,7 @@ export default function Settings() {
 
         <div>
           <WorkTable title="앱">
-            <WorkRow label="이름">{BRAND}</WorkRow>
+            {/* 「이름」 줄은 뺐다 — 노브랜드(2026-08-30). 우리 이름은 화면 어디에도 안 쓴다. */}
             <WorkRow label="버전">{VERSION}</WorkRow>
             <WorkRow label="환경">{appEnv}</WorkRow>
           </WorkTable>

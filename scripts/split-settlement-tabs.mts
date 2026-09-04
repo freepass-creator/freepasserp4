@@ -1,4 +1,4 @@
-/**
+﻿/**
  * **정산원장을 「당월실적」·「기존실적」 두 탭으로 가른다.** 기본 미리보기, 반영은 `--apply`.
  *
  * ★사장님 2026-08-24 (강지수 팀장에게 보낸 지시 그대로)
@@ -30,7 +30,7 @@ import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import {
   SETTLEMENT_LEDGER_ID as ID, SETTLEMENT_LEDGER_TAB as OLD_TAB,
-  SETTLEMENT_CURRENT_TAB, SETTLEMENT_PAST_TAB, SETTLEMENT_INPUT_COLUMNS, SETTLEMENT_STATES,
+  SETTLEMENT_CURRENT_TAB, SETTLEMENT_PAST_TAB, SETTLEMENT_INPUT_COLUMNS, LEDGER_CONTRACT_STATES,
 } from '../lib/domain/settlement-ledger';
 
 const APPLY = process.argv.includes('--apply');
@@ -155,7 +155,7 @@ const dropdown = (name: string, values: readonly string[]) => {
     rule: { condition: { type: 'ONE_OF_LIST', values: values.map((v) => ({ userEnteredValue: v })) }, showCustomUi: true, strict: false },
   } });
 };
-dropdown('상태', SETTLEMENT_STATES);
+dropdown('상태', LEDGER_CONTRACT_STATES);
 const uniq = (name: string) => {
   const i = head.indexOf(name);
   if (i < 0) return [] as string[];

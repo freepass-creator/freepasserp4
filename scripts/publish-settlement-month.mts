@@ -28,6 +28,7 @@ import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getDatabase } from 'firebase-admin/database';
 import { SETTLEMENT_LEDGER_ID as LEDGER } from '../lib/domain/settlement-ledger';
 import { feeKindOf, feeRuleFor } from '../lib/domain/settlement-fee-table';
+import { settlementMonthOf } from '../lib/domain/settlement-billing-month';
 import { SETTLE_TARGETS, settleTargetOf } from '../lib/domain/settlement-stage';
 import { FONT_DEFAULT } from '../lib/domain/sales-sheet-format';
 
@@ -69,30 +70,8 @@ type Row = Record<string, unknown>;
 const rows = (Object.values((await db.ref('v4/settlement_rows').get()).val() || {}) as Row[]).filter((r) => r.cancelled !== true);
 const claws = Object.values((await db.ref('v4/settlement_clawbacks').get()).val() || {}) as Row[];
 
-/**
- * ★★**엔진과 «같은» 규칙이어야 한다** — `lib/domain/settlement-stage.ts` `billingMonth`.
- *   여기서 따로 세면 화면과 시트가 다른 달을 말한다.
- * ★**달을 지키는 것은 «박힌 청구월»이다**(`monthFor`) — 날짜 빗장이 아니다.
- *   ⚠ 예전엔 「인도일이 2026-09 이후인 건부터 완료시점 청구」로 막았다. 그러자 8월에 인도된
- *     2회분납 9줄이 «8월 청구»로 계산됐는데 8월은 이미 닫혀 갈 데가 없어졌다(2026-09-02 실측).
- *     빗장은 뺐다 — 박힌 줄은 계산이 못 건드리므로 8월 47줄은 그대로다.
- */
-const monthOf = (r: Row): string => {
-  const written = S(r.billMonth);
-  if (written) return written;
-  const d = D(r.deliveredAt);
-  if (!d) return '';
-  const n = roundsOf(S(r.payKind));
-  /**
-   * ★★**청구월이 «안 박힌» 줄은 아직 청구 안 된 줄이다 — 새 규칙(분납완료시점)을 태운다.**
-   *   `SINCE` 는 «이미 나간 청구서»를 안 흔들려고 둔 빗장이다. 그런데 그건 «박힌 줄»이
-   *   이미 막아 준다(monthFor). 인도일로 또 막으면, 8월에 인도된 2회분납이
-   *   «8월 청구»로 계산되고 8월은 이미 닫혔으니 갈 데가 없어진다 — 실측 9줄이 그렇게 떠 있었다.
-   *   분납은 끝나야 청구한다(사장님 2026-09-01 「분납완료시점에서 청구」) — 8월 인도는 9월에 끝난다.
-   */
-  const onComplete = n >= 2;
-  return ymOf(onComplete ? new Date(d.getFullYear(), d.getMonth() + (n - 1), d.getDate()) : d);
-};
+/** ★달을 세는 규칙은 공용이다 — 원장·공급사시트·채널시트가 같은 함수를 본다. */
+const monthOf = settlementMonthOf;
 
 
 type Line = { plate: string; model: string; cust: string; sup: string; ch: string; agent: string;

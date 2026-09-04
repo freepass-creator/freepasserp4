@@ -44,13 +44,20 @@ const iPay = H2.indexOf('지급 예정일');
 const P0 = dayKo(payDate(MONTH));
 const P1 = dayKo(payDate(MONTH, '오토플러스'));
 
+/** ★줄은 «머리글 이름»으로 짓는다 — 칸이 늘어도 예시가 어긋나지 않는다. */
+const rowOf = (m: Record<string, string | number | boolean>): (string | number | boolean)[] =>
+  H2.map((h) => (m[h] === undefined ? '' : m[h]));
 const SAMPLE: (string | number | boolean)[][] = [
-  [1, '00가0000', `${MONTH}-05`, `${MONTH}-12`, '웰릭스', '쏘렌토', '홍*동', '장기렌트', 48, 800_000,
-    '대여료 800,000 × 48개월 × 2.50%', A.net, A.vat, A.tot, P0, false, ''],
-  [2, '00나1111', `${MONTH}-11`, `${MONTH}-20`, '리더스', 'G80', '김*수', '선출고', 36, 1_100_000,
-    '차량가액 40,000,000 × 3.00%', B.net, B.vat, B.tot, P0, false, ''],
-  [3, '00다2222', `${MONTH}-18`, `${MONTH}-27`, '오토플러스', 'GV70', '이*희', '오플구독', 24, 950_000,
-    '건당 800,000', C.net, C.vat, C.tot, P1, false, ''],
+  rowOf({ 'No.': 1, 차량번호: '00가0000', 접수일: `${MONTH}-05`, 인도일: `${MONTH}-12`, 공급사: '웰릭스', 모델명: '쏘렌토',
+    임차인: '홍*동', 영업사: '김**', '상품 구분': '장기렌트', '계약 기간': 48, 렌탈료: 800_000, 보증금: 1_000_000, '납입 방식': '일시납',
+    '수수료 산정 기준': '대여료 800,000 × 48개월 × 2.50%', 공급가액: A.net, 부가세: A.vat, 합계: A.tot, '지급 예정일': P0, 확인: false }),
+  rowOf({ 'No.': 2, 차량번호: '00나1111', 접수일: `${MONTH}-11`, 인도일: `${MONTH}-20`, 공급사: '리더스', 모델명: 'G80',
+    '차량 가격(신차)': 40_000_000, 임차인: '김*수', 영업사: '이**', '상품 구분': '선출고', '계약 기간': 36, 렌탈료: 1_100_000,
+    보증금: 3_000_000, '납입 방식': '2회분납',
+    '수수료 산정 기준': '차량가액 40,000,000 × 3.00%', 공급가액: B.net, 부가세: B.vat, 합계: B.tot, '지급 예정일': P0, 확인: false }),
+  rowOf({ 'No.': 3, 차량번호: '00다2222', 접수일: `${MONTH}-18`, 인도일: `${MONTH}-27`, 공급사: '오토플러스', 모델명: 'GV70',
+    임차인: '이*희', 영업사: '박**', '상품 구분': '오플구독', '계약 기간': 24, 렌탈료: 950_000, 보증금: 0, '납입 방식': '일시납',
+    '수수료 산정 기준': '건당 800,000', 공급가액: C.net, 부가세: C.vat, 합계: C.tot, '지급 예정일': P1, 확인: false }),
 ];
 const net = A.net + B.net + C.net;
 const vat = A.vat + B.vat + C.vat;
@@ -118,7 +125,7 @@ await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${bookId}:batchUpdate
     ...[2, last].map((r) => ({ repeatCell: { range: row(r, r + 1), cell: { userEnteredFormat: { backgroundColor: TINT, textFormat: { bold: true } } }, fields: 'userEnteredFormat(backgroundColor,textFormat)' } })),
     { updateDimensionProperties: { range: { sheetId: id, dimension: 'ROWS', startIndex: r0, endIndex: r0 + 1 }, properties: { pixelSize: 40 }, fields: 'pixelSize' } },
     { updateDimensionProperties: { range: { sheetId: id, dimension: 'ROWS', startIndex: r0 + 1, endIndex: last + 1 }, properties: { pixelSize: 24 }, fields: 'pixelSize' } },
-    ...['렌탈료', '공급가액', '부가세', '합계'].map((h) => ({ repeatCell: { range: { sheetId: id, startRowIndex: 2, endRowIndex: last + 1, startColumnIndex: H2.indexOf(h), endColumnIndex: H2.indexOf(h) + 1 },
+    ...['렌탈료', '보증금', '차량 가격(신차)', '공급가액', '부가세', '합계'].map((h) => ({ repeatCell: { range: { sheetId: id, startRowIndex: 2, endRowIndex: last + 1, startColumnIndex: H2.indexOf(h), endColumnIndex: H2.indexOf(h) + 1 },
       cell: { userEnteredFormat: { numberFormat: { type: 'NUMBER', pattern: '#,##0' }, horizontalAlignment: 'RIGHT' } }, fields: 'userEnteredFormat(numberFormat,horizontalAlignment)' } })),
     { repeatCell: { range: { sheetId: id, startRowIndex: r0 + 1, endRowIndex: last, startColumnIndex: H2.indexOf('계약 기간'), endColumnIndex: H2.indexOf('계약 기간') + 1 },
       cell: { userEnteredFormat: { numberFormat: { type: 'NUMBER', pattern: '0"개월"' }, horizontalAlignment: 'CENTER' } }, fields: 'userEnteredFormat(numberFormat,horizontalAlignment)' } },
