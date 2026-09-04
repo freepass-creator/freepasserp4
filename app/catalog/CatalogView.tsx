@@ -146,7 +146,8 @@ export function CatalogView({ wl = FREEPASS }: { wl?: Whitelabel }) {
     </>
   );
 
-  const cards = list.length === 0 ? <CenterNote>조건에 맞는 차량이 없습니다.</CenterNote> : (
+  const cards = rows === null ? <ProductCardSkeleton count={6} />
+    : list.length === 0 ? <CenterNote>조건에 맞는 차량이 없습니다.</CenterNote> : (
     <>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: 12 }}>
         {shown.map((p) => <ProductCard key={String(p.product_code)} p={p} audience="customer" href={href(p)} />)}
@@ -155,15 +156,14 @@ export function CatalogView({ wl = FREEPASS }: { wl?: Whitelabel }) {
     </>
   );
 
+  /** 대수는 목록이 오기 «전»엔 0 이 아니라 빈칸이다 — 0 을 보여 주면 「차가 없다」로 읽힌다. */
+  const countText = rows === null ? '—' : String(list.length);
+
   // ── 브랜드 O = 마켓 껍데기 ──────────────────────────────────────────────
+  // ★목록을 기다리는 동안에도 **검색·조건·대수는 서 있다.** 예전엔 스켈레톤만 그리고
+  //   그 셋을 통째로 안 그렸는데, 매물이 늦게 오면 화면이 「스켈레톤 몇 장 + 바로 푸터」가 되어
+  //   시안과 전혀 다른 화면이 됐다(2026-09-04 프리뷰 실측).
   if (branded) {
-    if (rows === null) {
-      return frame(
-        <main style={{ maxWidth: 1280, margin: '0 auto', padding: mobile ? '14px 16px 28px' : '20px 24px 40px' }}>
-          <ProductCardSkeleton count={6} />
-        </main>,
-      );
-    }
     return frame(
       <main style={{ maxWidth: 1280, margin: '0 auto', padding: mobile ? '14px 16px 28px' : '0 24px 48px' }}>
 
@@ -188,7 +188,7 @@ export function CatalogView({ wl = FREEPASS }: { wl?: Whitelabel }) {
             <aside style={{ width: 260, flexShrink: 0 }}>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 7, paddingBottom: 16 }}>
                 <span style={{ fontSize: FS.body, fontWeight: FW.meta, color: C.mute }}>전체차량</span>
-                <span style={{ fontSize: 26, fontWeight: FW.head, color: C.brand, letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums' }}>{list.length}</span>
+                <span style={{ fontSize: 26, fontWeight: FW.head, color: C.brand, letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums' }}>{countText}</span>
                 <span style={{ fontSize: FS.body, fontWeight: FW.title }}>대</span>
               </div>
               {conditions}
@@ -200,7 +200,7 @@ export function CatalogView({ wl = FREEPASS }: { wl?: Whitelabel }) {
               <>
                 <div style={{ display: 'flex', alignItems: 'baseline', gap: 7, padding: '2px 0 10px' }}>
                   <span style={{ fontSize: FS.sub, fontWeight: FW.meta, color: C.mute }}>전체차량</span>
-                  <span style={{ fontSize: 22, fontWeight: FW.head, color: C.brand, letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums' }}>{list.length}</span>
+                  <span style={{ fontSize: 22, fontWeight: FW.head, color: C.brand, letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums' }}>{countText}</span>
                   <span style={{ fontSize: FS.sub, fontWeight: FW.title }}>대</span>
                 </div>
                 <div style={{ marginBottom: 14 }}>{conditions}</div>
