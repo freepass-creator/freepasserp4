@@ -53,19 +53,30 @@ console.log(`정제시트 차번 총 ${truth.size}대\n`);
 
 const products = (await rtdb.ref('v4/products').get()).val() as Record<string, any> || {};
 const updates: Record<string, any> = {};
-const stat = { trim: 0, color: 0, mileage: 0 };
+const stat = { maker: 0, model: 0, sub: 0, trim: 0, color: 0, mileage: 0, gubun: 0 };
 const rows: string[] = [];
 for (const [key, v] of Object.entries(products)) {
   if (!v || typeof v !== 'object') continue;
   const code = S(v.provider_company_code); const car = NKEY(v.car_number);
-  const t = truth.get(`${code}|${car}`); if (!t) continue;
   const changes: string[] = [];
-  if (t.trim && !S(v.trim_name)) { updates[`v4/products/${key}/trim_name`] = t.trim; stat.trim++; changes.push(`트림→「${t.trim}」`); }
-  if (t.color && !S(v.ext_color)) { updates[`v4/products/${key}/ext_color`] = t.color; stat.color++; changes.push(`색→「${t.color}」`); }
-  if (t.mileage && S(v.mileage) !== t.mileage && !NUM.test(S(v.mileage))) { updates[`v4/products/${key}/mileage`] = t.mileage; stat.mileage++; changes.push(`주행 「${S(v.mileage)}」→「${t.mileage}」`); }
+  // ⑤ 상품구분(불변) 정규화 — 5개 캐논만. 오플(RP023)=오플구독 · 재랜트/재렌트=중고렌트. (모든 공급사)
+  const curPt = S(v.product_type);
+  const newPt = code === 'RP023' ? '오플구독' : (/재랜트|재렌트/.test(curPt) ? '중고렌트' : '');
+  if (newPt && newPt !== curPt) { updates[`v4/products/${key}/product_type`] = newPt; stat.gubun++; changes.push(`구분 「${curPt}」→「${newPt}」`); }
+  // ② 제원·스펙(불변) 채움 — 정제시트(차종마스터 정제본) 있는 공급사만, «비었을 때만».
+  const t = truth.get(`${code}|${car}`);
+  if (t) {
+    if (t.maker && !S(v.maker)) { updates[`v4/products/${key}/maker`] = t.maker; stat.maker++; changes.push(`제조사→「${t.maker}」`); }
+    if (t.model && !S(v.model)) { updates[`v4/products/${key}/model`] = t.model; stat.model++; changes.push(`모델→「${t.model}」`); }
+    if (t.sub && !S(v.sub_model)) { updates[`v4/products/${key}/sub_model`] = t.sub; stat.sub++; changes.push(`세부모델→「${t.sub}」`); }
+    if (t.trim && !S(v.trim_name)) { updates[`v4/products/${key}/trim_name`] = t.trim; stat.trim++; changes.push(`트림→「${t.trim}」`); }
+    if (t.color && !S(v.ext_color)) { updates[`v4/products/${key}/ext_color`] = t.color; stat.color++; changes.push(`색→「${t.color}」`); }
+    // 주행거리는 «변동»(사장님 2026-09-04 「대여료처럼 변동」) — 정제시트 현재값을 매번 따른다(비었을 때만이 아니라 다르면 갱신).
+    if (t.mileage && S(v.mileage) !== t.mileage) { updates[`v4/products/${key}/mileage`] = t.mileage; stat.mileage++; changes.push(`주행 「${S(v.mileage)}」→「${t.mileage}」`); }
+  }
   if (changes.length && rows.length < 25) rows.push(`  ${code} ${car}: ${changes.join(' · ')}`);
 }
-console.log(`교정: 세부트림 ${stat.trim} · 외장색상 ${stat.color} · 주행 ${stat.mileage} (필드 ${Object.keys(updates).length})`);
+console.log(`교정: 제조사 ${stat.maker} · 모델 ${stat.model} · 세부모델 ${stat.sub} · 세부트림 ${stat.trim} · 색 ${stat.color} · 주행 ${stat.mileage} · 구분 ${stat.gubun} (필드 ${Object.keys(updates).length})`);
 for (const r of rows) console.log(r);
 if (!APPLY) { console.log(`\n미리보기 — 실제: --apply`); process.exit(0); }
 // 큰 update 는 나눠서
