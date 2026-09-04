@@ -84,9 +84,10 @@ export function FinderQuickFilters({ value, present, products, update, onReset, 
 
   const categories: { key: QuickKey; label: string; count: number }[] = [
     { key: 'vehicle', label: '모델', count: vehicle.maker.length + vehicle.model.length },
-    /* ★색상·기간은 이 줄에서 뺐다(사장님 2026-09-04 「세부 필터 같은 거 검색창에 좀 줄여달라」).
-       지우는 게 아니라 «접는» 것이다 — 「세부」 안 전체 조건 패널에는 그대로 있다.
-       폰 빠른필터에서도 같은 이유로 웹에만 남겼던 축이다. */
+    /* ★축 차례는 **원래대로 열 개**다(사장님 2026-09-04 「원래 순서하고 해놨던 그 로직대로」).
+       한 번 색상·기간을 뺐다가 되돌렸다 — 줄이는 건 여기가 아니라 「세부」 패널이 맡는다. */
+    { key: 'color', label: '색상', count: (value.dyn.ext_color?.size || 0) + (value.dyn.int_color?.size || 0) },
+    { key: 'period', label: '기간', count: value.periods.size },
     { key: 'rent', label: '대여료', count: value.rent.size },
     { key: 'dep', label: '보증금', count: value.dep.size },
     { key: 'mile', label: '주행거리', count: value.mile.size },
@@ -96,7 +97,7 @@ export function FinderQuickFilters({ value, present, products, update, onReset, 
     { key: 'credit', label: '심사조건', count: value.credit.size },
   ];
   /** 모바일 4개 — 웹 차례에서 고름. */
-  const MOBILE_KEYS: QuickKey[] = ['vehicle', 'rent', 'credit'];
+  const MOBILE_KEYS: QuickKey[] = ['vehicle', 'period', 'rent', 'credit'];
   const shownCategories = mobile ? categories.filter((c) => MOBILE_KEYS.includes(c.key)) : categories;
 
   const options = open === 'period' ? present.months
