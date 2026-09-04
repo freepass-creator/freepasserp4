@@ -482,9 +482,21 @@ export async function ensureCompanyTab(tok: Tok, bookId: string): Promise<boolea
  */
 export const SETTLE_BASIS = ['수수료 산정 기준'];
 export const SETTLE_NOTE = ['확인', '메모'];
-export const CHANNEL_SETTLE_HEAD = ['No.', '차량번호', '접수일', '인도일', '공급사', '모델명', '임차인',
-  '상품 구분', '계약 기간', '렌탈료', ...SETTLE_BASIS, '공급가액', '부가세', '합계', '지급 예정일', ...SETTLE_NOTE];
-export const CHANNEL_SETTLE_WIDTH = [40, 92, 84, 84, 92, 150, 76, 112, 76, 92, 250, 100, 88, 108, 96, 56, 260];
+/**
+ * ★★**칸 넷을 더 붙였다** — 하허호가 8월 정산 탭 메모에 적어 둔 그대로다(2026-09-04
+ *   「헤더에 **보증금 납입방식, 영업사 명, 신차인 경우 차량 가격**도 표시되어야 합니다」).
+ * ```
+ * 차량 가격(신차)   신차는 수수료가 «차량가액 × 요율»이라, 값이 없으면 산정 기준을 검산 못 한다
+ * 영업사           채널이 «누가 판 건인지»로 제 안에서 나눈다 — 우리 표에만 있고 저쪽엔 없었다
+ * 보증금 · 납입 방식  일시납이냐 분납이냐가 청구월을 가른다(2회분납 = 접수월+1)
+ * ```
+ *   ⚠ 「보증금 납입방식」은 두 칸으로 갈랐다 — 금액과 방식은 서식(숫자/글)이 달라 한 칸에 묶으면
+ *     오른쪽 정렬도 천단위도 못 준다. 두 칸이 나란히 서면 읽기는 한 가지다.
+ *   ⚠ 신차가 아니면 차량 가격은 «빈칸»이다 — 0 을 찍으면 「값이 0원」으로 읽는다.
+ */
+export const CHANNEL_SETTLE_HEAD = ['No.', '차량번호', '접수일', '인도일', '공급사', '모델명', '차량 가격(신차)', '임차인', '영업사',
+  '상품 구분', '계약 기간', '렌탈료', '보증금', '납입 방식', ...SETTLE_BASIS, '공급가액', '부가세', '합계', '지급 예정일', ...SETTLE_NOTE];
+export const CHANNEL_SETTLE_WIDTH = [40, 92, 84, 84, 92, 150, 108, 76, 76, 112, 76, 92, 96, 84, 250, 100, 88, 108, 96, 56, 260];
 export const settleTabOf = (m: string) => `${m.slice(2, 4)}년${m.slice(5)}월 정산`;
 
 /**
@@ -497,7 +509,6 @@ export const settleTabOf = (m: string) => `${m.slice(2, 4)}년${m.slice(5)}월 �
  */
 export async function ensureMonthTab(tok: Tok, bookId: string, month: string): Promise<boolean> {
   const TAB = settleTabOf(month);
-  if ((await tabs(tok, bookId)).some((s) => s.properties.title === TAB)) return false;
   const H = CHANNEL_SETTLE_HEAD;
   const rows: (string | number)[][] = [
     [`${month.slice(0, 4)}년 ${Number(month.slice(5))}월 정산서    ·    ${CORP.name} 발행`, ...H.slice(1).map(() => '')],
@@ -506,7 +517,26 @@ export async function ensureMonthTab(tok: Tok, bookId: string, month: string): P
     H,
     [`${Number(month.slice(5))}월이 마감되면 이 탭에 채워 드립니다.`, ...H.slice(1).map(() => '')],
   ];
-  const id = await addTab(tok, bookId, TAB, (await tabs(tok, bookId)).length, 60, H.length);
+  /**
+   * ★★**이미 세워 둔 «빈» 탭은 머리글을 «다시 맞춘다»** — 2026-09-04 에 칸이 넷 늘었는데
+   *   미리 세워 둔 다음 달 탭만 옛 칸(17)으로 남으면, 채널이 8월과 9월을 나란히 놓고
+   *   「왜 또 바뀌었냐」고 묻는다. 규격을 고치면 «미리 세워 둔 것까지» 따라와야 한다.
+   * ⚠ 손을 댄 탭은 건드리지 않는다 — 안내줄(5행) 아래에 한 글자라도 적혀 있으면 그대로 둔다.
+   */
+  const list = await tabs(tok, bookId);
+  const found = list.find((s) => s.properties.title === TAB);
+  let id: number | undefined;
+  if (found) {
+    const got = await (await api(tok, `https://sheets.googleapis.com/v4/spreadsheets/${bookId}/values/${encodeURIComponent(`'${TAB}'!A1:BZ200`)}`)).json() as { values?: unknown[][] };
+    const g = got.values || [];
+    if (g.slice(5).some((r) => (r || []).some((c) => String(c ?? '').trim()))) return false;
+    if ((g[3] || []).length === H.length) return false;
+    id = found.properties.sheetId;
+    await format(tok, bookId, [
+      { updateSheetProperties: { properties: { sheetId: id, gridProperties: { columnCount: H.length } }, fields: 'gridProperties.columnCount' } },
+      { unmergeCells: { range: { sheetId: id } } },
+    ]);
+  } else id = await addTab(tok, bookId, TAB, list.length, 60, H.length);
   if (id === undefined) return false;
   await put(tok, bookId, `'${TAB}'!A1:${String.fromCharCode(64 + H.length)}${rows.length}`, rows);
   await format(tok, bookId, [

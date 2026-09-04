@@ -94,8 +94,9 @@ const rows = allRows.filter((r) => r.cancelled !== true && billingMonthIn(asRow(
 const claws = (Object.values((await db.ref('v4/settlement_clawbacks').get()).val() || {}) as Row[])
   .filter((c) => S(c.month) === MONTH);
 
-type Line = { plate: string; recv: string; deliv: string; model: string; cust: string; sup: string; product: string;
-  term: number; rent: number; how: string; net: number; vat: number; total: number };
+type Line = { plate: string; recv: string; deliv: string; model: string; price: number; cust: string; agent: string;
+  sup: string; product: string; term: number; rent: number; deposit: number; payKind: string;
+  how: string; net: number; vat: number; total: number };
 /**
  * ★원장 청구탭·정산서와 «같은 규칙»으로 센다 — 정산 대상·비율·제외·부가세포함.
  * ★★**여기서 세는 것은 «지급» 한 축뿐이다.** `claimWritten` 은 이 파일이 읽지 않는다.
@@ -125,6 +126,11 @@ const lineOf = (r: Row): Line => {
   return {
     plate: S(r.plate) || '(차번없음)', recv: S(r.receivedAt), deliv: S(r.deliveredAt),
     model, cust: S(r.customer), sup: S(r.supplier) || '(미기재)', product, term, rent: N(r.rent), how,
+    /**
+     * ★하허호 메모대로 붙인 넷 — 차량 가격(신차) · 영업사 · 보증금 · 납입 방식.
+     *   ⚠ 차량 가격은 «신차만» 값이 있다(재렌트·구독은 원천이 0 을 준다). 0 은 빈칸으로 내보낸다.
+     */
+    price: N(r.price), agent: S(r.agent), deposit: N(r.deposit), payKind: S(r.payKind),
     net, vat, total: net + vat,
   };
 };
@@ -215,7 +221,7 @@ if (leak.length) { console.log(`\n  ✕ 멈춥니다 — 영업채널 시트에 
 const iB = HEAD.indexOf(BASIS[0]);
 const iM = HEAD.indexOf('공급가액');
 const LEFT = ['모델명', ...BASIS];
-const MONEY = ['렌탈료', '공급가액', '부가세', '합계'];
+const MONEY = ['렌탈료', '보증금', '차량 가격(신차)', '공급가액', '부가세', '합계'];
 
 /**
  * ★★**「공지사항」 탭 — 프로모션을 알리는 자리.** 사장님 2026-09-03
@@ -385,12 +391,28 @@ for (const j of jobs) {
   const tail = (a: string | number, b: string | number, c: string | number) =>
     [...pad(iM), a, b, c, ...pad(HEAD.length - iM - 3)];
   const payKo = (sup: string) => dayKo(payDate(MONTH, sup));
-  const body: (string | number | boolean)[][] = j.lines.map((l, i) => [i + 1, l.plate, l.recv, l.deliv, l.sup, l.model, l.cust,
-    l.product, l.term || '', l.rent || '', l.how, l.net, l.vat, l.total, payKo(l.sup), ...note(l.plate)]);
+  /**
+   * ★★**줄은 «머리글 이름»으로 짓는다 — 자릿수를 세지 않는다.**
+   *   칸을 하나 붙일 때마다 여기 배열의 빈칸을 손으로 세는 방식이었는데,
+   *   2026-09-04 에 넷을 한꺼번에 붙이면서 그 셈이 «환수 줄»에서 어긋날 뻔했다(빈칸 8개).
+   *   이름으로 지으면 칸을 어디에 끼워 넣어도 값이 제 자리를 찾아간다.
+   */
+  const rowOf = (m: Record<string, string | number | boolean>): (string | number | boolean)[] =>
+    HEAD.map((h) => (m[h] === undefined ? '' : m[h]));
+  const body: (string | number | boolean)[][] = j.lines.map((l, i) => rowOf({
+    'No.': i + 1, 차량번호: l.plate, 접수일: l.recv, 인도일: l.deliv, 공급사: l.sup, 모델명: l.model,
+    '차량 가격(신차)': l.price || '', 임차인: l.cust, 영업사: l.agent, '상품 구분': l.product,
+    '계약 기간': l.term || '', 렌탈료: l.rent || '', 보증금: l.deposit, '납입 방식': l.payKind,
+    [BASIS[0]]: l.how, 공급가액: l.net, 부가세: l.vat, 합계: l.total, '지급 예정일': payKo(l.sup),
+    확인: note(l.plate)[0], 메모: note(l.plate)[1],
+  }));
   /** ★환수는 «같은 표»에 음수로 선다 — 표를 둘로 쪼개면 합계를 두 번 보게 된다. */
   for (const b of j.backs) {
-    body.push(['', b.plate, '', '', b.sup, '지난 지급분 환수', '', '', '', '', b.why,
-      -b.amt, -Math.round(b.amt * VAT), -(b.amt + Math.round(b.amt * VAT)), payKo(b.sup), ...note(b.plate)]);
+    body.push(rowOf({
+      차량번호: b.plate, 공급사: b.sup, 모델명: '지난 지급분 환수', [BASIS[0]]: b.why,
+      공급가액: -b.amt, 부가세: -Math.round(b.amt * VAT), 합계: -(b.amt + Math.round(b.amt * VAT)),
+      '지급 예정일': payKo(b.sup), 확인: note(b.plate)[0], 메모: note(b.plate)[1],
+    }));
   }
   const values: (string | number | boolean)[][] = [
     /**
@@ -426,7 +448,9 @@ for (const j of jobs) {
     [`${CORP.staff} · ${S(CORP.staffPhone) || CORP.phone} · ${CORP.email}`, ...pad(HEAD.length - 1)],
     ['세금계산서 발행 부탁드립니다 · 한 달간 함께해 주셔서 감사합니다', ...pad(HEAD.length - 1)],
   ];
-  const endCol = String.fromCharCode(64 + HEAD.length);
+  /** ★칸이 26개를 넘으면 한 글자로 못 적는다 — AA 꼴까지 센다. */
+  const colName = (n: number) => { let s = ''; for (let x = n; x > 0; x = Math.floor((x - 1) / 26)) s = String.fromCharCode(65 + ((x - 1) % 26)) + s; return s; };
+  const endCol = colName(HEAD.length);
   await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${bookId}/values/${encodeURIComponent(`'${tab}'!A1:${endCol}${values.length + 5}`)}?valueInputOption=RAW`, {
     method: 'PUT', headers: { Authorization: `Bearer ${await tok()}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ values }),

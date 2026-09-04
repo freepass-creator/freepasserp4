@@ -90,7 +90,7 @@ for (const q of ["name contains '프리패스 재고'", "name contains '프리�
     const meta = await (await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${f.id}?fields=sheets.properties.title`, { headers: { Authorization: `Bearer ${await tok()}` } })).json() as { sheets?: { properties: { title: string } }[] };
     for (const t of (meta.sheets || []).map((s) => s.properties.title).filter((t) => t.startsWith(TAB))) {
       const who = t.includes(' · ') ? t.split(' · ')[1] : f.name.replace(/^\[[^\]]*\]\s*/, '').replace(/\s*프리패스 (재고|정산).*$/, '');
-      const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${f.id}/values/${encodeURIComponent(`'${t}'!A1:Q80`)}`, { headers: { Authorization: `Bearer ${await tok()}` } });
+      const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${f.id}/values/${encodeURIComponent(`'${t}'!A1:AZ80`)}`, { headers: { Authorization: `Bearer ${await tok()}` } });
       const g = (((await r.json()) as { values?: unknown[][] }).values) || [];
       const sum = g.find((v) => S((v || [])[1]) === '합계');
       if (!sum) continue;
