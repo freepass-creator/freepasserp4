@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   ArrowLeft, Car, CarFront, Check, ChevronLeft, ChevronRight, Coins, FileText, Gauge, Heart,
-  IdCard, ImageOff, Info, LifeBuoy, ListChecks, PackageCheck, Phone, Share2, ShieldCheck, Wrench,
+  IdCard, ImageOff, Info, LifeBuoy, PackageCheck, Phone, Share2, ShieldCheck, Wrench,
   type LucideIcon,
 } from 'lucide-react';
 import type { EntityRecord } from '@/lib/intake/entities';
@@ -101,25 +101,39 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
   const rateFs = mobile ? SHOP.fs.sub : SHOP.fs.body;
 
   /*
-   * 차량 정보 — **위 두 줄과 안 겹치는 것만** 남긴다(2026-09-05 검토).
+   * ★★차량 정보 — **차를 설명하는 순서**로 놓는다(사장님 2026-09-05).
    *
-   * 열한 줄이었는데 일곱 줄이 «글자까지» 위와 같았다:
-   *   제조사·모델   → 차명 h1 이 `vehicleNameOf(full)` = 제조사+세부모델+세부트림을 이미 들고 있다
-   *   연식·연료·배기량·주행거리·차번 → 바로 위 사실줄과 같은 값이다
-   * 손님은 같은 것을 두 번 읽고, 「아래 표에 뭔가 더 있나」 하고 훑다가 아무것도 못 얻는다.
+   * > 「차량 정보에 연식이, 이륜구동, 이런 걸 넣는 게 아니라 **세부모델 세부트림을 한 줄로** 하고,
+   * >  그다음 **선택 옵션**, 뭐 **연식 주행거리 배기량 연료**, 다음에는 **외부 색상 내부 색상**
+   * >  이런 것들이 좀 있어줘야 되는데」
    *
-   * 남긴 넷의 이유
-   *   최초등록 — 연식과 «갈리는» 차가 실재한다(2020년식 / 2021.03 등록). 감가·검사 시기를 재는 값.
-   *   구동방식 — 눈길·지방 손님이 따진다.
-   *   승차정원 — 가족 수. 5인승이냐 7인승이냐로 계약이 갈린다.
-   *   ★색상   — **사진 없는 28%에게는 유일한 외관 정보**다. 이것까지 빼면 그 차는 글자뿐이다.
+   * 무엇이 틀렸었나. 나는 「위 사실줄과 안 겹치는 것만」이라는 규칙으로 칸을 골랐다.
+   * 그 결과가 **최초등록 · 구동방식 · 승차정원 · 색상** 넷이었는데, 이건 «차 설명»이 아니라
+   * **남은 것 모음**이다. 손님이 「차량 정보」를 눌러 기대하는 것은 그 차가 무엇인가이지,
+   * 우리가 위에서 안 쓴 값이 무엇인가가 아니다. 규칙이 맞아도 결과가 틀리면 규칙이 틀린 것이다.
+   * (게다가 그랜저에 「2륜구동」이 떠 있었다 — 원천 값이 그런데, 하필 그 칸이 맨 앞이었다.)
+   *
+   * ⇒ 순서: **세부모델·세부트림 한 줄** → 연식·주행거리·배기량·연료 → 외부/내부 색상 ·
+   *   승차정원·최초등록 → **선택 옵션**.
+   * ★위 사실줄과 겹치는 것은 «겹쳐도 된다». 엔카도 머리에서 「연식·주행·연료·차번」을 보여주고
+   *   기본정보 구역에서 그대로 다시 편다. 훑는 줄과 확인하는 표는 하는 일이 다르다.
+   * ★구동방식은 뺐다 — 사장님이 이 칸을 「그런 걸 넣는 게 아니라」의 예로 드셨다.
+   * ★색상은 «외부/내부»로 갈랐다 — 원천에 `int_color` 가 따로 있는데 하나로 뭉뚱그리고 있었다.
    */
   const specs: [string, string][] = ([
-    ['최초등록', regDate(p.first_registration_date)],
-    ['구동방식', String(p.drive_type || '')],
+    ['연식', yearFullDisplay(p.year)],
+    ['주행거리', km > 0 ? kmDisplay(p.mileage) : ''],
+    ['배기량', cc > 0 ? `${cc.toLocaleString('ko-KR')}cc` : ''],
+    ['연료', fuelDisplay(p.fuel_type) || String(p.fuel_type || '')],
+    ['외부 색상', String(p.ext_color || '')],
+    ['내부 색상', String(p.int_color || '')],
     ['승차정원', seats > 0 ? `${seats}인승` : ''],
-    ['색상', String(p.ext_color || '')],
+    ['최초등록', regDate(p.first_registration_date)],
   ] as [string, string][]).filter(([, v]) => meaningful(v));
+
+  /** 차량 정보 맨 윗줄 — **세부모델 · 세부트림 한 줄**. 아래 칸들과 성격이 달라 통째로 한 줄을 쓴다. */
+  const modelLine = [String(p.sub_model || '').trim(), String(p.trim_name || '').trim()]
+    .filter((x) => meaningful(x)).join(' · ');
 
   const pol = (p._policy || {}) as Record<string, unknown>;
   const S = (k: string) => String(pol[k] ?? '').trim();
@@ -239,7 +253,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
   const gallery = <Gallery p={p} mobile={mobile} />;
 
   const bar = (
-    <TopBar code={code} title={title} listHref={listHref} />
+    <TopBar code={code} title={title} listHref={listHref} mobile={mobile} />
   );
 
   const priceCard = (
@@ -291,19 +305,13 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
             </span> · {plan.m}개월 약정
           </div>
         </div>
-        {!mobile && telHref ? (
-          <a href={telHref} onClick={() => haptic.nav()} className="fp-shop-press"
-            style={{
-              flex: '0 0 auto',
-              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-              height: 52, padding: '0 26px', borderRadius: SHOP.r.chip,
-              background: C.brand, color: C.inverse, textDecoration: 'none',
-              fontSize: SHOP.fs.body, fontWeight: 700, whiteSpace: 'nowrap',
-            }}>
-            <Phone size={ICON.md} aria-hidden />
-            {agentName ? `${agentName} 담당자에게 전화` : '전화 상담'}
-          </a>
-        ) : null}
+        {/*
+         * ⚠ 여기 **웹 전화 버튼**이 있었다. 걷었다(사장님 2026-09-05 「담당자한테 연락하는 저 구성
+         *   때문에 되게 쌩뚱맞아. **어차피 웹에서는 연락처를 보여주면 되는 거고**」).
+         *   맞다 — 머리띠가 이미 「담당 OOO · 010-…-…· 전화 상담」을 들고 있는데, 요금 옆에 또
+         *   큰 파란 버튼을 세우니 **가격을 읽는 자리에 영업이 끼어든** 꼴이었다.
+         *   웹에서 전화는 «머리띠에 늘 떠 있는 연락처» 하나면 된다.
+         */}
         </div>
       ) : (
         <div style={{ fontSize: SHOP.fs.body, color: C.mute }}>요금은 담당자에게 문의해 주세요.</div>
@@ -482,44 +490,79 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
       ) : null}
 
       {/*
-        차량 정보 — 서로 «독립된 짧은 사실» 넷이다. 이름/값 표로 놓으면 계약·보험과 같은 얼굴이 되고,
-        네 줄짜리를 표로 만들면 그건 표가 아니라 창살이다. **타일**로 나란히 놓는다.
+        ★★**차량 정보 = 「이 차가 무엇인가」 한 덩어리**(사장님 2026-09-05).
+          세부모델·세부트림 한 줄 → 연식·주행거리·배기량·연료 → 색상·정원·최초등록 → **선택 옵션**.
+        ⚠ 「옵션」은 여기 있던 **별도 구역이었다.** 합쳤다 — 옵션은 그 차의 «사양»이지 딴 이야기가
+          아니다. 따로 세우면 손님이 차 설명을 읽다 말고 띠를 하나 건너뛰어야 하고,
+          정작 옵션이 없는 차(34%)에서는 구역이 통째로 사라져 구성이 차마다 달라 보였다.
       */}
-      <Tiles title="차량 정보" rows={specs} cols={mobile ? 2 : 4} mobile={mobile} icon={Car} />
-
-      {options.length ? (
+      {(modelLine || specs.length || options.length) ? (
         <>
           <Rule mobile={mobile} />
-          <section aria-label="옵션">
-            {/*
-              ⚠ 여기만 아이콘이 없었다(2026-09-05). 일곱 구역 중 여섯에 붙여 놓고 하나를 빠뜨리면,
-                그 하나는 «조용한 구역»이 아니라 **덜 만든 구역**으로 읽힌다. 규격은 전부이거나 전무다.
-            */}
-            <SecTitle icon={ListChecks}>옵션</SecTitle>
-            {/*
-             * ★**열 개에서 자른다**(2026-09-05 실측으로 정함). 엔카가 주요옵션 **10개** 뒤에
-             *   「45개 옵션 모두보기」, 케이카가 **12개** 뒤에 「옵션 모두 보기」다. 커머스 지침도
-             *   「여섯은 보여주고 열까지는 무난, 열다섯 넘으면 문제」라 같은 구간을 말한다.
-             * ★★**한둘 숨기려고 자르지는 않는다**(「값 하나를 자르지 마라」). 열한 개를 열로 잘라
-             *   버튼을 다는 건 손님에게 손해다 — 그럴 바엔 한 줄 더 그린다. 그래서 문턱이 12다.
-             * ⚠ 접는 것과 감추는 것은 다르다 — 버튼이 **남은 개수를 말한다**(「옵션 32개 모두 보기」).
-             *   숫자 없는 「더보기」는 아무도 안 누른다.
-             */}
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {(options.length > OPT_CUT + 1 && !openOpts ? options.slice(0, OPT_CUT) : options).map((o) => (
-                <span key={o} style={{
-                  padding: '7px 12px', borderRadius: SHOP.r.chip, background: C.zebra,
-                  fontSize: SHOP.fs.sub, color: C.sub,
-                }}>{o}</span>
-              ))}
-            </div>
-            {options.length > OPT_CUT + 1 && !openOpts ? (
-              <button type="button" onClick={() => setOpenOpts(true)} className="fp-shop-press"
-                style={{
-                  marginTop: 12, padding: '9px 14px', borderRadius: SHOP.r.chip,
-                  border: `1px solid ${C.line}`, background: 'transparent', cursor: 'pointer',
-                  fontFamily: 'inherit', fontSize: SHOP.fs.sub, fontWeight: 600, color: C.sub,
-                }}>옵션 {options.length}개 모두 보기</button>
+          <section aria-label="차량 정보">
+            <SecTitle icon={Car}>차량 정보</SecTitle>
+
+            {modelLine ? (
+              /* 맨 윗줄은 «이름»이라 통째로 한 줄을 준다 — 아래 값 칸들과 성격이 다르다. */
+              <div style={{
+                padding: mobile ? '13px 12px' : '15px 14px', marginBottom: 8,
+                borderRadius: SHOP.r.card, background: C.zebra,
+              }}>
+                <div style={{ fontSize: SHOP.fs.cap, color: C.faint, marginBottom: 7 }}>세부모델 · 세부트림</div>
+                <div style={{
+                  fontSize: mobile ? 16 : 17, fontWeight: 700, color: C.ink,
+                  wordBreak: 'keep-all', lineHeight: 1.4,
+                }}>{modelLine}</div>
+              </div>
+            ) : null}
+
+            {specs.length ? (
+              <div style={{
+                display: 'grid', gap: 8,
+                gridTemplateColumns: `repeat(${mobile ? 2 : 4}, minmax(0, 1fr))`,
+              }}>
+                {specs.map(([k, v]) => (
+                  <div key={k} style={{
+                    minWidth: 0, padding: mobile ? '13px 12px' : '15px 14px',
+                    borderRadius: SHOP.r.card, background: C.zebra,
+                  }}>
+                    <div style={{ fontSize: SHOP.fs.cap, color: C.faint, marginBottom: 7, letterSpacing: '0.01em' }}>{k}</div>
+                    <div style={{
+                      fontSize: SHOP.fs.body, fontWeight: 700, color: C.ink,
+                      wordBreak: 'keep-all', lineHeight: 1.45,
+                    }}>{v}</div>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
+            {options.length ? (
+              <div style={{ marginTop: 18 }}>
+                <div style={{ marginBottom: 9, fontSize: SHOP.fs.cap, fontWeight: 600, color: C.mute }}>선택 옵션</div>
+                {/*
+                 * ★**열 개에서 자른다**(엔카 주요옵션 10개 뒤 「45개 모두보기」 · 케이카 12개).
+                 * ★★**한둘 숨기려고 자르지 않는다** — 열한 개를 열로 잘라 버튼을 다는 건 손님에게
+                 *   손해다. 그래서 문턱이 12다. 버튼은 **남은 개수를 말한다**(숫자 없는 「더보기」는 안 눌린다).
+                 * ⚠ 이 절단은 지금 데이터에서는 한 번도 안 걸린다 — 721대 옵션이 **최대 8개**다.
+                 *   규격만 세워 둔 것이고, 공급사가 옵션을 더 실으면 그날 걸린다.
+                 */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {(options.length > OPT_CUT + 1 && !openOpts ? options.slice(0, OPT_CUT) : options).map((o) => (
+                    <span key={o} style={{
+                      padding: '7px 12px', borderRadius: SHOP.r.chip, background: C.zebra,
+                      fontSize: SHOP.fs.sub, color: C.sub,
+                    }}>{o}</span>
+                  ))}
+                </div>
+                {options.length > OPT_CUT + 1 && !openOpts ? (
+                  <button type="button" onClick={() => setOpenOpts(true)} className="fp-shop-press"
+                    style={{
+                      marginTop: 12, padding: '9px 14px', borderRadius: SHOP.r.chip,
+                      border: `1px solid ${C.line}`, background: 'transparent', cursor: 'pointer',
+                      fontFamily: 'inherit', fontSize: SHOP.fs.sub, fontWeight: 600, color: C.sub,
+                    }}>옵션 {options.length}개 모두 보기</button>
+                ) : null}
+              </div>
             ) : null}
           </section>
         </>
@@ -571,49 +614,57 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
       )}
 
       {/*
-        폰 하단 고정독 — **금액 + 전화**.
-        ★★금액을 여기 실은 이유(2026-09-05 실측). 이 상세는 폰에서 **7.5화면(약 6,000px)**이다.
-          대여료 카드는 맨 위 1,000px 안에 있으니, 손님이 보험·계약·운전을 읽는 **나머지 5,000px
-          동안 금액이 화면에서 사라진다.** 저신용 손님의 1번 물음이 「월 얼마·보증금 얼마」인데
-          그 답이 화면의 83% 구간에서 안 보이는 것이다.
-        ★남들도 그렇게 한다 — **엔카** 폰 하단 고정바 = 「2,450만원 + 문의하기」(실측 133px),
-          **Autonomy** sticky = 「From $400/mo」. 우리만 버튼 하나였다.
-        ★★그래도 **바를 하나 더 세우지는 않는다.** 화면(812)에서 고정물이 커질수록 본문이 줄고,
-          두 줄짜리 바를 따로 세우면 본문:고정물 비가 절반으로 떨어진다. **한 바 안에** 넣는다.
-        ★짜임은 우리 독 규격 그대로 — **비주요(금액) 고정폭 · 주요(전화) 나머지 전부.**
-          (가로 꽉 찬 버튼을 피하라는 커머스 지침과도 같은 결론이다.)
-        ⚠ 기간표에서 줄을 고르면 위 큰 숫자와 **같이** 바뀐다(같은 `plan` 을 본다) —
-          두 곳이 다른 금액을 말하면 그 순간 어느 것도 못 믿는다.
+        폰 하단 고정독 — **이전(고정폭 92) + 전화(나머지 전부)**.
+        사장님 2026-09-05 「모바일에서는 하단 그 탭바 쪽에 **전화 누르기랑 이전 버튼**이랑 이렇게 할 건데」.
+
+        ★이게 집 규격 그대로다 — 「비주요(이전) 고정폭 92 · 주요 나머지 전부」(전자계약 `.c-footer.wiz`).
+          여기만 다른 짜임을 쓸 이유가 없었다.
+        ⚠ 여기 있던 **금액 칸을 걷었다.** 남의 사이트가 그렇게 한다는 이유로 넣었는데
+          (엔카 하단바가 가격을 든다), 그러면 이 화면에서 **금액이 세 번** 나온다 —
+          큰 숫자 · 보조표의 고른 줄 · 독. 세 번 말하는 숫자는 강조가 아니라 소음이다.
+        ★그래서 「이전」이 위 실행줄의 「목록으로」를 **대신한다**(폰에서는 위에서 뺐다).
+          같은 일을 하는 문이 위아래로 둘이면 그건 문이 아니라 헷갈림이다.
+          라우트를 벗어나는 이동은 집 규격상 **하단 「이전」**의 자리다.
       */}
-      {mobile && telHref ? (
+      {mobile ? (
         <div style={{
           position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 20,
-          display: 'flex', alignItems: 'center', gap: 12,
+          display: 'flex', alignItems: 'center', gap: 8,
           background: C.bg, borderTop: `1px solid ${C.line}`,
           padding: '10px 16px 14px',
           paddingBottom: 'calc(14px + var(--fp-dock-safe, env(safe-area-inset-bottom)))',
         }}>
-          {plan ? (
-            <div style={{ flex: '0 0 auto', minWidth: 0, lineHeight: 1.25 }}>
-              <div style={{ fontSize: SHOP.fs.cap, color: C.faint }}>{plan.m}개월</div>
-              <div style={{
-                fontSize: 19, fontWeight: 800, color: C.ink,
-                letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap',
-              }}>{manWon(plan.rent)}</div>
-            </div>
-          ) : null}
-          <a href={telHref} onClick={() => haptic.nav()} className="fp-shop-press"
+          <Link href={listHref} onClick={() => haptic.nav()} className="fp-shop-press"
             style={{
-              flex: 1, minWidth: 0,
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              flex: '0 0 92px',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
               height: 54, borderRadius: SHOP.r.chip,
-              background: C.brand, color: C.inverse, textDecoration: 'none',
-              fontSize: SHOP.fs.body, fontWeight: 700, whiteSpace: 'nowrap',
+              border: `1px solid ${C.line}`, background: C.bg, color: C.sub,
+              textDecoration: 'none', fontSize: SHOP.fs.sub, fontWeight: 600,
             }}>
-            <Phone size={ICON.md} aria-hidden />
-            {/* 금액이 왼쪽을 먹으므로 이름을 다 못 실을 때가 있다 — 그때는 「전화 상담」으로 준다. */}
-            {agentName && agentName.length <= 3 ? `${agentName} 담당자에게 전화` : '전화 상담'}
-          </a>
+            <ArrowLeft size={ICON.md} aria-hidden />이전
+          </Link>
+          {telHref ? (
+            <a href={telHref} onClick={() => haptic.nav()} className="fp-shop-press"
+              style={{
+                flex: 1, minWidth: 0,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+                height: 54, borderRadius: SHOP.r.chip,
+                background: C.brand, color: C.inverse, textDecoration: 'none',
+                fontSize: SHOP.fs.body, fontWeight: 700, whiteSpace: 'nowrap',
+              }}>
+              <Phone size={ICON.md} aria-hidden />
+              {agentName ? `${agentName} 담당자에게 전화` : '전화 상담'}
+            </a>
+          ) : (
+            /* 담당자 전화가 없으면 «있는 척»하지 않는다 — 대신 대표번호가 머리띠에 떠 있다. */
+            <div style={{
+              flex: 1, minWidth: 0,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              height: 54, borderRadius: SHOP.r.chip, background: C.zebra,
+              fontSize: SHOP.fs.sub, color: C.mute,
+            }}>연락처는 위 안내를 확인해 주세요</div>
+          )}
         </div>
       ) : null}
     </main>
@@ -647,7 +698,9 @@ const FAV_KEY = 'fp4_shop_fav';
  *   ⚠ 주소를 «지금 주소 그대로» 넘긴다 — `?a=` 담당 귀속이 물려 있어야 받은 사람이 눌러도
  *     같은 담당자에게 간다. 손으로 조립하면 그 파라미터를 흘린다.
  */
-function TopBar({ code, title, listHref }: { code: string; title: string; listHref: string }) {
+function TopBar({ code, title, listHref, mobile }: {
+  code: string; title: string; listHref: string; mobile?: boolean;
+}) {
   const [faved, setFaved] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -682,15 +735,24 @@ function TopBar({ code, title, listHref }: { code: string; title: string; listHr
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '2px 0 12px' }}>
-      <Link href={listHref} onClick={() => haptic.nav()} className="fp-shop-press"
-        style={{
-          display: 'inline-flex', alignItems: 'center', gap: 6,
-          height: 40, padding: '0 12px 0 8px', borderRadius: SHOP.r.chip,
-          textDecoration: 'none', color: C.sub, fontSize: SHOP.fs.sub, fontWeight: 600,
-        }}>
-        <ArrowLeft size={ICON.lg} aria-hidden />목록으로
-      </Link>
-      <div style={{ flex: 1 }} />
+      {/*
+       * ★**폰에서는 「목록으로」를 여기서 뺀다**(2026-09-05). 하단독의 「이전」이 같은 일을 한다.
+       *   같은 문이 위아래로 둘이면 그건 문이 아니라 헷갈림이고, 라우트를 벗어나는 이동은
+       *   집 규격상 «하단 이전»의 자리다. 웹은 하단독이 없으니 여기 그대로 둔다.
+       */}
+      {mobile ? <span style={{ flex: 1 }} /> : (
+        <>
+          <Link href={listHref} onClick={() => haptic.nav()} className="fp-shop-press"
+            style={{
+              display: 'inline-flex', alignItems: 'center', gap: 6,
+              height: 40, padding: '0 12px 0 8px', borderRadius: SHOP.r.chip,
+              textDecoration: 'none', color: C.sub, fontSize: SHOP.fs.sub, fontWeight: 600,
+            }}>
+            <ArrowLeft size={ICON.lg} aria-hidden />목록으로
+          </Link>
+          <div style={{ flex: 1 }} />
+        </>
+      )}
       <button type="button" onClick={toggleFav} className="fp-shop-press"
         aria-pressed={faved} aria-label={faved ? '관심 차량에서 빼기' : '관심 차량으로 담기'}
         style={{

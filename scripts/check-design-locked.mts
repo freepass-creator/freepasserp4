@@ -174,10 +174,33 @@ for (const [f, name] of [[shopDetail, 'ShopDetail'], [shopCard, 'ShopCard'], [sh
 must(!/심사·재고에 따라/.test(shopDetail),
   '요금 밑 안내문이 되살아났습니다. 「심사」를 요금 옆에서 도로 꺼내는 자해입니다 — 마감 안내문 한 번이면 충분합니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-11');
-// 차량 정보 표는 사실줄·차명과 안 겹치는 넷만.
-must(!/['"]제조사['"], *makerDisplay/.test(shopDetail) && /['"]색상['"]/.test(shopDetail),
-  '차량 정보 표에 차명·사실줄과 겹치는 줄이 돌아왔습니다(또는 색상이 빠졌습니다). 색상은 사진 없는 28%의 유일한 외관 정보입니다.',
-  'docs/DESIGN_CONFIRMED_SHOP.md §1-10');
+/*
+ * 차량 정보 = 「이 차가 무엇인가」. **차 설명하는 순서**로 든다(사장님 2026-09-05).
+ * ⚠ 여기 있던 검사는 정반대였다 — 「사실줄과 겹치는 줄이 돌아왔나」를 잡았다(구 §1-11).
+ *   그 규칙으로 고른 결과가 «차 설명»이 아니라 «남은 것 모음»이라 폐기됐다.
+ *   검사를 지운 게 아니라 **새 규격을 지키도록** 바꾼 것이다.
+ */
+must(/>세부모델 · 세부트림</.test(shopDetail),
+  '차량 정보에서 「세부모델 · 세부트림」 첫 줄이 사라졌습니다. 이 줄이 「이 차가 무엇인가」의 머리입니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-11');
+must(/['"]외부 색상['"]/.test(shopDetail) && /['"]내부 색상['"]/.test(shopDetail),
+  '차량 정보에서 색상이 빠졌거나 다시 하나로 뭉쳐졌습니다. 색상은 사진 없는 28%의 유일한 외관 정보입니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-11');
+must(!/['"]구동방식['"]/.test(shopDetail),
+  '차량 정보에 「구동방식」이 돌아왔습니다 — 사장님이 이 칸을 「그런 걸 넣는 게 아니라」의 예로 드셨습니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-11');
+// 옵션은 «별도 구역»이 아니라 차량 정보 안이다 — 따로 세우면 옵션 없는 차(34%)에서 구성이 달라진다.
+must(/>선택 옵션</.test(shopDetail) && !/aria-label="옵션"/.test(shopDetail),
+  '옵션이 다시 별도 구역으로 나갔습니다. 옵션은 그 차의 사양이라 차량 정보 안에 듭니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-11');
+/*
+ * 웹 요금 칸에는 전화 버튼을 세우지 않는다 — 머리띠가 이미 연락처를 든다.
+ * (사장님 2026-09-05 「담당자한테 연락하는 저 구성 때문에 되게 쌩뚱맞아」)
+ * 폰 하단독의 전화는 `mobile ?` 안에 있어 이 검사에 안 걸린다.
+ */
+must(!/\{!mobile && telHref/.test(shopDetail),
+  '웹 대여료 칸에 전화 버튼이 돌아왔습니다. 가격을 읽는 자리에 영업이 끼어듭니다 — 웹은 머리띠 연락처로 충분합니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-2');
 // 전화는 담당자 → 대표번호로 떨어진다 — ?a= 없는 손님에게 전화 링크가 0개가 되면 안 된다.
 must(/wl\.tel/.test(read('app/q/[code]/ShopDetailView.tsx')),
   '상세가 대표번호 폴백을 잃었습니다. ?a= 없이 들어온 손님은 폰에서 전화 링크가 0개가 됩니다.',
