@@ -153,17 +153,15 @@ const combine = (pol: any, legacy: string, limit: string[], ded: string[]) => {
 const supPol: Record<string, Record<string, string>> = (() => { try { return JSON.parse(readFileSync('public/data/supplier-policies.json', 'utf8')); } catch { return {}; } })();
 const cell = (col: string, v: any): string => {
   const pol = policyOf(v);
-  // ★기본연령 = 다 만26세 이상(사장님 2026-09-04).
+  // ★연령 정책(사장님 2026-09-04) — 기본연령 만26세 이상, 만26세 미만은 «운영 안 함」 → 21세/23세는 불가.
   if (col === '기본연령') return '만26세 이상';
-  // 1) 공급사시트 정책이 그 열을 갖고 있으면 그걸 최우선. 시트열↔학습키 별칭(21세+↔21세). 면책금 단위표기·가격 콤마.
-  const COL_ALIAS: Record<string, string> = { '21세+': '21세', '23세+': '23세', '만21세': '21세', '만23세': '23세' };
+  if (col === '21세+' || col === '23세+' || col === '만21세' || col === '만23세') return '불가';
+  // 1) 공급사시트 정책이 그 열을 갖고 있으면 그걸 최우선. 면책금 단위표기·가격 콤마.
   const sp = supPol[S(v.provider_company_code)];
-  const spKey = COL_ALIAS[col] || col;
-  if (sp && col !== '전용계좌' && S(sp[spKey])) {
-    const raw = S(sp[spKey]);
+  if (sp && col !== '전용계좌' && S(sp[col])) {
+    const raw = S(sp[col]);
     if (/대인|대물|자손|무보험|자차/.test(col)) return fmtLimit(raw);
     if (/소비자가격|가격|금액/.test(col)) return money(raw);
-    if (/21세|23세/.test(col)) return money(raw) + '만원';   // 연령 할증(만원)
     return raw;
   }
   const direct: Record<string, string> = {
