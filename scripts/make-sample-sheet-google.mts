@@ -56,6 +56,19 @@ const policyOf = (v: any) => polByCode.get(S(v.policy_code)) || polByKey.get(S(v
 const docs = (await getFirestore().collection('products').get()).docs.map((d) => d.data());
 const listable = docs.filter((v) => v.listable === true);
 
+// ★전용계좌 = 공급사(파트너) 계좌(사장님 2026-09-03 「전용계좌 공급사 확인」). provider_company_code → 은행·계좌·예금주.
+const acctByProvider = new Map<string, string>();
+{
+  const partners = (await db.ref('v4/partners').get()).val() as Record<string, any> || {};
+  for (const p of Object.values(partners)) {
+    if (!p || typeof p !== 'object') continue;
+    const code = S((p as any).partner_code) || S((p as any).provider_company_code);
+    const acct = [S((p as any).bank_name), S((p as any).bank_account), S((p as any).bank_holder)].filter(Boolean).join(' ');
+    if (code && acct) acctByProvider.set(code, acct);
+  }
+  console.log(`전용계좌 로드 ${acctByProvider.size}개 공급사`);
+}
+
 // ★픽업구독 = 티카 링크를 시트에 그대로 박는다(사장님 2026-09-03). 손오공 「픽업재고」 탭의 「차번링크」 열.
 //   원자엔 없고 소스 시트에만 있어 여기서 차번↔티카링크를 읽어 온다.
 const NKEY = (c: unknown) => S(c).replace(/\s/g, '');
@@ -150,6 +163,7 @@ const cell = (col: string, v: any): string => {
   };
   if (col in direct) return direct[col];
   if (col === '차번링크') return ticaByCar.get(NKEY(v.car_number)) || '';   // 픽업 = 티카 상품링크
+  if (col === '전용계좌') return acctByProvider.get(S(v.provider_company_code)) || '';   // 공급사 계좌
   if (/보증|개월|반납형|인수형|만km|장기보증/.test(col)) return priceCell(v.price, col);
   return '';   // 소비자가격·그 밖 요금·연주행·탁송비·분납·사고다발 = 원천 없음(빈칸)
 };
