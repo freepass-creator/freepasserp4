@@ -28,22 +28,33 @@ import { canonProductType } from '../lib/domain/product';
 import { composeVehicleName, MIRROR_ALIAS } from '../lib/domain/mirror-sheet-mapping';
 import { snapColor } from '../lib/domain/color-master';
 import { MIRROR_SOURCES } from '../lib/domain/mirror-sources';
+import { sheetIdFromUrl } from '../lib/domain/supplier-sheet-read';
 
 const APPLY = process.argv.includes('--apply');
 const CODE = (process.argv.find((a) => a.startsWith('--code='))?.split('=')[1] || 'RP004').trim();
 const S = (v: unknown) => String(v ?? '').trim();
 const N = (v: unknown) => S(v).toLowerCase().replace(/\s+/g, '');
 
+// Firestore 먼저 — 원천 레지스트리(partner.sheet_url)와 원자를 여기서 읽는다.
+const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
+initializeApp({ credential: cert({ projectId: sa.project_id, clientEmail: sa.client_email, privateKey: S(sa.private_key).replace(/\\n/g, '\n') }) });
+const fs = getFirestore();
+
 // 원천 종류 셋 — 시트(공급사 구글시트) · 홈피(ironrentcar.com) · 손오공(API 덤프 JSON).
 type Kind = 'sheet' | 'iron' | 'sonokong';
 const SON_CODE = 'RP012';
-function srcConfig(): { code: string; name: string; kind: Kind; from?: string } {
+async function srcConfig(): Promise<{ code: string; name: string; kind: Kind; from?: string }> {
   if (CODE === SON_CODE || CODE === 'SONOKONG' || CODE === '손오공') return { code: SON_CODE, name: '손오공', kind: 'sonokong' };
   const m = MIRROR_SOURCES.find((x) => x.code === CODE);
-  if (!m) throw new Error(`알 수 없는 공급사 코드 ${CODE}`);
-  return { code: m.code, name: m.name, kind: m.kind as Kind, from: m.from };
+  if (m) return { code: m.code, name: m.name, kind: m.kind as Kind, from: m.from };
+  // 나머지 공급사 = v4/partners(→ Firestore partner 그림자)에 등록된 sheet_url 을 원천으로.
+  const snap = await fs.collection('partner').where('partner_code', '==', CODE).limit(1).get();
+  const p = snap.docs[0]?.data() as { name?: string; sheet_url?: string } | undefined;
+  const id = sheetIdFromUrl(p?.sheet_url);
+  if (id) return { code: CODE, name: S(p?.name) || CODE, kind: 'sheet', from: id };
+  throw new Error(`${CODE}: MIRROR_SOURCES·손오공·partner.sheet_url 어디에도 원천이 없다 — 수동/일회성 공급사`);
 }
-const src = srcConfig();
+const src = await srcConfig();
 const PROV = src.code;   // Firestore 태깅·pin 조회는 공급사 정식 코드로(손오공=RP012)
 const SHEET = src.from || '';
 
@@ -180,11 +191,7 @@ async function ingest(pinned: Map<string, Record<string, unknown>>): Promise<Ato
   return rows.map((r) => atomize(r, pinned));
 }
 
-// ── Firestore ──────────────────────────────────────────────────────────────
-const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
-initializeApp({ credential: cert({ projectId: sa.project_id, clientEmail: sa.client_email, privateKey: S(sa.private_key).replace(/\\n/g, '\n') }) });
-const fs = getFirestore();
-
+// ── 현행 원자(우리 것) — 차번별 pin 정본 ───────────────────────────────────
 const cur = new Map<string, Record<string, unknown>>();
 {
   const snap = await fs.collection('products').where('provider_company_code', '==', PROV).get();
