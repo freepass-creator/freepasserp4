@@ -37,7 +37,7 @@ import { finderDataScope } from '@/features/finder/finder-data-store';
 import { useFinderResults } from '@/features/finder/useFinderResults';
 import { buildProductContextItems } from '@/features/finder/product-context';
 import { FinderToolbar } from '@/features/finder/FinderToolbar';
-import { FinderQuickFilters } from '@/features/finder/FinderQuickFilters';
+import { FinderQuickFilters, FinderDetailButton } from '@/features/finder/FinderQuickFilters';
 import { FinderResults } from '@/features/finder/FinderResults';
 import { AgentWorkflowGuide } from '@/components/AgentWorkflowGuide';
 
@@ -484,6 +484,17 @@ export default function Finder() {
           onView={setView}
           sort={sort}
           onSort={setSort}
+          /* ★「세부 조건」은 검색창 «안» 우측(사장님 2026-09-04 「세부필터는 검색창에 놨었다고」).
+             SearchInput 의 trailing 슬롯이 그 자리다 — 검색줄이 두 컨트롤로 안 갈린다. */
+          detail={!mobile ? (
+            <FinderDetailButton
+              open={filterOpen}
+              onToggle={() => setFilterOpen((open) => !open)}
+              onClose={closeFilter}
+              activeCount={sidebarAc}
+              panel={filterPanelModel}
+            />
+          ) : null}
           /* ★조건 줄은 «검색창과 같은 줄»이다(사장님 2026-08-31 「검색창이랑 필터버튼 한 줄로」).
              전에는 툴바 밑에 두 번째 줄로 따로 섰다 — 목록이 그만큼 내려가고 양쪽 줄 오른쪽이 다 비어 있었다.
              모바일은 툴바 자체가 없다(FinderToolbar 가 null) → 조건은 하단 「검색」 시트가 든다. */

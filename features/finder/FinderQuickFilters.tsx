@@ -183,33 +183,7 @@ export function FinderQuickFilters({ value, present, products, update, onReset, 
 
   return (
     <div className={`fp-quick-filter-bar${mobile ? ' is-mobile' : ''}`} ref={root} role="group" aria-label="퀵필터">
-      {!mobile && (
-      <span className="fp-quick-filter-wrap" ref={detailAnchor} style={{ position: 'relative', flex: '0 0 auto' }}>
-        <Btn
-          size="sm"
-          variant={filterOpen || sidebarActiveCount > 0 ? 'solid' : 'ghost'}
-          aria-pressed={filterOpen}
-          title={filterOpen ? '세부 닫기' : (sidebarActiveCount ? `조건 ${sidebarActiveCount}개 · 세부` : '세부')}
-          onClick={toggleDetail}
-        >
-          <SlidersHorizontal size={ICON.sm} aria-hidden />
-          세부
-        </Btn>
-        {sidebarActiveCount > 0 ? (
-          <span className="fp-quick-filter-count"><CountPill n={sidebarActiveCount} /></span>
-        ) : null}
-        {filterOpen && detailBox ? (
-          <div
-            className="fp-quick-filter-detail"
-            role="dialog"
-            aria-label="세부 조건"
-            style={{ top: detailBox.top, left: detailBox.left, width: detailBox.width }}
-          >
-            <FinderFilterPanel model={detailPanel} />
-          </div>
-        ) : null}
-      </span>
-      )}
+      {/* ★「세부」는 여기 없다 — **검색창 «안»**에 든다(FinderDetailButton · 아래 참조). */}
       {shownCategories.map((category) => (
         <div
           className="fp-quick-filter-wrap"
@@ -322,5 +296,80 @@ export function FinderQuickFilters({ value, present, products, update, onReset, 
         </Btn>
       </span>
     </div>
+  );
+}
+
+/**
+ * ★「세부」(전체 조건 패널) 버튼 — **검색창 «안» 우측**에 든다.
+ *
+ * 사장님 2026-09-04 「그 세부필터는 검색창에 놨었다고」 · 2026-08-22 「검색창을 길게 빼고
+ * 그 안에 필터 버튼을 넣으면 어때」 — `SearchInput` 의 `trailing` 슬롯이 그걸 위해 이미 있다.
+ * 검색줄이 두 컨트롤로 갈리지 않아 입력 폭이 그만큼 넓어진다.
+ *
+ * ⚠ 팝오버는 **뷰포트 좌표**로 앉는다(앵커의 getBoundingClientRect). 그래서 버튼이 어디로 옮겨가도
+ *   따라온다 — 자리를 옮길 때 팝오버 코드는 안 건드려도 된다.
+ * ⚠ 바깥클릭 닫기를 **자기가** 든다. 퀵필터 줄의 닫기 핸들러에 얹으면, 검색창 안에 있는 이 버튼이
+ *   «바깥»으로 잡혀 누르자마자 닫힌다.
+ */
+export function FinderDetailButton({ open, onToggle, onClose, activeCount, panel }: {
+  open: boolean;
+  onToggle: () => void;
+  onClose: () => void;
+  activeCount: number;
+  panel: FinderFilterPanelModel;
+}) {
+  const anchor = useRef<HTMLSpanElement>(null);
+  const [box, setBox] = useState<{ top: number; left: number; width: number } | null>(null);
+
+  const place = useCallback(() => {
+    const el = anchor.current;
+    if (!el || !open) { setBox(null); return; }
+    const rect = el.getBoundingClientRect();
+    const width = Math.min(380, window.innerWidth - 24);
+    let left = rect.right - width;               // 검색창 우측 안이라 오른쪽 끝을 맞춘다
+    if (left < 12) left = 12;
+    setBox({ top: Math.round(rect.bottom + 6), left: Math.round(left), width });
+  }, [open]);
+
+  useEffect(() => {
+    place();
+    if (!open) return;
+    const on = () => place();
+    window.addEventListener('resize', on);
+    window.addEventListener('scroll', on, true);
+    return () => { window.removeEventListener('resize', on); window.removeEventListener('scroll', on, true); };
+  }, [open, place]);
+
+  useEffect(() => {
+    if (!open) return;
+    const off = (e: PointerEvent) => {
+      const t = e.target as Node;
+      if (anchor.current?.contains(t)) return;
+      if ((t as HTMLElement).closest?.('.fp-quick-filter-detail')) return;
+      onClose();
+    };
+    document.addEventListener('pointerdown', off);
+    return () => document.removeEventListener('pointerdown', off);
+  }, [open, onClose]);
+
+  return (
+    <span ref={anchor} style={{ position: 'relative', display: 'inline-flex', width: '100%', height: '100%' }}>
+      <Btn
+        variant="bare"
+        aria-pressed={open}
+        title={open ? '세부 닫기' : (activeCount ? `조건 ${activeCount}개 · 세부 조건` : '세부 조건')}
+        onClick={onToggle}
+        style={{ width: '100%', height: '100%', color: (open || activeCount > 0) ? C.accent : C.mute }}
+      >
+        <SlidersHorizontal size={ICON.md} strokeWidth={open || activeCount > 0 ? 2.4 : 2} />
+      </Btn>
+      {activeCount > 0 ? <span className="fp-icon-count"><CountPill n={activeCount} tone="accent" /></span> : null}
+      {open && box ? (
+        <div className="fp-quick-filter-detail" role="dialog" aria-label="세부 조건"
+          style={{ top: box.top, left: box.left, width: box.width }}>
+          <FinderFilterPanel model={panel} />
+        </div>
+      ) : null}
+    </span>
   );
 }

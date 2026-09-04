@@ -1126,6 +1126,13 @@ html[data-fp-filter="0"] .fp-finder > .fp-sidebar { display: none; }
    ★갈래 구분은 «색»이 아니라 «그림 모양»이 진다(정본 §2: 출고상태만 상태에 따라 ○ ⏱ ⊘ 로 갈린다).
    낱개 상자를 씌우는 대신 그릇 하나를 두르고 안쪽을 흰색으로 통일한다. */
 .fp-onphoto { --text-main: #ffffff; color: #ffffff; }
+/* 사진 위 낱개 칩 — 글자에 «딱» 붙는다(좌우 6 · 상하 2). 키우면 사진을 가린다. */
+.fp-signal-chip {
+  display: inline-flex; align-items: center;
+  padding: 2px 6px; border-radius: var(--radius);
+  background: var(--scrim-heavy);
+  border: 1px solid color-mix(in srgb, #ffffff 18%, transparent);
+}
 .fp-onphoto svg { color: #ffffff !important; }
 
 /* 모바일 하단 슬라이딩 탭 스트립 — 스크롤바 숨김(터치로 좌우 슬라이드). */

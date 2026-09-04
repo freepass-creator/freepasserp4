@@ -33,6 +33,8 @@ type Props = {
    * 전에는 툴바 아래 «두 번째 줄»로 따로 섰다 — 목록이 그만큼 내려가고, 오른쪽은 양쪽 다 비어 있었다.
    */
   quick?: ReactNode;
+  /** 검색창 «안» 우측에 서는 「세부 조건」 버튼(FinderDetailButton). */
+  detail?: ReactNode;
 };
 
 export function FinderToolbar(props: Props) {
@@ -42,6 +44,7 @@ export function FinderToolbar(props: Props) {
       onChange={props.onQuery}
       placeholder="예: 21세 그랜저, 무보증 쏘나타"
       ariaLabel="차량과 조건 통합검색"
+      trailing={props.detail}
       style={{ flex: '1 1 0', minWidth: 0 }}
       /* 선택색(파랑) 배경은 305caf4f 가 넣은 것 — 원래의 흰 바탕+얇은 테두리로 되돌림(사장님 2026-08-22 「원래 느낌이 아니잖아, 딱 깔끔하게」). */
     />

@@ -205,21 +205,15 @@ export function CardThumb({ p, audience = 'agent', fill, w, h, heart = false, ma
         style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }}
       />
 
-      {/* ★사진 우하 = 출고상태 · 상품구분. 한 덩어리 «유리바» 안에 아이콘+글자(정본 §2).
-          그릇이 하나라 낱개 상자가 아니고, 사진이 밝든 어둡든 글자가 읽힌다. */}
+      {/* ★사진 우하 = 출고상태 · 상품구분. **낱개 칩 둘**(사장님 2026-09-04 「박스를 달리해서
+          텍스트에 딱 붙여 두 개로」). 한 그릇에 담으면 둘이 한 덩어리 문장처럼 읽힌다 — 다른 갈래다.
+          칩 안은 흰 글자·흰 그림(.fp-onphoto) — 사진 밝기가 제각각이라 톤색은 안 읽힌다. */}
       {coreBadges && (
-        <div style={{
+        <div className="fp-onphoto" style={{
           position: 'absolute', bottom: pad, right: pad, zIndex: 2,
-          maxWidth: '92%', minWidth: 0,
-          display: 'inline-flex', alignItems: 'center',
-          padding: '3px 8px', borderRadius: R,
-          background: SCRIM.heavy,
-          border: `1px solid color-mix(in srgb, ${C.inverse} 18%, transparent)`,
-          color: C.inverse,
+          maxWidth: '92%', minWidth: 0, display: 'inline-flex', alignItems: 'center',
         }}>
-          <span className="fp-onphoto">
-            <SignalMarks p={p} audience={audience} dense />
-          </span>
+          <SignalMarks p={p} audience={audience} dense chip />
         </div>
       )}
 
