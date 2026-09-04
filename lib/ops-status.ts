@@ -95,3 +95,34 @@ export const OPS_HEALTH_LABEL: Record<OpsHealth, string> = {
   failed: '실패 — 마지막 회차가 끝까지 못 갔다',
   none: '기록 없음 — 아직 한 번도 안 올라왔다',
 };
+
+/**
+ * 공급사 시트 URL + 탭 gid + 행 번호 → **그 셀로 가는 주소**.
+ * 하나라도 없으면 억지로 만들지 않는다 — 엉뚱한 줄로 보내면 안 보내느니만 못하다.
+ *
+ * ★정밀타격의 실체가 이 한 줄이다(사장님 2026-09-04 「불러올 곳을 정밀타격하는 거야」).
+ *   추적 한 건과 전체 리스트가 **같은 함수**를 쓴다 — 두 벌로 만들면 한쪽이 언젠가 딴 줄을 연다.
+ */
+export function sheetCellLink(sheetUrl: unknown, gid: unknown, row: unknown): string {
+  const base = String(sheetUrl ?? '').trim();
+  if (!base || !/docs\.google\.com/.test(base)) return '';
+  const clean = base.split('#')[0].split('?')[0];
+  const g = String(gid ?? '').trim();
+  const r = String(row ?? '').trim();
+  if (!g) return clean;
+  return r ? `${clean}#gid=${g}&range=A${r}` : `${clean}#gid=${g}`;
+}
+
+/** 관제탑 리스트의 한 줄 — 「데이터는 여기 확실히 있다」를 눈으로 보이게 하는 최소 단위. */
+export type OpsInventoryRow = {
+  plate: string;
+  name: string;
+  supplierCode: string;
+  supplierName: string;
+  tab: string;
+  row: string;
+  updatedAt: number | null;
+  status: string;
+  blocked: string;
+  cellLink: string;
+};

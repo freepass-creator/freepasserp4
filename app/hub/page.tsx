@@ -5,7 +5,7 @@ import { Btn, C, CenterNote, FS, FW, Loading, NUM, R_CARD, SearchInput } from '@
 import { getAuthClient } from '@/lib/firebase/client';
 import {
   OPS_HEALTH_LABEL, OPS_STALE_MS, opsHealth,
-  type OpsHealth, type OpsPipelineStatus,
+  type OpsHealth, type OpsInventoryRow, type OpsPipelineStatus,
 } from '@/lib/ops-status';
 
 /**
@@ -68,6 +68,26 @@ export default function HubPage() {
   const [plate, setPlate] = useState('');
   const [trace, setTrace] = useState<Trace | null>(null);
   const [tracing, setTracing] = useState(false);
+  const [inv, setInv] = useState<OpsInventoryRow[] | null>(null);
+  const [invLoading, setInvLoading] = useState(false);
+
+  /** 전량 목록 — **화면을 열 때 한 번만.** 30초 폴링과 별개다(전량 조회라 비싸다). */
+  const loadInventory = useCallback(async () => {
+    setInvLoading(true);
+    try {
+      const user = getAuthClient()?.currentUser;
+      if (!user) return;
+      const res = await fetch('/api/ops/inventory', {
+        headers: { Authorization: `Bearer ${await user.getIdToken()}` },
+        cache: 'no-store',
+      });
+      if (!res.ok) return;
+      const body = await res.json() as { rows: OpsInventoryRow[] };
+      setInv(body.rows || []);
+    } catch { /* 목록이 없어도 상태판은 살아 있어야 한다 */ } finally {
+      setInvLoading(false);
+    }
+  }, []);
 
   /** 차번 하나를 짚는다 — 폴링과 별개로, 누를 때만 부른다(전량 조회라 비싸다). */
   const runTrace = useCallback(async (q: string) => {
@@ -107,6 +127,8 @@ export default function HubPage() {
       setLoaded(true);
     }
   }, []);
+
+  useEffect(() => { void loadInventory(); }, [loadInventory]);
 
   useEffect(() => {
     void load();
@@ -279,6 +301,75 @@ export default function HubPage() {
                 )}
               </div>
             ) : null}
+          </div>
+
+          {/* ── 눈으로 쭉 — 매물 전량을 원천과 함께. 기능 없다(정렬·필터·검색 없음) ── */}
+          <div style={{ border: `1px solid ${C.line}`, borderRadius: R_CARD, overflow: 'hidden' }}>
+            <div style={{
+              display: 'flex', alignItems: 'baseline', gap: 10, padding: '14px 18px',
+              borderBottom: `1px solid ${C.line}`, background: C.head,
+            }}>
+              <span style={{ fontSize: FS.title, fontWeight: FW.title, color: C.ink }}>들어온 매물</span>
+              <span style={{ fontSize: 20, fontWeight: FW.head, color: C.ink, fontFamily: NUM }}>{inv ? inv.length : '—'}</span>
+              <span style={{ fontSize: FS.sub, color: C.mute }}>대 · 공급사 순 · 시트 행 순</span>
+              <div style={{ flex: 1 }} />
+              <Btn variant="ghost" size="sm" onClick={() => void loadInventory()}>다시 읽기</Btn>
+            </div>
+
+            {invLoading && !inv ? <div style={{ padding: 20 }}><Loading /></div> : null}
+
+            {/* ★안쪽에 스크롤을 또 만들지 않는다 — 「쭉 본다」와 어긋난다. 창 안의 창은
+                스크롤이 어디서 끝나는지 몰라 눈이 피로하고, 화면을 캡처해 보내기도 어렵다.
+                페이지가 그냥 흐르게 둔다. */}
+            {inv?.length ? (
+              <div>
+                {inv.map((r, i) => {
+                  // 공급사가 바뀌는 자리에 구분줄 — 「어디서 몇 대 왔나」가 스크롤만으로 읽힌다.
+                  const head = i === 0 || inv[i - 1].supplierName !== r.supplierName;
+                  const count = head ? inv.filter((x) => x.supplierName === r.supplierName).length : 0;
+                  return (
+                    <div key={`${r.plate}-${i}`}>
+                      {head ? (
+                        <div style={{
+                          display: 'flex', alignItems: 'baseline', gap: 8,
+                          padding: '10px 18px 6px', borderTop: i ? `1px solid ${C.line}` : 'none',
+                          background: C.zebra,
+                        }}>
+                          <span style={{ fontSize: FS.sub, fontWeight: FW.title, color: C.ink }}>{r.supplierName}</span>
+                          <span style={{ fontSize: FS.cap, color: C.faint, fontFamily: NUM }}>{count}대</span>
+                        </div>
+                      ) : null}
+                      <div style={{
+                        display: 'flex', alignItems: 'baseline', gap: 10, padding: '7px 18px',
+                        borderTop: `1px solid ${C.line2}`,
+                        background: r.blocked ? C.warnBg : 'transparent',
+                      }}>
+                        <span style={{ fontSize: FS.sub, fontFamily: NUM, fontWeight: FW.strong, color: C.ink, minWidth: 96 }}>{r.plate}</span>
+                        <span style={{ fontSize: FS.sub, color: C.sub, flex: '1 1 220px', minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name || '-'}</span>
+                        <span style={{ fontSize: FS.cap, color: C.faint, fontFamily: NUM, minWidth: 150, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                          {r.tab ? `${r.tab}${r.row ? ` ${r.row}행` : ''}` : '출처 없음'}
+                        </span>
+                        <span style={{ fontSize: FS.cap, color: C.faint, fontFamily: NUM, minWidth: 68, textAlign: 'right' }}>
+                          {r.updatedAt ? ago(r.updatedAt, now) : '-'}
+                        </span>
+                        <span style={{ fontSize: FS.cap, color: r.blocked ? C.warn : C.mute, minWidth: 74, textAlign: 'right' }}>
+                          {r.blocked || r.status || '-'}
+                        </span>
+                        <span style={{ minWidth: 34, textAlign: 'right' }}>
+                          {r.cellLink ? (
+                            <a href={r.cellLink} target="_blank" rel="noreferrer"
+                              style={{ fontSize: FS.cap, color: C.accent, textDecoration: 'none' }}
+                              title="원본 시트의 그 줄로 갑니다">시트 ›</a>
+                          ) : null}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : null}
+
+            {inv && !inv.length ? <div style={{ padding: 20 }}><CenterNote>매물이 없습니다.</CenterNote></div> : null}
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
