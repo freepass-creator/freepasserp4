@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { QuoteView } from './QuoteView';
+import { ShopDetailView } from './ShopDetailView';
 import { headers } from 'next/headers';
 import { loadGuestQuote } from '@/lib/server/guest-quote';
 import { hasBrand, resolveWhitelabel } from '@/lib/whitelabel';
@@ -101,10 +102,16 @@ export async function generateMetadata({ params, searchParams }: Params): Promis
  * ★상세도 **브랜드 안**에 있어야 한다(사장님 2026-09-04 「껍데기를 좀 제대로 만들어봐」).
  *   전에는 손님이 유니오토 사이트에서 차를 누르면 머리띠·색·담당자가 통째로 사라졌다 —
  *   그 순간 「남의 사이트로 튕겼다」가 된다. 목록과 같은 방식으로 서버가 호스트를 보고 정한다.
+ *
+ * ★★브랜드가 있으면 **가게 상세**(`ShopDetailView`), 없으면 예전 상품안내 그대로.
+ *   갈림을 «여기»(서버 껍데기)에 둔 이유가 둘이다.
+ *   ㉠ 주소를 못 바꾼다 — 카톡·문자로 이미 나간 공유링크는 회수할 수 없다.
+ *   ㉡ 화면 «안»에서 `if (브랜드)` 로 가르면 두 화면이 원자를 나눠 쓰게 되고, 목록에서 겪은
+ *      그 사고(영업자 잣대로 세다 축 셋을 잃음)가 그대로 재현된다. 라우팅에서 가르면 안 섞인다.
  */
 export default async function QuotePage({ searchParams }: Params) {
   const sp = await searchParams;
-  // 호스트가 정본이고 `?wl=` 은 도메인 붙이기 «전» 미리보기용 — 목록(`/catalog`)과 같은 규칙이다.
+  // 호스트가 정본이고 `?wl=` 은 도메인 붙이기 «전» 미리보기용 — 목록(`/shop`)과 같은 규칙이다.
   const wl = resolveWhitelabel((await headers()).get('host'), one(sp.wl));
-  return <QuoteView wl={wl} />;
+  return hasBrand(wl) ? <ShopDetailView wl={wl} /> : <QuoteView wl={wl} />;
 }
