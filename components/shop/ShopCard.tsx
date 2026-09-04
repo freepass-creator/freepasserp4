@@ -26,9 +26,11 @@ import { kmDisplay, manWon } from '@/lib/format';
  *   한 대를 **제대로** 보여 주는 편이 낫다. 그래서 폰도 한 줄에 한 대, 사진을 크게 쓴다.
  *
  * 읽는 순서대로 쌓는다.
- *   ① 사진(크게)  ② 연식 + 차명  ③ 차량 스펙(연료·배기량·인승·구동·주행)
- *   ④ 월 대여료(제일 큰 글자)     ⑤ 보증금 · 기준 개월
- *   ⑥ **우대사항**(심사·무보증·만21세·경력무관·당일출고)  ⑦ 옵션
+ *   ① 사진(크게 · 위에 아무것도 안 얹는다)  ② 연식 + 차명
+ *   ③ 차량 스펙(연료·배기량·인승·구동·주행)
+ *   ④ 월 대여료(제일 큰 글자)  ⑤ 보증금 · 기준 개월
+ *   ⑥ **우대사항**(심사·무보증·만21세·경력무관·당일출고)
+ *   ⑦ 맨 아랫줄 — 옵션 · 차번(둘 다 «고르는 값»이 아니라 제일 조용하다)
  *
  * ★업무동 `ProductCard`(확정 규격)를 쓰지 않는다. 그 카드는 영업자용이라 손님 화면에 안 맞는
  *   것이 셋이다: 차번을 감추고(손님에겐 「이 차다」의 증거다), 월 대여료가 차명보다 작고,
@@ -93,7 +95,7 @@ export const ShopCard = memo(function ShopCard({ p, href, faved, onFav }: {
           borderRadius: SHOP.r.card, overflow: 'hidden', textDecoration: 'none', color: 'inherit',
           border: `1px solid ${C.line}`, background: C.bg,
         }}>
-        <ShopThumb p={p} plate={plate} />
+        <ShopThumb p={p} />
 
         <div style={{
           padding: mobile ? '15px 15px 17px' : '15px 15px 17px',
@@ -154,24 +156,29 @@ export const ShopCard = memo(function ShopCard({ p, href, faved, onFav }: {
             </div>
           ) : null}
 
-          {options.length ? (
+          {/*
+            카드의 «맨 아랫줄» — 옵션과 차번. 둘 다 «고르는 값»이 아니라서 제일 조용해야 한다.
+            ★옵션을 회색 칩 셋으로 깔았다가 글자 한 줄로 바꿨다(사장님 2026-09-04 「가장 심플하고
+              기본에 충실하고 눈에 쏙쏙 들어오는」). 칩은 그 자체가 «누르는 것»처럼 생겨서
+              카드 바닥에서 시선을 한 번 더 뺏는데, 여기서 손님이 볼 것은 이미 위의 요금과 우대사항이다.
+            ★차번은 오른쪽 끝. 「이 차다」의 증거라 빼지는 않지만, 손님이 고를 때 쓰는 값이 아니므로
+              사진 위도 스펙 줄도 아닌 **가장 낮은 자리**가 맞다.
+          */}
+          {(options.length || plate) ? (
             <div style={{
-              display: 'flex', gap: 5, marginTop: 'auto', paddingTop: 9,
-              minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap',
+              display: 'flex', alignItems: 'baseline', gap: 10,
+              marginTop: 'auto', paddingTop: 10,
+              fontSize: SHOP.fs.cap, color: C.faint,
             }}>
-              {options.slice(0, 3).map((o) => (
-                <span key={o} style={{
-                  // ★칩을 «줄이지» 않는다 — 줄이게 두면 「내…」「블…」처럼 두세 글자만 남아
-                  //   무슨 옵션인지 알 수 없다. 못 들어가는 칩은 통째로 잘린다(바깥 overflow hidden).
-                  flex: '0 0 auto',
-                  padding: '4px 9px', borderRadius: SHOP.r.chip, background: C.zebra,
-                  fontSize: SHOP.fs.cap, color: C.sub,
-                }}>{o}</span>
-              ))}
-              {options.length > 3 ? (
-                <span style={{ flex: '0 0 auto', alignSelf: 'center', fontSize: SHOP.fs.cap, color: C.faint }}>
-                  +{options.length - 3}
+              {options.length ? (
+                <span style={{
+                  flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                }}>
+                  {options.slice(0, 2).join(' · ')}{options.length > 2 ? ` 외 ${options.length - 2}` : ''}
                 </span>
+              ) : <span style={{ flex: 1 }} />}
+              {plate ? (
+                <span style={{ flex: '0 0 auto', fontVariantNumeric: 'tabular-nums' }}>{plate}</span>
               ) : null}
             </div>
           ) : null}
@@ -208,10 +215,11 @@ export const ShopCard = memo(function ShopCard({ p, href, faved, onFav }: {
  *   폴더 해석(`/api/extract-photos`)이 줄줄이 밀려 꼬리가 길어진다.
  * ★사진 없는 차가 실측 28% 다. 세로 큰 카드에서는 그 자리가 크게 비므로 회색 판만 두지 말고
  *   «없다»고 조용히 말한다 — 고장이 아니라 준비 중임을 알아야 손님이 그 차를 안 건너뛴다.
- * ★차번은 **사진 위 왼쪽 아래**로 내렸다. 「이 차다」의 증거라 손님에게 보여도 되는 값이지만,
- *   스펙 줄에 끼워 두면 연료·배기량 같은 «고르는 값» 사이에 섞여 줄만 길어진다.
+ * ★사진 위에는 **아무것도 얹지 않는다**(사장님 2026-09-04 「차량 번호가 사진에 들어가, 공간이
+ *   있는데도 불구하고 사진에 들어갈 필요는 없을 것 같고」). 사진 위 글자는 어떤 사진이 오느냐에
+ *   따라 읽히기도 하고 안 읽히기도 한다 — 밑에 자리가 남는데 굳이 그럴 이유가 없다.
  */
-function ShopThumb({ p, plate }: { p: EntityRecord; plate?: string }) {
+function ShopThumb({ p }: { p: EntityRecord }) {
   const { ref, inView } = useInView<HTMLDivElement>();
   const photo = useFirstPhoto(p, 640, inView);
   return (
@@ -231,15 +239,6 @@ function ShopThumb({ p, plate }: { p: EntityRecord; plate?: string }) {
           <span style={{ fontSize: SHOP.fs.cap }}>사진 준비 중</span>
         </div>
       )}
-      {plate ? (
-        <span style={{
-          position: 'absolute', left: 10, bottom: 10,
-          padding: '3px 9px', borderRadius: SHOP.r.chip,
-          background: 'rgba(255,255,255,0.92)',
-          fontSize: SHOP.fs.cap, fontWeight: 700, color: C.sub,
-          fontVariantNumeric: 'tabular-nums', letterSpacing: '0.01em',
-        }}>{plate}</span>
-      ) : null}
     </div>
   );
 }
