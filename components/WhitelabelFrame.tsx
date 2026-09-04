@@ -115,6 +115,16 @@ export function WhitelabelFrame({ wl, agentName, agentPhone, dock = true, notice
           <div style={{ fontSize: FS.sub, color: C.faint, lineHeight: 1.9 }}>
             {wl.bizLines.map((line) => <div key={line}>{line}</div>)}
           </div>
+          {/*
+            영업자 로그인 — **푸터 맨 밑에 조용히**(사장님 2026-09-05 「그 주소로 들어가면 상품부터
+            다 보이는 거라고. 거길 들어가서 영업자는 로그인을 하는 거야」).
+            손님은 로그인할 일이 없으니 위로 올리지 않는다. 그렇다고 없애면 영업자가 주소를 외워
+            쳐야 한다 — 사업자 표기 밑 한 줄이 그 둘을 다 만족한다(회사 사이트가 흔히 그러는 자리다).
+          */}
+          <a href="/login" style={{
+            display: 'inline-block', marginTop: 14,
+            fontSize: FS.cap, color: C.faint, textDecoration: 'none',
+          }}>로그인</a>
         </div>
       </footer>
     </div>
