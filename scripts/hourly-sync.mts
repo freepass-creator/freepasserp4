@@ -86,7 +86,7 @@ const skip = (label: string, why: string) => {
   steps.push({ 단계: label, ok: true, 신호: `건너뜀 — ${why}` });
 };
 const A = APPLY ? ['--apply'] : [];
-const kst = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 16).replace('T', ' ');
+const kst = (ms = Date.now()) => new Date(ms + 9 * 3600e3).toISOString().slice(0, 16).replace('T', ' ');
 const started = Date.now();
 /**
  * 겹침 잠금 — **PID 로 살아 있는지 본다.** 시각으로만 재면 30분 넘는 실행이 겹친다.
@@ -113,6 +113,14 @@ const started = Date.now();
  *   · 그래서 **뺏긴 실행이 심장을 뛰려 하면 «파일이 없다»(ENOENT)** — 되살릴 방법이 없다.
  *     A 가 아무리 나중에 손대도 B 의 주인 자리를 빼앗지 못한다. 7차가 지적한 인터리빙이 여기서 닫힌다.
  */
+/**
+ * 관제탑 — 단계마다 «지금 상태»를 클라우드에 한 줄 올린다.
+ * ★못 올려도 파이프라인은 그냥 간다(publish-ops-status 가 전부 삼킨다).
+ *   `tmp/자동동기-상태.json` 은 그대로 남긴다 — 그건 이 PC 의 기록이고, 이건 원격에서 보는 창이다.
+ */
+import { publishOpsStatus } from './lib/publish-ops-status.mts';
+import type { OpsPipelineStatus } from '../lib/ops-status';
+
 const LOCKDIR = 'tmp/hourly-sync.lock';
 const HEARTBEAT_STALE_MS = 5 * 60_000;
 /** 실행 표딱지 — PID 는 OS 가 재사용하지만 이건 안 겹친다. */
@@ -145,6 +153,9 @@ function acquireLock(): boolean {
   return claimOwnership();
 }
 if (!acquireLock()) { console.log('앞의 실행이 아직 돈다(lock) — 이번은 건너뛴다'); process.exit(0); }
+/* ★잠금을 잡자마자 관제탑에 「시작했다」를 올린다 — 첫 단계가 25분 걸려도 화면은 즉시 「돌고 있음」이 된다.
+   전에는 상태가 «끝나야» 써져서, 도는 중에는 화면이 지난 회차(실패)를 보여 주고 있었다. */
+pushOps(true, null, '시작');
 
 let lockLost = false;
 /**
@@ -313,6 +324,7 @@ const run = (label: string, args: string[], pick: RegExp, runner: 'npx' | 'node'
     /** ★실패면 «이유»를 상태로그에도 싣는다 — 상태판·메일이 읽는 곳이 여기다. 요약이 비면 아무도 이유를 못 본다. */
     const 요약 = picked.length ? picked.slice(0, 3).join(' | ').slice(0, 300) : (진단[0] || '').trim().slice(0, 300);
     steps.push({ 단계: label, ok, 초, ...(신호 ? { 신호: '어긋남 있음' } : null), ...(요약 ? { 요약 } : null) });
+    pushOps(true, null, undefined);   // ★단계가 끝날 때마다 관제탑 갱신 — 도는 중에도 보이게
     if (초 >= 300) {   // 5분 넘게 걸린 단계는 눈에 띄게 남긴다
       const w = `${label} 이 ${Math.round(초 / 60)}분 걸렸다(평소보다 오래)`;
       warnings.push(w); console.log(`   ⏱ ${w}`);
@@ -389,12 +401,40 @@ const alertRecovered = () => {
  * 그래서 요약 문장이 아니라 «단계별·커버리지·경고»를 구조로 남긴다
  * (코덱스 2026-08-30: 「요약뿐이라 검증에 충분하지 않다」).
  */
+/**
+ * 관제탑에 지금 상태를 밀어 넣는다. **끝날 때가 아니라 «단계마다»** 부른다 —
+ * 그래야 「지금 ⑥ 상품리스트 하는 중」이 화면에 보인다.
+ * `running:true` 인데 이 시각이 5분 넘게 안 바뀌면 화면이 「멈춤」으로 읽는다(= 심장박동).
+ */
+function pushOps(running: boolean, ok: boolean | null, currentStep?: string, 중단?: string) {
+  const now = Date.now();
+  const status: OpsPipelineStatus = {
+    runId: RUN_ID,
+    startedAt: kst(started),
+    updatedAt: kst(),
+    updatedMs: now,
+    running,
+    apply: APPLY,
+    elapsedSec: Math.round((now - started) / 1000),
+    ok,
+    ...(중단 ? { stoppedBy: 중단 } : null),
+    ...(currentStep ? { currentStep } : null),
+    steps,
+    coverage,
+    warnings,
+    summary: line,
+    host: process.env.GITHUB_ACTIONS ? 'github-actions' : (process.env.COMPUTERNAME || process.env.HOSTNAME || 'local'),
+  };
+  void publishOpsStatus(status);
+}
+
 function writeStatus(ok: boolean, 중단?: string) {
   writeFileSync('tmp/자동동기-상태.json', JSON.stringify({
     시각: kst(), 반영: APPLY, 초: Math.round((Date.now() - started) / 1000),
     ok, ...(중단 ? { 중단 } : null),
     단계: steps, 커버리지: coverage, 경고: warnings, 요약: line,
   }, null, 2));
+  pushOps(false, ok, undefined, 중단);   // 회차가 닫혔다 — 관제탑에도 닫힌 상태로 남긴다
 }
 
 const stop = (why: string) => {

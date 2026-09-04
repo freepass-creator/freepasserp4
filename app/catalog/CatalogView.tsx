@@ -12,7 +12,7 @@ import {
 import { fuelDisplay, makerDisplay, yearDisplay } from '@/lib/domain/vehicle-master-format';
 import { CUSTOMER_VEHICLE_CLASSES, customerVehicleClass } from '@/lib/domain/catalog-facets';
 import { RotateCcw } from 'lucide-react';
-import { C, FW, FS, ICON, CenterNote, FilterChips, FilterGroup, ListMoreBar, Message, SearchInput, Select, ToggleChips, ProductCardSkeleton } from '@/components/ui';
+import { Btn, C, FW, FS, ICON, CenterNote, FilterChips, FilterGroup, ListMoreBar, Message, SearchInput, Select, ToggleChips, ProductCardSkeleton } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { toggleInSet } from '@/lib/set';
 import { GUEST_W } from '@/lib/guest-layout';
@@ -308,14 +308,10 @@ export function CatalogView({ wl = FREEPASS }: { wl?: Whitelabel }) {
               }}>
                 <span style={{ fontSize: 17, fontWeight: FW.title, color: C.ink }}>필터</span>
                 {anyFilter ? (
-                  <button type="button" onClick={clearAll}
-                    style={{
-                      display: 'inline-flex', alignItems: 'center', gap: 5, padding: 0,
-                      border: 'none', background: 'transparent', cursor: 'pointer',
-                      fontSize: FS.sub, color: C.mute, fontFamily: 'inherit',
-                    }}>
+                  /* 손롤 금지 — 초기화도 버튼 원자를 쓴다(줄자가 raw 컨트롤로 잡는다). */
+                  <Btn variant="ghost" size="sm" onClick={clearAll} title="건 조건을 모두 해제합니다">
                     <RotateCcw size={ICON.sm} aria-hidden />초기화
-                  </button>
+                  </Btn>
                 ) : null}
               </div>
               {conditions}
