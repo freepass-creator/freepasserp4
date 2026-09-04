@@ -131,6 +131,12 @@ const yearOf = (firstReg: string) => {
 const FUEL_EV = /^(전기|수소)$|\bev\b|electric|fcev/i;
 const evEngineCc = (fuel: string, cc: string): string => (FUEL_EV.test(fuel) ? '' : cc);
 
+// ★인승은 «원문에 있는 것만»(사장님 2026-09-05 — 마스터엔 인승이 없다. 없으면 필수 아님).
+const rawSeats = (raw: string): string => {
+  const m = raw.match(/(\d{1,2})\s*인승/); if (m) return m[1];
+  return /(^|[^가-힣])밴([^가-힣]|$)|화물/.test(raw) ? '2' : '';
+};
+
 // 상태 디테일 — mirror-to-firestore 와 «같은» 분류(한 값에 안 뭉침). status·status_kind·status_reason·listable.
 const AVAIL = new Set(['즉시출고', '출고가능']);
 function statusDetail(rawStatus: string, locked?: unknown) {
@@ -270,6 +276,7 @@ function atomize(row: Row, pinned: Map<string, Record<string, unknown>>): Atom {
     maker: identity.maker, model: identity.model, sub_model: identity.sub_model, trim_name: identity.trim_name, origin: identity.origin, ...spec, engine_cc: evEngineCc(S(spec.fuel_type), S(spec.engine_cc)),
     product_type: canonProductType(row.kind),
     ...statusDetail(row.status, pin?.locked_by_contract), mileage: row.km, options: row.opt,
+    ...(rawSeats(vname) ? { seats: rawSeats(vname) } : null),   // 원문에 인승 있으면만
     ...(Object.keys(row.price).length ? { price: row.price } : null),
     확정: confirmed, 검수상태: confirmed ? '확정' : (identity.sub_model ? '검수대기' : (vname ? '매칭실패' : '원문없음')),
     _pin_state: state,

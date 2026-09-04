@@ -39,6 +39,12 @@ function rawLiter(raw: string): number {
   const m = [...raw.matchAll(/(\d\.\d)\s*t?\b/gi)].map((x) => Number(x[1])).filter((n) => n >= 0.8 && n <= 6.5);
   return m[0] || 0;
 }
+// ★인승은 원문에 «있는 것만»(사장님 2026-09-05 — 마스터엔 인승이 없다). 「N인승」·「밴/화물」(=2인) 명시.
+function rawSeats(raw: string): string {
+  const m = raw.match(/(\d{1,2})\s*인승/); if (m) return m[1];
+  if (/(^|[^가-힣])밴([^가-힣]|$)|화물/.test(raw)) return '2';
+  return '';
+}
 
 // 마스터 유효 세부모델 집합(제조사 무시, 모델|세부 소문자) — A 의 세부모델 교정이 실재값인지 확인용.
 const N = (v: unknown) => S(v).toLowerCase().replace(/\s+/g, '');
@@ -51,7 +57,7 @@ const literToCc = (l: number) => LITER_CC[l.toFixed(1)] || Math.round(l * 1000);
 
 const snap = await fs.collection('products').get();
 type Hit = { car: string; sub: string; raw: string; kind: string; msg: string };
-const A: Hit[] = [], B: Hit[] = [], Cc: Hit[] = [];
+const A: Hit[] = [], B: Hit[] = [], Cc: Hit[] = [], Dd: Hit[] = [];
 type Fix = { id: string; car: string; set: Record<string, unknown>; why: string };
 const fixes: Fix[] = [];
 const addFix = (id: string, car: string, set: Record<string, unknown>, why: string) => {
@@ -85,6 +91,10 @@ for (const d of snap.docs) {
     const diff = Math.abs(rl - ccNum(cc) / 1000);
     if (diff > 0.2) { Cc.push({ car, sub, raw, kind: 'C', msg: `원문 ${rl}L ≠ 원자 ${cc}cc(${(ccNum(cc) / 1000).toFixed(1)}L)` }); addFix(d.id, car, { engine_cc: String(literToCc(rl)) }, `C:배기량 ${cc}→${literToCc(rl)}`); }
   }
+  // D. 인승 — 원문이 답. 원문이 「N인승/밴」이라 말하면 그대로 · 현재 2인인데 원문에 밴/2인승 없으면(오류) 비운다.
+  const rs = rawSeats(raw), cs = S(x.seats);
+  if (rs && rs !== cs) { Dd.push({ car, sub, raw, kind: 'D', msg: `원문 ${rs}인 ≠ 원자 ${cs || '(빈)'}인` }); addFix(d.id, car, { seats: rs }, `D:인승 ${cs || '(빈)'}→${rs}(원문)`); }
+  else if (!rs && cs === '2' && !/밴|화물|2인승/.test(raw)) { Dd.push({ car, sub, raw, kind: 'D', msg: `2인인데 원문에 밴/인승 표기 없음 → 비움` }); addFix(d.id, car, { seats: '' }, `D:인승 2→비움(원문 미확인)`); }
 }
 
 const show = (t: string, arr: Hit[]) => { console.log(`\n■ ${t} — ${arr.length}건`); for (const h of arr.slice(0, 14)) console.log(`  ${h.car.padEnd(9)} 「${h.raw.slice(0, 30)}」 ${h.sub} · ${h.msg}`); };
@@ -92,7 +102,7 @@ console.log(`전수 감사 — 원자 ${snap.size}대`);
 show('A. 전기 모순(배기량 있는데 EV)', A);
 show('B. 연료 불일치(원문↔원자)', B);
 show('C. 배기량 불일치(원문 리터↔원자 cc)', Cc);
-console.log(`\n⚠ 인승(D)은 모델별 상식표가 있어야 정확 — 다음 단계.`);
+show('D. 인승(원문 근거만)', Dd);
 console.log(`\n★고칠 것(원문·마스터 근거 확실) ${fixes.length}건:`);
 for (const f of fixes.slice(0, 20)) console.log(`  ${f.car.padEnd(9)} ${f.why}`);
 
