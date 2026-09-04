@@ -443,6 +443,16 @@ if (existsSync(손오공계정)) {
   } else line.push('손오공 정제 ok');
   const k3 = run('⓪ 손오공 재고시트', ['sonokong/scripts/손오공-재고시트.mjs', ...(APPLY ? ['--쓰기'] : [])], /재고 ←|실패|Error/, 'node');
   if (!k3.ok) stop('손오공 재고시트 실패');
+  /**
+   * ⓪′ 손오공 구독사진 → 우리 드라이브 백업(사장님 2026-09-04 「sokuc 링크 말고, 다운받아 우리 드라이브 링크로」).
+   *   판매중인데 사진이 아직 sokuc API URL 인 차의 이미지를 freepasspics/손오공렌터카/<차번>/ 에 받아 두고
+   *   재고시트 「사진링크」를 드라이브 폴더로 바꾼다. 이미 드라이브면 건너뛴다(멱등). best-effort — 실패해도 안 멈춘다.
+   */
+  if (APPLY) {
+    const k4 = run('⓪′ 손오공 구독사진 드라이브', ['sonokong/scripts/손오공-구독사진-드라이브.mjs', '--apply'], /백업|대상|Drive|완료/, 'node');
+    if (k4.ok) line.push(k4.picked.find((l) => /대상/.test(l))?.replace(/^.*·\s*/, '사진 ') || '구독사진 ok');
+    else warnings.push('⓪′ 손오공 구독사진 드라이브 실패(발행엔 영향 없음)');
+  }
 } else if (APPLY) {
   /**
    * ★계정이 없는데 `--apply` 로 도는 것은 **안전한 완주가 아니다**(코덱스 2026-08-30).
