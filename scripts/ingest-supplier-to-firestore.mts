@@ -95,27 +95,22 @@ const regYearMonth = (s: string): [number, number] => {
   const y = yearOf(s); return [Number(y) || 0, 0];
 };
 /**
- * ★세대 판별 — «원문이 답»이다(사장님 2026-09-04 「원문에 웬만하면 다 있다」). 우선순위:
- *   ① 원문에 「N세대」 → 그 모델의 N번째 세대(마스터 연식순). E-클래스 6세대 = W213 처럼 명시된 답.
- *   ② 원문에 섀시코드(W213·G30…) → snap 이 이미 반영, 그대로.
- *   ③ 원문에 아무 세대 표기 없음(수입차 흔함) → 최초등록으로 신형 판별(구형 단종 뒤 신규등록=신형).
- *   국산차는 원문에 세대코드(CN7…)가 있어 ②·①에서 걸린다 — 최초등록 추론까지 안 간다(안전판).
+ * ★수입차 세대 판별 — 우선순위:
+ *   ① 원문에 섀시코드(W213·G30·F40…) → snap 이 이미 반영, 그대로. (가장 확실)
+ *   ② 표기 없음(수입차 흔함) → 최초등록으로 신형 판별(구형 단종 뒤 신규등록=신형). E-클래스 2024=W214.
+ *   국산차는 원문에 세대코드(CN7…)가 있어 ①에서 걸린다 — 최초등록 추론까지 안 간다(안전판).
+ *
+ * ⚠ 원문의 「N세대」 숫자는 «안» 쓴다 — 시장은 브랜드 시작(E-클래스=W124)부터 세는데 마스터는 그 이전
+ *    (W123…)까지 담아 순번이 어긋난다(6세대: 시장=W214 · 마스터순번=W213). 그 숫자로 매핑하면 틀린다
+ *    (사장님 2026-09-04 「6세대 214라고 확인된다」). 섀시코드·최초등록만 믿는다.
  */
 function resolveGen(maker: unknown, model: unknown, curSub: string, firstReg: string, rawN: string): string {
   let gens: { sub: string; gen: string; ys: number; ye: number }[] = [];
   for (const a of makerGroup(N(maker))) { const g = GENS.get(`${a}|${N(model)}`); if (g) { gens = g; break; } }
   if (gens.length < 2) return curSub;
-  // 연식순 · 세대코드 중복 제거 → N번째 세대.
-  const seen = new Set<string>(); const ord: typeof gens = [];
-  for (const g of [...gens].sort((a, b) => a.ys - b.ys)) { if (seen.has(g.gen)) continue; seen.add(g.gen); ord.push(g); }
-  // ① 원문에 「N세대」 명시 → 가장 확실한 답.
-  const m = rawN.match(/(\d+)세대/);
-  if (m) { const n = Number(m[1]); if (n >= 1 && n <= ord.length) return ord[n - 1].sub; }
-  // ② 원문에 섀시코드 명시 → snap 유지.
-  if (ord.some((g) => g.gen.length >= 3 && rawN.includes(g.gen))) return curSub;
-  // ③ 표기 없음 → 최초등록으로 신형 판별.
-  const [ry, rm] = regYearMonth(firstReg); if (!ry) return curSub;
-  const cands = ord.filter((g) => g.ys <= ry && ry <= g.ye).sort((a, b) => b.ys - a.ys);
+  if (gens.some((g) => g.gen.length >= 3 && rawN.includes(g.gen))) return curSub; // ① 원문에 섀시코드 → 그대로
+  const [ry, rm] = regYearMonth(firstReg); if (!ry) return curSub;                 // ② 최초등록으로 신형 판별
+  const cands = gens.filter((g) => g.ys <= ry && ry <= g.ye).sort((a, b) => b.ys - a.ys);
   if (!cands.length || N(cands[0].sub) === N(curSub)) return curSub;
   if (ry === cands[0].ys && rm && rm < 7) return curSub; // 교체연도 상반기면 애매 → snap 유지
   return cands[0].sub;
