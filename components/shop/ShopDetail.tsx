@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
-  ArrowLeft, Car, Check, ChevronDown, ChevronLeft, ChevronRight, Coins, FileText, Heart,
+  ArrowLeft, Car, Check, ChevronLeft, ChevronRight, Coins, FileText, Heart,
   IdCard, ImageOff, Info, ListChecks, Phone, Share2, ShieldCheck, type LucideIcon,
 } from 'lucide-react';
 import type { EntityRecord } from '@/lib/intake/entities';
@@ -29,10 +29,10 @@ import { kmDisplay, manWon } from '@/lib/format';
  * 짜임 — 차 파는 사이트가 공통으로 쓰는 순서 그대로다.
  *   ① 사진 — 큰 것 하나 + 좌우로 넘기기 + 「n / N」
  *   ② 차명 · 사실 한 줄 · 우대조건 뱃지
- *   ③ **기간을 고르면 값이 바뀐다** — 우리가 진짜 가진 것(12~60개월 사다리)
+ *   ③ **대여료** — 큰 금액 하나 + 그 밑에 «기간별 보조표»(줄을 누르면 큰 금액이 바뀐다)
  *   ④ 차량 정보(제원)
  *   ⑤ 이용 조건(정책) — 보험·연령·주행·면책
- *   ⑥ 하단 고정 — 전화 상담
+ *   ⑥ 하단 고정(폰) — 금액 + 전화
  * ★★**웹도 폰과 같은 한 줄이다.** 웹만 「사진 왼쪽 · 값 칸 오른쪽」 2단이었는데 걷었다
  *   (사장님 2026-09-05 「대여료를 꼭 사진 우측에서 보여줄 필요가 있어? 그냥 위아래로 스크롤하고
  *   저 대여료 섹션을 어딘가에 갖고 가서 보기 좋게 보여주면 되잖아」). 2단이면 «같은 화면인데
@@ -84,8 +84,6 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
     [p],
   );
   const [planIdx, setPlanIdx] = useState(0);
-  /** 기간별 표를 폈나 — **기본은 접힘.** 주인공은 최저가고 사다리는 보조다. */
-  const [openRates, setOpenRates] = useState(false);
   const [openOpts, setOpenOpts] = useState(false);
   const plan = plans[planIdx];
   /** 표에 세울 순서 — 기간 오름차순. 위 큰 숫자는 최저가로 시작하지만 표의 축은 «기간»이다. */
@@ -274,34 +272,26 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
       )}
 
       {/*
-        ★★기간별 표는 **보조**다(사장님 2026-09-05 「우리는 **최저가를 보여주고 기간별 세부
-          데이터는 약간 보조로** 보여주면 될 거 같아. 그러면 얼추 중고차 상세페이지를 소화할 수 있겠지」).
-          중고차 상세는 «금액 하나»가 주인공이고 할부는 그 밑에 한 줄로 붙는다. 우리 대응이 이거다 —
-          최저가가 크게 서고, 기간별 사다리는 접어 둔다.
-        ★접혀 있어도 **범위는 말한다**(「12~60개월 · 61만~95만원」). 접는 것과 감추는 것은 다르다 —
-          범위를 보고 「더 볼지」를 정하게 해야 누르는 것이지, 아무 말 없는 ▾ 는 아무도 안 누른다.
-        ★펼치면 표가 곧 고르개다 — 줄을 누르면 위 큰 숫자가 그 기간으로 바뀐다.
+        ★★기간별 표는 **보조표다 — 접는 게 아니라 «메인 금액 밑에» 깐다**
+          (사장님 2026-09-05 「기간표를 보조라고 한 게, **메인 대여료를 하고 그 밑에 전체 기간별
+          대여료를 보조표로 보여주라**는 거지」).
+        ⚠ 내가 「보조」를 «접어 둬라»로 읽고 접기 버튼을 달았다가 바로잡은 자리다(같은 날).
+          **보조는 «작게 아래»지 «숨김»이 아니다.** 중고차 상세도 금액 하나가 주인공이고
+          할부표는 그 밑에 «깔려» 있지, 눌러야 나오지 않는다.
+        ★조사와도 같은 결론이다 — 열두 곳(엔카·Cinch·Bipi·Kinto·Vamos·제네시스…) 중
+          **요금 구조를 접은 곳이 0곳**이었다. 아코디언에 넣은 것은 FAQ·제원뿐이다.
+        ★표가 곧 고르개다 — 줄을 누르면 위 큰 숫자가 그 기간으로 바뀐다.
           기간 오름차순(12→60)이라 「길게 하면 싸지는구나」가 읽힌다.
+        ★★넓은 화면에서 **표를 늘리지 않는다**(폭 520 에서 끊는다). 세 칸짜리 표를 880px 로
+          늘리면 기간과 금액 사이가 손가락 두 뼘이 되어, 같은 줄인데 눈이 못 잇는다.
+          보조표는 «작아야» 보조다 — 큰 숫자와 다투면 그때부터 둘 다 안 읽힌다.
       */}
       {plans.length > 1 ? (
-        <div style={{ marginTop: 16 }}>
-          <button type="button" onClick={() => setOpenRates((v) => !v)} className="fp-shop-press"
-            aria-expanded={openRates} aria-controls="fp-shop-rates"
-            style={{
-              display: 'flex', alignItems: 'center', gap: 6, width: '100%',
-              padding: '9px 0', border: 'none', background: 'transparent', cursor: 'pointer',
-              fontFamily: 'inherit', fontSize: SHOP.fs.sub, color: C.mute, textAlign: 'left',
-            }}>
-            <span style={{ flex: 1, minWidth: 0, fontVariantNumeric: 'tabular-nums' }}>
-              기간별 요금 {byMonth[0].m}~{byMonth[byMonth.length - 1].m}개월 ·{' '}
-              {manWon(plans[0].rent)}~{manWon(plans[plans.length - 1].rent)}
-            </span>
-            <ChevronDown size={ICON.md} aria-hidden
-              style={{ flex: '0 0 auto', transform: openRates ? 'rotate(180deg)' : undefined, transition: 'transform .18s ease' }} />
-          </button>
-
-          {openRates ? (
-            <table id="fp-shop-rates" style={{ width: '100%', borderCollapse: 'collapse', fontVariantNumeric: 'tabular-nums' }}>
+        <div style={{ marginTop: 18, maxWidth: mobile ? undefined : 520 }}>
+          <div style={{
+            marginBottom: 8, fontSize: SHOP.fs.cap, fontWeight: 600, color: C.mute,
+          }}>기간별 대여료</div>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontVariantNumeric: 'tabular-nums' }}>
               <thead>
                 <tr>
                   {['기간', '월 대여료', '보증금'].map((h, i) => (
@@ -350,7 +340,6 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
                 })}
               </tbody>
             </table>
-          ) : null}
         </div>
       ) : null}
 
