@@ -30,6 +30,7 @@ import { CORP } from '../lib/domain/corporate-ci';
 import { payDate, payDayOf, PAY_DAY_BY_SUPPLIER } from '../lib/domain/settlement-cycle';
 import { settleTargetOf, billingMonthIn, lockedMonthsOf, type SettlementRow } from '../lib/domain/settlement-stage';
 import { feeKindOf, feeRuleFor } from '../lib/domain/settlement-fee-table';
+import { outwardText } from '../lib/domain/outward-text';
 import { channelSheetName, CHANNEL_SETTLE_HEAD, CHANNEL_SETTLE_WIDTH, SETTLE_BASIS, SETTLE_NOTE, settleTabOf } from '../lib/server/channel-sheet-tabs';
 
 const MONTH = (process.argv.find((a) => /^\d{4}-\d{2}$/.test(a)) || '').trim();
@@ -153,7 +154,9 @@ for (const ch of chans) {
   if (ONLY && !ch.includes(ONLY)) continue;
   const mine = rows.filter((r) => S(r.channel) === ch).map(lineOf).filter((l) => l.total !== 0);
   const mineBacks: Back[] = claws.filter((c) => S(c.channel) === ch)
-    .map((c) => ({ plate: S(c.plate), sup: S(c.supplier), amt: N(c.agentAmt), why: S(c.reason) }))
+    /** ★사유에서 «우리끼리 하는 말»과 남의 상호를 걷는다 — 공급사 쪽 빗장의 거울. */
+    .map((c) => ({ plate: S(c.plate), sup: S(c.supplier), amt: N(c.agentAmt),
+      why: outwardText(c.reason, [...new Set(rows.map((r) => S(r.supplier)))].filter((x) => x !== S(c.supplier))) }))
     .filter((b) => b.amt !== 0);
   if (!mine.length && !mineBacks.length) continue;
   /**
@@ -182,7 +185,8 @@ const BASIS_BODY = { red: 0.975, green: 0.97, blue: 0.99 };
 /** 얼룩 줄 · 구역 칸막이 · 환수 줄 — 읽는 결을 만드는 세 가지. */
 const ZEBRA = { red: 0.972, green: 0.976, blue: 0.984 };
 const LINE = { red: 0.78, green: 0.80, blue: 0.85 };
-const BACK_ROW = { red: 0.99, green: 0.92, blue: 0.92 };
+/** ★환수 줄 — «연한 분홍 바탕»만(사장님 2026-09-04 「두껍게 이런건 하지마」). */
+const BACK_ROW = { red: 1, green: 0.945, blue: 0.955 };
 /**
  * ★**「적용한 표 규칙」은 뺀다** — 사장님 2026-09-03 「적용한 규칙이랑은 뺀도 된다고」.
  *   상대가 알 것은 «어떻게 나왔나»이지 우리 표의 줄 이름이 아니다. 산출근거 한 칸이면 족하다.
@@ -411,7 +415,12 @@ for (const j of jobs) {
     ...Array.from({ length: Math.max(0, 5 - missed.length) }, (_, k) => (k === 0 && !missed.length
       ? [...pad(HEAD.length - 1), '빠진 건이 있으면 이 줄부터 적어 주세요']
       : pad(HEAD.length))),
-    [],
+    /**
+     * ★빈 줄도 «칸 수만큼» 적는다 — `[]` 로 두면 그 줄을 안 건드려 «옷 글이 남는다».
+     *   실측 2026-09-04 — 환수 줄이 늘면서 꼬리가 한 칸 밀렸는데 옷 꼬리가 그대로 남아
+     *   「입금 부탁드립니다」가 두 줄 나왔다.
+     */
+    pad(HEAD.length),
     /** ★날은 «줄마다» 적혀 있다 — 여기서는 규칙만 한 줄로 말한다. */
     [`지급 예정일은 줄마다 적었습니다 — ${SPLIT_SUPPLIERS.map((s) => `${s} 매월 ${payDayOf(s)}일`).join(' · ')} · 그 밖 매월 ${payDayOf('')}일`, ...pad(HEAD.length - 1)],
     [`${CORP.staff} · ${S(CORP.staffPhone) || CORP.phone} · ${CORP.email}`, ...pad(HEAD.length - 1)],
@@ -447,7 +456,7 @@ for (const j of jobs) {
     { updateDimensionProperties: { range: { sheetId: id, dimension: 'ROWS', startIndex: r0 + 1, endIndex: last + 1 }, properties: { pixelSize: 24 }, fields: 'pixelSize' } },
     /** ★환수 줄은 연한 붉은빛 — «빼는 돈»이라 숫자만 음수면 눈에 안 들어온다. */
     ...j.backs.map((_, i) => ({ repeatCell: { range: all1(r0 + 1 + j.lines.length + i, r0 + 2 + j.lines.length + i),
-      cell: { userEnteredFormat: { backgroundColor: BACK_ROW } }, fields: 'userEnteredFormat.backgroundColor' } })),
+      cell: { userEnteredFormat: { backgroundColor: BACK_ROW, textFormat: { bold: false } } }, fields: 'userEnteredFormat(backgroundColor,textFormat)' } })),
     /**
      * ★**「수수료 산정 기준」 머리도 «남색 그대로»** — 사장님 2026-09-03 「칸헤더 왜 색깔이 다르지??」
      *   한 칸만 보라로 칠해 두니 «다른 표»처럼 보였다. 같은 표의 한 칸이면 머리도 같아야 한다.

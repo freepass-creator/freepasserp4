@@ -34,6 +34,7 @@ import { CORP } from '../lib/domain/corporate-ci';
 import { dueDate } from '../lib/domain/settlement-cycle';
 import { settleTargetOf, billingMonthIn, lockedMonthsOf, type SettlementRow } from '../lib/domain/settlement-stage';
 import { feeKindOf, feeRuleFor, SUPPLIER_ALIAS } from '../lib/domain/settlement-fee-table';
+import { outwardText } from '../lib/domain/outward-text';
 
 const MONTH = (process.argv.find((a) => /^\d{4}-\d{2}$/.test(a)) || '').trim();
 const APPLY = process.argv.includes('--apply');
@@ -160,7 +161,15 @@ for (const sup of sups) {
   /** ★차례는 «접수일 순» — 영업채널 시트와 같은 규칙이다(사장님 2026-09-03 「접수일자 순으로」). */
   mine.sort((a, b) => `${a.recv || '9999-99-99'}|${a.plate}`.localeCompare(`${b.recv || '9999-99-99'}|${b.plate}`));
   const backs: Back[] = claws.filter((c) => S(c.supplier) === sup)
-    .map((c) => ({ plate: S(c.plate), amt: N(c.supplierAmt), why: S(c.reason) })).filter((b) => b.amt !== 0);
+    /**
+     * ★★★**사유에서 «우리끼리 하는 말»을 걷는다** — 사장님 2026-09-04
+     *   「공급사에 보여지는건 내부 문서가 아닌데」.
+     *   ⚠ 사람 이름·내부 처리 말뿐 아니라 **남의 상호**가 새는 것이 사고다 —
+     *     리더스가 「하허호」를 볼 이유가 없다. 지급 요율을 가린 것과 같은 까닭이다.
+     */
+    .map((c) => ({ plate: S(c.plate), amt: N(c.supplierAmt),
+      why: outwardText(c.reason, [S(c.channel), ...[...new Set(rows.map((r) => S(r.channel)))]]) }))
+    .filter((b) => b.amt !== 0);
   const cl = backs.reduce((a, b) => a + b.amt, 0);
   if (!mine.length && !cl) continue;
   if (hit.length !== 1) { skip.push(`${sup} — 재고 시트를 ${hit.length === 0 ? '못 찾음' : `${hit.length}개나 찾음`}`); continue; }
@@ -191,7 +200,8 @@ const BASIS_BODY = { red: 0.975, green: 0.97, blue: 0.99 };
 /** 얼룩 줄 · 구역 칸막이 · 환수 줄 — 읽는 결을 만드는 세 가지. */
 const ZEBRA = { red: 0.972, green: 0.976, blue: 0.984 };
 const LINE = { red: 0.78, green: 0.80, blue: 0.85 };
-const BACK_ROW = { red: 0.99, green: 0.92, blue: 0.92 };
+/** ★환수 줄 — «연한 분홍 바탕»만(사장님 2026-09-04 「두껍게 이런건 하지마」). */
+const BACK_ROW = { red: 1, green: 0.945, blue: 0.955 };
 /** 임차인정보 ── 산출조건 ── 금액. 이름은 원장 청구탭과 같게 둔다. */
 /**
  * ★**「적용한 표 규칙」은 뺀다** — 사장님 2026-09-03 「적용한 규칙이랑은 뺀도 된다고」.
@@ -316,7 +326,12 @@ for (const j of jobs) {
     HEAD,
     ...body,
     ['', '합계', `${j.lines.length}건`, ...pad(iM - 3), j.net, j.vat, j.net + j.vat, ...pad(HEAD.length - iM - 3)],
-    [],
+    /**
+     * ★빈 줄도 «칸 수만큼» 적는다 — `[]` 로 두면 그 줄을 안 건드려 «옷 글이 남는다».
+     *   실측 2026-09-04 — 환수 줄이 늘면서 꼬리가 한 칸 밀렸는데 옷 꼬리가 그대로 남아
+     *   「입금 부탁드립니다」가 두 줄 나왔다.
+     */
+    pad(HEAD.length),
     [`${dayKo(dueDate(MONTH))} 까지 입금 부탁드립니다`, ...pad(HEAD.length - 1)],
     [`${CORP.staff} · ${S(CORP.staffPhone) || CORP.phone} · ${CORP.email}`, ...pad(HEAD.length - 1)],
     ['한 달간 함께해 주셔서 감사합니다 · 프리패스모빌리티 주식회사 임직원 일동', ...pad(HEAD.length - 1)],
@@ -353,7 +368,7 @@ for (const j of jobs) {
     { updateDimensionProperties: { range: { sheetId: id, dimension: 'ROWS', startIndex: r0 + 1, endIndex: last + 1 }, properties: { pixelSize: 24 }, fields: 'pixelSize' } },
     /** ★환수 줄은 연한 붉은빛 — «빼는 돈»이라 숫자만 음수면 눈에 안 들어온다. */
     ...(j.claw ? [body.length - 1] : []).map((i: number) => ({ repeatCell: { range: all1(r0 + 1 + i, r0 + 2 + i),
-      cell: { userEnteredFormat: { backgroundColor: BACK_ROW } }, fields: 'userEnteredFormat.backgroundColor' } })),
+      cell: { userEnteredFormat: { backgroundColor: BACK_ROW, textFormat: { bold: false } } }, fields: 'userEnteredFormat(backgroundColor,textFormat)' } })),
     // 정렬 — 돈은 우측 · 글은 좌측 · 나머지 가운데
     ...HEAD.map((h, c) => ({ repeatCell: { range: { sheetId: id, ...DATA, startColumnIndex: c, endColumnIndex: c + 1 },
       cell: { userEnteredFormat: { horizontalAlignment: MONEY.includes(h) ? 'RIGHT' : LEFT.includes(h) ? 'LEFT' : 'CENTER', verticalAlignment: 'MIDDLE' } },
