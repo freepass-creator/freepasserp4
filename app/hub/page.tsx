@@ -1,7 +1,7 @@
 'use client';
 import { useCallback, useEffect, useState } from 'react';
 import { Page } from '@/components/Page';
-import { Btn, C, CenterNote, FS, FW, Loading, NUM, R_CARD } from '@/components/ui';
+import { Btn, C, CenterNote, FS, FW, Loading, NUM, R_CARD, SearchInput } from '@/components/ui';
 import { getAuthClient } from '@/lib/firebase/client';
 import {
   OPS_HEALTH_LABEL, OPS_STALE_MS, opsHealth,
@@ -24,6 +24,23 @@ import {
  * ★읽는 것은 **문서 하나**다(`/api/ops/pipeline`). 매물 전량을 폴링하면 열 명이 10분마다
  *   봐도 월 50달러쯤 나가지만, 이 2KB 한 줄은 30초마다 봐도 월 몇 천 원이다.
  */
+
+/**
+ * 정밀타격 결과 — 차 한 대가 «어디서 왔나」와 «그 줄로 가는 주소».
+ * 「⑥ 실패」만 보여 주면 아무도 못 고친다. 고칠 자리까지 찍어 줘야 관제탑이다.
+ */
+type Trace = {
+  found: boolean;
+  candidates?: string[];
+  plate?: string;
+  productCode?: string;
+  supplier?: { code: string; name: string };
+  origin?: { source: string; tab: string; gid: string; row: string; url: string };
+  cellLink?: string;
+  lastSync?: { runId: string; updatedAt: number | null; updatedBy: string };
+  block?: { reason: string; at: string; statusOwner: string };
+  status?: string;
+};
 
 /** 30초. 요약 한 줄이라 이 주기로 돌아도 비용이 거의 안 붙는다. */
 const POLL_MS = 30_000;
@@ -48,6 +65,29 @@ export default function HubPage() {
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState('');
   const [now, setNow] = useState(() => Date.now());
+  const [plate, setPlate] = useState('');
+  const [trace, setTrace] = useState<Trace | null>(null);
+  const [tracing, setTracing] = useState(false);
+
+  /** 차번 하나를 짚는다 — 폴링과 별개로, 누를 때만 부른다(전량 조회라 비싸다). */
+  const runTrace = useCallback(async (q: string) => {
+    const v = q.trim();
+    if (!v) { setTrace(null); return; }
+    setTracing(true);
+    try {
+      const user = getAuthClient()?.currentUser;
+      if (!user) return;
+      const res = await fetch(`/api/ops/trace?q=${encodeURIComponent(v)}`, {
+        headers: { Authorization: `Bearer ${await user.getIdToken()}` },
+        cache: 'no-store',
+      });
+      setTrace(res.ok ? (await res.json() as Trace) : { found: false });
+    } catch {
+      setTrace({ found: false });
+    } finally {
+      setTracing(false);
+    }
+  }, []);
 
   const load = useCallback(async () => {
     try {
@@ -188,6 +228,58 @@ export default function HubPage() {
               아직 한 번도 올라오지 않았습니다. 자동동기가 다음 회차를 돌면 여기에 나타납니다.
             </CenterNote>
           ) : null}
+
+          {/* ── 정밀타격 — 차 한 대가 어디서 왔나. 누르면 그 시트 그 줄로 바로 간다 ── */}
+          <div style={{ border: `1px solid ${C.line}`, borderRadius: R_CARD, padding: '16px 20px' }}>
+            <div style={{ fontSize: FS.title, fontWeight: FW.title, color: C.ink, marginBottom: 4 }}>이 차 어디서 왔나</div>
+            <div style={{ fontSize: FS.sub, color: C.mute, marginBottom: 12 }}>
+              차량번호를 넣으면 원본 시트·탭·행과 마지막으로 닿은 회차를 짚어 줍니다.
+            </div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+              <SearchInput value={plate} onChange={setPlate} placeholder="135허5711" style={{ flex: '1 1 220px', minWidth: 180 }} />
+              <Btn size="sm" onClick={() => void runTrace(plate)}>추적</Btn>
+            </div>
+
+            {tracing ? <div style={{ marginTop: 12 }}><Loading /></div> : null}
+
+            {!tracing && trace && !trace.found ? (
+              <div style={{ marginTop: 12, fontSize: FS.sub, color: C.mute }}>
+                {trace.candidates?.length
+                  ? `여럿입니다 — ${trace.candidates.join(' · ')}`
+                  : '그 차번을 못 찾았습니다.'}
+              </div>
+            ) : null}
+
+            {!tracing && trace?.found ? (
+              <div style={{ marginTop: 14, display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {([
+                  ['차량', `${trace.plate} · ${trace.status || '상태없음'}`],
+                  ['공급사', `${trace.supplier?.name || '-'}${trace.supplier?.code ? ` (${trace.supplier.code})` : ''}`],
+                  ['원본', trace.origin?.tab
+                    ? `${trace.origin.tab}${trace.origin.row ? ` · ${trace.origin.row}행` : ''}${trace.origin.gid ? ` · gid ${trace.origin.gid}` : ''}`
+                    : (trace.origin?.source || '출처 기록 없음')],
+                  ['마지막 동기', trace.lastSync?.updatedAt
+                    ? `${ago(trace.lastSync.updatedAt, now)}${trace.lastSync.updatedBy ? ` · ${trace.lastSync.updatedBy}` : ''}`
+                    : '기록 없음'],
+                  ...(trace.block?.reason ? [['시트가 막음', `${trace.block.reason}${trace.block.at ? ` · ${trace.block.at}` : ''}`] as const] : []),
+                ] as const).map(([k, v]) => (
+                  <div key={k} style={{ display: 'flex', gap: 12, alignItems: 'baseline' }}>
+                    <span style={{ fontSize: FS.sub, color: C.faint, minWidth: 88 }}>{k}</span>
+                    <span style={{ fontSize: FS.body, color: C.ink, fontFamily: NUM }}>{v}</span>
+                  </div>
+                ))}
+                {trace.cellLink ? (
+                  <div style={{ marginTop: 6 }}>
+                    <Btn size="sm" href={trace.cellLink} title="원본 시트의 그 줄로 바로 갑니다">원본 시트 그 줄로 가기</Btn>
+                  </div>
+                ) : (
+                  <div style={{ marginTop: 6, fontSize: FS.cap, color: C.faint }}>
+                    공급사 시트 주소가 없어 링크를 못 만듭니다 — 파트너사 관리에서 「구글시트 URL」을 채우면 됩니다.
+                  </div>
+                )}
+              </div>
+            ) : null}
+          </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
             <Btn variant="ghost" size="sm" onClick={() => { setNow(Date.now()); void load(); }}>새로고침</Btn>
