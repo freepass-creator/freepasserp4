@@ -224,20 +224,46 @@ class FirestoreAdapter implements StoreAdapter {
       return snap.docs.map((d) => d.data() as EntityRecord).filter((r) => !r.deletedAt);
     } catch (e) { console.warn(`Firestore list(${entityKey}) 대기 실패(DB·규칙 확인):`, (e as Error).message); return []; }
   }
+  /** 역할 격리 엔티티(계약·정산)의 실제 문서를 «_key + 역할제약»으로 찾는다 — doc-id 프리픽스(공급사코드)와 세션 회사가 달라도 맞춘다. */
+  private async findRoleIsolated(entityKey: string, key: string): Promise<{ id: string; data: EntityRecord } | null> {
+    const { getFirestore, collection, query, where, getDocs } = await import('firebase/firestore');
+    const db = getFirestore(getFirebaseApp()!);
+    const col = collection(db, entityKey);
+    const s = getSession();
+    let q;
+    if (s && s.role === 'agent' && s.user_code) q = query(col, where('_key', '==', key), where('agent_code', '==', s.user_code));
+    else if (s && s.role === 'provider' && s.company_code) q = query(col, where('_key', '==', key), where('provider_company_code', '==', s.company_code));
+    else q = query(col, where('_key', '==', key));   // 관리자
+    const snap = await withTimeout(getDocs(q));
+    return snap.empty ? null : { id: snap.docs[0].id, data: snap.docs[0].data() as EntityRecord };
+  }
   async get(entityKey: string, companyId: string, key: string): Promise<EntityRecord | null> {
     try {
       const { getFirestore, doc, getDoc } = await import('firebase/firestore');
       const db = getFirestore(getFirebaseApp()!);
+      if (entityKey === 'contract' || entityKey === 'settlement') {
+        const hit = await this.findRoleIsolated(entityKey, key);
+        return hit ? hit.data : null;
+      }
       const snap = await withTimeout(getDoc(doc(db, entityKey, `${companyId}__${key}`)));
       return snap.exists() ? (snap.data() as EntityRecord) : null;
     } catch (e) { console.warn(`Firestore get(${entityKey}) 대기 실패(DB·규칙 확인):`, (e as Error).message); return null; }
   }
   async update(entityKey: string, companyId: string, key: string, patch: EntityRecord): Promise<void> {
-    const before = await this.get(entityKey, companyId, key);
     const { getFirestore, doc, setDoc } = await import('firebase/firestore');
     const db = getFirestore(getFirebaseApp()!);
+    // 역할 격리 엔티티는 «실제 문서 id»(공급사코드 프리픽스)로 써야 한다 — 세션 회사로 만든 id 로 쓰면 엉뚱한 새 문서가 생긴다.
+    let docId = `${companyId}__${key}`;
+    let before: EntityRecord | null;
+    if (entityKey === 'contract' || entityKey === 'settlement') {
+      const hit = await this.findRoleIsolated(entityKey, key);
+      before = hit?.data ?? null;
+      if (hit) docId = hit.id;
+    } else {
+      before = await this.get(entityKey, companyId, key);
+    }
     const after = { ...(before || {}), ...patch, updatedAt: new Date().toISOString() };
-    await setDoc(doc(db, entityKey, `${companyId}__${key}`), { ...patch, updatedAt: after.updatedAt }, { merge: true });
+    await setDoc(doc(db, entityKey, docId), { ...patch, updatedAt: after.updatedAt }, { merge: true });
     this.logAudit(entityKey, companyId, key, patch.deletedAt ? 'delete' : 'update', before, after);
   }
   async bulkPatch(entityKey: string, companyId: string, patches: { key: string; patch: EntityRecord }[]): Promise<number> {
