@@ -55,7 +55,7 @@ export const SALES_SECTIONS: readonly { title: string; why: string; columns: rea
      *   `SALES_RETIRED_COLUMNS` 가 이 이름을 막고 있어, 되살려도 발행기가 세우지 않는다.
      *   되살리려면 그 목록부터 고쳐야 하고, 그건 사장님 결정을 되돌리는 일이다.
      */
-    columns: ['최초등록', '차고지', '사진'],
+    columns: ['최초등록', '차고지', '사진', '차번링크'],
   },
   {
     title: '값',

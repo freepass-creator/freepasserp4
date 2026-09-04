@@ -21,6 +21,12 @@
 export const BILL_DAY = 3;
 /** 결제일 — 다음 달 며칠. ★「기한」이라 부르지 않는다 — 밀린 사람한테 쓰는 말이다. */
 export const DUE_DAY = 10;
+/**
+ * ★**영업채널에 «주는» 날은 따로다 — 다음 달 15일**(사장님 2026-09-03 「영업채널은 9월 15일 지급예정」).
+ *   받아서 주는 구조라 «받는 날(10일)»이 «주는 날(15일)»보다 앞서야 한다.
+ *   ⚠ 두 날을 한 값으로 쓰면 아직 안 들어온 돈을 주기로 적게 된다.
+ */
+export const PAY_DAY = 15;
 
 const YM = /^(\d{4})-(\d{2})$/;
 
@@ -34,6 +40,28 @@ export function billDate(month: string): Date | null {
 export function dueDate(month: string): Date | null {
   const x = YM.exec(String(month ?? '').trim());
   return x ? new Date(Number(x[1]), Number(x[2]), DUE_DAY) : null;
+}
+
+/**
+ * ★★**공급사마다 «주는 날»이 다른 경우가 있다** — 사장님 2026-09-03
+ *   「하허호보니까 오플 지급일이 달라서 따로 정리해놨어」 · 오토플러스는 **익월 25일**.
+ *
+ *   ⚠ 그래서 하허호 정산서는 «한 장이 아니다» — 09/15 몫과 09/25 몫이 섞이면
+ *     종이에 찍힌 날이 절반은 틀린 말이 된다. 갈라서 낸다.
+ *   ★날짜는 여기 «한 곳»에서만 갈린다. 스크립트마다 따로 적으면 또 어긋난다.
+ */
+export const PAY_DAY_BY_SUPPLIER: Record<string, number> = { 오토플러스: 25 };
+
+/** 그 공급사에게 주는 날은 며칠인가 — 표에 없으면 기본 15일. */
+export const payDayOf = (supplier?: string): number => {
+  const s = String(supplier ?? '').trim();
+  return (s && Object.entries(PAY_DAY_BY_SUPPLIER).find(([k]) => s.includes(k))?.[1]) || PAY_DAY;
+};
+
+/** 정산월 `2026-08` → 영업채널 지급 예정일 `2026-09-15` (공급사를 주면 그쪽 날) */
+export function payDate(month: string, supplier?: string): Date | null {
+  const x = YM.exec(String(month ?? '').trim());
+  return x ? new Date(Number(x[1]), Number(x[2]), payDayOf(supplier)) : null;
 }
 
 /**

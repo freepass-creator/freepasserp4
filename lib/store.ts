@@ -27,6 +27,8 @@ export interface StoreAdapter {
   backend: string;
   save(entityKey: string, companyId: string, records: EntityRecord[]): Promise<SaveResult>;
   list(entityKey: string, companyId: string): Promise<EntityRecord[]>;
+  /** 상품찾기 첫 화면 전용: 공급사명 보정은 뒤로 미루고 판매 가능한 상품 원본을 먼저 준다. */
+  listForFinder?(companyId: string): Promise<EntityRecord[]>;
   /** 경합 판정용 목록 — DispatchStore의 세션 캐시를 우회한다. */
   listFresh?(entityKey: string, companyId: string): Promise<EntityRecord[]>;
   /** 쓰기 전 검증용: 원본 source 일부가 실패했는지 함께 반환한다. */
@@ -441,6 +443,14 @@ class DispatchStore implements StoreAdapter {
       }); // 실패는 캐시 안 함(다음에 재시도)
     }
     return p;
+  }
+  async listForFinder(companyId: string): Promise<EntityRecord[]> {
+    const base = this.base;
+    // 일반 list 캐시에는 공급사명이 보정된 행을 유지한다. 상품찾기만 먼저 그린 행은
+    // 별도 경로로 두어 다른 업무 화면의 표시 계약을 바꾸지 않는다.
+    return typeof base.listForFinder === 'function'
+      ? base.listForFinder(companyId)
+      : this.list('product', companyId);
   }
   async listMessagesForRoom(companyId: string, roomId: string) {
     const ck = `message::${companyId}::room::${roomId}`;

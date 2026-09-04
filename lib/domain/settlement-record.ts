@@ -26,6 +26,27 @@ export type SettlementRecord = {
   /** `stl_` 대체키. **절대 안 바뀐다.** */
   code: string;
 
+  /**
+   * ★★**사람이 «박은» 청구월** — 있으면 계산보다 이긴다(`billingMonth`).
+   *   ⚠ 2026-09-02 까지 이 칸이 여기 없어 `normalizeRecord` 가 통째로 버렸다.
+   *     그래서 정산서가 8월을 스스로 계산해 39건 46,604,613 으로 내보냈다 —
+   *     확정값은 47줄 43,181,120 이다. 칸 하나가 빠져 종이가 틀렸다.
+   */
+  billMonth?: string;
+
+  /**
+   * ★★**정산 조건 넷** — 원장 「계약번호」 칸의 메모를 원자로 푼 것이다(2026-09-01 실측 92줄).
+   *   `settleTarget` = 양쪽·공급사만·영업사만 · `settleRatio` = 0.5 처럼 절반만 ·
+   *   `billHold` = 이번 달 청구 아님 · `settleExclude` = 정산 대상 아님.
+   *   ⚠ 이 넷도 여기 없어서 버려졌고, 그래서 8월 정산서가 56,164,240 으로 나왔다(확정 43,181,120).
+   */
+  settleTarget?: string;
+  settleRatio?: number;
+  billHold?: boolean;
+  settleExclude?: boolean;
+  /** ★적힌 금액이 «부가세 포함»인가(스타스카이 재렌트). 참이면 그 값이 총액이다. */
+  vatIncluded?: boolean;
+
   // ── 뼈대
   plate: string;
   model: string;
@@ -208,6 +229,12 @@ export function normalizeRecord(r: Partial<SettlementRecord>): SettlementRecord 
     age: S(r.age), region: S(r.region),
     receivedAt: S(r.receivedAt), paper: !!r.paper,
     delivered: !!S(r.deliveredAt), deliveredAt: S(r.deliveredAt),
+    billMonth: String(r.billMonth ?? '').trim() || undefined,
+    settleTarget: S(r.settleTarget) || undefined,
+    settleRatio: Number(r.settleRatio) || undefined,
+    billHold: r.billHold === true || undefined,
+    settleExclude: r.settleExclude === true || undefined,
+    vatIncluded: r.vatIncluded === true || undefined,
     cancelled: !!r.cancelled, clawback: !!r.clawback,
     clawbackReason: S(r.clawbackReason), clawbackAt: S(r.clawbackAt), clawbackAmount: N(r.clawbackAmount),
     supplierRate: N(r.supplierRate), agentRate: N(r.agentRate),

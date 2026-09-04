@@ -16,6 +16,13 @@ service cloud.firestore {
         || (signedIn() && myCompany(request.resource.data) && claim('role') == 'provider' && request.resource.data.provider_company_code == claim('provider_company_code'));
       allow delete: if false;
     }
+    // 파인더 카탈로그(차번별 원자) — 파는 차 목록은 마켓이라 로그인 전원 read.
+    //   원가·수수료·차대번호·계좌는 담지 않는다(미러가 걷어냄) → 노출 안전.
+    //   쓰기는 서버(미러/동기, admin SDK — 규칙 우회)만. 클라 쓰기 전면 금지.
+    match /products/{id} {
+      allow read: if signedIn();
+      allow write: if false;
+    }
     // 계약 — 관리자 전체, 영업자=자기 계약, 공급사=자기 매물 계약(응답)
     match /contract/{id} {
       allow read: if signedIn() && myCompany(resource.data);

@@ -29,6 +29,31 @@ export type SettlementChecks = {
 };
 
 export type SettlementRow = SettlementChecks & {
+  /**
+   * ★★**사람이 «박은» 청구월** — 있으면 계산보다 이긴다.
+   *   2026-08 은 태윤 매니저 원장에 맞춰 47줄 43,181,120 으로 박아 둔 달이다.
+   *   ⚠ 계산이 그걸 덮으면 이미 나간 청구서와 정산서가 갈린다 —
+   *     실측 2026-09-02, 안 보고 계산하니 39건 46,604,613 이 나왔다.
+   */
+  billMonth?: string;
+  /**
+   * ★★**정산 조건 넷** — 원장 「계약번호」 칸에 메모로 적혀 있던 것을 원자로 푼 것이다
+   *   (실측 2026-09-01, 92줄에 메모가 들어 있었다).
+   * ```
+   * settleTarget   '모두' | '영업' | '공급'      한쪽만 정산하는 건 (settleTargetOf 로 읽는다)
+   * settleRatio    0.5 = 절반만                   「50% 완납 후 50%」
+   * billHold       이번 달 청구 아님                 「후불」·보류
+   * settleExclude  아예 정산 대상 아님
+   * ```
+   *   ⚠ 이 넷을 안 보면 종이가 시트와 갈린다 — 실측 2026-09-02, 안 보고 뽑으니
+   *     8월이 56,164,240 으로 나왔다(확정 43,181,120 · 차 12,983,120).
+   */
+  settleTarget?: string;
+  settleRatio?: number;
+  billHold?: boolean;
+  settleExclude?: boolean;
+  /** ★적힌 금액이 «부가세 포함»인가. 참이면 그 값이 총액이다 — 부가세를 또 붙이지 않는다. */
+  vatIncluded?: boolean;
   plate: string;
   supplier: string;
   agent: string;
@@ -212,6 +237,9 @@ export const claimsOnComplete = (r: SettlementRow) => {
  * ★인도 전이면 청구가 없다 — `null` 이다. 「없다」가 아니라 「아직」이다.
  */
 export const billingMonth = (r: SettlementRow, now = new Date()): string | null => {
+  // ★★박힌 청구월이 이긴다 — 사람이 정한 달을 계산이 덮으면 종이가 시트와 갈린다.
+  const written = String(r.billMonth ?? '').trim();
+  if (written) return written;
   if (!r.deliveredAt) return null;
   if (!claimsOnComplete(r)) return ym(r.deliveredAt);
   // ★부러졌으면 그 자리에서 청구한다 — 마지막으로 받은 회차가 든 달이다.
@@ -229,6 +257,26 @@ export const billingMonth = (r: SettlementRow, now = new Date()): string | null 
  * ⚠ **적힌 회차가 있어야 «부러졌다»고 말할 수 있다.** 안 적혀 있으면 기간 비례라 늘 「받은 것」이 되고,
  *   그건 사실이 아니라 「아직 아니라고 말한 사람이 없다」는 뜻이다(`brokenOf` 주석).
  */
+/**
+ * **박힌 달에는 «박힌 줄만» 선다.**
+ *
+ * ★사람이 한 달을 맞춰 놓았으면(2026-08 = 태윤 매니저 원장 47줄 43,181,120) 그 달은 닫힌 것이다.
+ *   계산으로 늦게 들어오는 줄이 확정된 달을 흔들면 이미 나간 청구서와 정산서가 갈린다.
+ *   ⚠ 실측 2026-09-02 — 이걸 안 보고 뽑으니 8월이 56건 68,204,345 로 부풀었다.
+ *     박힌 46줄에 «이미 지난달까지 청구된» 10줄이 계산으로 따라 들어온 것이다.
+ * ★버리는 게 아니다 — `null` 이 된 줄은 「청구월미정」으로 가서 사람이 정한다.
+ */
+export const billingMonthIn = (r: SettlementRow, locked: ReadonlySet<string>, now = new Date()): string | null => {
+  const written = String(r.billMonth ?? '').trim();
+  if (written) return written;
+  const m = billingMonth(r, now);
+  return m && locked.has(m) ? null : m;
+};
+
+/** 그 줄들 안에서 «박힌» 달들. `billingMonthIn` 에 그대로 넘긴다. */
+export const lockedMonthsOf = (rows: readonly SettlementRow[]): Set<string> =>
+  new Set(rows.map((r) => String(r.billMonth ?? '').trim()).filter(Boolean));
+
 export const paidRatioOf = (r: SettlementRow, now = new Date()): number => {
   const n = roundsOf(r.payKind);
   if (n < 2 || !brokenOf(r, now)) return 1;
@@ -303,25 +351,67 @@ export type Money = {
  * ★**적혀 있으면 그 값이 이긴다** — 실제로 계산서를 끊은 금액이다.
  *   없을 때만 요율로 낸다. 이것이 「청구는 안 고친다」를 지키는 방법이다.
  */
+/**
+ * **정산 대상 — 「모두 · 영업 · 공급」 셋뿐이다.**
+ *
+ * ★사장님 2026-09-02 「정산대상을 영업 공급 이렇게 하면 되지 굳이 불필요한 뭐뭐사만~ 이렇게 할필요있다?
+ *   모두 영업 공급 이렇게 드롭다운 하면 되잖아」
+ * ```
+ * 모두   양쪽 다 정산한다 (거의 전부)
+ * 영업   영업채널에만 준다 — 공급사 청구가 0 이다 (지난달 이미 받은 건)
+ * 공급   공급사에만 청구한다 — 영업 지급이 0 이다
+ * ```
+ * ★옛 말(「양쪽」·「영업사만」·「공급사만」)도 그대로 읽는다 — 원장에 이미 그렇게 적힌 줄이 있다.
+ *   ⚠ 글자를 바꾸면서 «읽기»를 안 넓히면, 이미 적힌 줄이 조용히 「모두」가 되어 청구가 되살아난다.
+ */
+export const SETTLE_TARGETS = ['모두', '영업', '공급'] as const;
+export type SettleTarget = (typeof SETTLE_TARGETS)[number];
+export const settleTargetOf = (v: unknown): SettleTarget => {
+  const t = String(v ?? '').trim();
+  if (t.includes('영업')) return '영업';
+  if (t.includes('공급')) return '공급';
+  return '모두';
+};
+
 export const moneyOf = (r: SettlementRow, now = new Date()): Money => {
   /**
    * ★**부러진 분납은 받은 만큼만**(사장님 2026-09-01 「안된 시점에서 그냥 그 청구금액에 맞춰 청구」).
    *   ⚠ «적힌» 수수료(claimWritten)에도 건다 — 적힌 값은 «다 받았을 때»의 금액이라
    *     부러진 줄에 그대로 쓰면 안 받은 회차까지 청구하게 된다.
    */
-  const k = paidRatioOf(r, now);
-  const claim = Math.round((r.claimWritten || feeOf(r.supplierRate || 0, r)) * k);
+  /**
+   * ★**정산 조건이 먼저다.** 「영업사만」이면 공급사 청구가 0 이고, 「0.5」면 양쪽 절반이며,
+   *   청구보류·정산제외면 그 달에 안 선다. 부러진 비례(`paidRatioOf`)와 «곱해서» 같이 건다.
+   */
+  const target = settleTargetOf(r.settleTarget);
+  const share = Number(r.settleRatio) || 1;
+  const hold = r.billHold === true;
+  const excl = r.settleExclude === true;
+  const k = paidRatioOf(r, now) * share;
+  const claimFull = r.claimWritten || feeOf(r.supplierRate || 0, r);
+  const claim = excl || hold || target === '영업' ? 0 : Math.round(claimFull * k);
   /** ★스타·아이카는 부러지면 지급이 «아예» 없다 — 비례가 아니라 0 이다. */
   const payFull = r.payWritten || feeOf(r.agentRate || 0, r);
-  const pay = k < 1 && noPayIfBroken(r) ? 0 : Math.round(payFull * k);
-  const claimVat = Math.round(claim * VAT);
-  const payVat = Math.round(pay * VAT);
+  const pay = excl || target === '공급' ? 0
+    : (paidRatioOf(r, now) < 1 && noPayIfBroken(r) ? 0 : Math.round(payFull * k));
+  /**
+   * ★★**「부가세 포함」이면 적힌 금액이 «총액»이다** — 거기에 부가세를 또 붙이면 두 번 받는다.
+   *   태윤 매니저 2026-09-02 「스타스카이 부가세 포함으로 정산만 수정되면 됩니다 · 나머진 다 맞습니다」.
+   *   ⚠ `vatIncluded` 는 원자에 «이미» 박혀 있었는데(2026-09-01 메모에서 옮긴 축) 아무도 안 봤다.
+   *     그래서 스타스카이 2줄이 780,000 → 858,000 · 1,650,000 → 1,815,000 으로 나갔다.
+   *   ★수수료표도 그렇게 말하고 있다 — 스타 재렌트 「한 달 렌탈료(VAT 포함)」.
+   */
+  const gross = r.vatIncluded === true;
+  const claimNet = gross ? Math.round(claim / (1 + VAT)) : claim;
+  const claimVat = gross ? claim - claimNet : Math.round(claim * VAT);
+  const payNet = gross ? Math.round(pay / (1 + VAT)) : pay;
+  const payVat = gross ? pay - payNet : Math.round(pay * VAT);
   const claw = r.clawback ? r.clawbackAmount || 0 : 0;
   return {
-    claim, claimVat, claimTotal: claim + claimVat,
-    pay, payVat, payTotal: pay + payVat,
-    margin: claim - pay,
-    net: claim - pay - claw,
+    claim: claimNet, claimVat, claimTotal: claimNet + claimVat,
+    pay: payNet, payVat, payTotal: payNet + payVat,
+    margin: claimNet - payNet,
+    net: claimNet - payNet - claw,
   };
 };
 

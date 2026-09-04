@@ -458,9 +458,18 @@ export function buildSalesFormatRequests(input: FormatInput): Record<string, unk
    * ⚠ **맨 끝이어야 한다.** 뒤에 `repeatCell` 이 오면 링크가 통째로 지워진다.
    * ⚠ 사진이 빠진 차는 옛 링크를 걷어낸다 — 안 지우면 지난번 주소가 남아 남의 차로 간다.
    */
+  /**
+   * ★**픽업(T카)은 사진이 아니라 «티카 상세페이지»로 간다** (사장님 2026-08-28 · `aiops/docs/supplier-sheet-spec` §6-0
+   *   「상품리스트·픽업구독에서 픽업차의 「차량번호」 셀을 누르면 티카 상세페이지로」).
+   *   손오공이 티카를 연동한 물건이라 **원본 페이지에 사진·제원·조건이 다 있다.** 사진 한 장보다 그쪽이 낫다.
+   * ★고르는 차례 — 「차번링크」 칸에 주소가 있으면 그것, 없으면 예전처럼 「사진」 첫 장.
+   *   ⇒ 픽업만 「차번링크」가 차 있으므로 **다른 탭은 지금 그대로 굴러간다**(폴백이 곧 옛 규칙이다).
+   * ⚠ 여기서도 «판단하지 않는다» — 칸에 있는 주소를 그대로 건다.
+   */
   const ipl = idx('차량번호');
   const iph = idx('사진');
-  if (ipl >= 0 && iph >= 0 && input.body) {
+  const idl = idx('차번링크');
+  if (ipl >= 0 && (iph >= 0 || idl >= 0) && input.body) {
     out.push({ repeatCell: {
       range: { sheetId: gid, startRowIndex: H + 1, startColumnIndex: ipl, endColumnIndex: ipl + 1 },
       cell: { userEnteredFormat: { textFormat: {} } },
@@ -468,7 +477,9 @@ export function buildSalesFormatRequests(input: FormatInput): Record<string, unk
     } });
     input.body.forEach((r, i) => {
       // 「사진」 칸이 여러 장(콤마·줄바꿈)이면 차번 셀 링크는 «첫 장»만 건다 — 전체를 href로 넣으면 깨진 링크가 된다.
-      const uri = String(r[iph] ?? '').split(/\s*[\n,]\s*/)[0].trim();
+      const first = (v: unknown) => String(v ?? '').split(/\s*[\n,]\s*/)[0].trim();
+      const detail = idl >= 0 ? first(r[idl]) : '';
+      const uri = /^https?:\/\//i.test(detail) ? detail : (iph >= 0 ? first(r[iph]) : '');
       const plate = String(r[ipl] ?? '').trim();
       if (!plate || !/^https?:\/\//i.test(uri)) return;
       out.push({ updateCells: {

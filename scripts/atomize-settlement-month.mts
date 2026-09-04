@@ -62,13 +62,21 @@ const ymd = (v: unknown): string => {
  * ★확인된 것만 여기 담는다 — 원장 전체 44종류는 사람이 갈라 준 뒤에 넣는다.
  */
 const AXIS: Record<string, Partial<Atom>> = {
-  '영업사만 정산해야함': { settleTarget: '영업사만' },
-  '프리패스지급 (공급사미청구)': { settleTarget: '영업사만' },
-  '업무지원비': { settleTarget: '영업사만' },
-  '공급사만 정산': { settleTarget: '공급사만' },
-  '공급사정산 완료': { settleTarget: '영업사만', settledAlready: true },
+  '영업사만 정산해야함': { settleTarget: '영업' },
+  '프리패스지급 (공급사미청구)': { settleTarget: '영업' },
+  '업무지원비': { settleTarget: '영업' },
+  '공급사만 정산': { settleTarget: '공급' },
+  '공급사정산 완료': { settleTarget: '영업', settledAlready: true },
   '0.5': { settleRatio: 0.5 },
-  '후불': { billHold: true },
+  /**
+   * ⚠ **「후불」은 «청구보류»가 아니다.** 2026-09-01 에 그렇게 읽어 퍼시픽 49호3059 를
+   *   8월 청구에서 0 원으로 뺐는데, 태윤 매니저가 「퍼시픽 청구건 0원으로 되어있습니다 · 1,435,200원입니다」로
+   *   바로잡았다. 후불은 «고객이» 뒤에 내는 조건이지 «우리 청구»를 미루는 말이 아니다.
+   *   ⇒ 축으로 옮기지 않고 메모로만 남긴다.
+   */
+  '후불': { settleNote: '후불 — 고객 납부 조건. 청구는 그대로 나간다' },
+  '무보증 후불': { settleNote: '무보증 후불 — 고객 납부 조건. 청구는 그대로 나간다' },
+  '렌탈료 후불': { settleNote: '렌탈료 후불 — 고객 납부 조건. 청구는 그대로 나간다' },
   '부가세 포함': { vatIncluded: true },
   '한번에 정산': { settleNote: '한번에 정산 — 적힌 금액(수식X)이 이미 그 뜻이다' },
 };
@@ -154,10 +162,15 @@ for (let i = hi + 1; i < all.length; i++) {
   const x = all[i] || [];
   const st = S(x[C.state]);
   if (!st && !S(x[C.plate])) continue;
-  // ★시트 필터가 숨긴 줄 — 사람이 「이 달 아님」이라 한 것이다.
-  let hide = false;
-  for (const [c, set] of hidden) if (set.has(S(x[c]))) hide = true;
-  if (hide) { skipped.push(`${i + 1}행 ${S(x[C.plate]) || '(차번없음)'} — 시트 필터가 숨긴 줄「${S(x[C.memo])}」`); continue; }
+  /**
+   * ⚠⚠ **시트 필터를 «뜻으로 읽지 않는다».**
+   *   2026-09-01 에 8월 탭의 A열 필터(「공급사만 정산」 숨김)를 「이 달 아님」으로 읽고 52행을 뺐다.
+   *   태윤 매니저가 「**박지원 누락입니다 · 박지원 공급사만 정산입니다**」로 바로잡았다 —
+   *   숨긴 것은 «작업하려고» 걸어 둔 필터였지 「빼라」가 아니었다.
+   *   ⇒ 필터는 «보여주기»일 뿐이다. 한 줄도 빼지 않고 다 담는다.
+   *     (9월 탭 필터가 C열 업체명을 숨긴 것도 같은 종류였다 — 뜻이 아니라 작업 흔적이다.)
+   */
+  if (hidden.size) { /* 읽기만 하고 «거르지 않는다» */ }
 
   const memo = S(x[C.memo]);
   const ax = AXIS[memo] || {};
@@ -197,21 +210,49 @@ for (let i = hi + 1; i < all.length; i++) {
   });
 }
 
-// ── 기존 원자와 열쇠 맞추기 (차번|접수일 → stl_ 코드) ─────
-const have = ((await db.ref(ROWS_NODE).get().catch(() => null))?.val() || {}) as Record<string, { plate?: string; receivedAt?: string; code?: string; payWritten?: number; claimWritten?: number }>;
-const codeOf = new Map(Object.values(have).map((r) => [`${S(r.plate).replace(/\s/g, '')}|${S(r.receivedAt)}`, S(r.code)]));
 /**
- * ★**차번 없는 줄의 열쇠** — 「업무지원비」처럼 차가 없는 정산이 있다(사장님 2026-09-01
- *   「차량번호 없이 주는것도 있고」). 차번을 열쇠로 못 쓰니 «달+탭줄»로 붙인다.
- *   ⚠ 그 줄은 시트에서 자리가 밀리면 열쇠가 바뀐다 — 그래서 메모까지 넣어 흔들림을 줄인다.
+ * ★★**똑같은 줄이 두 번 있으면 하나로 접는다.**
+ *   태윤 매니저 2026-09-01 「웰릭스정산 **이경훈 중복**」 — 원본 8월 11·12행이 글자 하나 안 틀리고 같았다
+ *   (142호1065 · 이경훈 · 청구 967,200 · 지급 744,000). 그대로 두면 웰릭스에 96만을 더 청구하고
+ *   하허호에 74만을 더 준다.
+ * ⚠ **접수일까지 같아야 «중복»이다.** 같은 차가 다른 날 다시 계약될 수 있다 — 차번만으로 접으면 진짜 계약이 사라진다.
  */
-const keyOf = (a: Atom) => (a.plate
-  ? `${a.plate.replace(/\s/g, '')}|${a.receivedAt}`
-  : `무차번|${MONTH}|${a.channel}|${a.settleNote || a.note || a.sourceRow}`);
+{
+  const seen = new Map<string, Atom>();
+  const dup: string[] = [];
+  for (const a of atoms) {
+    const k = `${a.plate.replace(/\s/g, '')}|${a.receivedAt}|${a.claimWritten}|${a.payWritten}|${a.customer}`;
+    if (a.plate && seen.has(k)) { dup.push(`${a.sourceRow}행 ${a.plate} ${a.supplier} ${a.customer} — 앞줄과 «똑같다»`); continue; }
+    if (a.plate) seen.set(k, a);
+  }
+  if (dup.length) {
+    console.log(`\n   ★똑같은 줄을 접었다 ${dup.length}건`);
+    for (const d of dup) console.log(`      ${d}`);
+    const keep = new Set([...seen.values()]);
+    for (let i = atoms.length - 1; i >= 0; i -= 1) if (atoms[i].plate && !keep.has(atoms[i])) atoms.splice(i, 1);
+  }
+}
+
+// ── 기존 원자와 열쇠 맞추기 (차번|접수일 → stl_ 코드) ─────
+const have = ((await db.ref(ROWS_NODE).get().catch(() => null))?.val() || {}) as Record<string, { plate?: string; receivedAt?: string; code?: string; payWritten?: number; claimWritten?: number; channel?: string; customer?: string; billMonth?: string; fromSheet?: string }>;
+/**
+ * ★★**차번 없는 줄의 열쇠에 «줄 번호»를 쓰지 않는다.**
+ *   「업무지원비」처럼 차가 없는 정산이 있다(사장님 2026-09-01 「차량번호 없이 주는것도 있고」).
+ *   ⚠ 2026-09-02 — 열쇠에 sourceRow 가 들어 있었다. 박지원 줄을 살리자 그 아래가 한 칸씩 밀렸고,
+ *     최사랑 업무지원비 10만원이 51행→52행이 되면서 «다른 줄»로 잡혀 새 코드가 하나 더 생겼다.
+ *     화면에는 똑같은 10만원이 두 줄로 섰다. 위에 한 줄만 끼어도 깨지는 열쇠는 열쇠가 아니다.
+ *   ⇒ 자리가 아니라 «내용»으로 묶는다 — 달·채널·고객·청구·지급.
+ */
+const rowKey = (plate: string, recv: string, month: string, ch: string, cust: string, claim: number, pay: number) => (plate
+  ? `${plate.replace(/\s/g, '')}|${recv}`
+  : `무차번|${month}|${ch}|${cust}|${claim}|${pay}`);
+const codeOf = new Map(Object.values(have).map((r) => [
+  rowKey(S(r.plate), S(r.receivedAt), S(r.billMonth) || MONTH, S(r.channel), S(r.customer), N(r.claimWritten), N(r.payWritten)), S(r.code)]));
+const keyOf = (a: Atom) => rowKey(a.plate, a.receivedAt, a.billMonth || MONTH, a.channel, a.customer, a.claimWritten, a.payWritten);
 let matched = 0; const fresh: Atom[] = []; const fixes: string[] = [];
 for (const a of atoms) {
   const key = keyOf(a);
-  const code = a.plate ? codeOf.get(key) : undefined;
+  const code = codeOf.get(key);  // ★차번 없는 줄도 붙인다 — 안 붙이면 돌릴 때마다 새 줄이 선다
   if (code) {
     a.code = code; matched++;
     const old = have[code];
@@ -233,11 +274,25 @@ for (const a of ax) console.log(`      ${a.plate.padEnd(11)} 대상 ${a.settleTa
 console.log(`\n   ★환수 ${claws.length}건`);
 for (const c of claws) console.log(`      ${S(c.plate).padEnd(11)} ${S(c.supplier).padEnd(10)} 공급사 ${won(N(c.supplierAmt))} · 영업자 ${won(N(c.agentAmt))} · 환수일 ${S(c.at) || '(없음 — 사람이 채워야 한다)'}`);
 
+/**
+ * ★**이 탭에서 올렸던 줄인데 이번엔 «없는» 줄 = 묵은 줄.**
+ *   시트에서 지웠거나, 예전 열쇠로 잘못 선 줄이다. 안 걷으면 화면에 유령이 남는다
+ *   (2026-09-02 최사랑 10만원 두 줄이 그랬다). 걷은 것은 반드시 «이름을 대고» 지운다.
+ */
+const alive = new Set(atoms.map((a) => a.code));
+const stale = Object.entries(have).filter(([k, r]) => S(r.fromSheet) === TAB && !alive.has(k));
+if (stale.length) {
+  console.log(`
+   ★묵은 줄 ${stale.length}개 — 이 탭에서 올렸는데 이번 취합엔 «없다». 걷는다`);
+  for (const [k, r] of stale) console.log(`      ${(S(r.plate) || '(차번없음)').padEnd(11)} ${S(r.customer).padEnd(8)} 청구 ${won(N(r.claimWritten))} · 지급 ${won(N(r.payWritten))}   [${k}]`);
+}
+
 if (!APPLY) { console.log('\n※ dry-run — 아무것도 안 썼다. --apply 로 올린다.\n'); process.exit(0); }
 
 const patch: Record<string, unknown> = {};
 for (const a of atoms) patch[`${ROWS_NODE}/${a.code}`] = { ...a, updatedAt: Date.now(), fromSheet: TAB };
 for (const c of claws) patch[`${CLAW_NODE}/${S(c.plate).replace(/[.$#[\]/\s]/g, '_')}_${MONTH}`] = c;
+for (const [k] of stale) patch[`${ROWS_NODE}/${k}`] = null;  // ★묵은 줄은 걷는다
 await db.ref().update(patch);
 console.log(`\n   ✓ ${Object.keys(patch).length}개 올림 — 원자 ${atoms.length} · 환수 ${claws.length}`);
 

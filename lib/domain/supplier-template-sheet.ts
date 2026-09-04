@@ -1266,8 +1266,23 @@ export const SUPPLIER_PREVIEW_TAB = '상품시트';
 /** 공급사 시트마다 붙이는 「차종마스터」 사본 탭(사장님 2026-08-19 「공급사시트에 차종마스터 탭을 다 붙여 넣고」) — 정본은 엔카 차종마스터, publish-vehicle-master-tab 이 통째로 다시 쓴다. */
 export const VEHICLE_MASTER_COPY_TAB = '차종마스터';
 export const OUR_NON_INVENTORY_TABS = [...POLICY_TAB_ALIASES, COMPANY_INFO_TAB_NAME, 'AI 인계', 'AI 정제', '정책 작성법', '작성 안내', '정제시트 안내', '공지사항', 'AI 운영 매뉴얼', SHEET_IDENTITY_TAB, LEGACY_NOTICE_TAB, SUPPLIER_PREVIEW_TAB, VEHICLE_MASTER_COPY_TAB];
-export const isOurNonInventoryTab = (title: unknown) =>
-  OUR_NON_INVENTORY_TABS.some((t) => String(title ?? '').trim() === t);
+/**
+ * ★**이름이 달마다 바뀌는 «재고 아님» 탭** — 정확히 같은 이름으로는 못 잡는다.
+ *
+ *   「26년08월 정산」 「26년09월 정산」 「26년08월 정산 · 엘씨렌트」 (publish-supplier-settlement `tabOf`)
+ *   「수수료」 「수수료정책」 (publish-supplier-fee-tab)
+ *
+ * ⚠ **정산 탭에도 차량번호 열이 있다.** 그래서 재고로 읽히면 그 줄이 통째로 «차»가 되는데,
+ *   정산 열은 판매시트 열과 겹치는 것이 없어 **차번 한 칸 빼고 전부 빈 줄**로 실린다.
+ *   실측 2026-09-03 — 상품리스트에 그런 줄이 14개 있었다(렌트존 181허5311 · 우리캐피탈 133호1997 …).
+ *   사장님: 「이가 나간 것처럼 보이면 안 된다」. 그 줄들은 «덜 아는 차»가 아니라 **차가 아니었다.**
+ * ⚠ 이름으로만 가른다 — 열을 보고 판정하면 정산 열이 바뀔 때마다 판정이 흔들린다.
+ */
+const NON_INVENTORY_TAB_RE = /(^|\s|·)정산(\s|·|$)|^수수료/;
+export const isOurNonInventoryTab = (title: unknown) => {
+  const t = String(title ?? '').trim();
+  return OUR_NON_INVENTORY_TABS.some((x) => t === x) || NON_INVENTORY_TAB_RE.test(t);
+};
 
 /**
  * 「정책」 탭은 **세로가 항목, 가로가 정책**이다.

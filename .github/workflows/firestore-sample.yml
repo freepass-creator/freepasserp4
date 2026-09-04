@@ -1,0 +1,46 @@
+name: Firestore 미러 + 샘플시트 (원격 버튼)
+
+# ★사장님 2026-09-03 「이거 원격으로 가능하게」 — PC 안 켜도 어디서든(폰 GitHub → Run) 돌린다.
+#   ① RTDB → Firestore 원자 미러(최신 상태·대여료·교정차명) ② 올릴 수 있는 727대를 샘플 구글시트로.
+#   수동 트리거만(schedule 없음) — 파이프라인 자동 미러는 hourly-sync ⑭ 가 sales-erp-hourly 에서 돈다.
+# ⚠ 구글시트에 «쓴다». GOOGLE_SA_JSON 시크릿 필요(다른 워크플로와 동일).
+
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: '실제로 Firestore·시트에 반영(체크 안 하면 미러 미리보기만)'
+        type: boolean
+        default: true
+
+concurrency:
+  group: firestore-sample
+  cancel-in-progress: false
+
+jobs:
+  sample:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22', cache: 'npm' }
+      - run: npm ci
+
+      - name: 자격증명 놓기
+        env: { SA: ${{ secrets.GOOGLE_SA_JSON }} }
+        run: |
+          test -n "$SA" || { echo '::error::GOOGLE_SA_JSON 시크릿이 없습니다. Settings → Secrets 에 넣어라.'; exit 1; }
+          mkdir -p tmp/firebase-auth
+          printf '%s' "$SA" > tmp/firebase-auth/sa.json
+
+      - name: Firestore 미러(RTDB → 원자)
+        run: npx tsx scripts/mirror-to-firestore.mts ${{ inputs.apply && '--apply' || '' }}
+
+      - name: 샘플 구글시트 생성(올릴 수 있는 727대 · 집안 서식)
+        if: ${{ inputs.apply }}
+        run: npx tsx scripts/make-sample-sheet-google.mts
+
+      - name: 자격증명 지우기
+        if: always()
+        run: rm -rf tmp/firebase-auth

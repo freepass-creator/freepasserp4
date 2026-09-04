@@ -221,11 +221,26 @@ try {
   console.log(`  치환 사전 「AI 정제」 ${SUBST.size}줄${subst.skipped ? ` · 개발코드 떨기 ${subst.skipped}줄 무시` : ''}\n`);
 } catch (e) { console.log(`  ⚠ 「AI 정제」를 못 읽어 치환 없이 돈다 — ${String((e as Error).message).slice(0, 60)}\n`); }
 /** 열 이름 그대로 사전을 찾는다 — 외장/내장/제조사/모델/차명. */
+const LIVE_NAME_COLS = new Set(['모델', '세부모델', '세부트림']);
 const clean = (col: string, val: string) => {
-  const v = SUBST.get(`${col}|${S(val)}`) ?? S(val);
+  // 모델·세부모델·세부트림 = 라이브 행 복사. 「AI 정제」가 디 올 뉴를 깎아도 안 탄다(2026-09-01).
+  const raw = S(val);
+  if (LIVE_NAME_COLS.has(col)) return raw;
+  const v = SUBST.get(`${col}|${raw}`) ?? raw;
   // ★제조사 표기 규격(maker-display) — 사장님 2026-08-18 「르노라고만 하고 KGM」. 치환 사전보다 뒤에, 사전에 없어도 맞춘다.
   return col === '제조사' ? canonMakerDisplay(v) : v;
 };
+
+/**
+ * ★**깨진 수식은 값이 아니다** (실측 2026-09-03 빌린카 `08주6722`).
+ *   공급사 시트 칸이 `#REF!` 로 깨져 있으면 발행기가 그 «글자»를 그대로 실었다.
+ *   배차상태가 `#REF!` 라 「출고불가 빼기」 판정도 못 받고 목록에 서 버린다 —
+ *   영업자는 그 줄을 «팔 수 있는 차»로 읽는다.
+ * ★비우고 «못 읽었다»로 센다. 지어내지 않고, 조용히 넘기지도 않는다.
+ */
+const SHEET_ERROR = /^#(REF|VALUE|N\/A|NAME|DIV\/0|NUM|ERROR|GETTING_DATA)[!?]?$/i;
+/** [공급사 차번 「열=오류값」] — 화면에 찍어 공급사에 고쳐 달라고 한다. */
+const brokenCells: string[] = [];
 
 /** 모델명이 비어 영업자가 분류를 못 하는 차 — 세어 화면에 보인다. */
 const missingModel: string[] = [];
@@ -314,7 +329,8 @@ const noPolicy: string[] = [];
 /** 정책이 여럿인데 코드가 비어 «어느 정책인지 못 정한» 차. */
 const ambiguous: string[] = [];
 const who0 = (p: Rec) => companyAlias(S(p.partner_name || p.name)) || S(p.partner_name || p.name);
-const seenPlate = new Set<string>();
+/** 차번 → `rows` 안 그 차의 자리. 같은 차가 또 오면 «더 찬 줄»로 갈아 끼운다(자리는 그대로). */
+const seenPlate = new Map<string, number>();
 /**
  * ★차량번호 셀에 걸 **공급사가 올려놓은 사진 링크**(사장님 2026-08-14).
  *   시트에는 사진 «열»이 없다 — 공급사는 차번 칸에 링크를 건다
@@ -490,20 +506,36 @@ for (const [code, p] of [...byCode].sort()) {
       const vin = vinAt >= 0 ? norm(r[vinAt]) : '';
       if (!plate && !vin) continue;
       const key = plate || `VIN:${vin}`;
-      if (seenPlate.has(key)) { dupes++; continue; }
-      seenPlate.add(key);
+      /**
+       * ★**같은 차가 두 번 나오면 «값이 더 찬 줄»이 이긴다** (사장님 2026-09-03 「이 빠진 거 매뉴얼대로 채워」).
+       *   예전엔 «먼저 나온 줄»이 이겼다. 그런데 공급사 시트에는 «차번만 미리 적어 둔 자리»가 섞여 있고,
+       *   그게 먼저 나오면 **뒤에 있는 제대로 찬 줄이 통째로 버려졌다** — 표에 이가 나간 자리가 그것이다.
+       *   실측 2026-09-03: 건너뛴 줄 22 · 차번만 남은 줄 15.
+       * ★버리는 것이 아니라 «고르는» 것이다 — 둘 다 그 차의 줄이고, 우리는 더 많이 아는 쪽을 싣는다.
+       *   값을 섞지 않는다(반쪽씩 합치면 어느 시트 값인지 아무도 모른다). 줄 하나를 통째로 고른다.
+       */
+      const dupAt = seenPlate.get(key);
 
       // 사진은 번호판·폴더·OCR 증거를 승인한 별도 복구 경로에서만 넣는다.
       // 원본 행의 URL을 여기서 그대로 재발행하면 외부 정제시트의 사진 오매칭이
       // 중앙 판매시트와 ERP까지 다시 전파된다.
       /** 후보를 차례로 보고 **값이 든 첫 칸**을 쓴다. 정제칸이 비면 공급사 원문으로 떨어진다. */
-      const cell = (c: string) => { for (const i of idx.get(c) || []) { const v = S(r[i]); if (v) return v; } return ''; };
+      const cell = (c: string) => {
+        for (const i of idx.get(c) || []) {
+          const v = S(r[i]);
+          if (!v) continue;
+          /* 깨진 수식은 «값»이 아니다 — 비우고 세어 둔 뒤 다음 후보 칸을 본다. */
+          if (SHEET_ERROR.test(v)) { brokenCells.push(`${who} ${S(r[first('차량번호')])} 「${c}=${v}」`); continue; }
+          return v;
+        }
+        return '';
+      };
       /**
        * ★제조사·모델·차명만 시트에서 옮긴다(사장님 2026-08-19).
        *   마스터 스냅·상품마스터 3축·정제칸 재판단 없음 — 틀린 세부축이 붙느니 원문이 낫다.
        *   모델이 비면 목록에만 남긴다(지어내지 않는다).
        */
-      if (!cell('모델')) missingModel.push(`${who} ${S(r[first('차량번호')])} 「${cell('차명').slice(0, 44)}」`);
+      if (!cell('모델')) missingModel.push(`${who} ${S(r[first('차량번호')])} 「${cell('차명(원문)').slice(0, 44)}」`);
       /**
        * 그 차에 적용될 정책. 코드가 비면 그 공급사 정책이 **하나뿐일 때 그것**을 쓴다.
        * ⚠ 여럿인데 비면 «못 정했다»로 세어 화면에 알린다 — 짐작해 붙이면 그게 우리 오류다.
@@ -515,7 +547,7 @@ for (const [code, p] of [...byCode].sort()) {
         ambiguous.push(`${who} ${S(r[first('차량번호')])}`);
       }
       fromOurs.set(plate, ours);
-      rows.push(COLUMNS.map((c) => {
+      const built = COLUMNS.map((c) => {
         if (c === '공급사') return who;
         /**
          * 「그 밖 요금」 = 규격 밖 기간의 요금을 `이름:값|이름:값` 로 모은다. 값이 없으면 빈칸.
@@ -564,7 +596,7 @@ for (const [code, p] of [...byCode].sort()) {
           if (fromCode) return fromCode;
           const own2 = vehicleClassDisplay(clean(c, cell(c)));
           if (own2) return own2;
-          return classifyVehicleClass({ model: cell('모델'), sub_model: cell('차명') } as never);
+          return classifyVehicleClass({ model: cell('모델'), sub_model: cell('차명(원문)') } as never);
         }
         if (c === '차명') {
           const refinedAt = hdr.indexOf('차명(정제)');
@@ -589,7 +621,16 @@ for (const [code, p] of [...byCode].sort()) {
           return bank || policyCell(c, pol);
         }
         return policyCell(c, pol);
-      }));
+      });
+      /** 그 줄이 «얼마나 아는가» — 공급사 이름처럼 우리가 늘 채우는 칸은 세지 않는다. */
+      const known = (r: string[]) => r.reduce((k, v, i) => k + (S(v) && COLUMNS[i] !== '공급사' && COLUMNS[i] !== '차량번호' ? 1 : 0), 0);
+      if (dupAt !== undefined) {
+        dupes++;
+        if (known(built) > known(rows[dupAt])) rows[dupAt] = built;   // 더 아는 줄로 갈아 끼운다
+        continue;
+      }
+      seenPlate.set(key, rows.length);
+      rows.push(built);
       n++;
     }
   }
@@ -653,6 +694,45 @@ const stateAt0 = COLUMNS.indexOf('배차상태');
   rows.length = 0; rows.push(...keep);
   if (noPlate) console.log(`  차번·차대번호가 다 없는 ${noPlate}대는 안 싣는다 → ${rows.length}대`);
   if (vinOnly) console.log(`  번호 전 신차 ${vinOnly}대는 차대번호로 싣는다(번호가 나오면 같은 차로 이어붙는다)`);
+  /**
+   * ★**«이 빠진» 줄은 싣지 않는다**(사장님 2026-09-03 — 「내가 봤을 때 빈 곳 없어야 하고,
+   *   저딴 식으로 이가 나간 것처럼 보이면 안 된다」).
+   *   공급사 재고탭에는 «차번만 미리 적어 둔 자리»가 섞인다. 지금까지는 열쇠(차번)만 있으면
+   *   실어서, 영업자 표에 **차번 한 칸 빼고 전부 빈 줄**이 났다
+   *   (실측 2026-09-03: 322대 중 15줄 — 상태·구분·차·돈이 «전부» 비었다).
+   *   그런 줄은 팔 수도, 손님에게 말할 수도 없다. 표에 서 있을 이유가 없다.
+   *
+   * ⚠ **버리는 게 아니라 «못 실었다»로 센다.** 목록으로 찍어 공급사에 채워 달라고 해야 한다 —
+   *   조용히 빼면 「내 차가 왜 없냐」가 되고, 그때는 어디서 빠졌는지 아무도 모른다.
+   * ⚠ 판정은 **«전부 비었을 때»만**이다. 한 칸이라도 있으면 싣는다 — 빈 칸은 지어내지 않는다는
+   *   규칙(모델명 없는 차 28대)과 여기는 다른 이야기다. 저쪽은 «덜 아는 차», 이쪽은 «차가 아닌 줄».
+   */
+  {
+    /** 차 자체를 말하는 칸. 하나라도 있으면 «아는 차»다. */
+    const CAR_COLS = ['제조사', '모델', '세부모델', '세부트림', '차명(원문)', '연식', 'Km', '연료', '배기량', '차종구분'];
+    /** 돈. 위 「-」 채움을 지난 뒤라 숫자가 있는지로 본다(「-」는 돈이 아니다). */
+    const MONEY_COLS2 = ['단기보증', '장기보증', '1개월', '6개월', '12개월', '24개월', '36개월', '48개월', '60개월'];
+    const carAt = CAR_COLS.map((c) => COLUMNS.indexOf(c)).filter((i) => i >= 0);
+    const moneyAt = MONEY_COLS2.map((c) => COLUMNS.indexOf(c)).filter((i) => i >= 0);
+    const stateAt = COLUMNS.indexOf('배차상태');
+    const kindAt = COLUMNS.indexOf('구분');
+    const supplierAt = COLUMNS.indexOf('공급사');
+    const filled = (r: string[], at: number) => at >= 0 && !!S(r[at]);
+    const hollow = (r: string[]) => !carAt.some((i) => S(r[i]))
+      && !moneyAt.some((i) => /\d/.test(S(r[i])))
+      && !filled(r, stateAt) && !filled(r, kindAt);
+    const empties = rows.filter(hollow);
+    if (empties.length) {
+      const keep2 = rows.filter((r) => !hollow(r));
+      rows.length = 0; rows.push(...keep2);
+      console.log(`  ★차번만 있고 «전부 빈» ${empties.length}줄은 안 싣는다(표에 이가 나간다) → ${rows.length}대`);
+      for (const r of empties.slice(0, 20)) {
+        console.log(`     ${S(r[supplierAt]).padEnd(10)} ${S(r[plateAt0])}`);
+      }
+      if (empties.length > 20) console.log(`     … 모두 ${empties.length}줄`);
+      console.log('     공급사 시트에서 그 줄을 채우거나 지워야 한다 — 우리가 지어내지 않는다.');
+    }
+  }
   console.log('');
 }
 const rentAt = RENT_COLUMNS.map((c) => COLUMNS.indexOf(c)).filter((i) => i >= 0);
@@ -680,6 +760,13 @@ if (noPolicy.length) {
   console.log('');
   console.log(`  ▲ 정책 탭을 못 읽은 공급사 ${noPolicy.length} — 그 집 부가정보가 빈다 (정책 출처: 문패시트 ${policySource['문패시트']} · 우리 제공시트 ${policySource['우리제공시트']} · 없음 ${policySource['없음']})`);
   console.log(`     ${noPolicy.join(' · ')}`);
+}
+if (brokenCells.length) {
+  console.log(`
+  ▲ 공급사 시트 칸이 깨져 있다 ${brokenCells.length}곳 — 그 칸은 비우고 실었다(«#REF!» 를 값으로 싣지 않는다)`);
+  for (const b of brokenCells.slice(0, 15)) console.log(`     ${b}`);
+  if (brokenCells.length > 15) console.log(`     … 모두 ${brokenCells.length}곳`);
+  console.log('     공급사 시트의 그 수식을 고쳐야 값이 실린다.');
 }
 if (missingModel.length) {
   console.log(`

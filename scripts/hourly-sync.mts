@@ -481,8 +481,29 @@ line.push(`정제시트 ${s1.picked.find((l) => /새 차/.test(l))?.replace(/\s+
  *   (2026-08-28 오플에서 실측). RTDB 를 쓰므로 server-only 심이 필요하다.
  */
 const s1b = run('①′ 정제칸 채움', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/fill-supplier-ai-columns.mts', '--include-mirror', ...A], /차량번호 정본|채움|모두 |바로잡|Error/);
-if (!s1b.ok) stop('정제칸 채움 실패');
-line.push('정제칸 ok');
+/**
+ * ★**①′ 는 «경고»다 — 여기서 회차를 끝내지 않는다** (사장님 2026-09-03 「제대로 업데이트 좀 해봐」).
+ *
+ *   왜 바꿨나 — ①′ 는 «멈춤»이었다. 그런데 2026-09-03 실측으로 이 단계가 **매 회차 91분을 돌며
+ *   구글 요청한도를 다 쓰고 `ETIMEDOUT` 으로 죽었고**, 채운 칸은 **0칸**이었다. 그 뒤 ⑥ 판매 4탭
+ *   발행이 아예 안 돌아 **판매시트가 14:16 판에 멈춰 있었다**(사장님이 「또 이상해졌다」고 하신 그것).
+ *   ①″ 「라이브 이름 폐쇄」도 이 뒤라 같이 못 돌았다 — 이름이 마스터에서 어긋난 채 쌓였다.
+ *
+ *   ★**왜 멈추지 않아도 되나** — ①′ 는 정제칸을 «채우는» 일이지 «발행할 값»을 만드는 일이 아니다.
+ *     매뉴얼 §0 이 못 박은 대로 **정제칸이 비어 있으면 비운 채로 나른다.** 그러니 ①′ 가 실패해도
+ *     ⑥ 은 «있는 값 그대로» 옳게 발행한다. 여기서 멈추면 «덜 채워진 표»가 아니라 **«어제 표»**가 남는다.
+ *     둘 중 나쁜 것은 어제 표다 — 영업자가 그걸 손님 앞에서 읽는다.
+ *
+ * ⚠ **성공으로 적지 않는다.** 매뉴얼 §1-③ 「경고」 그대로 — 상태로그 `ok:false` · 종료코드 1 · 메일.
+ *   `run()` 이 이미 `allOk=false` 와 경고를 남긴다. 조용히 넘어가는 것이 아니다.
+ * ⚠ **원산지는 여전히 지킨다** — 2026-08-28 오플 사고(원산지 없음 → 보증금 배율 불가 → 요금 소실)는
+ *   ①′ 가 아니라 바로 아래 ①′-손 `fill-origin` 이 맡는다. 그 단계는 «멈춤»으로 남겨 둔다.
+ */
+if (!s1b.ok) {
+  warnings.push('①′ 정제칸 채움 실패 — 발행은 계속한다(정제칸은 있는 값 그대로 나간다)');
+  console.log('   ▲ ①′ 실패 — 그래도 ⑥ 발행까지 간다(멈추면 «어제 표»가 남는다). 상태로그는 ok:false 다.');
+}
+line.push(s1b.ok ? '정제칸 ok' : '정제칸 ✗(경고)');
 /**
  * ①′-손 **손오공 원산지 채움** — ①′ 가 손오공을 «안 타서» 아무도 안 채우던 칸이다.
  *
@@ -720,6 +741,23 @@ if (!master.ok) {
   out.push('   누가 시트에서 «의미 열»(세부모델·세부트림·제원)을 고쳤다. 표기만 어긋난 것이면:');
   out.push('   npx tsx scripts/fix-latin-trim-canon.mts        (라틴 표기를 정본으로 되돌린다)');
   out.push('   그 밖이면 사람이 판단해야 한다 — 계약은 「기존 코드 제외 보존 + 새 코드 추가」다');
+}
+
+/**
+ * ⑭ **RTDB → Firestore 미러 + ⑮ 원자 변경 검증.**  (사장님 2026-09-03 「추천대로」)
+ *   재고를 Firestore 로 옮기는 중 — hourly-sync 가 RTDB 를 갱신한 뒤, 그 상태를 Firestore 원자에 비춘다.
+ *   그래야 파인더가 Firestore 를 읽어도 «공급사 변화 → 1시간 내 반영»이 된다(RTDB 대역폭 컷).
+ *   ⑮ 는 지난 스냅샷과 견줘 상태전이·대여료변경을 기록한다. 둘 다 «읽고 Firestore 만 쓴다» — 시트·ERP 안 건드림.
+ * ⚠ best-effort — 실패해도 회차를 멈추지 않는다(경고만). --apply 회차에만 돈다.
+ */
+if (APPLY) {
+  const mir = run('⑭ Firestore 미러', ['scripts/mirror-to-firestore.mts', '--apply'], /미러 완료|중단|✗/);
+  line.push(mir.ok ? (mir.picked.find((l) => /미러 완료/.test(l))?.replace('미러 완료 — ', '') || '미러 ok') : '★미러 실패');
+  if (!mir.ok) warnings.push('Firestore 미러 실패');
+  const det = run('⑮ 원자 변경 검증', ['scripts/detect-atom-changes.mts'], /상태 전이|대여료 변경|기준선/);
+  const stN = /상태 전이 (\d+)건/.exec(det.picked.join(' '))?.[1];
+  const prN = /대여료 변경 (\d+)건/.exec(det.picked.join(' '))?.[1];
+  line.push(det.ok ? `변경 상태${stN ?? '?'}·요금${prN ?? '?'}` : '검증 실패');
 }
 
 const seconds = Math.round((Date.now() - started) / 1000);

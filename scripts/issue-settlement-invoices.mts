@@ -7,7 +7,7 @@
  * ─────────────────────────────────────────────────────────────────────
  * ★★**두 갈래를 따로 뽑는다. 관문이 다르기 때문이다.**
  * ```
- * 지급명세서(영업채널)  우리가 «주는» 쪽 — 관문이 없다. 지금 바로 뽑는다
+ * 정산서(영업채널)  우리가 «주는» 쪽 — 관문이 없다. 지금 바로 뽑는다
  * 청구서(공급사)       우리가 «받는» 쪽 — ★영업자 실적 확인이 끝나야 나간다
  * ```
  *   사장님 「받아서 주는 구조이니까 영업자한테 실적 먼저 확인하고 그게 ㅇㅋ 되면 공급사에 청구」.
@@ -27,10 +27,10 @@ import { getDatabase } from 'firebase-admin/database';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { normalizeRecord, type SettlementRecord } from '../lib/domain/settlement-record';
-import { billingMonth, type SettlementRow } from '../lib/domain/settlement-stage';
+import { billingMonthIn, lockedMonthsOf, type SettlementRow } from '../lib/domain/settlement-stage';
 import { EMPTY_PARTY, buildInvoice, type InvoiceParty } from '../lib/domain/settlement-invoice';
 import { invoiceDocHtml, invoicePageHtml } from '../lib/server/settlement-invoice-html';
-import { invoiceXlsx, invoiceFileName } from '../lib/server/settlement-invoice-xlsx';
+import { invoiceFileName } from '../lib/server/settlement-invoice-xlsx';
 import { providerBillGate, type Confirmation } from '../lib/domain/settlement-confirm';
 import { CORP } from '../lib/domain/corporate-ci';
 import { ciOf } from '../lib/domain/partner-ci';
@@ -60,10 +60,21 @@ const asRow = (r: SettlementRecord): SettlementRow => ({
  * 우리 법인 — **계좌는 등록에서 온다. 없으면 비운다.**
  * ⚠ 계좌를 지어내지 않는다. 빈 채로 나가면 종이가 「모름」이라고 말한다.
  */
-const partners = {
-  ...((await db.ref('v4/partners').get().catch(() => null))?.val() || {}),
-  ...((await db.ref('partners').get().catch(() => null))?.val() || {}),
-} as Record<string, Record<string, unknown>>;
+/**
+ * ★★**v4 오버레이가 이긴다 — 칸 단위로.**
+ *   ⚠ 2026-09-02 까지 순서가 거꾸로였다(v3 을 나중에 펼쳐 v3 이 이겼다). 그래서
+ *     v4 에 계좌를 넣어도 v3 의 «빈칸»이 그것을 덮었다 — 넣어도 종이엔 안 나온다.
+ *   ★칸 단위로 덮는다. 레코드째 갈아 끼우면 v4 에 없는 칸(상호·사업자번호)이 통째로 사라진다.
+ *   ⇒ CLAUDE.md 「읽기 = v3 라이브 ∪ v4 오버레이 필드단위 병합 · 쓰기는 전부 v4」.
+ */
+const v3p = ((await db.ref('partners').get().catch(() => null))?.val() || {}) as Record<string, Record<string, unknown>>;
+const v4p = ((await db.ref('v4/partners').get().catch(() => null))?.val() || {}) as Record<string, Record<string, unknown>>;
+const partners: Record<string, Record<string, unknown>> = {};
+for (const k of new Set([...Object.keys(v3p), ...Object.keys(v4p)])) {
+  const base = { ...(v3p[k] || {}) };
+  for (const [f, v] of Object.entries(v4p[k] || {})) if (S(v)) base[f] = v;   // ★빈칸은 안 덮는다
+  partners[k] = base;
+}
 const us = partners['OP001'] || {};
 const US: InvoiceParty = {
   name: CORP.name, bizNo: CORP.bizNo, ceo: CORP.ceo, address: CORP.addr, phone: CORP.phone,
@@ -105,8 +116,29 @@ const partyOf = (alias: string): InvoiceParty => {
 }
 
 const rows = Object.values((await db.ref('v4/settlement_rows').get()).val() || {}).map((r) => normalizeRecord(r as SettlementRecord));
-const live = rows.filter((r) => !r.cancelled && billingMonth(asRow(r)) === MONTH);
-const backs = rows.filter((r) => r.clawback && S(r.clawbackAt).slice(0, 7) === MONTH);
+// ★박힌 달은 닫혀 있다 — 계산으로 늦게 들어오는 줄이 확정된 달을 흔들면 종이가 시트와 갈린다.
+const locked = lockedMonthsOf(rows.map(asRow));
+const live = rows.filter((r) => !r.cancelled && billingMonthIn(asRow(r), locked) === MONTH);
+/**
+ * ★★**환수는 «따로 사는 노드»에 있다** — `v4/settlement_clawbacks`.
+ *   사장님 2026-09-01 「환수는 환수데이터를 따로 넣을거야 차량번호에 맞춰서」.
+ *   ⚠ 여기서 `settlement_rows` 의 clawback 칸만 보다 8월 환수 1건을 통째로 놓쳤다 —
+ *     종이가 43,846,575 로 나가고 시트는 43,181,120 이었다(차 665,455).
+ * ★환수는 «양쪽 다» — 공급사에게 되돌려받고 영업채널에게도 되돌려받는다.
+ *   그래서 축마다 금액이 다르다(supplierAmt / agentAmt).
+ */
+type Claw = { plate?: string; supplier?: string; channel?: string; supplierAmt?: number; agentAmt?: number; reason?: string; at?: string; month?: string };
+const claws = (Object.values((await db.ref('v4/settlement_clawbacks').get().catch(() => null))?.val() || {}) as Claw[])
+  .filter((c) => S(c.month) === MONTH);
+const backsFor = (axis: '공급사' | '영업채널', party: string) => claws
+  .filter((c) => (axis === '공급사' ? S(c.supplier) : S(c.channel)) === party)
+  .map((c) => ({
+    plate: S(c.plate), supplier: S(c.supplier), channel: S(c.channel),
+    clawback: true, clawbackAt: D(c.at),
+    clawbackAmount: Math.round(Number(axis === '공급사' ? c.supplierAmt : c.agentAmt) || 0),
+    clawbackReason: S(c.reason),
+  } as unknown as SettlementRow & { clawbackReason: string }));
+const backs = claws;
 const confs = (Object.values((await db.ref('v4/settlement_confirmations').get().catch(() => null))?.val() || {}) as Confirmation[])
   .filter((c) => S(c.month) === MONTH);
 
@@ -128,14 +160,26 @@ for (const axis of (['영업채널', '공급사'] as const)) {
   const parties = [...new Set(live.map(pick).filter(Boolean))]
     .sort((a, b) => live.filter((r) => pick(r) === b).length - live.filter((r) => pick(r) === a).length);
 
-  console.log(`■ ${axis === '공급사' ? '청구서(공급사)' : '지급명세서(영업채널)'} ${parties.length}장`);
+  // ★「장」이 아니라 「곳」이다 — 금액이 0 인 곳은 종이가 안 난다. 장 수는 아래 목록이 말한다.
+  console.log(`■ ${axis === '공급사' ? '청구서(공급사)' : '정산서(영업채널)'} 대상 ${parties.length}곳`);
+  const none: string[] = [];
   for (const party of parties) {
     const mine = live.filter((r) => pick(r) === party);
     const inv = buildInvoice({
       axis, month: MONTH, party, issuer: US, receiver: partyOf(party),
       rows: mine.map(asRow),
-      clawbacks: backs.filter((r) => pick(r) === party).map((r) => ({ ...asRow(r), clawbackReason: r.clawbackReason })),
+      clawbacks: backsFor(axis, party),
     });
+
+    /**
+     * ★★**금액이 0이면 종이를 만들지 않는다.**
+     *   사장님 2026-09-03 「아이언은 이번달에 청구가 아예 없는거지? 그럼 청구서가 없는거지」.
+     *   ⚠ 실측 — 01호8419 는 정산 대상이 「영업」이라 공급사 청구가 0 인데, 그래도 청구서가 한 장 났다.
+     *     받는 쪽에서는 「0원 청구서」가 「이게 뭐냐」가 된다. 청구가 없으면 청구서도 없다.
+     *   ★환수만 있어 «마이너스»인 곳은 만든다 — 돈이 오가기 때문이다. 0 일 때만 안 만든다.
+     *   ★조용히 빠지지 않는다 — 아래에서 «이름을 대고» 알린다. 말없이 사라지면 그게 누락이다.
+     */
+    if (!inv.total) { none.push(`${party} (${mine.length}줄)`); continue; }
 
     // ★공급사 청구서는 영업자 실적 확인이 끝나야 나간다.
     const gate = axis === '공급사'
@@ -146,7 +190,12 @@ for (const axis of (['영업채널', '공급사'] as const)) {
     const tag = gate.length ? ' (확인대기)' : '';
     const base = `${OUT}/${invoiceFileName(inv, 'html').replace(/\.html$/, '')}${tag}`;
     writeFileSync(`${base}.html`, invoicePageHtml(`${MONTH} ${inv.kind} ${party}`, invoiceDocHtml(inv)), 'utf8');
-    writeFileSync(`${base}.xlsx`, invoiceXlsx(inv));
+    /**
+     * ⛔**엑셀은 더 안 만든다** — 사장님 2026-09-03 「정산엑셀은 없애자 그냥 정산서만 pdf로」.
+     *   세부내역·산출식이 갈 자리는 «공급사 시트의 월별 정산서 탭»으로 옮긴다 —
+     *   공급사가 이미 열어 보는 시트라 파일을 따로 보낼 일이 없다.
+     *   ★`invoiceXlsx` 는 남겨 둔다. ERP 화면의 「엑셀 받기」가 그걸 쓴다.
+     */
     made.push(`${base}.html`);
     for (const m of inv.missing) missing.add(`${party} — ${m}`);
 
@@ -156,6 +205,7 @@ for (const axis of (['영업채널', '공급사'] as const)) {
     console.log(`   ${gate.length ? '⛔' : '○'} ${party.padEnd(10)} ${String(inv.lines.length).padStart(2)}줄 ${won(inv.total).padStart(12)}원  ${inv.receiver.name}${tag}`);
     for (const g of gate) console.log(`        ${g.channel} (${g.lines}건) — ${g.why}`);
   }
+  if (none.length) console.log(`   – 금액이 0 이라 안 만든 곳 ${none.length} — ${none.join(' · ')}`);
   console.log();
 }
 

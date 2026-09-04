@@ -35,12 +35,12 @@
  *
  * ★★**두 문서는 방향이 반대라 세 가지가 뒤집힌다.**
  * ```
- *           청구서(공급사)         지급명세서(영업채널)
+ *           청구서(공급사)         정산서(영업채널)
  * 돈        공급사 ─▶ 우리         우리 ─▶ 영업채널
  * 금액말     청구금액               지급금액
  * 계좌      우리 계좌(넣어 주세요)   상대 계좌(보냅니다)
  * ```
- *   ⚠ 계좌를 안 뒤집으면 지급명세서에 «우리 계좌»가 찍혀 나간다. 그건 문서가 아니라 사고다.
+ *   ⚠ 계좌를 안 뒤집으면 정산서에 «우리 계좌»가 찍혀 나간다. 그건 문서가 아니라 사고다.
  *
  * ★★**선을 어정쩡하게 긋지 않는다** — 사장님 2026-08-27 「어정쩡한 라인같은거 긋지 말고」
  *   「아이콘이랑 텍스트 잘 활용해서 해당 박스를 잘 보여줬으면 좋겠고」.
@@ -103,7 +103,7 @@
  * ★★**문서 이름은 「정산서」다.** 사장님 2026-08-27 「정산서 가 맞는 표현이고」.
  *   「영업수수료 청구서」라고 길게 쓰지 않는다 — 청구도 지급도 «정산»의 두 방향일 뿐이다.
  *   방향은 문구 한 줄이 말한다 — 「아래와 같이 청구합니다」 / 「아래와 같이 지급합니다」.
- *   ⚠ 파일 이름(`invoiceFileName`)은 청구서·지급명세서로 갈라 둔다 — 폴더에서 섞이면 안 된다.
+ *   ⚠ 파일 이름(`invoiceFileName`)은 청구서·정산서로 갈라 둔다 — 폴더에서 섞이면 안 된다.
  *
  * ★★**CI 는 워드마크로 쓴다** — 사장님 2026-08-27 「CI 잘 활용하고」.
  *   CI 센터 규격 그대로 — **Exo 2** 로 `freepass`(600) + `mobility`(300), 국문은 아래 작게.
@@ -117,7 +117,7 @@
  * ```
  */
 import { logoOf } from '@/lib/domain/partner-logo';
-import { dueDate } from '@/lib/domain/settlement-cycle';
+import { dueDate, payDate } from '@/lib/domain/settlement-cycle';
 import { CORP, CORP_COLOR } from '@/lib/domain/corporate-ci';
 import { feeShow, maskName, type Invoice } from '@/lib/domain/settlement-invoice';
 
@@ -137,6 +137,11 @@ const num = (n: number) => Math.round(n).toLocaleString('ko-KR');
  *     «우리도 우리 계좌를 모른다»는 소리가 된다. 그냥 아직 안 적은 칸이다.
  */
 const miss = '<span class="miss">미입력</span>';
+/** 상호에서 법인 표기만 뗀다. 「주식회사 손오공렌터카」 → 「손오공렌터카」. */
+const shortName = (v: unknown) => S(v)
+  .replace(/(주식회사|유한회사|유한책임회사|\(주\)|\(유\)|㈜)/g, '')
+  .replace(/\s+/g, ' ')
+  .trim();
 const shown = (v: unknown) => (S(v) ? esc(v) : miss);
 const join = (...v: unknown[]) => v.map(S).filter(Boolean).join(' · ');
 const p2 = (n: number) => String(n).padStart(2, '0');
@@ -160,13 +165,25 @@ const period = (m: string) => {
  * ★종이와 알림이 «같은 날짜»를 봐야 한다 — 한쪽만 고치면
  *   「10일까지」라고 보내 놓고 15일에야 독촉하게 된다.
  */
-const dueDay = (m: string) => { const d = dueDate(m); return d ? day(d) : ''; };
+/**
+ * ★**받는 날과 주는 날이 다르다** — 청구서는 10일(받는다), 정산서는 15일(준다).
+ *   사장님 2026-09-03 「영업채널은 9월 15일 지급예정」. 받아서 주는 구조라 받는 날이 앞서야 한다.
+ */
+const dueDay = (m: string, claim: boolean) => { const d = claim ? dueDate(m) : payDate(m); return d ? day(d) : ''; };
 
 const NAVY = CORP_COLOR.main;
 const DEEP = CORP_COLOR.deep;
 
 /** 우리 마크 — `public/icon.svg` 그대로. 헤더 밴드 위라 바탕을 흰색으로 뒤집는다. */
-const MARK = '<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">'
+/**
+ * ⛔⛔ **쓰지 않는다 — 우리 CI 에는 «심볼이 없다».**
+ *   사장님 2026-09-02 「정산서에 ci 붙여주는거 그거 반영안됐고」.
+ *   CI 센터(`C:/dev/ci_center/index.html`)를 열어 보면 정의된 것은 **워드마크뿐**이다 —
+ *   freepass(600) + mobility(300), 국문 프리패스(600)+모빌리티(300). 심볼 파일이 아예 없다.
+ *   ⇒ 여기 있던 「둥근 네모 + 체크」는 우리 것이 아니라 **지어낸 표식**이었고, 그게 종이마다 찍혔다.
+ *   ★없는 것을 지어내지 않는다. 워드마크가 CI 다 — `.hd .wm` 이 그것을 세운다.
+ */
+const _UNUSED_MARK = '<svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">'
   + '<rect width="512" height="512" rx="96" fill="#ffffff"/>'
   + `<path d="M128 264 l80 80 L384 168" fill="none" stroke="${NAVY}" stroke-width="52" `
   + 'stroke-linecap="round" stroke-linejoin="round"/></svg>';
@@ -226,44 +243,47 @@ const ico = (k: keyof typeof ICO | string) => `<svg class="i" viewBox="0 0 24 24
  *   옛 상한(9·14·18·13)은 실제보다 낮아서 29줄이 «세 장»에 10·11·8 로 흩어졌고
  *   장마다 아래 40% 가 흰 종이였다. 지금은 «두 장»에 16·13 으로 선다.
  */
-const CAP_SOLO = 9;
-const CAP_FIRST = 16;
-const CAP_MID = 21;
-const CAP_LAST = 13;
+/**
+ * ★★**짐작하지 않고 «잰» 값이다**(2026-09-02, `tmp` 계측 — 쪽마다 여유와 한 줄 높이를 실측).
+ *   ★2026-09-03 «줄을 한 줄로 묶은 뒤» 다시 재다 — 한 줄이 43.5 → **26.3px**으로 가지런해졌다.
+ *   한 장짜리 7줄에 여유 422px(→22) · 첫 장 17줄에 280px(→26) · 끝 장 18줄에 325px(→29).
+ *   ⇒ 22 / 26 / 30 / 28. 줄 높이가 같아야 칸을 셀 수 있다 — 접히는 칸이 있으면 재도 소용없다.
+ */
+const CAP_SOLO = 22;
+const CAP_FIRST = 26;
+const CAP_MID = 30;
+const CAP_LAST = 28;
 
 /**
  * 줄을 장으로 자른다.
  *
- * ★**장수를 먼저 정하고, 그 다음에 고르게 나눈다.**
- *   앞 장부터 꽉꽉 채우면 마지막에 자투리가 남는다 — 2026-08-27 에 29줄이
- *   14 / **1** / 14 로 갈려 가운데 장에 한 줄만 덩그러니 있었다.
- *   장수는 어차피 3장으로 같은데 보기만 흉하다. 9 / 12 / 8 이 낫다.
+ * ★★**꼬리에 닿을 때까지 채우고, 닿으려 하면 그때 넘긴다.**
+ *   사장님 2026-09-02 「정산줄이 하단바 가까이는 가야지 거기서 하단바에 닿으려고 하면 페이지 넘어가야지」.
+ *   ⚠ 전에는 «고르게» 나눴다(2026-08-27, 한 줄짜리 가운데 장이 흉해서). 그러니 쪽마다 아래가 텅 비었다 —
+ *     35줄이 11/15/9 로 갈려 마지막 쪽에 207px 이 남았다. 채우는 게 먼저다.
+ *   ★다만 «마지막 쪽에 한 줄만» 남는 것은 여전히 막는다 — 앞 쪽에서 하나 내려 준다.
  *
- * ⚠ 장마다 «표 밖»이 먹는 자리가 달라서 담을 수 있는 줄이 다르다.
- *   그래서 그냥 n/장수 로 나누면 안 되고, 장별 상한에 «비례»해서 나눈다.
+ * ⚠ 장마다 «표 밖»이 먹는 자리가 달라 담을 수 있는 줄이 다르다 —
+ *   첫 장은 정보·요약이, 마지막 장은 계좌·맺음이 같이 앉는다. 그래서 상한이 넷이다.
  */
 function paginate<T>(lines: T[]): T[][] {
   const n = lines.length;
   if (n <= CAP_SOLO) return [lines.slice()];
-
-  // ① 몇 장이면 담기나 — 가장 적은 장수를 찾는다
-  const capsFor = (p: number) => p === 1 ? [CAP_SOLO]
-    : [CAP_FIRST, ...Array<number>(Math.max(0, p - 2)).fill(CAP_MID), CAP_LAST];
-  let pages = 2;
-  while (capsFor(pages).reduce((a, c) => a + c, 0) < n) pages++;
-  const caps = capsFor(pages);
-
-  // ② 상한에 비례해 나눠 담고, 남는 줄은 여유 있는 장에 하나씩
-  const room = caps.reduce((a, c) => a + c, 0);
-  const take = caps.map((c) => Math.floor((n * c) / room));
-  let rest = n - take.reduce((a, c) => a + c, 0);
-  for (let i = 0; rest > 0; i = (i + 1) % pages) {
-    if (take[i] < caps[i]) { take[i]++; rest--; }
-  }
-
   const out: T[][] = [];
   let i = 0;
-  for (const t of take) { out.push(lines.slice(i, i + t)); i += t; }
+  while (i < n) {
+    const first = out.length === 0;
+    // 이 장이 «마지막»이면 계좌·맺음 인사가 같이 앉아 자리가 적다.
+    const capLast = first ? CAP_SOLO : CAP_LAST;
+    const rest = n - i;
+    if (rest <= capLast) { out.push(lines.slice(i)); break; }   // 여기서 끝난다
+    let take = Math.min(rest, first ? CAP_FIRST : CAP_MID);     // 아니면 꽉 채운다
+    // ★마지막 장에 «한두 줄»만 남기지 않는다 — 그건 장이 아니라 자투리다.
+    const left = rest - take;
+    if (left > 0 && left < 3) take -= 3 - left;
+    out.push(lines.slice(i, i + take));
+    i += take;
+  }
   return out;
 }
 
@@ -354,7 +374,8 @@ export const INVOICE_CSS = `
        높이는 상호(19)+신원(10.5) 두 줄에 맞춘 값이다 — 재서 맞춘다
        (node scripts/measure-ci-lockup.mjs). */
   .titlerow .tr .lock { display:flex; align-items:center; justify-content:flex-end; gap:12px; }
-  .titlerow .tr .plogo { height:43px; max-width:110px; flex:none;
+  /** ★로고 자리 — 그림이 있든 없든 «같은 크기»다. 없으면 빈 칸으로 선다. */
+  .titlerow .tr .plogo { height:43px; width:110px; max-width:110px; flex:none;
     object-fit:contain; object-position:right center; }
   .titlerow .tr .nm span { margin-left:8px; font-size:12px; font-weight:600; color:var(--mut); letter-spacing:0; }
   .titlerow .tr .id { margin-top:5px; font-size:10.5px; color:var(--faint); }
@@ -408,31 +429,103 @@ export const INVOICE_CSS = `
   .sec-h { font-size:11.5px; font-weight:700; color:var(--tl-d); letter-spacing:-.1px; margin-bottom:var(--sec-h);
     display:flex; align-items:center; gap:6px; }
   .sec-h .i { width:13px; height:13px; flex:none; opacity:.85; }
+  /**
+   * ★**아래 섹션은 «한 톤 연하게»** — 사장님 2026-09-03
+   *   「청구금액 섹션타이틀 색깔보다 정산내역이 약간 더 연했으면 좋겠네 하위니까」.
+   *   맞다. 「청구 금액」이 이 종이의 결론이고 「정산 내역」은 그 근거다. 위계가 색으로 보여야 한다.
+   */
+  .sec-h.sub { color:var(--tl); font-weight:600; }
+  .sec-h.sub .i { opacity:.6; }
   .sec-h .muted { font-weight:500; color:var(--mut); font-size:10px; margin-left:auto; }
   .ctab thead .pgn { font-weight:500; opacity:.75; margin-left:6px; }
 
   /* ★vcard — 좌 «정산월·건수» / 우 «금액». 상대 이름은 여기 안 넣는다(위 머리말 참고). */
   /* 표 — 견적서 .ctab 그대로. 차량번호는 좌측 라벨열(.rl)이라 뱃지가 필요 없다. */
-  .ctab { width:100%; border-collapse:separate; border-spacing:0; }
-  .ctab th, .ctab td { border-bottom:1px solid #edf0f4; padding:var(--cell); text-align:center; }
-  .ctab thead th { background:var(--tl); color:#fff; font-weight:700; border-bottom:0; font-size:10.5px; }
-  .ctab thead th:first-child, .ctab thead th.rl { background:var(--tl-d); color:#fff; border-top-left-radius:var(--r-box); text-align:left; }
+  /**
+   * ★★**격자를 «고정»한다** — 사장님 2026-09-03 「규격이 왜 안맞냐고 … 한번에 만든거 같아야」.
+   *   ⚠ table-layout 이 auto 라 칸이 내용대로 늘어났다. 그래서 **문서마다 표 폭이 달랐다**
+   *     (실측 — 경진카 오른쪽 끝 1019.7px · 오토플러스 1148.1px). 같은 서식인데 종이마다 달라 보였다.
+   *   ⇒ fixed 로 못 박으면 colgroup 이 «그대로» 지켜지고, 위 요약표와 세로줄이 맞는다.
+   */
+  .ctab { width:100%; table-layout:fixed; border-collapse:separate; border-spacing:0; }
+  /**
+   * ★칸이 여덟이라 A4 폭이 빠듯하다 — 좌우 여백을 10 → 7px 로 줄여 «글자 자리»를 만든다.
+   *   8칸 × 양쪽 = 48px 이 생긴다. 그 48px 이 「차량·계약조건」과 「산출조건」의 넘침을 없앤다.
+   */
+  .ctab th, .ctab td { border-bottom:1px solid #edf0f4; padding:4px 7px; text-align:center; }
+  .ctab td.day { padding-left:3px; padding-right:3px; }
+  .ctab thead th { background:var(--tl-d); color:#fff; font-weight:700; border-bottom:0; font-size:10.5px; }
+  /**
+   * ★★**머리는 «한 줄로 쭉» 잇고 «구분선»으로 나눈다** — 사장님 2026-09-03
+   *   「1자로 쭉 이어놓고 거기에 구분선을 넣어야하는데」 · 「왜 끊어지는느낌이 들지??」.
+   *   ⚠ 글자만 띄엄띄엄 놓으면 바가 «끊어진» 것으로 읽힌다. 남색은 이어져 있는데도 그렇다.
+   *   ⇒ 칸 사이에 머리카락 같은 흰 선을 넣는다. 그러면 «끊어진» 게 아니라 «나뉜» 것이 된다.
+   *   ★두 표에 같은 선을 넣는다 — 그래야 위아래가 한 벌로 읽힌다.
+   */
+  .ctab thead th + th, .stab thead th + th { border-left:1px solid rgba(255,255,255,.16); }
+  /** ★모서리는 «첫 칸»만 둥글다 — 순번(No.)이 생겨 차량번호는 이제 첫 칸이 아니다(사장님 2026-09-03). */
+  /**
+   * ★★**머리는 «한 색·한 줄»이다** — 사장님 2026-09-03 「이게 왜 한줄처럼 안보이지?? … 색깔도 그렇고」.
+   *   ⚠ 첫 칸만 진하게 칠하고 있었는데, 그 «진한 칸»의 폭이 두 표에서 달랐다
+   *     (내역표 5% · 요약표 63%). 그래서 위아래 바의 경계가 어긋나 아구가 안 맞아 보였다.
+   *   ⇒ 머리 전체를 한 색으로. 바가 하나면 어긋날 것도 없다.
+   */
+  .ctab thead th.rl { text-align:left; }
+  .ctab thead th:first-child { border-top-left-radius:var(--r-box); }
   .ctab thead th:last-child { border-top-right-radius:var(--r-box); }
   /* ★아래쪽도 둥글게 — 위만 둥글면 표가 각져 보인다. */
-  .ctab tbody tr:last-child th:first-child, .ctab tbody tr:last-child td:first-child { border-bottom-left-radius:var(--r-box); }
+  .ctab tbody tr:last-child td:first-child { border-bottom-left-radius:var(--r-box); }
   .ctab tbody tr:last-child td:last-child { border-bottom-right-radius:var(--r-box); }
-  .ctab .rl { text-align:left; background:#fafbfd; color:var(--mut); font-weight:600; white-space:nowrap; width:110px; }
+  /**
+   * ★★**색 블록을 줄인다** — 사장님 2026-09-03 「뭔가 조잡한게 막 누더기로 붙여놓은거같아」.
+   *   ⚠ 한 장에 파란·회색 덩어리가 넷이었다 — 요약표 청구금액 칸 · 내역표 합계줄 · 차량번호 열 회색 띠 ·
+   *     그리고 상자 둘. 덩어리가 많으면 눈이 어디를 볼지 못 정하고 «붙여 놓은 것»으로 읽힌다.
+   *   ⇒ 차량번호 열의 회색 띠를 걷는다. 글자를 굵게 두면 그것으로 충분히 «라벨»로 읽힌다.
+   */
+  .ctab .rl { text-align:left; white-space:nowrap; font-size:10.5px; padding-left:6px; padding-right:6px; }
+  /** ⚠ 몸통에만 건다 — 머리(thead)까지 먹으면 남색 위 남색이 되어 「차량번호」가 사라진다(실측 2026-09-03). */
+  .ctab tbody .rl { color:var(--ink); font-weight:700; }
+  /**
+   * ★**정산번호(연번)** — 사장님 2026-09-02 「정산내역에 정산번호가 있으면 좋겟네 몇건인지 바로 셀수 잇으니까」.
+   *   쪽이 넘어가도 번호는 «이어진다» — 2쪽 첫 줄이 다시 1이 되면 세는 뜻이 없다.
+   */
+  .ctab .no { text-align:center; color:var(--faint); font-size:10px; font-weight:600;
+    font-variant-numeric:tabular-nums; }
+  .ctab thead th.no { color:#fff; background:var(--tl-d); font-size:10px; }
   /* ★금액 가로 요약표 — 이 종이가 말하는 단 하나. 마지막 칸이 결론이다. */
-  .stab { width:100%; border-collapse:separate; border-spacing:0; }
-  .stab th { background:var(--tl); color:#fff; font-size:10.5px; font-weight:700; padding:5px 12px; text-align:right; }
-  .stab th:first-child { background:var(--tl-d); border-top-left-radius:var(--r-box); text-align:left; }
+  .stab { width:100%; table-layout:fixed; border-collapse:separate; border-spacing:0; }
+  /**
+   * ★★**아래 「정산 내역」 표와 «같은 짜임»이다** — 사장님 2026-09-03
+   *   「왜 목록이 한번에 만든거 같은 느낌이 안들지??」 · 「공급가액이랑 좀 튀지」.
+   *   ⚠ 요약표만 «사방 격자»(칸마다 세로·가로 테두리 + 바깥 상자)였고, 내역표는 «가로줄»만이었다.
+   *     짜임이 다르면 아무리 폭을 맞춰도 두 표가 따로 만든 것으로 읽힌다.
+   *   ⇒ 머리 색·글자 크기·여백·테두리를 내역표와 «같은 값»으로 맞춘다. 세로 칸막이는 없앤다.
+   */
+  .stab th { background:var(--tl-d); color:#fff; font-size:10.5px; font-weight:700; padding:4px 7px; text-align:right; }
+  .stab th:first-child { border-top-left-radius:var(--r-box); text-align:left; }
   .stab th:last-child { border-top-right-radius:var(--r-box); }
-  .stab td:first-child { border-bottom-left-radius:var(--r-box); }
-  .stab td { padding:11px 12px; text-align:right; font-size:14px; font-weight:600; font-variant-numeric:tabular-nums;
-    border:1px solid var(--ln); border-top:0; border-left:0; background:#fff; }
-  .stab td:first-child { border-left:1px solid var(--ln); text-align:left; font-size:11.5px; font-weight:600; color:var(--mut); }
+  /**
+   * ★**네 모서리가 다 둥글어야 «한 덩어리»다** — 사장님 2026-09-03 「청구금액쪽 좌하단이 뾰족하네」.
+   *   ⚠ 요약표를 내역표 짜임으로 다시 쓰면서 아래 왼쪽 라운드를 빠뜨렸다. 오른쪽만 둥글면
+   *     표가 한쪽으로 기울어 보인다 — 바탕색을 깔아 놓으니 더 도드라졌다.
+   */
+  .stab tbody tr:last-child td:first-child { border-bottom-left-radius:var(--r-box); }
+  /** ★셈 표시(①−②)는 머리글에 «작게» 붙는다 — 칸 이름을 밀어내지 않는다. */
+  .stab th em { font-style:normal; font-size:8.5px; font-weight:600; opacity:.72; margin-left:4px; }
+  /**
+   * ★**아래 합계줄과 «같은 바탕»을 준다** — 사장님 2026-09-03
+   *   「라인 없는 청구금액은 살짝 배경색을 하늘색으로 살짝 줘서 끝단과 동일하다라는걸 보여주면 좋겠네」.
+   *   맞다. 위의 「청구 금액」과 아래 「합계」는 «같은 숫자»다. 같은 바탕을 깔면 눈이 그걸 잇는다.
+   *   ⇒ 내역표 합계줄과 똑같은 #eef2f8. 새 색을 만들지 않는다.
+   */
+  .stab td { padding:9px 7px; text-align:right; font-size:12px; font-weight:600; font-variant-numeric:tabular-nums;
+    background:#eef2f8; border-bottom:1px solid #edf0f4; }
+  .stab tbody tr:last-child td { border-bottom:0; }
+  .stab td:first-child { text-align:left; font-size:11.5px; font-weight:600; color:var(--mut); }
   .stab td.neg { color:var(--neg); }
-  .stab td.k { background:var(--bg); color:var(--tl-d); font-size:20px; font-weight:800; letter-spacing:-.6px;
+  /** ★큰 숫자도 «같은 격자» 안에 있어야 한다 — 20px 면 아래 표의 합계 칸을 넘는다(실측 카핑 6,001,655). */
+  /** ★청구 금액은 «글자»로 강조한다 — 배경까지 칠하면 아래 합계줄 띠와 두 덩어리가 된다. */
+  .stab td.k { color:var(--tl-d); font-size:14px; font-weight:800; letter-spacing:-.3px;
     border-bottom-right-radius:var(--r-box); }
   /* ★세로 표 — 라벨이 왼쪽 열, 값이 오른쪽. 사장님 2026-08-27
      「가로로 나열하지말고 세로로 쓰는게 맞을거 같거든」.
@@ -470,17 +563,58 @@ export const INVOICE_CSS = `
 
   /* 한 줄 짜리 — 회원사·계좌. 표로 만들 만큼의 내용이 아니다. */
   .ctab td { font-variant-numeric:tabular-nums; }
-  .ctab td.l { text-align:left; }
-  .ctab .sub { display:block; font-size:10px; color:var(--mut); font-weight:400; margin-top:1px; }
+  /**
+   * ★★**한 줄로 묶는다 — 줄마다 높이가 다르면 표가 «막» 보인다.**
+   *   사장님 2026-09-03 「이런거 안넘어가게 해야지 … 뭐 왜 막 칸이 저러냐」.
+   *   ⚠ 곁줄(.sub)만 묶어 놨더니 «모델명»이 접혔다 — 「K5 / HEV」·「아이오닉 / 6」·「그랜저 / HEV」.
+   *     그 줄만 두 배가 되어 표가 들쭉날쭉했다. 칸 전체를 묶어야 한 줄이 된다.
+   */
+  .ctab td.l { text-align:left; white-space:nowrap; }
+  /** ★금액은 «우측정렬»이다 — 사장님 2026-09-02 「정렬 금액은 우측정렬이어야하고」. 자릿수가 세로로 맞아야 눈으로 읽힌다. */
+  .ctab td.n, .ctab thead th.n { text-align:right; }
+  /** ★접수일 — 사장님 2026-09-02 「접수날짜도 있어야하는데」. 회원사가 그 건을 짚는 두 번째 열쇠다. */
+  .ctab td.day { font-size:9.5px; color:var(--mut); font-variant-numeric:tabular-nums; white-space:nowrap; }
+  /**
+   * ★**곁줄은 «옆»에 붙인다.** 사장님 2026-09-02 「공간이 좀있는데 줄바뀜이 되네 … 여백 확인좀」.
+   *   display:block 이라 칸에 자리가 남아도 «무조건» 두 줄이 됐다 — 줄마다 높이가 두 배였다.
+   *   ⇒ inline 으로 눕히고 가운뎃점으로 가른다. 자리가 모자랄 때만 «자연스럽게» 넘어간다.
+   */
+  /** ★곁줄은 «안 접힌다» — 한 글자가 넘어가면서 줄 높이가 두 배가 되고, 그만큼 쪽이 일찍 넘어간다. */
+  .ctab td.l { font-size:10px; }
+  .ctab .sub { display:inline; font-size:9px; color:var(--mut); font-weight:400; margin-left:5px; white-space:nowrap; }
+  .ctab .sub::before { content:'·'; margin-right:5px; color:var(--faint); }
   /* ★수수료 산출조건 — 제 칸을 갖는다. 표가 스스로 «어떻게 나왔는지»를 말한다. */
-  .ctab td.calc { font-size:10px; color:var(--mut); }
-  .ctab td.calc .rt { display:block; font-size:9.5px; color:var(--faint); margin-top:1px; }
+  /**
+   * ★★**산출조건은 «한 줄»이어야 한다.** 여기가 접히면 줄 높이가 43px 이 되고 쪽이 일찍 넘어간다
+   *   (사장님 2026-09-03 「토플거만 봤을때 페이지 넘김이 왜 저러냐??」 — 16줄이 2쪽으로 갈렸다).
+   *   「대여료 930,000 × 24개월 · 건당 800,000」이 17% 칸에서 세 줄로 접히고 있었다.
+   *   ⇒ 칸을 24% 로 넓히고 안 접히게 묶는다.
+   */
+  .ctab td.calc { font-size:9px; color:var(--mut); white-space:nowrap; padding-left:4px; padding-right:4px; }
+  .ctab td.calc .rt { display:inline; font-size:8.5px; color:var(--faint); margin-left:5px; white-space:nowrap; }
+  .ctab td.calc .rt::before { content:'·'; margin-right:5px; }
   .ctab tr.neg td.calc, .ctab tr.neg td.calc .rt { color:var(--neg); }
   .ctab tr.neg td, .ctab tr.neg th.rl { color:var(--neg); }
   .ctab tr.pay th.rl { color:var(--tl-d); font-weight:800; background:#eef2f8; }
   .ctab tr.pay td { background:#eef2f8; font-weight:700; }
-  .ctab tr.pay b { color:var(--tl-d); font-size:15px; font-weight:800; }
+  .ctab tr.pay b { color:var(--tl-d); font-size:11px; font-weight:800; }
   .ctab tbody tr:last-child th, .ctab tbody tr:last-child td { border-bottom:0; }
+
+  /** ★표 밑 한 줄 — 상자가 아니다. 테두리도 바탕도 없다. 표에 붙어 있어야 «표의 꼬리»로 읽힌다. */
+  /** ★이어짐 표시 — 표 바로 밑 오른쪽에 조용히. 종이의 «말»이지 칸이 아니다. */
+  .cont { margin-top:8px; padding:0 2px; text-align:right; font-size:10px; color:var(--faint); font-weight:500; }
+  .payline { margin-top:10px; padding:0 2px; }
+  .payline p { margin:0; font-size:11px; color:var(--ink); font-weight:600; line-height:1.75; font-variant-numeric:tabular-nums; }
+  .payline b.d { color:var(--tl-d); font-size:12.5px; font-weight:800; letter-spacing:-.2px; }
+  .payline p.cav { color:var(--faint); font-size:10px; font-weight:500; margin-top:1px; }
+  /**
+   * ★맺음 인사 — 오른쪽 아래. 한글 필기체(나눔 펜)로 «손으로 적은 것»처럼 둔다.
+   *   ⚠ 글꼴이 안 실리는 자리에서도 읽혀야 하므로 뒤에 본문 글꼴을 받쳐 둔다.
+   */
+  .thx { margin-top:26px; text-align:right; line-height:1.5;
+    font-family:'Gaegu','Pretendard Variable',Pretendard,'Malgun Gothic',cursive; }
+  .thx span { display:block; font-size:18px; font-weight:700; color:var(--tl-d); letter-spacing:.2px; }
+  .thx b { display:block; font-size:15px; font-weight:400; color:var(--mut); margin-top:3px; }
 
   /* 발송 전 확인 — 우리끼리 보는 표시. 인쇄하면 사라진다. */
   .warn { margin-top:var(--sec); font-size:10px; color:#c0392b; font-weight:600; }
@@ -512,7 +646,7 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
   const money = claim ? '청구금액' : '지급금액';
   const no = S(opts?.invoiceNo);
   const issued = opts?.issuedAt ? new Date(opts.issuedAt) : new Date();
-  /** ★계좌는 방향을 따라 뒤집힌다. 청구서면 «우리 계좌», 지급명세서면 «상대 계좌». */
+  /** ★계좌는 방향을 따라 뒤집힌다. 청구서면 «우리 계좌», 정산서면 «상대 계좌». */
   const acc = claim ? inv.issuer : inv.receiver;
   const accText = join(acc.bank, acc.account, acc.holder);
 
@@ -540,7 +674,13 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
    */
   const logoImg = (alias: string) => {
     const src = logoOf(alias);
-    return src ? `<img class="plogo" src="${src}" alt="">` : '';
+    /**
+     * ★★**로고가 없어도 «자리»는 잡는다** — 사장님 2026-09-03 「회사 CI로 공간만 확보해두고」.
+     *   ⚠ 없을 때 아무것도 안 그리면 상호가 왼쪽으로 밀려, 로고 있는 종이와 없는 종이의
+     *     이름 자리가 달라진다. 열여덟 장을 나란히 놓으면 그게 «따로 만든 것»으로 보인다.
+     *   ⇒ 빈 칸을 같은 크기로 세워 둔다. 나중에 파일만 넣으면 그 자리에 그림이 앉는다.
+     */
+    return src ? `<img class="plogo" src="${src}" alt="">` : '<span class="plogo"></span>';
   };
 
   const spread = (text: string) => text
@@ -551,7 +691,6 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
   const head = (page: number) => `
   <div class="hd">
     <div class="bl">
-      <div class="mk">${MARK}</div>
       <div class="wm">
         <div class="co"><b>${esc(CORP.markMain)}</b><i>${esc(CORP.markSub)}</i></div>
         <div class="ko">${spread(CORP.name)}</div>
@@ -575,7 +714,7 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
    *   (사장님 2026-08-27 「입금 요청일 까지 로 해놓고 그뒤에 세금계산서 내용을 써주면 되잖아」).
    *   맞다. 한 줄을 통째로 쓸 만한 이야기가 아니었다. 「이 종이는 계산서가 아니다」는
    *   되풀이할 말이라 아예 뺐고, «별도 발행한다»만 남겼다.
-   * ⚠ 지급명세서면 본문 계좌가 «상대» 것이다. 꼬리(우리 정보)와 섞지 않는다.
+   * ⚠ 정산서면 본문 계좌가 «상대» 것이다. 꼬리(우리 정보)와 섞지 않는다.
    */
   const foot = (page: number) => `
   <div class="ft">
@@ -620,7 +759,12 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
       <div class="lock">
         ${logoImg(inv.party)}
         <div>
-          <div class="nm">${shown(inv.receiver.name)}<span>귀중</span></div>
+          <!--
+            ★**「주식회사」는 뗀다** — 사장님 2026-09-03 「청구서에 주식회사 이거 빼자 그냥 회사 이름만 심플하게」.
+              바로 아래 사업자등록번호가 그 법인을 특정하므로 상호를 줄여도 누구인지 흔들리지 않는다.
+            ⚠ 발행인(우리) 상호는 «꼬리»에 온전히 남는다 — 문서를 내는 쪽은 법인명을 다 적는다.
+          -->
+          <div class="nm">${shown(shortName(inv.receiver.name))}<span>귀중</span></div>
           <!-- ★회원사 «대표명»은 안 찍는다(사장님 2026-08-27 「회원사 대표명은 빼자」).
                상호와 사업자등록번호면 어느 법인인지 어긋날 데가 없다.
                대표는 바뀌는데 종이는 안 바뀐다 — 틀린 이름이 남느니 없는 게 낫다.
@@ -641,41 +785,69 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
   <div class="sec">
     <div class="sec-h">${ico('금액')}${claim ? '청구 금액' : '지급 금액'}<span class="muted">${plus.length}건 · 단위 원</span></div>
     <table class="stab">
+      <!--
+        ★★**아래 「정산 내역」 표와 «같은 격자»에 세운다.**
+          사장님 2026-09-03 「규격이 왜 안맞냐고 … 한번에 만든거 같아야 하는데 누더기 되게 하지마」.
+          ⚠ 같은 「공급가액 1,127,700」이 위 표에서는 가운데, 아래 표에서는 오른쪽에 있었다.
+            값이 같은데 자리가 다르면 두 표가 «따로 만든 것»으로 읽힌다.
+          ⇒ 금액 세 칸의 폭을 아래 표의 마지막 세 칸(11% · 9% · 10%)에 그대로 맞춘다.
+            환수 칸이 끼면 그만큼 「구분」에서 덜어 낸다 — 오른쪽 끝은 언제나 같은 자리다.
+      -->
+      <!--
+        ★★**셈을 «펼쳐» 보인다** — 사장님 2026-09-03
+          「기존 공급가액에서 환수가 얼마여서 최종 청구금액이 얼마다를 한눈에 보여주고」.
+          ⚠ 공급가액은 «이미 환수를 뺀» 값이라, 그것만 보면 원래 얼마였는지가 안 보인다.
+            15,000,000 에서 665,455 를 뺀 14,334,545 인데 종이에는 14,334,545 만 있었다.
+          ⇒ 환수가 있는 달만 「정산 수수료 − 환수 = 공급가액」을 한 줄에 펼친다.
+            환수가 없으면 칸을 세우지 않는다 — 늘 있는 칸이면 빈칸이 매달 서 있게 된다.
+        ★오른쪽 세 칸(공급가액·부가세·청구금액)은 «언제나» 아래 표와 같은 자리다.
+      -->
+      <colgroup>
+        <col style="width:${inv.clawback ? 39 : 63}%">${inv.clawback ? '<col style="width:13%"><col style="width:11%">' : ''}
+        <col style="width:13%"><col style="width:11%"><col style="width:13%">
+      </colgroup>
       <thead><tr>
-        <th>구분</th><th>공급가액</th><th>부가세</th>${inv.clawback ? '<th>환수</th>' : ''}
+        <!--
+          ★**셈에 번호를 붙인다** — 사장님 2026-09-03 「정산수수료 1 · 환수 2 · 공급가액(1-2)
+            이거 하잖아 보통 동그란숫자로 해서」. 계산서에서 늘 쓰는 표기다.
+            번호는 «셈에 들어가는 칸»에만 붙인다 — 부가세·청구금액까지 붙이면 번호가 다섯이라 되레 헷갈린다.
+        -->
+        <th>구분</th>${inv.clawback ? '<th>① 정산 수수료</th><th>② 환수</th>' : ''}
+        <th>${inv.clawback ? '③ 공급가액<em>①−②</em>' : '공급가액'}</th><th>부가세</th>
         <th>${claim ? '청구 금액' : '지급 금액'}</th>
       </tr></thead>
       <tbody><tr>
         <td>${esc(monthKo(inv.month))} 정산</td>
+        ${inv.clawback ? `<td>${num(inv.supply + inv.clawback)}</td><td class="neg">−${num(inv.clawback)}</td>` : ''}
         <td>${num(inv.supply)}</td>
         <td>${num(inv.vat)}</td>
-        ${inv.clawback ? `<td class="neg">−${num(inv.clawback)}</td>` : ''}
         <td class="k">${num(inv.total)}</td>
       </tr></tbody>
     </table>
   </div>`;
 
   /** 표 한 줄 — 차량번호가 좌측 라벨열이라 뱃지가 필요 없다. */
-  const row = (l: Invoice['lines'][number]) => `
+  const row = (l: Invoice['lines'][number], no: number) => `
     <tr${l.minus ? ' class="neg"' : ''}>
+      <td class="no">${no}</td>
       <th class="rl">${esc(l.plate)}</th>
-      <td class="l">${shown(l.model)}<span class="sub">${
+      <td class="day">${esc(S(l.receivedAt).replace(/^20/, '')) || '&nbsp;'}</td>
+      <td class="l">${l.minus ? (S(l.model) ? esc(l.model) : '환수') : shown(l.model)}<span class="sub">${
     // 계약조건 — 누구에게·무슨 상품·몇 개월
     // ★★고객 이름은 «여기서» 가린다 — 「문세준」 → 「문*준」(사장님 2026-08-27).
     //   이 종이는 남의 회사가 본다. 회원사는 차량번호로 그 건을 찾으니
     //   이름은 «같은 차 다른 계약»을 가르는 곁다리다. 가운데만 가려도 그 구실은 그대로 한다.
     //   ⚠ 엑셀에는 온전한 이름이 남는다 — 엑셀은 우리가 대조할 때 쓰는 것이다.
     //     ★엑셀을 밖으로 보내면 가린 게 소용없다. 나가는 건 PDF 다.
-    esc(join(maskName(l.customer), l.product, l.term ? `${l.term}개월` : '')) || '&nbsp;'
+    /**
+     * ★산출식 칸을 뺐다(사장님 2026-09-03 「산출식은 뭐 따로 정해둔게 있어서 줄마다 산출식은 필요없을거 같음」).
+     *   수수료표가 따로 있으니 종이가 줄마다 다시 설명할 일이 아니다. 그 자리를 이 칸이 받는다.
+     */
+    l.minus ? (esc(S(l.reason)) || '사유 미기재') : (esc(join(maskName(l.customer), l.product, l.term ? `${l.term}개월` : '')) || '&nbsp;')
   }</span></td>
-      <td class="l calc">${
-    // ★산출조건 — 이 수수료가 «어떻게 나왔는지». 칸으로 세워야 표가 스스로 설명한다.
-    //   사장님 2026-08-27 「정산내역에 수수료산출조건 이런거 하나 더 있어서」
-    l.minus ? esc(join('환수', l.reason)) : esc(l.base)
-  }<span class="rt">${l.minus ? '' : esc(feeShow(l.rate))}</span></td>
-      <td>${num(l.amount)}</td>
-      <td>${num(l.vat)}</td>
-      <td><b>${num(l.total)}</b></td>
+      <td class="n">${num(l.amount)}</td>
+      <td class="n">${num(l.vat)}</td>
+      <td class="n"><b>${num(l.total)}</b></td>
     </tr>`;
 
   /**
@@ -683,70 +855,40 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
    *   「하단에 위와 같이 청구합니다」 「아래쪽에도 입금계좌나 보조설명같은거도 위 양식 제대로 맞춰봐」.
    * ★방향에 따라 우리 계좌 / 상대 계좌로 뒤집힌다.
    */
-  const payKv = `
-  <div class="sec">
-    <div class="sec-h">${ico('계좌')}${claim ? '청구 안내' : '지급 안내'}</div>
-    <table class="vtab">
-      <colgroup><col style="width:82px"><col style="width:34%"><col style="width:82px"><col></colgroup>
-      <tbody>
-        <!-- ★날짜와 계좌는 «한 줄을 다» 쓴다 — 사장님 2026-08-27 「입금계좌를 한줄 다 주면」.
-             계좌는 은행·번호·예금주가 붙어 길고, 날짜는 이 칸에서 제일 먼저 찾는 값이라
-             둘 다 옆에 뭘 붙이면 좁아진다. 짧은 넷만 두 쌍으로 앉힌다. -->
-        <tr>
-          <th>${claim ? '입금 요청일' : '지급 예정일'}</th>
-          <td class="mono due" colspan="3">${esc(dueDay(inv.month))}<em>${claim ? '까지' : ''}</em><em class="cav">${
-    // ★계산서는 «줄을 따로 주지 않는다». 날짜 뒤에 붙이면 한 줄로 끝난다
-    //   (사장님 2026-08-27 「입금 요청일 까지 로 해놓고 그뒤에 세금계산서 내용을 써주면 되잖아」).
-    claim ? '세금계산서는 별도 발행해 드립니다' : '세금계산서 발행 부탁드립니다'
-  }</em></td>
-        </tr>
-        <tr>
-          <th>${claim ? '입금 계좌' : '지급 계좌'}</th><td class="mono" colspan="3">${shown(accText)}</td>
-        </tr>
-        <tr>
-          <th>담당</th><td>${esc(CORP.staff)}</td>
-          <th>연락처</th><td class="mono">${esc(S(CORP.staffPhone) || CORP.phone)}</td>
-        </tr>
-        <tr>
-          <th>이메일</th><td>${esc(CORP.email)}</td>
-          <th>팩스</th><td class="mono">${shown(CORP.fax)}</td>
-        </tr>
-        <!-- ★비고 — 맨 아래 한 줄을 다 쓴다(사장님 2026-08-27).
-             ⚠ **비워 두는 게 맞다.** 채울 값이 아직 없다 — 지어서 넣으면
-               모든 회원사에게 같은 말이 나간다. 종이에 적을 일이 생기면 여기다 쓴다. -->
-        <tr>
-          <th>비고</th><td class="memo" colspan="3">${esc(S((inv as { memo?: string }).memo))}</td>
-        </tr>
-      </tbody>
-    </table>
-  </div>
-  <div class="closing">
-    ${claim ? '위와 같이 청구합니다' : '위와 같이 지급합니다'}
-    <span>${esc(day(issued))}</span>
-  </div>
-  <!-- ★인사는 «맨 아래 가운데». 사장님 2026-08-27
-       「하단 중앙에 좀 크게 회색으로 프리패스모빌리티 일동 이렇게 써서 가야지
-         청구합니다 위에 쓰면 우짜냐」.
-       맞다. 「위와 같이 청구합니다」는 «문서의 맺음»이고 인사는 «사람의 말»이다.
-       맺음 앞에 끼우면 인사가 청구문의 머리말처럼 읽힌다. 뒤로 물러나 혼자 서야 인사가 된다.
-     ⚠ 길게 늘이지 마라. 두 줄이면 인사고, 넉 줄이면 광고다. -->
-  <div class="thx">
-    <div>${claim ? '이번 한 달도 함께해 주셔서 감사합니다.' : '이번 한 달도 애써 주셔서 감사합니다.'}</div>
-    <!-- ★「주식회사」를 붙이지 않는다 — 서명은 법인격이 아니라 «사람들»의 이름이다
-         (사장님 2026-08-27 「프리패스모빌리티 일동」).
-         법인격은 꼬리(발행인)에서 이미 밝혔다. -->
-    <div class="by">${esc(CORP.koMain + CORP.koSub)} 일동</div>
-  </div>`;
-
   /**
-   * ★**안내 박스를 두지 않는다.** 사장님 2026-08-27 「하단에 이런표도 의미없어」.
-   *   산출 방식은 표의 「수수료 산출조건」 칸이 줄마다 이미 말한다 —
-   *   같은 말을 아래에 또 적으면 종이만 길어지고 아무도 안 읽는다.
-   *   ⚠ 다시 넣고 싶어지면 «그 문장이 없어서 곤란한 사람이 있나»를 먼저 물어라.
-   *
-   * ★남긴 것은 «발송 전 확인» 한 줄뿐이다. 그건 상대에게 보이는 글이 아니라
-   *   **우리끼리 보는 표시**라 `noprint` 다 — 인쇄하면 사라진다.
+   * ★★**표 밑에 «한 줄»로 붙인다 — 상자를 또 세우지 않는다.**
+   *   사장님 2026-09-03 「굳이 청구 안내를 적을필요는 없을거 같은데 … 입금기한만 코멘트로 표 하단에
+   *   계좌랑 심플하게 적자 … 표 박스를 또 만들어서 섹션을 두는건 어색하다 그냥 표만 있으면 되는데」.
+   *   ⚠ 전에는 「청구 안내」라는 상자(세로표)를 하나 더 세워 입금일·계좌·담당·연락처·이메일·팩스·비고를
+   *     칸칸이 늘어놨다. 종이에 상자가 셋(정보·내역·안내)이면 눈이 어디를 볼지 못 정한다.
+   *   ⇒ 내역표 «바로 밑»에 한 줄. 날짜 · 계좌 · 담당·연락처, 그게 다다.
    */
+  /**
+   * ★★**표 밑 보조설명 — «한 줄 한 줄» 텍스트다. 표로 만들지 않는다.**
+   *   사장님 2026-09-03 「담당자 연락처는 별도로 한줄 한줄 좀 쓰자고 … 표로 만들지 말고
+   *   그냥 텍스트로 보조설명처럼 쓰자고 했잖아」.
+   *   ⚠ 한 줄에 다 이으니 「세금계산서는 별 / 도 발행해 드립니다」로 접혔다 — 접히면 그게 두 줄인데
+   *     읽는 사람은 «왜 저기서 끊겼나»를 먼저 본다. 처음부터 줄을 나눠 준다.
+   */
+  const payLine = `
+    <div class="payline">
+      <p><b class="d">${esc(dueDay(inv.month, claim))}</b> ${claim ? '까지 입금 부탁드립니다' : '지급 예정입니다'}</p>
+      <p>${claim || S(accText) ? esc(accText) : '알려주신 계좌로 지급됩니다'}</p>
+      <p>${esc(CORP.staff)} · ${esc(S(CORP.staffPhone) || CORP.phone)} · ${esc(CORP.email)}${
+    CORP.fax ? ` · 팩스 ${esc(CORP.fax)}` : ''}</p>
+      <p class="cav">${claim ? '세금계산서는 별도 발행해 드립니다' : '세금계산서 발행 부탁드립니다'}</p>
+      <!--
+        ★**맺음 인사** — 사장님 2026-09-03 「한달간 함께해주셔서 감사드린다는거 … 우측 하단 부분에」
+          「약간 필체를 한글 필기체나 예쁜 글씨로 써주면 좋을거 같아 인상적으로」.
+          ⚠ 숫자만 있는 종이에 사람 목소리 한 줄이 있는 것과 없는 것은 다르다.
+            글씨체를 달리해 «손으로 적은 것»처럼 둔다 — 인쇄체로 쓰면 또 하나의 문구가 될 뿐이다.
+      -->
+      <div class="thx">
+        <span>한 달간 함께해 주셔서 감사합니다</span>
+        <b>${esc(CORP.name)} 임직원 일동</b>
+      </div>
+    </div>`;
+
   const note = inv.missing.length
     ? `<div class="warn noprint">발송 전 확인 — ${esc(inv.missing.join(' / '))}</div>`
     : '';
@@ -761,19 +903,27 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
   <div class="pad"></div>
   ${page === 0 ? info + summary : ''}
   <div class="sec">
-    <div class="sec-h">${ico('내역')}정산 내역<span class="muted">${
+    <div class="sec-h sub">${ico('내역')}정산 내역<span class="muted">${
       pages.length > 1 ? `${from}–${from + chunk.length - 1} / ${inv.lines.length}건` : `${plus.length}건`
     } · 단위 원</span></div>
     <table class="ctab">
-      <colgroup><col style="width:13%"><col><col style="width:23%"><col style="width:12%"><col style="width:10%"><col style="width:13%"></colgroup>
-      <thead><tr><th class="rl">차량번호</th><th>차량 · 계약조건</th><th>수수료 산출조건</th><th>공급가액</th><th>부가세</th><th>합계</th></tr></thead>
+      <colgroup><col style="width:5%"><col style="width:11%"><col style="width:9%"><col><col style="width:13%"><col style="width:11%"><col style="width:13%"></colgroup>
+      <thead><tr><th class="no">No.</th><th class="rl">차량번호</th><th>접수일</th><th>차량 · 계약조건</th><th class="n">공급가액</th><th class="n">부가세</th><th class="n">합계</th></tr></thead>
       <tbody>
-        ${chunk.map(row).join('')}
-        ${last ? `<tr class="pay"><th class="rl">합계</th><td class="l" colspan="2">${plus.length}건</td><td>${num(inv.supply)}</td><td>${num(inv.vat)}</td><td><b>${num(inv.total)}</b></td></tr>` : ''}
+        ${chunk.map((l, k) => row(l, from + k)).join('')}
+        ${last ? `<tr class="pay"><td class="no"></td><th class="rl">합계</th><td class="l" colspan="2">${plus.length}건</td><td class="n">${num(inv.supply)}</td><td class="n">${num(inv.vat)}</td><td class="n"><b>${num(inv.total)}</b></td></tr>` : ''}
       </tbody>
     </table>
+    ${last ? payLine : `
+      <!--
+        ★**끝이 아니라 «이어진다»고 말한다** — 사장님 2026-09-03 「2페이지에서 계속 이런거 하나 코멘트 보조글씨로」.
+          ⚠ 표가 뚝 끊기면 받는 쪽은 「여기까지인가」 한다. 뒷장이 있다고 종이가 말해 줘야 한다.
+          ⚠ «쪽 번호를 붙이지 않는다» — 사장님 2026-09-03 「2/2 이러면 지금이 2/2 인지 헷갈리니까」.
+            쪽 번호는 꼬리(.ft)가 이미 말한다. 여기서 또 말하면 «지금 쪽»인지 «다음 쪽»인지가 헷갈린다.
+      -->
+      <div class="cont">다음 장에 이어집니다</div>`}
   </div>
-  ${last ? payKv + note : ''}
+  ${last ? note : ''}
   ${foot(page)}
 </div>`;
   }).join('');
@@ -787,5 +937,5 @@ export const invoicePageHtml = (title: string, docs: string) =>
   + `<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">`
   // ★워드마크 전용 — CI 센터가 쓰는 그 서체다. 본문에는 안 쓴다.
   + `<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>`
-  + `<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@300;600&display=swap">`
+  + `<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:wght@300;600&family=Gaegu:wght@400;700&display=swap">`
   + `<style>${INVOICE_CSS}</style></head><body>${docs}</body></html>`;

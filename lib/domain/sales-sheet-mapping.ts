@@ -155,6 +155,15 @@ const SALES_MAPPING_BY_NAME: [string, string[]][] = [
    * ⚠ 영업자가 읽는 칸이 아니라 맨 뒤에 둔다. 값은 공급사 시트 「사진링크」가 정본이다.
    */
   ['사진', ['사진링크', '사진', '이미지', '사진url', '이미지링크']],
+  /**
+   * ★**「차번링크」 — 차번 셀을 누르면 갈 곳**(사장님 2026-08-28 · `aiops/docs/supplier-sheet-spec` §6-0).
+   *   픽업(T카)은 손오공이 롯데 티카를 연동한 물건이라 **원본 상세페이지에 사진·제원·조건이 다 있다.**
+   *   사진 한 장으로 보내는 것보다 그 페이지로 보내는 게 영업자에게 낫다.
+   * ★**숨김 열이다**(`SALES_HIDDEN_COLUMNS`) — 영업자가 주소 «글자»를 볼 이유는 없다.
+   *   보이는 것은 차번 셀의 파란 링크뿐이고, 그 링크를 만드는 재료가 이 칸이다(「사진」과 같은 짜임).
+   * ⚠ 값이 없으면 예전처럼 「사진」 첫 장으로 떨어진다 — 다른 탭은 지금 그대로 굴러간다.
+   */
+  ['차번링크', ['차번링크', '상세url', '상세URL']],
 
   /**
    * ── 값 — 금액이지만 «대여료가 아닌 것». 대여료는 앞자리(단기보증~60개월)에 있다.
@@ -288,7 +297,7 @@ export const SALES_MAPPING: [string, string[]][] = [...SALES_MAPPING_BY_NAME]
  *   그래서 값은 그대로 싣고 **열만 숨긴다.** 공급사 시트에서 「정책UID·정책코드」를
  *   지우지 않고 숨긴 것과 같은 이유다(사장님 2026-08-21 「공급사가 혼선오것다」).
  */
-export const SALES_HIDDEN_COLUMNS: string[] = ['사진', '정책UID'];
+export const SALES_HIDDEN_COLUMNS: string[] = ['사진', '정책UID', '차번링크'];
 
 export const SALES_RETIRED_COLUMNS: string[] = [
   /**
@@ -373,8 +382,16 @@ export function parsePublishedSalesMapping(rows: unknown[][]): PublishedSalesMap
   const retired = order.filter((column) => SALES_RETIRED_COLUMNS.includes(column));
   let columns = order.filter((column) => !SALES_RETIRED_COLUMNS.includes(column));
   for (const column of retired) delete aliases[column];
-  for (const column of ['제조사', '모델', '차명(원문)', '옵션(원문)'] as const) {
+  for (const column of ['제조사', '모델', '차명(원문)', '옵션(원문)', '차번링크'] as const) {
     if (SALES_ALIAS[column]) aliases[column] = SALES_ALIAS[column];
+  }
+  /**
+   * ★**「차번링크」는 @매핑에 아직 없어도 세운다** — 시트 표를 사람이 고치기 «전»에도 링크가 살아야 한다.
+   *   자리는 「사진」 바로 뒤(둘 다 숨김 열이고, 차번 셀 링크를 만드는 같은 성격이다).
+   */
+  if (!columns.includes('차번링크')) {
+    const at = columns.indexOf('사진');
+    columns = at >= 0 ? [...columns.slice(0, at + 1), '차번링크', ...columns.slice(at + 1)] : [...columns, '차번링크'];
   }
   /**
    * **공급사 원문 두 칸을 원산지 바로 앞에 세운다**(사장님 2026-08-22 「공급사가 직접 입력한 거는 옵션 앞에 차명으로 그대로」·

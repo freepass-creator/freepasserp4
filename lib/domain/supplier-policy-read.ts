@@ -84,12 +84,27 @@ export function readPolicyTab(rows: string[][]): PolicyBook {
        *   프리패스 기본 줄은 코드(「(프리패스 기본)」)든 이름(「프리패스 표준」)이든 하나는 적혀 있다.
        */
       if (!S(r[codeCol]) && !S(r[nameCol])) continue;
-      const code = /프리패스 기본/.test(S(r[codeCol])) ? '' : S(r[codeCol]);
+      /**
+       * ★**「프리패스 기본」 자리(`''`)는 «그렇게 적힌 줄»만 차지한다** (실측 2026-09-03 손오공).
+       *   예전엔 «정책코드가 빈 줄»이면 무엇이든 `''` 키가 되어 기본 줄을 덮었다.
+       *   손오공 정책 탭에는 코드 없이 이름만 적힌 반쯤 쓴 줄(「만 21세 이상 구독」·3칸)이 있었고,
+       *   그게 진짜 「프리패스 표준」(52칸)을 밀어내 **손오공 343대**(손오공구독 74·픽업구독 269)의
+       *   보험·연령·해지·정비 칸이 통째로 비고 「심사=불가」만 붙어 나갔다.
+       *   2026-08-25 에 «코드·이름이 둘 다 빈 줄»은 막았는데, 이름만 있는 줄은 그대로 지나갔다.
+       * ★코드가 없는 줄은 **이름으로 따로 세워 둔다** — 버리지 않는다(공급사가 쓰다 만 정책이다).
+       *   차는 「정책코드」로 정책을 찾으므로 이름 키에는 붙지 않는다. 코드를 적어야 붙는다.
+       *   ⚠ 그 공급사에 정책이 그 한 줄뿐이면 `pickPolicy` 의 «유일» 갈래가 여전히 집어 준다.
+       */
+      const isBase = /프리패스\s*(기본|표준)/.test(`${S(r[codeCol])} ${S(r[nameCol])}`);
+      const code = isBase ? '' : (S(r[codeCol]) || `이름:${S(r[nameCol])}`);
       const m = new Map<string, string>();
       hdr.forEach((h, i) => { if (h && !/^정책코드$|^정책명$|^정책uid$/.test(norm(h).toLowerCase())) { const v = policyCellValue(h, r[i]); if (v) setWithAliases(m, h, v); } });
       /** UID 는 값이 아니라 이름표다 — 정책 값 묶음에 섞지 않고 따로 담는다(ERP·계약서가 이걸 참조한다). */
       const uidCol = headAt.findIndex((h) => h.toLowerCase() === '정책uid');
       if (uidCol >= 0 && S(r[uidCol])) m.set('__uid', S(r[uidCol]));
+      /** ★같은 자리를 «덜 찬 줄»이 덮지 못한다 — 덮으면 어느 쪽이 이겼는지 아무도 모른다. */
+      const prev = book.get(code);
+      if (prev && prev.size >= m.size) continue;
       book.set(code, m);
     }
     return book;

@@ -34,8 +34,17 @@ export type InvoiceParty = {
 
 export const EMPTY_PARTY: InvoiceParty = { name: '', bizNo: '', ceo: '', address: '', phone: '', bank: '', account: '', holder: '' };
 
+/** Date → `YYYY-MM-DD`. 없으면 빈칸 — 지어내지 않는다. */
+const dayOf = (d: Date | null | undefined): string => (d instanceof Date && !Number.isNaN(+d)
+  ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` : '');
+
 /** 정산서 한 줄. **차 한 대가 한 줄**이다. */
 export type InvoiceLine = {
+  /**
+   * **접수일** — 사장님 2026-09-02 「접수 날짜 있어야하는데」.
+   *   회원사가 그 건을 찾을 때 차량번호 다음으로 짚는 값이다. `YYYY-MM-DD`, 없으면 빈칸.
+   */
+  receivedAt: string;
   plate: string;
   model: string;
   customer: string;
@@ -63,8 +72,8 @@ export type InvoiceLine = {
 
 export type Invoice = {
   axis: '공급사' | '영업채널';
-  /** 「청구서」인지 「지급명세서」인지 — 축이 문서의 뜻을 바꾼다. */
-  kind: '청구서' | '지급명세서';
+  /** 「청구서」인지 「정산서」인지 — 축이 문서의 뜻을 바꾼다. */
+  kind: '청구서' | '정산서';
   month: string;
   party: string;
   issuer: InvoiceParty;
@@ -152,9 +161,10 @@ export function buildInvoice(opts: {
     const amount = claim ? m.claim : m.pay;
     const vat = claim ? m.claimVat : m.payVat;
     return {
+      receivedAt: dayOf(r.receivedAt),
       plate: S(r.plate), model: S(r.model), customer: S(r.customer), product: S(r.product),
       term: Number(r.term) || 0, base: baseOf(r),
-      // ★청구서는 공급사 요율, 지급명세서는 영업자 요율. 축을 따라간다.
+      // ★청구서는 공급사 요율, 정산서는 영업자 요율. 축을 따라간다.
       rate: Number(claim ? r.supplierRate : r.agentRate) || 0,
       amount, vat, total: amount + vat,
     };
@@ -168,6 +178,7 @@ export function buildInvoice(opts: {
     clawback += v;
     const vat = Math.round(v * VAT);
     lines.push({
+      receivedAt: dayOf(r.clawbackAt) || dayOf(r.receivedAt),
       plate: S(r.plate), model: S(r.model), customer: S(r.customer), product: S(r.product),
       term: Number(r.term) || 0, base: '환수',
       amount: -v, vat: -vat, total: -(v + vat), minus: true,
@@ -208,7 +219,7 @@ export function buildInvoice(opts: {
 
   return {
     axis: opts.axis,
-    kind: claim ? '청구서' : '지급명세서',
+    kind: claim ? '청구서' : '정산서',
     month: opts.month,
     party: opts.party,
     issuer: opts.issuer,
