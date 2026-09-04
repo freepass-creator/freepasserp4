@@ -33,7 +33,11 @@ import { kmDisplay, manWon } from '@/lib/format';
  *   ④ 차량 정보(제원)
  *   ⑤ 이용 조건(정책) — 보험·연령·주행·면책
  *   ⑥ 하단 고정 — 전화 상담
- * 웹은 ①②③을 «왼쪽 사진 · 오른쪽 값»으로 나누고 오른쪽이 따라온다(엔카·헤이딜러가 다 그렇다).
+ * ★★**웹도 폰과 같은 한 줄이다.** 웹만 「사진 왼쪽 · 값 칸 오른쪽」 2단이었는데 걷었다
+ *   (사장님 2026-09-05 「대여료를 꼭 사진 우측에서 보여줄 필요가 있어? 그냥 위아래로 스크롤하고
+ *   저 대여료 섹션을 어딘가에 갖고 가서 보기 좋게 보여주면 되잖아」). 2단이면 «같은 화면인데
+ *   웹과 폰이 다른 물건»이 되고, 한쪽만 고칠 때마다 다른 쪽이 「또 원래대로」가 된다.
+ *   웹은 같은 순서를 «넓게» 그릴 뿐이고, 넓어진 대여료 칸은 안에서 가로로 편다.
  *
  * ★★값을 지어내지 않는다. 없는 항목은 **줄째로 빠진다** — 손님 화면에 뜬 조건은 곧 약속이라
  *   「협의」나 빈칸을 그럴듯하게 채우면 그게 분쟁이 된다(public-catalog 의 같은 판단).
@@ -196,7 +200,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
   const code = String(p.product_code || '');
   const telHref = phone ? `tel:${phone.replace(/[^0-9+]/g, '')}` : '';
 
-  const gallery = <Gallery p={p} />;
+  const gallery = <Gallery p={p} mobile={mobile} />;
 
   const bar = (
     <TopBar code={code} title={title} listHref={listHref} />
@@ -214,8 +218,20 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
       padding: mobile ? '20px 16px 18px' : '22px 20px 20px',
     }}>
       <SecTitle icon={Coins} accent>대여료</SecTitle>
+      {/*
+       * ★넓은 화면에서는 **한 줄로 편다** — 「월 얼마 · 보증금 얼마 …… [전화]」.
+       *   좁은 칸(340)에서 세로로 쌓던 짜임을 900px 에 그대로 늘리면 오른쪽이 통째로 빈다.
+       *   폰에서는 지금처럼 쌓는다(가로로 펼 폭이 없다).
+       * ★전화가 이 줄 끝에 온다. 값 칸을 없앴으니 큰 실행 버튼이 사라지는데,
+       *   손님이 「얼마」를 읽은 바로 그 자리가 전화를 누를 자리다(머리띠 버튼은 작다).
+       */}
       {plan ? (
-        <>
+        <div style={{
+          display: 'flex', gap: mobile ? 0 : 24,
+          flexDirection: mobile ? 'column' : 'row',
+          alignItems: mobile ? 'stretch' : 'center', justifyContent: 'space-between',
+        }}>
+        <div style={{ minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, whiteSpace: 'nowrap' }}>
             <span style={{ fontSize: SHOP.fs.sub, color: C.mute }}>월</span>
             <span style={{
@@ -238,7 +254,21 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
               {plan.deposit > 0 ? `보증금 ${manWon(plan.deposit)}` : '보증금 없음'}
             </span> · {plan.m}개월 약정
           </div>
-        </>
+        </div>
+        {!mobile && telHref ? (
+          <a href={telHref} onClick={() => haptic.nav()} className="fp-shop-press"
+            style={{
+              flex: '0 0 auto',
+              display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: 8,
+              height: 52, padding: '0 26px', borderRadius: SHOP.r.chip,
+              background: C.brand, color: C.inverse, textDecoration: 'none',
+              fontSize: SHOP.fs.body, fontWeight: 700, whiteSpace: 'nowrap',
+            }}>
+            <Phone size={ICON.md} aria-hidden />
+            {agentName ? `${agentName} 담당자에게 전화` : '전화 상담'}
+          </a>
+        ) : null}
+        </div>
       ) : (
         <div style={{ fontSize: SHOP.fs.body, color: C.mute }}>요금은 담당자에게 문의해 주세요.</div>
       )}
@@ -343,42 +373,34 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
 
   return (
     <main style={{
-      maxWidth: 1120, margin: '0 auto',
+      /*
+       * 940 이다(2026-09-05 에 1120 에서 줄였다). 1120 은 «사진 + 옆 값 칸» 두 단을 담으려던 폭인데,
+       * 한 줄 스크롤로 바꾸고 나면 그 폭이 그대로 **본문 한 줄의 길이**가 된다 —
+       * 보험·운전의 흐린 나열이 1,100px 한 줄로 뻗어 눈이 줄 끝에서 다음 줄 머리를 못 찾는다.
+       * 폰과 «같은 순서»를 넓게 그리는 것이지, 넓다고 더 벌리는 게 아니다.
+       */
+      maxWidth: 940, margin: '0 auto',
       // 하단 고정독이 마지막 줄을 덮지 않게 그만큼 비운다.
       padding: mobile ? '16px 16px 108px' : '26px 24px 40px',
     }}>
+      {/*
+        ★★**웹도 폰과 같은 «한 줄 스크롤»이다**(사장님 2026-09-05 「저 대여료를 꼭 사진 우측에서
+          보여줄 필요가 있어? 그냥 전체에 위아래로 스크롤하고 저 대여료 섹션을 어딘가에다 갖고 가서
+          보기 좋게 보여주면 되잖아」).
+
+        여기 있던 것 — 웹만 「왼쪽 사진 · 오른쪽 따라오는 값 칸(340px)」 2단이었다. 그러면
+        **같은 화면인데 웹과 폰이 다른 물건**이 된다. 구역 순서가 갈리고(웹은 대여료가 사진 «옆»,
+        폰은 사진 «아래»), 손볼 때마다 두 벌을 손대야 하고, 한쪽만 고치면 다른 쪽이 「또 원래대로」가 된다.
+        ⇒ 순서를 하나로 못 박는다: **사진 → 차명 → 대여료 → 차량정보 → 옵션 → 보험 → 계약 → 운전 → 기타.**
+           웹은 그 순서를 «넓게» 그릴 뿐이다.
+        ★대신 대여료 칸이 넓어진 만큼 안에서 가로로 편다(아래 `priceCard` 참고) —
+          좁은 칸에서 세로로 쌓던 것을 그대로 늘리면 900px 짜리 빈 줄이 세 개 생긴다.
+      */}
       {bar}
-      {mobile ? (
-        <>
-          {gallery}
-          <Head title={title} facts={facts} />
-          <Rule mobile={mobile} />
-          {priceCard}
-        </>
-      ) : (
-        <div style={{ display: 'flex', gap: 36, alignItems: 'flex-start' }}>
-          <div style={{ flex: '1 1 0', minWidth: 0 }}>
-            {gallery}
-            <Head title={title} facts={facts} />
-          </div>
-          {/* 오른쪽 값 칸이 «따라온다» — 아래 제원·조건을 읽는 동안에도 얼마인지가 늘 보인다. */}
-          <aside style={{ width: 340, flex: '0 0 340px', position: 'sticky', top: 20 }}>
-            {priceCard}
-            {telHref ? (
-              <a href={telHref} onClick={() => haptic.nav()} className="fp-shop-press"
-                style={{
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                  height: 54, marginTop: 18, borderRadius: SHOP.r.chip,
-                  background: C.brand, color: C.inverse, textDecoration: 'none',
-                  fontSize: SHOP.fs.body, fontWeight: 700,
-                }}>
-                <Phone size={ICON.md} aria-hidden />
-                {agentName ? `${agentName} 담당자에게 전화` : '전화 상담'}
-              </a>
-            ) : null}
-          </aside>
-        </div>
-      )}
+      {gallery}
+      <Head title={title} facts={facts} />
+      <Rule mobile={mobile} />
+      {priceCard}
 
       {/*
         차량 정보 — 서로 «독립된 짧은 사실» 넷이다. 이름/값 표로 놓으면 계약·보험과 같은 얼굴이 되고,
@@ -814,7 +836,7 @@ function Head({ title, facts }: { title: string; facts: string }) {
  * ★사진이 한 장뿐이면 화살표도 점도 세는 표시도 안 그린다 — 누를 데가 없는 단추를 두지 않는다.
  * ★사진이 없으면 «없다»고 조용히 말한다. 실측 28%가 그렇다 — 회색 판만 두면 고장으로 보인다.
  */
-function Gallery({ p }: { p: EntityRecord }) {
+function Gallery({ p, mobile }: { p: EntityRecord; mobile?: boolean }) {
   const photos = useProductPhotos(p, 1280);
   const railRef = useRef<HTMLDivElement>(null);
   const [i, setI] = useState(0);
@@ -839,6 +861,15 @@ function Gallery({ p }: { p: EntityRecord }) {
   return (
     <div style={{
       position: 'relative', aspectRatio: '4 / 3', overflow: 'hidden',
+      /*
+       * ★넓은 화면에서는 **높이를 520 에서 끊는다**(2026-09-05). 2단을 걷고 한 줄로 펴자
+       *   사진이 본문 폭(892)을 다 먹어 4:3 이면 **669px** 이 됐다 — 노트북 첫 화면(900)이
+       *   사진 하나로 끝나고, 손님이 찾아온 답(대여료)이 접힘 아래로 내려간다.
+       *   폰은 390 폭이라 292px 이라 그대로 둔다.
+       * ⚠ 4:3 → 1.7:1 이라 위아래가 12%씩 잘린다. 차 사진은 대개 가로라 견디지만,
+       *   잘려서 못 보는 장이 있으면 화살표·「n / N」 로 다음 장을 본다.
+       */
+      maxHeight: mobile ? undefined : 520,
       borderRadius: SHOP.r.card, background: C.placeholder,
     }}>
       {n ? (
