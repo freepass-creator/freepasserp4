@@ -33,6 +33,7 @@ import { productType } from '../lib/domain/sales-sheet-clean';
 import { parsePublishedSalesMapping, SALES_ALIAS, SALES_COLUMNS } from '../lib/domain/sales-sheet-mapping';
 import { salesPublishedTabIndex } from '../lib/domain/sales-published-tabs';
 import { HANDOVER_TAB, STALE_DAYS, daysSince, readLog } from '../lib/domain/supplier-handover-log';
+import { isMirrorSheet } from '../lib/domain/mirror-sources';
 import { SHEET_NAME_MATCH, isOurNonInventoryTab, supplierSheetLabel } from '../lib/domain/supplier-template-sheet';
 import { mileageCompact, pickPolicy, policyCell, readPolicyTab, type PolicyBook } from '../lib/domain/supplier-policy-read';
 import { POLICY_TAB_ALIASES } from '../lib/domain/supplier-template-sheet';
@@ -450,13 +451,23 @@ for (const [code, p] of [...byCode].sort()) {
    *   자체시트 공급사(아이카·오플·이안카)는 우리 규격화시트를 거쳐 온다. 그 시트는
    *   `sync-mirror-sheet` 가 원본에서 채워 주는데, 그게 멈추면 아무도 안 죽고 화면에도
    *   표시가 없고 **값만 조용히 낡는다.** 이 구조의 유일한 조용한 실패 경로다.
-   *   숨긴 탭 「AI 인계」의 @이력을 보고 오래됐으면 알린다. 이력이 없으면 규격화시트가 아니다.
+   *   숨긴 탭 「AI 인계」의 @이력을 보고 오래됐으면 알린다.
+   *
+   * ★★**미러 대상일 때만 본다**(`isMirrorSheet`). 「@이력이 있으면 규격화시트」로 갈랐더니
+   *   **오경보가 났다** — 실측 2026-09-04: 렌트존·SA·리더스·스타·우리캐피탈·스카이 여섯 곳이
+   *   「17일째 동기화 안 됨」으로 매 회차 떴는데, 문패를 읽어 보니 여섯 다 **공급사 자기 시트**를
+   *   가리키고 있었다. 미러할 게 애초에 없는 곳이다(mirror-sources 주석의 「아직 문패가 자기 시트다」).
+   *   그 시트에 「AI 인계」 탭이 남아 있어서 낡은 이력이 잡힌 것뿐이다.
+   *   ⇒ **늘 켜져 있는 빨간불은 아무도 안 믿는다.** 진짜 미러 넷이 멈췄을 때 그 불을 보려면
+   *     안 멈춘 곳까지 켜 두면 안 된다(도면 「좋아진 것까지 빨갛게 뜨면」과 같은 이유).
    */
-  try {
-    const lg = await api(`https://sheets.googleapis.com/v4/spreadsheets/${readId}/values/${encodeURIComponent(`'${HANDOVER_TAB}'!A1:C400`)}`) as { values?: string[][] };
-    const days = daysSince(readLog((lg.values || []) as string[][]));
-    if (days !== null && days > STALE_DAYS) staleSheets.push(`${who}(${code}) — ${Math.floor(days)}일째 동기화 안 됨`);
-  } catch { /* 「AI 인계」가 없으면 규격화시트가 아니다 — 알릴 것이 없다 */ }
+  if (isMirrorSheet(readId)) {
+    try {
+      const lg = await api(`https://sheets.googleapis.com/v4/spreadsheets/${readId}/values/${encodeURIComponent(`'${HANDOVER_TAB}'!A1:C400`)}`) as { values?: string[][] };
+      const days = daysSince(readLog((lg.values || []) as string[][]));
+      if (days !== null && days > STALE_DAYS) staleSheets.push(`${who}(${code}) — ${Math.floor(days)}일째 동기화 안 됨`);
+    } catch { /* 「AI 인계」를 못 읽으면 알릴 것이 없다 */ }
+  }
   let n = 0;
   for (const t of read.tabs) {
     if (isOurNonInventoryTab(S(t.title))) continue;    // 우리 탭은 재고표가 아니다
