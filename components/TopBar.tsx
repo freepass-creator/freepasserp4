@@ -1,8 +1,9 @@
 ﻿'use client';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
+import { isGuestSurface } from '@/lib/guest-surface';
 import { useState, useEffect, useCallback, type CSSProperties, type ReactNode } from 'react';
-import { Menu, X, Search, FileText, FileSignature, Settings, ChevronLeft, List, History, Users, Wrench, HelpCircle, Sparkles, RefreshCw, type LucideIcon } from 'lucide-react';
+import { Menu, X, Search, FileText, FileSignature, Settings, ChevronLeft, List, History, Users, Wrench, HelpCircle, Sparkles, RefreshCw, type LucideIcon, Share2 } from 'lucide-react';
 import { useAppBarSlots } from '@/lib/appbar';
 import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
@@ -29,6 +30,8 @@ const GROUPS: { title: string; items: { href?: string; label: string; icon: Luci
     // 계약문의 하나로 간다 — 관리자에게는 이 안에서 «응대 큐»가 열린다(docs/ADMIN_DESK.md).
     { href: '/chat', label: NAV_LABEL.chat, icon: NAV_ICON.chat, roles: ALL_ROLES },
     { href: '/contract', label: NAV_LABEL.contract, icon: NAV_ICON.contract, roles: ['agent', 'provider', 'admin'] },
+    // 손님에게 보낼 주소를 «화면이» 만들어 준다 — 손으로 조립하면 한 글자 틀려 담당 귀속이 날아간다.
+    { href: '/share', label: '내 손님 링크', icon: Share2, roles: ['agent', 'admin'] },
     { href: '/esign', label: NAV_LABEL.esign, icon: FileSignature, roles: ['admin'] },
   ] },
   { title: '견적·구독', items: [
@@ -362,7 +365,10 @@ export default function TopBar() {
   const line = C.line, ink = C.ink;
   // /m = 모바일 미리보기(폰 프레임) → 앱 상단바 없이 전체화면. /m/[code](실제 모바일 상세)는 상단바 유지.
   // '/' = 공개 안내 페이지(상품시트 입장) — ERP 상단바가 뜨면 안 된다(2026-08-15 · ERP 개선 대기).
-  if (path === '/' || path === '/erp5' || path.startsWith('/erp5/') || path === '/login' || path === '/m' || path.startsWith('/q/') || path.startsWith('/catalog') || path.startsWith('/sign/')) return null;
+  // 손님 면(가게·카탈로그·상품안내·전자계약)은 `isGuestSurface` 한 곳이 정한다 —
+  // 예전엔 이 명단이 여기와 AppTabBar 에 따로 적혀 있어 새 라우트에서 한 쪽을 빠뜨렸다.
+  if (path === '/' || path === '/erp5' || path.startsWith('/erp5/') || path === '/login' || path === '/m'
+    || isGuestSurface(path)) return null;
   const backLabel = backKind === 'list' ? '목록' : '이전';
   const backIcon = backKind === 'list'
     ? <List size={mobile ? 18 : 16} strokeWidth={2.25} />

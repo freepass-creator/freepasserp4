@@ -33,6 +33,11 @@ import { getDatabase } from 'firebase-admin/database';
 import { CORP } from '../lib/domain/corporate-ci';
 import { dueDate } from '../lib/domain/settlement-cycle';
 import { settleTargetOf, billingMonthIn, lockedMonthsOf, type SettlementRow } from '../lib/domain/settlement-stage';
+import { settlementMonthOf } from '../lib/domain/settlement-billing-month';
+import { SETTLE_NOTE } from '../lib/server/channel-sheet-tabs';
+
+/** 공급사가 적는 넉 칸 — [확인, 정정, 정정금액, 메모(정정사유)]. */
+type Keep = [boolean, boolean, number | '', string];
 import { feeKindOf, feeRuleFor, SUPPLIER_ALIAS } from '../lib/domain/settlement-fee-table';
 import { outwardText } from '../lib/domain/outward-text';
 
@@ -80,7 +85,25 @@ const D = (v: unknown) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(S(v)); ret
 const asRow = (r: Row) => ({ ...r, receivedAt: D(r.receivedAt), deliveredAt: D(r.deliveredAt) } as unknown as SettlementRow);
 const allRows = Object.values((await db.ref('v4/settlement_rows').get()).val() || {}) as Row[];
 const locked = lockedMonthsOf(allRows.map(asRow));
-const rows = allRows.filter((r) => r.cancelled !== true && billingMonthIn(asRow(r), locked) === MONTH);
+/**
+ * ★★★**아직 안 끝난 달은 «예정»으로 미리 채운다** — 사장님 2026-09-04
+ *   「**영업자랑 공급사에** 9 10 11월꺼 정산할거 미리 반영해두자고 분납건들」.
+ *   영업채널 시트와 «같은 규칙»이다 — 마감된 달은 billingMonthIn 그대로,
+ *   앞으로 올 달에만 분납완료 규칙(접수월 + 회차−1)을 더한다.
+ * ⚠ 마감된 달에 씌우면 이미 나간 청구서와 갈라진다.
+ * ⚠ settlementMonthOf 에 asRow(r) 를 넘기지 마라 — 그건 날짜가 Date 로 바뀐 것이고
+ *   저 함수는 「2026-08-18」 «글»을 본다. 넘기면 조용히 빈 값이 나와 예정 줄이 하나도 안 잡힌다.
+ */
+const ymAdd = (v: string, n: number) => { const y = Number(v.slice(0, 4)); const m = Number(v.slice(5)) + n;
+  return `${y + Math.floor((m - 1) / 12)}-${String(((m - 1) % 12 + 12) % 12 + 1).padStart(2, '0')}`; };
+const today = new Date();
+const CLOSED = ymAdd(`${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`, -1);
+const FORECAST = MONTH > CLOSED;
+const soonMonth = (r: Row) => (S(r.billMonth) ? '' : settlementMonthOf(r));
+const rows = allRows.filter((r) => r.cancelled !== true
+  && (billingMonthIn(asRow(r), locked) === MONTH || (FORECAST && soonMonth(r) === MONTH)));
+/** 이 줄이 «예정»인가 — 마감 규칙으로는 아직 이 달에 안 잡히는 줄. */
+const isSoon = (r: Row) => FORECAST && billingMonthIn(asRow(r), locked) !== MONTH;
 const claws = (Object.values((await db.ref('v4/settlement_clawbacks').get()).val() || {}) as Row[])
   .filter((c) => S(c.month) === MONTH);
 
@@ -113,6 +136,11 @@ const lineOf = (r: Row): Line => {
     if (ratio !== 1) how += ` × 비율 ${ratio}`;
   } else if (f) how = `표 규칙 「${f.claim}」 — 개별 협의분`;
   else how = '개별 협의분';
+  /**
+   * ★★**예정 줄은 «예정»이라고 적는다.** 금액이 0 이면 아직 인도 전이라 수수료가 안 정해진 것이다 —
+   *   빈칸으로 두면 「0원 청구한다」로 읽힌다. 왜 0 인지를 그 자리에 적어야 묻지 않는다.
+   */
+  if (isSoon(r)) how = raw ? `예정 · ${how}` : `예정 · 인도 뒤 정해집니다 (${S(r.payKind) || '분납'} · 접수 ${S(r.receivedAt) || '-'})`;
   return {
     plate: S(r.plate) || '(차번없음)', recv: S(r.receivedAt), deliv: S(r.deliveredAt),
     model, cust: S(r.customer), product, term, rent: N(r.rent), how,
@@ -157,7 +185,8 @@ for (const sup of sups) {
     const alt = findSheet(SUPPLIER_ALIAS[sup]);
     if (alt.length === 1) { hit = alt; via = SUPPLIER_ALIAS[sup]; }
   }
-  const mine = rows.filter((r) => S(r.supplier) === sup).map(lineOf).filter((l) => l.total !== 0);
+  /** ★예정 달에는 금액 0 인 줄도 싣는다 — 「이 건이 옵니다」가 알려 줄 값이다. */
+  const mine = rows.filter((r) => S(r.supplier) === sup).map(lineOf).filter((l) => FORECAST || l.total !== 0);
   /** ★차례는 «접수일 순» — 영업채널 시트와 같은 규칙이다(사장님 2026-09-03 「접수일자 순으로」). */
   mine.sort((a, b) => `${a.recv || '9999-99-99'}|${a.plate}`.localeCompare(`${b.recv || '9999-99-99'}|${b.plate}`));
   const backs: Back[] = claws.filter((c) => S(c.supplier) === sup)
@@ -213,10 +242,10 @@ const BASIS = ['수수료 산정 기준'];
  *   「에이전시가 체크한 내용 메모남길수 있게 해줘 공급사도 마찬가지고」.
  *   ⚠⚠ 매달 다시 찍을 때 «적어 둔 것을 덮으면 안 된다» — 차량번호로 찾아 그대로 되돌려 놓는다.
  */
-const NOTE = ['확인', '메모'];
+const NOTE = SETTLE_NOTE;
 const HEAD = ['No.', '차량번호', '접수일', '인도일', '모델명', '임차인', '상품 구분', '계약 기간', '렌탈료',
   ...BASIS, '공급가액', '부가세', '합계', ...NOTE];
-const WIDTH = [40, 92, 84, 84, 150, 76, 112, 76, 92, 250, 100, 88, 108, 56, 260];
+const WIDTH = [40, 92, 84, 84, 150, 76, 112, 76, 92, 250, 100, 88, 108, 56, 56, 110, 240];
 /**
  * ★★★**영업자 «지급» 수수료는 공급사 시트에 «절대» 안 들어간다** — 사장님 2026-09-03
  *   「절대 영업자 지급 수수료가 얼만지 공급사시트에는 반영되면 안돼」.
@@ -233,7 +262,7 @@ if (leak.length) { console.log(`\n  ✕ 멈춥니다 — 공급사 시트에 못
 const iB = HEAD.indexOf(BASIS[0]);          // 산출조건 첫 칸
 const iM = HEAD.indexOf('공급가액');          // 돈 첫 칸
 const LEFT = ['모델명', ...BASIS];
-const MONEY = ['렌탈료', '공급가액', '부가세', '합계'];
+const MONEY = ['렌탈료', '공급가액', '부가세', '합계', '정정금액'];
 
 for (const j of jobs) {
   const tab = j.tab;
@@ -284,34 +313,82 @@ for (const j of jobs) {
    * ★**적어 둔 「확인·메모」를 먼저 거둔다.** 머리글 이름으로 칸을 찾으므로 열이 늘거나 자리가 바뀌어도
    *   따라온다. 열쇠는 차량번호 — 줄 차례는 접수일 순이라 달마다 바뀐다.
    */
-  const kept = new Map<string, [boolean, string]>();
+  /** 공급사가 적는 넉 칸 — [확인, 정정, 정정금액, 메모(정정사유)]. */
+  const kept = new Map<string, Keep>();
   {
     const got = await (await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${j.sheetId}/values/${encodeURIComponent(`'${tab}'!A1:AZ400`)}`, { headers: { Authorization: `Bearer ${await tok()}` } })).json() as { values?: unknown[][] };
     const g = got.values || [];
     const hi = g.findIndex((r) => (r || []).some((c) => S(c) === '차량번호'));
     if (hi >= 0) {
       const h = (g[hi] || []).map(S);
-      const [cp, cc, cm] = ['차량번호', '확인', '메모'].map((n) => h.indexOf(n));
-      if (cp >= 0 && (cc >= 0 || cm >= 0)) {
+      const [cp, cc, cx, cf, cm] = ['차량번호', '확인', '정정', '정정금액', '메모(정정사유)'].map((n) => h.indexOf(n));
+      const on = (v: unknown) => /^(TRUE|true|1|Y|O|v|✓)$/.test(S(v));
+      if (cp >= 0 && [cc, cx, cf, cm].some((i) => i >= 0)) {
         for (const r of g.slice(hi + 1)) {
           const p = S((r || [])[cp]);
-          const chk = cc >= 0 && /^(TRUE|true|1|Y|O|v|✓)$/.test(S((r || [])[cc]));
+          const chk = cc >= 0 && on((r || [])[cc]);
+          const fixOn = cx >= 0 && on((r || [])[cx]);
+          /** ★「정정금액」은 공급사가 적는 «숫자»다 — 빈칸은 빈칸으로 둔다(0 을 찍으면 0원이 된다). */
+          const fix = cf >= 0 && S((r || [])[cf]) ? N((r || [])[cf]) : '';
           const memo = cm >= 0 ? S((r || [])[cm]) : '';
-          if (p && (chk || memo)) kept.set(p, [chk, memo]);
+          if (p && (chk || fixOn || memo || fix !== '')) kept.set(p, [chk, fixOn, fix, memo]);
         }
       }
     }
   }
-  const note = (p: string): [boolean, string] => kept.get(p) || [false, ''];
+  const note = (p: string): Keep => kept.get(p) || [false, false, '', ''];
 
   const pad = (n: number) => Array.from({ length: n }, () => '');
-  const body: (string | number | boolean)[][] = j.lines.map((l, i) => [i + 1, l.plate, l.recv, l.deliv, l.model, l.cust,
-    l.product, l.term || '', l.rent || '', l.how, l.net, l.vat, l.total, ...note(l.plate)]);
+  /**
+   * ★★**줄은 «머리글 이름»으로 짓는다 — 자릿수를 세지 않는다.**
+   *   칸을 하나 붙일 때마다 빈칸을 손으로 세는 방식은 칸이 늘 때마다 환수 줄에서 어긋난다.
+   */
+  const rowOf = (m: Record<string, string | number | boolean>): (string | number | boolean)[] =>
+    HEAD.map((h) => (m[h] === undefined ? '' : m[h]));
+  const body: (string | number | boolean)[][] = j.lines.map((l, i) => rowOf({
+    'No.': i + 1, 차량번호: l.plate, 접수일: l.recv, 인도일: l.deliv, 모델명: l.model, 임차인: l.cust,
+    '상품 구분': l.product, '계약 기간': l.term || '', 렌탈료: l.rent || '', [BASIS[0]]: l.how,
+    공급가액: l.net, 부가세: l.vat, 합계: l.total,
+    확인: note(l.plate)[0], 정정: note(l.plate)[1], 정정금액: note(l.plate)[2], '메모(정정사유)': note(l.plate)[3],
+  }));
   /** ★환수 줄은 «차번을 적는다» — 어느 차인지 못 보면 상대가 바로 묻는다. */
   for (const b of j.backs) {
-    body.push(['', b.plate, '', '', '지난 정산분 환수', '', '', '', '', b.why,
-      -b.amt, -Math.round(b.amt * VAT), -(b.amt + Math.round(b.amt * VAT)), false, '']);
+    body.push(rowOf({
+      차량번호: b.plate, 모델명: '지난 정산분 환수', [BASIS[0]]: b.why,
+      공급가액: -b.amt, 부가세: -Math.round(b.amt * VAT), 합계: -(b.amt + Math.round(b.amt * VAT)),
+      확인: note(b.plate)[0], 정정: note(b.plate)[1], 정정금액: note(b.plate)[2], '메모(정정사유)': note(b.plate)[3],
+    }));
   }
+  /**
+   * ★★★**크로스체크 — 공급사가 적은 「정정」·「정정금액」을 우리 청구액과 맞대 본다.**
+   *   사장님 2026-09-04 「그래서 우리거랑 크로스체크해보고」. 영업채널 쪽과 «같은 짜임»이다.
+   *   ⚠ 여기서 «자동으로 고치지 않는다». 돈은 이미 나간 청구서의 근거다 —
+   *     올라온 것을 사람이 보고(`review-sheet-edits`) 정한다.
+   */
+  {
+    const [iPl, iNet, iOn, iFix, iMemo] = ['차량번호', '공급가액', '정정', '정정금액', '메모(정정사유)'].map((n) => HEAD.indexOf(n));
+    const known = (Object.values((await db.ref('v4/sheet_edits').get()).val() || {}) as Record<string, unknown>[])
+      .filter((e) => S(e.channel) === j.sup && S(e.month) === MONTH && S(e.column) === '공급가액');
+    const patch: Record<string, Record<string, unknown>> = {};
+    for (const r of body) {
+      const plate = S(r[iPl]); if (!plate) continue;
+      const on = r[iOn] === true; const fix = S(r[iFix]);
+      if (!on && !fix) continue;
+      const ours = S(r[iNet]);
+      if (!on && fix && N(fix) === N(ours)) continue;
+      const id = `${j.sup}_${MONTH}_${plate}_공급가액`.replace(/[.#$/[]s]/g, '_');
+      const theirs = fix || '(금액 안 적음 · 「정정」만 켜짐)';
+      if (known.some((e) => S(e.theirs) === theirs)) continue;
+      patch[id] = { channel: j.sup, kind: '공급사', month: MONTH, key: plate, column: '공급가액',
+        ours, theirs, seenAt: new Date().toISOString(), status: '대기',
+        why: S(r[iMemo]) ? `그쪽 메모 — ${S(r[iMemo])}` : '' };
+    }
+    if (Object.keys(patch).length) {
+      await db.ref('v4/sheet_edits').update(patch);
+      console.log(`   ↑ ${j.sup} — 정정 요청 ${Object.keys(patch).length}건을 받아 놓았습니다(크로스체크 대기)`);
+    }
+  }
+
   const values: (string | number | boolean)[][] = [
     /**
      * ★**제목은 «맨 앞»에서 시작한다** — 사장님 2026-09-03 「여기 제목을 앞으로 보내고 틀고정 필요없음」.
@@ -332,11 +409,21 @@ for (const j of jobs) {
      *   「입금 부탁드립니다」가 두 줄 나왔다.
      */
     pad(HEAD.length),
-    [`${dayKo(dueDate(MONTH))} 까지 입금 부탁드립니다`, ...pad(HEAD.length - 1)],
+    /**
+     * ★★**「어디에 적으시라」를 적어 둔다.** 칸을 만들어 놓고 말을 안 하면 상대는 우리 칸을
+     *   직접 고친다 — 그러면 다음 발행 때 덮이는 그 사고가 또 난다(2026-09-04 하허호에서 났다).
+     * ★예정 달에는 대신 «아직 마감 전»이라고 말한다. 확정본으로 알고 계산서를 끊으면 그게 사고다.
+     */
+    [FORECAST
+      ? `${Number(MONTH.slice(5))}월은 아직 마감 전입니다 — 분납이 끝나는 달로 «미리» 잡아 둔 예정분입니다. 인도 전인 건은 금액이 인도 뒤에 정해집니다. 마감 때 확정본으로 바뀝니다.`
+      : '맞으면 「확인」을 켜 주세요. 다를 때는 「정정」을 켜고 「정정금액」에 공급가액(부가세 별도)을, 「메모(정정사유)」에 까닭을 적어 주시면 저희가 원장과 맞대 보고 고칩니다.', ...pad(HEAD.length - 1)],
+    [FORECAST ? '' : `${dayKo(dueDate(MONTH))} 까지 입금 부탁드립니다`, ...pad(HEAD.length - 1)],
     [`${CORP.staff} · ${S(CORP.staffPhone) || CORP.phone} · ${CORP.email}`, ...pad(HEAD.length - 1)],
     ['한 달간 함께해 주셔서 감사합니다 · 프리패스모빌리티 주식회사 임직원 일동', ...pad(HEAD.length - 1)],
   ];
-  const endCol = String.fromCharCode(64 + HEAD.length);
+  /** ★칸이 26개를 넘으면 한 글자로 못 적는다 — AA 꼴까지 센다. */
+  const colName = (n: number) => { let t = ''; for (let x = n; x > 0; x = Math.floor((x - 1) / 26)) t = String.fromCharCode(65 + ((x - 1) % 26)) + t; return t; };
+  const endCol = colName(HEAD.length);
   await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${j.sheetId}/values/${encodeURIComponent(`'${tab}'!A1:${endCol}${values.length + 5}`)}?valueInputOption=RAW`, {
     method: 'PUT', headers: { Authorization: `Bearer ${await tok()}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ values }),
@@ -378,7 +465,8 @@ for (const j of jobs) {
     ...MONEY.map((h) => col(h, { startRowIndex: 2, endRowIndex: last + 1 }, { numberFormat: { type: 'NUMBER', pattern: '#,##0' } }, 'userEnteredFormat.numberFormat')),
     col('계약 기간', DATA, { numberFormat: { type: 'NUMBER', pattern: '0"개월"' } }, 'userEnteredFormat.numberFormat'),
     col('차량번호', DATA, { numberFormat: { type: 'TEXT' } }, 'userEnteredFormat.numberFormat'),
-    { repeatCell: { range: all1(last + 2, last + 5),
+    /** ★꼬리 넉 줄 — 「어디에 적으시라」가 늘면서 한 줄 늘었다. 범위를 같이 늘리지 않으면 마지막 줄이 헐벗는다. */
+    { repeatCell: { range: all1(last + 2, last + 6),
       cell: { userEnteredFormat: { textFormat: { fontSize: 10 }, horizontalAlignment: 'LEFT' } }, fields: 'userEnteredFormat(textFormat,horizontalAlignment)' } },
     ...WIDTH.map((w, c) => ({ updateDimensionProperties: { range: { sheetId: id, dimension: 'COLUMNS', startIndex: c, endIndex: c + 1 }, properties: { pixelSize: w }, fields: 'pixelSize' } })),
     { repeatCell: { range: { sheetId: id }, cell: { userEnteredFormat: { textFormat: { fontFamily: 'Roboto' } } }, fields: 'userEnteredFormat.textFormat.fontFamily' } },
@@ -389,7 +477,9 @@ for (const j of jobs) {
      */
     { setBasicFilter: { filter: { range: { sheetId: id, startRowIndex: r0, endRowIndex: last, startColumnIndex: 0, endColumnIndex: HEAD.length } } } },
     /** ★「확인」은 체크칸으로 — 공급사가 누르기만 하면 된다. */
-    { setDataValidation: { range: { sheetId: id, startRowIndex: r0 + 1, endRowIndex: last, startColumnIndex: HEAD.indexOf('확인'), endColumnIndex: HEAD.indexOf('확인') + 1 }, rule: { condition: { type: 'BOOLEAN' }, strict: true, showCustomUi: true } } },
+    /** ★「확인」·「정정」은 체크칸 — 상대가 누르기만 하면 된다. */
+    ...['확인', '정정'].map((h) => HEAD.indexOf(h)).filter((c) => c >= 0).map((c) => ({
+      setDataValidation: { range: { sheetId: id, startRowIndex: r0 + 1, endRowIndex: last, startColumnIndex: c, endColumnIndex: c + 1 }, rule: { condition: { type: 'BOOLEAN' }, strict: true, showCustomUi: true } } })),
     /**
      * ★★**구역 칸막이** — «차·임차인 │ 산정 기준 │ 금액 │ 확인» 사이에 생겨 줄 하나.
      *   색만으로 가르면 인쇄하거나 흑백으로 볼 때 구역이 사라진다. 선은 남는다.

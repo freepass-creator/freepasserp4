@@ -28,6 +28,7 @@
     "check:deployed": "tsx scripts/check-deployed.mts --fetch",
     "check:finder-rows": "tsx scripts/check-finder-rows.mts",
     "check:atoms": "tsx scripts/check-atoms.mts",
+    "check:invariants": "tsx scripts/check-atom-invariants.mts",
     "check:no-client-sheet-live-status": "tsx scripts/check-no-client-sheet-live-status.mts",
     "check:no-global-settlement-badge": "tsx scripts/check-no-global-settlement-badge.mts",
     "check:template-drift": "tsx scripts/check-template-drift.mts",
@@ -68,6 +69,8 @@
     "check:columns": "tsx --require ./scripts/lib/server-only-shim.cjs scripts/check-sales-columns.mts",
     "check:photo-link": "tsx --require ./scripts/lib/server-only-shim.cjs scripts/check-plate-photo-link.mts",
     "audit:axes": "tsx scripts/audit-axis-coverage.mts",
+    "cache:photos": "tsx --require ./scripts/lib/server-only-shim.cjs scripts/cache-photo-urls.mts",
+    "audit:policy-rules": "tsx --require ./scripts/lib/server-only-shim.cjs scripts/audit-policy-rules.mts",
     "check:encar-spec-fill": "tsx scripts/check-encar-spec-fill.mts",
     "encar:learn": "tsx scripts/learn-encar.mts",
     "policy:sheet-audit": "tsx scripts/audit-policy-sheet-vs-erp.mts",
@@ -106,7 +109,10 @@
     "settlement:feetable": "tsx scripts/publish-fee-table.mts",
     "settlement:calc": "tsx scripts/build-invoice-from-atoms.mts",
     "settlement:review": "tsx scripts/publish-supplier-review.mts",
-    "settlement:month": "tsx scripts/run-settlement-month.mts"
+    "settlement:month": "tsx scripts/run-settlement-month.mts",
+    "check:rules": "firebase emulators:exec --only firestore --project demo-freepass-rules \"npx tsx scripts/check-firestore-rules.mts\"",
+    "check:settlement": "tsx scripts/check-settlement-locked.mts",
+    "check:intake": "tsx scripts/check-intake-gap.mts"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",
@@ -127,6 +133,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^5.0.2",
     "@types/node": "^22.7.5",
     "@types/react": "^18.3.11",
     "@types/react-dom": "^18.3.0",

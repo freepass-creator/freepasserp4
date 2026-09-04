@@ -1,4 +1,5 @@
 import { BRAND, BRAND_DESCRIPTION, BRAND_TAGLINE } from '@/lib/brand';
+import { hasBrand, resolveWhitelabel } from '@/lib/whitelabel';
 import './globals.css';
 import type { Metadata, Viewport } from 'next';
 import { cookies, headers } from 'next/headers';
@@ -33,31 +34,62 @@ export const viewport: Viewport = {
  *   「차량번호, 상태, 구분, 제조사 … 1개월, 12개월」이 떴다. 그 표의 열 제목이다.
  *   그러니 «구글이 쓸 만한 문장»을 주는 것이 유일한 해법이다(140자 안팎).
  */
-export const metadata: Metadata = {
-  metadataBase: new URL(`https://${BRAND}`),
-  title: {
-    default: `${BRAND} — ${BRAND_TAGLINE}`,
-    template: `%s · ${BRAND}`,
-  },
-  description: BRAND_DESCRIPTION,
-  applicationName: BRAND,
-  openGraph: {
-    type: 'website',
-    siteName: BRAND,
-    url: `https://${BRAND}`,
-    title: `${BRAND} — ${BRAND_TAGLINE}`,
+/**
+ * ★★**채널 주소로 들어오면 우리 이름이 아무 데도 안 나간다**(사장님 2026-09-05
+ *   「로그인 페이지부터 다른 거야」). 화면 글자만 바꾸는 걸로는 모자란다 —
+ *   탭 제목·OG·JSON-LD·매니페스트가 전부 `freepasserp.com` 을 들고 있었다.
+ *   겉은 유니오토인데 소스를 열면 우리 이름이 39번 나왔다(2026-09-05 실측).
+ * ★노브랜드(= 지금 운영)는 **한 글자도 안 바뀐다** — 아래 기본값이 예전 그대로다.
+ * ⚠ 호스트를 보므로 이 레이아웃은 동적이 된다. 이 앱은 이미 거의 모든 층이 동적이라(빌드 표의 ƒ)
+ *   실질 손해가 없고, robots·sitemap 은 라우트 핸들러라 영향을 안 받는다.
+ */
+export async function generateMetadata(): Promise<Metadata> {
+  const wl = resolveWhitelabel((await headers()).get('host'));
+  if (hasBrand(wl)) {
+    const site = wl.hosts[0] || wl.name;
+    return {
+      metadataBase: new URL(`https://${site}`),
+      // 꼬리표(`%s · freepasserp.com`)를 안 붙인다 — 붙이면 «모든 층» 탭에 우리 도메인이 뜬다.
+      title: { default: wl.name, template: `%s · ${wl.name}` },
+      applicationName: wl.name,
+      // 채널 주소가 색인되면 우리 ERP 가 그 회사 이름으로 검색에 뜬다.
+      robots: { index: false, follow: false },
+      openGraph: { type: 'website', siteName: wl.name, url: `https://${site}`, title: wl.name },
+      manifest: '/manifest.webmanifest',
+      appleWebApp: { capable: true, statusBarStyle: 'default', title: wl.name },
+      icons: ICONS,
+    };
+  }
+  // ── 노브랜드(= 지금 운영). 여기는 예전 그대로다 — 한 글자도 안 바뀐다. ──
+  return {
+    metadataBase: new URL(`https://${BRAND}`),
+    title: {
+      default: `${BRAND} — ${BRAND_TAGLINE}`,
+      template: `%s · ${BRAND}`,
+    },
     description: BRAND_DESCRIPTION,
-  },
-  manifest: '/manifest.webmanifest',
-  appleWebApp: { capable: true, statusBarStyle: 'default', title: BRAND },
-  icons: {
-    icon: [
-      { url: '/icon.svg', type: 'image/svg+xml' },
-      { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
-    ],
-    shortcut: '/icon-192.png',
-    apple: [{ url: '/icon-192.png', sizes: '192x192', type: 'image/png' }],
-  },
+    applicationName: BRAND,
+    openGraph: {
+      type: 'website',
+      siteName: BRAND,
+      url: `https://${BRAND}`,
+      title: `${BRAND} — ${BRAND_TAGLINE}`,
+      description: BRAND_DESCRIPTION,
+    },
+    manifest: '/manifest.webmanifest',
+    appleWebApp: { capable: true, statusBarStyle: 'default', title: BRAND },
+    icons: ICONS,
+  };
+}
+
+/** 아이콘은 브랜드와 무관하게 같다 — 파일 하나를 두 곳에서 적지 않으려고 뽑았다. */
+const ICONS = {
+  icon: [
+    { url: '/icon.svg', type: 'image/svg+xml' },
+    { url: '/icon-192.png', sizes: '192x192', type: 'image/png' },
+  ],
+  shortcut: '/icon-192.png',
+  apple: [{ url: '/icon-192.png', sizes: '192x192', type: 'image/png' }],
 };
 
 /**
@@ -108,6 +140,12 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           본문이 매물 표라 크롤러가 열 제목을 긁어 설명으로 쓰던 것을 대체하는 재료다.
           서버에서 그려지므로 JS 실행 여부와 무관하게 읽힌다.
         */}
+        {/*
+          ⚠ 채널 주소에서는 **안 내보낸다.** 이 블록은 우리 회사·도메인을 그대로 들고 있어,
+            겉이 유니오토여도 소스를 열면 우리 이름이 나온다(2026-09-05 실측 39곳 중 여기가 제일 컸다).
+            검색 재료로 넣은 것인데 채널 주소는 애초에 색인시키지 않으므로(robots noindex) 없어도 잃을 게 없다.
+        */}
+        {hasBrand(resolveWhitelabel(hdrs.get('host'))) ? null : (
         <script
           type="application/ld+json"
           // eslint-disable-next-line react/no-danger
@@ -127,6 +165,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             }),
           }}
         />
+        )}
         <MobileBpProvider ssrMobile={ssrMobile}>
           <AuthProvider>
             <AppBarProvider>

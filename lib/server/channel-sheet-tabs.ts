@@ -481,7 +481,33 @@ export async function ensureCompanyTab(tok: Tok, bookId: string): Promise<boolea
  *   «같은 칸»을 써야 한다. 따로 적으면 미리 세운 탭과 나중에 채운 탭의 칸이 어긋난다.
  */
 export const SETTLE_BASIS = ['수수료 산정 기준'];
-export const SETTLE_NOTE = ['확인', '메모'];
+/**
+ * **표 맨 뒤 = «상대가 적는 칸».** 우리가 쓰는 값이 아니라 상대가 우리에게 말하는 자리다.
+ *
+ * ★사장님 2026-09-04 「그니까 우리가 정리한걸 주면 하허호가 메모로 수정하면 그럼 수정하는곳에
+ *   **금액입력도 다시 하라고** 해야겠네 금액 입력하는 곳을 줘 공급가액을 입력하는」 ·
+ *   「뒤에 정정금액 칸을 만들어」 · 「**수수료 박스에 확인 정정 정정금액 이렇게 하자**」 ·
+ *   「**그래서 우리거랑 크로스체크해보고**」
+ *
+ * ★**넷이 한 묶음이다 — 수수료 박스 바로 뒤.**
+ * ```
+ * 확인      맞다  (체크)
+ * 정정      틀렸다 (체크)          ← 금액은 그대로인데 «다른 칸»이 틀린 경우도 이걸 켠다
+ * 정정금액   얼마여야 하나 (공급가액 기준·부가세 별도)
+ * 메모(정정사유)  왜 그런가 (글)
+ * ```
+ *   ⇒ 「정정」이 켜졌거나 「정정금액」이 우리 공급가액과 다르면 **크로스체크 대기**로 올라온다.
+ *
+ * ★★**왜 칸을 따로 주나 — 우리 칸을 고치게 두면 서로 덮는다.**
+ *   상대가 「공급가액」을 직접 고치면 다음 발행 때 우리 값으로 되돌아가고(실제로 그래서 사고가 났다),
+ *   되돌리지 않으면 이번엔 상대가 고친 값이 «우리 정본인 척» 앉는다. 둘 다 나쁘다.
+ *   ⇒ **자리를 가른다.** 우리 「공급가액」은 원장이 쓰고, 상대는 「정정금액」에 적는다.
+ *     두 값이 다르면 그게 «검토해 달라는 말»이다(`review-sheet-edits`).
+ *
+ * ⚠ 정정금액은 «공급가액 기준»(부가세 별도)이다 — 표 꼬리에 그렇게 적어 둔다.
+ * ⚠ 이 셋은 발행기가 **차량번호로 찾아 그대로 되돌려 놓는다.** 절대 덮지 않는다.
+ */
+export const SETTLE_NOTE = ['확인', '정정', '정정금액', '메모(정정사유)'];
 /**
  * ★★**칸 넷을 더 붙였다** — 하허호가 8월 정산 탭 메모에 적어 둔 그대로다(2026-09-04
  *   「헤더에 **보증금 납입방식, 영업사 명, 신차인 경우 차량 가격**도 표시되어야 합니다」).
@@ -496,7 +522,7 @@ export const SETTLE_NOTE = ['확인', '메모'];
  */
 export const CHANNEL_SETTLE_HEAD = ['No.', '차량번호', '접수일', '인도일', '공급사', '모델명', '차량 가격(신차)', '임차인', '영업사',
   '상품 구분', '계약 기간', '렌탈료', '보증금', '납입 방식', ...SETTLE_BASIS, '공급가액', '부가세', '합계', '지급 예정일', ...SETTLE_NOTE];
-export const CHANNEL_SETTLE_WIDTH = [40, 92, 84, 84, 92, 150, 108, 76, 76, 112, 76, 92, 96, 84, 250, 100, 88, 108, 96, 56, 260];
+export const CHANNEL_SETTLE_WIDTH = [40, 92, 84, 84, 92, 150, 108, 76, 76, 112, 76, 92, 96, 84, 250, 100, 88, 108, 96, 56, 56, 110, 240];
 export const settleTabOf = (m: string) => `${m.slice(2, 4)}년${m.slice(5)}월 정산`;
 
 /**
@@ -674,7 +700,8 @@ export function settleTabFormat(s: SettleTabSpec): Record<string, unknown>[] {
     { updateSheetProperties: { properties: { sheetId: id, gridProperties: { frozenRowCount: r0 + 1, frozenColumnCount: 0 } }, fields: 'gridProperties(frozenRowCount,frozenColumnCount)' } },
     /** ★필터 — 공급사·상품 구분으로 그 자리에서 추린다. 합계줄은 넣지 않는다(걸러도 따라 사라진다). */
     { setBasicFilter: { filter: { range: { sheetId: id, startRowIndex: r0, endRowIndex: last, startColumnIndex: 0, endColumnIndex: H.length } } } },
-    /** ★「확인」은 체크칸 — 상대가 누르기만 하면 된다. */
-    { setDataValidation: { range: { sheetId: id, startRowIndex: r0 + 1, endRowIndex: last, startColumnIndex: H.indexOf('확인'), endColumnIndex: H.indexOf('확인') + 1 }, rule: { condition: { type: 'BOOLEAN' }, strict: true, showCustomUi: true } } },
+    /** ★「확인」·「정정」은 체크칸 — 상대가 누르기만 하면 된다. */
+    ...['확인', '정정'].map((h) => H.indexOf(h)).filter((c) => c >= 0).map((c) => ({
+      setDataValidation: { range: { sheetId: id, startRowIndex: r0 + 1, endRowIndex: last, startColumnIndex: c, endColumnIndex: c + 1 }, rule: { condition: { type: 'BOOLEAN' }, strict: true, showCustomUi: true } } })),
   ];
 }

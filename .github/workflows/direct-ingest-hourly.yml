@@ -1,0 +1,49 @@
+name: 직접수집(원천→Firestore) 시간별
+
+# 사장님 2026-09-04 「나머지 자동화 가자.」 공급사 원천을 직접 읽어 Firestore 원자로.
+#   정제시트를 안 거친다. 차번으로 박은 불변은 지키고, 새 차·상태만 갱신.
+# ⚠ 옛 파이프라인(sales-erp-hourly 의 미러 ⑭)과 «독립»이다 — 그걸 안 건드린다.
+#   둘 다 products 를 쓰지만 값은 같은 원천이라 어긋나지 않는다(컷오버는 사장님 확인 후 별도).
+
+on:
+  schedule:
+    # 평일 KST 09:00~18:00 매시(= UTC 00~09). 공급사가 낮에 고치므로.
+    - cron: '0 0-9 * * 1-5'
+  workflow_dispatch:
+    inputs:
+      only:
+        description: '특정 공급사만 (쉼표, 예: RP004,RP031). 비우면 전부'
+        required: false
+        default: ''
+
+concurrency:
+  group: direct-ingest
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22', cache: 'npm' }
+      - run: npm ci
+      - name: 자격증명 준비
+        env: { SA: ${{ secrets.GOOGLE_SA_JSON }} }
+        run: |
+          test -n "$SA" || { echo '::error::GOOGLE_SA_JSON 시크릿이 없습니다.'; exit 1; }
+          mkdir -p tmp/firebase-auth
+          printf '%s' "$SA" > tmp/firebase-auth/sa.json
+      # 손오공(RP012)은 API 덤프를 읽으므로 먼저 라이브로 갱신한다(계정 파일 없으면 스스로 건너뜀 = 커밋본 사용).
+      - name: 손오공 재고 갱신(best-effort)
+        continue-on-error: true
+        run: node sonokong/scripts/손오공.mjs --조용 || echo '손오공 갱신 건너뜀'
+      - name: 전 공급사 직접수집 → Firestore
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sa.json
+          NEXT_PUBLIC_FIREBASE_DATABASE_URL: https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app
+        run: npx tsx scripts/ingest-all-suppliers.mts ${{ inputs.only && format('--only={0}', inputs.only) || '' }}
+      - name: 자격증명 지우기
+        if: always()
+        run: rm -rf tmp/firebase-auth
