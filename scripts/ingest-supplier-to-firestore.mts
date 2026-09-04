@@ -95,17 +95,27 @@ const regYearMonth = (s: string): [number, number] => {
   const y = yearOf(s); return [Number(y) || 0, 0];
 };
 /**
- * ★수입차 세대 판별 — 원문에 «섀시코드»(W213·G30…)가 없고 교체구간이면, 최초등록이 신형 시작연도
- *   이후인 차는 «신형»으로 박는다(구형이 단종된 뒤 신규등록되는 건 신형일 수밖에 없다).
- *   국산차는 원문에 세대코드(CN7…)가 들어 있어 이 보정이 «안» 걸린다 — 그게 안전판이다(2026-09-04 학습).
+ * ★세대 판별 — «원문이 답»이다(사장님 2026-09-04 「원문에 웬만하면 다 있다」). 우선순위:
+ *   ① 원문에 「N세대」 → 그 모델의 N번째 세대(마스터 연식순). E-클래스 6세대 = W213 처럼 명시된 답.
+ *   ② 원문에 섀시코드(W213·G30…) → snap 이 이미 반영, 그대로.
+ *   ③ 원문에 아무 세대 표기 없음(수입차 흔함) → 최초등록으로 신형 판별(구형 단종 뒤 신규등록=신형).
+ *   국산차는 원문에 세대코드(CN7…)가 있어 ②·①에서 걸린다 — 최초등록 추론까지 안 간다(안전판).
  */
-function preferNewerGen(maker: unknown, model: unknown, curSub: string, firstReg: string, rawN: string): string {
+function resolveGen(maker: unknown, model: unknown, curSub: string, firstReg: string, rawN: string): string {
   let gens: { sub: string; gen: string; ys: number; ye: number }[] = [];
   for (const a of makerGroup(N(maker))) { const g = GENS.get(`${a}|${N(model)}`); if (g) { gens = g; break; } }
   if (gens.length < 2) return curSub;
-  if (gens.some((g) => g.gen.length >= 3 && rawN.includes(g.gen))) return curSub; // 원문에 섀시코드 있음 → 그걸 믿음
+  // 연식순 · 세대코드 중복 제거 → N번째 세대.
+  const seen = new Set<string>(); const ord: typeof gens = [];
+  for (const g of [...gens].sort((a, b) => a.ys - b.ys)) { if (seen.has(g.gen)) continue; seen.add(g.gen); ord.push(g); }
+  // ① 원문에 「N세대」 명시 → 가장 확실한 답.
+  const m = rawN.match(/(\d+)세대/);
+  if (m) { const n = Number(m[1]); if (n >= 1 && n <= ord.length) return ord[n - 1].sub; }
+  // ② 원문에 섀시코드 명시 → snap 유지.
+  if (ord.some((g) => g.gen.length >= 3 && rawN.includes(g.gen))) return curSub;
+  // ③ 표기 없음 → 최초등록으로 신형 판별.
   const [ry, rm] = regYearMonth(firstReg); if (!ry) return curSub;
-  const cands = gens.filter((g) => g.ys <= ry && ry <= g.ye).sort((a, b) => b.ys - a.ys);
+  const cands = ord.filter((g) => g.ys <= ry && ry <= g.ye).sort((a, b) => b.ys - a.ys);
   if (!cands.length || N(cands[0].sub) === N(curSub)) return curSub;
   if (ry === cands[0].ys && rm && rm < 7) return curSub; // 교체연도 상반기면 애매 → snap 유지
   return cands[0].sub;
@@ -223,8 +233,8 @@ function atomize(row: Row, pinned: Map<string, Record<string, unknown>>): Atom {
     identity = canon
       ? { maker: canon.maker, model: canon.model, sub_model: canon.sub_model, trim_name: S(snap?.trim_name) || row.trim, origin: S(snap?.origin) }
       : { maker: row.maker, model: row.model, sub_model: '', trim_name: row.trim, origin: '' };
-    // ★수입차 세대 보정 — 원문에 섀시코드 없고 교체구간이면 최초등록으로 신형 판별(국산은 안 걸림).
-    if (canon) identity.sub_model = preferNewerGen(identity.maker, identity.model, identity.sub_model, row.firstReg, N(vname));
+    // ★세대 판별 — 원문의 「N세대」·섀시코드가 답, 없으면 최초등록으로 신형.
+    if (canon) identity.sub_model = resolveGen(identity.maker, identity.model, identity.sub_model, row.firstReg, N(vname));
     state = confirmed ? 'new-high' : 'new-review';
     spec = {
       ext_color: snapColor(row.ext, 'ext'), int_color: snapColor(row.int, 'int'),
