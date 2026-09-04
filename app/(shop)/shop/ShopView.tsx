@@ -253,7 +253,13 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
                   · 초기화 — 오른쪽 토큰 줄의 「조건 모두 지우기」와 **같은 함수·같은 화면**이다.
                     조건을 다 푸는 문이 한 화면에 둘일 이유가 없다.
               */}
-              <div style={{ paddingTop: 18, borderTop: `1px solid ${C.ink}`, marginTop: 4 }}>{filters}</div>
+              {/*
+                ⚠ 여기 있던 굵은 검정 가로선을 뺐다(사장님 2026-09-05 「저런 쓸데없는 라인들,
+                  없어도 되는 구분선 이런 거는 좀 최소화해야 된다」).
+                  「전체차량 716대」와 축 목록은 «글자 크기»가 이미 다르다 — 선이 없어도 갈린다.
+                  나누는 일은 선이 아니라 **여백**이 한다.
+              */}
+              <div style={{ paddingTop: 26 }}>{filters}</div>
             </aside>
           ) : null}
 

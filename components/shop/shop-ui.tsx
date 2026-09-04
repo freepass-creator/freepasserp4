@@ -193,7 +193,7 @@ export function ShopTokens({ tokens, onRemove, onClear }: {
   return (
     <div style={{
       display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8,
-      padding: '14px 0', borderBottom: `1px solid ${C.line2}`,
+      padding: '14px 0 4px',
     }}>
       {tokens.map((t) => (
         <span key={`${t.axis}:${t.key}`}

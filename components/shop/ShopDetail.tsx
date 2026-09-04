@@ -218,16 +218,21 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
               return (
                 <tr key={x.m} onClick={() => setPlanIdx(plans.findIndex((y) => y.m === x.m))}
                   style={{ cursor: 'pointer', background: on ? C.brandSoft : 'transparent' }}>
+                  {/*
+                    ★줄마다 긋던 가로선을 걷었다(2026-09-05 구분선 최소화). 머리(기간·월 대여료·보증금)
+                      밑줄 하나만 남긴다 — 그건 «제목과 값»을 가르는 선이라 뜻이 있다.
+                      고른 줄은 면(brandSoft)이 이미 표시하므로 줄금이 없어도 어디를 골랐는지 보인다.
+                  */}
                   <td style={{
-                    padding: '11px 8px 11px 10px', borderBottom: `1px solid ${C.line2}`,
+                    padding: '13px 8px 13px 10px',
                     fontSize: SHOP.fs.body, fontWeight: on ? 700 : 500, color: on ? C.brand : C.ink,
                   }}>{x.m}개월</td>
                   <td style={{
-                    padding: '11px 8px', borderBottom: `1px solid ${C.line2}`, textAlign: 'right',
+                    padding: '13px 8px', textAlign: 'right',
                     fontSize: SHOP.fs.body, fontWeight: on ? 800 : 600, color: C.ink,
                   }}>{manWon(x.rent)}</td>
                   <td style={{
-                    padding: '11px 10px 11px 8px', borderBottom: `1px solid ${C.line2}`, textAlign: 'right',
+                    padding: '13px 10px 13px 8px', textAlign: 'right',
                     fontSize: SHOP.fs.body, color: C.mute,
                   }}>{x.deposit > 0 ? manWon(x.deposit) : '없음'}</td>
                 </tr>
@@ -487,9 +492,15 @@ function regDate(raw: unknown): string {
   return `${y}년 ${mo}월`;
 }
 
-/** 구역 사이 — 선 하나. 상자로 감싸면 화면이 서랍장이 된다. */
+/**
+ * 구역 사이 — **여백만**(사장님 2026-09-05 「없어도 되는 구분선 이런 거는 좀 최소화해야 된다」).
+ *
+ * 전에는 구역마다 가로선을 그었다. 상세에 구역이 여섯이라 화면에 선이 여섯 줄 그어졌고,
+ * 그 안의 표가 또 줄마다 선을 그어 **한 화면이 온통 가로줄**이었다.
+ * 구역 제목이 굵고 크므로 선이 없어도 어디서 갈리는지 보인다 — 나누는 일은 여백이 한다.
+ */
 function Rule() {
-  return <hr style={{ border: 0, borderTop: `1px solid ${C.line2}`, margin: '26px 0 22px' }} />;
+  return <div aria-hidden style={{ height: 34 }} />;
 }
 
 function SecTitle({ children }: { children: React.ReactNode }) {
@@ -526,18 +537,16 @@ function Table({ rows, mobile }: { rows: [string, string][]; mobile: boolean }) 
     <dl style={{
       margin: 0, display: 'grid',
       gridTemplateColumns: mobile ? '96px minmax(0, 1fr)' : 'repeat(2, 120px minmax(0, 1fr))',
-      columnGap: 14, rowGap: 0,
+      columnGap: 14, rowGap: 12,
     }}>
+      {/*
+        ★줄마다 긋던 가로선을 걷었다(2026-09-05). 이름이 흐리고 값이 진해서 **글자 세기만으로**
+          짝이 읽힌다 — 선은 그 위에 얹은 군더더기였다. 네 줄짜리 표에 선 넷은 표가 아니라 창살이다.
+      */}
       {rows.map(([k, v]) => (
         <div key={k} style={{ display: 'contents' }}>
-          <dt style={{
-            padding: '11px 0', fontSize: SHOP.fs.sub, color: C.faint,
-            borderTop: `1px solid ${C.line2}`,
-          }}>{k}</dt>
-          <dd style={{
-            margin: 0, padding: '11px 0', fontSize: SHOP.fs.body, color: C.ink,
-            borderTop: `1px solid ${C.line2}`, wordBreak: 'keep-all',
-          }}>{v}</dd>
+          <dt style={{ fontSize: SHOP.fs.sub, color: C.faint }}>{k}</dt>
+          <dd style={{ margin: 0, fontSize: SHOP.fs.body, color: C.ink, wordBreak: 'keep-all' }}>{v}</dd>
         </div>
       ))}
     </dl>

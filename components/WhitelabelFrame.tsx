@@ -149,7 +149,8 @@ function WhitelabelNotice({ wl, mobile }: { wl: Whitelabel; mobile: boolean }) {
   const close = () => setClosed(true);
 
   return (
-    <div style={{ background: C.brandSoft, borderBottom: `1px solid ${C.brandBg}` }}>
+    /* 면(brandSoft)이 이미 경계를 만든다 — 그 위에 선을 또 그으면 테두리가 두 겹이 된다. */
+    <div style={{ background: C.brandSoft }}>
       <div style={{ maxWidth: 1280, margin: '0 auto', padding: mobile ? '18px 16px 16px' : '30px 24px 28px', position: 'relative' }}>
         <div style={{ fontSize: mobile ? 22 : 30, fontWeight: FW.head, letterSpacing: '-0.04em', lineHeight: 1.3, color: C.ink, paddingRight: mobile ? 34 : 44 }}>
           {notice.title}

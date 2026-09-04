@@ -41,10 +41,12 @@ export function ShopFilters({ facets, sel, onToggle, onClearAxis, mobile: forceM
       {SHOP_AXES.filter((a) => facets[a].length).map((axis, i) => {
         const on = sel[axis];
         return (
-          <section key={axis} style={{
-            padding: i === 0 ? '0 0 18px' : '18px 0',
-            borderBottom: `1px solid ${C.line2}`,
-          }}>
+          /*
+           * 축과 축 사이는 **여백만**으로 가른다(사장님 2026-09-05 구분선 최소화).
+           * 전에는 축마다 밑줄이 있어 기둥 하나에 가로선이 아홉 개였다 — 조건을 고르는 곳이
+           * 표처럼 보였다. 축 이름이 굵고 값이 흐리므로 선이 없어도 덩어리가 갈린다.
+           */
+          <section key={axis} style={{ padding: i === 0 ? '0 0 26px' : '0 0 26px' }}>
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 12 }}>
               <span style={{ fontSize: SHOP.fs.body, fontWeight: 700, color: C.ink }}>{AXIS_LABEL[axis]}</span>
               {on.length ? <ShopTextBtn tone="faint" onClick={() => onClearAxis(axis)}>해제</ShopTextBtn> : null}
