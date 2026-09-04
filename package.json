@@ -28,6 +28,7 @@
     "check:deployed": "tsx scripts/check-deployed.mts --fetch",
     "check:finder-rows": "tsx scripts/check-finder-rows.mts",
     "check:atoms": "tsx scripts/check-atoms.mts",
+    "check:invariants": "tsx scripts/check-atom-invariants.mts",
     "check:no-client-sheet-live-status": "tsx scripts/check-no-client-sheet-live-status.mts",
     "check:no-global-settlement-badge": "tsx scripts/check-no-global-settlement-badge.mts",
     "check:template-drift": "tsx scripts/check-template-drift.mts",

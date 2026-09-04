@@ -29,6 +29,7 @@ import { composeVehicleName, MIRROR_ALIAS } from '../lib/domain/mirror-sheet-map
 import { snapColor } from '../lib/domain/color-master';
 import { MIRROR_SOURCES } from '../lib/domain/mirror-sources';
 import { sheetIdFromUrl } from '../lib/domain/supplier-sheet-read';
+import { FUEL_EV, rawSeats, atomViolations, type MasterIndex } from '../lib/domain/atom-invariants';
 
 const APPLY = process.argv.includes('--apply');
 const CODE = (process.argv.find((a) => a.startsWith('--code='))?.split('=')[1] || 'RP004').trim();
@@ -85,6 +86,8 @@ const trimsFor = (maker: unknown, model: unknown, sub: unknown) => {
   for (const a of makerGroup(N(maker))) { const t = TRIMS.get(`${a}|${N(model)}|${N(sub)}`); if (t) return t; }
   return [];
 };
+// 불변식 게이트에 넘길 마스터 인덱스 — 원자화가 «이 규칙»으로 확정 여부를 정한다.
+const IDX: MasterIndex = { validSub: (mk, mo, sm) => !!validCanon(mk, mo, sm), trimsOf: trimsFor };
 
 // (제조사별칭|모델) → 세대들 — 수입차 세대 판별용(섀시코드·연식범위).
 const GENS = new Map<string, { sub: string; gen: string; ys: number; ye: number }[]>();
@@ -124,18 +127,9 @@ const yearOf = (firstReg: string) => {
   const yy = s.match(/^\s*(\d{2})[.\-/]/); return yy ? `20${yy[1]}` : '';
 };
 
-// ★전기차 배기량 청소 — «원천 연료»가 전기·수소면 배기량은 없다(내연 형제의 998·1580cc 가 샌 것).
-//   ⚠ 세부모델 «이름»(일렉트리파이드 등)으로는 «판단하지 않는다» — 이름이 오매핑될 수 있다.
-//     실측 2026-09-05: 원문 「가솔린 2.5 G80」이 세부모델 「일렉트리파이드 G80」으로 잘못 붙어 있었다.
-//     이름을 믿고 연료를 전기로 바꾸면 가솔린차를 가짜 전기차로 만든다. 원천 연료만 믿는다.
-const FUEL_EV = /^(전기|수소)$|\bev\b|electric|fcev/i;
+// 전기차 배기량 청소 — «원천 연료»가 전기·수소면 배기량 없음. (규칙 SSOT = atom-invariants)
+//   ⚠ 세부모델 «이름»(일렉트리파이드)으로는 판단 안 한다 — 이름 오매핑 위험(2026-09-05). FUEL_EV·rawSeats 도 SSOT.
 const evEngineCc = (fuel: string, cc: string): string => (FUEL_EV.test(fuel) ? '' : cc);
-
-// ★인승은 «원문에 있는 것만»(사장님 2026-09-05 — 마스터엔 인승이 없다. 없으면 필수 아님).
-const rawSeats = (raw: string): string => {
-  const m = raw.match(/(\d{1,2})\s*인승/); if (m) return m[1];
-  return /(^|[^가-힣])밴([^가-힣]|$)|화물/.test(raw) ? '2' : '';
-};
 
 // 상태 디테일 — mirror-to-firestore 와 «같은» 분류(한 값에 안 뭉침). status·status_kind·status_reason·listable.
 const AVAIL = new Set(['즉시출고', '출고가능']);
@@ -271,19 +265,26 @@ function atomize(row: Row, pinned: Map<string, Record<string, unknown>>): Atom {
       engine_cc: row.cc, vehicle_class: row.klass, first_registration_date: row.firstReg,
     };
   }
-  return {
+  const atom: Atom = {
     car_number: car,
     maker: identity.maker, model: identity.model, sub_model: identity.sub_model, trim_name: identity.trim_name, origin: identity.origin, ...spec, engine_cc: evEngineCc(S(spec.fuel_type), S(spec.engine_cc)),
     product_type: canonProductType(row.kind),
     ...statusDetail(row.status, pin?.locked_by_contract), mileage: row.km, options: row.opt,
     ...(rawSeats(vname) ? { seats: rawSeats(vname) } : null),   // 원문에 인승 있으면만
     ...(Object.keys(row.price).length ? { price: row.price } : null),
-    확정: confirmed, 검수상태: confirmed ? '확정' : (identity.sub_model ? '검수대기' : (vname ? '매칭실패' : '원문없음')),
     _pin_state: state,
     원문: { 차명: vname, ...(row.opt ? { 옵션: row.opt } : null) },
     provider_company_code: PROV, partner_code: PROV,
     source: src.kind, source_schema: PROV, sheet_source_tab: row.tab, sheet_source_row: row.row,
   };
+  // ★불변식 게이트 — block 위반이 있으면 «확정될 수 없다»(검수대기). 모순이 확정된 채 존재하는 게 구조적으로 불가능.
+  const vio = atomViolations(atom, IDX);
+  const blocks = vio.filter((x) => x.severity === 'block');
+  const ok = confirmed && blocks.length === 0;
+  atom.확정 = ok;
+  atom.검수상태 = ok ? '확정' : (blocks.length ? `검수(${blocks[0].code})` : (identity.sub_model ? '검수대기' : (vname ? '매칭실패' : '원문없음')));
+  if (vio.length) atom._violations = vio.map((x) => `${x.severity[0]}:${x.code}`).join(' ');
+  return atom;
 }
 
 async function ingest(pinned: Map<string, Record<string, unknown>>): Promise<Atom[]> {
