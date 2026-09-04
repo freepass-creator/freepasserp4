@@ -105,7 +105,7 @@ function CheckRow({ label, count, on, onClick }: {
 }) {
   const mobile = useIsMobile();
   return (
-    <button type="button" onClick={onClick} aria-pressed={on}
+    <button type="button" onClick={onClick} aria-pressed={on} className="fp-shop-press"
       style={{
         display: 'flex', alignItems: 'center', gap: 9, padding: 0,
         border: 'none', background: 'transparent', cursor: 'pointer',
@@ -137,7 +137,7 @@ function BandBox({ label, count, on, onClick }: {
   label: string; count: number; on: boolean; onClick: () => void;
 }) {
   return (
-    <button type="button" onClick={onClick} aria-pressed={on}
+    <button type="button" onClick={onClick} aria-pressed={on} className="fp-shop-press"
       style={{
         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
         padding: '9px 4px', borderRadius: SHOP.r.box, cursor: 'pointer', fontFamily: 'inherit',

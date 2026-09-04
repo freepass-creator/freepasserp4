@@ -79,7 +79,7 @@ export function ShopSearch({ value, onChange, placeholder, onFilter, filterCount
         <>
           {/* 가는 세로선 — 「검색어」와 「조건」이 다른 일임을 한 획으로 말한다. */}
           <span aria-hidden style={{ width: 1, height: 22, background: C.line, flex: '0 0 auto' }} />
-          <button type="button" onClick={onFilter} aria-label="상세 조건 열기"
+          <button type="button" onClick={onFilter} aria-label="상세 조건 열기" className="fp-shop-press"
             style={{
               position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
               width: 40, height: 40, borderRadius: 999, flex: '0 0 auto',
@@ -120,7 +120,7 @@ export function ShopPill({ on, onClick, children, title }: {
 }) {
   const mobile = useIsMobile();
   return (
-    <button type="button" onClick={onClick} title={title} aria-pressed={!!on}
+    <button type="button" onClick={onClick} title={title} aria-pressed={!!on} className="fp-shop-press"
       style={{
         ...bare,
         height: mobile ? 40 : 36, padding: mobile ? '0 15px' : '0 14px',
@@ -142,7 +142,7 @@ export function ShopTextBtn({ onClick, children, tone = 'mute' }: {
   onClick: () => void; children: ReactNode; tone?: 'mute' | 'faint';
 }) {
   return (
-    <button type="button" onClick={onClick}
+    <button type="button" onClick={onClick} className="fp-shop-press"
       style={{ ...bare, fontSize: SHOP.fs.cap, color: tone === 'faint' ? C.faint : C.mute }}>
       {children}
     </button>
@@ -154,7 +154,7 @@ export function ShopIconBtn({ onClick, label, children }: {
   onClick: () => void; label: string; children: ReactNode;
 }) {
   return (
-    <button type="button" onClick={onClick} aria-label={label}
+    <button type="button" onClick={onClick} aria-label={label} className="fp-shop-press"
       style={{ ...bare, width: 36, height: 36, borderRadius: 999, color: C.mute }}>
       {children}
     </button>
@@ -167,7 +167,7 @@ export function ShopIconBtn({ onClick, label, children }: {
  */
 export function ShopPrimary({ onClick, children }: { onClick: () => void; children: ReactNode }) {
   return (
-    <button type="button" onClick={onClick}
+    <button type="button" onClick={onClick} className="fp-shop-press"
       style={{
         ...bare, width: '100%', height: 52, borderRadius: SHOP.r.chip,
         background: C.brand, color: C.inverse,
@@ -287,7 +287,7 @@ export function ShopMore({ shown, total, onMore }: { shown: number; total: numbe
   if (shown >= total) return null;
   return (
     <div style={{ display: 'flex', justifyContent: 'center', padding: '30px 0 8px' }}>
-      <button type="button" onClick={onMore}
+      <button type="button" onClick={onMore} className="fp-shop-press"
         style={{
           ...bare, height: 52, padding: '0 34px', borderRadius: SHOP.r.chip,
           border: `1px solid ${C.line}`, color: C.ink,

@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { C } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
@@ -76,6 +76,8 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
   const [limit, setLimit] = useState(PAGE);
   const [sheet, setSheet] = useState(false);
   const [fav, setFav] = useState<Set<string>>(new Set());
+  /** 검색줄이 «지금 붙어 있나» — 붙었을 때만 밑에 가는 선이 뜬다(안 붙었는데 선이 있으면 그냥 줄이 하나 더 그어진 것이다). */
+  const stickRef = useRef<HTMLDivElement>(null);
 
   /* 첫 진입 — 주소에서 조건을 복원하고, 담당자·매물을 받아 온다. */
   useEffect(() => { (async () => {
@@ -122,6 +124,24 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
     }
   }, [query, rows]);
 
+  /*
+   * 붙었는지 재는 것 — **요소 자신**을 본다. 위쪽 경계를 1px 깎아 두면(`rootMargin -1px`),
+   * 붙어 있는 동안에만 그 1px 이 밖으로 나가 「다 안 보이는 상태(ratio<1)」가 된다.
+   * ⚠ 예전에는 앞에 1px 짜리 보초 div 를 꽂았는데, React 가 관리하는 부모에 손으로 넣은 노드라
+   *   다시 그릴 때 사라져 표시가 영영 안 켜졌다(2026-09-04 실측 — 붙었는데 클래스가 없었다).
+   * ⚠ 스크롤 이벤트로 매 프레임 재지 않는다 — 폰에서 목록이 버벅인다.
+   */
+  useEffect(() => {
+    const el = stickRef.current;
+    if (!el || !mobile) return;
+    const io = new IntersectionObserver(
+      ([e]) => el.classList.toggle('is-stuck', e.intersectionRatio < 1),
+      { root: el.closest('.fp-main-pad'), rootMargin: '-1px 0px 0px 0px', threshold: [1] },
+    );
+    io.observe(el);
+    return () => { io.disconnect(); el.classList.remove('is-stuck'); };
+  }, [mobile]);
+
   /* 조건이 바뀌면 첫 장으로 — 3장까지 펼쳐 본 뒤 조건을 좁혔는데 여전히 3장이면 뭐가 준 건지 모른다. */
   useEffect(() => { setLimit(PAGE); }, [query]);
 
@@ -157,35 +177,51 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
       <main style={{ maxWidth: 1280, margin: '0 auto', padding: mobile ? '18px 16px 28px' : '26px 24px 40px' }}>
         {/* 검색 — 목록 열과 같은 폭에 걸친다. 페이지 한가운데 띄우면 조건칸과 축이 안 맞는다. */}
         {/*
+          검색줄 + 알약 줄 — **폰에서는 위에 붙어 따라온다**(`.fp-shop-stick`).
+          목록을 한참 내려가다 다시 찾고 싶을 때 맨 위로 되돌아가지 않아도 된다. 요즘 커머스가 다 그렇다.
+          ⚠ 구르는 것은 `.fp-main-pad` 다(html/body 는 overflow hidden) — sticky 는 그 안에서 잡힌다.
           ★문구는 «손님이 실제로 칠 말»이라야 한다(사장님 2026-09-04 「이 검색창에서 손님이 어떻게
             차량번호 검색을 하겠니? 차종 조건 뭐 이런 걸로 검색을 해야 되고」).
             차번은 영업자·우리가 쓰는 열쇠지 손님의 말이 아니다 — 검색은 여전히 차번도 받지만
             **안내를 차번으로 하면** 손님은 「내가 아는 게 없네」 하고 조건칸으로도 안 간다.
         */}
-        <ShopSearch value={typed} onChange={setTyped}
-          placeholder="차종·차명으로 찾아보세요 (예: 카니발, SUV, 전기차)"
-          onFilter={mobile ? () => setSheet(true) : undefined}
-          filterCount={queryCount(query)} />
+        <div ref={stickRef} className={mobile ? 'fp-shop-stick' : undefined}>
+          <ShopSearch value={typed} onChange={setTyped}
+            placeholder="차종·차명으로 찾아보세요 (예: 카니발, SUV, 전기차)"
+            onFilter={mobile ? () => setSheet(true) : undefined}
+            filterCount={queryCount(query)} />
 
-        {/*
-          빠른 조건 — **한 줄로 스르륵 미는 알약**(사장님 2026-09-04 「좌우로 스크롤하는 그 알약처럼
-          생긴 그 필터, 그게 스르륵 이렇게 왔다 가야 되고, 그 밑에는 바로 품목이 나오는 거야」).
-          접어서 두 줄로 쌓으면 조건이 늘 때마다 목록이 아래로 밀린다 — 폰 첫 화면에 상품이 안 보이면
-          그 화면은 진 것이다. 「많이 찾는 조건」 라벨도 뺐다(자리만 먹고 아무도 안 읽는다).
-          ★축 아홉으로 가는 문(「조건」)은 여기 두지 않는다 — **검색줄 오른쪽 끝**이 그 자리다
-            (사장님 2026-09-04). 알약 줄에 두면 조건 칩들과 같은 무게로 보여 「이것도 조건 하나」로
-            읽히고, 실제로 그렇게 뒀더니 맨 앞 칩만 성격이 달라 줄이 어수선했다.
-        */}
-        <div className="fp-shop-rail" style={{ marginTop: 14, paddingBottom: 2 }}>
-          {QUICK.map((k) => (
-            <ShopPill key={`${k.axis}:${k.key}`} on={query.sel[k.axis].includes(k.key)}
-              onClick={() => onToggle(k.axis, k.key)}>{k.label}</ShopPill>
-          ))}
+          {/*
+            빠른 조건 — **한 줄로 스르륵 미는 알약**(사장님 2026-09-04 「좌우로 스크롤하는 그 알약처럼
+            생긴 그 필터, 그게 스르륵 이렇게 왔다 가야 되고, 그 밑에는 바로 품목이 나오는 거야」).
+            접어서 두 줄로 쌓으면 조건이 늘 때마다 목록이 아래로 밀린다 — 폰 첫 화면에 상품이 안 보이면
+            그 화면은 진 것이다. 「많이 찾는 조건」 라벨도 뺐다(자리만 먹고 아무도 안 읽는다).
+            ★축 아홉으로 가는 문(「조건」)은 여기 두지 않는다 — **검색줄 오른쪽 끝**이 그 자리다.
+          */}
+          {/* ⚠ `padding` 단축속성을 쓰지 않는다 — CSS 의 `padding-inline: 16` 을 0 으로 덮어써
+              첫 칩이 화면 끝에 붙는다(2026-09-04 실측 x=0). 세로 여백만 만진다. */}
+          <div className="fp-shop-rail" style={{ paddingBlock: 13 }}>
+            {QUICK.map((k) => (
+              <ShopPill key={`${k.axis}:${k.key}`} on={query.sel[k.axis].includes(k.key)}
+                onClick={() => onToggle(k.axis, k.key)}>{k.label}</ShopPill>
+            ))}
+          </div>
         </div>
 
         <div style={{ display: 'flex', gap: SHOP.gap.pane, alignItems: 'flex-start', marginTop: mobile ? 18 : 26 }}>
+          {/*
+            웹 조건칸도 «따라온다». 716대를 내려가다 조건을 바꾸려면 매번 맨 위로 올라가야 했다.
+            ★`maxHeight`+`overflowY` 를 같이 줘야 축이 화면보다 길 때 기둥 «안에서» 굴러간다 —
+              안 주면 아래쪽 축(혜택 등)에 영영 손이 안 닿는다.
+            ★`top: 20` — 0 으로 붙이면 화면 맨 위 선에 딱 붙어 답답하다.
+            ⚠ 주석을 삼항의 «값 자리»에 넣지 않는다 — 자식이 둘이 되어 JSX 가 깨진다(방금 깨뜨렸다).
+          */}
           {!mobile ? (
-            <aside style={{ width: 260, flexShrink: 0 }}>
+            <aside style={{
+              width: 260, flexShrink: 0,
+              position: 'sticky', top: 20,
+              maxHeight: 'calc(100vh - 40px)', overflowY: 'auto',
+            }}>
               <div style={{ paddingBottom: 18 }}><ShopCount value={countText} /></div>
               <div style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
@@ -267,7 +303,11 @@ function Grid({ mobile, children }: { mobile: boolean; children: React.ReactNode
        *   카드는 멀쩡해 보이는데 **하트가 화면 밖(x=822)** 에 나가 있었다. 눈으로는 안 보이는 고장이다.
        */
       gridTemplateColumns: mobile ? 'minmax(0, 1fr)' : 'repeat(3, minmax(0, 1fr))',
-      gap: mobile ? 10 : 18,
+      /*
+       * 테두리를 걷었으니 카드를 나누는 것은 **여백**뿐이다 — 좁으면 두 카드가 한 덩어리로 붙어 보인다.
+       * 세로가 가로보다 넓다(글자 줄이 카드 아래쪽에 몰려 있어 그만큼 더 떼야 갈린다).
+       */
+      gap: mobile ? '28px 12px' : '34px 22px',
     }}>{children}</div>
   );
 }
@@ -275,12 +315,12 @@ function Grid({ mobile, children }: { mobile: boolean; children: React.ReactNode
 /** 불러오는 동안의 자리 — 카드와 «같은 짜임»이라야 목록이 도착할 때 화면이 안 튄다. */
 function Skeleton() {
   const bar = (w: string, h: number) => (
-    <div style={{ height: h, width: w, borderRadius: 4, background: C.placeholder }} />
+    <div className="fp-shop-skel" style={{ height: h, width: w, borderRadius: 5 }} />
   );
   return (
-    <div style={{ borderRadius: SHOP.r.card, border: `1px solid ${C.line}`, overflow: 'hidden' }}>
-      <div style={{ aspectRatio: '4 / 3', background: C.placeholder }} />
-      <div style={{ padding: 15, display: 'flex', flexDirection: 'column', gap: 9 }}>
+    <div>
+      <div className="fp-shop-skel" style={{ aspectRatio: '4 / 3', borderRadius: SHOP.r.card }} />
+      <div style={{ padding: '12px 2px 2px', display: 'flex', flexDirection: 'column', gap: 9 }}>
         {bar('78%', 16)}{bar('52%', 12)}{bar('46%', 26)}{bar('60%', 12)}
       </div>
     </div>

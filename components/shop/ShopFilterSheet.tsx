@@ -83,7 +83,7 @@ export function ShopFilterSheet({ facets, sel, onToggle, onClearAxis, onClearAll
               const on = axis === active;
               const n = sel[axis].length;
               return (
-                <button key={axis} type="button" onClick={() => setActive(axis)}
+                <button key={axis} type="button" onClick={() => setActive(axis)} className="fp-shop-press"
                   aria-current={on ? 'true' : undefined}
                   style={{
                     display: 'flex', alignItems: 'center', gap: 5, width: '100%',
@@ -132,7 +132,7 @@ export function ShopFilterSheet({ facets, sel, onToggle, onClearAxis, onClearAll
         </div>
 
         <div style={{ padding: '10px 16px 18px', borderTop: `1px solid ${C.line2}`, flex: '0 0 auto' }}>
-          <button type="button" onClick={onClose}
+          <button type="button" onClick={onClose} className="fp-shop-press"
             style={{
               width: '100%', height: 52, borderRadius: SHOP.r.chip, border: 'none', cursor: 'pointer',
               background: C.brand, color: C.inverse, fontFamily: 'inherit',

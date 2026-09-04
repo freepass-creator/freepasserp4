@@ -106,16 +106,21 @@ export const ShopCard = memo(function ShopCard({ p, href, faved, onFav }: {
 
   return (
     <div style={{ position: 'relative' }}>
-      <Link href={href} onClick={() => haptic.nav()}
+      {/*
+        ★테두리 상자를 걷었다(2026-09-04 마감 손질). 흰 바탕에 흰 카드를 1px 선으로 가두면
+          선이 격자마다 두 겹으로 겹쳐 화면이 그물처럼 보인다. 요즘 커머스(무신사·29CM·당근)는
+          **사진만 둥글게 하고 글자는 그냥 밑에** 둔다 — 카드를 «나누는» 것은 선이 아니라 여백이다.
+          사진 없는 차도 둥근 회색 판이라 네모난 빈 상자보다 낫다.
+      */}
+      <Link href={href} onClick={() => haptic.nav()} className="fp-shop-card"
         style={{
           display: 'flex', flexDirection: 'column', height: '100%',
-          borderRadius: SHOP.r.card, overflow: 'hidden', textDecoration: 'none', color: 'inherit',
-          border: `1px solid ${C.line}`, background: C.bg,
+          textDecoration: 'none', color: 'inherit',
         }}>
         <ShopThumb p={p} />
 
         <div style={{
-          padding: mobile ? '15px 15px 17px' : '15px 15px 17px',
+          padding: mobile ? '12px 2px 2px' : '13px 2px 2px',
           display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0, flex: 1,
         }}>
           {/*
@@ -194,12 +199,19 @@ export const ShopCard = memo(function ShopCard({ p, href, faved, onFav }: {
         <button type="button" aria-pressed={!!faved}
           aria-label={faved ? '관심 차량에서 빼기' : '관심 차량으로 담기'}
           onClick={(e) => { e.preventDefault(); haptic.tap(); onFav(code); }}
+          className="fp-shop-press"
           style={{
             position: 'absolute', top: 10, right: 10,
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            width: 38, height: 38, borderRadius: 999, cursor: 'pointer',
-            border: 'none', background: 'rgba(255,255,255,0.92)',
-            color: faved ? C.danger : C.mute,
+            width: 38, height: 38, borderRadius: 999, cursor: 'pointer', border: 'none',
+            /*
+             * 유리 느낌 — 사진 위에서는 반투명이라 사진이 비치고, 사진 없는 회색 판 위에서도
+             * 아이콘이 보인다. 흰 동그라미를 꽉 채우면 사진 위에 스티커를 붙인 것처럼 튄다.
+             * `backdrop-filter` 를 못 쓰는 브라우저는 아래 반투명 흰색만 남아 그대로 읽힌다.
+             */
+            background: 'rgba(255,255,255,0.62)',
+            backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
+            color: faved ? C.danger : C.sub,
           }}>
           <Heart size={ICON.lg} aria-hidden fill={faved ? 'currentColor' : 'none'} />
         </button>
@@ -223,8 +235,9 @@ function ShopThumb({ p }: { p: EntityRecord }) {
   const { ref, inView } = useInView<HTMLDivElement>();
   const photo = useFirstPhoto(p, 640, inView);
   return (
-    <div ref={ref} style={{
-      position: 'relative', aspectRatio: '4 / 3', background: C.placeholder, overflow: 'hidden',
+    <div ref={ref} className="fp-shop-thumb" style={{
+      position: 'relative', aspectRatio: '4 / 3', overflow: 'hidden',
+      background: C.placeholder, borderRadius: SHOP.r.card,
     }}>
       {photo ? (
         // eslint-disable-next-line @next/next/no-img-element -- 원본은 외부 도메인(프록시 경유)이라 next/image 최적화 대상이 아니다.
