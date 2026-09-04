@@ -13,6 +13,7 @@ import { ShopFilters } from '@/components/shop/ShopFilters';
 import { ShopFilterSheet } from '@/components/shop/ShopFilterSheet';
 import { ShopCard } from '@/components/shop/ShopCard';
 import { guestShareUrl } from '@/lib/domain/product-share';
+import { resolveAttr } from '@/lib/shop/attribution';
 import {
   AXIS_LABEL, SHOP_SORTS, activeTokens, clearAxis, emptyQuery, queryCount,
   readQuery, runShopQuery, toggleAxis, writeQuery,
@@ -94,9 +95,8 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
     setTyped(restored.q);
     try { setFav(new Set(JSON.parse(localStorage.getItem(FAV_KEY) || '[]') as string[])); } catch { /* 저장 못 읽어도 화면은 돈다 */ }
 
-    // 담당 귀속(?a=)은 한 번 들어오면 기억한다 — 손님이 목록·상세를 오가도 담당자가 안 바뀐다.
-    const a = params.get('a') || localStorage.getItem('fp4_attr') || '';
-    if (a) localStorage.setItem('fp4_attr', a);
+    // 누구 손님인가 — 주소 ?a= → 기억해 둔 값 → 로그인한 나. 규칙은 `lib/shop/attribution` 한 곳이다.
+    const a = resolveAttr(params);
     setAttr(a);
     const wl = params.get('wl');
     setWlQuery(wl ? `?wl=${encodeURIComponent(wl)}` : '');

@@ -7,6 +7,7 @@ import { WhitelabelFrame } from '@/components/WhitelabelFrame';
 import { ShopDetail } from '@/components/shop/ShopDetail';
 import type { Whitelabel } from '@/lib/whitelabel';
 import { vehicleNameOf } from '@/lib/domain/vehicle-name';
+import { resolveAttr } from '@/lib/shop/attribution';
 
 /**
  * 가게 상세의 «데이터 껍데기» — 화면은 `ShopDetail` 이 그린다.
@@ -32,12 +33,9 @@ export function ShopDetailView({ wl }: { wl: Whitelabel }) {
   const [attr, setAttr] = useState('');
 
   useEffect(() => { (async () => {
-    // 담당 귀속(?a=)은 목록에서 기억해 둔 것을 이어 쓴다 — 손님이 목록·상세를 오가도 담당자가 안 바뀐다.
-    const a = typeof window !== 'undefined'
-      ? (new URLSearchParams(window.location.search).get('a') || localStorage.getItem('fp4_attr'))
-      : null;
-    if (a && typeof window !== 'undefined') localStorage.setItem('fp4_attr', a);
-    setAttr(a || '');
+    // 누구 손님인가 — 주소 ?a= → 기억해 둔 값 → 로그인한 나. 목록과 «같은» 규칙을 쓴다.
+    const a = resolveAttr(new URLSearchParams(window.location.search));
+    setAttr(a);
     try {
       const q = new URLSearchParams({ code: key });
       if (a) q.set('a', a);
