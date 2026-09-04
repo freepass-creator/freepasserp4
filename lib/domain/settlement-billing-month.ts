@@ -39,11 +39,22 @@ export const roundsOf = (k: unknown) => { const m = /(\d)\s*회/.exec(S(k)); con
  * ⚠ 인도일로 «빗장»을 걸지 않는다. 2026-09-02 에 그것으로 8월 인도 2회분납 9줄이
  *   「8월 청구」로 계산됐는데 8월은 이미 닫혀 갈 데가 없어졌다. 박힌 줄이 이미 막아 준다.
  */
-export function settlementMonthOf(r: { billMonth?: unknown; deliveredAt?: unknown; payKind?: unknown }): string {
+export function settlementMonthOf(r: { billMonth?: unknown; receivedAt?: unknown; deliveredAt?: unknown; payKind?: unknown }): string {
   const written = S(r.billMonth);
   if (written) return written;
-  const d = dateOf(r.deliveredAt);
-  if (!d) return '';
   const n = roundsOf(r.payKind);
-  return ymOf(n >= 2 ? new Date(d.getFullYear(), d.getMonth() + (n - 1), d.getDate()) : d);
+  /**
+   * ★★**분납은 «접수일»에서 센다** — 사장님 2026-09-04
+   *   「접수일 기준으로 분납 계산해서 분납완료되는 날이 청구월이 되는거야」.
+   *   ⚠ 여태 인도일에서 셌다. 분납은 접수 때 부터 회차가 도는 것이라 인도일로 세면
+   *     인도가 늦어진 만큼 청구가 통째로 밀린다.
+   * ★일시납은 그대로 «인도월»이다 — 인도되면 바로 전액 청구한다(FEE_TIMING).
+   */
+  if (n >= 2) {
+    const rc = dateOf(r.receivedAt);
+    if (!rc) return '';
+    return ymOf(new Date(rc.getFullYear(), rc.getMonth() + (n - 1), rc.getDate()));
+  }
+  const d = dateOf(r.deliveredAt);
+  return d ? ymOf(d) : '';
 }
