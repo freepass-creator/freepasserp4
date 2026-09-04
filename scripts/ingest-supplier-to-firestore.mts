@@ -82,6 +82,34 @@ const trimsFor = (maker: unknown, model: unknown, sub: unknown) => {
   for (const a of makerGroup(N(maker))) { const t = TRIMS.get(`${a}|${N(model)}|${N(sub)}`); if (t) return t; }
   return [];
 };
+
+// (제조사별칭|모델) → 세대들 — 수입차 세대 판별용(섀시코드·연식범위).
+const GENS = new Map<string, { sub: string; gen: string; ys: number; ye: number }[]>();
+for (const e of MASTER) {
+  const g = N(S((e as { gen_code?: string }).gen_code)); if (!g) continue;
+  const ys = Number((e as { year_start?: unknown }).year_start) || 0, ye = Number((e as { year_end?: unknown }).year_end) || 9999;
+  for (const a of makerGroup(N(e.maker))) { const k = `${a}|${N(e.model)}`; if (!GENS.has(k)) GENS.set(k, []); GENS.get(k)!.push({ sub: S(e.sub_model), gen: g, ys, ye }); }
+}
+const regYearMonth = (s: string): [number, number] => {
+  const m = S(s).match(/(20\d{2}|19\d{2})[.\-/](\d{1,2})/); if (m) return [Number(m[1]), Number(m[2])];
+  const y = yearOf(s); return [Number(y) || 0, 0];
+};
+/**
+ * ★수입차 세대 판별 — 원문에 «섀시코드»(W213·G30…)가 없고 교체구간이면, 최초등록이 신형 시작연도
+ *   이후인 차는 «신형»으로 박는다(구형이 단종된 뒤 신규등록되는 건 신형일 수밖에 없다).
+ *   국산차는 원문에 세대코드(CN7…)가 들어 있어 이 보정이 «안» 걸린다 — 그게 안전판이다(2026-09-04 학습).
+ */
+function preferNewerGen(maker: unknown, model: unknown, curSub: string, firstReg: string, rawN: string): string {
+  let gens: { sub: string; gen: string; ys: number; ye: number }[] = [];
+  for (const a of makerGroup(N(maker))) { const g = GENS.get(`${a}|${N(model)}`); if (g) { gens = g; break; } }
+  if (gens.length < 2) return curSub;
+  if (gens.some((g) => g.gen.length >= 3 && rawN.includes(g.gen))) return curSub; // 원문에 섀시코드 있음 → 그걸 믿음
+  const [ry, rm] = regYearMonth(firstReg); if (!ry) return curSub;
+  const cands = gens.filter((g) => g.ys <= ry && ry <= g.ye).sort((a, b) => b.ys - a.ys);
+  if (!cands.length || N(cands[0].sub) === N(curSub)) return curSub;
+  if (ry === cands[0].ys && rm && rm < 7) return curSub; // 교체연도 상반기면 애매 → snap 유지
+  return cands[0].sub;
+}
 const yearOf = (firstReg: string) => {
   const s = S(firstReg);
   const full = s.match(/(20\d{2}|19\d{2})/); if (full) return full[1];
@@ -195,6 +223,8 @@ function atomize(row: Row, pinned: Map<string, Record<string, unknown>>): Atom {
     identity = canon
       ? { maker: canon.maker, model: canon.model, sub_model: canon.sub_model, trim_name: S(snap?.trim_name) || row.trim, origin: S(snap?.origin) }
       : { maker: row.maker, model: row.model, sub_model: '', trim_name: row.trim, origin: '' };
+    // ★수입차 세대 보정 — 원문에 섀시코드 없고 교체구간이면 최초등록으로 신형 판별(국산은 안 걸림).
+    if (canon) identity.sub_model = preferNewerGen(identity.maker, identity.model, identity.sub_model, row.firstReg, N(vname));
     state = confirmed ? 'new-high' : 'new-review';
     spec = {
       ext_color: snapColor(row.ext, 'ext'), int_color: snapColor(row.int, 'int'),
