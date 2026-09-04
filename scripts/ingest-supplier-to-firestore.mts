@@ -385,11 +385,15 @@ for (let i = 0; i < now.length; i += 400) {
   await batch.commit();
 }
 if (safeToRetire && gone.length) {
-  for (let i = 0; i < gone.length; i += 400) {
+  // ★계약중(락 걸린) 차는 «안» 내린다 — 원천에서 잠깐 빠져도 진행 중인 거래를 숨기면 안 된다.
+  const locked = gone.filter((car) => { const c = cur.get(car) || {}; return S(c.status) === '계약중' || S(c.status_kind) === '선점' || S(c.locked_by_contract) || S(c.vehicle_status) === '계약중'; });
+  const toRetire = gone.filter((car) => !locked.includes(car));
+  for (let i = 0; i < toRetire.length; i += 400) {
     const batch = fs.batch();
-    for (const car of gone.slice(i, i + 400)) { batch.set(fs.collection('products').doc(docId(car)), { listable: false, status_reason: '원천 이탈(직접수집)', _direct_ingest_at: Date.now() }, { merge: true }); retired++; }
+    for (const car of toRetire.slice(i, i + 400)) { batch.set(fs.collection('products').doc(docId(car)), { listable: false, status_reason: '원천 이탈(직접수집)', _direct_ingest_at: Date.now() }, { merge: true }); retired++; }
     await batch.commit();
   }
+  if (locked.length) console.log(`  · 사라진 차 중 계약중(락) ${locked.length}건은 안 내림(거래 진행중).`);
 } else if (gone.length) {
   console.log(`  · 사라진 차 ${gone.length}건 마킹 안 함 — ${RETIRE ? `안전판(수집 ${now.length} < 우리 것 ${cur.size}의 절반, 원천 읽기 의심)` : '--retire 없음(오탐 방지, 기본 끔)'}.`);
 }
