@@ -190,7 +190,16 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
   );
 
   const priceCard = (
-    <section aria-label="대여료">
+    /*
+     * ★대여료만 «면 위에» 올린다. 이 화면에서 손님이 찾아온 답이라, 나머지 구역과 같은 바닥에
+     *   두면 여섯 중 하나로 묻힌다. 연한 브랜드 면이라 눈에 서면서도 채널색을 벗어나지 않는다.
+     * ⚠ 다른 구역에는 면을 안 깐다 — 다 카드로 만들면 다시 「전부 똑같은 것」이 되고,
+     *   그때는 면이 «중요하다»는 뜻을 잃는다. 하나만 올려야 그 하나가 선다.
+     */
+    <section aria-label="대여료" style={{
+      background: C.brandSoft, borderRadius: 14,
+      padding: mobile ? '20px 16px 18px' : '22px 20px 20px',
+    }}>
       <SecTitle>대여료</SecTitle>
       {plan ? (
         <>
@@ -296,7 +305,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
         <>
           {gallery}
           <Head title={title} facts={facts} />
-          <Rule />
+          <Rule mobile={mobile} />
           {priceCard}
         </>
       ) : (
@@ -328,11 +337,11 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
         차량 정보 — 서로 «독립된 짧은 사실» 넷이다. 이름/값 표로 놓으면 계약·보험과 같은 얼굴이 되고,
         네 줄짜리를 표로 만들면 그건 표가 아니라 창살이다. **타일**로 나란히 놓는다.
       */}
-      <Tiles title="차량 정보" rows={specs} cols={mobile ? 2 : 4} />
+      <Tiles title="차량 정보" rows={specs} cols={mobile ? 2 : 4} mobile={mobile} />
 
       {options.length ? (
         <>
-          <Rule />
+          <Rule mobile={mobile} />
           <section aria-label="옵션">
             <SecTitle>옵션</SecTitle>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -359,7 +368,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
         계약 — 서로 «독립된 짧은 답»들이다(된다/안 된다/얼마). 견줄 것이 아니라 하나씩 확인하는 값이라
         표가 아니라 **타일**로 놓는다. 보증금 관련이 앞이다 — 이 손님층의 1번 장벽은 월요금이 아니라 목돈이다.
       */}
-      <Tiles title="계약 조건" rows={contract} cols={mobile ? 2 : 3} />
+      <Tiles title="계약 조건" rows={contract} cols={mobile ? 2 : 3} mobile={mobile} />
 
       {/* 운전 — 「내가 탈 수 있나」. 나이 범위 하나가 결정적이라 그것만 크게. */}
       <Lead title="운전 조건" mobile={mobile}
@@ -368,7 +377,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
       {/* 기타 — 참고만 하는 값. 제일 조용하게 한 줄. */}
       {etc ? (
         <>
-          <Rule />
+          <Rule mobile={mobile} />
           <section aria-label="기타 사항">
             <SecTitle>기타 사항</SecTitle>
             <div style={{ fontSize: SHOP.fs.sub, color: C.mute, lineHeight: 1.9 }}>{etc}</div>
@@ -508,11 +517,11 @@ function TopBar({ code, title, listHref }: { code: string; title: string; listHr
  * 그러면 눈이 왼쪽 라벨 열을 훑을 필요 없이 «값만» 읽고 지나간다.
  * ★속이 비면 통째로 안 그린다 — 제목만 있고 아래가 빈 칸은 「안 채웠다」로 보인다.
  */
-function Tiles({ title, rows, cols }: { title: string; rows: [string, string][]; cols: number }) {
+function Tiles({ title, rows, cols, mobile }: { title: string; rows: [string, string][]; cols: number; mobile?: boolean }) {
   if (!rows.length) return null;
   return (
     <>
-      <Rule />
+      <Rule mobile={mobile} />
       <section aria-label={title}>
         <SecTitle>{title}</SecTitle>
         <div style={{
@@ -548,7 +557,7 @@ function Lead({ title, label, value, note, mobile }: {
   if (!value && !note) return null;
   return (
     <>
-      <Rule />
+      <Rule mobile={mobile} />
       <section aria-label={title}>
         <SecTitle>{title}</SecTitle>
         {value ? (
@@ -605,21 +614,40 @@ function regDate(raw: unknown): string {
 }
 
 /**
- * 구역 사이 — **여백만**(사장님 2026-09-05 「없어도 되는 구분선 이런 거는 좀 최소화해야 된다」).
+ * 구역 경계 — **두꺼운 띠**.
  *
- * 전에는 구역마다 가로선을 그었다. 상세에 구역이 여섯이라 화면에 선이 여섯 줄 그어졌고,
- * 그 안의 표가 또 줄마다 선을 그어 **한 화면이 온통 가로줄**이었다.
- * 구역 제목이 굵고 크므로 선이 없어도 어디서 갈리는지 보인다 — 나누는 일은 여백이 한다.
+ * 두 번 헛짚고 여기 왔다(2026-09-05).
+ *   ① 처음엔 구역마다 «가는 실선»을 그었다 → 표까지 줄마다 선을 그어 **한 화면이 온통 가로줄**이 됐다.
+ *      사장님 「저런 쓸데없는 라인들, 없어도 되는 구분선은 최소화해야 된다」
+ *   ② 그래서 선을 다 걷고 «여백만» 뒀다 → 이번엔 **어디서 갈리는지가 안 보였다.**
+ *      사장님 「섹션 경계나 구분을 너무 안 주니까 이게 뭔가 싶다. 렌터카 전문으로 하는 플랫폼인데
+ *      너무 섹션마다의 구분이 없잖아」
+ *
+ * ⇒ 실선도 여백도 아닌 **면(面)**이다. 한국 커머스(네이버·쿠팡·당근·엔카)가 공통으로 쓰는 그것 —
+ *   구역과 구역 사이에 연한 회색 띠를 깐다. 1px 선은 «금»이라 여섯 개면 창살이 되지만,
+ *   띠는 «바닥»이라 몇 개가 있어도 시끄럽지 않고 경계는 훨씬 분명하다.
+ * ★폰은 화면 끝까지 흘린다(여백 밖으로 뺀다) — 안쪽에서 끊기면 띠가 아니라 또 하나의 상자가 된다.
+ *   웹은 본문 칼럼 안에서 끝낸다(1120px 을 가로지르면 화면이 두 동강 난 것처럼 보인다).
  */
-function Rule() {
-  return <div aria-hidden style={{ height: 34 }} />;
+function Rule({ mobile }: { mobile?: boolean }) {
+  return (
+    <div aria-hidden style={{
+      height: mobile ? 10 : 8,
+      background: C.zebra,
+      margin: mobile ? '30px -16px 26px' : '34px 0 28px',
+    }} />
+  );
 }
 
+/**
+ * 구역 제목 — 띠 바로 다음에 오는 글자라, 여기서 「새 구역이 시작됐다」가 확정된다.
+ * 띠만으로는 «갈렸다»까지고 «무엇이 시작됐는지»는 제목이 말한다 — 그래서 굵고 크다.
+ */
 function SecTitle({ children }: { children: React.ReactNode }) {
   return (
     <h2 style={{
-      margin: '0 0 14px', fontSize: SHOP.fs.h2, fontWeight: 700,
-      color: C.ink, letterSpacing: '-0.02em',
+      margin: '0 0 16px', fontSize: 18, fontWeight: 800,
+      color: C.ink, letterSpacing: '-0.025em',
     }}>{children}</h2>
   );
 }
