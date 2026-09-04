@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
-  ArrowLeft, Car, Check, ChevronLeft, ChevronRight, Coins, FileText, Heart,
+  ArrowLeft, Car, Check, ChevronDown, ChevronLeft, ChevronRight, Coins, FileText, Heart,
   IdCard, ImageOff, Info, Phone, Share2, ShieldCheck, type LucideIcon,
 } from 'lucide-react';
 import type { EntityRecord } from '@/lib/intake/entities';
@@ -80,6 +80,8 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
     [p],
   );
   const [planIdx, setPlanIdx] = useState(0);
+  /** 기간별 표를 폈나 — **기본은 접힘.** 주인공은 최저가고 사다리는 보조다. */
+  const [openRates, setOpenRates] = useState(false);
   const plan = plans[planIdx];
   /** 표에 세울 순서 — 기간 오름차순. 위 큰 숫자는 최저가로 시작하지만 표의 축은 «기간»이다. */
   const byMonth = useMemo(() => [...plans].sort((a, b) => a.m - b.m), [plans]);
@@ -241,56 +243,70 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
       )}
 
       {/*
-        ★★기간별 «표»다. 칩만 두면 다른 기간이 얼마인지 하나씩 눌러 봐야 알고, 그러다 보면
-          「지금 보는 게 제일 싼 건가」를 못 정한다. 렌터카 상세(롯데·SK)가 다 표를 쓰는 이유다.
-          누르면 위 큰 숫자가 그 기간으로 바뀐다 — 표가 곧 고르개다.
-        ★기간 «순서»로 세운다(12→60). 위 큰 숫자는 최저가로 시작하지만, 표는 값이 아니라
-          기간이 축이라 오름차순이어야 손님이 「길게 하면 싸지는구나」를 읽는다.
+        ★★기간별 표는 **보조**다(사장님 2026-09-05 「우리는 **최저가를 보여주고 기간별 세부
+          데이터는 약간 보조로** 보여주면 될 거 같아. 그러면 얼추 중고차 상세페이지를 소화할 수 있겠지」).
+          중고차 상세는 «금액 하나»가 주인공이고 할부는 그 밑에 한 줄로 붙는다. 우리 대응이 이거다 —
+          최저가가 크게 서고, 기간별 사다리는 접어 둔다.
+        ★접혀 있어도 **범위는 말한다**(「12~60개월 · 61만~95만원」). 접는 것과 감추는 것은 다르다 —
+          범위를 보고 「더 볼지」를 정하게 해야 누르는 것이지, 아무 말 없는 ▾ 는 아무도 안 누른다.
+        ★펼치면 표가 곧 고르개다 — 줄을 누르면 위 큰 숫자가 그 기간으로 바뀐다.
+          기간 오름차순(12→60)이라 「길게 하면 싸지는구나」가 읽힌다.
       */}
       {plans.length > 1 ? (
-        <table style={{
-          width: '100%', marginTop: 18, borderCollapse: 'collapse',
-          fontVariantNumeric: 'tabular-nums',
-        }}>
-          <thead>
-            <tr>
-              {['기간', '월 대여료', '보증금'].map((h, i) => (
-                <th key={h} scope="col" style={{
-                  padding: '0 0 9px', textAlign: i === 0 ? 'left' : 'right',
-                  fontSize: SHOP.fs.cap, fontWeight: 500, color: C.faint,
-                  borderBottom: `1px solid ${C.line2}`,
-                }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {byMonth.map((x) => {
-              const on = plan && x.m === plan.m;
-              return (
-                <tr key={x.m} onClick={() => setPlanIdx(plans.findIndex((y) => y.m === x.m))}
-                  style={{ cursor: 'pointer', background: on ? C.brandSoft : 'transparent' }}>
-                  {/*
-                    ★줄마다 긋던 가로선을 걷었다(2026-09-05 구분선 최소화). 머리(기간·월 대여료·보증금)
-                      밑줄 하나만 남긴다 — 그건 «제목과 값»을 가르는 선이라 뜻이 있다.
-                      고른 줄은 면(brandSoft)이 이미 표시하므로 줄금이 없어도 어디를 골랐는지 보인다.
-                  */}
-                  <td style={{
-                    padding: '13px 8px 13px 10px',
-                    fontSize: SHOP.fs.body, fontWeight: on ? 700 : 500, color: on ? C.brand : C.ink,
-                  }}>{x.m}개월</td>
-                  <td style={{
-                    padding: '13px 8px', textAlign: 'right',
-                    fontSize: SHOP.fs.body, fontWeight: on ? 800 : 600, color: C.ink,
-                  }}>{manWon(x.rent)}</td>
-                  <td style={{
-                    padding: '13px 10px 13px 8px', textAlign: 'right',
-                    fontSize: SHOP.fs.body, color: C.mute,
-                  }}>{x.deposit > 0 ? manWon(x.deposit) : '없음'}</td>
+        <div style={{ marginTop: 16 }}>
+          <button type="button" onClick={() => setOpenRates((v) => !v)} className="fp-shop-press"
+            aria-expanded={openRates}
+            style={{
+              display: 'flex', alignItems: 'center', gap: 6, width: '100%',
+              padding: '9px 0', border: 'none', background: 'transparent', cursor: 'pointer',
+              fontFamily: 'inherit', fontSize: SHOP.fs.sub, color: C.mute, textAlign: 'left',
+            }}>
+            <span style={{ flex: 1, minWidth: 0, fontVariantNumeric: 'tabular-nums' }}>
+              기간별 요금 {byMonth[0].m}~{byMonth[byMonth.length - 1].m}개월 ·{' '}
+              {manWon(plans[0].rent)}~{manWon(plans[plans.length - 1].rent)}
+            </span>
+            <ChevronDown size={ICON.md} aria-hidden
+              style={{ flex: '0 0 auto', transform: openRates ? 'rotate(180deg)' : undefined, transition: 'transform .18s ease' }} />
+          </button>
+
+          {openRates ? (
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontVariantNumeric: 'tabular-nums' }}>
+              <thead>
+                <tr>
+                  {['기간', '월 대여료', '보증금'].map((h, i) => (
+                    <th key={h} scope="col" style={{
+                      padding: '0 0 9px', textAlign: i === 0 ? 'left' : 'right',
+                      fontSize: SHOP.fs.cap, fontWeight: 500, color: C.faint,
+                      borderBottom: `1px solid ${C.line2}`,
+                    }}>{h}</th>
+                  ))}
                 </tr>
-              );
-            })}
-          </tbody>
-        </table>
+              </thead>
+              <tbody>
+                {byMonth.map((x) => {
+                  const on = plan && x.m === plan.m;
+                  return (
+                    <tr key={x.m} onClick={() => setPlanIdx(plans.findIndex((y) => y.m === x.m))}
+                      style={{ cursor: 'pointer', background: on ? C.bg : 'transparent' }}>
+                      <td style={{
+                        padding: '13px 8px 13px 10px',
+                        fontSize: SHOP.fs.body, fontWeight: on ? 700 : 500, color: on ? C.brand : C.ink,
+                      }}>{x.m}개월</td>
+                      <td style={{
+                        padding: '13px 8px', textAlign: 'right',
+                        fontSize: SHOP.fs.body, fontWeight: on ? 800 : 600, color: C.ink,
+                      }}>{manWon(x.rent)}</td>
+                      <td style={{
+                        padding: '13px 10px 13px 8px', textAlign: 'right',
+                        fontSize: SHOP.fs.body, color: C.mute,
+                      }}>{x.deposit > 0 ? manWon(x.deposit) : '없음'}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          ) : null}
+        </div>
       ) : null}
 
       {badges.length ? (
