@@ -108,7 +108,12 @@ const live = sheets.filter((f) => !/구버전|폐기|백업/.test(S(f.name)));
 /** 「[F50 사용중] 손오공 프리패스 재고」에서 「손오공」만 뽑는다. */
 const aliasOf = (name: string) => S(name).replace(/^\[[^\]]*\]\s*/, '').replace(/\s*프리패스 재고.*$/, '');
 
-const sups = [...new Set(rows.map((r) => S(r.supplier)).filter(Boolean))];
+/**
+ * ★**환수만 있는 달도 세다** — 사장님 2026-09-04 「리더스에 저거 환수 정산시트에 반영해줘」.
+ *   공급사 목록을 «정산 줄»에서만 돌렸더니, 그 달에 정산 줄은 없고 환수만 있는 곳이 통째로 빠졌다.
+ *   ⇒ 환수에만 이름이 있는 공급사도 목록에 넣는다. 환수도 «그 달에 오가는 돈»이다.
+ */
+const sups = [...new Set([...rows.map((r) => S(r.supplier)), ...claws.map((c) => S(c.supplier))].filter(Boolean))];
 console.log(`\n■ ${MONTH} — 공급사 ${sups.length}곳 · 재고 시트 ${sheets.length}개 ${APPLY ? '(반영)' : '(대조만)'}\n`);
 
 const findSheet = (name: string) => live.filter((f) => {
@@ -116,7 +121,9 @@ const findSheet = (name: string) => live.filter((f) => {
   return a && b && (a === b || a.startsWith(b) || b.startsWith(a));
 });
 
-type Job = { sup: string; sheetId: string; sheetName: string; tab: string; via: string; lines: Line[]; net: number; vat: number; claw: number };
+/** `backs` — 환수를 «줄로» 든다. 합산만 들고 있으면 어느 차인지를 못 적는다. */
+type Back = { plate: string; amt: number; why: string };
+type Job = { sup: string; sheetId: string; sheetName: string; tab: string; via: string; lines: Line[]; backs: Back[]; net: number; vat: number; claw: number };
 const jobs: Job[] = []; const skip: string[] = [];
 for (const sup of sups) {
   if (ONLY && !sup.includes(ONLY)) continue;
@@ -133,12 +140,14 @@ for (const sup of sups) {
   const mine = rows.filter((r) => S(r.supplier) === sup).map(lineOf).filter((l) => l.total !== 0);
   /** ★차례는 «접수일 순» — 영업채널 시트와 같은 규칙이다(사장님 2026-09-03 「접수일자 순으로」). */
   mine.sort((a, b) => `${a.recv || '9999-99-99'}|${a.plate}`.localeCompare(`${b.recv || '9999-99-99'}|${b.plate}`));
-  const cl = claws.filter((c) => S(c.supplier) === sup).reduce((a, c) => a + N(c.supplierAmt), 0);
+  const backs: Back[] = claws.filter((c) => S(c.supplier) === sup)
+    .map((c) => ({ plate: S(c.plate), amt: N(c.supplierAmt), why: S(c.reason) })).filter((b) => b.amt !== 0);
+  const cl = backs.reduce((a, b) => a + b.amt, 0);
   if (!mine.length && !cl) continue;
   if (hit.length !== 1) { skip.push(`${sup} — 재고 시트를 ${hit.length === 0 ? '못 찾음' : `${hit.length}개나 찾음`}`); continue; }
   const net = mine.reduce((a, b) => a + b.net, 0) - cl;
   const vat = mine.reduce((a, b) => a + b.vat, 0) - Math.round(cl * VAT);
-  jobs.push({ sup, sheetId: hit[0].id, sheetName: hit[0].name, tab: tabOf(MONTH), via, lines: mine, net, vat, claw: cl });
+  jobs.push({ sup, sheetId: hit[0].id, sheetName: hit[0].name, tab: tabOf(MONTH), via, lines: mine, backs, net, vat, claw: cl });
 }
 /**
  * ★★**한 시트에 두 곳이 들어오면 탭 이름에 «누구 것»을 붙인다.**
@@ -269,8 +278,11 @@ for (const j of jobs) {
   const pad = (n: number) => Array.from({ length: n }, () => '');
   const body: (string | number | boolean)[][] = j.lines.map((l, i) => [i + 1, l.plate, l.recv, l.deliv, l.model, l.cust,
     l.product, l.term || '', l.rent || '', l.how, l.net, l.vat, l.total, ...note(l.plate)]);
-  if (j.claw) body.push(['', '환수', '', '', '지난 정산분 환수', '', '', '', '', '',
-    -j.claw, -Math.round(j.claw * VAT), -(j.claw + Math.round(j.claw * VAT)), false, '']);
+  /** ★환수 줄은 «차번을 적는다» — 어느 차인지 못 보면 상대가 바로 묻는다. */
+  for (const b of j.backs) {
+    body.push(['', b.plate, '', '', '지난 정산분 환수', '', '', '', '', b.why,
+      -b.amt, -Math.round(b.amt * VAT), -(b.amt + Math.round(b.amt * VAT)), false, '']);
+  }
   const values: (string | number | boolean)[][] = [
     /**
      * ★**제목은 «맨 앞»에서 시작한다** — 사장님 2026-09-03 「여기 제목을 앞으로 보내고 틀고정 필요없음」.

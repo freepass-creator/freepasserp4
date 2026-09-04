@@ -121,7 +121,8 @@ const drive = async (q: string) => (((await (await fetch(`https://www.googleapis
  */
 const sheetName = channelSheetName;
 
-const chans = [...new Set(rows.map((r) => S(r.channel)).filter(Boolean))];
+/** ★환수만 있는 달도 세다 — 공급사 쪽과 같은 이치다. */
+const chans = [...new Set([...rows.map((r) => S(r.channel)), ...claws.map((c) => S(c.channel))].filter(Boolean))];
 console.log(`\n■ ${MONTH} — 영업채널 ${chans.length}곳 ${APPLY ? '(반영)' : '(대조만)'}\n`);
 
 type Back = { plate: string; sup: string; amt: number; why: string };
