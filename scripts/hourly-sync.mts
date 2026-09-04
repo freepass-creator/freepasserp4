@@ -566,29 +566,29 @@ line.push(contractStatus.picked.find((l) => /고칠 칸/.test(l))?.replace(/\s+/
 
 /**
  * ⑥ 판매시트 3탭.
- * ★`--force-shrink` — 2026-09-04. ⑯(Firestore→본시트 재발행)이 «최종 발행자」가 되면서, ⑥ 은 정제시트 기준으로
- *   찍는데 시트엔 ⑯ 이 써놓은(공급사명 등 표기가 다른) 표가 있어 shrink/«공급사 0대» 가드가 «오작동»으로 멈춘다
- *   (실측 14:18·16:21 — 실제 사라진 차 없음, 공급사 칸 표기 차이). ⑯ 이 매 회차 Firestore 원자로 다시 발행하므로
- *   ⑥ 의 shrink 가드는 무의미하고, «진짜 데이터 손실» 보호는 ⑯(원자 = 정본)이 대신한다. 0대 전무 가드(line 818)는 유지.
+ * ★2026-09-04 코덱스 지적으로 **`--force-shrink` 를 뺐다.** 그 옵션은 「공급사 못 읽음·통째 0대」 보호까지 꺼서
+ *   한 공급사를 못 읽은 날 그 차들이 판매시트→ERP→Firestore 로 사라질 수 있었다(⑯ 도 못 막는다 — 이미 전파된 뒤라).
+ *   ⑥ 가드가 멈추던 진짜 원인은 «공급사 칸 표기 차이»였다 — ⑯ 이 공급사명을 `companyAlias(partner_name)` 로 통일해
+ *   ⑥ 의 `who` 와 같은 값을 쓰게 고쳤다(make-sample). 이제 가드는 정상 작동하고, 진짜 공급사 유실은 여기서 멈춘다.
  */
-const p1 = run('⑥ 상품리스트', ['scripts/publish-origin-tab.mts', '--force-shrink', ...A], /우리 시트 |반영 완료|중단|Error/);
+const p1 = run('⑥ 상품리스트', ['scripts/publish-origin-tab.mts', ...A], /우리 시트 |반영 완료|중단|Error/);
 if (!p1.ok) stop('상품리스트 발행 실패');
 line.push(p1.picked.find((l) => /반영 완료/.test(l))?.replace('반영 완료 — 탭 ', '') || '상품리스트 ok');
 /* 손오공 탭 셋은 ⓪ 이 돌았을 때만 발행한다 — 안 돌았으면 낡은 값을 새 발행으로 찍게 된다. */
 if (손오공탭발행) {
-  const p2 = run('⑥ 손오공구독', ['scripts/publish-origin-tab.mts', '--force-shrink', '--only=RP012:구독', '--tab=손오공구독', '--at=1', ...A], /반영 완료|중단|Error/);
+  const p2 = run('⑥ 손오공구독', ['scripts/publish-origin-tab.mts', '--only=RP012:구독', '--tab=손오공구독', '--at=1', ...A], /반영 완료|중단|Error/);
   if (!p2.ok) stop('손오공구독 발행 실패');
   const p2b = run('⑥ 손오공 요금블록', ['scripts/publish-sonogong-tab.mts', ...A], /반영 완료|Error/);
   if (!p2b.ok) stop('손오공 요금블록 실패');
   /* 픽업구독(손오공 픽업 = 티카) — 연동지도 「판매 4탭」의 하나. 빠져 있어 픽업이 판매시트에 안 실렸다. */
-  const p2c = run('⑥ 픽업구독', ['scripts/publish-origin-tab.mts', '--force-shrink', '--only=RP012:픽업', '--tab=픽업구독', '--at=2', ...A], /반영 완료|중단|Error/);
+  const p2c = run('⑥ 픽업구독', ['scripts/publish-origin-tab.mts', '--only=RP012:픽업', '--tab=픽업구독', '--at=2', ...A], /반영 완료|중단|Error/);
   if (!p2c.ok) stop('픽업구독 발행 실패');
   const p2d = run('⑥ 픽업 요금블록', ['scripts/publish-sonogong-tab.mts', '--tab=픽업구독', ...A], /반영 완료|Error/);
   if (!p2d.ok) stop('픽업 요금블록 실패');
 } else {
   line.push('손오공·픽업 탭 발행 건너뜀');
 }
-const p3 = run('⑥ 오플구독', ['scripts/publish-origin-tab.mts', '--force-shrink', '--only=RP023', '--tab=오플구독', '--at=3', ...A], /반영 완료|중단|Error/);
+const p3 = run('⑥ 오플구독', ['scripts/publish-origin-tab.mts', '--only=RP023', '--tab=오플구독', '--at=3', ...A], /반영 완료|중단|Error/);
 if (!p3.ok) stop('오플구독 발행 실패');
 const p3b = run('⑥ 오플 요금블록', ['scripts/publish-sonogong-tab.mts', '--tab=오플구독', ...A], /반영 완료|Error/);
 if (!p3b.ok) stop('오플 요금블록 실패');

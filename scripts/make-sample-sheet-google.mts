@@ -11,6 +11,7 @@ import { getDatabase } from 'firebase-admin/database';
 import { getFirestore } from 'firebase-admin/firestore';
 import { JWT } from 'google-auth-library';
 import { buildSalesFormatRequests, columnWidths } from '../lib/domain/sales-sheet-format';
+import { companyAlias } from '../lib/domain/identity';
 
 const S = (v: unknown) => String(v ?? '').trim();
 const SRC_SHEET = '1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs';   // 기존 판매시트 = 본시트(영업자가 보는 곳). 헤더를 여기서 읽는다.
@@ -69,7 +70,9 @@ const nameByProvider = new Map<string, string>();
     if (!p || typeof p !== 'object') continue;
     const code = S((p as any).partner_code) || S((p as any).provider_company_code);
     const acct = [S((p as any).bank_name), S((p as any).bank_account), S((p as any).bank_holder)].filter(Boolean).join(' ');
-    const nm = S((p as any).company_name) || S((p as any).name) || S((p as any).partner_name) || S((p as any).business_name);
+    // ★공급사명 = 발행기 ⑥(publish-origin-tab)의 `who` 와 «똑같은 값»으로(companyAlias). 표기가 다르면 ⑥의 shrink 가드가 오판한다(코덱스 2026-09-04).
+    const raw = S((p as any).partner_name) || S((p as any).name);
+    const nm = companyAlias(raw) || raw;
     if (code && acct) acctByProvider.set(code, acct);
     if (code && nm) nameByProvider.set(code, nm);
   }
