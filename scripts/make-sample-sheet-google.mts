@@ -154,36 +154,46 @@ const cell = (col: string, v: any): string => {
   return '';   // 소비자가격·그 밖 요금·연주행·탁송비·분납·사고다발 = 원천 없음(빈칸)
 };
 
-// ── 고정 시트 제자리 갱신 ──
+// ── 고정 시트 제자리 갱신 · 탭 이름 = 「base 업데이트시각 · N대」(기존 판매시트처럼) ──
+const kstNow = (() => { const d = new Date(Date.now() + 9 * 3600e3); const p = (n: number) => String(n).padStart(2, '0'); return `${p(d.getUTCMonth() + 1)}.${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`; })();
+const titleOf = (base: string) => `${base} ${kstNow} · ${(groups[base] || []).length}대`;
+
 let sheetId = SAMPLE_SHEET_ID, fresh = false;
 const meta = SAMPLE_SHEET_ID.startsWith('1FZ8placeholder') ? null : await api(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?fields=sheets.properties(sheetId,title)`).catch(() => null);
+const gidByBase: Record<string, number> = {};
 if (!meta) {
-  const created = await api('https://sheets.googleapis.com/v4/spreadsheets', { method: 'POST', body: JSON.stringify({ properties: { title: '프리패스 — Firestore 상품시트(샘플)' }, sheets: TAB_ORDER.map((t, i) => ({ properties: { sheetId: i, title: t } })) }) });
+  const created = await api('https://sheets.googleapis.com/v4/spreadsheets', { method: 'POST', body: JSON.stringify({ properties: { title: '프리패스 — 상품리스트(영업자용)' }, sheets: TAB_ORDER.map((t, i) => ({ properties: { sheetId: i, title: titleOf(t) } })) }) });
   sheetId = created.spreadsheetId; fresh = true;
+  TAB_ORDER.forEach((t, i) => { gidByBase[t] = i; });
   await api(`https://www.googleapis.com/drive/v3/files/${sheetId}/permissions?sendNotificationEmail=false`, { method: 'POST', body: JSON.stringify({ role: 'writer', type: 'user', emailAddress: 'jpkpyh@gmail.com' }) }).catch(() => {});
   await api(`https://www.googleapis.com/drive/v3/files/${sheetId}/permissions`, { method: 'POST', body: JSON.stringify({ role: 'reader', type: 'anyone' }) }).catch(() => {});
 } else {
-  const have = new Map<string, number>((meta.sheets || []).map((s: any) => [s.properties.title, s.properties.sheetId]));
-  const add: any[] = []; let nid = Math.max(0, ...[...have.values()]) + 1;
-  for (const t of TAB_ORDER) if (!have.has(t)) { add.push({ addSheet: { properties: { sheetId: nid, title: t } } }); have.set(t, nid); nid++; }
-  if (add.length) await api(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests: add }) });
-  await api(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values:batchClear`, { method: 'POST', body: JSON.stringify({ ranges: TAB_ORDER.map((t) => `'${t}'`) }) });
+  // 기존 탭을 «base 이름」으로 찾아 새 제목(시각·대수)으로 rename. 없으면 추가.
+  const existing = (meta.sheets || []).map((s: any) => ({ title: S(s.properties.title), gid: s.properties.sheetId }));
+  const reqs: any[] = []; let nid = Math.max(0, ...existing.map((e: any) => e.gid)) + 1;
+  for (const base of TAB_ORDER) {
+    const found = existing.find((e: any) => e.title === base || e.title.startsWith(base + ' '));
+    const nt = titleOf(base);
+    if (found) { gidByBase[base] = found.gid; if (found.title !== nt) reqs.push({ updateSheetProperties: { properties: { sheetId: found.gid, title: nt }, fields: 'title' } }); }
+    else { gidByBase[base] = nid; reqs.push({ addSheet: { properties: { sheetId: nid, title: nt } } }); nid++; }
+  }
+  if (reqs.length) await api(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests: reqs }) });
+  await api(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values:batchClear`, { method: 'POST', body: JSON.stringify({ ranges: TAB_ORDER.map((t) => `'${titleOf(t).replace(/'/g, "''")}'`) }) });
 }
-const gidOf = (t: string, i: number) => fresh ? i : ((meta.sheets || []).find((s: any) => s.properties.title === t)?.properties.sheetId ?? i);
 
 const bodies: Record<string, string[][]> = {};
 const data = TAB_ORDER.map((t) => {
   const HEAD = headerCache[t];
   const rows = (groups[t] || []).sort((a, b) => S(a.provider_company_code).localeCompare(S(b.provider_company_code)) || S(a.car_number).localeCompare(S(b.car_number))).map((v) => HEAD.map((c) => cell(c, v)));
   bodies[t] = rows;
-  console.log(`  ${t} ${rows.length}대 · ${HEAD.length}열`);
-  return { range: `'${t}'!A1`, values: [HEAD, ...rows] };
+  console.log(`  ${titleOf(t)} · ${HEAD.length}열`);
+  return { range: `'${titleOf(t).replace(/'/g, "''")}'!A1`, values: [HEAD, ...rows] };
 });
 await api(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values:batchUpdate`, { method: 'POST', body: JSON.stringify({ valueInputOption: 'RAW', data }) });
 
 const fmt: Record<string, unknown>[] = [];
-for (let i = 0; i < TAB_ORDER.length; i++) {
-  const t = TAB_ORDER[i], gid = gidOf(t, i), HEAD = headerCache[t];
+for (const t of TAB_ORDER) {
+  const gid = gidByBase[t], HEAD = headerCache[t];
   fmt.push({ updateSheetProperties: { properties: { sheetId: gid, gridProperties: { frozenRowCount: 1 } }, fields: 'gridProperties.frozenRowCount' } });
   fmt.push(...buildSalesFormatRequests({ gid, columns: HEAD, widths: columnWidths(HEAD, bodies[t]), tabTitle: t, body: bodies[t] }));
 }
