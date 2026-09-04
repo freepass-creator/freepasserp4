@@ -118,18 +118,24 @@ export function CatalogView({ wl = FREEPASS }: { wl?: Whitelabel }) {
     <WhitelabelFrame wl={wl} agentName={agent?.name} agentPhone={agent?.phone}>{node}</WhitelabelFrame>
   );
 
+  /**
+   * 목록 머리의 정렬 — **조건칸이 아니라 카드 열의 어깨다.**
+   * 현대인증중고차·티카 둘 다 「N대 + 정렬」을 목록 열 머리에 둔다(실측 2026-09-04).
+   * 정렬을 왼쪽 기둥에 넣으면 기둥만 무거워지고, 격자에는 머리가 없어 어깨가 안 생긴다.
+   */
+  const sortRow = (
+    <FilterChips
+      value={sort}
+      onChange={setSort}
+      options={[{ key: 'asc', label: '낮은 대여료순' }, { key: 'desc', label: '높은 대여료순' }]}
+      clearKey="asc"
+    />
+  );
+
   // ── 조건칸 — 웹은 왼쪽 기둥, 모바일은 목록 위에 눕는다. 값·축은 양쪽이 같은 것을 쓴다. ──
   const conditions = (
     <>
-      <FilterGroup title="정렬" count={sort !== 'asc' ? 1 : 0} defaultOpen={!mobile} first onClear={() => setSort('asc')}>
-        <FilterChips
-          value={sort}
-          onChange={setSort}
-          options={[{ key: 'asc', label: '낮은 대여료순' }, { key: 'desc', label: '높은 대여료순' }]}
-          clearKey="asc"
-        />
-      </FilterGroup>
-      <FilterGroup title="월 대여료" count={rent ? 1 : 0} defaultOpen={!mobile} onClear={() => setRent('')}>
+      <FilterGroup title="월 대여료" count={rent ? 1 : 0} defaultOpen={!mobile} first onClear={() => setRent('')}>
         <FilterChips
           value={rent}
           onChange={setRent}
@@ -165,25 +171,18 @@ export function CatalogView({ wl = FREEPASS }: { wl?: Whitelabel }) {
   //   시안과 전혀 다른 화면이 됐다(2026-09-04 프리뷰 실측).
   if (branded) {
     return frame(
-      <main style={{ maxWidth: 1280, margin: '0 auto', padding: mobile ? '14px 16px 28px' : '0 24px 48px' }}>
-
-        {/* 첫 줄 = 검색. 목록보다 검색이 먼저 서는 것이 마켓의 짜임이다. */}
-        <section style={{ maxWidth: 900, margin: '0 auto', padding: mobile ? '4px 0 14px' : '40px 0 34px' }}>
-          <SearchInput hero full value={qInput} onChange={setQInput} placeholder="차종, 차량번호로 검색해 보세요" />
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginTop: 16 }}>
-            <span style={{ fontSize: FS.sub, color: C.faint, marginRight: 2 }}>많이 찾는 조건</span>
-            <FilterChips
-              value={rent}
-              onChange={setRent}
-              options={RENT_BANDS.filter((b) => (QUICK_RENT as readonly string[]).includes(b.k)).map((b) => ({ key: b.k, label: b.label }))}
-              clearKey=""
-            />
-          </div>
-        </section>
-
+      <main style={{ maxWidth: 1280, margin: '0 auto', padding: mobile ? '14px 16px 28px' : '32px 24px 48px' }}>
+        {/*
+          ★검색창을 «페이지 중앙»에 두지 않는다 — 목록 열 위에 둔다(실측 자문 2026-09-04).
+            중앙 900px 검색창은 필터 기둥(99~359) 위를 파고들어 **어느 열에도 안 걸린 제3의 축**이었다.
+            왼끝이 헤더 75 · 기둥 99 · 검색 265 · 격자 399 로 넉 줄이 되어 눈이 세 번 정렬을 다시 잡았고,
+            그 900×178 섬이 좌우 두 열을 통째로 178px 아래로 밀어 「필터가 한참 아래에서 시작」했다.
+            엔카·케이카·티카 셋 다 검색을 목록 열 폭에 맞춰 축을 «둘»로 유지한다
+            (엔카는 정렬바까지 목록 폭에 1px 안 틀리게 맞춘다).
+        */}
         <div style={{ display: mobile ? 'block' : 'flex', gap: 40, alignItems: 'flex-start' }}>
 
-          {/* 조건칸 — 웹만 왼쪽 기둥. 모바일은 아래 목록 위에 눕는다. */}
+          {/* 왼쪽 기둥 = 「전체차량 N대」 + 조건. 헤더 바로 밑에서 출발한다. */}
           {!mobile ? (
             <aside style={{ width: 260, flexShrink: 0 }}>
               <div style={{ display: 'flex', alignItems: 'baseline', gap: 7, paddingBottom: 16 }}>
@@ -196,16 +195,37 @@ export function CatalogView({ wl = FREEPASS }: { wl?: Whitelabel }) {
           ) : null}
 
           <div style={{ flex: 1, minWidth: 0 }}>
-            {mobile ? (
-              <>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 7, padding: '2px 0 10px' }}>
+            {/* 검색 — 목록 열과 «같은 폭·같은 축». 페이지 중앙에 걸치지 않는다. */}
+            <SearchInput hero full value={qInput} onChange={setQInput} placeholder="차종, 차량번호로 검색해 보세요" />
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginTop: 14 }}>
+              <span style={{ fontSize: FS.sub, color: C.faint, marginRight: 2 }}>많이 찾는 조건</span>
+              <FilterChips
+                value={rent}
+                onChange={setRent}
+                options={RENT_BANDS.filter((b) => (QUICK_RENT as readonly string[]).includes(b.k)).map((b) => ({ key: b.k, label: b.label }))}
+                clearKey=""
+              />
+            </div>
+
+            {/* 목록 머리 = 격자의 어깨. 대수와 정렬이 카드 열 위에 선다. */}
+            <div style={{
+              display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 10,
+              margin: mobile ? '16px 0 12px' : '28px 0 18px',
+            }}>
+              {mobile ? (
+                <span style={{ display: 'inline-flex', alignItems: 'baseline', gap: 6 }}>
                   <span style={{ fontSize: FS.sub, fontWeight: FW.meta, color: C.mute }}>전체차량</span>
                   <span style={{ fontSize: 22, fontWeight: FW.head, color: C.brand, letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums' }}>{countText}</span>
                   <span style={{ fontSize: FS.sub, fontWeight: FW.title }}>대</span>
-                </div>
-                <div style={{ marginBottom: 14 }}>{conditions}</div>
-              </>
-            ) : null}
+                </span>
+              ) : (
+                <span style={{ fontSize: FS.body, color: C.mute, fontVariantNumeric: 'tabular-nums' }}>{countText}대</span>
+              )}
+              <div style={{ flex: 1 }} />
+              {sortRow}
+            </div>
+
+            {mobile ? <div style={{ marginBottom: 14 }}>{conditions}</div> : null}
             {cards}
           </div>
         </div>
