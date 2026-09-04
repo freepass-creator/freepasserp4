@@ -1,4 +1,4 @@
-/**
+﻿/**
  * **정산원장 상태 용어를 공급사 시트에 맞춘다.** 기본 dry-run, 반영은 `--apply`.
  *
  * ★사장님 2026-08-25 「계약진행중을 계약중으로 해야지 공급사시트랑 맞춰야하고」.
@@ -6,7 +6,7 @@
  * ★왜 — 실측 2026-08-25 원장 1,706건에 **「계약중」이 한 건도 없고 「계약진행중」이 41건** 있었다.
  *   공급사 시트·영업자 표·ERP 는 전부 **「계약중」**을 쓴다. 같은 뜻을 두 말로 쓰면
  *   상태로 세는 것이 전부 어긋난다 — 「계약중 몇 대」를 물으면 41대가 빠진다.
- *   코드 상수(`SETTLEMENT_STATES`)도 이미 「계약중」이다. 데이터만 옛말이었다.
+ *   코드 상수(`LEDGER_CONTRACT_STATES`)도 이미 「계약중」이다. 데이터만 옛말이었다.
  *
  * ★값을 바꾸기 전에 **바꿀 줄을 전부 적어 둔다**(차번·행). 되돌리려면 그 목록이 있어야 한다.
  * ★상태 칸에 드롭다운을 세운다 — 손으로 적으면 또 갈린다.
@@ -18,7 +18,7 @@ import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import {
   SETTLEMENT_LEDGER_ID as ID, SETTLEMENT_CURRENT_TAB, SETTLEMENT_PAST_TAB,
-  SETTLEMENT_STATES, SETTLEMENT_CONTRACT_STATE,
+  LEDGER_CONTRACT_STATES, SETTLEMENT_CONTRACT_STATE,
 } from '../lib/domain/settlement-ledger';
 
 const APPLY = process.argv.includes('--apply');
@@ -76,14 +76,14 @@ for (const tab of [SETTLEMENT_CURRENT_TAB, SETTLEMENT_PAST_TAB]) {
   // 상태 칸 드롭다운 — 손으로 적으면 또 갈린다.
   reqs.push({ setDataValidation: {
     range: { sheetId: Number(sheetId), startRowIndex: 1, endRowIndex: 3000, startColumnIndex: iState, endColumnIndex: iState + 1 },
-    rule: { condition: { type: 'ONE_OF_LIST', values: SETTLEMENT_STATES.map((x) => ({ userEnteredValue: x })) }, showCustomUi: true, strict: false },
+    rule: { condition: { type: 'ONE_OF_LIST', values: LEDGER_CONTRACT_STATES.map((x) => ({ userEnteredValue: x })) }, showCustomUi: true, strict: false },
   } });
 }
 
 console.log(`\n■ 정산원장 상태 — ${APPLY ? '반영' : 'dry-run'}\n`);
 console.log('  지금 쓰이는 말');
 for (const [k, n] of [...seen].sort((a, b) => b[1] - a[1])) {
-  const mark = RENAME[k] ? ` → 「${RENAME[k]}」로 바꾼다` : (SETTLEMENT_STATES.includes(k as never) ? '' : '  ⚠ 규격 밖 — 사람이 봐야 한다');
+  const mark = RENAME[k] ? ` → 「${RENAME[k]}」로 바꾼다` : (LEDGER_CONTRACT_STATES.includes(k as never) ? '' : '  ⚠ 규격 밖 — 사람이 봐야 한다');
   console.log(`   ${String(n).padStart(4)}  ${k}${mark}`);
 }
 console.log(`\n  바꿀 줄 ${hits.length} · 상태 드롭다운 세울 탭 ${reqs.length}`);
@@ -108,7 +108,7 @@ const body = [
   `도구 \`scripts/unify-ledger-state.mts --apply\` · 되돌림 원본 \`${backup}\``,
   `바꾼 줄 **${hits.length}**. 공급사 시트·영업자 표·ERP 가 쓰는 말이 「계약중」이다 —`,
   `같은 뜻을 두 말로 쓰면 «계약중 몇 대»를 물을 때 ${hits.length}대가 빠진다.`,
-  `상태 칸에 드롭다운(${SETTLEMENT_STATES.join(' / ')})을 세워 다시 갈리지 않게 했다.`,
+  `상태 칸에 드롭다운(${LEDGER_CONTRACT_STATES.join(' / ')})을 세워 다시 갈리지 않게 했다.`,
   ``,
   ...(hits.length ? [`| 탭 | 행 | 차량번호 | 전 | 후 |`, `|---|---|---|---|---|`,
     ...hits.map((x) => `| ${x.tab} | ${x.row} | ${x.plate} | ${x.from} | ${x.to} |`), ``] : []),

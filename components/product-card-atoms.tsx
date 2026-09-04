@@ -5,6 +5,7 @@ import { eventSignals, type Audience } from '@/lib/domain/product';
 import { C, R, NUM, Badge, FW, FS, ICON, SCRIM } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { useFirstPhoto } from '@/components/use-product-photos';
+import { useInView } from '@/lib/use-in-view';
 import { FavHeart } from '@/components/FavHeart';
 import { ProductStateMarks } from '@/components/ProductStateMarks';
 import { ProductPhotoImage } from '@/components/ProductPhoto';
@@ -137,7 +138,13 @@ export function CardThumb({ p, audience = 'agent', fill, w, h, heart = false, ma
   heart?: boolean; marks?: boolean; coreBadges?: boolean;
 }) {
   const mobile = useIsMobile();
-  const photo = useFirstPhoto(p, 480);
+  /**
+   * ★목록 썸네일은 **화면에 가까워졌을 때만** 서버 해석을 시작한다(useInView).
+   *   직접 사진은 그대로 즉시 — 끄는 건 링크 해석(/api/extract-photos)뿐이다.
+   *   전에는 카드 100장이 마운트되자마자 100건이 큐(동시 6)에 들어가 꼬리가 길었다.
+   */
+  const { ref: viewRef, inView } = useInView<HTMLDivElement>();
+  const photo = useFirstPhoto(p, 480, inView);
   const promos = eventSignals(p);
   const showHeart = heart && audience !== 'customer';
   const pad = fill ? 6 : 5;
@@ -195,7 +202,7 @@ export function CardThumb({ p, audience = 'agent', fill, w, h, heart = false, ma
   );
 
   return (
-    <div style={box}>
+    <div ref={viewRef} style={box}>
       <ProductPhotoImage
         src={photo}
         alt=""

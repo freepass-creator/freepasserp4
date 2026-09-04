@@ -163,13 +163,17 @@ const combine = (pol: any, legacy: string, limit: string[], ded: string[]) => {
 const supPol: Record<string, Record<string, string>> = (() => { try { return JSON.parse(readFileSync('public/data/supplier-policies.json', 'utf8')); } catch { return {}; } })();
 // ★사장님 확인 오버라이드(21세/23세/1만+ 등) — supplier-policies 보다 우선. 알게 되는 대로 이 파일에 넣는다.
 const override: Record<string, Record<string, string>> = (() => { try { return JSON.parse(readFileSync('public/data/supplier-policy-overrides.json', 'utf8')); } catch { return {}; } })();
-// 할증 표기 — 「0.1」→「대여료 10%」, 「3만」→「정액 3만원」, 불가/협의/문의는 그대로. 애매한 정수는 원값(오버라이드로 확인).
+// 할증 표기(사장님 2026-09-04 「대여료 10% · 정액 10만원 이렇게, 21·23세도」) —
+//   「0.1」→대여료 10% · 「10/12/7」(바 정수)→대여료 X% · 「3만/10만원」→정액 X만원 · 불가/협의/문의는 그대로.
+//   바 정수를 «대여료 %»로 보는 근거: 손오공 1만+ 「0.1」(=10%)와 21세 「10」이 같은 단위 · 손오공=대여료 10% 확인.
+//   정액인 곳은 원값에 「만」이 붙어 오거나(3만) 오버라이드로 박는다.
 const fmtSurcharge = (s: string): string => {
   const t = S(s).replace(/\s/g, '');
   if (!t || /문의|협의|불가|없음|미가입|대여료|정액/.test(t)) return S(s);
   if (/만원?$/.test(t)) return `정액 ${t.replace(/원$/, '').replace(/만$/, '만원')}`;
   const n = Number(t.replace('%', ''));
   if (!isNaN(n) && n > 0 && n < 1) return `대여료 ${Math.round(n * 100)}%`;
+  if (!isNaN(n) && n >= 1 && n < 100) return `대여료 ${n}%`;   // 바 정수 = 대여료 퍼센트
   if (/%$/.test(t)) return `대여료 ${t}`;
   return S(s);
 };
