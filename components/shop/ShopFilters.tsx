@@ -39,7 +39,6 @@ export function ShopFilters({ facets, sel, onToggle, onClearAxis, mobile: forceM
   return (
     <div>
       {SHOP_AXES.filter((a) => facets[a].length).map((axis, i) => {
-        const options = facets[axis];
         const on = sel[axis];
         return (
           <section key={axis} style={{
@@ -50,29 +49,52 @@ export function ShopFilters({ facets, sel, onToggle, onClearAxis, mobile: forceM
               <span style={{ fontSize: SHOP.fs.body, fontWeight: 700, color: C.ink }}>{AXIS_LABEL[axis]}</span>
               {on.length ? <ShopTextBtn tone="faint" onClick={() => onClearAxis(axis)}>해제</ShopTextBtn> : null}
             </div>
-
-            {BAND_AXES.includes(axis) ? (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
-                {options.map((o) => (
-                  <BandBox key={o.key} label={o.label} count={o.count}
-                    on={on.includes(o.key)} onClick={() => onToggle(axis, o.key)} />
-                ))}
-              </div>
-            ) : (
-              <div style={{
-                display: 'grid',
-                gridTemplateColumns: `repeat(${COLUMNS[axis] ?? 2}, minmax(0, 1fr))`,
-                gap: mobile ? '14px 10px' : '12px 10px',
-              }}>
-                {options.map((o) => (
-                  <CheckRow key={o.key} label={o.label} count={o.count}
-                    on={on.includes(o.key)} onClick={() => onToggle(axis, o.key)} />
-                ))}
-              </div>
-            )}
+            <ShopAxisOptions axis={axis} options={facets[axis]} selected={on}
+              onToggle={onToggle} mobile={mobile} />
           </section>
         );
       })}
+    </div>
+  );
+}
+
+/**
+ * 축 하나의 «값 부분»만 — 웹 기둥과 폰 시트가 **같은 것을 쓴다.**
+ * 두 벌로 갈라 두면 웹에서 고른 값이 폰에서 다른 모양으로 뜨는 순간부터 아무도 안 믿는다.
+ */
+export function ShopAxisOptions({ axis, options, selected, onToggle, mobile, columns }: {
+  axis: ShopAxis;
+  options: ShopFacets[ShopAxis];
+  selected: string[];
+  onToggle: (axis: ShopAxis, key: string) => void;
+  mobile?: boolean;
+  /**
+   * 열 수를 부르는 쪽이 정한다 — 같은 축이라도 **칸이 얼마나 넓으냐**에 따라 달라야 한다.
+   * 웹 기둥은 260, 폰 시트의 오른쪽은 227 이라 두 열이면 한 칸이 95 밖에 안 되고
+   * 「하이브리드」가 「하이브…」로 잘렸다(2026-09-04 실측). 원자 안에 박아 두면 못 고친다.
+   */
+  columns?: 1 | 2;
+}) {
+  if (BAND_AXES.includes(axis)) {
+    return (
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
+        {options.map((o) => (
+          <BandBox key={o.key} label={o.label} count={o.count}
+            on={selected.includes(o.key)} onClick={() => onToggle(axis, o.key)} />
+        ))}
+      </div>
+    );
+  }
+  return (
+    <div style={{
+      display: 'grid',
+      gridTemplateColumns: `repeat(${columns ?? COLUMNS[axis] ?? 2}, minmax(0, 1fr))`,
+      gap: mobile ? '15px 10px' : '12px 10px',
+    }}>
+      {options.map((o) => (
+        <CheckRow key={o.key} label={o.label} count={o.count}
+          on={selected.includes(o.key)} onClick={() => onToggle(axis, o.key)} />
+      ))}
     </div>
   );
 }

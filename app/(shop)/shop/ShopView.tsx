@@ -1,16 +1,16 @@
 'use client';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { X } from 'lucide-react';
 import type { EntityRecord } from '@/lib/intake/entities';
-import { C, ICON } from '@/components/ui';
+import { C } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { WhitelabelFrame } from '@/components/WhitelabelFrame';
 import { FREEPASS, type Whitelabel } from '@/lib/whitelabel';
 import {
-  SHOP, ShopCount, ShopEmpty, ShopIconBtn, ShopMore, ShopPill, ShopPrimary,
+  SHOP, ShopCount, ShopEmpty, ShopMore, ShopPill,
   ShopSearch, ShopSort, ShopTextBtn, ShopTokens,
 } from '@/components/shop/shop-ui';
 import { ShopFilters } from '@/components/shop/ShopFilters';
+import { ShopFilterSheet } from '@/components/shop/ShopFilterSheet';
 import { ShopCard } from '@/components/shop/ShopCard';
 import {
   AXIS_LABEL, SHOP_SORTS, activeTokens, clearAxis, emptyQuery, queryCount,
@@ -238,37 +238,10 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
         </div>
       </main>
 
-      {/*
-        폰 조건 시트 — 조건칸을 아래에서 끌어올린다.
-        ★자동 포커스를 걸 검색칸이 여기 없다(검색은 위에 상시 있다) — 시트는 «조건만» 든다.
-          조건 보러 온 사람 앞에 키보드가 올라오면 매번 내리고 시작해야 한다.
-      */}
       {mobile && sheet ? (
-        <div role="dialog" aria-label="조건" style={{
-          position: 'fixed', inset: 0, zIndex: 40, background: 'rgba(0,0,0,0.42)',
-          display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
-        }} onClick={() => setSheet(false)}>
-          <div onClick={(e) => e.stopPropagation()} style={{
-            background: C.bg, borderTopLeftRadius: 18, borderTopRightRadius: 18,
-            maxHeight: '86vh', display: 'flex', flexDirection: 'column',
-          }}>
-            <div style={{
-              display: 'flex', alignItems: 'center', gap: 10,
-              padding: '16px 16px 12px', borderBottom: `1px solid ${C.line2}`,
-            }}>
-              <span style={{ fontSize: SHOP.fs.h2, fontWeight: 700 }}>조건</span>
-              <div style={{ flex: 1 }} />
-              {queryCount(query) ? <ShopTextBtn onClick={onClearAll}>초기화</ShopTextBtn> : null}
-              <ShopIconBtn onClick={() => setSheet(false)} label="닫기">
-                <X size={ICON.lg} aria-hidden />
-              </ShopIconBtn>
-            </div>
-            <div style={{ overflowY: 'auto', padding: '16px 16px 8px', flex: 1 }}>{filters}</div>
-            <div style={{ padding: '10px 16px 18px', borderTop: `1px solid ${C.line2}` }}>
-              <ShopPrimary onClick={() => setSheet(false)}>{list.length}대 보기</ShopPrimary>
-            </div>
-          </div>
-        </div>
+        <ShopFilterSheet facets={facets} sel={query.sel}
+          onToggle={onToggle} onClearAxis={onClearAxis} onClearAll={onClearAll}
+          resultCount={list.length} onClose={() => setSheet(false)} />
       ) : null}
     </WhitelabelFrame>
   );
