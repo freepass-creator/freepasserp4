@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { isGuestSurface } from '@/lib/guest-surface';
 import { useState, useEffect, useCallback, type CSSProperties, type ReactNode } from 'react';
-import { Menu, X, Search, FileText, FileSignature, Settings, ChevronLeft, List, History, Users, Wrench, HelpCircle, Sparkles, RefreshCw, type LucideIcon } from 'lucide-react';
+import { Menu, X, Search, FileText, FileSignature, Settings, ChevronLeft, List, History, Users, Wrench, HelpCircle, Sparkles, RefreshCw, type LucideIcon, Share2 } from 'lucide-react';
 import { useAppBarSlots } from '@/lib/appbar';
 import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
@@ -30,6 +30,8 @@ const GROUPS: { title: string; items: { href?: string; label: string; icon: Luci
     // 계약문의 하나로 간다 — 관리자에게는 이 안에서 «응대 큐»가 열린다(docs/ADMIN_DESK.md).
     { href: '/chat', label: NAV_LABEL.chat, icon: NAV_ICON.chat, roles: ALL_ROLES },
     { href: '/contract', label: NAV_LABEL.contract, icon: NAV_ICON.contract, roles: ['agent', 'provider', 'admin'] },
+    // 손님에게 보낼 주소를 «화면이» 만들어 준다 — 손으로 조립하면 한 글자 틀려 담당 귀속이 날아간다.
+    { href: '/share', label: '내 손님 링크', icon: Share2, roles: ['agent', 'admin'] },
     { href: '/esign', label: NAV_LABEL.esign, icon: FileSignature, roles: ['admin'] },
   ] },
   { title: '견적·구독', items: [

@@ -27,6 +27,17 @@ export type Whitelabel = {
   key: string;
   /** 이 호스트로 들어오면 이 브랜드. 소문자·포트 제외로 비교한다. */
   hosts: string[];
+  /**
+   * 그 도메인이 **실제로 연결됐나.**
+   *
+   * ⚠ `hosts` 는 「연결되면 이 주소」라는 계획이고, 이 값은 「지금 열리나」다. 둘을 한 필드로 쓰면
+   *   영업자 공유 화면(`/share`)이 **아직 안 산 주소를 손님에게 보낼 링크로 내준다**(2026-09-05).
+   *   손님이 그걸 누르면 아무 데도 안 간다 — 그 손님은 그걸로 끝이다.
+   * ⇒ 도메인을 사서 Vercel 에 붙인 «뒤에» true 로 바꾼다. 그전까지 공유 화면은 미리보기 주소(`?wl=`)를
+   *   주고 「아직 손님에게 보내지 마세요」를 붙인다.
+   * ★호스트 판정(`resolveWhitelabel`)에는 안 쓴다 — 도메인이 붙는 순간 코드 배포 없이 브랜드가 떠야 한다.
+   */
+  domainReady?: boolean;
   /** 손님에게 보이는 회사명. 빈 문자열 = 브랜드 표식을 «세우지 않는다»(노브랜드). */
   name: string;
   /** 워드마크 이분 — 앞(굵게·브랜드색) + 뒤(가늘게·자간). 둘 다 비면 워드마크를 안 그린다. */
@@ -76,6 +87,8 @@ export const WHITELABELS: Whitelabel[] = [
   {
     key: 'uniplan',
     hosts: ['uniautofreepass.com', 'www.uniautofreepass.com'],
+    // 2026-09-05 사장님 「도메인은 아직 못 샀고」 — 사서 Vercel 에 붙이면 true 로 바꾼다.
+    domainReady: false,
     name: '유니오토플랜',
     wordmark: { main: 'UNI', sub: 'AUTO PLAN' },
     brandColor: '#1b4de4',
