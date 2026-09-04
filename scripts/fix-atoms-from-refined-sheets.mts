@@ -22,6 +22,29 @@ const rtdb = getDatabase();
 const jwt = new JWT({ email: sa.client_email, key: sa.private_key, scopes: ['https://www.googleapis.com/auth/spreadsheets'], subject: 'pyh@teamjpk.com' });
 const api = async (u: string) => { const t = (await jwt.getAccessToken()).token; const r = await fetch(u, { headers: { Authorization: `Bearer ${t}` } }); return JSON.parse(await r.text()); };
 
+// ── 트림 피커(모든 공급사) — 세부모델의 마스터 trims[] 를 원문과 정규화 대조해 세부트림을 뽑는다.
+//   사장님 2026-09-04 「원문에 세부트림 있으면 한 번 원자화하면 되지」. 마스터 trims 에서만 고르므로 지어내지 않는다.
+const master = JSON.parse(readFileSync('public/data/vehicle-master.json', 'utf8'));
+const subTrims = new Map<string, string[]>();   // 세부모델 → 마스터 trims[](긴 것 먼저)
+for (const e of master.entries as any[]) {
+  const set = new Set<string>();
+  for (const v of (e.variants || [])) for (const t of (v.trims || [])) { const s = S(t); if (s && s !== '(세부등급 없음)') set.add(s); }
+  if (set.size) subTrims.set(S(e.sub_model), [...set].sort((a, b) => b.length - a.length));
+}
+// 한↔영·철자 정규화(원문·마스터트림 양쪽에 같은 함수).
+const TR: [RegExp, string][] = [
+  [/비지니스/g, '비즈니스'], [/iconic/gi, '아이코닉'], [/\bsport\b/gi, '스포츠'], [/premium/gi, '프리미엄'], [/standard/gi, '스탠다드'],
+  [/signature/gi, '시그니처'], [/luxury/gi, '럭셔리'], [/prestige/gi, '프레스티지'], [/exclusive/gi, '익스클루시브'], [/modern/gi, '모던'],
+  [/inspiration/gi, '인스퍼레이션'], [/noblesse/gi, '노블레스'], [/limited/gi, '리미티드'], [/dynamic/gi, '다이나믹'], [/smart/gi, '스마트'],
+];
+const normT = (s: string) => { let x = S(s).toLowerCase(); for (const [r, v] of TR) x = x.replace(r, v); return x.replace(/[\s()\/\-·.]/g, ''); };
+const pickTrim = (sub: string, raw: string): string => {
+  const trims = subTrims.get(S(sub)); if (!trims || !raw) return '';
+  const r = normT(raw);
+  for (const t of trims) { const tn = normT(t); if (tn.length >= 2 && r.includes(tn)) return t; }   // 긴 것부터 → 가장 구체적
+  return '';
+};
+
 // 정제시트 → 차번별 {트림, 색, 주행} (공급사코드 붙여)
 type Truth = { maker: string; model: string; sub: string; trim: string; color: string; mileage: string };
 const truth = new Map<string, Truth>();   // `${code}|${car}` → Truth
@@ -73,6 +96,13 @@ for (const [key, v] of Object.entries(products)) {
     if (t.color && !S(v.ext_color)) { updates[`v4/products/${key}/ext_color`] = t.color; stat.color++; changes.push(`색→「${t.color}」`); }
     // 주행거리는 «변동»(사장님 2026-09-04 「대여료처럼 변동」) — 정제시트 현재값을 매번 따른다(비었을 때만이 아니라 다르면 갱신).
     if (t.mileage && S(v.mileage) !== t.mileage) { updates[`v4/products/${key}/mileage`] = t.mileage; stat.mileage++; changes.push(`주행 「${S(v.mileage)}」→「${t.mileage}」`); }
+  }
+  // ② 세부트림 피커(모든 공급사) — 정제시트로도 못 채운 빈 트림을, 세부모델 마스터 trims 에서 원문 대조로 뽑는다(손오공·아이언 등).
+  const trimKey = `v4/products/${key}/trim_name`;
+  const subM = updates[`v4/products/${key}/sub_model`] || S(v.sub_model);
+  if (!S(v.trim_name) && !updates[trimKey] && subM) {
+    const picked = pickTrim(subM, S(v['원문']?.['차명']));
+    if (picked) { updates[trimKey] = picked; stat.trim++; changes.push(`트림(원문)→「${picked}」`); }
   }
   if (changes.length && rows.length < 25) rows.push(`  ${code} ${car}: ${changes.join(' · ')}`);
 }

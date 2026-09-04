@@ -130,6 +130,10 @@ export function ProductDetail({ p, audience, layout = 'brochure' }: {
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, flexWrap: 'wrap' }}>
             <h1 style={{ fontSize: FS.page, fontWeight: FW.title, letterSpacing: '-0.02em', margin: 0, lineHeight: 1.25 }}>{idMain}</h1>
             {idExt && <span style={{ fontSize: FS.title, fontWeight: FW.meta, color: C.mute }}>{idExt}</span>}
+            {/* ★출고상태·상품구분은 **이름 바로 뒤**다(2026-08-23 규격 · product-card-badge-view 주석).
+                차번·스펙 줄 뒤에 두면 우대조건·이벤트와 섞여 «어느 갈래인지»가 안 보인다.
+                work(작업화면)은 이 h1 줄이 없어 아래 줄이 그대로 든다. */}
+            <SignalMarks p={p} audience={aud} />
           </div>
         )}
         <div style={{
@@ -140,8 +144,8 @@ export function ProductDetail({ p, audience, layout = 'brochure' }: {
           {!work && plateSpecLine(p) && (
             <span style={{ fontSize: FS.sub, color: C.mute, fontVariantNumeric: 'tabular-nums' }}>{plateSpecLine(p)}</span>
           )}
-          {/* 상자 대신 아이콘+글자. 심사는 우대조건 줄. (사장님 2026-08-30 「08-28 게 맞다」) */}
-          <SignalMarks p={p} audience={aud} hideStatus={work} />
+          {/* work(작업화면)만 여기 — 위 h1 줄이 없다. 상자 대신 아이콘+글자(2026-08-30 「08-28 게 맞다」). */}
+          {work && <SignalMarks p={p} audience={aud} hideStatus />}
           <CardBenefits p={p} inline />
           <CardEvents p={p} inline />
           {/* 사진 없음도 매물의 성질이다 — 별도 줄을 잡아먹지 않게 칩으로 붙인다.
