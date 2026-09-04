@@ -156,6 +156,15 @@ must(/const FORECAST = MONTH > CLOSED/.test(chan),
 must(/const OWNED_FROM = '2026-08'/.test(hist),
   '지난 기록 발행기가 «원자가 주인인 달»을 덮을 수 있습니다.',
   `scripts/import-channel-history.mts · OWNED_FROM — ${manual} §달 규칙`);
+/**
+ * ★★★**지난 기록은 원자에 «쓰지» 않는다** — 사장님 2026-09-04
+ *   「안 갖고와도 돼. **우리가 앞으로 만들어 가는 게 원자임.**」
+ *   원자는 우리 파이프라인이 만든 것만 담는다. 지난 것을 끌어와 채우면 이미 나간 청구서의
+ *   근거가 흔들린다. 이 발행기는 «읽기»만 한다(모델명을 차번으로 빌려 온다).
+ */
+must(!/settlement_rows[\s\S]{0,80}\.(update|set|push)\(/.test(hist) && !/\.(update|set|push)\([\s\S]{0,40}settlement_rows/.test(hist),
+  '지난 기록 발행기가 원자(settlement_rows)에 «쓰고» 있습니다. 원자는 앞으로 만들어 가는 것만 담습니다.',
+  `scripts/import-channel-history.mts — ${manual} §원자는 어디까지인가`);
 /** settlementMonthOf 에 Date 를 넘기면 조용히 빈 값이 나온다 — 예정 줄이 하나도 안 잡힌다. */
 must(!/settlementMonthOf\(asRow\(/.test(chan),
   'settlementMonthOf 에 asRow(r)(Date로 바뀐 줄)를 넘기고 있습니다. 조용히 빈 값이 나와 예정 줄이 하나도 안 잡힙니다.',
