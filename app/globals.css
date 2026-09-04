@@ -1131,6 +1131,34 @@ html[data-fp-filter="0"] .fp-finder > .fp-sidebar { display: none; }
   min-height: 100vh;
 }
 
+/*
+ * 가게의 «스르륵 가는» 알약 줄 — 조건 칩을 **한 줄로 두고 좌우로 민다**
+ * (사장님 2026-09-04 「좌우로 스크롤하는 그 알약처럼 생긴 그 필터, 그게 스르륵 이렇게 왔다 가야 되고」).
+ *
+ * 접어서 두 줄·세 줄로 쌓으면 조건이 늘어날수록 목록이 아래로 밀린다 — 폰에서 첫 화면에
+ * 상품이 안 보이면 그 화면은 진 것이다. 한 줄로 못 박고 넘치는 것은 손가락이 민다.
+ * ★막대는 숨긴다. 폰에는 원래 안 보이고, 데스크톱에서 보이면 칩 밑에 회색 선이 하나 더 그어진 꼴이 된다.
+ * ★`overflow-y: visible` 이 아니라 hidden 이어야 세로로 덜컹거리지 않는다(가로만 민다).
+ */
+.fp-shop-rail {
+  display: flex; flex-wrap: nowrap; gap: 8px;
+  overflow-x: auto; overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; -ms-overflow-style: none;
+  /* 끝까지 밀었을 때 마지막 칩이 화면 가장자리에 딱 붙지 않게 — 더 있는지 없는지 눈에 보인다. */
+  scroll-padding-inline: 16px;
+}
+/*
+ * 폰에서는 본문 여백을 «넘어» 화면 끝까지 흐른다 — 안쪽에서 잘리면 거기가 끝인 줄 안다.
+ * 여백만큼 밖으로 빼고 같은 만큼 안쪽 패딩으로 돌려주면, 첫 칩 위치는 그대로면서 오른쪽으로만 이어진다.
+ * (당근·네이버가 다 이렇게 한다. `--fp-bar-pad-x` 가 아니라 가게 본문 여백 16 을 쓴다.)
+ */
+@media (max-width: 759px) {
+  .fp-shop-rail { margin-inline: -16px; padding-inline: 16px; }
+}
+.fp-shop-rail::-webkit-scrollbar { display: none; }
+.fp-shop-rail > * { flex: 0 0 auto; }
+
 /* 조건 드롭다운 줄이 툴바 «안»에 들어왔다 — 좁아지면 잘리지 말고 가로로 굴린다.
    팝오버가 잘리면 안 되므로 세로는 visible 로 둔다(모바일 퀵필터 줄과 같은 처리). */
 .fp-finder-quick-slot { min-width: 0; display: flex; align-items: center; }

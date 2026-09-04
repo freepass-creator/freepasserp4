@@ -29,11 +29,25 @@ import { kmDisplay, manWon } from '@/lib/format';
  * ★★박스 뱃지를 쓰지 않는다(사장님 2026-08-28·08-30 두 번 「박스 뱃지 쓰지 말고 아이콘
  *   텍스트로, 모든 곳에서」). 심사·출고는 색 글자 한 조각으로 말한다.
  */
-export const ShopCard = memo(function ShopCard({ p, href, faved, onFav }: {
+export const ShopCard = memo(function ShopCard({ p, href, faved, onFav, layout = 'grid' }: {
   p: EntityRecord;
   href: string;
   faved?: boolean;
   onFav?: (code: string) => void;
+  /**
+   * 어떻게 세울까.
+   *   grid — 사진 위 · 글자 아래. 웹 3열.
+   *   row  — 사진 왼쪽 · 글자 오른쪽(당근 형태). **폰의 기본**.
+   *
+   * ★★폰을 가로형으로 정한 근거는 «우리 데이터»다(2026-09-04 실측).
+   *   ㉠ 사진이 **28% 는 아예 없다.** 세로 큰 카드는 사진이 주인공일 때 이기는 형태인데,
+   *      사진 없는 차가 큰 회색 판으로 한 자리씩 차지하면 목록이 고장 난 것처럼 보인다.
+   *   ㉡ 있는 사진도 죄다 비슷한 렌터카 실사라 **손님이 사진으로 고르지 않는다.**
+   *      실제로 고르는 값은 월 대여료·보증금·연식인데 그건 전부 글자다.
+   *   ㉢ 가로형은 한 화면에 4~5대가 들어와 **금액 비교가 된다.** 세로 2열은 4대에서 끝난다.
+   *   당근·번개장터가 가로인 이유가 같다 — 사진보다 «조건»으로 고르는 판이라서다.
+   */
+  layout?: 'grid' | 'row';
 }) {
   const mobile = useIsMobile();
   const price = cheapest(p);
@@ -55,24 +69,30 @@ export const ShopCard = memo(function ShopCard({ p, href, faved, onFav }: {
   const sameDay = /즉시출고|당일/.test(String(p.vehicle_status || ''));
   const options = parseProductOptions(p.options);
   // 폰은 2열이라 카드가 좁다 — 칩 하나 + 「+N」이면 «옵션이 있다»는 신호로 충분하다.
-  const maxChips = mobile ? 1 : 3;
+  const maxChips = layout === 'row' ? 2 : 3;
 
+  const row = layout === 'row';
   return (
     <div style={{ position: 'relative' }}>
       <Link href={href} onClick={() => haptic.nav()}
         style={{
-          display: 'flex', flexDirection: 'column', height: '100%',
+          display: 'flex', flexDirection: row ? 'row' : 'column', height: '100%',
+          gap: row ? 13 : 0, alignItems: row ? 'stretch' : undefined,
           borderRadius: SHOP.r.card, overflow: 'hidden', textDecoration: 'none', color: 'inherit',
           border: `1px solid ${C.line}`, background: C.bg,
+          padding: row ? 12 : 0,
         }}>
-        <ShopThumb p={p} />
+        <ShopThumb p={p} row={row} />
 
         <div style={{
-          padding: mobile ? '14px 14px 16px' : '15px 15px 17px',
-          display: 'flex', flexDirection: 'column', gap: 7, minWidth: 0, flex: 1,
+          padding: row ? 0 : (mobile ? '14px 14px 16px' : '15px 15px 17px'),
+          // 가로카드는 하트가 오른쪽 위에 얹히므로 글자가 그 밑으로 들어가지 않게 자리를 비운다.
+          paddingRight: row ? 32 : undefined,
+          display: 'flex', flexDirection: 'column', gap: row ? 4 : 7, minWidth: 0, flex: 1,
+          justifyContent: row ? 'center' : undefined,
         }}>
           <div style={{
-            fontSize: mobile ? SHOP.fs.body : SHOP.fs.h2, fontWeight: 700, color: C.ink,
+            fontSize: row ? SHOP.fs.body : (mobile ? SHOP.fs.body : SHOP.fs.h2), fontWeight: 700, color: C.ink,
             lineHeight: 1.4, letterSpacing: '-0.02em',
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           }} title={title}>{title}</div>
@@ -98,7 +118,7 @@ export const ShopCard = memo(function ShopCard({ p, href, faved, onFav }: {
               }}>
                 <span style={{ fontSize: SHOP.fs.cap, color: C.mute, flex: '0 0 auto' }}>월</span>
                 <span style={{
-                  fontSize: mobile ? 19 : 26, fontWeight: 800, color: C.ink,
+                  fontSize: row ? 21 : (mobile ? 19 : 26), fontWeight: 800, color: C.ink,
                   letterSpacing: '-0.04em', fontVariantNumeric: 'tabular-nums',
                 }}>{manWon(price.rent)}</span>
               </div>
@@ -113,7 +133,7 @@ export const ShopCard = memo(function ShopCard({ p, href, faved, onFav }: {
             셋까지만 세우고 나머지는 「+N」. 줄이 접히면 카드 높이가 서로 어긋나 격자가 흔들린다.
           */}
           {options.length ? (
-            <div style={{ display: 'flex', gap: 5, marginTop: 2, overflow: 'hidden', whiteSpace: 'nowrap' }}>
+            <div style={{ display: 'flex', gap: 5, marginTop: 2, minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap' }}>
               {options.slice(0, maxChips).map((o) => (
                 <span key={o} style={{
                   // ★칩을 «줄이지» 않는다(2026-09-04 실측). 줄이게 두면 폰 2열에서 「내…」「블…」처럼
@@ -150,10 +170,10 @@ export const ShopCard = memo(function ShopCard({ p, href, faved, onFav }: {
           aria-label={faved ? '관심 차량에서 빼기' : '관심 차량으로 담기'}
           onClick={(e) => { e.preventDefault(); haptic.tap(); onFav(code); }}
           style={{
-            position: 'absolute', top: 10, right: 10,
+            position: 'absolute', top: row ? 6 : 10, right: row ? 6 : 10,
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
             width: 36, height: 36, borderRadius: 999, cursor: 'pointer',
-            border: 'none', background: 'rgba(255,255,255,0.92)',
+            border: 'none', background: row ? 'transparent' : 'rgba(255,255,255,0.92)',
             color: faved ? C.danger : C.mute,
           }}>
           <Heart size={ICON.lg} aria-hidden fill={faved ? 'currentColor' : 'none'} />
@@ -171,12 +191,14 @@ export const ShopCard = memo(function ShopCard({ p, href, faved, onFav }: {
  * ★사진이 없는 차가 실측 28% 다. 그 자리를 «회색 빈 판»으로 두면 카드가 고장 난 것처럼 보이므로,
  *   조용한 표시 하나를 둔다 — 없는 것을 없다고 말하되 시끄럽지 않게.
  */
-function ShopThumb({ p }: { p: EntityRecord }) {
+function ShopThumb({ p, row }: { p: EntityRecord; row?: boolean }) {
   const { ref, inView } = useInView<HTMLDivElement>();
-  const photo = useFirstPhoto(p, 640, inView);
+  const photo = useFirstPhoto(p, row ? 320 : 640, inView);
   return (
     <div ref={ref} style={{
       position: 'relative', aspectRatio: '4 / 3', background: C.placeholder, overflow: 'hidden',
+      // 가로형은 폭을 못 박는다 — 글자 쪽이 남는 폭을 다 가져가야 차명·금액이 한 줄에 선다.
+      ...(row ? { width: 112, flex: '0 0 112px', borderRadius: SHOP.r.box } : null),
     }}>
       {photo ? (
         // eslint-disable-next-line @next/next/no-img-element -- 원본은 외부 도메인(프록시 경유)이라 next/image 최적화 대상이 아니다.
@@ -187,8 +209,8 @@ function ShopThumb({ p }: { p: EntityRecord }) {
           position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
           alignItems: 'center', justifyContent: 'center', gap: 6, color: C.faint,
         }}>
-          <ImageOff size={22} aria-hidden />
-          <span style={{ fontSize: SHOP.fs.cap }}>사진 준비 중</span>
+          <ImageOff size={row ? 18 : 22} aria-hidden />
+          {!row ? <span style={{ fontSize: SHOP.fs.cap }}>사진 준비 중</span> : null}
         </div>
       )}
     </div>

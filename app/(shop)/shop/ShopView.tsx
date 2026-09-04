@@ -54,6 +54,13 @@ const QUICK: { axis: ShopAxis; key: string; label: string }[] = [
   { axis: 'rent', key: 'r50', label: '월 50만원 이하' },
   { axis: 'rent', key: 'r60', label: '50~60만원' },
   { axis: 'rent', key: 'r70', label: '60~70만원' },
+  // 차종·연료는 손님이 «말로 하는» 조건이다 — 「SUV 있어요?」 「전기차 돼요?」가 상담 첫 마디다.
+  // 값은 실측으로 다 차 있다(승용 342 · SUV 273 · 승합 92 / 전기 · 하이브리드 존재).
+  { axis: 'vc', key: 'SUV', label: 'SUV' },
+  { axis: 'vc', key: '승합', label: '승합·카니발' },
+  { axis: 'vc', key: '승용', label: '승용' },
+  { axis: 'fuel', key: '전기', label: '전기차' },
+  { axis: 'fuel', key: '하이브리드', label: '하이브리드' },
 ];
 
 const FAV_KEY = 'fp4_shop_fav';
@@ -149,10 +156,28 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
     <WhitelabelFrame wl={wl} agentName={agent?.name} agentPhone={agent?.phone}>
       <main style={{ maxWidth: 1280, margin: '0 auto', padding: mobile ? '18px 16px 28px' : '26px 24px 40px' }}>
         {/* 검색 — 목록 열과 같은 폭에 걸친다. 페이지 한가운데 띄우면 조건칸과 축이 안 맞는다. */}
-        <ShopSearch value={typed} onChange={setTyped} placeholder="차종, 차량번호로 검색해 보세요" />
+        {/*
+          ★문구는 «손님이 실제로 칠 말»이라야 한다(사장님 2026-09-04 「이 검색창에서 손님이 어떻게
+            차량번호 검색을 하겠니? 차종 조건 뭐 이런 걸로 검색을 해야 되고」).
+            차번은 영업자·우리가 쓰는 열쇠지 손님의 말이 아니다 — 검색은 여전히 차번도 받지만
+            **안내를 차번으로 하면** 손님은 「내가 아는 게 없네」 하고 조건칸으로도 안 간다.
+        */}
+        <ShopSearch value={typed} onChange={setTyped} placeholder="차종·차명으로 찾아보세요 (예: 카니발, SUV, 전기차)" />
 
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginTop: 14 }}>
-          <span style={{ fontSize: SHOP.fs.cap, color: C.faint, marginRight: 2 }}>많이 찾는 조건</span>
+        {/*
+          빠른 조건 — **한 줄로 스르륵 미는 알약**(사장님 2026-09-04 「좌우로 스크롤하는 그 알약처럼
+          생긴 그 필터, 그게 스르륵 이렇게 왔다 가야 되고, 그 밑에는 바로 품목이 나오는 거야」).
+          접어서 두 줄로 쌓으면 조건이 늘 때마다 목록이 아래로 밀린다 — 폰 첫 화면에 상품이 안 보이면
+          그 화면은 진 것이다. 「많이 찾는 조건」 라벨도 뺐다(자리만 먹고 아무도 안 읽는다).
+          ★맨 앞은 「조건」 — 이 줄에 못 담은 축 아홉으로 가는 문이다. 폰에서만 세운다.
+        */}
+        <div className="fp-shop-rail" style={{ marginTop: 14, paddingBottom: 2 }}>
+          {mobile ? (
+            <ShopPill on={queryCount(query) > 0} onClick={() => setSheet(true)}>
+              <SlidersHorizontal size={ICON.md} aria-hidden style={{ marginRight: 6 }} />
+              조건{queryCount(query) ? ` ${queryCount(query)}` : ''}
+            </ShopPill>
+          ) : null}
           {QUICK.map((k) => (
             <ShopPill key={`${k.axis}:${k.key}`} on={query.sel[k.axis].includes(k.key)}
               onClick={() => onToggle(k.axis, k.key)}>{k.label}</ShopPill>
@@ -189,19 +214,13 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
                 </span>
               )}
               <div style={{ flex: 1 }} />
-              {mobile ? (
-                <ShopPill on={queryCount(query) > 0} onClick={() => setSheet(true)}>
-                  <SlidersHorizontal size={ICON.md} aria-hidden style={{ marginRight: 6 }} />
-                  조건{queryCount(query) ? ` ${queryCount(query)}` : ''}
-                </ShopPill>
-              ) : null}
               <ShopSort value={query.sort} options={SHOP_SORTS}
                 onChange={(v) => setQuery((q) => ({ ...q, sort: v as ShopSortKey }))} />
             </div>
 
             {rows === null ? (
               <Grid mobile={mobile}>
-                {Array.from({ length: 6 }, (_, i) => <Skeleton key={i} />)}
+                {Array.from({ length: 6 }, (_, i) => <Skeleton key={i} row={mobile} />)}
               </Grid>
             ) : list.length === 0 ? (
               <ShopEmpty onClear={onClearAll} />
@@ -209,7 +228,7 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
               <>
                 <Grid mobile={mobile}>
                   {shown.map((p) => (
-                    <ShopCard key={String(p.product_code)} p={p} href={href(p)}
+                    <ShopCard key={String(p.product_code)} p={p} href={href(p)} layout={mobile ? 'row' : 'grid'}
                       faved={fav.has(String(p.product_code))} onFav={onFav} />
                   ))}
                 </Grid>
@@ -256,26 +275,49 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
   );
 }
 
-/** 격자 — 웹 3열 · 폰 2열. 폰 1열은 카드가 커서 한 화면에 한 대밖에 안 들어온다(고르는 맛이 없다). */
+/**
+ * 목록 — 웹 3열 격자 · **폰은 한 줄에 한 대(가로카드)**.
+ *
+ * 폰을 2열 세로카드로 두었다가 가로로 바꿨다(2026-09-04). 근거는 우리 데이터다 —
+ * 사진이 28% 는 아예 없고, 있는 것도 죄다 비슷한 렌터카 실사라 손님이 사진으로 안 고른다.
+ * 실제로 고르는 값(월 대여료·보증금·연식)은 전부 글자라, 글자에 폭을 주는 가로형이 이긴다.
+ * 한 화면에 4~5대가 들어와 «금액 비교»가 되는 것도 세로 2열(4대)보다 낫다.
+ */
 function Grid({ mobile, children }: { mobile: boolean; children: React.ReactNode }) {
   return (
     <div style={{
       display: 'grid',
-      gridTemplateColumns: `repeat(${mobile ? 2 : 3}, minmax(0, 1fr))`,
-      gap: mobile ? 12 : 18,
+      /*
+       * ⚠ 폰 한 열도 반드시 `minmax(0, 1fr)` 이다. 맨 `1fr` 은 `minmax(auto, 1fr)` 이라
+       *   칸의 최소폭이 «내용의 min-content»가 되는데, 가로카드 안에 안 줄어드는 것(옵션 칩·
+       *   nowrap 금액)이 있으면 칸이 그만큼 벌어진다. 실측으로 main 이 375 화면에서 864px 이 됐고,
+       *   카드는 멀쩡해 보이는데 **하트가 화면 밖(x=822)** 에 나가 있었다. 눈으로는 안 보이는 고장이다.
+       */
+      gridTemplateColumns: mobile ? 'minmax(0, 1fr)' : 'repeat(3, minmax(0, 1fr))',
+      gap: mobile ? 10 : 18,
     }}>{children}</div>
   );
 }
 
-/** 불러오는 동안의 자리 — 카드와 «같은 비율»이라야 목록이 도착할 때 화면이 안 튄다. */
-function Skeleton() {
+/** 불러오는 동안의 자리 — 카드와 «같은 짜임»이라야 목록이 도착할 때 화면이 안 튄다. */
+function Skeleton({ row }: { row?: boolean }) {
+  const bar = (w: string, h: number) => (
+    <div style={{ height: h, width: w, borderRadius: 4, background: C.placeholder }} />
+  );
   return (
-    <div style={{ borderRadius: SHOP.r.card, border: `1px solid ${C.line}`, overflow: 'hidden' }}>
-      <div style={{ aspectRatio: '4 / 3', background: C.placeholder }} />
-      <div style={{ padding: 15, display: 'flex', flexDirection: 'column', gap: 9 }}>
-        <div style={{ height: 15, width: '78%', borderRadius: 4, background: C.placeholder }} />
-        <div style={{ height: 11, width: '52%', borderRadius: 4, background: C.placeholder }} />
-        <div style={{ height: 24, width: '46%', borderRadius: 4, background: C.placeholder }} />
+    <div style={{
+      display: 'flex', flexDirection: row ? 'row' : 'column', gap: row ? 13 : 0,
+      padding: row ? 12 : 0, borderRadius: SHOP.r.card, border: `1px solid ${C.line}`, overflow: 'hidden',
+    }}>
+      <div style={{
+        aspectRatio: '4 / 3', background: C.placeholder,
+        ...(row ? { width: 112, flex: '0 0 112px', borderRadius: SHOP.r.box } : null),
+      }} />
+      <div style={{
+        padding: row ? 0 : 15, display: 'flex', flexDirection: 'column',
+        gap: row ? 6 : 9, flex: 1, justifyContent: row ? 'center' : undefined,
+      }}>
+        {bar('78%', 15)}{bar('52%', 11)}{bar('46%', 24)}
       </div>
     </div>
   );
