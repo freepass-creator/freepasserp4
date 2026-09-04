@@ -34,10 +34,18 @@ const CODE = (process.argv.find((a) => a.startsWith('--code='))?.split('=')[1] |
 const S = (v: unknown) => String(v ?? '').trim();
 const N = (v: unknown) => S(v).toLowerCase().replace(/\s+/g, '');
 
-const src = MIRROR_SOURCES.find((m) => m.code === CODE);
-if (!src) throw new Error(`MIRROR_SOURCES 에 ${CODE} 없음`);
-if (src.kind !== 'sheet' || !src.from) throw new Error(`${CODE}(${src.name})=${src.kind} — 시트형만 지원(홈페이지·API 는 전용 리더 필요)`);
-const SHEET = src.from;
+// 원천 종류 셋 — 시트(공급사 구글시트) · 홈피(ironrentcar.com) · 손오공(API 덤프 JSON).
+type Kind = 'sheet' | 'iron' | 'sonokong';
+const SON_CODE = 'RP012';
+function srcConfig(): { code: string; name: string; kind: Kind; from?: string } {
+  if (CODE === SON_CODE || CODE === 'SONOKONG' || CODE === '손오공') return { code: SON_CODE, name: '손오공', kind: 'sonokong' };
+  const m = MIRROR_SOURCES.find((x) => x.code === CODE);
+  if (!m) throw new Error(`알 수 없는 공급사 코드 ${CODE}`);
+  return { code: m.code, name: m.name, kind: m.kind as Kind, from: m.from };
+}
+const src = srcConfig();
+const PROV = src.code;   // Firestore 태깅·pin 조회는 공급사 정식 코드로(손오공=RP012)
+const SHEET = src.from || '';
 
 // ── 마스터 ────────────────────────────────────────────────────────────────
 const masterRaw = JSON.parse(readFileSync('public/data/vehicle-master.json', 'utf8')) as unknown;
@@ -73,73 +81,103 @@ function resolveCols(hdr: string[]) {
   };
 }
 
-// ── 원천 직접 읽기 → 원자 (pin: 차번으로 박은 것 지킴) ─────────────────────
-type Atom = Record<string, unknown> & { car_number: string };
-async function ingest(pinned: Map<string, Record<string, unknown>>): Promise<Atom[]> {
-  const tabs = await listSheetTabs(SHEET);
-  const atoms: Atom[] = [];
+// ── 원천 리더 — 종류마다 «우리필드 키 행(Row)»을 낸다. 원자화는 하나로 공유한다. ──────
+type Row = { car: string; status: string; kind: string; maker: string; model: string; vname: string; trim: string; fuel: string; ext: string; int: string; km: string; opt: string; firstReg: string; cc: string; klass: string; tab: string; row: string };
+const blank: Omit<Row, 'car' | 'tab' | 'row'> = { status: '', kind: '', maker: '', model: '', vname: '', trim: '', fuel: '', ext: '', int: '', km: '', opt: '', firstReg: '', cc: '', klass: '' };
+
+async function readRows(): Promise<Row[]> {
+  const out: Row[] = [];
   const seen = new Set<string>();
+  const push = (o: Partial<Row> & { car: string; tab: string; row: string }) => {
+    if (!o.car || seen.has(o.car)) return; seen.add(o.car);
+    out.push({ ...blank, ...o });
+  };
+  if (src.kind === 'iron') {
+    const { rowsFromIronCatalog } = await import('../lib/domain/mirror-iron-source');
+    const got = await rowsFromIronCatalog();
+    console.log(`  원본 ironrentcar.com — 목록 ${got.listings} · 활성 ${got.active} · 판매완료 ${got.sold} · 상세실패 ${got.errors}`);
+    const g = (m: Map<string, string>, col: string) => S(m.get(N(col)));
+    for (const [plate, m] of got.rows) push({ car: g(m, '차량번호') || plate, status: g(m, '상태'), kind: g(m, '분류'), maker: g(m, '제조사'), model: g(m, '모델명'), vname: g(m, '차명(세부모델+트림)'), fuel: g(m, '연료'), ext: g(m, '외부색상'), int: g(m, '내부색상'), km: g(m, '주행거리'), opt: g(m, '옵션'), firstReg: g(m, '최초등록일') || g(m, '연식'), cc: g(m, '배기량'), klass: g(m, '분류'), tab: 'ironrentcar.com', row: plate });
+    return out;
+  }
+  if (src.kind === 'sonokong') {
+    const dump = JSON.parse(readFileSync('sonokong/lib/wonja/손오공차량.json', 'utf8')) as { 차량?: Record<string, unknown>[] };
+    const cars = dump.차량 || [];
+    console.log(`  원본 손오공 API 덤프 — ${cars.length}대`);
+    for (const c of cars) {
+      const car = S(c.차번); if (!car) continue;
+      const status = c.계약중 ? '계약중' : (S(c.계약가능) === 'Y' ? '출고가능' : '출고협의');
+      push({ car, status, kind: c.중고 ? '중고구독' : '', maker: S(c.제조사), model: S(c.모델), vname: S(c.차명) || S(c.세부), fuel: S(c.연료), ext: S(c.외장), int: S(c.내장), km: c.주행거리 == null ? '' : String(c.주행거리), opt: S(c.옵션), firstReg: S(c.최초등록) || S(c.연식), cc: c.배기량 == null ? '' : String(c.배기량), klass: '', tab: '손오공API', row: S(c.id) });
+    }
+    return out;
+  }
+  // 시트형 — 탭·머리행 자동탐지 후 MIRROR_ALIAS 로 열 해석.
+  const tabs = await listSheetTabs(SHEET);
   for (const tab of tabs) {
     const grid = await readSheetGrid(SHEET, tab);
-    // 머리행 자동탐지 — 제목·날짜가 1행에 있고 진짜 머리가 2~3행인 경우(오토플러스)까지 잡는다.
     const allRows = [grid.header, ...grid.rows];
     let hi = -1;
-    for (let k = 0; k < Math.min(allRows.length, 8); k++) {
-      const c = resolveCols(allRows[k]);
-      if (c.car >= 0 && c.status >= 0) { hi = k; break; }
-    }
-    if (hi < 0) continue; // 차 탭이 아니다(차량번호·상태 없음) — 요금표·수수료 등
+    for (let k = 0; k < Math.min(allRows.length, 8); k++) { const c = resolveCols(allRows[k]); if (c.car >= 0 && c.status >= 0) { hi = k; break; } }
+    if (hi < 0) continue;
     const ci = resolveCols(allRows[hi]);
-    let rowNo = hi + 1; // 머리행의 실제 행 번호(1-based)
+    let rowNo = hi + 1;
     for (const r of allRows.slice(hi + 1)) {
       rowNo += 1;
-      const car = S(r[ci.car]); if (!car || seen.has(car)) continue; seen.add(car);
-      const rawModel = ci.model >= 0 ? S(r[ci.model]) : '';
-      const rawTrim = ci.trim >= 0 ? S(r[ci.trim]) : '';
-      const maker = ci.maker >= 0 ? S(r[ci.maker]) : '';
-      const vname = composeVehicleName(rawModel, rawTrim);
-
-      const pin = pinned.get(car);
-      const pinConfirmed = !!pin && !!S(pin.sub_model) && (pin.확정 === true || S(pin.검수상태) === '확정');
-      let identity: { maker: string; model: string; sub_model: string; trim_name: string; origin: string };
-      let confirmed: boolean;
-      let state: 'pinned' | 'new-high' | 'new-review';
-      let spec: Record<string, string>;
-      if (pinConfirmed && pin) {
-        identity = { maker: S(pin.maker), model: S(pin.model), sub_model: S(pin.sub_model), trim_name: S(pin.trim_name), origin: S(pin.origin) };
-        confirmed = true; state = 'pinned';
-        spec = { ext_color: S(pin.ext_color), int_color: S(pin.int_color), year: S(pin.year), fuel_type: S(pin.fuel_type), engine_cc: S(pin.engine_cc), vehicle_class: S(pin.vehicle_class), first_registration_date: S(pin.first_registration_date) };
-      } else {
-        const snap = snapToMaster({ maker, model: rawModel, vehicle_name: vname, sub_model: vname, fuel_type: ci.fuel >= 0 ? S(r[ci.fuel]) : '', year: yearOf(ci.firstReg >= 0 ? S(r[ci.firstReg]) : '') } as EntityRecord, MASTER) as
-          { maker?: string; model?: string; sub_model?: string; trim_name?: string; origin?: string; confidence?: string } | null;
-        const canon = snap ? validCanon(snap.maker, snap.model, snap.sub_model) : null;
-        const conf = snap?.confidence || 'none';
-        confirmed = !!canon && conf === 'high';
-        identity = canon
-          ? { maker: canon.maker, model: canon.model, sub_model: canon.sub_model, trim_name: S(snap?.trim_name) || rawTrim, origin: S(snap?.origin) }
-          : { maker, model: rawModel, sub_model: '', trim_name: rawTrim, origin: '' };
-        state = confirmed ? 'new-high' : 'new-review';
-        spec = {
-          ext_color: ci.ext >= 0 ? snapColor(S(r[ci.ext]), 'ext') : '', int_color: ci.int >= 0 ? snapColor(S(r[ci.int]), 'int') : '',
-          year: yearOf(ci.firstReg >= 0 ? S(r[ci.firstReg]) : ''), fuel_type: ci.fuel >= 0 ? normFuel(S(r[ci.fuel])) : '',
-          engine_cc: ci.cc >= 0 ? S(r[ci.cc]) : '', vehicle_class: ci.klass >= 0 ? S(r[ci.klass]) : '', first_registration_date: ci.firstReg >= 0 ? S(r[ci.firstReg]) : '',
-        };
-      }
-      atoms.push({
-        car_number: car,
-        maker: identity.maker, model: identity.model, sub_model: identity.sub_model, trim_name: identity.trim_name, origin: identity.origin, ...spec,
-        product_type: canonProductType(ci.kind >= 0 ? S(r[ci.kind]) : ''),
-        status: canonSheetVehicleStatus(S(r[ci.status])), mileage: ci.km >= 0 ? S(r[ci.km]) : '',
-        options: ci.opt >= 0 ? S(r[ci.opt]) : '',
-        확정: confirmed, 검수상태: confirmed ? '확정' : (identity.sub_model ? '검수대기' : (vname ? '매칭실패' : '원문없음')),
-        _pin_state: state,
-        원문: { 차명: vname, ...(ci.opt >= 0 && S(r[ci.opt]) ? { 옵션: S(r[ci.opt]) } : null) },
-        provider_company_code: CODE, partner_code: CODE,
-        source: 'sheet', source_schema: CODE, sheet_source_tab: tab, sheet_source_row: String(rowNo),
-      });
+      const car = S(r[ci.car]); if (!car) continue;
+      const model = ci.model >= 0 ? S(r[ci.model]) : '';
+      const trim = ci.trim >= 0 ? S(r[ci.trim]) : '';
+      push({ car, status: S(r[ci.status]), kind: ci.kind >= 0 ? S(r[ci.kind]) : '', maker: ci.maker >= 0 ? S(r[ci.maker]) : '', model, vname: composeVehicleName(model, trim), trim, fuel: ci.fuel >= 0 ? S(r[ci.fuel]) : '', ext: ci.ext >= 0 ? S(r[ci.ext]) : '', int: ci.int >= 0 ? S(r[ci.int]) : '', km: ci.km >= 0 ? S(r[ci.km]) : '', opt: ci.opt >= 0 ? S(r[ci.opt]) : '', firstReg: ci.firstReg >= 0 ? S(r[ci.firstReg]) : '', cc: ci.cc >= 0 ? S(r[ci.cc]) : '', klass: ci.klass >= 0 ? S(r[ci.klass]) : '', tab, row: String(rowNo) });
     }
   }
-  return atoms;
+  return out;
+}
+
+// ── 원자화 (pin: 차번으로 박은 것 지킴) — 원천 종류 무관하게 하나로 ────────────
+type Atom = Record<string, unknown> & { car_number: string };
+function atomize(row: Row, pinned: Map<string, Record<string, unknown>>): Atom {
+  const car = row.car, vname = row.vname;
+  const pin = pinned.get(car);
+  const pinConfirmed = !!pin && !!S(pin.sub_model) && (pin.확정 === true || S(pin.검수상태) === '확정');
+  let identity: { maker: string; model: string; sub_model: string; trim_name: string; origin: string };
+  let confirmed: boolean;
+  let state: 'pinned' | 'new-high' | 'new-review';
+  let spec: Record<string, string>;
+  if (pinConfirmed && pin) {
+    identity = { maker: S(pin.maker), model: S(pin.model), sub_model: S(pin.sub_model), trim_name: S(pin.trim_name), origin: S(pin.origin) };
+    confirmed = true; state = 'pinned';
+    spec = { ext_color: S(pin.ext_color), int_color: S(pin.int_color), year: S(pin.year), fuel_type: S(pin.fuel_type), engine_cc: S(pin.engine_cc), vehicle_class: S(pin.vehicle_class), first_registration_date: S(pin.first_registration_date) };
+  } else {
+    const snap = snapToMaster({ maker: row.maker, model: row.model, vehicle_name: vname, sub_model: vname, fuel_type: row.fuel, year: yearOf(row.firstReg) } as EntityRecord, MASTER) as
+      { maker?: string; model?: string; sub_model?: string; trim_name?: string; origin?: string; confidence?: string } | null;
+    const canon = snap ? validCanon(snap.maker, snap.model, snap.sub_model) : null;
+    const conf = snap?.confidence || 'none';
+    confirmed = !!canon && conf === 'high';
+    identity = canon
+      ? { maker: canon.maker, model: canon.model, sub_model: canon.sub_model, trim_name: S(snap?.trim_name) || row.trim, origin: S(snap?.origin) }
+      : { maker: row.maker, model: row.model, sub_model: '', trim_name: row.trim, origin: '' };
+    state = confirmed ? 'new-high' : 'new-review';
+    spec = {
+      ext_color: snapColor(row.ext, 'ext'), int_color: snapColor(row.int, 'int'),
+      year: yearOf(row.firstReg), fuel_type: normFuel(row.fuel),
+      engine_cc: row.cc, vehicle_class: row.klass, first_registration_date: row.firstReg,
+    };
+  }
+  return {
+    car_number: car,
+    maker: identity.maker, model: identity.model, sub_model: identity.sub_model, trim_name: identity.trim_name, origin: identity.origin, ...spec,
+    product_type: canonProductType(row.kind),
+    status: canonSheetVehicleStatus(row.status), mileage: row.km, options: row.opt,
+    확정: confirmed, 검수상태: confirmed ? '확정' : (identity.sub_model ? '검수대기' : (vname ? '매칭실패' : '원문없음')),
+    _pin_state: state,
+    원문: { 차명: vname, ...(row.opt ? { 옵션: row.opt } : null) },
+    provider_company_code: PROV, partner_code: PROV,
+    source: src.kind, source_schema: PROV, sheet_source_tab: row.tab, sheet_source_row: row.row,
+  };
+}
+
+async function ingest(pinned: Map<string, Record<string, unknown>>): Promise<Atom[]> {
+  const rows = await readRows();
+  return rows.map((r) => atomize(r, pinned));
 }
 
 // ── Firestore ──────────────────────────────────────────────────────────────
@@ -149,12 +187,12 @@ const fs = getFirestore();
 
 const cur = new Map<string, Record<string, unknown>>();
 {
-  const snap = await fs.collection('products').where('provider_company_code', '==', CODE).get();
+  const snap = await fs.collection('products').where('provider_company_code', '==', PROV).get();
   for (const d of snap.docs) cur.set(S((d.data() as { car_number?: unknown }).car_number), d.data() as Record<string, unknown>);
 }
 
 const now = await ingest(cur);
-console.log(`\n■ ${CODE}(${src.name}) 원천 직접 수집 — ${now.length}대 (정제시트 안 거침 · 우리 것 ${cur.size}대 참조)`);
+console.log(`\n■ ${PROV}(${src.name}) 원천 직접 수집 — ${now.length}대 (정제시트 안 거침 · 우리 것 ${cur.size}대 참조)`);
 const n = now.length || 1;
 const pctOf = (x: number) => `${x}/${now.length} (${Math.round((x / n) * 100)}%)`;
 const has = (f: string) => now.filter((a) => S(a[f])).length;
@@ -200,5 +238,5 @@ if (safeToRetire && gone.length) {
 } else if (gone.length) {
   console.log(`  · 사라진 차 ${gone.length}건 마킹 안 함 — ${RETIRE ? `안전판(수집 ${now.length} < 우리 것 ${cur.size}의 절반, 원천 읽기 의심)` : '--retire 없음(오탐 방지, 기본 끔)'}.`);
 }
-console.log(`\n반영 완료 — ${CODE} 직접 원자 ${wrote}건 merge(불변) · 사라진 차 listable=false ${retired}건. 변동(상태·요금·주행)은 폴링 몫.`);
+console.log(`\n반영 완료 — ${PROV} 직접 원자 ${wrote}건 merge(불변) · 사라진 차 listable=false ${retired}건. 변동(상태·요금·주행)은 폴링 몫.`);
 process.exit(0);
