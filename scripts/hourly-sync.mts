@@ -118,7 +118,6 @@ const started = Date.now();
  * ★못 올려도 파이프라인은 그냥 간다(publish-ops-status 가 전부 삼킨다).
  *   `tmp/자동동기-상태.json` 은 그대로 남긴다 — 그건 이 PC 의 기록이고, 이건 원격에서 보는 창이다.
  */
-import { publishOpsStatus } from './lib/publish-ops-status.mts';
 import type { OpsPipelineStatus } from '../lib/ops-status';
 
 const LOCKDIR = 'tmp/hourly-sync.lock';
@@ -153,6 +152,21 @@ function acquireLock(): boolean {
   return claimOwnership();
 }
 if (!acquireLock()) { console.log('앞의 실행이 아직 돈다(lock) — 이번은 건너뛴다'); process.exit(0); }
+/**
+ * tsx 실행기의 «파일 경로» — npx 를 안 거치려고 직접 짚는다(run() 주석 참고).
+ * ⚠ `require.resolve('tsx/dist/cli.mjs')` 는 안 된다 — tsx 가 그 경로를 export 하지 않아
+ *   `ERR_PACKAGE_PATH_NOT_EXPORTED` 가 난다. 그래서 **파일 자리로** 짚는다.
+ * ★pushOps 가 «시작 시점»부터 이 경로로 발행 CLI 를 부르므로, 시작 발행보다 «먼저» 둔다(TDZ 방지).
+ */
+const TSX_CLI = fileURLToPath(new URL('../node_modules/tsx/dist/cli.mjs', import.meta.url));
+/* 관제탑 상태 누적기 — pushOps 가 «시작 시점»부터 이들을 참조하므로, 시작 발행보다 «먼저» 선언한다.
+   ⚠ 전에는 아래쪽(out 선언 뒤)에 있어, 시작 pushOps 가 TDZ(Cannot access 'steps' before
+     initialization)로 즉시 죽었다 — 관제탑이 비는 정도가 아니라 파이프라인 전체가 안 돌았다(2026-09-04). */
+const line: string[] = [];
+/** 상태로그 뼈대 — 연동지도가 요구하는 «단계별·커버리지·경고». 코덱스가 이걸 읽는다. */
+const steps: Array<{ 단계: string; ok: boolean; 초?: number; 신호?: string; 요약?: string }> = [];
+const warnings: string[] = [];
+let coverage: { 총: number; 매칭: number; 모델없음: number; 트림실패: number; 매칭율: number } | null = null;
 /* ★잠금을 잡자마자 관제탑에 「시작했다」를 올린다 — 첫 단계가 25분 걸려도 화면은 즉시 「돌고 있음」이 된다.
    전에는 상태가 «끝나야» 써져서, 도는 중에는 화면이 지난 회차(실패)를 보여 주고 있었다. */
 pushOps(true, null, '시작');
@@ -197,11 +211,6 @@ heartbeat.on('message', (msg) => { if (msg === 'lost') lockLost = true; });
 heartbeat.unref();
 
 const out: string[] = [`■ 시간별 동기화 ${APPLY ? '반영' : '미리보기'} ${kst()} KST`];
-const line: string[] = [];
-/** 상태로그 뼈대 — 연동지도가 요구하는 «단계별·커버리지·경고». 코덱스가 이걸 읽는다. */
-const steps: Array<{ 단계: string; ok: boolean; 초?: number; 신호?: string; 요약?: string }> = [];
-const warnings: string[] = [];
-let coverage: { 총: number; 매칭: number; 모델없음: number; 트림실패: number; 매칭율: number } | null = null;
 /** 한 단계라도 실패하면 false — 성공으로 «기록»하지 않기 위해서다. */
 let allOk = true;
 /**
@@ -226,12 +235,6 @@ let allOk = true;
  *   부모의 `r.error` 는 서지 않는다. 그래서 «글자»로도 잡는다.
  */
 const RATE_LIMIT = /\b429\b|rate.?limit|quota|RESOURCE_EXHAUSTED|\b50[0234]\b|UNAVAILABLE|ECONNRESET|ETIMEDOUT|socket hang up|spawn\s+(UNKNOWN|EBUSY|EAGAIN|ENOMEM)/i;
-/**
- * tsx 실행기의 «파일 경로» — npx 를 안 거치려고 직접 짚는다(run() 주석 참고).
- * ⚠ `require.resolve('tsx/dist/cli.mjs')` 는 안 된다 — tsx 가 그 경로를 export 하지 않아
- *   `ERR_PACKAGE_PATH_NOT_EXPORTED` 가 난다. 그래서 **파일 자리로** 짚는다.
- */
-const TSX_CLI = fileURLToPath(new URL('../node_modules/tsx/dist/cli.mjs', import.meta.url));
 /**
  * 동기 대기 — `Atomics.wait` 로 **잠든다**. 바쁜 대기(while 루프)로 짰다가 코덱스에게 잡혔다:
  * 30초×2회면 1분을 코어 하나 100% 로 태운다. 이 스크립트는 단계가 순서대로만 도는
@@ -425,7 +428,16 @@ function pushOps(running: boolean, ok: boolean | null, currentStep?: string, 중
     summary: line,
     host: process.env.GITHUB_ACTIONS ? 'github-actions' : (process.env.COMPUTERNAME || process.env.HOSTNAME || 'local'),
   };
-  void publishOpsStatus(status);
+  /* ★«동기»로 올린다 — 파일에 적고, 발행 CLI 를 spawnSync 로 부른다.
+     본체는 단계가 전부 spawnSync 라 이벤트 루프가 막혀 있다. 그래서 예전처럼 `void publishOpsStatus`
+     로 던져 두면 RTDB 쓰기가 끝까지 못 돌고 process.exit 에 죽어, 관제탑이 영영 안 켜졌다(2026-09-04).
+     자식이 자기 루프에서 써넣고, 우리는 그 끝을 블로킹으로 기다린다. 실패해도 곁다리라 조용히 넘어간다. */
+  try {
+    writeFileSync('tmp/ops-status.json', JSON.stringify(status));
+    spawnSync(process.execPath, [TSX_CLI, 'scripts/lib/publish-ops-status-cli.mts'], {
+      env: process.env, timeout: 15_000, stdio: 'ignore',
+    });
+  } catch { /* 관제탑은 곁다리다 — 본업을 막지 않는다 */ }
 }
 
 function writeStatus(ok: boolean, 중단?: string) {
