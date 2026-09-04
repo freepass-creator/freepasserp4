@@ -113,6 +113,13 @@ for (const [key, v] of Object.entries(products)) {
     const picked = pickTrim(subM, raw);
     if (picked) { updates[trimKey] = picked; stat.trim++; changes.push(`트림(원문)→「${picked}」`); }
   }
+  // ★외장/내장 색이 «한 칸에 붙은」 것 분리 — 「A / B」 → 외장=A · 내장=B (손오공구독 등, 사장님 2026-09-04).
+  const ec = S(updates[`v4/products/${key}/ext_color`] || v.ext_color);
+  if (ec.includes('/') && !S(v.int_color)) {
+    const parts = ec.split('/').map((x) => S(x));
+    if (parts[0]) updates[`v4/products/${key}/ext_color`] = parts[0];
+    if (parts[1]) { updates[`v4/products/${key}/int_color`] = parts[1]; stat.color++; changes.push(`외장/내장 분리 「${ec}」→「${parts[0]}」·「${parts[1]}」`); }
+  }
   if (changes.length && rows.length < 25) rows.push(`  ${code} ${car}: ${changes.join(' · ')}`);
 }
 console.log(`교정: 제조사 ${stat.maker} · 모델 ${stat.model} · 세부모델 ${stat.sub} · 세부트림 ${stat.trim} · 색 ${stat.color} · 주행 ${stat.mileage} · 구분 ${stat.gubun} (필드 ${Object.keys(updates).length})`);
