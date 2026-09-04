@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react';
 import { ChevronLeft, ChevronRight, ImageOff, Phone } from 'lucide-react';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { Badge, C, FS, ICON, PERK_TONE, CREDIT_TONE, type BadgeTone } from '@/components/ui';
-import { SHOP, ShopPill } from '@/components/shop/shop-ui';
+import { SHOP } from '@/components/shop/shop-ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { useProductPhotos } from '@/components/use-product-photos';
 import { haptic } from '@/lib/haptics';
@@ -75,6 +75,8 @@ export function ShopDetail({ p, agentName, agentPhone }: {
   );
   const [planIdx, setPlanIdx] = useState(0);
   const plan = plans[planIdx];
+  /** 표에 세울 순서 — 기간 오름차순. 위 큰 숫자는 최저가로 시작하지만 표의 축은 «기간»이다. */
+  const byMonth = useMemo(() => [...plans].sort((a, b) => a.m - b.m), [plans]);
 
   const specs: [string, string][] = ([
     ['제조사', makerDisplay(p.maker) || String(p.maker || '')],
@@ -91,31 +93,64 @@ export function ShopDetail({ p, agentName, agentPhone }: {
     ['차량번호', String(p.car_number || '')],
   ] as [string, string][]).filter(([, v]) => v.trim());
 
+  /*
+   * 이용 조건 — **네 묶음으로 나눈다**(사장님 2026-09-04 「대여료, 보험 조건, 계약 조건, 기타 사항
+   * 정도는 들어가 줘야 된다」). 서른 줄을 한 표에 몰아 두면 손님이 보험을 찾다가 납부 방법을 지나치고,
+   * 계약을 보러 왔다가 긴급출동을 읽는다. 실제 렌터카 상세(롯데·SK)가 다 이렇게 갈라 둔다.
+   *
+   * ★★없는 항목은 **줄째로 뺀다.** 손님 화면에 뜬 조건은 곧 약속이라 「협의」나 빈칸을
+   *   그럴듯하게 채우면 그게 분쟁이 된다. 원천이 준 글자만 그대로 나른다.
+   * ★묶음 자체가 통째로 비면 그 구역도 안 그린다 — 제목만 있고 속이 빈 칸을 손님에게 보이지 않는다.
+   */
   const pol = (p._policy || {}) as Record<string, unknown>;
   const S = (k: string) => String(pol[k] ?? '').trim();
   const join = (...xs: string[]) => xs.filter(Boolean).join(' · ');
-  const terms: [string, string][] = ([
-    ['운전자 연령', join(S('basic_driver_age'),
-      S('driver_age_lowering') ? `${S('driver_age_lowering')}까지 낮춤${S('age_lowering_cost') ? ` (${S('age_lowering_cost')})` : ''}` : '',
-      S('driver_age_upper_limit'))],
-    ['면허 경력', S('license_period')],
-    ['운전 가능', join(S('personal_driver_scope'), S('business_driver_scope'))],
-    ['추가 운전자', join(S('additional_driver_allowance_count'), S('additional_driver_cost'))],
-    ['약정 주행', join(S('annual_mileage'),
-      S('mileage_upcharge_per_10000km') ? `초과 시 1만km당 ${S('mileage_upcharge_per_10000km')}` : '')],
-    ['보험', join(S('insurance_included'),
-      S('injury_compensation_limit') ? `대인 ${S('injury_compensation_limit')}` : '',
-      S('property_compensation_limit') ? `대물 ${S('property_compensation_limit')}` : '')],
-    ['자기차량손해', join(S('own_damage_compensation'),
+  const rows = (list: [string, string][]) => list.filter(([, v]) => v.trim());
+
+  /** 보험 — 손님이 사고 났을 때 «얼마까지 되나»를 재는 값. */
+  const insurance = rows([
+    ['보험 포함', S('insurance_included')],
+    ['대인 배상', join(S('injury_compensation_limit'), S('injury_deductible') ? `면책 ${S('injury_deductible')}` : '')],
+    ['대물 배상', join(S('property_compensation_limit'), S('property_deductible') ? `면책 ${S('property_deductible')}` : '')],
+    ['자기신체사고', join(S('self_body_accident'), S('self_body_deductible') ? `면책 ${S('self_body_deductible')}` : '')],
+    ['무보험차 상해', join(S('uninsured_damage') || S('uninsured_compensation_limit'),
+      S('uninsured_deductible') && S('uninsured_deductible') !== '없음' ? `면책 ${S('uninsured_deductible')}` : '')],
+    ['자기차량손해', join(S('own_damage_compensation'), S('own_damage_repair_ratio') ? `수리비 ${S('own_damage_repair_ratio')}` : '',
       S('own_damage_min_deductible') && S('own_damage_max_deductible')
         ? `면책 ${S('own_damage_min_deductible')}~${S('own_damage_max_deductible')}`
         : S('own_damage_min_deductible') || '')],
-    ['자기신체사고', join(S('self_body_accident'), S('self_body_deductible') ? `면책 ${S('self_body_deductible')}` : '')],
-    ['긴급출동', S('annual_roadside_assistance') || S('roadside_assistance')],
-    ['납부', join(S('payment_method'), S('rental_card_payment') ? `카드 ${S('rental_card_payment')}` : '')],
+  ]);
+
+  /** 계약 — 얼마를 어떻게 내고, 그만두면 어떻게 되나. */
+  const contract = rows([
+    ['약정 주행', join(S('annual_mileage'),
+      S('mileage_upcharge_per_10000km') ? `초과 시 1만km당 ${S('mileage_upcharge_per_10000km')}` : '')],
+    ['납부 방법', join(S('payment_method'), S('payment_timing') && S('payment_timing') !== S('payment_method') ? S('payment_timing') : '')],
+    ['대여료 카드 납부', S('rental_card_payment')],
+    ['보증금 분납', S('deposit_installment')],
+    ['보증금 카드 납부', S('deposit_card_payment')],
     ['중도 해지', S('penalty_condition')],
+  ]);
+
+  /** 운전 — «내가 탈 수 있나». 저신용·젊은 손님에게는 요금 다음으로 중요한 값이다. */
+  const driving = rows([
+    ['기본 연령', S('basic_driver_age')],
+    ['연령 낮추기', S('driver_age_lowering')
+      ? `${S('driver_age_lowering')}까지${S('age_lowering_cost') ? ` (${S('age_lowering_cost')})` : ''}` : ''],
+    ['연령 상한', S('driver_age_upper_limit')],
+    ['면허 경력', S('license_period')],
+    ['운전 가능 범위', join(S('personal_driver_scope'), S('business_driver_scope'))],
+    ['추가 운전자', join(S('additional_driver_allowance_count'), S('additional_driver_cost'))],
+  ]);
+
+  /** 기타 — 있으면 좋고 없으면 마는 것들. 위 셋을 읽고 나서 보는 값이라 맨 뒤다. */
+  const etc = rows([
+    ['긴급출동', S('annual_roadside_assistance') || S('roadside_assistance')],
     ['이용 지역', S('rental_region')],
-  ] as [string, string][]).filter(([, v]) => v.trim());
+    ['차량 인도', S('delivery_fee')],
+    ['정비', S('maintenance_service')],
+    ['대차 서비스', S('replacement_car_policy')],
+  ]);
 
   const options = parseProductOptions(p.options);
   const phone = String(agentPhone || '').trim();
@@ -124,28 +159,14 @@ export function ShopDetail({ p, agentName, agentPhone }: {
   const gallery = <Gallery p={p} />;
 
   const priceCard = (
-    <section aria-label="대여 조건">
-      <SecTitle>대여 조건</SecTitle>
-      {plans.length > 1 ? (
-        /*
-         * 기간 칩은 **접힌다**(가로 스크롤이 아니다). 목록의 조건 알약은 축이 열 개가 넘어 한 줄로
-         * 미는 게 이득이지만, 여기는 많아야 열이고 무엇보다 «다 보고 비교하는» 값이다 —
-         * 밀어서 감추면 12개월이 있는 줄도 모르고 60개월만 보고 나간다.
-         */
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, paddingBottom: 14 }}>
-          {plans.map((x, i) => (
-            <ShopPill key={`${x.m}-${x.rent}`} on={i === planIdx} onClick={() => setPlanIdx(i)}>
-              {x.m}개월
-            </ShopPill>
-          ))}
-        </div>
-      ) : null}
+    <section aria-label="대여료">
+      <SecTitle>대여료</SecTitle>
       {plan ? (
         <>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, whiteSpace: 'nowrap' }}>
             <span style={{ fontSize: SHOP.fs.sub, color: C.mute }}>월</span>
             <span style={{
-              fontSize: mobile ? 34 : 38, fontWeight: 800, color: C.ink,
+              fontSize: mobile ? 34 : 36, fontWeight: 800, color: C.ink,
               letterSpacing: '-0.045em', fontVariantNumeric: 'tabular-nums',
             }}>{manWon(plan.rent)}</span>
           </div>
@@ -156,8 +177,57 @@ export function ShopDetail({ p, agentName, agentPhone }: {
       ) : (
         <div style={{ fontSize: SHOP.fs.body, color: C.mute }}>요금은 담당자에게 문의해 주세요.</div>
       )}
+
+      {/*
+        ★★기간별 «표»다. 칩만 두면 다른 기간이 얼마인지 하나씩 눌러 봐야 알고, 그러다 보면
+          「지금 보는 게 제일 싼 건가」를 못 정한다. 렌터카 상세(롯데·SK)가 다 표를 쓰는 이유다.
+          누르면 위 큰 숫자가 그 기간으로 바뀐다 — 표가 곧 고르개다.
+        ★기간 «순서»로 세운다(12→60). 위 큰 숫자는 최저가로 시작하지만, 표는 값이 아니라
+          기간이 축이라 오름차순이어야 손님이 「길게 하면 싸지는구나」를 읽는다.
+      */}
+      {plans.length > 1 ? (
+        <table style={{
+          width: '100%', marginTop: 18, borderCollapse: 'collapse',
+          fontVariantNumeric: 'tabular-nums',
+        }}>
+          <thead>
+            <tr>
+              {['기간', '월 대여료', '보증금'].map((h, i) => (
+                <th key={h} scope="col" style={{
+                  padding: '0 0 9px', textAlign: i === 0 ? 'left' : 'right',
+                  fontSize: SHOP.fs.cap, fontWeight: 500, color: C.faint,
+                  borderBottom: `1px solid ${C.line2}`,
+                }}>{h}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {byMonth.map((x) => {
+              const on = plan && x.m === plan.m;
+              return (
+                <tr key={x.m} onClick={() => setPlanIdx(plans.findIndex((y) => y.m === x.m))}
+                  style={{ cursor: 'pointer', background: on ? C.brandSoft : 'transparent' }}>
+                  <td style={{
+                    padding: '11px 8px 11px 10px', borderBottom: `1px solid ${C.line2}`,
+                    fontSize: SHOP.fs.body, fontWeight: on ? 700 : 500, color: on ? C.brand : C.ink,
+                  }}>{x.m}개월</td>
+                  <td style={{
+                    padding: '11px 8px', borderBottom: `1px solid ${C.line2}`, textAlign: 'right',
+                    fontSize: SHOP.fs.body, fontWeight: on ? 800 : 600, color: C.ink,
+                  }}>{manWon(x.rent)}</td>
+                  <td style={{
+                    padding: '11px 10px 11px 8px', borderBottom: `1px solid ${C.line2}`, textAlign: 'right',
+                    fontSize: SHOP.fs.body, color: C.mute,
+                  }}>{x.deposit > 0 ? manWon(x.deposit) : '없음'}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      ) : null}
+
       {badges.length ? (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 14 }}>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 16 }}>
           {badges.map((b) => (
             <Badge key={b.text} tone={b.tone} variant={b.perk ? 'perk' : 'line'} size={FS.sub}>{b.text}</Badge>
           ))}
@@ -234,18 +304,21 @@ export function ShopDetail({ p, agentName, agentPhone }: {
         </>
       ) : null}
 
-      {terms.length ? (
-        <>
-          <Rule />
-          <section aria-label="이용 조건">
-            <SecTitle>이용 조건</SecTitle>
-            <Table rows={terms} mobile={mobile} />
-            <p style={{ margin: '14px 0 0', fontSize: SHOP.fs.cap, color: C.faint, lineHeight: 1.7 }}>
-              조건은 계약 시 최종 확정됩니다. 자세한 내용은 담당자에게 확인해 주세요.
-            </p>
-          </section>
-        </>
-      ) : null}
+      <Sec title="보험 조건" rows={insurance} mobile={mobile} />
+      <Sec title="계약 조건" rows={contract} mobile={mobile} />
+      <Sec title="운전 조건" rows={driving} mobile={mobile} />
+      <Sec title="기타 사항" rows={etc} mobile={mobile} />
+
+      {(insurance.length || contract.length || driving.length || etc.length) ? (
+        <p style={{ margin: '20px 0 0', fontSize: SHOP.fs.cap, color: C.faint, lineHeight: 1.7 }}>
+          위 조건은 공급사가 제공한 운영정책이며 계약 시 최종 확정됩니다. 자세한 내용은 담당자에게 확인해 주세요.
+        </p>
+      ) : (
+        /* 정책이 안 붙은 차가 실제로 있다 — 「없다」가 아니라 «모른다»라고 말한다(지어내지 않는다). */
+        <p style={{ margin: '20px 0 0', fontSize: SHOP.fs.cap, color: C.faint, lineHeight: 1.7 }}>
+          보험·계약 조건은 담당자에게 문의해 주세요.
+        </p>
+      )}
 
       {/*
         폰 하단 고정독 — **꽉 채운 한 칸**. 이 화면에서 손님이 할 일은 하나(전화)라
@@ -271,6 +344,23 @@ export function ShopDetail({ p, agentName, agentPhone }: {
         </div>
       ) : null}
     </main>
+  );
+}
+
+/**
+ * 조건 구역 하나 — **속이 비면 통째로 안 그린다.** 제목만 있고 아래가 빈 칸은
+ * 「우리가 안 채웠다」로 보이고, 손님은 그걸 「이 회사가 대충 한다」로 읽는다.
+ */
+function Sec({ title, rows, mobile }: { title: string; rows: [string, string][]; mobile: boolean }) {
+  if (!rows.length) return null;
+  return (
+    <>
+      <Rule />
+      <section aria-label={title}>
+        <SecTitle>{title}</SecTitle>
+        <Table rows={rows} mobile={mobile} />
+      </section>
+    </>
   );
 }
 
