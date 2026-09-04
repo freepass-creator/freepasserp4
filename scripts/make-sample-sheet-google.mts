@@ -137,8 +137,13 @@ const combine = (pol: any, legacy: string, limit: string[], ded: string[]) => {
   const a = G(pol, ...limit), b = G(pol, ...ded);
   return [a, b].filter(Boolean).join(' / ');
 };
+// ★공급사별 정책 정본 = 구형 공급사시트에서 학습(사장님 2026-09-03). 공급사코드 → 정책 열값. v4/policies 보다 완전.
+const supPol: Record<string, Record<string, string>> = (() => { try { return JSON.parse(readFileSync('public/data/supplier-policies.json', 'utf8')); } catch { return {}; } })();
 const cell = (col: string, v: any): string => {
   const pol = policyOf(v);
+  // 1) 공급사시트 정책이 그 열을 갖고 있으면 그걸 최우선(대인·대물·자손·무보험·자차·연주행·1만+·분납·운전자범위·정비 등).
+  const sp = supPol[S(v.provider_company_code)];
+  if (sp && col !== '전용계좌' && S(sp[col])) return S(sp[col]);
   const direct: Record<string, string> = {
     '배차상태': S(v.status), '구분': S(v.product_type), '차량번호': S(v.car_number),
     '제조사': S(v.maker), '모델': S(v.model), '세부모델': S(v.sub_model),
