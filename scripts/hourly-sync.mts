@@ -751,6 +751,17 @@ if (!master.ok) {
  * ⚠ best-effort — 실패해도 회차를 멈추지 않는다(경고만). --apply 회차에만 돈다.
  */
 if (APPLY) {
+  /**
+   * ⑬½ **정제시트(차종마스터 정제본) → 원자 «한 번 원자화» 치유.**  (사장님 2026-09-04)
+   *   「외부시트/홈피를 차종마스터 기반 직접 원자화해두고 상태값만 반영」 로직 그대로.
+   *   색·주행·세부트림은 write-once 라 옛 시딩이 잘못/비면 정제시트가 맞아도 원자가 안 고쳐진다.
+   *   여기서 정제시트의 세부트림·외장색상·주행거리를 읽어 «비었거나 명백히 틀린 것만» 채운다(기존값·상태 안 건드림).
+   *   ⑭ 미러 «앞»이라 이번 시각에 채운 값이 곧바로 Firestore 로 전파된다. best-effort — 실패해도 안 멈춘다.
+   */
+  const heal = run('⑬½ 원자 치유(정제시트)', ['scripts/fix-atoms-from-refined-sheets.mts', '--apply'], /반영 완료|교정:|미리보기/);
+  if (heal.ok) line.push(heal.picked.find((l) => /교정:/.test(l))?.replace(/^.*교정: /, '치유 ') || '치유 ok');
+  else warnings.push('⑬½ 원자 치유 실패(발행엔 영향 없음)');
+
   const mir = run('⑭ Firestore 미러', ['scripts/mirror-to-firestore.mts', '--apply'], /미러 완료|중단|✗/);
   line.push(mir.ok ? (mir.picked.find((l) => /미러 완료/.test(l))?.replace('미러 완료 — ', '') || '미러 ok') : '★미러 실패');
   if (!mir.ok) warnings.push('Firestore 미러 실패');
