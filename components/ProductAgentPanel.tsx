@@ -10,7 +10,7 @@ import { CustomerPreviewButton } from '@/components/CustomerPreviewModal';
 import { sectionIcon } from '@/components/section-icons';
 import { copyText } from '@/lib/clipboard';
 import { toast } from '@/components/Toaster';
-import { useIsMobile } from '@/lib/use-mobile';
+import { useAgentColumn } from '@/components/product-agent-layout';
 import { won, Btn, C, R, PILL_R, NUM, FW, FS, ICON, DetailTable, DT, R_CARD } from '@/components/ui';
 
 /**
@@ -37,18 +37,15 @@ import { won, Btn, C, R, PILL_R, NUM, FW, FS, ICON, DetailTable, DT, R_CARD } fr
  *   요금이 없으면 보낼 값이 없다고 **아래가 말해 준다** — 버튼을 지우면 기능이 없는 줄 안다.
  */
 
-/** 우측 칼럼이 서는 최소 폭. 이보다 좁으면 본문 아래로 쌓는다. */
-export const AGENT_COL_BP = 1200;
-/** 칼럼 폭 · 본문과의 간격 — 페이지가 flex gap 을 맞추려면 알아야 한다. */
+/**
+ * ★폭·간격·판정은 `components/product-agent-layout.ts` 가 «정본»이다 — 여기서 다시 정의하지 않는다.
+ *   2026-09-04 까지 BP·GAP·useAgentColumn 이 두 파일에 똑같이 있었고, GAP 은 이미 28/16 으로 갈려 있었다.
+ *   한쪽만 고치면 본문 여백과 칼럼 간격이 어긋난다 — 오늘 하루 종일 겪은 그 패턴이다.
+ */
+/** 칼럼 자신의 폭 — 페이지는 몰라도 된다(페이지는 GAP 만 안다). */
 const AGENT_COL_W = 380;
-export const AGENT_COL_GAP = 16;
 /** 위아래 같은 숨 간격 — 위는 곧 «상단에 부딪혔을 때 멈추는 자리»다. */
 const CHROME_GAP = 14;
-
-/** 지금 우측 칼럼이 실제로 서는가 — 페이지가 본문 하단 여백을 정할 때 쓴다. */
-export function useAgentColumn(): boolean {
-  return !useIsMobile(AGENT_COL_BP);
-}
 
 /** 남색 면 위의 선·글자 — 반전면에서는 C.line·C.mute 가 안 보인다(어두운 바탕에 어두운 선). */
 const INV = {
