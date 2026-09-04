@@ -10,7 +10,7 @@ import { hasBrand, resolveWhitelabel } from '@/lib/whitelabel';
  * 근데 거기서 로그인을 할 수 있어요. 그러니까 **로그인 페이지부터 다른 거야.**」
  *
  * ★같은 호스트인데 현관만 우리 이름이면, 앞에서 감춘 것이 거기서 다 샌다.
- *   손님이 `uniautofreepass.com` 을 열면 유니오토플랜인데, 로그인 화면에서 `freepasserp.com` 이
+ *   손님이 `uniautofreepass.com` 을 열면 유니오토모빌인데, 로그인 화면에서 `freepasserp.com` 이
  *   뜨는 순간 「아, 프리패스라는 데가 만든 거구나」가 된다.
  * ★브랜드는 **호스트**가 정한다(`?wl=` 은 도메인 붙기 전 미리보기) — 목록·상세와 같은 규칙.
  * ★★탭 제목도 덮는다. 루트 레이아웃이 `%s · freepasserp.com` 을 붙이므로 **absolute** 로 준다 —

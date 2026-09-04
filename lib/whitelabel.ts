@@ -8,7 +8,7 @@
  *   공급사(partner) 레코드가 없다 — `?p=` 로는 유니오토 화이트라벨이 «구조적으로 불가능»했다.
  *
  * ★어떻게 가르나 = **호스트**다. 쿼리스트링이 아니라 도메인이 브랜드를 정한다.
- *   손님이 `uniautofreepass.com` 으로 들어오면 그 사람에게 우리는 처음부터 유니오토플랜이다.
+ *   손님이 `uniautofreepass.com` 으로 들어오면 그 사람에게 우리는 처음부터 유니오토모빌이다.
  *   (`?wl=` 는 도메인 붙이기 «전»에 미리보기로 확인하려는 용도 — 운영 판정에 쓰지 않는다.)
  *
  * ★운영 무변경이 기본이다. 호스트가 아래 표에 없으면 `FREEPASS`(노브랜드)가 나가고,
@@ -89,8 +89,15 @@ export const WHITELABELS: Whitelabel[] = [
     hosts: ['uniautofreepass.com', 'www.uniautofreepass.com'],
     // 2026-09-05 사장님 「도메인은 아직 못 샀고」 — 사서 Vercel 에 붙이면 true 로 바꾼다.
     domainReady: false,
-    name: '유니오토플랜',
-    wordmark: { main: 'UNI', sub: 'AUTO PLAN' },
+    /*
+     * ★손님에게 보이는 이름 = **유니오토모빌**(사장님 2026-09-05 「유니오토모빌의 그 상품 페이지잖아」
+     *   · 「당연히 바꿔야지」). 처음엔 「유니오토플랜」으로 잡았는데 그건 우리가 지은 이름이었다 —
+     *   실제 회사·홈페이지(uniautomobile.co.kr)·사업자 표기가 전부 «유니오토모빌»이다.
+     *   손님이 검색해 볼 이름과 화면의 이름이 다르면 그 순간 「여기 뭐지」가 된다.
+     * ⚠ 도메인 문자열(uniautofreepass.com)은 사장님이 정하신 주소라 그대로 둔다 — 이름과 별개다.
+     */
+    name: '유니오토모빌',
+    wordmark: { main: 'UNI', sub: 'AUTOMOBILE' },
     brandColor: '#1b4de4',
     /** 유니오토모빌 대표번호 — 그 회사 홈페이지(uniautomobile.co.kr) 푸터에 공개된 값. */
     tel: '1800-6454',
