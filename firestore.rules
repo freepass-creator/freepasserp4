@@ -23,18 +23,24 @@ service cloud.firestore {
       allow read: if signedIn();
       allow write: if false;
     }
-    // 계약 — 관리자 전체, 영업자=자기 계약, 공급사=자기 매물 계약(응답)
+    // 계약 — 관리자 전체 · 공급사=자기 공급사코드 · 영업자=자기 계약(agent_code=user_code).
+    //   ★2026-09-04: companyId(계약)=공급사코드 base 라 myCompany(companyId==company) 는 영업자(company=SP999)에 안 맞는다.
+    //     격리는 provider_company_code / agent_code 로 «직접». (실측: 계약 agent_code = user_code)
     match /contract/{id} {
-      allow read: if signedIn() && myCompany(resource.data);
-      allow create, update: if isAdmin()
-        || (signedIn() && myCompany(request.resource.data) && claim('role') == 'agent' && request.resource.data.agent_code == claim('agent_code'))
-        || (signedIn() && myCompany(request.resource.data) && claim('role') == 'provider' && request.resource.data.provider_company_code == claim('provider_company_code'));
+      allow read: if signedIn() && (isAdmin()
+        || (claim('role') == 'provider' && resource.data.provider_company_code == claim('provider_company_code'))
+        || (claim('role') == 'agent' && resource.data.agent_code == claim('agent_code')));
+      allow create, update: if signedIn() && (isAdmin()
+        || (claim('role') == 'agent' && request.resource.data.agent_code == claim('agent_code'))
+        || (claim('role') == 'provider' && request.resource.data.provider_company_code == claim('provider_company_code')));
       allow delete: if false;
     }
-    // 정산 — 금액 변경은 관리자만(공급사 임의 상향 방지)
+    // 정산 — read 는 자기 공급사/자기 계약 · 금액 변경(create/update)은 관리자만(공급사 임의 상향 방지).
     match /settlement/{id} {
-      allow read: if signedIn() && myCompany(resource.data);
-      allow create, update: if isAdmin() && myCompany(request.resource.data);
+      allow read: if signedIn() && (isAdmin()
+        || (claim('role') == 'provider' && resource.data.provider_company_code == claim('provider_company_code'))
+        || (claim('role') == 'agent' && resource.data.agent_code == claim('agent_code')));
+      allow create, update: if isAdmin();
       allow delete: if false;
     }
     // 감사로그 — append-only, 수정·삭제 금지
