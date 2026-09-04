@@ -5,7 +5,7 @@ import { type EntityRecord } from '@/lib/intake/entities';
 import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
 import { C, FS, FW, R_CARD, SH } from '@/components/ui';
-import { CardThumb } from '@/components/product-card-atoms';
+import { CardThumb, OptionChips, productOptions } from '@/components/product-card-atoms';
 import { cheapest, creditDisplay, CREDIT_UNSET } from '@/lib/domain/product';
 import { vehicleNameOf } from '@/lib/domain/vehicle-name';
 import { yearFullDisplay, fuelDisplay } from '@/lib/domain/vehicle-master-format';
@@ -94,6 +94,17 @@ export const CatalogCard = memo(function CatalogCard({ p, href }: {
               {price.deposit > 0 ? `보증금 ${manWon(price.deposit)}` : '보증금 없음'} · {price.m}개월 기준
             </div>
           </>
+        ) : null}
+
+        {/*
+          * 탑재 옵션 한 줄 — 참고 시안이 카드 바닥에 옵션 칩을 깔아 둔 것을 가져왔다.
+          * 값이 실제로 있다(716대 중 472대). 손님은 같은 차명·같은 요금 사이에서
+          * **무엇이 달렸나**로 고르는데, 지금 카드는 그 줄이 없어 차들이 서로 구분되지 않았다.
+          * ★개수로 자르지 않는다 — `OptionChips` 가 카드 폭을 재서 들어가는 만큼 채우고
+          *   못 들어간 게 있을 때만 … 를 붙인다(원자가 이미 그렇게 짜여 있다).
+          */}
+        {productOptions(p).length ? (
+          <div style={{ marginTop: 1 }}><OptionChips p={p} clamp /></div>
         ) : null}
 
         {(credit || sameDay) ? (
