@@ -1,4 +1,4 @@
-/**
+﻿/**
  * 계약 도메인 — 순수함수. 5단계 2자 핸드셰이크(freepasserp3 contract-steps.js 이식) + 정산 2단.
  */
 import type { EntityRecord } from '@/lib/intake/entities';
@@ -151,7 +151,15 @@ export function contractStage(c: EntityRecord | null | undefined): { label: stri
 }
 
 /* ── 계약상태 ── */
-export const CONTRACT_STATES = ['계약요청', '계약대기', '계약발송', '계약완료', '계약취소'] as const;
+/**
+ * 계약 상태 목록 — **`lib/intake/entities.ts` 가 정본**이다(입력 스키마의 select 옵션이 거기서 난다).
+ *
+ * ★2026-09-04 까지 «값이 완전히 같은» 복사본이 여기에도 있었다. 한쪽에만 상태를 더하면
+ *   화면 드롭다운과 도메인 판정이 조용히 갈린다 — 타입도 통과하고 게이트도 안 잡는다.
+ *   (같은 날 `SETTLEMENT_STATES` 는 «값까지 달라진» 채로 발견됐다. 그 전 단계가 이 모습이다.)
+ *   부르던 곳이 그대로 쓰게 **다시 내보내기만** 한다.
+ */
+export { CONTRACT_STATES } from '@/lib/intake/entities';
 export function contractTone(s: string): 'blue' | 'amber' | 'green' | 'red' | 'gray' {
   return ({ 계약요청: 'blue', 계약대기: 'amber', 계약발송: 'amber', 계약완료: 'green', 계약취소: 'red', 계약철회: 'red' } as Record<string, 'blue' | 'amber' | 'green' | 'red' | 'gray'>)[normalizeContractStatus(s)] || 'gray';
 }
