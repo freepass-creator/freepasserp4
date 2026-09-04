@@ -1,6 +1,6 @@
 'use client';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { SlidersHorizontal, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { C, ICON } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
@@ -162,22 +162,21 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
             차번은 영업자·우리가 쓰는 열쇠지 손님의 말이 아니다 — 검색은 여전히 차번도 받지만
             **안내를 차번으로 하면** 손님은 「내가 아는 게 없네」 하고 조건칸으로도 안 간다.
         */}
-        <ShopSearch value={typed} onChange={setTyped} placeholder="차종·차명으로 찾아보세요 (예: 카니발, SUV, 전기차)" />
+        <ShopSearch value={typed} onChange={setTyped}
+          placeholder="차종·차명으로 찾아보세요 (예: 카니발, SUV, 전기차)"
+          onFilter={mobile ? () => setSheet(true) : undefined}
+          filterCount={queryCount(query)} />
 
         {/*
           빠른 조건 — **한 줄로 스르륵 미는 알약**(사장님 2026-09-04 「좌우로 스크롤하는 그 알약처럼
           생긴 그 필터, 그게 스르륵 이렇게 왔다 가야 되고, 그 밑에는 바로 품목이 나오는 거야」).
           접어서 두 줄로 쌓으면 조건이 늘 때마다 목록이 아래로 밀린다 — 폰 첫 화면에 상품이 안 보이면
           그 화면은 진 것이다. 「많이 찾는 조건」 라벨도 뺐다(자리만 먹고 아무도 안 읽는다).
-          ★맨 앞은 「조건」 — 이 줄에 못 담은 축 아홉으로 가는 문이다. 폰에서만 세운다.
+          ★축 아홉으로 가는 문(「조건」)은 여기 두지 않는다 — **검색줄 오른쪽 끝**이 그 자리다
+            (사장님 2026-09-04). 알약 줄에 두면 조건 칩들과 같은 무게로 보여 「이것도 조건 하나」로
+            읽히고, 실제로 그렇게 뒀더니 맨 앞 칩만 성격이 달라 줄이 어수선했다.
         */}
         <div className="fp-shop-rail" style={{ marginTop: 14, paddingBottom: 2 }}>
-          {mobile ? (
-            <ShopPill on={queryCount(query) > 0} onClick={() => setSheet(true)}>
-              <SlidersHorizontal size={ICON.md} aria-hidden style={{ marginRight: 6 }} />
-              조건{queryCount(query) ? ` ${queryCount(query)}` : ''}
-            </ShopPill>
-          ) : null}
           {QUICK.map((k) => (
             <ShopPill key={`${k.axis}:${k.key}`} on={query.sel[k.axis].includes(k.key)}
               onClick={() => onToggle(k.axis, k.key)}>{k.label}</ShopPill>

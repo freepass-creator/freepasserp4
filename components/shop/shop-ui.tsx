@@ -1,6 +1,6 @@
 'use client';
 import type { CSSProperties, ReactNode } from 'react';
-import { Search, X, ChevronDown } from 'lucide-react';
+import { Search, X, ChevronDown, SlidersHorizontal } from 'lucide-react';
 import { C, ICON, PILL_R, R_CARD } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 
@@ -36,14 +36,24 @@ export const SHOP = {
  * **밑줄 한 줄**이다(사장님 2026-09-04 「검색창은 밑줄 형태로 깔끔하게 가는게 멋있어 보이던데
  * 그게 트렌드 같음」). 상자로 감싸면 조건칸의 네모들과 섞여 검색이 조건의 하나로 보인다.
  * 검색은 조건보다 «먼저 오는 것»이라 혼자 다른 모양이어야 한다.
+ *
+ * ★★오른쪽 끝에 **상세 조건 버튼**이 붙는다(사장님 2026-09-04 「모바일에서 그 검색창에 필터
+ *   버튼 만들어가지고 그거 누르면 상세 필터는 나오게끔 해줘야 돼」).
+ *   폰에는 왼쪽 기둥(조건칸)이 없어서 축 아홉으로 가는 문이 어딘가에는 있어야 하는데,
+ *   **검색줄이 그 문의 제자리**다 — 「찾는다」는 행동이 시작되는 곳이라 손이 이미 거기 있다.
+ *   알약 줄에 두면 조건 칩들과 같은 무게로 보여 「이것도 조건 하나」로 읽힌다.
  */
-export function ShopSearch({ value, onChange, placeholder }: {
+export function ShopSearch({ value, onChange, placeholder, onFilter, filterCount = 0 }: {
   value: string; onChange: (v: string) => void; placeholder?: string;
+  /** 넘기면 오른쪽 끝에 상세 조건 버튼이 선다(폰 전용 — 웹은 왼쪽 기둥이 그 일을 한다). */
+  onFilter?: () => void;
+  /** 지금 걸린 조건 수. 0이면 숫자를 안 그린다(0을 보여 주면 «없다»를 굳이 말하는 꼴이다). */
+  filterCount?: number;
 }) {
   const mobile = useIsMobile();
   return (
     <div style={{
-      display: 'flex', alignItems: 'center', gap: 12,
+      display: 'flex', alignItems: 'center', gap: mobile ? 10 : 12,
       height: mobile ? 56 : 64, borderBottom: `2px solid ${C.ink}`,
     }}>
       <Search size={mobile ? 20 : 22} aria-hidden style={{ flex: '0 0 auto', color: C.ink }} />
@@ -64,6 +74,31 @@ export function ShopSearch({ value, onChange, placeholder }: {
         <ShopIconBtn onClick={() => onChange('')} label="검색어 지우기">
           <X size={ICON.lg} aria-hidden />
         </ShopIconBtn>
+      ) : null}
+      {onFilter ? (
+        <>
+          {/* 가는 세로선 — 「검색어」와 「조건」이 다른 일임을 한 획으로 말한다. */}
+          <span aria-hidden style={{ width: 1, height: 22, background: C.line, flex: '0 0 auto' }} />
+          <button type="button" onClick={onFilter} aria-label="상세 조건 열기"
+            style={{
+              position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+              width: 40, height: 40, borderRadius: 999, flex: '0 0 auto',
+              border: 'none', background: 'transparent', cursor: 'pointer',
+              color: filterCount ? C.brand : C.ink,
+            }}>
+            <SlidersHorizontal size={21} aria-hidden />
+            {filterCount ? (
+              // 걸린 조건 수 — 아이콘 위 작은 표식. 「조건이 살아 있다」를 안 보고도 알아야 한다.
+              <span style={{
+                position: 'absolute', top: 1, right: 0,
+                minWidth: 17, height: 17, padding: '0 4px', borderRadius: 999,
+                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                background: C.brand, color: C.inverse,
+                fontSize: 10, fontWeight: 800, fontVariantNumeric: 'tabular-nums',
+              }}>{filterCount}</span>
+            ) : null}
+          </button>
+        </>
       ) : null}
     </div>
   );
