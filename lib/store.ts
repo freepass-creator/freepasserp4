@@ -220,6 +220,8 @@ class FirestoreAdapter implements StoreAdapter {
         q = query(col, where('agent_code', '==', s.user_code));
       } else if (ROLE_ISOLATED && s && s.role === 'provider' && s.company_code) {
         q = query(col, where('provider_company_code', '==', s.company_code));
+      } else if (entityKey === 'customer' && s && s.role !== 'admin' && s.uid) {
+        q = query(col, where('created_by', '==', s.uid));   // 손님 = 만든 사람만
       } else {
         q = query(col, where('companyId', '==', companyId));   // 관리자·회사격리 엔티티
       }

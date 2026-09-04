@@ -64,9 +64,16 @@ service cloud.firestore {
       allow delete: if false;
     }
     // 방·메시지·견적·고객 — 로그인 + 같은 회사면 write(거래 참여자)
+    // 손님(개인정보) — companyId=PT-0000 공유라 myCompany 로는 못 가른다. «만든 사람(created_by=uid)»만 본다(2026-09-04).
+    match /customer/{id} {
+      allow read: if signedIn() && (isAdmin() || resource.data.created_by == request.auth.uid);
+      allow create: if signedIn() && request.resource.data.created_by == request.auth.uid;
+      allow update: if signedIn() && (isAdmin() || resource.data.created_by == request.auth.uid);
+      allow delete: if false;
+    }
     match /{col}/{id} {
-      allow read: if signedIn() && myCompany(resource.data) && (col == 'room' || col == 'message' || col == 'quote' || col == 'customer');
-      allow create, update: if signedIn() && myCompany(request.resource.data) && (col == 'room' || col == 'message' || col == 'quote' || col == 'customer');
+      allow read: if signedIn() && myCompany(resource.data) && (col == 'room' || col == 'message' || col == 'quote');
+      allow create, update: if signedIn() && myCompany(request.resource.data) && (col == 'room' || col == 'message' || col == 'quote');
       allow delete: if false;
     }
   }
