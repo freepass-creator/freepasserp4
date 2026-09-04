@@ -32,6 +32,7 @@ import { settleTargetOf, billingMonthIn, lockedMonthsOf, type SettlementRow } fr
 import { feeKindOf, feeRuleFor } from '../lib/domain/settlement-fee-table';
 import { outwardText } from '../lib/domain/outward-text';
 import { channelSheetName, CHANNEL_SETTLE_HEAD, CHANNEL_SETTLE_WIDTH, SETTLE_BASIS, SETTLE_NOTE, settleTabOf, settleTabFormat } from '../lib/server/channel-sheet-tabs';
+import { diffSheetRows, applyPending, editId, type SheetEdit } from '../lib/server/sheet-edits';
 
 const MONTH = (process.argv.find((a) => /^\d{4}-\d{2}$/.test(a)) || '').trim();
 const APPLY = process.argv.includes('--apply');
@@ -350,9 +351,12 @@ for (const j of jobs) {
    *   ⚠⚠ 다시 찍을 때 «적어 둔 줄을 덮으면» 그게 사고다 — 빠진 건을 적어 놨는데 지워지는 셈이다.
    */
   const missed: string[][] = [];
+  /** ★상대가 고친 칸을 맞대 보려면 «지금 시트에 있는 표»가 필요하다 — 아래 블록 밖으로 들고 나온다. */
+  let live: unknown[][] = [];
   {
     const got = await (await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${bookId}/values/${encodeURIComponent(`'${tab}'!A1:AZ400`)}`, { headers: { Authorization: `Bearer ${await tok()}` } })).json() as { values?: unknown[][] };
     const g = got.values || [];
+    live = g;
     const mi = g.findIndex((r) => S((r || [])[1]) === '합계');
     if (mi >= 0) {
       for (const r of g.slice(mi + 1)) {
@@ -405,6 +409,49 @@ for (const j of jobs) {
       '지급 예정일': payKo(b.sup), 확인: note(b.plate)[0], 메모: note(b.plate)[1],
     }));
   }
+
+  /**
+   * ★★★**상대가 고친 칸은 «덮지 않는다» — 받아 놓고 사람이 본다.**
+   *   사장님 2026-09-04 「덮지말고 그거를 우리가 보고 우리 원장을 변경할지 검토해야하는거야」.
+   *
+   *   ① 지금 시트에 있는 표와 우리가 쓸 표를 맞댄다  ② 어긋난 칸을 «대기»로 쌓는다
+   *   ③ 대기인 칸은 상대 값을 그대로 둔 채 찍는다   ④ 원장을 고칠지는 `review-sheet-edits` 에서 정한다
+   *   ⇒ 원장을 고쳐 두 값이 같아지면 어긋남이 저절로 사라진다.
+   */
+  const hi0 = live.findIndex((r) => (r || []).some((c) => S(c) === '차량번호'));
+  if (hi0 >= 0) {
+    const liveHead = (live[hi0] || []).map(S);
+    const si = live.findIndex((r) => S((r || [])[1]) === '합계');
+    /** 시트 머리글이 우리 것과 같을 때만 맞댄다 — 칸이 다르면 자리로 견줄 수 없다. */
+    if (liveHead.join('|') === HEAD.join('|')) {
+      const liveBody = live.slice(hi0 + 1, si > hi0 ? si : undefined);
+      const found = diffSheetRows({ head: HEAD, ours: body, theirs: liveBody });
+      const known = (Object.values((await db.ref('v4/sheet_edits').get()).val() || {}) as SheetEdit[])
+        .filter((e) => S(e.channel) === j.ch && S(e.month) === MONTH);
+      const patch: Record<string, SheetEdit> = {};
+      for (const f of found) {
+        const id = editId(j.ch, MONTH, f.key, f.column);
+        const was = known.find((e) => editId(e.channel, e.month, e.key, e.column) === id);
+        /**
+         * ★**이미 아는 고침은 다시 쌓지 않는다.** 「대기」면 적어 둔 사유가 지워지고,
+         *   「물림」이면 안 쓰기로 정한 것을 매달 또 묻게 된다.
+         */
+        if (was && was.theirs === f.theirs) continue;
+        patch[id] = { channel: j.ch, month: MONTH, key: f.key, column: f.column,
+          ours: f.ours, theirs: f.theirs, seenAt: new Date().toISOString(), status: '대기' };
+      }
+      if (Object.keys(patch).length) {
+        await db.ref('v4/sheet_edits').update(patch);
+        console.log(`   ↑ ${j.ch} — 시트에서 고친 칸 ${Object.keys(patch).length}개를 받아 놓았습니다(검토 대기)`);
+      }
+      const all = [...known.filter((e) => !patch[editId(e.channel, e.month, e.key, e.column)]), ...Object.values(patch)];
+      const kept2 = applyPending({ head: HEAD, rows: body, pending: all });
+      if (kept2) console.log(`   = ${j.ch} — 그쪽이 고친 칸 ${kept2}개를 그대로 두고 찍습니다`);
+    } else {
+      console.log(`   ~ ${j.ch} — 시트 머리글이 우리 것과 달라 고친 칸을 못 맞댔습니다`);
+    }
+  }
+
   const values: (string | number | boolean)[][] = [
     /**
      * ★**제목은 «맨 앞»에서 시작한다** — 사장님 2026-09-03 「여기 제목을 앞으로 보내고 틀고정 필요없음」.
