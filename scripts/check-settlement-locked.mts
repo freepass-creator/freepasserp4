@@ -83,6 +83,20 @@ for (const [name, src] of [['publish-channel-settlement', chan], ['import-channe
 must(/const FORBIDDEN = \/청구\|받을\|이익\|마진\|claimWritten\|supplierRate\//.test(chan),
   '영업채널 시트의 «청구액 빗장»이 사라졌습니다. 채널이 우리 청구액을 보면 우리 몫이 그대로 드러납니다.',
   `scripts/publish-channel-settlement.mts · FORBIDDEN — ${manual} §보안 빗장`);
+/**
+ * 공급사 시트도 «같은 넉 칸»을 쓴다 — 한쪽만 고치면 다른 쪽을 볼 때마다 「또 바뀌었다」가 된다
+ * (CLAUDE.md 「규칙을 정하면 양쪽에 한 번에 적용한다」).
+ */
+must(/const NOTE = SETTLE_NOTE;/.test(sup),
+  '공급사 시트가 채널과 «다른» 상대 칸을 쓰고 있습니다. 넉 칸은 양쪽이 같아야 합니다.',
+  `scripts/publish-supplier-settlement.mts · NOTE — ${manual} §칸 규격`);
+/** 예정분도 양쪽에 — 사장님 2026-09-04 「영업자랑 공급사에 9 10 11월꺼 정산할거 미리 반영해두자고」. */
+must(/const FORECAST = MONTH > CLOSED/.test(sup),
+  '공급사 시트에 «예정분» 규칙이 없습니다. 영업자랑 공급사 양쪽에 미리 반영하기로 했습니다.',
+  `scripts/publish-supplier-settlement.mts · FORECAST — ${manual} §달 규칙`);
+must(!/settlementMonthOf\(asRow\(/.test(sup),
+  '공급사 발행기가 settlementMonthOf 에 asRow(r) 를 넘깁니다. 예정 줄이 하나도 안 잡힙니다.',
+  `scripts/publish-supplier-settlement.mts — ${manual} §달 규칙`);
 must(/const FORBIDDEN = \/지급\|영업/.test(sup),
   '공급사 시트의 «지급액 빗장»이 사라졌습니다. 공급사가 영업 지급 수수료를 보면 안 됩니다.',
   `scripts/publish-supplier-settlement.mts · FORBIDDEN — ${manual} §보안 빗장`);
