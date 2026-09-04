@@ -220,7 +220,7 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
 
             {rows === null ? (
               <Grid mobile={mobile}>
-                {Array.from({ length: 6 }, (_, i) => <Skeleton key={i} row={mobile} />)}
+                {Array.from({ length: 6 }, (_, i) => <Skeleton key={i} />)}
               </Grid>
             ) : list.length === 0 ? (
               <ShopEmpty onClear={onClearAll} />
@@ -228,7 +228,7 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
               <>
                 <Grid mobile={mobile}>
                   {shown.map((p) => (
-                    <ShopCard key={String(p.product_code)} p={p} href={href(p)} layout={mobile ? 'row' : 'grid'}
+                    <ShopCard key={String(p.product_code)} p={p} href={href(p)}
                       faved={fav.has(String(p.product_code))} onFav={onFav} />
                   ))}
                 </Grid>
@@ -276,12 +276,13 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
 }
 
 /**
- * 목록 — 웹 3열 격자 · **폰은 한 줄에 한 대(가로카드)**.
+ * 목록 — 웹 3열 격자 · **폰은 한 줄에 한 대(세로 큰 카드)**.
  *
- * 폰을 2열 세로카드로 두었다가 가로로 바꿨다(2026-09-04). 근거는 우리 데이터다 —
- * 사진이 28% 는 아예 없고, 있는 것도 죄다 비슷한 렌터카 실사라 손님이 사진으로 안 고른다.
- * 실제로 고르는 값(월 대여료·보증금·연식)은 전부 글자라, 글자에 폭을 주는 가로형이 이긴다.
- * 한 화면에 4~5대가 들어와 «금액 비교»가 되는 것도 세로 2열(4대)보다 낫다.
+ * 사장님 2026-09-04 「세로 타입으로 크게 사진 그리고 차량 스펙 대여료 뭐 우대사항 이런 하자.
+ * 가로로 할 필요가 없을 것 같다. **어차피 검색해서 찾을 놈은 거고 우리가 뭐 몇 만 몇 만 개
+ * 있는 것도 아니고**」 — 그 말이 맞다. 가로형(당근 형태)이 이기는 판은 매물이 수만 개라
+ * «훑어야 하는» 곳이다. 우리는 716대고 손님은 조건으로 좁혀서 온다.
+ * 좁혀 놓고 보는 화면이면 한 대를 **제대로** 보여 주는 편이 낫다.
  */
 function Grid({ mobile, children }: { mobile: boolean; children: React.ReactNode }) {
   return (
@@ -289,7 +290,7 @@ function Grid({ mobile, children }: { mobile: boolean; children: React.ReactNode
       display: 'grid',
       /*
        * ⚠ 폰 한 열도 반드시 `minmax(0, 1fr)` 이다. 맨 `1fr` 은 `minmax(auto, 1fr)` 이라
-       *   칸의 최소폭이 «내용의 min-content»가 되는데, 가로카드 안에 안 줄어드는 것(옵션 칩·
+       *   칸의 최소폭이 «내용의 min-content»가 되는데, 카드 안에 안 줄어드는 것(옵션 칩·
        *   nowrap 금액)이 있으면 칸이 그만큼 벌어진다. 실측으로 main 이 375 화면에서 864px 이 됐고,
        *   카드는 멀쩡해 보이는데 **하트가 화면 밖(x=822)** 에 나가 있었다. 눈으로는 안 보이는 고장이다.
        */
@@ -300,24 +301,15 @@ function Grid({ mobile, children }: { mobile: boolean; children: React.ReactNode
 }
 
 /** 불러오는 동안의 자리 — 카드와 «같은 짜임»이라야 목록이 도착할 때 화면이 안 튄다. */
-function Skeleton({ row }: { row?: boolean }) {
+function Skeleton() {
   const bar = (w: string, h: number) => (
     <div style={{ height: h, width: w, borderRadius: 4, background: C.placeholder }} />
   );
   return (
-    <div style={{
-      display: 'flex', flexDirection: row ? 'row' : 'column', gap: row ? 13 : 0,
-      padding: row ? 12 : 0, borderRadius: SHOP.r.card, border: `1px solid ${C.line}`, overflow: 'hidden',
-    }}>
-      <div style={{
-        aspectRatio: '4 / 3', background: C.placeholder,
-        ...(row ? { width: 112, flex: '0 0 112px', borderRadius: SHOP.r.box } : null),
-      }} />
-      <div style={{
-        padding: row ? 0 : 15, display: 'flex', flexDirection: 'column',
-        gap: row ? 6 : 9, flex: 1, justifyContent: row ? 'center' : undefined,
-      }}>
-        {bar('78%', 15)}{bar('52%', 11)}{bar('46%', 24)}
+    <div style={{ borderRadius: SHOP.r.card, border: `1px solid ${C.line}`, overflow: 'hidden' }}>
+      <div style={{ aspectRatio: '4 / 3', background: C.placeholder }} />
+      <div style={{ padding: 15, display: 'flex', flexDirection: 'column', gap: 9 }}>
+        {bar('78%', 16)}{bar('52%', 12)}{bar('46%', 26)}{bar('60%', 12)}
       </div>
     </div>
   );
