@@ -101,7 +101,9 @@ for (const [key, v] of Object.entries(products)) {
   const trimKey = `v4/products/${key}/trim_name`;
   const subM = updates[`v4/products/${key}/sub_model`] || S(v.sub_model);
   if (!S(v.trim_name) && !updates[trimKey] && subM) {
-    const picked = pickTrim(subM, S(v['원문']?.['차명']));
+    // ★v4/products(RTDB)의 원문은 supplier_vehicle_name 이다(«원문」 객체는 미러가 Firestore 에 만든다).
+    const raw = S(v.supplier_vehicle_name) || S(v['원문']?.['차명']);
+    const picked = pickTrim(subM, raw);
     if (picked) { updates[trimKey] = picked; stat.trim++; changes.push(`트림(원문)→「${picked}」`); }
   }
   if (changes.length && rows.length < 25) rows.push(`  ${code} ${car}: ${changes.join(' · ')}`);
