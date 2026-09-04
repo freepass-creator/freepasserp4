@@ -50,7 +50,9 @@ const steps: Step[] = [
     before: () => { rmSync(`tmp/정산서-${MONTH}`, { recursive: true, force: true }); } },
   { no: '⑥', what: '쪽 검사 (A4)', cmd: ['node', 'scripts/check-invoice-overflow.mjs', `tmp/정산서-${MONTH}`] },
   { no: '⑦', what: '드라이브에 올리기', cmd: ['npx', 'tsx', 'scripts/upload-settlement-docs.mts', MONTH, ...A], needApply: true },
+  { no: '①½', what: '환수 크로스체크 — 한쪽만 있는 환수', cmd: ['npx', 'tsx', 'scripts/check-clawback-pairs.mts', MONTH], needApply: false },
   { no: '⑧', what: '공급사 시트에 정산 탭 붙이기', cmd: ['npx', 'tsx', 'scripts/publish-supplier-settlement.mts', MONTH, ...A], needApply: true },
+  { no: '⑨', what: '영업채널 시트에 정산 탭 붙이기', cmd: ['npx', 'tsx', 'scripts/publish-channel-settlement.mts', MONTH, ...A], needApply: true },
 ];
 
 console.log(`\n■■ ${MONTH} 한 달 정산 — ${APPLY ? '반영' : 'dry-run (아무것도 안 바꾼다)'}\n`);
