@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useState, type ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { Phone, X } from 'lucide-react';
 import { Btn, C, FS, FW, ICON, R_CARD, SH } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
@@ -118,26 +118,18 @@ export function WhitelabelFrame({ wl, agentName, agentPhone, children }: {
  * 검색창 «위» 안내 블록 — 상품이 무엇인지 알리고, **손님이 X 로 끈다**(사장님 2026-09-04).
  *
  * ★문구는 브랜드 정본(`wl.notice`)에서 온다 — 채널마다 홍보가 다르므로 화면에 박지 않는다.
- * ★끈 것은 그 사람 브라우저에만 남는다(localStorage). 채널별로 키가 갈려서, 한 브랜드에서 껐다고
- *   다른 브랜드의 안내까지 사라지지 않는다.
- * ⚠ 처음 그릴 때는 «보이는» 쪽이 기본이다. 안 보이는 쪽을 기본으로 두면 서버가 그린 화면과
- *   달라져 모두에게 한 번 껌뻑인다 — 껐던 사람만 한 번 깜빡이는 편이 낫다.
+ * ★★**끈 것을 기억하지 않는다**(사장님 2026-09-04 「새로고침하거나 다시 오면 그거 다시 떠야지」).
+ *   X 는 «지금 이 화면에서 치우는» 버튼이지 «다시는 보지 않기»가 아니다.
+ *   이 자리가 회사 홍보·이벤트를 갈아 끼우는 칸이라, 한 번 껐다고 영영 안 뜨면
+ *   다음에 건 홍보를 그 손님은 평생 못 본다. 그래서 localStorage 에 저장하지 않는다.
  */
 function WhitelabelNotice({ wl, mobile }: { wl: Whitelabel; mobile: boolean }) {
   const notice = wl.notice;
-  const key = `fp4_wl_notice_${wl.key}`;
   const [closed, setClosed] = useState(false);
-
-  useEffect(() => {
-    try { if (localStorage.getItem(key) === '1') setClosed(true); } catch { /* 사생활 모드 등 — 그냥 보여 준다 */ }
-  }, [key]);
 
   if (!notice || closed) return null;
 
-  const close = () => {
-    setClosed(true);
-    try { localStorage.setItem(key, '1'); } catch { /* 저장 못 해도 이번 방문은 닫힌다 */ }
-  };
+  const close = () => setClosed(true);
 
   return (
     <div style={{ background: C.brandSoft, borderBottom: `1px solid ${C.brandBg}` }}>

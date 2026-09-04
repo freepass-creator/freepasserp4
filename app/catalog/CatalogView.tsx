@@ -11,7 +11,8 @@ import {
 } from '@/lib/domain/product-filters';
 import { fuelDisplay, makerDisplay, yearDisplay } from '@/lib/domain/vehicle-master-format';
 import { CUSTOMER_VEHICLE_CLASSES, customerVehicleClass } from '@/lib/domain/catalog-facets';
-import { C, FW, FS, CenterNote, FilterChips, FilterGroup, ListMoreBar, Message, SearchInput, Select, ToggleChips, ProductCardSkeleton } from '@/components/ui';
+import { RotateCcw } from 'lucide-react';
+import { C, FW, FS, ICON, CenterNote, FilterChips, FilterGroup, ListMoreBar, Message, SearchInput, Select, ToggleChips, ProductCardSkeleton } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { toggleInSet } from '@/lib/set';
 import { GUEST_W } from '@/lib/guest-layout';
@@ -167,6 +168,14 @@ export function CatalogView({ wl = FREEPASS }: { wl?: Whitelabel }) {
     <WhitelabelFrame wl={wl} agentName={agent?.name} agentPhone={agent?.phone}>{node}</WhitelabelFrame>
   );
 
+  /** 조건이 하나라도 걸려 있나 — 「초기화」는 걸렸을 때만 낸다(없는데 있으면 눌러 볼 게 없다). */
+  const anyFilter = !!rent || credit.size + perks.size + vclass.size + maker.size + dep.size + year.size + mile.size + fuel.size > 0;
+  /** 전체 해제 — 검색어는 안 지운다. 손님이 친 글자까지 사라지면 「왜 지워졌지」가 된다. */
+  const clearAll = () => {
+    setRent(''); setCredit(new Set()); setPerks(new Set()); setVclass(new Set());
+    setMaker(new Set()); setDep(new Set()); setYear(new Set()); setMile(new Set()); setFuel(new Set());
+  };
+
   /**
    * 목록 머리의 정렬 — **조건칸이 아니라 카드 열의 어깨다.**
    * 현대인증중고차·티카 둘 다 「N대 + 정렬」을 목록 열 머리에 둔다(실측 2026-09-04).
@@ -267,10 +276,27 @@ export function CatalogView({ wl = FREEPASS }: { wl?: Whitelabel }) {
           {/* 왼쪽 기둥 = 「전체차량 N대」 + 조건. 헤더 바로 밑에서 출발한다. */}
           {!mobile ? (
             <aside style={{ width: 260, flexShrink: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 7, paddingBottom: 16 }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 7, paddingBottom: 18 }}>
                 <span style={{ fontSize: FS.body, fontWeight: FW.meta, color: C.mute }}>전체차량</span>
                 <span style={{ fontSize: 26, fontWeight: FW.head, color: C.brand, letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums' }}>{countText}</span>
                 <span style={{ fontSize: FS.body, fontWeight: FW.title }}>대</span>
+              </div>
+              {/* 「필터 / 초기화」 머리 — 시안 그대로. 아래 검정 1px 선이 조건칸의 시작을 긋는다. */}
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                paddingBottom: 12, borderBottom: `1px solid ${C.ink}`,
+              }}>
+                <span style={{ fontSize: 17, fontWeight: FW.title, color: C.ink }}>필터</span>
+                {anyFilter ? (
+                  <button type="button" onClick={clearAll}
+                    style={{
+                      display: 'inline-flex', alignItems: 'center', gap: 5, padding: 0,
+                      border: 'none', background: 'transparent', cursor: 'pointer',
+                      fontSize: FS.sub, color: C.mute, fontFamily: 'inherit',
+                    }}>
+                    <RotateCcw size={ICON.sm} aria-hidden />초기화
+                  </button>
+                ) : null}
               </div>
               {conditions}
             </aside>
