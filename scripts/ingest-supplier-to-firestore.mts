@@ -34,6 +34,9 @@ const APPLY = process.argv.includes('--apply');
 const CODE = (process.argv.find((a) => a.startsWith('--code='))?.split('=')[1] || 'RP004').trim();
 const S = (v: unknown) => String(v ?? '').trim();
 const N = (v: unknown) => S(v).toLowerCase().replace(/\s+/g, '');
+const won = (v: unknown) => { const n = Number(S(v).replace(/[^0-9.]/g, '')); return Number.isFinite(n) && n > 0 ? Math.round(n) : 0; };
+type Price = Record<string, { rent: number; deposit: number }>;
+const PERIOD_ALIAS: [string, string[]][] = [['1', ['1개월', '월렌트', '월세']], ['6', ['6개월']], ['12', ['12개월']], ['18', ['18개월']], ['24', ['24개월']], ['36', ['36개월']], ['48', ['48개월']], ['60', ['60개월']]];
 
 // Firestore 먼저 — 원천 레지스트리(partner.sheet_url)와 원자를 여기서 읽는다.
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
@@ -149,12 +152,20 @@ function resolveCols(hdr: string[]) {
     fuel: find(aliasOf('연료')), ext: find(aliasOf('외부색상')), int: find(aliasOf('내부색상')),
     km: find(aliasOf('주행거리')), opt: find(aliasOf('옵션')), firstReg: find(aliasOf('최초등록일')),
     cc: find(aliasOf('배기량')), klass: find(['차급', '차종크기', '차급분류', '차종분류']),
+    dep: find(['장기보증', '보증금']), periods: Object.fromEntries(PERIOD_ALIAS.map(([k, c]) => [k, find(c)])) as Record<string, number>,
   };
+}
+// 시트/홈피 행에서 요금 = {개월: {rent, deposit}}. rent=개월열(원화) · deposit=장기보증(무보증=0, 전 기간 공통).
+function sheetPrice(get: (i: number) => string, ci: { dep: number; periods: Record<string, number> }): Price {
+  const dep = won(ci.dep >= 0 ? get(ci.dep) : '');
+  const price: Price = {};
+  for (const [pk, idx] of Object.entries(ci.periods)) { if (idx < 0) continue; const rent = won(get(idx)); if (rent > 0) price[pk] = { rent, deposit: dep }; }
+  return price;
 }
 
 // ── 원천 리더 — 종류마다 «우리필드 키 행(Row)»을 낸다. 원자화는 하나로 공유한다. ──────
-type Row = { car: string; status: string; kind: string; maker: string; model: string; vname: string; trim: string; fuel: string; ext: string; int: string; km: string; opt: string; firstReg: string; cc: string; klass: string; tab: string; row: string };
-const blank: Omit<Row, 'car' | 'tab' | 'row'> = { status: '', kind: '', maker: '', model: '', vname: '', trim: '', fuel: '', ext: '', int: '', km: '', opt: '', firstReg: '', cc: '', klass: '' };
+type Row = { car: string; status: string; kind: string; maker: string; model: string; vname: string; trim: string; fuel: string; ext: string; int: string; km: string; opt: string; firstReg: string; cc: string; klass: string; price: Price; tab: string; row: string };
+const blank: Omit<Row, 'car' | 'tab' | 'row'> = { status: '', kind: '', maker: '', model: '', vname: '', trim: '', fuel: '', ext: '', int: '', km: '', opt: '', firstReg: '', cc: '', klass: '', price: {} };
 
 // 번호판 꼴만 차로 본다 — 헤더 밑 제목·프로모 배너·빈 행이 «차»로 새는 걸 막는다(오토플러스 실측).
 const isPlate = (s: string) => /\d{2,3}\s*[가-힣]\s*\d{4}/.test(S(s));
@@ -170,7 +181,11 @@ async function readRows(): Promise<Row[]> {
     const got = await rowsFromIronCatalog();
     console.log(`  원본 ironrentcar.com — 목록 ${got.listings} · 활성 ${got.active} · 판매완료 ${got.sold} · 상세실패 ${got.errors}`);
     const g = (m: Map<string, string>, col: string) => S(m.get(N(col)));
-    for (const [plate, m] of got.rows) push({ car: g(m, '차량번호') || plate, status: g(m, '상태'), kind: g(m, '분류'), maker: g(m, '제조사'), model: g(m, '모델명'), vname: g(m, '차명(세부모델+트림)'), fuel: g(m, '연료'), ext: g(m, '외부색상'), int: g(m, '내부색상'), km: g(m, '주행거리'), opt: g(m, '옵션'), firstReg: g(m, '최초등록일') || g(m, '연식'), cc: g(m, '배기량'), klass: g(m, '분류'), tab: 'ironrentcar.com', row: plate });
+    for (const [plate, m] of got.rows) {
+      const dep = won(g(m, '장기보증')); const price: Price = {};
+      for (const [pk, cands] of PERIOD_ALIAS) { for (const c of cands) { const rent = won(g(m, c)); if (rent > 0) { price[pk] = { rent, deposit: dep }; break; } } }
+      push({ car: g(m, '차량번호') || plate, status: g(m, '상태'), kind: g(m, '분류'), maker: g(m, '제조사'), model: g(m, '모델명'), vname: g(m, '차명(세부모델+트림)'), fuel: g(m, '연료'), ext: g(m, '외부색상'), int: g(m, '내부색상'), km: g(m, '주행거리'), opt: g(m, '옵션'), firstReg: g(m, '최초등록일') || g(m, '연식'), cc: g(m, '배기량'), klass: g(m, '분류'), price, tab: 'ironrentcar.com', row: plate });
+    }
     return out;
   }
   if (src.kind === 'sonokong') {
@@ -180,7 +195,12 @@ async function readRows(): Promise<Row[]> {
     for (const c of cars) {
       const car = S(c.차번); if (!car) continue;
       const status = c.계약중 ? '계약중' : (S(c.계약가능) === 'Y' ? '출고가능' : '출고협의');
-      push({ car, status, kind: c.중고 ? '중고구독' : '', maker: S(c.제조사), model: S(c.모델), vname: S(c.차명) || S(c.세부), fuel: S(c.연료), ext: S(c.외장), int: S(c.내장), km: c.주행거리 == null ? '' : String(c.주행거리), opt: S(c.옵션), firstReg: S(c.최초등록) || S(c.연식), cc: c.배기량 == null ? '' : String(c.배기량), klass: '', tab: '손오공API', row: S(c.id) });
+      // 요금 = 저신용월납. RETURN=반납형(개월키) · BUYOUT=인수형(개월_인수형). deposit=(개월/12)×rent(현행 규칙).
+      const price: Price = {};
+      const low = (c.저신용월납 || {}) as { SUBSCRIBE_RETURN?: Record<string, number>; SUBSCRIBE_BUYOUT?: Record<string, number> };
+      for (const [p, rent] of Object.entries(low.SUBSCRIBE_RETURN || {})) { const r = won(rent); if (r > 0) price[p] = { rent: r, deposit: Math.round((Number(p) / 12) * r) }; }
+      for (const [p, rent] of Object.entries(low.SUBSCRIBE_BUYOUT || {})) { const r = won(rent); if (r > 0) price[`${p}_인수형`] = { rent: r, deposit: Math.round((Number(p) / 12) * r) }; }
+      push({ car, status, kind: c.중고 ? '중고구독' : '', maker: S(c.제조사), model: S(c.모델), vname: S(c.차명) || S(c.세부), fuel: S(c.연료), ext: S(c.외장), int: S(c.내장), km: c.주행거리 == null ? '' : String(c.주행거리), opt: S(c.옵션), firstReg: S(c.최초등록) || S(c.연식), cc: c.배기량 == null ? '' : String(c.배기량), klass: '', price, tab: '손오공API', row: S(c.id) });
     }
     return out;
   }
@@ -199,7 +219,8 @@ async function readRows(): Promise<Row[]> {
       const car = S(r[ci.car]); if (!car) continue;
       const model = ci.model >= 0 ? S(r[ci.model]) : '';
       const trim = ci.trim >= 0 ? S(r[ci.trim]) : '';
-      push({ car, status: S(r[ci.status]), kind: ci.kind >= 0 ? S(r[ci.kind]) : '', maker: ci.maker >= 0 ? S(r[ci.maker]) : '', model, vname: composeVehicleName(model, trim), trim, fuel: ci.fuel >= 0 ? S(r[ci.fuel]) : '', ext: ci.ext >= 0 ? S(r[ci.ext]) : '', int: ci.int >= 0 ? S(r[ci.int]) : '', km: ci.km >= 0 ? S(r[ci.km]) : '', opt: ci.opt >= 0 ? S(r[ci.opt]) : '', firstReg: ci.firstReg >= 0 ? S(r[ci.firstReg]) : '', cc: ci.cc >= 0 ? S(r[ci.cc]) : '', klass: ci.klass >= 0 ? S(r[ci.klass]) : '', tab, row: String(rowNo) });
+      const price = sheetPrice((i) => S(r[i]), ci);
+      push({ car, status: S(r[ci.status]), kind: ci.kind >= 0 ? S(r[ci.kind]) : '', maker: ci.maker >= 0 ? S(r[ci.maker]) : '', model, vname: composeVehicleName(model, trim), trim, fuel: ci.fuel >= 0 ? S(r[ci.fuel]) : '', ext: ci.ext >= 0 ? S(r[ci.ext]) : '', int: ci.int >= 0 ? S(r[ci.int]) : '', km: ci.km >= 0 ? S(r[ci.km]) : '', opt: ci.opt >= 0 ? S(r[ci.opt]) : '', firstReg: ci.firstReg >= 0 ? S(r[ci.firstReg]) : '', cc: ci.cc >= 0 ? S(r[ci.cc]) : '', klass: ci.klass >= 0 ? S(r[ci.klass]) : '', price, tab, row: String(rowNo) });
     }
   }
   return out;
@@ -242,6 +263,7 @@ function atomize(row: Row, pinned: Map<string, Record<string, unknown>>): Atom {
     maker: identity.maker, model: identity.model, sub_model: identity.sub_model, trim_name: identity.trim_name, origin: identity.origin, ...spec,
     product_type: canonProductType(row.kind),
     ...statusDetail(row.status, pin?.locked_by_contract), mileage: row.km, options: row.opt,
+    ...(Object.keys(row.price).length ? { price: row.price } : null),
     확정: confirmed, 검수상태: confirmed ? '확정' : (identity.sub_model ? '검수대기' : (vname ? '매칭실패' : '원문없음')),
     _pin_state: state,
     원문: { 차명: vname, ...(row.opt ? { 옵션: row.opt } : null) },
@@ -276,15 +298,22 @@ console.log(`  외장색 ${pctOf(has('ext_color'))} · 내장색 ${pctOf(has('in
 // 대조 (아는 차 = 우리 것과 같아야)
 const IDF = ['maker', 'model', 'sub_model', 'trim_name', 'ext_color', 'int_color', 'year', 'fuel_type'] as const;
 const ingestedCars = new Set(now.map((a) => a.car_number));
-let both = 0, idSame = 0;
-for (const a of now) { const c = cur.get(a.car_number); if (!c) continue; both++; if (IDF.every((f) => N(a[f]) === N(c[f]))) idSame++; }
+let both = 0, idSame = 0, priceSame = 0, priceBoth = 0;
+// 깊은 정렬 JSON — 안쪽 {rent,deposit} 키 순서 차이로 «다르다」 오판하지 않게(현행은 {deposit,rent}).
+const jsonP = (o: unknown) => JSON.stringify(o ?? {}, (_k, v) => (v && typeof v === 'object' && !Array.isArray(v)) ? Object.fromEntries(Object.entries(v as Record<string, unknown>).sort()) : v);
+for (const a of now) {
+  const c = cur.get(a.car_number); if (!c) continue; both++;
+  if (IDF.every((f) => N(a[f]) === N(c[f]))) idSame++;
+  if (Object.keys(a.price).length && c.price) { priceBoth++; if (jsonP(a.price) === jsonP(c.price)) priceSame++; }
+}
 const gone = [...cur.keys()].filter((k) => !ingestedCars.has(k)); // 우리 것엔 있는데 원천에서 사라진 차
 const fresh = now.filter((a) => !cur.has(a.car_number)).length; // 원천엔 있는데 우리 것에 없던 새 차
 console.log(`  대조: 아는 차 불변일치 ${both ? Math.round((idSame / both) * 100) : 0}% (${idSame}/${both}) · 새 차 ${fresh} · 사라진 차(정리대상) ${gone.length}`);
+console.log(`  요금 일치: ${priceBoth ? Math.round((priceSame / priceBoth) * 100) : 0}% (${priceSame}/${priceBoth}, 양쪽에 요금 있는 차)`);
 
 const VARIABLE = process.argv.includes('--variable');
 const docId = (car: string) => car.replace(/\s/g, '').replace(/[/#.$[\]]/g, '_');
-const VAR_FIELDS = ['status', 'status_kind', 'status_reason', 'listable', 'status_label_raw', 'mileage'] as const;
+const VAR_FIELDS = ['status', 'status_kind', 'status_reason', 'listable', 'status_label_raw', 'mileage', 'price'] as const;
 
 // ── 검증(--verify) — 원자를 «차종마스터 ↔ 원문»과 대조. 제대로 당겼나 한 번 본다. ──
 if (process.argv.includes('--verify')) {
@@ -319,22 +348,24 @@ if (!APPLY) { console.log(`\n미리보기 — Firestore 안 씀. 쓰려면 --app
 //   사장님 「한 번 정확히 가져오면 그 다음은 상태값만 읽어 바뀐 거 체크. 제일 바뀌는 게 차량상태.」
 if (VARIABLE) {
   const items = now.filter((a) => cur.has(a.car_number)); // 아는 차만(새 차는 --apply 몫)
-  let changed = 0, sChg = 0, mChg = 0;
+  let changed = 0, sChg = 0, mChg = 0, pChg = 0;
   for (let i = 0; i < items.length; i += 400) {
     const batch = fs.batch(); let any = false;
     for (const a of items.slice(i, i + 400)) {
       const c = cur.get(a.car_number)!;
+      const jsonSorted = (o: unknown) => JSON.stringify(o ?? {}, (_k, v) => (v && typeof v === 'object' && !Array.isArray(v)) ? Object.fromEntries(Object.entries(v as Record<string, unknown>).sort()) : v);
       const sMoved = S(a.status) !== S(c.status) || a.listable !== c.listable || S(a.status_kind) !== S(c.status_kind);
       const mMoved = S(a.mileage) !== S(c.mileage);
-      if (!sMoved && !mMoved) continue;
+      const pMoved = Object.keys(a.price).length > 0 && jsonSorted(a.price) !== jsonSorted(c.price);
+      if (!sMoved && !mMoved && !pMoved) continue;
       const upd: Record<string, unknown> = { _var_polled_at: Date.now() };
-      for (const f of VAR_FIELDS) upd[f] = a[f];
+      for (const f of VAR_FIELDS) if (a[f] !== undefined) upd[f] = a[f];
       batch.set(fs.collection('products').doc(docId(a.car_number)), upd, { merge: true });
-      changed++; if (sMoved) sChg++; if (mMoved) mChg++; any = true;
+      changed++; if (sMoved) sChg++; if (mMoved) mChg++; if (pMoved) pChg++; any = true;
     }
     if (any) await batch.commit();
   }
-  console.log(`\n변동 폴링 완료 — ${PROV} 아는 차 ${items.length} 중 바뀐 ${changed} 씀 (상태 ${sChg} · 주행 ${mChg}). 불변 안 건드림.`);
+  console.log(`\n변동 폴링 완료 — ${PROV} 아는 차 ${items.length} 중 바뀐 ${changed} 씀 (상태 ${sChg} · 주행 ${mChg} · 요금 ${pChg}). 불변 안 건드림.`);
   process.exit(0);
 }
 
