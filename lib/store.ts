@@ -7,6 +7,7 @@
  */
 import { ENTITIES, type EntityRecord } from './intake/entities';
 import { currentActor } from './session';
+import { getSession } from './auth-session';   // 역할 격리 쿼리(계약·정산)용 — 세션의 격리키(user_code/company_code)
 import { getFirebaseApp, firebaseReady } from './firebase/client';
 import { RtdbAdapter } from './firebase/rtdb-adapter';
 import { COMPANIES, ALL_COMPANIES } from './companies';
@@ -206,7 +207,20 @@ class FirestoreAdapter implements StoreAdapter {
     try {
       const { getFirestore, collection, query, where, getDocs } = await import('firebase/firestore');
       const db = getFirestore(getFirebaseApp()!);
-      const snap = await withTimeout(getDocs(query(collection(db, entityKey), where('companyId', '==', companyId))));
+      const col = collection(db, entityKey);
+      // ★역할 격리 엔티티(계약·정산)는 «규칙과 같은 제약»으로 쿼리해야 Firestore 가 거부하지 않는다(규칙=필터가 아니라 검증).
+      //   공급사=provider_company_code · 영업자=agent_code(=user_code) · 관리자=companyId(또는 전체). getSession 이 격리키를 안다.
+      const ROLE_ISOLATED = entityKey === 'contract' || entityKey === 'settlement';
+      const s = getSession();
+      let q;
+      if (ROLE_ISOLATED && s && s.role === 'agent' && s.user_code) {
+        q = query(col, where('agent_code', '==', s.user_code));
+      } else if (ROLE_ISOLATED && s && s.role === 'provider' && s.company_code) {
+        q = query(col, where('provider_company_code', '==', s.company_code));
+      } else {
+        q = query(col, where('companyId', '==', companyId));   // 관리자·회사격리 엔티티
+      }
+      const snap = await withTimeout(getDocs(q));
       return snap.docs.map((d) => d.data() as EntityRecord).filter((r) => !r.deletedAt);
     } catch (e) { console.warn(`Firestore list(${entityKey}) 대기 실패(DB·규칙 확인):`, (e as Error).message); return []; }
   }
