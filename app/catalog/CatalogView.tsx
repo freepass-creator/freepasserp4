@@ -1,13 +1,16 @@
 'use client';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { cheapestRent, creditDisplay, isListableProduct, priceList } from '@/lib/domain/product';
 import { matchProductQuery } from '@/lib/domain/search';
 import { ProductCard } from '@/components/ProductCard';
 import { RENT_BANDS, CREDITS, CATALOG_PERKS, hasPerk } from '@/lib/domain/product-filters';
 import { C, FW, FS, CenterNote, FilterChips, FilterGroup, ListMoreBar, Message, SearchInput, Select, ToggleChips, ProductCardSkeleton } from '@/components/ui';
+import { useIsMobile } from '@/lib/use-mobile';
 import { toggleInSet } from '@/lib/set';
 import { GUEST_W } from '@/lib/guest-layout';
+import { WhitelabelFrame } from '@/components/WhitelabelFrame';
+import { FREEPASS, hasBrand, type Whitelabel } from '@/lib/whitelabel';
 /**
  * 손님 공개 카탈로그(화이트라벨) — 영업 공유의 착지점. ERP 크롬 없음.
  * 필터 축 = 홈과 동일 SSOT (심사 CREDITS · 혜택 CATALOG_PERKS · 월대여료=matchProduct와 동일 밴드).
@@ -18,13 +21,36 @@ import { GUEST_W } from '@/lib/guest-layout';
  *   샜을 구조다. 서버가 화이트리스트만 걸러 준다.
  *
  *   ?p={공급사코드} → 그 공급사 매물만(화이트라벨) · ?a={영업 user_code} → 담당 귀속
+ *
+ * ★브랜드(워드마크·색·푸터)는 여기서 정하지 않는다 — **서버 껍데기(`page.tsx`)가 호스트를 보고**
+ *   정해서 `wl` 로 넘긴다. 클라이언트에서 칠하면 브랜드 없는 맨 화면이 한 번 번쩍인 뒤 바뀐다
+ *   (globals.css 「칠하는 주체는 CSS 다」와 같은 이유).
+ *
+ * ★★껍데기가 둘인 것은 **일부러**다(사장님 2026-09-04 「유니오토거 바꾸고 프리패스도 따라 갈 거야」).
+ *   · 브랜드 O = **마켓 껍데기** — 첫 줄 검색 + 좌 조건칸 + 전체차량 N대 + 격자.
+ *     중고차·렌터카 마켓(현대인증중고차·티카·리본카)이 공통으로 쓰는 짜임이다.
+ *   · 브랜드 X = **지금 프리패스 화면 그대로.** 한 줄도 안 건드린다.
+ *   프리패스가 따라올 때는 화면을 다시 짜는 게 아니라 **이 분기를 지우면** 된다 —
+ *   그때까지 새 짜임은 여기 한 곳에만 있다(두 벌로 갈라 두지 않는다).
  */
 
 const PAGE = 100; // 파인더와 동일 — 첫 화면·더보기 단위
 
-export default function Catalog() {
+/**
+ * 첫 줄에 세우는 「많이 찾는 조건」 — 손님이 제일 먼저 누르는 것만.
+ * ★값은 지어내지 않고 `RENT_BANDS`(필터 SSOT) 의 **키를 그대로** 쓴다. 키가 안 맞으면
+ *   칩이 조용히 0개가 되어 라벨만 남는다(실제로 한 번 그렇게 비었다).
+ * 저신용·무심사 손님은 싼 쪽부터 보므로 아래 세 밴드가 첫 줄이다.
+ */
+const QUICK_RENT = ['r50', 'r60', 'r70'] as const;
+
+export function CatalogView({ wl = FREEPASS }: { wl?: Whitelabel }) {
+  const mobile = useIsMobile();
+  const branded = hasBrand(wl);
   const [rows, setRows] = useState<EntityRecord[] | null>(null);
   const [brand, setBrand] = useState('');
+  // 공유링크(?a=)로 들어온 손님의 담당 영업자 — 머리 오른쪽 「담당 OOO · 전화」가 쓴다.
+  const [agent, setAgent] = useState<{ name?: string; phone?: string } | null>(null);
   const [attr, setAttr] = useState('');
   const [qInput, setQInput] = useState(''); // 검색창 즉시 반영
   const [q, setQ] = useState(''); // 디바운스된 검색
@@ -45,9 +71,14 @@ export default function Catalog() {
       if (provider) q2.set('p', provider);
       if (a) q2.set('a', a);
       const res = await fetch(`/api/catalog/feed?${q2}`, { cache: 'no-store' });
-      const body = await res.json().catch(() => ({})) as { products?: EntityRecord[]; brand?: string };
+      const body = await res.json().catch(() => ({})) as {
+        products?: EntityRecord[];
+        brand?: string;
+        agent?: { name?: string; phone?: string } | null;
+      };
       setRows(res.ok && body.products ? body.products : []);
       setBrand(String(body.brand || ''));
+      setAgent(body.agent || null);
     } catch {
       setRows([]);
     }
@@ -82,6 +113,109 @@ export default function Catalog() {
   const shown = list.slice(0, limit);
   const href = (p: EntityRecord) => `/q/${encodeURIComponent(String(p.product_code))}${attr ? `?a=${encodeURIComponent(attr)}` : ''}`;
 
+  // 껍데기는 목록을 기다리는 동안에도 서 있어야 한다 — 머리띠가 뒤늦게 나타나면 그게 「번쩍」이다.
+  const frame = (node: ReactNode) => (
+    <WhitelabelFrame wl={wl} agentName={agent?.name} agentPhone={agent?.phone}>{node}</WhitelabelFrame>
+  );
+
+  // ── 조건칸 — 웹은 왼쪽 기둥, 모바일은 목록 위에 눕는다. 값·축은 양쪽이 같은 것을 쓴다. ──
+  const conditions = (
+    <>
+      <FilterGroup title="정렬" count={sort !== 'asc' ? 1 : 0} defaultOpen={!mobile} first onClear={() => setSort('asc')}>
+        <FilterChips
+          value={sort}
+          onChange={setSort}
+          options={[{ key: 'asc', label: '낮은 대여료순' }, { key: 'desc', label: '높은 대여료순' }]}
+          clearKey="asc"
+        />
+      </FilterGroup>
+      <FilterGroup title="월 대여료" count={rent ? 1 : 0} defaultOpen={!mobile} onClear={() => setRent('')}>
+        <FilterChips
+          value={rent}
+          onChange={setRent}
+          options={RENT_BANDS.map((b) => ({ key: b.k, label: b.label }))}
+          clearKey=""
+        />
+      </FilterGroup>
+      <FilterGroup title="심사" count={credit.size} defaultOpen={!mobile} onClear={() => setCredit(new Set())}>
+        <ToggleChips selected={credit} onToggle={(k) => setCredit((p) => toggleInSet(p, k))} options={CREDITS.map((c) => ({ key: c, label: c }))} />
+      </FilterGroup>
+      <FilterGroup title="혜택" count={perks.size} defaultOpen={!mobile} onClear={() => setPerks(new Set())}>
+        <ToggleChips selected={perks} onToggle={(k) => setPerks((p) => toggleInSet(p, k))} options={CATALOG_PERKS.map((pk) => ({ key: pk, label: pk }))} />
+      </FilterGroup>
+    </>
+  );
+
+  const cards = list.length === 0 ? <CenterNote>조건에 맞는 차량이 없습니다.</CenterNote> : (
+    <>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: 12 }}>
+        {shown.map((p) => <ProductCard key={String(p.product_code)} p={p} audience="customer" href={href(p)} />)}
+      </div>
+      <ListMoreBar shown={shown.length} total={list.length} unit="대" pageSize={PAGE} onMore={() => setLimit((n) => n + PAGE)} />
+    </>
+  );
+
+  // ── 브랜드 O = 마켓 껍데기 ──────────────────────────────────────────────
+  if (branded) {
+    if (rows === null) {
+      return frame(
+        <main style={{ maxWidth: 1280, margin: '0 auto', padding: mobile ? '14px 16px 28px' : '20px 24px 40px' }}>
+          <ProductCardSkeleton count={6} />
+        </main>,
+      );
+    }
+    return frame(
+      <main style={{ maxWidth: 1280, margin: '0 auto', padding: mobile ? '14px 16px 28px' : '0 24px 48px' }}>
+
+        {/* 첫 줄 = 검색. 목록보다 검색이 먼저 서는 것이 마켓의 짜임이다. */}
+        <section style={{ maxWidth: 900, margin: '0 auto', padding: mobile ? '4px 0 14px' : '40px 0 34px' }}>
+          <SearchInput hero full value={qInput} onChange={setQInput} placeholder="차종, 차량번호로 검색해 보세요" />
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginTop: 16 }}>
+            <span style={{ fontSize: FS.sub, color: C.faint, marginRight: 2 }}>많이 찾는 조건</span>
+            <FilterChips
+              value={rent}
+              onChange={setRent}
+              options={RENT_BANDS.filter((b) => (QUICK_RENT as readonly string[]).includes(b.k)).map((b) => ({ key: b.k, label: b.label }))}
+              clearKey=""
+            />
+          </div>
+        </section>
+
+        <div style={{ display: mobile ? 'block' : 'flex', gap: 40, alignItems: 'flex-start' }}>
+
+          {/* 조건칸 — 웹만 왼쪽 기둥. 모바일은 아래 목록 위에 눕는다. */}
+          {!mobile ? (
+            <aside style={{ width: 260, flexShrink: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 7, paddingBottom: 16 }}>
+                <span style={{ fontSize: FS.body, fontWeight: FW.meta, color: C.mute }}>전체차량</span>
+                <span style={{ fontSize: 26, fontWeight: FW.head, color: C.brand, letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums' }}>{list.length}</span>
+                <span style={{ fontSize: FS.body, fontWeight: FW.title }}>대</span>
+              </div>
+              {conditions}
+            </aside>
+          ) : null}
+
+          <div style={{ flex: 1, minWidth: 0 }}>
+            {mobile ? (
+              <>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 7, padding: '2px 0 10px' }}>
+                  <span style={{ fontSize: FS.sub, fontWeight: FW.meta, color: C.mute }}>전체차량</span>
+                  <span style={{ fontSize: 22, fontWeight: FW.head, color: C.brand, letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums' }}>{list.length}</span>
+                  <span style={{ fontSize: FS.sub, fontWeight: FW.title }}>대</span>
+                </div>
+                <div style={{ marginBottom: 14 }}>{conditions}</div>
+              </>
+            ) : null}
+            {cards}
+          </div>
+        </div>
+
+        <Message variant="info">표시 가격은 참고용이며 심사·재고에 따라 변동될 수 있습니다.</Message>
+      </main>,
+    );
+  }
+
+  // ── 브랜드 X = 지금 프리패스 화면 그대로. 손대지 않는다. ─────────────────
   if (rows === null) return <ProductCardSkeleton count={6} />;
 
   return (
@@ -110,20 +244,7 @@ export default function Catalog() {
         <span style={{ fontSize: FS.sub, color: C.mute }}>{list.length}대</span>
       </div>
 
-      {list.length === 0 ? <CenterNote>조건에 맞는 차량이 없습니다.</CenterNote> : (
-        <>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: 12 }}>
-            {shown.map((p) => <ProductCard key={String(p.product_code)} p={p} audience="customer" href={href(p)} />)}
-          </div>
-          <ListMoreBar
-            shown={shown.length}
-            total={list.length}
-            unit="대"
-            pageSize={PAGE}
-            onMore={() => setLimit((n) => n + PAGE)}
-          />
-        </>
-      )}
+      {cards}
       <Message variant="info">표시 가격은 참고용이며 심사·재고에 따라 변동될 수 있습니다.</Message>
     </main>
   );
