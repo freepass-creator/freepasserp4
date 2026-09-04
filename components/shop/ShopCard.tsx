@@ -166,10 +166,19 @@ export const ShopCard = memo(function ShopCard({ p, href, faved, onFav }: {
                 fontSize: mobile ? 25 : 24, fontWeight: FW.head, color: C.ink, flex: '0 0 auto',
                 letterSpacing: '-0.04em', fontVariantNumeric: 'tabular-nums',
               }}>{manWon(price.rent)}</span>
+              {/*
+                ★「보증금 없음」에만 색을 준다(2026-09-05). 저신용 손님의 1번 장벽은 월요금이 아니라
+                  **지금 당장 필요한 목돈**이라, 이 판에서 제일 센 말이 이거다.
+                  뱃지를 하나 더 세우는 대신 «있는 글자»에 색을 얹었다 — 「무보증」 뱃지를 뺀 자리를
+                  이게 대신한다(같은 사실을 두 번 말하지 않으면서 눈에는 선다).
+                ⚠ 보증금이 «있는» 차는 흐린 회색 그대로다. 금액마다 색을 주면 그건 강조가 아니라 소란이다.
+              */}
               <span style={{
-                fontSize: SHOP.fs.sub, color: C.mute, flex: '0 1 auto',
+                fontSize: SHOP.fs.sub, flex: '0 1 auto',
                 minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis',
                 fontVariantNumeric: 'tabular-nums',
+                color: price.deposit > 0 ? C.mute : C.ok,
+                fontWeight: price.deposit > 0 ? 400 : 700,
               }}>
                 {price.deposit > 0 ? `보증금 ${manWon(price.deposit)}` : '보증금 없음'}
               </span>

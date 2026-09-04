@@ -1,7 +1,10 @@
 'use client';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Check, ChevronLeft, ChevronRight, Heart, ImageOff, Phone, Share2 } from 'lucide-react';
+import {
+  ArrowLeft, Car, Check, ChevronLeft, ChevronRight, Coins, FileText, Heart,
+  IdCard, ImageOff, Info, Phone, Share2, ShieldCheck, type LucideIcon,
+} from 'lucide-react';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { Badge, C, FW, FS, ICON, PERK_TONE, CREDIT_TONE, type BadgeTone } from '@/components/ui';
 import { SHOP } from '@/components/shop/shop-ui';
@@ -200,7 +203,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
       background: C.brandSoft, borderRadius: 14,
       padding: mobile ? '20px 16px 18px' : '22px 20px 20px',
     }}>
-      <SecTitle>대여료</SecTitle>
+      <SecTitle icon={Coins} accent>대여료</SecTitle>
       {plan ? (
         <>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, whiteSpace: 'nowrap' }}>
@@ -217,7 +220,13 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
               중복을 없애는 것보다 «큰 숫자가 무슨 조건인지»가 먼저다.
           */}
           <div style={{ marginTop: 6, fontSize: SHOP.fs.body, color: C.sub, fontVariantNumeric: 'tabular-nums' }}>
-            {plan.deposit > 0 ? `보증금 ${manWon(plan.deposit)}` : '보증금 없음'} · {plan.m}개월 약정
+            {/* 목록 카드와 같은 규칙 — 「보증금 없음」에만 색을 준다(두 화면이 같은 말을 같은 색으로 한다). */}
+            <span style={{
+              color: plan.deposit > 0 ? C.sub : C.ok,
+              fontWeight: plan.deposit > 0 ? 400 : 700,
+            }}>
+              {plan.deposit > 0 ? `보증금 ${manWon(plan.deposit)}` : '보증금 없음'}
+            </span> · {plan.m}개월 약정
           </div>
         </>
       ) : (
@@ -337,7 +346,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
         차량 정보 — 서로 «독립된 짧은 사실» 넷이다. 이름/값 표로 놓으면 계약·보험과 같은 얼굴이 되고,
         네 줄짜리를 표로 만들면 그건 표가 아니라 창살이다. **타일**로 나란히 놓는다.
       */}
-      <Tiles title="차량 정보" rows={specs} cols={mobile ? 2 : 4} mobile={mobile} />
+      <Tiles title="차량 정보" rows={specs} cols={mobile ? 2 : 4} mobile={mobile} icon={Car} />
 
       {options.length ? (
         <>
@@ -361,17 +370,17 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
         「사고 났을 때 내 부담(면책금)」이다. 그것만 크게 세우고 보장 한도들은 흐린 한 줄로 흘린다.
         라벨을 「자기차량손해」가 아니라 **「사고 시 내 부담」**으로 쓴다 — 손님이 읽는 말이라야 읽는다.
       */}
-      <Lead title="보험 조건" mobile={mobile}
+      <Lead title="보험 조건" mobile={mobile} icon={ShieldCheck}
         label={deductible ? '사고 시 내 부담' : ''} value={deductible} note={coverage} />
 
       {/*
         계약 — 서로 «독립된 짧은 답»들이다(된다/안 된다/얼마). 견줄 것이 아니라 하나씩 확인하는 값이라
         표가 아니라 **타일**로 놓는다. 보증금 관련이 앞이다 — 이 손님층의 1번 장벽은 월요금이 아니라 목돈이다.
       */}
-      <Tiles title="계약 조건" rows={contract} cols={mobile ? 2 : 3} mobile={mobile} />
+      <Tiles title="계약 조건" rows={contract} cols={mobile ? 2 : 3} mobile={mobile} icon={FileText} />
 
       {/* 운전 — 「내가 탈 수 있나」. 나이 범위 하나가 결정적이라 그것만 크게. */}
-      <Lead title="운전 조건" mobile={mobile}
+      <Lead title="운전 조건" mobile={mobile} icon={IdCard}
         label={ageRange ? '운전 가능 연령' : ''} value={ageRange} note={driving} />
 
       {/* 기타 — 참고만 하는 값. 제일 조용하게 한 줄. */}
@@ -379,7 +388,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
         <>
           <Rule mobile={mobile} />
           <section aria-label="기타 사항">
-            <SecTitle>기타 사항</SecTitle>
+            <SecTitle icon={Info}>기타 사항</SecTitle>
             <div style={{ fontSize: SHOP.fs.sub, color: C.mute, lineHeight: 1.9 }}>{etc}</div>
           </section>
         </>
@@ -517,20 +526,22 @@ function TopBar({ code, title, listHref }: { code: string; title: string; listHr
  * 그러면 눈이 왼쪽 라벨 열을 훑을 필요 없이 «값만» 읽고 지나간다.
  * ★속이 비면 통째로 안 그린다 — 제목만 있고 아래가 빈 칸은 「안 채웠다」로 보인다.
  */
-function Tiles({ title, rows, cols, mobile }: { title: string; rows: [string, string][]; cols: number; mobile?: boolean }) {
+function Tiles({ title, rows, cols, mobile, icon }: {
+  title: string; rows: [string, string][]; cols: number; mobile?: boolean; icon?: LucideIcon;
+}) {
   if (!rows.length) return null;
   return (
     <>
       <Rule mobile={mobile} />
       <section aria-label={title}>
-        <SecTitle>{title}</SecTitle>
+        <SecTitle icon={icon}>{title}</SecTitle>
         <div style={{
           display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
           columnGap: 14, rowGap: 20,
         }}>
           {rows.map(([k, v]) => (
             <div key={k} style={{ minWidth: 0 }}>
-              <div style={{ fontSize: SHOP.fs.cap, color: C.faint, marginBottom: 5 }}>{k}</div>
+              <div style={{ fontSize: SHOP.fs.cap, color: C.faint, marginBottom: 6, letterSpacing: '0.01em' }}>{k}</div>
               <div style={{
                 fontSize: SHOP.fs.body, fontWeight: 600, color: C.ink,
                 wordBreak: 'keep-all', lineHeight: 1.45,
@@ -551,18 +562,28 @@ function Tiles({ title, rows, cols, mobile }: { title: string; rows: [string, st
  * 나머지(보장 한도·면허 경력·운전 범위)는 그 결정을 «확인»해 주는 값이라 뒤에 흐리게 흘린다.
  * 여섯을 같은 크기로 늘어놓으면 결정적인 하나가 나머지에 묻힌다.
  */
-function Lead({ title, label, value, note, mobile }: {
-  title: string; label: string; value: string; note: string; mobile: boolean;
+function Lead({ title, label, value, note, mobile, icon }: {
+  title: string; label: string; value: string; note: string; mobile: boolean; icon?: LucideIcon;
 }) {
   if (!value && !note) return null;
   return (
     <>
       <Rule mobile={mobile} />
       <section aria-label={title}>
-        <SecTitle>{title}</SecTitle>
+        <SecTitle icon={icon}>{title}</SecTitle>
         {value ? (
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
-            <span style={{ fontSize: SHOP.fs.sub, color: C.mute, flex: '0 0 auto' }}>{label}</span>
+          /*
+           * ★라벨을 «연한 면 위 작은 글자»로 얹는다. 큰 값 옆에 같은 굵기로 두면 둘이 다투는데,
+           *   면에 얹으면 「이건 이름표」라고 한눈에 읽혀 값이 혼자 선다.
+           * ⚠ 값에 색을 주지 않는다 — 구역 아이콘이 이미 신호이고, 여기까지 색을 주면
+           *   화면에 강조가 셋(아이콘·면·글자색)이 되어 그때부터 소란이다.
+           */
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+            <span style={{
+              flex: '0 0 auto', padding: '4px 10px', borderRadius: 999,
+              background: C.zebra, color: C.mute,
+              fontSize: SHOP.fs.cap, fontWeight: 600,
+            }}>{label}</span>
             <span style={{
               fontSize: mobile ? 21 : 22, fontWeight: 800, color: C.ink,
               letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums',
@@ -642,13 +663,25 @@ function Rule({ mobile }: { mobile?: boolean }) {
 /**
  * 구역 제목 — 띠 바로 다음에 오는 글자라, 여기서 「새 구역이 시작됐다」가 확정된다.
  * 띠만으로는 «갈렸다»까지고 «무엇이 시작됐는지»는 제목이 말한다 — 그래서 굵고 크다.
+ *
+ * ★아이콘을 하나 붙인다(사장님 2026-09-05 「아이콘도 좀 넣고 … 적당한 강조가 있어야 되거든,
+ *   촌스럽지 않은?」). 글자만 여섯 줄이면 어느 구역이나 같은 얼굴이라, 눈이 제목을 «읽어야» 안다.
+ *   아이콘이 있으면 **읽기 전에** 무슨 칸인지 안다.
+ * ★★색은 «흐리게»가 기본이다. 아이콘마다 색을 주면 그 순간 촌스러워진다 —
+ *   빨강·초록·노랑이 한 화면에 서면 그건 강조가 아니라 소란이다.
+ *   **채널색은 딱 한 구역(대여료)에만** 준다. 손님이 찾아온 답이라 거기만 서면 된다.
  */
-function SecTitle({ children }: { children: React.ReactNode }) {
+function SecTitle({ children, icon: Icon, accent }: {
+  children: React.ReactNode; icon?: LucideIcon; accent?: boolean;
+}) {
   return (
     <h2 style={{
-      margin: '0 0 16px', fontSize: 18, fontWeight: 800,
-      color: C.ink, letterSpacing: '-0.025em',
-    }}>{children}</h2>
+      margin: '0 0 16px', display: 'flex', alignItems: 'center', gap: 8,
+      fontSize: 18, fontWeight: 800, color: C.ink, letterSpacing: '-0.025em',
+    }}>
+      {Icon ? <Icon size={19} aria-hidden style={{ color: accent ? C.brand : C.faint, flex: '0 0 auto' }} /> : null}
+      {children}
+    </h2>
   );
 }
 

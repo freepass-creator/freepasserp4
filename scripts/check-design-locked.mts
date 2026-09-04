@@ -129,7 +129,8 @@ must(/sort\(\(a, b\) => a\.m - b\.m\)/.test(shopDetail),
 // 정책 넷. 운전 조건을 「기타」에 묻지 않는다.
 // 구역이 «있는가»만 본다 — 어떤 배열로 그리는지(표·타일·큰줄)는 구역마다 달라도 된다.
 for (const sec of ['보험 조건', '계약 조건', '운전 조건', '기타 사항']) {
-  must(new RegExp(`title="${sec}"|<SecTitle>${sec}</SecTitle>`).test(shopDetail),
+  // ⚠ «모양»이 아니라 «있는가»를 본다 — 전에 아이콘 프롭 하나 붙였다고 구역이 사라졌다고 잡았다.
+  must(new RegExp(`title="${sec}"|<SecTitle[^>]*>${sec}`).test(shopDetail),
     `상세에서 「${sec}」 구역이 사라졌습니다. 한 표에 몰면 보험을 찾다 납부 방법을 지나칩니다.`,
     'components/shop/ShopDetail.tsx Sec');
 }
