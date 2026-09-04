@@ -18,6 +18,7 @@
  */
 import type { EntityRecord } from '@/lib/intake/entities';
 import { applyPolicyDefaults } from '@/lib/domain/policy-defaults';
+import { scrapableSources } from '@/lib/domain/product-photos';
 
 type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim();
@@ -111,8 +112,29 @@ export function sanitizeProductForGuest(key: string, p: Rec, policy?: Rec | null
   out.mileage = N(p.mileage);
   out.engine_cc = N(p.engine_cc);
   out.price = publicPrice(p.price);
+  /*
+   * 사진 — 저장된 직접 URL이 먼저고, 없으면 **미리 풀어 둔 캐시**(`photo_cache`)를 쓴다.
+   *
+   * 왜(2026-09-05 실측). 우리 사진의 절반 가까이는 이미지 주소가 아니라 드라이브 폴더·공급사
+   * 상세페이지 «링크»다. 그걸 화면이 볼 때마다 풀면 한 건에 0.6~1.4초가 들고 **손님이 바뀔 때마다
+   * 처음부터 다시 긁는다** — 첫 화면 서른 대면 마지막 카드까지 7초, 그동안은 회색 판이라
+   * 손님은 「사진 없는 차」로 보고 지나간다. `scripts/cache-photo-urls.mts` 가 한 번 풀어 둔다.
+   *
+   * ★캐시는 **출처가 같을 때만** 쓴다(`scrapableSources` 로 «같은 기준»에서 뽑아 견준다 —
+   *   `photo_link` 는 주소를 여럿 담을 수 있어 통째로 견주면 늘 어긋난다).
+   *   공급사가 사진링크를 바꾸면 `src` 가 달라져 저절로 무효가 된다 —
+   *   안 그러면 「바뀐 링크 · 옛 사진」이 굳는다. 그때는 `photo_link` 가 그대로 내려가고
+   *   화면이 예전처럼 직접 푼다(느릴 뿐, 틀리지는 않는다).
+   * ★`photo_cache` 자체는 손님에게 안 내보낸다 — 손님이 볼 값은 사진 주소뿐이다.
+   */
   const images = publicImages(p);
-  if (images.length) { out.image_urls = images; out.image_url = images[0]; }
+  const cache = (p.photo_cache || {}) as { urls?: unknown; src?: unknown };
+  const cached = Array.isArray(cache.urls)
+    ? (cache.urls as unknown[]).filter((u): u is string => typeof u === 'string' && !!u)
+    : [];
+  const shown = images.length ? images
+    : (cached.length && S(cache.src) === S(scrapableSources(p as EntityRecord)[0]) ? cached : []);
+  if (shown.length) { out.image_urls = shown; out.image_url = shown[0]; }
   if (S(p.photo_link)) out.photo_link = S(p.photo_link);
   const pol = publicPolicy(policy);
   if (pol) out._policy = pol;

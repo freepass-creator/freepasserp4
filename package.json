@@ -68,6 +68,7 @@
     "check:columns": "tsx --require ./scripts/lib/server-only-shim.cjs scripts/check-sales-columns.mts",
     "check:photo-link": "tsx --require ./scripts/lib/server-only-shim.cjs scripts/check-plate-photo-link.mts",
     "audit:axes": "tsx scripts/audit-axis-coverage.mts",
+    "cache:photos": "tsx --require ./scripts/lib/server-only-shim.cjs scripts/cache-photo-urls.mts",
     "audit:policy-rules": "tsx --require ./scripts/lib/server-only-shim.cjs scripts/audit-policy-rules.mts",
     "check:encar-spec-fill": "tsx scripts/check-encar-spec-fill.mts",
     "encar:learn": "tsx scripts/learn-encar.mts",
