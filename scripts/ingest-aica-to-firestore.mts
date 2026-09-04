@@ -58,7 +58,7 @@ const yearOf = (firstReg: string) => {
 
 // ── 원천 직접 읽기 → 원자 ──────────────────────────────────────────────────
 type Atom = Record<string, unknown> & { car_number: string };
-async function ingest(): Promise<Atom[]> {
+async function ingest(pinned: Map<string, Record<string, unknown>>): Promise<Atom[]> {
   const tabs = (await listSheetTabs(SRC)).filter((t) => CAR_TABS.has(t));
   const atoms: Atom[] = [];
   const seen = new Set<string>();
@@ -79,28 +79,45 @@ async function ingest(): Promise<Atom[]> {
       const rawTrim = S(r[ci.trim]);
       const maker = S(r[ci.maker]);
       const vname = composeVehicleName(rawModel, rawTrim); // 차종분류 + 트림 → 차명(원문)
-      // 불변 정체 = 마스터 매칭(정제시트 경로와 같은 snapToMaster).
-      const snap = snapToMaster({ maker, model: rawModel, vehicle_name: vname, sub_model: vname, fuel_type: S(r[ci.fuel]), year: yearOf(S(r[ci.firstReg])) } as EntityRecord, MASTER) as
-        { maker?: string; model?: string; sub_model?: string; trim_name?: string; origin?: string; confidence?: string } | null;
-      const canon = snap ? validCanon(snap.maker, snap.model, snap.sub_model) : null;
-      const conf = snap?.confidence || 'none';
-      const confirmed = !!canon && (conf === 'high');
-      const identity = canon
-        ? { maker: canon.maker, model: canon.model, sub_model: canon.sub_model, trim_name: S(snap?.trim_name) || rawTrim, origin: S(snap?.origin) }
-        : { maker, model: rawModel, sub_model: '', trim_name: rawTrim, origin: '' };
+
+      // ★차량번호로 «우리가 박아둔 것»을 먼저 본다. 있으면 그대로 — 원천 텍스트를 다시 snap하지 않는다.
+      //   차번은 영구 키라, 한 번 마스터와 맞춰 확정하면 그 차의 정체는 안 바뀐다(틀릴 일이 없다).
+      const pin = pinned.get(car);
+      const pinConfirmed = !!pin && !!S(pin.sub_model) && (pin.확정 === true || S(pin.검수상태) === '확정');
+      let identity: { maker: string; model: string; sub_model: string; trim_name: string; origin: string };
+      let confirmed: boolean;
+      let state: 'pinned' | 'new-high' | 'new-review';
+      let spec: Record<string, string>;
+      if (pinConfirmed && pin) {
+        identity = { maker: S(pin.maker), model: S(pin.model), sub_model: S(pin.sub_model), trim_name: S(pin.trim_name), origin: S(pin.origin) };
+        confirmed = true; state = 'pinned';
+        // 불변 스펙(색·연식·연료·배기…)도 박아둔 우리 값을 지킨다.
+        spec = { ext_color: S(pin.ext_color), int_color: S(pin.int_color), year: S(pin.year), fuel_type: S(pin.fuel_type), engine_cc: S(pin.engine_cc), vehicle_class: S(pin.vehicle_class), first_registration_date: S(pin.first_registration_date) };
+      } else {
+        // 새 차(또는 미확정) → 차종마스터 첫 학습. high 아니면 검수대기(사람이 한 번 확인해 박는다).
+        const snap = snapToMaster({ maker, model: rawModel, vehicle_name: vname, sub_model: vname, fuel_type: S(r[ci.fuel]), year: yearOf(S(r[ci.firstReg])) } as EntityRecord, MASTER) as
+          { maker?: string; model?: string; sub_model?: string; trim_name?: string; origin?: string; confidence?: string } | null;
+        const canon = snap ? validCanon(snap.maker, snap.model, snap.sub_model) : null;
+        const conf = snap?.confidence || 'none';
+        confirmed = !!canon && conf === 'high';
+        identity = canon
+          ? { maker: canon.maker, model: canon.model, sub_model: canon.sub_model, trim_name: S(snap?.trim_name) || rawTrim, origin: S(snap?.origin) }
+          : { maker, model: rawModel, sub_model: '', trim_name: rawTrim, origin: '' };
+        state = 'new-review'; if (confirmed) state = 'new-high';
+        spec = { ext_color: snapColor(S(r[ci.ext]), 'ext'), int_color: snapColor(S(r[ci.int]), 'int'), year: yearOf(S(r[ci.firstReg])), fuel_type: normFuel(S(r[ci.fuel])), engine_cc: S(r[ci.cc]), vehicle_class: S(r[ci.klass]), first_registration_date: S(r[ci.firstReg]) };
+      }
       atoms.push({
         car_number: car,
-        // 불변
+        // 불변 (pinned = 우리 것 지킴 · new = 마스터 학습)
         maker: identity.maker, model: identity.model, sub_model: identity.sub_model, trim_name: identity.trim_name,
-        origin: identity.origin, ext_color: snapColor(S(r[ci.ext]), 'ext'), int_color: snapColor(S(r[ci.int]), 'int'), year: yearOf(S(r[ci.firstReg])),
-        fuel_type: normFuel(S(r[ci.fuel])), engine_cc: S(r[ci.cc]), vehicle_class: S(r[ci.klass]),
-        first_registration_date: S(r[ci.firstReg]),
+        origin: identity.origin, ...spec,
         product_type: canonProductType(S(r[ci.kind])),
         // 변동(참고 — 대조용. 매시간 폴링이 정본)
         status: canonSheetVehicleStatus(S(r[ci.status])), mileage: S(r[ci.km]),
         options: S(r[ci.opt]),
         // 원자화 메타 + 정밀타격(어디서 왔나)
         확정: confirmed, 검수상태: confirmed ? '확정' : (identity.sub_model ? '검수대기' : (vname ? '매칭실패' : '원문없음')),
+        _pin_state: state,
         원문: { 차명: vname, ...(S(r[ci.opt]) ? { 옵션: S(r[ci.opt]) } : null) },
         provider_company_code: CODE, partner_code: CODE,
         source: 'sheet', source_schema: CODE, sheet_source_tab: tab, sheet_source_row: String(rowNo),
@@ -115,14 +132,40 @@ const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS)
 initializeApp({ credential: cert({ projectId: sa.project_id, clientEmail: sa.client_email, privateKey: S(sa.private_key).replace(/\\n/g, '\n') }) });
 const fs = getFirestore();
 
-const now = await ingest();
-console.log(`■ 원천 직접 수집 — 아이카 원본에서 ${now.length}대 (정제시트 안 거침)`);
-const confN = now.filter((a) => a.확정).length;
-console.log(`  확정(마스터 high) ${confN} · 검수대기/실패 ${now.length - confN}`);
-
+// ★우리 것(차량번호로 박아둔 확정 원자) 먼저 읽는다 — 이게 정체의 정본이다.
 const cur = new Map<string, Record<string, unknown>>();
-const snap = await fs.collection('products').where('provider_company_code', '==', CODE).get();
-for (const d of snap.docs) cur.set(S((d.data() as { car_number?: unknown }).car_number), d.data() as Record<string, unknown>);
+{
+  const snap = await fs.collection('products').where('provider_company_code', '==', CODE).get();
+  for (const d of snap.docs) cur.set(S((d.data() as { car_number?: unknown }).car_number), d.data() as Record<string, unknown>);
+}
+
+const now = await ingest(cur);
+console.log(`■ 원천 직접 수집 — 아이카 원본에서 ${now.length}대 (정제시트 안 거침 · 우리 것 ${cur.size}대 참조)`);
+
+// ── 품질 리포트 — 직접 가져오면 «어떤가» ──────────────────────────────────
+if (process.argv.includes('--quality') || !process.argv.includes('--apply')) {
+  const n = now.length;
+  const pct = (x: number) => `${x}/${n} (${Math.round((x / n) * 100)}%)`;
+  const has = (f: string) => now.filter((a) => S(a[f])).length;
+  const byPin: Record<string, number> = {};
+  for (const a of now) byPin[S(a._pin_state)] = (byPin[S(a._pin_state)] || 0) + 1;
+  const byState: Record<string, number> = {};
+  for (const a of now) byState[S(a.검수상태)] = (byState[S(a.검수상태)] || 0) + 1;
+  console.log('\n■ 품질 (직접 원자화)');
+  console.log(`  정체 출처: 박은 것 그대로(pinned) ${byPin.pinned || 0} · 새 차 자동확정(new-high) ${byPin['new-high'] || 0} · 새 차 검수필요(new-review) ${byPin['new-review'] || 0}`);
+  console.log(`  검수상태: ${Object.entries(byState).map(([k, v]) => `${k} ${v}`).join(' · ')}`);
+  console.log(`  세부모델(sub_model) 있음 ${pct(has('sub_model'))}`);
+  console.log(`  세부트림(trim_name) 있음 ${pct(has('trim_name'))}`);
+  console.log(`  제조사 ${pct(has('maker'))} · 연식 ${pct(has('year'))} · 연료 ${pct(has('fuel_type'))} · 배기량 ${pct(has('engine_cc'))}`);
+  console.log(`  외장색 ${pct(has('ext_color'))} · 내장색 ${pct(has('int_color'))} · 상태 ${pct(has('status'))} · 주행 ${pct(has('mileage'))}`);
+  console.log('  ── 잘 나온 표본(확정) ──');
+  for (const a of now.filter((x) => x.확정).slice(0, 6)) console.log(`   ${a.car_number}  ${a.maker} ${a.model} / ${a.sub_model} / ${a.trim_name || '(트림공백)'} · ${a.year} · ${a.ext_color}`);
+  console.log('  ── 검수 필요 표본(비확정) ──');
+  for (const a of now.filter((x) => !x.확정).slice(0, 8)) console.log(`   ${a.car_number}  [${a.검수상태}] 원문「${S((a.원문 as { 차명?: string })?.차명).slice(0, 30)}」 → ${a.maker || '?'} ${a.model || '?'} / ${a.sub_model || '(세부모델 없음)'} / ${a.trim_name || '(트림 없음)'}`);
+}
+
+const confN = now.filter((a) => a.확정).length;
+console.log(`\n  확정 ${confN} · 검수대기/실패 ${now.length - confN}`);
 console.log(`■ 현행 Firestore 아이카 원자 ${cur.size}대`);
 
 // ── 대조: 「이건 동일하잖아」 ──────────────────────────────────────────────
