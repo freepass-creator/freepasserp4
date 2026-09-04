@@ -5,6 +5,7 @@ import { cheapest, creditDisplay, isListableProduct, priceList } from '@/lib/dom
 import { matchProductQuery } from '@/lib/domain/search';
 import { ProductCard } from '@/components/ProductCard';
 import { CatalogCard } from '@/components/CatalogCard';
+import { CatalogFilters, type FilterAxis } from '@/components/CatalogFilters';
 import {
   RENT_BANDS, DEP_BANDS, MILE_BANDS, CREDITS, CATALOG_PERKS, hasPerk,
   presentFilterOptions,
@@ -83,7 +84,8 @@ export function CatalogView({ wl = FREEPASS }: { wl?: Whitelabel }) {
   const [attr, setAttr] = useState('');
   const [qInput, setQInput] = useState(''); // 검색창 즉시 반영
   const [q, setQ] = useState(''); // 디바운스된 검색
-  const [rent, setRent] = useState('');
+  // 월 대여료도 여러 개 고른다 — finder 와 같은 의미(고른 밴드 중 하나라도 들면 통과).
+  const [rent, setRent] = useState<Set<string>>(new Set());
   const [credit, setCredit] = useState<Set<string>>(new Set());
   const [perks, setPerks] = useState<Set<string>>(new Set());
   // 손님용으로 더한 축 — 차종·제조사·보증금·연식·주행거리·연료.
@@ -160,10 +162,7 @@ export function CatalogView({ wl = FREEPASS }: { wl?: Whitelabel }) {
       if (!isListableProduct(p)) return false;
       if (!matchProductQuery(p, q)) return false;
       // 월대여료 = 홈 matchProduct SSOT (모든 기간 중 하나라도 밴드에 들면 통과)
-      if (rent) {
-        const b = RENT_BANDS.find((x) => x.k === rent);
-        if (b && !priceList(p).some((x) => x.rent > b.lo && x.rent <= b.hi)) return false;
-      }
+      if (rent.size && !RENT_BANDS.some((b) => rent.has(b.k) && priceList(p).some((x) => x.rent > b.lo && x.rent <= b.hi))) return false;
       // 보증금·주행 = finder 와 같은 밴드 의미(lo < x ≤ hi 를 하나라도 만족).
       if (dep.size && !DEP_BANDS.some((b) => dep.has(b.k) && priceList(p).some((x) => x.deposit > b.lo && x.deposit <= b.hi))) return false;
       if (mile.size) {
@@ -193,10 +192,10 @@ export function CatalogView({ wl = FREEPASS }: { wl?: Whitelabel }) {
   );
 
   /** 조건이 하나라도 걸려 있나 — 「초기화」는 걸렸을 때만 낸다(없는데 있으면 눌러 볼 게 없다). */
-  const anyFilter = !!rent || credit.size + perks.size + vclass.size + maker.size + dep.size + year.size + mile.size + fuel.size > 0;
+  const anyFilter = rent.size + credit.size + perks.size + vclass.size + maker.size + dep.size + year.size + mile.size + fuel.size > 0;
   /** 전체 해제 — 검색어는 안 지운다. 손님이 친 글자까지 사라지면 「왜 지워졌지」가 된다. */
   const clearAll = () => {
-    setRent(''); setCredit(new Set()); setPerks(new Set()); setVclass(new Set());
+    setRent(new Set()); setCredit(new Set()); setPerks(new Set()); setVclass(new Set());
     setMaker(new Set()); setDep(new Set()); setYear(new Set()); setMile(new Set()); setFuel(new Set());
   };
 
@@ -226,35 +225,31 @@ export function CatalogView({ wl = FREEPASS }: { wl?: Whitelabel }) {
     </FilterGroup>
   ) : null);
 
-  const conditions = (
-    <>
-      {multi('차종', vclass, setVclass, () => setVclass(new Set()),
-        dynFacets.vclass.map(([v]) => ({ key: v, label: v })), true)}
-      {multi('제조사', maker, setMaker, () => setMaker(new Set()),
-        dynFacets.maker.map(([v]) => ({ key: v, label: v })))}
-      <FilterGroup title="월 대여료" count={rent ? 1 : 0} defaultOpen={!mobile} onClear={() => setRent('')}>
-        <FilterChips
-          value={rent}
-          onChange={setRent}
-          options={(facets.rent.length ? facets.rent : RENT_BANDS.map((b) => ({ key: b.k, label: b.label, count: 0 })))
-            .map((b) => ({ key: b.key, label: b.label }))}
-          clearKey=""
-        />
-      </FilterGroup>
-      {multi('보증금', dep, setDep, () => setDep(new Set()),
-        facets.dep.map((b) => ({ key: b.key, label: b.label })))}
-      {multi('심사', credit, setCredit, () => setCredit(new Set()),
-        (facets.credit.length ? facets.credit.map((c) => ({ key: c.key, label: c.label })) : CREDITS.map((c) => ({ key: c, label: c }))))}
-      {multi('연식', year, setYear, () => setYear(new Set()),
-        dynFacets.year.map(([v]) => ({ key: v, label: v })))}
-      {multi('주행거리', mile, setMile, () => setMile(new Set()),
-        facets.mile.map((b) => ({ key: b.key, label: b.label })))}
-      {multi('연료', fuel, setFuel, () => setFuel(new Set()),
-        facets.fuel.map((f) => ({ key: f.key, label: f.label })))}
-      {multi('혜택', perks, setPerks, () => setPerks(new Set()),
-        (facets.perks.length ? facets.perks.map((p) => ({ key: p.key, label: p.label })) : CATALOG_PERKS.map((pk) => ({ key: pk, label: pk }))))}
-    </>
-  );
+  /**
+   * 조건칸 — **시안 그대로.** 업무동 `FilterGroup`(접이식) 안 쓴다.
+   * 축은 손님이 고르는 순서로 세운다: 무슨 차 → 어느 회사 → 얼마 → 얼마 걸고 → 심사 → 상태 → 혜택.
+   * ⚠ 공급사 축은 없다 — 누구 차인지 손님이 알 필요가 없고, 알면 우리를 건너뛴다.
+   */
+  const axes: FilterAxis[] = [
+    { title: '차종', kind: 'check', columns: 2, selected: vclass, onToggle: (k) => setVclass((p) => toggleInSet(p, k)), onClear: () => setVclass(new Set()),
+      options: dynFacets.vclass.map(([v, n]) => ({ key: v, label: v, count: n })) },
+    { title: '제조사', kind: 'check', columns: 1, selected: maker, onToggle: (k) => setMaker((p) => toggleInSet(p, k)), onClear: () => setMaker(new Set()),
+      options: dynFacets.maker.map(([v, n]) => ({ key: v, label: v, count: n })) },
+    { title: '월 대여료', kind: 'grid', selected: rent, onToggle: (k) => setRent((p) => toggleInSet(p, k)), onClear: () => setRent(new Set()),
+      options: (facets.rent.length ? facets.rent : RENT_BANDS.map((b) => ({ key: b.k, label: b.label }))).map((b) => ({ key: b.key, label: b.label })) },
+    { title: '보증금', kind: 'grid', selected: dep, onToggle: (k) => setDep((p) => toggleInSet(p, k)), onClear: () => setDep(new Set()),
+      options: facets.dep.map((b) => ({ key: b.key, label: b.label })) },
+    { title: '심사', kind: 'chip', selected: credit, onToggle: (k) => setCredit((p) => toggleInSet(p, k)), onClear: () => setCredit(new Set()),
+      options: (facets.credit.length ? facets.credit : CREDITS.map((c) => ({ key: c, label: c }))).map((c) => ({ key: c.key, label: c.label })) },
+    { title: '연식', kind: 'chip', selected: year, onToggle: (k) => setYear((p) => toggleInSet(p, k)), onClear: () => setYear(new Set()),
+      options: dynFacets.year.map(([v]) => ({ key: v, label: v })) },
+    { title: '주행거리', kind: 'grid', selected: mile, onToggle: (k) => setMile((p) => toggleInSet(p, k)), onClear: () => setMile(new Set()),
+      options: facets.mile.map((b) => ({ key: b.key, label: b.label })) },
+    { title: '연료', kind: 'chip', selected: fuel, onToggle: (k) => setFuel((p) => toggleInSet(p, k)), onClear: () => setFuel(new Set()),
+      options: facets.fuel.map((f) => ({ key: f.key, label: f.label })) },
+    { title: '혜택', kind: 'chip', selected: perks, onToggle: (k) => setPerks((p) => toggleInSet(p, k)), onClear: () => setPerks(new Set()),
+      options: (facets.perks.length ? facets.perks : CATALOG_PERKS.map((pk) => ({ key: pk, label: pk }))).map((p) => ({ key: p.key, label: p.label })) },
+  ];
 
   const cards = rows === null ? <ProductCardSkeleton count={6} />
     : list.length === 0 ? <CenterNote>조건에 맞는 차량이 없습니다.</CenterNote> : (
@@ -296,25 +291,7 @@ export function CatalogView({ wl = FREEPASS }: { wl?: Whitelabel }) {
           {/* 왼쪽 기둥 = 「전체차량 N대」 + 조건. 헤더 바로 밑에서 출발한다. */}
           {!mobile ? (
             <aside style={{ width: 260, flexShrink: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 7, paddingBottom: 18 }}>
-                <span style={{ fontSize: FS.body, fontWeight: FW.meta, color: C.mute }}>전체차량</span>
-                <span style={{ fontSize: 26, fontWeight: FW.head, color: C.brand, letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums' }}>{countText}</span>
-                <span style={{ fontSize: FS.body, fontWeight: FW.title }}>대</span>
-              </div>
-              {/* 「필터 / 초기화」 머리 — 시안 그대로. 아래 검정 1px 선이 조건칸의 시작을 긋는다. */}
-              <div style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                paddingBottom: 12, borderBottom: `1px solid ${C.ink}`,
-              }}>
-                <span style={{ fontSize: 17, fontWeight: FW.title, color: C.ink }}>필터</span>
-                {anyFilter ? (
-                  /* 손롤 금지 — 초기화도 버튼 원자를 쓴다(줄자가 raw 컨트롤로 잡는다). */
-                  <Btn variant="ghost" size="sm" onClick={clearAll} title="건 조건을 모두 해제합니다">
-                    <RotateCcw size={ICON.sm} aria-hidden />초기화
-                  </Btn>
-                ) : null}
-              </div>
-              {conditions}
+              <CatalogFilters axes={axes} count={countText} onClearAll={clearAll} />
             </aside>
           ) : null}
 
@@ -323,12 +300,15 @@ export function CatalogView({ wl = FREEPASS }: { wl?: Whitelabel }) {
             <SearchInput hero full value={qInput} onChange={setQInput} placeholder="차종, 차량번호로 검색해 보세요" />
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginTop: 14 }}>
               <span style={{ fontSize: FS.sub, color: C.faint, marginRight: 2 }}>많이 찾는 조건</span>
-              <FilterChips
-                value={rent}
-                onChange={setRent}
-                options={RENT_BANDS.filter((b) => (QUICK_RENT as readonly string[]).includes(b.k)).map((b) => ({ key: b.k, label: b.label }))}
-                clearKey=""
-              />
+              {/* 조건칸과 «같은 값»을 만진다 — 여기서 켠 것이 왼쪽 기둥에도 켜져 보여야 한다.
+                  두 자리가 다른 상태를 들면 그게 곧 「숨은 필터」다. */}
+              {RENT_BANDS.filter((b) => (QUICK_RENT as readonly string[]).includes(b.k)).map((b) => {
+                const on = rent.has(b.k);
+                return (
+                  <Btn key={b.k} size="sm" variant={on ? 'solid' : 'ghost'}
+                    onClick={() => setRent((p) => toggleInSet(p, b.k))}>{b.label}</Btn>
+                );
+              })}
             </div>
 
             {/* 목록 머리 = 격자의 어깨. 대수와 정렬이 카드 열 위에 선다. */}
@@ -349,7 +329,11 @@ export function CatalogView({ wl = FREEPASS }: { wl?: Whitelabel }) {
               {sortRow}
             </div>
 
-            {mobile ? <div style={{ marginBottom: 14 }}>{conditions}</div> : null}
+            {mobile ? (
+              <div style={{ marginBottom: 16 }}>
+                <CatalogFilters axes={axes} count={countText} onClearAll={clearAll} mobile />
+              </div>
+            ) : null}
             {cards}
           </div>
         </div>
@@ -370,7 +354,10 @@ export function CatalogView({ wl = FREEPASS }: { wl?: Whitelabel }) {
 
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 10 }}>
         <SearchInput value={qInput} onChange={setQInput} placeholder="차번·차명·연료·옵션…" style={{ flex: '1 1 200px', minWidth: 180 }} />
-        <Select value={rent} onChange={setRent} placeholder="월대여료 전체" options={RENT_BANDS.map((b) => ({ value: b.k, label: b.label }))} />
+        {/* 노브랜드 화면은 예전처럼 «하나만» 고르는 드롭다운이다 — 보이는 것을 안 바꾼다.
+            안쪽 값만 Set 으로 바뀌었으므로 고른 하나를 Set 으로 감싼다. */}
+        <Select value={[...rent][0] || ''} onChange={(v) => setRent(v ? new Set([v]) : new Set())}
+          placeholder="월대여료 전체" options={RENT_BANDS.map((b) => ({ value: b.k, label: b.label }))} />
       </div>
       <FilterGroup title="정렬" count={sort !== 'asc' ? 1 : 0} defaultOpen first onClear={() => setSort('asc')}>
         <FilterChips
