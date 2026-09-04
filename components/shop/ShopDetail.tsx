@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   ArrowLeft, Car, Check, ChevronDown, ChevronLeft, ChevronRight, Coins, FileText, Heart,
-  IdCard, ImageOff, Info, Phone, Share2, ShieldCheck, type LucideIcon,
+  IdCard, ImageOff, Info, ListChecks, Phone, Share2, ShieldCheck, type LucideIcon,
 } from 'lucide-react';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { Badge, C, FW, FS, ICON, PERK_TONE, CREDIT_TONE, type BadgeTone } from '@/components/ui';
@@ -255,7 +255,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
       {plans.length > 1 ? (
         <div style={{ marginTop: 16 }}>
           <button type="button" onClick={() => setOpenRates((v) => !v)} className="fp-shop-press"
-            aria-expanded={openRates}
+            aria-expanded={openRates} aria-controls="fp-shop-rates"
             style={{
               display: 'flex', alignItems: 'center', gap: 6, width: '100%',
               padding: '9px 0', border: 'none', background: 'transparent', cursor: 'pointer',
@@ -270,7 +270,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
           </button>
 
           {openRates ? (
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontVariantNumeric: 'tabular-nums' }}>
+            <table id="fp-shop-rates" style={{ width: '100%', borderCollapse: 'collapse', fontVariantNumeric: 'tabular-nums' }}>
               <thead>
                 <tr>
                   {['기간', '월 대여료', '보증금'].map((h, i) => (
@@ -285,13 +285,27 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
               <tbody>
                 {byMonth.map((x) => {
                   const on = plan && x.m === plan.m;
+                  const pick = () => setPlanIdx(plans.findIndex((y) => y.m === x.m));
                   return (
-                    <tr key={x.m} onClick={() => setPlanIdx(plans.findIndex((y) => y.m === x.m))}
+                    /*
+                     * ⚠ 줄에 `onClick` «만» 걸어 두면 **마우스로만 고를 수 있는 고르개**가 된다
+                     *   (2026-09-05 에 잡았다). `<tr>` 은 탭으로 못 가고, 보조기기는 이게 누를 것인 줄도
+                     *   모른다 — 키보드로만 쓰는 사람에게는 12개월 말고 다른 기간이 «없는» 화면이다.
+                     * ⇒ 줄을 버튼으로 «바꾸지» 않는다(표를 표가 아니게 만든다). 대신 **첫 칸에 진짜
+                     *   `<button>`** 을 넣어 그것이 이름·역할·상태(`aria-pressed`)를 진다.
+                     *   줄의 `onClick` 은 마우스 편의로 남긴다 — 같은 값을 두 번 넣어도 결과가 같다.
+                     */
+                    <tr key={x.m} onClick={pick}
                       style={{ cursor: 'pointer', background: on ? C.bg : 'transparent' }}>
-                      <td style={{
-                        padding: '13px 8px 13px 10px',
-                        fontSize: SHOP.fs.body, fontWeight: on ? 700 : 500, color: on ? C.brand : C.ink,
-                      }}>{x.m}개월</td>
+                      <td style={{ padding: 0 }}>
+                        <button type="button" onClick={pick} aria-pressed={!!on} style={{
+                          display: 'block', width: '100%', textAlign: 'left',
+                          padding: '13px 8px 13px 10px',
+                          border: 'none', background: 'transparent', cursor: 'pointer',
+                          fontFamily: 'inherit', fontVariantNumeric: 'tabular-nums',
+                          fontSize: SHOP.fs.body, fontWeight: on ? 700 : 500, color: on ? C.brand : C.ink,
+                        }}>{x.m}개월</button>
+                      </td>
                       <td style={{
                         padding: '13px 8px', textAlign: 'right',
                         fontSize: SHOP.fs.body, fontWeight: on ? 800 : 600, color: C.ink,
@@ -375,7 +389,11 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
         <>
           <Rule mobile={mobile} />
           <section aria-label="옵션">
-            <SecTitle>옵션</SecTitle>
+            {/*
+              ⚠ 여기만 아이콘이 없었다(2026-09-05). 일곱 구역 중 여섯에 붙여 놓고 하나를 빠뜨리면,
+                그 하나는 «조용한 구역»이 아니라 **덜 만든 구역**으로 읽힌다. 규격은 전부이거나 전무다.
+            */}
+            <SecTitle icon={ListChecks}>옵션</SecTitle>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
               {options.map((o) => (
                 <span key={o} style={{
@@ -429,25 +447,48 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
       )}
 
       {/*
-        폰 하단 고정독 — **꽉 채운 한 칸**. 이 화면에서 손님이 할 일은 하나(전화)라
-        비주요 칸을 만들지 않는다(전자계약처럼 「이전/확정」 두 갈래가 있는 화면이 아니다).
+        폰 하단 고정독 — **금액 + 전화**.
+        ★★금액을 여기 실은 이유(2026-09-05 실측). 이 상세는 폰에서 **7.5화면(약 6,000px)**이다.
+          대여료 카드는 맨 위 1,000px 안에 있으니, 손님이 보험·계약·운전을 읽는 **나머지 5,000px
+          동안 금액이 화면에서 사라진다.** 저신용 손님의 1번 물음이 「월 얼마·보증금 얼마」인데
+          그 답이 화면의 83% 구간에서 안 보이는 것이다.
+        ★남들도 그렇게 한다 — **엔카** 폰 하단 고정바 = 「2,450만원 + 문의하기」(실측 133px),
+          **Autonomy** sticky = 「From $400/mo」. 우리만 버튼 하나였다.
+        ★★그래도 **바를 하나 더 세우지는 않는다.** 화면(812)에서 고정물이 커질수록 본문이 줄고,
+          두 줄짜리 바를 따로 세우면 본문:고정물 비가 절반으로 떨어진다. **한 바 안에** 넣는다.
+        ★짜임은 우리 독 규격 그대로 — **비주요(금액) 고정폭 · 주요(전화) 나머지 전부.**
+          (가로 꽉 찬 버튼을 피하라는 커머스 지침과도 같은 결론이다.)
+        ⚠ 기간표에서 줄을 고르면 위 큰 숫자와 **같이** 바뀐다(같은 `plan` 을 본다) —
+          두 곳이 다른 금액을 말하면 그 순간 어느 것도 못 믿는다.
       */}
       {mobile && telHref ? (
         <div style={{
           position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 20,
+          display: 'flex', alignItems: 'center', gap: 12,
           background: C.bg, borderTop: `1px solid ${C.line}`,
           padding: '10px 16px 14px',
           paddingBottom: 'calc(14px + var(--fp-dock-safe, env(safe-area-inset-bottom)))',
         }}>
+          {plan ? (
+            <div style={{ flex: '0 0 auto', minWidth: 0, lineHeight: 1.25 }}>
+              <div style={{ fontSize: SHOP.fs.cap, color: C.faint }}>{plan.m}개월</div>
+              <div style={{
+                fontSize: 19, fontWeight: 800, color: C.ink,
+                letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap',
+              }}>{manWon(plan.rent)}</div>
+            </div>
+          ) : null}
           <a href={telHref} onClick={() => haptic.nav()} className="fp-shop-press"
             style={{
+              flex: 1, minWidth: 0,
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
               height: 54, borderRadius: SHOP.r.chip,
               background: C.brand, color: C.inverse, textDecoration: 'none',
-              fontSize: SHOP.fs.body, fontWeight: 700,
+              fontSize: SHOP.fs.body, fontWeight: 700, whiteSpace: 'nowrap',
             }}>
             <Phone size={ICON.md} aria-hidden />
-            {agentName ? `${agentName} 담당자에게 전화` : '전화 상담'}
+            {/* 금액이 왼쪽을 먹으므로 이름을 다 못 실을 때가 있다 — 그때는 「전화 상담」으로 준다. */}
+            {agentName && agentName.length <= 3 ? `${agentName} 담당자에게 전화` : '전화 상담'}
           </a>
         </div>
       ) : null}
@@ -667,18 +708,27 @@ function regDate(raw: unknown): string {
  *      사장님 「섹션 경계나 구분을 너무 안 주니까 이게 뭔가 싶다. 렌터카 전문으로 하는 플랫폼인데
  *      너무 섹션마다의 구분이 없잖아」
  *
- * ⇒ 실선도 여백도 아닌 **면(面)**이다. 한국 커머스(네이버·쿠팡·당근·엔카)가 공통으로 쓰는 그것 —
- *   구역과 구역 사이에 연한 회색 띠를 깐다. 1px 선은 «금»이라 여섯 개면 창살이 되지만,
+ * ⇒ 실선도 여백도 아닌 **면(面)**이다. 1px 선은 «금»이라 여섯 개면 창살이 되지만,
  *   띠는 «바닥»이라 몇 개가 있어도 시끄럽지 않고 경계는 훨씬 분명하다.
  * ★폰은 화면 끝까지 흘린다(여백 밖으로 뺀다) — 안쪽에서 끊기면 띠가 아니라 또 하나의 상자가 된다.
  *   웹은 본문 칼럼 안에서 끝낸다(1120px 을 가로지르면 화면이 두 동강 난 것처럼 보인다).
+ *
+ * ⚠⚠ **여기 「한국 커머스가 공통으로 띠를 쓴다」고 적혀 있었다. 틀린 말이라 지웠다**(2026-09-05 실측).
+ *   폰 375×812 로 재 보니 셋이 셋 다 다르다 — **엔카는 여백 50px 만**(띠도 선도 없다) ·
+ *   **무신사는 띠 8px** · **당근은 1px 선**. 네이버·쿠팡은 봇차단으로 **못 쟀다.**
+ *   ⇒ 「띠를 쓴다」는 무신사 한 곳의 선례고, 그 값이 **8px** 이다. 10px 은 아무 데도 없었다.
+ * ★★그리고 우리는 **구분을 두 번 하고 있었다** — 띠 10 + 여백 56 = 하나에 66px(여섯이면 396px).
+ *   여백만 해도 이미 엔카(50)보다 넓은데 그 위에 띠를 또 깔았다. 그러면 띠가 «경계»가 아니라
+ *   빈 데 놓인 장식이 된다. 띠를 남기고(사장님이 구분을 원하셨다) **여백을 줄여** 띠가 경계를 맡는다.
+ *   경계 = 8 + 40 = 48px. 이래야 「띠에서 갈린다」로 읽힌다.
+ *   (구분선 원칙도 같은 말을 한다 — eBay·Material: 「여백으로 부족할 때만」 긋는다.)
  */
 function Rule({ mobile }: { mobile?: boolean }) {
   return (
     <div aria-hidden style={{
-      height: mobile ? 10 : 8,
+      height: 8,
       background: C.zebra,
-      margin: mobile ? '30px -16px 26px' : '34px 0 28px',
+      margin: mobile ? '22px -16px 18px' : '26px 0 20px',
     }} />
   );
 }
@@ -700,9 +750,15 @@ function SecTitle({ children, icon: Icon, accent }: {
   return (
     <h2 style={{
       margin: '0 0 16px', display: 'flex', alignItems: 'center', gap: 8,
-      fontSize: 18, fontWeight: 800, color: C.ink, letterSpacing: '-0.025em',
+      /*
+       * 20px 이다(2026-09-05 에 18에서 올렸다). 엔카 폰 상세의 대구역 제목이 **22px/700**,
+       * 우리 차명(h1)이 22px 이다. 구역 제목이 18이면 7화면짜리 페이지를 훑을 때
+       * «착지 표지»로 안 걸린다 — 눈이 제목을 읽어야 아는 크기다.
+       * 차명(22)보다는 한 단 낮게 둬서 위계는 지킨다.
+       */
+      fontSize: 20, fontWeight: 800, color: C.ink, letterSpacing: '-0.025em',
     }}>
-      {Icon ? <Icon size={19} aria-hidden style={{ color: accent ? C.brand : C.faint, flex: '0 0 auto' }} /> : null}
+      {Icon ? <Icon size={20} aria-hidden style={{ color: accent ? C.brand : C.faint, flex: '0 0 auto' }} /> : null}
       {children}
     </h2>
   );
