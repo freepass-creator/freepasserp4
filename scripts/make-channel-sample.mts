@@ -125,7 +125,7 @@ await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${bookId}:batchUpdate
     ...[2, last].map((r) => ({ repeatCell: { range: row(r, r + 1), cell: { userEnteredFormat: { backgroundColor: TINT, textFormat: { bold: true } } }, fields: 'userEnteredFormat(backgroundColor,textFormat)' } })),
     { updateDimensionProperties: { range: { sheetId: id, dimension: 'ROWS', startIndex: r0, endIndex: r0 + 1 }, properties: { pixelSize: 40 }, fields: 'pixelSize' } },
     { updateDimensionProperties: { range: { sheetId: id, dimension: 'ROWS', startIndex: r0 + 1, endIndex: last + 1 }, properties: { pixelSize: 24 }, fields: 'pixelSize' } },
-    ...['렌탈료', '보증금', '차량 가격(신차)', '공급가액', '부가세', '합계'].map((h) => ({ repeatCell: { range: { sheetId: id, startRowIndex: 2, endRowIndex: last + 1, startColumnIndex: H2.indexOf(h), endColumnIndex: H2.indexOf(h) + 1 },
+    ...['렌탈료', '보증금', '차량 가격(신차)', '공급가액', '부가세', '합계', '정정금액'].map((h) => ({ repeatCell: { range: { sheetId: id, startRowIndex: 2, endRowIndex: last + 1, startColumnIndex: H2.indexOf(h), endColumnIndex: H2.indexOf(h) + 1 },
       cell: { userEnteredFormat: { numberFormat: { type: 'NUMBER', pattern: '#,##0' }, horizontalAlignment: 'RIGHT' } }, fields: 'userEnteredFormat(numberFormat,horizontalAlignment)' } })),
     { repeatCell: { range: { sheetId: id, startRowIndex: r0 + 1, endRowIndex: last, startColumnIndex: H2.indexOf('계약 기간'), endColumnIndex: H2.indexOf('계약 기간') + 1 },
       cell: { userEnteredFormat: { numberFormat: { type: 'NUMBER', pattern: '0"개월"' }, horizontalAlignment: 'CENTER' } }, fields: 'userEnteredFormat(numberFormat,horizontalAlignment)' } },
