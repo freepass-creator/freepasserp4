@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { QuoteView } from './QuoteView';
+import { headers } from 'next/headers';
 import { loadGuestQuote } from '@/lib/server/guest-quote';
+import { hasBrand, resolveWhitelabel } from '@/lib/whitelabel';
 import { vehicleNameOf } from '@/lib/domain/vehicle-name';
 import { cheapest } from '@/lib/domain/product';
 import { fuelDisplay, yearDisplay } from '@/lib/domain/vehicle-master-match';
@@ -32,6 +34,9 @@ export async function generateMetadata({ params, searchParams }: Params): Promis
   // 조각은 통째로 넘긴다 — 가르는 판단은 loadGuestQuote 가 «못 찾았을 때만» 한다(하이픈 품은 상품키 보호).
   const seg = decodeURIComponent(String(code || ''));
   const share = one(sp.a);
+  /** 브랜드 도메인이면 못 찾았을 때도 «그 회사 이름»으로 떨어진다 — 「상품 안내」는 노브랜드용이다. */
+  const wl = resolveWhitelabel((await headers()).get('host'), one(sp.wl));
+  const fallbackSite = hasBrand(wl) ? wl.name : '상품 안내';
 
   // 상품이 없거나 읽기에 실패해도 **브랜드가 새면 안 된다** — 중립 문구로 떨어뜨린다.
   // ⚠ title 은 **absolute** 로 준다 — 루트 레이아웃 template(`%s · freepasserp.com`)이 브랜드를 도로 붙인다.
@@ -39,7 +44,7 @@ export async function generateMetadata({ params, searchParams }: Params): Promis
     title: { absolute: '상품 안내' },
     description: '차량 상품 안내입니다.',
     robots: { index: false, follow: false },
-    openGraph: { title: '상품 안내', description: '차량 상품 안내입니다.', siteName: '상품 안내', type: 'website' },
+    openGraph: { title: '상품 안내', description: '차량 상품 안내입니다.', siteName: fallbackSite, type: 'website' },
     twitter: { card: 'summary', title: '상품 안내', description: '차량 상품 안내입니다.' },
   };
 
@@ -69,7 +74,7 @@ export async function generateMetadata({ params, searchParams }: Params): Promis
     const desc = [specLine, priceLine].filter(Boolean).join('\n') || '차량 상품 안내입니다.';
     // 사이트 이름 자리 = 담당자. 우리 브랜드(BRAND)는 손님 화면에 어디에도 쓰지 않는다.
     const who = String(agent?.name || '').trim();
-    const siteName = who ? `담당 ${who}` : '상품 안내';
+    const siteName = who ? `담당 ${who}` : fallbackSite;
     const images = Array.isArray(product.image_urls) ? (product.image_urls as string[]).slice(0, 1) : [];
 
     return {
@@ -92,6 +97,14 @@ export async function generateMetadata({ params, searchParams }: Params): Promis
   }
 }
 
-export default function QuotePage() {
-  return <QuoteView />;
+/**
+ * ★상세도 **브랜드 안**에 있어야 한다(사장님 2026-09-04 「껍데기를 좀 제대로 만들어봐」).
+ *   전에는 손님이 유니오토 사이트에서 차를 누르면 머리띠·색·담당자가 통째로 사라졌다 —
+ *   그 순간 「남의 사이트로 튕겼다」가 된다. 목록과 같은 방식으로 서버가 호스트를 보고 정한다.
+ */
+export default async function QuotePage({ searchParams }: Params) {
+  const sp = await searchParams;
+  // 호스트가 정본이고 `?wl=` 은 도메인 붙이기 «전» 미리보기용 — 목록(`/catalog`)과 같은 규칙이다.
+  const wl = resolveWhitelabel((await headers()).get('host'), one(sp.wl));
+  return <QuoteView wl={wl} />;
 }

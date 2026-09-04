@@ -18,10 +18,17 @@ import { hasBrand, whitelabelVars, type Whitelabel } from '@/lib/whitelabel';
  * ★머리 오른쪽은 «누가 받는가»다. 공유링크(`?a=`)로 들어온 손님에게는 **담당 영업자**가,
  *   맨 주소로 들어온 손님에게는 **대표번호**가 든다. 우리(프리패스) 이름은 어디에도 안 나온다.
  */
-export function WhitelabelFrame({ wl, agentName, agentPhone, children }: {
+export function WhitelabelFrame({ wl, agentName, agentPhone, dock = true, notice = true, children }: {
   wl: Whitelabel;
   agentName?: string;
   agentPhone?: string;
+  /**
+   * 폰 하단 고정독을 이 껍데기가 그릴까.
+   * ⚠ 상세 화면처럼 **제 하단독을 이미 가진 곳**은 `false` 로 끈다 — 안 그러면 독이 둘로 겹친다.
+   */
+  dock?: boolean;
+  /** 안내 블록을 그릴까. 목록에서만 쓰고 상세에서는 끈다(같은 말을 두 번 하지 않는다). */
+  notice?: boolean;
   children: ReactNode;
 }) {
   const mobile = useIsMobile();
@@ -71,12 +78,12 @@ export function WhitelabelFrame({ wl, agentName, agentPhone, children }: {
         </div>
       </header>
 
-      <WhitelabelNotice wl={wl} mobile={mobile} />
+      {notice ? <WhitelabelNotice wl={wl} mobile={mobile} /> : null}
 
       {children}
 
       {/* 폰 하단 고정독 — 손님이 걸 곳은 늘 엄지 밑에 있다. 담당자 이름이 붙어야 «누구에게» 거는지 안다. */}
-      {phone && mobile ? (
+      {phone && mobile && dock ? (
         <>
           <div style={{ height: DOCK_H }} aria-hidden />
           <div style={{
