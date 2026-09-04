@@ -253,7 +253,7 @@ export default function LoginView({ wl = FREEPASS }: { wl?: Whitelabel }) {
            * 손님 머리띠(`WhitelabelFrame`)와 «같은 짜임»으로 세운다 — 같은 주소에서 두 얼굴이 되면 안 된다.
            */
           <div aria-label={wl.name} style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 9 }}>
-            <span style={{ fontSize: 26, fontWeight: 800, letterSpacing: '-0.03em', color: C.brand }}>
+            <span style={{ fontSize: 26, fontWeight: FW.head, letterSpacing: '-0.03em', color: C.brand }}>
               {wl.wordmark.main}
             </span>
             <span style={{ fontSize: 15, fontWeight: FW.meta, letterSpacing: '0.15em', color: C.ink }}>
