@@ -36,6 +36,17 @@ let cache: EntityRecord[] | null = null;
 let unsub: (() => void) | null = null;
 let starting = false;
 const subs = new Set<(rows: EntityRecord[]) => void>();
+const errSubs = new Set<(err: unknown) => void>();
+
+/**
+ * ㉡ 실패 시 «핸들을 완전히 해제»한다 — 안 놓으면 unsub 가 truthy 라 ensureSnapshot 이 재시도를 못 한다
+ *   (파인더가 빈 채로 굳던 원인, CLAUDE.md 2026-09-04). 해제 후 에러 구독자에게 알려 ㉢ RTDB 폴백을 태운다.
+ */
+function releaseOnError(err: unknown) {
+  if (unsub) { try { unsub(); } catch { /* */ } unsub = null; }
+  cache = null; starting = false;
+  for (const e of [...errSubs]) { try { e(err); } catch { /* */ } }
+}
 
 async function ensureSnapshot() {
   if (unsub || starting) return;
@@ -45,26 +56,29 @@ async function ensureSnapshot() {
     const db = getFirestore(getFirebaseApp()!);
     unsub = onSnapshot(
       collection(db, 'products'),
-      (snap) => { cache = snap.docs.map((x) => toRow(x.data() as Record<string, unknown>)); for (const s of subs) s(cache); },
-      (err) => { console.warn('[finder/firestore] onSnapshot 실패:', err); },
+      (snap) => { cache = snap.docs.map((x) => toRow(x.data() as Record<string, unknown>)); for (const s of [...subs]) s(cache); },
+      (err) => { console.warn('[finder/firestore] onSnapshot 실패:', err); releaseOnError(err); },
     );
   } catch (e) {
     console.warn('[finder/firestore] 구독 시작 실패:', (e as Error).message);
+    releaseOnError(e);
   } finally {
-    starting = false;
+    if (unsub) starting = false;   // 정상 구독됐을 때만 여기서 해제(releaseOnError 가 이미 처리했으면 건드리지 않는다)
   }
 }
 
 /**
  * 파인더 상품 구독. 콜백은 스냅샷마다 «가공 전 원자행」을 받는다(공급사명·원가 마스킹은 호출부에서).
- * 마지막 구독자가 빠지면 onSnapshot 을 닫아 유휴 과금을 없앤다.
+ * onError = 구독/스냅샷 실패 알림(호출부가 핸들 해제 + RTDB 폴백에 쓴다). 마지막 구독자가 빠지면 onSnapshot 을 닫아 유휴 과금 제거.
  */
-export function subscribeFirestoreProducts(onRows: (rows: EntityRecord[]) => void): () => void {
+export function subscribeFirestoreProducts(onRows: (rows: EntityRecord[]) => void, onError?: (err: unknown) => void): () => void {
   subs.add(onRows);
+  if (onError) errSubs.add(onError);
   if (cache) onRows(cache);
   void ensureSnapshot();
   return () => {
     subs.delete(onRows);
-    if (!subs.size && unsub) { unsub(); unsub = null; cache = null; }
+    if (onError) errSubs.delete(onError);
+    if (!subs.size && unsub) { try { unsub(); } catch { /* */ } unsub = null; cache = null; }
   };
 }

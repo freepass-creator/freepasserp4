@@ -113,15 +113,24 @@ async function loadProducts(entry: FinderDataEntry) {
  */
 function startFirestore(entry: FinderDataEntry) {
   if (entry.fsUnsub) return;
-  entry.fsUnsub = subscribeFirestoreProducts((raw) => {
-    if (entries.get(entry.key) !== entry) return;
-    const shaped = shapeFinderRows(raw);
-    entry.rows = entry.partners ? withProviderNames(shaped, entry.partners) : shaped;
-    entry.loadedAt = Date.now();
-    entry.retryAfter = 0;
-    notify(entry);
-    if (!entry.partners) void loadFinderPartners(entry);
-  });
+  entry.fsUnsub = subscribeFirestoreProducts(
+    (raw) => {
+      if (entries.get(entry.key) !== entry) return;
+      const shaped = shapeFinderRows(raw);
+      entry.rows = entry.partners ? withProviderNames(shaped, entry.partners) : shaped;
+      entry.loadedAt = Date.now();
+      entry.retryAfter = 0;
+      notify(entry);
+      if (!entry.partners) void loadFinderPartners(entry);
+    },
+    (err) => {
+      // ㉡ 핸들 완전 해제(다음 재구독이 다시 시도할 수 있게) · ㉢ RTDB 단발 폴백(빈 화면 방지).
+      if (entries.get(entry.key) !== entry) return;
+      entry.fsUnsub = undefined;
+      console.warn('[finder] Firestore 실패 → RTDB 폴백:', err);
+      void loadProducts(entry);
+    },
+  );
 }
 
 /** 공급사명 조인용 파트너를 한 번 읽어 캐시(작고 드물게 바뀜). 실패해도 상품 표시는 유지. */
@@ -148,19 +157,19 @@ export function discardOtherFinderData(sessionUid?: string, sessionScope?: strin
 export function subscribeFinderData(params: FinderDataParams, listener: () => void) {
   const entry = getEntry(params);
   entry.listeners.add(listener);
-  // Firestore 읽기 경로(플래그 ON): onSnapshot 한 번만 걸고 poll 은 타지 않는다.
+  // ★실 인증 UID 복원 뒤에만 시작한다 — RTDB·Firestore 경로 공통(㉠). AuthProvider 의 화면 보호용 ready
+  //   타이머(최대 6초)는 Firebase 사용자 복원보다 먼저 끝날 수 있어, 인증 전 요청/구독은 규칙에 막힌다.
+  const firebaseUserReady = !!params.sessionUid
+    && getAuthClient()?.currentUser?.uid === params.sessionUid;
+  const canLoad = !firebaseReady() || firebaseUserReady;
+  // Firestore 읽기 경로(플래그 ON): 실 UID 복원 뒤에만 onSnapshot 한 번 걸고 poll 은 안 탄다.
+  //   아직 인증 전이면 «안 건다» — sessionUid 가 실 UID 로 바뀌면 store 키가 바뀌어 재구독되고, 그때 시작한다(㉠).
   if (finderFromFirestoreEnabled() && firebaseReady()) {
-    startFirestore(entry);
+    if (canLoad) startFirestore(entry);
     return () => { entry.listeners.delete(listener); };
   }
   const now = Date.now();
   const stale = entry.loadedAt === 0 || now - entry.loadedAt >= REVALIDATE_AFTER_MS;
-  // AuthProvider의 화면 보호용 ready 타이머(최대 6초)는 Firebase 사용자 복원보다 먼저
-  // 끝날 수 있다. 그러면 bearer 없는 요청이 한 번 실패하고 재시도로 목록이 더 늦어진다.
-  // 실 인증 UID와 세션 UID가 같을 때만 한 번 시작한다.
-  const firebaseUserReady = !!params.sessionUid
-    && getAuthClient()?.currentUser?.uid === params.sessionUid;
-  const canLoad = !firebaseReady() || firebaseUserReady;
   if (canLoad && stale && now >= entry.retryAfter) void loadProducts(entry);
   return () => {
     entry.listeners.delete(listener);
