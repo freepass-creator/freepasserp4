@@ -108,7 +108,8 @@
     "settlement:review": "tsx scripts/publish-supplier-review.mts",
     "settlement:month": "tsx scripts/run-settlement-month.mts",
     "check:rules": "firebase emulators:exec --only firestore --project demo-freepass-rules \"npx tsx scripts/check-firestore-rules.mts\"",
-    "check:settlement": "tsx scripts/check-settlement-locked.mts"
+    "check:settlement": "tsx scripts/check-settlement-locked.mts",
+    "check:intake": "tsx scripts/check-intake-gap.mts"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",
