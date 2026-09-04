@@ -207,6 +207,12 @@ class FirestoreAdapter implements StoreAdapter {
     try {
       const { getFirestore, collection, query, where, getDocs } = await import('firebase/firestore');
       const db = getFirestore(getFirebaseApp()!);
+      // ★상품 원자는 «products»(복수) 컬렉션에 있다(미러가 씀 · 차번 docId). 어댑터 엔티티 키는 «product»(단수)라
+      //   여기서 매핑한다(2026-09-04 코덱스 지적 — 안 하면 일반 상품화면이 빈 product 를 읽는다). 마켓이라 로그인이면 전체 read.
+      if (entityKey === 'product') {
+        const snap = await withTimeout(getDocs(collection(db, 'products')));
+        return snap.docs.map((d) => { const x = d.data() as Record<string, unknown>; return { ...x, _key: String(x.product_code || x.car_number || d.id), companyId: String(x.provider_company_code || '') } as EntityRecord; }).filter((r) => !r.deletedAt);
+      }
       const col = collection(db, entityKey);
       // ★역할 격리 엔티티(계약·정산)는 «규칙과 같은 제약»으로 쿼리해야 Firestore 가 거부하지 않는다(규칙=필터가 아니라 검증).
       //   공급사=provider_company_code · 영업자=agent_code(=user_code) · 관리자=companyId(또는 전체). getSession 이 격리키를 안다.
@@ -244,11 +250,18 @@ class FirestoreAdapter implements StoreAdapter {
   }
   async get(entityKey: string, companyId: string, key: string): Promise<EntityRecord | null> {
     try {
-      const { getFirestore, doc, getDoc } = await import('firebase/firestore');
+      const { getFirestore, doc, getDoc, collection, query, where, getDocs } = await import('firebase/firestore');
       const db = getFirestore(getFirebaseApp()!);
       if (entityKey === 'contract' || entityKey === 'settlement') {
         const hit = await this.findRoleIsolated(entityKey, key);
         return hit ? hit.data : null;
+      }
+      if (entityKey === 'product') {   // 상품 원자는 «products»(복수) — key=product_code 또는 차번 docId
+        const shape = (x: Record<string, unknown>, id: string) => ({ ...x, _key: String(x.product_code || x.car_number || id), companyId: String(x.provider_company_code || '') } as EntityRecord);
+        const byCode = await withTimeout(getDocs(query(collection(db, 'products'), where('product_code', '==', key))));
+        if (!byCode.empty) return shape(byCode.docs[0].data() as Record<string, unknown>, byCode.docs[0].id);
+        const byId = await withTimeout(getDoc(doc(db, 'products', key)));
+        return byId.exists() ? shape(byId.data() as Record<string, unknown>, byId.id) : null;
       }
       const snap = await withTimeout(getDoc(doc(db, entityKey, `${companyId}__${key}`)));
       return snap.exists() ? (snap.data() as EntityRecord) : null;
