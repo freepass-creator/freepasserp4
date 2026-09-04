@@ -156,6 +156,7 @@ function resolveCols(hdr: string[]) {
   return {
     status: find(aliasOf('상태')), car: find(aliasOf('차량번호')), kind: find(aliasOf('분류')),
     model: find(aliasOf('모델명')), trim: find(['트림', '세부트림']), maker: find(aliasOf('제조사')),
+    vname: find(aliasOf('차명(세부모델+트림)')),   // 공급사 원본 차명 열 — iron·손오공처럼 시트도 이걸 «먼저» 본다
     fuel: find(aliasOf('연료')), ext: find(aliasOf('외부색상')), int: find(aliasOf('내부색상')),
     km: find(aliasOf('주행거리')), opt: find(aliasOf('옵션')), firstReg: find(aliasOf('최초등록일')),
     cc: find(aliasOf('배기량')), klass: find(['차급', '차종크기', '차급분류', '차종분류']),
@@ -226,8 +227,13 @@ async function readRows(): Promise<Row[]> {
       const car = S(r[ci.car]); if (!car) continue;
       const model = ci.model >= 0 ? S(r[ci.model]) : '';
       const trim = ci.trim >= 0 ? S(r[ci.trim]) : '';
+      const maker0 = ci.maker >= 0 ? S(r[ci.maker]) : '';
+      // ★공급사 원문 차명 — 「어떤 형태로든지」 준 것을 다 훑는다(사장님 2026-09-05):
+      //   원본 차명 열 → (없으면) 모델+트림 합성 → (그것도 없으면) 제조사+모델+트림. 빈 채로 굳지 않게.
+      const rawVname = ci.vname >= 0 ? S(r[ci.vname]) : '';
+      const vname = rawVname || composeVehicleName(model, trim) || [maker0, model, trim].filter(Boolean).join(' ');
       const price = sheetPrice((i) => S(r[i]), ci);
-      push({ car, status: S(r[ci.status]), kind: ci.kind >= 0 ? S(r[ci.kind]) : '', maker: ci.maker >= 0 ? S(r[ci.maker]) : '', model, vname: composeVehicleName(model, trim), trim, fuel: ci.fuel >= 0 ? S(r[ci.fuel]) : '', ext: ci.ext >= 0 ? S(r[ci.ext]) : '', int: ci.int >= 0 ? S(r[ci.int]) : '', km: ci.km >= 0 ? S(r[ci.km]) : '', opt: ci.opt >= 0 ? S(r[ci.opt]) : '', firstReg: ci.firstReg >= 0 ? S(r[ci.firstReg]) : '', cc: ci.cc >= 0 ? S(r[ci.cc]) : '', klass: ci.klass >= 0 ? S(r[ci.klass]) : '', price, tab, row: String(rowNo) });
+      push({ car, status: S(r[ci.status]), kind: ci.kind >= 0 ? S(r[ci.kind]) : '', maker: maker0, model, vname, trim, fuel: ci.fuel >= 0 ? S(r[ci.fuel]) : '', ext: ci.ext >= 0 ? S(r[ci.ext]) : '', int: ci.int >= 0 ? S(r[ci.int]) : '', km: ci.km >= 0 ? S(r[ci.km]) : '', opt: ci.opt >= 0 ? S(r[ci.opt]) : '', firstReg: ci.firstReg >= 0 ? S(r[ci.firstReg]) : '', cc: ci.cc >= 0 ? S(r[ci.cc]) : '', klass: ci.klass >= 0 ? S(r[ci.klass]) : '', price, tab, row: String(rowNo) });
     }
   }
   return out;
