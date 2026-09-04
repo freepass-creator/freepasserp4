@@ -38,6 +38,8 @@ const TR: [RegExp, string][] = [
   [/inspiration/gi, '인스퍼레이션'], [/noblesse/gi, '노블레스'], [/limited/gi, '리미티드'], [/dynamic/gi, '다이나믹'], [/smart/gi, '스마트'],
 ];
 const normT = (s: string) => { let x = S(s).toLowerCase(); for (const [r, v] of TR) x = x.replace(r, v); return x.replace(/[\s()\/\-·.]/g, ''); };
+// ★사람이 확인해 박는 식별 오버라이드(차번→제조사·모델·세부모델·세부트림) — 매처가 못 박은 것. 최우선.
+const identOv: Record<string, Record<string, string>> = (() => { try { return JSON.parse(readFileSync('public/data/vehicle-identity-overrides.json', 'utf8')); } catch { return {}; } })();
 const pickTrim = (sub: string, raw: string): string => {
   const trims = subTrims.get(S(sub)); if (!trims || !raw) return '';
   const r = normT(raw);
@@ -82,6 +84,11 @@ for (const [key, v] of Object.entries(products)) {
   if (!v || typeof v !== 'object') continue;
   const code = S(v.provider_company_code); const car = NKEY(v.car_number);
   const changes: string[] = [];
+  // ★식별 오버라이드(사람 확인값) — 최우선. 매처가 못 박은 차를 여기서 박는다. 값 있는 필드만.
+  const ov = identOv[car];
+  if (ov) for (const f of ['maker', 'model', 'sub_model', 'trim_name'] as const) {
+    if (S(ov[f]) && S(v[f]) !== S(ov[f])) { updates[`v4/products/${key}/${f}`] = S(ov[f]); (stat as any)[f === 'sub_model' ? 'sub' : f === 'trim_name' ? 'trim' : f]++; changes.push(`${f}(확인)→「${S(ov[f])}」`); }
+  }
   // ⑤ 상품구분(불변) 정규화 — 5개 캐논만. 오플(RP023)=오플구독 · 재랜트/재렌트=중고렌트. (모든 공급사)
   const curPt = S(v.product_type);
   const newPt = code === 'RP023' ? '오플구독' : (/재랜트|재렌트/.test(curPt) ? '중고렌트' : '');

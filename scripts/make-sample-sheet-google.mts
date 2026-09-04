@@ -118,6 +118,9 @@ for (const t of TAB_ORDER) {
 // ★픽업구독 보증금 열 이름 = 「반납형보증금/인수형보증금」(사장님 2026-09-04). 값(대여료×연수 최대3배)은 그대로.
 if (headerCache['픽업구독']) headerCache['픽업구독'] = headerCache['픽업구독'].map((h) => h === '보증금 반납형' ? '반납형보증금' : h === '보증금 인수형' ? '인수형보증금' : h);
 
+// ★옵션 정리(사장님 2026-09-04) — 「-」·「.」처럼 텍스트/영문/숫자가 없으면 선택옵션 없음(빈칸).
+const cleanOpt = (s: string): string => /[가-힣A-Za-z0-9]/.test(S(s)) ? S(s) : '';
+
 // ── 열 이름 → 값 ──
 const money = (v: unknown) => { const n = Number(String(v).replace(/[,\s]/g, '')); return n ? n.toLocaleString() : (v == null || v === '' ? '' : S(v)); };
 // 면책금·한도 단위 표기 — 「1억/50」→「1억원 / 50만원」, 「3천/50」→「3천만원 / 50만원」, 「무한/없음/차량」은 그대로.
@@ -198,7 +201,7 @@ const cell = (col: string, v: any): string => {
     '세부트림': S(v.trim_name) || (/기본\s*형|\b기본\b/.test(S(v['원문']?.['차명'])) ? '기본형' : ''),
     '외장': S(v.ext_color), '내장': S(v.int_color), '연식': S(v.year), 'Km': S(v.mileage),
     '연료': S(v.fuel_type), '배기량': S(v.engine_cc), '차종구분': S(v.vehicle_class),
-    '차명(원문)': S(v['원문']?.['차명']), '옵션(원문)': S(v['원문']?.['옵션']),
+    '차명(원문)': S(v['원문']?.['차명']), '옵션(원문)': cleanOpt(S(v['원문']?.['옵션'])),
     '원산지': S(v.origin), '구동': S(v.drive_type), '인승': S(v.seats), '배터리용량': S(v.battery_capacity),
     '최초등록': S(v.first_registration_date), '차고지': S(v.location), '사진': S(v.photo_link),
     '정책UID': S(v.policy_code),
