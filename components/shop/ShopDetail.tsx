@@ -148,7 +148,14 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
     ['납부 방법', join(S('payment_method'), S('payment_timing') && S('payment_timing') !== S('payment_method') ? S('payment_timing') : '')],
     ['약정 주행', join(S('annual_mileage'),
       S('mileage_upcharge_per_10000km') ? `초과 1만km당 ${S('mileage_upcharge_per_10000km')}` : '')],
-    ['중도 해지', S('penalty_condition')],
+    /*
+     * ⚠⚠ **중도해지 위약금은 손님 화면에 안 낸다.** 여기 있던 줄을 뺐다(2026-09-05).
+     *   업무동 정본이 이미 그렇게 정해 두었는데(`lib/domain/product.ts` condRows —
+     *   「상담 자리에서 «어떤 차를 얼마에» 를 보는 화면인데 **벌칙 조항이 같이 서면 계약서를 읽는
+     *   화면이 된다**」), 내가 가게를 새로 지으면서 그 판단을 안 보고 다시 넣었다.
+     *   없애는 게 아니라 **말할 사람이 말하도록** 옮긴 것이다 — 영업자 패널이 그대로 들고 있고,
+     *   확정된 조건은 전자계약서가 든다.
+     */
   ]);
 
   /** 운전 — 「내가 탈 수 있나」. 나이 범위 하나가 결정적이라 그것만 크게 세운다. */
