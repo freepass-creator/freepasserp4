@@ -124,6 +124,16 @@ const yearOf = (firstReg: string) => {
   const yy = s.match(/^\s*(\d{2})[.\-/]/); return yy ? `20${yy[1]}` : '';
 };
 
+// ★전기차 규칙 — 이름이 전기차(일렉트리파이드·일렉트릭)면 연료=전기, 전기/수소면 배기량은 없다
+//   (내연 형제의 998·1580·3500cc 가 새어 든다). 사장님 2026-09-05.
+const NAME_EV = /일렉트리파이드|일렉트릭|electric/i;
+const FUEL_EV = /^(전기|수소)$|\bev\b|electric|fcev/i;
+function evClean(name: string, fuel: string, cc: string): { fuel_type: string; engine_cc: string } {
+  let f = fuel;
+  if (NAME_EV.test(name) && !FUEL_EV.test(f)) f = '전기';
+  return { fuel_type: f, engine_cc: (FUEL_EV.test(f) || NAME_EV.test(name)) ? '' : cc };
+}
+
 // 상태 디테일 — mirror-to-firestore 와 «같은» 분류(한 값에 안 뭉침). status·status_kind·status_reason·listable.
 const AVAIL = new Set(['즉시출고', '출고가능']);
 function statusDetail(rawStatus: string, locked?: unknown) {
@@ -258,9 +268,10 @@ function atomize(row: Row, pinned: Map<string, Record<string, unknown>>): Atom {
       engine_cc: row.cc, vehicle_class: row.klass, first_registration_date: row.firstReg,
     };
   }
+  const ev = evClean(`${identity.sub_model} ${identity.model} ${identity.trim_name} ${vname}`, S(spec.fuel_type), S(spec.engine_cc));
   return {
     car_number: car,
-    maker: identity.maker, model: identity.model, sub_model: identity.sub_model, trim_name: identity.trim_name, origin: identity.origin, ...spec,
+    maker: identity.maker, model: identity.model, sub_model: identity.sub_model, trim_name: identity.trim_name, origin: identity.origin, ...spec, ...ev,
     product_type: canonProductType(row.kind),
     ...statusDetail(row.status, pin?.locked_by_contract), mileage: row.km, options: row.opt,
     ...(Object.keys(row.price).length ? { price: row.price } : null),
