@@ -112,7 +112,17 @@ for (const t of TAB_ORDER) {
 if (headerCache['픽업구독']) headerCache['픽업구독'] = headerCache['픽업구독'].map((h) => h === '보증금 반납형' ? '반납형보증금' : h === '보증금 인수형' ? '인수형보증금' : h);
 
 // ── 열 이름 → 값 ──
-const money = (v: unknown) => { const n = Number(v); return n ? n.toLocaleString() : ''; };
+const money = (v: unknown) => { const n = Number(String(v).replace(/[,\s]/g, '')); return n ? n.toLocaleString() : (v == null || v === '' ? '' : S(v)); };
+// 면책금·한도 단위 표기 — 「1억/50」→「1억원 / 50만원」, 「3천/50」→「3천만원 / 50만원」, 「무한/없음/차량」은 그대로.
+const fmtUnit = (s: string): string => {
+  s = S(s);
+  if (!s || /무한|없음|차량|미가입|불가|가능|협의|전국|일부|본인|가족|사업자|개인|오일|미제공|신용|무심사/.test(s)) return s;
+  if (/억\s*원?$/.test(s)) return s.replace(/\s*원$/, '') + '원';           // 1억 → 1억원
+  if (/천\s*만?\s*원?$/.test(s)) return s.replace(/\s*만?\s*원?$/, '') + '만원'; // 2천 → 2천만원
+  if (/^\d+(?:\s*[~\-]\s*\d+)?\s*만?\s*원?$/.test(s)) return s.replace(/\s*만?\s*원?$/, '').replace(/\s/g, '') + '만원'; // 50 / 50~100 → 만원
+  return s;
+};
+const fmtLimit = (raw: string): string => S(raw).split('/').map((p) => fmtUnit(p.trim())).filter(Boolean).join(' / ');
 const priceCell = (price: any, col: string): string => {
   if (!price || typeof price !== 'object') return '';
   const P = price as Record<string, any>;
@@ -143,9 +153,14 @@ const combine = (pol: any, legacy: string, limit: string[], ded: string[]) => {
 const supPol: Record<string, Record<string, string>> = (() => { try { return JSON.parse(readFileSync('public/data/supplier-policies.json', 'utf8')); } catch { return {}; } })();
 const cell = (col: string, v: any): string => {
   const pol = policyOf(v);
-  // 1) 공급사시트 정책이 그 열을 갖고 있으면 그걸 최우선(대인·대물·자손·무보험·자차·연주행·1만+·분납·운전자범위·정비 등).
+  // 1) 공급사시트 정책이 그 열을 갖고 있으면 그걸 최우선. 면책금·한도는 단위표기, 소비자가격은 콤마.
   const sp = supPol[S(v.provider_company_code)];
-  if (sp && col !== '전용계좌' && S(sp[col])) return S(sp[col]);
+  if (sp && col !== '전용계좌' && S(sp[col])) {
+    const raw = S(sp[col]);
+    if (/대인|대물|자손|무보험|자차/.test(col)) return fmtLimit(raw);
+    if (/소비자가격|가격|금액/.test(col)) return money(raw);
+    return raw;
+  }
   const direct: Record<string, string> = {
     '배차상태': S(v.status), '구분': S(v.product_type), '차량번호': S(v.car_number),
     '제조사': S(v.maker), '모델': S(v.model), '세부모델': S(v.sub_model),
@@ -195,8 +210,9 @@ if (!meta) {
   for (const base of TAB_ORDER) {
     const found = existing.find((e: any) => e.title === base || e.title.startsWith(base + ' '));
     const nt = titleOf(base);
-    if (found) { gidByBase[base] = found.gid; if (found.title !== nt) reqs.push({ updateSheetProperties: { properties: { sheetId: found.gid, title: nt }, fields: 'title' } }); }
-    else { gidByBase[base] = nid; reqs.push({ addSheet: { properties: { sheetId: nid, title: nt } } }); nid++; }
+    const rowCount = 1 + (groups[base]?.length || 0) + 20;   // 밑 여유 20줄만(사장님 2026-09-04) — 쓰기 전에 그리드 맞춤
+    if (found) { gidByBase[base] = found.gid; reqs.push({ updateSheetProperties: { properties: { sheetId: found.gid, title: nt, gridProperties: { rowCount } }, fields: 'title,gridProperties.rowCount' } }); }
+    else { gidByBase[base] = nid; reqs.push({ addSheet: { properties: { sheetId: nid, title: nt, gridProperties: { rowCount } } } }); nid++; }
   }
   if (reqs.length) await api(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests: reqs }) });
   await api(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values:batchClear`, { method: 'POST', body: JSON.stringify({ ranges: TAB_ORDER.map((t) => `'${titleOf(t).replace(/'/g, "''")}'`) }) });
