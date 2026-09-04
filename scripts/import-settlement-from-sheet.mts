@@ -188,6 +188,16 @@ if (OVERWRITE) {
   }
 }
 if (!Object.keys(patch).length) { console.log('\n   올릴 것이 없습니다.\n'); process.exit(0); }
+/**
+ * ★★**`undefined` 는 «칸을 통째로 걷어» 보낸다** — 파이어베이스가 그 자리에서 거부한다.
+ *   실측 2026-09-04 — 9월 접수 한 줄의 청구월이 아직 비어 있어 `billMonth: undefined` 로 실렸고,
+ *   그 한 칸 때문에 «448줄짜리 반영 전체»가 튕겼다. 그리고 그 탓에 8월 청구서도 못 뽑았다.
+ * ⚠ `null` 로 바꾸지 않는다 — RTDB 에서 `null` 은 «지우기»라, 이미 있던 값을 날린다.
+ *   없는 칸은 «안 보내는 것»이 맞다.
+ */
+for (const [code, rec] of Object.entries(patch)) {
+  patch[code] = Object.fromEntries(Object.entries(rec as Record<string, unknown>).filter(([, v]) => v !== undefined)) as typeof rec;
+}
 await db.ref(NODE).update(patch);
 console.log(`\n   ✓ ${Object.keys(patch).length}줄 반영 — 새 줄 ${fresh.length}${OVERWRITE ? ` · 덮음 ${overwritten} · ERP 에서 고친 줄이라 비켜감 ${refused}` : ''}`);
 

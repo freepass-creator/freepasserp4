@@ -758,6 +758,17 @@ if (APPLY) {
   const stN = /상태 전이 (\d+)건/.exec(det.picked.join(' '))?.[1];
   const prN = /대여료 변경 (\d+)건/.exec(det.picked.join(' '))?.[1];
   line.push(det.ok ? `변경 상태${stN ?? '?'}·요금${prN ?? '?'}` : '검증 실패');
+
+  /**
+   * ⑯ **본시트(영업자 판매시트) 발행** — Firestore 원자 → 판매시트 4탭을 «집안 서식」으로 재발행.
+   *   사장님 2026-09-04 「이제 본시트에 올리자」. ⑥ 이 정제시트로 쓴 4탭을 여기서 Firestore(⑭ 로 방금 신선)로
+   *   덮어, 전용계좌·정책(대인/대물/자손/…)·면책금 단위·1만+/21세/23세 할증표기·오버라이드까지 얹는다.
+   * ★반드시 ⑭ 미러 «뒤»다 — 생성기는 Firestore 를 읽으므로 미러가 먼저 돌아야 이번 시각 데이터가 실린다.
+   * ★best-effort — 실패해도 회차를 멈추지 않는다. 실패하면 시트엔 ⑥ 의 «올바른(서식만 단순)» 표가 남는다.
+   */
+  const pub = run('⑯ 본시트 발행', ['scripts/make-sample-sheet-google.mts', '--main'], /본시트 반영 완료|중단|Error/);
+  line.push(pub.ok ? (pub.picked.find((l) => /본시트 반영 완료/.test(l))?.replace(/^.*본시트 반영 완료 /, '').replace(/:.*$/, '') || '본시트 ok') : '★본시트 발행 실패');
+  if (!pub.ok) warnings.push('⑯ 본시트 발행 실패 — 시트는 ⑥ 값(단순 서식) 유지');
 }
 
 const seconds = Math.round((Date.now() - started) / 1000);

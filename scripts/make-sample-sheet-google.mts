@@ -13,8 +13,11 @@ import { JWT } from 'google-auth-library';
 import { buildSalesFormatRequests, columnWidths } from '../lib/domain/sales-sheet-format';
 
 const S = (v: unknown) => String(v ?? '').trim();
-const SAMPLE_SHEET_ID = S(process.env.SAMPLE_SHEET_ID) || '1J7dcGCTI0hiHBSdbHx0SqKJKrBg57xkgsX-I8qyfv3c';
-const SRC_SHEET = '1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs';   // 기존 판매시트 — 헤더를 여기서 읽는다
+const SRC_SHEET = '1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs';   // 기존 판매시트 = 본시트(영업자가 보는 곳). 헤더를 여기서 읽는다.
+// ★--main = «본시트»(영업자가 보는 판매시트)에 직접 발행. 기본은 샘플(실수로 운영을 덮지 않게).
+//   본시트에 쓸 때도 4개 상품탭만 rename·clear·재작성한다(AI 인계·차종사전 등 참조탭은 안 건드린다).
+const TO_MAIN = process.argv.includes('--main');
+const SAMPLE_SHEET_ID = TO_MAIN ? SRC_SHEET : (S(process.env.SAMPLE_SHEET_ID) || '1J7dcGCTI0hiHBSdbHx0SqKJKrBg57xkgsX-I8qyfv3c');
 const sa = JSON.parse(readFileSync('tmp/firebase-auth/sa.json', 'utf8'));
 initializeApp({ credential: cert({ projectId: sa.project_id, clientEmail: sa.client_email, privateKey: sa.private_key.replace(/\\n/g, '\n') }), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' });
 const jwt = new JWT({ email: sa.client_email, key: sa.private_key, scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive'], subject: 'pyh@teamjpk.com' });
@@ -151,13 +154,33 @@ const combine = (pol: any, legacy: string, limit: string[], ded: string[]) => {
 };
 // ★공급사별 정책 정본 = 구형 공급사시트에서 학습(사장님 2026-09-03). 공급사코드 → 정책 열값. v4/policies 보다 완전.
 const supPol: Record<string, Record<string, string>> = (() => { try { return JSON.parse(readFileSync('public/data/supplier-policies.json', 'utf8')); } catch { return {}; } })();
+// ★사장님 확인 오버라이드(21세/23세/1만+ 등) — supplier-policies 보다 우선. 알게 되는 대로 이 파일에 넣는다.
+const override: Record<string, Record<string, string>> = (() => { try { return JSON.parse(readFileSync('public/data/supplier-policy-overrides.json', 'utf8')); } catch { return {}; } })();
+// 할증 표기 — 「0.1」→「대여료 10%」, 「3만」→「정액 3만원」, 불가/협의/문의는 그대로. 애매한 정수는 원값(오버라이드로 확인).
+const fmtSurcharge = (s: string): string => {
+  const t = S(s).replace(/\s/g, '');
+  if (!t || /문의|협의|불가|없음|미가입|대여료|정액/.test(t)) return S(s);
+  if (/만원?$/.test(t)) return `정액 ${t.replace(/원$/, '').replace(/만$/, '만원')}`;
+  const n = Number(t.replace('%', ''));
+  if (!isNaN(n) && n > 0 && n < 1) return `대여료 ${Math.round(n * 100)}%`;
+  if (/%$/.test(t)) return `대여료 ${t}`;
+  return S(s);
+};
 const cell = (col: string, v: any): string => {
   const pol = policyOf(v);
-  // ★연령 정책(사장님 2026-09-04) — 기본연령 만26세 이상, 만26세 미만은 «운영 안 함」 → 21세/23세는 불가.
+  const prov = S(v.provider_company_code);
+  const sp = supPol[prov];
+  const ov = override[prov];
+  // 0) 사장님 확인값(오버라이드) — 어느 열이든 최우선. 알게 되는 대로 supplier-policy-overrides.json 에 넣는다.
+  if (ov && S(ov[col])) return S(ov[col]);
+  // ★기본연령(사장님 2026-09-04) — 전 공급사 만26세 이상.
   if (col === '기본연령') return '만26세 이상';
-  if (col === '21세+' || col === '23세+' || col === '만21세' || col === '만23세') return '불가';
+  // ★할증 열(1만+·21세+·23세+) — 「대여료 00% / 정액 00만원」으로 표기(사장님 2026-09-04).
+  //   0.1→대여료 10%, 3만→정액 3만원. 애매한 정수(어디는 %·어디는 정액)는 원값 유지 → 확인되면 오버라이드로 박는다.
+  if (col === '1만+') return fmtSurcharge(S(sp?.['1만+']) || S(pol.mileage_upcharge_per_10000km));
+  if (col === '21세+' || col === '만21세') return fmtSurcharge(S(sp?.['21세']));
+  if (col === '23세+' || col === '만23세') return fmtSurcharge(S(sp?.['23세']));
   // 1) 공급사시트 정책이 그 열을 갖고 있으면 그걸 최우선. 면책금 단위표기·가격 콤마.
-  const sp = supPol[S(v.provider_company_code)];
   if (sp && col !== '전용계좌' && S(sp[col])) {
     const raw = S(sp[col]);
     if (/대인|대물|자손|무보험|자차/.test(col)) return fmtLimit(raw);
@@ -240,6 +263,6 @@ for (const t of TAB_ORDER) {
 for (let i = 0; i < fmt.length; i += 200) await api(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests: fmt.slice(i, i + 200) }) });
 
 const total = TAB_ORDER.reduce((a, t) => a + (groups[t]?.length || 0), 0);
-console.log(`\n★ ${fresh ? '새로 만든' : '제자리 갱신'} 상품시트(${total}대 · 기존시트 동일열):\nhttps://docs.google.com/spreadsheets/d/${sheetId}/edit`);
+console.log(`\n★ ${TO_MAIN ? '본시트 반영 완료' : (fresh ? '새로 만든' : '제자리 갱신')} 상품시트(${total}대 · 기존시트 동일열):\nhttps://docs.google.com/spreadsheets/d/${sheetId}/edit`);
 if (fresh) console.log(`\n※ 이 ID 를 SAMPLE_SHEET_ID 에 박으면 고정: ${sheetId}`);
 process.exit(0);

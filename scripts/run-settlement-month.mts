@@ -54,6 +54,8 @@ const steps: Step[] = [
   { no: '⑦', what: '드라이브에 올리기', cmd: ['npx', 'tsx', 'scripts/upload-settlement-docs.mts', MONTH, ...A], needApply: true },
   { no: '⑧', what: '공급사 시트에 정산 탭 붙이기', cmd: ['npx', 'tsx', 'scripts/publish-supplier-settlement.mts', MONTH, ...A], needApply: true },
   { no: '⑨', what: '영업채널 시트에 정산 탭 붙이기', cmd: ['npx', 'tsx', 'scripts/publish-channel-settlement.mts', MONTH, ...A], needApply: true },
+  /** ★마지막은 «맞대 보기»다 — 종이·시트·원자가 한 원까지 같아야 끝난 것이다. */
+  { no: '⑩', what: '종이 ↔ 시트 ↔ 원자 대조', cmd: ['npx', 'tsx', 'scripts/check-settlement-sync.mts', MONTH] },
 ];
 
 console.log(`\n■■ ${MONTH} 한 달 정산 — ${APPLY ? '반영' : 'dry-run (아무것도 안 바꾼다)'}\n`);
