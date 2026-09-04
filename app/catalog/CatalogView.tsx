@@ -4,7 +4,12 @@ import { type EntityRecord } from '@/lib/intake/entities';
 import { cheapestRent, creditDisplay, isListableProduct, priceList } from '@/lib/domain/product';
 import { matchProductQuery } from '@/lib/domain/search';
 import { ProductCard } from '@/components/ProductCard';
-import { RENT_BANDS, CREDITS, CATALOG_PERKS, hasPerk } from '@/lib/domain/product-filters';
+import {
+  RENT_BANDS, DEP_BANDS, MILE_BANDS, CREDITS, CATALOG_PERKS, hasPerk,
+  presentFilterOptions,
+} from '@/lib/domain/product-filters';
+import { fuelDisplay, makerDisplay, yearDisplay } from '@/lib/domain/vehicle-master-format';
+import { CUSTOMER_VEHICLE_CLASSES, customerVehicleClass } from '@/lib/domain/catalog-facets';
 import { C, FW, FS, CenterNote, FilterChips, FilterGroup, ListMoreBar, Message, SearchInput, Select, ToggleChips, ProductCardSkeleton } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { toggleInSet } from '@/lib/set';
@@ -57,6 +62,13 @@ export function CatalogView({ wl = FREEPASS }: { wl?: Whitelabel }) {
   const [rent, setRent] = useState('');
   const [credit, setCredit] = useState<Set<string>>(new Set());
   const [perks, setPerks] = useState<Set<string>>(new Set());
+  // 손님용으로 더한 축 — 차종·제조사·보증금·연식·주행거리·연료.
+  const [vclass, setVclass] = useState<Set<string>>(new Set());
+  const [maker, setMaker] = useState<Set<string>>(new Set());
+  const [dep, setDep] = useState<Set<string>>(new Set());
+  const [year, setYear] = useState<Set<string>>(new Set());
+  const [mile, setMile] = useState<Set<string>>(new Set());
+  const [fuel, setFuel] = useState<Set<string>>(new Set());
   const [sort, setSort] = useState('asc');
   const [limit, setLimit] = useState(PAGE);
 
@@ -90,7 +102,33 @@ export function CatalogView({ wl = FREEPASS }: { wl?: Whitelabel }) {
     return () => clearTimeout(t);
   }, [qInput]);
 
-  useEffect(() => { setLimit(PAGE); }, [q, rent, credit, perks, sort]);
+  useEffect(() => { setLimit(PAGE); }, [q, rent, credit, perks, vclass, maker, dep, year, mile, fuel, sort]);
+
+  /**
+   * 옵션·건수 = **finder 와 같은 SSOT**(`presentFilterOptions`). 따로 세면 「웹에선 걸리는데
+   * 손님 화면엔 안 걸리는」 숨은 필터가 생긴다. 값이 없는 축·칩은 알아서 숨는다.
+   * ★차종·제조사·연식은 여기 없어 직접 센다 — 판정식은 finder 와 같은 표시함수를 쓴다.
+   */
+  const facets = useMemo(() => presentFilterOptions(rows || []), [rows]);
+  const dynFacets = useMemo(() => {
+    const count = (get: (p: EntityRecord) => string) => {
+      const m = new Map<string, number>();
+      for (const p of rows || []) { const v = get(p); if (v) m.set(v, (m.get(v) || 0) + 1); }
+      return [...m.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'ko'));
+    };
+    return {
+      // 차종은 «큰 갈래»로 접어 센다 — 원본 20갈래를 손님 화면에 그대로 세우면 벽이 된다.
+      //  순서는 재고 대수가 아니라 «손님이 말하는 순서»(승용 → SUV → 승합 → 화물)로 고정한다.
+      vclass: (() => {
+        const m = new Map(count((p) => customerVehicleClass(p)));
+        return CUSTOMER_VEHICLE_CLASSES.filter((k) => m.has(k)).map((k) => [k, m.get(k) || 0] as [string, number]);
+      })(),
+      // 제조사는 대수 많은 순 열둘까지 — 손님 화면에 스무 개를 세우면 그게 또 벽이다.
+      maker: count((p) => makerDisplay(p.maker)).slice(0, 12),
+      // 연식은 최신순.
+      year: count((p) => yearDisplay(p.year)).sort((a, b) => b[0].localeCompare(a[0], 'ko')),
+    };
+  }, [rows]);
 
   const list = useMemo(() => {
     const l = (rows || []).filter((p) => {
@@ -102,13 +140,23 @@ export function CatalogView({ wl = FREEPASS }: { wl?: Whitelabel }) {
         const b = RENT_BANDS.find((x) => x.k === rent);
         if (b && !priceList(p).some((x) => x.rent > b.lo && x.rent <= b.hi)) return false;
       }
+      // 보증금·주행 = finder 와 같은 밴드 의미(lo < x ≤ hi 를 하나라도 만족).
+      if (dep.size && !DEP_BANDS.some((b) => dep.has(b.k) && priceList(p).some((x) => x.deposit > b.lo && x.deposit <= b.hi))) return false;
+      if (mile.size) {
+        const km = Number(p.mileage) || 0;
+        if (!MILE_BANDS.some((b) => mile.has(b.k) && km > b.lo && km <= b.hi)) return false;
+      }
+      if (fuel.size && !fuel.has(fuelDisplay(p.fuel_type) || String(p.fuel_type || ''))) return false;
+      if (vclass.size && !vclass.has(customerVehicleClass(p))) return false;
+      if (maker.size && !maker.has(makerDisplay(p.maker))) return false;
+      if (year.size && !year.has(yearDisplay(p.year))) return false;
       if (credit.size && !credit.has(creditDisplay(p))) return false;
       if (perks.size && ![...perks].every((pk) => hasPerk(p, pk))) return false;
       return true;
     });
     l.sort((a, b) => (sort === 'asc' ? 1 : -1) * (cheapestRent(a) - cheapestRent(b)));
     return l;
-  }, [rows, q, rent, credit, perks, sort]);
+  }, [rows, q, rent, credit, perks, vclass, maker, dep, year, mile, fuel, sort]);
 
   const shown = list.slice(0, limit);
   const href = (p: EntityRecord) => `/q/${encodeURIComponent(String(p.product_code))}${attr ? `?a=${encodeURIComponent(attr)}` : ''}`;
@@ -133,22 +181,48 @@ export function CatalogView({ wl = FREEPASS }: { wl?: Whitelabel }) {
   );
 
   // ── 조건칸 — 웹은 왼쪽 기둥, 모바일은 목록 위에 눕는다. 값·축은 양쪽이 같은 것을 쓴다. ──
+  /**
+   * 조건칸 — **손님이 쓰는 축만.** 프리패스 필터는 이보다 많지만(기간·상품구분·프로모·색상·
+   * 약정주행·공급사) 손님 화면에 다 세우면 그게 또 벽이다.
+   * ⚠ **공급사는 절대 안 낸다** — 누구 차인지 손님이 알 필요가 없고, 알면 우리를 건너뛴다.
+   * 순서는 손님이 고르는 순서다: 무슨 차 → 어느 회사 → 얼마 → 얼마 걸고 → 심사 → 상태 → 혜택.
+   */
+  const multi = (
+    title: string, sel: Set<string>, set: (fn: (p: Set<string>) => Set<string>) => void,
+    clear: () => void, opts: { key: string; label: string }[], first?: boolean,
+  ) => (opts.length ? (
+    <FilterGroup title={title} count={sel.size} defaultOpen={!mobile} first={first} onClear={clear}>
+      <ToggleChips selected={sel} onToggle={(k) => set((p) => toggleInSet(p, k))} options={opts} />
+    </FilterGroup>
+  ) : null);
+
   const conditions = (
     <>
-      <FilterGroup title="월 대여료" count={rent ? 1 : 0} defaultOpen={!mobile} first onClear={() => setRent('')}>
+      {multi('차종', vclass, setVclass, () => setVclass(new Set()),
+        dynFacets.vclass.map(([v]) => ({ key: v, label: v })), true)}
+      {multi('제조사', maker, setMaker, () => setMaker(new Set()),
+        dynFacets.maker.map(([v]) => ({ key: v, label: v })))}
+      <FilterGroup title="월 대여료" count={rent ? 1 : 0} defaultOpen={!mobile} onClear={() => setRent('')}>
         <FilterChips
           value={rent}
           onChange={setRent}
-          options={RENT_BANDS.map((b) => ({ key: b.k, label: b.label }))}
+          options={(facets.rent.length ? facets.rent : RENT_BANDS.map((b) => ({ key: b.k, label: b.label, count: 0 })))
+            .map((b) => ({ key: b.key, label: b.label }))}
           clearKey=""
         />
       </FilterGroup>
-      <FilterGroup title="심사" count={credit.size} defaultOpen={!mobile} onClear={() => setCredit(new Set())}>
-        <ToggleChips selected={credit} onToggle={(k) => setCredit((p) => toggleInSet(p, k))} options={CREDITS.map((c) => ({ key: c, label: c }))} />
-      </FilterGroup>
-      <FilterGroup title="혜택" count={perks.size} defaultOpen={!mobile} onClear={() => setPerks(new Set())}>
-        <ToggleChips selected={perks} onToggle={(k) => setPerks((p) => toggleInSet(p, k))} options={CATALOG_PERKS.map((pk) => ({ key: pk, label: pk }))} />
-      </FilterGroup>
+      {multi('보증금', dep, setDep, () => setDep(new Set()),
+        facets.dep.map((b) => ({ key: b.key, label: b.label })))}
+      {multi('심사', credit, setCredit, () => setCredit(new Set()),
+        (facets.credit.length ? facets.credit.map((c) => ({ key: c.key, label: c.label })) : CREDITS.map((c) => ({ key: c, label: c }))))}
+      {multi('연식', year, setYear, () => setYear(new Set()),
+        dynFacets.year.map(([v]) => ({ key: v, label: v })))}
+      {multi('주행거리', mile, setMile, () => setMile(new Set()),
+        facets.mile.map((b) => ({ key: b.key, label: b.label })))}
+      {multi('연료', fuel, setFuel, () => setFuel(new Set()),
+        facets.fuel.map((f) => ({ key: f.key, label: f.label })))}
+      {multi('혜택', perks, setPerks, () => setPerks(new Set()),
+        (facets.perks.length ? facets.perks.map((p) => ({ key: p.key, label: p.label })) : CATALOG_PERKS.map((pk) => ({ key: pk, label: pk }))))}
     </>
   );
 
