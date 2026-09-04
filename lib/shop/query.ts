@@ -114,7 +114,16 @@ const axisMatch: Record<ShopAxis, (p: EntityRecord, key: string) => boolean> = {
   perk: (p, k) => hasPerk(p, k),
   rent: (p, k) => { const b = bandOf(RENT_BANDS, k); return !!b && priceList(p).some((x) => x.rent > b.lo && x.rent <= b.hi); },
   dep: (p, k) => { const b = bandOf(DEP_BANDS, k); return !!b && priceList(p).some((x) => x.deposit > b.lo && x.deposit <= b.hi); },
-  mile: (p, k) => { const b = bandOf(MILE_BANDS, k); const km = Number(p.mileage) || 0; return !!b && km > b.lo && km <= b.hi; },
+  /*
+   * ⚠⚠ **값이 없는 차를 구간에 넣지 않는다**(2026-09-05 실측 사고).
+   *   `MILE_BANDS` 의 첫 칸이 `lo: -1` 이라, 주행거리가 `0`(= 모른다)인 차가 전부 「1만km↓」에 들어갔다.
+   *   그래서 화면이 **「1만km↓ 716대」**라고 말했다 — 실제로 값이 있는 차는 **24대**뿐이다.
+   *   카드에서는 「0 은 0km 가 아니라 모른다」고 안 찍어 놓고(확정 규격 §1-6) 필터만 0km 라고 우긴 꼴이다.
+   *   누르면 아무것도 안 걸러지니 손님은 그 뒤로 이 화면의 숫자를 안 믿는다.
+   * ⇒ `km > 0` 인 차만 센다. 값이 없으면 어느 구간에도 안 든다 — 「모른다」는 조건이 아니다.
+   *   (정렬 `mile` 은 원래부터 값 없는 차를 맨 뒤로 보낸다 — `Number(0) || MAX` 이라 0 이 falsy 다.)
+   */
+  mile: (p, k) => { const b = bandOf(MILE_BANDS, k); const km = Number(p.mileage) || 0; return !!b && km > 0 && km > b.lo && km <= b.hi; },
 };
 
 /** 같은 축 안은 OR(기아 «또는» 현대), 축끼리는 AND(기아 «이면서» SUV) — 마켓의 상식대로. */

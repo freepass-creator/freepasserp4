@@ -54,6 +54,23 @@ export function ShopDetailView({ wl }: { wl: Whitelabel }) {
     document.title = vehicleNameOf({ kind: 'product', product: p }, { tier: 'full', fallback: 'plate' }) || wl.name;
   }, [p, wl.name]);
 
+  const agentName = String(agent?.name || '').trim();
+  /*
+   * ★★전화번호는 **담당자 → 대표번호** 순으로 떨어진다(2026-09-05 실측 사고).
+   *
+   *   `?a=` 없이 들어온 손님 — 채널 첫 화면(uniautofreepass.com/) → 목록 → 카드 — 은 담당자가 없다.
+   *   그때 담당자 번호만 보고 있었더니 **폰 화면 전체에 전화 링크가 0개**가 됐다.
+   *   번호는 푸터 맨 밑에 «누를 수 없는 글자»로만 남아 있었다.
+   *   사장님이 「그냥 그 주소로 들어가면 상품부터 다 보인다」고 하신 바로 그 경로가,
+   *   정확히 «전화를 걸 수 없는» 경로였다. 상담 전환이 매출인 장사에서 이건 화면이 아니라 매출의 구멍이다.
+   *
+   * ★껍데기(`WhitelabelFrame`)는 원래부터 이 폴백을 갖고 있었는데 상세만 못 받고 있었다 —
+   *   상세가 제 하단독을 가지느라 프레임 독을 껐기(`dock={false}`) 때문이다.
+   */
+  const phone = String(agent?.phone || agent?.mobile || agent?.tel || agent?.contact || '').replace(/\s/g, '')
+    || String(wl.tel || '').replace(/\s/g, '');
+  /** 목록으로 돌아가는 주소 — 담당 귀속을 물고 간다. 못 찾은 화면에서도 같은 문을 쓴다. */
+  const listHref = `/shop${attr ? `?a=${encodeURIComponent(attr)}` : ''}`;
   /*
    * ⚠ 불러오는 중·못 찾은 경우에도 **껍데기 안**에 둔다(2026-09-04 실측 사고).
    *   맨 화면으로 내보냈더니 손님이 팔린 차 링크를 눌렀을 때 브랜드가 통째로 사라지고
@@ -65,23 +82,37 @@ export function ShopDetailView({ wl }: { wl: Whitelabel }) {
   }
   // 판매 가능 여부는 서버가 이미 판정했다(만료·출고불가면 못 찾는다). 여기서 다시 걸지 않는다.
   if (!p) {
+    /*
+     * ⚠ 「담당자에게 문의해 주세요」라고 써 놓고 **번호도 목록도 없었다**(2026-09-05 검토).
+     *   문장이 시키는 일을 손님이 할 수가 없으면 그건 안내가 아니라 막다른 길이다.
+     *   ⇒ 프레임 독을 **켠다**(여기는 상세가 아니라 제 하단독이 없다 — 겹칠 일이 없다).
+     *     담당자가 없으면 껍데기가 대표번호로 떨어뜨린다. 목록으로 가는 문도 같이 준다.
+     */
     return (
-      <WhitelabelFrame wl={wl} notice={false} dock={false}>
-        <CenterNote>
-          이미 출고되었거나 안내가 끝난 차량입니다.
-          <br />다른 차량은 담당자에게 문의해 주세요.
-        </CenterNote>
+      <WhitelabelFrame wl={wl} agentName={agentName} agentPhone={phone} notice={false}>
+        <div style={{ padding: '72px 20px', textAlign: 'center' }}>
+          <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-main)', marginBottom: 8 }}>
+            이미 출고되었거나 안내가 끝난 차량입니다
+          </div>
+          <div style={{ fontSize: 14.5, color: 'var(--text-sub)', lineHeight: 1.7, marginBottom: 22 }}>
+            같은 조건의 다른 차량을 보시거나, 담당자에게 문의해 주세요.
+          </div>
+          <a href={listHref} style={{
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            height: 52, padding: '0 26px', borderRadius: 999,
+            background: 'var(--brand)', color: '#fff', textDecoration: 'none',
+            fontSize: 14.5, fontWeight: 700,
+          }}>다른 차량 보기</a>
+        </div>
       </WhitelabelFrame>
     );
   }
 
-  const agentName = String(agent?.name || '').trim();
-  const phone = String(agent?.phone || agent?.mobile || agent?.tel || agent?.contact || '').replace(/\s/g, '');
 
   return (
     <WhitelabelFrame wl={wl} agentName={agentName} agentPhone={phone} notice={false} dock={false}>
       <ShopDetail p={p} agentName={agentName} agentPhone={phone}
-        listHref={`/shop${attr ? `?a=${encodeURIComponent(attr)}` : ''}`} />
+        listHref={listHref} />
     </WhitelabelFrame>
   );
 }

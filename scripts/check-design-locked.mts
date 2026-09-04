@@ -168,6 +168,19 @@ for (const [f, name] of [[shopDetail, 'ShopDetail'], [shopCard, 'ShopCard'], [sh
     'docs/DESIGN_CONFIRMED_SHOP.md §3');
 }
 
+// 요금 밑에 「심사」를 쓰지 않는다 — 무심사가 셀링포인트인데 요금 옆에서 그 말을 도로 꺼내면 안 된다.
+must(!/심사·재고에 따라/.test(shopDetail),
+  '요금 밑 안내문이 되살아났습니다. 「심사」를 요금 옆에서 도로 꺼내는 자해입니다 — 마감 안내문 한 번이면 충분합니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-11');
+// 차량 정보 표는 사실줄·차명과 안 겹치는 넷만.
+must(!/['"]제조사['"], *makerDisplay/.test(shopDetail) && /['"]색상['"]/.test(shopDetail),
+  '차량 정보 표에 차명·사실줄과 겹치는 줄이 돌아왔습니다(또는 색상이 빠졌습니다). 색상은 사진 없는 28%의 유일한 외관 정보입니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-10');
+// 전화는 담당자 → 대표번호로 떨어진다 — ?a= 없는 손님에게 전화 링크가 0개가 되면 안 된다.
+must(/wl\.tel/.test(read('app/q/[code]/ShopDetailView.tsx')),
+  '상세가 대표번호 폴백을 잃었습니다. ?a= 없이 들어온 손님은 폰에서 전화 링크가 0개가 됩니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-9');
+
 if (fails.length) {
   console.error(`\n✗ 확정 디자인이 바뀌었습니다 — ${fails.length}건\n`);
   for (const f of fails) console.error(`   · ${f}\n`);

@@ -96,7 +96,13 @@ export const ShopCard = memo(function ShopCard({ p, href, faved, onFav }: {
   const sameDay = /즉시출고|당일/.test(String(p.vehicle_status || ''));
   const badges: { text: string; tone: BadgeTone; perk?: boolean }[] = [
     ...(credit ? [{ text: credit, tone: CREDIT_TONE(credit) }] : []),
-    ...PERKS.filter((k) => hasPerk(p, k)).map((k) => ({
+    /*
+     * ⚠ 「무보증」은 **바로 윗줄이 이미 「보증금 없음」이라고 말한** 차에서 뺀다(2026-09-05 검토).
+     *   같은 카드에서 같은 사실을 두 번 하면 뱃지 자리를 낭비하고,
+     *   손님은 「둘이 다른 건가」를 한 번 생각한다.
+     *   보증금이 있는 기간이 섞인 차(최저가만 0)는 뱃지가 «다른 사실»이라 그대로 둔다.
+     */
+    ...PERKS.filter((k) => hasPerk(p, k) && !(k === '무보증' && price && price.deposit === 0)).map((k) => ({
       text: k as string,
       tone: (PERK_TONE as Record<string, BadgeTone>)[k] || ('blue' as BadgeTone),
       perk: true,

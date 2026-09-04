@@ -81,30 +81,27 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
   /** 표에 세울 순서 — 기간 오름차순. 위 큰 숫자는 최저가로 시작하지만 표의 축은 «기간»이다. */
   const byMonth = useMemo(() => [...plans].sort((a, b) => a.m - b.m), [plans]);
 
+  /*
+   * 차량 정보 — **위 두 줄과 안 겹치는 것만** 남긴다(2026-09-05 검토).
+   *
+   * 열한 줄이었는데 일곱 줄이 «글자까지» 위와 같았다:
+   *   제조사·모델   → 차명 h1 이 `vehicleNameOf(full)` = 제조사+세부모델+세부트림을 이미 들고 있다
+   *   연식·연료·배기량·주행거리·차번 → 바로 위 사실줄과 같은 값이다
+   * 손님은 같은 것을 두 번 읽고, 「아래 표에 뭔가 더 있나」 하고 훑다가 아무것도 못 얻는다.
+   *
+   * 남긴 넷의 이유
+   *   최초등록 — 연식과 «갈리는» 차가 실재한다(2020년식 / 2021.03 등록). 감가·검사 시기를 재는 값.
+   *   구동방식 — 눈길·지방 손님이 따진다.
+   *   승차정원 — 가족 수. 5인승이냐 7인승이냐로 계약이 갈린다.
+   *   ★색상   — **사진 없는 28%에게는 유일한 외관 정보**다. 이것까지 빼면 그 차는 글자뿐이다.
+   */
   const specs: [string, string][] = ([
-    ['제조사', makerDisplay(p.maker) || String(p.maker || '')],
-    ['모델', [String(p.sub_model || p.model || ''), String(p.trim_name || '')].filter(Boolean).join(' ')],
-    ['연식', yearFullDisplay(p.year)],
-    ['최초등록', String(p.first_registration_date || '')],
-    ['연료', fuelDisplay(p.fuel_type) || String(p.fuel_type || '')],
-    ['배기량', cc > 0 ? `${cc.toLocaleString('ko-KR')}cc` : ''],
+    ['최초등록', regDate(p.first_registration_date)],
     ['구동방식', String(p.drive_type || '')],
     ['승차정원', seats > 0 ? `${seats}인승` : ''],
     ['색상', String(p.ext_color || '')],
-    // 주행거리 0 은 「0km」가 아니라 «모른다»다 — 줄째로 뺀다(전역 규칙 2).
-    ['주행거리', km > 0 ? kmDisplay(p.mileage) : ''],
-    ['차량번호', String(p.car_number || '')],
   ] as [string, string][]).filter(([, v]) => v.trim());
 
-  /*
-   * 이용 조건 — **네 묶음으로 나눈다**(사장님 2026-09-04 「대여료, 보험 조건, 계약 조건, 기타 사항
-   * 정도는 들어가 줘야 된다」). 서른 줄을 한 표에 몰아 두면 손님이 보험을 찾다가 납부 방법을 지나치고,
-   * 계약을 보러 왔다가 긴급출동을 읽는다. 실제 렌터카 상세(롯데·SK)가 다 이렇게 갈라 둔다.
-   *
-   * ★★없는 항목은 **줄째로 뺀다.** 손님 화면에 뜬 조건은 곧 약속이라 「협의」나 빈칸을
-   *   그럴듯하게 채우면 그게 분쟁이 된다. 원천이 준 글자만 그대로 나른다.
-   * ★묶음 자체가 통째로 비면 그 구역도 안 그린다 — 제목만 있고 속이 빈 칸을 손님에게 보이지 않는다.
-   */
   const pol = (p._policy || {}) as Record<string, unknown>;
   const S = (k: string) => String(pol[k] ?? '').trim();
   const join = (...xs: string[]) => xs.filter(Boolean).join(' · ');
@@ -178,6 +175,12 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
               letterSpacing: '-0.045em', fontVariantNumeric: 'tabular-nums',
             }}>{manWon(plan.rent)}</span>
           </div>
+          {/*
+            ★이 줄은 **큰 숫자의 닻**이다. 표의 선택된 행과 값이 겹치는 건 맞지만, 없애 보니
+              「월 15만원」이 **어느 기간인지 모르는 숫자**가 됐다 — 바로 밑 표는 1개월 33만원부터 시작해서,
+              손님이 큰 숫자와 첫 줄을 붙여 읽으면 서로 안 맞는다(2026-09-05 화면에서 확인하고 되돌림).
+              중복을 없애는 것보다 «큰 숫자가 무슨 조건인지»가 먼저다.
+          */}
           <div style={{ marginTop: 6, fontSize: SHOP.fs.body, color: C.sub, fontVariantNumeric: 'tabular-nums' }}>
             {plan.deposit > 0 ? `보증금 ${manWon(plan.deposit)}` : '보증금 없음'} · {plan.m}개월 약정
           </div>
@@ -241,9 +244,13 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
           ))}
         </div>
       ) : null}
-      <p style={{ margin: '14px 0 0', fontSize: SHOP.fs.cap, color: C.faint, lineHeight: 1.7 }}>
-        표시 금액은 참고용이며 심사·재고에 따라 달라질 수 있습니다.
-      </p>
+      {/*
+        ⚠ 여기 있던 「표시 금액은 참고용이며 **심사**·재고에 따라 달라질 수 있습니다」를 뺐다(2026-09-05).
+          둘 다 자해였다 — ㉠ 방금 크게 보여 준 금액을 바로 밑에서 스스로 부정하고,
+          ㉡ 이 장사의 셀링포인트가 「무심사」인데(바로 위 뱃지에 초록으로 떠 있다)
+             그 아래 줄이 **「심사」라는 낱말을 요금 옆에 도로 꺼낸다.** 저신용 손님이 평생 들어 온 그 말이다.
+          법적 방어는 맨 아래 마감 안내문(「계약 시 최종 확정됩니다」)이 이미 한 번 한다. 한 번이면 충분하다.
+      */}
     </section>
   );
 
@@ -459,6 +466,27 @@ function Sec({ title, rows, mobile }: { title: string; rows: [string, string][];
   );
 }
 
+/**
+ * 최초등록일 — **날짜꼴이 아니면 안 찍는다.**
+ *
+ * ⚠⚠ 원천이 이 칸에 «트림명»을 넣어 둔 차가 실측 26대다 — 「프레스티지」·「노블레스」·「45 TFSI」·
+ *   「120i Sport」. 그대로 내보내면 손님이 **「최초등록 프레스티지」**를 읽는다. 칸이 밀린 것이라
+ *   화면이 고칠 수 있는 게 아니고, 고쳐서도 안 된다(지어내는 것이다) — **안 보여준다.**
+ * ⚠ 두 자리 연도(「24-10」)가 91대다. 그대로 두면 24년인지 2024년인지 손님이 한 번 생각한다.
+ *   ★2000년대로 편다 — 우리 재고는 렌터카라 1900년대 차가 없다(실측 최저 2009년).
+ * ★날은 안 쓴다. 손님이 재는 것은 「언제쯤 나온 차인가」지 며칠인지가 아니다.
+ * ⇒ 원천을 고치는 것은 별건이다. 이 함수는 «손님 화면이 헛소리를 안 하게» 막는 마지막 문이다.
+ */
+function regDate(raw: unknown): string {
+  const v = String(raw ?? '').trim().replace(/[.]/g, '-');
+  const m = /^(\d{2}|\d{4})-(\d{1,2})(?:-\d{1,2})?$/.exec(v);
+  if (!m) return '';
+  const y = m[1].length === 4 ? Number(m[1]) : 2000 + Number(m[1]);
+  const mo = Number(m[2]);
+  if (!(y >= 1990 && y <= 2100) || !(mo >= 1 && mo <= 12)) return '';
+  return `${y}년 ${mo}월`;
+}
+
 /** 구역 사이 — 선 하나. 상자로 감싸면 화면이 서랍장이 된다. */
 function Rule() {
   return <hr style={{ border: 0, borderTop: `1px solid ${C.line2}`, margin: '26px 0 22px' }} />;
@@ -581,21 +609,12 @@ function Gallery({ p }: { p: EntityRecord }) {
             background: 'rgba(0,0,0,0.55)', color: '#fff',
             fontSize: SHOP.fs.cap, fontWeight: 700, fontVariantNumeric: 'tabular-nums',
           }}>{Math.min(i + 1, n)} / {n}</span>
-          {/* 점 — 몇 장인지·어디쯤인지를 «보지 않고도» 안다. 여덟 장 넘으면 줄이 길어져 세는 표시만 남긴다. */}
-          {n <= 8 ? (
-            <div aria-hidden style={{
-              position: 'absolute', left: 0, right: 0, bottom: 14,
-              display: 'flex', justifyContent: 'center', gap: 6,
-            }}>
-              {photos.map((src, k) => (
-                <span key={src} style={{
-                  width: k === i ? 18 : 6, height: 6, borderRadius: 999,
-                  background: k === i ? '#fff' : 'rgba(255,255,255,0.55)',
-                  transition: 'width .2s ease',
-                }} />
-              ))}
-            </div>
-          ) : null}
+          {/*
+            ⚠ 여기 점(dots)을 뒀다가 뺐다(2026-09-05 검토). 바로 옆 「n / N」이 **같은 말을 더 정확히** 한다
+              (점은 8장까지만 그려 아홉 장부터는 뜻이 달라지기까지 했다).
+              누를 수도 없고(aria-hidden·핸들러 없음) 읽히지도 않는 장식인데, 사진 아래 같은 자리를
+              「n / N」과 나눠 쓰며 밝은 사진 위에서 둘 다 덜 읽히게 만들었다.
+          */}
         </>
       ) : null}
     </div>

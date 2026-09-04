@@ -160,7 +160,12 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
     [query, facets],
   );
   const shown = list.slice(0, limit);
+  /** 재고 전체 — 웹 왼쪽 기둥의 「전체차량」. 조건과 무관한 값이라 안 변하는 게 «맞다». */
   const countText = rows === null ? '—' : String(total);
+  /** 지금 조건으로 남은 수 — 폰 머리가 드는 값. 조건을 넷 걸어 3대면 3이라고 말해야 한다. */
+  const shownText = rows === null ? '—' : String(list.length);
+  /** 검색어든 축이든 하나라도 걸렸나 — 걸렸으면 「전체차량」이 아니라 「조건에 맞는 차량」이다. */
+  const narrowed = queryCount(query) > 0 || !!query.q.trim();
 
   const onToggle = useCallback((axis: ShopAxis, key: string) => setQuery((q) => toggleAxis(q, axis, key)), []);
   const onClearAxis = useCallback((axis: ShopAxis) => setQuery((q) => clearAxis(q, axis)), []);
@@ -205,7 +210,7 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
         */}
         <div ref={stickRef} className={mobile ? 'fp-shop-stick' : undefined}>
           <ShopSearch value={typed} onChange={setTyped}
-            placeholder="차종·차명으로 찾아보세요 (예: 카니발, SUV, 전기차)"
+            placeholder="차종·차명으로 찾아보세요 (예: 카니발, 쏘렌토, 그랜저)"
             onFilter={mobile ? () => setSheet(true) : undefined}
             filterCount={queryCount(query)} />
 
@@ -241,14 +246,14 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
               maxHeight: 'calc(100vh - 40px)', overflowY: 'auto',
             }}>
               <div style={{ paddingBottom: 18 }}><ShopCount value={countText} /></div>
-              <div style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                paddingBottom: 12, borderBottom: `1px solid ${C.ink}`,
-              }}>
-                <span style={{ fontSize: SHOP.fs.h2, fontWeight: 700, color: C.ink }}>필터</span>
-                {queryCount(query) ? <ShopTextBtn onClick={onClearAll}>초기화</ShopTextBtn> : null}
-              </div>
-              <div style={{ paddingTop: 18 }}>{filters}</div>
+              {/*
+                ⚠ 여기 있던 「필터」 제목과 「초기화」를 뺐다(2026-09-05 검토).
+                  · 제목 — 바로 밑에 「차종·제조사·월 대여료…」 아홉이 굵게 서 있다. 아무도 안 읽는 라벨이
+                    굵은 검정 밑줄까지 끌고 있었다.
+                  · 초기화 — 오른쪽 토큰 줄의 「조건 모두 지우기」와 **같은 함수·같은 화면**이다.
+                    조건을 다 푸는 문이 한 화면에 둘일 이유가 없다.
+              */}
+              <div style={{ paddingTop: 18, borderTop: `1px solid ${C.ink}`, marginTop: 4 }}>{filters}</div>
             </aside>
           ) : null}
 
@@ -261,7 +266,7 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
               display: 'flex', alignItems: 'center', gap: 10,
               margin: mobile ? '14px 0 12px' : '18px 0 16px',
             }}>
-              {mobile ? <ShopCount value={countText} /> : (
+              {mobile ? <ShopCount value={shownText} filtered={narrowed} /> : (
                 <span style={{ fontSize: SHOP.fs.sub, color: C.mute, fontVariantNumeric: 'tabular-nums' }}>
                   {rows === null ? '불러오는 중' : `${list.length}대 중 1–${shown.length}`}
                 </span>
@@ -276,7 +281,8 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
                 {Array.from({ length: 6 }, (_, i) => <Skeleton key={i} />)}
               </Grid>
             ) : list.length === 0 ? (
-              <ShopEmpty onClear={onClearAll} />
+              // 검색어까지 지운다 — 축만 풀면 검색어로 비운 손님은 여전히 0건이다.
+              <ShopEmpty onClear={() => { setTyped(''); setQuery(emptyQuery()); }} />
             ) : (
               <>
                 <Grid mobile={mobile}>

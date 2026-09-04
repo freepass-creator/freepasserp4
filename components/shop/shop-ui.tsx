@@ -246,16 +246,22 @@ export function ShopSort({ value, onChange, options }: {
 }
 
 /**
- * 「전체차량 N대」 — 가게의 머릿수. 조건칸 꼭대기에 선다.
- * 숫자만 브랜드색으로 크게 — 손님이 이 화면에서 가장 먼저 읽는 값이다.
+ * 대수 — 이 화면에서 손님이 가장 먼저 읽는 숫자.
+ *
+ * ★★**조건이 걸리면 «남은 수»를 말한다**(2026-09-05 실측 사고). 전에는 늘 「전체차량 716대」였다 —
+ *   조건을 넷 걸어 3대만 남아도 머리는 716 이었다. 웹은 오른쪽에 「N대 중 1–M」이 따로 있어 덜했지만,
+ *   **폰은 이게 유일한 건수**라 손님이 「조건을 더 걸어야 하나 풀어야 하나」를 판단할 근거가 화면에 없었다.
+ * ★말도 같이 바꾼다 — 조건이 걸린 채 「전체차량 3대」라고 하면 그건 재고가 3대라는 뜻이 된다.
  */
-export function ShopCount({ value }: { value: string }) {
+export function ShopCount({ value, filtered }: { value: string; filtered?: boolean }) {
   const mobile = useIsMobile();
   return (
     <div style={{ display: 'flex', alignItems: 'baseline', gap: 7 }}>
-      <span style={{ fontSize: SHOP.fs.sub, fontWeight: 500, color: C.mute }}>전체차량</span>
+      <span style={{ fontSize: SHOP.fs.sub, fontWeight: 500, color: C.mute }}>
+        {filtered ? '조건에 맞는 차량' : '전체차량'}
+      </span>
       <span style={{
-        fontSize: mobile ? SHOP.fs.h1 : 26, fontWeight: FW.head, color: C.brand,
+        fontSize: mobile ? SHOP.fs.h1 : 26, fontWeight: 800, color: C.brand,
         letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums',
       }}>{value}</span>
       <span style={{ fontSize: SHOP.fs.sub, fontWeight: 700 }}>대</span>
@@ -277,7 +283,12 @@ export function ShopEmpty({ onClear }: { onClear: () => void }) {
         조건을 조금 넓히면 비슷한 차량을 찾을 수 있습니다.<br />
         원하시는 차량이 없으면 담당자에게 문의해 주세요.
       </div>
-      <ShopPill onClick={onClear}>조건 모두 지우기</ShopPill>
+      {/*
+        ★**검색어까지** 지운다(2026-09-05 검토). 위 토큰 줄의 「조건 모두 지우기」는 축만 푼다 —
+          검색어를 쳐서 0건이 된 손님은 그걸 눌러도 여전히 0건이라 «막다른 길»이 그대로다.
+          여기는 그 마지막 문이라 검색어까지 같이 지운다. 그래서 토큰 줄과 중복이 아니다.
+      */}
+      <ShopPill onClick={onClear}>처음부터 다시 찾기</ShopPill>
     </div>
   );
 }
