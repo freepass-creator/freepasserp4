@@ -100,57 +100,83 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
     ['구동방식', String(p.drive_type || '')],
     ['승차정원', seats > 0 ? `${seats}인승` : ''],
     ['색상', String(p.ext_color || '')],
-  ] as [string, string][]).filter(([, v]) => v.trim());
+  ] as [string, string][]).filter(([, v]) => meaningful(v));
 
   const pol = (p._policy || {}) as Record<string, unknown>;
   const S = (k: string) => String(pol[k] ?? '').trim();
   const join = (...xs: string[]) => xs.filter(Boolean).join(' · ');
-  const rows = (list: [string, string][]) => list.filter(([, v]) => v.trim());
+  const rows = (list: [string, string][]) => list.filter(([, v]) => meaningful(v));
 
-  /** 보험 — 손님이 사고 났을 때 «얼마까지 되나»를 재는 값. */
-  const insurance = rows([
-    ['보험 포함', S('insurance_included')],
-    ['대인 배상', join(S('injury_compensation_limit'), S('injury_deductible') ? `면책 ${S('injury_deductible')}` : '')],
-    ['대물 배상', join(S('property_compensation_limit'), S('property_deductible') ? `면책 ${S('property_deductible')}` : '')],
-    ['자기신체사고', join(S('self_body_accident'), S('self_body_deductible') ? `면책 ${S('self_body_deductible')}` : '')],
-    ['무보험차 상해', join(S('uninsured_damage') || S('uninsured_compensation_limit'),
-      S('uninsured_deductible') && S('uninsured_deductible') !== '없음' ? `면책 ${S('uninsured_deductible')}` : '')],
-    ['자기차량손해', join(S('own_damage_compensation'), S('own_damage_repair_ratio') ? `수리비 ${S('own_damage_repair_ratio')}` : '',
-      S('own_damage_min_deductible') && S('own_damage_max_deductible')
-        ? `면책 ${S('own_damage_min_deductible')}~${S('own_damage_max_deductible')}`
-        : S('own_damage_min_deductible') || '')],
-  ]);
+  /*
+   * ★★구역마다 «배열»이 다르다(사장님 2026-09-05 「선을 안 쓴다면 경계와 구분을 간격과 배열로
+   *   해야 된다 … 차량 설명 칸, 제원 칸, 보험 칸, 대여료 칸, 계약 칸, 기타 칸이 다 똑같을 필요는
+   *   없다. **특색이 있으면서 규격을 허물지 않는** 그런 게 필요하다」).
+   *
+   *   선을 걷었으니 이제 «무엇이 다른 덩어리인가»를 배열이 말해야 한다. 여섯 구역이 전부 같은
+   *   「이름 / 값」 표면 읽는 리듬이 없어 손님이 다 읽지 않고 지나간다.
+   *
+   *   ⇒ **자료의 성격**이 배열을 정한다. 꾸미려고 다르게 하는 게 아니다.
+   *      · 서로 «비교»하는 값        → 표     (대여료 — 기간마다 얼마인지 견준다)
+   *      · 서로 «독립»된 짧은 사실   → 타일   (제원·계약 — 견줄 것이 아니라 하나씩 확인한다)
+   *      · 하나가 «결정»적인 값      → 큰 줄 + 흐린 나열 (보험의 면책 · 운전의 나이)
+   *      · 참고만 하는 값            → 흐린 나열 한 줄 (기타)
+   *   ★규격은 안 허문다 — 색·글자·둥글기·여백은 전부 `SHOP`·`C` 토큰 그대로다.
+   *     달라지는 것은 «놓는 방식»뿐이다.
+   */
 
-  /** 계약 — 얼마를 어떻게 내고, 그만두면 어떻게 되나. */
+  /** 보험 — 결정적인 값 하나(내 돈이 나가는 면책)와 나머지 보장 나열. */
+  const deductible = S('own_damage_min_deductible') && S('own_damage_max_deductible')
+    ? `${S('own_damage_min_deductible')} ~ ${S('own_damage_max_deductible')}`
+    : S('own_damage_min_deductible');
+  const coverage = [
+    S('insurance_included'),
+    S('injury_compensation_limit') ? `대인 ${S('injury_compensation_limit')}` : '',
+    S('property_compensation_limit') ? `대물 ${S('property_compensation_limit')}` : '',
+    S('self_body_accident') ? `자기신체 ${S('self_body_accident')}` : '',
+    S('own_damage_compensation') ? `자기차량 ${S('own_damage_compensation')}` : '',
+    S('own_damage_repair_ratio') ? `수리비 ${S('own_damage_repair_ratio')}` : '',
+  ].filter(Boolean).join(' · ');
+
+  /** 계약 — 서로 독립된 짧은 답들. 보증금 관련이 앞이다(이 손님층의 1번 장벽이 목돈이다). */
   const contract = rows([
-    ['약정 주행', join(S('annual_mileage'),
-      S('mileage_upcharge_per_10000km') ? `초과 시 1만km당 ${S('mileage_upcharge_per_10000km')}` : '')],
-    ['납부 방법', join(S('payment_method'), S('payment_timing') && S('payment_timing') !== S('payment_method') ? S('payment_timing') : '')],
-    ['대여료 카드 납부', S('rental_card_payment')],
     ['보증금 분납', S('deposit_installment')],
-    ['보증금 카드 납부', S('deposit_card_payment')],
+    ['보증금 카드', S('deposit_card_payment')],
+    ['대여료 카드', S('rental_card_payment')],
+    ['납부 방법', join(S('payment_method'), S('payment_timing') && S('payment_timing') !== S('payment_method') ? S('payment_timing') : '')],
+    ['약정 주행', join(S('annual_mileage'),
+      S('mileage_upcharge_per_10000km') ? `초과 1만km당 ${S('mileage_upcharge_per_10000km')}` : '')],
     ['중도 해지', S('penalty_condition')],
   ]);
 
-  /** 운전 — «내가 탈 수 있나». 저신용·젊은 손님에게는 요금 다음으로 중요한 값이다. */
-  const driving = rows([
-    ['기본 연령', S('basic_driver_age')],
-    ['연령 낮추기', S('driver_age_lowering')
-      ? `${S('driver_age_lowering')}까지${S('age_lowering_cost') ? ` (${S('age_lowering_cost')})` : ''}` : ''],
-    ['연령 상한', S('driver_age_upper_limit')],
-    ['면허 경력', S('license_period')],
-    ['운전 가능 범위', join(S('personal_driver_scope'), S('business_driver_scope'))],
-    ['추가 운전자', join(S('additional_driver_allowance_count'), S('additional_driver_cost'))],
-  ]);
+  /** 운전 — 「내가 탈 수 있나」. 나이 범위 하나가 결정적이라 그것만 크게 세운다. */
+  /*
+   * 나이는 «범위»라 양끝만 남긴다. 원천은 「만 26세 이상」·「만 70세 이하」처럼 꼬리말을 달고 오는데,
+   * 그대로 이으면 「만21세 ~ 만 70세 이하」가 되어 «이하»가 두 번 말하는 꼴이 된다.
+   * 띄어쓰기도 원천마다 갈려(「만21세」·「만 26세」) 한 꼴로 맞춘다.
+   */
+  const age = (v: string) => v.replace(/\s*(이상|이하|까지|부터)\s*$/, '').replace(/^만\s*/, '만 ').trim();
+  const ageRange = S('basic_driver_age') && S('driver_age_upper_limit')
+    ? `${age(S('driver_age_lowering') || S('basic_driver_age'))} ~ ${age(S('driver_age_upper_limit'))}`
+    : age(S('basic_driver_age'));
+  const driving = [
+    S('driver_age_lowering') && meaningful(S('age_lowering_cost'))
+      ? `${age(S('driver_age_lowering'))}까지 낮추면 ${S('age_lowering_cost')}` : '',
+    meaningful(S('license_period')) ? `면허 ${S('license_period')}` : '',
+    meaningful(S('personal_driver_scope')) ? S('personal_driver_scope') : '',
+    meaningful(join(S('additional_driver_allowance_count'), S('additional_driver_cost')))
+      ? `추가 운전자 ${join(S('additional_driver_allowance_count'), S('additional_driver_cost'))}` : '',
+  ].filter(Boolean).join(' · ');
 
-  /** 기타 — 있으면 좋고 없으면 마는 것들. 위 셋을 읽고 나서 보는 값이라 맨 뒤다. */
-  const etc = rows([
-    ['긴급출동', S('annual_roadside_assistance') || S('roadside_assistance')],
-    ['이용 지역', S('rental_region')],
-    ['차량 인도', S('delivery_fee')],
-    ['정비', S('maintenance_service')],
-    ['대차 서비스', S('replacement_car_policy')],
-  ]);
+  /** 기타 — 참고만 하는 값. 제일 조용하게 한 줄로 흘린다. */
+  /** 「긴급출동 연간 5회」처럼 «이름 + 값»으로 잇되, 값이 뜻이 없으면(협의·기타…) 통째로 뺀다. */
+  const pair = (label: string, v: string) => (meaningful(v) ? `${label} ${v}` : '');
+  const etc = [
+    pair('긴급출동', S('annual_roadside_assistance') || S('roadside_assistance')),
+    pair('이용 지역', S('rental_region')),
+    pair('차량 인도', S('delivery_fee')),
+    pair('정비', S('maintenance_service')),
+    pair('대차', S('replacement_car_policy')),
+  ].filter(Boolean).join(' · ');
 
   const options = parseProductOptions(p.options);
   const phone = String(agentPhone || '').trim();
@@ -298,15 +324,11 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
         </div>
       )}
 
-      {specs.length ? (
-        <>
-          <Rule />
-          <section aria-label="차량 정보">
-            <SecTitle>차량 정보</SecTitle>
-            <Table rows={specs} mobile={mobile} />
-          </section>
-        </>
-      ) : null}
+      {/*
+        차량 정보 — 서로 «독립된 짧은 사실» 넷이다. 이름/값 표로 놓으면 계약·보험과 같은 얼굴이 되고,
+        네 줄짜리를 표로 만들면 그건 표가 아니라 창살이다. **타일**로 나란히 놓는다.
+      */}
+      <Tiles title="차량 정보" rows={specs} cols={mobile ? 2 : 4} />
 
       {options.length ? (
         <>
@@ -325,12 +347,36 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
         </>
       ) : null}
 
-      <Sec title="보험 조건" rows={insurance} mobile={mobile} />
-      <Sec title="계약 조건" rows={contract} mobile={mobile} />
-      <Sec title="운전 조건" rows={driving} mobile={mobile} />
-      <Sec title="기타 사항" rows={etc} mobile={mobile} />
+      {/*
+        보험 — **하나가 결정적이다.** 이 표에서 손님 지갑에서 실제로 돈이 나가는 유일한 값이
+        「사고 났을 때 내 부담(면책금)」이다. 그것만 크게 세우고 보장 한도들은 흐린 한 줄로 흘린다.
+        라벨을 「자기차량손해」가 아니라 **「사고 시 내 부담」**으로 쓴다 — 손님이 읽는 말이라야 읽는다.
+      */}
+      <Lead title="보험 조건" mobile={mobile}
+        label={deductible ? '사고 시 내 부담' : ''} value={deductible} note={coverage} />
 
-      {(insurance.length || contract.length || driving.length || etc.length) ? (
+      {/*
+        계약 — 서로 «독립된 짧은 답»들이다(된다/안 된다/얼마). 견줄 것이 아니라 하나씩 확인하는 값이라
+        표가 아니라 **타일**로 놓는다. 보증금 관련이 앞이다 — 이 손님층의 1번 장벽은 월요금이 아니라 목돈이다.
+      */}
+      <Tiles title="계약 조건" rows={contract} cols={mobile ? 2 : 3} />
+
+      {/* 운전 — 「내가 탈 수 있나」. 나이 범위 하나가 결정적이라 그것만 크게. */}
+      <Lead title="운전 조건" mobile={mobile}
+        label={ageRange ? '운전 가능 연령' : ''} value={ageRange} note={driving} />
+
+      {/* 기타 — 참고만 하는 값. 제일 조용하게 한 줄. */}
+      {etc ? (
+        <>
+          <Rule />
+          <section aria-label="기타 사항">
+            <SecTitle>기타 사항</SecTitle>
+            <div style={{ fontSize: SHOP.fs.sub, color: C.mute, lineHeight: 1.9 }}>{etc}</div>
+          </section>
+        </>
+      ) : null}
+
+      {(deductible || coverage || contract.length || ageRange || driving || etc) ? (
         <p style={{ margin: '20px 0 0', fontSize: SHOP.fs.cap, color: C.faint, lineHeight: 1.7 }}>
           위 조건은 공급사가 제공한 운영정책이며 계약 시 최종 확정됩니다. 자세한 내용은 담당자에게 확인해 주세요.
         </p>
@@ -455,20 +501,88 @@ function TopBar({ code, title, listHref }: { code: string; title: string; listHr
 }
 
 /**
- * 조건 구역 하나 — **속이 비면 통째로 안 그린다.** 제목만 있고 아래가 빈 칸은
- * 「우리가 안 채웠다」로 보이고, 손님은 그걸 「이 회사가 대충 한다」로 읽는다.
+ * **타일** — 서로 독립된 짧은 사실을 나란히 놓는다(제원 · 계약 조건).
+ *
+ * 이름/값 표와 무엇이 다른가. 표는 «세로로 견주는» 배열이라 값끼리 비교할 때 쓴다.
+ * 이 값들은 견줄 것이 아니라 하나씩 확인하는 것이라, 라벨을 **값 위에 작게** 얹고 가로로 편다.
+ * 그러면 눈이 왼쪽 라벨 열을 훑을 필요 없이 «값만» 읽고 지나간다.
+ * ★속이 비면 통째로 안 그린다 — 제목만 있고 아래가 빈 칸은 「안 채웠다」로 보인다.
  */
-function Sec({ title, rows, mobile }: { title: string; rows: [string, string][]; mobile: boolean }) {
+function Tiles({ title, rows, cols }: { title: string; rows: [string, string][]; cols: number }) {
   if (!rows.length) return null;
   return (
     <>
       <Rule />
       <section aria-label={title}>
         <SecTitle>{title}</SecTitle>
-        <Table rows={rows} mobile={mobile} />
+        <div style={{
+          display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+          columnGap: 14, rowGap: 20,
+        }}>
+          {rows.map(([k, v]) => (
+            <div key={k} style={{ minWidth: 0 }}>
+              <div style={{ fontSize: SHOP.fs.cap, color: C.faint, marginBottom: 5 }}>{k}</div>
+              <div style={{
+                fontSize: SHOP.fs.body, fontWeight: 600, color: C.ink,
+                wordBreak: 'keep-all', lineHeight: 1.45,
+              }}>{v}</div>
+            </div>
+          ))}
+        </div>
       </section>
     </>
   );
+}
+
+/**
+ * **큰 값 하나 + 흐린 나열** — 하나가 결정적인 구역(보험의 면책 · 운전의 나이).
+ *
+ * 이 구역들은 항목이 대여섯인데 그중 하나만 손님의 «결정»을 바꾼다.
+ * 보험에서는 사고 났을 때 내 돈이 얼마 나가는지고, 운전에서는 내 나이로 탈 수 있는지다.
+ * 나머지(보장 한도·면허 경력·운전 범위)는 그 결정을 «확인»해 주는 값이라 뒤에 흐리게 흘린다.
+ * 여섯을 같은 크기로 늘어놓으면 결정적인 하나가 나머지에 묻힌다.
+ */
+function Lead({ title, label, value, note, mobile }: {
+  title: string; label: string; value: string; note: string; mobile: boolean;
+}) {
+  if (!value && !note) return null;
+  return (
+    <>
+      <Rule />
+      <section aria-label={title}>
+        <SecTitle>{title}</SecTitle>
+        {value ? (
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: SHOP.fs.sub, color: C.mute, flex: '0 0 auto' }}>{label}</span>
+            <span style={{
+              fontSize: mobile ? 21 : 22, fontWeight: 800, color: C.ink,
+              letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums',
+            }}>{value}</span>
+          </div>
+        ) : null}
+        {note ? (
+          <div style={{
+            marginTop: value ? 10 : 0,
+            fontSize: SHOP.fs.sub, color: C.mute, lineHeight: 1.9,
+          }}>{note}</div>
+        ) : null}
+      </section>
+    </>
+  );
+}
+
+/**
+ * **뜻이 있는 값인가** — 「기타」·「협의」·「미정」 같은 말은 값이 아니라 «아직 안 정했다»는 표시다.
+ *
+ * 실측 — 색상 칸에 「기타」가 들어 있는 차가 있다. 그대로 내보내면 손님이 「색상 기타」를 읽는데,
+ * 그건 색을 안 알려 준 것이면서 «칸은 채운» 꼴이라 안 적는 것보다 나쁘다.
+ * 「협의」도 같다 — 읽고 나서 손님이 정할 수 있는 게 하나도 없고 「돈이 더 드나」만 남는다.
+ * ⇒ 그런 값은 **줄째로 뺀다.** 없는 것은 없다고 하는 편이 낫다(확정 규격 §1-7 과 같은 판단).
+ */
+const NO_MEANING = new Set(['기타', '협의', '별도협의', '별도문의', '미정', '해당없음', '해당 없음', '없음', '-']);
+function meaningful(v: string): boolean {
+  const t = String(v ?? '').trim();
+  return !!t && !NO_MEANING.has(t);
 }
 
 /**
@@ -476,11 +590,9 @@ function Sec({ title, rows, mobile }: { title: string; rows: [string, string][];
  *
  * ⚠⚠ 원천이 이 칸에 «트림명»을 넣어 둔 차가 실측 26대다 — 「프레스티지」·「노블레스」·「45 TFSI」·
  *   「120i Sport」. 그대로 내보내면 손님이 **「최초등록 프레스티지」**를 읽는다. 칸이 밀린 것이라
- *   화면이 고칠 수 있는 게 아니고, 고쳐서도 안 된다(지어내는 것이다) — **안 보여준다.**
- * ⚠ 두 자리 연도(「24-10」)가 91대다. 그대로 두면 24년인지 2024년인지 손님이 한 번 생각한다.
- *   ★2000년대로 편다 — 우리 재고는 렌터카라 1900년대 차가 없다(실측 최저 2009년).
+ *   화면이 고칠 수 있는 게 아니고 고쳐서도 안 된다(지어내는 것이다) — **안 보여준다.**
+ * ⚠ 두 자리 연도(「24-10」)가 91대다. 2000년대로 편다 — 우리 재고는 렌터카라 1900년대 차가 없다.
  * ★날은 안 쓴다. 손님이 재는 것은 「언제쯤 나온 차인가」지 며칠인지가 아니다.
- * ⇒ 원천을 고치는 것은 별건이다. 이 함수는 «손님 화면이 헛소리를 안 하게» 막는 마지막 문이다.
  */
 function regDate(raw: unknown): string {
   const v = String(raw ?? '').trim().replace(/[.]/g, '-');
@@ -525,31 +637,6 @@ function Head({ title, facts }: { title: string; facts: string }) {
         </div>
       ) : null}
     </header>
-  );
-}
-
-/**
- * 이름-값 표 — 두 줄짜리 격자. 항목이 서른 개 가까이 될 수 있어 «읽는 리듬»이 있어야 한다.
- * 웹은 두 칸(왼쪽 이름 고정폭), 폰은 한 칸씩 쌓되 이름은 흐리게 — 값이 먼저 눈에 오게.
- */
-function Table({ rows, mobile }: { rows: [string, string][]; mobile: boolean }) {
-  return (
-    <dl style={{
-      margin: 0, display: 'grid',
-      gridTemplateColumns: mobile ? '96px minmax(0, 1fr)' : 'repeat(2, 120px minmax(0, 1fr))',
-      columnGap: 14, rowGap: 12,
-    }}>
-      {/*
-        ★줄마다 긋던 가로선을 걷었다(2026-09-05). 이름이 흐리고 값이 진해서 **글자 세기만으로**
-          짝이 읽힌다 — 선은 그 위에 얹은 군더더기였다. 네 줄짜리 표에 선 넷은 표가 아니라 창살이다.
-      */}
-      {rows.map(([k, v]) => (
-        <div key={k} style={{ display: 'contents' }}>
-          <dt style={{ fontSize: SHOP.fs.sub, color: C.faint }}>{k}</dt>
-          <dd style={{ margin: 0, fontSize: SHOP.fs.body, color: C.ink, wordBreak: 'keep-all' }}>{v}</dd>
-        </div>
-      ))}
-    </dl>
   );
 }
 
