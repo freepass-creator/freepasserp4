@@ -54,7 +54,7 @@ export function WhitelabelFrame({ wl, agentName, agentPhone, dock = true, notice
           display: 'flex', alignItems: 'center', gap: 12,
         }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: mobile ? 7 : 9, whiteSpace: 'nowrap' }}>
-            <span style={{ fontSize: mobile ? 22 : 26, fontWeight: 800, letterSpacing: '-0.03em', color: C.brand }}>
+            <span style={{ fontSize: mobile ? 22 : 26, fontWeight: FW.head, letterSpacing: '-0.03em', color: C.brand }}>
               {wl.wordmark.main}
             </span>
             <span style={{ fontSize: mobile ? 12 : 15, fontWeight: FW.meta, letterSpacing: '0.15em', color: C.ink }}>
@@ -105,7 +105,7 @@ export function WhitelabelFrame({ wl, agentName, agentPhone, dock = true, notice
       <footer style={{ borderTop: `1px solid ${C.line}`, marginTop: 28 }}>
         <div style={{ maxWidth: 1280, margin: '0 auto', padding: '30px 24px 40px' }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 10 }}>
-            <span style={{ fontSize: 18, fontWeight: 800, letterSpacing: '-0.03em', color: C.faint }}>
+            <span style={{ fontSize: 18, fontWeight: FW.head, letterSpacing: '-0.03em', color: C.faint }}>
               {wl.wordmark.main}
             </span>
             <span style={{ fontSize: FS.cap, fontWeight: FW.meta, letterSpacing: '0.16em', color: C.faint }}>
@@ -141,7 +141,7 @@ function WhitelabelNotice({ wl, mobile }: { wl: Whitelabel; mobile: boolean }) {
   return (
     <div style={{ background: C.brandSoft, borderBottom: `1px solid ${C.brandBg}` }}>
       <div style={{ maxWidth: 1280, margin: '0 auto', padding: mobile ? '18px 16px 16px' : '30px 24px 28px', position: 'relative' }}>
-        <div style={{ fontSize: mobile ? 22 : 30, fontWeight: 800, letterSpacing: '-0.04em', lineHeight: 1.3, color: C.ink, paddingRight: mobile ? 34 : 44 }}>
+        <div style={{ fontSize: mobile ? 22 : 30, fontWeight: FW.head, letterSpacing: '-0.04em', lineHeight: 1.3, color: C.ink, paddingRight: mobile ? 34 : 44 }}>
           {notice.title}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginTop: mobile ? 10 : 12 }}>

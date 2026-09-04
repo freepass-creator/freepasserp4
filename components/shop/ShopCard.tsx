@@ -3,7 +3,7 @@ import { memo } from 'react';
 import Link from 'next/link';
 import { Heart, ImageOff } from 'lucide-react';
 import type { EntityRecord } from '@/lib/intake/entities';
-import { Badge, C, FS, ICON, PERK_TONE, CREDIT_TONE, type BadgeTone } from '@/components/ui';
+import { Badge, C, FW, FS, ICON, PERK_TONE, CREDIT_TONE, type BadgeTone } from '@/components/ui';
 import { SHOP } from '@/components/shop/shop-ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { useInView } from '@/lib/use-in-view';
@@ -157,7 +157,7 @@ export const ShopCard = memo(function ShopCard({ p, href, faved, onFav }: {
                 {price.m}개월
               </span>
               <span style={{
-                fontSize: mobile ? 25 : 24, fontWeight: 800, color: C.ink, flex: '0 0 auto',
+                fontSize: mobile ? 25 : 24, fontWeight: FW.head, color: C.ink, flex: '0 0 auto',
                 letterSpacing: '-0.04em', fontVariantNumeric: 'tabular-nums',
               }}>{manWon(price.rent)}</span>
               <span style={{

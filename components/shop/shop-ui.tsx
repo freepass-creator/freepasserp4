@@ -1,7 +1,7 @@
 'use client';
 import type { CSSProperties, ReactNode } from 'react';
 import { Search, X, ChevronDown, SlidersHorizontal } from 'lucide-react';
-import { C, ICON, PILL_R, R_CARD } from '@/components/ui';
+import { C, FW, ICON, PILL_R, R_CARD } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 
 /**
@@ -94,7 +94,7 @@ export function ShopSearch({ value, onChange, placeholder, onFilter, filterCount
                 minWidth: 17, height: 17, padding: '0 4px', borderRadius: 999,
                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                 background: C.brand, color: C.inverse,
-                fontSize: 10, fontWeight: 800, fontVariantNumeric: 'tabular-nums',
+                fontSize: 10, fontWeight: FW.strong, fontVariantNumeric: 'tabular-nums',
               }}>{filterCount}</span>
             ) : null}
           </button>
@@ -255,7 +255,7 @@ export function ShopCount({ value }: { value: string }) {
     <div style={{ display: 'flex', alignItems: 'baseline', gap: 7 }}>
       <span style={{ fontSize: SHOP.fs.sub, fontWeight: 500, color: C.mute }}>전체차량</span>
       <span style={{
-        fontSize: mobile ? SHOP.fs.h1 : 26, fontWeight: 800, color: C.brand,
+        fontSize: mobile ? SHOP.fs.h1 : 26, fontWeight: FW.head, color: C.brand,
         letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums',
       }}>{value}</span>
       <span style={{ fontSize: SHOP.fs.sub, fontWeight: 700 }}>대</span>

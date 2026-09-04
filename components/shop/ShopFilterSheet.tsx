@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import { X } from 'lucide-react';
-import { C, ICON } from '@/components/ui';
+import { C, FW, ICON } from '@/components/ui';
 import { SHOP, ShopIconBtn, ShopTextBtn } from '@/components/shop/shop-ui';
 import { ShopAxisOptions } from '@/components/shop/ShopFilters';
 import { AXIS_LABEL, SHOP_AXES, type ShopAxis, type ShopFacets, type ShopSel } from '@/lib/shop/query';
@@ -102,7 +102,7 @@ export function ShopFilterSheet({ facets, sel, onToggle, onClearAxis, onClearAll
                       flex: '0 0 auto', minWidth: 16, height: 16, padding: '0 4px', borderRadius: 999,
                       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                       background: C.brand, color: C.inverse,
-                      fontSize: 10, fontWeight: 800, fontVariantNumeric: 'tabular-nums',
+                      fontSize: 10, fontWeight: FW.strong, fontVariantNumeric: 'tabular-nums',
                     }}>{n}</span>
                   ) : null}
                 </button>

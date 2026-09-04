@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { ArrowLeft, Check, ChevronLeft, ChevronRight, Heart, ImageOff, Phone, Share2 } from 'lucide-react';
 import type { EntityRecord } from '@/lib/intake/entities';
-import { Badge, C, FS, ICON, PERK_TONE, CREDIT_TONE, type BadgeTone } from '@/components/ui';
+import { Badge, C, FW, FS, ICON, PERK_TONE, CREDIT_TONE, type BadgeTone } from '@/components/ui';
 import { SHOP } from '@/components/shop/shop-ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { useProductPhotos } from '@/components/use-product-photos';
@@ -174,7 +174,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, whiteSpace: 'nowrap' }}>
             <span style={{ fontSize: SHOP.fs.sub, color: C.mute }}>월</span>
             <span style={{
-              fontSize: mobile ? 34 : 36, fontWeight: 800, color: C.ink,
+              fontSize: mobile ? 34 : 36, fontWeight: FW.head, color: C.ink,
               letterSpacing: '-0.045em', fontVariantNumeric: 'tabular-nums',
             }}>{manWon(plan.rent)}</span>
           </div>
@@ -477,7 +477,7 @@ function Head({ title, facts }: { title: string; facts: string }) {
   return (
     <header style={{ paddingTop: 18 }}>
       <h1 style={{
-        margin: 0, fontSize: 22, fontWeight: 800, color: C.ink,
+        margin: 0, fontSize: 22, fontWeight: FW.head, color: C.ink,
         lineHeight: 1.3, letterSpacing: '-0.03em',
       }}>{title}</h1>
       {facts ? (
