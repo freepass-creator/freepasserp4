@@ -82,6 +82,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
   const [planIdx, setPlanIdx] = useState(0);
   /** 기간별 표를 폈나 — **기본은 접힘.** 주인공은 최저가고 사다리는 보조다. */
   const [openRates, setOpenRates] = useState(false);
+  const [openOpts, setOpenOpts] = useState(false);
   const plan = plans[planIdx];
   /** 표에 세울 순서 — 기간 오름차순. 위 큰 숫자는 최저가로 시작하지만 표의 축은 «기간»이다. */
   const byMonth = useMemo(() => [...plans].sort((a, b) => a.m - b.m), [plans]);
@@ -394,14 +395,31 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
                 그 하나는 «조용한 구역»이 아니라 **덜 만든 구역**으로 읽힌다. 규격은 전부이거나 전무다.
             */}
             <SecTitle icon={ListChecks}>옵션</SecTitle>
+            {/*
+             * ★**열 개에서 자른다**(2026-09-05 실측으로 정함). 엔카가 주요옵션 **10개** 뒤에
+             *   「45개 옵션 모두보기」, 케이카가 **12개** 뒤에 「옵션 모두 보기」다. 커머스 지침도
+             *   「여섯은 보여주고 열까지는 무난, 열다섯 넘으면 문제」라 같은 구간을 말한다.
+             * ★★**한둘 숨기려고 자르지는 않는다**(「값 하나를 자르지 마라」). 열한 개를 열로 잘라
+             *   버튼을 다는 건 손님에게 손해다 — 그럴 바엔 한 줄 더 그린다. 그래서 문턱이 12다.
+             * ⚠ 접는 것과 감추는 것은 다르다 — 버튼이 **남은 개수를 말한다**(「옵션 32개 모두 보기」).
+             *   숫자 없는 「더보기」는 아무도 안 누른다.
+             */}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {options.map((o) => (
+              {(options.length > OPT_CUT + 1 && !openOpts ? options.slice(0, OPT_CUT) : options).map((o) => (
                 <span key={o} style={{
                   padding: '7px 12px', borderRadius: SHOP.r.chip, background: C.zebra,
                   fontSize: SHOP.fs.sub, color: C.sub,
                 }}>{o}</span>
               ))}
             </div>
+            {options.length > OPT_CUT + 1 && !openOpts ? (
+              <button type="button" onClick={() => setOpenOpts(true)} className="fp-shop-press"
+                style={{
+                  marginTop: 12, padding: '9px 14px', borderRadius: SHOP.r.chip,
+                  border: `1px solid ${C.line}`, background: 'transparent', cursor: 'pointer',
+                  fontFamily: 'inherit', fontSize: SHOP.fs.sub, fontWeight: 600, color: C.sub,
+                }}>옵션 {options.length}개 모두 보기</button>
+            ) : null}
           </section>
         </>
       ) : null}
@@ -495,6 +513,13 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
     </main>
   );
 }
+
+/**
+ * 옵션을 몇 개에서 자르나 — **10**. 엔카가 주요옵션 10개 뒤에 「45개 모두보기」,
+ * 케이카가 12개 뒤에 「모두 보기」다(2026-09-05 실측). 커머스 지침도 같은 구간을 말한다.
+ * ★자르는 문턱은 **12개부터**다 — 한둘 숨기려고 버튼을 다는 건 손님에게 손해다.
+ */
+const OPT_CUT = 10;
 
 const FAV_KEY = 'fp4_shop_fav';
 
