@@ -1,6 +1,6 @@
 /**
  * 손님 공개면 — Auth·RTDB 세션 게이트 우회용.
- * /q · /catalog · /sign 은 로그인 없이 매물·서명 조회 가능해야 함.
+ * /shop · /q · /catalog · /sign 은 로그인 없이 매물·서명 조회 가능해야 함.
  */
 export const PUBLIC_PATH_PREFIXES = ['/q/', '/sign/'] as const;
 
@@ -14,6 +14,11 @@ export function isPublicPath(pathname: string | null | undefined): boolean {
   //  /m/{code}(실제 모바일 상세)는 앱콘텐츠라 제외 — exact 매칭만.
   if (pathname === '/m') return true;
   if (pathname === '/catalog' || pathname.startsWith('/catalog/')) return true;
+  /*
+   * 가게(손님 동) — 채널 도메인으로 들어오는 손님은 «로그인이라는 것이 있는 줄도 모른다».
+   * 여기 등록을 빠뜨리면 화면이 통째로 로그인으로 튕긴다(2026-09-04 실측 — 동을 가르자마자 났다).
+   */
+  if (pathname === '/shop' || pathname.startsWith('/shop/')) return true;
   if (PUBLIC_EXACT.some((p) => pathname === p || pathname.startsWith(p + '/'))) return true;
   return PUBLIC_PATH_PREFIXES.some((p) => pathname === p.slice(0, -1) || pathname.startsWith(p));
 }

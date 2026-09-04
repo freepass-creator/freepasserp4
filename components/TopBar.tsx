@@ -1,6 +1,7 @@
 ﻿'use client';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
+import { isGuestSurface } from '@/lib/guest-surface';
 import { useState, useEffect, useCallback, type CSSProperties, type ReactNode } from 'react';
 import { Menu, X, Search, FileText, FileSignature, Settings, ChevronLeft, List, History, Users, Wrench, HelpCircle, Sparkles, RefreshCw, type LucideIcon } from 'lucide-react';
 import { useAppBarSlots } from '@/lib/appbar';
@@ -362,7 +363,10 @@ export default function TopBar() {
   const line = C.line, ink = C.ink;
   // /m = 모바일 미리보기(폰 프레임) → 앱 상단바 없이 전체화면. /m/[code](실제 모바일 상세)는 상단바 유지.
   // '/' = 공개 안내 페이지(상품시트 입장) — ERP 상단바가 뜨면 안 된다(2026-08-15 · ERP 개선 대기).
-  if (path === '/' || path === '/erp5' || path.startsWith('/erp5/') || path === '/login' || path === '/m' || path.startsWith('/q/') || path.startsWith('/catalog') || path.startsWith('/sign/')) return null;
+  // 손님 면(가게·카탈로그·상품안내·전자계약)은 `isGuestSurface` 한 곳이 정한다 —
+  // 예전엔 이 명단이 여기와 AppTabBar 에 따로 적혀 있어 새 라우트에서 한 쪽을 빠뜨렸다.
+  if (path === '/' || path === '/erp5' || path.startsWith('/erp5/') || path === '/login' || path === '/m'
+    || isGuestSurface(path)) return null;
   const backLabel = backKind === 'list' ? '목록' : '이전';
   const backIcon = backKind === 'list'
     ? <List size={mobile ? 18 : 16} strokeWidth={2.25} />
