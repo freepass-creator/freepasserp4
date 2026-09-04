@@ -4,6 +4,7 @@ import { type EntityRecord } from '@/lib/intake/entities';
 import { cheapestRent, creditDisplay, isListableProduct, priceList } from '@/lib/domain/product';
 import { matchProductQuery } from '@/lib/domain/search';
 import { ProductCard } from '@/components/ProductCard';
+import { CatalogCard } from '@/components/CatalogCard';
 import {
   RENT_BANDS, DEP_BANDS, MILE_BANDS, CREDITS, CATALOG_PERKS, hasPerk,
   presentFilterOptions,
@@ -229,8 +230,15 @@ export function CatalogView({ wl = FREEPASS }: { wl?: Whitelabel }) {
   const cards = rows === null ? <ProductCardSkeleton count={6} />
     : list.length === 0 ? <CenterNote>조건에 맞는 차량이 없습니다.</CenterNote> : (
     <>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: 12 }}>
-        {shown.map((p) => <ProductCard key={String(p.product_code)} p={p} audience="customer" href={href(p)} />)}
+      <div style={{
+        display: 'grid',
+        // 시안 = 웹 3열 · 모바일 1열. 카드가 넓어야 월 대여료가 카드의 «머리»로 읽힌다.
+        gridTemplateColumns: branded ? (mobile ? '1fr' : 'repeat(3, minmax(0, 1fr))') : 'repeat(auto-fill, minmax(230px, 1fr))',
+        gap: branded ? (mobile ? 14 : 24) : 12,
+      }}>
+        {shown.map((p) => (branded
+          ? <CatalogCard key={String(p.product_code)} p={p} href={href(p)} />
+          : <ProductCard key={String(p.product_code)} p={p} audience="customer" href={href(p)} />))}
       </div>
       <ListMoreBar shown={shown.length} total={list.length} unit="대" pageSize={PAGE} onMore={() => setLimit((n) => n + PAGE)} />
     </>

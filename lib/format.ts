@@ -6,6 +6,22 @@ export const man = (n: unknown): string => {
   return v ? `${Math.round(v / 10000).toLocaleString()}만` : '0';
 };
 
+/**
+ * **손님에게 보이는 금액** — 「39만 8,000원」처럼 한 원도 안 깎고 적는다.
+ *
+ * ⚠ `man()` 을 손님 화면 «가격»에 쓰면 안 된다. 그건 **반올림**이라 398,000원이 「40만」이 된다
+ *   (업무동 요약·통계에는 그 축약이 맞다). 손님이 카드에서 본 금액과 상담에서 듣는 금액이
+ *   다르면 그 자리에서 신뢰가 깨진다.
+ */
+export function manWon(n: unknown): string {
+  const v = Math.max(0, Math.round(Number(n) || 0));
+  if (!v) return '0원';
+  const m = Math.floor(v / 10000);
+  const rest = v % 10000;
+  if (!m) return `${v.toLocaleString()}원`;
+  return rest ? `${m.toLocaleString()}만 ${rest.toLocaleString()}원` : `${m.toLocaleString()}만원`;
+}
+
 /** 주행거리 표시 SSOT — 축약하지 않고 실제 km를 그대로 표시한다. */
 export function kmDisplay(raw: unknown): string {
   const source = String(raw ?? '').trim();

@@ -1,0 +1,108 @@
+'use client';
+import { memo } from 'react';
+import Link from 'next/link';
+import { type EntityRecord } from '@/lib/intake/entities';
+import { useIsMobile } from '@/lib/use-mobile';
+import { haptic } from '@/lib/haptics';
+import { C, FS, FW, R_CARD, SH } from '@/components/ui';
+import { CardThumb } from '@/components/product-card-atoms';
+import { cheapest, creditDisplay, CREDIT_UNSET } from '@/lib/domain/product';
+import { vehicleNameOf } from '@/lib/domain/vehicle-name';
+import { yearDisplay, fuelDisplay } from '@/lib/domain/vehicle-master-format';
+import { kmDisplay, manWon } from '@/lib/format';
+
+/**
+ * 손님 카탈로그 카드 — **시안 그대로**(사장님 2026-09-04 「니가 설계한 화면 그대로 해야지,
+ * 기존 거는 원자·데이터만 쓴다」).
+ *
+ *   1 사진
+ *   2 연식 + 차명
+ *   3 연월 · 주행 · **차번**
+ *   4 **월 대여료 — 카드에서 제일 큰 글자**
+ *   5 보증금 · 기준 개월
+ *   6 뱃지(무심사 · 당일출고)
+ *
+ * ★업무동 `ProductCard`(확정 규격 · docs/DESIGN_CONFIRMED_LIST_CARD.md)를 손대지 않는다.
+ *   그 카드는 영업자용이라 **손님 화면에 안 맞는 것**이 셋 있다:
+ *   ㉠ 차번이 없다(`CardSpecs` 는 audience='customer' 면 차번을 감춘다) — 실물 재고를
+ *      파는 판에서 차번은 「이 차다」의 증거라 손님에게 보여도 되는 값이다(공개 화이트리스트에도 있다).
+ *   ㉡ 월 대여료가 작다 — 손님이 카드에서 제일 먼저 보는 값인데 차명보다 작았다.
+ *   ㉢ 값이 없으면 「미입력」이 그대로 뜬다 — 영업자에겐 «채워라»는 신호지만 손님에겐 흠집이다.
+ *      여기서는 **빈 줄을 그냥 그리지 않는다.**
+ *
+ * ★색·치수는 토큰만 쓴다. `.fp-wl` 이 브랜드색으로 토큰을 뒤집으므로 채널이 바뀌어도 따라온다.
+ */
+export const CatalogCard = memo(function CatalogCard({ p, href }: {
+  p: EntityRecord; href: string;
+}) {
+  const mobile = useIsMobile();
+  const price = cheapest(p);
+  const name = vehicleNameOf({ kind: 'product', product: p }, { tier: 'full', fallback: 'none' });
+  const title = [yearDisplay(p.year), name].filter(Boolean).join(' ') || '차량';
+  // 메타 = 주행 · 연료 · 차번. 값이 없는 조각은 «빼고» 그린다(빈 칸·「미입력」을 손님에게 보이지 않는다).
+  const meta = [kmDisplay(p.mileage), fuelDisplay(p.fuel_type), String(p.car_number || '').trim()]
+    .filter(Boolean).join(' · ');
+  // 「미입력」은 영업자에게 «채워라»는 신호일 뿐 손님에겐 흠집이다 — 뱃지로 내보내지 않는다.
+  const creditRaw = creditDisplay(p);
+  const credit = creditRaw && creditRaw !== CREDIT_UNSET ? creditRaw : '';
+  const sameDay = /즉시출고|당일/.test(String(p.vehicle_status || ''));
+
+  return (
+    <Link href={href} onClick={() => haptic.nav()} className="fp-card"
+      style={{
+        display: 'flex', flexDirection: 'column', borderRadius: R_CARD, overflow: 'hidden',
+        textDecoration: 'none', color: 'inherit',
+        border: `1px solid ${C.line}`, boxShadow: SH.cardRest,
+      }}>
+      <CardThumb p={p} audience="customer" fill marks={false} />
+
+      <div style={{ padding: mobile ? '13px 13px 15px' : '14px 14px 16px', display: 'flex', flexDirection: 'column', gap: 7, minWidth: 0 }}>
+        <div style={{
+          fontSize: mobile ? FS.title : 16.5, fontWeight: FW.title, color: C.ink,
+          lineHeight: 1.4, letterSpacing: '-0.015em',
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        }} title={title}>{title}</div>
+
+        {meta ? (
+          <div style={{
+            fontSize: FS.sub, color: C.mute, fontVariantNumeric: 'tabular-nums',
+            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+          }}>{meta}</div>
+        ) : null}
+
+        {/* 월 대여료 — 카드에서 제일 큰 글자. 손님이 제일 먼저 보는 값이다. */}
+        {price && price.rent > 0 ? (
+          <>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 2 }}>
+              <span style={{ fontSize: FS.sub, color: C.mute }}>월</span>
+              <span style={{
+                fontSize: mobile ? 22 : 26, fontWeight: FW.head, color: C.ink,
+                letterSpacing: '-0.035em', fontVariantNumeric: 'tabular-nums',
+              }}>{manWon(price.rent)}</span>
+            </div>
+            <div style={{ fontSize: FS.sub, color: C.mute, fontVariantNumeric: 'tabular-nums' }}>
+              {price.deposit > 0 ? `보증금 ${manWon(price.deposit)}` : '보증금 없음'} · {price.m}개월 기준
+            </div>
+          </>
+        ) : null}
+
+        {(credit || sameDay) ? (
+          <div style={{ display: 'flex', gap: 6, marginTop: 2, flexWrap: 'wrap' }}>
+            {credit ? (
+              <span style={{
+                padding: '4px 9px', borderRadius: 6, border: `1px solid ${C.line}`,
+                fontSize: FS.cap, fontWeight: FW.strong, color: C.sub,
+              }}>{credit}</span>
+            ) : null}
+            {sameDay ? (
+              <span style={{
+                padding: '4px 9px', borderRadius: 6, background: C.warnBg,
+                fontSize: FS.cap, fontWeight: FW.strong, color: C.warn,
+              }}>당일출고</span>
+            ) : null}
+          </div>
+        ) : null}
+      </div>
+    </Link>
+  );
+});
