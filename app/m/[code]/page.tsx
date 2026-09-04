@@ -165,7 +165,8 @@ export default function Detail() {
   const canUseAssist = role === 'agent' || role === 'admin' || role === 'provider';
   const assistShown = wideAgentColumn && canUseAssist;
   /**
-   * 하단독 = 이전 + **링크 공유 하나**(+넓은 화면 영업자는 검수 요청) — 사장님 2026-08-22
+   * 하단독 = 이전 + **링크 공유 하나**(좁은 화면) / 이전 + 검수 요청(넓은 화면 — 공유는 칼럼이 든다)
+   *   — 사장님 2026-08-22
    * 「텍스트복사 빼자, 링크 공유하기 버튼만 · 바로 공유할 수 있게끔 · 웹도 링크 공유로」.
    * 누르면 바로 OS 공유시트(카톡·문자), 없으면 링크 복사(ProductAgentShareActions).
    */
@@ -177,7 +178,11 @@ export default function Detail() {
    */
   const dockActions = canUseAssist ? (
     <span style={{ display: 'contents' }}>
-      <ProductAgentShareActions p={p} />
+      {/* ★공유는 «한 화면에 하나»다(사장님 2026-09-04 「링크 공유하기는 중복이잖아」).
+          넓은 화면에서는 우측 칼럼 **바닥 고정줄**이 그걸 든다(ProductAgentColumn) —
+          거기 있는 이유는 「스크롤과 상관없이 늘 손에 닿아야」이고(2026-08-20), 하단독이 또 들면
+          같은 버튼이 나란히 둘로 선다. 좁은 화면은 칼럼이 없으니 독이 든다. */}
+      {!assistShown ? <ProductAgentShareActions p={p} /> : null}
       {/* 검수 요청은 넓은 화면 독에만 — 모바일은 뺀다(사장님 2026-08-22 「요청보내기 버튼 없애 주고」). */}
       {canDeal && assistShown ? <ReportButton p={p} /> : null}
     </span>

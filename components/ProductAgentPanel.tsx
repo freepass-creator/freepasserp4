@@ -47,11 +47,26 @@ const AGENT_COL_W = 380;
 /** 위아래 같은 숨 간격 — 위는 곧 «상단에 부딪혔을 때 멈추는 자리»다. */
 const CHROME_GAP = 14;
 
-/** 남색 면 위의 선·글자 — 반전면에서는 C.line·C.mute 가 안 보인다(어두운 바탕에 어두운 선). */
-const INV = {
-  line: 'color-mix(in srgb, var(--text-inverse) 24%, transparent)',
-  soft: 'color-mix(in srgb, var(--text-inverse) 12%, transparent)',
-  dim: 'color-mix(in srgb, var(--text-inverse) 70%, transparent)',
+/**
+ * ★대여료 표는 **스카이 연한 면**(색 사다리 4단)이다 — 반전(1단) 아니다.
+ *   `docs/DESIGN_COLOR_LADDER.md`: 「색은 하나다 — 네이비. 다른 건 «세기»뿐」이고
+ *   **4단 = 스카이 연한 면 = 영업자 패널**로 이미 정해져 있었다. 코드가 1단(네이비 반전)을 쓰고 있어
+ *   화면이 쨍했다(사장님 2026-09-04 「저렇게 쨍하게 반전 말고, 분위기에 맞지만 별도구간처럼」).
+ *
+ * ⚠ **주황·앰버를 포인트로 들이지 않는다.** 같은 문서가 「새 색상(hue)을 들이지 않는다 —
+ *   초록·앰버로 섹션을 칠해 봤다가 무지개가 돼서 되돌렸다」고 적었고, 이 패널 머리 주석에도
+ *   「앰버는 «주의·수기입력» 뜻으로 돌려보냈다」가 남아 있다. 앰버를 여기 쓰면 뜻이 겹친다.
+ *   ⇒ 포인트는 **네이비**다 — 금액과 「최저」 왼쪽 바에만 든다. 면은 스카이, 글자는 먹색.
+ */
+const SKY = {
+  /** 표 면 — 흰 본문과 확실히 다른 «별도 구간». */
+  face: 'var(--sky-bg)',
+  /** 구조 띠(열이름·갈래 줄) — 같은 색의 한 단 위. */
+  band: 'color-mix(in srgb, var(--sky) 42%, transparent)',
+  /** 행 사이 선 — 면 위에서 보이되 표를 격자로 만들지 않을 세기. */
+  line: 'color-mix(in srgb, var(--sky) 62%, transparent)',
+  /** 테두리 — 카드가 면 위에 떠 있지 않고 «구간»으로 읽히게. */
+  edge: 'color-mix(in srgb, var(--sky) 78%, transparent)',
 };
 
 /**
@@ -108,40 +123,42 @@ export function ProductAgentPanel({ p, audience, pinnedShare }: {
   /** 우측 칼럼이 없으면 본문 「기간별 대여료」와 같은 표가 바로 위에 있다. 그때는 패널 대여료표를 두지 않는다. */
   const sideCol = useAgentColumn();
 
-  /* 반전 표 칸 규격 — 본문 표(DT)와 같은 리듬, 색만 반전. */
+  /* 표 칸 규격 — 본문 표(DT)와 같은 리듬, 면만 스카이. */
   /**
-   * **구조 띠**(열이름 줄 · 「인수형」 갈래 줄) — 진한 남색.
-   * 선택된 행(최저)과 같은 옅은 틴트를 쓰면 «고른 줄»인지 «구역 나눔»인지 구분이 안 됐다
+   * **구조 띠**(열이름 줄 · 「인수형」 갈래 줄) — 같은 스카이의 «한 단 위».
+   * 선택된 행(최저)과 같은 세기를 쓰면 «고른 줄»인지 «구역 나눔»인지 구분이 안 됐다
    * (사장님 2026-08-20 「섹션 나누는거랑 최저가 선택돼서 배경 있는거랑 구분좀」).
-   *   구조 = 진하게(brandDeep) · 선택 = 옅게(INV.soft) + 왼쪽 굵은 바.
+   *   구조 = 스카이 띠(색) · 선택 = 연한 네이비 면(2단) + 왼쪽 네이비 굵은 바.
+   *   둘이 «다른 축»(색 vs 바)이라 세기를 안 겨뤄도 갈린다.
    */
   const invTh: CSSProperties = {
     padding: '5px 10px', textAlign: 'left', fontSize: FS.cap, fontWeight: FW.strong,
-    color: INV.dim, background: C.brandDeep, whiteSpace: 'nowrap',
+    color: C.brand, background: SKY.band, whiteSpace: 'nowrap',
   };
   const invThR: CSSProperties = { ...invTh, textAlign: 'right' };
   const invLabel: CSSProperties = {
     padding: '6px 10px', textAlign: 'left', fontWeight: FW.strong, fontSize: FS.body,
-    color: C.inverse, whiteSpace: 'nowrap',
+    color: C.ink, whiteSpace: 'nowrap',
   };
   const invTd: CSSProperties = {
-    padding: '6px 10px', textAlign: 'right', color: C.inverse,
+    padding: '6px 10px', textAlign: 'right', color: C.ink,
     fontFamily: NUM, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap',
   };
   const invTr = (i: number, on = false): CSSProperties => ({
-    borderTop: i ? `1px solid ${INV.line}` : 'none',
-    background: on ? INV.soft : 'transparent',
+    borderTop: i ? `1px solid ${SKY.line}` : 'none',
+    background: on ? C.selected : 'transparent',
   });
-  /** 선택된 행 표시 = 왼쪽 굵은 바. 바탕만으로는 구조 띠와 헷갈린다. */
-  const pickBar = (on: boolean): CSSProperties => (on ? { boxShadow: `inset 3px 0 0 ${C.inverse}` } : {});
+  /** 선택된 행 표시 = 왼쪽 네이비 굵은 바. 바탕만으로는 구조 띠와 헷갈린다. */
+  const pickBar = (on: boolean): CSSProperties => (on ? { boxShadow: `inset 3px 0 0 ${C.brand}` } : {});
 
   const priceRow = (kind: string, m: number, rent: number, deposit: number, i: number, best: boolean) => (
     <tr key={`${kind}:${m}`} style={invTr(i, best)}>
       <th scope="row" style={{ ...invLabel, ...pickBar(best) }}>
         {m}개월
-        {best ? <span style={{ marginLeft: 5, fontSize: FS.micro, fontWeight: FW.label, color: INV.dim }}>최저</span> : null}
+        {best ? <span style={{ marginLeft: 5, fontSize: FS.micro, fontWeight: FW.label, color: C.brand }}>최저</span> : null}
       </th>
-      <td style={{ ...invTd, fontWeight: FW.head, fontSize: FS.title }}>{won(rent)}</td>
+      {/* 금액 = 네이비 포인트(색 사다리 3단). 면이 연해진 만큼 «짚는 값»은 네이비가 든다. */}
+      <td style={{ ...invTd, fontWeight: FW.head, fontSize: FS.title, color: best ? C.brand : C.ink }}>{won(rent)}</td>
       <td style={invTd}>{deposit > 0 ? won(deposit) : '무보증'}</td>
     </tr>
   );
@@ -168,16 +185,22 @@ export function ProductAgentPanel({ p, audience, pinnedShare }: {
         }}>손님 화면엔 없음</span>
       </div>
 
-      {/* ① 대여료 — 전 기간 목록(반전). 패널이 늘 떠 있으니 본문 위로 올라가지 않아도 «얼마»가 보인다.
-          모바일·좁은 화면은 본문 표와 중복이라 뺀다(사장님 2026-08-22). */}
+      {/* ① 대여료 — 전 기간 목록. 패널이 늘 떠 있으니 본문 위로 올라가지 않아도 «얼마»가 보인다.
+          모바일·좁은 화면은 본문 표와 중복이라 뺀다(사장님 2026-08-22).
+          ★별도 구간 표시 = **연한 스카이 면 + 좌측 네이비 바**. 반전(쨍한 남색)이 아니다 — 색 사다리 4단.
+          좌측 바는 위 「영업자 전용 패널」 머리와 같은 문법이라 칼럼 안에서 축이 하나로 선다. */}
       {sideCol ? (
-      <div style={{ background: C.brand, color: C.inverse, borderRadius: R, overflow: 'hidden' }}>
+      <div style={{
+        background: SKY.face, color: C.ink,
+        border: `1px solid ${SKY.edge}`, borderLeft: `4px solid ${C.brand}`,
+        borderRadius: R_CARD, overflow: 'hidden',
+      }}>
         <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 8, padding: '9px 10px' }}>
           <span style={{ fontSize: FS.body, fontWeight: FW.title, minWidth: 0, overflowWrap: 'anywhere' }}>{vehicleName(p)}</span>
           {plate ? (
             <span style={{
               flex: '0 0 auto', fontFamily: NUM, fontSize: FS.cap, fontWeight: FW.strong,
-              border: `1px solid ${INV.line}`, background: INV.soft, borderRadius: R, padding: '1px 6px',
+              border: `1px solid ${SKY.edge}`, background: C.taupeBg, color: C.ink, borderRadius: R, padding: '1px 6px',
             }}>{plate}</span>
           ) : null}
         </div>
@@ -197,7 +220,7 @@ export function ProductAgentPanel({ p, audience, pinnedShare }: {
                 <>
                   {/* 인수형은 «같은 기간의 다른 상품» — 표를 쪼개지 않고 갈래 줄 하나로 나눈다(본문 표와 같은 규칙). */}
                   <tr>
-                    <th scope="colgroup" colSpan={3} style={{ ...invTh, borderTop: `2px solid ${C.inverse}` }}>
+                    <th scope="colgroup" colSpan={3} style={{ ...invTh, borderTop: `2px solid ${C.brand}` }}>
                       인수형 · 만기 인수
                     </th>
                   </tr>
@@ -207,7 +230,7 @@ export function ProductAgentPanel({ p, audience, pinnedShare }: {
             </tbody>
           </table>
         ) : (
-          <div style={{ padding: '0 10px 10px', fontSize: FS.cap, color: INV.dim }}>
+          <div style={{ padding: '0 10px 10px', fontSize: FS.cap, color: C.mute }}>
             대여료 미입력 — 손님 안내 전에 요금을 넣어야 합니다.
           </div>
         )}
