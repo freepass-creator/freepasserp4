@@ -16,6 +16,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { snapToMaster, makerGroup } from '../lib/domain/vehicle-master-match';
 import type { MasterEntry } from '../lib/domain/vehicle-master-types';
 import type { EntityRecord } from '../lib/intake/entities';
+import { MIRROR_SOURCES } from '../lib/domain/mirror-sources';
 
 const APPLY = process.argv.includes('--apply');
 const S = (v: unknown) => String(v ?? '').trim();
@@ -89,14 +90,25 @@ const docId = (car: string) => car.replace(/\s/g, '').replace(/[/#.$\[\]]/g, '_'
 
 const products = (await rtdb.ref('v4/products').get()).val() as Record<string, any> || {};
 const rows = Object.values(products).filter((v) => isObj(v) && alive(v) && S(v.car_number));
+
+// ★직접수집으로 넘어간 공급사는 미러에서 «뺀다»(사장님 2026-09-04 「직접수집으로 넘어갔으니 빼」).
+//   대상 = MIRROR_SOURCES(시트·홈피) + 손오공(RP012) + partner.sheet_url 등록. 이들은 원천을 «직접» 읽어
+//   Firestore 에 쓰므로(ingest-all-suppliers), 미러가 옛 RTDB 경로로 또 덮으면 둘이 다툰다(사라진 차를 되살리는 등).
+//   미러는 «옛 경로만 쓰는» 나머지 공급사만 맡는다. ⚠ 이 파일과 direct-ingest 워크플로는 같이 main 에 가야 원자적 컷오버.
+const partnersNode = (await rtdb.ref('v4/partners').get()).val() as Record<string, any> || {};
+const DIRECT = new Set<string>([...MIRROR_SOURCES.map((m) => m.code), 'RP012']);
+for (const p of Object.values(partnersNode)) if (isObj(p) && S(p.partner_code) && /docs\.google\.com/.test(S(p.sheet_url))) DIRECT.add(S(p.partner_code));
+const isDirect = (v: Record<string, any>) => DIRECT.has(S(v.provider_company_code) || S(v.partner_code));
+
 const seen = new Set<string>();
 type Item = { id: string; doc: Record<string, any> };
 const items: Item[] = [];
 const stat: Record<string, number> = { 유효보존: 0, 치유high: 0, 치유med: 0, 트림보강: 0, 검수대기: 0 };
-let dups = 0;
+let dups = 0, skippedDirect = 0;
 
 for (const v of rows) {
   const id = docId(S(v.car_number)); if (seen.has(id)) { dups++; continue; } seen.add(id);
+  if (isDirect(v)) { skippedDirect++; continue; }   // 직접수집 소유 — 미러가 안 건드린다
   const raw = S(v.supplier_vehicle_name);
   let ident: { maker: string; model: string; sub_model: string; trim_name: string; origin: string } | null = null;
   let confirmed = false, note = '';
@@ -161,5 +173,5 @@ for (let i = 0; i < items.length; i += 400) {
   await batch.commit();
   if ((i / 400) % 2 === 0) console.log(`  ${Math.min(i + 400, items.length)}/${items.length}…`);
 }
-console.log(`\n미러 완료 — ${written}건 merge · Firestore 실측 ${(await fs.collection('products').count().get()).data().count}건.`);
+console.log(`\n미러 완료 — ${written}건 merge (직접수집 소유 ${skippedDirect}건 건너뜀 · 공급사 ${DIRECT.size}곳) · Firestore 실측 ${(await fs.collection('products').count().get()).data().count}건.`);
 process.exit(0);
