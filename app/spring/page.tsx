@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
+import { useSession, useAuthReady } from '@/lib/auth-context';
 import { Page } from '@/components/Page';
 import { C, FS, FW, NUM, R, SearchInput, Loading, CenterNote, VEHICLE_STATUS_TONE, Badge, PillTabs, Section, DetailGrid } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
@@ -51,7 +52,11 @@ export default function SpringPage() {
   const [selCar, setSelCar] = useState<string>('');
   const [now, setNow] = useState(() => Date.now());
   const mobile = useIsMobile();
+  const session = useSession();
+  const authReady = useAuthReady();
+  const authed = authReady && !!session;   // ★인증(Firebase) 복원 뒤에만 구독 — 2026-09-04 파인더 사고 방지
 
+  // 차종마스터 = 공개 에셋. 인증과 무관하게 미리 받는다.
   useEffect(() => {
     let alive = true;
     fetch('/data/vehicle-master.json').then((r) => r.json()).then((j) => {
@@ -59,11 +64,17 @@ export default function SpringPage() {
       const entries = (Array.isArray(j) ? j : j.entries || []) as MasterEntry[];
       setIdx(buildMasterIndex(entries));
     }).catch(() => { if (alive) setIdx(buildMasterIndex([])); });
-    const unsubP = subscribeFirestoreProducts((r) => { setRows(r); setErr(''); }, (e) => setErr(e instanceof Error ? e.message : '구독 실패 — 로그인/권한 확인'));
-    const unsubPol = subscribeFirestorePolicies((p) => setPolicies(p as EntityRecord[]));
     const t = setInterval(() => setNow(Date.now()), 30_000);
-    return () => { alive = false; unsubP(); unsubPol(); clearInterval(t); };
+    return () => { alive = false; clearInterval(t); };
   }, []);
+
+  // 구독은 «인증 준비 + 세션 있음» 뒤에만. 규칙에 막혀 빈 채로 굳는 것 방지(실패 시 클라이언트가 핸들 해제 → 재시도됨).
+  useEffect(() => {
+    if (!authed) return;
+    const unsubP = subscribeFirestoreProducts((r) => { setRows(r); setErr(''); }, (e) => setErr(e instanceof Error ? e.message : '구독 실패 — 권한/규칙 확인'));
+    const unsubPol = subscribeFirestorePolicies((p) => setPolicies(p as EntityRecord[]));
+    return () => { unsubP(); unsubPol(); };
+  }, [authed]);
 
   const polByKey = useMemo(() => {
     const m = new Map<string, Record<string, unknown>>();
@@ -127,9 +138,10 @@ export default function SpringPage() {
         />
       </div>
 
-      {err && <CenterNote>{err}</CenterNote>}
-      {rows === null && !err && <Loading />}
-      {rows !== null && !filtered.length && !err && <CenterNote>{q || hFilter !== '전체' ? '해당 원자 없음' : '원자 없음'}</CenterNote>}
+      {authReady && !session && <CenterNote>이 주소에서 로그인해야 원자가 보입니다.</CenterNote>}
+      {authed && err && <CenterNote>{err}</CenterNote>}
+      {authed && rows === null && !err && <Loading />}
+      {authed && rows !== null && !filtered.length && !err && <CenterNote>{q || hFilter !== '전체' ? '해당 원자 없음' : '원자 없음'}</CenterNote>}
 
       {rows !== null && filtered.length > 0 && (
         <div style={{ display: 'flex', gap: 10, alignItems: 'flex-start', flexDirection: mobile ? 'column' : 'row' }}>
