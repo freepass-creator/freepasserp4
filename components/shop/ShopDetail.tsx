@@ -2,8 +2,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
-  ArrowLeft, Car, Check, ChevronLeft, ChevronRight, Coins, FileText, Heart,
-  IdCard, ImageOff, Info, ListChecks, Phone, Share2, ShieldCheck, type LucideIcon,
+  ArrowLeft, Car, CarFront, Check, ChevronLeft, ChevronRight, Coins, FileText, Gauge, Heart,
+  IdCard, ImageOff, Info, LifeBuoy, ListChecks, PackageCheck, Phone, Share2, ShieldCheck, Wrench,
+  type LucideIcon,
 } from 'lucide-react';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { Badge, C, FW, FS, ICON, PERK_TONE, CREDIT_TONE, type BadgeTone } from '@/components/ui';
@@ -88,6 +89,16 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
   const plan = plans[planIdx];
   /** 표에 세울 순서 — 기간 오름차순. 위 큰 숫자는 최저가로 시작하지만 표의 축은 «기간»이다. */
   const byMonth = useMemo(() => [...plans].sort((a, b) => a.m - b.m), [plans]);
+  /** 제일 싼 줄의 «기간». `plans` 가 요금 오름차순이라 첫 줄이 최저가다. */
+  const cheapest = plans.length ? plans[0].m : 0;
+  /*
+   * 보조표 글자 — **폰에서는 한 단 내린다**(2026-09-05 화면에서 잡음).
+   * 세 칸(기간·월 대여료·보증금)에 「94만 7,000원」·「183만 3,000원」 같은 긴 값이 들어가는데,
+   * 358px 폭에 14.5px 로 놓으니 **금액이 두 줄로 터져** 표가 계단처럼 어긋났다.
+   * 값에 `nowrap` 을 걸고 글자를 13 으로 내리면 세 칸이 한 줄에 앉는다.
+   * ★보조표는 원래 큰 숫자보다 작아야 한다 — 줄이는 것이 손해가 아니다.
+   */
+  const rateFs = mobile ? SHOP.fs.sub : SHOP.fs.body;
 
   /*
    * 차량 정보 — **위 두 줄과 안 겹치는 것만** 남긴다(2026-09-05 검토).
@@ -137,7 +148,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
     ? `${S('own_damage_min_deductible')} ~ ${S('own_damage_max_deductible')}`
     : S('own_damage_min_deductible');
   const coverage = [
-    S('insurance_included'),
+    /* ⚠ `insurance_included` 는 여기서 뺐다 — 아래 「대여료에 포함」 격자가 그 칸을 든다(2026-09-05). */
     S('injury_compensation_limit') ? `대인 ${S('injury_compensation_limit')}` : '',
     S('property_compensation_limit') ? `대물 ${S('property_compensation_limit')}` : '',
     S('self_body_accident') ? `자기신체 ${S('self_body_accident')}` : '',
@@ -151,8 +162,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
     ['보증금 카드', S('deposit_card_payment')],
     ['대여료 카드', S('rental_card_payment')],
     ['납부 방법', join(S('payment_method'), S('payment_timing') && S('payment_timing') !== S('payment_method') ? S('payment_timing') : '')],
-    ['약정 주행', join(S('annual_mileage'),
-      S('mileage_upcharge_per_10000km') ? `초과 1만km당 ${S('mileage_upcharge_per_10000km')}` : '')],
+    /* ⚠ 「약정 주행」도 여기서 뺐다 — 「대여료에 포함」 격자로 옮겼다(2026-09-05). */
     /*
      * ⚠⚠ **중도해지 위약금은 손님 화면에 안 낸다.** 여기 있던 줄을 뺐다(2026-09-05).
      *   업무동 정본이 이미 그렇게 정해 두었는데(`lib/domain/product.ts` condRows —
@@ -186,12 +196,40 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
   /** 「긴급출동 연간 5회」처럼 «이름 + 값»으로 잇되, 값이 뜻이 없으면(협의·기타…) 통째로 뺀다. */
   const pair = (label: string, v: string) => (meaningful(v) ? `${label} ${v}` : '');
   const etc = [
-    pair('긴급출동', S('annual_roadside_assistance') || S('roadside_assistance')),
+    /* ⚠ 긴급출동·정비·대차는 「대여료에 포함」 격자로 갔다 — 여기 남기면 같은 말을 두 번 한다. */
     pair('이용 지역', S('rental_region')),
     pair('차량 인도', S('delivery_fee')),
-    pair('정비', S('maintenance_service')),
-    pair('대차', S('replacement_car_policy')),
   ].filter(Boolean).join(' · ');
+
+  /*
+   * ★★**「대여료에 포함」 격자** — 새로 만든 구역이다(2026-09-05).
+   *
+   * 왜. 조사한 열두 곳이 **거의 전부** 이 덩어리를 갖고 있었다(항목 3·4·4·5·5·7·8·8·9~11).
+   * Autonomy 는 「What's included」 아이콘 격자, Vamos 는 체크리스트 일곱, Hertz 는 혜택 여덟,
+   * Kinto 는 「All-inclusive」 넷. **손님이 「월 얼마」 다음으로 묻는 게 「그 안에 뭐가 들었나」**다.
+   * 그런데 우리는 그 답이 **네 군데로 흩어져** 있었다 — 보험 나열 · 계약 타일 · 기타 한 줄.
+   * 흩어져 있으면 어느 하나도 «혜택»으로 안 읽히고 그냥 조항으로 읽힌다.
+   *
+   * ★새 데이터가 **0개**다. 있는 정책칸을 모아 놓았을 뿐이다.
+   * ★★**「포함」이라고 단정하지 않는다 — 값을 그대로 보여준다.** 보험이 「별도」인 차가 실재한다
+   *   (이 화면 실측: `insurance_included` = 「보험료 별도」). 격자 제목만 보고 포함이라 쓰면 그건 거짓말이다.
+   * ★초과주행료를 약정주행 «옆에» 붙인다 — 조사에서 Kinto MY 하나만 그렇게 했고 제일 정직했다.
+   *   나중에 더 내는 돈을 각주로 미룬 곳(Hertz·Cinch·Bipi)은 전부 숫자가 어긋나 있었다.
+   * ⚠ 값이 없으면 「담당자 확인」이다 — 「없음」이 아니다(모르는 것과 없는 것은 다르다).
+   *   다만 다섯 칸이 «전부» 비면 격자를 안 그린다. 「담당자 확인」만 다섯 개면 그건 구역이 아니다.
+   */
+  const included: { icon: LucideIcon; label: string; value: string; known: boolean }[] =
+    ([
+      [ShieldCheck, '보험', S('insurance_included')],
+      [Wrench, '정비', S('maintenance_service')],
+      [CarFront, '대차', S('replacement_car_policy')],
+      [LifeBuoy, '긴급출동', S('annual_roadside_assistance') || S('roadside_assistance')],
+      [Gauge, '약정 주행', join(S('annual_mileage'),
+        S('mileage_upcharge_per_10000km') ? `초과 1만km당 ${S('mileage_upcharge_per_10000km')}` : '')],
+    ] as [LucideIcon, string, string][]).map(([icon, label, v]) => ({
+      icon, label, known: meaningful(v), value: meaningful(v) ? v : '담당자 확인',
+    }));
+  const hasIncluded = included.some((x) => x.known);
 
   const options = parseProductOptions(p.options);
   const phone = String(agentPhone || '').trim();
@@ -319,21 +357,38 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
                     <tr key={x.m} onClick={pick}
                       style={{ cursor: 'pointer', background: on ? C.bg : 'transparent' }}>
                       <td style={{ padding: 0 }}>
+                        {/*
+                         * ★고른 줄은 **왼쪽에 굵은 선**이 선다. 바탕색만 바꾸면 흰 면 위 흰 줄이라
+                         *   어느 줄이 골라졌는지 한눈에 안 들어온다(연한 면 위에서는 더 그렇다).
+                         * ★제일 싼 줄에는 「최저가」를 붙인다 — 이 표를 읽는 이유가 그것이기 때문이다.
+                         *   목록 카드가 보여 준 값도 최저가라, 손님이 «어느 줄에서 온 숫자인지»를 여기서 잇는다.
+                         */}
                         <button type="button" onClick={pick} aria-pressed={!!on} style={{
-                          display: 'block', width: '100%', textAlign: 'left',
+                          display: 'flex', alignItems: 'center', gap: 6, width: '100%', textAlign: 'left',
                           padding: '13px 8px 13px 10px',
-                          border: 'none', background: 'transparent', cursor: 'pointer',
-                          fontFamily: 'inherit', fontVariantNumeric: 'tabular-nums',
-                          fontSize: SHOP.fs.body, fontWeight: on ? 700 : 500, color: on ? C.brand : C.ink,
-                        }}>{x.m}개월</button>
+                          borderTop: 'none', borderRight: 'none', borderBottom: 'none',
+                          borderLeft: `3px solid ${on ? C.brand : 'transparent'}`,
+                          background: 'transparent', cursor: 'pointer',
+                          fontFamily: 'inherit', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap',
+                          fontSize: rateFs, fontWeight: on ? 700 : 500, color: on ? C.brand : C.ink,
+                        }}>
+                          {x.m}개월
+                          {cheapest === x.m ? (
+                            <span style={{
+                              flex: '0 0 auto', padding: '2px 6px', borderRadius: 5,
+                              background: C.brandBg, color: C.brand,
+                              fontSize: mobile ? 9.5 : 10.5, fontWeight: 700, letterSpacing: '-0.01em',
+                            }}>최저가</span>
+                          ) : null}
+                        </button>
                       </td>
                       <td style={{
-                        padding: '13px 8px', textAlign: 'right',
-                        fontSize: SHOP.fs.body, fontWeight: on ? 800 : 600, color: C.ink,
+                        padding: '13px 6px', textAlign: 'right', whiteSpace: 'nowrap',
+                        fontSize: rateFs, fontWeight: on ? 800 : 600, color: C.ink,
                       }}>{manWon(x.rent)}</td>
                       <td style={{
-                        padding: '13px 10px 13px 8px', textAlign: 'right',
-                        fontSize: SHOP.fs.body, color: C.mute,
+                        padding: '13px 8px 13px 6px', textAlign: 'right', whiteSpace: 'nowrap',
+                        fontSize: rateFs, color: C.mute,
                       }}>{x.deposit > 0 ? manWon(x.deposit) : '없음'}</td>
                     </tr>
                   );
@@ -391,6 +446,41 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
       <Rule mobile={mobile} />
       {priceCard}
 
+      {hasIncluded ? (
+        <>
+          <Rule mobile={mobile} />
+          <section aria-label="대여료에 포함">
+            <SecTitle icon={PackageCheck}>대여료에 포함</SecTitle>
+            <div style={{
+              display: 'grid', gap: 8,
+              gridTemplateColumns: `repeat(${mobile ? 2 : 5}, minmax(0, 1fr))`,
+            }}>
+              {included.map((x) => (
+                <div key={x.label} style={{
+                  /*
+                   * 칸마다 «면»을 깐다 — 격자가 되려면 칸이 보여야 한다. 글자만 놓으면
+                   * 아래 타일 구역과 같은 얼굴이 되고, 그러면 이 구역을 새로 만든 뜻이 없다.
+                   */
+                  padding: mobile ? '13px 12px' : '15px 14px',
+                  borderRadius: SHOP.r.card, background: C.zebra,
+                  minWidth: 0,
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 8 }}>
+                    <x.icon size={16} aria-hidden style={{ flex: '0 0 auto', color: x.known ? C.brand : C.faint }} />
+                    <span style={{ fontSize: SHOP.fs.cap, color: C.mute, fontWeight: 600 }}>{x.label}</span>
+                  </div>
+                  <div style={{
+                    fontSize: SHOP.fs.sub, fontWeight: x.known ? 700 : 400,
+                    color: x.known ? C.ink : C.faint,
+                    wordBreak: 'keep-all', lineHeight: 1.45,
+                  }}>{x.value}</div>
+                </div>
+              ))}
+            </div>
+          </section>
+        </>
+      ) : null}
+
       {/*
         차량 정보 — 서로 «독립된 짧은 사실» 넷이다. 이름/값 표로 놓으면 계약·보험과 같은 얼굴이 되고,
         네 줄짜리를 표로 만들면 그건 표가 아니라 창살이다. **타일**로 나란히 놓는다.
@@ -447,7 +537,12 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
         계약 — 서로 «독립된 짧은 답»들이다(된다/안 된다/얼마). 견줄 것이 아니라 하나씩 확인하는 값이라
         표가 아니라 **타일**로 놓는다. 보증금 관련이 앞이다 — 이 손님층의 1번 장벽은 월요금이 아니라 목돈이다.
       */}
-      <Tiles title="계약 조건" rows={contract} cols={mobile ? 2 : 3} mobile={mobile} icon={FileText} />
+      {/*
+        ★웹은 **네 칸**이다. 「약정 주행」을 「대여료에 포함」 격자로 옮기면서 이 구역이 최대 넷이 됐는데,
+          세 칸으로 두면 넷째가 혼자 둘째 줄에 내려앉아 오른쪽 두 칸이 빈 채로 남는다 —
+          «덜 채운 표»로 보인다. 차량 정보(넷)와 같은 칸 수라 두 구역의 격자가 서로 맞기도 한다.
+      */}
+      <Tiles title="계약 조건" rows={contract} cols={mobile ? 2 : 4} mobile={mobile} icon={FileText} />
 
       {/* 운전 — 「내가 탈 수 있나」. 나이 범위 하나가 결정적이라 그것만 크게. */}
       <Lead title="운전 조건" mobile={mobile} icon={IdCard}
@@ -635,15 +730,24 @@ function Tiles({ title, rows, cols, mobile, icon }: {
       <Rule mobile={mobile} />
       <section aria-label={title}>
         <SecTitle icon={icon}>{title}</SecTitle>
+        {/*
+         * ★타일에 **연한 면**을 깐다(2026-09-05). 라벨·값만 허공에 놓으면 넓은 화면에서
+         *   글자 몇 개가 흩어진 것으로 보여 «안 채운 칸»처럼 읽힌다. 면을 깔면 그게 «칸»이 되고,
+         *   값이 짧아도 구역이 비어 보이지 않는다.
+         * ⚠ 면은 `C.zebra`(가장 옅은 것) 하나뿐이다 — 테두리를 두르면 선이 다시 늘어난다.
+         */}
         <div style={{
           display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
-          columnGap: 14, rowGap: 20,
+          gap: 8,
         }}>
           {rows.map(([k, v]) => (
-            <div key={k} style={{ minWidth: 0 }}>
-              <div style={{ fontSize: SHOP.fs.cap, color: C.faint, marginBottom: 6, letterSpacing: '0.01em' }}>{k}</div>
+            <div key={k} style={{
+              minWidth: 0, padding: mobile ? '13px 12px' : '15px 14px',
+              borderRadius: SHOP.r.card, background: C.zebra,
+            }}>
+              <div style={{ fontSize: SHOP.fs.cap, color: C.faint, marginBottom: 7, letterSpacing: '0.01em' }}>{k}</div>
               <div style={{
-                fontSize: SHOP.fs.body, fontWeight: 600, color: C.ink,
+                fontSize: SHOP.fs.body, fontWeight: 700, color: C.ink,
                 wordBreak: 'keep-all', lineHeight: 1.45,
               }}>{v}</div>
             </div>
@@ -678,10 +782,19 @@ function Lead({ title, label, value, note, mobile, icon }: {
            * ⚠ 값에 색을 주지 않는다 — 구역 아이콘이 이미 신호이고, 여기까지 색을 주면
            *   화면에 강조가 셋(아이콘·면·글자색)이 되어 그때부터 소란이다.
            */
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+          /*
+           * ★★값을 **면 위에** 올린다(2026-09-05). 다른 구역이 전부 칸(면)을 갖게 되자
+           *   여기만 흰 바닥에 글자가 떠 있어 «아직 안 만든 구역»처럼 보였다.
+           *   면은 다른 구역과 같은 `C.zebra` 하나 — 새 색을 만들지 않는다.
+           */
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+            padding: mobile ? '14px 14px' : '16px 16px',
+            borderRadius: SHOP.r.card, background: C.zebra,
+          }}>
             <span style={{
               flex: '0 0 auto', padding: '4px 10px', borderRadius: 999,
-              background: C.zebra, color: C.mute,
+              background: C.bg, color: C.mute,
               fontSize: SHOP.fs.cap, fontWeight: 600,
             }}>{label}</span>
             <span style={{
@@ -691,8 +804,9 @@ function Lead({ title, label, value, note, mobile, icon }: {
           </div>
         ) : null}
         {note ? (
+          /* 나열은 «면 밖»에 둔다 — 결정적인 값 하나만 면 위에 서야 그 하나가 선다. */
           <div style={{
-            marginTop: value ? 10 : 0,
+            marginTop: value ? 12 : 0,
             fontSize: SHOP.fs.sub, color: C.mute, lineHeight: 1.9,
           }}>{note}</div>
         ) : null}
@@ -794,7 +908,21 @@ function SecTitle({ children, icon: Icon, accent }: {
        */
       fontSize: 20, fontWeight: 800, color: C.ink, letterSpacing: '-0.025em',
     }}>
-      {Icon ? <Icon size={20} aria-hidden style={{ color: accent ? C.brand : C.faint, flex: '0 0 auto' }} /> : null}
+      {/*
+       * ★아이콘을 **연한 사각 면 위에** 앉힌다(2026-09-05). 맨 글리프를 흐린 회색으로 두면
+       *   제목 옆에 붙은 «먼지»처럼 보여, 아이콘을 넣은 뜻(읽기 전에 무슨 칸인지 안다)이 안 산다.
+       *   면에 앉히면 그 자체가 «표지»가 되어 스크롤에서 눈에 걸린다.
+       * ★★색은 여전히 대여료 하나만 브랜드색이다 — 아이콘마다 색을 주면 그때부터 소란이다.
+       */}
+      {Icon ? (
+        <span aria-hidden style={{
+          flex: '0 0 auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          width: 32, height: 32, borderRadius: 9,
+          background: accent ? C.brandBg : C.zebra,
+        }}>
+          <Icon size={18} style={{ color: accent ? C.brand : C.mute }} />
+        </span>
+      ) : null}
       {children}
     </h2>
   );
