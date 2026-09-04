@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { type EntityRecord } from '@/lib/intake/entities';
-import { cheapestRent, creditDisplay, isListableProduct, priceList } from '@/lib/domain/product';
+import { cheapest, creditDisplay, isListableProduct, priceList } from '@/lib/domain/product';
 import { matchProductQuery } from '@/lib/domain/search';
 import { ProductCard } from '@/components/ProductCard';
 import { CatalogCard } from '@/components/CatalogCard';
@@ -50,6 +50,28 @@ const PAGE = 100; // 파인더와 동일 — 첫 화면·더보기 단위
  * 저신용·무심사 손님은 싼 쪽부터 보므로 아래 세 밴드가 첫 줄이다.
  */
 const QUICK_RENT = ['r50', 'r60', 'r70'] as const;
+
+/**
+ * 정렬 — **드롭다운**이다(사장님 2026-09-04 「낮은대여료순 높은대여료순 이거는 드랍다운으로
+ * 해야하고, 종류도 좀 더 있어야하고」). 칩으로 늘리면 줄이 길어져 목록을 밀어낸다.
+ * 값은 손님이 고르는 기준만 — 「최근 등록순」은 손님 공개 데이터에 등록일이 없어 뺐다(지어내지 않는다).
+ */
+const SORTS = [
+  { key: 'asc', label: '낮은 대여료순' },
+  { key: 'desc', label: '높은 대여료순' },
+  { key: 'dep', label: '보증금 낮은순' },
+  { key: 'year', label: '연식 최신순' },
+  { key: 'km', label: '주행거리 짧은순' },
+] as const;
+
+/** 정렬 비교 — 값이 없는 차는 «뒤로» 보낸다(앞에 세우면 빈 카드가 첫 화면을 덮는다). */
+function sortValue(p: EntityRecord, key: string): number {
+  const c = cheapest(p);
+  if (key === 'dep') return c ? c.deposit : Number.POSITIVE_INFINITY;
+  if (key === 'year') return -(Number(String(p.year || '').replace(/\D/g, '')) || 0);
+  if (key === 'km') return Number(p.mileage) || Number.POSITIVE_INFINITY;
+  return c ? c.rent : Number.POSITIVE_INFINITY;
+}
 
 export function CatalogView({ wl = FREEPASS }: { wl?: Whitelabel }) {
   const mobile = useIsMobile();
@@ -156,7 +178,9 @@ export function CatalogView({ wl = FREEPASS }: { wl?: Whitelabel }) {
       if (perks.size && ![...perks].every((pk) => hasPerk(p, pk))) return false;
       return true;
     });
-    l.sort((a, b) => (sort === 'asc' ? 1 : -1) * (cheapestRent(a) - cheapestRent(b)));
+    // 「높은 대여료순」만 뒤집는다 — 나머지는 정의 자체가 이미 «작은 값이 먼저»다.
+    const dir = sort === 'desc' ? -1 : 1;
+    l.sort((a, b) => dir * (sortValue(a, sort) - sortValue(b, sort)));
     return l;
   }, [rows, q, rent, credit, perks, vclass, maker, dep, year, mile, fuel, sort]);
 
@@ -182,12 +206,8 @@ export function CatalogView({ wl = FREEPASS }: { wl?: Whitelabel }) {
    * 정렬을 왼쪽 기둥에 넣으면 기둥만 무거워지고, 격자에는 머리가 없어 어깨가 안 생긴다.
    */
   const sortRow = (
-    <FilterChips
-      value={sort}
-      onChange={setSort}
-      options={[{ key: 'asc', label: '낮은 대여료순' }, { key: 'desc', label: '높은 대여료순' }]}
-      clearKey="asc"
-    />
+    <Select value={sort} onChange={setSort} ariaLabel="정렬"
+      options={SORTS.map((o) => ({ value: o.key, label: o.label }))} />
   );
 
   // ── 조건칸 — 웹은 왼쪽 기둥, 모바일은 목록 위에 눕는다. 값·축은 양쪽이 같은 것을 쓴다. ──

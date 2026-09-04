@@ -142,6 +142,13 @@ export function whitelabelVars(wl: Whitelabel): Record<string, string> {
     '--brand': wl.brandColor,
     '--brand-h': wl.brandColor,
     '--text-link': wl.brandColor,
+    /**
+     * ★손님 화면 바탕은 **흰색**이다. 업무동 기본값(`--bg-page: #eaedf2`)은 하루 종일 보는
+     * 콕핏이라 눈이 덜 부시게 회색으로 깔아 둔 것인데, 손님 카탈로그에 그대로 나오면
+     * 「회색 판때기」로 보인다(사장님 2026-09-04 「전체적으로 배경도 회색이고」).
+     * 중고차·렌터카 마켓은 전부 흰 바탕이다.
+     */
+    '--bg-page': '#ffffff',
     // 면(面)으로 깔 옅은 틴트 — 브랜드색에서 «자동으로» 뽑는다.
     // 채널마다 손으로 틴트 hex 를 적게 하면 그 값이 언젠가 브랜드색과 어긋난다.
     '--brand-bg': `color-mix(in srgb, ${wl.brandColor} 12%, white)`,
