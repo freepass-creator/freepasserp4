@@ -29,6 +29,7 @@ import { getDatabase } from 'firebase-admin/database';
 import { CORP } from '../lib/domain/corporate-ci';
 import { payDate, payDayOf, PAY_DAY_BY_SUPPLIER } from '../lib/domain/settlement-cycle';
 import { settleTargetOf, billingMonthIn, lockedMonthsOf, type SettlementRow } from '../lib/domain/settlement-stage';
+import { settlementMonthOf } from '../lib/domain/settlement-billing-month';
 import { feeKindOf, feeRuleFor } from '../lib/domain/settlement-fee-table';
 import { outwardText } from '../lib/domain/outward-text';
 import { channelSheetName, CHANNEL_SETTLE_HEAD, CHANNEL_SETTLE_WIDTH, SETTLE_BASIS, SETTLE_NOTE, settleTabOf, settleTabFormat } from '../lib/server/channel-sheet-tabs';
@@ -59,6 +60,9 @@ const key = (v: unknown) => S(v).toLowerCase().replace(/[\s()·\-_.]/g, '').repl
  */
 const SPLIT_SUPPLIERS = Object.keys(PAY_DAY_BY_SUPPLIER);
 
+/** 상대가 적는 넉 칸 — [확인, 정정, 정정금액, 메모]. */
+type Keep = [boolean, boolean, number | '', string];
+
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 if (!getApps().length) initializeApp({ credential: cert(sa), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' });
 const db = getDatabase();
@@ -87,7 +91,38 @@ const D = (v: unknown) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(S(v)); ret
 const asRow = (r: Row) => ({ ...r, receivedAt: D(r.receivedAt), deliveredAt: D(r.deliveredAt) } as unknown as SettlementRow);
 const allRows = Object.values((await db.ref('v4/settlement_rows').get()).val() || {}) as Row[];
 const locked = lockedMonthsOf(allRows.map(asRow));
-const rows = allRows.filter((r) => r.cancelled !== true && billingMonthIn(asRow(r), locked) === MONTH);
+/**
+ * ★★★**아직 안 끝난 달은 «예정»으로 미리 채운다.**
+ *   사장님 2026-09-04 「영업자랑 공급사에 **9 10 11월꺼 정산할거 미리 반영**해두자고 **분납건들**」
+ *
+ * ```
+ * 마감된 달   billingMonthIn 그대로 — 이미 나간 종이와 줄까지 같아야 한다. 손대지 않는다
+ * 앞으로 올 달 그 위에 «분납완료 규칙»을 더한다 — 접수월 + (분납 횟수 − 1)
+ * ```
+ *   ★왜 규칙이 둘인가. `billingMonthIn` 은 «인도일»에서 달을 센다. 그런데 분납 건은
+ *     인도가 아직 안 됐거나 인도돼도 분납이 안 끝나 달이 «안 잡힌다»(실측 원자 22줄이 그랬다).
+ *     그 줄들이 바로 사장님이 미리 보고 싶어 하시는 것이다.
+ *   ⚠ **마감된 달에는 절대 안 더한다** — 8월에 이 규칙을 씌우면 34줄이 50줄로 불어
+ *     이미 나간 청구서와 갈라진다(실측 2026-09-04).
+ *   ⚠ 금액이 아직 0인 줄도 «예정»에는 싣는다 — 인도 전이라 수수료가 안 정해진 것뿐이고,
+ *     「이 건이 다음 달에 옵니다」가 알려 줄 값이다. 산정 기준 칸에 그렇게 적는다.
+ */
+const ymAdd = (ym: string, n: number) => { const y = Number(ym.slice(0, 4)); const m = Number(ym.slice(5)) + n;
+  return `${y + Math.floor((m - 1) / 12)}-${String(((m - 1) % 12 + 12) % 12 + 1).padStart(2, '0')}`; };
+const today = new Date();
+/** 마감된 마지막 달 = 지난달. 그 뒤는 아직 «예정»이다. */
+const CLOSED = ymAdd(`${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`, -1);
+const FORECAST = MONTH > CLOSED;
+/**
+ * ⚠ **`asRow(r)` 를 넘기지 마라.** 그건 날짜를 Date 로 바꿔 놓은 것이고,
+ *   `settlementMonthOf` 는 「2026-08-18」 «글»을 본다. Date 를 넘기면 조용히 빈 값이 나와
+ *   예정 줄이 «하나도» 안 잡힌다(실측 2026-09-04 — 0줄이 나와 한참 헤맸다).
+ */
+const soonMonth = (r: Row) => (S(r.billMonth) ? '' : settlementMonthOf(r));
+const rows = allRows.filter((r) => r.cancelled !== true
+  && (billingMonthIn(asRow(r), locked) === MONTH || (FORECAST && soonMonth(r) === MONTH)));
+/** 이 줄이 «예정»인가 — 마감 규칙으로는 아직 이 달에 안 잡히는 줄. */
+const isSoon = (r: Row) => FORECAST && billingMonthIn(asRow(r), locked) !== MONTH;
 /**
  * ★★**환수를 «빠뜨리면» 종이와 안 맞는다** — 실측 2026-09-03 하허호가 585,600 어긋났다.
  *   지급 쪽 환수 금액은 `agentAmt` 다(공급사 쪽은 `supplierAmt`). 축을 헷갈리면 남의 돈을 뺀다.
@@ -124,6 +159,11 @@ const lineOf = (r: Row): Line => {
     if (ratio !== 1) how += ` × 비율 ${ratio}`;
   } else if (f) how = `표 규칙 「${f.pay}」 — 개별 협의분`;
   else how = '개별 협의분';
+  /**
+   * ★★**예정 줄은 «예정»이라고 적는다.** 금액이 0 이면 아직 인도 전이라 수수료가 안 정해진 것이다 —
+   *   빈칸으로 두면 「0원 받는다」로 읽힌다. 왜 0 인지를 그 자리에 적어야 묻지 않는다.
+   */
+  if (isSoon(r)) how = raw ? `예정 · ${how}` : `예정 · 인도 뒤 정해집니다 (${S(r.payKind) || '분납'} · 접수 ${S(r.receivedAt) || '-'})`;
   return {
     plate: S(r.plate) || '(차번없음)', recv: S(r.receivedAt), deliv: S(r.deliveredAt),
     model, cust: S(r.customer), sup: S(r.supplier) || '(미기재)', product, term, rent: N(r.rent), how,
@@ -148,6 +188,16 @@ const drive = async (q: string) => (((await (await fetch(`https://www.googleapis
  */
 const sheetName = channelSheetName;
 
+/** 그 채널 시트가 «이미 있나» — 없는데 할 말이 0원뿐이면 새로 만들지 않는다. */
+const bookSeen = new Map<string, boolean>();
+async function hasBook(ch: string): Promise<boolean> {
+  if (bookSeen.has(ch)) return bookSeen.get(ch)!;
+  const found = (await drive(`name contains '${ch} 프리패스 정산' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`))
+    .filter((f) => !/구버전|폐기|백업|사용 안 함/.test(S(f.name)));
+  bookSeen.set(ch, found.length > 0);
+  return found.length > 0;
+}
+
 /** ★환수만 있는 달도 세다 — 공급사 쪽과 같은 이치다. */
 const chans = [...new Set([...rows.map((r) => S(r.channel)), ...claws.map((c) => S(c.channel))].filter(Boolean))];
 console.log(`\n■ ${MONTH} — 영업채널 ${chans.length}곳 ${APPLY ? '(반영)' : '(대조만)'}\n`);
@@ -159,13 +209,25 @@ const isLate = (sup: string) => SPLIT_SUPPLIERS.some((s) => key(sup).includes(ke
 const jobs: Job[] = [];
 for (const ch of chans) {
   if (ONLY && !ch.includes(ONLY)) continue;
-  const mine = rows.filter((r) => S(r.channel) === ch).map(lineOf).filter((l) => l.total !== 0);
+  /** ★예정 달에는 금액 0 인 줄도 싣는다 — 「이 건이 옵니다」가 알려 줄 값이다. */
+  const mine = rows.filter((r) => S(r.channel) === ch).map(lineOf).filter((l) => FORECAST || l.total !== 0);
   const mineBacks: Back[] = claws.filter((c) => S(c.channel) === ch)
     /** ★사유에서 «우리끼리 하는 말»과 남의 상호를 걷는다 — 공급사 쪽 빗장의 거울. */
     .map((c) => ({ plate: S(c.plate), sup: S(c.supplier), amt: N(c.agentAmt),
       why: outwardText(c.reason, [...new Set(rows.map((r) => S(r.supplier)))].filter((x) => x !== S(c.supplier))) }))
     .filter((b) => b.amt !== 0);
   if (!mine.length && !mineBacks.length) continue;
+  /**
+   * ★★**할 말이 0원뿐이면 «시트를 새로 만들지 않는다».**
+   *   2026-09-04 예정분을 켜자 유니오토모빌에 0원 한 줄이 잡혀 `[F8?] 유니오토모빌 프리패스 정산`
+   *   시트가 통째로 새로 생겼다. 아직 입점도 안 한 곳에 우리 이름으로 판을 벌린 셈이고,
+   *   F코드도 못 박아 지도(SHEET_MAP)에 못 올린다.
+   *   ⇒ 이미 시트가 있는 채널은 0원이라도 «예정»으로 보여 준다. 없는 채널은 돈이 설 때 만든다.
+   */
+  if (!mine.some((l) => l.total !== 0) && !mineBacks.length && !(await hasBook(ch))) {
+    console.log(`   · ${ch} — 아직 금액이 0뿐이라 시트를 만들지 않았습니다`);
+    continue;
+  }
   /**
    * ★★**탭은 «하나»다 — 가르지 않는다.** 사장님 2026-09-03
    *   「공급사를 나누지 말고 그냥 필터 잡게만 해줘」 · 「탭 하나로 합쳐서 구분만 해주면됨」
@@ -213,7 +275,7 @@ if (leak.length) { console.log(`\n  ✕ 멈춥니다 — 영업채널 시트에 
 const iB = HEAD.indexOf(BASIS[0]);
 const iM = HEAD.indexOf('공급가액');
 const LEFT = ['모델명', ...BASIS];
-const MONEY = ['렌탈료', '보증금', '차량 가격(신차)', '공급가액', '부가세', '합계'];
+const MONEY = ['렌탈료', '보증금', '차량 가격(신차)', '공급가액', '부가세', '합계', '정정금액'];
 
 /**
  * ★★**「공지사항」 탭 — 프로모션을 알리는 자리.** 사장님 2026-09-03
@@ -343,7 +405,8 @@ for (const j of jobs) {
    * ★**적어 둔 「확인·메모」를 먼저 거둔다.** 머리글 이름으로 칸을 찾으므로 열이 늘거나 자리가 바뀌어도
    *   따라온다. 열쇠는 차량번호 — 줄 차례는 달마다 바뀐다(오플이 아래로 내려간다).
    */
-  const kept = new Map<string, [boolean, string]>();
+  /** 상대가 적는 넉 칸 — 확인 · 정정 · 정정금액 · 메모. 우리는 «되돌려 놓기»만 한다. */
+  const kept = new Map<string, Keep>();
   /**
    * ★**「누락분」에 적어 둔 줄도 거둔다** — 사장님 2026-09-03
    *   「정산시트에 누락된거 있으면 몇개 넣을수 있게끔 몇줄 만들어 놓자」 ·
@@ -368,18 +431,22 @@ for (const j of jobs) {
     const hi = g.findIndex((r) => (r || []).some((c) => S(c) === '차량번호'));
     if (hi >= 0) {
       const h = (g[hi] || []).map(S);
-      const [cp, cc, cm] = ['차량번호', '확인', '메모'].map((n) => h.indexOf(n));
-      if (cp >= 0 && (cc >= 0 || cm >= 0)) {
+      const [cp, cc, cx, cf, cm] = ['차량번호', '확인', '정정', '정정금액', '메모(정정사유)'].map((n) => h.indexOf(n));
+      const on = (v: unknown) => /^(TRUE|true|1|Y|O|v|✓)$/.test(S(v));
+      if (cp >= 0 && [cc, cx, cf, cm].some((i) => i >= 0)) {
         for (const r of g.slice(hi + 1)) {
           const p = S((r || [])[cp]);
-          const chk = cc >= 0 && /^(TRUE|true|1|Y|O|v|✓)$/.test(S((r || [])[cc]));
+          const chk = cc >= 0 && on((r || [])[cc]);
+          const fixOn = cx >= 0 && on((r || [])[cx]);
+          /** ★「정정금액」은 상대가 적는 «숫자»다 — 빈칸은 빈칸으로 둔다(0 을 찍으면 0원이 된다). */
+          const fix = cf >= 0 && S((r || [])[cf]) ? N((r || [])[cf]) : '';
           const memo = cm >= 0 ? S((r || [])[cm]) : '';
-          if (p && (chk || memo)) kept.set(p, [chk, memo]);
+          if (p && (chk || fixOn || memo || fix !== '')) kept.set(p, [chk, fixOn, fix, memo]);
         }
       }
     }
   }
-  const note = (p: string): [boolean, string] => kept.get(p) || [false, ''];
+  const note = (p: string): Keep => kept.get(p) || [false, false, '', ''];
 
   const pad = (n: number) => Array.from({ length: n }, () => '');
   /** 돈 세 칸이 서는 자리 — 뒤에 「지급 예정일」이 붙었으므로 «끝에서부터» 세지 않는다. */
@@ -399,14 +466,14 @@ for (const j of jobs) {
     '차량 가격(신차)': l.price || '', 임차인: l.cust, 영업사: l.agent, '상품 구분': l.product,
     '계약 기간': l.term || '', 렌탈료: l.rent || '', 보증금: l.deposit, '납입 방식': l.payKind,
     [BASIS[0]]: l.how, 공급가액: l.net, 부가세: l.vat, 합계: l.total, '지급 예정일': payKo(l.sup),
-    확인: note(l.plate)[0], 메모: note(l.plate)[1],
+    확인: note(l.plate)[0], 정정: note(l.plate)[1], 정정금액: note(l.plate)[2], '메모(정정사유)': note(l.plate)[3],
   }));
   /** ★환수는 «같은 표»에 음수로 선다 — 표를 둘로 쪼개면 합계를 두 번 보게 된다. */
   for (const b of j.backs) {
     body.push(rowOf({
       차량번호: b.plate, 공급사: b.sup, 모델명: '지난 지급분 환수', [BASIS[0]]: b.why,
       공급가액: -b.amt, 부가세: -Math.round(b.amt * VAT), 합계: -(b.amt + Math.round(b.amt * VAT)),
-      '지급 예정일': payKo(b.sup), 확인: note(b.plate)[0], 메모: note(b.plate)[1],
+      '지급 예정일': payKo(b.sup), 확인: note(b.plate)[0], 정정: note(b.plate)[1], 정정금액: note(b.plate)[2], '메모(정정사유)': note(b.plate)[3],
     }));
   }
 
@@ -425,7 +492,7 @@ for (const j of jobs) {
     /** 시트 머리글이 우리 것과 같을 때만 맞댄다 — 칸이 다르면 자리로 견줄 수 없다. */
     if (liveHead.join('|') === HEAD.join('|')) {
       const liveBody = live.slice(hi0 + 1, si > hi0 ? si : undefined);
-      const found = diffSheetRows({ head: HEAD, ours: body, theirs: liveBody });
+      const found = diffSheetRows({ head: HEAD, ours: body, theirs: liveBody, theirOwn: SETTLE_NOTE });
       const known = (Object.values((await db.ref('v4/sheet_edits').get()).val() || {}) as SheetEdit[])
         .filter((e) => S(e.channel) === j.ch && S(e.month) === MONTH);
       const patch: Record<string, SheetEdit> = {};
@@ -444,11 +511,80 @@ for (const j of jobs) {
         await db.ref('v4/sheet_edits').update(patch);
         console.log(`   ↑ ${j.ch} — 시트에서 고친 칸 ${Object.keys(patch).length}개를 받아 놓았습니다(검토 대기)`);
       }
-      const all = [...known.filter((e) => !patch[editId(e.channel, e.month, e.key, e.column)]), ...Object.values(patch)];
-      const kept2 = applyPending({ head: HEAD, rows: body, pending: all });
-      if (kept2) console.log(`   = ${j.ch} — 그쪽이 고친 칸 ${kept2}개를 그대로 두고 찍습니다`);
     } else {
-      console.log(`   ~ ${j.ch} — 시트 머리글이 우리 것과 달라 고친 칸을 못 맞댔습니다`);
+      console.log(`   ~ ${j.ch} — 시트 머리글이 우리 것과 달라 «새로» 고친 칸은 못 맞댔습니다`);
+    }
+  }
+  /**
+   * ★★**받아 둔 고침을 얹는 것은 «머리글이 달라도» 한다.**
+   *   2026-09-04 에 칸을 21→23 으로 늘린 판에서, 이것을 위 if 안에 두었더니 그 한 판 동안
+   *   되살려 둔 다섯 칸이 다시 빠질 자리였다. **맞대는 것과 얹는 것은 다른 일이다** —
+   *   맞대는 건 시트 모양을 타지만, 얹는 건 우리 표에만 하는 일이라 시트 모양과 상관없다.
+   */
+  {
+    const pending = (Object.values((await db.ref('v4/sheet_edits').get()).val() || {}) as SheetEdit[])
+      .filter((e) => S(e.channel) === j.ch && S(e.month) === MONTH);
+    const kept2 = applyPending({ head: HEAD, rows: body, pending });
+    if (kept2) console.log(`   = ${j.ch} — 그쪽이 고친 칸 ${kept2}개를 그대로 두고 찍습니다`);
+  }
+
+  /**
+   * ★★★**크로스체크 — 「정정」·「정정금액」을 우리 공급가액과 맞대 본다.**
+   *   사장님 2026-09-04 「수수료 박스에 확인 정정 정정금액 이렇게 하자」 · 「그래서 우리거랑 크로스체크해보고」.
+   *
+   *   ⚠ 여기서 «자동으로 고치지 않는다». 돈은 이미 나간 정산서의 근거다 —
+   *     올라온 것을 사람이 보고(`review-sheet-edits`) 정한다.
+   *   ★「정정」만 켜고 금액을 안 적은 것도 올린다 — 「금액 말고 다른 게 틀렸다」는 말이다.
+   */
+  {
+    const [iPl, iNet, iOn, iFix, iMemo] = ['차량번호', '공급가액', '정정', '정정금액', '메모(정정사유)'].map((n) => HEAD.indexOf(n));
+    const known = (Object.values((await db.ref('v4/sheet_edits').get()).val() || {}) as SheetEdit[])
+      .filter((e) => S(e.channel) === j.ch && S(e.month) === MONTH && e.column === '공급가액');
+    const patch: Record<string, SheetEdit> = {};
+    for (const r of body) {
+      const plate = S(r[iPl]); if (!plate) continue;
+      const on = r[iOn] === true; const fix = S(r[iFix]);
+      if (!on && !fix) continue;
+      const ours = S(r[iNet]);
+      /** 금액을 적었는데 우리 값과 같고 「정정」도 안 켰다면 할 말이 없는 것이다. */
+      if (!on && fix && N(fix) === N(ours)) continue;
+      const id = editId(j.ch, MONTH, plate, '공급가액');
+      const was = known.find((e) => editId(e.channel, e.month, e.key, e.column) === id);
+      const theirs = fix || '(금액 안 적음 · 「정정」만 켜짐)';
+      if (was && was.theirs === theirs) continue;
+      patch[id] = { channel: j.ch, month: MONTH, key: plate, column: '공급가액',
+        ours, theirs, seenAt: new Date().toISOString(), status: '대기',
+        why: S(r[iMemo]) ? `그쪽 메모 — ${S(r[iMemo])}` : '' };
+    }
+    /**
+     * ★★★**합계 아래 「누락」 줄도 올린다 — 그게 «빠진 차»를 알려 주는 말이다.**
+     *   2026-09-04 하허호가 8월 탭 아래에 일곱 줄을 적어 놨는데, 우리는 그걸 «되돌려 놓기»만 하고
+     *   아무도 안 봤다. 실제로 다섯 대는 원장에 아예 없었고 두 대는 6월로 잡혀 있었다.
+     *   자리를 내어 주었으면 **적힌 것을 읽어 와야** 자리를 낸 값을 한다.
+     */
+    for (const cells of missed) {
+      const plate = S(cells[iPl]); if (!plate) continue;
+      const who = [S(cells[HEAD.indexOf('임차인')]), S(cells[HEAD.indexOf('공급사')])].filter(Boolean).join(' · ');
+      /**
+       * ★★**적어 준 금액이 있으면 그것이 근거다** — 사장님 2026-09-04
+       *   「오플거 누락된거 못찾으면 둬」 · 「**그냥 최팀장거로 청구하게**」.
+       *   우리 원장에서 못 찾은 건은 저쪽 숫자로 청구·지급을 만든다. 공급가액 칸과 정정금액 칸을 다 본다.
+       *   ⚠ 금액이 안 적혀 있으면 그렇다고 적는다 — 「금액 안 적힘」이 보여야 받으러 간다.
+       */
+      const amt = N(cells[iNet]) || N(cells[iFix]);
+      const said = [S(cells[iMemo]), amt ? `공급가액 ${won(amt)}` : '금액 안 적힘']
+        .filter(Boolean).join(' · ') || cells.map(S).filter(Boolean).join(' ');
+      const id = editId(j.ch, MONTH, plate, '누락');
+      const was = (Object.values((await db.ref('v4/sheet_edits').get()).val() || {}) as SheetEdit[])
+        .find((e) => editId(e.channel, e.month, e.key, e.column) === id);
+      if (was && was.theirs === said) continue;
+      patch[id] = { channel: j.ch, month: MONTH, key: plate, column: '누락',
+        ours: '(이 달 표에 없음)', theirs: said, seenAt: new Date().toISOString(), status: '대기',
+        why: who ? `그쪽이 적음 — ${who}` : '' };
+    }
+    if (Object.keys(patch).length) {
+      await db.ref('v4/sheet_edits').update(patch);
+      console.log(`   ↑ ${j.ch} — 정정·누락 ${Object.keys(patch).length}건을 받아 놓았습니다(크로스체크 대기)`);
     }
   }
 
@@ -458,7 +594,11 @@ for (const j of jobs) {
      *   ⚠ C1 부터 밀어 놓았던 것은 «틀고정 때문»이었다(병합이 얼린 칸을 가로지르면 시트가 거부한다).
      *     틀고정을 걷었으니 그 이유가 사라졌다 — A1 부터 한 줄로 병합한다.
      */
-    [`${monthKo(MONTH)} 정산서    ·    ${j.ch} 귀중 · ${CORP.name} 발행`, ...pad(HEAD.length - 1)],
+    /**
+     * ★★**예정 탭은 제목에서부터 «예정»이라고 말한다.** 마감 전 표를 확정본처럼 내보내면
+     *   상대가 그 금액으로 계산서를 끊는다. 그게 사고다.
+     */
+    [`${monthKo(MONTH)} 정산서    ·    ${j.ch} 귀중 · ${CORP.name} 발행${FORECAST ? '        ※ 아직 마감 전입니다 — 예정분' : ''}`, ...pad(HEAD.length - 1)],
     tail('공급가액', '부가세', '지급 금액'),
     tail(j.net, j.vat, j.net + j.vat),
     HEAD,
@@ -473,7 +613,13 @@ for (const j of jobs) {
      */
     ...missed.map((r) => [...r, ...pad(Math.max(0, HEAD.length - r.length))].slice(0, HEAD.length)),
     ...Array.from({ length: Math.max(0, 5 - missed.length) }, (_, k) => (k === 0 && !missed.length
-      ? [...pad(HEAD.length - 1), '빠진 건이 있으면 이 줄부터 적어 주세요']
+      /**
+       * ★★**「금액까지」 적어 달라고 말한다.** 사장님 2026-09-04
+       *   「오플거 누락된거 못찾으면 둬」 · 「**그냥 최팀장거로 청구하게**」.
+       *   2026-08 에 하허호가 일곱 줄을 적어 줬는데 차번·임차인·공급사뿐이라 «금액이 없었다» —
+       *   그 상태로는 청구도 지급도 못 만든다. 우리가 못 찾은 건은 저쪽 금액이 곧 근거다.
+       */
+      ? [...pad(HEAD.length - 1), '빠진 건이 있으면 이 줄부터 적어 주세요 — 차량번호·임차인·공급사와 «공급가액»까지 적어 주시면 그대로 청구·지급에 넣습니다']
       : pad(HEAD.length))),
     /**
      * ★빈 줄도 «칸 수만큼» 적는다 — `[]` 로 두면 그 줄을 안 건드려 «옷 글이 남는다».
@@ -483,6 +629,14 @@ for (const j of jobs) {
     pad(HEAD.length),
     /** ★날은 «줄마다» 적혀 있다 — 여기서는 규칙만 한 줄로 말한다. */
     [`지급 예정일은 줄마다 적었습니다 — ${SPLIT_SUPPLIERS.map((s) => `${s} 매월 ${payDayOf(s)}일`).join(' · ')} · 그 밖 매월 ${payDayOf('')}일`, ...pad(HEAD.length - 1)],
+    /**
+     * ★★**「어디에 적으시라」를 적어 둔다.** 칸을 만들어 놓고 말을 안 하면 상대는 예전처럼
+     *   우리 칸을 직접 고친다 — 그러면 다시 덮이는 그 사고가 또 난다.
+     * ★예정 달에는 대신 «아직 마감 전»이라고 말한다. 확정본으로 알고 계산서를 끊으면 그게 사고다.
+     */
+    [FORECAST
+      ? `${Number(MONTH.slice(5))}월은 아직 마감 전입니다 — 분납이 끝나는 달로 «미리» 잡아 둔 예정분입니다. 인도 전인 건은 금액이 인도 뒤에 정해집니다. 마감 때 확정본으로 바뀝니다.`
+      : '맞으면 「확인」을 켜 주세요. 다를 때는 「정정」을 켜고 「정정금액」에 공급가액(부가세 별도)을, 「메모(정정사유)」에 까닭을 적어 주시면 저희가 원장과 맞대 보고 고칩니다.', ...pad(HEAD.length - 1)],
     [`${CORP.staff} · ${S(CORP.staffPhone) || CORP.phone} · ${CORP.email}`, ...pad(HEAD.length - 1)],
     ['세금계산서 발행 부탁드립니다 · 한 달간 함께해 주셔서 감사합니다', ...pad(HEAD.length - 1)],
   ];
@@ -502,7 +656,7 @@ for (const j of jobs) {
   const reqs = settleTabFormat({
     sheetId: id, head: HEAD, width: WIDTH, r0: 3, bodyLen: body.length,
     backAt: j.backs.map((_, i) => j.lines.length + i),
-    blanks: 5, footLen: 3, basisLen: BASIS.length, money: MONEY, left: LEFT,
+    blanks: 5, footLen: 4, basisLen: BASIS.length, money: MONEY, left: LEFT,
   });
   const fr = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${bookId}:batchUpdate`, {
     method: 'POST', headers: { Authorization: `Bearer ${await tok()}`, 'Content-Type': 'application/json' },

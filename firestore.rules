@@ -23,18 +23,24 @@ service cloud.firestore {
       allow read: if signedIn();
       allow write: if false;
     }
-    // 계약 — 관리자 전체, 영업자=자기 계약, 공급사=자기 매물 계약(응답)
+    // 계약 — 관리자 전체 · 공급사=자기 공급사코드 · 영업자=자기 계약(agent_code=user_code).
+    //   ★2026-09-04: companyId(계약)=공급사코드 base 라 myCompany(companyId==company) 는 영업자(company=SP999)에 안 맞는다.
+    //     격리는 provider_company_code / agent_code 로 «직접». (실측: 계약 agent_code = user_code)
     match /contract/{id} {
-      allow read: if signedIn() && myCompany(resource.data);
-      allow create, update: if isAdmin()
-        || (signedIn() && myCompany(request.resource.data) && claim('role') == 'agent' && request.resource.data.agent_code == claim('agent_code'))
-        || (signedIn() && myCompany(request.resource.data) && claim('role') == 'provider' && request.resource.data.provider_company_code == claim('provider_company_code'));
+      allow read: if signedIn() && (isAdmin()
+        || (claim('role') == 'provider' && resource.data.provider_company_code == claim('provider_company_code'))
+        || (claim('role') == 'agent' && resource.data.agent_code == claim('agent_code')));
+      allow create, update: if signedIn() && (isAdmin()
+        || (claim('role') == 'agent' && request.resource.data.agent_code == claim('agent_code'))
+        || (claim('role') == 'provider' && request.resource.data.provider_company_code == claim('provider_company_code')));
       allow delete: if false;
     }
-    // 정산 — 금액 변경은 관리자만(공급사 임의 상향 방지)
+    // 정산 — read 는 자기 공급사/자기 계약 · 금액 변경(create/update)은 관리자만(공급사 임의 상향 방지).
     match /settlement/{id} {
-      allow read: if signedIn() && myCompany(resource.data);
-      allow create, update: if isAdmin() && myCompany(request.resource.data);
+      allow read: if signedIn() && (isAdmin()
+        || (claim('role') == 'provider' && resource.data.provider_company_code == claim('provider_company_code'))
+        || (claim('role') == 'agent' && resource.data.agent_code == claim('agent_code')));
+      allow create, update: if isAdmin();
       allow delete: if false;
     }
     // 감사로그 — append-only, 수정·삭제 금지
@@ -44,15 +50,30 @@ service cloud.firestore {
       allow update, delete: if false;
     }
     // 정책·공급사·사용자 — 관리자만 write, 같은 회사 read
+    // ★정책·파트너 = 참조데이터 — 영업자가 «어느 공급사» 정책·정보든 봐야 팔 수 있다(products 처럼 로그인이면 read).
+    //   companyId=공급사코드라 myCompany 로 묶으면 영업자(company=SP999)가 못 읽는다(2026-09-04). 쓰기는 관리자만.
     match /{col}/{id} {
-      allow read: if signedIn() && myCompany(resource.data) && (col == 'policy' || col == 'partner' || col == 'user');
-      allow create, update: if isAdmin() && myCompany(request.resource.data) && (col == 'policy' || col == 'partner' || col == 'user');
+      allow read: if signedIn() && (col == 'policy' || col == 'partner');
+      allow create, update: if isAdmin() && (col == 'policy' || col == 'partner');
+      allow delete: if false;
+    }
+    // 사용자 명부 — 관리자만.
+    match /user/{id} {
+      allow read: if isAdmin();
+      allow create, update: if isAdmin();
       allow delete: if false;
     }
     // 방·메시지·견적·고객 — 로그인 + 같은 회사면 write(거래 참여자)
+    // 손님(개인정보) — companyId=PT-0000 공유라 myCompany 로는 못 가른다. «만든 사람(created_by=uid)»만 본다(2026-09-04).
+    match /customer/{id} {
+      allow read: if signedIn() && (isAdmin() || resource.data.created_by == request.auth.uid);
+      allow create: if signedIn() && request.resource.data.created_by == request.auth.uid;
+      allow update: if signedIn() && (isAdmin() || resource.data.created_by == request.auth.uid);
+      allow delete: if false;
+    }
     match /{col}/{id} {
-      allow read: if signedIn() && myCompany(resource.data) && (col == 'room' || col == 'message' || col == 'quote' || col == 'customer');
-      allow create, update: if signedIn() && myCompany(request.resource.data) && (col == 'room' || col == 'message' || col == 'quote' || col == 'customer');
+      allow read: if signedIn() && myCompany(resource.data) && (col == 'room' || col == 'message' || col == 'quote');
+      allow create, update: if signedIn() && myCompany(request.resource.data) && (col == 'room' || col == 'message' || col == 'quote');
       allow delete: if false;
     }
   }

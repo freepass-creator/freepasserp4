@@ -7,6 +7,7 @@
  *   기억은 매달 어긋난다(2026-09-02 에 옛 판이 섞여 나갈 뻔했다). 순서를 여기 박아 둔다.
  *
  * ```
+ * ⓪ 접수 누락 대조  원천 ↔ 원장            check-intake-gap
  * ① 시트 → ERP   새 줄만 끌어온다        settlement:import
  * ② 원자화        그 달 탭을 원자로       atomize-settlement-month
  * ③ 달 탭 발행    앞으로 5달치까지        publish-settlement-month --ahead=5
@@ -42,6 +43,15 @@ if (!MONTH) {
 type Step = { no: string; what: string; cmd: string[]; needApply?: boolean; advisory?: boolean; before?: () => void };
 const A = APPLY ? ['--apply'] : [];
 const steps: Step[] = [
+  /**
+   * ★★★**맨 앞은 «빠진 접수»다** — 사장님 2026-09-04 「우리 쪽이 아예 접수 자체가 누락이 됐나 보네」.
+   *   원장에 안 들어온 계약은 원자화도 정산서도 «없는 셈» 치고 지나간다. 그리고 그 달 청구가
+   *   나간 «뒤에» 채널이 「누락」이라고 알려 준다 — 그때는 늦다.
+   *   ⇒ 마감 «전»에 원천(현황시트·계약이력·채널이 적어 준 누락 줄)과 원장을 맞댄다.
+   *   ★멈추지는 않는다(advisory) — 취소·보류된 건도 걸리므로 사람이 보고 가른다.
+   *     대신 끝에 다시 크게 알린다.
+   */
+  { no: '⓪', what: '접수 누락 대조 (원천 ↔ 원장)', cmd: ['npx', 'tsx', 'scripts/check-intake-gap.mts', MONTH], advisory: true },
   { no: '①', what: '시트 → ERP (새 줄만)', cmd: ['npm', 'run', 'settlement:import', '--', ...A] },
   { no: '②', what: '원자화 (묵은 줄은 걷는다)', cmd: ['npx', 'tsx', 'scripts/atomize-settlement-month.mts', MONTH, ...A] },
   /** ★환수 짝은 «원장을 찍기 전»에 본다 — 한쪽만 있는 환수가 원장에 실리면 그대로 종이까지 간다. */

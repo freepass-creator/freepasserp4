@@ -5,9 +5,8 @@ import { cheapestRent, creditDisplay, isListableProduct, priceList } from '@/lib
 import { matchProductQuery } from '@/lib/domain/search';
 import { ProductCard } from '@/components/ProductCard';
 import { RENT_BANDS, CREDITS, CATALOG_PERKS, hasPerk } from '@/lib/domain/product-filters';
-import { C, FW, FS, CenterNote, FilterChips, FilterGroup, ListMoreBar, Message, SearchInput, Select, ToggleChips, ProductCardSkeleton } from '@/components/ui';
+import { Btn, C, FW, FS, CenterNote, SearchInput, Select, ToggleChips, ProductCardSkeleton } from '@/components/ui';
 import { toggleInSet } from '@/lib/set';
-import { GUEST_W } from '@/lib/guest-layout';
 /**
  * 손님 공개 카탈로그(화이트라벨) — 영업 공유의 착지점. ERP 크롬 없음.
  * 필터 축 = 홈과 동일 SSOT (심사 CREDITS · 혜택 CATALOG_PERKS · 월대여료=matchProduct와 동일 밴드).
@@ -80,12 +79,13 @@ export default function Catalog() {
   }, [rows, q, rent, credit, perks, sort]);
 
   const shown = list.slice(0, limit);
+  const moreCount = Math.max(0, list.length - shown.length);
   const href = (p: EntityRecord) => `/q/${encodeURIComponent(String(p.product_code))}${attr ? `?a=${encodeURIComponent(attr)}` : ''}`;
 
   if (rows === null) return <ProductCardSkeleton count={6} />;
 
   return (
-    <main style={{ maxWidth: GUEST_W, margin: '0 auto', padding: '18px 16px 28px' }}>
+    <main style={{ maxWidth: 1000, margin: '0 auto', padding: '18px 16px 28px' }}>
       {/* 화이트라벨 — ?p= 로 공급사를 지정하면 그 회사 이름이 머리글이 된다. */}
       <div style={{ fontSize: FS.sub, color: C.mute, letterSpacing: '0.04em' }}>{brand || '차량 렌탈'}</div>
       <h1 style={{ fontSize: FS.page, fontWeight: FW.title, letterSpacing: '-0.02em', margin: '4px 0 12px' }}>조건별 차량 찾기</h1>
@@ -93,15 +93,8 @@ export default function Catalog() {
       <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 10 }}>
         <SearchInput value={qInput} onChange={setQInput} placeholder="차번·차명·연료·옵션…" style={{ flex: '1 1 200px', minWidth: 180 }} />
         <Select value={rent} onChange={setRent} placeholder="월대여료 전체" options={RENT_BANDS.map((b) => ({ value: b.k, label: b.label }))} />
+        <Select value={sort} onChange={setSort} options={[{ value: 'asc', label: '낮은 대여료순' }, { value: 'desc', label: '높은 대여료순' }]} />
       </div>
-      <FilterGroup title="정렬" count={sort !== 'asc' ? 1 : 0} defaultOpen first onClear={() => setSort('asc')}>
-        <FilterChips
-          value={sort}
-          onChange={setSort}
-          options={[{ key: 'asc', label: '낮은 대여료순' }, { key: 'desc', label: '높은 대여료순' }]}
-          clearKey="asc"
-        />
-      </FilterGroup>
       <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'center', marginBottom: 8 }}>
         <ToggleChips selected={credit} onToggle={(k) => setCredit((p) => toggleInSet(p, k))} options={CREDITS.map((c) => ({ key: c, label: c }))} />
       </div>
@@ -115,16 +108,20 @@ export default function Catalog() {
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: 12 }}>
             {shown.map((p) => <ProductCard key={String(p.product_code)} p={p} audience="customer" href={href(p)} />)}
           </div>
-          <ListMoreBar
-            shown={shown.length}
-            total={list.length}
-            unit="대"
-            pageSize={PAGE}
-            onMore={() => setLimit((n) => n + PAGE)}
-          />
+          {moreCount > 0 && (
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: 16 }}>
+              <Btn
+                title={`더보기 ${Math.min(PAGE, moreCount)}대`}
+                variant="ghost"
+                onClick={() => setLimit((n) => n + PAGE)}
+              >
+                {`더보기 · ${Math.min(PAGE, moreCount).toLocaleString()}대`}
+              </Btn>
+            </div>
+          )}
         </>
       )}
-      <Message variant="info">표시 가격은 참고용이며 심사·재고에 따라 변동될 수 있습니다.</Message>
+      <div style={{ marginTop: 20, fontSize: FS.cap, color: C.faint, textAlign: 'center' }}>표시 가격은 참고용이며 심사·재고에 따라 변동될 수 있습니다.</div>
     </main>
   );
 }

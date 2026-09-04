@@ -1112,6 +1112,128 @@ html[data-fp-filter="0"] .fp-finder > .fp-sidebar { display: none; }
   --border-strong: rgba(255, 255, 255, 0.36);
 }
 
+/*
+ * 화이트라벨 동(손님 사이트) — **제 바탕을 «자기가» 칠한다.**
+ *
+ * `whitelabelVars` 가 .fp-wl 안에서 `--bg-page` 를 흰색으로 뒤집어 두지만, 그것만으로는
+ * 화면이 안 하얘진다. 종이를 «까는» 규칙은 `body { background: var(--bg-page) }` 한 줄뿐이고
+ * body 는 .fp-wl 의 «조상»이라 :root 의 값(업무동 회색 #eaedf2)을 읽는다. 그래서 토큰은 흰데
+ * 화면은 회색인 꼴이 됐다(사장님 2026-09-04 「아니 근데 왜 배경이 회색이야」).
+ * 자손이 조상의 배경을 바꿀 수는 없으니 **화이트라벨 껍데기가 제 종이를 직접 깐다.**
+ *
+ * ★min-height 로 화면 끝까지 덮는다 — 목록이 짧은 날(조건을 좁혀 몇 대만 남을 때) 카드 아래로
+ *   업무동 회색이 드러나면 「밑에 딴 사이트가 깔려 있다」로 보인다.
+ * ★색은 여전히 «토큰»이다. 채널이 바탕을 바꾸고 싶으면 `lib/whitelabel.ts` 한 줄만 고치면 된다 —
+ *   여기에 흰색을 박으면 그 SSOT 가 깨진다.
+ */
+.fp-wl {
+  background: var(--bg-page);
+  min-height: 100vh;
+}
+
+/*
+ * 가게의 «스르륵 가는» 알약 줄 — 조건 칩을 **한 줄로 두고 좌우로 민다**
+ * (사장님 2026-09-04 「좌우로 스크롤하는 그 알약처럼 생긴 그 필터, 그게 스르륵 이렇게 왔다 가야 되고」).
+ *
+ * 접어서 두 줄·세 줄로 쌓으면 조건이 늘어날수록 목록이 아래로 밀린다 — 폰에서 첫 화면에
+ * 상품이 안 보이면 그 화면은 진 것이다. 한 줄로 못 박고 넘치는 것은 손가락이 민다.
+ * ★막대는 숨긴다. 폰에는 원래 안 보이고, 데스크톱에서 보이면 칩 밑에 회색 선이 하나 더 그어진 꼴이 된다.
+ * ★`overflow-y: visible` 이 아니라 hidden 이어야 세로로 덜컹거리지 않는다(가로만 민다).
+ */
+.fp-shop-rail {
+  display: flex; flex-wrap: nowrap; gap: 8px;
+  overflow-x: auto; overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; -ms-overflow-style: none;
+  /* 끝까지 밀었을 때 마지막 칩이 화면 가장자리에 딱 붙지 않게 — 더 있는지 없는지 눈에 보인다. */
+  scroll-padding-inline: 16px;
+}
+/*
+ * 폰에서는 본문 여백을 «넘어» 화면 끝까지 흐른다 — 안쪽에서 잘리면 거기가 끝인 줄 안다.
+ * 여백만큼 밖으로 빼고 같은 만큼 안쪽 패딩으로 돌려주면, 첫 칩 위치는 그대로면서 오른쪽으로만 이어진다.
+ * (당근·네이버가 다 이렇게 한다. `--fp-bar-pad-x` 가 아니라 가게 본문 여백 16 을 쓴다.)
+ */
+@media (max-width: 759px) {
+  .fp-shop-rail { margin-inline: -16px; padding-inline: 16px; }
+}
+
+/* ────────────────────────────────────────────────────────────────────────
+ * 가게 마감 — «요즘 쓰는 것»만 얹는다(사장님 2026-09-04 「최신 트렌드만 반영해서 네가 꾸미고
+ * 싶은 대로 꾸며. 제일 무난하고 평범하고 트렌드 따라가는 걸로」).
+ *
+ * 얹은 것 넷. 어느 것도 «우리만의 것»이 아니다 — 지금 커머스 앱이 다 이렇게 한다.
+ *   ① 누르면 살짝 들어간다      ② 카드에 마우스를 얹으면 사진이 아주 조금 커진다
+ *   ③ 불러오는 자리는 흐르는 빛  ④ 검색줄이 위에 붙어 따라온다
+ *
+ * ★★`prefers-reduced-motion` 을 지킨다. 움직임에 멀미하는 사람이 실제로 있고,
+ *   그 사람에게는 이 넷이 전부 «화면이 흔들리는 것»으로 온다. 끄면 기능은 그대로 남는다.
+ */
+
+/* ① 누름 — 손가락이 닿았다는 것을 12ms 안에 알려 준다. 없으면 「먹었나?」 하고 두 번 누른다. */
+.fp-shop-press {
+  transition: transform .12s ease, background-color .14s ease, border-color .14s ease, color .14s ease;
+}
+.fp-shop-press:active { transform: scale(.97); }
+
+/* ② 카드 — 마우스가 있는 기기에서만. 사진만 아주 조금(1.04) 커지고 카드는 살짝 뜬다.
+ *    ⚠ 카드 자체를 키우면 격자가 밀린다(레이아웃이 다시 계산된다) — 사진만 transform 으로 민다. */
+.fp-shop-card { transition: box-shadow .2s ease, transform .2s ease; }
+.fp-shop-card .fp-shop-thumb > img { transition: transform .4s cubic-bezier(.2,.6,.2,1); }
+@media (hover: hover) and (pointer: fine) {
+  .fp-shop-card:hover { transform: translateY(-2px); }
+  .fp-shop-card:hover .fp-shop-thumb > img { transform: scale(1.04); }
+}
+
+/* ③ 불러오는 자리 — 회색 판을 «가만히» 두면 고장 난 것처럼 보인다. 빛이 한 번씩 흐르면 「오는 중」이 된다. */
+@keyframes fp-shop-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+.fp-shop-skel {
+  background-image: linear-gradient(90deg,
+    var(--bg-placeholder) 0%, var(--bg-placeholder) 38%,
+    color-mix(in srgb, var(--bg-placeholder) 55%, #fff) 50%,
+    var(--bg-placeholder) 62%, var(--bg-placeholder) 100%);
+  background-size: 200% 100%;
+  animation: fp-shop-shimmer 1.4s linear infinite;
+}
+
+/* ④ 검색줄이 위에 붙는다 — 목록을 한참 내려가다 다시 찾고 싶을 때 위로 되돌아가지 않아도 된다.
+ *    ⚠ 구르는 것은 `.fp-main-pad` 다(html/body 는 overflow hidden). sticky 는 그 안에서 잡힌다.
+ *    ⚠ 옆으로 새지 않게 여백만큼 밖으로 뺐다가 안쪽 패딩으로 돌려준다 — 알약 줄과 같은 수법이다. */
+.fp-shop-stick {
+  position: sticky; top: 0; z-index: 6;
+  background: var(--bg-page);
+  margin-inline: -16px; padding-inline: 16px;
+}
+.fp-shop-stick::after {
+  /* 붙어 있을 때만 보이는 가는 선 — 목록과 «떠 있는 머리»를 갈라 준다. */
+  content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 1px;
+  background: var(--border-soft); opacity: 0; transition: opacity .2s ease;
+}
+.fp-shop-stick.is-stuck::after { opacity: 1; }
+
+/*
+ * 상세 사진 — **손가락으로 민다.** 화살표만 두면 폰에서 아무도 안 누른다(사진은 미는 것이라고
+ * 손이 이미 알고 있다). 브라우저의 스크롤을 그대로 쓰므로 관성·고무줄이 공짜로 따라온다 —
+ * JS 로 드래그를 흉내 내면 그 둘이 없어 «싸구려 같은» 움직임이 된다.
+ * ★`scroll-snap` 이 한 장씩 딱 멈추게 한다. 없으면 두 장 사이에 어정쩡하게 선다.
+ * ★막대는 숨긴다 — 사진 밑에 회색 줄이 그어진 꼴이 된다.
+ */
+.fp-shop-gallery {
+  display: flex; overflow-x: auto; overflow-y: hidden;
+  scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; -ms-overflow-style: none;
+}
+.fp-shop-gallery::-webkit-scrollbar { display: none; }
+.fp-shop-gallery > * { flex: 0 0 100%; scroll-snap-align: center; }
+
+@media (prefers-reduced-motion: reduce) {
+  .fp-shop-press, .fp-shop-card, .fp-shop-card .fp-shop-thumb > img { transition: none; }
+  .fp-shop-press:active, .fp-shop-card:hover { transform: none; }
+  .fp-shop-card:hover .fp-shop-thumb > img { transform: none; }
+  .fp-shop-skel { animation: none; }
+}
+.fp-shop-rail::-webkit-scrollbar { display: none; }
+.fp-shop-rail > * { flex: 0 0 auto; }
+
 /* 조건 드롭다운 줄이 툴바 «안»에 들어왔다 — 좁아지면 잘리지 말고 가로로 굴린다.
    팝오버가 잘리면 안 되므로 세로는 visible 로 둔다(모바일 퀵필터 줄과 같은 처리). */
 .fp-finder-quick-slot { min-width: 0; display: flex; align-items: center; }

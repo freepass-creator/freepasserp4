@@ -1,5 +1,6 @@
 ﻿'use client';
 import Link from 'next/link';
+import { isGuestSurface } from '@/lib/guest-surface';
 import { usePathname, useRouter } from 'next/navigation';
 import React, { useEffect, useState } from 'react';
 import { useIsMobile } from '@/lib/use-mobile';
@@ -108,9 +109,8 @@ export default function AppTabBar() {
     && !hidden
     && path !== '/'          // 공개 안내 페이지(상품시트 입장)에는 ERP 탭바를 안 띄운다
     && path !== '/login'
-    && !path.startsWith('/q/')
-    && !path.startsWith('/catalog')
-    && !path.startsWith('/sign/');
+    // 손님 면은 `isGuestSurface` 한 곳이 정한다(TopBar 와 같은 명단을 쓴다).
+    && !isGuestSurface(path);
 
   useEffect(() => {
     setTabCss(show);

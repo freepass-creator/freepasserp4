@@ -33,6 +33,7 @@ import { productType } from '../lib/domain/sales-sheet-clean';
 import { parsePublishedSalesMapping, SALES_ALIAS, SALES_COLUMNS } from '../lib/domain/sales-sheet-mapping';
 import { salesPublishedTabIndex } from '../lib/domain/sales-published-tabs';
 import { HANDOVER_TAB, STALE_DAYS, daysSince, readLog } from '../lib/domain/supplier-handover-log';
+import { isMirrorSheet } from '../lib/domain/mirror-sources';
 import { SHEET_NAME_MATCH, isOurNonInventoryTab, supplierSheetLabel } from '../lib/domain/supplier-template-sheet';
 import { mileageCompact, pickPolicy, policyCell, readPolicyTab, type PolicyBook } from '../lib/domain/supplier-policy-read';
 import { POLICY_TAB_ALIASES } from '../lib/domain/supplier-template-sheet';
@@ -450,13 +451,23 @@ for (const [code, p] of [...byCode].sort()) {
    *   자체시트 공급사(아이카·오플·이안카)는 우리 규격화시트를 거쳐 온다. 그 시트는
    *   `sync-mirror-sheet` 가 원본에서 채워 주는데, 그게 멈추면 아무도 안 죽고 화면에도
    *   표시가 없고 **값만 조용히 낡는다.** 이 구조의 유일한 조용한 실패 경로다.
-   *   숨긴 탭 「AI 인계」의 @이력을 보고 오래됐으면 알린다. 이력이 없으면 규격화시트가 아니다.
+   *   숨긴 탭 「AI 인계」의 @이력을 보고 오래됐으면 알린다.
+   *
+   * ★★**미러 대상일 때만 본다**(`isMirrorSheet`). 「@이력이 있으면 규격화시트」로 갈랐더니
+   *   **오경보가 났다** — 실측 2026-09-04: 렌트존·SA·리더스·스타·우리캐피탈·스카이 여섯 곳이
+   *   「17일째 동기화 안 됨」으로 매 회차 떴는데, 문패를 읽어 보니 여섯 다 **공급사 자기 시트**를
+   *   가리키고 있었다. 미러할 게 애초에 없는 곳이다(mirror-sources 주석의 「아직 문패가 자기 시트다」).
+   *   그 시트에 「AI 인계」 탭이 남아 있어서 낡은 이력이 잡힌 것뿐이다.
+   *   ⇒ **늘 켜져 있는 빨간불은 아무도 안 믿는다.** 진짜 미러 넷이 멈췄을 때 그 불을 보려면
+   *     안 멈춘 곳까지 켜 두면 안 된다(도면 「좋아진 것까지 빨갛게 뜨면」과 같은 이유).
    */
-  try {
-    const lg = await api(`https://sheets.googleapis.com/v4/spreadsheets/${readId}/values/${encodeURIComponent(`'${HANDOVER_TAB}'!A1:C400`)}`) as { values?: string[][] };
-    const days = daysSince(readLog((lg.values || []) as string[][]));
-    if (days !== null && days > STALE_DAYS) staleSheets.push(`${who}(${code}) — ${Math.floor(days)}일째 동기화 안 됨`);
-  } catch { /* 「AI 인계」가 없으면 규격화시트가 아니다 — 알릴 것이 없다 */ }
+  if (isMirrorSheet(readId)) {
+    try {
+      const lg = await api(`https://sheets.googleapis.com/v4/spreadsheets/${readId}/values/${encodeURIComponent(`'${HANDOVER_TAB}'!A1:C400`)}`) as { values?: string[][] };
+      const days = daysSince(readLog((lg.values || []) as string[][]));
+      if (days !== null && days > STALE_DAYS) staleSheets.push(`${who}(${code}) — ${Math.floor(days)}일째 동기화 안 됨`);
+    } catch { /* 「AI 인계」를 못 읽으면 알릴 것이 없다 */ }
+  }
   let n = 0;
   for (const t of read.tabs) {
     if (isOurNonInventoryTab(S(t.title))) continue;    // 우리 탭은 재고표가 아니다
@@ -850,10 +861,44 @@ let gid = ((meta.sheets || []) as Rec[]).find((s) => S(s.properties?.title).star
       const prevHdr = (prevRows[0] || []).map(S);
       const prevAt = prevHdr.indexOf('공급사');
       if (prevAt >= 0 && supplierAt >= 0) {
-        const count = (list: string[][], at: number) => { const m = new Map<string, number>(); for (const r of list) { const w = S(r[at]); if (w) m.set(w, (m.get(w) || 0) + 1); } return m; };
+        /**
+         * ★★**이름표가 아니라 «정체»로 센다.**
+         *   공급사 칸은 `companyAlias(partner_name) || code` 다(위 `who`). 그래서 문패의
+         *   「공급사명」을 채우거나 지우면 같은 회사가 어제는 `RP004`, 오늘은 `아이카` 로 적힌다.
+         *   글자로 맞대면 그날 **차는 그대로인데 「77대→0」** 이 되어 발행이 멈춘다.
+         *
+         *   실측 2026-09-04 19:49 — 여덟 곳이 「통째로 0대」로 잡혀 중단됐는데,
+         *   같은 회차의 ① 단계는 「✓ 아이카(RP004) 재고 — 차 77대」로 멀쩡히 읽고 있었다.
+         *   게다가 총계는 331→315 로 **16대만** 줄었다. 209대가 사라졌다면 나올 수 없는 총계다.
+         *   ⇒ 사라진 게 아니라 이름표가 바뀐 것이었다. 가드가 오발동한 것이다.
+         *
+         *   그래서 양쪽 글자를 문패로 **코드로 환원**한 뒤 센다. 환원이 안 되는 글자(문패에 없는
+         *   공급사)는 글자 그대로 둔다 — 모르는 것을 같다고 우기지 않는다.
+         */
+        const codeOf = new Map<string, string>();
+        for (const [c, p] of byCode) {
+          codeOf.set(c, c);
+          const label = companyAlias(S(p.partner_name || p.name)) || S(p.partner_name || p.name);
+          if (label) codeOf.set(label, c);
+        }
+        const ident = (w: string) => codeOf.get(S(w)) || S(w);
+        const count = (list: string[][], at: number) => {
+          const m = new Map<string, { n: number; seen: Set<string> }>();
+          for (const r of list) {
+            const w = S(r[at]);
+            if (!w) continue;
+            const k = ident(w);
+            const cur = m.get(k) || { n: 0, seen: new Set<string>() };
+            cur.n += 1; cur.seen.add(w);
+            m.set(k, cur);
+          }
+          return m;
+        };
         const before = count(prevRows.slice(1), prevAt);
         const now = count(rows, supplierAt);
-        const gone = [...before].filter(([w, n]) => n >= 3 && !(now.get(w) || 0)).map(([w, n]) => `${w} ${n}대→0`);
+        const gone = [...before]
+          .filter(([k, v]) => v.n >= 3 && !(now.get(k)?.n || 0))
+          .map(([k, v]) => `${[...v.seen].join('/')}${k && ![...v.seen].includes(k) ? `(${k})` : ''} ${v.n}대→0`);
         if (gone.length) throw new Error(`직전 표에 있던 공급사가 통째로 0대 — 발행하지 않는다: ${gone.join(' · ')} (못 읽은 것인지 먼저 보라 — 맞으면 --force-shrink)`);
       }
     }
