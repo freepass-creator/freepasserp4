@@ -72,6 +72,16 @@ const validCanon = (maker: unknown, model: unknown, sub: unknown) => {
   for (const a of makerGroup(N(maker))) { const hit = SUB.get(`${a}|${mo}|${sm}`); if (hit) return hit; }
   return null;
 };
+// 세부모델 → 마스터 트림 목록 (검증용). 별칭 제조사 전개.
+const TRIMS = new Map<string, string[]>();
+for (const e of MASTER) {
+  if (!e.trims?.length) continue;
+  for (const a of makerGroup(N(e.maker))) TRIMS.set(`${a}|${N(e.model)}|${N(e.sub_model)}`, e.trims);
+}
+const trimsFor = (maker: unknown, model: unknown, sub: unknown) => {
+  for (const a of makerGroup(N(maker))) { const t = TRIMS.get(`${a}|${N(model)}|${N(sub)}`); if (t) return t; }
+  return [];
+};
 const yearOf = (firstReg: string) => {
   const s = S(firstReg);
   const full = s.match(/(20\d{2}|19\d{2})/); if (full) return full[1];
@@ -113,11 +123,13 @@ function resolveCols(hdr: string[]) {
 type Row = { car: string; status: string; kind: string; maker: string; model: string; vname: string; trim: string; fuel: string; ext: string; int: string; km: string; opt: string; firstReg: string; cc: string; klass: string; tab: string; row: string };
 const blank: Omit<Row, 'car' | 'tab' | 'row'> = { status: '', kind: '', maker: '', model: '', vname: '', trim: '', fuel: '', ext: '', int: '', km: '', opt: '', firstReg: '', cc: '', klass: '' };
 
+// 번호판 꼴만 차로 본다 — 헤더 밑 제목·프로모 배너·빈 행이 «차»로 새는 걸 막는다(오토플러스 실측).
+const isPlate = (s: string) => /\d{2,3}\s*[가-힣]\s*\d{4}/.test(S(s));
 async function readRows(): Promise<Row[]> {
   const out: Row[] = [];
   const seen = new Set<string>();
   const push = (o: Partial<Row> & { car: string; tab: string; row: string }) => {
-    if (!o.car || seen.has(o.car)) return; seen.add(o.car);
+    if (!o.car || seen.has(o.car) || !isPlate(o.car)) return; seen.add(o.car);
     out.push({ ...blank, ...o });
   };
   if (src.kind === 'iron') {
@@ -238,6 +250,33 @@ console.log(`  대조: 아는 차 불변일치 ${both ? Math.round((idSame / bot
 const VARIABLE = process.argv.includes('--variable');
 const docId = (car: string) => car.replace(/\s/g, '').replace(/[/#.$[\]]/g, '_');
 const VAR_FIELDS = ['status', 'status_kind', 'status_reason', 'listable', 'status_label_raw', 'mileage'] as const;
+
+// ── 검증(--verify) — 원자를 «차종마스터 ↔ 원문»과 대조. 제대로 당겼나 한 번 본다. ──
+if (process.argv.includes('--verify')) {
+  let mValid = 0, mOut = 0, tMatch = 0, tOut = 0, tEmpty = 0, rawMiss = 0;
+  const outL: string[] = [], tOutL: string[] = [], rawL: string[] = [];
+  for (const a of now) {
+    const raw = S((a.원문 as { 차명?: string })?.차명);
+    const label = `${a.car_number} 「${raw.slice(0, 30)}」 → ${a.maker} ${a.model}/${a.sub_model}/${S(a.trim_name) || '(트림공백)'}`;
+    const valid = !!validCanon(a.maker, a.model, a.sub_model);
+    if (valid) mValid++; else { mOut++; if (outL.length < 15) outL.push('  ✗마스터밖 ' + label); }
+    const trims = trimsFor(a.maker, a.model, a.sub_model);
+    const t = S(a.trim_name);
+    if (!t) tEmpty++;
+    else if (trims.some((x) => N(x) === N(t))) tMatch++;
+    else { tOut++; if (tOutL.length < 15) tOutL.push(`  ✗트림밖 ${a.car_number} 트림「${t}」 ∉ [${trims.slice(0, 6).join('·') || '마스터 트림없음'}]`); }
+    // 원문 대조 — 세부모델의 마스터 표기 핵심 글자가 원문에 없으면 오매칭 의심.
+    if (valid && N(a.model) && raw && !N(raw).includes(N(a.model))) { rawMiss++; if (rawL.length < 15) rawL.push('  ?원문불일치 ' + label); }
+  }
+  console.log(`\n■ 검증 (차종마스터 ↔ 원문) — ${PROV}(${src.name}) ${now.length}대`);
+  console.log(`  마스터 유효: ${mValid}/${now.length} (${Math.round((mValid / (now.length || 1)) * 100)}%) · 마스터 밖 ${mOut}`);
+  console.log(`  트림: 마스터트림 일치 ${tMatch} · 트림있는데 마스터밖 ${tOut} · 트림공백 ${tEmpty}`);
+  console.log(`  원문에 모델글자 없음(오매칭 의심) ${rawMiss}`);
+  for (const l of outL) console.log(l);
+  for (const l of tOutL) console.log(l);
+  for (const l of rawL) console.log(l);
+  process.exit(0);
+}
 
 if (!APPLY) { console.log(`\n미리보기 — Firestore 안 씀. 쓰려면 --apply${VARIABLE ? '(변동만)' : ''}.`); process.exit(0); }
 
