@@ -850,10 +850,44 @@ let gid = ((meta.sheets || []) as Rec[]).find((s) => S(s.properties?.title).star
       const prevHdr = (prevRows[0] || []).map(S);
       const prevAt = prevHdr.indexOf('공급사');
       if (prevAt >= 0 && supplierAt >= 0) {
-        const count = (list: string[][], at: number) => { const m = new Map<string, number>(); for (const r of list) { const w = S(r[at]); if (w) m.set(w, (m.get(w) || 0) + 1); } return m; };
+        /**
+         * ★★**이름표가 아니라 «정체»로 센다.**
+         *   공급사 칸은 `companyAlias(partner_name) || code` 다(위 `who`). 그래서 문패의
+         *   「공급사명」을 채우거나 지우면 같은 회사가 어제는 `RP004`, 오늘은 `아이카` 로 적힌다.
+         *   글자로 맞대면 그날 **차는 그대로인데 「77대→0」** 이 되어 발행이 멈춘다.
+         *
+         *   실측 2026-09-04 19:49 — 여덟 곳이 「통째로 0대」로 잡혀 중단됐는데,
+         *   같은 회차의 ① 단계는 「✓ 아이카(RP004) 재고 — 차 77대」로 멀쩡히 읽고 있었다.
+         *   게다가 총계는 331→315 로 **16대만** 줄었다. 209대가 사라졌다면 나올 수 없는 총계다.
+         *   ⇒ 사라진 게 아니라 이름표가 바뀐 것이었다. 가드가 오발동한 것이다.
+         *
+         *   그래서 양쪽 글자를 문패로 **코드로 환원**한 뒤 센다. 환원이 안 되는 글자(문패에 없는
+         *   공급사)는 글자 그대로 둔다 — 모르는 것을 같다고 우기지 않는다.
+         */
+        const codeOf = new Map<string, string>();
+        for (const [c, p] of byCode) {
+          codeOf.set(c, c);
+          const label = companyAlias(S(p.partner_name || p.name)) || S(p.partner_name || p.name);
+          if (label) codeOf.set(label, c);
+        }
+        const ident = (w: string) => codeOf.get(S(w)) || S(w);
+        const count = (list: string[][], at: number) => {
+          const m = new Map<string, { n: number; seen: Set<string> }>();
+          for (const r of list) {
+            const w = S(r[at]);
+            if (!w) continue;
+            const k = ident(w);
+            const cur = m.get(k) || { n: 0, seen: new Set<string>() };
+            cur.n += 1; cur.seen.add(w);
+            m.set(k, cur);
+          }
+          return m;
+        };
         const before = count(prevRows.slice(1), prevAt);
         const now = count(rows, supplierAt);
-        const gone = [...before].filter(([w, n]) => n >= 3 && !(now.get(w) || 0)).map(([w, n]) => `${w} ${n}대→0`);
+        const gone = [...before]
+          .filter(([k, v]) => v.n >= 3 && !(now.get(k)?.n || 0))
+          .map(([k, v]) => `${[...v.seen].join('/')}${k && ![...v.seen].includes(k) ? `(${k})` : ''} ${v.n}대→0`);
         if (gone.length) throw new Error(`직전 표에 있던 공급사가 통째로 0대 — 발행하지 않는다: ${gone.join(' · ')} (못 읽은 것인지 먼저 보라 — 맞으면 --force-shrink)`);
       }
     }
