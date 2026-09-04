@@ -50,9 +50,17 @@ service cloud.firestore {
       allow update, delete: if false;
     }
     // 정책·공급사·사용자 — 관리자만 write, 같은 회사 read
+    // ★정책·파트너 = 참조데이터 — 영업자가 «어느 공급사» 정책·정보든 봐야 팔 수 있다(products 처럼 로그인이면 read).
+    //   companyId=공급사코드라 myCompany 로 묶으면 영업자(company=SP999)가 못 읽는다(2026-09-04). 쓰기는 관리자만.
     match /{col}/{id} {
-      allow read: if signedIn() && myCompany(resource.data) && (col == 'policy' || col == 'partner' || col == 'user');
-      allow create, update: if isAdmin() && myCompany(request.resource.data) && (col == 'policy' || col == 'partner' || col == 'user');
+      allow read: if signedIn() && (col == 'policy' || col == 'partner');
+      allow create, update: if isAdmin() && (col == 'policy' || col == 'partner');
+      allow delete: if false;
+    }
+    // 사용자 명부 — 관리자만.
+    match /user/{id} {
+      allow read: if isAdmin();
+      allow create, update: if isAdmin();
       allow delete: if false;
     }
     // 방·메시지·견적·고객 — 로그인 + 같은 회사면 write(거래 참여자)

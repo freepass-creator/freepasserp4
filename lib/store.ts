@@ -211,9 +211,12 @@ class FirestoreAdapter implements StoreAdapter {
       // ★역할 격리 엔티티(계약·정산)는 «규칙과 같은 제약»으로 쿼리해야 Firestore 가 거부하지 않는다(규칙=필터가 아니라 검증).
       //   공급사=provider_company_code · 영업자=agent_code(=user_code) · 관리자=companyId(또는 전체). getSession 이 격리키를 안다.
       const ROLE_ISOLATED = entityKey === 'contract' || entityKey === 'settlement';
+      const GLOBAL_READ = entityKey === 'policy' || entityKey === 'partner';   // 참조데이터 — 로그인이면 전체 read(규칙과 일치)
       const s = getSession();
       let q;
-      if (ROLE_ISOLATED && s && s.role === 'agent' && s.user_code) {
+      if (GLOBAL_READ) {
+        q = query(col);
+      } else if (ROLE_ISOLATED && s && s.role === 'agent' && s.user_code) {
         q = query(col, where('agent_code', '==', s.user_code));
       } else if (ROLE_ISOLATED && s && s.role === 'provider' && s.company_code) {
         q = query(col, where('provider_company_code', '==', s.company_code));

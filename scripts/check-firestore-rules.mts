@@ -14,6 +14,8 @@ await env.withSecurityRulesDisabled(async (ctx) => {
   await setDoc(doc(db, 'contract/RP004__A2'), { companyId: 'RP004', provider_company_code: 'RP004', agent_code: 'U0045', _key: 'A2', customer_name: 'A2' });
   await setDoc(doc(db, 'contract/RP005__B1'), { companyId: 'RP005', provider_company_code: 'RP005', agent_code: 'U0018', _key: 'B1', customer_name: 'B' });
   await setDoc(doc(db, 'settlement/RP004__S1'), { companyId: 'RP004', provider_company_code: 'RP004', agent_code: 'U0045', amount: 100 });
+  await setDoc(doc(db, 'policy/RP004__P1'), { companyId: 'RP004', name: '정책A' });
+  await setDoc(doc(db, 'partner/RP004__PT1'), { companyId: 'RP004', partner_name: '제일오토' });
 });
 
 const results: string[] = [];
@@ -56,6 +58,12 @@ try {
   const ok = snap.size === 2 && codes.length === 1 && codes[0] === 'U0045';
   results.push(`  ${ok ? '✓' : '✗'} 영업자A list 결과 = 자기 2건만 (실제 ${snap.size}건, 코드 ${codes.join(',')})`);
 } catch (e) { results.push(`  ✗ 영업자A list 결과 확인 실패 — ${(e as Error).message.slice(0, 60)}`); }
+
+// === 참조데이터(정책·파트너) — 영업자가 «어느 공급사» 것이든 read, write 는 admin ===
+await check('영업자A 정책(다른공급사 RP004) 읽기', 'ok', getDoc(doc(A, 'policy/RP004__P1')));
+await check('영업자A 파트너 읽기', 'ok', getDoc(doc(A, 'partner/RP004__PT1')));
+await check('영업자A list(정책 전체) 허용', 'ok', getDocs(collection(A, 'policy')));
+await check('영업자A 정책 쓰기 차단(admin만)', 'deny', setDoc(doc(A, 'policy/RP004__P1'), { name: 'X' }));
 
 console.log('\n=== Firestore 규칙 격리 테스트 ===');
 for (const r of results) console.log(r);
