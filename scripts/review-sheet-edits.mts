@@ -55,6 +55,7 @@ if (!TAKE && !DROP) {
     const can = FIELD[e.column] ? '' : '   ※ 계산값이라 자동으로 못 받습니다';
     console.log(`  ${String(i + 1).padStart(2)}. ${S(e.channel).padEnd(8)} ${e.month}  ${S(e.key).padEnd(10)} 「${e.column}」`);
     console.log(`      우리 원장 ${(S(e.ours) || '(빈칸)').padEnd(16)} →  그쪽이 적음 ${S(e.theirs) || '(빈칸)'}${can}`);
+    if (S(e.why)) console.log(`      ${S(e.why)}`);
   });
   console.log('\n   받으려면 — npx tsx scripts/review-sheet-edits.mts --받음=1 --왜="확인함"\n');
   process.exit(0);
