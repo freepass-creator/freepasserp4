@@ -3,14 +3,14 @@ import { memo } from 'react';
 import Link from 'next/link';
 import { Heart, ImageOff } from 'lucide-react';
 import type { EntityRecord } from '@/lib/intake/entities';
-import { C, ICON } from '@/components/ui';
+import { Badge, C, FS, ICON, PERK_TONE, CREDIT_TONE, type BadgeTone } from '@/components/ui';
 import { SHOP } from '@/components/shop/shop-ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { useInView } from '@/lib/use-in-view';
 import { useFirstPhoto } from '@/components/use-product-photos';
 import { haptic } from '@/lib/haptics';
-import { cheapest, creditDisplay, CREDIT_UNSET, parseProductOptions } from '@/lib/domain/product';
-import { CATALOG_PERKS, hasPerk } from '@/lib/domain/product-filters';
+import { cheapest, creditDisplay, CREDIT_UNSET } from '@/lib/domain/product';
+import { PERKS, hasPerk } from '@/lib/domain/product-filters';
 import { vehicleNameOf } from '@/lib/domain/vehicle-name';
 import { yearFullDisplay, fuelDisplay } from '@/lib/domain/vehicle-master-format';
 import { kmDisplay, manWon } from '@/lib/format';
@@ -25,18 +25,27 @@ import { kmDisplay, manWon } from '@/lib/format';
  *   하는» 곳이다. 우리는 716대고 손님은 조건으로 좁혀서 온다. 좁혀 놓고 보는 화면이면
  *   한 대를 **제대로** 보여 주는 편이 낫다. 그래서 폰도 한 줄에 한 대, 사진을 크게 쓴다.
  *
- * 읽는 순서대로 쌓는다.
- *   ① 사진(크게 · 위에 아무것도 안 얹는다)  ② 연식 + 차명
- *   ③ 차량 스펙(연료·배기량·인승·구동·주행)
- *   ④ 월 대여료(제일 큰 글자)  ⑤ 보증금 · 기준 개월
- *   ⑥ **우대사항**(심사·무보증·만21세·경력무관·당일출고)
- *   ⑦ 맨 아랫줄 — 옵션 · 차번(둘 다 «고르는 값»이 아니라 제일 조용하다)
+ * ★★글줄은 **넷**이다(사장님 2026-09-04 「세부 모델 세부 트림을 한 줄로 넣고, 그다음 줄에
+ *   차량번호 연식 주행거리 배기량 연료, 그다음 줄에 기간 대여료 보증금, 그다음 줄에는 우대 조건
+ *   같은 거… 심사 조건 분납 가능한 거 그런 거 뱃지로 들어가거나 우리 그 ERP에서 쓰는 거」).
+ *
+ *   ① 사진 — 크게. **위에 아무것도 안 얹는다.**
+ *   ② 세부모델 · 세부트림          — 무슨 차인가
+ *   ③ 차번 · 연식 · 주행 · 배기량 · 연료 — 어떤 차인가
+ *   ④ 기간 · 대여료 · 보증금        — 얼마인가 (한 줄에 셋 · 가로 공간을 쓴다)
+ *   ⑤ 뱃지 — 심사 · 분납가능 · 무보증 · 만21세 · 경력무관 · 무사고 · 당일출고
+ *
+ *   ⚠ 옵션 줄은 뺐다. 사장님이 위 넷을 짚으시며 「그 정도면 심플할 것 같은데?」 하셨고,
+ *     옵션은 «고르는 값»이 아니라 상세에서 볼 값이다. 되살릴 일이 있으면 ⑤ 아래에 한 줄로 붙인다.
  *
  * ★업무동 `ProductCard`(확정 규격)를 쓰지 않는다. 그 카드는 영업자용이라 손님 화면에 안 맞는
  *   것이 셋이다: 차번을 감추고(손님에겐 「이 차다」의 증거다), 월 대여료가 차명보다 작고,
  *   값이 없으면 「미입력」이 그대로 뜬다(영업자에겐 «채워라»는 신호지만 손님에겐 흠집이다).
- * ★★박스 뱃지를 쓰지 않는다(사장님 2026-08-28·08-30 두 번 「박스 뱃지 쓰지 말고 아이콘
- *   텍스트로, 모든 곳에서」). 우대사항은 색 글자 조각으로 말한다.
+ * ★우대조건은 **ERP `Badge` 원자**를 그대로 쓴다(사장님 2026-09-04 「뱃지로 들어가거나 우리
+ *   그 ERP에서 쓰는 거 있잖아」). 08-28·08-30 의 「박스 뱃지 쓰지 마라」는 **썸네일 우하의
+ *   신호 뱃지**를 두고 하신 말이고(그건 아이콘+글자로 바뀌었다), 우대조건처럼 «여럿을 나란히
+ *   구분해 보여야 하는» 값은 뱃지가 제 일을 한다. 톤도 ERP 와 같은 맵(CREDIT_TONE·PERK_TONE)이라
+ *   영업자 화면에서 초록이던 「무심사」가 손님 화면에서도 초록이다.
  */
 export const ShopCard = memo(function ShopCard({ p, href, faved, onFav }: {
   p: EntityRecord;
@@ -46,46 +55,54 @@ export const ShopCard = memo(function ShopCard({ p, href, faved, onFav }: {
 }) {
   const mobile = useIsMobile();
   const price = cheapest(p);
-  const name = vehicleNameOf({ kind: 'product', product: p }, { tier: 'full', fallback: 'none' });
-  const title = [yearFullDisplay(p.year), name].filter(Boolean).join(' ') || '차량';
+  /*
+   * ② 줄 — 세부모델 · 세부트림. **연식을 앞에 붙이지 않는다**(사장님 2026-09-04 — 연식은 아래
+   * ③ 줄로 갔다). 「2026 현대 베뉴 QX1 프리미엄」처럼 앞에 숫자가 서면 그게 트림 숫자와 섞여
+   * 차 이름이 한 번에 안 읽힌다. 이름 줄은 이름만 든다.
+   * ★이름은 `vehicleNameOf`(제조사+세부모델+세부트림) 정본을 그대로 쓴다 — 손으로 조립하면
+   *   업무동과 손님 화면의 차명이 갈린다(차명 정본은 docs/차종명명-정제-매뉴얼).
+   */
+  const title = vehicleNameOf({ kind: 'product', product: p }, { tier: 'full', fallback: 'none' }) || '차량';
   const code = String(p.product_code || '');
 
   /*
-   * 차량 스펙 — 손님이 차를 «가늠하는» 값들. 없는 조각은 빼고 그린다(빈 칸을 안 보여준다).
+   * ③ 줄 — 차번 · 연식 · 주행 · 배기량 · 연료. 없는 조각은 빼고 그린다(빈 칸을 안 보여준다).
    *
    * ★★주행거리 `0` 은 「0km」가 아니라 «모른다»다 — 찍지 않는다(2026-09-04 실측).
    *   손님에게 나가는 716대 중 **692대가 문자 「0」**이었다. 빈칸이 아니라 원천·정제가 0 을 채운
    *   것이라 2015년식 스파크도 0km 였다. 모르는 것을 0 이라고 말하지 않는다(전역 규칙 2).
-   * ★배기량·인승·구동은 실측으로 대부분 차 있다(engine_cc 716 · seats 555 · drive_type 618).
-   *   주행거리가 비어 있는 만큼 이 셋이 「차를 가늠하는」 자리를 대신한다.
+   * ★차번이 이 줄의 맨 앞이다 — 사진 위도 아니고 옵션 옆도 아니다(사장님 2026-09-04).
+   *   실물 재고를 파는 판에서 「이 차다」의 증거라 차를 «설명하는» 줄에 함께 서는 것이 맞다.
    */
   const km = Number(String(p.mileage ?? '').replace(/[^0-9.]/g, '')) || 0;
   const cc = Number(p.engine_cc) || 0;
-  const seats = Number(p.seats) || 0;
-  const specs = [
-    fuelDisplay(p.fuel_type) || String(p.fuel_type || '').trim(),
-    cc > 0 ? `${cc.toLocaleString('ko-KR')}cc` : '',
-    seats > 0 ? `${seats}인승` : '',
-    String(p.drive_type || '').trim(),
+  const facts = [
+    String(p.car_number || '').trim(),
+    yearFullDisplay(p.year),
     km > 0 ? kmDisplay(p.mileage) : '',
+    cc > 0 ? `${cc.toLocaleString('ko-KR')}cc` : '',
+    fuelDisplay(p.fuel_type) || String(p.fuel_type || '').trim(),
   ].filter(Boolean).join(' · ');
 
   /*
-   * 우대사항 — 저신용·무심사 손님이 «되나 안 되나»를 재는 값이다. 이 판에서는 옵션보다 먼저 본다.
-   * 심사(무심사·소득확인)와 혜택(무보증·만21세·경력무관·무사고)은 성격이 같아 한 줄에 세운다.
+   * ⑤ 줄 — 우대조건 뱃지. 저신용·무심사 손님이 «되나 안 되나»를 재는 값이라 옵션보다 먼저 본다.
+   * 심사(무심사·소득확인) + 혜택(분납가능·무보증·만21세·경력무관·무사고) + 당일출고.
+   * ★`PERKS` 를 쓴다 — 카탈로그용 `CATALOG_PERKS` 에는 **분납가능이 빠져 있다.**
+   *   사장님이 콕 집어 말씀하신 값이라 그게 들어가는 목록으로 바꿨다.
    * 「미입력」은 영업자에게 «채워라»는 신호일 뿐 손님에겐 흠집이라 내보내지 않는다.
    */
   const creditRaw = creditDisplay(p);
   const credit = creditRaw && creditRaw !== CREDIT_UNSET ? creditRaw : '';
   const sameDay = /즉시출고|당일/.test(String(p.vehicle_status || ''));
-  const marks: { text: string; tone: string }[] = [
-    ...(credit ? [{ text: credit, tone: C.brand }] : []),
-    ...CATALOG_PERKS.filter((k) => hasPerk(p, k)).map((k) => ({ text: k, tone: C.brand })),
-    ...(sameDay ? [{ text: '당일출고', tone: C.ok }] : []),
+  const badges: { text: string; tone: BadgeTone; perk?: boolean }[] = [
+    ...(credit ? [{ text: credit, tone: CREDIT_TONE(credit) }] : []),
+    ...PERKS.filter((k) => hasPerk(p, k)).map((k) => ({
+      text: k as string,
+      tone: (PERK_TONE as Record<string, BadgeTone>)[k] || ('blue' as BadgeTone),
+      perk: true,
+    })),
+    ...(sameDay ? [{ text: '당일출고', tone: 'green' as BadgeTone }] : []),
   ];
-
-  const options = parseProductOptions(p.options);
-  const plate = String(p.car_number || '').trim();
 
   return (
     <div style={{ position: 'relative' }}>
@@ -111,75 +128,58 @@ export const ShopCard = memo(function ShopCard({ p, href, faved, onFav }: {
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           }} title={title}>{title}</div>
 
-          {specs ? (
+          {facts ? (
             <div style={{
               fontSize: SHOP.fs.sub, color: C.mute, fontVariantNumeric: 'tabular-nums',
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-            }}>{specs}</div>
+            }}>{facts}</div>
           ) : null}
 
+          {/*
+            ④ 기간 · 대여료 · 보증금 — **한 줄에 셋**(사장님 2026-09-04 「대여료 같은 데 공간
+            많이 남잖아, 그런 것들 활용해 가지고」). 셋을 각각 한 줄씩 쓰면 카드가 세로로만 길어지고
+            가로는 텅 빈다. 한 줄에 세우면 손님이 «얼마에 얼마 걸고 몇 달» 을 한눈에 읽는다.
+            ★위계는 크기로 낸다 — 대여료만 크고, 기간·보증금은 그 옆에 붙은 조건이다.
+            ⚠ 「35만」으로 «반올림»하지 않는다 — 손님이 보는 금액은 낼 금액이다.
+              글자를 줄이는 것은 되고, 값을 줄이는 것은 안 된다.
+          */}
           {price && price.rent > 0 ? (
-            <>
-              {/*
-                ★한 줄로 못 박는다(`nowrap`). 접히면 카드마다 높이가 달라진다.
-                ⚠ 그렇다고 「35만」으로 «반올림»하지 않는다 — 손님이 보는 금액은 낼 금액이다.
-                  글자를 줄이는 것은 되고, 값을 줄이는 것은 안 된다.
-              */}
-              <div style={{
-                display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 4,
-                minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap',
-              }}>
-                <span style={{ fontSize: SHOP.fs.sub, color: C.mute, flex: '0 0 auto' }}>월</span>
-                <span style={{
-                  fontSize: mobile ? 27 : 26, fontWeight: 800, color: C.ink,
-                  letterSpacing: '-0.04em', fontVariantNumeric: 'tabular-nums',
-                }}>{manWon(price.rent)}</span>
-              </div>
-              <div style={{ fontSize: SHOP.fs.sub, color: C.mute, fontVariantNumeric: 'tabular-nums' }}>
-                {price.deposit > 0 ? `보증금 ${manWon(price.deposit)}` : '보증금 없음'} · {price.m}개월 기준
-              </div>
-            </>
-          ) : null}
-
-          {/* 우대사항 — 「·」로 이어 한 줄. 박스로 감싸면 개수만큼 네모가 늘어 카드가 시끄러워진다. */}
-          {marks.length ? (
             <div style={{
-              display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 7, marginTop: 4,
-              fontSize: SHOP.fs.sub, fontWeight: 700,
+              display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 5,
+              minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap',
             }}>
-              {marks.map((m, i) => (
-                <span key={m.text} style={{ display: 'inline-flex', alignItems: 'center', gap: 7 }}>
-                  {i > 0 ? <span aria-hidden style={{ color: C.line, fontWeight: 400 }}>·</span> : null}
-                  <span style={{ color: m.tone }}>{m.text}</span>
-                </span>
-              ))}
+              <span style={{ fontSize: SHOP.fs.sub, color: C.mute, flex: '0 0 auto' }}>
+                {price.m}개월
+              </span>
+              <span style={{
+                fontSize: mobile ? 25 : 24, fontWeight: 800, color: C.ink, flex: '0 0 auto',
+                letterSpacing: '-0.04em', fontVariantNumeric: 'tabular-nums',
+              }}>{manWon(price.rent)}</span>
+              <span style={{
+                fontSize: SHOP.fs.sub, color: C.mute, flex: '0 1 auto',
+                minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis',
+                fontVariantNumeric: 'tabular-nums',
+              }}>
+                {price.deposit > 0 ? `보증금 ${manWon(price.deposit)}` : '보증금 없음'}
+              </span>
             </div>
           ) : null}
 
           {/*
-            카드의 «맨 아랫줄» — 옵션과 차번. 둘 다 «고르는 값»이 아니라서 제일 조용해야 한다.
-            ★옵션을 회색 칩 셋으로 깔았다가 글자 한 줄로 바꿨다(사장님 2026-09-04 「가장 심플하고
-              기본에 충실하고 눈에 쏙쏙 들어오는」). 칩은 그 자체가 «누르는 것»처럼 생겨서
-              카드 바닥에서 시선을 한 번 더 뺏는데, 여기서 손님이 볼 것은 이미 위의 요금과 우대사항이다.
-            ★차번은 오른쪽 끝. 「이 차다」의 증거라 빼지는 않지만, 손님이 고를 때 쓰는 값이 아니므로
-              사진 위도 스펙 줄도 아닌 **가장 낮은 자리**가 맞다.
+            ⑤ 우대조건 — ERP `Badge` 원자. 톤도 ERP 와 같은 맵이라 영업자 화면에서 초록이던
+            「무심사」가 손님 화면에서도 초록이다(두 화면을 오가는 사람이 다시 배우지 않는다).
+            ★글자는 sub(12) — 기본 micro(10)는 콕핏 표에서 쓰는 크기라 손님 화면에서 안 읽힌다.
           */}
-          {(options.length || plate) ? (
+          {badges.length ? (
             <div style={{
-              display: 'flex', alignItems: 'baseline', gap: 10,
+              display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 5,
               marginTop: 'auto', paddingTop: 10,
-              fontSize: SHOP.fs.cap, color: C.faint,
             }}>
-              {options.length ? (
-                <span style={{
-                  flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-                }}>
-                  {options.slice(0, 2).join(' · ')}{options.length > 2 ? ` 외 ${options.length - 2}` : ''}
-                </span>
-              ) : <span style={{ flex: 1 }} />}
-              {plate ? (
-                <span style={{ flex: '0 0 auto', fontVariantNumeric: 'tabular-nums' }}>{plate}</span>
-              ) : null}
+              {badges.map((b) => (
+                <Badge key={b.text} tone={b.tone} variant={b.perk ? 'perk' : 'line'} size={FS.sub}>
+                  {b.text}
+                </Badge>
+              ))}
             </div>
           ) : null}
         </div>
