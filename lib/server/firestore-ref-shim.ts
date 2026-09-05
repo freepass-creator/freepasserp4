@@ -28,6 +28,8 @@ const COL: Record<string, string> = {
 };
 const ENTITY = new Set(['contracts', 'settlements', 'policies', 'partners', 'customers', 'users']);
 const docSafe = (s: string) => s.replace(/[/#.$\[\]]/g, '_');
+/** 파이어스토어가 이 시간 안에 대답 못 하면 RTDB 로 간다 — 매달려 죽는 것보다 낫다. */
+const FS_TIMEOUT_MS = Number(process.env.FIRESTORE_READ_TIMEOUT_MS || 3500);
 const companyOf = (v: any) => String(v?.companyId || v?.provider_company_code || v?.company_code || v?.partner_code || 'PT-0000');
 
 type Parsed = { col: string; node: string; docId: string | null; field: string[] };
@@ -60,15 +62,29 @@ class RefShim {
 
   async get(): Promise<Snap> {
     try {
+      /*
+       * ⚠⚠ 2026-09-05 운영 사고. 배포한 서버에서 파이어스토어가 `16 UNAUTHENTICATED` 로 막히자
+       *   SDK 가 **재시도하며 매달렸고**, 함수가 타임아웃 나서 손님 화면에 **차가 한 대도 안 나왔다**
+       *   (로그 상태코드 0). 폴백이 있어도 «빠르게 실패»하지 않으면 폴백까지 못 간다.
+       * ⇒ 파이어스토어에 **시간 제한**을 건다. 그 안에 못 읽으면 RTDB 로 떨어진다.
+       *   손님 화면에서 제일 나쁜 것은 옛 데이터가 아니라 빈 화면이다.
+       */
+      const guard = <T,>(work: Promise<T>) => Promise.race([
+        work,
+        new Promise<never>((_, no) => setTimeout(() => no(new Error('firestore-timeout')), FS_TIMEOUT_MS)),
+      ]);
       if (!this.p.docId) {
         // 노드 전체 → { docId: data } 맵 (RTDB 노드 읽기 흉내)
-        const q = await this.fs.collection(this.p.col).get();
+        const q = await guard(this.fs.collection(this.p.col).get());
         if (!q.empty) { const out: Record<string, any> = {}; q.forEach((d) => { const x: any = d.data(); out[String(x._key || d.id)] = x; }); return new Snap(out, this.p.node); }
       } else {
-        const d = await this.docRef()!.get();
+        const d = await guard(this.docRef()!.get());
         if (d.exists) return new Snap(this.p.field.length ? dig(d.data(), this.p.field) : d.data(), this.key);
       }
-    } catch { /* Firestore 실패 → RTDB 폴백 */ }
+    } catch (e) {
+      /* ★왜 떨어졌는지 한 줄 남긴다 — 조용히 옛 데이터가 나가면 아무도 눈치채지 못한다. */
+      console.error('[firestore-shim] 폴백', this.p.col, e instanceof Error ? e.message : 'unknown');
+    }
     const snap = await this.rtdb.ref(this.path).get();
     return new Snap(snap.val(), this.key);
   }
