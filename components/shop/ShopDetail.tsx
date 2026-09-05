@@ -675,7 +675,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
       */}
       {bar}
       {gallery}
-      <Head title={title} facts={facts} stateMarks={stateMarks} perkMarks={perkMarks} mobile={mobile} />
+      <Head title={title} facts={facts} stateMarks={stateMarks} perkMarks={perkMarks} />
       {/*
         ★★**차량 정보 = 「이 차가 무엇인가」 한 덩어리**.
           제조사·세부모델·세부트림 한 줄 → 연식·주행거리·배기량·연료 → 색상·정원·최초등록.
@@ -919,22 +919,18 @@ const FAV_KEY = 'fp4_shop_fav';
 /**
  * **폰 머리띠 왼쪽 — 이 화면의 이름.** 채널 워드마크를 갈아 끼운다(`WhitelabelFrame.headerLead`).
  *
- * ★차번을 든다(사장님 2026-09-05 「그냥 맨 위에 **차량번호**가 있든지」). 머리띠가 폰에서
- *   «고정»이라, 대여료·보험까지 내려가도 **지금 무슨 차를 보고 있는지**가 화면에 남는다.
- *   간판(유니오토모빌)은 그 자리에서 아무 말도 해 주지 않는다 — 이미 그 가게 안이다.
- * ★그래서 **본문 차번 줄은 폰에서 걷는다**(`Head`) — 머리띠와 8px 사이에서 같은 여덟 글자를
- *   두 번 읽히게 두지 않는다. 웹은 반대다: 머리는 사이트 머리(간판·담당자·전화)라 차번이 본문에 남는다.
- * ⚠ 차번이 없으면 「상품 상세」로 떨어진다 — 빈 머리띠를 내보내지 않는다.
+ * ★상세는 간판을 거는 자리가 아니다(사장님 2026-09-05 「상세페이지 갔을 때는 «유니오토모빌»
+ *   나오면 안 되고, 그냥 **상품 상세 페이지**라는 게 나오고 거기에 그 버튼이 있으면 돼」).
+ *   손님은 이미 그 가게 안이라 간판은 아무 말도 해 주지 않는다.
+ * ⚠ 여기 «차번»을 넣어 봤다가 되돌렸다(같은 날. 사장님 「차량 번호를 그 **현대 그랜저 뒤쪽**으로
+ *   갖고 오는 게 맞을 것 같아요」). 차번은 **차명의 일부**다 — 차 이름 옆에 붙어야 「그 그랜저 중
+ *   어느 차」로 읽히지, 머리띠에 혼자 떠 있으면 그냥 숫자다. `Head` 의 차명 줄로 갔다.
  */
-export function ShopDetailLead({ plate }: { plate: string }) {
-  const shown = plate.trim();
+export function ShopDetailLead() {
   return (
     <span style={{
-      fontSize: 17, fontWeight: FW.head, color: C.ink, letterSpacing: '-0.02em',
-      whiteSpace: 'nowrap', ...(shown ? { fontFamily: NUM } : null),
-    }}>
-      {shown || '상품 상세'}
-    </span>
+      fontSize: 17, fontWeight: FW.head, color: C.ink, letterSpacing: '-0.02em', whiteSpace: 'nowrap',
+    }}>상품 상세</span>
   );
 }
 
@@ -1339,13 +1335,14 @@ function SecTitle({ children, icon: Icon, accent, tag }: {
   );
 }
 
-function Head({ title, facts, stateMarks, perkMarks, mobile }: {
-  title: string; facts: string;
+function Head({ title, facts, stateMarks, perkMarks }: {
+  title: string;
+  /** 차번 — 차명 «뒤»에 붙는다. 이름의 끝이지 따로 떨어진 정보가 아니다. */
+  facts: string;
   /** 차명 줄 «오른쪽» — 출고상태 · 상품구분. 이 차의 «신원»이라 이름과 같은 줄에 선다. */
   stateMarks: { text: string; icon: LucideIcon; good?: boolean }[];
   /** 그 밑 한 줄 — 심사 · 우대조건. 「내가 되나」라 신원과 성격이 다르다. */
   perkMarks: { text: string; icon: LucideIcon; good?: boolean }[];
-  mobile?: boolean;
 }) {
   /*
    * ★★**상자 뱃지가 아니라 아이콘 + 글자**다(사장님 2026-08-28·08-30 「박스 뱃지 쓰지 말고
@@ -1404,29 +1401,32 @@ function Head({ title, facts, stateMarks, perkMarks, mobile }: {
         display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
         gap: 12, flexWrap: 'wrap',
       }}>
+        {/*
+          ★★**차번은 차명의 «뒤쪽»에 붙는다**(사장님 2026-09-05 「차량 번호를 그 현대 그랜저
+            뒤쪽으로 갖고 오는 게 맞을 것 같아요」). 차번은 따로 떨어진 정보가 아니라 **이름의 끝**이다 —
+            「그랜저」는 백 대가 있고, 「그랜저 122두8108」이 이 차다.
+          ⚠ 한때 밑에 «제 줄»을 하나 차지하고 있었다. 흐린 여덟 글자 하나가 줄을 통째로 먹으면서
+            차명과 조건 칩 사이를 갈라 놓았다. 이름 옆에 붙이면 줄 하나가 통째로 회수된다.
+          ⚠ 폰·웹이 «같다» — 한때 폰만 머리띠로 올렸다가 두 화면이 다른 물건이 됐다. 되돌렸다.
+        */}
         <h1 style={{
           margin: 0, fontSize: 22, fontWeight: FW.head, color: C.ink,
           lineHeight: 1.3, letterSpacing: '-0.03em', minWidth: 0,
-        }}>{title}</h1>
+        }}>
+          {title}
+          {facts ? (
+            <span style={{
+              marginLeft: 8, fontSize: SHOP.fs.body, fontWeight: FW.meta,
+              color: C.mute, fontFamily: NUM, letterSpacing: 0, whiteSpace: 'nowrap',
+            }}>{facts}</span>
+          ) : null}
+        </h1>
         {stateMarks.length ? (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'flex-end' }}>
             {stateMarks.map(stateChip)}
           </div>
         ) : null}
       </div>
-      {/*
-        ★★**차번 줄은 웹에만 있다.** 폰은 «고정 머리띠»가 차번을 들고 있어서, 여기 또 쓰면
-          8px 사이에서 같은 여덟 글자를 두 번 읽힌다(`ShopDetailLead` 머리말).
-          웹 머리는 사이트 머리(간판·담당자·전화)라 차번이 없다 — 그래서 본문이 든다.
-        ★차번 줄은 **정보만** 싣는다. 여기 관심·공유를 얹어 봤다가 걷었다(사장님 2026-09-05
-          「차량 번호 우측은 아닌 거 같고」) — 「이 차가 무엇인가」를 읽는 줄에 실행이 끼면
-          40px 짜리 단추가 여덟 글자짜리 흐린 줄을 밀어 올려 **정보 줄이 실행줄처럼** 보인다.
-      */}
-      {facts && !mobile ? (
-        <div style={{ marginTop: 8, fontSize: SHOP.fs.body, color: C.mute, fontVariantNumeric: 'tabular-nums' }}>
-          {facts}
-        </div>
-      ) : null}
       {perkMarks.length ? (
         <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 16, rowGap: 8, marginTop: 12 }}>
           {perkMarks.map(perkChip)}

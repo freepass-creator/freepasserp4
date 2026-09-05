@@ -410,13 +410,17 @@ must(/const stateMarks: Mark\[\]/.test(shopDetail) && /const perkMarks: Mark\[\]
  */
 const wlFrame = read('components/WhitelabelFrame.tsx');
 /*
- * 폰 상세 머리띠는 «채널 간판»이 아니라 «차번»을 든다 — 그리고 그때 본문 차번 줄은 접힌다.
- * ⚠ 되돌아가면 ㉠ 고정 머리띠가 스크롤 내내 「유니오토모빌」만 말하거나 ㉡ 차번이 8px 사이에 둘.
+ * 폰 상세 머리띠는 «채널 간판»이 아니라 「상품 상세」다 — 손님은 이미 그 가게 안이다.
+ * 그리고 차번은 «차명 뒤»에 붙는다 — 제 줄을 하나 차지하지도, 머리띠로 올라가지도 않는다.
  */
 must(/mobile && headerLead \? headerLead :/.test(wlFrame)
-  && /headerLead=\{<ShopDetailLead/.test(read('app/q/[code]/ShopDetailView.tsx'))
-  && /\{facts && !mobile \?/.test(shopDetail),
-  '폰 상세 머리띠가 다시 채널 간판을 들었거나, 차번이 머리띠와 본문에 두 번 섰습니다.',
+  && /headerLead=\{<ShopDetailLead \/>\}/.test(read('app/q/[code]/ShopDetailView.tsx'))
+  && />상품 상세</.test(shopDetail),
+  '폰 상세 머리띠가 다시 채널 간판을 들었습니다 — 상세는 「상품 상세」입니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-2-1');
+/* 차번은 차명 줄 «안»에 있다 — h1 이 닫히기 전에 나와야 이름의 끝으로 읽힌다. */
+must(/\{title\}[\s\S]{0,400}?\{facts \? \([\s\S]{0,400}?<\/h1>/.test(shopDetail),
+  '차번이 차명에서 떨어졌습니다 — 「현대 그랜저 122두8108」처럼 이름 뒤에 붙습니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-2-1');
 
 must(/const bar = mobile \? null :/.test(shopDetail)
