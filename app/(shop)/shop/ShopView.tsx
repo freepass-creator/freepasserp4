@@ -235,10 +235,16 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
             ⚠ 주석을 삼항의 «값 자리»에 넣지 않는다 — 자식이 둘이 되어 JSX 가 깨진다(방금 깨뜨렸다).
           */}
           {!mobile ? (
+            /*
+             * ⚠ 여기 `maxHeight + overflowY:auto` 가 있었다 — 조건칸 «안»에 스크롤바가 또 생겨서,
+             *   목록을 내리는 손이 기둥 위에 있으면 목록이 아니라 조건칸이 굴렀다(2026-09-05 실측).
+             *   엔카·케이카 둘 다 왼쪽 기둥은 **페이지와 같이 흐른다.**
+             * ⇒ 붙박이(sticky)는 두되 **높이를 자르지 않는다.** 기둥이 화면보다 길면 그냥 같이 흐르고,
+             *   짧으면 제자리에 붙어 있는다 — 스크롤 막대가 화면에 하나뿐이라야 손이 헷갈리지 않는다.
+             */
             <aside style={{
               width: 260, flexShrink: 0,
-              position: 'sticky', top: 20,
-              maxHeight: 'calc(100vh - 40px)', overflowY: 'auto',
+              position: 'sticky', top: 20, alignSelf: 'flex-start',
             }}>
               <div style={{ paddingBottom: 18 }}><ShopCount value={countText} /></div>
               {/*

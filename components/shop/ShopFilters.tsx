@@ -40,8 +40,17 @@ const COLUMNS: Partial<Record<ShopAxis, 1 | 2>> = { vc: 2, maker: 1, year: 2, fu
 /** 구간 축 = 사각 두 열. 나머지는 원형 표식. */
 const BAND_AXES: ShopAxis[] = ['rent', 'dep', 'mile'];
 
-/** 처음부터 펼쳐 두는 축 — 손님이 실제로 먼저 거는 셋. 나머지는 접어 둔다(위 머리말 ㉠). */
-const OPEN_BY_DEFAULT: ShopAxis[] = ['vc', 'maker', 'rent'];
+/**
+ * 처음부터 펼쳐 두는 축 — **차종 · 제조사 · 월 대여료 · 보증금** 넷.
+ *
+ * ★★중고차 사이트의 「가격」에 해당하는 것이 우리에게는 **월 대여료 + 보증금 둘**이다
+ *   (사장님 2026-09-05 「우리는 다른 거는 차량 가격이 아니고 **대여료·보증금**이잖아.
+ *   **그거를 차량 가격이라고 생각을 하고**」). 그래서 둘을 나란히 두고 **둘 다 펼쳐 둔다** —
+ *   엔카·케이카에서 「가격」 한 축이 늘 열려 있는 것과 같은 자리다.
+ * ★특히 보증금은 저신용 손님의 **1번 장벽**이다(지금 당장 있어야 하는 목돈).
+ *   접어 두면 「얼마 있어야 되나」를 묻는 손님이 그 축을 못 찾는다.
+ */
+const OPEN_BY_DEFAULT: ShopAxis[] = ['vc', 'maker', 'rent', 'dep'];
 /** 긴 목록을 몇 개까지 보여 주고 「더보기」로 접을까 — 제조사 12개 중 아래 넷은 5대 미만이다. */
 const HEAD_COUNT = 8;
 
@@ -89,7 +98,14 @@ export function ShopFilters({ facets, sel, onToggle, onClearAxis, onClearAll, mo
            * 전에는 축마다 밑줄이 있어 기둥 하나에 가로선이 아홉 개였다 — 조건을 고르는 곳이
            * 표처럼 보였다. 축 이름이 굵고 값이 흐리므로 선이 없어도 덩어리가 갈린다.
            */
-          <section key={axis} style={{ paddingBottom: isOpen ? 26 : 14 }}>
+          /*
+           * 간격 — **접힌 축은 «줄»이고 펼친 축은 «덩어리»다**(사장님 2026-09-05 「필터 간격하고
+           * 보여지는 것까지 다 신경 쓰고」). 접힌 것들끼리는 촘촘히 붙어 목록처럼 읽히고,
+           * 펼친 축은 아래로 넉넉히 떼어 값 무리와 다음 축이 안 섞인다.
+           * ★제목 줄에 상하 여백을 줘서 **누를 자리를 키운다**(엔카 축 제목 줄이 48px 쯤 된다).
+           *   글자만 있으면 어디를 눌러야 열리는지 손이 못 찾는다.
+           */
+          <section key={axis} style={{ paddingBottom: isOpen ? 24 : 0 }}>
             {/*
               제목 줄 전체가 «접었다 폈다» 하는 단추다 — 화살표만 누르게 하면 손님이 그걸 못 찾는다.
               오른쪽에는 ㉠ 고른 수(접혀 있어도 몇 개 걸렸는지 보인다) ㉡ 화살표.
@@ -98,9 +114,9 @@ export function ShopFilters({ facets, sel, onToggle, onClearAxis, onClearAll, mo
               aria-expanded={isOpen} className="fp-shop-press"
               style={{
                 display: 'flex', alignItems: 'center', gap: 8, width: '100%',
-                padding: 0, border: 'none', background: 'transparent', cursor: 'pointer',
+                padding: '11px 0', border: 'none', background: 'transparent', cursor: 'pointer',
                 fontFamily: 'inherit', textAlign: 'left',
-                marginBottom: isOpen ? 12 : 0,
+                marginBottom: isOpen ? 4 : 0,
               }}>
               <span style={{ fontSize: SHOP.fs.body, fontWeight: 700, color: C.ink, flex: 1, minWidth: 0 }}>
                 {AXIS_LABEL[axis]}
@@ -153,8 +169,18 @@ export function ShopAxisOptions({ axis, options, selected, onToggle, mobile, col
   columns?: 1 | 2;
 }) {
   if (BAND_AXES.includes(axis)) {
+    /*
+     * ★구간은 **웹 세 열 · 폰 두 열**이다. 「가격」에 해당하는 축이 둘(월 대여료·보증금)이라
+     *   둘 다 펼쳐 두는데, 두 열이면 기둥이 1,180px 까지 길어져 **조건칸에만 스크롤바가 또 생긴다**
+     *   (2026-09-05 실측). 라벨이 짧아(「50~60만」) 세 열에서도 안 잘린다.
+     * ⚠ 폰 시트는 칸이 좁아 두 열 그대로다 — 세 열이면 「100~150만」이 잘린다(2026-09-04 실측 교훈).
+     */
     return (
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 8 }}>
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: `repeat(${mobile ? 2 : 3}, minmax(0, 1fr))`,
+        gap: mobile ? 8 : 7,
+      }}>
         {options.map((o) => (
           <BandBox key={o.key} label={o.label} count={o.count}
             on={selected.includes(o.key)} onClick={() => onToggle(axis, o.key)} />
