@@ -13,10 +13,12 @@ export const dynamic = 'force-dynamic';
  *   가격·옵션은 공개정보(제조사 공표가)라 화이트리스트가 필요 없다. 견적기는 netlify 별도 오리진이라
  *   CORS 를 열어 준다(GET·읽기 전용).
  *
- *   ?maker=현대           그 제조사만
+ *   ?maker=현대           그 제조사만(현대·기아·제네시스·르노)
  *   ?model=그랜저          sub_model 부분일치(현대 「디 올 뉴 아반떼」 · 기아 「sorento」 슬러그)
- *   ?priced=1             new_car_trim 실가만(견적기 기본) — 지금은 컬렉션 자체가 실가라 전량
- * 응답: { count, trims:[{maker, sub_model, fuel, trim, priceBefore, priceAfter, options[], basePrices?, rules?}] }
+ *   ?group=model          모델별로 묶어서(견적기 「모델 고르고 → 트림·옵션」 흐름용)
+ * ※ new_car_trim 컬렉션 자체가 «제조사 크롤 실가»만 담으므로 별도 priced 필터 불필요.
+ * 응답: { count, makers, updatedAt, trims:[{maker, sub_model, carType, fuel, trim, priceBefore, priceAfter, options[], basePrices?, rules?}] }
+ *   group=model 이면 { modelCount, models:[{maker, sub_model, fuels[], trimCount, trims[]}] }
  */
 const S = (v: unknown) => String(v ?? '').trim();
 const N = (v: unknown) => S(v).toLowerCase().replace(/[\s()·-]/g, '');
@@ -31,10 +33,13 @@ export function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS });
 }
 
+const MAKERS = ['현대', '기아', '제네시스', '르노'];
+
 export async function GET(request: Request): Promise<Response> {
   const url = new URL(request.url);
   const maker = S(url.searchParams.get('maker'));
   const model = S(url.searchParams.get('model'));
+  const group = S(url.searchParams.get('group')) === 'model'; // 모델별로 묶어서
 
   try {
     const fs = getFirestore(firebaseAdminApp());
@@ -53,7 +58,19 @@ export async function GET(request: Request): Promise<Response> {
     });
     if (model) trims = trims.filter((t) => N(t.sub_model).includes(N(model)) || N(t.carType).includes(N(model)));
     trims.sort((a, b) => a.maker.localeCompare(b.maker) || a.sub_model.localeCompare(b.sub_model) || a.priceBefore - b.priceBefore);
-    return NextResponse.json({ count: trims.length, updatedAt: new Date().toISOString().slice(0, 10), trims }, { headers: CORS });
+    const meta = { count: trims.length, makers: MAKERS, updatedAt: new Date().toISOString().slice(0, 10) };
+    if (group) {
+      // 모델별 묶음 — 견적기가 «모델 고르고 → 트림·옵션» 흐름으로 쓰기 좋게
+      const byModel = new Map<string, any>();
+      for (const t of trims) {
+        const k = `${t.maker}|${t.sub_model}`;
+        if (!byModel.has(k)) byModel.set(k, { maker: t.maker, sub_model: t.sub_model, fuels: new Set<string>(), trims: [] as any[] });
+        const g = byModel.get(k); g.fuels.add(t.fuel); g.trims.push(t);
+      }
+      const models = [...byModel.values()].map((g) => ({ maker: g.maker, sub_model: g.sub_model, fuels: [...g.fuels], trimCount: g.trims.length, trims: g.trims }));
+      return NextResponse.json({ ...meta, modelCount: models.length, models }, { headers: CORS });
+    }
+    return NextResponse.json({ ...meta, trims }, { headers: CORS });
   } catch (e) {
     return NextResponse.json({ error: 'newcar feed unavailable', detail: S((e as Error)?.message) }, { status: 503, headers: CORS });
   }
