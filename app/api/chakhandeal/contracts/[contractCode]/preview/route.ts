@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { firebaseAdminDatabase, verifyActiveBearer } from '@/lib/server/firebase-admin';
+import { verifyActiveBearer } from '@/lib/server/firebase-admin';
+import { firestoreAdminRef } from '@/lib/server/firestore-ref-shim';
 import { fetchChakhandealDraftPreview, getChakhandealConfig } from '@/lib/server/chakhandeal-esign';
 
 export const dynamic = 'force-dynamic';
@@ -40,15 +41,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ cont
 
   const save = new URL(request.url).searchParams.get('save') === '1';
 
-  const db = firebaseAdminDatabase();
-  const [overlaySnap, legacySnap] = await Promise.all([
-    db.ref(`v4/contracts/${contractCode}`).get(),
-    db.ref(`contracts/${contractCode}`).get(),
-  ]);
-  const contract = {
-    ...((legacySnap.val() as Record<string, unknown> | null) || {}),
-    ...((overlaySnap.val() as Record<string, unknown> | null) || {}),
-  };
+  /*
+   * ★파이어스토어를 읽는다(2026-09-05 · 「위험 낮은 거부터」). 심이 `contracts` → `contract` 로 옮긴다.
+   * ⚠ v3(`contracts`)·v4(`v4/contracts`) 두 겹으로 읽던 것을 **한 겹**으로 줄였다 —
+   *   파이어스토어에는 둘이 이미 합쳐져 들어가 있다(문서 121건). 두 번 읽으면 같은 문서를 두 번 본다.
+   */
+  const db = firestoreAdminRef();
+  const snap = await db.ref(`v4/contracts/${contractCode}`).get();
+  const contract = (snap.val() as Record<string, unknown> | null) || {};
   const contractId = S(contract.esign_id);
   if (!contractId) return json({ error: '착한거래 계약 식별자가 없습니다.' }, 409);
 
