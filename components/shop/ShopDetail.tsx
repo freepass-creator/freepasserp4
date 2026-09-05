@@ -247,11 +247,20 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
    *   수리비 부담(20%)은 그 값에 딸린 조건이라 같은 줄에 붙인다.
    * ★대인·대물·자손 면책금은 셋이 나란한 값이라 한 묶음으로 흐른다.
    */
-  const deductible = S('own_damage_min_deductible') && S('own_damage_max_deductible')
-    ? `${S('own_damage_min_deductible')} ~ ${S('own_damage_max_deductible')}`
-    : S('own_damage_min_deductible');
-  /** 자차 면책금에 딸린 조건 — 「수리비의 20%」처럼 함께 물게 되는 값이라 «같은 칸»에 붙인다. */
-  const repairShare = meaningful(S('own_damage_repair_ratio')) ? `수리비 부담 ${S('own_damage_repair_ratio')}` : '';
+  /**
+   * 자차 면책금 — **「수리비 ○○% · 최소 얼마 ~ 최대 얼마」** 한 줄로 쓴다
+   * (사장님 2026-09-05 「자차 면책금은 **수리비 땡땡 프로, 최소 얼마에서 최대 얼마** 표현해 줘야 되고」).
+   *
+   * ★셋이 «따로 노는 값»이 아니라 **한 값의 세 조각**이다 — 사고가 나면 수리비의 20%를 물되,
+   *   그 금액이 50만원 밑으로는 안 내려가고 100만원 위로는 안 올라간다. 그게 이 칸의 뜻이다.
+   *   떼어 놓으면 손님이 「20%」와 「50~100만원」을 **다른 조건 둘**로 읽는다.
+   */
+  const ownDamageDeductible = [
+    meaningful(S('own_damage_repair_ratio')) ? `수리비 ${S('own_damage_repair_ratio')}` : '',
+    S('own_damage_min_deductible') && S('own_damage_max_deductible')
+      ? `최소 ${S('own_damage_min_deductible')} ~ 최대 ${S('own_damage_max_deductible')}`
+      : (S('own_damage_min_deductible') ? `최소 ${S('own_damage_min_deductible')}` : ''),
+  ].filter(Boolean).join(' · ');
 
   /*
    * ★★★**보험 구역 안에서 넷은 성격이 다 다르다 — 위계를 달리 준다**(사장님 2026-09-05
@@ -279,8 +288,15 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
     ['자기차량', S('own_damage_compensation')],
     ['무보험차', S('uninsured_damage')],
   ]);
-  /** ③ 면책금 — 자차는 따로 떼고(아래 JSX), 나머지 셋만 여기 모은다. */
+  /**
+   * ③ 면책금 — **자차가 맨 앞**이고 나머지 셋이 뒤따른다.
+   * ★자차도 «면책금»이라 **같은 줄 규칙(라벨 왼쪽 · 값 오른쪽)**을 쓴다
+   *   (사장님 2026-09-05 「이것도 면책금이니까 **우측 정렬**을 해줘야지」).
+   * ⚠ 한때 자차만 왼쪽 정렬 큰 줄로 떼어 놓았다 — 그러면 넷이 «다른 종류»로 보인다.
+   *   갈라야 할 것은 «정렬»이 아니라 **무게**다. 자차는 같은 줄에서 굵게 선다.
+   */
   const deductibles = rows([
+    ['자차 면책금', ownDamageDeductible],
     ['대인 면책금', S('injury_deductible')],
     ['대물 면책금', S('property_deductible')],
     ['자기신체 면책금', S('self_body_deductible')],
@@ -323,7 +339,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
     pair('차량 인도', S('delivery_fee')),
   ].filter(Boolean).join(' · ');
 
-  const hasPolicy = !!(payRows.length || deductible || coverage.length || ageRange || useRows.length || etc || roadside);
+  const hasPolicy = !!(payRows.length || deductibles.length || coverage.length || ageRange || useRows.length || etc || roadside);
 
   const options = parseProductOptions(p.options);
   const phone = String(agentPhone || '').trim();
@@ -592,7 +608,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
           ⚠ 여기 큰 줄(BigRow)로 세웠다가 옮겼다. 보장 한도와 «다른 영역»이라는 판단은 그대로다 —
              다른 영역이니까 격자에 안 섞고, 그렇다고 본문에 또 한 줄을 쓰지도 않는다.
       */}
-      {(insuranceFee || deductible || deductibles.length || coverage.length || roadside) ? (
+      {(insuranceFee || deductibles.length || coverage.length || roadside) ? (
         <Sec title="보험" icon={ShieldCheck} tag={insuranceFee} mobile={mobile}>
           <>
             {/* ② 보상 한도 — 어디까지 보상되나. 넷이 나란한 값이라 격자로 편다. */}
@@ -608,25 +624,11 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
                  금액이 제일 크고 수리비 부담이 딸려 있다(사장님 「자차 면책금하고는 더 분리를」).
                  그래서 자차는 한 줄로 떼고, 대인·대물·자손은 그 밑에 흐리게 흘린다.
             */}
-            {(deductible || deductibles.length) ? (
+            {deductibles.length ? (
               <div style={{ marginTop: 22 }}>
                 <div style={{ marginBottom: 9, fontSize: SHOP.fs.cap, fontWeight: 600, color: C.mute }}>면책금</div>
-                {deductible ? (
-                  <div style={{
-                    display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', columnGap: 10, rowGap: 2,
-                    paddingBottom: deductibles.length ? 12 : 0,
-                  }}>
-                    <span style={{ fontSize: SHOP.fs.sub, color: C.faint, minWidth: 72 }}>자차</span>
-                    <span style={{
-                      fontSize: mobile ? 17 : 18, fontWeight: 800, color: C.ink,
-                      letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums',
-                    }}>{deductible}</span>
-                    {repairShare ? (
-                      <span style={{ fontSize: SHOP.fs.sub, color: C.mute }}>{repairShare}</span>
-                    ) : null}
-                  </div>
-                ) : null}
-                {deductibles.length ? <DefList rows={deductibles} mobile={mobile} /> : null}
+                {/* 자차가 맨 앞이고 «굵게» 선다 — 정렬은 나머지와 같다(사장님 「이것도 면책금이니까 우측 정렬」). */}
+                <DefList rows={deductibles} mobile={mobile} strongFirst />
               </div>
             ) : null}
 
@@ -942,7 +944,11 @@ function BigRow({ label, value, note, mobile }: {
  * ★폰에서는 한 칸, 웹에서는 두 칸으로 흘린다 — 여섯 줄을 900px 에 한 칸으로 세우면
  *   오른쪽이 통째로 빈다.
  */
-function DefList({ rows, mobile }: { rows: [string, string][]; mobile?: boolean }) {
+function DefList({ rows, mobile, strongFirst }: {
+  rows: [string, string][]; mobile?: boolean;
+  /** 첫 줄만 굵게 — 같은 종류인데 «하나가 더 큰» 값일 때(면책금의 자차). 정렬은 그대로다. */
+  strongFirst?: boolean;
+}) {
   if (!rows.length) return null;
   return (
     <div style={{
@@ -950,22 +956,26 @@ function DefList({ rows, mobile }: { rows: [string, string][]; mobile?: boolean 
       display: 'grid', columnGap: 28, rowGap: 0,
       gridTemplateColumns: mobile ? '1fr' : '1fr 1fr',
     }}>
-      {rows.map(([k, v]) => (
-        <div key={k} style={{
-          display: 'flex', alignItems: 'baseline', gap: 12,
-          padding: '9px 0', minWidth: 0,
-        }}>
-          <span style={{
-            flex: '0 0 auto', minWidth: 72,
-            fontSize: SHOP.fs.sub, color: C.faint,
-          }}>{k}</span>
-          <span style={{
-            flex: 1, minWidth: 0, textAlign: 'right',
-            fontSize: SHOP.fs.sub, fontWeight: 600, color: C.ink,
-            wordBreak: 'keep-all', lineHeight: 1.5,
-          }}>{v}</span>
-        </div>
-      ))}
+      {rows.map(([k, v], i) => {
+        const strong = !!strongFirst && i === 0;
+        return (
+          <div key={k} style={{
+            display: 'flex', alignItems: 'baseline', gap: 12,
+            padding: strong ? '9px 0 12px' : '9px 0', minWidth: 0,
+          }}>
+            <span style={{
+              flex: '0 0 auto', minWidth: 72,
+              fontSize: SHOP.fs.sub, color: strong ? C.mute : C.faint,
+            }}>{k}</span>
+            <span style={{
+              flex: 1, minWidth: 0, textAlign: 'right',
+              fontSize: strong ? SHOP.fs.body : SHOP.fs.sub,
+              fontWeight: strong ? 800 : 600, color: C.ink,
+              wordBreak: 'keep-all', lineHeight: 1.5,
+            }}>{v}</span>
+          </div>
+        );
+      })}
     </div>
   );
 }

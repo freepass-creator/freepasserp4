@@ -302,8 +302,20 @@ must(!/\['보험료', S\('insurance_included'\)\]/.test(shopDetail),
 must(/>보상 한도</.test(shopDetail) && />면책금</.test(shopDetail),
   '보험에서 「보상 한도」 또는 「면책금」 소제목이 사라졌습니다 — 둘은 성격이 달라 섞이면 안 됩니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
-must(/>자차</.test(shopDetail) && /\{repairShare\}/.test(shopDetail),
-  '자차 면책금이 다른 면책금들과 같은 무게로 섞였거나 「수리비 부담」이 떨어졌습니다 — 자차는 따로 서고 수리비는 그 줄에 붙습니다.',
+/*
+ * 자차 면책금 = **「수리비 ○○% · 최소 얼마 ~ 최대 얼마」 한 줄**이고, 정렬은 다른 면책금과 같다
+ * (사장님 2026-09-05 「자차 면책금은 수리비 땡땡 프로, 최소 얼마에서 최대 얼마 표현해 줘야 되고 …
+ *  **이것도 면책금이니까 우측 정렬**을 해줘야지」).
+ * ⚠ 한때 자차만 왼쪽 정렬 큰 줄로 떼어 놓았다 — 그러면 넷이 «다른 종류»로 보인다.
+ *   갈라야 할 것은 «정렬»이 아니라 **무게**다(`strongFirst`).
+ */
+must(/const ownDamageDeductible = \[/.test(shopDetail)
+  && /수리비 \$\{S\('own_damage_repair_ratio'\)\}/.test(shopDetail)
+  && /최소 \$\{S\('own_damage_min_deductible'\)\} ~ 최대/.test(shopDetail),
+  '자차 면책금이 「수리비 ○○% · 최소 ~ 최대」 한 줄에서 갈라졌습니다 — 셋은 한 값의 세 조각입니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
+must(/\['자차 면책금', ownDamageDeductible\]/.test(shopDetail) && /<DefList rows=\{deductibles\}[^>]*strongFirst/.test(shopDetail),
+  '자차 면책금이 면책금 목록에서 빠졌거나 굵기 구분이 사라졌습니다 — 같은 줄 규칙(우측 정렬)에 무게만 다릅니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
 must(/긴급출동 \{roadside\}/.test(shopDetail),
   '보험 맨 밑 「긴급출동」이 사라졌습니다 — 사고가 아니라 고장일 때 부르는 것이라 여기가 제자리입니다.',
