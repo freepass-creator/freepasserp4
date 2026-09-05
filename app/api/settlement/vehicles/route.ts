@@ -13,7 +13,8 @@
  *   이미 계약이 된 차를 접수하는 자리다 — 거르면 정작 접수할 차가 안 보인다.
  */
 import { NextResponse } from 'next/server';
-import { firebaseAdminDatabase, verifyActiveBearer } from '@/lib/server/firebase-admin';
+import { verifyActiveBearer } from '@/lib/server/firebase-admin';
+import { firestoreAdminRef } from '@/lib/server/firestore-ref-shim';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -32,7 +33,7 @@ export async function GET(req: Request) {
   if (!who) return NextResponse.json({ ok: false, reason: '로그인이 필요합니다.' }, { status: 401 });
   if (who.role !== 'admin') return NextResponse.json({ ok: false, reason: '관리자만 볼 수 있습니다.' }, { status: 403 });
 
-  const db = firebaseAdminDatabase();
+  const db = firestoreAdminRef();
   const [prodSnap, partSnap, partV4Snap] = await Promise.all([
     db.ref('v4/products').get().catch(() => null),
     db.ref('partners').get().catch(() => null),
