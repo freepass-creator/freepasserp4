@@ -1027,7 +1027,7 @@ export function detailSections(p: EntityRecord, audience: Audience = 'agent'): D
      *   12개월 요금은 실제로 **3만km 조건**이었다. 없는 값을 코드가 지어내면 그게 곧 거짓말이 된다.
      *   요금이 몇 km 기준인지는 아래 대여료 표의 **「주행거리별」 줄**이 글자 그대로 보여 준다.
      */
-    ['주행 약정', g([s('annual_mileage'), s('mileage_upcharge_per_10000km') && `1만km초과 ${s('mileage_upcharge_per_10000km')}`]) || '미입력'],
+    ['주행 약정', g([s('annual_mileage'), s('mileage_upcharge_per_10000km') && `1만km 추가 시 ${s('mileage_upcharge_per_10000km')}`]) || '미입력'],
     ['보증금', g([s('deposit_installment') && `분납 ${s('deposit_installment')}`, s('deposit_card_payment') && `카드 ${s('deposit_card_payment')}`])],
     ['대여료 카드결제', s('rental_card_payment')],
     /*

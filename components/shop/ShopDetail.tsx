@@ -351,9 +351,19 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
      *     손님이 평생 들어 온 그 단어를 다시 만난다(§1-12 는 그대로다).
      */
     ['심사', credit],
-    /* 약정주행과 초과료는 «붙여서» 쓴다 — 떼면 어느 선을 넘어야 무는지 모른다(Kinto MY 방식). */
+    /*
+     * ★★**「초과」가 아니라 「추가」다**(사장님 2026-09-05 「연간 약정 주행거리는
+     *   **1만km 추가 시 10만원**이야. 그 표현을 명확하게 해줘야 돼」).
+     *
+     * ⚠ 내가 「초과 1만km당 10만원」이라고 썼는데 **뜻이 반대에 가깝다.**
+     *   「초과」는 «약정을 넘겨서 무는 벌칙»으로 읽히고, 실제로는 «약정을 미리 올릴 때의 가산액»이다.
+     *   손님이 겁먹을 이유가 없는 값을 겁나게 쓴 것이다.
+     * ★정책 정본도 그렇게 적어 두었다 — `policy-tier` 「**1만km 상향 요금** ·
+     *   약정 주행거리를 **올릴 때의 가산액**」. 필드 이름부터 `upcharge`(상향)다.
+     * ★약정과 가산액은 «붙여서» 쓴다 — 떼면 무엇에 얼마가 붙는지 모른다.
+     */
     ['약정 주행', join(S('annual_mileage'),
-      S('mileage_upcharge_per_10000km') ? `초과 1만km당 ${S('mileage_upcharge_per_10000km')}` : '')],
+      S('mileage_upcharge_per_10000km') ? `1만km 추가 시 ${S('mileage_upcharge_per_10000km')}` : '')],
     ['면허', S('license_period')],
     ['운전 범위', S('personal_driver_scope')],
     ['추가 운전자', join(S('additional_driver_allowance_count'), S('additional_driver_cost'))],

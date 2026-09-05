@@ -362,6 +362,15 @@ must(/const insRows = /.test(shopDetail) && /const coverage = insRows\(/.test(sh
   && /insMeaningful/.test(shopDetail),
   '보험이 다시 「없음」을 지우는 필터를 씁니다 — 면책금 없음·보장 없음은 손님이 알아야 할 확정된 사실입니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
+/*
+ * 약정 주행의 가산액은 **「1만km 추가 시」**다 — 「초과」가 아니다(사장님 2026-09-05
+ * 「연간 약정 주행거리는 **1만km 추가 시 10만원**이야. 그 표현을 명확하게 해줘야 돼」).
+ * ⚠ 「초과」는 «약정을 넘겨서 무는 벌칙»으로 읽힌다. 실제로는 «약정을 미리 올릴 때의 가산액»이고
+ *   정책 정본도 「1만km 상향 요금」이라 적어 두었다(필드 이름부터 `upcharge`).
+ */
+must(/1만km 추가 시 \$\{S\('mileage_upcharge_per_10000km'\)\}/.test(shopDetail),
+  '약정 주행 가산액이 다시 「초과」로 쓰였습니다 — 넘겨서 무는 벌칙이 아니라 약정을 올릴 때의 가산액입니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
 // 전화는 담당자 → 대표번호로 떨어진다 — ?a= 없는 손님에게 전화 링크가 0개가 되면 안 된다.
 must(/wl\.tel/.test(read('app/q/[code]/ShopDetailView.tsx')),
   '상세가 대표번호 폴백을 잃었습니다. ?a= 없이 들어온 손님은 폰에서 전화 링크가 0개가 됩니다.',
