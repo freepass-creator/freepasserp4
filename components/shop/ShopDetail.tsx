@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
-  ArrowLeft, Car, CarFront, Check, ChevronLeft, ChevronRight, Coins, FileText, Gauge, Heart,
+  ArrowLeft, ArrowUp, Car, Check, ChevronLeft, ChevronRight, Coins, FileText, Heart,
   IdCard, ImageOff, Info, Phone, Share2, ShieldCheck,
   type LucideIcon,
 } from 'lucide-react';
@@ -363,7 +363,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
      * ★약정과 가산액은 «붙여서» 쓴다 — 떼면 무엇에 얼마가 붙는지 모른다.
      */
     ['약정 주행', join(S('annual_mileage'),
-      S('mileage_upcharge_per_10000km') ? `1만km 추가 시 ${S('mileage_upcharge_per_10000km')}` : '')],
+      S('mileage_upcharge_per_10000km') ? `1만km 추가 ↑${S('mileage_upcharge_per_10000km')}` : '')],
     ['면허', S('license_period')],
     ['운전 범위', S('personal_driver_scope')],
     ['추가 운전자', join(S('additional_driver_allowance_count'), S('additional_driver_cost'))],
@@ -937,7 +937,20 @@ function Sec({ title, icon, accent, tag, mobile, children }: {
  * ★★면은 **구역에 하나씩만** 남긴다 — 대여료 카드(브랜드 면)와 큰 값 한 줄(`BigRow`).
  *   면이 드물어야 그 면이 «중요하다»는 뜻을 갖는다.
  */
-function Facts({ rows, cols, mobile }: { rows: [string, string][]; cols: number; mobile?: boolean }) {
+/**
+ * ★값 안에 **`↑`** 를 넣어 두면 그 자리에 «올라간다» 아이콘이 선다
+ *   (사장님 2026-09-05 「10만원+ 이렇게 하면 이쁠 듯. **아이콘으로 금액 올라간다고**」).
+ *   지금 쓰는 곳은 약정 주행의 가산액 하나다 — 「연 20,000km · 1만km 추가 **↑10만원**」.
+ * ★왜 「+」가 아니라 화살표인가. 「10만원+」은 **「10만원 이상」**으로도 읽혀
+ *   얼마인지 모르는 값이 된다. 화살표는 «올라간다»만 말하고 금액은 그대로 둔다.
+ * ★★**자리는 «금액» 앞이다.** 줄 맨 앞에 두면 「연 20,000km」까지 올라가는 것처럼 보인다 —
+ *   올라가는 건 약정이 아니라 **가산액**이다. 그래서 값을 만드는 쪽이 자리를 정한다.
+ * ⚠ 색을 주지 않는다 — 오르는 돈이라고 빨강을 쓰면 겁주는 화면이 된다.
+ *   이건 벌칙이 아니라 «더 타고 싶을 때의 값»이다.
+ */
+function Facts({ rows, cols, mobile }: {
+  rows: [string, string][]; cols: number; mobile?: boolean;
+}) {
   if (!rows.length) return null;
   return (
     <div style={{
@@ -952,7 +965,18 @@ function Facts({ rows, cols, mobile }: { rows: [string, string][]; cols: number;
           <div style={{
             fontSize: SHOP.fs.body, fontWeight: 700, color: C.ink,
             wordBreak: 'keep-all', lineHeight: 1.45,
-          }}>{v}</div>
+          }}>
+            {v.split('↑').map((piece, i) => (
+              <span key={i}>
+                {i > 0 ? (
+                  <ArrowUp size={14} aria-hidden style={{
+                    display: 'inline', verticalAlign: '-2px', marginRight: 1, color: C.mute,
+                  }} />
+                ) : null}
+                {piece}
+              </span>
+            ))}
+          </div>
         </div>
       ))}
     </div>
