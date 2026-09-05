@@ -110,7 +110,9 @@ export default function AppTabBar() {
     && path !== '/login'
     && !path.startsWith('/q/')
     && !path.startsWith('/catalog')
-    && !path.startsWith('/sign/');
+    && !path.startsWith('/sign/')
+    // 견적(/estimate)은 «완전 별도 페이지» — ERP 하단 홈바를 얹지 않는다(설계서 §12).
+    && !path.startsWith('/estimate');
 
   useEffect(() => {
     setTabCss(show);
