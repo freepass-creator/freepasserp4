@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { firebaseAdminDatabase } from '@/lib/server/firebase-admin';
+import { getFirestore } from 'firebase-admin/firestore';
+import { firebaseAdminApp } from '@/lib/server/firebase-admin';
 import { sanitizeAgentForGuest, sanitizeProductForGuest } from '@/lib/domain/public-catalog';
 import { isListableProduct } from '@/lib/domain/product';
 import { matchAgentByShareCode } from '@/lib/domain/product-share';
@@ -27,23 +28,31 @@ export async function GET(request: Request) {
   const share = S(url.searchParams.get('a'));
 
   try {
-    const db = firebaseAdminDatabase();
-    // 재고는 v4 단독이 원칙이다(erp3 절연). 정책은 승계라 v3 ∪ v4 를 함께 본다 —
-    // 실측 정책 54건 중 v3 53 이라 v4 만 읽으면 대부분 매물이 보험·연령을 잃는다.
-    const [productSnap, v3Pol, v4Pol] = await Promise.all([
-      db.ref('v4/products').get(),
-      db.ref('policies').get().catch(() => null),
-      db.ref('v4/policies').get().catch(() => null),
+    /*
+     * ★★**파이어스토어만 읽는다**(사장님 2026-09-05 「**RTDB 안 쓴다니까?** 파이어스토어만 갖고 와」).
+     *   컬렉션 이름은 이관 규격을 따른다 — 재고 `products` · 정책 **`policy`** · 공급사 `partner` ·
+     *   사용자 `user`(RTDB 시절 `v4/products`·`policies`·`partners`·`users` 자리).
+     * ★실측(2026-09-05) — products 1,375 · policy 81 · partner 64 · user 168.
+     *   손님 목록 기준으로 파이어스토어 729대 · RTDB 721대이고 **RTDB 에만 있는 차는 0대**다.
+     *   즉 파이어스토어가 최신이고 상위집합이다.
+     * ⚠ 문서 id 는 «차번»이고 RTDB 키는 「공급사_차번」이었다 — 그래서 키는 `_key || product_code || id`
+     *   차례로 잡는다. 이미 나간 공유 링크(`/q/RP012_122두8108`)는 `product_code` 로 계속 열린다.
+     */
+    const fs = getFirestore(firebaseAdminApp());
+    const [productSnap, policySnap] = await Promise.all([
+      fs.collection('products').get(),
+      fs.collection('policy').get(),
     ]);
-    const policyPool = { ...((v3Pol?.val() || {}) as Rec), ...((v4Pol?.val() || {}) as Rec) } as Record<string, Rec>;
     const policyByCode = new Map<string, Rec>();
-    for (const [k, v] of Object.entries(policyPool)) {
-      if (!v || typeof v !== 'object') continue;
-      policyByCode.set(S(v.policy_code) || k, v);
-    }
+    policySnap.forEach((d) => {
+      const v = d.data() as Rec;
+      if (v && typeof v === 'object') policyByCode.set(S(v.policy_code) || d.id, v);
+    });
 
     const products: EntityRecord[] = [];
-    for (const [key, p] of Object.entries((productSnap.val() || {}) as Record<string, Rec>)) {
+    for (const doc of productSnap.docs) {
+      const p = doc.data() as Rec;
+      const key = S(p._key) || S(p.product_code) || doc.id;
       if (!p || typeof p !== 'object' || dead(p)) continue;
       if (providerCode && S(p.provider_company_code) !== providerCode && S(p.partner_code) !== providerCode) continue;
       const merged = { ...p, _key: key, product_code: S(p.product_code) || key } as EntityRecord;
@@ -57,23 +66,21 @@ export async function GET(request: Request) {
     //   → 코드는 child 키까지 보고, 이름은 세 필드를 다 훑는다. 안 그러면 브랜드가 조용히 빈다.
     let brand = '';
     if (providerCode) {
-      const [v3, v4] = await Promise.all([
-        db.ref('partners').get().catch(() => null),
-        db.ref('v4/partners').get().catch(() => null),
-      ]);
-      const pool = { ...((v3?.val() || {}) as Rec), ...((v4?.val() || {}) as Rec) } as Record<string, Rec>;
-      const hit = Object.entries(pool).find(([key, x]) => x && (
-        key === providerCode || S(x.partner_code) === providerCode || S(x.company_code) === providerCode
-      ))?.[1];
+      const partnerSnap = await fs.collection('partner').get();
+      const hit = partnerSnap.docs.map((d) => ({ ...(d.data() as Rec), _id: d.id } as Rec)).find((x) => x && (
+        S(x._id) === providerCode || S(x.partner_code) === providerCode || S(x.company_code) === providerCode
+      ));
       // 손님이 보는 이름에 법인격을 붙이지 않는다 — 표기 SSOT 는 companyAlias.
       brand = companyAlias(S(hit?.partner_name || hit?.company_name || hit?.name), hit?.alias);
     }
 
     let agent = null;
     if (share) {
-      const users = (await db.ref('users').get()).val() || {};
-      const rows = Object.entries(users as Record<string, Rec>)
-        .map(([k, v]) => ({ ...(v || {}), _key: k, uid: v?.uid || k })) as EntityRecord[];
+      const userSnap = await fs.collection('user').get();
+      const rows = userSnap.docs.map((d) => {
+        const v = d.data() as Rec;
+        return { ...v, _key: S(v._key) || d.id, uid: S(v.uid) || d.id };
+      }) as EntityRecord[];
       agent = sanitizeAgentForGuest(matchAgentByShareCode(rows, share) as Rec | null);
     }
 
