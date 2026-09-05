@@ -4,7 +4,7 @@ import type { EntityRecord } from '@/lib/intake/entities';
 import { C } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { WhitelabelFrame } from '@/components/WhitelabelFrame';
-import { FREEPASS, type Whitelabel } from '@/lib/whitelabel';
+import { FREEPASS, hasBrand, type Whitelabel } from '@/lib/whitelabel';
 import {
   SHOP, ShopCount, ShopEmpty, ShopMore, ShopPill,
   ShopSearch, ShopSort, ShopTextBtn, ShopTokens,
@@ -101,8 +101,17 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
     // 누구 손님인가 — 주소 ?a= → 기억해 둔 값 → 로그인한 나. 규칙은 `lib/shop/attribution` 한 곳이다.
     const a = resolveAttr(params);
     setAttr(a);
-    const wl = params.get('wl');
-    setWlQuery(wl ? `?wl=${encodeURIComponent(wl)}` : '');
+    /*
+     * ★★**채널을 상세까지 물고 간다.** 주소에 `?wl=` 이 있으면 그걸 쓰고, 없어도 **지금 채널 화면인데
+     *   호스트가 그 채널 도메인이 아니면**(= `/uniauto` 같은 전용 경로) 채널 키를 붙인다.
+     * ⚠ 이걸 안 하면 목록은 유니오토인데 카드를 누른 순간 **노브랜드 옛 「상품 안내」 화면**이 뜬다
+     *   (2026-09-05 실측 — `/uniauto` 에서 카드를 눌러 확인했다). 손님에겐 「눌렀더니 남의 사이트」다.
+     * ★도메인이 붙으면 호스트가 곧 브랜드라 이 값은 저절로 빈 문자열이 된다 — 주소가 짧아진다.
+     */
+    const wlParam = params.get('wl');
+    const hostIsChannel = wl.hosts.some((h) => h.toLowerCase() === window.location.hostname.toLowerCase());
+    const wlKey = wlParam || (hasBrand(wl) && !hostIsChannel ? wl.key : '');
+    setWlQuery(wlKey ? `?wl=${encodeURIComponent(wlKey)}` : '');
     try {
       const p = new URLSearchParams();
       if (params.get('p')) p.set('p', String(params.get('p')));

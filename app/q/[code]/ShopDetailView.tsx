@@ -31,11 +31,15 @@ export function ShopDetailView({ wl }: { wl: Whitelabel }) {
   const [agent, setAgent] = useState<EntityRecord | null>(null);
   /** 담당 귀속 — 「목록으로」에도 물려 보낸다. 돌아갔을 때 담당자가 바뀌면 그게 곧 퍼널이 끊기는 것이다. */
   const [attr, setAttr] = useState('');
+  /** 채널 미리보기 꼬리표 — 도메인이 붙기 전까지만 쓴다(목록으로 돌아갈 때 물려 보낸다). */
+  const [wlPreview, setWlPreview] = useState('');
 
   useEffect(() => { (async () => {
     // 누구 손님인가 — 주소 ?a= → 기억해 둔 값 → 로그인한 나. 목록과 «같은» 규칙을 쓴다.
-    const a = resolveAttr(new URLSearchParams(window.location.search));
+    const params = new URLSearchParams(window.location.search);
+    const a = resolveAttr(params);
     setAttr(a);
+    setWlPreview(params.get('wl') || '');
     try {
       const q = new URLSearchParams({ code: key });
       if (a) q.set('a', a);
@@ -68,7 +72,18 @@ export function ShopDetailView({ wl }: { wl: Whitelabel }) {
   const phone = String(agent?.phone || agent?.mobile || agent?.tel || agent?.contact || '').replace(/\s/g, '')
     || String(wl.tel || '').replace(/\s/g, '');
   /** 목록으로 돌아가는 주소 — 담당 귀속을 물고 간다. 못 찾은 화면에서도 같은 문을 쓴다. */
-  const listHref = `/shop${attr ? `?a=${encodeURIComponent(attr)}` : ''}`;
+  /*
+   * ⚠ 채널 미리보기(`?wl=`)로 들어온 손님은 목록도 «그 채널»로 돌아가야 한다. 안 물고 가면
+   *   「목록으로」를 누른 순간 노브랜드 프리패스 목록이 뜬다 — 눌렀더니 남의 사이트다(2026-09-05).
+   *   도메인이 붙으면 호스트가 브랜드를 정하므로 이 꼬리표는 저절로 사라진다.
+   */
+  const listHref = (() => {
+    const q = new URLSearchParams();
+    if (attr) q.set('a', attr);
+    if (wlPreview) q.set('wl', wlPreview);
+    const s = q.toString();
+    return `/shop${s ? `?${s}` : ''}`;
+  })();
   /*
    * ⚠ 불러오는 중·못 찾은 경우에도 **껍데기 안**에 둔다(2026-09-04 실측 사고).
    *   맨 화면으로 내보냈더니 손님이 팔린 차 링크를 눌렀을 때 브랜드가 통째로 사라지고
