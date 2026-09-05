@@ -52,15 +52,15 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
 }) {
   const mobile = useIsMobile();
   /*
-   * ★맨 위 제목은 차명 원자의 **`short` 단**이다. 세부 트림까지 붙은 전문 이름은 아래
-   *   **차량 정보의 첫 줄**이 든다 — 훑는 자리와 확인하는 자리는 하는 일이 다르다.
-   * ⚠⚠ **아직 「현대 그랜저」까지 짧아지지는 않는다.** 사장님 2026-09-05 「요약으로 보여주는
-   *   데는 그냥 현대, 그랜저 이렇게만 보여줘도 상관은 없어」 — 그렇게 하려면 «제조사+모델»만
-   *   내는 단이 필요한데 차명 원자(`vehicle-name`)에는 `short|full|raw` 셋뿐이고 `short` 도
-   *   세부모델(「더 뉴 그랜저 IG」)까지 든다. **ERP 전체가 쓰는 원자**라 여쭙기 전에는 안 건드린다.
-   *   그때까지 제목과 차량 정보 첫 줄이 같은 이름을 두 번 말한다(엔카도 머리와 기본정보가 겹친다).
+   * ★맨 위 제목은 차명 원자의 **`base` 단**이다 — 「현대 그랜저」에서 끝낸다
+   *   (사장님 2026-09-05 「요약으로 보여주는 데는 **그냥 현대, 그랜저** 이렇게만 보여줘도 상관은 없어.
+   *   그리고 차량 정보에 좀 **디테일한 차명 세부 트림**이 들어가는 거고」).
+   * ★세부 트림까지 붙은 전문 이름은 아래 **차량 정보의 첫 줄**이 든다 —
+   *   훑는 자리와 확인하는 자리는 하는 일이 다르다. 같은 이름을 두 번 말하지 않는다.
+   * ⚠ `base` 단은 이 요구 때문에 차명 원자에 «새로» 낸 것이다(2026-09-05). 원자를 고쳤지
+   *   이 화면에서 이름을 손으로 조립하지 않았다 — 그러면 화면마다 이름이 갈린다.
    */
-  const title = vehicleNameOf({ kind: 'product', product: p }, { tier: 'short', fallback: 'none' }) || '차량';
+  const title = vehicleNameOf({ kind: 'product', product: p }, { tier: 'base', fallback: 'none' }) || '차량';
 
   const km = Number(String(p.mileage ?? '').replace(/[^0-9.]/g, '')) || 0;
   /*
@@ -146,12 +146,21 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
     ['내부 색상', String(p.int_color || '')],
     ['연식', yearFullDisplay(p.year)],
     ['주행거리', km > 0 ? kmDisplay(p.mileage) : ''],
-    ['배기량', cc > 0 ? `${cc.toLocaleString('ko-KR')}cc` : ''],
+    /*
+     * ★★**배기량과 배터리는 «한 칸»을 나눠 쓴다**(사장님 2026-09-05 「배기량하고 배터리 정보가
+     *   같이 들어갈 일이 없으니까 … 전기차는 배터리 용량이 **그 항목을 바꿔 가면서** 쓰는 거야」).
+     *   맞다 — 한 차가 둘 다 갖는 일이 없다. 두 칸을 따로 세우면 어느 차를 봐도 **하나는 늘 비고**,
+     *   격자에 구멍이 생겨 「덜 채운 표」로 보인다. 라벨이 바뀌는 한 칸이면 언제나 꽉 찬다.
+     * ★업무동도 같은 규칙이다(`lib/domain/product.ts` `ccLabel` — 「전기차는 배터리 용량이
+     *   그 자리를 든다」, 사장님 2026-08-23). 두 화면이 같은 말을 같은 방식으로 한다.
+     */
+    [isEvSpec ? '배터리' : '배기량',
+      isEvSpec
+        ? (Number(p.battery_capacity) > 0 ? `${Number(p.battery_capacity)}kWh` : '')
+        : (cc > 0 ? `${cc.toLocaleString('ko-KR')}cc` : '')],
     ['연료', fuelDisplay(p.fuel_type) || String(p.fuel_type || '')],
     ['구동방식', String(p.drive_type || '')],
     ['승차정원', seats > 0 ? `${seats}인승` : ''],
-    /* 전기차에만 — 가솔린차에 배터리 칸이 서면 그것도 거짓이다. */
-    ['배터리', isEvSpec && Number(p.battery_capacity) > 0 ? `${Number(p.battery_capacity)}kWh` : ''],
     ['차량 가격', Number(p.vehicle_price) > 0 ? `${Math.round(Number(p.vehicle_price) / 10000).toLocaleString('ko-KR')}만원` : ''],
   ] as [string, string][]).filter(([, v]) => meaningful(v));
 
