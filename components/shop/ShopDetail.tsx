@@ -282,182 +282,146 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
 
   const priceCard = (
     /*
-     * ★대여료만 «면 위에» 올린다. 이 화면에서 손님이 찾아온 답이라, 나머지 구역과 같은 바닥에
-     *   두면 여섯 중 하나로 묻힌다. 연한 브랜드 면이라 눈에 서면서도 채널색을 벗어나지 않는다.
-     * ⚠ 다른 구역에는 면을 안 깐다 — 다 카드로 만들면 다시 「전부 똑같은 것」이 되고,
-     *   그때는 면이 «중요하다»는 뜻을 잃는다. 하나만 올려야 그 하나가 선다.
+     * ★★★**대여료도 다른 구역과 «같은 짜임»이다** — 큰 값 하나만 강조하고 나머지는 흐른다
+     *   (사장님 2026-09-05 「대여료도 **메인 대여료 하나 메인으로** 있고, 나머지 것들을 지금
+     *   **박스로 다 가둬 놨잖아**. 어떤 주요 값을 쪼금 강조하는 느낌이라면 대여료도 그렇게 해야 된다」).
+     *
+     * ⚠ 여기 구역 «전체»가 연한 브랜드 카드였다. 걷었다. 그러면 대여료만 얼굴이 달라서,
+     *   보험·이용 조건이 「큰 값 하나 + 흐르는 값」인데 대여료만 **상자에 통째로 갇힌** 꼴이 됐다.
+     *   기간표도 납부도 뱃지도 다 그 상자 안이라, 정작 **주인공인 금액이 상자의 일부**로 읽혔다.
+     * ⇒ 면은 **큰 금액 한 줄에만** 남긴다. 그 한 줄만 브랜드 색을 쓴다 —
+     *   다른 구역의 큰 값(사고 시 내 부담·운전 가능 연령)은 회색 면, 여기만 채널색.
+     *   **면이 한 줄로 줄어들수록 그 줄이 더 선다.**
      */
-    <section aria-label="대여료" style={{
-      background: C.brandSoft, borderRadius: 14,
-      padding: mobile ? '20px 16px 18px' : '22px 20px 20px',
-    }}>
+    <section aria-label="대여료">
       <SecTitle icon={Coins} accent>대여료</SecTitle>
-      {/*
-       * ★넓은 화면에서는 **한 줄로 편다** — 「월 얼마 · 보증금 얼마 …… [전화]」.
-       *   좁은 칸(340)에서 세로로 쌓던 짜임을 900px 에 그대로 늘리면 오른쪽이 통째로 빈다.
-       *   폰에서는 지금처럼 쌓는다(가로로 펼 폭이 없다).
-       * ★전화가 이 줄 끝에 온다. 값 칸을 없앴으니 큰 실행 버튼이 사라지는데,
-       *   손님이 「얼마」를 읽은 바로 그 자리가 전화를 누를 자리다(머리띠 버튼은 작다).
-       */}
       {plan ? (
-        <div style={{
-          display: 'flex', gap: mobile ? 0 : 24,
-          flexDirection: mobile ? 'column' : 'row',
-          alignItems: mobile ? 'stretch' : 'center', justifyContent: 'space-between',
-        }}>
-        <div style={{ minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, whiteSpace: 'nowrap' }}>
-            <span style={{ fontSize: SHOP.fs.sub, color: C.mute }}>월</span>
-            <span style={{
-              fontSize: mobile ? 34 : 36, fontWeight: FW.head, color: C.ink,
-              letterSpacing: '-0.045em', fontVariantNumeric: 'tabular-nums',
-            }}>{manWon(plan.rent)}</span>
+        <>
+          {/* 메인 — 이 화면에서 손님이 찾아온 답. 브랜드 면을 쓰는 유일한 줄이다. */}
+          <div style={{
+            display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', columnGap: 12, rowGap: 4,
+            padding: mobile ? '16px' : '18px 20px',
+            borderRadius: SHOP.r.card, background: C.brandSoft,
+          }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, whiteSpace: 'nowrap' }}>
+              <span style={{ fontSize: SHOP.fs.sub, color: C.mute }}>월</span>
+              <span style={{
+                fontSize: mobile ? 32 : 34, fontWeight: FW.head, color: C.ink,
+                letterSpacing: '-0.045em', fontVariantNumeric: 'tabular-nums',
+              }}>{manWon(plan.rent)}</span>
+            </div>
+            {/*
+              ★이 줄은 **큰 숫자의 닻**이다. 없애 보니 「월 15만원」이 «어느 기간인지 모르는 숫자»가 됐다
+                — 바로 밑 표는 1개월부터 시작해서, 큰 숫자와 첫 줄을 붙여 읽으면 서로 안 맞는다.
+            */}
+            <div style={{ fontSize: SHOP.fs.body, color: C.sub, fontVariantNumeric: 'tabular-nums' }}>
+              {/* 목록 카드와 같은 규칙 — 「보증금 없음」에만 색을 준다. */}
+              <span style={{
+                color: plan.deposit > 0 ? C.sub : C.ok,
+                fontWeight: plan.deposit > 0 ? 400 : 700,
+              }}>
+                {plan.deposit > 0 ? `보증금 ${manWon(plan.deposit)}` : '보증금 없음'}
+              </span> · {plan.m}개월 약정
+            </div>
           </div>
+
           {/*
-            ★이 줄은 **큰 숫자의 닻**이다. 표의 선택된 행과 값이 겹치는 건 맞지만, 없애 보니
-              「월 15만원」이 **어느 기간인지 모르는 숫자**가 됐다 — 바로 밑 표는 1개월 33만원부터 시작해서,
-              손님이 큰 숫자와 첫 줄을 붙여 읽으면 서로 안 맞는다(2026-09-05 화면에서 확인하고 되돌림).
-              중복을 없애는 것보다 «큰 숫자가 무슨 조건인지»가 먼저다.
+            ★★**우대조건은 금액 «바로 밑»**이다(사장님 2026-09-05 「심사 조건, 보증금 분납 가능,
+              만21세, 경력무관 이런 거 **강조라기보다는 표시가 되어 있어야** 되고」).
+              저신용 손님이 요금 다음으로 보는 것이 「나도 되나」다 — 그 답이 여기 있다.
+            ⚠ 여기 있던 자리는 구역 «맨 아래»였다(납부 다음). 요금·표·납부를 다 지나야 나와서,
+              정작 이 장사의 셀링포인트(무심사·분납·경력무관)를 손님이 제일 늦게 봤다.
           */}
-          <div style={{ marginTop: 6, fontSize: SHOP.fs.body, color: C.sub, fontVariantNumeric: 'tabular-nums' }}>
-            {/* 목록 카드와 같은 규칙 — 「보증금 없음」에만 색을 준다(두 화면이 같은 말을 같은 색으로 한다). */}
-            <span style={{
-              color: plan.deposit > 0 ? C.sub : C.ok,
-              fontWeight: plan.deposit > 0 ? 400 : 700,
-            }}>
-              {plan.deposit > 0 ? `보증금 ${manWon(plan.deposit)}` : '보증금 없음'}
-            </span> · {plan.m}개월 약정
-          </div>
-        </div>
-        {/*
-         * ⚠ 여기 **웹 전화 버튼**이 있었다. 걷었다(사장님 2026-09-05 「담당자한테 연락하는 저 구성
-         *   때문에 되게 쌩뚱맞아. **어차피 웹에서는 연락처를 보여주면 되는 거고**」).
-         *   맞다 — 머리띠가 이미 「담당 OOO · 010-…-…· 전화 상담」을 들고 있는데, 요금 옆에 또
-         *   큰 파란 버튼을 세우니 **가격을 읽는 자리에 영업이 끼어든** 꼴이었다.
-         *   웹에서 전화는 «머리띠에 늘 떠 있는 연락처» 하나면 된다.
-         */}
-        </div>
+          {badges.length ? (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
+              {badges.map((b) => (
+                <Badge key={b.text} tone={b.tone} variant={b.perk ? 'perk' : 'line'} size={FS.sub}>{b.text}</Badge>
+              ))}
+            </div>
+          ) : null}
+        </>
       ) : (
         <div style={{ fontSize: SHOP.fs.body, color: C.mute }}>요금은 담당자에게 문의해 주세요.</div>
       )}
 
       {/*
-        ★★기간별 표는 **보조표다 — 접는 게 아니라 «메인 금액 밑에» 깐다**
-          (사장님 2026-09-05 「기간표를 보조라고 한 게, **메인 대여료를 하고 그 밑에 전체 기간별
-          대여료를 보조표로 보여주라**는 거지」).
-        ⚠ 내가 「보조」를 «접어 둬라»로 읽고 접기 버튼을 달았다가 바로잡은 자리다(같은 날).
-          **보조는 «작게 아래»지 «숨김»이 아니다.** 중고차 상세도 금액 하나가 주인공이고
-          할부표는 그 밑에 «깔려» 있지, 눌러야 나오지 않는다.
-        ★조사와도 같은 결론이다 — 열두 곳(엔카·Cinch·Bipi·Kinto·Vamos·제네시스…) 중
-          **요금 구조를 접은 곳이 0곳**이었다. 아코디언에 넣은 것은 FAQ·제원뿐이다.
+        ★★기간별 표는 **보조표다 — 접는 게 아니라 «메인 금액 밑에» 깐다**(사장님 2026-09-05).
+        ★조사와도 같은 결론이다 — 열두 곳 중 **요금 구조를 접은 곳이 0곳**이었다.
         ★표가 곧 고르개다 — 줄을 누르면 위 큰 숫자가 그 기간으로 바뀐다.
-          기간 오름차순(12→60)이라 「길게 하면 싸지는구나」가 읽힌다.
-        ★★넓은 화면에서 **표를 늘리지 않는다**(폭 520 에서 끊는다). 세 칸짜리 표를 880px 로
-          늘리면 기간과 금액 사이가 손가락 두 뼘이 되어, 같은 줄인데 눈이 못 잇는다.
-          보조표는 «작아야» 보조다 — 큰 숫자와 다투면 그때부터 둘 다 안 읽힌다.
+        ★★넓은 화면에서 **표를 늘리지 않는다**(폭 520). 세 칸짜리 표를 880px 로 늘리면
+          기간과 금액 사이가 손가락 두 뼘이 되어, 같은 줄인데 눈이 못 잇는다.
       */}
       {plans.length > 1 ? (
-        <div style={{ marginTop: 18, maxWidth: mobile ? undefined : 520 }}>
+        <div style={{ marginTop: 22, maxWidth: mobile ? undefined : 520 }}>
           <div style={{
             marginBottom: 8, fontSize: SHOP.fs.cap, fontWeight: 600, color: C.mute,
           }}>기간별 대여료</div>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontVariantNumeric: 'tabular-nums' }}>
-              <thead>
-                <tr>
-                  {['기간', '월 대여료', '보증금'].map((h, i) => (
-                    <th key={h} scope="col" style={{
-                      padding: '0 0 9px', textAlign: i === 0 ? 'left' : 'right',
-                      fontSize: SHOP.fs.cap, fontWeight: 500, color: C.faint,
-                      borderBottom: `1px solid ${C.line2}`,
-                    }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {byMonth.map((x) => {
-                  const on = plan && x.m === plan.m;
-                  const pick = () => setPlanIdx(plans.findIndex((y) => y.m === x.m));
-                  return (
-                    /*
-                     * ⚠ 줄에 `onClick` «만» 걸어 두면 **마우스로만 고를 수 있는 고르개**가 된다
-                     *   (2026-09-05 에 잡았다). `<tr>` 은 탭으로 못 가고, 보조기기는 이게 누를 것인 줄도
-                     *   모른다 — 키보드로만 쓰는 사람에게는 12개월 말고 다른 기간이 «없는» 화면이다.
-                     * ⇒ 줄을 버튼으로 «바꾸지» 않는다(표를 표가 아니게 만든다). 대신 **첫 칸에 진짜
-                     *   `<button>`** 을 넣어 그것이 이름·역할·상태(`aria-pressed`)를 진다.
-                     *   줄의 `onClick` 은 마우스 편의로 남긴다 — 같은 값을 두 번 넣어도 결과가 같다.
-                     */
-                    <tr key={x.m} onClick={pick}
-                      style={{ cursor: 'pointer', background: on ? C.bg : 'transparent' }}>
-                      <td style={{ padding: 0 }}>
-                        {/*
-                         * ★고른 줄은 **왼쪽에 굵은 선**이 선다. 바탕색만 바꾸면 흰 면 위 흰 줄이라
-                         *   어느 줄이 골라졌는지 한눈에 안 들어온다(연한 면 위에서는 더 그렇다).
-                         * ★제일 싼 줄에는 「최저가」를 붙인다 — 이 표를 읽는 이유가 그것이기 때문이다.
-                         *   목록 카드가 보여 준 값도 최저가라, 손님이 «어느 줄에서 온 숫자인지»를 여기서 잇는다.
-                         */}
-                        <button type="button" onClick={pick} aria-pressed={!!on} style={{
-                          display: 'flex', alignItems: 'center', gap: 6, width: '100%', textAlign: 'left',
-                          padding: '13px 8px 13px 10px',
-                          borderTop: 'none', borderRight: 'none', borderBottom: 'none',
-                          borderLeft: `3px solid ${on ? C.brand : 'transparent'}`,
-                          background: 'transparent', cursor: 'pointer',
-                          fontFamily: 'inherit', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap',
-                          fontSize: rateFs, fontWeight: on ? 700 : 500, color: on ? C.brand : C.ink,
-                        }}>
-                          {x.m}개월
-                          {cheapest === x.m ? (
-                            <span style={{
-                              flex: '0 0 auto', padding: '2px 6px', borderRadius: 5,
-                              background: C.brandBg, color: C.brand,
-                              fontSize: mobile ? 9.5 : 10.5, fontWeight: 700, letterSpacing: '-0.01em',
-                            }}>최저가</span>
-                          ) : null}
-                        </button>
-                      </td>
-                      <td style={{
-                        padding: '13px 6px', textAlign: 'right', whiteSpace: 'nowrap',
-                        fontSize: rateFs, fontWeight: on ? 800 : 600, color: C.ink,
-                      }}>{manWon(x.rent)}</td>
-                      <td style={{
-                        padding: '13px 8px 13px 6px', textAlign: 'right', whiteSpace: 'nowrap',
-                        fontSize: rateFs, color: C.mute,
-                      }}>{x.deposit > 0 ? manWon(x.deposit) : '없음'}</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            <thead>
+              <tr>
+                {['기간', '월 대여료', '보증금'].map((h, i) => (
+                  <th key={h} scope="col" style={{
+                    padding: '0 0 9px', textAlign: i === 0 ? 'left' : 'right',
+                    fontSize: SHOP.fs.cap, fontWeight: 500, color: C.faint,
+                    borderBottom: `1px solid ${C.line2}`,
+                  }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {byMonth.map((x) => {
+                const on = plan && x.m === plan.m;
+                const pick = () => setPlanIdx(plans.findIndex((y) => y.m === x.m));
+                return (
+                  /*
+                   * ⚠ 줄에 `onClick` «만» 걸어 두면 **마우스로만 고를 수 있는 고르개**가 된다.
+                   *   `<tr>` 은 탭으로 못 가고, 보조기기는 이게 누를 것인 줄도 모른다.
+                   * ⇒ 첫 칸에 진짜 `<button>` 을 넣어 이름·역할·상태(`aria-pressed`)를 지게 한다.
+                   */
+                  <tr key={x.m} onClick={pick}
+                    style={{ cursor: 'pointer', background: on ? C.zebra : 'transparent' }}>
+                    <td style={{ padding: 0 }}>
+                      <button type="button" onClick={pick} aria-pressed={!!on} style={{
+                        display: 'flex', alignItems: 'center', gap: 6, width: '100%', textAlign: 'left',
+                        padding: '13px 8px 13px 10px',
+                        borderTop: 'none', borderRight: 'none', borderBottom: 'none',
+                        borderLeft: `3px solid ${on ? C.brand : 'transparent'}`,
+                        background: 'transparent', cursor: 'pointer',
+                        fontFamily: 'inherit', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap',
+                        fontSize: rateFs, fontWeight: on ? 700 : 500, color: on ? C.brand : C.ink,
+                      }}>
+                        {x.m}개월
+                        {cheapest === x.m ? (
+                          <span style={{
+                            flex: '0 0 auto', padding: '2px 6px', borderRadius: 5,
+                            background: C.brandBg, color: C.brand,
+                            fontSize: mobile ? 9.5 : 10.5, fontWeight: 700, letterSpacing: '-0.01em',
+                          }}>최저가</span>
+                        ) : null}
+                      </button>
+                    </td>
+                    <td style={{
+                      padding: '13px 6px', textAlign: 'right', whiteSpace: 'nowrap',
+                      fontSize: rateFs, fontWeight: on ? 800 : 600, color: C.ink,
+                    }}>{manWon(x.rent)}</td>
+                    <td style={{
+                      padding: '13px 8px 13px 6px', textAlign: 'right', whiteSpace: 'nowrap',
+                      fontSize: rateFs, color: C.mute,
+                    }}>{x.deposit > 0 ? manWon(x.deposit) : '없음'}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       ) : null}
 
       {payRows.length ? (
-        /*
-         * ★대여료 구역이 「얼마 · 기간별 · 어떻게 내나」 셋을 다 든다 — 손님이 돈 이야기를
-         *   한자리에서 끝낸다(사장님 2026-09-05 「그 다음에 대여료 정보 설명하고」).
-         * ⚠ 여기 값마다 «흰 타일»을 깔았었다. 걷었다 — 이 카드가 이미 브랜드 면이라,
-         *   그 위에 상자를 또 넷 얹으면 면 안에 면이 생겨 카드가 «표»가 된다.
-         *   브랜드 면 위에서는 라벨·값만으로도 충분히 갈린다.
-         */
-        <div style={{ marginTop: 18 }}>
+        <div style={{ marginTop: 22 }}>
           <div style={{ marginBottom: 9, fontSize: SHOP.fs.cap, fontWeight: 600, color: C.mute }}>납부</div>
           <Facts rows={payRows} cols={mobile ? 2 : 4} mobile={mobile} />
         </div>
       ) : null}
-
-      {badges.length ? (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 16 }}>
-          {badges.map((b) => (
-            <Badge key={b.text} tone={b.tone} variant={b.perk ? 'perk' : 'line'} size={FS.sub}>{b.text}</Badge>
-          ))}
-        </div>
-      ) : null}
-      {/*
-        ⚠ 여기 있던 「표시 금액은 참고용이며 **심사**·재고에 따라 달라질 수 있습니다」를 뺐다(2026-09-05).
-          둘 다 자해였다 — ㉠ 방금 크게 보여 준 금액을 바로 밑에서 스스로 부정하고,
-          ㉡ 이 장사의 셀링포인트가 「무심사」인데(바로 위 뱃지에 초록으로 떠 있다)
-             그 아래 줄이 **「심사」라는 낱말을 요금 옆에 도로 꺼낸다.** 저신용 손님이 평생 들어 온 그 말이다.
-          법적 방어는 맨 아래 마감 안내문(「계약 시 최종 확정됩니다」)이 이미 한 번 한다. 한 번이면 충분하다.
-      */}
     </section>
   );
 
