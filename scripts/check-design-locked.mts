@@ -212,7 +212,7 @@ for (const f of ['외부 색상', '내부 색상', '연식', '주행거리', '�
  *   그래서 차명 밑에 있든 차량 정보 안에 있든 빨간불이 안 떴다. 구간을 «구역 안»으로 좁혔다.
  */
 {
-  const vi = shopDetail.indexOf('<section aria-label="차량 정보">');
+  const vi = Math.max(shopDetail.indexOf('<Sec title="차량 정보"'), shopDetail.indexOf('<section aria-label="차량 정보">'));
   const opt = shopDetail.indexOf('aria-label="선택 옵션"');
   const model = shopDetail.indexOf('제조사 · 세부모델 · 세부트림');
   must(vi >= 0 && opt > vi && model > vi && opt > model,
@@ -227,13 +227,13 @@ must((shopDetail.match(/aria-label="선택 옵션"/g) || []).length === 1,
  * ⚠ 구역 «제목»을 박지 않는다. 코덱스가 「기간별 대여료」라는 제목을 정규식에 박아 뒀는데,
  *   그러면 제목을 한 글자만 바꿔도 «구조가 깨졌다»고 잡는다. 검사는 **구조**를 본다.
  */
-must(/<SecTitle icon=\{Coins\} accent>[\s\S]*<table/.test(shopDetail),
+must(/icon=\{Coins\}[\s\S]*<table/.test(shopDetail),
   '대표 대여료와 기간표가 다른 구역으로 갈라졌습니다. 요금·기간표·납부는 「대여료」 한 구역 안입니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
 must(/>납부</.test(shopDetail),
   '대여료 구역에서 「납부」(분납·카드·납부 방법)가 빠졌습니다. 돈 이야기는 한 구역에서 끝냅니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
-must(/>기타 사항</.test(shopDetail),
+must(/title="기타 사항"|>기타 사항</.test(shopDetail),
   '「기타 사항」 구역이 사라졌습니다 — 정비·대차·긴급출동·이용 지역이 갈 데가 없어집니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
 /*
@@ -292,6 +292,10 @@ must(/\['심사', credit\]/.test(shopDetail),
 must(/'screening_criteria'/.test(read('lib/domain/public-catalog.ts')),
   '손님 화이트리스트에서 screening_criteria 가 빠졌습니다 — 값이 안 오면 화면에 심사가 안 뜹니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
+// 웹은 구역마다 「제목 왼쪽 기둥 | 값 오른쪽」으로 편다 — 폰은 그대로 쌓는다.
+must(/gridTemplateColumns: '200px minmax\(0, 1fr\)'/.test(shopDetail),
+  '웹의 구역 제목 기둥이 사라졌습니다 — 웹이 다시 «폰을 늘려 놓은» 꼴이 됩니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1');
 // 전화는 담당자 → 대표번호로 떨어진다 — ?a= 없는 손님에게 전화 링크가 0개가 되면 안 된다.
 must(/wl\.tel/.test(read('app/q/[code]/ShopDetailView.tsx')),
   '상세가 대표번호 폴백을 잃었습니다. ?a= 없이 들어온 손님은 폰에서 전화 링크가 0개가 됩니다.',

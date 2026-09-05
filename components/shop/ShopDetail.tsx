@@ -338,9 +338,9 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
      *   다른 구역의 큰 값(사고 시 내 부담·운전 가능 연령)은 회색 면, 여기만 채널색.
      *   **면이 한 줄로 줄어들수록 그 줄이 더 선다.**
      */
-    <section aria-label="대여료">
-      {/* 제목이 「대여료」만이면 보증금이 딸린 값처럼 보인다 — 둘 다 이 구역의 주인공이다(사장님 2026-09-05). */}
-      <SecTitle icon={Coins} accent>대여료 및 보증금</SecTitle>
+    /* 제목이 「대여료」만이면 보증금이 딸린 값처럼 보인다 — 둘 다 이 구역의 주인공이다(사장님 2026-09-05). */
+    <Sec title="대여료 및 보증금" icon={Coins} accent mobile={mobile}>
+      <>
       {plan ? (
         <>
           {/* 메인 — 이 화면에서 손님이 찾아온 답. 브랜드 면을 쓰는 유일한 줄이다. */}
@@ -477,18 +477,21 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
           <Facts rows={payRows} cols={mobile ? 2 : 4} mobile={mobile} />
         </div>
       ) : null}
-    </section>
+      </>
+    </Sec>
   );
 
   return (
     <main style={{
       /*
-       * 940 이다(2026-09-05 에 1120 에서 줄였다). 1120 은 «사진 + 옆 값 칸» 두 단을 담으려던 폭인데,
-       * 한 줄 스크롤로 바꾸고 나면 그 폭이 그대로 **본문 한 줄의 길이**가 된다 —
-       * 보험·운전의 흐린 나열이 1,100px 한 줄로 뻗어 눈이 줄 끝에서 다음 줄 머리를 못 찾는다.
-       * 폰과 «같은 순서»를 넓게 그리는 것이지, 넓다고 더 벌리는 게 아니다.
+       * 웹 1120 · 폰은 어차피 화면 폭이다.
+       * ⚠ 한때 940 으로 줄였었다 — 「한 줄이 1,100px 로 뻗으면 눈이 줄 끝에서 다음 줄 머리를
+       *   못 찾는다」는 이유였고, 그건 **제목까지 한 칸에 쌓던 때** 맞는 말이었다.
+       * 2026-09-05 에 `Sec` 이 웹에서 **제목을 왼쪽 기둥(200)으로** 빼면서 값이 흐르는 칸은
+       *   1120 − 48(여백) − 200 − 40(사이) ≒ **830** 이 된다 — 한 줄이 길어지지 않으면서
+       *   가로로는 펴진다(사장님 2026-09-05 「가로로 이렇게 좀 펼쳐져서 보인다든가」).
        */
-      maxWidth: 940, margin: '0 auto',
+      maxWidth: mobile ? 940 : 1120, margin: '0 auto',
       // 하단 고정독이 마지막 줄을 덮지 않게 그만큼 비운다.
       padding: mobile ? '16px 16px 108px' : '26px 24px 40px',
     }}>
@@ -514,10 +517,8 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
         선택 옵션은 이 구역이 아니라 차명 바로 아래에서 먼저 읽는다.
       */}
       {(modelLine || specs.length || options.length) ? (
-        <>
-          <Rule mobile={mobile} />
-          <section aria-label="차량 정보">
-            <SecTitle icon={Car}>차량 정보</SecTitle>
+        <Sec title="차량 정보" icon={Car} mobile={mobile}>
+          <>
 
             {/*
              * ★맨 윗줄은 «이 차의 이름»이다 — 상자를 두르지 않고 **한 단 큰 글자**로 세운다.
@@ -555,13 +556,12 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
               </div>
             ) : null}
 
-            {specs.length ? <Facts rows={specs} cols={mobile ? 2 : 4} mobile={mobile} /> : null}
-          </section>
-        </>
+            {specs.length ? <Facts rows={specs} cols={mobile ? 2 : 3} mobile={mobile} /> : null}
+          </>
+        </Sec>
       ) : null}
 
-      {/* ③ 대여료 — 이 화면에서 «색 면»을 쓰는 유일한 구역이다. 손님이 찾아온 답이라 하나만 세운다. */}
-      <Rule mobile={mobile} />
+      {/* ③ 대여료 — 이 화면에서 «색 면»을 쓰는 유일한 구역이다(구역 띠는 `Sec` 이 그린다). */}
       {priceCard}
 
       {/*
@@ -575,10 +575,8 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
           (사장님 「수리비 부담은 자차 면책금에 포함이 되는 거고」).
       */}
       {(deductibles.length || coverage.length || roadside) ? (
-        <>
-          <Rule mobile={mobile} />
-          <section aria-label="보험">
-            <SecTitle icon={ShieldCheck}>보험</SecTitle>
+        <Sec title="보험" icon={ShieldCheck} mobile={mobile}>
+          <>
             {/* 메인 — 소제목 없이 바로 온다. 구역 제목 바로 밑이 «주인공»의 자리다. */}
             {coverage.length ? <Facts rows={coverage} cols={mobile ? 2 : 3} mobile={mobile} /> : null}
             {deductibles.length ? (
@@ -593,8 +591,8 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
                 긴급출동 {roadside}
               </div>
             ) : null}
-          </section>
-        </>
+          </>
+        </Sec>
       ) : null}
 
       {/*
@@ -606,13 +604,9 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
 
       {/* ⑥ 기타 — 참고만 하는 값. 제일 조용하게 한 줄로 흘린다. */}
       {etc ? (
-        <>
-          <Rule mobile={mobile} />
-          <section aria-label="기타 사항">
-            <SecTitle icon={Info}>기타 사항</SecTitle>
-            <div style={{ fontSize: SHOP.fs.sub, color: C.mute, lineHeight: 1.9 }}>{etc}</div>
-          </section>
-        </>
+        <Sec title="기타 사항" icon={Info} mobile={mobile}>
+          <div style={{ fontSize: SHOP.fs.sub, color: C.mute, lineHeight: 1.9 }}>{etc}</div>
+        </Sec>
       ) : null}
 
       {hasPolicy ? (
@@ -787,6 +781,38 @@ function TopBar({ code, title, listHref, mobile }: {
 }
 
 /**
+ * **구역 껍데기** — 띠 + 제목 + 내용.
+ *
+ * ★★웹에서는 **제목을 왼쪽 기둥으로 빼고 내용을 오른쪽에 편다**(사장님 2026-09-05
+ *   「웹 화면도 좀 디자인이 정갈하게, 모바일에서 보던 거 어색하지 않게끔 **가로로 펼쳐져서**
+ *   보인다든가 그랬으면 좋겠는데」).
+ *
+ * 무엇이 문제였나. 웹이 **폰을 그대로 늘려 놓은 꼴**이었다 — 제목 한 줄, 값 한 덩어리, 또 제목…
+ * 940px 를 세로로만 쓰니 왼쪽은 늘 제목 몇 글자뿐이고 오른쪽은 비었다.
+ * ⇒ 제목이 왼쪽 기둥(200)에 서고 값이 오른쪽(나머지)에 흐르면, 눈이 **왼쪽으로 구역을 세고
+ *   오른쪽으로 값을 읽는다.** 같은 순서인데 화면이 가로로 펴진다.
+ * ★폰은 그대로 쌓는다 — 390px 에 기둥을 세우면 값 칸이 200px 밖에 안 남는다.
+ * ⚠ 순서는 안 바뀐다. 사장님이 정하신 여섯 구역이 위에서 아래로 그대로다 —
+ *   **한 구역 «안»에서만 가로로 편다.**
+ */
+function Sec({ title, icon, accent, mobile, children }: {
+  title: string; icon?: LucideIcon; accent?: boolean; mobile?: boolean; children: React.ReactNode;
+}) {
+  return (
+    <>
+      <Rule mobile={mobile} />
+      <section aria-label={title} style={mobile ? undefined : {
+        display: 'grid', gridTemplateColumns: '200px minmax(0, 1fr)',
+        columnGap: 40, alignItems: 'start',
+      }}>
+        <SecTitle icon={icon} accent={accent}>{title}</SecTitle>
+        <div style={{ minWidth: 0 }}>{children}</div>
+      </section>
+    </>
+  );
+}
+
+/**
  * **흐르는 값 격자** — 라벨 위 · 값 아래. **칸마다 상자를 두르지 않는다.**
  *
  * ⚠⚠ 여기 값마다 «연한 면»을 깔았었다. 걷었다(사장님 2026-09-05
@@ -913,18 +939,16 @@ function Tiles({ title, rows, cols, mobile, icon, lead }: {
 }) {
   if (!rows.length && !lead) return null;
   return (
-    <>
-      <Rule mobile={mobile} />
-      <section aria-label={title}>
-        <SecTitle icon={icon}>{title}</SecTitle>
+    <Sec title={title} icon={icon} mobile={mobile}>
+      <>
         {lead ? (
           <div style={{ marginBottom: rows.length ? 8 : 0 }}>
             <BigRow label={lead.label} value={lead.value} mobile={mobile} />
           </div>
         ) : null}
         {rows.length ? <Facts rows={rows} cols={cols} mobile={mobile} /> : null}
-      </section>
-    </>
+      </>
+    </Sec>
   );
 }
 
