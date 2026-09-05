@@ -495,7 +495,7 @@ must(/\{title\}[\s\S]{0,400}?\{facts \? \([\s\S]{0,400}?<\/h1>/.test(shopDetail)
 must(/const bar = mobile \? null :/.test(shopDetail)
   && /headerActions=\{<FavShare/.test(read('app/q/[code]/ShopDetailView.tsx'))
   && /\{mobile \? headerActions : null\}/.test(wlFrame)
-  && /mobile && \(headerActions \|\| headerOverlay\) \? \{ position: 'sticky' as const, top: 0/.test(wlFrame),
+  && /mobile && headerActions \? \{ position: 'sticky' as const, top: 0/.test(wlFrame),
   '폰의 관심·공유가 머리띠를 떠났거나 머리띠 고정이 풀렸습니다 — 스크롤하면 공유가 사라집니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-2');
 
@@ -545,21 +545,24 @@ must(/fontSize: mobile \? 21 : 20, fontWeight: FW\.head/.test(shopCard)
   'docs/DESIGN_CONFIRMED_SHOP.md §1-3');
 
 /*
- * **폰 검색은 «머리띠 안»에서 튀어나온다** — 목록 위에 검색줄을 깔지 않는다.
+ * **폰 검색 = 머리띠 돋보기 → «퀵필터 칩 줄 위»로 나온다.** 목록 위에 상시로 깔지 않는다.
  *
- * 사장님 2026-09-05 「**검색 창을 상단바 우측에 넣을 거야. 그래서 그걸 누르면 지금 있는 데서
- * 튀어나오게끔** 할 거고 … 유니오토모빌 **CI 가 좌측에 타이트하게** 잘 붙게끔 … **유튜브 모바일**을
- * 한번 봐봐」.
- * ⚠ 되돌아가면 폰 첫 화면이 검색줄에 60px + 여백을 다시 내준다 — 손님이 여기 오는 이유는
- *   「차를 본다」이지 「검색한다」가 아니다.
+ * 사장님 2026-09-05 「유튜브 모바일 **우측 상단에 돋보기를 누르면** 우리 원래 있던 그 **퀵필터 칩**
+ * 있잖아. **그 위에 검색창이 나온다고. 거기서 검색을 하는 거**라고」
+ * · 「유니오토모빌 **CI 가 좌측에 타이트하게** 잘 붙게끔」.
+ * ⚠ 머리띠를 «통째로» 검색줄로 갈아입히지 않는다 — 거기는 간판(CI)의 자리다. 처음에 그렇게
+ *   만들었다가 바로 잡혔다(2026-09-05). 돋보기는 «부르는 단추»고 칸은 본문에 선다.
+ * ⚠ 되돌아가 상시 노출이 되면 폰 첫 화면이 검색줄에 60px + 여백을 다시 내준다 —
+ *   손님이 여기 오는 이유는 「차를 본다」이지 「검색한다」가 아니다.
  * ★검색어가 있으면 **접히지 않는다**(`searchOn || !!typed.trim()`) — 접히면 목록이 왜 줄었는지
  *   화면이 말해 주지 않는다.
  */
-must(/headerOverlay=\{searchOpen \? \(/.test(shopView)
+must(/: searchOpen \? \(\s*<ShopRevealSearch/.test(shopView)
   && /searchOn \|\| !!typed\.trim\(\)/.test(shopView)
   && /\{!mobile \? \(\s*<ShopSearch/.test(shopView)
+  && !/headerOverlay/.test(wlFrame)
   && /padding: mobile \? '0 6px 0 12px'/.test(wlFrame),
-  '폰 검색이 다시 목록 위 검색줄로 내려왔거나 머리띠 CI 가 좌측에서 떨어졌습니다.',
+  '폰 검색이 상시 검색줄로 돌아왔거나, 머리띠를 통째로 덮었거나, CI 가 좌측에서 떨어졌습니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-3');
 
 /*

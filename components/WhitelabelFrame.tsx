@@ -19,7 +19,7 @@ import { hasBrand, whitelabelVars, type Whitelabel } from '@/lib/whitelabel';
  *   맨 주소로 들어온 손님에게는 **대표번호**가 든다. 우리(프리패스) 이름은 어디에도 안 나온다.
  */
 export function WhitelabelFrame({
-  wl, agentName, agentPhone, dock = true, notice = true, headerLead, headerActions, headerOverlay, children,
+  wl, agentName, agentPhone, dock = true, notice = true, headerLead, headerActions, children,
 }: {
   wl: Whitelabel;
   agentName?: string;
@@ -54,15 +54,6 @@ export function WhitelabelFrame({
    * ⚠ 목록 화면은 이 슬롯을 비워 둔다. 「이 차」가 없는 곳에서 공유·관심은 말이 안 된다.
    */
   headerActions?: ReactNode;
-  /**
-   * **머리띠를 통째로 갈아입는 것** — 폰에서 검색을 부르면 머리띠 «안»이 검색줄이 된다
-   * (사장님 2026-09-05 「검색 창을 상단바 우측에 넣을 거야. 그래서 그걸 누르면 **지금 있는 데서
-   * 튀어나오게끔** 할 거고 … **유튜브 모바일**을 한번 봐봐」).
-   *
-   * ★새 «화면»으로 안 넘긴다 — 넘기면 돌아왔을 때 목록이 맨 위로 튄다. 머리띠 한 줄만 갈린다.
-   * ★이게 있으면 워드마크·실행이 다 물러난다(한 줄에 둘을 우겨 넣으면 검색칸이 손톱만 해진다).
-   */
-  headerOverlay?: ReactNode;
   children: ReactNode;
 }) {
   const mobile = useIsMobile();
@@ -99,7 +90,7 @@ export function WhitelabelFrame({
          * ⚠ 머리띠에 «할 일»이 없으면(실행도 검색도 없는 화면) 고정하지 않는다 — 56px 를
          *   내내 잡아먹기만 한다.
          */
-        ...(mobile && (headerActions || headerOverlay) ? { position: 'sticky' as const, top: 0, zIndex: 15 } : null),
+        ...(mobile && headerActions ? { position: 'sticky' as const, top: 0, zIndex: 15 } : null),
       }}>
         <div style={{
           maxWidth: 1280, margin: '0 auto',
@@ -113,10 +104,6 @@ export function WhitelabelFrame({
           padding: mobile ? '0 6px 0 12px' : '0 24px', height: mobile ? 56 : 72,
           display: 'flex', alignItems: 'center', gap: mobile ? 6 : 12,
         }}>
-          {/*
-            머리띠가 통째로 검색줄이 되는 자리(위 `headerOverlay`). 이게 있으면 간판도 실행도 물러난다.
-          */}
-          {mobile && headerOverlay ? headerOverlay : (<>
           {/* 폰 상세는 간판 대신 «이 화면의 이름»을 든다(위 `headerLead` 참고). 웹·목록은 워드마크. */}
           {mobile && headerLead ? headerLead : (
             /*
@@ -157,7 +144,6 @@ export function WhitelabelFrame({
               </Btn>
             </>
           ) : null}
-          </>)}
         </div>
       </header>
 

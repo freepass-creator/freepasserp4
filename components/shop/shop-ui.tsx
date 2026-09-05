@@ -1,6 +1,6 @@
 'use client';
 import type { CSSProperties, ReactNode } from 'react';
-import { ArrowLeft, Search, X, ChevronDown, type LucideIcon } from 'lucide-react';
+import { Search, X, ChevronDown, type LucideIcon } from 'lucide-react';
 import { C, FW, ICON, PILL_R, R_CARD } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 
@@ -219,48 +219,53 @@ export function ShopIconBtn({ onClick, label, tone = 'mute', count, children }: 
 }
 
 /**
- * **머리띠 «안»에서 튀어나오는 검색** — 유튜브 모바일과 같은 짜임.
+ * **돋보기를 누르면 «퀵필터 칩 줄 위»로 나오는 검색칸** — 유튜브 모바일과 같은 짜임.
  *
- * 사장님 2026-09-05 「**검색 창을 상단바 우측에 넣을 거야. 그래서 그걸 누르면 지금 있는 데서
- * 튀어나오게끔** 할 거고 … **유튜브 모바일을 한번 봐봐**」.
+ * 사장님 2026-09-05 「유튜브 모바일 **우측 상단에 돋보기를 누르면** 우리 원래 있던 그 **퀵필터 칩**
+ * 있잖아. **그 위에 검색창이 나온다고. 거기서 검색을 하는 거**라고」.
  *
- * ★왜 이게 이득인가 — 목록 위에 검색줄을 늘 깔아 두면 폰 첫 화면에서 **52px + 여백**을 상시로 잃는다.
- *   손님이 이 화면에 오는 이유는 「차를 본다」이지 「검색한다」가 아니다. 검색은 **필요할 때 부르는 것**이라
- *   머리띠 아이콘 하나로 족하고, 부르면 **그 머리띠가 통째로 검색줄이 된다**(새 화면으로 안 넘긴다 —
- *   넘기면 돌아왔을 때 목록이 맨 위로 튄다).
- * ★★**검색어가 있으면 접히지 않는다.** 접어서 워드마크가 돌아오면 손님은 지금 목록이 왜 줄었는지
+ * ★자리가 왜 여기인가 — 머리띠는 **간판(CI)의 자리**다. 거기를 검색칸이 덮으면 손님이 어느
+ *   가게에 있는지가 검색하는 동안 사라진다. 돋보기는 «부르는 단추»고, 나오는 칸은 **일이 벌어지는
+ *   본문**에 선다. 그래야 검색칸 → 칩 → 목록이 위에서 아래로 한 흐름으로 읽힌다.
+ * ★평소에는 없다 — 목록 위에 검색줄을 늘 깔아 두면 폰 첫 화면에서 그만큼 상품이 밀린다.
+ *   손님이 이 화면에 오는 이유는 「차를 본다」이지 「검색한다」가 아니다.
+ * ★★**검색어가 있으면 안 접힌다.** 접혀서 칸이 사라지면 손님은 지금 목록이 왜 줄었는지
  *   화면에서 못 읽는다 — 「대수가 두 군데서 세어진다」와 같은 종류의 사고다.
- * ⚠ 자동 포커스를 «켠다» — 여기는 조건 패널이 아니라 검색칸 하나뿐이라, 키보드가 가릴 것이 없다.
- *   (집 규격의 「시트 열 때 자동 포커스 금지」는 검색+조건이 한 시트에 든 finder 얘기다.)
+ *   그래서 ✕ 는 **검색어를 지우고 접는다** — 둘은 한 동작이다.
+ * ★칩 줄과 «한 덩어리»로 붙어 다닌다(`.fp-shop-stick` 안) — 목록을 내려가도 같이 따라온다.
+ * ⚠ 자동 포커스를 «켠다» — 돋보기를 누른 사람은 칠 준비가 된 사람이고, 여기는 칸 하나뿐이라
+ *   키보드가 가릴 조건 패널이 없다.
  */
-export function ShopTopSearch({ value, onChange, onClose, placeholder }: {
+export function ShopRevealSearch({ value, onChange, onClose, placeholder }: {
   value: string; onChange: (v: string) => void; onClose: () => void; placeholder?: string;
 }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 4, flex: 1, minWidth: 0 }}>
-      <ShopIconBtn onClick={onClose} label="검색 닫기" tone="ink">
-        <ArrowLeft size={ICON.lg} aria-hidden />
+    <div style={{ display: 'flex', alignItems: 'center', gap: 4, paddingTop: 10 }}>
+      <div style={{
+        flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 9,
+        /* 칩과 같은 회색 «면» — 테두리를 두르지 않는다(가게 공통 · `ShopPill` 머리말). */
+        height: 44, background: C.head, borderRadius: SHOP.r.ctrl, padding: '0 13px',
+      }}>
+        <Search size={19} aria-hidden style={{ flex: '0 0 auto', color: C.mute }} />
+        <input
+          autoFocus
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          aria-label="차량 검색"
+          style={{
+            flex: 1, minWidth: 0, height: '100%',
+            background: 'transparent', border: 'none', outline: 'none',
+            fontFamily: 'inherit', color: C.ink,
+            /* ★16 «고정» — 그 밑이면 iOS 가 화면을 확대한다. 사다리를 내려도 여기는 못 내린다. */
+            fontSize: 16, letterSpacing: '-0.02em',
+          }}
+        />
+      </div>
+      {/* ✕ = 지우고 접는다(위 머리말). 칸 «안»에 넣으면 「지우기」인지 「닫기」인지 갈리지 않는다. */}
+      <ShopIconBtn onClick={onClose} label="검색 닫기">
+        <X size={ICON.lg} aria-hidden />
       </ShopIconBtn>
-      <input
-        autoFocus
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        aria-label="차량 검색"
-        style={{
-          flex: 1, minWidth: 0, height: 40,
-          /* 칩과 같은 회색 면 — 머리띠 안에서도 「여기가 칸이다」가 면으로 읽힌다(테두리 안 두른다). */
-          background: C.head, borderRadius: SHOP.r.ctrl, border: 'none', outline: 'none',
-          padding: '0 12px', fontFamily: 'inherit', color: C.ink,
-          /* ★16 «고정» — 그 밑이면 iOS 가 화면을 확대한다. */
-          fontSize: 16, letterSpacing: '-0.02em',
-        }}
-      />
-      {value ? (
-        <ShopIconBtn onClick={() => onChange('')} label="검색어 지우기">
-          <X size={ICON.lg} aria-hidden />
-        </ShopIconBtn>
-      ) : null}
     </div>
   );
 }

@@ -8,7 +8,7 @@ import { WhitelabelFrame } from '@/components/WhitelabelFrame';
 import { FREEPASS, hasBrand, type Whitelabel } from '@/lib/whitelabel';
 import {
   SHOP, ShopCount, ShopEmpty, ShopIconBtn, ShopMore, ShopPill,
-  ShopSearch, ShopSort, ShopTextBtn, ShopTokens, ShopTopSearch,
+  ShopRevealSearch, ShopSearch, ShopSort, ShopTextBtn, ShopTokens,
 } from '@/components/shop/shop-ui';
 import { ShopFilters } from '@/components/shop/ShopFilters';
 import { ShopFilterSheet } from '@/components/shop/ShopFilterSheet';
@@ -233,10 +233,7 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
           </ShopIconBtn>
         </>
       ) : undefined}
-      headerOverlay={searchOpen ? (
-        <ShopTopSearch value={typed} onChange={setTyped} onClose={closeSearch}
-          placeholder="차종·차명으로 찾아보세요" />
-      ) : undefined}>
+>
       <main style={{ maxWidth: 1280, margin: '0 auto', padding: mobile ? '4px 16px 28px' : '26px 24px 40px' }}>
         {/* 검색 — 목록 열과 같은 폭에 걸친다. 페이지 한가운데 띄우면 조건칸과 축이 안 맞는다. */}
         {/*
@@ -250,12 +247,19 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
         */}
         <div ref={stickRef} className={mobile ? 'fp-shop-stick' : undefined}>
           {/*
-            ⚠ **폰은 이 줄을 안 그린다** — 검색은 머리띠 안에서 튀어나온다(위 `headerOverlay`).
-              목록 위에 늘 깔아 두면 첫 화면에서 60px + 여백만큼 상품이 밀린다.
+            ★★**폰은 이 줄이 «평소에 없다»** — 머리띠 오른쪽 돋보기를 누르면 **칩 줄 바로 위**로
+              나온다(사장님 2026-09-05 「유튜브 모바일 우측 상단에 **돋보기를 누르면** 우리 원래
+              있던 그 **퀵필터 칩** 있잖아. **그 위에 검색창이 나온다고. 거기서 검색을 하는 거**라고」).
+              머리띠는 «간판(CI)의 자리»라 검색칸이 덮지 않는다 — 돋보기는 부르는 단추고,
+              나오는 칸은 일이 벌어지는 본문에 선다. 검색칸 → 칩 → 목록이 한 흐름으로 읽힌다.
+            ⚠ 늘 깔아 두지 않는 이유는 첫 화면이다 — 60px + 여백만큼 상품이 밀린다.
           */}
           {!mobile ? (
             <ShopSearch value={typed} onChange={setTyped}
               placeholder="차종·차명으로 찾아보세요 (예: 카니발, 쏘렌토, 그랜저)" />
+          ) : searchOpen ? (
+            <ShopRevealSearch value={typed} onChange={setTyped} onClose={closeSearch}
+              placeholder="차종·차명으로 찾아보세요 (예: 카니발, 그랜저)" />
           ) : null}
 
           {/*
