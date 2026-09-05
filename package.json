@@ -19,6 +19,7 @@
     "settlement:invoices": "tsx scripts/issue-settlement-invoices.mts",
     "settlement:pdf": "node scripts/invoice-pdf.mjs",
     "settlement:fit": "node scripts/check-invoice-overflow.mjs",
+    "test:estimate": "node scripts/test-estimate.mjs",
     "check:fonts": "tsx scripts/check-fonts.mts",
     "check:tokens": "tsx scripts/check-tokens.mts",
     "check:ui": "tsx scripts/check-ui-contract.mts",
