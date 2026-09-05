@@ -105,7 +105,7 @@ export default function ConnectorsPage() {
                 📄 구글시트 (공급사 제공)<span style={{ marginLeft: 'auto', fontSize: FS.cap, color: C.mute, fontWeight: FW.meta }}>{sheetProvs.length}개사 · {sheetTotal}대</span>
               </div>
               {sheetProvs.map(([p, a]) => (
-                <Link key={p} href={`/spring?in=${encodeURIComponent(p)}`} style={{ ...rowStyle, paddingLeft: 24 }}>
+                <Link key={p} href={`/connectors/in/${encodeURIComponent(p)}`} style={{ ...rowStyle, paddingLeft: 24 }}>
                   <span style={{ width: 12, textAlign: 'center', color: C.faint }}>•</span>
                   <span style={{ flex: 1, minWidth: 0, fontSize: FS.sub }}>{p}</span>
                   <span style={{ fontSize: FS.sub, color: C.mute, fontFamily: NUM }}>{a.n}</span>
