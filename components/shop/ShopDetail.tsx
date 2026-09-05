@@ -1198,51 +1198,93 @@ function Sec({ title, icon, accent, tag, mobile, children }: {
  * ⚠ 색을 주지 않는다 — 더 내는 돈이라고 빨강을 쓰면 겁주는 화면이 된다.
  *   이건 벌칙이 아니라 «더 타고 싶을 때의 값»이다.
  */
+/**
+ * **값 격자** — 라벨(작고 흐린) 위, 값(굵은) 아래. 무리끼리 뭉쳐서 낸다.
+ *
+ * ★★★**웹과 폰은 «짜임»이 다르다 — 폰 것을 늘려 쓰지 않는다**(사장님 2026-09-05
+ *   「모바일하고 웹하고 그 **정렬하는 방식을 네가 고민 좀 해봐.** 외부 공간이 넓기 때문에
+ *   **모바일만 생각하고 웹을 등한시하면 안 돼.** 원래는 **웹을 디자인하고 모바일화**하는 거잖아」).
+ *
+ * ⚠⚠ 실측(2026-09-05 · 1440px). 차량 정보 격자는 832px 에 **190px 짜리 네 칸 고정**이었다.
+ *   무리가 1칸(색상)·2칸(연식·주행)·4칸(동력)이라 **열두 자리 중 여섯이 비었다 — 절반.**
+ *   같은 화면을 폰(2열)에서 재면 여덟 자리 중 하나만 빈다. **넓은 화면이 더 비는** 꼴이었다.
+ *   폰용 격자를 그대로 늘려 놨기 때문이다.
+ *
+ * ⇒ **웹 = «띠»**. 무리 하나가 띠 하나가 되어 **가로로 옆에 붙는다**(들어가는 데까지).
+ *   칸 너비를 고정하지 않고 값이 제 폭을 쓰되 최소폭만 지킨다 — 그래서 「색상 · 연식·주행」이
+ *   한 줄에 서고, 그 다음 줄을 동력 넷이 채운다. 빈 자리 여섯 → 하나.
+ *   무리 사이는 **넓은 여백**으로 가른다(상자·선 금지 — §1 「표박스화 하지 말고」).
+ * ⇒ **폰 = «쌓기»**. 두 칸 격자에 무리마다 줄을 끊어 쌓는다. 좁은 화면에서는 옆에 붙일 자리가
+ *   없으니 띠가 곧 줄이다. 같은 데이터·같은 차례, 짜임만 다르다.
+ */
 function Facts({ rows, cols, mobile }: {
   rows: FactRow[]; cols: number; mobile?: boolean;
 }) {
   if (!rows.length) return null;
-  return (
-    <div style={{
-      display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
-      columnGap: mobile ? 16 : 24, rowGap: mobile ? 18 : 22,
-    }}>
-      {rows.map(([k, v, node], i) => (k === GROUP_BREAK ? (
-        /*
-         * **무리 사이의 숨**(사장님 2026-09-05 「**뭉쳐야 될 것들이 있어.** 연식·주행거리,
-         * 이게 연식에 따른 주행거리를 보고 … 배기량·연료 … 이런 식으로 좀 같이 모아 놔야 되는 게
-         * 있고. **순서라든지 이런 것들이 좀 관련성 있게 배열이 돼야** 되거든?」).
-         *
-         * ★칸을 상자로 가두지 않고 **줄바꿈과 여백만으로** 무리를 짓는다(§1 「표박스화 하지 말고」).
-         *   폭이 0 인 이 칸이 한 줄을 통째로 먹어서 ㉠ 다음 무리가 «첫 칸»에서 시작하고
-         *   ㉡ 위아래 줄간격이 두 번 들어가 무리 사이가 저절로 벌어진다. 라벨도 선도 필요 없다.
-         * ⚠ 열 수가 화면마다 다르다(폰 2 · 웹 3~4). 무리를 «순서»로만 지어 놓으면 열 수가 바뀌는
-         *   순간 다른 무리끼리 한 줄에 앉는다 — 그래서 자리표로 못 박는다.
-         */
-        <div key={`break-${i}`} aria-hidden style={{ gridColumn: '1 / -1', height: 0 }} />
-      ) : (
-        <div key={k} style={{ minWidth: 0 }}>
-          <div style={{
-            fontSize: SHOP.fs.cap, color: C.faint, marginBottom: 5, letterSpacing: '0.01em',
-          }}>{k}</div>
-          <div style={{
-            fontSize: SHOP.fs.body, fontWeight: 700, color: C.ink,
-            wordBreak: 'keep-all', lineHeight: 1.45,
-          }}>
-            {/* 그림으로 보여줄 값(색 견본 등)은 셋째 자리가 든다 — 글자 값은 그대로 남아 검색·낭독에 쓰인다. */}
-            {node ?? v.split('↑').map((piece, j) => (
-              <span key={j}>
-                {j > 0 ? (
-                  <Plus size={13} aria-hidden style={{
-                    display: 'inline', verticalAlign: '-1px', marginRight: 1, color: C.mute,
-                  }} />
-                ) : null}
-                {piece}
-              </span>
-            ))}
-          </div>
+
+  const cell = (row: FactRow, key: string, minWidth?: number) => {
+    const [k, v, node] = row;
+    return (
+      <div key={key} style={{ minWidth: minWidth ?? 0 }}>
+        <div style={{
+          fontSize: SHOP.fs.cap, color: C.faint, marginBottom: 5, letterSpacing: '0.01em',
+        }}>{k}</div>
+        <div style={{
+          fontSize: SHOP.fs.body, fontWeight: 700, color: C.ink,
+          wordBreak: 'keep-all', lineHeight: 1.45,
+        }}>
+          {/* 그림으로 보여줄 값(색 견본 등)은 셋째 자리가 든다 — 글자 값은 그대로 남아 검색·낭독에 쓰인다. */}
+          {node ?? v.split('↑').map((piece, j) => (
+            <span key={j}>
+              {j > 0 ? (
+                <Plus size={13} aria-hidden style={{
+                  display: 'inline', verticalAlign: '-1px', marginRight: 1, color: C.mute,
+                }} />
+              ) : null}
+              {piece}
+            </span>
+          ))}
         </div>
-      )))}
+      </div>
+    );
+  };
+
+  /*
+   * 폰 — 두 칸 격자에 무리마다 줄을 끊어 쌓는다.
+   * ★폭이 0 인 칸이 한 줄을 통째로 먹어서 ㉠ 다음 무리가 «첫 칸»에서 시작하고
+   *   ㉡ 줄간격이 두 번 들어가 무리 사이가 저절로 벌어진다. 라벨도 선도 필요 없다.
+   */
+  if (mobile) {
+    return (
+      <div style={{
+        display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+        columnGap: 16, rowGap: 18,
+      }}>
+        {rows.map((row, i) => (row[0] === GROUP_BREAK
+          ? <div key={`break-${i}`} aria-hidden style={{ gridColumn: '1 / -1', height: 0 }} />
+          : cell(row, row[0])))}
+      </div>
+    );
+  }
+
+  /*
+   * 웹 — 무리 하나가 «띠» 하나. 띠는 들어가는 데까지 옆으로 붙고, 남으면 다음 줄로 내려간다.
+   * ⚠ 띠 «안»에서만 줄바꿈이 일어나야 무리가 갈리지 않는다 — 그래서 띠도 제 안에서 접는다.
+   * ★칸 최소폭 150 — 라벨(「구동방식」)과 값(「2,497cc」)이 안 접히는 폭이다.
+   *   고정폭이 아니라 «최소»폭이라 「외부 ● 화이트 내부 ● 블랙」처럼 긴 값은 제 폭을 쓴다.
+   */
+  const bands: FactRow[][] = [[]];
+  for (const row of rows) {
+    if (row[0] === GROUP_BREAK) { bands.push([]); continue; }
+    bands[bands.length - 1].push(row);
+  }
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 56, rowGap: 22 }}>
+      {bands.filter((b) => b.length).map((band, bi) => (
+        <div key={bi} style={{ display: 'flex', flexWrap: 'wrap', columnGap: 28, rowGap: 22 }}>
+          {band.map((row) => cell(row, row[0], 150))}
+        </div>
+      ))}
     </div>
   );
 }

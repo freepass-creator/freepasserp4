@@ -451,8 +451,15 @@ must(/function grouped\(/.test(shopDetail) && /const specs: FactRow\[\] = groupe
   && at("['주행거리'") < at("['연료'")
   && at("['구동방식'") < at("['승차정원'")
   && at("['승차정원'") < at("['차량 가격'")
-  && /cols=\{mobile \? 2 : 4\} mobile=\{mobile\} \/>/.test(shopDetail),
-  '차량 정보의 차례가 흐트러졌습니다 — 색상 / 연식·주행 / 배기량·연료·구동방식·승차정원 / 신차가 입니다.',
+  /*
+   * **웹은 폰 격자를 늘려 쓰지 않는다** — 무리가 «띠»로 옆에 붙는다(사장님 2026-09-05
+   * 「외부 공간이 넓기 때문에 모바일만 생각하고 웹을 등한시하면 안 돼」).
+   * ⚠ 되돌아가면 넓은 화면이 오히려 더 빈다 — 실측(1440px) 832px 격자에 190px 네 칸 고정일 때
+   *   열두 자리 중 여섯이 비었다. 폰(2열)은 여덟 중 하나만 비었다.
+   */
+  && /const bands: FactRow\[\]\[\] = \[\[\]\];/.test(shopDetail)
+  && /if \(mobile\) \{[\s\S]{0,160}?display: 'grid'/.test(shopDetail),
+  '차량 정보의 차례가 흐트러졌거나, 웹이 폰 격자를 그대로 늘려 쓰고 있습니다 — 색상 / 연식·주행 / 동력 넷 / 신차가, 웹은 «띠»입니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-2-3');
 must(/const useRows = grouped\(/.test(shopDetail)
   && at("['기본 운전 연령'") < at("['연령 낮추기'")
