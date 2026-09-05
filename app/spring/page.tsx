@@ -51,6 +51,9 @@ export default function SpringPage() {
   const [hFilter, setHFilter] = useState<'전체' | Health>('전체');
   const [selCar, setSelCar] = useState<string>('');
   const [now, setNow] = useState(() => Date.now());
+  const [inProv, setInProv] = useState(''); // 연동 허브에서 «이 원천만 보기»
+  const [inSrc, setInSrc] = useState('');
+  useEffect(() => { try { const p = new URLSearchParams(window.location.search); setInProv(S(p.get('in'))); setInSrc(S(p.get('src'))); } catch { /* */ } }, []);
   const mobile = useIsMobile();
   const session = useSession();
   const authReady = useAuthReady();
@@ -100,12 +103,14 @@ export default function SpringPage() {
     const needle = S(q).toLowerCase();
     const list = enriched.filter((e) => {
       if (hFilter !== '전체' && e.health !== hFilter) return false;
-      if (!needle) return true;
       const r = e.r;
+      if (inProv && (S(r.provider_company_code) || S(r.partner_code)) !== inProv) return false;
+      if (inSrc && S(r.source) !== inSrc) return false;
+      if (!needle) return true;
       return `${S(r.car_number)} ${S(r.maker)} ${S(r.model)} ${S(r.sub_model)} ${S(r.trim_name)} ${S(r.provider_company_code)} ${S(r.policy_code)}`.toLowerCase().includes(needle);
     });
     return list.sort((a, b) => HEALTH_RANK[a.health] - HEALTH_RANK[b.health] || b.upd - a.upd);
-  }, [enriched, q, hFilter, now]);
+  }, [enriched, q, hFilter, now, inProv, inSrc]);
 
   const total = rows?.length || 0;
   const sel = useMemo(() => (selCar ? enriched.find((e) => e.car === selCar) : null) || null, [selCar, enriched]);
@@ -137,6 +142,13 @@ export default function SpringPage() {
           ]}
         />
       </div>
+      {(inProv || inSrc) && (
+        <div style={{ padding: '0 0 8px', fontSize: FS.cap }}>
+          <span style={{ background: C.selected, color: C.accent, borderRadius: R, padding: '2px 8px', fontWeight: FW.strong }}>원천 {inProv || inSrc}만 · {filtered.length}대</span>
+          {' '}<a href="/spring" style={{ color: C.accent, fontWeight: FW.strong }}>· 전체 보기</a>
+          {' '}<a href="/connectors" style={{ color: C.mute }}>· 연동 허브</a>
+        </div>
+      )}
 
       {authReady && !session && <CenterNote>이 주소에서 로그인해야 원자가 보입니다.</CenterNote>}
       {authed && err && <CenterNote>{err}</CenterNote>}
