@@ -85,7 +85,24 @@ class RefShim {
   }
 
   async update(obj: Record<string, any>): Promise<void> {
-    const ref = this.docRef(); if (!ref) throw new Error(`update 은 문서 경로여야 함: ${this.path}`);
+    const ref = this.docRef();
+    if (!ref) {
+      // ★루트/노드 팬아웃 업데이트(RTDB `db.ref('v4').update({'esign_events/CT/e':X, 'contracts/CT/f':Y})`).
+      //   각 «경로키»를 매핑해 문서 쓰기로 분해. ≤450은 한 배치(원자적). 시트동기 등 대량은 450단위로 쪼개 커밋.
+      const entries = Object.entries(obj);
+      for (let i = 0; i < entries.length; i += 450) {
+        const batch = this.fs.batch();
+        for (const [rawKey, val] of entries.slice(i, i + 450)) {
+          const sub = parse(`${this.path}/${rawKey}`.replace(/\/+/g, '/'));
+          if (!sub.docId) throw new Error(`update 경로키가 문서까지 못 감: ${this.path} / ${rawKey}`);
+          const dref = this.fs.collection(sub.col).doc(sub.docId);
+          if (sub.field.length) batch.set(dref, { [sub.field.join('.')]: val }, { merge: true });
+          else batch.set(dref, ENTITY.has(sub.node) && val && typeof val === 'object' && !Array.isArray(val) ? { ...val, companyId: companyOf(val), _key: sub.docId } : val, { merge: true });
+        }
+        await batch.commit();
+      }
+      return;
+    }
     const prefix = this.p.field.length ? this.p.field.join('.') + '.' : '';
     const patch: Record<string, any> = {}; for (const [k, v] of Object.entries(obj)) patch[prefix + k] = v;
     await ref.set(patch, { merge: true }); // set-merge = RTDB update(없으면 생성) 의미와 동일

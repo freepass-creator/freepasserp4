@@ -70,6 +70,14 @@ export function firebaseAdminApp(): App {
 }
 
 export function firebaseAdminDatabase(): Database {
+  // ★RTDB 폐기 단일 스왑점(사장님 2026-09-05 「다 지워라 · 시트가 정본」): env=firestore 면 «같은 .ref() 인터페이스»의
+  //   Firestore 심을 반환한다 → db.ref('v4/*') 를 직접 파는 24개 라우트+파이프라인이 코드 변경 없이 Firestore 로 간다.
+  //   운영 기본은 rtdb 라 플립 전까지 완전 무변경. 루트 트랜잭션(inventory) 2곳만 별도 처리.
+  if (String(process.env.NEXT_PUBLIC_DATA_BACKEND || '').trim() === 'firestore') {
+    // 순환 import 회피 위해 지연 로드. 심은 .ref() 시그니처가 RTDB Database 와 동일(구조적 호환).
+    const { firestoreAdminRef } = require('./firestore-ref-shim') as typeof import('./firestore-ref-shim');
+    return firestoreAdminRef() as unknown as Database;
+  }
   return getDatabase(firebaseAdminApp());
 }
 
