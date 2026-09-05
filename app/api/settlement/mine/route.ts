@@ -20,8 +20,8 @@
  * ★역할은 **서버가 판정한다.** 클라이언트가 보내온 role 을 믿으면 그건 자물쇠가 아니라 손잡이다.
  */
 import { NextResponse } from 'next/server';
-import { getDatabase } from 'firebase-admin/database';
-import { firebaseAdminApp, verifyActiveBearer } from '@/lib/server/firebase-admin';
+import { firestoreAdminRef, type AdminRef } from '@/lib/server/firestore-ref-shim';
+import { verifyActiveBearer } from '@/lib/server/firebase-admin';
 import { iso, ledgerError, ledgerUrl, readLedger, sheetsToken, type LedgerExtra } from '@/lib/server/settlement-ledger-read';
 import { billingMonth, moneyOf, type SettlementRow } from '@/lib/domain/settlement-stage';
 import { countsOf, publicRowOf, scopeRows, type AdminRow, type Viewer } from '@/lib/domain/settlement-view';
@@ -40,7 +40,7 @@ const S = (v: unknown) => String(v ?? '').trim();
  * ⚠ 전화번호가 없으면 «자기 코드 하나»뿐이다. 없는 것을 같다고 보지 않는다.
  */
 const digits = (v: unknown) => String(v ?? '').replace(/\D/g, '');
-async function siblingCodes(db: ReturnType<typeof getDatabase>, me: { user_code?: string; phone?: string }): Promise<string[]> {
+async function siblingCodes(db: AdminRef, me: { user_code?: string; phone?: string }): Promise<string[]> {
   const mine = S(me.user_code);
   const ph = digits(me.phone);
   if (!ph || ph.length < 9) return mine ? [mine] : [];
@@ -60,7 +60,7 @@ async function siblingCodes(db: ReturnType<typeof getDatabase>, me: { user_code?
  *   앞머리로 풀어야 하는데, 그 앞머리가 유일한지 보려면 나머지를 알아야 한다.
  */
 async function viewerOf(who: { uid: string; role: 'agent' | 'provider' | 'admin'; companyCode: string }): Promise<Viewer> {
-  const db = getDatabase(firebaseAdminApp());
+  const db = firestoreAdminRef();
   if (who.role !== 'provider') {
     const u = (await db.ref(`users/${who.uid}`).get().catch(() => null))?.val() as { name?: string; user_code?: string; company_name?: string; phone?: string } | null;
     // ★코드가 있으면 코드가 이긴다 — 원장에 이름만 있으면 동명이인을 못 가른다(사장님 2026-08-26).
