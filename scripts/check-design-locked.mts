@@ -159,10 +159,14 @@ must(/passes\(p, sel, axis\)/.test(shopQuery),
   '조건 건수가 교차 집계를 안 합니다. 「디젤 120」이라 써 놓고 눌렀을 때 3대가 나옵니다.',
   'lib/shop/query.ts baseFor');
 
-// 상세 조건으로 가는 문은 검색줄 하나.
-must(/onFilter/.test(shopUi) && /aria-label="상세 조건 열기"/.test(shopUi),
-  '상세 조건 버튼이 검색줄에서 빠졌습니다. 폰에는 왼쪽 기둥이 없어 축 아홉으로 갈 길이 사라집니다.',
-  'components/shop/shop-ui.tsx ShopSearch');
+/*
+ * 상세 조건으로 가는 문 — 폰에는 왼쪽 기둥이 없어 이 문이 사라지면 축 아홉으로 갈 길이 없다.
+ * ⚠ 자리가 옮겨졌다(2026-09-05): 검색줄 «안» → **머리띠 오른쪽**(검색 아이콘 옆).
+ *   검색이 머리띠로 올라갔으므로 조건도 같이 올라가야 한다 — 둘이 갈리면 손님이 두 군데를 뒤진다.
+ */
+must(/label="상세 조건 열기"/.test(shopView) && /count=\{queryCount\(query\)\}/.test(shopView),
+  '상세 조건 버튼이 머리띠에서 빠졌습니다. 폰에는 왼쪽 기둥이 없어 축 아홉으로 갈 길이 사라집니다.',
+  'app/(shop)/shop/ShopView.tsx headerActions');
 
 // 브랜드 갈림은 서버 껍데기가 한다 — 화면 안에서 가르면 두 화면이 원자를 나눠 쓴다.
 must(/hasBrand\(wl\) \? <ShopDetailView/.test(qPage),
@@ -491,7 +495,7 @@ must(/\{title\}[\s\S]{0,400}?\{facts \? \([\s\S]{0,400}?<\/h1>/.test(shopDetail)
 must(/const bar = mobile \? null :/.test(shopDetail)
   && /headerActions=\{<FavShare/.test(read('app/q/[code]/ShopDetailView.tsx'))
   && /\{mobile \? headerActions : null\}/.test(wlFrame)
-  && /mobile && headerActions \? \{ position: 'sticky' as const, top: 0/.test(wlFrame),
+  && /mobile && \(headerActions \|\| headerOverlay\) \? \{ position: 'sticky' as const, top: 0/.test(wlFrame),
   '폰의 관심·공유가 머리띠를 떠났거나 머리띠 고정이 풀렸습니다 — 스크롤하면 공유가 사라집니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-2');
 
@@ -522,6 +526,40 @@ must(/className="fp-onphoto"/.test(shopCard) && /className="fp-signal-chip"/.tes
 must(/--shop-fs-body: 15px/.test(css) && /@media \(max-width: 760px\)/.test(css)
   && /body: 'var\(--shop-fs-body\)'/.test(shopUi),
   '손님 동 글자 사다리가 폰에서 안 올라갑니다 — 본문이 13px 로 내려앉습니다(폰 15 · 웹 14.5).',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-3');
+
+/*
+ * **카드는 «안은 좁게 · 밖은 넓게»** — 대여료가 차명을 잡아먹지 않는다.
+ *
+ * 사장님 2026-09-05 「목록에서 각 간격이 **너무 막 멀게 떨어져 있거나** 굳이 그렇게 간격을 멀리
+ * 안 둬도 되는데 그렇게 해놨거나, **대여료만 굳이 너무 도드라지게 크거나**」.
+ * ★한 카드 안의 넉 줄은 «같은 차를 설명하는 한 덩어리»라 사이가 좁아야 한다(5). 카드끼리는
+ *   테두리가 없어 여백만이 경계라 넓어야 한다(22). 안팎이 비슷해지면 넉 줄이 네 조각으로 흩어진다.
+ * ★대여료 21 = 차명(16)의 1.3배. 25 였을 때는 1.6배라 카드에서 **금액이 먼저 읽히고 차가 나중**이었다 —
+ *   손님이 고르는 것은 차고, 금액은 그 차의 값이다.
+ */
+must(/fontSize: mobile \? 21 : 20, fontWeight: FW\.head/.test(shopCard)
+  && /gap: 5, minWidth: 0, flex: 1/.test(shopCard)
+  && /gap: mobile \? '22px 12px' : '26px 22px'/.test(shopView),
+  '카드 안팎의 간격 층이 무너졌거나 대여료가 다시 커졌습니다 — 안 5 · 밖 22 · 대여료 21 입니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-3');
+
+/*
+ * **폰 검색은 «머리띠 안»에서 튀어나온다** — 목록 위에 검색줄을 깔지 않는다.
+ *
+ * 사장님 2026-09-05 「**검색 창을 상단바 우측에 넣을 거야. 그래서 그걸 누르면 지금 있는 데서
+ * 튀어나오게끔** 할 거고 … 유니오토모빌 **CI 가 좌측에 타이트하게** 잘 붙게끔 … **유튜브 모바일**을
+ * 한번 봐봐」.
+ * ⚠ 되돌아가면 폰 첫 화면이 검색줄에 60px + 여백을 다시 내준다 — 손님이 여기 오는 이유는
+ *   「차를 본다」이지 「검색한다」가 아니다.
+ * ★검색어가 있으면 **접히지 않는다**(`searchOn || !!typed.trim()`) — 접히면 목록이 왜 줄었는지
+ *   화면이 말해 주지 않는다.
+ */
+must(/headerOverlay=\{searchOpen \? \(/.test(shopView)
+  && /searchOn \|\| !!typed\.trim\(\)/.test(shopView)
+  && /\{!mobile \? \(\s*<ShopSearch/.test(shopView)
+  && /padding: mobile \? '0 6px 0 12px'/.test(wlFrame),
+  '폰 검색이 다시 목록 위 검색줄로 내려왔거나 머리띠 CI 가 좌측에서 떨어졌습니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-3');
 
 /*

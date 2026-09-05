@@ -1,6 +1,6 @@
 'use client';
 import type { CSSProperties, ReactNode } from 'react';
-import { Search, X, ChevronDown, SlidersHorizontal, type LucideIcon } from 'lucide-react';
+import { ArrowLeft, Search, X, ChevronDown, type LucideIcon } from 'lucide-react';
 import { C, FW, ICON, PILL_R, R_CARD } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 
@@ -91,25 +91,19 @@ export const SHOP = {
  *   **검색줄이 그 문의 제자리**다 — 「찾는다」는 행동이 시작되는 곳이라 손이 이미 거기 있다.
  *   알약 줄에 두면 조건 칩들과 같은 무게로 보여 「이것도 조건 하나」로 읽힌다.
  */
-export function ShopSearch({ value, onChange, placeholder, onFilter, filterCount = 0 }: {
+export function ShopSearch({ value, onChange, placeholder }: {
   value: string; onChange: (v: string) => void; placeholder?: string;
-  /** 넘기면 오른쪽 끝에 상세 조건 버튼이 선다(폰 전용 — 웹은 왼쪽 기둥이 그 일을 한다). */
-  onFilter?: () => void;
-  /** 지금 걸린 조건 수. 0이면 숫자를 안 그린다(0을 보여 주면 «없다»를 굳이 말하는 꼴이다). */
-  filterCount?: number;
 }) {
-  const mobile = useIsMobile();
   return (
     <div style={{
-      display: 'flex', alignItems: 'center', gap: mobile ? 10 : 12,
+      display: 'flex', alignItems: 'center', gap: 12,
       /*
-       * 검색줄 — 밑줄 하나로 서는 «머리 검색»이라 목록 컨트롤보다는 크다. 다만 폰 56 은 컸다
-       * (사장님 2026-09-05 「검색창이 좀 크다고 느껴지는데」). 52 로 내려 칩(38)과의 층은 두되
-       * 바 한 칸을 통째로 먹지 않게 한다.
+       * 웹 전용 «머리 검색» — 밑줄 하나로 선다. 폰은 이 줄을 안 쓴다(머리띠 안에서 튀어나온다 —
+       * `ShopTopSearch` 머리말). 목록 위에 늘 깔아 두면 첫 화면에서 그만큼 상품이 밀린다.
        */
-      height: mobile ? 52 : 60, borderBottom: `2px solid ${C.ink}`,
+      height: 60, borderBottom: `2px solid ${C.ink}`,
     }}>
-      <Search size={mobile ? 19 : 21} aria-hidden style={{ flex: '0 0 auto', color: C.ink }} />
+      <Search size={21} aria-hidden style={{ flex: '0 0 auto', color: C.ink }} />
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -119,41 +113,13 @@ export function ShopSearch({ value, onChange, placeholder, onFilter, filterCount
           flex: 1, minWidth: 0, height: '100%',
           border: 'none', outline: 'none', background: 'transparent',
           fontFamily: 'inherit', color: C.ink,
-          // ★모바일 16 «고정» — 그 밑이면 iOS 가 입력칸에 확대를 건다. 사다리를 내려도 여기는 못 내린다.
-          fontSize: mobile ? 16 : 18, letterSpacing: '-0.02em',
+          fontSize: 18, letterSpacing: '-0.02em',
         }}
       />
       {value ? (
         <ShopIconBtn onClick={() => onChange('')} label="검색어 지우기">
           <X size={ICON.lg} aria-hidden />
         </ShopIconBtn>
-      ) : null}
-      {onFilter ? (
-        <>
-          {/* 가는 세로선 — 「검색어」와 「조건」이 다른 일임을 한 획으로 말한다. */}
-          <span aria-hidden style={{ width: 1, height: 22, background: C.line, flex: '0 0 auto' }} />
-          <button type="button" onClick={onFilter} aria-label="상세 조건 열기" className="fp-shop-press"
-            style={{
-              position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              /* 검색줄 안 「상세 조건」 — 맨 아이콘이라 정사각이다(`SHOP.icon`). */
-              width: SHOP.icon.mobile, height: SHOP.icon.mobile, borderRadius: SHOP.r.ctrl, flex: '0 0 auto',
-              border: 'none', background: 'transparent', cursor: 'pointer',
-              color: filterCount ? C.brand : C.ink,
-            }}>
-            <SlidersHorizontal size={21} aria-hidden />
-            {filterCount ? (
-              // 걸린 조건 수 — 아이콘 위 작은 표식. 「조건이 살아 있다」를 안 보고도 알아야 한다.
-              <span style={{
-                position: 'absolute', top: 1, right: 0,
-                /* 건수 동그라미 — 원이 제 모양이다(사다리의 pill 칸). */
-                minWidth: 17, height: 17, padding: '0 4px', borderRadius: SHOP.r.pill,
-                display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-                background: C.brand, color: C.inverse,
-                fontSize: 10, fontWeight: FW.strong, fontVariantNumeric: 'tabular-nums',
-              }}>{filterCount}</span>
-            ) : null}
-          </button>
-        </>
       ) : null}
     </div>
   );
@@ -221,17 +187,81 @@ export function ShopTextBtn({ onClick, children, tone = 'mute' }: {
   );
 }
 
-/** 아이콘만 있는 누름 — 닫기 등. 손가락이 닿는 최소 크기(36)를 원자가 보장한다. */
-export function ShopIconBtn({ onClick, label, children }: {
-  onClick: () => void; label: string; children: ReactNode;
+/**
+ * 아이콘만 있는 누름 — 닫기·검색·조건. 손가락이 닿는 최소 크기를 원자가 보장한다(`SHOP.icon`).
+ *
+ * `count` 를 주면 아이콘 위에 **작은 숫자 표식**이 붙는다(걸린 조건 수). 0 이면 안 그린다 —
+ * 0 을 보여 주는 것은 「없다」를 굳이 말하는 꼴이다.
+ */
+export function ShopIconBtn({ onClick, label, tone = 'mute', count, children }: {
+  onClick: () => void; label: string; tone?: 'mute' | 'ink'; count?: number; children: ReactNode;
 }) {
   const mobile = useIsMobile();
+  const size = mobile ? SHOP.icon.mobile : SHOP.icon.web;
   return (
     <button type="button" onClick={onClick} aria-label={label} className="fp-shop-press"
-      /* 아이콘 단추(닫기 등) — `SHOP.icon`. 아이콘만 있는 단추는 정사각이라 40 이면 손이 닿는다. */
-      style={{ ...bare, width: mobile ? SHOP.icon.mobile : SHOP.icon.web, height: mobile ? SHOP.icon.mobile : SHOP.icon.web, borderRadius: SHOP.r.ctrl, color: C.mute }}>
+      style={{
+        ...bare, position: 'relative', width: size, height: size,
+        borderRadius: SHOP.r.ctrl, color: count ? C.brand : tone === 'ink' ? C.ink : C.mute,
+      }}>
       {children}
+      {count ? (
+        <span style={{
+          position: 'absolute', top: 1, right: 0,
+          minWidth: 17, height: 17, padding: '0 4px', borderRadius: SHOP.r.pill,
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          background: C.brand, color: C.inverse,
+          fontSize: 10, fontWeight: FW.strong, fontVariantNumeric: 'tabular-nums',
+        }}>{count}</span>
+      ) : null}
     </button>
+  );
+}
+
+/**
+ * **머리띠 «안»에서 튀어나오는 검색** — 유튜브 모바일과 같은 짜임.
+ *
+ * 사장님 2026-09-05 「**검색 창을 상단바 우측에 넣을 거야. 그래서 그걸 누르면 지금 있는 데서
+ * 튀어나오게끔** 할 거고 … **유튜브 모바일을 한번 봐봐**」.
+ *
+ * ★왜 이게 이득인가 — 목록 위에 검색줄을 늘 깔아 두면 폰 첫 화면에서 **52px + 여백**을 상시로 잃는다.
+ *   손님이 이 화면에 오는 이유는 「차를 본다」이지 「검색한다」가 아니다. 검색은 **필요할 때 부르는 것**이라
+ *   머리띠 아이콘 하나로 족하고, 부르면 **그 머리띠가 통째로 검색줄이 된다**(새 화면으로 안 넘긴다 —
+ *   넘기면 돌아왔을 때 목록이 맨 위로 튄다).
+ * ★★**검색어가 있으면 접히지 않는다.** 접어서 워드마크가 돌아오면 손님은 지금 목록이 왜 줄었는지
+ *   화면에서 못 읽는다 — 「대수가 두 군데서 세어진다」와 같은 종류의 사고다.
+ * ⚠ 자동 포커스를 «켠다» — 여기는 조건 패널이 아니라 검색칸 하나뿐이라, 키보드가 가릴 것이 없다.
+ *   (집 규격의 「시트 열 때 자동 포커스 금지」는 검색+조건이 한 시트에 든 finder 얘기다.)
+ */
+export function ShopTopSearch({ value, onChange, onClose, placeholder }: {
+  value: string; onChange: (v: string) => void; onClose: () => void; placeholder?: string;
+}) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 4, flex: 1, minWidth: 0 }}>
+      <ShopIconBtn onClick={onClose} label="검색 닫기" tone="ink">
+        <ArrowLeft size={ICON.lg} aria-hidden />
+      </ShopIconBtn>
+      <input
+        autoFocus
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        aria-label="차량 검색"
+        style={{
+          flex: 1, minWidth: 0, height: 40,
+          /* 칩과 같은 회색 면 — 머리띠 안에서도 「여기가 칸이다」가 면으로 읽힌다(테두리 안 두른다). */
+          background: C.head, borderRadius: SHOP.r.ctrl, border: 'none', outline: 'none',
+          padding: '0 12px', fontFamily: 'inherit', color: C.ink,
+          /* ★16 «고정» — 그 밑이면 iOS 가 화면을 확대한다. */
+          fontSize: 16, letterSpacing: '-0.02em',
+        }}
+      />
+      {value ? (
+        <ShopIconBtn onClick={() => onChange('')} label="검색어 지우기">
+          <X size={ICON.lg} aria-hidden />
+        </ShopIconBtn>
+      ) : null}
+    </div>
   );
 }
 

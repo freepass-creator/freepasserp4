@@ -19,7 +19,7 @@ import { hasBrand, whitelabelVars, type Whitelabel } from '@/lib/whitelabel';
  *   맨 주소로 들어온 손님에게는 **대표번호**가 든다. 우리(프리패스) 이름은 어디에도 안 나온다.
  */
 export function WhitelabelFrame({
-  wl, agentName, agentPhone, dock = true, notice = true, headerLead, headerActions, children,
+  wl, agentName, agentPhone, dock = true, notice = true, headerLead, headerActions, headerOverlay, children,
 }: {
   wl: Whitelabel;
   agentName?: string;
@@ -54,6 +54,15 @@ export function WhitelabelFrame({
    * ⚠ 목록 화면은 이 슬롯을 비워 둔다. 「이 차」가 없는 곳에서 공유·관심은 말이 안 된다.
    */
   headerActions?: ReactNode;
+  /**
+   * **머리띠를 통째로 갈아입는 것** — 폰에서 검색을 부르면 머리띠 «안»이 검색줄이 된다
+   * (사장님 2026-09-05 「검색 창을 상단바 우측에 넣을 거야. 그래서 그걸 누르면 **지금 있는 데서
+   * 튀어나오게끔** 할 거고 … **유튜브 모바일**을 한번 봐봐」).
+   *
+   * ★새 «화면»으로 안 넘긴다 — 넘기면 돌아왔을 때 목록이 맨 위로 튄다. 머리띠 한 줄만 갈린다.
+   * ★이게 있으면 워드마크·실행이 다 물러난다(한 줄에 둘을 우겨 넣으면 검색칸이 손톱만 해진다).
+   */
+  headerOverlay?: ReactNode;
   children: ReactNode;
 }) {
   const mobile = useIsMobile();
@@ -83,13 +92,31 @@ export function WhitelabelFrame({
       */}
       <header style={{
         borderBottom: `1px solid ${C.line}`, background: C.bg,
-        ...(mobile && headerActions ? { position: 'sticky' as const, top: 0, zIndex: 15 } : null),
+        /*
+         * ★폰 머리띠는 **고정**이다 — 오른쪽에 검색·조건·공유가 들어와 있어서,
+         *   목록을 한참 내려간 손님이 맨 위로 되돌아가지 않아도 조건을 다시 건다.
+         * ⚠ 웹은 고정하지 않는다 — 머리띠(72)를 붙박으면 긴 상세에서 세로를 그만큼 잃는다.
+         * ⚠ 머리띠에 «할 일»이 없으면(실행도 검색도 없는 화면) 고정하지 않는다 — 56px 를
+         *   내내 잡아먹기만 한다.
+         */
+        ...(mobile && (headerActions || headerOverlay) ? { position: 'sticky' as const, top: 0, zIndex: 15 } : null),
       }}>
         <div style={{
           maxWidth: 1280, margin: '0 auto',
-          padding: mobile ? '0 16px' : '0 24px', height: mobile ? 56 : 72,
-          display: 'flex', alignItems: 'center', gap: 12,
+          /*
+           * ★★**폰은 CI 를 왼쪽에 «타이트하게» 붙인다**(사장님 2026-09-05 「유니오토모빌 CI 가
+           *   좌측에 좀 **타이트하게** 잘 붙게끔 … **유튜브 모바일**을 한번 봐봐」).
+           *   유튜브·인스타·당근이 다 그렇다 — 간판은 화면 모서리에 가깝게 붙고, 오른쪽 아이콘은
+           *   제 누름영역(40)이 이미 여백을 갖고 있어 바깥 패딩을 더 줄 이유가 없다.
+           * ⇒ 왼쪽 12 · 오른쪽 6(아이콘의 40 정사각이 나머지를 만든다). 본문은 16 그대로다.
+           */
+          padding: mobile ? '0 6px 0 12px' : '0 24px', height: mobile ? 56 : 72,
+          display: 'flex', alignItems: 'center', gap: mobile ? 6 : 12,
         }}>
+          {/*
+            머리띠가 통째로 검색줄이 되는 자리(위 `headerOverlay`). 이게 있으면 간판도 실행도 물러난다.
+          */}
+          {mobile && headerOverlay ? headerOverlay : (<>
           {/* 폰 상세는 간판 대신 «이 화면의 이름»을 든다(위 `headerLead` 참고). 웹·목록은 워드마크. */}
           {mobile && headerLead ? headerLead : (
             /*
@@ -98,13 +125,13 @@ export function WhitelabelFrame({
              * ★글자는 **먹색**이다. 로고가 검정이라 「UNI」만 브랜드색으로 칠하면 로고와 색이 갈린다
              *   (전에는 파랑이었다). 브랜드색은 «누르는 것»에만 쓴다.
              */
-            <div style={{ display: 'flex', alignItems: 'center', gap: mobile ? 8 : 10, whiteSpace: 'nowrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: mobile ? 6 : 10, whiteSpace: 'nowrap' }}>
               {wl.logo ? (
                 // eslint-disable-next-line @next/next/no-img-element -- 채널마다 다른 마크라 정적 최적화 대상이 아니다.
                 <img src={wl.logo.src} alt={wl.logo.alt}
                   style={{ height: mobile ? 24 : 28, width: 'auto', display: 'block' }} />
               ) : null}
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: mobile ? 7 : 9 }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: mobile ? 6 : 9 }}>
                 <span style={{ fontSize: mobile ? 22 : 26, fontWeight: FW.head, letterSpacing: '-0.03em', color: C.ink }}>
                   {wl.wordmark.main}
                 </span>
@@ -130,6 +157,7 @@ export function WhitelabelFrame({
               </Btn>
             </>
           ) : null}
+          </>)}
         </div>
       </header>
 
@@ -207,11 +235,13 @@ function WhitelabelNotice({ wl, mobile }: { wl: Whitelabel; mobile: boolean }) {
   return (
     /* 면(brandSoft)이 이미 경계를 만든다 — 그 위에 선을 또 그으면 테두리가 두 겹이 된다. */
     <div style={{ background: C.brandSoft }}>
-      <div style={{ maxWidth: 1280, margin: '0 auto', padding: mobile ? '18px 16px 16px' : '30px 24px 28px', position: 'relative' }}>
+      {/* ⚠ 폰 여백을 한 단 줄였다(사장님 2026-09-05 「간격이 너무 막 멀게 떨어져 있거나」) —
+           이 블록이 폰 첫 화면에서 상품 앞에 서는 마지막 덩어리라, 여기서 번 세로가 곧 카드다. */}
+      <div style={{ maxWidth: 1280, margin: '0 auto', padding: mobile ? '14px 16px 13px' : '30px 24px 28px', position: 'relative' }}>
         <div style={{ fontSize: mobile ? 22 : 30, fontWeight: FW.head, letterSpacing: '-0.04em', lineHeight: 1.3, color: C.ink, paddingRight: mobile ? 34 : 44 }}>
           {notice.title}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginTop: mobile ? 10 : 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginTop: mobile ? 7 : 12 }}>
           <span style={{ fontSize: mobile ? FS.body : 15, color: C.sub, lineHeight: 1.6 }}>{notice.body}</span>
           {notice.moreLabel && notice.moreHref ? (
             <a href={notice.moreHref} style={{ fontSize: 14.5, fontWeight: FW.title, color: C.brand }}>

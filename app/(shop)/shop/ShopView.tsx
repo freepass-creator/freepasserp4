@@ -1,13 +1,14 @@
 'use client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Search, SlidersHorizontal } from 'lucide-react';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { C } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { WhitelabelFrame } from '@/components/WhitelabelFrame';
 import { FREEPASS, hasBrand, type Whitelabel } from '@/lib/whitelabel';
 import {
-  SHOP, ShopCount, ShopEmpty, ShopMore, ShopPill,
-  ShopSearch, ShopSort, ShopTextBtn, ShopTokens,
+  SHOP, ShopCount, ShopEmpty, ShopIconBtn, ShopMore, ShopPill,
+  ShopSearch, ShopSort, ShopTextBtn, ShopTokens, ShopTopSearch,
 } from '@/components/shop/shop-ui';
 import { ShopFilters } from '@/components/shop/ShopFilters';
 import { ShopFilterSheet } from '@/components/shop/ShopFilterSheet';
@@ -179,6 +180,20 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
   /** 검색어든 축이든 하나라도 걸렸나 — 걸렸으면 「전체차량」이 아니라 「조건에 맞는 차량」이다. */
   const narrowed = queryCount(query) > 0 || !!query.q.trim();
 
+  /*
+   * **폰 검색 — 머리띠 «안»에서 튀어나온다**(사장님 2026-09-05 「검색 창을 상단바 우측에 넣을
+   * 거야. 그래서 그걸 누르면 지금 있는 데서 튀어나오게끔 … **유튜브 모바일**을 한번 봐봐」).
+   *
+   * ★★**검색어가 있으면 안 접힌다**(`|| !!typed.trim()`). 접혀서 워드마크가 돌아오면 손님은
+   *   지금 목록이 왜 줄었는지 화면에서 못 읽는다 — 「대수가 두 군데서 세어진다」와 같은 사고다.
+   *   그래서 닫기(←)는 **검색어를 지우고** 접는다. 둘은 한 동작이다.
+   * ★목록 위에 검색줄을 안 깔면 폰 첫 화면에서 **60px + 여백**이 상품에게 돌아간다.
+   *   손님이 여기 오는 이유는 「차를 본다」이지 「검색한다」가 아니다.
+   */
+  const [searchOn, setSearchOn] = useState(false);
+  const searchOpen = mobile && (searchOn || !!typed.trim());
+  const closeSearch = useCallback(() => { setTyped(''); setSearchOn(false); }, []);
+
   const onToggle = useCallback((axis: ShopAxis, key: string) => setQuery((q) => toggleAxis(q, axis, key)), []);
   const onClearAxis = useCallback((axis: ShopAxis) => setQuery((q) => clearAxis(q, axis)), []);
   const onClearAll = useCallback(() => { setQuery((q) => ({ ...emptyQuery(), q: q.q })); }, []);
@@ -200,8 +215,29 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
   );
 
   return (
-    <WhitelabelFrame wl={wl} agentName={agent?.name} agentPhone={agent?.phone}>
-      <main style={{ maxWidth: 1280, margin: '0 auto', padding: mobile ? '18px 16px 28px' : '26px 24px 40px' }}>
+    <WhitelabelFrame wl={wl} agentName={agent?.name} agentPhone={agent?.phone}
+      /*
+       * 폰 머리띠 오른쪽 = **검색 · 조건** 둘(유튜브 모바일의 아이콘 줄과 같은 자리).
+       * ★조건은 걸린 «수»를 이고 있는다 — 접힌 시트 안에 몇 개가 살아 있는지 안 보면
+       *   손님은 목록이 왜 이만큼인지 모른다.
+       * ★웹은 이 자리에 담당자·전화가 서고, 검색줄·조건 기둥이 본문에 그대로 있다.
+       */
+      headerActions={mobile ? (
+        <>
+          <ShopIconBtn onClick={() => setSearchOn(true)} label="차량 검색" tone="ink">
+            <Search size={22} aria-hidden />
+          </ShopIconBtn>
+          <ShopIconBtn onClick={() => setSheet(true)} label="상세 조건 열기" tone="ink"
+            count={queryCount(query)}>
+            <SlidersHorizontal size={22} aria-hidden />
+          </ShopIconBtn>
+        </>
+      ) : undefined}
+      headerOverlay={searchOpen ? (
+        <ShopTopSearch value={typed} onChange={setTyped} onClose={closeSearch}
+          placeholder="차종·차명으로 찾아보세요" />
+      ) : undefined}>
+      <main style={{ maxWidth: 1280, margin: '0 auto', padding: mobile ? '4px 16px 28px' : '26px 24px 40px' }}>
         {/* 검색 — 목록 열과 같은 폭에 걸친다. 페이지 한가운데 띄우면 조건칸과 축이 안 맞는다. */}
         {/*
           검색줄 + 알약 줄 — **폰에서는 위에 붙어 따라온다**(`.fp-shop-stick`).
@@ -213,10 +249,14 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
             **안내를 차번으로 하면** 손님은 「내가 아는 게 없네」 하고 조건칸으로도 안 간다.
         */}
         <div ref={stickRef} className={mobile ? 'fp-shop-stick' : undefined}>
-          <ShopSearch value={typed} onChange={setTyped}
-            placeholder="차종·차명으로 찾아보세요 (예: 카니발, 쏘렌토, 그랜저)"
-            onFilter={mobile ? () => setSheet(true) : undefined}
-            filterCount={queryCount(query)} />
+          {/*
+            ⚠ **폰은 이 줄을 안 그린다** — 검색은 머리띠 안에서 튀어나온다(위 `headerOverlay`).
+              목록 위에 늘 깔아 두면 첫 화면에서 60px + 여백만큼 상품이 밀린다.
+          */}
+          {!mobile ? (
+            <ShopSearch value={typed} onChange={setTyped}
+              placeholder="차종·차명으로 찾아보세요 (예: 카니발, 쏘렌토, 그랜저)" />
+          ) : null}
 
           {/*
             빠른 조건 — **한 줄로 스르륵 미는 알약**(사장님 2026-09-04 「좌우로 스크롤하는 그 알약처럼
@@ -227,7 +267,7 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
           */}
           {/* ⚠ `padding` 단축속성을 쓰지 않는다 — CSS 의 `padding-inline: 16` 을 0 으로 덮어써
               첫 칩이 화면 끝에 붙는다(2026-09-04 실측 x=0). 세로 여백만 만진다. */}
-          <div className="fp-shop-rail" style={{ paddingBlock: 13 }}>
+          <div className="fp-shop-rail" style={{ paddingBlock: mobile ? 9 : 13 }}>
             {QUICK.map((k) => (
               <ShopPill key={`${k.axis}:${k.key}`} on={query.sel[k.axis].includes(k.key)}
                 onClick={() => onToggle(k.axis, k.key)}>{k.label}</ShopPill>
@@ -235,7 +275,7 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: SHOP.gap.pane, alignItems: 'flex-start', marginTop: mobile ? 18 : 26 }}>
+        <div style={{ display: 'flex', gap: SHOP.gap.pane, alignItems: 'flex-start', marginTop: mobile ? 10 : 26 }}>
           {/*
             웹 조건칸도 «따라온다». 716대를 내려가다 조건을 바꾸려면 매번 맨 위로 올라가야 했다.
             ★`maxHeight`+`overflowY` 를 같이 줘야 축이 화면보다 길 때 기둥 «안에서» 굴러간다 —
@@ -280,7 +320,7 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
             {/* 목록 머리 = 격자의 어깨. 왼 기둥이 «전체»를 세므로 여기는 «지금 보이는 만큼»을 말한다. */}
             <div style={{
               display: 'flex', alignItems: 'center', gap: 10,
-              margin: mobile ? '14px 0 12px' : '18px 0 16px',
+              margin: mobile ? '8px 0 10px' : '18px 0 16px',
             }}>
               {mobile ? <ShopCount value={shownText} filtered={narrowed} /> : (
                 <span style={{ fontSize: SHOP.fs.sub, color: C.mute, fontVariantNumeric: 'tabular-nums' }}>
@@ -347,7 +387,12 @@ function Grid({ mobile, children }: { mobile: boolean; children: React.ReactNode
        * 테두리를 걷었으니 카드를 나누는 것은 **여백**뿐이다 — 좁으면 두 카드가 한 덩어리로 붙어 보인다.
        * 세로가 가로보다 넓다(글자 줄이 카드 아래쪽에 몰려 있어 그만큼 더 떼야 갈린다).
        */
-      gap: mobile ? '28px 12px' : '34px 22px',
+      /*
+       * ⚠ 28/34 는 넓었다(사장님 2026-09-05 「간격이 너무 막 멀게 떨어져 있거나」).
+       *   카드 «안»을 좁히면서(5) 밖도 같이 줄인다 — 안팎을 따로 재면 층이 안 생긴다.
+       *   22 면 두 카드가 안 붙어 보이면서 폰 한 화면에 카드가 한 장 더 걸린다.
+       */
+      gap: mobile ? '22px 12px' : '26px 22px',
     }}>{children}</div>
   );
 }

@@ -173,8 +173,15 @@ export const ShopCard = memo(function ShopCard({ p, href }: {
         <ShopThumb p={p} marks={stateMarks} />
 
         <div style={{
-          padding: mobile ? '12px 2px 2px' : '13px 2px 2px',
-          display: 'flex', flexDirection: 'column', gap: 6, minWidth: 0, flex: 1,
+          /*
+           * ★★**멀리 떼어 놓지 않는다**(사장님 2026-09-05 「목록에서 각 간격이 **너무 막 멀게
+           *   떨어져 있거나 굳이 그렇게 간격을 멀리 안 둬도 되는데** 그렇게 해놨거나」).
+           *   한 카드 «안»의 넉 줄은 **같은 차를 설명하는 한 덩어리**다 — 사이를 벌리면 네 조각으로
+           *   흩어져 보이고, 카드끼리의 간격(격자 22)과 구별이 안 된다.
+           * ⇒ 안은 좁게(5) · 밖은 넓게(22). 그래야 「여기까지가 한 대」가 여백으로 읽힌다.
+           */
+          padding: mobile ? '10px 2px 2px' : '11px 2px 2px',
+          display: 'flex', flexDirection: 'column', gap: 5, minWidth: 0, flex: 1,
         }}>
           {/*
             차명 — 두 줄로 접히면 카드마다 높이가 달라져 목록이 들쭉날쭉해진다. 한 줄로 못 박고
@@ -223,14 +230,20 @@ export const ShopCard = memo(function ShopCard({ p, href }: {
                  자르는 게 아니라 **다음 줄로 내린다**(`flexWrap`). 값은 줄이지 않는다. */
             <div style={{
               display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', columnGap: 8, rowGap: 2,
-              marginTop: 5, minWidth: 0,
+              marginTop: 3, minWidth: 0,
             }}>
               <span style={{ fontSize: SHOP.fs.sub, color: C.mute, flex: '0 0 auto' }}>
                 {price.m}개월
               </span>
               <span style={{
-                fontSize: mobile ? 25 : 24, fontWeight: FW.head, color: C.ink, flex: '0 0 auto',
-                letterSpacing: '-0.04em', fontVariantNumeric: 'tabular-nums',
+                /*
+                 * ★★**도드라지되 소리치지는 않는다** — 21(사장님 2026-09-05 「**대여료만 굳이
+                 *   너무 도드라지게 크거나**」). 25 는 차명(16)의 **1.6배**라 카드에서 금액이
+                 *   먼저 읽히고 차가 나중에 읽혔다 — 손님이 고르는 것은 «차»고, 금액은 그 차의 값이다.
+                 * ⇒ 21 = 차명의 1.3배. 여전히 이 줄에서 제일 큰 글자라 위계는 그대로다.
+                 */
+                fontSize: mobile ? 21 : 20, fontWeight: FW.head, color: C.ink, flex: '0 0 auto',
+                letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums',
               }}>{manShort(price.rent, { decimal: true })}</span>
               {/*
                 ★「보증금 없음」에만 색을 준다(2026-09-05). 저신용 손님의 1번 장벽은 월요금이 아니라
@@ -255,7 +268,7 @@ export const ShopCard = memo(function ShopCard({ p, href }: {
             ★카드는 좁으니 한 단 작게 든다(글자 12 · 아이콘 13) — 꼴은 같고 치수만 준다.
           */}
           {marks.length ? (
-            <div style={{ marginTop: 'auto', paddingTop: 10 }}>
+            <div style={{ marginTop: 'auto', paddingTop: 7 }}>
               <PerkMarks marks={marks} fs={SHOP.fs.cap} size={13} columnGap={10} />
             </div>
           ) : null}
