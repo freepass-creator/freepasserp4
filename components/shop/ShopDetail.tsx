@@ -363,7 +363,22 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
      * ★약정과 가산액은 «붙여서» 쓴다 — 떼면 무엇에 얼마가 붙는지 모른다.
      */
     ['약정 주행', join(S('annual_mileage'),
-      S('mileage_upcharge_per_10000km') ? `1만km 추가 ↑${S('mileage_upcharge_per_10000km')}` : '')],
+      /*
+       * ★★**「1만km당」이다 — 한 번 붙는 값이 아니다**(사장님 2026-09-05
+       *   「**1만km씩 추가할 수 있는 거야.** 1만km 추가, **1만km당** 10만원이 추가된다는 거지」).
+       * ⚠ 「1만km 추가 ↑10만원」이라고 썼더니 «한 단만 올릴 수 있는 것»으로 읽힌다.
+       *   실제로는 1만km씩 **되풀이해서** 올릴 수 있고, 그때마다 그 금액이 붙는다.
+       * ★스키마도 그렇게 적혀 있다 — `entities` 「**추가주행 금액(1만km당)**」.
+       */
+      S('mileage_upcharge_per_10000km') ? `1만km당 ↑${S('mileage_upcharge_per_10000km')}` : '')],
+    /*
+     * ★**최대 주행거리** — 1만km씩 올리다가 «어디서 멈추나»(사장님 2026-09-05
+     *   「최대 주행거리에 있는데 정책에다가 최대 주행거리를 안 넣어놨네. 그것도 넣을 수 있게끔」).
+     *   여태 정책에 칸 자체가 없어서 아무 데도 안 적혔다 — 이번에 정책 원자에 냈다
+     *   (`entities` · `policy-tier` · 정책 입력 화면 「운행 조건」 · 손님 화이트리스트).
+     * ⚠ 값이 들어오기 전까지는 이 줄이 안 그려진다 — **지어내지 않는다.**
+     */
+    ['최대 주행', S('max_annual_mileage')],
     ['면허', S('license_period')],
     ['운전 범위', S('personal_driver_scope')],
     ['추가 운전자', join(S('additional_driver_allowance_count'), S('additional_driver_cost'))],

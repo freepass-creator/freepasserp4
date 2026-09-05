@@ -368,9 +368,9 @@ must(/const insRows = /.test(shopDetail) && /const coverage = insRows\(/.test(sh
  * ⚠ 「초과」는 «약정을 넘겨서 무는 벌칙»으로 읽힌다. 실제로는 «약정을 미리 올릴 때의 가산액»이고
  *   정책 정본도 「1만km 상향 요금」이라 적어 두었다(필드 이름부터 `upcharge`).
  */
-must(/1만km 추가 ↑\$\{S\('mileage_upcharge_per_10000km'\)\}/.test(shopDetail)
-  && /1만km 추가 ↑/.test(shopDetail),
-  '약정 주행 가산액이 다시 「초과」로 쓰였거나 «올라간다» 화살표가 빠졌습니다 — 넘겨서 무는 벌칙이 아니라 약정을 올릴 때의 가산액입니다.',
+must(/1만km당 ↑\$\{S\('mileage_upcharge_per_10000km'\)\}/.test(shopDetail)
+  && /\['최대 주행', S\('max_annual_mileage'\)\]/.test(shopDetail),
+  '약정 주행이 「1만km당 ↑금액」이 아니거나 「최대 주행」이 빠졌습니다 — 1만km씩 되풀이해 올릴 수 있고, 어디까지 올릴 수 있는지도 말해야 합니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
 // 전화는 담당자 → 대표번호로 떨어진다 — ?a= 없는 손님에게 전화 링크가 0개가 되면 안 된다.
 must(/wl\.tel/.test(read('app/q/[code]/ShopDetailView.tsx')),

@@ -61,6 +61,7 @@ export type PolicyField = {
    상품만 공급하는 업체는 여기까지만 채우면 된다. 견적·매물 노출이 목적. */
 export const PRODUCT_LAYER: PolicyField[] = [
   { key: 'annual_mileage', label: '약정 주행거리', layer: 'product', exposure: 'contract', article: '제23조', why: '기본 약정. 상향은 영업 층의 가격표로 정한다' },
+  { key: 'max_annual_mileage', label: '최대 주행거리', layer: 'product', exposure: 'quote', why: '이 정책에서 올릴 수 있는 상한. 1만km씩 올리다가 어디서 멈추는지 — 없으면 손님도 영업자도 모른다(2026-09-05 신설)' },
   { key: 'basic_driver_age', label: '기본 운전자 연령', layer: 'product', exposure: 'contract', article: '제13조', why: '기본 자격. 하향은 영업 층의 가격표로 정한다. 면책금 산정 기준이기도 하다' },
   { key: 'license_period', label: '면허 경력요건', layer: 'product', exposure: 'contract', article: '제13조', why: '자격 요건' },
   { key: 'insurance_included', label: '보험 포함 여부', layer: 'product', exposure: 'contract', article: '제11조', why: '회사 가입형이냐 개인보험형이냐에 따라 보험 유지 주체가 갈린다' },

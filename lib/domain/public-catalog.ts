@@ -36,7 +36,7 @@ const PUBLIC_POLICY_FIELDS = [
   'own_damage_compensation', 'own_damage_repair_ratio', 'own_damage_compensation_rate',
   'own_damage_min_deductible', 'own_damage_max_deductible',
   'annual_roadside_assistance', 'roadside_assistance',
-  'annual_mileage', 'mileage_upcharge_per_10000km',
+  'annual_mileage', 'max_annual_mileage', 'mileage_upcharge_per_10000km',
   'deposit_installment', 'deposit_card_payment', 'rental_card_payment', 'payment_method', 'payment_timing',
   'penalty_condition', 'rental_region', 'delivery_fee',
   /*

@@ -57,7 +57,7 @@ const POL_SCOPE: { key: PolScope; label: string }[] = [
 // 공급사 = 자기 정책만 편집. 공용(provider_company_code 빈값)은 목록에 안 띄움(재고 Select에서만 연결).
 // 필드 그룹 SSOT — detailSections(심사/계약조건/보험)과 동일 골격. 미지정 필드는 보험 패널이 흡수(누락 방지).
 const G_BASIC = ['policy_code', 'policy_name', 'provider_company_code', 'policy_type', 'screening_criteria', 'disqualification_conditions', 'sales_notes', 'credit_grade', 'basic_driver_age', 'driver_age_lowering', 'driver_age_upper_limit', 'license_period', 'age_lowering_cost'];
-const G_TERMS = ['annual_mileage', 'mileage_upcharge_per_10000km', 'payment_method', 'payment_timing', 'payment_due_date', 'rental_region', 'delivery_fee', 'deposit_installment', 'deposit_card_payment', 'insurance_included', 'personal_driver_scope', 'business_driver_scope', 'additional_driver_allowance_count', 'additional_driver_cost', 'maintenance_service', 'commission_clawback_condition'];
+const G_TERMS = ['annual_mileage', 'max_annual_mileage', 'mileage_upcharge_per_10000km', 'payment_method', 'payment_timing', 'payment_due_date', 'rental_region', 'delivery_fee', 'deposit_installment', 'deposit_card_payment', 'insurance_included', 'personal_driver_scope', 'business_driver_scope', 'additional_driver_allowance_count', 'additional_driver_cost', 'maintenance_service', 'commission_clawback_condition'];
 /**
  * 전자계약 패널 — **계약서를 우리가 쓰는 공급사만** 채운다.
  *
@@ -91,7 +91,7 @@ const POLICY_INPUT_GROUPS: Record<PolicySection, PolicyInputGroup[]> = {
     { title: '운전자 자격', hint: '기본 연령과 면허 요건, 연령 하향 가능 여부를 정합니다.', keys: ['basic_driver_age', 'driver_age_lowering', 'driver_age_upper_limit', 'license_period', 'age_lowering_cost'] },
   ],
   terms: [
-    { title: '운행 조건', hint: '약정 주행거리와 이용 가능 지역, 차량 인도 조건입니다.', keys: ['annual_mileage', 'mileage_upcharge_per_10000km', 'rental_region', 'delivery_fee'] },
+    { title: '운행 조건', hint: '약정 주행거리와 이용 가능 지역, 차량 인도 조건입니다.', keys: ['annual_mileage', 'max_annual_mileage', 'mileage_upcharge_per_10000km', 'rental_region', 'delivery_fee'] },
     { title: '납부 조건', hint: '대여료와 보증금의 결제 방법을 정합니다.', keys: ['payment_method', 'payment_timing', 'payment_due_date', 'deposit_installment', 'deposit_card_payment'] },
     { title: '운전자 범위', hint: '계약 형태별 운전자 범위와 추가 운전자 비용입니다.', keys: ['personal_driver_scope', 'business_driver_scope', 'additional_driver_allowance_count', 'additional_driver_cost'] },
     { title: '포함 서비스·정산', hint: '보험·정비 포함 여부와 수수료 환수 기준입니다.', keys: ['insurance_included', 'maintenance_service', 'commission_clawback_condition'] },
