@@ -7,13 +7,12 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import type { EntityRecord } from '@/lib/intake/entities';
-import { Badge, C, FW, FS, ICON, PERK_TONE, CREDIT_TONE, type BadgeTone } from '@/components/ui';
+import { C, FW, FS, ICON } from '@/components/ui';
 import { SHOP } from '@/components/shop/shop-ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { useProductPhotos } from '@/components/use-product-photos';
 import { haptic } from '@/lib/haptics';
-import { creditDisplay, CREDIT_UNSET, parseProductOptions, priceList } from '@/lib/domain/product';
-import { PERKS, hasPerk } from '@/lib/domain/product-filters';
+import { parseProductOptions, priceList } from '@/lib/domain/product';
 import { vehicleNameOf } from '@/lib/domain/vehicle-name';
 import { yearFullDisplay, fuelDisplay, makerDisplay } from '@/lib/domain/vehicle-master-format';
 import { kmDisplay, manWon } from '@/lib/format';
@@ -75,24 +74,26 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
   const isEv = /전기|EV|이브이/i.test(String(p.fuel_type || ''));
   const cc = isEv ? 0 : (Number(p.engine_cc) || 0);
   const seats = Number(p.seats) || 0;
-  const facts = [
-    String(p.car_number || '').trim(),
-    yearFullDisplay(p.year),
-    km > 0 ? kmDisplay(p.mileage) : '',
-    cc > 0 ? `${cc.toLocaleString('ko-KR')}cc` : '',
-    fuelDisplay(p.fuel_type) || String(p.fuel_type || '').trim(),
-  ].filter(Boolean).join(' · ');
+  /*
+   * ★★요약줄은 **차번 하나**다(2026-09-05 저녁).
+   *   사장님 「어떤 원자가 그 해당 섹션에 들어가야 되고 **중복되면 안 되지** …
+   *   어정쩡한 데에 명분 없이 들어가지 마. **꼭 있어야 될 자리에 있어야 되고**」.
+   * ⚠ 여기 「차번 · 연식 · 주행 · 배기량 · 연료」 다섯이 있었다. 그중 **넷이 바로 아래
+   *   차량 정보와 같은 값**이었다 — 손님이 두 화면 뛰어 같은 것을 두 번 읽는다.
+   *   게다가 차량 정보 쪽이 라벨이 붙어 «무슨 값인지»까지 말하므로, 요약줄은 늘 «덜 정확한 쪽»이다.
+   * ★남긴 차번은 **차량 정보에 없는 유일한 값**이고, 이 차를 특정하는 신원이라
+   *   제목 바로 밑이 그 자리다.
+   */
+  const facts = String(p.car_number || '').trim();
 
-  const creditRaw = creditDisplay(p);
-  const credit = creditRaw && creditRaw !== CREDIT_UNSET ? creditRaw : '';
-  const badges: { text: string; tone: BadgeTone; perk?: boolean }[] = [
-    ...(credit ? [{ text: credit, tone: CREDIT_TONE(credit) }] : []),
-    ...PERKS.filter((k) => hasPerk(p, k)).map((k) => ({
-      text: k as string,
-      tone: (PERK_TONE as Record<string, BadgeTone>)[k] || ('blue' as BadgeTone),
-      perk: true,
-    })),
-  ];
+  /*
+   * ⚠⚠ 여기서 **우대조건 뱃지 목록을 만들고 있었다**(심사 + 분납가능·무보증·만21세·경력무관).
+   *   걷었다(2026-09-05 저녁) — 넷이 전부 아래 제자리와 «같은 말»을 하고 있었기 때문이다.
+   *   자세한 대조는 대여료 구역의 주석에 적어 뒀다.
+   * ★「심사(무심사)」는 애초에 여기까지 값이 오지도 않는다 — `screening_criteria` 는 정책 정본이
+   *   **내부용**으로 못 박아 둔 값이고(`policy-tier` 「손님 화면·계약서에 절대 실리지 않는다」)
+   *   손님 화이트리스트에도 없다. 열지 여부는 사장님 판단을 기다린다.
+   */
 
   /*
    * ③ 기간 사다리 — **우리가 진짜 가진 것**. 참고한 시안들이 「보증금 10%면 월요금 ×0.94」 같은
@@ -243,8 +244,16 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
   ]);
 
   /** ⑤ 이용 조건 — 「내 나이로 되나」가 결정적이라 그것만 크게. 주행거리도 여기다. */
+  /*
+   * ⚠⚠ **「낮출 수 있는 나이」와 「낮출 수 없다」를 가려야 한다**(2026-09-05 화면에서 잡았다).
+   *   `driver_age_lowering` 은 나이(「만21세」)가 올 때도 있고 **「불가」**가 올 때도 있다.
+   *   그걸 안 가리고 아래 끝으로 쓰니 테슬라 모델3 화면에 **「운전 가능 연령 불가 ~ 만 70세」**가 떴다.
+   *   숫자가 든 값만 나이로 본다 — 「불가」면 기본 연령(만 26세)이 아래 끝이다.
+   */
+  const isAgeValue = (v: string) => /\d/.test(v);
+  const lowered = isAgeValue(S('driver_age_lowering')) ? S('driver_age_lowering') : '';
   const ageRange = S('basic_driver_age') && S('driver_age_upper_limit')
-    ? `${age(S('driver_age_lowering') || S('basic_driver_age'))} ~ ${age(S('driver_age_upper_limit'))}`
+    ? `${age(lowered || S('basic_driver_age'))} ~ ${age(S('driver_age_upper_limit'))}`
     : age(S('basic_driver_age'));
   const useRows = rows([
     /* 약정주행과 초과료는 «붙여서» 쓴다 — 떼면 손님이 어느 선을 넘어야 무는지 모른다(Kinto MY 방식). */
@@ -253,8 +262,9 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
     ['면허', S('license_period')],
     ['운전 범위', S('personal_driver_scope')],
     ['추가 운전자', join(S('additional_driver_allowance_count'), S('additional_driver_cost'))],
-    ['연령 낮추기', S('driver_age_lowering') && meaningful(S('age_lowering_cost'))
-      ? `${age(S('driver_age_lowering'))}까지 ${S('age_lowering_cost')}` : ''],
+    /* 낮출 수 있는 차만 — 「불가」인 차에 「불가까지 10만원」이 뜨고 있었다. */
+    ['연령 낮추기', lowered && meaningful(S('age_lowering_cost'))
+      ? `${age(lowered)}까지 ${S('age_lowering_cost')}` : ''],
   ]);
 
   /** ⑥ 기타 — 참고만 하는 값. 제일 조용하게 한 줄로 흘린다. */
@@ -326,19 +336,22 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
           </div>
 
           {/*
-            ★★**우대조건은 금액 «바로 밑»**이다(사장님 2026-09-05 「심사 조건, 보증금 분납 가능,
-              만21세, 경력무관 이런 거 **강조라기보다는 표시가 되어 있어야** 되고」).
-              저신용 손님이 요금 다음으로 보는 것이 「나도 되나」다 — 그 답이 여기 있다.
-            ⚠ 여기 있던 자리는 구역 «맨 아래»였다(납부 다음). 요금·표·납부를 다 지나야 나와서,
-              정작 이 장사의 셀링포인트(무심사·분납·경력무관)를 손님이 제일 늦게 봤다.
+            ⚠⚠ **여기 있던 우대조건 뱃지 줄을 걷었다**(2026-09-05 저녁).
+            사장님 「빼찌든 뭐든 **어떤 원자가 그 해당 섹션에 들어가야 되고 중복되면 안 되지.**
+            밑에 **보증금 분납**이라는 거 있잖아. 그리고 우리가 **몇 회까지 분납이 되는지** 있으니까
+            그런 것들 표현해 주고. **어정쩡한 데에 명분 없이 들어가지 마.** 꼭 있어야 될 자리에 있어야 되고.」
+
+            세어 보니 뱃지 넷이 **전부** 아래 제자리와 같은 말을 하고 있었다 —
+              분납가능  → 납부 「보증금 분납: 2회까지 / 가능」   ← 뱃지보다 **값이 더 많다**
+              무보증    → 대여료 큰 줄 「보증금 없음」
+              만21세    → 이용 조건 「운전 가능 연령 만 21세 ~ 만 70세」
+              경력무관  → 이용 조건 「면허: 제한없음」
+            뱃지는 «있다/없다»만 말하고, 제자리는 «얼마·몇 회·몇 살까지»를 말한다.
+            둘을 같이 두면 손님이 같은 것을 두 번 읽고, 뱃지는 **덜 정확한 쪽**이다.
+            ★그래서 뱃지를 지운 게 아니라 **값을 제자리에 둔 것**이다. 표시는 그대로 남아 있다.
+            ⚠ 남은 하나 「무사고」는 제자리가 없지만 `accident_history` 실측이 **0%**라 어차피 안 뜬다.
+              데이터가 오면 차량 정보에 자리를 준다 — 대여료 밑은 그 값의 자리가 아니다.
           */}
-          {badges.length ? (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
-              {badges.map((b) => (
-                <Badge key={b.text} tone={b.tone} variant={b.perk ? 'perk' : 'line'} size={FS.sub}>{b.text}</Badge>
-              ))}
-            </div>
-          ) : null}
         </>
       ) : (
         <div style={{ fontSize: SHOP.fs.body, color: C.mute }}>요금은 담당자에게 문의해 주세요.</div>
