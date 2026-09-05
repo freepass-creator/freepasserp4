@@ -279,8 +279,22 @@ must(/const facts = String\(p\.car_number \|\| ''\)\.trim\(\);/.test(shopDetail)
     '보험 순서가 뒤집혔습니다 — 「보장 한도」가 메인(위)이고 「면책금」이 그 밑입니다.',
     'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
 }
-must(/\['자차 면책금', join\(deductible, repairShare\)\]/.test(shopDetail),
-  '자차 면책금에서 「수리비 부담」이 떨어졌습니다 — 수리비는 자차 면책금에 «포함»이라 같은 칸입니다.',
+/*
+ * 보험 안에서 **넷은 위계가 다르다**(사장님 2026-09-05
+ * 「보험료 포함 여부와 보상 한도, 긴급출동, 자차 면책금 요기가 조금씩 다 그 위계가 달라야 돼」).
+ *   ① 보험료 포함 여부 — 상품 조건. 보상 한도와 «다른 영역»이라 같은 격자에 안 둔다
+ *   ② 보상 한도       — 격자
+ *   ③ 면책금          — 자차가 «따로» 서고 나머지 셋은 그 밑에
+ *   ④ 긴급출동        — 보험이 아니다. 여백으로 떨어뜨린다
+ */
+must(/label="보험료" value=\{insuranceFee\}/.test(shopDetail),
+  '보험료 포함 여부가 보상 한도와 한 덩어리로 합쳐졌습니다 — 그건 보장 내용이 아니라 상품 조건이라 따로 섭니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
+must(/>보상 한도</.test(shopDetail) && />면책금</.test(shopDetail),
+  '보험에서 「보상 한도」 또는 「면책금」 소제목이 사라졌습니다 — 둘은 성격이 달라 섞이면 안 됩니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
+must(/>자차</.test(shopDetail) && /\{repairShare\}/.test(shopDetail),
+  '자차 면책금이 다른 면책금들과 같은 무게로 섞였거나 「수리비 부담」이 떨어졌습니다 — 자차는 따로 서고 수리비는 그 줄에 붙습니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
 must(/긴급출동 \{roadside\}/.test(shopDetail),
   '보험 맨 밑 「긴급출동」이 사라졌습니다 — 사고가 아니라 고장일 때 부르는 것이라 여기가 제자리입니다.',

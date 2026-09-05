@@ -252,29 +252,40 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
     : S('own_damage_min_deductible');
   /** 자차 면책금에 딸린 조건 — 「수리비의 20%」처럼 함께 물게 되는 값이라 «같은 칸»에 붙인다. */
   const repairShare = meaningful(S('own_damage_repair_ratio')) ? `수리비 부담 ${S('own_damage_repair_ratio')}` : '';
-  /**
-   * 면책금 — **사고 났을 때 손님이 내는 돈.** 자차가 제일 크고, 수리비 부담이 거기 딸린다.
-   * ★자차를 맨 앞에 둔다 — 셋 중 실제로 큰 돈이 나가는 칸이다.
+
+  /*
+   * ★★★**보험 구역 안에서 넷은 성격이 다 다르다 — 위계를 달리 준다**(사장님 2026-09-05
+   *   「**보험료 포함 여부와 보상 한도, 긴급출동, 자차 면책금** 여부 요기가 조금씩 다 그 **위계가
+   *   달라야** 돼. 보험료 별도 이 부분은 그 보상 한도랑은 좀 **다른 영역**이니까 별도로 표시를 좀
+   *   해줘야 될 거 같고, 긴급출동은 **보험은 아니긴 하지**」).
+   *
+   *   ① 보험료 포함 여부 — «이 대여료에 보험이 들었나». 돈의 크기를 바꾸는 **상품 조건**이지
+   *      보장 내용이 아니다. 그래서 맨 위에 혼자 선다(면 위 큰 값).
+   *   ② 보상 한도       — «어디까지 보상되나». 넷이 나란한 값이라 격자로 편다.
+   *   ③ 면책금          — «사고 나면 내가 얼마 내나». 그중 **자차가 따로 논다**(금액이 크고
+   *      수리비 부담이 딸린다) — 한 줄로 떼고, 대인·대물·자손은 그 밑에 흐리게.
+   *   ④ 긴급출동        — **보험이 아니다.** 사고가 아니라 고장일 때 부르는 부가 서비스다.
+   *      그래서 제일 아래에서 **여백으로 확실히 떨어뜨린다.**
    */
-  const deductibles = rows([
-    ['자차 면책금', join(deductible, repairShare)],
-    ['대인 면책금', S('injury_deductible')],
-    ['대물 면책금', S('property_deductible')],
-    ['자기신체 면책금', S('self_body_deductible')],
-  ]);
-  /**
-   * 보장 한도 — **얼마까지 보상되나.** 이 구역의 «메인»이다(사장님 2026-09-05
-   * 「보험은 **한도를 메인에 하고 그 밑에 면책금**에 대한 거를 써야겠다」).
-   */
+  /** ① 보험료 — 「포함」이냐 「별도」냐. 값 앞의 「보험료」는 라벨과 겹치므로 떼고 쓴다. */
+  const insuranceFee = meaningful(S('insurance_included'))
+    ? S('insurance_included').replace(/^보험료\s*/, '').trim()
+    : '';
+  /** ② 보상 한도 — 어디까지 보상되나. */
   const coverage = rows([
-    ['보험료', S('insurance_included')],
     ['대인', S('injury_compensation_limit')],
     ['대물', S('property_compensation_limit')],
     ['자기신체', S('self_body_accident')],
     ['자기차량', S('own_damage_compensation')],
     ['무보험차', S('uninsured_damage')],
   ]);
-  /** 보험 구역 맨 밑 — 사고가 아니라 «고장»일 때 부르는 것이라 보험 끝자락이 제자리다. */
+  /** ③ 면책금 — 자차는 따로 떼고(아래 JSX), 나머지 셋만 여기 모은다. */
+  const deductibles = rows([
+    ['대인 면책금', S('injury_deductible')],
+    ['대물 면책금', S('property_deductible')],
+    ['자기신체 면책금', S('self_body_deductible')],
+  ]);
+  /** ④ 긴급출동 — 보험이 아니라 부가 서비스. */
   const roadside = S('annual_roadside_assistance') || S('roadside_assistance');
 
   /** ⑤ 이용 조건 — 「내가 탈 수 있나」. 심사도 여기다(요금이 아니라 «자격»이다). */
@@ -574,20 +585,58 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
         ★자차 면책금은 면책금 묶음의 맨 앞이고, **수리비 부담은 그 칸 안에** 붙는다
           (사장님 「수리비 부담은 자차 면책금에 포함이 되는 거고」).
       */}
-      {(deductibles.length || coverage.length || roadside) ? (
+      {(insuranceFee || deductible || deductibles.length || coverage.length || roadside) ? (
         <Sec title="보험" icon={ShieldCheck} mobile={mobile}>
           <>
-            {/* 메인 — 소제목 없이 바로 온다. 구역 제목 바로 밑이 «주인공»의 자리다. */}
-            {coverage.length ? <Facts rows={coverage} cols={mobile ? 2 : 3} mobile={mobile} /> : null}
-            {deductibles.length ? (
-              <div style={{ marginTop: coverage.length ? 22 : 0 }}>
-                <div style={{ marginBottom: 9, fontSize: SHOP.fs.cap, fontWeight: 600, color: C.mute }}>면책금</div>
-                <DefList rows={deductibles} mobile={mobile} />
+            {/*
+              ① 보험료 포함 여부 — «이 대여료에 보험이 들었나». 보장 내용이 아니라 **상품 조건**이라
+                 보상 한도와 같은 격자에 두지 않는다(사장님 「보상 한도랑은 좀 다른 영역」).
+                 「별도」면 손님이 따로 내는 돈이 생기는 것이라 이 구역에서 제일 먼저 알아야 한다.
+            */}
+            {insuranceFee ? <BigRow label="보험료" value={insuranceFee} mobile={mobile} /> : null}
+
+            {/* ② 보상 한도 — 어디까지 보상되나. 넷이 나란한 값이라 격자로 편다. */}
+            {coverage.length ? (
+              <div style={{ marginTop: insuranceFee ? 20 : 0 }}>
+                <div style={{ marginBottom: 9, fontSize: SHOP.fs.cap, fontWeight: 600, color: C.mute }}>보상 한도</div>
+                <Facts rows={coverage} cols={mobile ? 2 : 3} mobile={mobile} />
               </div>
             ) : null}
-            {/* 사고가 아니라 «고장»일 때 부르는 것 — 보험 끝자락이 제자리다(사장님 「보험 맨 밑에」). */}
+
+            {/*
+              ③ 면책금 — 사고 나면 «내가» 내는 돈. 그중 **자차가 따로 논다** —
+                 금액이 제일 크고 수리비 부담이 딸려 있다(사장님 「자차 면책금하고는 더 분리를」).
+                 그래서 자차는 한 줄로 떼고, 대인·대물·자손은 그 밑에 흐리게 흘린다.
+            */}
+            {(deductible || deductibles.length) ? (
+              <div style={{ marginTop: 22 }}>
+                <div style={{ marginBottom: 9, fontSize: SHOP.fs.cap, fontWeight: 600, color: C.mute }}>면책금</div>
+                {deductible ? (
+                  <div style={{
+                    display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', columnGap: 10, rowGap: 2,
+                    paddingBottom: deductibles.length ? 12 : 0,
+                  }}>
+                    <span style={{ fontSize: SHOP.fs.sub, color: C.faint, minWidth: 72 }}>자차</span>
+                    <span style={{
+                      fontSize: mobile ? 17 : 18, fontWeight: 800, color: C.ink,
+                      letterSpacing: '-0.02em', fontVariantNumeric: 'tabular-nums',
+                    }}>{deductible}</span>
+                    {repairShare ? (
+                      <span style={{ fontSize: SHOP.fs.sub, color: C.mute }}>{repairShare}</span>
+                    ) : null}
+                  </div>
+                ) : null}
+                {deductibles.length ? <DefList rows={deductibles} mobile={mobile} /> : null}
+              </div>
+            ) : null}
+
+            {/*
+              ④ 긴급출동 — **보험이 아니다**(사장님 「긴급출동은 보험은 아니긴 하지」).
+                 사고가 아니라 «고장»일 때 부르는 부가 서비스다. 그래서 여백으로 확실히 떨어뜨리고
+                 제일 흐리게 둔다 — 위 셋과 같은 무게로 붙여 놓으면 보장의 하나로 읽힌다.
+            */}
             {roadside ? (
-              <div style={{ marginTop: 18, fontSize: SHOP.fs.sub, color: C.mute }}>
+              <div style={{ marginTop: 30, fontSize: SHOP.fs.sub, color: C.faint }}>
                 긴급출동 {roadside}
               </div>
             ) : null}
