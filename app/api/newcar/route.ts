@@ -23,11 +23,13 @@ export const dynamic = 'force-dynamic';
 const S = (v: unknown) => String(v ?? '').trim();
 const N = (v: unknown) => S(v).toLowerCase().replace(/[\s()·-]/g, '');
 
+// 공개 제조사 공표가 — 견적기(netlify) 외 누구나 읽어도 무방. 오리진·메서드만 공통.
 const CORS = {
-  'Access-Control-Allow-Origin': '*', // 공개 제조사 공표가 — 견적기(netlify) 외 누구나 읽어도 무방
+  'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Methods': 'GET, OPTIONS',
-  'Cache-Control': 'public, max-age=3600', // 하루 1회 갱신되는 데이터 — 1시간 캐시
 };
+const OK_CACHE = { ...CORS, 'Cache-Control': 'public, max-age=3600' }; // 정상만 1시간 캐시
+const ERR_CACHE = { ...CORS, 'Cache-Control': 'no-store' };            // ★장애는 캐시 금지(Codex)
 
 export function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS });
@@ -58,7 +60,9 @@ export async function GET(request: Request): Promise<Response> {
     });
     if (model) trims = trims.filter((t) => N(t.sub_model).includes(N(model)) || N(t.carType).includes(N(model)));
     trims.sort((a, b) => a.maker.localeCompare(b.maker) || a.sub_model.localeCompare(b.sub_model) || a.priceBefore - b.priceBefore);
-    const meta = { count: trims.length, makers: MAKERS, updatedAt: new Date().toISOString().slice(0, 10) };
+    // ★updatedAt = 실제 수집일(문서 crawledAt 최대), 요청일 아님(Codex — 오래된 자료가 최신처럼 보이던 것)
+    const crawledMax = snap.docs.reduce((m, d) => { const c = S(d.data().crawledAt); return c > m ? c : m; }, '');
+    const meta = { count: trims.length, makers: MAKERS, updatedAt: crawledMax || null };
     if (group) {
       // 모델별 묶음 — 견적기가 «모델 고르고 → 트림·옵션» 흐름으로 쓰기 좋게
       const byModel = new Map<string, any>();
@@ -68,10 +72,11 @@ export async function GET(request: Request): Promise<Response> {
         const g = byModel.get(k); g.fuels.add(t.fuel); g.trims.push(t);
       }
       const models = [...byModel.values()].map((g) => ({ maker: g.maker, sub_model: g.sub_model, fuels: [...g.fuels], trimCount: g.trims.length, trims: g.trims }));
-      return NextResponse.json({ ...meta, modelCount: models.length, models }, { headers: CORS });
+      return NextResponse.json({ ...meta, modelCount: models.length, models }, { headers: OK_CACHE });
     }
-    return NextResponse.json({ ...meta, trims }, { headers: CORS });
-  } catch (e) {
-    return NextResponse.json({ error: 'newcar feed unavailable', detail: S((e as Error)?.message) }, { status: 503, headers: CORS });
+    return NextResponse.json({ ...meta, trims }, { headers: OK_CACHE });
+  } catch {
+    // ★오류 상세는 공개하지 않는다(Codex — detail 로 내부 메시지 누출). 캐시도 안 한다.
+    return NextResponse.json({ error: 'newcar feed unavailable' }, { status: 503, headers: ERR_CACHE });
   }
 }

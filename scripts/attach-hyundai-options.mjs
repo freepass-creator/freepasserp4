@@ -29,11 +29,15 @@ let hit=0,cells=0; const batch=FS.batch(); let n=0;
 for(const doc of snap.docs){
   const v=doc.data();
   const cands=tables.filter(tb=>N(v.sub_model).includes(N(tb.ko)) && N(tb.trim)===N(v.trim));
-  // 연료 일치 우선, 없으면 트림만
-  let pick=cands.find(tb=>tb.fuel&&N(v.fuel).includes(N(tb.fuel)))||cands[0];
-  if(!pick||!pick.options.length)continue;
-  hit++; cells+=pick.options.length;
-  if(APPLY){batch.update(doc.ref,{options:pick.options});if(++n%400===0){await batch.commit();}}
+  // ★연료 정규화(LPi=LPG·배기량 뗌) + «연료 안 맞으면 아무거나 붙이지 않는다»(Codex 오부착 수정).
+  //   연료매칭 실패 시: 후보가 단 하나(모호 없음)면 쓰고, 여럿이면 «틀린 연료 부착 대신 건너뛴다».
+  const fuelN=x=>N(x).replace(/\d+\.?\d*/g,'').replace(/lpi/g,'lpg').replace(/일렉트릭|이브이/g,'전기');
+  const fm=cands.filter(tb=>tb.fuel&&fuelN(v.fuel)&&fuelN(tb.fuel).includes(fuelN(v.fuel)));
+  let pick=fm[0] || (cands.length===1?cands[0]:null);
+  const opts=(pick&&pick.options.length)?pick.options:[];
+  if(opts.length){hit++;cells+=opts.length;}
+  // ★매칭 안 되면 옵션을 «비운다» — 이전 오부착 잔존 방지(안 비우면 옛 옵션이 남는다).
+  if(APPLY){ if(opts.length||(Array.isArray(v.options)&&v.options.length)){ batch.update(doc.ref,{options:opts}); if(++n%400===0){await batch.commit();} } }
 }
 if(APPLY&&n%400!==0)await batch.commit();
 console.log(`현대 트림 ${snap.size} · 옵션매칭 ${hit}트림 · ${cells}셀 ${APPLY?'✓적재':'(드라이런)'}`);

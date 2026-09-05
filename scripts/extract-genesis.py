@@ -12,7 +12,7 @@ import fitz, sys, json, re
 
 BR = re.compile(r'\[([\d,]+)\]')              # [6,600,000]
 BASIC = re.compile(r'\[기본사양\]|\[기본\]')
-CARPRICE = re.compile(r'^([1-9]\d?,\d{3},\d{3})$')   # 60,630,000 (천만~억)
+CARPRICE = re.compile(r'^([1-9]\d{0,2},\d{3},\d{3})$')   # 60,630,000 ~ 1억대(G90·고가 GV80) — 1~3자리 선두(Codex)
 NOISE = re.compile(r'공급가액|부가세|주요\s*사양|파워트레인|외관|내장|안전|편의|시트|인포테인먼트|'
                    r'개별\s*소비세|최종|견적|PRICE|GENESIS|Genesis|단위|^모델$|^엔진$|^구동|^외장|^내장|^휠')
 # 옵션명 후보 — 너무 길거나 설명문(쉼표 많음)은 제외
