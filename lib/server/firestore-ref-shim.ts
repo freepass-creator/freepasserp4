@@ -29,7 +29,17 @@ const COL: Record<string, string> = {
 const ENTITY = new Set(['contracts', 'settlements', 'policies', 'partners', 'customers', 'users']);
 const docSafe = (s: string) => s.replace(/[/#.$\[\]]/g, '_');
 /** 파이어스토어가 이 시간 안에 대답 못 하면 RTDB 로 간다 — 매달려 죽는 것보다 낫다. */
-const FS_TIMEOUT_MS = Number(process.env.FIRESTORE_READ_TIMEOUT_MS || 3500);
+const FS_TIMEOUT_MS = Number(process.env.FIRESTORE_READ_TIMEOUT_MS || 1500);
+/**
+ * **한 번 막히면 그 서버에서는 더 두드리지 않는다.**
+ *
+ * ⚠⚠ 2026-09-05 운영. 자격증명이 파이어스토어를 못 열자 읽는 곳마다 제한시간을 꼬박 기다렸고
+ *   (재고·정책·공급사·사용자 넷이면 그것만으로 십수 초), 함수가 통째로 타임아웃 나서
+ *   **손님 화면에 차가 한 대도 안 나왔다.** 폴백이 있어도 «매번 기다리면» 폴백이 아니다.
+ * ⇒ 첫 실패를 기억해 두고 그 뒤로는 **곧장 RTDB** 로 간다. 서버 인스턴스가 새로 뜨면 다시 한 번 시도한다
+ *   (자격증명이 고쳐지면 저절로 파이어스토어로 돌아온다 — 코드 배포가 필요 없다).
+ */
+let firestoreBlocked = false;
 const companyOf = (v: any) => String(v?.companyId || v?.provider_company_code || v?.company_code || v?.partner_code || 'PT-0000');
 
 type Parsed = { col: string; node: string; docId: string | null; field: string[] };
@@ -61,6 +71,7 @@ class RefShim {
   private docRef() { return this.p.docId ? this.fs.collection(this.p.col).doc(this.p.docId) : null; }
 
   async get(): Promise<Snap> {
+    if (firestoreBlocked) return new Snap((await this.rtdb.ref(this.path).get()).val(), this.key);
     try {
       /*
        * ⚠⚠ 2026-09-05 운영 사고. 배포한 서버에서 파이어스토어가 `16 UNAUTHENTICATED` 로 막히자
@@ -82,8 +93,11 @@ class RefShim {
         if (d.exists) return new Snap(this.p.field.length ? dig(d.data(), this.p.field) : d.data(), this.key);
       }
     } catch (e) {
-      /* ★왜 떨어졌는지 한 줄 남긴다 — 조용히 옛 데이터가 나가면 아무도 눈치채지 못한다. */
-      console.error('[firestore-shim] 폴백', this.p.col, e instanceof Error ? e.message : 'unknown');
+      /* ★왜 떨어졌는지 «한 번만» 남긴다 — 조용히 옛 데이터가 나가면 아무도 눈치채지 못한다. */
+      const why = e instanceof Error ? e.message : 'unknown';
+      if (!firestoreBlocked) console.error('[firestore-shim] 폴백 — 이 서버는 RTDB 로 읽습니다', this.p.col, why);
+      /* 자격증명·연결이 막힌 것이면 이 서버에서는 더 두드리지 않는다(위 `firestoreBlocked` 머리말). */
+      if (/UNAUTHENTICATED|PERMISSION_DENIED|firestore-timeout|UNAVAILABLE|DEADLINE/i.test(why)) firestoreBlocked = true;
     }
     const snap = await this.rtdb.ref(this.path).get();
     return new Snap(snap.val(), this.key);
