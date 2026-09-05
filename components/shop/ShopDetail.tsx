@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import Link from 'next/link';
 import {
   ArrowLeft, Car, Check, ChevronLeft, ChevronRight, CircleCheck, Coins, FileText, Heart, Plus, Tag,
@@ -474,8 +475,9 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
 
   const gallery = <Gallery p={p} mobile={mobile} />;
 
-  const bar = (
-    <TopBar code={code} title={title} listHref={listHref} mobile={mobile} />
+  /* 폰에는 위 실행줄이 없다 — 관심·공유는 차번 줄 오른쪽으로 간다(`FavShare` 머리말). */
+  const bar = mobile ? null : (
+    <TopBar code={code} title={title} listHref={listHref} />
   );
 
   const priceCard = (
@@ -674,7 +676,8 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
       */}
       {bar}
       {gallery}
-      <Head title={title} facts={facts} stateMarks={stateMarks} perkMarks={perkMarks} />
+      <Head title={title} facts={facts} stateMarks={stateMarks} perkMarks={perkMarks}
+        actions={mobile ? <FavShare code={code} title={title} /> : null} />
       {/*
         ★★**차량 정보 = 「이 차가 무엇인가」 한 덩어리**.
           제조사·세부모델·세부트림 한 줄 → 연식·주행거리·배기량·연료 → 색상·정원·최초등록.
@@ -915,9 +918,7 @@ const FAV_KEY = 'fp4_shop_fav';
  *   ⚠ 주소를 «지금 주소 그대로» 넘긴다 — `?a=` 담당 귀속이 물려 있어야 받은 사람이 눌러도
  *     같은 담당자에게 간다. 손으로 조립하면 그 파라미터를 흘린다.
  */
-function TopBar({ code, title, listHref, mobile }: {
-  code: string; title: string; listHref: string; mobile?: boolean;
-}) {
+function FavShare({ code, title }: { code: string; title: string }) {
   const [faved, setFaved] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -951,25 +952,7 @@ function TopBar({ code, title, listHref, mobile }: {
   };
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '2px 0 12px' }}>
-      {/*
-       * ★**폰에서는 「목록으로」를 여기서 뺀다**(2026-09-05). 하단독의 「이전」이 같은 일을 한다.
-       *   같은 문이 위아래로 둘이면 그건 문이 아니라 헷갈림이고, 라우트를 벗어나는 이동은
-       *   집 규격상 «하단 이전»의 자리다. 웹은 하단독이 없으니 여기 그대로 둔다.
-       */}
-      {mobile ? <span style={{ flex: 1 }} /> : (
-        <>
-          <Link href={listHref} onClick={() => haptic.nav()} className="fp-shop-press"
-            style={{
-              display: 'inline-flex', alignItems: 'center', gap: 6,
-              height: 40, padding: '0 12px 0 8px', borderRadius: SHOP.r.chip,
-              textDecoration: 'none', color: C.sub, fontSize: SHOP.fs.sub, fontWeight: 600,
-            }}>
-            <ArrowLeft size={ICON.lg} aria-hidden />목록으로
-          </Link>
-          <div style={{ flex: 1 }} />
-        </>
-      )}
+    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
       {/*
         ★★**누를 것처럼 보이게 한다**(사장님 2026-09-05 「**공유 버튼이 좀 있어야** 할 거 같고」).
           여기 둘은 배경도 테두리도 없는 «맨 글자»여서, 화면 오른쪽 위 여백에 놓인 장식처럼 보였다.
@@ -998,6 +981,35 @@ function TopBar({ code, title, listHref, mobile }: {
         {copied ? <Check size={ICON.lg} aria-hidden /> : <Share2 size={ICON.lg} aria-hidden />}
         {copied ? '복사했습니다' : '공유'}
       </button>
+    </div>
+  );
+}
+
+/**
+ * **웹 전용 실행줄** — 「목록으로」 ↔ 관심·공유.
+ *
+ * ★★**폰에는 이 줄이 없다**(사장님 2026-09-05 「웹은 «목록으로»라는 그 줄이 있어서 밸런스가
+ *   맞는데 **모바일은 그게 밸런스가 안 맞는단 말이야** … 그 공간을 찾아 가지고 거기에다 넣어야」).
+ *   폰에서 「목록으로」를 뺀 것까지는 맞았다(하단독의 「이전」이 같은 일을 하니 문이 둘일 이유가 없다).
+ *   그런데 **관심·공유만 남겨 두는 바람에 왼쪽 2/3 가 빈 줄이 하나 생겼다** — 오른쪽 구석에
+ *   장식처럼 떠 있고, 사진 위로 40px 짜리 빈 띠가 깔린 꼴이다.
+ * ⇒ 폰에서는 이 줄을 통째로 없애고, 둘을 **차번 줄 오른쪽**으로 옮긴다(`Head`).
+ *   거기가 실제로 비어 있던 자리고(차번은 여덟 글자다), 「이 차가 이거다」를 확인한 «바로 그 줄»에서
+ *   담기·보내기를 누르는 게 순서로도 맞다.
+ */
+function TopBar({ code, title, listHref }: { code: string; title: string; listHref: string }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '2px 0 12px' }}>
+      <Link href={listHref} onClick={() => haptic.nav()} className="fp-shop-press"
+        style={{
+          display: 'inline-flex', alignItems: 'center', gap: 6,
+          height: 40, padding: '0 12px 0 8px', borderRadius: SHOP.r.chip,
+          textDecoration: 'none', color: C.sub, fontSize: SHOP.fs.sub, fontWeight: 600,
+        }}>
+        <ArrowLeft size={ICON.lg} aria-hidden />목록으로
+      </Link>
+      <div style={{ flex: 1 }} />
+      <FavShare code={code} title={title} />
     </div>
   );
 }
@@ -1303,12 +1315,14 @@ function SecTitle({ children, icon: Icon, accent, tag }: {
   );
 }
 
-function Head({ title, facts, stateMarks, perkMarks }: {
+function Head({ title, facts, stateMarks, perkMarks, actions }: {
   title: string; facts: string;
   /** 차명 줄 «오른쪽» — 출고상태 · 상품구분. 이 차의 «신원»이라 이름과 같은 줄에 선다. */
   stateMarks: { text: string; icon: LucideIcon; good?: boolean }[];
   /** 그 밑 한 줄 — 심사 · 우대조건. 「내가 되나」라 신원과 성격이 다르다. */
   perkMarks: { text: string; icon: LucideIcon; good?: boolean }[];
+  /** 차번 줄 «오른쪽» 실행 — 폰의 관심·공유가 여기 선다(웹은 위 실행줄에 있다). */
+  actions?: ReactNode;
 }) {
   /*
    * ★★**상자 뱃지가 아니라 아이콘 + 글자**다(사장님 2026-08-28·08-30 「박스 뱃지 쓰지 말고
@@ -1377,9 +1391,21 @@ function Head({ title, facts, stateMarks, perkMarks }: {
           </div>
         ) : null}
       </div>
-      {facts ? (
-        <div style={{ marginTop: 8, fontSize: SHOP.fs.body, color: C.mute, fontVariantNumeric: 'tabular-nums' }}>
-          {facts}
+      {/*
+        ★**차번 줄은 왼쪽 여덟 글자만 쓰고 오른쪽이 통째로 비어 있던 자리**다.
+          폰에서는 여기 오른쪽에 관심·공유가 선다 — 위에 빈 실행줄을 하나 더 깔지 않는다.
+          (`FavShare` 머리말 참고. 사장님 2026-09-05 「그 공간을 찾아 가지고 거기에다 넣어야」)
+        ⚠ 차번이 없으면(있을 수 없지만) 실행만 오른쪽에 남는다 — 그래도 줄은 선다.
+      */}
+      {facts || actions ? (
+        <div style={{
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          gap: 12, marginTop: 8, minHeight: actions ? 40 : undefined,
+        }}>
+          <span style={{ fontSize: SHOP.fs.body, color: C.mute, fontVariantNumeric: 'tabular-nums' }}>
+            {facts}
+          </span>
+          {actions}
         </div>
       ) : null}
       {perkMarks.length ? (
