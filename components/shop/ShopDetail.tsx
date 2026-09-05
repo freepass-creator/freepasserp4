@@ -447,9 +447,21 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
   const status = S2(p.vehicle_status);
   const kind = S2(p.product_type);
   const creditChip = creditDisplay(p);
-  const marks: { text: string; icon: LucideIcon; good?: boolean }[] = [
+  type Mark = { text: string; icon: LucideIcon; good?: boolean };
+  /**
+   * ① **차명 줄 오른쪽** — 「지금 살 수 있나 · 무슨 상품인가」.
+   *   제목 옆이 비어 있어 거기로 올렸다(사장님 2026-09-05 「**차량번호 뒤에 현대 그랜저,
+   *   그리고 우측 정렬로 출고가능·상품구분**을 하고」). 이름과 같은 줄에 서야 «이 차의 신원»으로 읽힌다.
+   */
+  const stateMarks: Mark[] = [
     ...(status ? [{ text: status, icon: CircleCheck, good: /출고가능|즉시출고/.test(status) }] : []),
     ...(kind ? [{ text: kind, icon: Tag }] : []),
+  ];
+  /**
+   * ② **그 밑 한 줄** — 「내가 되나」. 심사와 우대조건은 «조건»이라 신원과 성격이 다르다
+   *   (사장님 「그 밑에 심사 조건, 우대 조건 그런 것들을 쭉」).
+   */
+  const perkMarks: Mark[] = [
     ...(creditChip && creditChip !== CREDIT_UNSET
       ? [{ text: creditChip, icon: ShieldCheck, good: /무심사/.test(creditChip) }] : []),
     ...PERKS.filter((k) => hasPerk(p, k)).map((k) => ({ text: k as string, icon: Check })),
@@ -662,7 +674,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
       */}
       {bar}
       {gallery}
-      <Head title={title} facts={facts} marks={marks} />
+      <Head title={title} facts={facts} stateMarks={stateMarks} perkMarks={perkMarks} />
       {/*
         ★★**차량 정보 = 「이 차가 무엇인가」 한 덩어리**.
           제조사·세부모델·세부트림 한 줄 → 연식·주행거리·배기량·연료 → 색상·정원·최초등록.
@@ -1291,41 +1303,63 @@ function SecTitle({ children, icon: Icon, accent, tag }: {
   );
 }
 
-function Head({ title, facts, marks }: {
+function Head({ title, facts, stateMarks, perkMarks }: {
   title: string; facts: string;
-  /** 「이 차가 지금 어떤 물건인가」 — 출고상태 · 상품구분 · 심사 · 우대조건. */
-  marks: { text: string; icon: LucideIcon; good?: boolean }[];
+  /** 차명 줄 «오른쪽» — 출고상태 · 상품구분. 이 차의 «신원»이라 이름과 같은 줄에 선다. */
+  stateMarks: { text: string; icon: LucideIcon; good?: boolean }[];
+  /** 그 밑 한 줄 — 심사 · 우대조건. 「내가 되나」라 신원과 성격이 다르다. */
+  perkMarks: { text: string; icon: LucideIcon; good?: boolean }[];
 }) {
+  /*
+   * ★★**상자 뱃지가 아니라 아이콘 + 글자**다(사장님 2026-08-28·08-30 「박스 뱃지 쓰지 말고
+   *   아이콘 텍스트로, **모든 곳에서**」 · 2026-09-05 「연한 배경으로 칩을 해주는 건 좋은데」).
+   *   연한 면은 깔되 **테두리는 두르지 않는다** — 테두리가 붙는 순간 그게 상자 뱃지다.
+   * ★색은 **좋은 소식에만**(출고가능·즉시출고·무심사). 칩마다 색을 주면 그때부터 소란이다.
+   */
+  const chip = (m: { text: string; icon: LucideIcon; good?: boolean }) => (
+    <span key={m.text} style={{
+      display: 'inline-flex', alignItems: 'center', gap: 4,
+      padding: '5px 10px', borderRadius: SHOP.r.chip,
+      background: m.good ? C.okBg : C.zebra,
+      color: m.good ? C.ok : C.sub,
+      fontSize: SHOP.fs.cap, fontWeight: 600, whiteSpace: 'nowrap',
+    }}>
+      <m.icon size={13} aria-hidden />{m.text}
+    </span>
+  );
+
   return (
     <header style={{ paddingTop: 18 }}>
-      <h1 style={{
-        margin: 0, fontSize: 22, fontWeight: FW.head, color: C.ink,
-        lineHeight: 1.3, letterSpacing: '-0.03em',
-      }}>{title}</h1>
+      {/*
+        ★★**차명 줄 오른쪽에 출고상태·상품구분**(사장님 2026-09-05 「차량번호 뒤에 현대 그랜저,
+          그리고 **우측 정렬로 출고가능·상품구분**을 하고, 그 밑에 심사 조건·우대 조건을 쭉」).
+          제목 오른쪽이 늘 비어 있었다 — 이름이 짧으니 웹에서 700px 넘게 남았다.
+          그 자리에 **이 차의 신원**(살 수 있나 · 무슨 상품인가)이 서면 이름과 함께 한 번에 읽힌다.
+        ★조건 칩(심사·우대)은 **밑줄로 내린다** — 신원이 아니라 「내가 되나」라 성격이 다르다.
+        ⚠ 이름이 길면 칩이 아래로 접힌다(`flexWrap`) — 겹쳐서 잘리지 않는다.
+      */}
+      <div style={{
+        display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
+        gap: 12, flexWrap: 'wrap',
+      }}>
+        <h1 style={{
+          margin: 0, fontSize: 22, fontWeight: FW.head, color: C.ink,
+          lineHeight: 1.3, letterSpacing: '-0.03em', minWidth: 0,
+        }}>{title}</h1>
+        {stateMarks.length ? (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'flex-end' }}>
+            {stateMarks.map(chip)}
+          </div>
+        ) : null}
+      </div>
       {facts ? (
         <div style={{ marginTop: 8, fontSize: SHOP.fs.body, color: C.mute, fontVariantNumeric: 'tabular-nums' }}>
           {facts}
         </div>
       ) : null}
-      {/*
-        ★★**상자 뱃지가 아니라 아이콘 + 글자**다(사장님 2026-08-28·08-30 「박스 뱃지 쓰지 말고
-          아이콘 텍스트로, **모든 곳에서**」 · 2026-09-05 「연한 배경으로 칩을 해주는 건 좋은데」).
-          연한 면은 깔되 **테두리는 두르지 않는다** — 테두리가 붙는 순간 그게 상자 뱃지다.
-        ★색은 **좋은 소식에만**(출고가능·즉시출고·무심사). 칩마다 색을 주면 그때부터 소란이다.
-      */}
-      {marks.length ? (
+      {perkMarks.length ? (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
-          {marks.map((m) => (
-            <span key={m.text} style={{
-              display: 'inline-flex', alignItems: 'center', gap: 4,
-              padding: '5px 10px', borderRadius: SHOP.r.chip,
-              background: m.good ? C.okBg : C.zebra,
-              color: m.good ? C.ok : C.sub,
-              fontSize: SHOP.fs.cap, fontWeight: 600, whiteSpace: 'nowrap',
-            }}>
-              <m.icon size={13} aria-hidden />{m.text}
-            </span>
-          ))}
+          {perkMarks.map(chip)}
         </div>
       ) : null}
     </header>

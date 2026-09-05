@@ -399,9 +399,9 @@ must(/display: mobile \? 'block' : 'flex', gap: mobile \? 0 : 32/.test(shopDetai
  * 차명 밑 «표시 칩» — 출고상태 · 상품구분 · 심사 · 우대조건. **아이콘 + 글자**이고 테두리가 없다.
  * ⚠ 출고상태·상품구분은 한때 상세에 아예 없었다 — 목록 카드는 보여 주는데 상세에서 사라졌다.
  */
-must(/const marks: \{ text: string; icon: LucideIcon; good\?: boolean \}\[\]/.test(shopDetail)
+must(/const stateMarks: Mark\[\]/.test(shopDetail) && /const perkMarks: Mark\[\]/.test(shopDetail)
   && /S2\(p\.vehicle_status\)/.test(shopDetail) && /S2\(p\.product_type\)/.test(shopDetail),
-  '차명 밑 표시 칩(출고상태·상품구분·심사·우대조건)이 사라졌습니다 — 목록 카드가 보여 준 말이 상세에서 없어집니다.',
+  '표시 칩이 사라졌거나 신원(출고상태·구분)과 조건(심사·우대)이 다시 한 덩어리가 됐습니다 — 신원은 차명 줄 오른쪽, 조건은 그 밑입니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1');
 // 전화는 담당자 → 대표번호로 떨어진다 — ?a= 없는 손님에게 전화 링크가 0개가 되면 안 된다.
 must(/wl\.tel/.test(read('app/q/[code]/ShopDetailView.tsx')),
