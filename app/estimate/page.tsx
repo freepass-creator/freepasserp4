@@ -1,42 +1,62 @@
-﻿'use client';
+'use client';
 /**
  * 견적 — **완전 별도 페이지**(사장님 2026-09-06 「모바일에서 보여지는 거 그대로 · 완전 별도 페이지라고
  * 얘기할 정도로」). 설계서 §11·§12.
  *
+ * ★★화면의 정본은 **사장님이 주신 목업** `C:\Users\admin\Documents\프리패스-목업-모바일계산기.html` 이다.
+ *   마크업·클래스·문구·차례를 그 목업에서 그대로 옮겼다. 스타일은 `components/estimate/estimate.css`
+ *   (목업 `<style>` 통째로 · `.est-root` 로만 가둠).
+ *   ⚠ 2026-09-06 에 한 번 다른 소스(sonogong-estimator `MobileApp.vue`)를 옮겨 놓았다가
+ *     「목업을 줬는데 그거 그대로 하라는데 이게 이렇게 힘드냐」를 들었다. **목업이 이긴다.**
+ *   ⚠ 목업에 없는 칸을 여기서 «만들지» 않는다. 필요하면 목업을 먼저 고친다.
+ *
  * ★이 층은 업무동 규격을 안 따른다. 전자계약(`/sign`)과 «같은 갈래»다 —
- *   자기 CSS(`components/estimate/estimate.css`)를 갖고, ERP 상단바·하단 홈바를 벗는다.
+ *   자기 CSS 를 갖고, ERP 상단바·하단 홈바를 벗는다.
  *   벗기는 건 `lib/guest-surface.ts` 한 곳이 정한다(거기 한 줄이 이 페이지를 독립으로 만든다).
  *   ⚠ 로그인은 **필요하다** — `lib/public-access.ts` 에 넣지 않았다.
  *     이 화면은 원가·마진·손익을 보여준다. 손님이 우리 원가를 보면 안 된다.
  *
  * ★숫자는 **한 줄도 여기서 계산하지 않는다.** 전부 `lib/domain/estimate` 엔진이 낸다
  *   (손오공 견적기에서 무손실 이관 · 회귀 39개 = `npm run test:estimate`).
- *   화면이 제 나름대로 셈을 하기 시작하면 그날 «견적이 두 곳에서 나온다».
+ *   ⇒ 목업 `<script>` 의 간이 계산식(`calc()`)은 **안 옮겼다.** 그건 「업계 기준선 추정」용 목업 셈이고,
+ *     우리 정본은 엔진이다. 화면 구성만 목업을 따르고 숫자는 엔진에서 온다.
+ *   ⇒ 그래서 목업 손익표의 「일반관리·간접비」 줄은 없다 — 엔진은 간접비를 따로 세지 않고
+ *     직접비·수수료로 다 잡는다. 없는 값을 지어내느니 줄을 뺐다.
+ *     대신 엔진에만 있는 「손바뀜 위험」은 값이 있을 때만 한 줄 선다(안 보이면 매출총이익이 안 맞는다).
+ *
+ * ★아직 안 붙은 것(설계서 §11 남은 일):
+ *   ① 차종 검색(중고마스터) — 지금은 목업이 박아 둔 그 차 한 대가 기본값이다.
+ *   ② 헤더 「원가」 탭 — 관리자 원가설정 화면이 없어 눌리지 않게 두었다(목업은 외부 링크였다).
  */
 import { useMemo, useState } from 'react';
 import '@/components/estimate/estimate.css';
 import { safeComputeTerm } from '@/lib/domain/estimate/safe-calc.js';
 import { createQuoteInput } from '@/lib/domain/estimate/quote-input.js';
 import { DEFAULT_CONFIG } from '@/lib/domain/estimate/default-config.js';
-import { usedResidPct } from '@/lib/domain/estimate/residual-lookup.js';
+import { usedResidPct, newcarResidPct } from '@/lib/domain/estimate/residual-lookup.js';
 
-/** 1~5년 — 차를 넣기 전에도 빈 칸으로 «항상» 서 있다(설계서 §1). */
-const MTERMS = [12, 24, 36, 48, 60];
-const FUELS = [
-  { id: 'gasoline', label: '가솔린' }, { id: 'diesel', label: '디젤' },
-  { id: 'lpg', label: 'LPG' }, { id: 'hybrid', label: '하이브리드' }, { id: 'ev', label: '전기' },
-];
-const ACCIDENTS = [
-  { id: 'none', label: '무사고' }, { id: 'simple', label: '단순수리' }, { id: 'frame', label: '골격손상' },
-];
-const CREDITS = [
-  { value: '정상', label: '정상' }, { value: '중신용', label: '중신용' }, { value: '저신용', label: '저신용' },
-];
+/** 목업 `TERMS/PCTS/CREDIT` 그대로. */
+const TERMS = [12, 24, 36, 48, 60];
 const PCTS = [0, 10, 20, 30];
+const FEES = [0, 2.5, 5];
+const DISCS = [0, 2, 5, 10];
+const CREDIT = ['고신용', '중신용', '저신용'];
 
-const won = (n: number) => Math.round(n || 0).toLocaleString('ko-KR');
+/** 목업 `TRIMS` 그대로 — 차종 검색이 붙기 전까지의 신차 트림. */
+const TRIMS = [
+  { n: '2.5 프리미엄', p: 34110000 },
+  { n: '2.5 익스클루시브', p: 37200000 },
+  { n: '2.5 캘리그래피', p: 42000000 },
+];
+const BRANDS = ['현대', '기아', '제네시스'];
+const MODELS = ['더 뉴 캐스퍼', '아반떼 CN7', '그랜저 GN7'];
+
+/** 목업 `DEF.used` 가 박아 둔 그 차(현대 그랜저 IG 2.5). 배기량은 엔진(취득세·자동차세)이 요구한다. */
+const USED = { name: '현대 그랜저 IG 2.5', price: 27000000, year: 2021, mileage: 48000, cc: 2497 };
+const NEW_CC = 2497;
+
+const won = (n: number) => `${Math.round(n || 0).toLocaleString('ko-KR')}원`;
 const man = (n: number) => `${Math.round((n || 0) / 10000).toLocaleString('ko-KR')}만`;
-const digits = (v: string) => Number(String(v).replace(/[^\d]/g, '')) || 0;
 
 type Card = {
   term: number; payVat?: number; monthlySupply?: number; months?: number;
@@ -44,7 +64,7 @@ type Card = {
   cost?: Record<string, number>;
 };
 
-/** 손익 분해 — 원본 MobileApp.vue `pnl()` 과 «같은 식». 값은 엔진이 낸 원가에서만 꺼낸다. */
+/** 손익 분해 — 목업 `prodRows()` 의 줄 구성 그대로. 값은 엔진이 낸 원가에서만 꺼낸다. */
 function pnl(c: Card, prepay: number) {
   const co = c.cost || {};
   const rev = (c.monthlySupply || 0) * (c.months || 1);
@@ -61,237 +81,235 @@ function pnl(c: Card, prepay: number) {
   };
 }
 
+const IconSearch = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="m20 20-3-3" /></svg>
+);
+const IconCar = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M4 13l1.6-4.4A2 2 0 0 1 7.5 7.2h9A2 2 0 0 1 18.4 8.6L20 13" /><path d="M3 13h18v3.4a1 1 0 0 1-1 1h-1.3a1 1 0 0 1-1-1V16H7.3v.4a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z" /></svg>
+);
+const IconChevron = () => (
+  <svg className="cv" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="m6 9 6 6 6-6" /></svg>
+);
+
+/** 목업 `.chips` — 칩 한 줄. */
+function Chips<T extends string | number>({ opts, cur, unit = '', onPick }: {
+  opts: readonly T[]; cur: T; unit?: string; onPick: (v: T) => void;
+}) {
+  return (
+    <div className="chips">
+      {opts.map((v) => (
+        <button key={String(v)} type="button" className={v === cur ? 'on' : ''} onClick={() => onPick(v)}>{v}{unit}</button>
+      ))}
+    </div>
+  );
+}
+
+/** 목업 `.seg` — 세그먼트. */
+function Seg<T extends string>({ tone, opts, cur, onPick }: {
+  tone: 't1' | 't2' | 't3'; opts: readonly { v: T; label: string }[]; cur: T; onPick: (v: T) => void;
+}) {
+  return (
+    <div className={`seg ${tone}`}>
+      {opts.map((o) => (
+        <button key={o.v} type="button" className={o.v === cur ? 'on' : ''} onClick={() => onPick(o.v)}>{o.label}</button>
+      ))}
+    </div>
+  );
+}
+
 export default function EstimatePage() {
   const nowYear = new Date().getFullYear();
-  const [price, setPrice] = useState(0);       // 원 단위(화면은 만원)
-  const [cc, setCc] = useState(0);
-  const [mileage, setMileage] = useState(0);
-  const [year, setYear] = useState<number | null>(null);
-  const [fuel, setFuel] = useState('gasoline');
-  const [accident, setAccident] = useState('none');
-  const [channel, setChannel] = useState<'rent' | 'sub'>('rent');
+  const [cond, setCond] = useState<'used' | 'new'>('used');
+  const [ch, setCh] = useState<'rent' | 'sub'>('rent');
   const [type, setType] = useState<'return' | 'acquire'>('return');
-  const [credit, setCredit] = useState('정상');
-  const [depositPct, setDepositPct] = useState(10);
-  const [prepayPct, setPrepayPct] = useState(0);
-  const [openTerm, setOpenTerm] = useState(48);
+  const [credit, setCredit] = useState('중신용');
+  const [trim, setTrim] = useState(0);
+  const [brand, setBrand] = useState(BRANDS[0]);
+  const [model, setModel] = useState(MODELS[0]);
+  const [disc, setDisc] = useState(0);
+  const [dep, setDep] = useState(10);
+  const [pre, setPre] = useState(0);
+  const [fee, setFee] = useState(5);
+  const [open, setOpen] = useState<number | null>(48);
+  /** 잔가는 «자동(표준+델타)»이 기본이고, 목업 STEP 4 처럼 건별로 덮어쓸 수 있다. */
+  const [residOverride, setResidOverride] = useState<Record<number, number>>({});
 
-  /** 연식·차량가·배기량이 다 있어야 잔가가 산다 — 원본 `valid` 와 같은 조건. */
-  const valid = price > 0 && cc > 0 && !!year;
+  const isNew = cond === 'new';
+  const listPrice = isNew ? TRIMS[trim].p : USED.price;
+  const price = Math.round(listPrice * (1 - disc / 100));
+  const age = isNew ? 0 : nowYear - USED.year;
 
-  /**
-   * ★잔가는 **국산 표준곡선**으로 낸다(설계서 §2 「표준 + 차종 델타」).
-   *   차종을 아직 안 고르므로 델타는 0 — `usedResidPct(null, null, …)` 가 표준곡선 그대로를 준다.
-   *
-   * ⚠ 이걸 안 주면 A/B/C 등급표로 떨어지는데 **그 표에는 12개월 행이 없다.**
-   *   그러면 1년 잔가가 0이 되어 차값 전부가 감가로 잡히고, 1년 월납이 360만원으로 튄다(2026-09-06 실측).
-   *   「1~5년 칸은 항상 표시」가 규격인데 그중 하나가 거짓말을 하면 그 화면은 못 쓴다.
-   * ⚠ 표준곡선은 «시세 × 연식곡선»이라 연식·주행·사고가 이미 반영된 값이다 —
-   *   그래서 엔진이 `ageBaked` 로 재보정을 생략한다(calc.js resolveResidualRate 주석). 이중차감 방지다.
-   */
-  const residualDefault = useMemo(() => {
-    if (!year) return null;
-    const age = Math.max(0, nowYear - year);
+  /** 자동 잔가(%) — 신차는 출고가 대비, 중고는 «현재 시세 대비». 엔진 `residual-lookup` 이 낸다. */
+  const autoResid = useMemo(() => {
     const out: Record<number, number> = {};
-    for (const t of MTERMS) out[t] = usedResidPct(null, null, age, t / 12) / 100;
+    for (const t of TERMS) {
+      out[t] = Math.round(isNew ? newcarResidPct(null, null, t / 12) : usedResidPct(null, null, age, t / 12));
+    }
     return out;
-  }, [year, nowYear]);
+  }, [isNew, age]);
+  const residPct = useMemo(() => {
+    const out: Record<number, number> = {};
+    for (const t of TERMS) out[t] = residOverride[t] ?? autoResid[t];
+    return out;
+  }, [autoResid, residOverride]);
 
-  const input = useMemo(() => createQuoteInput({
-    adminCfg: DEFAULT_CONFIG, channel, type,
-    form: { price, cc, fuel, accident, mileage, year, credit },
-    conditions: { depositPct, prepayPct },
-    residual: null, residualDefault, credit, defaultGroup: 'B', nowYear,
-  }), [price, cc, fuel, accident, mileage, year, credit, channel, type, depositPct, prepayPct, nowYear, residualDefault]);
+  const cards = useMemo<Card[]>(() => {
+    const adminCfg = {
+      ...DEFAULT_CONFIG,
+      setting: { ...DEFAULT_CONFIG.setting, salesFeeRate: { rent: fee / 100, sub: fee / 100 } },
+    };
+    const residualDefault: Record<number, number> = {};
+    for (const t of TERMS) residualDefault[t] = residPct[t] / 100;
+    const input = createQuoteInput({
+      adminCfg, channel: ch, type,
+      form: {
+        price, cc: isNew ? NEW_CC : USED.cc, fuel: 'gasoline', accident: 'none',
+        mileage: isNew ? 0 : USED.mileage, year: isNew ? nowYear : USED.year, credit,
+      },
+      conditions: { depositPct: dep, prepayPct: pre },
+      residual: null, residualDefault, credit, defaultGroup: 'B', nowYear,
+    });
+    return TERMS.map((t) => ({ ...safeComputeTerm(t, input, { idx: t }), term: t }));
+  }, [ch, type, price, isNew, credit, dep, pre, fee, residPct, nowYear]);
 
-  const products: Card[] = useMemo(
-    () => (valid ? MTERMS.map((t) => ({ ...safeComputeTerm(t, input, { idx: t }), term: t })) : []),
-    [valid, input],
-  );
-
-  const yearOptions = useMemo(
-    () => Array.from({ length: 16 }, (_, i) => nowYear - i),
-    [nowYear],
-  );
+  const prepayAmt = Math.round(price * pre / 100);
+  const vehTag = `${man(listPrice)}원`;
+  const vName = isNew ? `${brand} ${model} ${TRIMS[trim].n}` : USED.name;
+  const vMeta = isNew
+    ? `신차 · 출고가 ${man(listPrice)} · ${nowYear}년형`
+    : `중고 · 매입가 ${man(USED.price)} · ${USED.year}년 · ${USED.mileage.toLocaleString('ko-KR')}km`;
 
   return (
     <div className="est-root">
-      <div className="m-shell">
-        {/* 머리 — 원본 .hd 그대로. ⚠ 워드마크는 원본 화면을 «그대로» 옮긴 것이다.
-            노브랜드 규칙(CLAUDE.md)과 부딪히는 자리라, 뺄지는 사장님 확인 뒤 정한다. */}
-        <header className="hd">
-          <span className="wm"><span className="a">freepass</span><span className="b">mobility</span></span>
-          <h1>견적</h1>
-        </header>
+      <div className="phone">
+        <div className="hd">
+          <div className="wm"><span className="a">freepass</span><span className="b">mobility</span></div>
+          <div className="modesw">
+            <button type="button" className="on">견적</button>
+            {/* 원가 설정 화면은 아직 없다(설계서 §11 순서 3) — 목업의 외부 링크 대신 눌리지 않게 둔다. */}
+            <button type="button" disabled title="원가 설정은 준비 중">원가</button>
+          </div>
+        </div>
 
-        <main className="m-body">
-          {/* STEP 1 차량 */}
-          <section className="card">
-            <div className="step"><span className="no">1</span>차량</div>
+        {/* STEP 1 차량 */}
+        <div className="card">
+          <div className="step"><span className="no">1</span>차량<span className="veh">{vehTag}</span></div>
+          <Seg tone="t1" cur={cond} onPick={setCond} opts={[{ v: 'used', label: '중고' }, { v: 'new', label: '신차' }]} />
+          {!isNew ? (
+            <div className="vsearch">
+              <IconSearch />
+              {/* 차종 검색(중고마스터) 연결 전 — 목업과 같이 읽기전용. */}
+              <input placeholder="차종 검색 (중고마스터)" value={USED.name} readOnly />
+            </div>
+          ) : (
+            <div className="vsel">
+              <select value={brand} onChange={(e) => setBrand(e.target.value)}>
+                {BRANDS.map((b) => <option key={b}>{b}</option>)}
+              </select>
+              <select value={model} onChange={(e) => setModel(e.target.value)}>
+                {MODELS.map((m) => <option key={m}>{m}</option>)}
+              </select>
+              <select value={trim} onChange={(e) => setTrim(Number(e.target.value))}>
+                {TRIMS.map((t, i) => <option key={t.n} value={i}>{t.n} · {man(t.p)}원</option>)}
+              </select>
+            </div>
+          )}
+          <div className="vchip">
+            <div className="ic"><IconCar /></div>
+            <div><div className="nm">{vName}</div><div className="mt">{vMeta}</div></div>
+          </div>
+          <div className="crow" style={{ marginTop: 12 }}>
+            <span className="lb">매입 할인</span>
+            <Chips opts={DISCS} cur={disc} unit="%" onPick={setDisc} />
+          </div>
+        </div>
 
-            <div className="crow first">
-              <span className="lb">연식<em className="req">필수</em></span>
-              <span className="pinf">
-                <select value={year ?? ''} onChange={(e) => setYear(e.target.value ? Number(e.target.value) : null)}>
-                  <option value="">연식 선택 (필수)</option>
-                  {yearOptions.map((y) => <option key={y} value={y}>{y}년</option>)}
-                </select>
-              </span>
-            </div>
-            {!year && <div className="warn-tx">연식을 선택해야 잔가·견적이 산출됩니다</div>}
-
-            <div className="crow">
-              <span className="lb">차량가</span>
-              <span className="pinf">
-                <input inputMode="numeric" value={price ? Math.round(price / 10000).toLocaleString('ko-KR') : ''}
-                  onChange={(e) => setPrice(digits(e.target.value) * 10000)} placeholder="0" />
-                <i>만원</i>
-              </span>
-            </div>
-            <div className="crow">
-              <span className="lb">배기량</span>
-              <span className="pinf">
-                <input inputMode="numeric" value={cc ? cc.toLocaleString('ko-KR') : ''}
-                  onChange={(e) => setCc(digits(e.target.value))} placeholder="0" /><i>cc</i>
-              </span>
-            </div>
-            <div className="crow">
-              <span className="lb">주행</span>
-              <span className="pinf">
-                <input inputMode="numeric" value={mileage ? mileage.toLocaleString('ko-KR') : ''}
-                  onChange={(e) => setMileage(digits(e.target.value))} placeholder="0" /><i>km</i>
-              </span>
-            </div>
-            <div className="crow top">
-              <span className="lb">연료</span>
-              <div className="chipw">
-                {FUELS.map((f) => (
-                  <button key={f.id} className={fuel === f.id ? 'on' : ''} onClick={() => setFuel(f.id)}>{f.label}</button>
-                ))}
-              </div>
-            </div>
-            <div className="crow top">
-              <span className="lb">사고</span>
-              <div className="chipw">
-                {ACCIDENTS.map((a) => (
-                  <button key={a.id} className={accident === a.id ? 'on' : ''} onClick={() => setAccident(a.id)}>{a.label}</button>
-                ))}
-              </div>
-            </div>
-          </section>
-
-          {/* STEP 2 상품 조건 */}
-          <section className="card">
-            <div className="step"><span className="no">2</span>상품 조건</div>
-            <div className="seg t2">
-              <button className={channel === 'rent' ? 'on' : ''} onClick={() => setChannel('rent')}>렌트</button>
-              <button className={channel === 'sub' ? 'on' : ''} onClick={() => setChannel('sub')}>구독</button>
-            </div>
-            <div className="seg t3">
-              <button className={type === 'return' ? 'on' : ''} onClick={() => setType('return')}>반납형</button>
-              <button className={type === 'acquire' ? 'on' : ''} onClick={() => setType('acquire')}>인수형</button>
-            </div>
-            <div className="crow top" style={{ marginTop: 12 }}>
+        {/* STEP 2 상품 조건 */}
+        <div className="card">
+          <div className="step"><span className="no">2</span>상품 조건</div>
+          <Seg tone="t2" cur={ch} onPick={setCh} opts={[{ v: 'rent', label: '렌트' }, { v: 'sub', label: '구독' }]} />
+          <Seg tone="t3" cur={type} onPick={setType} opts={[{ v: 'return', label: '반납형' }, { v: 'acquire', label: '인수형' }]} />
+          {isNew ? (
+            <div className="crow" style={{ marginTop: 12 }}>
               <span className="lb">신용</span>
-              <div className="chipw">
-                {CREDITS.map((g) => (
-                  <button key={g.value} className={credit === g.value ? 'on' : ''} onClick={() => setCredit(g.value)}>{g.label}</button>
-                ))}
-              </div>
+              <Chips opts={CREDIT} cur={credit} onPick={setCredit} />
             </div>
-          </section>
+          ) : null}
+        </div>
 
-          {/* STEP 3 영업자 책정 */}
-          <section className="card">
-            <div className="step"><span className="no">3</span>영업자 책정<span className="veh dim">보증금·선납</span></div>
-            <div className="crow first top">
-              <span className="lb">보증금</span>
-              <div className="chipw">
-                {PCTS.map((p) => (
-                  <button key={`d${p}`} className={depositPct === p ? 'on' : ''} onClick={() => setDepositPct(p)}>{p}%</button>
-                ))}
-              </div>
-            </div>
-            <div className="crow top">
-              <span className="lb">선납</span>
-              <div className="chipw">
-                {PCTS.map((p) => (
-                  <button key={`p${p}`} className={prepayPct === p ? 'on' : ''} onClick={() => setPrepayPct(p)}>{p}%</button>
-                ))}
-              </div>
-            </div>
-          </section>
+        {/* STEP 3 영업자 책정 */}
+        <div className="card">
+          <div className="step"><span className="no">3</span>영업자 책정<span className="veh" style={{ color: 'var(--ink-4)' }}>보증금·선납·수수료 함께</span></div>
+          <div className="crow first"><span className="lb">보증금</span><Chips opts={PCTS} cur={dep} unit="%" onPick={setDep} /></div>
+          <div className="crow"><span className="lb">선납</span><Chips opts={PCTS} cur={pre} unit="%" onPick={setPre} /></div>
+          <div className="crow"><span className="lb">수수료</span><Chips opts={FEES} cur={fee} unit="%" onPick={setFee} /></div>
+        </div>
 
-          {/* STEP 4 연도별 잔가 */}
-          {valid && (
-            <>
-              <section className="card">
-                <div className="step"><span className="no">4</span>연도별 잔가<span className="veh dim">시세 대비 잔존율 · 자동</span></div>
-                <div className="resid-in">
-                  {products.map((p) => (
-                    <div key={`r${p.term}`} className="ri">
-                      <span className="ry">{p.term / 12}년</span>
-                      <span className="rv">{p.residualRate ? Math.round(p.residualRate * 100) : '—'}%</span>
-                    </div>
-                  ))}
-                </div>
-              </section>
-              <div className="basis">
-                <span className="bi">원가 기준</span>
-                <span className="bt">
-                  국산 표준잔가 + 차종델타 · 손바뀜(신용등급별) · 조달금리·직접운영비·등록비 반영 ·{' '}
-                  <b>수익률 {Math.round((DEFAULT_CONFIG.marginRate?.rent ?? 0) * 100)}% 공통</b>
+        {/* STEP 4 연도별 잔가 */}
+        <div className="card" style={{ marginTop: 12 }}>
+          <div className="step"><span className="no">4</span>연도별 잔가<span className="veh" style={{ color: 'var(--ink-4)' }}>리스트에 없으면 건별 입력</span></div>
+          <div className="resid-in">
+            {TERMS.map((t) => (
+              <div className="ri" key={t}>
+                <span className="ry">{t / 12}년</span>
+                <span className="pin">
+                  <input
+                    inputMode="numeric" value={residPct[t]}
+                    onChange={(e) => setResidOverride((o) => ({ ...o, [t]: Number(String(e.target.value).replace(/[^\d]/g, '')) || 0 }))}
+                  />
+                  <i>%</i>
                 </span>
               </div>
-            </>
-          )}
+            ))}
+          </div>
+        </div>
 
-          {/* 5 기간별 대여료·수익 — 항상 표시 */}
-          <div className="plabel"><span className="pno">5</span>기간별 대여료 · 수익</div>
-          <div className="prods">
-            {!valid ? MTERMS.map((t) => (
-              <div key={`ph${t}`} className="prod ph">
-                <div className="prodh">
-                  <span className="yr">{t / 12}년</span>
-                  <span className="ph-hint">연식 · 차량가 · 배기량을 넣으면 여기에 대여료 · 수익</span>
+        <div className="basis">
+          <span className="bi">원가 기준</span>
+          <span className="bt">
+            조달금리 6.5% · 국산 표준잔가 + 차종델타 · 손바뀜(신용등급) · 취득세·공채·등록비·자동차세·보험·정비 반영 ·
+            {' '}<b>수익률 10% 공통</b> · 업계 기준선 추정
+          </span>
+        </div>
+
+        <div className="plabel h5"><span className="no">5</span>기간별 대여료 · 수익</div>
+
+        <div className="prods">
+          {cards.map((c) => {
+            const v = pnl(c, prepayAmt);
+            const isOpen = open === c.term;
+            return (
+              <div className={`prod${isOpen ? ' open' : ''}`} key={c.term}>
+                <button type="button" className="prodh" onClick={() => setOpen(isOpen ? null : c.term)}>
+                  <span className="yr">{c.term / 12}년</span>
+                  <span className="amt">{Math.round(c.payVat || 0).toLocaleString('ko-KR')}<small>원/월</small></span>
+                  <span className="mg">수익 {man(v.opProfit)} · {(v.opPct * 100).toFixed(0)}%</span>
+                  <IconChevron />
+                </button>
+                <div className="pd">
+                  <div className="li"><span className="k">매출 <em>공급가·{c.term / 12}년</em></span><span className="v">{won(v.rev)}</span></div>
+                  <div className="li sub"><span className="k">매출원가</span><span className="v" /></div>
+                  <div className="li minus"><span className="k">· 차량 감가 <em>취득−잔존 · 잔가 {Math.round((c.residualRate || 0) * 100)}%</em></span><span className="v">−{won(v.dep)}</span></div>
+                  <div className="li minus"><span className="k">· 금융비용 <em>조달이자</em></span><span className="v">−{won(v.interest)}</span></div>
+                  <div className="li minus"><span className="k">· 직접 운영비 <em>보험·자차충당·정비·GPS·세금</em></span><span className="v">−{won(v.direct)}</span></div>
+                  {v.turnover > 0 ? (
+                    <div className="li minus"><span className="k">· 손바뀜 위험 <em>{credit}</em></span><span className="v">−{won(v.turnover)}</span></div>
+                  ) : null}
+                  <div className="li"><span className="k">매출총이익</span><span className="v">{won(v.gp)}</span></div>
+                  <div className="li sub"><span className="k">판매관리비</span><span className="v" /></div>
+                  <div className="li minus"><span className="k">· 영업수수료 <em>{fee}%</em></span><span className="v">−{won(v.fee)}</span></div>
+                  <div className="li pay"><span className="k">영업이익 <em>{(v.opPct * 100).toFixed(1)}%</em></span><span className="v">{won(v.opProfit)}</span></div>
+                  <div className="li"><span className="k">보증금 <em>{dep}%</em> · 선납 <em>{pre}%</em></span><span className="v">{won(v.depAmt)} · {won(v.preAmt)}</span></div>
                 </div>
               </div>
-            )) : products.map((p) => {
-              const v = pnl(p, input.prepay);
-              const open = openTerm === p.term;
-              return (
-                <div key={p.term} className={`prod${open ? ' open' : ''}`}>
-                  <button className="prodh" onClick={() => setOpenTerm(open ? -1 : p.term)}>
-                    <span className="yr">{p.term / 12}년</span>
-                    <span className="amt">{won(p.payVat || 0)}<small>원/월</small></span>
-                    <span className="mg">수익 {man(v.opProfit)} · {(v.opPct * 100).toFixed(0)}%</span>
-                  </button>
-                  {open && (
-                    <div className="pd">
-                      <div className="li"><span className="k">매출 <em>공급가 · {p.term / 12}년</em></span><span className="v">{won(v.rev)}</span></div>
-                      <div className="li subh"><span className="k">매출원가</span><span className="v" /></div>
-                      <div className="li minus"><span className="k">· 차량 감가 <em>잔가 {Math.round((p.residualRate || 0) * 100)}%</em></span><span className="v">−{won(v.dep)}</span></div>
-                      <div className="li minus"><span className="k">· 금융비용 <em>조달이자</em></span><span className="v">−{won(v.interest)}</span></div>
-                      <div className="li minus"><span className="k">· 직접 운영비 <em>보험·자차·정비·세금</em></span><span className="v">−{won(v.direct)}</span></div>
-                      {!!v.turnover && (
-                        <div className="li minus"><span className="k">· 손바뀜 <em>{credit} 위험원가</em></span><span className="v">−{won(v.turnover)}</span></div>
-                      )}
-                      <div className="li gp"><span className="k">매출총이익</span><span className="v">{won(v.gp)}</span></div>
-                      <div className="li subh"><span className="k">판매관리비</span><span className="v" /></div>
-                      <div className="li minus"><span className="k">· 영업수수료</span><span className="v">−{won(v.fee)}</span></div>
-                      <div className="li pay"><span className="k">영업이익 <em>{(v.opPct * 100).toFixed(1)}%</em></span><span className="v">{won(v.opProfit)}</span></div>
-                      <div className="li"><span className="k">보증금 <em>{depositPct}%</em> · 선납 <em>{prepayPct}%</em></span><span className="v">{won(v.depAmt)} · {won(v.preAmt)}</span></div>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+            );
+          })}
+        </div>
 
-          <div className="foot">
-            <b>업계 기준선 추정</b> — 잔가=시장 벤치마크 역산. 실채택 전 엔카·KB차차차 실시세 검산 필요.
-          </div>
-        </main>
+        <div className="foot">
+          <b>업계 기준선 추정</b> — 잔가=시장 벤치마크 역산, 수익률=업계 영업이익률(SK렌터카 9.9%).
+          실채택 전 엔카·KB차차차 실시세 검산 필요. 잔존가만 건별 입력.
+        </div>
       </div>
     </div>
   );
