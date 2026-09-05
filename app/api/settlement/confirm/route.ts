@@ -31,7 +31,7 @@
 import { NextResponse } from 'next/server';
 import { getDatabase } from 'firebase-admin/database';
 import { firebaseAdminApp, verifyActiveBearer } from '@/lib/server/firebase-admin';
-import { ledgerError, readLedger, sheetsToken } from '@/lib/server/settlement-ledger-read';
+import { ledgerError, readLedgerAtoms } from '@/lib/server/settlement-ledger-read';
 import { listRows, storeError } from '@/lib/server/settlement-store';
 import { billingMonth } from '@/lib/domain/settlement-stage';
 import { nameKey, scopeRows, type Viewer } from '@/lib/domain/settlement-view';
@@ -91,9 +91,8 @@ async function whoAmI(who: { uid: string; role: string; companyCode: string }): 
 
 /** 그 달 이 사람의 «청구가 서는» 건수. 확인은 이 수에 대고 하는 것이다. */
 async function myLines(month: string, viewer: Viewer): Promise<number> {
-  const token = await sheetsToken();
-  if (!token) return -1;
-  const read = await readLedger(token);
+  const read = await readLedgerAtoms().catch(() => null);
+  if (!read) return -1;
   const mine = scopeRows(read.map((x) => x.row), viewer);
   return mine.filter((r) => !r.cancelled && billingMonth(r) === month).length;
 }
