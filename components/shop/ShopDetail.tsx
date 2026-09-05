@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   ArrowLeft, Car, CarFront, Check, ChevronLeft, ChevronRight, Coins, FileText, Gauge, Heart,
-  IdCard, ImageOff, PackageCheck, Phone, ReceiptText, Share2, Wallet,
+  IdCard, ImageOff, Info, Phone, Share2, ShieldCheck,
   type LucideIcon,
 } from 'lucide-react';
 import type { EntityRecord } from '@/lib/intake/entities';
@@ -85,7 +85,6 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
     [p],
   );
   const [planIdx, setPlanIdx] = useState(0);
-  const [openOpts, setOpenOpts] = useState(false);
   const plan = plans[planIdx];
   /** 표에 세울 순서 — 기간 오름차순. 위 큰 숫자는 최저가로 시작하지만 표의 축은 «기간»이다. */
   const byMonth = useMemo(() => [...plans].sort((a, b) => a.m - b.m), [plans]);
@@ -113,8 +112,8 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
    * 우리가 위에서 안 쓴 값이 무엇인가가 아니다. 규칙이 맞아도 결과가 틀리면 규칙이 틀린 것이다.
    * (게다가 그랜저에 「2륜구동」이 떠 있었다 — 원천 값이 그런데, 하필 그 칸이 맨 앞이었다.)
    *
-   * ⇒ 순서: **세부모델·세부트림 한 줄** → 연식·주행거리·배기량·연료 → 외부/내부 색상 ·
-   *   승차정원·최초등록 → **선택 옵션**.
+   * ⇒ 차량명 바로 아래 **선택 옵션** → 제조사·세부모델·세부트림 한 줄 → 연식·주행거리·배기량·연료
+   *   → 외부/내부 색상 · 승차정원·최초등록.
    * ★위 사실줄과 겹치는 것은 «겹쳐도 된다». 엔카도 머리에서 「연식·주행·연료·차번」을 보여주고
    *   기본정보 구역에서 그대로 다시 편다. 훑는 줄과 확인하는 표는 하는 일이 다르다.
    * ★구동방식은 뺐다 — 사장님이 이 칸을 「그런 걸 넣는 게 아니라」의 예로 드셨다.
@@ -131,8 +130,8 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
     ['최초등록', regDate(p.first_registration_date)],
   ] as [string, string][]).filter(([, v]) => meaningful(v));
 
-  /** 차량 정보 맨 윗줄 — **세부모델 · 세부트림 한 줄**. 아래 칸들과 성격이 달라 통째로 한 줄을 쓴다. */
-  const modelLine = [String(p.sub_model || '').trim(), String(p.trim_name || '').trim()]
+  /** 차량 정보 맨 윗줄 — 제조사·세부모델·세부트림. 아래 칸들과 성격이 달라 통째로 한 줄을 쓴다. */
+  const modelLine = [makerDisplay(p.maker), String(p.sub_model || '').trim(), String(p.trim_name || '').trim()]
     .filter((x) => meaningful(x)).join(' · ');
 
   const pol = (p._policy || {}) as Record<string, unknown>;
@@ -158,76 +157,83 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
    */
 
   /*
-   * ★★★**구역은 «손님이 묻는 순서»다**(사장님 2026-09-05 「손님 입장에서 뭐가 궁금할지를
-   *   한번 생각을 해봐」).
+   * ★★★**구역 순서는 사장님이 정하셨다**(2026-09-05).
    *
-   * ⚠⚠ 여기 「대여료에 포함」 격자가 있었다. **걷었다.** 사장님 「대여료에 포함은 의미가 없어.」
-   *   맞다 — 실측하면 이 차에서 그 격자가 보여 준 것은 **「보험 별도 · 정비 담당자 확인 ·
-   *   대차 불가」**였다. **「포함」이라 써 놓고 아무것도 포함 안 된 칸**이라, 없느니만 못했다.
-   *   남들(Autonomy·Vamos·Kinto)이 그 블록을 갖는 것은 그들이 **정말로 다 포함**하는 상품이기
-   *   때문이다. 우리는 «따로 붙이는» 상품이다. **남의 구성이 아니라 우리 상품을 보고 짜야 한다.**
+   * > 「**사진이 맨 위에 있고, 다음에 차량 정보** 설명하고, 그 다음에 **대여료 정보** 설명하고
+   * >  **보험** 관련된 거 설명하고, 다음에 뭐 **운전자 연령, 주행거리 같은 조건** 설명하고
+   * >  **기타사항** 설명하고, 이거를 **각 섹션마다 좀 디자인을 해서 모바일 웹** 이렇게 디자인하는 게」
    *
-   * ⇒ 저신용·무심사로 차를 구하는 손님이 이 화면에서 묻는 것은 넷이고, 순서까지 이 순서다.
-   *     ① 얼마냐            → 대여료
-   *     ② **내가 될까**      → 탈 수 있는 조건 (나이·면허·운전 범위)
-   *     ③ **처음에 얼마 드나** → 보증금과 그걸 «나눠 낼 수 있나»  ← 이 손님층의 1번 장벽은 목돈이다
-   *     ④ **나중에 더 드나**  → 사고 시 내 부담 · 초과주행 · 추가 운전자 · 탁송
-   *   그다음에야 ⑤ 차에 딸려 오는 것 · ⑥ 이 차가 무엇인가를 본다.
-   * ★★④가 특히 중요하다 — 조사에서 **남들이 전부 틀리는 자리**가 여기다.
-   *   Hertz 는 큰 숫자 셋 옆에 실제 지불액을 바꾸는 넷($250·$1,000·$699·세금)을 각주로 미뤘고,
-   *   Cinch 는 초과주행이 두 군데에 다른 값(4p/12p)으로 적혀 있었다.
-   *   **나중에 더 내는 돈은 각주가 아니라 제 구역을 갖는다.**
+   *     ① 사진        ② 차량 정보     ③ 대여료
+   *     ④ 보험        ⑤ 이용 조건     ⑥ 기타 사항
+   *
+   * ⚠ 여기 있던 「손님이 묻는 순서」(탈 수 있는 조건 / 처음에 드는 돈 / 나중에 더 드는 돈 /
+   *   차에 딸려 오는 것)는 **내가 지어낸 이름**이었다. 뜻은 맞았는데 «구역 이름»이 손님에게
+   *   낯선 말이 됐다 — 손님은 「나중에 더 드는 돈」이라는 칸을 찾지 않는다. 사장님이 부르신
+   *   여섯 이름이 이 장사에서 실제로 쓰는 말이다. 그 이름을 쓴다.
+   * ★내용은 안 버렸다 — 흩어졌던 값들이 여섯 구역에 «전부» 들어간다(아래 표).
+   *
+   * ★★**섹션마다 얼굴이 다르다.** 자료의 성격이 배열을 정한다(꾸미려고 다르게 하는 게 아니다).
+   *     ② 차량 정보 → 이름 한 줄(넓게) + 값 **타일 격자**
+   *     ③ 대여료    → **브랜드 면** 위 큰 숫자 + **표** + 납부 타일   ← 이 화면에서 유일한 색 면
+   *     ④ 보험      → 큰 값 하나 + **두 칸 정의 목록**(라벨 왼쪽 · 값 오른쪽)
+   *     ⑤ 이용 조건 → 큰 값 하나 + 타일 격자
+   *     ⑥ 기타      → 제일 조용한 **흐린 한 줄**
    */
 
-  /** ② 탈 수 있는 조건 — 나이 하나가 결정적이라 그것만 크게. */
   const age = (v: string) => v.replace(/\s*(이상|이하|까지|부터)\s*$/, '').replace(/^만\s*/, '만 ').trim();
-  const ageRange = S('basic_driver_age') && S('driver_age_upper_limit')
-    ? `${age(S('driver_age_lowering') || S('basic_driver_age'))} ~ ${age(S('driver_age_upper_limit'))}`
-    : age(S('basic_driver_age'));
-  const canDrive = rows([
-    ['면허', S('license_period')],
-    ['운전 범위', S('personal_driver_scope')],
-  ]);
 
-  /** ③ 처음에 드는 돈 — 보증금은 «고른 기간»의 값이라 화면에서 바로 읽는다. */
-  const upfront = rows([
+  /** ③ 대여료 — 요금·보증금 다음에 「그 돈을 어떻게 내나」가 붙는다. */
+  const payRows = rows([
     ['보증금 분납', S('deposit_installment')],
     ['보증금 카드', S('deposit_card_payment')],
     ['대여료 카드', S('rental_card_payment')],
     ['납부 방법', join(S('payment_method'), S('payment_timing') && S('payment_timing') !== S('payment_method') ? S('payment_timing') : '')],
   ]);
 
-  /** ④ 나중에 «더» 드는 돈 — 사고 시 내 부담이 제일 무섭다. */
+  /**
+   * ④ 보험 — **하나가 결정적이다.** 이 구역에서 손님 지갑에서 실제로 돈이 나가는 유일한 값이
+   * 「사고 났을 때 내 부담(면책금)」이다. 그것만 크게 세우고 보장 한도는 정의 목록으로 흘린다.
+   * ★라벨을 「자기차량손해」가 아니라 **「사고 시 내 부담」**으로 쓴다 — 손님이 읽는 말이라야 읽는다.
+   */
   const deductible = S('own_damage_min_deductible') && S('own_damage_max_deductible')
     ? `${S('own_damage_min_deductible')} ~ ${S('own_damage_max_deductible')}`
     : S('own_damage_min_deductible');
-  const later = rows([
+  const insure = rows([
+    /* 「보험료 별도」인 차가 실재한다 — 포함이라 단정하지 않고 값을 그대로 쓴다. */
+    ['보험료', S('insurance_included')],
+    ['대인', S('injury_compensation_limit')],
+    ['대물', S('property_compensation_limit')],
+    ['자기신체', S('self_body_accident')],
+    ['자기차량', S('own_damage_compensation')],
+    ['수리비 부담', S('own_damage_repair_ratio')],
+  ]);
+
+  /** ⑤ 이용 조건 — 「내 나이로 되나」가 결정적이라 그것만 크게. 주행거리도 여기다. */
+  const ageRange = S('basic_driver_age') && S('driver_age_upper_limit')
+    ? `${age(S('driver_age_lowering') || S('basic_driver_age'))} ~ ${age(S('driver_age_upper_limit'))}`
+    : age(S('basic_driver_age'));
+  const useRows = rows([
     /* 약정주행과 초과료는 «붙여서» 쓴다 — 떼면 손님이 어느 선을 넘어야 무는지 모른다(Kinto MY 방식). */
-    ['초과 주행', join(S('annual_mileage'),
+    ['약정 주행', join(S('annual_mileage'),
       S('mileage_upcharge_per_10000km') ? `초과 1만km당 ${S('mileage_upcharge_per_10000km')}` : '')],
+    ['면허', S('license_period')],
+    ['운전 범위', S('personal_driver_scope')],
     ['추가 운전자', join(S('additional_driver_allowance_count'), S('additional_driver_cost'))],
     ['연령 낮추기', S('driver_age_lowering') && meaningful(S('age_lowering_cost'))
       ? `${age(S('driver_age_lowering'))}까지 ${S('age_lowering_cost')}` : ''],
-    ['차량 인도', S('delivery_fee')],
   ]);
 
-  /** ⑤ 차에 딸려 오는 것 — 값을 그대로 쓴다. 이 차는 보험이 「별도」다. */
-  const bundled = rows([
-    ['보험', S('insurance_included')],
-    ['보장 한도', [
-      S('injury_compensation_limit') ? `대인 ${S('injury_compensation_limit')}` : '',
-      S('property_compensation_limit') ? `대물 ${S('property_compensation_limit')}` : '',
-      S('self_body_accident') ? `자기신체 ${S('self_body_accident')}` : '',
-      S('own_damage_compensation') ? `자기차량 ${S('own_damage_compensation')}` : '',
-      S('own_damage_repair_ratio') ? `수리비 ${S('own_damage_repair_ratio')}` : '',
-    ].filter(Boolean).join(' · ')],
-    ['정비', S('maintenance_service')],
-    ['대차', S('replacement_car_policy')],
-    ['긴급출동', S('annual_roadside_assistance') || S('roadside_assistance')],
-    ['이용 지역', S('rental_region')],
-  ]);
+  /** ⑥ 기타 — 참고만 하는 값. 제일 조용하게 한 줄로 흘린다. */
+  const pair = (label: string, v: string) => (meaningful(v) ? `${label} ${v}` : '');
+  const etc = [
+    pair('정비', S('maintenance_service')),
+    pair('대차', S('replacement_car_policy')),
+    pair('긴급출동', S('annual_roadside_assistance') || S('roadside_assistance')),
+    pair('이용 지역', S('rental_region')),
+    pair('차량 인도', S('delivery_fee')),
+  ].filter(Boolean).join(' · ');
 
-  const hasPolicy = !!(ageRange || canDrive.length || upfront.length || later.length || bundled.length);
+  const hasPolicy = !!(payRows.length || deductible || insure.length || ageRange || useRows.length || etc);
 
   const options = parseProductOptions(p.options);
   const phone = String(agentPhone || '').trim();
@@ -390,6 +396,35 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
         </div>
       ) : null}
 
+      {payRows.length ? (
+        /*
+         * ★납부 칸은 **흰 타일**이다 — 이 카드는 브랜드 면 위라, 다른 구역에서 쓰는 옅은 회색
+         *   타일을 그대로 얹으면 두 옅은 색이 섞여 탁해진다. 흰 타일이 면 위에서 또렷하다.
+         * ★대여료 구역이 「얼마 · 기간별 · 어떻게 내나」 셋을 다 든다 — 손님이 돈 이야기를
+         *   한자리에서 끝낸다(사장님 2026-09-05 「그 다음에 대여료 정보 설명하고」).
+         */
+        <div style={{ marginTop: 18 }}>
+          <div style={{ marginBottom: 9, fontSize: SHOP.fs.cap, fontWeight: 600, color: C.mute }}>납부</div>
+          <div style={{
+            display: 'grid', gap: 8,
+            gridTemplateColumns: `repeat(${mobile ? 2 : 4}, minmax(0, 1fr))`,
+          }}>
+            {payRows.map(([k, v]) => (
+              <div key={k} style={{
+                minWidth: 0, padding: mobile ? '12px' : '13px 14px',
+                borderRadius: SHOP.r.card, background: C.bg,
+              }}>
+                <div style={{ fontSize: SHOP.fs.cap, color: C.faint, marginBottom: 6 }}>{k}</div>
+                <div style={{
+                  fontSize: SHOP.fs.sub, fontWeight: 700, color: C.ink,
+                  wordBreak: 'keep-all', lineHeight: 1.45,
+                }}>{v}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
       {badges.length ? (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 16 }}>
           {badges.map((b) => (
@@ -427,7 +462,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
         여기 있던 것 — 웹만 「왼쪽 사진 · 오른쪽 따라오는 값 칸(340px)」 2단이었다. 그러면
         **같은 화면인데 웹과 폰이 다른 물건**이 된다. 구역 순서가 갈리고(웹은 대여료가 사진 «옆»,
         폰은 사진 «아래»), 손볼 때마다 두 벌을 손대야 하고, 한쪽만 고치면 다른 쪽이 「또 원래대로」가 된다.
-        ⇒ 순서를 하나로 못 박는다: **사진 → 차명 → 대여료 → 차량정보 → 옵션 → 보험 → 계약 → 운전 → 기타.**
+        ⇒ 순서를 하나로 못 박는다: **사진 → 차명 → 선택 옵션 → 기간별 대여료 → 차량정보 → 이용 조건.**
            웹은 그 순서를 «넓게» 그릴 뿐이다.
         ★대신 대여료 칸이 넓어진 만큼 안에서 가로로 편다(아래 `priceCard` 참고) —
           좁은 칸에서 세로로 쌓던 것을 그대로 늘리면 900px 짜리 빈 줄이 세 개 생긴다.
@@ -435,49 +470,25 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
       {bar}
       {gallery}
       <Head title={title} facts={facts} />
-      <Rule mobile={mobile} />
-      {priceCard}
-
+      {options.length ? (
+        <div aria-label="선택 옵션" style={{ marginTop: 14 }}>
+          <div style={{ marginBottom: 9, fontSize: SHOP.fs.cap, fontWeight: 600, color: C.mute }}>선택 옵션</div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+            {options.map((o) => (
+              <span key={o} style={{
+                padding: '7px 12px', borderRadius: SHOP.r.chip, background: C.zebra,
+                fontSize: SHOP.fs.sub, color: C.sub,
+              }}>{o}</span>
+            ))}
+          </div>
+        </div>
+      ) : null}
       {/*
-        ② **탈 수 있는 조건** — 저신용 손님이 요금 다음으로 묻는 것은 「내가 될까」다.
-           나이 하나가 결정적이라 그것만 크게 세운다.
+        ★★**차량 정보 = 「이 차가 무엇인가」 한 덩어리**.
+          제조사·세부모델·세부트림 한 줄 → 연식·주행거리·배기량·연료 → 색상·정원·최초등록.
+        선택 옵션은 이 구역이 아니라 차명 바로 아래에서 먼저 읽는다.
       */}
-      <Tiles title="탈 수 있는 조건" rows={canDrive} cols={mobile ? 2 : 4} mobile={mobile} icon={IdCard}
-        lead={ageRange ? { label: '운전 가능 연령', value: ageRange } : undefined} />
-
-      {/*
-        ③ **처음에 드는 돈** — 이 손님층의 1번 장벽은 월요금이 아니라 **목돈**이다.
-           그래서 보증금을 크게 세우고, 바로 옆에 「나눠 낼 수 있나 · 카드 되나」를 붙인다.
-        ★보증금은 «고른 기간»의 값이다 — 위 표에서 줄을 바꾸면 이 숫자도 같이 바뀐다.
-      */}
-      <Tiles title="처음에 드는 돈" rows={upfront} cols={mobile ? 2 : 4} mobile={mobile} icon={Wallet}
-        lead={plan ? {
-          label: '보증금',
-          value: plan.deposit > 0 ? manWon(plan.deposit) : '없음',
-        } : undefined} />
-
-      {/*
-        ④ **나중에 더 드는 돈** — 조사에서 **남들이 전부 틀리는 자리**다.
-           Hertz 는 큰 숫자 셋 옆에 실제 지불액을 바꾸는 넷을 각주로 미뤘고, Cinch 는 초과주행이
-           두 군데에 다른 값으로 적혀 있었다. **각주로 미루지 않고 제 구역을 준다.**
-      */}
-      <Tiles title="나중에 더 드는 돈" rows={later} cols={mobile ? 2 : 4} mobile={mobile} icon={ReceiptText}
-        lead={deductible ? { label: '사고 시 내 부담', value: deductible } : undefined} />
-
-      {/*
-        ⑤ **차에 딸려 오는 것** — 값을 그대로 쓴다. 「포함」이라 단정하지 않는다.
-           이 차는 보험이 「별도」다 — 제목만 보고 포함이라 쓰면 그건 거짓말이다.
-      */}
-      <Tiles title="차에 딸려 오는 것" rows={bundled} cols={mobile ? 2 : 3} mobile={mobile} icon={PackageCheck} />
-
-      {/*
-        ★★**차량 정보 = 「이 차가 무엇인가」 한 덩어리**(사장님 2026-09-05).
-          세부모델·세부트림 한 줄 → 연식·주행거리·배기량·연료 → 색상·정원·최초등록 → **선택 옵션**.
-        ⚠ 「옵션」은 여기 있던 **별도 구역이었다.** 합쳤다 — 옵션은 그 차의 «사양»이지 딴 이야기가
-          아니다. 따로 세우면 손님이 차 설명을 읽다 말고 띠를 하나 건너뛰어야 하고,
-          정작 옵션이 없는 차(34%)에서는 구역이 통째로 사라져 구성이 차마다 달라 보였다.
-      */}
-      {(modelLine || specs.length || options.length) ? (
+      {(modelLine || specs.length) ? (
         <>
           <Rule mobile={mobile} />
           <section aria-label="차량 정보">
@@ -489,7 +500,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
                 padding: mobile ? '13px 12px' : '15px 14px', marginBottom: 8,
                 borderRadius: SHOP.r.card, background: C.zebra,
               }}>
-                <div style={{ fontSize: SHOP.fs.cap, color: C.faint, marginBottom: 7 }}>세부모델 · 세부트림</div>
+                <div style={{ fontSize: SHOP.fs.cap, color: C.faint, marginBottom: 7 }}>제조사 · 세부모델 · 세부트림</div>
                 <div style={{
                   fontSize: mobile ? 16 : 17, fontWeight: 700, color: C.ink,
                   wordBreak: 'keep-all', lineHeight: 1.4,
@@ -517,34 +528,44 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
               </div>
             ) : null}
 
-            {options.length ? (
-              <div style={{ marginTop: 18 }}>
-                <div style={{ marginBottom: 9, fontSize: SHOP.fs.cap, fontWeight: 600, color: C.mute }}>선택 옵션</div>
-                {/*
-                 * ★**열 개에서 자른다**(엔카 주요옵션 10개 뒤 「45개 모두보기」 · 케이카 12개).
-                 * ★★**한둘 숨기려고 자르지 않는다** — 열한 개를 열로 잘라 버튼을 다는 건 손님에게
-                 *   손해다. 그래서 문턱이 12다. 버튼은 **남은 개수를 말한다**(숫자 없는 「더보기」는 안 눌린다).
-                 * ⚠ 이 절단은 지금 데이터에서는 한 번도 안 걸린다 — 721대 옵션이 **최대 8개**다.
-                 *   규격만 세워 둔 것이고, 공급사가 옵션을 더 실으면 그날 걸린다.
-                 */}
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-                  {(options.length > OPT_CUT + 1 && !openOpts ? options.slice(0, OPT_CUT) : options).map((o) => (
-                    <span key={o} style={{
-                      padding: '7px 12px', borderRadius: SHOP.r.chip, background: C.zebra,
-                      fontSize: SHOP.fs.sub, color: C.sub,
-                    }}>{o}</span>
-                  ))}
-                </div>
-                {options.length > OPT_CUT + 1 && !openOpts ? (
-                  <button type="button" onClick={() => setOpenOpts(true)} className="fp-shop-press"
-                    style={{
-                      marginTop: 12, padding: '9px 14px', borderRadius: SHOP.r.chip,
-                      border: `1px solid ${C.line}`, background: 'transparent', cursor: 'pointer',
-                      fontFamily: 'inherit', fontSize: SHOP.fs.sub, fontWeight: 600, color: C.sub,
-                    }}>옵션 {options.length}개 모두 보기</button>
-                ) : null}
-              </div>
-            ) : null}
+          </section>
+        </>
+      ) : null}
+
+      {/* ③ 대여료 — 이 화면에서 «색 면»을 쓰는 유일한 구역이다. 손님이 찾아온 답이라 하나만 세운다. */}
+      <Rule mobile={mobile} />
+      {priceCard}
+
+      {/*
+        ④ 보험 — **하나가 결정적**(사고 시 내 부담)이고 나머지는 «확인해 주는 값»이다.
+           그래서 큰 값 하나 + **두 칸 정의 목록**. 타일 격자로 놓으면 여섯이 같은 무게가 되어
+           결정적인 하나가 묻힌다.
+      */}
+      {(deductible || insure.length) ? (
+        <>
+          <Rule mobile={mobile} />
+          <section aria-label="보험">
+            <SecTitle icon={ShieldCheck}>보험</SecTitle>
+            {deductible ? <BigRow label="사고 시 내 부담" value={deductible} mobile={mobile} /> : null}
+            <DefList rows={insure} mobile={mobile} />
+          </section>
+        </>
+      ) : null}
+
+      {/*
+        ⑤ 이용 조건 — 「내 나이로 되나」가 결정적이라 그것만 크게. 주행거리·면허·운전 범위가 뒤따른다.
+           ★약정주행과 초과료는 한 칸에 붙여 쓴다 — 떼면 어느 선을 넘어야 무는지 모른다.
+      */}
+      <Tiles title="이용 조건" rows={useRows} cols={mobile ? 2 : 4} mobile={mobile} icon={IdCard}
+        lead={ageRange ? { label: '운전 가능 연령', value: ageRange } : undefined} />
+
+      {/* ⑥ 기타 — 참고만 하는 값. 제일 조용하게 한 줄로 흘린다. */}
+      {etc ? (
+        <>
+          <Rule mobile={mobile} />
+          <section aria-label="기타 사항">
+            <SecTitle icon={Info}>기타 사항</SecTitle>
+            <div style={{ fontSize: SHOP.fs.sub, color: C.mute, lineHeight: 1.9 }}>{etc}</div>
           </section>
         </>
       ) : null}
@@ -623,8 +644,6 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
  * 케이카가 12개 뒤에 「모두 보기」다(2026-09-05 실측). 커머스 지침도 같은 구간을 말한다.
  * ★자르는 문턱은 **12개부터**다 — 한둘 숨기려고 버튼을 다는 건 손님에게 손해다.
  */
-const OPT_CUT = 10;
-
 const FAV_KEY = 'fp4_shop_fav';
 
 /**
@@ -723,6 +742,72 @@ function TopBar({ code, title, listHref, mobile }: {
 }
 
 /**
+ * **큰 값 한 줄** — 그 구역에서 손님의 «결정»을 바꾸는 값 하나(나이 · 사고 시 내 부담).
+ *
+ * ★라벨을 «흰 알약»으로 얹는다. 큰 값 옆에 같은 굵기로 두면 둘이 다투는데,
+ *   알약에 얹으면 「이건 이름표」라고 한눈에 읽혀 값이 혼자 선다.
+ * ⚠ 값에 색을 주지 않는다 — 구역 아이콘이 이미 신호다. 여기까지 색을 주면
+ *   강조가 셋(아이콘·면·글자색)이 되어 그때부터 소란이다.
+ */
+function BigRow({ label, value, mobile }: { label: string; value: string; mobile?: boolean }) {
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
+      padding: mobile ? '14px' : '16px',
+      borderRadius: SHOP.r.card, background: C.zebra,
+    }}>
+      <span style={{
+        flex: '0 0 auto', padding: '4px 10px', borderRadius: 999,
+        background: C.bg, color: C.mute, fontSize: SHOP.fs.cap, fontWeight: 600,
+      }}>{label}</span>
+      <span style={{
+        fontSize: mobile ? 21 : 22, fontWeight: 800, color: C.ink,
+        letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums',
+      }}>{value}</span>
+    </div>
+  );
+}
+
+/**
+ * **정의 목록** — 라벨 왼쪽 · 값 오른쪽. 보험 구역만 이 얼굴을 쓴다.
+ *
+ * 왜 여기만 다른가(사장님 2026-09-05 「각 섹션마다 좀 디자인을 해서」).
+ * 보장 한도는 **하나씩 확인하는 값이 아니라 «읽어 내려가는» 값**이다 — 대인·대물·자기신체를
+ * 견주지 않고 위에서 아래로 훑는다. 타일 격자로 놓으면 여섯이 같은 무게가 되어
+ * 바로 위 「사고 시 내 부담」이 묻힌다.
+ * ★선을 긋지 않는다 — 줄 간격과 라벨 색만으로 갈린다(구분선은 이 화면에서 최소로 쓴다).
+ * ★폰에서는 한 칸, 웹에서는 두 칸으로 흘린다 — 여섯 줄을 900px 에 한 칸으로 세우면
+ *   오른쪽이 통째로 빈다.
+ */
+function DefList({ rows, mobile }: { rows: [string, string][]; mobile?: boolean }) {
+  if (!rows.length) return null;
+  return (
+    <div style={{
+      marginTop: 14,
+      display: 'grid', columnGap: 28, rowGap: 0,
+      gridTemplateColumns: mobile ? '1fr' : '1fr 1fr',
+    }}>
+      {rows.map(([k, v]) => (
+        <div key={k} style={{
+          display: 'flex', alignItems: 'baseline', gap: 12,
+          padding: '9px 0', minWidth: 0,
+        }}>
+          <span style={{
+            flex: '0 0 auto', minWidth: 72,
+            fontSize: SHOP.fs.sub, color: C.faint,
+          }}>{k}</span>
+          <span style={{
+            flex: 1, minWidth: 0, textAlign: 'right',
+            fontSize: SHOP.fs.sub, fontWeight: 600, color: C.ink,
+            wordBreak: 'keep-all', lineHeight: 1.5,
+          }}>{v}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
  * **타일** — 서로 독립된 짧은 사실을 나란히 놓는다(제원 · 계약 조건).
  *
  * 이름/값 표와 무엇이 다른가. 표는 «세로로 견주는» 배열이라 값끼리 비교할 때 쓴다.
@@ -746,25 +831,8 @@ function Tiles({ title, rows, cols, mobile, icon, lead }: {
       <section aria-label={title}>
         <SecTitle icon={icon}>{title}</SecTitle>
         {lead ? (
-          /*
-           * ★라벨을 «흰 알약»으로 얹는다. 큰 값 옆에 같은 굵기로 두면 둘이 다투는데,
-           *   알약에 얹으면 「이건 이름표」라고 한눈에 읽혀 값이 혼자 선다.
-           * ⚠ 값에 색을 주지 않는다 — 구역 아이콘이 이미 신호다. 여기까지 색을 주면
-           *   강조가 셋(아이콘·면·글자색)이 되어 그때부터 소란이다.
-           */
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
-            padding: mobile ? '14px' : '16px', marginBottom: rows.length ? 8 : 0,
-            borderRadius: SHOP.r.card, background: C.zebra,
-          }}>
-            <span style={{
-              flex: '0 0 auto', padding: '4px 10px', borderRadius: 999,
-              background: C.bg, color: C.mute, fontSize: SHOP.fs.cap, fontWeight: 600,
-            }}>{lead.label}</span>
-            <span style={{
-              fontSize: mobile ? 21 : 22, fontWeight: 800, color: C.ink,
-              letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums',
-            }}>{lead.value}</span>
+          <div style={{ marginBottom: rows.length ? 8 : 0 }}>
+            <BigRow label={lead.label} value={lead.value} mobile={mobile} />
           </div>
         ) : null}
         {/*
