@@ -2,6 +2,7 @@
 import React from 'react';
 import { C, R, NUM, FW, FS, SH, SCRIM } from './tokens';
 import { companyTone, companyShort } from '@/lib/companies';
+import { colorChip } from '@/lib/domain/color-chips';
 import { useIsMobile } from '@/lib/use-mobile';
 
 /**
@@ -245,4 +246,46 @@ export function CountPill({ n, tone = 'brand', max = 999, title }: {
   }
   const t: BadgeTone = tone === 'red' ? 'red' : 'gray';
   return <Badge tone={t} variant="solid" title={title || `${n}개 선택`}>{label}</Badge>;
+}
+
+/**
+ * **색 견본** — 색 이름 옆에 그 «색»을 동그라미로 보여 준다.
+ *
+ * ★왜(사장님 2026-09-05 「그 **색상 칩**을 만들었거든? 이렇게 색상 보이는 거, **직관적으로**?
+ *   색상 칩 달아주면 되고」). 「소닉실버」·「어비스블랙펄」 같은 이름은 **글자로는 무슨 색인지 모른다.**
+ *   차를 고르는 사람이 제일 먼저 보는 값인데 이름만 있으면 매번 상상해야 한다.
+ * ★색 코드는 `lib/domain/color-chips` 가 정본이다 — 여기서 hex 를 새로 정하지 않는다(로컬 색맵 금지).
+ *   못 알아보는 이름은 동그라미 없이 «이름만» 나간다. 모르는 색을 회색으로 지어내지 않는다.
+ * ★흰·실버처럼 옅은 색은 테두리를 둘러야 보인다(`chip.border`).
+ */
+export function ColorDot({ name, size = 12 }: { name: unknown; size?: number }) {
+  const chip = colorChip(name);
+  if (!chip) return null;
+  return (
+    <span aria-hidden style={{
+      display: 'inline-block', flex: '0 0 auto',
+      width: size, height: size, borderRadius: 999,
+      background: chip.code,
+      border: chip.border ? `1px solid ${C.line}` : 'none',
+      boxSizing: 'border-box',
+    }} />
+  );
+}
+
+/**
+ * **색 한 칸** — 견본 + 이름. 앞에 「외부」·「내부」 같은 꼬리표를 붙일 수 있다.
+ * 이름이 없으면 아무것도 안 그린다(빈 동그라미를 남기지 않는다).
+ */
+export function ColorMark({ name, label, size = 12, fontSize }: {
+  name: unknown; label?: string; size?: number; fontSize?: number;
+}) {
+  const text = String(name ?? '').trim();
+  if (!text) return null;
+  return (
+    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 5, whiteSpace: 'nowrap' }}>
+      {label ? <span style={{ color: C.faint, fontWeight: FW.meta, fontSize: fontSize ?? FS.cap }}>{label}</span> : null}
+      <ColorDot name={text} size={size} />
+      <span>{text}</span>
+    </span>
+  );
 }

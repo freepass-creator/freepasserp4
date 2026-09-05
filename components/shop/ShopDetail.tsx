@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import type { ReactNode } from 'react';
 import Link from 'next/link';
 import {
   ArrowLeft, Car, Check, ChevronLeft, ChevronRight, CircleCheck, Coins, FileText, Heart, Plus, Tag,
@@ -7,7 +8,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import type { EntityRecord } from '@/lib/intake/entities';
-import { C, FW, FS, ICON, NUM } from '@/components/ui';
+import { C, ColorMark, FW, FS, ICON, NUM } from '@/components/ui';
 import { SHOP } from '@/components/shop/shop-ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { useProductPhotos } from '@/components/use-product-photos';
@@ -164,7 +165,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
    *   웹 3열에서는 ㉡㉢ 이 정확히 한 줄씩 앉고, 폰 2열에서는 무리가 접히되 섞이지는 않는다.
    * ⚠ 옛 순서는 «색상이 맨 앞»이었다. 손님이 제일 먼저 묻는 것은 색이 아니라 **연식·주행거리**다.
    */
-  const specs: [string, string][] = grouped(
+  const specs: FactRow[] = grouped(
     [
       ['연식', yearFullDisplay(p.year)],
       ['주행거리', km > 0 ? kmDisplay(p.mileage) : ''],
@@ -186,8 +187,23 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
       ['구동방식', String(p.drive_type || '')],
     ],
     [
-      ['외부 색상', String(p.ext_color || '')],
-      ['내부 색상', String(p.int_color || '')],
+      /*
+       * ★★**색상은 «한 칸»이고, 그 안에 내·외부가 같이 든다**(사장님 2026-09-05
+       *   「색상은 왜 «외부 색상»이니? **색상에는 내외부 색상이 다 있는 거지**」).
+       *   맞다 — 「이 차 무슨 색이야」는 한 물음이다. 칸을 둘로 쪼개니 격자 두 자리를 먹으면서
+       *   내장색이 없는 차(실측 32%)는 **늘 한 칸이 비어** 「덜 채운 표」로 보였다.
+       * ★★**색 견본을 같이 그린다**(사장님 「그 **색상 칩**을 만들었거든? 이렇게 색상 보이는 거,
+       *   **직관적으로**? 색상 칩 달아주면 되고」). 「소닉실버」·「어비스블랙펄」은 글자로는 무슨
+       *   색인지 모른다 — 차를 고르는 사람이 제일 먼저 보는 값인데 매번 상상해야 했다.
+       *   색 코드는 `lib/domain/color-chips` 가 정본이고, 못 알아보는 이름은 **이름만** 나간다.
+       * ★글자값(「화이트 · 블랙」)은 그대로 남긴다 — 빈 값 판정·검색·낭독이 그걸 본다.
+       */
+      ['색상', [p.ext_color, p.int_color].map((c) => String(c || '').trim()).filter(Boolean).join(' · '), (
+        <span style={{ display: 'inline-flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 12, rowGap: 4 }}>
+          <ColorMark name={p.ext_color} label="외부" fontSize={SHOP.fs.cap} />
+          <ColorMark name={p.int_color} label="내부" fontSize={SHOP.fs.cap} />
+        </span>
+      )],
       ['승차정원', seats > 0 ? `${seats}인승` : ''],
     ],
     [
@@ -1162,7 +1178,7 @@ function Sec({ title, icon, accent, tag, mobile, children }: {
  *   이건 벌칙이 아니라 «더 타고 싶을 때의 값»이다.
  */
 function Facts({ rows, cols, mobile }: {
-  rows: [string, string][]; cols: number; mobile?: boolean;
+  rows: FactRow[]; cols: number; mobile?: boolean;
 }) {
   if (!rows.length) return null;
   return (
@@ -1170,7 +1186,7 @@ function Facts({ rows, cols, mobile }: {
       display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
       columnGap: mobile ? 16 : 24, rowGap: mobile ? 18 : 22,
     }}>
-      {rows.map(([k, v], i) => (k === GROUP_BREAK ? (
+      {rows.map(([k, v, node], i) => (k === GROUP_BREAK ? (
         /*
          * **무리 사이의 숨**(사장님 2026-09-05 「**뭉쳐야 될 것들이 있어.** 연식·주행거리,
          * 이게 연식에 따른 주행거리를 보고 … 배기량·연료 … 이런 식으로 좀 같이 모아 놔야 되는 게
@@ -1192,7 +1208,8 @@ function Facts({ rows, cols, mobile }: {
             fontSize: SHOP.fs.body, fontWeight: 700, color: C.ink,
             wordBreak: 'keep-all', lineHeight: 1.45,
           }}>
-            {v.split('↑').map((piece, j) => (
+            {/* 그림으로 보여줄 값(색 견본 등)은 셋째 자리가 든다 — 글자 값은 그대로 남아 검색·낭독에 쓰인다. */}
+            {node ?? v.split('↑').map((piece, j) => (
               <span key={j}>
                 {j > 0 ? (
                   <Plus size={13} aria-hidden style={{
@@ -1270,7 +1287,7 @@ function DefList({ rows, mobile, strongFirst }: {
  *   ★이 화면에서 «면 위 큰 값»은 **대여료 한 줄뿐**이다. 그래야 그 줄이 선다.
  */
 function Tiles({ title, rows, cols, mobile, icon }: {
-  title: string; rows: [string, string][]; cols: number; mobile?: boolean; icon?: LucideIcon;
+  title: string; rows: FactRow[]; cols: number; mobile?: boolean; icon?: LucideIcon;
 }) {
   if (!rows.length) return null;
   return (
@@ -1292,7 +1309,15 @@ function Tiles({ title, rows, cols, mobile, icon }: {
  * **무리 사이의 숨** — `Facts` 격자에서 한 줄을 통째로 비워 다음 무리를 첫 칸부터 시작시킨다.
  * 값에 절대 나올 수 없는 글자를 자리표로 쓴다(§`Facts` 머리말).
  */
-const GROUP_BREAK = ' group-break';
+const GROUP_BREAK = '\u0000group-break';
+
+/**
+ * **값 한 칸** — `[라벨, 글자값, 그림값?]`.
+ *
+ * 셋째 자리는 «같은 값을 그림으로» 보여줄 때만 쓴다(색 견본). 글자값은 그대로 둔다 —
+ * 빈 값 판정(`meaningful`)·검색·화면낭독이 전부 글자를 본다.
+ */
+type FactRow = [string, string, ReactNode?];
 
 /**
  * **관련 있는 것끼리 묶어서** 격자에 낸다(사장님 2026-09-05 「뭉쳐야 될 것들이 있어 …
@@ -1301,11 +1326,11 @@ const GROUP_BREAK = ' group-break';
  * 무리마다 빈 값을 먼저 걷고, **남은 것이 없는 무리는 통째로 건너뛴다** —
  * 값이 하나도 없는 무리 때문에 빈 줄만 두 개 생기는 일이 없어야 한다.
  */
-function grouped(...lists: [string, string][][]): [string, string][] {
+function grouped(...lists: FactRow[][]): FactRow[] {
   return lists
     .map((list) => list.filter(([, v]) => meaningful(v)))
     .filter((list) => list.length)
-    .flatMap((list, i) => (i ? [[GROUP_BREAK, ''] as [string, string], ...list] : list));
+    .flatMap((list, i) => (i ? [[GROUP_BREAK, ''] as FactRow, ...list] : list));
 }
 
 const NO_MEANING = new Set(['기타', '협의', '별도협의', '별도문의', '미정', '해당없음', '해당 없음', '없음', '-']);

@@ -189,8 +189,19 @@ must(!/심사·재고에 따라/.test(shopDetail),
 must(/>제조사 · 세부모델 · 세부트림</.test(shopDetail),
   '차량 정보에서 「제조사 · 세부모델 · 세부트림」 첫 줄이 사라졌습니다. 이 줄이 「이 차가 무엇인가」의 머리입니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-11');
-must(/['"]외부 색상['"]/.test(shopDetail) && /['"]내부 색상['"]/.test(shopDetail),
-  '차량 정보에서 색상이 빠졌거나 다시 하나로 뭉쳐졌습니다. 색상은 사진 없는 28%의 유일한 외관 정보입니다.',
+/*
+ * **색상은 «한 칸»이고 내·외부가 같이 든다 + 색 견본을 단다**(사장님 2026-09-05
+ *   「색상은 왜 «외부 색상»이니? 색상에는 **내외부 색상이 다 있는 거지**」 ·
+ *   「그 **색상 칩**을 만들었거든? 이렇게 색상 보이는 거, **직관적으로**? 색상 칩 달아주면 되고」).
+ * ⚠ 여기 검사는 정반대였다 — 「외부 색상」·「내부 색상」 두 칸을 «요구»했다. 사장님 지시로 뒤집었다.
+ *   두 칸으로 쪼개면 내장색이 없는 차(32%)는 늘 한 칸이 비어 「덜 채운 표」가 된다.
+ * ★색 코드는 `lib/domain/color-chips` 가 정본 — 화면이 hex 를 새로 정하면 그때부터 갈린다.
+ */
+must(/\['색상',/.test(shopDetail)
+  && /<ColorMark name=\{p\.ext_color\} label="외부"/.test(shopDetail)
+  && /<ColorMark name=\{p\.int_color\} label="내부"/.test(shopDetail)
+  && /from '@\/lib\/domain\/color-chips'/.test(read('components/ui/badges.tsx')),
+  '색상이 다시 두 칸으로 갈렸거나 색 견본이 빠졌습니다 — 색상은 한 칸에 내·외부, 견본과 함께입니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-11');
 /*
  * ⚠ 여기 「구동방식이 돌아왔나」를 잡는 줄이 있었다. **폐기한다**(2026-09-05).
@@ -199,7 +210,7 @@ must(/['"]외부 색상['"]/.test(shopDetail) && /['"]내부 색상['"]/.test(sh
  *   **구동 방식을 직접 부르셨다.** 검사가 사장님 지시를 막고 있었다.
  * ⇒ 대신 **세어 주신 칸이 다 있는지**를 잡는다.
  */
-for (const f of ['외부 색상', '내부 색상', '연식', '주행거리', '배기량', '연료', '구동방식', '승차정원', '배터리', '차량 가격']) {
+for (const f of ['색상', '연식', '주행거리', '배기량', '연료', '구동방식', '승차정원', '배터리', '차량 가격']) {
   must(new RegExp(`\['"]${f}['"]`).test(shopDetail),
     `차량 정보에서 「${f}」 칸이 사라졌습니다 — 사장님이 세어 주신 목록입니다(값이 없으면 줄만 안 그려집니다).`,
     'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
@@ -423,11 +434,11 @@ must(/const stateMarks: Mark\[\]/.test(shopDetail) && /const perkMarks: Mark\[\]
  *   이용 조건 ㉠나이 셋 ㉡심사·면허·범위·추가운전자 ㉢주행 둘
  */
 const at = (needle: string) => shopDetail.indexOf(needle);
-must(/function grouped\(/.test(shopDetail) && /const specs: \[string, string\]\[\] = grouped\(/.test(shopDetail)
+must(/function grouped\(/.test(shopDetail) && /const specs: FactRow\[\] = grouped\(/.test(shopDetail)
   && at("['연식'") < at("? '배터리' : '배기량'")
-  && at("? '배터리' : '배기량'") < at("['외부 색상'")
+  && at("? '배터리' : '배기량'") < at("['색상',")
   && at("['주행거리'") < at("['연료'")
-  && at("['외부 색상'") < at("['차량 가격'"),
+  && at("['색상',") < at("['차량 가격'"),
   '차량 정보의 무리가 흐트러졌습니다 — 연식·주행 / 배기량·연료·구동 / 색·인승 / 신차가 차례입니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-2-3');
 must(/const useRows = grouped\(/.test(shopDetail)
