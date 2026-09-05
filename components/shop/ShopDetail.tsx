@@ -1,6 +1,5 @@
 'use client';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { ReactNode } from 'react';
 import Link from 'next/link';
 import {
   ArrowLeft, Car, Check, ChevronLeft, ChevronRight, CircleCheck, Coins, FileText, Heart, Plus, Tag,
@@ -475,7 +474,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
 
   const gallery = <Gallery p={p} mobile={mobile} />;
 
-  /* 폰에는 위 실행줄이 없다 — 관심·공유는 차번 줄 오른쪽으로 간다(`FavShare` 머리말). */
+  /* 폰에는 위 실행줄이 없다 — 관심·공유는 껍데기 머리띠 오른쪽이 받는다(`FavShare` 머리말). */
   const bar = mobile ? null : (
     <TopBar code={code} title={title} listHref={listHref} />
   );
@@ -676,8 +675,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
       */}
       {bar}
       {gallery}
-      <Head title={title} facts={facts} stateMarks={stateMarks} perkMarks={perkMarks}
-        actions={mobile ? <FavShare code={code} title={title} /> : null} />
+      <Head title={title} facts={facts} stateMarks={stateMarks} perkMarks={perkMarks} />
       {/*
         ★★**차량 정보 = 「이 차가 무엇인가」 한 덩어리**.
           제조사·세부모델·세부트림 한 줄 → 연식·주행거리·배기량·연료 → 색상·정원·최초등록.
@@ -918,7 +916,7 @@ const FAV_KEY = 'fp4_shop_fav';
  *   ⚠ 주소를 «지금 주소 그대로» 넘긴다 — `?a=` 담당 귀속이 물려 있어야 받은 사람이 눌러도
  *     같은 담당자에게 간다. 손으로 조립하면 그 파라미터를 흘린다.
  */
-function FavShare({ code, title }: { code: string; title: string }) {
+export function FavShare({ code, title }: { code: string; title: string }) {
   const [faved, setFaved] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -993,9 +991,13 @@ function FavShare({ code, title }: { code: string; title: string }) {
  *   폰에서 「목록으로」를 뺀 것까지는 맞았다(하단독의 「이전」이 같은 일을 하니 문이 둘일 이유가 없다).
  *   그런데 **관심·공유만 남겨 두는 바람에 왼쪽 2/3 가 빈 줄이 하나 생겼다** — 오른쪽 구석에
  *   장식처럼 떠 있고, 사진 위로 40px 짜리 빈 띠가 깔린 꼴이다.
- * ⇒ 폰에서는 이 줄을 통째로 없애고, 둘을 **차번 줄 오른쪽**으로 옮긴다(`Head`).
- *   거기가 실제로 비어 있던 자리고(차번은 여덟 글자다), 「이 차가 이거다」를 확인한 «바로 그 줄»에서
- *   담기·보내기를 누르는 게 순서로도 맞다.
+ * ⇒ 폰에서는 이 줄을 통째로 없애고, 둘을 **머리띠 오른쪽**으로 올린다
+ *   (사장님 2026-09-05 결정. 껍데기 = `WhitelabelFrame` 의 `headerActions`).
+ *   ⚠ 그 전에 «차번 줄 오른쪽»에 얹어 봤다가 걷었다(사장님 「차량 번호 우측은 아닌 거 같고」) —
+ *     「이 차가 무엇인가」를 읽는 줄에 40px 단추가 서면 정보 줄이 실행줄로 보인다.
+ *   ㉠ 머리띠 오른쪽은 이 화면에서 **완전히 비어 있던 유일한 자리**다(왼쪽에 워드마크 하나뿐).
+ *   ㉡ 머리띠는 폰에서 **고정**이라 상세 어디를 보고 있든 바로 보낼 수 있다 — 공유가 퍼널이다.
+ *   ㉢ 중고차 앱들이 다 거기에 찜·공유를 둔다. 손님이 이미 아는 자리다.
  */
 function TopBar({ code, title, listHref }: { code: string; title: string; listHref: string }) {
   return (
@@ -1315,14 +1317,12 @@ function SecTitle({ children, icon: Icon, accent, tag }: {
   );
 }
 
-function Head({ title, facts, stateMarks, perkMarks, actions }: {
+function Head({ title, facts, stateMarks, perkMarks }: {
   title: string; facts: string;
   /** 차명 줄 «오른쪽» — 출고상태 · 상품구분. 이 차의 «신원»이라 이름과 같은 줄에 선다. */
   stateMarks: { text: string; icon: LucideIcon; good?: boolean }[];
   /** 그 밑 한 줄 — 심사 · 우대조건. 「내가 되나」라 신원과 성격이 다르다. */
   perkMarks: { text: string; icon: LucideIcon; good?: boolean }[];
-  /** 차번 줄 «오른쪽» 실행 — 폰의 관심·공유가 여기 선다(웹은 위 실행줄에 있다). */
-  actions?: ReactNode;
 }) {
   /*
    * ★★**상자 뱃지가 아니라 아이콘 + 글자**다(사장님 2026-08-28·08-30 「박스 뱃지 쓰지 말고
@@ -1392,20 +1392,14 @@ function Head({ title, facts, stateMarks, perkMarks, actions }: {
         ) : null}
       </div>
       {/*
-        ★**차번 줄은 왼쪽 여덟 글자만 쓰고 오른쪽이 통째로 비어 있던 자리**다.
-          폰에서는 여기 오른쪽에 관심·공유가 선다 — 위에 빈 실행줄을 하나 더 깔지 않는다.
-          (`FavShare` 머리말 참고. 사장님 2026-09-05 「그 공간을 찾아 가지고 거기에다 넣어야」)
-        ⚠ 차번이 없으면(있을 수 없지만) 실행만 오른쪽에 남는다 — 그래도 줄은 선다.
+        ★차번 줄은 **정보만** 싣는다. 여기 관심·공유를 얹어 봤다가 걷었다(사장님 2026-09-05
+          「차량 번호 우측은 아닌 거 같고」) — 「이 차가 무엇인가」를 읽는 줄에 실행이 끼면
+          40px 짜리 단추가 여덟 글자짜리 흐린 줄을 밀어 올려 **정보 줄이 실행줄처럼** 보인다.
+          폰의 관심·공유는 **머리띠 오른쪽**이다(`FavShare` 머리말).
       */}
-      {facts || actions ? (
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          gap: 12, marginTop: 8, minHeight: actions ? 40 : undefined,
-        }}>
-          <span style={{ fontSize: SHOP.fs.body, color: C.mute, fontVariantNumeric: 'tabular-nums' }}>
-            {facts}
-          </span>
-          {actions}
+      {facts ? (
+        <div style={{ marginTop: 8, fontSize: SHOP.fs.body, color: C.mute, fontVariantNumeric: 'tabular-nums' }}>
+          {facts}
         </div>
       ) : null}
       {perkMarks.length ? (

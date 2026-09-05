@@ -404,12 +404,16 @@ must(/const stateMarks: Mark\[\]/.test(shopDetail) && /const perkMarks: Mark\[\]
   '표시 칩이 사라졌거나 신원(출고상태·구분)과 조건(심사·우대)이 다시 한 덩어리가 됐습니다 — 신원은 차명 줄 오른쪽, 조건은 그 밑입니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1');
 /*
- * 폰에는 «위 실행줄»이 없다 — 관심·공유는 차번 줄 오른쪽에 선다.
- * ⚠ 되돌아가면 폰 상세 맨 위에 왼쪽 2/3 가 빈 줄이 다시 생긴다(사장님 2026-09-05 지적).
+ * 폰에는 «위 실행줄»이 없다 — 관심·공유는 **머리띠 오른쪽**이 받고, 그 머리띠는 폰에서 고정이다.
+ * ⚠ 되돌아가면 ㉠ 상세 맨 위에 짝 없는 빈 줄이 다시 생기거나 ㉡ 스크롤 한 번에 공유가 사라진다.
+ *   공유는 이 사업의 퍼널이라 ㉡ 는 화면이 깨지는 것보다 조용하고 더 비싸다.
  */
+const wlFrame = read('components/WhitelabelFrame.tsx');
 must(/const bar = mobile \? null :/.test(shopDetail)
-  && /actions=\{mobile \? <FavShare/.test(shopDetail),
-  '폰 상세에 짝 없는 실행줄이 되살아났습니다 — 폰의 관심·공유는 차번 줄 오른쪽입니다.',
+  && /headerActions=\{<FavShare/.test(read('app/q/[code]/ShopDetailView.tsx'))
+  && /\{mobile \? headerActions : null\}/.test(wlFrame)
+  && /mobile && headerActions \? \{ position: 'sticky' as const, top: 0/.test(wlFrame),
+  '폰의 관심·공유가 머리띠를 떠났거나 머리띠 고정이 풀렸습니다 — 스크롤하면 공유가 사라집니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-2');
 
 /*

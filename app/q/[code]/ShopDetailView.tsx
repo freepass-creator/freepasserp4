@@ -4,7 +4,7 @@ import { useParams } from 'next/navigation';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { CenterNote, Loading } from '@/components/ui';
 import { WhitelabelFrame } from '@/components/WhitelabelFrame';
-import { ShopDetail } from '@/components/shop/ShopDetail';
+import { FavShare, ShopDetail } from '@/components/shop/ShopDetail';
 import type { Whitelabel } from '@/lib/whitelabel';
 import { vehicleNameOf } from '@/lib/domain/vehicle-name';
 import { resolveAttr } from '@/lib/shop/attribution';
@@ -107,8 +107,16 @@ export function ShopDetailView({ wl }: { wl: Whitelabel }) {
   }
 
 
+  /*
+   * ★폰의 관심·공유는 **머리띠 오른쪽**이다(사장님 2026-09-05). 상세 안에 두면 갈 데가 없다 —
+   *   사진 위는 금지, 하단독은 두 칸 확정, 차번 줄은 정보 줄이다. 머리띠 오른쪽만 비어 있었고
+   *   폰에서는 고정이라 **어디를 보고 있든** 보낼 수 있다(공유 = 퍼널).
+   *   웹은 상세 제 실행줄(「목록으로 ↔ ♡ 공유」)이 받는다 — 껍데기는 폰에서만 그린다.
+   */
   return (
-    <WhitelabelFrame wl={wl} agentName={agentName} agentPhone={phone} notice={false} dock={false}>
+    <WhitelabelFrame wl={wl} agentName={agentName} agentPhone={phone} notice={false} dock={false}
+      headerActions={<FavShare code={String(p.product_code || '')}
+        title={vehicleNameOf({ kind: 'product', product: p }, { tier: 'full', fallback: 'plate' })} />}>
       <ShopDetail p={p} agentName={agentName} agentPhone={phone}
         listHref={listHref} />
     </WhitelabelFrame>

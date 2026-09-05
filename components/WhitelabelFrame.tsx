@@ -18,7 +18,9 @@ import { hasBrand, whitelabelVars, type Whitelabel } from '@/lib/whitelabel';
  * ★머리 오른쪽은 «누가 받는가»다. 공유링크(`?a=`)로 들어온 손님에게는 **담당 영업자**가,
  *   맨 주소로 들어온 손님에게는 **대표번호**가 든다. 우리(프리패스) 이름은 어디에도 안 나온다.
  */
-export function WhitelabelFrame({ wl, agentName, agentPhone, dock = true, notice = true, children }: {
+export function WhitelabelFrame({
+  wl, agentName, agentPhone, dock = true, notice = true, headerActions, children,
+}: {
   wl: Whitelabel;
   agentName?: string;
   agentPhone?: string;
@@ -29,6 +31,16 @@ export function WhitelabelFrame({ wl, agentName, agentPhone, dock = true, notice
   dock?: boolean;
   /** 안내 블록을 그릴까. 목록에서만 쓰고 상세에서는 끈다(같은 말을 두 번 하지 않는다). */
   notice?: boolean;
+  /**
+   * **폰 머리띠 오른쪽**에 세울 실행 — 상세의 관심·공유가 여기 든다.
+   *
+   * ★폰 머리띠는 왼쪽 워드마크 하나뿐이라 오른쪽이 통째로 비어 있었다. 상세에서 관심·공유가
+   *   갈 데가 없어(사진 위 금지 · 하단독은 두 칸 확정 · 차번 줄은 정보 줄) 짝 없는 빈 줄을
+   *   하나 만들어 쓰던 것을 여기로 올렸다(사장님 2026-09-05).
+   * ★웹은 이 자리에 담당자·전화가 선다 — 그래서 **폰에서만** 그린다. 웹 상세는 제 실행줄이 있다.
+   * ⚠ 목록 화면은 이 슬롯을 비워 둔다. 「이 차」가 없는 곳에서 공유·관심은 말이 안 된다.
+   */
+  headerActions?: ReactNode;
   children: ReactNode;
 }) {
   const mobile = useIsMobile();
@@ -47,7 +59,19 @@ export function WhitelabelFrame({ wl, agentName, agentPhone, dock = true, notice
         ★폰은 워드마크만 둔다. 셋을 다 넣으면 워드마크가 두 줄로 접히고 버튼이 화면 밖으로 나간다(실측).
           전화는 폰에서 «하단 고정독»이 받는다 — 엄지가 닿는 자리이기도 하다.
       */}
-      <header style={{ borderBottom: `1px solid ${C.line}`, background: C.bg }}>
+      {/*
+        ★★폰에서는 머리띠를 **고정**한다(2026-09-05). 오른쪽에 공유가 들어왔기 때문이다 —
+          공유는 이 사업의 퍼널이라 **상세 어디를 보고 있든** 눌릴 수 있어야 한다.
+          스크롤에 딸려 올라가 버리면 대여료·조건을 다 읽고 마음먹은 순간에 그 단추가 화면에 없다.
+        ⚠ 웹은 고정하지 않는다 — 데스크톱은 한눈에 더 들어오고, 머리띠(72)를 붙박아 두면
+          가뜩이나 긴 상세에서 세로를 그만큼 잃는다.
+        ⚠ **실행이 들어 있을 때만** 고정한다 — 목록에서는 머리띠에 워드마크뿐이라, 붙박아 두면
+          긴 목록에서 56px 를 내내 잡아먹기만 하고 손님이 거기서 할 수 있는 일이 없다.
+      */}
+      <header style={{
+        borderBottom: `1px solid ${C.line}`, background: C.bg,
+        ...(mobile && headerActions ? { position: 'sticky' as const, top: 0, zIndex: 15 } : null),
+      }}>
         <div style={{
           maxWidth: 1280, margin: '0 auto',
           padding: mobile ? '0 16px' : '0 24px', height: mobile ? 56 : 72,
@@ -62,6 +86,8 @@ export function WhitelabelFrame({ wl, agentName, agentPhone, dock = true, notice
             </span>
           </div>
           <div style={{ flex: 1 }} />
+          {/* 폰 머리띠 오른쪽 — 상세의 관심·공유(위 `headerActions` 참고). 목록에서는 비어 있다. */}
+          {mobile ? headerActions : null}
           {phone && !mobile ? (
             <>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
