@@ -92,13 +92,26 @@ export function WhitelabelFrame({
         }}>
           {/* 폰 상세는 간판 대신 «이 화면의 이름»을 든다(위 `headerLead` 참고). 웹·목록은 워드마크. */}
           {mobile && headerLead ? headerLead : (
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: mobile ? 7 : 9, whiteSpace: 'nowrap' }}>
-              <span style={{ fontSize: mobile ? 22 : 26, fontWeight: FW.head, letterSpacing: '-0.03em', color: C.brand }}>
-                {wl.wordmark.main}
-              </span>
-              <span style={{ fontSize: mobile ? 12 : 15, fontWeight: FW.meta, letterSpacing: '0.15em', color: C.ink }}>
-                {wl.wordmark.sub}
-              </span>
+            /*
+             * ★**마크 + 글자**다(사장님 2026-09-05 로고·명함 전달). 마크만 그림이고 이름은 글자다 —
+             *   워드마크까지 그림으로 넣으면 배율마다 글자가 뭉개진다.
+             * ★글자는 **먹색**이다. 로고가 검정이라 「UNI」만 브랜드색으로 칠하면 로고와 색이 갈린다
+             *   (전에는 파랑이었다). 브랜드색은 «누르는 것»에만 쓴다.
+             */
+            <div style={{ display: 'flex', alignItems: 'center', gap: mobile ? 8 : 10, whiteSpace: 'nowrap' }}>
+              {wl.logo ? (
+                // eslint-disable-next-line @next/next/no-img-element -- 채널마다 다른 마크라 정적 최적화 대상이 아니다.
+                <img src={wl.logo.src} alt={wl.logo.alt}
+                  style={{ height: mobile ? 24 : 28, width: 'auto', display: 'block' }} />
+              ) : null}
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: mobile ? 7 : 9 }}>
+                <span style={{ fontSize: mobile ? 22 : 26, fontWeight: FW.head, letterSpacing: '-0.03em', color: C.ink }}>
+                  {wl.wordmark.main}
+                </span>
+                <span style={{ fontSize: mobile ? 12 : 15, fontWeight: FW.meta, letterSpacing: '0.15em', color: C.ink }}>
+                  {wl.wordmark.sub}
+                </span>
+              </div>
             </div>
           )}
           <div style={{ flex: 1 }} />
