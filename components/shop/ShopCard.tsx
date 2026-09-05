@@ -13,7 +13,7 @@ import { cheapest, creditDisplay, CREDIT_UNSET } from '@/lib/domain/product';
 import { PERKS, hasPerk } from '@/lib/domain/product-filters';
 import { vehicleNameOf } from '@/lib/domain/vehicle-name';
 import { yearFullDisplay, fuelDisplay } from '@/lib/domain/vehicle-master-format';
-import { kmDisplay, manWon } from '@/lib/format';
+import { kmDisplay, kmValue, manWon } from '@/lib/format';
 
 /**
  * 가게 카드 — 손님이 이 화면에서 «고르는 단위».
@@ -74,7 +74,8 @@ export const ShopCard = memo(function ShopCard({ p, href, faved, onFav }: {
    * ★차번이 이 줄의 맨 앞이다 — 사진 위도 아니고 옵션 옆도 아니다(사장님 2026-09-04).
    *   실물 재고를 파는 판에서 「이 차다」의 증거라 차를 «설명하는» 줄에 함께 서는 것이 맞다.
    */
-  const km = Number(String(p.mileage ?? '').replace(/[^0-9.]/g, '')) || 0;
+  /* 주행거리는 «한 읽개»로 읽는다 — 콤마·「만km」를 견딘다(`kmValue`). 각자 파싱하면 또 갈린다. */
+  const km = kmValue(p.mileage);
   const cc = Number(p.engine_cc) || 0;
   const facts = [
     String(p.car_number || '').trim(),

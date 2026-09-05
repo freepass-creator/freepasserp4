@@ -17,6 +17,7 @@
  *   차대번호(`vin`)는 손님에게 보여도 되는 값이다(사장님 확인) — 실차를 특정하는 정보다.
  */
 import type { EntityRecord } from '@/lib/intake/entities';
+import { kmValue } from '@/lib/format';
 import { applyPolicyDefaults } from '@/lib/domain/policy-defaults';
 import { scrapableSources } from '@/lib/domain/product-photos';
 
@@ -125,7 +126,8 @@ export function sanitizeProductForGuest(key: string, p: Rec, policy?: Rec | null
     if (v === null || v === undefined || v === '') continue;
     out[f] = v;
   }
-  out.mileage = N(p.mileage);
+  /* ★주행거리는 «콤마를 견디는» 읽개로 읽는다 — `Number('83,000')` 은 NaN 이다(`kmValue` 머리말). */
+  out.mileage = kmValue(p.mileage);
   out.engine_cc = N(p.engine_cc);
   out.price = publicPrice(p.price);
   /*

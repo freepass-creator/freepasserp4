@@ -320,9 +320,16 @@ must(/const ownDamageDeductible = \[/.test(shopDetail),
 must(/긴급출동 \{roadside\}/.test(shopDetail),
   '보험 맨 밑 「긴급출동」이 사라졌습니다 — 사고가 아니라 고장일 때 부르는 것이라 여기가 제자리입니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
-// 심사는 계속 띄운다 — 이용 조건 안이다(요금 밑이 아니다).
-must(/\['심사', credit\]/.test(shopDetail),
-  '이용 조건에서 「심사」가 사라졌습니다 — 사장님 2026-09-05 「심사 조건은 계속 띄워요」.',
+/*
+ * **심사는 셋(무심사·소득확인·신용조회)이고, 화면에 «한 자리»만 쓴다.**
+ * 계속 띄우되(사장님 「심사 조건은 계속 띄워요」) 두 번 쓰지 않는다(「중복되면 안 되지」).
+ * 자리는 차명 밑 조건 칩 — 손님이 제일 먼저 재는 값이라 위에 있어야 한다.
+ * ⚠ 무심사만 초록(`good`)이고 나머지 둘은 «해야 할 일»(`ask`)이라 흐리다.
+ */
+must(/text: creditChip, icon: ShieldCheck,/.test(shopDetail)
+  && /good: \/무심사\/\.test\(creditChip\), ask: !\/무심사\/\.test\(creditChip\)/.test(shopDetail)
+  && !/\['심사', credit\]/.test(shopDetail),
+  '심사가 사라졌거나 다시 두 자리(조건 칩 + 이용 조건)에 실렸습니다 — 셋 중 하나를 칩 한 자리에만 씁니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
 must(/'screening_criteria'/.test(read('lib/domain/public-catalog.ts')),
   '손님 화이트리스트에서 screening_criteria 가 빠졌습니다 — 값이 안 오면 화면에 심사가 안 뜹니다.',
@@ -425,7 +432,7 @@ must(/function grouped\(/.test(shopDetail) && /const specs: \[string, string\]\[
   'docs/DESIGN_CONFIRMED_SHOP.md §1-2-3');
 must(/const useRows = grouped\(/.test(shopDetail)
   && at("['기본 운전 연령'") < at("['연령 낮추기'")
-  && at("['연령 낮추기'") < at("['심사', credit]")
+  && at("['연령 낮추기'") < at("['면허'")
   && at("['추가 운전자'") < at("['약정 주행'"),
   '이용 조건의 무리가 흐트러졌습니다 — 나이 셋 / 심사·면허·범위·추가운전자 / 주행 둘 차례입니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-2-3');

@@ -16,7 +16,7 @@ import { creditDisplay, CREDIT_UNSET, parseProductOptions, priceList } from '@/l
 import { PERKS, hasPerk } from '@/lib/domain/product-filters';
 import { vehicleNameOf } from '@/lib/domain/vehicle-name';
 import { yearFullDisplay, fuelDisplay, makerDisplay } from '@/lib/domain/vehicle-master-format';
-import { kmDisplay, manWon } from '@/lib/format';
+import { kmDisplay, kmValue, manWon } from '@/lib/format';
 
 /**
  * 가게 상세 — 손님이 «이 차로 할까»를 정하는 화면.
@@ -64,7 +64,8 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
 
   /** 매물 필드 읽기 — 정책의 `S` 와 달리 상품 자체의 값이다. */
   const S2 = (v: unknown) => String(v ?? '').trim();
-  const km = Number(String(p.mileage ?? '').replace(/[^0-9.]/g, '')) || 0;
+  /* 주행거리는 «한 읽개»로 읽는다 — 콤마·「만km」를 견딘다(`kmValue`). 각자 파싱하면 또 갈린다. */
+  const km = kmValue(p.mileage);
   /*
    * ★★**전기차에는 배기량을 안 쓴다**(2026-09-05 전수에서 잡았다).
    *   실측 — 전기 42대 중 **9대에 `engine_cc` 가 붙어 있다**: EV6 111 · 모델3 239 · 캐스퍼 158 ·
@@ -420,14 +421,6 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
     })()],
     ],
     [
-    /*
-     * ★★**심사는 계속 띄운다**(사장님 2026-09-05 「그 심사 조건은 계속 띄워요」).
-     *   그전까지 손님 화면에 안 나갔다 — 값이 화이트리스트에 없어 오지도 않았다. 이번에 열었다.
-     * ★자리는 **이용 조건**이다. 「내가 될까」를 묻는 칸이지 요금 칸이 아니다.
-     *   ⚠ 요금 «밑»에는 안 쓴다 — 이 장사의 셀링포인트가 「무심사」인데 금액 옆에서 그 말을 꺼내면
-     *     손님이 평생 들어 온 그 단어를 다시 만난다(§1-12 는 그대로다).
-     */
-    ['심사', credit],
     ['면허', S('license_period')],
     ['운전 범위', S('personal_driver_scope')],
     ['추가 운전자', join(S('additional_driver_allowance_count'), S('additional_driver_cost'))],
@@ -499,7 +492,11 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
   const status = S2(p.vehicle_status);
   const kind = S2(p.product_type);
   const creditChip = creditDisplay(p);
-  type Mark = { text: string; icon: LucideIcon; good?: boolean };
+  /**
+   * `good` = 좋은 소식(초록) · `ask` = **손님이 내야 하는 것**(회색).
+   * 심사는 셋이다 — 무심사는 좋은 소식이고, 소득확인·신용조회는 «해야 할 일»이다.
+   */
+  type Mark = { text: string; icon: LucideIcon; good?: boolean; ask?: boolean };
   /**
    * ① **차명 줄 오른쪽** — 「지금 살 수 있나 · 무슨 상품인가」.
    *   제목 옆이 비어 있어 거기로 올렸다(사장님 2026-09-05 「**차량번호 뒤에 현대 그랜저,
@@ -513,9 +510,26 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
    * ② **그 밑 한 줄** — 「내가 되나」. 심사와 우대조건은 «조건»이라 신원과 성격이 다르다
    *   (사장님 「그 밑에 심사 조건, 우대 조건 그런 것들을 쭉」).
    */
+  /*
+   * ★★★**심사는 셋이다 — 무심사 · 소득확인 · 신용조회**(사장님 2026-08-19 확정 · 2026-09-05
+   *   「지금 우리가 **심사 기준이 무심사, 소득 확인, 신용조회 이렇게 세 개**가 있단 말이야?
+   *   그거에 맞춰서 하고」). `creditDisplay` 가 원문을 그 셋으로 접는다(원문은 「신용무관」·
+   *   「소득무관」처럼 여러 갈래다 — 실측 신용무관 358 · 무심사 54 · 소득확인 29 · 소득무관 8 ·
+   *   신용조회 7 · 빈칸 265).
+   * ★★**셋 다 여기 «한 자리»에만 쓴다.** 이용 조건에도 「심사」 줄이 있어서 무심사 차 420대는
+   *   같은 말이 화면에 두 번 나왔다(사장님 「중복되면 안 되지」). 정본은 여기다 —
+   *   손님이 제일 먼저 재는 값이라 맨 위에 있어야 하고, 아래로 내려야 보이는 값이면
+   *   「계속 띄워요」(사장님)가 아니게 된다.
+   * ★**무심사만 초록이다.** 소득확인·신용조회는 «해야 할 일»이지 혜택이 아니다 — 옆의
+   *   분납가능·경력무관과 같은 색으로 세우면 **내야 할 서류가 혜택처럼** 보인다.
+   * ⚠ 값이 없으면(미입력 265대) 아무 말도 안 한다. 없는 것을 「무심사」로 지어내지 않는다.
+   */
   const perkMarks: Mark[] = [
     ...(creditChip && creditChip !== CREDIT_UNSET
-      ? [{ text: creditChip, icon: ShieldCheck, good: /무심사/.test(creditChip) }] : []),
+      ? [{
+        text: creditChip, icon: ShieldCheck,
+        good: /무심사/.test(creditChip), ask: !/무심사/.test(creditChip),
+      }] : []),
     ...PERKS.filter((k) => hasPerk(p, k)).map((k) => ({ text: k as string, icon: Check })),
   ];
 
@@ -1463,12 +1477,13 @@ function Head({ title, facts, stateMarks, perkMarks }: {
    * ★아이콘만 색을 갖는다(무심사는 초록, 나머지는 채널색). 글자는 검정이라 소란하지 않다.
    * ★사이를 넉넉히 벌린다 — 붙여 놓으면 다시 «칩 줄»로 보인다.
    */
-  const perkChip = (m: { text: string; icon: LucideIcon; good?: boolean }) => (
+  const perkChip = (m: { text: string; icon: LucideIcon; good?: boolean; ask?: boolean }) => (
     <span key={m.text} style={{
       display: 'inline-flex', alignItems: 'center', gap: 5,
       color: C.ink, fontSize: SHOP.fs.sub, fontWeight: 700, whiteSpace: 'nowrap',
     }}>
-      <m.icon size={15} aria-hidden style={{ color: m.good ? C.ok : C.brand }} />{m.text}
+      {/* ★소득확인·신용조회는 «해야 할 일»이라 흐린 회색이다 — 혜택 색을 주면 서류가 혜택으로 읽힌다. */}
+      <m.icon size={15} aria-hidden style={{ color: m.good ? C.ok : m.ask ? C.faint : C.brand }} />{m.text}
     </span>
   );
 

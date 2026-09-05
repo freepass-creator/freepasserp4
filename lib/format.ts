@@ -32,6 +32,29 @@ export function kmDisplay(raw: unknown): string {
   return source;
 }
 
+/**
+ * **주행거리 «값» SSOT** — 「83,000km」·「8.3만km」·「83000」을 전부 `83000` 으로 읽는다.
+ *
+ * ⚠⚠ 2026-09-05 실측 사고. 손님 카탈로그가 `Number(p.mileage)` 로 읽고 있었다.
+ *   원천은 96% 가 채워져 있는데(`audit-axis-coverage` Km 시트 95% · ERP 96%)
+ *   **손님 화면에는 721대 중 26대**만 주행거리가 떴다. 콤마가 든 「83,000」이 `NaN` → 0 이 되고,
+ *   0 은 「값이 없다」로 접혔기 때문이다. 살아남은 26대는 전부 신차(「30」)였다 —
+ *   **콤마가 붙을 만큼 큰 값만 골라서 지워지고 있었다.**
+ * ★그래서 읽는 자리를 하나로 모은다. `kmDisplay` 는 이미 콤마·단위를 견디는데
+ *   «값»을 읽는 쪽이 딴 데서 각자 `Number()` 를 부르면 또 어긋난다.
+ * 사장님 2026-09-05 「**주행거리를 안 뗀 경우는 잘못됐지. 주행거리는 거의 다 있을 건데**」 — 맞다.
+ */
+export function kmValue(raw: unknown): number {
+  const s = String(raw ?? '').trim().replace(/,/g, '');
+  if (!s || /^[-–—.]+$/.test(s)) return 0;
+  const man = s.match(/^([\d.]+)\s*만\s*(?:km|킬로)?$/i);
+  if (man && Number.isFinite(Number(man[1]))) return Math.round(Number(man[1]) * 10_000);
+  const plain = s.match(/^([\d.]+)\s*(?:km|킬로)?$/i);
+  if (plain && Number.isFinite(Number(plain[1]))) return Math.round(Number(plain[1]));
+  const digits = s.replace(/[^\d.]/g, '');
+  return digits && Number.isFinite(Number(digits)) ? Math.round(Number(digits)) : 0;
+}
+
 /** 첨부 크기 표기 SSOT — `1.2MB` / `340KB`. 0·비수는 빈 문자열(자리를 만들지 않는다). */
 export function fileSizeText(n: number): string {
   if (!Number.isFinite(n) || n <= 0) return '';
