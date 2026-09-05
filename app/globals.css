@@ -1196,6 +1196,16 @@ html[data-fp-filter="0"] .fp-finder > .fp-sidebar { display: none; }
 }
 .fp-shop-press:active { transform: scale(.97); }
 
+/*
+ * 「면」으로 서는 누름 — 조건 칩·정렬·공유·더 보기(shop-ui `ShopPill` 머리말).
+ * 테두리가 없으니 **마우스가 있는 기기에서는 면이 한 단 짙어지는 것**이 유일한 손짓이다.
+ * ⚠ 켜진 칩(브랜드 남색)까지 회색으로 덮으면 켜짐이 풀린 것처럼 보인다 — 그건 밝기로만 민다.
+ */
+@media (hover: hover) and (pointer: fine) {
+  .fp-shop-fill:hover { background: var(--bg-hover); }
+  .fp-shop-fill[aria-pressed="true"]:hover { background: var(--brand); filter: brightness(1.15); }
+}
+
 /* ② 카드 — 마우스가 있는 기기에서만. 사진만 아주 조금(1.04) 커지고 카드는 살짝 뜬다.
  *    ⚠ 카드 자체를 키우면 격자가 밀린다(레이아웃이 다시 계산된다) — 사진만 transform 으로 민다. */
 .fp-shop-card { transition: box-shadow .2s ease, transform .2s ease; }

@@ -525,6 +525,21 @@ must(/--shop-fs-body: 15px/.test(css) && /@media \(max-width: 760px\)/.test(css)
   'docs/DESIGN_CONFIRMED_SHOP.md §1-3');
 
 /*
+ * **가게의 «비주요» 누름은 선이 아니라 «면»이다** — 조건 칩·정렬·더 보기·공유·하단독 이전.
+ *
+ * 사장님 2026-09-05 「유튜브 보니까 퀵필터가 약간 **회색 배경에 텍스트**가 들어갔는데 우리도
+ * 그렇게 할까? **박스로 가두는 거는 조금 촌스러워** 보이고」.
+ * ⚠ 되돌아가면 한 줄에 칩이 예닐곱 서면서 **가는 테두리가 그만큼 그어져** 목록보다 칩이 시끄러워진다.
+ *   켜짐/꺼짐도 「선 색 + 면」 두 축으로 갈려 무엇이 켜진 것인지 한눈에 안 읽힌다.
+ */
+must(/background: on \? C\.brand : C\.head/.test(shopUi)
+  && !/border: `1px solid \$\{on \? C\.brand : C\.line\}`/.test(shopUi)
+  && /className="fp-shop-press fp-shop-fill"/.test(shopUi)
+  && /\.fp-shop-fill:hover/.test(css),
+  '가게 조건 칩이 다시 «테두리 상자»가 됐습니다 — 꺼짐은 회색 면, 켜짐은 브랜드 면입니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-3');
+
+/*
  * **누르는 «영역» ≠ 보이는 «크기»** — 폰 치수 셋(tap 44 · pill 38 · icon 40).
  *
  * 사장님 2026-09-05 「**버튼이나 칩·검색창이 좀 커 보인다**. 유튜브나 다른 데 가보니까…」 — 맞다.

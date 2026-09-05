@@ -981,7 +981,8 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
               flex: '0 0 92px',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
               height: 54, borderRadius: SHOP.r.ctrl,
-              border: `1px solid ${C.line}`, background: C.bg, color: C.sub,
+              /* 비주요는 «회색 면» — 가게 공통(shop-ui `ShopPill` 머리말). 테두리 상자로 두지 않는다. */
+              background: C.head, color: C.ink,
               textDecoration: 'none', fontSize: SHOP.fs.sub, fontWeight: 600,
             }}>
             <ArrowLeft size={ICON.md} aria-hidden />이전
@@ -1072,14 +1073,15 @@ export function FavShare({ title }: { title: string }) {
     /*
       ★★**누를 것처럼 보이게 한다**(사장님 2026-09-05 「**공유 버튼이 좀 있어야** 할 거 같고」).
         맨 글자로 두면 화면 오른쪽 위 여백에 놓인 장식처럼 보인다.
-      ★연한 테두리만 두른다 — 파랗게 칠하면 「전화」와 다툰다. 주요 실행은 전화 하나뿐이다.
+      ★**회색 면**으로 둔다 — 파랗게 칠하면 「전화」와 다툰다(주요 실행은 전화 하나뿐이다).
+        테두리 상자가 아닌 이유는 가게 공통이다(shop-ui `ShopPill` 머리말).
     */
-    <button type="button" onClick={share} className="fp-shop-press" aria-label="이 차량 공유하기"
+    <button type="button" onClick={share} className="fp-shop-press fp-shop-fill" aria-label="이 차량 공유하기"
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 6,
         height: 40, padding: '0 14px', borderRadius: SHOP.r.ctrl,
-        border: `1px solid ${copied ? C.ok : C.line}`, background: C.bg,
-        cursor: 'pointer', color: copied ? C.ok : C.sub, fontSize: SHOP.fs.sub, fontWeight: 600,
+        border: 'none', background: copied ? C.okBg : C.head,
+        cursor: 'pointer', color: copied ? C.ok : C.ink, fontSize: SHOP.fs.sub, fontWeight: 600,
       }}>
       {copied ? <Check size={ICON.lg} aria-hidden /> : <Share2 size={ICON.lg} aria-hidden />}
       {copied ? '복사했습니다' : '공유'}

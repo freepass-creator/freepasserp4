@@ -209,6 +209,20 @@ export function runShopQuery(rows: EntityRecord[] | null, query: ShopQuery): Sho
 /** 「적용한 조건」 줄에 뿌릴 토큰 — 무엇이 걸렸는지 본문 위에서 보이고 하나씩 뗀다. */
 export type ShopToken = { axis: ShopAxis; key: string; label: string };
 
+/**
+ * 구간 키의 «이름» — 집계가 비어도 이름을 잃지 않는다.
+ *
+ * ⚠ 2026-09-05 실측. 「보증금 없음」 + 「월 50만↓」을 같이 걸면 0대가 되는데, 그 순간
+ *   집계(`bandTally`)가 대수 0인 구간을 걷어내므로 토큰이 이름을 못 찾아 **「월 대여료 r50」·
+ *   「보증금 d0」** 이라고 날키를 그대로 보여줬다. 조건이 0대가 됐을 때가 바로 손님이 그 줄을
+ *   읽고 하나 떼려는 순간이라, 하필 그때만 읽을 수 없는 말이 서 있었다.
+ * ★구간 이름은 «집계»가 아니라 **정의(`*_BANDS`)**가 갖고 있다 — 거기서 찾는다.
+ *   나머지 축(제조사·연식·연료·심사·혜택)은 키가 곧 사람 말이라 키가 그대로 이름이다.
+ */
+const BAND_LABEL: Record<string, string> = Object.fromEntries(
+  [...RENT_BANDS, ...DEP_BANDS, ...MILE_BANDS].map((b) => [b.k, b.label]),
+);
+
 export function activeTokens(query: ShopQuery, facets: ShopFacets): ShopToken[] {
   const out: ShopToken[] = [];
   for (const axis of SHOP_AXES) {
@@ -219,7 +233,7 @@ export function activeTokens(query: ShopQuery, facets: ShopFacets): ShopToken[] 
        * 「아무것도 안 나오는데 뗄 수도 없는」 조건이 생긴다.
        */
       const found = facets[axis].find((o) => o.key === key);
-      out.push({ axis, key, label: found?.label || key });
+      out.push({ axis, key, label: found?.label || BAND_LABEL[key] || key });
     }
   }
   return out;

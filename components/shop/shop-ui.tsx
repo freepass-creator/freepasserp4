@@ -167,15 +167,23 @@ const bare: CSSProperties = {
 };
 
 /**
- * 알약 버튼 — 가게의 «누르는 것» 기본형. 고른 것은 브랜드색 채움, 아닌 것은 테두리만.
- * 모양은 하나로 두고 **위계는 색으로만** 낸다(모양까지 갈리면 무엇이 같은 종류인지 안 보인다).
+ * 조건 칩 — 가게의 «누르는 것» 기본형.
+ *
+ * ★★**선으로 가두지 않고 «면»으로 말한다**(사장님 2026-09-05 「유튜브 보니까 퀵필터가 약간
+ *   **회색 배경에 텍스트**가 들어갔는데 우리도 그렇게 할까? **박스로 가두는 거는 조금 촌스러워** 보이고」).
+ *   맞다. 테두리 칩은 한 줄에 여럿 서면 **가는 선이 대여섯 줄** 그어진 꼴이라 목록보다 칩이 시끄럽다.
+ *   면으로 두면 선이 하나도 안 늘고, 켜짐/꺼짐이 «색의 진하기»라는 한 가지 축으로만 갈린다.
+ * ★그래서 위계는 **면의 진하기**다 — 꺼짐 = 옅은 회색 면, 켜짐 = 브랜드 남색 면.
+ *   모양(높이·둥글기)은 둘이 똑같다. 모양까지 갈리면 무엇이 같은 종류인지 안 보인다.
+ * ⚠ 이 규칙은 칩만의 것이 아니다 — 정렬 고르개·「차량 더 보기」·공유·하단독 「이전」까지
+ *   **가게의 «비주요» 누름은 전부 회색 면**이다. 하나만 테두리로 남으면 그것만 촌스러워 보인다.
  */
 export function ShopPill({ on, onClick, children, title }: {
   on?: boolean; onClick: () => void; children: ReactNode; title?: string;
 }) {
   const mobile = useIsMobile();
   return (
-    <button type="button" onClick={onClick} title={title} aria-pressed={!!on} className="fp-shop-press"
+    <button type="button" onClick={onClick} title={title} aria-pressed={!!on} className="fp-shop-press fp-shop-fill"
       style={{
         ...bare,
         /*
@@ -188,9 +196,10 @@ export function ShopPill({ on, onClick, children, title }: {
          */
         height: mobile ? SHOP.pill.mobile : SHOP.pill.web, padding: mobile ? '0 15px' : '0 14px',
         borderRadius: SHOP.r.ctrl, whiteSpace: 'nowrap',
-        border: `1px solid ${on ? C.brand : C.line}`,
-        background: on ? C.brand : 'transparent',
-        color: on ? C.inverse : C.sub,
+        /* 테두리 없음(`bare`) — 면으로만 말한다. 머리말 참고. */
+        background: on ? C.brand : C.head,
+        /* 꺼짐도 «진한 글자»다 — 면이 이미 배경에서 떼어 놓았으므로 흐리게 할 이유가 없다. */
+        color: on ? C.inverse : C.ink,
         fontSize: mobile ? SHOP.fs.body : SHOP.fs.sub,
         fontWeight: on ? 700 : 500,
       }}>{children}</button>
@@ -265,7 +274,8 @@ export function ShopTokens({ tokens, onRemove, onClear }: {
           style={{
             display: 'inline-flex', alignItems: 'center', gap: 7,
             height: 34, padding: '0 6px 0 13px', borderRadius: SHOP.r.chip,
-            background: C.brandSoft, border: `1px solid ${C.brandBg}`,
+            /* 걸린 조건은 «브랜드 틴트 면» — 회색 칩(고르는 것)과 색으로 갈린다. 테두리는 안 두른다. */
+            background: C.brandBg,
             fontSize: SHOP.fs.sub, color: C.ink, fontWeight: 600,
           }}>
           <span style={{ color: C.mute, fontWeight: 500 }}>{t.axisLabel}</span>
@@ -299,7 +309,8 @@ export function ShopSort({ value, onChange, options }: {
           appearance: 'none', WebkitAppearance: 'none',
           /* 정렬 고르개도 칩과 같은 치수(`SHOP.pill`) — 한 줄에 나란히 서므로 높이가 달라 보이면 안 된다. */
           height: mobile ? SHOP.pill.mobile : SHOP.pill.web, padding: '0 34px 0 14px',
-          borderRadius: SHOP.r.ctrl, border: `1px solid ${C.line}`, background: 'transparent',
+          /* 칩과 같은 «면» — 한 화면에서 칩만 면이고 고르개만 테두리면 그 줄이 어긋나 보인다. */
+          borderRadius: SHOP.r.ctrl, border: 'none', background: C.head,
           fontFamily: 'inherit', fontSize: mobile ? SHOP.fs.body : SHOP.fs.sub,
           color: C.ink, fontWeight: 600, cursor: 'pointer',
         }}>
@@ -367,7 +378,8 @@ export function ShopMore({ shown, total, onMore }: { shown: number; total: numbe
       <button type="button" onClick={onMore} className="fp-shop-press"
         style={{
           ...bare, height: 52, padding: '0 34px', borderRadius: SHOP.r.ctrl,
-          border: `1px solid ${C.line}`, color: C.ink,
+          /* 목록 끝의 «비주요» 누름 — 칩과 같은 회색 면. 테두리 상자로 두면 여기만 촌스럽다. */
+          background: C.head, color: C.ink,
           fontSize: SHOP.fs.body, fontWeight: 700,
         }}>
         차량 더 보기 <span style={{ color: C.mute, fontWeight: 500, marginLeft: 6 }}>{shown} / {total}</span>
