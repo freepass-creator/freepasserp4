@@ -65,7 +65,12 @@ const QUICK: { axis: ShopAxis; key: string; label: string }[] = [
   { axis: 'fuel', key: '하이브리드', label: '하이브리드' },
 ];
 
-const FAV_KEY = 'fp4_shop_fav';
+/*
+ * ★★**관심(하트)은 없다**(사장님 2026-09-05 「손님들이 여기에 **로그인을 안 할 거라서 관심을
+ *   못 찍을 거야** … 손님 로그인 하는 게 **없거든**. 영업사원은 로그인을 할 수 있지만
+ *   **영업사원 전용 로그인**이야」). 여기 있던 `FAV_KEY`(브라우저 저장)는 걷었다 —
+ *   담아 둔 것을 다시 꺼내 볼 «내 목록»이 없는데 담는 단추만 있었다. 공유는 남는다(§1-2).
+ */
 
 export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
   const mobile = useIsMobile();
@@ -77,7 +82,6 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
   const [typed, setTyped] = useState('');
   const [limit, setLimit] = useState(PAGE);
   const [sheet, setSheet] = useState(false);
-  const [fav, setFav] = useState<Set<string>>(new Set());
   /*
    * 미리보기 꼬리표(`?wl=`) — **도메인이 붙기 전까지만** 쓰는 것이다.
    * 목록에서 상세로 넘어갈 때 이걸 안 물고 가면 상세가 노브랜드로 떨어져 「눌렀더니 남의 사이트」가 된다.
@@ -93,7 +97,6 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
     const restored = readQuery(params);
     setQuery(restored);
     setTyped(restored.q);
-    try { setFav(new Set(JSON.parse(localStorage.getItem(FAV_KEY) || '[]') as string[])); } catch { /* 저장 못 읽어도 화면은 돈다 */ }
 
     // 누구 손님인가 — 주소 ?a= → 기억해 둔 값 → 로그인한 나. 규칙은 `lib/shop/attribution` 한 곳이다.
     const a = resolveAttr(params);
@@ -170,14 +173,6 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
   const onToggle = useCallback((axis: ShopAxis, key: string) => setQuery((q) => toggleAxis(q, axis, key)), []);
   const onClearAxis = useCallback((axis: ShopAxis) => setQuery((q) => clearAxis(q, axis)), []);
   const onClearAll = useCallback(() => { setQuery((q) => ({ ...emptyQuery(), q: q.q })); }, []);
-  const onFav = useCallback((code: string) => {
-    setFav((prev) => {
-      const next = new Set(prev);
-      if (next.has(code)) next.delete(code); else next.add(code);
-      try { localStorage.setItem(FAV_KEY, JSON.stringify([...next])); } catch { /* 저장 실패는 화면을 막지 않는다 */ }
-      return next;
-    });
-  }, []);
 
   /*
    * 상세로 가는 주소 — **짧은 토큰**(`guestShareUrl` SSOT).
@@ -294,7 +289,7 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
                 <Grid mobile={mobile}>
                   {shown.map((p) => (
                     <ShopCard key={String(p.product_code)} p={p} href={href(p)}
-                      faved={fav.has(String(p.product_code))} onFav={onFav} />
+ />
                   ))}
                 </Grid>
                 <ShopMore shown={shown.length} total={list.length} onMore={() => setLimit((n) => n + PAGE)} />

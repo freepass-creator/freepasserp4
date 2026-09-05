@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import {
-  ArrowLeft, Car, Check, ChevronLeft, ChevronRight, CircleCheck, Coins, FileText, Heart, Plus, Tag,
+  ArrowLeft, Car, Check, ChevronLeft, ChevronRight, CircleCheck, Coins, FileText, Plus, Tag,
   IdCard, ImageOff, Info, Phone, Share2, ShieldCheck,
   type LucideIcon,
 } from 'lucide-react';
@@ -554,7 +554,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
 
   const gallery = <Gallery p={p} mobile={mobile} />;
 
-  /* 폰에는 위 실행줄이 없다 — 관심·공유는 껍데기 머리띠 오른쪽이 받는다(`FavShare` 머리말). */
+  /* 폰에는 위 실행줄이 없다 — 공유는 껍데기 머리띠 오른쪽이 받는다(`FavShare` 머리말). */
   const bar = mobile ? null : (
     <TopBar code={code} title={title} listHref={listHref} />
   );
@@ -1002,26 +1002,6 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
  * 케이카가 12개 뒤에 「모두 보기」다(2026-09-05 실측). 커머스 지침도 같은 구간을 말한다.
  * ★자르는 문턱은 **12개부터**다 — 한둘 숨기려고 버튼을 다는 건 손님에게 손해다.
  */
-const FAV_KEY = 'fp4_shop_fav';
-
-/**
- * 상세 맨 위 실행줄 — **목록으로 · 관심 · 공유**.
- *
- * 왜 있어야 하나(2026-09-04 실측). 이 화면에서 손님이 할 수 있는 일이 «전화» 하나뿐이었다.
- *   ㉠ 목록으로 돌아갈 길이 없다 — 브라우저 뒤로가기를 아는 사람만 나간다.
- *   ㉡ **이 차를 누구에게도 못 보낸다.** 저신용 렌트는 본인 혼자 정하는 일이 드물다(배우자·부모와
- *      상의한다). 공유가 막히면 손님이 화면을 찍어 보내고, 그러면 담당자 귀속이 끊긴다 —
- *      우리 장사에서 이건 기능 하나가 아니라 **퍼널이 끊기는 것**이다.
- *   ㉢ 담아 둘 수 없다 — 목록에는 하트가 있는데 상세에 없어서, 들어와서 마음에 들면 뒤로 나가
- *      다시 하트를 눌러야 했다.
- *
- * ★사진 «위»에 얹지 않는다(사장님 2026-09-04 「사진에 들어갈 필요는 없을 것 같고」).
- *   사진 위 단추는 어떤 사진이 오느냐에 따라 보이기도 하고 안 보이기도 한다. 위에 자리를 만든다.
- * ★공유는 **기기가 아는 방법**을 먼저 쓴다(`navigator.share`) — 카톡·문자가 바로 뜨는 그 창이다.
- *   없는 기기(대부분 데스크톱)에서는 주소를 복사하고 「복사했습니다」로 알린다.
- *   ⚠ 주소를 «지금 주소 그대로» 넘긴다 — `?a=` 담당 귀속이 물려 있어야 받은 사람이 눌러도
- *     같은 담당자에게 간다. 손으로 조립하면 그 파라미터를 흘린다.
- */
 /**
  * **폰 머리띠 왼쪽 — 이 화면의 이름.** 채널 워드마크를 갈아 끼운다(`WhitelabelFrame.headerLead`).
  *
@@ -1040,27 +1020,26 @@ export function ShopDetailLead() {
   );
 }
 
-export function FavShare({ code, title }: { code: string; title: string }) {
-  const [faved, setFaved] = useState(false);
+/**
+ * **공유 단추** — 이 화면에서 손님이 «가져가는» 유일한 길이다.
+ *
+ * ★★**관심(하트)은 없다**(사장님 2026-09-05 「손님들이 여기에 **로그인을 안 할 거라서 관심을
+ *   못 찍을 거야.** 그래서 관심은 의미가 없을 것 같고, **공유는** 친구나 다른 사람한테 할 수
+ *   있으니까 … 손님 로그인 하는 게 **없거든**. 영업사원은 로그인을 할 수 있지만
+ *   **영업사원 전용 로그인**이야」).
+ *   맞다 — 하트는 이 기기 브라우저에만 남았다. 손님이 폰을 바꾸거나 카톡 안 브라우저에서 열면
+ *   찍어 둔 게 없다. **담아 둔 걸 다시 꺼내 볼 «내 목록»이 없는데** 담는 단추만 있었던 것이다.
+ *   실제로 어디서도 「관심 차량」을 다시 보여 주는 화면이 없었다(2026-09-05 실측).
+ * ★공유는 반대다 — **받는 사람이 남의 화면**이라 로그인이 필요 없다. 저신용 렌트는 배우자·부모와
+ *   상의해서 정하니, 이 단추가 이 사업의 퍼널이다(§1-2).
+ *
+ * ★공유는 **기기가 아는 방법**을 먼저 쓴다(`navigator.share`) — 카톡·문자가 바로 뜨는 그 창이다.
+ *   없는 기기(대부분 데스크톱)에서는 주소를 복사하고 「복사했습니다」로 알린다.
+ *   ⚠ 주소를 «지금 주소 그대로» 넘긴다 — `?a=` 담당 귀속이 물려 있어야 받은 사람이 눌러도
+ *     같은 담당자에게 간다. 손으로 조립하면 그 파라미터를 흘린다.
+ */
+export function FavShare({ title }: { title: string }) {
   const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
-    try { setFaved(new Set(JSON.parse(localStorage.getItem(FAV_KEY) || '[]') as string[]).has(code)); }
-    catch { /* 저장을 못 읽어도 화면은 돈다 */ }
-  }, [code]);
-
-  const toggleFav = () => {
-    haptic.tap();
-    setFaved((was) => {
-      const next = !was;
-      try {
-        const set = new Set(JSON.parse(localStorage.getItem(FAV_KEY) || '[]') as string[]);
-        if (next) set.add(code); else set.delete(code);
-        localStorage.setItem(FAV_KEY, JSON.stringify([...set]));
-      } catch { /* 저장 실패는 화면을 막지 않는다 */ }
-      return next;
-    });
-  };
 
   const share = async () => {
     haptic.tap();
@@ -1074,36 +1053,21 @@ export function FavShare({ code, title }: { code: string; title: string }) {
   };
 
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
-      {/*
-        ★★**누를 것처럼 보이게 한다**(사장님 2026-09-05 「**공유 버튼이 좀 있어야** 할 거 같고」).
-          여기 둘은 배경도 테두리도 없는 «맨 글자»여서, 화면 오른쪽 위 여백에 놓인 장식처럼 보였다.
-        ★**공유는 이 사업의 퍼널**이다 — 저신용 렌트는 배우자·부모와 상의해서 정한다.
-          안 눌리면 손님이 화면을 «찍어» 보내고 그 순간 담당자 귀속이 끊긴다.
-          그 버튼이 안 보이는 것은 기능 하나가 아니라 매출이 새는 것이다.
-        ★연한 테두리만 두른다 — 파랗게 칠하면 「전화」와 다툰다. 주요 실행은 전화 하나뿐이다.
-      */}
-      <button type="button" onClick={toggleFav} className="fp-shop-press"
-        aria-pressed={faved} aria-label={faved ? '관심 차량에서 빼기' : '관심 차량으로 담기'}
-        style={{
-          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-          width: 40, height: 40, borderRadius: 999,
-          border: `1px solid ${faved ? C.danger : C.line}`, background: C.bg,
-          cursor: 'pointer', color: faved ? C.danger : C.sub,
-        }}>
-        <Heart size={ICON.lg} aria-hidden fill={faved ? 'currentColor' : 'none'} />
-      </button>
-      <button type="button" onClick={share} className="fp-shop-press" aria-label="이 차량 공유하기"
-        style={{
-          display: 'inline-flex', alignItems: 'center', gap: 6,
-          height: 40, padding: '0 14px', borderRadius: 999,
-          border: `1px solid ${copied ? C.ok : C.line}`, background: C.bg,
-          cursor: 'pointer', color: copied ? C.ok : C.sub, fontSize: SHOP.fs.sub, fontWeight: 600,
-        }}>
-        {copied ? <Check size={ICON.lg} aria-hidden /> : <Share2 size={ICON.lg} aria-hidden />}
-        {copied ? '복사했습니다' : '공유'}
-      </button>
-    </div>
+    /*
+      ★★**누를 것처럼 보이게 한다**(사장님 2026-09-05 「**공유 버튼이 좀 있어야** 할 거 같고」).
+        맨 글자로 두면 화면 오른쪽 위 여백에 놓인 장식처럼 보인다.
+      ★연한 테두리만 두른다 — 파랗게 칠하면 「전화」와 다툰다. 주요 실행은 전화 하나뿐이다.
+    */
+    <button type="button" onClick={share} className="fp-shop-press" aria-label="이 차량 공유하기"
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: 6,
+        height: 40, padding: '0 14px', borderRadius: 999,
+        border: `1px solid ${copied ? C.ok : C.line}`, background: C.bg,
+        cursor: 'pointer', color: copied ? C.ok : C.sub, fontSize: SHOP.fs.sub, fontWeight: 600,
+      }}>
+      {copied ? <Check size={ICON.lg} aria-hidden /> : <Share2 size={ICON.lg} aria-hidden />}
+      {copied ? '복사했습니다' : '공유'}
+    </button>
   );
 }
 
@@ -1135,7 +1099,7 @@ function TopBar({ code, title, listHref }: { code: string; title: string; listHr
         <ArrowLeft size={ICON.lg} aria-hidden />목록으로
       </Link>
       <div style={{ flex: 1 }} />
-      <FavShare code={code} title={title} />
+      <FavShare title={title} />
     </div>
   );
 }

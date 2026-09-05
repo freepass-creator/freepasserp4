@@ -1,10 +1,10 @@
 'use client';
 import { memo } from 'react';
 import Link from 'next/link';
-import { Check, CircleCheck, Heart, ImageOff, ShieldCheck } from 'lucide-react';
+import { Check, CircleCheck, ImageOff, ShieldCheck, Tag } from 'lucide-react';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { C, FW, ICON } from '@/components/ui';
-import { PerkMarks, SHOP, type ShopMark } from '@/components/shop/shop-ui';
+import { PerkMarks, SHOP, StateChip, type ShopMark } from '@/components/shop/shop-ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { useInView } from '@/lib/use-in-view';
 import { useFirstPhoto } from '@/components/use-product-photos';
@@ -52,11 +52,9 @@ import { kmDisplay, kmValue, manWon } from '@/lib/format';
  *     같이 되돌려야 한다. 한쪽만 바꾸면 다시 갈린다.
  *   ★색은 아이콘에만(무심사 초록 · 소득확인·신용조회는 흐림 · 나머지 채널색), 글자는 먹색.
  */
-export const ShopCard = memo(function ShopCard({ p, href, faved, onFav }: {
+export const ShopCard = memo(function ShopCard({ p, href }: {
   p: EntityRecord;
   href: string;
-  faved?: boolean;
-  onFav?: (code: string) => void;
 }) {
   const mobile = useIsMobile();
   const price = cheapest(p);
@@ -110,6 +108,29 @@ export const ShopCard = memo(function ShopCard({ p, href, faved, onFav }: {
    * ⇒ 꼴은 `shop-ui` 의 `PerkMarks` 하나가 든다(상세와 같은 원자). 카드는 «무엇을 실을지»만 정한다.
    * ★심사는 셋(무심사·소득확인·신용조회) — 무심사만 초록이고 나머지 둘은 «해야 할 일»이라 흐리다.
    */
+  /*
+   * ★★**신원 칩 — 「이 차가 지금 어떤 물건인가」**(상세 차명 줄 오른쪽과 «같은 원자·같은 뜻»).
+   *   하트를 걷어 생긴 자리에 이걸 넣었다(사장님 2026-09-05 「카드형 목록에 **뭘 보여줄 수
+   *   있을지를 고민해** 보고 … 상세페이지와 바깥 목록·필터·검색이 **하나로 이어지는 느낌**」).
+   *
+   * ★★★**상태는 «기본값이 아닐 때»만 싣는다.** 실측 721대 — 출고가능 492 · 출고협의 164 ·
+   *   계약중 40 · 즉시출고 20 · 상품화중 4. 「출고가능」은 열에 일곱이라 **모든 카드에 같은 말**이
+   *   붙는 꼴이고, 그건 강조가 아니라 배경 소음이다. 나머지 229대(32%)가 진짜 소식이다 —
+   *   즉시출고는 «좋은 소식», 출고협의·계약중·상품화중은 «지금 바로는 못 탄다»는 말이라
+   *   카드에서 알아야 한다. 눌러 들어가서 알면 헛걸음이다.
+   * ★구분(픽업구독 267 · 중고렌트 224 · 중고구독 85 · 신차렌트 72 · 오플구독 72)은 **늘 싣는다** —
+   *   고르게 갈려 있고 상품 성격이 아예 다르다. 손님이 «고르는 축»이다.
+   * ⚠ 상세는 둘 다 보여 준다 — 거기는 한 대를 확인하는 자리라 기본값도 «확인»이 된다.
+   *   목록은 훑는 자리라 기본값을 반복하지 않는다. 같은 원자, 다른 밀도.
+   */
+  const status = String(p.vehicle_status || '').trim();
+  const kind = String(p.product_type || '').trim();
+  const stateMarks: ShopMark[] = [
+    ...(status && status !== '출고가능'
+      ? [{ text: status, icon: CircleCheck, good: /즉시출고/.test(status) }] : []),
+    ...(kind ? [{ text: kind, icon: Tag }] : []),
+  ];
+
   const marks: ShopMark[] = [
     ...(credit ? [{
       text: credit, icon: ShieldCheck,
@@ -152,6 +173,16 @@ export const ShopCard = memo(function ShopCard({ p, href, faved, onFav }: {
             lineHeight: 1.35, letterSpacing: '-0.02em',
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
           }} title={title}>{title}</div>
+
+          {/*
+            신원 칩 — 차명 «바로 다음»이다(상세는 차명 줄 오른쪽. 카드는 좁아 아래로 내린다).
+            무엇을 싣고 무엇을 빼는지는 위 `stateMarks` 머리말에 적어 뒀다.
+          */}
+          {stateMarks.length ? (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
+              {stateMarks.map((m) => <StateChip key={m.text} mark={m} />)}
+            </div>
+          ) : null}
 
           {facts ? (
             <div style={{
@@ -218,27 +249,6 @@ export const ShopCard = memo(function ShopCard({ p, href, faved, onFav }: {
         손님이 여러 대를 두고 고민하는 것이 이 장사의 정상 흐름이라 담아 둘 곳이 있어야 한다.
         자리는 **사진 위 오른쪽** — 글자 위에 얹으면 차명을 가린다.
       */}
-      {onFav ? (
-        <button type="button" aria-pressed={!!faved}
-          aria-label={faved ? '관심 차량에서 빼기' : '관심 차량으로 담기'}
-          onClick={(e) => { e.preventDefault(); haptic.tap(); onFav(code); }}
-          className="fp-shop-press"
-          style={{
-            position: 'absolute', top: 10, right: 10,
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            width: 38, height: 38, borderRadius: 999, cursor: 'pointer', border: 'none',
-            /*
-             * 유리 느낌 — 사진 위에서는 반투명이라 사진이 비치고, 사진 없는 회색 판 위에서도
-             * 아이콘이 보인다. 흰 동그라미를 꽉 채우면 사진 위에 스티커를 붙인 것처럼 튄다.
-             * `backdrop-filter` 를 못 쓰는 브라우저는 아래 반투명 흰색만 남아 그대로 읽힌다.
-             */
-            background: 'rgba(255,255,255,0.62)',
-            backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
-            color: faved ? C.danger : C.sub,
-          }}>
-          <Heart size={ICON.lg} aria-hidden fill={faved ? 'currentColor' : 'none'} />
-        </button>
-      ) : null}
     </div>
   );
 });

@@ -116,8 +116,7 @@ export function ShopDetailView({ wl }: { wl: Whitelabel }) {
   return (
     <WhitelabelFrame wl={wl} agentName={agentName} agentPhone={phone} notice={false} dock={false}
       headerLead={<ShopDetailLead />}
-      headerActions={<FavShare code={String(p.product_code || '')}
-        title={vehicleNameOf({ kind: 'product', product: p }, { tier: 'full', fallback: 'plate' })} />}>
+      headerActions={<FavShare title={vehicleNameOf({ kind: 'product', product: p }, { tier: 'full', fallback: 'plate' })} />}>
       <ShopDetail p={p} agentName={agentName} agentPhone={phone}
         listHref={listHref} />
     </WhitelabelFrame>
