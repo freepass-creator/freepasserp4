@@ -344,6 +344,19 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
   const credit = creditRaw && creditRaw !== CREDIT_UNSET ? creditRaw : '';
   const useRows = rows([
     /*
+     * ★★**나이는 «둘»이다 — 기본 연령과 가능 구간**(사장님 2026-09-05
+     *   「**기본 운전 연령**이 있고, 그게 **대여료 표의 기본 조건 26세**라는 거고,
+     *   **운전 연령 구간**을 만들어 주고」).
+     *   · 기본 운전 연령 = 위 대여료 표가 «그 나이 기준»으로 나온 값이다. 이게 바뀌면 요금이 바뀐다.
+     *   · 운전 가능 연령 = 돈을 더 내면 어디까지 내려가고, 위로는 어디서 막히는가.
+     *   둘을 한 값으로 뭉치면 「26세인데 왜 21세라고 써 있나」가 된다.
+     * ⚠ 구간은 **큰 값에서 내렸다**(사장님 「몇 세부터 몇 세까지 **메인에 올라갈 필요가 없다**니까,
+     *   그냥 밑에 그 하나의 항목으로 표기를 해주면 되고」). 나이는 이 구역에서 결정적인 하나가
+     *   아니라 «확인하는 값 여럿» 중 하나다 — 심사·주행·면허와 같은 무게가 맞다.
+     */
+    ['기본 운전 연령', age(S('basic_driver_age'))],
+    ['운전 가능 연령', ageRange],
+    /*
      * ★★**심사는 계속 띄운다**(사장님 2026-09-05 「그 심사 조건은 계속 띄워요」).
      *   그전까지 손님 화면에 안 나갔다 — 값이 화이트리스트에 없어 오지도 않았다. 이번에 열었다.
      * ★자리는 **이용 조건**이다. 「내가 될까」를 묻는 칸이지 요금 칸이 아니다.
@@ -382,9 +395,12 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
     ['면허', S('license_period')],
     ['운전 범위', S('personal_driver_scope')],
     ['추가 운전자', join(S('additional_driver_allowance_count'), S('additional_driver_cost'))],
-    /* 낮출 수 있는 차만 — 「불가」인 차에 「불가까지 10만원」이 뜨고 있었다. */
-    ['연령 낮추기', lowered && meaningful(S('age_lowering_cost'))
-      ? `${age(lowered)}까지 ${S('age_lowering_cost')}` : ''],
+    /*
+     * 낮출 수 있는 차만 — 「불가」인 차에 「불가까지 10만원」이 뜨고 있었다.
+     * ★목표 나이는 바로 위 「운전 가능 연령」의 아래 끝이 이미 말한다 — 여기는 **값만** 쓴다
+     *   (같은 것을 두 번 말하지 않는다).
+     */
+    ['연령 낮추기', lowered && meaningful(S('age_lowering_cost')) ? S('age_lowering_cost') : ''],
   ]);
 
   /** ⑥ 기타 — 참고만 하는 값. 제일 조용하게 한 줄로 흘린다. */
@@ -726,8 +742,13 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
         ⑤ 이용 조건 — 「내 나이로 되나」가 결정적이라 그것만 크게. 주행거리·면허·운전 범위가 뒤따른다.
            ★약정주행과 초과료는 한 칸에 붙여 쓴다 — 떼면 어느 선을 넘어야 무는지 모른다.
       */}
-      <Tiles title="이용 조건" rows={useRows} cols={mobile ? 2 : 4} mobile={mobile} icon={IdCard}
-        lead={ageRange ? { label: '운전 가능 연령', value: ageRange } : undefined} />
+      {/*
+        ⚠ 여기 「운전 가능 연령」이 **큰 값 한 줄**로 서 있었다. 내렸다(사장님 2026-09-05
+          「몇 세부터 몇 세까지 **메인에 올라갈 필요가 없다**니까, 그냥 밑에 그 하나의 항목으로」).
+          이 구역에는 결정적인 하나가 없다 — 심사·나이·주행·면허가 «다 같이 확인하는 값»이다.
+          하나만 크게 세우면 나머지가 곁다리로 보인다.
+      */}
+      <Tiles title="이용 조건" rows={useRows} cols={mobile ? 2 : 4} mobile={mobile} icon={IdCard} />
 
       {/* ⑥ 기타 — 참고만 하는 값. 제일 조용하게 한 줄로 흘린다. */}
       {etc ? (
@@ -949,7 +970,7 @@ function Sec({ title, icon, accent, tag, mobile, children }: {
  *   그러면 구역 하나가 표가 되고, 표가 여섯이면 화면 전체가 창살이다.
  * ★대신 **간격과 글자 무게**가 가른다 — 라벨은 작고 흐리게, 값은 굵게, 줄 사이는 넉넉히.
  *   면이 하나도 없어도 「라벨 / 값」 짝은 눈에 저절로 묶인다.
- * ★★면은 **구역에 하나씩만** 남긴다 — 대여료 카드(브랜드 면)와 큰 값 한 줄(`BigRow`).
+ * ★★면은 **한 군데만** — 대여료의 큰 금액 한 줄이다.
  *   면이 드물어야 그 면이 «중요하다»는 뜻을 갖는다.
  */
 /**
@@ -994,41 +1015,6 @@ function Facts({ rows, cols, mobile }: {
           </div>
         </div>
       ))}
-    </div>
-  );
-}
-
-/**
- * **큰 값 한 줄** — 그 구역에서 손님의 «결정»을 바꾸는 값 하나(나이 · 사고 시 내 부담).
- *
- * ★라벨을 «흰 알약»으로 얹는다. 큰 값 옆에 같은 굵기로 두면 둘이 다투는데,
- *   알약에 얹으면 「이건 이름표」라고 한눈에 읽혀 값이 혼자 선다.
- * ⚠ 값에 색을 주지 않는다 — 구역 아이콘이 이미 신호다. 여기까지 색을 주면
- *   강조가 셋(아이콘·면·글자색)이 되어 그때부터 소란이다.
- */
-function BigRow({ label, value, note, mobile }: {
-  label: string; value: string;
-  /** 그 값에 «딸린 조건» — 예: 자차 면책금에 붙는 「수리비 부담 20%」. 값과 같은 줄에 흐리게. */
-  note?: string;
-  mobile?: boolean;
-}) {
-  return (
-    <div style={{
-      display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
-      padding: mobile ? '14px' : '16px',
-      borderRadius: SHOP.r.card, background: C.zebra,
-    }}>
-      <span style={{
-        flex: '0 0 auto', padding: '4px 10px', borderRadius: 999,
-        background: C.bg, color: C.mute, fontSize: SHOP.fs.cap, fontWeight: 600,
-      }}>{label}</span>
-      <span style={{
-        fontSize: mobile ? 21 : 22, fontWeight: 800, color: C.ink,
-        letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums',
-      }}>{value}</span>
-      {note ? (
-        <span style={{ fontSize: SHOP.fs.sub, color: C.mute }}>{note}</span>
-      ) : null}
     </div>
   );
 }
@@ -1088,26 +1074,18 @@ function DefList({ rows, mobile, strongFirst }: {
  * 그러면 눈이 왼쪽 라벨 열을 훑을 필요 없이 «값만» 읽고 지나간다.
  * ★속이 비면 통째로 안 그린다 — 제목만 있고 아래가 빈 칸은 「안 채웠다」로 보인다.
  */
-function Tiles({ title, rows, cols, mobile, icon, lead }: {
+/*
+ * ⚠ 여기 `lead`(큰 값 한 줄)가 있었다. **걷었다**(2026-09-05) — 쓰는 구역이 하나도 안 남았다.
+ *   나이는 「메인에 올라갈 필요가 없다」 하셔서 칸으로 내렸고, 보증금·면책금도 각자 자리를 찾았다.
+ *   ★이 화면에서 «면 위 큰 값»은 **대여료 한 줄뿐**이다. 그래야 그 줄이 선다.
+ */
+function Tiles({ title, rows, cols, mobile, icon }: {
   title: string; rows: [string, string][]; cols: number; mobile?: boolean; icon?: LucideIcon;
-  /**
-   * **하나가 결정적인 구역의 그 하나** — 나이·보증금·면책금.
-   * 항목이 대여섯인데 그중 하나만 손님의 «결정»을 바꾸는 구역이 있다. 그 하나를 크게 위에 세우고
-   * 나머지는 타일로 흘린다. 다 같은 크기로 늘어놓으면 결정적인 하나가 나머지에 묻힌다.
-   */
-  lead?: { label: string; value: string };
 }) {
-  if (!rows.length && !lead) return null;
+  if (!rows.length) return null;
   return (
     <Sec title={title} icon={icon} mobile={mobile}>
-      <>
-        {lead ? (
-          <div style={{ marginBottom: rows.length ? 8 : 0 }}>
-            <BigRow label={lead.label} value={lead.value} mobile={mobile} />
-          </div>
-        ) : null}
-        {rows.length ? <Facts rows={rows} cols={cols} mobile={mobile} /> : null}
-      </>
+      <Facts rows={rows} cols={cols} mobile={mobile} />
     </Sec>
   );
 }
