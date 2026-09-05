@@ -52,6 +52,14 @@ const PUBLIC_PRODUCT_FIELDS = [
   'car_number', 'vin', 'maker', 'model', 'sub_model', 'trim_name', 'trim_extra', 'variant',
   'vehicle_class', 'year', 'first_registration_date', 'fuel_type', 'engine_type',
   'ext_color', 'int_color', 'drive_type', 'seats', 'transmission', 'usage',
+  /*
+   * ★`battery_capacity` 를 넣는다(2026-09-05). 사장님 「배터리 정보 — 전기차에만 해당이 되겠지?」
+   *   ERP 원자에는 있는 값인데(`atom-fields`·재고시트·판매축에 다 있다) 이 목록에 없어서
+   *   **손님 화면까지 오지를 못했다.** 배기량이 없는 전기차에 그 자리를 드는 값이라,
+   *   빠지면 전기차 제원이 한 칸 비어 보인다.
+   * ⚠ 스펙 값이라 손님이 봐도 되는 것이다 — 수수료·원가와 성격이 다르다.
+   */
+  'battery_capacity',
   'options', 'product_type', 'vehicle_status', 'accident_history',
   'cert_car_name', 'location', 'note',
   'insurance_included', 'annual_mileage',
