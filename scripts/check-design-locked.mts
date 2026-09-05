@@ -499,6 +499,16 @@ must(stateChipSrc.includes('background') && !perkMarkSrc.includes('background'),
   '신원 칩과 조건 칩이 다시 같은 얼굴이 됐습니다 — 신원은 연한 면 위 딱지, 조건은 면 없이 아이콘+진한 글자입니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1');
 /*
+ * **카드의 신원 칩은 «사진 우하»이고, 차번은 «차명 뒤»다**(사장님 2026-09-05).
+ * 업무동 카드와 같은 자리·같은 처리(.fp-onphoto/.fp-signal-chip)라 두 목록이 한 짜임으로 읽힌다.
+ */
+must(/className="fp-onphoto"/.test(shopCard) && /className="fp-signal-chip"/.test(shopCard)
+  && /<ShopThumb p=\{p\} marks=\{stateMarks\} \/>/.test(shopCard)
+  && /\{title\}[\s\S]{0,300}?\{plate \? \(/.test(shopCard),
+  '카드의 신원 칩이 사진 우하를 떠났거나 차번이 차명에서 떨어졌습니다 — 상세·업무동과 같은 짜임입니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-2-3-2');
+
+/*
  * **관심(하트)은 손님 화면에 없다** — 손님은 로그인이 없다(사장님 2026-09-05
  * 「손님들이 여기에 로그인을 안 할 거라서 관심을 못 찍을 거야 … 영업사원 전용 로그인이야」).
  * 담아 둔 것을 다시 꺼내 볼 «내 목록»이 없는데 담는 단추만 있었다. 공유는 남는다 — 받는 사람은

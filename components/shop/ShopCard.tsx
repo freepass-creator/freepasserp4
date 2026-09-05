@@ -3,8 +3,8 @@ import { memo } from 'react';
 import Link from 'next/link';
 import { Check, CircleCheck, ImageOff, ShieldCheck, Tag } from 'lucide-react';
 import type { EntityRecord } from '@/lib/intake/entities';
-import { C, FW, ICON } from '@/components/ui';
-import { PerkMarks, SHOP, StateChip, type ShopMark } from '@/components/shop/shop-ui';
+import { C, FW, NUM } from '@/components/ui';
+import { PerkMarks, SHOP, type ShopMark } from '@/components/shop/shop-ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { useInView } from '@/lib/use-in-view';
 import { useFirstPhoto } from '@/components/use-product-photos';
@@ -80,8 +80,17 @@ export const ShopCard = memo(function ShopCard({ p, href }: {
   /* 주행거리는 «한 읽개»로 읽는다 — 콤마·「만km」를 견딘다(`kmValue`). 각자 파싱하면 또 갈린다. */
   const km = kmValue(p.mileage);
   const cc = Number(p.engine_cc) || 0;
+  /*
+   * ★★**차번은 차명 «뒤»에 붙는다** — 상세와 같은 규칙이다(사장님 2026-09-05 「차량 번호를
+   *   그 현대 그랜저 뒤쪽으로 갖고 오는 게 맞을 것 같아요」 · 목록도 같이 맞춘다).
+   *   차번은 따로 떨어진 정보가 아니라 **이름의 끝**이다 — 「모닝」은 백 대가 있고
+   *   「모닝 284무4044」가 이 차다. 사실 줄 맨 앞에 두면 이름과 갈려 «값 하나»로 읽힌다.
+   * ⚠ 2026-09-04 에는 「차번이 이 줄의 맨 앞」이었다. 상세가 09-05 에 이름 뒤로 확정되면서
+   *   두 화면이 갈렸고, 상세 쪽으로 맞췄다. 자리만 옮긴 것이고 **빼지 않았다** —
+   *   실물 재고를 파는 판에서 「이 차다」의 증거다.
+   */
+  const plate = String(p.car_number || '').trim();
   const facts = [
-    String(p.car_number || '').trim(),
     yearFullDisplay(p.year),
     km > 0 ? kmDisplay(p.mileage) : '',
     cc > 0 ? `${cc.toLocaleString('ko-KR')}cc` : '',
@@ -109,25 +118,23 @@ export const ShopCard = memo(function ShopCard({ p, href }: {
    * ★심사는 셋(무심사·소득확인·신용조회) — 무심사만 초록이고 나머지 둘은 «해야 할 일»이라 흐리다.
    */
   /*
-   * ★★**신원 칩 — 「이 차가 지금 어떤 물건인가」**(상세 차명 줄 오른쪽과 «같은 원자·같은 뜻»).
-   *   하트를 걷어 생긴 자리에 이걸 넣었다(사장님 2026-09-05 「카드형 목록에 **뭘 보여줄 수
-   *   있을지를 고민해** 보고 … 상세페이지와 바깥 목록·필터·검색이 **하나로 이어지는 느낌**」).
-   *
-   * ★★★**상태는 «기본값이 아닐 때»만 싣는다.** 실측 721대 — 출고가능 492 · 출고협의 164 ·
-   *   계약중 40 · 즉시출고 20 · 상품화중 4. 「출고가능」은 열에 일곱이라 **모든 카드에 같은 말**이
-   *   붙는 꼴이고, 그건 강조가 아니라 배경 소음이다. 나머지 229대(32%)가 진짜 소식이다 —
-   *   즉시출고는 «좋은 소식», 출고협의·계약중·상품화중은 «지금 바로는 못 탄다»는 말이라
-   *   카드에서 알아야 한다. 눌러 들어가서 알면 헛걸음이다.
-   * ★구분(픽업구독 267 · 중고렌트 224 · 중고구독 85 · 신차렌트 72 · 오플구독 72)은 **늘 싣는다** —
-   *   고르게 갈려 있고 상품 성격이 아예 다르다. 손님이 «고르는 축»이다.
-   * ⚠ 상세는 둘 다 보여 준다 — 거기는 한 대를 확인하는 자리라 기본값도 «확인»이 된다.
-   *   목록은 훑는 자리라 기본값을 반복하지 않는다. 같은 원자, 다른 밀도.
+   * ★★**신원 칩은 «사진 우하»다**(사장님 2026-09-05 「출고 가능, 그리고 상품 구분 요거는
+   *   그 **썸네일 사진 우측 하단**으로 들어가도 되지 않나」). 업무동 카드가 이미 그 자리를 쓴다
+   *   (`product-card-atoms` — 사장님 2026-09-04 「박스를 달리해서 텍스트에 딱 붙여 두 개로」).
+   *   ⇒ 두 목록이 **같은 자리·같은 짜임**이 된다. 글자 줄에서 내려오면서 카드 본문은
+   *     「차명 → 사실 → 요금 → 조건」 넉 줄로 단정해진다(사장님 「대여료 밑에는 분납 가능,
+   *     만21세, 경력 무관 이런 거」 — 그 줄이 바로 아래에 남는다).
+   * ★사진 위는 **흰 글자·흰 그림 + 어두운 유리**(`.fp-onphoto`·`.fp-signal-chip`)다 —
+   *   사진 밝기가 제각각이라 톤색은 안 읽힌다. 이건 이미 확정된 처리라 새로 만들지 않는다.
+   * ★**낱개 칩 둘**이다. 한 그릇에 담으면 「출고가능 픽업구독」이 한 덩어리 문장처럼 읽힌다 — 다른 갈래다.
+   * ⚠ 글자 줄에 있을 때는 「출고가능」(721대 중 492)을 뺐다 — 열에 일곱 장에 같은 말이 붙으면
+   *   본문 한 줄을 소음이 먹기 때문이었다. **사진 위로 오면서 되살렸다** — 거기서는 본문을
+   *   밀어내지 않고, 「살 수 있는 차인가」는 목록에서 제일 먼저 확인하는 값이다.
    */
   const status = String(p.vehicle_status || '').trim();
   const kind = String(p.product_type || '').trim();
   const stateMarks: ShopMark[] = [
-    ...(status && status !== '출고가능'
-      ? [{ text: status, icon: CircleCheck, good: /즉시출고/.test(status) }] : []),
+    ...(status ? [{ text: status, icon: CircleCheck, good: /출고가능|즉시출고/.test(status) }] : []),
     ...(kind ? [{ text: kind, icon: Tag }] : []),
   ];
 
@@ -158,7 +165,7 @@ export const ShopCard = memo(function ShopCard({ p, href }: {
           display: 'flex', flexDirection: 'column', height: '100%',
           textDecoration: 'none', color: 'inherit',
         }}>
-        <ShopThumb p={p} />
+        <ShopThumb p={p} marks={stateMarks} />
 
         <div style={{
           padding: mobile ? '12px 2px 2px' : '13px 2px 2px',
@@ -172,17 +179,15 @@ export const ShopCard = memo(function ShopCard({ p, href }: {
             fontSize: SHOP.fs.h2, fontWeight: 700, color: C.ink,
             lineHeight: 1.35, letterSpacing: '-0.02em',
             overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          }} title={title}>{title}</div>
-
-          {/*
-            신원 칩 — 차명 «바로 다음»이다(상세는 차명 줄 오른쪽. 카드는 좁아 아래로 내린다).
-            무엇을 싣고 무엇을 빼는지는 위 `stateMarks` 머리말에 적어 뒀다.
-          */}
-          {stateMarks.length ? (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5 }}>
-              {stateMarks.map((m) => <StateChip key={m.text} mark={m} />)}
-            </div>
-          ) : null}
+          }} title={title}>
+            {title}
+            {plate ? (
+              <span style={{
+                marginLeft: 6, fontSize: SHOP.fs.sub, fontWeight: FW.meta,
+                color: C.mute, fontFamily: NUM, letterSpacing: 0,
+              }}>{plate}</span>
+            ) : null}
+          </div>
 
           {facts ? (
             <div style={{
@@ -264,7 +269,7 @@ export const ShopCard = memo(function ShopCard({ p, href }: {
  *   있는데도 불구하고 사진에 들어갈 필요는 없을 것 같고」). 사진 위 글자는 어떤 사진이 오느냐에
  *   따라 읽히기도 하고 안 읽히기도 한다 — 밑에 자리가 남는데 굳이 그럴 이유가 없다.
  */
-function ShopThumb({ p }: { p: EntityRecord }) {
+function ShopThumb({ p, marks = [] }: { p: EntityRecord; marks?: ShopMark[] }) {
   const { ref, inView } = useInView<HTMLDivElement>();
   const photo = useFirstPhoto(p, 640, inView);
   return (
@@ -285,6 +290,28 @@ function ShopThumb({ p }: { p: EntityRecord }) {
           <span style={{ fontSize: SHOP.fs.cap }}>사진 준비 중</span>
         </div>
       )}
+
+      {/*
+        ★사진 우하 = **출고상태 · 상품구분**(위 `stateMarks` 머리말). 업무동 카드와 같은 자리다.
+        ★흰 글자·흰 그림 + 어두운 유리(`.fp-onphoto`·`.fp-signal-chip`) — 사진 밝기가 제각각이라
+          톤색은 안 읽힌다. 둥글기만 가게 말씨로 맞춘다(업무동은 각지고 여기는 알약이다).
+        ⚠ 사진이 없는 차(28%)에도 그대로 선다 — 회색 판 위에서도 읽힌다.
+      */}
+      {marks.length ? (
+        <div className="fp-onphoto" style={{
+          position: 'absolute', right: 8, bottom: 8, zIndex: 2,
+          display: 'inline-flex', alignItems: 'center', gap: 4, maxWidth: '92%',
+        }}>
+          {marks.map((m) => (
+            <span key={m.text} className="fp-signal-chip" style={{
+              gap: 4, borderRadius: SHOP.r.chip,
+              fontSize: SHOP.fs.cap, fontWeight: 600, whiteSpace: 'nowrap',
+            }}>
+              <m.icon size={12} aria-hidden />{m.text}
+            </span>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
