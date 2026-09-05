@@ -16,7 +16,14 @@
  * ★웹(넓은 화면)은 목업의 `.phone{max-width:440px;margin:0 auto}` 가 그대로 가운데로 모은다 —
  *   따로 데스크톱 레이아웃을 짓지 않는다(원본도 데스크톱은 별도 미완성 App.vue 로 보냈다).
  */
-@import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@300;500;600;700&family=Noto+Sans+KR:wght@400;500;700;800&display=swap');
+/* ★본문 글꼴 = **Pretendard**(사장님 2026-09-06 「폰트는 프리텐더드로 할 거고, 영에 사선 있는 거로 —
+   숫자가 명확하게 보이니까」). 가변 폰트 · 동적 서브셋이라 필요한 글리프만 내려온다.
+   ⚠ 슬래시 제로는 Pretendard 의 OpenType `zero` 피처다. `.est-root` 의
+     `font-variant-numeric: tabular-nums slashed-zero` 한 줄이 켠다 — 0 과 O 가 갈린다.
+     (2026-09-06 실측: Pretendard 는 `zero` 를 지원하고 `ss01`~`ss03` 은 숫자에 영향이 없다.)
+   ⚠ 머리의 워드마크만 목업대로 'Exo 2' 를 쓴다 — 그건 글자가 아니라 로고 레터링이다. */
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css');
+@import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@300;500;600;700&display=swap');
 
 .est-root{
   --bg:#eef0f3; --surface:#ffffff; --surface-2:#f5f7f9;
@@ -24,13 +31,15 @@
   --ink-1:#1a2230; --ink-2:#414b5c; --ink-3:#69727f; --ink-4:#98a1ac;
   --accent:#1B2A4A; --accent-2:#5b6c88; --accent-soft:#eef1f6; --accent-line:#c4cdda; --on:#ffffff;
   --pos:#1f7a44; --pos-soft:#e9f2ec; --neg:#b23b3b;
-  --k:'Noto Sans KR',-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;
+  --k:'Pretendard Variable',Pretendard,-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
 }
 .est-root *{box-sizing:border-box}
-.est-root{background:var(--bg);font-family:var(--k);color:var(--ink-1);font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;font-size:14px}
+/* `font:inherit` 이 붙은 컨트롤은 font 축약 때문에 숫자 변형이 풀린다 — 칩·입력칸의 0 도 사선을 유지한다. */
+.est-root button,.est-root input,.est-root select,.est-root textarea{font-variant-numeric:inherit}
+.est-root{background:var(--bg);font-family:var(--k);color:var(--ink-1);font-variant-numeric:tabular-nums slashed-zero;-webkit-font-smoothing:antialiased;font-size:14px}
 .est-root .phone{max-width:440px;margin:0 auto;min-height:100vh;background:var(--bg);border-left:1px solid var(--line-2);border-right:1px solid var(--line-2)}
 .est-root .hd{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:9px;padding:11px 14px;background:var(--surface);border-bottom:1px solid var(--line-2)}
-.est-root .wm{font-family:'Exo 2','Noto Sans KR',sans-serif;font-size:16px;font-weight:600;letter-spacing:-.2px}
+.est-root .wm{font-family:'Exo 2',var(--k);font-size:16px;font-weight:600;letter-spacing:-.2px}
 .est-root .wm .a{color:var(--accent)}
 .est-root .wm .b{color:var(--accent-2);font-weight:300}
 .est-root .hd h1{font-size:12px;font-weight:700;color:var(--ink-3);margin:0;padding-left:9px;border-left:1px solid var(--line-2)}
