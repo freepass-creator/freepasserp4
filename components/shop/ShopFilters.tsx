@@ -35,10 +35,30 @@ import { AXIS_LABEL, SHOP_AXES, type ShopAxis, type ShopFacets, type ShopSel } f
  *   여기서 다시 세지 않는다 — 화면이 또 세면 그 순간 숫자가 두 군데서 나온다.
  */
 
-/** 원형 표식 축을 몇 열로 세울까 — 라벨이 길거나 건수가 붙으면 한 열이 낫다. */
-const COLUMNS: Partial<Record<ShopAxis, 1 | 2>> = { vc: 2, maker: 1, year: 2, fuel: 2, credit: 2, perk: 1 };
-/** 구간 축 = 사각 두 열. 나머지는 원형 표식. */
-const BAND_AXES: ShopAxis[] = ['rent', 'dep', 'mile'];
+/**
+ * **모든 축이 «같은 모양»이다 — 체크 한 줄**(사장님 2026-09-05 「**통일**을 했으면 좋겠어.
+ * 체크할 거면 체크박스로 하든지, 아니면 사각형 박스로 할 거면 박스로 하든지,
+ * 뭔가 **규격 통일**을 좀 해야지」).
+ *
+ * ⚠ 구간 축(월 대여료·보증금·주행거리)만 **사각 박스 버튼**이었다. 「금액은 나란해야 견준다」는
+ *   내 판단이었는데, 그 바람에 한 기둥 안에 고르는 모양이 둘이 되어 **어느 것이 여러 개 고를 수
+ *   있는 것인지**가 축마다 달라 보였다. 케이카도 차종만 박스라 섞여 있지만, 엔카는 **전부 체크**다.
+ * ⇒ 체크로 통일한다 — ㉠ 여러 개 고를 수 있다는 표시가 한 가지 ㉡ 건수가 늘 같은 자리(우측)
+ *   ㉢ 라벨 길이가 제각각인 축(제조사)과 짧은 축(금액)이 같은 줄 높이로 선다.
+ *   금액을 나란히 견주는 일은 **두 열**이 대신한다.
+ *
+ * 열 수 — 라벨이 길거나 건수가 붙으면 한 열이 낫다.
+ */
+const COLUMNS: Partial<Record<ShopAxis, 1 | 2>> = {
+  vc: 2, maker: 1, year: 2, fuel: 2, credit: 2, perk: 1,
+  /*
+   * ⚠ 금액·주행 구간은 **한 열**이다. 두 열로 뒀더니 「100~200만」이 「100~200…」으로 잘렸다
+   *   (2026-09-05 실측 · 기둥 260px). 한 칸 130px 에서 체크(17)·사이(9)·건수(26)를 빼면
+   *   라벨에 남는 폭이 70px 밖에 안 된다 — 금액 라벨은 여덟 자다.
+   * ★잘린 조건은 조건이 아니다. 「100~200만」과 「100~150만」이 둘 다 「100~1…」이면 못 고른다.
+   */
+  rent: 1, dep: 1, mile: 1,
+};
 
 /**
  * 처음부터 펼쳐 두는 축 — **차종 · 제조사 · 월 대여료 · 보증금** 넷.
@@ -168,26 +188,6 @@ export function ShopAxisOptions({ axis, options, selected, onToggle, mobile, col
    */
   columns?: 1 | 2;
 }) {
-  if (BAND_AXES.includes(axis)) {
-    /*
-     * ★구간은 **웹 세 열 · 폰 두 열**이다. 「가격」에 해당하는 축이 둘(월 대여료·보증금)이라
-     *   둘 다 펼쳐 두는데, 두 열이면 기둥이 1,180px 까지 길어져 **조건칸에만 스크롤바가 또 생긴다**
-     *   (2026-09-05 실측). 라벨이 짧아(「50~60만」) 세 열에서도 안 잘린다.
-     * ⚠ 폰 시트는 칸이 좁아 두 열 그대로다 — 세 열이면 「100~150만」이 잘린다(2026-09-04 실측 교훈).
-     */
-    return (
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: `repeat(${mobile ? 2 : 3}, minmax(0, 1fr))`,
-        gap: mobile ? 8 : 7,
-      }}>
-        {options.map((o) => (
-          <BandBox key={o.key} label={o.label} count={o.count}
-            on={selected.includes(o.key)} onClick={() => onToggle(axis, o.key)} />
-        ))}
-      </div>
-    );
-  }
   return <CheckList axis={axis} options={options} selected={selected} onToggle={onToggle}
     mobile={mobile} columns={columns ?? COLUMNS[axis] ?? 2} />;
 }
@@ -264,28 +264,6 @@ function CheckRow({ label, count, on, onClick }: {
       <span style={{ fontSize: SHOP.fs.cap, color: C.faint, fontVariantNumeric: 'tabular-nums', flex: '0 0 auto' }}>
         {count}
       </span>
-    </button>
-  );
-}
-
-/**
- * 구간 상자 — 두 열 격자. 금액을 나란히 놓아 비교가 되게 한다.
- * 건수는 «작게 아래»에 둔다. 라벨과 같은 줄에 놓으면 「50~60만 128」이 한 금액처럼 읽힌다.
- */
-function BandBox({ label, count, on, onClick }: {
-  label: string; count: number; on: boolean; onClick: () => void;
-}) {
-  return (
-    <button type="button" onClick={onClick} aria-pressed={on} className="fp-shop-press"
-      style={{
-        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
-        padding: '9px 4px', borderRadius: SHOP.r.box, cursor: 'pointer', fontFamily: 'inherit',
-        border: `1px solid ${on ? C.brand : C.line}`,
-        background: on ? C.brand : 'transparent',
-        color: on ? C.inverse : C.sub,
-      }}>
-      <span style={{ fontSize: SHOP.fs.sub, fontWeight: on ? 700 : 500 }}>{label}</span>
-      <span style={{ fontSize: SHOP.fs.cap, opacity: 0.7, fontVariantNumeric: 'tabular-nums' }}>{count}</span>
     </button>
   );
 }
