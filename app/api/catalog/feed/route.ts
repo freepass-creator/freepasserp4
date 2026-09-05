@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getFirestore } from 'firebase-admin/firestore';
-import { firebaseAdminApp } from '@/lib/server/firebase-admin';
+import { firestoreAdminRef } from '@/lib/server/firestore-ref-shim';
 import { sanitizeAgentForGuest, sanitizeProductForGuest } from '@/lib/domain/public-catalog';
 import { isListableProduct } from '@/lib/domain/product';
 import { matchAgentByShareCode } from '@/lib/domain/product-share';
@@ -38,21 +37,28 @@ export async function GET(request: Request) {
      * ⚠ 문서 id 는 «차번»이고 RTDB 키는 「공급사_차번」이었다 — 그래서 키는 `_key || product_code || id`
      *   차례로 잡는다. 이미 나간 공유 링크(`/q/RP012_122두8108`)는 `product_code` 로 계속 열린다.
      */
-    const fs = getFirestore(firebaseAdminApp());
+    /*
+     * ⚠⚠ 2026-09-05 운영 사고. 파이어스토어를 «직접» 부르게 고쳤더니 배포한 서버에서
+     *   `16 UNAUTHENTICATED` 로 503 이 나고 **차가 한 대도 안 보였다**(로컬은 멀쩡했다).
+     *   서버 자격증명이 파이어스토어까지 못 미치는 환경이 있다는 뜻이다.
+     * ⇒ 심(`firestore-ref-shim`)을 쓴다 — **파이어스토어를 먼저 보고, 못 읽으면 RTDB 로 떨어진다.**
+     *   손님 화면에서 제일 나쁜 것은 「옛 데이터」가 아니라 **빈 화면**이다. 원인은 따로 잡되
+     *   그동안 차는 나와야 한다.
+     * ★읽는 순서·컬렉션 이름은 그대로다(products · policy · partner · user).
+     */
+    const db = firestoreAdminRef();
     const [productSnap, policySnap] = await Promise.all([
-      fs.collection('products').get(),
-      fs.collection('policy').get(),
+      db.ref('v4/products').get(),
+      db.ref('policies').get(),
     ]);
     const policyByCode = new Map<string, Rec>();
-    policySnap.forEach((d) => {
-      const v = d.data() as Rec;
-      if (v && typeof v === 'object') policyByCode.set(S(v.policy_code) || d.id, v);
-    });
+    for (const [k, v] of Object.entries((policySnap.val() || {}) as Record<string, Rec>)) {
+      if (v && typeof v === 'object') policyByCode.set(S(v.policy_code) || k, v);
+    }
 
     const products: EntityRecord[] = [];
-    for (const doc of productSnap.docs) {
-      const p = doc.data() as Rec;
-      const key = S(p._key) || S(p.product_code) || doc.id;
+    for (const [docKey, p] of Object.entries((productSnap.val() || {}) as Record<string, Rec>)) {
+      const key = S(p?._key) || S(p?.product_code) || docKey;
       if (!p || typeof p !== 'object' || dead(p)) continue;
       if (providerCode && S(p.provider_company_code) !== providerCode && S(p.partner_code) !== providerCode) continue;
       const merged = { ...p, _key: key, product_code: S(p.product_code) || key } as EntityRecord;
@@ -66,21 +72,20 @@ export async function GET(request: Request) {
     //   → 코드는 child 키까지 보고, 이름은 세 필드를 다 훑는다. 안 그러면 브랜드가 조용히 빈다.
     let brand = '';
     if (providerCode) {
-      const partnerSnap = await fs.collection('partner').get();
-      const hit = partnerSnap.docs.map((d) => ({ ...(d.data() as Rec), _id: d.id } as Rec)).find((x) => x && (
-        S(x._id) === providerCode || S(x.partner_code) === providerCode || S(x.company_code) === providerCode
-      ));
+      const partnerSnap = await db.ref('partners').get();
+      const hit = Object.entries((partnerSnap.val() || {}) as Record<string, Rec>)
+        .map(([k, v]) => ({ ...(v || {}), _id: k } as Rec)).find((x) => x && (
+          S(x._id) === providerCode || S(x.partner_code) === providerCode || S(x.company_code) === providerCode
+        ));
       // 손님이 보는 이름에 법인격을 붙이지 않는다 — 표기 SSOT 는 companyAlias.
       brand = companyAlias(S(hit?.partner_name || hit?.company_name || hit?.name), hit?.alias);
     }
 
     let agent = null;
     if (share) {
-      const userSnap = await fs.collection('user').get();
-      const rows = userSnap.docs.map((d) => {
-        const v = d.data() as Rec;
-        return { ...v, _key: S(v._key) || d.id, uid: S(v.uid) || d.id };
-      }) as EntityRecord[];
+      const userSnap = await db.ref('users').get();
+      const rows = Object.entries((userSnap.val() || {}) as Record<string, Rec>)
+        .map(([k, v]) => ({ ...(v || {}), _key: S(v?._key) || k, uid: S(v?.uid) || k })) as EntityRecord[];
       agent = sanitizeAgentForGuest(matchAgentByShareCode(rows, share) as Rec | null);
     }
 
