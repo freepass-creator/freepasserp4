@@ -1,10 +1,10 @@
 'use client';
 import { memo } from 'react';
 import Link from 'next/link';
-import { Heart, ImageOff } from 'lucide-react';
+import { Check, CircleCheck, Heart, ImageOff, ShieldCheck } from 'lucide-react';
 import type { EntityRecord } from '@/lib/intake/entities';
-import { Badge, C, FW, FS, ICON, PERK_TONE, CREDIT_TONE, type BadgeTone } from '@/components/ui';
-import { SHOP } from '@/components/shop/shop-ui';
+import { C, FW, ICON } from '@/components/ui';
+import { PerkMarks, SHOP, type ShopMark } from '@/components/shop/shop-ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { useInView } from '@/lib/use-in-view';
 import { useFirstPhoto } from '@/components/use-product-photos';
@@ -41,11 +41,16 @@ import { kmDisplay, kmValue, manWon } from '@/lib/format';
  * ★업무동 `ProductCard`(확정 규격)를 쓰지 않는다. 그 카드는 영업자용이라 손님 화면에 안 맞는
  *   것이 셋이다: 차번을 감추고(손님에겐 「이 차다」의 증거다), 월 대여료가 차명보다 작고,
  *   값이 없으면 「미입력」이 그대로 뜬다(영업자에겐 «채워라»는 신호지만 손님에겐 흠집이다).
- * ★우대조건은 **ERP `Badge` 원자**를 그대로 쓴다(사장님 2026-09-04 「뱃지로 들어가거나 우리
- *   그 ERP에서 쓰는 거 있잖아」). 08-28·08-30 의 「박스 뱃지 쓰지 마라」는 **썸네일 우하의
- *   신호 뱃지**를 두고 하신 말이고(그건 아이콘+글자로 바뀌었다), 우대조건처럼 «여럿을 나란히
- *   구분해 보여야 하는» 값은 뱃지가 제 일을 한다. 톤도 ERP 와 같은 맵(CREDIT_TONE·PERK_TONE)이라
- *   영업자 화면에서 초록이던 「무심사」가 손님 화면에서도 초록이다.
+ * ★★우대조건은 **상세와 같은 칩 원자**(`shop-ui` `PerkMarks`)를 쓴다 — 아이콘 + 먹색 글자다
+ *   (사장님 2026-09-05 「목록 페이지하고 전체 구성 한번 맞춰보자 — **일체감이 있는지**」).
+ *   ⚠ 2026-09-04 까지는 여기가 **ERP `Badge` 원자**(테두리 두른 박스)였다. 사장님 「뱃지로
+ *     들어가거나 우리 그 ERP에서 쓰는 거 있잖아」를 그렇게 읽었는데, 그 뒤 상세가 09-05 에
+ *     아이콘+글자로 확정되면서 **같은 값이 두 화면에서 다른 모양**이 됐다. 카드에서 상세로
+ *     넘어가면 손님이 「다른 표시인가」를 한 번 생각한다.
+ *   ⇒ 상세 쪽으로 맞췄다. 집 규칙(2026-08-28·08-30 「박스 뱃지 쓰지 말고 아이콘 텍스트로,
+ *     **모든 곳에서**」)과도 이쪽이 맞다. 박스로 되돌리려면 **먼저 여쭙는다** — 그때는 상세도
+ *     같이 되돌려야 한다. 한쪽만 바꾸면 다시 갈린다.
+ *   ★색은 아이콘에만(무심사 초록 · 소득확인·신용조회는 흐림 · 나머지 채널색), 글자는 먹색.
  */
 export const ShopCard = memo(function ShopCard({ p, href, faved, onFav }: {
   p: EntityRecord;
@@ -95,20 +100,28 @@ export const ShopCard = memo(function ShopCard({ p, href, faved, onFav }: {
   const creditRaw = creditDisplay(p);
   const credit = creditRaw && creditRaw !== CREDIT_UNSET ? creditRaw : '';
   const sameDay = /즉시출고|당일/.test(String(p.vehicle_status || ''));
-  const badges: { text: string; tone: BadgeTone; perk?: boolean }[] = [
-    ...(credit ? [{ text: credit, tone: CREDIT_TONE(credit) }] : []),
+  /*
+   * ★★**상세와 «같은 얼굴»이다**(사장님 2026-09-05 「목록 페이지하고 전체 구성 한번 맞춰보자 —
+   *   상세 페이지에 맞는 자연스러운 화면인지, **일체감이 있는지**」).
+   *   여기만 **테두리 두른 박스 뱃지**였다. 같은 값(무심사·분납가능·만21세·경력무관)이 상세에서는
+   *   아이콘 + 글자로 서 있어, 카드에서 상세로 넘어가면 손님이 「다른 표시인가」를 한 번 생각했다.
+   *   집 규칙도 이쪽이 틀렸다 — 사장님 2026-08-28·08-30 「박스 뱃지 쓰지 말고 아이콘 텍스트로,
+   *   **모든 곳에서**」. 손님 카드가 그 「모든 곳」에서 빠져 있었다.
+   * ⇒ 꼴은 `shop-ui` 의 `PerkMarks` 하나가 든다(상세와 같은 원자). 카드는 «무엇을 실을지»만 정한다.
+   * ★심사는 셋(무심사·소득확인·신용조회) — 무심사만 초록이고 나머지 둘은 «해야 할 일»이라 흐리다.
+   */
+  const marks: ShopMark[] = [
+    ...(credit ? [{
+      text: credit, icon: ShieldCheck,
+      good: /무심사/.test(credit), ask: !/무심사/.test(credit),
+    }] : []),
     /*
      * ⚠ 「무보증」은 **바로 윗줄이 이미 「보증금 없음」이라고 말한** 차에서 뺀다(2026-09-05 검토).
-     *   같은 카드에서 같은 사실을 두 번 하면 뱃지 자리를 낭비하고,
-     *   손님은 「둘이 다른 건가」를 한 번 생각한다.
-     *   보증금이 있는 기간이 섞인 차(최저가만 0)는 뱃지가 «다른 사실»이라 그대로 둔다.
+     *   같은 카드에서 같은 사실을 두 번 하면 자리를 낭비하고, 손님은 「둘이 다른 건가」를 생각한다.
      */
-    ...PERKS.filter((k) => hasPerk(p, k) && !(k === '무보증' && price && price.deposit === 0)).map((k) => ({
-      text: k as string,
-      tone: (PERK_TONE as Record<string, BadgeTone>)[k] || ('blue' as BadgeTone),
-      perk: true,
-    })),
-    ...(sameDay ? [{ text: '당일출고', tone: 'green' as BadgeTone }] : []),
+    ...PERKS.filter((k) => hasPerk(p, k) && !(k === '무보증' && price && price.deposit === 0))
+      .map((k) => ({ text: k as string, icon: Check })),
+    ...(sameDay ? [{ text: '당일출고', icon: CircleCheck, good: true }] : []),
   ];
 
   return (
@@ -156,9 +169,12 @@ export const ShopCard = memo(function ShopCard({ p, href, faved, onFav }: {
               글자를 줄이는 것은 되고, 값을 줄이는 것은 안 된다.
           */}
           {price && price.rent > 0 ? (
+            /* ⚠ 잘라 내지 않는다 — 「보증금 103만 5,…」로 끝이 잘리고 있었다(2026-09-05 실측).
+                 보증금은 저신용 손님이 제일 먼저 재는 «지금 드는 돈»이라, 자리에 안 맞으면
+                 자르는 게 아니라 **다음 줄로 내린다**(`flexWrap`). 값은 줄이지 않는다. */
             <div style={{
-              display: 'flex', alignItems: 'baseline', gap: 8, marginTop: 5,
-              minWidth: 0, overflow: 'hidden', whiteSpace: 'nowrap',
+              display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', columnGap: 8, rowGap: 2,
+              marginTop: 5, minWidth: 0,
             }}>
               <span style={{ fontSize: SHOP.fs.sub, color: C.mute, flex: '0 0 auto' }}>
                 {price.m}개월
@@ -175,8 +191,7 @@ export const ShopCard = memo(function ShopCard({ p, href, faved, onFav }: {
                 ⚠ 보증금이 «있는» 차는 흐린 회색 그대로다. 금액마다 색을 주면 그건 강조가 아니라 소란이다.
               */}
               <span style={{
-                fontSize: SHOP.fs.sub, flex: '0 1 auto',
-                minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis',
+                fontSize: SHOP.fs.sub, flex: '0 0 auto', whiteSpace: 'nowrap',
                 fontVariantNumeric: 'tabular-nums',
                 color: price.deposit > 0 ? C.mute : C.ok,
                 fontWeight: price.deposit > 0 ? 400 : 700,
@@ -187,20 +202,12 @@ export const ShopCard = memo(function ShopCard({ p, href, faved, onFav }: {
           ) : null}
 
           {/*
-            ⑤ 우대조건 — ERP `Badge` 원자. 톤도 ERP 와 같은 맵이라 영업자 화면에서 초록이던
-            「무심사」가 손님 화면에서도 초록이다(두 화면을 오가는 사람이 다시 배우지 않는다).
-            ★글자는 sub(12) — 기본 micro(10)는 콕핏 표에서 쓰는 크기라 손님 화면에서 안 읽힌다.
+            ⑤ 우대조건 — **상세와 같은 원자**(`PerkMarks`). 위 `marks` 머리말 참고.
+            ★카드는 좁으니 한 단 작게 든다(글자 12 · 아이콘 13) — 꼴은 같고 치수만 준다.
           */}
-          {badges.length ? (
-            <div style={{
-              display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 5,
-              marginTop: 'auto', paddingTop: 10,
-            }}>
-              {badges.map((b) => (
-                <Badge key={b.text} tone={b.tone} variant={b.perk ? 'perk' : 'line'} size={FS.sub}>
-                  {b.text}
-                </Badge>
-              ))}
+          {marks.length ? (
+            <div style={{ marginTop: 'auto', paddingTop: 10 }}>
+              <PerkMarks marks={marks} fs={SHOP.fs.cap} size={13} columnGap={10} />
             </div>
           ) : null}
         </div>

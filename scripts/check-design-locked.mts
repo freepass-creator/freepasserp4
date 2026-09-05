@@ -493,11 +493,20 @@ must(/const bar = mobile \? null :/.test(shopDetail)
  * 신원 칩과 조건 칩은 «얼굴»도 달라야 한다 — 자리만 갈라 놓으면 여전히 한 종류로 보인다.
  * 신원 = 연한 «면» 위 작은 흐린 글자(딱지) · 조건 = 면 «없이» 아이콘 + 진한 글자.
  */
-const stateChipSrc = (shopDetail.split('const stateChip =')[1] ?? '').split('const perkChip')[0];
-const perkChipSrc = (shopDetail.split('const perkChip =')[1] ?? '').slice(0, 600);
-must(stateChipSrc.includes('background') && !perkChipSrc.includes('background'),
+const stateChipSrc = (shopUi.split('export function StateChip')[1] ?? '').split('export function PerkMark')[0];
+const perkMarkSrc = (shopUi.split('export function PerkMark(')[1] ?? '').slice(0, 700);
+must(stateChipSrc.includes('background') && !perkMarkSrc.includes('background'),
   '신원 칩과 조건 칩이 다시 같은 얼굴이 됐습니다 — 신원은 연한 면 위 딱지, 조건은 면 없이 아이콘+진한 글자입니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1');
+/*
+ * **목록 카드와 상세가 같은 칩 원자를 쓴다**(사장님 2026-09-05 「목록 페이지하고 전체 구성 한번
+ * 맞춰보자 — 일체감이 있는지」). 카드만 «박스 뱃지»로 남아 같은 값이 두 화면에서 다르게 보였다.
+ * 집 규칙도 그쪽이 틀렸다 — 「박스 뱃지 쓰지 말고 아이콘 텍스트로, **모든 곳에서**」(2026-08-28·30).
+ */
+must(/<PerkMarks marks=/.test(shopDetail) && /<PerkMarks marks=/.test(shopCard)
+  && !/<Badge/.test(shopCard),
+  '손님 카드가 다시 박스 뱃지를 씁니다 — 목록·상세가 같은 칩 원자(PerkMarks)를 써야 합니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1 · docs/DESIGN_CONFIRMED_LIST_CARD.md');
 // 전화는 담당자 → 대표번호로 떨어진다 — ?a= 없는 손님에게 전화 링크가 0개가 되면 안 된다.
 must(/wl\.tel/.test(read('app/q/[code]/ShopDetailView.tsx')),
   '상세가 대표번호 폴백을 잃었습니다. ?a= 없이 들어온 손님은 폰에서 전화 링크가 0개가 됩니다.',

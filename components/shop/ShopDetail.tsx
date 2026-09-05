@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { C, ColorMark, FW, FS, ICON, NUM } from '@/components/ui';
-import { SHOP } from '@/components/shop/shop-ui';
+import { PerkMarks, SHOP, StateChip, type ShopMark } from '@/components/shop/shop-ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { useProductPhotos } from '@/components/use-product-photos';
 import { haptic } from '@/lib/haptics';
@@ -509,11 +509,8 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
   const status = S2(p.vehicle_status);
   const kind = S2(p.product_type);
   const creditChip = creditDisplay(p);
-  /**
-   * `good` = 좋은 소식(초록) · `ask` = **손님이 내야 하는 것**(회색).
-   * 심사는 셋이다 — 무심사는 좋은 소식이고, 소득확인·신용조회는 «해야 할 일»이다.
-   */
-  type Mark = { text: string; icon: LucideIcon; good?: boolean; ask?: boolean };
+  /* 표시 칩의 꼴은 목록 카드와 «같은 원자»가 든다(`shop-ui` `ShopMark`). */
+  type Mark = ShopMark;
   /**
    * ① **차명 줄 오른쪽** — 「지금 살 수 있나 · 무슨 상품인가」.
    *   제목 옆이 비어 있어 거기로 올렸다(사장님 2026-09-05 「**차량번호 뒤에 현대 그랜저,
@@ -1533,9 +1530,9 @@ function Head({ title, facts, stateMarks, perkMarks }: {
   /** 차번 — 차명 «뒤»에 붙는다. 이름의 끝이지 따로 떨어진 정보가 아니다. */
   facts: string;
   /** 차명 줄 «오른쪽» — 출고상태 · 상품구분. 이 차의 «신원»이라 이름과 같은 줄에 선다. */
-  stateMarks: { text: string; icon: LucideIcon; good?: boolean }[];
+  stateMarks: ShopMark[];
   /** 그 밑 한 줄 — 심사 · 우대조건. 「내가 되나」라 신원과 성격이 다르다. */
-  perkMarks: { text: string; icon: LucideIcon; good?: boolean }[];
+  perkMarks: ShopMark[];
 }) {
   /*
    * ★★**상자 뱃지가 아니라 아이콘 + 글자**다(사장님 2026-08-28·08-30 「박스 뱃지 쓰지 말고
@@ -1543,44 +1540,11 @@ function Head({ title, facts, stateMarks, perkMarks }: {
    *   연한 면은 깔되 **테두리는 두르지 않는다** — 테두리가 붙는 순간 그게 상자 뱃지다.
    * ★색은 **좋은 소식에만**(출고가능·즉시출고·무심사). 칩마다 색을 주면 그때부터 소란이다.
    */
-  /**
-   * **신원 칩** — 출고상태 · 상품구분. 「이 차가 지금 어떤 물건인가」를 **통보**하는 값이다.
-   * 연한 «면» 위에 작은 글자로 얹는다 — 사실 표시라 조용해야 하고, 면이 있으면 이름 옆에서
-   * «딱지»처럼 붙어 읽힌다.
+  /*
+   * 신원 칩(면 위 딱지)과 조건 칩(면 없이 아이콘+글자)은 **목록 카드와 같은 원자**를 쓴다
+   * (`shop-ui` `StateChip`·`PerkMarks`). 두 화면이 같은 값을 다르게 그리면 손님이 다시 배운다 —
+   * 실제로 카드만 «박스 뱃지»로 남아 있었다(2026-09-05 정리).
    */
-  const stateChip = (m: { text: string; icon: LucideIcon; good?: boolean }) => (
-    <span key={m.text} style={{
-      display: 'inline-flex', alignItems: 'center', gap: 4,
-      padding: '5px 10px', borderRadius: SHOP.r.chip,
-      background: m.good ? C.okBg : C.zebra,
-      color: m.good ? C.ok : C.mute,
-      fontSize: SHOP.fs.cap, fontWeight: 600, whiteSpace: 'nowrap',
-    }}>
-      <m.icon size={13} aria-hidden />{m.text}
-    </span>
-  );
-
-  /**
-   * **조건 칩** — 심사 · 우대조건. 「**내가 되나**」의 답이라 성격이 아주 다르다
-   * (사장님 2026-09-05 「위에 배지하고 아래 배지하고 **성격이 다르니까 그걸 좀 차이 나게끔**」).
-   *
-   * ★그래서 **면을 안 깐다 — 아이콘 + 글자만**이다(집 규칙 그대로: 「박스 뱃지 쓰지 말고
-   *   아이콘 텍스트로」). 면이 없으면 상태 딱지와 한눈에 갈리고, 글자를 진하게 세울 수 있어
-   *   **오히려 더 또렷하다** — 회색 면에 회색 글자로 눕히면 셀링포인트가 딱지로 보인다.
-   * ★저신용 손님이 이 화면에서 제일 먼저 재는 값이다. 조용해선 안 된다.
-   * ★아이콘만 색을 갖는다(무심사는 초록, 나머지는 채널색). 글자는 검정이라 소란하지 않다.
-   * ★사이를 넉넉히 벌린다 — 붙여 놓으면 다시 «칩 줄»로 보인다.
-   */
-  const perkChip = (m: { text: string; icon: LucideIcon; good?: boolean; ask?: boolean }) => (
-    <span key={m.text} style={{
-      display: 'inline-flex', alignItems: 'center', gap: 5,
-      color: C.ink, fontSize: SHOP.fs.sub, fontWeight: 700, whiteSpace: 'nowrap',
-    }}>
-      {/* ★소득확인·신용조회는 «해야 할 일»이라 흐린 회색이다 — 혜택 색을 주면 서류가 혜택으로 읽힌다. */}
-      <m.icon size={15} aria-hidden style={{ color: m.good ? C.ok : m.ask ? C.faint : C.brand }} />{m.text}
-    </span>
-  );
-
   return (
     <header style={{ paddingTop: 18 }}>
       {/*
@@ -1617,14 +1581,12 @@ function Head({ title, facts, stateMarks, perkMarks }: {
         </h1>
         {stateMarks.length ? (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'flex-end' }}>
-            {stateMarks.map(stateChip)}
+            {stateMarks.map((m) => <StateChip key={m.text} mark={m} />)}
           </div>
         ) : null}
       </div>
       {perkMarks.length ? (
-        <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 16, rowGap: 8, marginTop: 12 }}>
-          {perkMarks.map(perkChip)}
-        </div>
+        <div style={{ marginTop: 12 }}><PerkMarks marks={perkMarks} /></div>
       ) : null}
     </header>
   );

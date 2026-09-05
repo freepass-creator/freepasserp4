@@ -1,6 +1,6 @@
 'use client';
 import type { CSSProperties, ReactNode } from 'react';
-import { Search, X, ChevronDown, SlidersHorizontal } from 'lucide-react';
+import { Search, X, ChevronDown, SlidersHorizontal, type LucideIcon } from 'lucide-react';
 import { C, FW, ICON, PILL_R, R_CARD } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 
@@ -306,6 +306,79 @@ export function ShopMore({ shown, total, onMore }: { shown: number; total: numbe
         }}>
         차량 더 보기 <span style={{ color: C.mute, fontWeight: 500, marginLeft: 6 }}>{shown} / {total}</span>
       </button>
+    </div>
+  );
+}
+
+/* ── 표시 칩 ─────────────────────────────────────────────────────────────
+ * **목록 카드와 상세가 «같은 물건»을 쓴다**(사장님 2026-09-05 「목록 페이지하고 전체 구성
+ * 한번 맞춰보자. **상세 페이지에 맞는 자연스러운 화면인지, 일체감이 있는지**」).
+ *
+ * ⚠⚠ 같은 값(무심사·분납가능·만21세·경력무관)이 **두 화면에서 다른 모양**이었다 —
+ *   목록 카드는 **테두리 두른 박스 뱃지**, 상세는 아이콘 + 글자. 손님은 같은 차를 보다가
+ *   화면이 바뀌면 「다른 표시인가」를 한 번 생각한다.
+ *   집 규칙도 목록 쪽이 틀린 편이었다 — 사장님 2026-08-28·08-30 「**박스 뱃지 쓰지 말고
+ *   아이콘 텍스트로, 모든 곳에서**」. 손님 카드가 그 「모든 곳」에서 빠져 있었다.
+ * ⇒ 두 얼굴을 여기 한 곳에 두고 양쪽이 부른다. 새로 그리지 않는다.
+ */
+export type ShopMark = {
+  text: string;
+  icon: LucideIcon;
+  /** 좋은 소식(초록) — 출고가능·즉시출고·무심사. */
+  good?: boolean;
+  /** 손님이 «해야 할 일»(흐린 회색) — 소득확인·신용조회. 혜택 색을 주면 서류가 혜택으로 보인다. */
+  ask?: boolean;
+};
+
+/**
+ * **신원 칩** — 출고상태 · 상품구분. 「이 차가 지금 어떤 물건인가」를 통보하는 값이다.
+ * 연한 «면» 위 작은 글자(딱지). **테두리는 두르지 않는다** — 테두리가 붙는 순간 그게 박스 뱃지다.
+ */
+export function StateChip({ mark, fs = SHOP.fs.cap }: { mark: ShopMark; fs?: number }) {
+  const Icon = mark.icon;
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 4,
+      padding: '5px 10px', borderRadius: SHOP.r.chip,
+      background: mark.good ? C.okBg : C.zebra,
+      color: mark.good ? C.ok : C.mute,
+      fontSize: fs, fontWeight: 600, whiteSpace: 'nowrap',
+    }}>
+      <Icon size={13} aria-hidden />{mark.text}
+    </span>
+  );
+}
+
+/**
+ * **조건 칩** — 심사 · 우대조건. 「**내가 되나**」의 답이라 성격이 아주 다르다.
+ *
+ * ★**면을 안 깐다 — 아이콘 + 글자만.** 면이 없으면 신원 딱지와 한눈에 갈리고, 글자를 진하게
+ *   세울 수 있어 **오히려 더 또렷하다** — 회색 면에 회색 글자로 눕히면 셀링포인트가 딱지로 보인다.
+ * ★**색은 아이콘에만**, 글자는 먹색(집 규칙 · `DESIGN_CONFIRMED_LIST_CARD` §카드).
+ */
+export function PerkMark({ mark, fs = SHOP.fs.sub, size = 15 }: {
+  mark: ShopMark; fs?: number; size?: number;
+}) {
+  const Icon = mark.icon;
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: 5,
+      color: C.ink, fontSize: fs, fontWeight: 700, whiteSpace: 'nowrap',
+    }}>
+      <Icon size={size} aria-hidden style={{ color: mark.good ? C.ok : mark.ask ? C.faint : C.brand }} />
+      {mark.text}
+    </span>
+  );
+}
+
+/** 조건 칩 줄 — 사이를 넉넉히 벌린다(붙여 놓으면 다시 «칩 줄»로 보인다). */
+export function PerkMarks({ marks, fs, size, columnGap = 16 }: {
+  marks: ShopMark[]; fs?: number; size?: number; columnGap?: number;
+}) {
+  if (!marks.length) return null;
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', columnGap, rowGap: 8 }}>
+      {marks.map((m) => <PerkMark key={m.text} mark={m} fs={fs} size={size} />)}
     </div>
   );
 }
