@@ -290,11 +290,11 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
    * 둘 다 «모른다»가 아니라 «확정된 사실»이라 지우면 정보를 없애는 것이다.
    * ⇒ 이 구역만 「없음」을 남긴다. 「협의·미정·기타·-」는 여기서도 뺀다(그건 여전히 «안 정함»이다).
    */
-  const insRows = (list: [string, string][]) =>
-    list.filter(([, v]) => {
-      const t = String(v ?? '').trim();
-      return !!t && !['기타', '협의', '별도협의', '별도문의', '미정', '해당없음', '해당 없음', '-'].includes(t);
-    });
+  const insMeaningful = (v: string) => {
+    const t = String(v ?? '').trim();
+    return !!t && !['기타', '협의', '별도협의', '별도문의', '미정', '해당없음', '해당 없음', '-'].includes(t);
+  };
+  const insRows = (list: [string, string][]) => list.filter(([, v]) => insMeaningful(v));
 
   /** ② 보상 한도 — 어디까지 보상되나. */
   const coverage = insRows([
@@ -311,21 +311,29 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
    * ⚠ 한때 자차만 왼쪽 정렬 큰 줄로 떼어 놓았다 — 그러면 넷이 «다른 종류»로 보인다.
    *   갈라야 할 것은 «정렬»이 아니라 **무게**다. 자차는 같은 줄에서 굵게 선다.
    */
+  /*
+   * ★★**「기타 면책금」 한 줄에 자손·무보험을 모은다**(사장님 2026-09-05
+   *   「무보험 같은 그런 면책금을 **기타 면책금**에다가 넣으려고 하는 거야. 그러니까
+   *   **대인 면책금, 대물 면책금, 기타 면책금** 그리고 혹시 **자손이나 무보험이 있으면
+   *   거기에다가 「자손 30, 무보험 30」 이렇게** 표기할 수 있게끔만 하자」).
+   *
+   * 왜 모으나. 자손·무보험은 **손님이 따로 확인하는 값이 아니다** — 사고 나면 실제로 무는 것은
+   * 자차·대인·대물이고, 나머지는 「그 밖에도 이런 게 있다」는 확인용이다. 넷을 나란히 세우면
+   * 다섯 줄이 같은 무게가 되어 정작 큰 값(자차)이 묻힌다.
+   * ★한 줄 안에서는 **이름을 붙여 쓴다**(「자손 30만원 · 무보험 없음」) —
+   *   라벨이 「기타」뿐이면 그 숫자가 무엇의 면책금인지 알 수가 없다.
+   * ★칸이 늘어도 이 줄에 붙이면 된다. 사장님이 「다른 면책금이 있을 수도 있으니까」 하신 자리다.
+   */
+  const etcDeductible = [
+    ['자손', S('self_body_deductible')] as [string, string],
+    ['무보험', S('uninsured_deductible')] as [string, string],
+  ].filter(([, v]) => insMeaningful(v)).map(([k, v]) => `${k} ${v}`).join(' · ');
+
   const deductibles = insRows([
     ['자차 면책금', ownDamageDeductible],
     ['대인 면책금', S('injury_deductible')],
     ['대물 면책금', S('property_deductible')],
-    ['자기신체 면책금', S('self_body_deductible')],
-    /*
-     * ★**무보험 면책금**을 넣었다(사장님 2026-09-05 「기타 면책금 하나 넣어 줘라,
-     *   뭐 다른 면책금이 있을 수도 있으니까」).
-     * ⚠ 「기타 면책금」이라는 칸은 **원천에 없다.** 정책 원자에 있는 면책금은 다섯이고
-     *   (대인·대물·자손·무보험·자차 최소/최대), 그중 **무보험만 화면에 안 나오고 있었다.**
-     *   없는 칸을 지어내는 대신 **있는데 안 쓰던 칸**을 세웠다.
-     * ★실측 456대 중 436대에 값이 있고 **전부 「없음」**이다 — 그래서 여태 `meaningful` 에
-     *   걸려 사라지고 있었다. 면책금의 「없음」은 «좋은 소식»이라 위 `insRows` 가 남긴다.
-     */
-    ['무보험 면책금', S('uninsured_deductible')],
+    ['기타 면책금', etcDeductible],
   ]);
   /** ④ 긴급출동 — 보험이 아니라 부가 서비스. */
   const roadside = S('annual_roadside_assistance') || S('roadside_assistance');
