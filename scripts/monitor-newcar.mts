@@ -26,8 +26,10 @@ const snap = await FS.collection('new_car_trim').get();
 const baseline = new Map<string, any>();
 snap.forEach((d) => { const v = d.data(); baseline.set(d.id, { ...v, _id: d.id }); });
 
-type Diff = { added: string[]; removed: string[]; priceChanged: string[]; optionChanged: string[] };
-const diff: Diff = { added: [], removed: [], priceChanged: [], optionChanged: [] };
+// ★감시 범위(정직): 현대 API 재크롤로 «트림 추가·삭제·차량가(세제 전/후) 변동»만 본다.
+//   옵션·색상 변동과 기아·제네시스·르노(PDF)는 아직 감시 안 함 — 확장하려면 각 PDF 재추출+diff 를 붙인다(Codex).
+type Diff = { added: string[]; removed: string[]; priceChanged: string[] };
+const diff: Diff = { added: [], removed: [], priceChanged: [] };
 
 // 신선한 현대 크롤(드라이런 — data/new-car/hyundai.json 에만 씀, Firestore 안 건드림)
 execSync('npx tsx scripts/crawl-newcar-hyundai.mts', { stdio: 'ignore' });

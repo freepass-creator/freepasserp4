@@ -136,14 +136,21 @@ for (const model of models) {
   rules.slice(0, 6).forEach((r) => console.log(`   규칙: ${r}`));
 
   if (FS) {
+    // ★이 모델의 «기존 문서를 먼저 지운다»(Codex stale-doc): ID 에 가격이 들어가 있어, 가격이 바뀌면
+    //   새 ID 문서가 생기고 옛 가격 문서가 남는다. 모델 단위로 싹 지우고 다시 써 stale 을 없앤다.
+    const rowsFresh = rows; // 검증된 rows 확보 뒤에만 지운다(빈 추출이면 안 지움)
+    if (rowsFresh.length) {
+      const old = await FS.collection('new_car_trim').where('brandSource', '==', 'kia PDF').where('carType', '==', model).get();
+      const del = FS.batch(); old.docs.forEach((d) => del.delete(d.ref)); await del.commit();
+    }
     const batch = FS.batch(); const day = new Date().toISOString().slice(0, 10);
-    for (const t of rows) {
+    for (const t of rowsFresh) {
       // ★가격을 ID에 포함(Codex 저장키 충돌): 롱레인지 3행·모닝 승용/밴 트렌디가 같은 문서로 덮이던 것 방지
       const id = `kia_${model}_${t.fuel}_${t.trim}_${t.priceBefore}`.replace(/[/#.$\[\] ]/g, '_');
       batch.set(FS.collection('new_car_trim').doc(id), { maker: '기아', carType: model, sub_model: model, fuel: t.fuel, trim: t.trim, priceBefore: t.priceBefore, priceAfter: t.priceAfter, options: t.options || [], rules, brandSource: 'kia PDF', crawledAt: day });
     }
     await batch.commit();
-    console.log(`   ✓FS ${rows.length}트림`);
+    console.log(`   ✓FS ${rowsFresh.length}트림`);
   }
 }
 process.exit(0);

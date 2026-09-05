@@ -40,7 +40,9 @@ const stripFuel = (s: string) => S(s).replace(/\s*(플러그인\s*)?(하이브�
 // ★세제혜택 후(Codex #4): 트림 행 taxIncentive = 개소세·교육세·취득세 감면액. 후 = 표시가 − 감면.
 //   ⚠ 택시·모빌리티(영업용)는 taxIncentive 가 «음수»(가산)라 후>전 역전이 난다 → «양수 감면만» 적용(자체감사 2026-09-05).
 const priceAfterOf = (t: any) => { const inc = Number(t.taxIncentive || 0); return inc > 0 ? Math.max(0, Number(t.price || 0) - inc) : Number(t.price || 0); };
-const writeFS = async (rows: any[]) => { if (!FS || !rows.length) return; const batch = FS.batch(); for (const t of rows) batch.set(FS.collection('new_car_trim').doc(t.saleModelCode), { ...t, sub_model: stripFuel(t.carType), priceBefore: t.price, priceAfter: priceAfterOf(t), brandSource: 'hyundai.com', crawledAt: day }); await batch.commit(); };
+// ★{merge:true} — 옵션은 별도 파이프(attach-hyundai-options)가 채우므로, 재크롤이 문서 통째 교체로 «옵션을 지우지 않게» 한다(Codex).
+//   재크롤 뒤에도 options 필드는 살아남는다. 그래도 attach 는 매 크롤 뒤 재실행하는 게 정석(트림 바뀌면 옵션도 갱신).
+const writeFS = async (rows: any[]) => { if (!FS || !rows.length) return; const batch = FS.batch(); for (const t of rows) batch.set(FS.collection('new_car_trim').doc(t.saleModelCode), { ...t, sub_model: stripFuel(t.carType), priceBefore: t.price, priceAfter: priceAfterOf(t), brandSource: 'hyundai.com', crawledAt: day }, { merge: true }); await batch.commit(); };
 
 const trims: any[] = [];
 for (const m of models) {
