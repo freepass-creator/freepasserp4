@@ -29,6 +29,15 @@ const RAW_ALLOW = new Map<string, Allow>([
     counts: { button: 14, input: 4, select: 2 },
     reason: '착한거래 규격 화면 — 단계 버튼·숨김 파일 선택기(신분증·얼굴·추가운전자 면허증·요청서류)·선택 칸',
   }],
+  /* 견적(`/estimate`)은 **완전 별도 페이지**가 규격이다(사장님 2026-09-06 「모바일에서 보여지는 거 그대로 ·
+     완전 별도 페이지라고 얘기할 정도로」 · 설계서 §11·§12 · docs/건물도면.md 로비 행).
+     전자계약과 같은 갈래로, raw 는 `components/estimate/estimate.css` 가 제 규격으로 입힌다 —
+     원본 모바일 견적 화면을 «그대로» 옮긴 값이라 업무동 원자(32/40·R4)를 쓰면 화면이 달라진다.
+     ⚠ 숫자가 늘면 화면이 원본에서 벗어났다는 뜻이다. 늘리기 전에 원본과 대조할 것. */
+  ['app/estimate/page.tsx', {
+    counts: { button: 10, input: 3, select: 1 },
+    reason: '견적 독립 면 — 단계 칩(연료·사고·신용·보증금·선납)·기간 카드 펼침·차량 입력칸·연식 선택',
+  }],
   ['components/sign/atoms.tsx', {
     counts: { button: 2, input: 1 },
     reason: '착한거래 «원자 파일» 자체 — SignOption·SignConsent·SignInput 의 본체(components/ui 와 같은 지위)',

@@ -1,4 +1,4 @@
-/**
+﻿/**
  * **손님이 보는 면인가** — ERP 크롬(상단바·하단 탭바)을 걷어낼지 정하는 한 곳.
  *
  * 왜 모았나. 2026-09-04 까지 이 명단이 `TopBar` 와 `AppTabBar` **두 곳에 따로** 적혀 있었다.
@@ -12,7 +12,12 @@
  */
 
 /** 손님 면의 주소 앞머리. 새 손님 라우트를 만들면 **여기 한 줄**만 더한다. */
-const GUEST_PREFIXES = ['/shop', '/uniauto', '/catalog', '/q/', '/sign/'] as const;
+/**
+ * ⚠ 「껍데기를 벗나」와 「로그인 없이 되나」는 **다른 물음**이다(위 주석).
+ *   `/estimate`(견적)는 **껍데기만 벗는다** — 로그인은 필요하다.
+ *   원가·마진·손익을 보여주는 영업자 도구라 `lib/public-access` 에는 넣지 않았다(설계서 §12).
+ */
+const GUEST_PREFIXES = ['/shop', '/uniauto', '/catalog', '/q/', '/sign/', '/estimate'] as const;
 
 export function isGuestSurface(pathname: string | null | undefined): boolean {
   if (!pathname) return false;
