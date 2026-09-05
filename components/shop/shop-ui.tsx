@@ -37,7 +37,26 @@ export const SHOP = {
    */
   tap: { web: 36, mobile: 48 },
   /** 둥글기 — 마켓의 기본. 업무동 R(4, 각짐)과 다른 이유가 이 파일 머리말에 있다. */
-  r: { chip: PILL_R, box: R_CARD, card: 12 },
+  /**
+   * **둥글기 사다리 — 넷뿐이다**(사장님 2026-09-05 「배지 같은 거를 동그란 알약으로 하는 게 맞나,
+   * 아니면 조금 **무게감 있게 격식 있게 통일감**을 주는 게 맞나. 난 이게 제일 헷갈려」).
+   *
+   * | 값 | 무엇 | 왜 |
+   * |---|---|---|
+   * | `card` 12 | 담는 것 — 카드·사진·큰 면 | 제일 크니까 제일 둥글다 |
+   * | `ctrl` 10 | 누르는 것 — 버튼·검색·조건 알약·시트·정렬 | 손이 닿는 것 |
+   * | `chip` 8 | 표시 — 뱃지·칩·사진 위 신호·「n/N」 | 읽기만 하는 것 |
+   * | `pill` 999 | **진짜 동그란 것만** — 색 견본 점·건수 동그라미·갤러리 화살표 | 모양 자체가 원이다 |
+   *
+   * ⚠ 전에는 이 화면에 둥글기가 셋(999·12·8)이 «규칙 없이» 섞여 있었다. 그래서 「알약이냐 사각이냐」가
+   *   헷갈렸던 것이다 — 답은 둘 중 하나를 고르는 게 아니라 **사다리를 하나 정하는 것**이었다.
+   * ★★**알약(999)을 컨트롤에 쓰지 않는다.** 이유 셋 —
+   *   ㉠ 방금 정한 브랜드가 «중후·신뢰»다(깊은 남색). 알약은 소비자 앱의 가벼운 말씨라 색과 말이 어긋난다.
+   *   ㉡ 알약은 «높이가 곧 둥글기»라 통일이 안 된다 — 44 짜리는 22R, 28 짜리는 14R 로 제각각 보인다.
+   *   ㉢ 중고차 쪽도 각진 편이다(엔카 4 · 케이카 6~8). 값이 크고 무거운 판일수록 각이 선다.
+   * ★역할이 모양으로 읽힌다 — 담는 것 > 누르는 것 > 표시 순으로 둥글기가 줄어든다.
+   */
+  r: { chip: 8, ctrl: 10, box: R_CARD, card: 12, pill: PILL_R },
   /**
    * 글자 — 업무동 FS 는 18에서 끝나지만 손님 화면은 그 위가 필요하다.
    *
@@ -104,7 +123,7 @@ export function ShopSearch({ value, onChange, placeholder, onFilter, filterCount
             style={{
               position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
               /* 검색줄 안 「상세 조건」 — 폰에서 44(손가락 규격). 웹은 40 그대로. */
-              width: mobile ? 44 : 40, height: mobile ? 44 : 40, borderRadius: 999, flex: '0 0 auto',
+              width: mobile ? 44 : 40, height: mobile ? 44 : 40, borderRadius: SHOP.r.ctrl, flex: '0 0 auto',
               border: 'none', background: 'transparent', cursor: 'pointer',
               color: filterCount ? C.brand : C.ink,
             }}>
@@ -113,7 +132,8 @@ export function ShopSearch({ value, onChange, placeholder, onFilter, filterCount
               // 걸린 조건 수 — 아이콘 위 작은 표식. 「조건이 살아 있다」를 안 보고도 알아야 한다.
               <span style={{
                 position: 'absolute', top: 1, right: 0,
-                minWidth: 17, height: 17, padding: '0 4px', borderRadius: 999,
+                /* 건수 동그라미 — 원이 제 모양이다(사다리의 pill 칸). */
+                minWidth: 17, height: 17, padding: '0 4px', borderRadius: SHOP.r.pill,
                 display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                 background: C.brand, color: C.inverse,
                 fontSize: 10, fontWeight: FW.strong, fontVariantNumeric: 'tabular-nums',
@@ -151,7 +171,7 @@ export function ShopPill({ on, onClick, children, title }: {
          *   조건 «줄»은 48이고 여기 알약은 가로로 여러 개가 서므로 44 로 둔다 — HIG 최소.
          */
         height: mobile ? 44 : 36, padding: mobile ? '0 16px' : '0 14px',
-        borderRadius: SHOP.r.chip, whiteSpace: 'nowrap',
+        borderRadius: SHOP.r.ctrl, whiteSpace: 'nowrap',
         border: `1px solid ${on ? C.brand : C.line}`,
         background: on ? C.brand : 'transparent',
         color: on ? C.inverse : C.sub,
@@ -184,7 +204,7 @@ export function ShopIconBtn({ onClick, label, children }: {
   return (
     <button type="button" onClick={onClick} aria-label={label} className="fp-shop-press"
       /* 아이콘 단추(닫기 등) — 폰에서 44. 36 은 손가락으로 못 맞힌다. */
-      style={{ ...bare, width: mobile ? 44 : 36, height: mobile ? 44 : 36, borderRadius: 999, color: C.mute }}>
+      style={{ ...bare, width: mobile ? 44 : 36, height: mobile ? 44 : 36, borderRadius: SHOP.r.ctrl, color: C.mute }}>
       {children}
     </button>
   );
@@ -198,7 +218,7 @@ export function ShopPrimary({ onClick, children }: { onClick: () => void; childr
   return (
     <button type="button" onClick={onClick} className="fp-shop-press"
       style={{
-        ...bare, width: '100%', height: 52, borderRadius: SHOP.r.chip,
+        ...bare, width: '100%', height: 52, borderRadius: SHOP.r.ctrl,
         background: C.brand, color: C.inverse,
         fontSize: SHOP.fs.body, fontWeight: 700,
       }}>{children}</button>
@@ -263,7 +283,7 @@ export function ShopSort({ value, onChange, options }: {
           appearance: 'none', WebkitAppearance: 'none',
           /* 정렬 고르개도 같은 규격 — 폰 44(HIG 최소). */
           height: mobile ? 44 : 36, padding: '0 34px 0 14px',
-          borderRadius: SHOP.r.chip, border: `1px solid ${C.line}`, background: 'transparent',
+          borderRadius: SHOP.r.ctrl, border: `1px solid ${C.line}`, background: 'transparent',
           fontFamily: 'inherit', fontSize: mobile ? SHOP.fs.body : SHOP.fs.sub,
           color: C.ink, fontWeight: 600, cursor: 'pointer',
         }}>
@@ -330,7 +350,7 @@ export function ShopMore({ shown, total, onMore }: { shown: number; total: numbe
     <div style={{ display: 'flex', justifyContent: 'center', padding: '30px 0 8px' }}>
       <button type="button" onClick={onMore} className="fp-shop-press"
         style={{
-          ...bare, height: 52, padding: '0 34px', borderRadius: SHOP.r.chip,
+          ...bare, height: 52, padding: '0 34px', borderRadius: SHOP.r.ctrl,
           border: `1px solid ${C.line}`, color: C.ink,
           fontSize: SHOP.fs.body, fontWeight: 700,
         }}>

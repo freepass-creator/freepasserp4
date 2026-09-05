@@ -525,6 +525,17 @@ must(/--shop-fs-body: 16px/.test(css) && /@media \(max-width: 760px\)/.test(css)
   'docs/DESIGN_CONFIRMED_SHOP.md §1-3');
 
 /*
+ * **둥글기 사다리 넷** — 담는 것 12 · 누르는 것 10 · 표시 8 · 진짜 원만 999
+ * (사장님 2026-09-05 「무게감 있게 격식 있게 통일감」). 알약을 컨트롤에 쓰지 않는다.
+ * ⚠ 되돌아가면 이 화면에 둥글기가 규칙 없이 셋 섞인 상태로 되돌아간다.
+ */
+must(/r: \{ chip: 8, ctrl: 10, box: R_CARD, card: 12, pill: PILL_R \}/.test(shopUi)
+  && !/borderRadius: 999/.test(shopUi) && !/borderRadius: 999/.test(shopDetail)
+  && !/borderRadius: 999/.test(shopCard),
+  '둥글기가 다시 알약(999)으로 돌아갔습니다 — 담는 것 12 · 누르는 것 10 · 표시 8 · 진짜 원만 999 입니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §브랜드');
+
+/*
  * **관심(하트)은 손님 화면에 없다** — 손님은 로그인이 없다(사장님 2026-09-05
  * 「손님들이 여기에 로그인을 안 할 거라서 관심을 못 찍을 거야 … 영업사원 전용 로그인이야」).
  * 담아 둔 것을 다시 꺼내 볼 «내 목록»이 없는데 담는 단추만 있었다. 공유는 남는다 — 받는 사람은

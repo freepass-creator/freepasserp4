@@ -980,7 +980,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
             style={{
               flex: '0 0 92px',
               display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
-              height: 54, borderRadius: SHOP.r.chip,
+              height: 54, borderRadius: SHOP.r.ctrl,
               border: `1px solid ${C.line}`, background: C.bg, color: C.sub,
               textDecoration: 'none', fontSize: SHOP.fs.sub, fontWeight: 600,
             }}>
@@ -991,7 +991,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
               style={{
                 flex: 1, minWidth: 0,
                 display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                height: 54, borderRadius: SHOP.r.chip,
+                height: 54, borderRadius: SHOP.r.ctrl,
                 background: C.brand, color: C.inverse, textDecoration: 'none',
                 fontSize: SHOP.fs.body, fontWeight: 700, whiteSpace: 'nowrap',
               }}>
@@ -1003,7 +1003,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
             <div style={{
               flex: 1, minWidth: 0,
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              height: 54, borderRadius: SHOP.r.chip, background: C.zebra,
+              height: 54, borderRadius: SHOP.r.ctrl, background: C.zebra,
               fontSize: SHOP.fs.sub, color: C.mute,
             }}>연락처는 위 안내를 확인해 주세요</div>
           )}
@@ -1077,7 +1077,7 @@ export function FavShare({ title }: { title: string }) {
     <button type="button" onClick={share} className="fp-shop-press" aria-label="이 차량 공유하기"
       style={{
         display: 'inline-flex', alignItems: 'center', gap: 6,
-        height: 40, padding: '0 14px', borderRadius: 999,
+        height: 40, padding: '0 14px', borderRadius: SHOP.r.ctrl,
         border: `1px solid ${copied ? C.ok : C.line}`, background: C.bg,
         cursor: 'pointer', color: copied ? C.ok : C.sub, fontSize: SHOP.fs.sub, fontWeight: 600,
       }}>
@@ -1109,7 +1109,7 @@ function TopBar({ code, title, listHref }: { code: string; title: string; listHr
       <Link href={listHref} onClick={() => haptic.nav()} className="fp-shop-press"
         style={{
           display: 'inline-flex', alignItems: 'center', gap: 6,
-          height: 40, padding: '0 12px 0 8px', borderRadius: SHOP.r.chip,
+          height: 40, padding: '0 12px 0 8px', borderRadius: SHOP.r.ctrl,
           textDecoration: 'none', color: C.sub, fontSize: SHOP.fs.sub, fontWeight: 600,
         }}>
         <ArrowLeft size={ICON.lg} aria-hidden />목록으로
@@ -1495,7 +1495,7 @@ function SecTitle({ children, icon: Icon, accent, tag }: {
       {tag ? (
         <span style={{
           /* 「포함」은 손님에게 좋은 소식이라 색을 준다 — 목록의 「보증금 없음」과 같은 규칙이다. */
-          marginLeft: 2, padding: '3px 9px', borderRadius: 999,
+          marginLeft: 2, padding: '3px 9px', borderRadius: SHOP.r.chip,
           background: /포함/.test(tag) ? C.okBg : C.zebra,
           color: /포함/.test(tag) ? C.ok : C.mute,
           fontSize: SHOP.fs.cap, fontWeight: 700, letterSpacing: '-0.01em',
@@ -1650,7 +1650,7 @@ function Gallery({ p, mobile }: { p: EntityRecord; mobile?: boolean }) {
           {i < n - 1 ? <GalleryArrow side="right" onClick={() => go(1)} /> : null}
           <span style={{
             position: 'absolute', right: 12, bottom: 12,
-            padding: '4px 10px', borderRadius: 999,
+            padding: '4px 10px', borderRadius: SHOP.r.chip,
             background: 'rgba(0,0,0,0.55)', color: '#fff',
             fontSize: SHOP.fs.cap, fontWeight: 700, fontVariantNumeric: 'tabular-nums',
           }}>{Math.min(i + 1, n)} / {n}</span>
@@ -1725,7 +1725,8 @@ function GalleryArrow({ side, onClick }: { side: 'left' | 'right'; onClick: () =
       aria-label={side === 'left' ? '이전 사진' : '다음 사진'}
       style={{
         position: 'absolute', top: '50%', transform: 'translateY(-50%)',
-        [side]: 12, width: 38, height: 38, borderRadius: 999,
+        /* 갤러리 화살표 — 진짜 동그란 것이라 pill(999). 사다리의 예외가 아니라 «원» 칸이다. */
+        [side]: 12, width: 38, height: 38, borderRadius: SHOP.r.pill,
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
         border: 'none', cursor: 'pointer', color: C.ink,
         // 유리 — 밝은 사진에서도 어두운 사진에서도 화살표가 보인다.

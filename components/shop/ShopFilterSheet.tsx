@@ -99,7 +99,8 @@ export function ShopFilterSheet({ facets, sel, onToggle, onClearAxis, onClearAll
                   {n ? (
                     // 고른 개수 — 다른 축으로 넘어가도 «어디에 뭘 걸어 뒀는지»가 지도에 남는다.
                     <span style={{
-                      flex: '0 0 auto', minWidth: 16, height: 16, padding: '0 4px', borderRadius: 999,
+                      /* 건수 동그라미 — 원이 제 모양이다(사다리의 pill 칸). */
+                      flex: '0 0 auto', minWidth: 16, height: 16, padding: '0 4px', borderRadius: SHOP.r.pill,
                       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                       background: C.brand, color: C.inverse,
                       fontSize: 10, fontWeight: FW.strong, fontVariantNumeric: 'tabular-nums',
@@ -134,7 +135,7 @@ export function ShopFilterSheet({ facets, sel, onToggle, onClearAxis, onClearAll
         <div style={{ padding: '10px 16px 18px', borderTop: `1px solid ${C.line2}`, flex: '0 0 auto' }}>
           <button type="button" onClick={onClose} className="fp-shop-press"
             style={{
-              width: '100%', height: 52, borderRadius: SHOP.r.chip, border: 'none', cursor: 'pointer',
+              width: '100%', height: 52, borderRadius: SHOP.r.ctrl, border: 'none', cursor: 'pointer',
               background: C.brand, color: C.inverse, fontFamily: 'inherit',
               fontSize: SHOP.fs.body, fontWeight: 700,
             }}>
