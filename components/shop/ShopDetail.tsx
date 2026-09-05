@@ -17,7 +17,7 @@ import { creditDisplay, CREDIT_UNSET, parseProductOptions, priceList } from '@/l
 import { PERKS, hasPerk } from '@/lib/domain/product-filters';
 import { vehicleNameOf } from '@/lib/domain/vehicle-name';
 import { yearFullDisplay, fuelDisplay, makerDisplay } from '@/lib/domain/vehicle-master-format';
-import { kmDisplay, kmValue, manWon } from '@/lib/format';
+import { isEvFuel, kmDisplay, kmValue, manWon } from '@/lib/format';
 
 /**
  * 가게 상세 — 손님이 «이 차로 할까»를 정하는 화면.
@@ -641,11 +641,25 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
           「얼마」와 「어떻게 내나」가 한눈에 붙는다 — 돈 이야기를 한자리에서 끝낸다는 규칙과도 맞다.
         ★폰은 그대로 쌓는다 — 나란히 놓을 폭이 없다.
       */}
+      {/*
+        ⚠ 좁은 웹(760~900px)에서 **표와 납부가 한 줄에 안 들어가 칸 밖으로 넘쳤다**
+          (코덱스 2026-09-05 검토 · 820px 실측 522 칸에 607 이 들어감).
+          웹 판정이 760부터라 노트북 창을 반만 열어도 이 꼴이 됐다.
+        ⇒ 줄바꿈을 연다 — 넓으면 표 오른쪽에 납부가 서고, 좁으면 납부가 표 «아래»로 내려간다.
+          숫자를 줄이거나 표를 자르는 것보다 줄을 하나 더 쓰는 편이 낫다.
+      */}
       <div style={{
-        display: mobile ? 'block' : 'flex', gap: mobile ? 0 : 32, alignItems: 'flex-start',
+        display: mobile ? 'block' : 'flex', flexWrap: 'wrap',
+        gap: mobile ? 0 : 32, alignItems: 'flex-start',
       }}>
       {plans.length > 1 ? (
-        <div style={{ marginTop: 22, flex: '0 0 auto', width: mobile ? undefined : 520 }}>
+        /* ⚠ 폭을 520 으로 «못 박아» 두었더니 좁은 웹(760~880px)에서 넘쳤다 —
+             웹 판정이 760부터라 노트북 창을 반만 열어도 표가 칸 밖으로 나갔다(코덱스 2026-09-05).
+             ⇒ 520 은 «최대»고, 좁으면 줄어든다. 숫자는 nowrap 이라 더는 안 줄어드는 선에서 멈춘다. */
+        <div style={{
+          marginTop: 22, minWidth: 0,
+          flex: mobile ? undefined : '1 1 360px', maxWidth: mobile ? undefined : 520,
+        }}>
           <div style={{
             marginBottom: 8, fontSize: SHOP.fs.cap, fontWeight: 600, color: C.mute,
           }}>기간별 대여료 및 보증금</div>
@@ -716,7 +730,9 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
       ) : null}
 
       {payRows.length ? (
-        <div style={{ marginTop: 22, flex: 1, minWidth: 0 }}>
+        /* ⚠ `minWidth: 0` 이면 줄바꿈 대신 **납부 칸이 65px 로 찌그러진다**(820px 실측).
+             줄바꿈이 일어나려면 「이보다는 좁아질 수 없다」는 선이 있어야 한다 — 두 칸 격자라 260. */
+        <div style={{ marginTop: 22, flex: '1 1 300px', minWidth: 260 }}>
           <div style={{ marginBottom: 9, fontSize: SHOP.fs.cap, fontWeight: 600, color: C.mute }}>납부</div>
           <Facts rows={payRows} cols={2} mobile={mobile} />
         </div>

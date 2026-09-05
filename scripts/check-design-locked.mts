@@ -410,8 +410,14 @@ must(/const thumbs = !mobile && n > 1 \?/.test(shopDetail)
   && /번째 사진 보기/.test(shopDetail),
   '웹 사진 옆 썸네일 줄이 사라졌습니다 — 사진이 왼쪽에 떠 오른쪽이 통째로 빕니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1');
-must(/display: mobile \? 'block' : 'flex', gap: mobile \? 0 : 32/.test(shopDetail),
-  '웹에서 기간표와 납부가 다시 세로로 쌓였습니다 — 표 오른쪽 310px 가 빕니다.',
+/*
+ * 웹에서는 기간표 «오른쪽»에 납부가 선다. 다만 좁은 웹(760~900)에서는 아래로 내려간다 —
+ * 폭을 못 박아 두었더니 칸 밖으로 넘쳤다(코덱스 2026-09-05 · 820px 실측).
+ * ⇒ 가로 배치 + 줄바꿈 + 납부의 «최소폭»(이게 없으면 줄바꿈 대신 65px 로 찌그러진다) 셋이 다 있어야 한다.
+ */
+must(/display: mobile \? 'block' : 'flex', flexWrap: 'wrap',/.test(shopDetail)
+  && /flex: '1 1 300px', minWidth: 260/.test(shopDetail),
+  '웹에서 기간표와 납부가 다시 세로로 쌓였거나, 좁은 웹에서 납부 칸이 찌그러집니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1');
 /*
  * 차명 밑 «표시 칩» — 출고상태 · 상품구분 · 심사 · 우대조건. **아이콘 + 글자**이고 테두리가 없다.

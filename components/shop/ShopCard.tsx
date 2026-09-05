@@ -13,7 +13,7 @@ import { cheapest, creditDisplay, CREDIT_UNSET } from '@/lib/domain/product';
 import { PERKS, hasPerk } from '@/lib/domain/product-filters';
 import { vehicleNameOf } from '@/lib/domain/vehicle-name';
 import { yearFullDisplay, fuelDisplay } from '@/lib/domain/vehicle-master-format';
-import { kmDisplay, kmValue, manWon } from '@/lib/format';
+import { isEvFuel, kmDisplay, kmValue, manWon } from '@/lib/format';
 
 /**
  * 가게 카드 — 손님이 이 화면에서 «고르는 단위».
@@ -79,7 +79,12 @@ export const ShopCard = memo(function ShopCard({ p, href }: {
    */
   /* 주행거리는 «한 읽개»로 읽는다 — 콤마·「만km」를 견딘다(`kmValue`). 각자 파싱하면 또 갈린다. */
   const km = kmValue(p.mileage);
-  const cc = Number(p.engine_cc) || 0;
+  /*
+   * ★전기차는 배기량이 없다 — 원천이 실어 보내도 안 쓴다(`isEvFuel` 머리말. 42대 중 9대가
+   *   딴 차 값을 들고 있다). 상세만 가리고 여기는 내보내고 있어서 **같은 차가 두 화면에서
+   *   다르게** 보였다(코덱스 2026-09-05 검토).
+   */
+  const cc = isEvFuel(p.fuel_type) ? 0 : (Number(p.engine_cc) || 0);
   /*
    * ★★**차번은 차명 «뒤»에 붙는다** — 상세와 같은 규칙이다(사장님 2026-09-05 「차량 번호를
    *   그 현대 그랜저 뒤쪽으로 갖고 오는 게 맞을 것 같아요」 · 목록도 같이 맞춘다).
@@ -175,16 +180,21 @@ export const ShopCard = memo(function ShopCard({ p, href }: {
             차명 — 두 줄로 접히면 카드마다 높이가 달라져 목록이 들쭉날쭉해진다. 한 줄로 못 박고
             넘치면 … 로 자른다(전문은 title 속성이 들고 있고, 상세로 들어가면 다 보인다).
           */}
-          <div style={{
-            fontSize: SHOP.fs.h2, fontWeight: 700, color: C.ink,
-            lineHeight: 1.35, letterSpacing: '-0.02em',
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          }} title={title}>
-            {title}
+          {/*
+            ⚠ 차명과 차번을 «한 칸»에 넣고 통째로 말줄임했더니, 이름이 긴 차는 **차번이 통째로
+              사라졌다**(코덱스 2026-09-05 검토). 차번은 「이 차다」의 증거라 잘리면 안 된다.
+            ⇒ 줄이는 것은 **이름만**이다 — 차번은 제 폭을 갖고 끝에 붙어 선다.
+          */}
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, minWidth: 0 }}>
+            <span style={{
+              fontSize: SHOP.fs.h2, fontWeight: 700, color: C.ink,
+              lineHeight: 1.35, letterSpacing: '-0.02em', minWidth: 0,
+              overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+            }} title={title}>{title}</span>
             {plate ? (
               <span style={{
-                marginLeft: 6, fontSize: SHOP.fs.sub, fontWeight: FW.meta,
-                color: C.mute, fontFamily: NUM, letterSpacing: 0,
+                flex: '0 0 auto', fontSize: SHOP.fs.sub, fontWeight: FW.meta,
+                color: C.mute, fontFamily: NUM, letterSpacing: 0, whiteSpace: 'nowrap',
               }}>{plate}</span>
             ) : null}
           </div>
