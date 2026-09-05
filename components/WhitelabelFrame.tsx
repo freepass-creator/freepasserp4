@@ -19,7 +19,7 @@ import { hasBrand, whitelabelVars, type Whitelabel } from '@/lib/whitelabel';
  *   맨 주소로 들어온 손님에게는 **대표번호**가 든다. 우리(프리패스) 이름은 어디에도 안 나온다.
  */
 export function WhitelabelFrame({
-  wl, agentName, agentPhone, dock = true, notice = true, headerActions, children,
+  wl, agentName, agentPhone, dock = true, notice = true, headerLead, headerActions, children,
 }: {
   wl: Whitelabel;
   agentName?: string;
@@ -31,6 +31,19 @@ export function WhitelabelFrame({
   dock?: boolean;
   /** 안내 블록을 그릴까. 목록에서만 쓰고 상세에서는 끈다(같은 말을 두 번 하지 않는다). */
   notice?: boolean;
+  /**
+   * **폰 머리띠 왼쪽**을 이것으로 «갈아 끼운다» — 채널 워드마크 대신.
+   *
+   * ★★상세는 **채널 간판을 거는 자리가 아니라 「이 상품」의 화면**이다(사장님 2026-09-05
+   *   「상세페이지 갔을 때는 «유니오토모빌» 나오면 안 되고, 그냥 **상품 상세 페이지**라는 게
+   *   나오고 거기에 그 버튼이 있으면 돼 … 그냥 **맨 위에 차량번호**가 있든지」).
+   *   폰에서 머리띠는 «고정»이라 스크롤 내내 남는다 — 거기가 채널 이름이면 화면 절반을 내려가는
+   *   동안 **지금 무슨 차를 보고 있는지**를 말해 주는 자리를 간판이 잡고 있는 꼴이다.
+   * ★목록은 반대다 — 거기서는 「어느 가게인가」가 맞는 말이라 워드마크 그대로다.
+   * ⚠ 웹은 갈아 끼우지 않는다. 웹 머리띠는 «사이트 머리»(간판 + 담당자 + 전화)이고,
+   *   고정도 아니라 상세를 가리지 않는다. 폰만 앱처럼 «이 화면의 이름»을 든다.
+   */
+  headerLead?: ReactNode;
   /**
    * **폰 머리띠 오른쪽**에 세울 실행 — 상세의 관심·공유가 여기 든다.
    *
@@ -77,14 +90,17 @@ export function WhitelabelFrame({
           padding: mobile ? '0 16px' : '0 24px', height: mobile ? 56 : 72,
           display: 'flex', alignItems: 'center', gap: 12,
         }}>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: mobile ? 7 : 9, whiteSpace: 'nowrap' }}>
-            <span style={{ fontSize: mobile ? 22 : 26, fontWeight: FW.head, letterSpacing: '-0.03em', color: C.brand }}>
-              {wl.wordmark.main}
-            </span>
-            <span style={{ fontSize: mobile ? 12 : 15, fontWeight: FW.meta, letterSpacing: '0.15em', color: C.ink }}>
-              {wl.wordmark.sub}
-            </span>
-          </div>
+          {/* 폰 상세는 간판 대신 «이 화면의 이름»을 든다(위 `headerLead` 참고). 웹·목록은 워드마크. */}
+          {mobile && headerLead ? headerLead : (
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: mobile ? 7 : 9, whiteSpace: 'nowrap' }}>
+              <span style={{ fontSize: mobile ? 22 : 26, fontWeight: FW.head, letterSpacing: '-0.03em', color: C.brand }}>
+                {wl.wordmark.main}
+              </span>
+              <span style={{ fontSize: mobile ? 12 : 15, fontWeight: FW.meta, letterSpacing: '0.15em', color: C.ink }}>
+                {wl.wordmark.sub}
+              </span>
+            </div>
+          )}
           <div style={{ flex: 1 }} />
           {/* 폰 머리띠 오른쪽 — 상세의 관심·공유(위 `headerActions` 참고). 목록에서는 비어 있다. */}
           {mobile ? headerActions : null}

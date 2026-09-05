@@ -409,6 +409,16 @@ must(/const stateMarks: Mark\[\]/.test(shopDetail) && /const perkMarks: Mark\[\]
  *   공유는 이 사업의 퍼널이라 ㉡ 는 화면이 깨지는 것보다 조용하고 더 비싸다.
  */
 const wlFrame = read('components/WhitelabelFrame.tsx');
+/*
+ * 폰 상세 머리띠는 «채널 간판»이 아니라 «차번»을 든다 — 그리고 그때 본문 차번 줄은 접힌다.
+ * ⚠ 되돌아가면 ㉠ 고정 머리띠가 스크롤 내내 「유니오토모빌」만 말하거나 ㉡ 차번이 8px 사이에 둘.
+ */
+must(/mobile && headerLead \? headerLead :/.test(wlFrame)
+  && /headerLead=\{<ShopDetailLead/.test(read('app/q/[code]/ShopDetailView.tsx'))
+  && /\{facts && !mobile \?/.test(shopDetail),
+  '폰 상세 머리띠가 다시 채널 간판을 들었거나, 차번이 머리띠와 본문에 두 번 섰습니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-2-1');
+
 must(/const bar = mobile \? null :/.test(shopDetail)
   && /headerActions=\{<FavShare/.test(read('app/q/[code]/ShopDetailView.tsx'))
   && /\{mobile \? headerActions : null\}/.test(wlFrame)

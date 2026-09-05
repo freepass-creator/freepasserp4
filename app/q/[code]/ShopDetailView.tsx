@@ -4,7 +4,7 @@ import { useParams } from 'next/navigation';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { CenterNote, Loading } from '@/components/ui';
 import { WhitelabelFrame } from '@/components/WhitelabelFrame';
-import { FavShare, ShopDetail } from '@/components/shop/ShopDetail';
+import { FavShare, ShopDetail, ShopDetailLead } from '@/components/shop/ShopDetail';
 import type { Whitelabel } from '@/lib/whitelabel';
 import { vehicleNameOf } from '@/lib/domain/vehicle-name';
 import { resolveAttr } from '@/lib/shop/attribution';
@@ -115,6 +115,7 @@ export function ShopDetailView({ wl }: { wl: Whitelabel }) {
    */
   return (
     <WhitelabelFrame wl={wl} agentName={agentName} agentPhone={phone} notice={false} dock={false}
+      headerLead={<ShopDetailLead plate={String(p.car_number || '')} />}
       headerActions={<FavShare code={String(p.product_code || '')}
         title={vehicleNameOf({ kind: 'product', product: p }, { tier: 'full', fallback: 'plate' })} />}>
       <ShopDetail p={p} agentName={agentName} agentPhone={phone}

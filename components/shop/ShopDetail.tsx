@@ -7,7 +7,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import type { EntityRecord } from '@/lib/intake/entities';
-import { C, FW, FS, ICON } from '@/components/ui';
+import { C, FW, FS, ICON, NUM } from '@/components/ui';
 import { SHOP } from '@/components/shop/shop-ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { useProductPhotos } from '@/components/use-product-photos';
@@ -675,7 +675,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
       */}
       {bar}
       {gallery}
-      <Head title={title} facts={facts} stateMarks={stateMarks} perkMarks={perkMarks} />
+      <Head title={title} facts={facts} stateMarks={stateMarks} perkMarks={perkMarks} mobile={mobile} />
       {/*
         ★★**차량 정보 = 「이 차가 무엇인가」 한 덩어리**.
           제조사·세부모델·세부트림 한 줄 → 연식·주행거리·배기량·연료 → 색상·정원·최초등록.
@@ -916,6 +916,28 @@ const FAV_KEY = 'fp4_shop_fav';
  *   ⚠ 주소를 «지금 주소 그대로» 넘긴다 — `?a=` 담당 귀속이 물려 있어야 받은 사람이 눌러도
  *     같은 담당자에게 간다. 손으로 조립하면 그 파라미터를 흘린다.
  */
+/**
+ * **폰 머리띠 왼쪽 — 이 화면의 이름.** 채널 워드마크를 갈아 끼운다(`WhitelabelFrame.headerLead`).
+ *
+ * ★차번을 든다(사장님 2026-09-05 「그냥 맨 위에 **차량번호**가 있든지」). 머리띠가 폰에서
+ *   «고정»이라, 대여료·보험까지 내려가도 **지금 무슨 차를 보고 있는지**가 화면에 남는다.
+ *   간판(유니오토모빌)은 그 자리에서 아무 말도 해 주지 않는다 — 이미 그 가게 안이다.
+ * ★그래서 **본문 차번 줄은 폰에서 걷는다**(`Head`) — 머리띠와 8px 사이에서 같은 여덟 글자를
+ *   두 번 읽히게 두지 않는다. 웹은 반대다: 머리는 사이트 머리(간판·담당자·전화)라 차번이 본문에 남는다.
+ * ⚠ 차번이 없으면 「상품 상세」로 떨어진다 — 빈 머리띠를 내보내지 않는다.
+ */
+export function ShopDetailLead({ plate }: { plate: string }) {
+  const shown = plate.trim();
+  return (
+    <span style={{
+      fontSize: 17, fontWeight: FW.head, color: C.ink, letterSpacing: '-0.02em',
+      whiteSpace: 'nowrap', ...(shown ? { fontFamily: NUM } : null),
+    }}>
+      {shown || '상품 상세'}
+    </span>
+  );
+}
+
 export function FavShare({ code, title }: { code: string; title: string }) {
   const [faved, setFaved] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -1317,12 +1339,13 @@ function SecTitle({ children, icon: Icon, accent, tag }: {
   );
 }
 
-function Head({ title, facts, stateMarks, perkMarks }: {
+function Head({ title, facts, stateMarks, perkMarks, mobile }: {
   title: string; facts: string;
   /** 차명 줄 «오른쪽» — 출고상태 · 상품구분. 이 차의 «신원»이라 이름과 같은 줄에 선다. */
   stateMarks: { text: string; icon: LucideIcon; good?: boolean }[];
   /** 그 밑 한 줄 — 심사 · 우대조건. 「내가 되나」라 신원과 성격이 다르다. */
   perkMarks: { text: string; icon: LucideIcon; good?: boolean }[];
+  mobile?: boolean;
 }) {
   /*
    * ★★**상자 뱃지가 아니라 아이콘 + 글자**다(사장님 2026-08-28·08-30 「박스 뱃지 쓰지 말고
@@ -1392,12 +1415,14 @@ function Head({ title, facts, stateMarks, perkMarks }: {
         ) : null}
       </div>
       {/*
+        ★★**차번 줄은 웹에만 있다.** 폰은 «고정 머리띠»가 차번을 들고 있어서, 여기 또 쓰면
+          8px 사이에서 같은 여덟 글자를 두 번 읽힌다(`ShopDetailLead` 머리말).
+          웹 머리는 사이트 머리(간판·담당자·전화)라 차번이 없다 — 그래서 본문이 든다.
         ★차번 줄은 **정보만** 싣는다. 여기 관심·공유를 얹어 봤다가 걷었다(사장님 2026-09-05
           「차량 번호 우측은 아닌 거 같고」) — 「이 차가 무엇인가」를 읽는 줄에 실행이 끼면
           40px 짜리 단추가 여덟 글자짜리 흐린 줄을 밀어 올려 **정보 줄이 실행줄처럼** 보인다.
-          폰의 관심·공유는 **머리띠 오른쪽**이다(`FavShare` 머리말).
       */}
-      {facts ? (
+      {facts && !mobile ? (
         <div style={{ marginTop: 8, fontSize: SHOP.fs.body, color: C.mute, fontVariantNumeric: 'tabular-nums' }}>
           {facts}
         </div>
