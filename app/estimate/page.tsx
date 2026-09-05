@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 /**
  * 견적 — **완전 별도 페이지**(사장님 2026-09-06 「모바일에서 보여지는 거 그대로 · 완전 별도 페이지라고
  * 얘기할 정도로」). 설계서 §11·§12.
@@ -18,6 +18,7 @@ import '@/components/estimate/estimate.css';
 import { safeComputeTerm } from '@/lib/domain/estimate/safe-calc.js';
 import { createQuoteInput } from '@/lib/domain/estimate/quote-input.js';
 import { DEFAULT_CONFIG } from '@/lib/domain/estimate/default-config.js';
+import { usedResidPct } from '@/lib/domain/estimate/residual-lookup.js';
 
 /** 1~5년 — 차를 넣기 전에도 빈 칸으로 «항상» 서 있다(설계서 §1). */
 const MTERMS = [12, 24, 36, 48, 60];
@@ -78,12 +79,30 @@ export default function EstimatePage() {
   /** 연식·차량가·배기량이 다 있어야 잔가가 산다 — 원본 `valid` 와 같은 조건. */
   const valid = price > 0 && cc > 0 && !!year;
 
+  /**
+   * ★잔가는 **국산 표준곡선**으로 낸다(설계서 §2 「표준 + 차종 델타」).
+   *   차종을 아직 안 고르므로 델타는 0 — `usedResidPct(null, null, …)` 가 표준곡선 그대로를 준다.
+   *
+   * ⚠ 이걸 안 주면 A/B/C 등급표로 떨어지는데 **그 표에는 12개월 행이 없다.**
+   *   그러면 1년 잔가가 0이 되어 차값 전부가 감가로 잡히고, 1년 월납이 360만원으로 튄다(2026-09-06 실측).
+   *   「1~5년 칸은 항상 표시」가 규격인데 그중 하나가 거짓말을 하면 그 화면은 못 쓴다.
+   * ⚠ 표준곡선은 «시세 × 연식곡선»이라 연식·주행·사고가 이미 반영된 값이다 —
+   *   그래서 엔진이 `ageBaked` 로 재보정을 생략한다(calc.js resolveResidualRate 주석). 이중차감 방지다.
+   */
+  const residualDefault = useMemo(() => {
+    if (!year) return null;
+    const age = Math.max(0, nowYear - year);
+    const out: Record<number, number> = {};
+    for (const t of MTERMS) out[t] = usedResidPct(null, null, age, t / 12) / 100;
+    return out;
+  }, [year, nowYear]);
+
   const input = useMemo(() => createQuoteInput({
     adminCfg: DEFAULT_CONFIG, channel, type,
     form: { price, cc, fuel, accident, mileage, year, credit },
     conditions: { depositPct, prepayPct },
-    residual: null, residualDefault: null, credit, defaultGroup: 'B', nowYear,
-  }), [price, cc, fuel, accident, mileage, year, credit, channel, type, depositPct, prepayPct, nowYear]);
+    residual: null, residualDefault, credit, defaultGroup: 'B', nowYear,
+  }), [price, cc, fuel, accident, mileage, year, credit, channel, type, depositPct, prepayPct, nowYear, residualDefault]);
 
   const products: Card[] = useMemo(
     () => (valid ? MTERMS.map((t) => ({ ...safeComputeTerm(t, input, { idx: t }), term: t })) : []),
