@@ -1,7 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { hasBrand, resolveWhitelabel } from '@/lib/whitelabel';
+import { hasBrand, isGuestPath, resolveWhitelabel } from '@/lib/whitelabel';
 
 const PUBLIC_SIGN_HOST = 'sign.freepasserp.com';
+/** 손님 동 표시 — 레이아웃이 읽는다(아래 머리말). `lib/whitelabel` 와 이름을 맞춘다. */
+const GUEST_HEADER = 'x-fp-guest';
 /**
  * 채널 도메인의 첫 화면인가 — 표(`lib/whitelabel`)를 그대로 본다.
  * ★채널이 늘어도 이 파일은 안 고친다. 표에 줄이 하나 늘 뿐이다.
@@ -37,6 +39,21 @@ export function middleware(request: NextRequest) {
     const target = request.nextUrl.clone();
     target.pathname = '/shop';
     return NextResponse.rewrite(target);
+  }
+
+  /*
+   * ★★**손님 동 표시** — 루트 레이아웃이 「지금이 손님 화면인가」를 알아야 한다(2026-09-06).
+   *
+   * 사장님 「프리패스 erp 점 컴에서 원래 상세 페이지가 조회되거나 그러면 안 되는데」.
+   * 화면 글자는 채널로 고쳤는데 **레이아웃의 메타·JSON-LD 가 여전히 우리 것**이었다 —
+   * `/uniauto` 소스를 열면 `프리패스모빌리티 주식회사` · 「장기렌터카 영업지원 플랫폼」이 나왔다.
+   * 레이아웃은 라우트를 모르므로(호스트만 본다) 여기서 한 줄 붙여 준다.
+   * ⚠ 업무동에는 안 붙인다 — 콕핏은 우리 화면이라 예전 그대로여야 한다.
+   */
+  if (isGuestPath(request.nextUrl.pathname)) {
+    const headers = new Headers(request.headers);
+    headers.set(GUEST_HEADER, '1');
+    return NextResponse.next({ request: { headers } });
   }
 
   if (host !== PUBLIC_SIGN_HOST) return NextResponse.next();

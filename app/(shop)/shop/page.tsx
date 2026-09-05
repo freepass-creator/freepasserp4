@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import { ShopView } from './ShopView';
-import { hasBrand, resolveWhitelabel } from '@/lib/whitelabel';
+import { hasBrand, resolveGuestWhitelabel } from '@/lib/whitelabel';
 
 /**
  * 가게의 **서버 껍데기**. 화면은 `ShopView`(클라이언트)가 그린다.
@@ -25,7 +25,7 @@ const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) 
 
 export async function generateMetadata({ searchParams }: Params): Promise<Metadata> {
   const sp = await searchParams;
-  const wl = resolveWhitelabel((await headers()).get('host'), one(sp.wl));
+  const wl = resolveGuestWhitelabel((await headers()).get('host'), one(sp.wl));
 
   // 노브랜드면 루트 레이아웃 기본값을 그대로 쓴다 — 아무것도 덮지 않는다.
   if (!hasBrand(wl)) return {};
@@ -45,6 +45,6 @@ export async function generateMetadata({ searchParams }: Params): Promise<Metada
 export default async function ShopPage({ searchParams }: Params) {
   const sp = await searchParams;
   // 호스트가 정본이고 `?wl=` 은 도메인 붙이기 «전» 미리보기용 — 상세(`/q`)와 같은 규칙이다.
-  const wl = resolveWhitelabel((await headers()).get('host'), one(sp.wl));
+  const wl = resolveGuestWhitelabel((await headers()).get('host'), one(sp.wl));
   return <ShopView wl={wl} />;
 }

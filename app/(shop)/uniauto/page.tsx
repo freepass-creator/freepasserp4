@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { headers } from 'next/headers';
 import { ShopView } from '../shop/ShopView';
 import { WHITELABELS, hasBrand } from '@/lib/whitelabel';
 
@@ -35,7 +36,17 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default function UniautoPage() {
+export default async function UniautoPage() {
+  /*
+   * ⚠⚠ **`headers()` 를 «읽어야» 한다.** 안 읽으면 이 층이 「요청을 안 보는 층」으로 잡혀,
+   *   미들웨어가 붙인 손님 표시(`x-fp-guest`)가 **루트 레이아웃까지 안 간다.**
+   *   그러면 겉은 유니오토인데 소스에는 우리 JSON-LD(`프리패스모빌리티 주식회사`)가 그대로 실린다
+   *   — 2026-09-06 실측. `/shop`·`/q` 는 제 껍데기가 이미 `headers()` 를 읽어 멀쩡했고
+   *   여기만 샜다(브랜드를 상수로 박아 둬서 요청을 볼 일이 없었다).
+   * ★`export const dynamic = 'force-dynamic'` 만으로는 안 된다 — 그건 «캐시» 얘기고,
+   *   이건 «이 요청을 읽었나» 얘기다. 둘은 다른 축이다.
+   */
+  await headers();
   return <ShopView wl={UNI} />;
 }
 

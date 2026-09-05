@@ -564,6 +564,29 @@ must(/sp: \{ tight: 4, snug: 8, cozy: 12, edge: 16, part: 24, pane: 32, wide: 48
   'components/shop/shop-ui.tsx SHOP.sp');
 
 /*
+ * **ERP 도메인에서 손님 화면이 «프리패스»로 떨어지지 않는다.**
+ *
+ * 사장님 2026-09-06 「프리패스 erp 점 컴에서 **원래 상세 페이지가 조회되거나 그러면 안 되는데**」.
+ * ⚠ 실측 — `www.freepasserp.com/q/<토큰>` 에서 **`?wl=` 꼬리표만 떼면** 프리패스 「상품 안내」가 떴고,
+ *   `/shop` 은 재고 전체를 프리패스 껍데기로 공개했으며, `/uniauto` 는 겉만 유니오토이고
+ *   **소스에 `프리패스모빌리티 주식회사`** 가 실려 나갔다. 손님이 주소창에서 지울 수 있는 값이
+ *   브랜드를 정하고 있었던 것이다(카톡 미리보기 봇은 애초에 꼬리표 없는 주소를 긁는다).
+ * ★뿌리는 **채널 도메인이 아직 안 붙은 것**이다. 그래서 「호스트가 정본, 못 찾으면 임시 채널」로 두었다 —
+ *   도메인을 붙이면 호스트가 이겨서 이 폴백은 안 탄다(코드 재수정 없음).
+ * ⚠ 업무동(`/login`·`/inventory`)은 **예전 그대로**여야 한다 — 콕핏은 우리 화면이다.
+ */
+must(/export function resolveGuestWhitelabel/.test(read('lib/whitelabel.ts'))
+  && /export function isGuestPath/.test(read('lib/whitelabel.ts'))
+  && /resolveGuestWhitelabel\(\(await headers\(\)\)\.get\('host'\), one\(sp\.wl\)\)/.test(read('app/q/[code]/page.tsx'))
+  && /resolveGuestWhitelabel\(\(await headers\(\)\)\.get\('host'\), one\(sp\.wl\)\)/.test(read('app/(shop)/shop/page.tsx'))
+  && /isGuestPath\(request\.nextUrl\.pathname\)/.test(read('middleware.ts'))
+  && /x-fp-guest/.test(read('app/layout.tsx'))
+  /* 손님 층이 요청을 «읽어야» 미들웨어 표시가 레이아웃까지 간다 — 그 머리말 참고. */
+  && /await headers\(\);[\s\S]{0,20}?return <ShopView wl=\{UNI\} \/>;/.test(read('app/(shop)/uniauto/page.tsx')),
+  'ERP 도메인의 손님 화면이 다시 노브랜드(프리패스)로 떨어집니다 — 상세·목록·소스에 우리 이름이 샙니다.',
+  'lib/whitelabel.ts resolveGuestWhitelabel');
+
+/*
  * **폰 검색 = 머리띠 돋보기 → «퀵필터 칩 줄 위»로 나온다.** 목록 위에 상시로 깔지 않는다.
  *
  * 사장님 2026-09-05 「유튜브 모바일 **우측 상단에 돋보기를 누르면** 우리 원래 있던 그 **퀵필터 칩**

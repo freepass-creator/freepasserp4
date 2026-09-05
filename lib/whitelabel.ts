@@ -38,6 +38,14 @@ export type Whitelabel = {
    * ★호스트 판정(`resolveWhitelabel`)에는 안 쓴다 — 도메인이 붙는 순간 코드 배포 없이 브랜드가 떠야 한다.
    */
   domainReady?: boolean;
+  /**
+   * **ERP 도메인 «안»에서 이 채널이 임시로 서 있는 주소** — 도메인이 붙기 전까지만.
+   *
+   * 사장님 2026-09-06 「유니오토가 들어가야지. **일단은 임시로 보여주는 페이지**고
+   * **나중에 별도 도메인 붙일 수 있게**」.
+   * ★도메인이 붙으면 `hosts` 가 이기고 이 값은 «안 쓰인다» — 지우는 것도 그때다.
+   */
+  previewPath?: string;
   /** 손님에게 보이는 회사명. 빈 문자열 = 브랜드 표식을 «세우지 않는다»(노브랜드). */
   name: string;
   /** 워드마크 이분 — 앞(굵게) + 뒤(가늘게·자간). 둘 다 비면 워드마크를 안 그린다. */
@@ -91,6 +99,8 @@ export const FREEPASS: Whitelabel = {
 export const WHITELABELS: Whitelabel[] = [
   {
     key: 'uniplan',
+    /** ERP 도메인 안의 임시 주소. 도메인이 붙으면 이 줄을 지운다(위 `previewPath` 머리말). */
+    previewPath: '/uniauto',
     /*
      * ★도메인이 붙는 순간 **코드 배포 없이** 브랜드가 뜬다(`resolveWhitelabel` 은 호스트만 본다).
      *   그래서 「살 예정인 주소」와 「우리 도메인의 서브도메인」을 **미리 다 적어 둔다.**
@@ -176,6 +186,45 @@ export function resolveWhitelabel(host?: string | null, wlKey?: string | null): 
     if (byKey) return byKey;
   }
   return FREEPASS;
+}
+
+/**
+ * **손님 동 라우트인가** — 업무동(콕핏)과 가르는 한 곳.
+ *
+ * ★이 판정이 필요한 이유 = **아직 채널 도메인이 하나도 안 붙어 있다**(2026-09-06 실측:
+ *   `uniauto.freepasserp.com` · `uniautofreepass.com` 전부 응답 없음). 브랜드는 «호스트»가
+ *   정하는 설계인데 호스트가 ERP 도메인 하나뿐이라, 손님 화면이 **노브랜드(프리패스)로 떨어졌다.**
+ * ⚠ 업무동까지 채널로 물들이면 안 된다 — `/login`·`/inventory` 는 우리 콕핏이다. 그래서 «라우트»로 가른다.
+ */
+export function isGuestPath(pathname: string): boolean {
+  const p = String(pathname || '').split('?')[0];
+  if (p === '/q' || p.startsWith('/q/')) return true;
+  if (p === '/shop' || p.startsWith('/shop/')) return true;
+  if (p === '/catalog' || p.startsWith('/catalog/')) return true;
+  return WHITELABELS.some((w) => !!w.previewPath && (p === w.previewPath || p.startsWith(`${w.previewPath}/`)));
+}
+
+/** 손님 동이 노브랜드로 떨어졌을 때 입는 **임시 채널**. 도메인이 붙으면 안 쓰인다. */
+export const GUEST_FALLBACK_KEY = 'uniplan';
+
+/**
+ * **손님 동 브랜드 판정** — 호스트 → `?wl=` → **임시 채널**.
+ *
+ * 사장님 2026-09-06 「프리패스 erp 점 컴에서 **원래 상세 페이지가 조회되거나 그러면 안 되는데**」.
+ * 맞다. `www.freepasserp.com/q/<토큰>` 에서 `?wl=` 꼬리표만 떼면 **프리패스 「상품 안내」**가 떴고,
+ * `/shop` 은 재고 전체를 프리패스 껍데기로 공개하고 있었다. 손님이 주소창에서 지울 수 있는 값이
+ * 브랜드를 정하고 있었던 것이다(카톡 미리보기 봇은 애초에 안 붙은 주소를 긁는다).
+ *
+ * ★★**호스트가 여전히 정본이다.** 여기는 «못 찾았을 때만» 떨어지는 자리라, 채널 도메인을 붙이면
+ *   그 순간 위에서 끝나고 이 줄은 안 탄다 — **코드를 다시 안 고쳐도 된다**(사장님 「나중에 별도
+ *   도메인 붙일 수 있게」). 채널이 둘이 되면 그때 기본값을 다시 정한다(그전엔 하나뿐이라 명확하다).
+ * ⚠ 이미 카톡·문자로 나간 `freepasserp.com/q/...` 링크는 **안 죽는다** — 브랜드만 바뀐다.
+ *   라우트를 닫는 쪽이 깨끗하지만, 손님이 지금 손에 들고 있는 링크가 대부분 이 도메인이다.
+ */
+export function resolveGuestWhitelabel(host?: string | null, wlKey?: string | null): Whitelabel {
+  const wl = resolveWhitelabel(host, wlKey);
+  if (hasBrand(wl)) return wl;
+  return WHITELABELS.find((w) => w.key === GUEST_FALLBACK_KEY) || wl;
 }
 
 /** 브랜드 표식을 세우는가 — 노브랜드면 머리띠·워드마크·푸터를 아예 그리지 않는다. */

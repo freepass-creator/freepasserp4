@@ -1,5 +1,5 @@
 import { BRAND, BRAND_DESCRIPTION, BRAND_TAGLINE } from '@/lib/brand';
-import { hasBrand, resolveWhitelabel } from '@/lib/whitelabel';
+import { hasBrand, resolveGuestWhitelabel, resolveWhitelabel } from '@/lib/whitelabel';
 import './globals.css';
 import type { Metadata, Viewport } from 'next';
 import { cookies, headers } from 'next/headers';
@@ -44,7 +44,18 @@ export const viewport: Viewport = {
  *   실질 손해가 없고, robots·sitemap 은 라우트 핸들러라 영향을 안 받는다.
  */
 export async function generateMetadata(): Promise<Metadata> {
-  const wl = resolveWhitelabel((await headers()).get('host'));
+  /*
+   * ⚠⚠ **손님 라우트면 채널로 떨어진다**(2026-09-06). 호스트만 보던 판정이라 ERP 도메인 안의
+   *   손님 화면(`/uniauto`·`/q`·`/shop`)은 노브랜드로 잡혔고, 겉은 유니오토인데
+   *   **탭 제목·OG·JSON-LD 에 우리 이름**이 실려 나갔다(사장님 2026-09-06 지적).
+   * ★채널 도메인이 붙으면 호스트가 이겨서 이 갈림은 안 탄다 — 그때 지우는 것이 아니라 그대로 둔다
+   *   (미리보기 주소는 계속 쓰인다).
+   */
+  const hdrs = await headers();
+  const guest = hdrs.get('x-fp-guest') === '1';
+  const wl = guest
+    ? resolveGuestWhitelabel(hdrs.get('host'))
+    : resolveWhitelabel(hdrs.get('host'));
   if (hasBrand(wl)) {
     const site = wl.hosts[0] || wl.name;
     return {
@@ -145,7 +156,11 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             겉이 유니오토여도 소스를 열면 우리 이름이 나온다(2026-09-05 실측 39곳 중 여기가 제일 컸다).
             검색 재료로 넣은 것인데 채널 주소는 애초에 색인시키지 않으므로(robots noindex) 없어도 잃을 게 없다.
         */}
-        {hasBrand(resolveWhitelabel(hdrs.get('host'))) ? null : (
+        {/*
+          ⚠ **손님 라우트에서도 안 내보낸다**(2026-09-06). 예전엔 «호스트»만 봐서, ERP 도메인 안의
+            유니오토 화면(`/uniauto`)에 이 블록이 그대로 붙었다 — 소스를 열면 우리 법인명이 나왔다.
+        */}
+        {hdrs.get('x-fp-guest') === '1' || hasBrand(resolveWhitelabel(hdrs.get('host'))) ? null : (
         <script
           type="application/ld+json"
           // eslint-disable-next-line react/no-danger
