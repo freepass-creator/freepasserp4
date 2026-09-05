@@ -396,11 +396,23 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
     ['운전 범위', S('personal_driver_scope')],
     ['추가 운전자', join(S('additional_driver_allowance_count'), S('additional_driver_cost'))],
     /*
-     * 낮출 수 있는 차만 — 「불가」인 차에 「불가까지 10만원」이 뜨고 있었다.
-     * ★목표 나이는 바로 위 「운전 가능 연령」의 아래 끝이 이미 말한다 — 여기는 **값만** 쓴다
-     *   (같은 것을 두 번 말하지 않는다).
+     * ★★**연령 낮추기는 «나이 + 얹히는 돈»이고, 못 낮추면 「불가」다**(사장님 2026-09-05
+     *   「연령 낮추기는 **21세, 23세가 있으니까**, 아예 **불가하면 그냥 「연령 낮추기 불가」**.
+     *   그리고 21세에 23세, 거기다가 **플러스 얼마**. 그 **플러스 아이콘은 다 동일하게** 써줄게」).
+     *
+     *   · 낮출 수 있으면 → 「만 21세 ↑10만원」 (차마다 21세인 곳도 23세인 곳도 있다)
+     *   · 못 낮추면      → 「불가」  ← 이것도 «확정된 사실»이라 줄을 지우지 않는다
+     * ⚠ 한때 목표 나이를 빼고 값만 썼다 — 「위 구간의 아래 끝이 말한다」는 내 판단이었는데,
+     *   **낮추는 나이가 차마다 다르다.** 얼마를 내면 «몇 살까지» 내려가는지가 이 칸의 뜻이다.
+     * ★화살표는 약정 주행 가산액과 **같은 것**을 쓴다 — 둘 다 「돈이 얹힌다」는 같은 말이다.
      */
-    ['연령 낮추기', lowered && meaningful(S('age_lowering_cost')) ? S('age_lowering_cost') : ''],
+    ['연령 낮추기', (() => {
+      const raw = S('driver_age_lowering');
+      if (!raw) return '';
+      if (!lowered) return /불가/.test(raw) ? '불가' : '';
+      const cost = S('age_lowering_cost');
+      return meaningful(cost) ? `${age(lowered)} ↑${cost}` : age(lowered);
+    })()],
   ]);
 
   /** ⑥ 기타 — 참고만 하는 값. 제일 조용하게 한 줄로 흘린다. */
