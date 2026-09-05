@@ -31,13 +31,13 @@ const SRC_GROUP: Record<string, { icon: string; name: string }> = {
   mirror: { icon: '📥', name: '미러/수기 (원천표시 없음)' },
 };
 type Agg = { n: number; bad: number; warn: number; upd: number };
-const OUTS: { icon: string; name: string; what: string; live: boolean }[] = [
-  { icon: '📊', name: '판매 구글시트', what: '차 4탭·대여료·정책', live: true },
-  { icon: '🖥️', name: 'ERP 파인더', what: '상품찾기 카탈로그', live: true },
-  { icon: '🛒', name: 'B2C 손님 카탈로그', what: '/shop · /q 상세', live: true },
-  { icon: '🏷️', name: '화이트라벨 채널', what: '채널 이름으로', live: true },
-  { icon: '🧾', name: '채널·정산 시트', what: '조건·머리띠·정산', live: true },
-  { icon: '🔌', name: '외부 영업채널 API', what: '차·요금·정책 push', live: false },
+const OUTS: { key: string; icon: string; name: string; what: string; live: boolean }[] = [
+  { key: 'sheet', icon: '📊', name: '판매 구글시트', what: '차 4탭·대여료·정책', live: true },
+  { key: 'finder', icon: '🖥️', name: 'ERP 파인더', what: '상품찾기 카탈로그', live: true },
+  { key: 'b2c', icon: '🛒', name: 'B2C 손님 카탈로그', what: '/shop · /q 상세', live: true },
+  { key: 'whitelabel', icon: '🏷️', name: '화이트라벨 채널', what: '채널 이름으로', live: true },
+  { key: 'channel', icon: '🧾', name: '채널·정산 시트', what: '조건·머리띠·정산', live: true },
+  { key: 'api', icon: '🔌', name: '외부 영업채널 API', what: '차·요금·정책 push', live: false },
 ];
 
 export default function ConnectorsPage() {
@@ -147,13 +147,13 @@ export default function ConnectorsPage() {
             <div style={{ fontSize: FS.cap, fontWeight: FW.head, color: C.mute, marginBottom: 8 }}>내보내기 (OUT) · 샘 → 목적지</div>
             <div style={cardStyle}>
               {OUTS.map((o) => (
-                <div key={o.name} style={{ ...rowStyle, opacity: o.live ? 1 : 0.7 }}>
+                <Link key={o.key} href={`/connectors/out/${o.key}`} style={{ ...rowStyle, opacity: o.live ? 1 : 0.7 }}>
                   <span style={{ width: 16, textAlign: 'center' }}>{o.icon}</span>
                   <span style={{ flex: 1, minWidth: 0, fontSize: FS.sub }}>{o.name}<small style={{ display: 'block', fontSize: FS.cap, color: C.faint }}>{o.what}</small></span>
                   <Dot color={o.live ? C.ok : C.faint} />
                   <span style={{ fontSize: FS.cap, color: C.faint, width: 34, textAlign: 'right' }}>{o.live ? '연결' : '계획'}</span>
                   <span style={{ color: C.faint }}>›</span>
-                </div>
+                </Link>
               ))}
               <div style={{ padding: '9px 11px', textAlign: 'center', fontSize: FS.sub, color: C.accent, fontWeight: FW.strong }}>＋ 새 목적지 내보내기</div>
             </div>
