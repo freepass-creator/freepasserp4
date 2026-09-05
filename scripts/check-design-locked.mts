@@ -434,12 +434,25 @@ must(/const stateMarks: Mark\[\]/.test(shopDetail) && /const perkMarks: Mark\[\]
  *   이용 조건 ㉠나이 셋 ㉡심사·면허·범위·추가운전자 ㉢주행 둘
  */
 const at = (needle: string) => shopDetail.indexOf(needle);
+/*
+ * **사람이 차를 보는 차례** — 이름(제조사·세부모델·세부트림) → **선택 옵션** → **색상**
+ * (사장님 2026-09-05 「사람들이 차를 볼 때 «아 이게 어느 트림이고, 옵션이 뭐고, 아 색상이
+ *  뭐구나» 이렇게 들어간단 말이야」). 옵션은 격자 칸이 아니라 **한 줄을 통째로** 쓴다.
+ */
+must(at('>제조사 · 세부모델 · 세부트림<') < at('aria-label="선택 옵션"')
+  && at('aria-label="선택 옵션"') < at('<Facts rows={specs}')
+  /* 색상은 그 격자의 «첫 무리»다 — 옵션 바로 다음에 읽히려면 맨 앞이어야 한다. */
+  && at("['색상',") < at("['연식'"),
+  '차량 정보의 머리 차례가 바뀌었습니다 — 이름 → 선택 옵션 → 색상 순입니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-2-2');
 must(/function grouped\(/.test(shopDetail) && /const specs: FactRow\[\] = grouped\(/.test(shopDetail)
+  && at("['색상',") < at("['연식'")
   && at("['연식'") < at("? '배터리' : '배기량'")
-  && at("? '배터리' : '배기량'") < at("['색상',")
   && at("['주행거리'") < at("['연료'")
-  && at("['색상',") < at("['차량 가격'"),
-  '차량 정보의 무리가 흐트러졌습니다 — 연식·주행 / 배기량·연료·구동 / 색·인승 / 신차가 차례입니다.',
+  && at("['구동방식'") < at("['승차정원'")
+  && at("['승차정원'") < at("['차량 가격'")
+  && /cols=\{mobile \? 2 : 4\} mobile=\{mobile\} \/>/.test(shopDetail),
+  '차량 정보의 차례가 흐트러졌습니다 — 색상 / 연식·주행 / 배기량·연료·구동방식·승차정원 / 신차가 입니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-2-3');
 must(/const useRows = grouped\(/.test(shopDetail)
   && at("['기본 운전 연령'") < at("['연령 낮추기'")

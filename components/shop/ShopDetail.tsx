@@ -167,36 +167,21 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
    */
   const specs: FactRow[] = grouped(
     [
-      ['연식', yearFullDisplay(p.year)],
-      ['주행거리', km > 0 ? kmDisplay(p.mileage) : ''],
-    ],
-    [
       /*
-       * ★★**배기량과 배터리는 «한 칸»을 나눠 쓴다**(사장님 2026-09-05 「배기량하고 배터리 정보가
-       *   같이 들어갈 일이 없으니까 … 전기차는 배터리 용량이 **그 항목을 바꿔 가면서** 쓰는 거야」).
-       *   맞다 — 한 차가 둘 다 갖는 일이 없다. 두 칸을 따로 세우면 어느 차를 봐도 **하나는 늘 비고**,
-       *   격자에 구멍이 생겨 「덜 채운 표」로 보인다. 라벨이 바뀌는 한 칸이면 언제나 꽉 찬다.
-       * ★업무동도 같은 규칙이다(`lib/domain/product.ts` `ccLabel` — 「전기차는 배터리 용량이
-       *   그 자리를 든다」, 사장님 2026-08-23). 두 화면이 같은 말을 같은 방식으로 한다.
-       */
-      [isEvSpec ? '배터리' : '배기량',
-        isEvSpec
-          ? (Number(p.battery_capacity) > 0 ? `${Number(p.battery_capacity)}kWh` : '')
-          : (cc > 0 ? `${cc.toLocaleString('ko-KR')}cc` : '')],
-      ['연료', fuelDisplay(p.fuel_type) || String(p.fuel_type || '')],
-      ['구동방식', String(p.drive_type || '')],
-    ],
-    [
-      /*
-       * ★★**색상은 «한 칸»이고, 그 안에 내·외부가 같이 든다**(사장님 2026-09-05
-       *   「색상은 왜 «외부 색상»이니? **색상에는 내외부 색상이 다 있는 거지**」).
-       *   맞다 — 「이 차 무슨 색이야」는 한 물음이다. 칸을 둘로 쪼개니 격자 두 자리를 먹으면서
+       * ★★**차를 보는 순서 그대로다**(사장님 2026-09-05 「제조사·세부모델·세부트림, 그 밑에
+       *   **한 줄로 선택 옵션**을 길게 주고, **선택 옵션 밑에 색상**. 사람들이 차를 볼 때
+       *   «아 이게 어느 트림이고, 옵션이 뭐고, 아 색상이 뭐구나» 이렇게 들어간단 말이야」).
+       *   ⇒ 이름 → 옵션 → **색상** → 연식·주행 → 동력 → 값.
+       *   색상이 뒤쪽 「몸」 무리에 있었다. 앞으로 당겼다 — 이름·옵션 다음에 오는 게 사람 눈이다.
+       *
+       * ★★**색상은 «한 칸»이고, 그 안에 내·외부가 같이 든다**(사장님 「색상은 왜 «외부 색상»이니?
+       *   **색상에는 내외부 색상이 다 있는 거지**」). 칸을 둘로 쪼개면 격자 두 자리를 먹으면서
        *   내장색이 없는 차(실측 32%)는 **늘 한 칸이 비어** 「덜 채운 표」로 보였다.
        * ★★**색 견본을 같이 그린다**(사장님 「그 **색상 칩**을 만들었거든? 이렇게 색상 보이는 거,
        *   **직관적으로**? 색상 칩 달아주면 되고」). 「소닉실버」·「어비스블랙펄」은 글자로는 무슨
        *   색인지 모른다 — 차를 고르는 사람이 제일 먼저 보는 값인데 매번 상상해야 했다.
        *   색 코드는 `lib/domain/color-chips` 가 정본이고, 못 알아보는 이름은 **이름만** 나간다.
-       * ★글자값(「화이트 · 블랙」)은 그대로 남긴다 — 빈 값 판정·검색·낭독이 그걸 본다.
+       * ★글자값(「블랙 · 블랙」)은 그대로 남긴다 — 빈 값 판정·검색·낭독이 그걸 본다.
        */
       ['색상', [p.ext_color, p.int_color].map((c) => String(c || '').trim()).filter(Boolean).join(' · '), (
         <span style={{ display: 'inline-flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 12, rowGap: 4 }}>
@@ -204,9 +189,40 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
           <ColorMark name={p.int_color} label="내부" fontSize={SHOP.fs.cap} />
         </span>
       )],
+    ],
+    [
+      /*
+       * ㉡ **얼마나 탔나** — 연식 · 주행거리.
+       * 둘은 «따로 보는 값이 아니다». 2022년식 3만km 와 2022년식 12만km 는 다른 차다.
+       */
+      ['연식', yearFullDisplay(p.year)],
+      ['주행거리', km > 0 ? kmDisplay(p.mileage) : ''],
+    ],
+    [
+      /*
+       * ㉢ **무엇으로 어떻게 가나** — 배기량(전기차는 배터리) · 연료 · 구동방식 · **승차정원**.
+       * ★승차정원이 색상 옆에 있었다. **구동방식 줄로 옮겼다**(사장님 2026-09-05
+       *   「**구동 방식 줄에 승차 정원을 두고**」) — 「어떻게 굴러가고 몇 명 타나」가 한 묶음이다.
+       * ★그래서 이 구역은 웹에서 **네 칸**이다(전엔 셋). 이 무리 넷이 한 줄에 딱 앉는다.
+       *
+       * ★★**배기량과 배터리는 «한 칸»을 나눠 쓴다**(사장님 2026-09-05 「배기량하고 배터리 정보가
+       *   같이 들어갈 일이 없으니까 … 전기차는 배터리 용량이 **그 항목을 바꿔 가면서** 쓰는 거야」).
+       *   한 차가 둘 다 갖는 일이 없다. 두 칸을 세우면 어느 차를 봐도 하나는 늘 빈다.
+       * ★업무동도 같은 규칙이다(`lib/domain/product.ts` `ccLabel`, 사장님 2026-08-23).
+       */
+      [isEvSpec ? '배터리' : '배기량',
+        isEvSpec
+          ? (Number(p.battery_capacity) > 0 ? `${Number(p.battery_capacity)}kWh` : '')
+          : (cc > 0 ? `${cc.toLocaleString('ko-KR')}cc` : '')],
+      ['연료', fuelDisplay(p.fuel_type) || String(p.fuel_type || '')],
+      ['구동방식', String(p.drive_type || '')],
       ['승차정원', seats > 0 ? `${seats}인승` : ''],
     ],
     [
+      /*
+       * ⚠⚠ **차량 가격(신차가)은 «데이터가 없다».** `vehicle_price` 는 이 사업에 없는 개념이고
+       *   실측으로도 전 대수가 비어 있다. **지어내지 않는다** — 원천이 실어 주면 그날 바로 뜬다.
+       */
       ['차량 가격', Number(p.vehicle_price) > 0 ? `${Math.round(Number(p.vehicle_price) / 10000).toLocaleString('ko-KR')}만원` : ''],
     ],
   );
@@ -789,6 +805,10 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
              *   일부라 차 설명 안에 있어야지, 요약줄에 붙으면 훑는 줄이 길어지기만 한다.
              * ★칩은 «낱말»이라 상자가 아니다 — 낱개로 세는 값이라 칩이 제 모양이다.
              */}
+            {/*
+             * ★옵션은 **한 줄로 길게** 준다(사장님 2026-09-05 「그 밑에 **한 줄로 선택 옵션을 길게**」) —
+             *   격자 칸에 가두면 여덟 개짜리 차가 좁은 칸 안에서 다섯 줄로 접힌다. 폭을 통째로 쓴다.
+             */}
             {options.length ? (
               <div aria-label="선택 옵션" style={{ marginBottom: specs.length ? 20 : 0 }}>
                 <div style={{ marginBottom: 8, fontSize: SHOP.fs.cap, color: C.faint }}>선택 옵션</div>
@@ -803,7 +823,8 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
               </div>
             ) : null}
 
-            {specs.length ? <Facts rows={specs} cols={mobile ? 2 : 3} mobile={mobile} /> : null}
+            {/* ★웹 네 칸 — 「배기량·연료·구동방식·승차정원」 넷이 한 줄에 앉는다(위 ㉢ 참고). */}
+            {specs.length ? <Facts rows={specs} cols={mobile ? 2 : 4} mobile={mobile} /> : null}
           </>
         </Sec>
       ) : null}
