@@ -12,7 +12,7 @@
  */
 
 /** 손님 면의 주소 앞머리. 새 손님 라우트를 만들면 **여기 한 줄**만 더한다. */
-const GUEST_PREFIXES = ['/shop', '/catalog', '/q/', '/sign/'] as const;
+const GUEST_PREFIXES = ['/shop', '/uniauto', '/catalog', '/q/', '/sign/'] as const;
 
 export function isGuestSurface(pathname: string | null | undefined): boolean {
   if (!pathname) return false;
@@ -20,3 +20,4 @@ export function isGuestSurface(pathname: string | null | undefined): boolean {
     p.endsWith('/') ? pathname === p.slice(0, -1) || pathname.startsWith(p) : pathname === p || pathname.startsWith(`${p}/`)
   ));
 }
+

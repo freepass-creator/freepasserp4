@@ -91,7 +91,19 @@ export const FREEPASS: Whitelabel = {
 export const WHITELABELS: Whitelabel[] = [
   {
     key: 'uniplan',
-    hosts: ['uniautofreepass.com', 'www.uniautofreepass.com'],
+    /*
+     * ★도메인이 붙는 순간 **코드 배포 없이** 브랜드가 뜬다(`resolveWhitelabel` 은 호스트만 본다).
+     *   그래서 「살 예정인 주소」와 「우리 도메인의 서브도메인」을 **미리 다 적어 둔다.**
+     *   사장님 2026-09-05 「**유니오토 전용 페이지**를 좀 주면 좋겠다. 내가 **도메인 만들어서
+     *   연결시킬 수 있는** 페이지 … 유니오토.프리패스erp.com 을 걸면 되니까」.
+     * ★`freepasserp.com` 은 우리 도메인이다(전자계약이 `sign.freepasserp.com` 을 쓴다) —
+     *   서브도메인은 **사서 붙일 필요 없이** Vercel 에 한 줄 추가하면 바로 산다. 그게 제일 빠른 길이다.
+     */
+    hosts: [
+      'uniauto.freepasserp.com', 'www.uniauto.freepasserp.com',
+      'uniautomobile.freepasserp.com',
+      'uniautofreepass.com', 'www.uniautofreepass.com',
+    ],
     // 2026-09-05 사장님 「도메인은 아직 못 샀고」 — 사서 Vercel 에 붙이면 true 로 바꾼다.
     domainReady: false,
     /*

@@ -31,6 +31,12 @@ export function isPublicPath(pathname: string | null | undefined): boolean {
    */
   if (pathname === '/shop' || pathname.startsWith('/shop/')) return true;
   /*
+   * ★채널 «전용 주소» — 도메인을 붙이기 전에 손에 쥘 링크다(`app/(shop)/uniauto`).
+   *   여기를 안 열면 손님이 그 주소에서 **로그인으로 튕긴다** — 손님은 로그인이라는 게 있는 줄도 모른다.
+   *   (사장님 2026-09-05 「유니오토 전용 그 페이지를 좀 주면 좋겠다」)
+   */
+  if (pathname === '/uniauto' || pathname.startsWith('/uniauto/')) return true;
+  /*
    * ★★채널 주소의 **첫 화면**(사장님 2026-09-05 「그냥 그 주소로 들어가면 상품부터,
    *   회사가 뭘 팔고 있는지 그냥 다 보이는 거라고」).
    *   `uniautofreepass.com/` 은 미들웨어가 `/shop` 으로 rewrite 하지만 **브라우저 주소는 `/` 그대로**라,
