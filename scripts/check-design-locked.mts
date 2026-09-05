@@ -515,6 +515,16 @@ must(/className="fp-onphoto"/.test(shopCard) && /className="fp-signal-chip"/.tes
   'docs/DESIGN_CONFIRMED_SHOP.md §1-2-3-2');
 
 /*
+ * **폰 규격 — 글자 사다리가 «한 곳»에서 한 단 올라간다.**
+ * 사장님 2026-09-05 「모바일 버전은 전체 텍스트하고 움직임하고 … 통상 모바일 규격이 있을 거 아니니」.
+ * ⚠ 되돌아가면 폰 본문이 다시 13px 이 된다 — 실측 438개 글자 중 259개가 그 크기였다.
+ */
+must(/--shop-fs-body: 16px/.test(css) && /@media \(max-width: 760px\)/.test(css)
+  && /body: 'var\(--shop-fs-body\)'/.test(shopUi),
+  '손님 동 글자 사다리가 폰에서 안 올라갑니다 — 본문이 13px 로 내려앉습니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-3');
+
+/*
  * **관심(하트)은 손님 화면에 없다** — 손님은 로그인이 없다(사장님 2026-09-05
  * 「손님들이 여기에 로그인을 안 할 거라서 관심을 못 찍을 거야 … 영업사원 전용 로그인이야」).
  * 담아 둔 것을 다시 꺼내 볼 «내 목록»이 없는데 담는 단추만 있었다. 공유는 남는다 — 받는 사람은

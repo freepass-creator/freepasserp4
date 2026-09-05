@@ -1238,6 +1238,24 @@ html[data-fp-filter="0"] .fp-finder > .fp-sidebar { display: none; }
  * ★`scroll-snap` 이 한 장씩 딱 멈추게 한다. 없으면 두 장 사이에 어정쩡하게 선다.
  * ★막대는 숨긴다 — 사진 밑에 회색 줄이 그어진 꼴이 된다.
  */
+/*
+ * **손님 동 글자 사다리 — 폰에서 한 단 올린다.**
+ *
+ * 사장님 2026-09-05 「모바일 버전은 **전체 텍스트**하고 뭐 움직임하고 이런 것들 좀 한번 봐봐.
+ * 통상적으로 쓰는 그게 있을 거 아냐 … 통상 모바일 규격이 있을 거 아니니」.
+ *
+ * ⚠ 실측(390px 목록) — 화면 글자 438개 중 **13px 이 259개**, 12px 이 27개, 11px 이 3개였다.
+ *   손님 동 사다리(body 14.5 · sub 13 · cap 12)가 **웹 기준**인데 폰에서 그대로 쓰였기 때문이다.
+ * ★통상 규격 — iOS 기본 본문 17 · 머티리얼 body 14~16sp · 우리 집 규격도 「모바일 입력·버튼 16」이다.
+ *   13px 짜리 본문은 그 어느 쪽에도 못 미친다.
+ * ⇒ 사다리를 **CSS 변수 한 곳**에 두고 폰에서만 한 단 올린다. 값을 쓰는 자리(67곳)를 안 건드리므로
+ *   웹은 한 픽셀도 안 변한다 — SSOT 는 여기 이 다섯 줄이다.
+ */
+.fp-wl { --shop-fs-body: 14.5px; --shop-fs-sub: 13px; --shop-fs-cap: 12px; }
+@media (max-width: 760px) {
+  .fp-wl { --shop-fs-body: 16px; --shop-fs-sub: 14px; --shop-fs-cap: 13px; }
+}
+
 .fp-shop-gallery {
   display: flex; overflow-x: auto; overflow-y: hidden;
   scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;

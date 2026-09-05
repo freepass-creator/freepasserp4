@@ -277,7 +277,9 @@ export function ColorDot({ name, size = 12 }: { name: unknown; size?: number }) 
  * 이름이 없으면 아무것도 안 그린다(빈 동그라미를 남기지 않는다).
  */
 export function ColorMark({ name, label, size = 12, fontSize }: {
-  name: unknown; label?: string; size?: number; fontSize?: number;
+  name: unknown; label?: string; size?: number;
+  /** 글자 크기 — 숫자든 CSS 변수든 받는다(손님 동 사다리는 폰에서 한 단 올라간다). */
+  fontSize?: number | string;
 }) {
   const text = String(name ?? '').trim();
   if (!text) return null;

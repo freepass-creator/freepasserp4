@@ -38,8 +38,18 @@ export const SHOP = {
   tap: { web: 36, mobile: 48 },
   /** 둥글기 — 마켓의 기본. 업무동 R(4, 각짐)과 다른 이유가 이 파일 머리말에 있다. */
   r: { chip: PILL_R, box: R_CARD, card: 12 },
-  /** 글자 — 업무동 FS 는 18에서 끝나지만 손님 화면은 그 위가 필요하다. */
-  fs: { hero: 30, heroM: 22, h1: 20, h2: 16, body: 14.5, sub: 13, cap: 12 },
+  /**
+   * 글자 — 업무동 FS 는 18에서 끝나지만 손님 화면은 그 위가 필요하다.
+   *
+   * ★★**body·sub·cap 은 «폰에서 한 단 올라간다»**(14.5/13/12 → 16/14/13).
+   *   사다리는 `app/globals.css` 의 `.fp-wl` 변수 한 곳에 있다(그 머리말 참고) —
+   *   여기서 숫자를 박으면 폰이 웹 치수를 그대로 쓰게 되어, 실측 438개 글자 중 259개가 13px 이었다.
+   * ⚠ 그래서 이 셋은 **문자열(`var(...)`)**이다. 숫자를 기대하는 자리(아이콘 크기 등)에 넣지 말 것.
+   */
+  fs: {
+    hero: 30, heroM: 22, h1: 20, h2: 16,
+    body: 'var(--shop-fs-body)', sub: 'var(--shop-fs-sub)', cap: 'var(--shop-fs-cap)',
+  },
   gap: { pane: 32, block: 22, row: 10 },
 } as const;
 
@@ -93,7 +103,8 @@ export function ShopSearch({ value, onChange, placeholder, onFilter, filterCount
           <button type="button" onClick={onFilter} aria-label="상세 조건 열기" className="fp-shop-press"
             style={{
               position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              width: 40, height: 40, borderRadius: 999, flex: '0 0 auto',
+              /* 검색줄 안 「상세 조건」 — 폰에서 44(손가락 규격). 웹은 40 그대로. */
+              width: mobile ? 44 : 40, height: mobile ? 44 : 40, borderRadius: 999, flex: '0 0 auto',
               border: 'none', background: 'transparent', cursor: 'pointer',
               color: filterCount ? C.brand : C.ink,
             }}>
@@ -134,7 +145,12 @@ export function ShopPill({ on, onClick, children, title }: {
     <button type="button" onClick={onClick} title={title} aria-pressed={!!on} className="fp-shop-press"
       style={{
         ...bare,
-        height: mobile ? 40 : 36, padding: mobile ? '0 15px' : '0 14px',
+        /*
+         * ★폰 44 — 손가락 규격이다(머티리얼 48dp · HIG 44pt). 40 은 그 밑이라 헛누름이 난다
+         *   (사장님 2026-09-05 「모바일에서 너무 작으면 선택하기가 힘드니까 통상 규격」).
+         *   조건 «줄»은 48이고 여기 알약은 가로로 여러 개가 서므로 44 로 둔다 — HIG 최소.
+         */
+        height: mobile ? 44 : 36, padding: mobile ? '0 16px' : '0 14px',
         borderRadius: SHOP.r.chip, whiteSpace: 'nowrap',
         border: `1px solid ${on ? C.brand : C.line}`,
         background: on ? C.brand : 'transparent',
@@ -164,9 +180,11 @@ export function ShopTextBtn({ onClick, children, tone = 'mute' }: {
 export function ShopIconBtn({ onClick, label, children }: {
   onClick: () => void; label: string; children: ReactNode;
 }) {
+  const mobile = useIsMobile();
   return (
     <button type="button" onClick={onClick} aria-label={label} className="fp-shop-press"
-      style={{ ...bare, width: 36, height: 36, borderRadius: 999, color: C.mute }}>
+      /* 아이콘 단추(닫기 등) — 폰에서 44. 36 은 손가락으로 못 맞힌다. */
+      style={{ ...bare, width: mobile ? 44 : 36, height: mobile ? 44 : 36, borderRadius: 999, color: C.mute }}>
       {children}
     </button>
   );
@@ -243,7 +261,8 @@ export function ShopSort({ value, onChange, options }: {
       <select value={value} onChange={(e) => onChange(e.target.value)} aria-label="정렬"
         style={{
           appearance: 'none', WebkitAppearance: 'none',
-          height: mobile ? 40 : 36, padding: '0 34px 0 14px',
+          /* 정렬 고르개도 같은 규격 — 폰 44(HIG 최소). */
+          height: mobile ? 44 : 36, padding: '0 34px 0 14px',
           borderRadius: SHOP.r.chip, border: `1px solid ${C.line}`, background: 'transparent',
           fontFamily: 'inherit', fontSize: mobile ? SHOP.fs.body : SHOP.fs.sub,
           color: C.ink, fontWeight: 600, cursor: 'pointer',
@@ -345,7 +364,7 @@ export type ShopMark = {
  * **신원 칩** — 출고상태 · 상품구분. 「이 차가 지금 어떤 물건인가」를 통보하는 값이다.
  * 연한 «면» 위 작은 글자(딱지). **테두리는 두르지 않는다** — 테두리가 붙는 순간 그게 박스 뱃지다.
  */
-export function StateChip({ mark, fs = SHOP.fs.cap }: { mark: ShopMark; fs?: number }) {
+export function StateChip({ mark, fs = SHOP.fs.cap }: { mark: ShopMark; fs?: number | string }) {
   const Icon = mark.icon;
   return (
     <span style={{
@@ -368,7 +387,7 @@ export function StateChip({ mark, fs = SHOP.fs.cap }: { mark: ShopMark; fs?: num
  * ★**색은 아이콘에만**, 글자는 먹색(집 규칙 · `DESIGN_CONFIRMED_LIST_CARD` §카드).
  */
 export function PerkMark({ mark, fs = SHOP.fs.sub, size = 15 }: {
-  mark: ShopMark; fs?: number; size?: number;
+  mark: ShopMark; fs?: number | string; size?: number;
 }) {
   const Icon = mark.icon;
   return (
@@ -384,7 +403,7 @@ export function PerkMark({ mark, fs = SHOP.fs.sub, size = 15 }: {
 
 /** 조건 칩 줄 — 사이를 넉넉히 벌린다(붙여 놓으면 다시 «칩 줄»로 보인다). */
 export function PerkMarks({ marks, fs, size, columnGap = 16 }: {
-  marks: ShopMark[]; fs?: number; size?: number; columnGap?: number;
+  marks: ShopMark[]; fs?: number | string; size?: number; columnGap?: number;
 }) {
   if (!marks.length) return null;
   return (

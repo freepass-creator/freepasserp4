@@ -137,7 +137,8 @@ export function WhitelabelFrame({
               <span style={{ fontSize: FS.cap, color: C.faint }}>{who ? '담당' : '고객센터'}</span>
               <span style={{ fontSize: FS.title, fontWeight: FW.title, color: C.ink }}>{who || phone}</span>
             </div>
-            <Btn href={telHref} full title="담당자에게 전화합니다">
+            {/* ★손님 동 폼 규격 lg — 폰 48. 하단독의 주요 실행이라 손가락 규격을 넘겨 잡는다. */}
+            <Btn href={telHref} full size="lg" title="담당자에게 전화합니다">
               <Phone size={ICON.md} aria-hidden />전화 상담
             </Btn>
           </div>
@@ -212,7 +213,8 @@ function WhitelabelNotice({ wl, mobile }: { wl: Whitelabel; mobile: boolean }) {
           style={{
             position: 'absolute', right: mobile ? 10 : 18, top: mobile ? 12 : 22,
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            width: 32, height: 32, padding: 0, borderRadius: R_CARD,
+            /* ★폰 44 — 손가락 규격(HIG 44 · 머티리얼 48). 32 는 그 밑이라 X 를 몇 번 헛누른다. */
+            width: mobile ? 44 : 32, height: mobile ? 44 : 32, padding: 0, borderRadius: R_CARD,
             border: 'none', background: 'transparent', color: C.mute, cursor: 'pointer',
           }}
         >
