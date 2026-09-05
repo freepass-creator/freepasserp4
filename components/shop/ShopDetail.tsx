@@ -408,30 +408,15 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
 
       {payRows.length ? (
         /*
-         * ★납부 칸은 **흰 타일**이다 — 이 카드는 브랜드 면 위라, 다른 구역에서 쓰는 옅은 회색
-         *   타일을 그대로 얹으면 두 옅은 색이 섞여 탁해진다. 흰 타일이 면 위에서 또렷하다.
          * ★대여료 구역이 「얼마 · 기간별 · 어떻게 내나」 셋을 다 든다 — 손님이 돈 이야기를
          *   한자리에서 끝낸다(사장님 2026-09-05 「그 다음에 대여료 정보 설명하고」).
+         * ⚠ 여기 값마다 «흰 타일»을 깔았었다. 걷었다 — 이 카드가 이미 브랜드 면이라,
+         *   그 위에 상자를 또 넷 얹으면 면 안에 면이 생겨 카드가 «표»가 된다.
+         *   브랜드 면 위에서는 라벨·값만으로도 충분히 갈린다.
          */
         <div style={{ marginTop: 18 }}>
           <div style={{ marginBottom: 9, fontSize: SHOP.fs.cap, fontWeight: 600, color: C.mute }}>납부</div>
-          <div style={{
-            display: 'grid', gap: 8,
-            gridTemplateColumns: `repeat(${mobile ? 2 : 4}, minmax(0, 1fr))`,
-          }}>
-            {payRows.map(([k, v]) => (
-              <div key={k} style={{
-                minWidth: 0, padding: mobile ? '12px' : '13px 14px',
-                borderRadius: SHOP.r.card, background: C.bg,
-              }}>
-                <div style={{ fontSize: SHOP.fs.cap, color: C.faint, marginBottom: 6 }}>{k}</div>
-                <div style={{
-                  fontSize: SHOP.fs.sub, fontWeight: 700, color: C.ink,
-                  wordBreak: 'keep-all', lineHeight: 1.45,
-                }}>{v}</div>
-              </div>
-            ))}
-          </div>
+          <Facts rows={payRows} cols={mobile ? 2 : 4} mobile={mobile} />
         </div>
       ) : null}
 
@@ -480,64 +465,54 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
       {bar}
       {gallery}
       <Head title={title} facts={facts} />
-      {options.length ? (
-        <div aria-label="선택 옵션" style={{ marginTop: 14 }}>
-          <div style={{ marginBottom: 9, fontSize: SHOP.fs.cap, fontWeight: 600, color: C.mute }}>선택 옵션</div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-            {options.map((o) => (
-              <span key={o} style={{
-                padding: '7px 12px', borderRadius: SHOP.r.chip, background: C.zebra,
-                fontSize: SHOP.fs.sub, color: C.sub,
-              }}>{o}</span>
-            ))}
-          </div>
-        </div>
-      ) : null}
       {/*
         ★★**차량 정보 = 「이 차가 무엇인가」 한 덩어리**.
           제조사·세부모델·세부트림 한 줄 → 연식·주행거리·배기량·연료 → 색상·정원·최초등록.
         선택 옵션은 이 구역이 아니라 차명 바로 아래에서 먼저 읽는다.
       */}
-      {(modelLine || specs.length) ? (
+      {(modelLine || specs.length || options.length) ? (
         <>
           <Rule mobile={mobile} />
           <section aria-label="차량 정보">
             <SecTitle icon={Car}>차량 정보</SecTitle>
 
+            {/*
+             * ★맨 윗줄은 «이 차의 이름»이다 — 상자를 두르지 않고 **한 단 큰 글자**로 세운다.
+             *   상자에 넣으면 아래 값들과 같은 «칸»이 되어, 이름인지 값인지가 안 갈린다.
+             */}
             {modelLine ? (
-              /* 맨 윗줄은 «이름»이라 통째로 한 줄을 준다 — 아래 값 칸들과 성격이 다르다. */
-              <div style={{
-                padding: mobile ? '13px 12px' : '15px 14px', marginBottom: 8,
-                borderRadius: SHOP.r.card, background: C.zebra,
-              }}>
-                <div style={{ fontSize: SHOP.fs.cap, color: C.faint, marginBottom: 7 }}>제조사 · 세부모델 · 세부트림</div>
+              <div style={{ marginBottom: options.length ? 14 : 20 }}>
+                <div style={{ fontSize: SHOP.fs.cap, color: C.faint, marginBottom: 5 }}>제조사 · 세부모델 · 세부트림</div>
                 <div style={{
-                  fontSize: mobile ? 16 : 17, fontWeight: 700, color: C.ink,
-                  wordBreak: 'keep-all', lineHeight: 1.4,
+                  fontSize: mobile ? 17 : 18, fontWeight: 800, color: C.ink,
+                  letterSpacing: '-0.02em', wordBreak: 'keep-all', lineHeight: 1.4,
                 }}>{modelLine}</div>
               </div>
             ) : null}
 
-            {specs.length ? (
-              <div style={{
-                display: 'grid', gap: 8,
-                gridTemplateColumns: `repeat(${mobile ? 2 : 4}, minmax(0, 1fr))`,
-              }}>
-                {specs.map(([k, v]) => (
-                  <div key={k} style={{
-                    minWidth: 0, padding: mobile ? '13px 12px' : '15px 14px',
-                    borderRadius: SHOP.r.card, background: C.zebra,
-                  }}>
-                    <div style={{ fontSize: SHOP.fs.cap, color: C.faint, marginBottom: 7, letterSpacing: '0.01em' }}>{k}</div>
-                    <div style={{
-                      fontSize: SHOP.fs.body, fontWeight: 700, color: C.ink,
-                      wordBreak: 'keep-all', lineHeight: 1.45,
-                    }}>{v}</div>
-                  </div>
-                ))}
+            {/*
+             * ★★**선택 옵션은 차명 «바로 다음»**이다(사장님 2026-09-05
+             *   「차명 밑에 선택 옵션을 넣으라는 거는 그 **차량 정보 섹션** 차명 들어가고 선택 옵션
+             *   들어가는 거야. 그 위에 요약표에 들어가는 그 밑에를 말하는 게 아니라」).
+             * ⚠ 한때 화면 맨 위 사실줄 밑에 놓았다가 여기로 옮겼다 — 옵션은 «그 차가 무엇인가»의
+             *   일부라 차 설명 안에 있어야지, 요약줄에 붙으면 훑는 줄이 길어지기만 한다.
+             * ★칩은 «낱말»이라 상자가 아니다 — 낱개로 세는 값이라 칩이 제 모양이다.
+             */}
+            {options.length ? (
+              <div aria-label="선택 옵션" style={{ marginBottom: specs.length ? 20 : 0 }}>
+                <div style={{ marginBottom: 8, fontSize: SHOP.fs.cap, color: C.faint }}>선택 옵션</div>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                  {options.map((o) => (
+                    <span key={o} style={{
+                      padding: '7px 12px', borderRadius: SHOP.r.chip, background: C.zebra,
+                      fontSize: SHOP.fs.sub, color: C.sub,
+                    }}>{o}</span>
+                  ))}
+                </div>
               </div>
             ) : null}
 
+            {specs.length ? <Facts rows={specs} cols={mobile ? 2 : 4} mobile={mobile} /> : null}
           </section>
         </>
       ) : null}
@@ -752,6 +727,40 @@ function TopBar({ code, title, listHref, mobile }: {
 }
 
 /**
+ * **흐르는 값 격자** — 라벨 위 · 값 아래. **칸마다 상자를 두르지 않는다.**
+ *
+ * ⚠⚠ 여기 값마다 «연한 면»을 깔았었다. 걷었다(사장님 2026-09-05
+ *   「너무 막 이렇게 **표박스화 하지 말고**, 전체적으로 쓱 봐서 잘 **어우러지게** 해야 돼 정보들이」).
+ *   상자가 열 몇 개 깔리면 값 하나하나가 «칸»으로 갈려서, 눈이 훑는 게 아니라 **세게** 된다.
+ *   그러면 구역 하나가 표가 되고, 표가 여섯이면 화면 전체가 창살이다.
+ * ★대신 **간격과 글자 무게**가 가른다 — 라벨은 작고 흐리게, 값은 굵게, 줄 사이는 넉넉히.
+ *   면이 하나도 없어도 「라벨 / 값」 짝은 눈에 저절로 묶인다.
+ * ★★면은 **구역에 하나씩만** 남긴다 — 대여료 카드(브랜드 면)와 큰 값 한 줄(`BigRow`).
+ *   면이 드물어야 그 면이 «중요하다»는 뜻을 갖는다.
+ */
+function Facts({ rows, cols, mobile }: { rows: [string, string][]; cols: number; mobile?: boolean }) {
+  if (!rows.length) return null;
+  return (
+    <div style={{
+      display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+      columnGap: mobile ? 16 : 24, rowGap: mobile ? 18 : 22,
+    }}>
+      {rows.map(([k, v]) => (
+        <div key={k} style={{ minWidth: 0 }}>
+          <div style={{
+            fontSize: SHOP.fs.cap, color: C.faint, marginBottom: 5, letterSpacing: '0.01em',
+          }}>{k}</div>
+          <div style={{
+            fontSize: SHOP.fs.body, fontWeight: 700, color: C.ink,
+            wordBreak: 'keep-all', lineHeight: 1.45,
+          }}>{v}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
  * **큰 값 한 줄** — 그 구역에서 손님의 «결정»을 바꾸는 값 하나(나이 · 사고 시 내 부담).
  *
  * ★라벨을 «흰 알약»으로 얹는다. 큰 값 옆에 같은 굵기로 두면 둘이 다투는데,
@@ -845,31 +854,7 @@ function Tiles({ title, rows, cols, mobile, icon, lead }: {
             <BigRow label={lead.label} value={lead.value} mobile={mobile} />
           </div>
         ) : null}
-        {/*
-         * ★타일에 **연한 면**을 깐다(2026-09-05). 라벨·값만 허공에 놓으면 넓은 화면에서
-         *   글자 몇 개가 흩어진 것으로 보여 «안 채운 칸»처럼 읽힌다. 면을 깔면 그게 «칸»이 되고,
-         *   값이 짧아도 구역이 비어 보이지 않는다.
-         * ⚠ 면은 `C.zebra`(가장 옅은 것) 하나뿐이다 — 테두리를 두르면 선이 다시 늘어난다.
-         */}
-        {rows.length ? (
-        <div style={{
-          display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
-          gap: 8,
-        }}>
-          {rows.map(([k, v]) => (
-            <div key={k} style={{
-              minWidth: 0, padding: mobile ? '13px 12px' : '15px 14px',
-              borderRadius: SHOP.r.card, background: C.zebra,
-            }}>
-              <div style={{ fontSize: SHOP.fs.cap, color: C.faint, marginBottom: 7, letterSpacing: '0.01em' }}>{k}</div>
-              <div style={{
-                fontSize: SHOP.fs.body, fontWeight: 700, color: C.ink,
-                wordBreak: 'keep-all', lineHeight: 1.45,
-              }}>{v}</div>
-            </div>
-          ))}
-        </div>
-        ) : null}
+        {rows.length ? <Facts rows={rows} cols={cols} mobile={mobile} /> : null}
       </section>
     </>
   );

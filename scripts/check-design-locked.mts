@@ -195,10 +195,21 @@ must(/['"]외부 색상['"]/.test(shopDetail) && /['"]내부 색상['"]/.test(sh
 must(!/['"]구동방식['"]/.test(shopDetail),
   '차량 정보에 「구동방식」이 돌아왔습니다 — 사장님이 이 칸을 「그런 걸 넣는 게 아니라」의 예로 드셨습니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-11');
-// 선택 옵션은 차명 바로 아래다 — 고객이 차를 식별할 때 먼저 읽는 실제 사양이다.
-must(/<Head title=\{title\} facts=\{facts\} \/>[\s\S]*aria-label="선택 옵션"[\s\S]*<Rule mobile=\{mobile\} \/>/.test(shopDetail),
-  '선택 옵션이 차명 바로 아래에서 빠졌습니다. 고객이 차를 식별할 때 먼저 읽는 사양입니다.',
-  'docs/DESIGN_CONFIRMED_SHOP.md §1-11');
+/*
+ * 선택 옵션은 **차량 정보 구역 안, 차명 줄 바로 다음**이다(사장님 2026-09-05
+ * 「차명 밑에 선택 옵션을 넣으라는 거는 그 **차량 정보 섹션** 차명 들어가고 선택 옵션 들어가는 거야.
+ *  그 위에 요약표에 들어가는 그 밑에를 말하는 게 아니라」).
+ * ⚠ 코덱스가 넣은 검사는 `[\s\S]*` 가 파일 전체를 먹어 **옵션이 어디 있든 통과**했다.
+ *   그래서 차명 밑에 있든 차량 정보 안에 있든 빨간불이 안 떴다. 구간을 «구역 안»으로 좁혔다.
+ */
+{
+  const vi = shopDetail.indexOf('<section aria-label="차량 정보">');
+  const opt = shopDetail.indexOf('aria-label="선택 옵션"');
+  const model = shopDetail.indexOf('제조사 · 세부모델 · 세부트림');
+  must(vi >= 0 && opt > vi && model > vi && opt > model,
+    '선택 옵션이 차량 정보 구역 «안 · 차명 줄 다음»에 없습니다. 옵션은 그 차가 무엇인가의 일부입니다.',
+    'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
+}
 must((shopDetail.match(/aria-label="선택 옵션"/g) || []).length === 1,
   '선택 옵션이 두 군데에 중복됐습니다. 차명 아래 한 번만 보입니다.',
   'components/shop/ShopDetail.tsx');
