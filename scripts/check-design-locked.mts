@@ -197,7 +197,7 @@ must(/>제조사 · 세부모델 · 세부트림</.test(shopDetail),
  *   두 칸으로 쪼개면 내장색이 없는 차(32%)는 늘 한 칸이 비어 「덜 채운 표」가 된다.
  * ★색 코드는 `lib/domain/color-chips` 가 정본 — 화면이 hex 를 새로 정하면 그때부터 갈린다.
  */
-must(/\['색상',/.test(shopDetail)
+must(/aria-label="색상"/.test(shopDetail)
   && /<ColorMark name=\{p\.ext_color\} label="외부"/.test(shopDetail)
   && /<ColorMark name=\{p\.int_color\} label="내부"/.test(shopDetail)
   && /from '@\/lib\/domain\/color-chips'/.test(read('components/ui/badges.tsx')),
@@ -440,13 +440,12 @@ const at = (needle: string) => shopDetail.indexOf(needle);
  *  뭐구나» 이렇게 들어간단 말이야」). 옵션은 격자 칸이 아니라 **한 줄을 통째로** 쓴다.
  */
 must(at('>제조사 · 세부모델 · 세부트림<') < at('aria-label="선택 옵션"')
-  && at('aria-label="선택 옵션"') < at('<Facts rows={specs}')
-  /* 색상은 그 격자의 «첫 무리»다 — 옵션 바로 다음에 읽히려면 맨 앞이어야 한다. */
-  && at("['색상',") < at("['연식'"),
-  '차량 정보의 머리 차례가 바뀌었습니다 — 이름 → 선택 옵션 → 색상 순입니다.',
+  && at('aria-label="선택 옵션"') < at('aria-label="색상"')
+  /* 색상까지가 «이름 무리»다 — 격자(연식·주행…)는 그 다음이다. */
+  && at('aria-label="색상"') < at('<Facts rows={specs}'),
+  '차량 정보의 «이름 무리»가 흩어졌습니다 — 이름 → 선택 옵션 → 색상이 한 덩어리로 붙고, 격자는 그 다음입니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-2-2');
 must(/function grouped\(/.test(shopDetail) && /const specs: FactRow\[\] = grouped\(/.test(shopDetail)
-  && at("['색상',") < at("['연식'")
   && at("['연식'") < at("? '배터리' : '배기량'")
   && at("['주행거리'") < at("['연료'")
   && at("['구동방식'") < at("['승차정원'")

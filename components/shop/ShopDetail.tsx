@@ -165,31 +165,16 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
    *   웹 3열에서는 ㉡㉢ 이 정확히 한 줄씩 앉고, 폰 2열에서는 무리가 접히되 섞이지는 않는다.
    * ⚠ 옛 순서는 «색상이 맨 앞»이었다. 손님이 제일 먼저 묻는 것은 색이 아니라 **연식·주행거리**다.
    */
+  /*
+   * ★★★**이름 · 선택 옵션 · 색상은 «한 무리»다**(사장님 2026-09-05 「차의 직관적인 트림까지,
+   *   **모델 · 선택 옵션 · 색상까지는 약간 한 무리야**」 · 「사람들이 차를 볼 때 «아 이게 어느
+   *   트림이고, 옵션이 뭐고, 아 색상이 뭐구나» 이렇게 들어간단 말이야」).
+   *   ⇒ 셋은 격자 «위»에 바짝 붙여 세우고(`identity`), 격자는 «그 차가 어떤 상태인가»만 든다.
+   *     색상이 격자의 첫 무리로 들어가 있었다 — 줄이 갈리면서 이름·옵션과 남남이 됐다.
+   *   ⇒ 격자 = 연식·주행 / 배기량·연료·구동방식·승차정원 / 신차가.
+   */
+  const colorText = [p.ext_color, p.int_color].map((c) => String(c || '').trim()).filter(Boolean).join(' · ');
   const specs: FactRow[] = grouped(
-    [
-      /*
-       * ★★**차를 보는 순서 그대로다**(사장님 2026-09-05 「제조사·세부모델·세부트림, 그 밑에
-       *   **한 줄로 선택 옵션**을 길게 주고, **선택 옵션 밑에 색상**. 사람들이 차를 볼 때
-       *   «아 이게 어느 트림이고, 옵션이 뭐고, 아 색상이 뭐구나» 이렇게 들어간단 말이야」).
-       *   ⇒ 이름 → 옵션 → **색상** → 연식·주행 → 동력 → 값.
-       *   색상이 뒤쪽 「몸」 무리에 있었다. 앞으로 당겼다 — 이름·옵션 다음에 오는 게 사람 눈이다.
-       *
-       * ★★**색상은 «한 칸»이고, 그 안에 내·외부가 같이 든다**(사장님 「색상은 왜 «외부 색상»이니?
-       *   **색상에는 내외부 색상이 다 있는 거지**」). 칸을 둘로 쪼개면 격자 두 자리를 먹으면서
-       *   내장색이 없는 차(실측 32%)는 **늘 한 칸이 비어** 「덜 채운 표」로 보였다.
-       * ★★**색 견본을 같이 그린다**(사장님 「그 **색상 칩**을 만들었거든? 이렇게 색상 보이는 거,
-       *   **직관적으로**? 색상 칩 달아주면 되고」). 「소닉실버」·「어비스블랙펄」은 글자로는 무슨
-       *   색인지 모른다 — 차를 고르는 사람이 제일 먼저 보는 값인데 매번 상상해야 했다.
-       *   색 코드는 `lib/domain/color-chips` 가 정본이고, 못 알아보는 이름은 **이름만** 나간다.
-       * ★글자값(「블랙 · 블랙」)은 그대로 남긴다 — 빈 값 판정·검색·낭독이 그걸 본다.
-       */
-      ['색상', [p.ext_color, p.int_color].map((c) => String(c || '').trim()).filter(Boolean).join(' · '), (
-        <span style={{ display: 'inline-flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 12, rowGap: 4 }}>
-          <ColorMark name={p.ext_color} label="외부" fontSize={SHOP.fs.cap} />
-          <ColorMark name={p.int_color} label="내부" fontSize={SHOP.fs.cap} />
-        </span>
-      )],
-    ],
     [
       /*
        * ㉡ **얼마나 탔나** — 연식 · 주행거리.
@@ -779,7 +764,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
           제조사·세부모델·세부트림 한 줄 → 연식·주행거리·배기량·연료 → 색상·정원·최초등록.
         선택 옵션은 이 구역이 아니라 차명 바로 아래에서 먼저 읽는다.
       */}
-      {(modelLine || specs.length || options.length) ? (
+      {(modelLine || specs.length || options.length || colorText) ? (
         <Sec title="차량 정보" icon={Car} mobile={mobile}>
           <>
 
@@ -788,7 +773,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
              *   상자에 넣으면 아래 값들과 같은 «칸»이 되어, 이름인지 값인지가 안 갈린다.
              */}
             {modelLine ? (
-              <div style={{ marginBottom: options.length ? 14 : 20 }}>
+              <div style={{ marginBottom: 14 }}>
                 <div style={{ fontSize: SHOP.fs.cap, color: C.faint, marginBottom: 5 }}>제조사 · 세부모델 · 세부트림</div>
                 <div style={{
                   fontSize: mobile ? 17 : 18, fontWeight: 800, color: C.ink,
@@ -810,7 +795,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
              *   격자 칸에 가두면 여덟 개짜리 차가 좁은 칸 안에서 다섯 줄로 접힌다. 폭을 통째로 쓴다.
              */}
             {options.length ? (
-              <div aria-label="선택 옵션" style={{ marginBottom: specs.length ? 20 : 0 }}>
+              <div aria-label="선택 옵션" style={{ marginBottom: 14 }}>
                 <div style={{ marginBottom: 8, fontSize: SHOP.fs.cap, color: C.faint }}>선택 옵션</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
                   {options.map((o) => (
@@ -823,7 +808,28 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
               </div>
             ) : null}
 
-            {/* ★웹 네 칸 — 「배기량·연료·구동방식·승차정원」 넷이 한 줄에 앉는다(위 ㉢ 참고). */}
+            {/*
+             * ★**색상은 이름 무리의 끝**이다 — 격자가 아니라 여기 붙는다(위 `specs` 머리말).
+             *   ★★색상은 **한 칸**이고 그 안에 내·외부가 같이 든다(사장님 「색상에는 내외부 색상이
+             *     다 있는 거지」). 두 칸으로 쪼개면 내장색이 없는 차(32%)는 늘 한 칸이 빈다.
+             *   ★★**색 견본**을 같이 그린다(사장님 「색상 칩 달아주면 되고 — 직관적으로」).
+             *     「소닉실버」·「어비스블랙펄」은 글자로는 무슨 색인지 모른다.
+             *     색 코드 정본은 `lib/domain/color-chips` — 못 알아보는 이름은 이름만 나간다.
+             */}
+            {colorText ? (
+              <div aria-label="색상" style={{ marginBottom: specs.length ? 28 : 0 }}>
+                <div style={{ marginBottom: 5, fontSize: SHOP.fs.cap, color: C.faint }}>색상</div>
+                <div style={{
+                  display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 14, rowGap: 4,
+                  fontSize: SHOP.fs.body, fontWeight: 700, color: C.ink,
+                }}>
+                  <ColorMark name={p.ext_color} label="외부" fontSize={SHOP.fs.cap} />
+                  <ColorMark name={p.int_color} label="내부" fontSize={SHOP.fs.cap} />
+                </div>
+              </div>
+            ) : null}
+
+            {/* 격자 = 「이 차가 어떤 상태인가」. 웹은 무리가 «띠»로 옆에 붙고 폰은 두 칸으로 쌓는다. */}
             {specs.length ? <Facts rows={specs} cols={mobile ? 2 : 4} mobile={mobile} /> : null}
           </>
         </Sec>
