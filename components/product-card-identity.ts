@@ -5,6 +5,17 @@ import {
   fuelDisplay, fuelEmbeddedCc, yearDisplay,
 } from '@/lib/domain/vehicle-master-match';
 
+/**
+ * 배기량 cc → 리터 표시 «2.5·1.6» (사장님 2026-09-05 「배기량을 1.6 이렇게 변환해서 표시 · 원자 값은 그대로」).
+ * 원자의 engine_cc(cc)는 안 바꾼다 — 표시만 리터로. 세부모델·연료와 나란히 놓여 «어떤 연료의 어떤 배기량」이 한눈에.
+ * 0·전기(cc 없음)는 빈칸(배터리 용량이 그 자리를 대신).
+ */
+export function displacementL(cc: unknown): string {
+  const n = Number(cc) || 0;
+  if (n <= 0) return '';
+  return (Math.round(n / 100) / 10).toFixed(1);
+}
+
 /** 카드 2줄 표기 — 굵은 줄(제조사+모델) + 회색 보조줄(파워트레인·트림·추가표기). 조립은 vehicle-name.ts SSOT. */
 export function idParts(product: EntityRecord): { idMain: string; idExt: string } {
   const p = vehicleNameParts({ kind: 'product', product }, { tier: 'full' });
@@ -32,7 +43,7 @@ export function specLine(product: EntityRecord): string {
     kmDisplay(product.mileage),
     fuel,
     product.drive_type && String(product.drive_type),
-    engineCc > 0 && `${engineCc.toLocaleString()}cc`,
+    displacementL(engineCc),
     product.seats && `${product.seats}인승`,
     product.ext_color && `외장 ${product.ext_color}`,
     product.int_color && String(product.int_color) !== '-' && `내장 ${product.int_color}`,
@@ -55,7 +66,7 @@ export function cardMileage(product: EntityRecord): string {
 function cardEngineCc(product: EntityRecord): string {
   const value = Number(product.engine_cc) || fuelEmbeddedCc(product.fuel_type);
   if (!Number.isFinite(value) || value <= 0) return '미입력';
-  return `${value.toLocaleString()}cc`;
+  return displacementL(value);
 }
 
 /**
@@ -76,7 +87,7 @@ function cardEngineCc(product: EntityRecord): string {
 export function specAtoms(product: EntityRecord): string[] {
   const kwh = Number(product.battery_capacity) || 0;
   const cc = Number(product.engine_cc) || fuelEmbeddedCc(product.fuel_type);
-  const power = kwh > 0 ? `${kwh}kWh` : (cc > 0 ? `${cc.toLocaleString()}cc` : '');
+  const power = kwh > 0 ? `${kwh}kWh` : displacementL(cc);
   return [
     yearDisplay(product.year),
     kmDisplay(product.mileage),
