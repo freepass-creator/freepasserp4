@@ -229,6 +229,10 @@ must(!/\{!mobile && telHref/.test(shopDetail),
 must(!/title="대여료에 포함"|>대여료에 포함</.test(shopDetail),
   '「대여료에 포함」 격자가 되살아났습니다. 우리 상품에서 그 칸은 「별도·담당자 확인·불가」만 찍습니다 — 포함이라 써 놓고 포함 안 된 칸입니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
+// 전기차에 배기량을 쓰지 않는다 — 전기 42대 중 9대에 엉뚱한 cc 가 붙어 있다(니로 넷은 1580).
+must(/isEv \? 0 :/.test(shopDetail),
+  '전기차에 배기량이 다시 뜹니다. 전기차는 배기량이 없는데 원천에 값이 붙어 있어 «거짓 숫자»가 나갑니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
 // 전화는 담당자 → 대표번호로 떨어진다 — ?a= 없는 손님에게 전화 링크가 0개가 되면 안 된다.
 must(/wl\.tel/.test(read('app/q/[code]/ShopDetailView.tsx')),
   '상세가 대표번호 폴백을 잃었습니다. ?a= 없이 들어온 손님은 폰에서 전화 링크가 0개가 됩니다.',

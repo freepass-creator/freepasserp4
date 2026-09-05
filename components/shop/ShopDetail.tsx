@@ -54,7 +54,17 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
   const title = vehicleNameOf({ kind: 'product', product: p }, { tier: 'full', fallback: 'none' }) || '차량';
 
   const km = Number(String(p.mileage ?? '').replace(/[^0-9.]/g, '')) || 0;
-  const cc = Number(p.engine_cc) || 0;
+  /*
+   * ★★**전기차에는 배기량을 안 쓴다**(2026-09-05 전수에서 잡았다).
+   *   실측 — 전기 42대 중 **9대에 `engine_cc` 가 붙어 있다**: EV6 111 · 모델3 239 · 캐스퍼 158 ·
+   *   니로 180, 그리고 **니로 넷은 1580**(가솔린 니로의 배기량이 전기 니로에 붙은 것이다).
+   *   전기차는 배기량이라는 값 자체가 없다. 그대로 내보내면 **손님 화면에 거짓 숫자**가 뜬다.
+   * ⇒ 원천을 못 고치는 동안 화면이 «안 보여준다». 지어내지 않는 것과 같은 규칙이다 —
+   *   틀린 값을 보여주는 것은 안 보여주는 것보다 나쁘다.
+   * ⚠ 하이브리드는 엔진이 있으므로 그대로 쓴다.
+   */
+  const isEv = /전기|EV|이브이/i.test(String(p.fuel_type || ''));
+  const cc = isEv ? 0 : (Number(p.engine_cc) || 0);
   const seats = Number(p.seats) || 0;
   const facts = [
     String(p.car_number || '').trim(),
