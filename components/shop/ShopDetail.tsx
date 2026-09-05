@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
-  ArrowLeft, Car, Check, ChevronLeft, ChevronRight, Coins, FileText, Heart, Plus,
+  ArrowLeft, Car, Check, ChevronLeft, ChevronRight, CircleCheck, Coins, FileText, Heart, Plus, Tag,
   IdCard, ImageOff, Info, Phone, Share2, ShieldCheck,
   type LucideIcon,
 } from 'lucide-react';
@@ -13,6 +13,7 @@ import { useIsMobile } from '@/lib/use-mobile';
 import { useProductPhotos } from '@/components/use-product-photos';
 import { haptic } from '@/lib/haptics';
 import { creditDisplay, CREDIT_UNSET, parseProductOptions, priceList } from '@/lib/domain/product';
+import { PERKS, hasPerk } from '@/lib/domain/product-filters';
 import { vehicleNameOf } from '@/lib/domain/vehicle-name';
 import { yearFullDisplay, fuelDisplay, makerDisplay } from '@/lib/domain/vehicle-master-format';
 import { kmDisplay, manWon } from '@/lib/format';
@@ -61,6 +62,8 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
    */
   const title = vehicleNameOf({ kind: 'product', product: p }, { tier: 'base', fallback: 'none' }) || '차량';
 
+  /** 매물 필드 읽기 — 정책의 `S` 와 달리 상품 자체의 값이다. */
+  const S2 = (v: unknown) => String(v ?? '').trim();
   const km = Number(String(p.mileage ?? '').replace(/[^0-9.]/g, '')) || 0;
   /*
    * ★★**전기차에는 배기량을 안 쓴다**(2026-09-05 전수에서 잡았다).
@@ -426,6 +429,32 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
 
   const hasPolicy = !!(payRows.length || ownDamageDeductible || otherDeductibles || coverage.length || ageRange || useRows.length || etc || roadside);
 
+  /*
+   * ★★★**제목 밑 칩 줄** — 「이 차가 지금 어떤 물건인가」를 한눈에(사장님 2026-09-05
+   *   「**출고 가능, 구분, 신차 렌트, 중고 렌트, 그리고 우대 조건** 같은 거는 **적절한 위치 공간에다가
+   *   배열**을 해주면 좋을 거 같고」).
+   *
+   * ⚠ **출고상태와 상품구분은 상세에 아예 없었다.** 목록 카드는 보여 주는데 상세에서 사라져,
+   *   손님이 카드에서 「출고가능·중고렌트」를 보고 들어오면 그 말이 없어졌다.
+   *   실측 — 출고가능 492 · 출고협의 164 · 계약중 40 · 즉시출고 20 / 중고렌트 224 · 신차렌트 72 …
+   * ★자리는 **차명·차번 바로 밑**이다. 「무엇인가」를 말하는 줄이라 이름 옆이 제자리다.
+   * ★★**상자 뱃지가 아니라 아이콘 + 글자**다(사장님 2026-08-28·08-30 「박스 뱃지 쓰지 말고
+   *   아이콘 텍스트로, **모든 곳에서**」 · 2026-09-05 「연한 배경으로 칩을 해주는 건 좋은데」).
+   *   연한 면은 깔되 테두리는 두르지 않는다.
+   * ★색은 **좋은 소식에만** — 출고가능·즉시출고·무심사 셋. 나머지는 회색이다.
+   *   칩마다 색을 주면 그 순간 촌스러워진다(대여료 큰 줄과 같은 규칙).
+   */
+  const status = S2(p.vehicle_status);
+  const kind = S2(p.product_type);
+  const creditChip = creditDisplay(p);
+  const marks: { text: string; icon: LucideIcon; good?: boolean }[] = [
+    ...(status ? [{ text: status, icon: CircleCheck, good: /출고가능|즉시출고/.test(status) }] : []),
+    ...(kind ? [{ text: kind, icon: Tag }] : []),
+    ...(creditChip && creditChip !== CREDIT_UNSET
+      ? [{ text: creditChip, icon: ShieldCheck, good: /무심사/.test(creditChip) }] : []),
+    ...PERKS.filter((k) => hasPerk(p, k)).map((k) => ({ text: k as string, icon: Check })),
+  ];
+
   const options = parseProductOptions(p.options);
   const phone = String(agentPhone || '').trim();
   const code = String(p.product_code || '');
@@ -633,7 +662,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
       */}
       {bar}
       {gallery}
-      <Head title={title} facts={facts} />
+      <Head title={title} facts={facts} marks={marks} />
       {/*
         ★★**차량 정보 = 「이 차가 무엇인가」 한 덩어리**.
           제조사·세부모델·세부트림 한 줄 → 연식·주행거리·배기량·연료 → 색상·정원·최초등록.
@@ -929,11 +958,20 @@ function TopBar({ code, title, listHref, mobile }: {
           <div style={{ flex: 1 }} />
         </>
       )}
+      {/*
+        ★★**누를 것처럼 보이게 한다**(사장님 2026-09-05 「**공유 버튼이 좀 있어야** 할 거 같고」).
+          여기 둘은 배경도 테두리도 없는 «맨 글자»여서, 화면 오른쪽 위 여백에 놓인 장식처럼 보였다.
+        ★**공유는 이 사업의 퍼널**이다 — 저신용 렌트는 배우자·부모와 상의해서 정한다.
+          안 눌리면 손님이 화면을 «찍어» 보내고 그 순간 담당자 귀속이 끊긴다.
+          그 버튼이 안 보이는 것은 기능 하나가 아니라 매출이 새는 것이다.
+        ★연한 테두리만 두른다 — 파랗게 칠하면 「전화」와 다툰다. 주요 실행은 전화 하나뿐이다.
+      */}
       <button type="button" onClick={toggleFav} className="fp-shop-press"
         aria-pressed={faved} aria-label={faved ? '관심 차량에서 빼기' : '관심 차량으로 담기'}
         style={{
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-          width: 40, height: 40, borderRadius: 999, border: 'none', background: 'transparent',
+          width: 40, height: 40, borderRadius: 999,
+          border: `1px solid ${faved ? C.danger : C.line}`, background: C.bg,
           cursor: 'pointer', color: faved ? C.danger : C.sub,
         }}>
         <Heart size={ICON.lg} aria-hidden fill={faved ? 'currentColor' : 'none'} />
@@ -941,7 +979,8 @@ function TopBar({ code, title, listHref, mobile }: {
       <button type="button" onClick={share} className="fp-shop-press" aria-label="이 차량 공유하기"
         style={{
           display: 'inline-flex', alignItems: 'center', gap: 6,
-          height: 40, padding: '0 12px', borderRadius: 999, border: 'none', background: 'transparent',
+          height: 40, padding: '0 14px', borderRadius: 999,
+          border: `1px solid ${copied ? C.ok : C.line}`, background: C.bg,
           cursor: 'pointer', color: copied ? C.ok : C.sub, fontSize: SHOP.fs.sub, fontWeight: 600,
         }}>
         {copied ? <Check size={ICON.lg} aria-hidden /> : <Share2 size={ICON.lg} aria-hidden />}
@@ -1252,7 +1291,11 @@ function SecTitle({ children, icon: Icon, accent, tag }: {
   );
 }
 
-function Head({ title, facts }: { title: string; facts: string }) {
+function Head({ title, facts, marks }: {
+  title: string; facts: string;
+  /** 「이 차가 지금 어떤 물건인가」 — 출고상태 · 상품구분 · 심사 · 우대조건. */
+  marks: { text: string; icon: LucideIcon; good?: boolean }[];
+}) {
   return (
     <header style={{ paddingTop: 18 }}>
       <h1 style={{
@@ -1262,6 +1305,27 @@ function Head({ title, facts }: { title: string; facts: string }) {
       {facts ? (
         <div style={{ marginTop: 8, fontSize: SHOP.fs.body, color: C.mute, fontVariantNumeric: 'tabular-nums' }}>
           {facts}
+        </div>
+      ) : null}
+      {/*
+        ★★**상자 뱃지가 아니라 아이콘 + 글자**다(사장님 2026-08-28·08-30 「박스 뱃지 쓰지 말고
+          아이콘 텍스트로, **모든 곳에서**」 · 2026-09-05 「연한 배경으로 칩을 해주는 건 좋은데」).
+          연한 면은 깔되 **테두리는 두르지 않는다** — 테두리가 붙는 순간 그게 상자 뱃지다.
+        ★색은 **좋은 소식에만**(출고가능·즉시출고·무심사). 칩마다 색을 주면 그때부터 소란이다.
+      */}
+      {marks.length ? (
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
+          {marks.map((m) => (
+            <span key={m.text} style={{
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              padding: '5px 10px', borderRadius: SHOP.r.chip,
+              background: m.good ? C.okBg : C.zebra,
+              color: m.good ? C.ok : C.sub,
+              fontSize: SHOP.fs.cap, fontWeight: 600, whiteSpace: 'nowrap',
+            }}>
+              <m.icon size={13} aria-hidden />{m.text}
+            </span>
+          ))}
         </div>
       ) : null}
     </header>

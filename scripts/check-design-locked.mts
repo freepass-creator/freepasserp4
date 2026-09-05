@@ -395,6 +395,14 @@ must(/const thumbs = !mobile && n > 1 \?/.test(shopDetail)
 must(/display: mobile \? 'block' : 'flex', gap: mobile \? 0 : 32/.test(shopDetail),
   '웹에서 기간표와 납부가 다시 세로로 쌓였습니다 — 표 오른쪽 310px 가 빕니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1');
+/*
+ * 차명 밑 «표시 칩» — 출고상태 · 상품구분 · 심사 · 우대조건. **아이콘 + 글자**이고 테두리가 없다.
+ * ⚠ 출고상태·상품구분은 한때 상세에 아예 없었다 — 목록 카드는 보여 주는데 상세에서 사라졌다.
+ */
+must(/const marks: \{ text: string; icon: LucideIcon; good\?: boolean \}\[\]/.test(shopDetail)
+  && /S2\(p\.vehicle_status\)/.test(shopDetail) && /S2\(p\.product_type\)/.test(shopDetail),
+  '차명 밑 표시 칩(출고상태·상품구분·심사·우대조건)이 사라졌습니다 — 목록 카드가 보여 준 말이 상세에서 없어집니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1');
 // 전화는 담당자 → 대표번호로 떨어진다 — ?a= 없는 손님에게 전화 링크가 0개가 되면 안 된다.
 must(/wl\.tel/.test(read('app/q/[code]/ShopDetailView.tsx')),
   '상세가 대표번호 폴백을 잃었습니다. ?a= 없이 들어온 손님은 폰에서 전화 링크가 0개가 됩니다.',
