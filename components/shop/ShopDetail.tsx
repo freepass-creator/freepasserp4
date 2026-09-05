@@ -917,7 +917,10 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
                  제일 흐리게 둔다 — 위 셋과 같은 무게로 붙여 놓으면 보장의 하나로 읽힌다.
             */}
             {roadside ? (
-              <div style={{ marginTop: SHOP.sp.pane, fontSize: SHOP.fs.sub, color: C.faint }}>
+              <div style={{
+                /* 보험 «안»의 꼬리 한 줄이다 — 새 구역(32)이 아니라 다른 것들 사이(24)다. */
+                marginTop: SHOP.sp.part, fontSize: SHOP.fs.sub, color: C.faint,
+              }}>
                 긴급출동 {roadside}
               </div>
             ) : null}
@@ -1243,7 +1246,14 @@ function Facts({ rows, cols, mobile }: {
     return (
       <div style={{
         display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
-        columnGap: SHOP.sp.edge, rowGap: SHOP.sp.part,
+        /*
+         * ⚠ 줄 사이가 24 였다 — 한 칸이 45(라벨+값)인데 그 절반을 또 비웠고, 무리 사이는
+         *   빈 줄이 겹쳐 **47** 이 됐다(2026-09-06 실측). 제원 여섯 칸이 230px 을 먹었다.
+         *   폰에서 그건 화면의 3할이다(사장님 「오밀조밀 짜임새 있게」).
+         * ★같은 「차량 정보」 안의 칸들은 **한 덩어리**라 `cozy`(12)가 맞다.
+         *   무리 사이는 빈 줄이 겹쳐 저절로 24 가 되므로 **층은 그대로 2배**다.
+         */
+        columnGap: SHOP.sp.edge, rowGap: SHOP.sp.cozy,
       }}>
         {rows.map((row, i) => (row[0] === GROUP_BREAK
           ? <div key={`break-${i}`} aria-hidden style={{ gridColumn: '1 / -1', height: 0 }} />
