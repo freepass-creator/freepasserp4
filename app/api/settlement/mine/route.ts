@@ -22,7 +22,7 @@
 import { NextResponse } from 'next/server';
 import { getDatabase } from 'firebase-admin/database';
 import { firebaseAdminApp, verifyActiveBearer } from '@/lib/server/firebase-admin';
-import { iso, ledgerError, ledgerUrl, readLedger, sheetsToken, type LedgerExtra } from '@/lib/server/settlement-ledger-read';
+import { iso, ledgerUrl, readLedgerAtoms, type LedgerExtra } from '@/lib/server/settlement-ledger-read';
 import { billingMonth, moneyOf, type SettlementRow } from '@/lib/domain/settlement-stage';
 import { countsOf, publicRowOf, scopeRows, type AdminRow, type Viewer } from '@/lib/domain/settlement-view';
 
@@ -109,9 +109,6 @@ export async function GET(req: Request) {
   const who = await verifyActiveBearer(req).catch(() => null);
   if (!who) return NextResponse.json({ ok: false, reason: '로그인이 필요합니다.' }, { status: 401 });
 
-  const token = await sheetsToken();
-  if (!token) return NextResponse.json({ ok: false, reason: ledgerError() || '원장을 못 읽었습니다.' }, { status: 503 });
-
   const viewer = await viewerOf(who);
   // ⚠ 관리자가 아닌데 이름을 못 찾았다 — 여기서 «전부»로 넘어가면 남의 계약이 보인다. 0줄로 닫는다.
   if (who.role !== 'admin' && !viewer.supplier && !viewer.agent) {
@@ -123,7 +120,7 @@ export async function GET(req: Request) {
     });
   }
 
-  const read = await readLedger(token);
+  const read = await readLedgerAtoms();
   const extraOf = new Map(read.map((x) => [x.row, x.extra] as const));
   const mine = scopeRows(read.map((x) => x.row), viewer);
   const rows = who.role === 'admin'
