@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
-  ArrowLeft, ArrowUp, Car, Check, ChevronLeft, ChevronRight, Coins, FileText, Heart,
+  ArrowLeft, Car, Check, ChevronLeft, ChevronRight, Coins, FileText, Heart, Plus,
   IdCard, ImageOff, Info, Phone, Share2, ShieldCheck,
   type LucideIcon,
 } from 'lucide-react';
@@ -986,14 +986,19 @@ function Sec({ title, icon, accent, tag, mobile, children }: {
  *   면이 드물어야 그 면이 «중요하다»는 뜻을 갖는다.
  */
 /**
- * ★값 안에 **`↑`** 를 넣어 두면 그 자리에 «올라간다» 아이콘이 선다
- *   (사장님 2026-09-05 「10만원+ 이렇게 하면 이쁠 듯. **아이콘으로 금액 올라간다고**」).
- *   지금 쓰는 곳은 약정 주행의 가산액 하나다 — 「연 20,000km · 1만km 추가 **↑10만원**」.
- * ★왜 「+」가 아니라 화살표인가. 「10만원+」은 **「10만원 이상」**으로도 읽혀
- *   얼마인지 모르는 값이 된다. 화살표는 «올라간다»만 말하고 금액은 그대로 둔다.
- * ★★**자리는 «금액» 앞이다.** 줄 맨 앞에 두면 「연 20,000km」까지 올라가는 것처럼 보인다 —
- *   올라가는 건 약정이 아니라 **가산액**이다. 그래서 값을 만드는 쪽이 자리를 정한다.
- * ⚠ 색을 주지 않는다 — 오르는 돈이라고 빨강을 쓰면 겁주는 화면이 된다.
+ * ★값 안에 **`↑`** 를 넣어 두면 그 자리에 **더하기(＋) 아이콘**이 선다.
+ *   쓰는 곳은 둘 — 약정 주행의 가산액(「1만km당 **+10만원**」)과
+ *   연령 낮추기(「만 21세 **+10만원**」). 둘 다 「이 돈이 **얹힌다**」는 같은 말이라 같은 표시다.
+ *
+ * ★★**화살표가 아니라 더하기다**(사장님 2026-09-05 「**금액이 더해지는 거면 플러스를 쓰는 게**
+ *   맞을 거 같아」). 맞다 — 화살표는 «값이 오른다»는 방향이고, 이건 «이만큼을 더 낸다»는 셈이다.
+ *   1만km를 두 단 올리면 +10만원이 두 번 붙는다. 그 뜻은 더하기가 정확히 말한다.
+ * ⚠ **글자 「+」를 값에 그냥 쓰지 않는다.** 「10만원+」은 «10만원 이상»으로 읽히고,
+ *   더 나쁘게는 데이터에 이미 「본인+직계가족」처럼 «+»가 들어 있다 — 그걸 아이콘으로 바꿔 버린다.
+ *   그래서 자리표는 데이터에 안 나오는 `↑` 를 쓰고, 그 자리에 아이콘을 꽂는다.
+ * ★★**자리는 «금액» 앞이다.** 줄 맨 앞에 두면 「연 20,000km」까지 더해지는 것처럼 보인다 —
+ *   더해지는 건 약정이 아니라 **가산액**이다. 그래서 값을 만드는 쪽이 자리를 정한다.
+ * ⚠ 색을 주지 않는다 — 더 내는 돈이라고 빨강을 쓰면 겁주는 화면이 된다.
  *   이건 벌칙이 아니라 «더 타고 싶을 때의 값»이다.
  */
 function Facts({ rows, cols, mobile }: {
@@ -1017,8 +1022,8 @@ function Facts({ rows, cols, mobile }: {
             {v.split('↑').map((piece, i) => (
               <span key={i}>
                 {i > 0 ? (
-                  <ArrowUp size={14} aria-hidden style={{
-                    display: 'inline', verticalAlign: '-2px', marginRight: 1, color: C.mute,
+                  <Plus size={13} aria-hidden style={{
+                    display: 'inline', verticalAlign: '-1px', marginRight: 1, color: C.mute,
                   }} />
                 ) : null}
                 {piece}
