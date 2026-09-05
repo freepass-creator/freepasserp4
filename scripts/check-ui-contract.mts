@@ -36,8 +36,15 @@ const RAW_ALLOW = new Map<string, Allow>([
      업무동 원자(32/40·R4)를 쓰면 화면이 달라진다.
      ⚠ 숫자가 달라지면 화면이 목업에서 벗어났다는 뜻이다. 고치기 전에 **목업과 대조**할 것. */
   ['app/estimate/page.tsx', {
-    counts: { button: 5, input: 2, select: 3 },
+    counts: { button: 3, input: 2, select: 3 },
     reason: '견적 독립 면 — 사장님 목업(프리패스-목업-모바일계산기.html) 마크업 그대로. 칩·세그·기간카드·차종검색·잔가입력·신차 브랜드/모델/트림',
+  }],
+  /* 원가 설정(`/estimate/cost`)도 같은 갈래 — 목업 `프리패스-목업-원가설정.html` 을 그대로 옮겼다.
+     raw 는 `components/estimate/cost.css` 가 제 규격으로 입힌다(920px 2열·둥근 14px·그림자 — 업무동 규격이 아니다).
+     button 2 = 세그(채널·신용·마스터 묶음 한 개 + 저장) · input 2 = 숫자칸(`Pin`) · 차종 검색. */
+  ['app/estimate/cost/page.tsx', {
+    counts: { button: 2, input: 2, select: 0 },
+    reason: '원가 독립 면 — 사장님 목업 마크업 그대로. 세그·저장·숫자칸·차종 검색',
   }],
   ['components/sign/atoms.tsx', {
     counts: { button: 2, input: 1 },
