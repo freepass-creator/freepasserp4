@@ -72,9 +72,6 @@
 .est-root .basis .bt{font-size:11.5px;color:var(--ink-3);line-height:1.5}
 .est-root .basis .bt b{color:var(--ink-2)}
 .est-root .plabel{font-size:11px;font-weight:700;color:var(--ink-3);letter-spacing:.5px;text-transform:uppercase;padding:0 2px}
-/* 목업은 5번 라벨을 인라인 style 로 그렸다 — 값은 그대로 두고 «자리»만 CSS 로 옮겼다(hex/치수 인라인 금지 게이트). */
-.est-root .plabel.h5{margin:16px 14px 9px;display:flex;align-items:center;gap:7px}
-.est-root .plabel .no{width:17px;height:17px;border-radius:2px;background:var(--accent);color:var(--on);font-size:10px;display:grid;place-items:center;font-weight:700;flex:none}
 .est-root .prods{margin:10px 12px 0;display:flex;flex-direction:column;gap:8px}
 .est-root .prod{background:var(--surface);border:1px solid var(--line-2);border-radius:4px;overflow:hidden}
 .est-root .prodh{width:100%;display:flex;align-items:center;gap:12px;padding:12px 13px;border:0;background:transparent;cursor:pointer;font:inherit;text-align:left}
@@ -106,4 +103,15 @@
 .est-root .pin input{width:44px;border:0;background:transparent;color:var(--accent);font:inherit;font-weight:700;font-size:13px;text-align:center;outline:none}
 .est-root .pin i{color:var(--ink-4);font-size:11px;font-style:normal;font-weight:600}
 .est-root .foot{text-align:center;margin:14px 14px 20px;font-size:10.5px;color:var(--ink-4);line-height:1.6}
+
+/* ⑤ 기간별 대여료 — ①~④ 와 «같은 상자»에 든다.
+   사장님 2026-09-06 「오 번만 박스로 안 돼 있다고 다 같은 박스로. 박스 안에서 일 년부터 오 년까지 보여지는 게 있어야 돼」.
+   목업은 5번을 상자 밖 라벨(`.plabel`)로 두고 기간마다 «따로 떠 있는 카드»를 깔았다 — 그것만 바꿨다.
+   상자 안에서는 카드 테두리를 걷고 «줄»로 나눈다(테두리 안에 또 테두리를 두르지 않는다). */
+.est-root .card.terms{padding-bottom:0}
+.est-root .card.terms .step{margin-bottom:0}
+.est-root .card.terms .prods{margin:0 -13px;gap:0}
+.est-root .card.terms .prod{border:0;border-top:1px solid var(--line);border-radius:0;background:transparent}
+.est-root .card.terms .prod:first-child{border-top:0}
+.est-root .card.terms .pd{padding:2px 0 8px}
 .est-root .foot b{color:var(--ink-3)}

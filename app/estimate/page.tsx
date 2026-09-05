@@ -272,9 +272,10 @@ export default function EstimatePage() {
           </span>
         </div>
 
-        <div className="plabel h5"><span className="no">5</span>기간별 대여료 · 수익</div>
-
-        <div className="prods">
+        {/* ⑤ — ①~④ 와 같은 상자. 기간 다섯 줄이 그 안에 든다(사장님 2026-09-06). */}
+        <div className="card terms">
+          <div className="step"><span className="no">5</span>기간별 대여료 · 수익</div>
+          <div className="prods">
           {cards.map((c) => {
             const v = pnl(c, prepayAmt);
             const isOpen = open === c.term;
@@ -304,6 +305,7 @@ export default function EstimatePage() {
               </div>
             );
           })}
+          </div>
         </div>
 
         <div className="foot">
