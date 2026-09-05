@@ -512,8 +512,18 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
         ★★넓은 화면에서 **표를 늘리지 않는다**(폭 520). 세 칸짜리 표를 880px 로 늘리면
           기간과 금액 사이가 손가락 두 뼘이 되어, 같은 줄인데 눈이 못 잇는다.
       */}
+      {/*
+        ★★웹에서는 **기간표와 납부를 나란히** 놓는다(2026-09-05 웹 화면을 재 보고 넣었다).
+          표는 세 칸이라 520 에서 끊는데(늘리면 기간과 금액 사이가 손가락 두 뼘이 된다),
+          내용 칸이 832 라 **오른쪽 310px 가 비었다.** 그 자리에 납부를 놓으면 공백이 메워지고
+          「얼마」와 「어떻게 내나」가 한눈에 붙는다 — 돈 이야기를 한자리에서 끝낸다는 규칙과도 맞다.
+        ★폰은 그대로 쌓는다 — 나란히 놓을 폭이 없다.
+      */}
+      <div style={{
+        display: mobile ? 'block' : 'flex', gap: mobile ? 0 : 32, alignItems: 'flex-start',
+      }}>
       {plans.length > 1 ? (
-        <div style={{ marginTop: 22, maxWidth: mobile ? undefined : 520 }}>
+        <div style={{ marginTop: 22, flex: '0 0 auto', width: mobile ? undefined : 520 }}>
           <div style={{
             marginBottom: 8, fontSize: SHOP.fs.cap, fontWeight: 600, color: C.mute,
           }}>기간별 대여료 및 보증금</div>
@@ -584,11 +594,12 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
       ) : null}
 
       {payRows.length ? (
-        <div style={{ marginTop: 22 }}>
+        <div style={{ marginTop: 22, flex: 1, minWidth: 0 }}>
           <div style={{ marginBottom: 9, fontSize: SHOP.fs.cap, fontWeight: 600, color: C.mute }}>납부</div>
-          <Facts rows={payRows} cols={mobile ? 2 : 4} mobile={mobile} />
+          <Facts rows={payRows} cols={2} mobile={mobile} />
         </div>
       ) : null}
+      </div>
       </>
     </Sec>
   );
@@ -1288,9 +1299,17 @@ function Gallery({ p, mobile }: { p: EntityRecord; mobile?: boolean }) {
     el.scrollTo({ left: next * el.clientWidth, behavior: 'smooth' });
   };
 
-  return (
+  /** 썸네일을 누르면 그 장으로 간다 — 화살표를 여러 번 누르지 않아도 된다. */
+  const goTo = (k: number) => {
+    const el = railRef.current;
+    if (!el) return;
+    setI(k);
+    el.scrollTo({ left: k * el.clientWidth, behavior: 'smooth' });
+  };
+
+  const stage = (
     <div style={{
-      position: 'relative', aspectRatio: '4 / 3', overflow: 'hidden',
+      position: 'relative', flex: 1, minWidth: 0, aspectRatio: '4 / 3', overflow: 'hidden',
       /*
        * ★넓은 화면에서는 **높이를 520 에서 끊는다**(2026-09-05). 2단을 걷고 한 줄로 펴자
        *   사진이 본문 폭(892)을 다 먹어 4:3 이면 **669px** 이 됐다 — 노트북 첫 화면(900)이
@@ -1339,6 +1358,58 @@ function Gallery({ p, mobile }: { p: EntityRecord; mobile?: boolean }) {
           */}
         </>
       ) : null}
+    </div>
+  );
+
+  /*
+   * ★★**웹에서는 사진 «옆»에 썸네일 줄을 세운다**(2026-09-05 웹 화면을 재 보고 넣었다).
+   *
+   * 무엇이 문제였나. 높이를 520 에서 끊었더니 4:3 비율 때문에 **사진 폭이 693 으로 줄었고**,
+   * 본문 1120 중 **오른쪽 427px 가 통째로 비었다.** 사진 한 장이 왼쪽에 떠 있는 꼴이라
+   * 화면이 «덜 만든 것»으로 보였다 — 사장님 「웹 화면이 조금 더 우려스러워」.
+   * ⇒ 그 빈자리에 **남은 장들**을 놓는다. 공백이 메워지면서 «몇 장이 있다»가 한눈에 보이고,
+   *   화살표를 아홉 번 누르지 않아도 원하는 장으로 바로 간다.
+   * ★사진 «구역 안»에서만 가로로 펴는 것이라 순서를 안 건드린다 —
+   *   대여료를 사진 옆에 두던 옛 2단과는 다른 것이다.
+   * ★폰에는 안 그린다 — 밀어서 넘기는 게 이미 제일 빠르고, 좁은 화면에 썸네일을 넣으면
+   *   정작 사진이 작아진다.
+   */
+  const thumbs = !mobile && n > 1 ? (
+    <div style={{
+      flex: '0 0 auto', width: 200,
+      display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, alignContent: 'start',
+    }}>
+      {photos.slice(0, 8).map((src, k) => (
+        <button key={src} type="button" onClick={() => goTo(k)} className="fp-shop-press"
+          aria-label={`${k + 1}번째 사진 보기`} aria-pressed={k === i}
+          style={{
+            position: 'relative', padding: 0, aspectRatio: '4 / 3', overflow: 'hidden',
+            borderRadius: 8, cursor: 'pointer', background: C.placeholder,
+            /* 보고 있는 장만 테두리로 표시한다 — 색을 칠하면 사진 위에 색이 얹혀 지저분하다. */
+            border: k === i ? `2px solid ${C.brand}` : `1px solid ${C.line2}`,
+          }}>
+          {/* eslint-disable-next-line @next/next/no-img-element -- 원본은 외부 도메인(프록시 경유)이다. */}
+          <img src={src} alt="" decoding="async" loading="lazy"
+            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+          {/* 여덟째 칸에 남은 장 수 — 「더 있다」를 숫자로 말한다. */}
+          {k === 7 && n > 8 ? (
+            <span style={{
+              position: 'absolute', inset: 0, display: 'flex',
+              alignItems: 'center', justifyContent: 'center',
+              background: 'rgba(0,0,0,.5)', color: '#fff',
+              fontSize: SHOP.fs.sub, fontWeight: 700,
+            }}>+{n - 8}</span>
+          ) : null}
+        </button>
+      ))}
+    </div>
+  ) : null;
+
+  if (!thumbs) return stage;
+  return (
+    <div style={{ display: 'flex', gap: 12, alignItems: 'stretch' }}>
+      {stage}
+      {thumbs}
     </div>
   );
 }

@@ -383,6 +383,18 @@ must(/\/불가\/\.test\(raw\) \? '불가' : ''/.test(shopDetail)
   && /\$\{age\(lowered\)\} ↑\$\{cost\}/.test(shopDetail),
   '연령 낮추기가 「나이 ↑금액」이 아니거나 「불가」를 안 씁니다 — 낮추는 나이는 차마다 다르고, 불가도 확정된 사실입니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
+/*
+ * 웹은 **사진 옆에 썸네일 줄**, **기간표 옆에 납부**를 세워 오른쪽 공백을 메운다(2026-09-05).
+ * ⚠ 사진 높이를 520 에서 끊자 4:3 때문에 폭이 693 으로 줄어 **오른쪽 427px 가 통째로 비었다.**
+ *   기간표(520)도 내용 칸(832) 안에서 오른쪽 310 을 비웠다. 둘 다 «덜 만든 화면»으로 보였다.
+ */
+must(/const thumbs = !mobile && n > 1 \?/.test(shopDetail)
+  && /번째 사진 보기/.test(shopDetail),
+  '웹 사진 옆 썸네일 줄이 사라졌습니다 — 사진이 왼쪽에 떠 오른쪽이 통째로 빕니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1');
+must(/display: mobile \? 'block' : 'flex', gap: mobile \? 0 : 32/.test(shopDetail),
+  '웹에서 기간표와 납부가 다시 세로로 쌓였습니다 — 표 오른쪽 310px 가 빕니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1');
 // 전화는 담당자 → 대표번호로 떨어진다 — ?a= 없는 손님에게 전화 링크가 0개가 되면 안 된다.
 must(/wl\.tel/.test(read('app/q/[code]/ShopDetailView.tsx')),
   '상세가 대표번호 폴백을 잃었습니다. ?a= 없이 들어온 손님은 폰에서 전화 링크가 0개가 됩니다.',
