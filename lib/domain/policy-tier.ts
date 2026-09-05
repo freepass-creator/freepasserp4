@@ -105,7 +105,7 @@ export const SALES_LAYER: PolicyField[] = [
   { key: 'payment_timing', label: '대여료 납부 조건', layer: 'sales', exposure: 'contract', article: '제6조', decides: '대여료 납부 시점', why: '선불·후불은 결제수단과 별개인 계약조건. 정책 기본값을 가져오되 계약 건별로 확정한다' },
 
   // ④ 승인 여부를 결정하는 것 — 손님에게 절대 안 나간다
-  { key: 'screening_criteria', label: '심사조건', layer: 'sales', exposure: 'internal', decides: '계약 승인 여부', why: '⚠ 내부 심사 기준. 손님 화면·계약서에 절대 실리지 않는다 — 우리가 그 사람을 어떻게 평가했는지다' },
+  { key: 'screening_criteria', label: '심사조건', layer: 'sales', exposure: 'internal', decides: '계약 승인 여부', why: '⚠ **계약서에는 안 실린다**(exposure=internal 이 그걸 지킨다). 손님 «화면»에는 2026-09-05 부터 실린다 — 사장님 「심사 조건은 계속 띄워요」. 단 원문이 아니라 creditDisplay 가 셋(무심사/신용조회/소득확인)으로 접은 값이다' },
   { key: 'disqualification_conditions', label: '불가조건', layer: 'sales', exposure: 'internal', decides: '계약 가능 여부(상담)', why: '⚠ 내부 상담 기준(「3년 이내 음주이력」). 손님 화면·계약서에 실리지 않는다' },
   { key: 'sales_notes', label: '특이사항(영업)', layer: 'sales', exposure: 'internal', decides: '영업 상담 안내', why: '영업자가 알아야 할 그 밖의 조건. 손님 화면·계약서에 실리지 않는다' },
   { key: 'policy_extra_terms', label: '기타사항(계약서)', layer: 'contract', exposure: 'contract', decides: '계약서 특약', why: '표에 없는 계약조건 — 계약서 특약 칸에 그대로 실린다(사장님 2026-08-20). 손님이 서명 전에 읽는 글이다' },

@@ -12,7 +12,7 @@ import { SHOP } from '@/components/shop/shop-ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { useProductPhotos } from '@/components/use-product-photos';
 import { haptic } from '@/lib/haptics';
-import { parseProductOptions, priceList } from '@/lib/domain/product';
+import { creditDisplay, CREDIT_UNSET, parseProductOptions, priceList } from '@/lib/domain/product';
 import { vehicleNameOf } from '@/lib/domain/vehicle-name';
 import { yearFullDisplay, fuelDisplay, makerDisplay } from '@/lib/domain/vehicle-master-format';
 import { kmDisplay, manWon } from '@/lib/format';
@@ -225,38 +225,67 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
     ['납부 방법', join(S('payment_method'), S('payment_timing') && S('payment_timing') !== S('payment_method') ? S('payment_timing') : '')],
   ]);
 
+  /*
+   * ⚠⚠ **「낮출 수 있는 나이」와 「낮출 수 없다」를 가려야 한다**(2026-09-05 화면에서 잡았다).
+   *   `driver_age_lowering` 은 나이(「만21세」)가 올 때도 있고 **「불가」·「협의」**가 올 때도 있다
+   *   — 실측 61대(불가 59 · 협의 2). 안 가리고 아래 끝으로 쓰니 테슬라 모델3 화면에
+   *   **「운전 가능 연령 불가 ~ 만 70세」**가 떴다. 숫자가 든 값만 나이로 본다.
+   */
+  const isAgeValue = (v: string) => /\d/.test(v);
+  const lowered = isAgeValue(S('driver_age_lowering')) ? S('driver_age_lowering') : '';
+
   /**
-   * ④ 보험 — **하나가 결정적이다.** 이 구역에서 손님 지갑에서 실제로 돈이 나가는 유일한 값이
-   * 「사고 났을 때 내 부담(면책금)」이다. 그것만 크게 세우고 보장 한도는 정의 목록으로 흘린다.
-   * ★라벨을 「자기차량손해」가 아니라 **「사고 시 내 부담」**으로 쓴다 — 손님이 읽는 말이라야 읽는다.
+   * ④ 보험 — **면책금이 먼저, 보장은 그다음**(사장님 2026-09-05).
+   *
+   * > 「보험은 … 거기에 **면책금과, 대인 대물 자손 요기에 대한 면책금과 자차 면책금을 따로**
+   * >  표시해 줘야 될 거 같애. 그리고 밑에는 **보장 사항**을 쭉 주면 될 거 같고,
+   * >  **수리비 부담은 자차 면책금에 포함**이 되는 거고, 그 보험 **맨 밑에 긴급 출동 연 오 회** 표시해 주면 되고.」
+   *
+   * ★손님 지갑에서 실제로 돈이 나가는 건 **면책금**이다. 보장 한도(대인 무한·대물 1억)는
+   *   «얼마까지 보상해 주나»라 손님이 낼 돈이 아니다. 그래서 면책금이 위, 보장이 아래다.
+   * ★**자차 면책금이 제일 크다** — 사고 한 번에 50~100만원이 나간다. 그것만 큰 값으로 세운다.
+   *   수리비 부담(20%)은 그 값에 딸린 조건이라 같은 줄에 붙인다.
+   * ★대인·대물·자손 면책금은 셋이 나란한 값이라 한 묶음으로 흐른다.
    */
   const deductible = S('own_damage_min_deductible') && S('own_damage_max_deductible')
     ? `${S('own_damage_min_deductible')} ~ ${S('own_damage_max_deductible')}`
     : S('own_damage_min_deductible');
-  const insure = rows([
-    /* 「보험료 별도」인 차가 실재한다 — 포함이라 단정하지 않고 값을 그대로 쓴다. */
+  /** 자차 면책금에 딸린 조건 — 「수리비의 20%」처럼 함께 물게 되는 값. */
+  const repairShare = meaningful(S('own_damage_repair_ratio')) ? `수리비 부담 ${S('own_damage_repair_ratio')}` : '';
+  /** 대인·대물·자손 면책금 — 셋이 나란하다. */
+  const deductibles = rows([
+    ['대인 면책금', S('injury_deductible')],
+    ['대물 면책금', S('property_deductible')],
+    ['자기신체 면책금', S('self_body_deductible')],
+  ]);
+  /** 보장 사항 — «얼마까지 보상되나». 손님이 내는 돈이 아니라 받는 한도다. */
+  const coverage = rows([
     ['보험료', S('insurance_included')],
     ['대인', S('injury_compensation_limit')],
     ['대물', S('property_compensation_limit')],
     ['자기신체', S('self_body_accident')],
     ['자기차량', S('own_damage_compensation')],
-    ['수리비 부담', S('own_damage_repair_ratio')],
+    ['무보험차', S('uninsured_damage')],
   ]);
+  /** 보험 구역 맨 밑 — 사고가 아니라 «고장»일 때 부르는 것이라 보험 끝자락이 제자리다. */
+  const roadside = S('annual_roadside_assistance') || S('roadside_assistance');
 
-  /** ⑤ 이용 조건 — 「내 나이로 되나」가 결정적이라 그것만 크게. 주행거리도 여기다. */
-  /*
-   * ⚠⚠ **「낮출 수 있는 나이」와 「낮출 수 없다」를 가려야 한다**(2026-09-05 화면에서 잡았다).
-   *   `driver_age_lowering` 은 나이(「만21세」)가 올 때도 있고 **「불가」**가 올 때도 있다.
-   *   그걸 안 가리고 아래 끝으로 쓰니 테슬라 모델3 화면에 **「운전 가능 연령 불가 ~ 만 70세」**가 떴다.
-   *   숫자가 든 값만 나이로 본다 — 「불가」면 기본 연령(만 26세)이 아래 끝이다.
-   */
-  const isAgeValue = (v: string) => /\d/.test(v);
-  const lowered = isAgeValue(S('driver_age_lowering')) ? S('driver_age_lowering') : '';
+  /** ⑤ 이용 조건 — 「내가 탈 수 있나」. 심사도 여기다(요금이 아니라 «자격»이다). */
   const ageRange = S('basic_driver_age') && S('driver_age_upper_limit')
     ? `${age(lowered || S('basic_driver_age'))} ~ ${age(S('driver_age_upper_limit'))}`
     : age(S('basic_driver_age'));
+  const creditRaw = creditDisplay(p);
+  const credit = creditRaw && creditRaw !== CREDIT_UNSET ? creditRaw : '';
   const useRows = rows([
-    /* 약정주행과 초과료는 «붙여서» 쓴다 — 떼면 손님이 어느 선을 넘어야 무는지 모른다(Kinto MY 방식). */
+    /*
+     * ★★**심사는 계속 띄운다**(사장님 2026-09-05 「그 심사 조건은 계속 띄워요」).
+     *   그전까지 손님 화면에 안 나갔다 — 값이 화이트리스트에 없어 오지도 않았다. 이번에 열었다.
+     * ★자리는 **이용 조건**이다. 「내가 될까」를 묻는 칸이지 요금 칸이 아니다.
+     *   ⚠ 요금 «밑»에는 안 쓴다 — 이 장사의 셀링포인트가 「무심사」인데 금액 옆에서 그 말을 꺼내면
+     *     손님이 평생 들어 온 그 단어를 다시 만난다(§1-12 는 그대로다).
+     */
+    ['심사', credit],
+    /* 약정주행과 초과료는 «붙여서» 쓴다 — 떼면 어느 선을 넘어야 무는지 모른다(Kinto MY 방식). */
     ['약정 주행', join(S('annual_mileage'),
       S('mileage_upcharge_per_10000km') ? `초과 1만km당 ${S('mileage_upcharge_per_10000km')}` : '')],
     ['면허', S('license_period')],
@@ -272,12 +301,11 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
   const etc = [
     pair('정비', S('maintenance_service')),
     pair('대차', S('replacement_car_policy')),
-    pair('긴급출동', S('annual_roadside_assistance') || S('roadside_assistance')),
     pair('이용 지역', S('rental_region')),
     pair('차량 인도', S('delivery_fee')),
   ].filter(Boolean).join(' · ');
 
-  const hasPolicy = !!(payRows.length || deductible || insure.length || ageRange || useRows.length || etc);
+  const hasPolicy = !!(payRows.length || deductible || coverage.length || ageRange || useRows.length || etc || roadside);
 
   const options = parseProductOptions(p.options);
   const phone = String(agentPhone || '').trim();
@@ -304,7 +332,8 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
      *   **면이 한 줄로 줄어들수록 그 줄이 더 선다.**
      */
     <section aria-label="대여료">
-      <SecTitle icon={Coins} accent>대여료</SecTitle>
+      {/* 제목이 「대여료」만이면 보증금이 딸린 값처럼 보인다 — 둘 다 이 구역의 주인공이다(사장님 2026-09-05). */}
+      <SecTitle icon={Coins} accent>대여료 및 보증금</SecTitle>
       {plan ? (
         <>
           {/* 메인 — 이 화면에서 손님이 찾아온 답. 브랜드 면을 쓰는 유일한 줄이다. */}
@@ -368,15 +397,21 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
         <div style={{ marginTop: 22, maxWidth: mobile ? undefined : 520 }}>
           <div style={{
             marginBottom: 8, fontSize: SHOP.fs.cap, fontWeight: 600, color: C.mute,
-          }}>기간별 대여료</div>
+          }}>기간별 대여료 및 보증금</div>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontVariantNumeric: 'tabular-nums' }}>
             <thead>
               <tr>
                 {['기간', '월 대여료', '보증금'].map((h, i) => (
+                  /*
+                   * ★★기간표는 **보조 설명**이다(사장님 2026-09-05 「기간별 대여료는 보조 설명으로
+                   *   대여료 섹션에 그 고유니까 **분위기 해치지 않게** 해주고」).
+                   *   그래서 머리줄의 **밑선을 걷었다** — 이 화면은 선을 최소로 쓰는데, 표 머리에만
+                   *   선이 하나 있으면 그 한 줄이 «표»를 선언해 버려서 구역이 갑자기 서류처럼 보인다.
+                   *   라벨을 흐리게 두면 선 없이도 「여기부터 표」가 읽힌다.
+                   */
                   <th key={h} scope="col" style={{
-                    padding: '0 0 9px', textAlign: i === 0 ? 'left' : 'right',
+                    padding: '0 0 7px', textAlign: i === 0 ? 'left' : 'right',
                     fontSize: SHOP.fs.cap, fontWeight: 500, color: C.faint,
-                    borderBottom: `1px solid ${C.line2}`,
                   }}>{h}</th>
                 ))}
               </tr>
@@ -523,17 +558,33 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
       {priceCard}
 
       {/*
-        ④ 보험 — **하나가 결정적**(사고 시 내 부담)이고 나머지는 «확인해 주는 값»이다.
-           그래서 큰 값 하나 + **두 칸 정의 목록**. 타일 격자로 놓으면 여섯이 같은 무게가 되어
-           결정적인 하나가 묻힌다.
+        ④ 보험 — **면책금이 위, 보장이 아래**(사장님 2026-09-05).
+           손님 지갑에서 실제로 돈이 나가는 건 면책금이다. 보장 한도는 «얼마까지 보상해 주나»라
+           손님이 낼 돈이 아니다. 그래서 순서가 이렇다:
+             자차 면책금(큰 값 · 수리비 부담 딸림) → 대인·대물·자손 면책금 → 보장 사항 → 긴급출동.
       */}
-      {(deductible || insure.length) ? (
+      {(deductible || deductibles.length || coverage.length || roadside) ? (
         <>
           <Rule mobile={mobile} />
           <section aria-label="보험">
             <SecTitle icon={ShieldCheck}>보험</SecTitle>
-            {deductible ? <BigRow label="사고 시 내 부담" value={deductible} mobile={mobile} /> : null}
-            <DefList rows={insure} mobile={mobile} />
+            {/* ★사고 한 번에 실제로 나가는 돈. 수리비 부담은 이 값에 «딸린 조건»이라 같은 줄이다. */}
+            {deductible ? (
+              <BigRow label="자차 면책금" value={deductible} note={repairShare} mobile={mobile} />
+            ) : null}
+            {deductibles.length ? <Facts rows={deductibles} cols={mobile ? 2 : 3} mobile={mobile} /> : null}
+            {coverage.length ? (
+              <div style={{ marginTop: deductibles.length ? 22 : 14 }}>
+                <div style={{ marginBottom: 4, fontSize: SHOP.fs.cap, fontWeight: 600, color: C.mute }}>보장 사항</div>
+                <DefList rows={coverage} mobile={mobile} />
+              </div>
+            ) : null}
+            {/* 사고가 아니라 «고장»일 때 부르는 것 — 보험 끝자락이 제자리다(사장님 「보험 맨 밑에」). */}
+            {roadside ? (
+              <div style={{ marginTop: 16, fontSize: SHOP.fs.sub, color: C.mute }}>
+                긴급출동 {roadside}
+              </div>
+            ) : null}
           </section>
         </>
       ) : null}
@@ -769,7 +820,12 @@ function Facts({ rows, cols, mobile }: { rows: [string, string][]; cols: number;
  * ⚠ 값에 색을 주지 않는다 — 구역 아이콘이 이미 신호다. 여기까지 색을 주면
  *   강조가 셋(아이콘·면·글자색)이 되어 그때부터 소란이다.
  */
-function BigRow({ label, value, mobile }: { label: string; value: string; mobile?: boolean }) {
+function BigRow({ label, value, note, mobile }: {
+  label: string; value: string;
+  /** 그 값에 «딸린 조건» — 예: 자차 면책금에 붙는 「수리비 부담 20%」. 값과 같은 줄에 흐리게. */
+  note?: string;
+  mobile?: boolean;
+}) {
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
@@ -784,6 +840,9 @@ function BigRow({ label, value, mobile }: { label: string; value: string; mobile
         fontSize: mobile ? 21 : 22, fontWeight: 800, color: C.ink,
         letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums',
       }}>{value}</span>
+      {note ? (
+        <span style={{ fontSize: SHOP.fs.sub, color: C.mute }}>{note}</span>
+      ) : null}
     </div>
   );
 }

@@ -39,6 +39,14 @@ const PUBLIC_POLICY_FIELDS = [
   'annual_mileage', 'mileage_upcharge_per_10000km',
   'deposit_installment', 'deposit_card_payment', 'rental_card_payment', 'payment_method', 'payment_timing',
   'penalty_condition', 'rental_region', 'delivery_fee',
+  /*
+   * ★★`screening_criteria`(심사조건) — **2026-09-05 사장님이 「계속 띄워요」 하셔서 열었다.**
+   *   그전까지 손님 화면에 안 나갔고, 정책 정본(`policy-tier`)도 내부용으로 적어 두었다.
+   *   ⚠ **계약서에는 여전히 안 실린다** — 그건 `exposure: 'internal'` 이 지킨다(전자계약이 그 값으로 고른다).
+   *   ⚠ 화면이 내보내는 것은 원문이 아니라 `creditDisplay` 가 **셋 중 하나로 접은 값**이다
+   *     (무심사 / 신용조회 / 소득확인 — 사장님 2026-08-19 확정). 상품 조건이지 사람 평가가 아니다.
+   */
+  'screening_criteria',
   'basic_driver_age', 'driver_age_lowering', 'age_lowering_cost', 'driver_age_upper_limit', 'license_period',
   'personal_driver_scope', 'business_driver_scope',
   'additional_driver_allowance_count', 'additional_driver_cost',

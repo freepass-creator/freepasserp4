@@ -134,7 +134,7 @@ must(/sort\(\(a, b\) => a\.m - b\.m\)/.test(shopDetail),
  *   「목돈이 얼마나 들어가나」를 궁금해한다.
  * 구역이 «있는가»만 본다 — 어떤 배열로 그리는지(표·타일·큰줄)는 구역마다 달라도 된다.
  */
-for (const sec of ['차량 정보', '대여료', '보험', '이용 조건']) {
+for (const sec of ['차량 정보', '대여료 및 보증금', '보험', '이용 조건']) {
   // ⚠ «모양»이 아니라 «있는가»를 본다 — 전에 아이콘 프롭 하나 붙였다고 구역이 사라졌다고 잡았다.
   must(new RegExp(`title="${sec}"|<SecTitle[^>]*>${sec}`).test(shopDetail),
     `상세에서 「${sec}」 구역이 사라졌습니다. 한 표에 몰면 보험을 찾다 납부 방법을 지나칩니다.`,
@@ -266,6 +266,20 @@ must(!/const badges/.test(shopDetail),
   'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
 must(/const facts = String\(p\.car_number \|\| ''\)\.trim\(\);/.test(shopDetail),
   '요약줄에 연식·주행·배기량·연료가 돌아왔습니다 — 바로 아래 차량 정보와 같은 값입니다. 요약줄은 차번 하나입니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
+// 보험 = 면책금이 위, 보장이 아래, 긴급출동이 맨 밑(사장님 2026-09-05).
+must(/label="자차 면책금"/.test(shopDetail),
+  '보험에서 「자차 면책금」 큰 값이 사라졌습니다 — 사고 한 번에 실제로 나가는 돈입니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
+must(/>보장 사항</.test(shopDetail) && /긴급출동 \{roadside\}/.test(shopDetail),
+  '보험에서 「보장 사항」 또는 맨 밑 「긴급출동」이 사라졌습니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
+// 심사는 계속 띄운다 — 이용 조건 안이다(요금 밑이 아니다).
+must(/\['심사', credit\]/.test(shopDetail),
+  '이용 조건에서 「심사」가 사라졌습니다 — 사장님 2026-09-05 「심사 조건은 계속 띄워요」.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
+must(/'screening_criteria'/.test(read('lib/domain/public-catalog.ts')),
+  '손님 화이트리스트에서 screening_criteria 가 빠졌습니다 — 값이 안 오면 화면에 심사가 안 뜹니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
 // 전화는 담당자 → 대표번호로 떨어진다 — ?a= 없는 손님에게 전화 링크가 0개가 되면 안 된다.
 must(/wl\.tel/.test(read('app/q/[code]/ShopDetailView.tsx')),
