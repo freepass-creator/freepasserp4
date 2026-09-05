@@ -250,15 +250,22 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
   const deductible = S('own_damage_min_deductible') && S('own_damage_max_deductible')
     ? `${S('own_damage_min_deductible')} ~ ${S('own_damage_max_deductible')}`
     : S('own_damage_min_deductible');
-  /** 자차 면책금에 딸린 조건 — 「수리비의 20%」처럼 함께 물게 되는 값. */
+  /** 자차 면책금에 딸린 조건 — 「수리비의 20%」처럼 함께 물게 되는 값이라 «같은 칸»에 붙인다. */
   const repairShare = meaningful(S('own_damage_repair_ratio')) ? `수리비 부담 ${S('own_damage_repair_ratio')}` : '';
-  /** 대인·대물·자손 면책금 — 셋이 나란하다. */
+  /**
+   * 면책금 — **사고 났을 때 손님이 내는 돈.** 자차가 제일 크고, 수리비 부담이 거기 딸린다.
+   * ★자차를 맨 앞에 둔다 — 셋 중 실제로 큰 돈이 나가는 칸이다.
+   */
   const deductibles = rows([
+    ['자차 면책금', join(deductible, repairShare)],
     ['대인 면책금', S('injury_deductible')],
     ['대물 면책금', S('property_deductible')],
     ['자기신체 면책금', S('self_body_deductible')],
   ]);
-  /** 보장 사항 — «얼마까지 보상되나». 손님이 내는 돈이 아니라 받는 한도다. */
+  /**
+   * 보장 한도 — **얼마까지 보상되나.** 이 구역의 «메인»이다(사장님 2026-09-05
+   * 「보험은 **한도를 메인에 하고 그 밑에 면책금**에 대한 거를 써야겠다」).
+   */
   const coverage = rows([
     ['보험료', S('insurance_included')],
     ['대인', S('injury_compensation_limit')],
@@ -558,30 +565,31 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
       {priceCard}
 
       {/*
-        ④ 보험 — **면책금이 위, 보장이 아래**(사장님 2026-09-05).
-           손님 지갑에서 실제로 돈이 나가는 건 면책금이다. 보장 한도는 «얼마까지 보상해 주나»라
-           손님이 낼 돈이 아니다. 그래서 순서가 이렇다:
-             자차 면책금(큰 값 · 수리비 부담 딸림) → 대인·대물·자손 면책금 → 보장 사항 → 긴급출동.
+        ④ 보험 — **한도가 메인, 면책금은 그 밑**(사장님 2026-09-05
+           「보험은 **한도를 메인에 하고 그 밑에 면책금**에 대한 거를 써야겠다」).
+             보장 한도 → 면책금 → 긴급출동.
+        ⚠ 잠깐 반대로 세웠었다(면책금 위). 「손님이 내는 돈이 먼저」라는 내 판단이었는데,
+          손님이 이 구역에서 먼저 확인하는 것은 **「이 차가 어디까지 보장되나」**다.
+          면책금은 그 보장을 «쓸 때» 따라오는 조건이라 뒤에 온다.
+        ★자차 면책금은 면책금 묶음의 맨 앞이고, **수리비 부담은 그 칸 안에** 붙는다
+          (사장님 「수리비 부담은 자차 면책금에 포함이 되는 거고」).
       */}
-      {(deductible || deductibles.length || coverage.length || roadside) ? (
+      {(deductibles.length || coverage.length || roadside) ? (
         <>
           <Rule mobile={mobile} />
           <section aria-label="보험">
             <SecTitle icon={ShieldCheck}>보험</SecTitle>
-            {/* ★사고 한 번에 실제로 나가는 돈. 수리비 부담은 이 값에 «딸린 조건»이라 같은 줄이다. */}
-            {deductible ? (
-              <BigRow label="자차 면책금" value={deductible} note={repairShare} mobile={mobile} />
-            ) : null}
-            {deductibles.length ? <Facts rows={deductibles} cols={mobile ? 2 : 3} mobile={mobile} /> : null}
-            {coverage.length ? (
-              <div style={{ marginTop: deductibles.length ? 22 : 14 }}>
-                <div style={{ marginBottom: 4, fontSize: SHOP.fs.cap, fontWeight: 600, color: C.mute }}>보장 사항</div>
-                <DefList rows={coverage} mobile={mobile} />
+            {/* 메인 — 소제목 없이 바로 온다. 구역 제목 바로 밑이 «주인공»의 자리다. */}
+            {coverage.length ? <Facts rows={coverage} cols={mobile ? 2 : 3} mobile={mobile} /> : null}
+            {deductibles.length ? (
+              <div style={{ marginTop: coverage.length ? 22 : 0 }}>
+                <div style={{ marginBottom: 9, fontSize: SHOP.fs.cap, fontWeight: 600, color: C.mute }}>면책금</div>
+                <DefList rows={deductibles} mobile={mobile} />
               </div>
             ) : null}
             {/* 사고가 아니라 «고장»일 때 부르는 것 — 보험 끝자락이 제자리다(사장님 「보험 맨 밑에」). */}
             {roadside ? (
-              <div style={{ marginTop: 16, fontSize: SHOP.fs.sub, color: C.mute }}>
+              <div style={{ marginTop: 18, fontSize: SHOP.fs.sub, color: C.mute }}>
                 긴급출동 {roadside}
               </div>
             ) : null}

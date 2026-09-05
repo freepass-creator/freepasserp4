@@ -267,12 +267,23 @@ must(!/const badges/.test(shopDetail),
 must(/const facts = String\(p\.car_number \|\| ''\)\.trim\(\);/.test(shopDetail),
   '요약줄에 연식·주행·배기량·연료가 돌아왔습니다 — 바로 아래 차량 정보와 같은 값입니다. 요약줄은 차번 하나입니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
-// 보험 = 면책금이 위, 보장이 아래, 긴급출동이 맨 밑(사장님 2026-09-05).
-must(/label="자차 면책금"/.test(shopDetail),
-  '보험에서 「자차 면책금」 큰 값이 사라졌습니다 — 사고 한 번에 실제로 나가는 돈입니다.',
+/*
+ * 보험 = **한도가 메인, 면책금은 그 밑, 긴급출동이 맨 밑**(사장님 2026-09-05
+ * 「보험은 한도를 메인에 하고 그 밑에 면책금에 대한 거를 써야겠다」).
+ * ⚠ 한때 반대로(면책금 위) 세웠었다 — 순서가 뒤집히면 이 검사가 잡는다.
+ */
+{
+  const cov = shopDetail.indexOf('rows={coverage}');
+  const ded = shopDetail.indexOf('>면책금<');
+  must(cov > 0 && ded > cov,
+    '보험 순서가 뒤집혔습니다 — 「보장 한도」가 메인(위)이고 「면책금」이 그 밑입니다.',
+    'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
+}
+must(/\['자차 면책금', join\(deductible, repairShare\)\]/.test(shopDetail),
+  '자차 면책금에서 「수리비 부담」이 떨어졌습니다 — 수리비는 자차 면책금에 «포함»이라 같은 칸입니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
-must(/>보장 사항</.test(shopDetail) && /긴급출동 \{roadside\}/.test(shopDetail),
-  '보험에서 「보장 사항」 또는 맨 밑 「긴급출동」이 사라졌습니다.',
+must(/긴급출동 \{roadside\}/.test(shopDetail),
+  '보험 맨 밑 「긴급출동」이 사라졌습니다 — 사고가 아니라 고장일 때 부르는 것이라 여기가 제자리입니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
 // 심사는 계속 띄운다 — 이용 조건 안이다(요금 밑이 아니다).
 must(/\['심사', credit\]/.test(shopDetail),
