@@ -134,11 +134,12 @@ export function ShopFilters({ facets, sel, onToggle, onClearAxis, onClearAll, mo
               aria-expanded={isOpen} className="fp-shop-press"
               style={{
                 display: 'flex', alignItems: 'center', gap: 8, width: '100%',
-                padding: '11px 0', border: 'none', background: 'transparent', cursor: 'pointer',
+                padding: mobile ? '13px 0' : '11px 0', minHeight: mobile ? SHOP.tap.mobile : undefined,
+                border: 'none', background: 'transparent', cursor: 'pointer',
                 fontFamily: 'inherit', textAlign: 'left',
                 marginBottom: isOpen ? 4 : 0,
               }}>
-              <span style={{ fontSize: SHOP.fs.body, fontWeight: 700, color: C.ink, flex: 1, minWidth: 0 }}>
+              <span style={{ fontSize: mobile ? SHOP.fs.h2 : SHOP.fs.body, fontWeight: 700, color: C.ink, flex: 1, minWidth: 0 }}>
                 {AXIS_LABEL[axis]}
               </span>
               {on.length ? (
@@ -214,7 +215,8 @@ function CheckList({ axis, options, selected, onToggle, mobile, columns }: {
       <div style={{
         display: 'grid',
         gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
-        gap: mobile ? '15px 10px' : '12px 10px',
+        /* 줄 높이(폰 48)가 이미 자리를 만든다 — 사이까지 벌리면 손가락 한 번에 한 줄만 보인다. */
+        gap: mobile ? '2px 12px' : '12px 10px',
       }}>
         {shown.map((o) => (
           <CheckRow key={o.key} label={o.label} count={o.count}
@@ -244,24 +246,27 @@ function CheckRow({ label, count, on, onClick }: {
   return (
     <button type="button" onClick={onClick} aria-pressed={on} className="fp-shop-press"
       style={{
-        display: 'flex', alignItems: 'center', gap: 9, padding: 0,
+        display: 'flex', alignItems: 'center', gap: mobile ? 12 : 9, padding: 0,
+        minHeight: mobile ? SHOP.tap.mobile : SHOP.tap.web,
         border: 'none', background: 'transparent', cursor: 'pointer',
         fontFamily: 'inherit', textAlign: 'left', minWidth: 0,
-        fontSize: mobile ? SHOP.fs.body : 14,
+        /* 폰 글자 16 — 집 규격의 모바일 입력·버튼 크기이고, 웬만한 앱의 목록 글자가 그 언저리다. */
+        fontSize: mobile ? 16 : 14,
         color: on ? C.ink : C.sub, fontWeight: on ? 700 : 400,
       }}>
+      {/* ★네모는 폰에서 22 — 17 은 손가락 밑에서 안 보인다. 누르는 자리는 줄 전체(48)다. */}
       <span aria-hidden style={{
-        width: 17, aspectRatio: '1 / 1', borderRadius: 5, flex: '0 0 auto',
+        width: mobile ? 22 : 17, aspectRatio: '1 / 1', borderRadius: mobile ? 6 : 5, flex: '0 0 auto',
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
         border: `1.5px solid ${on ? C.brand : C.line}`,
         background: on ? C.brand : 'transparent',
       }}>
-        {on ? <Check size={12} strokeWidth={3} style={{ color: C.inverse }} /> : null}
+        {on ? <Check size={mobile ? 15 : 12} strokeWidth={3} style={{ color: C.inverse }} /> : null}
       </span>
       <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {label}
       </span>
-      <span style={{ fontSize: SHOP.fs.cap, color: C.faint, fontVariantNumeric: 'tabular-nums', flex: '0 0 auto' }}>
+      <span style={{ fontSize: mobile ? SHOP.fs.sub : SHOP.fs.cap, color: C.faint, fontVariantNumeric: 'tabular-nums', flex: '0 0 auto' }}>
         {count}
       </span>
     </button>
