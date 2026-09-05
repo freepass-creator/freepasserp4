@@ -20,10 +20,11 @@ if (!getApps().length) initializeApp({ credential: cert({ projectId: sa.project_
 const FS = getFirestore();
 const S = (v: unknown) => String(v ?? '').trim();
 
-// 기준선 = 현재 Firestore(브랜드별 트림 맵: key = maker|sub_model|fuel|trim)
+// 기준선 = 현재 Firestore. ★키는 «문서 id»(현대=saleModelCode) — (모델·트림)이 같아도 구성이 다르면
+//   가격이 갈리므로(파비스·모닝 승용/밴), maker|sub_model|fuel|trim 로 뭉치면 오탐. 문서 id 로 각 구성을 고유히 센다.
 const snap = await FS.collection('new_car_trim').get();
 const baseline = new Map<string, any>();
-snap.forEach((d) => { const v = d.data(); baseline.set(`${v.maker}|${v.sub_model}|${v.fuel}|${v.trim}`, v); });
+snap.forEach((d) => { const v = d.data(); baseline.set(d.id, { ...v, _id: d.id }); });
 
 type Diff = { added: string[]; removed: string[]; priceChanged: string[]; optionChanged: string[] };
 const diff: Diff = { added: [], removed: [], priceChanged: [], optionChanged: [] };
@@ -36,7 +37,8 @@ const priceAfterOf = (t: any) => { const inc = Number(t.taxIncentive || 0); retu
 
 const freshKeys = new Set<string>();
 for (const t of fresh) {
-  const key = `현대|${stripFuel(t.carType)}|${S(t.fuel)}|${S(t.trim)}`;
+  const key = S(t.saleModelCode); // 현대 문서 id = saleModelCode(구성별 고유)
+  if (!key) continue;
   freshKeys.add(key);
   const old = baseline.get(key);
   if (!old) { diff.added.push(`${stripFuel(t.carType)} ${t.trim} (${t.fuel}) ${Number(t.price).toLocaleString()}`); continue; }
@@ -46,7 +48,7 @@ for (const t of fresh) {
 }
 // 사라진 현대 트림(기준선엔 있는데 신선크롤엔 없음)
 for (const [key, v] of baseline) {
-  if (v.maker !== '현대') continue;
+  if (v.brandSource !== 'hyundai.com') continue; // 현대 문서만
   if (!freshKeys.has(key)) diff.removed.push(`${v.sub_model} ${v.trim} (${v.fuel})`);
 }
 
