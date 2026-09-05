@@ -11,8 +11,11 @@ import fitz, sys, json, re
 
 PRICE_BR = re.compile(r'\[([\d,]+)\]')          # [900,000]
 FREE = re.compile(r'추가\s*비용\s*없음|추가비용없음')
-# 트림 헤더 = 「(스마트)」「(모던)」「(프리미엄)」… 괄호 안 한글 트림, 짧은 줄.
+# 트림 헤더 = 「(스마트)」「(모던)」 괄호 한글, 또는 bare 영문 트림(「Inspiration」 등 — 현대 PDF 혼재).
 TRIM_PAREN = re.compile(r'^\(([가-힣A-Za-z0-9 ·\-]{2,16})\)$')
+EN2KO = {'smart': '스마트', 'modern': '모던', 'premium': '프리미엄', 'inspiration': '인스퍼레이션',
+         'exclusive': '익스클루시브', 'calligraphy': '캘리그래피', 'prestige': '프레스티지'}
+TRIM_EN = re.compile(r'^(Smart|Modern|Premium|Inspiration|Exclusive|Calligraphy|Prestige)\s*$', re.I)
 # 옵션 시작 표식 ▶ (PDF에 U+25B6 등). 텍스트에선 ▶ 또는 ▶ 유사.
 OPT_MARK = re.compile(r'^[▶▷]\s*(.+?)\s*$')
 NOISE = re.compile(r'기본\s*품목|선택\s*품목|파워트레인|세제혜택|개별소비세|친환경')
@@ -38,8 +41,13 @@ def extract(pdf_path):
     while i < len(lines):
         L = lines[i]
         tm = TRIM_PAREN.match(L)
-        if tm and not NOISE.search(L):
-            name = tm.group(1).strip()
+        em = TRIM_EN.match(L)
+        if (tm or em) and not NOISE.search(L):
+            name = tm.group(1).strip() if tm else EN2KO.get(em.group(1).lower(), em.group(1))
+            # 영문헤더 바로 다음 「(한글)」 이면 같은 트림 — 중복 섹션 방지(Smart\n(스마트))
+            if cur is not None and re.sub(r'\s', '', cur['trim']) == re.sub(r'\s', '', name) and not cur['options']:
+                i += 1
+                continue
             # 연료 = 트림헤더 아래 「… 기본 품목」 줄에서 찾음
             fuel = ''
             for j in range(i + 1, min(i + 8, len(lines))):

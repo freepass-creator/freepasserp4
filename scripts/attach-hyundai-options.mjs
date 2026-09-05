@@ -7,7 +7,10 @@ if(!getApps().length)initializeApp({credential:cert({projectId:sa.project_id,cli
 const FS=getFirestore();
 const APPLY=process.argv.includes('--apply');
 const S=v=>String(v??'').trim();
-const N=s=>S(s).toLowerCase().replace(/[\s()·\-]/g,'');
+// 트림 정규화 — 배터리·휠 꼬리(「(스탠다드) 18인치」) 제거 + 영문→한글 매핑, 그 뒤 소문자·기호제거.
+const EN2KO={modern:'모던',smart:'스마트',premium:'프리미엄',inspiration:'인스퍼레이션',exclusive:'익스클루시브',calligraphy:'캘리그래피',prestige:'프레스티지','e-lite':'이라이트',elite:'이라이트','e-value':'이밸류',evalue:'이밸류','le blanc':'르블랑',leblanc:'르블랑'};
+const canon=s=>{ let x=S(s).replace(/\((스탠다드|롱레인지|standard|long ?range)\)/gi,' ').replace(/\d+인치|\d+"?inch/gi,' ').replace(/\+/g,' ').replace(/\s+/g,' ').trim(); const lc=x.toLowerCase(); if(EN2KO[lc])x=EN2KO[lc]; return x; };
+const N=s=>{ const c=canon(s); const lc=c.toLowerCase(); return (EN2KO[lc]||c).toLowerCase().replace(/[\s()·\-]/g,''); };
 // 슬러그 → 한글 모델명(sub_model 에 포함되는지로 모델 매칭)
 const SLUG2KO={avante:'아반떼',sonata:'쏘나타',grandeur:'그랜저',tucson:'투싼',santafe:'싼타페',kona:'코나',palisade:'팰리세이드',venue:'베뉴',staria:'스타리아',ioniq5:'아이오닉 5',ioniq6:'아이오닉 6',ioniq9:'아이오닉 9',nexo:'넥쏘'};
 // 옵션 JSON 로드
