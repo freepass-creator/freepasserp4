@@ -331,6 +331,17 @@ must(/'screening_criteria'/.test(read('lib/domain/public-catalog.ts')),
 must(/gridTemplateColumns: '200px minmax\(0, 1fr\)'/.test(shopDetail),
   '웹의 구역 제목 기둥이 사라졌습니다 — 웹이 다시 «폰을 늘려 놓은» 꼴이 됩니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1');
+/*
+ * 보험에서 「없음」은 «값»이다 — 면책금 없음 = 내 돈이 안 나간다 · 보장 없음 = 보상이 안 된다.
+ * 둘 다 확정된 사실이라 `meaningful`(없음을 지운다)로 거르면 정보를 없앤다.
+ */
+must(/const insRows = /.test(shopDetail) && /const coverage = insRows\(/.test(shopDetail)
+  && /const deductibles = insRows\(/.test(shopDetail),
+  '보험이 다시 「없음」을 지우는 필터를 씁니다 — 면책금 없음·보장 없음은 손님이 알아야 할 확정된 사실입니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
+must(/\['무보험 면책금', S\('uninsured_deductible'\)\]/.test(shopDetail),
+  '무보험 면책금이 빠졌습니다 — 정책 원자의 면책금 다섯 중 하나입니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
 // 전화는 담당자 → 대표번호로 떨어진다 — ?a= 없는 손님에게 전화 링크가 0개가 되면 안 된다.
 must(/wl\.tel/.test(read('app/q/[code]/ShopDetailView.tsx')),
   '상세가 대표번호 폴백을 잃었습니다. ?a= 없이 들어온 손님은 폰에서 전화 링크가 0개가 됩니다.',
