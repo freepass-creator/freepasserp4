@@ -123,12 +123,15 @@ export function ShopFilterSheet({ facets, sel, onToggle, onClearAxis, onClearAll
             </div>
             {/*
               시트의 오른쪽 칸은 227px 라 두 열이면 한 칸이 95 밖에 안 된다 — 「하이브리드」가
-              「하이브…」로 잘렸다(2026-09-04 실측). 그래서 **한 열**이 기본이다.
-              연식만 두 열 — 라벨이 네 자리 숫자로 고정이라 좁아도 안 잘리고, 열다섯 개를
-              한 열로 세우면 그것만 스크롤이 길어진다.
+              「하이브…」로 잘렸다(2026-09-04 실측). 그래서 **한 열**이다.
+              ⚠⚠ 연식만 두 열로 뒀다가 걷었다(사장님 2026-09-06 「필터 연식이 두 줄로 돼 있어가지고
+                좀 짤리는 게 있고」). 글자가 잘린 건 아니었고 **건수가 옆 칸 라벨에 붙어** 읽혔다 —
+                `2026 … 128 │ 2025 … 75` 에서 128 이 제 라벨과 40px, 옆 라벨과 12px 였다.
+              ★스크롤이 길어지는 건 「더보기」가 이미 막고 있다(머리 여덟 줄만 세운다).
+                한 열이 길다고 두 열로 접으면 **읽는 사람이 숫자를 잘못 묶는다** — 길이보다 그게 비싸다.
             */}
             <ShopAxisOptions axis={active} options={facets[active] ?? []} selected={sel[active] ?? []}
-              onToggle={onToggle} mobile columns={active === 'year' ? 2 : 1} />
+              onToggle={onToggle} mobile columns={1} />
           </div>
         </div>
 

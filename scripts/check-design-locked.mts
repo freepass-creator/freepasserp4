@@ -529,6 +529,22 @@ must(/--shop-fs-body: 15px/.test(css) && /@media \(max-width: 760px\)/.test(css)
   'docs/DESIGN_CONFIRMED_SHOP.md §1-3');
 
 /*
+ * **조건 목록 — 건수는 «제 라벨»에 붙는다. 폰 시트는 한 열이다.**
+ *
+ * 사장님 2026-09-06 「필터 **연식이 두 줄로 돼 있어가지고 좀 짤리는 게** 있고」.
+ * ⚠ 실측 — 잘린 글자는 없었다. 두 열에서 건수를 칸 «오른쪽 끝»에 세우니
+ *   `2026 … 128 │ 2025 … 75` 에서 **128 이 제 라벨과 40px, 옆 칸 라벨과 12px** 였다.
+ *   숫자가 엉뚱한 이름에 묶여 읽히는 것이 「짤린다」의 정체다.
+ * ⇒ ㉠ 폰 시트는 **전부 한 열**(연식 예외를 걷었다) ㉡ 두 열로 서는 웹 축은 **건수를 라벨 뒤에 붙인다.**
+ * ★한 열일 때는 반대다 — 오른쪽 끝에 세워야 숫자가 세로로 맞아 훑기 좋다.
+ */
+must(/tight=\{columns > 1\}/.test(read('components/shop/ShopFilters.tsx'))
+  && /flex: tight \? '0 1 auto' : 1/.test(read('components/shop/ShopFilters.tsx'))
+  && /mobile columns=\{1\}/.test(read('components/shop/ShopFilterSheet.tsx')),
+  '조건 건수가 다시 옆 칸 라벨에 붙어 읽힙니다 — 폰 시트는 한 열, 두 열은 건수를 라벨 뒤에 붙입니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-3');
+
+/*
  * **카드는 «안은 좁게 · 밖은 넓게»** — 대여료가 차명을 잡아먹지 않는다.
  *
  * 사장님 2026-09-05 「목록에서 각 간격이 **너무 막 멀게 떨어져 있거나** 굳이 그렇게 간격을 멀리

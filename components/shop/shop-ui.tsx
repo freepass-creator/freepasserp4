@@ -271,8 +271,15 @@ export function ShopRevealSearch({ value, onChange, onClose, placeholder }: {
     <div style={{ display: 'flex', alignItems: 'center', gap: SHOP.sp.tight, paddingTop: SHOP.sp.cozy }}>
       <div style={{
         flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: SHOP.sp.snug,
-        /* 칩과 같은 회색 «면» — 테두리를 두르지 않는다(가게 공통 · `ShopPill` 머리말). */
-        height: 44, background: C.head, borderRadius: SHOP.r.ctrl, padding: `0 ${SHOP.sp.cozy}px`,
+        /*
+         * ⚠⚠ **칩과 같은 회색(`C.head`)을 쓰지 않는다**(사장님 2026-09-06 「그 검색창을 감싸는
+         *   **라인이 좀 되게 두껍네**」). 테두리는 실측 0px 이었다 — 두껍게 보인 건 «면» 쪽이다.
+         *   바로 밑 칩 줄이 같은 회색이라, 44 짜리 진한 회색 덩어리가 하나 더 얹혀
+         *   **회색 띠가 둘로 겹쳐** 「두꺼운 테두리」로 읽혔다.
+         * ★칸(입력)과 누름(칩)은 «다른 것»이다 — 같은 색이면 검색칸이 「아주 넓은 칩」으로 보인다.
+         *   한 단 옅은 면(`C.zebra`)으로 내려 뒤로 물리고, 높이도 칩(38)에 맞춰 40 으로 낮춘다.
+         */
+        height: 40, background: C.zebra, borderRadius: SHOP.r.ctrl, padding: `0 ${SHOP.sp.cozy}px`,
       }}>
         <Search size={19} aria-hidden style={{ flex: '0 0 auto', color: C.mute }} />
         <input
@@ -370,17 +377,22 @@ export function ShopSort({ value, onChange, options }: {
       <select value={value} onChange={(e) => onChange(e.target.value)} aria-label="정렬"
         style={{
           appearance: 'none', WebkitAppearance: 'none',
-          /* 정렬 고르개도 칩과 같은 치수(`SHOP.pill`) — 한 줄에 나란히 서므로 높이가 달라 보이면 안 된다. */
-          height: mobile ? SHOP.pill.mobile : SHOP.pill.web, padding: '0 34px 0 14px',
+          /*
+           * 웹은 칩과 같은 치수(`SHOP.pill`) — 한 줄에 나란히 서므로 높이가 달라 보이면 안 된다.
+           * ⚠ 폰은 다르다 — 칩 줄은 «위»에 따로 있고 여기는 건수와 한 줄을 쓴다. 38 을 그대로 쓰면
+           *   그 줄만 부풀어 목록이 밀린다(사장님 2026-09-06 「오밀조밀 짜임새 있게」).
+           *   32 는 누름 영역이 44 밑이지만, 오른쪽 끝에 «혼자» 서는 고르개라 헛누를 이웃이 없다.
+           */
+          height: mobile ? 32 : SHOP.pill.web, padding: mobile ? '0 30px 0 12px' : '0 34px 0 14px',
           /* 칩과 같은 «면» — 한 화면에서 칩만 면이고 고르개만 테두리면 그 줄이 어긋나 보인다. */
           borderRadius: SHOP.r.ctrl, border: 'none', background: C.head,
-          fontFamily: 'inherit', fontSize: mobile ? SHOP.fs.body : SHOP.fs.sub,
+          fontFamily: 'inherit', fontSize: SHOP.fs.sub,
           color: C.ink, fontWeight: 600, cursor: 'pointer',
         }}>
         {options.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
       </select>
-      <ChevronDown size={ICON.md} aria-hidden
-        style={{ position: 'absolute', right: 11, pointerEvents: 'none', color: C.mute }} />
+      <ChevronDown size={mobile ? ICON.sm : ICON.md} aria-hidden
+        style={{ position: 'absolute', right: mobile ? 10 : 11, pointerEvents: 'none', color: C.mute }} />
     </div>
   );
 }
@@ -396,15 +408,21 @@ export function ShopSort({ value, onChange, options }: {
 export function ShopCount({ value, filtered }: { value: string; filtered?: boolean }) {
   const mobile = useIsMobile();
   return (
-    <div style={{ display: 'flex', alignItems: 'baseline', gap: 7 }}>
-      <span style={{ fontSize: SHOP.fs.sub, fontWeight: 500, color: C.mute }}>
+    /*
+     * ⚠ 폰은 «머리 숫자»가 아니라 **한 줄의 한 조각**이다(사장님 2026-09-06 「모바일에서 각 항목들
+     *   원자들이 배열되는 게 좀 **오밀조밀 짜임새 있게** 들어갔으면」).
+     *   웹은 왼쪽 기둥 꼭대기에 «혼자» 서므로 26 이 맞지만, 폰은 정렬 고르개와 **한 줄을 나눠 쓴다** —
+     *   거기서 20 짜리 브랜드색 숫자가 서면 그 줄만 머리처럼 도드라지고 가운데가 통째로 빈다.
+     */
+    <div style={{ display: 'flex', alignItems: 'baseline', gap: SHOP.sp.snug }}>
+      <span style={{ fontSize: mobile ? SHOP.fs.cap : SHOP.fs.sub, fontWeight: 500, color: C.mute }}>
         {filtered ? '조건에 맞는 차량' : '전체차량'}
       </span>
       <span style={{
-        fontSize: mobile ? SHOP.fs.h1 : 26, fontWeight: 800, color: C.brand,
+        fontSize: mobile ? SHOP.fs.h2 : 26, fontWeight: 800, color: C.brand,
         letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums',
       }}>{value}</span>
-      <span style={{ fontSize: SHOP.fs.sub, fontWeight: 700 }}>대</span>
+      <span style={{ fontSize: mobile ? SHOP.fs.cap : SHOP.fs.sub, fontWeight: 700 }}>대</span>
     </div>
   );
 }

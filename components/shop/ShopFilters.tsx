@@ -219,7 +219,7 @@ function CheckList({ axis, options, selected, onToggle, mobile, columns }: {
         gap: mobile ? `${SHOP.sp.tight}px ${SHOP.sp.cozy}px` : `${SHOP.sp.cozy}px ${SHOP.sp.snug}px`,
       }}>
         {shown.map((o) => (
-          <CheckRow key={o.key} label={o.label} count={o.count}
+          <CheckRow key={o.key} label={o.label} count={o.count} tight={columns > 1}
             on={selected.includes(o.key)} onClick={() => onToggle(axis, o.key)} />
         ))}
       </div>
@@ -239,8 +239,18 @@ function CheckList({ axis, options, selected, onToggle, mobile, columns }: {
  *   여러 개를 고를 수 있다(케이카는 축 제목 옆에 「중복선택가능」이라고 아예 써 둔다).
  *   모양이 말해 주면 글자로 설명할 필요가 없다.
  */
-function CheckRow({ label, count, on, onClick }: {
+function CheckRow({ label, count, on, onClick, tight }: {
   label: string; count: number; on: boolean; onClick: () => void;
+  /**
+   * **두 열로 설 때** — 건수를 칸 오른쪽 끝이 아니라 **제 라벨 바로 뒤**에 붙인다.
+   *
+   * 사장님 2026-09-06 「필터 **연식이 두 줄로 돼 있어가지고 좀 짤리는 게** 있고」.
+   * ⚠ 실측 — 잘린 글자는 없었다(`scrollWidth == clientWidth`). 진짜 문제는 **묶임**이었다:
+   *   `2026 … 128 │ 2025 … 75` 에서 `128` 이 제 라벨(2026)과는 40px, **옆 칸 라벨(2025)과는 12px**.
+   *   숫자가 엉뚱한 라벨에 붙어 읽히니 「깨졌다·짤렸다」로 보인다.
+   * ★한 열일 때는 반대다 — 오른쪽 끝에 세워야 숫자 열이 세로로 맞아 훑기 좋다(엔카·케이카가 그렇다).
+   */
+  tight?: boolean;
 }) {
   const mobile = useIsMobile();
   return (
@@ -264,11 +274,15 @@ function CheckRow({ label, count, on, onClick }: {
       }}>
         {on ? <Check size={mobile ? 14 : 12} strokeWidth={3} style={{ color: C.inverse }} /> : null}
       </span>
-      <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-        {label}
-      </span>
-      <span style={{ fontSize: mobile ? SHOP.fs.sub : SHOP.fs.cap, color: C.faint, fontVariantNumeric: 'tabular-nums', flex: '0 0 auto' }}>
-        {count}
+      <span style={{ display: 'flex', alignItems: 'baseline', gap: SHOP.sp.snug, flex: 1, minWidth: 0 }}>
+        <span style={{
+          /* 두 열이면 라벨이 «제 폭»만 먹는다 → 건수가 바로 뒤에 붙는다(위 `tight` 머리말). */
+          flex: tight ? '0 1 auto' : 1, minWidth: 0,
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        }}>{label}</span>
+        <span style={{ fontSize: mobile ? SHOP.fs.sub : SHOP.fs.cap, color: C.faint, fontVariantNumeric: 'tabular-nums', flex: '0 0 auto' }}>
+          {count}
+        </span>
       </span>
     </button>
   );

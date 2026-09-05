@@ -332,7 +332,8 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
             {/* 목록 머리 = 격자의 어깨. 왼 기둥이 «전체»를 세므로 여기는 «지금 보이는 만큼»을 말한다. */}
             <div style={{
               display: 'flex', alignItems: 'center', gap: SHOP.sp.cozy,
-              margin: mobile ? '8px 0 12px' : '24px 0 12px',
+              /* 폰은 이 줄이 «머리»가 아니라 목록의 어깨다 — 위아래를 사다리 최소로 조인다. */
+              margin: mobile ? '4px 0 8px' : '24px 0 12px',
             }}>
               {mobile ? <ShopCount value={shownText} filtered={narrowed} /> : (
                 <span style={{ fontSize: SHOP.fs.sub, color: C.mute, fontVariantNumeric: 'tabular-nums' }}>
