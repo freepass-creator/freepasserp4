@@ -403,6 +403,15 @@ must(/const stateMarks: Mark\[\]/.test(shopDetail) && /const perkMarks: Mark\[\]
   && /S2\(p\.vehicle_status\)/.test(shopDetail) && /S2\(p\.product_type\)/.test(shopDetail),
   '표시 칩이 사라졌거나 신원(출고상태·구분)과 조건(심사·우대)이 다시 한 덩어리가 됐습니다 — 신원은 차명 줄 오른쪽, 조건은 그 밑입니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1');
+/*
+ * 신원 칩과 조건 칩은 «얼굴»도 달라야 한다 — 자리만 갈라 놓으면 여전히 한 종류로 보인다.
+ * 신원 = 연한 «면» 위 작은 흐린 글자(딱지) · 조건 = 면 «없이» 아이콘 + 진한 글자.
+ */
+const stateChipSrc = (shopDetail.split('const stateChip =')[1] ?? '').split('const perkChip')[0];
+const perkChipSrc = (shopDetail.split('const perkChip =')[1] ?? '').slice(0, 600);
+must(stateChipSrc.includes('background') && !perkChipSrc.includes('background'),
+  '신원 칩과 조건 칩이 다시 같은 얼굴이 됐습니다 — 신원은 연한 면 위 딱지, 조건은 면 없이 아이콘+진한 글자입니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1');
 // 전화는 담당자 → 대표번호로 떨어진다 — ?a= 없는 손님에게 전화 링크가 0개가 되면 안 된다.
 must(/wl\.tel/.test(read('app/q/[code]/ShopDetailView.tsx')),
   '상세가 대표번호 폴백을 잃었습니다. ?a= 없이 들어온 손님은 폰에서 전화 링크가 0개가 됩니다.',

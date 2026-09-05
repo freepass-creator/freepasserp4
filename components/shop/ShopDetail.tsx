@@ -1316,15 +1316,40 @@ function Head({ title, facts, stateMarks, perkMarks }: {
    *   연한 면은 깔되 **테두리는 두르지 않는다** — 테두리가 붙는 순간 그게 상자 뱃지다.
    * ★색은 **좋은 소식에만**(출고가능·즉시출고·무심사). 칩마다 색을 주면 그때부터 소란이다.
    */
-  const chip = (m: { text: string; icon: LucideIcon; good?: boolean }) => (
+  /**
+   * **신원 칩** — 출고상태 · 상품구분. 「이 차가 지금 어떤 물건인가」를 **통보**하는 값이다.
+   * 연한 «면» 위에 작은 글자로 얹는다 — 사실 표시라 조용해야 하고, 면이 있으면 이름 옆에서
+   * «딱지»처럼 붙어 읽힌다.
+   */
+  const stateChip = (m: { text: string; icon: LucideIcon; good?: boolean }) => (
     <span key={m.text} style={{
       display: 'inline-flex', alignItems: 'center', gap: 4,
       padding: '5px 10px', borderRadius: SHOP.r.chip,
       background: m.good ? C.okBg : C.zebra,
-      color: m.good ? C.ok : C.sub,
+      color: m.good ? C.ok : C.mute,
       fontSize: SHOP.fs.cap, fontWeight: 600, whiteSpace: 'nowrap',
     }}>
       <m.icon size={13} aria-hidden />{m.text}
+    </span>
+  );
+
+  /**
+   * **조건 칩** — 심사 · 우대조건. 「**내가 되나**」의 답이라 성격이 아주 다르다
+   * (사장님 2026-09-05 「위에 배지하고 아래 배지하고 **성격이 다르니까 그걸 좀 차이 나게끔**」).
+   *
+   * ★그래서 **면을 안 깐다 — 아이콘 + 글자만**이다(집 규칙 그대로: 「박스 뱃지 쓰지 말고
+   *   아이콘 텍스트로」). 면이 없으면 상태 딱지와 한눈에 갈리고, 글자를 진하게 세울 수 있어
+   *   **오히려 더 또렷하다** — 회색 면에 회색 글자로 눕히면 셀링포인트가 딱지로 보인다.
+   * ★저신용 손님이 이 화면에서 제일 먼저 재는 값이다. 조용해선 안 된다.
+   * ★아이콘만 색을 갖는다(무심사는 초록, 나머지는 채널색). 글자는 검정이라 소란하지 않다.
+   * ★사이를 넉넉히 벌린다 — 붙여 놓으면 다시 «칩 줄»로 보인다.
+   */
+  const perkChip = (m: { text: string; icon: LucideIcon; good?: boolean }) => (
+    <span key={m.text} style={{
+      display: 'inline-flex', alignItems: 'center', gap: 5,
+      color: C.ink, fontSize: SHOP.fs.sub, fontWeight: 700, whiteSpace: 'nowrap',
+    }}>
+      <m.icon size={15} aria-hidden style={{ color: m.good ? C.ok : C.brand }} />{m.text}
     </span>
   );
 
@@ -1348,7 +1373,7 @@ function Head({ title, facts, stateMarks, perkMarks }: {
         }}>{title}</h1>
         {stateMarks.length ? (
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'flex-end' }}>
-            {stateMarks.map(chip)}
+            {stateMarks.map(stateChip)}
           </div>
         ) : null}
       </div>
@@ -1358,8 +1383,8 @@ function Head({ title, facts, stateMarks, perkMarks }: {
         </div>
       ) : null}
       {perkMarks.length ? (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginTop: 12 }}>
-          {perkMarks.map(chip)}
+        <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 16, rowGap: 8, marginTop: 12 }}>
+          {perkMarks.map(perkChip)}
         </div>
       ) : null}
     </header>
