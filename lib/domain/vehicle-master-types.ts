@@ -51,6 +51,9 @@ export type MasterEntry = {
   title?: string;
   variants: MasterVariant[];
   trims?: string[];
+  /** 비활성(은퇴) 세부모델 — 검증·카탈로그에서 제외. 삭제 아님(되돌리기). 예: 연료축 분리로 은퇴한 «X 하이브리드». */
+  retired?: boolean;
+  _retiredReason?: string;
 };
 
 /** 원문에 없어 마스터 선택지로 힌트 채운 원자(미리보기용). 저장 스펙 값은 아님. */
