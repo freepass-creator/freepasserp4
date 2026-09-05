@@ -66,6 +66,7 @@
     "sync:contract": "tsx scripts/print-sync-contract.mts",
     "check:sync": "tsx scripts/check-sales-axes.mts && tsx scripts/check-pipeline-contracts.mts && tsx scripts/check-manual-drift.mts",
     "check:axes": "tsx scripts/check-sales-axes.mts",
+    "sim:autoplus-header": "tsx scripts/sim-autoplus-header.mts",
     "audit:axis-coverage": "tsx scripts/audit-axis-coverage.mts",
     "check:axis-coverage": "tsx scripts/audit-axis-coverage.mts --gate",
     "check:columns": "tsx --require ./scripts/lib/server-only-shim.cjs scripts/check-sales-columns.mts",
