@@ -408,6 +408,28 @@ must(/const stateMarks: Mark\[\]/.test(shopDetail) && /const perkMarks: Mark\[\]
  * ⚠ 되돌아가면 ㉠ 상세 맨 위에 짝 없는 빈 줄이 다시 생기거나 ㉡ 스크롤 한 번에 공유가 사라진다.
  *   공유는 이 사업의 퍼널이라 ㉡ 는 화면이 깨지는 것보다 조용하고 더 비싸다.
  */
+/*
+ * **관련 있는 것끼리 뭉쳐 놓는다**(사장님 2026-09-05). 순서가 흐트러지면 화면은 멀쩡해 보이는데
+ * 손님이 눈으로 값을 다시 맞춰야 한다 — 연식과 주행거리가 갈리면 「2022년식」과 「12만km」가
+ * 서로 다른 이야기가 된다.
+ *   차량 정보 ㉠연식·주행거리 ㉡배기량/배터리·연료·구동방식 ㉢색·인승 ㉣신차가
+ *   이용 조건 ㉠나이 셋 ㉡심사·면허·범위·추가운전자 ㉢주행 둘
+ */
+const at = (needle: string) => shopDetail.indexOf(needle);
+must(/function grouped\(/.test(shopDetail) && /const specs: \[string, string\]\[\] = grouped\(/.test(shopDetail)
+  && at("['연식'") < at("? '배터리' : '배기량'")
+  && at("? '배터리' : '배기량'") < at("['외부 색상'")
+  && at("['주행거리'") < at("['연료'")
+  && at("['외부 색상'") < at("['차량 가격'"),
+  '차량 정보의 무리가 흐트러졌습니다 — 연식·주행 / 배기량·연료·구동 / 색·인승 / 신차가 차례입니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-2-3');
+must(/const useRows = grouped\(/.test(shopDetail)
+  && at("['기본 운전 연령'") < at("['연령 낮추기'")
+  && at("['연령 낮추기'") < at("['심사', credit]")
+  && at("['추가 운전자'") < at("['약정 주행'"),
+  '이용 조건의 무리가 흐트러졌습니다 — 나이 셋 / 심사·면허·범위·추가운전자 / 주행 둘 차례입니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-2-3');
+
 const wlFrame = read('components/WhitelabelFrame.tsx');
 /*
  * 폰 상세 머리띠는 «채널 간판»이 아니라 「상품 상세」다 — 손님은 이미 그 가게 안이다.

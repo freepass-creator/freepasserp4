@@ -145,28 +145,54 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
    *   ⇒ **지어내지 않는다.** 자리는 만들어 뒀으니 원천이 값을 실어 주면 그날 바로 뜬다.
    */
   const isEvSpec = isEv;
-  const specs: [string, string][] = ([
-    ['외부 색상', String(p.ext_color || '')],
-    ['내부 색상', String(p.int_color || '')],
-    ['연식', yearFullDisplay(p.year)],
-    ['주행거리', km > 0 ? kmDisplay(p.mileage) : ''],
-    /*
-     * ★★**배기량과 배터리는 «한 칸»을 나눠 쓴다**(사장님 2026-09-05 「배기량하고 배터리 정보가
-     *   같이 들어갈 일이 없으니까 … 전기차는 배터리 용량이 **그 항목을 바꿔 가면서** 쓰는 거야」).
-     *   맞다 — 한 차가 둘 다 갖는 일이 없다. 두 칸을 따로 세우면 어느 차를 봐도 **하나는 늘 비고**,
-     *   격자에 구멍이 생겨 「덜 채운 표」로 보인다. 라벨이 바뀌는 한 칸이면 언제나 꽉 찬다.
-     * ★업무동도 같은 규칙이다(`lib/domain/product.ts` `ccLabel` — 「전기차는 배터리 용량이
-     *   그 자리를 든다」, 사장님 2026-08-23). 두 화면이 같은 말을 같은 방식으로 한다.
-     */
-    [isEvSpec ? '배터리' : '배기량',
-      isEvSpec
-        ? (Number(p.battery_capacity) > 0 ? `${Number(p.battery_capacity)}kWh` : '')
-        : (cc > 0 ? `${cc.toLocaleString('ko-KR')}cc` : '')],
-    ['연료', fuelDisplay(p.fuel_type) || String(p.fuel_type || '')],
-    ['구동방식', String(p.drive_type || '')],
-    ['승차정원', seats > 0 ? `${seats}인승` : ''],
-    ['차량 가격', Number(p.vehicle_price) > 0 ? `${Math.round(Number(p.vehicle_price) / 10000).toLocaleString('ko-KR')}만원` : ''],
-  ] as [string, string][]).filter(([, v]) => meaningful(v));
+  /*
+   * ★★★**세 무리로 뭉친다**(사장님 2026-09-05 「**뭉쳐야 될 것들이 있어. 연식, 주행거리** —
+   *   이게 «연식에 따른 주행거리»를 보고, **배기량, 연료** … 이런 식으로 **같이 모아 놔야** 되는 게
+   *   있고, **순서라든지 이런 것들이 좀 관련성 있게 배열이 돼야** 되거든?」).
+   *
+   *   ㉠ **얼마나 탔나** — 연식 · 주행거리
+   *      둘은 «따로 보는 값이 아니다». 2022년식 3만km 와 2022년식 12만km 는 다른 차다.
+   *      떨어뜨려 놓으면 손님이 눈으로 둘을 다시 맞춰야 한다.
+   *   ㉡ **무엇으로 가나** — 배기량(전기차는 배터리) · 연료 · 구동방식
+   *      배기량과 연료는 한 값의 앞뒤다(2,497cc 가솔린 · 64kWh 전기). 구동방식이 그 끝이다.
+   *   ㉢ **어떤 몸인가** — 외부 색상 · 내부 색상 · 승차정원
+   *      보이는 것과 타는 인원. 색 둘은 반드시 붙어야 한다(밖·안이 한 쌍이다).
+   *   ㉣ 차량 가격(신차가) — 성격이 아주 다른 값이라 혼자 선다.
+   *
+   * ★열 수가 화면마다 다르다(폰 2 · 웹 3). 그래서 순서만으로 두지 않고 `grouped` 로 **줄을 끊는다** —
+   *   웹 3열에서는 ㉡㉢ 이 정확히 한 줄씩 앉고, 폰 2열에서는 무리가 접히되 섞이지는 않는다.
+   * ⚠ 옛 순서는 «색상이 맨 앞»이었다. 손님이 제일 먼저 묻는 것은 색이 아니라 **연식·주행거리**다.
+   */
+  const specs: [string, string][] = grouped(
+    [
+      ['연식', yearFullDisplay(p.year)],
+      ['주행거리', km > 0 ? kmDisplay(p.mileage) : ''],
+    ],
+    [
+      /*
+       * ★★**배기량과 배터리는 «한 칸»을 나눠 쓴다**(사장님 2026-09-05 「배기량하고 배터리 정보가
+       *   같이 들어갈 일이 없으니까 … 전기차는 배터리 용량이 **그 항목을 바꿔 가면서** 쓰는 거야」).
+       *   맞다 — 한 차가 둘 다 갖는 일이 없다. 두 칸을 따로 세우면 어느 차를 봐도 **하나는 늘 비고**,
+       *   격자에 구멍이 생겨 「덜 채운 표」로 보인다. 라벨이 바뀌는 한 칸이면 언제나 꽉 찬다.
+       * ★업무동도 같은 규칙이다(`lib/domain/product.ts` `ccLabel` — 「전기차는 배터리 용량이
+       *   그 자리를 든다」, 사장님 2026-08-23). 두 화면이 같은 말을 같은 방식으로 한다.
+       */
+      [isEvSpec ? '배터리' : '배기량',
+        isEvSpec
+          ? (Number(p.battery_capacity) > 0 ? `${Number(p.battery_capacity)}kWh` : '')
+          : (cc > 0 ? `${cc.toLocaleString('ko-KR')}cc` : '')],
+      ['연료', fuelDisplay(p.fuel_type) || String(p.fuel_type || '')],
+      ['구동방식', String(p.drive_type || '')],
+    ],
+    [
+      ['외부 색상', String(p.ext_color || '')],
+      ['내부 색상', String(p.int_color || '')],
+      ['승차정원', seats > 0 ? `${seats}인승` : ''],
+    ],
+    [
+      ['차량 가격', Number(p.vehicle_price) > 0 ? `${Math.round(Number(p.vehicle_price) / 10000).toLocaleString('ko-KR')}만원` : ''],
+    ],
+  );
 
   /** 차량 정보 맨 윗줄 — **전문 차명**. 위 요약(h1)은 짧게 두고 여기서 세부 트림까지 편다. */
   const modelLine = [makerDisplay(p.maker), String(p.sub_model || '').trim(), String(p.trim_name || '').trim()]
@@ -345,7 +371,22 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
     : age(S('basic_driver_age'));
   const creditRaw = creditDisplay(p);
   const credit = creditRaw && creditRaw !== CREDIT_UNSET ? creditRaw : '';
-  const useRows = rows([
+  /*
+   * ★★★**이용 조건도 «무리»로 선다**(사장님 2026-09-05 「보험도 그렇고 계약 조건도 그렇고 …
+   *   **순서라든지 이런 것들이 좀 관련성 있게 배열이 돼야** 되거든?」).
+   *
+   *   ㉠ **몇 살이 타나** — 기본 운전 연령 · 운전 가능 연령 · 연령 낮추기
+   *      셋이 한 이야기다. 「기본은 26세, 21~70세까지 되고, 21세로 내리면 +10만원」이
+   *      한 무리로 읽혀야 뜻이 선다. 연령 낮추기는 여태 **맨 끝**에 떨어져 있어서,
+   *      위의 두 나이와 무슨 관계인지 손님이 눈으로 다시 이어 붙여야 했다.
+   *   ㉡ **누가 어떻게 타나** — 심사 · 면허 · 운전 범위 · 추가 운전자
+   *      전부 「이 사람이 자격이 되나」다. 웹 4열에서 정확히 한 줄에 앉는다.
+   *   ㉢ **얼마나 타나** — 약정 주행 · 최대 주행
+   *      「연 20,000km, 1만km당 +10만원, 최대 50,000km」 — 셋이 한 문장이다.
+   *      주행을 나이·자격 사이에 끼워 두면 그 문장이 두 동강 난다(옛 순서가 그랬다).
+   */
+  const useRows = grouped(
+    [
     /*
      * ★★**나이는 «둘»이다 — 기본 연령과 가능 구간**(사장님 2026-09-05
      *   「**기본 운전 연령**이 있고, 그게 **대여료 표의 기본 조건 26세**라는 거고,
@@ -360,6 +401,26 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
     ['기본 운전 연령', age(S('basic_driver_age'))],
     ['운전 가능 연령', ageRange],
     /*
+     * ★★**연령 낮추기는 «나이 + 얹히는 돈»이고, 못 낮추면 「불가」다**(사장님 2026-09-05
+     *   「연령 낮추기는 **21세, 23세가 있으니까**, 아예 **불가하면 그냥 「연령 낮추기 불가」**.
+     *   그리고 21세에 23세, 거기다가 **플러스 얼마**. 그 **플러스 아이콘은 다 동일하게** 써줄게」).
+     *
+     *   · 낮출 수 있으면 → 「만 21세 ↑10만원」 (차마다 21세인 곳도 23세인 곳도 있다)
+     *   · 못 낮추면      → 「불가」  ← 이것도 «확정된 사실»이라 줄을 지우지 않는다
+     * ⚠ 한때 목표 나이를 빼고 값만 썼다 — 「위 구간의 아래 끝이 말한다」는 내 판단이었는데,
+     *   **낮추는 나이가 차마다 다르다.** 얼마를 내면 «몇 살까지» 내려가는지가 이 칸의 뜻이다.
+     * ★화살표는 약정 주행 가산액과 **같은 것**을 쓴다 — 둘 다 「돈이 얹힌다」는 같은 말이다.
+     */
+    ['연령 낮추기', (() => {
+      const raw = S('driver_age_lowering');
+      if (!raw) return '';
+      if (!lowered) return /불가/.test(raw) ? '불가' : '';
+      const cost = S('age_lowering_cost');
+      return meaningful(cost) ? `${age(lowered)} ↑${cost}` : age(lowered);
+    })()],
+    ],
+    [
+    /*
      * ★★**심사는 계속 띄운다**(사장님 2026-09-05 「그 심사 조건은 계속 띄워요」).
      *   그전까지 손님 화면에 안 나갔다 — 값이 화이트리스트에 없어 오지도 않았다. 이번에 열었다.
      * ★자리는 **이용 조건**이다. 「내가 될까」를 묻는 칸이지 요금 칸이 아니다.
@@ -367,6 +428,11 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
      *     손님이 평생 들어 온 그 단어를 다시 만난다(§1-12 는 그대로다).
      */
     ['심사', credit],
+    ['면허', S('license_period')],
+    ['운전 범위', S('personal_driver_scope')],
+    ['추가 운전자', join(S('additional_driver_allowance_count'), S('additional_driver_cost'))],
+    ],
+    [
     /*
      * ★★**「초과」가 아니라 「추가」다**(사장님 2026-09-05 「연간 약정 주행거리는
      *   **1만km 추가 시 10만원**이야. 그 표현을 명확하게 해줘야 돼」).
@@ -395,36 +461,22 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
      * ⚠ 값이 들어오기 전까지는 이 줄이 안 그려진다 — **지어내지 않는다.**
      */
     ['최대 주행', S('max_annual_mileage')],
-    ['면허', S('license_period')],
-    ['운전 범위', S('personal_driver_scope')],
-    ['추가 운전자', join(S('additional_driver_allowance_count'), S('additional_driver_cost'))],
-    /*
-     * ★★**연령 낮추기는 «나이 + 얹히는 돈»이고, 못 낮추면 「불가」다**(사장님 2026-09-05
-     *   「연령 낮추기는 **21세, 23세가 있으니까**, 아예 **불가하면 그냥 「연령 낮추기 불가」**.
-     *   그리고 21세에 23세, 거기다가 **플러스 얼마**. 그 **플러스 아이콘은 다 동일하게** 써줄게」).
-     *
-     *   · 낮출 수 있으면 → 「만 21세 ↑10만원」 (차마다 21세인 곳도 23세인 곳도 있다)
-     *   · 못 낮추면      → 「불가」  ← 이것도 «확정된 사실»이라 줄을 지우지 않는다
-     * ⚠ 한때 목표 나이를 빼고 값만 썼다 — 「위 구간의 아래 끝이 말한다」는 내 판단이었는데,
-     *   **낮추는 나이가 차마다 다르다.** 얼마를 내면 «몇 살까지» 내려가는지가 이 칸의 뜻이다.
-     * ★화살표는 약정 주행 가산액과 **같은 것**을 쓴다 — 둘 다 「돈이 얹힌다」는 같은 말이다.
-     */
-    ['연령 낮추기', (() => {
-      const raw = S('driver_age_lowering');
-      if (!raw) return '';
-      if (!lowered) return /불가/.test(raw) ? '불가' : '';
-      const cost = S('age_lowering_cost');
-      return meaningful(cost) ? `${age(lowered)} ↑${cost}` : age(lowered);
-    })()],
-  ]);
+    ],
+  );
 
-  /** ⑥ 기타 — 참고만 하는 값. 제일 조용하게 한 줄로 흘린다. */
+  /**
+   * ⑥ 기타 — 참고만 하는 값. 제일 조용하게 한 줄로 흘린다.
+   *
+   * ★한 줄이라도 **순서는 있다**(사장님 2026-09-05 「순서라든지 이런 것들이 좀 관련성 있게」).
+   *   **받을 때 → 어디서 타나 → 타는 동안 → 사고 났을 때** 순으로 놓는다.
+   *   옛 순서(정비·대차·이용 지역·차량 인도)는 차를 받기도 전에 사고 이야기부터 하고 있었다.
+   */
   const pair = (label: string, v: string) => (meaningful(v) ? `${label} ${v}` : '');
   const etc = [
+    pair('차량 인도', S('delivery_fee')),
+    pair('이용 지역', S('rental_region')),
     pair('정비', S('maintenance_service')),
     pair('대차', S('replacement_car_policy')),
-    pair('이용 지역', S('rental_region')),
-    pair('차량 인도', S('delivery_fee')),
   ].filter(Boolean).join(' · ');
 
   const hasPolicy = !!(payRows.length || ownDamageDeductible || otherDeductibles || coverage.length || ageRange || useRows.length || etc || roadside);
@@ -1104,7 +1156,20 @@ function Facts({ rows, cols, mobile }: {
       display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
       columnGap: mobile ? 16 : 24, rowGap: mobile ? 18 : 22,
     }}>
-      {rows.map(([k, v]) => (
+      {rows.map(([k, v], i) => (k === GROUP_BREAK ? (
+        /*
+         * **무리 사이의 숨**(사장님 2026-09-05 「**뭉쳐야 될 것들이 있어.** 연식·주행거리,
+         * 이게 연식에 따른 주행거리를 보고 … 배기량·연료 … 이런 식으로 좀 같이 모아 놔야 되는 게
+         * 있고. **순서라든지 이런 것들이 좀 관련성 있게 배열이 돼야** 되거든?」).
+         *
+         * ★칸을 상자로 가두지 않고 **줄바꿈과 여백만으로** 무리를 짓는다(§1 「표박스화 하지 말고」).
+         *   폭이 0 인 이 칸이 한 줄을 통째로 먹어서 ㉠ 다음 무리가 «첫 칸»에서 시작하고
+         *   ㉡ 위아래 줄간격이 두 번 들어가 무리 사이가 저절로 벌어진다. 라벨도 선도 필요 없다.
+         * ⚠ 열 수가 화면마다 다르다(폰 2 · 웹 3~4). 무리를 «순서»로만 지어 놓으면 열 수가 바뀌는
+         *   순간 다른 무리끼리 한 줄에 앉는다 — 그래서 자리표로 못 박는다.
+         */
+        <div key={`break-${i}`} aria-hidden style={{ gridColumn: '1 / -1', height: 0 }} />
+      ) : (
         <div key={k} style={{ minWidth: 0 }}>
           <div style={{
             fontSize: SHOP.fs.cap, color: C.faint, marginBottom: 5, letterSpacing: '0.01em',
@@ -1113,9 +1178,9 @@ function Facts({ rows, cols, mobile }: {
             fontSize: SHOP.fs.body, fontWeight: 700, color: C.ink,
             wordBreak: 'keep-all', lineHeight: 1.45,
           }}>
-            {v.split('↑').map((piece, i) => (
-              <span key={i}>
-                {i > 0 ? (
+            {v.split('↑').map((piece, j) => (
+              <span key={j}>
+                {j > 0 ? (
                   <Plus size={13} aria-hidden style={{
                     display: 'inline', verticalAlign: '-1px', marginRight: 1, color: C.mute,
                   }} />
@@ -1125,7 +1190,7 @@ function Facts({ rows, cols, mobile }: {
             ))}
           </div>
         </div>
-      ))}
+      )))}
     </div>
   );
 }
@@ -1209,6 +1274,26 @@ function Tiles({ title, rows, cols, mobile, icon }: {
  * 「협의」도 같다 — 읽고 나서 손님이 정할 수 있는 게 하나도 없고 「돈이 더 드나」만 남는다.
  * ⇒ 그런 값은 **줄째로 뺀다.** 없는 것은 없다고 하는 편이 낫다(확정 규격 §1-7 과 같은 판단).
  */
+/**
+ * **무리 사이의 숨** — `Facts` 격자에서 한 줄을 통째로 비워 다음 무리를 첫 칸부터 시작시킨다.
+ * 값에 절대 나올 수 없는 글자를 자리표로 쓴다(§`Facts` 머리말).
+ */
+const GROUP_BREAK = ' group-break';
+
+/**
+ * **관련 있는 것끼리 묶어서** 격자에 낸다(사장님 2026-09-05 「뭉쳐야 될 것들이 있어 …
+ * 순서라든지 이런 것들이 좀 관련성 있게 배열이 돼야 되거든?」).
+ *
+ * 무리마다 빈 값을 먼저 걷고, **남은 것이 없는 무리는 통째로 건너뛴다** —
+ * 값이 하나도 없는 무리 때문에 빈 줄만 두 개 생기는 일이 없어야 한다.
+ */
+function grouped(...lists: [string, string][][]): [string, string][] {
+  return lists
+    .map((list) => list.filter(([, v]) => meaningful(v)))
+    .filter((list) => list.length)
+    .flatMap((list, i) => (i ? [[GROUP_BREAK, ''] as [string, string], ...list] : list));
+}
+
 const NO_MEANING = new Set(['기타', '협의', '별도협의', '별도문의', '미정', '해당없음', '해당 없음', '없음', '-']);
 function meaningful(v: string): boolean {
   const t = String(v ?? '').trim();
