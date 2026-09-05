@@ -29,16 +29,18 @@
  *   ② 헤더 「원가」 탭 — 관리자 원가설정 화면이 없어 눌리지 않게 두었다(목업은 외부 링크였다).
  */
 import { useMemo, useState } from 'react';
+import Link from 'next/link';
 import '@/components/estimate/estimate.css';
+import { COST_DEFAULTS, loadCostSettings, configFrom } from '@/lib/domain/estimate/cost-settings';
 import { safeComputeTerm } from '@/lib/domain/estimate/safe-calc.js';
 import { createQuoteInput } from '@/lib/domain/estimate/quote-input.js';
-import { DEFAULT_CONFIG } from '@/lib/domain/estimate/default-config.js';
 import { usedResidPct, newcarResidPct } from '@/lib/domain/estimate/residual-lookup.js';
 
 /** 목업 `TERMS/PCTS/CREDIT` 그대로. */
 const TERMS = [12, 24, 36, 48, 60];
 const PCTS = [0, 10, 20, 30];
-const FEES = [0, 2.5, 5];
+/** 수수료 칩 — 원가 설정의 기본값이 목록에 없으면 그 값도 함께 세운다(고른 값이 안 보이면 안 된다). */
+const FEE_CHIPS = [0, 2.5, 5];
 const DISCS = [0, 2, 5, 10];
 const CREDIT = ['고신용', '중신용', '저신용'];
 
@@ -129,10 +131,20 @@ export default function EstimatePage() {
   const [disc, setDisc] = useState(0);
   const [dep, setDep] = useState(10);
   const [pre, setPre] = useState(0);
-  const [fee, setFee] = useState(5);
+  /** 원가 설정(`/estimate/cost`)이 정한 값 — 견적은 그것으로 계산한다. 저장이 없으면 엔진 기본값. */
+  const [cost, setCost] = useState(COST_DEFAULTS);
+  const [costLoaded, setCostLoaded] = useState(false);
+  const [fee, setFee] = useState(COST_DEFAULTS.salesFeePct);
   const [open, setOpen] = useState<number | null>(48);
   /** 잔가는 «자동(표준+델타)»이 기본이고, 목업 STEP 4 처럼 건별로 덮어쓸 수 있다. */
   const [residOverride, setResidOverride] = useState<Record<number, number>>({});
+
+  // 저장값은 브라우저에만 있다 → 첫 그림(SSR)과 어긋나지 않게 그린 «뒤에» 한 번만 얹는다.
+  if (!costLoaded && typeof window !== 'undefined') {
+    setCostLoaded(true);
+    const c = loadCostSettings(); setCost(c); setFee(c.salesFeePct);
+  }
+  const fees = useMemo(() => Array.from(new Set([...FEE_CHIPS, cost.salesFeePct])).sort((a, b) => a - b), [cost.salesFeePct]);
 
   const isNew = cond === 'new';
   const listPrice = isNew ? TRIMS[trim].p : USED.price;
@@ -154,10 +166,9 @@ export default function EstimatePage() {
   }, [autoResid, residOverride]);
 
   const cards = useMemo<Card[]>(() => {
-    const adminCfg = {
-      ...DEFAULT_CONFIG,
-      setting: { ...DEFAULT_CONFIG.setting, salesFeeRate: { rent: fee / 100, sub: fee / 100 } },
-    };
+    const base = configFrom(cost);
+    // 수수료 칩은 영업자가 «건별»로 고른다 — 원가 설정의 기본값을 이 견적에서만 덮는다.
+    const adminCfg = { ...base, setting: { ...base.setting, salesFeeRate: { rent: fee / 100, sub: fee / 100 } } };
     const residualDefault: Record<number, number> = {};
     for (const t of TERMS) residualDefault[t] = residPct[t] / 100;
     const input = createQuoteInput({
@@ -170,7 +181,7 @@ export default function EstimatePage() {
       residual: null, residualDefault, credit, defaultGroup: 'B', nowYear,
     });
     return TERMS.map((t) => ({ ...safeComputeTerm(t, input, { idx: t }), term: t }));
-  }, [ch, type, price, isNew, credit, dep, pre, fee, residPct, nowYear]);
+  }, [ch, type, price, isNew, credit, dep, pre, fee, residPct, nowYear, cost]);
 
   const prepayAmt = Math.round(price * pre / 100);
   const vehTag = `${man(listPrice)}원`;
@@ -185,9 +196,8 @@ export default function EstimatePage() {
         <div className="hd">
           <div className="wm"><span className="a">freepass</span><span className="b">mobility</span></div>
           <div className="modesw">
-            <button type="button" className="on">견적</button>
-            {/* 원가 설정 화면은 아직 없다(설계서 §11 순서 3) — 목업의 외부 링크 대신 눌리지 않게 둔다. */}
-            <button type="button" disabled title="원가 설정은 준비 중">원가</button>
+            <span className="on">견적</span>
+            <Link href="/estimate/cost">원가</Link>
           </div>
         </div>
 
@@ -242,7 +252,7 @@ export default function EstimatePage() {
           <div className="step"><span className="no">3</span>영업자 책정<span className="veh" style={{ color: 'var(--ink-4)' }}>보증금·선납·수수료 함께</span></div>
           <div className="crow first"><span className="lb">보증금</span><Chips opts={PCTS} cur={dep} unit="%" onPick={setDep} /></div>
           <div className="crow"><span className="lb">선납</span><Chips opts={PCTS} cur={pre} unit="%" onPick={setPre} /></div>
-          <div className="crow"><span className="lb">수수료</span><Chips opts={FEES} cur={fee} unit="%" onPick={setFee} /></div>
+          <div className="crow"><span className="lb">수수료</span><Chips opts={fees} cur={fee} unit="%" onPick={setFee} /></div>
         </div>
 
         {/* STEP 4 연도별 잔가 */}
