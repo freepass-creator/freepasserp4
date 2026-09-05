@@ -314,8 +314,8 @@ must(/const ownDamageDeductible = \[/.test(shopDetail)
   && /최소 \$\{S\('own_damage_min_deductible'\)\} ~ 최대/.test(shopDetail),
   '자차 면책금이 「수리비 ○○% · 최소 ~ 최대」 한 줄에서 갈라졌습니다 — 셋은 한 값의 세 조각입니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
-must(/\['자차 면책금', ownDamageDeductible\]/.test(shopDetail) && /<DefList rows=\{deductibles\}[^>]*strongFirst/.test(shopDetail),
-  '자차 면책금이 면책금 목록에서 빠졌거나 굵기 구분이 사라졌습니다 — 같은 줄 규칙(우측 정렬)에 무게만 다릅니다.',
+must(/const ownDamageDeductible = \[/.test(shopDetail),
+  '자차 면책금 줄이 사라졌습니다 — 사고 나면 실제로 무는 돈이라 한 줄을 통째로 씁니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
 must(/긴급출동 \{roadside\}/.test(shopDetail),
   '보험 맨 밑 「긴급출동」이 사라졌습니다 — 사고가 아니라 고장일 때 부르는 것이라 여기가 제자리입니다.',
@@ -336,22 +336,31 @@ must(/gridTemplateColumns: '200px minmax\(0, 1fr\)'/.test(shopDetail),
  * 둘 다 확정된 사실이라 `meaningful`(없음을 지운다)로 거르면 정보를 없앤다.
  */
 must(/const insRows = /.test(shopDetail) && /const coverage = insRows\(/.test(shopDetail)
-  && /const deductibles = insRows\(/.test(shopDetail),
+  && /insMeaningful/.test(shopDetail),
   '보험이 다시 「없음」을 지우는 필터를 씁니다 — 면책금 없음·보장 없음은 손님이 알아야 할 확정된 사실입니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
 /*
- * 면책금은 넷 — **자차 · 대인 · 대물 · 기타**이고, 기타 한 줄에 자손·무보험이 «이름을 달고» 모인다
- * (사장님 2026-09-05 「대인 면책금, 대물 면책금, 기타 면책금 … 자손이나 무보험이 있으면
- *  거기에다가 「자손 30, 무보험 30」 이렇게 표기할 수 있게끔만 하자」).
- * ⚠ 자손·무보험을 각각 한 줄씩 세우면 다섯이 같은 무게가 되어 정작 큰 값(자차)이 묻힌다.
+ * 면책금은 **두 줄**이다 — 자차 한 줄, 나머지 한 줄(사장님 2026-09-05
+ * 「기타 면책금이라고 하긴 좀 그렇고 … 면책금을 면책금이라고 해 놓고, 있는 면책금은 그냥
+ *  「대인 얼마 대물 얼마」, 없는 거는 쓰지 말고. **자차는 다가 한 줄로 좀 길게**」).
+ * ⚠ 소제목이 이미 「면책금」이라 줄에서는 **이름만** 쓴다 — 「대인 면책금」처럼 낱말을 또 붙이지 않는다.
  */
-must(/const etcDeductible = \[/.test(shopDetail)
+must(/const otherDeductibles = \[/.test(shopDetail)
+  && /\['대인', S\('injury_deductible'\)\]/.test(shopDetail)
   && /\['자손', S\('self_body_deductible'\)\]/.test(shopDetail)
   && /\['무보험', S\('uninsured_deductible'\)\]/.test(shopDetail),
-  '기타 면책금에서 자손·무보험이 빠졌거나 각각 따로 줄을 세웠습니다 — 한 줄에 이름을 달고 모입니다.',
+  '면책금 한 줄에서 대인·대물·자손·무보험이 빠졌습니다 — 있는 것만 이름과 값을 이어 한 줄로 씁니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
-must(/\['기타 면책금', etcDeductible\]/.test(shopDetail),
-  '「기타 면책금」 줄이 사라졌습니다 — 자손·무보험, 그리고 앞으로 늘어날 면책금이 여기 붙습니다.',
+must(!/'자차 면책금'|'대인 면책금'|'기타 면책금'/.test(shopDetail),
+  '면책금 줄에 「…면책금」 라벨이 돌아왔습니다 — 소제목이 이미 「면책금」이라 낱말이 두 번 나옵니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
+/*
+ * 보험에서 「없음」은 «값»이다 — 면책금 없음 = 내 돈이 안 나간다 · 보장 없음 = 보상이 안 된다.
+ * 둘 다 확정된 사실이라 `meaningful`(없음을 지운다)로 거르면 정보를 없앤다.
+ */
+must(/const insRows = /.test(shopDetail) && /const coverage = insRows\(/.test(shopDetail)
+  && /insMeaningful/.test(shopDetail),
+  '보험이 다시 「없음」을 지우는 필터를 씁니다 — 면책금 없음·보장 없음은 손님이 알아야 할 확정된 사실입니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
 // 전화는 담당자 → 대표번호로 떨어진다 — ?a= 없는 손님에게 전화 링크가 0개가 되면 안 된다.
 must(/wl\.tel/.test(read('app/q/[code]/ShopDetailView.tsx')),

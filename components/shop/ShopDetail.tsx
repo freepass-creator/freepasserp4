@@ -312,29 +312,27 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
    *   갈라야 할 것은 «정렬»이 아니라 **무게**다. 자차는 같은 줄에서 굵게 선다.
    */
   /*
-   * ★★**「기타 면책금」 한 줄에 자손·무보험을 모은다**(사장님 2026-09-05
-   *   「무보험 같은 그런 면책금을 **기타 면책금**에다가 넣으려고 하는 거야. 그러니까
-   *   **대인 면책금, 대물 면책금, 기타 면책금** 그리고 혹시 **자손이나 무보험이 있으면
-   *   거기에다가 「자손 30, 무보험 30」 이렇게** 표기할 수 있게끔만 하자」).
+   * ★★★**면책금은 «두 줄»이다 — 자차 한 줄, 나머지 한 줄**(사장님 2026-09-05
+   *   「그냥 자차 면책금이랑 **기타 면책금이라고 하긴 좀 그렇고** … 그냥 **면책금을 면책금이라고
+   *   해 놓고**, 대인 대물 뭐 그 **있는 면책금은 그냥 「대인 얼마 대물 얼마」**, 뭐 **없는 거는 쓰지
+   *   말고**. **자차는 다가 한 줄로 좀 길게** 이렇게 쓰는 게 나을 거 같아」).
    *
-   * 왜 모으나. 자손·무보험은 **손님이 따로 확인하는 값이 아니다** — 사고 나면 실제로 무는 것은
-   * 자차·대인·대물이고, 나머지는 「그 밖에도 이런 게 있다」는 확인용이다. 넷을 나란히 세우면
-   * 다섯 줄이 같은 무게가 되어 정작 큰 값(자차)이 묻힌다.
-   * ★한 줄 안에서는 **이름을 붙여 쓴다**(「자손 30만원 · 무보험 없음」) —
-   *   라벨이 「기타」뿐이면 그 숫자가 무엇의 면책금인지 알 수가 없다.
-   * ★칸이 늘어도 이 줄에 붙이면 된다. 사장님이 「다른 면책금이 있을 수도 있으니까」 하신 자리다.
+   * ⚠ 여기 라벨이 네 줄이었다 — 「자차 면책금 / 대인 면책금 / 대물 면책금 / 기타 면책금」.
+   *   소제목이 이미 「면책금」인데 줄마다 «면책금»을 또 붙이니 같은 낱말이 다섯 번 나왔고,
+   *   「기타」는 그 숫자가 무엇의 면책금인지 안 알려 주면서 칸만 차지했다.
+   * ⇒ 소제목이 「면책금」이라고 말했으니 **줄에서는 이름만** 쓴다 — 「대인 30만원 · 대물 30만원」.
+   * ★자차만 따로 한 줄인 이유 — 값이 셋(수리비·최소·최대)이라 남들 옆에 끼면 줄이 터진다.
+   *   그리고 사고 나면 실제로 무는 돈이 이것이다.
+   * ★**없는 것은 안 쓴다** — 「대인 없음」이 아니라 그냥 그 이름이 안 나온다.
+   *   (단 값이 「없음」인 것은 «확정된 사실»이라 쓴다 — 아래 `insMeaningful`.)
    */
-  const etcDeductible = [
+  const otherDeductibles = [
+    ['대인', S('injury_deductible')] as [string, string],
+    ['대물', S('property_deductible')] as [string, string],
     ['자손', S('self_body_deductible')] as [string, string],
     ['무보험', S('uninsured_deductible')] as [string, string],
   ].filter(([, v]) => insMeaningful(v)).map(([k, v]) => `${k} ${v}`).join(' · ');
 
-  const deductibles = insRows([
-    ['자차 면책금', ownDamageDeductible],
-    ['대인 면책금', S('injury_deductible')],
-    ['대물 면책금', S('property_deductible')],
-    ['기타 면책금', etcDeductible],
-  ]);
   /** ④ 긴급출동 — 보험이 아니라 부가 서비스. */
   const roadside = S('annual_roadside_assistance') || S('roadside_assistance');
 
@@ -373,7 +371,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
     pair('차량 인도', S('delivery_fee')),
   ].filter(Boolean).join(' · ');
 
-  const hasPolicy = !!(payRows.length || deductibles.length || coverage.length || ageRange || useRows.length || etc || roadside);
+  const hasPolicy = !!(payRows.length || ownDamageDeductible || otherDeductibles || coverage.length || ageRange || useRows.length || etc || roadside);
 
   const options = parseProductOptions(p.options);
   const phone = String(agentPhone || '').trim();
@@ -642,7 +640,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
           ⚠ 여기 큰 줄(BigRow)로 세웠다가 옮겼다. 보장 한도와 «다른 영역»이라는 판단은 그대로다 —
              다른 영역이니까 격자에 안 섞고, 그렇다고 본문에 또 한 줄을 쓰지도 않는다.
       */}
-      {(insuranceFee || deductibles.length || coverage.length || roadside) ? (
+      {(insuranceFee || ownDamageDeductible || otherDeductibles || coverage.length || roadside) ? (
         <Sec title="보험" icon={ShieldCheck} tag={insuranceFee} mobile={mobile}>
           <>
             {/* ② 보상 한도 — 어디까지 보상되나. 넷이 나란한 값이라 격자로 편다. */}
@@ -658,11 +656,30 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
                  금액이 제일 크고 수리비 부담이 딸려 있다(사장님 「자차 면책금하고는 더 분리를」).
                  그래서 자차는 한 줄로 떼고, 대인·대물·자손은 그 밑에 흐리게 흘린다.
             */}
-            {deductibles.length ? (
+            {(ownDamageDeductible || otherDeductibles) ? (
               <div style={{ marginTop: 22 }}>
                 <div style={{ marginBottom: 9, fontSize: SHOP.fs.cap, fontWeight: 600, color: C.mute }}>면책금</div>
-                {/* 자차가 맨 앞이고 «굵게» 선다 — 정렬은 나머지와 같다(사장님 「이것도 면책금이니까 우측 정렬」). */}
-                <DefList rows={deductibles} mobile={mobile} strongFirst />
+                {/* 자차 — 값이 셋이라 한 줄을 통째로 쓴다. 사고 나면 실제로 무는 돈이라 굵다. */}
+                {ownDamageDeductible ? (
+                  <div style={{
+                    display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap',
+                    marginBottom: otherDeductibles ? 8 : 0,
+                  }}>
+                    <span style={{ flex: '0 0 auto', fontSize: SHOP.fs.sub, color: C.faint }}>자차</span>
+                    <span style={{
+                      flex: 1, minWidth: 0,
+                      fontSize: SHOP.fs.body, fontWeight: 800, color: C.ink,
+                      fontVariantNumeric: 'tabular-nums', wordBreak: 'keep-all', lineHeight: 1.5,
+                    }}>{ownDamageDeductible}</span>
+                  </div>
+                ) : null}
+                {/* 나머지 — 있는 것만, 이름과 값을 이어서 한 줄로. */}
+                {otherDeductibles ? (
+                  <div style={{
+                    fontSize: SHOP.fs.sub, color: C.sub,
+                    fontVariantNumeric: 'tabular-nums', lineHeight: 1.7,
+                  }}>{otherDeductibles}</div>
+                ) : null}
               </div>
             ) : null}
 
