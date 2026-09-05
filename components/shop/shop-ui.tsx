@@ -26,16 +26,24 @@ export const SHOP = {
   /** 컨트롤 높이 — 웹 44 / 모바일 48(엄지). 업무동 md(32/40)보다 한 단 크다. */
   h: { web: 44, mobile: 48 },
   /**
-   * **손가락이 닿는 최소 크기** — 웹 36 / 모바일 48.
+   * **누르는 «영역»의 최소 크기** — 웹 36 / 모바일 44. ★**보이는 크기가 아니다.**
    *
-   * 사장님 2026-09-05 「모바일에서 **체크박스가 너무 작으면 선택하기가 힘드니까**,
-   * 통상적으로 **모바일 통상 규격** 있잖아. 웬만한 앱들이 모바일에서 텍스트 얼마나 쓰는지 그거 참고해 줘」.
-   * ★업계 표준이 그 값이다 — **구글 머티리얼 48dp · 애플 HIG 44pt**. 둘 중 큰 쪽(48)을 쓴다.
-   *   집 규격의 손님 동 컨트롤 높이(모바일 48)와도 같은 수다.
-   * ★**누르는 자리는 줄 «전체»**다 — 체크 네모(22)만 누를 수 있으면 그 22px 을 겨냥해야 한다.
-   *   줄 전체가 48이면 아무 데나 눌러도 켜진다.
+   * 사장님 2026-09-05 ① 「모바일에서 **체크박스가 너무 작으면 선택하기가 힘드니까** 통상 규격」
+   *                  ② 「**버튼이나 칩·검색창이 좀 커 보인다**. 유튜브나 다른 데 가보니까…」
+   * ⚠⚠ 둘은 안 부딪힌다. 내가 ①을 듣고 **누르는 영역과 보이는 크기를 같은 것으로 보고** 알약까지
+   *   44~48 로 키운 것이 ②의 정체다. 머티리얼 규격서도 **칩의 높이는 32dp**, 터치 대상은
+   *   «좌우 여백으로» 48dp 를 만든다고 적는다 — 크기와 영역은 따로 잡는 값이다.
+   * ★그래서 셋으로 나눈다:
+   *   · `tap`  = 줄·체크처럼 **영역이 곧 크기**인 것(목록 행). 폰 44 = HIG 최소.
+   *   · `pill` = 가로로 여러 개 서는 칩·고르개. 폰 38(보이는 높이) + 좌우 여백으로 영역을 번다.
+   *   · `icon` = 라벨 없는 정사각 아이콘 단추. 폰 40.
+   * ★**누르는 자리는 줄 «전체»**다 — 체크 네모(20)만 누를 수 있으면 그 20px 을 겨냥해야 한다.
    */
-  tap: { web: 36, mobile: 48 },
+  tap: { web: 36, mobile: 44 },
+  /** 칩·정렬 고르개의 **보이는 높이** — 한 줄에 나란히 서므로 둘이 같아야 한다. */
+  pill: { web: 36, mobile: 38 },
+  /** 라벨 없는 정사각 아이콘 단추(닫기·상세조건). 칩보다 살짝 크게 잡아 손이 쉽게 닿는다. */
+  icon: { web: 36, mobile: 40 },
   /** 둥글기 — 마켓의 기본. 업무동 R(4, 각짐)과 다른 이유가 이 파일 머리말에 있다. */
   /**
    * **둥글기 사다리 — 넷뿐이다**(사장님 2026-09-05 「배지 같은 거를 동그란 알약으로 하는 게 맞나,
@@ -94,9 +102,14 @@ export function ShopSearch({ value, onChange, placeholder, onFilter, filterCount
   return (
     <div style={{
       display: 'flex', alignItems: 'center', gap: mobile ? 10 : 12,
-      height: mobile ? 56 : 64, borderBottom: `2px solid ${C.ink}`,
+      /*
+       * 검색줄 — 밑줄 하나로 서는 «머리 검색»이라 목록 컨트롤보다는 크다. 다만 폰 56 은 컸다
+       * (사장님 2026-09-05 「검색창이 좀 크다고 느껴지는데」). 52 로 내려 칩(38)과의 층은 두되
+       * 바 한 칸을 통째로 먹지 않게 한다.
+       */
+      height: mobile ? 52 : 60, borderBottom: `2px solid ${C.ink}`,
     }}>
-      <Search size={mobile ? 20 : 22} aria-hidden style={{ flex: '0 0 auto', color: C.ink }} />
+      <Search size={mobile ? 19 : 21} aria-hidden style={{ flex: '0 0 auto', color: C.ink }} />
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -106,8 +119,8 @@ export function ShopSearch({ value, onChange, placeholder, onFilter, filterCount
           flex: 1, minWidth: 0, height: '100%',
           border: 'none', outline: 'none', background: 'transparent',
           fontFamily: 'inherit', color: C.ink,
-          // 모바일 16px 미만이면 iOS 가 입력칸에 확대를 건다 — 손님 화면에서 특히 티가 난다.
-          fontSize: mobile ? 17 : 19, letterSpacing: '-0.02em',
+          // ★모바일 16 «고정» — 그 밑이면 iOS 가 입력칸에 확대를 건다. 사다리를 내려도 여기는 못 내린다.
+          fontSize: mobile ? 16 : 18, letterSpacing: '-0.02em',
         }}
       />
       {value ? (
@@ -122,8 +135,8 @@ export function ShopSearch({ value, onChange, placeholder, onFilter, filterCount
           <button type="button" onClick={onFilter} aria-label="상세 조건 열기" className="fp-shop-press"
             style={{
               position: 'relative', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-              /* 검색줄 안 「상세 조건」 — 폰에서 44(손가락 규격). 웹은 40 그대로. */
-              width: mobile ? 44 : 40, height: mobile ? 44 : 40, borderRadius: SHOP.r.ctrl, flex: '0 0 auto',
+              /* 검색줄 안 「상세 조건」 — 맨 아이콘이라 정사각이다(`SHOP.icon`). */
+              width: SHOP.icon.mobile, height: SHOP.icon.mobile, borderRadius: SHOP.r.ctrl, flex: '0 0 auto',
               border: 'none', background: 'transparent', cursor: 'pointer',
               color: filterCount ? C.brand : C.ink,
             }}>
@@ -166,11 +179,14 @@ export function ShopPill({ on, onClick, children, title }: {
       style={{
         ...bare,
         /*
-         * ★폰 44 — 손가락 규격이다(머티리얼 48dp · HIG 44pt). 40 은 그 밑이라 헛누름이 난다
-         *   (사장님 2026-09-05 「모바일에서 너무 작으면 선택하기가 힘드니까 통상 규격」).
-         *   조건 «줄»은 48이고 여기 알약은 가로로 여러 개가 서므로 44 로 둔다 — HIG 최소.
+         * ★★**「44/48」은 «눌리는 영역»이지 «보이는 크기»가 아니다**(사장님 2026-09-05
+         *   「버튼·칩이 좀 커 보인다」 — 맞다. 내가 둘을 같은 것으로 보고 키웠다).
+         *   머티리얼 규격서도 칩의 **높이는 32dp**, 터치 대상은 «여백으로» 48dp 를 만든다고 적는다.
+         *   유튜브·플레이스토어의 필터 칩도 32~36 이다. 44 짜리 알약은 그 판에서 확실히 크다.
+         * ⇒ 보이는 높이는 **38**(폰)로 내리고, 좌우 여백을 넉넉히 둬 실제 누를 면적을 지킨다.
+         *   가로로 여러 개가 서는 줄이라 높이보다 «폭»이 헛누름을 더 잘 막는다.
          */
-        height: mobile ? 44 : 36, padding: mobile ? '0 16px' : '0 14px',
+        height: mobile ? SHOP.pill.mobile : SHOP.pill.web, padding: mobile ? '0 15px' : '0 14px',
         borderRadius: SHOP.r.ctrl, whiteSpace: 'nowrap',
         border: `1px solid ${on ? C.brand : C.line}`,
         background: on ? C.brand : 'transparent',
@@ -203,8 +219,8 @@ export function ShopIconBtn({ onClick, label, children }: {
   const mobile = useIsMobile();
   return (
     <button type="button" onClick={onClick} aria-label={label} className="fp-shop-press"
-      /* 아이콘 단추(닫기 등) — 폰에서 44. 36 은 손가락으로 못 맞힌다. */
-      style={{ ...bare, width: mobile ? 44 : 36, height: mobile ? 44 : 36, borderRadius: SHOP.r.ctrl, color: C.mute }}>
+      /* 아이콘 단추(닫기 등) — `SHOP.icon`. 아이콘만 있는 단추는 정사각이라 40 이면 손이 닿는다. */
+      style={{ ...bare, width: mobile ? SHOP.icon.mobile : SHOP.icon.web, height: mobile ? SHOP.icon.mobile : SHOP.icon.web, borderRadius: SHOP.r.ctrl, color: C.mute }}>
       {children}
     </button>
   );
@@ -281,8 +297,8 @@ export function ShopSort({ value, onChange, options }: {
       <select value={value} onChange={(e) => onChange(e.target.value)} aria-label="정렬"
         style={{
           appearance: 'none', WebkitAppearance: 'none',
-          /* 정렬 고르개도 같은 규격 — 폰 44(HIG 최소). */
-          height: mobile ? 44 : 36, padding: '0 34px 0 14px',
+          /* 정렬 고르개도 칩과 같은 치수(`SHOP.pill`) — 한 줄에 나란히 서므로 높이가 달라 보이면 안 된다. */
+          height: mobile ? SHOP.pill.mobile : SHOP.pill.web, padding: '0 34px 0 14px',
           borderRadius: SHOP.r.ctrl, border: `1px solid ${C.line}`, background: 'transparent',
           fontFamily: 'inherit', fontSize: mobile ? SHOP.fs.body : SHOP.fs.sub,
           color: C.ink, fontWeight: 600, cursor: 'pointer',

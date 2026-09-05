@@ -134,12 +134,12 @@ export function ShopFilters({ facets, sel, onToggle, onClearAxis, onClearAll, mo
               aria-expanded={isOpen} className="fp-shop-press"
               style={{
                 display: 'flex', alignItems: 'center', gap: 8, width: '100%',
-                padding: mobile ? '13px 0' : '11px 0', minHeight: mobile ? SHOP.tap.mobile : undefined,
+                padding: mobile ? '12px 0' : '11px 0', minHeight: mobile ? SHOP.tap.mobile : undefined,
                 border: 'none', background: 'transparent', cursor: 'pointer',
                 fontFamily: 'inherit', textAlign: 'left',
                 marginBottom: isOpen ? 4 : 0,
               }}>
-              <span style={{ fontSize: mobile ? SHOP.fs.h2 : SHOP.fs.body, fontWeight: 700, color: C.ink, flex: 1, minWidth: 0 }}>
+              <span style={{ fontSize: SHOP.fs.body, fontWeight: 700, color: C.ink, flex: 1, minWidth: 0 }}>
                 {AXIS_LABEL[axis]}
               </span>
               {on.length ? (
@@ -247,21 +247,22 @@ function CheckRow({ label, count, on, onClick }: {
     <button type="button" onClick={onClick} aria-pressed={on} className="fp-shop-press"
       style={{
         display: 'flex', alignItems: 'center', gap: mobile ? 12 : 9, padding: 0,
+        /* 목록 «행»은 영역이 곧 크기라 `SHOP.tap`(폰 44) — 칩(38)보다 크되 48 은 과하다. */
         minHeight: mobile ? SHOP.tap.mobile : SHOP.tap.web,
         border: 'none', background: 'transparent', cursor: 'pointer',
         fontFamily: 'inherit', textAlign: 'left', minWidth: 0,
-        /* 폰 글자 16 — 집 규격의 모바일 입력·버튼 크기이고, 웬만한 앱의 목록 글자가 그 언저리다. */
-        fontSize: mobile ? 16 : 14,
+        /* 글자는 «사다리»에 맡긴다 — 여기서 숫자를 박으면 폰 사다리를 낮춰도 이 줄만 커진 채 남는다. */
+        fontSize: mobile ? SHOP.fs.body : 14,
         color: on ? C.ink : C.sub, fontWeight: on ? 700 : 400,
       }}>
-      {/* ★네모는 폰에서 22 — 17 은 손가락 밑에서 안 보인다. 누르는 자리는 줄 전체(48)다. */}
+      {/* ★네모는 폰에서 20 — 17 은 손가락 밑에서 안 보이고, 22 는 글자보다 커 보인다. 누르는 자리는 줄 전체다. */}
       <span aria-hidden style={{
-        width: mobile ? 22 : 17, aspectRatio: '1 / 1', borderRadius: mobile ? 6 : 5, flex: '0 0 auto',
+        width: mobile ? 20 : 17, aspectRatio: '1 / 1', borderRadius: mobile ? 6 : 5, flex: '0 0 auto',
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
         border: `1.5px solid ${on ? C.brand : C.line}`,
         background: on ? C.brand : 'transparent',
       }}>
-        {on ? <Check size={mobile ? 15 : 12} strokeWidth={3} style={{ color: C.inverse }} /> : null}
+        {on ? <Check size={mobile ? 14 : 12} strokeWidth={3} style={{ color: C.inverse }} /> : null}
       </span>
       <span style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
         {label}

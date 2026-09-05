@@ -519,9 +519,24 @@ must(/className="fp-onphoto"/.test(shopCard) && /className="fp-signal-chip"/.tes
  * 사장님 2026-09-05 「모바일 버전은 전체 텍스트하고 움직임하고 … 통상 모바일 규격이 있을 거 아니니」.
  * ⚠ 되돌아가면 폰 본문이 다시 13px 이 된다 — 실측 438개 글자 중 259개가 그 크기였다.
  */
-must(/--shop-fs-body: 16px/.test(css) && /@media \(max-width: 760px\)/.test(css)
+must(/--shop-fs-body: 15px/.test(css) && /@media \(max-width: 760px\)/.test(css)
   && /body: 'var\(--shop-fs-body\)'/.test(shopUi),
-  '손님 동 글자 사다리가 폰에서 안 올라갑니다 — 본문이 13px 로 내려앉습니다.',
+  '손님 동 글자 사다리가 폰에서 안 올라갑니다 — 본문이 13px 로 내려앉습니다(폰 15 · 웹 14.5).',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-3');
+
+/*
+ * **누르는 «영역» ≠ 보이는 «크기»** — 폰 치수 셋(tap 44 · pill 38 · icon 40).
+ *
+ * 사장님 2026-09-05 「**버튼이나 칩·검색창이 좀 커 보인다**. 유튜브나 다른 데 가보니까…」 — 맞다.
+ * 앞서 「모바일 통상 규격」을 듣고 **44/48 을 «보이는 높이»에 그대로 박아** 칩까지 44 로 키웠다.
+ * 머티리얼 규격서의 48dp 는 «터치 대상»이고 칩의 높이는 32dp 다. 둘을 다시 붙이면 같은 사고가 난다.
+ * ⚠ 되돌아가면 목록 칩·정렬·아이콘이 다시 손가락만 해져 한 화면에 드는 매물이 줄어든다.
+ */
+must(/tap: \{ web: 36, mobile: 44 \}/.test(shopUi)
+  && /pill: \{ web: 36, mobile: 38 \}/.test(shopUi)
+  && /icon: \{ web: 36, mobile: 40 \}/.test(shopUi)
+  && !/height: mobile \? 4[48] :/.test(shopUi),
+  '가게 컨트롤이 다시 «터치 영역» 크기로 부풀었습니다 — 폰은 줄 44 · 칩 38 · 아이콘 40 입니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-3');
 
 /*
