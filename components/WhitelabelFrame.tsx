@@ -101,8 +101,8 @@ export function WhitelabelFrame({
            *   제 누름영역(40)이 이미 여백을 갖고 있어 바깥 패딩을 더 줄 이유가 없다.
            * ⇒ 왼쪽 12 · 오른쪽 6(아이콘의 40 정사각이 나머지를 만든다). 본문은 16 그대로다.
            */
-          padding: mobile ? '0 6px 0 12px' : '0 24px', height: mobile ? 56 : 72,
-          display: 'flex', alignItems: 'center', gap: mobile ? 6 : 12,
+          padding: mobile ? '0 4px 0 12px' : '0 24px', height: mobile ? 56 : 72,
+          display: 'flex', alignItems: 'center', gap: mobile ? 4 : 12,
         }}>
           {/* 폰 상세는 간판 대신 «이 화면의 이름»을 든다(위 `headerLead` 참고). 웹·목록은 워드마크. */}
           {mobile && headerLead ? headerLead : (
@@ -112,13 +112,13 @@ export function WhitelabelFrame({
              * ★글자는 **먹색**이다. 로고가 검정이라 「UNI」만 브랜드색으로 칠하면 로고와 색이 갈린다
              *   (전에는 파랑이었다). 브랜드색은 «누르는 것»에만 쓴다.
              */
-            <div style={{ display: 'flex', alignItems: 'center', gap: mobile ? 6 : 10, whiteSpace: 'nowrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: mobile ? 8 : 12, whiteSpace: 'nowrap' }}>
               {wl.logo ? (
                 // eslint-disable-next-line @next/next/no-img-element -- 채널마다 다른 마크라 정적 최적화 대상이 아니다.
                 <img src={wl.logo.src} alt={wl.logo.alt}
                   style={{ height: mobile ? 24 : 28, width: 'auto', display: 'block' }} />
               ) : null}
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: mobile ? 6 : 9 }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: mobile ? 8 : 8 }}>
                 <span style={{ fontSize: mobile ? 22 : 26, fontWeight: FW.head, letterSpacing: '-0.03em', color: C.ink }}>
                   {wl.wordmark.main}
                 </span>
@@ -158,7 +158,7 @@ export function WhitelabelFrame({
           <div style={{
             position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 20,
             background: C.bg, borderTop: `1px solid ${C.line}`, boxShadow: SH.dock,
-            padding: '10px 16px 14px', display: 'flex', alignItems: 'center', gap: 12,
+            padding: '12px 16px 12px', display: 'flex', alignItems: 'center', gap: 12,
           }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 1, whiteSpace: 'nowrap' }}>
               <span style={{ fontSize: FS.cap, color: C.faint }}>{who ? '담당' : '고객센터'}</span>
@@ -172,8 +172,8 @@ export function WhitelabelFrame({
         </>
       ) : null}
 
-      <footer style={{ borderTop: `1px solid ${C.line}`, marginTop: 28 }}>
-        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '30px 24px 40px' }}>
+      <footer style={{ borderTop: `1px solid ${C.line}`, marginTop: 24 }}>
+        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '32px 24px 32px' }}>
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 10 }}>
             <span style={{ fontSize: 18, fontWeight: FW.head, letterSpacing: '-0.03em', color: C.faint }}>
               {wl.wordmark.main}
@@ -223,11 +223,11 @@ function WhitelabelNotice({ wl, mobile }: { wl: Whitelabel; mobile: boolean }) {
     <div style={{ background: C.brandSoft }}>
       {/* ⚠ 폰 여백을 한 단 줄였다(사장님 2026-09-05 「간격이 너무 막 멀게 떨어져 있거나」) —
            이 블록이 폰 첫 화면에서 상품 앞에 서는 마지막 덩어리라, 여기서 번 세로가 곧 카드다. */}
-      <div style={{ maxWidth: 1280, margin: '0 auto', padding: mobile ? '14px 16px 13px' : '30px 24px 28px', position: 'relative' }}>
+      <div style={{ maxWidth: 1280, margin: '0 auto', padding: mobile ? '12px 16px 12px' : '24px 24px 24px', position: 'relative' }}>
         <div style={{ fontSize: mobile ? 22 : 30, fontWeight: FW.head, letterSpacing: '-0.04em', lineHeight: 1.3, color: C.ink, paddingRight: mobile ? 34 : 44 }}>
           {notice.title}
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 10, marginTop: mobile ? 7 : 12 }}>
+        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginTop: 8 }}>
           <span style={{ fontSize: mobile ? FS.body : 15, color: C.sub, lineHeight: 1.6 }}>{notice.body}</span>
           {notice.moreLabel && notice.moreHref ? (
             <a href={notice.moreHref} style={{ fontSize: 14.5, fontWeight: FW.title, color: C.brand }}>

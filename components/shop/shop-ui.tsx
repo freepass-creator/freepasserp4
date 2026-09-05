@@ -77,7 +77,29 @@ export const SHOP = {
     hero: 30, heroM: 22, h1: 20, h2: 16,
     body: 'var(--shop-fs-body)', sub: 'var(--shop-fs-sub)', cap: 'var(--shop-fs-cap)',
   },
-  gap: { pane: 32, block: 22, row: 10 },
+  /**
+   * **여백 사다리 — 4의 배수 여섯 칸.** 손으로 찍은 숫자를 쓰지 않는다.
+   *
+   * 사장님 2026-09-05 「**간격이랑 이런 거도 좀 짜임새 있게** 맞춰보자고」.
+   * ⚠ 실측 — 가게 다섯 파일에 여백 값이 **3·4·5·6·7·8·9·10·11·12·13·14·18·20·22·26·28·30·34**
+   *   열아홉 가지가 섞여 있었다. 눈으로 고를 때마다 한두 픽셀씩 다르게 찍혔기 때문이다.
+   *   그러면 「여백이 뜻을 갖는」 일이 안 생긴다 — 9 와 10 은 사람 눈에 같은 간격이라,
+   *   붙은 것과 떨어진 것이 «우연히» 갈린다.
+   * ★그래서 칸을 여섯으로 못 박고 **뜻을 붙였다.** 고를 때 「몇 px?」이 아니라
+   *   **「이 둘은 어떤 사이인가?」**를 묻는다.
+   *
+   * | 칸 | 값 | 뜻 |
+   * |---|---|---|
+   * | `tight` | 4 | **붙은 것** — 한 줄 안(아이콘↔글자) · 카드 넉 줄 사이 |
+   * | `snug`  | 8 | **한 덩어리 안의 칸** — 칩 사이 · 조건 줄 사이 |
+   * | `cozy`  | 12 | **덩어리의 경계** — 사진↔글 · 칩 줄 위아래 |
+   * | `edge`  | 16 | **화면 가장자리** — 본문 좌우 여백 |
+   * | `part`  | 24 | **다른 것들 사이** — 카드끼리 · 구역 사이 |
+   * | `pane`  | 32 | **기둥 사이** — 웹 조건칸 ↔ 목록 |
+   *
+   * ★16 은 «가장자리»만이다. 안쪽에서 16 을 쓰면 24(다른 것)와 12(같은 덩어리) 사이가 뭉개진다.
+   */
+  sp: { tight: 4, snug: 8, cozy: 12, edge: 16, part: 24, pane: 32 },
 } as const;
 
 /* ── 검색 ────────────────────────────────────────────────────────────────
@@ -96,7 +118,7 @@ export function ShopSearch({ value, onChange, placeholder }: {
 }) {
   return (
     <div style={{
-      display: 'flex', alignItems: 'center', gap: 12,
+      display: 'flex', alignItems: 'center', gap: SHOP.sp.cozy,
       /*
        * 웹 전용 «머리 검색» — 밑줄 하나로 선다. 폰은 이 줄을 안 쓴다(머리띠 안에서 튀어나온다 —
        * `ShopTopSearch` 머리말). 목록 위에 늘 깔아 두면 첫 화면에서 그만큼 상품이 밀린다.
@@ -160,7 +182,8 @@ export function ShopPill({ on, onClick, children, title }: {
          * ⇒ 보이는 높이는 **38**(폰)로 내리고, 좌우 여백을 넉넉히 둬 실제 누를 면적을 지킨다.
          *   가로로 여러 개가 서는 줄이라 높이보다 «폭»이 헛누름을 더 잘 막는다.
          */
-        height: mobile ? SHOP.pill.mobile : SHOP.pill.web, padding: mobile ? '0 15px' : '0 14px',
+        height: mobile ? SHOP.pill.mobile : SHOP.pill.web,
+        padding: mobile ? `0 ${SHOP.sp.edge}px` : `0 ${SHOP.sp.cozy}px`,
         borderRadius: SHOP.r.ctrl, whiteSpace: 'nowrap',
         /* 테두리 없음(`bare`) — 면으로만 말한다. 머리말 참고. */
         background: on ? C.brand : C.head,
@@ -240,11 +263,11 @@ export function ShopRevealSearch({ value, onChange, onClose, placeholder }: {
   value: string; onChange: (v: string) => void; onClose: () => void; placeholder?: string;
 }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 4, paddingTop: 10 }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: SHOP.sp.tight, paddingTop: SHOP.sp.cozy }}>
       <div style={{
-        flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: 9,
+        flex: 1, minWidth: 0, display: 'flex', alignItems: 'center', gap: SHOP.sp.snug,
         /* 칩과 같은 회색 «면» — 테두리를 두르지 않는다(가게 공통 · `ShopPill` 머리말). */
-        height: 44, background: C.head, borderRadius: SHOP.r.ctrl, padding: '0 13px',
+        height: 44, background: C.head, borderRadius: SHOP.r.ctrl, padding: `0 ${SHOP.sp.cozy}px`,
       }}>
         <Search size={19} aria-hidden style={{ flex: '0 0 auto', color: C.mute }} />
         <input
@@ -301,14 +324,14 @@ export function ShopTokens({ tokens, onRemove, onClear }: {
   if (!tokens.length) return null;
   return (
     <div style={{
-      display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 8,
-      padding: '14px 0 4px',
+      display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: SHOP.sp.snug,
+      padding: `${SHOP.sp.cozy}px 0 ${SHOP.sp.tight}px`,
     }}>
       {tokens.map((t) => (
         <span key={`${t.axis}:${t.key}`}
           style={{
-            display: 'inline-flex', alignItems: 'center', gap: 7,
-            height: 34, padding: '0 6px 0 13px', borderRadius: SHOP.r.chip,
+            display: 'inline-flex', alignItems: 'center', gap: SHOP.sp.snug,
+            height: 34, padding: `0 ${SHOP.sp.tight}px 0 ${SHOP.sp.cozy}px`, borderRadius: SHOP.r.chip,
             /* 걸린 조건은 «브랜드 틴트 면» — 회색 칩(고르는 것)과 색으로 갈린다. 테두리는 안 두른다. */
             background: C.brandBg,
             fontSize: SHOP.fs.sub, color: C.ink, fontWeight: 600,
@@ -409,7 +432,7 @@ export function ShopEmpty({ onClear }: { onClear: () => void }) {
 export function ShopMore({ shown, total, onMore }: { shown: number; total: number; onMore: () => void }) {
   if (shown >= total) return null;
   return (
-    <div style={{ display: 'flex', justifyContent: 'center', padding: '30px 0 8px' }}>
+    <div style={{ display: 'flex', justifyContent: 'center', padding: `${SHOP.sp.part}px 0 ${SHOP.sp.snug}px` }}>
       <button type="button" onClick={onMore} className="fp-shop-press"
         style={{
           ...bare, height: 52, padding: '0 34px', borderRadius: SHOP.r.ctrl,
@@ -475,7 +498,7 @@ export function PerkMark({ mark, fs = SHOP.fs.sub, size = 15 }: {
   const Icon = mark.icon;
   return (
     <span style={{
-      display: 'inline-flex', alignItems: 'center', gap: 5,
+      display: 'inline-flex', alignItems: 'center', gap: SHOP.sp.tight,
       color: C.ink, fontSize: fs, fontWeight: 700, whiteSpace: 'nowrap',
     }}>
       <Icon size={size} aria-hidden style={{ color: mark.good ? C.ok : mark.ask ? C.faint : C.brand }} />
@@ -485,12 +508,12 @@ export function PerkMark({ mark, fs = SHOP.fs.sub, size = 15 }: {
 }
 
 /** 조건 칩 줄 — 사이를 넉넉히 벌린다(붙여 놓으면 다시 «칩 줄»로 보인다). */
-export function PerkMarks({ marks, fs, size, columnGap = 16 }: {
+export function PerkMarks({ marks, fs, size, columnGap = SHOP.sp.edge }: {
   marks: ShopMark[]; fs?: number | string; size?: number; columnGap?: number;
 }) {
   if (!marks.length) return null;
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', columnGap, rowGap: 8 }}>
+    <div style={{ display: 'flex', flexWrap: 'wrap', columnGap, rowGap: SHOP.sp.snug }}>
       {marks.map((m) => <PerkMark key={m.text} mark={m} fs={fs} size={size} />)}
     </div>
   );

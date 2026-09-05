@@ -100,7 +100,7 @@ export function ShopFilters({ facets, sel, onToggle, onClearAxis, onClearAll, mo
       {onClearAll && picked ? (
         <div style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          gap: 8, marginBottom: 18,
+          gap: SHOP.sp.snug, marginBottom: SHOP.sp.edge,
         }}>
           <span style={{ fontSize: SHOP.fs.sub, color: C.mute }}>
             고른 조건 <b style={{ color: C.brand, fontVariantNumeric: 'tabular-nums' }}>{picked}</b>
@@ -125,7 +125,7 @@ export function ShopFilters({ facets, sel, onToggle, onClearAxis, onClearAll, mo
            * ★제목 줄에 상하 여백을 줘서 **누를 자리를 키운다**(엔카 축 제목 줄이 48px 쯤 된다).
            *   글자만 있으면 어디를 눌러야 열리는지 손이 못 찾는다.
            */
-          <section key={axis} style={{ paddingBottom: isOpen ? 24 : 0 }}>
+          <section key={axis} style={{ paddingBottom: isOpen ? SHOP.sp.part : 0 }}>
             {/*
               제목 줄 전체가 «접었다 폈다» 하는 단추다 — 화살표만 누르게 하면 손님이 그걸 못 찾는다.
               오른쪽에는 ㉠ 고른 수(접혀 있어도 몇 개 걸렸는지 보인다) ㉡ 화살표.
@@ -133,11 +133,11 @@ export function ShopFilters({ facets, sel, onToggle, onClearAxis, onClearAll, mo
             <button type="button" onClick={() => setOpen((o) => ({ ...o, [axis]: !isOpen }))}
               aria-expanded={isOpen} className="fp-shop-press"
               style={{
-                display: 'flex', alignItems: 'center', gap: 8, width: '100%',
+                display: 'flex', alignItems: 'center', gap: SHOP.sp.snug, width: '100%',
                 padding: mobile ? '12px 0' : '11px 0', minHeight: mobile ? SHOP.tap.mobile : undefined,
                 border: 'none', background: 'transparent', cursor: 'pointer',
                 fontFamily: 'inherit', textAlign: 'left',
-                marginBottom: isOpen ? 4 : 0,
+                marginBottom: isOpen ? SHOP.sp.tight : 0,
               }}>
               <span style={{ fontSize: SHOP.fs.body, fontWeight: 700, color: C.ink, flex: 1, minWidth: 0 }}>
                 {AXIS_LABEL[axis]}
@@ -159,7 +159,7 @@ export function ShopFilters({ facets, sel, onToggle, onClearAxis, onClearAll, mo
                 <ShopAxisOptions axis={axis} options={facets[axis]} selected={on}
                   onToggle={onToggle} mobile={mobile} />
                 {on.length ? (
-                  <div style={{ marginTop: 10 }}>
+                  <div style={{ marginTop: SHOP.sp.snug }}>
                     <ShopTextBtn tone="faint" onClick={() => onClearAxis(axis)}>해제</ShopTextBtn>
                   </div>
                 ) : null}
@@ -216,7 +216,7 @@ function CheckList({ axis, options, selected, onToggle, mobile, columns }: {
         display: 'grid',
         gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))`,
         /* 줄 높이(폰 48)가 이미 자리를 만든다 — 사이까지 벌리면 손가락 한 번에 한 줄만 보인다. */
-        gap: mobile ? '2px 12px' : '12px 10px',
+        gap: mobile ? `${SHOP.sp.tight}px ${SHOP.sp.cozy}px` : `${SHOP.sp.cozy}px ${SHOP.sp.snug}px`,
       }}>
         {shown.map((o) => (
           <CheckRow key={o.key} label={o.label} count={o.count}
@@ -224,7 +224,7 @@ function CheckList({ axis, options, selected, onToggle, mobile, columns }: {
         ))}
       </div>
       {rest > 0 ? (
-        <div style={{ marginTop: 10 }}>
+        <div style={{ marginTop: SHOP.sp.snug }}>
           <ShopTextBtn tone="faint" onClick={() => setAll(true)}>{`더보기 ${rest}`}</ShopTextBtn>
         </div>
       ) : null}
@@ -246,7 +246,7 @@ function CheckRow({ label, count, on, onClick }: {
   return (
     <button type="button" onClick={onClick} aria-pressed={on} className="fp-shop-press"
       style={{
-        display: 'flex', alignItems: 'center', gap: mobile ? 12 : 9, padding: 0,
+        display: 'flex', alignItems: 'center', gap: mobile ? SHOP.sp.cozy : SHOP.sp.snug, padding: 0,
         /* 목록 «행»은 영역이 곧 크기라 `SHOP.tap`(폰 44) — 칩(38)보다 크되 48 은 과하다. */
         minHeight: mobile ? SHOP.tap.mobile : SHOP.tap.web,
         border: 'none', background: 'transparent', cursor: 'pointer',

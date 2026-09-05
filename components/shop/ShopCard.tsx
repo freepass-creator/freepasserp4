@@ -180,8 +180,8 @@ export const ShopCard = memo(function ShopCard({ p, href }: {
            *   흩어져 보이고, 카드끼리의 간격(격자 22)과 구별이 안 된다.
            * ⇒ 안은 좁게(5) · 밖은 넓게(22). 그래야 「여기까지가 한 대」가 여백으로 읽힌다.
            */
-          padding: mobile ? '10px 2px 2px' : '11px 2px 2px',
-          display: 'flex', flexDirection: 'column', gap: 5, minWidth: 0, flex: 1,
+          padding: `${SHOP.sp.cozy}px 2px 2px`,
+          display: 'flex', flexDirection: 'column', gap: SHOP.sp.tight, minWidth: 0, flex: 1,
         }}>
           {/*
             차명 — 두 줄로 접히면 카드마다 높이가 달라져 목록이 들쭉날쭉해진다. 한 줄로 못 박고
@@ -192,7 +192,7 @@ export const ShopCard = memo(function ShopCard({ p, href }: {
               사라졌다**(코덱스 2026-09-05 검토). 차번은 「이 차다」의 증거라 잘리면 안 된다.
             ⇒ 줄이는 것은 **이름만**이다 — 차번은 제 폭을 갖고 끝에 붙어 선다.
           */}
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, minWidth: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: SHOP.sp.snug, minWidth: 0 }}>
             <span style={{
               fontSize: SHOP.fs.h2, fontWeight: 700, color: C.ink,
               lineHeight: 1.35, letterSpacing: '-0.02em', minWidth: 0,
@@ -229,8 +229,8 @@ export const ShopCard = memo(function ShopCard({ p, href }: {
                  보증금은 저신용 손님이 제일 먼저 재는 «지금 드는 돈»이라, 자리에 안 맞으면
                  자르는 게 아니라 **다음 줄로 내린다**(`flexWrap`). 값은 줄이지 않는다. */
             <div style={{
-              display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', columnGap: 8, rowGap: 2,
-              marginTop: 3, minWidth: 0,
+              display: 'flex', alignItems: 'baseline', flexWrap: 'wrap',
+              columnGap: SHOP.sp.snug, rowGap: SHOP.sp.tight, minWidth: 0,
             }}>
               <span style={{ fontSize: SHOP.fs.sub, color: C.mute, flex: '0 0 auto' }}>
                 {price.m}개월
@@ -268,8 +268,8 @@ export const ShopCard = memo(function ShopCard({ p, href }: {
             ★카드는 좁으니 한 단 작게 든다(글자 12 · 아이콘 13) — 꼴은 같고 치수만 준다.
           */}
           {marks.length ? (
-            <div style={{ marginTop: 'auto', paddingTop: 7 }}>
-              <PerkMarks marks={marks} fs={SHOP.fs.cap} size={13} columnGap={10} />
+            <div style={{ marginTop: 'auto', paddingTop: SHOP.sp.snug }}>
+              <PerkMarks marks={marks} fs={SHOP.fs.cap} size={13} columnGap={SHOP.sp.cozy} />
             </div>
           ) : null}
         </div>
@@ -325,12 +325,12 @@ function ShopThumb({ p, marks = [] }: { p: EntityRecord; marks?: ShopMark[] }) {
       */}
       {marks.length ? (
         <div className="fp-onphoto" style={{
-          position: 'absolute', right: 8, bottom: 8, zIndex: 2,
-          display: 'inline-flex', alignItems: 'center', gap: 4, maxWidth: '92%',
+          position: 'absolute', right: SHOP.sp.snug, bottom: SHOP.sp.snug, zIndex: 2,
+          display: 'inline-flex', alignItems: 'center', gap: SHOP.sp.tight, maxWidth: '92%',
         }}>
           {marks.map((m) => (
             <span key={m.text} className="fp-signal-chip" style={{
-              gap: 4, borderRadius: SHOP.r.chip,
+              gap: SHOP.sp.tight, borderRadius: SHOP.r.chip,
               fontSize: SHOP.fs.cap, fontWeight: 600, whiteSpace: 'nowrap',
             }}>
               <m.icon size={12} aria-hidden />{m.text}

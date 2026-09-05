@@ -539,10 +539,25 @@ must(/--shop-fs-body: 15px/.test(css) && /@media \(max-width: 760px\)/.test(css)
  *   손님이 고르는 것은 차고, 금액은 그 차의 값이다.
  */
 must(/fontSize: mobile \? 21 : 20, fontWeight: FW\.head/.test(shopCard)
-  && /gap: 5, minWidth: 0, flex: 1/.test(shopCard)
-  && /gap: mobile \? '22px 12px' : '26px 22px'/.test(shopView),
-  '카드 안팎의 간격 층이 무너졌거나 대여료가 다시 커졌습니다 — 안 5 · 밖 22 · 대여료 21 입니다.',
+  && /gap: SHOP\.sp\.tight, minWidth: 0, flex: 1/.test(shopCard)
+  && /gap: mobile \? '24px 12px' : '24px 24px'/.test(shopView),
+  '카드 안팎의 간격 층이 무너졌거나 대여료가 다시 커졌습니다 — 안 4 · 밖 24 · 대여료 21 입니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-3');
+
+/*
+ * **여백은 «사다리»에서만 고른다** — 4·8·12·16·24·32 여섯 칸(`SHOP.sp`).
+ *
+ * 사장님 2026-09-05 「**간격이랑 이런 거도 좀 짜임새 있게** 맞춰보자고」.
+ * ⚠ 실측 — 가게 다섯 파일에 여백이 **열아홉 가지**(3·4·5·6·7·8·9·10·11·12·13·14·18·20·22·26·28·30·34)
+ *   섞여 있었다. 9 와 10 은 눈에 같은 간격이라, 「붙은 것/떨어진 것」이 우연히 갈렸다.
+ * ★되돌아가면 여백이 다시 뜻을 잃는다 — 고칠 때마다 한두 픽셀씩 다르게 찍히기 때문이다.
+ */
+must(/sp: \{ tight: 4, snug: 8, cozy: 12, edge: 16, part: 24, pane: 32 \}/.test(shopUi)
+  && /gap: SHOP\.sp\.pane/.test(shopView)
+  && /paddingBlock: SHOP\.sp\.cozy/.test(shopView)
+  && !/SHOP\.gap/.test(shopView),
+  '가게 여백 사다리(SHOP.sp)가 사라졌거나 손으로 찍은 숫자로 되돌아갔습니다.',
+  'components/shop/shop-ui.tsx SHOP.sp');
 
 /*
  * **폰 검색 = 머리띠 돋보기 → «퀵필터 칩 줄 위»로 나온다.** 목록 위에 상시로 깔지 않는다.
@@ -561,7 +576,7 @@ must(/: searchOpen \? \(\s*<ShopRevealSearch/.test(shopView)
   && /searchOn \|\| !!typed\.trim\(\)/.test(shopView)
   && /\{!mobile \? \(\s*<ShopSearch/.test(shopView)
   && !/headerOverlay/.test(wlFrame)
-  && /padding: mobile \? '0 6px 0 12px'/.test(wlFrame),
+  && /padding: mobile \? '0 4px 0 12px'/.test(wlFrame),
   '폰 검색이 상시 검색줄로 돌아왔거나, 머리띠를 통째로 덮었거나, CI 가 좌측에서 떨어졌습니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-3');
 

@@ -234,7 +234,11 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
         </>
       ) : undefined}
 >
-      <main style={{ maxWidth: 1280, margin: '0 auto', padding: mobile ? '4px 16px 28px' : '26px 24px 40px' }}>
+      <main style={{
+        maxWidth: 1280, margin: '0 auto',
+        /* 가장자리 16(폰)·24(웹) · 위아래는 사다리 칸(`SHOP.sp`). 손으로 찍은 숫자를 쓰지 않는다. */
+        padding: mobile ? '4px 16px 24px' : '24px 24px 40px',
+      }}>
         {/* 검색 — 목록 열과 같은 폭에 걸친다. 페이지 한가운데 띄우면 조건칸과 축이 안 맞는다. */}
         {/*
           검색줄 + 알약 줄 — **폰에서는 위에 붙어 따라온다**(`.fp-shop-stick`).
@@ -271,7 +275,8 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
           */}
           {/* ⚠ `padding` 단축속성을 쓰지 않는다 — CSS 의 `padding-inline: 16` 을 0 으로 덮어써
               첫 칩이 화면 끝에 붙는다(2026-09-04 실측 x=0). 세로 여백만 만진다. */}
-          <div className="fp-shop-rail" style={{ paddingBlock: mobile ? 9 : 13 }}>
+          {/* 칩 줄 위아래 = «덩어리의 경계»(cozy 12) — 검색칸·목록과 갈라 준다. */}
+          <div className="fp-shop-rail" style={{ paddingBlock: SHOP.sp.cozy }}>
             {QUICK.map((k) => (
               <ShopPill key={`${k.axis}:${k.key}`} on={query.sel[k.axis].includes(k.key)}
                 onClick={() => onToggle(k.axis, k.key)}>{k.label}</ShopPill>
@@ -279,7 +284,10 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
           </div>
         </div>
 
-        <div style={{ display: 'flex', gap: SHOP.gap.pane, alignItems: 'flex-start', marginTop: mobile ? 10 : 26 }}>
+        <div style={{
+          display: 'flex', gap: SHOP.sp.pane, alignItems: 'flex-start',
+          marginTop: mobile ? SHOP.sp.snug : SHOP.sp.part,
+        }}>
           {/*
             웹 조건칸도 «따라온다». 716대를 내려가다 조건을 바꾸려면 매번 맨 위로 올라가야 했다.
             ★`maxHeight`+`overflowY` 를 같이 줘야 축이 화면보다 길 때 기둥 «안에서» 굴러간다 —
@@ -299,7 +307,7 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
               width: 260, flexShrink: 0,
               position: 'sticky', top: 20, alignSelf: 'flex-start',
             }}>
-              <div style={{ paddingBottom: 18 }}><ShopCount value={countText} /></div>
+              <div style={{ paddingBottom: SHOP.sp.part }}><ShopCount value={countText} /></div>
               {/*
                 ⚠ 여기 있던 「필터」 제목과 「초기화」를 뺐다(2026-09-05 검토).
                   · 제목 — 바로 밑에 「차종·제조사·월 대여료…」 아홉이 굵게 서 있다. 아무도 안 읽는 라벨이
@@ -313,7 +321,7 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
                   「전체차량 716대」와 축 목록은 «글자 크기»가 이미 다르다 — 선이 없어도 갈린다.
                   나누는 일은 선이 아니라 **여백**이 한다.
               */}
-              <div style={{ paddingTop: 26 }}>{filters}</div>
+              <div>{filters}</div>
             </aside>
           ) : null}
 
@@ -323,8 +331,8 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
 
             {/* 목록 머리 = 격자의 어깨. 왼 기둥이 «전체»를 세므로 여기는 «지금 보이는 만큼»을 말한다. */}
             <div style={{
-              display: 'flex', alignItems: 'center', gap: 10,
-              margin: mobile ? '8px 0 10px' : '18px 0 16px',
+              display: 'flex', alignItems: 'center', gap: SHOP.sp.cozy,
+              margin: mobile ? '8px 0 12px' : '24px 0 12px',
             }}>
               {mobile ? <ShopCount value={shownText} filtered={narrowed} /> : (
                 <span style={{ fontSize: SHOP.fs.sub, color: C.mute, fontVariantNumeric: 'tabular-nums' }}>
@@ -396,7 +404,7 @@ function Grid({ mobile, children }: { mobile: boolean; children: React.ReactNode
        *   카드 «안»을 좁히면서(5) 밖도 같이 줄인다 — 안팎을 따로 재면 층이 안 생긴다.
        *   22 면 두 카드가 안 붙어 보이면서 폰 한 화면에 카드가 한 장 더 걸린다.
        */
-      gap: mobile ? '22px 12px' : '26px 22px',
+      gap: mobile ? '24px 12px' : '24px 24px',
     }}>{children}</div>
   );
 }
@@ -409,7 +417,7 @@ function Skeleton() {
   return (
     <div>
       <div className="fp-shop-skel" style={{ aspectRatio: '4 / 3', borderRadius: SHOP.r.card }} />
-      <div style={{ padding: '12px 2px 2px', display: 'flex', flexDirection: 'column', gap: 9 }}>
+      <div style={{ padding: '12px 2px 2px', display: 'flex', flexDirection: 'column', gap: 8 }}>
         {bar('78%', 16)}{bar('52%', 12)}{bar('46%', 26)}{bar('60%', 12)}
       </div>
     </div>
