@@ -362,7 +362,7 @@ export default function TopBar() {
   const line = C.line, ink = C.ink;
   // /m = 모바일 미리보기(폰 프레임) → 앱 상단바 없이 전체화면. /m/[code](실제 모바일 상세)는 상단바 유지.
   // '/' = 공개 안내 페이지(상품시트 입장) — ERP 상단바가 뜨면 안 된다(2026-08-15 · ERP 개선 대기).
-  if (path === '/' || path === '/erp5' || path.startsWith('/erp5/') || path === '/login' || path === '/m' || path.startsWith('/q/') || path.startsWith('/catalog') || path.startsWith('/sign/')) return null;
+  if (path === '/' || path === '/erp5' || path.startsWith('/erp5/') || path === '/login' || path === '/m' || path.startsWith('/q/') || path.startsWith('/catalog') || path.startsWith('/sign/') || path.startsWith('/estimate')) return null;
   const backLabel = backKind === 'list' ? '목록' : '이전';
   const backIcon = backKind === 'list'
     ? <List size={mobile ? 18 : 16} strokeWidth={2.25} />
