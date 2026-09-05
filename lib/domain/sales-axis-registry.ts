@@ -40,6 +40,19 @@ export type SalesAxis = {
   minFillSheet: number;
   /** ERP 에 반영된 최소 채움률(%). */
   minFillErp: number;
+  /**
+   * **값의 «꼴»** — 채움률만으로는 «엉뚱한 값이 든 것»을 못 잡는다.
+   *
+   * ⚠⚠ 2026-09-05 실측 사고. Km 축은 시트 95% · ERP 96% 로 **검사가 초록**이었는데,
+   *   실제로는 76대의 주행거리 칸에 **「블랙」·「화이트」·「그레이」 같은 색 이름**이 들어 있었다
+   *   (RP023 72대 · RP004 4대. 그 차들은 외장·내장이 비어 있다 — 열이 밀린 것이다).
+   *   「채워져 있다」와 「맞는 값이다」는 다른 말인데, 문턱은 앞엣것만 보고 있었다.
+   * ⇒ 숫자여야 하는 축은 `shape: 'number'` 로 선언한다. 검사가 **꼴이 어긋난 대수**를 세고,
+   *   `maxOffShape`(%) 를 넘으면 실패한다. 값이 있는 칸만 센다(빈 칸은 채움률이 본다).
+   */
+  shape?: 'number';
+  /** 꼴이 어긋나도 봐주는 한도(%). 생략하면 1%. */
+  maxOffShape?: number;
   /** 왜 이 축이 있는가 — 사람이 읽는 한 줄. */
   why: string;
 };
@@ -64,9 +77,20 @@ export const SALES_AXES: SalesAxis[] = [
   { column: '내장', erpField: 'int_color', align: 'center', fromRefined: true, refinedColumn: '내장색상', minFillSheet: 50, minFillErp: 50,
     why: '규격 10색. 원본에 없는 차가 많아 문턱이 낮다' },
   { column: '연식', erpField: 'year', align: 'center', fromRefined: false, minFillSheet: 90, minFillErp: 90,
+    shape: 'number',
     why: '공급사 원문. 연식·주행은 차를 고르는 두 축' },
+  /*
+   * ★★주행거리는 **변동값**이다 — 대여료·보증금과 한 묶음으로 본다(사장님 2026-09-05
+   *   「주행거리는 **출고 상태값이랑 비례해서** 나갔다가 들어오면 바뀌잖아.
+   *   **대여료하고 같이 모니터링**을 해준다고 생각하면 돼」).
+   *   시트 쪽 규격도 그렇게 서 있다(`supplier-template-sheet` LIVE_COLUMNS — 상태·대여료·보증금·주행거리),
+   *   원자 역할표도 그렇다(`atom-fields` mileage: 변동 · price: 변동).
+   * ★그래서 여기에 **꼴 검사**를 붙인다. 변동값은 매번 덮이기 때문에, 한 번 엉뚱한 값이 들어오면
+   *   그대로 흘러 들어와 화면까지 간다 — 실제로 색 이름이 76대의 주행거리로 갔다.
+   */
   { column: 'Km', erpField: 'mileage', align: 'right', fromRefined: false, minFillSheet: 80, minFillErp: 80,
-    why: '공급사 원문' },
+    shape: 'number',
+    why: '공급사 원문 · 변동값(대여료와 한 묶음) — 나갔다 들어오면 바뀐다' },
   { column: '연료', erpField: 'fuel_type', align: 'center', fromRefined: true, refinedColumn: '연료(정제)', minFillSheet: 95, minFillErp: 95,
     why: '엔진 이야기는 차명이 아니라 이 칸이 든다(파워트레인 폐지)' },
   { column: '배기량', erpField: 'engine_cc', align: 'right', fromRefined: true, refinedColumn: '배기량(정제)', minFillSheet: 80, minFillErp: 85,

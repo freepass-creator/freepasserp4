@@ -107,14 +107,51 @@ console.log('■ 축이 어디서 들어와 어디까지 갔나 — 공급사 �
 console.log('축'.padEnd(10) + '정제칸'.padEnd(9) + '판매시트'.padEnd(11) + 'ERP'.padEnd(9) + '문턱(시트/ERP)'.padEnd(16) + '판정');
 console.log('─'.repeat(78));
 
+/**
+ * **값의 «꼴»이 맞나** — 채움률이 초록인데 내용이 엉뚱한 경우를 잡는다.
+ *
+ * ⚠ 2026-09-05 실측: Km 축은 시트 95% · ERP 96% 로 이 표가 초록이었는데,
+ *   76대의 주행거리 칸에 「블랙」·「화이트」 같은 **색 이름**이 들어 있었다(RP023 72 · RP004 4).
+ *   그 차들은 외장·내장이 비어 있다 — 열이 밀린 것이다. 「채워져 있다」와 「맞는 값이다」는 다르다.
+ * ★값이 «있는» 칸만 센다 — 빈 칸은 채움률이 이미 보고 있다.
+ */
+const offShape = (v: unknown) => {
+  const t = S(v);
+  if (!filled(t)) return false;
+  return !/^\d[\d,.\s]*(km|킬로|만km|년|cc|인승|원|만원)?$/i.test(t.replace(/\s+/g, ' '));
+};
+
 let bad = 0;
+let shapeBad = 0;
+const shapeReport: string[] = [];
 for (const axis of SALES_AXES) {
   // 정제칸에서 오지 않는 축(연식·Km·공급사 원문)은 «정제칸 채움률»이라는 말 자체가 성립하지 않는다 — 0% 로 찍으면 사고로 읽힌다.
   const sup = axis.fromRefined ? `${pct(supplierCount.get(axis.column))}%` : '—';
   const sal = pct(salesCount.get(axis.column));
   const erpN = axis.erpField ? sellable.filter((p) => filled((p as any)[axis.erpField!])).length : 0;
   const erp = sellable.length ? Math.round((erpN / sellable.length) * 100) : 0;
-  const under = sal < axis.minFillSheet || erp < axis.minFillErp;
+  let under = sal < axis.minFillSheet || erp < axis.minFillErp;
+
+  /* 꼴 검사 — 숫자여야 하는 축에 글자가 들어오면 채움률이 아무리 높아도 사고다. */
+  let off = 0;
+  if (axis.shape === 'number' && axis.erpField) {
+    const offRows = sellable.filter((p) => offShape((p as any)[axis.erpField!]));
+    off = offRows.length;
+    const offPct = sellable.length ? (off / sellable.length) * 100 : 0;
+    if (offPct > (axis.maxOffShape ?? 1)) {
+      under = true;
+      shapeBad++;
+      const bySup = new Map<string, number>();
+      for (const p of offRows) {
+        const who = S((p as any).partner_code) || S((p as any).provider_company_code) || '?';
+        bySup.set(who, (bySup.get(who) || 0) + 1);
+      }
+      const worst = [...bySup.entries()].sort((a, b) => b[1] - a[1]).slice(0, 4)
+        .map(([k, n]) => `${k} ${n}대`).join(' · ');
+      const samples = [...new Set(offRows.map((p) => S((p as any)[axis.erpField!])))].slice(0, 5).join(' / ');
+      shapeReport.push(`  ⛔ ${axis.column} — 숫자가 아닌 값 ${off}대 (${offPct.toFixed(1)}%) · ${worst}\n     들어온 값: ${samples}`);
+    }
+  }
   if (under) bad++;
   console.log(
     axis.column.padEnd(10)
@@ -122,11 +159,15 @@ for (const axis of SALES_AXES) {
     + `${sal}%`.padEnd(11)
     + `${erp}%`.padEnd(9)
     + `${axis.minFillSheet}/${axis.minFillErp}`.padEnd(16)
-    + (under ? '⛔ 문턱 미달' : '✓'),
+    + (off ? `⛔ 꼴 어긋남 ${off}대` : under ? '⛔ 문턱 미달' : '✓'),
   );
 }
 
 console.log(`\n  공급사 재고 기준 · 판매시트 발행분 · ERP 판매가능 ${sellable.length}대`);
+if (shapeReport.length) {
+  console.log('\n  ■ 채움률은 맞는데 «값이 엉뚱한» 축 — 열이 밀렸을 가능성이 크다(원천을 본다)');
+  for (const line of shapeReport) console.log(line);
+}
 if (bad) {
   console.log(`\n  ⛔ ${bad}개 축이 문턱 밑이다 — **값이 새고 있다.**`);
   console.log('     정제칸이 비었으면 정제시트를 채우고, 정제칸은 찼는데 판매시트가 비면 발행기를,');
