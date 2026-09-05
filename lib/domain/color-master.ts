@@ -6,7 +6,6 @@
  * 확정 목록이 다르면 EXT_COLORS / INT_COLORS / COLOR_ALIAS 만 교체.
  */
 import { type EntityRecord } from '@/lib/intake/entities';
-import { colorCode } from '@/lib/domain/color-chips';
 
 /** 외부색상 규격 — 맞춤형·미매칭은 기타 */
 export const EXT_COLORS = [
@@ -213,10 +212,11 @@ export function applyColors(p: EntityRecord): EntityRecord {
   absorb('ext_color', '_raw_ext_color', 'ext');
   absorb('int_color', '_raw_int_color', 'int');
 
-  // 색칩 코드 파생 — 정규화된 이름에서 hex 계산(color-chips SSOT). 원자가 색을 스스로 설명해
-  // 다른 데서 당겨갈 때 코드까지 온다(사장님 2026-09-05). 이름이 바뀌면 코드도 따라 갱신.
-  const ec = colorCode(out.ext_color);
-  const ic = colorCode(out.int_color);
+  // 색칩 코드 파생 — «색상마스터 자신의» colorSwatch 로 hex 를 당겨 박는다(로컬 색맵 새로 안 만든다).
+  // 원자가 색을 스스로 설명해 다른 데서 당겨갈 때 코드까지 온다(사장님 2026-09-05). 이름 바뀌면 코드도 갱신.
+  const codeFor = (name: unknown) => { const s = String(name ?? '').trim(); return s && s !== '-' ? colorSwatch(s) : ''; };
+  const ec = codeFor(out.ext_color);
+  const ic = codeFor(out.int_color);
   if (ec !== String(out.ext_color_code ?? '')) { if (ec) out.ext_color_code = ec; else delete (out as Record<string, unknown>).ext_color_code; changed = true; }
   if (ic !== String(out.int_color_code ?? '')) { if (ic) out.int_color_code = ic; else delete (out as Record<string, unknown>).int_color_code; changed = true; }
 

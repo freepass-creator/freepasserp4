@@ -9,7 +9,7 @@ import { subscribeFirestorePolicies } from '@/lib/firebase/firestore-policy-clie
 import type { EntityRecord } from '@/lib/intake/entities';
 import type { MasterEntry } from '@/lib/domain/vehicle-master-types';
 import { nonCommonKeys, unknownKeys } from '@/lib/domain/atom-fields';
-import { colorChip } from '@/lib/domain/color-chips';
+import { colorSwatch, snapColorOrEtc } from '@/lib/domain/color-master';
 import { buildMasterIndex, atomHealth, joinPolicy, fareTable, lowestRent, updatedAt, HEALTH_RANK, type Health } from '@/lib/domain/atom-health';
 import type { MasterIndex } from '@/lib/domain/atom-invariants';
 
@@ -180,11 +180,11 @@ export default function SpringPage() {
                       <td style={{ padding: '5px 9px' }}><Badge tone={HEALTH_TONE[e.health]}>{e.health}</Badge></td>
                       <td style={{ padding: '5px 9px', fontFamily: NUM, fontWeight: FW.strong, color: C.ink }}>{e.car}</td>
                       <td style={{ padding: '5px 9px', color: C.ink }}>{[S(r.maker), S(r.model), S(r.sub_model), S(r.trim_name)].filter(Boolean).join(' · ') || <span style={{ color: C.faint }}>—</span>}</td>
-                      <td style={{ padding: '5px 9px', color: C.mute }}>{[r.ext_color, r.int_color].some((c) => S(c)) ? (
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>{[r.ext_color, r.int_color].map((cn, i) => { if (!S(cn)) return null; const chip = colorChip(cn); return (
+                      <td style={{ padding: '5px 9px', color: C.mute }}>{[r.ext_color, r.int_color].some((c) => S(c) && S(c) !== '-') ? (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>{[r.ext_color, r.int_color].map((cn, i) => { const nm = S(cn); if (!nm || nm === '-') return null; const hex = colorSwatch(snapColorOrEtc(nm)); return (
                           <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                            {chip && <span title={`${chip.name} ${chip.code}`} style={{ width: 11, height: 11, borderRadius: 2, background: chip.code, border: `1px solid ${chip.border ? C.line : 'transparent'}`, display: 'inline-block', flex: 'none' }} />}
-                            {S(cn)}
+                            <span title={`${nm} ${hex}`} style={{ width: 11, height: 11, borderRadius: 2, background: hex, border: `1px solid ${C.line}`, display: 'inline-block', flex: 'none' }} />
+                            {nm}
                           </span>
                         ); })}</span>
                       ) : '—'}</td>
