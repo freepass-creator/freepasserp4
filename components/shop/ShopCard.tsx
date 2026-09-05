@@ -13,7 +13,7 @@ import { cheapest, creditDisplay, CREDIT_UNSET } from '@/lib/domain/product';
 import { PERKS, hasPerk } from '@/lib/domain/product-filters';
 import { vehicleNameOf } from '@/lib/domain/vehicle-name';
 import { yearFullDisplay, fuelDisplay } from '@/lib/domain/vehicle-master-format';
-import { isEvFuel, kmDisplay, kmValue, manWon } from '@/lib/format';
+import { isEvFuel, kmDisplay, kmValue, manShort } from '@/lib/format';
 
 /**
  * 가게 카드 — 손님이 이 화면에서 «고르는 단위».
@@ -211,8 +211,11 @@ export const ShopCard = memo(function ShopCard({ p, href }: {
             많이 남잖아, 그런 것들 활용해 가지고」). 셋을 각각 한 줄씩 쓰면 카드가 세로로만 길어지고
             가로는 텅 빈다. 한 줄에 세우면 손님이 «얼마에 얼마 걸고 몇 달» 을 한눈에 읽는다.
             ★위계는 크기로 낸다 — 대여료만 크고, 기간·보증금은 그 옆에 붙은 조건이다.
-            ⚠ 「35만」으로 «반올림»하지 않는다 — 손님이 보는 금액은 낼 금액이다.
-              글자를 줄이는 것은 되고, 값을 줄이는 것은 안 된다.
+            ★★**훑는 자리라 자릿수를 줄인다**(사장님 2026-09-05 「간단하게 보는 거에서는 보증금은
+              120만원 이렇게 뒤에 거 다 떼내고, 대여료는 46.7만원·99.9만원 이런 식으로 만까지만」).
+              대여료 = 만 단위 소수 한 자리(견주는 값이라 천원 자리가 판을 가른다) ·
+              보증금 = 만원 단위(목돈의 «크기»를 재는 값이다). 둘 다 **버린다 — 반올림 아니다**.
+            ⚠ 상세는 그대로 원 단위다(`manWon`) — 거기는 «낼 금액»을 확인하는 자리다.
           */}
           {price && price.rent > 0 ? (
             /* ⚠ 잘라 내지 않는다 — 「보증금 103만 5,…」로 끝이 잘리고 있었다(2026-09-05 실측).
@@ -228,7 +231,7 @@ export const ShopCard = memo(function ShopCard({ p, href }: {
               <span style={{
                 fontSize: mobile ? 25 : 24, fontWeight: FW.head, color: C.ink, flex: '0 0 auto',
                 letterSpacing: '-0.04em', fontVariantNumeric: 'tabular-nums',
-              }}>{manWon(price.rent)}</span>
+              }}>{manShort(price.rent, { decimal: true })}</span>
               {/*
                 ★「보증금 없음」에만 색을 준다(2026-09-05). 저신용 손님의 1번 장벽은 월요금이 아니라
                   **지금 당장 필요한 목돈**이라, 이 판에서 제일 센 말이 이거다.
@@ -242,7 +245,7 @@ export const ShopCard = memo(function ShopCard({ p, href }: {
                 color: price.deposit > 0 ? C.mute : C.ok,
                 fontWeight: price.deposit > 0 ? 400 : 700,
               }}>
-                {price.deposit > 0 ? `보증금 ${manWon(price.deposit)}` : '보증금 없음'}
+                {price.deposit > 0 ? `보증금 ${manShort(price.deposit)}` : '보증금 없음'}
               </span>
             </div>
           ) : null}

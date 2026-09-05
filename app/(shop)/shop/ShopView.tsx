@@ -187,7 +187,7 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
   const href = (p: EntityRecord) => `${guestShareUrl(p, attr, '')}${wlQuery}`;
 
   const filters = (
-    <ShopFilters facets={facets} sel={query.sel} onToggle={onToggle} onClearAxis={onClearAxis} />
+    <ShopFilters facets={facets} sel={query.sel} onToggle={onToggle} onClearAxis={onClearAxis} onClearAll={onClearAll} />
   );
 
   return (

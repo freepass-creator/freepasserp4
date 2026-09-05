@@ -22,6 +22,35 @@ export function manWon(n: unknown): string {
   return rest ? `${m.toLocaleString()}만 ${rest.toLocaleString()}원` : `${m.toLocaleString()}만원`;
 }
 
+/**
+ * **훑는 자리의 금액 — 「46.7만원」 · 「103만원」.**
+ *
+ * 사장님 2026-09-05 「**간단하게 보는 거**에서는 **보증금은 120만원 이렇게 뒤에 거 다 떼내고**,
+ * 대여료는 **46.7만원 · 99.9만원** 이런 식으로 **만까지만** 표현하면 되지 않을까?」
+ *
+ * ★두 값의 자릿수를 다르게 잡는다 —
+ *   · **대여료**는 만 단위 **소수 한 자리**(46.7만원). 고를 때 견주는 값이라 천원 자리가 판을 가른다
+ *     (34만 5,000 과 34만 9,000 은 카드 두 장에서 실제로 갈린다).
+ *   · **보증금**은 **만원 단위**(103만원). 「지금 목돈이 얼마나 드나」를 재는 값이라 자릿수보다
+ *     «크기»가 먼저다. 천원 자리까지 붙으면 큰 숫자가 더 길어져 대여료를 가린다.
+ * ★**버린다(내림). 반올림하지 않는다** — 올려 쓰면 실제보다 비싸 보이고, 반올림은 어느 쪽으로도
+ *   틀릴 수 있다. 내림이면 「적어도 이 값」이 되어 늘 한 방향이다.
+ * ⚠⚠ **상세는 이걸 쓰지 않는다.** 거기는 «낼 금액»을 확인하는 자리라 `manWon` 이 원 단위까지 쓴다
+ *   (§1 반올림 금지). 이 함수는 **목록 카드처럼 훑는 자리**에만 쓴다.
+ */
+export function manShort(n: unknown, opts?: { decimal?: boolean }): string {
+  const v = Math.max(0, Math.floor(Number(n) || 0));
+  if (!v) return '0원';
+  if (v < 10000) return `${v.toLocaleString('ko-KR')}원`;
+  const man = v / 10000;
+  if (opts?.decimal) {
+    const cut = Math.floor(man * 10) / 10;              // 천원 아래는 버린다
+    const text = Number.isInteger(cut) ? String(cut) : cut.toFixed(1);
+    return `${Number(text).toLocaleString('ko-KR')}만원`;
+  }
+  return `${Math.floor(man).toLocaleString('ko-KR')}만원`;
+}
+
 /** 주행거리 표시 SSOT — 축약하지 않고 실제 km를 그대로 표시한다. */
 export function kmDisplay(raw: unknown): string {
   const source = String(raw ?? '').trim();
