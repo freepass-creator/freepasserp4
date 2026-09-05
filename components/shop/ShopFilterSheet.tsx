@@ -64,8 +64,8 @@ export function ShopFilterSheet({ facets, sel, onToggle, onClearAxis, onClearAll
           height: '82vh', display: 'flex', flexDirection: 'column', overflow: 'hidden',
         }}>
         <div style={{
-          display: 'flex', alignItems: 'center', gap: 10,
-          padding: '15px 14px 13px', borderBottom: `1px solid ${C.line2}`, flex: '0 0 auto',
+          display: 'flex', alignItems: 'center', gap: SHOP.sp.cozy,
+          padding: `${SHOP.sp.cozy}px ${SHOP.sp.edge}px`, borderBottom: `1px solid ${C.line2}`, flex: '0 0 auto',
         }}>
           <span style={{ fontSize: SHOP.fs.h2, fontWeight: 700 }}>상세 조건</span>
           <div style={{ flex: 1 }} />
@@ -86,8 +86,8 @@ export function ShopFilterSheet({ facets, sel, onToggle, onClearAxis, onClearAll
                 <button key={axis} type="button" onClick={() => setActive(axis)} className="fp-shop-press"
                   aria-current={on ? 'true' : undefined}
                   style={{
-                    display: 'flex', alignItems: 'center', gap: 5, width: '100%',
-                    padding: '0 10px 0 13px', height: 50, textAlign: 'left', cursor: 'pointer',
+                    display: 'flex', alignItems: 'center', gap: SHOP.sp.snug, width: '100%',
+                    padding: `0 ${SHOP.sp.snug}px 0 ${SHOP.sp.cozy}px`, height: 50, textAlign: 'left', cursor: 'pointer',
                     border: 'none', borderLeft: `3px solid ${on ? C.brand : 'transparent'}`,
                     background: on ? C.bg : 'transparent', fontFamily: 'inherit',
                     fontSize: SHOP.fs.sub, fontWeight: on ? 700 : 500,
@@ -112,9 +112,9 @@ export function ShopFilterSheet({ facets, sel, onToggle, onClearAxis, onClearAll
           </nav>
 
           {/* 오른쪽 — 고른 축의 값. 왼쪽과 «따로» 구른다. */}
-          <div style={{ flex: 1, minWidth: 0, overflowY: 'auto', padding: '16px 16px 20px' }}>
+          <div style={{ flex: 1, minWidth: 0, overflowY: 'auto', padding: `${SHOP.sp.edge}px ${SHOP.sp.edge}px ${SHOP.sp.part}px` }}>
             <div style={{
-              display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 14,
+              display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: SHOP.sp.edge,
             }}>
               <span style={{ fontSize: SHOP.fs.body, fontWeight: 700, color: C.ink }}>{AXIS_LABEL[active]}</span>
               {sel[active].length ? (
@@ -132,7 +132,7 @@ export function ShopFilterSheet({ facets, sel, onToggle, onClearAxis, onClearAll
           </div>
         </div>
 
-        <div style={{ padding: '10px 16px 18px', borderTop: `1px solid ${C.line2}`, flex: '0 0 auto' }}>
+        <div style={{ padding: `${SHOP.sp.cozy}px ${SHOP.sp.edge}px ${SHOP.sp.edge}px`, borderTop: `1px solid ${C.line2}`, flex: '0 0 auto' }}>
           <button type="button" onClick={onClose} className="fp-shop-press"
             style={{
               width: '100%', height: 52, borderRadius: SHOP.r.ctrl, border: 'none', cursor: 'pointer',

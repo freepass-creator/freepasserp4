@@ -552,10 +552,14 @@ must(/fontSize: mobile \? 21 : 20, fontWeight: FW\.head/.test(shopCard)
  *   섞여 있었다. 9 와 10 은 눈에 같은 간격이라, 「붙은 것/떨어진 것」이 우연히 갈렸다.
  * ★되돌아가면 여백이 다시 뜻을 잃는다 — 고칠 때마다 한두 픽셀씩 다르게 찍히기 때문이다.
  */
-must(/sp: \{ tight: 4, snug: 8, cozy: 12, edge: 16, part: 24, pane: 32 \}/.test(shopUi)
+must(/sp: \{ tight: 4, snug: 8, cozy: 12, edge: 16, part: 24, pane: 32, wide: 48 \}/.test(shopUi)
   && /gap: SHOP\.sp\.pane/.test(shopView)
   && /paddingBlock: SHOP\.sp\.cozy/.test(shopView)
-  && !/SHOP\.gap/.test(shopView),
+  && !/SHOP\.gap/.test(shopView)
+  /* 목록만 사다리를 타면 상세로 넘어갈 때 다시 어긋난다 — 가게 넉 화면이 같이 탄다. */
+  && /SHOP\.sp\./.test(shopCard) && /SHOP\.sp\./.test(shopDetail)
+  && /SHOP\.sp\./.test(read('components/shop/ShopFilterSheet.tsx'))
+  && /SHOP\.sp\./.test(read('components/shop/ShopFilters.tsx')),
   '가게 여백 사다리(SHOP.sp)가 사라졌거나 손으로 찍은 숫자로 되돌아갔습니다.',
   'components/shop/shop-ui.tsx SHOP.sp');
 

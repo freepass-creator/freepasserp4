@@ -580,7 +580,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
           {/* 메인 — 이 화면에서 손님이 찾아온 답. 브랜드 면을 쓰는 유일한 줄이다. */}
           <div style={{
             display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', columnGap: 12, rowGap: 4,
-            padding: mobile ? '16px' : '18px 20px',
+            padding: mobile ? `${SHOP.sp.edge}px` : `${SHOP.sp.edge}px ${SHOP.sp.part}px`,
             borderRadius: SHOP.r.card, background: C.brandSoft,
           }}>
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, whiteSpace: 'nowrap' }}>
@@ -657,7 +657,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
              웹 판정이 760부터라 노트북 창을 반만 열어도 표가 칸 밖으로 나갔다(코덱스 2026-09-05).
              ⇒ 520 은 «최대»고, 좁으면 줄어든다. 숫자는 nowrap 이라 더는 안 줄어드는 선에서 멈춘다. */
         <div style={{
-          marginTop: 22, minWidth: 0,
+          marginTop: SHOP.sp.part, minWidth: 0,
           flex: mobile ? undefined : '1 1 360px', maxWidth: mobile ? undefined : 520,
         }}>
           <div style={{
@@ -675,7 +675,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
                    *   라벨을 흐리게 두면 선 없이도 「여기부터 표」가 읽힌다.
                    */
                   <th key={h} scope="col" style={{
-                    padding: '0 0 7px', textAlign: i === 0 ? 'left' : 'right',
+                    padding: `0 0 ${SHOP.sp.snug}px`, textAlign: i === 0 ? 'left' : 'right',
                     fontSize: SHOP.fs.cap, fontWeight: 500, color: C.faint,
                   }}>{h}</th>
                 ))}
@@ -695,8 +695,8 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
                     style={{ cursor: 'pointer', background: on ? C.zebra : 'transparent' }}>
                     <td style={{ padding: 0 }}>
                       <button type="button" onClick={pick} aria-pressed={!!on} style={{
-                        display: 'flex', alignItems: 'center', gap: 6, width: '100%', textAlign: 'left',
-                        padding: '13px 8px 13px 10px',
+                        display: 'flex', alignItems: 'center', gap: SHOP.sp.snug, width: '100%', textAlign: 'left',
+                        padding: '12px 8px 12px 12px',
                         borderTop: 'none', borderRight: 'none', borderBottom: 'none',
                         borderLeft: `3px solid ${on ? C.brand : 'transparent'}`,
                         background: 'transparent', cursor: 'pointer',
@@ -714,11 +714,11 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
                       </button>
                     </td>
                     <td style={{
-                      padding: '13px 6px', textAlign: 'right', whiteSpace: 'nowrap',
+                      padding: '12px 8px', textAlign: 'right', whiteSpace: 'nowrap',
                       fontSize: rateFs, fontWeight: on ? 800 : 600, color: C.ink,
                     }}>{manWon(x.rent)}</td>
                     <td style={{
-                      padding: '13px 8px 13px 6px', textAlign: 'right', whiteSpace: 'nowrap',
+                      padding: '12px 8px', textAlign: 'right', whiteSpace: 'nowrap',
                       fontSize: rateFs, color: C.mute,
                     }}>{x.deposit > 0 ? manWon(x.deposit) : '없음'}</td>
                   </tr>
@@ -732,8 +732,8 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
       {payRows.length ? (
         /* ⚠ `minWidth: 0` 이면 줄바꿈 대신 **납부 칸이 65px 로 찌그러진다**(820px 실측).
              줄바꿈이 일어나려면 「이보다는 좁아질 수 없다」는 선이 있어야 한다 — 두 칸 격자라 260. */
-        <div style={{ marginTop: 22, flex: '1 1 300px', minWidth: 260 }}>
-          <div style={{ marginBottom: 9, fontSize: SHOP.fs.cap, fontWeight: 600, color: C.mute }}>납부</div>
+        <div style={{ marginTop: SHOP.sp.part, flex: '1 1 300px', minWidth: 260 }}>
+          <div style={{ marginBottom: SHOP.sp.snug, fontSize: SHOP.fs.cap, fontWeight: 600, color: C.mute }}>납부</div>
           <Facts rows={payRows} cols={2} mobile={mobile} />
         </div>
       ) : null}
@@ -754,7 +754,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
        */
       maxWidth: mobile ? 940 : 1120, margin: '0 auto',
       // 하단 고정독이 마지막 줄을 덮지 않게 그만큼 비운다.
-      padding: mobile ? '16px 16px 108px' : '26px 24px 40px',
+      padding: mobile ? '16px 16px 108px' : '24px 24px 40px',
     }}>
       {/*
         ★★**웹도 폰과 같은 «한 줄 스크롤»이다**(사장님 2026-09-05 「저 대여료를 꼭 사진 우측에서
@@ -786,8 +786,8 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
              *   상자에 넣으면 아래 값들과 같은 «칸»이 되어, 이름인지 값인지가 안 갈린다.
              */}
             {modelLine ? (
-              <div style={{ marginBottom: 14 }}>
-                <div style={{ fontSize: SHOP.fs.cap, color: C.faint, marginBottom: 5 }}>제조사 · 세부모델 · 세부트림</div>
+              <div style={{ marginBottom: SHOP.sp.edge }}>
+                <div style={{ fontSize: SHOP.fs.cap, color: C.faint, marginBottom: SHOP.sp.tight }}>제조사 · 세부모델 · 세부트림</div>
                 <div style={{
                   fontSize: mobile ? 17 : 18, fontWeight: 800, color: C.ink,
                   letterSpacing: '-0.02em', wordBreak: 'keep-all', lineHeight: 1.4,
@@ -808,12 +808,12 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
              *   격자 칸에 가두면 여덟 개짜리 차가 좁은 칸 안에서 다섯 줄로 접힌다. 폭을 통째로 쓴다.
              */}
             {options.length ? (
-              <div aria-label="선택 옵션" style={{ marginBottom: 14 }}>
+              <div aria-label="선택 옵션" style={{ marginBottom: SHOP.sp.edge }}>
                 <div style={{ marginBottom: 8, fontSize: SHOP.fs.cap, color: C.faint }}>선택 옵션</div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: SHOP.sp.snug }}>
                   {options.map((o) => (
                     <span key={o} style={{
-                      padding: '7px 12px', borderRadius: SHOP.r.chip, background: C.zebra,
+                      padding: '8px 12px', borderRadius: SHOP.r.chip, background: C.zebra,
                       fontSize: SHOP.fs.sub, color: C.sub,
                     }}>{o}</span>
                   ))}
@@ -831,9 +831,9 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
              */}
             {colorText ? (
               <div aria-label="색상" style={{ marginBottom: specs.length ? 28 : 0 }}>
-                <div style={{ marginBottom: 5, fontSize: SHOP.fs.cap, color: C.faint }}>색상</div>
+                <div style={{ marginBottom: SHOP.sp.tight, fontSize: SHOP.fs.cap, color: C.faint }}>색상</div>
                 <div style={{
-                  display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 14, rowGap: 4,
+                  display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: SHOP.sp.edge, rowGap: SHOP.sp.tight,
                   fontSize: SHOP.fs.body, fontWeight: 700, color: C.ink,
                 }}>
                   <ColorMark name={p.ext_color} label="외부" fontSize={SHOP.fs.cap} />
@@ -874,7 +874,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
             {/* ② 보상 한도 — 어디까지 보상되나. 넷이 나란한 값이라 격자로 편다. */}
             {coverage.length ? (
               <div>
-                <div style={{ marginBottom: 9, fontSize: SHOP.fs.cap, fontWeight: 600, color: C.mute }}>보상 한도</div>
+                <div style={{ marginBottom: SHOP.sp.snug, fontSize: SHOP.fs.cap, fontWeight: 600, color: C.mute }}>보상 한도</div>
                 <Facts rows={coverage} cols={mobile ? 2 : 3} mobile={mobile} />
               </div>
             ) : null}
@@ -885,12 +885,12 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
                  그래서 자차는 한 줄로 떼고, 대인·대물·자손은 그 밑에 흐리게 흘린다.
             */}
             {(ownDamageDeductible || otherDeductibles) ? (
-              <div style={{ marginTop: 22 }}>
-                <div style={{ marginBottom: 9, fontSize: SHOP.fs.cap, fontWeight: 600, color: C.mute }}>면책금</div>
+              <div style={{ marginTop: SHOP.sp.part }}>
+                <div style={{ marginBottom: SHOP.sp.snug, fontSize: SHOP.fs.cap, fontWeight: 600, color: C.mute }}>면책금</div>
                 {/* 자차 — 값이 셋이라 한 줄을 통째로 쓴다. 사고 나면 실제로 무는 돈이라 굵다. */}
                 {ownDamageDeductible ? (
                   <div style={{
-                    display: 'flex', alignItems: 'baseline', gap: 10, flexWrap: 'wrap',
+                    display: 'flex', alignItems: 'baseline', gap: SHOP.sp.cozy, flexWrap: 'wrap',
                     marginBottom: otherDeductibles ? 8 : 0,
                   }}>
                     <span style={{ flex: '0 0 auto', fontSize: SHOP.fs.sub, color: C.faint }}>자차</span>
@@ -917,7 +917,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
                  제일 흐리게 둔다 — 위 셋과 같은 무게로 붙여 놓으면 보장의 하나로 읽힌다.
             */}
             {roadside ? (
-              <div style={{ marginTop: 30, fontSize: SHOP.fs.sub, color: C.faint }}>
+              <div style={{ marginTop: SHOP.sp.pane, fontSize: SHOP.fs.sub, color: C.faint }}>
                 긴급출동 {roadside}
               </div>
             ) : null}
@@ -945,12 +945,12 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
       ) : null}
 
       {hasPolicy ? (
-        <p style={{ margin: '20px 0 0', fontSize: SHOP.fs.cap, color: C.faint, lineHeight: 1.7 }}>
+        <p style={{ margin: `${SHOP.sp.part}px 0 0`, fontSize: SHOP.fs.cap, color: C.faint, lineHeight: 1.7 }}>
           위 조건은 공급사가 제공한 운영정책이며 계약 시 최종 확정됩니다. 자세한 내용은 담당자에게 확인해 주세요.
         </p>
       ) : (
         /* 정책이 안 붙은 차가 실제로 있다 — 「없다」가 아니라 «모른다»라고 말한다(지어내지 않는다). */
-        <p style={{ margin: '20px 0 0', fontSize: SHOP.fs.cap, color: C.faint, lineHeight: 1.7 }}>
+        <p style={{ margin: `${SHOP.sp.part}px 0 0`, fontSize: SHOP.fs.cap, color: C.faint, lineHeight: 1.7 }}>
           보험·계약 조건은 담당자에게 문의해 주세요.
         </p>
       )}
@@ -973,8 +973,8 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
           position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 20,
           display: 'flex', alignItems: 'center', gap: 8,
           background: C.bg, borderTop: `1px solid ${C.line}`,
-          padding: '10px 16px 14px',
-          paddingBottom: 'calc(14px + var(--fp-dock-safe, env(safe-area-inset-bottom)))',
+          padding: '12px 16px 12px',
+          paddingBottom: 'calc(12px + var(--fp-dock-safe, env(safe-area-inset-bottom)))',
         }}>
           <Link href={listHref} onClick={() => haptic.nav()} className="fp-shop-press"
             style={{
@@ -1078,8 +1078,8 @@ export function FavShare({ title }: { title: string }) {
     */
     <button type="button" onClick={share} className="fp-shop-press fp-shop-fill" aria-label="이 차량 공유하기"
       style={{
-        display: 'inline-flex', alignItems: 'center', gap: 6,
-        height: 40, padding: '0 14px', borderRadius: SHOP.r.ctrl,
+        display: 'inline-flex', alignItems: 'center', gap: SHOP.sp.snug,
+        height: 40, padding: `0 ${SHOP.sp.cozy}px`, borderRadius: SHOP.r.ctrl,
         border: 'none', background: copied ? C.okBg : C.head,
         cursor: 'pointer', color: copied ? C.ok : C.ink, fontSize: SHOP.fs.sub, fontWeight: 600,
       }}>
@@ -1107,11 +1107,11 @@ export function FavShare({ title }: { title: string }) {
  */
 function TopBar({ code, title, listHref }: { code: string; title: string; listHref: string }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 4, padding: '2px 0 12px' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: SHOP.sp.tight, padding: `${SHOP.sp.tight}px 0 ${SHOP.sp.cozy}px` }}>
       <Link href={listHref} onClick={() => haptic.nav()} className="fp-shop-press"
         style={{
-          display: 'inline-flex', alignItems: 'center', gap: 6,
-          height: 40, padding: '0 12px 0 8px', borderRadius: SHOP.r.ctrl,
+          display: 'inline-flex', alignItems: 'center', gap: SHOP.sp.snug,
+          height: 40, padding: `0 ${SHOP.sp.cozy}px 0 ${SHOP.sp.snug}px`, borderRadius: SHOP.r.ctrl,
           textDecoration: 'none', color: C.sub, fontSize: SHOP.fs.sub, fontWeight: 600,
         }}>
         <ArrowLeft size={ICON.lg} aria-hidden />목록으로
@@ -1146,7 +1146,7 @@ function Sec({ title, icon, accent, tag, mobile, children }: {
       <Rule mobile={mobile} />
       <section aria-label={title} style={mobile ? undefined : {
         display: 'grid', gridTemplateColumns: '200px minmax(0, 1fr)',
-        columnGap: 40, alignItems: 'start',
+        columnGap: SHOP.sp.wide, alignItems: 'start',
       }}>
         <SecTitle icon={icon} accent={accent} tag={tag}>{title}</SecTitle>
         <div style={{ minWidth: 0 }}>{children}</div>
@@ -1212,7 +1212,7 @@ function Facts({ rows, cols, mobile }: {
     return (
       <div key={key} style={{ minWidth: minWidth ?? 0 }}>
         <div style={{
-          fontSize: SHOP.fs.cap, color: C.faint, marginBottom: 5, letterSpacing: '0.01em',
+          fontSize: SHOP.fs.cap, color: C.faint, marginBottom: SHOP.sp.tight, letterSpacing: '0.01em',
         }}>{k}</div>
         <div style={{
           fontSize: SHOP.fs.body, fontWeight: 700, color: C.ink,
@@ -1243,7 +1243,7 @@ function Facts({ rows, cols, mobile }: {
     return (
       <div style={{
         display: 'grid', gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
-        columnGap: 16, rowGap: 18,
+        columnGap: SHOP.sp.edge, rowGap: SHOP.sp.part,
       }}>
         {rows.map((row, i) => (row[0] === GROUP_BREAK
           ? <div key={`break-${i}`} aria-hidden style={{ gridColumn: '1 / -1', height: 0 }} />
@@ -1264,9 +1264,9 @@ function Facts({ rows, cols, mobile }: {
     bands[bands.length - 1].push(row);
   }
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: 56, rowGap: 22 }}>
+    <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: SHOP.sp.wide, rowGap: SHOP.sp.part }}>
       {bands.filter((b) => b.length).map((band, bi) => (
-        <div key={bi} style={{ display: 'flex', flexWrap: 'wrap', columnGap: 28, rowGap: 22 }}>
+        <div key={bi} style={{ display: 'flex', flexWrap: 'wrap', columnGap: SHOP.sp.part, rowGap: SHOP.sp.part }}>
           {band.map((row) => cell(row, row[0], 150))}
         </div>
       ))}
@@ -1293,8 +1293,8 @@ function DefList({ rows, mobile, strongFirst }: {
   if (!rows.length) return null;
   return (
     <div style={{
-      marginTop: 14,
-      display: 'grid', columnGap: 28, rowGap: 0,
+      marginTop: SHOP.sp.edge,
+      display: 'grid', columnGap: SHOP.sp.part, rowGap: 0,
       gridTemplateColumns: mobile ? '1fr' : '1fr 1fr',
     }}>
       {rows.map(([k, v], i) => {
@@ -1436,7 +1436,7 @@ function Rule({ mobile }: { mobile?: boolean }) {
     <div aria-hidden style={{
       height: 8,
       background: C.zebra,
-      margin: mobile ? '22px -16px 18px' : '26px 0 20px',
+      margin: mobile ? `${SHOP.sp.part}px -16px ${SHOP.sp.edge}px` : `${SHOP.sp.part}px 0 ${SHOP.sp.edge}px`,
     }} />
   );
 }
@@ -1469,7 +1469,7 @@ function SecTitle({ children, icon: Icon, accent, tag }: {
 }) {
   return (
     <h2 style={{
-      margin: '0 0 16px', display: 'flex', alignItems: 'center', gap: 8,
+      margin: `0 0 ${SHOP.sp.edge}px`, display: 'flex', alignItems: 'center', gap: SHOP.sp.snug,
       /*
        * 20px 이다(2026-09-05 에 18에서 올렸다). 엔카 폰 상세의 대구역 제목이 **22px/700**,
        * 우리 차명(h1)이 22px 이다. 구역 제목이 18이면 7화면짜리 페이지를 훑을 때
@@ -1497,7 +1497,7 @@ function SecTitle({ children, icon: Icon, accent, tag }: {
       {tag ? (
         <span style={{
           /* 「포함」은 손님에게 좋은 소식이라 색을 준다 — 목록의 「보증금 없음」과 같은 규칙이다. */
-          marginLeft: 2, padding: '3px 9px', borderRadius: SHOP.r.chip,
+          marginLeft: 2, padding: '3px 8px', borderRadius: SHOP.r.chip,
           background: /포함/.test(tag) ? C.okBg : C.zebra,
           color: /포함/.test(tag) ? C.ok : C.mute,
           fontSize: SHOP.fs.cap, fontWeight: 700, letterSpacing: '-0.01em',
@@ -1528,7 +1528,7 @@ function Head({ title, facts, stateMarks, perkMarks }: {
    * 실제로 카드만 «박스 뱃지»로 남아 있었다(2026-09-05 정리).
    */
   return (
-    <header style={{ paddingTop: 18 }}>
+    <header style={{ paddingTop: SHOP.sp.edge }}>
       {/*
         ★★**차명 줄 오른쪽에 출고상태·상품구분**(사장님 2026-09-05 「차량번호 뒤에 현대 그랜저,
           그리고 **우측 정렬로 출고가능·상품구분**을 하고, 그 밑에 심사 조건·우대 조건을 쭉」).
@@ -1562,7 +1562,7 @@ function Head({ title, facts, stateMarks, perkMarks }: {
           ) : null}
         </h1>
         {stateMarks.length ? (
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, justifyContent: 'flex-end' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: SHOP.sp.snug, justifyContent: 'flex-end' }}>
             {stateMarks.map((m) => <StateChip key={m.text} mark={m} />)}
           </div>
         ) : null}
