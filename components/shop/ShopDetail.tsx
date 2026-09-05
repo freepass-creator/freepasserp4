@@ -585,19 +585,19 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
         ★자차 면책금은 면책금 묶음의 맨 앞이고, **수리비 부담은 그 칸 안에** 붙는다
           (사장님 「수리비 부담은 자차 면책금에 포함이 되는 거고」).
       */}
+      {/*
+          ① 보험료 포함 여부는 **제목 옆**에 붙는다(사장님 2026-09-05 「보험 타이틀 옆에다가
+             표시를 해주는 것이 직관적일 거 같애」). 값이 「포함/별도」 둘뿐이라 큰 줄을 통째로
+             쓰면 «읽을 것»만 하나 더 생긴다 — 제목 옆이면 구역을 보는 순간 같이 읽힌다.
+          ⚠ 여기 큰 줄(BigRow)로 세웠다가 옮겼다. 보장 한도와 «다른 영역»이라는 판단은 그대로다 —
+             다른 영역이니까 격자에 안 섞고, 그렇다고 본문에 또 한 줄을 쓰지도 않는다.
+      */}
       {(insuranceFee || deductible || deductibles.length || coverage.length || roadside) ? (
-        <Sec title="보험" icon={ShieldCheck} mobile={mobile}>
+        <Sec title="보험" icon={ShieldCheck} tag={insuranceFee} mobile={mobile}>
           <>
-            {/*
-              ① 보험료 포함 여부 — «이 대여료에 보험이 들었나». 보장 내용이 아니라 **상품 조건**이라
-                 보상 한도와 같은 격자에 두지 않는다(사장님 「보상 한도랑은 좀 다른 영역」).
-                 「별도」면 손님이 따로 내는 돈이 생기는 것이라 이 구역에서 제일 먼저 알아야 한다.
-            */}
-            {insuranceFee ? <BigRow label="보험료" value={insuranceFee} mobile={mobile} /> : null}
-
             {/* ② 보상 한도 — 어디까지 보상되나. 넷이 나란한 값이라 격자로 편다. */}
             {coverage.length ? (
-              <div style={{ marginTop: insuranceFee ? 20 : 0 }}>
+              <div>
                 <div style={{ marginBottom: 9, fontSize: SHOP.fs.cap, fontWeight: 600, color: C.mute }}>보상 한도</div>
                 <Facts rows={coverage} cols={mobile ? 2 : 3} mobile={mobile} />
               </div>
@@ -844,8 +844,9 @@ function TopBar({ code, title, listHref, mobile }: {
  * ⚠ 순서는 안 바뀐다. 사장님이 정하신 여섯 구역이 위에서 아래로 그대로다 —
  *   **한 구역 «안»에서만 가로로 편다.**
  */
-function Sec({ title, icon, accent, mobile, children }: {
-  title: string; icon?: LucideIcon; accent?: boolean; mobile?: boolean; children: React.ReactNode;
+function Sec({ title, icon, accent, tag, mobile, children }: {
+  title: string; icon?: LucideIcon; accent?: boolean; tag?: string;
+  mobile?: boolean; children: React.ReactNode;
 }) {
   return (
     <>
@@ -854,7 +855,7 @@ function Sec({ title, icon, accent, mobile, children }: {
         display: 'grid', gridTemplateColumns: '200px minmax(0, 1fr)',
         columnGap: 40, alignItems: 'start',
       }}>
-        <SecTitle icon={icon} accent={accent}>{title}</SecTitle>
+        <SecTitle icon={icon} accent={accent} tag={tag}>{title}</SecTitle>
         <div style={{ minWidth: 0 }}>{children}</div>
       </section>
     </>
@@ -1080,8 +1081,20 @@ function Rule({ mobile }: { mobile?: boolean }) {
  *   빨강·초록·노랑이 한 화면에 서면 그건 강조가 아니라 소란이다.
  *   **채널색은 딱 한 구역(대여료)에만** 준다. 손님이 찾아온 답이라 거기만 서면 된다.
  */
-function SecTitle({ children, icon: Icon, accent }: {
+function SecTitle({ children, icon: Icon, accent, tag }: {
   children: React.ReactNode; icon?: LucideIcon; accent?: boolean;
+  /**
+   * **제목 옆 표시** — 그 구역 전체를 한마디로 규정하는 «켜짐/꺼짐»짜리 값.
+   *
+   * 지금 쓰는 곳은 보험의 「포함 / 별도」 하나다(사장님 2026-09-05 「보험료 포함 별도로,
+   * 어 그냥 이거 다 단순히 그거 하는 거라서 그 **보험 타이틀 옆에다가 표시를 해주는 것**이
+   * 직관적일 거 같애」).
+   * ★맞다 — 값이 둘뿐인 것에 큰 줄 하나를 통째로 쓰면 «읽을 것»이 하나 더 생긴다.
+   *   제목 옆에 붙으면 구역을 보는 순간 같이 읽힌다.
+   * ⚠ 여기에 «값»을 넣지 마라. 「50만원」처럼 읽어야 아는 숫자는 본문의 자리다.
+   *   제목 옆은 **한 낱말**만 선다.
+   */
+  tag?: string;
 }) {
   return (
     <h2 style={{
@@ -1110,6 +1123,15 @@ function SecTitle({ children, icon: Icon, accent }: {
         </span>
       ) : null}
       {children}
+      {tag ? (
+        <span style={{
+          /* 「포함」은 손님에게 좋은 소식이라 색을 준다 — 목록의 「보증금 없음」과 같은 규칙이다. */
+          marginLeft: 2, padding: '3px 9px', borderRadius: 999,
+          background: /포함/.test(tag) ? C.okBg : C.zebra,
+          color: /포함/.test(tag) ? C.ok : C.mute,
+          fontSize: SHOP.fs.cap, fontWeight: 700, letterSpacing: '-0.01em',
+        }}>{tag}</span>
+      ) : null}
     </h2>
   );
 }

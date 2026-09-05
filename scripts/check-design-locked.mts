@@ -287,8 +287,17 @@ must(/const facts = String\(p\.car_number \|\| ''\)\.trim\(\);/.test(shopDetail)
  *   ③ 면책금          — 자차가 «따로» 서고 나머지 셋은 그 밑에
  *   ④ 긴급출동        — 보험이 아니다. 여백으로 떨어뜨린다
  */
-must(/label="보험료" value=\{insuranceFee\}/.test(shopDetail),
-  '보험료 포함 여부가 보상 한도와 한 덩어리로 합쳐졌습니다 — 그건 보장 내용이 아니라 상품 조건이라 따로 섭니다.',
+/*
+ * ① 보험료 포함/별도는 **구역 제목 옆**에 붙는다(사장님 2026-09-05 「보험 타이틀 옆에다가
+ *   표시를 해주는 것이 직관적일 거 같애」). 값이 둘뿐이라 본문에 줄을 하나 더 쓰지 않는다.
+ * ⚠ 한때 본문 큰 줄(BigRow)로 세웠었다 — 「보상 한도와 다른 영역」이라는 판단은 그대로고,
+ *   자리만 제목 옆으로 옮겼다. 격자에 섞이면 이 검사가 잡는다.
+ */
+must(/tag=\{insuranceFee\}/.test(shopDetail),
+  '보험료 포함 여부가 제목 옆에서 빠졌습니다 — 보장 내용이 아니라 상품 조건이라 제목 옆 한 낱말로 섭니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
+must(!/\['보험료', S\('insurance_included'\)\]/.test(shopDetail),
+  '보험료가 보상 한도 격자 «안»으로 돌아갔습니다 — 그러면 대인·대물과 같은 무게로 읽힙니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
 must(/>보상 한도</.test(shopDetail) && />면책금</.test(shopDetail),
   '보험에서 「보상 한도」 또는 「면책금」 소제목이 사라졌습니다 — 둘은 성격이 달라 섞이면 안 됩니다.',
