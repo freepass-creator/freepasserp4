@@ -35,7 +35,8 @@ import { useAppBar } from '@/lib/appbar';
 import CarPicker from '@/features/estimate/CarPicker';
 import type { PickedCar } from '@/lib/domain/estimate/car-index';
 import { deltaKeyFor } from '@/lib/domain/estimate/residual-by-name';
-import { COST_DEFAULTS, loadCostSettings, configFrom } from '@/lib/domain/estimate/cost-settings';
+import { configFrom } from '@/lib/domain/estimate/cost-settings';
+import { cachedCost, fetchSharedCost } from '@/lib/domain/estimate/cost-client';
 import { safeComputeTerm } from '@/lib/domain/estimate/safe-calc.js';
 import { createQuoteInput } from '@/lib/domain/estimate/quote-input.js';
 import { usedResidPct, newcarResidPct } from '@/lib/domain/estimate/residual-lookup.js';
@@ -148,19 +149,22 @@ export default function EstimatePage() {
   const [disc, setDisc] = useState(0);
   const [dep, setDep] = useState(10);
   const [pre, setPre] = useState(0);
-  /** 원가 설정(`/estimate/cost`)이 정한 값 — 견적은 그것으로 계산한다. 저장이 없으면 엔진 기본값. */
-  const [cost, setCost] = useState(COST_DEFAULTS);
-  const [costLoaded, setCostLoaded] = useState(false);
-  const [fee, setFee] = useState(COST_DEFAULTS.salesFeePct);
+  /**
+   * 원가 설정(`/estimate/cost`)이 정한 값 — 견적은 그것으로 계산한다.
+   * ★첫 그림은 «캐시»로 즉시 그리고(대여료가 서 있어야 한다), 곧바로 **회사 값**을 받아 덮는다.
+   */
+  const [cost, setCost] = useState(() => cachedCost());
+  const [fee, setFee] = useState(() => cachedCost().salesFeePct);
   const [open, setOpen] = useState<number | null>(48);
   /** 잔가는 «자동(표준+델타)»이 기본이고, 목업 STEP 4 처럼 건별로 덮어쓸 수 있다. */
   const [residOverride, setResidOverride] = useState<Record<number, number>>({});
 
-  // 저장값은 브라우저에만 있다 → 첫 그림(SSR)과 어긋나지 않게 그린 «뒤에» 한 번만 얹는다.
-  if (!costLoaded && typeof window !== 'undefined') {
-    setCostLoaded(true);
-    const c = loadCostSettings(); setCost(c); setFee(c.salesFeePct);
-  }
+  // 회사 값을 받아 덮는다 — 사장님이 정한 원가가 있으면 그것이 이긴다.
+  useEffect(() => {
+    let alive = true;
+    fetchSharedCost().then((r) => { if (alive) { setCost(r.cost); setFee(r.cost.salesFeePct); } }).catch(() => {});
+    return () => { alive = false; };
+  }, []);
   const fees = useMemo(() => Array.from(new Set([...FEE_CHIPS, cost.salesFeePct])).sort((a, b) => a - b), [cost.salesFeePct]);
 
   const isNew = cond === 'new';
