@@ -292,10 +292,13 @@ function EstimateCostPageInner() {
           <div className="osub">회당 얼마 — 어느 조합이든 같다</div>
           <ORow label="상품화비" help={<>손바뀜이 한 번 날 때마다 다시 드는 <b>재정비·클리닝</b> 값.</>}><Pin w unit="원" value={comma(cs.turnoverPrepFee)} onChange={(v) => set('turnoverPrepFee', num(v))} /></ORow>
           <ORow label="왕복 탁송료" help={<>손바뀜마다 차를 <b>회수하고 다시 배치</b>하는 값(왕복).</>}><Pin w unit="원" value={comma(cs.turnoverDeliveryFee)} onChange={(v) => set('turnoverDeliveryFee', num(v))} /></ORow>
-          <ORow label="휴차 공실" help={<>차가 돌아와서 다음 손님에게 나갈 때까지 <b>비어 있는 기간</b>. 그동안 대여료가 안 들어온다.</>}><Pin unit="개월" value={cs.turnoverVacancyMonths} onChange={(v) => set('turnoverVacancyMonths', num(v))} /></ORow>
+          <ORow label="휴차 공실" help={<>차가 돌아와서 다음 손님에게 나갈 때까지 <b>비어 있는 기간</b>. 그동안 대여료가 안 들어온다. ★<b>한 달이 확정값</b>이다 — 사장님 2026-09-06 「평균 한 달은 잡아야 될 거야. 그래야 <b>보수적으로 책정</b>해서 할 수 (있다)」. ⚠ 여기가 회당 비용의 4분의 1이라 <b>줄이면 원가가 눈에 띄게 싸 보인다</b> — 그래서 함부로 못 줄인다. 실제로 보름 만에 나가더라도 <b>평균</b>은 한 달로 본다.</>}><Pin unit="개월" value={cs.turnoverVacancyMonths} onChange={(v) => set('turnoverVacancyMonths', num(v))} /></ORow>
           <div className="onote">
             손바뀜 횟수 = <b>1 ÷ 반납률 − 1</b>. 반납률 30%면 4년에 약 2.33회, 75%면 0.33회다.
             회당 비용 × 횟수가 원가에 들어간다 — <b>마진이 아니라 원가</b>다.
+            <br />★<b>여기가 저신용 원가의 본체</b>다. 저신용 4년 아반떼 회당 253만 중
+            휴차·왕복탁송·수수료 재지급이 <b>80%</b>이고, 보증금 위약금으로 막히는 건 <b>5%</b>뿐이다 —
+            값을 내리려면 <b>보증금이 아니라 여기</b>를 봐야 한다.
             <br />손바뀜마다 <b>다시 나가는 영업수수료</b>는 <b>Ⅱ 판매비</b>에, <b>받는 위약금</b>은 <b>Ⅲ 영업외</b>에 있다.
           </div>
         </div>

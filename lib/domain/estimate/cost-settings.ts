@@ -196,6 +196,9 @@ export const COST_DEFAULTS: CostSettings = {
   markupUsedPct: 0, markupNewPct: 0,   // ← 2026-09-06 업금액을 걷었다(아래 `configFrom` 머리말)
   ewYear: 80000,
   retentionNormalPct: 97, retentionMidPct: 75, retentionLowPct: 30,
+  // ★휴차 «한 달»은 확정값이다 — 사장님 2026-09-06 「평균 한 달은 잡아야 될 거야.
+  //   그래야 보수적으로 책정해서 할 수 (있다)」. 회당 비용의 4분의 1을 차지해,
+  //   여기를 줄이면 원가가 눈에 띄게 싸 보인다. **줄이려면 먼저 여쭌다.**
   turnoverPrepFee: 500000, turnoverDeliveryFee: 500000, turnoverFeePct: 3, turnoverVacancyMonths: 1,
   // 보증금 두 달 치 = 저신용 실무(사장님 2026-09-06). 회수율은 「저신용은 거의 못 받거든」을 숫자로 옮긴 것.
   depositMonths: 2,
