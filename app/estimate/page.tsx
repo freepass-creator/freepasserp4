@@ -36,7 +36,7 @@ import { useAppBar } from '@/lib/appbar';
 import CarPicker from '@/features/estimate/CarPicker';
 import type { PickedCar } from '@/lib/domain/estimate/car-index';
 import { deltaKeyFor } from '@/lib/domain/estimate/residual-by-name';
-import { configFrom } from '@/lib/domain/estimate/cost-settings';
+import { adjustResidual, configFrom } from '@/lib/domain/estimate/cost-settings';
 import { cachedCost, fetchSharedCost } from '@/lib/domain/estimate/cost-client';
 import { safeComputeTerm } from '@/lib/domain/estimate/safe-calc.js';
 import { createQuoteInput } from '@/lib/domain/estimate/quote-input.js';
@@ -207,8 +207,10 @@ function EstimatePageInner() {
     const base = configFrom(cost);
     // 수수료 칩은 영업자가 «건별»로 고른다 — 원가 설정의 기본값을 이 견적에서만 덮는다.
     const adminCfg = { ...base, setting: { ...base.setting, salesFeeRate: { rent: fee / 100, sub: fee / 100 } } };
-    const residualDefault: Record<number, number> = {};
-    for (const t of TERMS) residualDefault[t] = residPct[t] / 100;
+    const raw: Record<number, number> = {};
+    for (const t of TERMS) raw[t] = residPct[t] / 100;
+    // 「잔가로 조정」 — 원가 설정의 가감(±%p)을 곡선 전체에 얹는다(사장님 2026-09-06).
+    const residualDefault = adjustResidual(raw, cost.residualAdjustPct);
     const input = createQuoteInput({
       adminCfg, channel: ch, type,
       form: {
