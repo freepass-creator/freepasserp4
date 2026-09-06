@@ -38,6 +38,9 @@
 .est-root button,.est-root input,.est-root select,.est-root textarea{font-variant-numeric:inherit}
 .est-root{background:var(--bg);font-family:var(--k);color:var(--ink-1);font-variant-numeric:tabular-nums slashed-zero;-webkit-font-smoothing:antialiased;font-size:14px}
 .est-root .phone{max-width:440px;margin:0 auto;min-height:100vh;background:var(--bg);border-left:1px solid var(--line-2);border-right:1px solid var(--line-2)}
+/* 하단 홈바가 얹히는 면이라 그 높이만큼 자리를 비운다 — 안 비우면 「저장」과 맨 아랫줄이 바에 깔린다.
+   `--fp-tabbar-h` 는 AppTabBar 가 켤 때만 채운다(웹·바 없는 곳에서는 0). 2026-09-06 견적 탭. */
+.est-root .phone{padding-bottom:var(--fp-tabbar-h, 0px)}
 .est-root .hd{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:9px;padding:11px 14px;background:var(--surface);border-bottom:1px solid var(--line-2)}
 .est-root .wm{font-family:'Exo 2',var(--k);font-size:16px;font-weight:600;letter-spacing:-.2px}
 .est-root .wm .a{color:var(--accent)}
@@ -124,3 +127,26 @@
 .est-root .card.terms .prod:first-child{border-top:0}
 .est-root .card.terms .pd{padding:2px 0 8px}
 .est-root .foot b{color:var(--ink-3)}
+
+/* ────────────────────────────────────────────────────────────────
+   ▼ 목업 «이후» 덧붙인 것 — 위쪽은 목업 그대로다. 여기만 우리가 더한 조각이다.
+     늘리기 전에 위에 같은 게 있는지 먼저 본다.
+   ──────────────────────────────────────────────────────────────── */
+
+/* 금액 칸 — 목업 `.pin` 은 잔가(두 자리)용이라 44px 다. 매입가는 여덟 자리라 넓은 칸이 따로 있어야 한다. */
+.est-root .pin.w input{width:96px;text-align:right}
+.est-root .pin input:disabled{color:var(--ink-4)}
+
+/* 차 고르기 줄 — 목업 `.vsearch`(읽기전용 검색칸) 자리에 «누르면 시트가 열리는» 버튼을 세운다.
+   ★2026-09-06 차종마스터·신차마스터를 붙이면서 바뀐 곳. 목업은 검색칸 하나였고 신차는 select 셋이었는데,
+     옵션·조합규칙까지 고르려면 그 셋으로는 안 된다(features/estimate/CarPicker.tsx 머리말). */
+.est-root button.vsearch{width:100%;cursor:pointer;text-align:left;font:inherit;color:var(--ink-1)}
+.est-root button.vsearch .vt{flex:1;min-width:0;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.est-root button.vsearch .vg{flex:none;font-size:11px;font-weight:800;color:var(--accent)}
+
+/* 칸 옆 «곁말» — 「공표가 + 옵션」·「마스터에 없음」처럼 그 칸이 어디서 온 값인지 알려 주는 한 마디.
+   ⚠ 인라인 style 로 크기를 찍지 않는다(check:fonts 가 잡는다 · 2026-09-06). 목업 `.basis .bt` 와 같은 10.5 다. */
+.est-root .crow .hint{flex:none;font-size:10.5px;font-weight:600;color:var(--ink-4);line-height:1.3}
+
+/* 문지기 화면의 나가는 문 — 견적을 못 보는 사람을 상품찾기로 돌려보낸다(`features/estimate/EstimateGate`). */
+.est-root .gate-go{display:grid;place-items:center;height:40px;margin-top:14px;border-radius:3px;background:var(--accent);color:var(--on);font-weight:700;font-size:13px;text-decoration:none}
