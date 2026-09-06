@@ -233,6 +233,13 @@ const SOLO_LABEL: Record<string, string> = Object.fromEntries(
   [...RENT_BANDS, ...DEP_BANDS, ...MILE_BANDS].map((b) => [b.k, b.solo || b.shop || b.label]),
 );
 
+/**
+ * 구간 키의 «혼자 서는 이름» — 빠른 조건 칩도 이걸 쓴다.
+ * ★칩은 어디에 있든 같은 말이라야 한다. 예전엔 빠른 칩만 손으로 적어(「보증금 0원」)
+ *   걸린 조건 칩(「보증 없음」)과 한 화면에서 두 말이 됐다.
+ */
+export const soloLabel = (key: string): string | undefined => SOLO_LABEL[key];
+
 export function activeTokens(query: ShopQuery, facets: ShopFacets): ShopToken[] {
   const out: ShopToken[] = [];
   for (const axis of SHOP_AXES) {

@@ -17,7 +17,7 @@ import { guestShareUrl } from '@/lib/domain/product-share';
 import { resolveAttr } from '@/lib/shop/attribution';
 import {
   AXIS_LABEL, SHOP_SORTS, activeTokens, clearAxis, emptyQuery, queryCount,
-  readQuery, runShopQuery, toggleAxis, writeQuery,
+  readQuery, runShopQuery, soloLabel, toggleAxis, writeQuery,
   type ShopAxis, type ShopQuery, type ShopSort as ShopSortKey,
 } from '@/lib/shop/query';
 
@@ -50,13 +50,20 @@ const PAGE = 60;
 /**
  * 빠른 조건 — 검색 바로 밑. 손님이 제일 먼저 누르는 것만 셋넷.
  * ★값은 조건칸과 «같은 상태»를 만진다. 두 자리가 다른 값을 들면 그게 곧 「숨은 필터」다.
- * ★저신용·무심사 손님이 제일 먼저 재는 것은 월요금보다 **초기에 얼마 드는가**라 보증금 0원이 맨 앞이다.
+ * ★저신용·무심사 손님이 제일 먼저 재는 것은 월요금보다 **초기에 얼마 드는가**라 「보증 없음」이 맨 앞이다.
  */
-const QUICK: { axis: ShopAxis; key: string; label: string }[] = [
-  { axis: 'dep', key: 'd0', label: '보증금 0원' },
-  { axis: 'rent', key: 'r50', label: '월 50만원 이하' },
-  { axis: 'rent', key: 'r60', label: '50~60만원' },
-  { axis: 'rent', key: 'r70', label: '60~70만원' },
+const QUICK: { axis: ShopAxis; key: string; label?: string }[] = [
+  /*
+   * ★★**구간은 이름을 «손으로 안 적는다»** — `soloLabel(key)` 가 준다(`lib/shop/query`).
+   *   예전엔 여기만 손으로 적어(「보증금 0원」) 걸린 조건 칩(「보증 없음」)과 **한 화면에서
+   *   두 말**이 됐다. 이름은 구간 정의(`*_BANDS` 의 `solo`) 한 곳에서만 나온다.
+   *   ⇒ 보증 없음 · 월 50만 이하 · 월 50~60만 · 월 60~70만
+   * ★차종·연료는 구간이 아니라 값이 곧 말이라 여기 적는다.
+   */
+  { axis: 'dep', key: 'd0' },
+  { axis: 'rent', key: 'r50' },
+  { axis: 'rent', key: 'r60' },
+  { axis: 'rent', key: 'r70' },
   // 차종·연료는 손님이 «말로 하는» 조건이다 — 「SUV 있어요?」 「전기차 돼요?」가 상담 첫 마디다.
   // 값은 실측으로 다 차 있다(승용 342 · SUV 273 · 승합 92 / 전기 · 하이브리드 존재).
   { axis: 'vc', key: 'SUV', label: 'SUV' },
@@ -296,7 +303,7 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
           <div className="fp-shop-rail" style={{ paddingBlock: SHOP.sp.cozy }}>
             {QUICK.map((k) => (
               <ShopPill key={`${k.axis}:${k.key}`} on={query.sel[k.axis].includes(k.key)}
-                onClick={() => onToggle(k.axis, k.key)}>{k.label}</ShopPill>
+                onClick={() => onToggle(k.axis, k.key)}>{k.label || soloLabel(k.key) || k.key}</ShopPill>
             ))}
           </div>
         </div>
