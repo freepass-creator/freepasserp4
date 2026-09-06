@@ -12,6 +12,7 @@
       "btoUrl": "/kr/ko/models/luxury-suv-genesis/gv80-coupe/bto.html",
       "basePrice": 81300000,
       "basePriceEngine": "가솔린 2.5 터보",
+      "liveCrossCheck": { "config": "48V 엔진만 선택", "observedEstimate": 91850000, "expected": 91850000, "note": "견적기 라이브 = 8,130만 + 48V 1,055만. 배타 가격 교차검증 통과(2026-09-06)" },
       "exclusiveGroups": [
         {
           "group": "엔진 타입", "pick": 1, "status": "confirmed",
