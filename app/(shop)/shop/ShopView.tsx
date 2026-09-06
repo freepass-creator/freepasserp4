@@ -336,7 +336,7 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
                */
               alignSelf: 'flex-start',
             }}>
-              <div style={{ paddingBottom: SHOP.sp.part }}><ShopCount value={countText} /></div>
+              <div style={{ paddingBottom: SHOP.sp.edge }}><ShopCount value={countText} /></div>
               {/*
                 ⚠ 여기 있던 「필터」 제목과 「초기화」를 뺐다(2026-09-05 검토).
                   · 제목 — 바로 밑에 「차종·제조사·월 대여료…」 아홉이 굵게 서 있다. 아무도 안 읽는 라벨이
@@ -350,7 +350,20 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
                   「전체차량 716대」와 축 목록은 «글자 크기»가 이미 다르다 — 선이 없어도 갈린다.
                   나누는 일은 선이 아니라 **여백**이 한다.
               */}
-              <div>{filters}</div>
+              {/*
+                ★★**조건칸은 «판»이다 — 옅은 면 위에 얹는다**(사장님 2026-09-06 「좌측에 필터 값인데
+                  … 이게 좀 되게 **맹하단** 말이야. 엔카나 케이카에서 어떻게 **보기 편하게** 했는지 보자」).
+                ⚠ 실측 — 엔카는 **회색 바탕 위 «흰 카드» + 테두리**로 필터를 얹는다. 우리는 손님 동
+                  바탕이 흰색이라(`--bg-page` 가 흰색으로 뒤집힌다) 흰 패널이 흰 바탕에 그대로 놓여 **판이 없었다.**
+                  글자만 떠 있으니 「눌러서 여는 물건」으로 안 읽힌다 — 그게 맹함의 정체다.
+                ★우리는 테두리 대신 **면**으로 판을 만든다(가게 공통 규칙 — `ShopPill` 머리말).
+                  `C.zebra` 는 뱃지에 쓰는 것과 같은 «제일 옅은 면»이라 목록의 사진·글자와 안 다툰다.
+                ★둥글기는 «담는 것»(`r.card` 12) — 누르는 것(10)도 표시(8)도 아니다(둥글기 사다리).
+              */}
+              <div style={{
+                background: C.zebra, borderRadius: SHOP.r.card,
+                padding: `${SHOP.sp.edge}px ${SHOP.sp.edge}px ${SHOP.sp.snug}px`,
+              }}>{filters}</div>
             </aside>
           ) : null}
 
