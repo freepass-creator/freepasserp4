@@ -39,8 +39,14 @@ import DELTA from '@/lib/domain/estimate/data/residual-delta.json';
 const CHANNELS = [{ v: 'rent', label: '렌트' }, { v: 'sub', label: '구독' }] as const;
 const CREDITS = [{ v: '정상', label: '정상신용' }, { v: '중신용', label: '중신용' }, { v: '저신용', label: '저신용' }] as const;
 const MASTERS = [{ v: 'new', label: '신차마스터' }, { v: 'used', label: '중고마스터' }] as const;
-/** 계약 유지율 — `turnover-cost.js` 의 RETENTION 과 같은 값. 손바뀜 위험원가의 근거다. */
-const RETENTION: Record<string, number> = { 정상: 97, 중신용: 75, 저신용: 30 };
+/**
+ * 신용등급 → «반납률(계약 유지율)» 칸.
+ * ★2026-09-06 부터 **입력값**이다(그전엔 엔진 상수를 읽기전용으로 보여 줬다).
+ *   사장님 「저신용·중신용·고신용 각자 **회사마다** 그 반납률을 얼마로 할 거냐 — 다 입력할 수 있게끔」.
+ */
+const RET_KEY: Record<string, 'retentionNormalPct' | 'retentionMidPct' | 'retentionLowPct'> = {
+  정상: 'retentionNormalPct', 중신용: 'retentionMidPct', 저신용: 'retentionLowPct',
+};
 const YEARS = [1, 2, 3, 4, 5];
 
 const num = (v: string) => Number(String(v).replace(/[^\d.]/g, '')) || 0;
@@ -169,8 +175,14 @@ function EstimateCostPageInner() {
               <Pin unit="%" value={isRent ? cs.marginRentPct : cs.marginSubPct}
                 onChange={(v) => set(isRent ? 'marginRentPct' : 'marginSubPct', num(v))} />
             </ORow>
-            <ORow label="계약 유지율" hint="손바뀜 위험원가의 근거 · 엔진 고정(2026-09-05 확정)" axis="cr">
-              <Pin unit="%" value={RETENTION[polCr]} disabled />
+            <ORow label="차량가 업금액" hint="매입가에 얹어 «취득원가»를 만든다 — 감가·이자·수수료가 다 이 값 위에서 돈다" axis="ch">
+              <Pin unit="%" value={isRent ? cs.markupRentPct : cs.markupSubPct}
+                onChange={(v) => set(isRent ? 'markupRentPct' : 'markupSubPct', num(v))} />
+            </ORow>
+            <ORow label="반납률 (계약 유지율)" hint="낮을수록 손바뀜이 잦아 위험원가가 커진다 · 회사마다 다르다" axis="cr">
+              <Pin unit="%" value={RET_KEY[polCr] === 'retentionNormalPct' ? cs.retentionNormalPct
+                : RET_KEY[polCr] === 'retentionMidPct' ? cs.retentionMidPct : cs.retentionLowPct}
+                onChange={(v) => set(RET_KEY[polCr], num(v))} />
             </ORow>
             <ORow label="영업수수료 상한" hint="엔진은 «공통» 220만 — 신용별로 갈리지 않는다" axis="cr">
               <Pin w unit="원" value="2,200,000" disabled />
@@ -186,8 +198,8 @@ function EstimateCostPageInner() {
           <ORow label="개별소비세" hint="신차 5%+교육세 · 법정 자동"><Pin unit="%" value={5} disabled /></ORow>
           <ORow label="공채율"><Pin unit="%" value={cs.bondPct} onChange={(v) => set('bondPct', num(v))} /></ORow>
           <ORow label="등록비" hint="번호판·인지·대행"><Pin w unit="원" value={comma(cs.regFee)} onChange={(v) => set('regFee', num(v))} /></ORow>
-          <ORow label="1차 탁송료" hint="미반영 — 간접비로 봄(2026-09-05)"><Pin w unit="원" value={comma(cs.deliveryFee)} onChange={(v) => set('deliveryFee', num(v))} /></ORow>
-          <ORow label="초기 상품화비" hint="미반영 · 정비·클리닝·GPS설치"><Pin w unit="원" value={comma(cs.initPrepFee)} onChange={(v) => set('initPrepFee', num(v))} /></ORow>
+          <ORow label="1차 탁송료" hint="넣으면 원가에 그대로 더해진다 · 0 이면 없던 것"><Pin w unit="원" value={comma(cs.deliveryFee)} onChange={(v) => set('deliveryFee', num(v))} /></ORow>
+          <ORow label="초기 상품화비" hint="정비·클리닝·GPS설치 · 0 이면 없던 것"><Pin w unit="원" value={comma(cs.initPrepFee)} onChange={(v) => set('initPrepFee', num(v))} /></ORow>
         </div>
 
         {/* ③ 금융 */}
@@ -204,21 +216,37 @@ function EstimateCostPageInner() {
           <ORow label="정비비"><Pin w unit="원/월" value={comma(cs.maintMonthly)} onChange={(v) => set('maintMonthly', num(v))} /></ORow>
           <ORow label="GPS·관제"><Pin w unit="원/월" value={comma(cs.gpsMonthly)} onChange={(v) => set('gpsMonthly', num(v))} /></ORow>
           <ORow label="주차장·관리"><Pin w unit="원/월" value={comma(cs.parkingMonthly)} onChange={(v) => set('parkingMonthly', num(v))} /></ORow>
-          <ORow label="정기검사비" hint="미반영 · 3년차~"><Pin w unit="원/년" value={comma(cs.inspectionFee)} onChange={(v) => set('inspectionFee', num(v))} /></ORow>
+          <ORow label="정기검사비" hint="3년차부터 해마다 · 0 이면 없던 것"><Pin w unit="원/년" value={comma(cs.inspectionFee)} onChange={(v) => set('inspectionFee', num(v))} /></ORow>
+          <ORow label="EW 연장보증" hint="렌트 반납형만"><Pin w unit="원/년" value={comma(cs.ewYear)} onChange={(v) => set('ewYear', num(v))} /></ORow>
         </div>
 
         {/* ⑤ 판관비·수수료 */}
         <div className="card">
           <div className="step"><span className="no">5</span>판매관리비 · 수수료<span className="veh dim">SG&amp;A · 공통</span></div>
           <ORow first label="영업수수료율 기본값" hint="견적서 영업자가 조정"><Pin unit="%" value={cs.salesFeePct} onChange={(v) => set('salesFeePct', num(v))} /></ORow>
-          <ORow label="일반관리·간접비 배분율" hint="미반영 — 엔진은 직접비·수수료로 다 잡는다"><Pin unit="%" value={cs.overheadPct} onChange={(v) => set('overheadPct', num(v))} /></ORow>
-          <ORow label="대손·리스크 충당" hint="미반영 — 신용 위험은 손바뀜 원가로 잡는다"><Pin unit="%" value={cs.badDebtPct} onChange={(v) => set('badDebtPct', num(v))} /></ORow>
-          <ORow label="페이백 테이블" hint="미반영 · 0.5% 단위 · 0%→70만 … 5%→0"><span className="na">준비 중</span></ORow>
+          <ORow label="일반관리·간접비 배분율" hint="직접원가에 비율로 얹는다 · 0 이면 안 넣는 것"><Pin unit="%" value={cs.overheadPct} onChange={(v) => set('overheadPct', num(v))} /></ORow>
+          <ORow label="대손·리스크 충당" hint="직접원가에 비율로 얹는다 · 신용 위험은 아래 손바뀜에서 따로 잡는다"><Pin unit="%" value={cs.badDebtPct} onChange={(v) => set('badDebtPct', num(v))} /></ORow>
+        </div>
+
+        {/* ⑥ 손바뀜 회당 비용 — 반납률과 짝이다. 반납률이 «몇 번»이고 여기가 «한 번에 얼마»다. */}
+        <div className="card">
+          <div className="step"><span className="no">6</span>손바뀜 회당 비용<span className="veh dim">반납률과 짝</span></div>
+          <ORow first label="상품화비" hint="회수 뒤 재정비·클리닝"><Pin w unit="원" value={comma(cs.turnoverPrepFee)} onChange={(v) => set('turnoverPrepFee', num(v))} /></ORow>
+          <ORow label="왕복 탁송료" hint="회수 + 재배치"><Pin w unit="원" value={comma(cs.turnoverDeliveryFee)} onChange={(v) => set('turnoverDeliveryFee', num(v))} /></ORow>
+          <ORow label="영업수수료 재지급" hint="손바뀜마다 다시 나간다 · 총 대여료 대비"><Pin unit="%" value={cs.turnoverFeePct} onChange={(v) => set('turnoverFeePct', num(v))} /></ORow>
+          <ORow label="휴차 공실" hint="재계약까지 비는 기간"><Pin unit="개월" value={cs.turnoverVacancyMonths} onChange={(v) => set('turnoverVacancyMonths', num(v))} /></ORow>
+          <div className="onote">
+            손바뀜 횟수 = <b>1 ÷ 반납률 − 1</b>. 반납률 30%면 4년에 약 2.33회, 75%면 0.33회다.
+            회당 비용 × 횟수가 원가에 들어간다 — <b>마진이 아니라 원가</b>다.
+          </div>
         </div>
 
         {/* ⑥ 잔존가 — 차종별 (읽기 전용) */}
         <div className="card">
-          <div className="step"><span className="no">6</span>잔존가 · 차종별<span className="veh dim">차량별</span></div>
+          <div className="step"><span className="no">7</span>잔존가 · 차종별<span className="veh dim">차량별</span></div>
+          <ORow first label="잔가 가감" hint="곡선 전체를 올리거나 내린다 — 「이익률 말고 잔가로 조정」하는 손잡이">
+            <Pin unit="%p" value={cs.residualAdjustPct} onChange={(v) => set('residualAdjustPct', num(v) * (String(v).trim().startsWith('-') ? -1 : 1))} />
+          </ORow>
           <Seg tone="t3" opts={MASTERS} cur={master} onPick={setMaster} />
           <div className="vsearch">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="m20 20-3-3" /></svg>
