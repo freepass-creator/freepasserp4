@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getFirestore } from 'firebase-admin/firestore';
 import { firebaseAdminApp, verifyActiveBearer, verifyAdminBearer } from '@/lib/server/firebase-admin';
 import { COST_DEFAULTS, type CostSettings } from '@/lib/domain/estimate/cost-settings';
+import { canSeeEstimate } from '@/lib/domain/estimate/audience';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -13,9 +14,11 @@ export const dynamic = 'force-dynamic';
  *   2026-09-06 낮까지는 브라우저 한 대(localStorage)에만 남아, 사장님이 정한 원가를 영업자가 못 봤다 —
  *   같은 차를 두 사람이 서로 다른 값으로 견적하는 상태였다.
  *
- * ★누가 무엇을 하나 — **읽기는 모두, 쓰기는 관리자만.**
- *   원가는 회사가 «정하는» 값이지 영업자가 «고르는» 값이 아니다. 영업자가 바꿀 수 있는 것은
- *   견적 화면의 수수료·보증금·선납뿐이다(건별). 원가를 각자 고치면 대여료가 사람마다 달라진다.
+ * ★누가 무엇을 하나 — **읽기는 관리자·공급사, 쓰기는 관리자만.**
+ *   사장님 2026-09-06 「견적기는 … 공급사들이 보는 거고 … 일단 메뉴 자체를 관리자랑 공급사만 보게 해요」.
+ *   ⇒ 영업자는 **값도 못 읽는다**(403). 화면에서 메뉴를 숨기는 것만으로는 막은 게 아니다 —
+ *     주소를 아는 사람은 API 를 그냥 부른다. 명단은 `lib/domain/estimate/audience` 한 곳이 쥔다.
+ *   원가는 회사가 «정하는» 값이지 각자 «고르는» 값이 아니다. 각자 고치면 대여료가 사람마다 달라진다.
  *
  * ★저장은 **Firestore**(`settings/estimate_cost`)다. RTDB 가 아니다 —
  *   RTDB 는 폐기 이관 중이라(`rtdb-to-firestore-cutover`) 새 데이터를 거기 얹지 않는다.
@@ -59,7 +62,7 @@ function clean(raw: unknown): { ok: true; cost: CostSettings } | { ok: false; ba
 
 const NO_STORE = { 'Cache-Control': 'no-store' };
 
-/** GET — 로그인한 사람이면 읽는다(영업자도 자기 견적이 무슨 원가로 나오는지 알아야 한다). */
+/** GET — **관리자·공급사만** 읽는다(견적 화면을 보는 사람과 같은 명단). */
 export async function GET(request: Request): Promise<Response> {
   let who: Awaited<ReturnType<typeof verifyActiveBearer>>;
   try {
@@ -68,6 +71,7 @@ export async function GET(request: Request): Promise<Response> {
     return NextResponse.json({ error: 'server auth unavailable' }, { status: 503, headers: NO_STORE });
   }
   if (!who) return NextResponse.json({ error: 'unauthorized' }, { status: 401, headers: NO_STORE });
+  if (!canSeeEstimate(who.role)) return NextResponse.json({ error: 'forbidden' }, { status: 403, headers: NO_STORE });
   try {
     const snap = await getFirestore(firebaseAdminApp()).collection(COLL).doc(DOC).get();
     const data = snap.exists ? (snap.data() as { cost?: unknown; updatedAt?: string; updatedBy?: string }) : null;

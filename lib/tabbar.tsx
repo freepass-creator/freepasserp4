@@ -5,6 +5,7 @@ import {
   Search as SearchIcon, Calculator,
 } from 'lucide-react';
 import type { Role } from '@/lib/domain/deal';
+import { canSeeEstimate } from '@/lib/domain/estimate/audience';
 
 /** 탭바 표시 여부 — 상세 오버레이 때 숨김. */
 const HideCtx = createContext<{ hide: boolean; setHide: (v: boolean) => void }>({
@@ -128,9 +129,13 @@ export type AppTab = {
  *     `/m/[code]` 하단독의 「링크 공유하기」가 그 자리다(2026-08-22). 목록에 또 두면 무엇을 보내는지가 없다.
  *   · 검색은 라우트가 아니라 행동이라 `action: 'search'` 다(위 AppTab 주석).
  */
-export function appTabsFor(_role: Role): AppTab[] {
+export function appTabsFor(role: Role): AppTab[] {
   /*
-   * 역할과 무관하게 **넷** — 폰에서 하는 일이 역할마다 다르지 않다(찾고 · 값을 내고 · 보낸다).
+   * 찾기 · 검색 · (견적) · 설정 — **셋 또는 넷**.
+   * ★견적은 **관리자·공급사에게만** 선다(사장님 2026-09-06 「일단 메뉴 자체를 관리자랑 공급사만
+   *   보게 해요. 아직 해당 없어」). 원가·마진이 보이는 화면이라 영업자 폰에는 아예 안 띄운다.
+   *   판정은 `lib/domain/estimate/audience` 한 곳이 한다 — 여기서 역할을 따로 세지 않는다.
+   *   ⚠ 메뉴에서 숨기는 것만으로는 안 된다. 페이지·API 도 같은 명단으로 막혀 있다(그 파일 머리말).
    *
    * ★2026-08-30 에는 셋(찾기·검색·설정)이었다. 사장님 2026-09-06 에 **견적**을 하나 더 다셨다 —
    *   「빠르게 «이 차가 얼마입니다»를 하려면 그냥 찾기·검색·견적·설정. 나머지는 햄버거 버튼에서
@@ -145,7 +150,7 @@ export function appTabsFor(_role: Role): AppTab[] {
     // '/' 는 공개 안내 페이지(상품시트 입장)가 됐다 — 내부 매물 화면은 /finder 다(2026-08-15).
     { href: '/finder', label: tabLabel('product'), icon: NAV_ICON.product },
     { href: '/finder', label: '검색', icon: SearchIcon, action: 'search' },
-    { href: '/estimate', label: tabLabel('estimate'), icon: NAV_ICON.estimate },
+    ...(canSeeEstimate(role) ? [{ href: '/estimate', label: tabLabel('estimate'), icon: NAV_ICON.estimate }] : []),
     { href: '/settings', label: tabLabel('settings'), icon: NAV_ICON.settings },
   ];
 }

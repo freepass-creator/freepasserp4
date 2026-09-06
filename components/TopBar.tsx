@@ -35,7 +35,9 @@ const GROUPS: { title: string; items: { href?: string; label: string; icon: Luci
   { title: '견적·구독', items: [
     // 견적(/estimate) — 「이 차가 얼마입니까」에 그 자리에서 답한다. 폰은 하단 홈바에도 있다(2026-09-06).
     //   ★웹·모바일 «양쪽에 한 번에» 단다. 한쪽만 달면 다른 쪽을 볼 때마다 「또 원래대로」가 된다(집 규격 §3).
-    { href: '/estimate', label: NAV_LABEL.estimate, icon: NAV_ICON.estimate, roles: ALL_ROLES },
+    //   ★**관리자·공급사만**(사장님 2026-09-06 「메뉴 자체를 관리자랑 공급사만」) — 원가·마진이 보인다.
+    //     명단 SSOT = `lib/domain/estimate/audience`. 여기 roles 는 그 명단과 «같아야» 한다.
+    { href: '/estimate', label: NAV_LABEL.estimate, icon: NAV_ICON.estimate, roles: ['provider', 'admin'] },
     { href: '/sonogong', label: '중고 픽업구독', icon: RefreshCw, roles: ALL_ROLES },
     { href: '/welrix', label: '신차렌탈 견적기', icon: Sparkles, roles: ALL_ROLES },
   ] },
@@ -65,7 +67,7 @@ const SIMPLE_GROUPS: typeof GROUPS = [{
   title: '',
   items: [
     { href: '/finder', label: '상품찾기', icon: NAV_ICON.product, roles: ALL_ROLES },
-    { href: '/estimate', label: NAV_LABEL.estimate, icon: NAV_ICON.estimate, roles: ALL_ROLES },
+    { href: '/estimate', label: NAV_LABEL.estimate, icon: NAV_ICON.estimate, roles: ['provider', 'admin'] },
     { href: '/contract', label: '계약진행', icon: NAV_ICON.contract, roles: ALL_ROLES },
     { href: '/settlement', label: '정산확인', icon: FileText, roles: ['admin'] },
     { href: '/inventory', label: '재고관리', icon: NAV_ICON.inventory, roles: ['provider', 'admin'] },
