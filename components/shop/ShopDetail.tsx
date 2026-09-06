@@ -1263,10 +1263,13 @@ function Facts({ rows, cols, mobile }: {
          * ⚠ 줄 사이가 24 였다 — 한 칸이 45(라벨+값)인데 그 절반을 또 비웠고, 무리 사이는
          *   빈 줄이 겹쳐 **47** 이 됐다(2026-09-06 실측). 제원 여섯 칸이 230px 을 먹었다.
          *   폰에서 그건 화면의 3할이다(사장님 「오밀조밀 짜임새 있게」).
-         * ★같은 「차량 정보」 안의 칸들은 **한 덩어리**라 `cozy`(12)가 맞다.
-         *   무리 사이는 빈 줄이 겹쳐 저절로 24 가 되므로 **층은 그대로 2배**다.
+         * ★★그래서 12 로 내렸는데 **아직 멀었다**(사장님 2026-09-06 「연식·연료·색상 각 칸들이
+         *   지금 너무 좀 **멀어져** 있는 것 같다. **보기 편한 정도로만 딱 붙여** 놓으면 되잖아」).
+         *   ⇒ `snug`(8). 칸 하나가 라벨(19) + 4 + 값(23) 이라 **안쪽이 이미 4** 다 —
+         *     칸 사이가 8 이면 「라벨-값은 붙고, 칸-칸은 갈린다」가 2배 차로 분명히 읽힌다.
+         *   ★무리 사이는 빈 줄이 겹쳐 저절로 두 배(16)가 되므로 층은 그대로 남는다.
          */
-        columnGap: SHOP.sp.edge, rowGap: SHOP.sp.cozy,
+        columnGap: SHOP.sp.edge, rowGap: SHOP.sp.snug,
       }}>
         {rows.map((row, i) => (row[0] === GROUP_BREAK
           ? <div key={`break-${i}`} aria-hidden style={{ gridColumn: '1 / -1', height: 0 }} />
@@ -1286,10 +1289,15 @@ function Facts({ rows, cols, mobile }: {
     if (row[0] === GROUP_BREAK) { bands.push([]); continue; }
     bands[bands.length - 1].push(row);
   }
+  /*
+   * ★세로는 폰과 «같은 규칙»이다 — 칸 사이 `snug`(8) · 무리 사이 `edge`(16).
+   *   가로만 넓다(칸 사이 24 · 무리 사이 48) — 웹은 옆으로 남는 폭이 있어서다.
+   * ⚠ 한쪽만 고치면 「폰은 붙었는데 웹만 멀다」가 된다(집 규격 §3 — 규칙은 양쪽에 한 번에).
+   */
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: SHOP.sp.wide, rowGap: SHOP.sp.part }}>
+    <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: SHOP.sp.wide, rowGap: SHOP.sp.edge }}>
       {bands.filter((b) => b.length).map((band, bi) => (
-        <div key={bi} style={{ display: 'flex', flexWrap: 'wrap', columnGap: SHOP.sp.part, rowGap: SHOP.sp.part }}>
+        <div key={bi} style={{ display: 'flex', flexWrap: 'wrap', columnGap: SHOP.sp.part, rowGap: SHOP.sp.snug }}>
           {band.map((row) => cell(row, row[0], 150))}
         </div>
       ))}
