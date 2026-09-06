@@ -153,6 +153,11 @@ export type CostSettings = {
  *     안 그러면 「0 이라서 싼 견적」을 표준인 줄 알고 내보낸다.
  * ⚠ 0 이 «맞는» 칸(판관비·대손 — 사장님 「내부 관리비 없이 순수 직관적인 원가」)은 세지 않는다.
  */
+/**
+ * 값이 0 이라 원가에 «안 잡히는» 실비. 화면이 「아직 안 정했다」고 말해 준다.
+ * ★2026-09-06 부터 이 다섯은 표준값이 들어가 있어 평소엔 비지 않는다 —
+ *   이 장치는 이제 «회사가 0 으로 비웠을 때» 그걸 잊지 않게 하는 몫이다.
+ */
 export const UNSET_FEES: { key: keyof CostSettings; label: string }[] = [
   { key: 'deliveryFee', label: '1차 탁송료' },
   { key: 'initPrepFee', label: '초기 상품화비' },
@@ -179,18 +184,30 @@ const pct = (v: number) => Math.round((v || 0) * 1000) / 10;   // 0.065 → 6.5
  */
 export const COST_DEFAULTS: CostSettings = {
   bondPct: pct(D.setting.bondRate), regFee: D.setting.regFee,
-  deliveryFee: 0, initPrepFee: 0,
+  // ★2026-09-06 — 비어 있던 실비를 «표준값»으로 채웠다(사장님 「나한테 못 받은 건 그냥 대충 넣으면 돼.
+  //   수정할 수 있게끔만 해주면 되지」). 아래 값은 **박아 둔 게 아니라 기본값**이다 —
+  //   원가 화면에서 회사가 고치면 그 값이 이긴다(Firestore `settings/estimate_cost`).
+  //   근거를 같이 남긴다. 근거 없는 숫자는 다음 사람이 못 고친다.
+  deliveryFee: 250000,    // 1차 탁송(편도) — 손바뀜 «왕복» 탁송 50만의 절반
+  initPrepFee: 500000,    // 초기 상품화 — 손바뀜 회당 상품화와 같은 일(사장님 2026-09-05 「상품화 50」)
   // A(정상) · B(중신용) · C(저신용) — 지금은 셋 다 같은 값이다. 회사가 구간을 벌리면 여기서 벌어진다.
   interestAPct: pct(D.interestRate.rent), interestBPct: pct(D.interestRate.rent), interestCPct: pct(D.interestRate.rent),
   loanAPct: 90, loanBPct: 90, loanCPct: 90,   // ← 손오공 운영값(코드 기본 80)
+  // ⚠ 정비 «비율»만 0 으로 남긴다 — 표준값을 못 정해서가 아니라 **우리 상품에는 안 맞아서**다.
+  //   손오공 «운영값»이 정비 월 1만이다. 그건 정비를 회사가 아니라 **고객이 지는 상품**이라는 뜻이다.
+  //   신차 렌탈(welrix)은 회사가 정비를 져서 차값 연 2%가 맞지만, 그 2%를 여기 얹으면
+  //   2,500만 차에 월 41,700원이 더 붙어 «운영과 다른» 원가가 된다.
+  //   ⇒ 회사가 정비까지 대주는 상품을 만들면 이 칸에 2 를 넣는다. 화면에서 한 칸이면 된다.
   maintMonthly: D.setting.maintMonthly, maintRatePct: 0, gpsMonthly: D.setting.gpsMonthly,
   parkingMonthly: 0,                 // ← 손오공 운영값(코드 기본 35,000)
-  inspectionFee: 0,
+  inspectionFee: 60000,   // 정기검사 — 승용 수수료 ~29,000 + 대행·왕복 ~30,000 (3년차부터 해마다)
   overheadPct: 0, badDebtPct: 0,
   salesFeePct: 3,                    // ← 손오공 운영값(코드 기본 5%)
   acqTaxRentPct: pct(D.acqTaxRate.rent), acqTaxSubPct: pct(D.acqTaxRate.sub),
   insRentYear: D.setting.insYear, insSubYear: 0,
-  selfRentPct: pct(D.setting.selfRate), selfSubPct: 0,
+  // 자차 자체 충당 1.5% — 사장님 2026-09-06 「평균 일 점 오 퍼센트? 일에서 이 퍼센트 사이인데,
+  //   실제로 보험사도 자차를 그 정도를 받잖아」. 엔진 기본값(1.2)을 운영값으로 덮는다.
+  selfRentPct: 1.5, selfSubPct: 0,
   selfInsRentYear: 0, selfInsSubYear: 0,
   marginRentPct: pct(D.marginRate.rent), marginSubPct: pct(D.marginRate.sub),
   markupUsedPct: 0, markupNewPct: 0,   // ← 2026-09-06 업금액을 걷었다(아래 `configFrom` 머리말)
@@ -204,7 +221,8 @@ export const COST_DEFAULTS: CostSettings = {
   depositMonths: 2,
   penaltyRecoveryAPct: 80, penaltyRecoveryBPct: 50, penaltyRecoveryCPct: 10,
   residualAdjustPct: 0,
-  returnDeliveryFee: 0, disposalFeePct: 0,
+  returnDeliveryFee: 250000,  // 회수 탁송(편도) — 1차 탁송과 같은 자리. 기보유 차도 «나갈 때는» 든다
+  disposalFeePct: 3,          // 매각 — 중고차 경매 낙찰가 대비 수수료 2~3% + 출품료
 };
 
 /**
