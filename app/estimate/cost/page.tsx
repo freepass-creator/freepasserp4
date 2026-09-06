@@ -175,10 +175,7 @@ function EstimateCostPageInner() {
               <Pin unit="%" value={isRent ? cs.marginRentPct : cs.marginSubPct}
                 onChange={(v) => set(isRent ? 'marginRentPct' : 'marginSubPct', num(v))} />
             </ORow>
-            <ORow label="차량가 업금액" hint="매입가에 얹어 «취득원가»를 만든다 — 감가·이자·수수료가 다 이 값 위에서 돈다" axis="ch">
-              <Pin unit="%" value={isRent ? cs.markupRentPct : cs.markupSubPct}
-                onChange={(v) => set(isRent ? 'markupRentPct' : 'markupSubPct', num(v))} />
-            </ORow>
+
             <ORow label="반납률 (계약 유지율)" hint="낮을수록 손바뀜이 잦아 위험원가가 커진다 · 회사마다 다르다" axis="cr">
               <Pin unit="%" value={RET_KEY[polCr] === 'retentionNormalPct' ? cs.retentionNormalPct
                 : RET_KEY[polCr] === 'retentionMidPct' ? cs.retentionMidPct : cs.retentionLowPct}
@@ -196,6 +193,12 @@ function EstimateCostPageInner() {
           <div className="step"><span className="no">2</span>취득 원가<span className="veh dim">자본화 → 감가</span></div>
           <ORow first label="차량 매입 할인" hint="견적 화면에서 건별로 고른다"><Pin unit="%" value={0} disabled /></ORow>
           <ORow label="개별소비세" hint="신차 5%+교육세 · 법정 자동"><Pin unit="%" value={5} disabled /></ORow>
+          <ORow label="차량가 업금액 · 중고" hint="매입가에 얹어 «취득원가»를 만든다 — 감가·이자·수수료가 다 이 값 위에서 돈다">
+            <Pin unit="%" value={cs.markupUsedPct} onChange={(v) => set('markupUsedPct', num(v))} />
+          </ORow>
+          <ORow label="차량가 업금액 · 신차" hint="출고가(제조사 공표가)라 기본 0 — 얹을 자리가 없다">
+            <Pin unit="%" value={cs.markupNewPct} onChange={(v) => set('markupNewPct', num(v))} />
+          </ORow>
           <ORow label="공채율"><Pin unit="%" value={cs.bondPct} onChange={(v) => set('bondPct', num(v))} /></ORow>
           <ORow label="등록비" hint="번호판·인지·대행"><Pin w unit="원" value={comma(cs.regFee)} onChange={(v) => set('regFee', num(v))} /></ORow>
           <ORow label="1차 탁송료" hint="넣으면 원가에 그대로 더해진다 · 0 이면 없던 것"><Pin w unit="원" value={comma(cs.deliveryFee)} onChange={(v) => set('deliveryFee', num(v))} /></ORow>

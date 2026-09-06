@@ -43,7 +43,7 @@ const RANGE: Record<keyof CostSettings, [number, number]> = {
   acqTaxRentPct: [0, 20], acqTaxSubPct: [0, 20],
   insYear: [0, 10_000_000], selfPct: [0, 20],
   marginRentPct: [0, 60], marginSubPct: [0, 60],
-  markupRentPct: [0, 100], markupSubPct: [0, 100],
+  markupUsedPct: [0, 100], markupNewPct: [0, 100],
   ewYear: [0, 2_000_000],
   // 반납률(계약 유지율) — 0% 는 「한 사람도 안 끝까지 안 탄다」는 뜻이라 못 받는다(손바뀜이 무한이 된다).
   retentionNormalPct: [1, 100], retentionMidPct: [1, 100], retentionLowPct: [1, 100],
