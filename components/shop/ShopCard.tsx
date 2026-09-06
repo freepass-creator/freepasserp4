@@ -174,11 +174,24 @@ export const ShopCard = memo(function ShopCard({ p, href }: {
 
         <div style={{
           /*
-           * ★★**멀리 떼어 놓지 않는다**(사장님 2026-09-05 「목록에서 각 간격이 **너무 막 멀게
-           *   떨어져 있거나 굳이 그렇게 간격을 멀리 안 둬도 되는데** 그렇게 해놨거나」).
-           *   한 카드 «안»의 넉 줄은 **같은 차를 설명하는 한 덩어리**다 — 사이를 벌리면 네 조각으로
-           *   흩어져 보이고, 카드끼리의 간격(격자 22)과 구별이 안 된다.
-           * ⇒ 안은 좁게(5) · 밖은 넓게(22). 그래야 「여기까지가 한 대」가 여백으로 읽힌다.
+           * ★★**한 카드는 «한 덩어리»로 읽혀야 한다**(사장님 2026-09-06 「사진이 나오고 요약된
+           *   정보가 나오고, 근데 그게 **하나의 덩어리라고 느껴질 정도로 붙을 건 붙고 다음 장이랑
+           *   떨어질 건 떨어져야** 되는데 … 지금은 **너무 오밀조밀**하거나 하나의 덩어리라고
+           *   생각하기가 조금 힘든 느낌」).
+           * ⚠ 2026-09-06 오전에 넉 줄을 전부 4 로 붙였다가 이 말을 들었다 — **한 문단처럼 뭉개져서**
+           *   오히려 「한 대」로 안 읽혔다. 붙이는 것과 «묶는 것»은 다르다.
+           * ⇒ 안에 **위계**를 돌려준다. 이름 조각은 붙이고(4), 성격이 바뀌는 자리는 벌린다(12).
+           *
+           *     사진
+           *      12   ← 사진 ↔ 글
+           *     차명 · 차번
+           *      4    ← 이름의 연장(연식·주행·연료)
+           *     사실 줄
+           *      12   ← 여기서 «얼마인가»로 바뀐다
+           *     기간 · 대여료 · 보증금
+           *      12   ← 여기서 «되나 안 되나»로 바뀐다
+           *     우대조건
+           *     ────── 32  ← 카드끼리(그리드). 안의 최대(12)의 2.7배라야 「다음 장」이 된다
            */
           padding: `${SHOP.sp.cozy}px 2px 2px`,
           display: 'flex', flexDirection: 'column', gap: SHOP.sp.tight, minWidth: 0, flex: 1,
@@ -231,6 +244,8 @@ export const ShopCard = memo(function ShopCard({ p, href }: {
             <div style={{
               display: 'flex', alignItems: 'baseline', flexWrap: 'wrap',
               columnGap: SHOP.sp.snug, rowGap: SHOP.sp.tight, minWidth: 0,
+              /* 여기서 「어떤 차인가」→「얼마인가」로 성격이 바뀐다 — 그 경계를 여백이 말한다. */
+              marginTop: SHOP.sp.snug,
             }}>
               <span style={{ fontSize: SHOP.fs.sub, color: C.mute, flex: '0 0 auto' }}>
                 {price.m}개월
@@ -268,7 +283,10 @@ export const ShopCard = memo(function ShopCard({ p, href }: {
             ★카드는 좁으니 한 단 작게 든다(글자 12 · 아이콘 13) — 꼴은 같고 치수만 준다.
           */}
           {marks.length ? (
-            <div style={{ marginTop: 'auto', paddingTop: SHOP.sp.snug }}>
+            <div style={{
+              /* 줄 사이 기본이 4 라 여기 8 을 더해 «성격이 바뀌는 자리» 12 를 만든다(요금 줄과 같은 값). */
+              marginTop: 'auto', paddingTop: SHOP.sp.snug,
+            }}>
               <PerkMarks marks={marks} fs={SHOP.fs.cap} size={13} columnGap={SHOP.sp.cozy} />
             </div>
           ) : null}

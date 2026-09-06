@@ -556,8 +556,11 @@ must(/tight=\{columns > 1\}/.test(read('components/shop/ShopFilters.tsx'))
  */
 must(/fontSize: mobile \? 21 : 20, fontWeight: FW\.head/.test(shopCard)
   && /gap: SHOP\.sp\.tight, minWidth: 0, flex: 1/.test(shopCard)
-  && /gap: mobile \? '24px 12px' : '24px 24px'/.test(shopView),
-  '카드 안팎의 간격 층이 무너졌거나 대여료가 다시 커졌습니다 — 안 4 · 밖 24 · 대여료 21 입니다.',
+  && /gap: mobile \? '32px 12px' : '32px 24px'/.test(shopView)
+  /* 성격이 바뀌는 자리(사실→요금, 요금→조건)는 벌린다 — 전부 붙이면 한 문단으로 뭉개진다. */
+  && /marginTop: SHOP\.sp\.snug,/.test(shopCard)
+  && /marginTop: 'auto', paddingTop: SHOP\.sp\.snug/.test(shopCard),
+  '카드 안팎의 간격 층이 무너졌거나 대여료가 다시 커졌습니다 — 안 4~12 · 밖 32 · 대여료 21 입니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-3');
 
 /*
