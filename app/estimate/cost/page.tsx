@@ -332,23 +332,24 @@ function EstimateCostPageInner() {
             <Pin unit="%" value={cs[BAND_KEY[polCr].loan]} onChange={(v) => set(BAND_KEY[polCr].loan, num(v))} />
           </ORow>
           <div className="osub">들어오는 돈 · 어느 조합이든 같다</div>
-          <ORow label="평균 보증금" help={<>계약 때 받아 <b>쥐고 있는 돈</b>. 손바뀜이 나면 여기서 위약금을 뗀다 — 그만큼 손바뀜 비용이 <b>상쇄</b>된다. ⚠ <b>0 이면 상쇄가 아예 없다</b>(원가를 높게 보는 쪽). 회사 평균을 넣어야 실제에 가까워진다.</>}>
-            <Pin w unit="원" value={comma(cs.avgDeposit)} onChange={(v) => set('avgDeposit', num(v))} />
+          <ORow label="보증금 · 월납 배수" help={<>계약 때 받아 <b>쥐고 있는 돈</b>을 <b>월납 몇 달 치</b>로 적는다(사장님 2026-09-06 「저신용 보증금은 한두 달 치」). 정액(원)이 아니라 배수라 <b>비싼 차는 보증금도 자동으로 커진다.</b> 손바뀜이 나면 여기서 위약금을 떼어 그만큼 상쇄된다.</>}>
+            <Pin unit="개월" value={cs.depositMonths} onChange={(v) => set('depositMonths', num(v))} />
           </ORow>
           <div className="osub">그중 실제로 떼는 몫 · 조합마다 갈린다 — 지금 <em>{polCr}</em></div>
           <ORow label="위약금 회수율" help={<>보증금 중 <b>실제로 위약금으로 떼는 비율</b>. ⚠ 받을 «자리»가 있다고 다 받는 게 아니다 — <b>저신용은 미납 대여료·수리비로 보증금이 이미 소진돼</b> 거의 못 뗀다(사장님 2026-09-06 「사실상 위약금이 발생돼도 저신용은 거의 못 받거든」). 그래서 이 칸만 신용 구간을 탄다.</>}>
             <Pin unit="%" value={cs[BAND_KEY[polCr].recovery]} onChange={(v) => set(BAND_KEY[polCr].recovery, num(v))} />
           </ORow>
           <div className="onote">
-            손바뀜 회당 상쇄액 = <b>평균 보증금 × 회수율</b> = <b>{comma(Math.round(cs.avgDeposit * (cs[BAND_KEY[polCr].recovery] || 0) / 100))}원</b> ·
+            손바뀜 회당 상쇄액 = <b>월납 × {cs.depositMonths}개월 × {cs[BAND_KEY[polCr].recovery] || 0}%</b> =
+            <b> 월납 {(cs.depositMonths * (cs[BAND_KEY[polCr].recovery] || 0) / 100).toFixed(2)}개월분</b> ·
             이만큼 <b>Ⅰ-4 손바뀜 회당 비용에서 뺀다</b>(회당 순비용은 0 밑으로 안 내려간다).
           </div>
-          {cs.avgDeposit ? null : (
-            <div className="byrow">
-              <b>평균 보증금이 0 이라 상쇄가 없다</b> — 손바뀜 비용이 통째로 원가에 남는다.
-              <br />값을 넣기 전까지는 <b>원가를 높게 본 견적</b>이다(틀린 게 아니라 보수적인 것).
-            </div>
-          )}
+          <div className="byrow">
+            ⚠ <b>위약금으로는 손바뀜이 안 막힌다.</b> 저신용 4년 아반떼 실측 — 회당 나가는 돈이 <b>253만</b>인데
+            (상품화 50 + 왕복탁송 50 + 수수료 재지급 90 + 휴차 63) 두 달 치 보증금은 <b>125만</b>이다.
+            <br /><b>다 떼도 50%</b>, 회수율 10%면 <b>5%</b>다 — 나머지는 대여료가 진다.
+            실제 손잡이는 <b>Ⅰ-4 의 회당 비용을 줄이는 것</b>(휴차·탁송·수수료)이다.
+          </div>
         </div>
 
         {/* ────────────────── Ⅳ 이익과 잔가 ────────────────── */}

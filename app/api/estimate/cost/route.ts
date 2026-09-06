@@ -54,7 +54,7 @@ const RANGE: Record<keyof CostSettings, [number, number]> = {
   turnoverPrepFee: [0, 10_000_000], turnoverDeliveryFee: [0, 10_000_000],
   turnoverFeePct: [0, 20], turnoverVacancyMonths: [0, 12],
   // 위약금 상쇄 = 평균 보증금 × 회수율. 회수율은 신용 구간 A/B/C.
-  avgDeposit: [0, 50_000_000],
+  depositMonths: [0, 12],
   penaltyRecoveryAPct: [0, 100], penaltyRecoveryBPct: [0, 100], penaltyRecoveryCPct: [0, 100],
   // 잔가 가감 — ±%p. 곡선을 통째로 올리거나 내린다.
   residualAdjustPct: [-30, 30],
