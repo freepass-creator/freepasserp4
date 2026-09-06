@@ -327,29 +327,18 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
             </div>
             <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'baseline', gap: SHOP.sp.cozy }}>
               {/*
-                ★★**걸린 조건은 건수 «오른쪽»에서 시작해, 끝에 닿으면 다음 줄로 흘러내린다**
-                  (사장님 2026-09-06 「그냥 그 칩 있잖아. 그게 **몇 대 검색이라고 된 그 우측에 쭉
-                  나오는** 거야. 거기서 **페이지 닿으면 다음 줄로** 바뀌면 되는 거지.
-                  그게 **직관적**일 것 같은데」).
-                ⚠ 전에는 이 줄 «아래»에 조건 줄을 따로 뒀다. 그러면 조건을 걸 때마다 없던 줄이 하나
-                  생겨 아래가 통째로 밀렸다 — 건수와 조건은 **같은 말**(무엇으로 걸러 몇 대냐)인데
-                  줄이 갈려 있으니 눈이 두 번 읽어야 했다. 한 줄에 이어 두면 왼쪽에서 오른쪽으로
-                  「716대 중 1–24 · 월 대여료 50~60만 · 보증금 없음」이 **한 문장처럼** 읽힌다.
-                ★정렬 고르개는 이 흐름 «밖»이다 — 칩이 몇 줄로 불어나도 오른쪽 끝 제자리를 지킨다.
+                ⚠ **걸린 조건 칩을 이 줄에 끼우지 않는다** — 한 번 그렇게 해 봤다가 물렀다
+                  (사장님 2026-09-06 「아니다. 그냥 **전체차량 그 밑에 라인**으로 나오게 하자.
+                  그게 맞겠다. **필터 거는 사람들은 그래야지 알겠지?**」).
+                  건수 옆에 이어 붙이면 「1대 중 1–1 · 월 대여료 50~60만 · 보증금 없음」이
+                  **한 문장으로 뭉쳐** 어디까지가 결과고 어디부터가 내가 건 조건인지 갈리지 않는다.
+                  조건은 **손님이 «되돌릴» 대상**이라 제 줄에서 눈에 띄어야 한다.
               */}
-              <ShopTokens tokens={tokens}
-                onRemove={(axis, key) => onToggle(axis as ShopAxis, key)}
-                /* 0건이면 본문 한가운데 「처음부터 다시 찾기」가 그 일을 한다 — 문을 둘 두지 않는다. */
-                onClear={list.length ? onClearAll : undefined}
-                lead={(
-                  <span style={{
-                    fontSize: SHOP.fs.sub, color: C.mute,
-                    fontVariantNumeric: 'tabular-nums', flexShrink: 0,
-                  }}>
-                    {rows === null ? '불러오는 중' : `${list.length}대 중 1–${shown.length}`}
-                  </span>
-                )} />
-              <span style={{ alignSelf: 'center', display: 'inline-flex', flexShrink: 0 }}>
+              <span style={{ fontSize: SHOP.fs.sub, color: C.mute, fontVariantNumeric: 'tabular-nums' }}>
+                {rows === null ? '불러오는 중' : `${list.length}대 중 1–${shown.length}`}
+              </span>
+              <div style={{ flex: 1 }} />
+              <span style={{ alignSelf: 'center', display: 'inline-flex' }}>
                 <ShopSort value={query.sort} options={SHOP_SORTS}
                   onChange={(v) => setQuery((q) => ({ ...q, sort: v as ShopSortKey }))} />
               </span>
@@ -358,11 +347,28 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
         ) : null}
 
         {/*
-          ★조건 줄은 **머리 한 줄 «안»**으로 들어갔다(위 `ShopTokens lead=` — 건수 오른쪽).
-            그래서 여기에 따로 서는 줄이 없다. 조건을 걸어도 **조건칸과 카드의 윗선은 안 흔들린다** —
-            늘어나는 것은 두 기둥 «위»의 머리 줄이라 둘이 «같이» 내려간다
-            (사장님 2026-09-06 「필터 박스랑 상품 카드랑 동일 라인에 있으면 보기 좋잖아」).
+          ★★**걸린 조건은 「전체차량」 «바로 밑 줄»에 — 두 기둥을 가로질러 통째로 선다**
+            (사장님 2026-09-06 「그냥 **전체차량 그 밑에 라인**으로 나오게 하자. 그게 맞겠다.
+            **필터 거는 사람들은 그래야지 알겠지?**」).
+          ★왜 제 줄인가. 조건은 **손님이 «되돌릴» 대상**이다. 건수 옆에 이어 붙이면
+            「1대 중 1–1 · 월 대여료 50~60만」이 한 문장으로 뭉쳐, 어디까지가 결과고 어디부터가
+            내가 건 조건인지 갈리지 않는다. 제 줄에 있어야 「내가 이걸 걸었구나」가 한눈에 보인다.
+            (2026-09-06 에 건수 오른쪽으로 옮겼다가 **같은 날 되돌렸다** — 되돌리지 말 것.)
+          ⚠ 오른쪽 칸 «안»에 넣지 않는다. 그러면 조건을 걸 때만 카드가 밀려 **조건칸과 카드의
+            윗선이 어긋난다** — 조건을 걸수록 어긋나는 꼴이라 제일 나쁜 종류다.
+            두 기둥 «위»에 두면 조건칸과 카드가 **같이** 내려가 선이 유지된다.
+          ★조건이 없으면 아무것도 안 그린다(`ShopTokens` 가 빈 배열이면 `null`) — 자리를 미리
+            비워 두지 않는다(사장님 2026-09-06 「선택한 칩 공간은 미리 만들어 놓을 필요 없잖아」).
+          ★폰은 여기가 아니라 **제 어깨 줄(건수+정렬) 밑**이다 — 아래 `mobile ?` 를 보라.
+            규칙은 같다: **건수 밑줄.** 기둥이 없으니 가로지를 것이 없을 뿐이다.
         */}
+        {!mobile ? (
+          <ShopTokens tokens={tokens}
+            onRemove={(axis, key) => onToggle(axis as ShopAxis, key)}
+            /* 0건이면 본문 한가운데 「처음부터 다시 찾기」가 그 일을 한다 — 문을 둘 두지 않는다. */
+            onClear={list.length ? onClearAll : undefined} />
+        ) : null}
+
         <div style={{
           display: 'flex', gap: SHOP.sp.pane, alignItems: 'flex-start',
           marginTop: mobile ? SHOP.sp.snug : SHOP.sp.cozy,
@@ -457,10 +463,11 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
             ) : null}
 
             {/*
-              ★폰도 **건수에 이어서** 조건이 온다 — 다만 «오른쪽»이 아니라 **바로 밑 줄**이다.
-                오른쪽 끝은 정렬 고르개가 쓰고 있어, 남는 폭이 실측 144px 뿐이다(390 화면).
-                칩 하나가 150 을 넘으니 거기 넣으면 **칩마다 한 줄씩** 차지해 목록이 저 아래로 밀린다.
-                웹은 폭이 남아 한 줄에 이어 붙지만, 폰은 이어 붙일 폭이 없다 — 규칙은 같고 자리만 다르다.
+              ★폰도 **건수 «바로 밑 줄»**이다 — 웹과 같은 규칙이다(사장님 2026-09-06 「전체차량
+                그 밑에 라인으로」). 웹은 두 기둥을 가로지르는 줄이고 폰은 어깨 밑 줄일 뿐,
+                「건수 밑에 걸린 조건」이라는 짜임은 **양쪽이 같다.**
+              ⚠ 전에는 이 줄이 어깨 «위»(칩 줄 바로 밑)에 있었다 — 건수보다 먼저 나와
+                「몇 대인지」보다 「무엇을 걸었는지」가 앞서 읽혔다.
               ★조건이 없으면 이 줄은 **아예 없다**(원자가 `null`) — 첫 화면에서 상품이 밀리지 않는다.
             */}
             {mobile ? (

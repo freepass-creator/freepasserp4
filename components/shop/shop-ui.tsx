@@ -341,7 +341,7 @@ export function ShopPrimary({ onClick, children }: { onClick: () => void; childr
  * 그래서 걸린 조건을 목록 «바로 위»에 늘어놓고, 하나씩 떼어 낼 수 있게 한다.
  * ★토큰에는 축 이름을 붙인다(「제조사 기아」) — 「기아」만 있으면 그게 제조사인지 모델인지 모른다.
  */
-export function ShopTokens({ tokens, onRemove, onClear, lead }: {
+export function ShopTokens({ tokens, onRemove, onClear }: {
   tokens: { axis: string; key: string; label: string; axisLabel: string }[];
   onRemove: (axis: string, key: string) => void;
   /**
@@ -350,27 +350,20 @@ export function ShopTokens({ tokens, onRemove, onClear, lead }: {
    *   같은 일을 하는 문이 한 화면에 둘이 된다(사장님 2026-09-06). 그때는 부르는 쪽이 안 넘긴다.
    */
   onClear?: () => void;
-  /**
-   * ★★**줄머리 — 걸린 조건은 «건수 오른쪽»에서 시작한다**(사장님 2026-09-06 「그냥 그 칩 있잖아.
-   * 그게 **몇 대 검색이라고 된 그 우측에 쭉 나오는** 거야. 거기서 **페이지 닿으면 다음 줄로** 바뀌면
-   * 되는 거지. 그게 **직관적**일 것 같은데」).
-   *
-   * 왜 원자가 받나. 부르는 쪽에서 「건수 + 칩」을 조립하면 간격·줄바꿈 규격이 화면마다 갈린다.
-   * 줄머리를 원자가 품으면 **건수와 칩이 한 줄의 한 덩어리**가 되고, 칩이 늘면 그 덩어리가
-   * 제자리에서 다음 줄로 흘러내린다 — 자리를 미리 비워 두지도, 딴 줄로 튀지도 않는다.
-   * ★줄머리가 있으면 조건이 0개여도 **그 줄은 남는다**(건수가 거기 살고 있으므로).
-   *   줄머리가 없으면 예전대로 — 조건이 0개면 **아무것도 안 그린다.**
-   */
-  lead?: ReactNode;
 }) {
-  if (!tokens.length && !lead) return null;
+  /*
+   * ⚠ **건수 줄에 «끼우지» 않는다** — 2026-09-06 에 건수 오른쪽으로 이어 붙이는 «줄머리(lead)»를
+   *   달았다가 같은 날 걷었다(사장님 「아니다. 그냥 **전체차량 그 밑에 라인**으로 나오게 하자.
+   *   그게 맞겠다. **필터 거는 사람들은 그래야지 알겠지?**」).
+   *   걸린 조건은 손님이 **되돌릴 대상**이라 건수와 한 문장으로 뭉치면 안 된다 — 제 줄에 선다.
+   * ★조건이 0개면 **아무것도 안 그린다.** 자리를 미리 비워 두지 않는다.
+   */
+  if (!tokens.length) return null;
   return (
     <div style={{
       display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: SHOP.sp.snug,
-      /* 줄머리를 낀 줄은 «머리 한 줄»의 한 조각이라 제 여백을 갖지 않는다 — 그 줄이 여백을 정한다. */
-      ...(lead ? { flex: 1, minWidth: 0 } : { padding: `${SHOP.sp.cozy}px 0 ${SHOP.sp.tight}px` }),
+      padding: `${SHOP.sp.cozy}px 0 ${SHOP.sp.tight}px`,
     }}>
-      {lead}
       {tokens.map((t) => (
         <span key={`${t.axis}:${t.key}`}
           style={{
@@ -389,8 +382,7 @@ export function ShopTokens({ tokens, onRemove, onClear, lead }: {
           </button>{/* 토큰 안의 × 는 22 — 원자 ShopIconBtn(36)을 쓰면 알약이 그만큼 커진다 */}
         </span>
       ))}
-      {/* ⚠ 지울 «것»이 있을 때만 문을 연다 — 줄머리 때문에 조건 0개인 줄도 남으므로 한 겹 더 본다. */}
-      {tokens.length && onClear ? <ShopTextBtn onClick={onClear}>조건 모두 지우기</ShopTextBtn> : null}
+      {onClear ? <ShopTextBtn onClick={onClear}>조건 모두 지우기</ShopTextBtn> : null}
     </div>
   );
 }
