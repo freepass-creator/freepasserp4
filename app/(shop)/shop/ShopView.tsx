@@ -301,9 +301,46 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
           </div>
         </div>
 
+        {/*
+          ★★**웹 머리 한 줄 — 「전체차량 · N대 중 1–M · 정렬」이 «같은 선»에 선다**
+            (사장님 2026-09-06 「그 **전체차량하고 검색차량하고 정렬순하고 같은 선상에 줄 맞춰** 주면
+            좋겠는데, 이런 식으로 맞출 건 맞추고」).
+          ⚠ 실측 — 셋이 **374 / 441 / 433** 으로 다 다른 높이에 있었다. 「전체차량」은 조건칸 «안»에,
+            나머지 둘은 목록 «머리»에 있어서다. 서로 다른 상자에 담겨 있으니 줄이 맞을 수가 없었다.
+          ⇒ 두 기둥을 **가로지르는 한 줄**로 뽑는다. 왼쪽 칸은 조건칸과 같은 폭(260)이라
+            「전체차량」이 그 기둥 위에 정확히 앉고, 오른쪽 칸은 목록 위에 앉는다.
+          ★폰은 이 줄이 없다 — 기둥이 없으니 가로지를 것도 없고, 목록 어깨 한 줄이 그 일을 한다.
+        */}
+        {!mobile ? (
+          <div style={{
+            /*
+             * ★**`baseline` 이다 — `center` 가 아니다.** 가운데로 맞추면 상자 «높이»가 맞을 뿐,
+             *   글자는 어긋난다(실측 384 / 379 / 379 — 왼쪽만 5px 내려앉았다). 왼쪽 칸에는 26px 짜리
+             *   숫자가 들어 있어 상자가 더 높고, 그 안에서 작은 글자는 숫자의 밑선에 걸려 있어서다.
+             *   **밑선으로 맞추면** 「전체차량」과 「N대 중 1–M」이 같은 선에 정확히 앉는다.
+             * ★정렬 고르개만 `center` 로 뺀다 — 고르개는 글자가 아니라 «상자»라 밑선이 없다.
+             */
+            display: 'flex', gap: SHOP.sp.pane, alignItems: 'baseline', marginTop: SHOP.sp.part,
+          }}>
+            <div style={{ width: 260, flexShrink: 0 }}>
+              <ShopCount value={countText} />
+            </div>
+            <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'baseline', gap: SHOP.sp.cozy }}>
+              <span style={{ fontSize: SHOP.fs.sub, color: C.mute, fontVariantNumeric: 'tabular-nums' }}>
+                {rows === null ? '불러오는 중' : `${list.length}대 중 1–${shown.length}`}
+              </span>
+              <div style={{ flex: 1 }} />
+              <span style={{ alignSelf: 'center', display: 'inline-flex' }}>
+                <ShopSort value={query.sort} options={SHOP_SORTS}
+                  onChange={(v) => setQuery((q) => ({ ...q, sort: v as ShopSortKey }))} />
+              </span>
+            </div>
+          </div>
+        ) : null}
+
         <div style={{
           display: 'flex', gap: SHOP.sp.pane, alignItems: 'flex-start',
-          marginTop: mobile ? SHOP.sp.snug : SHOP.sp.part,
+          marginTop: mobile ? SHOP.sp.snug : SHOP.sp.cozy,
         }}>
           {/*
             웹 조건칸도 «따라온다». 716대를 내려가다 조건을 바꾸려면 매번 맨 위로 올라가야 했다.
@@ -336,7 +373,6 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
                */
               alignSelf: 'flex-start',
             }}>
-              <div style={{ paddingBottom: SHOP.sp.edge }}><ShopCount value={countText} /></div>
               {/*
                 ⚠ 여기 있던 「필터」 제목과 「초기화」를 뺐다(2026-09-05 검토).
                   · 제목 — 바로 밑에 「차종·제조사·월 대여료…」 아홉이 굵게 서 있다. 아무도 안 읽는 라벨이
@@ -384,21 +420,21 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
               /* 0건이면 본문 한가운데 「처음부터 다시 찾기」가 그 일을 한다 — 문을 둘 두지 않는다. */
               onClear={list.length ? onClearAll : undefined} />
 
-            {/* 목록 머리 = 격자의 어깨. 왼 기둥이 «전체»를 세므로 여기는 «지금 보이는 만큼»을 말한다. */}
+            {/*
+              폰 전용 머리줄 — 목록의 어깨다. **웹은 이 줄이 없다**: 「전체차량 · N대 중 1–M · 정렬」
+              셋이 두 기둥을 가로질러 «한 선»에 서기 때문이다(아래 `headRow` 머리말).
+            */}
+            {mobile ? (
             <div style={{
               display: 'flex', alignItems: 'center', gap: SHOP.sp.cozy,
-              /* 폰은 이 줄이 «머리»가 아니라 목록의 어깨다 — 위아래를 사다리 최소로 조인다. */
-              margin: mobile ? '4px 0 8px' : '24px 0 12px',
+              margin: '4px 0 8px',
             }}>
-              {mobile ? <ShopCount value={shownText} filtered={narrowed} /> : (
-                <span style={{ fontSize: SHOP.fs.sub, color: C.mute, fontVariantNumeric: 'tabular-nums' }}>
-                  {rows === null ? '불러오는 중' : `${list.length}대 중 1–${shown.length}`}
-                </span>
-              )}
+              <ShopCount value={shownText} filtered={narrowed} />
               <div style={{ flex: 1 }} />
               <ShopSort value={query.sort} options={SHOP_SORTS}
                 onChange={(v) => setQuery((q) => ({ ...q, sort: v as ShopSortKey }))} />
             </div>
+            ) : null}
 
             {rows === null ? (
               <Grid mobile={mobile}>
