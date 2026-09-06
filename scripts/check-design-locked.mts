@@ -11,7 +11,7 @@
  *
  * 바꾸려면: 사장님께 여쭙고 → 문서를 고치고 → 이 검사를 고친다. 그 차례를 지킨다.
  */
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
 const read = (f: string) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
 const fails: string[] = [];
@@ -766,6 +766,25 @@ must(/<PerkMarks marks=/.test(shopDetail) && /<PerkMarks marks=/.test(shopCard)
 must(/wl\.tel/.test(read('app/q/[code]/ShopDetailView.tsx')),
   '상세가 대표번호 폴백을 잃었습니다. ?a= 없이 들어온 손님은 폰에서 전화 링크가 0개가 됩니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-9');
+
+/*
+ * ★★**채널마다 라우트 파일을 만들지 않는다**(2026-09-06).
+ *   사장님 「홍길동 영업채널 걸로 하나 파줘 그럼 **바로 파줘야** 되는 거야」 —
+ *   채널 하나 파는 일이 「표에 한 줄」이려면 화면이 «한 벌»이어야 한다.
+ *   임시 주소는 미들웨어가 `/shop` 으로 다시 쓴다. 파일을 만들면 화면이 두 벌이 되고,
+ *   한쪽만 고쳐지는 순간 「그 채널만 예전 화면」이 된다.
+ * ⚠ 표에서 `previewPath` 를 읽어 «그 경로의 라우트 파일이 없는지»를 센다 —
+ *   채널이 늘어도 이 검사는 안 고친다.
+ */
+{
+  const table = read('lib/whitelabel.ts');
+  const paths = [...table.matchAll(/previewPath:\s*'([^']+)'/g)].map((m) => m[1]);
+  const stray = paths.filter((p) => existsSync(new URL(`../app/(shop)${p}/page.tsx`, import.meta.url))
+    || existsSync(new URL(`../app${p}/page.tsx`, import.meta.url)));
+  must(stray.length === 0,
+    `채널 전용 라우트 파일이 생겼습니다(${stray.join(' · ')}) — 채널은 «표 한 줄»이고 화면은 한 벌입니다.`,
+    'docs/영업자홈피-채널-매뉴얼.md §2');
+}
 
 if (fails.length) {
   console.error(`\n✗ 확정 디자인이 바뀌었습니다 — ${fails.length}건\n`);
