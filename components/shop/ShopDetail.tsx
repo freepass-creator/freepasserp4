@@ -659,7 +659,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
              웹 판정이 760부터라 노트북 창을 반만 열어도 표가 칸 밖으로 나갔다(코덱스 2026-09-05).
              ⇒ 520 은 «최대»고, 좁으면 줄어든다. 숫자는 nowrap 이라 더는 안 줄어드는 선에서 멈춘다. */
         <div style={{
-          marginTop: SHOP.sp.part, minWidth: 0,
+          marginTop: SHOP.sp.edge, minWidth: 0,
           flex: mobile ? undefined : '1 1 360px', maxWidth: mobile ? undefined : 520,
         }}>
           <div style={{
@@ -734,7 +734,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
       {payRows.length ? (
         /* ⚠ `minWidth: 0` 이면 줄바꿈 대신 **납부 칸이 65px 로 찌그러진다**(820px 실측).
              줄바꿈이 일어나려면 「이보다는 좁아질 수 없다」는 선이 있어야 한다 — 두 칸 격자라 260. */
-        <div style={{ marginTop: SHOP.sp.part, flex: '1 1 300px', minWidth: 260 }}>
+        <div style={{ marginTop: SHOP.sp.edge, flex: '1 1 300px', minWidth: 260 }}>
           <div style={{ marginBottom: SHOP.sp.snug, fontSize: SHOP.fs.cap, fontWeight: 600, color: C.mute }}>납부</div>
           <Facts rows={payRows} cols={2} mobile={mobile} />
         </div>
@@ -789,7 +789,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
              *   상자에 넣으면 아래 값들과 같은 «칸»이 되어, 이름인지 값인지가 안 갈린다.
              */}
             {modelLine ? (
-              <div style={{ marginBottom: SHOP.sp.part }}>
+              <div style={{ marginBottom: SHOP.sp.edge }}>
                 <div style={{ fontSize: SHOP.fs.cap, color: C.faint, marginBottom: SHOP.sp.tight }}>제조사 · 세부모델 · 세부트림</div>
                 <div style={{
                   fontSize: SHOP.fs.lead, fontWeight: FW.head, color: C.ink,
@@ -811,7 +811,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
              *   격자 칸에 가두면 여덟 개짜리 차가 좁은 칸 안에서 다섯 줄로 접힌다. 폭을 통째로 쓴다.
              */}
             {options.length ? (
-              <div aria-label="선택 옵션" style={{ marginBottom: SHOP.sp.part }}>
+              <div aria-label="선택 옵션" style={{ marginBottom: SHOP.sp.edge }}>
                 <div style={{ marginBottom: SHOP.sp.tight, fontSize: SHOP.fs.cap, color: C.faint }}>선택 옵션</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: SHOP.sp.snug }}>
                   {options.map((o) => (
@@ -833,7 +833,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
              *     색 코드 정본은 `lib/domain/color-chips` — 못 알아보는 이름은 이름만 나간다.
              */}
             {colorText ? (
-              <div aria-label="색상" style={{ marginBottom: specs.length ? SHOP.sp.part : 0 }}>
+              <div aria-label="색상" style={{ marginBottom: specs.length ? SHOP.sp.edge : 0 }}>
                 <div style={{ marginBottom: SHOP.sp.tight, fontSize: SHOP.fs.cap, color: C.faint }}>색상</div>
                 <div style={{
                   display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: SHOP.sp.edge, rowGap: SHOP.sp.tight,
@@ -888,7 +888,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
                  그래서 자차는 한 줄로 떼고, 대인·대물·자손은 그 밑에 흐리게 흘린다.
             */}
             {(ownDamageDeductible || otherDeductibles) ? (
-              <div style={{ marginTop: SHOP.sp.part }}>
+              <div style={{ marginTop: SHOP.sp.edge }}>
                 <div style={{ marginBottom: SHOP.sp.snug, fontSize: SHOP.fs.cap, fontWeight: 600, color: C.mute }}>면책금</div>
                 {/* 자차 — 값이 셋이라 한 줄을 통째로 쓴다. 사고 나면 실제로 무는 돈이라 굵다. */}
                 {ownDamageDeductible ? (
@@ -922,7 +922,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
             {roadside ? (
               <div style={{
                 /* 보험 «안»의 꼬리 한 줄이다 — 새 구역(32)이 아니라 다른 것들 사이(24)다. */
-                marginTop: SHOP.sp.part, fontSize: SHOP.fs.sub, color: C.faint,
+                marginTop: SHOP.sp.edge, fontSize: SHOP.fs.sub, color: C.faint,
               }}>
                 긴급출동 {roadside}
               </div>
@@ -1140,9 +1140,14 @@ function TopBar({ code, title, listHref }: { code: string; title: string; listHr
  * |---|---|---|
  * | 구역 ↔ 구역 | 위 `part`(24) · 띠 8 · 아래 `edge`(16) | `Rule` |
  * | 구역 제목 ↔ 본문 | `edge`(16) | `SecTitle` |
- * | 무리 ↔ 무리 | **`part`(24)** | 이름줄·선택옵션·색상 / 보상한도·면책금·긴급출동 / 표·납부 |
+ * | 무리 ↔ 무리 | **`edge`(16)** | 이름줄·선택옵션·색상 / 보상한도·면책금·긴급출동 / 표·납부 |
  * | 라벨 ↔ 값 | 무리 제목은 `snug`(8) · 칸 라벨은 `tight`(4) | |
  *
+' * ★★**무리 사이는 «16»이다 — 24 가 아니다**(사장님 2026-09-06 「너무 이렇게 **멀찍멀찍**
+ *   안 떨어지고」). 처음에 24 로 통일했더니 값은 하나가 됐지만 **더 넓어졌다** —
+ *   차량 정보가 432 → 440 이 됐다. 통일이 목적이 아니라 «짜임새»가 목적이다.
+ *   16 으로 내리니 본문이 **2,483 → 2,427**(−56)이고, 폰 첫 화면에 색상 줄까지 들어온다.
+ *   ★구역 경계는 «띠(8px 회색)»가 갈라 주므로 무리 간격이 16 이어도 위계가 안 무너진다.
  * ⚠ 2026-09-06 실측으로 고른 값이다. 그전에는 **무리 사이가 16·24·28** 로 갈려 있었고
  *   (차량 정보만 16 과 28, 보험·대여료는 24), **라벨 밑이 4 와 8** 로 갈려 있었다.
  *   보는 사람은 규칙을 못 읽고 「여기는 왜 붙었지」만 느낀다.
