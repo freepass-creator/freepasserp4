@@ -261,7 +261,7 @@ function EstimateCostPageInner() {
           <div className="osub">어느 조합이든 같다</div>
           {/* 정비는 «비율»과 «정액» 둘 다 — 항목마다 맞는 쪽이 있다(사장님 2026-09-06). 둘 다 넣으면 더해진다. */}
           <ORow label="정비비 · 정액" help={<>달마다 나가는 정비비. 월 정액으로 계약한 경우 여기에 넣는다.</>}><Pin w unit="원/월" value={comma(cs.maintMonthly)} onChange={(v) => set('maintMonthly', num(v))} /></ORow>
-          <ORow label="정비비 · 비율" help={<>차값 대비 <b>연 %</b>. 비싼 차가 정비도 비싸므로 이쪽이 실제에 가깝다(참고: 우리 신차 견적기는 <b>연 2%</b>로 잡는다). 위 정액과 <b>둘 다 넣으면 더해진다.</b></>}>
+          <ORow label="정비비 · 비율" help={<>차값 대비 <b>연 %</b>. 비싼 차가 정비도 비싸므로 이쪽이 실제에 가깝다— <b>연 2%</b>가 업계 통상이고 우리 신차 견적기도 같다. 위 정액과 <b>둘 다 넣으면 더해진다</b>(2,500만 차면 월 1만 + 41,700 ≈ 5만/월). ⚠ 정비를 <b>고객이 지는 상품</b>이면 여기를 0 으로 내린다.</>}>
             <Pin unit="%" value={cs.maintRatePct} onChange={(v) => set('maintRatePct', num(v))} />
           </ORow>
           <ORow label="GPS·관제" help={<>GPS 단말과 관제 서비스 이용료. 저신용 상품은 <b>차를 못 찾는 일</b>이 생겨 사실상 필수다.</>}><Pin w unit="원/월" value={comma(cs.gpsMonthly)} onChange={(v) => set('gpsMonthly', num(v))} /></ORow>
@@ -317,7 +317,7 @@ function EstimateCostPageInner() {
         {/* 6 일반관리·리스크 — 차 한 대에 못 붙이는 돈을 «비율»로 나눠 붙인다. */}
         <div className="card">
           <div className="step"><span className="no">6</span>일반관리 · 리스크<span className="veh dim">나눠 붙이는 몫</span></div>
-          <ORow first label="일반관리·간접비 배분율" help={<>사무실·인건비 같은 <b>회사 운영비</b>를 차 한 대에 나눠 붙이는 비율. 한 대에 얼마인지 셀 수 없어서 <b>비율로 얹는다</b> — 그래서 판관비다. <b>0 이면 안 넣는 것</b>이다.</>}><Pin unit="%" value={cs.overheadPct} onChange={(v) => set('overheadPct', num(v))} /></ORow>
+          <ORow first label="일반관리·간접비 배분율" help={<>사무실·인건비 같은 <b>회사 운영비</b>를 차 한 대에 나눠 붙이는 비율. 한 대에 얼마인지 셀 수 없어서 <b>비율로 얹는다</b> — 그래서 판관비다. 렌터카 통상은 매출의 <b>8~12%</b>지만 우리는 3자 마켓이라 차를 세우지도 정비하지도 않아 <b>3%</b>를 표준으로 둔다. ⚠ <b>0 으로 두면 회사 운영비가 아예 안 잡힌</b> 원가가 된다.</>}><Pin unit="%" value={cs.overheadPct} onChange={(v) => set('overheadPct', num(v))} /></ORow>
           <ORow label="대손·리스크 충당" help={<>못 받는 돈에 대비한 적립. ⚠ 신용 위험은 <b>Ⅰ-4 손바뀜</b>에서 이미 원가로 잡으므로, 여기까지 넣으면 <b>두 번 잡는</b> 셈이 될 수 있다.</>}><Pin unit="%" value={cs.badDebtPct} onChange={(v) => set('badDebtPct', num(v))} /></ORow>
         </div>
 
