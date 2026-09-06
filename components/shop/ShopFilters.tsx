@@ -16,7 +16,6 @@ import { AXIS_LABEL, SHOP_AXES, type ShopAxis, type ShopFacets, type ShopSel } f
  *        이름만 세로로 서 있고 지금 쓰는 축 하나만 열려 있다.
  *     ㉡ 항목은 **이름 + 건수(우측 정렬, 흐린 글씨)**. 케이카는 「현대 … 2,618대」.
  *     ㉢ **여러 개 고를 수 있다**고 알려 준다(케이카 「중복선택가능」). 그래서 표식이 **네모**다.
- *     ㉣ 맨 위에 **총 대수 + 선택 초기화**가 붙는다.
  *     ㉤ 제조사처럼 긴 목록은 **상위 몇 개만** 보이고 나머지는 「더보기」로 접는다.
  *
  * ⚠ 여기 원래 주석은 「접이식을 쓰지 않는다 — 손님은 한눈에 다 보이는 편이 낫다」였다. 내 판단이었고,
@@ -74,19 +73,16 @@ const OPEN_BY_DEFAULT: ShopAxis[] = ['vc', 'maker', 'rent', 'dep'];
 /** 긴 목록을 몇 개까지 보여 주고 「더보기」로 접을까 — 제조사 12개 중 아래 넷은 5대 미만이다. */
 const HEAD_COUNT = 8;
 
-export function ShopFilters({ facets, sel, onToggle, onClearAxis, onClearAll, mobile: forceMobile }: {
+export function ShopFilters({ facets, sel, onToggle, onClearAxis, mobile: forceMobile }: {
   facets: ShopFacets;
   sel: ShopSel;
   onToggle: (axis: ShopAxis, key: string) => void;
   onClearAxis: (axis: ShopAxis) => void;
-  /** 맨 위 「선택 초기화」 — 엔카·케이카가 둘 다 조건칸 머리에 둔다. */
-  onClearAll?: () => void;
   mobile?: boolean;
 }) {
   const isMobile = useIsMobile();
   const mobile = forceMobile ?? isMobile;
   const axes = SHOP_AXES.filter((a) => facets[a].length);
-  const picked = axes.reduce((n, a) => n + sel[a].length, 0);
   const [open, setOpen] = useState<Record<string, boolean>>(
     () => Object.fromEntries(axes.map((a) => [a, OPEN_BY_DEFAULT.includes(a)])),
   );
@@ -94,20 +90,13 @@ export function ShopFilters({ facets, sel, onToggle, onClearAxis, onClearAll, mo
   return (
     <div>
       {/*
-        머리 — 고른 조건 수 + 초기화. 엔카는 「142,123대 ↺선택 초기화」, 케이카도 같은 자리다.
-        ★고른 게 없으면 초기화를 «안 보여 준다» — 누를 일이 없는 단추가 서 있으면 그만큼 소음이다.
+        ⚠⚠ **여기 「고른 조건 N · 선택 초기화」가 있었다. 뺐다**(사장님 2026-09-06 「한 페이지에
+          **같은 버튼이 굳이 두 개**가 있을 필요가 없잖아」).
+          웹에서는 이 기둥 «바로 옆»에 걸린 조건 줄이 서고 거기 「조건 모두 지우기」가 이미 있다 —
+          같은 일을 하는 문이 한 화면에 둘이었다.
+        ★남길 쪽은 **조건 줄**이다. 지우는 대상(칩)과 붙어 있어 손이 거기로 간다.
+          기둥 꼭대기의 것은 «무엇을» 지우는지가 화면에서 멀었다.
       */}
-      {onClearAll && picked ? (
-        <div style={{
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-          gap: SHOP.sp.snug, marginBottom: SHOP.sp.edge,
-        }}>
-          <span style={{ fontSize: SHOP.fs.sub, color: C.mute }}>
-            고른 조건 <b style={{ color: C.brand, fontVariantNumeric: 'tabular-nums' }}>{picked}</b>
-          </span>
-          <ShopTextBtn tone="faint" onClick={onClearAll}>선택 초기화</ShopTextBtn>
-        </div>
-      ) : null}
 
       {axes.map((axis) => {
         const on = sel[axis];

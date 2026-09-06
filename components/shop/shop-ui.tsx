@@ -343,7 +343,12 @@ export function ShopPrimary({ onClick, children }: { onClick: () => void; childr
 export function ShopTokens({ tokens, onRemove, onClear }: {
   tokens: { axis: string; key: string; label: string; axisLabel: string }[];
   onRemove: (axis: string, key: string) => void;
-  onClear: () => void;
+  /**
+   * 전부 지우기 — **없으면 안 그린다.**
+   * ⚠ 0건 화면에는 본문 한가운데 「처음부터 다시 찾기」가 이미 서 있다. 둘이 같이 뜨면
+   *   같은 일을 하는 문이 한 화면에 둘이 된다(사장님 2026-09-06). 그때는 부르는 쪽이 안 넘긴다.
+   */
+  onClear?: () => void;
 }) {
   if (!tokens.length) return null;
   return (
@@ -369,7 +374,7 @@ export function ShopTokens({ tokens, onRemove, onClear }: {
           </button>{/* 토큰 안의 × 는 22 — 원자 ShopIconBtn(36)을 쓰면 알약이 그만큼 커진다 */}
         </span>
       ))}
-      <ShopTextBtn onClick={onClear}>조건 모두 지우기</ShopTextBtn>
+      {onClear ? <ShopTextBtn onClick={onClear}>조건 모두 지우기</ShopTextBtn> : null}
     </div>
   );
 }

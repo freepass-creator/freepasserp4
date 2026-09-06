@@ -221,7 +221,7 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
   }, [rows, query]);
 
   const filters = (
-    <ShopFilters facets={facets} sel={query.sel} onToggle={onToggle} onClearAxis={onClearAxis} onClearAll={onClearAll} />
+    <ShopFilters facets={facets} sel={query.sel} onToggle={onToggle} onClearAxis={onClearAxis} />
   );
 
   return (
@@ -234,9 +234,16 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
        */
       headerActions={mobile ? (
         <>
+          {/*
+            ⚠ **검색줄이 열려 있으면 돋보기를 안 그린다**(사장님 2026-09-06 「한 페이지에 같은 버튼이
+              굳이 두 개가 있을 필요가 없잖아」). 열린 줄에 이미 «닫는 ✕»가 있고, 그 상태에서
+              돋보기를 눌러 봐야 아무 일도 안 난다 — **죽은 단추**가 머리띠에 서 있는 꼴이다.
+          */}
+          {searchOpen ? null : (
           <ShopIconBtn onClick={() => setSearchOn(true)} label="차량 검색" tone="ink">
             <Search size={22} aria-hidden />
           </ShopIconBtn>
+          )}
           <ShopIconBtn onClick={() => setSheet(true)} label="상세 조건 열기" tone="ink"
             count={queryCount(query)}>
             <SlidersHorizontal size={22} aria-hidden />
@@ -337,7 +344,9 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
 
           <div style={{ flex: 1, minWidth: 0 }}>
             <ShopTokens tokens={tokens}
-              onRemove={(axis, key) => onToggle(axis as ShopAxis, key)} onClear={onClearAll} />
+              onRemove={(axis, key) => onToggle(axis as ShopAxis, key)}
+              /* 0건이면 본문 한가운데 「처음부터 다시 찾기」가 그 일을 한다 — 문을 둘 두지 않는다. */
+              onClear={list.length ? onClearAll : undefined} />
 
             {/* 목록 머리 = 격자의 어깨. 왼 기둥이 «전체»를 세므로 여기는 «지금 보이는 만큼»을 말한다. */}
             <div style={{

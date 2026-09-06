@@ -88,8 +88,14 @@ export function ShopFilterSheet({ sel, preview, onApply, onClose }: {
         }}>
           <span style={{ fontSize: SHOP.fs.h2, fontWeight: 700 }}>상세 조건</span>
           <div style={{ flex: 1 }} />
+          {/*
+            ⚠⚠ **여기 X(닫기)가 있었다. 뺐다**(사장님 2026-09-06 「버튼이 닫기 버튼이 있는데
+              **위쪽에 또 X 표가 있을 필요 없고** … 한 페이지에 **같은 버튼이 굳이 두 개**가
+              있을 필요가 없잖아」). 바닥 독에 「닫기」가 생기면서 이 X 는 같은 일을 하는 둘째 문이 됐다.
+            ★남는 것은 **초기화**뿐이다 — 그건 「닫기」와 다른 일(조건을 지운다)이라 중복이 아니다.
+            ★뒤 어두운 바탕을 눌러도 닫힌다 — 그건 «버튼»이 아니라 시트의 관습이라 문이 아니다.
+          */}
           {total ? <ShopTextBtn onClick={onClearAll}>초기화</ShopTextBtn> : null}
-          <ShopIconBtn onClick={onClose} label="닫기"><X size={ICON.lg} aria-hidden /></ShopIconBtn>
         </div>
 
         <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>

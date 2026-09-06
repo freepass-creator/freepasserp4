@@ -596,6 +596,20 @@ must(/fontSize: SHOP\.fs\.price, fontWeight: FW\.head/.test(shopCard)
  *   한쪽을 고칠 때 다른 쪽이 안 따라와서다. ⇒ `BADGE` 한 벌이 정본이다.
  * ★사진 위 칩만 «유리 바탕 + 흰 실선»을 더 갖는다 — 치수가 아니라 «바탕»의 차이다(사진 위에서 읽히려면 필요).
  */
+/*
+ * **같은 일을 하는 문을 한 화면에 둘 두지 않는다**(사장님 2026-09-06 「닫기 버튼이 있는데
+ * 위쪽에 또 X 표가 있을 필요 없고 … 한 페이지에 같은 버튼이 굳이 두 개가 있을 필요가 없잖아」).
+ * ⚠ 되돌아가면 «어느 것을 눌러야 하나»를 손님이 매번 한 번씩 생각한다.
+ *   시트 머리 X(바닥 닫기와 중복) · 웹 기둥 「선택 초기화」(조건 줄과 중복) · 열린 검색의 돋보기(죽은 단추).
+ */
+must(!/label="닫기"/.test(read('components/shop/ShopFilterSheet.tsx'))
+  && /닫기\s*$/m.test(read('components/shop/ShopFilterSheet.tsx'))
+  && !/>선택 초기화</.test(read('components/shop/ShopFilters.tsx'))
+  && /\{searchOpen \? null : \(/.test(shopView)
+  && /onClear=\{list\.length \? onClearAll : undefined\}/.test(shopView),
+  '같은 일을 하는 문이 한 화면에 둘로 늘었습니다 — 시트 X · 기둥 초기화 · 열린 검색의 돋보기.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-3');
+
 must(/export const BADGE = \{/.test(shopUi)
   && /padY: 2,/.test(shopUi) && /padX: 6,/.test(shopUi) && /icon: 12,/.test(shopUi)
   && /padding: `\$\{BADGE\.padY\}px \$\{BADGE\.padX\}px`/.test(shopUi)
