@@ -616,8 +616,19 @@ must(/export const BADGE = \{/.test(shopUi)
   && /padY: 2,/.test(shopUi) && /padX: 6,/.test(shopUi) && /icon: 12,/.test(shopUi)
   && /padding: `\$\{BADGE\.padY\}px \$\{BADGE\.padX\}px`/.test(shopUi)
   && /<m\.icon size=\{BADGE\.icon\}/.test(shopCard)
+  /*
+   * ⚠ 2026-09-06 — `StateChip`(신원 딱지)만 이 한 벌을 «안» 따르고 있었다(`5px 10px`·아이콘 13).
+   *   그래서 상세 머리에서 신원 29 · 조건 18 로 **두 줄의 딱지 높이가 달랐다.**
+   *   머리말에는 「둘이 같은 치수」라고 적혀 있었는데 글만 그랬다 — 이제 자가 잡는다
+   *   (사장님 2026-09-06 「같은 원자·같은 항목이면 그것끼리도 높이나 이런 게 같아야지」).
+   */
+  /* 신원 딱지·조건 칩 «둘 다» 이 한 벌을 쓴다 — 한 곳이라도 제 치수를 쓰면 높이가 갈린다. */
+  && (shopUi.match(/padding: `\$\{BADGE\.padY\}px \$\{BADGE\.padX\}px`/g) || []).length >= 2
+  && (shopUi.match(/lineHeight: BADGE\.lineHeight/g) || []).length >= 2
+  && !/padding: '5px 10px'/.test(shopUi)
+  && /<Icon size=\{BADGE\.icon\} aria-hidden \/>\{mark\.text\}/.test(shopUi)
   && !/<PerkMarks marks=\{marks\} fs=/.test(shopCard),
-  '뱃지 규격이 다시 두 벌로 갈렸습니다 — 사진 위 칩과 본문 우대조건은 같은 치수(BADGE)입니다.',
+  '뱃지 규격이 다시 두 벌로 갈렸습니다 — 신원 딱지·사진 위 칩·본문 우대조건은 같은 치수(BADGE)입니다.',
   'components/shop/shop-ui.tsx BADGE');
 
 must(/export function markIconFor/.test(shopUi)

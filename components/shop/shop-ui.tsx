@@ -613,12 +613,22 @@ export function StateChip({ mark, fs = SHOP.fs.cap }: { mark: ShopMark; fs?: num
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: SHOP.sp.tight,
-      padding: '5px 10px', borderRadius: SHOP.r.chip,
+      /*
+       * ★★**치수는 «한 벌»(`BADGE`)** — 바로 밑 줄의 조건 칩과 «같은 높이»여야 한다
+       *   (사장님 2026-09-06 「규격 통일할 땐 통일하고, **같은 원자·같은 항목이면 그것끼리도
+       *   높이나 이런 게 같아야지**」).
+       * ⚠ 실측 2026-09-06 — 여기만 `5px 10px`·아이콘 13·줄높이 기본이라 **29px**,
+       *   바로 밑 조건 칩은 BADGE 라 **18px** 이었다. 같은 머리 안에서 두 줄의 딱지가
+       *   높이가 달랐다. `BADGE` 머리말에는 「둘이 같은 치수」라고 적혀 있었는데 **글만 그랬다.**
+       * ★갈리는 것은 «바탕»뿐이다 — 신원은 상태색 면, 조건은 옅은 회색 면(BADGE 머리말).
+       */
+      padding: `${BADGE.padY}px ${BADGE.padX}px`, borderRadius: SHOP.r.chip,
+      lineHeight: BADGE.lineHeight,
       background: mark.good ? C.okBg : C.zebra,
       color: mark.good ? C.ok : C.mute,
       fontSize: fs, fontWeight: 600, whiteSpace: 'nowrap',
     }}>
-      <Icon size={13} aria-hidden />{mark.text}
+      <Icon size={BADGE.icon} aria-hidden />{mark.text}
     </span>
   );
 }
