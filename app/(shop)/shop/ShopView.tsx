@@ -210,6 +210,16 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
    */
   const href = (p: EntityRecord) => `${guestShareUrl(p, attr, '')}${wlQuery}`;
 
+  /**
+   * 폰 조건 시트의 «초안 미리보기» — 고른 조건으로 축 목록과 남는 대수를 같이 센다.
+   * ★`rows`·`query` 가 안 바뀌면 같은 함수를 넘긴다(`useCallback`) — 안 그러면 시트가 매 렌더마다
+   *   새 함수를 받아 `useMemo` 가 헛돈다.
+   */
+  const sheetPreview = useCallback((s: ShopQuery['sel']) => {
+    const r = runShopQuery(rows, { ...query, sel: s });
+    return { facets: r.facets, count: r.list.length };
+  }, [rows, query]);
+
   const filters = (
     <ShopFilters facets={facets} sel={query.sel} onToggle={onToggle} onClearAxis={onClearAxis} onClearAll={onClearAll} />
   );
@@ -368,9 +378,15 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
       </main>
 
       {mobile && sheet ? (
-        <ShopFilterSheet facets={facets} sel={query.sel}
-          onToggle={onToggle} onClearAxis={onClearAxis} onClearAll={onClearAll}
-          resultCount={list.length} onClose={() => setSheet(false)} />
+        <ShopFilterSheet
+          sel={query.sel}
+          /*
+           * 시트는 «초안»으로 고른다 — 축 목록과 바닥 버튼 숫자가 **같은 값**에서 나와야 하므로
+           * 세는 일도 초안으로 한 번에 한다(그 머리말 참고).
+           */
+          preview={sheetPreview}
+          onApply={(next) => { setQuery((q) => ({ ...q, sel: next })); setSheet(false); }}
+          onClose={() => setSheet(false)} />
       ) : null}
     </WhitelabelFrame>
   );
