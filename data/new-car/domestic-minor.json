@@ -1,0 +1,170 @@
+{
+ "_meta": {
+  "source": "carnoon 2026 현재가(검색·표본 fetch). 주력3사(현대·기아·제네시스)는 별도 정본(genesis-config-fs·hk-config). 이 3사는 매물비중 낮아 간이.",
+  "note": "★간이 = min~max 범위·주요트림. 트림 전체·옵션은 미수집(제조사 PDF 미확보). 정밀은 후속(carnoon 모델별 fetch 또는 PDF).",
+  "updatedAt": "2026-09-06",
+  "status": "간이(범위)·트림상세/옵션 미수집",
+  "modelCount": 16,
+  "withPrice": 9
+ },
+ "models": [
+  {
+   "maker": "KG모빌리티",
+   "model": "더 뉴 토레스",
+   "fuel": "가솔린/LPG",
+   "min": 26710000,
+   "max": 37170000,
+   "carnoonId": "11675",
+   "level": "범위"
+  },
+  {
+   "maker": "KG모빌리티",
+   "model": "더 뉴 토레스 HEV",
+   "fuel": "하이브리드",
+   "min": 30970000,
+   "max": 39270000,
+   "carnoonId": "11761",
+   "level": "범위"
+  },
+  {
+   "maker": "KG모빌리티",
+   "model": "토레스 EVX",
+   "fuel": "전기",
+   "min": 44380000,
+   "max": 47990000,
+   "carnoonId": "11418",
+   "level": "범위"
+  },
+  {
+   "maker": "KG모빌리티",
+   "model": "액티언",
+   "fuel": "가솔린",
+   "min": 33430000,
+   "max": 37930000,
+   "carnoonId": "11703",
+   "level": "범위"
+  },
+  {
+   "maker": "KG모빌리티",
+   "model": "액티언 HEV",
+   "fuel": "하이브리드",
+   "min": 36520000,
+   "max": null,
+   "carnoonId": "11793",
+   "level": "범위(최저만)"
+  },
+  {
+   "maker": "KG모빌리티",
+   "model": "더 뉴 티볼리",
+   "fuel": "가솔린",
+   "min": 19060000,
+   "max": 26690000,
+   "carnoonId": "11550",
+   "level": "범위"
+  },
+  {
+   "maker": "KG모빌리티",
+   "model": "렉스턴",
+   "fuel": "디젤",
+   "min": null,
+   "max": null,
+   "carnoonId": null,
+   "level": "미수집"
+  },
+  {
+   "maker": "KG모빌리티",
+   "model": "코란도",
+   "fuel": "가솔린/전기",
+   "min": null,
+   "max": null,
+   "carnoonId": null,
+   "level": "미수집"
+  },
+  {
+   "maker": "쉐보레",
+   "model": "더 뉴 트레일블레이저",
+   "fuel": "가솔린",
+   "min": 26580000,
+   "max": 35650000,
+   "carnoonId": "11570",
+   "level": "범위"
+  },
+  {
+   "maker": "쉐보레",
+   "model": "트랙스 크로스오버",
+   "fuel": "가솔린",
+   "min": null,
+   "max": null,
+   "carnoonId": "11416",
+   "level": "트림만(가격 미수집·Redline/LS/ACTIV/RS)"
+  },
+  {
+   "maker": "쉐보레",
+   "model": "올 뉴 콜로라도",
+   "fuel": "가솔린",
+   "min": 72790000,
+   "max": null,
+   "carnoonId": "11693",
+   "level": "범위(최저만)"
+  },
+  {
+   "maker": "쉐보레",
+   "model": "이쿼녹스",
+   "fuel": "가솔린/전기",
+   "min": null,
+   "max": null,
+   "carnoonId": null,
+   "level": "미수집"
+  },
+  {
+   "maker": "르노코리아",
+   "model": "그랑 콜레오스 E-Tech",
+   "fuel": "하이브리드",
+   "min": 38320000,
+   "max": 44320000,
+   "carnoonId": "11687",
+   "level": "트림",
+   "trimLadder": [
+    {
+     "trim": "테크노",
+     "price": 38320000
+    },
+    {
+     "trim": "아이코닉",
+     "price": 42320000
+    },
+    {
+     "trim": "에스프리 알핀",
+     "price": 44320000
+    }
+   ]
+  },
+  {
+   "maker": "르노코리아",
+   "model": "아르카나",
+   "fuel": "가솔린",
+   "min": null,
+   "max": null,
+   "carnoonId": "11668",
+   "level": "미수집"
+  },
+  {
+   "maker": "르노코리아",
+   "model": "더 뉴 QM6",
+   "fuel": "가솔린/LPG",
+   "min": null,
+   "max": null,
+   "carnoonId": "11410",
+   "level": "미수집"
+  },
+  {
+   "maker": "르노코리아",
+   "model": "QM6 Quest",
+   "fuel": "LPG밴",
+   "min": null,
+   "max": null,
+   "carnoonId": "11400",
+   "level": "미수집"
+  }
+ ]
+}
