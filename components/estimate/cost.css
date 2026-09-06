@@ -6,7 +6,7 @@
  *   ⇒ 그래서 이 파일은 «독립 규격»이 아니다. `estimate.css` 를 먼저 싣고 그 위에 얹는 **덧칠**이다.
  *     토큰(`--accent`·`--ink-*`·`--line`·`--surface`)·글꼴·슬래시 제로·`.phone`·`.card`·`.step`·
  *     `.seg`·`.chips`·`.pin`·`.vsearch`·`.basis`·`.foot` 은 전부 견적 것을 그대로 쓴다.
- *     여기 있는 것은 **견적에 없는 조각뿐**이다 — 원가 줄(`.orow`) · 축 뱃지(`.ax`) · 잔가표(`.rtb`) ·
+ *     여기 있는 것은 **견적에 없는 조각뿐**이다 — 원가 줄(`.orow`) · 잔가표(`.rtb`) ·
  *     안내 상자(`.byrow`) · 저장 바(`.savebar`).
  *
  * ⚠ 2026-09-06 이전 판은 원가 목업(`프리패스-목업-원가설정.html`)의 자체 규격
@@ -30,11 +30,10 @@
 .est-root .pin.w input{width:92px;text-align:right}
 .est-root .pin input:disabled{color:var(--ink-4)}
 
-/* 축 뱃지 — 이 값이 «렌트/구독»으로 갈리는지 «A/B/C(신용 구간)»으로 갈리는지.
-   위 세그 중 어느 줄을 바꿔야 이 값이 달라지는지 가리킨다. 박스 뱃지가 아니라 작은 칩 한 개다. */
-.est-root .ax{font-size:9.5px;font-weight:800;padding:2px 8px;border-radius:var(--r,3px);flex:none;letter-spacing:.2px}
-.est-root .ax.ch{color:#8a5a08;background:#fdf3d7}
-.est-root .ax.cr{color:var(--accent);background:var(--accent-soft)}
+/* ★축 뱃지(`.ax`)는 걷었다 — 사장님 2026-09-06 「이거 직관적이지 못한데」.
+   한 카드에 두 축을 담아 놓고 줄마다 뱃지로 「이건 어느 축」이라 일러 주는 방식이었는데,
+   세그를 눌러도 일부 줄만 바뀌어 뱃지를 읽어야 알았다. 지금은 **축마다 카드를 나누고
+   그 축의 세그를 그 값들 바로 위에** 둔다 — 붙어 있으면 설명이 필요 없다. 되돌리지 말 것. */
 
 /* 잔가표 — 견적 색·선을 그대로 쓴다. 폰에서는 가로로 밀린다(감싼 쪽이 overflow-x). */
 .est-root .rtb{width:100%;border-collapse:collapse;margin-top:2px}
