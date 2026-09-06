@@ -128,7 +128,15 @@ export function ShopFilters({ facets, sel, onToggle, onClearAxis, mobile: forceM
                 fontFamily: 'inherit', textAlign: 'left',
                 marginBottom: isOpen ? SHOP.sp.tight : 0,
               }}>
-              <span style={{ fontSize: SHOP.fs.body, fontWeight: 700, color: C.ink, flex: 1, minWidth: 0 }}>
+              {/*
+                ★★**축 제목은 값보다 «한 단 위»다**(`fs.h2` 16 · 값은 `fs.body` 웹 14.5).
+                ⚠ 실측 2026-09-06 — 웹에서 **둘 다 14.5** 였다. 굵기(700 vs 400)만 달라
+                  접힌 축 제목이 값 목록의 한 줄처럼 읽혔다. 기둥 하나에 제목 아홉과 값 수십이
+                  같은 크기로 섞여 있으면 «어디부터 어디까지가 한 축인지»를 눈이 못 가른다.
+                ★폰 시트는 이미 제목 16 · 값 15 로 층이 있었다 — **웹만 무너져 있던 것**이라
+                  같은 이름(`fs.h2`)으로 맞춘다. 이러면 폰·웹이 한 규격이 된다.
+              */}
+              <span style={{ fontSize: SHOP.fs.h2, fontWeight: 700, color: C.ink, flex: 1, minWidth: 0 }}>
                 {AXIS_LABEL[axis]}
               </span>
               {on.length ? (
