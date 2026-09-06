@@ -145,6 +145,13 @@ export function configFrom(cs: CostSettings, opts: { newCar?: boolean } = {}) {
   const markupRate = r(opts.newCar ? cs.markupNewPct : cs.markupUsedPct);
   return {
     ...DEFAULT_CONFIG,
+    /**
+     * **운영은 VAT 제외 기준**(사장님 2026-09-06 「모든 거는 다 VAT 제외 기준으로 들어가는 거지.
+     * 렌터카도 일단 부가세 환급을 받은 다음에 개별소비세 납부를 하는 거니까」).
+     * ⚠ 엔진 기본값은 'included'(엑셀 원본)다 — 그래야 회귀 39개가 «엑셀 대조»로 계속 살아 있는다.
+     *   운영 규칙이 엑셀에서 이탈한 것이고, 그 이탈을 이 한 줄이 드러낸다.
+     */
+    vatBase: 'excluded' as const,
     interestRate: { rent: r(cs.interestPct), sub: r(cs.interestPct) },
     marginRate: { rent: r(cs.marginRentPct), sub: r(cs.marginSubPct) },
     loanRatio: r(cs.loanPct),
