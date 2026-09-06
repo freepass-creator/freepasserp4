@@ -147,3 +147,6 @@
 /* 칸 옆 «곁말» — 「공표가 + 옵션」·「마스터에 없음」처럼 그 칸이 어디서 온 값인지 알려 주는 한 마디.
    ⚠ 인라인 style 로 크기를 찍지 않는다(check:fonts 가 잡는다 · 2026-09-06). 목업 `.basis .bt` 와 같은 10.5 다. */
 .est-root .crow .hint{flex:none;font-size:10.5px;font-weight:600;color:var(--ink-4);line-height:1.3}
+
+/* 문지기 화면의 나가는 문 — 견적을 못 보는 사람을 상품찾기로 돌려보낸다(`features/estimate/EstimateGate`). */
+.est-root .gate-go{display:grid;place-items:center;height:40px;margin-top:14px;border-radius:3px;background:var(--accent);color:var(--on);font-weight:700;font-size:13px;text-decoration:none}

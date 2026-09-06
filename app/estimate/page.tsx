@@ -30,6 +30,7 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import EstimateGate from '@/features/estimate/EstimateGate';
 import '@/components/estimate/estimate.css';
 import { useAppBar } from '@/lib/appbar';
 import CarPicker from '@/features/estimate/CarPicker';
@@ -131,7 +132,12 @@ function Seg<T extends string>({ tone, opts, cur, onPick }: {
   );
 }
 
-export default function EstimatePage() {
+/** ★문지기(`EstimateGate`)가 관리자·공급사만 들여보낸다 — 메뉴에서 숨기는 것만으로는 막은 게 아니다. */
+export default function EstimatePagePage() {
+  return <EstimateGate><EstimatePageInner /></EstimateGate>;
+}
+
+function EstimatePageInner() {
   const nowYear = new Date().getFullYear();
   const [cond, setCond] = useState<'used' | 'new'>('used');
   const [ch, setCh] = useState<'rent' | 'sub'>('rent');

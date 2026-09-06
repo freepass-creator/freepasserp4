@@ -28,6 +28,7 @@
  */
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import EstimateGate from '@/features/estimate/EstimateGate';
 import '@/components/estimate/estimate.css';
 import '@/components/estimate/cost.css';
 import { type CostSettings } from '@/lib/domain/estimate/cost-settings';
@@ -89,7 +90,12 @@ function Seg<T extends string>({ tone, opts, cur, onPick }: {
   );
 }
 
-export default function EstimateCostPage() {
+/** ★문지기(`EstimateGate`)가 관리자·공급사만 들여보낸다 — 메뉴에서 숨기는 것만으로는 막은 게 아니다. */
+export default function EstimateCostPagePage() {
+  return <EstimateGate><EstimateCostPageInner /></EstimateGate>;
+}
+
+function EstimateCostPageInner() {
   const [cs, setCs] = useState<CostSettings>(() => cachedCost());
   const [dirty, setDirty] = useState(false);
   const [saved, setSaved] = useState(false);
