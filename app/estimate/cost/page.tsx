@@ -163,13 +163,18 @@ function EstimateCostPageInner() {
               <Pin unit="%" value={isRent ? cs.acqTaxRentPct : cs.acqTaxSubPct}
                 onChange={(v) => set(isRent ? 'acqTaxRentPct' : 'acqTaxSubPct', num(v))} />
             </ORow>
-            <ORow label="연간 자동차보험료" axis="ch">
-              {isRent ? <Pin w unit="원" value={comma(cs.insYear)} onChange={(v) => set('insYear', num(v))} />
-                : <span className="na">고객 명의</span>}
+            <ORow label="연간 자동차보험료" hint="대인·대물·자손 · 구독은 보통 고객 명의라 0" axis="ch">
+              <Pin w unit="원" value={comma(isRent ? cs.insRentYear : cs.insSubYear)}
+                onChange={(v) => set(isRent ? 'insRentYear' : 'insSubYear', num(v))} />
             </ORow>
-            <ORow label="자차충당금 적립율" axis="ch">
-              {isRent ? <Pin unit="%" value={cs.selfPct} onChange={(v) => set('selfPct', num(v))} />
-                : <span className="na">—</span>}
+            {/* 자차는 길이 둘이다 — 자체 충당(차량가 ×%/년)과 자차보험 가입(정액 원/년). 둘 다 넣으면 더해진다. */}
+            <ORow label="자차 · 자체 충당" hint="차량가 대비 연 % · 실무 1~2%(보험사 자차요율과 비슷한 자리)" axis="ch">
+              <Pin unit="%" value={isRent ? cs.selfRentPct : cs.selfSubPct}
+                onChange={(v) => set(isRent ? 'selfRentPct' : 'selfSubPct', num(v))} />
+            </ORow>
+            <ORow label="자차 · 보험 가입" hint="자차를 보험으로 드는 경우 · 연 정액 · 0 이면 안 드는 것" axis="ch">
+              <Pin w unit="원" value={comma(isRent ? cs.selfInsRentYear : cs.selfInsSubYear)}
+                onChange={(v) => set(isRent ? 'selfInsRentYear' : 'selfInsSubYear', num(v))} />
             </ORow>
             <ORow label="목표 수익률" hint="목업은 신용축이었다 · 지금은 «10% 공통 + 손바뀜»(설계서 §2·§10)" axis="ch">
               <Pin unit="%" value={isRent ? cs.marginRentPct : cs.marginSubPct}
