@@ -35,6 +35,25 @@ jobs:
       - name: 상품찾기 격자 — 행 수 = 자식 수
         run: npm run check:finder-rows
 
+      # ★★2026-09-06 검수에서 넣었다 — 「확정 규격」을 지키는 자들이 **CI 밖**에 있었다.
+      #   check:design(확정 디자인) · check:building(도면) · check:ui(UI 계약)는 만들어 두고
+      #   «내가 손으로 돌릴 때만» 돌았다. 그래서 다른 세션·다른 도구가 규격을 되돌려도
+      #   CI 는 초록불을 줬다(2026-08-31 커서가 뱃지 규격을 되돌린 그 종류).
+      #   ⚠ check:settlement 는 아직 안 건다 — 정산 작업이 main 에 안 들어와 빨간불이다
+      #     (scripts/check-settlement-locked.mts 머리말).
+      - name: 확정 디자인 — 손님 동 규격이 그대로인가
+        run: npm run check:design
+
+      - name: 건물도면 — 새 층·부속실이 등록됐는가
+        run: npm run check:building
+
+      - name: UI 계약 — 원자·radius 정합
+        run: npm run check:ui
+
+      # 브라우저가 공급사 시트를 직접 읽으면 대수가 두 군데서 세어진다(2026-09-01 582→694).
+      - name: 화면이 시트를 직접 읽지 않는가
+        run: npm run check:no-client-sheet-live-status
+
       - name: Sim — 시트 병합(soft-merge·락 보호)
         run: npx tsx scripts/sim-sheet-merge.mts
 

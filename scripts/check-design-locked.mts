@@ -602,8 +602,10 @@ must(/fontSize: SHOP\.fs\.price, fontWeight: FW\.head/.test(shopCard)
  * ⚠ 되돌아가면 «어느 것을 눌러야 하나»를 손님이 매번 한 번씩 생각한다.
  *   시트 머리 X(바닥 닫기와 중복) · 웹 기둥 「선택 초기화」(조건 줄과 중복) · 열린 검색의 돋보기(죽은 단추).
  */
+/* ⚠ 2026-09-06 — 시트 하단독을 `ShopDock` 원자로 합치면서 마크업 «모양»이 바뀌었다.
+   묻는 것은 그대로다: **바닥에 「닫기」가 있고 · 머리에 X(label="닫기")가 없다.** */
 must(!/label="닫기"/.test(read('components/shop/ShopFilterSheet.tsx'))
-  && /닫기\s*$/m.test(read('components/shop/ShopFilterSheet.tsx'))
+  && />닫기</.test(read('components/shop/ShopFilterSheet.tsx'))
   && !/>선택 초기화</.test(read('components/shop/ShopFilters.tsx'))
   && /\{searchOpen \? null : \(/.test(shopView)
   && /onClear=\{list\.length \? onClearAll : undefined\}/.test(shopView),

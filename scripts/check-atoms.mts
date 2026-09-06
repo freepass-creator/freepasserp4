@@ -8,7 +8,21 @@ import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 
 const S = (v: unknown) => String(v ?? '').trim();
-const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
+/*
+ * ★★**열쇠가 없으면 «건너뛴다» — 터지지 않는다**(2026-09-06 검수).
+ *   전에는 `tmp/firebase-auth/sa.json` 이 없는 자리에서 `ENOENT` 로 통째로 죽었다.
+ *   그러면 「이 검사가 도는지」를 아무도 모른다 — 죽은 검사는 없는 검사와 같다.
+ *   ⇒ 열쇠가 있으면 검사하고, 없으면 «왜 못 했는지»를 말하고 0 으로 끝낸다.
+ * ⚠ 데이터를 «읽어야» 하는 검사라 CI(시크릿 없음)에서는 애초에 못 돈다 — 사람이 손으로 돌리는 자다.
+ */
+const saPath = S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json';
+let saRaw: string;
+try { saRaw = readFileSync(saPath, 'utf8'); } catch {
+  console.log(`⏭ 원자 규격 검사를 건너뜁니다 — 서비스 계정 열쇠가 없습니다(${saPath}).`);
+  console.log('   GOOGLE_APPLICATION_CREDENTIALS 를 걸거나 tmp/firebase-auth/sa.json 을 두고 다시 부르세요.');
+  process.exit(0);
+}
+const sa = JSON.parse(saRaw);
 initializeApp({ credential: cert({ projectId: sa.project_id, clientEmail: sa.client_email, privateKey: sa.private_key.replace(/\\n/g, '\n') }), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' });
 
 const COLORS = /^(블랙|화이트|흰색|검정|검정색|블루|하늘색|그레이|회색|쥐색|실버|은색|레드|빨강|펄|진주|남색|네이비|브라운|베이지|골드|녹색|카키|퍼플)/;

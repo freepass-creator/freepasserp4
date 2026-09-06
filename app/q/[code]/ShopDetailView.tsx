@@ -104,17 +104,19 @@ export function ShopDetailView({ wl }: { wl: Whitelabel }) {
      */
     return (
       <WhitelabelFrame wl={wl} agentName={agentName} agentPhone={phone} notice={false}>
-        <div style={{ padding: '72px 20px', textAlign: 'center' }}>
-          <div style={{ fontSize: 16, fontWeight: 700, color: 'var(--text-main)', marginBottom: 8 }}>
+        {/* ⚠ 글자·높이를 손으로 적지 않는다 — 사다리(`SHOP.fs`·`SHOP.h`)를 쓴다(2026-09-06 검수). */}
+        <div style={{ padding: `${SHOP.sp.wide}px ${SHOP.sp.edge}px`, textAlign: 'center' }}>
+          <div style={{ fontSize: SHOP.fs.h2, fontWeight: 700, color: C.ink, marginBottom: SHOP.sp.snug }}>
             이미 출고되었거나 안내가 끝난 차량입니다
           </div>
-          <div style={{ fontSize: 14.5, color: 'var(--text-sub)', lineHeight: 1.7, marginBottom: 22 }}>
+          <div style={{ fontSize: SHOP.fs.body, color: C.mute, lineHeight: 1.7, marginBottom: SHOP.sp.part }}>
             같은 조건의 다른 차량을 보시거나, 담당자에게 문의해 주세요.
           </div>
           <a href={listHref} style={{
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            /* 가게 규격 — 누르는 것은 `r.ctrl`(10)이지 알약(999)이 아니다(둥글기 사다리). */
-            height: 52, padding: `0 ${SHOP.sp.part}px`, borderRadius: SHOP.r.ctrl,
+            /* 가게 규격 — 누르는 것은 `r.ctrl`(10)이지 알약(999)이 아니다(둥글기 사다리).
+               높이는 손님 동 사다리(`SHOP.h`) — 52 는 사다리 밖의 숫자였다. */
+            height: SHOP.h.mobile, padding: `0 ${SHOP.sp.part}px`, borderRadius: SHOP.r.ctrl,
             background: C.brand, color: C.inverse, textDecoration: 'none',
             fontSize: SHOP.fs.body, fontWeight: 700,
           }}>다른 차량 보기</a>

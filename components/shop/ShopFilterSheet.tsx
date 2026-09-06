@@ -2,7 +2,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { X } from 'lucide-react';
 import { C, FW, ICON, SCRIM } from '@/components/ui';
-import { SHOP, ShopIconBtn, ShopTextBtn } from '@/components/shop/shop-ui';
+import { SHOP, ShopDock, ShopDockAction, ShopIconBtn, ShopTextBtn } from '@/components/shop/shop-ui';
 import { ShopAxisOptions } from '@/components/shop/ShopFilters';
 import { AXIS_LABEL, SHOP_AXES, type ShopAxis, type ShopFacets, type ShopSel } from '@/lib/shop/query';
 
@@ -168,29 +168,12 @@ export function ShopFilterSheet({ sel, preview, onApply, onClose }: {
             그래서 초안과 화면이 갈려도 어느 쪽이 «앞으로 될 값»인지 화면에 쓰여 있다(머리말).
           ⚠ 비주요를 «감싸지» 않는다 — 폭 규칙이 직계 자식에 걸린다(집 규격 하단독과 같은 함정).
         */}
-        <div style={{
-          padding: `${SHOP.sp.cozy}px ${SHOP.sp.edge}px ${SHOP.sp.edge}px`,
-          borderTop: `1px solid ${C.line2}`, flex: '0 0 auto',
-          display: 'flex', alignItems: 'center', gap: SHOP.sp.snug,
-        }}>
-          <button type="button" onClick={onClose} className="fp-shop-press fp-shop-fill"
-            style={{
-              flex: '0 0 92px', height: 52, borderRadius: SHOP.r.ctrl, border: 'none', cursor: 'pointer',
-              /* 비주요 = 회색 면(가게 공통 — `ShopPill` 머리말). 테두리로 가두지 않는다. */
-              background: C.head, color: C.ink, fontFamily: 'inherit',
-              fontSize: SHOP.fs.body, fontWeight: 600,
-            }}>
-            닫기
-          </button>
-          <button type="button" onClick={() => onApply(draft)} className="fp-shop-press"
-            style={{
-              flex: 1, minWidth: 0, height: 52, borderRadius: SHOP.r.ctrl, border: 'none', cursor: 'pointer',
-              background: C.brand, color: C.inverse, fontFamily: 'inherit',
-              fontSize: SHOP.fs.body, fontWeight: 700,
-            }}>
+        {/* ★독은 원자다(`ShopDock`) — 상세·목록과 «같은 것»을 쓴다. 손으로 다시 짜면 또 갈린다. */}
+        <ShopDock side={<ShopDockAction tone="quiet" onClick={onClose}>닫기</ShopDockAction>}>
+          <ShopDockAction onClick={() => onApply(draft)}>
             {resultCount.toLocaleString('ko-KR')}대 보기
-          </button>
-        </div>
+          </ShopDockAction>
+        </ShopDock>
       </div>
     </div>
   );

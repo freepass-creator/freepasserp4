@@ -308,7 +308,7 @@ function CheckRow({ label, count, on, onClick, tight, logo }: {
              켜짐에서 테두리를 지운다(면만 남긴다 — 가게 규칙 「면으로 말한다」).
       */}
       <span aria-hidden className="fp-shop-checkbox" style={{
-        width: mobile ? 20 : 18, aspectRatio: '1 / 1', borderRadius: 7, flex: '0 0 auto',
+        width: mobile ? 20 : 18, aspectRatio: '1 / 1', borderRadius: SHOP.r.chip, flex: '0 0 auto',
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
         /* 켜지면 테두리를 지우고 면만 남긴다 — 선과 면이 겹치면 가장자리가 두 겹으로 두꺼워 보인다. */
         border: on ? '1.5px solid transparent' : `1.5px solid ${C.line}`,
