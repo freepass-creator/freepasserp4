@@ -40,9 +40,9 @@ const CHANNELS = [{ v: 'rent', label: '렌트' }, { v: 'sub', label: '구독' }]
 /** 신용 구간 — **A(정상) · B(중신용) · C(저신용)**. 항목은 같고 값만 다르다(사장님 2026-09-06). */
 const CREDITS = [{ v: '정상', label: 'A 정상' }, { v: '중신용', label: 'B 중신용' }, { v: '저신용', label: 'C 저신용' }] as const;
 const BAND_KEY = {
-  정상: { interest: 'interestAPct', loan: 'loanAPct', ret: 'retentionNormalPct' },
-  중신용: { interest: 'interestBPct', loan: 'loanBPct', ret: 'retentionMidPct' },
-  저신용: { interest: 'interestCPct', loan: 'loanCPct', ret: 'retentionLowPct' },
+  정상: { interest: 'interestAPct', loan: 'loanAPct', ret: 'retentionNormalPct', recovery: 'penaltyRecoveryAPct' },
+  중신용: { interest: 'interestBPct', loan: 'loanBPct', ret: 'retentionMidPct', recovery: 'penaltyRecoveryBPct' },
+  저신용: { interest: 'interestCPct', loan: 'loanCPct', ret: 'retentionLowPct', recovery: 'penaltyRecoveryCPct' },
 } as const satisfies Record<string, Record<string, keyof CostSettings>>;
 const MASTERS = [{ v: 'new', label: '신차마스터' }, { v: 'used', label: '중고마스터' }] as const;
 const YEARS = [1, 2, 3, 4, 5];
@@ -332,9 +332,23 @@ function EstimateCostPageInner() {
             <Pin unit="%" value={cs[BAND_KEY[polCr].loan]} onChange={(v) => set(BAND_KEY[polCr].loan, num(v))} />
           </ORow>
           <div className="osub">들어오는 돈 · 어느 조합이든 같다</div>
-          <ORow label="중도해지 위약금" help={<>계약이 중간에 깨질 때 <b>받아 내는 돈</b>(회당). 회계로는 영업외수익이지만, 원가로는 <b>Ⅰ-4 손바뀜 회당 비용에서 이만큼 뺀다.</b> ⚠ <b>0 이 안전한 기본값</b>이다 — 저신용은 못 받는 것이 예사라, 받을 셈 치고 넣으면 원가가 실제보다 싸게 나온다.</>}>
-            <Pin w unit="원" value={comma(cs.turnoverPenaltyIncome)} onChange={(v) => set('turnoverPenaltyIncome', num(v))} />
+          <ORow label="평균 보증금" help={<>계약 때 받아 <b>쥐고 있는 돈</b>. 손바뀜이 나면 여기서 위약금을 뗀다 — 그만큼 손바뀜 비용이 <b>상쇄</b>된다. ⚠ <b>0 이면 상쇄가 아예 없다</b>(원가를 높게 보는 쪽). 회사 평균을 넣어야 실제에 가까워진다.</>}>
+            <Pin w unit="원" value={comma(cs.avgDeposit)} onChange={(v) => set('avgDeposit', num(v))} />
           </ORow>
+          <div className="osub">그중 실제로 떼는 몫 · 조합마다 갈린다 — 지금 <em>{polCr}</em></div>
+          <ORow label="위약금 회수율" help={<>보증금 중 <b>실제로 위약금으로 떼는 비율</b>. ⚠ 받을 «자리»가 있다고 다 받는 게 아니다 — <b>저신용은 미납 대여료·수리비로 보증금이 이미 소진돼</b> 거의 못 뗀다(사장님 2026-09-06 「사실상 위약금이 발생돼도 저신용은 거의 못 받거든」). 그래서 이 칸만 신용 구간을 탄다.</>}>
+            <Pin unit="%" value={cs[BAND_KEY[polCr].recovery]} onChange={(v) => set(BAND_KEY[polCr].recovery, num(v))} />
+          </ORow>
+          <div className="onote">
+            손바뀜 회당 상쇄액 = <b>평균 보증금 × 회수율</b> = <b>{comma(Math.round(cs.avgDeposit * (cs[BAND_KEY[polCr].recovery] || 0) / 100))}원</b> ·
+            이만큼 <b>Ⅰ-4 손바뀜 회당 비용에서 뺀다</b>(회당 순비용은 0 밑으로 안 내려간다).
+          </div>
+          {cs.avgDeposit ? null : (
+            <div className="byrow">
+              <b>평균 보증금이 0 이라 상쇄가 없다</b> — 손바뀜 비용이 통째로 원가에 남는다.
+              <br />값을 넣기 전까지는 <b>원가를 높게 본 견적</b>이다(틀린 게 아니라 보수적인 것).
+            </div>
+          )}
         </div>
 
         {/* ────────────────── Ⅳ 이익과 잔가 ────────────────── */}
