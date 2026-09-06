@@ -1197,6 +1197,17 @@ html[data-fp-filter="0"] .fp-finder > .fp-sidebar { display: none; }
 .fp-shop-press:active { transform: scale(.97); }
 
 /*
+ * 조건 체크 행 — **행 전체가 반응한다.** 요즘 필터가 다 이 짜임이다(에어비앤비·무신사·리니어).
+ * ★네모 하나만 물들면 「어디를 눌러야 하나」를 손이 한 번 생각한다 — 행이 물들면 그 생각이 없다.
+ * ★네모의 면·선은 **부드럽게** 바뀐다. 딸깍 바뀌면 그 자체가 옛날 폼(form)처럼 보인다.
+ * ⚠ 행에는 `transform` 을 안 건다 — 목록에서 줄이 튀면 눈이 따라가느라 훑기가 끊긴다.
+ */
+.fp-shop-checkbox { transition: background-color .14s ease, border-color .14s ease; }
+@media (hover: hover) and (pointer: fine) {
+  .fp-shop-check:hover { background: var(--bg-stripe); }
+}
+
+/*
  * 「면」으로 서는 누름 — 조건 칩·정렬·공유·더 보기(shop-ui `ShopPill` 머리말).
  * 테두리가 없으니 **마우스가 있는 기기에서는 면이 한 단 짙어지는 것**이 유일한 손짓이다.
  * ⚠ 켜진 칩(브랜드 남색)까지 회색으로 덮으면 켜짐이 풀린 것처럼 보인다 — 그건 밝기로만 민다.

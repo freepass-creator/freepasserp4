@@ -254,25 +254,45 @@ function CheckRow({ label, count, on, onClick, tight }: {
 }) {
   const mobile = useIsMobile();
   return (
-    <button type="button" onClick={onClick} aria-pressed={on} className="fp-shop-press"
+    <button type="button" onClick={onClick} aria-pressed={on} className="fp-shop-press fp-shop-check"
       style={{
-        display: 'flex', alignItems: 'center', gap: mobile ? SHOP.sp.cozy : SHOP.sp.snug, padding: 0,
+        display: 'flex', alignItems: 'center', gap: mobile ? SHOP.sp.cozy : SHOP.sp.snug,
+        /*
+         * ★★**행이 곧 누르는 자리다** — 좌우로 조금 넘겨 «면»이 글자 밖까지 깔리게 한다.
+         *   음수 여백으로 도로 당겨 두므로 **줄 맞춤은 그대로**고, 마우스를 올리면 행 전체가 물든다.
+         *   요즘 필터(에어비앤비·무신사·리니어)가 다 이 짜임이다 — 체크 «네모»가 아니라
+         *   «행»이 반응하니까 손이 어디를 눌러야 할지 안 헷갈린다.
+         */
+        padding: `0 ${SHOP.sp.snug}px`, margin: `0 -${SHOP.sp.snug}px`, borderRadius: SHOP.r.chip,
         /* 목록 «행»은 영역이 곧 크기라 `SHOP.tap`(폰 44) — 칩(38)보다 크되 48 은 과하다. */
         minHeight: mobile ? SHOP.tap.mobile : SHOP.tap.web,
         border: 'none', background: 'transparent', cursor: 'pointer',
         fontFamily: 'inherit', textAlign: 'left', minWidth: 0,
         /* 글자는 «사다리»에 맡긴다 — 여기서 숫자를 박으면 폰 사다리를 낮춰도 이 줄만 커진 채 남는다. */
-        fontSize: mobile ? SHOP.fs.body : 14,
-        color: on ? C.ink : C.sub, fontWeight: on ? 700 : 400,
+        fontSize: mobile ? SHOP.fs.body : SHOP.fs.body,
+        /*
+         * ⚠ 켜졌다고 **700 으로 확 굵히지 않는다**(사장님 2026-09-06 「체크박스가 좀 촌스러워 보인다」).
+         *   400 → 700 은 두 단을 뛰는 것이라 글자가 «퉁퉁해» 보이고, 그 줄만 화면에서 튄다.
+         *   600 이면 「켜졌다」는 확실히 읽히면서 줄의 폭도 거의 안 흔들린다.
+         */
+        color: on ? C.ink : C.sub, fontWeight: on ? 600 : 400,
       }}>
-      {/* ★네모는 폰에서 20 — 17 은 손가락 밑에서 안 보이고, 22 는 글자보다 커 보인다. 누르는 자리는 줄 전체다. */}
-      <span aria-hidden style={{
-        width: mobile ? 20 : 17, aspectRatio: '1 / 1', borderRadius: mobile ? 6 : 5, flex: '0 0 auto',
+      {/*
+        ★네모는 폰 20 · 웹 18. 촌스러움을 만드는 건 «크기»가 아니라 셋이었다 —
+          ㉠ 체크 획이 3 으로 두꺼웠다(굵은 매직으로 그은 꼴) → **2.25**
+          ㉡ 20 짜리 네모에 둥글기 6 은 어중간했다(각지지도 둥글지도 않다) → **7**(거의 스퀘어클)
+          ㉢ 꺼짐 테두리가 진한 선(`C.line`)이라 «빈 칸»이 먼저 눈에 들어왔다 → **`C.lineStrong` 1.5**
+             …이 아니라 반대로, 켜짐이 또렷해야 하므로 꺼짐은 한 단 **옅게**(`C.line`) 두고
+             켜짐에서 테두리를 지운다(면만 남긴다 — 가게 규칙 「면으로 말한다」).
+      */}
+      <span aria-hidden className="fp-shop-checkbox" style={{
+        width: mobile ? 20 : 18, aspectRatio: '1 / 1', borderRadius: 7, flex: '0 0 auto',
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-        border: `1.5px solid ${on ? C.brand : C.line}`,
+        /* 켜지면 테두리를 지우고 면만 남긴다 — 선과 면이 겹치면 가장자리가 두 겹으로 두꺼워 보인다. */
+        border: on ? '1.5px solid transparent' : `1.5px solid ${C.line}`,
         background: on ? C.brand : 'transparent',
       }}>
-        {on ? <Check size={mobile ? 14 : 12} strokeWidth={3} style={{ color: C.inverse }} /> : null}
+        {on ? <Check size={mobile ? 13 : 12} strokeWidth={2.25} style={{ color: C.inverse }} /> : null}
       </span>
       <span style={{ display: 'flex', alignItems: 'baseline', gap: SHOP.sp.snug, flex: 1, minWidth: 0 }}>
         <span style={{
