@@ -22,11 +22,11 @@ def parse(path):
         cs = [c for c in cells(tr) if c]
         if not cs:
             continue
-        if '패키지 선택 품목' in cs[0]:
+        if '패키지 선택 품목' in cs[0] or cs[0].strip() == '패키지 품목':   # G90 은 「패키지 품목」
             in_sec = True; continue
         if len(cs) == 1 and '기타' in cs[0]:
             in_sec = False
-        if in_sec and len(cs) == 2 and re.search(r'패키지|셀렉션|디자인', cs[0]) and len(cs[0]) < 30:
+        if in_sec and len(cs) == 2 and re.search(r'패키지|셀렉션|디자인|컬렉션', cs[0]) and len(cs[0]) < 30:
             pkgs.append({'name': cs[0], 'includes': cs[1][:300]})
     return pkgs
 

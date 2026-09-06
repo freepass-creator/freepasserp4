@@ -124,7 +124,7 @@ function buildEntry(m) {
       maxPreciseConfig: `base + 배타상한 ${exclusiveCeil.toLocaleString()} + 자유(번들 제외 개별합) ${freePrecise.toLocaleString()}`,
       bundlesExcluded: bundlesExcluded.length ? `${bundlesExcluded.length}개 번들 제외(개별로 대체): ${pkgIncludes.filter((p)=>bundleNames.has(norm(p.name))).map((p)=>p.name).join(', ')}` : '번들 없음',
       maxStatus: 'maxPrecise=풀옵션(할인번들 대신 개별 다 구매·개별합≥번들가). 남은 오차 = 개별 간 상호배제(파노라마↔투톤 등)·종속·연료분기 — BTO 재확인.'
-        + (m === 'g90' ? ' ★G90은 패키지 상세추출 실패(프리미엄·프레스티지 중첩 번들) → maxPrecise 미반영, maxCandidate 는 과대. G90 은 별도 수작업 필요(코덱스).' : '')
+        + (m === 'g90' ? ' ★G90은 컬렉션이 3중 중첩(파퓰러⊂프리미엄⊂프레스티지)이라 번들판별 휴리스틱에 오차 가능(뒷좌석컴포트 과다제외 소지) — 코덱스 교차검증 대상. 프레스티지 전용 「전동 뒷좌석 듀얼모니터」는 개별가 없어 미포함.' : '')
         + ' maxCandidate 는 번들 미제거 단순합(비교용).',
     },
     priceRowCheck: { count: d.priceRow.length, allMapped: d.mapOk, note: '가격행 완전배정 = 코덱스 22개 일치(GV80쿠페)와 같은 급 교차검증.' },
