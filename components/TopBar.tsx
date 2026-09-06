@@ -11,7 +11,7 @@ import { getRole, actor, type Role } from '@/lib/domain/deal';
 import { useSession } from '@/lib/auth-context';
 import { loadMenuBadges, menuItemBadge, type MenuBadgeMap } from '@/lib/domain/menu-badges';
 import { C, R, CountPill, NUM, ctrlH, ctrlFs, FW, FS, Btn, IconBtn, BottomNav, SH, ICON } from '@/components/ui';
-import { NAV_ICON, NAV_LABEL } from '@/lib/tabbar';
+import { NAV_ICON, NAV_LABEL, showsMobileMenu } from '@/lib/tabbar';
 import { refreshCurrentPage } from '@/lib/page-refresh';
 import { PageStatus, statusIconFor } from '@/components/PageStatus';
 import { getStore, peekList } from '@/lib/store';
@@ -354,6 +354,13 @@ function NavMenu({ mobile, open: openProp, setOpen: setOpenProp }: {
 export default function TopBar() {
   const { back, backKind, left, actions, title } = useAppBarSlots();
   const mobile = useIsMobile();
+  /**
+   * 폰 우측 햄버거 — **관리자·공급사만**(사장님 2026-09-06 「영업자는 햄버거 메뉴가 아예 안 보이고」).
+   * 판정은 `lib/tabbar` `showsMobileMenu` 한 곳. 웹 전체메뉴는 그대로다(영업자도 쓴다).
+   */
+  const topSession = useSession();
+  const topRole: Role = topSession?.role === 'admin' || topSession?.role === 'provider' || topSession?.role === 'agent'
+    ? topSession.role : getRole();
   const path = usePathname();
   const [menuOpen, setMenuOpen] = useState(false); // 메뉴 열림 → 좌측 상태를 '메뉴'로 스왑
   useEffect(() => {
@@ -452,11 +459,15 @@ export default function TopBar() {
           </span>
         )}
         {!mobile && <WebSessionMeta />}
-        {/* ★모바일 상단바 = **상태 표시만**(사장님 2026-08-30 「상단은 그냥 상태 표시만 해주는거지」).
-            누르는 것은 전부 하단 홈바로 내려갔다 — 홈 · 검색 · 설정(lib/tabbar appTabsFor).
-            폰에서 하는 일이 「찾아서 보내기」뿐이라 전체메뉴(햄버거)가 열 곳이 없다.
-            ⚠ 그래서 **계약진행·재고관리·계약문의는 폰에서 안 열린다**(설계대로 — 데스크톱에서 한다).
+        {/* ★모바일 상단바 = 상태 표시 + **우측 햄버거**.
+            2026-08-30 에는 「상태 표시만」이었다 — 영업자가 폰에서 하는 일이 「찾아서 보내기」뿐이라
+            열 곳이 없었기 때문이다. 그 사정은 영업자에게 그대로다(그래서 영업자에게는 지금도 없다).
+            2026-09-06 사장님 「하단 메뉴는 다 공통 버튼이고 … 햄버거는 관리자 다르고 공급사 다르고,
+            공급사는 재고 관리를 거기서 할 수 있고 · 관리자는 다 들어가는 거고 ·
+            **영업자는 햄버거 메뉴가 아예 안 보이고**」.
+            ⇒ 하단은 누구나 같은 셋(찾기·검색·설정), **역할별로 다른 것은 여기 햄버거**로 든다.
             검색 슬롯(search)은 TopBar 가 아니라 AppTabBar 가 읽는다. */}
+        {mobile && showsMobileMenu(topRole) && <NavMenu mobile open={menuOpen} setOpen={setMenuOpen} />}
       </header>
       {/* 모바일 이전만 하단독 — 우측 액션은 상단(위)으로. 액션 중복 금지. */}
       {mobile && back && (
