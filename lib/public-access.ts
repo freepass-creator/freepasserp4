@@ -2,7 +2,7 @@
  * 손님 공개면 — Auth·RTDB 세션 게이트 우회용.
  * /shop · /q · /catalog · /sign 은 로그인 없이 매물·서명 조회 가능해야 함.
  */
-import { hasBrand, resolveWhitelabel } from '@/lib/whitelabel';
+import { WHITELABELS, hasBrand, resolveWhitelabel } from '@/lib/whitelabel';
 
 export const PUBLIC_PATH_PREFIXES = ['/q/', '/sign/'] as const;
 
@@ -31,11 +31,17 @@ export function isPublicPath(pathname: string | null | undefined): boolean {
    */
   if (pathname === '/shop' || pathname.startsWith('/shop/')) return true;
   /*
-   * ★채널 «전용 주소» — 도메인을 붙이기 전에 손에 쥘 링크다(`app/(shop)/uniauto`).
+   * ★채널 «전용 주소» — 도메인을 붙이기 전에 손에 쥘 링크다.
    *   여기를 안 열면 손님이 그 주소에서 **로그인으로 튕긴다** — 손님은 로그인이라는 게 있는 줄도 모른다.
    *   (사장님 2026-09-05 「유니오토 전용 그 페이지를 좀 주면 좋겠다」)
+   *
+   * ★★★**주소를 손으로 적지 않는다 — 표(`WHITELABELS`)를 읽는다**(2026-09-06).
+   *   사장님 「홍길동 영업채널 걸로 하나 파줘 그럼 **바로 파줘야** 되는 거야」.
+   *   ⚠ 실측으로 잡았다 — 표에 채널 한 줄을 더하고 그 주소를 열었더니 **서버는 채널 이름으로 그렸는데
+   *     클라이언트 게이트가 «로그인»으로 튕겼다.** 이 줄이 `/uniauto` 만 알고 있었기 때문이다.
+   *     채널마다 여기를 또 고쳐야 하면 그건 「바로」가 아니다.
    */
-  if (pathname === '/uniauto' || pathname.startsWith('/uniauto/')) return true;
+  if (WHITELABELS.some((w) => !!w.previewPath && (pathname === w.previewPath || pathname.startsWith(`${w.previewPath}/`)))) return true;
   /*
    * ★★채널 주소의 **첫 화면**(사장님 2026-09-05 「그냥 그 주소로 들어가면 상품부터,
    *   회사가 뭘 팔고 있는지 그냥 다 보이는 거라고」).

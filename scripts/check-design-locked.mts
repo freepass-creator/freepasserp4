@@ -659,14 +659,24 @@ must(/sp: \{ tight: 4, snug: 8, cozy: 12, edge: 16, part: 24, pane: 32, wide: 48
  *   도메인을 붙이면 호스트가 이겨서 이 폴백은 안 탄다(코드 재수정 없음).
  * ⚠ 업무동(`/login`·`/inventory`)은 **예전 그대로**여야 한다 — 콕핏은 우리 화면이다.
  */
+/*
+ * ⚠ 2026-09-06 — 채널마다 있던 라우트 파일(`app/(shop)/uniauto/page.tsx`)을 **걷었다.**
+ *   채널 하나 더 파는 일이 「표에 한 줄」이어야 해서(사장님 「홍길동 영업채널 걸로 하나 파줘,
+ *   그럼 바로 파줘야 되는 거야」), 임시 주소는 **미들웨어가 `/shop` 으로 다시 쓴다.**
+ *   묻는 것은 그대로다 — **ERP 도메인의 손님 화면이 노브랜드로 안 떨어진다.**
+ *   오히려 한 줄 더 묻는다: 껍데기 판정(`guest-surface`)이 **채널 표를 읽는가** —
+ *   여기서 표를 안 보면 새 채널 화면 위에만 업무동 남색 상단바가 얹힌다.
+ */
 must(/export function resolveGuestWhitelabel/.test(read('lib/whitelabel.ts'))
-  && /export function isGuestPath/.test(read('lib/whitelabel.ts'))
+  && /export function isGuestPath/.test(read('lib/guest-surface.ts'))
+  && /WHITELABELS/.test(read('lib/guest-surface.ts'))
   && /resolveGuestWhitelabel\(\(await headers\(\)\)\.get\('host'\), one\(sp\.wl\)\)/.test(read('app/q/[code]/page.tsx'))
   && /resolveGuestWhitelabel\(\(await headers\(\)\)\.get\('host'\), one\(sp\.wl\)\)/.test(read('app/(shop)/shop/page.tsx'))
   && /isGuestPath\(request\.nextUrl\.pathname\)/.test(read('middleware.ts'))
   && /x-fp-guest/.test(read('app/layout.tsx'))
-  /* 손님 층이 요청을 «읽어야» 미들웨어 표시가 레이아웃까지 간다 — 그 머리말 참고. */
-  && /await headers\(\);[\s\S]{0,20}?return <ShopView wl=\{UNI\} \/>;/.test(read('app/(shop)/uniauto/page.tsx')),
+  /* 채널 임시 주소 → `/shop` 다시쓰기 + 손님 표시. 이 셋이 한 덩어리다. */
+  && /w\.previewPath && request\.nextUrl\.pathname === w\.previewPath/.test(read('middleware.ts'))
+  && /target\.searchParams\.set\('wl', channel\.key\)/.test(read('middleware.ts')),
   'ERP 도메인의 손님 화면이 다시 노브랜드(프리패스)로 떨어집니다 — 상세·목록·소스에 우리 이름이 샙니다.',
   'lib/whitelabel.ts resolveGuestWhitelabel');
 

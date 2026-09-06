@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { hasBrand, isGuestPath, resolveWhitelabel } from '@/lib/whitelabel';
+import { WHITELABELS, hasBrand, resolveWhitelabel } from '@/lib/whitelabel';
+import { isGuestPath } from '@/lib/guest-surface';
 
 const PUBLIC_SIGN_HOST = 'sign.freepasserp.com';
 /** 손님 동 표시 — 레이아웃이 읽는다(아래 머리말). `lib/whitelabel` 와 이름을 맞춘다. */
@@ -50,6 +51,29 @@ export function middleware(request: NextRequest) {
    * 레이아웃은 라우트를 모르므로(호스트만 본다) 여기서 한 줄 붙여 준다.
    * ⚠ 업무동에는 안 붙인다 — 콕핏은 우리 화면이라 예전 그대로여야 한다.
    */
+  /*
+   * ★★**채널의 임시 주소 → 가게 화면.** 표에 `previewPath` 가 적힌 채널이면 여기서 `/shop` 으로
+   *   «다시 쓴다»(주소창은 그대로 `/uniauto`).
+   *
+   * ★★★사장님 2026-09-06 「유니오토도 **하나의 영업채널**이고, 내가 이거를 **홍길동 영업채널 걸로
+   *   하나 파줘** 그럼 **바로 파줘야** 되는 거야」.
+   *   ⇒ 그러려면 채널을 하나 더 파는 일이 **표에 한 줄**이어야 한다. 여태는 채널마다
+   *     `app/(shop)/uniauto/page.tsx` 같은 **라우트 파일을 손으로 만들어야** 했고, 도면에도
+   *     등록해야 했다 — 「바로」가 안 되는 꼴이었다. 그 파일을 걷고 이 한 줄로 옮겼다.
+   * ★`/shop` 은 이미 `?wl=` 로 채널을 입는다(미리보기 규칙) — 새 화면을 만들지 않는다.
+   *   머리(제목·og·robots noindex)도 `/shop` 이 그대로 만든다.
+   * ★도메인이 붙으면 호스트가 이기고 이 길은 안 쓰인다(그때 표에서 `previewPath` 를 지운다).
+   */
+  const channel = WHITELABELS.find((w) => !!w.previewPath && request.nextUrl.pathname === w.previewPath);
+  if (channel) {
+    const target = request.nextUrl.clone();
+    target.pathname = '/shop';
+    target.searchParams.set('wl', channel.key);
+    const headers = new Headers(request.headers);
+    headers.set(GUEST_HEADER, '1');
+    return NextResponse.rewrite(target, { request: { headers } });
+  }
+
   if (isGuestPath(request.nextUrl.pathname)) {
     const headers = new Headers(request.headers);
     headers.set(GUEST_HEADER, '1');
