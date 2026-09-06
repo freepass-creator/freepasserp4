@@ -518,7 +518,7 @@ export function StateChip({ mark, fs = SHOP.fs.cap }: { mark: ShopMark; fs?: num
  *   세울 수 있어 **오히려 더 또렷하다** — 회색 면에 회색 글자로 눕히면 셀링포인트가 딱지로 보인다.
  * ★**색은 아이콘에만**, 글자는 먹색(집 규칙 · `DESIGN_CONFIRMED_LIST_CARD` §카드).
  */
-export function PerkMark({ mark, fs = SHOP.fs.sub, size = 15 }: {
+export function PerkMark({ mark, fs = SHOP.fs.cap, size = BADGE.icon }: {
   mark: ShopMark; fs?: number | string; size?: number;
 }) {
   const Icon = mark.icon;
@@ -534,9 +534,9 @@ export function PerkMark({ mark, fs = SHOP.fs.sub, size = 15 }: {
        * ★면은 조건 칩(`C.head`)보다 **한 단 옅다**(`C.zebra`) — 가게 규칙 하나가 여기서도 산다:
        *   **누를 수 있는 것이 더 진하다.** 이건 읽기만 하는 표식이라 뒤로 물러나야 한다.
        */
-      background: C.zebra, padding: `${SHOP.sp.tight}px ${SHOP.sp.snug}px`, borderRadius: SHOP.r.chip,
-      /* 줄높이로 붙인다 — 카드 넉 줄과 같은 수법(ShopCard 차명 줄 머리말). */
-      lineHeight: 1.1,
+      /* 치수는 «한 벌»(`BADGE`) — 사진 위 신원 칩과 같은 값이다. 그 머리말 참고. */
+      background: C.zebra, padding: `${BADGE.padY}px ${BADGE.padX}px`, borderRadius: SHOP.r.chip,
+      lineHeight: BADGE.lineHeight,
       color: C.ink, fontSize: fs, fontWeight: 700, whiteSpace: 'nowrap',
     }}>
       <Icon size={size} aria-hidden style={{ color: mark.good ? C.ok : mark.ask ? C.faint : C.brand }} />
@@ -544,6 +544,32 @@ export function PerkMark({ mark, fs = SHOP.fs.sub, size = 15 }: {
     </span>
   );
 }
+
+/**
+ * **뱃지 한 벌 규격** — 사진 위 신원 칩(출고가능·상품구분)과 본문 우대조건이 **같은 치수**다.
+ *
+ * 사장님 2026-09-06 「**배지 규격은 다 통일해** 줘야지. 출고가능, 상품구분, 그리고 그 하단에 있는
+ * 심사 조건 이거랑 그 **뱃지 규격은 다 동일해**. 근데 그 뱃지가 이렇게 **너무 많이 삐져나갈 필요가
+ * 없다**는, 그러니까 거의 **텍스트를 살짝만 감쌀 정도**면 된다는 거야 — 텍스트랑 아이콘」.
+ *
+ * ⚠ 실측 — 사진 위는 `2px 6px`·아이콘 11·높이 20, 본문은 `4px 8px`·아이콘 13·높이 27 이었다.
+ *   **같은 화면에서 같은 성격의 표식이 두 치수**로 서 있었다. 한쪽을 고칠 때 다른 쪽이 안 따라와서다.
+ * ★그래서 **여기 한 벌**을 정본으로 둔다. 뱃지를 새로 세우면 이 값을 그대로 쓴다.
+ * ★여백은 «살짝만 감싼다» — 뱃지는 읽는 표식이지 누르는 것이 아니라, 손가락 규격을 따를 이유가 없다.
+ *   세로 2 는 글자 위아래로 딱 숨 쉴 만큼이고, 가로 6 은 둥근 모서리(8)가 글자를 안 먹을 만큼이다.
+ * ⚠ 사진 위 칩만 **유리 바탕과 흰 실선**을 더 갖는다(`.fp-signal-chip`) — 사진 밝기가 제각각이라
+ *   그게 없으면 안 읽힌다. **치수가 아니라 «바탕»의 차이**이므로 규격 통일과 어긋나지 않는다.
+ */
+export const BADGE = {
+  /** 위아래 여백 — 글자가 숨 쉴 만큼만. */
+  padY: 2,
+  /** 좌우 여백 — 둥근 모서리가 글자를 안 먹을 만큼만. */
+  padX: 6,
+  /** 그림 크기 — 글자(12.5)와 나란히 설 치수. */
+  icon: 12,
+  /** 줄높이 — 기본값이 남기는 위아래 여백을 걷는다(그래야 「살짝만 감싼다」가 된다). */
+  lineHeight: 1.1,
+} as const;
 
 /**
  * **표식의 «그림» — 값마다 다른 아이콘. 한 곳에서 정한다.**

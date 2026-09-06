@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { Check, CircleCheck, ImageOff, ShieldCheck, Tag } from 'lucide-react';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { C, FW, NUM } from '@/components/ui';
-import { PerkMarks, SHOP, markIconFor, type ShopMark } from '@/components/shop/shop-ui';
+import { BADGE, PerkMarks, SHOP, markIconFor, type ShopMark } from '@/components/shop/shop-ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { useInView } from '@/lib/use-in-view';
 import { useFirstPhoto } from '@/components/use-product-photos';
@@ -299,7 +299,8 @@ export const ShopCard = memo(function ShopCard({ p, href }: {
               /* 줄 사이(8)는 컨테이너 gap 이 이미 준다 — 여기서 더 벌리지 않는다(당근도 균등이다). */
               marginTop: 'auto',
             }}>
-              <PerkMarks marks={marks} fs={SHOP.fs.cap} size={13} columnGap={SHOP.sp.cozy} />
+              {/* 치수는 원자의 «한 벌»(`BADGE`)이 정한다 — 여기서 fs·size 를 박으면 또 갈린다. */}
+              <PerkMarks marks={marks} columnGap={SHOP.sp.snug} />
             </div>
           ) : null}
         </div>
@@ -381,9 +382,9 @@ function ShopThumb({ p, marks = [] }: { p: EntityRecord; marks?: ShopMark[] }) {
                *   거기를 고치면 업무동 목록까지 바뀐다. 그래서 **줄높이와 글리프만** 조인다.
                *   글자는 사다리(`fs.cap`)를 그대로 둔다 — 숫자를 박으면 폰 사다리와 갈린다.
                */
-              lineHeight: 1.1,
+              lineHeight: BADGE.lineHeight,
             }}>
-              <m.icon size={11} aria-hidden />{m.text}
+              <m.icon size={BADGE.icon} aria-hidden />{m.text}
             </span>
           ))}
         </div>

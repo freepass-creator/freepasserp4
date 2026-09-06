@@ -576,10 +576,26 @@ must(/fontSize: mobile \? 21 : 20, fontWeight: FW\.head/.test(shopCard)
  * ★표(`MARK_ICON`)가 정본이다. 카드·상세가 각자 정하고 있어서 **한쪽만 고치면 갈렸다**.
  * ★면은 조건 칩(`C.head`)보다 한 단 옅다(`C.zebra`) — **누를 수 있는 것이 더 진하다.**
  */
+/*
+ * **뱃지는 «한 벌» 규격이다** — 사진 위 신원 칩과 본문 우대조건이 같은 치수.
+ * 사장님 2026-09-06 「**배지 규격은 다 통일해** 줘야지 … 근데 뱃지가 **너무 많이 삐져나갈 필요가
+ * 없다** — 거의 **텍스트를 살짝만 감쌀 정도**면 된다」.
+ * ⚠ 실측 — 사진 위 `2px 6px`/아이콘11/높이20 vs 본문 `4px 8px`/아이콘13/높이27 로 갈려 있었다.
+ *   한쪽을 고칠 때 다른 쪽이 안 따라와서다. ⇒ `BADGE` 한 벌이 정본이다.
+ * ★사진 위 칩만 «유리 바탕 + 흰 실선»을 더 갖는다 — 치수가 아니라 «바탕»의 차이다(사진 위에서 읽히려면 필요).
+ */
+must(/export const BADGE = \{/.test(shopUi)
+  && /padY: 2,/.test(shopUi) && /padX: 6,/.test(shopUi) && /icon: 12,/.test(shopUi)
+  && /padding: `\$\{BADGE\.padY\}px \$\{BADGE\.padX\}px`/.test(shopUi)
+  && /<m\.icon size=\{BADGE\.icon\}/.test(shopCard)
+  && !/<PerkMarks marks=\{marks\} fs=/.test(shopCard),
+  '뱃지 규격이 다시 두 벌로 갈렸습니다 — 사진 위 칩과 본문 우대조건은 같은 치수(BADGE)입니다.',
+  'components/shop/shop-ui.tsx BADGE');
+
 must(/export function markIconFor/.test(shopUi)
   && /무심사: ShieldCheck/.test(shopUi) && /분납가능: Coins/.test(shopUi)
   && /만21세: UserRound/.test(shopUi) && /경력무관: IdCard/.test(shopUi)
-  && /background: C\.zebra, padding: `\$\{SHOP\.sp\.tight\}px \$\{SHOP\.sp\.snug\}px`/.test(shopUi)
+  && /background: C\.zebra, padding: `\$\{BADGE\.padY\}px \$\{BADGE\.padX\}px`/.test(shopUi)
   && /icon: markIconFor\(k\)/.test(shopCard) && /icon: markIconFor\(k\)/.test(shopDetail),
   '우대조건 뱃지의 면이 사라졌거나 아이콘이 다시 한 그림으로 돌아갔습니다.',
   'components/shop/shop-ui.tsx MARK_ICON · PerkMark');
