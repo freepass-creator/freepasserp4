@@ -1,7 +1,7 @@
 {
   "_meta": {
-    "source": "genesis.com BTO 견적기(정본) — DOM 읽기로 배타그룹 가격 수집",
-    "note": "min=기본구성 · max=기본+각 배타그룹 최고+선택옵션 전부. status=confirmed(견적기서 읽음)/pending(미독-위저드 gating)",
+    "source": "제네시스 BTO 견적기 + mtops 가격표 «두 소스 교차검증»(코덱스 2026-09-06). BTO=배타 라이브·mtops=전 옵션가·패키지 포함관계.",
+    "note": "min=기본구성 · max=유효 완성구성 중 최고(패키지 포함관계로 중복과금 제거). status=xcheck(두 소스 검증)/pending/discrepancy(소스 불일치).",
     "updatedAt": "2026-09-06"
   },
   "models": [
@@ -10,40 +10,68 @@
       "label": "GV80 Coupe",
       "modelCode": "gv80-coupe-2026-jxqb",
       "btoUrl": "/kr/ko/models/luxury-suv-genesis/gv80-coupe/bto.html",
+      "priceSource": "mtops GV80-Coupe_price.html + BTO 라이브(base·48V·22인치 원단위 일치)",
       "basePrice": 81300000,
       "basePriceEngine": "가솔린 2.5 터보",
-      "liveCrossCheck": { "config": "48V 엔진만 선택", "observedEstimate": 91850000, "expected": 91850000, "note": "견적기 라이브 = 8,130만 + 48V 1,055만. 배타 가격 교차검증 통과(2026-09-06)" },
+      "baseDefaults": "2.5T · AWD · 5인승 · 유광 · 20인치 · 셀렉션Ⅰ",
       "exclusiveGroups": [
-        {
-          "group": "엔진 타입", "pick": 1, "status": "confirmed",
+        { "group": "엔진 타입", "pick": 1, "status": "xcheck",
           "choices": [
             { "label": "가솔린 2.5 터보", "addWon": 0, "isDefault": true },
             { "label": "가솔린 3.5 터보", "addWon": 4200000 },
             { "label": "가솔린 3.5 터보 48V 일렉트릭 슈퍼차저", "addWon": 10550000 }
-          ]
-        },
-        {
-          "group": "구동 타입", "pick": 1, "status": "confirmed",
-          "choices": [ { "label": "AWD", "addWon": 0, "isDefault": true } ]
-        },
-        {
-          "group": "외장 컬러", "pick": 1, "status": "confirmed",
-          "choices": [ { "label": "글로시(유광)", "addWon": 0, "isDefault": true }, { "label": "매트(무광)", "addWon": 0 } ]
-        },
-        {
-          "group": "휠 & 타이어", "pick": 1, "status": "confirmed",
+          ] },
+        { "group": "구동 타입", "pick": 1, "status": "xcheck", "choices": [ { "label": "AWD", "addWon": 0, "isDefault": true } ] },
+        { "group": "인승", "pick": 1, "status": "xcheck", "choices": [ { "label": "5인승", "addWon": 0, "isDefault": true } ] },
+        { "group": "외장 컬러", "pick": 1, "status": "xcheck",
+          "choices": [ { "label": "글로시(유광)", "addWon": 0, "isDefault": true }, { "label": "매트(무광)", "addWon": 700000 } ] },
+        { "group": "휠 & 타이어", "pick": 1, "status": "xcheck", "engineDependent": true,
           "choices": [
-            { "label": "20인치 다이아몬드 컷팅 휠", "addWon": 0, "isDefault": true },
-            { "label": "22인치 다이아몬드 컷팅 휠", "addWon": 1200000 }
-          ]
-        },
-        {
-          "group": "내장 디자인 & 컬러", "pick": 1, "status": "confirmed",
-          "choices": [ { "label": "쿠페 디자인 셀렉션 Ⅰ", "addWon": 0, "isDefault": true }, { "label": "쿠페 디자인 셀렉션 Ⅱ", "addWon": 0 } ]
-        },
-        { "group": "내장 가니쉬", "pick": 1, "status": "pending", "choices": [] }
+            { "label": "265/50R20 (2.5T)", "addWon": 0, "isDefault": true, "engine": "2.5T" },
+            { "label": "265/40R22 (2.5T)", "addWon": 1200000, "engine": "2.5T" },
+            { "label": "265/50R20 (3.5T)", "addWon": 0, "engine": "3.5T" },
+            { "label": "265/40R22 (3.5T)", "addWon": 1200000, "engine": "3.5T" }
+          ], "note": "48V 기본 휠 분기는 BTO 재확인 필요(코덱스 지적)" },
+        { "group": "내장 디자인 & 컬러", "pick": 1, "status": "discrepancy",
+          "choices": [ { "label": "쿠페 디자인 셀렉션Ⅰ(알루미늄)", "addWon": 0, "isDefault": true }, { "label": "쿠페 디자인 셀렉션Ⅱ(리얼우드/카본)", "addWon": 1500000 } ],
+          "note": "⚠BTO 라이브는 +0으로 읽혔으나 mtops는 +1,500,000 — BTO 그룹레벨만 봐서 놓친 듯. mtops 채택, BTO 재확인 필요." },
+        { "group": "내장 가니쉬", "pick": 1, "status": "xcheck", "note": "셀렉션Ⅰ=알루미늄·셀렉션Ⅱ=오픈포어 리얼우드/카본 포함. 별도 추가금 없음(내장디자인에 종속)." }
       ],
-      "freeOptions": { "status": "pending", "note": "선택 옵션(패키지)는 위저드 gating으로 미독 — 견적기 완주 또는 PDF 대조로 채운다", "items": [] }
+      "freeOptions": {
+        "status": "xcheck",
+        "packages": [
+          { "name": "파퓰러 패키지", "price": 6200000, "includes": ["헤드업 디스플레이", "드라이빙 어시스턴스 패키지Ⅰ", "드라이빙 어시스턴스 패키지Ⅱ", "빌트인 캠 패키지"], "note": "포함 4항목 개별합 6,800,000 → 파퓰러가 600,000 이득. 파퓰러 선택 시 포함품 개별가 중복가산 금지." }
+        ],
+        "items": [
+          { "name": "파노라마 선루프", "price": 1400000 },
+          { "name": "헤드업 디스플레이", "price": 1300000, "inPackage": "파퓰러 패키지" },
+          { "name": "컨비니언스 패키지", "price": 3200000 },
+          { "name": "드라이빙 어시스턴스 패키지Ⅰ", "price": 1950000, "inPackage": "파퓰러 패키지" },
+          { "name": "드라이빙 어시스턴스 패키지Ⅱ", "price": 2700000, "inPackage": "파퓰러 패키지" },
+          { "name": "후석 컴포트 패키지", "price": 2200000 },
+          { "name": "뱅앤올룹슨 사운드 패키지", "price": 1900000 },
+          { "name": "빌트인 캠 패키지", "price": 850000, "inPackage": "파퓰러 패키지" },
+          { "name": "후석 스마트 엔터테인먼트 시스템", "price": 3000000, "kind": "Genuine Parts" },
+          { "name": "전동식 사이드 스텝", "price": 2450000, "kind": "Genuine Parts", "note": "고정식과 배타 추정(각주 없음)" },
+          { "name": "고정식 사이드 스텝", "price": 490000, "kind": "Genuine Parts" },
+          { "name": "차량 보호 필름", "price": 500000, "kind": "Genuine Parts" },
+          { "name": "프로텍션 매트 패키지(1/2열)", "price": 200000, "kind": "Genuine Parts" },
+          { "name": "플로팅 휠 캡", "price": 90000, "kind": "Genuine Parts" }
+        ]
+      },
+      "minMax": {
+        "min": 81300000,
+        "minConfig": "2.5T·AWD·5인승·유광·20인치·셀렉션Ⅰ·유료선택 없음",
+        "maxCandidate": 115190000,
+        "maxConfig": "48V + 22인치 + 무광 + 셀렉션Ⅱ + 파퓰러(포함품 중복 안 함) + 파노라마 + 컨비니언스 + 후석컴포트 + 뱅앤올룹슨 + 후석엔터 + 전동사이드스텝 + 보호필름 + 프로텍션매트 + 플로팅휠캡",
+        "maxStatus": "후보(미확정) — 파퓰러 대신 4항목 개별선택 시 115,790,000으로 더 높아짐. BTO 자동대체 동작 미검증. 사이드스텝 배타·전체 동시선택 가능성도 BTO 재확인 필요.",
+        "recommendedCrossCheck": [
+          { "config": "2.5T+22인치+셀렉션Ⅱ+파퓰러+파노라마", "computed": 91600000, "listed": 91600000, "match": true },
+          { "config": "위+뱅앤올룹슨+컨비니언스+후석컴포트", "computed": 98900000, "listed": 103100000, "match": false, "note": "표기가 4,200,000(=3.5T) 높음 — mtops 내부 모순, 임의보정 안 함" },
+          { "config": "48V+22인치+셀렉션Ⅱ+동일5패키지", "computed": 108250000, "listed": 108250000, "match": true }
+        ]
+      },
+      "liveCrossCheck": { "config": "48V만 선택", "observedEstimate": 91850000, "expected": 91850000, "note": "BTO 라이브 = 기본 + 48V. 배타 교차검증 통과" }
     }
   ]
 }
