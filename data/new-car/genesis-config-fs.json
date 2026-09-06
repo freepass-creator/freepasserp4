@@ -358,8 +358,8 @@
    "model": "G80-EV",
    "source": "genesis 공식 PDF gen_g80-ev.pdf (2026-09·개소세5%)",
    "decoded": true,
-   "status": "provisional·파싱실패(EV 형식)·코덱스/수동 필요",
-   "base": 89080000,
+   "status": "코덱스 확정",
+   "base": 84790000,
    "exclusiveGroups": [],
    "freeOptions": [
     {
@@ -420,9 +420,17 @@
     }
    ],
    "minMax": {
-    "min": 89080000,
-    "provisionalMaxPrecise": 110720000,
-    "note": "PDF 파서 자동해독 provisional. 배타상한+선택개별(번들제외). 코덱스 검증 전 — 확정 아님."
+    "min": 84790000,
+    "minConfig": "세제혜택 후 최저(스탠다드 2WD/단일AWD, 개소세5%)",
+    "maxPrecise": 105730000,
+    "maxPreciseConfig": "AWD(단일PE) + 유료외장700k + 시그니쳐셀렉션3.0M + 개별 13,700,000(파퓰러 대신) + 액세서리 3,540,000 = 105,730,000",
+    "maxPreciseExclAccessories": 102190000,
+    "variants": {
+     "AWD 세제후": 84790000,
+     "세제전": 89080000
+    },
+    "note": "단일 272kW AWD. 외장(마티라블루/무광 중 하나 +700k)·내장(시그니쳐 +3.0M) 배타.",
+    "status": "★코덱스 PDF 독립검증 확정(2026-09-06, VERDICT-codex-genesis-ev). 세제혜택 후 base·유효구성 최고가 원단위."
    }
   },
   {
@@ -697,8 +705,8 @@
    "model": "GV60",
    "source": "genesis 공식 PDF gen_gv60.pdf (2026-09·개소세5%)",
    "decoded": true,
-   "status": "provisional·파싱실패(EV 형식)·코덱스/수동 필요",
-   "base": 68280000,
+   "status": "코덱스 확정",
+   "base": 64900000,
    "exclusiveGroups": [],
    "freeOptions": [
     {
@@ -803,9 +811,18 @@
     }
    ],
    "minMax": {
-    "min": 68280000,
-    "provisionalMaxPrecise": 107995000,
-    "note": "PDF 파서 자동해독 provisional. 배타상한+선택개별(번들제외). 코덱스 검증 전 — 확정 아님."
+    "min": 64900000,
+    "minConfig": "세제혜택 후 최저(스탠다드 2WD/단일AWD, 개소세5%)",
+    "maxPrecise": 95580000,
+    "maxPreciseConfig": "퍼포먼스 AWD(세제전 68,280,000+8,400,000=76,680,000·퍼포먼스는 세제혜택 없음) + 매트700k + 21인치0 + 스웨이드셀Ⅱ2.7M + 개별 14,750,000(파퓰러 대신) + 액세서리 750k = 95,580,000",
+    "maxPreciseExclAccessories": 94830000,
+    "variants": {
+     "스탠2WD 세제후": 64900000,
+     "스탠AWD 세제전": 72080000,
+     "퍼포먼스AWD 세제전": 76680000
+    },
+    "note": "퍼포먼스 AWD 세제혜택 미적용. 스탠AWD 세제후 확정가는 견적서 확인(옵션따라 달라짐).",
+    "status": "★코덱스 PDF 독립검증 확정(2026-09-06, VERDICT-codex-genesis-ev). 세제혜택 후 base·유효구성 최고가 원단위."
    }
   },
   {
