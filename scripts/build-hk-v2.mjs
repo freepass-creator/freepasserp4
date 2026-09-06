@@ -55,25 +55,25 @@ for (const [key, trims] of byModel) {
     for (const t of trims) for (const o of (t.options || [])) { if (num(o.price) && o.price > 0) { const n = String(o.name).trim(); if (n && (!m.has(n) || m.get(n) < o.price)) m.set(n, o.price); } }
     optSuperset = [...m.entries()].map(([name, price]) => ({ name, price })).sort((a, b) => b.price - a.price);
   }
-  const optSum = optSuperset.reduce((s, o) => s + o.price, 0);
   const min = ladder[0].priceAfter;
   const topTrim = ladder[ladder.length - 1];
   models.push({
     maker, sub_model, trimCount: ladder.length,
-    trimLadder: ladder, optionSuperset: optSuperset, optionSource: maker === '현대' && optSuperset.length ? '현대 공식 PDF' : 'new_car_trim',
+    trimLadder: ladder, optionCatalog: optSuperset, optionSource: maker === '현대' && optSuperset.length ? '현대 공식 PDF' : 'new_car_trim',
     minMax: {
-      min, minConfig: `최저 트림 「${ladder[0].fuel} ${ladder[0].trim}」`,
-      maxCandidate: topTrim.priceAfter + optSum,
-      maxConfig: `최고 트림 「${topTrim.fuel} ${topTrim.trim}」 ${topTrim.priceAfter.toLocaleString()} + 옵션초집합 ${optSum.toLocaleString()}`,
-      maxStatus: '트림 최고가 + 옵션 단순합(상호배제·트림별 적용가능 미검증·상한후보). 옵션은 모델 초집합이라 특정 트림엔 일부 불가.',
+      min, minConfig: `최저 트림 「${ladder[0].fuel} ${ladder[0].trim}」 세제후`,
+      topTrimPrice: topTrim.priceAfter, topTrimConfig: `최고 트림 「${topTrim.fuel} ${topTrim.trim}」 옵션 전`,
+      maxNote: '★현대·기아는 트림계층이라 «모델 단일 max»를 산정하지 않는다(코덱스 검증: 옵션초집합 단순합은 특장·상호배제·기본포함·구형 옵션까지 더해 과대). 실제 최고가 = 견적기가 «선택 트림 가격 + 그 트림에 적용 가능한 옵션»으로 계산. optionCatalog 는 모델에서 살 수 있는 옵션 카탈로그(트림별 적용성은 견적기가 판단).',
     },
   });
 }
 models.sort((a, b) => (a.maker + a.sub_model).localeCompare(b.maker + b.sub_model, 'ko'));
 const withOpt = models.filter((m) => m.optionSuperset.length).length;
 const out = { _meta: { source: 'new_car_trim(현재 트림·가격) + 현대 공식 PDF 옵션(parse-hyundai-pdf) 병합. 2026-09-06.',
-  note: 'min=최저트림 세제후 · maxCandidate=최고트림+옵션초집합 단순합(상한후보). 현대 옵션=공식 PDF, 기아=new_car_trim. 정밀 배타·트림별 적용은 후속.',
-  updatedAt: '2026-09-06', modelCount: models.length, withOptions: withOpt }, models };
+  note: '트림계층 구조. min=최저트림 세제후·트림사다리·optionCatalog 는 코덱스 검증 확정(38모델 min 산술 일치·현대 hyundai.json 공식API 일치·아반떼 공식페이지 일치). «모델 단일 max»는 산정 안 함 — 트림별 옵션 적용성이 달라 초집합 단순합은 과대(코덱스). 최고가는 견적기가 트림별 계산.',
+  caveats: '① K5/K8 는 LPG·렌터카·장애인KIT 최저구성이 더 낮음(용도·자격별). ② 모닝/레이 min 은 밴(승용 최저는 더 높음). ③ 현대 옵션 일부는 구형 PDF·이름조각·중복(그랜저 클러스터·쏘나타 등 코덱스 지적) — optionCatalog 는 «카탈로그»지 트림별 확정가 아님. ④ K9·셀토스·파비스 옵션 미수집.',
+  updatedAt: '2026-09-06', modelCount: models.length, withOptions: withOpt,
+  status: '코덱스 검증: min·트림사다리 확정. 옵션카탈로그는 참고(트림별 정밀은 견적기/후속).' }, models };
 writeFileSync('data/new-car/hk-config.json', JSON.stringify(out, null, 1));
 console.log(`hk-config v2: ${models.length}모델 · 옵션보유 ${withOpt}`);
 for (const m of models.slice(0, 40)) console.log(`  ${m.maker} ${m.sub_model}: 트림 ${m.trimCount} · 옵션 ${m.optionSuperset.length}(${m.optionSource}) · min ${m.minMax.min.toLocaleString()}~max ${m.minMax.maxCandidate.toLocaleString()}`);
