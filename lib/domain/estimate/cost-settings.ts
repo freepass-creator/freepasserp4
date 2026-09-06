@@ -109,11 +109,25 @@ export type CostSettings = {
   /** 손바뀜 회당 비용 — 상품화 · 왕복탁송 · 영업수수료(총대여료 대비 %) · 휴차 개월. */
   turnoverPrepFee: number; turnoverDeliveryFee: number; turnoverFeePct: number; turnoverVacancyMonths: number;
   /**
-   * **중도해지 위약금** — 손바뀜 한 번에 «받는» 돈(원). 회계로는 영업외수익이지만
-   * 원가로는 손바뀜 회당 비용을 깎는다(사장님 2026-09-06 「위약금 받으니까」).
-   * ⚠ 기본 0 — 저신용은 못 받는 것이 예사라 0 이 안전한 쪽이다.
+   * **위약금 상쇄** — 손바뀜 한 번에 «실제로 받아 내는» 돈. 두 칸이 곱해진다.
+   *
+   * ★사장님 2026-09-06 「평균 보증금을 입력을 하면 대신 손바뀜이 있을 때 비용은 나가지만
+   *   그만큼이 상쇄가 되겠지. 근데 **사실상 위약금이 발생돼도 저신용은 거의 못 받거든.**
+   *   그런 것들이 좀 **현실적으로 반영이 돼야** 돼.」
+   *
+   *   ⇒ 정액 한 칸(「중도해지 위약금 얼마」)으로는 그 현실이 안 잡힌다.
+   *     받아 낼 «자리»(보증금)와 실제로 «받아 내는 정도»(회수율)는 서로 다른 값이고,
+   *     회수율만 신용 구간에 따라 갈린다.
+   *
+   *   회당 상쇄액 = `avgDeposit` × `penaltyRecovery{A|B|C}Pct`
+   *
+   *   avgDeposit          평균 보증금(원) — 계약 때 받아 쥐고 있는 돈. 조합과 무관한 공통값.
+   *   penaltyRecovery*Pct 그중 실제로 위약금으로 «떼는» 비율. A 정상은 대체로 떼지만
+   *                       C 저신용은 미납 대여료·수리비로 이미 소진되어 거의 못 뗀다.
+   * ⚠ `avgDeposit` 기본 0 — 안 넣으면 상쇄가 아예 없다(원가를 높게 보는, 안전한 쪽).
    */
-  turnoverPenaltyIncome: number;
+  avgDeposit: number;
+  penaltyRecoveryAPct: number; penaltyRecoveryBPct: number; penaltyRecoveryCPct: number;
   /** 잔가 가감(±%p) — 「잔가로 조정」하는 손잡이. 곡선 전체를 통째로 올리거나 내린다. */
   residualAdjustPct: number;
   /**
@@ -176,7 +190,9 @@ export const COST_DEFAULTS: CostSettings = {
   ewYear: 80000,
   retentionNormalPct: 97, retentionMidPct: 75, retentionLowPct: 30,
   turnoverPrepFee: 500000, turnoverDeliveryFee: 500000, turnoverFeePct: 3, turnoverVacancyMonths: 1,
-  turnoverPenaltyIncome: 0,
+  // 평균 보증금은 회사가 넣는다(0 = 상쇄 없음). 회수율은 사장님 「저신용은 거의 못 받거든」을 숫자로 옮긴 것.
+  avgDeposit: 0,
+  penaltyRecoveryAPct: 80, penaltyRecoveryBPct: 50, penaltyRecoveryCPct: 10,
   residualAdjustPct: 0,
   returnDeliveryFee: 0, disposalFeePct: 0,
 };
@@ -218,6 +234,7 @@ export function configFrom(cs: CostSettings, opts: { newCar?: boolean; path?: Ac
   const band = bandOf(opts.credit);
   const interestPct = band === 'C' ? cs.interestCPct : band === 'B' ? cs.interestBPct : cs.interestAPct;
   const loanPct = band === 'C' ? cs.loanCPct : band === 'B' ? cs.loanBPct : cs.loanAPct;
+  const recoveryPct = band === 'C' ? cs.penaltyRecoveryCPct : band === 'B' ? cs.penaltyRecoveryBPct : cs.penaltyRecoveryAPct;
   const markupRate = r(opts.newCar ? cs.markupNewPct : cs.markupUsedPct);
   // 신차는 언제나 «사 오는 차»다(등록·탁송 O · 상품화 X).
   const path: AcqPath = opts.newCar ? 'bought' : (opts.path ?? 'prep');
@@ -267,7 +284,8 @@ export function configFrom(cs: CostSettings, opts: { newCar?: boolean; path?: Ac
       deliveryRoundTrip: cs.turnoverDeliveryFee,
       feeRateOfRent: r(cs.turnoverFeePct),
       vacancyMonths: cs.turnoverVacancyMonths,
-      penaltyIncome: cs.turnoverPenaltyIncome,
+      // 회당 «받아 내는» 돈 = 평균 보증금 × 그 신용 구간의 회수율.
+      penaltyIncome: cs.avgDeposit * r(recoveryPct),
     },
     setting: {
       ...D.setting,
