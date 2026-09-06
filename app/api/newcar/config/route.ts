@@ -38,7 +38,11 @@ export async function GET(request: Request): Promise<Response> {
   const model = S(url.searchParams.get('model'));
 
   try {
-    const genesis = load('genesis-config.json');
+    // 제네시스 현재가 정본 = genesis-config-fs.json (공식 PDF·new_car_trim·audit통과).
+    // genesis-config.json 은 배타그룹 상세 «구조»(단 mtops 구가) — detailStructure 로만 참고.
+    let genesis: any;
+    try { genesis = load('genesis-config-fs.json'); genesis._current = true; }
+    catch { genesis = load('genesis-config.json'); }
     const hk = load('hk-config.json');
 
     // 제조사 필터: 제네시스는 genesis-config, 현대·기아는 hk-config
