@@ -38,6 +38,9 @@
 .est-root button,.est-root input,.est-root select,.est-root textarea{font-variant-numeric:inherit}
 .est-root{background:var(--bg);font-family:var(--k);color:var(--ink-1);font-variant-numeric:tabular-nums slashed-zero;-webkit-font-smoothing:antialiased;font-size:14px}
 .est-root .phone{max-width:440px;margin:0 auto;min-height:100vh;background:var(--bg);border-left:1px solid var(--line-2);border-right:1px solid var(--line-2)}
+/* 하단 홈바가 얹히는 면이라 그 높이만큼 자리를 비운다 — 안 비우면 「저장」과 맨 아랫줄이 바에 깔린다.
+   `--fp-tabbar-h` 는 AppTabBar 가 켤 때만 채운다(웹·바 없는 곳에서는 0). 2026-09-06 견적 탭. */
+.est-root .phone{padding-bottom:var(--fp-tabbar-h, 0px)}
 .est-root .hd{position:sticky;top:0;z-index:10;display:flex;align-items:center;gap:9px;padding:11px 14px;background:var(--surface);border-bottom:1px solid var(--line-2)}
 .est-root .wm{font-family:'Exo 2',var(--k);font-size:16px;font-weight:600;letter-spacing:-.2px}
 .est-root .wm .a{color:var(--accent)}
