@@ -182,7 +182,8 @@ export function runShopQuery(rows: EntityRecord[] | null, query: ShopQuery): Sho
   };
   const bandTally = (axis: ShopAxis, bands: Band[]): ShopOption[] => {
     const base = baseFor(axis);
-    return bands.map((b) => ({ key: b.k, label: b.label, count: base.filter((p) => axisMatch[axis](p, b.k)).length }))
+    /* ★손님 동은 «축 밑» 이름(`shop`)을 쓴다 — 화살표(`↓`·`↑`)는 우리끼리 쓰는 기호다. */
+    return bands.map((b) => ({ key: b.k, label: b.shop || b.label, count: base.filter((p) => axisMatch[axis](p, b.k)).length }))
       .filter((o) => o.count > 0);
   };
 
@@ -207,11 +208,20 @@ export function runShopQuery(rows: EntityRecord[] | null, query: ShopQuery): Sho
 }
 
 /** 「적용한 조건」 줄에 뿌릴 토큰 — 무엇이 걸렸는지 본문 위에서 보이고 하나씩 뗀다. */
-export type ShopToken = { axis: ShopAxis; key: string; label: string };
+/**
+ * `solo` = **이름이 이미 축을 담고 있다**(「월 50~60만원」·「보증금 없음」·「주행 1만km 이하」).
+ * 화면에는 어차피 이름만 뜨지만, **읽어 주는 이름**(`aria-label`)에서 축을 또 붙이면
+ * 「보증금 보증금 없음」처럼 말을 더듬는다 — 그래서 부르는 쪽이 이 표시를 보고 뺀다.
+ */
+export type ShopToken = { axis: ShopAxis; key: string; label: string; solo: boolean };
 
 /**
- * 구간 키의 «이름» — 집계가 비어도 이름을 잃지 않는다.
+ * 구간 키의 «혼자 서는 이름» — 걸린 조건 칩이 쓴다.
  *
+ * ★★칩에는 **축 앞머리를 안 붙인다**(사장님 2026-09-06 「거기 뭐 **월 대여료 · 보증금 · 기간
+ *   넣을 필요 없어. 딱 보면 알지**」). 그래서 값이 «스스로» 무엇인지 말해야 한다 —
+ *   숫자만 남기면 「100~200만원」이 대여료인지 보증금인지 못 가른다(둘의 구간이 겹친다).
+ *   ⇒ `solo` 가 「월 …」·「보증금 …」·「주행 …」 한 마디를 제 이름으로 갖는다(`product-filters`).
  * ⚠ 2026-09-05 실측. 「보증금 없음」 + 「월 50만↓」을 같이 걸면 0대가 되는데, 그 순간
  *   집계(`bandTally`)가 대수 0인 구간을 걷어내므로 토큰이 이름을 못 찾아 **「월 대여료 r50」·
  *   「보증금 d0」** 이라고 날키를 그대로 보여줬다. 조건이 0대가 됐을 때가 바로 손님이 그 줄을
@@ -219,21 +229,31 @@ export type ShopToken = { axis: ShopAxis; key: string; label: string };
  * ★구간 이름은 «집계»가 아니라 **정의(`*_BANDS`)**가 갖고 있다 — 거기서 찾는다.
  *   나머지 축(제조사·연식·연료·심사·혜택)은 키가 곧 사람 말이라 키가 그대로 이름이다.
  */
-const BAND_LABEL: Record<string, string> = Object.fromEntries(
-  [...RENT_BANDS, ...DEP_BANDS, ...MILE_BANDS].map((b) => [b.k, b.label]),
+const SOLO_LABEL: Record<string, string> = Object.fromEntries(
+  [...RENT_BANDS, ...DEP_BANDS, ...MILE_BANDS].map((b) => [b.k, b.solo || b.shop || b.label]),
 );
+
+/**
+ * 구간 키의 «혼자 서는 이름» — 빠른 조건 칩도 이걸 쓴다.
+ * ★칩은 어디에 있든 같은 말이라야 한다. 예전엔 빠른 칩만 손으로 적어(「보증금 0원」)
+ *   걸린 조건 칩(「보증 없음」)과 한 화면에서 두 말이 됐다.
+ */
+export const soloLabel = (key: string): string | undefined => SOLO_LABEL[key];
 
 export function activeTokens(query: ShopQuery, facets: ShopFacets): ShopToken[] {
   const out: ShopToken[] = [];
   for (const axis of SHOP_AXES) {
     for (const key of query.sel[axis]) {
       /*
-       * 라벨은 집계에서 찾는다 — 밴드는 키가 `r50` 이라 그대로 보여줄 수 없다.
+       * ★구간은 **`SOLO_LABEL` 이 먼저**다 — 집계 이름(`shop`)은 축 제목 밑에서 쓸 짧은 말이라
+       *   칩에 혼자 세우면 무엇의 값인지 모른다(「없음」·「100~200만원」).
+       * 구간이 아닌 축(제조사·연료·심사…)은 키가 곧 사람 말이라 집계 이름을 그대로 쓴다.
        * 집계에서 사라진 값(조건을 좁혀 0대가 된 것)도 토큰은 **남긴다.** 안 그러면
        * 「아무것도 안 나오는데 뗄 수도 없는」 조건이 생긴다.
        */
       const found = facets[axis].find((o) => o.key === key);
-      out.push({ axis, key, label: found?.label || BAND_LABEL[key] || key });
+      const solo = SOLO_LABEL[key];
+      out.push({ axis, key, label: solo || found?.label || key, solo: !!solo });
     }
   }
   return out;

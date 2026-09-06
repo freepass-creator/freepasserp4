@@ -17,7 +17,7 @@ import { guestShareUrl } from '@/lib/domain/product-share';
 import { resolveAttr } from '@/lib/shop/attribution';
 import {
   AXIS_LABEL, SHOP_SORTS, activeTokens, clearAxis, emptyQuery, queryCount,
-  readQuery, runShopQuery, toggleAxis, writeQuery,
+  readQuery, runShopQuery, soloLabel, toggleAxis, writeQuery,
   type ShopAxis, type ShopQuery, type ShopSort as ShopSortKey,
 } from '@/lib/shop/query';
 
@@ -50,13 +50,20 @@ const PAGE = 60;
 /**
  * 빠른 조건 — 검색 바로 밑. 손님이 제일 먼저 누르는 것만 셋넷.
  * ★값은 조건칸과 «같은 상태»를 만진다. 두 자리가 다른 값을 들면 그게 곧 「숨은 필터」다.
- * ★저신용·무심사 손님이 제일 먼저 재는 것은 월요금보다 **초기에 얼마 드는가**라 보증금 0원이 맨 앞이다.
+ * ★저신용·무심사 손님이 제일 먼저 재는 것은 월요금보다 **초기에 얼마 드는가**라 「보증 없음」이 맨 앞이다.
  */
-const QUICK: { axis: ShopAxis; key: string; label: string }[] = [
-  { axis: 'dep', key: 'd0', label: '보증금 0원' },
-  { axis: 'rent', key: 'r50', label: '월 50만원 이하' },
-  { axis: 'rent', key: 'r60', label: '50~60만원' },
-  { axis: 'rent', key: 'r70', label: '60~70만원' },
+const QUICK: { axis: ShopAxis; key: string; label?: string }[] = [
+  /*
+   * ★★**구간은 이름을 «손으로 안 적는다»** — `soloLabel(key)` 가 준다(`lib/shop/query`).
+   *   예전엔 여기만 손으로 적어(「보증금 0원」) 걸린 조건 칩(「보증 없음」)과 **한 화면에서
+   *   두 말**이 됐다. 이름은 구간 정의(`*_BANDS` 의 `solo`) 한 곳에서만 나온다.
+   *   ⇒ 보증 없음 · 월 50만 이하 · 월 50~60만 · 월 60~70만
+   * ★차종·연료는 구간이 아니라 값이 곧 말이라 여기 적는다.
+   */
+  { axis: 'dep', key: 'd0' },
+  { axis: 'rent', key: 'r50' },
+  { axis: 'rent', key: 'r60' },
+  { axis: 'rent', key: 'r70' },
   // 차종·연료는 손님이 «말로 하는» 조건이다 — 「SUV 있어요?」 「전기차 돼요?」가 상담 첫 마디다.
   // 값은 실측으로 다 차 있다(승용 342 · SUV 273 · 승합 92 / 전기 · 하이브리드 존재).
   { axis: 'vc', key: 'SUV', label: 'SUV' },
@@ -296,14 +303,82 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
           <div className="fp-shop-rail" style={{ paddingBlock: SHOP.sp.cozy }}>
             {QUICK.map((k) => (
               <ShopPill key={`${k.axis}:${k.key}`} on={query.sel[k.axis].includes(k.key)}
-                onClick={() => onToggle(k.axis, k.key)}>{k.label}</ShopPill>
+                onClick={() => onToggle(k.axis, k.key)}>{k.label || soloLabel(k.key) || k.key}</ShopPill>
             ))}
           </div>
         </div>
 
+        {/*
+          ★★**웹 머리 한 줄 — 「전체차량 · N대 중 1–M · 정렬」이 «같은 선»에 선다**
+            (사장님 2026-09-06 「그 **전체차량하고 검색차량하고 정렬순하고 같은 선상에 줄 맞춰** 주면
+            좋겠는데, 이런 식으로 맞출 건 맞추고」).
+          ⚠ 실측 — 셋이 **374 / 441 / 433** 으로 다 다른 높이에 있었다. 「전체차량」은 조건칸 «안»에,
+            나머지 둘은 목록 «머리»에 있어서다. 서로 다른 상자에 담겨 있으니 줄이 맞을 수가 없었다.
+          ⇒ 두 기둥을 **가로지르는 한 줄**로 뽑는다. 왼쪽 칸은 조건칸과 같은 폭(260)이라
+            「전체차량」이 그 기둥 위에 정확히 앉고, 오른쪽 칸은 목록 위에 앉는다.
+          ★폰은 이 줄이 없다 — 기둥이 없으니 가로지를 것도 없고, 목록 어깨 한 줄이 그 일을 한다.
+        */}
+        {!mobile ? (
+          <div style={{
+            /*
+             * ★**`baseline` 이다 — `center` 가 아니다.** 가운데로 맞추면 상자 «높이»가 맞을 뿐,
+             *   글자는 어긋난다(실측 384 / 379 / 379 — 왼쪽만 5px 내려앉았다). 왼쪽 칸에는 26px 짜리
+             *   숫자가 들어 있어 상자가 더 높고, 그 안에서 작은 글자는 숫자의 밑선에 걸려 있어서다.
+             *   **밑선으로 맞추면** 「전체차량」과 「N대 중 1–M」이 같은 선에 정확히 앉는다.
+             * ★정렬 고르개만 `center` 로 뺀다 — 고르개는 글자가 아니라 «상자»라 밑선이 없다.
+             */
+            display: 'flex', gap: SHOP.sp.pane, alignItems: 'baseline', marginTop: SHOP.sp.part,
+          }}>
+            <div style={{ width: 260, flexShrink: 0 }}>
+              <ShopCount value={countText} />
+            </div>
+            <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'baseline', gap: SHOP.sp.cozy }}>
+              {/*
+                ⚠ **걸린 조건 칩을 이 줄에 끼우지 않는다** — 한 번 그렇게 해 봤다가 물렀다
+                  (사장님 2026-09-06 「아니다. 그냥 **전체차량 그 밑에 라인**으로 나오게 하자.
+                  그게 맞겠다. **필터 거는 사람들은 그래야지 알겠지?**」).
+                  건수 옆에 이어 붙이면 「1대 중 1–1 · 월 대여료 50~60만 · 보증금 없음」이
+                  **한 문장으로 뭉쳐** 어디까지가 결과고 어디부터가 내가 건 조건인지 갈리지 않는다.
+                  조건은 **손님이 «되돌릴» 대상**이라 제 줄에서 눈에 띄어야 한다.
+              */}
+              <span style={{ fontSize: SHOP.fs.sub, color: C.mute, fontVariantNumeric: 'tabular-nums' }}>
+                {rows === null ? '불러오는 중' : `${list.length}대 중 1–${shown.length}`}
+              </span>
+              <div style={{ flex: 1 }} />
+              <span style={{ alignSelf: 'center', display: 'inline-flex' }}>
+                <ShopSort value={query.sort} options={SHOP_SORTS}
+                  onChange={(v) => setQuery((q) => ({ ...q, sort: v as ShopSortKey }))} />
+              </span>
+            </div>
+          </div>
+        ) : null}
+
+        {/*
+          ★★**걸린 조건은 「전체차량」 «바로 밑 줄»에 — 두 기둥을 가로질러 통째로 선다**
+            (사장님 2026-09-06 「그냥 **전체차량 그 밑에 라인**으로 나오게 하자. 그게 맞겠다.
+            **필터 거는 사람들은 그래야지 알겠지?**」).
+          ★왜 제 줄인가. 조건은 **손님이 «되돌릴» 대상**이다. 건수 옆에 이어 붙이면
+            「1대 중 1–1 · 월 대여료 50~60만」이 한 문장으로 뭉쳐, 어디까지가 결과고 어디부터가
+            내가 건 조건인지 갈리지 않는다. 제 줄에 있어야 「내가 이걸 걸었구나」가 한눈에 보인다.
+            (2026-09-06 에 건수 오른쪽으로 옮겼다가 **같은 날 되돌렸다** — 되돌리지 말 것.)
+          ⚠ 오른쪽 칸 «안»에 넣지 않는다. 그러면 조건을 걸 때만 카드가 밀려 **조건칸과 카드의
+            윗선이 어긋난다** — 조건을 걸수록 어긋나는 꼴이라 제일 나쁜 종류다.
+            두 기둥 «위»에 두면 조건칸과 카드가 **같이** 내려가 선이 유지된다.
+          ★조건이 없으면 아무것도 안 그린다(`ShopTokens` 가 빈 배열이면 `null`) — 자리를 미리
+            비워 두지 않는다(사장님 2026-09-06 「선택한 칩 공간은 미리 만들어 놓을 필요 없잖아」).
+          ★폰은 여기가 아니라 **제 어깨 줄(건수+정렬) 밑**이다 — 아래 `mobile ?` 를 보라.
+            규칙은 같다: **건수 밑줄.** 기둥이 없으니 가로지를 것이 없을 뿐이다.
+        */}
+        {!mobile ? (
+          <ShopTokens tokens={tokens}
+            onRemove={(axis, key) => onToggle(axis as ShopAxis, key)}
+            /* 0건이면 본문 한가운데 「처음부터 다시 찾기」가 그 일을 한다 — 문을 둘 두지 않는다. */
+            onClear={list.length ? onClearAll : undefined} />
+        ) : null}
+
         <div style={{
           display: 'flex', gap: SHOP.sp.pane, alignItems: 'flex-start',
-          marginTop: mobile ? SHOP.sp.snug : SHOP.sp.part,
+          marginTop: mobile ? SHOP.sp.snug : SHOP.sp.cozy,
         }}>
           {/*
             웹 조건칸도 «따라온다». 716대를 내려가다 조건을 바꾸려면 매번 맨 위로 올라가야 했다.
@@ -336,7 +411,6 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
                */
               alignSelf: 'flex-start',
             }}>
-              <div style={{ paddingBottom: SHOP.sp.edge }}><ShopCount value={countText} /></div>
               {/*
                 ⚠ 여기 있던 「필터」 제목과 「초기화」를 뺐다(2026-09-05 검토).
                   · 제목 — 바로 밑에 「차종·제조사·월 대여료…」 아홉이 굵게 서 있다. 아무도 안 읽는 라벨이
@@ -363,31 +437,51 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
                   ⇒ 회색은 «덩어리 전체»가 아니라 «작은 조각»에만 쓴다. 큰 면을 덮으면
                     조건칸이 목록과 다투고, 손님 눈이 제일 먼저 회색 덩어리로 간다.
               */}
-              <div>{filters}</div>
+              {/*
+                ★★**시안 A — 판을 «선»으로 만든다**(사장님 2026-09-06 「A 로 하고」).
+                  엔카·KB 는 회색 바탕 위 «흰 판 + 1px 테두리»인데, 손님 동은 바탕이 흰색이라
+                  흰 판을 얹어도 안 보인다. ⇒ **테두리와 둥글기만**으로 판을 세운다.
+                ⚠ 하루 전에 회색 면으로 덮었다가 「경계를 굳게 뭉치는 건 아닌 것 같다」고 걷었다 —
+                  선 하나는 «가두는» 게 아니라 «묶는» 것이라 그 지적과 어긋나지 않는다.
+                ★안쪽 위아래 여백은 4 — 첫 축 제목의 제 여백(11)과 겹쳐 15 가 된다.
+              */}
+              <div style={{
+                border: `1px solid ${C.line2}`, borderRadius: SHOP.r.card,
+                padding: `${SHOP.sp.tight}px ${SHOP.sp.edge}px`,
+              }}>{filters}</div>
             </aside>
           ) : null}
 
           <div style={{ flex: 1, minWidth: 0 }}>
-            <ShopTokens tokens={tokens}
-              onRemove={(axis, key) => onToggle(axis as ShopAxis, key)}
-              /* 0건이면 본문 한가운데 「처음부터 다시 찾기」가 그 일을 한다 — 문을 둘 두지 않는다. */
-              onClear={list.length ? onClearAll : undefined} />
-
-            {/* 목록 머리 = 격자의 어깨. 왼 기둥이 «전체»를 세므로 여기는 «지금 보이는 만큼»을 말한다. */}
+            {/*
+              폰 전용 머리줄 — 목록의 어깨다. **웹은 이 줄이 없다**: 「전체차량 · N대 중 1–M · 정렬」
+              셋이 두 기둥을 가로질러 «한 선»에 서기 때문이다(아래 `headRow` 머리말).
+            */}
+            {mobile ? (
             <div style={{
               display: 'flex', alignItems: 'center', gap: SHOP.sp.cozy,
-              /* 폰은 이 줄이 «머리»가 아니라 목록의 어깨다 — 위아래를 사다리 최소로 조인다. */
-              margin: mobile ? '4px 0 8px' : '24px 0 12px',
+              margin: '4px 0 8px',
             }}>
-              {mobile ? <ShopCount value={shownText} filtered={narrowed} /> : (
-                <span style={{ fontSize: SHOP.fs.sub, color: C.mute, fontVariantNumeric: 'tabular-nums' }}>
-                  {rows === null ? '불러오는 중' : `${list.length}대 중 1–${shown.length}`}
-                </span>
-              )}
+              <ShopCount value={shownText} filtered={narrowed} />
               <div style={{ flex: 1 }} />
               <ShopSort value={query.sort} options={SHOP_SORTS}
                 onChange={(v) => setQuery((q) => ({ ...q, sort: v as ShopSortKey }))} />
             </div>
+            ) : null}
+
+            {/*
+              ★폰도 **건수 «바로 밑 줄»**이다 — 웹과 같은 규칙이다(사장님 2026-09-06 「전체차량
+                그 밑에 라인으로」). 웹은 두 기둥을 가로지르는 줄이고 폰은 어깨 밑 줄일 뿐,
+                「건수 밑에 걸린 조건」이라는 짜임은 **양쪽이 같다.**
+              ⚠ 전에는 이 줄이 어깨 «위»(칩 줄 바로 밑)에 있었다 — 건수보다 먼저 나와
+                「몇 대인지」보다 「무엇을 걸었는지」가 앞서 읽혔다.
+              ★조건이 없으면 이 줄은 **아예 없다**(원자가 `null`) — 첫 화면에서 상품이 밀리지 않는다.
+            */}
+            {mobile ? (
+              <ShopTokens tokens={tokens}
+                onRemove={(axis, key) => onToggle(axis as ShopAxis, key)}
+                onClear={list.length ? onClearAll : undefined} />
+            ) : null}
 
             {rows === null ? (
               <Grid mobile={mobile}>
