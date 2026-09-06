@@ -526,8 +526,20 @@ must(/className="fp-onphoto"/.test(shopCard) && /className="fp-signal-chip"/.tes
  * ⚠ 되돌아가면 폰 본문이 다시 13px 이 된다 — 실측 438개 글자 중 259개가 그 크기였다.
  */
 must(/--shop-fs-body: 15px/.test(css) && /@media \(max-width: 760px\)/.test(css)
-  && /body: 'var\(--shop-fs-body\)'/.test(shopUi),
-  '손님 동 글자 사다리가 폰에서 안 올라갑니다 — 본문이 13px 로 내려앉습니다(폰 15 · 웹 14.5).',
+  && /body: 'var\(--shop-fs-body\)'/.test(shopUi)
+  /*
+   * ★★**글자는 사다리 «한 곳»에서만 온다**(사장님 2026-09-06 「규격만 통일돼서 움직일 수 있으면 돼.
+   *   **공통 규격으로 쓸 수 있게끔**」). 이름 열하나가 폰·웹 두 값을 CSS 변수로 쥔다.
+   * ⚠⚠ **손님 동은 업무동 토큰(`FS.*`)을 쓰지 않는다.** 그게 폰 화면에 14.5·13·12·11 을 만들어
+   *   글자 크기를 **12가지**로 벌려 놓은 출처였다. 업무동은 콕핏 규격(본문 12~13)이라 그 값이
+   *   섞이면 **폰 사다리를 올려도 그 글자만 안 따라온다** — 2026-09-05 에 한 번 겪은 사고다.
+   * ★예외 둘만 사다리 밖 — 워드마크(브랜드 타이포)와 검색 «입력칸» 폰 16 고정(iOS 확대 방지).
+   */
+  && /--shop-fs-price: 21px/.test(css) && /price: 'var\(--shop-fs-price\)'/.test(shopUi)
+  && /--shop-fs-tag/.test(css) && /--shop-fs-hero/.test(css)
+  && !/FS\.[a-z]/.test(shopUi) && !/FS\.[a-z]/.test(shopCard)
+  && !/FS\.[a-z]/.test(shopDetail) && !/FS\.[a-z]/.test(wlFrame),
+  '손님 동 글자가 사다리를 벗어났습니다 — 업무동 토큰(FS.*)을 섞었거나 숫자를 화면에 박았습니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-3');
 
 /*
@@ -555,10 +567,10 @@ must(/tight=\{columns > 1\}/.test(read('components/shop/ShopFilters.tsx'))
  *   테두리가 없어 여백만이 경계라 넓어야 한다(32 = 안의 4배). 안팎이 비슷해지면 넉 줄이 흩어진다.
  * ★★줄간격은 **균등**이다 — 위계는 여백이 아니라 «글자 크기»가 낸다(16/13.5/21/12.5).
  *   4·12·12 로 갈랐더니 들쭉날쭉했고, 4 로 다 붙였더니 한 문단으로 뭉갰다. 당근 실측도 8 균등이다.
- * ★대여료 21 = 차명(16)의 1.3배. 25 였을 때는 1.6배라 카드에서 **금액이 먼저 읽히고 차가 나중**이었다 —
+ * ★대여료 21(`fs.price`) = 차명 16(`fs.h2`)의 1.3배 — 값은 사다리(globals.css)가 쥔다. 25 였을 때는 1.6배라 카드에서 **금액이 먼저 읽히고 차가 나중**이었다 —
  *   손님이 고르는 것은 차고, 금액은 그 차의 값이다.
  */
-must(/fontSize: mobile \? 21 : 20, fontWeight: FW\.head/.test(shopCard)
+must(/fontSize: SHOP\.fs\.price, fontWeight: FW\.head/.test(shopCard)
   && /gap: mobile \? '32px 12px' : '32px 24px'/.test(shopView)
   /* 넉 줄은 «8 균등»이다(당근도 그렇다) — 위계는 여백이 아니라 글자 크기가 낸다. */
   && /gap: SHOP\.sp\.snug, minWidth: 0, flex: 1/.test(shopCard)

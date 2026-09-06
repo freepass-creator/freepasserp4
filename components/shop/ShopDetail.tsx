@@ -586,7 +586,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
             <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, whiteSpace: 'nowrap' }}>
               <span style={{ fontSize: SHOP.fs.sub, color: C.mute }}>월</span>
               <span style={{
-                fontSize: mobile ? 32 : 34, fontWeight: FW.head, color: C.ink,
+                fontSize: SHOP.fs.hero, fontWeight: FW.head, color: C.ink,
                 letterSpacing: '-0.045em', fontVariantNumeric: 'tabular-nums',
               }}>{manWon(plan.rent)}</span>
             </div>
@@ -708,7 +708,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
                           <span style={{
                             flex: '0 0 auto', padding: '2px 6px', borderRadius: 5,
                             background: C.brandBg, color: C.brand,
-                            fontSize: mobile ? 9.5 : 10.5, fontWeight: 700, letterSpacing: '-0.01em',
+                            fontSize: SHOP.fs.tag, fontWeight: 700, letterSpacing: '-0.01em',
                           }}>최저가</span>
                         ) : null}
                       </button>
@@ -789,7 +789,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
               <div style={{ marginBottom: SHOP.sp.edge }}>
                 <div style={{ fontSize: SHOP.fs.cap, color: C.faint, marginBottom: SHOP.sp.tight }}>제조사 · 세부모델 · 세부트림</div>
                 <div style={{
-                  fontSize: mobile ? 17 : 18, fontWeight: 800, color: C.ink,
+                  fontSize: SHOP.fs.lead, fontWeight: 800, color: C.ink,
                   letterSpacing: '-0.02em', wordBreak: 'keep-all', lineHeight: 1.4,
                 }}>{modelLine}</div>
               </div>
@@ -1035,7 +1035,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
 export function ShopDetailLead() {
   return (
     <span style={{
-      fontSize: 17, fontWeight: FW.head, color: C.ink, letterSpacing: '-0.02em', whiteSpace: 'nowrap',
+      fontSize: SHOP.fs.lead, fontWeight: FW.head, color: C.ink, letterSpacing: '-0.02em', whiteSpace: 'nowrap',
     }}>상품 상세</span>
   );
 }
@@ -1486,7 +1486,7 @@ function SecTitle({ children, icon: Icon, accent, tag }: {
        * «착지 표지»로 안 걸린다 — 눈이 제목을 읽어야 아는 크기다.
        * 차명(22)보다는 한 단 낮게 둬서 위계는 지킨다.
        */
-      fontSize: 20, fontWeight: 800, color: C.ink, letterSpacing: '-0.025em',
+      fontSize: SHOP.fs.sec, fontWeight: 800, color: C.ink, letterSpacing: '-0.025em',
     }}>
       {/*
        * ★아이콘을 **연한 사각 면 위에** 앉힌다(2026-09-05). 맨 글리프를 흐린 회색으로 두면
@@ -1560,7 +1560,7 @@ function Head({ title, facts, stateMarks, perkMarks }: {
           ⚠ 폰·웹이 «같다» — 한때 폰만 머리띠로 올렸다가 두 화면이 다른 물건이 됐다. 되돌렸다.
         */}
         <h1 style={{
-          margin: 0, fontSize: 22, fontWeight: FW.head, color: C.ink,
+          margin: 0, fontSize: SHOP.fs.h1, fontWeight: FW.head, color: C.ink,
           lineHeight: 1.3, letterSpacing: '-0.03em', minWidth: 0,
         }}>
           {title}

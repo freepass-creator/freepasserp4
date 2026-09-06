@@ -103,7 +103,7 @@ export function ShopFilterSheet({ facets, sel, onToggle, onClearAxis, onClearAll
                       flex: '0 0 auto', minWidth: 16, height: 16, padding: '0 4px', borderRadius: SHOP.r.pill,
                       display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
                       background: C.brand, color: C.inverse,
-                      fontSize: 10, fontWeight: FW.strong, fontVariantNumeric: 'tabular-nums',
+                      fontSize: SHOP.fs.tag, fontWeight: FW.strong, fontVariantNumeric: 'tabular-nums',
                     }}>{n}</span>
                   ) : null}
                 </button>

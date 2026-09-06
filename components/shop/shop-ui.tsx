@@ -77,8 +77,17 @@ export const SHOP = {
    * ⚠ 그래서 이 셋은 **문자열(`var(...)`)**이다. 숫자를 기대하는 자리(아이콘 크기 등)에 넣지 말 것.
    */
   fs: {
-    hero: 30, heroM: 22, h1: 20, h2: 16,
-    body: 'var(--shop-fs-body)', sub: 'var(--shop-fs-sub)', cap: 'var(--shop-fs-cap)',
+    hero: 'var(--shop-fs-hero)',   // 34 / 32  상세 요금
+    h1: 'var(--shop-fs-h1)',       // 30 / 22  화면 제목
+    num: 'var(--shop-fs-num)',     // 26 / 16  건수 숫자
+    sec: 'var(--shop-fs-sec)',     // 20 / 20  구역 제목
+    price: 'var(--shop-fs-price)', // 20 / 21  목록 대여료(폰이 더 크다)
+    lead: 'var(--shop-fs-lead)',   // 18 / 17  앞세우는 값
+    h2: 'var(--shop-fs-h2)',       // 16 / 16  카드 차명 · 시트 제목
+    body: 'var(--shop-fs-body)',   // 14.5 / 15
+    sub: 'var(--shop-fs-sub)',     // 13 / 13.5
+    cap: 'var(--shop-fs-cap)',     // 12 / 12.5
+    tag: 'var(--shop-fs-tag)',     // 10.5 / 10
   },
   /**
    * **여백 사다리 — 4의 배수 여섯 칸.** 손으로 찍은 숫자를 쓰지 않는다.
@@ -143,7 +152,7 @@ export function ShopSearch({ value, onChange, placeholder }: {
           flex: 1, minWidth: 0, height: '100%',
           border: 'none', outline: 'none', background: 'transparent',
           fontFamily: 'inherit', color: C.ink,
-          fontSize: 18, letterSpacing: '-0.02em',
+          fontSize: SHOP.fs.lead, letterSpacing: '-0.02em',
         }}
       />
       {value ? (
@@ -242,7 +251,7 @@ export function ShopIconBtn({ onClick, label, tone = 'mute', count, children }: 
           minWidth: 17, height: 17, padding: '0 4px', borderRadius: SHOP.r.pill,
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
           background: C.brand, color: C.inverse,
-          fontSize: 10, fontWeight: FW.strong, fontVariantNumeric: 'tabular-nums',
+          fontSize: SHOP.fs.tag, fontWeight: FW.strong, fontVariantNumeric: 'tabular-nums',
         }}>{count}</span>
       ) : null}
     </button>
@@ -422,7 +431,7 @@ export function ShopCount({ value, filtered }: { value: string; filtered?: boole
         {filtered ? '조건에 맞는 차량' : '전체차량'}
       </span>
       <span style={{
-        fontSize: mobile ? SHOP.fs.h2 : 26, fontWeight: 800, color: C.brand,
+        fontSize: SHOP.fs.num, fontWeight: 800, color: C.brand,
         letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums',
       }}>{value}</span>
       <span style={{ fontSize: mobile ? SHOP.fs.cap : SHOP.fs.sub, fontWeight: 700 }}>대</span>

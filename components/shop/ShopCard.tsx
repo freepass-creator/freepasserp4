@@ -268,7 +268,7 @@ export const ShopCard = memo(function ShopCard({ p, href }: {
                  *   먼저 읽히고 차가 나중에 읽혔다 — 손님이 고르는 것은 «차»고, 금액은 그 차의 값이다.
                  * ⇒ 21 = 차명의 1.3배. 여전히 이 줄에서 제일 큰 글자라 위계는 그대로다.
                  */
-                fontSize: mobile ? 21 : 20, fontWeight: FW.head, color: C.ink, flex: '0 0 auto',
+                fontSize: SHOP.fs.price, fontWeight: FW.head, color: C.ink, flex: '0 0 auto',
                 lineHeight: 1.15,  /* 큰 숫자일수록 기본 줄높이가 남긴 여백이 크다 — 여기서 제일 많이 붙는다. */
                 letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums',
               }}>{manShort(price.rent, { decimal: true })}</span>

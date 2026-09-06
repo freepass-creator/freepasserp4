@@ -1,7 +1,8 @@
 'use client';
 import { useState, type ReactNode } from 'react';
 import { Phone, X } from 'lucide-react';
-import { Btn, C, FS, FW, ICON, R_CARD, SH } from '@/components/ui';
+import { Btn, C, FW, ICON, R_CARD, SH } from '@/components/ui';
+import { SHOP } from '@/components/shop/shop-ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { hasBrand, whitelabelVars, type Whitelabel } from '@/lib/whitelabel';
 
@@ -134,8 +135,8 @@ export function WhitelabelFrame({
           {phone && !mobile ? (
             <>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
-                <span style={{ fontSize: FS.cap, color: C.faint }}>{who ? `담당 ${who}` : '고객센터'}</span>
-                <span style={{ fontSize: FS.title, fontWeight: FW.title, color: C.ink, fontVariantNumeric: 'tabular-nums' }}>
+                <span style={{ fontSize: SHOP.fs.cap, color: C.faint }}>{who ? `담당 ${who}` : '고객센터'}</span>
+                <span style={{ fontSize: SHOP.fs.body, fontWeight: FW.title, color: C.ink, fontVariantNumeric: 'tabular-nums' }}>
                   {phone}
                 </span>
               </div>
@@ -161,8 +162,8 @@ export function WhitelabelFrame({
             padding: '12px 16px 12px', display: 'flex', alignItems: 'center', gap: 12,
           }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 1, whiteSpace: 'nowrap' }}>
-              <span style={{ fontSize: FS.cap, color: C.faint }}>{who ? '담당' : '고객센터'}</span>
-              <span style={{ fontSize: FS.title, fontWeight: FW.title, color: C.ink }}>{who || phone}</span>
+              <span style={{ fontSize: SHOP.fs.cap, color: C.faint }}>{who ? '담당' : '고객센터'}</span>
+              <span style={{ fontSize: SHOP.fs.body, fontWeight: FW.title, color: C.ink }}>{who || phone}</span>
             </div>
             {/* ★손님 동 폼 규격 lg — 폰 48. 하단독의 주요 실행이라 손가락 규격을 넘겨 잡는다. */}
             <Btn href={telHref} full size="lg" title="담당자에게 전화합니다">
@@ -178,11 +179,11 @@ export function WhitelabelFrame({
             <span style={{ fontSize: 18, fontWeight: FW.head, letterSpacing: '-0.03em', color: C.faint }}>
               {wl.wordmark.main}
             </span>
-            <span style={{ fontSize: FS.cap, fontWeight: FW.meta, letterSpacing: '0.16em', color: C.faint }}>
+            <span style={{ fontSize: SHOP.fs.cap, fontWeight: FW.meta, letterSpacing: '0.16em', color: C.faint }}>
               {wl.wordmark.sub}
             </span>
           </div>
-          <div style={{ fontSize: FS.sub, color: C.faint, lineHeight: 1.9 }}>
+          <div style={{ fontSize: SHOP.fs.sub, color: C.faint, lineHeight: 1.9 }}>
             {wl.bizLines.map((line) => <div key={line}>{line}</div>)}
           </div>
           {/*
@@ -193,7 +194,7 @@ export function WhitelabelFrame({
           */}
           <a href="/login" style={{
             display: 'inline-block', marginTop: 14,
-            fontSize: FS.cap, color: C.faint, textDecoration: 'none',
+            fontSize: SHOP.fs.cap, color: C.faint, textDecoration: 'none',
           }}>로그인</a>
         </div>
       </footer>
@@ -224,11 +225,11 @@ function WhitelabelNotice({ wl, mobile }: { wl: Whitelabel; mobile: boolean }) {
       {/* ⚠ 폰 여백을 한 단 줄였다(사장님 2026-09-05 「간격이 너무 막 멀게 떨어져 있거나」) —
            이 블록이 폰 첫 화면에서 상품 앞에 서는 마지막 덩어리라, 여기서 번 세로가 곧 카드다. */}
       <div style={{ maxWidth: 1280, margin: '0 auto', padding: mobile ? '12px 16px 12px' : '24px 24px 24px', position: 'relative' }}>
-        <div style={{ fontSize: mobile ? 22 : 30, fontWeight: FW.head, letterSpacing: '-0.04em', lineHeight: 1.3, color: C.ink, paddingRight: mobile ? 34 : 44 }}>
+        <div style={{ fontSize: SHOP.fs.h1, fontWeight: FW.head, letterSpacing: '-0.04em', lineHeight: 1.3, color: C.ink, paddingRight: mobile ? 34 : 44 }}>
           {notice.title}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginTop: 8 }}>
-          <span style={{ fontSize: mobile ? FS.body : 15, color: C.sub, lineHeight: 1.6 }}>{notice.body}</span>
+          <span style={{ fontSize: SHOP.fs.body, color: C.sub, lineHeight: 1.6 }}>{notice.body}</span>
           {notice.moreLabel && notice.moreHref ? (
             <a href={notice.moreHref} style={{ fontSize: 14.5, fontWeight: FW.title, color: C.brand }}>
               {notice.moreLabel} ›
