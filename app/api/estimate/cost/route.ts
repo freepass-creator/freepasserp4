@@ -35,8 +35,10 @@ const DOC = 'estimate_cost';
 const RANGE: Record<keyof CostSettings, [number, number]> = {
   bondPct: [0, 20], regFee: [0, 5_000_000],
   deliveryFee: [0, 5_000_000], initPrepFee: [0, 10_000_000],
-  interestPct: [0, 30], loanPct: [0, 100],
-  maintMonthly: [0, 1_000_000], gpsMonthly: [0, 200_000], parkingMonthly: [0, 1_000_000],
+  // 신용 구간 A(정상)·B(중신용)·C(저신용) — 항목은 같고 값만 다르다.
+  interestAPct: [0, 30], interestBPct: [0, 30], interestCPct: [0, 30],
+  loanAPct: [0, 100], loanBPct: [0, 100], loanCPct: [0, 100],
+  maintMonthly: [0, 1_000_000], maintRatePct: [0, 20], gpsMonthly: [0, 200_000], parkingMonthly: [0, 1_000_000],
   inspectionFee: [0, 1_000_000],
   overheadPct: [0, 50], badDebtPct: [0, 50],
   salesFeePct: [0, 20],

@@ -217,7 +217,8 @@ function EstimatePageInner() {
 
   const cards = useMemo<Card[]>(() => {
     // 신차는 «출고가»라 업금액을 안 얹는다(중고는 매입가에 얹는다) — `configFrom` 이 갈래로 고른다.
-    const base = configFrom(cost, { newCar: isNew, path: acq });
+    // 신용 구간(A/B/C)에 따라 금리·대출비율이 갈린다 — 항목은 같고 값만 다르다.
+    const base = configFrom(cost, { newCar: isNew, path: acq, credit });
     // 수수료 칩은 영업자가 «건별»로 고른다 — 원가 설정의 기본값을 이 견적에서만 덮는다.
     const adminCfg = { ...base, setting: { ...base.setting, salesFeeRate: { rent: fee / 100, sub: fee / 100 } } };
     const raw: Record<number, number> = {};
