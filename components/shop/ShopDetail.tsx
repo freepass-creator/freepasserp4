@@ -790,7 +790,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
              */}
             {modelLine ? (
               <div style={{ marginBottom: SHOP.sp.edge }}>
-                <div style={{ fontSize: SHOP.fs.cap, color: C.faint, marginBottom: SHOP.sp.tight }}>제조사 · 세부모델 · 세부트림</div>
+                <div style={{ fontSize: SHOP.fs.cap, color: C.faint, marginBottom: 0 }}>제조사 · 세부모델 · 세부트림</div>
                 <div style={{
                   fontSize: SHOP.fs.lead, fontWeight: FW.head, color: C.ink,
                   letterSpacing: '-0.02em', wordBreak: 'keep-all', lineHeight: 1.4,
@@ -812,7 +812,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
              */}
             {options.length ? (
               <div aria-label="선택 옵션" style={{ marginBottom: SHOP.sp.edge }}>
-                <div style={{ marginBottom: SHOP.sp.tight, fontSize: SHOP.fs.cap, color: C.faint }}>선택 옵션</div>
+                <div style={{ marginBottom: 0, fontSize: SHOP.fs.cap, color: C.faint }}>선택 옵션</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: SHOP.sp.snug }}>
                   {options.map((o) => (
                     <span key={o} style={{
@@ -834,7 +834,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
              */}
             {colorText ? (
               <div aria-label="색상" style={{ marginBottom: specs.length ? SHOP.sp.edge : 0 }}>
-                <div style={{ marginBottom: SHOP.sp.tight, fontSize: SHOP.fs.cap, color: C.faint }}>색상</div>
+                <div style={{ marginBottom: 0, fontSize: SHOP.fs.cap, color: C.faint }}>색상</div>
                 <div style={{
                   display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: SHOP.sp.edge, rowGap: SHOP.sp.tight,
                   fontSize: SHOP.fs.body, fontWeight: 700, color: C.ink,
@@ -1141,9 +1141,30 @@ function TopBar({ code, title, listHref }: { code: string; title: string; listHr
  * | 구역 ↔ 구역 | 위 `part`(24) · 띠 8 · 아래 `edge`(16) | `Rule` |
  * | 구역 제목 ↔ 본문 | `edge`(16) | `SecTitle` |
  * | 무리 ↔ 무리 | **`edge`(16)** | 이름줄·선택옵션·색상 / 보상한도·면책금·긴급출동 / 표·납부 |
- * | 라벨 ↔ 값 | 무리 제목은 `snug`(8) · 칸 라벨은 `tight`(4) | |
+ * | 항목 ↔ 내용(한 세트) | **0** — 글자 사이 여백이 이미 4를 만든다 | |
+ * | 무리 제목 ↔ 값 | `snug`(8) | |
  *
-' * ★★**무리 사이는 «16»이다 — 24 가 아니다**(사장님 2026-09-06 「너무 이렇게 **멀찍멀찍**
+/**
+ * ★★★**위계는 «눈에 보이는 간격»으로 잰다 — 코드 숫자가 아니라**(사장님 2026-09-06
+ *   「항목이랑 내용이 있고 그게 **한 세트**잖아. 그럼 **그 밑에는 고거보다는 쪼끔 간격이 멀어야**
+ *   되고. 그런 거를 **위계를 명확하게** 해줘야지」).
+ *
+ * ⚠⚠ 상자 여백과 «보이는 간격»은 다르다. 글자 상자에는 위아래로 줄간격(leading)이 붙어 있어
+ *   **코드로 적은 값 + 약 4px** 이 실제로 보이는 간격이다(2026-09-06 실측).
+ *   그래서 코드만 보고 「4 대 8 이니 두 배」라고 여기면 틀린다 — 눈에는 **8 대 12**, 겨우 1.5배다.
+ *   사장님이 「위계가 안 보인다」 하신 것이 정확히 그것이었다.
+ *
+ * ★그래서 «보이는 간격»을 사다리로 잡고, 코드 값은 거기서 역산한다:
+ * ```
+ *   보이는 간격   코드      무엇
+ *      4         0        항목 ↔ 내용   ← 한 세트. 제일 붙는다
+ *     12         8        칸 ↔ 칸       ← 세트 사이
+ *     20        16        무리 ↔ 무리
+ *     28        24        구역 제목 ↔ 본문 · 구역 경계(+띠 8)
+ * ```
+ *   **8px 씩 벌어진다** — 한 단 올라갈 때마다 눈에 확실히 한 칸 멀어진다.
+ * ⚠ 항목↔내용을 `0` 으로 적는 것이 「붙여 버린 것」이 아니다 — 줄간격이 이미 4를 만든다.
+ * ★★**무리 사이는 «16»이다 — 24 가 아니다**(사장님 2026-09-06 「너무 이렇게 **멀찍멀찍**
  *   안 떨어지고」). 처음에 24 로 통일했더니 값은 하나가 됐지만 **더 넓어졌다** —
  *   차량 정보가 432 → 440 이 됐다. 통일이 목적이 아니라 «짜임새»가 목적이다.
  *   16 으로 내리니 본문이 **2,483 → 2,427**(−56)이고, 폰 첫 화면에 색상 줄까지 들어온다.
@@ -1228,7 +1249,7 @@ function Facts({ rows, cols, mobile }: {
     return (
       <div key={key} style={{ minWidth: minWidth ?? 0 }}>
         <div style={{
-          fontSize: SHOP.fs.cap, color: C.faint, marginBottom: SHOP.sp.tight, letterSpacing: '0.01em',
+          fontSize: SHOP.fs.cap, color: C.faint, marginBottom: 0, letterSpacing: '0.01em',
         }}>{k}</div>
         <div style={{
           fontSize: SHOP.fs.body, fontWeight: 700, color: C.ink,
