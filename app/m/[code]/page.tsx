@@ -120,8 +120,18 @@ export default function Detail() {
       if (!alive || refreshing || document.visibilityState === 'hidden') return;
       refreshing = true;
       try {
+        /*
+         * ★★**`getFresh` 다 — `get` 이 아니다**(2026-09-06 코덱스 검수).
+         *   `get()` 은 «홈 목록 캐시»를 먼저 본다(`lib/store` 머리말 — 상세로 즉시 넘어가려고 그렇게 짰다).
+         *   그 캐시는 **세션 내내 유지**되므로, 60초마다 물어도 **처음 받아 둔 옛 상태**를 그대로 돌려준다 —
+         *   「다시 읽는다」고 해 놓고 사실은 아무것도 다시 안 읽는 꼴이었다.
+         *   ⇒ 캐시를 건너뛰는 단건 조회를 쓴다. 값이 비싸지만 60초에 한 번, 열어 둔 상세에서만이다.
+         */
         const store = getStore();
-        const fresh = await store.get('product', co, key);
+        /* 어댑터에 따라 `getFresh` 가 없을 수 있다 — 있으면 그걸, 없으면 예전대로(엔진과 같은 꼴). */
+        const fresh = await (store.getFresh
+          ? store.getFresh('product', co, key)
+          : store.get('product', co, key));
         if (!alive || !fresh) return;
         const status = String(fresh.vehicle_status || '').trim();
         if (!status) return;

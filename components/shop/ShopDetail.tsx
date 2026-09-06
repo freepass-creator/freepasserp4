@@ -14,6 +14,7 @@ import { useIsMobile } from '@/lib/use-mobile';
 import { useProductPhotos } from '@/components/use-product-photos';
 import { haptic } from '@/lib/haptics';
 import { getAuthClient } from '@/lib/firebase/client';
+import { useSession, useAuthReady } from '@/lib/auth-context';
 import { creditDisplay, CREDIT_UNSET, parseProductOptions, priceList } from '@/lib/domain/product';
 import { PERKS, hasPerk } from '@/lib/domain/product-filters';
 import { vehicleNameOf } from '@/lib/domain/vehicle-name';
@@ -754,8 +755,9 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
        *   가로로는 펴진다(사장님 2026-09-05 「가로로 이렇게 좀 펼쳐져서 보인다든가」).
        */
       maxWidth: mobile ? 940 : 1120, margin: '0 auto',
-      // 하단 고정독이 마지막 줄을 덮지 않게 그만큼 비운다.
-      padding: mobile ? '16px 16px 108px' : '24px 24px 40px',
+      /* ⚠ 하단독 자리는 «원자»가 비운다(`ShopDock fixed` 가 제 높이만큼 자리표를 놓는다).
+         여기서 또 108 을 비우면 폰 상세 끝에 빈 화면이 두 겹으로 남는다(2026-09-06 코덱스 검수). */
+      padding: mobile ? `${SHOP.sp.edge}px ${SHOP.sp.edge}px ${SHOP.sp.part}px` : '24px 24px 40px',
     }}>
       {/*
         ★★**웹도 폰과 같은 «한 줄 스크롤»이다**(사장님 2026-09-05 「저 대여료를 꼭 사진 우측에서
@@ -1360,23 +1362,33 @@ type InsideBody = {
 };
 function ShopInside({ code, mobile }: { code: string; mobile?: boolean }) {
   const [inside, setInside] = useState<InsideBody | null>(null);
+  /*
+   * ★★**로그인 상태를 «구독»한다 — 한 번 물어보고 마는 게 아니다**(2026-09-06 코덱스 검수).
+   *   ㉠ 처음 그릴 때 `currentUser` 는 **대개 null 이다.** 인증 복원은 비동기라 한 박자 늦게 온다 —
+   *     그 순간만 보고 판단하면 **로그인한 영업자에게도 칸이 영영 안 뜬다.**
+   *   ㉡ 반대로 다른 탭에서 «로그아웃»하면, 이미 그려 둔 칸에 내부값이 그대로 남는다.
+   *   ⇒ `useSession`/`useAuthReady` 를 의존성에 걸어 **로그인하면 받아오고 · 나가면 지운다.**
+   */
+  const session = useSession();
+  const authReady = useAuthReady();
   useEffect(() => {
-    if (!code) return;
+    if (!code || !authReady) return;
+    if (!session) { setInside(null); return; }   // 나가면 그 자리에서 지운다
     let alive = true;
     (async () => {
       try {
-        /* 로그인 안 했으면 «묻지도 않는다» — 손님 화면에서 401 을 만들 이유가 없다. */
         const user = getAuthClient()?.currentUser;
         if (!user) return;
         const res = await fetch(`/api/shop/inside?code=${encodeURIComponent(code)}`, {
           headers: { Authorization: `Bearer ${await user.getIdToken()}` }, cache: 'no-store',
         });
-        if (!alive || !res.ok) return;
+        if (!alive) return;
+        if (!res.ok) { setInside(null); return; }   // 403(남의 공급사 차)도 여기로 온다
         setInside(await res.json() as InsideBody);
       } catch { /* 못 받으면 칸이 안 생긴다 — 손님 화면이 깨지는 쪽이 훨씬 나쁘다 */ }
     })();
     return () => { alive = false; };
-  }, [code]);
+  }, [code, authReady, session]);
 
   if (!inside) return null;
   const when = inside.updatedAt

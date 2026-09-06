@@ -169,7 +169,7 @@ export function ShopFilterSheet({ sel, preview, onApply, onClose }: {
           ⚠ 비주요를 «감싸지» 않는다 — 폭 규칙이 직계 자식에 걸린다(집 규격 하단독과 같은 함정).
         */}
         {/* ★독은 원자다(`ShopDock`) — 상세·목록과 «같은 것»을 쓴다. 손으로 다시 짜면 또 갈린다. */}
-        <ShopDock side={<ShopDockAction tone="quiet" onClick={onClose}>닫기</ShopDockAction>}>
+        <ShopDock safe side={<ShopDockAction tone="quiet" onClick={onClose}>닫기</ShopDockAction>}>
           <ShopDockAction onClick={() => onApply(draft)}>
             {resultCount.toLocaleString('ko-KR')}대 보기
           </ShopDockAction>

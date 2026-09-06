@@ -336,8 +336,14 @@ export function ShopRevealSearch({ value, onChange, onClose, placeholder }: {
  * ★`fixed` 면 바닥에 붙고 **제 높이만큼 자리를 밀어 준다**(본문 끝이 독에 가리지 않게).
  */
 const dockPad = { y: SHOP.sp.cozy, x: SHOP.sp.edge };
-export function ShopDock({ fixed, side, sideWidth = 92, children }: {
+export function ShopDock({ fixed, safe, side, sideWidth = 92, children }: {
   fixed?: boolean;
+  /**
+   * 바닥에 «닿아» 있나 — 아이폰 홈 인디케이터를 피한다. `fixed` 면 저절로 참이다.
+   * ⚠ 시트처럼 «제가 fixed 는 아니지만 화면 바닥에 붙는» 독은 이걸 켜야 한다
+   *   (2026-09-06 코덱스 검수 — 조건 시트 버튼이 홈 인디케이터에 깔릴 수 있었다).
+   */
+  safe?: boolean;
   /** 왼쪽 «비주요» 칸 — 없으면 주요가 줄 전체를 쓴다. */
   side?: ReactNode;
   /** 고정폭(기본 92). 글자 블록처럼 폭이 내용에 달린 것은 `'auto'`. */
@@ -355,11 +361,11 @@ export function ShopDock({ fixed, side, sideWidth = 92, children }: {
         display: 'flex', alignItems: 'center', gap: SHOP.sp.snug,
         background: C.bg, borderTop: `1px solid ${C.line}`,
         padding: `${dockPad.y}px ${dockPad.x}px`,
-        ...(fixed ? {
-          position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 20,
-          /* ★아이폰 홈 인디케이터 — 이걸 안 보면 버튼 아랫부분이 깔린다(검수 실측). */
-          paddingBottom: `calc(${dockPad.y}px + var(--fp-dock-safe, env(safe-area-inset-bottom)))`,
-        } : { flex: '0 0 auto' }),
+        ...(fixed ? { position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 20 } : { flex: '0 0 auto' }),
+        /* ★아이폰 홈 인디케이터 — 이걸 안 보면 버튼 아랫부분이 깔린다(검수 실측). */
+        ...(fixed || safe
+          ? { paddingBottom: `calc(${dockPad.y}px + var(--fp-dock-safe, env(safe-area-inset-bottom)))` }
+          : null),
       }}>
         {side ? (
           <div style={{ ...cell, flex: sideWidth === 'auto' ? '0 0 auto' : `0 0 ${sideWidth}px` }}>{side}</div>
