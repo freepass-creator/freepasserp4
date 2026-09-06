@@ -69,7 +69,7 @@ function Pin({ value, unit, w, onChange, disabled }: {
 }
 
 /**
- * 원가 한 줄 — 이름(짧은 설명) · 축 뱃지 · 값. `help` 가 있으면 이름 옆에 **ⓘ**가 서고,
+ * 원가 한 줄 — 이름 · 값. `help` 가 있으면 이름 옆에 **ⓘ**가 서고,
  * 커서를 올리거나(웹) 누르면(폰) 그 아래로 **긴 설명**이 펼쳐진다.
  *
  * ★사장님 2026-09-06 「원가 항목들이 우리가 **렌터카 처음 하는 사람들도 이 구조를 이해해서**
@@ -79,8 +79,8 @@ function Pin({ value, unit, w, onChange, disabled }: {
  *     줄마다 설명이 깔리면 «값»이 안 보인다. 원가 화면은 값을 넣는 곳이지 읽는 곳이 아니다.
  * ⚠ 폰에는 hover 가 없다 — 그래서 «누름»도 같이 받는다. 하나만 두면 한쪽에서 안 열린다.
  */
-function ORow({ label, help, axis, first, children }: {
-  label: string; help?: React.ReactNode; axis?: 'ch' | 'cr'; first?: boolean; children: React.ReactNode;
+function ORow({ label, help, first, children }: {
+  label: string; help?: React.ReactNode; first?: boolean; children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
   const [hover, setHover] = useState(false);
@@ -101,10 +101,6 @@ function ORow({ label, help, axis, first, children }: {
             >?</button>
           ) : null}
         </span>
-        {/* 이 값이 «위 어느 줄»을 바꾸면 달라지는지 — 뱃지가 그 줄을 가리킨다.
-            ⚠ 「채널」이라 부르던 것을 바꿨다(사장님 2026-09-06 「채널 뱃지 그 뭔지 모르겠네」) —
-              우리 ERP 에서 «영업채널»은 영업 파트너사를 뜻해 같은 말이 두 가지가 된다. */}
-        {axis ? <span className={`ax ${axis}`}>{axis === 'ch' ? '렌트·구독' : 'A/B/C'}</span> : null}
         {children}
       </div>
       {help && (open || hover) ? <div className="ohelp">{help}</div> : null}
@@ -194,54 +190,63 @@ function EstimateCostPageInner() {
           </div>
         ) : null}
 
-        {/* ① 원가 정책 — «렌트/구독» × «A/B/C» 조합마다 다른 값 */}
+        {/* ① 렌트 · 구독으로 갈리는 값
+            ★뱃지를 걷고 카드를 축마다 갈랐다 — 사장님 2026-09-06 「이거 직관적이지 못한데」.
+              한 카드에 두 축을 담고 줄마다 「이건 어느 축」이라 뱃지로 일러 주면, 세그를 눌러도
+              «일부 줄만» 바뀐다. 무엇을 바꾼 건지 화면이 말해 주지 않으니 뱃지를 읽어야 알았다.
+              ⇒ 축마다 카드를 나누고 **그 축의 세그를 그 값들 바로 위에** 둔다.
+                붙어 있으면 설명이 필요 없다 — 위를 누르면 아래가 통째로 바뀐다. */}
         <div className="card">
-          {/* 「비공통」도 무슨 말인지 모른다 — 무엇이 어떻게 되는지로 바꿨다. */}
-          <div className="step"><span className="no">1</span>원가 정책<span className="veh dim">조합마다 다름</span></div>
+          <div className="step"><span className="no">1</span>렌트 · 구독으로 갈리는 값</div>
           <Seg tone="t2" opts={CHANNELS} cur={polCh} onPick={setPolCh} />
-          <Seg tone="t3" opts={CREDITS} cur={polCr} onPick={setPolCr} />
           <div style={{ marginTop: 12 }}>
-            <ORow first label="취득세율" help={<>차를 살 때 <b>한 번</b> 내는 세금. <b>법정 세율</b>이라 우리가 못 정한다 — 렌트(영업용) 4% · 구독(비영업용) 7%. 취득원가(부가세 제외)에 곱한다.</>} axis="ch">
+            <ORow first label="취득세율" help={<>차를 살 때 <b>한 번</b> 내는 세금. <b>법정 세율</b>이라 우리가 못 정한다 — 렌트(영업용) 4% · 구독(비영업용) 7%. 취득원가(부가세 제외)에 곱한다.</>}>
               <Pin unit="%" value={isRent ? cs.acqTaxRentPct : cs.acqTaxSubPct}
                 onChange={(v) => set(isRent ? 'acqTaxRentPct' : 'acqTaxSubPct', num(v))} />
             </ORow>
-            <ORow label="연간 자동차보험료" help={<>대인·대물·자손. <b>렌트는 회사 명의</b>라 우리가 든다. <b>구독은 보통 고객 명의</b>라 0 으로 둔다. 약정 기간만큼 해마다 나간다.</>} axis="ch">
+            <ORow label="연간 자동차보험료" help={<>대인·대물·자손. <b>렌트는 회사 명의</b>라 우리가 든다. <b>구독은 보통 고객 명의</b>라 0 으로 둔다. 약정 기간만큼 해마다 나간다.</>}>
               <Pin w unit="원" value={comma(isRent ? cs.insRentYear : cs.insSubYear)}
                 onChange={(v) => set(isRent ? 'insRentYear' : 'insSubYear', num(v))} />
             </ORow>
             {/* 자차는 길이 둘이다 — 자체 충당(차량가 ×%/년)과 자차보험 가입(정액 원/년). 둘 다 넣으면 더해진다. */}
-            <ORow label="자차 · 자체 충당" help={<>자차보험을 안 들고 <b>우리가 적립해 두는 돈</b>. 사고가 나면 여기서 고친다. 차값의 <b>연 1~2%</b>가 실무이고, 보험사가 받는 자차 요율과 비슷한 자리다.</>} axis="ch">
+            <ORow label="자차 · 자체 충당" help={<>자차보험을 안 들고 <b>우리가 적립해 두는 돈</b>. 사고가 나면 여기서 고친다. 차값의 <b>연 1~2%</b>가 실무이고, 보험사가 받는 자차 요율과 비슷한 자리다.</>}>
               <Pin unit="%" value={isRent ? cs.selfRentPct : cs.selfSubPct}
                 onChange={(v) => set(isRent ? 'selfRentPct' : 'selfSubPct', num(v))} />
             </ORow>
-            <ORow label="자차 · 보험 가입" help={<>자차를 <b>보험으로 드는 경우</b>의 연 보험료(정액). 위 «자체 충당»과 둘 중 하나를 쓰거나 섞어서 쓴다 — 둘 다 넣으면 더해진다.</>} axis="ch">
+            <ORow label="자차 · 보험 가입" help={<>자차를 <b>보험으로 드는 경우</b>의 연 보험료(정액). 위 «자체 충당»과 둘 중 하나를 쓰거나 섞어서 쓴다 — 둘 다 넣으면 더해진다.</>}>
               <Pin w unit="원" value={comma(isRent ? cs.selfInsRentYear : cs.selfInsSubYear)}
                 onChange={(v) => set(isRent ? 'selfInsRentYear' : 'selfInsSubYear', num(v))} />
             </ORow>
-            <ORow label="목표 수익률" help={<>원가 위에 얹는 <b>이익</b>. 10%면 원가 100만짜리를 110만에 판다. ⚠ 여기를 올리는 대신 <b>잔가를 올리거나 원가를 줄여</b> 값을 맞출 수도 있다 — 어느 손잡이를 쓸지는 회사가 정한다.</>} axis="ch">
+            <ORow label="목표 수익률" help={<>원가 위에 얹는 <b>이익</b>. 10%면 원가 100만짜리를 110만에 판다. ⚠ 여기를 올리는 대신 <b>잔가를 올리거나 원가를 줄여</b> 값을 맞출 수도 있다 — 어느 손잡이를 쓸지는 회사가 정한다.</>}>
               <Pin unit="%" value={isRent ? cs.marginRentPct : cs.marginSubPct}
                 onChange={(v) => set(isRent ? 'marginRentPct' : 'marginSubPct', num(v))} />
             </ORow>
-
-            <ORow label="반납률 (계약 유지율)" help={<>계약한 100대 중 <b>끝까지 타는 비율</b>. 30%면 4년 동안 차 한 대가 평균 <b>2.33번 손바뀐다</b>(1÷0.3−1). 손바뀔 때마다 상품화·탁송·수수료·휴차가 다시 나가므로, <b>이 값이 저신용 원가의 핵심</b>이다.</>} axis="cr">
-              <Pin unit="%" value={cs[BAND_KEY[polCr].ret]} onChange={(v) => set(BAND_KEY[polCr].ret, num(v))} />
-            </ORow>
-            <ORow label="조달금리" help={<>차 살 돈을 빌리는 <b>연 이자율</b>. 아래 대출비율만큼만 빌리므로 이자도 그만큼만 붙는다. 저신용 구간은 조달 조건이 나빠 높게 잡을 수 있다.</>} axis="cr">
-              <Pin unit="%" value={cs[BAND_KEY[polCr].interest]} onChange={(v) => set(BAND_KEY[polCr].interest, num(v))} />
-            </ORow>
-            <ORow label="대출 비율" help={<>취득원가 중 <b>빌리는 비율</b>. 나머지는 <b>우리 현금</b>이다 — 3,000만 차를 80% 빌리면 545만(부가세 제외분)이 현금으로 들어가고, 그만큼 이자가 안 붙어 원가가 낮아진다. ⚠ 그 현금의 <b>기회비용은 원가에 안 넣는다</b> — 회사가 알아서 판단할 몫이다.</>} axis="cr">
-              <Pin unit="%" value={cs[BAND_KEY[polCr].loan]} onChange={(v) => set(BAND_KEY[polCr].loan, num(v))} />
-            </ORow>
-            <ORow label="영업수수료 상한" help={<>한 건에 지급하는 영업수수료의 <b>천장</b>. 차값이 비싸도 이 금액을 넘지 않는다.</>} axis="cr">
-              <Pin w unit="원" value="2,200,000" disabled />
-            </ORow>
           </div>
-          <div className="onote">이 조합만의 원가를 편집 · <b>채널</b>=렌트/구독으로 갈림 · <b>신용</b>=신용등급으로 갈림 · 신차 전용 개별소비세는 법정 자동 · 나머지는 아래 <b>공통 원가</b></div>
+          <div className="onote">지금 <b>{isRent ? '렌트' : '구독'}</b> 값을 고치는 중 — 위를 누르면 반대쪽 값이 나온다</div>
         </div>
 
-        {/* ② 취득 */}
+        {/* ② 신용 A·B·C 로 갈리는 값 — 항목은 셋 다 같고 값만 다르다(사장님 2026-09-06
+            「원가 항목은 다 같은데 그 저신용, 중신용 그거를 구간을 나눠 놓는 거지」). */}
         <div className="card">
-          <div className="step"><span className="no">2</span>취득 원가<span className="veh dim">자본화 → 감가</span></div>
+          <div className="step"><span className="no">2</span>신용 A · B · C 로 갈리는 값</div>
+          <Seg tone="t3" opts={CREDITS} cur={polCr} onPick={setPolCr} />
+          <div style={{ marginTop: 12 }}>
+            <ORow first label="반납률 (계약 유지율)" help={<>계약한 100대 중 <b>끝까지 타는 비율</b>. 30%면 4년 동안 차 한 대가 평균 <b>2.33번 손바뀐다</b>(1÷0.3−1). 손바뀔 때마다 상품화·탁송·수수료·휴차가 다시 나가므로, <b>이 값이 저신용 원가의 핵심</b>이다.</>}>
+              <Pin unit="%" value={cs[BAND_KEY[polCr].ret]} onChange={(v) => set(BAND_KEY[polCr].ret, num(v))} />
+            </ORow>
+            <ORow label="조달금리" help={<>차 살 돈을 빌리는 <b>연 이자율</b>. 아래 대출비율만큼만 빌리므로 이자도 그만큼만 붙는다. 저신용 구간은 조달 조건이 나빠 높게 잡을 수 있다.</>}>
+              <Pin unit="%" value={cs[BAND_KEY[polCr].interest]} onChange={(v) => set(BAND_KEY[polCr].interest, num(v))} />
+            </ORow>
+            <ORow label="대출 비율" help={<>취득원가 중 <b>빌리는 비율</b>. 나머지는 <b>우리 현금</b>이다 — 3,000만 차를 80% 빌리면 545만(부가세 제외분)이 현금으로 들어가고, 그만큼 이자가 안 붙어 원가가 낮아진다. ⚠ 그 현금의 <b>기회비용은 원가에 안 넣는다</b> — 회사가 알아서 판단할 몫이다.</>}>
+              <Pin unit="%" value={cs[BAND_KEY[polCr].loan]} onChange={(v) => set(BAND_KEY[polCr].loan, num(v))} />
+            </ORow>
+          </div>
+          <div className="onote">지금 <b>{polCr}</b> 값을 고치는 중 — 원가 «항목»은 셋 다 같고 <b>값만</b> 다르게 넣는다</div>
+        </div>
+
+        {/* ③ 취득 */}
+        <div className="card">
+          <div className="step"><span className="no">3</span>취득 원가<span className="veh dim">자본화 → 감가</span></div>
           <ORow first label="차량 매입 할인" help={<>사 올 때 받은 할인. <b>견적 화면에서 건별로</b> 고른다 — 차마다 다르므로 여기서 미리 못 정한다.</>}><Pin unit="%" value={0} disabled /></ORow>
           <ORow label="개별소비세" help={<>신차 값에 이미 들어 있는 세금(5%＋교육세 30%). 렌터카는 원래 면세지만 <b>6개월 이상 같은 사람에게 빌려주면 면세 요건을 못 채워</b> 우리가 문다 — 그래서 원가로 남는다. 법정이라 못 고친다.</>}><Pin unit="%" value={5} disabled /></ORow>
           <ORow label="차량가 업금액 · 중고" help={<>매입가에 얹어 <b>취득원가</b>를 만드는 값. ⚠ 얹은 금액은 <b>취득에만 붙고 잔가에는 안 붙어 통째로 감가</b>가 된다 — 손님이 4년에 걸쳐 그 돈을 낸다. <b>0 을 권한다.</b> 마진은 위 «목표 수익률»에서 잡는 게 맞다.</>}>
@@ -258,7 +263,7 @@ function EstimateCostPageInner() {
 
         {/* ④ 직접 운영비 */}
         <div className="card">
-          <div className="step"><span className="no">3</span>직접 운영비<span className="veh dim">매출원가 · 기간 누적</span></div>
+          <div className="step"><span className="no">4</span>직접 운영비<span className="veh dim">매출원가 · 기간 누적</span></div>
           <ORow first label="자동차세" help={<>배기량 × cc단가 × 년수. <b>법정</b>이라 자동 계산한다. ⚠ 영업용(렌트)이 훨씬 싸다 — cc당 18/19/24원, 비영업용(구독)은 104/182/260원.</>}><span className="na">자동</span></ORow>
           {/* 정비는 «비율»과 «정액» 둘 다 — 항목마다 맞는 쪽이 있다(사장님 2026-09-06). 둘 다 넣으면 더해진다. */}
           <ORow label="정비비 · 정액" help={<>달마다 나가는 정비비. 월 정액으로 계약한 경우 여기에 넣는다.</>}><Pin w unit="원/월" value={comma(cs.maintMonthly)} onChange={(v) => set('maintMonthly', num(v))} /></ORow>
@@ -271,9 +276,9 @@ function EstimateCostPageInner() {
           <ORow label="EW 연장보증" help={<>제조사 보증이 끝난 뒤의 연장보증. <b>렌트 반납형</b>만 해당한다.</>}><Pin w unit="원/년" value={comma(cs.ewYear)} onChange={(v) => set('ewYear', num(v))} /></ORow>
         </div>
 
-        {/* ④ 종료 실비 — 계약이 끝날 때 반드시 드는 돈. 기보유에도 붙는다(들여올 때는 안 들어도 나갈 때는 든다). */}
+        {/* ⑤ 종료 실비 — 계약이 끝날 때 반드시 드는 돈. 기보유에도 붙는다(들여올 때는 안 들어도 나갈 때는 든다). */}
         <div className="card">
-          <div className="step"><span className="no">4</span>종료 실비<span className="veh dim">반납형만</span></div>
+          <div className="step"><span className="no">5</span>종료 실비<span className="veh dim">반납형만</span></div>
           <ORow first label="회수 탁송료" help={<>계약이 끝나고 <b>차를 가져오는 값</b>. 들여올 때 안 들었어도(기보유) <b>나갈 때는 든다.</b></>}>
             <Pin w unit="원" value={comma(cs.returnDeliveryFee)} onChange={(v) => set('returnDeliveryFee', num(v))} />
           </ORow>
@@ -283,17 +288,18 @@ function EstimateCostPageInner() {
           <div className="onote">인수형은 고객이 차를 가져가므로 회수도 매각도 없다 — 이 둘은 <b>반납형에만</b> 붙는다.</div>
         </div>
 
-        {/* ⑤ 판관비·수수료 */}
+        {/* ⑥ 판관비·수수료 */}
         <div className="card">
-          <div className="step"><span className="no">5</span>판매관리비 · 수수료<span className="veh dim">SG&amp;A · 공통</span></div>
+          <div className="step"><span className="no">6</span>판매관리비 · 수수료<span className="veh dim">SG&amp;A · 공통</span></div>
           <ORow first label="영업수수료율 기본값" help={<>영업자에게 주는 수수료. <b>차량가 대비 %</b>이고, 견적 화면에서 건별로 조정할 수 있다.</>}><Pin unit="%" value={cs.salesFeePct} onChange={(v) => set('salesFeePct', num(v))} /></ORow>
+          <ORow label="영업수수료 상한" help={<>한 건에 지급하는 영업수수료의 <b>천장</b>. 차값이 비싸도 이 금액을 넘지 않는다. 신용 구간과 무관한 <b>공통값</b>이다.</>}><Pin w unit="원" value="2,200,000" disabled /></ORow>
           <ORow label="일반관리·간접비 배분율" help={<>사무실·인건비 같은 <b>회사 운영비</b>를 차 한 대에 나눠 붙이는 비율. <b>0 이면 안 넣는 것</b>이다 — 순수 직접원가만 보고 싶으면 0 으로 둔다.</>}><Pin unit="%" value={cs.overheadPct} onChange={(v) => set('overheadPct', num(v))} /></ORow>
           <ORow label="대손·리스크 충당" help={<>못 받는 돈에 대비한 적립. ⚠ 신용 위험은 아래 <b>손바뀜</b>에서 이미 잡으므로, 여기까지 넣으면 <b>두 번 잡는</b> 셈이 될 수 있다.</>}><Pin unit="%" value={cs.badDebtPct} onChange={(v) => set('badDebtPct', num(v))} /></ORow>
         </div>
 
-        {/* ⑥ 손바뀜 회당 비용 — 반납률과 짝이다. 반납률이 «몇 번»이고 여기가 «한 번에 얼마»다. */}
+        {/* ⑦ 손바뀜 회당 비용 — 반납률과 짝이다. 반납률이 «몇 번»이고 여기가 «한 번에 얼마»다. */}
         <div className="card">
-          <div className="step"><span className="no">6</span>손바뀜 회당 비용<span className="veh dim">반납률과 짝</span></div>
+          <div className="step"><span className="no">7</span>손바뀜 회당 비용<span className="veh dim">반납률과 짝</span></div>
           <ORow first label="상품화비" help={<>손바뀜이 한 번 날 때마다 다시 드는 <b>재정비·클리닝</b> 값.</>}><Pin w unit="원" value={comma(cs.turnoverPrepFee)} onChange={(v) => set('turnoverPrepFee', num(v))} /></ORow>
           <ORow label="왕복 탁송료" help={<>손바뀜마다 차를 <b>회수하고 다시 배치</b>하는 값(왕복).</>}><Pin w unit="원" value={comma(cs.turnoverDeliveryFee)} onChange={(v) => set('turnoverDeliveryFee', num(v))} /></ORow>
           <ORow label="영업수수료 재지급" help={<>손바뀜이 나면 새 계약이므로 <b>영업수수료가 다시 나간다</b>. 총 대여료 대비 %.</>}><Pin unit="%" value={cs.turnoverFeePct} onChange={(v) => set('turnoverFeePct', num(v))} /></ORow>
@@ -306,7 +312,7 @@ function EstimateCostPageInner() {
 
         {/* ⑥ 잔존가 — 차종별 (읽기 전용) */}
         <div className="card">
-          <div className="step"><span className="no">7</span>잔존가 · 차종별<span className="veh dim">차량별</span></div>
+          <div className="step"><span className="no">8</span>잔존가 · 차종별<span className="veh dim">차량별</span></div>
           <ORow first label="잔가 가감" help={<>차종 잔가 곡선 전체를 <b>통째로 올리거나 내린다</b>(±%p). 잔가를 올리면 감가가 줄어 대여료가 내려간다 — <b>이익률을 안 건드리고</b> 값을 맞추는 길이다.</>}>
             <Pin unit="%p" value={cs.residualAdjustPct} onChange={(v) => set('residualAdjustPct', num(v) * (String(v).trim().startsWith('-') ? -1 : 1))} />
           </ORow>
