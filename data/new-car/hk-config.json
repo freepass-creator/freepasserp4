@@ -1,109 +1,66 @@
 {
  "_meta": {
-  "source": "new_car_trim(Firestore) 집계. 현대=BFF+가격표PDF·기아=가격표PDF 좌표추출. 트림계층 변형축.",
-  "note": "min=최저트림 세제후 · maxCandidate=트림+그트림 유료옵션 단순합(상호배제 미검증, 상한후보). 기아 옵션명 일부 조각(가격은 정확). 옵션 없는 모델=미수집(옵션없음 아님).",
+  "source": "new_car_trim(현재 트림·가격) + 현대 공식 PDF 옵션(parse-hyundai-pdf) 병합. 2026-09-06.",
+  "note": "min=최저트림 세제후 · maxCandidate=최고트림+옵션초집합 단순합(상한후보). 현대 옵션=공식 PDF, 기아=new_car_trim. 정밀 배타·트림별 적용은 후속.",
   "updatedAt": "2026-09-06",
   "modelCount": 38,
-  "trimTotal": 412
+  "withOptions": 35
  },
  "models": [
   {
    "maker": "기아",
    "sub_model": "carnival",
-   "fuels": [
-    "3.5 가솔린"
-   ],
    "trimCount": 10,
    "trimLadder": [
     {
      "fuel": "3.5 가솔린",
      "trim": "프레스티지",
-     "priceBefore": 36860000,
-     "priceAfter": 36860000,
-     "optionCount": 5,
-     "optionSum": 4500000,
-     "loaded": 41360000
+     "priceAfter": 36860000
     },
     {
      "fuel": "3.5 가솔린",
      "trim": "노블레스",
-     "priceBefore": 41210000,
-     "priceAfter": 41210000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 41210000
+     "priceAfter": 41210000
     },
     {
      "fuel": "3.5 가솔린",
      "trim": "아웃도어",
-     "priceBefore": 42830000,
-     "priceAfter": 42830000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 42830000
+     "priceAfter": 42830000
     },
     {
      "fuel": "3.5 가솔린",
      "trim": "노블레스",
-     "priceBefore": 43820000,
-     "priceAfter": 43820000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 43820000
+     "priceAfter": 43820000
     },
     {
      "fuel": "3.5 가솔린",
      "trim": "시그니처",
-     "priceBefore": 44560000,
-     "priceAfter": 44560000,
-     "optionCount": 5,
-     "optionSum": 6900000,
-     "loaded": 51460000
+     "priceAfter": 44560000
     },
     {
      "fuel": "3.5 가솔린",
      "trim": "X-Line",
-     "priceBefore": 45320000,
-     "priceAfter": 45320000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 45320000
+     "priceAfter": 45320000
     },
     {
      "fuel": "3.5 가솔린",
      "trim": "시그니처",
-     "priceBefore": 47380000,
-     "priceAfter": 47380000,
-     "optionCount": 5,
-     "optionSum": 6900000,
-     "loaded": 54280000
+     "priceAfter": 47380000
     },
     {
      "fuel": "3.5 가솔린",
      "trim": "X-Line",
-     "priceBefore": 47910000,
-     "priceAfter": 47910000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 47910000
+     "priceAfter": 47910000
     },
     {
      "fuel": "3.5 가솔린",
      "trim": "노블레스",
-     "priceBefore": 52110000,
-     "priceAfter": 52110000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 52110000
+     "priceAfter": 52110000
     },
     {
      "fuel": "3.5 가솔린",
      "trim": "시그니처",
-     "priceBefore": 55660000,
-     "priceAfter": 55660000,
-     "optionCount": 5,
-     "optionSum": 6900000,
-     "loaded": 62560000
+     "priceAfter": 55660000
     }
    ],
    "optionSuperset": [
@@ -136,98 +93,49 @@
      "price": 900000
     }
    ],
-   "rules": [
-    "노블레스 기본 품목 외 •\u0007내장 : 토프 인테리어 또는 코튼 베이지 인테리어 ※ 하이브리드 선택 시 네이비그레이 인테리어 추가 선택 가능",
-    "\u0007내장 : 토프 인테리어 또는 코튼 베이지 인테리어 ※ 하이브리드 선택 시 네이비그레이 인테리어 추가 선택 가능",
-    "12.3인치 클러스터 적용 시 선택 가능",
-    "블랙 에디션 전용 ※ 하이브리드 전용(블랙 에디션/하이루프 선택 불가)",
-    "하이브리드 전용(블랙 에디션/하이루프 선택 불가)",
-    "\u0007스트리밍 프리미엄 약정 사양 구독 후 약정기간 만료 시, 약정 금액으로 무약정 사양 이용 가능 ※ 블랙 에디션 선택 불가",
-    "블랙 에디션 선택 불가",
-    "블랙 에디션/하이루프 선택 불가",
-    "Carnival ※ X-Line/하이루프 선택 불가",
-    "X-Line/하이루프 선택 불가",
-    "X-Line/블랙 에디션/하이루프 선택 불가",
-    "\u0007스마트폰 무선충전 시스템은 스마트폰 기종에 따라 별도 충전용 수신장치가 필요할 수 있으며, 수신장치 장착 불가기종은 이용이 어려울 수 있음",
-    "장착 불가기종은 이용이 어려울 수 있음",
-    "별도의 보상은 없습니다. • \u0007후석 스마트 엔터테인먼트 시스템은 프레스티지 트림 및 7인승 아웃도어에서는 선택 불가합니다.",
-    "\u0007후석 스마트 엔터테인먼트 시스템은 프레스티지 트림 및 7인승 아웃도어에서는 선택 불가합니다.",
-    "와이파이 핫스팟 등의 별도 무선 네트워크 연결이 필요합니다. • 후석 스마트 엔터테인먼트 시스템과 마이컴포트 패키지는 중복 선택 불가합니다.",
-    "후석 스마트 엔터테인먼트 시스템과 마이컴포트 패키지는 중복 선택 불가합니다.",
-    "\u0007후석 스마트 엔터테인먼트 시스템과 마이컴포트 패키지는 내장 컬러 네이비 그레이 인테리어 선택 고객의 경우 선택 불가합니다.",
-    "경우 선택 불가합니다.",
-    "마이컴포트 패키지는 프레스티지/블랙 에디션 트림에서 선택 불가합니다."
-   ],
+   "optionSource": "new_car_trim",
    "minMax": {
     "min": 36860000,
-    "minConfig": "최저 트림 「3.5 가솔린 프레스티지」 세제후가·유료옵션 없음",
-    "maxCandidate": 62560000,
-    "maxConfig": "트림 「3.5 가솔린 시그니처」 세제후 55,660,000 + 그 트림 유료옵션 5개 합 6,900,000",
-    "maxStatus": "배타 상한후보 — 옵션 단순합. 상호배제(파노라마↔투톤루프 등)·종속 미검증. 정밀 max 는 조합규칙 반영 후.",
-    "optionCoverage": "has-options"
+    "minConfig": "최저 트림 「3.5 가솔린 프레스티지」",
+    "maxCandidate": 65060000,
+    "maxConfig": "최고 트림 「3.5 가솔린 시그니처」 55,660,000 + 옵션초집합 9,400,000",
+    "maxStatus": "트림 최고가 + 옵션 단순합(상호배제·트림별 적용가능 미검증·상한후보). 옵션은 모델 초집합이라 특정 트림엔 일부 불가."
    }
   },
   {
    "maker": "기아",
    "sub_model": "ev3",
-   "fuels": [
-    "EV"
-   ],
    "trimCount": 6,
    "trimLadder": [
     {
      "fuel": "EV",
      "trim": "에어 스탠다드",
-     "priceBefore": 42030000,
-     "priceAfter": 39950000,
-     "optionCount": 11,
-     "optionSum": 8060000,
-     "loaded": 48010000
+     "priceAfter": 39950000
     },
     {
      "fuel": "EV",
      "trim": "어스 스탠다드",
-     "priceBefore": 46180000,
-     "priceAfter": 43900000,
-     "optionCount": 8,
-     "optionSum": 5040000,
-     "loaded": 48940000
+     "priceAfter": 43900000
     },
     {
      "fuel": "EV",
      "trim": "에어 롱레인지",
-     "priceBefore": 46450000,
-     "priceAfter": 44150000,
-     "optionCount": 12,
-     "optionSum": 10330000,
-     "loaded": 54480000
+     "priceAfter": 44150000
     },
     {
      "fuel": "EV",
      "trim": "GT-Line 스탠다드",
-     "priceBefore": 47080000,
-     "priceAfter": 44750000,
-     "optionCount": 6,
-     "optionSum": 4400000,
-     "loaded": 49150000
+     "priceAfter": 44750000
     },
     {
      "fuel": "EV",
      "trim": "어스 롱레인지",
-     "priceBefore": 50600000,
-     "priceAfter": 48100000,
-     "optionCount": 9,
-     "optionSum": 7310000,
-     "loaded": 55410000
+     "priceAfter": 48100000
     },
     {
      "fuel": "EV",
      "trim": "GT-Line 롱레인지",
-     "priceBefore": 51500000,
-     "priceAfter": 48950000,
-     "optionCount": 7,
-     "optionSum": 6670000,
-     "loaded": 55620000
+     "priceAfter": 48950000
     }
    ],
    "optionSuperset": [
@@ -292,91 +200,49 @@
      "price": 150000
     }
    ],
-   "rules": [
-    "(컴포트 I 적용 시 선택 가능)",
-    "(스타일 적용 시 선택 가능)",
-    "롱레인지 에어/어스 : 19인치 휠&타이어 적용 시 듀얼모터 4WD 선택 가능",
-    "애프터마켓 용품(빈차등/갓등/미터기 등) 장착용 와이어링, 프로텍션 매트 ※ 애프터마켓용 컬렉션 적용 시 와이드 선루프, 듀얼 모터 4WD는 동시 선택이 불가함",
-    "애프터마켓용 컬렉션 적용 시 와이드 선루프, 듀얼 모터 4WD는 동시 선택이 불가함",
-    "롱레인지 전용 듀얼 모터 4WD ※ 19인치 휠&타이어 적용 시 듀얼 모터 4WD 선택 가능",
-    "듀얼 모터 4WD ※ 19인치 휠&타이어 적용 시 듀얼 모터 4WD 선택 가능",
-    "INTERIOR COLORS ※ GT-Line 선택 불가",
-    "GT-Line 선택 불가",
-    "차콜&화이트 인테리어 (GT-Line 전용) ※ GT-Line 선택 불가",
-    "에어, GT-Line 선택 불가",
-    "\u0007스마트폰 무선충전 시스템은 스마트폰 기종에 따라 별도 충전용 수신 장치가 필요할 수 있음 수신 장치 장착 불가 기종은 이용이 어려울 수 있으며, 별도 충전용 수신 장치는 지급하지 않음",
-    "수신 장치 장착 불가 기종은 이용이 어려울 수 있으며, 별도 충전용 수신 장치는 지급하지 않음"
-   ],
+   "optionSource": "new_car_trim",
    "minMax": {
     "min": 39950000,
-    "minConfig": "최저 트림 「EV 에어 스탠다드」 세제후가·유료옵션 없음",
-    "maxCandidate": 55620000,
-    "maxConfig": "트림 「EV GT-Line 롱레인지」 세제후 48,950,000 + 그 트림 유료옵션 7개 합 6,670,000",
-    "maxStatus": "배타 상한후보 — 옵션 단순합. 상호배제(파노라마↔투톤루프 등)·종속 미검증. 정밀 max 는 조합규칙 반영 후.",
-    "optionCoverage": "has-options"
+    "minConfig": "최저 트림 「EV 에어 스탠다드」",
+    "maxCandidate": 63230000,
+    "maxConfig": "최고 트림 「EV GT-Line 롱레인지」 48,950,000 + 옵션초집합 14,280,000",
+    "maxStatus": "트림 최고가 + 옵션 단순합(상호배제·트림별 적용가능 미검증·상한후보). 옵션은 모델 초집합이라 특정 트림엔 일부 불가."
    }
   },
   {
    "maker": "기아",
    "sub_model": "ev4",
-   "fuels": [
-    "EV"
-   ],
    "trimCount": 6,
    "trimLadder": [
     {
      "fuel": "EV",
      "trim": "에어 스탠다드",
-     "priceBefore": 42520000,
-     "priceAfter": 40420000,
-     "optionCount": 10,
-     "optionSum": 7410000,
-     "loaded": 47830000
+     "priceAfter": 40420000
     },
     {
      "fuel": "EV",
      "trim": "에어 롱레인지",
-     "priceBefore": 46940000,
-     "priceAfter": 44620000,
-     "optionCount": 10,
-     "optionSum": 7410000,
-     "loaded": 52030000
+     "priceAfter": 44620000
     },
     {
      "fuel": "EV",
      "trim": "어스 스탠다드",
-     "priceBefore": 47350000,
-     "priceAfter": 45010000,
-     "optionCount": 7,
-     "optionSum": 4490000,
-     "loaded": 49500000
+     "priceAfter": 45010000
     },
     {
      "fuel": "EV",
      "trim": "GT-Line 스탠다드",
-     "priceBefore": 48510000,
-     "priceAfter": 46110000,
-     "optionCount": 7,
-     "optionSum": 6270000,
-     "loaded": 52380000
+     "priceAfter": 46110000
     },
     {
      "fuel": "EV",
      "trim": "어스 롱레인지",
-     "priceBefore": 51770000,
-     "priceAfter": 49210000,
-     "optionCount": 7,
-     "optionSum": 4490000,
-     "loaded": 53700000
+     "priceAfter": 49210000
     },
     {
      "fuel": "EV",
      "trim": "GT-Line 롱레인지",
-     "priceBefore": 52930000,
-     "priceAfter": 50310000,
-     "optionCount": 7,
-     "optionSum": 6270000,
-     "loaded": 56580000
+     "priceAfter": 50310000
     }
    ],
    "optionSuperset": [
@@ -433,86 +299,49 @@
      "price": 400000
     }
    ],
-   "rules": [
-    "스타일 적용 시 선택 가능",
-    "모니터링 적용 시 선택 가능",
-    "적용 시 선택 가능",
-    "- * 롱레인지 에어/어스 : 19인치 휠&타이어 적용 시 듀얼 모터 4WD 선택 가능",
-    "* 롱레인지 에어/어스 : 19인치 휠&타이어 적용 시 듀얼 모터 4WD 선택 가능",
-    "* 애프터마켓용 컬렉션은 와이드 선루프 및 듀얼 모터 4WD와 동시 선택이 불가함",
-    "\u0007스마트폰 무선충전 시스템은 스마트폰 기종에 따라 별도 충전용 수신장치가 필요할 수 있음 수신장치 장착 불가 기종은 이용이 어려울 수 있으며, 별도 충전용 수신 장치는 지급하지 않음",
-    "수신장치 장착 불가 기종은 이용이 어려울 수 있으며, 별도 충전용 수신 장치는 지급하지 않음"
-   ],
+   "optionSource": "new_car_trim",
    "minMax": {
     "min": 40420000,
-    "minConfig": "최저 트림 「EV 에어 스탠다드」 세제후가·유료옵션 없음",
-    "maxCandidate": 56580000,
-    "maxConfig": "트림 「EV GT-Line 롱레인지」 세제후 50,310,000 + 그 트림 유료옵션 7개 합 6,270,000",
-    "maxStatus": "배타 상한후보 — 옵션 단순합. 상호배제(파노라마↔투톤루프 등)·종속 미검증. 정밀 max 는 조합규칙 반영 후.",
-    "optionCoverage": "has-options"
+    "minConfig": "최저 트림 「EV 에어 스탠다드」",
+    "maxCandidate": 61910000,
+    "maxConfig": "최고 트림 「EV GT-Line 롱레인지」 50,310,000 + 옵션초집합 11,600,000",
+    "maxStatus": "트림 최고가 + 옵션 단순합(상호배제·트림별 적용가능 미검증·상한후보). 옵션은 모델 초집합이라 특정 트림엔 일부 불가."
    }
   },
   {
    "maker": "기아",
    "sub_model": "ev5",
-   "fuels": [
-    "EV"
-   ],
    "trimCount": 6,
    "trimLadder": [
     {
      "fuel": "EV",
      "trim": "에어 스탠다드",
-     "priceBefore": 43710000,
-     "priceAfter": 41550000,
-     "optionCount": 10,
-     "optionSum": 10930000,
-     "loaded": 52480000
+     "priceAfter": 41550000
     },
     {
      "fuel": "EV",
      "trim": "어스 스탠다드",
-     "priceBefore": 47660000,
-     "priceAfter": 45300000,
-     "optionCount": 10,
-     "optionSum": 9150000,
-     "loaded": 54450000
+     "priceAfter": 45300000
     },
     {
      "fuel": "EV",
      "trim": "에어 롱레인지",
-     "priceBefore": 48130000,
-     "priceAfter": 45750000,
-     "optionCount": 10,
-     "optionSum": 10930000,
-     "loaded": 56680000
+     "priceAfter": 45750000
     },
     {
      "fuel": "EV",
      "trim": "GT-Line 스탠다드",
-     "priceBefore": 48810000,
-     "priceAfter": 46400000,
-     "optionCount": 9,
-     "optionSum": 9100000,
-     "loaded": 55500000
+     "priceAfter": 46400000
     },
     {
      "fuel": "EV",
      "trim": "어스 롱레인지",
-     "priceBefore": 52070000,
-     "priceAfter": 49500000,
-     "optionCount": 10,
-     "optionSum": 9150000,
-     "loaded": 58650000
+     "priceAfter": 49500000
     },
     {
      "fuel": "EV",
      "trim": "GT-Line 롱레인지",
-     "priceBefore": 53230000,
-     "priceAfter": 50600000,
-     "optionCount": 9,
-     "optionSum": 9100000,
-     "loaded": 59700000
+     "priceAfter": 50600000
     }
    ],
    "optionSuperset": [
@@ -569,97 +398,54 @@
      "price": 150000
     }
    ],
-   "rules": [
-    "롱레인지 전용 중복 선택 불가",
-    "중복 선택 불가",
-    "애프터마켓 용품(빈차등/갓등/미터기 등) 장착용 와이어링, 프로텍션 매트 ※ 애프터마켓용 컬렉션 적용 시 파노라마 선루프, 투톤 루프, 듀얼 모터 4WD는 동시 선택 불가",
-    "애프터마켓용 컬렉션 적용 시 파노라마 선루프, 투톤 루프, 듀얼 모터 4WD는 동시 선택 불가",
-    "GT-Line 파노라마 선루프 ※ GT-Line : 투톤루프 동시 선택 불가",
-    "파노라마 선루프 ※ GT-Line : 투톤루프 동시 선택 불가",
-    "블랙 투톤루프 ('퓨전 블랙 + 스노우 화이트 펄 / 퓨전 블랙 + 아이스버그 그린 / 퓨전 블랙 + 프로스트 블루' 中 택 1) ※ 파노라마 선루프 동시 선택 불가",
-    "파노라마 선루프 동시 선택 불가",
-    "\u0007스마트폰 무선충전 시스템은 스마트폰 기종에 따라 별도 충전용 수신장치가 필요할 수 있음 수신장치 장착 불가 기종은 이용이 어려울 수 있으며, 별도 충전용 수신 장치는 지급하지 않음",
-    "수신장치 장착 불가 기종은 이용이 어려울 수 있으며, 별도 충전용 수신 장치는 지급하지 않음"
-   ],
+   "optionSource": "new_car_trim",
    "minMax": {
     "min": 41550000,
-    "minConfig": "최저 트림 「EV 에어 스탠다드」 세제후가·유료옵션 없음",
-    "maxCandidate": 59700000,
-    "maxConfig": "트림 「EV GT-Line 롱레인지」 세제후 50,600,000 + 그 트림 유료옵션 9개 합 9,100,000",
-    "maxStatus": "배타 상한후보 — 옵션 단순합. 상호배제(파노라마↔투톤루프 등)·종속 미검증. 정밀 max 는 조합규칙 반영 후.",
-    "optionCoverage": "has-options"
+    "minConfig": "최저 트림 「EV 에어 스탠다드」",
+    "maxCandidate": 63260000,
+    "maxConfig": "최고 트림 「EV GT-Line 롱레인지」 50,600,000 + 옵션초집합 12,660,000",
+    "maxStatus": "트림 최고가 + 옵션 단순합(상호배제·트림별 적용가능 미검증·상한후보). 옵션은 모델 초집합이라 특정 트림엔 일부 불가."
    }
   },
   {
    "maker": "기아",
    "sub_model": "ev6",
-   "fuels": [
-    "EV"
-   ],
    "trimCount": 7,
    "trimLadder": [
     {
      "fuel": "EV",
      "trim": "라이트 스탠다드",
-     "priceBefore": 45870000,
-     "priceAfter": 43600000,
-     "optionCount": 6,
-     "optionSum": 5770000,
-     "loaded": 49370000
+     "priceAfter": 43600000
     },
     {
      "fuel": "EV",
      "trim": "라이트 롱레인지",
-     "priceBefore": 50080000,
-     "priceAfter": 47600000,
-     "optionCount": 6,
-     "optionSum": 5770000,
-     "loaded": 53370000
+     "priceAfter": 47600000
     },
     {
      "fuel": "EV",
      "trim": "에어 스탠다드",
-     "priceBefore": 51130000,
-     "priceAfter": 48600000,
-     "optionCount": 9,
-     "optionSum": 8180000,
-     "loaded": 56780000
+     "priceAfter": 48600000
     },
     {
      "fuel": "EV",
      "trim": "어스 스탠다드",
-     "priceBefore": 55330000,
-     "priceAfter": 52600000,
-     "optionCount": 7,
-     "optionSum": 6300000,
-     "loaded": 58900000
+     "priceAfter": 52600000
     },
     {
      "fuel": "EV",
      "trim": "에어 롱레인지",
-     "priceBefore": 55330000,
-     "priceAfter": 52600000,
-     "optionCount": 9,
-     "optionSum": 8180000,
-     "loaded": 60780000
+     "priceAfter": 52600000
     },
     {
      "fuel": "EV",
      "trim": "어스 롱레인지",
-     "priceBefore": 59540000,
-     "priceAfter": 56600000,
-     "optionCount": 7,
-     "optionSum": 6300000,
-     "loaded": 62900000
+     "priceAfter": 56600000
     },
     {
      "fuel": "EV",
      "trim": "GT-Line 롱레인지",
-     "priceBefore": 60170000,
-     "priceAfter": 57200000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 57200000
+     "priceAfter": 57200000
     }
    ],
    "optionSuperset": [
@@ -724,123 +510,69 @@
      "price": 400000
     }
    ],
-   "rules": [
-    "(프리미엄 적용 시 선택 가능)",
-    "INTERIOR COLORS ※ GT-Line 선택 불가",
-    "GT-Line 선택 불가",
-    "라이트, 에어, GT-Line 선택 불가",
-    "라이트, 에어, 어스 선택 불가",
-    "별도의 보상은 없음 • \u0007Kia Genuine Accessories 옵션 선택 시 충주 출고 센터로만 배정이 가능하며, 출고 후 장착기간은 약 2일 소요됨",
-    "\u0007Kia Genuine Accessories 옵션 선택 시 충주 출고 센터로만 배정이 가능하며, 출고 후 장착기간은 약 2일 소요됨",
-    "\u0007스마트폰 무선충전 시스템은 스마트폰 기종에 따라 별도 충전용 수신 장치가 필요할 수 있으며, 수신 장치 장착 불가 기종은 이용이 어려울 수 있음",
-    "수신 장치 장착 불가 기종은 이용이 어려울 수 있음"
-   ],
+   "optionSource": "new_car_trim",
    "minMax": {
     "min": 43600000,
-    "minConfig": "최저 트림 「EV 라이트 스탠다드」 세제후가·유료옵션 없음",
-    "maxCandidate": 62900000,
-    "maxConfig": "트림 「EV 어스 롱레인지」 세제후 56,600,000 + 그 트림 유료옵션 7개 합 6,300,000",
-    "maxStatus": "배타 상한후보 — 옵션 단순합. 상호배제(파노라마↔투톤루프 등)·종속 미검증. 정밀 max 는 조합규칙 반영 후.",
-    "optionCoverage": "has-options"
+    "minConfig": "최저 트림 「EV 라이트 스탠다드」",
+    "maxCandidate": 69710000,
+    "maxConfig": "최고 트림 「EV GT-Line 롱레인지」 57,200,000 + 옵션초집합 12,510,000",
+    "maxStatus": "트림 최고가 + 옵션 단순합(상호배제·트림별 적용가능 미검증·상한후보). 옵션은 모델 초집합이라 특정 트림엔 일부 불가."
    }
   },
   {
    "maker": "기아",
    "sub_model": "ev9",
-   "fuels": [
-    "EV"
-   ],
    "trimCount": 10,
    "trimLadder": [
     {
      "fuel": "",
      "trim": "라이트 스탠다드",
-     "priceBefore": 65190000,
-     "priceAfter": 61970000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 61970000
+     "priceAfter": 61970000
     },
     {
      "fuel": "",
      "trim": "에어 스탠다드",
-     "priceBefore": 67450000,
-     "priceAfter": 64120000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 64120000
+     "priceAfter": 64120000
     },
     {
      "fuel": "",
      "trim": "라이트 롱레인지",
-     "priceBefore": 69870000,
-     "priceAfter": 66420000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 66420000
+     "priceAfter": 66420000
     },
     {
      "fuel": "",
      "trim": "에어 롱레인지",
-     "priceBefore": 72140000,
-     "priceAfter": 68570000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 68570000
+     "priceAfter": 68570000
     },
     {
      "fuel": "",
      "trim": "어스 스탠다드",
-     "priceBefore": 72490000,
-     "priceAfter": 68910000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 68910000
+     "priceAfter": 68910000
     },
     {
      "fuel": "EV",
      "trim": "라이트 롱레인지",
-     "priceBefore": 73540000,
-     "priceAfter": 69900000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 69900000
+     "priceAfter": 69900000
     },
     {
      "fuel": "EV",
      "trim": "에어 롱레인지",
-     "priceBefore": 75800000,
-     "priceAfter": 72050000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 72050000
+     "priceAfter": 72050000
     },
     {
      "fuel": "",
      "trim": "어스 롱레인지",
-     "priceBefore": 77170000,
-     "priceAfter": 73360000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 73360000
+     "priceAfter": 73360000
     },
     {
      "fuel": "EV",
      "trim": "어스 롱레인지",
-     "priceBefore": 80890000,
-     "priceAfter": 76890000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 76890000
+     "priceAfter": 76890000
     },
     {
      "fuel": "EV",
      "trim": "GT-Line 롱레인지",
-     "priceBefore": 83290000,
-     "priceAfter": 79170000,
-     "optionCount": 6,
-     "optionSum": 7570000,
-     "loaded": 86740000
+     "priceAfter": 79170000
     }
    ],
    "optionSuperset": [
@@ -869,164 +601,84 @@
      "price": 590000
     }
    ],
-   "rules": [
-    "디지털 패턴 라이팅 그릴, 스몰 큐브 프로젝션 LED 헤드램프, 지능형 헤드램프(IFS) ※ 무광 외장 칼라 동시 선택 불가",
-    "무광 외장 칼라 동시 선택 불가",
-    "디지털 패턴 라이팅 그릴 ※ 무광 외장 칼라 동시 선택 불가",
-    "선택 품목 라이트 트림 선택 불가",
-    "라이트 트림 선택 불가",
-    "● ※ 라운지 패키지와 트레일러 패키지는 동시 선택 불가하며 라운지 패키지는 6인승 릴렉션 시트 선택 시 장착 가능함",
-    "라운지 패키지와 트레일러 패키지는 동시 선택 불가하며 라운지 패키지는 6인승 릴렉션 시트 선택 시 장착 가능함",
-    "후석 스마트 엔터테인먼트 시스템와 트레일러 패키지는 동시 선택 불가하며 엔터테인먼트 패키지는 6인승 릴렉션 시트 및 메리디안 프리미엄 사운드 선택 시 장착 가능함",
-    "별도의 보상은 없음 • \u0007Kia Genuine Accessories 옵션 선택 시 충주 출고 센터로만 배정이 가능하며, 출고 후 장착기간은 약 2일 소요됨",
-    "\u0007Kia Genuine Accessories 옵션 선택 시 충주 출고 센터로만 배정이 가능하며, 출고 후 장착기간은 약 2일 소요됨",
-    "라운지 패키지는 6인승 릴렉션 시트 선택 시 장착이 가능함",
-    "라운지 패키지에 적용되는 콘솔 하단부의 무드램프는 에어 트림에서 구현되지 않음 • 라운지 패키지와 트레일러 패키지는 동시 선택이 불가능함",
-    "라운지 패키지와 트레일러 패키지는 동시 선택이 불가능함",
-    "트레일러 패키지의 최대 견인 중량은 2,500kg(피견인 장치 관성브레이크 적용 시), 수직하중은 125kg임 • 트레일러 패키지는 4WD 선택 시 장착 가능하며, 커넥터는 유럽식 13PIN(ISO11446), 토우볼 지름은 50mm임",
-    "트레일러 패키지는 4WD 선택 시 장착 가능하며, 커넥터는 유럽식 13PIN(ISO11446), 토우볼 지름은 50mm임",
-    "캠핑 패키지의 러기지 팝업 테이블 사용 시 최대 허용 하중은 25kg임 • 캠핑 패키지 선택 시 3열 좌측 컵홀더 사용이 불가함",
-    "캠핑 패키지 선택 시 3열 좌측 컵홀더 사용이 불가함",
-    "일부 떨어짐이 발생할 수 있음 • 후석 스마트 엔터테인먼트 시스템은 트레일러 패키지와 동시 선택이 불가능함",
-    "후석 스마트 엔터테인먼트 시스템은 트레일러 패키지와 동시 선택이 불가능함",
-    "\u0007스마트폰 무선충전 시스템은 스마트폰 기종에 따라 별도 충전용 수신 장치가 필요할 수 있으며, 수신 장치 장착 불가 기종은 이용이 어려울 수 있음",
-    "수신 장치 장착 불가 기종은 이용이 어려울 수 있음"
-   ],
+   "optionSource": "new_car_trim",
    "minMax": {
     "min": 61970000,
-    "minConfig": "최저 트림 「 라이트 스탠다드」 세제후가·유료옵션 없음",
+    "minConfig": "최저 트림 「 라이트 스탠다드」",
     "maxCandidate": 86740000,
-    "maxConfig": "트림 「EV GT-Line 롱레인지」 세제후 79,170,000 + 그 트림 유료옵션 6개 합 7,570,000",
-    "maxStatus": "배타 상한후보 — 옵션 단순합. 상호배제(파노라마↔투톤루프 등)·종속 미검증. 정밀 max 는 조합규칙 반영 후.",
-    "optionCoverage": "has-options"
+    "maxConfig": "최고 트림 「EV GT-Line 롱레인지」 79,170,000 + 옵션초집합 7,570,000",
+    "maxStatus": "트림 최고가 + 옵션 단순합(상호배제·트림별 적용가능 미검증·상한후보). 옵션은 모델 초집합이라 특정 트림엔 일부 불가."
    }
   },
   {
    "maker": "기아",
    "sub_model": "k5",
-   "fuels": [
-    "1.6 가솔린 터보",
-    "2.0 가솔린",
-    "하이브리드"
-   ],
    "trimCount": 13,
    "trimLadder": [
     {
      "fuel": "2.0 가솔린",
      "trim": "스마트 셀렉션",
-     "priceBefore": 27630000,
-     "priceAfter": 27630000,
-     "optionCount": 3,
-     "optionSum": 3530000,
-     "loaded": 31160000
+     "priceAfter": 27630000
     },
     {
      "fuel": "2.0 가솔린",
      "trim": "프레스티지",
-     "priceBefore": 28920000,
-     "priceAfter": 28920000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 28920000
+     "priceAfter": 28920000
     },
     {
      "fuel": "1.6 가솔린 터보",
      "trim": "프레스티지",
-     "priceBefore": 29730000,
-     "priceAfter": 29730000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 29730000
+     "priceAfter": 29730000
     },
     {
      "fuel": "2.0 가솔린",
      "trim": "베스트 셀렉션",
-     "priceBefore": 30140000,
-     "priceAfter": 30140000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 30140000
+     "priceAfter": 30140000
     },
     {
      "fuel": "1.6 가솔린 터보",
      "trim": "베스트 셀렉션",
-     "priceBefore": 30950000,
-     "priceAfter": 30950000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 30950000
+     "priceAfter": 30950000
     },
     {
      "fuel": "2.0 가솔린",
      "trim": "노블레스",
-     "priceBefore": 32440000,
-     "priceAfter": 32440000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 32440000
+     "priceAfter": 32440000
     },
     {
      "fuel": "하이브리드",
      "trim": "프레스티지",
-     "priceBefore": 34340000,
-     "priceAfter": 33340000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 33340000
+     "priceAfter": 33340000
     },
     {
      "fuel": "1.6 가솔린 터보",
      "trim": "노블레스",
-     "priceBefore": 33680000,
-     "priceAfter": 33680000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 33680000
+     "priceAfter": 33680000
     },
     {
      "fuel": "하이브리드",
      "trim": "베스트 셀렉션",
-     "priceBefore": 35430000,
-     "priceAfter": 34430000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 34430000
+     "priceAfter": 34430000
     },
     {
      "fuel": "2.0 가솔린",
      "trim": "시그니처",
-     "priceBefore": 35580000,
-     "priceAfter": 35580000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 35580000
+     "priceAfter": 35580000
     },
     {
      "fuel": "1.6 가솔린 터보",
      "trim": "시그니처",
-     "priceBefore": 36370000,
-     "priceAfter": 36370000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 36370000
+     "priceAfter": 36370000
     },
     {
      "fuel": "하이브리드",
      "trim": "노블레스",
-     "priceBefore": 37700000,
-     "priceAfter": 36700000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 36700000
+     "priceAfter": 36700000
     },
     {
      "fuel": "하이브리드",
      "trim": "시그니처",
-     "priceBefore": 40640000,
-     "priceAfter": 39640000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 39640000
+     "priceAfter": 39640000
     }
    ],
    "optionSuperset": [
@@ -1043,181 +695,94 @@
      "price": 1090000
     }
    ],
-   "rules": [
-    "12.3인치 클러스터 팩 적용 시 선택 가능",
-    "시그니처 235/45 R18 피렐리 타이어&전면가공 휠 ※ 스타일 적용 시 블랙 핏 선택 불가",
-    "235/45 R18 피렐리 타이어&전면가공 휠 ※ 스타일 적용 시 블랙 핏 선택 불가",
-    "235/45 R18 피렐리 타이어&전용 블랙 휠, 블랙 아웃사이드 미러, 다크 건메탈 리어 스키드 플레이트/머플러 팁, 전용 블랙 인테리어, 블랙 스웨이드 헤드라이닝&A/B필라 ※ 블랙 핏 적용 시 스타일, 마션브라운/샌드 인테리어 선택 불가",
-    "블랙 스웨이드 헤드라이닝&A/B필라 ※ 블랙 핏 적용 시 스타일, 마션브라운/샌드 인테리어 선택 불가",
-    "12.3인치 클러스터 팩 12.3인치 클러스터 팩 적용 시 선택 가능",
-    "시그니처 245/40 R19 피렐리 타이어&전면가공 휠 ※ 스타일 적용 시 블랙 핏 선택 불가",
-    "245/40 R19 피렐리 타이어&전면가공 휠 ※ 스타일 적용 시 블랙 핏 선택 불가",
-    "245/40 R19 피렐리 타이어&전용 블랙 휠, 블랙 아웃사이드 미러, 다크 건메탈 리어 스키드 플레이트/머플러 팁, 전용 블랙 인테리어, 블랙 스웨이드 헤드라이닝&A/B필라 ※ 블랙 핏 적용 시 스타일, 마션브라운/샌드 인테리어 선택 불가",
-    "\u0007드라이브 와이즈 : 70만 ※SBW 팩 적용 시 선택 가능",
-    "SBW 팩 적용 시 선택 가능",
-    "파노라마 선루프 선택 시 애프터마켓용 컬렉션 선택 불가",
-    "애프터마켓용 컬렉션 선택 불가",
-    "적용 시 선택 가능",
-    "파노라마 선루프 ※ 애프터마켓용 컬렉션과 파노라마 선루프는 동시 선택이 불가함",
-    "애프터마켓용 컬렉션과 파노라마 선루프는 동시 선택이 불가함",
-    "블랙핏 선택 시 적용 가능/1.6 가솔린 터보 전용",
-    "블랙 핏 선택 시 적용가능",
-    "\u0007스마트폰 무선충전 시스템은 스마트폰 기종에 따라 별도 충전용 수신장치가 필요할 수 있으며, 수신장치 장착 불가기종은 이용이 어려울 수 있음",
-    "수신장치 장착 불가기종은 이용이 어려울 수 있음"
-   ],
+   "optionSource": "new_car_trim",
    "minMax": {
     "min": 27630000,
-    "minConfig": "최저 트림 「2.0 가솔린 스마트 셀렉션」 세제후가·유료옵션 없음",
-    "maxCandidate": 39640000,
-    "maxConfig": "트림 「하이브리드 시그니처」 세제후 39,640,000 + 그 트림 유료옵션 0개 합 0",
-    "maxStatus": "배타 상한후보 — 옵션 단순합. 상호배제(파노라마↔투톤루프 등)·종속 미검증. 정밀 max 는 조합규칙 반영 후.",
-    "optionCoverage": "has-options"
+    "minConfig": "최저 트림 「2.0 가솔린 스마트 셀렉션」",
+    "maxCandidate": 43170000,
+    "maxConfig": "최고 트림 「하이브리드 시그니처」 39,640,000 + 옵션초집합 3,530,000",
+    "maxStatus": "트림 최고가 + 옵션 단순합(상호배제·트림별 적용가능 미검증·상한후보). 옵션은 모델 초집합이라 특정 트림엔 일부 불가."
    }
   },
   {
    "maker": "기아",
    "sub_model": "k8",
-   "fuels": [
-    "2.5 가솔린",
-    "3.5 가솔린",
-    "하이브리드"
-   ],
    "trimCount": 15,
    "trimLadder": [
     {
      "fuel": "2.5 가솔린",
      "trim": "노블레스 라이트",
-     "priceBefore": 37310000,
-     "priceAfter": 37310000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 37310000
+     "priceAfter": 37310000
     },
     {
      "fuel": "2.5 가솔린",
      "trim": "기아 AI 어시스턴트 베스트 셀렉션",
-     "priceBefore": 38850000,
-     "priceAfter": 38850000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 38850000
+     "priceAfter": 38850000
     },
     {
      "fuel": "3.5 가솔린",
      "trim": "노블레스 라이트",
-     "priceBefore": 40430000,
-     "priceAfter": 40430000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 40430000
+     "priceAfter": 40430000
     },
     {
      "fuel": "2.5 가솔린",
      "trim": "오토 디포그 노블레스",
-     "priceBefore": 41430000,
-     "priceAfter": 41430000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 41430000
+     "priceAfter": 41430000
     },
     {
      "fuel": "3.5 가솔린",
      "trim": "기아 AI 어시스턴트 베스트 셀렉션",
-     "priceBefore": 41720000,
-     "priceAfter": 41720000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 41720000
+     "priceAfter": 41720000
     },
     {
      "fuel": "하이브리드",
      "trim": "노블레스 라이트",
-     "priceBefore": 43670000,
-     "priceAfter": 42670000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 42670000
+     "priceAfter": 42670000
     },
     {
      "fuel": "하이브리드",
      "trim": "기아 AI 어시스턴트 베스트 셀렉션",
-     "priceBefore": 45200000,
-     "priceAfter": 44200000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 44200000
+     "priceAfter": 44200000
     },
     {
      "fuel": "3.5 가솔린",
      "trim": "오토 디포그 노블레스",
-     "priceBefore": 44300000,
-     "priceAfter": 44300000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 44300000
+     "priceAfter": 44300000
     },
     {
      "fuel": "2.5 가솔린",
      "trim": "시그니처",
-     "priceBefore": 45020000,
-     "priceAfter": 45020000,
-     "optionCount": 3,
-     "optionSum": 3270000,
-     "loaded": 48290000
+     "priceAfter": 45020000
     },
     {
      "fuel": "2.5 가솔린",
      "trim": "시그니처 블랙",
-     "priceBefore": 46600000,
-     "priceAfter": 46600000,
-     "optionCount": 3,
-     "optionSum": 3270000,
-     "loaded": 49870000
+     "priceAfter": 46600000
     },
     {
      "fuel": "하이브리드",
      "trim": "오토 디포그 노블레스",
-     "priceBefore": 47780000,
-     "priceAfter": 46780000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 46780000
+     "priceAfter": 46780000
     },
     {
      "fuel": "3.5 가솔린",
      "trim": "시그니처",
-     "priceBefore": 47890000,
-     "priceAfter": 47890000,
-     "optionCount": 4,
-     "optionSum": 5450000,
-     "loaded": 53340000
+     "priceAfter": 47890000
     },
     {
      "fuel": "3.5 가솔린",
      "trim": "시그니처 블랙",
-     "priceBefore": 49470000,
-     "priceAfter": 49470000,
-     "optionCount": 4,
-     "optionSum": 5450000,
-     "loaded": 54920000
+     "priceAfter": 49470000
     },
     {
      "fuel": "하이브리드",
      "trim": "시그니처",
-     "priceBefore": 51380000,
-     "priceAfter": 50380000,
-     "optionCount": 3,
-     "optionSum": 2870000,
-     "loaded": 53250000
+     "priceAfter": 50380000
     },
     {
      "fuel": "하이브리드",
      "trim": "시그니처 블랙",
-     "priceBefore": 52750000,
-     "priceAfter": 51750000,
-     "optionCount": 3,
-     "optionSum": 2870000,
-     "loaded": 54620000
+     "priceAfter": 51750000
     }
    ],
    "optionSuperset": [
@@ -1250,182 +815,105 @@
      "price": 690000
     }
    ],
-   "rules": [
-    "별도의 보상은 없습니다. •\u0007Kia Genuine Accessories 또는 시그니처 블랙 트림 선택 시 충주 출고센터로만 배정이 가능하며,",
-    "\u0007Kia Genuine Accessories 또는 시그니처 블랙 트림 선택 시 충주 출고센터로만 배정이 가능하며,",
-    "(보증기간 : 3년/6만km) •블랙 루프 스킨은 파노라마 선루프 혹은 오로라 블랙 펄 외장 칼라 선택 시 적용 불가합니다.",
-    "블랙 루프 스킨은 파노라마 선루프 혹은 오로라 블랙 펄 외장 칼라 선택 시 적용 불가합니다.",
-    "\u0007스마트폰 무선충전 시스템은 스마트폰 기종에 따라 별도 충전용 수신장치가 필요할 수 있으며, 수신장치 장착 불가 기종은 이용이 어려울 수 있음",
-    "수신장치 장착 불가 기종은 이용이 어려울 수 있음"
-   ],
+   "optionSource": "new_car_trim",
    "minMax": {
     "min": 37310000,
-    "minConfig": "최저 트림 「2.5 가솔린 노블레스 라이트」 세제후가·유료옵션 없음",
-    "maxCandidate": 54920000,
-    "maxConfig": "트림 「3.5 가솔린 시그니처 블랙」 세제후 49,470,000 + 그 트림 유료옵션 4개 합 5,450,000",
-    "maxStatus": "배타 상한후보 — 옵션 단순합. 상호배제(파노라마↔투톤루프 등)·종속 미검증. 정밀 max 는 조합규칙 반영 후.",
-    "optionCoverage": "has-options"
+    "minConfig": "최저 트림 「2.5 가솔린 노블레스 라이트」",
+    "maxCandidate": 60070000,
+    "maxConfig": "최고 트림 「하이브리드 시그니처 블랙」 51,750,000 + 옵션초집합 8,320,000",
+    "maxStatus": "트림 최고가 + 옵션 단순합(상호배제·트림별 적용가능 미검증·상한후보). 옵션은 모델 초집합이라 특정 트림엔 일부 불가."
    }
   },
   {
    "maker": "기아",
    "sub_model": "k9",
-   "fuels": [
-    "3.3 가솔린 터보",
-    "3.8 가솔린"
-   ],
    "trimCount": 8,
    "trimLadder": [
     {
      "fuel": "3.8 가솔린",
      "trim": "플래티넘",
-     "priceBefore": 60340000,
-     "priceAfter": 60340000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 60340000
+     "priceAfter": 60340000
     },
     {
      "fuel": "3.3 가솔린 터보",
      "trim": "플래티넘",
-     "priceBefore": 66880000,
-     "priceAfter": 66880000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 66880000
+     "priceAfter": 66880000
     },
     {
      "fuel": "3.8 가솔린",
      "trim": "베스트",
-     "priceBefore": 68990000,
-     "priceAfter": 68990000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 68990000
+     "priceAfter": 68990000
     },
     {
      "fuel": "3.3 가솔린 터보",
      "trim": "베스트",
-     "priceBefore": 74750000,
-     "priceAfter": 74750000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 74750000
+     "priceAfter": 74750000
     },
     {
      "fuel": "3.8 가솔린",
      "trim": "마스터즈",
-     "priceBefore": 75200000,
-     "priceAfter": 75200000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 75200000
+     "priceAfter": 75200000
     },
     {
      "fuel": "3.3 가솔린 터보",
      "trim": "마스터즈",
-     "priceBefore": 79940000,
-     "priceAfter": 79940000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 79940000
+     "priceAfter": 79940000
     },
     {
      "fuel": "3.8 가솔린",
      "trim": "베스트",
-     "priceBefore": 82290000,
-     "priceAfter": 82290000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 82290000
+     "priceAfter": 82290000
     },
     {
      "fuel": "3.3 가솔린 터보",
      "trim": "베스트",
-     "priceBefore": 87030000,
-     "priceAfter": 87030000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 87030000
+     "priceAfter": 87030000
     }
    ],
    "optionSuperset": [],
-   "rules": [
-    "\u0007스마트폰 무선 충전 시스템은 스마트폰 기종에 따라 별도 충전용 수신장치가 필요할 수 있으며, 수신장치 장착 불가기종은 이용이 어려울 수 있음",
-    "수신장치 장착 불가기종은 이용이 어려울 수 있음",
-    "전/후석 도어 중앙부, 내비게이션 디스플레이’입니다. • Kia Genuine Accessories 선택 시 충주 출고센터로만 배정이 가능하며, 출고 후 부착기간은 약 2일 소요됩니다.",
-    "Kia Genuine Accessories 선택 시 충주 출고센터로만 배정이 가능하며, 출고 후 부착기간은 약 2일 소요됩니다."
-   ],
+   "optionSource": "new_car_trim",
    "minMax": {
     "min": 60340000,
-    "minConfig": "최저 트림 「3.8 가솔린 플래티넘」 세제후가·유료옵션 없음",
+    "minConfig": "최저 트림 「3.8 가솔린 플래티넘」",
     "maxCandidate": 87030000,
-    "maxConfig": "트림 「3.3 가솔린 터보 베스트」 세제후 87,030,000 + 그 트림 유료옵션 0개 합 0",
-    "maxStatus": "배타 상한후보 — 옵션 단순합. 상호배제(파노라마↔투톤루프 등)·종속 미검증. 정밀 max 는 조합규칙 반영 후.",
-    "optionCoverage": "옵션 미수집(있으면 정확·없으면 미수집이지 옵션없음 아님)"
+    "maxConfig": "최고 트림 「3.3 가솔린 터보 베스트」 87,030,000 + 옵션초집합 0",
+    "maxStatus": "트림 최고가 + 옵션 단순합(상호배제·트림별 적용가능 미검증·상한후보). 옵션은 모델 초집합이라 특정 트림엔 일부 불가."
    }
   },
   {
    "maker": "기아",
    "sub_model": "morning",
-   "fuels": [
-    "1.0 가솔린"
-   ],
    "trimCount": 6,
    "trimLadder": [
     {
      "fuel": "1.0 가솔린",
      "trim": "트렌디",
-     "priceBefore": 13860000,
-     "priceAfter": 13860000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 13860000
+     "priceAfter": 13860000
     },
     {
      "fuel": "1.0 가솔린",
      "trim": "트렌디",
-     "priceBefore": 14210000,
-     "priceAfter": 14210000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 14210000
+     "priceAfter": 14210000
     },
     {
      "fuel": "1.0 가솔린",
      "trim": "프레스티지",
-     "priceBefore": 14510000,
-     "priceAfter": 14510000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 14510000
+     "priceAfter": 14510000
     },
     {
      "fuel": "1.0 가솔린",
      "trim": "프레스티지",
-     "priceBefore": 16010000,
-     "priceAfter": 16010000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 16010000
+     "priceAfter": 16010000
     },
     {
      "fuel": "1.0 가솔린",
      "trim": "시그니처",
-     "priceBefore": 18160000,
-     "priceAfter": 18160000,
-     "optionCount": 3,
-     "optionSum": 1950000,
-     "loaded": 20110000
+     "priceAfter": 18160000
     },
     {
      "fuel": "1.0 가솔린",
      "trim": "GT-Line",
-     "priceBefore": 19110000,
-     "priceAfter": 19110000,
-     "optionCount": 2,
-     "optionSum": 1100000,
-     "loaded": 20210000
+     "priceAfter": 19110000
     }
    ],
    "optionSuperset": [
@@ -1442,60 +930,34 @@
      "price": 400000
     }
    ],
-   "rules": [
-    "(버튼시동 PACK 선택시 선택 가능)",
-    "(8인치 내비게이션 선택시 선택 가능)",
-    "(16인치 전면가공 휠 선택시 선택 가능)",
-    "트렌디 : 버튼시동 PACK 선택시 8인치 내비게이션 선택 가능, 스타일/16인치 전면가공 휠 중복선택시 14인치 알로이 휠 미적용 ※ 프레스티지 : 16인치 전면가공 휠 선택시 드라이브 와이즈 선택 가능",
-    "트렌디/프레스티지 : 8인치 내비게이션 선택시 10.25인치 클러스터 선택 가능",
-    "8인치 내비게이션 (버튼시동 PACK 선택시 선택 가능)",
-    "트렌디 / 프레스티지 : 버튼시동 PACK 선택시 8인치 내비게이션 선택 가능",
-    "\u0007스마트폰 무선충전 시스템은 기종에 따라 별도 충전용 수신장치가 필요할 수 있으며, 수신장치 장착 불가 기종은 이용이 어려울 수 있습니다.",
-    "수신장치 장착 불가 기종은 이용이 어려울 수 있습니다."
-   ],
+   "optionSource": "new_car_trim",
    "minMax": {
     "min": 13860000,
-    "minConfig": "최저 트림 「1.0 가솔린 트렌디」 세제후가·유료옵션 없음",
-    "maxCandidate": 20210000,
-    "maxConfig": "트림 「1.0 가솔린 GT-Line」 세제후 19,110,000 + 그 트림 유료옵션 2개 합 1,100,000",
-    "maxStatus": "배타 상한후보 — 옵션 단순합. 상호배제(파노라마↔투톤루프 등)·종속 미검증. 정밀 max 는 조합규칙 반영 후.",
-    "optionCoverage": "has-options"
+    "minConfig": "최저 트림 「1.0 가솔린 트렌디」",
+    "maxCandidate": 21060000,
+    "maxConfig": "최고 트림 「1.0 가솔린 GT-Line」 19,110,000 + 옵션초집합 1,950,000",
+    "maxStatus": "트림 최고가 + 옵션 단순합(상호배제·트림별 적용가능 미검증·상한후보). 옵션은 모델 초집합이라 특정 트림엔 일부 불가."
    }
   },
   {
    "maker": "기아",
    "sub_model": "niro",
-   "fuels": [
-    "하이브리드"
-   ],
    "trimCount": 3,
    "trimLadder": [
     {
      "fuel": "하이브리드",
      "trim": "트렌디",
-     "priceBefore": 30270000,
-     "priceAfter": 29270000,
-     "optionCount": 5,
-     "optionSum": 3160000,
-     "loaded": 32430000
+     "priceAfter": 29270000
     },
     {
      "fuel": "하이브리드",
      "trim": "프레스티지",
-     "priceBefore": 33420000,
-     "priceAfter": 32420000,
-     "optionCount": 11,
-     "optionSum": 7600000,
-     "loaded": 40020000
+     "priceAfter": 32420000
     },
     {
      "fuel": "하이브리드",
      "trim": "시그니처",
-     "priceBefore": 36150000,
-     "priceAfter": 35150000,
-     "optionCount": 11,
-     "optionSum": 7590000,
-     "loaded": 42740000
+     "priceAfter": 35150000
     }
    ],
    "optionSuperset": [
@@ -1552,131 +1014,69 @@
      "price": 420000
     }
    ],
-   "rules": [
-    "클러스터 팩 12.3인치 클러스터 팩 적용 시 선택 가능",
-    "12.3인치 클러스터 팩 적용 시 선택 가능",
-    "후석 승객 알림(센서 타입), 220V 인버터, 가죽시트, 2열 열선시트, 2열 센터 암레스트 ※ 블루 그레이 인테리어 선택 불가",
-    "블루 그레이 인테리어 선택 불가",
-    "후측방 충돌 경고(전진 출차/주행), 후측방 충돌방지 보조(전진 출차), 후방 교차 충돌방지 보조, 안전 하차 보조, 전자식 차일드락 ※ 드라이브 와이즈 Ⅱ와 중복 선택 불가",
-    "드라이브 와이즈 Ⅱ와 중복 선택 불가",
-    "전자식 차일드락 ※ 드라이브 와이즈 Ⅰ과 중복 선택 불가",
-    "드라이브 와이즈 Ⅰ과 중복 선택 불가",
-    "마이컴포트 패키지와 선루프 동시 선택 불가",
-    "추가 ※ 트렌디 선택 불가",
-    "트렌디 선택 불가",
-    "\u0007Kia Genuine Accessories 선택 시 충주 출고센터로만 배정이 가능하며, 출고 후 장착기간은 약 2일 소요",
-    "\u0007마이컴포트 패키지는 선루프 적용시 선택 불가",
-    "블루 그레이 인테리어 ※ 프리미엄 옵션 적용 시, 블루 그레이 인테리어 선택 불가",
-    "프리미엄 옵션 적용 시, 블루 그레이 인테리어 선택 불가",
-    "\u0007스마트폰 무선충전 시스템은 스마트폰 기종에 따라 별도 충전용 수신장치가 필요할 수 있으며, 수신장치 장착 불가기종은 이용이 어려울 수 있음",
-    "수신장치 장착 불가기종은 이용이 어려울 수 있음"
-   ],
+   "optionSource": "new_car_trim",
    "minMax": {
     "min": 29270000,
-    "minConfig": "최저 트림 「하이브리드 트렌디」 세제후가·유료옵션 없음",
-    "maxCandidate": 42740000,
-    "maxConfig": "트림 「하이브리드 시그니처」 세제후 35,150,000 + 그 트림 유료옵션 11개 합 7,590,000",
-    "maxStatus": "배타 상한후보 — 옵션 단순합. 상호배제(파노라마↔투톤루프 등)·종속 미검증. 정밀 max 는 조합규칙 반영 후.",
-    "optionCoverage": "has-options"
+    "minConfig": "최저 트림 「하이브리드 트렌디」",
+    "maxCandidate": 44740000,
+    "maxConfig": "최고 트림 「하이브리드 시그니처」 35,150,000 + 옵션초집합 9,590,000",
+    "maxStatus": "트림 최고가 + 옵션 단순합(상호배제·트림별 적용가능 미검증·상한후보). 옵션은 모델 초집합이라 특정 트림엔 일부 불가."
    }
   },
   {
    "maker": "기아",
    "sub_model": "ray",
-   "fuels": [
-    "1.0 가솔린"
-   ],
    "trimCount": 10,
    "trimLadder": [
     {
      "fuel": "1.0 가솔린",
      "trim": "트렌디",
-     "priceBefore": 14800000,
-     "priceAfter": 14800000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 14800000
+     "priceAfter": 14800000
     },
     {
      "fuel": "1.0 가솔린",
      "trim": "트렌디",
-     "priceBefore": 14900000,
-     "priceAfter": 14900000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 14900000
+     "priceAfter": 14900000
     },
     {
      "fuel": "1.0 가솔린",
      "trim": "프레스티지",
-     "priceBefore": 15400000,
-     "priceAfter": 15400000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 15400000
+     "priceAfter": 15400000
     },
     {
      "fuel": "1.0 가솔린",
      "trim": "트렌디",
-     "priceBefore": 15550000,
-     "priceAfter": 15550000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 15550000
+     "priceAfter": 15550000
     },
     {
      "fuel": "1.0 가솔린",
      "trim": "프레스티지",
-     "priceBefore": 15550000,
-     "priceAfter": 15550000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 15550000
+     "priceAfter": 15550000
     },
     {
      "fuel": "1.0 가솔린",
      "trim": "스페셜",
-     "priceBefore": 15950000,
-     "priceAfter": 15950000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 15950000
+     "priceAfter": 15950000
     },
     {
      "fuel": "1.0 가솔린",
      "trim": "스페셜",
-     "priceBefore": 16100000,
-     "priceAfter": 16100000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 16100000
+     "priceAfter": 16100000
     },
     {
      "fuel": "1.0 가솔린",
      "trim": "프레스티지",
-     "priceBefore": 18150000,
-     "priceAfter": 18150000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 18150000
+     "priceAfter": 18150000
     },
     {
      "fuel": "1.0 가솔린",
      "trim": "시그니처",
-     "priceBefore": 19550000,
-     "priceAfter": 19550000,
-     "optionCount": 2,
-     "optionSum": 1000000,
-     "loaded": 20550000
+     "priceAfter": 19550000
     },
     {
      "fuel": "1.0 가솔린",
      "trim": "X-Line",
-     "priceBefore": 20600000,
-     "priceAfter": 20600000,
-     "optionCount": 1,
-     "optionSum": 500000,
-     "loaded": 21100000
+     "priceAfter": 20600000
     }
    ],
    "optionSuperset": [
@@ -1689,241 +1089,125 @@
      "price": 500000
     }
    ],
-   "rules": [
-    "드라이브 와이즈 중복 선택 불가",
-    "중복 선택 불가",
-    "8인치 디스플레이 오디오 8인치 디스플레이 오디오, 후방 모니터, 샤크핀 안테나 ※ 8인치 내비게이션과 중복 선택 불가",
-    "8인치 디스플레이 오디오, 후방 모니터, 샤크핀 안테나 ※ 8인치 내비게이션과 중복 선택 불가",
-    "8인치 내비게이션(기아 커넥트, 폰 프로젝션, 인카페이먼트), 내비게이션 무선 업데이트, 6스피커, 풀오토 에어컨, 공기청정 모드, 전자식 룸미러, 하이패스 자동결제 시스템, 후방 모니터, 샤크핀 안테나 ※ 8인치 디스플레이 오디오와 중복 선택 불가",
-    "하이패스 자동결제 시스템, 후방 모니터, 샤크핀 안테나 ※ 8인치 디스플레이 오디오와 중복 선택 불가",
-    "버튼시동 스마트키 버튼시동 스마트키 적용 시 선택 가능",
-    "버튼시동 스마트키 적용 시 선택 가능",
-    "어드벤쳐러스 그린(A2G) ※ X-Line 선택 불가",
-    "X-Line 선택 불가",
-    "밀키 베이지(M9Y) ※ X-Line 선택 불가",
-    "■ 신차 옵션 상품 참조사항 •\u0007블랙 투톤 패키지는 X-Line 트림 적용시 선택 가능합니다. (밴 차량 선택 불가)",
-    "\u0007블랙 투톤 패키지는 X-Line 트림 적용시 선택 가능합니다. (밴 차량 선택 불가)",
-    "\u0007블랙 투톤 패키지는 A필라, 루프 판넬에 블랙 칼라 필름이 부착됩니다. •\u0007그레이 투톤 패키지는 프레스티지 트림, 시그니처 트림 적용시 선택 가능합니다.",
-    "\u0007그레이 투톤 패키지는 프레스티지 트림, 시그니처 트림 적용시 선택 가능합니다.",
-    "\u0007그레이 투톤 패키지는 클리어 화이트(UD) 외장 칼라 적용시 선택 가능합니다. (밴 차량 선택 불가)",
-    "A필라, 루프 판넬에 아스트로 그레이 칼라 필름이 부착됩니다. •\u0007블랙/그레이 투톤 패키지 선택 시 충주 출고센터로만 배정이 가능하며, 출고 후 장착기간은 약 2일 소요됩니다.",
-    "\u0007블랙/그레이 투톤 패키지 선택 시 충주 출고센터로만 배정이 가능하며, 출고 후 장착기간은 약 2일 소요됩니다."
-   ],
+   "optionSource": "new_car_trim",
    "minMax": {
     "min": 14800000,
-    "minConfig": "최저 트림 「1.0 가솔린 트렌디」 세제후가·유료옵션 없음",
-    "maxCandidate": 21100000,
-    "maxConfig": "트림 「1.0 가솔린 X-Line」 세제후 20,600,000 + 그 트림 유료옵션 1개 합 500,000",
-    "maxStatus": "배타 상한후보 — 옵션 단순합. 상호배제(파노라마↔투톤루프 등)·종속 미검증. 정밀 max 는 조합규칙 반영 후.",
-    "optionCoverage": "has-options"
+    "minConfig": "최저 트림 「1.0 가솔린 트렌디」",
+    "maxCandidate": 21600000,
+    "maxConfig": "최고 트림 「1.0 가솔린 X-Line」 20,600,000 + 옵션초집합 1,000,000",
+    "maxStatus": "트림 최고가 + 옵션 단순합(상호배제·트림별 적용가능 미검증·상한후보). 옵션은 모델 초집합이라 특정 트림엔 일부 불가."
    }
   },
   {
    "maker": "기아",
    "sub_model": "seltos",
-   "fuels": [
-    "1.6 가솔린 터보",
-    "하이브리드"
-   ],
    "trimCount": 8,
    "trimLadder": [
     {
      "fuel": "1.6 가솔린 터보",
      "trim": "트렌디",
-     "priceBefore": 25120000,
-     "priceAfter": 25120000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 25120000
+     "priceAfter": 25120000
     },
     {
      "fuel": "1.6 가솔린 터보",
      "trim": "프레스티지",
-     "priceBefore": 28800000,
-     "priceAfter": 28800000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 28800000
+     "priceAfter": 28800000
     },
     {
      "fuel": "하이브리드",
      "trim": "트렌디",
-     "priceBefore": 30400000,
-     "priceAfter": 29400000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 29400000
+     "priceAfter": 29400000
     },
     {
      "fuel": "1.6 가솔린 터보",
      "trim": "시그니처",
-     "priceBefore": 31450000,
-     "priceAfter": 31450000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 31450000
+     "priceAfter": 31450000
     },
     {
      "fuel": "하이브리드",
      "trim": "프레스티지",
-     "priceBefore": 33550000,
-     "priceAfter": 32550000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 32550000
+     "priceAfter": 32550000
     },
     {
      "fuel": "1.6 가솔린 터보",
      "trim": "X-Line",
-     "priceBefore": 32630000,
-     "priceAfter": 32630000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 32630000
+     "priceAfter": 32630000
     },
     {
      "fuel": "하이브리드",
      "trim": "시그니처",
-     "priceBefore": 36200000,
-     "priceAfter": 35200000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 35200000
+     "priceAfter": 35200000
     },
     {
      "fuel": "하이브리드",
      "trim": "X-Line",
-     "priceBefore": 37360000,
-     "priceAfter": 36360000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 36360000
+     "priceAfter": 36360000
     }
    ],
    "optionSuperset": [],
-   "rules": [
-    "클러스터 12.3인치 클러스터 적용 시 선택 가능",
-    "12.3인치 클러스터 적용 시 선택 가능",
-    "사운드 중복 선택 불가",
-    "중복 선택 불가",
-    "(스타일 적용 시 선택 가능)",
-    "(12.3인치 내비게이션 적용 시 선택 가능)",
-    "적용 시 선택 가능)",
-    "파노라마 선루프 파노라마 선루프, 니트 헤드라이닝 ※ 투톤 루프와 중복 선택 불가",
-    "파노라마 선루프, 니트 헤드라이닝 ※ 투톤 루프와 중복 선택 불가",
-    "투톤 루프 ※ 파노라마 선루프와 중복 선택 불가",
-    "파노라마 선루프와 중복 선택 불가",
-    "실내 V2L 중복 선택 불가",
-    "\u0007스마트폰 무선충전 시스템은 스마트폰 기종에 따라 별도 충전용 수신장치가 필요할 수 있음 수신장치 장착 불가 기종은 이용이 어려울 수 있으며, 별도 충전용 수신 장치는 지급하지 않음",
-    "수신장치 장착 불가 기종은 이용이 어려울 수 있으며, 별도 충전용 수신 장치는 지급하지 않음"
-   ],
+   "optionSource": "new_car_trim",
    "minMax": {
     "min": 25120000,
-    "minConfig": "최저 트림 「1.6 가솔린 터보 트렌디」 세제후가·유료옵션 없음",
+    "minConfig": "최저 트림 「1.6 가솔린 터보 트렌디」",
     "maxCandidate": 36360000,
-    "maxConfig": "트림 「하이브리드 X-Line」 세제후 36,360,000 + 그 트림 유료옵션 0개 합 0",
-    "maxStatus": "배타 상한후보 — 옵션 단순합. 상호배제(파노라마↔투톤루프 등)·종속 미검증. 정밀 max 는 조합규칙 반영 후.",
-    "optionCoverage": "옵션 미수집(있으면 정확·없으면 미수집이지 옵션없음 아님)"
+    "maxConfig": "최고 트림 「하이브리드 X-Line」 36,360,000 + 옵션초집합 0",
+    "maxStatus": "트림 최고가 + 옵션 단순합(상호배제·트림별 적용가능 미검증·상한후보). 옵션은 모델 초집합이라 특정 트림엔 일부 불가."
    }
   },
   {
    "maker": "기아",
    "sub_model": "sorento",
-   "fuels": [
-    "2.5 가솔린 터보",
-    "하이브리드"
-   ],
    "trimCount": 10,
    "trimLadder": [
     {
      "fuel": "2.5 가솔린 터보",
      "trim": "프레스티지",
-     "priceBefore": 36410000,
-     "priceAfter": 36410000,
-     "optionCount": 8,
-     "optionSum": 9250000,
-     "loaded": 45660000
+     "priceAfter": 36410000
     },
     {
      "fuel": "하이브리드",
      "trim": "프레스티지",
-     "priceBefore": 40630000,
-     "priceAfter": 39630000,
-     "optionCount": 8,
-     "optionSum": 9250000,
-     "loaded": 48880000
+     "priceAfter": 39630000
     },
     {
      "fuel": "2.5 가솔린 터보",
      "trim": "노블레스",
-     "priceBefore": 39660000,
-     "priceAfter": 39660000,
-     "optionCount": 9,
-     "optionSum": 9800000,
-     "loaded": 49460000
+     "priceAfter": 39660000
     },
     {
      "fuel": "2.5 가솔린 터보",
      "trim": "시그니처",
-     "priceBefore": 42470000,
-     "priceAfter": 42470000,
-     "optionCount": 9,
-     "optionSum": 9160000,
-     "loaded": 51630000
+     "priceAfter": 42470000
     },
     {
      "fuel": "하이브리드",
      "trim": "노블레스",
-     "priceBefore": 43990000,
-     "priceAfter": 42990000,
-     "optionCount": 9,
-     "optionSum": 9800000,
-     "loaded": 52790000
+     "priceAfter": 42990000
     },
     {
      "fuel": "2.5 가솔린 터보",
      "trim": "X-Line",
-     "priceBefore": 43410000,
-     "priceAfter": 43410000,
-     "optionCount": 9,
-     "optionSum": 9160000,
-     "loaded": 52570000
+     "priceAfter": 43410000
     },
     {
      "fuel": "2.5 가솔린 터보",
      "trim": "블랙 에디션",
-     "priceBefore": 44410000,
-     "priceAfter": 44410000,
-     "optionCount": 8,
-     "optionSum": 8560000,
-     "loaded": 52970000
+     "priceAfter": 44410000
     },
     {
      "fuel": "하이브리드",
      "trim": "시그니처",
-     "priceBefore": 46760000,
-     "priceAfter": 45760000,
-     "optionCount": 9,
-     "optionSum": 9160000,
-     "loaded": 54920000
+     "priceAfter": 45760000
     },
     {
      "fuel": "하이브리드",
      "trim": "X-Line",
-     "priceBefore": 47700000,
-     "priceAfter": 46700000,
-     "optionCount": 9,
-     "optionSum": 9160000,
-     "loaded": 55860000
+     "priceAfter": 46700000
     },
     {
      "fuel": "하이브리드",
      "trim": "블랙 에디션",
-     "priceBefore": 48950000,
-     "priceAfter": 48950000,
-     "optionCount": 8,
-     "optionSum": 8560000,
-     "loaded": 57510000
+     "priceAfter": 48950000
     }
    ],
    "optionSuperset": [
@@ -1984,152 +1268,79 @@
      "price": 590000
     }
    ],
-   "rules": [
-    "클러스터 12.3인치 클러스터 적용 시 선택 가능",
-    "12.3인치 클러스터 적용 시 선택 가능",
-    "전자식 4WD 선택 시 친환경차 세제혜택 미대상으로 수혜 불가",
-    "전자식 4WD 선택 시 친환경차 세제혜택 수혜 불가",
-    "파노라마 선루프 파노라마 선루프 ※ 프레스티지 트림 : 스타일 선택 시 파노라마 선루프 선택 가능",
-    "파노라마 선루프 ※ 프레스티지 트림 : 스타일 선택 시 파노라마 선루프 선택 가능",
-    "올리브 브라운 인테리어 ※ 블랙 에디션 선택 시 블랙 인테리어 외 선택 불가",
-    "블랙 에디션 선택 시 블랙 인테리어 외 선택 불가",
-    "추가 ※ 블랙 에디션 선택 불가",
-    "블랙 에디션 선택 불가",
-    "\u0007스마트폰 무선충전 시스템은 스마트폰 기종에 따라 별도 충전용 수신장치가 필요할 수 있으며, 수신장치 장착 불가기종은 이용이 어려울 수 있음",
-    "수신장치 장착 불가기종은 이용이 어려울 수 있음",
-    "\u0007Kia Genuine Accessories 선택 시 충주 출고센터로만 배정이 가능하며, 출고 후 장착기간은 약 2일 소요됩니다.",
-    "Kia Genuine Accessories 서스펜션 패키지는 사용자의 운전 성향 차이로 인해 성능 체감이 상이할 수 있습니다. • 서스펜션 패키지는 2.5 가솔린 터보 모델에서 스타일(20인치 휠) 선택 시 적용 가능하며, 1.6 터보 하이브리드 모델에는 적용되지 않습니다.",
-    "서스펜션 패키지는 2.5 가솔린 터보 모델에서 스타일(20인치 휠) 선택 시 적용 가능하며, 1.6 터보 하이브리드 모델에는 적용되지 않습니다.",
-    "사이드 스텝과 트레일러 패키지는 동시 선택이 불가합니다.",
-    "트레일러 패키지의 커넥터는 유럽식 13PIN(ISO11446), 토우볼 지름은 50㎜입니다. • 러기지 패키지는 프레스티지 트림은 선택 불가합니다.",
-    "러기지 패키지는 프레스티지 트림은 선택 불가합니다."
-   ],
+   "optionSource": "new_car_trim",
    "minMax": {
     "min": 36410000,
-    "minConfig": "최저 트림 「2.5 가솔린 터보 프레스티지」 세제후가·유료옵션 없음",
-    "maxCandidate": 57510000,
-    "maxConfig": "트림 「하이브리드 블랙 에디션」 세제후 48,950,000 + 그 트림 유료옵션 8개 합 8,560,000",
-    "maxStatus": "배타 상한후보 — 옵션 단순합. 상호배제(파노라마↔투톤루프 등)·종속 미검증. 정밀 max 는 조합규칙 반영 후.",
-    "optionCoverage": "has-options"
+    "minConfig": "최저 트림 「2.5 가솔린 터보 프레스티지」",
+    "maxCandidate": 63710000,
+    "maxConfig": "최고 트림 「하이브리드 블랙 에디션」 48,950,000 + 옵션초집합 14,760,000",
+    "maxStatus": "트림 최고가 + 옵션 단순합(상호배제·트림별 적용가능 미검증·상한후보). 옵션은 모델 초집합이라 특정 트림엔 일부 불가."
    }
   },
   {
    "maker": "기아",
    "sub_model": "sportage",
-   "fuels": [
-    "1.6 가솔린 터보",
-    "2.0 LPG",
-    "하이브리드"
-   ],
    "trimCount": 12,
    "trimLadder": [
     {
      "fuel": "1.6 가솔린 터보",
      "trim": "프레스티지",
-     "priceBefore": 29440000,
-     "priceAfter": 29440000,
-     "optionCount": 5,
-     "optionSum": 5600000,
-     "loaded": 35040000
+     "priceAfter": 29440000
     },
     {
      "fuel": "2.0 LPG",
      "trim": "프레스티지",
-     "priceBefore": 30090000,
-     "priceAfter": 30090000,
-     "optionCount": 4,
-     "optionSum": 3370000,
-     "loaded": 33460000
+     "priceAfter": 30090000
     },
     {
      "fuel": "1.6 가솔린 터보",
      "trim": "노블레스",
-     "priceBefore": 33220000,
-     "priceAfter": 33220000,
-     "optionCount": 9,
-     "optionSum": 8480000,
-     "loaded": 41700000
+     "priceAfter": 33220000
     },
     {
      "fuel": "2.0 LPG",
      "trim": "노블레스",
-     "priceBefore": 33870000,
-     "priceAfter": 33870000,
-     "optionCount": 8,
-     "optionSum": 6250000,
-     "loaded": 40120000
+     "priceAfter": 33870000
     },
     {
      "fuel": "하이브리드",
      "trim": "프레스티지",
-     "priceBefore": 35360000,
-     "priceAfter": 34360000,
-     "optionCount": 5,
-     "optionSum": 5600000,
-     "loaded": 39960000
+     "priceAfter": 34360000
     },
     {
      "fuel": "1.6 가솔린 터보",
      "trim": "시그니처",
-     "priceBefore": 35570000,
-     "priceAfter": 35570000,
-     "optionCount": 8,
-     "optionSum": 7300000,
-     "loaded": 42870000
+     "priceAfter": 35570000
     },
     {
      "fuel": "1.6 가솔린 터보",
      "trim": "X-Line",
-     "priceBefore": 36220000,
-     "priceAfter": 36220000,
-     "optionCount": 7,
-     "optionSum": 7050000,
-     "loaded": 43270000
+     "priceAfter": 36220000
     },
     {
      "fuel": "2.0 LPG",
      "trim": "시그니처",
-     "priceBefore": 36220000,
-     "priceAfter": 36220000,
-     "optionCount": 7,
-     "optionSum": 5070000,
-     "loaded": 41290000
+     "priceAfter": 36220000
     },
     {
      "fuel": "2.0 LPG",
      "trim": "X-Line",
-     "priceBefore": 36870000,
-     "priceAfter": 36870000,
-     "optionCount": 6,
-     "optionSum": 4820000,
-     "loaded": 41690000
+     "priceAfter": 36870000
     },
     {
      "fuel": "하이브리드",
      "trim": "노블레스",
-     "priceBefore": 39030000,
-     "priceAfter": 38030000,
-     "optionCount": 9,
-     "optionSum": 8480000,
-     "loaded": 46510000
+     "priceAfter": 38030000
     },
     {
      "fuel": "하이브리드",
      "trim": "시그니처",
-     "priceBefore": 41380000,
-     "priceAfter": 40380000,
-     "optionCount": 8,
-     "optionSum": 7300000,
-     "loaded": 47680000
+     "priceAfter": 40380000
     },
     {
      "fuel": "하이브리드",
      "trim": "X-Line",
-     "priceBefore": 42030000,
-     "priceAfter": 41030000,
-     "optionCount": 7,
-     "optionSum": 7050000,
-     "loaded": 48080000
+     "priceAfter": 41030000
     }
    ],
    "optionSuperset": [
@@ -2194,810 +1405,1095 @@
      "price": 250000
     }
    ],
-   "rules": [
-    "별도의 보상은 없습니다. • Kia Genuine Accessories 선택 시 광주 출고센터로만 배정이 가능하며, 출고 후 장착기간은 약 2일 소요됩니다.",
-    "Kia Genuine Accessories 선택 시 광주 출고센터로만 배정이 가능하며, 출고 후 장착기간은 약 2일 소요됩니다.",
-    "\u0007스마트폰 무선충전 시스템은 스마트폰 기종에 따라 별도 충전용 수신장치가 필요할 수 있으며, 수신장치 장착 불가 기종은 이용이 어려울 수 있음",
-    "수신장치 장착 불가 기종은 이용이 어려울 수 있음"
-   ],
+   "optionSource": "new_car_trim",
    "minMax": {
     "min": 29440000,
-    "minConfig": "최저 트림 「1.6 가솔린 터보 프레스티지」 세제후가·유료옵션 없음",
-    "maxCandidate": 48080000,
-    "maxConfig": "트림 「하이브리드 X-Line」 세제후 41,030,000 + 그 트림 유료옵션 7개 합 7,050,000",
-    "maxStatus": "배타 상한후보 — 옵션 단순합. 상호배제(파노라마↔투톤루프 등)·종속 미검증. 정밀 max 는 조합규칙 반영 후.",
-    "optionCoverage": "has-options"
+    "minConfig": "최저 트림 「1.6 가솔린 터보 프레스티지」",
+    "maxCandidate": 54660000,
+    "maxConfig": "최고 트림 「하이브리드 X-Line」 41,030,000 + 옵션초집합 13,630,000",
+    "maxStatus": "트림 최고가 + 옵션 단순합(상호배제·트림별 적용가능 미검증·상한후보). 옵션은 모델 초집합이라 특정 트림엔 일부 불가."
    }
   },
   {
    "maker": "현대",
    "sub_model": "넥쏘",
-   "fuels": [
-    "수소전기"
-   ],
    "trimCount": 3,
    "trimLadder": [
     {
      "fuel": "수소전기",
      "trim": "모던",
-     "priceBefore": 80447000,
-     "priceAfter": 76470532,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 76470532
+     "priceAfter": 76470532
     },
     {
      "fuel": "수소전기",
      "trim": "익스클루시브",
-     "priceBefore": 83497000,
-     "priceAfter": 79369771,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 79369771
+     "priceAfter": 79369771
     },
     {
      "fuel": "수소전기",
      "trim": "프레스티지",
-     "priceBefore": 88147000,
-     "priceAfter": 83789923,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 83789923
+     "priceAfter": 83789923
     }
    ],
-   "optionSuperset": [],
-   "rules": [],
+   "optionSuperset": [
+    {
+     "name": "와이드 선루프 + 루프랙",
+     "price": 790000
+    },
+    {
+     "name": "19인치 알로이 휠 & 미쉐린 타이어",
+     "price": 250000
+    }
+   ],
+   "optionSource": "현대 공식 PDF",
    "minMax": {
     "min": 76470532,
-    "minConfig": "최저 트림 「수소전기 모던」 세제후가·유료옵션 없음",
-    "maxCandidate": 83789923,
-    "maxConfig": "트림 「수소전기 프레스티지」 세제후 83,789,923 + 그 트림 유료옵션 0개 합 0",
-    "maxStatus": "배타 상한후보 — 옵션 단순합. 상호배제(파노라마↔투톤루프 등)·종속 미검증. 정밀 max 는 조합규칙 반영 후.",
-    "optionCoverage": "옵션 미수집(있으면 정확·없으면 미수집이지 옵션없음 아님)"
+    "minConfig": "최저 트림 「수소전기 모던」",
+    "maxCandidate": 84829923,
+    "maxConfig": "최고 트림 「수소전기 프레스티지」 83,789,923 + 옵션초집합 1,040,000",
+    "maxStatus": "트림 최고가 + 옵션 단순합(상호배제·트림별 적용가능 미검증·상한후보). 옵션은 모델 초집합이라 특정 트림엔 일부 불가."
    }
   },
   {
    "maker": "현대",
    "sub_model": "더 뉴 그랜저",
-   "fuels": [
-    "LPi 3.5",
-    "가솔린 2.5",
-    "가솔린 3.5",
-    "하이브리드 1.6T"
-   ],
    "trimCount": 11,
    "trimLadder": [
     {
      "fuel": "가솔린 2.5",
      "trim": "프리미엄",
-     "priceBefore": 42450000,
-     "priceAfter": 42450000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 42450000
+     "priceAfter": 42450000
     },
     {
      "fuel": "LPi 3.5",
      "trim": "프리미엄",
-     "priceBefore": 43930000,
-     "priceAfter": 43930000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 43930000
+     "priceAfter": 43930000
     },
     {
      "fuel": "가솔린 3.5",
      "trim": "프리미엄",
-     "priceBefore": 44910000,
-     "priceAfter": 44910000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 44910000
+     "priceAfter": 44910000
     },
     {
      "fuel": "가솔린 2.5",
      "trim": "익스클루시브",
-     "priceBefore": 46940000,
-     "priceAfter": 46940000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 46940000
+     "priceAfter": 46940000
     },
     {
      "fuel": "하이브리드 1.6T",
      "trim": "프리미엄",
-     "priceBefore": 49330000,
-     "priceAfter": 48328999,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 48328999
+     "priceAfter": 48328999
     },
     {
      "fuel": "LPi 3.5",
      "trim": "익스클루시브",
-     "priceBefore": 48420000,
-     "priceAfter": 48420000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 48420000
+     "priceAfter": 48420000
     },
     {
      "fuel": "가솔린 3.5",
      "trim": "익스클루시브",
-     "priceBefore": 49410000,
-     "priceAfter": 49410000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 49410000
+     "priceAfter": 49410000
     },
     {
      "fuel": "하이브리드 1.6T",
      "trim": "익스클루시브",
-     "priceBefore": 53820000,
-     "priceAfter": 52819000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 52819000
+     "priceAfter": 52819000
     },
     {
      "fuel": "가솔린 2.5",
      "trim": "캘리그래피",
-     "priceBefore": 53100000,
-     "priceAfter": 53100000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 53100000
+     "priceAfter": 53100000
     },
     {
      "fuel": "가솔린 3.5",
      "trim": "캘리그래피",
-     "priceBefore": 55570000,
-     "priceAfter": 55570000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 55570000
+     "priceAfter": 55570000
     },
     {
      "fuel": "하이브리드 1.6T",
      "trim": "캘리그래피",
-     "priceBefore": 59990000,
-     "priceAfter": 58989000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 58989000
+     "priceAfter": 58989000
     }
    ],
-   "optionSuperset": [],
-   "rules": [],
+   "optionSuperset": [
+    {
+     "name": "르블랑 퍼포먼스",
+     "price": 3950000
+    },
+    {
+     "name": "가솔린 3.3 + 랙구동형 전동식 파워 스티어링",
+     "price": 2900000
+    },
+    {
+     "name": "플래티넘 플러스(빌트인 캠 포함)",
+     "price": 1460000
+    },
+    {
+     "name": "플래티넘 플러스 (빌트인 캠 포함)",
+     "price": 1460000
+    },
+    {
+     "name": "파노라마 선루프",
+     "price": 1100000
+    },
+    {
+     "name": "현대 스마트센스",
+     "price": 1050000
+    },
+    {
+     "name": "파킹 어시스트 플러스",
+     "price": 1050000
+    },
+    {
+     "name": "디자인 플러스",
+     "price": 1050000
+    },
+    {
+     "name": "헤드업 디스플레이",
+     "price": 1000000
+    },
+    {
+     "name": "현대 스마트센스Ⅰ",
+     "price": 990000
+    },
+    {
+     "name": "멀티미디어 내비 플러스Ⅰ",
+     "price": 890000
+    },
+    {
+     "name": "인테리어 디자인",
+     "price": 800000
+    },
+    {
+     "name": "현대 스마트센스Ⅱ",
+     "price": 800000
+    },
+    {
+     "name": "프리미엄 초이스",
+     "price": 750000
+    },
+    {
+     "name": "빌트인 캠 플러스",
+     "price": 750000
+    },
+    {
+     "name": "JBL 프리미엄 사운드 시스템",
+     "price": 700000
+    },
+    {
+     "name": "빌트인 캠(보조배터리 포함)",
+     "price": 650000
+    },
+    {
+     "name": "컴포트 II",
+     "price": 610000
+    },
+    {
+     "name": "18인치 알로이 휠 & 타이어",
+     "price": 230000
+    }
+   ],
+   "optionSource": "현대 공식 PDF",
    "minMax": {
     "min": 42450000,
-    "minConfig": "최저 트림 「가솔린 2.5 프리미엄」 세제후가·유료옵션 없음",
-    "maxCandidate": 58989000,
-    "maxConfig": "트림 「하이브리드 1.6T 캘리그래피」 세제후 58,989,000 + 그 트림 유료옵션 0개 합 0",
-    "maxStatus": "배타 상한후보 — 옵션 단순합. 상호배제(파노라마↔투톤루프 등)·종속 미검증. 정밀 max 는 조합규칙 반영 후.",
-    "optionCoverage": "옵션 미수집(있으면 정확·없으면 미수집이지 옵션없음 아님)"
+    "minConfig": "최저 트림 「가솔린 2.5 프리미엄」",
+    "maxCandidate": 81179000,
+    "maxConfig": "최고 트림 「하이브리드 1.6T 캘리그래피」 58,989,000 + 옵션초집합 22,190,000",
+    "maxStatus": "트림 최고가 + 옵션 단순합(상호배제·트림별 적용가능 미검증·상한후보). 옵션은 모델 초집합이라 특정 트림엔 일부 불가."
    }
   },
   {
    "maker": "현대",
    "sub_model": "더 뉴 그랜저 택시",
-   "fuels": [
-    "LPi 3.5"
-   ],
    "trimCount": 1,
    "trimLadder": [
     {
      "fuel": "LPi 3.5",
      "trim": "고급형",
-     "priceBefore": 42170000,
-     "priceAfter": 42170000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 42170000
+     "priceAfter": 42170000
     }
    ],
-   "optionSuperset": [],
-   "rules": [],
+   "optionSuperset": [
+    {
+     "name": "르블랑 퍼포먼스",
+     "price": 3950000
+    },
+    {
+     "name": "가솔린 3.3 + 랙구동형 전동식 파워 스티어링",
+     "price": 2900000
+    },
+    {
+     "name": "플래티넘 플러스(빌트인 캠 포함)",
+     "price": 1460000
+    },
+    {
+     "name": "플래티넘 플러스 (빌트인 캠 포함)",
+     "price": 1460000
+    },
+    {
+     "name": "파노라마 선루프",
+     "price": 1100000
+    },
+    {
+     "name": "현대 스마트센스",
+     "price": 1050000
+    },
+    {
+     "name": "파킹 어시스트 플러스",
+     "price": 1050000
+    },
+    {
+     "name": "디자인 플러스",
+     "price": 1050000
+    },
+    {
+     "name": "헤드업 디스플레이",
+     "price": 1000000
+    },
+    {
+     "name": "현대 스마트센스Ⅰ",
+     "price": 990000
+    },
+    {
+     "name": "멀티미디어 내비 플러스Ⅰ",
+     "price": 890000
+    },
+    {
+     "name": "인테리어 디자인",
+     "price": 800000
+    },
+    {
+     "name": "현대 스마트센스Ⅱ",
+     "price": 800000
+    },
+    {
+     "name": "프리미엄 초이스",
+     "price": 750000
+    },
+    {
+     "name": "빌트인 캠 플러스",
+     "price": 750000
+    },
+    {
+     "name": "JBL 프리미엄 사운드 시스템",
+     "price": 700000
+    },
+    {
+     "name": "빌트인 캠(보조배터리 포함)",
+     "price": 650000
+    },
+    {
+     "name": "컴포트 II",
+     "price": 610000
+    },
+    {
+     "name": "18인치 알로이 휠 & 타이어",
+     "price": 230000
+    }
+   ],
+   "optionSource": "현대 공식 PDF",
    "minMax": {
     "min": 42170000,
-    "minConfig": "최저 트림 「LPi 3.5 고급형」 세제후가·유료옵션 없음",
-    "maxCandidate": 42170000,
-    "maxConfig": "트림 「LPi 3.5 고급형」 세제후 42,170,000 + 그 트림 유료옵션 0개 합 0",
-    "maxStatus": "배타 상한후보 — 옵션 단순합. 상호배제(파노라마↔투톤루프 등)·종속 미검증. 정밀 max 는 조합규칙 반영 후.",
-    "optionCoverage": "옵션 미수집(있으면 정확·없으면 미수집이지 옵션없음 아님)"
+    "minConfig": "최저 트림 「LPi 3.5 고급형」",
+    "maxCandidate": 64360000,
+    "maxConfig": "최고 트림 「LPi 3.5 고급형」 42,170,000 + 옵션초집합 22,190,000",
+    "maxStatus": "트림 최고가 + 옵션 단순합(상호배제·트림별 적용가능 미검증·상한후보). 옵션은 모델 초집합이라 특정 트림엔 일부 불가."
    }
   },
   {
    "maker": "현대",
    "sub_model": "더 뉴 스타리아",
-   "fuels": [
-    "하이브리드",
-    "LPG 3.5",
-    "전기모터"
-   ],
    "trimCount": 17,
    "trimLadder": [
     {
      "fuel": "LPG 3.5",
      "trim": "Smart",
-     "priceBefore": 32590000,
-     "priceAfter": 32590000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 32590000
+     "priceAfter": 32590000
     },
     {
      "fuel": "LPG 3.5",
      "trim": "Smart(센터콘솔)",
-     "priceBefore": 33460000,
-     "priceAfter": 33460000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 33460000
+     "priceAfter": 33460000
     },
     {
      "fuel": "LPG 3.5",
      "trim": "Modern",
-     "priceBefore": 34120000,
-     "priceAfter": 34120000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 34120000
+     "priceAfter": 34120000
     },
     {
      "fuel": "LPG 3.5",
      "trim": "Modern",
-     "priceBefore": 34900000,
-     "priceAfter": 34900000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 34900000
+     "priceAfter": 34900000
     },
     {
      "fuel": "LPG 3.5",
      "trim": "Smart",
-     "priceBefore": 35020000,
-     "priceAfter": 35020000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 35020000
+     "priceAfter": 35020000
     },
     {
      "fuel": "하이브리드",
      "trim": "Smart(센터콘솔)",
-     "priceBefore": 36250000,
-     "priceAfter": 36250000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 36250000
+     "priceAfter": 36250000
     },
     {
      "fuel": "LPG 3.5",
      "trim": "Modern",
-     "priceBefore": 36590000,
-     "priceAfter": 36590000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 36590000
+     "priceAfter": 36590000
     },
     {
      "fuel": "하이브리드",
      "trim": "Smart(센터콘솔)",
-     "priceBefore": 36990000,
-     "priceAfter": 36990000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 36990000
+     "priceAfter": 36990000
     },
     {
      "fuel": "하이브리드",
      "trim": "Modern",
-     "priceBefore": 37450000,
-     "priceAfter": 37450000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 37450000
+     "priceAfter": 37450000
     },
     {
      "fuel": "하이브리드",
      "trim": "Modern",
-     "priceBefore": 38200000,
-     "priceAfter": 38200000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 38200000
+     "priceAfter": 38200000
     },
     {
      "fuel": "하이브리드",
      "trim": "Smart",
-     "priceBefore": 38700000,
-     "priceAfter": 38700000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 38700000
+     "priceAfter": 38700000
     },
     {
      "fuel": "하이브리드",
      "trim": "Smart",
-     "priceBefore": 38760000,
-     "priceAfter": 38760000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 38760000
+     "priceAfter": 38760000
     },
     {
      "fuel": "하이브리드",
      "trim": "Modern",
-     "priceBefore": 39990000,
-     "priceAfter": 39990000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 39990000
+     "priceAfter": 39990000
     },
     {
      "fuel": "하이브리드",
      "trim": "Modern",
-     "priceBefore": 39990000,
-     "priceAfter": 39990000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 39990000
+     "priceAfter": 39990000
     },
     {
      "fuel": "전기모터",
      "trim": "Modern",
-     "priceBefore": 57920000,
-     "priceAfter": 57920000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 57920000
+     "priceAfter": 57920000
     },
     {
      "fuel": "전기모터",
      "trim": "Modern",
-     "priceBefore": 58700000,
-     "priceAfter": 58700000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 58700000
+     "priceAfter": 58700000
     },
     {
      "fuel": "전기모터",
      "trim": "Modern",
-     "priceBefore": 60290000,
-     "priceAfter": 60290000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 60290000
+     "priceAfter": 60290000
     }
    ],
-   "optionSuperset": [],
-   "rules": [],
+   "optionSuperset": [
+    {
+     "name": "구급 패키지Ⅲ",
+     "price": 10290000
+    },
+    {
+     "name": "소방 패키지Ⅲ",
+     "price": 9570000
+    },
+    {
+     "name": "전동 회전시트",
+     "price": 7430000
+    },
+    {
+     "name": "구급 패키지Ⅱ",
+     "price": 5680000
+    },
+    {
+     "name": "소방 패키지Ⅰ",
+     "price": 4460000
+    },
+    {
+     "name": "소방 패키지Ⅱ",
+     "price": 3990000
+    },
+    {
+     "name": "구급 패키지Ⅰ",
+     "price": 3800000
+    },
+    {
+     "name": "헤드앤 백레스트",
+     "price": 2510000
+    },
+    {
+     "name": "HTRAC",
+     "price": 1950000
+    },
+    {
+     "name": "테크Ⅰ",
+     "price": 1350000
+    },
+    {
+     "name": "H Genuine Accessories",
+     "price": 1270000
+    },
+    {
+     "name": "테크Ⅱ",
+     "price": 1250000
+    },
+    {
+     "name": "컴포트(5인승)",
+     "price": 1100000
+    },
+    {
+     "name": "테크",
+     "price": 1100000
+    },
+    {
+     "name": "듀얼 와이드 선루프 + LED 실내등",
+     "price": 900000
+    },
+    {
+     "name": "컴포트(3인승)",
+     "price": 850000
+    },
+    {
+     "name": "멀티미디어 라이트",
+     "price": 750000
+    },
+    {
+     "name": "컴포트",
+     "price": 700000
+    },
+    {
+     "name": "트윈 스윙 도어",
+     "price": 400000
+    },
+    {
+     "name": "윈도우 밴(3인승)",
+     "price": 300000
+    },
+    {
+     "name": "구급충전",
+     "price": 250000
+    },
+    {
+     "name": "윈도우 밴(5인승)",
+     "price": 200000
+    }
+   ],
+   "optionSource": "현대 공식 PDF",
    "minMax": {
     "min": 32590000,
-    "minConfig": "최저 트림 「LPG 3.5 Smart」 세제후가·유료옵션 없음",
-    "maxCandidate": 60290000,
-    "maxConfig": "트림 「전기모터 Modern」 세제후 60,290,000 + 그 트림 유료옵션 0개 합 0",
-    "maxStatus": "배타 상한후보 — 옵션 단순합. 상호배제(파노라마↔투톤루프 등)·종속 미검증. 정밀 max 는 조합규칙 반영 후.",
-    "optionCoverage": "옵션 미수집(있으면 정확·없으면 미수집이지 옵션없음 아님)"
+    "minConfig": "최저 트림 「LPG 3.5 Smart」",
+    "maxCandidate": 120390000,
+    "maxConfig": "최고 트림 「전기모터 Modern」 60,290,000 + 옵션초집합 60,100,000",
+    "maxStatus": "트림 최고가 + 옵션 단순합(상호배제·트림별 적용가능 미검증·상한후보). 옵션은 모델 초집합이라 특정 트림엔 일부 불가."
    }
   },
   {
    "maker": "현대",
    "sub_model": "더 뉴 스타리아 라운지",
-   "fuels": [
-    "LPG 3.5",
-    "전기모터",
-    "하이브리드"
-   ],
    "trimCount": 7,
    "trimLadder": [
     {
      "fuel": "하이브리드",
      "trim": "Prestige",
-     "priceBefore": 44990000,
-     "priceAfter": 44990000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 44990000
+     "priceAfter": 44990000
     },
     {
      "fuel": "LPG 3.5",
      "trim": "Inspiration",
-     "priceBefore": 47720000,
-     "priceAfter": 47720000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 47720000
+     "priceAfter": 47720000
     },
     {
      "fuel": "하이브리드",
      "trim": "Inspiration",
-     "priceBefore": 48760000,
-     "priceAfter": 48760000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 48760000
+     "priceAfter": 48760000
     },
     {
      "fuel": "하이브리드",
      "trim": "Inspiration",
-     "priceBefore": 50920000,
-     "priceAfter": 50920000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 50920000
+     "priceAfter": 50920000
     },
     {
      "fuel": "전기모터",
      "trim": "Prestige",
-     "priceBefore": 66900000,
-     "priceAfter": 63593156,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 63593156
+     "priceAfter": 63593156
     },
     {
      "fuel": "전기모터",
      "trim": "Prestige",
-     "priceBefore": 65490000,
-     "priceAfter": 65490000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 65490000
+     "priceAfter": 65490000
     },
     {
      "fuel": "전기모터",
      "trim": "Inspiration",
-     "priceBefore": 70810000,
-     "priceAfter": 67309885,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 67309885
+     "priceAfter": 67309885
     }
    ],
-   "optionSuperset": [],
-   "rules": [],
+   "optionSuperset": [
+    {
+     "name": "구급 패키지Ⅲ",
+     "price": 10290000
+    },
+    {
+     "name": "소방 패키지Ⅲ",
+     "price": 9570000
+    },
+    {
+     "name": "전동 회전시트",
+     "price": 7430000
+    },
+    {
+     "name": "구급 패키지Ⅱ",
+     "price": 5680000
+    },
+    {
+     "name": "소방 패키지Ⅰ",
+     "price": 4460000
+    },
+    {
+     "name": "소방 패키지Ⅱ",
+     "price": 3990000
+    },
+    {
+     "name": "구급 패키지Ⅰ",
+     "price": 3800000
+    },
+    {
+     "name": "헤드앤 백레스트",
+     "price": 2510000
+    },
+    {
+     "name": "HTRAC",
+     "price": 1950000
+    },
+    {
+     "name": "테크Ⅰ",
+     "price": 1350000
+    },
+    {
+     "name": "H Genuine Accessories",
+     "price": 1270000
+    },
+    {
+     "name": "테크Ⅱ",
+     "price": 1250000
+    },
+    {
+     "name": "컴포트(5인승)",
+     "price": 1100000
+    },
+    {
+     "name": "테크",
+     "price": 1100000
+    },
+    {
+     "name": "듀얼 와이드 선루프 + LED 실내등",
+     "price": 900000
+    },
+    {
+     "name": "컴포트(3인승)",
+     "price": 850000
+    },
+    {
+     "name": "멀티미디어 라이트",
+     "price": 750000
+    },
+    {
+     "name": "컴포트",
+     "price": 700000
+    },
+    {
+     "name": "트윈 스윙 도어",
+     "price": 400000
+    },
+    {
+     "name": "윈도우 밴(3인승)",
+     "price": 300000
+    },
+    {
+     "name": "구급충전",
+     "price": 250000
+    },
+    {
+     "name": "윈도우 밴(5인승)",
+     "price": 200000
+    }
+   ],
+   "optionSource": "현대 공식 PDF",
    "minMax": {
     "min": 44990000,
-    "minConfig": "최저 트림 「하이브리드 Prestige」 세제후가·유료옵션 없음",
-    "maxCandidate": 67309885,
-    "maxConfig": "트림 「전기모터 Inspiration」 세제후 67,309,885 + 그 트림 유료옵션 0개 합 0",
-    "maxStatus": "배타 상한후보 — 옵션 단순합. 상호배제(파노라마↔투톤루프 등)·종속 미검증. 정밀 max 는 조합규칙 반영 후.",
-    "optionCoverage": "옵션 미수집(있으면 정확·없으면 미수집이지 옵션없음 아님)"
+    "minConfig": "최저 트림 「하이브리드 Prestige」",
+    "maxCandidate": 127409885,
+    "maxConfig": "최고 트림 「전기모터 Inspiration」 67,309,885 + 옵션초집합 60,100,000",
+    "maxStatus": "트림 최고가 + 옵션 단순합(상호배제·트림별 적용가능 미검증·상한후보). 옵션은 모델 초집합이라 특정 트림엔 일부 불가."
    }
   },
   {
    "maker": "현대",
    "sub_model": "더 뉴 스타리아 라운지 모빌리티",
-   "fuels": [
-    "LPG 3.5",
-    "하이브리드"
-   ],
    "trimCount": 3,
    "trimLadder": [
     {
      "fuel": "LPG 3.5",
      "trim": "모빌리티",
-     "priceBefore": 44670000,
-     "priceAfter": 44670000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 44670000
+     "priceAfter": 44670000
     },
     {
      "fuel": "하이브리드",
      "trim": "모빌리티",
-     "priceBefore": 47060000,
-     "priceAfter": 47060000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 47060000
+     "priceAfter": 47060000
     },
     {
      "fuel": "하이브리드",
      "trim": "모빌리티",
-     "priceBefore": 47870000,
-     "priceAfter": 47870000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 47870000
+     "priceAfter": 47870000
     }
    ],
-   "optionSuperset": [],
-   "rules": [],
+   "optionSuperset": [
+    {
+     "name": "구급 패키지Ⅲ",
+     "price": 10290000
+    },
+    {
+     "name": "소방 패키지Ⅲ",
+     "price": 9570000
+    },
+    {
+     "name": "전동 회전시트",
+     "price": 7430000
+    },
+    {
+     "name": "구급 패키지Ⅱ",
+     "price": 5680000
+    },
+    {
+     "name": "소방 패키지Ⅰ",
+     "price": 4460000
+    },
+    {
+     "name": "소방 패키지Ⅱ",
+     "price": 3990000
+    },
+    {
+     "name": "구급 패키지Ⅰ",
+     "price": 3800000
+    },
+    {
+     "name": "헤드앤 백레스트",
+     "price": 2510000
+    },
+    {
+     "name": "HTRAC",
+     "price": 1950000
+    },
+    {
+     "name": "테크Ⅰ",
+     "price": 1350000
+    },
+    {
+     "name": "H Genuine Accessories",
+     "price": 1270000
+    },
+    {
+     "name": "테크Ⅱ",
+     "price": 1250000
+    },
+    {
+     "name": "컴포트(5인승)",
+     "price": 1100000
+    },
+    {
+     "name": "테크",
+     "price": 1100000
+    },
+    {
+     "name": "듀얼 와이드 선루프 + LED 실내등",
+     "price": 900000
+    },
+    {
+     "name": "컴포트(3인승)",
+     "price": 850000
+    },
+    {
+     "name": "멀티미디어 라이트",
+     "price": 750000
+    },
+    {
+     "name": "컴포트",
+     "price": 700000
+    },
+    {
+     "name": "트윈 스윙 도어",
+     "price": 400000
+    },
+    {
+     "name": "윈도우 밴(3인승)",
+     "price": 300000
+    },
+    {
+     "name": "구급충전",
+     "price": 250000
+    },
+    {
+     "name": "윈도우 밴(5인승)",
+     "price": 200000
+    }
+   ],
+   "optionSource": "현대 공식 PDF",
    "minMax": {
     "min": 44670000,
-    "minConfig": "최저 트림 「LPG 3.5 모빌리티」 세제후가·유료옵션 없음",
-    "maxCandidate": 47870000,
-    "maxConfig": "트림 「하이브리드 모빌리티」 세제후 47,870,000 + 그 트림 유료옵션 0개 합 0",
-    "maxStatus": "배타 상한후보 — 옵션 단순합. 상호배제(파노라마↔투톤루프 등)·종속 미검증. 정밀 max 는 조합규칙 반영 후.",
-    "optionCoverage": "옵션 미수집(있으면 정확·없으면 미수집이지 옵션없음 아님)"
+    "minConfig": "최저 트림 「LPG 3.5 모빌리티」",
+    "maxCandidate": 107970000,
+    "maxConfig": "최고 트림 「하이브리드 모빌리티」 47,870,000 + 옵션초집합 60,100,000",
+    "maxStatus": "트림 최고가 + 옵션 단순합(상호배제·트림별 적용가능 미검증·상한후보). 옵션은 모델 초집합이라 특정 트림엔 일부 불가."
    }
   },
   {
    "maker": "현대",
    "sub_model": "더 뉴 스타리아 리무진",
-   "fuels": [
-    "전기모터",
-    "하이브리드"
-   ],
    "trimCount": 3,
    "trimLadder": [
     {
      "fuel": "하이브리드",
      "trim": "Inspiration",
-     "priceBefore": 59800000,
-     "priceAfter": 59800000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 59800000
+     "priceAfter": 59800000
     },
     {
      "fuel": "하이브리드",
      "trim": "Inspiration",
-     "priceBefore": 70060000,
-     "priceAfter": 70060000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 70060000
+     "priceAfter": 70060000
     },
     {
      "fuel": "전기모터",
      "trim": "Inspiration",
-     "priceBefore": 89110000,
-     "priceAfter": 84820000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 84820000
+     "priceAfter": 84820000
     }
    ],
-   "optionSuperset": [],
-   "rules": [],
+   "optionSuperset": [
+    {
+     "name": "구급 패키지Ⅲ",
+     "price": 10290000
+    },
+    {
+     "name": "소방 패키지Ⅲ",
+     "price": 9570000
+    },
+    {
+     "name": "전동 회전시트",
+     "price": 7430000
+    },
+    {
+     "name": "구급 패키지Ⅱ",
+     "price": 5680000
+    },
+    {
+     "name": "소방 패키지Ⅰ",
+     "price": 4460000
+    },
+    {
+     "name": "소방 패키지Ⅱ",
+     "price": 3990000
+    },
+    {
+     "name": "구급 패키지Ⅰ",
+     "price": 3800000
+    },
+    {
+     "name": "헤드앤 백레스트",
+     "price": 2510000
+    },
+    {
+     "name": "HTRAC",
+     "price": 1950000
+    },
+    {
+     "name": "테크Ⅰ",
+     "price": 1350000
+    },
+    {
+     "name": "H Genuine Accessories",
+     "price": 1270000
+    },
+    {
+     "name": "테크Ⅱ",
+     "price": 1250000
+    },
+    {
+     "name": "컴포트(5인승)",
+     "price": 1100000
+    },
+    {
+     "name": "테크",
+     "price": 1100000
+    },
+    {
+     "name": "듀얼 와이드 선루프 + LED 실내등",
+     "price": 900000
+    },
+    {
+     "name": "컴포트(3인승)",
+     "price": 850000
+    },
+    {
+     "name": "멀티미디어 라이트",
+     "price": 750000
+    },
+    {
+     "name": "컴포트",
+     "price": 700000
+    },
+    {
+     "name": "트윈 스윙 도어",
+     "price": 400000
+    },
+    {
+     "name": "윈도우 밴(3인승)",
+     "price": 300000
+    },
+    {
+     "name": "구급충전",
+     "price": 250000
+    },
+    {
+     "name": "윈도우 밴(5인승)",
+     "price": 200000
+    }
+   ],
+   "optionSource": "현대 공식 PDF",
    "minMax": {
     "min": 59800000,
-    "minConfig": "최저 트림 「하이브리드 Inspiration」 세제후가·유료옵션 없음",
-    "maxCandidate": 84820000,
-    "maxConfig": "트림 「전기모터 Inspiration」 세제후 84,820,000 + 그 트림 유료옵션 0개 합 0",
-    "maxStatus": "배타 상한후보 — 옵션 단순합. 상호배제(파노라마↔투톤루프 등)·종속 미검증. 정밀 max 는 조합규칙 반영 후.",
-    "optionCoverage": "옵션 미수집(있으면 정확·없으면 미수집이지 옵션없음 아님)"
+    "minConfig": "최저 트림 「하이브리드 Inspiration」",
+    "maxCandidate": 144920000,
+    "maxConfig": "최고 트림 「전기모터 Inspiration」 84,820,000 + 옵션초집합 60,100,000",
+    "maxStatus": "트림 최고가 + 옵션 단순합(상호배제·트림별 적용가능 미검증·상한후보). 옵션은 모델 초집합이라 특정 트림엔 일부 불가."
    }
   },
   {
    "maker": "현대",
    "sub_model": "더 뉴 스타리아 킨더",
-   "fuels": [
-    "LPG 3.5",
-    "하이브리드"
-   ],
    "trimCount": 4,
    "trimLadder": [
     {
      "fuel": "LPG 3.5",
      "trim": "Modern",
-     "priceBefore": 41660000,
-     "priceAfter": 41660000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 41660000
+     "priceAfter": 41660000
     },
     {
      "fuel": "LPG 3.5",
      "trim": "Modern",
-     "priceBefore": 44530000,
-     "priceAfter": 44530000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 44530000
+     "priceAfter": 44530000
     },
     {
      "fuel": "하이브리드",
      "trim": "Modern",
-     "priceBefore": 45060000,
-     "priceAfter": 45060000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 45060000
+     "priceAfter": 45060000
     },
     {
      "fuel": "하이브리드",
      "trim": "Modern",
-     "priceBefore": 47930000,
-     "priceAfter": 47930000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 47930000
+     "priceAfter": 47930000
     }
    ],
-   "optionSuperset": [],
-   "rules": [],
+   "optionSuperset": [
+    {
+     "name": "구급 패키지Ⅲ",
+     "price": 10290000
+    },
+    {
+     "name": "소방 패키지Ⅲ",
+     "price": 9570000
+    },
+    {
+     "name": "전동 회전시트",
+     "price": 7430000
+    },
+    {
+     "name": "구급 패키지Ⅱ",
+     "price": 5680000
+    },
+    {
+     "name": "소방 패키지Ⅰ",
+     "price": 4460000
+    },
+    {
+     "name": "소방 패키지Ⅱ",
+     "price": 3990000
+    },
+    {
+     "name": "구급 패키지Ⅰ",
+     "price": 3800000
+    },
+    {
+     "name": "헤드앤 백레스트",
+     "price": 2510000
+    },
+    {
+     "name": "HTRAC",
+     "price": 1950000
+    },
+    {
+     "name": "테크Ⅰ",
+     "price": 1350000
+    },
+    {
+     "name": "H Genuine Accessories",
+     "price": 1270000
+    },
+    {
+     "name": "테크Ⅱ",
+     "price": 1250000
+    },
+    {
+     "name": "컴포트(5인승)",
+     "price": 1100000
+    },
+    {
+     "name": "테크",
+     "price": 1100000
+    },
+    {
+     "name": "듀얼 와이드 선루프 + LED 실내등",
+     "price": 900000
+    },
+    {
+     "name": "컴포트(3인승)",
+     "price": 850000
+    },
+    {
+     "name": "멀티미디어 라이트",
+     "price": 750000
+    },
+    {
+     "name": "컴포트",
+     "price": 700000
+    },
+    {
+     "name": "트윈 스윙 도어",
+     "price": 400000
+    },
+    {
+     "name": "윈도우 밴(3인승)",
+     "price": 300000
+    },
+    {
+     "name": "구급충전",
+     "price": 250000
+    },
+    {
+     "name": "윈도우 밴(5인승)",
+     "price": 200000
+    }
+   ],
+   "optionSource": "현대 공식 PDF",
    "minMax": {
     "min": 41660000,
-    "minConfig": "최저 트림 「LPG 3.5 Modern」 세제후가·유료옵션 없음",
-    "maxCandidate": 47930000,
-    "maxConfig": "트림 「하이브리드 Modern」 세제후 47,930,000 + 그 트림 유료옵션 0개 합 0",
-    "maxStatus": "배타 상한후보 — 옵션 단순합. 상호배제(파노라마↔투톤루프 등)·종속 미검증. 정밀 max 는 조합규칙 반영 후.",
-    "optionCoverage": "옵션 미수집(있으면 정확·없으면 미수집이지 옵션없음 아님)"
+    "minConfig": "최저 트림 「LPG 3.5 Modern」",
+    "maxCandidate": 108030000,
+    "maxConfig": "최고 트림 「하이브리드 Modern」 47,930,000 + 옵션초집합 60,100,000",
+    "maxStatus": "트림 최고가 + 옵션 단순합(상호배제·트림별 적용가능 미검증·상한후보). 옵션은 모델 초집합이라 특정 트림엔 일부 불가."
    }
   },
   {
    "maker": "현대",
    "sub_model": "더 뉴 아이오닉 6",
-   "fuels": [
-    "전기모터"
-   ],
    "trimCount": 19,
    "trimLadder": [
     {
      "fuel": "전기모터",
      "trim": "E-Value +(스탠다드) 18인치",
-     "priceBefore": 51090000,
-     "priceAfter": 48564639,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 48564639
+     "priceAfter": 48564639
     },
     {
      "fuel": "전기모터",
      "trim": "E-LITE(롱레인지) 18인치",
-     "priceBefore": 53270000,
-     "priceAfter": 50636881,
-     "optionCount": 1,
-     "optionSum": 2470000,
-     "loaded": 53106881
+     "priceAfter": 50636881
     },
     {
      "fuel": "전기모터",
      "trim": "Exclusive(스탠다드) 18인치",
-     "priceBefore": 53600000,
-     "priceAfter": 50950570,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 50950570
+     "priceAfter": 50950570
     },
     {
      "fuel": "전기모터",
      "trim": "E-LITE(롱레인지) 20인치",
-     "priceBefore": 53860000,
-     "priceAfter": 51197719,
-     "optionCount": 1,
-     "optionSum": 2470000,
-     "loaded": 53667719
+     "priceAfter": 51197719
     },
     {
      "fuel": "전기모터",
      "trim": "E-LITE(롱레인지) 18인치",
-     "priceBefore": 55740000,
-     "priceAfter": 52984791,
-     "optionCount": 1,
-     "optionSum": 2470000,
-     "loaded": 55454791
+     "priceAfter": 52984791
     },
     {
      "fuel": "전기모터",
      "trim": "E-LITE(롱레인지) 20인치",
-     "priceBefore": 56330000,
-     "priceAfter": 53545627,
-     "optionCount": 1,
-     "optionSum": 2470000,
-     "loaded": 56015627
+     "priceAfter": 53545627
     },
     {
      "fuel": "전기모터",
      "trim": "Exclusive(롱레인지) 18인치",
-     "priceBefore": 58020000,
-     "priceAfter": 55152091,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 55152091
+     "priceAfter": 55152091
     },
     {
      "fuel": "전기모터",
      "trim": "Prestige(스탠다드) 18인치",
-     "priceBefore": 58420000,
-     "priceAfter": 55532319,
-     "optionCount": 6,
-     "optionSum": 6220000,
-     "loaded": 61752319
+     "priceAfter": 55532319
     },
     {
      "fuel": "전기모터",
      "trim": "Exclusive(롱레인지) 20인치",
-     "priceBefore": 58610000,
-     "priceAfter": 55712927,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 55712927
+     "priceAfter": 55712927
     },
     {
      "fuel": "전기모터",
      "trim": "N Line Exclusive(롱레인지) 20인치",
-     "priceBefore": 60440000,
-     "priceAfter": 57452472,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 57452472
+     "priceAfter": 57452472
     },
     {
      "fuel": "전기모터",
      "trim": "Exclusive(롱레인지) 18인치",
-     "priceBefore": 60490000,
-     "priceAfter": 57499999,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 57499999
+     "priceAfter": 57499999
     },
     {
      "fuel": "전기모터",
      "trim": "Exclusive(롱레인지) 20인치",
-     "priceBefore": 61080000,
-     "priceAfter": 58060836,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 58060836
+     "priceAfter": 58060836
     },
     {
      "fuel": "전기모터",
      "trim": "Prestige(롱레인지) 18인치",
-     "priceBefore": 62830000,
-     "priceAfter": 59724335,
-     "optionCount": 6,
-     "optionSum": 6220000,
-     "loaded": 65944335
+     "priceAfter": 59724335
     },
     {
      "fuel": "전기모터",
      "trim": "N Line Exclusive(롱레인지) 20인치",
-     "priceBefore": 62910000,
-     "priceAfter": 59800380,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 59800380
+     "priceAfter": 59800380
     },
     {
      "fuel": "전기모터",
      "trim": "Prestige(롱레인지) 20인치",
-     "priceBefore": 63420000,
-     "priceAfter": 60285171,
-     "optionCount": 6,
-     "optionSum": 6220000,
-     "loaded": 66505171
+     "priceAfter": 60285171
     },
     {
      "fuel": "전기모터",
      "trim": "N Line Prestige(롱레인지) 20인치",
-     "priceBefore": 64510000,
-     "priceAfter": 61321293,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 61321293
+     "priceAfter": 61321293
     },
     {
      "fuel": "전기모터",
      "trim": "Prestige(롱레인지) 18인치",
-     "priceBefore": 65300000,
-     "priceAfter": 62072243,
-     "optionCount": 6,
-     "optionSum": 6220000,
-     "loaded": 68292243
+     "priceAfter": 62072243
     },
     {
      "fuel": "전기모터",
      "trim": "Prestige(롱레인지) 20인치",
-     "priceBefore": 65890000,
-     "priceAfter": 62633079,
-     "optionCount": 6,
-     "optionSum": 6220000,
-     "loaded": 68853079
+     "priceAfter": 62633079
     },
     {
      "fuel": "전기모터",
      "trim": "N Line Prestige(롱레인지) 20인치",
-     "priceBefore": 66980000,
-     "priceAfter": 63669201,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 63669201
+     "priceAfter": 63669201
     }
    ],
    "optionSuperset": [
@@ -3006,8 +2502,24 @@
      "price": 2470000
     },
     {
+     "name": "파킹 어시스트",
+     "price": 1680000
+    },
+    {
+     "name": "현대 스마트센스",
+     "price": 1480000
+    },
+    {
      "name": "디지털 사이드 미러",
      "price": 1380000
+    },
+    {
+     "name": "컨비니언스",
+     "price": 720000
+    },
+    {
+     "name": "플래티넘",
+     "price": 710000
     },
     {
      "name": "빌트인 캠(보조배터리 포함)",
@@ -3018,6 +2530,10 @@
      "price": 640000
     },
     {
+     "name": "컴포트 플러스",
+     "price": 630000
+    },
+    {
      "name": "20인치 휠 & 피렐리 타이어",
      "price": 590000
     },
@@ -3026,206 +2542,125 @@
      "price": 450000
     }
    ],
-   "rules": [],
+   "optionSource": "현대 공식 PDF",
    "minMax": {
     "min": 48564639,
-    "minConfig": "최저 트림 「전기모터 E-Value +(스탠다드) 18인치」 세제후가·유료옵션 없음",
-    "maxCandidate": 68853079,
-    "maxConfig": "트림 「전기모터 Prestige(롱레인지) 20인치」 세제후 62,633,079 + 그 트림 유료옵션 6개 합 6,220,000",
-    "maxStatus": "배타 상한후보 — 옵션 단순합. 상호배제(파노라마↔투톤루프 등)·종속 미검증. 정밀 max 는 조합규칙 반영 후.",
-    "optionCoverage": "has-options"
+    "minConfig": "최저 트림 「전기모터 E-Value +(스탠다드) 18인치」",
+    "maxCandidate": 75109201,
+    "maxConfig": "최고 트림 「전기모터 N Line Prestige(롱레인지) 20인치」 63,669,201 + 옵션초집합 11,440,000",
+    "maxStatus": "트림 최고가 + 옵션 단순합(상호배제·트림별 적용가능 미검증·상한후보). 옵션은 모델 초집합이라 특정 트림엔 일부 불가."
    }
   },
   {
    "maker": "현대",
    "sub_model": "더 뉴 파비스",
-   "fuels": [
-    "디젤 6.8"
-   ],
    "trimCount": 12,
    "trimLadder": [
     {
      "fuel": "디젤 6.8",
      "trim": "프리미엄",
-     "priceBefore": 83090000,
-     "priceAfter": 83090000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 83090000
+     "priceAfter": 83090000
     },
     {
      "fuel": "디젤 6.8",
      "trim": "프리미엄",
-     "priceBefore": 83290000,
-     "priceAfter": 83290000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 83290000
+     "priceAfter": 83290000
     },
     {
      "fuel": "디젤 6.8",
      "trim": "프리미엄",
-     "priceBefore": 84590000,
-     "priceAfter": 84590000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 84590000
+     "priceAfter": 84590000
     },
     {
      "fuel": "디젤 6.8",
      "trim": "프리미엄",
-     "priceBefore": 85890000,
-     "priceAfter": 85890000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 85890000
+     "priceAfter": 85890000
     },
     {
      "fuel": "디젤 6.8",
      "trim": "프리미엄",
-     "priceBefore": 85990000,
-     "priceAfter": 85990000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 85990000
+     "priceAfter": 85990000
     },
     {
      "fuel": "디젤 6.8",
      "trim": "프리미엄",
-     "priceBefore": 86990000,
-     "priceAfter": 86990000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 86990000
+     "priceAfter": 86990000
     },
     {
      "fuel": "디젤 6.8",
      "trim": "프리미엄",
-     "priceBefore": 88390000,
-     "priceAfter": 88390000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 88390000
+     "priceAfter": 88390000
     },
     {
      "fuel": "디젤 6.8",
      "trim": "프리미엄",
-     "priceBefore": 88590000,
-     "priceAfter": 88590000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 88590000
+     "priceAfter": 88590000
     },
     {
      "fuel": "디젤 6.8",
      "trim": "프리미엄",
-     "priceBefore": 89890000,
-     "priceAfter": 89890000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 89890000
+     "priceAfter": 89890000
     },
     {
      "fuel": "디젤 6.8",
      "trim": "프리미엄",
-     "priceBefore": 91190000,
-     "priceAfter": 91190000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 91190000
+     "priceAfter": 91190000
     },
     {
      "fuel": "디젤 6.8",
      "trim": "프리미엄",
-     "priceBefore": 91290000,
-     "priceAfter": 91290000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 91290000
+     "priceAfter": 91290000
     },
     {
      "fuel": "디젤 6.8",
      "trim": "프리미엄",
-     "priceBefore": 92290000,
-     "priceAfter": 92290000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 92290000
+     "priceAfter": 92290000
     }
    ],
    "optionSuperset": [],
-   "rules": [],
+   "optionSource": "new_car_trim",
    "minMax": {
     "min": 83090000,
-    "minConfig": "최저 트림 「디젤 6.8 프리미엄」 세제후가·유료옵션 없음",
+    "minConfig": "최저 트림 「디젤 6.8 프리미엄」",
     "maxCandidate": 92290000,
-    "maxConfig": "트림 「디젤 6.8 프리미엄」 세제후 92,290,000 + 그 트림 유료옵션 0개 합 0",
-    "maxStatus": "배타 상한후보 — 옵션 단순합. 상호배제(파노라마↔투톤루프 등)·종속 미검증. 정밀 max 는 조합규칙 반영 후.",
-    "optionCoverage": "옵션 미수집(있으면 정확·없으면 미수집이지 옵션없음 아님)"
+    "maxConfig": "최고 트림 「디젤 6.8 프리미엄」 92,290,000 + 옵션초집합 0",
+    "maxStatus": "트림 최고가 + 옵션 단순합(상호배제·트림별 적용가능 미검증·상한후보). 옵션은 모델 초집합이라 특정 트림엔 일부 불가."
    }
   },
   {
    "maker": "현대",
    "sub_model": "디 올 뉴 아반떼",
-   "fuels": [
-    "가솔린",
-    "하이브리드"
-   ],
    "trimCount": 6,
    "trimLadder": [
     {
      "fuel": "가솔린",
      "trim": "모던",
-     "priceBefore": 23980000,
-     "priceAfter": 23980000,
-     "optionCount": 6,
-     "optionSum": 4200000,
-     "loaded": 28180000
+     "priceAfter": 23980000
     },
     {
      "fuel": "가솔린",
      "trim": "프리미엄",
-     "priceBefore": 27710000,
-     "priceAfter": 27710000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 27710000
+     "priceAfter": 27710000
     },
     {
      "fuel": "하이브리드",
      "trim": "모던",
-     "priceBefore": 30420000,
-     "priceAfter": 30420000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 30420000
+     "priceAfter": 30420000
     },
     {
      "fuel": "가솔린",
      "trim": "인스퍼레이션",
-     "priceBefore": 31520000,
-     "priceAfter": 31520000,
-     "optionCount": 2,
-     "optionSum": 750000,
-     "loaded": 32270000
+     "priceAfter": 31520000
     },
     {
      "fuel": "하이브리드",
      "trim": "프리미엄",
-     "priceBefore": 33610000,
-     "priceAfter": 33610000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 33610000
+     "priceAfter": 33610000
     },
     {
      "fuel": "하이브리드",
      "trim": "인스퍼레이션",
-     "priceBefore": 36990000,
-     "priceAfter": 36990000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 36990000
+     "priceAfter": 36990000
     }
    ],
    "optionSuperset": [
@@ -3238,8 +2673,32 @@
      "price": 1150000
     },
     {
+     "name": "컴포트 II",
+     "price": 1100000
+    },
+    {
+     "name": "컨비니언스 I",
+     "price": 900000
+    },
+    {
+     "name": "현대 스마트센스 II",
+     "price": 850000
+    },
+    {
+     "name": "현대 스마트센스 III",
+     "price": 700000
+    },
+    {
      "name": "익스테리어 디자인",
      "price": 700000
+    },
+    {
+     "name": "컨비니언스 II",
+     "price": 650000
+    },
+    {
+     "name": "17인치 알로이 휠 & 타이어 I",
+     "price": 500000
     },
     {
      "name": "선루프",
@@ -3254,56 +2713,44 @@
      "price": 300000
     }
    ],
-   "rules": [],
+   "optionSource": "현대 공식 PDF",
    "minMax": {
     "min": 23980000,
-    "minConfig": "최저 트림 「가솔린 모던」 세제후가·유료옵션 없음",
-    "maxCandidate": 36990000,
-    "maxConfig": "트림 「하이브리드 인스퍼레이션」 세제후 36,990,000 + 그 트림 유료옵션 0개 합 0",
-    "maxStatus": "배타 상한후보 — 옵션 단순합. 상호배제(파노라마↔투톤루프 등)·종속 미검증. 정밀 max 는 조합규칙 반영 후.",
-    "optionCoverage": "has-options"
+    "minConfig": "최저 트림 「가솔린 모던」",
+    "maxCandidate": 45890000,
+    "maxConfig": "최고 트림 「하이브리드 인스퍼레이션」 36,990,000 + 옵션초집합 8,900,000",
+    "maxStatus": "트림 최고가 + 옵션 단순합(상호배제·트림별 적용가능 미검증·상한후보). 옵션은 모델 초집합이라 특정 트림엔 일부 불가."
    }
   },
   {
    "maker": "현대",
    "sub_model": "베뉴",
-   "fuels": [
-    "가솔린 1.6"
-   ],
    "trimCount": 3,
    "trimLadder": [
     {
      "fuel": "가솔린 1.6",
      "trim": "Smart",
-     "priceBefore": 19940000,
-     "priceAfter": 19940000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 19940000
+     "priceAfter": 19940000
     },
     {
      "fuel": "가솔린 1.6",
      "trim": "PREMIUM",
-     "priceBefore": 22920000,
-     "priceAfter": 22920000,
-     "optionCount": 4,
-     "optionSum": 1940000,
-     "loaded": 24860000
+     "priceAfter": 22920000
     },
     {
      "fuel": "가솔린 1.6",
      "trim": "FLUX",
-     "priceBefore": 24400000,
-     "priceAfter": 24400000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 24400000
+     "priceAfter": 24400000
     }
    ],
    "optionSuperset": [
     {
      "name": "스타일",
      "price": 790000
+    },
+    {
+     "name": "모던 초이스Ⅰ",
+     "price": 450000
     },
     {
      "name": "선루프",
@@ -3316,458 +2763,269 @@
     {
      "name": "테크",
      "price": 350000
+    },
+    {
+     "name": "인조가죽 시트 + 1열 열선시트",
+     "price": 250000
+    },
+    {
+     "name": "하이패스",
+     "price": 200000
     }
    ],
-   "rules": [],
+   "optionSource": "현대 공식 PDF",
    "minMax": {
     "min": 19940000,
-    "minConfig": "최저 트림 「가솔린 1.6 Smart」 세제후가·유료옵션 없음",
-    "maxCandidate": 24860000,
-    "maxConfig": "트림 「가솔린 1.6 PREMIUM」 세제후 22,920,000 + 그 트림 유료옵션 4개 합 1,940,000",
-    "maxStatus": "배타 상한후보 — 옵션 단순합. 상호배제(파노라마↔투톤루프 등)·종속 미검증. 정밀 max 는 조합규칙 반영 후.",
-    "optionCoverage": "has-options"
+    "minConfig": "최저 트림 「가솔린 1.6 Smart」",
+    "maxCandidate": 27240000,
+    "maxConfig": "최고 트림 「가솔린 1.6 FLUX」 24,400,000 + 옵션초집합 2,840,000",
+    "maxStatus": "트림 최고가 + 옵션 단순합(상호배제·트림별 적용가능 미검증·상한후보). 옵션은 모델 초집합이라 특정 트림엔 일부 불가."
    }
   },
   {
    "maker": "현대",
    "sub_model": "싼타페",
-   "fuels": [
-    "가솔린 2.5T",
-    "하이브리드"
-   ],
    "trimCount": 48,
    "trimLadder": [
     {
      "fuel": "가솔린 2.5T",
      "trim": "익스클루시브",
-     "priceBefore": 36570000,
-     "priceAfter": 36570000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 36570000
+     "priceAfter": 36570000
     },
     {
      "fuel": "가솔린 2.5T",
      "trim": "익스클루시브",
-     "priceBefore": 37260000,
-     "priceAfter": 37260000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 37260000
+     "priceAfter": 37260000
     },
     {
      "fuel": "가솔린 2.5T",
      "trim": "익스클루시브",
-     "priceBefore": 37610000,
-     "priceAfter": 37610000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 37610000
+     "priceAfter": 37610000
     },
     {
      "fuel": "가솔린 2.5T",
      "trim": "익스클루시브",
-     "priceBefore": 38800000,
-     "priceAfter": 38800000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 38800000
+     "priceAfter": 38800000
     },
     {
      "fuel": "가솔린 2.5T",
      "trim": "프레스티지",
-     "priceBefore": 39440000,
-     "priceAfter": 39440000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 39440000
+     "priceAfter": 39440000
     },
     {
      "fuel": "가솔린 2.5T",
      "trim": "익스클루시브",
-     "priceBefore": 39490000,
-     "priceAfter": 39490000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 39490000
+     "priceAfter": 39490000
     },
     {
      "fuel": "가솔린 2.5T",
      "trim": "익스클루시브",
-     "priceBefore": 39840000,
-     "priceAfter": 39840000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 39840000
+     "priceAfter": 39840000
     },
     {
      "fuel": "가솔린 2.5T",
      "trim": "프레스티지",
-     "priceBefore": 40130000,
-     "priceAfter": 40130000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 40130000
+     "priceAfter": 40130000
     },
     {
      "fuel": "하이브리드",
      "trim": "익스클루시브",
-     "priceBefore": 41220000,
-     "priceAfter": 40219000,
-     "optionCount": 4,
-     "optionSum": 2880000,
-     "loaded": 43099000
+     "priceAfter": 40219000
     },
     {
      "fuel": "가솔린 2.5T",
      "trim": "프레스티지",
-     "priceBefore": 40480000,
-     "priceAfter": 40480000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 40480000
+     "priceAfter": 40480000
     },
     {
      "fuel": "하이브리드",
      "trim": "익스클루시브",
-     "priceBefore": 41910000,
-     "priceAfter": 40909000,
-     "optionCount": 4,
-     "optionSum": 2880000,
-     "loaded": 43789000
+     "priceAfter": 40909000
     },
     {
      "fuel": "하이브리드",
      "trim": "익스클루시브",
-     "priceBefore": 42260000,
-     "priceAfter": 41258999,
-     "optionCount": 4,
-     "optionSum": 2880000,
-     "loaded": 44138999
+     "priceAfter": 41258999
     },
     {
      "fuel": "가솔린 2.5T",
      "trim": "프레스티지",
-     "priceBefore": 41670000,
-     "priceAfter": 41670000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 41670000
+     "priceAfter": 41670000
     },
     {
      "fuel": "가솔린 2.5T",
      "trim": "H-Pick",
-     "priceBefore": 42090000,
-     "priceAfter": 42090000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 42090000
+     "priceAfter": 42090000
     },
     {
      "fuel": "가솔린 2.5T",
      "trim": "프레스티지",
-     "priceBefore": 42360000,
-     "priceAfter": 42360000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 42360000
+     "priceAfter": 42360000
     },
     {
      "fuel": "가솔린 2.5T",
      "trim": "프레스티지",
-     "priceBefore": 42710000,
-     "priceAfter": 42710000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 42710000
+     "priceAfter": 42710000
     },
     {
      "fuel": "가솔린 2.5T",
      "trim": "H-Pick",
-     "priceBefore": 42780000,
-     "priceAfter": 42780000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 42780000
+     "priceAfter": 42780000
     },
     {
      "fuel": "하이브리드",
      "trim": "프레스티지",
-     "priceBefore": 44090000,
-     "priceAfter": 43089000,
-     "optionCount": 7,
-     "optionSum": 6480000,
-     "loaded": 49569000
+     "priceAfter": 43089000
     },
     {
      "fuel": "가솔린 2.5T",
      "trim": "H-Pick",
-     "priceBefore": 43130000,
-     "priceAfter": 43130000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 43130000
+     "priceAfter": 43130000
     },
     {
      "fuel": "하이브리드",
      "trim": "익스클루시브",
-     "priceBefore": 43450000,
-     "priceAfter": 43450000,
-     "optionCount": 4,
-     "optionSum": 2880000,
-     "loaded": 46330000
+     "priceAfter": 43450000
     },
     {
      "fuel": "하이브리드",
      "trim": "프레스티지",
-     "priceBefore": 44780000,
-     "priceAfter": 43778999,
-     "optionCount": 7,
-     "optionSum": 6480000,
-     "loaded": 50258999
+     "priceAfter": 43778999
     },
     {
      "fuel": "하이브리드",
      "trim": "프레스티지",
-     "priceBefore": 45130000,
-     "priceAfter": 44129000,
-     "optionCount": 7,
-     "optionSum": 6480000,
-     "loaded": 50609000
+     "priceAfter": 44129000
     },
     {
      "fuel": "하이브리드",
      "trim": "익스클루시브",
-     "priceBefore": 44140000,
-     "priceAfter": 44140000,
-     "optionCount": 4,
-     "optionSum": 2880000,
-     "loaded": 47020000
+     "priceAfter": 44140000
     },
     {
      "fuel": "가솔린 2.5T",
      "trim": "H-Pick",
-     "priceBefore": 44320000,
-     "priceAfter": 44320000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 44320000
+     "priceAfter": 44320000
     },
     {
      "fuel": "하이브리드",
      "trim": "익스클루시브",
-     "priceBefore": 44490000,
-     "priceAfter": 44490000,
-     "optionCount": 4,
-     "optionSum": 2880000,
-     "loaded": 47370000
+     "priceAfter": 44490000
     },
     {
      "fuel": "가솔린 2.5T",
      "trim": "H-Pick",
-     "priceBefore": 45010000,
-     "priceAfter": 45010000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 45010000
+     "priceAfter": 45010000
     },
     {
      "fuel": "가솔린 2.5T",
      "trim": "H-Pick",
-     "priceBefore": 45360000,
-     "priceAfter": 45360000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 45360000
+     "priceAfter": 45360000
     },
     {
      "fuel": "가솔린 2.5T",
      "trim": "캘리그래피",
-     "priceBefore": 45470000,
-     "priceAfter": 45470000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 45470000
+     "priceAfter": 45470000
     },
     {
      "fuel": "하이브리드",
      "trim": "H-Pick",
-     "priceBefore": 46730000,
-     "priceAfter": 45728998,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 45728998
+     "priceAfter": 45728998
     },
     {
      "fuel": "가솔린 2.5T",
      "trim": "캘리그래피",
-     "priceBefore": 46160000,
-     "priceAfter": 46160000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 46160000
+     "priceAfter": 46160000
     },
     {
      "fuel": "하이브리드",
      "trim": "프레스티지",
-     "priceBefore": 46320000,
-     "priceAfter": 46320000,
-     "optionCount": 7,
-     "optionSum": 6480000,
-     "loaded": 52800000
+     "priceAfter": 46320000
     },
     {
      "fuel": "하이브리드",
      "trim": "H-Pick",
-     "priceBefore": 47420000,
-     "priceAfter": 46419000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 46419000
+     "priceAfter": 46419000
     },
     {
      "fuel": "가솔린 2.5T",
      "trim": "캘리그래피",
-     "priceBefore": 46510000,
-     "priceAfter": 46510000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 46510000
+     "priceAfter": 46510000
     },
     {
      "fuel": "하이브리드",
      "trim": "H-Pick",
-     "priceBefore": 47770000,
-     "priceAfter": 46768999,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 46768999
+     "priceAfter": 46768999
     },
     {
      "fuel": "하이브리드",
      "trim": "프레스티지",
-     "priceBefore": 47010000,
-     "priceAfter": 47010000,
-     "optionCount": 7,
-     "optionSum": 6480000,
-     "loaded": 53490000
+     "priceAfter": 47010000
     },
     {
      "fuel": "하이브리드",
      "trim": "프레스티지",
-     "priceBefore": 47360000,
-     "priceAfter": 47360000,
-     "optionCount": 7,
-     "optionSum": 6480000,
-     "loaded": 53840000
+     "priceAfter": 47360000
     },
     {
      "fuel": "가솔린 2.5T",
      "trim": "캘리그래피",
-     "priceBefore": 47700000,
-     "priceAfter": 47700000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 47700000
+     "priceAfter": 47700000
     },
     {
      "fuel": "가솔린 2.5T",
      "trim": "캘리그래피",
-     "priceBefore": 48390000,
-     "priceAfter": 48390000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 48390000
+     "priceAfter": 48390000
     },
     {
      "fuel": "가솔린 2.5T",
      "trim": "캘리그래피",
-     "priceBefore": 48740000,
-     "priceAfter": 48740000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 48740000
+     "priceAfter": 48740000
     },
     {
      "fuel": "하이브리드",
      "trim": "캘리그래피",
-     "priceBefore": 49770000,
-     "priceAfter": 48768999,
-     "optionCount": 8,
-     "optionSum": 5780000,
-     "loaded": 54548999
+     "priceAfter": 48768999
     },
     {
      "fuel": "하이브리드",
      "trim": "H-Pick",
-     "priceBefore": 48960000,
-     "priceAfter": 48960000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 48960000
+     "priceAfter": 48960000
     },
     {
      "fuel": "하이브리드",
      "trim": "캘리그래피",
-     "priceBefore": 50460000,
-     "priceAfter": 49458999,
-     "optionCount": 8,
-     "optionSum": 5780000,
-     "loaded": 55238999
+     "priceAfter": 49458999
     },
     {
      "fuel": "하이브리드",
      "trim": "H-Pick",
-     "priceBefore": 49650000,
-     "priceAfter": 49650000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 49650000
+     "priceAfter": 49650000
     },
     {
      "fuel": "하이브리드",
      "trim": "캘리그래피",
-     "priceBefore": 50810000,
-     "priceAfter": 49808998,
-     "optionCount": 8,
-     "optionSum": 5780000,
-     "loaded": 55588998
+     "priceAfter": 49808998
     },
     {
      "fuel": "하이브리드",
      "trim": "H-Pick",
-     "priceBefore": 50000000,
-     "priceAfter": 50000000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 50000000
+     "priceAfter": 50000000
     },
     {
      "fuel": "하이브리드",
      "trim": "캘리그래피",
-     "priceBefore": 52000000,
-     "priceAfter": 52000000,
-     "optionCount": 8,
-     "optionSum": 5780000,
-     "loaded": 57780000
+     "priceAfter": 52000000
     },
     {
      "fuel": "하이브리드",
      "trim": "캘리그래피",
-     "priceBefore": 52690000,
-     "priceAfter": 52690000,
-     "optionCount": 8,
-     "optionSum": 5780000,
-     "loaded": 58470000
+     "priceAfter": 52690000
     },
     {
      "fuel": "하이브리드",
      "trim": "캘리그래피",
-     "priceBefore": 53040000,
-     "priceAfter": 53040000,
-     "optionCount": 8,
-     "optionSum": 5780000,
-     "loaded": 58820000
+     "priceAfter": 53040000
     }
    ],
    "optionSuperset": [
@@ -3780,16 +3038,8 @@
      "price": 1240000
     },
     {
-     "name": "파킹 어시스트 플러스Ⅰ",
-     "price": 1190000
-    },
-    {
      "name": "6인승",
      "price": 1040000
-    },
-    {
-     "name": "듀얼와이드선루프 + 루프랙",
-     "price": 990000
     },
     {
      "name": "플래티넘Ⅱ",
@@ -3801,6 +3051,10 @@
     },
     {
      "name": "현대스마트센스",
+     "price": 790000
+    },
+    {
+     "name": "디자인 플러스Ⅱ",
      "price": 790000
     },
     {
@@ -3828,11 +3082,11 @@
      "price": 490000
     },
     {
-     "name": "플래티넘Ⅰ",
+     "name": "빌트인 캠 2, 증강현실 내비게이션",
      "price": 450000
     },
     {
-     "name": "빌트인 캠 2, 증강현실 내비게이션",
+     "name": "플래티넘Ⅰ",
      "price": 450000
     },
     {
@@ -3840,972 +3094,1079 @@
      "price": 200000
     }
    ],
-   "rules": [],
+   "optionSource": "현대 공식 PDF",
    "minMax": {
     "min": 36570000,
-    "minConfig": "최저 트림 「가솔린 2.5T 익스클루시브」 세제후가·유료옵션 없음",
-    "maxCandidate": 58820000,
-    "maxConfig": "트림 「하이브리드 캘리그래피」 세제후 53,040,000 + 그 트림 유료옵션 8개 합 5,780,000",
-    "maxStatus": "배타 상한후보 — 옵션 단순합. 상호배제(파노라마↔투톤루프 등)·종속 미검증. 정밀 max 는 조합규칙 반영 후.",
-    "optionCoverage": "has-options"
+    "minConfig": "최저 트림 「가솔린 2.5T 익스클루시브」",
+    "maxCandidate": 65110000,
+    "maxConfig": "최고 트림 「하이브리드 캘리그래피」 53,040,000 + 옵션초집합 12,070,000",
+    "maxStatus": "트림 최고가 + 옵션 단순합(상호배제·트림별 적용가능 미검증·상한후보). 옵션은 모델 초집합이라 특정 트림엔 일부 불가."
    }
   },
   {
    "maker": "현대",
    "sub_model": "쏘나타 디 엣지",
-   "fuels": [
-    "LPi 2.0",
-    "가솔린 2.5 T-GDi(N라인)",
-    "가솔린 1.6T-GDi",
-    "가솔린 2.0",
-    "가솔린 1.6 T-GDi(N라인)",
-    "하이브리드 2.0"
-   ],
    "trimCount": 17,
    "trimLadder": [
     {
      "fuel": "가솔린 2.0",
      "trim": "Premium",
-     "priceBefore": 28660000,
-     "priceAfter": 28660000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 28660000
+     "priceAfter": 28660000
     },
     {
      "fuel": "가솔린 1.6T-GDi",
      "trim": "Premium",
-     "priceBefore": 29330000,
-     "priceAfter": 29330000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 29330000
+     "priceAfter": 29330000
     },
     {
      "fuel": "LPi 2.0",
      "trim": "Premium",
-     "priceBefore": 29510000,
-     "priceAfter": 29510000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 29510000
+     "priceAfter": 29510000
     },
     {
      "fuel": "가솔린 2.0",
      "trim": "S",
-     "priceBefore": 29980000,
-     "priceAfter": 29980000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 29980000
+     "priceAfter": 29980000
     },
     {
      "fuel": "가솔린 1.6T-GDi",
      "trim": "S",
-     "priceBefore": 30650000,
-     "priceAfter": 30650000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 30650000
+     "priceAfter": 30650000
     },
     {
      "fuel": "가솔린 2.0",
      "trim": "Exclusive",
-     "priceBefore": 33060000,
-     "priceAfter": 33060000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 33060000
+     "priceAfter": 33060000
     },
     {
      "fuel": "하이브리드 2.0",
      "trim": "Premium",
-     "priceBefore": 34180000,
-     "priceAfter": 33179000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 33179000
+     "priceAfter": 33179000
     },
     {
      "fuel": "LPi 2.0",
      "trim": "Exclusive",
-     "priceBefore": 33560000,
-     "priceAfter": 33560000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 33560000
+     "priceAfter": 33560000
     },
     {
      "fuel": "가솔린 1.6T-GDi",
      "trim": "Exclusive",
-     "priceBefore": 33730000,
-     "priceAfter": 33730000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 33730000
+     "priceAfter": 33730000
     },
     {
      "fuel": "하이브리드 2.0",
      "trim": "S",
-     "priceBefore": 35200000,
-     "priceAfter": 34199000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 34199000
+     "priceAfter": 34199000
     },
     {
      "fuel": "가솔린 2.0",
      "trim": "Inspiration",
-     "priceBefore": 36000000,
-     "priceAfter": 36000000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 36000000
+     "priceAfter": 36000000
     },
     {
      "fuel": "LPi 2.0",
      "trim": "Inspiration",
-     "priceBefore": 36250000,
-     "priceAfter": 36250000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 36250000
+     "priceAfter": 36250000
     },
     {
      "fuel": "가솔린 1.6T-GDi",
      "trim": "Inspiration",
-     "priceBefore": 36660000,
-     "priceAfter": 36660000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 36660000
+     "priceAfter": 36660000
     },
     {
      "fuel": "가솔린 1.6 T-GDi(N라인)",
      "trim": "N Line",
-     "priceBefore": 37260000,
-     "priceAfter": 37260000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 37260000
+     "priceAfter": 37260000
     },
     {
      "fuel": "하이브리드 2.0",
      "trim": "Exclusive",
-     "priceBefore": 38270000,
-     "priceAfter": 37268998,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 37268998
+     "priceAfter": 37268998
     },
     {
      "fuel": "가솔린 2.5 T-GDi(N라인)",
      "trim": "N Line",
-     "priceBefore": 39260000,
-     "priceAfter": 39260000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 39260000
+     "priceAfter": 39260000
     },
     {
      "fuel": "하이브리드 2.0",
      "trim": "Inspiration",
-     "priceBefore": 41370000,
-     "priceAfter": 40368999,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 40368999
+     "priceAfter": 40368999
     }
    ],
-   "optionSuperset": [],
-   "rules": [],
+   "optionSuperset": [
+    {
+     "name": "플래티넘 플러스",
+     "price": 1560000
+    },
+    {
+     "name": "인포테인먼트 내비 I",
+     "price": 1410000
+    },
+    {
+     "name": "클러스터(12.3인치 컬러 LCD) [400,000]",
+     "price": 1250000
+    },
+    {
+     "name": "파노라마 선루프",
+     "price": 1200000
+    },
+    {
+     "name": "인포테인먼트 내비 II",
+     "price": 1050000
+    },
+    {
+     "name": "스마트 스트림 가솔린 1.6 터보엔진",
+     "price": 830000
+    },
+    {
+     "name": "현대 스마트센스",
+     "price": 750000
+    },
+    {
+     "name": "현대스마트 센스",
+     "price": 700000
+    },
+    {
+     "name": "BOSE 프리미엄 사운드",
+     "price": 650000
+    },
+    {
+     "name": "컨비니언스 Ⅳ",
+     "price": 650000
+    },
+    {
+     "name": "컨비니언스Ⅱ",
+     "price": 600000
+    },
+    {
+     "name": "컴포트 IV",
+     "price": 590000
+    },
+    {
+     "name": "컴포트 I(1열 편의)",
+     "price": 550000
+    },
+    {
+     "name": "컴포트 I (1열 편의)",
+     "price": 550000
+    },
+    {
+     "name": "컴포트 II(2열 편의)",
+     "price": 510000
+    },
+    {
+     "name": "컴포트 II (2열 편의)",
+     "price": 510000
+    },
+    {
+     "name": "스마트스트림 가솔린 1.6터보엔진 전용",
+     "price": 480000
+    },
+    {
+     "name": "컴포트 V",
+     "price": 420000
+    },
+    {
+     "name": "익스테리어 디자인 II",
+     "price": 420000
+    },
+    {
+     "name": "익스테리어 디자인 I",
+     "price": 420000
+    },
+    {
+     "name": "빌트인캠",
+     "price": 400000
+    },
+    {
+     "name": "나파가죽 시트(카멜/그레이지/네이비)",
+     "price": 400000
+    },
+    {
+     "name": "클러스터(12.3인치 컬러 LCD)",
+     "price": 400000
+    },
+    {
+     "name": "빌트인 캠",
+     "price": 400000
+    },
+    {
+     "name": "스마트 초이스",
+     "price": 390000
+    },
+    {
+     "name": "18인치 알로이 휠 & 피렐리 타이어",
+     "price": 350000
+    },
+    {
+     "name": "컨비니언스Ⅲ",
+     "price": 300000
+    },
+    {
+     "name": "컨비니언스 I",
+     "price": 280000
+    },
+    {
+     "name": "컨비니언스 III",
+     "price": 280000
+    },
+    {
+     "name": "하이패스 + ECM 룸미러",
+     "price": 250000
+    },
+    {
+     "name": "18인치 알로이 휠 & 타이어",
+     "price": 250000
+    },
+    {
+     "name": "17인치 알로이 휠 & 타이어",
+     "price": 200000
+    }
+   ],
+   "optionSource": "현대 공식 PDF",
    "minMax": {
     "min": 28660000,
-    "minConfig": "최저 트림 「가솔린 2.0 Premium」 세제후가·유료옵션 없음",
-    "maxCandidate": 40368999,
-    "maxConfig": "트림 「하이브리드 2.0 Inspiration」 세제후 40,368,999 + 그 트림 유료옵션 0개 합 0",
-    "maxStatus": "배타 상한후보 — 옵션 단순합. 상호배제(파노라마↔투톤루프 등)·종속 미검증. 정밀 max 는 조합규칙 반영 후.",
-    "optionCoverage": "옵션 미수집(있으면 정확·없으면 미수집이지 옵션없음 아님)"
+    "minConfig": "최저 트림 「가솔린 2.0 Premium」",
+    "maxCandidate": 59368999,
+    "maxConfig": "최고 트림 「하이브리드 2.0 Inspiration」 40,368,999 + 옵션초집합 19,000,000",
+    "maxStatus": "트림 최고가 + 옵션 단순합(상호배제·트림별 적용가능 미검증·상한후보). 옵션은 모델 초집합이라 특정 트림엔 일부 불가."
    }
   },
   {
    "maker": "현대",
    "sub_model": "쏘나타 택시",
-   "fuels": [
-    "LPi 2.0"
-   ],
    "trimCount": 1,
    "trimLadder": [
     {
      "fuel": "LPi 2.0",
      "trim": "모빌리티",
-     "priceBefore": 25950000,
-     "priceAfter": 25950000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 25950000
+     "priceAfter": 25950000
     }
    ],
-   "optionSuperset": [],
-   "rules": [],
+   "optionSuperset": [
+    {
+     "name": "플래티넘 플러스",
+     "price": 1560000
+    },
+    {
+     "name": "인포테인먼트 내비 I",
+     "price": 1410000
+    },
+    {
+     "name": "클러스터(12.3인치 컬러 LCD) [400,000]",
+     "price": 1250000
+    },
+    {
+     "name": "파노라마 선루프",
+     "price": 1200000
+    },
+    {
+     "name": "인포테인먼트 내비 II",
+     "price": 1050000
+    },
+    {
+     "name": "스마트 스트림 가솔린 1.6 터보엔진",
+     "price": 830000
+    },
+    {
+     "name": "현대 스마트센스",
+     "price": 750000
+    },
+    {
+     "name": "현대스마트 센스",
+     "price": 700000
+    },
+    {
+     "name": "BOSE 프리미엄 사운드",
+     "price": 650000
+    },
+    {
+     "name": "컨비니언스 Ⅳ",
+     "price": 650000
+    },
+    {
+     "name": "컨비니언스Ⅱ",
+     "price": 600000
+    },
+    {
+     "name": "컴포트 IV",
+     "price": 590000
+    },
+    {
+     "name": "컴포트 I(1열 편의)",
+     "price": 550000
+    },
+    {
+     "name": "컴포트 I (1열 편의)",
+     "price": 550000
+    },
+    {
+     "name": "컴포트 II(2열 편의)",
+     "price": 510000
+    },
+    {
+     "name": "컴포트 II (2열 편의)",
+     "price": 510000
+    },
+    {
+     "name": "스마트스트림 가솔린 1.6터보엔진 전용",
+     "price": 480000
+    },
+    {
+     "name": "컴포트 V",
+     "price": 420000
+    },
+    {
+     "name": "익스테리어 디자인 II",
+     "price": 420000
+    },
+    {
+     "name": "익스테리어 디자인 I",
+     "price": 420000
+    },
+    {
+     "name": "빌트인캠",
+     "price": 400000
+    },
+    {
+     "name": "나파가죽 시트(카멜/그레이지/네이비)",
+     "price": 400000
+    },
+    {
+     "name": "클러스터(12.3인치 컬러 LCD)",
+     "price": 400000
+    },
+    {
+     "name": "빌트인 캠",
+     "price": 400000
+    },
+    {
+     "name": "스마트 초이스",
+     "price": 390000
+    },
+    {
+     "name": "18인치 알로이 휠 & 피렐리 타이어",
+     "price": 350000
+    },
+    {
+     "name": "컨비니언스Ⅲ",
+     "price": 300000
+    },
+    {
+     "name": "컨비니언스 I",
+     "price": 280000
+    },
+    {
+     "name": "컨비니언스 III",
+     "price": 280000
+    },
+    {
+     "name": "하이패스 + ECM 룸미러",
+     "price": 250000
+    },
+    {
+     "name": "18인치 알로이 휠 & 타이어",
+     "price": 250000
+    },
+    {
+     "name": "17인치 알로이 휠 & 타이어",
+     "price": 200000
+    }
+   ],
+   "optionSource": "현대 공식 PDF",
    "minMax": {
     "min": 25950000,
-    "minConfig": "최저 트림 「LPi 2.0 모빌리티」 세제후가·유료옵션 없음",
-    "maxCandidate": 25950000,
-    "maxConfig": "트림 「LPi 2.0 모빌리티」 세제후 25,950,000 + 그 트림 유료옵션 0개 합 0",
-    "maxStatus": "배타 상한후보 — 옵션 단순합. 상호배제(파노라마↔투톤루프 등)·종속 미검증. 정밀 max 는 조합규칙 반영 후.",
-    "optionCoverage": "옵션 미수집(있으면 정확·없으면 미수집이지 옵션없음 아님)"
+    "minConfig": "최저 트림 「LPi 2.0 모빌리티」",
+    "maxCandidate": 44950000,
+    "maxConfig": "최고 트림 「LPi 2.0 모빌리티」 25,950,000 + 옵션초집합 19,000,000",
+    "maxStatus": "트림 최고가 + 옵션 단순합(상호배제·트림별 적용가능 미검증·상한후보). 옵션은 모델 초집합이라 특정 트림엔 일부 불가."
    }
   },
   {
    "maker": "현대",
    "sub_model": "아반떼 N",
-   "fuels": [
-    "가솔린 2.0 터보"
-   ],
    "trimCount": 2,
    "trimLadder": [
     {
      "fuel": "가솔린 2.0 터보",
      "trim": "N",
-     "priceBefore": 33560000,
-     "priceAfter": 33560000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 33560000
+     "priceAfter": 33560000
     },
     {
      "fuel": "가솔린 2.0 터보",
      "trim": "N",
-     "priceBefore": 35640000,
-     "priceAfter": 35640000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 35640000
+     "priceAfter": 35640000
     }
    ],
-   "optionSuperset": [],
-   "rules": [],
+   "optionSuperset": [
+    {
+     "name": "컴포트 I",
+     "price": 1200000
+    },
+    {
+     "name": "현대 스마트센스 I",
+     "price": 1150000
+    },
+    {
+     "name": "컴포트 II",
+     "price": 1100000
+    },
+    {
+     "name": "컨비니언스 I",
+     "price": 900000
+    },
+    {
+     "name": "현대 스마트센스 II",
+     "price": 850000
+    },
+    {
+     "name": "현대 스마트센스 III",
+     "price": 700000
+    },
+    {
+     "name": "익스테리어 디자인",
+     "price": 700000
+    },
+    {
+     "name": "컨비니언스 II",
+     "price": 650000
+    },
+    {
+     "name": "17인치 알로이 휠 & 타이어 I",
+     "price": 500000
+    },
+    {
+     "name": "선루프",
+     "price": 450000
+    },
+    {
+     "name": "파노라마 디스플레이",
+     "price": 400000
+    },
+    {
+     "name": "17인치 알로이 휠 & 타이어 II",
+     "price": 300000
+    }
+   ],
+   "optionSource": "현대 공식 PDF",
    "minMax": {
     "min": 33560000,
-    "minConfig": "최저 트림 「가솔린 2.0 터보 N」 세제후가·유료옵션 없음",
-    "maxCandidate": 35640000,
-    "maxConfig": "트림 「가솔린 2.0 터보 N」 세제후 35,640,000 + 그 트림 유료옵션 0개 합 0",
-    "maxStatus": "배타 상한후보 — 옵션 단순합. 상호배제(파노라마↔투톤루프 등)·종속 미검증. 정밀 max 는 조합규칙 반영 후.",
-    "optionCoverage": "옵션 미수집(있으면 정확·없으면 미수집이지 옵션없음 아님)"
+    "minConfig": "최저 트림 「가솔린 2.0 터보 N」",
+    "maxCandidate": 44540000,
+    "maxConfig": "최고 트림 「가솔린 2.0 터보 N」 35,640,000 + 옵션초집합 8,900,000",
+    "maxStatus": "트림 최고가 + 옵션 단순합(상호배제·트림별 적용가능 미검증·상한후보). 옵션은 모델 초집합이라 특정 트림엔 일부 불가."
    }
   },
   {
    "maker": "현대",
    "sub_model": "아이오닉 5",
-   "fuels": [
-    "전기차"
-   ],
    "trimCount": 15,
    "trimLadder": [
     {
      "fuel": "전기차",
      "trim": "E-Value +(스탠다드) 19인치",
-     "priceBefore": 49810000,
-     "priceAfter": 47347908,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 47347908
+     "priceAfter": 47347908
     },
     {
      "fuel": "전기차",
      "trim": "E-Lite(롱레인지) 19인치",
-     "priceBefore": 53270000,
-     "priceAfter": 50636881,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 50636881
+     "priceAfter": 50636881
     },
     {
      "fuel": "전기차",
      "trim": "모던(롱레인지) 19인치",
-     "priceBefore": 55650000,
-     "priceAfter": 52899239,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 52899239
+     "priceAfter": 52899239
     },
     {
      "fuel": "전기차",
      "trim": "E-Lite(롱레인지) 19인치",
-     "priceBefore": 55740000,
-     "priceAfter": 52984791,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 52984791
+     "priceAfter": 52984791
     },
     {
      "fuel": "전기차",
      "trim": "모던(롱레인지) 19인치",
-     "priceBefore": 58120000,
-     "priceAfter": 55247148,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 55247148
+     "priceAfter": 55247148
     },
     {
      "fuel": "전기차",
      "trim": "프리미엄(롱레인지) 19인치",
-     "priceBefore": 61270000,
-     "priceAfter": 58241444,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 58241444
+     "priceAfter": 58241444
     },
     {
      "fuel": "전기차",
      "trim": "프리미엄(롱레인지) 20인치",
-     "priceBefore": 61760000,
-     "priceAfter": 58707224,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 58707224
+     "priceAfter": 58707224
     },
     {
      "fuel": "전기차",
      "trim": "N LINE(롱레인지) 20인치",
-     "priceBefore": 62540000,
-     "priceAfter": 59448669,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 59448669
+     "priceAfter": 59448669
     },
     {
      "fuel": "전기차",
      "trim": "프리미엄(롱레인지) 19인치",
-     "priceBefore": 63740000,
-     "priceAfter": 60589354,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 60589354
+     "priceAfter": 60589354
     },
     {
      "fuel": "전기차",
      "trim": "프리미엄(롱레인지) 20인치",
-     "priceBefore": 64230000,
-     "priceAfter": 61055132,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 61055132
+     "priceAfter": 61055132
     },
     {
      "fuel": "전기차",
      "trim": "인스퍼레이션(롱레인지) 19인치",
-     "priceBefore": 64470000,
-     "priceAfter": 61283270,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 61283270
+     "priceAfter": 61283270
     },
     {
      "fuel": "전기차",
      "trim": "인스퍼레이션(롱레인지) 20인치",
-     "priceBefore": 64960000,
-     "priceAfter": 61749048,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 61749048
+     "priceAfter": 61749048
     },
     {
      "fuel": "전기차",
      "trim": "N LINE(롱레인지) 20인치",
-     "priceBefore": 65010000,
-     "priceAfter": 61796577,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 61796577
+     "priceAfter": 61796577
     },
     {
      "fuel": "전기차",
      "trim": "인스퍼레이션(롱레인지) 19인치",
-     "priceBefore": 66940000,
-     "priceAfter": 63631178,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 63631178
+     "priceAfter": 63631178
     },
     {
      "fuel": "전기차",
      "trim": "인스퍼레이션(롱레인지) 20인치",
-     "priceBefore": 67430000,
-     "priceAfter": 64096958,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 64096958
+     "priceAfter": 64096958
     }
    ],
-   "optionSuperset": [],
-   "rules": [],
+   "optionSuperset": [
+    {
+     "name": "HTRAC",
+     "price": 2470000
+    },
+    {
+     "name": "현대 스마트센스",
+     "price": 1530000
+    },
+    {
+     "name": "파킹 어시스트",
+     "price": 1430000
+    },
+    {
+     "name": "디지털 사이드 미러",
+     "price": 1380000
+    },
+    {
+     "name": "컴포트",
+     "price": 890000
+    },
+    {
+     "name": "비전루프",
+     "price": 740000
+    },
+    {
+     "name": "빌트인 캠 (보조배터리 포함)",
+     "price": 690000
+    },
+    {
+     "name": "컴포트 플러스",
+     "price": 590000
+    },
+    {
+     "name": "컴포트(영업용)",
+     "price": 590000
+    },
+    {
+     "name": "20인치 알로이 휠 & 미쉐린 타이어",
+     "price": 490000
+    },
+    {
+     "name": "20인치 알로이 휠 & 미쉘린 타이어",
+     "price": 490000
+    }
+   ],
+   "optionSource": "현대 공식 PDF",
    "minMax": {
     "min": 47347908,
-    "minConfig": "최저 트림 「전기차 E-Value +(스탠다드) 19인치」 세제후가·유료옵션 없음",
-    "maxCandidate": 64096958,
-    "maxConfig": "트림 「전기차 인스퍼레이션(롱레인지) 20인치」 세제후 64,096,958 + 그 트림 유료옵션 0개 합 0",
-    "maxStatus": "배타 상한후보 — 옵션 단순합. 상호배제(파노라마↔투톤루프 등)·종속 미검증. 정밀 max 는 조합규칙 반영 후.",
-    "optionCoverage": "옵션 미수집(있으면 정확·없으면 미수집이지 옵션없음 아님)"
+    "minConfig": "최저 트림 「전기차 E-Value +(스탠다드) 19인치」",
+    "maxCandidate": 75386958,
+    "maxConfig": "최고 트림 「전기차 인스퍼레이션(롱레인지) 20인치」 64,096,958 + 옵션초집합 11,290,000",
+    "maxStatus": "트림 최고가 + 옵션 단순합(상호배제·트림별 적용가능 미검증·상한후보). 옵션은 모델 초집합이라 특정 트림엔 일부 불가."
    }
   },
   {
    "maker": "현대",
    "sub_model": "아이오닉 5 N",
-   "fuels": [
-    "전기모터(N)"
-   ],
    "trimCount": 2,
    "trimLadder": [
     {
      "fuel": "전기모터(N)",
      "trim": "IONIQ 5 N Essential",
-     "priceBefore": 78790000,
-     "priceAfter": 78790000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 78790000
+     "priceAfter": 78790000
     },
     {
      "fuel": "전기모터(N)",
      "trim": "IONIQ 5 N",
-     "priceBefore": 81420000,
-     "priceAfter": 81420000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 81420000
+     "priceAfter": 81420000
     }
    ],
-   "optionSuperset": [],
-   "rules": [],
+   "optionSuperset": [
+    {
+     "name": "HTRAC",
+     "price": 2470000
+    },
+    {
+     "name": "현대 스마트센스",
+     "price": 1530000
+    },
+    {
+     "name": "파킹 어시스트",
+     "price": 1430000
+    },
+    {
+     "name": "디지털 사이드 미러",
+     "price": 1380000
+    },
+    {
+     "name": "컴포트",
+     "price": 890000
+    },
+    {
+     "name": "비전루프",
+     "price": 740000
+    },
+    {
+     "name": "빌트인 캠 (보조배터리 포함)",
+     "price": 690000
+    },
+    {
+     "name": "컴포트 플러스",
+     "price": 590000
+    },
+    {
+     "name": "컴포트(영업용)",
+     "price": 590000
+    },
+    {
+     "name": "20인치 알로이 휠 & 미쉐린 타이어",
+     "price": 490000
+    },
+    {
+     "name": "20인치 알로이 휠 & 미쉘린 타이어",
+     "price": 490000
+    }
+   ],
+   "optionSource": "현대 공식 PDF",
    "minMax": {
     "min": 78790000,
-    "minConfig": "최저 트림 「전기모터(N) IONIQ 5 N Essential」 세제후가·유료옵션 없음",
-    "maxCandidate": 81420000,
-    "maxConfig": "트림 「전기모터(N) IONIQ 5 N」 세제후 81,420,000 + 그 트림 유료옵션 0개 합 0",
-    "maxStatus": "배타 상한후보 — 옵션 단순합. 상호배제(파노라마↔투톤루프 등)·종속 미검증. 정밀 max 는 조합규칙 반영 후.",
-    "optionCoverage": "옵션 미수집(있으면 정확·없으면 미수집이지 옵션없음 아님)"
+    "minConfig": "최저 트림 「전기모터(N) IONIQ 5 N Essential」",
+    "maxCandidate": 92710000,
+    "maxConfig": "최고 트림 「전기모터(N) IONIQ 5 N」 81,420,000 + 옵션초집합 11,290,000",
+    "maxStatus": "트림 최고가 + 옵션 단순합(상호배제·트림별 적용가능 미검증·상한후보). 옵션은 모델 초집합이라 특정 트림엔 일부 불가."
    }
   },
   {
    "maker": "현대",
    "sub_model": "아이오닉 6 N",
-   "fuels": [
-    "전기모터(N)"
-   ],
    "trimCount": 1,
    "trimLadder": [
     {
      "fuel": "전기모터(N)",
      "trim": "N",
-     "priceBefore": 84060000,
-     "priceAfter": 79904942,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 79904942
+     "priceAfter": 79904942
     }
    ],
-   "optionSuperset": [],
-   "rules": [],
+   "optionSuperset": [
+    {
+     "name": "HTRAC(전륜모터)",
+     "price": 2470000
+    },
+    {
+     "name": "파킹 어시스트",
+     "price": 1680000
+    },
+    {
+     "name": "현대 스마트센스",
+     "price": 1480000
+    },
+    {
+     "name": "디지털 사이드 미러",
+     "price": 1380000
+    },
+    {
+     "name": "컨비니언스",
+     "price": 720000
+    },
+    {
+     "name": "플래티넘",
+     "price": 710000
+    },
+    {
+     "name": "빌트인 캠(보조배터리 포함)",
+     "price": 690000
+    },
+    {
+     "name": "와이드 선루프",
+     "price": 640000
+    },
+    {
+     "name": "컴포트 플러스",
+     "price": 630000
+    },
+    {
+     "name": "20인치 휠 & 피렐리 타이어",
+     "price": 590000
+    },
+    {
+     "name": "BOSE 프리미엄 사운드",
+     "price": 450000
+    }
+   ],
+   "optionSource": "현대 공식 PDF",
    "minMax": {
     "min": 79904942,
-    "minConfig": "최저 트림 「전기모터(N) N」 세제후가·유료옵션 없음",
-    "maxCandidate": 79904942,
-    "maxConfig": "트림 「전기모터(N) N」 세제후 79,904,942 + 그 트림 유료옵션 0개 합 0",
-    "maxStatus": "배타 상한후보 — 옵션 단순합. 상호배제(파노라마↔투톤루프 등)·종속 미검증. 정밀 max 는 조합규칙 반영 후.",
-    "optionCoverage": "옵션 미수집(있으면 정확·없으면 미수집이지 옵션없음 아님)"
+    "minConfig": "최저 트림 「전기모터(N) N」",
+    "maxCandidate": 91344942,
+    "maxConfig": "최고 트림 「전기모터(N) N」 79,904,942 + 옵션초집합 11,440,000",
+    "maxStatus": "트림 최고가 + 옵션 단순합(상호배제·트림별 적용가능 미검증·상한후보). 옵션은 모델 초집합이라 특정 트림엔 일부 불가."
    }
   },
   {
    "maker": "현대",
    "sub_model": "아이오닉 9",
-   "fuels": [
-    "전기모터"
-   ],
    "trimCount": 30,
    "trimLadder": [
     {
      "fuel": "전기모터",
      "trim": "익스클루시브 19인치",
-     "priceBefore": 71100000,
-     "priceAfter": 67585551,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 67585551
+     "priceAfter": 67585551
     },
     {
      "fuel": "전기모터",
      "trim": "익스클루시브 19인치",
-     "priceBefore": 71710000,
-     "priceAfter": 68165399,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 68165399
+     "priceAfter": 68165399
     },
     {
      "fuel": "전기모터",
      "trim": "익스클루시브 19인치",
-     "priceBefore": 73900000,
-     "priceAfter": 70247148,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 70247148
+     "priceAfter": 70247148
     },
     {
      "fuel": "전기모터",
      "trim": "익스클루시브 19인치",
-     "priceBefore": 74510000,
-     "priceAfter": 70826995,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 70826995
+     "priceAfter": 70826995
     },
     {
      "fuel": "전기모터",
      "trim": "익스클루시브 19인치",
-     "priceBefore": 74800000,
-     "priceAfter": 71102661,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 71102661
+     "priceAfter": 71102661
     },
     {
      "fuel": "전기모터",
      "trim": "익스클루시브 19인치",
-     "priceBefore": 75410000,
-     "priceAfter": 71682509,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 71682509
+     "priceAfter": 71682509
     },
     {
      "fuel": "전기모터",
      "trim": "프레스티지 19인치",
-     "priceBefore": 77050000,
-     "priceAfter": 73241445,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 73241445
+     "priceAfter": 73241445
     },
     {
      "fuel": "전기모터",
      "trim": "프레스티지 21인치",
-     "priceBefore": 77050000,
-     "priceAfter": 73241445,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 73241445
+     "priceAfter": 73241445
     },
     {
      "fuel": "전기모터",
      "trim": "프레스티지 19인치",
-     "priceBefore": 77570000,
-     "priceAfter": 73735741,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 73735741
+     "priceAfter": 73735741
     },
     {
      "fuel": "전기모터",
      "trim": "프레스티지 21인치",
-     "priceBefore": 77570000,
-     "priceAfter": 73735741,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 73735741
+     "priceAfter": 73735741
     },
     {
      "fuel": "전기모터",
      "trim": "프레스티지 19인치",
-     "priceBefore": 79850000,
-     "priceAfter": 75903041,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 75903041
+     "priceAfter": 75903041
     },
     {
      "fuel": "전기모터",
      "trim": "프레스티지 21인치",
-     "priceBefore": 79850000,
-     "priceAfter": 75903041,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 75903041
+     "priceAfter": 75903041
     },
     {
      "fuel": "전기모터",
      "trim": "프레스티지 19인치",
-     "priceBefore": 80370000,
-     "priceAfter": 76397338,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 76397338
+     "priceAfter": 76397338
     },
     {
      "fuel": "전기모터",
      "trim": "프레스티지 21인치",
-     "priceBefore": 80370000,
-     "priceAfter": 76397338,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 76397338
+     "priceAfter": 76397338
     },
     {
      "fuel": "전기모터",
      "trim": "프레스티지 19인치",
-     "priceBefore": 80750000,
-     "priceAfter": 76758555,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 76758555
+     "priceAfter": 76758555
     },
     {
      "fuel": "전기모터",
      "trim": "프레스티지 21인치",
-     "priceBefore": 80750000,
-     "priceAfter": 76758555,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 76758555
+     "priceAfter": 76758555
     },
     {
      "fuel": "전기모터",
      "trim": "프레스티지 19인치",
-     "priceBefore": 81270000,
-     "priceAfter": 77252851,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 77252851
+     "priceAfter": 77252851
     },
     {
      "fuel": "전기모터",
      "trim": "프레스티지 21인치",
-     "priceBefore": 81270000,
-     "priceAfter": 77252851,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 77252851
+     "priceAfter": 77252851
     },
     {
      "fuel": "전기모터",
      "trim": "캘리그래피 19인치",
-     "priceBefore": 82170000,
-     "priceAfter": 78108365,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 78108365
+     "priceAfter": 78108365
     },
     {
      "fuel": "전기모터",
      "trim": "캘리그래피 21인치",
-     "priceBefore": 82170000,
-     "priceAfter": 78108365,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 78108365
+     "priceAfter": 78108365
     },
     {
      "fuel": "전기모터",
      "trim": "캘리그래피 19인치",
-     "priceBefore": 83740000,
-     "priceAfter": 79600760,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 79600760
+     "priceAfter": 79600760
     },
     {
      "fuel": "전기모터",
      "trim": "캘리그래피 21인치",
-     "priceBefore": 83740000,
-     "priceAfter": 79600760,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 79600760
+     "priceAfter": 79600760
     },
     {
      "fuel": "전기모터",
      "trim": "캘리그래피 19인치",
-     "priceBefore": 84970000,
-     "priceAfter": 80769961,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 80769961
+     "priceAfter": 80769961
     },
     {
      "fuel": "전기모터",
      "trim": "캘리그래피 21인치",
-     "priceBefore": 84970000,
-     "priceAfter": 80769961,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 80769961
+     "priceAfter": 80769961
     },
     {
      "fuel": "전기모터",
      "trim": "캘리그래피 19인치",
-     "priceBefore": 85870000,
-     "priceAfter": 81625475,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 81625475
+     "priceAfter": 81625475
     },
     {
      "fuel": "전기모터",
      "trim": "캘리그래피 21인치",
-     "priceBefore": 85870000,
-     "priceAfter": 81625475,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 81625475
+     "priceAfter": 81625475
     },
     {
      "fuel": "전기모터",
      "trim": "캘리그래피 19인치",
-     "priceBefore": 86540000,
-     "priceAfter": 82262357,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 82262357
+     "priceAfter": 82262357
     },
     {
      "fuel": "전기모터",
      "trim": "캘리그래피 21인치",
-     "priceBefore": 86540000,
-     "priceAfter": 82262357,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 82262357
+     "priceAfter": 82262357
     },
     {
      "fuel": "전기모터",
      "trim": "캘리그래피 19인치",
-     "priceBefore": 87440000,
-     "priceAfter": 83149999,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 83149999
+     "priceAfter": 83149999
     },
     {
      "fuel": "전기모터",
      "trim": "캘리그래피 21인치",
-     "priceBefore": 87440000,
-     "priceAfter": 83149999,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 83149999
+     "priceAfter": 83149999
     }
    ],
-   "optionSuperset": [],
-   "rules": [],
+   "optionSuperset": [
+    {
+     "name": "HTRACⅡ",
+     "price": 3700000
+    },
+    {
+     "name": "HTRACⅠ",
+     "price": 2800000
+    },
+    {
+     "name": "후석 스마트 엔터테인먼트 시스템",
+     "price": 2770000
+    },
+    {
+     "name": "컴팩트 디지털 사이드 미러",
+     "price": 1380000
+    },
+    {
+     "name": "파킹 어시스트",
+     "price": 1350000
+    },
+    {
+     "name": "1열 릴랙션 컴포트 +",
+     "price": 1300000
+    },
+    {
+     "name": "파노라마 선루프",
+     "price": 1190000
+    },
+    {
+     "name": "플래티넘",
+     "price": 1100000
+    },
+    {
+     "name": "21인치 휠 & 타이어",
+     "price": 1000000
+    },
+    {
+     "name": "2열 프리미엄 릴랙션 시트",
+     "price": 1000000
+    },
+    {
+     "name": "2열 다이내믹 바디케어 시트",
+     "price": 800000
+    },
+    {
+     "name": "컴포트 플러스",
+     "price": 630000
+    },
+    {
+     "name": "빌트인 캠 2",
+     "price": 590000
+    },
+    {
+     "name": "사이드스텝",
+     "price": 450000
+    },
+    {
+     "name": "블랙잉크",
+     "price": 400000
+    }
+   ],
+   "optionSource": "현대 공식 PDF",
    "minMax": {
     "min": 67585551,
-    "minConfig": "최저 트림 「전기모터 익스클루시브 19인치」 세제후가·유료옵션 없음",
-    "maxCandidate": 83149999,
-    "maxConfig": "트림 「전기모터 캘리그래피 19인치」 세제후 83,149,999 + 그 트림 유료옵션 0개 합 0",
-    "maxStatus": "배타 상한후보 — 옵션 단순합. 상호배제(파노라마↔투톤루프 등)·종속 미검증. 정밀 max 는 조합규칙 반영 후.",
-    "optionCoverage": "옵션 미수집(있으면 정확·없으면 미수집이지 옵션없음 아님)"
+    "minConfig": "최저 트림 「전기모터 익스클루시브 19인치」",
+    "maxCandidate": 103609999,
+    "maxConfig": "최고 트림 「전기모터 캘리그래피 21인치」 83,149,999 + 옵션초집합 20,460,000",
+    "maxStatus": "트림 최고가 + 옵션 단순합(상호배제·트림별 적용가능 미검증·상한후보). 옵션은 모델 초집합이라 특정 트림엔 일부 불가."
    }
   },
   {
    "maker": "현대",
    "sub_model": "코나",
-   "fuels": [
-    "가솔린 2.0",
-    "가솔린 1.6 터보",
-    "전기모터",
-    "하이브리드"
-   ],
    "trimCount": 21,
    "trimLadder": [
     {
      "fuel": "가솔린 2.0",
      "trim": "Modern",
-     "priceBefore": 23930000,
-     "priceAfter": 23930000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 23930000
+     "priceAfter": 23930000
     },
     {
      "fuel": "가솔린 1.6 터보",
      "trim": "Modern",
-     "priceBefore": 24630000,
-     "priceAfter": 24630000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 24630000
+     "priceAfter": 24630000
     },
     {
      "fuel": "가솔린 2.0",
      "trim": "H-Pick",
-     "priceBefore": 26250000,
-     "priceAfter": 26250000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 26250000
+     "priceAfter": 26250000
     },
     {
      "fuel": "가솔린 1.6 터보",
      "trim": "H-Pick",
-     "priceBefore": 26850000,
-     "priceAfter": 26850000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 26850000
+     "priceAfter": 26850000
     },
     {
      "fuel": "가솔린 1.6 터보",
      "trim": "Premium",
-     "priceBefore": 29150000,
-     "priceAfter": 29150000,
-     "optionCount": 6,
-     "optionSum": 4800000,
-     "loaded": 33950000
+     "priceAfter": 29150000
     },
     {
      "fuel": "하이브리드",
      "trim": "Modern",
-     "priceBefore": 30380000,
-     "priceAfter": 29379000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 29379000
+     "priceAfter": 29379000
     },
     {
      "fuel": "가솔린 1.6 터보",
      "trim": "Premium",
-     "priceBefore": 31180000,
-     "priceAfter": 31180000,
-     "optionCount": 6,
-     "optionSum": 4800000,
-     "loaded": 35980000
+     "priceAfter": 31180000
     },
     {
      "fuel": "하이브리드",
      "trim": "H-Pick",
-     "priceBefore": 32200000,
-     "priceAfter": 31198998,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 31198998
+     "priceAfter": 31198998
     },
     {
      "fuel": "가솔린 1.6 터보",
      "trim": "Inspiration",
-     "priceBefore": 31460000,
-     "priceAfter": 31460000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 31460000
+     "priceAfter": 31460000
     },
     {
      "fuel": "가솔린 1.6 터보",
      "trim": "N Line Inspiration",
-     "priceBefore": 32450000,
-     "priceAfter": 32450000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 32450000
+     "priceAfter": 32450000
     },
     {
      "fuel": "가솔린 1.6 터보",
      "trim": "Inspiration",
-     "priceBefore": 33490000,
-     "priceAfter": 33490000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 33490000
+     "priceAfter": 33490000
     },
     {
      "fuel": "하이브리드",
      "trim": "Premium",
-     "priceBefore": 34670000,
-     "priceAfter": 33669000,
-     "optionCount": 6,
-     "optionSum": 4800000,
-     "loaded": 38469000
+     "priceAfter": 33669000
     },
     {
      "fuel": "가솔린 1.6 터보",
      "trim": "N Line Inspiration",
-     "priceBefore": 34480000,
-     "priceAfter": 34480000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 34480000
+     "priceAfter": 34480000
     },
     {
      "fuel": "하이브리드",
      "trim": "Inspiration",
-     "priceBefore": 36630000,
-     "priceAfter": 35629000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 35629000
+     "priceAfter": 35629000
     },
     {
      "fuel": "하이브리드",
      "trim": "N Line Inspiration",
-     "priceBefore": 37620000,
-     "priceAfter": 36619000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 36619000
+     "priceAfter": 36619000
     },
     {
      "fuel": "전기모터",
      "trim": "E-Value +",
-     "priceBefore": 43680000,
-     "priceAfter": 41520912,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 41520912
+     "priceAfter": 41520912
     },
     {
      "fuel": "전기모터",
      "trim": "Premium",
-     "priceBefore": 45830000,
-     "priceAfter": 43564638,
-     "optionCount": 6,
-     "optionSum": 4800000,
-     "loaded": 48364638
+     "priceAfter": 43564638
     },
     {
      "fuel": "전기모터",
      "trim": "Modern plus",
-     "priceBefore": 48030000,
-     "priceAfter": 45655893,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 45655893
+     "priceAfter": 45655893
     },
     {
      "fuel": "전기모터",
      "trim": "Premium",
-     "priceBefore": 48990000,
-     "priceAfter": 46568440,
-     "optionCount": 6,
-     "optionSum": 4800000,
-     "loaded": 51368440
+     "priceAfter": 46568440
     },
     {
      "fuel": "전기모터",
      "trim": "Inspiration",
-     "priceBefore": 52520000,
-     "priceAfter": 49923954,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 49923954
+     "priceAfter": 49923954
     },
     {
      "fuel": "전기모터",
      "trim": "N Line Inspiration",
-     "priceBefore": 53510000,
-     "priceAfter": 50865018,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 50865018
+     "priceAfter": 50865018
     }
    ],
    "optionSuperset": [
@@ -4814,569 +4175,524 @@
      "price": 1650000
     },
     {
+     "name": "스타일Ⅱ",
+     "price": 1150000
+    },
+    {
+     "name": "테크Ⅰ",
+     "price": 1080000
+    },
+    {
      "name": "현대스마트센스",
      "price": 1000000
     },
     {
+     "name": "파킹어시스트",
+     "price": 1000000
+    },
+    {
+     "name": "N Line 디자인 패키지Ⅳ",
+     "price": 1000000
+    },
+    {
+     "name": "내비게이션Ⅰ",
+     "price": 1000000
+    },
+    {
+     "name": "현대 스마트센스Ⅱ",
+     "price": 1000000
+    },
+    {
      "name": "스타일Ⅰ",
-     "price": 650000
+     "price": 900000
     },
     {
      "name": "컨비니언스",
      "price": 600000
     },
     {
+     "name": "BOSE 프리미엄 사운드",
+     "price": 600000
+    },
+    {
+     "name": "와이드 선루프",
+     "price": 600000
+    },
+    {
+     "name": "KRELL 프리미엄 사운드",
+     "price": 550000
+    },
+    {
+     "name": "시트 플러스Ⅰ",
+     "price": 530000
+    },
+    {
      "name": "시트플러스",
      "price": 500000
     },
     {
+     "name": "빌트인 캠 2",
+     "price": 450000
+    },
+    {
+     "name": "선루프",
+     "price": 450000
+    },
+    {
+     "name": "시트 플러스Ⅱ",
+     "price": 420000
+    },
+    {
      "name": "클러스터(12.3인치 컬러 LCD)",
      "price": 400000
+    },
+    {
+     "name": "클러스터(10.25인치 컬러 LCD)",
+     "price": 400000
+    },
+    {
+     "name": "헤드업 디스플레이",
+     "price": 400000
+    },
+    {
+     "name": "투톤 컬러 루프",
+     "price": 300000
+    },
+    {
+     "name": "하이패스",
+     "price": 200000
+    },
+    {
+     "name": "실내 컬러 패키지",
+     "price": 200000
     }
    ],
-   "rules": [],
+   "optionSource": "현대 공식 PDF",
    "minMax": {
     "min": 23930000,
-    "minConfig": "최저 트림 「가솔린 2.0 Modern」 세제후가·유료옵션 없음",
-    "maxCandidate": 51368440,
-    "maxConfig": "트림 「전기모터 Premium」 세제후 46,568,440 + 그 트림 유료옵션 6개 합 4,800,000",
-    "maxStatus": "배타 상한후보 — 옵션 단순합. 상호배제(파노라마↔투톤루프 등)·종속 미검증. 정밀 max 는 조합규칙 반영 후.",
-    "optionCoverage": "has-options"
+    "minConfig": "최저 트림 「가솔린 2.0 Modern」",
+    "maxCandidate": 67245018,
+    "maxConfig": "최고 트림 「전기모터 N Line Inspiration」 50,865,018 + 옵션초집합 16,380,000",
+    "maxStatus": "트림 최고가 + 옵션 단순합(상호배제·트림별 적용가능 미검증·상한후보). 옵션은 모델 초집합이라 특정 트림엔 일부 불가."
    }
   },
   {
    "maker": "현대",
    "sub_model": "투싼",
-   "fuels": [
-    "1.6 가솔린 터보",
-    "하이브리드"
-   ],
    "trimCount": 20,
    "trimLadder": [
     {
      "fuel": "1.6 가솔린 터보",
      "trim": "Modern",
-     "priceBefore": 28440000,
-     "priceAfter": 28440000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 28440000
+     "priceAfter": 28440000
     },
     {
      "fuel": "1.6 가솔린 터보",
      "trim": "Modern",
-     "priceBefore": 30420000,
-     "priceAfter": 30420000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 30420000
+     "priceAfter": 30420000
     },
     {
      "fuel": "1.6 가솔린 터보",
      "trim": "Premium",
-     "priceBefore": 31120000,
-     "priceAfter": 31120000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 31120000
+     "priceAfter": 31120000
     },
     {
      "fuel": "1.6 가솔린 터보",
      "trim": "H-Pick",
-     "priceBefore": 32010000,
-     "priceAfter": 32010000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 32010000
+     "priceAfter": 32010000
     },
     {
      "fuel": "1.6 가솔린 터보",
      "trim": "Premium",
-     "priceBefore": 33100000,
-     "priceAfter": 33100000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 33100000
+     "priceAfter": 33100000
     },
     {
      "fuel": "하이브리드",
      "trim": "Modern",
-     "priceBefore": 34180000,
-     "priceAfter": 33179000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 33179000
+     "priceAfter": 33179000
     },
     {
      "fuel": "1.6 가솔린 터보",
      "trim": "H-Pick",
-     "priceBefore": 33990000,
-     "priceAfter": 33990000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 33990000
+     "priceAfter": 33990000
     },
     {
      "fuel": "1.6 가솔린 터보",
      "trim": "Inspiration",
-     "priceBefore": 34560000,
-     "priceAfter": 34560000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 34560000
+     "priceAfter": 34560000
     },
     {
      "fuel": "하이브리드",
      "trim": "Modern",
-     "priceBefore": 36410000,
-     "priceAfter": 35409000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 35409000
+     "priceAfter": 35409000
     },
     {
      "fuel": "1.6 가솔린 터보",
      "trim": "N Line",
-     "priceBefore": 35410000,
-     "priceAfter": 35410000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 35410000
+     "priceAfter": 35410000
     },
     {
      "fuel": "하이브리드",
      "trim": "Premium",
-     "priceBefore": 36650000,
-     "priceAfter": 35648999,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 35648999
+     "priceAfter": 35648999
     },
     {
      "fuel": "하이브리드",
      "trim": "H-Pick",
-     "priceBefore": 37490000,
-     "priceAfter": 36489000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 36489000
+     "priceAfter": 36489000
     },
     {
      "fuel": "1.6 가솔린 터보",
      "trim": "Inspiration",
-     "priceBefore": 36540000,
-     "priceAfter": 36540000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 36540000
+     "priceAfter": 36540000
     },
     {
      "fuel": "1.6 가솔린 터보",
      "trim": "N Line",
-     "priceBefore": 37390000,
-     "priceAfter": 37390000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 37390000
+     "priceAfter": 37390000
     },
     {
      "fuel": "하이브리드",
      "trim": "Premium",
-     "priceBefore": 38880000,
-     "priceAfter": 37879000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 37879000
+     "priceAfter": 37879000
     },
     {
      "fuel": "하이브리드",
      "trim": "H-Pick",
-     "priceBefore": 39720000,
-     "priceAfter": 38719000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 38719000
+     "priceAfter": 38719000
     },
     {
      "fuel": "하이브리드",
      "trim": "Inspiration",
-     "priceBefore": 40170000,
-     "priceAfter": 39169000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 39169000
+     "priceAfter": 39169000
     },
     {
      "fuel": "하이브리드",
      "trim": "N Line",
-     "priceBefore": 40820000,
-     "priceAfter": 39819000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 39819000
+     "priceAfter": 39819000
     },
     {
      "fuel": "하이브리드",
      "trim": "Inspiration",
-     "priceBefore": 42400000,
-     "priceAfter": 41399000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 41399000
+     "priceAfter": 41399000
     },
     {
      "fuel": "하이브리드",
      "trim": "N Line",
-     "priceBefore": 43050000,
-     "priceAfter": 42049001,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 42049001
+     "priceAfter": 42049001
     }
    ],
-   "optionSuperset": [],
-   "rules": [],
+   "optionSuperset": [
+    {
+     "name": "플래티넘Ⅱ",
+     "price": 2520000
+    },
+    {
+     "name": "플래티넘Ⅱ(디젤)",
+     "price": 2520000
+    },
+    {
+     "name": "HTRAC(험로주행모드)",
+     "price": 2230000
+    },
+    {
+     "name": "플래티넘Ⅰ(가솔린)",
+     "price": 2230000
+    },
+    {
+     "name": "스마트스트림 디젤 2.0",
+     "price": 2160000
+    },
+    {
+     "name": "스마트스트림 디젤 2.0 엔진",
+     "price": 2160000
+    },
+    {
+     "name": "HTRAC",
+     "price": 1980000
+    },
+    {
+     "name": "플래티넘 IV",
+     "price": 1780000
+    },
+    {
+     "name": "플래티넘 Ⅳ",
+     "price": 1780000
+    },
+    {
+     "name": "플래티넘Ⅳ(디젤)",
+     "price": 1780000
+    },
+    {
+     "name": "플래티넘 Ⅳ(디젤)",
+     "price": 1780000
+    },
+    {
+     "name": "플래티넘Ⅲ(가솔린)",
+     "price": 1480000
+    },
+    {
+     "name": "플래티넘 Ⅲ(가솔린)",
+     "price": 1480000
+    },
+    {
+     "name": "멀티미디어 내비Ⅰ",
+     "price": 1290000
+    },
+    {
+     "name": "파노라마 선루프 + 루프랙",
+     "price": 1240000
+    },
+    {
+     "name": "파노라마 선루프",
+     "price": 1140000
+    },
+    {
+     "name": "컴포트",
+     "price": 1140000
+    },
+    {
+     "name": "익스테리어Ⅰ플러스",
+     "price": 940000
+    },
+    {
+     "name": "현대 스마트센스",
+     "price": 890000
+    },
+    {
+     "name": "익스테리어Ⅰ",
+     "price": 690000
+    },
+    {
+     "name": "익스테리어Ⅱ",
+     "price": 690000
+    },
+    {
+     "name": "빌트인 캠(보조배터리 포함)",
+     "price": 640000
+    },
+    {
+     "name": "인테리어 디자인Ⅱ",
+     "price": 590000
+    },
+    {
+     "name": "컨비니언스",
+     "price": 540000
+    },
+    {
+     "name": "익스테리어Ⅲ",
+     "price": 450000
+    },
+    {
+     "name": "H Genuine Accessories",
+     "price": 340000
+    },
+    {
+     "name": "무광컬러(티타늄 그레이 매트)",
+     "price": 300000
+    },
+    {
+     "name": "인테리어 디자인Ⅰ",
+     "price": 250000
+    },
+    {
+     "name": "미쉐린 타이어",
+     "price": 200000
+    }
+   ],
+   "optionSource": "현대 공식 PDF",
    "minMax": {
     "min": 28440000,
-    "minConfig": "최저 트림 「1.6 가솔린 터보 Modern」 세제후가·유료옵션 없음",
-    "maxCandidate": 42049001,
-    "maxConfig": "트림 「하이브리드 N Line」 세제후 42,049,001 + 그 트림 유료옵션 0개 합 0",
-    "maxStatus": "배타 상한후보 — 옵션 단순합. 상호배제(파노라마↔투톤루프 등)·종속 미검증. 정밀 max 는 조합규칙 반영 후.",
-    "optionCoverage": "옵션 미수집(있으면 정확·없으면 미수집이지 옵션없음 아님)"
+    "minConfig": "최저 트림 「1.6 가솔린 터보 Modern」",
+    "maxCandidate": 79259001,
+    "maxConfig": "최고 트림 「하이브리드 N Line」 42,049,001 + 옵션초집합 37,210,000",
+    "maxStatus": "트림 최고가 + 옵션 단순합(상호배제·트림별 적용가능 미검증·상한후보). 옵션은 모델 초집합이라 특정 트림엔 일부 불가."
    }
   },
   {
    "maker": "현대",
    "sub_model": "팰리세이드",
-   "fuels": [
-    "가솔린 2.5",
-    "하이브리드 2.5"
-   ],
    "trimCount": 36,
    "trimLadder": [
     {
      "fuel": "가솔린 2.5",
      "trim": "익스클루시브",
-     "priceBefore": 44780000,
-     "priceAfter": 44780000,
-     "optionCount": 4,
-     "optionSum": 3760000,
-     "loaded": 48540000
+     "priceAfter": 44780000
     },
     {
      "fuel": "가솔린 2.5",
      "trim": "익스클루시브",
-     "priceBefore": 46100000,
-     "priceAfter": 46100000,
-     "optionCount": 4,
-     "optionSum": 3760000,
-     "loaded": 49860000
+     "priceAfter": 46100000
     },
     {
      "fuel": "가솔린 2.5",
      "trim": "익스클루시브",
-     "priceBefore": 47060000,
-     "priceAfter": 47060000,
-     "optionCount": 4,
-     "optionSum": 3760000,
-     "loaded": 50820000
+     "priceAfter": 47060000
     },
     {
      "fuel": "가솔린 2.5",
      "trim": "익스클루시브",
-     "priceBefore": 48500000,
-     "priceAfter": 48500000,
-     "optionCount": 4,
-     "optionSum": 3760000,
-     "loaded": 52260000
+     "priceAfter": 48500000
     },
     {
      "fuel": "가솔린 2.5",
      "trim": "H-Pick",
-     "priceBefore": 50400000,
-     "priceAfter": 50400000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 50400000
+     "priceAfter": 50400000
     },
     {
      "fuel": "하이브리드 2.5",
      "trim": "익스클루시브",
-     "priceBefore": 50770000,
-     "priceAfter": 50770000,
-     "optionCount": 4,
-     "optionSum": 3760000,
-     "loaded": 54530000
+     "priceAfter": 50770000
     },
     {
      "fuel": "하이브리드 2.5",
      "trim": "익스클루시브",
-     "priceBefore": 52400000,
-     "priceAfter": 51399000,
-     "optionCount": 4,
-     "optionSum": 3760000,
-     "loaded": 55159000
+     "priceAfter": 51399000
     },
     {
      "fuel": "가솔린 2.5",
      "trim": "H-Pick",
-     "priceBefore": 52030000,
-     "priceAfter": 52030000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 52030000
+     "priceAfter": 52030000
     },
     {
      "fuel": "가솔린 2.5",
      "trim": "XRT",
-     "priceBefore": 52110000,
-     "priceAfter": 52110000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 52110000
+     "priceAfter": 52110000
     },
     {
      "fuel": "가솔린 2.5",
      "trim": "H-Pick",
-     "priceBefore": 52680000,
-     "priceAfter": 52680000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 52680000
+     "priceAfter": 52680000
     },
     {
      "fuel": "하이브리드 2.5",
      "trim": "익스클루시브",
-     "priceBefore": 53050000,
-     "priceAfter": 53050000,
-     "optionCount": 4,
-     "optionSum": 3760000,
-     "loaded": 56810000
+     "priceAfter": 53050000
     },
     {
      "fuel": "가솔린 2.5",
      "trim": "XRT",
-     "priceBefore": 53820000,
-     "priceAfter": 53820000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 53820000
+     "priceAfter": 53820000
     },
     {
      "fuel": "가솔린 2.5",
      "trim": "XRT",
-     "priceBefore": 54390000,
-     "priceAfter": 54390000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 54390000
+     "priceAfter": 54390000
     },
     {
      "fuel": "가솔린 2.5",
      "trim": "H-Pick",
-     "priceBefore": 54430000,
-     "priceAfter": 54430000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 54430000
+     "priceAfter": 54430000
     },
     {
      "fuel": "하이브리드 2.5",
      "trim": "익스클루시브",
-     "priceBefore": 54800000,
-     "priceAfter": 54800000,
-     "optionCount": 4,
-     "optionSum": 3760000,
-     "loaded": 58560000
+     "priceAfter": 54800000
     },
     {
      "fuel": "가솔린 2.5",
      "trim": "캘리그래피",
-     "priceBefore": 56060000,
-     "priceAfter": 56060000,
-     "optionCount": 1,
-     "optionSum": 5740000,
-     "loaded": 61800000
+     "priceAfter": 56060000
     },
     {
      "fuel": "가솔린 2.5",
      "trim": "XRT",
-     "priceBefore": 56220000,
-     "priceAfter": 56220000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 56220000
+     "priceAfter": 56220000
     },
     {
      "fuel": "하이브리드 2.5",
      "trim": "H-Pick",
-     "priceBefore": 56400000,
-     "priceAfter": 56400000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 56400000
+     "priceAfter": 56400000
     },
     {
      "fuel": "가솔린 2.5",
      "trim": "캘리그래피",
-     "priceBefore": 58070000,
-     "priceAfter": 58070000,
-     "optionCount": 1,
-     "optionSum": 5740000,
-     "loaded": 63810000
+     "priceAfter": 58070000
     },
     {
      "fuel": "하이브리드 2.5",
      "trim": "H-Pick",
-     "priceBefore": 58320000,
-     "priceAfter": 58320000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 58320000
+     "priceAfter": 58320000
     },
     {
      "fuel": "가솔린 2.5",
      "trim": "캘리그래피",
-     "priceBefore": 58340000,
-     "priceAfter": 58340000,
-     "optionCount": 1,
-     "optionSum": 5740000,
-     "loaded": 64080000
+     "priceAfter": 58340000
     },
     {
      "fuel": "하이브리드 2.5",
      "trim": "H-Pick",
-     "priceBefore": 58680000,
-     "priceAfter": 58680000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 58680000
+     "priceAfter": 58680000
     },
     {
      "fuel": "가솔린 2.5",
      "trim": "캘리그래피",
-     "priceBefore": 60470000,
-     "priceAfter": 60470000,
-     "optionCount": 1,
-     "optionSum": 5740000,
-     "loaded": 66210000
+     "priceAfter": 60470000
     },
     {
      "fuel": "하이브리드 2.5",
      "trim": "H-Pick",
-     "priceBefore": 60720000,
-     "priceAfter": 60720000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 60720000
+     "priceAfter": 60720000
     },
     {
      "fuel": "하이브리드 2.5",
      "trim": "캘리그래피",
-     "priceBefore": 62060000,
-     "priceAfter": 62060000,
-     "optionCount": 1,
-     "optionSum": 5740000,
-     "loaded": 67800000
+     "priceAfter": 62060000
     },
     {
      "fuel": "하이브리드 2.5",
      "trim": "캘리그래피",
-     "priceBefore": 64340000,
-     "priceAfter": 64340000,
-     "optionCount": 1,
-     "optionSum": 5740000,
-     "loaded": 70080000
+     "priceAfter": 64340000
     },
     {
      "fuel": "하이브리드 2.5",
      "trim": "캘리그래피",
-     "priceBefore": 64360000,
-     "priceAfter": 64360000,
-     "optionCount": 1,
-     "optionSum": 5740000,
-     "loaded": 70100000
+     "priceAfter": 64360000
     },
     {
      "fuel": "하이브리드 2.5",
      "trim": "캘리그래피",
-     "priceBefore": 66760000,
-     "priceAfter": 66760000,
-     "optionCount": 1,
-     "optionSum": 5740000,
-     "loaded": 72500000
+     "priceAfter": 66760000
     },
     {
      "fuel": "가솔린 2.5",
      "trim": "하이루프",
-     "priceBefore": 72440000,
-     "priceAfter": 72440000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 72440000
+     "priceAfter": 72440000
     },
     {
      "fuel": "가솔린 2.5",
      "trim": "하이루프",
-     "priceBefore": 74720000,
-     "priceAfter": 74720000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 74720000
+     "priceAfter": 74720000
     },
     {
      "fuel": "가솔린 2.5",
      "trim": "하이루프",
-     "priceBefore": 75300000,
-     "priceAfter": 75300000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 75300000
+     "priceAfter": 75300000
     },
     {
      "fuel": "가솔린 2.5",
      "trim": "하이루프",
-     "priceBefore": 77700000,
-     "priceAfter": 77700000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 77700000
+     "priceAfter": 77700000
     },
     {
      "fuel": "하이브리드 2.5",
      "trim": "하이루프",
-     "priceBefore": 78440000,
-     "priceAfter": 78440000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 78440000
+     "priceAfter": 78440000
     },
     {
      "fuel": "하이브리드 2.5",
      "trim": "하이루프",
-     "priceBefore": 80720000,
-     "priceAfter": 80720000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 80720000
+     "priceAfter": 80720000
     },
     {
      "fuel": "하이브리드 2.5",
      "trim": "하이루프",
-     "priceBefore": 81590000,
-     "priceAfter": 81590000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 81590000
+     "priceAfter": 81590000
     },
     {
      "fuel": "하이브리드 2.5",
      "trim": "하이루프",
-     "priceBefore": 83990000,
-     "priceAfter": 83990000,
-     "optionCount": 0,
-     "optionSum": 0,
-     "loaded": 83990000
+     "priceAfter": 83990000
     }
    ],
    "optionSuperset": [
@@ -5385,30 +4701,53 @@
      "price": 5740000
     },
     {
-     "name": "주차보조 시스템Ⅰ",
-     "price": 1680000
+     "name": "H Genuine Accessories 트레일러",
+     "price": 1580000
     },
     {
-     "name": "컴포트Ⅰ",
+     "name": "디젤 2.2 엔진",
+     "price": 1480000
+    },
+    {
+     "name": "컴포트Ⅱ",
+     "price": 1090000
+    },
+    {
+     "name": "듀얼 와이드 선루프",
      "price": 890000
     },
     {
-     "name": "컨비니언스",
+     "name": "현대스마트센스Ⅰ",
      "price": 790000
+    },
+    {
+     "name": "주차보조 시스템Ⅱ",
+     "price": 690000
+    },
+    {
+     "name": "KRELL 사운드 패키지",
+     "price": 690000
+    },
+    {
+     "name": "H Genuine Accessories",
+     "price": 690000
+    },
+    {
+     "name": "빌트인 캠",
+     "price": 690000
     },
     {
      "name": "2열 통풍시트",
      "price": 400000
     }
    ],
-   "rules": [],
+   "optionSource": "현대 공식 PDF",
    "minMax": {
     "min": 44780000,
-    "minConfig": "최저 트림 「가솔린 2.5 익스클루시브」 세제후가·유료옵션 없음",
-    "maxCandidate": 83990000,
-    "maxConfig": "트림 「하이브리드 2.5 하이루프」 세제후 83,990,000 + 그 트림 유료옵션 0개 합 0",
-    "maxStatus": "배타 상한후보 — 옵션 단순합. 상호배제(파노라마↔투톤루프 등)·종속 미검증. 정밀 max 는 조합규칙 반영 후.",
-    "optionCoverage": "has-options"
+    "minConfig": "최저 트림 「가솔린 2.5 익스클루시브」",
+    "maxCandidate": 98720000,
+    "maxConfig": "최고 트림 「하이브리드 2.5 하이루프」 83,990,000 + 옵션초집합 14,730,000",
+    "maxStatus": "트림 최고가 + 옵션 단순합(상호배제·트림별 적용가능 미검증·상한후보). 옵션은 모델 초집합이라 특정 트림엔 일부 불가."
    }
   }
  ]
