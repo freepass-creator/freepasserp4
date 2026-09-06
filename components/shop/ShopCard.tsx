@@ -318,7 +318,18 @@ function ShopThumb({ p, marks = [] }: { p: EntityRecord; marks?: ShopMark[] }) {
   const photo = useFirstPhoto(p, 640, inView);
   return (
     <div ref={ref} className="fp-shop-thumb" style={{
-      position: 'relative', aspectRatio: '4 / 3', overflow: 'hidden',
+      /*
+       * ★★**목록 사진은 «위아래를 살짝 잘라» 16:10 이다**(사장님 2026-09-06 「많이 보이게 하려고
+       *   하다 보니까 차량 사진이 **4대3으로 저렇게 다 보일 필요가 없고, 위아래를 살짝 잘라도
+       *   차가 중앙에 있으니까 어떤 차인지 보이거든**」).
+       *   원천 사진은 대부분 스튜디오 정면샷이라 **위(천장)와 아래(바닥)가 비어 있다** —
+       *   4:3 은 그 빈 곳까지 실어 나른다. 차는 가운데 있으므로 잘려도 무엇인지 다 보인다.
+       * ⇒ 343 폭 카드에서 **257 → 214px**(43 절약). 카드 391 → 348 이라 한 화면에 한 장이 더 걸린다.
+       * ★자르는 일은 `objectFit: cover` 가 이미 한다 — 비율만 바꾸면 가운데를 남기고 위아래를 뗀다.
+       * ⚠ **상세(`ShopDetail`)는 4:3 그대로다.** 거기는 「이 차를 뜯어보는」 자리라 안 자른다.
+       *   목록은 «고르는» 자리, 상세는 «보는» 자리 — 같은 사진이라도 할 일이 다르다.
+       */
+      position: 'relative', aspectRatio: '16 / 10', overflow: 'hidden',
       background: C.placeholder, borderRadius: SHOP.r.card,
     }}>
       {photo ? (

@@ -419,7 +419,8 @@ function Skeleton() {
   );
   return (
     <div>
-      <div className="fp-shop-skel" style={{ aspectRatio: '4 / 3', borderRadius: SHOP.r.card }} />
+      {/* 카드 사진과 «같은 비율»이라야 목록이 도착할 때 화면이 안 튄다(ShopThumb 머리말). */}
+      <div className="fp-shop-skel" style={{ aspectRatio: '16 / 10', borderRadius: SHOP.r.card }} />
       <div style={{ padding: '12px 2px 2px', display: 'flex', flexDirection: 'column', gap: 8 }}>
         {bar('78%', 16)}{bar('52%', 12)}{bar('46%', 26)}{bar('60%', 12)}
       </div>
