@@ -64,8 +64,8 @@ const RAW_ALLOW = new Map<string, Allow>([
    *   아이폰 안전영역을 안 봤다. `ShopDock`·`ShopDockAction` 원자로 합쳤다. **다시 손으로 짜지 말 것.**
    */
   ['components/shop/shop-ui.tsx', {
-    counts: { button: 7, input: 2, select: 1 },
-    reason: '가게 «원자 파일» 자체 — ShopPill·ShopIconBtn·ShopTextBtn·ShopPrimary·ShopDockAction·ShopSearch·ShopSort 의 본체',
+    counts: { button: 6, input: 2, select: 1 },
+    reason: '가게 «원자 파일» 자체 — ShopPill·ShopIconBtn·ShopTextBtn·ShopDock/ShopDockAction·ShopSearch·ShopSort 의 본체',
   }],
   ['components/shop/ShopDetail.tsx', {
     counts: { button: 4 },

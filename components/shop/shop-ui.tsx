@@ -399,21 +399,13 @@ export function ShopDockAction({ tone = 'brand', href, onClick, label, children 
   );
 }
 
-/**
- * 꽉 채운 주요 버튼 — 독 «밖»에서 한 칸으로 설 때(시트 안 등).
- * ★높이는 손님 동 사다리(`SHOP.h`)를 따른다. 독 안이라면 `ShopDock` + `ShopDockAction` 을 쓴다.
+/*
+ * ⚠ 여기 있던 `ShopPrimary`(꽉 채운 주요 버튼)를 **걷었다**(2026-09-06 검수).
+ *   사용처가 0 이었는데, `ShopDockAction` 이 «같은 일»을 하게 되면서 **한 일에 원자가 둘**이 됐다.
+ *   쓰지 않는 원자는 놔둬도 되지만(집 규격 「준비만 된 원자는 안 지운다」), **짝퉁 둘은 다르다** —
+ *   다음 사람이 어느 쪽을 골라도 되는 것처럼 보이고, 고르는 순간 높이가 갈린다.
+ *   ⇒ 꽉 채운 주요 버튼이 필요하면 `ShopDockAction` 을 쓴다(독 밖에서도 한 칸으로 선다).
  */
-export function ShopPrimary({ onClick, children }: { onClick: () => void; children: ReactNode }) {
-  const mobile = useIsMobile();
-  return (
-    <button type="button" onClick={onClick} className="fp-shop-press"
-      style={{
-        ...bare, width: '100%', height: mobile ? SHOP.h.mobile : SHOP.h.web, borderRadius: SHOP.r.ctrl,
-        background: C.brand, color: C.inverse,
-        fontSize: SHOP.fs.body, fontWeight: 700,
-      }}>{children}</button>
-  );
-}
 
 /**
  * 「적용한 조건」 줄 — **마켓이면 반드시 있는 것.**
