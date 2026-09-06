@@ -119,14 +119,21 @@ export type CostSettings = {
    *     받아 낼 «자리»(보증금)와 실제로 «받아 내는 정도»(회수율)는 서로 다른 값이고,
    *     회수율만 신용 구간에 따라 갈린다.
    *
-   *   회당 상쇄액 = `avgDeposit` × `penaltyRecovery{A|B|C}Pct`
+   *   회당 상쇄액 = 월납 × `depositMonths` × `penaltyRecovery{A|B|C}Pct`
    *
-   *   avgDeposit          평균 보증금(원) — 계약 때 받아 쥐고 있는 돈. 조합과 무관한 공통값.
+   *   depositMonths       보증금이 **월납 몇 달 치**인가(사장님 2026-09-06 「보통 요즘에 저신용
+   *                       보증금은 한 두 달 치를 받거든?」). 정액(원)이 아니라 배수다 —
+   *                       정액으로 두면 비싼 차에서 보증금이 실제보다 작아진다.
    *   penaltyRecovery*Pct 그중 실제로 위약금으로 «떼는» 비율. A 정상은 대체로 떼지만
    *                       C 저신용은 미납 대여료·수리비로 이미 소진되어 거의 못 뗀다.
-   * ⚠ `avgDeposit` 기본 0 — 안 넣으면 상쇄가 아예 없다(원가를 높게 보는, 안전한 쪽).
+   *
+   * ⚠⚠ **위약금으로는 손바뀜이 안 막힌다.** 저신용 4년 아반떼 실측(2026-09-06):
+   *    회당 나가는 돈 253만(상품화 50 + 왕복탁송 50 + 수수료 재지급 90 + 휴차 63)인데
+   *    두 달 치 보증금은 125만이다. **다 떼도 50%**, 회수율 10%면 **5%**다.
+   *    ⇒ 나머지는 대여료가 진다. 보증금을 더 받거나(저신용은 낼 돈이 없다),
+   *      회당 비용을 줄이는(휴차·탁송·수수료) 쪽이 실제 손잡이다.
    */
-  avgDeposit: number;
+  depositMonths: number;
   penaltyRecoveryAPct: number; penaltyRecoveryBPct: number; penaltyRecoveryCPct: number;
   /** 잔가 가감(±%p) — 「잔가로 조정」하는 손잡이. 곡선 전체를 통째로 올리거나 내린다. */
   residualAdjustPct: number;
@@ -190,8 +197,8 @@ export const COST_DEFAULTS: CostSettings = {
   ewYear: 80000,
   retentionNormalPct: 97, retentionMidPct: 75, retentionLowPct: 30,
   turnoverPrepFee: 500000, turnoverDeliveryFee: 500000, turnoverFeePct: 3, turnoverVacancyMonths: 1,
-  // 평균 보증금은 회사가 넣는다(0 = 상쇄 없음). 회수율은 사장님 「저신용은 거의 못 받거든」을 숫자로 옮긴 것.
-  avgDeposit: 0,
+  // 보증금 두 달 치 = 저신용 실무(사장님 2026-09-06). 회수율은 「저신용은 거의 못 받거든」을 숫자로 옮긴 것.
+  depositMonths: 2,
   penaltyRecoveryAPct: 80, penaltyRecoveryBPct: 50, penaltyRecoveryCPct: 10,
   residualAdjustPct: 0,
   returnDeliveryFee: 0, disposalFeePct: 0,
@@ -284,8 +291,9 @@ export function configFrom(cs: CostSettings, opts: { newCar?: boolean; path?: Ac
       deliveryRoundTrip: cs.turnoverDeliveryFee,
       feeRateOfRent: r(cs.turnoverFeePct),
       vacancyMonths: cs.turnoverVacancyMonths,
-      // 회당 «받아 내는» 돈 = 평균 보증금 × 그 신용 구간의 회수율.
-      penaltyIncome: cs.avgDeposit * r(recoveryPct),
+      // 회당 «받아 내는» 돈 = 월납 × 보증금 개월 × 그 신용 구간의 회수율(월납은 엔진이 안다).
+      depositMonths: cs.depositMonths,
+      penaltyRecoveryRate: r(recoveryPct),
     },
     setting: {
       ...D.setting,
