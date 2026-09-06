@@ -10,7 +10,10 @@
  *     **어떻게 보일지**는 견적이 정본이다. 항목을 지우거나 더할 때만 목업을 본다.
  *
  * ★값은 `lib/domain/estimate/cost-settings.ts` 한 곳이 쥔다 — 기본값은 엔진 `DEFAULT_CONFIG` 에서 꺼내
- *   화면과 엔진이 «같은 숫자»를 보게 한다. 저장은 지금 브라우저 한 대(localStorage)다.
+ *   화면과 엔진이 «같은 숫자»를 보게 한다.
+ * ★저장은 **회사 공용**이다(2026-09-06) — `/api/estimate/cost` · Firestore `settings/estimate_cost`.
+ *   읽기는 로그인한 모두, **쓰기는 관리자만**. 비관리자에게는 저장 바를 아예 안 준다.
+ *   첫 그림은 브라우저 «캐시»로 즉시 그리고 곧바로 회사 값으로 덮는다 — 캐시는 저장소가 아니라 캐시다.
  *
  * ⚠ 목업과 일부러 다르게 한 곳 — 되돌리기 전에 읽을 것.
  *   ① 「목표 수익률(IRR)」을 **신용축 → 채널축**으로 옮겼다. 목업은 신용등급별 IRR(1.9/4.3/8.4%)이었으나
@@ -23,11 +26,12 @@
  *   ③ 엔진이 아직 안 쓰는 칸(탁송료·상품화비·정기검사비·간접비·대손·페이백)은 «미반영»이라 적어 뒀다.
  *      지우지 않는다 — 지우면 다음에 또 만든다. 자세한 사정은 `cost-settings.ts` 머리말.
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import '@/components/estimate/estimate.css';
 import '@/components/estimate/cost.css';
-import { COST_DEFAULTS, loadCostSettings, saveCostSettings, type CostSettings } from '@/lib/domain/estimate/cost-settings';
+import { type CostSettings } from '@/lib/domain/estimate/cost-settings';
+import { cachedCost, fetchSharedCost, saveSharedCost } from '@/lib/domain/estimate/cost-client';
 import { STANDARD, residDelta } from '@/lib/domain/estimate/residual-lookup.js';
 import DELTA from '@/lib/domain/estimate/data/residual-delta.json';
 
@@ -86,20 +90,38 @@ function Seg<T extends string>({ tone, opts, cur, onPick }: {
 }
 
 export default function EstimateCostPage() {
-  const [cs, setCs] = useState<CostSettings>(COST_DEFAULTS);
-  const [loaded, setLoaded] = useState(false);
+  const [cs, setCs] = useState<CostSettings>(() => cachedCost());
   const [dirty, setDirty] = useState(false);
   const [saved, setSaved] = useState(false);
+  /** 회사 값을 받았나 · 내가 고칠 수 있나(관리자만) · 언제 정해졌나. */
+  const [shared, setShared] = useState<{ fromServer: boolean; canEdit: boolean; updatedAt?: string | null }>({ fromServer: false, canEdit: false });
+  const [msg, setMsg] = useState<string | null>(null);
   const [polCh, setPolCh] = useState<'rent' | 'sub'>('rent');
   const [polCr, setPolCr] = useState<'정상' | '중신용' | '저신용'>('정상');
   const [master, setMaster] = useState<'new' | 'used'>('new');
   const [q, setQ] = useState('');
 
-  // 저장값은 브라우저에만 있다 → 첫 그림(SSR)과 어긋나지 않게 그린 «뒤에» 한 번만 얹는다.
-  if (!loaded && typeof window !== 'undefined') { setLoaded(true); setCs(loadCostSettings()); }
+  // 회사 값을 받아 덮는다. 첫 그림은 캐시로 이미 서 있다.
+  useEffect(() => {
+    let alive = true;
+    fetchSharedCost().then((r) => {
+      if (!alive) return;
+      setCs(r.cost);
+      setShared({ fromServer: r.fromServer, canEdit: !!r.canEdit, updatedAt: r.updatedAt });
+      if (r.stale?.length) setMsg(`저장된 값 중 규격을 벗어난 칸이 있어 기본값으로 보여 줍니다 — ${r.stale.join(', ')}`);
+    }).catch(() => {});
+    return () => { alive = false; };
+  }, []);
 
-  const set = (k: keyof CostSettings, v: number) => { setCs((o) => ({ ...o, [k]: v })); setDirty(true); setSaved(false); };
-  const onSave = () => { if (saveCostSettings(cs)) { setDirty(false); setSaved(true); } };
+  const set = (k: keyof CostSettings, v: number) => { setCs((o) => ({ ...o, [k]: v })); setDirty(true); setSaved(false); setMsg(null); };
+  const onSave = async () => {
+    const r = await saveSharedCost(cs);
+    if (r.ok) { setDirty(false); setSaved(true); setShared((x) => ({ ...x, fromServer: true, updatedAt: r.updatedAt })); setMsg(null); return; }
+    // 실패를 «저장됨»으로 삼키지 않는다 — 안 저장됐는데 저장된 줄 알면 다음 견적이 옛 원가로 나간다.
+    setMsg(r.reason === 'forbidden' ? '원가는 관리자만 저장할 수 있습니다.'
+      : r.reason === 'range' ? `값이 범위를 벗어났습니다 — ${(r.fields ?? []).join(', ')}`
+        : '저장하지 못했습니다. 잠시 뒤 다시 시도해 주세요.');
+  };
 
   const rows = useMemo(() => {
     const s = q.trim();
@@ -229,13 +251,23 @@ export default function EstimateCostPage() {
           </span>
         </div>
 
-        <div className="savebar">
-          <button type="button" onClick={onSave} disabled={!dirty}>{saved ? '저장됨' : '저장'}</button>
-        </div>
+        {msg ? <div className="byrow" style={{ margin: '12px 12px 0' }}>{msg}</div> : null}
+
+        {shared.canEdit ? (
+          <div className="savebar">
+            <button type="button" onClick={onSave} disabled={!dirty}>{saved ? '저장됨' : '회사 원가로 저장'}</button>
+          </div>
+        ) : null}
 
         <div className="foot">
           딱 한 번 세팅하면 <b>모든 견적에 자동 적용</b>된다.
-          저장은 <b>이 브라우저</b>에만 남는다 — 회사 공용 저장은 저장소·보안규칙을 정한 뒤에 붙인다.
+          {shared.canEdit
+            ? <> 저장하면 <b>회사 전체</b>가 이 값으로 견적한다.</>
+            : <> 원가는 <b>관리자만</b> 정한다 — 여기서는 지금 값이 무엇인지 보기만 한다.</>}
+          <br />
+          {shared.fromServer
+            ? <>지금 보이는 값 = <b>회사 원가</b>{shared.updatedAt ? ` · ${shared.updatedAt.slice(0, 10)} 갱신` : ''}</>
+            : <>아직 <b>회사 원가가 정해지지 않았다</b> — 지금은 엔진 기본값이다.</>}
         </div>
       </div>
     </div>
