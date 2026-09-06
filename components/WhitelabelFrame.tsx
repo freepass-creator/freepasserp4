@@ -1,0 +1,256 @@
+'use client';
+import { useState, type ReactNode } from 'react';
+import { Phone, X } from 'lucide-react';
+import { Btn, C, FW, ICON, R_CARD, SH } from '@/components/ui';
+import { SHOP } from '@/components/shop/shop-ui';
+import { useIsMobile } from '@/lib/use-mobile';
+import { hasBrand, whitelabelVars, type Whitelabel } from '@/lib/whitelabel';
+
+/**
+ * 화이트라벨 껍데기 — 손님 카탈로그를 «그 회사 사이트»로 보이게 하는 머리띠·안내 블록·푸터.
+ *
+ * ★노브랜드면 아무것도 안 그린다. `hasBrand(wl)` 이 false 면 children 만 그대로 통과시킨다 —
+ *   그래야 도메인을 안 붙인 지금 운영 화면이 **한 픽셀도 안 바뀐다**.
+ *
+ * ★색은 원자에 칠하지 않는다. `.fp-wl` 스코프에서 `--brand`/`--text-link` «토큰만» 뒤집으면
+ *   C.brand·C.accent 를 쓰는 원자가 전부 알아서 따라온다(globals.css `.fp-topbar .fp-onbar` 와 같은 짜임).
+ *   그래서 「버튼·선택은 회사 컬러」(사장님 2026-09-04)가 화면마다 손대지 않아도 지켜진다.
+ *
+ * ★머리 오른쪽은 «누가 받는가»다. 공유링크(`?a=`)로 들어온 손님에게는 **담당 영업자**가,
+ *   맨 주소로 들어온 손님에게는 **대표번호**가 든다. 우리(프리패스) 이름은 어디에도 안 나온다.
+ */
+export function WhitelabelFrame({
+  wl, agentName, agentPhone, dock = true, notice = true, headerLead, headerActions, children,
+}: {
+  wl: Whitelabel;
+  agentName?: string;
+  agentPhone?: string;
+  /**
+   * 폰 하단 고정독을 이 껍데기가 그릴까.
+   * ⚠ 상세 화면처럼 **제 하단독을 이미 가진 곳**은 `false` 로 끈다 — 안 그러면 독이 둘로 겹친다.
+   */
+  dock?: boolean;
+  /** 안내 블록을 그릴까. 목록에서만 쓰고 상세에서는 끈다(같은 말을 두 번 하지 않는다). */
+  notice?: boolean;
+  /**
+   * **폰 머리띠 왼쪽**을 이것으로 «갈아 끼운다» — 채널 워드마크 대신.
+   *
+   * ★★상세는 **채널 간판을 거는 자리가 아니라 「이 상품」의 화면**이다(사장님 2026-09-05
+   *   「상세페이지 갔을 때는 «유니오토모빌» 나오면 안 되고, 그냥 **상품 상세 페이지**라는 게
+   *   나오고 거기에 그 버튼이 있으면 돼 … 그냥 **맨 위에 차량번호**가 있든지」).
+   *   폰에서 머리띠는 «고정»이라 스크롤 내내 남는다 — 거기가 채널 이름이면 화면 절반을 내려가는
+   *   동안 **지금 무슨 차를 보고 있는지**를 말해 주는 자리를 간판이 잡고 있는 꼴이다.
+   * ★목록은 반대다 — 거기서는 「어느 가게인가」가 맞는 말이라 워드마크 그대로다.
+   * ⚠ 웹은 갈아 끼우지 않는다. 웹 머리띠는 «사이트 머리»(간판 + 담당자 + 전화)이고,
+   *   고정도 아니라 상세를 가리지 않는다. 폰만 앱처럼 «이 화면의 이름»을 든다.
+   */
+  headerLead?: ReactNode;
+  /**
+   * **폰 머리띠 오른쪽**에 세울 실행 — 상세의 관심·공유가 여기 든다.
+   *
+   * ★폰 머리띠는 왼쪽 워드마크 하나뿐이라 오른쪽이 통째로 비어 있었다. 상세에서 관심·공유가
+   *   갈 데가 없어(사진 위 금지 · 하단독은 두 칸 확정 · 차번 줄은 정보 줄) 짝 없는 빈 줄을
+   *   하나 만들어 쓰던 것을 여기로 올렸다(사장님 2026-09-05).
+   * ★웹은 이 자리에 담당자·전화가 선다 — 그래서 **폰에서만** 그린다. 웹 상세는 제 실행줄이 있다.
+   * ⚠ 목록 화면은 이 슬롯을 비워 둔다. 「이 차」가 없는 곳에서 공유·관심은 말이 안 된다.
+   */
+  headerActions?: ReactNode;
+  children: ReactNode;
+}) {
+  const mobile = useIsMobile();
+  if (!hasBrand(wl)) return <>{children}</>;
+
+  const who = String(agentName || '').trim();
+  const phone = String(agentPhone || '').trim() || wl.tel;
+  const telHref = phone ? `tel:${phone.replace(/[^0-9+]/g, '')}` : '';
+  /** 폰 하단 고정독 높이 — 목록 끝이 독에 가리지 않게 본문 아래에 같은 만큼 자리를 비운다. */
+  const DOCK_H = 76;
+
+  return (
+    <div className="fp-wl" style={whitelabelVars(wl) as React.CSSProperties}>
+      {/*
+        머리 — 웹은 「워드마크 · 담당자 · 전화 버튼」 한 줄.
+        ★폰은 워드마크만 둔다. 셋을 다 넣으면 워드마크가 두 줄로 접히고 버튼이 화면 밖으로 나간다(실측).
+          전화는 폰에서 «하단 고정독»이 받는다 — 엄지가 닿는 자리이기도 하다.
+      */}
+      {/*
+        ★★폰에서는 머리띠를 **고정**한다(2026-09-05). 오른쪽에 공유가 들어왔기 때문이다 —
+          공유는 이 사업의 퍼널이라 **상세 어디를 보고 있든** 눌릴 수 있어야 한다.
+          스크롤에 딸려 올라가 버리면 대여료·조건을 다 읽고 마음먹은 순간에 그 단추가 화면에 없다.
+        ⚠ 웹은 고정하지 않는다 — 데스크톱은 한눈에 더 들어오고, 머리띠(72)를 붙박아 두면
+          가뜩이나 긴 상세에서 세로를 그만큼 잃는다.
+        ⚠ **실행이 들어 있을 때만** 고정한다 — 목록에서는 머리띠에 워드마크뿐이라, 붙박아 두면
+          긴 목록에서 56px 를 내내 잡아먹기만 하고 손님이 거기서 할 수 있는 일이 없다.
+      */}
+      <header style={{
+        borderBottom: `1px solid ${C.line}`, background: C.bg,
+        /*
+         * ★폰 머리띠는 **고정**이다 — 오른쪽에 검색·조건·공유가 들어와 있어서,
+         *   목록을 한참 내려간 손님이 맨 위로 되돌아가지 않아도 조건을 다시 건다.
+         * ⚠ 웹은 고정하지 않는다 — 머리띠(72)를 붙박으면 긴 상세에서 세로를 그만큼 잃는다.
+         * ⚠ 머리띠에 «할 일»이 없으면(실행도 검색도 없는 화면) 고정하지 않는다 — 56px 를
+         *   내내 잡아먹기만 한다.
+         */
+        ...(mobile && headerActions ? { position: 'sticky' as const, top: 0, zIndex: 15 } : null),
+      }}>
+        <div style={{
+          maxWidth: 1280, margin: '0 auto',
+          /*
+           * ★★**폰은 CI 를 왼쪽에 «타이트하게» 붙인다**(사장님 2026-09-05 「유니오토모빌 CI 가
+           *   좌측에 좀 **타이트하게** 잘 붙게끔 … **유튜브 모바일**을 한번 봐봐」).
+           *   유튜브·인스타·당근이 다 그렇다 — 간판은 화면 모서리에 가깝게 붙고, 오른쪽 아이콘은
+           *   제 누름영역(40)이 이미 여백을 갖고 있어 바깥 패딩을 더 줄 이유가 없다.
+           * ⇒ 왼쪽 12 · 오른쪽 6(아이콘의 40 정사각이 나머지를 만든다). 본문은 16 그대로다.
+           */
+          padding: mobile ? '0 4px 0 12px' : '0 24px', height: mobile ? 56 : 72,
+          display: 'flex', alignItems: 'center', gap: mobile ? 4 : 12,
+        }}>
+          {/* 폰 상세는 간판 대신 «이 화면의 이름»을 든다(위 `headerLead` 참고). 웹·목록은 워드마크. */}
+          {mobile && headerLead ? headerLead : (
+            /*
+             * ★**마크 + 글자**다(사장님 2026-09-05 로고·명함 전달). 마크만 그림이고 이름은 글자다 —
+             *   워드마크까지 그림으로 넣으면 배율마다 글자가 뭉개진다.
+             * ★글자는 **먹색**이다. 로고가 검정이라 「UNI」만 브랜드색으로 칠하면 로고와 색이 갈린다
+             *   (전에는 파랑이었다). 브랜드색은 «누르는 것»에만 쓴다.
+             */
+            <div style={{ display: 'flex', alignItems: 'center', gap: mobile ? 8 : 12, whiteSpace: 'nowrap' }}>
+              {wl.logo ? (
+                // eslint-disable-next-line @next/next/no-img-element -- 채널마다 다른 마크라 정적 최적화 대상이 아니다.
+                <img src={wl.logo.src} alt={wl.logo.alt}
+                  style={{ height: mobile ? 24 : 28, width: 'auto', display: 'block' }} />
+              ) : null}
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: mobile ? 8 : 8 }}>
+                <span style={{ fontSize: mobile ? 22 : 26, fontWeight: FW.head, letterSpacing: '-0.03em', color: C.ink }}>
+                  {wl.wordmark.main}
+                </span>
+                <span style={{ fontSize: mobile ? 12 : 15, fontWeight: FW.meta, letterSpacing: '0.15em', color: C.ink }}>
+                  {wl.wordmark.sub}
+                </span>
+              </div>
+            </div>
+          )}
+          <div style={{ flex: 1 }} />
+          {/* 폰 머리띠 오른쪽 — 상세의 관심·공유(위 `headerActions` 참고). 목록에서는 비어 있다. */}
+          {mobile ? headerActions : null}
+          {phone && !mobile ? (
+            <>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
+                <span style={{ fontSize: SHOP.fs.cap, color: C.faint }}>{who ? `담당 ${who}` : '고객센터'}</span>
+                <span style={{ fontSize: SHOP.fs.body, fontWeight: FW.title, color: C.ink, fontVariantNumeric: 'tabular-nums' }}>
+                  {phone}
+                </span>
+              </div>
+              <Btn href={telHref} title="담당자에게 전화합니다">
+                <Phone size={ICON.md} aria-hidden />전화 상담
+              </Btn>
+            </>
+          ) : null}
+        </div>
+      </header>
+
+      {notice ? <WhitelabelNotice wl={wl} mobile={mobile} /> : null}
+
+      {children}
+
+      {/* 폰 하단 고정독 — 손님이 걸 곳은 늘 엄지 밑에 있다. 담당자 이름이 붙어야 «누구에게» 거는지 안다. */}
+      {phone && mobile && dock ? (
+        <>
+          <div style={{ height: DOCK_H }} aria-hidden />
+          <div style={{
+            position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 20,
+            background: C.bg, borderTop: `1px solid ${C.line}`, boxShadow: SH.dock,
+            padding: '12px 16px 12px', display: 'flex', alignItems: 'center', gap: 12,
+          }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 1, whiteSpace: 'nowrap' }}>
+              <span style={{ fontSize: SHOP.fs.cap, color: C.faint }}>{who ? '담당' : '고객센터'}</span>
+              <span style={{ fontSize: SHOP.fs.body, fontWeight: FW.title, color: C.ink }}>{who || phone}</span>
+            </div>
+            {/* ★손님 동 폼 규격 lg — 폰 48. 하단독의 주요 실행이라 손가락 규격을 넘겨 잡는다. */}
+            <Btn href={telHref} full size="lg" title="담당자에게 전화합니다">
+              <Phone size={ICON.md} aria-hidden />전화 상담
+            </Btn>
+          </div>
+        </>
+      ) : null}
+
+      <footer style={{ borderTop: `1px solid ${C.line}`, marginTop: 24 }}>
+        <div style={{ maxWidth: 1280, margin: '0 auto', padding: '32px 24px 32px' }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 10 }}>
+            <span style={{ fontSize: 18, fontWeight: FW.head, letterSpacing: '-0.03em', color: C.faint }}>
+              {wl.wordmark.main}
+            </span>
+            <span style={{ fontSize: SHOP.fs.cap, fontWeight: FW.meta, letterSpacing: '0.16em', color: C.faint }}>
+              {wl.wordmark.sub}
+            </span>
+          </div>
+          <div style={{ fontSize: SHOP.fs.sub, color: C.faint, lineHeight: 1.9 }}>
+            {wl.bizLines.map((line) => <div key={line}>{line}</div>)}
+          </div>
+          {/*
+            영업자 로그인 — **푸터 맨 밑에 조용히**(사장님 2026-09-05 「그 주소로 들어가면 상품부터
+            다 보이는 거라고. 거길 들어가서 영업자는 로그인을 하는 거야」).
+            손님은 로그인할 일이 없으니 위로 올리지 않는다. 그렇다고 없애면 영업자가 주소를 외워
+            쳐야 한다 — 사업자 표기 밑 한 줄이 그 둘을 다 만족한다(회사 사이트가 흔히 그러는 자리다).
+          */}
+          <a href="/login" style={{
+            display: 'inline-block', marginTop: 14,
+            fontSize: SHOP.fs.cap, color: C.faint, textDecoration: 'none',
+          }}>로그인</a>
+        </div>
+      </footer>
+    </div>
+  );
+}
+
+/**
+ * 검색창 «위» 안내 블록 — 상품이 무엇인지 알리고, **손님이 X 로 끈다**(사장님 2026-09-04).
+ *
+ * ★문구는 브랜드 정본(`wl.notice`)에서 온다 — 채널마다 홍보가 다르므로 화면에 박지 않는다.
+ * ★★**끈 것을 기억하지 않는다**(사장님 2026-09-04 「새로고침하거나 다시 오면 그거 다시 떠야지」).
+ *   X 는 «지금 이 화면에서 치우는» 버튼이지 «다시는 보지 않기»가 아니다.
+ *   이 자리가 회사 홍보·이벤트를 갈아 끼우는 칸이라, 한 번 껐다고 영영 안 뜨면
+ *   다음에 건 홍보를 그 손님은 평생 못 본다. 그래서 localStorage 에 저장하지 않는다.
+ */
+function WhitelabelNotice({ wl, mobile }: { wl: Whitelabel; mobile: boolean }) {
+  const notice = wl.notice;
+  const [closed, setClosed] = useState(false);
+
+  if (!notice || closed) return null;
+
+  const close = () => setClosed(true);
+
+  return (
+    /* 면(brandSoft)이 이미 경계를 만든다 — 그 위에 선을 또 그으면 테두리가 두 겹이 된다. */
+    <div style={{ background: C.brandSoft }}>
+      {/* ⚠ 폰 여백을 한 단 줄였다(사장님 2026-09-05 「간격이 너무 막 멀게 떨어져 있거나」) —
+           이 블록이 폰 첫 화면에서 상품 앞에 서는 마지막 덩어리라, 여기서 번 세로가 곧 카드다. */}
+      <div style={{ maxWidth: 1280, margin: '0 auto', padding: mobile ? '12px 16px 12px' : '24px 24px 24px', position: 'relative' }}>
+        <div style={{ fontSize: SHOP.fs.h1, fontWeight: FW.head, letterSpacing: '-0.04em', lineHeight: 1.3, color: C.ink, paddingRight: mobile ? 34 : 44 }}>
+          {notice.title}
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginTop: 8 }}>
+          <span style={{ fontSize: SHOP.fs.body, color: C.sub, lineHeight: 1.6 }}>{notice.body}</span>
+          {notice.moreLabel && notice.moreHref ? (
+            <a href={notice.moreHref} style={{ fontSize: 14.5, fontWeight: FW.title, color: C.brand }}>
+              {notice.moreLabel} ›
+            </a>
+          ) : null}
+        </div>
+        <button
+          type="button"
+          onClick={close}
+          aria-label="안내 닫기"
+          style={{
+            position: 'absolute', right: mobile ? 10 : 18, top: mobile ? 12 : 22,
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            /* ★폰 44 — 손가락 규격(HIG 44 · 머티리얼 48). 32 는 그 밑이라 X 를 몇 번 헛누른다. */
+            width: mobile ? 44 : 32, height: mobile ? 44 : 32, padding: 0, borderRadius: R_CARD,
+            border: 'none', background: 'transparent', color: C.mute, cursor: 'pointer',
+          }}
+        >
+          <X size={ICON.md} aria-hidden />
+        </button>
+      </div>
+    </div>
+  );
+}
