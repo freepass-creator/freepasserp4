@@ -6,8 +6,10 @@
  * ★기본값은 **엔진의 `DEFAULT_CONFIG` 에서 꺼낸다** — 여기서 숫자를 새로 적지 않는다.
  *   화면이 「6.5%」라고 보여주면 엔진도 6.5% 를 쓰고 있어야 한다. 안 그러면 화면이 거짓말을 한다.
  *
- * ⚠ 저장은 **지금은 브라우저 한 대**(localStorage)다. 회사 공용으로 두려면 저장소 노드와
- *   보안규칙을 정해야 한다(사장님 확인 필요). 그전까지 「저장」은 이 브라우저에만 남는다.
+ * ★저장은 **회사 공용**이다 — `app/api/estimate/cost/route.ts`(Firestore `settings/estimate_cost`).
+ *   읽기는 로그인한 모두, 쓰기는 **관리자만**. 화면이 쓰는 문은 `cost-client.ts` 하나다.
+ *   ⚠ 이 파일은 **서버도 읽는다**(그 라우트가 기본값·타입을 여기서 가져간다).
+ *     그래서 여기에 `window`·firebase 를 들이지 않는다 — 순수한 값과 환산만 둔다.
  *
  * ⚠ 목업(`프리패스-목업-원가설정.html`)에 있으나 **엔진이 아직 안 쓰는 칸**이 있다.
  *   지우지 않고 그대로 두되 화면에 「미반영」이라 적는다 — 없는 척하면 다음에 또 만든다.
@@ -64,29 +66,6 @@ export const COST_DEFAULTS: CostSettings = {
   insYear: D.setting.insYear, selfPct: pct(D.setting.selfRate),
   marginRentPct: pct(D.marginRate.rent), marginSubPct: pct(D.marginRate.sub),
 };
-
-const KEY = 'fp.estimate.cost.v1';
-
-export function loadCostSettings(): CostSettings {
-  if (typeof window === 'undefined') return COST_DEFAULTS;
-  try {
-    const raw = window.localStorage.getItem(KEY);
-    if (!raw) return COST_DEFAULTS;
-    const saved = JSON.parse(raw) as Partial<CostSettings>;
-    // 저장된 뒤에 항목이 늘 수 있다 — 없는 칸은 기본값으로 채운다(빈 칸이 0 으로 굳지 않게).
-    const out = { ...COST_DEFAULTS };
-    for (const k of Object.keys(COST_DEFAULTS) as (keyof CostSettings)[]) {
-      const v = saved[k];
-      if (typeof v === 'number' && Number.isFinite(v)) out[k] = v;
-    }
-    return out;
-  } catch { return COST_DEFAULTS; }
-}
-
-export function saveCostSettings(cs: CostSettings): boolean {
-  if (typeof window === 'undefined') return false;
-  try { window.localStorage.setItem(KEY, JSON.stringify(cs)); return true; } catch { return false; }
-}
 
 /** 원가 설정 → 엔진이 받는 `adminCfg`. **환산은 여기 한 곳**에서만 한다. */
 export function configFrom(cs: CostSettings) {
