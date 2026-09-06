@@ -322,7 +322,19 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
              */
             <aside style={{
               width: 260, flexShrink: 0,
-              position: 'sticky', top: 20, alignSelf: 'flex-start',
+              /*
+               * ⚠⚠ **붙박이(sticky)를 걷었다 — 아래쪽 축 다섯이 «갇혀» 있었다**(2026-09-06 실측).
+               *   기둥 높이가 **1,626px** 인데 화면은 880 이다. `sticky; top: 20` 이면 스크롤 600 부터
+               *   기둥이 위에 붙박이고, 그 아래 766px(심사·연식·주행거리·연료·혜택)은 **화면 밖에 그대로
+               *   남는다.** 목록 60장을 끝까지 내려 컨테이너 바닥에 닿아야 비로소 올라온다 —
+               *   손님이 「심사 무심사」를 웹에서 사실상 못 누른다. 타입검사도 빌드도 통과하는 종류다.
+               * ★한때 여기 `maxHeight + overflowY:auto` 가 있었는데 그건 기둥 «안»에 스크롤바를 하나 더
+               *   만들어 목록을 굴리려던 손이 조건칸을 굴렸다(2026-09-05). 그래서 걷은 것이 맞았고,
+               *   **붙박이까지 같이 걷었어야 했다.** 둘 중 하나만 걷으니 이 꼴이 됐다.
+               * ⇒ **페이지와 같이 흐른다.** 엔카·케이카도 왼쪽 기둥은 그냥 흐른다 —
+               *   화면보다 긴 기둥을 붙박아 두면 «못 보는 부분»이 반드시 생긴다.
+               */
+              alignSelf: 'flex-start',
             }}>
               <div style={{ paddingBottom: SHOP.sp.part }}><ShopCount value={countText} /></div>
               {/*
