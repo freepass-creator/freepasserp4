@@ -36,12 +36,19 @@ const RAW_ALLOW = new Map<string, Allow>([
      업무동 원자(32/40·R4)를 쓰면 화면이 달라진다.
      ⚠ 숫자가 달라지면 화면이 목업에서 벗어났다는 뜻이다. 고치기 전에 **목업과 대조**할 것. */
   ['app/estimate/page.tsx', {
-    counts: { button: 3, input: 2, select: 3 },
-    reason: '견적 독립 면 — 사장님 목업(프리패스-목업-모바일계산기.html) 마크업 그대로. 칩·세그·기간카드·차종검색·잔가입력·신차 브랜드/모델/트림',
+    counts: { button: 4, input: 6, select: 0 },
+    reason: '견적 독립 면 — 사장님 목업 마크업 그대로. 칩·세그·기간카드 + 차 고르기 줄 · 중고 매입가/연식/주행 · 배기량 · 잔가입력',
   }],
   /* 원가 설정(`/estimate/cost`)도 같은 갈래 — 목업 `프리패스-목업-원가설정.html` 을 그대로 옮겼다.
      raw 는 `components/estimate/cost.css` 가 제 규격으로 입힌다(920px 2열·둥근 14px·그림자 — 업무동 규격이 아니다).
      button 2 = 세그(채널·신용·마스터 묶음 한 개 + 저장) · input 2 = 숫자칸(`Pin`) · 차종 검색. */
+  /* 차 고르기 시트(`features/estimate/CarPicker`) — 견적 얼굴의 조각이라 업무동 원자를 쓰지 않는다.
+     button 12 = 제조사 칩·목록 줄·파워트레인/트림 칩·연료 세그·옵션 줄·닫기·이전·확정 (전부 시트 안).
+     input 1 = 차종 검색칸. ⚠ 늘면 「고르는 길」이 늘었다는 뜻이다 — 걸음 둘을 넘겼는지 먼저 본다. */
+  ['features/estimate/CarPicker.tsx', {
+    counts: { button: 12, input: 1, select: 0 },
+    reason: '견적 차 고르기 시트 — 중고(차종마스터)·신차(신차마스터) 두 갈래를 한 시트에서',
+  }],
   ['app/estimate/cost/page.tsx', {
     counts: { button: 2, input: 2, select: 0 },
     reason: '원가 독립 면 — 사장님 목업 마크업 그대로. 세그·저장·숫자칸·차종 검색',
