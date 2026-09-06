@@ -5,7 +5,6 @@ import {
   Search as SearchIcon, Calculator,
 } from 'lucide-react';
 import type { Role } from '@/lib/domain/deal';
-import { canSeeEstimate } from '@/lib/domain/estimate/audience';
 
 /** 탭바 표시 여부 — 상세 오버레이 때 숨김. */
 const HideCtx = createContext<{ hide: boolean; setHide: (v: boolean) => void }>({
@@ -129,13 +128,15 @@ export type AppTab = {
  *     `/m/[code]` 하단독의 「링크 공유하기」가 그 자리다(2026-08-22). 목록에 또 두면 무엇을 보내는지가 없다.
  *   · 검색은 라우트가 아니라 행동이라 `action: 'search'` 다(위 AppTab 주석).
  */
-export function appTabsFor(role: Role): AppTab[] {
+export function appTabsFor(_role: Role): AppTab[] {
   /*
-   * 찾기 · 검색 · (견적) · 설정 — **셋 또는 넷**.
-   * ★견적은 **관리자·공급사에게만** 선다(사장님 2026-09-06 「일단 메뉴 자체를 관리자랑 공급사만
-   *   보게 해요. 아직 해당 없어」). 원가·마진이 보이는 화면이라 영업자 폰에는 아예 안 띄운다.
-   *   판정은 `lib/domain/estimate/audience` 한 곳이 한다 — 여기서 역할을 따로 세지 않는다.
-   *   ⚠ 메뉴에서 숨기는 것만으로는 안 된다. 페이지·API 도 같은 명단으로 막혀 있다(그 파일 머리말).
+   * 찾기 · 검색 · 설정 — **셋. 역할과 무관하게 «공통»이다.**
+   *
+   * ★사장님 2026-09-06 「**하단 메뉴는 다 공통 버튼**이고 … 햄버거는 관리자 다르고 공급사 다르고 …
+   *   영업자는 햄버거 메뉴가 아예 안 보이고」.
+   *   ⇒ **갈리는 것은 하단에 두지 않는다.** 하단은 누구나 같은 셋, 역할별로 다른 것은 폰 우측 햄버거로.
+   *   ⇒ 그래서 잠깐 넷째로 섰던 «견적»은 하단에서 내렸다 — 관리자·공급사만 보는 것이라
+   *     하단에 두면 사람마다 탭 수가 달라진다. 지금은 `showsMobileMenu` 뒤 햄버거에 있다.
    *
    * ★2026-08-30 에는 셋(찾기·검색·설정)이었다. 사장님 2026-09-06 에 **견적**을 하나 더 다셨다 —
    *   「빠르게 «이 차가 얼마입니다»를 하려면 그냥 찾기·검색·견적·설정. 나머지는 햄버거 버튼에서
@@ -150,9 +151,23 @@ export function appTabsFor(role: Role): AppTab[] {
     // '/' 는 공개 안내 페이지(상품시트 입장)가 됐다 — 내부 매물 화면은 /finder 다(2026-08-15).
     { href: '/finder', label: tabLabel('product'), icon: NAV_ICON.product },
     { href: '/finder', label: '검색', icon: SearchIcon, action: 'search' },
-    ...(canSeeEstimate(role) ? [{ href: '/estimate', label: tabLabel('estimate'), icon: NAV_ICON.estimate }] : []),
     { href: '/settings', label: tabLabel('settings'), icon: NAV_ICON.settings },
   ];
+}
+
+/**
+ * **폰 우측 햄버거를 보여 주나** — 관리자·공급사만.
+ *
+ * ★사장님 2026-09-06 「햄버거는 관리자 다르고 공급사 다르고 … 공급사는 재고 관리를 거기서 할 수 있고 …
+ *   관리자는 햄버거 메뉴에 다 들어가는 거고 · **영업자는 햄버거 메뉴가 아예 안 보이고**」.
+ * ★영업자가 폰에서 하는 일은 「찾아서 보내기」뿐이다(2026-08-30 확정) — 열 곳이 없어 버튼을 안 세운다.
+ *   ⚠ 「보일 항목이 없으면 숨긴다」로 짜지 않았다. 영업자에게도 상품찾기·계약진행은 명단에 남아 있어
+ *     그 방식으로는 안 숨겨진다. **역할로** 판정한다.
+ * ⚠ **웹은 그대로**다 — 웹 전체메뉴는 영업자도 쓴다(계약문의·계약진행·내 손님 링크가 거기 있다).
+ *   이건 «폰» 이야기다. 폰에서 안 하는 일을 폰 메뉴에 세우지 않는 것뿐이다.
+ */
+export function showsMobileMenu(role: Role): boolean {
+  return role === 'admin' || role === 'provider';
 }
 
 export function isTabRoute(path: string, role?: Role): boolean {
