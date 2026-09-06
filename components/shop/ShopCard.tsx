@@ -352,7 +352,7 @@ function ShopThumb({ p, marks = [] }: { p: EntityRecord; marks?: ShopMark[] }) {
       ) : (
         <div style={{
           position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
-          alignItems: 'center', justifyContent: 'center', gap: 7, color: C.faint,
+          alignItems: 'center', justifyContent: 'center', gap: SHOP.sp.snug, color: C.faint,
         }}>
           <ImageOff size={24} aria-hidden />
           <span style={{ fontSize: SHOP.fs.cap }}>사진 준비 중</span>

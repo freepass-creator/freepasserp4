@@ -131,7 +131,7 @@ export function WhitelabelFrame({
           {mobile ? headerActions : null}
           {phone && !mobile ? (
             <>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: SHOP.sp.tight }}>
                 <span style={{ fontSize: SHOP.fs.cap, color: C.faint }}>{who ? `담당 ${who}` : '고객센터'}</span>
                 <span style={{ fontSize: SHOP.fs.body, fontWeight: FW.title, color: C.ink, fontVariantNumeric: 'tabular-nums' }}>
                   {phone}
@@ -155,7 +155,7 @@ export function WhitelabelFrame({
           치수가 갈렸고 아이폰 안전영역도 안 봤다. */}
       {phone && mobile && dock ? (
         <ShopDock fixed sideWidth="auto" side={(
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 1, whiteSpace: 'nowrap' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: SHOP.sp.tight, whiteSpace: 'nowrap' }}>
             <span style={{ fontSize: SHOP.fs.cap, color: C.faint }}>{who ? '담당' : '고객센터'}</span>
             <span style={{ fontSize: SHOP.fs.body, fontWeight: FW.title, color: C.ink }}>{who || phone}</span>
           </div>

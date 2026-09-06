@@ -810,6 +810,10 @@ must(/wl\.tel/.test(read('app/q/[code]/ShopDetailView.tsx')),
     for (const m of src.matchAll(/margin(?:Top|Bottom)?:\s*(\d+)/g)) {
       if (!LADDER.has(Number(m[1]))) strays.push(`${f} margin ${m[1]}`);
     }
+    /* ★`gap` 도 «사이»다 — 줄 사이든 칸 사이든 같은 사다리를 탄다(2026-09-06 실측으로 여덟 군데 잡았다). */
+    for (const m of src.matchAll(/(?:^|[^A-Za-z])(?:row|column)?[Gg]ap:\s*(\d+)/g)) {
+      if (!LADDER.has(Number(m[1]))) strays.push(`${f} gap ${m[1]}`);
+    }
   }
   must(strays.length === 0,
     `세로 리듬이 사다리를 벗어났습니다(${strays.slice(0, 4).join(' · ')}) — 간격은 SHOP.sp 만 씁니다.`,

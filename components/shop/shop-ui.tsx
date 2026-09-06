@@ -612,7 +612,7 @@ export function StateChip({ mark, fs = SHOP.fs.cap }: { mark: ShopMark; fs?: num
   const Icon = mark.icon;
   return (
     <span style={{
-      display: 'inline-flex', alignItems: 'center', gap: 4,
+      display: 'inline-flex', alignItems: 'center', gap: SHOP.sp.tight,
       padding: '5px 10px', borderRadius: SHOP.r.chip,
       background: mark.good ? C.okBg : C.zebra,
       color: mark.good ? C.ok : C.mute,

@@ -585,7 +585,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
             padding: mobile ? `${SHOP.sp.edge}px` : `${SHOP.sp.edge}px ${SHOP.sp.part}px`,
             borderRadius: SHOP.r.card, background: C.brandSoft,
           }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, whiteSpace: 'nowrap' }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: SHOP.sp.snug, whiteSpace: 'nowrap' }}>
               <span style={{ fontSize: SHOP.fs.sub, color: C.mute }}>월</span>
               <span style={{
                 fontSize: SHOP.fs.hero, fontWeight: FW.head, color: C.ink,
@@ -1324,7 +1324,7 @@ function DefList({ rows, mobile, strongFirst }: {
         const strong = !!strongFirst && i === 0;
         return (
           <div key={k} style={{
-            display: 'flex', alignItems: 'baseline', gap: 12,
+            display: 'flex', alignItems: 'baseline', gap: SHOP.sp.cozy,
             padding: strong ? '9px 0 12px' : '9px 0', minWidth: 0,
           }}>
             <span style={{
@@ -1686,7 +1686,7 @@ function Head({ title, facts, stateMarks, perkMarks }: {
       */}
       <div style={{
         display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
-        gap: 12, flexWrap: 'wrap',
+        gap: SHOP.sp.cozy, flexWrap: 'wrap',
       }}>
         {/*
           ★★**차번은 차명의 «뒤쪽»에 붙는다**(사장님 2026-09-05 「차량 번호를 그 현대 그랜저
@@ -1786,7 +1786,7 @@ function Gallery({ p, mobile }: { p: EntityRecord; mobile?: boolean }) {
       ) : (
         <div style={{
           position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
-          alignItems: 'center', justifyContent: 'center', gap: 8, color: C.faint,
+          alignItems: 'center', justifyContent: 'center', gap: SHOP.sp.snug, color: C.faint,
         }}>
           <ImageOff size={28} aria-hidden />
           <span style={{ fontSize: SHOP.fs.sub }}>사진 준비 중</span>
@@ -1833,7 +1833,7 @@ function Gallery({ p, mobile }: { p: EntityRecord; mobile?: boolean }) {
   const thumbs = !mobile && n > 1 ? (
     <div style={{
       flex: '0 0 auto', width: 200,
-      display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, alignContent: 'start',
+      display: 'grid', gridTemplateColumns: '1fr 1fr', gap: SHOP.sp.snug, alignContent: 'start',
     }}>
       {photos.slice(0, 8).map((src, k) => (
         <button key={src} type="button" onClick={() => goTo(k)} className="fp-shop-press"
@@ -1867,7 +1867,7 @@ function Gallery({ p, mobile }: { p: EntityRecord; mobile?: boolean }) {
 
   if (!thumbs) return stage;
   return (
-    <div style={{ display: 'flex', gap: 12, alignItems: 'stretch' }}>
+    <div style={{ display: 'flex', gap: SHOP.sp.cozy, alignItems: 'stretch' }}>
       {stage}
       {thumbs}
     </div>
