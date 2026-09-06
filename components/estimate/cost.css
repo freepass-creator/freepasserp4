@@ -30,7 +30,8 @@
 .est-root .pin.w input{width:92px;text-align:right}
 .est-root .pin input:disabled{color:var(--ink-4)}
 
-/* 축 뱃지 — 이 값이 «채널»로 갈리는지 «신용»으로 갈리는지. 박스 뱃지가 아니라 작은 칩 한 개다. */
+/* 축 뱃지 — 이 값이 «렌트/구독»으로 갈리는지 «A/B/C(신용 구간)»으로 갈리는지.
+   위 세그 중 어느 줄을 바꿔야 이 값이 달라지는지 가리킨다. 박스 뱃지가 아니라 작은 칩 한 개다. */
 .est-root .ax{font-size:9.5px;font-weight:800;padding:2px 8px;border-radius:var(--r,3px);flex:none;letter-spacing:.2px}
 .est-root .ax.ch{color:#8a5a08;background:#fdf3d7}
 .est-root .ax.cr{color:var(--accent);background:var(--accent-soft)}
