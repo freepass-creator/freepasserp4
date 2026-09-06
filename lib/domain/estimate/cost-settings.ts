@@ -129,7 +129,7 @@ export const COST_DEFAULTS: CostSettings = {
   selfRentPct: pct(D.setting.selfRate), selfSubPct: 0,
   selfInsRentYear: 0, selfInsSubYear: 0,
   marginRentPct: pct(D.marginRate.rent), marginSubPct: pct(D.marginRate.sub),
-  markupUsedPct: 20, markupNewPct: 0,
+  markupUsedPct: 0, markupNewPct: 0,   // ← 2026-09-06 업금액을 걷었다(아래 `configFrom` 머리말)
   ewYear: 80000,
   retentionNormalPct: 97, retentionMidPct: 75, retentionLowPct: 30,
   turnoverPrepFee: 500000, turnoverDeliveryFee: 500000, turnoverFeePct: 3, turnoverVacancyMonths: 1,
@@ -137,12 +137,35 @@ export const COST_DEFAULTS: CostSettings = {
 };
 
 /**
- * 원가 설정 → 엔진이 받는 `adminCfg`. **환산은 여기 한 곳**에서만 한다.
- * @param opts.newCar 신차 갈래인가 — 업금액을 중고/신차 중 어느 쪽으로 쓸지 정한다.
+ * **취득 경로** — 같은 차라도 어떻게 들여왔느냐에 따라 초기비가 다르다.
+ * ★사장님 2026-09-06 「중고랜트·중고구독은 **기 보유한 걸 하는 건지 중고를 구매해 오는 건지**에 따라
+ *   견적이 달라지겠지. **상품화 여부** 이런 거. 새로 사오는, 상품화가 된 걸 사오는 건지
+ *   상품화 안 된 걸 사 오는 건지」.
  */
-export function configFrom(cs: CostSettings, opts: { newCar?: boolean } = {}) {
+export type AcqPath =
+  | 'own'      // 기보유 — 등록·탁송·상품화가 이미 났다. 새 계약에 또 물리지 않는다.
+  | 'bought'   // 매입 · 상품화 완료된 차 — 등록·탁송만.
+  | 'prep';    // 매입 · 상품화 필요 — 등록·탁송 + 상품화비.
+
+/**
+ * 원가 설정 → 엔진이 받는 `adminCfg`. **환산은 여기 한 곳**에서만 한다.
+ * @param opts.newCar 신차인가 — 업금액·초기비를 신차 규칙으로 쓴다(등록·탁송 O, 상품화 X).
+ * @param opts.path   중고 취득 경로 — 초기비가 켜지고 꺼진다.
+ *
+ * ★★**「차량가 업금액」을 걷었다**(기본 0 · 2026-09-06). 사장님 「손오공 견적은 신경 쓰지 말고
+ *   **우리가 이제 우리 표준견적을 새로 만드는 거야**」 · 「중고 렌트 2,700만이 **왜 이렇게 비싸냐**」.
+ *   ⚠ 업금액은 **취득에만 붙고 잔존에는 안 붙어** 그 금액이 통째로 «감가»로 위장됐다.
+ *     2,700만 × 20% = 540만이 4년에 걸쳐 손님에게 청구되고 있었다(월납 683,000 → 528,000).
+ *   ⇒ **마진은 이익률에서, 상품화·탁송은 실비에서** 잡는다. 손잡이가 겹치지 않게 한다.
+ *     그래도 정률로 얹고 싶은 회사는 원가 화면에서 값을 넣으면 예전처럼 굴러간다.
+ */
+export function configFrom(cs: CostSettings, opts: { newCar?: boolean; path?: AcqPath } = {}) {
   const r = (v: number) => (v || 0) / 100;
   const markupRate = r(opts.newCar ? cs.markupNewPct : cs.markupUsedPct);
+  // 신차는 언제나 «사 오는 차»다(등록·탁송 O · 상품화 X).
+  const path: AcqPath = opts.newCar ? 'bought' : (opts.path ?? 'prep');
+  const brought = path !== 'own';           // 새로 들여온 차인가
+  const needsPrep = path === 'prep';        // 상품화를 우리가 하나
   return {
     ...DEFAULT_CONFIG,
     /**
@@ -182,10 +205,13 @@ export function configFrom(cs: CostSettings, opts: { newCar?: boolean } = {}) {
     },
     setting: {
       ...D.setting,
-      bondRate: r(cs.bondPct), regFee: cs.regFee,
+      // 등록·탁송은 «새로 들여온 차»만. 기보유는 이미 났다 — 새 계약에 또 물리지 않는다.
+      bondRate: r(cs.bondPct), regFee: brought ? cs.regFee : 0,
       ewYear: cs.ewYear,
       maintMonthly: cs.maintMonthly, gpsMonthly: cs.gpsMonthly, parkingMonthly: cs.parkingMonthly,
-      deliveryFee: cs.deliveryFee, initPrepFee: cs.initPrepFee, inspectionFee: cs.inspectionFee,
+      deliveryFee: brought ? cs.deliveryFee : 0,
+      initPrepFee: needsPrep ? cs.initPrepFee : 0,
+      inspectionFee: cs.inspectionFee,
       salesFeeRate: { rent: r(cs.salesFeePct), sub: r(cs.salesFeePct) },
     },
   };
