@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
 import { hidesTopBar } from '@/lib/guest-surface';
 import { useState, useEffect, useCallback, type CSSProperties, type ReactNode } from 'react';
-import { Menu, X, Search, FileText, FileSignature, Settings, ChevronLeft, List, History, Users, Wrench, HelpCircle, Sparkles, RefreshCw, type LucideIcon } from 'lucide-react';
+import { Menu, X, Search, FileSignature, Settings, ChevronLeft, List, History, Users, Wrench, Sparkles, RefreshCw, type LucideIcon } from 'lucide-react';
 import { useAppBarSlots } from '@/lib/appbar';
 import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
@@ -23,67 +23,63 @@ import { companyAlias } from '@/lib/domain/identity';
 // 상단바 = 상태창(어디·몇 건). 웹 메뉴=좌측 · 모바일 메뉴=우측.
 // 웹 우측 = 오늘·소속·이름·직책. 주탭 아이콘·워딩 = NAV_ICON / NAV_LABEL SSOT.
 const ALL_ROLES: Role[] = ['agent', 'provider', 'admin'];
+/**
+ * 전체메뉴 — **한 벌**이다. 웹 좌측 드롭다운과 폰 우측 햄버거가 이것을 같이 쓴다(역할 필터만 다르다).
+ *
+ * ★★2026-09-06 사장님 메뉴 재정립 —
+ *   「웹 메뉴로는 **상품찾기 · 정산확인 · 재고관리** 요기까지가 **영업자와 공급사**가 보는 거고,
+ *    **관리자 페이지**로 **정산관리 · 계약관리 · 파트너사관리 · 회원사관리**,
+ *    그리고 **공통으로 설정**도 보는 거고. 근데 지금 그 메뉴가 쪼끔 틀어져 있는 거야. 이거 다시 재정립하자」.
+ *   그날 승인 — 재고관리는 **공급사·관리자만**(영업자 아님) · 계약문의·내 손님 링크는 **뺀다** ·
+ *   옛 견적기 둘(중고 픽업구독·신차렌탈견적기)도 **뺀다**(새 견적으로 흡수 예정 — 두면 견적이 세 곳이 된다).
+ *
+ * ★★★**배열은 하나다. 늘리지 마라.**
+ *   2026-09-06 까지 여기에 «메뉴 배열이 둘» 있었다 — 이것(그룹 여섯·항목 열여덟)과 «간이판»(그룹 둘·항목 여덟).
+ *   화면에 나가는 것은 간이판 하나뿐이었고 이것은 아무도 안 쓰는데 살아 있었다. 그래서
+ *   ㉠ 고칠 때마다 어느 쪽이 진짜인지 헷갈렸고(그날 견적을 양쪽 다 고쳤다)
+ *   ㉡ **계약문의·내 손님 링크가 죽은 배열에만 있어 웹 메뉴에서 아예 사라져 있었다.**
+ *   그게 사장님이 「메뉴가 틀어졌다」 하신 것의 정체다. ⇒ 죽은 배열을 지우고 한 벌로 뒀다.
+ *
+ * ★그룹 사이에는 **구분선**이 그어진다(렌더가 gi>0 이면 borderTop) — 제목을 안 달고 선으로만 나눈다
+ *   (사장님 2026-08-19 「재고관리 아래 선 하나로 «일하는 메뉴»와 «관리 메뉴»를 가른다」).
+ *     ① 일하는 것  ② 관리자  ③ 도구(관리자)  ④ 설정
+ *
+ * ⚠ 관리자는 `seesAll` 로 역할 게이트를 통과한다 — 항목마다 admin 을 적지 않아도 다 보인다.
+ * ⚠ 여기 `roles` 는 다른 SSOT 와 «같아야» 한다 — 견적은 `lib/domain/estimate/audience`.
+ * ⚠ 폰에서는 `hideMobile` 항목이 빠지고, 그 전에 `showsMobileMenu`(lib/tabbar)가 영업자를 아예 막는다.
+ */
 const GROUPS: { title: string; items: { href?: string; label: string; icon: LucideIcon; soon?: boolean; roles?: Role[]; hideMobile?: boolean }[] }[] = [
-  // '/' 는 공개 안내 페이지가 됐다(2026-08-15) — 내부 매물 화면은 /finder 다.
-  { title: '', items: [{ href: '/finder', label: NAV_LABEL.product, icon: NAV_ICON.product, roles: ALL_ROLES }] },
-  { title: '영업', items: [
-    // 계약문의 하나로 간다 — 관리자에게는 이 안에서 «응대 큐»가 열린다(docs/ADMIN_DESK.md).
-    { href: '/chat', label: NAV_LABEL.chat, icon: NAV_ICON.chat, roles: ALL_ROLES },
-    { href: '/contract', label: NAV_LABEL.contract, icon: NAV_ICON.contract, roles: ['agent', 'provider', 'admin'] },
-    { href: '/esign', label: NAV_LABEL.esign, icon: FileSignature, roles: ['admin'] },
-  ] },
-  { title: '견적·구독', items: [
-    // 견적(/estimate) — 「이 차가 얼마입니까」에 그 자리에서 답한다. 폰은 하단 홈바에도 있다(2026-09-06).
-    //   ★웹·모바일 «양쪽에 한 번에» 단다. 한쪽만 달면 다른 쪽을 볼 때마다 「또 원래대로」가 된다(집 규격 §3).
-    //   ★**관리자·공급사만**(사장님 2026-09-06 「메뉴 자체를 관리자랑 공급사만」) — 원가·마진이 보인다.
-    //     명단 SSOT = `lib/domain/estimate/audience`. 여기 roles 는 그 명단과 «같아야» 한다.
-    { href: '/estimate', label: NAV_LABEL.estimate, icon: NAV_ICON.estimate, roles: ['provider', 'admin'] },
-    { href: '/sonogong', label: '중고 픽업구독', icon: RefreshCw, roles: ALL_ROLES },
-    { href: '/welrix', label: '신차렌탈 견적기', icon: Sparkles, roles: ALL_ROLES },
-  ] },
-  { title: '공급관리', items: [
+  // ① 일하는 것 — 영업자·공급사가 매일 여는 곳. '/' 는 공개 안내 페이지라 매물 화면은 /finder 다.
+  { title: '', items: [
+    { href: '/finder', label: NAV_LABEL.product, icon: NAV_ICON.product, roles: ALL_ROLES },
+    { href: '/contract', label: NAV_LABEL.contract, icon: NAV_ICON.contract, roles: ALL_ROLES },
     { href: '/inventory', label: NAV_LABEL.inventory, icon: NAV_ICON.inventory, roles: ['provider', 'admin'] },
-    { href: '/members?tab=partner', label: NAV_LABEL.partners, icon: Users, roles: ['admin'] },
+    // 견적 — 원가·마진이 보인다. 명단 SSOT = lib/domain/estimate/audience(관리자·공급사).
+    { href: '/estimate', label: NAV_LABEL.estimate, icon: NAV_ICON.estimate, roles: ['provider', 'admin'] },
   ] },
-  { title: '관리자', items: [
-    { href: '/settlement', label: NAV_LABEL.settlement, icon: FileText, roles: ['admin'] },
+  // ② 관리자 — 일이 이어지는 차례대로(계약을 보내고 → 정산하고 → 사람·회사를 관리한다).
+  { title: '', items: [
+    { href: '/esign', label: NAV_LABEL.esign, icon: NAV_ICON.esign, roles: ['admin'] },
+    { href: '/settlement/ledger', label: NAV_LABEL.ledger, icon: NAV_ICON.ledger, roles: ['admin'] },
+    { href: '/members?tab=partner', label: NAV_LABEL.partners, icon: Users, roles: ['admin'] },
     { href: '/members?tab=user', label: NAV_LABEL.members, icon: Users, roles: ['admin'] },
+  ] },
+  // ③ 도구 — 관리자가 «가끔» 여는 곳. 사장님 2026-09-06 「관리자는 햄버거 메뉴에 다 들어가는 거고」.
+  //   ⚠ 그전에는 메뉴에 없어 **주소를 아는 사람만** 썼다(샘·연동허브가 그랬다).
+  { title: '', items: [
     { href: '/audit', label: NAV_LABEL.audit, icon: History, roles: ['admin'] },
     { href: '/data-check', label: NAV_LABEL.dataCheck, icon: Search, roles: ['admin'] },
-  ] },
-  { title: '', items: [
+    { href: '/spring', label: '샘 · 원자 감시', icon: Sparkles, roles: ['admin'] },
+    { href: '/connectors', label: '연동 허브', icon: RefreshCw, roles: ['admin'] },
     { href: '/dev', label: NAV_LABEL.dev, icon: Wrench, roles: ['admin'], hideMobile: true },
-    { href: '/faq', label: NAV_LABEL.faq, icon: HelpCircle, roles: ['agent', 'admin'] },
+  ] },
+  // ④ 설정 — 공통(사장님 「공통으로 설정도 보는 거고」).
+  { title: '', items: [
     { href: '/settings', label: NAV_LABEL.settings, icon: NAV_ICON.settings, roles: ALL_ROLES },
   ] },
 ];
 
 /** 라우트 → 상태 라벨(앱바 title 없을 때). */
-// 그룹 사이에는 구분선이 그어진다(렌더가 gi>0 이면 borderTop) — 재고관리 아래 선 하나로 «일하는 메뉴»와 «관리 메뉴»를 가른다(사장님 2026-08-19).
-//   · 계약진행(/contract) = «내 계약이 어디까지 왔나» — 목록 + 5단계 진행상황(사장님 2026-08-19: 목록이랑 어디까지 진행중인지 보는 페이지).
-//   · 계약서관리(/esign, 계약서 만들어 보내기·서명추적) = 관리 메뉴 맨 위(파트너사관리 위).
-//   · 하단탭(lib/tabbar appTabsFor)도 같은 규칙.
-const SIMPLE_GROUPS: typeof GROUPS = [{
-  title: '',
-  items: [
-    { href: '/finder', label: '상품찾기', icon: NAV_ICON.product, roles: ALL_ROLES },
-    { href: '/estimate', label: NAV_LABEL.estimate, icon: NAV_ICON.estimate, roles: ['provider', 'admin'] },
-    { href: '/contract', label: '계약진행', icon: NAV_ICON.contract, roles: ALL_ROLES },
-    { href: '/settlement', label: '정산확인', icon: FileText, roles: ['admin'] },
-    { href: '/inventory', label: '재고관리', icon: NAV_ICON.inventory, roles: ['provider', 'admin'] },
-    // 정책관리(/policy)는 메뉴에서 뺐다(사장님 2026-08-19 「이제 필요 없고, 파트너사관리에서 공급사별로 등록·수정·삭제」).
-    //  /policy 는 파트너사관리 › 계약정책에서 여는 편집 화면으로만 산다(provider=코드 스코프 · return=partner). 공급사 정책 입력은 제공시트 「운영정책」 탭.
-  ],
-}, {
-  title: '',
-  items: [
-    // 관리자 전용 — 페이지(/members)는 하나, 탭 쿼리로 파트너사·회원을 가른다(사장님 2026-08-19: 메뉴에 있어야 함).
-    { href: '/esign', label: NAV_LABEL.esign, icon: NAV_ICON.esign, roles: ['admin'] },
-    { href: '/members?tab=partner', label: NAV_LABEL.partners, icon: Users, roles: ['admin'] },
-    { href: '/members?tab=user', label: NAV_LABEL.members, icon: Users, roles: ['admin'] },
-  ],
-}];
-
 function statusFromPath(path: string): ReactNode {
   // WorkPage KPI 라벨과 맞춤 — 마운트 전 NAV→KPI 플래시 방지
   if (path === '/finder') return <PageStatus icon={NAV_ICON.product} label={NAV_LABEL.product} />;
@@ -276,7 +272,7 @@ function NavMenu({ mobile, open: openProp, setOpen: setOpenProp }: {
     : role;
   // 관리자는 역할 게이트를 통과한다 — 모든 메뉴가 보인다(항목마다 roles 에 admin 을 넣지 않아도 되게 여기서 규칙화).
   const seesAll = menuRole === 'admin';
-  const groups = SIMPLE_GROUPS.map((g) => ({
+  const groups = GROUPS.map((g) => ({
     ...g,
     items: g.items.filter((it) => (seesAll || !it.roles || it.roles.includes(menuRole)) && !(mobile && it.hideMobile)),
   })).filter((g) => g.items.length);
@@ -474,3 +470,4 @@ export default function TopBar() {
     </>
   );
 }
+
