@@ -8,7 +8,7 @@
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 
-const NEW = ['gv70', 'g70', 'g80', 'g90', 'gv60'];   // 붙일 모델(GV80/쿠페는 보존)
+const NEW = ['gv70', 'g70', 'g80', 'gv60'];   // 자동생성. g90=손검증 특례(컬렉션 3중중첩·조건부가)·GV80/쿠페=손검증 → keep 로 보존
 const LABEL = { gv70: 'GV70', g70: 'G70', g80: 'G80', g90: 'G90', gv60: 'GV60 (EV)' };
 const PKGKEY = { gv70: 'GV70', g70: 'G70', g80: 'G80', g90: 'G90', gv60: 'GV60' };
 const PKG = JSON.parse(readFileSync('data/new-car/genesis-pkg-includes.json', 'utf8'));  // 패키지→포함품
@@ -132,7 +132,7 @@ function buildEntry(m) {
 }
 
 const cfg = JSON.parse(readFileSync('data/new-car/genesis-config.json', 'utf8'));
-const keep = cfg.models.filter((x) => x.model === 'gv80-coupe' || x.model === 'gv80');
+const keep = cfg.models.filter((x) => x.model === 'gv80-coupe' || x.model === 'gv80' || x.model === 'g90');
 cfg.models = [...keep, ...NEW.map(buildEntry)];
 cfg._meta.updatedAt = '2026-09-06';
 cfg._meta.note = 'min=기본구성 · maxCandidate=배타상한+자유 단순합(번들 미제거·비교용) · maxPrecise=풀옵션(할인번들 대신 개별 다 구매, 개별합≥번들가). GV80/쿠페=손검증 정밀. 나머지 5모델=split 자동변환(가격행 완전배정 mapOk + 패키지 포함관계로 정밀 max). G90=패키지 추출 실패로 maxPrecise 미반영(수작업 필요). 남은 오차=개별 간 상호배제·종속·연료분기(BTO 재확인).';
