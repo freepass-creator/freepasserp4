@@ -31,7 +31,7 @@ import Link from 'next/link';
 import EstimateGate from '@/features/estimate/EstimateGate';
 import '@/components/estimate/estimate.css';
 import '@/components/estimate/cost.css';
-import { type CostSettings } from '@/lib/domain/estimate/cost-settings';
+import { unsetFees, type CostSettings } from '@/lib/domain/estimate/cost-settings';
 import { cachedCost, fetchSharedCost, saveSharedCost } from '@/lib/domain/estimate/cost-client';
 import { STANDARD, residDelta } from '@/lib/domain/estimate/residual-lookup.js';
 import DELTA from '@/lib/domain/estimate/data/residual-delta.json';
@@ -141,6 +141,8 @@ function EstimateCostPageInner() {
   }, [q]);
 
   const isRent = polCh === 'rent';
+  /** 값이 0 이라 원가에 안 잡히는 실비 — 화면이 「아직 안 정했다」고 말한다. */
+  const missing = useMemo(() => unsetFees(cs), [cs]);
 
   return (
     <div className="est-root">
@@ -152,6 +154,16 @@ function EstimateCostPageInner() {
             <span className="on">원가</span>
           </div>
         </div>
+
+        {/* ★비어 있는 실비를 «말한다» — 0 이라 원가에 안 잡히는 칸이 있으면 그 견적은 표준이 아니다.
+            사장님 2026-09-06 「공통으로 들어가는 부분 중 얼마인지 모르는 부분들을 쭉 만들어 놓고
+            표준 비용을 넣어서 표준 견적을 제시해 주는 거야」. */}
+        {missing.length > 0 ? (
+          <div className="byrow" style={{ margin: '10px 12px 0' }}>
+            <b>아직 안 정한 실비 {missing.length}개</b> — {missing.map((f) => f.label).join(' · ')}
+            <br />값이 0 이라 원가에 안 잡힌다. 채워야 «표준 견적»이 된다.
+          </div>
+        ) : null}
 
         {/* ① 원가 정책 — 채널 × 신용 (비공통) */}
         <div className="card">
