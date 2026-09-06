@@ -17,7 +17,9 @@
  *   차대번호(`vin`)는 손님에게 보여도 되는 값이다(사장님 확인) — 실차를 특정하는 정보다.
  */
 import type { EntityRecord } from '@/lib/intake/entities';
+import { kmValue } from '@/lib/format';
 import { applyPolicyDefaults } from '@/lib/domain/policy-defaults';
+import { scrapableSources } from '@/lib/domain/product-photos';
 
 type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim();
@@ -35,9 +37,17 @@ const PUBLIC_POLICY_FIELDS = [
   'own_damage_compensation', 'own_damage_repair_ratio', 'own_damage_compensation_rate',
   'own_damage_min_deductible', 'own_damage_max_deductible',
   'annual_roadside_assistance', 'roadside_assistance',
-  'annual_mileage', 'mileage_upcharge_per_10000km',
+  'annual_mileage', 'max_annual_mileage', 'mileage_upcharge_per_10000km',
   'deposit_installment', 'deposit_card_payment', 'rental_card_payment', 'payment_method', 'payment_timing',
   'penalty_condition', 'rental_region', 'delivery_fee',
+  /*
+   * ★★`screening_criteria`(심사조건) — **2026-09-05 사장님이 「계속 띄워요」 하셔서 열었다.**
+   *   그전까지 손님 화면에 안 나갔고, 정책 정본(`policy-tier`)도 내부용으로 적어 두었다.
+   *   ⚠ **계약서에는 여전히 안 실린다** — 그건 `exposure: 'internal'` 이 지킨다(전자계약이 그 값으로 고른다).
+   *   ⚠ 화면이 내보내는 것은 원문이 아니라 `creditDisplay` 가 **셋 중 하나로 접은 값**이다
+   *     (무심사 / 신용조회 / 소득확인 — 사장님 2026-08-19 확정). 상품 조건이지 사람 평가가 아니다.
+   */
+  'screening_criteria',
   'basic_driver_age', 'driver_age_lowering', 'age_lowering_cost', 'driver_age_upper_limit', 'license_period',
   'personal_driver_scope', 'business_driver_scope',
   'additional_driver_allowance_count', 'additional_driver_cost',
@@ -51,6 +61,14 @@ const PUBLIC_PRODUCT_FIELDS = [
   'car_number', 'vin', 'maker', 'model', 'sub_model', 'trim_name', 'trim_extra', 'variant',
   'vehicle_class', 'year', 'first_registration_date', 'fuel_type', 'engine_type',
   'ext_color', 'int_color', 'drive_type', 'seats', 'transmission', 'usage',
+  /*
+   * ★`battery_capacity` 를 넣는다(2026-09-05). 사장님 「배터리 정보 — 전기차에만 해당이 되겠지?」
+   *   ERP 원자에는 있는 값인데(`atom-fields`·재고시트·판매축에 다 있다) 이 목록에 없어서
+   *   **손님 화면까지 오지를 못했다.** 배기량이 없는 전기차에 그 자리를 드는 값이라,
+   *   빠지면 전기차 제원이 한 칸 비어 보인다.
+   * ⚠ 스펙 값이라 손님이 봐도 되는 것이다 — 수수료·원가와 성격이 다르다.
+   */
+  'battery_capacity',
   'options', 'product_type', 'vehicle_status', 'accident_history',
   'cert_car_name', 'location', 'note',
   'insurance_included', 'annual_mileage',
@@ -108,11 +126,33 @@ export function sanitizeProductForGuest(key: string, p: Rec, policy?: Rec | null
     if (v === null || v === undefined || v === '') continue;
     out[f] = v;
   }
-  out.mileage = N(p.mileage);
+  /* ★주행거리는 «콤마를 견디는» 읽개로 읽는다 — `Number('83,000')` 은 NaN 이다(`kmValue` 머리말). */
+  out.mileage = kmValue(p.mileage);
   out.engine_cc = N(p.engine_cc);
   out.price = publicPrice(p.price);
+  /*
+   * 사진 — 저장된 직접 URL이 먼저고, 없으면 **미리 풀어 둔 캐시**(`photo_cache`)를 쓴다.
+   *
+   * 왜(2026-09-05 실측). 우리 사진의 절반 가까이는 이미지 주소가 아니라 드라이브 폴더·공급사
+   * 상세페이지 «링크»다. 그걸 화면이 볼 때마다 풀면 한 건에 0.6~1.4초가 들고 **손님이 바뀔 때마다
+   * 처음부터 다시 긁는다** — 첫 화면 서른 대면 마지막 카드까지 7초, 그동안은 회색 판이라
+   * 손님은 「사진 없는 차」로 보고 지나간다. `scripts/cache-photo-urls.mts` 가 한 번 풀어 둔다.
+   *
+   * ★캐시는 **출처가 같을 때만** 쓴다(`scrapableSources` 로 «같은 기준»에서 뽑아 견준다 —
+   *   `photo_link` 는 주소를 여럿 담을 수 있어 통째로 견주면 늘 어긋난다).
+   *   공급사가 사진링크를 바꾸면 `src` 가 달라져 저절로 무효가 된다 —
+   *   안 그러면 「바뀐 링크 · 옛 사진」이 굳는다. 그때는 `photo_link` 가 그대로 내려가고
+   *   화면이 예전처럼 직접 푼다(느릴 뿐, 틀리지는 않는다).
+   * ★`photo_cache` 자체는 손님에게 안 내보낸다 — 손님이 볼 값은 사진 주소뿐이다.
+   */
   const images = publicImages(p);
-  if (images.length) { out.image_urls = images; out.image_url = images[0]; }
+  const cache = (p.photo_cache || {}) as { urls?: unknown; src?: unknown };
+  const cached = Array.isArray(cache.urls)
+    ? (cache.urls as unknown[]).filter((u): u is string => typeof u === 'string' && !!u)
+    : [];
+  const shown = images.length ? images
+    : (cached.length && S(cache.src) === S(scrapableSources(p as EntityRecord)[0]) ? cached : []);
+  if (shown.length) { out.image_urls = shown; out.image_url = shown[0]; }
   if (S(p.photo_link)) out.photo_link = S(p.photo_link);
   const pol = publicPolicy(policy);
   if (pol) out._policy = pol;

@@ -8,6 +8,8 @@ import { C, Loading, CenterNote, Btn, Message, FW, FS, ICON, SH } from '@/compon
 import { haptic } from '@/lib/haptics';
 import { Phone } from 'lucide-react';
 import { GUEST_W } from '@/lib/guest-layout';
+import { WhitelabelFrame } from '@/components/WhitelabelFrame';
+import { FREEPASS, type Whitelabel } from '@/lib/whitelabel';
 
 /**
  * 손님 대면 **상품 안내**(화이트라벨).
@@ -23,7 +25,7 @@ import { GUEST_W } from '@/lib/guest-layout';
  *   규칙을 열면 원가·수수료·회원까지 새므로, 서버가 서비스계정으로 읽고 화이트리스트만 준다.
  */
 
-export function QuoteView() {
+export function QuoteView({ wl = FREEPASS }: { wl?: Whitelabel }) {
   const { code } = useParams<{ code: string }>();
   const key = decodeURIComponent(String(code));
   const [p, setP] = useState<EntityRecord | null | undefined>(undefined);
@@ -58,8 +60,13 @@ export function QuoteView() {
     : '';
   const telHref = phone ? `tel:${phone.replace(/[^0-9+]/g, '')}` : '';
 
+  /**
+   * ★안내 블록과 폰 하단독은 **끈다.**
+   *   안내는 목록에서 이미 봤고(같은 말을 두 번 하지 않는다), 하단독은 이 화면이 제 것을 가졌다
+   *   — 켜 두면 독이 둘로 겹친다.
+   */
   return (
-    <>
+    <WhitelabelFrame wl={wl} agentName={agentName} agentPhone={phone} notice={false} dock={false}>
     <div style={{
       display: 'flex', justifyContent: 'center',
       // 하단바가 마지막 줄을 덮지 않게 바 높이만큼 비운다(바가 없으면 평소 여백).
@@ -115,6 +122,6 @@ export function QuoteView() {
         </div>
       </div>
     ) : null}
-    </>
+    </WhitelabelFrame>
   );
 }

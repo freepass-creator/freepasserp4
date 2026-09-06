@@ -18,6 +18,7 @@ import { getCompanyId } from '@/lib/tenant';
 import { VERSION, BUILD } from '@/lib/brand';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { companyAlias } from '@/lib/domain/identity';
+import { isGuestPath } from '@/lib/whitelabel';
 
 // 상단바 = 상태창(어디·몇 건). 웹 메뉴=좌측 · 모바일 메뉴=우측.
 // 웹 우측 = 오늘·소속·이름·직책. 주탭 아이콘·워딩 = NAV_ICON / NAV_LABEL SSOT.
@@ -362,7 +363,12 @@ export default function TopBar() {
   const line = C.line, ink = C.ink;
   // /m = 모바일 미리보기(폰 프레임) → 앱 상단바 없이 전체화면. /m/[code](실제 모바일 상세)는 상단바 유지.
   // '/' = 공개 안내 페이지(상품시트 입장) — ERP 상단바가 뜨면 안 된다(2026-08-15 · ERP 개선 대기).
-  if (path === '/' || path === '/erp5' || path.startsWith('/erp5/') || path === '/login' || path === '/m' || path.startsWith('/q/') || path.startsWith('/catalog') || path.startsWith('/sign/') || path.startsWith('/estimate')) return null;
+  /*
+   * ★손님 동(가게)에는 ERP 상단바를 얹지 않는다 — 판정은 `lib/whitelabel` 의 `isGuestPath` 한 곳이다.
+   *   채널이 늘어도 이 파일은 안 고친다(표에 줄이 하나 늘 뿐이다).
+   */
+  if (isGuestPath(path)) return null;
+  if (path === '/' || path === '/erp5' || path.startsWith('/erp5/') || path === '/login' || path === '/m' || path.startsWith('/sign/') || path.startsWith('/estimate')) return null;
   const backLabel = backKind === 'list' ? '목록' : '이전';
   const backIcon = backKind === 'list'
     ? <List size={mobile ? 18 : 16} strokeWidth={2.25} />

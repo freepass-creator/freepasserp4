@@ -13,6 +13,7 @@ import { appTabsFor, isTabRoute, useTabBarHidden, type AppTab } from '@/lib/tabb
 import { useAppBarSlots } from '@/lib/appbar';
 import { refreshCurrentPage } from '@/lib/page-refresh';
 import { toast } from '@/components/Toaster';
+import { isGuestPath } from '@/lib/whitelabel';
 
 /**
  * 모바일 하단 홈바 — **홈 · 검색 · 설정 셋**(항목 = lib/tabbar appTabsFor SSOT).
@@ -108,8 +109,8 @@ export default function AppTabBar() {
     && !hidden
     && path !== '/'          // 공개 안내 페이지(상품시트 입장)에는 ERP 탭바를 안 띄운다
     && path !== '/login'
-    && !path.startsWith('/q/')
-    && !path.startsWith('/catalog')
+    /* 손님 동(가게·상세·카탈로그)에는 ERP 하단 홈바를 안 얹는다 — `lib/whitelabel` isGuestPath 가 SSOT. */
+    && !isGuestPath(path)
     && !path.startsWith('/sign/')
     // 견적(/estimate)은 «완전 별도 페이지» — ERP 하단 홈바를 얹지 않는다(설계서 §12).
     && !path.startsWith('/estimate');

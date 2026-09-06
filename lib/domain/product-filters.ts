@@ -60,7 +60,8 @@ export const RENT_BANDS: Band[] = [
   { k: 'r150', label: '100~150만', lo: 1000000, hi: 1500000 }, { k: 'r200', label: '150만↑', lo: 1500000, hi: Infinity },
 ];
 export const DEP_BANDS: Band[] = [
-  { k: 'd0', label: '보증0', lo: -1, hi: 1 }, { k: 'd1', label: '100만↓', lo: 1, hi: 1000000 },
+  /* ★축 이름이 이미 「보증금」이다 — 라벨에 「보증」을 또 쓰면 「보증0」 같은 말이 된다(2026-09-05). */
+  { k: 'd0', label: '없음', lo: -1, hi: 1 }, { k: 'd1', label: '100만↓', lo: 1, hi: 1000000 },
   { k: 'd2', label: '100~200만', lo: 1000000, hi: 2000000 }, { k: 'd3', label: '200~300만', lo: 2000000, hi: 3000000 }, { k: 'd4', label: '300만↑', lo: 3000000, hi: Infinity },
 ];
 export const MILE_BANDS: Band[] = [
