@@ -108,6 +108,12 @@ export type CostSettings = {
   retentionNormalPct: number; retentionMidPct: number; retentionLowPct: number;
   /** 손바뀜 회당 비용 — 상품화 · 왕복탁송 · 영업수수료(총대여료 대비 %) · 휴차 개월. */
   turnoverPrepFee: number; turnoverDeliveryFee: number; turnoverFeePct: number; turnoverVacancyMonths: number;
+  /**
+   * **중도해지 위약금** — 손바뀜 한 번에 «받는» 돈(원). 회계로는 영업외수익이지만
+   * 원가로는 손바뀜 회당 비용을 깎는다(사장님 2026-09-06 「위약금 받으니까」).
+   * ⚠ 기본 0 — 저신용은 못 받는 것이 예사라 0 이 안전한 쪽이다.
+   */
+  turnoverPenaltyIncome: number;
   /** 잔가 가감(±%p) — 「잔가로 조정」하는 손잡이. 곡선 전체를 통째로 올리거나 내린다. */
   residualAdjustPct: number;
   /**
@@ -170,6 +176,7 @@ export const COST_DEFAULTS: CostSettings = {
   ewYear: 80000,
   retentionNormalPct: 97, retentionMidPct: 75, retentionLowPct: 30,
   turnoverPrepFee: 500000, turnoverDeliveryFee: 500000, turnoverFeePct: 3, turnoverVacancyMonths: 1,
+  turnoverPenaltyIncome: 0,
   residualAdjustPct: 0,
   returnDeliveryFee: 0, disposalFeePct: 0,
 };
@@ -260,6 +267,7 @@ export function configFrom(cs: CostSettings, opts: { newCar?: boolean; path?: Ac
       deliveryRoundTrip: cs.turnoverDeliveryFee,
       feeRateOfRent: r(cs.turnoverFeePct),
       vacancyMonths: cs.turnoverVacancyMonths,
+      penaltyIncome: cs.turnoverPenaltyIncome,
     },
     setting: {
       ...D.setting,

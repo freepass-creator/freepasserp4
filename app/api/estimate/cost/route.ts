@@ -52,7 +52,7 @@ const RANGE: Record<keyof CostSettings, [number, number]> = {
   // 반납률(계약 유지율) — 0% 는 「한 사람도 안 끝까지 안 탄다」는 뜻이라 못 받는다(손바뀜이 무한이 된다).
   retentionNormalPct: [1, 100], retentionMidPct: [1, 100], retentionLowPct: [1, 100],
   turnoverPrepFee: [0, 10_000_000], turnoverDeliveryFee: [0, 10_000_000],
-  turnoverFeePct: [0, 20], turnoverVacancyMonths: [0, 12],
+  turnoverFeePct: [0, 20], turnoverVacancyMonths: [0, 12], turnoverPenaltyIncome: [0, 10_000_000],
   // 잔가 가감 — ±%p. 곡선을 통째로 올리거나 내린다.
   residualAdjustPct: [-30, 30],
   returnDeliveryFee: [0, 5_000_000], disposalFeePct: [0, 20],
