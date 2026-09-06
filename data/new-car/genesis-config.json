@@ -1,0 +1,48 @@
+{
+  "_meta": {
+    "source": "genesis.com BTO 견적기(정본) — DOM 읽기로 배타그룹 가격 수집",
+    "note": "min=기본구성 · max=기본+각 배타그룹 최고+선택옵션 전부. status=confirmed(견적기서 읽음)/pending(미독-위저드 gating)",
+    "updatedAt": "2026-09-06"
+  },
+  "models": [
+    {
+      "model": "gv80-coupe",
+      "label": "GV80 Coupe",
+      "modelCode": "gv80-coupe-2026-jxqb",
+      "btoUrl": "/kr/ko/models/luxury-suv-genesis/gv80-coupe/bto.html",
+      "basePrice": 81300000,
+      "basePriceEngine": "가솔린 2.5 터보",
+      "exclusiveGroups": [
+        {
+          "group": "엔진 타입", "pick": 1, "status": "confirmed",
+          "choices": [
+            { "label": "가솔린 2.5 터보", "addWon": 0, "isDefault": true },
+            { "label": "가솔린 3.5 터보", "addWon": 4200000 },
+            { "label": "가솔린 3.5 터보 48V 일렉트릭 슈퍼차저", "addWon": 10550000 }
+          ]
+        },
+        {
+          "group": "구동 타입", "pick": 1, "status": "confirmed",
+          "choices": [ { "label": "AWD", "addWon": 0, "isDefault": true } ]
+        },
+        {
+          "group": "외장 컬러", "pick": 1, "status": "confirmed",
+          "choices": [ { "label": "글로시(유광)", "addWon": 0, "isDefault": true }, { "label": "매트(무광)", "addWon": 0 } ]
+        },
+        {
+          "group": "휠 & 타이어", "pick": 1, "status": "confirmed",
+          "choices": [
+            { "label": "20인치 다이아몬드 컷팅 휠", "addWon": 0, "isDefault": true },
+            { "label": "22인치 다이아몬드 컷팅 휠", "addWon": 1200000 }
+          ]
+        },
+        {
+          "group": "내장 디자인 & 컬러", "pick": 1, "status": "confirmed",
+          "choices": [ { "label": "쿠페 디자인 셀렉션 Ⅰ", "addWon": 0, "isDefault": true }, { "label": "쿠페 디자인 셀렉션 Ⅱ", "addWon": 0 } ]
+        },
+        { "group": "내장 가니쉬", "pick": 1, "status": "pending", "choices": [] }
+      ],
+      "freeOptions": { "status": "pending", "note": "선택 옵션(패키지)는 위저드 gating으로 미독 — 견적기 완주 또는 PDF 대조로 채운다", "items": [] }
+    }
+  ]
+}
