@@ -48,11 +48,15 @@ const ALL_ROLES: Role[] = ['agent', 'provider', 'admin'];
  * ⚠ 여기 `roles` 는 다른 SSOT 와 «같아야» 한다 — 견적은 `lib/domain/estimate/audience`.
  * ⚠ 폰에서는 `hideMobile` 항목이 빠지고, 그 전에 `showsMobileMenu`(lib/tabbar)가 영업자를 아예 막는다.
  */
-const GROUPS: { title: string; items: { href?: string; label: string; icon: LucideIcon; soon?: boolean; roles?: Role[]; hideMobile?: boolean }[] }[] = [
+const GROUPS: { title: string; items: { href?: string; label: string; icon: LucideIcon; soon?: boolean; roles?: Role[]; hideMobile?: boolean; hideAdmin?: boolean }[] }[] = [
   // ① 일하는 것 — 영업자·공급사가 매일 여는 곳. '/' 는 공개 안내 페이지라 매물 화면은 /finder 다.
   { title: '', items: [
     { href: '/finder', label: NAV_LABEL.product, icon: NAV_ICON.product, roles: ALL_ROLES },
-    { href: '/contract', label: NAV_LABEL.contract, icon: NAV_ICON.contract, roles: ALL_ROLES },
+    /* 정산확인 — 「영업 채널이나 공급사들이 들어와서 우리 얼마나 팔았지 보는 거」(사장님 2026-09-06).
+       ⚠ **관리자에게는 안 보인다**(`hideAdmin`). 관리자가 보는 정산은 «정산관리»(입력하는 곳)다.
+         관리자가 이 주소를 열면 옛 «계약 책상»이 뜨는데, 그건 「계약 진행 이런 거 없어」와 어긋난다.
+         화면은 살려 둔다 — 계약 원자가 거기 걸려 있어 지금 헐면 계약관리·정산이 같이 끊긴다. */
+    { href: '/contract', label: NAV_LABEL.contract, icon: NAV_ICON.contract, roles: ['agent', 'provider'], hideAdmin: true },
     { href: '/inventory', label: NAV_LABEL.inventory, icon: NAV_ICON.inventory, roles: ['provider', 'admin'] },
     // 견적 — 원가·마진이 보인다. 명단 SSOT = lib/domain/estimate/audience(관리자·공급사).
     { href: '/estimate', label: NAV_LABEL.estimate, icon: NAV_ICON.estimate, roles: ['provider', 'admin'] },
@@ -274,7 +278,12 @@ function NavMenu({ mobile, open: openProp, setOpen: setOpenProp }: {
   const seesAll = menuRole === 'admin';
   const groups = GROUPS.map((g) => ({
     ...g,
-    items: g.items.filter((it) => (seesAll || !it.roles || it.roles.includes(menuRole)) && !(mobile && it.hideMobile)),
+    // ⚠ `hideAdmin` 은 seesAll 보다 «세다» — 관리자에게 굳이 안 보여야 하는 항목이 있다(정산확인).
+    //   그 예외가 없으면 관리자는 무조건 다 보게 되고, 「관리자는 정산관리로」가 안 지켜진다.
+    items: g.items.filter((it) => (
+      (it.hideAdmin && seesAll ? false : (seesAll || !it.roles || it.roles.includes(menuRole)))
+      && !(mobile && it.hideMobile)
+    )),
   })).filter((g) => g.items.length);
   const line = C.line, ink = C.ink, mute = C.mute, weak = C.faint;
   // 웹=좌측 드롭다운 · 모바일=풀스크린
