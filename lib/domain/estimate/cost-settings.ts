@@ -143,9 +143,9 @@ export const COST_DEFAULTS: CostSettings = {
  *   상품화 안 된 걸 사 오는 건지」.
  */
 export type AcqPath =
-  | 'own'      // 기보유 — 등록·탁송·상품화가 이미 났다. 새 계약에 또 물리지 않는다.
-  | 'bought'   // 매입 · 상품화 완료된 차 — 등록·탁송만.
-  | 'prep';    // 매입 · 상품화 필요 — 등록·탁송 + 상품화비.
+  | 'own'      // 기보유 — **취득세·공채·등록비·탁송·상품화가 이미 났다.** 새 계약에 또 물리지 않는다.
+  | 'bought'   // 매입 · 상품화 완료된 차 — 취득세·공채·등록·탁송.
+  | 'prep';    // 매입 · 상품화 필요 — 위 전부 + 상품화비.
 
 /**
  * 원가 설정 → 엔진이 받는 `adminCfg`. **환산은 여기 한 곳**에서만 한다.
@@ -184,7 +184,15 @@ export function configFrom(cs: CostSettings, opts: { newCar?: boolean; path?: Ac
     selfRate: { rent: r(cs.selfRentPct), sub: r(cs.selfSubPct) },
     selfInsuredYear: { rent: cs.selfInsRentYear, sub: cs.selfInsSubYear },
     ewPerYear: { rent: cs.ewYear, sub: 0 },
-    acqTaxRate: { ...D.acqTaxRate, rent: r(cs.acqTaxRentPct), sub: r(cs.acqTaxSubPct) },
+    /**
+     * 취득세·공채 — **새로 들여온 차만** 낸다.
+     * ★사장님 2026-09-06 「**기보유한 차들은 아무렴 취득세만큼이 싸니까** 조금 싸질 거고,
+     *   **탁송비나 이런 것들은 안 들어갈 거 아냐**」.
+     *   이미 우리 이름으로 등록된 차다 — 새 계약을 맺는다고 취득세를 또 내지 않는다.
+     */
+    acqTaxRate: brought
+      ? { ...D.acqTaxRate, rent: r(cs.acqTaxRentPct), sub: r(cs.acqTaxSubPct) }
+      : { rent: 0, sub: 0 },
     // 판관비·대손 — 직접원가에 비율로 얹는다(엔진 `calc.js`. 기본 0이면 없던 것과 같다).
     overheadRate: r(cs.overheadPct),
     badDebtRate: r(cs.badDebtPct),
@@ -206,7 +214,7 @@ export function configFrom(cs: CostSettings, opts: { newCar?: boolean; path?: Ac
     setting: {
       ...D.setting,
       // 등록·탁송은 «새로 들여온 차»만. 기보유는 이미 났다 — 새 계약에 또 물리지 않는다.
-      bondRate: r(cs.bondPct), regFee: brought ? cs.regFee : 0,
+      bondRate: brought ? r(cs.bondPct) : 0, regFee: brought ? cs.regFee : 0,
       ewYear: cs.ewYear,
       maintMonthly: cs.maintMonthly, gpsMonthly: cs.gpsMonthly, parkingMonthly: cs.parkingMonthly,
       deliveryFee: brought ? cs.deliveryFee : 0,

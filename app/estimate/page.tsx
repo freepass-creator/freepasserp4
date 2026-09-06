@@ -36,6 +36,7 @@ import { useAppBar } from '@/lib/appbar';
 import CarPicker from '@/features/estimate/CarPicker';
 import type { PickedCar } from '@/lib/domain/estimate/car-index';
 import { deltaKeyFor } from '@/lib/domain/estimate/residual-by-name';
+import { expectedTurnovers } from '@/lib/domain/estimate/turnover-cost.js';
 import { adjustResidual, configFrom, type AcqPath } from '@/lib/domain/estimate/cost-settings';
 import { cachedCost, fetchSharedCost } from '@/lib/domain/estimate/cost-client';
 import { safeComputeTerm } from '@/lib/domain/estimate/safe-calc.js';
@@ -235,6 +236,11 @@ function EstimatePageInner() {
     return TERMS.map((t) => ({ ...safeComputeTerm(t, input, { idx: t }), term: t }));
   }, [ch, type, price, isNew, credit, dep, pre, fee, residPct, nowYear, cost, cc, picked.fuel, usedMileage, usedYear, acq]);
 
+  /** 손바뀜을 «몇 번»으로 풀어 보여 주기 위한 값 — 원가 설정의 반납률에서 온다. */
+  const retentionPct = credit === '저신용' ? cost.retentionLowPct
+    : credit === '중신용' ? cost.retentionMidPct : cost.retentionNormalPct;
+  const turnovers = expectedTurnovers(retentionPct / 100);
+
   const prepayAmt = Math.round(price * pre / 100);
   const vehTag = listPrice ? `${man(listPrice)}원` : '차를 고르세요';
   const vMeta = isNew
@@ -391,8 +397,13 @@ function EstimatePageInner() {
                   <div className="li minus"><span className="k">· 차량 감가 <em>취득−잔존 · 잔가 {Math.round((c.residualRate || 0) * 100)}%</em></span><span className="v">−{won(v.dep)}</span></div>
                   <div className="li minus"><span className="k">· 금융비용 <em>조달이자</em></span><span className="v">−{won(v.interest)}</span></div>
                   <div className="li minus"><span className="k">· 직접 운영비 <em>보험·자차충당·정비·GPS·세금</em></span><span className="v">−{won(v.direct)}</span></div>
+                  {/* 손바뀜은 «몇 번 × 한 번에 얼마»로 보여 준다 — 그래야 왜 그 금액인지 눈에 보인다
+                      (사장님 2026-09-06 「손바뀜이 가장 큰 영향이지 … 우린 직관적으로 넣어야 될 거 아니야」). */}
                   {v.turnover > 0 ? (
-                    <div className="li minus"><span className="k">· 손바뀜 위험 <em>{credit}</em></span><span className="v">−{won(v.turnover)}</span></div>
+                    <div className="li minus">
+                      <span className="k">· 손바뀜 위험 <em>{credit} · 유지율 {retentionPct}% → {turnovers.toFixed(2)}회 × {man(v.turnover / turnovers)}</em></span>
+                      <span className="v">−{won(v.turnover)}</span>
+                    </div>
                   ) : null}
                   <div className="li"><span className="k">매출총이익</span><span className="v">{won(v.gp)}</span></div>
                   <div className="li sub"><span className="k">판매관리비</span><span className="v" /></div>
