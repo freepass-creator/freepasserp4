@@ -97,7 +97,30 @@ export type CostSettings = {
   turnoverPrepFee: number; turnoverDeliveryFee: number; turnoverFeePct: number; turnoverVacancyMonths: number;
   /** 잔가 가감(±%p) — 「잔가로 조정」하는 손잡이. 곡선 전체를 통째로 올리거나 내린다. */
   residualAdjustPct: number;
+  /**
+   * **끝날 때 드는 돈** — 반납형만. 인수형은 고객이 가져가니 회수도 매각도 없다.
+   *   회수 탁송  계약 끝나고 차를 가져오는 값(정액)
+   *   매각 비용  경매 수수료·매각 대행 — 잔존가 대비 %(값에 비례한다)
+   */
+  returnDeliveryFee: number; disposalFeePct: number;
 };
+
+/**
+ * **아직 안 정한 실비** — 값이 0 이라 원가에 안 잡히는 칸들.
+ * ★사장님 2026-09-06 「공통으로 들어가는 부분 중 **얼마인지 모르는 부분들을 쭉 만들어 놓고**
+ *   표준 비용을 넣어서 표준 견적을 제시해 주는 거야」.
+ *   ⇒ 칸을 세워 두는 것으로 끝내지 않는다. **비어 있다는 사실을 화면이 말한다** —
+ *     안 그러면 「0 이라서 싼 견적」을 표준인 줄 알고 내보낸다.
+ * ⚠ 0 이 «맞는» 칸(판관비·대손 — 사장님 「내부 관리비 없이 순수 직관적인 원가」)은 세지 않는다.
+ */
+export const UNSET_FEES: { key: keyof CostSettings; label: string }[] = [
+  { key: 'deliveryFee', label: '1차 탁송료' },
+  { key: 'initPrepFee', label: '초기 상품화비' },
+  { key: 'inspectionFee', label: '정기검사비' },
+  { key: 'returnDeliveryFee', label: '회수 탁송료' },
+  { key: 'disposalFeePct', label: '매각 비용' },
+];
+export const unsetFees = (cs: CostSettings) => UNSET_FEES.filter((f) => !Number(cs[f.key]));
 
 const pct = (v: number) => Math.round((v || 0) * 1000) / 10;   // 0.065 → 6.5
 
@@ -134,6 +157,7 @@ export const COST_DEFAULTS: CostSettings = {
   retentionNormalPct: 97, retentionMidPct: 75, retentionLowPct: 30,
   turnoverPrepFee: 500000, turnoverDeliveryFee: 500000, turnoverFeePct: 3, turnoverVacancyMonths: 1,
   residualAdjustPct: 0,
+  returnDeliveryFee: 0, disposalFeePct: 0,
 };
 
 /**
@@ -220,6 +244,7 @@ export function configFrom(cs: CostSettings, opts: { newCar?: boolean; path?: Ac
       deliveryFee: brought ? cs.deliveryFee : 0,
       initPrepFee: needsPrep ? cs.initPrepFee : 0,
       inspectionFee: cs.inspectionFee,
+      returnDeliveryFee: cs.returnDeliveryFee, disposalFeeRate: r(cs.disposalFeePct),
       salesFeeRate: { rent: r(cs.salesFeePct), sub: r(cs.salesFeePct) },
     },
   };

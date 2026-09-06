@@ -53,6 +53,7 @@ const RANGE: Record<keyof CostSettings, [number, number]> = {
   turnoverFeePct: [0, 20], turnoverVacancyMonths: [0, 12],
   // 잔가 가감 — ±%p. 곡선을 통째로 올리거나 내린다.
   residualAdjustPct: [-30, 30],
+  returnDeliveryFee: [0, 5_000_000], disposalFeePct: [0, 20],
 };
 const KEYS = Object.keys(RANGE) as (keyof CostSettings)[];
 
