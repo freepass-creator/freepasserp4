@@ -10,7 +10,7 @@
    "model": "G70",
    "source": "genesis 공식 PDF gen_g70.pdf (2026-09·개소세5%)",
    "decoded": true,
-   "status": "provisional·코덱스 미검증",
+   "status": "코덱스 확정",
    "base": 45000000,
    "exclusiveGroups": [
     {
@@ -167,9 +167,16 @@
    ],
    "minMax": {
     "min": 45000000,
-    "provisionalMaxPrecise": 84070000,
-    "note": "PDF 파서 자동해독 provisional. 배타상한+선택개별(번들제외). 코덱스 검증 전 — 확정 아님."
-   }
+    "minConfig": "현재 최저 기본",
+    "maxPrecise": 65290000,
+    "maxPreciseConfig": "일반 3.3T·AWD·무광·스포츠·스포츠디자인셀렉션 + 개별 6,530,000 + 액세서리 1,800,000 (파퓰러 대신 개별)",
+    "status": "★코덱스 PDF 독립검증 확정(2026-09-06, VERDICT-codex-genesis-batch). base 맞음·max 재계산 65,290,000. 내 provisional 과대분(배타·번들 중복) 제거.",
+    "graphiteEdition": {
+     "base": 59700000,
+     "max": 63650000
+    }
+   },
+   "freeOptionsNote": "⚠ freeOptions 는 PDF 파서 원자재(일부 이름↔가격 오연결: G70 선루프 790k·G90 파노라마 2.0M·GV70-EV 파노라마 1.4M 등 코덱스 지적). 확정값은 minMax.maxPrecise. 개별옵션 정밀표는 후속."
   },
   {
    "model": "G80",
@@ -422,7 +429,7 @@
    "model": "G90",
    "source": "genesis 공식 PDF gen_g90.pdf (2026-09·개소세5%)",
    "decoded": true,
-   "status": "provisional·코덱스 미검증",
+   "status": "코덱스 확정",
    "base": 97480000,
    "exclusiveGroups": [
     {
@@ -605,8 +612,19 @@
    ],
    "minMax": {
     "min": 97480000,
-    "provisionalMaxPrecise": 192060000,
-    "note": "PDF 파서 자동해독 provisional. 배타상한+선택개별(번들제외). 코덱스 검증 전 — 확정 아님."
+    "minConfig": "현재 최저 기본",
+    "maxPrecise": 185820000,
+    "maxPreciseConfig": "LWB Black 174,980,000 + 무광3.9M+4인승2.5M+엔터3.1M+필름540k = 185,820,000 (전체 최고·48V/후석컴포트/전용휠 기본포함)",
+    "status": "★코덱스 PDF 독립검증 확정(2026-09-06, VERDICT-codex-genesis-batch). base 맞음·max 재계산 185,820,000. 내 provisional 과대분(배타·번들 중복) 제거.",
+    "variants": {
+     "일반3.5T": 97480000,
+     "일반48V": "+6,000,000",
+     "블랙": 129440000,
+     "LWB": 167690000,
+     "LWB블랙": 174980000
+    },
+    "일반최고": 144120000,
+    "note": "컬렉션(파퓰러5.6M⊂프리미엄17.1M⊂프레스티지23M) 중첩번들 — 개별경로가 최고. 뒷좌석Ⅱ 앞컴포트 동시 2.4M."
    },
    "black": {
     "base": 129440000,
@@ -672,7 +690,8 @@
      }
     ],
     "status": "provisional"
-   }
+   },
+   "freeOptionsNote": "⚠ freeOptions 는 PDF 파서 원자재(일부 이름↔가격 오연결: G70 선루프 790k·G90 파노라마 2.0M·GV70-EV 파노라마 1.4M 등 코덱스 지적). 확정값은 minMax.maxPrecise. 개별옵션 정밀표는 후속."
   },
   {
    "model": "GV60",
@@ -793,7 +812,7 @@
    "model": "GV70",
    "source": "genesis 공식 PDF gen_gv70.pdf (2026-09·개소세5%)",
    "decoded": true,
-   "status": "provisional·코덱스 미검증",
+   "status": "코덱스 확정",
    "base": 54730000,
    "exclusiveGroups": [
     {
@@ -1019,15 +1038,19 @@
    ],
    "minMax": {
     "min": 54730000,
-    "provisionalMaxPrecise": 131840000,
-    "note": "PDF 파서 자동해독 provisional. 배타상한+선택개별(번들제외). 코덱스 검증 전 — 확정 아님."
-   }
+    "minConfig": "현재 최저 기본",
+    "maxPrecise": 87190000,
+    "maxPreciseConfig": "3.5T·AWD·무광·그래파이트패키지3.65M·그래파이트디자인2.3M·21인치+단조휠2.8M + 개별 12,800,000 + 액세서리 4,510,000",
+    "status": "★코덱스 PDF 독립검증 확정(2026-09-06, VERDICT-codex-genesis-batch). base 맞음·max 재계산 87,190,000. 내 provisional 과대분(배타·번들 중복) 제거.",
+    "note": "휠 엔진종속(3.5T 21인치 0)·기본/스포츠/그래파이트 분류 배타 — 내 131.84M은 이중계상이었음(코덱스)."
+   },
+   "freeOptionsNote": "⚠ freeOptions 는 PDF 파서 원자재(일부 이름↔가격 오연결: G70 선루프 790k·G90 파노라마 2.0M·GV70-EV 파노라마 1.4M 등 코덱스 지적). 확정값은 minMax.maxPrecise. 개별옵션 정밀표는 후속."
   },
   {
    "model": "GV70-EV",
    "source": "genesis 공식 PDF gen_gv70-ev.pdf (2026-09·개소세5%)",
    "decoded": true,
-   "status": "provisional·코덱스 미검증",
+   "status": "코덱스 확정",
    "base": 79740000,
    "exclusiveGroups": [
     {
@@ -1161,9 +1184,12 @@
    ],
    "minMax": {
     "min": 79740000,
-    "provisionalMaxPrecise": 102900000,
-    "note": "PDF 파서 자동해독 provisional. 배타상한+선택개별(번들제외). 코덱스 검증 전 — 확정 아님."
-   }
+    "minConfig": "현재 최저 기본",
+    "maxPrecise": 97200000,
+    "maxPreciseConfig": "필수 3,800,000(20인치+무광+내장Ⅱ) + 개별 12,400,000 + 액세서리 1,260,000 (프레스티지 대신 개별)",
+    "status": "★코덱스 PDF 독립검증 확정(2026-09-06, VERDICT-codex-genesis-batch). base 맞음·max 재계산 97,200,000. 내 provisional 과대분(배타·번들 중복) 제거."
+   },
+   "freeOptionsNote": "⚠ freeOptions 는 PDF 파서 원자재(일부 이름↔가격 오연결: G70 선루프 790k·G90 파노라마 2.0M·GV70-EV 파노라마 1.4M 등 코덱스 지적). 확정값은 minMax.maxPrecise. 개별옵션 정밀표는 후속."
   },
   {
    "model": "GV80",
