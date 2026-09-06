@@ -2,7 +2,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import {
   CarFront, MessageCircleMore, FileText, FileSignature, Box, Settings, Star, type LucideIcon, Banknote,
-  Search as SearchIcon,
+  Search as SearchIcon, Calculator,
 } from 'lucide-react';
 import type { Role } from '@/lib/domain/deal';
 
@@ -41,6 +41,7 @@ export const NAV_ICON = {
   ledger: Banknote,
   settings: Settings,
   interest: Star,
+  estimate: Calculator,
 } as const satisfies Record<string, LucideIcon>;
 
 /**
@@ -59,6 +60,8 @@ export const NAV_ICON = {
  */
 export const NAV_LABEL = {
   product: '상품찾기',
+  // 견적(/estimate) = 「이 차가 얼마입니까」에 그 자리에서 답하는 곳. 재고에 «없는» 차도 센다.
+  estimate: '견적',
   chat: '계약문의',
   contract: '계약·정산확인',
   inventory: '재고관리',
@@ -93,6 +96,8 @@ export const NAV_LABEL = {
  */
 const NAV_TAB_LABEL: Partial<Record<keyof typeof NAV_LABEL, string>> = {
   contract: '계약진행',
+  // 하단바가 넷이 되면서 한 칸이 좁아졌다 — 「상품찾기」 네 자는 줄바꿈된다. 탭에서만 「찾기」.
+  product: '찾기',
 };
 const tabLabel = (k: keyof typeof NAV_LABEL): string => NAV_TAB_LABEL[k] ?? NAV_LABEL[k];
 
@@ -124,17 +129,31 @@ export type AppTab = {
  *   · 검색은 라우트가 아니라 행동이라 `action: 'search'` 다(위 AppTab 주석).
  */
 export function appTabsFor(_role: Role): AppTab[] {
-  // 역할과 무관하게 셋 — 폰에서 하는 일이 역할마다 다르지 않다(찾아서 보낸다).
+  /*
+   * 역할과 무관하게 **넷** — 폰에서 하는 일이 역할마다 다르지 않다(찾고 · 값을 내고 · 보낸다).
+   *
+   * ★2026-08-30 에는 셋(찾기·검색·설정)이었다. 사장님 2026-09-06 에 **견적**을 하나 더 다셨다 —
+   *   「빠르게 «이 차가 얼마입니다»를 하려면 그냥 찾기·검색·견적·설정. 나머지는 햄버거 버튼에서
+   *   재고관리랑 자주 안 쓰는 버튼이니까」.
+   *   ⇒ 견적이 탭인 이유: **재고에 «없는» 차도 센다.** 매물 상세 안에만 두면 우리 재고에 없는 차를
+   *     물어 온 손님에게 답할 길이 없다. 통화하면서 여는 화면이라 두 번 눌러 들어가면 안 된다.
+   * ★여기가 SSOT 다. 탭을 늘리려면 이 배열 하나만 고친다(AppTabBar 는 그리기만 한다).
+   * ⚠ 다음은 **우측 햄버거** — 재고관리처럼 «자주 안 쓰는」 것을 거기로 모은다(사장님 같은 날).
+   *   그때도 하단바는 늘리지 않는다. 하단은 «매일 쓰는 것»만 서는 자리다.
+   */
   return [
     // '/' 는 공개 안내 페이지(상품시트 입장)가 됐다 — 내부 매물 화면은 /finder 다(2026-08-15).
     { href: '/finder', label: tabLabel('product'), icon: NAV_ICON.product },
     { href: '/finder', label: '검색', icon: SearchIcon, action: 'search' },
+    { href: '/estimate', label: tabLabel('estimate'), icon: NAV_ICON.estimate },
     { href: '/settings', label: tabLabel('settings'), icon: NAV_ICON.settings },
   ];
 }
 
 export function isTabRoute(path: string, role?: Role): boolean {
   if (path === '/finder' || path.startsWith('/finder/')) return true;
+  // 견적·원가 — 제 머리를 가졌지만 하단 홈바로 오간다(`lib/guest-surface` hidesTopBar/hidesTabBar).
+  if (path === '/estimate' || path.startsWith('/estimate/')) return true;
   if (path === '/chat' || path.startsWith('/chat/')) return true;
   if (path === '/contract' || path.startsWith('/contract/')) return true;
   if (path === '/settlement' || path.startsWith('/settlement/')) return role == null || role === 'admin';
