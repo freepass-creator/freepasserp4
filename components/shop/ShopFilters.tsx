@@ -2,7 +2,8 @@
 import { useState } from 'react';
 import { Check, ChevronDown } from 'lucide-react';
 import { C } from '@/components/ui';
-import { SHOP, ShopTextBtn } from '@/components/shop/shop-ui';
+import { SHOP, ShopTextBtn, axisIconFor } from '@/components/shop/shop-ui';
+import { makerLogoSrc } from '@/lib/domain/maker-logo';
 import { useIsMobile } from '@/lib/use-mobile';
 import { AXIS_LABEL, SHOP_AXES, type ShopAxis, type ShopFacets, type ShopSel } from '@/lib/shop/query';
 
@@ -98,9 +99,11 @@ export function ShopFilters({ facets, sel, onToggle, onClearAxis, mobile: forceM
           기둥 꼭대기의 것은 «무엇을» 지우는지가 화면에서 멀었다.
       */}
 
-      {axes.map((axis) => {
+      {axes.map((axis, ai) => {
+        const last = ai === axes.length - 1;
         const on = sel[axis];
         const isOpen = open[axis] ?? OPEN_BY_DEFAULT.includes(axis);
+        const AxisIcon = axisIconFor(axis);
         return (
           /*
            * 축과 축 사이는 **여백만**으로 가른다(사장님 2026-09-05 구분선 최소화).
@@ -114,7 +117,18 @@ export function ShopFilters({ facets, sel, onToggle, onClearAxis, mobile: forceM
            * ★제목 줄에 상하 여백을 줘서 **누를 자리를 키운다**(엔카 축 제목 줄이 48px 쯤 된다).
            *   글자만 있으면 어디를 눌러야 열리는지 손이 못 찾는다.
            */
-          <section key={axis} style={{ paddingBottom: isOpen ? SHOP.sp.part : 0 }}>
+          <section key={axis} style={{
+            /*
+             * ★★**축 사이에 옅은 선**(시안 A — 엔카·KB·케이카가 다 쓴다).
+             * ⚠ 2026-09-05 에 「구분선 최소화」로 선을 다 걷었는데, 그때 그은 자리는 **제목 «아래»**라
+             *   기둥 하나에 가로선이 아홉 개 그어져 «표»처럼 보였다. 이번엔 **축과 축 «사이»**다 —
+             *   덩어리를 가르는 선이지 제목을 밑줄 치는 선이 아니다.
+             * ★마지막 축에는 안 긋는다 — 판 테두리가 이미 거기서 끝을 말한다.
+             */
+            paddingBottom: isOpen ? SHOP.sp.edge : 0,
+            borderBottom: last ? 'none' : `1px solid ${C.line2}`,
+            marginBottom: last ? 0 : SHOP.sp.tight,
+          }}>
             {/*
               제목 줄 전체가 «접었다 폈다» 하는 단추다 — 화살표만 누르게 하면 손님이 그걸 못 찾는다.
               오른쪽에는 ㉠ 고른 수(접혀 있어도 몇 개 걸렸는지 보인다) ㉡ 화살표.
@@ -129,13 +143,17 @@ export function ShopFilters({ facets, sel, onToggle, onClearAxis, mobile: forceM
                 marginBottom: isOpen ? SHOP.sp.tight : 0,
               }}>
               {/*
+                ★**축 제목 앞의 그림**(`axisIconFor`) — 아홉 축이 글자만이면 기둥이 목차처럼 읽힌다
+                  (사장님 2026-09-06 「분류의 어떤 아이콘을 좀 달면 덜 밋밋하고 확실히 될 것 같다」).
+                  값을 고르러 내려가는 눈이 **글자를 읽기 전에** 어느 축인지 안다.
                 ★★**축 제목은 값보다 «한 단 위»다**(`fs.h2` 16 · 값은 `fs.body` 웹 14.5).
                 ⚠ 실측 2026-09-06 — 웹에서 **둘 다 14.5** 였다. 굵기(700 vs 400)만 달라
-                  접힌 축 제목이 값 목록의 한 줄처럼 읽혔다. 기둥 하나에 제목 아홉과 값 수십이
-                  같은 크기로 섞여 있으면 «어디부터 어디까지가 한 축인지»를 눈이 못 가른다.
-                ★폰 시트는 이미 제목 16 · 값 15 로 층이 있었다 — **웹만 무너져 있던 것**이라
-                  같은 이름(`fs.h2`)으로 맞춘다. 이러면 폰·웹이 한 규격이 된다.
+                  접힌 축 제목이 값 목록의 한 줄처럼 읽혔다.
+                ★폰 시트는 이미 16/15 로 층이 있었다 — **웹만 무너져 있던 것**이라 같은 이름으로 맞췄다.
               */}
+              {AxisIcon ? (
+                <AxisIcon size={16} aria-hidden style={{ flex: '0 0 auto', color: C.mute }} />
+              ) : null}
               <span style={{ fontSize: SHOP.fs.h2, fontWeight: 700, color: C.ink, flex: 1, minWidth: 0 }}>
                 {AXIS_LABEL[axis]}
               </span>
@@ -217,6 +235,7 @@ function CheckList({ axis, options, selected, onToggle, mobile, columns }: {
       }}>
         {shown.map((o) => (
           <CheckRow key={o.key} label={o.label} count={o.count} tight={columns > 1}
+            logo={axis === 'maker' ? makerLogoSrc(o.label) : null}
             on={selected.includes(o.key)} onClick={() => onToggle(axis, o.key)} />
         ))}
       </div>
@@ -236,8 +255,14 @@ function CheckList({ axis, options, selected, onToggle, mobile, columns }: {
  *   여러 개를 고를 수 있다(케이카는 축 제목 옆에 「중복선택가능」이라고 아예 써 둔다).
  *   모양이 말해 주면 글자로 설명할 필요가 없다.
  */
-function CheckRow({ label, count, on, onClick, tight }: {
+function CheckRow({ label, count, on, onClick, tight, logo }: {
   label: string; count: number; on: boolean; onClick: () => void;
+  /**
+   * 제조사 마크(CI) — 있으면 글자 앞에 선다(사장님 2026-09-06 「제조사는 그 CI 를 달아주면 되고」).
+   * ★파일이 없으면 `null` 이라 **글자만** 그린다 — 한 장도 없어도 안 깨지고, 한 장 넣으면 그것만 뜬다.
+   *   (자리·파일명은 `lib/domain/maker-logo` 가 정한다.)
+   */
+  logo?: string | null;
   /**
    * **두 열로 설 때** — 건수를 칸 오른쪽 끝이 아니라 **제 라벨 바로 뒤**에 붙인다.
    *
@@ -291,6 +316,18 @@ function CheckRow({ label, count, on, onClick, tight }: {
       }}>
         {on ? <Check size={mobile ? 13 : 12} strokeWidth={2.25} style={{ color: C.inverse }} /> : null}
       </span>
+      {logo ? (
+        /*
+         * ⚠⚠ **파일이 없으면 «조용히» 사라져야 한다.** 주소만 있고 파일이 없으면 브라우저가
+         *   **깨진 그림 아이콘**을 그린다 — 열일곱 줄에 깨진 아이콘이 서면 안 다는 것만 못하다
+         *   (2026-09-06 실측으로 잡았다. 표에는 이름을 다 적었는데 파일은 한 장도 없었다).
+         * ⇒ `onError` 로 그 자리를 지운다. 파일을 넣는 순간 그 브랜드만 바로 뜬다.
+         */
+        // eslint-disable-next-line @next/next/no-img-element -- 브랜드 마크는 정적 최적화 대상이 아니다(작은 SVG).
+        <img src={logo} alt="" aria-hidden width={18} height={18}
+          onError={(e) => { e.currentTarget.style.display = 'none'; }}
+          style={{ flex: '0 0 auto', width: 18, height: 18, objectFit: 'contain' }} />
+      ) : null}
       <span style={{ display: 'flex', alignItems: 'baseline', gap: SHOP.sp.snug, flex: 1, minWidth: 0 }}>
         <span style={{
           /* 두 열이면 라벨이 «제 폭»만 먹는다 → 건수가 바로 뒤에 붙는다(위 `tight` 머리말). */

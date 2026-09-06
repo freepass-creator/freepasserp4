@@ -363,7 +363,18 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
                   ⇒ 회색은 «덩어리 전체»가 아니라 «작은 조각»에만 쓴다. 큰 면을 덮으면
                     조건칸이 목록과 다투고, 손님 눈이 제일 먼저 회색 덩어리로 간다.
               */}
-              <div>{filters}</div>
+              {/*
+                ★★**시안 A — 판을 «선»으로 만든다**(사장님 2026-09-06 「A 로 하고」).
+                  엔카·KB 는 회색 바탕 위 «흰 판 + 1px 테두리»인데, 손님 동은 바탕이 흰색이라
+                  흰 판을 얹어도 안 보인다. ⇒ **테두리와 둥글기만**으로 판을 세운다.
+                ⚠ 하루 전에 회색 면으로 덮었다가 「경계를 굳게 뭉치는 건 아닌 것 같다」고 걷었다 —
+                  선 하나는 «가두는» 게 아니라 «묶는» 것이라 그 지적과 어긋나지 않는다.
+                ★안쪽 위아래 여백은 4 — 첫 축 제목의 제 여백(11)과 겹쳐 15 가 된다.
+              */}
+              <div style={{
+                border: `1px solid ${C.line2}`, borderRadius: SHOP.r.card,
+                padding: `${SHOP.sp.tight}px ${SHOP.sp.edge}px`,
+              }}>{filters}</div>
             </aside>
           ) : null}
 

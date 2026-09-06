@@ -1,8 +1,9 @@
 'use client';
 import type { CSSProperties, ReactNode } from 'react';
 import {
-  CarFront, Check, ChevronDown, Coins, FileText, IdCard, PiggyBank, Search, SearchCheck,
-  ShieldCheck, UserRound, X, Zap, type LucideIcon,
+  Banknote, Calendar, Car, CarFront, Check, ChevronDown, Coins, Factory, FileText, Fuel, Gauge,
+  Gift, IdCard, PiggyBank, Search, SearchCheck, ShieldCheck, UserRound, Wallet, X, Zap,
+  type LucideIcon,
 } from 'lucide-react';
 import { C, FW, ICON, PILL_R, R_CARD } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
@@ -612,6 +613,32 @@ const MARK_ICON: Record<string, LucideIcon> = {
   무사고: CarFront,          // 차 상태
   당일출고: Zap,             // 바로 나간다
 };
+
+/**
+ * **조건 축의 그림** — 축 제목 앞에 선다.
+ *
+ * 사장님 2026-09-06 「**분류의 어떤 아이콘**이나 뭐 그런 거를 좀 달면 **덜 밋밋하고** 좀 확실히
+ * 될 거 같은데요」. 맞다 — 아홉 축이 «글자만»이면 기둥이 목차처럼 읽힌다. 그림이 있으면
+ * 손님이 **글자를 읽기 전에** 어느 축인지 안다(값을 고르러 내려가는 눈이 축을 건너뛰며 훑는다).
+ * ★심사는 우대조건 표식(`MARK_ICON.무심사`)과 **같은 방패**다 — 같은 것을 가리키므로 같아야 한다.
+ * ★모르는 축은 그림 없이 간다(글자만) — 없는 그림을 지어내지 않는다.
+ */
+const AXIS_ICON: Record<string, LucideIcon> = {
+  vc: Car,             // 차종
+  maker: Factory,      // 제조사
+  rent: Banknote,      // 월 대여료 — 매달 내는 돈
+  dep: Wallet,         // 보증금 — 지금 드는 목돈
+  credit: ShieldCheck, // 심사
+  year: Calendar,      // 연식
+  mile: Gauge,         // 주행거리
+  fuel: Fuel,          // 연료
+  perk: Gift,          // 혜택
+};
+
+/** 축의 그림 — 표에 없으면 `null`(글자만 그린다). */
+export function axisIconFor(axis: string): LucideIcon | null {
+  return AXIS_ICON[String(axis || '')] || null;
+}
 
 /** 표식 하나의 그림 — 표에 없으면 `Check`(위 머리말). 카드·상세가 **이 함수만** 쓴다. */
 export function markIconFor(text: string): LucideIcon {
