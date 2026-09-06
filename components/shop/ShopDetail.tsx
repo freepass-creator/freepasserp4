@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { C, ColorMark, FW, FS, ICON, NUM } from '@/components/ui';
-import { PerkMarks, SHOP, StateChip, type ShopMark } from '@/components/shop/shop-ui';
+import { PerkMarks, SHOP, StateChip, markIconFor, type ShopMark } from '@/components/shop/shop-ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { useProductPhotos } from '@/components/use-product-photos';
 import { haptic } from '@/lib/haptics';
@@ -541,10 +541,10 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
   const perkMarks: Mark[] = [
     ...(creditChip && creditChip !== CREDIT_UNSET
       ? [{
-        text: creditChip, icon: ShieldCheck,
+        text: creditChip, icon: markIconFor(creditChip),
         good: /무심사/.test(creditChip), ask: !/무심사/.test(creditChip),
       }] : []),
-    ...PERKS.filter((k) => hasPerk(p, k)).map((k) => ({ text: k as string, icon: Check })),
+    ...PERKS.filter((k) => hasPerk(p, k)).map((k) => ({ text: k as string, icon: markIconFor(k) })),
   ];
 
   const options = parseProductOptions(p.options);

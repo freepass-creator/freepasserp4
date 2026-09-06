@@ -340,8 +340,10 @@ must(/긴급출동 \{roadside\}/.test(shopDetail),
  * 계속 띄우되(사장님 「심사 조건은 계속 띄워요」) 두 번 쓰지 않는다(「중복되면 안 되지」).
  * 자리는 차명 밑 조건 칩 — 손님이 제일 먼저 재는 값이라 위에 있어야 한다.
  * ⚠ 무심사만 초록(`good`)이고 나머지 둘은 «해야 할 일»(`ask`)이라 흐리다.
+ * ★그림은 **값마다 다르다**(`markIconFor` — 방패/서류/조회). 셋이 같은 방패였을 때는
+ *   글자를 읽어야만 구분됐다(사장님 2026-09-06 「아이콘이 다 똑같은데 다 다르게 해줘야 돼」).
  */
-must(/text: creditChip, icon: ShieldCheck,/.test(shopDetail)
+must(/text: creditChip, icon: markIconFor\(creditChip\),/.test(shopDetail)
   && /good: \/무심사\/\.test\(creditChip\), ask: !\/무심사\/\.test\(creditChip\)/.test(shopDetail)
   && !/\['심사', credit\]/.test(shopDetail),
   '심사가 사라졌거나 다시 두 자리(조건 칩 + 이용 조건)에 실렸습니다 — 셋 중 하나를 칩 한 자리에만 씁니다.',
@@ -563,6 +565,24 @@ must(/fontSize: mobile \? 21 : 20, fontWeight: FW\.head/.test(shopCard)
   && !/marginTop: 'auto', paddingTop/.test(shopCard),
   '카드 줄간격이 다시 들쭉날쭉해졌거나 카드끼리가 좁아졌습니다 — 줄 8 균등 · 밖 32 · 대여료 21 입니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-3');
+
+/*
+ * **우대조건 줄 — 옅은 «면» 위 뱃지 · 아이콘은 값마다 다르다.**
+ *
+ * 사장님 2026-09-06 ① 「심사 조건, 만21세 요쪽 라인들, 그 **살짝 배경 있는 그 배지** 그거를
+ * 해줘야지. 그 이렇게 **테두리는 아니고 배경**」 ② 「분납가능 이런 거 **아이콘이 다 똑같은데
+ * 다 다르게** 해줘야 돼」.
+ * ⚠ 그림이 같으면 **글자를 읽어야만** 구분된다 — 그럴 거면 그림이 없는 것과 같다.
+ * ★표(`MARK_ICON`)가 정본이다. 카드·상세가 각자 정하고 있어서 **한쪽만 고치면 갈렸다**.
+ * ★면은 조건 칩(`C.head`)보다 한 단 옅다(`C.zebra`) — **누를 수 있는 것이 더 진하다.**
+ */
+must(/export function markIconFor/.test(shopUi)
+  && /무심사: ShieldCheck/.test(shopUi) && /분납가능: Coins/.test(shopUi)
+  && /만21세: UserRound/.test(shopUi) && /경력무관: IdCard/.test(shopUi)
+  && /background: C\.zebra, padding: `\$\{SHOP\.sp\.tight\}px \$\{SHOP\.sp\.snug\}px`/.test(shopUi)
+  && /icon: markIconFor\(k\)/.test(shopCard) && /icon: markIconFor\(k\)/.test(shopDetail),
+  '우대조건 뱃지의 면이 사라졌거나 아이콘이 다시 한 그림으로 돌아갔습니다.',
+  'components/shop/shop-ui.tsx MARK_ICON · PerkMark');
 
 /*
  * **여백은 «사다리»에서만 고른다** — 4·8·12·16·24·32 여섯 칸(`SHOP.sp`).

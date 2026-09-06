@@ -1,6 +1,9 @@
 'use client';
 import type { CSSProperties, ReactNode } from 'react';
-import { Search, X, ChevronDown, type LucideIcon } from 'lucide-react';
+import {
+  CarFront, Check, ChevronDown, Coins, FileText, IdCard, PiggyBank, Search, SearchCheck,
+  ShieldCheck, UserRound, X, Zap, type LucideIcon,
+} from 'lucide-react';
 import { C, FW, ICON, PILL_R, R_CARD } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 
@@ -522,12 +525,57 @@ export function PerkMark({ mark, fs = SHOP.fs.sub, size = 15 }: {
   return (
     <span style={{
       display: 'inline-flex', alignItems: 'center', gap: SHOP.sp.tight,
+      /*
+       * ★★**옅은 면을 깐다 — 테두리는 안 두른다**(사장님 2026-09-06 「심사 조건, 만21세 요쪽
+       *   라인들, 그 **살짝 배경 있는 그 배지** 그거를 해줘야지. 그 이렇게 **테두리는 아니고 배경**」).
+       * ⚠ 2026-09-05 까지는 면을 «안» 깔았다 — 맨 아이콘+글자였다. 그때 이유는 「신원 딱지와 갈려야
+       *   한다」였는데, 신원 칩이 **사진 위로 올라가면서**(같은 날) 그 이유가 사라졌다.
+       *   지금 이 줄은 본문에 홀로 서 있어, 면이 없으면 «흩어진 글자 넷»으로 읽힌다.
+       * ★면은 조건 칩(`C.head`)보다 **한 단 옅다**(`C.zebra`) — 가게 규칙 하나가 여기서도 산다:
+       *   **누를 수 있는 것이 더 진하다.** 이건 읽기만 하는 표식이라 뒤로 물러나야 한다.
+       */
+      background: C.zebra, padding: `${SHOP.sp.tight}px ${SHOP.sp.snug}px`, borderRadius: SHOP.r.chip,
+      /* 줄높이로 붙인다 — 카드 넉 줄과 같은 수법(ShopCard 차명 줄 머리말). */
+      lineHeight: 1.1,
       color: C.ink, fontSize: fs, fontWeight: 700, whiteSpace: 'nowrap',
     }}>
       <Icon size={size} aria-hidden style={{ color: mark.good ? C.ok : mark.ask ? C.faint : C.brand }} />
       {mark.text}
     </span>
   );
+}
+
+/**
+ * **표식의 «그림» — 값마다 다른 아이콘. 한 곳에서 정한다.**
+ *
+ * 사장님 2026-09-06 「각 뭐 **십일세 뭐 분납가능 이런 거 아이콘이 다 똑같은데**,
+ * 그 아이콘을 **다 다르게** 해줘야 돼」.
+ *
+ * ⚠ 실측 — 혜택 다섯(분납가능·무보증·만21세·경력무관·무사고)이 전부 `Check` 였고,
+ *   심사 셋(무심사·소득확인·신용조회)이 전부 `ShieldCheck` 였다. 그림이 같으면 **글자를 읽어야만**
+ *   구분된다 — 그럴 거면 그림이 없는 것과 같다. 아이콘은 «훑을 때 먼저 걸리는» 표식이라야 한다.
+ * ⚠⚠ **카드와 상세가 각자 정하고 있었다.** 한쪽만 고치면 같은 차가 목록과 상세에서 다른 그림을
+ *   단다 — 그 사고를 이미 두 번 겪었다(뱃지 꼴 · EV 배기량).
+ *   ⇒ 여기 표 하나가 정본이다. 새 값이 생기면 **여기에만** 줄을 더한다.
+ * ★모르는 값은 `Check` 로 떨어진다 — 그림이 없어 화면이 비는 것보다 낫다.
+ */
+const MARK_ICON: Record<string, LucideIcon> = {
+  // 심사 셋 — 손님이 제일 먼저 재는 축이라 셋이 확실히 갈려야 한다.
+  무심사: ShieldCheck,      // 방패 = 안 본다(통과)
+  소득확인: FileText,        // 서류를 낸다
+  신용조회: SearchCheck,     // 조회한다
+  // 혜택 — 「무엇이 좋아지나」가 그림으로 읽혀야 한다.
+  분납가능: Coins,           // 나눠 낸다
+  무보증: PiggyBank,         // 목돈이 안 든다
+  만21세: UserRound,         // 사람(나이)
+  경력무관: IdCard,          // 면허·경력
+  무사고: CarFront,          // 차 상태
+  당일출고: Zap,             // 바로 나간다
+};
+
+/** 표식 하나의 그림 — 표에 없으면 `Check`(위 머리말). 카드·상세가 **이 함수만** 쓴다. */
+export function markIconFor(text: string): LucideIcon {
+  return MARK_ICON[String(text || '').trim()] || Check;
 }
 
 /** 조건 칩 줄 — 사이를 넉넉히 벌린다(붙여 놓으면 다시 «칩 줄»로 보인다). */

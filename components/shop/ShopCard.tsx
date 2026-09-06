@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { Check, CircleCheck, ImageOff, ShieldCheck, Tag } from 'lucide-react';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { C, FW, NUM } from '@/components/ui';
-import { PerkMarks, SHOP, type ShopMark } from '@/components/shop/shop-ui';
+import { PerkMarks, SHOP, markIconFor, type ShopMark } from '@/components/shop/shop-ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { useInView } from '@/lib/use-in-view';
 import { useFirstPhoto } from '@/components/use-product-photos';
@@ -145,7 +145,7 @@ export const ShopCard = memo(function ShopCard({ p, href }: {
 
   const marks: ShopMark[] = [
     ...(credit ? [{
-      text: credit, icon: ShieldCheck,
+      text: credit, icon: markIconFor(credit),
       good: /무심사/.test(credit), ask: !/무심사/.test(credit),
     }] : []),
     /*
@@ -153,8 +153,8 @@ export const ShopCard = memo(function ShopCard({ p, href }: {
      *   같은 카드에서 같은 사실을 두 번 하면 자리를 낭비하고, 손님은 「둘이 다른 건가」를 생각한다.
      */
     ...PERKS.filter((k) => hasPerk(p, k) && !(k === '무보증' && price && price.deposit === 0))
-      .map((k) => ({ text: k as string, icon: Check })),
-    ...(sameDay ? [{ text: '당일출고', icon: CircleCheck, good: true }] : []),
+      .map((k) => ({ text: k as string, icon: markIconFor(k) })),
+    ...(sameDay ? [{ text: '당일출고', icon: markIconFor('당일출고'), good: true }] : []),
   ];
 
   return (
@@ -211,7 +211,16 @@ export const ShopCard = memo(function ShopCard({ p, href }: {
           <div style={{ display: 'flex', alignItems: 'baseline', gap: SHOP.sp.snug, minWidth: 0 }}>
             <span style={{
               fontSize: SHOP.fs.h2, fontWeight: 700, color: C.ink,
-              lineHeight: 1.35, letterSpacing: '-0.02em', minWidth: 0,
+              /*
+               * ★★**줄높이로 붙인다 — 글자를 줄이지 않는다**(사장님 2026-09-06 엔카 화면을 대 주셨다:
+               *   「그 4줄 간격이 좀 더 붙으면 좋을 거 같은데, 글자 크기도 가독성 문제없는 범위까지」).
+               * ⚠ 실측 — 엔카 카드는 오히려 **우리보다 글자가 크다**(제목 ≈18 vs 우리 16 ·
+               *   사실 줄 ≈15 vs 13.5). 줄 사이도 ≈12 로 우리(8)보다 넓다.
+               *   그런데도 빽빽해 보이는 이유는 **줄높이(leading)가 조여 있어서**다.
+               * ⇒ 글자는 사다리 그대로 두고 **줄높이만** 1.35 → 1.2 로 조인다. 한 줄에 3~4px 씩,
+               *   넉 줄이면 12px 이 붙는데 **읽기는 한 톨도 안 깎인다.** 글자를 줄이면 그 반대다.
+               */
+              lineHeight: 1.2, letterSpacing: '-0.02em', minWidth: 0,
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             }} title={title}>{title}</span>
             {plate ? (
@@ -225,6 +234,7 @@ export const ShopCard = memo(function ShopCard({ p, href }: {
           {facts ? (
             <div style={{
               fontSize: SHOP.fs.sub, color: C.mute, fontVariantNumeric: 'tabular-nums',
+              lineHeight: 1.2,  /* 위 차명 줄과 같은 이유 — 줄높이로 붙인다. */
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
             }}>{facts}</div>
           ) : null}
@@ -259,6 +269,7 @@ export const ShopCard = memo(function ShopCard({ p, href }: {
                  * ⇒ 21 = 차명의 1.3배. 여전히 이 줄에서 제일 큰 글자라 위계는 그대로다.
                  */
                 fontSize: mobile ? 21 : 20, fontWeight: FW.head, color: C.ink, flex: '0 0 auto',
+                lineHeight: 1.15,  /* 큰 숫자일수록 기본 줄높이가 남긴 여백이 크다 — 여기서 제일 많이 붙는다. */
                 letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums',
               }}>{manShort(price.rent, { decimal: true })}</span>
               {/*
