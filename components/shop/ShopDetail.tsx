@@ -8,8 +8,8 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import type { EntityRecord } from '@/lib/intake/entities';
-import { C, ColorMark, FW, FS, ICON, NUM } from '@/components/ui';
-import { PerkMarks, SHOP, StateChip, markIconFor, type ShopMark } from '@/components/shop/shop-ui';
+import { C, ColorMark, FW, FS, ICON, NUM, SCRIM } from '@/components/ui';
+import { BADGE, PerkMarks, SHOP, StateChip, markIconFor, type ShopMark } from '@/components/shop/shop-ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { useProductPhotos } from '@/components/use-product-photos';
 import { haptic } from '@/lib/haptics';
@@ -789,7 +789,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
               <div style={{ marginBottom: SHOP.sp.edge }}>
                 <div style={{ fontSize: SHOP.fs.cap, color: C.faint, marginBottom: SHOP.sp.tight }}>제조사 · 세부모델 · 세부트림</div>
                 <div style={{
-                  fontSize: SHOP.fs.lead, fontWeight: 800, color: C.ink,
+                  fontSize: SHOP.fs.lead, fontWeight: FW.head, color: C.ink,
                   letterSpacing: '-0.02em', wordBreak: 'keep-all', lineHeight: 1.4,
                 }}>{modelLine}</div>
               </div>
@@ -896,7 +896,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
                     <span style={{ flex: '0 0 auto', fontSize: SHOP.fs.sub, color: C.faint }}>자차</span>
                     <span style={{
                       flex: 1, minWidth: 0,
-                      fontSize: SHOP.fs.body, fontWeight: 800, color: C.ink,
+                      fontSize: SHOP.fs.body, fontWeight: FW.head, color: C.ink,
                       fontVariantNumeric: 'tabular-nums', wordBreak: 'keep-all', lineHeight: 1.5,
                     }}>{ownDamageDeductible}</span>
                   </div>
@@ -1486,7 +1486,7 @@ function SecTitle({ children, icon: Icon, accent, tag }: {
        * «착지 표지»로 안 걸린다 — 눈이 제목을 읽어야 아는 크기다.
        * 차명(22)보다는 한 단 낮게 둬서 위계는 지킨다.
        */
-      fontSize: SHOP.fs.sec, fontWeight: 800, color: C.ink, letterSpacing: '-0.025em',
+      fontSize: SHOP.fs.sec, fontWeight: FW.head, color: C.ink, letterSpacing: '-0.025em',
     }}>
       {/*
        * ★아이콘을 **연한 사각 면 위에** 앉힌다(2026-09-05). 맨 글리프를 흐린 회색으로 두면
@@ -1660,11 +1660,14 @@ function Gallery({ p, mobile }: { p: EntityRecord; mobile?: boolean }) {
         <>
           {i > 0 ? <GalleryArrow side="left" onClick={() => go(-1)} /> : null}
           {i < n - 1 ? <GalleryArrow side="right" onClick={() => go(1)} /> : null}
-          <span style={{
+          <span className="fp-onphoto" style={{
             position: 'absolute', right: 12, bottom: 12,
-            padding: '4px 10px', borderRadius: SHOP.r.chip,
-            background: 'rgba(0,0,0,0.55)', color: '#fff',
+            /* 뱃지 한 벌 규격(`BADGE`) — 사진 위든 본문이든 표식의 치수는 같다. */
+            padding: `${BADGE.padY}px ${BADGE.padX}px`, borderRadius: SHOP.r.chip,
+            /* 딤·글자 둘 다 토큰 — `.fp-onphoto` 가 `--text-main` 을 흰색으로 뒤집는다. */
+            background: SCRIM.heavy, color: C.ink,
             fontSize: SHOP.fs.cap, fontWeight: 700, fontVariantNumeric: 'tabular-nums',
+            lineHeight: BADGE.lineHeight,
           }}>{Math.min(i + 1, n)} / {n}</span>
           {/*
             ⚠ 여기 점(dots)을 뒀다가 뺐다(2026-09-05 검토). 바로 옆 「n / N」이 **같은 말을 더 정확히** 한다
@@ -1709,10 +1712,14 @@ function Gallery({ p, mobile }: { p: EntityRecord; mobile?: boolean }) {
             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
           {/* 여덟째 칸에 남은 장 수 — 「더 있다」를 숫자로 말한다. */}
           {k === 7 && n > 8 ? (
-            <span style={{
+            <span className="fp-onphoto" style={{
               position: 'absolute', inset: 0, display: 'flex',
               alignItems: 'center', justifyContent: 'center',
-              background: 'rgba(0,0,0,.5)', color: '#fff',
+              /*
+               * 사진 위 딤·글자 — 둘 다 토큰이다. `.fp-onphoto` 가 그 안에서 `--text-main` 을
+               * 흰색으로 뒤집으므로 `C.ink` 를 그대로 쓰면 된다(사진 위 글자의 집 규격 · 카드와 같은 수법).
+               */
+              background: SCRIM.light, color: C.ink,
               fontSize: SHOP.fs.sub, fontWeight: 700,
             }}>+{n - 8}</span>
           ) : null}
@@ -1741,8 +1748,8 @@ function GalleryArrow({ side, onClick }: { side: 'left' | 'right'; onClick: () =
         [side]: 12, width: 38, height: 38, borderRadius: SHOP.r.pill,
         display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
         border: 'none', cursor: 'pointer', color: C.ink,
-        // 유리 — 밝은 사진에서도 어두운 사진에서도 화살표가 보인다.
-        background: 'rgba(255,255,255,0.72)',
+        // 유리 — 밝은 사진에서도 어두운 사진에서도 화살표가 보인다(토큰: 다크에서 같이 뒤집힌다).
+        background: SCRIM.glass,
         backdropFilter: 'blur(8px)', WebkitBackdropFilter: 'blur(8px)',
       }}>
       <Icon size={ICON.lg} aria-hidden />

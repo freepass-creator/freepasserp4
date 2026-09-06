@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useMemo, useState } from 'react';
 import { X } from 'lucide-react';
-import { C, FW, ICON } from '@/components/ui';
+import { C, FW, ICON, SCRIM } from '@/components/ui';
 import { SHOP, ShopIconBtn, ShopTextBtn } from '@/components/shop/shop-ui';
 import { ShopAxisOptions } from '@/components/shop/ShopFilters';
 import { AXIS_LABEL, SHOP_AXES, type ShopAxis, type ShopFacets, type ShopSel } from '@/lib/shop/query';
@@ -72,7 +72,8 @@ export function ShopFilterSheet({ sel, preview, onApply, onClose }: {
   return (
     <div role="dialog" aria-label="상세 조건"
       style={{
-        position: 'fixed', inset: 0, zIndex: 40, background: 'rgba(0,0,0,0.42)',
+        /* 딤은 토큰이다 — 생 rgba 를 쓰면 다크 테마에서 같이 안 뒤집힌다(check:tokens 가 잡는다). */
+        position: 'fixed', inset: 0, zIndex: 40, background: SCRIM.heavy,
         display: 'flex', flexDirection: 'column', justifyContent: 'flex-end',
       }}
       onClick={onClose}>

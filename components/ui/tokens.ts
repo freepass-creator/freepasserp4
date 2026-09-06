@@ -56,6 +56,9 @@ export const SCRIM = {
   heavy: 'var(--scrim-heavy)',
   /** 풀블리드 라이트박스(사진·문서) — light/heavy와 알파가 다름. */
   black: 'var(--scrim-black)',
+  /** 밝은 «유리» — 사진 위 화살표처럼 바탕 위에 얹혀 읽혀야 하는 것. 딤과 «반대 방향»이다.
+   *  ⚠ 생 `rgba(255,255,255,…)` 로 쓰면 다크에서 흰 유리가 그대로 남아 그 위 글자가 안 보인다. */
+  glass: 'var(--scrim-glass)',
 } as const;
 
 /**

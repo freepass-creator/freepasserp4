@@ -1,3 +1,4 @@
+import { isGuestSurface } from '@/lib/guest-surface';
 /**
  * 화이트라벨 정본(SSOT) — 손님 카탈로그를 «누구 이름으로» 내보내는가.
  *
@@ -198,9 +199,16 @@ export function resolveWhitelabel(host?: string | null, wlKey?: string | null): 
  */
 export function isGuestPath(pathname: string): boolean {
   const p = String(pathname || '').split('?')[0];
-  if (p === '/q' || p.startsWith('/q/')) return true;
-  if (p === '/shop' || p.startsWith('/shop/')) return true;
-  if (p === '/catalog' || p.startsWith('/catalog/')) return true;
+  /*
+   * ★★**명단은 `lib/guest-surface` 한 곳이다.** 여기서 또 적지 않는다.
+   *   2026-09-06 실측 — 잠깐 두 벌이었다. 이 파일이 `/q`·`/shop`·`/catalog` 를 따로 세고 있었고,
+   *   같은 날 다른 세션이 `guest-surface` 에 같은 명단을 «상단바/하단바를 따로 묻는» 더 나은 꼴로
+   *   세웠다. 두 벌이면 새 손님 라우트가 생길 때 **한쪽만 등록돼** 껍데기와 브랜드가 갈린다.
+   * ⚠ 물음은 서로 «다르다» — 저쪽은 「우리 껍데기를 벗을까」, 이쪽은 「어느 브랜드를 입을까」다.
+   *   그래서 함수는 둘이되 **명단은 하나**를 본다.
+   * ★채널의 임시 주소(`previewPath`)만 여기서 더한다 — 그건 화이트라벨 표가 쥔 값이다.
+   */
+  if (isGuestSurface(p)) return true;
   return WHITELABELS.some((w) => !!w.previewPath && (p === w.previewPath || p.startsWith(`${w.previewPath}/`)));
 }
 

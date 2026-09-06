@@ -436,7 +436,7 @@ export function ShopCount({ value, filtered }: { value: string; filtered?: boole
         {filtered ? '조건에 맞는 차량' : '전체차량'}
       </span>
       <span style={{
-        fontSize: SHOP.fs.num, fontWeight: 800, color: C.brand,
+        fontSize: SHOP.fs.num, fontWeight: FW.head, color: C.brand,
         letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums',
       }}>{value}</span>
       <span style={{ fontSize: mobile ? SHOP.fs.cap : SHOP.fs.sub, fontWeight: 700 }}>대</span>

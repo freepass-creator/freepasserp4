@@ -13,6 +13,7 @@ import { BRAND_MAIN, BRAND_SUB } from '@/lib/brand';
 import { FREEPASS, hasBrand, whitelabelVars, type Whitelabel } from '@/lib/whitelabel';
 import { LEGAL_VERSION } from '@/lib/legal';
 import { toast } from '@/components/Toaster';
+import { SHOP } from '@/components/shop/shop-ui';
 /**
  * ★2026-08-30 — 현관도 공용 원자로 선다(`docs/건물도면.md` §4 1순위).
  *   전에는 「v3 CSS 섬(44/48)이 원자 높이(32/40)와 충돌 → raw 유지」였다.
@@ -253,10 +254,11 @@ export default function LoginView({ wl = FREEPASS }: { wl?: Whitelabel }) {
            * 손님 머리띠(`WhitelabelFrame`)와 «같은 짜임»으로 세운다 — 같은 주소에서 두 얼굴이 되면 안 된다.
            */
           <div aria-label={wl.name} style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 9 }}>
-            <span style={{ fontSize: 26, fontWeight: FW.head, letterSpacing: '-0.03em', color: C.brand }}>
+            <span style={{ fontSize: SHOP.fs.num, fontWeight: FW.head, letterSpacing: '-0.03em', color: C.brand }}>
               {wl.wordmark.main}
             </span>
-            <span style={{ fontSize: 15, fontWeight: FW.meta, letterSpacing: '0.15em', color: C.ink }}>
+            {/* 워드마크 «뒷 글자» — 사다리의 body 를 탄다(생 숫자를 박으면 토큰 검사가 잡는다). */}
+            <span style={{ fontSize: SHOP.fs.body, fontWeight: FW.meta, letterSpacing: '0.15em', color: C.ink }}>
               {wl.wordmark.sub}
             </span>
           </div>

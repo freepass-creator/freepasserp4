@@ -2,7 +2,8 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import type { EntityRecord } from '@/lib/intake/entities';
-import { CenterNote, Loading } from '@/components/ui';
+import { C, CenterNote, Loading } from '@/components/ui';
+import { SHOP } from '@/components/shop/shop-ui';
 import { WhitelabelFrame } from '@/components/WhitelabelFrame';
 import { FavShare, ShopDetail, ShopDetailLead } from '@/components/shop/ShopDetail';
 import type { Whitelabel } from '@/lib/whitelabel';
@@ -112,9 +113,10 @@ export function ShopDetailView({ wl }: { wl: Whitelabel }) {
           </div>
           <a href={listHref} style={{
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            height: 52, padding: '0 26px', borderRadius: 999,
-            background: 'var(--brand)', color: '#fff', textDecoration: 'none',
-            fontSize: 14.5, fontWeight: 700,
+            /* 가게 규격 — 누르는 것은 `r.ctrl`(10)이지 알약(999)이 아니다(둥글기 사다리). */
+            height: 52, padding: `0 ${SHOP.sp.part}px`, borderRadius: SHOP.r.ctrl,
+            background: C.brand, color: C.inverse, textDecoration: 'none',
+            fontSize: SHOP.fs.body, fontWeight: 700,
           }}>다른 차량 보기</a>
         </div>
       </WhitelabelFrame>
