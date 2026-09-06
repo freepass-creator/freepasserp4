@@ -271,7 +271,7 @@ export default function EstimatePage() {
             <div className="crow" style={{ marginTop: 12 }}>
               <span className="lb">차량가</span>
               <span className="pin w"><input value={man(listPrice)} disabled /><i>만원</i></span>
-              <span style={{ fontSize: 10.5, color: 'var(--ink-4)', fontWeight: 600 }}>공표가 + 옵션</span>
+              <span className="hint">공표가 + 옵션</span>
             </div>
           )}
           {needCc ? (
@@ -279,7 +279,7 @@ export default function EstimatePage() {
               <span className="lb">배기량</span>
               <span className="pin w"><input inputMode="numeric" value={manualCc ? manualCc.toLocaleString('ko-KR') : ''}
                 placeholder="0" onChange={(e) => setManualCc(digits(e.target.value))} /><i>cc</i></span>
-              <span style={{ fontSize: 10.5, color: 'var(--ink-4)', fontWeight: 600 }}>마스터에 없음</span>
+              <span className="hint">마스터에 없음</span>
             </div>
           ) : null}
 
