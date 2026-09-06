@@ -1,12 +1,16 @@
 /**
- * 신차 min~max 계산 — 각 모델의 «최소 금액(기본구성) ~ 최대 금액(풀옵션)».
- *   (사장님 2026-09-06: 원자 담당이 그 차의 최소~최대를 알아야 한다. 견적기(BTO) 정본으로.)
+ * 신차 min~max — 각 모델의 «최소 금액 ~ 최대 금액». (사장님 2026-09-06 · 코덱스 설계검토 반영)
  *
- * min = basePrice(기본구성).
- * max = basePrice + Σ(각 배타그룹 최고 addWon) + Σ(선택옵션 전부).
- *   status=pending 인 그룹/선택은 «아직 미독»으로 표시하고, max 에 «+미독» 꼬리표를 붙인다(가짜 확정 금지).
+ * ★코덱스 정정: min·max 는 «유효한 완성 구성»에서만 구한다. «그룹별 최고를 그냥 합산»하면 틀린다
+ *   (엔진 최고 ↔ 휠 최고가 «같이 선택 가능한지»를 안 보므로). 조합 규칙(종속·배타·패키지 포함)이
+ *   다 확인되기 전에는 «모델 min~max»가 아니라 «검증된 구성 중 관측 최저·최고»만 낼 수 있다.
  *
- * 사용: node scripts/newcar-min-max.mjs [config.json]   (기본 data/new-car/genesis-config.json)
+ * 그래서 지금 출력은 둘로 나눈다:
+ *   ① 확정 최소 = basePrice (기본구성이 유효한 완성구성일 때).
+ *   ② «배타 상한(참고)» = 기본 + Σ배타최고 — 조합 «유효성 미검증»이라 «상한 후보」일 뿐, 실제 최대 아님.
+ * 조합규칙·선택옵션이 다 채워지면 유효구성 전수/가지치기로 «모델 max»를 낸다(별도 계산기).
+ *
+ * 사용: node scripts/newcar-min-max.mjs [config.json]
  */
 import { readFileSync } from 'node:fs';
 const path = process.argv[2] || 'data/new-car/genesis-config.json';
@@ -26,11 +30,17 @@ for (const m of cfg.models) {
   const freeSum = (free.items || []).reduce((s, o) => s + Number(o.price || 0), 0);
   const freePending = free.status === 'pending';
 
-  const maxConfirmed = base + battaMax + freeSum;
+  const battaCeil = base + battaMax + freeSum; // 조합 유효성 «미검증» — 상한 후보일 뿐
+  const rulesVerified = !pendingGroups.length && !freePending && (m.constraintsVerified === true);
   console.log(`\n■ ${m.label} (${m.model})`);
-  console.log(`  최소(기본구성) = ${w(base)}  [${m.basePriceEngine || ''}]`);
-  console.log(`  배타 최고 합   = +${w(battaMax)}  (${battaBreak.join(' · ') || '추가 0'})`);
-  console.log(`  선택옵션 합    = ${freePending ? '미독(pending)' : '+' + w(freeSum)}`);
-  console.log(`  최대(풀옵션)   = ${w(maxConfirmed)}${(pendingGroups.length || freePending) ? '  + 미독분(' + [...pendingGroups, ...(freePending ? ['선택옵션'] : [])].join('·') + ')' : ''}`);
-  console.log(`  ⇒ 범위: ${w(base)} ~ ${w(maxConfirmed)}${(pendingGroups.length || freePending) ? '↑(미독 남음)' : ' (확정)'}`);
+  console.log(`  ✅ 확정 최소 = ${w(base)}  [${m.basePriceEngine || ''}]  (기본구성)`);
+  console.log(`  배타 최고 합 = +${w(battaMax)}  (${battaBreak.join(' · ') || '추가 0'})`);
+  console.log(`  선택옵션 합  = ${freePending ? '미독(pending)' : '+' + w(freeSum)}`);
+  if (rulesVerified) {
+    console.log(`  ✅ 모델 최대(유효구성) = ${w(battaCeil)}  (조합규칙 검증됨)`);
+    console.log(`  ⇒ 범위: ${w(base)} ~ ${w(battaCeil)}`);
+  } else {
+    console.log(`  ⚠ 배타 상한 후보 = ${w(battaCeil)}  — «조합 유효성 미검증»(엔진max↔휠max 동시선택 가능 여부 등 안 봄) + 미독분(${[...pendingGroups, ...(freePending ? ['선택옵션'] : [])].join('·') || '없음'})`);
+    console.log(`  ⇒ 지금 답할 수 있는 것: «최소 ${w(base)} 확정» · «최대는 조합규칙·선택옵션 채운 뒤 유효구성으로 확정»`);
+  }
 }
