@@ -1352,6 +1352,7 @@ type InsideBody = {
   provider: string; providerCode: string; source: string;
   vehicleStatus: string; productType: string; lockedBy: string;
   updatedAt: number; location: string;
+  penalty: string; penaltyUnder1y: string; penaltyOver1y: string;
 };
 function ShopInside({ code, mobile }: { code: string; mobile?: boolean }) {
   const [inside, setInside] = useState<InsideBody | null>(null);
@@ -1377,6 +1378,10 @@ function ShopInside({ code, mobile }: { code: string; mobile?: boolean }) {
   const when = inside.updatedAt
     ? new Date(inside.updatedAt).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
     : '';
+  /*
+   * 무리 둘 — ① 이 차가 «어디서 온 무엇인가» ② 손님이 물으면 답해야 하는 «패널티».
+   * ★패널티가 손님 화면에 없는 값이라 여기가 유일한 자리다(라우트 머리말).
+   */
   const rows: FactRow[] = ([
     ['공급사', inside.provider || inside.providerCode],
     ['원천', inside.source],
@@ -1385,6 +1390,9 @@ function ShopInside({ code, mobile }: { code: string; mobile?: boolean }) {
     ['선점계약', inside.lockedBy],
     ['차고지', inside.location],
     ['원자 갱신', when],
+    ['중도해지 위약금', inside.penalty],
+    ['위약금 1년 미만', inside.penaltyUnder1y],
+    ['위약금 1년 이상', inside.penaltyOver1y],
   ] as FactRow[]).filter((r) => String(r[1] || '').trim());
 
   return (

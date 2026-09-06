@@ -66,9 +66,29 @@ export async function GET(request: Request) {
    * 코드(`RP021`)만 있다. 그대로 내면 영업자가 「RP021이 어디였지」를 또 찾아야 한다.
    * ★코드 → 이름 규칙은 `providerNameMap` 한 곳이다 — 화면마다 이름을 새로 짓지 않는다.
    */
-  const partners = Object.entries(((await firestoreAdminRef().ref('v4/partners').get()).val() || {}) as Record<string, Rec>)
+  const db = firestoreAdminRef();
+  const partners = Object.entries(((await db.ref('v4/partners').get()).val() || {}) as Record<string, Rec>)
     .map(([k, v]) => ({ ...(v || {}), _key: k })) as EntityRecord[];
   const providerName = S(p.provider_name) || providerNameMap(partners)[providerCode] || '';
+
+  /*
+   * ★★**패널티(중도해지 위약금)** — 사장님 2026-09-06 「패널티」.
+   *   손님이 상담 중에 제일 자주 묻는 것 중 하나가 「중간에 빼면요?」인데, **손님 화면에는 안 뜬다.**
+   *   `penalty_condition` 은 공개 명단에 있으면서도 정책 넷 어디에도 안 그려져 있었고(2026-09-06 실측),
+   *   요율(`early_termination_rate_*`)은 아예 비공개다. ⇒ 영업자가 그 자리에서 답할 수 있게 여기 싣는다.
+   * ⚠ 손님 화면에 «올리는» 것이 아니다 — 위약금은 계약서에서 확정하는 값이라, 목록 상세에 숫자로
+   *   세우면 「그 값으로 계약된다」로 읽힌다. 영업자가 «말로» 안내하는 자리에 둔다.
+   * ★값은 정책(`policy_code` 조인)에 있다 — 재고 원자에는 없다.
+   */
+  const policyCode = S(p.policy_code);
+  let policy: Rec | null = null;
+  if (policyCode) {
+    const pool = ((await db.ref('policies').get()).val() || {}) as Record<string, Rec>;
+    policy = Object.entries(pool)
+      .map(([k, v]) => ({ ...(v || {}), _key: k } as Rec))
+      .find((x) => S(x.policy_code) === policyCode || S(x._key) === policyCode) || null;
+  }
+  const rate = (v: unknown) => { const t = S(v); return t && !/^0%?$/.test(t) ? t : ''; };
 
   const source = S(p.source);
   return NextResponse.json({
@@ -82,5 +102,9 @@ export async function GET(request: Request) {
     lockedBy: S(p.locked_by_contract),
     updatedAt: N(p._var_polled_at) || N(p._direct_ingest_at) || N(p._mirror_at),
     location: S(p.location),
+    /** 패널티 — 중도해지 위약금. 조건 문장 + 기간별 요율 둘. */
+    penalty: S(policy?.penalty_condition),
+    penaltyUnder1y: rate(policy?.early_termination_rate_under1y),
+    penaltyOver1y: rate(policy?.early_termination_rate_over1y),
   });
 }
