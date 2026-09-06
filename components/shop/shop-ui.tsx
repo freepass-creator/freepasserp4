@@ -342,7 +342,7 @@ export function ShopPrimary({ onClick, children }: { onClick: () => void; childr
  * ★토큰에는 축 이름을 붙인다(「제조사 기아」) — 「기아」만 있으면 그게 제조사인지 모델인지 모른다.
  */
 export function ShopTokens({ tokens, onRemove, onClear }: {
-  tokens: { axis: string; key: string; label: string; axisLabel: string }[];
+  tokens: { axis: string; key: string; label: string; axisLabel: string; solo?: boolean }[];
   onRemove: (axis: string, key: string) => void;
   /**
    * 전부 지우기 — **없으면 안 그린다.**
@@ -373,10 +373,17 @@ export function ShopTokens({ tokens, onRemove, onClear }: {
             background: C.brandBg,
             fontSize: SHOP.fs.sub, color: C.ink, fontWeight: 600,
           }}>
-          <span style={{ color: C.mute, fontWeight: 500 }}>{t.axisLabel}</span>
+          {/*
+            ★★**축 앞머리(「월 대여료」·「보증금」)를 안 붙인다**(사장님 2026-09-06 「거기 뭐
+              **월 대여료 · 보증금 · 기간 넣을 필요 없어. 딱 보면 알지**」).
+              값이 「월 50~60만원」·「보증금 없음」처럼 **제 이름으로 스스로 말한다**
+              (`product-filters` 의 `solo`). 앞머리를 붙이면 「보증금 보증금 없음」이 된다.
+            ⚠ 그래도 ✕ 의 **읽어 주는 이름**에는 축을 남긴다 — 눈으로 보는 사람은 줄 전체를 보지만
+              화면을 읽어 주는 손님은 단추 하나만 듣는다.
+          */}
           {t.label}
           <button type="button" onClick={() => onRemove(t.axis, t.key)}
-            aria-label={`${t.axisLabel} ${t.label} 조건 빼기`}
+            aria-label={`${t.solo ? '' : `${t.axisLabel} `}${t.label} 조건 빼기`}
             style={{ ...bare, width: 22, height: 22, borderRadius: SHOP.r.chip, color: C.mute }}>
             <X size={ICON.sm} aria-hidden />
           </button>{/* 토큰 안의 × 는 22 — 원자 ShopIconBtn(36)을 쓰면 알약이 그만큼 커진다 */}
