@@ -70,7 +70,16 @@ export type CostSettings = {
   salesFeePct: number;
   // 조건별(채널축)
   acqTaxRentPct: number; acqTaxSubPct: number;
-  insYear: number; selfPct: number;
+  /**
+   * 보험·자차 — **채널마다 다르다**. 구독은 보통 고객 명의라 0 이다.
+   * ★자차가 원가에 들어오는 길이 둘이다(사장님 2026-09-06) —
+   *     자체 충당 `selfPct` = 차량가 × %/년 (실무 1~2%, 보험사 자차요율과 비슷한 자리)
+   *     자차보험 가입 `selfInsYear` = 정액 원/년
+   *   한쪽만 쓰면 다른 쪽은 0. 둘 다 넣으면 더해진다.
+   */
+  insRentYear: number; insSubYear: number;
+  selfRentPct: number; selfSubPct: number;
+  selfInsRentYear: number; selfInsSubYear: number;
   marginRentPct: number; marginSubPct: number;
   /**
    * 차량가 업금액 — 사 온 값에 얹어 «취득원가»를 만든다. 감가·이자·수수료가 다 이 값 위에서 돈다.
@@ -116,7 +125,9 @@ export const COST_DEFAULTS: CostSettings = {
   overheadPct: 0, badDebtPct: 0,
   salesFeePct: 3,                    // ← 손오공 운영값(코드 기본 5%)
   acqTaxRentPct: pct(D.acqTaxRate.rent), acqTaxSubPct: pct(D.acqTaxRate.sub),
-  insYear: D.setting.insYear, selfPct: pct(D.setting.selfRate),
+  insRentYear: D.setting.insYear, insSubYear: 0,
+  selfRentPct: pct(D.setting.selfRate), selfSubPct: 0,
+  selfInsRentYear: 0, selfInsSubYear: 0,
   marginRentPct: pct(D.marginRate.rent), marginSubPct: pct(D.marginRate.sub),
   markupUsedPct: 20, markupNewPct: 0,
   ewYear: 80000,
@@ -138,6 +149,11 @@ export function configFrom(cs: CostSettings, opts: { newCar?: boolean } = {}) {
     marginRate: { rent: r(cs.marginRentPct), sub: r(cs.marginSubPct) },
     loanRatio: r(cs.loanPct),
     markup: { rent: { rate: markupRate }, sub: { rate: markupRate } },
+    // 보험·자차 — 채널별. 0 도 «정한 값»이라 엔진이 존중한다(구독 0 = 고객 명의).
+    insYear: { rent: cs.insRentYear, sub: cs.insSubYear },
+    selfRate: { rent: r(cs.selfRentPct), sub: r(cs.selfSubPct) },
+    selfInsuredYear: { rent: cs.selfInsRentYear, sub: cs.selfInsSubYear },
+    ewPerYear: { rent: cs.ewYear, sub: 0 },
     acqTaxRate: { ...D.acqTaxRate, rent: r(cs.acqTaxRentPct), sub: r(cs.acqTaxSubPct) },
     // 판관비·대손 — 직접원가에 비율로 얹는다(엔진 `calc.js`. 기본 0이면 없던 것과 같다).
     overheadRate: r(cs.overheadPct),
@@ -160,7 +176,7 @@ export function configFrom(cs: CostSettings, opts: { newCar?: boolean } = {}) {
     setting: {
       ...D.setting,
       bondRate: r(cs.bondPct), regFee: cs.regFee,
-      insYear: cs.insYear, selfRate: r(cs.selfPct), ewYear: cs.ewYear,
+      ewYear: cs.ewYear,
       maintMonthly: cs.maintMonthly, gpsMonthly: cs.gpsMonthly, parkingMonthly: cs.parkingMonthly,
       deliveryFee: cs.deliveryFee, initPrepFee: cs.initPrepFee, inspectionFee: cs.inspectionFee,
       salesFeeRate: { rent: r(cs.salesFeePct), sub: r(cs.salesFeePct) },
