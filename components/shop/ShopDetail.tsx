@@ -663,7 +663,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
           flex: mobile ? undefined : '1 1 360px', maxWidth: mobile ? undefined : 520,
         }}>
           <div style={{
-            marginBottom: 8, fontSize: SHOP.fs.cap, fontWeight: 600, color: C.mute,
+            marginBottom: SHOP.sp.snug, fontSize: SHOP.fs.cap, fontWeight: 600, color: C.mute,
           }}>기간별 대여료 및 보증금</div>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontVariantNumeric: 'tabular-nums' }}>
             <thead>
@@ -789,7 +789,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
              *   상자에 넣으면 아래 값들과 같은 «칸»이 되어, 이름인지 값인지가 안 갈린다.
              */}
             {modelLine ? (
-              <div style={{ marginBottom: SHOP.sp.edge }}>
+              <div style={{ marginBottom: SHOP.sp.part }}>
                 <div style={{ fontSize: SHOP.fs.cap, color: C.faint, marginBottom: SHOP.sp.tight }}>제조사 · 세부모델 · 세부트림</div>
                 <div style={{
                   fontSize: SHOP.fs.lead, fontWeight: FW.head, color: C.ink,
@@ -811,8 +811,8 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
              *   격자 칸에 가두면 여덟 개짜리 차가 좁은 칸 안에서 다섯 줄로 접힌다. 폭을 통째로 쓴다.
              */}
             {options.length ? (
-              <div aria-label="선택 옵션" style={{ marginBottom: SHOP.sp.edge }}>
-                <div style={{ marginBottom: 8, fontSize: SHOP.fs.cap, color: C.faint }}>선택 옵션</div>
+              <div aria-label="선택 옵션" style={{ marginBottom: SHOP.sp.part }}>
+                <div style={{ marginBottom: SHOP.sp.tight, fontSize: SHOP.fs.cap, color: C.faint }}>선택 옵션</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: SHOP.sp.snug }}>
                   {options.map((o) => (
                     <span key={o} style={{
@@ -833,7 +833,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
              *     색 코드 정본은 `lib/domain/color-chips` — 못 알아보는 이름은 이름만 나간다.
              */}
             {colorText ? (
-              <div aria-label="색상" style={{ marginBottom: specs.length ? 28 : 0 }}>
+              <div aria-label="색상" style={{ marginBottom: specs.length ? SHOP.sp.part : 0 }}>
                 <div style={{ marginBottom: SHOP.sp.tight, fontSize: SHOP.fs.cap, color: C.faint }}>색상</div>
                 <div style={{
                   display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: SHOP.sp.edge, rowGap: SHOP.sp.tight,
@@ -894,7 +894,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
                 {ownDamageDeductible ? (
                   <div style={{
                     display: 'flex', alignItems: 'baseline', gap: SHOP.sp.cozy, flexWrap: 'wrap',
-                    marginBottom: otherDeductibles ? 8 : 0,
+                    marginBottom: otherDeductibles ? SHOP.sp.snug : 0,
                   }}>
                     <span style={{ flex: '0 0 auto', fontSize: SHOP.fs.sub, color: C.faint }}>자차</span>
                     <span style={{
@@ -1131,6 +1131,22 @@ function TopBar({ code, title, listHref }: { code: string; title: string; listHr
  * ★폰은 그대로 쌓는다 — 390px 에 기둥을 세우면 값 칸이 200px 밖에 안 남는다.
  * ⚠ 순서는 안 바뀐다. 사장님이 정하신 여섯 구역이 위에서 아래로 그대로다 —
  *   **한 구역 «안»에서만 가로로 편다.**
+ */
+/**
+ * ★★★**세로 리듬 — 이 화면의 간격은 «넷»뿐이다**(사장님 2026-09-06 「줄 간격들을 … **다 통일**
+ * 시켰으면 좋겠어. **어디는 넓고 어딘 좁고** 이러지 않고」).
+ *
+ * | 무엇을 가르나 | 값 | 어디 |
+ * |---|---|---|
+ * | 구역 ↔ 구역 | 위 `part`(24) · 띠 8 · 아래 `edge`(16) | `Rule` |
+ * | 구역 제목 ↔ 본문 | `edge`(16) | `SecTitle` |
+ * | 무리 ↔ 무리 | **`part`(24)** | 이름줄·선택옵션·색상 / 보상한도·면책금·긴급출동 / 표·납부 |
+ * | 라벨 ↔ 값 | 무리 제목은 `snug`(8) · 칸 라벨은 `tight`(4) | |
+ *
+ * ⚠ 2026-09-06 실측으로 고른 값이다. 그전에는 **무리 사이가 16·24·28** 로 갈려 있었고
+ *   (차량 정보만 16 과 28, 보험·대여료는 24), **라벨 밑이 4 와 8** 로 갈려 있었다.
+ *   보는 사람은 규칙을 못 읽고 「여기는 왜 붙었지」만 느낀다.
+ * ★새 무리를 더할 때는 **표의 값만** 쓴다. 숫자를 직접 적지 않는다(`SHOP.sp`).
  */
 function Sec({ title, icon, accent, tag, mobile, children }: {
   title: string; icon?: LucideIcon; accent?: boolean; tag?: string;
@@ -1694,7 +1710,7 @@ function Head({ title, facts, stateMarks, perkMarks }: {
         ) : null}
       </div>
       {perkMarks.length ? (
-        <div style={{ marginTop: 12 }}><PerkMarks marks={perkMarks} /></div>
+        <div style={{ marginTop: SHOP.sp.cozy }}><PerkMarks marks={perkMarks} /></div>
       ) : null}
     </header>
   );

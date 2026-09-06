@@ -537,8 +537,8 @@ must(/--shop-fs-body: 15px/.test(css) && /@media \(max-width: 760px\)/.test(css)
    */
   && /--shop-fs-price: 21px/.test(css) && /price: 'var\(--shop-fs-price\)'/.test(shopUi)
   && /--shop-fs-tag/.test(css) && /--shop-fs-hero/.test(css)
-  && !/FS\.[a-z]/.test(shopUi) && !/FS\.[a-z]/.test(shopCard)
-  && !/FS\.[a-z]/.test(shopDetail) && !/FS\.[a-z]/.test(wlFrame),
+  && !/FS\.[a-z]/.test(shopUi) && !/FS\.[a-z]/.test(shopCard)
+  && !/FS\.[a-z]/.test(shopDetail) && !/FS\.[a-z]/.test(wlFrame),
   '손님 동 글자가 사다리를 벗어났습니다 — 업무동 토큰(FS.*)을 섞었거나 숫자를 화면에 박았습니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-3');
 
@@ -759,7 +759,7 @@ must(!/aria-label=\{faved/.test(shopDetail) && !/Heart/.test(shopDetail) && !/He
  * 집 규칙도 그쪽이 틀렸다 — 「박스 뱃지 쓰지 말고 아이콘 텍스트로, **모든 곳에서**」(2026-08-28·30).
  */
 must(/<PerkMarks marks=/.test(shopDetail) && /<PerkMarks marks=/.test(shopCard)
-  && !/<Badge/.test(shopCard),
+  && !/<Badge/.test(shopCard),
   '손님 카드가 다시 박스 뱃지를 씁니다 — 목록·상세가 같은 칩 원자(PerkMarks)를 써야 합니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1 · docs/DESIGN_CONFIRMED_LIST_CARD.md');
 // 전화는 담당자 → 대표번호로 떨어진다 — ?a= 없는 손님에게 전화 링크가 0개가 되면 안 된다.
@@ -784,6 +784,36 @@ must(/wl\.tel/.test(read('app/q/[code]/ShopDetailView.tsx')),
   must(stray.length === 0,
     `채널 전용 라우트 파일이 생겼습니다(${stray.join(' · ')}) — 채널은 «표 한 줄»이고 화면은 한 벌입니다.`,
     'docs/영업자홈피-채널-매뉴얼.md §2');
+}
+
+/*
+ * ★★★**세로 리듬은 «사다리»만 쓴다**(사장님 2026-09-06 「줄 간격들을 … **다 통일** 시켰으면
+ *   좋겠어. **어디는 넓고 어딘 좁고** 이러지 않고」).
+ *   손님 동 파일에서 `margin*: <숫자>` 가 사다리(0·4·8·12·16·24·32·48 = `SHOP.sp`) 밖이면 걸린다.
+ * ⚠ 실측 2026-09-06 — 무리 사이가 **16·24·28** 로, 라벨 밑이 **4·8** 로 갈려 있었다.
+ *   보는 사람은 규칙을 못 읽고 「여기는 왜 붙었지」만 느낀다.
+ * ★**세로만 본다**(`marginTop|marginBottom|margin`). 가로(`marginLeft/Right`)는 아이콘을 1px 밀어
+ *   글자 밑선에 맞추는 «눈맞춤»이 섞여 있어 사다리로 잴 값이 아니다.
+ * ★`padding` 은 안 본다 — 뱃지 규격(`BADGE.padY` 2)처럼 «리듬이 아닌» 값이 섞여 있다.
+ */
+{
+  const LADDER = new Set([0, 4, 8, 12, 16, 24, 32, 48]);
+  const files = [
+    'components/shop/ShopDetail.tsx', 'components/shop/ShopCard.tsx',
+    'components/shop/ShopFilters.tsx', 'components/shop/ShopFilterSheet.tsx',
+    'components/shop/shop-ui.tsx', 'components/WhitelabelFrame.tsx',
+    'app/(shop)/shop/ShopView.tsx',
+  ];
+  const strays: string[] = [];
+  for (const f of files) {
+    const src = read(f).replace(/\/\*[\s\S]*?\*\//g, '');
+    for (const m of src.matchAll(/margin(?:Top|Bottom)?:\s*(\d+)/g)) {
+      if (!LADDER.has(Number(m[1]))) strays.push(`${f} margin ${m[1]}`);
+    }
+  }
+  must(strays.length === 0,
+    `세로 리듬이 사다리를 벗어났습니다(${strays.slice(0, 4).join(' · ')}) — 간격은 SHOP.sp 만 씁니다.`,
+    'components/shop/ShopDetail.tsx §세로 리듬');
 }
 
 if (fails.length) {

@@ -168,7 +168,7 @@ export function WhitelabelFrame({
 
       <footer style={{ borderTop: `1px solid ${C.line}`, marginTop: 24 }}>
         <div style={{ maxWidth: 1280, margin: '0 auto', padding: '32px 24px 32px' }}>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, marginBottom: 10 }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: SHOP.sp.snug, marginBottom: SHOP.sp.cozy }}>
             <span style={{ fontSize: 18, fontWeight: FW.head, letterSpacing: '-0.03em', color: C.faint }}>
               {wl.wordmark.main}
             </span>
@@ -186,7 +186,7 @@ export function WhitelabelFrame({
             쳐야 한다 — 사업자 표기 밑 한 줄이 그 둘을 다 만족한다(회사 사이트가 흔히 그러는 자리다).
           */}
           <a href="/login" style={{
-            display: 'inline-block', marginTop: 14,
+            display: 'inline-block', marginTop: SHOP.sp.edge,
             fontSize: SHOP.fs.cap, color: C.faint, textDecoration: 'none',
           }}>로그인</a>
         </div>

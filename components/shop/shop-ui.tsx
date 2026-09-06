@@ -549,7 +549,7 @@ export function ShopEmpty({ onClear }: { onClear: () => void }) {
       <div style={{ fontSize: SHOP.fs.h2, fontWeight: 700, color: C.ink, marginBottom: 8 }}>
         조건에 맞는 차량이 없습니다
       </div>
-      <div style={{ fontSize: SHOP.fs.body, color: C.mute, lineHeight: 1.7, marginBottom: 20 }}>
+      <div style={{ fontSize: SHOP.fs.body, color: C.mute, lineHeight: 1.7, marginBottom: SHOP.sp.part }}>
         조건을 조금 넓히면 비슷한 차량을 찾을 수 있습니다.<br />
         원하시는 차량이 없으면 담당자에게 문의해 주세요.
       </div>
@@ -578,7 +578,7 @@ export function ShopMore({ shown, total, onMore }: { shown: number; total: numbe
           background: C.head, color: C.ink,
           fontSize: SHOP.fs.body, fontWeight: 700,
         }}>
-        차량 더 보기 <span style={{ color: C.mute, fontWeight: 500, marginLeft: 6 }}>{shown} / {total}</span>
+        차량 더 보기 <span style={{ color: C.mute, fontWeight: 500, marginLeft: SHOP.sp.snug }}>{shown} / {total}</span>
       </button>
     </div>
   );
