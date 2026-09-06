@@ -127,3 +127,19 @@
 .est-root .card.terms .prod:first-child{border-top:0}
 .est-root .card.terms .pd{padding:2px 0 8px}
 .est-root .foot b{color:var(--ink-3)}
+
+/* ────────────────────────────────────────────────────────────────
+   ▼ 목업 «이후» 덧붙인 것 — 위쪽은 목업 그대로다. 여기만 우리가 더한 조각이다.
+     늘리기 전에 위에 같은 게 있는지 먼저 본다.
+   ──────────────────────────────────────────────────────────────── */
+
+/* 금액 칸 — 목업 `.pin` 은 잔가(두 자리)용이라 44px 다. 매입가는 여덟 자리라 넓은 칸이 따로 있어야 한다. */
+.est-root .pin.w input{width:96px;text-align:right}
+.est-root .pin input:disabled{color:var(--ink-4)}
+
+/* 차 고르기 줄 — 목업 `.vsearch`(읽기전용 검색칸) 자리에 «누르면 시트가 열리는» 버튼을 세운다.
+   ★2026-09-06 차종마스터·신차마스터를 붙이면서 바뀐 곳. 목업은 검색칸 하나였고 신차는 select 셋이었는데,
+     옵션·조합규칙까지 고르려면 그 셋으로는 안 된다(features/estimate/CarPicker.tsx 머리말). */
+.est-root button.vsearch{width:100%;cursor:pointer;text-align:left;font:inherit;color:var(--ink-1)}
+.est-root button.vsearch .vt{flex:1;min-width:0;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.est-root button.vsearch .vg{flex:none;font-size:11px;font-weight:800;color:var(--accent)}

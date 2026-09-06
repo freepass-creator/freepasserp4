@@ -28,9 +28,13 @@
  *   ① 차종 검색(중고마스터) — 지금은 목업이 박아 둔 그 차 한 대가 기본값이다.
  *   ② 헤더 「원가」 탭 — 관리자 원가설정 화면이 없어 눌리지 않게 두었다(목업은 외부 링크였다).
  */
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import '@/components/estimate/estimate.css';
+import { useAppBar } from '@/lib/appbar';
+import CarPicker from '@/features/estimate/CarPicker';
+import type { PickedCar } from '@/lib/domain/estimate/car-index';
+import { deltaKeyFor } from '@/lib/domain/estimate/residual-by-name';
 import { COST_DEFAULTS, loadCostSettings, configFrom } from '@/lib/domain/estimate/cost-settings';
 import { safeComputeTerm } from '@/lib/domain/estimate/safe-calc.js';
 import { createQuoteInput } from '@/lib/domain/estimate/quote-input.js';
@@ -44,19 +48,26 @@ const FEE_CHIPS = [0, 2.5, 5];
 const DISCS = [0, 2, 5, 10];
 const CREDIT = ['고신용', '중신용', '저신용'];
 
-/** 목업 `TRIMS` 그대로 — 차종 검색이 붙기 전까지의 신차 트림. */
-const TRIMS = [
-  { n: '2.5 프리미엄', p: 34110000 },
-  { n: '2.5 익스클루시브', p: 37200000 },
-  { n: '2.5 캘리그래피', p: 42000000 },
-];
-const BRANDS = ['현대', '기아', '제네시스'];
-const MODELS = ['더 뉴 캐스퍼', '아반떼 CN7', '그랜저 GN7'];
+/**
+ * 첫 화면에 서 있는 차 — 목업 `DEF.used` 가 박아 둔 그 차(현대 그랜저 IG 2.5).
+ * ★차를 고르기 «전»에도 1~5년 칸이 숫자로 서 있어야 한다(설계서 §1). 빈 화면으로 시작하지 않는다.
+ *   차 고르기 시트에서 고르면 이 자리가 «그 차»로 바뀐다.
+ */
+const DEFAULT_USED: PickedCar = {
+  source: 'used', name: '현대 그랜저 IG 2.5', meta: '중고 · 2019~2022 · 가솔린 2.5',
+  maker: '현대', model: '그랜저', subModel: '그랜저 IG', trim: '', powertrain: '가솔린 2.5',
+  fuel: 'gasoline', cc: 2497,
+};
+const DEFAULT_NEW: PickedCar = {
+  source: 'new', name: '신차를 고르세요', meta: '신차마스터에서 제조사 → 모델 → 트림 → 옵션',
+  maker: '', model: '', subModel: '', trim: '', powertrain: '',
+  fuel: 'gasoline', cc: null, price: 0,
+};
+const DEFAULT_USED_PRICE = 27000000;
+const DEFAULT_USED_YEAR = 2021;
+const DEFAULT_USED_MILEAGE = 48000;
 
-/** 목업 `DEF.used` 가 박아 둔 그 차(현대 그랜저 IG 2.5). 배기량은 엔진(취득세·자동차세)이 요구한다. */
-const USED = { name: '현대 그랜저 IG 2.5', price: 27000000, year: 2021, mileage: 48000, cc: 2497 };
-const NEW_CC = 2497;
-
+const digits = (v: string) => Number(String(v).replace(/[^\d]/g, '')) || 0;
 const won = (n: number) => `${Math.round(n || 0).toLocaleString('ko-KR')}원`;
 const man = (n: number) => `${Math.round((n || 0) / 10000).toLocaleString('ko-KR')}만`;
 
@@ -125,9 +136,15 @@ export default function EstimatePage() {
   const [ch, setCh] = useState<'rent' | 'sub'>('rent');
   const [type, setType] = useState<'return' | 'acquire'>('return');
   const [credit, setCredit] = useState('중신용');
-  const [trim, setTrim] = useState(0);
-  const [brand, setBrand] = useState(BRANDS[0]);
-  const [model, setModel] = useState(MODELS[0]);
+  /** 고른 차 한 대 — 중고는 차종마스터, 신차는 신차마스터에서 온다(`features/estimate/CarPicker`). */
+  const [picked, setPicked] = useState<PickedCar>(DEFAULT_USED);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  /** 중고 시세는 마스터에 없다 — 사람이 넣는다. 신차는 공표가라 자동으로 찬다. */
+  const [usedPrice, setUsedPrice] = useState(DEFAULT_USED_PRICE);
+  const [usedYear, setUsedYear] = useState(DEFAULT_USED_YEAR);
+  const [usedMileage, setUsedMileage] = useState(DEFAULT_USED_MILEAGE);
+  /** 마스터가 배기량을 안 주면 여기서 묻는다 — 0 으로 떨어뜨리면 자동차세가 «조용히» 0 이 된다. */
+  const [manualCc, setManualCc] = useState(0);
   const [disc, setDisc] = useState(0);
   const [dep, setDep] = useState(10);
   const [pre, setPre] = useState(0);
@@ -147,18 +164,29 @@ export default function EstimatePage() {
   const fees = useMemo(() => Array.from(new Set([...FEE_CHIPS, cost.salesFeePct])).sort((a, b) => a - b), [cost.salesFeePct]);
 
   const isNew = cond === 'new';
-  const listPrice = isNew ? TRIMS[trim].p : USED.price;
-  const price = Math.round(listPrice * (1 - disc / 100));
-  const age = isNew ? 0 : nowYear - USED.year;
+  // 갈래를 바꾸면 고른 차도 그 갈래의 것으로 돌아간다 — 중고를 고른 채 신차 값이 계산되면 안 된다.
+  useEffect(() => { setPicked(cond === 'new' ? DEFAULT_NEW : DEFAULT_USED); setManualCc(0); }, [cond]);
 
-  /** 자동 잔가(%) — 신차는 출고가 대비, 중고는 «현재 시세 대비». 엔진 `residual-lookup` 이 낸다. */
+  const listPrice = isNew ? (picked.price ?? 0) : usedPrice;
+  const price = Math.round(listPrice * (1 - disc / 100));
+  const age = isNew ? 0 : Math.max(0, nowYear - (usedYear || nowYear));
+  const cc = picked.cc ?? (manualCc || null);
+  const needCc = !picked.cc;
+
+  /**
+   * 자동 잔가(%) — 신차는 출고가 대비, 중고는 «현재 시세 대비». 엔진 `residual-lookup` 이 낸다.
+   * ★2026-09-06 부터 **그 차의 곡선**을 쓴다 — 차종델타(±%p)를 이름으로 되짚어 건다.
+   *   그 전에는 `(null, null)` 로 불러 모든 차가 국산 표준 하나였다(그랜저도 쏘나타와 같은 잔가).
+   */
+  const delta = useMemo(() => deltaKeyFor(picked.maker, picked.model), [picked.maker, picked.model]);
   const autoResid = useMemo(() => {
+    const mk = delta?.makerId ?? null; const md = delta?.modelCode ?? null;
     const out: Record<number, number> = {};
     for (const t of TERMS) {
-      out[t] = Math.round(isNew ? newcarResidPct(null, null, t / 12) : usedResidPct(null, null, age, t / 12));
+      out[t] = Math.round(isNew ? newcarResidPct(mk, md, t / 12) : usedResidPct(mk, md, age, t / 12));
     }
     return out;
-  }, [isNew, age]);
+  }, [isNew, age, delta]);
   const residPct = useMemo(() => {
     const out: Record<number, number> = {};
     for (const t of TERMS) out[t] = residOverride[t] ?? autoResid[t];
@@ -174,21 +202,24 @@ export default function EstimatePage() {
     const input = createQuoteInput({
       adminCfg, channel: ch, type,
       form: {
-        price, cc: isNew ? NEW_CC : USED.cc, fuel: 'gasoline', accident: 'none',
-        mileage: isNew ? 0 : USED.mileage, year: isNew ? nowYear : USED.year, credit,
+        price, cc, fuel: picked.fuel, accident: 'none',
+        mileage: isNew ? 0 : usedMileage, year: isNew ? nowYear : usedYear, credit,
       },
       conditions: { depositPct: dep, prepayPct: pre },
       residual: null, residualDefault, credit, defaultGroup: 'B', nowYear,
     });
     return TERMS.map((t) => ({ ...safeComputeTerm(t, input, { idx: t }), term: t }));
-  }, [ch, type, price, isNew, credit, dep, pre, fee, residPct, nowYear, cost]);
+  }, [ch, type, price, isNew, credit, dep, pre, fee, residPct, nowYear, cost, cc, picked.fuel, usedMileage, usedYear]);
 
   const prepayAmt = Math.round(price * pre / 100);
-  const vehTag = `${man(listPrice)}원`;
-  const vName = isNew ? `${brand} ${model} ${TRIMS[trim].n}` : USED.name;
+  const vehTag = listPrice ? `${man(listPrice)}원` : '차를 고르세요';
   const vMeta = isNew
-    ? `신차 · 출고가 ${man(listPrice)} · ${nowYear}년형`
-    : `중고 · 매입가 ${man(USED.price)} · ${USED.year}년 · ${USED.mileage.toLocaleString('ko-KR')}km`;
+    ? [picked.meta, listPrice ? `출고가 ${man(listPrice)}` : null].filter(Boolean).join(' · ')
+    : [picked.meta, `매입가 ${man(usedPrice)}`, `${usedYear}년`, `${usedMileage.toLocaleString('ko-KR')}km`].filter(Boolean).join(' · ');
+
+  // 하단 「검색」 탭이 이 화면에서는 «차 고르기»를 연다(lib/tabbar — 검색은 라우트가 아니라 행동이다).
+  useAppBar({ search: { onOpen: () => setPickerOpen(true), active: picked !== DEFAULT_USED && picked !== DEFAULT_NEW } },
+    [picked, cond]);
 
   return (
     <div className="est-root">
@@ -205,30 +236,54 @@ export default function EstimatePage() {
         <div className="card">
           <div className="step"><span className="no">1</span>차량<span className="veh">{vehTag}</span></div>
           <Seg tone="t1" cur={cond} onPick={setCond} opts={[{ v: 'used', label: '중고' }, { v: 'new', label: '신차' }]} />
-          {!isNew ? (
-            <div className="vsearch">
-              <IconSearch />
-              {/* 차종 검색(중고마스터) 연결 전 — 목업과 같이 읽기전용. */}
-              <input placeholder="차종 검색 (중고마스터)" value={USED.name} readOnly />
-            </div>
-          ) : (
-            <div className="vsel">
-              <select value={brand} onChange={(e) => setBrand(e.target.value)}>
-                {BRANDS.map((b) => <option key={b}>{b}</option>)}
-              </select>
-              <select value={model} onChange={(e) => setModel(e.target.value)}>
-                {MODELS.map((m) => <option key={m}>{m}</option>)}
-              </select>
-              <select value={trim} onChange={(e) => setTrim(Number(e.target.value))}>
-                {TRIMS.map((t, i) => <option key={t.n} value={i}>{t.n} · {man(t.p)}원</option>)}
-              </select>
-            </div>
-          )}
+          {/* 차 고르기 — 목업은 중고=읽기전용 검색칸 · 신차=select 셋이었다.
+              둘을 «한 줄»로 합치고 시트를 연다(옵션·조합규칙은 select 로 못 담는다 · CarPicker 머리말). */}
+          <button type="button" className="vsearch" onClick={() => setPickerOpen(true)}>
+            <IconSearch />
+            <span className="vt">{picked.name}</span>
+            <span className="vg">{isNew ? '신차 고르기' : '차종 고르기'}</span>
+          </button>
           <div className="vchip">
             <div className="ic"><IconCar /></div>
-            <div><div className="nm">{vName}</div><div className="mt">{vMeta}</div></div>
+            <div><div className="nm">{picked.name}</div><div className="mt">{vMeta}</div></div>
           </div>
-          <div className="crow" style={{ marginTop: 12 }}>
+
+          {/* 마스터가 못 주는 값은 사람이 넣는다 — 중고 시세·연식·주행은 마스터에 없다. */}
+          {!isNew ? (
+            <>
+              <div className="crow" style={{ marginTop: 12 }}>
+                <span className="lb">매입가</span>
+                <span className="pin w"><input inputMode="numeric" value={man(usedPrice)}
+                  onChange={(e) => setUsedPrice(digits(e.target.value) * 10000)} /><i>만원</i></span>
+              </div>
+              <div className="crow">
+                <span className="lb">연식</span>
+                <span className="pin"><input inputMode="numeric" value={usedYear}
+                  onChange={(e) => setUsedYear(digits(e.target.value))} /><i>년</i></span>
+              </div>
+              <div className="crow">
+                <span className="lb">주행</span>
+                <span className="pin w"><input inputMode="numeric" value={usedMileage.toLocaleString('ko-KR')}
+                  onChange={(e) => setUsedMileage(digits(e.target.value))} /><i>km</i></span>
+              </div>
+            </>
+          ) : (
+            <div className="crow" style={{ marginTop: 12 }}>
+              <span className="lb">차량가</span>
+              <span className="pin w"><input value={man(listPrice)} disabled /><i>만원</i></span>
+              <span style={{ fontSize: 10.5, color: 'var(--ink-4)', fontWeight: 600 }}>공표가 + 옵션</span>
+            </div>
+          )}
+          {needCc ? (
+            <div className="crow">
+              <span className="lb">배기량</span>
+              <span className="pin w"><input inputMode="numeric" value={manualCc ? manualCc.toLocaleString('ko-KR') : ''}
+                placeholder="0" onChange={(e) => setManualCc(digits(e.target.value))} /><i>cc</i></span>
+              <span style={{ fontSize: 10.5, color: 'var(--ink-4)', fontWeight: 600 }}>마스터에 없음</span>
+            </div>
+          ) : null}
+
+          <div className="crow">
             <span className="lb">매입 할인</span>
             <Chips opts={DISCS} cur={disc} unit="%" onPick={setDisc} />
           </div>
@@ -317,6 +372,13 @@ export default function EstimatePage() {
           })}
           </div>
         </div>
+
+        <CarPicker open={pickerOpen} mode={cond} onClose={() => setPickerOpen(false)}
+          onPick={(c) => {
+            setPicked(c);
+            // 신차는 공표가가 곧 차량가다. 연식·주행은 새 차니 올해·0.
+            if (c.source === 'new') { setUsedMileage(0); setUsedYear(nowYear); }
+          }} />
 
         <div className="foot">
           <b>업계 기준선 추정</b> — 잔가=시장 벤치마크 역산, 수익률=업계 영업이익률(SK렌터카 9.9%).
