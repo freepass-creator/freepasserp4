@@ -1090,8 +1090,9 @@
    "minMax": {
     "min": 54000000,
     "minConfig": "현재 최저 기본구성(개소세5%) — currentPricing 참조",
-    "optionStatus": "⚠ 1단계(base·라인업 교정) 완료. 옵션가·배타조합·정밀 max 는 2단계 genesis.com BTO 재확인 후 확정. mtops 구가 옵션은 신뢰 안 함.",
-    "note": "디젤 단종. BLACK 별도 확인 필요. Electrified GV70(전기)는 별도 모델."
+    "optionStatus": "2단계 carnoon 초안 반영(stage2_carnoon_draft). provisional max 83,130,000. 원단위 확정은 공식 PDF/BTO — 초안 caveats 참조.",
+    "note": "디젤 단종. BLACK 별도 확인 필요. Electrified GV70(전기)는 별도 모델.",
+    "provisionalMaxPrecise": 83130000
    },
    "priceRowCheck": {
     "count": 33,
@@ -1112,6 +1113,34 @@
      }
     },
     "note": "디젤 단종. BLACK 별도 확인 필요. Electrified GV70(전기)는 별도 모델."
+   },
+   "stage2_carnoon_draft": {
+    "source": "carnoon 10534 2026(WebFetch 요약 — 초안·검증 전)",
+    "exclusiveAdds": {
+     "엔진(3.5T)": 5430000,
+     "구동(AWD)": 3000000,
+     "휠(21인치)": 3300000,
+     "내장(셀렉션Ⅱ)": 3000000
+    },
+    "freeOptions": {
+     "헤드업": 1300000,
+     "드라Ⅰ": 1950000,
+     "드라Ⅱ": 2000000,
+     "2열컴포트": 1100000,
+     "아웃도어": 400000,
+     "컨비니언스": 2600000,
+     "빌트인캠": 850000,
+     "뱅올": 1700000,
+     "프리뷰서스펜션": 1100000,
+     "파노라마": 1400000
+    },
+    "bundles": {
+     "파퓰러 패키지Ⅰ": 2950000,
+     "파퓰러 패키지Ⅱ": 6600000,
+     "파퓰러Ⅱ 포함": "헤드업+드라Ⅰ+2열컴포트+드라Ⅱ+빌트인캠(개별합≥번들이라 max는 개별)"
+    },
+    "provisionalMaxPrecise": 83130000,
+    "caveats": "⚠ carnoon 요약 모호: ①base 54.0M vs 상세페이지 53.93M(±70k) ②스포츠 패키지 미표기(mtops엔 있었음) ③기본 휠 0원 항목 불명확. 정밀 확정은 제네시스 공식 가격표 PDF/BTO 필요. 이 provisional 은 참고값."
    }
   },
   {
