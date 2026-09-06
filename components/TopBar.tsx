@@ -1,6 +1,7 @@
 ﻿'use client';
 import Link from 'next/link';
 import { usePathname, useSearchParams } from 'next/navigation';
+import { hidesTopBar } from '@/lib/guest-surface';
 import { useState, useEffect, useCallback, type CSSProperties, type ReactNode } from 'react';
 import { Menu, X, Search, FileText, FileSignature, Settings, ChevronLeft, List, History, Users, Wrench, HelpCircle, Sparkles, RefreshCw, type LucideIcon } from 'lucide-react';
 import { useAppBarSlots } from '@/lib/appbar';
@@ -32,6 +33,9 @@ const GROUPS: { title: string; items: { href?: string; label: string; icon: Luci
     { href: '/esign', label: NAV_LABEL.esign, icon: FileSignature, roles: ['admin'] },
   ] },
   { title: '견적·구독', items: [
+    // 견적(/estimate) — 「이 차가 얼마입니까」에 그 자리에서 답한다. 폰은 하단 홈바에도 있다(2026-09-06).
+    //   ★웹·모바일 «양쪽에 한 번에» 단다. 한쪽만 달면 다른 쪽을 볼 때마다 「또 원래대로」가 된다(집 규격 §3).
+    { href: '/estimate', label: NAV_LABEL.estimate, icon: NAV_ICON.estimate, roles: ALL_ROLES },
     { href: '/sonogong', label: '중고 픽업구독', icon: RefreshCw, roles: ALL_ROLES },
     { href: '/welrix', label: '신차렌탈 견적기', icon: Sparkles, roles: ALL_ROLES },
   ] },
@@ -61,6 +65,7 @@ const SIMPLE_GROUPS: typeof GROUPS = [{
   title: '',
   items: [
     { href: '/finder', label: '상품찾기', icon: NAV_ICON.product, roles: ALL_ROLES },
+    { href: '/estimate', label: NAV_LABEL.estimate, icon: NAV_ICON.estimate, roles: ALL_ROLES },
     { href: '/contract', label: '계약진행', icon: NAV_ICON.contract, roles: ALL_ROLES },
     { href: '/settlement', label: '정산확인', icon: FileText, roles: ['admin'] },
     { href: '/inventory', label: '재고관리', icon: NAV_ICON.inventory, roles: ['provider', 'admin'] },
@@ -362,7 +367,11 @@ export default function TopBar() {
   const line = C.line, ink = C.ink;
   // /m = 모바일 미리보기(폰 프레임) → 앱 상단바 없이 전체화면. /m/[code](실제 모바일 상세)는 상단바 유지.
   // '/' = 공개 안내 페이지(상품시트 입장) — ERP 상단바가 뜨면 안 된다(2026-08-15 · ERP 개선 대기).
-  if (path === '/' || path === '/erp5' || path.startsWith('/erp5/') || path === '/login' || path === '/m' || path.startsWith('/q/') || path.startsWith('/catalog') || path.startsWith('/sign/') || path.startsWith('/estimate')) return null;
+  // 손님 면(가게·카탈로그·상품안내·전자계약)과 «제 머리를 가진 업무 면»(견적)은
+  // `hidesTopBar` 한 곳이 정한다 — 예전엔 이 명단이 여기와 AppTabBar 에 따로 적혀 있어
+  // 새 라우트에서 한 쪽을 빠뜨렸다. ⚠ 하단 홈바는 `hidesTabBar` 로 «따로» 묻는다(둘은 다른 물음).
+  if (path === '/' || path === '/erp5' || path.startsWith('/erp5/') || path === '/login' || path === '/m'
+    || hidesTopBar(path)) return null;
   const backLabel = backKind === 'list' ? '목록' : '이전';
   const backIcon = backKind === 'list'
     ? <List size={mobile ? 18 : 16} strokeWidth={2.25} />

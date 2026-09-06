@@ -1,5 +1,6 @@
 ﻿'use client';
 import Link from 'next/link';
+import { hidesTabBar } from '@/lib/guest-surface';
 import { usePathname, useRouter } from 'next/navigation';
 import React, { useEffect, useState } from 'react';
 import { useIsMobile } from '@/lib/use-mobile';
@@ -15,12 +16,14 @@ import { refreshCurrentPage } from '@/lib/page-refresh';
 import { toast } from '@/components/Toaster';
 
 /**
- * 모바일 하단 홈바 — **홈 · 검색 · 설정 셋**(항목 = lib/tabbar appTabsFor SSOT).
- * 폰에서 하는 일은 「상품 찾아서 손님한테 보내기」뿐이라, 하단바에도 그 일에 쓰는 것만 둔다.
+ * 모바일 하단 홈바 — **찾기 · 검색 · 견적 · 설정 넷**(항목 = lib/tabbar appTabsFor SSOT).
+ * 폰에서 하는 일은 「차를 찾고 · 값을 내고 · 손님한테 보내기」라, 하단바에도 그 일에 쓰는 것만 둔다.
+ * ⚠ 2026-08-30 에는 셋이었다(찾기·검색·설정). 2026-09-06 에 사장님이 **견적**을 다셨다 —
+ *   자주 안 쓰는 것(재고관리 등)은 하단이 아니라 **우측 햄버거**로 간다.
  *
  * ★**검색 탭은 라우트가 아니라 행동**이다 — 지금 페이지가 `lib/appbar` 의 search 슬롯에 등록해 둔
  *   시트를 하단에서 연다. 등록이 없는 페이지(설정 등)에서는 찾는 곳(/finder)으로 데려간다.
- *   그래서 «어디서 눌러도 검색이 되는» 버튼이 되고, 탭 수는 어느 화면에서나 셋으로 고정된다.
+ *   그래서 «어디서 눌러도 검색이 되는» 버튼이 되고, 탭 수는 어느 화면에서나 같게 고정된다.
  *
  * ★생김새는 당근 하단바 규격 — **큰 글리프(ICON.tab 24) + 작은 라벨(FS.cap)**, 흰 바탕에 윗선 하나.
  *   꺼진 탭은 «흐리게»가 아니라 «회색»이다(opacity 를 겹쳐 깎으면 글리프 획이 물에 빠진 것처럼 뭉갠다).
@@ -108,11 +111,9 @@ export default function AppTabBar() {
     && !hidden
     && path !== '/'          // 공개 안내 페이지(상품시트 입장)에는 ERP 탭바를 안 띄운다
     && path !== '/login'
-    && !path.startsWith('/q/')
-    && !path.startsWith('/catalog')
-    && !path.startsWith('/sign/')
-    // 견적(/estimate)은 «완전 별도 페이지» — ERP 하단 홈바를 얹지 않는다(설계서 §12).
-    && !path.startsWith('/estimate');
+    // 손님 면만 홈바를 걷는다 — `hidesTabBar` 한 곳이 정한다.
+    // ⚠ 상단바(`hidesTopBar`)와 «다른 물음»이다. 견적은 상단만 벗고 홈바는 얹는다(2026-09-06).
+    && !hidesTabBar(path);
 
   useEffect(() => {
     setTabCss(show);
