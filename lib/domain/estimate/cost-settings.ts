@@ -42,6 +42,16 @@ const D = DEFAULT_CONFIG as unknown as {
  *   이런 거는 다 좀 **자유롭게 조정**할 수 있게끔 해야 돼. 근데 그게 조합돼서 견적이 나오면 되는 거지」.
  *   ⇒ 그래서 손잡이가 넷이다 — **원가를 올리거나(항목·판관비) · 이익률을 올리거나 · 잔가를 내리거나 ·
  *     손바뀜(반납률)을 잡거나.** 어느 쪽으로 조정할지는 회사가 정한다.
+ *
+ * ★★**「리스크율」 같은 별도 값은 두지 않는다**(사장님 2026-09-06 「리스크율이라는 건 없어.
+ *   그냥 **반납률이나 현존하는 것들의 값을 입력해서 그거대로 그냥 반영**하면 되는 거지」).
+ *   신용등급 차이는 **반납률 입력값에서 저절로 나온다** — 손바뀜 횟수(1÷반납률−1) × 회당 비용.
+ *   신용마다 %를 따로 적는 칸을 만들면 「그 %가 왜 그 값인지」를 아무도 못 댄다.
+ *
+ * ★★**잔가는 신용과 무관하다**(사장님 2026-09-06 「잔가는 다 동일해. 리스크율로 **대여료**를 다르게
+ *   하는 거고, **차량별로** 그 잔존가에 플러스마이너스를 하는 거고」).
+ *   ⇒ 잔가 = 표준곡선(국산 4년 58%) + **차종·체급 델타**. 신용은 잔가를 건드리지 않는다.
+ *   ⚠ welrix 신차 엔진은 신용별로 잔가를 갈랐다(고54·중56·저58%) — 우리 규칙과 어긋나 안 옮겼다.
  * ⚠ **법정값은 여기 없다** — 자동차세(cc단가)·개별소비세·부가세는 엔진이 자동으로 센다. 취득세율만
  *   영업용/비영업용이 갈려 화면에 둔다(회사가 아니라 «상품»이 정하는 값이라 채널축이다).
  */
@@ -62,8 +72,14 @@ export type CostSettings = {
   acqTaxRentPct: number; acqTaxSubPct: number;
   insYear: number; selfPct: number;
   marginRentPct: number; marginSubPct: number;
-  /** 차량가 업금액 — 매입가에 얹어 «취득원가»를 만든다. 감가·이자·수수료가 다 이 값 위에서 돈다. */
-  markupRentPct: number; markupSubPct: number;
+  /**
+   * 차량가 업금액 — 사 온 값에 얹어 «취득원가»를 만든다. 감가·이자·수수료가 다 이 값 위에서 돈다.
+   * ★축이 **중고/신차**다(렌트/구독이 아니다). 업금액은 «차를 어떻게 들여왔나»에 붙는 값이기 때문이다.
+   *   중고 = 매입가(우리가 사 온 값)에 얹는다.
+   *   신차 = **출고가(제조사 공표가)라 기본 0**이다 — 공표가에 우리가 얹을 자리가 없다.
+   *   ⚠ 2026-09-06 까지 신차에도 20%가 붙어 있었다. 그래서 신차 2,500만이 실제보다 비쌌다.
+   */
+  markupUsedPct: number; markupNewPct: number;
   /** EW(연장보증) — 렌트 반납형만. 연 단위. */
   ewYear: number;
   // 손바뀜(반납률) — 신용등급별 계약 유지율. 낮을수록 손바뀜이 잦아 위험원가가 커진다.
@@ -102,22 +118,26 @@ export const COST_DEFAULTS: CostSettings = {
   acqTaxRentPct: pct(D.acqTaxRate.rent), acqTaxSubPct: pct(D.acqTaxRate.sub),
   insYear: D.setting.insYear, selfPct: pct(D.setting.selfRate),
   marginRentPct: pct(D.marginRate.rent), marginSubPct: pct(D.marginRate.sub),
-  markupRentPct: 20, markupSubPct: 20,
+  markupUsedPct: 20, markupNewPct: 0,
   ewYear: 80000,
   retentionNormalPct: 97, retentionMidPct: 75, retentionLowPct: 30,
   turnoverPrepFee: 500000, turnoverDeliveryFee: 500000, turnoverFeePct: 3, turnoverVacancyMonths: 1,
   residualAdjustPct: 0,
 };
 
-/** 원가 설정 → 엔진이 받는 `adminCfg`. **환산은 여기 한 곳**에서만 한다. */
-export function configFrom(cs: CostSettings) {
+/**
+ * 원가 설정 → 엔진이 받는 `adminCfg`. **환산은 여기 한 곳**에서만 한다.
+ * @param opts.newCar 신차 갈래인가 — 업금액을 중고/신차 중 어느 쪽으로 쓸지 정한다.
+ */
+export function configFrom(cs: CostSettings, opts: { newCar?: boolean } = {}) {
   const r = (v: number) => (v || 0) / 100;
+  const markupRate = r(opts.newCar ? cs.markupNewPct : cs.markupUsedPct);
   return {
     ...DEFAULT_CONFIG,
     interestRate: { rent: r(cs.interestPct), sub: r(cs.interestPct) },
     marginRate: { rent: r(cs.marginRentPct), sub: r(cs.marginSubPct) },
     loanRatio: r(cs.loanPct),
-    markup: { rent: { rate: r(cs.markupRentPct) }, sub: { rate: r(cs.markupSubPct) } },
+    markup: { rent: { rate: markupRate }, sub: { rate: markupRate } },
     acqTaxRate: { ...D.acqTaxRate, rent: r(cs.acqTaxRentPct), sub: r(cs.acqTaxSubPct) },
     // 판관비·대손 — 직접원가에 비율로 얹는다(엔진 `calc.js`. 기본 0이면 없던 것과 같다).
     overheadRate: r(cs.overheadPct),
