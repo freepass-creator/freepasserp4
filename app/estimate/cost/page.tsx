@@ -101,7 +101,10 @@ function ORow({ label, help, axis, first, children }: {
             >?</button>
           ) : null}
         </span>
-        {axis ? <span className={`ax ${axis}`}>{axis === 'ch' ? '채널' : '신용'}</span> : null}
+        {/* 이 값이 «위 어느 줄»을 바꾸면 달라지는지 — 뱃지가 그 줄을 가리킨다.
+            ⚠ 「채널」이라 부르던 것을 바꿨다(사장님 2026-09-06 「채널 뱃지 그 뭔지 모르겠네」) —
+              우리 ERP 에서 «영업채널»은 영업 파트너사를 뜻해 같은 말이 두 가지가 된다. */}
+        {axis ? <span className={`ax ${axis}`}>{axis === 'ch' ? '렌트·구독' : 'A/B/C'}</span> : null}
         {children}
       </div>
       {help && (open || hover) ? <div className="ohelp">{help}</div> : null}
@@ -191,9 +194,10 @@ function EstimateCostPageInner() {
           </div>
         ) : null}
 
-        {/* ① 원가 정책 — 채널 × 신용 (비공통) */}
+        {/* ① 원가 정책 — «렌트/구독» × «A/B/C» 조합마다 다른 값 */}
         <div className="card">
-          <div className="step"><span className="no">1</span>원가 정책 · 상품별<span className="veh dim">비공통</span></div>
+          {/* 「비공통」도 무슨 말인지 모른다 — 무엇이 어떻게 되는지로 바꿨다. */}
+          <div className="step"><span className="no">1</span>원가 정책<span className="veh dim">조합마다 다름</span></div>
           <Seg tone="t2" opts={CHANNELS} cur={polCh} onPick={setPolCh} />
           <Seg tone="t3" opts={CREDITS} cur={polCr} onPick={setPolCr} />
           <div style={{ marginTop: 12 }}>
