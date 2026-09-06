@@ -815,8 +815,18 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
                 <div style={{ marginBottom: 0, fontSize: SHOP.fs.cap, color: C.faint }}>선택 옵션</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: SHOP.sp.snug }}>
                   {options.map((o) => (
+                    /*
+                     * ★★**옵션 칩은 «누르는 것»이 아니다 — 그래서 얇다**(사장님 2026-09-06
+                     *   「옵션 칩은 버튼이 아니라서 **조금 더 얇게** 해도 될 거 같은데」).
+                     *   가게 규칙 하나가 여기서도 산다: **누르는 것이 더 크고 진하다.**
+                     *   이건 읽기만 하는 표시라 뱃지 한 벌(`BADGE`)을 그대로 쓴다 —
+                     *   같은 화면의 「무심사·출고가능」과 «같은 두께»가 된다.
+                     * ⚠ 여기 `8px 12px` 이 박혀 있었다(높이 36) — 알약(38)과 거의 같아
+                     *   손님이 「누르는 건가」 하고 한 번 시험한다.
+                     */
                     <span key={o} style={{
-                      padding: '8px 12px', borderRadius: SHOP.r.chip, background: C.zebra,
+                      padding: `${BADGE.padY}px ${BADGE.padX}px`, borderRadius: SHOP.r.chip,
+                      lineHeight: BADGE.lineHeight, background: C.zebra,
                       fontSize: SHOP.fs.sub, color: C.sub,
                     }}>{o}</span>
                   ))}
