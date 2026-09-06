@@ -1353,6 +1353,10 @@ type InsideBody = {
   vehicleStatus: string; productType: string; lockedBy: string;
   updatedAt: number; location: string;
   penalty: string; penaltyUnder1y: string; penaltyOver1y: string;
+  lateFeeRate: string; overdueRounds: string; autoTerminateDays: string; engineControlDays: string;
+  depositReturnDays: string; buyoutNoticeDays: string; impoundKeepDays: string;
+  commissionClawback: string; age21Cost: string; age23Cost: string;
+  creditGrade: string; gpsInstalled: string; disqualification: string; salesNotes: string;
 };
 function ShopInside({ code, mobile }: { code: string; mobile?: boolean }) {
   const [inside, setInside] = useState<InsideBody | null>(null);
@@ -1379,21 +1383,50 @@ function ShopInside({ code, mobile }: { code: string; mobile?: boolean }) {
     ? new Date(inside.updatedAt).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
     : '';
   /*
-   * 무리 둘 — ① 이 차가 «어디서 온 무엇인가» ② 손님이 물으면 답해야 하는 «패널티».
-   * ★패널티가 손님 화면에 없는 값이라 여기가 유일한 자리다(라우트 머리말).
+   * 무리 셋 — ① 이 차가 «어디서 온 무엇인가» ② 손님이 물으면 답해야 하는 «조건»
+   * ③ 우리끼리 아는 «메모». 무리 사이는 `GROUP_BREAK` 로 한 줄 쉰다.
+   * ★전부 **손님 화면에 없는 값**이다 — 있는 값을 여기 또 두지 않는다(카드·분납은 손님 「납부」에 있다).
    */
-  const rows: FactRow[] = ([
-    ['공급사', inside.provider || inside.providerCode],
-    ['원천', inside.source],
-    ['차량상태', inside.vehicleStatus],
-    ['상품구분', inside.productType],
-    ['선점계약', inside.lockedBy],
-    ['차고지', inside.location],
-    ['원자 갱신', when],
-    ['중도해지 위약금', inside.penalty],
-    ['위약금 1년 미만', inside.penaltyUnder1y],
-    ['위약금 1년 이상', inside.penaltyOver1y],
-  ] as FactRow[]).filter((r) => String(r[1] || '').trim());
+  const groups: FactRow[][] = [
+    [
+      ['공급사', inside.provider || inside.providerCode],
+      ['원천', inside.source],
+      ['차량상태', inside.vehicleStatus],
+      ['상품구분', inside.productType],
+      ['선점계약', inside.lockedBy],
+      ['차고지', inside.location],
+      ['원자 갱신', when],
+    ],
+    [
+      ['중도해지 위약금', inside.penalty],
+      ['위약금 1년 미만', inside.penaltyUnder1y],
+      ['위약금 1년 이상', inside.penaltyOver1y],
+      ['연체료율', inside.lateFeeRate],
+      ['연체 회차', inside.overdueRounds],
+      ['자동해지', inside.autoTerminateDays],
+      ['시동제어', inside.engineControlDays],
+      ['보증금 반환', inside.depositReturnDays],
+      ['인수 통지', inside.buyoutNoticeDays],
+      ['차량 보관', inside.impoundKeepDays],
+      ['만 21세 비용', inside.age21Cost],
+      ['만 23세 비용', inside.age23Cost],
+    ],
+    [
+      ['수수료 환수', inside.commissionClawback],
+      ['신용등급 기준', inside.creditGrade],
+      ['결격 조건', inside.disqualification],
+      ['GPS', inside.gpsInstalled],
+      ['영업 메모', inside.salesNotes],
+    ],
+  ];
+  const rows: FactRow[] = [];
+  for (const g of groups) {
+    const live = (g as FactRow[]).filter((r) => String(r[1] || '').trim());
+    if (!live.length) continue;                       // 값이 하나도 없는 무리는 통째로 건너뛴다
+    if (rows.length) rows.push([GROUP_BREAK, '']);    // 무리 사이 한 줄 쉼
+    rows.push(...live);
+  }
+  if (!rows.length) return null;
 
   return (
     <div style={{ marginTop: SHOP.sp.pane }}>
