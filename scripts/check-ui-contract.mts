@@ -50,8 +50,8 @@ const RAW_ALLOW = new Map<string, Allow>([
     reason: '견적 차 고르기 시트 — 중고(차종마스터)·신차(신차마스터) 두 갈래를 한 시트에서',
   }],
   ['app/estimate/cost/page.tsx', {
-    counts: { button: 2, input: 2, select: 0 },
-    reason: '원가 독립 면 — 사장님 목업 마크업 그대로. 세그·저장·숫자칸·차종 검색',
+    counts: { button: 3, input: 2, select: 0 },
+    reason: '원가 면 — 세그·저장·«칸 설명 ⓘ»(3) · 숫자칸·차종 검색(2). ⓘ 는 2026-09-06 에 늘었다 — 사장님 「렌터카 처음 하는 사람들도 이 구조를 이해해서 … 커서를 갖다 대면 설명」',
   }],
   ['components/sign/atoms.tsx', {
     counts: { button: 2, input: 1 },
