@@ -36,7 +36,7 @@ import { useAppBar } from '@/lib/appbar';
 import CarPicker from '@/features/estimate/CarPicker';
 import type { PickedCar } from '@/lib/domain/estimate/car-index';
 import { deltaKeyFor } from '@/lib/domain/estimate/residual-by-name';
-import { adjustResidual, configFrom } from '@/lib/domain/estimate/cost-settings';
+import { adjustResidual, configFrom, type AcqPath } from '@/lib/domain/estimate/cost-settings';
 import { cachedCost, fetchSharedCost } from '@/lib/domain/estimate/cost-client';
 import { safeComputeTerm } from '@/lib/domain/estimate/safe-calc.js';
 import { createQuoteInput } from '@/lib/domain/estimate/quote-input.js';
@@ -49,6 +49,15 @@ const PCTS = [0, 10, 20, 30];
 const FEE_CHIPS = [0, 2.5, 5];
 const DISCS = [0, 2, 5, 10];
 const CREDIT = ['고신용', '중신용', '저신용'];
+/**
+ * 취득 경로 — 같은 차라도 «어떻게 들여왔나»에 따라 초기비가 다르다(사장님 2026-09-06).
+ * ⚠ 신차에는 안 묻는다. 신차는 언제나 사 오는 차다(등록·탁송 O · 상품화 X).
+ */
+const ACQ: { v: AcqPath; label: string }[] = [
+  { v: 'own', label: '기보유' },
+  { v: 'bought', label: '매입·상품화됨' },
+  { v: 'prep', label: '매입·상품화필요' },
+];
 
 /**
  * 첫 화면에 서 있는 차 — 목업 `DEF.used` 가 박아 둔 그 차(현대 그랜저 IG 2.5).
@@ -152,6 +161,8 @@ function EstimatePageInner() {
   const [usedMileage, setUsedMileage] = useState(DEFAULT_USED_MILEAGE);
   /** 마스터가 배기량을 안 주면 여기서 묻는다 — 0 으로 떨어뜨리면 자동차세가 «조용히» 0 이 된다. */
   const [manualCc, setManualCc] = useState(0);
+  /** 중고 취득 경로 — 기보유면 등록·탁송·상품화가 원가에서 빠진다. */
+  const [acq, setAcq] = useState<AcqPath>('prep');
   const [disc, setDisc] = useState(0);
   const [dep, setDep] = useState(10);
   const [pre, setPre] = useState(0);
@@ -205,7 +216,7 @@ function EstimatePageInner() {
 
   const cards = useMemo<Card[]>(() => {
     // 신차는 «출고가»라 업금액을 안 얹는다(중고는 매입가에 얹는다) — `configFrom` 이 갈래로 고른다.
-    const base = configFrom(cost, { newCar: isNew });
+    const base = configFrom(cost, { newCar: isNew, path: acq });
     // 수수료 칩은 영업자가 «건별»로 고른다 — 원가 설정의 기본값을 이 견적에서만 덮는다.
     const adminCfg = { ...base, setting: { ...base.setting, salesFeeRate: { rent: fee / 100, sub: fee / 100 } } };
     const raw: Record<number, number> = {};
@@ -222,13 +233,14 @@ function EstimatePageInner() {
       residual: null, residualDefault, credit, defaultGroup: 'B', nowYear,
     });
     return TERMS.map((t) => ({ ...safeComputeTerm(t, input, { idx: t }), term: t }));
-  }, [ch, type, price, isNew, credit, dep, pre, fee, residPct, nowYear, cost, cc, picked.fuel, usedMileage, usedYear]);
+  }, [ch, type, price, isNew, credit, dep, pre, fee, residPct, nowYear, cost, cc, picked.fuel, usedMileage, usedYear, acq]);
 
   const prepayAmt = Math.round(price * pre / 100);
   const vehTag = listPrice ? `${man(listPrice)}원` : '차를 고르세요';
   const vMeta = isNew
     ? [picked.meta, listPrice ? `출고가 ${man(listPrice)}` : null].filter(Boolean).join(' · ')
-    : [picked.meta, `매입가 ${man(usedPrice)}`, `${usedYear}년`, `${usedMileage.toLocaleString('ko-KR')}km`].filter(Boolean).join(' · ');
+    : [picked.meta, `시세 ${man(usedPrice)}`, `${usedYear}년`, `${usedMileage.toLocaleString('ko-KR')}km`,
+      ACQ.find((a) => a.v === acq)!.label].filter(Boolean).join(' · ');
 
   // 하단 「검색」 탭이 이 화면에서는 «차 고르기»를 연다(lib/tabbar — 검색은 라우트가 아니라 행동이다).
   useAppBar({ search: { onOpen: () => setPickerOpen(true), active: picked !== DEFAULT_USED && picked !== DEFAULT_NEW } },
@@ -264,8 +276,16 @@ function EstimatePageInner() {
           {/* 마스터가 못 주는 값은 사람이 넣는다 — 중고 시세·연식·주행은 마스터에 없다. */}
           {!isNew ? (
             <>
+              {/* 취득 경로 — 기보유/매입, 상품화 여부. 초기비가 여기서 켜지고 꺼진다. */}
               <div className="crow" style={{ marginTop: 12 }}>
-                <span className="lb">매입가</span>
+                <span className="lb">취득</span>
+                <Chips opts={ACQ.map((a) => a.label)} cur={ACQ.find((a) => a.v === acq)!.label}
+                  onPick={(l) => setAcq(ACQ.find((a) => a.label === l)!.v)} />
+              </div>
+              <div className="crow">
+                {/* ★중고는 «무조건 시세를 입력»한다(사장님 2026-09-06). 장부가·최초매입가가 아니다 —
+                    「지금부터 이 차를 굴리면 얼마 까먹나」가 맞게 나오려면 지금 값이어야 한다. */}
+                <span className="lb">시세</span>
                 <span className="pin w"><input inputMode="numeric" value={man(usedPrice)}
                   onChange={(e) => setUsedPrice(digits(e.target.value) * 10000)} /><i>만원</i></span>
               </div>
