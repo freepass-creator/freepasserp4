@@ -1,8 +1,8 @@
 'use client';
 import { useState, type ReactNode } from 'react';
 import { Phone, X } from 'lucide-react';
-import { Btn, C, FW, ICON, R_CARD, SH } from '@/components/ui';
-import { SHOP } from '@/components/shop/shop-ui';
+import { Btn, C, FW, ICON, R_CARD } from '@/components/ui';
+import { SHOP, ShopDock, ShopDockAction } from '@/components/shop/shop-ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { hasBrand, whitelabelVars, type Whitelabel } from '@/lib/whitelabel';
 
@@ -63,9 +63,6 @@ export function WhitelabelFrame({
   const who = String(agentName || '').trim();
   const phone = String(agentPhone || '').trim() || wl.tel;
   const telHref = phone ? `tel:${phone.replace(/[^0-9+]/g, '')}` : '';
-  /** 폰 하단 고정독 높이 — 목록 끝이 독에 가리지 않게 본문 아래에 같은 만큼 자리를 비운다. */
-  const DOCK_H = 76;
-
   return (
     <div className="fp-wl" style={whitelabelVars(wl) as React.CSSProperties}>
       {/*
@@ -153,24 +150,20 @@ export function WhitelabelFrame({
       {children}
 
       {/* 폰 하단 고정독 — 손님이 걸 곳은 늘 엄지 밑에 있다. 담당자 이름이 붙어야 «누구에게» 거는지 안다. */}
+      {/* ★독은 원자다(`ShopDock`) — 상세·조건 시트와 «같은 것»을 쓴다(2026-09-06 검수).
+          전에는 여기만 자리 잡는 높이(76)와 버튼 높이(48)를 손으로 적어, 상세(54)·시트(52)와
+          치수가 갈렸고 아이폰 안전영역도 안 봤다. */}
       {phone && mobile && dock ? (
-        <>
-          <div style={{ height: DOCK_H }} aria-hidden />
-          <div style={{
-            position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 20,
-            background: C.bg, borderTop: `1px solid ${C.line}`, boxShadow: SH.dock,
-            padding: '12px 16px 12px', display: 'flex', alignItems: 'center', gap: 12,
-          }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 1, whiteSpace: 'nowrap' }}>
-              <span style={{ fontSize: SHOP.fs.cap, color: C.faint }}>{who ? '담당' : '고객센터'}</span>
-              <span style={{ fontSize: SHOP.fs.body, fontWeight: FW.title, color: C.ink }}>{who || phone}</span>
-            </div>
-            {/* ★손님 동 폼 규격 lg — 폰 48. 하단독의 주요 실행이라 손가락 규격을 넘겨 잡는다. */}
-            <Btn href={telHref} full size="lg" title="담당자에게 전화합니다">
-              <Phone size={ICON.md} aria-hidden />전화 상담
-            </Btn>
+        <ShopDock fixed sideWidth="auto" side={(
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 1, whiteSpace: 'nowrap' }}>
+            <span style={{ fontSize: SHOP.fs.cap, color: C.faint }}>{who ? '담당' : '고객센터'}</span>
+            <span style={{ fontSize: SHOP.fs.body, fontWeight: FW.title, color: C.ink }}>{who || phone}</span>
           </div>
-        </>
+        )}>
+          <ShopDockAction href={telHref} label="담당자에게 전화합니다">
+            <Phone size={ICON.md} aria-hidden />전화 상담
+          </ShopDockAction>
+        </ShopDock>
       ) : null}
 
       <footer style={{ borderTop: `1px solid ${C.line}`, marginTop: 24 }}>

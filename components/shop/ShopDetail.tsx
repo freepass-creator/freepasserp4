@@ -9,7 +9,7 @@ import {
 } from 'lucide-react';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { C, ColorMark, FW, FS, ICON, NUM, SCRIM } from '@/components/ui';
-import { BADGE, PerkMarks, SHOP, StateChip, markIconFor, type ShopMark } from '@/components/shop/shop-ui';
+import { BADGE, PerkMarks, SHOP, ShopDock, ShopDockAction, StateChip, markIconFor, type ShopMark } from '@/components/shop/shop-ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { useProductPhotos } from '@/components/use-product-photos';
 import { haptic } from '@/lib/haptics';
@@ -706,7 +706,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
                         {x.m}개월
                         {cheapest === x.m ? (
                           <span style={{
-                            flex: '0 0 auto', padding: '2px 6px', borderRadius: 5,
+                            flex: '0 0 auto', padding: '2px 6px', borderRadius: SHOP.r.chip,
                             background: C.brandBg, color: C.brand,
                             fontSize: SHOP.fs.tag, fontWeight: 700, letterSpacing: '-0.01em',
                           }}>최저가</span>
@@ -971,47 +971,24 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
           같은 일을 하는 문이 위아래로 둘이면 그건 문이 아니라 헷갈림이다.
           라우트를 벗어나는 이동은 집 규격상 **하단 「이전」**의 자리다.
       */}
+      {/* ★독은 원자다(`ShopDock`) — 조건 시트·목록 전화독과 «같은 것»을 쓴다.
+          ⚠ 주석을 삼항의 «값 자리»에 넣지 않는다 — 자식이 둘이 되어 JSX 가 깨진다(또 그랬다). */}
       {mobile ? (
-        <div style={{
-          position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 20,
-          display: 'flex', alignItems: 'center', gap: 8,
-          background: C.bg, borderTop: `1px solid ${C.line}`,
-          padding: '12px 16px 12px',
-          paddingBottom: 'calc(12px + var(--fp-dock-safe, env(safe-area-inset-bottom)))',
-        }}>
-          <Link href={listHref} onClick={() => haptic.nav()} className="fp-shop-press"
-            style={{
-              flex: '0 0 92px',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
-              height: 54, borderRadius: SHOP.r.ctrl,
-              /* 비주요는 «회색 면» — 가게 공통(shop-ui `ShopPill` 머리말). 테두리 상자로 두지 않는다. */
-              background: C.head, color: C.ink,
-              textDecoration: 'none', fontSize: SHOP.fs.sub, fontWeight: 600,
-            }}>
+        <ShopDock fixed side={(
+          <ShopDockAction tone="quiet" href={listHref} onClick={() => haptic.nav()}>
             <ArrowLeft size={ICON.md} aria-hidden />이전
-          </Link>
+          </ShopDockAction>
+        )}>
           {telHref ? (
-            <a href={telHref} onClick={() => haptic.nav()} className="fp-shop-press"
-              style={{
-                flex: 1, minWidth: 0,
-                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8,
-                height: 54, borderRadius: SHOP.r.ctrl,
-                background: C.brand, color: C.inverse, textDecoration: 'none',
-                fontSize: SHOP.fs.body, fontWeight: 700, whiteSpace: 'nowrap',
-              }}>
+            <ShopDockAction href={telHref} onClick={() => haptic.nav()}>
               <Phone size={ICON.md} aria-hidden />
               {agentName ? `${agentName} 담당자에게 전화` : '전화 상담'}
-            </a>
+            </ShopDockAction>
           ) : (
             /* 담당자 전화가 없으면 «있는 척»하지 않는다 — 대신 대표번호가 머리띠에 떠 있다. */
-            <div style={{
-              flex: 1, minWidth: 0,
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              height: 54, borderRadius: SHOP.r.ctrl, background: C.zebra,
-              fontSize: SHOP.fs.sub, color: C.mute,
-            }}>연락처는 위 안내를 확인해 주세요</div>
+            <ShopDockAction tone="dim">연락처는 위 안내를 확인해 주세요</ShopDockAction>
           )}
-        </div>
+        </ShopDock>
       ) : null}
     </main>
   );
@@ -1497,7 +1474,7 @@ function SecTitle({ children, icon: Icon, accent, tag }: {
       {Icon ? (
         <span aria-hidden style={{
           flex: '0 0 auto', display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-          width: 32, height: 32, borderRadius: 9,
+          width: 32, height: 32, borderRadius: SHOP.r.ctrl,
           background: accent ? C.brandBg : C.zebra,
         }}>
           <Icon size={18} style={{ color: accent ? C.brand : C.mute }} />
@@ -1703,7 +1680,7 @@ function Gallery({ p, mobile }: { p: EntityRecord; mobile?: boolean }) {
           aria-label={`${k + 1}번째 사진 보기`} aria-pressed={k === i}
           style={{
             position: 'relative', padding: 0, aspectRatio: '4 / 3', overflow: 'hidden',
-            borderRadius: 8, cursor: 'pointer', background: C.placeholder,
+            borderRadius: SHOP.r.chip, cursor: 'pointer', background: C.placeholder,
             /* 보고 있는 장만 테두리로 표시한다 — 색을 칠하면 사진 위에 색이 얹혀 지저분하다. */
             border: k === i ? `2px solid ${C.brand}` : `1px solid ${C.line2}`,
           }}>

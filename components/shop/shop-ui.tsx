@@ -1,5 +1,6 @@
 'use client';
 import type { CSSProperties, ReactNode } from 'react';
+import Link from 'next/link';
 import {
   Banknote, Calendar, Car, CarFront, Check, ChevronDown, Coins, Factory, FileText, Fuel, Gauge,
   Gift, IdCard, PiggyBank, Search, SearchCheck, ShieldCheck, UserRound, Wallet, X, Zap,
@@ -319,14 +320,95 @@ export function ShopRevealSearch({ value, onChange, onClose, placeholder }: {
 }
 
 /**
- * 꽉 채운 주요 버튼 — 폰 조건 시트의 「N대 보기」처럼 «이 화면의 결론»인 자리.
- * 높이 52 는 엄지로 누르는 마지막 버튼의 치수다(업무동 md 40 은 콕핏 규격이라 여기선 작다).
+ * ★★**하단 실행독 — 손님 동에서 «바닥에 까는 두 칸»은 여기 하나다.**
+ *
+ * ⚠⚠ 2026-09-06 검수 실측 — 같은 독이 **세 곳에 손으로** 짜여 있었고 치수가 다 달랐다.
+ *   | 곳 | 높이 | 안전영역 |
+ *   |---|---|---|
+ *   | 상세 `ShopDetail`(이전+전화) | 54 | ✓ |
+ *   | 조건 시트 `ShopFilterSheet`(닫기+N대 보기) | 52 | **✗** |
+ *   | 목록 전화독 `WhitelabelFrame` | 48 | **✗** |
+ *   셋 중 둘이 `safe-area-inset-bottom` 을 안 봐서 **아이폰 홈 인디케이터에 버튼이 깔렸다.**
+ *   주석에는 「상세 하단독과 같은 꼴」이라 적혀 있었는데, «같은 꼴»을 손으로 다시 짠 것이다.
+ *
+ * ★짜임(집 규격 하단독과 같다) — **비주요는 고정폭 92 · 주요는 나머지 전부.**
+ * ★높이는 **손님 동 사다리 `SHOP.h`(웹 44 · 폰 48)**. 52·54 는 사다리 밖의 숫자였다.
+ * ★`fixed` 면 바닥에 붙고 **제 높이만큼 자리를 밀어 준다**(본문 끝이 독에 가리지 않게).
+ */
+const dockPad = { y: SHOP.sp.cozy, x: SHOP.sp.edge };
+export function ShopDock({ fixed, side, sideWidth = 92, children }: {
+  fixed?: boolean;
+  /** 왼쪽 «비주요» 칸 — 없으면 주요가 줄 전체를 쓴다. */
+  side?: ReactNode;
+  /** 고정폭(기본 92). 글자 블록처럼 폭이 내용에 달린 것은 `'auto'`. */
+  sideWidth?: number | 'auto';
+  children: ReactNode;
+}) {
+  const mobile = useIsMobile();
+  const h = mobile ? SHOP.h.mobile : SHOP.h.web;
+  const cell: CSSProperties = { height: h, display: 'flex', alignItems: 'center' };
+  return (
+    <>
+      {/* 바닥에 붙는 독은 «자리»를 먼저 만든다 — 안 그러면 마지막 카드가 독 밑에 깔린다. */}
+      {fixed ? <div aria-hidden style={{ height: h + dockPad.y * 2 }} /> : null}
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: SHOP.sp.snug,
+        background: C.bg, borderTop: `1px solid ${C.line}`,
+        padding: `${dockPad.y}px ${dockPad.x}px`,
+        ...(fixed ? {
+          position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 20,
+          /* ★아이폰 홈 인디케이터 — 이걸 안 보면 버튼 아랫부분이 깔린다(검수 실측). */
+          paddingBottom: `calc(${dockPad.y}px + var(--fp-dock-safe, env(safe-area-inset-bottom)))`,
+        } : { flex: '0 0 auto' }),
+      }}>
+        {side ? (
+          <div style={{ ...cell, flex: sideWidth === 'auto' ? '0 0 auto' : `0 0 ${sideWidth}px` }}>{side}</div>
+        ) : null}
+        <div style={{ ...cell, flex: 1, minWidth: 0 }}>{children}</div>
+      </div>
+    </>
+  );
+}
+
+/**
+ * 독 안의 «한 칸» — 버튼이든 링크든 칸을 꽉 채운다.
+ * ★`tone` 둘뿐 — `brand`(주요) · `quiet`(비주요 = 회색 면). 가게의 비주요는 전부 회색 «면»이다
+ *   (테두리로 가두지 않는다 — `ShopPill` 머리말).
+ */
+export function ShopDockAction({ tone = 'brand', href, onClick, label, children }: {
+  tone?: 'brand' | 'quiet' | 'dim';
+  href?: string; onClick?: () => void; label?: string; children: ReactNode;
+}) {
+  const face: CSSProperties = {
+    width: '100%', height: '100%', borderRadius: SHOP.r.ctrl,
+    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: SHOP.sp.snug,
+    textDecoration: 'none', whiteSpace: 'nowrap',
+    background: tone === 'brand' ? C.brand : tone === 'dim' ? C.zebra : C.head,
+    color: tone === 'brand' ? C.inverse : tone === 'dim' ? C.mute : C.ink,
+    fontSize: tone === 'brand' ? SHOP.fs.body : SHOP.fs.sub,
+    fontWeight: tone === 'brand' ? 700 : 600,
+  };
+  /* 누를 수 없는 칸(전화번호가 없을 때의 안내)은 «단추처럼» 보이지 않아야 한다 — 눌러도 아무 일이 없다. */
+  if (tone === 'dim') return <div style={face} aria-label={label}>{children}</div>;
+  if (href) return (
+    <Link href={href} onClick={onClick} aria-label={label} className="fp-shop-press" style={face}>{children}</Link>
+  );
+  return (
+    <button type="button" onClick={onClick} aria-label={label} className="fp-shop-press"
+      style={{ ...bare, ...face }}>{children}</button>
+  );
+}
+
+/**
+ * 꽉 채운 주요 버튼 — 독 «밖»에서 한 칸으로 설 때(시트 안 등).
+ * ★높이는 손님 동 사다리(`SHOP.h`)를 따른다. 독 안이라면 `ShopDock` + `ShopDockAction` 을 쓴다.
  */
 export function ShopPrimary({ onClick, children }: { onClick: () => void; children: ReactNode }) {
+  const mobile = useIsMobile();
   return (
     <button type="button" onClick={onClick} className="fp-shop-press"
       style={{
-        ...bare, width: '100%', height: 52, borderRadius: SHOP.r.ctrl,
+        ...bare, width: '100%', height: mobile ? SHOP.h.mobile : SHOP.h.web, borderRadius: SHOP.r.ctrl,
         background: C.brand, color: C.inverse,
         fontSize: SHOP.fs.body, fontWeight: 700,
       }}>{children}</button>
@@ -485,12 +567,15 @@ export function ShopEmpty({ onClear }: { onClear: () => void }) {
 
 /** 더 보기 — 몇 대를 보고 있고 몇 대가 남았는지 같이 말한다(누르기 전에 알아야 누른다). */
 export function ShopMore({ shown, total, onMore }: { shown: number; total: number; onMore: () => void }) {
+  const mobile = useIsMobile();
   if (shown >= total) return null;
   return (
     <div style={{ display: 'flex', justifyContent: 'center', padding: `${SHOP.sp.part}px 0 ${SHOP.sp.snug}px` }}>
       <button type="button" onClick={onMore} className="fp-shop-press"
         style={{
-          ...bare, height: 52, padding: '0 34px', borderRadius: SHOP.r.ctrl,
+          /* ★높이는 손님 동 사다리(`SHOP.h`) — 52 는 사다리 밖의 숫자였다(2026-09-06 검수). */
+          ...bare, height: mobile ? SHOP.h.mobile : SHOP.h.web, padding: `0 ${SHOP.sp.pane}px`,
+          borderRadius: SHOP.r.ctrl,
           /* 목록 끝의 «비주요» 누름 — 칩과 같은 회색 면. 테두리 상자로 두면 여기만 촌스럽다. */
           background: C.head, color: C.ink,
           fontSize: SHOP.fs.body, fontWeight: 700,

@@ -559,7 +559,7 @@ function Grid({ mobile, children }: { mobile: boolean; children: React.ReactNode
 /** 불러오는 동안의 자리 — 카드와 «같은 짜임»이라야 목록이 도착할 때 화면이 안 튄다. */
 function Skeleton() {
   const bar = (w: string, h: number) => (
-    <div className="fp-shop-skel" style={{ height: h, width: w, borderRadius: 5 }} />
+    <div className="fp-shop-skel" style={{ height: h, width: w, borderRadius: SHOP.r.chip }} />
   );
   return (
     <div>
