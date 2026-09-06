@@ -27,7 +27,9 @@ const D = DEFAULT_CONFIG as unknown as {
   acqTaxRate: { rent: number; sub: number };
   setting: {
     bondRate: number; regFee: number; insYear: number; selfRate: number;
-    maintMonthly: number; gpsMonthly: number; parkingMonthly: number;
+    /** 정비비 — **정액(원/월) ＋ 비율(연 %)**. 둘 다 넣으면 더해진다(항목마다 맞는 쪽이 있다). */
+  maintMonthly: number; maintRatePct: number;
+  gpsMonthly: number; parkingMonthly: number;
     salesFeeRate: { rent: number; sub: number };
   };
 };
@@ -59,10 +61,21 @@ export type CostSettings = {
   // 취득
   bondPct: number; regFee: number;
   deliveryFee: number; initPrepFee: number;        // 미반영(간접비로 봄)
-  // 금융
-  interestPct: number; loanPct: number;
+  /**
+   * **금융 — 신용 구간(A/B/C)별로 나뉜다.**
+   * ★사장님 2026-09-06 「저신용하고 정상신용 렌터카 **원가는 똑같지**. 근데 거기에서 우리가
+   *   저신용 원가·중신용 원가·정상신용 원가를 **조금씩 구분해서 입력**을 하는 거야.
+   *   저신용은 **금리를 조금 높게** 할 수도 있는 거고, **계약 유지율을 좀 낮게** 할 수 있는 거고.
+   *   그래서 **원가 항목은 다 같은데** 그 구간을 나눠 놓는 거지. **ABC 로 나눠서 정상신용에는 A 적용,
+   *   중신용 B, 저신용 C** 이렇게 가는 거야」.
+   *   ⇒ 구간은 셋 — **A(정상) · B(중신용) · C(저신용)**. 항목은 같고 값만 다르다.
+   */
+  interestAPct: number; interestBPct: number; interestCPct: number;
+  loanAPct: number; loanBPct: number; loanCPct: number;
   // 직접 운영비
-  maintMonthly: number; gpsMonthly: number; parkingMonthly: number;
+  /** 정비비 — **정액(원/월) ＋ 비율(연 %)**. 둘 다 넣으면 더해진다(항목마다 맞는 쪽이 있다). */
+  maintMonthly: number; maintRatePct: number;
+  gpsMonthly: number; parkingMonthly: number;
   inspectionFee: number;                            // 미반영
   // 판관비
   overheadPct: number; badDebtPct: number;          // 미반영(엔진에 자리 없음)
@@ -140,9 +153,10 @@ const pct = (v: number) => Math.round((v || 0) * 1000) / 10;   // 0.065 → 6.5
 export const COST_DEFAULTS: CostSettings = {
   bondPct: pct(D.setting.bondRate), regFee: D.setting.regFee,
   deliveryFee: 0, initPrepFee: 0,
-  interestPct: pct(D.interestRate.rent),
-  loanPct: 90,                       // ← 손오공 운영값(코드 기본 80)
-  maintMonthly: D.setting.maintMonthly, gpsMonthly: D.setting.gpsMonthly,
+  // A(정상) · B(중신용) · C(저신용) — 지금은 셋 다 같은 값이다. 회사가 구간을 벌리면 여기서 벌어진다.
+  interestAPct: pct(D.interestRate.rent), interestBPct: pct(D.interestRate.rent), interestCPct: pct(D.interestRate.rent),
+  loanAPct: 90, loanBPct: 90, loanCPct: 90,   // ← 손오공 운영값(코드 기본 80)
+  maintMonthly: D.setting.maintMonthly, maintRatePct: 0, gpsMonthly: D.setting.gpsMonthly,
   parkingMonthly: 0,                 // ← 손오공 운영값(코드 기본 35,000)
   inspectionFee: 0,
   overheadPct: 0, badDebtPct: 0,
@@ -183,8 +197,20 @@ export type AcqPath =
  *   ⇒ **마진은 이익률에서, 상품화·탁송은 실비에서** 잡는다. 손잡이가 겹치지 않게 한다.
  *     그래도 정률로 얹고 싶은 회사는 원가 화면에서 값을 넣으면 예전처럼 굴러간다.
  */
-export function configFrom(cs: CostSettings, opts: { newCar?: boolean; path?: AcqPath } = {}) {
+/** 신용등급 → 원가 구간. A=정상 · B=중신용 · C=저신용(무신용도 C). */
+export function bandOf(credit: string | null | undefined): 'A' | 'B' | 'C' {
+  const c = String(credit ?? '');
+  if (c === '저신용' || c === '무신용') return 'C';
+  if (c === '중신용') return 'B';
+  return 'A';
+}
+
+export function configFrom(cs: CostSettings, opts: { newCar?: boolean; path?: AcqPath; credit?: string } = {}) {
   const r = (v: number) => (v || 0) / 100;
+  // 금융은 신용 구간(A/B/C)에서 고른다 — 항목은 같고 값만 다르다.
+  const band = bandOf(opts.credit);
+  const interestPct = band === 'C' ? cs.interestCPct : band === 'B' ? cs.interestBPct : cs.interestAPct;
+  const loanPct = band === 'C' ? cs.loanCPct : band === 'B' ? cs.loanBPct : cs.loanAPct;
   const markupRate = r(opts.newCar ? cs.markupNewPct : cs.markupUsedPct);
   // 신차는 언제나 «사 오는 차»다(등록·탁송 O · 상품화 X).
   const path: AcqPath = opts.newCar ? 'bought' : (opts.path ?? 'prep');
@@ -199,9 +225,9 @@ export function configFrom(cs: CostSettings, opts: { newCar?: boolean; path?: Ac
      *   운영 규칙이 엑셀에서 이탈한 것이고, 그 이탈을 이 한 줄이 드러낸다.
      */
     vatBase: 'excluded' as const,
-    interestRate: { rent: r(cs.interestPct), sub: r(cs.interestPct) },
+    interestRate: { rent: r(interestPct), sub: r(interestPct) },
     marginRate: { rent: r(cs.marginRentPct), sub: r(cs.marginSubPct) },
-    loanRatio: r(cs.loanPct),
+    loanRatio: r(loanPct),
     markup: { rent: { rate: markupRate }, sub: { rate: markupRate } },
     // 보험·자차 — 채널별. 0 도 «정한 값»이라 엔진이 존중한다(구독 0 = 고객 명의).
     insYear: { rent: cs.insRentYear, sub: cs.insSubYear },
@@ -240,7 +266,8 @@ export function configFrom(cs: CostSettings, opts: { newCar?: boolean; path?: Ac
       // 등록·탁송은 «새로 들여온 차»만. 기보유는 이미 났다 — 새 계약에 또 물리지 않는다.
       bondRate: brought ? r(cs.bondPct) : 0, regFee: brought ? cs.regFee : 0,
       ewYear: cs.ewYear,
-      maintMonthly: cs.maintMonthly, gpsMonthly: cs.gpsMonthly, parkingMonthly: cs.parkingMonthly,
+      maintMonthly: cs.maintMonthly, maintRate: r(cs.maintRatePct),
+      gpsMonthly: cs.gpsMonthly, parkingMonthly: cs.parkingMonthly,
       deliveryFee: brought ? cs.deliveryFee : 0,
       initPrepFee: needsPrep ? cs.initPrepFee : 0,
       inspectionFee: cs.inspectionFee,
