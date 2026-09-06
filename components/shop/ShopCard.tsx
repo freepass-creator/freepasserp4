@@ -180,21 +180,24 @@ export const ShopCard = memo(function ShopCard({ p, href }: {
            *   생각하기가 조금 힘든 느낌」).
            * ⚠ 2026-09-06 오전에 넉 줄을 전부 4 로 붙였다가 이 말을 들었다 — **한 문단처럼 뭉개져서**
            *   오히려 「한 대」로 안 읽혔다. 붙이는 것과 «묶는 것»은 다르다.
-           * ⇒ 안에 **위계**를 돌려준다. 이름 조각은 붙이고(4), 성격이 바뀌는 자리는 벌린다(12).
+           * ⇒ **줄 사이는 8 균등**이다(사장님 2026-09-06 당근 화면을 대 주셨다 —
+           *   「사진 밑에 우리는 4줄이잖아, 그거 **줄간격** 참고해봐」).
+           *   당근도 넉 줄(제목·시간·가격·뱃지)이고 실측 **8dp 균등**이다. 우리 넉 줄과 성격이 1:1로 겹친다:
+           *     제목↔차명 · 시간↔사실 · 가격↔요금 · 뱃지↔우대조건.
+           * ★위계는 «여백»이 아니라 **글자 크기**가 낸다 — 16 / 13.5 / 21 / 12.5.
+           *   크기 차가 이미 층을 만드는데 여백까지 들쭉날쭉하면(4·12·12) 그게 소란이 된다.
+           * ⚠ 같은 날 4 로 다 붙였다가(뭉갬) 4·12·12 로 갈랐다가(들쭉날쭉) 8 균등에 왔다.
            *
            *     사진
-           *      12   ← 사진 ↔ 글
-           *     차명 · 차번
-           *      4    ← 이름의 연장(연식·주행·연료)
-           *     사실 줄
-           *      12   ← 여기서 «얼마인가»로 바뀐다
-           *     기간 · 대여료 · 보증금
-           *      12   ← 여기서 «되나 안 되나»로 바뀐다
+           *      12   ← 사진 ↔ 글 (다른 재료라 한 단 크다)
+           *     차명 · 차번        8
+           *     사실 줄            8
+           *     기간 · 대여료 · 보증금  8
            *     우대조건
-           *     ────── 32  ← 카드끼리(그리드). 안의 최대(12)의 2.7배라야 「다음 장」이 된다
+           *     ────── 32  ← 카드끼리(그리드). 안(8)의 4배라야 「다음 장」이 된다
            */
           padding: `${SHOP.sp.cozy}px 2px 2px`,
-          display: 'flex', flexDirection: 'column', gap: SHOP.sp.tight, minWidth: 0, flex: 1,
+          display: 'flex', flexDirection: 'column', gap: SHOP.sp.snug, minWidth: 0, flex: 1,
         }}>
           {/*
             차명 — 두 줄로 접히면 카드마다 높이가 달라져 목록이 들쭉날쭉해진다. 한 줄로 못 박고
@@ -244,8 +247,6 @@ export const ShopCard = memo(function ShopCard({ p, href }: {
             <div style={{
               display: 'flex', alignItems: 'baseline', flexWrap: 'wrap',
               columnGap: SHOP.sp.snug, rowGap: SHOP.sp.tight, minWidth: 0,
-              /* 여기서 「어떤 차인가」→「얼마인가」로 성격이 바뀐다 — 그 경계를 여백이 말한다. */
-              marginTop: SHOP.sp.snug,
             }}>
               <span style={{ fontSize: SHOP.fs.sub, color: C.mute, flex: '0 0 auto' }}>
                 {price.m}개월
@@ -284,8 +285,8 @@ export const ShopCard = memo(function ShopCard({ p, href }: {
           */}
           {marks.length ? (
             <div style={{
-              /* 줄 사이 기본이 4 라 여기 8 을 더해 «성격이 바뀌는 자리» 12 를 만든다(요금 줄과 같은 값). */
-              marginTop: 'auto', paddingTop: SHOP.sp.snug,
+              /* 줄 사이(8)는 컨테이너 gap 이 이미 준다 — 여기서 더 벌리지 않는다(당근도 균등이다). */
+              marginTop: 'auto',
             }}>
               <PerkMarks marks={marks} fs={SHOP.fs.cap} size={13} columnGap={SHOP.sp.cozy} />
             </div>
@@ -361,8 +362,17 @@ function ShopThumb({ p, marks = [] }: { p: EntityRecord; marks?: ShopMark[] }) {
             <span key={m.text} className="fp-signal-chip" style={{
               gap: SHOP.sp.tight, borderRadius: SHOP.r.chip,
               fontSize: SHOP.fs.cap, fontWeight: 600, whiteSpace: 'nowrap',
+              /*
+               * ★★**뱃지는 작다**(사장님 2026-09-06 당근 화면 — 「바로구매」 뱃지 실측 **16dp**).
+               *   우리 것은 25 였다. 사진 «위»에 얹히는 표식이라 커지면 사진을 먹고,
+               *   카드에서 제일 먼저 읽혀야 할 것(차·값)보다 먼저 눈에 들어온다.
+               * ⚠ 바탕·여백은 `.fp-signal-chip` 이 쥐고 있고 **업무동 카드와 같이 쓰는 클래스**다 —
+               *   거기를 고치면 업무동 목록까지 바뀐다. 그래서 **줄높이와 글리프만** 조인다.
+               *   글자는 사다리(`fs.cap`)를 그대로 둔다 — 숫자를 박으면 폰 사다리와 갈린다.
+               */
+              lineHeight: 1.1,
             }}>
-              <m.icon size={12} aria-hidden />{m.text}
+              <m.icon size={11} aria-hidden />{m.text}
             </span>
           ))}
         </div>
