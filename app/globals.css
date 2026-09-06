@@ -1207,12 +1207,8 @@ html[data-fp-filter="0"] .fp-finder > .fp-sidebar { display: none; }
  */
 .fp-shop-checkbox { transition: background-color .14s ease, border-color .14s ease; }
 @media (hover: hover) and (pointer: fine) {
-  /*
-   * ⚠ 조건 «판»이 옅은 회색(`--bg-stripe`)이 되면서(2026-09-06) 같은 색으로 물들이면
-   *   **아무 일도 안 일어나 보인다.** 판 위에서는 «흰색으로 떠야» 손이 닿은 줄이 읽힌다.
-   * ★폰 시트는 바탕이 흰색이지만 거기엔 hover 가 없다(손가락에는 hover 가 없다) — 충돌하지 않는다.
-   */
-  .fp-shop-check:hover { background: var(--bg-card); }
+  /* 판(회색 면)을 걷었으므로 hover 는 다시 «옅은 회색»이다 — 흰 바탕 위에서 그게 보인다. */
+  .fp-shop-check:hover { background: var(--bg-stripe); }
 }
 
 /*
