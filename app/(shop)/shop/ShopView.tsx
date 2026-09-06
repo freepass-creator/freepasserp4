@@ -338,6 +338,20 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
           </div>
         ) : null}
 
+        {/*
+          ★★**걸린 조건 줄은 두 기둥 «위»에 통째로 선다** — 그래야 조건칸과 카드가 «같은 선»에서 시작한다
+            (사장님 2026-09-06 「그 **필터 박스랑 상품 카드랑 동일 라인**에 있으면 보기 좋잖아 …
+            선상들을 **가로랑 세로랑 맞출 수 있는 것들은 다 맞추는** 게 좋지」).
+          ⚠ 전에는 이 줄이 **오른쪽 칸 «안»**에 있었다. 그러면 조건을 걸 때만 카드가 아래로 밀려
+            **조건칸과 카드의 윗선이 어긋난다** — 조건을 걸수록 어긋나는 꼴이라 제일 나쁜 종류다.
+          ★조건이 없으면 아무것도 안 그린다(`ShopTokens` 가 빈 배열이면 `null`) — 그때도 선은 맞는다.
+          ★자리를 옮겨도 「지울 대상(칩)과 붙어 있다」는 그대로다 — 지우는 문이 그 줄 안에 있다.
+        */}
+        <ShopTokens tokens={tokens}
+          onRemove={(axis, key) => onToggle(axis as ShopAxis, key)}
+          /* 0건이면 본문 한가운데 「처음부터 다시 찾기」가 그 일을 한다 — 문을 둘 두지 않는다. */
+          onClear={list.length ? onClearAll : undefined} />
+
         <div style={{
           display: 'flex', gap: SHOP.sp.pane, alignItems: 'flex-start',
           marginTop: mobile ? SHOP.sp.snug : SHOP.sp.cozy,
@@ -415,11 +429,6 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
           ) : null}
 
           <div style={{ flex: 1, minWidth: 0 }}>
-            <ShopTokens tokens={tokens}
-              onRemove={(axis, key) => onToggle(axis as ShopAxis, key)}
-              /* 0건이면 본문 한가운데 「처음부터 다시 찾기」가 그 일을 한다 — 문을 둘 두지 않는다. */
-              onClear={list.length ? onClearAll : undefined} />
-
             {/*
               폰 전용 머리줄 — 목록의 어깨다. **웹은 이 줄이 없다**: 「전체차량 · N대 중 1–M · 정렬」
               셋이 두 기둥을 가로질러 «한 선»에 서기 때문이다(아래 `headRow` 머리말).
