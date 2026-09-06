@@ -6,8 +6,8 @@
  *   ⇒ 그래서 이 파일은 «독립 규격»이 아니다. `estimate.css` 를 먼저 싣고 그 위에 얹는 **덧칠**이다.
  *     토큰(`--accent`·`--ink-*`·`--line`·`--surface`)·글꼴·슬래시 제로·`.phone`·`.card`·`.step`·
  *     `.seg`·`.chips`·`.pin`·`.vsearch`·`.basis`·`.foot` 은 전부 견적 것을 그대로 쓴다.
- *     여기 있는 것은 **견적에 없는 조각뿐**이다 — 원가 줄(`.orow`) · 축 뱃지(`.ax`) · 잔가표(`.rtb`) ·
- *     안내 상자(`.byrow`) · 저장 바(`.savebar`).
+ *     여기 있는 것은 **견적에 없는 조각뿐**이다 — 원가 줄(`.orow`) · 잔가표(`.rtb`) ·
+ *     안내 상자(`.byrow`) · 저장 바(`.savebar`) · 분류 띠(`.gsec`) · 줄 묶음(`.osub`).
  *
  * ⚠ 2026-09-06 이전 판은 원가 목업(`프리패스-목업-원가설정.html`)의 자체 규격
  *   (920px 2열·둥근 14px·그림자·다른 회색)을 그대로 옮겨 «두 얼굴»이 됐었다. 사장님이 하나로 맞추라 하셨다.
@@ -30,10 +30,24 @@
 .est-root .pin.w input{width:92px;text-align:right}
 .est-root .pin input:disabled{color:var(--ink-4)}
 
-/* 축 뱃지 — 이 값이 «채널»로 갈리는지 «신용»으로 갈리는지. 박스 뱃지가 아니라 작은 칩 한 개다. */
-.est-root .ax{font-size:9.5px;font-weight:800;padding:2px 8px;border-radius:var(--r,3px);flex:none;letter-spacing:.2px}
-.est-root .ax.ch{color:#8a5a08;background:#fdf3d7}
-.est-root .ax.cr{color:var(--accent);background:var(--accent-soft)}
+/* ★축 뱃지(`.ax`)는 걷었다 — 사장님 2026-09-06 「이거 직관적이지 못한데」.
+   한 카드에 두 축을 담아 놓고 줄마다 뱃지로 「이건 어느 축」이라 일러 주는 방식이었는데,
+   세그를 눌러도 일부 줄만 바뀌어 뱃지를 읽어야 알았다. 지금은 **축마다 카드를 나누고
+   그 축의 세그를 그 값들 바로 위에** 둔다 — 붙어 있으면 설명이 필요 없다. 되돌리지 말 것. */
+
+/* ★분류 띠 — 원가를 «장부와 같은 갈래»로 묶는다(사장님 2026-09-06
+   「원가에 직접비·판관비·영업외비용 … 이걸 나눠 가지고 매칭을 시키면 장부하고도 연계가 되니까
+    이해하기가 쉬울 것 같은데」). 카드 위에 서서 「여기부터 무슨 갈래인지」를 말한다. */
+.est-root .gsec{margin:18px 12px 8px;padding-left:9px;border-left:3px solid var(--accent);display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.est-root .gsec b{font-size:13px;font-weight:800;color:var(--ink-1);letter-spacing:-.2px}
+.est-root .gsec span{font-size:11px;font-weight:600;color:var(--ink-4)}
+
+/* 카드 안 줄 묶음 — 「조합마다 갈리는 값」과 「공통」을 갈라 준다.
+   ★줄마다 뱃지를 붙이는 대신 **묶어서 한 번만** 말한다(뱃지는 2026-09-06 에 물렸다). */
+.est-root .osub{margin-top:15px;padding-bottom:6px;border-bottom:1px solid var(--line);font-size:10.5px;font-weight:800;color:var(--ink-4);letter-spacing:.2px}
+.est-root .osub:first-of-type{margin-top:2px}
+.est-root .osub em{font-style:normal;color:var(--accent)}
+.est-root .osub + .orow{margin-top:9px}
 
 /* 잔가표 — 견적 색·선을 그대로 쓴다. 폰에서는 가로로 밀린다(감싼 쪽이 overflow-x). */
 .est-root .rtb{width:100%;border-collapse:collapse;margin-top:2px}
@@ -53,3 +67,10 @@
 .est-root .savebar{margin:12px 12px 0;display:flex;gap:8px}
 .est-root .savebar button{flex:1;height:40px;border:0;border-radius:var(--r,3px);background:var(--accent);color:var(--on);font:inherit;font-weight:700;font-size:13px;cursor:pointer}
 .est-root .savebar button[disabled]{background:var(--surface);color:var(--ink-4);border:1px solid var(--line-2);cursor:default}
+
+/* 칸 설명 — 「커서를 갖다 대면 설명」(사장님 2026-09-06 「렌터카 처음 하는 사람들도 이 구조를 이해해서
+   이런 원가를 넣으시면 됩니다」). 웹은 커서만 올려도, 폰은 눌러도 열린다 — 폰에는 hover 가 없다. */
+.est-root .ohint{flex:none;width:16px;height:16px;margin-left:5px;padding:0;border:1px solid var(--line-2);border-radius:50%;background:var(--surface);color:var(--ink-4);font:inherit;font-size:10px;font-weight:800;line-height:1;cursor:pointer;display:inline-grid;place-items:center;vertical-align:middle}
+.est-root .ohint:hover,.est-root .ohint.on{border-color:var(--accent);background:var(--accent);color:var(--on)}
+.est-root .ohelp{margin:6px 0 2px;padding:8px 10px;border-left:2px solid var(--accent-line);background:var(--surface-2);border-radius:0 3px 3px 0;font-size:11px;font-weight:500;color:var(--ink-2);line-height:1.6}
+.est-root .ohelp b{color:var(--accent);font-weight:700}

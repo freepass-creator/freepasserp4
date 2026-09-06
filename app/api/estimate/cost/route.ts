@@ -35,8 +35,10 @@ const DOC = 'estimate_cost';
 const RANGE: Record<keyof CostSettings, [number, number]> = {
   bondPct: [0, 20], regFee: [0, 5_000_000],
   deliveryFee: [0, 5_000_000], initPrepFee: [0, 10_000_000],
-  interestPct: [0, 30], loanPct: [0, 100],
-  maintMonthly: [0, 1_000_000], gpsMonthly: [0, 200_000], parkingMonthly: [0, 1_000_000],
+  // 신용 구간 A(정상)·B(중신용)·C(저신용) — 항목은 같고 값만 다르다.
+  interestAPct: [0, 30], interestBPct: [0, 30], interestCPct: [0, 30],
+  loanAPct: [0, 100], loanBPct: [0, 100], loanCPct: [0, 100],
+  maintMonthly: [0, 1_000_000], maintRatePct: [0, 20], gpsMonthly: [0, 200_000], parkingMonthly: [0, 1_000_000],
   inspectionFee: [0, 1_000_000],
   overheadPct: [0, 50], badDebtPct: [0, 50],
   salesFeePct: [0, 20],
@@ -51,8 +53,12 @@ const RANGE: Record<keyof CostSettings, [number, number]> = {
   retentionNormalPct: [1, 100], retentionMidPct: [1, 100], retentionLowPct: [1, 100],
   turnoverPrepFee: [0, 10_000_000], turnoverDeliveryFee: [0, 10_000_000],
   turnoverFeePct: [0, 20], turnoverVacancyMonths: [0, 12],
+  // 위약금 상쇄 = 평균 보증금 × 회수율. 회수율은 신용 구간 A/B/C.
+  depositMonths: [0, 12],
+  penaltyRecoveryAPct: [0, 100], penaltyRecoveryBPct: [0, 100], penaltyRecoveryCPct: [0, 100],
   // 잔가 가감 — ±%p. 곡선을 통째로 올리거나 내린다.
   residualAdjustPct: [-30, 30],
+  returnDeliveryFee: [0, 5_000_000], disposalFeePct: [0, 20],
 };
 const KEYS = Object.keys(RANGE) as (keyof CostSettings)[];
 

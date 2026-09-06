@@ -27,7 +27,9 @@ const D = DEFAULT_CONFIG as unknown as {
   acqTaxRate: { rent: number; sub: number };
   setting: {
     bondRate: number; regFee: number; insYear: number; selfRate: number;
-    maintMonthly: number; gpsMonthly: number; parkingMonthly: number;
+    /** 정비비 — **정액(원/월) ＋ 비율(연 %)**. 둘 다 넣으면 더해진다(항목마다 맞는 쪽이 있다). */
+  maintMonthly: number; maintRatePct: number;
+  gpsMonthly: number; parkingMonthly: number;
     salesFeeRate: { rent: number; sub: number };
   };
 };
@@ -59,10 +61,21 @@ export type CostSettings = {
   // 취득
   bondPct: number; regFee: number;
   deliveryFee: number; initPrepFee: number;        // 미반영(간접비로 봄)
-  // 금융
-  interestPct: number; loanPct: number;
+  /**
+   * **금융 — 신용 구간(A/B/C)별로 나뉜다.**
+   * ★사장님 2026-09-06 「저신용하고 정상신용 렌터카 **원가는 똑같지**. 근데 거기에서 우리가
+   *   저신용 원가·중신용 원가·정상신용 원가를 **조금씩 구분해서 입력**을 하는 거야.
+   *   저신용은 **금리를 조금 높게** 할 수도 있는 거고, **계약 유지율을 좀 낮게** 할 수 있는 거고.
+   *   그래서 **원가 항목은 다 같은데** 그 구간을 나눠 놓는 거지. **ABC 로 나눠서 정상신용에는 A 적용,
+   *   중신용 B, 저신용 C** 이렇게 가는 거야」.
+   *   ⇒ 구간은 셋 — **A(정상) · B(중신용) · C(저신용)**. 항목은 같고 값만 다르다.
+   */
+  interestAPct: number; interestBPct: number; interestCPct: number;
+  loanAPct: number; loanBPct: number; loanCPct: number;
   // 직접 운영비
-  maintMonthly: number; gpsMonthly: number; parkingMonthly: number;
+  /** 정비비 — **정액(원/월) ＋ 비율(연 %)**. 둘 다 넣으면 더해진다(항목마다 맞는 쪽이 있다). */
+  maintMonthly: number; maintRatePct: number;
+  gpsMonthly: number; parkingMonthly: number;
   inspectionFee: number;                            // 미반영
   // 판관비
   overheadPct: number; badDebtPct: number;          // 미반영(엔진에 자리 없음)
@@ -95,9 +108,59 @@ export type CostSettings = {
   retentionNormalPct: number; retentionMidPct: number; retentionLowPct: number;
   /** 손바뀜 회당 비용 — 상품화 · 왕복탁송 · 영업수수료(총대여료 대비 %) · 휴차 개월. */
   turnoverPrepFee: number; turnoverDeliveryFee: number; turnoverFeePct: number; turnoverVacancyMonths: number;
+  /**
+   * **위약금 상쇄** — 손바뀜 한 번에 «실제로 받아 내는» 돈. 두 칸이 곱해진다.
+   *
+   * ★사장님 2026-09-06 「평균 보증금을 입력을 하면 대신 손바뀜이 있을 때 비용은 나가지만
+   *   그만큼이 상쇄가 되겠지. 근데 **사실상 위약금이 발생돼도 저신용은 거의 못 받거든.**
+   *   그런 것들이 좀 **현실적으로 반영이 돼야** 돼.」
+   *
+   *   ⇒ 정액 한 칸(「중도해지 위약금 얼마」)으로는 그 현실이 안 잡힌다.
+   *     받아 낼 «자리»(보증금)와 실제로 «받아 내는 정도»(회수율)는 서로 다른 값이고,
+   *     회수율만 신용 구간에 따라 갈린다.
+   *
+   *   회당 상쇄액 = 월납 × `depositMonths` × `penaltyRecovery{A|B|C}Pct`
+   *
+   *   depositMonths       보증금이 **월납 몇 달 치**인가(사장님 2026-09-06 「보통 요즘에 저신용
+   *                       보증금은 한 두 달 치를 받거든?」). 정액(원)이 아니라 배수다 —
+   *                       정액으로 두면 비싼 차에서 보증금이 실제보다 작아진다.
+   *   penaltyRecovery*Pct 그중 실제로 위약금으로 «떼는» 비율. A 정상은 대체로 떼지만
+   *                       C 저신용은 미납 대여료·수리비로 이미 소진되어 거의 못 뗀다.
+   *
+   * ⚠⚠ **위약금으로는 손바뀜이 안 막힌다.** 저신용 4년 아반떼 실측(2026-09-06):
+   *    회당 나가는 돈 253만(상품화 50 + 왕복탁송 50 + 수수료 재지급 90 + 휴차 63)인데
+   *    두 달 치 보증금은 125만이다. **다 떼도 50%**, 회수율 10%면 **5%**다.
+   *    ⇒ 나머지는 대여료가 진다. 보증금을 더 받거나(저신용은 낼 돈이 없다),
+   *      회당 비용을 줄이는(휴차·탁송·수수료) 쪽이 실제 손잡이다.
+   */
+  depositMonths: number;
+  penaltyRecoveryAPct: number; penaltyRecoveryBPct: number; penaltyRecoveryCPct: number;
   /** 잔가 가감(±%p) — 「잔가로 조정」하는 손잡이. 곡선 전체를 통째로 올리거나 내린다. */
   residualAdjustPct: number;
+  /**
+   * **끝날 때 드는 돈** — 반납형만. 인수형은 고객이 가져가니 회수도 매각도 없다.
+   *   회수 탁송  계약 끝나고 차를 가져오는 값(정액)
+   *   매각 비용  경매 수수료·매각 대행 — 잔존가 대비 %(값에 비례한다)
+   */
+  returnDeliveryFee: number; disposalFeePct: number;
 };
+
+/**
+ * **아직 안 정한 실비** — 값이 0 이라 원가에 안 잡히는 칸들.
+ * ★사장님 2026-09-06 「공통으로 들어가는 부분 중 **얼마인지 모르는 부분들을 쭉 만들어 놓고**
+ *   표준 비용을 넣어서 표준 견적을 제시해 주는 거야」.
+ *   ⇒ 칸을 세워 두는 것으로 끝내지 않는다. **비어 있다는 사실을 화면이 말한다** —
+ *     안 그러면 「0 이라서 싼 견적」을 표준인 줄 알고 내보낸다.
+ * ⚠ 0 이 «맞는» 칸(판관비·대손 — 사장님 「내부 관리비 없이 순수 직관적인 원가」)은 세지 않는다.
+ */
+export const UNSET_FEES: { key: keyof CostSettings; label: string }[] = [
+  { key: 'deliveryFee', label: '1차 탁송료' },
+  { key: 'initPrepFee', label: '초기 상품화비' },
+  { key: 'inspectionFee', label: '정기검사비' },
+  { key: 'returnDeliveryFee', label: '회수 탁송료' },
+  { key: 'disposalFeePct', label: '매각 비용' },
+];
+export const unsetFees = (cs: CostSettings) => UNSET_FEES.filter((f) => !Number(cs[f.key]));
 
 const pct = (v: number) => Math.round((v || 0) * 1000) / 10;   // 0.065 → 6.5
 
@@ -117,9 +180,10 @@ const pct = (v: number) => Math.round((v || 0) * 1000) / 10;   // 0.065 → 6.5
 export const COST_DEFAULTS: CostSettings = {
   bondPct: pct(D.setting.bondRate), regFee: D.setting.regFee,
   deliveryFee: 0, initPrepFee: 0,
-  interestPct: pct(D.interestRate.rent),
-  loanPct: 90,                       // ← 손오공 운영값(코드 기본 80)
-  maintMonthly: D.setting.maintMonthly, gpsMonthly: D.setting.gpsMonthly,
+  // A(정상) · B(중신용) · C(저신용) — 지금은 셋 다 같은 값이다. 회사가 구간을 벌리면 여기서 벌어진다.
+  interestAPct: pct(D.interestRate.rent), interestBPct: pct(D.interestRate.rent), interestCPct: pct(D.interestRate.rent),
+  loanAPct: 90, loanBPct: 90, loanCPct: 90,   // ← 손오공 운영값(코드 기본 80)
+  maintMonthly: D.setting.maintMonthly, maintRatePct: 0, gpsMonthly: D.setting.gpsMonthly,
   parkingMonthly: 0,                 // ← 손오공 운영값(코드 기본 35,000)
   inspectionFee: 0,
   overheadPct: 0, badDebtPct: 0,
@@ -129,20 +193,60 @@ export const COST_DEFAULTS: CostSettings = {
   selfRentPct: pct(D.setting.selfRate), selfSubPct: 0,
   selfInsRentYear: 0, selfInsSubYear: 0,
   marginRentPct: pct(D.marginRate.rent), marginSubPct: pct(D.marginRate.sub),
-  markupUsedPct: 20, markupNewPct: 0,
+  markupUsedPct: 0, markupNewPct: 0,   // ← 2026-09-06 업금액을 걷었다(아래 `configFrom` 머리말)
   ewYear: 80000,
   retentionNormalPct: 97, retentionMidPct: 75, retentionLowPct: 30,
   turnoverPrepFee: 500000, turnoverDeliveryFee: 500000, turnoverFeePct: 3, turnoverVacancyMonths: 1,
+  // 보증금 두 달 치 = 저신용 실무(사장님 2026-09-06). 회수율은 「저신용은 거의 못 받거든」을 숫자로 옮긴 것.
+  depositMonths: 2,
+  penaltyRecoveryAPct: 80, penaltyRecoveryBPct: 50, penaltyRecoveryCPct: 10,
   residualAdjustPct: 0,
+  returnDeliveryFee: 0, disposalFeePct: 0,
 };
 
 /**
- * 원가 설정 → 엔진이 받는 `adminCfg`. **환산은 여기 한 곳**에서만 한다.
- * @param opts.newCar 신차 갈래인가 — 업금액을 중고/신차 중 어느 쪽으로 쓸지 정한다.
+ * **취득 경로** — 같은 차라도 어떻게 들여왔느냐에 따라 초기비가 다르다.
+ * ★사장님 2026-09-06 「중고랜트·중고구독은 **기 보유한 걸 하는 건지 중고를 구매해 오는 건지**에 따라
+ *   견적이 달라지겠지. **상품화 여부** 이런 거. 새로 사오는, 상품화가 된 걸 사오는 건지
+ *   상품화 안 된 걸 사 오는 건지」.
  */
-export function configFrom(cs: CostSettings, opts: { newCar?: boolean } = {}) {
+export type AcqPath =
+  | 'own'      // 기보유 — **취득세·공채·등록비·탁송·상품화가 이미 났다.** 새 계약에 또 물리지 않는다.
+  | 'bought'   // 매입 · 상품화 완료된 차 — 취득세·공채·등록·탁송.
+  | 'prep';    // 매입 · 상품화 필요 — 위 전부 + 상품화비.
+
+/**
+ * 원가 설정 → 엔진이 받는 `adminCfg`. **환산은 여기 한 곳**에서만 한다.
+ * @param opts.newCar 신차인가 — 업금액·초기비를 신차 규칙으로 쓴다(등록·탁송 O, 상품화 X).
+ * @param opts.path   중고 취득 경로 — 초기비가 켜지고 꺼진다.
+ *
+ * ★★**「차량가 업금액」을 걷었다**(기본 0 · 2026-09-06). 사장님 「손오공 견적은 신경 쓰지 말고
+ *   **우리가 이제 우리 표준견적을 새로 만드는 거야**」 · 「중고 렌트 2,700만이 **왜 이렇게 비싸냐**」.
+ *   ⚠ 업금액은 **취득에만 붙고 잔존에는 안 붙어** 그 금액이 통째로 «감가»로 위장됐다.
+ *     2,700만 × 20% = 540만이 4년에 걸쳐 손님에게 청구되고 있었다(월납 683,000 → 528,000).
+ *   ⇒ **마진은 이익률에서, 상품화·탁송은 실비에서** 잡는다. 손잡이가 겹치지 않게 한다.
+ *     그래도 정률로 얹고 싶은 회사는 원가 화면에서 값을 넣으면 예전처럼 굴러간다.
+ */
+/** 신용등급 → 원가 구간. A=정상 · B=중신용 · C=저신용(무신용도 C). */
+export function bandOf(credit: string | null | undefined): 'A' | 'B' | 'C' {
+  const c = String(credit ?? '');
+  if (c === '저신용' || c === '무신용') return 'C';
+  if (c === '중신용') return 'B';
+  return 'A';
+}
+
+export function configFrom(cs: CostSettings, opts: { newCar?: boolean; path?: AcqPath; credit?: string } = {}) {
   const r = (v: number) => (v || 0) / 100;
+  // 금융은 신용 구간(A/B/C)에서 고른다 — 항목은 같고 값만 다르다.
+  const band = bandOf(opts.credit);
+  const interestPct = band === 'C' ? cs.interestCPct : band === 'B' ? cs.interestBPct : cs.interestAPct;
+  const loanPct = band === 'C' ? cs.loanCPct : band === 'B' ? cs.loanBPct : cs.loanAPct;
+  const recoveryPct = band === 'C' ? cs.penaltyRecoveryCPct : band === 'B' ? cs.penaltyRecoveryBPct : cs.penaltyRecoveryAPct;
   const markupRate = r(opts.newCar ? cs.markupNewPct : cs.markupUsedPct);
+  // 신차는 언제나 «사 오는 차»다(등록·탁송 O · 상품화 X).
+  const path: AcqPath = opts.newCar ? 'bought' : (opts.path ?? 'prep');
+  const brought = path !== 'own';           // 새로 들여온 차인가
+  const needsPrep = path === 'prep';        // 상품화를 우리가 하나
   return {
     ...DEFAULT_CONFIG,
     /**
@@ -152,16 +256,24 @@ export function configFrom(cs: CostSettings, opts: { newCar?: boolean } = {}) {
      *   운영 규칙이 엑셀에서 이탈한 것이고, 그 이탈을 이 한 줄이 드러낸다.
      */
     vatBase: 'excluded' as const,
-    interestRate: { rent: r(cs.interestPct), sub: r(cs.interestPct) },
+    interestRate: { rent: r(interestPct), sub: r(interestPct) },
     marginRate: { rent: r(cs.marginRentPct), sub: r(cs.marginSubPct) },
-    loanRatio: r(cs.loanPct),
+    loanRatio: r(loanPct),
     markup: { rent: { rate: markupRate }, sub: { rate: markupRate } },
     // 보험·자차 — 채널별. 0 도 «정한 값»이라 엔진이 존중한다(구독 0 = 고객 명의).
     insYear: { rent: cs.insRentYear, sub: cs.insSubYear },
     selfRate: { rent: r(cs.selfRentPct), sub: r(cs.selfSubPct) },
     selfInsuredYear: { rent: cs.selfInsRentYear, sub: cs.selfInsSubYear },
     ewPerYear: { rent: cs.ewYear, sub: 0 },
-    acqTaxRate: { ...D.acqTaxRate, rent: r(cs.acqTaxRentPct), sub: r(cs.acqTaxSubPct) },
+    /**
+     * 취득세·공채 — **새로 들여온 차만** 낸다.
+     * ★사장님 2026-09-06 「**기보유한 차들은 아무렴 취득세만큼이 싸니까** 조금 싸질 거고,
+     *   **탁송비나 이런 것들은 안 들어갈 거 아냐**」.
+     *   이미 우리 이름으로 등록된 차다 — 새 계약을 맺는다고 취득세를 또 내지 않는다.
+     */
+    acqTaxRate: brought
+      ? { ...D.acqTaxRate, rent: r(cs.acqTaxRentPct), sub: r(cs.acqTaxSubPct) }
+      : { rent: 0, sub: 0 },
     // 판관비·대손 — 직접원가에 비율로 얹는다(엔진 `calc.js`. 기본 0이면 없던 것과 같다).
     overheadRate: r(cs.overheadPct),
     badDebtRate: r(cs.badDebtPct),
@@ -179,13 +291,21 @@ export function configFrom(cs: CostSettings, opts: { newCar?: boolean } = {}) {
       deliveryRoundTrip: cs.turnoverDeliveryFee,
       feeRateOfRent: r(cs.turnoverFeePct),
       vacancyMonths: cs.turnoverVacancyMonths,
+      // 회당 «받아 내는» 돈 = 월납 × 보증금 개월 × 그 신용 구간의 회수율(월납은 엔진이 안다).
+      depositMonths: cs.depositMonths,
+      penaltyRecoveryRate: r(recoveryPct),
     },
     setting: {
       ...D.setting,
-      bondRate: r(cs.bondPct), regFee: cs.regFee,
+      // 등록·탁송은 «새로 들여온 차»만. 기보유는 이미 났다 — 새 계약에 또 물리지 않는다.
+      bondRate: brought ? r(cs.bondPct) : 0, regFee: brought ? cs.regFee : 0,
       ewYear: cs.ewYear,
-      maintMonthly: cs.maintMonthly, gpsMonthly: cs.gpsMonthly, parkingMonthly: cs.parkingMonthly,
-      deliveryFee: cs.deliveryFee, initPrepFee: cs.initPrepFee, inspectionFee: cs.inspectionFee,
+      maintMonthly: cs.maintMonthly, maintRate: r(cs.maintRatePct),
+      gpsMonthly: cs.gpsMonthly, parkingMonthly: cs.parkingMonthly,
+      deliveryFee: brought ? cs.deliveryFee : 0,
+      initPrepFee: needsPrep ? cs.initPrepFee : 0,
+      inspectionFee: cs.inspectionFee,
+      returnDeliveryFee: cs.returnDeliveryFee, disposalFeeRate: r(cs.disposalFeePct),
       salesFeeRate: { rent: r(cs.salesFeePct), sub: r(cs.salesFeePct) },
     },
   };
