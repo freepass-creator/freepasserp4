@@ -1,0 +1,65 @@
+import { NextResponse } from 'next/server';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
+/**
+ * 신차 조합지도 피드 — 신차 견적기가 「어떤 옵션·어디까지 조합·최소~최대」를 확정하는 원천.
+ *   (사장님 2026-09-06 「옵션이 있고 어디까지 조합되는지 + 최소~최대 두 끝」 · 「주는 쪽에서 잘 준비」)
+ *
+ * data/new-car/*-config.json 은 «주는 쪽 정본»이지만 리포지토리 경로라 외부 견적기가 못 땡긴다.
+ * 이 API 가 그걸 «인증 없이·CORS 열어» 낸다 — /api/newcar(트림·가격), /api/carmaster(식별)와 같은 규격.
+ *   - 제네시스 = «기본모델+필수/선택 옵션» → exclusiveGroups(엔진·구동·인승·외장·휠·내장 등)
+ *   - 현대·기아 = «트림계층» → trimLadder(연료×트림, 각 완성가) + optionSuperset
+ *   둘 다 minMax(min=기본/최저트림 · maxCandidate=상한후보, 상호배제·패키지포함 미검증은 각 항목 note 참조).
+ *
+ *   ?maker=제네시스|현대|기아     그 제조사만
+ *   ?model=gv80|그랜저            model/sub_model 부분일치
+ * 응답: { updatedAt, genesis:{models[]}, hyundaiKia:{models[]} } (필터 적용 시 해당만)
+ */
+const S = (v: unknown) => String(v ?? '').trim();
+const N = (v: unknown) => S(v).toLowerCase().replace(/[\s()·-]/g, '');
+
+const CORS = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, OPTIONS' };
+const OK = { ...CORS, 'Cache-Control': 'public, max-age=3600' };
+const ERR = { ...CORS, 'Cache-Control': 'no-store' };
+
+export function OPTIONS() { return new NextResponse(null, { status: 204, headers: CORS }); }
+
+function load(name: string): any {
+  return JSON.parse(readFileSync(join(process.cwd(), 'data/new-car', name), 'utf8'));
+}
+
+export async function GET(request: Request): Promise<Response> {
+  const url = new URL(request.url);
+  const maker = S(url.searchParams.get('maker'));
+  const model = S(url.searchParams.get('model'));
+
+  try {
+    const genesis = load('genesis-config.json');
+    const hk = load('hk-config.json');
+
+    // 제조사 필터: 제네시스는 genesis-config, 현대·기아는 hk-config
+    const wantGenesis = !maker || N(maker) === N('제네시스') || N(maker) === 'genesis';
+    const wantHK = !maker || ['현대', '기아', 'hyundai', 'kia'].some((x) => N(maker) === N(x));
+
+    let gModels = wantGenesis ? (genesis.models || []) : [];
+    let hModels = wantHK ? (hk.models || []) : [];
+    if (maker && wantHK && (N(maker) === N('현대') || N(maker) === 'hyundai')) hModels = hModels.filter((m: any) => S(m.maker) === '현대');
+    if (maker && wantHK && (N(maker) === N('기아') || N(maker) === 'kia')) hModels = hModels.filter((m: any) => S(m.maker) === '기아');
+    if (model) {
+      gModels = gModels.filter((m: any) => N(m.model).includes(N(model)) || N(m.label).includes(N(model)));
+      hModels = hModels.filter((m: any) => N(m.sub_model).includes(N(model)));
+    }
+
+    const updatedAt = genesis?._meta?.updatedAt || hk?._meta?.updatedAt || null;
+    const body: any = { updatedAt, structureNote: '제네시스=기본모델+옵션(exclusiveGroups) · 현대기아=트림계층(trimLadder). maxCandidate=상한후보(상호배제·패키지포함 미검증은 note 참조).' };
+    if (wantGenesis) body.genesis = { source: genesis?._meta?.source, modelCount: gModels.length, models: gModels };
+    if (wantHK) body.hyundaiKia = { source: hk?._meta?.source, modelCount: hModels.length, models: hModels };
+    return NextResponse.json(body, { headers: OK });
+  } catch {
+    return NextResponse.json({ error: 'newcar config feed unavailable' }, { status: 503, headers: ERR });
+  }
+}
