@@ -193,15 +193,18 @@ export const COST_DEFAULTS: CostSettings = {
   // A(정상) · B(중신용) · C(저신용) — 지금은 셋 다 같은 값이다. 회사가 구간을 벌리면 여기서 벌어진다.
   interestAPct: pct(D.interestRate.rent), interestBPct: pct(D.interestRate.rent), interestCPct: pct(D.interestRate.rent),
   loanAPct: 90, loanBPct: 90, loanCPct: 90,   // ← 손오공 운영값(코드 기본 80)
-  // ⚠ 정비 «비율»만 0 으로 남긴다 — 표준값을 못 정해서가 아니라 **우리 상품에는 안 맞아서**다.
-  //   손오공 «운영값»이 정비 월 1만이다. 그건 정비를 회사가 아니라 **고객이 지는 상품**이라는 뜻이다.
-  //   신차 렌탈(welrix)은 회사가 정비를 져서 차값 연 2%가 맞지만, 그 2%를 여기 얹으면
-  //   2,500만 차에 월 41,700원이 더 붙어 «운영과 다른» 원가가 된다.
-  //   ⇒ 회사가 정비까지 대주는 상품을 만들면 이 칸에 2 를 넣는다. 화면에서 한 칸이면 된다.
-  maintMonthly: D.setting.maintMonthly, maintRatePct: 0, gpsMonthly: D.setting.gpsMonthly,
+  // 정비 = 정액 월 1만(소모품·관제 최소분) + 차값 **연 2%**(업계 통상 · 우리 신차 견적기도 2%).
+  //   둘은 더해진다 — 2,500만 차면 월 1만 + 41,700 ≈ 5만/월로, 렌터카 통상 정비비(월 3~5만) 자리다.
+  //   ⚠ 비싼 차가 정비도 비싸므로 «비율» 쪽이 실제에 가깝다. 정비를 **고객이 지는 상품**이면
+  //     이 칸을 0 으로 내린다(그때는 정액 월 1만만 남는다) — 화면에서 한 칸이다.
+  maintMonthly: D.setting.maintMonthly, maintRatePct: 2, gpsMonthly: D.setting.gpsMonthly,
   parkingMonthly: 0,                 // ← 손오공 운영값(코드 기본 35,000)
   inspectionFee: 60000,   // 정기검사 — 승용 수수료 ~29,000 + 대행·왕복 ~30,000 (3년차부터 해마다)
-  overheadPct: 0, badDebtPct: 0,
+  // 일반관리·간접비 **3%** — 사무실·인건비를 차 한 대에 나눠 붙이는 몫.
+  //   렌터카 통상 판관비는 매출의 8~12%지만, 우리는 3자 마켓이라 차를 세우지도 정비하지도 않는다.
+  //   ⇒ 그 아래쪽인 3%를 표준으로 둔다. 0 으로 두면 «회사 운영비가 아예 안 잡힌» 원가가 된다.
+  // 대손은 **0 이 맞다** — 신용 위험은 Ⅰ-4 손바뀜에서 이미 원가로 잡는다. 여기 또 넣으면 두 번 잡는다.
+  overheadPct: 3, badDebtPct: 0,
   salesFeePct: 3,                    // ← 손오공 운영값(코드 기본 5%)
   acqTaxRentPct: pct(D.acqTaxRate.rent), acqTaxSubPct: pct(D.acqTaxRate.sub),
   insRentYear: D.setting.insYear, insSubYear: 0,
