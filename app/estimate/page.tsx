@@ -334,6 +334,13 @@ function EstimatePageInner() {
           </div>
         </div>
 
+        </div>{/* .col.main — 좌측은 «차량 고르기»까지다(사장님 2026-09-07
+                 「좌측에서는 차량만 선택하고, 그 외 책정값들은 공간 많으니까 우측 패널에서 하자고 —
+                  이거는 기존 견적기도 그렇게 했잖아」). 손오공 원본도 조건(보증금·선납·수수료)은
+                  우측 `.condbar` 에 있었다. */}
+
+        <div className="col side">
+
         {/* STEP 2 상품 조건 */}
         <div className="card">
           <div className="step"><span className="no">2</span>상품 조건</div>
@@ -373,10 +380,6 @@ function EstimatePageInner() {
             ))}
           </div>
         </div>
-
-        </div>{/* .col.main */}
-
-        <div className="col side">
 
         <div className="basis">
           <span className="bi">원가 기준</span>
