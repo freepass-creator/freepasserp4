@@ -687,7 +687,13 @@ export function PerkMark({ mark, fs = SHOP.fs.cap, size = BADGE.icon }: {
       /* 치수는 «한 벌»(`BADGE`) — 사진 위 신원 칩과 같은 값이다. 그 머리말 참고. */
       background: C.zebra, padding: `${BADGE.padY}px ${BADGE.padX}px`, borderRadius: SHOP.r.chip,
       lineHeight: BADGE.lineHeight,
-      color: C.ink, fontSize: fs, fontWeight: 700, whiteSpace: 'nowrap',
+      /*
+       * ★★**두껍게 하지 않는다**(사장님 2026-09-07 「**무심사 분납가능 이런 거 두껍게 안 하는 게
+       *   맞을 것 같고**」). 이 줄은 «읽는 표식»이지 이 카드에서 제일 센 말이 아니다 —
+       *   굵게 두면 바로 위 차명(700)과 무게가 같아져, 눈이 어디를 먼저 볼지 못 정한다.
+       *   면(`C.zebra`)과 아이콘 색이 이미 「여기 표식이 있다」를 말한다.
+       */
+      color: C.ink, fontSize: fs, fontWeight: FW.meta, whiteSpace: 'nowrap',
     }}>
       <Icon size={size} aria-hidden style={{ color: mark.good ? C.ok : mark.ask ? C.faint : C.brand }} />
       {mark.text}

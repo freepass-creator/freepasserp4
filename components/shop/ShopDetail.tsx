@@ -443,6 +443,11 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
    *   하나 더 넣어서** 기간별 계약조건에 **주행거리 연령** 같은 거도 넣어주면 좋을 거 같음 ·
    *   **보증금 분납** 가능한 거도 대여료표에 **웹에서만**」).
    *
+   * ⚠ **넣는 것은 둘뿐 — 「보증금 분납」과 「약정 주행」**(사장님 2026-09-07 「**보증금분납이랑
+   *   약정주행까지만 있으면 됨**」). 처음엔 「운전 연령」도 넣었다가 뺐다 — 그 값은 바로 밑
+   *   **「이용 조건」이 제자리**이고(거기서는 낮추는 비용까지 말한다), 표에까지 두면 같은 말을
+   *   두 번 읽는다. 「중복되면 안 되지 · 어정쩡한 데에 명분 없이 들어가지 마」의 그 규칙이다.
+   *
    * ★왜 표에 넣나 — 손님이 기간을 고르는 순간 묻는 것이 「그럼 조건은?」이다. 표에 붙어 있으면
    *   기간을 짚는 눈이 그대로 조건까지 읽는다. 아래 「이용 조건」까지 내려가지 않아도 된다.
    * ⚠ 값은 «정책 단위»라 기간마다 같다 — 그래도 줄마다 적는다. 한 줄이 「이 기간의 계약조건」으로
@@ -454,7 +459,6 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
   const rateConds: { h: string; v: string }[] = mobile ? [] : ([
     { h: '보증금 분납', v: S('deposit_installment') },
     { h: '약정 주행', v: S('annual_mileage') },
-    { h: '운전 연령', v: ageRange },
   ]).filter((c) => meaningful(c.v));
 
   const creditRaw = creditDisplay(p);
@@ -1161,17 +1165,20 @@ export function FavShare({ title }: { title: string }) {
 
   return (
     /*
-      ★★**누를 것처럼 보이게 한다**(사장님 2026-09-05 「**공유 버튼이 좀 있어야** 할 거 같고」).
-        맨 글자로 두면 화면 오른쪽 위 여백에 놓인 장식처럼 보인다.
-      ★**회색 면**으로 둔다 — 파랗게 칠하면 「전화」와 다툰다(주요 실행은 전화 하나뿐이다).
-        테두리 상자가 아닌 이유는 가게 공통이다(shop-ui `ShopPill` 머리말).
+      ★★**박스 없이 아이콘 + 글자만**(사장님 2026-09-07 「공유도 **박스 없이 아이콘텍스트만**」).
+        집 전체의 규칙과 같다 — 「박스 뱃지 쓰지 말고 아이콘 텍스트로, **모든 곳에서**」.
+      ⚠ 여기 「누를 것처럼 보이게 회색 «면»을 둔다」고 적혀 있었다. 그 판단을 물린다 —
+        같은 줄 왼쪽의 「목록으로」가 이미 면 없이 아이콘+글자다. 한쪽만 면을 입으면
+        **같은 줄에 서 있는 두 실행의 무게가 갈린다**(공유가 「주요 실행」처럼 보인다).
+        누를 것처럼 보이는 일은 아이콘과 누름효과(`fp-shop-press`)가 한다.
+      ★복사 직후만 색으로 말한다(`C.ok`) — 「복사했습니다」는 상태이지 장식이 아니다.
     */
-    <button type="button" onClick={share} className="fp-shop-press fp-shop-fill" aria-label="이 차량 공유하기"
+    <button type="button" onClick={share} className="fp-shop-press" aria-label="이 차량 공유하기"
       style={{
         display: 'inline-flex', alignItems: 'center', gap: SHOP.sp.snug,
-        height: 40, padding: `0 ${SHOP.sp.cozy}px`, borderRadius: SHOP.r.ctrl,
-        border: 'none', background: copied ? C.okBg : C.head,
-        cursor: 'pointer', color: copied ? C.ok : C.ink, fontSize: SHOP.fs.sub, fontWeight: 600,
+        height: 40, padding: `0 ${SHOP.sp.snug}px`, borderRadius: SHOP.r.ctrl,
+        border: 'none', background: 'transparent',
+        cursor: 'pointer', color: copied ? C.ok : C.sub, fontSize: SHOP.fs.sub, fontWeight: 600,
       }}>
       {copied ? <Check size={ICON.lg} aria-hidden /> : <Share2 size={ICON.lg} aria-hidden />}
       {copied ? '복사했습니다' : '공유'}
@@ -1197,7 +1204,21 @@ export function FavShare({ title }: { title: string }) {
  */
 function TopBar({ code, title, listHref }: { code: string; title: string; listHref: string }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: SHOP.sp.tight, padding: `${SHOP.sp.tight}px 0 ${SHOP.sp.cozy}px` }}>
+    /*
+      ★★**틀고정**(사장님 2026-09-07 「여기 **목록이랑 공유는 틀고정**해주고」).
+        상세는 일곱 구역짜리 긴 화면이다. 대여료·보험·이용조건을 다 읽고 «마음먹은 순간»에
+        보낼 곳(공유)과 돌아갈 곳(목록)이 화면에 없으면, 손님은 맨 위로 되돌아가야 한다.
+        공유는 이 사업의 퍼널이라 그 순간이 제일 중요하다.
+      ⚠ 머리띠(`WhitelabelFrame`) 밑에 선다 — 머리띠도 웹에서 고정이라 그 높이만큼 내려야
+        둘이 겹친다. 높이는 머리띠가 CSS 변수로 흘려 준다(`--fp-wl-head-h`).
+      ★바탕을 깐다 — 투명하면 밑을 지나가는 사진·표가 글자에 겹쳐 읽힌다.
+    */
+    <div style={{
+      position: 'sticky', top: 'var(--fp-wl-head-h, 0px)', zIndex: 12,
+      background: C.bg,
+      display: 'flex', alignItems: 'center', gap: SHOP.sp.tight,
+      padding: `${SHOP.sp.tight}px 0 ${SHOP.sp.cozy}px`,
+    }}>
       <Link href={listHref} onClick={() => haptic.nav()} className="fp-shop-press"
         style={{
           display: 'inline-flex', alignItems: 'center', gap: SHOP.sp.snug,
