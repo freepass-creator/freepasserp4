@@ -127,6 +127,74 @@ must(/전기차 취득세 감면/.test(costPage) && /value="1,400,000" disabled/
   'app/estimate/cost/page.tsx');
 
 /* ══════════════════════════════════════════════════════════════════════════
+   ★화면 규격 — 정본 `docs/견적기-원본-학습.md` §4-2
+     사장님 2026-09-07 「코덱스랑 **페이지 규격 맞추면서** 해 … 이것도 중요하다」.
+     원본(손오공·웰릭스)에서 배우는 것은 «무엇이 어느 칸에 있나»이고,
+     칸의 **넓이는 우리 공통규격**(`components/WorkPage.tsx` 1:1:1:1)을 쓴다.
+   ══════════════════════════════════════════════════════════════════════════ */
+const estCss = read('components/estimate/estimate.css');
+const costCss = read('components/estimate/cost.css');
+const picker = read('features/estimate/CarPicker.tsx');
+const workPage = read('components/WorkPage.tsx');
+
+/* ㉠ 기둥 1:1:1:1 — 견적·원가 둘 다 */
+must(/grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/.test(estCss),
+  '견적 웹 기둥이 1:1:1:1 이 아닙니다 — 공통규격(`WorkPage` 기본 ratio 1)에 맞춥니다',
+  'components/estimate/estimate.css');
+must(/grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/.test(costCss),
+  '원가 웹 기둥이 1:1:1:1 이 아닙니다 — 견적과 같은 규격입니다',
+  'components/estimate/cost.css');
+must(/defaultPaneRatio = panes\.length === 1 \? 3 : 1/.test(workPage),
+  '공통규격(`WorkPage`)의 기본 패널 비율이 1 이 아닙니다 — 견적·원가가 그 값에 맞춰져 있습니다',
+  'components/WorkPage.tsx');
+/* 접힘 1000px — 원본 손오공과 같은 자리 */
+must(/@media \(min-width:1000px\)/.test(estCss) && /@media \(min-width:1000px\)/.test(costCss),
+  '웹 기둥이 서는 분기점이 1000px 이 아닙니다 — 원본 손오공(`App.vue:1021`)과 같은 자리입니다',
+  'components/estimate/*.css');
+/* 마지막 기둥만 선이 없다 — WorkPage 와 같은 규칙 */
+must(/\.col\.c3\.wide\{grid-column:span 2/.test(estCss),
+  '손익표가 «두 칸»을 안 씁니다 — 표 최소폭이 760px 인데 한 칸(1600 화면에서 400)에서는 못 읽습니다',
+  'components/estimate/estimate.css .col.c3.wide');
+must(/\.col\.c4\{border-right:0\}/.test(costCss),
+  '원가 마지막 기둥에 오른쪽 선이 남아 있습니다 — `WorkPage` 는 마지막 패널만 선을 뺍니다',
+  'components/estimate/cost.css');
+must(/const narrow = useIsMobile\(1600\);/.test(page),
+  '손익표를 «다 들어가는 폭»에서만 펴지 않습니다 — 반쪽만 보이는 표는 안 편 것만 못합니다',
+  'app/estimate/page.tsx');
+
+/* ㉡ 폰은 목업 그대로 — 감싸개가 `display:contents` 여야 «없는 셈»이 된다 */
+must(/\.est-root \.col\{display:contents\}/.test(estCss),
+  '견적 감싸개가 폰에서 «없는 셈»이 아닙니다 — `.col{display:contents}` 가 있어야 목업이 그대로 섭니다',
+  'components/estimate/estimate.css');
+must(/\.est-root\.cost \.col\{display:contents\}/.test(costCss),
+  '원가 감싸개가 폰에서 «없는 셈»이 아닙니다',
+  'components/estimate/cost.css');
+
+/* ㉢ 고르는 일에는 모달을 안 쓴다 — 웹은 인라인 */
+must(/inline\?: boolean;/.test(picker) && /est-picker inline/.test(picker),
+  '차 고르기에 «인라인»이 없습니다 — 원본 둘 다 좌 기둥에 박혀 있고, 모달은 결과물에만 씁니다',
+  'features/estimate/CarPicker.tsx');
+must(/open=\{mobile \? pickerOpen : true\} inline=\{!mobile\}/.test(page),
+  '견적 화면이 웹에서 피커를 «항상 펼치지» 않습니다 — 좌 기둥이 차 고르는 자리입니다',
+  'app/estimate/page.tsx');
+
+/* ㉣ 손익표 = 행 항목 · 열 기간 · 숫자는 안 접힌다 */
+must(/className="qmx"/.test(page) && /repeat\(\$\{cards\.length\}, minmax\(112px,1fr\)\)/.test(page),
+  '손익표가 «행=항목 · 열=기간»이 아니거나 칸 최소폭이 없습니다 — 좁으면 숫자가 겹칩니다',
+  'app/estimate/page.tsx .qmx');
+must(/white-space:nowrap/.test(estCss) && /\.qmxw\{[^}]*overflow-x:auto/.test(estCss),
+  '손익표 숫자가 줄바꿈되거나 표가 제 안에서 안 밀립니다 — 화면 전체가 밀리면 안 됩니다',
+  'components/estimate/estimate.css .qmx / .qmxw');
+
+/* ㉤ 컨트롤 — 폰 분기와 입력 16px(iOS 확대 방지) */
+must(/--ctrl-input-fs:16px/.test(estCss),
+  '폰 입력 글자가 16px 이 아닙니다 — 그 밑이면 iOS 가 탭할 때 화면을 확대합니다',
+  'components/estimate/estimate.css');
+must(/\.est-root \.modesw > \*/.test(estCss),
+  '머리 토글이 «자식 무엇이든» 잡지 않습니다 — `a,button` 만 잡아 활성 `<span>` 이 깨진 적이 있습니다',
+  'components/estimate/estimate.css .modesw');
+
+/* ══════════════════════════════════════════════════════════════════════════
    ★★여기부터는 **동작**을 잰다 — 문자열이 있는지가 아니라 «엔진을 돌려 값이 맞는지».
 
    2026-09-07 코덱스 지적: 위 정규식들은 「배기량 null → 자동차세 0」을 **못 막았다**
@@ -218,4 +286,4 @@ if (fails.length) {
   console.error('  ⚠ 이 검사를 «먼저» 고쳐 통과시키는 것은 규격을 지운 것과 같습니다.\n');
   process.exit(1);
 }
-console.log('✓ 견적 로직 정합 — 법정값 · 배기량 · 원가 갈래 · 손바뀜 · 위약금 · 잔가');
+console.log('✓ 견적 정합 — 법정값 · 배기량 · 원가 갈래 · 손바뀜 · 위약금 · 잔가 · **화면 규격(1:1:1:1)**');

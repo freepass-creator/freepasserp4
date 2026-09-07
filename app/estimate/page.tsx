@@ -158,6 +158,13 @@ function EstimatePageInner() {
   const [picked, setPicked] = useState<PickedCar>(DEFAULT_USED);
   /* 넓은 화면에서는 기간을 «열»로 편다 — 아래 손익표(`.qmx`). 폰은 목업 그대로 아코디언. */
   const mobile = useIsMobile();
+  /**
+   * 손익표는 **다 들어가는 폭**에서만 편다. 표가 요구하는 최소폭이 760px 인데(항목 150 +
+   * 기간 112×5 + 간격 10×5), 두 칸을 써도 화면이 1,600 은 돼야 그만큼이 나온다(1,560 에서는 다섯째 해가 잘렸다 — 실측).
+   * 그 아래에서는 폰과 같은 **아코디언**을 쓴다 — 반쪽만 보이는 표는 안 편 것만 못하다
+   * (2026-09-07 코덱스 실측: 1600 화면 한 칸에서 표시폭이 388px 이었다).
+   */
+  const narrow = useIsMobile(1600);
   const [pickerOpen, setPickerOpen] = useState(false);
   /** 중고 시세는 마스터에 없다 — 사람이 넣는다. 신차는 공표가라 자동으로 찬다. */
   const [usedPrice, setUsedPrice] = useState(DEFAULT_USED_PRICE);
@@ -381,9 +388,6 @@ function EstimatePageInner() {
           <div className="crow"><span className="lb">수수료</span><Chips opts={fees} cur={fee} unit="%" onPick={setFee} /></div>
         </div>
 
-        </div>{/* .col.c2 — 조건 */}
-
-        <div className="col c3">
 
         {/* STEP 4 연도별 잔가 */}
         <div className="card" style={{ marginTop: 12 }}>
@@ -412,9 +416,9 @@ function EstimatePageInner() {
           </span>
         </div>
 
-        </div>{/* .col.c3 — 잔가·원가기준 */}
+        </div>{/* .col.c2 — 조건 · 잔가 · 원가기준 */}
 
-        <div className="col c4">
+        <div className="col c3 wide">
 
         {/* ⑤ — ①~④ 와 같은 상자. 기간 다섯 줄이 그 안에 든다(사장님 2026-09-06). */}
         <div className="card terms">
@@ -443,7 +447,7 @@ function EstimatePageInner() {
             *   그래서 여기만 `useIsMobile()` 로 갈린다 — 색이 아니라 «짜임»이라 첫 그림이 한 번
             *   바뀌어도 번쩍이지 않는다(색을 JS 로 가르면 흰 띠가 번쩍인다 — CLAUDE.md 상단바 항목).
             */}
-          {mobile ? (
+          {narrow ? (
           <div className="prods">
           {cards.map((c) => {
             const v = pnl(c, prepayAmt);
@@ -538,7 +542,7 @@ function EstimatePageInner() {
           )}
         </div>
 
-        </div>{/* .col.c4 — 견적 상세 */}
+        </div>{/* .col.c3.wide — 손익표. **두 칸**을 쓴다(아래 CSS) — 표가 760px 를 요구한다 */}
 
         <div className="foot">
           <b>업계 기준선 추정</b> — 잔가=시장 벤치마크 역산, 수익률=업계 영업이익률(SK렌터카 9.9%).
