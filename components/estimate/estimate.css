@@ -247,6 +247,12 @@
     position:sticky;top:0;max-height:100vh;overflow-y:auto;
     border-right:1px solid var(--line-2);padding:6px 6px 24px;
   }
+  /* ★손익표는 **두 칸**을 쓴다 — 칸 수(4)는 공통규격 그대로이고 «비율»만 준다
+     (`WorkPage` 도 `paneRatio` 로 패널마다 몫을 달리 준다 — 4등분만 강제하지 않는다).
+     ⚠ 왜 필요한가 — 표가 요구하는 최소폭이 **760px**(항목 150 + 기간 112×5 + 간격 10×5)인데
+       한 칸은 1600 화면에서 400 이라 항목명과 기간 한둘만 보였다(2026-09-07 코덱스 실측).
+       칸을 둘 쓰면 1600 에서 약 788px 이라 다섯 해가 다 선다. */
+  .est-root:not(.cost) .phone > .col.c3.wide{grid-column:span 2;border-right:0}
   .est-root:not(.cost) .phone > .col.c4{border-right:0}
   .est-root:not(.cost) .phone > .col.c1{background:var(--surface)}
   .est-root:not(.cost) .phone > .col .card{border:0;border-radius:0;margin:0 0 4px}
