@@ -4,6 +4,7 @@ import { Phone, X } from 'lucide-react';
 import { C, FW, ICON, R_CARD, fmtPhone } from '@/components/ui';
 import { SHOP, ShopDock, ShopDockAction } from '@/components/shop/shop-ui';
 import { ChannelSign, ChannelWordmark, CoBrandFreepass } from '@/components/brand-ci';
+import { CORP } from '@/lib/domain/corporate-ci';
 import { useIsMobile } from '@/lib/use-mobile';
 import { hasBrand, whitelabelVars, type Whitelabel } from '@/lib/whitelabel';
 
@@ -318,7 +319,7 @@ export function WhitelabelFrame({
               ★머리띠의 «✕ freepass» 와 짝이다 — 위에서 한 번 보이고 아래에서 한 번 밝힌다.
             */}
             <div style={{ marginTop: SHOP.sp.snug }}>
-              이 홈페이지는 <strong style={{ fontWeight: FW.title, color: C.mute }}>프리패스모빌리티 주식회사</strong>가 운영합니다.
+              이 홈페이지는 <strong style={{ fontWeight: FW.title, color: C.mute }}>{CORP.name}</strong>가 운영합니다.
             </div>
           </div>
           {/*

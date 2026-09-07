@@ -1,7 +1,8 @@
 'use client';
 import type { ReactNode } from 'react';
 import { C, FW } from '@/components/ui';
-import { BRAND_FONT, BRAND_MAIN, BRAND_SUB, BRAND_WEIGHT } from '@/lib/brand';
+import { BRAND_FONT, BRAND_WEIGHT } from '@/lib/brand';
+import { CORP } from '@/lib/domain/corporate-ci';
 import type { Whitelabel } from '@/lib/whitelabel';
 
 /**
@@ -29,7 +30,15 @@ import type { Whitelabel } from '@/lib/whitelabel';
  * ## ② 프리패스도 CI 가 있다
  *
  * 「✕ freepass」를 **본문 서체(Pretendard) 맨글자**로 적어 놨었다. 그건 연한 게 아니라
- * **CI 가 없는** 것이다. 정본은 **Exo 2 600 소문자 워드마크**(`lib/brand.ts` `BRAND_FONT`).
+ * **CI 가 없는** 것이다. 정본은 **Exo 2 두 무게 소문자 워드마크**다.
+ *
+ * ★★**여기 서는 것은 «법인 CI»다 — `freepass` + `mobility`**(사장님 2026-09-07 「ㅇㅇ
+ *   **프리패스모빌리티**로 하자」). `lib/domain/corporate-ci.ts` 가 이미 갈라 둔 규칙 그대로다:
+ *   **CI(법인)** = teamjpk · **freepassmobility** / **BI(서비스)** = 착한거래 · 렌터카매니저 · freepasserp.com.
+ *   이 자리는 「이 홈페이지를 **누가 운영하는가**」이고, 푸터도 「프리패스모빌리티 주식회사가
+ *   운영합니다」라고 말한다 — **대외에 나가는 이름은 법인**이다.
+ * ⚠ `BRAND_MAIN`/`BRAND_SUB`(freepasserp.com)은 **서비스 브랜드**라 여기 쓰지 않는다.
+ *   그건 로그인·탭 제목처럼 «우리 시스템을 쓰는 사람»이 보는 자리의 이름이다.
  * ⚠ 톤은 그대로 아주 연하게 둔다(사장님 2026-09-07 「CI 뒤에 x 랑 freepass 는 **아주 연하게**」).
  *   **꼴과 톤은 다른 이야기다** — 꼴은 정본대로, 톤만 내린다.
  * ★★**마크(체크)는 안 붙인다 — 영문 워드마크만**(사장님 2026-09-07 「프리패스는 그냥 **CI 대로
@@ -184,8 +193,8 @@ export function CoBrandFreepass({ fs, gap }: { fs: number; gap: number }) {
         fontFamily: BRAND_FONT, fontSize: fs, letterSpacing: '-0.04em',
         textTransform: 'lowercase', lineHeight: 1,
       }}>
-        <span style={{ fontWeight: BRAND_WEIGHT.main }}>{BRAND_MAIN}</span>
-        <span style={{ fontWeight: BRAND_WEIGHT.sub }}>{BRAND_SUB}</span>
+        <span style={{ fontWeight: BRAND_WEIGHT.main }}>{CORP.markMain}</span>
+        <span style={{ fontWeight: BRAND_WEIGHT.sub }}>{CORP.markSub}</span>
       </span>
     </span>
   );
