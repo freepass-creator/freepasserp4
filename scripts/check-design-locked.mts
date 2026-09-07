@@ -712,7 +712,7 @@ must(/export function resolveGuestWhitelabel/.test(read('lib/whitelabel.ts'))
   && /isGuestPath\(request\.nextUrl\.pathname\)/.test(read('middleware.ts'))
   && /x-fp-guest/.test(read('app/layout.tsx'))
   /* 채널 임시 주소 → `/shop` 다시쓰기 + 손님 표시. 이 셋이 한 덩어리다. */
-  && /w\.previewPath && request\.nextUrl\.pathname === w\.previewPath/.test(read('middleware.ts'))
+  && /w\.sitePath && request\.nextUrl\.pathname === w\.sitePath/.test(read('middleware.ts'))
   && /target\.searchParams\.set\('wl', channel\.key\)/.test(read('middleware.ts')),
   'ERP 도메인의 손님 화면이 다시 노브랜드(프리패스)로 떨어집니다 — 상세·목록·소스에 우리 이름이 샙니다.',
   'lib/whitelabel.ts resolveGuestWhitelabel');
@@ -813,12 +813,12 @@ must(/wl\.tel/.test(read('app/q/[code]/ShopDetailView.tsx')),
  *   채널 하나 파는 일이 「표에 한 줄」이려면 화면이 «한 벌»이어야 한다.
  *   임시 주소는 미들웨어가 `/shop` 으로 다시 쓴다. 파일을 만들면 화면이 두 벌이 되고,
  *   한쪽만 고쳐지는 순간 「그 채널만 예전 화면」이 된다.
- * ⚠ 표에서 `previewPath` 를 읽어 «그 경로의 라우트 파일이 없는지»를 센다 —
+ * ⚠ 표에서 `sitePath` 를 읽어 «그 경로의 라우트 파일이 없는지»를 센다 —
  *   채널이 늘어도 이 검사는 안 고친다.
  */
 {
   const table = read('lib/whitelabel.ts');
-  const paths = [...table.matchAll(/previewPath:\s*'([^']+)'/g)].map((m) => m[1]);
+  const paths = [...table.matchAll(/sitePath:\s*'([^']+)'/g)].map((m) => m[1]);
   const stray = paths.filter((p) => existsSync(new URL(`../app/(shop)${p}/page.tsx`, import.meta.url))
     || existsSync(new URL(`../app${p}/page.tsx`, import.meta.url)));
   must(stray.length === 0,

@@ -41,7 +41,7 @@ export function isPublicPath(pathname: string | null | undefined): boolean {
    *     클라이언트 게이트가 «로그인»으로 튕겼다.** 이 줄이 `/uniauto` 만 알고 있었기 때문이다.
    *     채널마다 여기를 또 고쳐야 하면 그건 「바로」가 아니다.
    */
-  if (WHITELABELS.some((w) => !!w.previewPath && (pathname === w.previewPath || pathname.startsWith(`${w.previewPath}/`)))) return true;
+  if (WHITELABELS.some((w) => !!w.sitePath && (pathname === w.sitePath || pathname.startsWith(`${w.sitePath}/`)))) return true;
   /*
    * ★★채널 주소의 **첫 화면**(사장님 2026-09-05 「그냥 그 주소로 들어가면 상품부터,
    *   회사가 뭘 팔고 있는지 그냥 다 보이는 거라고」).
