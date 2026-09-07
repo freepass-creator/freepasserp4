@@ -181,7 +181,7 @@ must(/--brand: #1B2A4A;/.test(wxCss),
 must(/inline\?: boolean;/.test(picker) && /est-picker inline/.test(picker),
   '차 고르기에 «인라인»이 없습니다 — 원본 둘 다 좌 기둥에 박혀 있고, 모달은 결과물에만 씁니다',
   'features/estimate/CarPicker.tsx');
-must(/<CarPicker open inline mode=\{cond\}/.test(page),
+must(/<CarPicker open inline optionsOutside mode=\{cond\}/.test(page),
   '견적 화면이 웹에서 피커를 «항상 펼치지» 않습니다 — 좌 기둥이 차 고르는 자리입니다',
   'app/estimate/page.tsx');
 
@@ -196,7 +196,22 @@ must(/term-card__check/.test(page),
   '「견적서에 포함」 체크가 없습니다 — 발송할 약정만 고르는 것이 원본 `TermsGrid` 의 핵심입니다',
   'app/estimate/page.tsx .term-card__check');
 
-/* ㉤ 셋째 칸은 «우리 것» — 원본의 계약·채팅 자리에 원가·손익이 선다 */
+/* ㉤ 옵션·색상은 «왼쪽 별도 칸»이다 — 원본과 같은 자리(사장님 2026-09-08 「1번으로」) */
+must(/id="sec-options"/.test(page) && /id="sec-color"/.test(page),
+  '선택 옵션·색상 칸이 왼쪽에 없습니다 — 원본은 차종 밑에 «별도 칸»으로 세웁니다',
+  'app/estimate/page.tsx #sec-options / #sec-color');
+must(/<CarPicker open inline optionsOutside/.test(page) && /optionsOutside\?: boolean;/.test(picker),
+  '차 고르기 시트가 옵션을 «또» 묻습니다 — 두 군데서 고르면 어느 값이 이겼는지 모릅니다',
+  'features/estimate/CarPicker.tsx optionsOutside');
+must(/const listPrice = isNew \? \(picked\.price \?\? 0\) \+ optSum : usedPrice;/.test(page),
+  '신차 차량가에 고른 옵션이 «안 더해집니다» — 옵션을 밖에서 고르면 더하는 일은 화면 몫입니다',
+  'app/estimate/page.tsx listPrice');
+/* 색은 화면이 지어내지 않는다 — 규격색·색칩은 색상마스터 한 곳에서만 온다(로컬 색맵 금지). */
+must(/from '@\/lib\/domain\/color-master'/.test(page) && !/#[0-9a-fA-F]{6}/.test(page),
+  '색을 화면이 지어냈습니다 — 규격색·색칩은 색상마스터(SSOT)에서만 당깁니다',
+  'app/estimate/page.tsx lib/domain/color-master');
+
+/* ㉥ 셋째 칸은 «우리 것» — 원본의 계약·채팅 자리에 원가·손익이 선다 */
 must(/className="contract-panel"/.test(page) && /className="pnl-row/.test(page),
   '셋째 칸에 원가·손익이 없습니다 — 「원가구조만 다르게」가 이 화면이 우리 것인 이유입니다',
   'app/estimate/page.tsx .contract-panel');

@@ -27,6 +27,8 @@ import Link from 'next/link';
 import EstimateGate from '@/features/estimate/EstimateGate';
 import '@/components/estimate/welrix.css';
 import { useAppBar } from '@/lib/appbar';
+/* 색은 화면이 지어내지 않는다 — 규격색·색칩은 색상마스터(SSOT)에서만 당긴다. */
+import { EXT_COLORS, INT_COLORS, colorSwatch } from '@/lib/domain/color-master';
 import CarPicker from '@/features/estimate/CarPicker';
 import type { PickedCar } from '@/lib/domain/estimate/car-index';
 import { deltaKeyFor } from '@/lib/domain/estimate/residual-by-name';
@@ -179,6 +181,19 @@ function EstimatePageInner() {
   const [staffName, setStaffName] = useState('');
   const [staffTel, setStaffTel] = useState('');
   /**
+   * 신차 옵션 — 웰릭스 원본은 왼쪽에 «선택 옵션» 칸을 따로 세운다(사장님 2026-09-08 「1번으로」).
+   * 그 전에는 차 고르기 시트 «안»에 있었다. 밖으로 꺼냈으니 고른 값도 여기서 쥔다.
+   */
+  const [optSel, setOptSel] = useState<Record<string, boolean>>({});
+  /**
+   * 색상 — 원본 `ColorSection`. ⚠ **값에는 영향이 없다.**
+   *   원본은 제조사 색상표(펄·매트 유료색·투톤 +50만)를 들고 있어 차량가에 더하지만,
+   *   우리 신차마스터에는 **색상별 가격이 없다.** 없는 값을 지어내느니 「고른 것을 적어만 둔다」로 둔다
+   *   (견적서에 나갈 항목이다). 색 이름·색칩은 색상마스터 규격색을 쓴다.
+   */
+  const [colorExt, setColorExt] = useState('');
+  const [colorInt, setColorInt] = useState('');
+  /**
    * 손님 발송용 견적 — 원본 `TermsGrid`. 「기본 견적」과 달리 **열마다** 기간·보증금·선납이 따로 논다.
    * 체크한 열만 손님에게 나간다(발송 자체는 아직 안 붙었다 — 다음 일감).
    */
@@ -198,8 +213,18 @@ function EstimatePageInner() {
   const isNew = cond === 'new';
   // 갈래를 바꾸면 고른 차도 그 갈래의 것으로 돌아간다 — 중고를 고른 채 신차 값이 계산되면 안 된다.
   useEffect(() => { setPicked(cond === 'new' ? DEFAULT_NEW : DEFAULT_USED); setManualCc(0); }, [cond]);
+  /* ⚠ 차(트림)가 바뀌면 옵션·색을 «비운다». 안 비우면 딴 차의 옵션값이 남아 차량가가 조용히 틀어진다. */
+  useEffect(() => { setOptSel({}); setColorExt(''); setColorInt(''); }, [picked]);
 
-  const listPrice = isNew ? (picked.price ?? 0) : usedPrice;
+  /** 고른 트림의 옵션 줄 — 원본 규격대로 «가격 0 = 기본 포함»은 고르는 대상이 아니다. */
+  const optionRows = useMemo(() => (picked.newTrim?.options ?? []).filter((o) => o && o.name), [picked]);
+  const optChosen = useMemo(() => optionRows.filter((o) => Number(o.price) > 0 && optSel[o.name]), [optionRows, optSel]);
+  const optSum = optChosen.reduce((n, o) => n + (Number(o.price) || 0), 0);
+  /** 기아는 가격표를 «좌표»로 읽어 옵션 «이름»이 조각으로 온다(「옵션3」) — 값은 정확하다. 숨기지도 지어내지도 않는다. */
+  const optNamesPartial = useMemo(() => optionRows.some((o) => /^옵션\s*\d+$/.test(o.name.trim())), [optionRows]);
+
+  /* ★신차 차량가 = «트림값 + 고른 옵션». 옵션을 밖에서 고르므로 더하는 일은 화면 몫이다. */
+  const listPrice = isNew ? (picked.price ?? 0) + optSum : usedPrice;
   const price = Math.round(listPrice * (1 - disc / 100));
   const age = isNew ? 0 : Math.max(0, nowYear - (usedYear || nowYear));
   const cc = picked.cc ?? (manualCc || null);
@@ -263,7 +288,8 @@ function EstimatePageInner() {
   const prepayAmt = Math.round(price * pre / 100);
   const vehTag = listPrice ? `${man(listPrice)}원` : '차를 고르세요';
   const vMeta = isNew
-    ? [picked.meta, listPrice ? `출고가 ${man(listPrice)}` : null].filter(Boolean).join(' · ')
+    ? [picked.meta, optChosen.length ? `옵션 ${optChosen.length}개 +${man(optSum)}` : null,
+      listPrice ? `차량가 ${man(listPrice)}` : null].filter(Boolean).join(' · ')
     : [picked.meta, `시세 ${man(usedPrice)}`, `${usedYear}년`, `${usedMileage.toLocaleString('ko-KR')}km`,
       ACQ.find((a) => a.v === acq)!.label].filter(Boolean).join(' · ');
 
@@ -343,10 +369,85 @@ function EstimatePageInner() {
               <div className="sub">{picked.meta}</div>
             </button>
           ) : (
-            <CarPicker open inline mode={cond} onClose={() => setPickerOpen(false)}
+            <CarPicker open inline optionsOutside mode={cond} onClose={() => setPickerOpen(false)}
               onPick={(c) => { setPicked(c); if (c.source === 'new') { setUsedMileage(0); setUsedYear(nowYear); } }} />
           )}
         </section>
+
+        {/* ══ 선택 옵션 — 원본 `#sec-options`. 신차에만 선다(중고는 이미 달려 나온 차다). ══ */}
+        {isNew ? (
+          <section id="sec-options">
+            <div className="step-title">선택 옵션 {optionRows.length ? <b>{optionRows.length}개</b> : null}</div>
+            {!picked.newTrim ? (
+              <div className="empty-state">트림을 먼저 고르면 옵션이 나옵니다</div>
+            ) : !optionRows.length ? (
+              <div className="empty-state">
+                이 트림의 옵션은 <b>아직 안 들어왔습니다</b> — 「없다」가 아니라 「못 받았다」입니다.
+                제조사 가격표에서 연료가 안 잡힌 트림은 틀린 옵션을 붙이지 않으려고 비워 둡니다.
+              </div>
+            ) : (
+              <div className="grid-1">
+                {optionRows.map((o) => {
+                  const base = !(Number(o.price) > 0);
+                  const on = !base && !!optSel[o.name];
+                  return (
+                    <label key={o.name} className={`option-row${on ? ' active' : ''}${base ? ' disabled' : ''}`}>
+                      <input type="checkbox" checked={on} disabled={base}
+                        onChange={() => setOptSel((v) => ({ ...v, [o.name]: !v[o.name] }))} />
+                      <div className="o-info"><div className="o-name">{o.name}</div></div>
+                      <div className="o-price">{base ? '기본' : `+${man(o.price)}원`}</div>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+            {optNamesPartial ? (
+              <div className="footnote">
+                <b>옵션 이름이 일부만 들어왔습니다</b> — 제조사 가격표를 좌표로 읽어 이름이 조각난 것이고,
+                <b> 가격은 정확합니다</b>. 이름이 필요하면 제조사 가격표를 함께 보세요.
+              </div>
+            ) : null}
+            {picked.newTrim?.rules?.length ? (
+              <div className="footnote">
+                <b>조합규칙</b> — {picked.newTrim.rules.slice(0, 4).join(' · ')}
+                {picked.newTrim.rules.length > 4 ? ` 외 ${picked.newTrim.rules.length - 4}건` : ''}
+                <br />※ 아직 <b>글</b>로만 있습니다 — 원본(웰릭스)은 여기서 «고를 수 없게» 막습니다.
+                규칙이 원자로 정의되면 우리도 막습니다. 지금은 <b>고를 수 없는 조합도 골립니다.</b>
+              </div>
+            ) : null}
+          </section>
+        ) : null}
+
+        {/* ══ 색상 — 원본 `#sec-color`. ⚠ 값에는 영향이 없다(우리 마스터에 색상별 가격이 없다). ══ */}
+        {isNew ? (
+          <section id="sec-color">
+            <div className="step-title">색상 <b>견적서 표기용</b></div>
+            <div className="vfields">
+              {/* 원본 짜임 그대로 — `.color-wrap`(자리잡이) + `.color-swatch-mini`(색점) + 드롭다운.
+                  색점은 `position:absolute` 라 «반드시» `.color-wrap` 안에 있어야 한다. */}
+              <div className="cs-field">
+                <label>외장</label>
+                <div className="color-wrap">
+                  {colorExt ? <span className="color-swatch-mini" style={{ background: colorSwatch(colorExt) }} /> : null}
+                  <select className="step-dd" value={colorExt} onChange={(e) => setColorExt(e.target.value)}>
+                    <option value="">외장 색상</option>
+                    {EXT_COLORS.map((c) => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div className="cs-field">
+                <label>내장</label>
+                <div className="color-wrap">
+                  {colorInt ? <span className="color-swatch-mini" style={{ background: colorSwatch(colorInt) }} /> : null}
+                  <select className="step-dd" value={colorInt} onChange={(e) => setColorInt(e.target.value)}>
+                    <option value="">내장 색상</option>
+                    {INT_COLORS.map((c) => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
+              </div>
+            </div>
+          </section>
+        ) : null}
 
         <section id="sec-carinfo">
           <div className="step-title">차량 정보</div>
@@ -435,7 +536,8 @@ function EstimatePageInner() {
             <span className={`qp-vehicle${listPrice ? '' : ' empty'}`}>{picked.name}</span>
             {listPrice ? (
               <span className="qp-formula">
-                {isNew ? '출고가' : '시세'} <b>{man(listPrice)}</b>
+                {isNew ? '트림' : '시세'} <b>{man(isNew ? (picked.price ?? 0) : listPrice)}</b>
+                {isNew && optSum ? <> + 옵션 <b>{man(optSum)}</b></> : null}
                 {disc ? <> − 할인 <b>{disc}%</b></> : null}
                 {' = 차량가 '}<b className="total">{man(price)}원</b>
               </span>
@@ -572,7 +674,7 @@ function EstimatePageInner() {
 
       {/* 폰에서만 시트로 뜬다 — 웹은 좌패널에 박혀 있어 이 시트가 필요 없다. */}
       {mobile ? (
-        <CarPicker open={pickerOpen} mode={cond} onClose={() => setPickerOpen(false)}
+        <CarPicker open={pickerOpen} optionsOutside mode={cond} onClose={() => setPickerOpen(false)}
           onPick={(c) => { setPicked(c); if (c.source === 'new') { setUsedMileage(0); setUsedYear(nowYear); } }} />
       ) : null}
     </div>

@@ -3115,6 +3115,7 @@
 }
 .wx-root .vfields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
 .wx-root .vfields .cs-field--wide { grid-column: 1 / -1; }
+.wx-root .color-wrap:has(.color-swatch-mini) .step-dd { padding-left: 30px; }
 .wx-root .vfields .unit { font-size: 11px; color: var(--ink-4); margin-left: 4px; white-space: nowrap; }
 
 /* 손익(원가) 기둥 — 웰릭스가 계약·채팅을 놓던 셋째 칸이다. 우리 원가구조가 여기 선다. */

@@ -36,6 +36,14 @@ export type PickedCar = {
   /** 신차 — 고른 옵션과 조합규칙(있으면). */
   options?: { name: string; price: number }[];
   rules?: string[];
+  /**
+   * 신차 — **고른 트림 원본**. 옵션 목록·조합규칙이 여기 들어 있다.
+   * ★2026-09-08 부터 옵션은 «차 고르기 시트 밖»(왼쪽 `#sec-options` 칸)에서 고른다 —
+   *   웰릭스 원본이 그 자리에 세우기 때문이다(사장님 「1번으로」).
+   *   그래서 화면이 목록을 그리려면 트림을 통째로 들고 나와야 한다.
+   * ⚠ 옵션이 밖에서 골리면 `price` 는 **옵션을 뺀 트림값**이다. 더하는 일은 화면이 한다.
+   */
+  newTrim?: NewTrim;
 };
 
 export type EngineFuel = 'gasoline' | 'diesel' | 'lpg' | 'hybrid' | 'ev';
@@ -213,5 +221,6 @@ export function pickNew(m: NewModel, t: NewTrim, chosen: { name: string; price: 
     price: (Number(t.priceAfter) || Number(t.priceBefore) || 0) + optSum,
     options: chosen,
     rules: t.rules,
+    newTrim: t,
   };
 }
