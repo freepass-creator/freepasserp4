@@ -21,11 +21,28 @@ import { hasBrand, whitelabelVars, type Whitelabel } from '@/lib/whitelabel';
  *   맨 주소로 들어온 손님에게는 **대표번호**가 든다. 우리(프리패스) 이름은 어디에도 안 나온다.
  */
 export function WhitelabelFrame({
-  wl, agentName, agentPhone, dock = true, notice = true, headerLead, headerActions, children,
+  wl, agentName, agentPhone, attr, wlPreview, dock = true, notice = true,
+  headerLead, headerActions, children,
 }: {
   wl: Whitelabel;
   agentName?: string;
   agentPhone?: string;
+  /**
+   * **담당 귀속 코드**(`?a=`) — 간판이 «물고 갈» 값.
+   *
+   * ★★담당은 이제 **주소에만** 산다(`lib/shop/attribution` — 사장님 2026-09-07 「그냥 링크를
+   *   정해주자」). 기억해 두는 곳이 없어졌으므로, 간판이 이 값을 안 물고 가면 **손님이 로고를
+   *   누른 순간 담당이 사라진다.**
+   * ⚠ 사장님 2026-09-07 「**간판 누르면 종료가 아니고**」 — 간판은 「홈으로」지 「끝」이 아니다.
+   *   로고 한 번 눌렀다고 영업자가 손님을 잃으면 안 된다.
+   */
+  attr?: string;
+  /**
+   * 채널 미리보기 꼬리표(`?wl=`) — 도메인이 붙기 전까지 «어느 가게»인지를 들고 다니는 값.
+   * ⚠ 안 물고 가면 간판을 누른 순간 **노브랜드 프리패스 목록**이 뜬다 — 눌렀더니 남의 사이트다.
+   *   (「목록으로」가 2026-09-05 에 같은 사고를 냈고 거기는 이미 고쳐져 있었다. 간판만 남아 있었다.)
+   */
+  wlPreview?: string;
   /**
    * 폰 하단 고정독을 이 껍데기가 그릴까.
    * ⚠ 상세 화면처럼 **제 하단독을 이미 가진 곳**은 `false` 로 끈다 — 안 그러면 독이 둘로 겹친다.
@@ -68,12 +85,21 @@ export function WhitelabelFrame({
    * **채널의 첫 화면 주소** — 간판을 눌렀을 때 갈 곳.
    * ★도메인이 붙었으면 `/`(그 도메인의 첫 화면이 곧 목록이다 — 미들웨어가 `/shop` 으로 다시 쓴다).
    *   아직이면 표에 적힌 임시 주소(`previewPath`). 둘 다 없으면 `/shop`.
-   * ⚠ 조건·검색어를 «안 달고» 간다 — 그게 「처음 방문한 상태」다.
+   *
+   * ★★**떨구는 것과 물고 가는 것을 가른다.**
+   *   · 떨군다 = **조건·검색어**(`?rent=`·`?dep=`·`?q=`…). 그게 「처음 방문한 상태」다.
+   *   · 물고 간다 = **담당(`a`) · 채널(`wl`)**. 이 둘은 조건이 아니라 «누구의/어느 가게»다.
+   *   ⚠ 사장님 2026-09-07 「**간판 누르면 종료가 아니고**」. 담당은 이제 주소에만 살아서
+   *     (`lib/shop/attribution`), 여기서 떨구면 로고 한 번에 영업자가 손님을 잃는다.
    */
   const homeHref = (() => {
+    const q = new URLSearchParams();
+    if (attr) q.set('a', attr);
+    if (wlPreview) q.set('wl', wlPreview);
+    const tail = q.toString() ? `?${q}` : '';
     if (typeof window !== 'undefined'
-      && wl.hosts.some((h) => h.toLowerCase() === window.location.hostname.toLowerCase())) return '/';
-    return wl.previewPath || '/shop';
+      && wl.hosts.some((h) => h.toLowerCase() === window.location.hostname.toLowerCase())) return `/${tail}`;
+    return `${wl.previewPath || '/shop'}${tail}`;
   })();
 
   const headRef = useCallback((el: HTMLElement | null) => {

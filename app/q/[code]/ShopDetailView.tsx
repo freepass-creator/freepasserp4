@@ -117,7 +117,8 @@ export function ShopDetailView({ wl, initial }: {
      *     담당자가 없으면 껍데기가 대표번호로 떨어뜨린다. 목록으로 가는 문도 같이 준다.
      */
     return (
-      <WhitelabelFrame wl={wl} agentName={agentName} agentPhone={phone} notice={false}>
+      <WhitelabelFrame wl={wl} agentName={agentName} agentPhone={phone} notice={false}
+        attr={attr} wlPreview={wlPreview}>
         {/* ⚠ 글자·높이를 손으로 적지 않는다 — 사다리(`SHOP.fs`·`SHOP.h`)를 쓴다(2026-09-06 검수). */}
         <div style={{ padding: `${SHOP.sp.wide}px ${SHOP.sp.edge}px`, textAlign: 'center' }}>
           <div style={{ fontSize: SHOP.fs.h2, fontWeight: 700, color: C.ink, marginBottom: SHOP.sp.snug }}>
@@ -148,6 +149,7 @@ export function ShopDetailView({ wl, initial }: {
    */
   return (
     <WhitelabelFrame wl={wl} agentName={agentName} agentPhone={phone} notice={false} dock={false}
+      attr={attr} wlPreview={wlPreview}
       headerLead={<ShopDetailLead />}
       headerActions={<FavShare title={vehicleNameOf({ kind: 'product', product: p }, { tier: 'full', fallback: 'plate' })} />}>
       <ShopDetail p={p} agentName={agentName} agentPhone={phone}
