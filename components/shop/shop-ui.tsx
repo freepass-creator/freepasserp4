@@ -46,7 +46,15 @@ export const SHOP = {
    */
   tap: { web: 36, mobile: 44 },
   /** 칩·정렬 고르개의 **보이는 높이** — 한 줄에 나란히 서므로 둘이 같아야 한다. */
-  pill: { web: 36, mobile: 38 },
+  /*
+   * ★★**웹 32 · 폰 36**(사장님 2026-09-07 「이 칩이 너무 뚱뚱한 거 같은데」 ·
+   *   「**이 정도 높이로 규격화**해야 하는 거 아닌가 싶네」 — 머리띠의 「전화 상담」 단추를 가리키셨다.
+   *   그 단추가 웹 32(업무동 `Btn` md)다. ⇒ 손님 동 «가로로 여럿 서는 것»의 기준을 거기 맞춘다).
+   * ⚠ 36/38 이었다. 글자가 13인데 높이가 36 이면 위아래로 11px 씩 남아 «뚱뚱»해 보인다.
+   *   09-05 에 44→36 으로 한 번 내렸는데 한 단 더 내려야 했다.
+   * ★폰은 36 — 웹보다 한 단 크다(손가락). 32 로 같이 내리면 누르기가 빡빡해진다.
+   */
+  pill: { web: 32, mobile: 36 },
   /** 라벨 없는 정사각 아이콘 단추(닫기·상세조건). 칩보다 살짝 크게 잡아 손이 쉽게 닿는다. */
   icon: { web: 36, mobile: 40 },
   /** 둥글기 — 마켓의 기본. 업무동 R(4, 각짐)과 다른 이유가 이 파일 머리말에 있다. */
@@ -136,7 +144,7 @@ export function ShopSearch({ value, onChange, placeholder }: {
   value: string; onChange: (v: string) => void; placeholder?: string;
 }) {
   return (
-    <div style={{
+    <div className="fp-shop-search" style={{
       display: 'flex', alignItems: 'center', gap: SHOP.sp.cozy,
       /*
        * 웹 전용 «머리 검색» — 밑줄 하나로 선다. 폰은 이 줄을 안 쓴다(머리띠 안에서 튀어나온다 —
@@ -294,7 +302,7 @@ export function ShopRevealSearch({ value, onChange, onClose, placeholder }: {
          *   한 단 옅은 면(`C.zebra`)으로 내려 뒤로 물리고, 높이도 칩(38)에 맞춰 40 으로 낮춘다.
          */
         height: 40, background: C.zebra, borderRadius: SHOP.r.ctrl, padding: `0 ${SHOP.sp.cozy}px`,
-      }}>
+      }} className="fp-shop-search">
         <Search size={19} aria-hidden style={{ flex: '0 0 auto', color: C.mute }} />
         <input
           autoFocus

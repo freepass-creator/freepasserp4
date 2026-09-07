@@ -1248,6 +1248,19 @@ html[data-fp-filter="0"] .fp-finder > .fp-sidebar { display: none; }
 /* ④ 검색줄이 위에 붙는다 — 목록을 한참 내려가다 다시 찾고 싶을 때 위로 되돌아가지 않아도 된다.
  *    ⚠ 구르는 것은 `.fp-main-pad` 다(html/body 는 overflow hidden). sticky 는 그 안에서 잡힌다.
  *    ⚠ 옆으로 새지 않게 여백만큼 밖으로 뺐다가 안쪽 패딩으로 돌려준다 — 알약 줄과 같은 수법이다. */
+/*
+ * **검색칸의 «초점 상자»를 걷는다** — 손님 동에서만.
+ *
+ * ★사장님 2026-09-07 「여기 검색창 누르면 **박스 저렇게 나오는 거도 오버**고, 저건 **모바일도 마찬가지**야」.
+ * ⚠ 집 전역 규칙(`:focus-visible` → 2px 외곽선 + 4px 링)이 걸려 있었다. 업무동 콕핏에서는 맞는 규칙이지만,
+ *   손님 검색칸은 «밑줄 하나»로 서는 얼굴이라 거기에 상자가 씌워지면 얼굴이 두 개가 된다.
+ * ★★**초점 표시를 «없애지»는 않는다** — 없애면 키보드로 다니는 사람이 지금 어디 있는지 모른다.
+ *   상자 대신 **밑줄·테두리가 브랜드색으로** 바뀐다. 보이는 표시는 그대로 두고 «모양»만 이 화면의 말투로.
+ */
+.fp-wl .fp-shop-search input:focus-visible,
+.fp-wl .fp-shop-search input:focus { outline: none; box-shadow: none; }
+.fp-wl .fp-shop-search:focus-within { outline: none; border-bottom-color: var(--brand); }
+
 .fp-shop-stick {
   /*
    * 검색줄 + 빠른조건 줄 — **웹·폰 둘 다 위에 남는다**(사장님 2026-09-07 「웹에서 스크롤하면

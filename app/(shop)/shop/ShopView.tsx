@@ -364,7 +364,13 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
                 {rows === null ? '불러오는 중' : `${list.length}대 중 1–${shown.length}`}
               </span>
               <div style={{ flex: 1 }} />
-              <span style={{ alignSelf: 'center', display: 'inline-flex' }}>
+              {/*
+                ★정렬 고르개도 «밑선»에 선다(사장님 2026-09-07 「여기 배열을 가로 라인을 맞춰야지…
+                  지금 안 맞는다」). ⚠ `center` 였다 — 줄 높이를 «26px 짜리 큰 숫자»가 정하는데
+                  거기에 상자를 가운데로 맞추니, 상자 중심 392 가 글자 중심 383.5 보다 **8.5px 아래**로
+                  내려앉았다(실측). 글자끼리 맞추려면 상자도 «글자의 밑선»을 봐야 한다.
+              */}
+              <span style={{ display: 'inline-flex' }}>
                 <ShopSort value={query.sort} options={SHOP_SORTS}
                   onChange={(v) => setQuery((q) => ({ ...q, sort: v as ShopSortKey }))} />
               </span>
