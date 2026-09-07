@@ -47,9 +47,10 @@ export const SHOP = {
   tap: { web: 36, mobile: 44 },
   /** 칩·정렬 고르개의 **보이는 높이** — 한 줄에 나란히 서므로 둘이 같아야 한다. */
   /*
-   * ★★**웹 28 · 폰 32**(사장님 2026-09-07 「**칩을 얇게는 해줄 수 있지 않나?? 좀 보기 좋게**」).
+   * ★★**웹 26 · 폰 32**(사장님 2026-09-07 「칩을 얇게는 해줄 수 있지 않나?? 좀 보기 좋게」 ·
+   *   「**조금 더 얇아도 되지 않을까?**」).
    *
-   * 내려온 길 — 44 → 36(09-05) → 32/36(09-07 오전) → **28/32**(같은 날 저녁).
+   * 내려온 길 — 44 → 36(09-05) → 32/36 → 28/32 → **26/32**(09-07 저녁).
    * ⚠ 32 의 근거는 「머리띠의 **전화 상담** 단추와 같은 높이」였다. **그 단추가 같은 날 사라졌다**
    *   (「웹은 누르는 거 아니고 그냥 번호로」) — 맞출 기준이 없어졌으니 그 값에 묶일 이유도 없다.
    * ★글자가 13이다. 28 이면 위아래로 7.5px 씩 남는다 — 칩은 «글자를 담는 자리»지 단추가 아니다.
@@ -57,7 +58,7 @@ export const SHOP = {
    * ★폰은 32 — 웹보다 한 단 크다(손가락). 머티리얼 칩 규격(32dp)이 그 바닥이고,
    *   실제 누를 면적은 좌우 여백(16)이 번다. 여기서 더 내리지 않는다.
    */
-  pill: { web: 28, mobile: 32 },
+  pill: { web: 26, mobile: 32 },
   /** 라벨 없는 정사각 아이콘 단추(닫기·상세조건). 칩보다 살짝 크게 잡아 손이 쉽게 닿는다. */
   icon: { web: 36, mobile: 40 },
   /** 둥글기 — 마켓의 기본. 업무동 R(4, 각짐)과 다른 이유가 이 파일 머리말에 있다. */
@@ -473,6 +474,7 @@ export function ShopTokens({ tokens, onRemove, onClear }: {
    *   걸린 조건은 손님이 **되돌릴 대상**이라 건수와 한 문장으로 뭉치면 안 된다 — 제 줄에 선다.
    * ★조건이 0개면 **아무것도 안 그린다.** 자리를 미리 비워 두지 않는다.
    */
+    const mobile = useIsMobile();
   if (!tokens.length) return null;
   return (
     <div style={{
@@ -482,11 +484,21 @@ export function ShopTokens({ tokens, onRemove, onClear }: {
       {tokens.map((t) => (
         <span key={`${t.axis}:${t.key}`}
           style={{
-            display: 'inline-flex', alignItems: 'center', gap: SHOP.sp.snug,
-            height: 34, padding: `0 ${SHOP.sp.tight}px 0 ${SHOP.sp.cozy}px`, borderRadius: SHOP.r.chip,
-            /* 걸린 조건은 «브랜드 틴트 면» — 회색 칩(고르는 것)과 색으로 갈린다. 테두리는 안 두른다. */
-            background: C.brandBg,
-            fontSize: SHOP.fs.sub, color: C.ink, fontWeight: 600,
+            display: 'inline-flex', alignItems: 'center', gap: SHOP.sp.tight,
+            /*
+             * ★★**켜진 칩과 «같은 것»이다**(사장님 2026-09-07 「**선택했을 때 나오는 칩이랑
+             *   같아야지 · 참고해봐 다르잖아**」).
+             *   ⚠ 여기 「걸린 조건은 브랜드 틴트 면 — 회색 칩과 색으로 갈린다」고 적혀 있었다.
+             *     그 판단을 물린다. 위 칩 줄에서 「승용」을 켜면 **남색 칩**이 되는데, 바로 밑에
+             *     같은 「승용」이 **회색 틴트 칩**으로 또 서 있었다 — 같은 것이 두 얼굴이었다.
+             *   ⇒ 높이·둥글기·면·글자를 **켜진 칩(`ShopPill` on)과 한 벌로** 맞춘다.
+             *     다른 것은 뒤에 붙는 ✕ 하나뿐이고, 그게 이 줄이 하는 일(빼기)이다.
+             */
+            height: mobile ? SHOP.pill.mobile : SHOP.pill.web,
+            padding: `0 ${SHOP.sp.snug}px 0 ${mobile ? SHOP.sp.edge : SHOP.sp.cozy}px`,
+            borderRadius: SHOP.r.ctrl,
+            background: C.brand,
+            fontSize: mobile ? SHOP.fs.body : SHOP.fs.sub, color: C.inverse, fontWeight: 700,
           }}>
           {/*
             ★★**축 앞머리(「월 대여료」·「보증금」)를 안 붙인다**(사장님 2026-09-06 「거기 뭐
@@ -499,7 +511,8 @@ export function ShopTokens({ tokens, onRemove, onClear }: {
           {t.label}
           <button type="button" onClick={() => onRemove(t.axis, t.key)}
             aria-label={`${t.solo ? '' : `${t.axisLabel} `}${t.label} 조건 빼기`}
-            style={{ ...bare, width: 22, height: 22, borderRadius: SHOP.r.chip, color: C.mute }}>
+            /* ★면이 남색이 됐으므로 ✕ 도 뒤집는다 — 회색으로 두면 남색 위에서 안 보인다. */
+            style={{ ...bare, width: 20, height: 20, borderRadius: SHOP.r.chip, color: C.inverse, opacity: 0.75 }}>
             <X size={ICON.sm} aria-hidden />
           </button>{/* 토큰 안의 × 는 22 — 원자 ShopIconBtn(36)을 쓰면 알약이 그만큼 커진다 */}
         </span>
