@@ -86,6 +86,17 @@ const TRACK_MAIN = '-0.02em';
 const TRACK_SUB = '0.16em';
 
 /**
+ * **자간이 «마지막 글자 뒤»에 남기는 여백을 되돌린다.**
+ *
+ * 사장님 2026-09-07 「**간격을 잘 맞춰야 함**」.
+ * ⚠ CSS `letter-spacing` 은 글자 «사이»가 아니라 **글자마다 뒤에** 붙는다. 그래서 자간을 준 낱말은
+ *   보이는 끝보다 상자가 그만큼 넓다 — `AUTOMOBILE`(0.16em · 14px)은 **2.24px**.
+ *   그 상태로 flex `gap: 16` 을 주면 눈에는 **18.24** 로 보인다. 적어 둔 숫자와 보이는 간격이 갈린다.
+ * ⇒ 자간을 준 낱말에는 같은 값의 «음수 오른쪽 여백»을 얹는다. 그러면 **적은 숫자 = 보이는 간격**이다.
+ */
+const trackFix = (track: string) => ({ marginRight: `-${track}` });
+
+/**
  * 채널 워드마크 — **앞 글자가 «주», 뒤 글자가 «보조»다.**
  *
  * 사장님 2026-09-07 「**오토모빌 영문은 보조격으로 쓰는 거잖아**」.
@@ -112,20 +123,36 @@ export function ChannelWordmark({ wl, fs, color = C.ink, after }: {
 }) {
   const sub = wl.wordmark.sub.trim();
   return (
+    /*
+      ⚠⚠ **두 겹이다.** 바깥은 `gap: 0` 이고 안쪽 낱말 줄만 `gap` 을 갖는다.
+        한 겹으로 두면 바깥 `gap` 이 동반 표기의 왼쪽 여백에 **더해져** ✕ 좌우가 갈린다
+        (실측 왼쪽 20 · 오른쪽 12). 동반 표기는 제 여백을 스스로 갖는다(`CoBrandFreepass`).
+    */
     <span style={{
-      display: 'inline-flex', alignItems: 'baseline', gap: Math.round(fs * 0.36),
+      display: 'inline-flex', alignItems: 'baseline',
       lineHeight: 1, color, whiteSpace: 'nowrap',
     }}>
-      <span style={{ fontSize: fs, fontWeight: FW.head, letterSpacing: TRACK_MAIN, lineHeight: 1 }}>
-        {wl.wordmark.main}
-      </span>
-      {sub ? (
+      <span style={{
+        display: 'inline-flex', alignItems: 'baseline', gap: Math.round(fs * 0.36),
+      }}>
         <span style={{
-          fontSize: Math.round(fs * 0.59), fontWeight: FW.meta, letterSpacing: TRACK_SUB, lineHeight: 1,
-        }}>{sub}</span>
-      ) : null}
-      {/* ★안쪽 사이(gap)에 이만큼 «더» 얹는다 — 간판보다 한 단 떨어져야 «동반»으로 읽힌다. */}
-      {after ? <span style={{ marginLeft: Math.round(fs * 0.35) }}>{after}</span> : null}
+          fontSize: fs, fontWeight: FW.head, letterSpacing: TRACK_MAIN, lineHeight: 1,
+          ...trackFix(TRACK_MAIN),
+        }}>
+          {wl.wordmark.main}
+        </span>
+        {sub ? (
+          <span style={{
+            fontSize: Math.round(fs * 0.59), fontWeight: FW.meta, letterSpacing: TRACK_SUB, lineHeight: 1,
+            ...trackFix(TRACK_SUB),
+          }}>{sub}</span>
+        ) : null}
+      </span>
+      {/*
+        ★★**동반 표기는 제 «앞뒤 여백»을 스스로 갖는다** — 여기서 더 얹지 않는다.
+          ✕ 는 두 이름을 잇는 기호라 **좌우가 같아야** 「A ✕ B」로 읽힌다.
+      */}
+      {after}
     </span>
   );
 }
@@ -173,10 +200,21 @@ export function ChannelSign({ wl, fs, gap, after }: {
  * ⚠ 업무동 규칙(「브랜드 표식은 안 세운다」)과 **다른 자리**다 — 그건 공급사·영업자가 같이 쓰는
  *   콕핏 얘기고, 여기는 손님에게 나가는 채널 홈페이지다.
  */
-export function CoBrandFreepass({ fs, gap }: { fs: number; gap: number }) {
+export function CoBrandFreepass({ fs, gap }: {
+  fs: number;
+  /**
+   * **✕ 의 좌우 여백 — 한 값이다.**
+   *
+   * 사장님 2026-09-07 「간격을 잘 맞춰야 함」.
+   * ⚠ 전에는 왼쪽 16 · 오른쪽 5 였다. ✕ 는 두 이름을 «잇는» 기호인데 한쪽에만 붙어 있으면
+   *   「A ✕B」로 읽혀 잇는 뜻이 죽는다. **좌우를 같은 값으로** 준다.
+   * ★이 값이 워드마크 «안쪽» 사이보다 커야 간판과 동반 표기가 한 단 갈린다.
+   */
+  gap: number;
+}) {
   return (
     <span style={{
-      display: 'inline-flex', alignItems: 'baseline', gap,
+      display: 'inline-flex', alignItems: 'baseline', gap, marginLeft: gap,
       opacity: 0.55, color: C.faint, whiteSpace: 'nowrap',
     }}>
       <span aria-hidden style={{ fontSize: Math.round(fs * 0.85), fontWeight: FW.meta, lineHeight: 1 }}>✕</span>

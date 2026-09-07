@@ -225,7 +225,7 @@ export function WhitelabelFrame({
                   사이는 원자가 한 단 더 뗀다(`ChannelWordmark.after`).
               */}
               <ChannelSign wl={wl} fs={mobile ? 17 : 23} gap={mobile ? 8 : 10}
-                after={<CoBrandFreepass fs={mobile ? 11 : 13} gap={mobile ? 4 : 5} />} />
+                after={<CoBrandFreepass fs={mobile ? 11 : 13} gap={mobile ? 9 : 12} />} />
             </a>
           )}
           <div style={{ flex: 1 }} />
