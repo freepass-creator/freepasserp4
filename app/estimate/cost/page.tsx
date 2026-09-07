@@ -212,6 +212,11 @@ function EstimateCostPageInner() {
               그걸 줄마다 뱃지로 일러 주던 방식은 2026-09-06 에 물렸다(「이거 직관적이지 못한데」).
               지금은 카드 안에서 **묶어서 한 번만** 말한다(`.osub`).
               ⚠ 세그를 카드마다 또 세우지 마라 — 같은 상태를 가리키는 스위치가 여럿이 된다. */}
+        {/* ★웹에서 «전체 폭 세 기둥»으로 서기 위한 감싸개 — 폰에서는 없는 셈이다(`.col{display:contents}`).
+            사장님 2026-09-07 「원가 페이지에서는 **전체 페이지가 다 바뀌면서** 원가를 설정할 수 있는 게
+            나와야지」 · 「페이지가 견적페이지랑 원가페이지가 **아예 따로** 있는 거야」.
+            원본 손오공 `Admin.vue` 의 `.board { 280px minmax(360,.9fr) minmax(440,1.1fr) }` 짜임이다. */}
+        <div className="col c1">
         <div className="card">
           <div className="step"><span className="no">·</span>지금 보는 조합</div>
           <Seg tone="t2" opts={CHANNELS} cur={polCh} onPick={setPolCh} />
@@ -223,6 +228,9 @@ function EstimateCostPageInner() {
         </div>
 
         {/* ────────────────── Ⅰ 직접비 ────────────────── */}
+        </div>{/* .col.c1 — 좌: 지금 보는 조합 */}
+
+        <div className="col c2">
         <div className="gsec"><b>Ⅰ 직접비</b><span>차 한 대에 <b>그대로</b> 붙는 돈 · 회계로는 매출원가</span></div>
 
         {/* 1 취득 — 사 올 때 한 번 나가고, 감가로 녹아 대여료에 실린다. */}
@@ -368,6 +376,9 @@ function EstimateCostPageInner() {
         </div>
 
         {/* ────────────────── Ⅳ 이익과 잔가 ────────────────── */}
+        </div>{/* .col.c2 — 가운데: 원가 설정 */}
+
+        <div className="col c3">
         <div className="gsec"><b>Ⅳ 이익과 잔가</b><span>원가가 아니다 — 값을 맞추는 <b>두 손잡이</b></span></div>
 
         {/* 8 목표 수익률 */}
@@ -423,6 +434,8 @@ function EstimateCostPageInner() {
           ) : null}
           <div className="onote">국산 <b>표준 잔가 곡선</b>({YEARS.map((y) => `${y}년 ${STD[y]}%`).join(' · ')})에 차종별 델타(±%p)를 얹은 값 · 등록 {VEHICLES.length}건 · 보정: 주행 −2%p/만km · 사고 · 노후 · <b>여기서는 못 고친다</b></div>
         </div>
+
+        </div>{/* .col.c3 — 우: 이익·잔가 */}
 
         <div className="basis">
           <span className="bi">원가 기준</span>

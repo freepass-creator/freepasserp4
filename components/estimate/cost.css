@@ -76,26 +76,51 @@
 .est-root .ohelp b{color:var(--accent);font-weight:700}
 
 
-/* ══ 웹(≥900) 두 단 — 설정 카드가 아홉 장이라 한 줄로는 3,000px 이 넘는다 ══════
-   ★원가는 «입력·결과»가 아니라 설정 목록이라, 견적과 달리 두 단으로 흘린다
-     (견적은 좌=입력·우=결과 붙박이 — `estimate.css` 아래쪽).
-   ⚠ 갈래 띠(`.gsec`)·머리·저장바·안내는 **한 줄을 통째로** 쓴다.
-     띠가 한 단에만 서면 「여기부터 무슨 갈래인지」가 반쪽만 말하게 된다. */
-@media (min-width:900px){
+/* ══════════════════════════════════════════════════════════════════════════
+   웹 = **전체 페이지가 원가 설정 화면이 된다** — 원본 손오공 `Admin.vue` 짜임
+
+   ★사장님 2026-09-07 「원가 페이지에서는 **전체 페이지가 다 바뀌면서** 원가를 설정할 수 있는 게
+     나와야지」 · 「페이지가 견적페이지랑 원가페이지가 **아예 따로** 있는 거야」.
+     그전까지는 1,080 짜리 가운데 기둥에 카드를 두 단으로 흘렸다 — 1920 화면에서 좌우가 텅 비어
+     «폰 화면을 크게 띄운 것»이었지 원가 설정 화면이 아니었다.
+
+   ⇒ 원본 `Admin.vue:824` 를 그대로 옮긴다.
+       .board  grid-template-columns: **280px  minmax(360px,0.9fr)  minmax(440px,1.1fr)**
+
+   우리 배치
+       좌 280   「지금 보는 조합」(렌트/구독 · A/B/C)    — 원본 `.vside` 자리
+       가운데   Ⅰ 직접비 · Ⅱ 판관비 · Ⅲ 영업외 설정 카드
+       우       Ⅳ 이익과 잔가 + 잔존가 표               — 원본 `.rightpanel` 자리
+
+   ★★**폰은 목업 그대로다.** 감싸개(`.col`)가 `display:contents` 라 폰에서는 «없는 셈»이다.
+   ⚠ 접힘은 **1000px** — 원본 손오공과 같은 자리(`App.vue:1021`).
+   ══════════════════════════════════════════════════════════════════════════ */
+.est-root.cost .col{display:contents}
+
+@media (min-width:1000px){
   .est-root.cost .phone{
-    max-width:1080px;
-    display:grid;grid-template-columns:1fr 1fr;
-    column-gap:14px;align-items:start;
-    padding-left:16px;padding-right:16px;
+    max-width:none;width:100%;min-height:100vh;
+    display:grid;
+    grid-template-columns:280px minmax(360px,0.9fr) minmax(440px,1.1fr);
+    align-content:start;
+    border-left:0;border-right:0;padding-bottom:0;
   }
   .est-root.cost .phone > .hd,
-  .est-root.cost .phone > .gsec,
-  .est-root.cost .phone > .basis,
   .est-root.cost .phone > .savebar,
   .est-root.cost .phone > .foot,
   .est-root.cost .phone > .byrow{grid-column:1 / -1}
-  /* 잔존가 카드는 검색하면 표가 뜬다 — 좁으면 가로로 밀리므로 한 줄을 다 준다.
-     ⚠ `:last-of-type` 은 «태그» 기준이라 안 먹었다(마지막 div 는 저장바다).
-       차종 검색칸을 가진 카드로 집는다. */
-  .est-root.cost .phone > .card:has(.vsearch){grid-column:1 / -1}
+
+  .est-root.cost .phone > .col{display:block;min-width:0}
+
+  .est-root.cost .phone > .col.c1{
+    position:sticky;top:0;max-height:100vh;overflow-y:auto;
+    border-right:1px solid var(--line-2);background:var(--surface);padding:6px 6px 20px;
+  }
+  .est-root.cost .phone > .col.c1 .card{border:0;border-radius:0;margin:0}
+
+  .est-root.cost .phone > .col.c2{padding:6px 4px 24px}
+
+  .est-root.cost .phone > .col.c3{
+    border-left:1px solid var(--line-2);background:var(--bg);padding:6px 4px 24px;
+  }
 }
