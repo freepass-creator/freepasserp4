@@ -7,6 +7,35 @@ export const BRAND_SUB = 'erp.com';
 export const BRAND = `${BRAND_MAIN}${BRAND_SUB}`;
 
 /**
+ * **워드마크 서체 = Exo 2** — 명함·CI센터가 쓰는 그 서체다(`ci_center/index.html`).
+ *
+ * ⚠ 우리 이름을 «본문 서체(Pretendard)»로 적으면 그건 CI 가 아니라 그냥 글자다.
+ *   2026-09-07 까지 손님 홈페이지 머리띠의 「✕ freepass」가 그랬다 — 사장님
+ *   「**프리패스도 CI 있는데 그거 반영 전혀 안 했고**」.
+ * ★`app/layout.tsx` 가 Exo 2 300·500·600 을 이미 싣고 있다. 새로 부를 것 없다.
+ * ★소문자다 — `freepass` 는 명함·로그인 화면과 같이 언제나 소문자로 적는다.
+ */
+export const BRAND_FONT = "'Exo 2','Pretendard',sans-serif";
+
+/**
+ * **프리패스 마크(체크) 정본** — `public/icon.svg`(브라우저·PWA 아이콘)와 **같은 좌표**다.
+ *
+ * ★왜 여기 두나 — 마크를 «색을 입혀» 그려야 하는 자리가 생겼다(손님 홈페이지의 동반 표기는
+ *   아주 연한 톤이라 남색 원본을 그대로 못 쓴다). `<img src="/icon.svg">` 로는 톤을 못 바꾸고,
+ *   화면마다 path 를 베껴 적으면 아이콘과 마크가 갈린다.
+ * ⚠ `public/icon.svg` 를 고치면 **여기도 같이 고친다.** `npm run check:brand` 가 둘을 맞대 본다.
+ */
+export const BRAND_MARK = {
+  box: 512,
+  /** 판(모서리 둥근 네모)의 반지름·색 — 아이콘은 남색 판에 흰 체크다. */
+  rx: 96,
+  plate: '#1B2A4A',
+  /** 체크 — 꼭짓점 (128,264)-(208,344)-(384,168), 선 굵기 52(반경 26). */
+  check: 'M128 264 l80 80 L384 168',
+  checkWidth: 52,
+} as const;
+
+/**
  * 한 줄 소개 SSOT — 검색결과 제목·OG·구조화 데이터가 전부 이 문자열을 쓴다.
  * 여기만 고치면 세 곳이 같이 바뀐다(따로 적으면 어느 하나가 옛 문구로 남는다).
  */
