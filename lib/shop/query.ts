@@ -18,6 +18,7 @@
 import type { EntityRecord } from '@/lib/intake/entities';
 import { cheapest, creditDisplay, isListableProduct, priceList } from '@/lib/domain/product';
 import { matchProductQuery } from '@/lib/domain/search';
+import { firstProductImage } from '@/lib/domain/product-photos';
 import {
   RENT_BANDS, DEP_BANDS, MILE_BANDS, CREDITS, CATALOG_PERKS, hasPerk, popularRank, type Band,
 } from '@/lib/domain/product-filters';
@@ -253,6 +254,21 @@ export function runShopQuery(rows: EntityRecord[] | null, query: ShopQuery): Sho
   const kept = searched.filter((p) => passes(p, sel));
 
   /*
+   * ★★**사진 없는 차는 «무조건» 뒤로**(사장님 2026-09-07 「사진 없는 거는 정렬순 할 때 일단
+   *   **무조건 밀리는 거로**… 인기순이나 정렬순이나 필터 잡았을 때 **사진 있는 거부터** 나오기」).
+   *
+   * ★어느 정렬이든 «먼저» 보는 잣대다. 손님이 고르는 화면에서 회색 판은 고를 수가 없다 —
+   *   제일 싼 차라도 사진이 없으면 그 카드는 지나간다. 값이 좋은데 안 팔리는 자리를
+   *   사진 있는 차가 먼저 채우는 편이 낫다.
+   * ★기준은 **카드가 «지금» 그릴 수 있는 사진**이다 — 목록 썸네일과 «같은 함수»(`firstProductImage`)를
+   *   쓴다. 다르면 「사진 준비 중인데 앞에 서 있는」 카드가 생긴다(세는 쪽과 그리는 쪽이 갈리는 그 사고).
+   * ⚠ 실측(2026-09-07 운영) — 725대 중 첫 화면에 사진이 뜨는 것은 **206대**뿐이다.
+   *   나머지는 사진이 «아예 없거나»(200) 드라이브 폴더라 서버가 풀어 줘야 한다(319).
+   *   ⇒ 사진을 채우는 일은 재고 쪽 몫이고, 이 잣대는 그때까지 손님 화면을 지켜 준다.
+   */
+  const photoRank = (p: EntityRecord) => (firstProductImage(p) ? 0 : 1);
+
+  /*
    * ★「같은 차 많은순」만 **한 대를 봐서는 못 정하는** 값이다 — 목록 전체를 세어야 순위가 나온다.
    *   그래서 `sortValue`(한 대짜리 잣대)에 못 넣고 여기서 «센 뒤에» 정렬한다.
    * ★세는 모수는 «조건을 통과한 목록»이다. 전체 재고로 세면 「기아가 원래 많으니까」로 줄이 서서
@@ -263,6 +279,9 @@ export function runShopQuery(rows: EntityRecord[] | null, query: ShopQuery): Sho
     for (const p of kept) tally.set(sameCarKey(p), (tally.get(sameCarKey(p)) || 0) + 1);
     return {
       list: [...kept].sort((a, b) => {
+        // ★사진 먼저 — 어느 정렬이든 이 잣대가 앞선다(위 `photoRank`).
+        const ph = photoRank(a) - photoRank(b);
+        if (ph) return ph;
         const d = (tally.get(sameCarKey(b)) || 0) - (tally.get(sameCarKey(a)) || 0);
         // 같은 대수면 싼 것부터 — 순서가 안 흔들려야 새로고침해도 같은 화면이다.
         return d || (sortValue(a, 'asc') - sortValue(b, 'asc'));
@@ -278,7 +297,9 @@ export function runShopQuery(rows: EntityRecord[] | null, query: ShopQuery): Sho
    *   ⇒ 같은 순위면 싼 것부터. 그러면 목록이 늘 같은 얼굴이다.
    */
   const list = kept.sort((a, b) =>
-    (sortValue(a, query.sort) - sortValue(b, query.sort))
+    // ★사진 먼저 — 어느 정렬이든 이 잣대가 앞선다(위 `photoRank`).
+    (photoRank(a) - photoRank(b))
+    || (sortValue(a, query.sort) - sortValue(b, query.sort))
     || (query.sort === 'popular' ? sortValue(a, 'asc') - sortValue(b, 'asc') : 0));
   return { list, total: pool.length, facets };
 }

@@ -297,9 +297,16 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
 
   const age = (v: string) => v.replace(/\s*(이상|이하|까지|부터)\s*$/, '').replace(/^만\s*/, '만 ').trim();
 
-  /** ③ 대여료 — 요금·보증금 다음에 「그 돈을 어떻게 내나」가 붙는다. */
+  /**
+   * ③ 대여료 — 요금·보증금 다음에 「그 돈을 어떻게 내나」가 붙는다.
+   *
+   * ⚠ **「보증금 분납」은 여기서 뺐다 — 웹 기간표의 «계약조건» 칸으로 옮겼다**(사장님 2026-09-07
+   *   「**보증금 분납 가능한 거도 대여료표에 웹에서만**」). 두 곳에 두면 같은 말을 두 번 읽는다
+   *   (「어정쩡한 데에 명분 없이 들어가지 마」 — 위 뱃지를 걷은 그 판단과 같다).
+   * ★폰에는 기간표에 그 칸이 없으므로 **폰에서는 여기 그대로 남는다.**
+   */
   const payRows = rows([
-    ['보증금 분납', S('deposit_installment')],
+    ...(mobile ? [['보증금 분납', S('deposit_installment')] as [string, string]] : []),
     ['보증금 카드', S('deposit_card_payment')],
     ['대여료 카드', S('rental_card_payment')],
     ['납부 방법', join(S('payment_method'), S('payment_timing') && S('payment_timing') !== S('payment_method') ? S('payment_timing') : '')],
@@ -431,6 +438,25 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
   const ageRange = S('basic_driver_age') && S('driver_age_upper_limit')
     ? `${age(lowered || S('basic_driver_age'))} ~ ${age(S('driver_age_upper_limit'))}`
     : age(S('basic_driver_age'));
+  /*
+   * ★★**웹 기간표의 «계약조건» 칸**(사장님 2026-09-07 「웹에는 공간이 좀 충분하니까 **계약조건을
+   *   하나 더 넣어서** 기간별 계약조건에 **주행거리 연령** 같은 거도 넣어주면 좋을 거 같음 ·
+   *   **보증금 분납** 가능한 거도 대여료표에 **웹에서만**」).
+   *
+   * ★왜 표에 넣나 — 손님이 기간을 고르는 순간 묻는 것이 「그럼 조건은?」이다. 표에 붙어 있으면
+   *   기간을 짚는 눈이 그대로 조건까지 읽는다. 아래 「이용 조건」까지 내려가지 않아도 된다.
+   * ⚠ 값은 «정책 단위»라 기간마다 같다 — 그래도 줄마다 적는다. 한 줄이 「이 기간의 계약조건」으로
+   *   완결돼야 눈이 가로로 읽는다(빈 칸을 섞으면 어느 기간에 걸린 조건인지 되묻게 된다).
+   * ★**값이 없는 칸은 아예 안 세운다.** 정책이 안 붙은 차는 「모르는」 것이라 «—»로 채우지 않는다
+   *   (지어내지 않는다 — `publicPolicy` 의 그 판단). 그래서 칸 수가 차마다 다르다.
+   * ★폰에는 안 넣는다 — 세 칸도 빠듯한 폭이다. 폰은 아래 「이용 조건」이 그 일을 한다.
+   */
+  const rateConds: { h: string; v: string }[] = mobile ? [] : ([
+    { h: '보증금 분납', v: S('deposit_installment') },
+    { h: '약정 주행', v: S('annual_mileage') },
+    { h: '운전 연령', v: ageRange },
+  ]).filter((c) => meaningful(c.v));
+
   const creditRaw = creditDisplay(p);
   const credit = creditRaw && creditRaw !== CREDIT_UNSET ? creditRaw : '';
   /*
@@ -707,7 +733,17 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
              ⇒ 520 은 «최대»고, 좁으면 줄어든다. 숫자는 nowrap 이라 더는 안 줄어드는 선에서 멈춘다. */
         <div style={{
           marginTop: SHOP.sp.edge, minWidth: 0,
-          flex: mobile ? undefined : '1 1 360px', maxWidth: mobile ? undefined : 520,
+          /*
+           * ★★**계약조건 칸이 붙으면 표가 줄을 «통째로» 쓴다**(사장님 2026-09-07 「대여료도
+           *   웹에서는 **웹을 꽉 채워줘야지… 부족함 없게끔**」).
+           *   ⚠ 여기 「넓은 화면에서 표를 늘리지 않는다(520)」고 못 박혀 있었다. 그 판단을 물린다 —
+           *     그때 이유는 「**세 칸짜리** 표를 880 으로 늘리면 기간과 금액 사이가 손가락 두 뼘」
+           *     이었다. **칸이 여섯이면 그 이유가 사라진다** — 늘어난 폭을 칸이 채운다.
+           *   ★조건 칸이 «없는» 차(정책 미연결)는 예전대로 520 에서 끊는다. 세 칸 표는 여전히
+           *     넓히면 안 되고, 그 옆은 「납부」가 채운다.
+           */
+          flex: mobile ? undefined : (rateConds.length ? '1 1 100%' : '1 1 360px'),
+          maxWidth: mobile || rateConds.length ? undefined : 520,
         }}>
           <div style={{
             marginBottom: SHOP.sp.snug, fontSize: SHOP.fs.cap, fontWeight: 600, color: C.mute,
@@ -715,7 +751,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontVariantNumeric: 'tabular-nums' }}>
             <thead>
               <tr>
-                {['기간', '월 대여료', '보증금'].map((h, i) => (
+                {['기간', '월 대여료', '보증금', ...rateConds.map((c) => c.h)].map((h, i) => (
                   /*
                    * ★★기간표는 **보조 설명**이다(사장님 2026-09-05 「기간별 대여료는 보조 설명으로
                    *   대여료 섹션에 그 고유니까 **분위기 해치지 않게** 해주고」).
@@ -770,6 +806,13 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
                       padding: '12px 8px', textAlign: 'right', whiteSpace: 'nowrap',
                       fontSize: rateFs, color: C.mute,
                     }}>{x.deposit > 0 ? manWon(x.deposit) : '없음'}</td>
+                    {/* ★계약조건 — 정책 단위 값이라 줄마다 같다(위 `rateConds` 머리말). 돈이 아니므로 한 단 조용하게. */}
+                    {rateConds.map((c) => (
+                      <td key={c.h} style={{
+                        padding: '12px 8px', textAlign: 'right', whiteSpace: 'nowrap',
+                        fontSize: SHOP.fs.sub, color: C.mute,
+                      }}>{c.v}</td>
+                    ))}
                   </tr>
                 );
               })}
