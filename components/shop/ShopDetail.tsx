@@ -179,9 +179,25 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
   const specs: FactRow[] = grouped(
     [
       /*
-       * ㉡ **얼마나 탔나** — 연식 · 주행거리.
-       * 둘은 «따로 보는 값이 아니다». 2022년식 3만km 와 2022년식 12만km 는 다른 차다.
+       * ㉡ **이 차가 어떻게 생겼고 얼마나 탔나** — 색상 · 연식 · 주행거리.
+       *
+       * ★★사장님 2026-09-07 「선택옵션 줄을 한 줄 다 쓰는 거고, 그다음엔 **색상 연식 주행거리를
+       *   배정**하자고」. 그래서 색상이 **격자의 첫 칸**으로 들어왔다 —
+       *   전에는 제 줄을 통째로 써서 웹 1400 에서 오른쪽 660px 이 비었다(2026-09-07 실측).
+       * ⚠ 색상만 «글자가 아니라 그림»이 든다 — `FactRow` 셋째 자리(`node`)가 그 자리다.
+       *   글자 값(`colorText`)은 그대로 남아 검색·낭독에 쓰인다.
+       * ★연식과 주행거리는 «따로 보는 값이 아니다» — 2022년식 3만km 와 12만km 는 다른 차다.
+       *   색상까지 셋이 「이 차의 겉과 이력」 한 묶음이다.
        */
+      ['색상', colorText, colorText ? (
+        <span style={{
+          display: 'inline-flex', alignItems: 'center', flexWrap: 'wrap',
+          columnGap: SHOP.sp.cozy, rowGap: 0,
+        }}>
+          <ColorMark name={p.ext_color} label="외부" fontSize={SHOP.fs.cap} />
+          <ColorMark name={p.int_color} label="내부" fontSize={SHOP.fs.cap} />
+        </span>
+      ) : undefined],
       ['연식', yearFullDisplay(p.year)],
       ['주행거리', km > 0 ? kmDisplay(p.mileage) : ''],
     ],
@@ -810,21 +826,8 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
              * ★옵션은 **한 줄로 길게** 준다(사장님 2026-09-05 「그 밑에 **한 줄로 선택 옵션을 길게**」) —
              *   격자 칸에 가두면 여덟 개짜리 차가 좁은 칸 안에서 다섯 줄로 접힌다. 폭을 통째로 쓴다.
              */}
-            {/*
-              ★★**웹에서는 「선택 옵션」과 「색상」이 «한 줄»에 선다**(사장님 2026-09-07
-                「이거 한 줄로 배열 잘 맞춰서 해주고 — **웹페이지**야」).
-                폰은 폭이 없어 그대로 쌓지만, 웹 1400 에서는 둘이 각각 824px 짜리 줄을 통째로
-                차지하고 오른쪽이 텅 비었다(2026-09-07 실측). 짧은 값 둘이 두 줄을 먹은 것이다.
-              ★옵션이 길면 색상이 «저절로» 다음 줄로 내려간다(`flexWrap`) — 옵션은 여전히
-                폭을 통째로 쓸 수 있다(2026-09-05 「옵션은 한 줄로 길게」와 안 부딪힌다).
-            */}
-            {(options.length || colorText) ? (
-            <div style={mobile ? undefined : {
-              display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start',
-              columnGap: SHOP.sp.wide, rowGap: SHOP.sp.edge, marginBottom: SHOP.sp.edge,
-            }}>
             {options.length ? (
-              <div aria-label="선택 옵션" style={{ marginBottom: mobile ? SHOP.sp.edge : 0, minWidth: 0 }}>
+              <div aria-label="선택 옵션" style={{ marginBottom: SHOP.sp.edge }}>
                 <div style={{ marginBottom: 0, fontSize: SHOP.fs.cap, color: C.faint }}>선택 옵션</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: SHOP.sp.snug }}>
                   {options.map((o) => (
@@ -855,24 +858,6 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
              *     「소닉실버」·「어비스블랙펄」은 글자로는 무슨 색인지 모른다.
              *     색 코드 정본은 `lib/domain/color-chips` — 못 알아보는 이름은 이름만 나간다.
              */}
-            {colorText ? (
-              <div aria-label="색상" style={{
-                marginBottom: mobile ? (specs.length ? SHOP.sp.edge : 0) : 0, minWidth: 0,
-              }}>
-                <div style={{ marginBottom: 0, fontSize: SHOP.fs.cap, color: C.faint }}>색상</div>
-                <div style={{
-                  display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: SHOP.sp.edge, rowGap: SHOP.sp.tight,
-                  fontSize: SHOP.fs.body, fontWeight: 700, color: C.ink,
-                }}>
-                  <ColorMark name={p.ext_color} label="외부" fontSize={SHOP.fs.cap} />
-                  <ColorMark name={p.int_color} label="내부" fontSize={SHOP.fs.cap} />
-                </div>
-              </div>
-            ) : null}
-
-            </div>
-            ) : null}
-
             {/* 격자 = 「이 차가 어떤 상태인가」. 웹은 무리가 «띠»로 옆에 붙고 폰은 두 칸으로 쌓는다. */}
             {specs.length ? <Facts rows={specs} cols={mobile ? 2 : 4} mobile={mobile} /> : null}
           </>

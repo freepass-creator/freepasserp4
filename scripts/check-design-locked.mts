@@ -201,7 +201,12 @@ must(/>제조사 · 세부모델 · 세부트림</.test(shopDetail),
  *   두 칸으로 쪼개면 내장색이 없는 차(32%)는 늘 한 칸이 비어 「덜 채운 표」가 된다.
  * ★색 코드는 `lib/domain/color-chips` 가 정본 — 화면이 hex 를 새로 정하면 그때부터 갈린다.
  */
-must(/aria-label="색상"/.test(shopDetail)
+/*
+ * ⚠ 2026-09-07 — 색상이 «제 줄»에서 **격자의 첫 칸**으로 옮겨 갔다(사장님 「색상 연식 주행거리를
+ *   배정하자고」). 그래서 `aria-label="색상"` 은 더 없다. 묻는 것은 그대로다:
+ *   **한 칸 안에 내·외부가 견본과 함께** 있어야 한다(두 칸으로 쪼개면 내장색 없는 차 32%가 늘 빈다).
+ */
+must(/\['색상', colorText,/.test(shopDetail)
   && /<ColorMark name=\{p\.ext_color\} label="외부"/.test(shopDetail)
   && /<ColorMark name=\{p\.int_color\} label="내부"/.test(shopDetail)
   && /from '@\/lib\/domain\/color-chips'/.test(read('components/ui/badges.tsx')),
@@ -447,15 +452,19 @@ must(/const stateMarks: Mark\[\]/.test(shopDetail) && /const perkMarks: Mark\[\]
  */
 const at = (needle: string) => shopDetail.indexOf(needle);
 /*
- * **사람이 차를 보는 차례** — 이름(제조사·세부모델·세부트림) → **선택 옵션** → **색상**
+ * **사람이 차를 보는 차례** — 이름(제조사·세부모델·세부트림) → **선택 옵션** → **색상·연식·주행거리**
  * (사장님 2026-09-05 「사람들이 차를 볼 때 «아 이게 어느 트림이고, 옵션이 뭐고, 아 색상이
- *  뭐구나» 이렇게 들어간단 말이야」). 옵션은 격자 칸이 아니라 **한 줄을 통째로** 쓴다.
+ *  뭐구나» 이렇게 들어간단 말이야」).
+ * ★옵션은 격자 칸이 아니라 **한 줄을 통째로** 쓴다(사장님 2026-09-07 「선택옵션 줄을 한 줄 다 쓰는 거고」).
+ * ★★그 다음 줄이 **색상 · 연식 · 주행거리**다(같은 날 「그다음엔 색상 연식 주행거리를 배정하자고」) —
+ *   색상이 제 줄을 통째로 쓰던 것을 격자 «첫 칸»으로 옮겼다. 웹 1400 에서 오른쪽 660px 이 비었었다.
  */
 must(at('>제조사 · 세부모델 · 세부트림<') < at('aria-label="선택 옵션"')
-  && at('aria-label="선택 옵션"') < at('aria-label="색상"')
-  /* 색상까지가 «이름 무리»다 — 격자(연식·주행…)는 그 다음이다. */
-  && at('aria-label="색상"') < at('<Facts rows={specs}'),
-  '차량 정보의 «이름 무리»가 흩어졌습니다 — 이름 → 선택 옵션 → 색상이 한 덩어리로 붙고, 격자는 그 다음입니다.',
+  && at('aria-label="선택 옵션"') < at('<Facts rows={specs}')
+  /* 격자 첫 무리가 «색상 → 연식 → 주행거리» 차례여야 한다. */
+  && at("['색상', colorText,") < at("['연식', yearFullDisplay(p.year)]")
+  && at("['연식', yearFullDisplay(p.year)]") < at("['주행거리',"),
+  '차량 정보의 차례가 흩어졌습니다 — 이름 → 선택 옵션 → (색상·연식·주행거리) 순입니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-2-2');
 must(/function grouped\(/.test(shopDetail) && /const specs: FactRow\[\] = grouped\(/.test(shopDetail)
   && at("['연식'") < at("? '배터리' : '배기량'")
