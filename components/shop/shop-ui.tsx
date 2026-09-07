@@ -225,7 +225,14 @@ export function ShopPill({ on, onClick, children, title }: {
         /* 꺼짐도 «진한 글자»다 — 면이 이미 배경에서 떼어 놓았으므로 흐리게 할 이유가 없다. */
         color: on ? C.inverse : C.ink,
         fontSize: mobile ? SHOP.fs.body : SHOP.fs.sub,
-        fontWeight: on ? 700 : 500,
+        /*
+         * ★★**꺼짐은 «얇게»**(사장님 2026-09-07 「퀵필터랑 정렬 드랍다운이랑 느낌이 같아서
+         *   **퀵필터는 조금 더 얇게 퀵필터 느낌**을 주고」). 안 켠 조건은 «후보»지 주장이 아니다 —
+         *   한 줄에 아홉 개가 500 으로 서 있으면 그 줄 전체가 하나의 굵은 띠로 읽힌다.
+         * ★켜짐은 그대로 700 — 고른 것은 굵어야 「내가 이걸 켰다」가 한눈에 보인다.
+         *   위계가 «면의 진하기 + 글자의 굵기» 두 가지로 같이 말해진다.
+         */
+        fontWeight: on ? 700 : FW.body,
       }}>{children}</button>
   );
 }
@@ -521,16 +528,27 @@ export function ShopSort({ value, onChange, options }: {
            *   그 줄만 부풀어 목록이 밀린다(사장님 2026-09-06 「오밀조밀 짜임새 있게」).
            *   32 는 누름 영역이 44 밑이지만, 오른쪽 끝에 «혼자» 서는 고르개라 헛누를 이웃이 없다.
            */
-          height: mobile ? 32 : SHOP.pill.web, padding: mobile ? '0 30px 0 12px' : '0 34px 0 14px',
-          /* 칩과 같은 «면» — 한 화면에서 칩만 면이고 고르개만 테두리면 그 줄이 어긋나 보인다. */
-          borderRadius: SHOP.r.ctrl, border: 'none', background: C.head,
+          height: mobile ? 32 : SHOP.pill.web, padding: mobile ? '0 26px 0 4px' : '0 30px 0 6px',
+          /*
+           * ★★**면을 걷는다 — 정렬은 «조건»이 아니라 «메뉴»다**(사장님 2026-09-07 「퀵필터랑
+           *   정렬 드랍다운이랑 **느낌이 같아서** … **드랍다운은 조금 다르게 표현**해줘야 할 것 같은데」).
+           *   ⚠ 여기 「칩과 같은 면 — 한 화면에서 칩만 면이면 그 줄이 어긋나 보인다」고 적혀 있었다.
+           *     그 판단을 물린다. 같은 면을 입혀 놨더니 **정렬이 «열 번째 조건 칩»으로 보였다** —
+           *     실제로는 하는 일이 다르다. 칩은 «켜고 끄는 것»(여럿·상태가 남는다),
+           *     정렬은 «목록을 다시 세우는 메뉴»(하나·열렸다 닫힌다)다.
+           *   ★같은 날 공유 단추에서 면을 걷은 것과 같은 방향이다(「박스없이 아이콘텍스트만」).
+           *     이 화면의 «면»은 이제 **조건의 것**이다.
+           * ★대신 글자를 한 단 진하게(700) 세우고 꺾쇠를 먹색으로 올린다 —
+           *   면이 없어도 「누르면 열린다」가 읽혀야 한다.
+           */
+          borderRadius: SHOP.r.ctrl, border: 'none', background: 'transparent',
           fontFamily: 'inherit', fontSize: SHOP.fs.sub,
-          color: C.ink, fontWeight: 600, cursor: 'pointer',
+          color: C.ink, fontWeight: FW.head, cursor: 'pointer',
         }}>
         {options.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
       </select>
       <ChevronDown size={mobile ? ICON.sm : ICON.md} aria-hidden
-        style={{ position: 'absolute', right: mobile ? 10 : 11, pointerEvents: 'none', color: C.mute }} />
+        style={{ position: 'absolute', right: mobile ? 6 : 7, pointerEvents: 'none', color: C.ink }} />
     </div>
   );
 }
