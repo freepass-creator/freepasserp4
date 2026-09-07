@@ -144,7 +144,27 @@ export function ChannelWordmark({ wl, fs, color = C.ink, after }: {
       display: 'inline-flex', alignItems: 'baseline',
       lineHeight: 1, color, whiteSpace: 'nowrap',
     }}>
-      {wl.wordmark.kind === 'lockup' ? (
+      {wl.wordmark.kind === 'lockup-ko' ? (
+        /*
+          ★**국문 CI** — 같은 「한 낱말 두 무게」인데 서체와 사이가 다르다:
+            본문 서체(Exo 2 에는 한글이 없다) · 자간 −0.04em · 조각 사이 **0.048em**.
+          ★우리 가게 간판이 이걸 쓴다 — 동반 표기(「✕ freepassmobility」)는 영문이라,
+            갈라 놓아야 「A ✕ B」 자리가 눈에 보인다(`lib/whitelabel` `self` 머리말).
+
+          ⚠⚠ **사이를 «2px» 로 박지 않는다 — 비율로 잰다.** CI 센터(`ci_center/index.html`)가
+            국문 조각 사이에 2px 를 주는데, 거기 글자는 **42px** 다(`ci-logo` clamp) — 즉 **0.048em**.
+            그 2 를 숫자 그대로 옮겨 폰 간판(17px)에 주면 **0.118em** 이 되어, 두 조각 사이가
+            낱말 사이처럼 벌어진다(실측 2px). 「프리패스모빌리티」는 **한 낱말**이다.
+          ⇒ 17px·23px 둘 다 1px 로 앉는다. 나머지는 굵기(600↔300)가 가른다 — CI 제 장치다.
+        */
+        <span style={{
+          display: 'inline-flex', alignItems: 'baseline', gap: Math.round(fs * 0.048),
+          letterSpacing: '-0.04em', lineHeight: 1,
+        }}>
+          <span style={{ fontSize: fs, fontWeight: BRAND_WEIGHT.main, lineHeight: 1 }}>{wl.wordmark.main}</span>
+          <span style={{ fontSize: fs, fontWeight: BRAND_WEIGHT.sub, lineHeight: 1 }}>{sub}</span>
+        </span>
+      ) : wl.wordmark.kind === 'lockup' ? (
         /*
           ★★**한 낱말 두 무게** — 프리패스 CI 의 짜임이다(`freepass`600 + `mobility`300, Exo 2 소문자).
             사장님 2026-09-07 「프리패스도 CI 있는데 그거 반영 전혀 안 했고」 ·

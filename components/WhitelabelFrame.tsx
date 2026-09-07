@@ -225,12 +225,16 @@ export function WhitelabelFrame({
                   기호다 — 두 이름이 한 줄에 서지 않으면 그 뜻이 안 산다.
                   사이는 원자가 한 단 더 뗀다(`ChannelWordmark.after`).
 
-                ★★**우리 가게(`wl.self`)에는 안 붙인다** — 「프리패스모빌리티 ✕ freepass」는
-                  협업이 아니라 **같은 이름을 두 번** 적은 것이다. 동반 표기는 「이 가게는 채널의
-                  얼굴이고 판은 우리가 굴린다」는 말인데, 주인이 우리면 할 말이 없다.
+                ★★**우리 가게(`wl.self`)에도 붙인다**(사장님 2026-09-07 「**우리거에도 붙여야지
+                  남들한테 보여줄거야 여기에 당신들 브랜드 들어가는 자리라고**」).
+                  ⚠ 처음엔 「같은 이름을 두 번 적는 꼴」이라고 안 붙였다 — 그 판단을 물린다.
+                    이 화면은 우리 가게이면서 **영업채널에게 보여주는 견본**이라, 「여기가 당신들
+                    자리」를 말하려면 그 자리가 비어 있으면 안 된다.
+                  ⇒ 대신 **두 표기를 가른다** — 간판은 국문 CI(프리패스모빌리티), 동반은 영문 CI
+                    (freepassmobility). 둘 다 CI 정본이고, 글자가 갈리니 자리가 눈에 보인다.
               */}
               <ChannelSign wl={wl} fs={mobile ? 17 : 23} gap={mobile ? 8 : 10}
-                after={wl.self ? null : <CoBrandFreepass fs={mobile ? 11 : 13} gap={mobile ? 9 : 12} />} />
+                after={<CoBrandFreepass fs={mobile ? 11 : 13} gap={mobile ? 9 : 12} />} />
             </a>
           )}
           <div style={{ flex: 1 }} />
@@ -355,16 +359,25 @@ export function WhitelabelFrame({
               ★그래서 `faint` 한 톤으로 두 줄. 첫 줄이 관계, 둘째 줄이 내용이다.
             */}
             {/*
-              ★★**우리 가게(`wl.self`)에는 이 줄이 없다** — 「프리패스모빌리티 ✕ 프리패스모빌리티
-                전략적 파트너십」이 되기 때문이다. 협약은 «둘» 사이의 말이라 주인이 하나면 할 말이 없다.
-              ★대신 바로 위 사업자 표기가 이미 우리를 밝히고 있다 — 이름은 한 번만 선다.
+              ★**우리 가게(`wl.self`)도 이 자리를 그린다** — 머리띠와 짝이라(사장님 2026-09-07
+                「우리거에도 붙여야지」) 한쪽만 그리면 위아래가 다른 말을 한다.
+              ⚠ 다만 **문장은 갈린다.** 주인이 하나면 「양사 협약」이 없다 — 두 이름을 나란히
+                적어 봐야 같은 회사다. 그래서 짝 줄은 «국문 ✕ 영문»(머리띠와 같은 짜임)으로 두고,
+                아랫줄은 「직접 운영합니다」로 말만 바꾼다. 없는 협약을 지어 적지 않는다.
             */}
-            {wl.self ? null : (
-              <div style={{ marginTop: SHOP.sp.cozy }}>
-                <div>{wl.name} ✕ {CORP.koMain}{CORP.koSub} 전략적 파트너십</div>
-                <div>양사 협약에 따라 {CORP.name}가 차량과 계약 시스템을 제공합니다.</div>
-              </div>
-            )}
+            <div style={{ marginTop: SHOP.sp.cozy }}>
+              {wl.self ? (
+                <>
+                  <div>{wl.name} ✕ {CORP.markMain}{CORP.markSub}</div>
+                  <div>{CORP.name}가 차량과 계약 시스템을 직접 운영합니다.</div>
+                </>
+              ) : (
+                <>
+                  <div>{wl.name} ✕ {CORP.koMain}{CORP.koSub} 전략적 파트너십</div>
+                  <div>양사 협약에 따라 {CORP.name}가 차량과 계약 시스템을 제공합니다.</div>
+                </>
+              )}
+            </div>
           </div>
           {/*
             영업자·직원 로그인 — **푸터 맨 밑에 조용히**(사장님 2026-09-05 「그 주소로 들어가면 상품부터
