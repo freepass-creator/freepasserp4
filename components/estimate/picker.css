@@ -63,3 +63,27 @@
 .est-picker .psum b{color:var(--accent);font-size:13px;font-weight:800}
 .est-picker .prules{margin-top:10px;padding:9px 11px;border:1px dashed var(--accent-line);border-radius:3px;background:var(--accent-soft);font-size:11px;color:var(--ink-2);font-weight:600;line-height:1.55}
 .est-picker .prules b{color:var(--accent)}
+
+/* ══ 인라인 — 좌 400 기둥 «안»에 박힐 때 ══════════════════════════════════
+   ★사장님 2026-09-07 「차량 고르는 거 좌측에서 다 골랐잖아 … **왜 패널이 새로 뜨니**」.
+     웹은 좌 기둥이 «차 고르는 자리»다. 거기 두고 시트를 또 띄우면 두 번 고르는 꼴이다.
+   ★원본 둘 다 인라인이다 — 손오공 `.vside`(400) 에 차종검색·캐스케이드·차량정보가 박혀 있고,
+     웰릭스 `.wrap`(400) 에 제조사→모델→트림→옵션이 박혀 있다.
+     모달은 «바구니·견적서·공지» 같은 **결과물**에만 쓴다.
+   ⚠ 폰은 위 시트 그대로다 — 좌 기둥이 없으니 띄울 수밖에 없다. */
+.est-picker.inline{position:static;inset:auto;z-index:auto;display:block;background:transparent}
+.est-picker.inline .psheet{
+  max-width:none;margin:10px 12px 0;background:var(--surface);
+  border:1px solid var(--line-2);border-radius:var(--r);
+  max-height:none;overflow:visible;
+}
+/* 머리는 카드 머리(`.step`)와 같은 얼굴로 — 좌 기둥에서 ① 차량 카드와 나란히 선다. */
+.est-picker.inline .phead{
+  padding:8px 13px;background:var(--surface-2);border-bottom:1px solid var(--line);
+  border-radius:var(--r) var(--r) 0 0;
+}
+.est-picker.inline .phead b{font-size:11px;font-weight:700;color:var(--ink-2);letter-spacing:.5px;text-transform:uppercase}
+.est-picker.inline .phead .sub{margin-left:auto;font-size:12px;font-weight:700;color:var(--ink-1)}
+/* 몸통은 제 안에서 스크롤한다 — 좌 기둥이 이미 스크롤하므로 높이를 물린다. */
+.est-picker.inline .pbody{max-height:min(52vh,520px);overflow-y:auto;padding:0 13px 12px}
+.est-picker.inline .pbody .card{margin:10px 0 0;border:0;padding:0}

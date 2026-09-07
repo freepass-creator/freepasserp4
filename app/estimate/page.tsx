@@ -278,11 +278,14 @@ function EstimatePageInner() {
           <Seg tone="t1" cur={cond} onPick={setCond} opts={[{ v: 'used', label: '중고' }, { v: 'new', label: '신차' }]} />
           {/* 차 고르기 — 목업은 중고=읽기전용 검색칸 · 신차=select 셋이었다.
               둘을 «한 줄»로 합치고 시트를 연다(옵션·조합규칙은 select 로 못 담는다 · CarPicker 머리말). */}
-          <button type="button" className="vsearch" onClick={() => setPickerOpen(true)}>
-            <IconSearch />
-            <span className="vt">{picked.name}</span>
-            <span className="vg">{isNew ? '신차 고르기' : '차종 고르기'}</span>
-          </button>
+          {/* 폰에서만 «고르기 버튼»이 선다 — 웹은 이 카드 밑에 피커가 통째로 박힌다(아래). */}
+          {mobile ? (
+            <button type="button" className="vsearch" onClick={() => setPickerOpen(true)}>
+              <IconSearch />
+              <span className="vt">{picked.name}</span>
+              <span className="vg">{isNew ? '신차 고르기' : '차종 고르기'}</span>
+            </button>
+          ) : null}
           <div className="vchip">
             <div className="ic"><IconCar /></div>
             <div><div className="nm">{picked.name}</div><div className="mt">{vMeta}</div></div>
@@ -336,6 +339,22 @@ function EstimatePageInner() {
             <Chips opts={DISCS} cur={disc} unit="%" onPick={setDisc} />
           </div>
         </div>
+
+        {/*
+          * ★★**차 고르기는 좌 기둥 «안»에 박힌다**(웹) — 사장님 2026-09-07
+          *   「차량 고르는 거 좌측에서 다 골랐잖아 … **왜 패널이 새로 뜨니**」.
+          *   원본 둘 다 그렇다: 손오공 `.vside`(400) 에 차종검색·캐스케이드·차량정보가 박혀 있고,
+          *   웰릭스 `.wrap`(400) 에 제조사→모델→트림→옵션이 박혀 있다.
+          *   모달은 «바구니·견적서·공지» 같은 **결과물**에만 쓰고, «고르는 일»에는 안 쓴다.
+          * ⚠ 폰은 시트 그대로다 — 좌 기둥이 없으니 띄울 수밖에 없다. 그래서 `open` 이 갈린다.
+          */}
+        <CarPicker open={mobile ? pickerOpen : true} inline={!mobile} mode={cond}
+          onClose={() => setPickerOpen(false)}
+          onPick={(c) => {
+            setPicked(c);
+            // 신차는 공표가가 곧 차량가다. 연식·주행은 새 차니 올해·0.
+            if (c.source === 'new') { setUsedMileage(0); setUsedYear(nowYear); }
+          }} />
 
         </div>{/* .col.main — 좌측은 «차량 고르기»까지다(사장님 2026-09-07
                  「좌측에서는 차량만 선택하고, 그 외 책정값들은 공간 많으니까 우측 패널에서 하자고 —
@@ -507,13 +526,6 @@ function EstimatePageInner() {
         </div>
 
         </div>{/* .col.side */}
-
-        <CarPicker open={pickerOpen} mode={cond} onClose={() => setPickerOpen(false)}
-          onPick={(c) => {
-            setPicked(c);
-            // 신차는 공표가가 곧 차량가다. 연식·주행은 새 차니 올해·0.
-            if (c.source === 'new') { setUsedMileage(0); setUsedYear(nowYear); }
-          }} />
 
         <div className="foot">
           <b>업계 기준선 추정</b> — 잔가=시장 벤치마크 역산, 수익률=업계 영업이익률(SK렌터카 9.9%).
