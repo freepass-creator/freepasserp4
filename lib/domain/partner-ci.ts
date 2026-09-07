@@ -123,6 +123,12 @@ export const PARTNER_CI: readonly PartnerCi[] = [
     alias: '웰릭스', legal: '웰릭스모빌리티 주식회사', bizNo: '379-88-01956', ceo: '이창영',
     addr: '경기도 김포시 고촌읍 아라육로152번길 45, 에이동 229호', tel: '1544-3871',
     web: 'welrixmobility.com', code: 'RP013', src: 'erp+web',
+    /**
+     * ★웰릭스가 직접 알려 준 «정산 담당자» 주소 둘 — 2026-09-07 대표님 전달.
+     *   「gjw9839@welrixrental.co.kr · dhlee2@welrixrental.co.kr 위 메일 두 곳으로 정산서 발송 요청드립니다」
+     *   ⚠ 도메인이 홈페이지(welrixmobility.com)와 다르다(welrixrental.co.kr) — 받은 그대로 적는다.
+     */
+    mail: 'gjw9839@welrixrental.co.kr,dhlee2@welrixrental.co.kr',
     conflict: '대표 — ERP 이창호 / 홈페이지 이창영(홈페이지를 따랐다). 같은 사업자번호가 JPK모빌리티(차두준)로도 나온다',
     rentAccount: '신한 140-013-750928 웰릭스모빌리티(주)',
     payAccount: '',
