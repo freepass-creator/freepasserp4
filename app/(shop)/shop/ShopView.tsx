@@ -190,8 +190,6 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
     [query, facets],
   );
   const shown = list.slice(0, limit);
-  /** 재고 전체 — 웹 왼쪽 기둥의 「전체차량」. 조건과 무관한 값이라 안 변하는 게 «맞다». */
-  const countText = rows === null ? '—' : String(total);
   /** 지금 조건으로 남은 수 — 폰 머리가 드는 값. 조건을 넷 걸어 3대면 3이라고 말해야 한다. */
   const shownText = rows === null ? '—' : String(list.length);
   /** 검색어든 축이든 하나라도 걸렸나 — 걸렸으면 「전체차량」이 아니라 「조건에 맞는 차량」이다. */
@@ -349,20 +347,20 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
             display: 'flex', gap: SHOP.sp.pane, alignItems: 'baseline', marginTop: SHOP.sp.part,
           }}>
             <div style={{ width: 260, flexShrink: 0 }}>
-              <ShopCount value={countText} />
+              {/*
+                ★★**숫자는 «하나»다**(사장님 2026-09-07 「검색창부터 퀵필터 버튼, 차량 대수,
+                  검색된 대수, 정렬 드롭다운 박스가 좀 **어정쩡하지**?」).
+                ⚠ 실측 — 조건이 없을 때 이 줄은 「전체차량 **721**대」와 「**721**대 중 1–60」으로
+                  **같은 숫자를 두 번** 말하고 있었다. 크기도 26 과 13 으로 갈려 한 줄로 안 읽혔다.
+                ⇒ 왼쪽 하나만 남긴다. 그리고 그 하나가 «지금 뜻이 있는 값»을 말한다 —
+                  조건이 없으면 「전체차량 721대」, 걸면 「조건에 맞는 차량 3대」.
+                  이게 폰이 이미 하던 방식이다(아래 `mobile` 가지) — 웹만 달랐다.
+                ★「1–60」(지금 몇 장 폈나)은 목록 «맨 밑»의 더보기 줄이 이미 말한다(`ShopMore`).
+                  같은 말을 위아래로 두 번 두지 않는다.
+              */}
+              <ShopCount value={shownText} filtered={narrowed} />
             </div>
             <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'baseline', gap: SHOP.sp.cozy }}>
-              {/*
-                ⚠ **걸린 조건 칩을 이 줄에 끼우지 않는다** — 한 번 그렇게 해 봤다가 물렀다
-                  (사장님 2026-09-06 「아니다. 그냥 **전체차량 그 밑에 라인**으로 나오게 하자.
-                  그게 맞겠다. **필터 거는 사람들은 그래야지 알겠지?**」).
-                  건수 옆에 이어 붙이면 「1대 중 1–1 · 월 대여료 50~60만 · 보증금 없음」이
-                  **한 문장으로 뭉쳐** 어디까지가 결과고 어디부터가 내가 건 조건인지 갈리지 않는다.
-                  조건은 **손님이 «되돌릴» 대상**이라 제 줄에서 눈에 띄어야 한다.
-              */}
-              <span style={{ fontSize: SHOP.fs.sub, color: C.mute, fontVariantNumeric: 'tabular-nums' }}>
-                {rows === null ? '불러오는 중' : `${list.length}대 중 1–${shown.length}`}
-              </span>
               <div style={{ flex: 1 }} />
               {/*
                 ★정렬 고르개도 «밑선»에 선다(사장님 2026-09-07 「여기 배열을 가로 라인을 맞춰야지…
