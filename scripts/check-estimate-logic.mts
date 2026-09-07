@@ -132,10 +132,21 @@ must(/전기차 취득세 감면/.test(costPage) && /value="1,400,000" disabled/
      원본(손오공·웰릭스)에서 배우는 것은 «무엇이 어느 칸에 있나»이고,
      칸의 **넓이는 우리 공통규격**(`components/WorkPage.tsx` 1:1:1:1)을 쓴다.
    ══════════════════════════════════════════════════════════════════════════ */
+const guestSurface = read('lib/guest-surface.ts');
 const estCss = read('components/estimate/estimate.css');
 const costCss = read('components/estimate/cost.css');
 const picker = read('features/estimate/CarPicker.tsx');
 const workPage = read('components/WorkPage.tsx');
+
+/* ㉮ 견적은 **ERP «안»의 페이지**다 — 상단바·전체메뉴를 입는다.
+     ⚠ 2026-09-07 사장님이 바로잡으셨다 — 「난 로그인해서 «내부 페이지»처럼 하자는 거였음」.
+       9/6 「완전 별도 페이지」를 «껍데기를 벗어라»로 읽고 `guest-surface` 에 넣었던 것이 어긋난 것이었다. */
+must(/const OWN_HEADER_PREFIXES = \[\] as const;/.test(guestSurface),
+  '견적이 ERP 상단바를 다시 벗고 있습니다 — 「내부 페이지처럼」이 규격입니다(`OWN_HEADER_PREFIXES` 는 비어 있어야 합니다)',
+  'lib/guest-surface.ts');
+must(!/className="wm"/.test(page) && !/className="wm"/.test(costPage),
+  '견적·원가 자체 머리에 워드마크가 다시 섰습니다 — ERP 상단바가 위에 있어 머리가 둘이 됩니다(노브랜드 규칙)',
+  'app/estimate/**/page.tsx');
 
 /* ㉠ 기둥 1:1:1:1 — 견적·원가 둘 다 */
 must(/grid-template-columns:repeat\(4,minmax\(0,1fr\)\)/.test(estCss),

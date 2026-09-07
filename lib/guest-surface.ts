@@ -40,8 +40,16 @@ const channelPaths = (): string[] => WHITELABELS.map((w) => w.sitePath || '').fi
 /**
  * 제 머리를 가진 업무 면 — **상단바만** 벗는다(하단 홈바는 얹는다).
  * 화면이 자기 헤더를 이미 그리고 있어 ERP 상단바를 얹으면 머리가 둘이 된다.
+ *
+ * ⚠⚠ **`/estimate` 는 2026-09-07 에 여기서 뺐다.**
+ *   9/6 사장님 「완전 별도 페이지라고 얘기할 정도로」를 «껍데기를 벗어라»로 읽고 넣었는데,
+ *   9/7 사장님이 바로잡으셨다 — 「**난 로그인해서 «내부 페이지»처럼 하자는 거였음**」
+ *   「이거는 프리패스 **내부에 별도 페이지**로 있어야 하는데」.
+ *   ⇒ 「별도 페이지」는 «ERP 밖»이 아니라 «ERP 안의 제 화면»이라는 뜻이었다.
+ *     상단바·전체메뉴를 도로 얹고, 견적기 자체 머리에서는 **워드마크를 뺐다**(머리가 둘이 되지 않게).
+ *   ⚠ 로그인은 처음부터 필요했고 지금도 필요하다(관리자·공급사만 · `EstimateGate`).
  */
-const OWN_HEADER_PREFIXES = ['/estimate'] as const;
+const OWN_HEADER_PREFIXES = [] as const;
 
 function matches(list: readonly string[], pathname: string): boolean {
   return list.some((p) => (

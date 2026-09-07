@@ -180,8 +180,8 @@ function EstimateCostPageInner() {
        폰에서는 아무 뜻도 없다. CSS 가 넓은 화면에서만 갈라 쓴다. */
     <div className="est-root cost">
       <div className="phone">
-        <div className="hd">
-          <div className="wm"><span className="a">freepass</span><span className="b">mobility</span></div>
+        {/* 워드마크는 뺐다 — ERP 상단바가 위에 선다(견적 화면과 같은 규칙). */}
+        <div className="hd bare">
           <div className="modesw">
             <Link href="/estimate">견적</Link>
             <span className="on">원가</span>

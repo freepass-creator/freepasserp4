@@ -74,7 +74,7 @@
   }
 }
 
-.est-root .phone{max-width:440px;margin:0 auto;min-height:100vh;background:var(--bg);border-left:1px solid var(--line-2);border-right:1px solid var(--line-2)}
+.est-root .phone{max-width:440px;margin:0 auto;min-height:calc(100vh - var(--topbar-h, 0px));background:var(--bg);border-left:1px solid var(--line-2);border-right:1px solid var(--line-2)}
 /* 하단 홈바가 얹히는 면이라 그 높이만큼 자리를 비운다 — 안 비우면 「저장」과 맨 아랫줄이 바에 깔린다.
    `--fp-tabbar-h` 는 AppTabBar 가 켤 때만 채운다(웹·바 없는 곳에서는 0). 2026-09-06 견적 탭. */
 .est-root .phone{padding-bottom:var(--fp-tabbar-h, 0px)}
@@ -91,6 +91,8 @@
      태그가 하나 늘자 규칙이 못 따라온 것이다.
    ⇒ **자식이 무엇이든** 같은 상자를 받게 `> *` 로 잡는다. 태그가 또 바뀌어도 안 깨진다.
    ★치수는 공용 규격 sm — 웹 28 / 폰 36(`components/ui/tokens.ts` CTRL.sm). 아래 미디어쿼리가 올린다. */
+/* 자체 머리 — ERP 상단바 밑에 서는 «전환 줄»이다. 워드마크가 빠져 낮아졌다. */
+.est-root .hd.bare{padding:8px 12px;justify-content:flex-end;background:var(--bg);border-bottom:0}
 .est-root .modesw{display:flex;margin-left:auto;flex:none;border:1px solid var(--line-2);border-radius:var(--r);overflow:hidden}
 .est-root .modesw > *{text-decoration:none;display:grid;place-items:center;border:0;border-left:1px solid var(--line-2);background:var(--surface);color:var(--ink-3);font:inherit;font-weight:700;font-size:var(--ctrl-fs-sm);height:var(--ctrl-sm);padding:0 13px;cursor:pointer;white-space:nowrap}
 .est-root .modesw > *:first-child{border-left:0}
@@ -222,7 +224,7 @@
 
 @media (min-width:1000px){
   .est-root:not(.cost) .phone{
-    max-width:none;width:100%;min-height:100vh;
+    max-width:none;width:100%;min-height:calc(100vh - var(--topbar-h, 0px));
     /* ★★**1 : 1 : 1 : 1** — 업무동 공통 패널 규격에 맞춘다(사장님 2026-09-07
        「패널 규격은 **1 1 1 1 패널** 쓰고 있으니까 거기에 맞춰야지, **공통규격으로**」).
        정본 = `components/WorkPage.tsx` — 목록 기둥이 `flex:1 1 0`, 패널마다 `flex:${paneRatio} 1 0`
@@ -244,7 +246,7 @@
   /* 좌 — 차 고르고 조건 세팅. 제 안에서 스크롤하고 오른쪽에 선을 긋는다(원본 `.vside`). */
    /* 기둥마다 제 안에서 스크롤하고 오른쪽에 선을 긋는다 — `WorkPage` 와 같은 짜임. */
   .est-root:not(.cost) .phone > .col{
-    position:sticky;top:0;max-height:100vh;overflow-y:auto;
+    position:sticky;top:0;max-height:calc(100vh - var(--topbar-h, 0px));overflow-y:auto;
     border-right:1px solid var(--line-2);padding:6px 6px 24px;
   }
   /* ★손익표는 **두 칸**을 쓴다 — 칸 수(4)는 공통규격 그대로이고 «비율»만 준다
