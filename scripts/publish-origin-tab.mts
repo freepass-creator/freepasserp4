@@ -844,7 +844,10 @@ let gid = ((meta.sheets || []) as Rec[]).find((s) => S(s.properties?.title).star
  * ⚠ 공급사가 실제로 재고를 줄이는 날도 있다. 그때는 `--force-shrink` 로 지나간다.
  */
 // 코드별 지금 대수 — 코드기반 0대 가드와 «발행 후 스냅샷 기록»이 함께 쓴다(상위 스코프).
-const SNAP_TAB = '@발행코드수';
+// ★탭별로 스냅샷을 나눈다 — hourly-sync 가 이 발행기를 상품리스트·손오공구독·픽업구독·오플구독
+//   네 번(--tab/--only) 호출하므로, 하나의 스냅샷을 공유하면 서로의 코드셋을 0대로 오인한다(코덱스 P1-1).
+const SNAP_TAB = `@발행코드수-${TAB}`;
+const SNAP_PAD = 250;   // 고정폭 패딩 — clear 없이 단일 PUT 으로 원자적 갱신(파트너 64곳 < 250). 낡은 줄 잔존·clear/PUT 레이스 방지(코덱스 P1-2).
 const nowByCode = new Map<string, number>();
 for (const r of rows) { const c = rowCode.get(r); if (c) nowByCode.set(c, (nowByCode.get(c) || 0) + 1); }
 {
@@ -877,16 +880,32 @@ for (const r of rows) { const c = rowCode.get(r); if (c) nowByCode.set(c, (nowBy
      *   ⚠ 첫 실행엔 스냅샷이 없어 기준선만 만들고(코드 0대 가드는 다음 발행부터), 그동안은 총량·시트못읽음 가드가 지킨다.
      */
     const snapExists = ((meta.sheets || []) as Rec[]).some((s) => S(s.properties?.title) === SNAP_TAB);
-    if (snapExists) {
-      const snapRows = ((await api(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET}/values/${encodeURIComponent(`'${SNAP_TAB}'`)}`)).values || []) as string[][];
-      const baseline = new Map<string, { n: number; name: string }>();
-      for (const r of snapRows.slice(1)) { const c = S(r[0]); if (!c) continue; baseline.set(c, { n: Number(r[1] || 0), name: S(r[2]) }); }
+    const snapRows = snapExists
+      ? (((await api(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET}/values/${encodeURIComponent(`'${SNAP_TAB}'`)}`)).values || []) as string[][])
+      : [];
+    // ★헤더가 맞고 데이터가 있어야 «유효 기준선». 빈/헤더뿐/손상(clear 후 PUT 실패 등)이면 기준선 없음으로 본다.
+    const headerOk = S(snapRows[0]?.[0]) === '공급사코드';
+    const baseline = new Map<string, { n: number; name: string }>();
+    let snapBad = 0;   // 손상 줄(코드는 있는데 대수가 숫자가 아님) — 세어서 기준선 신뢰 판단에 쓴다
+    if (headerOk) for (const r of snapRows.slice(1)) {
+      const c = S(r[0]); if (!c) continue;
+      const n = Number(r[1]);
+      // ⚠ 대수가 비숫자·음수면 «0으로 보고 통과»시키지 않는다 — 그 공급사의 진짜 소실을 놓친다(코덱스 §3).
+      //   손상 줄은 기준선에서 빼고 따로 센다. 손상이 있으면 아래에서 기준선 전체를 불신한다.
+      if (!Number.isFinite(n) || n < 0) { snapBad++; continue; }
+      baseline.set(c, { n, name: S(r[2]) });
+    }
+    if (baseline.size && !snapBad) {
       const gone = [...baseline]
         .filter(([c, v]) => v.n >= 3 && !(nowByCode.get(c) || 0))
         .map(([c, v]) => `${v.name || c}(${c}) ${v.n}대→0`);
       if (gone.length) throw new Error(`직전 발행에 있던 공급사가 코드기준 통째로 0대 — 발행하지 않는다: ${gone.join(' · ')} (못 읽은 것인지 먼저 보라 — 맞으면 --force-shrink)`);
     } else {
-      console.log(`  ⓘ 코드 스냅샷(${SNAP_TAB}) 없음 — 이번 발행으로 기준선을 만든다(코드기반 0대 가드는 다음 발행부터).`);
+      // 기준선이 없거나(첫 발행)·헤더뿐·손상됐다 — 코드 0대 가드는 건너뛰고 이번 발행으로 기준선을 (재)생성.
+      //   ⚠ 이 «시딩 창」에서는 코드기준 소실을 못 잡는다(비교할 기준선이 없으니 불가피 — 코덱스 §3).
+      //     그래서 시딩은 «데이터가 온전한 것을 눈으로 확인한 상태」에서만 돌린다. 그동안 총량(-20%)·시트못읽음 가드는 유효.
+      const why = !snapExists ? '없음(첫 발행)' : !headerOk ? '헤더 손상' : snapBad ? `손상 줄 ${snapBad}개` : '데이터 없음';
+      console.log(`  ⚠ 코드 스냅샷(${SNAP_TAB}) ${why} — 이번 발행으로 기준선 (재)생성. 코드 0대 가드는 «다음» 발행부터. (이번엔 총량·시트못읽음 가드만 지킨다)`);
     }
   }
 }
@@ -955,14 +974,14 @@ await api(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET}/values/${encod
     });
     snapGid = Number(((made.replies || []) as Rec[])[0]?.addSheet?.properties?.sheetId ?? 0);
   }
-  const snapValues: string[][] = [['공급사코드', '대수', '공급사명(참고)'],
-    ...[...nowByCode].sort((a, b) => a[0].localeCompare(b[0])).map(([c, n]) => {
-      const p = byCode.get(c); return [c, String(n), companyAlias(S(p?.partner_name || p?.name)) || c];
-    })];
-  await api(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET}:batchUpdate`, {
-    method: 'POST', body: JSON.stringify({ requests: [{ updateCells: { range: { sheetId: snapGid }, fields: 'userEnteredValue' } }] }),
+  const dataRows = [...nowByCode].sort((a, b) => a[0].localeCompare(b[0])).map(([c, n]) => {
+    const p = byCode.get(c); return [c, String(n), companyAlias(S(p?.partner_name || p?.name)) || c];
   });
-  await api(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET}/values/${encodeURIComponent(`'${SNAP_TAB}'!A1`)}?valueInputOption=RAW`, {
+  // ★clear 없이 «단일 PUT»으로 원자 갱신 — 고정폭(SNAP_PAD)까지 빈 줄로 채워 낡은 줄 잔존을 없앤다.
+  //   clear→PUT 2단계면 clear 성공·PUT 실패 시 빈 스냅샷이 남아 다음 발행 보호가 사라진다(코덱스 P1-2).
+  const snapValues: string[][] = [['공급사코드', '대수', '공급사명(참고)'], ...dataRows];
+  while (snapValues.length < SNAP_PAD) snapValues.push(['', '', '']);
+  await api(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET}/values/${encodeURIComponent(`'${SNAP_TAB}'!A1:C${SNAP_PAD}`)}?valueInputOption=RAW`, {
     method: 'PUT', body: JSON.stringify({ values: snapValues }),
   });
   console.log(`  코드 스냅샷 「${SNAP_TAB}」 갱신 — 공급사코드 ${nowByCode.size}개(다음 발행의 0대 가드 기준선)`);

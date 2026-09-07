@@ -106,11 +106,27 @@ const jwt = new JWT({ email: sa.client_email, key: sa.private_key, subject: 'pyh
 const tok = async () => (await jwt.getAccessToken()).token;
 
 /**
+ * ★★★**원천은 «우리 정산원장(F04)»이다** — 사장님 2026-09-04
+ *   「계약현황을 이제 볼 필요 없게 우리 원자로 갖고오고 우리 정산원장 만들었잖아 이제 그걸 보고 해야지」
+ *
+ *   여태 남의 시트(「프리패스모빌리티계약현황」)를 읽었다. 그 시트는 주인이 다른 계정이라
+ *   **우리가 못 고친다**(뷰어 권한). 빈칸 하나를 채우려 해도 남의 손을 기다려야 했다.
+ *   ⇒ F04 는 우리 것이다. 원자를 거기서 만들면 그 기다림이 통째로 사라진다.
+ *
+ * ⚠ 칸 이름이 다르다 — 「업체명↔공급사」·「에이전시↔영업채널」·「영업자↔영업담당자」.
+ *   그래서 `col()` 이 이름을 «둘» 받는다. 한쪽만 두면 다른 원천에서 통째로 멈춘다.
+ * ⚠ 달을 고르는 법도 다르다 — 계약현황은 «탭 하나가 한 달», 원장은 «세 탭에 누적»이라
+ *   청구년·청구월로 고른다.
+ */
+const FROM_LEDGER = !process.argv.includes('--계약현황');
+const LEDGER_ID = '1BjGBqAjRLEb9ZMKarpQsMF-q_UjdgmEqBAl1uVk8SR4';
+const LEDGER_TABS = ['접수', '완납실적', '분납실적'];
+/**
  * ★**탭을 «찾는다».** 이름이 들쭉날쭉해서 지으면 안 된다 —
  *   실측: `프리패스25/8`(붙임) · `프리패스 26/8`(띄움) · `카렌 24년 1월` 이 한 파일에 섞여 있다.
  *   ⇒ 「연/월」 숫자로 찾고, 못 찾거나 둘 이상이면 멈춘다.
  */
-{
+if (!FROM_LEDGER) {
   const meta = await (await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SRC}?fields=sheets.properties.title`, { headers: { Authorization: `Bearer ${await tok()}` } })).json() as { sheets?: { properties: { title: string } }[] };
   const [yy, mm] = MONTH.split('-');
   const short = yy.slice(2);
@@ -122,20 +138,45 @@ const tok = async () => (await jwt.getAccessToken()).token;
     process.exit(1);
   }
   TAB = hit[0];
-}
-console.log(`■ ${MONTH} 원자화 — 원본 「${TAB}」 → 파이어베이스 ${APPLY ? '(반영)' : '(대조만)'}\n`);
+} else TAB = LEDGER_TABS.join(" + ");
+console.log(`■ ${MONTH} 원자화 — 원본 ${FROM_LEDGER ? "[F04] 정산원장" : "계약현황"} 「${TAB}」 → 파이어베이스 ${APPLY ? '(반영)' : '(대조만)'}\n`);
 
 // ── 시트 읽기 (값 + 필터) ─────────────────────────────────
-const vr = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SRC}/values/${encodeURIComponent(`'${TAB}'!A1:BZ120`)}?valueRenderOption=UNFORMATTED_VALUE`, { headers: { Authorization: `Bearer ${await tok()}` } });
-if (!vr.ok) { console.log(`   ✕ 시트를 못 읽었다 ${vr.status}`); process.exit(1); }
-const all = (((await vr.json()) as { values?: unknown[][] }).values || []).map((v) => (v || []).map(S));
+const readTab = async (id: string, tab: string): Promise<string[][]> => {
+  const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${encodeURIComponent(`'${tab}'!A1:BZ900`)}?valueRenderOption=UNFORMATTED_VALUE`, { headers: { Authorization: `Bearer ${await tok()}` } });
+  if (!r.ok) { console.log(`   ✕ 「${tab}」 를 못 읽었다 ${r.status}`); process.exit(1); }
+  return (((await r.json()) as { values?: unknown[][] }).values || []).map((v) => (v || []).map(S));
+};
+let all: string[][];
+if (!FROM_LEDGER) all = await readTab(SRC, TAB);
+else {
+  /**
+   * ★★**원장은 «세 탭에 누적»이다** — 접수(아직 대기) · 완납실적 · 분납실적.
+   *   그 달 줄만 골라 «머리글 한 줄 + 고른 줄»로 이어 붙인다. 세 탭의 칸 차례는 같다.
+   * ⚠ 청구년·청구월이 비어 있으면 못 고른다 — 그 줄은 아직 달이 안 정해진 것이라 담지 않는다.
+   *   (그게 바로 「접수 탭에 그냥 둬」 하신 줄들이다.)
+   */
+  const [yy, mm] = MONTH.split('-').map(Number);
+  let hdr: string[] = []; const picked: string[][] = [];
+  for (const t of LEDGER_TABS) {
+    const g = await readTab(LEDGER_ID, t);
+    const h = g.findIndex((x) => x.includes('차량번호'));
+    if (h < 0) continue;
+    if (!hdr.length) hdr = g[h];
+    const iy = g[h].indexOf('청구년'); const im = g[h].indexOf('청구월');
+    if (iy < 0 || im < 0) { console.log(`   ✕ 「${t}」 에 청구년·청구월 열이 없다 — 멈춘다`); process.exit(1); }
+    for (const r of g.slice(h + 1)) if (N(r[iy]) === yy && N(r[im]) === mm) picked.push(r);
+  }
+  all = [hdr, ...picked];
+  console.log(`   원장 세 탭에서 ${MONTH} 줄 ${picked.length}개를 골랐다`);
+}
 /**
  * ⚠ **필터는 «그 탭»의 것을 읽어야 한다.** `ranges=` 를 줘도 응답의 `sheets[0]` 이 그 탭이라는 보장이 없다 —
  *   2026-09-01 에 첫 탭의 필터를 읽고 「숨기는 값 없음」이라고 잘못 말했다. 제목으로 찍어 고른다.
  */
 const fr = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SRC}?fields=${encodeURIComponent('sheets(properties.title,basicFilter)')}`, { headers: { Authorization: `Bearer ${await tok()}` } });
 const sheetsMeta = ((await fr.json()) as { sheets?: { properties?: { title?: string }; basicFilter?: { criteria?: Record<string, { hiddenValues?: string[] }> } }[] }).sheets || [];
-const filt = sheetsMeta.find((s) => S(s.properties?.title) === TAB)?.basicFilter;
+const filt = FROM_LEDGER ? undefined : sheetsMeta.find((s) => S(s.properties?.title) === TAB)?.basicFilter;
 const hidden = new Map<number, Set<string>>();
 for (const [k, v] of Object.entries(filt?.criteria || {})) if (v?.hiddenValues?.length) hidden.set(Number(k), new Set(v.hiddenValues));
 console.log(`   시트 필터 — 숨기는 값 ${[...hidden].map(([c, s]) => `${c}열: ${[...s].join(',')}`).join(' · ') || '없음'}`);
@@ -144,19 +185,27 @@ const hi = all.findIndex((x) => x.includes('차량번호'));
 if (hi < 0) { console.log('   ✕ 머리글을 못 찾았다'); process.exit(1); }
 const head = all[hi];
 /** ★이름으로 열을 찍는다. 없으면 -1 이 아니라 «멈춘다» — 조용히 0 이 되면 돈이 사라진다. */
-const col = (name: string, must = true) => {
-  const j = head.findIndex((h) => flat(h) === flat(name));
-  if (j < 0 && must) { console.log(`   ✕ 「${name}」 열이 없다 — 멈춘다`); process.exit(1); }
+/** ★이름을 «둘» 받는다 — 계약현황과 원장이 같은 것을 달리 부른다(업체명↔공급사 …). */
+const col = (name: string, alt?: string, must = true) => {
+  let j = head.findIndex((h) => flat(h) === flat(name));
+  if (j < 0 && alt) j = head.findIndex((h) => flat(h) === flat(alt));
+  if (j < 0 && must) { console.log(`   ✕ 「${name}${alt ? ` / ${alt}` : ''}」 열이 없다 — 멈춘다`); process.exit(1); }
   return j;
 };
 const C = {
-  memo: col('계약번호'), state: col('상태 표기'), sup: col('업체명'), recv: col('접수일'), deliv: col('인도일'),
+  memo: col('계약번호', '비고'), state: col('상태 표기', '인도완료'), sup: col('업체명', '공급사'),
+  recv: col('접수일'), deliv: col('인도일'),
   rentKind: col('렌트구분'), product: col('상품구분'), plate: col('차량번호'), model: col('모델명'),
-  cust: col('고객명'), age: col('연령'), phone: col('고객연락처'), term: col('계약기간'),
+  cust: col('고객명'), age: col('연령', undefined, false), phone: col('고객연락처'), term: col('계약기간'),
   deposit: col('보증금'), payKind: col('분납여부'), ctype: col('계약형태'), rent: col('렌탈료'), price: col('차량가액'),
-  supRate: col('수수료율 (공급사)'), claimY: col('판매 수수료'), claimZ: col('판매 수수료 (수식X)'),
-  ch: col('에이전시'), agent: col('영업자'), agRate: col('수수료율 (에이전시)'),
-  payAL: col('출고수수료'), payAM: col('출고 수수료 (수식X)'),
+  supRate: col('수수료율 (공급사)', '공급사수수료율'), claimY: col('판매 수수료', '판매수수료'),
+  /** ★「수식X」는 계약현황에만 있다 — 원장에는 그 자리가 없으니 «없어도» 넘어간다. */
+  claimZ: col('판매 수수료 (수식X)', undefined, false),
+  ch: col('에이전시', '영업채널'), agent: col('영업자', '영업담당자'), agRate: col('수수료율 (에이전시)', '에이전시수수료율'),
+  payAL: col('출고수수료'), payAM: col('출고 수수료 (수식X)', undefined, false),
+  /** 원장에만 있는 칸 — 취소·환수는 체크로 온다. */
+  cancel: col('취소', undefined, false), claw: col('환수', undefined, false),
+  clawWhy: col('환수사유', undefined, false), clawAmt: col('환수금액', undefined, false),
 };
 /**
  * ★★**「추가 인센티브」 두 칸** — 무보증 수수료 등이 여기 붙는다(사장님 2026-09-04 「무보증 수수료」).
@@ -165,13 +214,23 @@ const C = {
  *   ⚠ 이 칸을 안 담으면 원자화가 돌 때마다 인센티브가 «지워진다»(원자 줄을 통째로 갈아 끼우므로).
  */
 const incAt = (after: number) => (flat(S(head[after + 1])).includes('추가인센티브') ? after + 1 : -1);
-const INC = { claim: incAt(C.claimZ), pay: incAt(C.payAM) };
+/** ★원장은 인센티브 칸에 «제 이름»이 있다 — 계약현황처럼 자리로 더듬을 필요가 없다. */
+const INC = FROM_LEDGER
+  ? { claim: col('공급사인센티브', undefined, false), pay: col('에이전시인센티브', undefined, false) }
+  : { claim: incAt(C.claimZ), pay: incAt(C.payAM) };
 console.log(`   추가 인센티브 칸 — 공급사 ${INC.claim >= 0 ? INC.claim : '못 찾음'} · 에이전시 ${INC.pay >= 0 ? INC.pay : '못 찾음'}`);
 
 const atoms: Atom[] = []; const claws: Record<string, unknown>[] = []; const skipped: string[] = [];
 for (let i = hi + 1; i < all.length; i++) {
   const x = all[i] || [];
-  const st = S(x[C.state]);
+/**
+   * ★★**상태를 «한 말»로 고른다.** 계약현황은 「상태 표기」에 글로 적고,
+   *   원장은 「인도완료·취소·환수」 세 체크로 말한다. 여기서 한 꼴로 맞춘다.
+   */
+  const B = (v: unknown) => /^(TRUE|true|1|Y|O|v|✓|예)$/.test(S(v));
+  const st = FROM_LEDGER
+    ? (C.claw >= 0 && B(x[C.claw]) ? '환수' : C.cancel >= 0 && B(x[C.cancel]) ? '취소' : B(x[C.state]) ? '계약 완료' : '계약진행중')
+    : S(x[C.state]);
   if (!st && !S(x[C.plate])) continue;
   /**
    * ⚠⚠ **시트 필터를 «뜻으로 읽지 않는다».**
@@ -197,7 +256,7 @@ for (let i = hi + 1; i < all.length; i++) {
   if (st === '환수') {
     claws.push({
       plate, at: ymd(x[C.deliv]) || '', supplierAmt: claim, agentAmt: pay,
-      reason: memo || '', supplier: S(x[C.sup]), channel: S(x[C.ch]),
+      reason: (C.clawWhy >= 0 ? S(x[C.clawWhy]) : '') || memo || '', supplier: S(x[C.sup]), channel: S(x[C.ch]),
       month: MONTH, sourceRow: i + 1, sourceTab: TAB, by: 'atomize-settlement-month', updatedAt: Date.now(),
     });
     continue;

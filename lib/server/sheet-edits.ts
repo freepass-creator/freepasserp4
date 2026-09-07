@@ -54,6 +54,12 @@ export function diffSheetRows(opts: {
   keyCol?: string;
 }): { key: string; column: string; ours: string; theirs: string }[] {
   const { head, ours, theirs } = opts;
+  /**
+   * ★★**줄 번호(No.)는 «고침»이 아니다.** 줄 차례가 바뀌면 무조건 달라진다 —
+   *   오플이 아래로 내려가고, 줄이 하나 늘면 그 아래가 통째로 밀린다.
+   *   실측 2026-09-07 — 검토 대기 68건 가운데 «절반이 No.»였다. 진짜 정정이 그 속에 묻힌다.
+   */
+  const skip = new Set(['No.']);
   const own = new Set(opts.theirOwn || ['확인', '메모']);
   const keyCol = opts.keyCol || '차량번호';
   const ki = head.indexOf(keyCol);
@@ -78,7 +84,7 @@ export function diffSheetRows(opts: {
     const t = byKey.get(k);
     if (!t) { orphans.push(i); return; }
     head.forEach((h, c) => {
-      if (own.has(h) || same(o[c], (t || [])[c])) return;
+      if (own.has(h) || skip.has(h) || same(o[c], (t || [])[c])) return;
       out.push({ key: k, column: h, ours: S(o[c]), theirs: S((t || [])[c]) });
     });
   });
@@ -92,7 +98,7 @@ export function diffSheetRows(opts: {
   if (orphans.length === 1 && extra.length === 1) {
     const o = ours[orphans[0]]; const t = extra[0];
     head.forEach((h, c) => {
-      if (own.has(h) || same(o[c], (t || [])[c])) return;
+      if (own.has(h) || skip.has(h) || same(o[c], (t || [])[c])) return;
       out.push({ key: S(o[ki]), column: h, ours: S(o[c]), theirs: S((t || [])[c]) });
     });
   }
