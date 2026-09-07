@@ -908,8 +908,32 @@ let gid = ((meta.sheets || []) as Rec[]).find((s) => S(s.properties?.title).star
         };
         const before = count(prevRows.slice(1), prevAt);
         const now = count(rows, supplierAt);
+        /**
+         * ★★**«차 정체» 겹침 사면** — 이름이 아니라 «그 차»가 그대로 있는지 본다(2026-09-07, B-2).
+         *   이름표 환원(supplierNameKeys)이 못 잇는 «임의 개명»(철자·접미사 연결이 아예 없는 새 이름)에도,
+         *   그 공급사의 «직전 차 전부»가 이번 발행에 (어느 코드로든) 그대로 있으면 = 차는 그대로, 이름만 바뀐 것 → 사면.
+         *   차 정체 = «차량번호»다. 상품리스트엔 차대번호(VIN)를 안 싣는다(사장님 2026-08-22 · SALES_RETIRED_COLUMNS)—
+         *   그래서 실번호만이 «그 차»다. 번호는 이 표 전체의 열쇠라(dedup·ERP매칭·계약·사진 다 번호로 건다) 이름처럼 재사용·오연결되지 않는다.
+         *   ⚠ **한 대라도 확인 안 되면(사라졌거나 번호 없음) 사면하지 않고 막는다** — 「한 대만 남고 둘은 사라진」 표를 통과시키지 않는다(코덱스 B-2 §3).
+         *   ⚠ 「미정」·빈칸 등 실번호 아닌 것은 차로 세지 않는다 — 실번호 정규식만 «차»다(코덱스 B-2 §4). 진짜 소실(429 빈 표)은 그 번호들이 없어 그대로 막힌다.
+         */
+        const REAL_PLATE_G = /^\d{2,3}[가-힣]\d{4}$/;   // 차 적재 필터(REAL_PLATE)와 같은 규격
+        const prevPlateAt = prevHdr.indexOf('차량번호');
+        const carId = (r: string[], pAt: number) => { const p = pAt >= 0 ? norm(r[pAt]) : ''; return REAL_PLATE_G.test(p) ? p : ''; };
+        const nowIds = new Set<string>();
+        for (const r of rows) { const id = carId(r, plateAt0); if (id) nowIds.add(id); }
+        const prevCars = new Map<string, { total: number; here: number }>();   // 코드별 직전 줄 수 / 이번에 번호로 확인된 차 수
+        for (const r of prevRows.slice(1)) {
+          const w = S(r[prevAt]); if (!w) continue;
+          const k = ident(w); const id = carId(r, prevPlateAt);
+          const cur = prevCars.get(k) || { total: 0, here: 0 };
+          cur.total += 1; if (id && nowIds.has(id)) cur.here += 1;
+          prevCars.set(k, cur);
+        }
+        // 사면은 «직전 줄 전부»가 이번 발행에 살아 있을 때만(한 대라도 안 보이면 막는다 → 소실 은폐 없음).
+        const alive = (k: string) => { const c = prevCars.get(k); return !!c && c.total > 0 && c.here === c.total; };
         const gone = [...before]
-          .filter(([k, v]) => v.n >= 3 && !(now.get(k)?.n || 0))
+          .filter(([k, v]) => v.n >= 3 && !(now.get(k)?.n || 0) && !alive(k))
           .map(([k, v]) => `${[...v.seen].join('/')}${k && ![...v.seen].includes(k) ? `(${k})` : ''} ${v.n}대→0`);
         if (gone.length) throw new Error(`직전 표에 있던 공급사가 통째로 0대 — 발행하지 않는다: ${gone.join(' · ')} (못 읽은 것인지 먼저 보라 — 맞으면 --force-shrink)`);
       }
