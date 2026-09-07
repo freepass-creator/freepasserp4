@@ -23,6 +23,12 @@ const MAKER_FILE: Record<string, string> = {
   르노코리아: 'renault-korea',
   르노: 'renault',
   벤츠: 'mercedes',
+  /*
+   * ⚠ 화면에 뜨는 이름은 «KGM» 이다(`makerDisplay`). 표에 「KG모빌리티」만 적어 두었더니
+   *   파일은 있는데 **그림이 안 붙었다**(2026-09-07 실측). 표는 «보이는 이름»과 맞아야 한다.
+   * ★둘 다 남긴다 — 원천이 어느 쪽으로 보내든 이어지게.
+   */
+  KGM: 'kgm',
   KG모빌리티: 'kgm',
   쉐보레: 'chevrolet',
   BMW: 'bmw',
