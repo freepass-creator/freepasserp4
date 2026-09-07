@@ -74,3 +74,28 @@
 .est-root .ohint:hover,.est-root .ohint.on{border-color:var(--accent);background:var(--accent);color:var(--on)}
 .est-root .ohelp{margin:6px 0 2px;padding:8px 10px;border-left:2px solid var(--accent-line);background:var(--surface-2);border-radius:0 3px 3px 0;font-size:11px;font-weight:500;color:var(--ink-2);line-height:1.6}
 .est-root .ohelp b{color:var(--accent);font-weight:700}
+
+
+/* ══ 웹(≥900) 두 단 — 설정 카드가 아홉 장이라 한 줄로는 3,000px 이 넘는다 ══════
+   ★원가는 «입력·결과»가 아니라 설정 목록이라, 견적과 달리 두 단으로 흘린다
+     (견적은 좌=입력·우=결과 붙박이 — `estimate.css` 아래쪽).
+   ⚠ 갈래 띠(`.gsec`)·머리·저장바·안내는 **한 줄을 통째로** 쓴다.
+     띠가 한 단에만 서면 「여기부터 무슨 갈래인지」가 반쪽만 말하게 된다. */
+@media (min-width:900px){
+  .est-root.cost .phone{
+    max-width:1080px;
+    display:grid;grid-template-columns:1fr 1fr;
+    column-gap:14px;align-items:start;
+    padding-left:16px;padding-right:16px;
+  }
+  .est-root.cost .phone > .hd,
+  .est-root.cost .phone > .gsec,
+  .est-root.cost .phone > .basis,
+  .est-root.cost .phone > .savebar,
+  .est-root.cost .phone > .foot,
+  .est-root.cost .phone > .byrow{grid-column:1 / -1}
+  /* 잔존가 카드는 검색하면 표가 뜬다 — 좁으면 가로로 밀리므로 한 줄을 다 준다.
+     ⚠ `:last-of-type` 은 «태그» 기준이라 안 먹었다(마지막 div 는 저장바다).
+       차종 검색칸을 가진 카드로 집는다. */
+  .est-root.cost .phone > .card:has(.vsearch){grid-column:1 / -1}
+}
