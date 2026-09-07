@@ -58,14 +58,14 @@
 .est-root .rtb .vn span{color:var(--ink-4);font-weight:500}
 
 /* 안내 상자 — 「아직 안 붙은 것」을 적는 자리. 견적 `.basis` 와 같은 톤, 점선으로만 구분한다. */
-.est-root .byrow{margin-top:11px;padding:9px 11px;border:1px dashed var(--accent-line);border-radius:var(--r,3px);background:var(--accent-soft);font-size:11px;font-weight:600;color:var(--ink-2);line-height:1.5}
+.est-root .byrow{margin-top:11px;padding:9px 11px;border:1px dashed var(--accent-line);border-radius:var(--r);background:var(--accent-soft);font-size:11px;font-weight:600;color:var(--ink-2);line-height:1.5}
 .est-root .byrow b{color:var(--accent)}
 .est-root .onote{margin-top:11px;font-size:11px;color:var(--ink-4);line-height:1.55}
 .est-root .onote b{color:var(--ink-3)}
 
 /* 저장 — 견적 하단독(`.c-footer.wiz`)과 같은 짜임: 꽉 채운 한 줄, 높이 40. */
 .est-root .savebar{margin:12px 12px 0;display:flex;gap:8px}
-.est-root .savebar button{flex:1;height:40px;border:0;border-radius:var(--r,3px);background:var(--accent);color:var(--on);font:inherit;font-weight:700;font-size:13px;cursor:pointer}
+.est-root .savebar button{flex:1;height:40px;border:0;border-radius:var(--r);background:var(--accent);color:var(--on);font:inherit;font-weight:700;font-size:13px;cursor:pointer}
 .est-root .savebar button[disabled]{background:var(--surface);color:var(--ink-4);border:1px solid var(--line-2);cursor:default}
 
 /* 칸 설명 — 「커서를 갖다 대면 설명」(사장님 2026-09-06 「렌터카 처음 하는 사람들도 이 구조를 이해해서
