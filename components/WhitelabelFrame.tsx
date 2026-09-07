@@ -188,13 +188,24 @@ export function WhitelabelFrame({
                     같이 쓰는 콕핏 얘기고, 여기는 손님에게 나가는 «채널 홈페이지»다.
                   ★크기·색으로 위계를 준다 — 채널 이름이 주인이고 우리 이름은 그 «옆에 작게» 선다.
                 */}
-                <span aria-hidden style={{
-                  fontSize: mobile ? 11 : 13, fontWeight: FW.meta, color: C.faint, letterSpacing: 0,
-                  marginLeft: SHOP.sp.tight,
-                }}>✕</span>
+                {/*
+                  ★★**아주 연하게**(사장님 2026-09-07 「홈페이지에는 그냥 유니오토모빌 x freepass
+                    **연하게** 표현해줘 · CI 뒤에 x 랑 freepass 는 **아주 연하게**」).
+                    간판의 주인은 채널이다 — 우리 이름은 «있다는 것만» 보이면 된다.
+                  ★연하게 만드는 방법 셋을 같이 쓴다: 작게 · 가늘게 · 흐리게(투명도).
+                    색을 새로 만들지 않는다 — `C.faint` 에 투명도만 얹는다(토큰 규격).
+                */}
                 <span style={{
-                  fontSize: mobile ? 13 : 16, fontWeight: FW.head, color: C.faint, letterSpacing: '-0.02em',
-                }}>freepass</span>
+                  display: 'inline-flex', alignItems: 'baseline', gap: SHOP.sp.tight,
+                  marginLeft: SHOP.sp.tight, opacity: 0.55, color: C.faint,
+                }}>
+                  <span aria-hidden style={{
+                    fontSize: mobile ? 10 : 12, fontWeight: FW.meta, letterSpacing: 0,
+                  }}>✕</span>
+                  <span style={{
+                    fontSize: mobile ? 12 : 14, fontWeight: FW.meta, letterSpacing: '-0.01em',
+                  }}>freepass</span>
+                </span>
               </div>
             </a>
           )}
