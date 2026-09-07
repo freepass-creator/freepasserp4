@@ -95,6 +95,8 @@ type Atom = {
   vatIncluded: boolean; settleTerms: string; settleNote: string;
   billed: boolean; collected: boolean;
   note: string; sourceRow: number; sourceTab: string; billMonth: string;
+  /** 사다리 «밖»에서 따로 붙는 수수료 — 무보증 수수료 등. 청구·지급에 더해진다. */
+  claimIncentive: number; payIncentive: number;
 };
 
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
@@ -156,6 +158,15 @@ const C = {
   ch: col('에이전시'), agent: col('영업자'), agRate: col('수수료율 (에이전시)'),
   payAL: col('출고수수료'), payAM: col('출고 수수료 (수식X)'),
 };
+/**
+ * ★★**「추가 인센티브」 두 칸** — 무보증 수수료 등이 여기 붙는다(사장님 2026-09-04 「무보증 수수료」).
+ *   ⚠ 두 칸 이름이 «똑같다». 이름으로 찍으면 앞엣것만 잡혀 에이전시 몫을 놓친다 —
+ *     그래서 «수식X 칸 바로 뒤»라는 자리로 잡고, 그 자리 이름이 맞는지 확인한다.
+ *   ⚠ 이 칸을 안 담으면 원자화가 돌 때마다 인센티브가 «지워진다»(원자 줄을 통째로 갈아 끼우므로).
+ */
+const incAt = (after: number) => (flat(S(head[after + 1])).includes('추가인센티브') ? after + 1 : -1);
+const INC = { claim: incAt(C.claimZ), pay: incAt(C.payAM) };
+console.log(`   추가 인센티브 칸 — 공급사 ${INC.claim >= 0 ? INC.claim : '못 찾음'} · 에이전시 ${INC.pay >= 0 ? INC.pay : '못 찾음'}`);
 
 const atoms: Atom[] = []; const claws: Record<string, unknown>[] = []; const skipped: string[] = [];
 for (let i = hi + 1; i < all.length; i++) {
@@ -198,6 +209,8 @@ for (let i = hi + 1; i < all.length; i++) {
     rent: N(x[C.rent]), deposit: N(x[C.deposit]), price: N(x[C.price]), payKind: S(x[C.payKind]),
     supplierRate: N(x[C.supRate]), agentRate: N(x[C.agRate]),
     claimWritten: claim, payWritten: pay,
+    claimIncentive: INC.claim >= 0 ? Math.round(N(x[INC.claim])) : 0,
+    payIncentive: INC.pay >= 0 ? Math.round(N(x[INC.pay])) : 0,
     receivedAt: ymd(x[C.recv]), deliveredAt: ymd(x[C.deliv]),
     delivered: !!ymd(x[C.deliv]), paper: st === '계약 완료', cancelled: false,
     settleTarget: (ax.settleTarget as Atom['settleTarget']) || '양쪽',

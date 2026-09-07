@@ -10,7 +10,9 @@
  */
 import { readFile } from 'node:fs/promises';
 import { JWT } from 'google-auth-library';
+import { getFirestore } from 'firebase-admin/firestore';
 import { SETTLEMENT_LEDGER_ID } from '@/lib/domain/settlement-ledger';
+import { firebaseAdminApp } from '@/lib/server/firebase-admin';
 import type { SettlementRow } from '@/lib/domain/settlement-stage';
 
 export const LEDGER_TABS = ['접수', '취소', '분납실적', '완납실적'] as const;
@@ -133,6 +135,52 @@ export async function readLedger(token: string): Promise<{ row: SettlementRow; t
         },
       });
     }
+  }
+  return out;
+}
+
+/**
+ * **원장을 «원자»에서 읽는다 — 시트 탈피(사장님 2026-09-05 「정산도 다 원자화해서 갖고 오자」).**
+ *
+ * ★`readLedger`(시트)와 «같은 모양»을 돌려준다: `{row, extra, tab}`. 그래서 라우트는 데이터 «원천»만
+ *   바꾸면 되고 판정(자리·청구월·수수료 = `settlement-stage`)·역할가림(`scopeRows`)은 그대로 탄다.
+ * ★원천 = Firestore `settlement_rows`(v4/settlement_rows 이관분). 원자는 이미 시트에서 부어져 있다.
+ * ⚠ 원자에 아직 없는 «정산조건 4축»(settleTarget 등)은 undefined → stage 가 기본값을 쓴다(메모 파싱 전과 동일).
+ * ⚠ 지급액(payWritten)의 «수식X 우선» 교정은 원자를 다시 부을 때 고친다(별건) — 읽기 전환은 값을 그대로 옮긴다.
+ */
+export async function readLedgerAtoms(): Promise<{ row: SettlementRow; tab: string; extra: LedgerExtra }[]> {
+  const fs = getFirestore(firebaseAdminApp());
+  const snap = await fs.collection('settlement_rows').get();
+  const out: { row: SettlementRow; tab: string; extra: LedgerExtra }[] = [];
+  for (const d of snap.docs) {
+    const a = d.data() as Record<string, unknown>;
+    if (a._deleted === true || a.deletedAt || S(a.status) === 'deleted') continue;
+    const plate = S(a.plate);
+    if (!plate) continue;
+    out.push({
+      tab: S(a.fromSheet) || '접수',
+      row: {
+        plate, supplier: S(a.supplier), agent: S(a.agent), product: S(a.product),
+        term: N(a.term), rent: N(a.rent), price: N(a.price), deposit: N(a.deposit),
+        model: S(a.model), customer: S(a.customer), channel: S(a.channel),
+        agentCode: S(a.agentCode), agentPhone: S(a.agentPhone),
+        paidRounds: N(a.paidRounds), payKind: S(a.payKind),
+        receivedAt: toDate(a.receivedAt), deliveredAt: toDate(a.deliveredAt), clawbackAt: toDate(a.clawbackAt),
+        clawbackAmount: N(a.clawbackAmount),
+        paper: !!a.paper, delivered: !!a.delivered, cancelled: !!a.cancelled, clawback: !!a.clawback,
+        claimWritten: N(a.claimWritten), payWritten: N(a.payWritten),
+        supplierRate: N(a.supplierRate), agentRate: N(a.agentRate),
+        // 정산조건 4축 — 메모(계약번호칸)에서 뽑기 전엔 없다. 있으면 그것이 이긴다.
+        settleTarget: a.settleTarget as string | undefined, settleRatio: a.settleRatio as number | undefined,
+        billHold: a.billHold as boolean | undefined, settleExclude: a.settleExclude as boolean | undefined,
+        vatIncluded: a.vatIncluded as boolean | undefined,
+      },
+      extra: {
+        phone: S(a.phone), clawbackReason: S(a.clawbackReason),
+        supplierCode: S(a.supplierCode), channel: S(a.channel), channelCode: S(a.channelCode),
+        contractNo: S(a.contractNo), note: S(a.note),
+      },
+    });
   }
   return out;
 }

@@ -18,6 +18,7 @@ import { JWT } from 'google-auth-library';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getDatabase } from 'firebase-admin/database';
 import { billingMonthIn, lockedMonthsOf, settleTargetOf, type SettlementRow } from '../lib/domain/settlement-stage';
+import { claimOf, payOf } from '../lib/domain/settlement-money';
 import { SUPPLIER_ALIAS } from '../lib/domain/settlement-fee-table';
 
 const S = (v: unknown) => String(v ?? '').trim();
@@ -49,8 +50,7 @@ const add = (m: Map<string, number>, k: string, v: number) => { if (k) m.set(k, 
 for (const r of rows) {
   const t = settleTargetOf(r.settleTarget); const ratio = N(r.settleRatio) || 1;
   const hold = r.billHold === true; const ex = r.settleExclude === true; const gross = r.vatIncluded === true;
-  const cr = ex || t === '영업' || hold ? 0 : Math.round(N(r.claimWritten) * ratio);
-  const pr = ex || t === '공급' ? 0 : Math.round(N(r.payWritten) * ratio);
+  const cr = claimOf(r); const pr = payOf(r);
   const c = gross ? Math.round(cr / (1 + VAT)) : cr; const p = gross ? Math.round(pr / (1 + VAT)) : pr;
   add(atomClaim, S(r.supplier), c + (gross ? cr - c : Math.round(c * VAT)));
   add(atomPay, S(r.channel), p + (gross ? pr - p : Math.round(p * VAT)));

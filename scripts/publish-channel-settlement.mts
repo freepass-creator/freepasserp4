@@ -29,6 +29,8 @@ import { getDatabase } from 'firebase-admin/database';
 import { CORP } from '../lib/domain/corporate-ci';
 import { payDate, payDayOf, PAY_DAY_BY_SUPPLIER } from '../lib/domain/settlement-cycle';
 import { settleTargetOf, billingMonthIn, lockedMonthsOf, type SettlementRow } from '../lib/domain/settlement-stage';
+/** ★채널 발행기는 «지급»만 센다 — claimOf 는 부러 안 들여온다(청구액 빗장). */
+import { payOf, incentiveOf } from '../lib/domain/settlement-money';
 import { settlementMonthOf } from '../lib/domain/settlement-billing-month';
 import { feeKindOf, feeRuleFor } from '../lib/domain/settlement-fee-table';
 import { outwardText } from '../lib/domain/outward-text';
@@ -138,10 +140,9 @@ type Line = { plate: string; recv: string; deliv: string; model: string; price: 
  * ★★**여기서 세는 것은 «지급» 한 축뿐이다.** `claimWritten` 은 이 파일이 읽지 않는다.
  */
 const lineOf = (r: Row): Line => {
-  const target = settleTargetOf(r.settleTarget);
   const ratio = N(r.settleRatio) || 1;
-  const excl = r.settleExclude === true;
-  const raw = excl || target === '공급' ? 0 : Math.round(N(r.payWritten) * ratio);
+  /** ★돈은 «한 함수»가 센다 — 인센티브(무보증 수수료 등)까지 포함한다. */
+  const raw = payOf(r);
   const gross = r.vatIncluded === true;
   const net = gross ? Math.round(raw / (1 + VAT)) : raw;
   const vat = gross ? raw - net : Math.round(net * VAT);

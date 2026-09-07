@@ -20,6 +20,7 @@ import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getDatabase } from 'firebase-admin/database';
 import { feeKindOf, feeRuleFor } from '../lib/domain/settlement-fee-table';
 import { settleTargetOf } from '../lib/domain/settlement-stage';
+import { claimOf, payOf } from '../lib/domain/settlement-money';
 
 const MONTH = (process.argv.find((a) => /^\d{4}-\d{2}$/.test(a)) || '2026-08').trim();
 const VAT = 0.1;
@@ -58,8 +59,8 @@ for (const r of rows) {
   }
   lines.push({
     plate: S(r.plate) || '(차번없음)', sup: sup || '(미기재)', ch: S(r.channel) || '(미기재)', model, product, term,
-    writeC: target === '영업' || r.settleExclude === true ? 0 : Math.round(N(r.claimWritten) * ratio),
-    writeP: target === '공급' || r.settleExclude === true ? 0 : Math.round(N(r.payWritten) * ratio),
+    /** ★돈은 «한 함수»가 센다 — 인센티브(무보증 수수료 등)를 여기서 빠뜨리면 그만큼 안 나간다. */
+    writeC: claimOf(r), writeP: payOf(r),
     calcC, calcP, why, target, ratio,
   });
 }

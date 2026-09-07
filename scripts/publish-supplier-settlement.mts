@@ -33,6 +33,8 @@ import { getDatabase } from 'firebase-admin/database';
 import { CORP } from '../lib/domain/corporate-ci';
 import { dueDate } from '../lib/domain/settlement-cycle';
 import { settleTargetOf, billingMonthIn, lockedMonthsOf, type SettlementRow } from '../lib/domain/settlement-stage';
+/** ★공급사 발행기는 «청구»만 센다 — payOf 는 부러 안 들여온다(지급액 빗장). */
+import { claimOf, incentiveOf } from '../lib/domain/settlement-money';
 import { settlementMonthOf } from '../lib/domain/settlement-billing-month';
 import { SETTLE_NOTE } from '../lib/server/channel-sheet-tabs';
 
@@ -115,10 +117,9 @@ type Line = { plate: string; recv: string; deliv: string; model: string; cust: s
  *   갈리면 공급사가 보는 근거와 우리가 보는 근거가 달라진다.
  */
 const lineOf = (r: Row): Line => {
-  const target = settleTargetOf(r.settleTarget);
   const ratio = N(r.settleRatio) || 1;
-  const hold = r.billHold === true; const excl = r.settleExclude === true;
-  const raw = excl || target === '영업' || hold ? 0 : Math.round(N(r.claimWritten) * ratio);
+  /** ★돈은 «한 함수»가 센다 — 인센티브(무보증 수수료 등)까지 포함한다. */
+  const raw = claimOf(r);
   const gross = r.vatIncluded === true;
   const net = gross ? Math.round(raw / (1 + VAT)) : raw;
   const vat = gross ? raw - net : Math.round(net * VAT);

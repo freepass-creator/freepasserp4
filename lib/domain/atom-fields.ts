@@ -26,6 +26,8 @@ export const FIELD_ROLE: Record<string, AtomRole> = {
   options: '공통', ext_color: '공통', int_color: '공통', year: '공통', fuel_type: '공통', engine_cc: '공통',
   seats: '공통', drive_type: '공통', battery_capacity: '공통', vehicle_class: '공통', product_type: '공통',
   photo_link: '공통', first_registration_date: '공통',
+  // 색칩 파생(hex) — 색 이름에서 `color-chips` 로 계산해 박는다. 다른 데서 당겨갈 때 코드까지 온다(사장님 2026-09-05).
+  ext_color_code: '공통', int_color_code: '공통',
   // ③④ 변동 — 매시간 연동(출고상태·주행·요금). status_* 은 상태 파생/원문.
   status: '변동', status_kind: '변동', status_reason: '변동', status_label_raw: '변동', vehicle_status: '변동',
   mileage: '변동', price: '변동',

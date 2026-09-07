@@ -108,6 +108,40 @@ export type CostSettings = {
   retentionNormalPct: number; retentionMidPct: number; retentionLowPct: number;
   /** 손바뀜 회당 비용 — 상품화 · 왕복탁송 · 영업수수료(총대여료 대비 %) · 휴차 개월. */
   turnoverPrepFee: number; turnoverDeliveryFee: number; turnoverFeePct: number; turnoverVacancyMonths: number;
+  /**
+   * **위약금 상쇄** — 손바뀜 한 번에 «실제로 받아 내는» 돈. 두 칸이 곱해진다.
+   *
+   * ★사장님 2026-09-06 「평균 보증금을 입력을 하면 대신 손바뀜이 있을 때 비용은 나가지만
+   *   그만큼이 상쇄가 되겠지. 근데 **사실상 위약금이 발생돼도 저신용은 거의 못 받거든.**
+   *   그런 것들이 좀 **현실적으로 반영이 돼야** 돼.」
+   *
+   *   ⇒ 정액 한 칸(「중도해지 위약금 얼마」)으로는 그 현실이 안 잡힌다.
+   *     받아 낼 «자리»(보증금)와 실제로 «받아 내는 정도»(회수율)는 서로 다른 값이고,
+   *     회수율만 신용 구간에 따라 갈린다.
+   *
+   *   회당 상쇄액 = 월납 × `depositMonths` × `penaltyRecovery{A|B|C}Pct`
+   *
+   *   depositMonths       보증금이 **월납 몇 달 치**인가(사장님 2026-09-06 「보통 요즘에 저신용
+   *                       보증금은 한 두 달 치를 받거든?」). 정액(원)이 아니라 배수다 —
+   *                       정액으로 두면 비싼 차에서 보증금이 실제보다 작아진다.
+   *   penaltyRecovery*Pct 그중 실제로 위약금으로 «떼는» 비율. A 정상은 대체로 떼지만
+   *                       C 저신용은 미납 대여료·수리비로 이미 소진되어 거의 못 뗀다.
+   *
+   * ⚠⚠ **위약금으로는 손바뀜이 안 막힌다.** 저신용 4년 아반떼 실측(2026-09-06):
+   *    회당 나가는 돈 253만(상품화 50 + 왕복탁송 50 + 수수료 재지급 90 + 휴차 63)인데
+   *    두 달 치 보증금은 125만이다. **다 떼도 50%**, 회수율 10%면 **5%**다.
+   *    ⇒ 나머지는 대여료가 진다. 보증금을 더 받거나(저신용은 낼 돈이 없다),
+   *      회당 비용을 줄이는(휴차·탁송·수수료) 쪽이 실제 손잡이다.
+   */
+  depositMonths: number;
+  penaltyRecoveryAPct: number; penaltyRecoveryBPct: number; penaltyRecoveryCPct: number;
+  /**
+   * **전기차 구매보조금**(원) — 신차 전기차의 취득가에서 뺀다.
+   * ★국고 + 지자체를 합친 «회사가 실제로 받는» 금액. 차종·연도·사업장 소재지마다 달라
+   *   법정값처럼 박을 수 없다 — 그래서 여기 칸이다.
+   * ⚠ 취득세 감면(140만)·공채 면제는 **법정**이라 여기 없다(`data/cost-config.js` FUEL.ev).
+   */
+  evSubsidy: number;
   /** 잔가 가감(±%p) — 「잔가로 조정」하는 손잡이. 곡선 전체를 통째로 올리거나 내린다. */
   residualAdjustPct: number;
   /**
@@ -125,6 +159,11 @@ export type CostSettings = {
  *   ⇒ 칸을 세워 두는 것으로 끝내지 않는다. **비어 있다는 사실을 화면이 말한다** —
  *     안 그러면 「0 이라서 싼 견적」을 표준인 줄 알고 내보낸다.
  * ⚠ 0 이 «맞는» 칸(판관비·대손 — 사장님 「내부 관리비 없이 순수 직관적인 원가」)은 세지 않는다.
+ */
+/**
+ * 값이 0 이라 원가에 «안 잡히는» 실비. 화면이 「아직 안 정했다」고 말해 준다.
+ * ★2026-09-06 부터 이 다섯은 표준값이 들어가 있어 평소엔 비지 않는다 —
+ *   이 장치는 이제 «회사가 0 으로 비웠을 때» 그걸 잊지 않게 하는 몫이다.
  */
 export const UNSET_FEES: { key: keyof CostSettings; label: string }[] = [
   { key: 'deliveryFee', label: '1차 탁송료' },
@@ -152,26 +191,51 @@ const pct = (v: number) => Math.round((v || 0) * 1000) / 10;   // 0.065 → 6.5
  */
 export const COST_DEFAULTS: CostSettings = {
   bondPct: pct(D.setting.bondRate), regFee: D.setting.regFee,
-  deliveryFee: 0, initPrepFee: 0,
+  // ★2026-09-06 — 비어 있던 실비를 «표준값»으로 채웠다(사장님 「나한테 못 받은 건 그냥 대충 넣으면 돼.
+  //   수정할 수 있게끔만 해주면 되지」). 아래 값은 **박아 둔 게 아니라 기본값**이다 —
+  //   원가 화면에서 회사가 고치면 그 값이 이긴다(Firestore `settings/estimate_cost`).
+  //   근거를 같이 남긴다. 근거 없는 숫자는 다음 사람이 못 고친다.
+  deliveryFee: 250000,    // 1차 탁송(편도) — 손바뀜 «왕복» 탁송 50만의 절반
+  initPrepFee: 500000,    // 초기 상품화 — 손바뀜 회당 상품화와 같은 일(사장님 2026-09-05 「상품화 50」)
   // A(정상) · B(중신용) · C(저신용) — 지금은 셋 다 같은 값이다. 회사가 구간을 벌리면 여기서 벌어진다.
   interestAPct: pct(D.interestRate.rent), interestBPct: pct(D.interestRate.rent), interestCPct: pct(D.interestRate.rent),
   loanAPct: 90, loanBPct: 90, loanCPct: 90,   // ← 손오공 운영값(코드 기본 80)
-  maintMonthly: D.setting.maintMonthly, maintRatePct: 0, gpsMonthly: D.setting.gpsMonthly,
+  // 정비 = 정액 월 1만(소모품·관제 최소분) + 차값 **연 2%**(업계 통상 · 우리 신차 견적기도 2%).
+  //   둘은 더해진다 — 2,500만 차면 월 1만 + 41,700 ≈ 5만/월로, 렌터카 통상 정비비(월 3~5만) 자리다.
+  //   ⚠ 비싼 차가 정비도 비싸므로 «비율» 쪽이 실제에 가깝다. 정비를 **고객이 지는 상품**이면
+  //     이 칸을 0 으로 내린다(그때는 정액 월 1만만 남는다) — 화면에서 한 칸이다.
+  maintMonthly: D.setting.maintMonthly, maintRatePct: 2, gpsMonthly: D.setting.gpsMonthly,
   parkingMonthly: 0,                 // ← 손오공 운영값(코드 기본 35,000)
-  inspectionFee: 0,
-  overheadPct: 0, badDebtPct: 0,
+  inspectionFee: 60000,   // 정기검사 — 승용 수수료 ~29,000 + 대행·왕복 ~30,000 (3년차부터 해마다)
+  // 일반관리·간접비 **3%** — 사무실·인건비를 차 한 대에 나눠 붙이는 몫.
+  //   렌터카 통상 판관비는 매출의 8~12%지만, 우리는 3자 마켓이라 차를 세우지도 정비하지도 않는다.
+  //   ⇒ 그 아래쪽인 3%를 표준으로 둔다. 0 으로 두면 «회사 운영비가 아예 안 잡힌» 원가가 된다.
+  // 대손은 **0 이 맞다** — 신용 위험은 Ⅰ-4 손바뀜에서 이미 원가로 잡는다. 여기 또 넣으면 두 번 잡는다.
+  overheadPct: 3, badDebtPct: 0,
   salesFeePct: 3,                    // ← 손오공 운영값(코드 기본 5%)
   acqTaxRentPct: pct(D.acqTaxRate.rent), acqTaxSubPct: pct(D.acqTaxRate.sub),
   insRentYear: D.setting.insYear, insSubYear: 0,
-  selfRentPct: pct(D.setting.selfRate), selfSubPct: 0,
+  // 자차 자체 충당 1.5% — 사장님 2026-09-06 「평균 일 점 오 퍼센트? 일에서 이 퍼센트 사이인데,
+  //   실제로 보험사도 자차를 그 정도를 받잖아」. 엔진 기본값(1.2)을 운영값으로 덮는다.
+  selfRentPct: 1.5, selfSubPct: 0,
   selfInsRentYear: 0, selfInsSubYear: 0,
   marginRentPct: pct(D.marginRate.rent), marginSubPct: pct(D.marginRate.sub),
   markupUsedPct: 0, markupNewPct: 0,   // ← 2026-09-06 업금액을 걷었다(아래 `configFrom` 머리말)
   ewYear: 80000,
   retentionNormalPct: 97, retentionMidPct: 75, retentionLowPct: 30,
+  // ★휴차 «한 달»은 확정값이다 — 사장님 2026-09-06 「평균 한 달은 잡아야 될 거야.
+  //   그래야 보수적으로 책정해서 할 수 (있다)」. 회당 비용의 4분의 1을 차지해,
+  //   여기를 줄이면 원가가 눈에 띄게 싸 보인다. **줄이려면 먼저 여쭌다.**
   turnoverPrepFee: 500000, turnoverDeliveryFee: 500000, turnoverFeePct: 3, turnoverVacancyMonths: 1,
+  // 보증금 두 달 치 = 저신용 실무(사장님 2026-09-06). 회수율은 「저신용은 거의 못 받거든」을 숫자로 옮긴 것.
+  depositMonths: 2,
+  penaltyRecoveryAPct: 80, penaltyRecoveryBPct: 50, penaltyRecoveryCPct: 10,
+  // 전기차 보조금 600만 — 2026년 국고(중형 EV 기준 ~580만)에 지자체 일부를 더한 보수적 자리.
+  //   실제로는 사업장 소재지가 정한다. 회사가 아는 값을 넣으면 그 값이 이긴다.
+  evSubsidy: 6_000_000,
   residualAdjustPct: 0,
-  returnDeliveryFee: 0, disposalFeePct: 0,
+  returnDeliveryFee: 250000,  // 회수 탁송(편도) — 1차 탁송과 같은 자리. 기보유 차도 «나갈 때는» 든다
+  disposalFeePct: 3,          // 매각 — 중고차 경매 낙찰가 대비 수수료 2~3% + 출품료
 };
 
 /**
@@ -211,6 +275,7 @@ export function configFrom(cs: CostSettings, opts: { newCar?: boolean; path?: Ac
   const band = bandOf(opts.credit);
   const interestPct = band === 'C' ? cs.interestCPct : band === 'B' ? cs.interestBPct : cs.interestAPct;
   const loanPct = band === 'C' ? cs.loanCPct : band === 'B' ? cs.loanBPct : cs.loanAPct;
+  const recoveryPct = band === 'C' ? cs.penaltyRecoveryCPct : band === 'B' ? cs.penaltyRecoveryBPct : cs.penaltyRecoveryAPct;
   const markupRate = r(opts.newCar ? cs.markupNewPct : cs.markupUsedPct);
   // 신차는 언제나 «사 오는 차»다(등록·탁송 O · 상품화 X).
   const path: AcqPath = opts.newCar ? 'bought' : (opts.path ?? 'prep');
@@ -260,7 +325,12 @@ export function configFrom(cs: CostSettings, opts: { newCar?: boolean; path?: Ac
       deliveryRoundTrip: cs.turnoverDeliveryFee,
       feeRateOfRent: r(cs.turnoverFeePct),
       vacancyMonths: cs.turnoverVacancyMonths,
+      // 회당 «받아 내는» 돈 = 월납 × 보증금 개월 × 그 신용 구간의 회수율(월납은 엔진이 안다).
+      depositMonths: cs.depositMonths,
+      penaltyRecoveryRate: r(recoveryPct),
     },
+    // 전기차 보조금 — 엔진이 «전기차일 때만» 쓴다(다른 연료는 무시).
+    evSubsidy: cs.evSubsidy,
     setting: {
       ...D.setting,
       // 등록·탁송은 «새로 들여온 차»만. 기보유는 이미 났다 — 새 계약에 또 물리지 않는다.

@@ -9,6 +9,7 @@
  *   npx tsx scripts/check-settlement-month.mts 2026-08
  */
 import { readFileSync } from 'node:fs';
+import { claimOf, payOf } from '../lib/domain/settlement-money';
 import { JWT } from 'google-auth-library';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getDatabase } from 'firebase-admin/database';
@@ -99,8 +100,7 @@ const line = (r: Row) => {
   const target = S(r.settleTarget) || '양쪽'; const ratio = N(r.settleRatio) || 1;
   const hold = r.billHold === true; const excl = r.settleExclude === true;
   return {
-    claim: excl || target === '영업사만' || hold ? 0 : Math.round(N(r.claimWritten) * ratio),
-    pay: excl || target === '공급사만' ? 0 : Math.round(N(r.payWritten) * ratio),
+    claim: claimOf(r), pay: payOf(r),
   };
 };
 const claws = (Object.values((await db.ref('v4/settlement_clawbacks').get()).val() || {}) as Row[]).filter((c) => S(c.month) === MONTH);
