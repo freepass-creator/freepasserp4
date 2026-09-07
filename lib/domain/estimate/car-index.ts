@@ -49,8 +49,17 @@ export type EngineFuel = 'gasoline' | 'diesel' | 'lpg' | 'hybrid' | 'ev';
  */
 export function engineFuel(masterFuel: string | null | undefined): EngineFuel {
   const f = String(masterFuel ?? '').trim();
-  if (f.includes('전기')) return 'ev';
-  if (f.includes('플러그인') || f.includes('하이브리드')) return 'hybrid';
+  const U = f.toUpperCase();
+  /**
+   * ⚠⚠ **영문 「EV」를 못 알아봤다**(2026-09-07 전수 검사에서 잡혔다).
+   *   신차마스터가 기아 전기차의 연료를 **「EV」**로 싣는데 여기는 한글 「전기」만 봤다.
+   *   그래서 **기아 EV3·EV4·EV5·EV6 가 통째로 «가솔린»으로 계산**됐다 —
+   *   구매보조금도, 취득세 감면 140만도, 공채 면제도 **하나도 안 걸렸고**,
+   *   자동차세를 cc 로 매기려다 배기량이 없어 0 이 됐다.
+   * ⚠ 단어 경계로 본다 — 「PHEV」의 EV 는 전기차가 아니라 **플러그인 하이브리드**다.
+   */
+  if (f.includes('전기') || U.includes('ELECTRIC') || /(^|[^A-Z])EV([^A-Z]|$)/.test(U)) return 'ev';
+  if (f.includes('플러그인') || f.includes('하이브리드') || U.includes('PHEV') || U.includes('HEV')) return 'hybrid';
   if (f.includes('바이퓨얼') || f.toUpperCase().includes('LPG')) return 'lpg';
   if (f.includes('디젤')) return 'diesel';
   return 'gasoline';

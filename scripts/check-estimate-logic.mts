@@ -262,6 +262,18 @@ must(evYes.residualAmt < evNo.residualAmt && evYes.deposit < evNo.deposit,
   '전기차 보조금이 잔가·보증금까지 안 내려갑니다 — `price` 단계에서 «먼저» 빼야 앞뒤가 맞습니다',
   'lib/domain/estimate/calc.js netPrice');
 
+/* 4. 연료 정규화 — 영문 「EV」도 전기차다. 「PHEV」는 하이브리드다.
+     ⚠ 2026-09-07 전수 검사에서 잡혔다 — 신차마스터가 기아 전기차를 「EV」로 싣는데
+       한글 「전기」만 봐서 **EV3·EV4·EV5·EV6 가 통째로 가솔린으로 계산**됐다.
+       보조금·취득세 감면·공채 면제가 하나도 안 걸리고 자동차세는 cc 가 없어 0 이 됐다. */
+const { engineFuel } = await import('../lib/domain/estimate/car-index');
+for (const [label, want] of [['EV', 'ev'], ['ev', 'ev'], ['전기', 'ev'], ['EV 롱레인지', 'ev'],
+  ['PHEV', 'hybrid'], ['하이브리드', 'hybrid'], ['3.5 가솔린', 'gasoline'], ['디젤', 'diesel']] as const) {
+  must(engineFuel(label) === want,
+    `연료 「${label}」가 «${engineFuel(label)}» 로 잡힙니다 — «${want}» 여야 합니다`,
+    'lib/domain/estimate/car-index.ts engineFuel');
+}
+
 /* 3-2. 손바뀜 — 반납률이 낮을수록 원가가 커야 한다(30% > 75% > 97%). */
 const { turnoverCost } = await import('../lib/domain/estimate/turnover-cost.js');
 const tLow = turnoverCost('저신용', { monthlyRent: 600_000, term: 48, retention: 0.30 });
