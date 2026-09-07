@@ -38,6 +38,20 @@ export const editId = (channel: string, month: string, key: string, column: stri
   `${channel}_${month}_${key}_${column}`.replace(/[.#$/[\]\s]/g, '_');
 
 /**
+ * ★★★**우리가 «지난번에 찍은 것»을 적어 두는 자리.**
+ *
+ * ⚠⚠ **이게 없으면 우리 옛 출력이 「그쪽이 고친 칸」으로 잡힌다.** 실측 2026-09-07 —
+ *   원장에서 116하2308 지급을 270,000 → 540,000 으로 고치고 다시 찍었더니,
+ *   시트에 남아 있던 «우리가 지난번에 찍은» 270,000 이 「하허호가 270,000 으로 고쳤다」로 올라와
+ *   그대로 다시 덮였다. 부가세·합계도 같은 길로 27,000 · 297,000 에 묶였다.
+ *   ⇒ **맞대는 상대는 「우리 새 값」이 아니라 「우리가 지난번에 찍은 값」이다.**
+ *     시트가 그것과 같으면 아무도 안 건드린 것이고, 다르면 그때가 «그쪽이 고친» 것이다.
+ */
+export const publishedId = (channel: string, month: string) =>
+  `${channel}_${month}`.replace(/[.#$/[\]\s]/g, '_');
+export type Published = { head: string[]; rows: (string | number | boolean)[][]; at: string };
+
+/**
  * **우리가 쓸 줄과 시트에 있는 줄을 맞대 «사람이 고친 칸»을 뽑는다.**
  *
  * ★열쇠는 차량번호다 — 줄 차례는 달마다 바뀌지만 차는 그대로다.

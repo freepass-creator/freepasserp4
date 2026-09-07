@@ -34,6 +34,7 @@ const S = (v: unknown) => String(v ?? '').trim();
 const N = (v: unknown) => { const n = Number(S(v).replace(/[,\s원]/g, '')); return Number.isFinite(n) ? n : 0; };
 const won = (n: number) => Math.round(n).toLocaleString('ko-KR');
 const APPLY = process.argv.includes('--apply');
+const BARE = process.argv.includes('--조건없이');
 const FILE = (process.argv.find((a) => a.startsWith('--파일=')) || '').slice('--파일='.length);
 if (!FILE) { console.log('\n  파일을 주세요 — npx tsx scripts/add-intake-row.mts --파일=tmp/누락.json [--apply]\n'); process.exit(1); }
 
@@ -94,8 +95,20 @@ for (const it of items) {
    *   짐작으로 세우면 그대로 청구서에 실린다. 조건을 받아 다시 부른다.
    */
   if (!f || !f.auto || typeof f.claim !== 'number' || typeof f.pay !== 'number') {
-    console.log(`  ✕ ${S(it.plate).padEnd(10)} ${S(it.customer).padEnd(7)} ${S(it.supplier).padEnd(7)} — 요율이 «개별 협의»입니다${f ? ` (표 규칙 「${f.claim}」)` : ''}. 기간·대여료를 받아 다시 넣습니다.`);
-    blocked++; continue;
+    /**
+     * ★★**돈 없이 «자리»만 놓는 길** — 사장님 2026-09-07 「누락된 거는 추가하고」.
+     *   조건을 못 받았다고 아무 데도 안 적어 두면 그 건은 다음 달에도 «없는 셈»으로 지나간다.
+     *   ⇒ `--조건없이` 를 주면 **0원으로** 줄만 세운다. 돈을 짐작하는 게 아니라
+     *     「여기 건이 하나 있는데 조건이 없다」를 원장이 들고 있게 하는 것이다.
+     *   ⚠ 0원 줄은 마감된 달의 정산서에 실리지 않는다 — 조건을 받아 금액이 서야 나간다.
+     */
+    if (!BARE) {
+      console.log(`  ✕ ${S(it.plate).padEnd(10)} ${S(it.customer).padEnd(7)} ${S(it.supplier).padEnd(7)} — 요율이 «개별 협의»입니다${f ? ` (표 규칙 「${f.claim}」)` : ''}. 기간·대여료를 받아 다시 넣습니다. (자리만 놓으려면 --조건없이)`);
+      blocked++; continue;
+    }
+    console.log(`  ○ ${S(it.plate).padEnd(10)} ${S(it.customer).padEnd(7)} ${S(it.supplier).padEnd(7)} — 조건이 없어 «0원 자리»로만 넣습니다. 기간·대여료를 받으면 금액이 섭니다.`);
+    ok.push(rowOf(it, 0, 0, { claim: 0, pay: 0 }));
+    continue;
   }
   const claim = f.basis === '정액' ? f.claim
     : f.basis === '차량가액' ? Math.round(N(it.price) * f.claim)

@@ -35,7 +35,7 @@ import { settlementMonthOf } from '../lib/domain/settlement-billing-month';
 import { feeKindOf, feeRuleFor } from '../lib/domain/settlement-fee-table';
 import { outwardText } from '../lib/domain/outward-text';
 import { channelSheetName, CHANNEL_SETTLE_HEAD, CHANNEL_SETTLE_WIDTH, SETTLE_BASIS, SETTLE_NOTE, settleTabOf, settleTabFormat } from '../lib/server/channel-sheet-tabs';
-import { diffSheetRows, applyPending, editId, type SheetEdit } from '../lib/server/sheet-edits';
+import { diffSheetRows, applyPending, editId, publishedId, type SheetEdit, type Published } from '../lib/server/sheet-edits';
 
 const MONTH = (process.argv.find((a) => /^\d{4}-\d{2}$/.test(a)) || '').trim();
 const APPLY = process.argv.includes('--apply');
@@ -506,7 +506,14 @@ for (const j of jobs) {
     /** 시트 머리글이 우리 것과 같을 때만 맞댄다 — 칸이 다르면 자리로 견줄 수 없다. */
     if (liveHead.join('|') === HEAD.join('|')) {
       const liveBody = live.slice(hi0 + 1, si > hi0 ? si : undefined);
-      const found = diffSheetRows({ head: HEAD, ours: body, theirs: liveBody, theirOwn: SETTLE_NOTE });
+      /**
+       * ★★★**맞댈 상대는 「우리가 지난번에 찍은 표」다 — 새로 지은 표가 아니다.**
+       *   새 표와 맞대면 «우리가 원장을 고친 것»까지 「그쪽이 고쳤다」로 잡혀 도로 덮인다
+       *   (실측 2026-09-07 116하2308 · 부가세 · 합계). 지난 판이 없으면(첫 발행) 새 표로 맞댄다.
+       */
+      const snap = ((await db.ref(`v4/sheet_published/${publishedId(j.ch, MONTH)}`).get()).val() || null) as Published | null;
+      const base = snap && snap.head.join('|') === HEAD.join('|') ? snap.rows : body;
+      const found = diffSheetRows({ head: HEAD, ours: base, theirs: liveBody, theirOwn: SETTLE_NOTE });
       const known = (Object.values((await db.ref('v4/sheet_edits').get()).val() || {}) as SheetEdit[])
         .filter((e) => S(e.channel) === j.ch && S(e.month) === MONTH);
       const patch: Record<string, SheetEdit> = {};
@@ -683,6 +690,12 @@ for (const j of jobs) {
     method: 'POST', headers: { Authorization: `Bearer ${await tok()}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ requests: reqs }),
   });
+  /**
+   * ★★★**찍은 것을 그대로 적어 둔다** — 다음번에 «이것»과 시트를 맞대야
+   *   「그쪽이 고친 칸」을 제대로 가린다. 안 적어 두면 우리 옆 출력이 그쪽 것으로 둔갑한다.
+   */
+  await db.ref(`v4/sheet_published/${publishedId(j.ch, MONTH)}`)
+    .set({ head: [...HEAD], rows: body, at: new Date().toISOString() } satisfies Published);
   console.log(`   ${fr.ok ? 'o' : '! 서식'} ${j.ch.padEnd(12)} ${String(j.lines.length).padStart(2)}줄 · ${won(j.net + j.vat).padStart(12)}  →  「${tab}」`);
   if (!fr.ok) console.log(`      ${(await fr.text()).slice(0, 200)}`);
 }
