@@ -162,13 +162,23 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
    */
   useEffect(() => {
     const el = stickRef.current;
-    if (!el || !mobile) return;
+    if (!el) return;
     const io = new IntersectionObserver(
       ([e]) => el.classList.toggle('is-stuck', e.intersectionRatio < 1),
       { root: el.closest('.fp-main-pad'), rootMargin: '-1px 0px 0px 0px', threshold: [1] },
     );
     io.observe(el);
-    return () => { io.disconnect(); el.classList.remove('is-stuck'); };
+    /*
+     * ★붙박이 줄의 «실제 높이»를 CSS 변수로 흘린다 — 옆 조건칸이 그 밑에 서고,
+     *   그만큼을 뺀 높이로 제 안에서 굴러야 한다. 숫자를 손으로 적으면
+     *   검색줄이 한 줄 늘어난 날(칩이 접히는 날) 조건칸이 그 밑으로 숨는다.
+     */
+    const ro = new ResizeObserver(([e]) => {
+      el.style.setProperty('--fp-shop-stick-h', `${Math.round(e.contentRect.height)}px`);
+      el.closest('main')?.style.setProperty('--fp-shop-stick-h', `${Math.round(e.contentRect.height)}px`);
+    });
+    ro.observe(el);
+    return () => { io.disconnect(); ro.disconnect(); el.classList.remove('is-stuck'); };
   }, [mobile]);
 
   /* 조건이 바뀌면 첫 장으로 — 3장까지 펼쳐 본 뒤 조건을 좁혔는데 여전히 3장이면 뭐가 준 건지 모른다. */
@@ -273,7 +283,16 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
             차번은 영업자·우리가 쓰는 열쇠지 손님의 말이 아니다 — 검색은 여전히 차번도 받지만
             **안내를 차번으로 하면** 손님은 「내가 아는 게 없네」 하고 조건칸으로도 안 간다.
         */}
-        <div ref={stickRef} className={mobile ? 'fp-shop-stick' : undefined}>
+        {/*
+          ★★**웹에서도 검색줄이 위에 남는다**(사장님 2026-09-07 「웹에서 스크롤하면 검색창 위에
+            남고, 옆에 필터도 «틀고정»은 되어야지」). 720대를 내려가다 다시 찾고 싶을 때
+            맨 위로 되돌아가는 화면은 마켓이 아니다.
+          ★폰은 머리띠(56) 밑에 서고, 웹은 머리띠가 같이 흐르므로 0 에 선다 — 같은 클래스,
+            높이만 갈린다(`app/globals.css` `.fp-shop-stick`).
+          ★붙박이 줄의 «높이»를 CSS 변수로 흘려보낸다 — 옆 조건칸이 그 밑에 서야 해서다.
+            숫자를 두 곳에 적으면 한쪽만 바뀌는 날이 온다.
+        */}
+        <div ref={stickRef} className="fp-shop-stick">
           {/*
             ★★**폰은 이 줄이 «평소에 없다»** — 머리띠 오른쪽 돋보기를 누르면 **칩 줄 바로 위**로
               나온다(사장님 2026-09-05 「유튜브 모바일 우측 상단에 **돋보기를 누르면** 우리 원래
@@ -395,7 +414,7 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
              * ⇒ 붙박이(sticky)는 두되 **높이를 자르지 않는다.** 기둥이 화면보다 길면 그냥 같이 흐르고,
              *   짧으면 제자리에 붙어 있는다 — 스크롤 막대가 화면에 하나뿐이라야 손이 헷갈리지 않는다.
              */
-            <aside style={{
+            <aside className="fp-shop-aside" style={{
               width: 260, flexShrink: 0,
               /*
                * ⚠⚠ **붙박이(sticky)를 걷었다 — 아래쪽 축 다섯이 «갇혀» 있었다**(2026-09-06 실측).
