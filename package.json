@@ -103,7 +103,8 @@
     "settlement:calc": "tsx scripts/build-invoice-from-atoms.mts",
     "settlement:month": "tsx scripts/run-settlement-month.mts",
     "build:estimate-cars": "tsx scripts/generate-estimate-car-index.mts",
-    "check:settlement": "tsx scripts/check-settlement-locked.mts"
+    "check:settlement": "tsx scripts/check-settlement-locked.mts",
+    "check:estimate": "tsx scripts/check-estimate-logic.mts"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",

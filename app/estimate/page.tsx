@@ -419,6 +419,14 @@ function EstimatePageInner() {
         {/* ⑤ — ①~④ 와 같은 상자. 기간 다섯 줄이 그 안에 든다(사장님 2026-09-06). */}
         <div className="card terms">
           <div className="step"><span className="no">5</span>기간별 대여료 · 수익</div>
+          {/* ⚠ 배기량이 없으면 자동차세가 «조용히 0» 으로 잡힌다. 화면이 그 사실을 말해야 한다
+              (2026-09-07 — 신차 79쌍 중 32이 배기량 null 이었고 아무도 몰랐다). */}
+          {cards.some((c) => (c as { incompleteCc?: boolean }).incompleteCc) ? (
+            <div className="byrow" style={{ marginBottom: 10 }}>
+              <b>배기량을 넣어야 정확합니다</b> — 지금은 <b>자동차세가 0</b> 으로 잡혀 있어 원가가 실제보다 적습니다.
+              위 <b>차량</b> 칸의 배기량을 채워 주세요.
+            </div>
+          ) : null}
           {/*
             * ★★넓은 화면에서는 기간을 «열», 항목을 «행»으로 놓는다
             *   (사장님 2026-09-07 「총 4개 패널 중 1개를 차량 선택하는 패널로 쓰고, 나머지 조건과

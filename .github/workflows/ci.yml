@@ -50,6 +50,14 @@ jobs:
       - name: UI 계약 — 원자·radius 정합
         run: npm run check:ui
 
+      # 견적·원가 «계산» 규칙. 법정 자동차세 경계 · 전기차 감면 · 배기량 · 손바뀜 · 위약금 · 잔가.
+      # 정본 = docs/견적-원가-로직.md (사장님 2026-09-07 「로직을 확실하게 박아서 가자」)
+      - name: 견적 로직 — 법정값·원가 갈래가 그대로인가
+        run: npm run check:estimate
+
+      - name: 견적 회귀 — 엑셀 대조 39건
+        run: npm run test:estimate
+
       # 브라우저가 공급사 시트를 직접 읽으면 대수가 두 군데서 세어진다(2026-09-01 582→694).
       - name: 화면이 시트를 직접 읽지 않는가
         run: npm run check:no-client-sheet-live-status
