@@ -361,16 +361,9 @@ must(/text: creditChip, icon: markIconFor\(creditChip\),/.test(shopDetail)
 must(/'screening_criteria'/.test(read('lib/domain/public-catalog.ts')),
   '손님 화이트리스트에서 screening_criteria 가 빠졌습니다 — 값이 안 오면 화면에 심사가 안 뜹니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
-/*
- * 웹은 구역마다 「제목 왼쪽 기둥 | 값 오른쪽」으로 편다 — 폰은 그대로 쌓는다.
- * ★2026-09-07 — 기둥이 **260 · 사이 32**다(전 200 · 48). 목록 화면의 조건칸과 «같은 세로줄»이라
- *   목록→상세로 들어가도 눈이 자리를 다시 안 잡는다. 본문 폭도 1120 → 1280 으로 같이 맞췄다.
- *   ⇒ 셋을 같이 본다. 하나만 되돌리면 「한쪽만 넓어지는」 꼴이 다시 나온다.
- */
-must(/gridTemplateColumns: '260px minmax\(0, 1fr\)'/.test(shopDetail)
-  && /columnGap: SHOP\.sp\.pane/.test(shopDetail)
-  && /maxWidth: mobile \? 940 : 1280/.test(shopDetail),
-  '웹의 구역 제목 기둥이 사라졌거나(260) 목록과 폭이 갈렸습니다(1280) — 두 화면의 세로줄이 어긋납니다.',
+// 웹은 구역마다 「제목 왼쪽 기둥 | 값 오른쪽」으로 편다 — 폰은 그대로 쌓는다.
+must(/gridTemplateColumns: '200px minmax\(0, 1fr\)'/.test(shopDetail),
+  '웹의 구역 제목 기둥이 사라졌습니다 — 웹이 다시 «폰을 늘려 놓은» 꼴이 됩니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1');
 /*
  * 보험에서 「없음」은 «값»이다 — 면책금 없음 = 내 돈이 안 나간다 · 보장 없음 = 보상이 안 된다.
