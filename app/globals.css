@@ -1263,8 +1263,14 @@ html[data-fp-filter="0"] .fp-finder > .fp-sidebar { display: none; }
   margin-inline: -16px; padding-inline: 16px;
 }
 @media (max-width: 760px) {
-  /* 폰 머리띠는 56 고정이다 — 변수와 무관하게 그 값이 규격이다(`.fp-shop-stick` 머리말). */
-  .fp-shop-stick { top: 56px; }
+  /*
+   * ⚠⚠ 여기 `56px` 을 «못 박아» 뒀다가 깨졌다(2026-09-07 실측).
+   *   담당자가 없는 손님 화면에서는 머리띠가 «둘째 줄»(상담·문의 번호)을 얻어 **86px** 이 된다.
+   *   56 에 붙여 두니 빠른 조건 칩 줄이 머리띠 뒤로 반쯤 기어들어갔다.
+   * ⇒ 폰도 «잰 높이»를 본다. 변수는 `WhitelabelFrame` 이 ResizeObserver 로 재서 걸어 준다 —
+   *   머리띠가 한 줄이든 두 줄이든 저절로 맞는다. 폴백 56 은 변수가 아직 안 걸린 첫 프레임용이다.
+   */
+  .fp-shop-stick { top: var(--fp-wl-head-h, 56px); }
 }
 /*
  * 웹 조건칸 — **붙박이 + 제 안에서 굴린다.**

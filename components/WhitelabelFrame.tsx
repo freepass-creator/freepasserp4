@@ -227,6 +227,30 @@ export function WhitelabelFrame({
             </>
           ) : null}
         </div>
+        {/*
+          ★★**폰·담당자 없음 — 「상담·문의 1800-6454」 둘째 줄**(사장님 2026-09-07
+            「모바일에서는 로그인 안 했을 때 **대표번호만 나오면 되고 버튼 눌러서 전화하는 거는
+            필요없지** · **상담 및 문의 1500-0000 이렇게** 하든가, 니가 좋은 방법을 찾아줘 봐」).
+          ★왜 «머리띠 둘째 줄»인가 —
+            ㉠ 머리띠가 붙박이라 **스크롤해도 늘 보인다**(하단 고정독 없이도 번호가 손에 남는다).
+            ㉡ 첫 줄 오른쪽은 검색·조건·공유가 이미 쓴다 — 거기 끼우면 셋이 자리를 다툰다.
+            ㉢ 단추가 아니라 **글자**다. 폰에서 번호는 원래 눌러서 걸리므로 `tel:` 만 걸고 모양은 둔다.
+          ★담당자가 붙으면 이 줄은 사라지고 **하단독**이 선다 — 그때는 «그 사람에게» 거는 것이라
+            엄지 밑 단추가 맞다. 둘이 동시에 서지 않는다(같은 일을 하는 문을 둘 두지 않는다).
+        */}
+        {phone && mobile && !who ? (
+          <a href={telHref} style={{
+            display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: SHOP.sp.snug,
+            padding: `0 ${SHOP.sp.edge}px ${SHOP.sp.snug}px`,
+            textDecoration: 'none', whiteSpace: 'nowrap',
+          }}>
+            <span style={{ fontSize: SHOP.fs.cap, color: C.faint }}>상담·문의</span>
+            <span style={{
+              fontSize: SHOP.fs.sub, fontWeight: FW.title, color: C.ink,
+              fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.01em',
+            }}>{phoneText}</span>
+          </a>
+        ) : null}
       </header>
 
       {notice ? <WhitelabelNotice wl={wl} mobile={mobile} /> : null}
@@ -237,7 +261,14 @@ export function WhitelabelFrame({
       {/* ★독은 원자다(`ShopDock`) — 상세·조건 시트와 «같은 것»을 쓴다(2026-09-06 검수).
           전에는 여기만 자리 잡는 높이(76)와 버튼 높이(48)를 손으로 적어, 상세(54)·시트(52)와
           치수가 갈렸고 아이폰 안전영역도 안 봤다. */}
-      {phone && mobile && dock ? (
+      {/*
+        ★★**담당자가 있을 때만 독을 세운다**(사장님 2026-09-07 「모바일에서는 로그인 안 했을 때
+          **대표번호만 나오면 되고 버튼 눌러서 전화하는 거는 필요없지**」).
+          손님이 그냥 들어온 화면에서 「전화 상담」 단추는 **누구에게 거는지 없는 단추**다 —
+          대표번호는 머리띠에 «글자»로 늘 떠 있으면 충분하다(아래 `hotline`).
+        ★담당자가 붙었을 때는 다르다 — 그 사람에게 «걸어야» 하므로 엄지 밑 단추가 맞다.
+      */}
+      {who && phone && mobile && dock ? (
         <ShopDock fixed sideWidth="auto" side={(
           <div style={{ display: 'flex', flexDirection: 'column', gap: SHOP.sp.tight, whiteSpace: 'nowrap' }}>
             <span style={{ fontSize: SHOP.fs.cap, color: C.faint }}>{who ? '담당' : '고객센터'}</span>
