@@ -35,7 +35,7 @@ const GUEST_PREFIXES = ['/shop', '/catalog', '/q/', '/sign/'] as const;
  * **홍길동 영업채널 걸로 하나 파줘** 그럼 **바로 파줘야** 되는 거야」).
  * 그래서 채널의 임시 주소는 «명단»이 아니라 **표에서 읽는다.**
  */
-const channelPaths = (): string[] => WHITELABELS.map((w) => w.previewPath || '').filter(Boolean);
+const channelPaths = (): string[] => WHITELABELS.map((w) => w.sitePath || '').filter(Boolean);
 
 /**
  * 제 머리를 가진 업무 면 — **상단바만** 벗는다(하단 홈바는 얹는다).

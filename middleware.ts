@@ -52,7 +52,7 @@ export function middleware(request: NextRequest) {
    * ⚠ 업무동에는 안 붙인다 — 콕핏은 우리 화면이라 예전 그대로여야 한다.
    */
   /*
-   * ★★**채널의 임시 주소 → 가게 화면.** 표에 `previewPath` 가 적힌 채널이면 여기서 `/shop` 으로
+   * ★★**채널 주소(`freepasserp.com/<회사명>`) → 가게 화면.** 표에 `sitePath` 가 적힌 채널이면 `/shop` 으로
    *   «다시 쓴다»(주소창은 그대로 `/uniauto`).
    *
    * ★★★사장님 2026-09-06 「유니오토도 **하나의 영업채널**이고, 내가 이거를 **홍길동 영업채널 걸로
@@ -62,9 +62,9 @@ export function middleware(request: NextRequest) {
    *     등록해야 했다 — 「바로」가 안 되는 꼴이었다. 그 파일을 걷고 이 한 줄로 옮겼다.
    * ★`/shop` 은 이미 `?wl=` 로 채널을 입는다(미리보기 규칙) — 새 화면을 만들지 않는다.
    *   머리(제목·og·robots noindex)도 `/shop` 이 그대로 만든다.
-   * ★도메인이 붙으면 호스트가 이기고 이 길은 안 쓰인다(그때 표에서 `previewPath` 를 지운다).
+   * ★도메인이 붙으면 호스트 판정이 «먼저» 이긴다 — 다만 이 길은 **닫지 않는다**(이미 나간 링크가 여기다).
    */
-  const channel = WHITELABELS.find((w) => !!w.previewPath && request.nextUrl.pathname === w.previewPath);
+  const channel = WHITELABELS.find((w) => !!w.sitePath && request.nextUrl.pathname === w.sitePath);
   if (channel) {
     const target = request.nextUrl.clone();
     target.pathname = '/shop';

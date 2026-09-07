@@ -95,7 +95,7 @@ export function WhitelabelFrame({
   /*
    * **채널의 첫 화면 주소** — 간판을 눌렀을 때 갈 곳.
    * ★도메인이 붙었으면 `/`(그 도메인의 첫 화면이 곧 목록이다 — 미들웨어가 `/shop` 으로 다시 쓴다).
-   *   아직이면 표에 적힌 임시 주소(`previewPath`). 둘 다 없으면 `/shop`.
+   *   아직이면 표에 적힌 채널 주소(`sitePath`). 둘 다 없으면 `/shop`.
    *
    * ★★**떨구는 것과 물고 가는 것을 가른다.**
    *   · 떨군다 = **조건·검색어**(`?rent=`·`?dep=`·`?q=`…). 그게 「처음 방문한 상태」다.
@@ -110,7 +110,7 @@ export function WhitelabelFrame({
     const tail = q.toString() ? `?${q}` : '';
     if (typeof window !== 'undefined'
       && wl.hosts.some((h) => h.toLowerCase() === window.location.hostname.toLowerCase())) return `/${tail}`;
-    return `${wl.previewPath || '/shop'}${tail}`;
+    return `${wl.sitePath || '/shop'}${tail}`;
   })();
 
   const headRef = useCallback((el: HTMLElement | null) => {
@@ -196,7 +196,7 @@ export function WhitelabelFrame({
              *   누르면 첫 페이지 새로 나와야 하고 **자동으로 다 리셋**되고 처음 방문한 상태로」).
              *   ⚠ `Link` 가 아니라 **`<a>`** 다 — 클라이언트 이동은 조건·검색어·스크롤을 들고 간다.
              *     통째로 새로 여는 것이 「처음 방문」의 정확한 뜻이다.
-             *   ★주소는 «채널의 첫 화면»이다 — 도메인이 붙었으면 `/`, 아직이면 임시 주소(`previewPath`).
+             *   ★주소는 «채널의 첫 화면»이다 — 도메인이 붙었으면 `/`, 아직이면 채널 주소(`sitePath`).
              *     조건(`?rent=`·`?dep=`…)은 안 달고 간다. 그게 리셋이다.
              * ★★**하나의 브랜드처럼 붙인다**(같은 날 「유니오토모빌 CI 도 **간격 잘 맞춰서 하나
              *   브랜드인 것처럼**」) — 마크와 글자는 `snug`(8)로 «한 덩어리», 그 뒤 «✕ freepass» 만
