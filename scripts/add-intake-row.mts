@@ -40,7 +40,13 @@ if (!FILE) { console.log('\n  파일을 주세요 — npx tsx scripts/add-intake
 
 type Item = { plate: string; customer: string; supplier: string; channel: string; product: string;
   received?: string; delivered?: string; term?: number; rent?: number; deposit?: number; price?: number;
-  payKind?: string; model?: string; billMonth: string; note?: string; agent?: string };
+  payKind?: string; model?: string; billMonth: string; note?: string; agent?: string;
+  /**
+   * ★★**적힌 금액이 이긴다** — 요율표로 못 세는 줄은 사람이 숫자를 준다.
+   *   사무실비 지원금처럼 «차가 없는» 줄이 그렇다 — 공급사도 없고 요율도 없다.
+   *   ⚠ 둘 다 주면 요율표를 안 본다. 한쪽만 주면 나머지는 0 이다.
+   */
+  claim?: number; pay?: number };
 const items = JSON.parse(readFileSync(FILE, 'utf8')) as Item[];
 
 const LEDGER = '1BjGBqAjRLEb9ZMKarpQsMF-q_UjdgmEqBAl1uVk8SR4';
@@ -88,6 +94,17 @@ console.log(`\n■ 접수 탭에 넣을 줄 ${items.length}건 ${APPLY ? '(반�
 const ok: (string | number | boolean)[][] = [];
 let claimSum = 0; let paySum = 0; let blocked = 0;
 for (const it of items) {
+  /**
+   * ★**사람이 금액을 적어 준 줄은 그 값으로 선다** — 요율표를 거치지 않는다.
+   *   사장님 2026-09-07 「사무실지원금 30만원 포함」 — 차도 공급사도 없는 줄이라 세울 요율이 없다.
+   */
+  if (it.claim !== undefined || it.pay !== undefined) {
+    const c = N(it.claim); const p = N(it.pay);
+    claimSum += c; paySum += p;
+    ok.push(rowOf(it, c, p, { claim: 0, pay: 0 }));
+    console.log(`  o ${S(it.plate) || '(차번없음)'} ${S(it.customer).padEnd(9)} ${S(it.supplier) || '(공급사없음)'} ${it.billMonth} 청구 ${won(c).padStart(10)} · 지급 ${won(p).padStart(10)}   적힌 금액`);
+    continue;
+  }
   const { kind, form, fallback } = feeKindOf(S(it.product), S(it.model));
   const f = feeRuleFor(S(it.supplier), kind, N(it.term), form, fallback);
   /**
