@@ -107,7 +107,14 @@ export function ShopFilterSheet({ sel, preview, onApply, onClose }: {
           }}>
             {axes.map((axis) => {
               const on = axis === active;
-              const n = sel[axis].length;
+              /*
+               * ★**초안(draft)으로 센다 — 적용된 값(`sel`)이 아니다**(2026-09-07 코덱스 검수).
+               *   시트 안에서 조건을 고르면 오른쪽 목록도 아래 「N대 보기」도 초안을 보는데,
+               *   왼쪽 축 배지만 «적용 전» 숫자를 들고 있었다. 같은 화면에서 두 숫자가
+               *   서로 다른 말을 하면 손님은 어느 쪽이 진짜인지 모른다.
+               *   ⚠ 이 파일 머리말에 「축 목록·건수도 초안으로 센다」고 적혀 있었다 — 글만 그랬다.
+               */
+              const n = draft[axis].length;
               return (
                 <button key={axis} type="button" onClick={() => setActive(axis)} className="fp-shop-press"
                   aria-current={on ? 'true' : undefined}

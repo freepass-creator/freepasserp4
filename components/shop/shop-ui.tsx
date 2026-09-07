@@ -355,8 +355,17 @@ export function ShopDock({ fixed, safe, side, sideWidth = 92, children }: {
   const cell: CSSProperties = { height: h, display: 'flex', alignItems: 'center' };
   return (
     <>
-      {/* 바닥에 붙는 독은 «자리»를 먼저 만든다 — 안 그러면 마지막 카드가 독 밑에 깔린다. */}
-      {fixed ? <div aria-hidden style={{ height: h + dockPad.y * 2 }} /> : null}
+      {/*
+        바닥에 붙는 독은 «자리»를 먼저 만든다 — 안 그러면 마지막 카드가 독 밑에 깔린다.
+        ⚠ **안전영역만큼 «같이» 비운다**(2026-09-07 코덱스 검수). 독은 아이폰에서
+          `env(safe-area-inset-bottom)` 만큼 더 두꺼워지는데 자리표는 그만큼을 안 비우고 있었다 —
+          그래서 노치 기기에서만 마지막 줄이 독 밑에 조금 깔렸다. 둘이 «같은 식»을 봐야 한다.
+      */}
+      {fixed ? (
+        <div aria-hidden style={{
+          height: `calc(${h + dockPad.y * 2}px + var(--fp-dock-safe, env(safe-area-inset-bottom)))`,
+        }} />
+      ) : null}
       <div style={{
         display: 'flex', alignItems: 'center', gap: SHOP.sp.snug,
         background: C.bg, borderTop: `1px solid ${C.line}`,
