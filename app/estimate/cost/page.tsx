@@ -160,9 +160,15 @@ function EstimateCostPageInner() {
         : '저장하지 못했습니다. 잠시 뒤 다시 시도해 주세요.');
   };
 
+  /**
+   * 잔존가 표는 **검색해야만 보인다**(사장님 2026-09-06 「밑에 잔존가는 검색해서만 볼 수 있게
+   * 하면 되지, 다 볼 필요 없고」). 등록 차종이 235건이라 통째로 깔면 화면이 표에 먹힌다 —
+   * 여기 오는 사람은 «내 차»의 잔가를 보러 오지 목록을 훑으러 오지 않는다.
+   */
   const rows = useMemo(() => {
     const s = q.trim();
-    return (s ? VEHICLES.filter((v) => v.name.includes(s) || v.seg.includes(s)) : VEHICLES).slice(0, 40);
+    if (!s) return [];
+    return VEHICLES.filter((v) => v.name.includes(s) || v.seg.includes(s)).slice(0, 40);
   }, [q]);
 
   const isRent = polCh === 'rent';
@@ -170,7 +176,9 @@ function EstimateCostPageInner() {
   const missing = useMemo(() => unsetFees(cs), [cs]);
 
   return (
-    <div className="est-root">
+    /* `cost` 표식 — 웹 레이아웃이 견적과 다르다(견적=입력·결과 두 기둥 / 원가=설정 카드 두 단).
+       폰에서는 아무 뜻도 없다. CSS 가 넓은 화면에서만 갈라 쓴다. */
+    <div className="est-root cost">
       <div className="phone">
         <div className="hd">
           <div className="wm"><span className="a">freepass</span><span className="b">mobility</span></div>
@@ -228,13 +236,17 @@ function EstimateCostPageInner() {
           <div className="osub">어느 조합이든 같다</div>
           <ORow label="차량 매입 할인" help={<>사 올 때 받은 할인. <b>견적 화면에서 건별로</b> 고른다 — 차마다 다르므로 여기서 미리 못 정한다.</>}><Pin unit="%" value={0} disabled /></ORow>
           <ORow label="개별소비세" help={<>신차 값에 이미 들어 있는 세금(5%＋교육세 30%). 렌터카는 원래 면세지만 <b>6개월 이상 같은 사람에게 빌려주면 면세 요건을 못 채워</b> 우리가 문다 — 그래서 원가로 남는다. 법정이라 못 고친다.</>}><Pin unit="%" value={5} disabled /></ORow>
+          <ORow label="전기차 취득세 감면" help={<>전기차는 취득세를 <b>140만원까지 전액 감면</b>받는다(지방세특례제한법). 세액이 한도보다 적으면 그만큼만 깎인다 — 감면은 «환급»이 아니다. <b>법정</b>이라 못 고친다.</>}><Pin w unit="원" value="1,400,000" disabled /></ORow>
           <ORow label="차량가 업금액 · 중고" help={<>매입가에 얹어 <b>취득원가</b>를 만드는 값. ⚠ 얹은 금액은 <b>취득에만 붙고 잔가에는 안 붙어 통째로 감가</b>가 된다 — 손님이 4년에 걸쳐 그 돈을 낸다. <b>0 을 권한다.</b> 마진은 <b>Ⅳ 목표 수익률</b>에서 잡는 게 맞다.</>}>
             <Pin unit="%" value={cs.markupUsedPct} onChange={(v) => set('markupUsedPct', num(v))} />
           </ORow>
           <ORow label="차량가 업금액 · 신차" help={<>신차는 <b>제조사 공표가</b>라 우리가 얹을 자리가 없다. <b>0 이 정상</b>이다.</>}>
             <Pin unit="%" value={cs.markupNewPct} onChange={(v) => set('markupNewPct', num(v))} />
           </ORow>
-          <ORow label="공채율" help={<>차를 등록할 때 의무로 사는 <b>지역개발·도시철도 채권</b>. 바로 되팔면서 생기는 손실만 원가로 잡는다 — 취득원가의 <b>0.3%</b>가 통상이다.</>}><Pin unit="%" value={cs.bondPct} onChange={(v) => set('bondPct', num(v))} /></ORow>
+          <ORow label="공채율" help={<>차를 등록할 때 의무로 사는 <b>지역개발·도시철도 채권</b>. 바로 되팔면서 생기는 손실만 원가로 잡는다 — 취득원가의 <b>0.3%</b>가 통상이다. ⚠ <b>전기차는 면제</b>라 자동으로 0 이 된다.</>}><Pin unit="%" value={cs.bondPct} onChange={(v) => set('bondPct', num(v))} /></ORow>
+          <ORow label="전기차 보조금" help={<>신차 전기차를 살 때 받는 <b>국고 + 지자체 보조금</b>. 취득가에서 <b>먼저 빼고</b> 계산한다 — 취득세·공채·잔가가 다 같이 낮은 값 기준이 되어야 앞뒤가 맞는다(중고 EV 시세도 «보조금 받은 값» 위에서 형성된다). ⚠ 차종·연도·<b>사업장 소재지</b>마다 달라 법정값처럼 못 박는다. 회사가 실제로 받는 금액을 넣는다. ※ 취득세 감면(140만)과 공채 면제는 <b>법정</b>이라 이 화면에 없다 — 전기차면 자동이다.</>}>
+            <Pin w unit="원" value={comma(cs.evSubsidy)} onChange={(v) => set('evSubsidy', num(v))} />
+          </ORow>
           <ORow label="등록비" help={<>번호판·인지대·등록 대행 수수료. 차 한 대당 한 번.</>}><Pin w unit="원" value={comma(cs.regFee)} onChange={(v) => set('regFee', num(v))} /></ORow>
           <ORow label="1차 탁송료" help={<>매입한 곳에서 <b>차를 가져오는 값</b>. 거리에 따라 다르다.</>}><Pin w unit="원" value={comma(cs.deliveryFee)} onChange={(v) => set('deliveryFee', num(v))} /></ORow>
           <ORow label="초기 상품화비" help={<>팔 수 있는 상태로 만드는 값 — 정비·클리닝·<b>GPS 설치</b>. 이미 상품화된 차를 사 오면 0 이다(견적 화면의 «취득 경로»에서 고른다).</>}><Pin w unit="원" value={comma(cs.initPrepFee)} onChange={(v) => set('initPrepFee', num(v))} /></ORow>
@@ -261,7 +273,7 @@ function EstimateCostPageInner() {
           <div className="osub">어느 조합이든 같다</div>
           {/* 정비는 «비율»과 «정액» 둘 다 — 항목마다 맞는 쪽이 있다(사장님 2026-09-06). 둘 다 넣으면 더해진다. */}
           <ORow label="정비비 · 정액" help={<>달마다 나가는 정비비. 월 정액으로 계약한 경우 여기에 넣는다.</>}><Pin w unit="원/월" value={comma(cs.maintMonthly)} onChange={(v) => set('maintMonthly', num(v))} /></ORow>
-          <ORow label="정비비 · 비율" help={<>차값 대비 <b>연 %</b>. 비싼 차가 정비도 비싸므로 이쪽이 실제에 가깝다(참고: 우리 신차 견적기는 <b>연 2%</b>로 잡는다). 위 정액과 <b>둘 다 넣으면 더해진다.</b></>}>
+          <ORow label="정비비 · 비율" help={<>차값 대비 <b>연 %</b>. 비싼 차가 정비도 비싸므로 이쪽이 실제에 가깝다— <b>연 2%</b>가 업계 통상이고 우리 신차 견적기도 같다. 위 정액과 <b>둘 다 넣으면 더해진다</b>(2,500만 차면 월 1만 + 41,700 ≈ 5만/월). ⚠ 정비를 <b>고객이 지는 상품</b>이면 여기를 0 으로 내린다.</>}>
             <Pin unit="%" value={cs.maintRatePct} onChange={(v) => set('maintRatePct', num(v))} />
           </ORow>
           <ORow label="GPS·관제" help={<>GPS 단말과 관제 서비스 이용료. 저신용 상품은 <b>차를 못 찾는 일</b>이 생겨 사실상 필수다.</>}><Pin w unit="원/월" value={comma(cs.gpsMonthly)} onChange={(v) => set('gpsMonthly', num(v))} /></ORow>
@@ -292,10 +304,13 @@ function EstimateCostPageInner() {
           <div className="osub">회당 얼마 — 어느 조합이든 같다</div>
           <ORow label="상품화비" help={<>손바뀜이 한 번 날 때마다 다시 드는 <b>재정비·클리닝</b> 값.</>}><Pin w unit="원" value={comma(cs.turnoverPrepFee)} onChange={(v) => set('turnoverPrepFee', num(v))} /></ORow>
           <ORow label="왕복 탁송료" help={<>손바뀜마다 차를 <b>회수하고 다시 배치</b>하는 값(왕복).</>}><Pin w unit="원" value={comma(cs.turnoverDeliveryFee)} onChange={(v) => set('turnoverDeliveryFee', num(v))} /></ORow>
-          <ORow label="휴차 공실" help={<>차가 돌아와서 다음 손님에게 나갈 때까지 <b>비어 있는 기간</b>. 그동안 대여료가 안 들어온다.</>}><Pin unit="개월" value={cs.turnoverVacancyMonths} onChange={(v) => set('turnoverVacancyMonths', num(v))} /></ORow>
+          <ORow label="휴차 공실" help={<>차가 돌아와서 다음 손님에게 나갈 때까지 <b>비어 있는 기간</b>. 그동안 대여료가 안 들어온다. ★<b>한 달이 확정값</b>이다 — 사장님 2026-09-06 「평균 한 달은 잡아야 될 거야. 그래야 <b>보수적으로 책정</b>해서 할 수 (있다)」. ⚠ 여기가 회당 비용의 4분의 1이라 <b>줄이면 원가가 눈에 띄게 싸 보인다</b> — 그래서 함부로 못 줄인다. 실제로 보름 만에 나가더라도 <b>평균</b>은 한 달로 본다.</>}><Pin unit="개월" value={cs.turnoverVacancyMonths} onChange={(v) => set('turnoverVacancyMonths', num(v))} /></ORow>
           <div className="onote">
             손바뀜 횟수 = <b>1 ÷ 반납률 − 1</b>. 반납률 30%면 4년에 약 2.33회, 75%면 0.33회다.
             회당 비용 × 횟수가 원가에 들어간다 — <b>마진이 아니라 원가</b>다.
+            <br />★<b>여기가 저신용 원가의 본체</b>다. 저신용 4년 아반떼 회당 253만 중
+            휴차·왕복탁송·수수료 재지급이 <b>80%</b>이고, 보증금 위약금으로 막히는 건 <b>5%</b>뿐이다 —
+            값을 내리려면 <b>보증금이 아니라 여기</b>를 봐야 한다.
             <br />손바뀜마다 <b>다시 나가는 영업수수료</b>는 <b>Ⅱ 판매비</b>에, <b>받는 위약금</b>은 <b>Ⅲ 영업외</b>에 있다.
           </div>
         </div>
@@ -314,7 +329,7 @@ function EstimateCostPageInner() {
         {/* 6 일반관리·리스크 — 차 한 대에 못 붙이는 돈을 «비율»로 나눠 붙인다. */}
         <div className="card">
           <div className="step"><span className="no">6</span>일반관리 · 리스크<span className="veh dim">나눠 붙이는 몫</span></div>
-          <ORow first label="일반관리·간접비 배분율" help={<>사무실·인건비 같은 <b>회사 운영비</b>를 차 한 대에 나눠 붙이는 비율. 한 대에 얼마인지 셀 수 없어서 <b>비율로 얹는다</b> — 그래서 판관비다. <b>0 이면 안 넣는 것</b>이다.</>}><Pin unit="%" value={cs.overheadPct} onChange={(v) => set('overheadPct', num(v))} /></ORow>
+          <ORow first label="일반관리·간접비 배분율" help={<>사무실·인건비 같은 <b>회사 운영비</b>를 차 한 대에 나눠 붙이는 비율. 한 대에 얼마인지 셀 수 없어서 <b>비율로 얹는다</b> — 그래서 판관비다. 렌터카 통상은 매출의 <b>8~12%</b>지만 우리는 3자 마켓이라 차를 세우지도 정비하지도 않아 <b>3%</b>를 표준으로 둔다. ⚠ <b>0 으로 두면 회사 운영비가 아예 안 잡힌</b> 원가가 된다.</>}><Pin unit="%" value={cs.overheadPct} onChange={(v) => set('overheadPct', num(v))} /></ORow>
           <ORow label="대손·리스크 충당" help={<>못 받는 돈에 대비한 적립. ⚠ 신용 위험은 <b>Ⅰ-4 손바뀜</b>에서 이미 원가로 잡으므로, 여기까지 넣으면 <b>두 번 잡는</b> 셈이 될 수 있다.</>}><Pin unit="%" value={cs.badDebtPct} onChange={(v) => set('badDebtPct', num(v))} /></ORow>
         </div>
 
@@ -376,7 +391,13 @@ function EstimateCostPageInner() {
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="m20 20-3-3" /></svg>
             <input placeholder="차종 검색 (제조사·모델)" value={q} onChange={(e) => setQ(e.target.value)} />
           </div>
-          {master === 'new' ? (
+          {master === 'new' && !q.trim() ? (
+            <div className="byrow">
+              <b>차종을 검색하세요</b> — 등록 {VEHICLES.length}건. 제조사나 모델을 넣으면 그 차의 연도별 잔존가율이 뜬다.
+            </div>
+          ) : master === 'new' && rows.length === 0 ? (
+            <div className="byrow"><b>「{q.trim()}」로 찾은 차종이 없다</b> — 리스트에 없는 차는 견적 화면 STEP 4 에서 건별 입력한다.</div>
+          ) : master === 'new' ? (
             <div style={{ overflowX: 'auto', marginTop: 10 }}>
               <table className="rtb">
                 <thead><tr><th style={{ textAlign: 'left', paddingLeft: 9 }}>차종</th>{YEARS.map((y) => <th key={y}>{y}년</th>)}</tr></thead>
@@ -397,7 +418,9 @@ function EstimateCostPageInner() {
           ) : (
             <div className="byrow"><b>중고마스터</b>는 아직 안 붙었다 — 중고 잔가는 같은 곡선을 «현재 연식 대비»로 환산해 견적이 자동으로 낸다</div>
           )}
-          <div className="byrow"><b>리스트에 없는 차량</b>은 견적 화면 STEP 4 에서 잔존가를 건별 입력</div>
+          {q.trim() && rows.length > 0 ? (
+            <div className="byrow"><b>리스트에 없는 차량</b>은 견적 화면 STEP 4 에서 잔존가를 건별 입력</div>
+          ) : null}
           <div className="onote">국산 <b>표준 잔가 곡선</b>({YEARS.map((y) => `${y}년 ${STD[y]}%`).join(' · ')})에 차종별 델타(±%p)를 얹은 값 · 등록 {VEHICLES.length}건 · 보정: 주행 −2%p/만km · 사고 · 노후 · <b>여기서는 못 고친다</b></div>
         </div>
 

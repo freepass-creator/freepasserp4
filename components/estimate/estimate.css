@@ -13,8 +13,17 @@
  *     (`:root`→`.est-root` · `body`→`.est-root` · `*`→`.est-root *` · `html{color-scheme}` 은 뺐다).
  *   ⚠ 목업을 고치면 여기도 같이 고친다. 갈리면 「목업과 다른 화면」이 된다.
  *
- * ★웹(넓은 화면)은 목업의 `.phone{max-width:440px;margin:0 auto}` 가 그대로 가운데로 모은다 —
- *   따로 데스크톱 레이아웃을 짓지 않는다(원본도 데스크톱은 별도 미완성 App.vue 로 보냈다).
+ * ★★웹은 **두 기둥**이다 — 사장님 2026-09-06 「웹 전용 화면은 없네, 견적기가」.
+ *   2026-09-06 까지는 목업의 `.phone{max-width:440px}` 가 웹에서도 그대로라, 1920 화면에서
+ *   가운데 440 짜리 기둥 하나만 서고 좌우가 텅 비었다. 조건을 바꾸면 결과(STEP 5)가
+ *   화면 밖에 있어 «스크롤을 내려야» 보였다 — 콕핏이 아니라 폰을 크게 띄운 것이었다.
+ *   ⇒ 900px 이상에서 **좌=입력(STEP 1~4) · 우=결과(원가기준 + STEP 5, 붙박이)** 로 선다.
+ *
+ *   ⚠ **폰 화면은 한 픽셀도 안 바뀐다.** 마크업의 감싸개(`.col.main`/`.col.side`)가
+ *     기본값이 `display:contents` 라 폰에서는 «없는 셈»이고, 넓은 화면에서만 기둥이 된다.
+ *     목업이 정본이라는 규칙을 깨지 않으려고 이렇게 했다 — 목업은 폰 화면의 정본이다.
+ *   ⚠ 칠하는 주체는 **CSS**다(JS `useIsMobile` 아님). 첫 방문엔 쿠키가 없어 SSR 이
+ *     데스크톱으로 잡히는 사고가 이 저장소에 이미 있었다(CLAUDE.md 상단바 항목).
  */
 /* ★본문 글꼴 = **Pretendard**(사장님 2026-09-06 「폰트는 프리텐더드로 할 거고, 영에 사선 있는 거로 —
    숫자가 명확하게 보이니까」). 가변 폰트 · 동적 서브셋이라 필요한 글리프만 내려온다.
@@ -37,6 +46,34 @@
 /* `font:inherit` 이 붙은 컨트롤은 font 축약 때문에 숫자 변형이 풀린다 — 칩·입력칸의 0 도 사선을 유지한다. */
 .est-root button,.est-root input,.est-root select,.est-root textarea{font-variant-numeric:inherit}
 .est-root{background:var(--bg);font-family:var(--k);color:var(--ink-1);font-variant-numeric:tabular-nums slashed-zero;-webkit-font-smoothing:antialiased;font-size:14px}
+/* ══ 컨트롤 치수 — 공용 규격(`components/ui/tokens.ts`)을 CSS 변수로 옮긴 것 ══════════
+   ★사장님 2026-09-07 「버튼들 규격을 다 공통규격 안 쓰고 만드는 바람에 … 공통구조랑 비교해서
+     **현재 디자인 골격 해치지 말고** 구현해 줘」.
+   ⇒ **웹 치수는 목업 그대로 둔다**(골격). 바꾼 것은 셋뿐이다 —
+     ㉠ 라운드를 R(4)로 통일(3·4가 섞여 있었다)
+     ㉡ **폰 분기**를 만든다. 여기까지 전 컨트롤이 웹 치수 그대로 폰에 나갔다
+        (CLAUDE.md 금지 목록의 「모바일 미분기」에 그대로 걸린다).
+     ㉢ 폰 **입력 글자 16px** — 그 밑이면 iOS 가 탭할 때 화면을 확대한다.
+   ⚠ 경계 760 은 `useIsMobile(bp=760)` 과 같은 값이다. 갈리면 JS 가 폰이라 하는데
+     CSS 는 웹으로 그리는 «두 얼굴»이 된다. */
+.est-root{
+  --r:4px;
+  --ctrl-sm:28px; --ctrl-md:32px; --ctrl-lg:40px;
+  --ctrl-fs-sm:12px; --ctrl-fs-md:12.5px; --ctrl-input-fs:13px;
+  --seg1:36px; --seg2:32px; --seg3:30px;            /* 웹 = 목업 그대로 */
+  --seg1-fs:13px; --seg2-fs:12.5px; --seg3-fs:12px;
+  --chip-h:28px;                                     /* 칩 = 웹 28(sm) */
+}
+@media (max-width:759px){
+  .est-root{
+    --ctrl-sm:36px; --ctrl-md:40px; --ctrl-lg:48px;
+    --ctrl-fs-sm:13px; --ctrl-fs-md:14px; --ctrl-input-fs:16px;
+    --seg1:48px; --seg2:40px; --seg3:36px;           /* 폰 = lg / md / sm */
+    --seg1-fs:15px; --seg2-fs:14px; --seg3-fs:13px;
+    --chip-h:40px;                                   /* 칩 = 폰 40(md) — CLAUDE.md 컨트롤 규격 */
+  }
+}
+
 .est-root .phone{max-width:440px;margin:0 auto;min-height:100vh;background:var(--bg);border-left:1px solid var(--line-2);border-right:1px solid var(--line-2)}
 /* 하단 홈바가 얹히는 면이라 그 높이만큼 자리를 비운다 — 안 비우면 「저장」과 맨 아랫줄이 바에 깔린다.
    `--fp-tabbar-h` 는 AppTabBar 가 켤 때만 채운다(웹·바 없는 곳에서는 0). 2026-09-06 견적 탭. */
@@ -46,52 +83,61 @@
 .est-root .wm .a{color:var(--accent)}
 .est-root .wm .b{color:var(--accent-2);font-weight:300}
 .est-root .hd h1{font-size:12px;font-weight:700;color:var(--ink-3);margin:0;padding-left:9px;border-left:1px solid var(--line-2)}
-.est-root .menu{margin-left:auto;width:30px;height:30px;border:1px solid var(--line-2);background:var(--surface);color:var(--ink-3);font-size:16px;border-radius:3px;cursor:pointer;line-height:1}
-.est-root .modesw{display:flex;margin-left:auto;flex:none;border:1px solid var(--line-2);border-radius:3px;overflow:hidden}
-.est-root .modesw a,.est-root .modesw button{text-decoration:none;display:grid;place-items:center;border:0;border-left:1px solid var(--line-2);background:var(--surface);color:var(--ink-3);font:inherit;font-weight:700;font-size:12px;height:28px;padding:0 13px;cursor:pointer}
-.est-root .modesw a:first-child,.est-root .modesw button:first-child{border-left:0}
+.est-root .menu{margin-left:auto;width:30px;height:30px;border:1px solid var(--line-2);background:var(--surface);color:var(--ink-3);font-size:16px;border-radius:var(--r);cursor:pointer;line-height:1}
+/* 머리 오른쪽 «견적 ↔ 원가» 토글.
+   ⚠⚠ 여기 규칙이 `a`·`button` 만 잡고 있었다. 그런데 **지금 칸은 `<span class="on">`** 이라
+     높이·패딩·가운데정렬을 하나도 못 받아, 남색 배경이 글자보다 좁고 «원가» 가 칸 밖으로
+     넘쳤다(2026-09-07 사장님 「이거 버튼 깨지고」). 공용 원자를 안 쓰고 손으로 짠 컨트롤이라
+     태그가 하나 늘자 규칙이 못 따라온 것이다.
+   ⇒ **자식이 무엇이든** 같은 상자를 받게 `> *` 로 잡는다. 태그가 또 바뀌어도 안 깨진다.
+   ★치수는 공용 규격 sm — 웹 28 / 폰 36(`components/ui/tokens.ts` CTRL.sm). 아래 미디어쿼리가 올린다. */
+.est-root .modesw{display:flex;margin-left:auto;flex:none;border:1px solid var(--line-2);border-radius:var(--r);overflow:hidden}
+.est-root .modesw > *{text-decoration:none;display:grid;place-items:center;border:0;border-left:1px solid var(--line-2);background:var(--surface);color:var(--ink-3);font:inherit;font-weight:700;font-size:var(--ctrl-fs-sm);height:var(--ctrl-sm);padding:0 13px;cursor:pointer;white-space:nowrap}
+.est-root .modesw > *:first-child{border-left:0}
 .est-root .modesw .on{background:var(--accent);color:var(--on)}
-.est-root .card{margin:10px 12px 0;background:var(--surface);border:1px solid var(--line-2);border-radius:4px;padding:13px}
-.est-root .step{display:flex;align-items:center;gap:8px;margin:-13px -13px 13px;padding:8px 13px;background:var(--surface-2);border-bottom:1px solid var(--line);font-size:11px;font-weight:700;color:var(--ink-2);text-transform:uppercase;letter-spacing:.5px;border-radius:4px 4px 0 0}
+.est-root .card{margin:10px 12px 0;background:var(--surface);border:1px solid var(--line-2);border-radius:var(--r);padding:13px}
+.est-root .step{display:flex;align-items:center;gap:8px;margin:-13px -13px 13px;padding:8px 13px;background:var(--surface-2);border-bottom:1px solid var(--line);font-size:11px;font-weight:700;color:var(--ink-2);text-transform:uppercase;letter-spacing:.5px;border-radius:var(--r) var(--r) 0 0}
 .est-root .step .no{width:17px;height:17px;border-radius:2px;background:var(--accent);color:var(--on);font-size:10px;display:grid;place-items:center;flex:none}
 .est-root .step .veh{margin-left:auto;font-size:12px;font-weight:700;color:var(--ink-1);text-transform:none;letter-spacing:0}
-.est-root .seg{display:flex;margin-bottom:8px;border:1px solid var(--line-2);border-radius:3px;overflow:hidden}
+.est-root .seg{display:flex;margin-bottom:8px;border:1px solid var(--line-2);border-radius:var(--r);overflow:hidden}
 .est-root .seg:last-child{margin-bottom:0}
 .est-root .seg button{flex:1;border:0;border-left:1px solid var(--line-2);background:var(--surface);color:var(--ink-3);font:inherit;font-weight:600;cursor:pointer}
 .est-root .seg button:first-child{border-left:0}
 .est-root .seg button.on{background:var(--accent);color:var(--on)}
-.est-root .t1 button{height:36px;font-size:13px}
-.est-root .t2 button{height:32px;font-size:12.5px}
-.est-root .t3 button{height:30px;font-size:12px}
-.est-root .vsearch{display:flex;align-items:center;gap:8px;height:40px;padding:0 12px;border:1px solid var(--line-2);border-radius:3px;background:var(--surface);margin-top:10px}
+/* 세그 세 층 — **웹은 목업 그대로**(36/32/30 · 도면에 예외로 등록된 값), **폰만** 공용 규격으로 올린다
+   (lg48 / md40 / sm36). 여기까지 폰이 웹 치수를 그대로 받아 30px 짜리 스위치를 손가락으로 눌렀다. */
+.est-root .t1 button{height:var(--seg1);font-size:var(--seg1-fs)}
+.est-root .t2 button{height:var(--seg2);font-size:var(--seg2-fs)}
+.est-root .t3 button{height:var(--seg3);font-size:var(--seg3-fs)}
+.est-root .vsearch{display:flex;align-items:center;gap:8px;height:var(--ctrl-lg);padding:0 12px;border:1px solid var(--line-2);border-radius:var(--r);background:var(--surface);margin-top:10px}
 .est-root .vsearch svg{color:var(--ink-4);flex:none}
-.est-root .vsearch input{flex:1;min-width:0;border:0;background:transparent;font:inherit;font-size:14px;color:var(--ink-1);outline:none}
+.est-root .vsearch input{flex:1;min-width:0;border:0;background:transparent;font:inherit;font-size:max(14px,var(--ctrl-input-fs));color:var(--ink-1);outline:none}
 .est-root .vsel{display:flex;flex-direction:column;gap:8px;margin-top:10px}
-.est-root .vsel select{height:40px;border:1px solid var(--line-2);border-radius:3px;background:var(--surface);font:inherit;font-size:13.5px;font-weight:600;color:var(--ink-1);padding:0 11px}
-.est-root .vchip{display:flex;align-items:center;gap:10px;margin-top:10px;padding:10px 12px;border:1px solid var(--line-2);border-left:3px solid var(--accent);border-radius:3px;background:var(--surface-2)}
-.est-root .vchip .ic{width:32px;height:32px;border-radius:3px;background:var(--accent);color:var(--on);display:grid;place-items:center;flex:none}
+.est-root .vsel select{height:var(--ctrl-lg);border:1px solid var(--line-2);border-radius:var(--r);background:var(--surface);font:inherit;font-size:max(13.5px,var(--ctrl-input-fs));font-weight:600;color:var(--ink-1);padding:0 11px}
+.est-root .vchip{display:flex;align-items:center;gap:10px;margin-top:10px;padding:10px 12px;border:1px solid var(--line-2);border-left:3px solid var(--accent);border-radius:var(--r);background:var(--surface-2)}
+.est-root .vchip .ic{width:32px;height:32px;border-radius:var(--r);background:var(--accent);color:var(--on);display:grid;place-items:center;flex:none}
 .est-root .vchip .nm{font-size:14px;font-weight:700;line-height:1.25}
 .est-root .vchip .mt{font-size:11.5px;color:var(--ink-3);margin-top:1px}
 .est-root .crow{display:flex;align-items:center;gap:10px;margin-top:11px}
 .est-root .crow.first{margin-top:0}
 .est-root .crow .lb{font-size:12px;font-weight:700;color:var(--ink-3);width:52px;flex:none}
-.est-root .chips{display:flex;flex:1;border:1px solid var(--line-2);border-radius:3px;overflow:hidden}
-.est-root .chips button{flex:1;border:0;border-left:1px solid var(--line-2);background:var(--surface);color:var(--ink-3);font:inherit;font-size:12px;font-weight:600;padding:8px 0;cursor:pointer}
+.est-root .chips{display:flex;flex:1;border:1px solid var(--line-2);border-radius:var(--r);overflow:hidden}
+.est-root .chips button{flex:1;display:grid;place-items:center;border:0;border-left:1px solid var(--line-2);background:var(--surface);color:var(--ink-3);font:inherit;font-size:var(--ctrl-fs-sm);font-weight:600;height:var(--chip-h);padding:0;cursor:pointer}
 .est-root .chips button:first-child{border-left:0}
 .est-root .chips button.on{background:var(--accent);color:var(--on)}
-.est-root .basis{margin:10px 12px 0;padding:9px 12px;border:1px solid var(--line-2);border-left:3px solid var(--accent-2);border-radius:3px;background:var(--surface-2);display:flex;gap:9px}
+.est-root .basis{margin:10px 12px 0;padding:9px 12px;border:1px solid var(--line-2);border-left:3px solid var(--accent-2);border-radius:var(--r);background:var(--surface-2);display:flex;gap:9px}
 .est-root .basis .bi{font-size:10px;font-weight:700;color:var(--ink-3);flex:none;text-transform:uppercase;letter-spacing:.4px;padding-top:1px}
 .est-root .basis .bt{font-size:11.5px;color:var(--ink-3);line-height:1.5}
 .est-root .basis .bt b{color:var(--ink-2)}
 .est-root .plabel{font-size:11px;font-weight:700;color:var(--ink-3);letter-spacing:.5px;text-transform:uppercase;padding:0 2px}
 .est-root .prods{margin:10px 12px 0;display:flex;flex-direction:column;gap:8px}
-.est-root .prod{background:var(--surface);border:1px solid var(--line-2);border-radius:4px;overflow:hidden}
+.est-root .prod{background:var(--surface);border:1px solid var(--line-2);border-radius:var(--r);overflow:hidden}
 .est-root .prodh{width:100%;display:flex;align-items:center;gap:12px;padding:12px 13px;border:0;background:transparent;cursor:pointer;font:inherit;text-align:left}
 .est-root .prod.open .prodh{border-bottom:1px solid var(--line);background:var(--surface-2)}
 .est-root .prodh .yr{font-size:12px;font-weight:700;color:var(--accent);width:34px;flex:none}
 .est-root .prodh .amt{font-size:21px;font-weight:800;letter-spacing:-.6px;color:var(--ink-1)}
 .est-root .prodh .amt small{font-size:11px;font-weight:600;color:var(--ink-4)}
-.est-root .prodh .mg{margin-left:auto;font-size:11px;font-weight:700;color:var(--pos);background:var(--pos-soft);border:1px solid #cfe3d6;padding:2px 8px;border-radius:3px}
+.est-root .prodh .mg{margin-left:auto;font-size:11px;font-weight:700;color:var(--pos);background:var(--pos-soft);border:1px solid #cfe3d6;padding:2px 8px;border-radius:var(--r)}
 .est-root .prodh .cv{color:var(--ink-4);flex:none;transition:transform .18s}
 .est-root .prod.open .prodh .cv{transform:rotate(180deg)}
 .est-root .pd{display:none;padding:2px 0}
@@ -110,9 +156,9 @@
 .est-root .resid-in{display:flex;gap:8px;flex-wrap:wrap}
 .est-root .ri{display:flex;flex-direction:column;align-items:center;gap:5px;flex:1;min-width:52px}
 .est-root .ri .ry{font-size:11px;font-weight:700;color:var(--ink-3)}
-.est-root .pin{display:inline-flex;align-items:center;gap:1px;border:1px solid var(--line-2);background:var(--surface);border-radius:3px;padding:5px 7px}
+.est-root .pin{display:inline-flex;align-items:center;gap:1px;border:1px solid var(--line-2);background:var(--surface);border-radius:var(--r);padding:5px 7px}
 .est-root .pin:focus-within{border-color:var(--accent)}
-.est-root .pin input{width:44px;border:0;background:transparent;color:var(--accent);font:inherit;font-weight:700;font-size:13px;text-align:center;outline:none}
+.est-root .pin input{width:44px;border:0;background:transparent;color:var(--accent);font:inherit;font-weight:700;font-size:var(--ctrl-input-fs);text-align:center;outline:none}
 .est-root .pin i{color:var(--ink-4);font-size:11px;font-style:normal;font-weight:600}
 .est-root .foot{text-align:center;margin:14px 14px 20px;font-size:10.5px;color:var(--ink-4);line-height:1.6}
 
@@ -149,4 +195,143 @@
 .est-root .crow .hint{flex:none;font-size:10.5px;font-weight:600;color:var(--ink-4);line-height:1.3}
 
 /* 문지기 화면의 나가는 문 — 견적을 못 보는 사람을 상품찾기로 돌려보낸다(`features/estimate/EstimateGate`). */
-.est-root .gate-go{display:grid;place-items:center;height:40px;margin-top:14px;border-radius:3px;background:var(--accent);color:var(--on);font-weight:700;font-size:13px;text-decoration:none}
+.est-root .gate-go{display:grid;place-items:center;height:40px;margin-top:14px;border-radius:var(--r);background:var(--accent);color:var(--on);font-weight:700;font-size:13px;text-decoration:none}
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   웹 = **손오공 견적기 원본 화면** — 좌 400 고정(차 고르고 조건 세팅) · 우 넓은 패널(결과)
+
+   ★사장님 2026-09-07 「견적기 웹 화면은 **원래 손오공 견적기에 있었는데** … 작업하던 거 하고
+     **웹페이지 구현은 동일하게** 해 줘야 하는데」 · 「**좌측에서 차량 선택하고 조건 세팅하고 …
+     우측 넓은 패널에** 조건 나오고」.
+
+   ⇒ 원본 `C:\dev\sonogong-estimator/src/App.vue` 의 치수를 그대로 옮겼다. 지어내지 않았다.
+       .board  grid-template-columns: **400px 1fr**   (여기: `.phone`)
+       .vside  overflow-y:auto · padding 18 · border-right   (여기: `.col.main`)
+       .main   overflow-y:auto · padding 20 24            (여기: `.col.side`)
+       .qcols  grid repeat(N,1fr) · .qcol border-left      (여기: `.card.terms .prods`)
+       분기점  **1000px**
+   ⚠ 내가 9/7 오전에 만들었던 「좌 넓게 · 우 400 붙박이」는 **좌우가 반대**였다. 되돌렸다.
+
+   ★★**폰은 목업 그대로다.** 이 블록은 1000px 이상에서만 켜진다.
+     감싸개(`.col`)는 기본이 `display:contents` 라 폰에서 «없는 셈»이다.
+   ⚠ 원가 화면(`.est-root.cost`)은 이 짜임을 안 쓴다 — 거긴 입력·결과가 아니라 설정 목록이라
+     카드 두 단으로 흐른다(`cost.css`). 그래서 `:not(.cost)` 로 가둔다.
+   ══════════════════════════════════════════════════════════════════════════ */
+.est-root .col{display:contents}
+
+@media (min-width:1000px){
+  .est-root:not(.cost) .phone{
+    max-width:none;width:100%;min-height:100vh;
+    display:grid;grid-template-columns:400px minmax(0,1fr);
+    align-content:start;
+    border-left:0;border-right:0;
+    padding-bottom:0;
+  }
+  /* 머리와 바닥은 한 줄을 통째로 쓴다. */
+  .est-root:not(.cost) .phone > .hd,
+  .est-root:not(.cost) .phone > .foot{grid-column:1 / -1}
+
+  /* 감싸개가 여기서 «기둥»이 된다. */
+  .est-root:not(.cost) .phone > .col{display:block;min-width:0}
+
+  /* 좌 — 차 고르고 조건 세팅. 제 안에서 스크롤하고 오른쪽에 선을 긋는다(원본 `.vside`). */
+  .est-root:not(.cost) .phone > .col.main{
+    position:sticky;top:0;
+    max-height:100vh;overflow-y:auto;
+    border-right:1px solid var(--line-2);
+    background:var(--surface);
+    padding:6px 6px 24px;
+  }
+  .est-root:not(.cost) .phone > .col.main .card{border:0;border-radius:0;margin:0 0 4px}
+  .est-root:not(.cost) .phone > .col.main .card .step{margin:0 -13px 13px}
+
+  /*
+   * 우 — 넓은 패널(원본 `.main`). 배경을 한 톤 내려 좌우가 갈린다.
+   * ★**조건·책정·잔가가 여기 있다**(사장님 2026-09-07 「좌측에서는 차량만 선택하고, 그 외
+   *   책정값들은 **공간 많으니까 우측 패널에서** 하자고 — 기존 견적기도 그렇게 했잖아」).
+   *   손오공 원본도 보증금·선납·수수료는 좌 사이드바가 아니라 우측 `.condbar` 에 있었다.
+   * ⇒ 조건 카드 셋(상품 조건 · 영업자 책정 · 연도별 잔가)을 **한 줄 3열**로 펴고,
+   *   그 아래 원가 기준과 기간별 결과가 폭을 다 쓴다. 좌 400 을 뺀 넓이가 그래야 살아난다.
+   */
+  .est-root:not(.cost) .phone > .col.side{
+    background:var(--bg);padding:6px 12px 20px;
+    display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+    column-gap:12px;align-content:start;
+  }
+  /* 원가 기준과 기간별 결과는 한 줄을 통째로 쓴다. */
+  .est-root:not(.cost) .phone > .col.side > .basis,
+  .est-root:not(.cost) .phone > .col.side > .card.terms{grid-column:1 / -1}
+
+  /*
+   * 기간별 대여료 — 넓은 패널에서는 **세로 목록이 아니라 가로 열**이다(원본 `.qcols`).
+   * 다섯이 나란히 서야 「몇 년이 얼마인지」를 한눈에 견준다 — 그게 이 화면을 웹으로 여는 까닭이다.
+   * ⚠ 열이 되면 아코디언(`.prod.open`)이 뜻이 없다 — 넓으니 **다 펼친다**(원본도 항상 펼침).
+   */
+  .est-root .card.terms .prods{margin:0}
+  .est-root .card.terms .prod{
+    border:0;border-left:1px solid var(--line);border-radius:0;
+    padding:0 6px 0 14px;background:transparent;
+  }
+  .est-root .card.terms .prod:first-child{border-left:0;padding-left:4px}
+  .est-root .card.terms .prodh{padding:0 0 8px;cursor:default}
+  .est-root .card.terms .prod.open .prodh{background:transparent;border-bottom:0}
+  .est-root .card.terms .pd{display:block;padding:0 0 4px}
+  .est-root .prods{max-height:none}
+}
+
+/*
+ * 기간 다섯을 **가로로** 세우는 것은 «다섯이 다 들어가는 폭»에서만 켠다.
+ * 한 칸에 170 은 있어야 「4년 · 580,000원 · 매출/원가」가 안 접힌다 →
+ * 5×170 = 850 이 결과 패널 안폭으로 필요하고, 좌 400 을 더하면 **1280** 이다.
+ * ⚠ 그 아래에서 켜면 «4 + 1» 로 접혀 다섯째 해만 혼자 다음 줄에 선다 — 안 켠 것만 못하다
+ *   (2026-09-07 1440 에서 minmax(200) 로 켰다가 그 꼴을 봤다).
+ */
+@media (min-width:1280px){
+  .est-root .card.terms .prods{
+    display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0;
+  }
+}
+
+/* ══ 손익표 — 행 = 항목 · 열 = 기간(웹 전용) ═══════════════════════════════
+   ★사장님 2026-09-07 「1년부터 5년까지 견적 나오는 거는 **우측 패널에서 상세하게**」.
+   기간마다 카드를 세우면 「매출·감가·이자·수수료…」 라벨이 **다섯 번 반복**돼 폭을 버리고,
+   정작 «3년과 4년의 감가가 얼마나 다른지»는 눈으로 못 맞춘다. 행으로 세우면 한 줄에 선다.
+   ⚠ 폰에서는 이 표를 안 그린다(여섯 열은 못 읽는다) — 마크업 자체가 갈린다(`useIsMobile`). */
+.est-root .qmx{display:grid;align-items:center;margin:0 -13px;padding:0 13px 2px;
+  column-gap:10px;font-variant-numeric:tabular-nums slashed-zero}
+/* ⚠ 숫자는 **줄바꿈하지 않는다**. 「8,407,000」이 접히면 표가 아니라 얼룩이 된다.
+   칸이 좁으면 접지 말고 **표째로 가로로 민다**(아래 `.qmxw`) — 2026-09-07 실측에서
+   칸이 70px 이 되자 값들이 서로 겹쳤다. */
+.est-root .qmx > *{padding:6px 0;min-width:0;white-space:nowrap}
+
+/* 표를 감싸 «제 안에서» 밀리게 한다. 화면 전체가 가로로 밀리면 안 된다. */
+.est-root .qmxw{margin:0 -13px;padding:0 13px;overflow-x:auto}
+.est-root .qmxw .qmx{margin:0;padding:0 0 2px}
+
+/* 라벨 칸 — 왼쪽에 한 번만 선다. */
+.est-root .qmx .qk{font-size:12px;font-weight:600;color:var(--ink-2);text-align:left}
+.est-root .qmx .qk em{display:block;font-style:normal;font-size:10.5px;font-weight:500;color:var(--ink-4);margin-top:1px}
+.est-root .qmx .qk.in{padding-left:9px;color:var(--ink-3)}
+.est-root .qmx .qk.sub{font-size:10.5px;font-weight:700;color:var(--ink-4);letter-spacing:.3px;padding-top:10px}
+
+/* 값 칸 — 오른쪽 정렬(숫자는 자릿수가 맞아야 견줘진다). */
+.est-root .qmx .qc{font-size:12.5px;font-weight:700;color:var(--ink-1);text-align:right}
+.est-root .qmx .qc.minus{color:var(--ink-2);font-weight:600}
+.est-root .qmx .qc.sub{padding:0}
+
+/* 기간 머리 — 표의 «열 이름». 밑줄 하나로 머리와 몸을 가른다. */
+.est-root .qmx .hd{font-size:12px;font-weight:800;color:var(--ink-2);text-align:right;
+  padding-bottom:8px;border-bottom:1px solid var(--line-2)}
+.est-root .qmx .qk.hd{border-bottom:1px solid var(--line-2)}
+
+/* 월 납입금 — 이 표에서 제일 큰 글자. 사람이 제일 먼저 보는 줄이다. */
+.est-root .qmx .big{padding:10px 0 12px;border-bottom:1px solid var(--line)}
+.est-root .qmx .qc.big{font-size:17px;font-weight:800;color:var(--accent);letter-spacing:-.3px}
+.est-root .qmx .qk.big{font-size:12px;font-weight:700;color:var(--ink-2)}
+
+/* 영업이익 — 결론 줄. 위에 선을 긋고 색을 준다. */
+.est-root .qmx .pay{border-top:1px solid var(--line-2);padding-top:9px;margin-top:2px}
+.est-root .qmx .qc.pay{color:var(--pos);font-weight:800}
+.est-root .qmx .qc.pay em{font-style:normal;font-size:10.5px;font-weight:700;color:var(--ink-4);margin-left:5px}
+.est-root .qmx .qk.pay{font-weight:800;color:var(--ink-1)}

@@ -176,8 +176,32 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
    *   ⇒ 격자 = 연식·주행 / 배기량·연료·구동방식·승차정원 / 신차가.
    */
   const colorText = [p.ext_color, p.int_color].map((c) => String(c || '').trim()).filter(Boolean).join(' · ');
+  /*
+   * ★★**웹에서는 색상이 격자의 첫 칸이다**(사장님 2026-09-07 「웹에서 이거는 한 줄로 있으면 돼 —
+   *   연식 색상 주행거리는 한 줄에 3단으로 나눠서」 · 「색상 연식 주행거리는 3분할로 딱 맞추면 되지」).
+   *
+   *   왜 바뀌었나 — 09-05 에 색상을 격자 «위»로 뺐다(이름·옵션과 한 무리라서). 그런데 웹에서는
+   *   그 결과가 **색상 혼자 한 줄을 먹고, 바로 밑 줄은 연식·주행거리 둘만 있어 오른쪽 절반이 비는**
+   *   꼴이 됐다. 넉 칸짜리 격자에 두 칸만 찬 줄이 서면 짜임이 무너진다.
+   *   ⇒ 웹은 «색상 · 연식 · 주행거리» 셋이 한 줄, 그 아래 «배기량 · 연료 · 구동방식 · 승차정원» 넷.
+   *
+   * ⚠ **폰은 그대로다.** 폰 격자는 두 칸이라 색상을 넣으면 「색상 | 연식」으로 갈려
+   *   내·외부 견본 두 개가 반 칸에 눌린다. 폰에서는 지금처럼 격자 «위»에 한 줄로 둔다.
+   * ⚠ 09-05 의 «이름 → 옵션 → 색상» 무리 규칙은 폰에서 그대로 살아 있고, 웹에서도 색상은
+   *   여전히 격자의 **첫 칸**이라 이름 바로 밑이다 — 무리가 흩어진 게 아니다.
+   */
+  const colorNode = (
+    <div style={{
+      display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: SHOP.sp.edge, rowGap: SHOP.sp.tight,
+    }}>
+      <ColorMark name={p.ext_color} label="외부" fontSize={SHOP.fs.cap} />
+      <ColorMark name={p.int_color} label="내부" fontSize={SHOP.fs.cap} />
+    </div>
+  );
+  const colorRow: FactRow[] = (!mobile && colorText) ? [['색상', colorText, colorNode]] : [];
   const specs: FactRow[] = grouped(
     [
+      ...colorRow,
       /*
        * ㉡ **이 차가 어떻게 생겼고 얼마나 탔나** — 색상 · 연식 · 주행거리.
        *
@@ -189,15 +213,6 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
        * ★연식과 주행거리는 «따로 보는 값이 아니다» — 2022년식 3만km 와 12만km 는 다른 차다.
        *   색상까지 셋이 「이 차의 겉과 이력」 한 묶음이다.
        */
-      ['색상', colorText, colorText ? (
-        <span style={{
-          display: 'inline-flex', alignItems: 'center', flexWrap: 'wrap',
-          columnGap: SHOP.sp.cozy, rowGap: 0,
-        }}>
-          <ColorMark name={p.ext_color} label="외부" fontSize={SHOP.fs.cap} />
-          <ColorMark name={p.int_color} label="내부" fontSize={SHOP.fs.cap} />
-        </span>
-      ) : undefined],
       ['연식', yearFullDisplay(p.year)],
       ['주행거리', km > 0 ? kmDisplay(p.mileage) : ''],
     ],
@@ -858,6 +873,14 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
              *     「소닉실버」·「어비스블랙펄」은 글자로는 무슨 색인지 모른다.
              *     색 코드 정본은 `lib/domain/color-chips` — 못 알아보는 이름은 이름만 나간다.
              */}
+            {/* 웹에서는 이 블록이 안 선다 — 색상이 격자의 첫 칸으로 들어간다(위 `colorRow`). */}
+            {colorText && mobile ? (
+              <div aria-label="색상" style={{ marginBottom: specs.length ? 28 : 0 }}>
+                <div style={{ marginBottom: SHOP.sp.tight, fontSize: SHOP.fs.cap, color: C.faint }}>색상</div>
+                <div style={{ fontSize: SHOP.fs.body, fontWeight: 700, color: C.ink }}>{colorNode}</div>
+              </div>
+            ) : null}
+
             {/* 격자 = 「이 차가 어떤 상태인가」. 웹은 무리가 «띠»로 옆에 붙고 폰은 두 칸으로 쌓는다. */}
             {specs.length ? <Facts rows={specs} cols={mobile ? 2 : 4} mobile={mobile} /> : null}
           </>

@@ -47,12 +47,23 @@ const IconCheck = () => (
 
 export type CarPickerProps = {
   open: boolean;
+  /**
+   * **인라인** — 시트로 «떠오르지» 않고 부르는 자리에 그대로 편다.
+   *
+   * ★사장님 2026-09-07 「차량 고르는 거 좌측에서 다 골랐잖아 … **왜 패널이 새로 뜨니**」.
+   *   웹은 좌 400 기둥이 «차 고르는 자리»다. 그 자리에 두고 또 시트를 띄우면 두 번 고르는 꼴이다.
+   * ★원본 둘 다 그렇다 — 손오공 `.vside` 는 차종검색·캐스케이드·차량정보가 **박혀** 있고,
+   *   웰릭스 `.wrap`(좌 400)도 제조사→모델→트림→옵션이 박혀 있다. 모달은 «바구니·견적서·공지»처럼
+   *   **결과물**에만 쓴다. 고르는 일에는 안 쓴다.
+   * ⚠ 폰은 시트가 맞다 — 좌 기둥이 없다.
+   */
+  inline?: boolean;
   mode: 'used' | 'new';
   onClose: () => void;
   onPick: (car: PickedCar) => void;
 };
 
-export default function CarPicker({ open, mode, onClose, onPick }: CarPickerProps) {
+export default function CarPicker({ open, mode, onClose, onPick, inline }: CarPickerProps) {
   const [index, setIndex] = useState<CarIndex | null>(null);
   const [models, setModels] = useState<NewModel[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -144,12 +155,16 @@ export default function CarPicker({ open, mode, onClose, onPick }: CarPickerProp
   };
 
   return (
-    <div className="est-root est-picker" role="dialog" aria-modal="true" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+    /* 인라인일 때는 «떠 있는 것»이 아니므로 dialog 도 아니고 바깥 누름도 없다.
+       바깥 `est-root` 도 안 두른다 — 이미 그 안에 들어가 있다(토큰이 두 번 선언된다). */
+    <div className={inline ? 'est-picker inline' : 'est-root est-picker'}
+      role={inline ? undefined : 'dialog'} aria-modal={inline ? undefined : true}
+      onClick={inline ? undefined : (e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="psheet">
         <div className="phead">
           <b>{mode === 'used' ? '중고 차종' : '신차'}</b>
           <span className="sub">{step2 ? '사양을 고르세요' : '차를 고르세요'}</span>
-          <button type="button" className="x" onClick={onClose} aria-label="닫기"><IconX /></button>
+          {inline ? null : <button type="button" className="x" onClick={onClose} aria-label="닫기"><IconX /></button>}
         </div>
 
         <div className="pbody">

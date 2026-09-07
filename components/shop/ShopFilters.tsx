@@ -72,6 +72,12 @@ const COLUMNS: Partial<Record<ShopAxis, 1 | 2>> = {
  */
 const OPEN_BY_DEFAULT: ShopAxis[] = ['vc', 'maker', 'rent', 'dep'];
 /** 긴 목록을 몇 개까지 보여 주고 「더보기」로 접을까 — 제조사 12개 중 아래 넷은 5대 미만이다. */
+/**
+ * 제조사 마크의 «자리» 크기 — 그림과 빈자리가 **같은 값**이어야 왼선이 안 갈린다.
+ * 한 곳에서 정한다(둘을 따로 적으면 한쪽만 고쳐져 그 어긋남이 조용히 돌아온다).
+ */
+const MARK = 18;
+
 const HEAD_COUNT = 8;
 
 export function ShopFilters({ facets, sel, onToggle, onClearAxis, mobile: forceMobile }: {
@@ -337,14 +343,14 @@ function CheckRow({ label, count, on, onClick, tight, logo }: {
          *   방금 고친 어긋남이 그대로 돌아온다. 파일을 넣는 순간 그 브랜드만 바로 뜬다.
          */
         <span aria-hidden style={{
-          flex: '0 0 auto', width: 18, height: 18,
+          flex: '0 0 auto', width: MARK, height: MARK,
           display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
         }}>
           {logo ? (
             // eslint-disable-next-line @next/next/no-img-element -- 브랜드 마크는 정적 최적화 대상이 아니다(작은 SVG).
-            <img src={logo} alt="" aria-hidden width={18} height={18}
+            <img src={logo} alt="" aria-hidden width={MARK} height={MARK}
               onError={(e) => { e.currentTarget.style.visibility = 'hidden'; }}
-              style={{ width: 18, height: 18, objectFit: 'contain' }} />
+              style={{ width: MARK, height: MARK, objectFit: 'contain' }} />
           ) : null}
         </span>
       ) : null}
