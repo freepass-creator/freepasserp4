@@ -69,6 +69,19 @@ const AXIS: Record<string, Partial<Atom>> = {
   '공급사정산 완료': { settleTarget: '영업', settledAlready: true },
   '0.5': { settleRatio: 0.5 },
   /**
+   * ★★**「보류」와 「청구보류」는 다른 말이다.**
+   *   사장님 2026-09-07 「SK 3건은 일단 다 **보류 박아. 취급 안 할 거야 당분간**」
+   * ```
+   * 보류      양쪽 다 안 센다 — 청구도 0, 지급도 0. 「당분간 취급 안 한다」
+   * 청구보류   청구만 0 — 지급은 나간다(후불·보류 청구)
+   * ```
+   *   ⇒ 줄은 원장에 그대로 둔다(지우면 다음 달에 또 «없는 셈»이 된다). 금액만 0으로 선다.
+   *   ⚠ 「취소」와 다르다 — 취소는 계약이 깨진 것이고, 보류는 «아직 안 센다»는 우리 쪽 판단이다.
+   *     그래서 취소 체크를 켜지 않는다. 왜 보류인지는 「비고」가 든다.
+   */
+  '보류': { settleExclude: true },
+  '청구보류': { billHold: true },
+  /**
    * ⚠ **「후불」은 «청구보류»가 아니다.** 2026-09-01 에 그렇게 읽어 퍼시픽 49호3059 를
    *   8월 청구에서 0 원으로 뺐는데, 태윤 매니저가 「퍼시픽 청구건 0원으로 되어있습니다 · 1,435,200원입니다」로
    *   바로잡았다. 후불은 «고객이» 뒤에 내는 조건이지 «우리 청구»를 미루는 말이 아니다.
@@ -273,7 +286,7 @@ for (let i = hi + 1; i < all.length; i++) {
     receivedAt: ymd(x[C.recv]), deliveredAt: ymd(x[C.deliv]),
     delivered: !!ymd(x[C.deliv]), paper: st === '계약 완료', cancelled: false,
     settleTarget: (ax.settleTarget as Atom['settleTarget']) || '양쪽',
-    settleRatio: ax.settleRatio ?? 1, billHold: ax.billHold ?? false, settleExclude: false,
+    settleRatio: ax.settleRatio ?? 1, billHold: ax.billHold ?? false, settleExclude: ax.settleExclude ?? false,
     settledAlready: ax.settledAlready ?? false, vatIncluded: ax.vatIncluded ?? false,
     settleTerms: '', settleNote: ax.settleNote || '',
     billed: false, collected: false,
@@ -352,7 +365,7 @@ if (fixes.length) { console.log(`\n   ★고쳐지는 금액 ${fixes.length}건 
 
 const ax = atoms.filter((a) => a.settleTarget !== '양쪽' || a.settleRatio !== 1 || a.billHold || a.settledAlready || a.vatIncluded);
 console.log(`\n   ★메모에서 옮긴 축 ${ax.length}줄`);
-for (const a of ax) console.log(`      ${a.plate.padEnd(11)} 대상 ${a.settleTarget.padEnd(5)} 비율 ${a.settleRatio} ${a.billHold ? '· 청구보류' : ''}${a.settledAlready ? ' · 정산완료' : ''}${a.vatIncluded ? ' · 부가세포함' : ''}`);
+for (const a of ax) console.log(`      ${a.plate.padEnd(11)} 대상 ${a.settleTarget.padEnd(5)} 비율 ${a.settleRatio} ${a.settleExclude ? '· 보류(양쪽 다 0)' : ''}${a.billHold ? '· 청구보류' : ''}${a.settledAlready ? ' · 정산완료' : ''}${a.vatIncluded ? ' · 부가세포함' : ''}`);
 console.log(`\n   ★환수 ${claws.length}건`);
 for (const c of claws) console.log(`      ${S(c.plate).padEnd(11)} ${S(c.supplier).padEnd(10)} 공급사 ${won(N(c.supplierAmt))} · 영업자 ${won(N(c.agentAmt))} · 환수일 ${S(c.at) || '(없음 — 사람이 채워야 한다)'}`);
 
