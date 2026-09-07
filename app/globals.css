@@ -1385,15 +1385,15 @@ html[data-fp-filter="0"] .fp-finder > .fp-sidebar { display: none; }
  */
 .fp-wl {
   --shop-fs-hero: 34px; --shop-fs-h1: 30px;   --shop-fs-num: 26px;
-  --shop-fs-sec: 20px;  --shop-fs-price: 20px; --shop-fs-lead: 18px;
-  --shop-fs-h2: 16px;   --shop-fs-body: 14.5px;
+  --shop-fs-sec: 20px;  --shop-fs-price: 19px; --shop-fs-lead: 18px;
+  --shop-fs-h2: 15px;   --shop-fs-body: 14.5px;
   --shop-fs-sub: 13px;  --shop-fs-cap: 12px;  --shop-fs-tag: 10.5px;
 }
 @media (max-width: 760px) {
   .fp-wl {
     --shop-fs-hero: 32px; --shop-fs-h1: 22px;   --shop-fs-num: 16px;
-    --shop-fs-sec: 20px;  --shop-fs-price: 21px; --shop-fs-lead: 17px;
-    --shop-fs-h2: 16px;   --shop-fs-body: 15px;
+    --shop-fs-sec: 20px;  --shop-fs-price: 19px; --shop-fs-lead: 17px;
+    --shop-fs-h2: 15px;   --shop-fs-body: 15px;
     --shop-fs-sub: 13.5px; --shop-fs-cap: 12.5px; --shop-fs-tag: 10px;
   }
 }

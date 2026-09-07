@@ -561,7 +561,7 @@ must(/--shop-fs-body: 15px/.test(css) && /@media \(max-width: 760px\)/.test(css)
    *   섞이면 **폰 사다리를 올려도 그 글자만 안 따라온다** — 2026-09-05 에 한 번 겪은 사고다.
    * ★예외 둘만 사다리 밖 — 워드마크(브랜드 타이포)와 검색 «입력칸» 폰 16 고정(iOS 확대 방지).
    */
-  && /--shop-fs-price: 21px/.test(css) && /price: 'var\(--shop-fs-price\)'/.test(shopUi)
+  && /--shop-fs-price: 19px/.test(css) && /price: 'var\(--shop-fs-price\)'/.test(shopUi)
   && /--shop-fs-tag/.test(css) && /--shop-fs-hero/.test(css)
   && !/FS\.[a-z]/.test(shopUi) && !/FS\.[a-z]/.test(shopCard)
   && !/FS\.[a-z]/.test(shopDetail) && !/FS\.[a-z]/.test(wlFrame),
