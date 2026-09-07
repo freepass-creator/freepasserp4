@@ -10,6 +10,7 @@ import { login, signup, logout, resetPassword, writeUserProfile } from '@/lib/fi
 import { getSession, firebaseReadySafe } from '@/lib/login-helpers';
 import { fmtPhone, C, FS, FW, R, CTRL, ICON, ctrlPadX, Btn, Input, Select, Checkbox, Loading } from '@/components/ui';
 import { BRAND_MAIN, BRAND_SUB } from '@/lib/brand';
+import { ChannelSign } from '@/components/brand-ci';
 import { FREEPASS, hasBrand, whitelabelVars, type Whitelabel } from '@/lib/whitelabel';
 import { LEGAL_VERSION } from '@/lib/legal';
 import { toast } from '@/components/Toaster';
@@ -253,14 +254,14 @@ export default function LoginView({ wl = FREEPASS }: { wl?: Whitelabel }) {
            * 남의 회사 이름을 우리 서체 규칙으로 눕히면 그건 그 회사 이름이 아니다.
            * 손님 머리띠(`WhitelabelFrame`)와 «같은 짜임»으로 세운다 — 같은 주소에서 두 얼굴이 되면 안 된다.
            */
-          <div aria-label={wl.name} style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: 9 }}>
-            <span style={{ fontSize: SHOP.fs.num, fontWeight: FW.head, letterSpacing: '-0.03em', color: C.brand }}>
-              {wl.wordmark.main}
-            </span>
-            {/* 워드마크 «뒷 글자» — 사다리의 body 를 탄다(생 숫자를 박으면 토큰 검사가 잡는다). */}
-            <span style={{ fontSize: SHOP.fs.body, fontWeight: FW.meta, letterSpacing: '0.15em', color: C.ink }}>
-              {wl.wordmark.sub}
-            </span>
+          <div aria-label={wl.name} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            {/*
+              ★손님 머리띠(`WhitelabelFrame`)와 «같은 원자»다 — 같은 주소에서 두 얼굴이 되면 안 된다.
+              ⚠ 전에는 여기서 워드마크를 따로 짰다(앞 글자만 브랜드색·뒷 글자는 자간 0.15em).
+                그건 우리가 지어낸 꼴이고, 그 회사 공식 CI 는 **한 크기·한 굵기·고른 자간**이다
+                (`components/brand-ci` 머리말의 실측표). 채널 이름은 한 색으로 선다.
+            */}
+            <ChannelSign wl={wl} fs={24} gap={10} />
           </div>
         ) : (
           <div className="login-brand" aria-label={`${BRAND_MAIN}${BRAND_SUB}`}>

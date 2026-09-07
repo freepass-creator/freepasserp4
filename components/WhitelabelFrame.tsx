@@ -3,6 +3,7 @@ import { useCallback, useState, type ReactNode } from 'react';
 import { Phone, X } from 'lucide-react';
 import { Btn, C, FW, ICON, R_CARD, fmtPhone } from '@/components/ui';
 import { SHOP, ShopDock, ShopDockAction } from '@/components/shop/shop-ui';
+import { ChannelSign, ChannelWordmark, CoBrandFreepass } from '@/components/brand-ci';
 import { useIsMobile } from '@/lib/use-mobile';
 import { hasBrand, whitelabelVars, type Whitelabel } from '@/lib/whitelabel';
 
@@ -165,21 +166,11 @@ export function WhitelabelFrame({
              *   `cozy`(12)로 한 단 떼어 놓는다. 붙은 것은 한 이름으로, 뗀 것은 «동반»으로 읽힌다.
              */
             <a href={homeHref} aria-label={`${wl.name} 첫 화면으로`} style={{
-              display: 'flex', alignItems: 'center', gap: SHOP.sp.snug,
+              display: 'flex', alignItems: 'center', gap: mobile ? SHOP.sp.snug : SHOP.sp.cozy,
               whiteSpace: 'nowrap', textDecoration: 'none', color: 'inherit',
             }}>
-              {wl.logo ? (
-                // eslint-disable-next-line @next/next/no-img-element -- 채널마다 다른 마크라 정적 최적화 대상이 아니다.
-                <img src={wl.logo.src} alt={wl.logo.alt}
-                  style={{ height: mobile ? 24 : 28, width: 'auto', display: 'block' }} />
-              ) : null}
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: SHOP.sp.snug }}>
-                <span style={{ fontSize: mobile ? 22 : 26, fontWeight: FW.head, letterSpacing: '-0.03em', color: C.ink }}>
-                  {wl.wordmark.main}
-                </span>
-                <span style={{ fontSize: mobile ? 12 : 15, fontWeight: FW.meta, letterSpacing: '0.15em', color: C.ink }}>
-                  {wl.wordmark.sub}
-                </span>
+              {/* 간판 짜임(마크 높이·자간·세로 맞춤)은 원자가 안다 — `components/brand-ci`. */}
+              <ChannelSign wl={wl} fs={mobile ? 16 : 22} gap={mobile ? 7 : 9} />
                 {/*
                   ★★**«채널 ✕ freepass» 동반 표기**(사장님 2026-09-07 「**유니오토모빌 X freepass**
                     이렇게 해줘야 함 홈페이지는」). 이 홈페이지는 채널의 얼굴이지만 **우리가 만들어
@@ -188,25 +179,7 @@ export function WhitelabelFrame({
                     같이 쓰는 콕핏 얘기고, 여기는 손님에게 나가는 «채널 홈페이지»다.
                   ★크기·색으로 위계를 준다 — 채널 이름이 주인이고 우리 이름은 그 «옆에 작게» 선다.
                 */}
-                {/*
-                  ★★**아주 연하게**(사장님 2026-09-07 「홈페이지에는 그냥 유니오토모빌 x freepass
-                    **연하게** 표현해줘 · CI 뒤에 x 랑 freepass 는 **아주 연하게**」).
-                    간판의 주인은 채널이다 — 우리 이름은 «있다는 것만» 보이면 된다.
-                  ★연하게 만드는 방법 셋을 같이 쓴다: 작게 · 가늘게 · 흐리게(투명도).
-                    색을 새로 만들지 않는다 — `C.faint` 에 투명도만 얹는다(토큰 규격).
-                */}
-                <span style={{
-                  display: 'inline-flex', alignItems: 'baseline', gap: SHOP.sp.tight,
-                  marginLeft: SHOP.sp.tight, opacity: 0.55, color: C.faint,
-                }}>
-                  <span aria-hidden style={{
-                    fontSize: mobile ? 10 : 12, fontWeight: FW.meta, letterSpacing: 0,
-                  }}>✕</span>
-                  <span style={{
-                    fontSize: mobile ? 12 : 14, fontWeight: FW.meta, letterSpacing: '-0.01em',
-                  }}>freepass</span>
-                </span>
-              </div>
+              <CoBrandFreepass fs={mobile ? 11 : 13} gap={mobile ? 4 : 5} />
             </a>
           )}
           <div style={{ flex: 1 }} />
@@ -283,13 +256,9 @@ export function WhitelabelFrame({
 
       <footer style={{ borderTop: `1px solid ${C.line}`, marginTop: 24 }}>
         <div style={{ maxWidth: 1280, margin: '0 auto', padding: '32px 24px 32px' }}>
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: SHOP.sp.snug, marginBottom: SHOP.sp.cozy }}>
-            <span style={{ fontSize: 18, fontWeight: FW.head, letterSpacing: '-0.03em', color: C.faint }}>
-              {wl.wordmark.main}
-            </span>
-            <span style={{ fontSize: SHOP.fs.cap, fontWeight: FW.meta, letterSpacing: '0.16em', color: C.faint }}>
-              {wl.wordmark.sub}
-            </span>
+          {/* ★푸터도 «같은 CI» 다 — 머리띠와 짜임이 다르면 한 화면에 두 얼굴이 된다. 톤만 흐리게. */}
+          <div style={{ display: 'flex', alignItems: 'center', marginBottom: SHOP.sp.cozy }}>
+            <ChannelWordmark wl={wl} fs={18} color={C.faint} />
           </div>
           <div style={{ fontSize: SHOP.fs.sub, color: C.faint, lineHeight: 1.9 }}>
             {wl.bizLines.map((line) => <div key={line}>{line}</div>)}
