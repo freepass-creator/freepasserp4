@@ -545,7 +545,9 @@ export function ShopCount({ value, filtered }: { value: string; filtered?: boole
      */
     <div style={{ display: 'flex', alignItems: 'baseline', gap: SHOP.sp.snug }}>
       <span style={{ fontSize: mobile ? SHOP.fs.cap : SHOP.fs.sub, fontWeight: 500, color: C.mute }}>
-        {filtered ? '조건에 맞는 차량' : '전체차량'}
+        {/* ★말은 한 벌만 쓴다 — 웹 목록머리·폰 어깨줄이 같은 낱말을 쓴다(사장님 2026-09-07
+              「검색 000대로 보여주면 될 거 같아」). 「조건에 맞는 차량」은 길어서 폰에서 줄을 먹었다. */}
+        {filtered ? '검색' : '전체차량'}
       </span>
       <span style={{
         fontSize: SHOP.fs.num, fontWeight: FW.head, color: C.brand,
