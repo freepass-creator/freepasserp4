@@ -337,7 +337,12 @@ must(/const ownDamageDeductible = \[/.test(shopDetail)
 must(/const ownDamageDeductible = \[/.test(shopDetail),
   '자차 면책금 줄이 사라졌습니다 — 사고 나면 실제로 무는 돈이라 한 줄을 통째로 씁니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
-must(/긴급출동 \{roadside\}/.test(shopDetail),
+/*
+ * ★2026-09-07 — 문장(「긴급출동 {roadside}」)에서 **라벨+값 한 칸**으로 바뀌었다.
+ *   「보험이 아니다」는 이제 «짜임»이 아니라 «큰 여백»이 말한다(문서 §1-5 ④).
+ *   그래도 **이 자리에 긴급출동이 있어야 한다**는 규격은 그대로라, 라벨과 값을 같이 본다.
+ */
+must(/\['긴급출동', roadside\]/.test(shopDetail),
   '보험 맨 밑 「긴급출동」이 사라졌습니다 — 사고가 아니라 고장일 때 부르는 것이라 여기가 제자리입니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
 /*
@@ -374,11 +379,18 @@ must(/const insRows = /.test(shopDetail) && /const coverage = insRows\(/.test(sh
  *  「대인 얼마 대물 얼마」, 없는 거는 쓰지 말고. **자차는 다가 한 줄로 좀 길게**」).
  * ⚠ 소제목이 이미 「면책금」이라 줄에서는 **이름만** 쓴다 — 「대인 면책금」처럼 낱말을 또 붙이지 않는다.
  */
-must(/const otherDeductibles = \[/.test(shopDetail)
+/*
+ * ★2026-09-07 — 나머지 넷이 «통 문장 한 줄»에서 **보상 한도와 같은 격자**로 바뀌었다(문서 §1-5).
+ *   지켜야 하는 것은 그대로다 — ㉠ 네 이름이 다 있고 ㉡ 있는 것만 나오고(`insRows`)
+ *   ㉢ 자차는 여전히 제 한 줄. 바뀐 것은 낱말이 아니라 짜임이라, 검사도 «짜임»만 옮겨 본다.
+ */
+must(/const otherDeductibles: FactRow\[\] = insRows\(\[/.test(shopDetail)
   && /\['대인', S\('injury_deductible'\)\]/.test(shopDetail)
+  && /\['대물', S\('property_deductible'\)\]/.test(shopDetail)
   && /\['자손', S\('self_body_deductible'\)\]/.test(shopDetail)
-  && /\['무보험', S\('uninsured_deductible'\)\]/.test(shopDetail),
-  '면책금 한 줄에서 대인·대물·자손·무보험이 빠졌습니다 — 있는 것만 이름과 값을 이어 한 줄로 씁니다.',
+  && /\['무보험', S\('uninsured_deductible'\)\]/.test(shopDetail)
+  && /rows=\{otherDeductibles\}/.test(shopDetail),
+  '면책금 넷(대인·대물·자손·무보험)이 빠졌거나 보상 한도와 다른 짜임으로 돌아갔습니다 — 같은 격자에 세웁니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
 must(!/'자차 면책금'|'대인 면책금'|'기타 면책금'/.test(shopDetail),
   '면책금 줄에 「…면책금」 라벨이 돌아왔습니다 — 소제목이 이미 「면책금」이라 낱말이 두 번 나옵니다.',

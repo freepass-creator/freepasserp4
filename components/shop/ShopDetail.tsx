@@ -406,12 +406,23 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
    * ★**없는 것은 안 쓴다** — 「대인 없음」이 아니라 그냥 그 이름이 안 나온다.
    *   (단 값이 「없음」인 것은 «확정된 사실»이라 쓴다 — 아래 `insMeaningful`.)
    */
-  const otherDeductibles = [
-    ['대인', S('injury_deductible')] as [string, string],
-    ['대물', S('property_deductible')] as [string, string],
-    ['자손', S('self_body_deductible')] as [string, string],
-    ['무보험', S('uninsured_deductible')] as [string, string],
-  ].filter(([, v]) => insMeaningful(v)).map(([k, v]) => `${k} ${v}`).join(' · ');
+  /*
+   * ★★★**보상 한도와 «같은 격자»에 세운다**(사장님 2026-09-07 「화면 구성부터 잡고」).
+   *
+   * ⚠ 여기는 「대인 30만원 · 대물 30만원 · 자손 30만원 · 무보험 없음」이라는 **통 문장 한 줄**이었다.
+   *   바로 위 보상 한도는 라벨+값 격자인데 면책금만 문장이라, 같은 이름이 두 짜임으로 나왔다.
+   *   그래서 **「대인 무한(보상)」과 「대인 30만원(면책)」이 짝이라는 것이 화면에서 안 읽혔다** —
+   *   손님이 제일 알고 싶은 것이 「그래서 사고 나면 내가 얼마 내나」인데 그 둘이 남남이었다.
+   * ⇒ 같은 열 수(웹 3)로 세운다. 대인은 대인 밑에, 대물은 대물 밑에 선다.
+   * ★사장님 2026-09-05 지시(「대인 얼마 대물 얼마」 · 「없는 거는 쓰지 말고」 · 「자차는 한 줄로 길게」)를
+   *   거스르지 않는다 — 보이는 말은 그대로고 «짜임»만 집 격자로 맞춘 것이다. 자차는 여전히 제 한 줄이다.
+   */
+  const otherDeductibles: FactRow[] = insRows([
+    ['대인', S('injury_deductible')],
+    ['대물', S('property_deductible')],
+    ['자손', S('self_body_deductible')],
+    ['무보험', S('uninsured_deductible')],
+  ]);
 
   /** ④ 긴급출동 — 보험이 아니라 부가 서비스. */
   const roadside = S('annual_roadside_assistance') || S('roadside_assistance');
@@ -514,15 +525,20 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
    *   **받을 때 → 어디서 타나 → 타는 동안 → 사고 났을 때** 순으로 놓는다.
    *   옛 순서(정비·대차·이용 지역·차량 인도)는 차를 받기도 전에 사고 이야기부터 하고 있었다.
    */
-  const pair = (label: string, v: string) => (meaningful(v) ? `${label} ${v}` : '');
-  const etc = [
-    pair('차량 인도', S('delivery_fee')),
-    pair('이용 지역', S('rental_region')),
-    pair('정비', S('maintenance_service')),
-    pair('대차', S('replacement_car_policy')),
-  ].filter(Boolean).join(' · ');
+  /*
+   * ⚠ 여기도 통 문장이었다 — 「차량 인도 무료 · 이용 지역 전국 · 대차 불가」.
+   *   그중 **「대차 불가」는 참고 값이 아니다** — 사고가 나면 차가 없다는 뜻이라 손님이 계약 전에
+   *   반드시 보는 조건인데, 문장 꼬리에 붙어 있으니 눈이 그냥 지나갔다.
+   * ⇒ 다른 구역과 같은 격자. 「제일 조용하게」는 «짜임을 흩는 것»이 아니라 값의 무게로 낸다.
+   */
+  const etcRows: FactRow[] = [
+    ['차량 인도', S('delivery_fee')],
+    ['이용 지역', S('rental_region')],
+    ['정비', S('maintenance_service')],
+    ['대차', S('replacement_car_policy')],
+  ].filter(([, v]) => meaningful(v)) as FactRow[];
 
-  const hasPolicy = !!(payRows.length || ownDamageDeductible || otherDeductibles || coverage.length || ageRange || useRows.length || etc || roadside);
+  const hasPolicy = !!(payRows.length || ownDamageDeductible || otherDeductibles.length || coverage.length || ageRange || useRows.length || etcRows.length || roadside);
 
   /*
    * ★★★**제목 밑 칩 줄** — 「이 차가 지금 어떤 물건인가」를 한눈에(사장님 2026-09-05
@@ -907,10 +923,10 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
           ⚠ 여기 큰 줄(BigRow)로 세웠다가 옮겼다. 보장 한도와 «다른 영역»이라는 판단은 그대로다 —
              다른 영역이니까 격자에 안 섞고, 그렇다고 본문에 또 한 줄을 쓰지도 않는다.
       */}
-      {!(insuranceFee || ownDamageDeductible || otherDeductibles || coverage.length || roadside) ? (
+      {!(insuranceFee || ownDamageDeductible || otherDeductibles.length || coverage.length || roadside) ? (
         <Sec title="보험" icon={ShieldCheck} mobile={mobile}><Missing /></Sec>
       ) : null}
-      {(insuranceFee || ownDamageDeductible || otherDeductibles || coverage.length || roadside) ? (
+      {(insuranceFee || ownDamageDeductible || otherDeductibles.length || coverage.length || roadside) ? (
         <Sec title="보험" icon={ShieldCheck} tag={insuranceFee} mobile={mobile}>
           <>
             {/* ② 보상 한도 — 어디까지 보상되나. 넷이 나란한 값이라 격자로 편다. */}
@@ -926,14 +942,14 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
                  금액이 제일 크고 수리비 부담이 딸려 있다(사장님 「자차 면책금하고는 더 분리를」).
                  그래서 자차는 한 줄로 떼고, 대인·대물·자손은 그 밑에 흐리게 흘린다.
             */}
-            {(ownDamageDeductible || otherDeductibles) ? (
+            {(ownDamageDeductible || otherDeductibles.length) ? (
               <div style={{ marginTop: SHOP.sp.edge }}>
                 <div style={{ marginBottom: SHOP.sp.snug, fontSize: SHOP.fs.cap, fontWeight: 600, color: C.mute }}>면책금</div>
                 {/* 자차 — 값이 셋이라 한 줄을 통째로 쓴다. 사고 나면 실제로 무는 돈이라 굵다. */}
                 {ownDamageDeductible ? (
                   <div style={{
                     display: 'flex', alignItems: 'baseline', gap: SHOP.sp.cozy, flexWrap: 'wrap',
-                    marginBottom: otherDeductibles ? SHOP.sp.snug : 0,
+                    marginBottom: otherDeductibles.length ? SHOP.sp.cozy : 0,
                   }}>
                     <span style={{ flex: '0 0 auto', fontSize: SHOP.fs.sub, color: C.faint }}>자차</span>
                     <span style={{
@@ -943,12 +959,9 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
                     }}>{ownDamageDeductible}</span>
                   </div>
                 ) : null}
-                {/* 나머지 — 있는 것만, 이름과 값을 이어서 한 줄로. */}
-                {otherDeductibles ? (
-                  <div style={{
-                    fontSize: SHOP.fs.sub, color: C.sub,
-                    fontVariantNumeric: 'tabular-nums', lineHeight: 1.7,
-                  }}>{otherDeductibles}</div>
+                {/* 나머지 — 있는 것만. **보상 한도와 같은 열 수**라 대인은 대인 밑에 선다(위 머리말). */}
+                {otherDeductibles.length ? (
+                  <Facts rows={otherDeductibles} cols={mobile ? 2 : 3} mobile={mobile} />
                 ) : null}
               </div>
             ) : null}
@@ -959,11 +972,9 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
                  제일 흐리게 둔다 — 위 셋과 같은 무게로 붙여 놓으면 보장의 하나로 읽힌다.
             */}
             {roadside ? (
-              <div style={{
-                /* 보험 «안»의 꼬리 한 줄이다 — 새 구역(32)이 아니라 다른 것들 사이(24)다. */
-                marginTop: SHOP.sp.edge, fontSize: SHOP.fs.sub, color: C.faint,
-              }}>
-                긴급출동 {roadside}
+              <div style={{ marginTop: SHOP.sp.edge }}>
+                {/* ★말은 격자로 하되 «떨어진 자리»가 「보험이 아니다」를 말한다 — 짜임을 흩지 않는다. */}
+                <Facts rows={[['긴급출동', roadside]]} cols={mobile ? 2 : 3} mobile={mobile} />
               </div>
             ) : null}
           </>
@@ -986,8 +997,8 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
 
       {/* ⑥ 기타 — 참고만 하는 값. 제일 조용하게 한 줄로 흘린다. */}
       <Sec title="기타 사항" icon={Info} mobile={mobile}>
-        {etc
-          ? <div style={{ fontSize: SHOP.fs.sub, color: C.mute, lineHeight: 1.9 }}>{etc}</div>
+        {etcRows.length
+          ? <Facts rows={etcRows} cols={mobile ? 2 : 3} mobile={mobile} />
           : <Missing />}
       </Sec>
 
