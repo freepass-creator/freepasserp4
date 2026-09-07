@@ -125,7 +125,7 @@ for (const b of books) {
 const mine = all.filter((r) => monthOf(r) === MONTH && (!ONLY || S(r.channel).includes(ONLY)) && payOf(r) !== 0);
 console.log(`\n─ ${MONTH} 지급 대상 ${mine.length}줄\n`);
 
-const noClaim: string[] = []; const dupLedger: string[] = []; const dupPaper: string[] = []; const said: string[] = [];
+const noClaim: string[] = []; const dupLedger: string[] = []; const dupPaper: string[] = []; const said: string[] = []; const noBill: string[] = [];
 for (const r of mine) {
   const p = P(r.plate); const who = S(r.customer); const pay = payOf(r); const claim = claimOf(r);
   const tag = `${pad(p, 10)} ${pad(who, 8)} ${pad(S(r.supplier), 10)}`;
@@ -139,6 +139,15 @@ for (const r of mine) {
   /** ㉢ **이미 나간 종이에 그 차가 다른 달로 실려 있다** — 이번 달이 두 번째다. */
   const past = (issued.get(`${p}|${who}`) || []).filter((h) => h.month !== MONTH);
   if (past.length) dupPaper.push(`  ${tag} 지난 달 종이에 있음 — ${past.map((h) => `${h.month} ${h.side} ${won(h.amount)} 〈${h.tab}〉`).join('  ·  ')}`);
+  /**
+   * ㉣ ★★★**주기로 해 놓고 «청구서에는 안 실린» 줄.**
+   *   사장님 2026-09-07 「하허호 기준으로 우리가 지급할 거를 렌트사에 청구해야 하는데
+   *   **청구서 누락된 게 있을 수 있다**는 거네」
+   *   ⇒ 영업채널 정산서에는 있는데 공급사 청구서에 없으면, 그 달치는 **우리가 그냥 물어 준다.**
+   *   ⚠ 청구가 애초에 0인 줄(조건이 「영업만 정산」)은 여기 오지 않는다 — 그건 ㉠ 이 따로 센다.
+   */
+  const onBill = (issued.get(`${p}|${who}`) || []).some((h) => h.side === '청구' && h.month === MONTH);
+  if (claim !== 0 && !onBill) noBill.push(`  ${tag} 청구 ${pad(won(claim), 11)} 지급 ${pad(won(pay), 11)} ← ${MONTH} 공급사 청구서에 없음`);
 }
 
 const box = (title: string, lines: string[], hint: string) => {
@@ -147,6 +156,8 @@ const box = (title: string, lines: string[], hint: string) => {
   lines.forEach((l) => console.log(l));
   console.log(`    ⇒ ${hint}`);
 };
+box('★주기로 해 놓고 공급사 청구서에는 «안 실린» 줄', noBill,
+  '이대로 두면 그 달치는 우리가 물어 줍니다 — 공급사 청구서를 다시 찍어야 합니다.');
 box('줄 때 받을 것이 없는 줄 (청구 0인데 지급)', noClaim, '공급사 청구를 세우든지, 지급을 멈추든지 사람이 정합니다.');
 box('원장에 같은 차가 두 줄', dupLedger, '진짜 두 건인지 중복인지 확인 — 둘 다 이 달이면 두 번 나갑니다.');
 box('이미 다른 달 종이에 실린 차 (같은 차 · 같은 임차인)', dupPaper, '그 달에 이미 정산됐다면 이번 달은 2중입니다.');
@@ -163,4 +174,4 @@ if (!twice.length) console.log('    없습니다.');
 for (const [p, v] of twice) console.log(`  ${pad(p, 10)} ${v.map((x) => `${pad(S(x.customer), 7)} ${S(x.channel)}/${S(x.supplier)} 청구 ${won(claimOf(x))} 지급 ${won(payOf(x))}`).join('  ·  ')}`);
 
 console.log(`\n   ${MONTH}${ONLY ? ` ${ONLY}` : ''}  청구 합 ${won(mine.reduce((a, r) => a + claimOf(r), 0))} · 지급 합 ${won(mine.reduce((a, r) => a + payOf(r), 0))} (부가세 별도)\n`);
-process.exit(noClaim.length || dupLedger.length || dupPaper.length || said.length || twice.length ? 1 : 0);
+process.exit(noBill.length || noClaim.length || dupLedger.length || dupPaper.length || said.length || twice.length ? 1 : 0);
