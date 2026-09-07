@@ -176,16 +176,12 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
     );
     io.observe(el);
     /*
-     * ★붙박이 줄의 «실제 높이»를 CSS 변수로 흘린다 — 옆 조건칸이 그 밑에 서고,
-     *   그만큼을 뺀 높이로 제 안에서 굴러야 한다. 숫자를 손으로 적으면
-     *   검색줄이 한 줄 늘어난 날(칩이 접히는 날) 조건칸이 그 밑으로 숨는다.
+     * ⚠ 여기서 붙박이 줄의 높이를 `--fp-shop-stick-h` 로 흘렸다 — 옆 조건칸이 그만큼을 빼고
+     *   «제 안에서 굴러야» 했기 때문이다. 2026-09-07 에 **구르는 곳을 하나로** 줄이면서
+     *   그 변수를 읽는 곳이 없어졌다(`.fp-shop-aside` 머리말). 세기만 하고 아무도 안 읽는
+     *   값을 남겨 두면 다음 사람이 「이게 뭘 움직이나」를 찾느라 시간을 쓴다 — 그래서 걷었다.
      */
-    const ro = new ResizeObserver(([e]) => {
-      el.style.setProperty('--fp-shop-stick-h', `${Math.round(e.contentRect.height)}px`);
-      el.closest('main')?.style.setProperty('--fp-shop-stick-h', `${Math.round(e.contentRect.height)}px`);
-    });
-    ro.observe(el);
-    return () => { io.disconnect(); ro.disconnect(); el.classList.remove('is-stuck'); };
+    return () => { io.disconnect(); el.classList.remove('is-stuck'); };
   }, [mobile]);
 
   /* 조건이 바뀌면 첫 장으로 — 3장까지 펼쳐 본 뒤 조건을 좁혔는데 여전히 3장이면 뭐가 준 건지 모른다. */
@@ -439,8 +435,7 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
               <div style={{ height: HEAD_H, display: 'flex', alignItems: 'center' }}>
                 <ShopCount value={rows === null ? '—' : String(total)} />
               </div>
-              {/* ★구르는 것은 «이 판»이다 — 머리는 위에 서 있는다(`.fp-shop-axes` 머리말). */}
-              <div className="fp-shop-axes" style={{
+              <div style={{
                 border: `1px solid ${C.line2}`, borderRadius: SHOP.r.card,
                 padding: `${SHOP.sp.tight}px ${SHOP.sp.edge}px`,
               }}>
