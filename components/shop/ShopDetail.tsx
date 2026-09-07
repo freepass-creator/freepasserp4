@@ -810,8 +810,21 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
              * ★옵션은 **한 줄로 길게** 준다(사장님 2026-09-05 「그 밑에 **한 줄로 선택 옵션을 길게**」) —
              *   격자 칸에 가두면 여덟 개짜리 차가 좁은 칸 안에서 다섯 줄로 접힌다. 폭을 통째로 쓴다.
              */}
+            {/*
+              ★★**웹에서는 「선택 옵션」과 「색상」이 «한 줄»에 선다**(사장님 2026-09-07
+                「이거 한 줄로 배열 잘 맞춰서 해주고 — **웹페이지**야」).
+                폰은 폭이 없어 그대로 쌓지만, 웹 1400 에서는 둘이 각각 824px 짜리 줄을 통째로
+                차지하고 오른쪽이 텅 비었다(2026-09-07 실측). 짧은 값 둘이 두 줄을 먹은 것이다.
+              ★옵션이 길면 색상이 «저절로» 다음 줄로 내려간다(`flexWrap`) — 옵션은 여전히
+                폭을 통째로 쓸 수 있다(2026-09-05 「옵션은 한 줄로 길게」와 안 부딪힌다).
+            */}
+            {(options.length || colorText) ? (
+            <div style={mobile ? undefined : {
+              display: 'flex', flexWrap: 'wrap', alignItems: 'flex-start',
+              columnGap: SHOP.sp.wide, rowGap: SHOP.sp.edge, marginBottom: SHOP.sp.edge,
+            }}>
             {options.length ? (
-              <div aria-label="선택 옵션" style={{ marginBottom: SHOP.sp.edge }}>
+              <div aria-label="선택 옵션" style={{ marginBottom: mobile ? SHOP.sp.edge : 0, minWidth: 0 }}>
                 <div style={{ marginBottom: 0, fontSize: SHOP.fs.cap, color: C.faint }}>선택 옵션</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: SHOP.sp.snug }}>
                   {options.map((o) => (
@@ -843,7 +856,9 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
              *     색 코드 정본은 `lib/domain/color-chips` — 못 알아보는 이름은 이름만 나간다.
              */}
             {colorText ? (
-              <div aria-label="색상" style={{ marginBottom: specs.length ? SHOP.sp.edge : 0 }}>
+              <div aria-label="색상" style={{
+                marginBottom: mobile ? (specs.length ? SHOP.sp.edge : 0) : 0, minWidth: 0,
+              }}>
                 <div style={{ marginBottom: 0, fontSize: SHOP.fs.cap, color: C.faint }}>색상</div>
                 <div style={{
                   display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: SHOP.sp.edge, rowGap: SHOP.sp.tight,
@@ -853,6 +868,9 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
                   <ColorMark name={p.int_color} label="내부" fontSize={SHOP.fs.cap} />
                 </div>
               </div>
+            ) : null}
+
+            </div>
             ) : null}
 
             {/* 격자 = 「이 차가 어떤 상태인가」. 웹은 무리가 «띠»로 옆에 붙고 폰은 두 칸으로 쌓는다. */}
@@ -881,6 +899,9 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
           ⚠ 여기 큰 줄(BigRow)로 세웠다가 옮겼다. 보장 한도와 «다른 영역»이라는 판단은 그대로다 —
              다른 영역이니까 격자에 안 섞고, 그렇다고 본문에 또 한 줄을 쓰지도 않는다.
       */}
+      {!(insuranceFee || ownDamageDeductible || otherDeductibles || coverage.length || roadside) ? (
+        <Sec title="보험" icon={ShieldCheck} mobile={mobile}><Missing /></Sec>
+      ) : null}
       {(insuranceFee || ownDamageDeductible || otherDeductibles || coverage.length || roadside) ? (
         <Sec title="보험" icon={ShieldCheck} tag={insuranceFee} mobile={mobile}>
           <>
@@ -951,14 +972,16 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
           이 구역에는 결정적인 하나가 없다 — 심사·나이·주행·면허가 «다 같이 확인하는 값»이다.
           하나만 크게 세우면 나머지가 곁다리로 보인다.
       */}
-      <Tiles title="이용 조건" rows={useRows} cols={mobile ? 2 : 4} mobile={mobile} icon={IdCard} />
+      {useRows.length
+        ? <Tiles title="이용 조건" rows={useRows} cols={mobile ? 2 : 4} mobile={mobile} icon={IdCard} />
+        : <Sec title="이용 조건" icon={IdCard} mobile={mobile}><Missing /></Sec>}
 
       {/* ⑥ 기타 — 참고만 하는 값. 제일 조용하게 한 줄로 흘린다. */}
-      {etc ? (
-        <Sec title="기타 사항" icon={Info} mobile={mobile}>
-          <div style={{ fontSize: SHOP.fs.sub, color: C.mute, lineHeight: 1.9 }}>{etc}</div>
-        </Sec>
-      ) : null}
+      <Sec title="기타 사항" icon={Info} mobile={mobile}>
+        {etc
+          ? <div style={{ fontSize: SHOP.fs.sub, color: C.mute, lineHeight: 1.9 }}>{etc}</div>
+          : <Missing />}
+      </Sec>
 
       {/*
         ★★**맨 밑 — 영업자 전용 칸.** 손님에게는 «없는 것»이고, 로그인한 우리 식구에게만 생긴다
@@ -976,12 +999,12 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
         <p style={{ margin: `${SHOP.sp.part}px 0 0`, fontSize: SHOP.fs.cap, color: C.faint, lineHeight: 1.7 }}>
           위 조건은 공급사가 제공한 운영정책이며 계약 시 최종 확정됩니다. 자세한 내용은 담당자에게 확인해 주세요.
         </p>
-      ) : (
-        /* 정책이 안 붙은 차가 실제로 있다 — 「없다」가 아니라 «모른다»라고 말한다(지어내지 않는다). */
-        <p style={{ margin: `${SHOP.sp.part}px 0 0`, fontSize: SHOP.fs.cap, color: C.faint, lineHeight: 1.7 }}>
-          보험·계약 조건은 담당자에게 문의해 주세요.
-        </p>
-      )}
+      ) : null}
+      {/*
+        ⚠ 여기 있던 「보험·계약 조건은 담당자에게 문의해 주세요」를 걷었다(2026-09-07).
+          이제 «구역마다» 그 말이 서 있어서(`Missing`), 밑에 또 두면 같은 말이 네 번 나온다.
+          집 규격: 같은 일을 하는 문을 한 화면에 둘 두지 않는다.
+      */}
 
       {/*
         폰 하단 고정독 — **이전(고정폭 92) + 전화(나머지 전부)**.
@@ -1516,6 +1539,25 @@ function ShopInside({ code, mobile }: { code: string; mobile?: boolean }) {
         </div>
         <Facts rows={rows} cols={mobile ? 2 : 4} mobile={mobile} />
       </div>
+    </div>
+  );
+}
+
+/**
+ * **아직 못 받은 구역** — 값이 하나도 없어도 «구역은 세운다».
+ *
+ * ★사장님 2026-09-07 「대여료 및 보증금 밑에 섹션에 **보험 내용 있어야** 하고, 그 밑에
+ *   **계약조건**(연간 주행거리나 연령 같은거), 그리고 **기타사항** — 이렇게 **3개 섹션이 빠졌어**」.
+ * ⚠ 실측 2026-09-07 — 그 차(`104허2655`)는 `policy_code` 가 `pol_freepassstd` 인데 정책 81건
+ *   어디에도 그 코드가 없다. **재고 1,375대 중 804대**가 그렇다. 그래서 세 구역이 통째로 사라지고
+ *   손님은 「이 회사는 보험 얘기를 안 하네」로 읽는다 — 없는 게 아니라 «아직 못 받은» 것이다.
+ * ★집 규격: **「없다」가 아니라 «모른다»**. 구역은 자리를 지키고, 안에서 그렇게 말한다.
+ *   ⚠ 값을 지어내지 않는다. 「보험 포함」 같은 기본값을 채우면 그게 계약 조건이 된다.
+ */
+function Missing() {
+  return (
+    <div style={{ fontSize: SHOP.fs.sub, color: C.faint, lineHeight: 1.7 }}>
+      공급사에서 아직 받지 못한 항목입니다. 담당자에게 확인해 주세요.
     </div>
   );
 }
