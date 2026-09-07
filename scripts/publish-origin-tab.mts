@@ -320,13 +320,6 @@ const policySource: Record<string, number> = { 문패시트: 0, 우리제공시�
 
 console.log(`■ 공급사 시트를 그대로 영업자 표로 ${APPLY ? '(반영)' : '(dry-run)'}\n`);
 const rows: string[][] = [];
-/**
- * ★행 배열 → 공급사코드. 발행 표의 「공급사」 칸은 «표시명»(가변)이라, 이름표를 바꾼 날 0대 가드가
- *   오발동한다(에스에이→SA·2026-09-04·09-07). 그래서 0대 감지는 «표시명»이 아니라 «코드»로 한다.
- *   built 배열 객체를 열쇠로 쓴다 — 아래 필터(출고불가·번호·빈행)는 .filter 로 «같은 배열 참조»를 남기므로
- *   필터 뒤에도 rowCode.get(row) 가 코드를 돌려준다. dedup 으로 갈아끼운 줄도 새 built 로 다시 set.
- */
-const rowCode = new Map<string[], string>();
 const failures: string[] = [];
 /** @제외 로 안 실은 탭 — 몇 줄짜리였는지 같이 남긴다. 「조용히 빠진 차」가 없어야 한다. */
 const skippedTabs: string[] = [];
@@ -644,12 +637,11 @@ for (const [code, p] of [...byCode].sort()) {
       const known = (r: string[]) => r.reduce((k, v, i) => k + (S(v) && COLUMNS[i] !== '공급사' && COLUMNS[i] !== '차량번호' ? 1 : 0), 0);
       if (dupAt !== undefined) {
         dupes++;
-        if (known(built) > known(rows[dupAt])) { rows[dupAt] = built; rowCode.set(built, code); }   // 더 아는 줄로 갈아 끼운다
+        if (known(built) > known(rows[dupAt])) rows[dupAt] = built;   // 더 아는 줄로 갈아 끼운다
         continue;
       }
       seenPlate.set(key, rows.length);
       rows.push(built);
-      rowCode.set(built, code);
       n++;
     }
   }
@@ -843,13 +835,6 @@ let gid = ((meta.sheets || []) as Rec[]).find((s) => S(s.properties?.title).star
  *   직전 대수는 탭 이름에 적혀 있다(「상품리스트 08.14 13:34 · 379대」) — 따로 저장할 것이 없다.
  * ⚠ 공급사가 실제로 재고를 줄이는 날도 있다. 그때는 `--force-shrink` 로 지나간다.
  */
-// 코드별 지금 대수 — 코드기반 0대 가드와 «발행 후 스냅샷 기록»이 함께 쓴다(상위 스코프).
-// ★탭별로 스냅샷을 나눈다 — hourly-sync 가 이 발행기를 상품리스트·손오공구독·픽업구독·오플구독
-//   네 번(--tab/--only) 호출하므로, 하나의 스냅샷을 공유하면 서로의 코드셋을 0대로 오인한다(코덱스 P1-1).
-const SNAP_TAB = `@발행코드수-${TAB}`;
-const SNAP_PAD = 250;   // 고정폭 패딩 — clear 없이 단일 PUT 으로 원자적 갱신(파트너 64곳 < 250). 낡은 줄 잔존·clear/PUT 레이스 방지(코덱스 P1-2).
-const nowByCode = new Map<string, number>();
-for (const r of rows) { const c = rowCode.get(r); if (c) nowByCode.set(c, (nowByCode.get(c) || 0) + 1); }
 {
   const prevTitle = S(((meta.sheets || []) as Rec[]).find((s) => Number(s.properties?.sheetId) === gid)?.properties?.title);
   const prev = Number((prevTitle.match(/·\s*(\d+)대/) || [])[1] || 0);
@@ -870,42 +855,64 @@ for (const r of rows) { const c = rowCode.get(r); if (c) nowByCode.set(c, (nowBy
   if (!process.argv.includes('--force-shrink')) {
     const unread = failures.filter((f) => /시트를 못 읽었다/.test(f));
     if (unread.length) throw new Error(`시트를 통째로 못 읽은 공급사 ${unread.length}곳 — 발행하지 않는다(0대는 «모름»이다): ${unread.join(' / ').slice(0, 300)} — 맞으면 --force-shrink`);
-    /**
-     * ★★**0대 감지는 «표시명»이 아니라 «공급사코드»로 한다.**(코드기반 스냅샷 — 2026-09-07 재설계)
-     *   지난 방식은 직전 «발행 표»의 「공급사」 칸(표시명)을 셌다. 표시명은 문패에서 손질하면 바뀌므로
-     *   (에스에이→SA·제이앤제이→J&J) 같은 회사를 「11대→0」으로 오인해 9/4·9/7 3일 발행이 멈췄다.
-     *   표시명을 별칭(SPELL_PAIRS)으로 잇는 땜질은 사전 밖 이름·대소문자·이름 삭제를 못 덮었다(코덱스).
-     *   ⇒ 발행마다 «코드별 대수»를 숨은 탭 「@발행코드수」에 남기고, 다음 발행은 그 코드 스냅샷과 맞댄다.
-     *     코드는 불변이라 이름을 어떻게 바꿔도 오발동하지 않는다. 표(영업자 눈)는 안 건드린다.
-     *   ⚠ 첫 실행엔 스냅샷이 없어 기준선만 만들고(코드 0대 가드는 다음 발행부터), 그동안은 총량·시트못읽음 가드가 지킨다.
-     */
-    const snapExists = ((meta.sheets || []) as Rec[]).some((s) => S(s.properties?.title) === SNAP_TAB);
-    const snapRows = snapExists
-      ? (((await api(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET}/values/${encodeURIComponent(`'${SNAP_TAB}'`)}`)).values || []) as string[][])
-      : [];
-    // ★헤더가 맞고 데이터가 있어야 «유효 기준선». 빈/헤더뿐/손상(clear 후 PUT 실패 등)이면 기준선 없음으로 본다.
-    const headerOk = S(snapRows[0]?.[0]) === '공급사코드';
-    const baseline = new Map<string, { n: number; name: string }>();
-    let snapBad = 0;   // 손상 줄(코드는 있는데 대수가 숫자가 아님) — 세어서 기준선 신뢰 판단에 쓴다
-    if (headerOk) for (const r of snapRows.slice(1)) {
-      const c = S(r[0]); if (!c) continue;
-      const n = Number(r[1]);
-      // ⚠ 대수가 비숫자·음수면 «0으로 보고 통과»시키지 않는다 — 그 공급사의 진짜 소실을 놓친다(코덱스 §3).
-      //   손상 줄은 기준선에서 빼고 따로 센다. 손상이 있으면 아래에서 기준선 전체를 불신한다.
-      if (!Number.isFinite(n) || n < 0) { snapBad++; continue; }
-      baseline.set(c, { n, name: S(r[2]) });
-    }
-    if (baseline.size && !snapBad) {
-      const gone = [...baseline]
-        .filter(([c, v]) => v.n >= 3 && !(nowByCode.get(c) || 0))
-        .map(([c, v]) => `${v.name || c}(${c}) ${v.n}대→0`);
-      if (gone.length) throw new Error(`직전 발행에 있던 공급사가 코드기준 통째로 0대 — 발행하지 않는다: ${gone.join(' · ')} (못 읽은 것인지 먼저 보라 — 맞으면 --force-shrink)`);
-    } else {
-      // 기준선이 없거나(첫 발행)·헤더뿐·손상됐다 — 코드 0대 가드는 건너뛰고 이번 발행으로 기준선을 (재)생성.
-      //   ⚠ 이 «시딩 창」에서는 코드기준 소실을 못 잡는다(비교할 기준선이 없으니 불가피 — 코덱스 §3).
-      //     그래서 시딩은 «데이터가 온전한 것을 눈으로 확인한 상태」에서만 돌린다. 그동안 총량(-20%)·시트못읽음 가드는 유효.
-      const why = !snapExists ? '없음(첫 발행)' : !headerOk ? '헤더 손상' : snapBad ? `손상 줄 ${snapBad}개` : '데이터 없음';
-      console.log(`  ⚠ 코드 스냅샷(${SNAP_TAB}) ${why} — 이번 발행으로 기준선 (재)생성. 코드 0대 가드는 «다음» 발행부터. (이번엔 총량·시트못읽음 가드만 지킨다)`);
+    if (prevTitle) {
+      const supplierAt = COLUMNS.indexOf('공급사');
+      const prevRows = ((await api(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET}/values/${encodeURIComponent(`'${prevTitle.replace(/'/g, "''")}'`)}`)).values || []) as string[][];
+      const prevHdr = (prevRows[0] || []).map(S);
+      const prevAt = prevHdr.indexOf('공급사');
+      if (prevAt >= 0 && supplierAt >= 0) {
+        /**
+         * ★★**이름표가 아니라 «정체»로 센다.**
+         *   공급사 칸은 `companyAlias(partner_name) || code` 다(위 `who`). 그래서 문패의
+         *   「공급사명」을 채우거나 지우면 같은 회사가 어제는 `RP004`, 오늘은 `아이카` 로 적힌다.
+         *   글자로 맞대면 그날 **차는 그대로인데 「77대→0」** 이 되어 발행이 멈춘다.
+         *
+         *   실측 2026-09-04 19:49 — 여덟 곳이 「통째로 0대」로 잡혀 중단됐는데,
+         *   같은 회차의 ① 단계는 「✓ 아이카(RP004) 재고 — 차 77대」로 멀쩡히 읽고 있었다.
+         *   게다가 총계는 331→315 로 **16대만** 줄었다. 209대가 사라졌다면 나올 수 없는 총계다.
+         *   ⇒ 사라진 게 아니라 이름표가 바뀐 것이었다. 가드가 오발동한 것이다.
+         *
+         *   그래서 양쪽 글자를 문패로 **코드로 환원**한 뒤 센다. 환원이 안 되는 글자(문패에 없는
+         *   공급사)는 글자 그대로 둔다 — 모르는 것을 같다고 우기지 않는다.
+         */
+        /**
+         * ★companyAlias 단일키가 아니라 supplierNameKeys(SA↔에스에이·J&J↔제이앤제이 SPELL_PAIRS 다리 포함)로 잇는다.
+         *   가드가 이 다리를 안 타서, 문패 이름표가 「에스에이」→「SA」·「제이앤제이」→「J&J」로 바뀐 날
+         *   같은 회사를 prev=에스에이 / now=SA 로 갈라 보아 「11대→0」 오발동했다(2026-09-04·09-07 3일 발행중단).
+         *   문패 대조·정제칸·정책 도구가 이미 supplierNameKeys 를 쓰므로 가드도 같은 열쇠로 통일한다.
+         * ⚠ 단 supplierNameKeys 의 short 키(렌터카/캐피탈 제거)는 「가온렌터카 vs 가온캐피탈」처럼 다른 두 회사를
+         *   「가온」 한 키로 뭉갤 수 있다(코덱스 2026-09-07 반례). 그러면 한 회사 소실을 놓친다.
+         *   ⇒ **키가 «한 코드에만» 매핑될 때만 등록**한다. 두 코드 이상이 다투는 모호한 키는 문패로 안 써서
+         *     (ident 가 그 라벨을 그대로 두어) 가드의 소실 보호를 약화시키지 않는다. code 자신은 항상 등록.
+         */
+        const keyToCodes = new Map<string, Set<string>>();
+        const addKey = (k: string, c: string) => { if (!k) return; (keyToCodes.get(k) || keyToCodes.set(k, new Set()).get(k)!).add(c); };
+        for (const [c, p] of byCode) {
+          addKey(c, c);
+          for (const k of supplierNameKeys(S(p.partner_name || p.name))) addKey(k, c);
+        }
+        const codeOf = new Map<string, string>();
+        for (const [k, codes] of keyToCodes) if (codes.size === 1) codeOf.set(k, [...codes][0]);
+        const ident = (w: string) => codeOf.get(S(w)) || S(w);
+        const count = (list: string[][], at: number) => {
+          const m = new Map<string, { n: number; seen: Set<string> }>();
+          for (const r of list) {
+            const w = S(r[at]);
+            if (!w) continue;
+            const k = ident(w);
+            const cur = m.get(k) || { n: 0, seen: new Set<string>() };
+            cur.n += 1; cur.seen.add(w);
+            m.set(k, cur);
+          }
+          return m;
+        };
+        const before = count(prevRows.slice(1), prevAt);
+        const now = count(rows, supplierAt);
+        const gone = [...before]
+          .filter(([k, v]) => v.n >= 3 && !(now.get(k)?.n || 0))
+          .map(([k, v]) => `${[...v.seen].join('/')}${k && ![...v.seen].includes(k) ? `(${k})` : ''} ${v.n}대→0`);
+        if (gone.length) throw new Error(`직전 표에 있던 공급사가 통째로 0대 — 발행하지 않는다: ${gone.join(' · ')} (못 읽은 것인지 먼저 보라 — 맞으면 --force-shrink)`);
+      }
     }
   }
 }
@@ -959,31 +966,5 @@ await api(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET}/values/${encod
   const pi = COLUMNS.indexOf('사진');
   const linked = pi < 0 ? 0 : rows.filter((r) => S(r[pi]).startsWith('http')).length;
   console.log(`  차량번호에 사진링크 ${linked}대 · 링크 없는 차 ${rows.length - linked}대는 글자만`);
-}
-/**
- * ★코드별 대수 스냅샷 — 다음 발행의 «코드기반 0대 가드» 기준선.
- *   숨은 탭 「@발행코드수」(영업자 표엔 안 보인다). 표시명이 아니라 코드로 남겨, 이름을 어떻게 바꿔도
- *   다음 발행이 오발동하지 않게 한다(에스에이→SA 3일 중단 재발 방지).
- */
-{
-  const snapMeta = await api(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET}?fields=sheets.properties(sheetId,title)`);
-  let snapGid = ((snapMeta.sheets || []) as Rec[]).find((s) => S(s.properties?.title) === SNAP_TAB)?.properties?.sheetId as number | undefined;
-  if (snapGid == null) {
-    const made = await api(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET}:batchUpdate`, {
-      method: 'POST', body: JSON.stringify({ requests: [{ addSheet: { properties: { title: SNAP_TAB, hidden: true } } }] }),
-    });
-    snapGid = Number(((made.replies || []) as Rec[])[0]?.addSheet?.properties?.sheetId ?? 0);
-  }
-  const dataRows = [...nowByCode].sort((a, b) => a[0].localeCompare(b[0])).map(([c, n]) => {
-    const p = byCode.get(c); return [c, String(n), companyAlias(S(p?.partner_name || p?.name)) || c];
-  });
-  // ★clear 없이 «단일 PUT»으로 원자 갱신 — 고정폭(SNAP_PAD)까지 빈 줄로 채워 낡은 줄 잔존을 없앤다.
-  //   clear→PUT 2단계면 clear 성공·PUT 실패 시 빈 스냅샷이 남아 다음 발행 보호가 사라진다(코덱스 P1-2).
-  const snapValues: string[][] = [['공급사코드', '대수', '공급사명(참고)'], ...dataRows];
-  while (snapValues.length < SNAP_PAD) snapValues.push(['', '', '']);
-  await api(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET}/values/${encodeURIComponent(`'${SNAP_TAB}'!A1:C${SNAP_PAD}`)}?valueInputOption=RAW`, {
-    method: 'PUT', body: JSON.stringify({ values: snapValues }),
-  });
-  console.log(`  코드 스냅샷 「${SNAP_TAB}」 갱신 — 공급사코드 ${nowByCode.size}개(다음 발행의 0대 가드 기준선)`);
 }
 console.log(`\n  반영 완료 — 탭 「${title}」\n  https://docs.google.com/spreadsheets/d/${SHEET}/edit#gid=${gid}\n`);
