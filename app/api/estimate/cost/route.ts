@@ -57,6 +57,7 @@ const RANGE: Record<keyof CostSettings, [number, number]> = {
   depositMonths: [0, 12],
   penaltyRecoveryAPct: [0, 100], penaltyRecoveryBPct: [0, 100], penaltyRecoveryCPct: [0, 100],
   // 잔가 가감 — ±%p. 곡선을 통째로 올리거나 내린다.
+  evSubsidy: [0, 30_000_000],
   residualAdjustPct: [-30, 30],
   returnDeliveryFee: [0, 5_000_000], disposalFeePct: [0, 20],
 };

@@ -236,13 +236,17 @@ function EstimateCostPageInner() {
           <div className="osub">어느 조합이든 같다</div>
           <ORow label="차량 매입 할인" help={<>사 올 때 받은 할인. <b>견적 화면에서 건별로</b> 고른다 — 차마다 다르므로 여기서 미리 못 정한다.</>}><Pin unit="%" value={0} disabled /></ORow>
           <ORow label="개별소비세" help={<>신차 값에 이미 들어 있는 세금(5%＋교육세 30%). 렌터카는 원래 면세지만 <b>6개월 이상 같은 사람에게 빌려주면 면세 요건을 못 채워</b> 우리가 문다 — 그래서 원가로 남는다. 법정이라 못 고친다.</>}><Pin unit="%" value={5} disabled /></ORow>
+          <ORow label="전기차 취득세 감면" help={<>전기차는 취득세를 <b>140만원까지 전액 감면</b>받는다(지방세특례제한법). 세액이 한도보다 적으면 그만큼만 깎인다 — 감면은 «환급»이 아니다. <b>법정</b>이라 못 고친다.</>}><Pin w unit="원" value="1,400,000" disabled /></ORow>
           <ORow label="차량가 업금액 · 중고" help={<>매입가에 얹어 <b>취득원가</b>를 만드는 값. ⚠ 얹은 금액은 <b>취득에만 붙고 잔가에는 안 붙어 통째로 감가</b>가 된다 — 손님이 4년에 걸쳐 그 돈을 낸다. <b>0 을 권한다.</b> 마진은 <b>Ⅳ 목표 수익률</b>에서 잡는 게 맞다.</>}>
             <Pin unit="%" value={cs.markupUsedPct} onChange={(v) => set('markupUsedPct', num(v))} />
           </ORow>
           <ORow label="차량가 업금액 · 신차" help={<>신차는 <b>제조사 공표가</b>라 우리가 얹을 자리가 없다. <b>0 이 정상</b>이다.</>}>
             <Pin unit="%" value={cs.markupNewPct} onChange={(v) => set('markupNewPct', num(v))} />
           </ORow>
-          <ORow label="공채율" help={<>차를 등록할 때 의무로 사는 <b>지역개발·도시철도 채권</b>. 바로 되팔면서 생기는 손실만 원가로 잡는다 — 취득원가의 <b>0.3%</b>가 통상이다.</>}><Pin unit="%" value={cs.bondPct} onChange={(v) => set('bondPct', num(v))} /></ORow>
+          <ORow label="공채율" help={<>차를 등록할 때 의무로 사는 <b>지역개발·도시철도 채권</b>. 바로 되팔면서 생기는 손실만 원가로 잡는다 — 취득원가의 <b>0.3%</b>가 통상이다. ⚠ <b>전기차는 면제</b>라 자동으로 0 이 된다.</>}><Pin unit="%" value={cs.bondPct} onChange={(v) => set('bondPct', num(v))} /></ORow>
+          <ORow label="전기차 보조금" help={<>신차 전기차를 살 때 받는 <b>국고 + 지자체 보조금</b>. 취득가에서 <b>먼저 빼고</b> 계산한다 — 취득세·공채·잔가가 다 같이 낮은 값 기준이 되어야 앞뒤가 맞는다(중고 EV 시세도 «보조금 받은 값» 위에서 형성된다). ⚠ 차종·연도·<b>사업장 소재지</b>마다 달라 법정값처럼 못 박는다. 회사가 실제로 받는 금액을 넣는다. ※ 취득세 감면(140만)과 공채 면제는 <b>법정</b>이라 이 화면에 없다 — 전기차면 자동이다.</>}>
+            <Pin w unit="원" value={comma(cs.evSubsidy)} onChange={(v) => set('evSubsidy', num(v))} />
+          </ORow>
           <ORow label="등록비" help={<>번호판·인지대·등록 대행 수수료. 차 한 대당 한 번.</>}><Pin w unit="원" value={comma(cs.regFee)} onChange={(v) => set('regFee', num(v))} /></ORow>
           <ORow label="1차 탁송료" help={<>매입한 곳에서 <b>차를 가져오는 값</b>. 거리에 따라 다르다.</>}><Pin w unit="원" value={comma(cs.deliveryFee)} onChange={(v) => set('deliveryFee', num(v))} /></ORow>
           <ORow label="초기 상품화비" help={<>팔 수 있는 상태로 만드는 값 — 정비·클리닝·<b>GPS 설치</b>. 이미 상품화된 차를 사 오면 0 이다(견적 화면의 «취득 경로»에서 고른다).</>}><Pin w unit="원" value={comma(cs.initPrepFee)} onChange={(v) => set('initPrepFee', num(v))} /></ORow>
