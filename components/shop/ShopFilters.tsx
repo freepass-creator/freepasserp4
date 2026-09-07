@@ -71,14 +71,26 @@ const COLUMNS: Partial<Record<ShopAxis, 1 | 2>> = {
  *   접어 두면 「얼마 있어야 되나」를 묻는 손님이 그 축을 못 찾는다.
  */
 const OPEN_BY_DEFAULT: ShopAxis[] = ['vc', 'maker', 'rent', 'dep'];
-/** 긴 목록을 몇 개까지 보여 주고 「더보기」로 접을까 — 제조사 12개 중 아래 넷은 5대 미만이다. */
+/**
+ * 긴 목록을 «한 번에 몇 개씩» 여는가 — **다섯**(사장님 2026-09-07 「웹 필터는 **5개씩 보고
+ * 더보기 5개씩** 하는 거로, **5개 이하면 남은 거만큼만** 보게 하고」).
+ *
+ * ⚠ 여덟을 보여 주고 「더보기」를 누르면 **나머지를 통째로** 폈다. 제조사는 12개라 한 번에 넷이
+ *   더 나오는 정도지만, 그 뒤 축(연식·모델)은 한 번에 스무 줄이 튀어나와 기둥이 통째로 길어졌다.
+ *   조건 하나 더 보려던 손이 화면을 잃는다.
+ * ⇒ **다섯씩 연다.** 남은 것이 다섯보다 적으면 그만큼만 — 「더보기 3」이면 정말 셋만 나온다.
+ *   그래야 단추의 숫자가 «앞으로 나올 수»가 되어 거짓말을 안 한다.
+ * ★웹·폰이 같은 원자를 쓰므로 양쪽에 한 번에 적용된다(집 규칙: 한쪽만 고치지 않는다).
+ */
 /**
  * 제조사 마크의 «자리» 크기 — 그림과 빈자리가 **같은 값**이어야 왼선이 안 갈린다.
  * 한 곳에서 정한다(둘을 따로 적으면 한쪽만 고쳐져 그 어긋남이 조용히 돌아온다).
  */
 const MARK = 18;
 
-const HEAD_COUNT = 8;
+const HEAD_COUNT = 5;
+/** 「더보기」 한 번에 더 여는 수 — 처음 보여 주는 수와 같다(리듬이 갈리면 단추가 딴 물건이 된다). */
+const MORE_STEP = 5;
 
 export function ShopFilters({ facets, sel, onToggle, onClearAxis, mobile: forceMobile }: {
   facets: ShopFacets;
@@ -227,10 +239,19 @@ function CheckList({ axis, options, selected, onToggle, mobile, columns }: {
   mobile?: boolean;
   columns: 1 | 2;
 }) {
-  const hiddenHasPick = options.slice(HEAD_COUNT).some((o) => selected.includes(o.key));
-  const [all, setAll] = useState(false);
-  const shown = all || hiddenHasPick ? options : options.slice(0, HEAD_COUNT);
+  /*
+   * ★고른 값이 접힌 자리에 있으면 **거기까지 펼친 채로 시작한다** — 걸어 둔 조건이 안 보이면
+   *   그게 «숨은 필터»다. 통째로 펴지 않고 그 값이 드러나는 만큼만 연다(다섯 단위로 올림).
+   */
+  const deepestPick = options.reduce((acc, o, i) => (selected.includes(o.key) ? i : acc), -1);
+  const floor = deepestPick < HEAD_COUNT ? HEAD_COUNT
+    : HEAD_COUNT + Math.ceil((deepestPick + 1 - HEAD_COUNT) / MORE_STEP) * MORE_STEP;
+  const [opened, setOpened] = useState(0);
+  const limit = Math.max(HEAD_COUNT + opened, floor);
+  const shown = options.slice(0, limit);
   const rest = options.length - shown.length;
+  /** 단추에 적는 수 = «이번에 정말 나올 수». 남은 게 셋이면 「더보기 3」이고 셋만 나온다. */
+  const nextStep = Math.min(MORE_STEP, rest);
   return (
     <>
       <div style={{
@@ -247,7 +268,7 @@ function CheckList({ axis, options, selected, onToggle, mobile, columns }: {
       </div>
       {rest > 0 ? (
         <div style={{ marginTop: SHOP.sp.snug }}>
-          <ShopTextBtn tone="faint" onClick={() => setAll(true)}>{`더보기 ${rest}`}</ShopTextBtn>
+          <ShopTextBtn tone="faint" onClick={() => setOpened((n) => n + MORE_STEP)}>{`더보기 ${nextStep}`}</ShopTextBtn>
         </div>
       ) : null}
     </>
