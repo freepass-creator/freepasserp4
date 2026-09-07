@@ -1,10 +1,11 @@
 'use client';
 import { useCallback, useState, type ReactNode } from 'react';
-import { Phone, X } from 'lucide-react';
+import { LogIn, Phone, SquareArrowOutUpRight, X } from 'lucide-react';
 import { C, FW, ICON, R_CARD, fmtPhone } from '@/components/ui';
 import { SHOP, ShopDock, ShopDockAction } from '@/components/shop/shop-ui';
 import { ChannelSign, ChannelWordmark, CoBrandFreepass } from '@/components/brand-ci';
 import { CORP } from '@/lib/domain/corporate-ci';
+import { useSession } from '@/lib/auth-context';
 import { useIsMobile } from '@/lib/use-mobile';
 import { hasBrand, whitelabelVars, type Whitelabel } from '@/lib/whitelabel';
 
@@ -309,27 +310,56 @@ export function WhitelabelFrame({
             <ChannelWordmark wl={wl} fs={18} color={C.faint} />
           </div>
           <div style={{ fontSize: SHOP.fs.sub, color: C.faint, lineHeight: 1.9 }}>
-            {wl.bizLines.map((line) => <div key={line}>{line}</div>)}
+            {/*
+              ⚠⚠ **「[미확인]」이 손님에게 그대로 나가고 있었다** — 2026-09-07 운영 실측
+                「인천시 서구 봉오재3로 90 · **통신판매업신고 [미확인]**」.
+              ★표에서 모르는 값을 `[대괄호]` 로 두는 것은 **우리끼리 쓰는 표시**다(「지어내지 않는다」).
+                그런데 그 표시가 «손님 화면»까지 흘러나가면, 못 채운 칸이 있다고 광고하는 꼴이다.
+              ⇒ 화면에서는 **대괄호가 든 조각만 뺀다.** 표는 그대로 둔다 —
+                값이 들어오는 날 저절로 다시 나온다(표만 고치면 되고 코드는 안 건드린다).
+              ★조각 단위로 뺀다 — 줄째 빼면 주소까지 같이 사라진다(위 줄이 「주소 · 신고번호」다).
+            */}
+            {wl.bizLines.map((line) => {
+              const shown = line.split('·').map((x) => x.trim())
+                .filter((x) => x && !/\[[^\]]*\]/.test(x)).join(' · ');
+              return shown ? <div key={line}>{shown}</div> : null;
+            })}
             {/*
               ★★**운영 주체를 밝힌다**(사장님 2026-09-07 「하단에는 **프리패스모빌리티가 운영을
                 해주고 있다**고 해야 하고」). 계약·정산은 채널이 하고 **판을 굴리는 것은 우리**다 —
                 손님이 「이 사이트 누가 만들었나」를 물을 때 답이 화면에 있어야 한다.
               ★머리띠의 «✕ freepass» 와 짝이다 — 위에서 한 번 보이고 아래에서 한 번 밝힌다.
             */}
-            <div style={{ marginTop: SHOP.sp.snug }}>
-              이 홈페이지는 <strong style={{ fontWeight: FW.title, color: C.mute }}>{CORP.name}</strong>가 운영합니다.
+            {/*
+              ★★**한 단 진하게 — 이 줄은 «읽히라고» 있는 것이다**(사장님 2026-09-07
+                「이 홈페이지는 **어디가 운영한다고 알려줘야지**」 — 이미 있는데 안 보이셨다).
+              ⚠ 사업자 표기와 같은 `faint` 로 흘려 두니 «법으로 적어 두는 잔글씨»에 묻혔다.
+                이건 잔글씨가 아니라 **손님이 「누구랑 거래하나」를 아는 줄**이다.
+              ★그렇다고 크게 키우지는 않는다 — 글자 크기는 그대로(`sub`)고 색만 한 단 올린다.
+                간판의 주인은 채널이고 우리는 «운영»이라고만 밝히는 자리다.
+            */}
+            <div style={{ marginTop: SHOP.sp.cozy, color: C.mute }}>
+              이 홈페이지는 <strong style={{ fontWeight: FW.title, color: C.ink }}>{CORP.name}</strong>가 운영합니다.
             </div>
           </div>
           {/*
-            영업자 로그인 — **푸터 맨 밑에 조용히**(사장님 2026-09-05 「그 주소로 들어가면 상품부터
+            영업자·직원 로그인 — **푸터 맨 밑에 조용히**(사장님 2026-09-05 「그 주소로 들어가면 상품부터
             다 보이는 거라고. 거길 들어가서 영업자는 로그인을 하는 거야」).
             손님은 로그인할 일이 없으니 위로 올리지 않는다. 그렇다고 없애면 영업자가 주소를 외워
             쳐야 한다 — 사업자 표기 밑 한 줄이 그 둘을 다 만족한다(회사 사이트가 흔히 그러는 자리다).
+
+            ★★**조용한 것과 «못 찾는» 것은 다르다**(사장님 2026-09-07 「직원들 로그인할 수 있게 하는
+              **버튼이 있어야 하는데**」 — 이미 있는데 못 보셨다).
+            ⚠ 실측 — 「로그인」 넉 자, 12px, `C.faint`, 상자 31×18. 글자만 있어 **누를 것으로 안 읽혔고**,
+              말도 「로그인」이라 손님은 「내 계정이 있나?」로, 직원은 제 것인지 모르고 지나쳤다.
+            ⇒ 셋을 고친다. 조용함은 그대로 두고 «찾을 수 있게»만 한다:
+              ㉠ 말 — 「**담당자 로그인**」. 손님은 제 것이 아님을 알고 지나가고, 직원은 제 것임을 안다.
+              ㉡ 모양 — 옅은 테두리 + 아이콘. 글자만이면 링크인 줄 모른다. 색은 여전히 `faint` 다.
+              ㉢ 로그인돼 있으면 **「업무 화면으로」**. 영업자가 손님 화면을 보다가 돌아갈 길이 없어
+                 주소를 쳐야 했다. 같은 자리에서 말만 바뀐다.
+            ★크기는 안 키운다 — 손님 화면의 주인공은 차다. 이 줄이 커지면 그 순간 우리 사정이 앞선다.
           */}
-          <a href="/login" style={{
-            display: 'inline-block', marginTop: SHOP.sp.edge,
-            fontSize: SHOP.fs.cap, color: C.faint, textDecoration: 'none',
-          }}>로그인</a>
+          <StaffLink />
         </div>
       </footer>
     </div>
@@ -386,5 +416,30 @@ function WhitelabelNotice({ wl, mobile }: { wl: Whitelabel; mobile: boolean }) {
         </button>
       </div>
     </div>
+  );
+}
+
+/**
+ * 담당자(영업자·직원)만 쓰는 한 줄 — 손님 화면의 **맨 밑, 제일 조용한 자리**.
+ * ★로그인 전이면 「담당자 로그인」, 뒤면 「업무 화면으로」. 자리는 그대로고 말만 바뀐다.
+ * ★가는 곳은 `/finder`(상품찾기) — 역할과 무관하게 누구나 들어가는 층이라 여기서 갈리지 않는다.
+ */
+function StaffLink() {
+  const session = useSession();
+  const inside = !!session;
+  return (
+    <a
+      href={inside ? '/finder' : '/login'}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: SHOP.sp.tight,
+        marginTop: SHOP.sp.edge, padding: '6px 10px',
+        border: `1px solid ${C.line}`, borderRadius: SHOP.r.chip,
+        fontSize: SHOP.fs.cap, color: C.faint, textDecoration: 'none',
+      }}
+    >
+      {inside
+        ? <><SquareArrowOutUpRight size={13} aria-hidden />업무 화면으로</>
+        : <><LogIn size={13} aria-hidden />담당자 로그인</>}
+    </a>
   );
 }
