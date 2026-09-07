@@ -1,6 +1,7 @@
 'use client';
+import type { ReactNode } from 'react';
 import { C, FW } from '@/components/ui';
-import { BRAND_FONT, BRAND_MAIN } from '@/lib/brand';
+import { BRAND_FONT, BRAND_MAIN, BRAND_SUB, BRAND_WEIGHT } from '@/lib/brand';
 import type { Whitelabel } from '@/lib/whitelabel';
 
 /**
@@ -88,7 +89,18 @@ const TRACK_SUB = '0.16em';
  *   한쪽만 색을 달리하면 로고와 색이 갈린다.
  * ★둘은 **밑선(baseline)을 맞춘다.** 가운데를 맞추면 보조가 붕 뜬다.
  */
-export function ChannelWordmark({ wl, fs, color = C.ink }: { wl: Whitelabel; fs: number; color?: string }) {
+export function ChannelWordmark({ wl, fs, color = C.ink, after }: {
+  wl: Whitelabel; fs: number; color?: string;
+  /**
+   * 뒤에 «같은 줄»로 붙는 것 — 동반 표기(`CoBrandFreepass`)가 여기 든다.
+   *
+   * ★★**왜 밖이 아니라 안인가**(사장님 2026-09-07 「**협업한다는 뜻**인데 저거 정렬이 저렇게 안 되나」).
+   *   밖에 형제로 두면 그 줄은 «가운데 정렬»로 붙어 **밑선이 3px 떠 있었다** — 한 줄로 안 읽힌다.
+   *   ✕ 는 「A ✕ B」로 두 이름을 잇는 기호다. 두 이름이 같은 줄에 서지 않으면 그 뜻이 안 산다.
+   * ⇒ 워드마크와 **한 밑선 줄** 안에 넣는다. 대신 사이는 한 단 더 뗀다(붙은 것 ↔ 뗀 것).
+   */
+  after?: ReactNode;
+}) {
   const sub = wl.wordmark.sub.trim();
   return (
     <span style={{
@@ -103,6 +115,8 @@ export function ChannelWordmark({ wl, fs, color = C.ink }: { wl: Whitelabel; fs:
           fontSize: Math.round(fs * 0.59), fontWeight: FW.meta, letterSpacing: TRACK_SUB, lineHeight: 1,
         }}>{sub}</span>
       ) : null}
+      {/* ★안쪽 사이(gap)에 이만큼 «더» 얹는다 — 간판보다 한 단 떨어져야 «동반»으로 읽힌다. */}
+      {after ? <span style={{ marginLeft: Math.round(fs * 0.35) }}>{after}</span> : null}
     </span>
   );
 }
@@ -118,7 +132,11 @@ export function ChannelWordmark({ wl, fs, color = C.ink }: { wl: Whitelabel; fs:
  * ⚠ «글자의 중심»은 줄상자 가운데가 **아니다** — 대문자뿐이라 밑으로 내려가는 획이 없어 둘이
  *   어긋난다(`CAP_NUDGE`). 거기에 심볼 제 무게중심 보정(`MARK_OPTICAL`)을 더해 «보이는» 가운데를 맞춘다.
  */
-export function ChannelSign({ wl, fs, gap }: { wl: Whitelabel; fs: number; gap: number }) {
+export function ChannelSign({ wl, fs, gap, after }: {
+  wl: Whitelabel; fs: number; gap: number;
+  /** 워드마크 «뒤»에 같은 밑선으로 붙는 것 — 동반 표기(위 `ChannelWordmark.after`). */
+  after?: ReactNode;
+}) {
   const markH = Math.round(fs * CAP * 1.5);
   /* 캡 밴드로 내리고(+) · 심볼 무게가 아래로 쏠린 만큼 올린다(−). 둘 다 «잰» 값이다. */
   const shift = fs * CAP_NUDGE - markH * MARK_OPTICAL;
@@ -132,7 +150,7 @@ export function ChannelSign({ wl, fs, gap }: { wl: Whitelabel; fs: number; gap: 
           transform: `translateY(${shift.toFixed(2)}px)`,
         }} />
       ) : null}
-      <ChannelWordmark wl={wl} fs={fs} />
+      <ChannelWordmark wl={wl} fs={fs} after={after} />
     </span>
   );
 }
@@ -153,11 +171,22 @@ export function CoBrandFreepass({ fs, gap }: { fs: number; gap: number }) {
       opacity: 0.55, color: C.faint, whiteSpace: 'nowrap',
     }}>
       <span aria-hidden style={{ fontSize: Math.round(fs * 0.85), fontWeight: FW.meta, lineHeight: 1 }}>✕</span>
-      {/* ★Exo 2 600 소문자 — 명함 CI 다. 본문 서체로 적으면 그건 CI 가 아니라 그냥 글자다. */}
+      {/*
+        ★★**CI 정본 그대로** — `freepass`(600) + `erp.com`(300), **Exo 2 소문자 한 낱말**
+          (사장님 2026-09-07 「**프리패스 CI 있잖아 그거 그대로 잘 반영**해달라고」).
+          명함·CI센터(`ci_center/index.html`)가 워드마크를 «두 무게»로 정의한다 —
+          앞은 굵게(이름) 뒤는 가늘게(무엇). 앞부분만 쓰면 그건 CI 의 절반이다.
+        ⚠ 둘 사이는 **붙인다.** 한 낱말이라 flex gap 을 주면 안 된다 —
+          그래서 이 안쪽만 `gap: 0` 짜리 제 줄로 감싼다.
+        ★본문 서체(Pretendard)로 적으면 그건 CI 가 아니라 그냥 글자다.
+      */}
       <span style={{
-        fontFamily: BRAND_FONT, fontSize: fs, fontWeight: 600,
-        letterSpacing: '-0.04em', textTransform: 'lowercase', lineHeight: 1,
-      }}>{BRAND_MAIN}</span>
+        fontFamily: BRAND_FONT, fontSize: fs, letterSpacing: '-0.04em',
+        textTransform: 'lowercase', lineHeight: 1,
+      }}>
+        <span style={{ fontWeight: BRAND_WEIGHT.main }}>{BRAND_MAIN}</span>
+        <span style={{ fontWeight: BRAND_WEIGHT.sub }}>{BRAND_SUB}</span>
+      </span>
     </span>
   );
 }

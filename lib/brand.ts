@@ -17,6 +17,15 @@ export const BRAND = `${BRAND_MAIN}${BRAND_SUB}`;
  */
 export const BRAND_FONT = "'Exo 2','Pretendard',sans-serif";
 
+/**
+ * **워드마크 무게 — 앞 600(이름) · 뒤 300(무엇).** 명함·CI센터가 정의한 값이다.
+ *
+ * ⚠ 업무동 글자 사다리(`FW`)에 **일부러 안 넣는다.** FW 는 «읽는 글자»의 사다리라 제일 가는 것이
+ *   400 이다 — 300 을 거기 넣으면 다음 사람이 본문·라벨에 쓰기 시작한다.
+ *   이 300 은 **글자가 아니라 브랜드 자산의 획 굵기**다. 그래서 자리가 여기다.
+ */
+export const BRAND_WEIGHT = { main: 600, sub: 300 } as const;
+
 
 /**
  * 한 줄 소개 SSOT — 검색결과 제목·OG·구조화 데이터가 전부 이 문자열을 쓴다.
