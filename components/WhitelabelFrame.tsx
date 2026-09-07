@@ -203,11 +203,15 @@ export function WhitelabelFrame({
              *   `cozy`(12)로 한 단 떼어 놓는다. 붙은 것은 한 이름으로, 뗀 것은 «동반»으로 읽힌다.
              */
             <a href={homeHref} aria-label={`${wl.name} 첫 화면으로`} style={{
-              display: 'flex', alignItems: 'center', gap: mobile ? SHOP.sp.snug : SHOP.sp.cozy,
+              /*
+               * ★간판(마크+워드마크)과 «✕ freepass» 사이 — **붙은 것은 한 이름, 뗀 것은 동반**이다.
+               *   안쪽 사이(마크↔UNI↔AUTOMOBILE)보다 «더» 떨어져야 두 브랜드로 읽힌다.
+               */
+              display: 'flex', alignItems: 'center', gap: mobile ? SHOP.sp.cozy : SHOP.sp.edge,
               whiteSpace: 'nowrap', textDecoration: 'none', color: 'inherit',
             }}>
               {/* 간판 짜임(마크 높이·자간·세로 맞춤)은 원자가 안다 — `components/brand-ci`. */}
-              <ChannelSign wl={wl} fs={mobile ? 16 : 22} gap={mobile ? 7 : 9} />
+              <ChannelSign wl={wl} fs={mobile ? 17 : 23} gap={mobile ? 8 : 10} />
                 {/*
                   ★★**«채널 ✕ freepass» 동반 표기**(사장님 2026-09-07 「**유니오토모빌 X freepass**
                     이렇게 해줘야 함 홈페이지는」). 이 홈페이지는 채널의 얼굴이지만 **우리가 만들어
