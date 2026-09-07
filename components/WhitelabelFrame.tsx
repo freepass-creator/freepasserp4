@@ -250,30 +250,6 @@ export function WhitelabelFrame({
             </div>
           ) : null}
         </div>
-        {/*
-          ★★**폰·담당자 없음 — 「상담·문의 1800-6454」 둘째 줄**(사장님 2026-09-07
-            「모바일에서는 로그인 안 했을 때 **대표번호만 나오면 되고 버튼 눌러서 전화하는 거는
-            필요없지** · **상담 및 문의 1500-0000 이렇게** 하든가, 니가 좋은 방법을 찾아줘 봐」).
-          ★왜 «머리띠 둘째 줄»인가 —
-            ㉠ 머리띠가 붙박이라 **스크롤해도 늘 보인다**(하단 고정독 없이도 번호가 손에 남는다).
-            ㉡ 첫 줄 오른쪽은 검색·조건·공유가 이미 쓴다 — 거기 끼우면 셋이 자리를 다툰다.
-            ㉢ 단추가 아니라 **글자**다. 폰에서 번호는 원래 눌러서 걸리므로 `tel:` 만 걸고 모양은 둔다.
-          ★담당자가 붙으면 이 줄은 사라지고 **하단독**이 선다 — 그때는 «그 사람에게» 거는 것이라
-            엄지 밑 단추가 맞다. 둘이 동시에 서지 않는다(같은 일을 하는 문을 둘 두지 않는다).
-        */}
-        {phone && mobile && !who ? (
-          <a href={telHref} style={{
-            display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: SHOP.sp.snug,
-            padding: `0 ${SHOP.sp.edge}px ${SHOP.sp.snug}px`,
-            textDecoration: 'none', whiteSpace: 'nowrap',
-          }}>
-            <span style={{ fontSize: SHOP.fs.cap, color: C.faint }}>{CONTACT_LABEL}</span>
-            <span style={{
-              fontSize: SHOP.fs.sub, fontWeight: FW.title, color: C.ink,
-              fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.01em',
-            }}>{phoneText}</span>
-          </a>
-        ) : null}
       </header>
 
       {notice ? <WhitelabelNotice wl={wl} mobile={mobile} /> : null}
@@ -285,12 +261,34 @@ export function WhitelabelFrame({
           전에는 여기만 자리 잡는 높이(76)와 버튼 높이(48)를 손으로 적어, 상세(54)·시트(52)와
           치수가 갈렸고 아이폰 안전영역도 안 봤다. */}
       {/*
-        ★★**담당자가 있을 때만 독을 세운다**(사장님 2026-09-07 「모바일에서는 로그인 안 했을 때
-          **대표번호만 나오면 되고 버튼 눌러서 전화하는 거는 필요없지**」).
-          손님이 그냥 들어온 화면에서 「전화 상담」 단추는 **누구에게 거는지 없는 단추**다 —
-          대표번호는 머리띠에 «글자»로 늘 떠 있으면 충분하다(아래 `hotline`).
-        ★담당자가 붙었을 때는 다르다 — 그 사람에게 «걸어야» 하므로 엄지 밑 단추가 맞다.
+        ★★**폰에서 연락처는 «하단»이다 — 담당자가 있든 없든**(사장님 2026-09-07
+          「야 **모바일에서는 상담문의가 하단에 있어야** 하는데…」).
+          ⚠ 이 자리에 「담당자가 있을 때만 독을 세운다」고 적혀 있었다. 그 판단을 물린다.
+            대표번호를 머리띠 «둘째 줄»에 글자로 얹어 뒀는데, 그러면 —
+            ㉠ 머리가 두 줄이 되어 붙박이 머리띠가 그만큼 목록을 먹고,
+            ㉡ 정작 **엄지가 닿는 자리**에는 걸 곳이 없다. 폰에서 전화는 엄지 밑에 있어야 한다.
+          ⇒ 담당자 유무와 무관하게 **하단 고정독** 하나로 모은다. 머리띠 둘째 줄은 걷었다.
+        ★★**다만 «누구에게» 거느냐로 꼴이 갈린다**(사장님 2026-09-07 「대표번호만 나오면 되고
+          **버튼 눌러서 전화하는 거는 필요없지**」) —
+          · **담당자 있음** = 그 사람에게 거는 것이라 이름 + 「전화 상담」 **단추**.
+          · **담당자 없음** = 누구에게 거는지 없는 단추는 세우지 않는다. **번호를 글자로** 크게 둔다
+            (폰에서 번호는 원래 눌러서 걸리므로 `tel:` 만 걸고 모양은 글자 그대로).
       */}
+      {!who && phone && mobile && dock ? (
+        <ShopDock fixed>
+          <a href={telHref} style={{
+            display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: SHOP.sp.snug,
+            width: '100%', textDecoration: 'none', whiteSpace: 'nowrap',
+          }}>
+            <span style={{ fontSize: SHOP.fs.cap, color: C.faint }}>{CONTACT_LABEL}</span>
+            {/* ★번호는 «읽는 값»이라 서식을 입힌다(집 원자 `fmtPhone`). */}
+            <span style={{
+              fontSize: SHOP.fs.lead, fontWeight: FW.head, color: C.ink,
+              fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em',
+            }}>{phoneText}</span>
+          </a>
+        </ShopDock>
+      ) : null}
       {who && phone && mobile && dock ? (
         <ShopDock fixed sideWidth="auto" side={(
           <div style={{ display: 'flex', flexDirection: 'column', gap: SHOP.sp.tight, whiteSpace: 'nowrap' }}>
