@@ -108,6 +108,18 @@ const trackFix = (track: string) => ({ marginRight: `-${track}` });
  * ★위계는 **크기와 굵기와 자간**으로 준다. 색은 둘 다 먹색이다 — 로고가 검정이라
  *   한쪽만 색을 달리하면 로고와 색이 갈린다.
  * ★둘은 **밑선(baseline)을 맞춘다.** 가운데를 맞추면 보조가 붕 뜬다.
+ *
+ * ## 짜임은 둘이다 — 그 회사 CI 가 정한다(`wl.wordmark.kind`)
+ *
+ * | | `split`(기본) | `lockup` |
+ * |---|---|---|
+ * | 누구 | 유니오토모빌 — 앞이 이름, 뒤가 **보조격** | 프리패스모빌리티 — **한 낱말 두 무게** |
+ * | 크기 | 뒤가 0.59배 | 둘이 같다 |
+ * | 사이 | 낱말 사이만큼 뗀다 | **안 뗀다**(한 낱말) |
+ * | 서체 | 본문 서체 | **CI 서체**(Exo 2 · `lib/brand`) |
+ *
+ * ⚠ 짜임을 잘못 고르면 「연하게 그린 CI」가 아니라 **CI 가 아닌 것**이 된다 —
+ *   2026-09-07 에 우리 이름을 본문 서체 맨글자로 적어 놓고 CI 를 반영했다고 여겼던 그 일이다.
  */
 export function ChannelWordmark({ wl, fs, color = C.ink, after }: {
   wl: Whitelabel; fs: number; color?: string;
@@ -132,22 +144,42 @@ export function ChannelWordmark({ wl, fs, color = C.ink, after }: {
       display: 'inline-flex', alignItems: 'baseline',
       lineHeight: 1, color, whiteSpace: 'nowrap',
     }}>
-      <span style={{
-        display: 'inline-flex', alignItems: 'baseline', gap: Math.round(fs * 0.36),
-      }}>
+      {wl.wordmark.kind === 'lockup' ? (
+        /*
+          ★★**한 낱말 두 무게** — 프리패스 CI 의 짜임이다(`freepass`600 + `mobility`300, Exo 2 소문자).
+            사장님 2026-09-07 「프리패스도 CI 있는데 그거 반영 전혀 안 했고」 ·
+            「프리패스는 그냥 **CI 대로 영문만** 쓰면 되고」.
+          ⚠ 여기 `gap` 을 주면 안 된다 — **한 낱말**이다. 유니오토식 `split`(이름 + 보조격)으로
+            그리면 사이가 벌어지고 뒤 낱말이 작아져, 그건 우리 CI 가 아니라 남의 짜임이다.
+          ★무게·서체는 명함·CI 센터가 정의한 값(`lib/brand`)을 그대로 쓴다 — 여기서 고르지 않는다.
+          ★동반 표기(`CoBrandFreepass`)가 이미 «같은 규칙»으로 우리 이름을 그린다. 두 곳이
+            갈리지 않게 짜임을 여기 한 번 더 적는 것이 아니라, **같은 상수**를 본다.
+        */
         <span style={{
-          fontSize: fs, fontWeight: FW.head, letterSpacing: TRACK_MAIN, lineHeight: 1,
-          ...trackFix(TRACK_MAIN),
+          fontFamily: BRAND_FONT, fontSize: fs, letterSpacing: '-0.04em',
+          textTransform: 'lowercase', lineHeight: 1,
         }}>
-          {wl.wordmark.main}
+          <span style={{ fontWeight: BRAND_WEIGHT.main }}>{wl.wordmark.main}</span>
+          <span style={{ fontWeight: BRAND_WEIGHT.sub }}>{sub}</span>
         </span>
-        {sub ? (
+      ) : (
+        <span style={{
+          display: 'inline-flex', alignItems: 'baseline', gap: Math.round(fs * 0.36),
+        }}>
           <span style={{
-            fontSize: Math.round(fs * 0.59), fontWeight: FW.meta, letterSpacing: TRACK_SUB, lineHeight: 1,
-            ...trackFix(TRACK_SUB),
-          }}>{sub}</span>
-        ) : null}
-      </span>
+            fontSize: fs, fontWeight: FW.head, letterSpacing: TRACK_MAIN, lineHeight: 1,
+            ...trackFix(TRACK_MAIN),
+          }}>
+            {wl.wordmark.main}
+          </span>
+          {sub ? (
+            <span style={{
+              fontSize: Math.round(fs * 0.59), fontWeight: FW.meta, letterSpacing: TRACK_SUB, lineHeight: 1,
+              ...trackFix(TRACK_SUB),
+            }}>{sub}</span>
+          ) : null}
+        </span>
+      )}
       {/*
         ★★**동반 표기는 제 «앞뒤 여백»을 스스로 갖는다** — 여기서 더 얹지 않는다.
           ✕ 는 두 이름을 잇는 기호라 **좌우가 같아야** 「A ✕ B」로 읽힌다.

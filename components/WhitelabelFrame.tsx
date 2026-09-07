@@ -224,9 +224,13 @@ export function WhitelabelFrame({
                   있었다**(실측 UNI 43.5 · ✕ freepass 40.5). ✕ 는 「A ✕ B」로 두 이름을 잇는
                   기호다 — 두 이름이 한 줄에 서지 않으면 그 뜻이 안 산다.
                   사이는 원자가 한 단 더 뗀다(`ChannelWordmark.after`).
+
+                ★★**우리 가게(`wl.self`)에는 안 붙인다** — 「프리패스모빌리티 ✕ freepass」는
+                  협업이 아니라 **같은 이름을 두 번** 적은 것이다. 동반 표기는 「이 가게는 채널의
+                  얼굴이고 판은 우리가 굴린다」는 말인데, 주인이 우리면 할 말이 없다.
               */}
               <ChannelSign wl={wl} fs={mobile ? 17 : 23} gap={mobile ? 8 : 10}
-                after={<CoBrandFreepass fs={mobile ? 11 : 13} gap={mobile ? 9 : 12} />} />
+                after={wl.self ? null : <CoBrandFreepass fs={mobile ? 11 : 13} gap={mobile ? 9 : 12} />} />
             </a>
           )}
           <div style={{ flex: 1 }} />
@@ -350,10 +354,17 @@ export function WhitelabelFrame({
                 말이 제 몫을 하면 굵기는 필요 없다 — 굵게 세우면 손님 화면에서 «우리 사정»이 앞선다.
               ★그래서 `faint` 한 톤으로 두 줄. 첫 줄이 관계, 둘째 줄이 내용이다.
             */}
-            <div style={{ marginTop: SHOP.sp.cozy }}>
-              <div>{wl.name} ✕ {CORP.koMain}{CORP.koSub} 전략적 파트너십</div>
-              <div>양사 협약에 따라 {CORP.name}가 차량과 계약 시스템을 제공합니다.</div>
-            </div>
+            {/*
+              ★★**우리 가게(`wl.self`)에는 이 줄이 없다** — 「프리패스모빌리티 ✕ 프리패스모빌리티
+                전략적 파트너십」이 되기 때문이다. 협약은 «둘» 사이의 말이라 주인이 하나면 할 말이 없다.
+              ★대신 바로 위 사업자 표기가 이미 우리를 밝히고 있다 — 이름은 한 번만 선다.
+            */}
+            {wl.self ? null : (
+              <div style={{ marginTop: SHOP.sp.cozy }}>
+                <div>{wl.name} ✕ {CORP.koMain}{CORP.koSub} 전략적 파트너십</div>
+                <div>양사 협약에 따라 {CORP.name}가 차량과 계약 시스템을 제공합니다.</div>
+              </div>
+            )}
           </div>
           {/*
             영업자·직원 로그인 — **푸터 맨 밑에 조용히**(사장님 2026-09-05 「그 주소로 들어가면 상품부터
