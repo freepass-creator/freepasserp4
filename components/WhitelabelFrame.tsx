@@ -1,7 +1,7 @@
 'use client';
 import { useCallback, useState, type ReactNode } from 'react';
 import { Phone, X } from 'lucide-react';
-import { Btn, C, FW, ICON, R_CARD, fmtPhone } from '@/components/ui';
+import { C, FW, ICON, R_CARD, fmtPhone } from '@/components/ui';
 import { SHOP, ShopDock, ShopDockAction } from '@/components/shop/shop-ui';
 import { ChannelSign, ChannelWordmark, CoBrandFreepass } from '@/components/brand-ci';
 import { useIsMobile } from '@/lib/use-mobile';
@@ -20,6 +20,17 @@ import { hasBrand, whitelabelVars, type Whitelabel } from '@/lib/whitelabel';
  * ★머리 오른쪽은 «누가 받는가»다. 공유링크(`?a=`)로 들어온 손님에게는 **담당 영업자**가,
  *   맨 주소로 들어온 손님에게는 **대표번호**가 든다. 우리(프리패스) 이름은 어디에도 안 나온다.
  */
+/**
+ * **담당자가 없을 때 번호에 붙는 말** — 「고객센터」가 아니라 **「상담 및 문의」**.
+ *
+ * 사장님 2026-09-07 「**상담 및 문의**가 나을 거야… 고객센터보다는. 아니면 문의하기 이렇게」.
+ * ★「고객센터」는 «이미 산 사람이 불만을 말하는 곳»으로 읽힌다. 이 화면에 온 사람은 아직
+ *   아무것도 안 샀고, 하려는 일은 **묻는 것**이다. 말이 하는 일과 맞아야 손이 간다.
+ * ⚠ 한 곳에 둔다 — 웹 머리띠와 폰 둘째 줄이 «같은 말»이어야 한다. 전에는 「고객센터」와
+ *   「상담·문의」로 갈려 있었다(웹만 고치면 폰에서 또 원래대로가 된다 — CLAUDE.md 절대원칙 3).
+ */
+const CONTACT_LABEL = '상담 및 문의';
+
 export function WhitelabelFrame({
   wl, agentName, agentPhone, attr, wlPreview, dock = true, notice = true,
   headerLead, headerActions, children,
@@ -212,18 +223,22 @@ export function WhitelabelFrame({
           {/* 폰 머리띠 오른쪽 — 상세의 관심·공유(위 `headerActions` 참고). 목록에서는 비어 있다. */}
           {mobile ? headerActions : null}
           {phone && !mobile ? (
-            <>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: SHOP.sp.tight }}>
-                <span style={{ fontSize: SHOP.fs.cap, color: C.faint }}>{who ? `담당 ${who}` : '고객센터'}</span>
-                {/* ★번호는 «읽는 값»이라 서식을 입힌다 — 01049943330 은 사람이 못 읽는다(집 원자 `fmtPhone`). */}
-                <span style={{ fontSize: SHOP.fs.body, fontWeight: FW.title, color: C.ink, fontVariantNumeric: 'tabular-nums' }}>
-                  {phoneText}
-                </span>
-              </div>
-              <Btn href={telHref} title="담당자에게 전화합니다">
-                <Phone size={ICON.md} aria-hidden />전화 상담
-              </Btn>
-            </>
+            /*
+             * ★★**웹은 «누르는 것»이 아니다 — 번호를 읽고 손님이 제 전화기로 건다**
+             *   (사장님 2026-09-07 「**웹은 누르는 거 아니고** 그냥 고객센터 1800-6454 로 가면 되고」).
+             *   ⚠ 여기 「전화 상담」 파란 단추가 서 있었다. 데스크톱에서 `tel:` 단추는 눌러도
+             *     대개 아무 일도 안 나거나 낯선 앱이 뜬다 — **아무 일도 안 하는 단추**가 머리띠에서
+             *     제일 센 자리(파란 면)를 잡고 있었던 것이다.
+             *   ⇒ 단추를 걷고 글자만 남긴다. 폰은 반대다 — 거기서 번호는 눌러서 걸리므로
+             *     `tel:` 을 걸어 둔다(아래 둘째 줄 · 담당자가 있으면 하단독).
+             */
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: SHOP.sp.tight }}>
+              <span style={{ fontSize: SHOP.fs.cap, color: C.faint }}>{who ? `담당 ${who}` : CONTACT_LABEL}</span>
+              {/* ★번호는 «읽는 값»이라 서식을 입힌다 — 01049943330 은 사람이 못 읽는다(집 원자 `fmtPhone`). */}
+              <span style={{ fontSize: SHOP.fs.body, fontWeight: FW.title, color: C.ink, fontVariantNumeric: 'tabular-nums' }}>
+                {phoneText}
+              </span>
+            </div>
           ) : null}
         </div>
         {/*
@@ -243,7 +258,7 @@ export function WhitelabelFrame({
             padding: `0 ${SHOP.sp.edge}px ${SHOP.sp.snug}px`,
             textDecoration: 'none', whiteSpace: 'nowrap',
           }}>
-            <span style={{ fontSize: SHOP.fs.cap, color: C.faint }}>상담·문의</span>
+            <span style={{ fontSize: SHOP.fs.cap, color: C.faint }}>{CONTACT_LABEL}</span>
             <span style={{
               fontSize: SHOP.fs.sub, fontWeight: FW.title, color: C.ink,
               fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.01em',
