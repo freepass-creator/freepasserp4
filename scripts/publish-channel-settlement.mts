@@ -435,12 +435,25 @@ for (const j of jobs) {
       const [cp, cc, cx, cf, cm] = ['차량번호', '확인', '정정', '정정금액', '메모(정정사유)'].map((n) => h.indexOf(n));
       const on = (v: unknown) => /^(TRUE|true|1|Y|O|v|✓)$/.test(S(v));
       if (cp >= 0 && [cc, cx, cf, cm].some((i) => i >= 0)) {
-        for (const r of g.slice(hi + 1)) {
+        /**
+         * ★★★**표는 「합계」에서 끝난다 — 그 아래 「누락」 블록까지 거두면 안 된다.**
+         *   2026-09-07 실측: 하허호가 누락 줄의 「정정금액」 칸에 **「누락」이라는 글자**를 적어 놨는데,
+         *   여기서 그 줄까지 거두는 바람에 «같은 차번의 본표 줄»에 그 값이 얹혔다.
+         *   ⇒ 05수5243·116하2308 의 정정금액이 **0**이 되고, 다음 발행 때 그 0이 「그쪽이 0으로 고쳤다」로
+         *     올라와 공급가액까지 0으로 덮였다. **하허호는 0을 적은 적이 없다.**
+         *   누락 블록은 `missed` 가 따로 읽는다 — 여기서 또 읽으면 두 곳이 같은 줄을 다르게 해석한다.
+         */
+        const end = g.findIndex((r, i) => i > hi && S((r || [])[1]).replace(/\s/g, '') === '합계');
+        for (const r of g.slice(hi + 1, end >= 0 ? end : undefined)) {
           const p = S((r || [])[cp]);
           const chk = cc >= 0 && on((r || [])[cc]);
           const fixOn = cx >= 0 && on((r || [])[cx]);
-          /** ★「정정금액」은 상대가 적는 «숫자»다 — 빈칸은 빈칸으로 둔다(0 을 찍으면 0원이 된다). */
-          const fix = cf >= 0 && S((r || [])[cf]) ? N((r || [])[cf]) : '';
+          /**
+           * ★「정정금액」은 상대가 적는 «숫자»다 — 빈칸은 빈칸으로 둔다(0 을 찍으면 0원이 된다).
+           * ⚠ **숫자가 아닌 글자도 빈칸이다.** `N('누락')` 은 0 이라, 글자를 그대로 받으면 0원이 된다.
+           */
+          const raw = cf >= 0 ? S((r || [])[cf]) : '';
+          const fix = raw && /\d/.test(raw) ? N(raw) : '';
           const memo = cm >= 0 ? S((r || [])[cm]) : '';
           if (p && (chk || fixOn || memo || fix !== '')) kept.set(p, [chk, fixOn, fix, memo]);
         }
@@ -551,11 +564,18 @@ for (const j of jobs) {
       if (!on && fix && N(fix) === N(ours)) continue;
       const id = editId(j.ch, MONTH, plate, '공급가액');
       const was = known.find((e) => editId(e.channel, e.month, e.key, e.column) === id);
-      const theirs = fix || '(금액 안 적음 · 「정정」만 켜짐)';
+      /**
+       * ⚠⚠ **금액을 안 적었으면 `theirs` 는 «빈 값»이다.** 여기에 안내문을 넣었더니
+       *   그 글자가 `applyPending` 을 타고 **상대에게 나가는 종이의 돈 칸**에 그대로 찍혔다
+       *   (실측 2026-09-07 하허호 8월 161허1334 — 공급가액이 글자, 부가세·합계는 숫자).
+       *   ⇒ 안내문은 «왜»에 적는다. 돈 칸에 들어갈 수 있는 것은 수뿐이다.
+       */
+      const theirs = fix;
       if (was && was.theirs === theirs) continue;
+      const memo = S(r[iMemo]);
       patch[id] = { channel: j.ch, month: MONTH, key: plate, column: '공급가액',
         ours, theirs, seenAt: new Date().toISOString(), status: '대기',
-        why: S(r[iMemo]) ? `그쪽 메모 — ${S(r[iMemo])}` : '' };
+        why: [memo ? `그쪽 메모 — ${memo}` : '', fix ? '' : '금액 안 적음 · 「정정」만 켜짐'].filter(Boolean).join(' · ') };
     }
     /**
      * ★★★**합계 아래 「누락」 줄도 올린다 — 그게 «빠진 차»를 알려 주는 말이다.**

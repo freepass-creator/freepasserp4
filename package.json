@@ -118,6 +118,7 @@
     "check:rules": "firebase emulators:exec --only firestore --project demo-freepass-rules \"npx tsx scripts/check-firestore-rules.mts\"",
     "check:settlement": "tsx scripts/check-settlement-locked.mts",
     "check:intake": "tsx scripts/check-intake-gap.mts",
+    "check:double": "tsx scripts/check-double-claim.mts",
     "build:estimate-cars": "tsx scripts/generate-estimate-car-index.mts"
   },
   "dependencies": {

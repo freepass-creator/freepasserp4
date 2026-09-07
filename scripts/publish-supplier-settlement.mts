@@ -325,12 +325,18 @@ for (const j of jobs) {
       const [cp, cc, cx, cf, cm] = ['차량번호', '확인', '정정', '정정금액', '메모(정정사유)'].map((n) => h.indexOf(n));
       const on = (v: unknown) => /^(TRUE|true|1|Y|O|v|✓)$/.test(S(v));
       if (cp >= 0 && [cc, cx, cf, cm].some((i) => i >= 0)) {
-        for (const r of g.slice(hi + 1)) {
+        /** ★★표는 「합계」에서 끝난다 — 그 아래 「누락」 블록은 여기서 거두지 않는다(채널 발행기와 같은 사고). */
+        const end = g.findIndex((r, i) => i > hi && S((r || [])[1]).replace(/\s/g, '') === '합계');
+        for (const r of g.slice(hi + 1, end >= 0 ? end : undefined)) {
           const p = S((r || [])[cp]);
           const chk = cc >= 0 && on((r || [])[cc]);
           const fixOn = cx >= 0 && on((r || [])[cx]);
-          /** ★「정정금액」은 공급사가 적는 «숫자»다 — 빈칸은 빈칸으로 둔다(0 을 찍으면 0원이 된다). */
-          const fix = cf >= 0 && S((r || [])[cf]) ? N((r || [])[cf]) : '';
+          /**
+           * ★「정정금액」은 공급사가 적는 «숫자»다 — 빈칸은 빈칸으로 둔다(0 을 찍으면 0원이 된다).
+           * ⚠ 숫자가 아닌 «글자»도 빈칸이다 — `N('누락')` 은 0 이라 그대로 받으면 0원이 된다.
+           */
+          const raw = cf >= 0 ? S((r || [])[cf]) : '';
+          const fix = raw && /\d/.test(raw) ? N(raw) : '';
           const memo = cm >= 0 ? S((r || [])[cm]) : '';
           if (p && (chk || fixOn || memo || fix !== '')) kept.set(p, [chk, fixOn, fix, memo]);
         }
