@@ -1956,6 +1956,8 @@ function Gallery({ p, mobile }: { p: EntityRecord; mobile?: boolean }) {
   /** 썸네일 칸 — 보고 있는 장이 이 칸 «안»에 있도록 따라 굴린다(아래 `useEffect`). */
   const thumbsRef = useRef<HTMLDivElement>(null);
   const [i, setI] = useState(0);
+  /** 지금 «가려는» 장 — 화면도 상태도 아닌 이것이 정본이다(아래 `go` 머리말). */
+  const aimRef = useRef(0);
   const n = photos.length;
 
   /*
@@ -1998,24 +2000,40 @@ function Gallery({ p, mobile }: { p: EntityRecord; mobile?: boolean }) {
   const onScroll = () => {
     const el = railRef.current;
     if (!el || !el.clientWidth) return;
-    setI(Math.round(el.scrollLeft / el.clientWidth));
+    const at = Math.round(el.scrollLeft / el.clientWidth);
+    aimRef.current = at;                // 손으로 밀었으면 목표가 그리로 따라온다
+    setI(at);
   };
+  /**
+   * 한 장 넘긴다 — **목표를 «따로» 들고, 즉시 옮긴다.**
+   *
+   * ⚠⚠ 여기서 두 번 헛디뎠다(둘 다 `behavior:'smooth'` 탓이다).
+   *   ㉠ 지금 장을 `i`(상태)에서 읽었더니, 미끄러지는 동안 `onScroll` 이 중간값으로 `i` 를
+   *      고쳐 써서 **빨리 누르면 되돌아갔다**(0.5초 간격 아홉 번 → 4장에서 3장으로).
+   *   ㉡ 그래서 «화면에서» 읽었더니, 애니메이션 중의 `scrollLeft` 는 아직 옛 칸이라
+   *      **같은 장을 계속 다시 갔다**(2/10 에서 열두 번 눌러도 2/10).
+   * ⇒ 화면도 상태도 아닌 **`aimRef`(목표)**가 정본이다. 누를 때마다 여기서 +1 하고
+   *   즉시 옮긴다. 손으로 밀었을 때는 `onScroll` 이 목표를 «따라잡아» 다시 맞춘다.
+   * ★즉시 이동이라 미끄러지는 맛은 없다. 대신 **누른 만큼 정확히 간다** —
+   *   사진을 눌러서 넘기게 된 이상(사장님 2026-09-07) 사람은 빠르게 연달아 누른다.
+   *   (손가락으로 미는 것은 그대로 CSS `scroll-snap` 이 부드럽게 받는다.)
+   */
   const go = (d: number) => {
     const el = railRef.current;
-    if (!el) return;
-    const next = Math.min(Math.max(i + d, 0), n - 1);
-    // 세는 표시를 «먼저» 바꾼다 — 부드럽게 미끄러지는 동안 숫자가 옛 장에 머물면 눌린 것 같지 않다.
-    // (스크롤이 끝나면 onScroll 이 같은 값으로 다시 맞추므로 손으로 민 것과도 안 갈린다.)
+    if (!el || !el.clientWidth) return;
+    const next = Math.min(Math.max(aimRef.current + d, 0), n - 1);
+    aimRef.current = next;
     setI(next);
-    el.scrollTo({ left: next * el.clientWidth, behavior: 'smooth' });
+    el.scrollTo({ left: next * el.clientWidth });
   };
 
   /** 썸네일을 누르면 그 장으로 간다 — 화살표를 여러 번 누르지 않아도 된다. */
   const goTo = (k: number) => {
     const el = railRef.current;
     if (!el) return;
+    aimRef.current = k;                 // 목표를 같이 옮긴다(위 `go` 머리말)
     setI(k);
-    el.scrollTo({ left: k * el.clientWidth, behavior: 'smooth' });
+    el.scrollTo({ left: k * el.clientWidth });
   };
 
   const stage = (
@@ -2033,8 +2051,21 @@ function Gallery({ p, mobile }: { p: EntityRecord; mobile?: boolean }) {
       borderRadius: SHOP.r.card, background: C.placeholder,
     }}>
       {n ? (
+        /*
+         * ★★**사진을 누르면 다음 장으로**(사장님 2026-09-07 「그리고 **메인 사진 눌러도
+         *   그렇게 되게** 해야지」 — 「+25」가 눌러도 아무 일 없던 것과 같은 얘기다).
+         * ⚠ 큰 사진은 화면에서 제일 큰 과녁인데 여태 «누를 수 없는 것»이었다. 손이 제일 먼저
+         *   가는 자리에서 아무 일도 안 일어나면 사람은 그 화면을 「안 움직이는 것」으로 배운다.
+         * ★**끝에서는 첫 장으로 돌아온다.** 마지막 장에서만 안 눌리면 그게 또 「눌러도 아무 일
+         *   없는」 자리가 된다 — 누르는 자리는 «항상» 무언가 해야 한다.
+         *   (좌우 화살표는 그대로 끝에서 사라진다 — 그건 «방향»을 말하는 물건이라 다르다.)
+         * ★키보드로 다니는 사람은 좌우 화살표 단추를 쓴다 — 그쪽이 접근성 경로다.
+         */
         <div ref={railRef} onScroll={onScroll} className="fp-shop-gallery"
-          style={{ width: '100%', height: '100%' }}>
+          onClick={() => {
+            if (aimRef.current < n - 1) go(1); else goTo(0);
+          }}
+          style={{ width: '100%', height: '100%', cursor: n > 1 ? 'pointer' : 'default' }}>
           {photos.map((src, k) => (
             // eslint-disable-next-line @next/next/no-img-element -- 원본은 외부 도메인(프록시 경유)이라 next/image 최적화 대상이 아니다.
             <img key={src} src={src} alt="" decoding="async" loading={k === 0 ? 'eager' : 'lazy'}
@@ -2105,7 +2136,16 @@ function Gallery({ p, mobile }: { p: EntityRecord; mobile?: boolean }) {
    */
   const thumbs = !mobile && n > 1 ? (
     <div style={{
-      flex: '0 0 auto', width: 200, height: STAGE_H,
+      /*
+       * ★★**키는 사진이 정한다 — 숫자를 박지 않는다.**
+       * ⚠ `height: STAGE_H`(520)로 박아 두면 «넓은 화면»에서만 맞는다. 사진은 4:3 이라
+       *   본문이 좁아지면 같이 낮아지는데(웹 760 에서 375) 썸네일 칸만 520 으로 남아
+       *   **사진 밑으로 145px 삐져나온다.** 옆에 나란히 서는 것이라 그 어긋남이 바로 보인다.
+       * ⇒ 부모가 `alignItems: 'stretch'` 이므로 키를 «안 주면» 사진과 같아진다.
+       * ★그래도 열 장은 다 보인다 — 375 안에 두 열 다섯 줄(332)이 들어간다.
+       *   (사장님 2026-09-07 「**기본 10장은 보여져야지**」)
+       */
+      flex: '0 0 auto', width: 200, minHeight: 0,
       display: 'flex', flexDirection: 'column', gap: SHOP.sp.tight,
     }}>
       {/*
