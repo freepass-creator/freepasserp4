@@ -42,6 +42,7 @@ import { cachedCost, fetchSharedCost } from '@/lib/domain/estimate/cost-client';
 import { safeComputeTerm } from '@/lib/domain/estimate/safe-calc.js';
 import { createQuoteInput } from '@/lib/domain/estimate/quote-input.js';
 import { usedResidPct, newcarResidPct } from '@/lib/domain/estimate/residual-lookup.js';
+import { useIsMobile } from '@/lib/use-mobile';
 
 /** 목업 `TERMS/PCTS/CREDIT` 그대로. */
 const TERMS = [12, 24, 36, 48, 60];
@@ -155,6 +156,8 @@ function EstimatePageInner() {
   const [credit, setCredit] = useState('중신용');
   /** 고른 차 한 대 — 중고는 차종마스터, 신차는 신차마스터에서 온다(`features/estimate/CarPicker`). */
   const [picked, setPicked] = useState<PickedCar>(DEFAULT_USED);
+  /* 넓은 화면에서는 기간을 «열»로 편다 — 아래 손익표(`.qmx`). 폰은 목업 그대로 아코디언. */
+  const mobile = useIsMobile();
   const [pickerOpen, setPickerOpen] = useState(false);
   /** 중고 시세는 마스터에 없다 — 사람이 넣는다. 신차는 공표가라 자동으로 찬다. */
   const [usedPrice, setUsedPrice] = useState(DEFAULT_USED_PRICE);
@@ -392,6 +395,23 @@ function EstimatePageInner() {
         {/* ⑤ — ①~④ 와 같은 상자. 기간 다섯 줄이 그 안에 든다(사장님 2026-09-06). */}
         <div className="card terms">
           <div className="step"><span className="no">5</span>기간별 대여료 · 수익</div>
+          {/*
+            * ★★넓은 화면에서는 기간을 «열», 항목을 «행»으로 놓는다
+            *   (사장님 2026-09-07 「총 4개 패널 중 1개를 차량 선택하는 패널로 쓰고, 나머지 조건과
+            *    **1년부터 5년까지 견적 나오는 거는 우측 패널에서 상세하게** 나온다고 —
+            *    이걸 어떻게 구현할 건가가 관건임」).
+            *
+            *   왜 표인가 — 기간마다 카드를 세우면 「매출·감가·이자·수수료…」 라벨이 **다섯 번 반복**된다.
+            *   폭을 그만큼 버리고, 정작 «3년과 4년의 감가가 얼마나 다른지»는 눈으로 못 맞춘다.
+            *   행으로 세우면 같은 항목이 한 줄에 서서 다섯 해가 그 자리에서 견줘진다.
+            *   ⇒ 손오공 원본 `.qcols`(열마다 반복)보다 한 발 더 간 것이다. 원본은 기간이 넷이고
+            *     항목이 셋뿐이라 반복이 견딜 만했지만, 우리는 기간 다섯 × 항목 열이다.
+            *
+            * ⚠ **폰은 목업 그대로 아코디언**이다. 표는 폰에서 여섯 열이 되어 못 읽는다.
+            *   그래서 여기만 `useIsMobile()` 로 갈린다 — 색이 아니라 «짜임»이라 첫 그림이 한 번
+            *   바뀌어도 번쩍이지 않는다(색을 JS 로 가르면 흰 띠가 번쩍인다 — CLAUDE.md 상단바 항목).
+            */}
+          {mobile ? (
           <div className="prods">
           {cards.map((c) => {
             const v = pnl(c, prepayAmt);
@@ -410,8 +430,6 @@ function EstimatePageInner() {
                   <div className="li minus"><span className="k">· 차량 감가 <em>취득−잔존 · 잔가 {Math.round((c.residualRate || 0) * 100)}%</em></span><span className="v">−{won(v.dep)}</span></div>
                   <div className="li minus"><span className="k">· 금융비용 <em>조달이자</em></span><span className="v">−{won(v.interest)}</span></div>
                   <div className="li minus"><span className="k">· 직접 운영비 <em>보험·자차충당·정비·GPS·세금</em></span><span className="v">−{won(v.direct)}</span></div>
-                  {/* 손바뀜은 «몇 번 × 한 번에 얼마»로 보여 준다 — 그래야 왜 그 금액인지 눈에 보인다
-                      (사장님 2026-09-06 「손바뀜이 가장 큰 영향이지 … 우린 직관적으로 넣어야 될 거 아니야」). */}
                   {v.turnover > 0 ? (
                     <div className="li minus">
                       <span className="k">· 손바뀜 위험 <em>{credit} · 유지율 {retentionPct}% → {turnovers.toFixed(2)}회 × {man(v.turnover / turnovers)}</em></span>
@@ -428,6 +446,64 @@ function EstimatePageInner() {
             );
           })}
           </div>
+          ) : (
+          <div className="qmxw">
+          <div className="qmx" style={{ gridTemplateColumns: `minmax(150px,1.1fr) repeat(${cards.length}, minmax(112px,1fr))` }}>
+            <span className="qk hd" />
+            {cards.map((c) => <span className="qc hd" key={`h${c.term}`}>{c.term / 12}년</span>)}
+
+            <span className="qk big">월 납입금 <em>VAT 포함</em></span>
+            {cards.map((c) => (
+              <span className="qc big" key={`p${c.term}`}>{Math.round(c.payVat || 0).toLocaleString('ko-KR')}</span>
+            ))}
+
+            <span className="qk">매출 <em>공급가</em></span>
+            {cards.map((c) => <span className="qc" key={`r${c.term}`}>{won(pnl(c, prepayAmt).rev)}</span>)}
+
+            <span className="qk sub">매출원가</span>
+            {cards.map((c) => <span className="qc sub" key={`cg${c.term}`} />)}
+
+            <span className="qk in">· 차량 감가 <em>취득−잔존</em></span>
+            {cards.map((c) => <span className="qc minus" key={`d${c.term}`}>−{won(pnl(c, prepayAmt).dep)}</span>)}
+
+            <span className="qk in">· 금융비용 <em>조달이자</em></span>
+            {cards.map((c) => <span className="qc minus" key={`i${c.term}`}>−{won(pnl(c, prepayAmt).interest)}</span>)}
+
+            <span className="qk in">· 직접 운영비 <em>보험·자차·정비·GPS·세금</em></span>
+            {cards.map((c) => <span className="qc minus" key={`o${c.term}`}>−{won(pnl(c, prepayAmt).direct)}</span>)}
+
+            <span className="qk in">· 손바뀜 위험 <em>{credit} · 유지율 {retentionPct}% → {turnovers.toFixed(2)}회</em></span>
+            {cards.map((c) => {
+              const t = pnl(c, prepayAmt).turnover;
+              return <span className="qc minus" key={`t${c.term}`}>{t > 0 ? `−${won(t)}` : '—'}</span>;
+            })}
+
+            <span className="qk">매출총이익</span>
+            {cards.map((c) => <span className="qc" key={`g${c.term}`}>{won(pnl(c, prepayAmt).gp)}</span>)}
+
+            <span className="qk sub">판매관리비</span>
+            {cards.map((c) => <span className="qc sub" key={`s${c.term}`} />)}
+
+            <span className="qk in">· 영업수수료 <em>{fee}%</em></span>
+            {cards.map((c) => <span className="qc minus" key={`f${c.term}`}>−{won(pnl(c, prepayAmt).fee)}</span>)}
+
+            <span className="qk pay">영업이익</span>
+            {cards.map((c) => {
+              const v = pnl(c, prepayAmt);
+              return <span className="qc pay" key={`op${c.term}`}>{won(v.opProfit)}<em>{(v.opPct * 100).toFixed(1)}%</em></span>;
+            })}
+
+            <span className="qk">잔가율</span>
+            {cards.map((c) => <span className="qc" key={`rr${c.term}`}>{Math.round((c.residualRate || 0) * 100)}%</span>)}
+
+            <span className="qk">보증금 <em>{dep}%</em> · 선납 <em>{pre}%</em></span>
+            {cards.map((c) => {
+              const v = pnl(c, prepayAmt);
+              return <span className="qc" key={`dp${c.term}`}>{won(v.depAmt)} · {won(v.preAmt)}</span>;
+            })}
+          </div>
+          </div>
+          )}
         </div>
 
         </div>{/* .col.side */}
