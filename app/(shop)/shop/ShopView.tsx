@@ -102,7 +102,8 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
    * 목록에서 상세로 넘어갈 때 이걸 안 물고 가면 상세가 노브랜드로 떨어져 「눌렀더니 남의 사이트」가 된다.
    * 운영에서는 호스트가 브랜드를 정하므로 이 값이 없고, 그때는 빈 문자열이라 주소가 그대로 짧다.
    */
-  const [wlQuery, setWlQuery] = useState('');
+  /** 채널 미리보기 꼬리표 — «값»으로 들고 있는다. 주소 꼴(`?wl=…`)은 쓰는 자리에서 만든다. */
+  const [wlKey, setWlKey] = useState('');
   /** 검색줄이 «지금 붙어 있나» — 붙었을 때만 밑에 가는 선이 뜬다(안 붙었는데 선이 있으면 그냥 줄이 하나 더 그어진 것이다). */
   const stickRef = useRef<HTMLDivElement>(null);
 
@@ -125,8 +126,7 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
      */
     const wlParam = params.get('wl');
     const hostIsChannel = wl.hosts.some((h) => h.toLowerCase() === window.location.hostname.toLowerCase());
-    const wlKey = wlParam || (hasBrand(wl) && !hostIsChannel ? wl.key : '');
-    setWlQuery(wlKey ? `?wl=${encodeURIComponent(wlKey)}` : '');
+    setWlKey(wlParam || (hasBrand(wl) && !hostIsChannel ? wl.key : ''));
     try {
       const p = new URLSearchParams();
       if (params.get('p')) p.set('p', String(params.get('p')));
@@ -226,6 +226,7 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
    *   토큰은 순수 ASCII 10자라 짧고 되돌릴 수 없다(`lib/domain/product-share` 머리말).
    * ★옛 주소(`/q/{상품코드}?a=`)도 그대로 열린다 — 서버가 통째로 먼저 찾는다. 이미 나간 링크는 안 죽는다.
    */
+  const wlQuery = wlKey ? `?wl=${encodeURIComponent(wlKey)}` : '';
   const href = (p: EntityRecord) => `${guestShareUrl(p, attr, '')}${wlQuery}`;
 
   /**
@@ -244,6 +245,7 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
 
   return (
     <WhitelabelFrame wl={wl} agentName={agent?.name} agentPhone={agent?.phone}
+      attr={attr} wlPreview={wlKey}
       /*
        * 폰 머리띠 오른쪽 = **검색 · 조건** 둘(유튜브 모바일의 아이콘 줄과 같은 자리).
        * ★조건은 걸린 «수»를 이고 있는다 — 접힌 시트 안에 몇 개가 살아 있는지 안 보면
