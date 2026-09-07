@@ -109,7 +109,7 @@ export async function generateMetadata({ params, searchParams }: Params): Promis
  *   ㉡ 화면 «안»에서 `if (브랜드)` 로 가르면 두 화면이 원자를 나눠 쓰게 되고, 목록에서 겪은
  *      그 사고(영업자 잣대로 세다 축 셋을 잃음)가 그대로 재현된다. 라우팅에서 가르면 안 섞인다.
  */
-export default async function QuotePage({ searchParams }: Params) {
+export default async function QuotePage({ params, searchParams }: Params) {
   const sp = await searchParams;
   /*
    * 호스트가 정본이고 `?wl=` 은 도메인 붙이기 «전» 미리보기용 — 목록(`/shop`)과 같은 규칙이다.
@@ -118,5 +118,16 @@ export default async function QuotePage({ searchParams }: Params) {
    *   손님이 지울 수 있는 값이 브랜드를 정하고 있었다(그 함수 머리말 참고).
    */
   const wl = resolveGuestWhitelabel((await headers()).get('host'), one(sp.wl));
-  return hasBrand(wl) ? <ShopDetailView wl={wl} /> : <QuoteView wl={wl} />;
+  /*
+   * ★★**읽은 것을 화면에 넘긴다 — 브라우저가 다시 묻지 않게**(2026-09-07).
+   *   `generateMetadata` 가 방금 같은 값을 읽었고, `cache()` 덕에 여기선 «공짜»다.
+   *   넘기지 않으면 브라우저가 `/api/catalog/quote` 로 또 부르고, 그 왕복이 끝나야 화면이 그려진다.
+   *   실측 — 통째 읽기 776ms · 그게 한 화면에 두 번이었다.
+   * ⚠ 못 찾으면 `null` 을 넘긴다 — 화면이 제 폴백(옛 링크·직접 진입)으로 굴러간다.
+   */
+  const { code } = await params;
+  const found = hasBrand(wl)
+    ? await loadGuestQuote(decodeURIComponent(String(code || '')), one(sp.a)).catch(() => null)
+    : null;
+  return hasBrand(wl) ? <ShopDetailView wl={wl} initial={found} /> : <QuoteView wl={wl} />;
 }

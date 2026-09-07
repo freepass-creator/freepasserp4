@@ -1,3 +1,4 @@
+import { cache } from 'react';
 import 'server-only';
 import { firestoreAdminRef } from '@/lib/server/firestore-ref-shim';
 import { sanitizeAgentForGuest, sanitizeProductForGuest } from '@/lib/domain/public-catalog';
@@ -72,7 +73,19 @@ export async function resolveProduct(segment: string): Promise<{ key: string; pr
  * ⚠ **통째로 먼저 찾고, 못 찾을 때만 하이픈에서 가른다.** 반대로 하면 `PD-260506-020` 같은
  *   하이픈 품은 상품키 599건(2026-08-22 실측)이 전부 «없는 상품»이 되어 이미 나간 링크가 죽는다.
  */
-export async function loadGuestQuote(segment: string, shareFromQuery: string): Promise<GuestQuote | null> {
+/**
+ * ★★**한 요청 안에서는 «한 번만» 읽는다**(2026-09-07 — 상세가 느린 이유).
+ *
+ * 실측 — `v4/products` 통째 읽기가 **776ms**(첫 회)·400ms(이후)다. 한 대를 보여주려고
+ * 1,375대를 통째로 읽는데, 그걸 **한 화면에 두 번** 하고 있었다:
+ *   ㉠ `generateMetadata`(제목·og) ㉡ 브라우저가 다시 부르는 `/api/catalog/quote`
+ * ⇒ `cache()` 로 감싸면 ㉠·㉡ 이 «같은 요청»일 때 한 번만 읽는다.
+ * ⇒ 그리고 ㉡ 자체를 없앤다 — 서버가 이미 읽은 것을 화면에 «넘겨준다»(`app/q/[code]/page.tsx`).
+ * ⚠ 캐시는 «요청 하나» 안에서만 산다. 다음 손님은 새로 읽는다 — 재고가 굳지 않는다.
+ */
+export const loadGuestQuote = cache(loadGuestQuoteUncached);
+
+async function loadGuestQuoteUncached(segment: string, shareFromQuery: string): Promise<GuestQuote | null> {
   const seg = S(segment);
   if (!seg) return null;
 

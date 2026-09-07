@@ -25,11 +25,23 @@ import { resolveAttr } from '@/lib/shop/attribution';
  * ★안내 블록과 폰 하단독은 껍데기에서 **끈다.** 안내는 목록에서 이미 봤고(같은 말을 두 번 하지
  *   않는다), 하단독은 이 화면이 제 것을 가졌다 — 켜 두면 독이 둘로 겹친다.
  */
-export function ShopDetailView({ wl }: { wl: Whitelabel }) {
+export function ShopDetailView({ wl, initial }: {
+  wl: Whitelabel;
+  /** 서버가 이미 읽어 넘긴 값 — 있으면 브라우저가 다시 안 묻는다(아래 머리말). */
+  initial?: { product: EntityRecord; agent: EntityRecord | null } | null;
+}) {
   const { code } = useParams<{ code: string }>();
   const key = decodeURIComponent(String(code));
-  const [p, setP] = useState<EntityRecord | null | undefined>(undefined);
-  const [agent, setAgent] = useState<EntityRecord | null>(null);
+  /*
+   * ★★**서버가 이미 읽은 것을 받아서 시작한다**(2026-09-07 — 상세가 느린 이유).
+   *   실측 — 한 대를 보여주려고 `v4/products` 1,375대를 통째로 읽는데(776ms), 그걸 한 화면에
+   *   «두 번» 했다: 서버가 제목·og 만들려고 한 번, 브라우저가 다시 부르며 또 한 번.
+   *   게다가 둘은 «순서»로 일어난다 — 서버 렌더가 끝나야 HTML 이 가고, 그 뒤에 브라우저가 부른다.
+   *   ⇒ 서버가 넘겨주면 왕복 한 번과 읽기 한 번이 통째로 사라진다.
+   * ★그래도 `fetch` 는 남긴다 — 서버가 못 넘긴 경우(옛 링크·직접 진입)의 폴백이다.
+   */
+  const [p, setP] = useState<EntityRecord | null | undefined>(initial?.product ?? undefined);
+  const [agent, setAgent] = useState<EntityRecord | null>(initial?.agent ?? null);
   /** 담당 귀속 — 「목록으로」에도 물려 보낸다. 돌아갔을 때 담당자가 바뀌면 그게 곧 퍼널이 끊기는 것이다. */
   const [attr, setAttr] = useState('');
   /** 채널 미리보기 꼬리표 — 도메인이 붙기 전까지만 쓴다(목록으로 돌아갈 때 물려 보낸다). */
@@ -41,6 +53,8 @@ export function ShopDetailView({ wl }: { wl: Whitelabel }) {
     const a = resolveAttr(params);
     setAttr(a);
     setWlPreview(params.get('wl') || '');
+    /* 서버가 이미 넘겨줬으면 다시 묻지 않는다 — 같은 값을 두 번 읽을 이유가 없다. */
+    if (initial?.product) return;
     try {
       const q = new URLSearchParams({ code: key });
       if (a) q.set('a', a);
@@ -49,7 +63,7 @@ export function ShopDetailView({ wl }: { wl: Whitelabel }) {
       setP(res.ok && body.product ? body.product : null);
       setAgent(body.agent || null);
     } catch { setP(null); }
-  })(); }, [key]);
+  })(); }, [key, initial]);
 
   useEffect(() => {
     if (!p) return;
