@@ -46,6 +46,34 @@
 /* `font:inherit` 이 붙은 컨트롤은 font 축약 때문에 숫자 변형이 풀린다 — 칩·입력칸의 0 도 사선을 유지한다. */
 .est-root button,.est-root input,.est-root select,.est-root textarea{font-variant-numeric:inherit}
 .est-root{background:var(--bg);font-family:var(--k);color:var(--ink-1);font-variant-numeric:tabular-nums slashed-zero;-webkit-font-smoothing:antialiased;font-size:14px}
+/* ══ 컨트롤 치수 — 공용 규격(`components/ui/tokens.ts`)을 CSS 변수로 옮긴 것 ══════════
+   ★사장님 2026-09-07 「버튼들 규격을 다 공통규격 안 쓰고 만드는 바람에 … 공통구조랑 비교해서
+     **현재 디자인 골격 해치지 말고** 구현해 줘」.
+   ⇒ **웹 치수는 목업 그대로 둔다**(골격). 바꾼 것은 셋뿐이다 —
+     ㉠ 라운드를 R(4)로 통일(3·4가 섞여 있었다)
+     ㉡ **폰 분기**를 만든다. 여기까지 전 컨트롤이 웹 치수 그대로 폰에 나갔다
+        (CLAUDE.md 금지 목록의 「모바일 미분기」에 그대로 걸린다).
+     ㉢ 폰 **입력 글자 16px** — 그 밑이면 iOS 가 탭할 때 화면을 확대한다.
+   ⚠ 경계 760 은 `useIsMobile(bp=760)` 과 같은 값이다. 갈리면 JS 가 폰이라 하는데
+     CSS 는 웹으로 그리는 «두 얼굴»이 된다. */
+.est-root{
+  --r:4px;
+  --ctrl-sm:28px; --ctrl-md:32px; --ctrl-lg:40px;
+  --ctrl-fs-sm:12px; --ctrl-fs-md:12.5px; --ctrl-input-fs:13px;
+  --seg1:36px; --seg2:32px; --seg3:30px;            /* 웹 = 목업 그대로 */
+  --seg1-fs:13px; --seg2-fs:12.5px; --seg3-fs:12px;
+  --chip-h:28px;                                     /* 칩 = 웹 28(sm) */
+}
+@media (max-width:759px){
+  .est-root{
+    --ctrl-sm:36px; --ctrl-md:40px; --ctrl-lg:48px;
+    --ctrl-fs-sm:13px; --ctrl-fs-md:14px; --ctrl-input-fs:16px;
+    --seg1:48px; --seg2:40px; --seg3:36px;           /* 폰 = lg / md / sm */
+    --seg1-fs:15px; --seg2-fs:14px; --seg3-fs:13px;
+    --chip-h:40px;                                   /* 칩 = 폰 40(md) — CLAUDE.md 컨트롤 규격 */
+  }
+}
+
 .est-root .phone{max-width:440px;margin:0 auto;min-height:100vh;background:var(--bg);border-left:1px solid var(--line-2);border-right:1px solid var(--line-2)}
 /* 하단 홈바가 얹히는 면이라 그 높이만큼 자리를 비운다 — 안 비우면 「저장」과 맨 아랫줄이 바에 깔린다.
    `--fp-tabbar-h` 는 AppTabBar 가 켤 때만 채운다(웹·바 없는 곳에서는 0). 2026-09-06 견적 탭. */
@@ -55,52 +83,61 @@
 .est-root .wm .a{color:var(--accent)}
 .est-root .wm .b{color:var(--accent-2);font-weight:300}
 .est-root .hd h1{font-size:12px;font-weight:700;color:var(--ink-3);margin:0;padding-left:9px;border-left:1px solid var(--line-2)}
-.est-root .menu{margin-left:auto;width:30px;height:30px;border:1px solid var(--line-2);background:var(--surface);color:var(--ink-3);font-size:16px;border-radius:3px;cursor:pointer;line-height:1}
-.est-root .modesw{display:flex;margin-left:auto;flex:none;border:1px solid var(--line-2);border-radius:3px;overflow:hidden}
-.est-root .modesw a,.est-root .modesw button{text-decoration:none;display:grid;place-items:center;border:0;border-left:1px solid var(--line-2);background:var(--surface);color:var(--ink-3);font:inherit;font-weight:700;font-size:12px;height:28px;padding:0 13px;cursor:pointer}
-.est-root .modesw a:first-child,.est-root .modesw button:first-child{border-left:0}
+.est-root .menu{margin-left:auto;width:30px;height:30px;border:1px solid var(--line-2);background:var(--surface);color:var(--ink-3);font-size:16px;border-radius:var(--r);cursor:pointer;line-height:1}
+/* 머리 오른쪽 «견적 ↔ 원가» 토글.
+   ⚠⚠ 여기 규칙이 `a`·`button` 만 잡고 있었다. 그런데 **지금 칸은 `<span class="on">`** 이라
+     높이·패딩·가운데정렬을 하나도 못 받아, 남색 배경이 글자보다 좁고 «원가» 가 칸 밖으로
+     넘쳤다(2026-09-07 사장님 「이거 버튼 깨지고」). 공용 원자를 안 쓰고 손으로 짠 컨트롤이라
+     태그가 하나 늘자 규칙이 못 따라온 것이다.
+   ⇒ **자식이 무엇이든** 같은 상자를 받게 `> *` 로 잡는다. 태그가 또 바뀌어도 안 깨진다.
+   ★치수는 공용 규격 sm — 웹 28 / 폰 36(`components/ui/tokens.ts` CTRL.sm). 아래 미디어쿼리가 올린다. */
+.est-root .modesw{display:flex;margin-left:auto;flex:none;border:1px solid var(--line-2);border-radius:var(--r);overflow:hidden}
+.est-root .modesw > *{text-decoration:none;display:grid;place-items:center;border:0;border-left:1px solid var(--line-2);background:var(--surface);color:var(--ink-3);font:inherit;font-weight:700;font-size:var(--ctrl-fs-sm);height:var(--ctrl-sm);padding:0 13px;cursor:pointer;white-space:nowrap}
+.est-root .modesw > *:first-child{border-left:0}
 .est-root .modesw .on{background:var(--accent);color:var(--on)}
-.est-root .card{margin:10px 12px 0;background:var(--surface);border:1px solid var(--line-2);border-radius:4px;padding:13px}
-.est-root .step{display:flex;align-items:center;gap:8px;margin:-13px -13px 13px;padding:8px 13px;background:var(--surface-2);border-bottom:1px solid var(--line);font-size:11px;font-weight:700;color:var(--ink-2);text-transform:uppercase;letter-spacing:.5px;border-radius:4px 4px 0 0}
+.est-root .card{margin:10px 12px 0;background:var(--surface);border:1px solid var(--line-2);border-radius:var(--r);padding:13px}
+.est-root .step{display:flex;align-items:center;gap:8px;margin:-13px -13px 13px;padding:8px 13px;background:var(--surface-2);border-bottom:1px solid var(--line);font-size:11px;font-weight:700;color:var(--ink-2);text-transform:uppercase;letter-spacing:.5px;border-radius:var(--r) var(--r) 0 0}
 .est-root .step .no{width:17px;height:17px;border-radius:2px;background:var(--accent);color:var(--on);font-size:10px;display:grid;place-items:center;flex:none}
 .est-root .step .veh{margin-left:auto;font-size:12px;font-weight:700;color:var(--ink-1);text-transform:none;letter-spacing:0}
-.est-root .seg{display:flex;margin-bottom:8px;border:1px solid var(--line-2);border-radius:3px;overflow:hidden}
+.est-root .seg{display:flex;margin-bottom:8px;border:1px solid var(--line-2);border-radius:var(--r);overflow:hidden}
 .est-root .seg:last-child{margin-bottom:0}
 .est-root .seg button{flex:1;border:0;border-left:1px solid var(--line-2);background:var(--surface);color:var(--ink-3);font:inherit;font-weight:600;cursor:pointer}
 .est-root .seg button:first-child{border-left:0}
 .est-root .seg button.on{background:var(--accent);color:var(--on)}
-.est-root .t1 button{height:36px;font-size:13px}
-.est-root .t2 button{height:32px;font-size:12.5px}
-.est-root .t3 button{height:30px;font-size:12px}
-.est-root .vsearch{display:flex;align-items:center;gap:8px;height:40px;padding:0 12px;border:1px solid var(--line-2);border-radius:3px;background:var(--surface);margin-top:10px}
+/* 세그 세 층 — **웹은 목업 그대로**(36/32/30 · 도면에 예외로 등록된 값), **폰만** 공용 규격으로 올린다
+   (lg48 / md40 / sm36). 여기까지 폰이 웹 치수를 그대로 받아 30px 짜리 스위치를 손가락으로 눌렀다. */
+.est-root .t1 button{height:var(--seg1);font-size:var(--seg1-fs)}
+.est-root .t2 button{height:var(--seg2);font-size:var(--seg2-fs)}
+.est-root .t3 button{height:var(--seg3);font-size:var(--seg3-fs)}
+.est-root .vsearch{display:flex;align-items:center;gap:8px;height:var(--ctrl-lg);padding:0 12px;border:1px solid var(--line-2);border-radius:var(--r);background:var(--surface);margin-top:10px}
 .est-root .vsearch svg{color:var(--ink-4);flex:none}
-.est-root .vsearch input{flex:1;min-width:0;border:0;background:transparent;font:inherit;font-size:14px;color:var(--ink-1);outline:none}
+.est-root .vsearch input{flex:1;min-width:0;border:0;background:transparent;font:inherit;font-size:max(14px,var(--ctrl-input-fs));color:var(--ink-1);outline:none}
 .est-root .vsel{display:flex;flex-direction:column;gap:8px;margin-top:10px}
-.est-root .vsel select{height:40px;border:1px solid var(--line-2);border-radius:3px;background:var(--surface);font:inherit;font-size:13.5px;font-weight:600;color:var(--ink-1);padding:0 11px}
-.est-root .vchip{display:flex;align-items:center;gap:10px;margin-top:10px;padding:10px 12px;border:1px solid var(--line-2);border-left:3px solid var(--accent);border-radius:3px;background:var(--surface-2)}
-.est-root .vchip .ic{width:32px;height:32px;border-radius:3px;background:var(--accent);color:var(--on);display:grid;place-items:center;flex:none}
+.est-root .vsel select{height:var(--ctrl-lg);border:1px solid var(--line-2);border-radius:var(--r);background:var(--surface);font:inherit;font-size:max(13.5px,var(--ctrl-input-fs));font-weight:600;color:var(--ink-1);padding:0 11px}
+.est-root .vchip{display:flex;align-items:center;gap:10px;margin-top:10px;padding:10px 12px;border:1px solid var(--line-2);border-left:3px solid var(--accent);border-radius:var(--r);background:var(--surface-2)}
+.est-root .vchip .ic{width:32px;height:32px;border-radius:var(--r);background:var(--accent);color:var(--on);display:grid;place-items:center;flex:none}
 .est-root .vchip .nm{font-size:14px;font-weight:700;line-height:1.25}
 .est-root .vchip .mt{font-size:11.5px;color:var(--ink-3);margin-top:1px}
 .est-root .crow{display:flex;align-items:center;gap:10px;margin-top:11px}
 .est-root .crow.first{margin-top:0}
 .est-root .crow .lb{font-size:12px;font-weight:700;color:var(--ink-3);width:52px;flex:none}
-.est-root .chips{display:flex;flex:1;border:1px solid var(--line-2);border-radius:3px;overflow:hidden}
-.est-root .chips button{flex:1;border:0;border-left:1px solid var(--line-2);background:var(--surface);color:var(--ink-3);font:inherit;font-size:12px;font-weight:600;padding:8px 0;cursor:pointer}
+.est-root .chips{display:flex;flex:1;border:1px solid var(--line-2);border-radius:var(--r);overflow:hidden}
+.est-root .chips button{flex:1;display:grid;place-items:center;border:0;border-left:1px solid var(--line-2);background:var(--surface);color:var(--ink-3);font:inherit;font-size:var(--ctrl-fs-sm);font-weight:600;height:var(--chip-h);padding:0;cursor:pointer}
 .est-root .chips button:first-child{border-left:0}
 .est-root .chips button.on{background:var(--accent);color:var(--on)}
-.est-root .basis{margin:10px 12px 0;padding:9px 12px;border:1px solid var(--line-2);border-left:3px solid var(--accent-2);border-radius:3px;background:var(--surface-2);display:flex;gap:9px}
+.est-root .basis{margin:10px 12px 0;padding:9px 12px;border:1px solid var(--line-2);border-left:3px solid var(--accent-2);border-radius:var(--r);background:var(--surface-2);display:flex;gap:9px}
 .est-root .basis .bi{font-size:10px;font-weight:700;color:var(--ink-3);flex:none;text-transform:uppercase;letter-spacing:.4px;padding-top:1px}
 .est-root .basis .bt{font-size:11.5px;color:var(--ink-3);line-height:1.5}
 .est-root .basis .bt b{color:var(--ink-2)}
 .est-root .plabel{font-size:11px;font-weight:700;color:var(--ink-3);letter-spacing:.5px;text-transform:uppercase;padding:0 2px}
 .est-root .prods{margin:10px 12px 0;display:flex;flex-direction:column;gap:8px}
-.est-root .prod{background:var(--surface);border:1px solid var(--line-2);border-radius:4px;overflow:hidden}
+.est-root .prod{background:var(--surface);border:1px solid var(--line-2);border-radius:var(--r);overflow:hidden}
 .est-root .prodh{width:100%;display:flex;align-items:center;gap:12px;padding:12px 13px;border:0;background:transparent;cursor:pointer;font:inherit;text-align:left}
 .est-root .prod.open .prodh{border-bottom:1px solid var(--line);background:var(--surface-2)}
 .est-root .prodh .yr{font-size:12px;font-weight:700;color:var(--accent);width:34px;flex:none}
 .est-root .prodh .amt{font-size:21px;font-weight:800;letter-spacing:-.6px;color:var(--ink-1)}
 .est-root .prodh .amt small{font-size:11px;font-weight:600;color:var(--ink-4)}
-.est-root .prodh .mg{margin-left:auto;font-size:11px;font-weight:700;color:var(--pos);background:var(--pos-soft);border:1px solid #cfe3d6;padding:2px 8px;border-radius:3px}
+.est-root .prodh .mg{margin-left:auto;font-size:11px;font-weight:700;color:var(--pos);background:var(--pos-soft);border:1px solid #cfe3d6;padding:2px 8px;border-radius:var(--r)}
 .est-root .prodh .cv{color:var(--ink-4);flex:none;transition:transform .18s}
 .est-root .prod.open .prodh .cv{transform:rotate(180deg)}
 .est-root .pd{display:none;padding:2px 0}
@@ -119,9 +156,9 @@
 .est-root .resid-in{display:flex;gap:8px;flex-wrap:wrap}
 .est-root .ri{display:flex;flex-direction:column;align-items:center;gap:5px;flex:1;min-width:52px}
 .est-root .ri .ry{font-size:11px;font-weight:700;color:var(--ink-3)}
-.est-root .pin{display:inline-flex;align-items:center;gap:1px;border:1px solid var(--line-2);background:var(--surface);border-radius:3px;padding:5px 7px}
+.est-root .pin{display:inline-flex;align-items:center;gap:1px;border:1px solid var(--line-2);background:var(--surface);border-radius:var(--r);padding:5px 7px}
 .est-root .pin:focus-within{border-color:var(--accent)}
-.est-root .pin input{width:44px;border:0;background:transparent;color:var(--accent);font:inherit;font-weight:700;font-size:13px;text-align:center;outline:none}
+.est-root .pin input{width:44px;border:0;background:transparent;color:var(--accent);font:inherit;font-weight:700;font-size:var(--ctrl-input-fs);text-align:center;outline:none}
 .est-root .pin i{color:var(--ink-4);font-size:11px;font-style:normal;font-weight:600}
 .est-root .foot{text-align:center;margin:14px 14px 20px;font-size:10.5px;color:var(--ink-4);line-height:1.6}
 
@@ -158,7 +195,7 @@
 .est-root .crow .hint{flex:none;font-size:10.5px;font-weight:600;color:var(--ink-4);line-height:1.3}
 
 /* 문지기 화면의 나가는 문 — 견적을 못 보는 사람을 상품찾기로 돌려보낸다(`features/estimate/EstimateGate`). */
-.est-root .gate-go{display:grid;place-items:center;height:40px;margin-top:14px;border-radius:3px;background:var(--accent);color:var(--on);font-weight:700;font-size:13px;text-decoration:none}
+.est-root .gate-go{display:grid;place-items:center;height:40px;margin-top:14px;border-radius:var(--r);background:var(--accent);color:var(--on);font-weight:700;font-size:13px;text-decoration:none}
 
 
 /* ══ 웹(≥900) 두 기둥 — 좌 입력 · 우 결과 ══════════════════════════════
