@@ -11,7 +11,7 @@
  *
  * 바꾸려면: 사장님께 여쭙고 → 문서를 고치고 → 이 검사를 고친다. 그 차례를 지킨다.
  */
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
 const read = (f: string) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
 const fails: string[] = [];
@@ -201,7 +201,12 @@ must(/>제조사 · 세부모델 · 세부트림</.test(shopDetail),
  *   두 칸으로 쪼개면 내장색이 없는 차(32%)는 늘 한 칸이 비어 「덜 채운 표」가 된다.
  * ★색 코드는 `lib/domain/color-chips` 가 정본 — 화면이 hex 를 새로 정하면 그때부터 갈린다.
  */
-must(/aria-label="색상"/.test(shopDetail)
+/*
+ * ⚠ 2026-09-07 — 색상이 «제 줄»에서 **격자의 첫 칸**으로 옮겨 갔다(사장님 「색상 연식 주행거리를
+ *   배정하자고」). 그래서 `aria-label="색상"` 은 더 없다. 묻는 것은 그대로다:
+ *   **한 칸 안에 내·외부가 견본과 함께** 있어야 한다(두 칸으로 쪼개면 내장색 없는 차 32%가 늘 빈다).
+ */
+must(/\['색상', colorText,/.test(shopDetail)
   && /<ColorMark name=\{p\.ext_color\} label="외부"/.test(shopDetail)
   && /<ColorMark name=\{p\.int_color\} label="내부"/.test(shopDetail)
   && /from '@\/lib\/domain\/color-chips'/.test(read('components/ui/badges.tsx')),
@@ -447,15 +452,19 @@ must(/const stateMarks: Mark\[\]/.test(shopDetail) && /const perkMarks: Mark\[\]
  */
 const at = (needle: string) => shopDetail.indexOf(needle);
 /*
- * **사람이 차를 보는 차례** — 이름(제조사·세부모델·세부트림) → **선택 옵션** → **색상**
+ * **사람이 차를 보는 차례** — 이름(제조사·세부모델·세부트림) → **선택 옵션** → **색상·연식·주행거리**
  * (사장님 2026-09-05 「사람들이 차를 볼 때 «아 이게 어느 트림이고, 옵션이 뭐고, 아 색상이
- *  뭐구나» 이렇게 들어간단 말이야」). 옵션은 격자 칸이 아니라 **한 줄을 통째로** 쓴다.
+ *  뭐구나» 이렇게 들어간단 말이야」).
+ * ★옵션은 격자 칸이 아니라 **한 줄을 통째로** 쓴다(사장님 2026-09-07 「선택옵션 줄을 한 줄 다 쓰는 거고」).
+ * ★★그 다음 줄이 **색상 · 연식 · 주행거리**다(같은 날 「그다음엔 색상 연식 주행거리를 배정하자고」) —
+ *   색상이 제 줄을 통째로 쓰던 것을 격자 «첫 칸»으로 옮겼다. 웹 1400 에서 오른쪽 660px 이 비었었다.
  */
 must(at('>제조사 · 세부모델 · 세부트림<') < at('aria-label="선택 옵션"')
-  && at('aria-label="선택 옵션"') < at('aria-label="색상"')
-  /* 색상까지가 «이름 무리»다 — 격자(연식·주행…)는 그 다음이다. */
-  && at('aria-label="색상"') < at('<Facts rows={specs}'),
-  '차량 정보의 «이름 무리»가 흩어졌습니다 — 이름 → 선택 옵션 → 색상이 한 덩어리로 붙고, 격자는 그 다음입니다.',
+  && at('aria-label="선택 옵션"') < at('<Facts rows={specs}')
+  /* 격자 첫 무리가 «색상 → 연식 → 주행거리» 차례여야 한다. */
+  && at("['색상', colorText,") < at("['연식', yearFullDisplay(p.year)]")
+  && at("['연식', yearFullDisplay(p.year)]") < at("['주행거리',"),
+  '차량 정보의 차례가 흩어졌습니다 — 이름 → 선택 옵션 → (색상·연식·주행거리) 순입니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-2-2');
 must(/function grouped\(/.test(shopDetail) && /const specs: FactRow\[\] = grouped\(/.test(shopDetail)
   && at("['연식'") < at("? '배터리' : '배기량'")
@@ -463,14 +472,16 @@ must(/function grouped\(/.test(shopDetail) && /const specs: FactRow\[\] = groupe
   && at("['구동방식'") < at("['승차정원'")
   && at("['승차정원'") < at("['차량 가격'")
   /*
-   * **웹은 폰 격자를 늘려 쓰지 않는다** — 무리가 «띠»로 옆에 붙는다(사장님 2026-09-05
-   * 「외부 공간이 넓기 때문에 모바일만 생각하고 웹을 등한시하면 안 돼」).
-   * ⚠ 되돌아가면 넓은 화면이 오히려 더 빈다 — 실측(1440px) 832px 격자에 190px 네 칸 고정일 때
-   *   열두 자리 중 여섯이 비었다. 폰(2열)은 여덟 중 하나만 비었다.
+   * ★★**웹도 «3분할 고정 격자»다**(사장님 2026-09-07 「밑에 3개랑 **동일하게 3분할로 가로 간격
+   *   맞춰**주면 안 돼?」). 세로줄이 맞아야 표처럼 읽힌다.
+   * ⚠⚠ 2026-09-05 에는 정반대로 정했었다 — 「웹은 «띠»로 흐른다」. 그때 근거도 실측이었다:
+   *   1440px 에서 190px 네 칸 «고정»이면 열두 자리 중 여섯이 비었다.
+   *   ⇒ 3분할은 그 빈자리를 «감수»하는 선택이다(1400 에서 칸 폭 259, 승차정원이 제 줄로 내려간다).
+   *     사장님이 «맞은 세로줄»을 더 친다고 판단하셨다. 되돌리려면 먼저 여쭙는다.
    */
-  && /const bands: FactRow\[\]\[\] = \[\[\]\];/.test(shopDetail)
+  && /gridTemplateColumns: 'repeat\(3, minmax\(0, 1fr\)\)'/.test(shopDetail)
   && /if \(mobile\) \{[\s\S]{0,160}?display: 'grid'/.test(shopDetail),
-  '차량 정보의 차례가 흐트러졌거나, 웹이 폰 격자를 그대로 늘려 쓰고 있습니다 — 색상 / 연식·주행 / 동력 넷 / 신차가, 웹은 «띠»입니다.',
+  '차량 정보의 차례가 흐트러졌거나, 웹 격자가 3분할이 아닙니다 — 색상 / 연식·주행 / 동력 / 신차가.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-2-3');
 must(/const useRows = grouped\(/.test(shopDetail)
   && at("['기본 운전 연령'") < at("['연령 낮추기'")
@@ -497,7 +508,10 @@ must(/\{title\}[\s\S]{0,400}?\{facts \? \([\s\S]{0,400}?<\/h1>/.test(shopDetail)
 must(/const bar = mobile \? null :/.test(shopDetail)
   && /headerActions=\{<FavShare/.test(read('app/q/[code]/ShopDetailView.tsx'))
   && /\{mobile \? headerActions : null\}/.test(wlFrame)
-  && /mobile && headerActions \? \{ position: 'sticky' as const, top: 0/.test(wlFrame),
+  /* ⚠ 2026-09-07 — 머리띠는 이제 «웹에서도» 붙박이다(사장님 「웹페이지 틀고정 … 상세페이지도」).
+       그래서 조건이 `mobile && headerActions` 가 아니라 «언제나»다. 묻는 것은 그대로 —
+       머리띠가 붙박여 있어야 스크롤해도 공유·전화가 손에 남는다. */
+  && /position: 'sticky' as const, top: 0, zIndex: 15,/.test(wlFrame),
   '폰의 관심·공유가 머리띠를 떠났거나 머리띠 고정이 풀렸습니다 — 스크롤하면 공유가 사라집니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-2');
 
@@ -537,8 +551,8 @@ must(/--shop-fs-body: 15px/.test(css) && /@media \(max-width: 760px\)/.test(css)
    */
   && /--shop-fs-price: 21px/.test(css) && /price: 'var\(--shop-fs-price\)'/.test(shopUi)
   && /--shop-fs-tag/.test(css) && /--shop-fs-hero/.test(css)
-  && !/FS\.[a-z]/.test(shopUi) && !/FS\.[a-z]/.test(shopCard)
-  && !/FS\.[a-z]/.test(shopDetail) && !/FS\.[a-z]/.test(wlFrame),
+  && !/FS\.[a-z]/.test(shopUi) && !/FS\.[a-z]/.test(shopCard)
+  && !/FS\.[a-z]/.test(shopDetail) && !/FS\.[a-z]/.test(wlFrame),
   '손님 동 글자가 사다리를 벗어났습니다 — 업무동 토큰(FS.*)을 섞었거나 숫자를 화면에 박았습니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-3');
 
@@ -616,8 +630,19 @@ must(/export const BADGE = \{/.test(shopUi)
   && /padY: 2,/.test(shopUi) && /padX: 6,/.test(shopUi) && /icon: 12,/.test(shopUi)
   && /padding: `\$\{BADGE\.padY\}px \$\{BADGE\.padX\}px`/.test(shopUi)
   && /<m\.icon size=\{BADGE\.icon\}/.test(shopCard)
+  /*
+   * ⚠ 2026-09-06 — `StateChip`(신원 딱지)만 이 한 벌을 «안» 따르고 있었다(`5px 10px`·아이콘 13).
+   *   그래서 상세 머리에서 신원 29 · 조건 18 로 **두 줄의 딱지 높이가 달랐다.**
+   *   머리말에는 「둘이 같은 치수」라고 적혀 있었는데 글만 그랬다 — 이제 자가 잡는다
+   *   (사장님 2026-09-06 「같은 원자·같은 항목이면 그것끼리도 높이나 이런 게 같아야지」).
+   */
+  /* 신원 딱지·조건 칩 «둘 다» 이 한 벌을 쓴다 — 한 곳이라도 제 치수를 쓰면 높이가 갈린다. */
+  && (shopUi.match(/padding: `\$\{BADGE\.padY\}px \$\{BADGE\.padX\}px`/g) || []).length >= 2
+  && (shopUi.match(/lineHeight: BADGE\.lineHeight/g) || []).length >= 2
+  && !/padding: '5px 10px'/.test(shopUi)
+  && /<Icon size=\{BADGE\.icon\} aria-hidden \/>\{mark\.text\}/.test(shopUi)
   && !/<PerkMarks marks=\{marks\} fs=/.test(shopCard),
-  '뱃지 규격이 다시 두 벌로 갈렸습니다 — 사진 위 칩과 본문 우대조건은 같은 치수(BADGE)입니다.',
+  '뱃지 규격이 다시 두 벌로 갈렸습니다 — 신원 딱지·사진 위 칩·본문 우대조건은 같은 치수(BADGE)입니다.',
   'components/shop/shop-ui.tsx BADGE');
 
 must(/export function markIconFor/.test(shopUi)
@@ -659,14 +684,24 @@ must(/sp: \{ tight: 4, snug: 8, cozy: 12, edge: 16, part: 24, pane: 32, wide: 48
  *   도메인을 붙이면 호스트가 이겨서 이 폴백은 안 탄다(코드 재수정 없음).
  * ⚠ 업무동(`/login`·`/inventory`)은 **예전 그대로**여야 한다 — 콕핏은 우리 화면이다.
  */
+/*
+ * ⚠ 2026-09-06 — 채널마다 있던 라우트 파일(`app/(shop)/uniauto/page.tsx`)을 **걷었다.**
+ *   채널 하나 더 파는 일이 「표에 한 줄」이어야 해서(사장님 「홍길동 영업채널 걸로 하나 파줘,
+ *   그럼 바로 파줘야 되는 거야」), 임시 주소는 **미들웨어가 `/shop` 으로 다시 쓴다.**
+ *   묻는 것은 그대로다 — **ERP 도메인의 손님 화면이 노브랜드로 안 떨어진다.**
+ *   오히려 한 줄 더 묻는다: 껍데기 판정(`guest-surface`)이 **채널 표를 읽는가** —
+ *   여기서 표를 안 보면 새 채널 화면 위에만 업무동 남색 상단바가 얹힌다.
+ */
 must(/export function resolveGuestWhitelabel/.test(read('lib/whitelabel.ts'))
-  && /export function isGuestPath/.test(read('lib/whitelabel.ts'))
+  && /export function isGuestPath/.test(read('lib/guest-surface.ts'))
+  && /WHITELABELS/.test(read('lib/guest-surface.ts'))
   && /resolveGuestWhitelabel\(\(await headers\(\)\)\.get\('host'\), one\(sp\.wl\)\)/.test(read('app/q/[code]/page.tsx'))
   && /resolveGuestWhitelabel\(\(await headers\(\)\)\.get\('host'\), one\(sp\.wl\)\)/.test(read('app/(shop)/shop/page.tsx'))
   && /isGuestPath\(request\.nextUrl\.pathname\)/.test(read('middleware.ts'))
   && /x-fp-guest/.test(read('app/layout.tsx'))
-  /* 손님 층이 요청을 «읽어야» 미들웨어 표시가 레이아웃까지 간다 — 그 머리말 참고. */
-  && /await headers\(\);[\s\S]{0,20}?return <ShopView wl=\{UNI\} \/>;/.test(read('app/(shop)/uniauto/page.tsx')),
+  /* 채널 임시 주소 → `/shop` 다시쓰기 + 손님 표시. 이 셋이 한 덩어리다. */
+  && /w\.previewPath && request\.nextUrl\.pathname === w\.previewPath/.test(read('middleware.ts'))
+  && /target\.searchParams\.set\('wl', channel\.key\)/.test(read('middleware.ts')),
   'ERP 도메인의 손님 화면이 다시 노브랜드(프리패스)로 떨어집니다 — 상세·목록·소스에 우리 이름이 샙니다.',
   'lib/whitelabel.ts resolveGuestWhitelabel');
 
@@ -715,7 +750,10 @@ must(/background: on \? C\.brand : C\.head/.test(shopUi)
  * ⚠ 되돌아가면 목록 칩·정렬·아이콘이 다시 손가락만 해져 한 화면에 드는 매물이 줄어든다.
  */
 must(/tap: \{ web: 36, mobile: 44 \}/.test(shopUi)
-  && /pill: \{ web: 36, mobile: 38 \}/.test(shopUi)
+  /* ⚠ 2026-09-07 — 칩을 한 단 더 내렸다(사장님 「칩이 너무 뚱뚱한 거 같은데 ·
+       이 정도 높이로 규격화해야 하는 거 아닌가」 — 머리띠 「전화 상담」 단추 웹 32 를 가리키셨다).
+       36/38 은 글자 13 에 위아래 11px 씩 남아 뚱뚱했다. 되돌리려면 먼저 여쭙는다. */
+  && /pill: \{ web: 32, mobile: 36 \}/.test(shopUi)
   && /icon: \{ web: 36, mobile: 40 \}/.test(shopUi)
   && !/height: mobile \? 4[48] :/.test(shopUi),
   '가게 컨트롤이 다시 «터치 영역» 크기로 부풀었습니다 — 폰은 줄 44 · 칩 38 · 아이콘 40 입니다.',
@@ -749,13 +787,66 @@ must(!/aria-label=\{faved/.test(shopDetail) && !/Heart/.test(shopDetail) && !/He
  * 집 규칙도 그쪽이 틀렸다 — 「박스 뱃지 쓰지 말고 아이콘 텍스트로, **모든 곳에서**」(2026-08-28·30).
  */
 must(/<PerkMarks marks=/.test(shopDetail) && /<PerkMarks marks=/.test(shopCard)
-  && !/<Badge/.test(shopCard),
+  && !/<Badge/.test(shopCard),
   '손님 카드가 다시 박스 뱃지를 씁니다 — 목록·상세가 같은 칩 원자(PerkMarks)를 써야 합니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1 · docs/DESIGN_CONFIRMED_LIST_CARD.md');
 // 전화는 담당자 → 대표번호로 떨어진다 — ?a= 없는 손님에게 전화 링크가 0개가 되면 안 된다.
 must(/wl\.tel/.test(read('app/q/[code]/ShopDetailView.tsx')),
   '상세가 대표번호 폴백을 잃었습니다. ?a= 없이 들어온 손님은 폰에서 전화 링크가 0개가 됩니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-9');
+
+/*
+ * ★★**채널마다 라우트 파일을 만들지 않는다**(2026-09-06).
+ *   사장님 「홍길동 영업채널 걸로 하나 파줘 그럼 **바로 파줘야** 되는 거야」 —
+ *   채널 하나 파는 일이 「표에 한 줄」이려면 화면이 «한 벌»이어야 한다.
+ *   임시 주소는 미들웨어가 `/shop` 으로 다시 쓴다. 파일을 만들면 화면이 두 벌이 되고,
+ *   한쪽만 고쳐지는 순간 「그 채널만 예전 화면」이 된다.
+ * ⚠ 표에서 `previewPath` 를 읽어 «그 경로의 라우트 파일이 없는지»를 센다 —
+ *   채널이 늘어도 이 검사는 안 고친다.
+ */
+{
+  const table = read('lib/whitelabel.ts');
+  const paths = [...table.matchAll(/previewPath:\s*'([^']+)'/g)].map((m) => m[1]);
+  const stray = paths.filter((p) => existsSync(new URL(`../app/(shop)${p}/page.tsx`, import.meta.url))
+    || existsSync(new URL(`../app${p}/page.tsx`, import.meta.url)));
+  must(stray.length === 0,
+    `채널 전용 라우트 파일이 생겼습니다(${stray.join(' · ')}) — 채널은 «표 한 줄»이고 화면은 한 벌입니다.`,
+    'docs/영업자홈피-채널-매뉴얼.md §2');
+}
+
+/*
+ * ★★★**세로 리듬은 «사다리»만 쓴다**(사장님 2026-09-06 「줄 간격들을 … **다 통일** 시켰으면
+ *   좋겠어. **어디는 넓고 어딘 좁고** 이러지 않고」).
+ *   손님 동 파일에서 `margin*: <숫자>` 가 사다리(0·4·8·12·16·24·32·48 = `SHOP.sp`) 밖이면 걸린다.
+ * ⚠ 실측 2026-09-06 — 무리 사이가 **16·24·28** 로, 라벨 밑이 **4·8** 로 갈려 있었다.
+ *   보는 사람은 규칙을 못 읽고 「여기는 왜 붙었지」만 느낀다.
+ * ★**세로만 본다**(`marginTop|marginBottom|margin`). 가로(`marginLeft/Right`)는 아이콘을 1px 밀어
+ *   글자 밑선에 맞추는 «눈맞춤»이 섞여 있어 사다리로 잴 값이 아니다.
+ * ★`padding` 은 안 본다 — 뱃지 규격(`BADGE.padY` 2)처럼 «리듬이 아닌» 값이 섞여 있다.
+ */
+{
+  const LADDER = new Set([0, 4, 8, 12, 16, 24, 32, 48]);
+  const files = [
+    'components/shop/ShopDetail.tsx', 'components/shop/ShopCard.tsx',
+    'components/shop/ShopFilters.tsx', 'components/shop/ShopFilterSheet.tsx',
+    'components/shop/shop-ui.tsx', 'components/WhitelabelFrame.tsx',
+    'app/(shop)/shop/ShopView.tsx',
+  ];
+  const strays: string[] = [];
+  for (const f of files) {
+    const src = read(f).replace(/\/\*[\s\S]*?\*\//g, '');
+    for (const m of src.matchAll(/margin(?:Top|Bottom)?:\s*(\d+)/g)) {
+      if (!LADDER.has(Number(m[1]))) strays.push(`${f} margin ${m[1]}`);
+    }
+    /* ★`gap` 도 «사이»다 — 줄 사이든 칸 사이든 같은 사다리를 탄다(2026-09-06 실측으로 여덟 군데 잡았다). */
+    for (const m of src.matchAll(/(?:^|[^A-Za-z])(?:row|column)?[Gg]ap:\s*(\d+)/g)) {
+      if (!LADDER.has(Number(m[1]))) strays.push(`${f} gap ${m[1]}`);
+    }
+  }
+  must(strays.length === 0,
+    `세로 리듬이 사다리를 벗어났습니다(${strays.slice(0, 4).join(' · ')}) — 간격은 SHOP.sp 만 씁니다.`,
+    'components/shop/ShopDetail.tsx §세로 리듬');
+}
 
 if (fails.length) {
   console.error(`\n✗ 확정 디자인이 바뀌었습니다 — ${fails.length}건\n`);

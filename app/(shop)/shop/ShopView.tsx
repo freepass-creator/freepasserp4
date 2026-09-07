@@ -45,6 +45,13 @@ import {
  */
 
 /** 한 번에 그리는 카드 수. 716대를 한꺼번에 그리면 폰에서 첫 화면이 늦는다. */
+/**
+ * 두 기둥의 «머리 한 줄» 높이 — 조건칸 머리(전체차량)와 목록 머리(검색·정렬)가 이 높이를 같이 쓴다.
+ * 그래야 머리끼리 한 선에 서고, 그 아래 조건판과 카드도 같은 선에서 시작한다.
+ * 값은 안에 드는 것 중 제일 큰 것(26px 건수 숫자의 줄상자 40)에 숨 4를 더한 것이다.
+ */
+const HEAD_H = 44;
+
 const PAGE = 60;
 
 /**
@@ -162,13 +169,23 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
    */
   useEffect(() => {
     const el = stickRef.current;
-    if (!el || !mobile) return;
+    if (!el) return;
     const io = new IntersectionObserver(
       ([e]) => el.classList.toggle('is-stuck', e.intersectionRatio < 1),
       { root: el.closest('.fp-main-pad'), rootMargin: '-1px 0px 0px 0px', threshold: [1] },
     );
     io.observe(el);
-    return () => { io.disconnect(); el.classList.remove('is-stuck'); };
+    /*
+     * ★붙박이 줄의 «실제 높이»를 CSS 변수로 흘린다 — 옆 조건칸이 그 밑에 서고,
+     *   그만큼을 뺀 높이로 제 안에서 굴러야 한다. 숫자를 손으로 적으면
+     *   검색줄이 한 줄 늘어난 날(칩이 접히는 날) 조건칸이 그 밑으로 숨는다.
+     */
+    const ro = new ResizeObserver(([e]) => {
+      el.style.setProperty('--fp-shop-stick-h', `${Math.round(e.contentRect.height)}px`);
+      el.closest('main')?.style.setProperty('--fp-shop-stick-h', `${Math.round(e.contentRect.height)}px`);
+    });
+    ro.observe(el);
+    return () => { io.disconnect(); ro.disconnect(); el.classList.remove('is-stuck'); };
   }, [mobile]);
 
   /* 조건이 바뀌면 첫 장으로 — 3장까지 펼쳐 본 뒤 조건을 좁혔는데 여전히 3장이면 뭐가 준 건지 모른다. */
@@ -180,8 +197,6 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
     [query, facets],
   );
   const shown = list.slice(0, limit);
-  /** 재고 전체 — 웹 왼쪽 기둥의 「전체차량」. 조건과 무관한 값이라 안 변하는 게 «맞다». */
-  const countText = rows === null ? '—' : String(total);
   /** 지금 조건으로 남은 수 — 폰 머리가 드는 값. 조건을 넷 걸어 3대면 3이라고 말해야 한다. */
   const shownText = rows === null ? '—' : String(list.length);
   /** 검색어든 축이든 하나라도 걸렸나 — 걸렸으면 「전체차량」이 아니라 「조건에 맞는 차량」이다. */
@@ -273,7 +288,16 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
             차번은 영업자·우리가 쓰는 열쇠지 손님의 말이 아니다 — 검색은 여전히 차번도 받지만
             **안내를 차번으로 하면** 손님은 「내가 아는 게 없네」 하고 조건칸으로도 안 간다.
         */}
-        <div ref={stickRef} className={mobile ? 'fp-shop-stick' : undefined}>
+        {/*
+          ★★**웹에서도 검색줄이 위에 남는다**(사장님 2026-09-07 「웹에서 스크롤하면 검색창 위에
+            남고, 옆에 필터도 «틀고정»은 되어야지」). 720대를 내려가다 다시 찾고 싶을 때
+            맨 위로 되돌아가는 화면은 마켓이 아니다.
+          ★폰은 머리띠(56) 밑에 서고, 웹은 머리띠가 같이 흐르므로 0 에 선다 — 같은 클래스,
+            높이만 갈린다(`app/globals.css` `.fp-shop-stick`).
+          ★붙박이 줄의 «높이»를 CSS 변수로 흘려보낸다 — 옆 조건칸이 그 밑에 서야 해서다.
+            숫자를 두 곳에 적으면 한쪽만 바뀌는 날이 온다.
+        */}
+        <div ref={stickRef} className="fp-shop-stick">
           {/*
             ★★**폰은 이 줄이 «평소에 없다»** — 머리띠 오른쪽 돋보기를 누르면 **칩 줄 바로 위**로
               나온다(사장님 2026-09-05 「유튜브 모바일 우측 상단에 **돋보기를 누르면** 우리 원래
@@ -307,51 +331,6 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
             ))}
           </div>
         </div>
-
-        {/*
-          ★★**웹 머리 한 줄 — 「전체차량 · N대 중 1–M · 정렬」이 «같은 선»에 선다**
-            (사장님 2026-09-06 「그 **전체차량하고 검색차량하고 정렬순하고 같은 선상에 줄 맞춰** 주면
-            좋겠는데, 이런 식으로 맞출 건 맞추고」).
-          ⚠ 실측 — 셋이 **374 / 441 / 433** 으로 다 다른 높이에 있었다. 「전체차량」은 조건칸 «안»에,
-            나머지 둘은 목록 «머리»에 있어서다. 서로 다른 상자에 담겨 있으니 줄이 맞을 수가 없었다.
-          ⇒ 두 기둥을 **가로지르는 한 줄**로 뽑는다. 왼쪽 칸은 조건칸과 같은 폭(260)이라
-            「전체차량」이 그 기둥 위에 정확히 앉고, 오른쪽 칸은 목록 위에 앉는다.
-          ★폰은 이 줄이 없다 — 기둥이 없으니 가로지를 것도 없고, 목록 어깨 한 줄이 그 일을 한다.
-        */}
-        {!mobile ? (
-          <div style={{
-            /*
-             * ★**`baseline` 이다 — `center` 가 아니다.** 가운데로 맞추면 상자 «높이»가 맞을 뿐,
-             *   글자는 어긋난다(실측 384 / 379 / 379 — 왼쪽만 5px 내려앉았다). 왼쪽 칸에는 26px 짜리
-             *   숫자가 들어 있어 상자가 더 높고, 그 안에서 작은 글자는 숫자의 밑선에 걸려 있어서다.
-             *   **밑선으로 맞추면** 「전체차량」과 「N대 중 1–M」이 같은 선에 정확히 앉는다.
-             * ★정렬 고르개만 `center` 로 뺀다 — 고르개는 글자가 아니라 «상자»라 밑선이 없다.
-             */
-            display: 'flex', gap: SHOP.sp.pane, alignItems: 'baseline', marginTop: SHOP.sp.part,
-          }}>
-            <div style={{ width: 260, flexShrink: 0 }}>
-              <ShopCount value={countText} />
-            </div>
-            <div style={{ flex: 1, minWidth: 0, display: 'flex', alignItems: 'baseline', gap: SHOP.sp.cozy }}>
-              {/*
-                ⚠ **걸린 조건 칩을 이 줄에 끼우지 않는다** — 한 번 그렇게 해 봤다가 물렀다
-                  (사장님 2026-09-06 「아니다. 그냥 **전체차량 그 밑에 라인**으로 나오게 하자.
-                  그게 맞겠다. **필터 거는 사람들은 그래야지 알겠지?**」).
-                  건수 옆에 이어 붙이면 「1대 중 1–1 · 월 대여료 50~60만 · 보증금 없음」이
-                  **한 문장으로 뭉쳐** 어디까지가 결과고 어디부터가 내가 건 조건인지 갈리지 않는다.
-                  조건은 **손님이 «되돌릴» 대상**이라 제 줄에서 눈에 띄어야 한다.
-              */}
-              <span style={{ fontSize: SHOP.fs.sub, color: C.mute, fontVariantNumeric: 'tabular-nums' }}>
-                {rows === null ? '불러오는 중' : `${list.length}대 중 1–${shown.length}`}
-              </span>
-              <div style={{ flex: 1 }} />
-              <span style={{ alignSelf: 'center', display: 'inline-flex' }}>
-                <ShopSort value={query.sort} options={SHOP_SORTS}
-                  onChange={(v) => setQuery((q) => ({ ...q, sort: v as ShopSortKey }))} />
-              </span>
-            </div>
-          </div>
-        ) : null}
 
         {/*
           ★★**걸린 조건은 「전체차량」 «바로 밑 줄»에 — 두 기둥을 가로질러 통째로 선다**
@@ -395,7 +374,7 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
              * ⇒ 붙박이(sticky)는 두되 **높이를 자르지 않는다.** 기둥이 화면보다 길면 그냥 같이 흐르고,
              *   짧으면 제자리에 붙어 있는다 — 스크롤 막대가 화면에 하나뿐이라야 손이 헷갈리지 않는다.
              */
-            <aside style={{
+            <aside className="fp-shop-aside" style={{
               width: 260, flexShrink: 0,
               /*
                * ⚠⚠ **붙박이(sticky)를 걷었다 — 아래쪽 축 다섯이 «갇혀» 있었다**(2026-09-06 실측).
@@ -445,29 +424,63 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
                   선 하나는 «가두는» 게 아니라 «묶는» 것이라 그 지적과 어긋나지 않는다.
                 ★안쪽 위아래 여백은 4 — 첫 축 제목의 제 여백(11)과 겹쳐 15 가 된다.
               */}
+              {/*
+                ★★**조건칸 머리 = 전체 재고**(엔카도 왼쪽 기둥 맨 위가 「국산차 검색 140,214대」다).
+                  조건을 만지는 손이 숫자를 «같은 자리»에서 본다 — 켤 때마다 눈이 목록 위로 안 간다.
+                ★여기 숫자는 **조건을 걸어도 안 변한다**(사장님 2026-09-07 「전체차량 721대 있고 …」).
+                  걸린 결과는 «목록 머리»가 말한다 — 같은 숫자를 두 곳에서 두 번 말하지 않는다.
+                ★★**판(테두리) «밖», 기둥의 맨 첫 자식이다.** 판 안에 넣으면 판의 테두리(1)+안여백(4)+
+                  머리여백(12)만큼 내려앉아, 오른쪽 목록 머리와 **17px 어긋난다**(2026-09-07 실측 349 vs 375).
+                  사장님이 「여기 배열을 **가로 라인을 맞춰야지**」 하신 그 어긋남이다.
+                ⇒ 양쪽 기둥의 **첫 자식을 같은 높이(`HEAD_H`)의 줄**로 세운다. 그러면 머리끼리도,
+                  그 아래 조건판↔카드도 **저절로 같은 선**에서 시작한다.
+                ⚠ 「조건 모두 지우기」는 여기 안 둔다 — 걸린 조건 줄에 이미 있다(같은 문을 둘 두지 않는다).
+              */}
+              <div style={{ height: HEAD_H, display: 'flex', alignItems: 'center' }}>
+                <ShopCount value={rows === null ? '—' : String(total)} />
+              </div>
               <div style={{
                 border: `1px solid ${C.line2}`, borderRadius: SHOP.r.card,
                 padding: `${SHOP.sp.tight}px ${SHOP.sp.edge}px`,
-              }}>{filters}</div>
+              }}>
+                {filters}
+              </div>
             </aside>
           ) : null}
 
           <div style={{ flex: 1, minWidth: 0 }}>
             {/*
-              폰 전용 머리줄 — 목록의 어깨다. **웹은 이 줄이 없다**: 「전체차량 · N대 중 1–M · 정렬」
-              셋이 두 기둥을 가로질러 «한 선»에 서기 때문이다(아래 `headRow` 머리말).
+              목록의 어깨 — **웹·폰 «같은 줄»이다.** 오른쪽 기둥 «안»에 있으므로 카드 바로 위에 앉는다.
+              ⚠ 웹만 두 기둥을 가로지르는 별도 머리줄을 두었었다(2026-09-06). 그러면 왼쪽 끝이
+                조건칸 위라, 「검색 N대」가 「전체차량 N대」 바로 위에 겹쳐 서서 숫자 둘이 한 기둥에
+                쌓인다. 사장님이 말씀하신 자리는 **「상품카드 윗쪽」**이다 — 그래서 기둥 안으로 넣었다.
+
+              ★★**숫자는 조건을 걸었을 때만 선다**(사장님 2026-09-07 「상품카드 윗쪽에는 **검색을
+                하게 되면 그때서야 「검색 000대」**로 보여주면 될 거 같아. **필터 걸기 전에는 그냥
+                숫자가 안 나올** 거고… 근데 **허전하니까 뭘 넣어주던가**」).
+                전체 재고는 «조건칸 머리»가 늘 말한다 — 같은 숫자를 두 곳에서 두 번 말하지 않는다.
+              ★조건이 없으면 그 자리를 **비워 두지 않는다** — 조건칸을 가리키는 한 줄이 잡는다.
+                처음 온 사람은 왼쪽 기둥을 안 본다.
+              ★폰은 조건칸 «머리»가 없다(기둥이 없다) — 그래서 폰만은 조건 전에도 「전체차량 N대」다.
+                안 그러면 폰에서 전체 대수를 셀 곳이 아예 사라진다.
             */}
-            {mobile ? (
             <div style={{
               display: 'flex', alignItems: 'center', gap: SHOP.sp.cozy,
-              margin: '4px 0 8px',
+              /* 웹은 «조건칸 머리»와 같은 높이의 줄이라 둘이 한 선에 선다(위 머리말). */
+              height: mobile ? undefined : HEAD_H,
+              margin: mobile ? '4px 0 8px' : undefined,
             }}>
-              <ShopCount value={shownText} filtered={narrowed} />
+              {mobile || narrowed ? (
+                <ShopCount value={shownText} filtered={narrowed} />
+              ) : (
+                <span style={{ fontSize: SHOP.fs.sub, color: C.mute }}>
+                  {rows === null ? '불러오는 중입니다' : '왼쪽에서 조건을 골라 좁혀 보세요'}
+                </span>
+              )}
               <div style={{ flex: 1 }} />
               <ShopSort value={query.sort} options={SHOP_SORTS}
                 onChange={(v) => setQuery((q) => ({ ...q, sort: v as ShopSortKey }))} />
             </div>
-            ) : null}
 
             {/*
               ★폰도 **건수 «바로 밑 줄»**이다 — 웹과 같은 규칙이다(사장님 2026-09-06 「전체차량

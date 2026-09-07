@@ -1,5 +1,7 @@
+import { cache } from 'react';
 import 'server-only';
 import { firestoreAdminRef } from '@/lib/server/firestore-ref-shim';
+import { guestSource } from '@/lib/server/guest-source';
 import { sanitizeAgentForGuest, sanitizeProductForGuest } from '@/lib/domain/public-catalog';
 import { isOfferableProduct } from '@/lib/domain/product';
 import { codeCandidates, matchAgentByShareCode, shareToken, splitShareSegment } from '@/lib/domain/product-share';
@@ -38,13 +40,53 @@ function findProduct(all: Record<string, Rec>, raw: string): { key: string; prod
 }
 
 /**
+ * **`/q/{조각}` → 원자 한 대.** 손님 화면도, 영업자 전용 칸도 «이 한 함수»로 찾는다.
+ *
+ * ★★찾는 규칙을 두 벌 두지 않는다. 조각은 세 가지로 올 수 있다 — RTDB 키 · `product_code` ·
+ *   짧은 토큰(`shareToken`) — 게다가 `{토큰}-{담당자}` 로 붙어 오기도 한다.
+ *   같은 링크가 화면마다 다르게 풀리면 「손님은 열리는데 영업자 칸만 없다」가 된다.
+ * ⚠ **통째로 먼저 찾고, 못 찾을 때만 하이픈에서 가른다** — 반대로 하면 `PD-260506-020` 같은
+ *   하이픈 품은 상품키 599건(2026-08-22 실측)이 전부 «없는 상품»이 되어 이미 나간 링크가 죽는다.
+ * ★파이어스토어만 읽는다(사장님 2026-09-05 「RTDB 안 쓴다니까? 파이어스토어만 갖고 와」).
+ *   ⚠ 문서 id 는 «차번»이고 RTDB 키는 「공급사_차번」이었다 — 키는 `_key || product_code || id` 차례.
+ */
+export async function resolveProduct(segment: string): Promise<{ key: string; product: Rec; share: string } | null> {
+  const seg = S(segment);
+  if (!seg) return null;
+  /* ★재고는 «공용 캐시»에서 받는다(`guest-source`) — 목록·상세·미리보기가 같은 것을 본다. */
+  const src = await guestSource();
+  const all: Record<string, Rec> = {};
+  for (const [docKey, v] of Object.entries(src.products)) {
+    if (v && typeof v === 'object') all[S(v._key) || S(v.product_code) || docKey] = v;
+  }
+  const hit = findProduct(all, seg);
+  if (hit) return { ...hit, share: '' };
+  const split = splitShareSegment(seg);
+  if (!split.share) return null;
+  const second = findProduct(all, split.code);
+  return second ? { ...second, share: split.share } : null;
+}
+
+/**
  * @param segment `/q/{여기}` 한 조각. 새 형식 `{토큰}-{담당자}` · 옛 형식 원본 키(하이픈 포함 가능).
  * @param shareFromQuery `?a=` 로 온 담당자 코드(옛 링크). 있으면 조각 안의 담당자보다 우선한다.
  *
  * ⚠ **통째로 먼저 찾고, 못 찾을 때만 하이픈에서 가른다.** 반대로 하면 `PD-260506-020` 같은
  *   하이픈 품은 상품키 599건(2026-08-22 실측)이 전부 «없는 상품»이 되어 이미 나간 링크가 죽는다.
  */
-export async function loadGuestQuote(segment: string, shareFromQuery: string): Promise<GuestQuote | null> {
+/**
+ * ★★**한 요청 안에서는 «한 번만» 읽는다**(2026-09-07 — 상세가 느린 이유).
+ *
+ * 실측 — `v4/products` 통째 읽기가 **776ms**(첫 회)·400ms(이후)다. 한 대를 보여주려고
+ * 1,375대를 통째로 읽는데, 그걸 **한 화면에 두 번** 하고 있었다:
+ *   ㉠ `generateMetadata`(제목·og) ㉡ 브라우저가 다시 부르는 `/api/catalog/quote`
+ * ⇒ `cache()` 로 감싸면 ㉠·㉡ 이 «같은 요청»일 때 한 번만 읽는다.
+ * ⇒ 그리고 ㉡ 자체를 없앤다 — 서버가 이미 읽은 것을 화면에 «넘겨준다»(`app/q/[code]/page.tsx`).
+ * ⚠ 캐시는 «요청 하나» 안에서만 산다. 다음 손님은 새로 읽는다 — 재고가 굳지 않는다.
+ */
+export const loadGuestQuote = cache(loadGuestQuoteUncached);
+
+async function loadGuestQuoteUncached(segment: string, shareFromQuery: string): Promise<GuestQuote | null> {
   const seg = S(segment);
   if (!seg) return null;
 
@@ -54,23 +96,11 @@ export async function loadGuestQuote(segment: string, shareFromQuery: string): P
    * ⚠ 문서 id 는 «차번»이고 RTDB 키는 「공급사_차번」이었다 — 키는 `_key || product_code || id` 차례로 잡는다.
    *   `findProduct` 가 키 «또는» `product_code` 로 찾으므로 이미 나간 공유 링크가 그대로 열린다.
    */
-  const db = firestoreAdminRef();
-  const snap = await db.ref('v4/products').get();
-  const all: Record<string, Rec> = {};
-  for (const [docKey, v] of Object.entries((snap.val() || {}) as Record<string, Rec>)) {
-    if (v && typeof v === 'object') all[S(v._key) || S(v.product_code) || docKey] = v;
-  }
-
   let share = S(shareFromQuery);
-  let hit = findProduct(all, seg);
-  if (!hit) {
-    const split = splitShareSegment(seg);
-    if (split.share) {
-      hit = findProduct(all, split.code);
-      if (hit && !share) share = split.share;
-    }
-  }
+  const hit = await resolveProduct(seg);
   if (!hit) return null;
+  if (hit.share && !share) share = hit.share;
+  const db = firestoreAdminRef();
   const { key, product } = hit;
   if (!product || dead(product)) return null;
 
@@ -86,7 +116,7 @@ export async function loadGuestQuote(segment: string, shareFromQuery: string): P
   const policyCode = S((product as Rec).policy_code);
   let policy: Rec | null = null;
   if (policyCode) {
-    const pool = ((await db.ref('policies').get()).val() || {}) as Record<string, Rec>;
+    const pool = (await guestSource()).policies;   /* 캐시라 공짜다 */
     policy = Object.entries(pool)
       .map(([k, v]) => ({ ...(v || {}), _key: k } as Rec))
       .find((x) => S(x.policy_code) === policyCode || S(x._key) === policyCode) || null;

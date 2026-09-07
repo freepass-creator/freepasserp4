@@ -1,4 +1,3 @@
-import { isGuestSurface } from '@/lib/guest-surface';
 /**
  * 화이트라벨 정본(SSOT) — 손님 카탈로그를 «누구 이름으로» 내보내는가.
  *
@@ -173,7 +172,36 @@ export const WHITELABELS: Whitelabel[] = [
       body: '신용조회 없이 이용하실 수 있습니다. 보증금과 월 대여료를 확인하고 편하게 골라 보세요.',
     },
   },
+  /*
+   * ★★★**채널을 하나 더 파는 일 = 여기 한 줄이다.**
+   *   사장님 2026-09-06 「유니오토도 **하나의 영업채널**이고, 내가 이거를 **홍길동 영업채널 걸로
+   *   하나 파줘** 그럼 **바로 파줘야** 되는 거야」.
+   *
+   *   여태는 채널마다 ① 이 표에 한 줄 ② `app/(shop)/{채널}/page.tsx` 라우트 파일 ③ 건물도면 등록 —
+   *   **셋**을 해야 했다. 2026-09-06 에 ②③을 걷었다(임시 주소는 미들웨어가 `/shop` 으로 다시 쓴다).
+   *   ⇒ 이제 **줄 하나 = 채널 하나.** 배포하면 바로 열린다.
+   *
+   *   ★채우는 순서 — 이름·워드마크·색·전화·사업자 표기·임시 주소. 모르는 값은 `[대괄호]` 로 둔다
+   *     (지어내지 않는다 — 사업자 표기는 법적 표기다).
+   *   ★도메인이 생기면 `hosts` 에 적고 `domainReady: true` 로 바꾼다. 그때 `previewPath` 를 지운다.
+   *   ⚠ `providerCode` 는 **비워 둔다** — 영업채널은 «우리 재고 전체»를 제 이름으로 판다.
+   */
 ];
+
+/**
+ * **채널 ✕ freepass** — 손님에게 보이는 «동반 표기»의 정본.
+ *
+ * ★사장님 2026-09-07 「**유니오토모빌 X freepass** 이렇게 해줘야 함 홈페이지는」 ·
+ *   「**그 브라우저에 그렇게 보여야** 한다는 거야」 — 화면 머리띠뿐 아니라 **브라우저 탭·공유 미리보기**
+ *   에도 그렇게 뜬다는 뜻이다.
+ * ★이 홈페이지는 채널의 얼굴이지만 **우리가 만들어 주는 것**이다. 만든 쪽을 숨기지 않고 옆에 적는다.
+ * ⚠ 업무동 규칙(「브랜드 표식은 안 세운다」)과 «다른 자리»다 — 그건 공급사·영업자가 같이 쓰는
+ *   콕핏 얘기고, 여기는 손님에게 나가는 채널 홈페이지다.
+ * ★노브랜드(FREEPASS)면 붙이지 않는다 — 「 ✕ freepass」만 홀로 서는 꼴이 된다.
+ */
+export function coBrandName(wl: Whitelabel): string {
+  return hasBrand(wl) ? `${wl.name} ✕ freepass` : wl.name;
+}
 
 /** 호스트 정규화 — 대소문자·포트·앞뒤 공백을 걷어낸다. */
 function normHost(raw: string | null | undefined): string {
@@ -198,28 +226,8 @@ export function resolveWhitelabel(host?: string | null, wlKey?: string | null): 
   return FREEPASS;
 }
 
-/**
- * **손님 동 라우트인가** — 업무동(콕핏)과 가르는 한 곳.
- *
- * ★이 판정이 필요한 이유 = **아직 채널 도메인이 하나도 안 붙어 있다**(2026-09-06 실측:
- *   `uniauto.freepasserp.com` · `uniautofreepass.com` 전부 응답 없음). 브랜드는 «호스트»가
- *   정하는 설계인데 호스트가 ERP 도메인 하나뿐이라, 손님 화면이 **노브랜드(프리패스)로 떨어졌다.**
- * ⚠ 업무동까지 채널로 물들이면 안 된다 — `/login`·`/inventory` 는 우리 콕핏이다. 그래서 «라우트»로 가른다.
- */
-export function isGuestPath(pathname: string): boolean {
-  const p = String(pathname || '').split('?')[0];
-  /*
-   * ★★**명단은 `lib/guest-surface` 한 곳이다.** 여기서 또 적지 않는다.
-   *   2026-09-06 실측 — 잠깐 두 벌이었다. 이 파일이 `/q`·`/shop`·`/catalog` 를 따로 세고 있었고,
-   *   같은 날 다른 세션이 `guest-surface` 에 같은 명단을 «상단바/하단바를 따로 묻는» 더 나은 꼴로
-   *   세웠다. 두 벌이면 새 손님 라우트가 생길 때 **한쪽만 등록돼** 껍데기와 브랜드가 갈린다.
-   * ⚠ 물음은 서로 «다르다» — 저쪽은 「우리 껍데기를 벗을까」, 이쪽은 「어느 브랜드를 입을까」다.
-   *   그래서 함수는 둘이되 **명단은 하나**를 본다.
-   * ★채널의 임시 주소(`previewPath`)만 여기서 더한다 — 그건 화이트라벨 표가 쥔 값이다.
-   */
-  if (isGuestSurface(p)) return true;
-  return WHITELABELS.some((w) => !!w.previewPath && (p === w.previewPath || p.startsWith(`${w.previewPath}/`)));
-}
+/* ★「손님 동 라우트인가」(`isGuestPath`)는 `lib/guest-surface` 로 옮겼다(2026-09-06).
+   그 판정은 «채널 표»를 읽어야 하는데 이 파일이 그 파일을 부르고 있어 화살표가 거꾸로였다. */
 
 /** 손님 동이 노브랜드로 떨어졌을 때 입는 **임시 채널**. 도메인이 붙으면 안 쓰인다. */
 export const GUEST_FALLBACK_KEY = 'uniplan';

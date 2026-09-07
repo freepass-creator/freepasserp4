@@ -83,6 +83,36 @@ const RAW_ALLOW = new Map<string, Allow>([
     counts: { button: 1 },
     reason: '채널 껍데기 — 안내 띠 닫기. 하단 전화독은 ShopDock 원자다',
   }],
+  /*
+   * ★★**손님 동(가게)은 «제 원자층»을 갖는다** — `components/shop/shop-ui.tsx`.
+   *   사장님 2026-09-04 「검색창이고 좌측 사이드바 필터하고 **기존 거 활용하지 말고 새로이** 설계하고」.
+   *   업무동 원자는 «하루 종일 콕핏을 보는 사람» 규격(높이 32·글자 12~13·각진 모서리 4)이고,
+   *   손님은 «한 번 훑고 고르는» 사람이라 타깃·글자·둥글기가 다르다. 전자계약·견적과 같은 갈래다.
+   * ⚠ 그래서 이 파일의 raw 는 «원자의 본체»다(components/ui 와 같은 지위 — sign/atoms 와 같음).
+   *   나머지 손님 동 파일은 **shop-ui 원자를 써야 한다** — 개수를 못 박아 새 raw 는 계속 걸리게 둔다.
+   * ⚠⚠ 2026-09-06 검수 — 하단 실행독이 세 곳에 손으로 짜여 높이가 54·52·48 로 갈렸고 둘은
+   *   아이폰 안전영역을 안 봤다. `ShopDock`·`ShopDockAction` 원자로 합쳤다. **다시 손으로 짜지 말 것.**
+   */
+  ['components/shop/shop-ui.tsx', {
+    counts: { button: 6, input: 2, select: 1 },
+    reason: '가게 «원자 파일» 자체 — ShopPill·ShopIconBtn·ShopTextBtn·ShopDock/ShopDockAction·ShopSearch·ShopSort 의 본체',
+  }],
+  ['components/shop/ShopDetail.tsx', {
+    counts: { button: 4 },
+    reason: '상세 — 기간 고르는 줄(접근성상 진짜 button)·사진 갤러리 타일·갤러리 화살표·공유. 나머지는 shop-ui 원자',
+  }],
+  ['components/shop/ShopFilters.tsx', {
+    counts: { button: 2 },
+    reason: '조건칸 — 축 접기 머리·줄 전체가 누름 영역인 체크 줄(줄 자체가 컨트롤이라 원자로 못 감싼다)',
+  }],
+  ['components/shop/ShopFilterSheet.tsx', {
+    counts: { button: 1 },
+    reason: '폰 조건 시트 — 축 고르는 왼쪽 기둥. 하단독은 ShopDock 원자다',
+  }],
+  ['components/WhitelabelFrame.tsx', {
+    counts: { button: 1 },
+    reason: '채널 껍데기 — 안내 띠 닫기. 하단 전화독은 ShopDock 원자다',
+  }],
   ['components/sign/atoms.tsx', {
     counts: { button: 2, input: 1 },
     reason: '착한거래 «원자 파일» 자체 — SignOption·SignConsent·SignInput 의 본체(components/ui 와 같은 지위)',

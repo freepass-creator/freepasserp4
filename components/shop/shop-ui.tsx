@@ -46,7 +46,15 @@ export const SHOP = {
    */
   tap: { web: 36, mobile: 44 },
   /** 칩·정렬 고르개의 **보이는 높이** — 한 줄에 나란히 서므로 둘이 같아야 한다. */
-  pill: { web: 36, mobile: 38 },
+  /*
+   * ★★**웹 32 · 폰 36**(사장님 2026-09-07 「이 칩이 너무 뚱뚱한 거 같은데」 ·
+   *   「**이 정도 높이로 규격화**해야 하는 거 아닌가 싶네」 — 머리띠의 「전화 상담」 단추를 가리키셨다.
+   *   그 단추가 웹 32(업무동 `Btn` md)다. ⇒ 손님 동 «가로로 여럿 서는 것»의 기준을 거기 맞춘다).
+   * ⚠ 36/38 이었다. 글자가 13인데 높이가 36 이면 위아래로 11px 씩 남아 «뚱뚱»해 보인다.
+   *   09-05 에 44→36 으로 한 번 내렸는데 한 단 더 내려야 했다.
+   * ★폰은 36 — 웹보다 한 단 크다(손가락). 32 로 같이 내리면 누르기가 빡빡해진다.
+   */
+  pill: { web: 32, mobile: 36 },
   /** 라벨 없는 정사각 아이콘 단추(닫기·상세조건). 칩보다 살짝 크게 잡아 손이 쉽게 닿는다. */
   icon: { web: 36, mobile: 40 },
   /** 둥글기 — 마켓의 기본. 업무동 R(4, 각짐)과 다른 이유가 이 파일 머리말에 있다. */
@@ -136,7 +144,7 @@ export function ShopSearch({ value, onChange, placeholder }: {
   value: string; onChange: (v: string) => void; placeholder?: string;
 }) {
   return (
-    <div style={{
+    <div className="fp-shop-search" style={{
       display: 'flex', alignItems: 'center', gap: SHOP.sp.cozy,
       /*
        * 웹 전용 «머리 검색» — 밑줄 하나로 선다. 폰은 이 줄을 안 쓴다(머리띠 안에서 튀어나온다 —
@@ -294,7 +302,7 @@ export function ShopRevealSearch({ value, onChange, onClose, placeholder }: {
          *   한 단 옅은 면(`C.zebra`)으로 내려 뒤로 물리고, 높이도 칩(38)에 맞춰 40 으로 낮춘다.
          */
         height: 40, background: C.zebra, borderRadius: SHOP.r.ctrl, padding: `0 ${SHOP.sp.cozy}px`,
-      }}>
+      }} className="fp-shop-search">
         <Search size={19} aria-hidden style={{ flex: '0 0 auto', color: C.mute }} />
         <input
           autoFocus
@@ -336,8 +344,14 @@ export function ShopRevealSearch({ value, onChange, onClose, placeholder }: {
  * ★`fixed` 면 바닥에 붙고 **제 높이만큼 자리를 밀어 준다**(본문 끝이 독에 가리지 않게).
  */
 const dockPad = { y: SHOP.sp.cozy, x: SHOP.sp.edge };
-export function ShopDock({ fixed, side, sideWidth = 92, children }: {
+export function ShopDock({ fixed, safe, side, sideWidth = 92, children }: {
   fixed?: boolean;
+  /**
+   * 바닥에 «닿아» 있나 — 아이폰 홈 인디케이터를 피한다. `fixed` 면 저절로 참이다.
+   * ⚠ 시트처럼 «제가 fixed 는 아니지만 화면 바닥에 붙는» 독은 이걸 켜야 한다
+   *   (2026-09-06 코덱스 검수 — 조건 시트 버튼이 홈 인디케이터에 깔릴 수 있었다).
+   */
+  safe?: boolean;
   /** 왼쪽 «비주요» 칸 — 없으면 주요가 줄 전체를 쓴다. */
   side?: ReactNode;
   /** 고정폭(기본 92). 글자 블록처럼 폭이 내용에 달린 것은 `'auto'`. */
@@ -349,17 +363,26 @@ export function ShopDock({ fixed, side, sideWidth = 92, children }: {
   const cell: CSSProperties = { height: h, display: 'flex', alignItems: 'center' };
   return (
     <>
-      {/* 바닥에 붙는 독은 «자리»를 먼저 만든다 — 안 그러면 마지막 카드가 독 밑에 깔린다. */}
-      {fixed ? <div aria-hidden style={{ height: h + dockPad.y * 2 }} /> : null}
+      {/*
+        바닥에 붙는 독은 «자리»를 먼저 만든다 — 안 그러면 마지막 카드가 독 밑에 깔린다.
+        ⚠ **안전영역만큼 «같이» 비운다**(2026-09-07 코덱스 검수). 독은 아이폰에서
+          `env(safe-area-inset-bottom)` 만큼 더 두꺼워지는데 자리표는 그만큼을 안 비우고 있었다 —
+          그래서 노치 기기에서만 마지막 줄이 독 밑에 조금 깔렸다. 둘이 «같은 식»을 봐야 한다.
+      */}
+      {fixed ? (
+        <div aria-hidden style={{
+          height: `calc(${h + dockPad.y * 2}px + var(--fp-dock-safe, env(safe-area-inset-bottom)))`,
+        }} />
+      ) : null}
       <div style={{
         display: 'flex', alignItems: 'center', gap: SHOP.sp.snug,
         background: C.bg, borderTop: `1px solid ${C.line}`,
         padding: `${dockPad.y}px ${dockPad.x}px`,
-        ...(fixed ? {
-          position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 20,
-          /* ★아이폰 홈 인디케이터 — 이걸 안 보면 버튼 아랫부분이 깔린다(검수 실측). */
-          paddingBottom: `calc(${dockPad.y}px + var(--fp-dock-safe, env(safe-area-inset-bottom)))`,
-        } : { flex: '0 0 auto' }),
+        ...(fixed ? { position: 'fixed', left: 0, right: 0, bottom: 0, zIndex: 20 } : { flex: '0 0 auto' }),
+        /* ★아이폰 홈 인디케이터 — 이걸 안 보면 버튼 아랫부분이 깔린다(검수 실측). */
+        ...(fixed || safe
+          ? { paddingBottom: `calc(${dockPad.y}px + var(--fp-dock-safe, env(safe-area-inset-bottom)))` }
+          : null),
       }}>
         {side ? (
           <div style={{ ...cell, flex: sideWidth === 'auto' ? '0 0 auto' : `0 0 ${sideWidth}px` }}>{side}</div>
@@ -522,7 +545,9 @@ export function ShopCount({ value, filtered }: { value: string; filtered?: boole
      */
     <div style={{ display: 'flex', alignItems: 'baseline', gap: SHOP.sp.snug }}>
       <span style={{ fontSize: mobile ? SHOP.fs.cap : SHOP.fs.sub, fontWeight: 500, color: C.mute }}>
-        {filtered ? '조건에 맞는 차량' : '전체차량'}
+        {/* ★말은 한 벌만 쓴다 — 웹 목록머리·폰 어깨줄이 같은 낱말을 쓴다(사장님 2026-09-07
+              「검색 000대로 보여주면 될 거 같아」). 「조건에 맞는 차량」은 길어서 폰에서 줄을 먹었다. */}
+        {filtered ? '검색' : '전체차량'}
       </span>
       <span style={{
         fontSize: SHOP.fs.num, fontWeight: FW.head, color: C.brand,
@@ -543,7 +568,7 @@ export function ShopEmpty({ onClear }: { onClear: () => void }) {
       <div style={{ fontSize: SHOP.fs.h2, fontWeight: 700, color: C.ink, marginBottom: 8 }}>
         조건에 맞는 차량이 없습니다
       </div>
-      <div style={{ fontSize: SHOP.fs.body, color: C.mute, lineHeight: 1.7, marginBottom: 20 }}>
+      <div style={{ fontSize: SHOP.fs.body, color: C.mute, lineHeight: 1.7, marginBottom: SHOP.sp.part }}>
         조건을 조금 넓히면 비슷한 차량을 찾을 수 있습니다.<br />
         원하시는 차량이 없으면 담당자에게 문의해 주세요.
       </div>
@@ -572,7 +597,7 @@ export function ShopMore({ shown, total, onMore }: { shown: number; total: numbe
           background: C.head, color: C.ink,
           fontSize: SHOP.fs.body, fontWeight: 700,
         }}>
-        차량 더 보기 <span style={{ color: C.mute, fontWeight: 500, marginLeft: 6 }}>{shown} / {total}</span>
+        차량 더 보기 <span style={{ color: C.mute, fontWeight: 500, marginLeft: SHOP.sp.snug }}>{shown} / {total}</span>
       </button>
     </div>
   );
@@ -606,13 +631,23 @@ export function StateChip({ mark, fs = SHOP.fs.cap }: { mark: ShopMark; fs?: num
   const Icon = mark.icon;
   return (
     <span style={{
-      display: 'inline-flex', alignItems: 'center', gap: 4,
-      padding: '5px 10px', borderRadius: SHOP.r.chip,
+      display: 'inline-flex', alignItems: 'center', gap: SHOP.sp.tight,
+      /*
+       * ★★**치수는 «한 벌»(`BADGE`)** — 바로 밑 줄의 조건 칩과 «같은 높이»여야 한다
+       *   (사장님 2026-09-06 「규격 통일할 땐 통일하고, **같은 원자·같은 항목이면 그것끼리도
+       *   높이나 이런 게 같아야지**」).
+       * ⚠ 실측 2026-09-06 — 여기만 `5px 10px`·아이콘 13·줄높이 기본이라 **29px**,
+       *   바로 밑 조건 칩은 BADGE 라 **18px** 이었다. 같은 머리 안에서 두 줄의 딱지가
+       *   높이가 달랐다. `BADGE` 머리말에는 「둘이 같은 치수」라고 적혀 있었는데 **글만 그랬다.**
+       * ★갈리는 것은 «바탕»뿐이다 — 신원은 상태색 면, 조건은 옅은 회색 면(BADGE 머리말).
+       */
+      padding: `${BADGE.padY}px ${BADGE.padX}px`, borderRadius: SHOP.r.chip,
+      lineHeight: BADGE.lineHeight,
       background: mark.good ? C.okBg : C.zebra,
       color: mark.good ? C.ok : C.mute,
       fontSize: fs, fontWeight: 600, whiteSpace: 'nowrap',
     }}>
-      <Icon size={13} aria-hidden />{mark.text}
+      <Icon size={BADGE.icon} aria-hidden />{mark.text}
     </span>
   );
 }

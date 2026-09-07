@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import Link from 'next/link';
 import {
   ArrowLeft, Car, Check, ChevronLeft, ChevronRight, CircleCheck, Coins, FileText, Plus, Tag,
-  IdCard, ImageOff, Info, Phone, Share2, ShieldCheck,
+  IdCard, ImageOff, Info, Lock, Phone, Share2, ShieldCheck,
   type LucideIcon,
 } from 'lucide-react';
 import type { EntityRecord } from '@/lib/intake/entities';
@@ -13,6 +13,8 @@ import { BADGE, PerkMarks, SHOP, ShopDock, ShopDockAction, StateChip, markIconFo
 import { useIsMobile } from '@/lib/use-mobile';
 import { useProductPhotos } from '@/components/use-product-photos';
 import { haptic } from '@/lib/haptics';
+import { getAuthClient } from '@/lib/firebase/client';
+import { useSession, useAuthReady } from '@/lib/auth-context';
 import { creditDisplay, CREDIT_UNSET, parseProductOptions, priceList } from '@/lib/domain/product';
 import { PERKS, hasPerk } from '@/lib/domain/product-filters';
 import { vehicleNameOf } from '@/lib/domain/vehicle-name';
@@ -201,8 +203,15 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
     [
       ...colorRow,
       /*
-       * ㉡ **얼마나 탔나** — 연식 · 주행거리.
-       * 둘은 «따로 보는 값이 아니다». 2022년식 3만km 와 2022년식 12만km 는 다른 차다.
+       * ㉡ **이 차가 어떻게 생겼고 얼마나 탔나** — 색상 · 연식 · 주행거리.
+       *
+       * ★★사장님 2026-09-07 「선택옵션 줄을 한 줄 다 쓰는 거고, 그다음엔 **색상 연식 주행거리를
+       *   배정**하자고」. 그래서 색상이 **격자의 첫 칸**으로 들어왔다 —
+       *   전에는 제 줄을 통째로 써서 웹 1400 에서 오른쪽 660px 이 비었다(2026-09-07 실측).
+       * ⚠ 색상만 «글자가 아니라 그림»이 든다 — `FactRow` 셋째 자리(`node`)가 그 자리다.
+       *   글자 값(`colorText`)은 그대로 남아 검색·낭독에 쓰인다.
+       * ★연식과 주행거리는 «따로 보는 값이 아니다» — 2022년식 3만km 와 12만km 는 다른 차다.
+       *   색상까지 셋이 「이 차의 겉과 이력」 한 묶음이다.
        */
       ['연식', yearFullDisplay(p.year)],
       ['주행거리', km > 0 ? kmDisplay(p.mileage) : ''],
@@ -607,7 +616,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
             padding: mobile ? `${SHOP.sp.edge}px` : `${SHOP.sp.edge}px ${SHOP.sp.part}px`,
             borderRadius: SHOP.r.card, background: C.brandSoft,
           }}>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 8, whiteSpace: 'nowrap' }}>
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: SHOP.sp.snug, whiteSpace: 'nowrap' }}>
               <span style={{ fontSize: SHOP.fs.sub, color: C.mute }}>월</span>
               <span style={{
                 fontSize: SHOP.fs.hero, fontWeight: FW.head, color: C.ink,
@@ -681,11 +690,11 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
              웹 판정이 760부터라 노트북 창을 반만 열어도 표가 칸 밖으로 나갔다(코덱스 2026-09-05).
              ⇒ 520 은 «최대»고, 좁으면 줄어든다. 숫자는 nowrap 이라 더는 안 줄어드는 선에서 멈춘다. */
         <div style={{
-          marginTop: SHOP.sp.part, minWidth: 0,
+          marginTop: SHOP.sp.edge, minWidth: 0,
           flex: mobile ? undefined : '1 1 360px', maxWidth: mobile ? undefined : 520,
         }}>
           <div style={{
-            marginBottom: 8, fontSize: SHOP.fs.cap, fontWeight: 600, color: C.mute,
+            marginBottom: SHOP.sp.snug, fontSize: SHOP.fs.cap, fontWeight: 600, color: C.mute,
           }}>기간별 대여료 및 보증금</div>
           <table style={{ width: '100%', borderCollapse: 'collapse', fontVariantNumeric: 'tabular-nums' }}>
             <thead>
@@ -756,7 +765,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
       {payRows.length ? (
         /* ⚠ `minWidth: 0` 이면 줄바꿈 대신 **납부 칸이 65px 로 찌그러진다**(820px 실측).
              줄바꿈이 일어나려면 「이보다는 좁아질 수 없다」는 선이 있어야 한다 — 두 칸 격자라 260. */
-        <div style={{ marginTop: SHOP.sp.part, flex: '1 1 300px', minWidth: 260 }}>
+        <div style={{ marginTop: SHOP.sp.edge, flex: '1 1 300px', minWidth: 260 }}>
           <div style={{ marginBottom: SHOP.sp.snug, fontSize: SHOP.fs.cap, fontWeight: 600, color: C.mute }}>납부</div>
           <Facts rows={payRows} cols={2} mobile={mobile} />
         </div>
@@ -777,8 +786,9 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
        *   가로로는 펴진다(사장님 2026-09-05 「가로로 이렇게 좀 펼쳐져서 보인다든가」).
        */
       maxWidth: mobile ? 940 : 1120, margin: '0 auto',
-      // 하단 고정독이 마지막 줄을 덮지 않게 그만큼 비운다.
-      padding: mobile ? '16px 16px 108px' : '24px 24px 40px',
+      /* ⚠ 하단독 자리는 «원자»가 비운다(`ShopDock fixed` 가 제 높이만큼 자리표를 놓는다).
+         여기서 또 108 을 비우면 폰 상세 끝에 빈 화면이 두 겹으로 남는다(2026-09-06 코덱스 검수). */
+      padding: mobile ? `${SHOP.sp.edge}px ${SHOP.sp.edge}px ${SHOP.sp.part}px` : '24px 24px 40px',
     }}>
       {/*
         ★★**웹도 폰과 같은 «한 줄 스크롤»이다**(사장님 2026-09-05 「저 대여료를 꼭 사진 우측에서
@@ -811,7 +821,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
              */}
             {modelLine ? (
               <div style={{ marginBottom: SHOP.sp.edge }}>
-                <div style={{ fontSize: SHOP.fs.cap, color: C.faint, marginBottom: SHOP.sp.tight }}>제조사 · 세부모델 · 세부트림</div>
+                <div style={{ fontSize: SHOP.fs.cap, color: C.faint, marginBottom: 0 }}>제조사 · 세부모델 · 세부트림</div>
                 <div style={{
                   fontSize: SHOP.fs.lead, fontWeight: FW.head, color: C.ink,
                   letterSpacing: '-0.02em', wordBreak: 'keep-all', lineHeight: 1.4,
@@ -833,11 +843,21 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
              */}
             {options.length ? (
               <div aria-label="선택 옵션" style={{ marginBottom: SHOP.sp.edge }}>
-                <div style={{ marginBottom: 8, fontSize: SHOP.fs.cap, color: C.faint }}>선택 옵션</div>
+                <div style={{ marginBottom: 0, fontSize: SHOP.fs.cap, color: C.faint }}>선택 옵션</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: SHOP.sp.snug }}>
                   {options.map((o) => (
+                    /*
+                     * ★★**옵션 칩은 «누르는 것»이 아니다 — 그래서 얇다**(사장님 2026-09-06
+                     *   「옵션 칩은 버튼이 아니라서 **조금 더 얇게** 해도 될 거 같은데」).
+                     *   가게 규칙 하나가 여기서도 산다: **누르는 것이 더 크고 진하다.**
+                     *   이건 읽기만 하는 표시라 뱃지 한 벌(`BADGE`)을 그대로 쓴다 —
+                     *   같은 화면의 「무심사·출고가능」과 «같은 두께»가 된다.
+                     * ⚠ 여기 `8px 12px` 이 박혀 있었다(높이 36) — 알약(38)과 거의 같아
+                     *   손님이 「누르는 건가」 하고 한 번 시험한다.
+                     */
                     <span key={o} style={{
-                      padding: '8px 12px', borderRadius: SHOP.r.chip, background: C.zebra,
+                      padding: `${BADGE.padY}px ${BADGE.padX}px`, borderRadius: SHOP.r.chip,
+                      lineHeight: BADGE.lineHeight, background: C.zebra,
                       fontSize: SHOP.fs.sub, color: C.sub,
                     }}>{o}</span>
                   ))}
@@ -887,6 +907,9 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
           ⚠ 여기 큰 줄(BigRow)로 세웠다가 옮겼다. 보장 한도와 «다른 영역»이라는 판단은 그대로다 —
              다른 영역이니까 격자에 안 섞고, 그렇다고 본문에 또 한 줄을 쓰지도 않는다.
       */}
+      {!(insuranceFee || ownDamageDeductible || otherDeductibles || coverage.length || roadside) ? (
+        <Sec title="보험" icon={ShieldCheck} mobile={mobile}><Missing /></Sec>
+      ) : null}
       {(insuranceFee || ownDamageDeductible || otherDeductibles || coverage.length || roadside) ? (
         <Sec title="보험" icon={ShieldCheck} tag={insuranceFee} mobile={mobile}>
           <>
@@ -904,13 +927,13 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
                  그래서 자차는 한 줄로 떼고, 대인·대물·자손은 그 밑에 흐리게 흘린다.
             */}
             {(ownDamageDeductible || otherDeductibles) ? (
-              <div style={{ marginTop: SHOP.sp.part }}>
+              <div style={{ marginTop: SHOP.sp.edge }}>
                 <div style={{ marginBottom: SHOP.sp.snug, fontSize: SHOP.fs.cap, fontWeight: 600, color: C.mute }}>면책금</div>
                 {/* 자차 — 값이 셋이라 한 줄을 통째로 쓴다. 사고 나면 실제로 무는 돈이라 굵다. */}
                 {ownDamageDeductible ? (
                   <div style={{
                     display: 'flex', alignItems: 'baseline', gap: SHOP.sp.cozy, flexWrap: 'wrap',
-                    marginBottom: otherDeductibles ? 8 : 0,
+                    marginBottom: otherDeductibles ? SHOP.sp.snug : 0,
                   }}>
                     <span style={{ flex: '0 0 auto', fontSize: SHOP.fs.sub, color: C.faint }}>자차</span>
                     <span style={{
@@ -938,7 +961,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
             {roadside ? (
               <div style={{
                 /* 보험 «안»의 꼬리 한 줄이다 — 새 구역(32)이 아니라 다른 것들 사이(24)다. */
-                marginTop: SHOP.sp.part, fontSize: SHOP.fs.sub, color: C.faint,
+                marginTop: SHOP.sp.edge, fontSize: SHOP.fs.sub, color: C.faint,
               }}>
                 긴급출동 {roadside}
               </div>
@@ -957,25 +980,39 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
           이 구역에는 결정적인 하나가 없다 — 심사·나이·주행·면허가 «다 같이 확인하는 값»이다.
           하나만 크게 세우면 나머지가 곁다리로 보인다.
       */}
-      <Tiles title="이용 조건" rows={useRows} cols={mobile ? 2 : 4} mobile={mobile} icon={IdCard} />
+      {useRows.length
+        ? <Tiles title="이용 조건" rows={useRows} cols={mobile ? 2 : 4} mobile={mobile} icon={IdCard} />
+        : <Sec title="이용 조건" icon={IdCard} mobile={mobile}><Missing /></Sec>}
 
       {/* ⑥ 기타 — 참고만 하는 값. 제일 조용하게 한 줄로 흘린다. */}
-      {etc ? (
-        <Sec title="기타 사항" icon={Info} mobile={mobile}>
-          <div style={{ fontSize: SHOP.fs.sub, color: C.mute, lineHeight: 1.9 }}>{etc}</div>
-        </Sec>
-      ) : null}
+      <Sec title="기타 사항" icon={Info} mobile={mobile}>
+        {etc
+          ? <div style={{ fontSize: SHOP.fs.sub, color: C.mute, lineHeight: 1.9 }}>{etc}</div>
+          : <Missing />}
+      </Sec>
+
+      {/*
+        ★★**맨 밑 — 영업자 전용 칸.** 손님에게는 «없는 것»이고, 로그인한 우리 식구에게만 생긴다
+          (사장님 2026-09-06 「손님한테 보여주는 그 페이지에 **영업자들만 보는 섹션**을 하나 둬서
+          **공급사가 어딘지** … **맨 마지막 밑에다가**. 고거는 **로그인한 사람만** 보고,
+          로그인은 **영업자·직원만** 할 수 있고」).
+        ★자리가 «맨 밑»인 이유 — 손님과 마주 앉아 화면을 같이 보는 일이 있다. 위에 있으면
+          스크롤 도중에 우리끼리 볼 값이 손님 눈에 스친다. 맨 밑은 내려야만 나온다.
+        ⚠ 값은 손님 응답에 «실려 오지 않는다» — 따로 문(`/api/shop/inside`)을 두고 토큰을 든
+          사람에게만 준다. 화면에서 가리는 것은 막은 게 아니다(집 규격).
+      */}
+      <ShopInside code={String(p._key || p.product_code || '')} mobile={mobile} />
 
       {hasPolicy ? (
         <p style={{ margin: `${SHOP.sp.part}px 0 0`, fontSize: SHOP.fs.cap, color: C.faint, lineHeight: 1.7 }}>
           위 조건은 공급사가 제공한 운영정책이며 계약 시 최종 확정됩니다. 자세한 내용은 담당자에게 확인해 주세요.
         </p>
-      ) : (
-        /* 정책이 안 붙은 차가 실제로 있다 — 「없다」가 아니라 «모른다»라고 말한다(지어내지 않는다). */
-        <p style={{ margin: `${SHOP.sp.part}px 0 0`, fontSize: SHOP.fs.cap, color: C.faint, lineHeight: 1.7 }}>
-          보험·계약 조건은 담당자에게 문의해 주세요.
-        </p>
-      )}
+      ) : null}
+      {/*
+        ⚠ 여기 있던 「보험·계약 조건은 담당자에게 문의해 주세요」를 걷었다(2026-09-07).
+          이제 «구역마다» 그 말이 서 있어서(`Missing`), 밑에 또 두면 같은 말이 네 번 나온다.
+          집 규격: 같은 일을 하는 문을 한 화면에 둘 두지 않는다.
+      */}
 
       {/*
         폰 하단 고정독 — **이전(고정폭 92) + 전화(나머지 전부)**.
@@ -1136,6 +1173,48 @@ function TopBar({ code, title, listHref }: { code: string; title: string; listHr
  * ⚠ 순서는 안 바뀐다. 사장님이 정하신 여섯 구역이 위에서 아래로 그대로다 —
  *   **한 구역 «안»에서만 가로로 편다.**
  */
+/**
+ * ★★★**세로 리듬 — 이 화면의 간격은 «넷»뿐이다**(사장님 2026-09-06 「줄 간격들을 … **다 통일**
+ * 시켰으면 좋겠어. **어디는 넓고 어딘 좁고** 이러지 않고」).
+ *
+ * | 무엇을 가르나 | 값 | 어디 |
+ * |---|---|---|
+ * | 구역 ↔ 구역 | 위 `part`(24) · 띠 8 · 아래 `edge`(16) | `Rule` |
+ * | 구역 제목 ↔ 본문 | `edge`(16) | `SecTitle` |
+ * | 무리 ↔ 무리 | **`edge`(16)** | 이름줄·선택옵션·색상 / 보상한도·면책금·긴급출동 / 표·납부 |
+ * | 항목 ↔ 내용(한 세트) | **0** — 글자 사이 여백이 이미 4를 만든다 | |
+ * | 무리 제목 ↔ 값 | `snug`(8) | |
+ *
+/**
+ * ★★★**위계는 «눈에 보이는 간격»으로 잰다 — 코드 숫자가 아니라**(사장님 2026-09-06
+ *   「항목이랑 내용이 있고 그게 **한 세트**잖아. 그럼 **그 밑에는 고거보다는 쪼끔 간격이 멀어야**
+ *   되고. 그런 거를 **위계를 명확하게** 해줘야지」).
+ *
+ * ⚠⚠ 상자 여백과 «보이는 간격»은 다르다. 글자 상자에는 위아래로 줄간격(leading)이 붙어 있어
+ *   **코드로 적은 값 + 약 4px** 이 실제로 보이는 간격이다(2026-09-06 실측).
+ *   그래서 코드만 보고 「4 대 8 이니 두 배」라고 여기면 틀린다 — 눈에는 **8 대 12**, 겨우 1.5배다.
+ *   사장님이 「위계가 안 보인다」 하신 것이 정확히 그것이었다.
+ *
+ * ★그래서 «보이는 간격»을 사다리로 잡고, 코드 값은 거기서 역산한다:
+ * ```
+ *   보이는 간격   코드      무엇
+ *      4         0        항목 ↔ 내용   ← 한 세트. 제일 붙는다
+ *     12         8        칸 ↔ 칸       ← 세트 사이
+ *     20        16        무리 ↔ 무리
+ *     28        24        구역 제목 ↔ 본문 · 구역 경계(+띠 8)
+ * ```
+ *   **8px 씩 벌어진다** — 한 단 올라갈 때마다 눈에 확실히 한 칸 멀어진다.
+ * ⚠ 항목↔내용을 `0` 으로 적는 것이 「붙여 버린 것」이 아니다 — 줄간격이 이미 4를 만든다.
+ * ★★**무리 사이는 «16»이다 — 24 가 아니다**(사장님 2026-09-06 「너무 이렇게 **멀찍멀찍**
+ *   안 떨어지고」). 처음에 24 로 통일했더니 값은 하나가 됐지만 **더 넓어졌다** —
+ *   차량 정보가 432 → 440 이 됐다. 통일이 목적이 아니라 «짜임새»가 목적이다.
+ *   16 으로 내리니 본문이 **2,483 → 2,427**(−56)이고, 폰 첫 화면에 색상 줄까지 들어온다.
+ *   ★구역 경계는 «띠(8px 회색)»가 갈라 주므로 무리 간격이 16 이어도 위계가 안 무너진다.
+ * ⚠ 2026-09-06 실측으로 고른 값이다. 그전에는 **무리 사이가 16·24·28** 로 갈려 있었고
+ *   (차량 정보만 16 과 28, 보험·대여료는 24), **라벨 밑이 4 와 8** 로 갈려 있었다.
+ *   보는 사람은 규칙을 못 읽고 「여기는 왜 붙었지」만 느낀다.
+ * ★새 무리를 더할 때는 **표의 값만** 쓴다. 숫자를 직접 적지 않는다(`SHOP.sp`).
+ */
 function Sec({ title, icon, accent, tag, mobile, children }: {
   title: string; icon?: LucideIcon; accent?: boolean; tag?: string;
   mobile?: boolean; children: React.ReactNode;
@@ -1211,7 +1290,7 @@ function Facts({ rows, cols, mobile }: {
     return (
       <div key={key} style={{ minWidth: minWidth ?? 0 }}>
         <div style={{
-          fontSize: SHOP.fs.cap, color: C.faint, marginBottom: SHOP.sp.tight, letterSpacing: '0.01em',
+          fontSize: SHOP.fs.cap, color: C.faint, marginBottom: 0, letterSpacing: '0.01em',
         }}>{k}</div>
         <div style={{
           fontSize: SHOP.fs.body, fontWeight: 700, color: C.ink,
@@ -1246,10 +1325,13 @@ function Facts({ rows, cols, mobile }: {
          * ⚠ 줄 사이가 24 였다 — 한 칸이 45(라벨+값)인데 그 절반을 또 비웠고, 무리 사이는
          *   빈 줄이 겹쳐 **47** 이 됐다(2026-09-06 실측). 제원 여섯 칸이 230px 을 먹었다.
          *   폰에서 그건 화면의 3할이다(사장님 「오밀조밀 짜임새 있게」).
-         * ★같은 「차량 정보」 안의 칸들은 **한 덩어리**라 `cozy`(12)가 맞다.
-         *   무리 사이는 빈 줄이 겹쳐 저절로 24 가 되므로 **층은 그대로 2배**다.
+         * ★★그래서 12 로 내렸는데 **아직 멀었다**(사장님 2026-09-06 「연식·연료·색상 각 칸들이
+         *   지금 너무 좀 **멀어져** 있는 것 같다. **보기 편한 정도로만 딱 붙여** 놓으면 되잖아」).
+         *   ⇒ `snug`(8). 칸 하나가 라벨(19) + 4 + 값(23) 이라 **안쪽이 이미 4** 다 —
+         *     칸 사이가 8 이면 「라벨-값은 붙고, 칸-칸은 갈린다」가 2배 차로 분명히 읽힌다.
+         *   ★무리 사이는 빈 줄이 겹쳐 저절로 두 배(16)가 되므로 층은 그대로 남는다.
          */
-        columnGap: SHOP.sp.edge, rowGap: SHOP.sp.cozy,
+        columnGap: SHOP.sp.edge, rowGap: SHOP.sp.snug,
       }}>
         {rows.map((row, i) => (row[0] === GROUP_BREAK
           ? <div key={`break-${i}`} aria-hidden style={{ gridColumn: '1 / -1', height: 0 }} />
@@ -1259,23 +1341,26 @@ function Facts({ rows, cols, mobile }: {
   }
 
   /*
-   * 웹 — 무리 하나가 «띠» 하나. 띠는 들어가는 데까지 옆으로 붙고, 남으면 다음 줄로 내려간다.
-   * ⚠ 띠 «안»에서만 줄바꿈이 일어나야 무리가 갈리지 않는다 — 그래서 띠도 제 안에서 접는다.
-   * ★칸 최소폭 150 — 라벨(「구동방식」)과 값(「2,497cc」)이 안 접히는 폭이다.
-   *   고정폭이 아니라 «최소»폭이라 「외부 ● 화이트 내부 ● 블랙」처럼 긴 값은 제 폭을 쓴다.
+   * ★★**웹도 «칸이 똑같이 나뉜 격자»다 — 흐르는 띠가 아니다**(사장님 2026-09-07
+   *   「밑에 3개랑 **동일하게 3분할로 가로 간격 맞춰**주면 안 돼?」).
+   *
+   * ⚠ 여기는 값 폭에 맞춰 흐르는 «띠»였다. 그래서 윗줄(색상·연식·주행거리)과 아랫줄
+   *   (배기량·연료·구동방식…)의 칸이 **서로 다른 자리에서 시작**했다 — 색상 값이 길어서
+   *   연식을 오른쪽으로 밀었기 때문이다. 표처럼 읽히려면 세로줄이 맞아야 한다.
+   * ⇒ **3분할 고정 격자.** 무리가 바뀌어도 칸의 x 자리는 그대로다.
+   * ★세로는 폰과 «같은 규칙» — 칸 사이 `snug`(8) · 무리 사이 `edge`(16).
+   *   가로만 넓다(`part` 24) — 웹은 옆으로 남는 폭이 있어서다.
+   * ★무리가 갈리는 자리(`GROUP_BREAK`)는 **빈 줄 하나**로 표시한다 — 폰과 같은 짜임이라,
+   *   다음 무리가 «첫 칸»에서 시작하고 사이가 저절로 한 단 벌어진다.
    */
-  const bands: FactRow[][] = [[]];
-  for (const row of rows) {
-    if (row[0] === GROUP_BREAK) { bands.push([]); continue; }
-    bands[bands.length - 1].push(row);
-  }
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: SHOP.sp.wide, rowGap: SHOP.sp.part }}>
-      {bands.filter((b) => b.length).map((band, bi) => (
-        <div key={bi} style={{ display: 'flex', flexWrap: 'wrap', columnGap: SHOP.sp.part, rowGap: SHOP.sp.part }}>
-          {band.map((row) => cell(row, row[0], 150))}
-        </div>
-      ))}
+    <div style={{
+      display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+      columnGap: SHOP.sp.part, rowGap: SHOP.sp.snug, alignItems: 'start',
+    }}>
+      {rows.map((row, i) => (row[0] === GROUP_BREAK
+        ? <div key={`break-${i}`} aria-hidden style={{ gridColumn: '1 / -1', height: 0 }} />
+        : cell(row, row[0])))}
     </div>
   );
 }
@@ -1307,7 +1392,7 @@ function DefList({ rows, mobile, strongFirst }: {
         const strong = !!strongFirst && i === 0;
         return (
           <div key={k} style={{
-            display: 'flex', alignItems: 'baseline', gap: 12,
+            display: 'flex', alignItems: 'baseline', gap: SHOP.sp.cozy,
             padding: strong ? '9px 0 12px' : '9px 0', minWidth: 0,
           }}>
             <span style={{
@@ -1340,6 +1425,149 @@ function DefList({ rows, mobile, strongFirst }: {
  *   나이는 「메인에 올라갈 필요가 없다」 하셔서 칸으로 내렸고, 보증금·면책금도 각자 자리를 찾았다.
  *   ★이 화면에서 «면 위 큰 값»은 **대여료 한 줄뿐**이다. 그래야 그 줄이 선다.
  */
+/**
+ * **영업자 전용 칸** — 상세 맨 밑. 손님에게는 «아예 안 그려진다».
+ *
+ * ★사장님 2026-09-06 「그 **영업자들만 보는 섹션**을 하나 둬서 **공급사가 어딘지** …
+ *   고거는 **로그인한 사람만** 보고, 로그인은 **영업자·직원만** 할 수 있고」.
+ *
+ * ★★**«가리는» 게 아니라 «안 받는» 것이다.** 손님 응답(`/api/catalog/feed`·`/api/catalog/quote`)에는
+ *   공급사·원천이 애초에 없다(`sanitizeProductForGuest` 의 명단 밖). 이 칸은 **다른 문**
+ *   (`/api/shop/inside`)에 **토큰을 들고** 물어서 받는다 — 로그아웃한 브라우저에는 값이 «내려가지도»
+ *   않는다. 화면에서 CSS 로 감추는 것은 개발자도구 한 번이면 끝이다.
+ * ★공급사 계정은 «제 차»만 본다 — 여러 공급사의 차가 한 판에 서는 곳이라, 남의 공급사 이름을
+ *   보여 주면 경쟁사에게 매입처를 알려 주는 꼴이 된다(라우트가 403 으로 막는다).
+ * ⚠ **원가·마진은 여기 없다.** 그건 견적(`/estimate`)의 몫이고 명단이 다르다(관리자·공급사).
+ */
+type InsideBody = {
+  provider: string; providerCode: string; source: string;
+  vehicleStatus: string; productType: string; lockedBy: string;
+  updatedAt: number; location: string;
+  penalty: string; penaltyUnder1y: string; penaltyOver1y: string;
+  lateFeeRate: string; overdueRounds: string; autoTerminateDays: string; engineControlDays: string;
+  depositReturnDays: string; buyoutNoticeDays: string; impoundKeepDays: string;
+  commissionClawback: string; age21Cost: string; age23Cost: string;
+  creditGrade: string; gpsInstalled: string; disqualification: string; salesNotes: string;
+};
+function ShopInside({ code, mobile }: { code: string; mobile?: boolean }) {
+  const [inside, setInside] = useState<InsideBody | null>(null);
+  /*
+   * ★★**로그인 상태를 «구독»한다 — 한 번 물어보고 마는 게 아니다**(2026-09-06 코덱스 검수).
+   *   ㉠ 처음 그릴 때 `currentUser` 는 **대개 null 이다.** 인증 복원은 비동기라 한 박자 늦게 온다 —
+   *     그 순간만 보고 판단하면 **로그인한 영업자에게도 칸이 영영 안 뜬다.**
+   *   ㉡ 반대로 다른 탭에서 «로그아웃»하면, 이미 그려 둔 칸에 내부값이 그대로 남는다.
+   *   ⇒ `useSession`/`useAuthReady` 를 의존성에 걸어 **로그인하면 받아오고 · 나가면 지운다.**
+   */
+  const session = useSession();
+  const authReady = useAuthReady();
+  useEffect(() => {
+    if (!code || !authReady) return;
+    if (!session) { setInside(null); return; }   // 나가면 그 자리에서 지운다
+    let alive = true;
+    (async () => {
+      try {
+        const user = getAuthClient()?.currentUser;
+        if (!user) return;
+        const res = await fetch(`/api/shop/inside?code=${encodeURIComponent(code)}`, {
+          headers: { Authorization: `Bearer ${await user.getIdToken()}` }, cache: 'no-store',
+        });
+        if (!alive) return;
+        if (!res.ok) { setInside(null); return; }   // 403(남의 공급사 차)도 여기로 온다
+        setInside(await res.json() as InsideBody);
+      } catch { /* 못 받으면 칸이 안 생긴다 — 손님 화면이 깨지는 쪽이 훨씬 나쁘다 */ }
+    })();
+    return () => { alive = false; };
+  }, [code, authReady, session]);
+
+  if (!inside) return null;
+  const when = inside.updatedAt
+    ? new Date(inside.updatedAt).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+    : '';
+  /*
+   * 무리 셋 — ① 이 차가 «어디서 온 무엇인가» ② 손님이 물으면 답해야 하는 «조건»
+   * ③ 우리끼리 아는 «메모». 무리 사이는 `GROUP_BREAK` 로 한 줄 쉰다.
+   * ★전부 **손님 화면에 없는 값**이다 — 있는 값을 여기 또 두지 않는다(카드·분납은 손님 「납부」에 있다).
+   */
+  const groups: FactRow[][] = [
+    [
+      ['공급사', inside.provider || inside.providerCode],
+      ['원천', inside.source],
+      ['차량상태', inside.vehicleStatus],
+      ['상품구분', inside.productType],
+      ['선점계약', inside.lockedBy],
+      ['차고지', inside.location],
+      ['원자 갱신', when],
+    ],
+    [
+      ['중도해지 위약금', inside.penalty],
+      ['위약금 1년 미만', inside.penaltyUnder1y],
+      ['위약금 1년 이상', inside.penaltyOver1y],
+      ['연체료율', inside.lateFeeRate],
+      ['연체 회차', inside.overdueRounds],
+      ['자동해지', inside.autoTerminateDays],
+      ['시동제어', inside.engineControlDays],
+      ['보증금 반환', inside.depositReturnDays],
+      ['인수 통지', inside.buyoutNoticeDays],
+      ['차량 보관', inside.impoundKeepDays],
+      ['만 21세 비용', inside.age21Cost],
+      ['만 23세 비용', inside.age23Cost],
+    ],
+    [
+      ['수수료 환수', inside.commissionClawback],
+      ['신용등급 기준', inside.creditGrade],
+      ['결격 조건', inside.disqualification],
+      ['GPS', inside.gpsInstalled],
+      ['영업 메모', inside.salesNotes],
+    ],
+  ];
+  const rows: FactRow[] = [];
+  for (const g of groups) {
+    const live = (g as FactRow[]).filter((r) => String(r[1] || '').trim());
+    if (!live.length) continue;                       // 값이 하나도 없는 무리는 통째로 건너뛴다
+    if (rows.length) rows.push([GROUP_BREAK, '']);    // 무리 사이 한 줄 쉼
+    rows.push(...live);
+  }
+  if (!rows.length) return null;
+
+  return (
+    <div style={{ marginTop: SHOP.sp.pane }}>
+      {/* 손님 화면 «안»의 우리 칸이라 경계를 분명히 한다 — 색이 아니라 «선과 말»로 가른다. */}
+      <div style={{
+        border: `1px dashed ${C.line2}`, borderRadius: SHOP.r.card,
+        padding: `${SHOP.sp.snug}px ${SHOP.sp.edge}px ${SHOP.sp.edge}px`,
+      }}>
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: SHOP.sp.snug,
+          fontSize: SHOP.fs.cap, color: C.mute, padding: `${SHOP.sp.snug}px 0`,
+        }}>
+          <Lock size={BADGE.icon} aria-hidden />
+          영업자 전용 — 손님에게는 보이지 않습니다
+        </div>
+        <Facts rows={rows} cols={mobile ? 2 : 4} mobile={mobile} />
+      </div>
+    </div>
+  );
+}
+
+/**
+ * **아직 못 받은 구역** — 값이 하나도 없어도 «구역은 세운다».
+ *
+ * ★사장님 2026-09-07 「대여료 및 보증금 밑에 섹션에 **보험 내용 있어야** 하고, 그 밑에
+ *   **계약조건**(연간 주행거리나 연령 같은거), 그리고 **기타사항** — 이렇게 **3개 섹션이 빠졌어**」.
+ * ⚠ 실측 2026-09-07 — 그 차(`104허2655`)는 `policy_code` 가 `pol_freepassstd` 인데 정책 81건
+ *   어디에도 그 코드가 없다. **재고 1,375대 중 804대**가 그렇다. 그래서 세 구역이 통째로 사라지고
+ *   손님은 「이 회사는 보험 얘기를 안 하네」로 읽는다 — 없는 게 아니라 «아직 못 받은» 것이다.
+ * ★집 규격: **「없다」가 아니라 «모른다»**. 구역은 자리를 지키고, 안에서 그렇게 말한다.
+ *   ⚠ 값을 지어내지 않는다. 「보험 포함」 같은 기본값을 채우면 그게 계약 조건이 된다.
+ */
+function Missing() {
+  return (
+    <div style={{ fontSize: SHOP.fs.sub, color: C.faint, lineHeight: 1.7 }}>
+      공급사에서 아직 받지 못한 항목입니다. 담당자에게 확인해 주세요.
+    </div>
+  );
+}
+
 function Tiles({ title, rows, cols, mobile, icon }: {
   title: string; rows: FactRow[]; cols: number; mobile?: boolean; icon?: LucideIcon;
 }) {
@@ -1545,7 +1773,7 @@ function Head({ title, facts, stateMarks, perkMarks }: {
       */}
       <div style={{
         display: 'flex', alignItems: 'baseline', justifyContent: 'space-between',
-        gap: 12, flexWrap: 'wrap',
+        gap: SHOP.sp.cozy, flexWrap: 'wrap',
       }}>
         {/*
           ★★**차번은 차명의 «뒤쪽»에 붙는다**(사장님 2026-09-05 「차량 번호를 그 현대 그랜저
@@ -1574,7 +1802,7 @@ function Head({ title, facts, stateMarks, perkMarks }: {
         ) : null}
       </div>
       {perkMarks.length ? (
-        <div style={{ marginTop: 12 }}><PerkMarks marks={perkMarks} /></div>
+        <div style={{ marginTop: SHOP.sp.cozy }}><PerkMarks marks={perkMarks} /></div>
       ) : null}
     </header>
   );
@@ -1645,7 +1873,7 @@ function Gallery({ p, mobile }: { p: EntityRecord; mobile?: boolean }) {
       ) : (
         <div style={{
           position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
-          alignItems: 'center', justifyContent: 'center', gap: 8, color: C.faint,
+          alignItems: 'center', justifyContent: 'center', gap: SHOP.sp.snug, color: C.faint,
         }}>
           <ImageOff size={28} aria-hidden />
           <span style={{ fontSize: SHOP.fs.sub }}>사진 준비 중</span>
@@ -1692,7 +1920,7 @@ function Gallery({ p, mobile }: { p: EntityRecord; mobile?: boolean }) {
   const thumbs = !mobile && n > 1 ? (
     <div style={{
       flex: '0 0 auto', width: 200,
-      display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, alignContent: 'start',
+      display: 'grid', gridTemplateColumns: '1fr 1fr', gap: SHOP.sp.snug, alignContent: 'start',
     }}>
       {photos.slice(0, 8).map((src, k) => (
         <button key={src} type="button" onClick={() => goTo(k)} className="fp-shop-press"
@@ -1726,7 +1954,7 @@ function Gallery({ p, mobile }: { p: EntityRecord; mobile?: boolean }) {
 
   if (!thumbs) return stage;
   return (
-    <div style={{ display: 'flex', gap: 12, alignItems: 'stretch' }}>
+    <div style={{ display: 'flex', gap: SHOP.sp.cozy, alignItems: 'stretch' }}>
       {stage}
       {thumbs}
     </div>
