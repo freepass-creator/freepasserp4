@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import { ShopView } from './ShopView';
-import { hasBrand, resolveGuestWhitelabel } from '@/lib/whitelabel';
+import { coBrandName, hasBrand, resolveGuestWhitelabel } from '@/lib/whitelabel';
 
 /**
  * 가게의 **서버 껍데기**. 화면은 `ShopView`(클라이언트)가 그린다.
@@ -31,13 +31,14 @@ export async function generateMetadata({ searchParams }: Params): Promise<Metada
   if (!hasBrand(wl)) return {};
 
   // ⚠ title 은 **absolute** 로 준다 — 루트 레이아웃 template(`%s · freepasserp.com`)이 브랜드를 도로 붙인다.
-  const title = wl.name;
+  /* ★브라우저 탭·공유 미리보기도 «채널 ✕ freepass» 다(`coBrandName` 머리말). */
+  const title = coBrandName(wl);
   const description = `${wl.name} 즉시출고 차량 — 조건별로 골라 보세요.`;
   return {
     title: { absolute: title },
     description,
     robots: { index: false, follow: false },
-    openGraph: { type: 'website', title, description, siteName: wl.name },
+    openGraph: { type: 'website', title, description, siteName: coBrandName(wl) },
     twitter: { card: 'summary', title, description },
   };
 }

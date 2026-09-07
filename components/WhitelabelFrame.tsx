@@ -1,7 +1,7 @@
 'use client';
-import { useState, type ReactNode } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 import { Phone, X } from 'lucide-react';
-import { Btn, C, FW, ICON, R_CARD } from '@/components/ui';
+import { Btn, C, FW, ICON, R_CARD, fmtPhone } from '@/components/ui';
 import { SHOP, ShopDock, ShopDockAction } from '@/components/shop/shop-ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { hasBrand, whitelabelVars, type Whitelabel } from '@/lib/whitelabel';
@@ -58,11 +58,46 @@ export function WhitelabelFrame({
   children: ReactNode;
 }) {
   const mobile = useIsMobile();
+  /*
+   * ★머리띠의 «실제 높이»를 CSS 변수로 흘린다 — 붙박이가 됐으므로 그 밑에 서는 것들
+   *   (목록의 검색줄)이 그만큼 내려가야 한다. 숫자를 손으로 적으면 머리띠가 한 줄 늘어난 날
+   *   검색줄이 그 뒤로 숨는다(2026-09-07).
+   */
+  /*
+   * **채널의 첫 화면 주소** — 간판을 눌렀을 때 갈 곳.
+   * ★도메인이 붙었으면 `/`(그 도메인의 첫 화면이 곧 목록이다 — 미들웨어가 `/shop` 으로 다시 쓴다).
+   *   아직이면 표에 적힌 임시 주소(`previewPath`). 둘 다 없으면 `/shop`.
+   * ⚠ 조건·검색어를 «안 달고» 간다 — 그게 「처음 방문한 상태」다.
+   */
+  const homeHref = (() => {
+    if (typeof window !== 'undefined'
+      && wl.hosts.some((h) => h.toLowerCase() === window.location.hostname.toLowerCase())) return '/';
+    return wl.previewPath || '/shop';
+  })();
+
+  const headRef = useCallback((el: HTMLElement | null) => {
+    if (!el) return;
+    /* ⚠ 변수는 «공통 조상»(.fp-wl)에 건다 — 머리띠 제 자신에 걸면 형제(검색줄)가 못 받는다. */
+    const set = () => {
+      const h = `${Math.round(el.getBoundingClientRect().height)}px`;
+      (el.closest('.fp-wl') as HTMLElement | null)?.style.setProperty('--fp-wl-head-h', h);
+    };
+    set();
+    const ro = new ResizeObserver(set);
+    ro.observe(el);
+  }, []);
   if (!hasBrand(wl)) return <>{children}</>;
 
   const who = String(agentName || '').trim();
   const phone = String(agentPhone || '').trim() || wl.tel;
   const telHref = phone ? `tel:${phone.replace(/[^0-9+]/g, '')}` : '';
+  /*
+   * ★번호는 «읽는 값»이라 서식을 입힌다 — `01049943330` 은 사람이 못 읽는다.
+   * ⚠⚠ **이미 하이픈이 있으면 그대로 둔다**(2026-09-07 실측으로 잡았다).
+   *   `fmtPhone` 은 휴대폰(10~11자리) 규칙이라 **대표번호 `1800-6454`(8자리)를
+   *   `180-064-54` 로 망가뜨렸다.** 원천이 이미 사람이 읽을 꼴로 준 값은 손대지 않는다.
+   */
+  const phoneText = phone.includes('-') ? phone : fmtPhone(phone);
   return (
     <div className="fp-wl" style={whitelabelVars(wl) as React.CSSProperties}>
       {/*
@@ -79,7 +114,7 @@ export function WhitelabelFrame({
         ⚠ **실행이 들어 있을 때만** 고정한다 — 목록에서는 머리띠에 워드마크뿐이라, 붙박아 두면
           긴 목록에서 56px 를 내내 잡아먹기만 하고 손님이 거기서 할 수 있는 일이 없다.
       */}
-      <header style={{
+      <header ref={headRef} style={{
         borderBottom: `1px solid ${C.line}`, background: C.bg,
         /*
          * ★폰 머리띠는 **고정**이다 — 오른쪽에 검색·조건·공유가 들어와 있어서,
@@ -88,7 +123,15 @@ export function WhitelabelFrame({
          * ⚠ 머리띠에 «할 일»이 없으면(실행도 검색도 없는 화면) 고정하지 않는다 — 56px 를
          *   내내 잡아먹기만 한다.
          */
-        ...(mobile && headerActions ? { position: 'sticky' as const, top: 0, zIndex: 15 } : null),
+        /*
+         * ★★**웹도 고정한다**(사장님 2026-09-07 「웹페이지 틀고정 되는 거도 고려해줘봐 ·
+         *   **상세페이지도 틀고정** 하는 거 있어야 하고」).
+         *   ⚠ 여기 「웹은 고정하지 않는다 — 세로를 잃는다」고 적혀 있었다. 그 판단을 물린다:
+         *     상세는 7화면짜리라 손님이 대여료·조건을 다 읽고 «마음먹은 순간»에 전화 단추가
+         *     화면에 없다. 머리띠에 **담당자 이름과 전화 상담**이 들어 있으므로 붙박이가 맞다.
+         *   ★목록에서도 채널 이름이 늘 보인다 — 도메인을 붙이면 「자기네 사이트」로 읽혀야 한다.
+         */
+        position: 'sticky' as const, top: 0, zIndex: 15,
       }}>
         <div style={{
           maxWidth: 1280, margin: '0 auto',
@@ -110,21 +153,50 @@ export function WhitelabelFrame({
              * ★글자는 **먹색**이다. 로고가 검정이라 「UNI」만 브랜드색으로 칠하면 로고와 색이 갈린다
              *   (전에는 파랑이었다). 브랜드색은 «누르는 것»에만 쓴다.
              */
-            <div style={{ display: 'flex', alignItems: 'center', gap: mobile ? 8 : 12, whiteSpace: 'nowrap' }}>
+            /*
+             * ★★**간판을 누르면 «처음 방문한 상태»로 돌아간다**(사장님 2026-09-07 「상단 이거 버튼
+             *   누르면 첫 페이지 새로 나와야 하고 **자동으로 다 리셋**되고 처음 방문한 상태로」).
+             *   ⚠ `Link` 가 아니라 **`<a>`** 다 — 클라이언트 이동은 조건·검색어·스크롤을 들고 간다.
+             *     통째로 새로 여는 것이 「처음 방문」의 정확한 뜻이다.
+             *   ★주소는 «채널의 첫 화면»이다 — 도메인이 붙었으면 `/`, 아직이면 임시 주소(`previewPath`).
+             *     조건(`?rent=`·`?dep=`…)은 안 달고 간다. 그게 리셋이다.
+             * ★★**하나의 브랜드처럼 붙인다**(같은 날 「유니오토모빌 CI 도 **간격 잘 맞춰서 하나
+             *   브랜드인 것처럼**」) — 마크와 글자는 `snug`(8)로 «한 덩어리», 그 뒤 «✕ freepass» 만
+             *   `cozy`(12)로 한 단 떼어 놓는다. 붙은 것은 한 이름으로, 뗀 것은 «동반»으로 읽힌다.
+             */
+            <a href={homeHref} aria-label={`${wl.name} 첫 화면으로`} style={{
+              display: 'flex', alignItems: 'center', gap: SHOP.sp.snug,
+              whiteSpace: 'nowrap', textDecoration: 'none', color: 'inherit',
+            }}>
               {wl.logo ? (
                 // eslint-disable-next-line @next/next/no-img-element -- 채널마다 다른 마크라 정적 최적화 대상이 아니다.
                 <img src={wl.logo.src} alt={wl.logo.alt}
                   style={{ height: mobile ? 24 : 28, width: 'auto', display: 'block' }} />
               ) : null}
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: mobile ? 8 : 8 }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: SHOP.sp.snug }}>
                 <span style={{ fontSize: mobile ? 22 : 26, fontWeight: FW.head, letterSpacing: '-0.03em', color: C.ink }}>
                   {wl.wordmark.main}
                 </span>
                 <span style={{ fontSize: mobile ? 12 : 15, fontWeight: FW.meta, letterSpacing: '0.15em', color: C.ink }}>
                   {wl.wordmark.sub}
                 </span>
+                {/*
+                  ★★**«채널 ✕ freepass» 동반 표기**(사장님 2026-09-07 「**유니오토모빌 X freepass**
+                    이렇게 해줘야 함 홈페이지는」). 이 홈페이지는 채널의 얼굴이지만 **우리가 만들어
+                    주는 것**이라, 만든 쪽을 숨기지 않고 «옆에» 적는다.
+                  ⚠ 이건 업무동 규칙(「브랜드 표식은 안 세운다」)과 «다른 자리»다 — 그건 공급사·영업자가
+                    같이 쓰는 콕핏 얘기고, 여기는 손님에게 나가는 «채널 홈페이지»다.
+                  ★크기·색으로 위계를 준다 — 채널 이름이 주인이고 우리 이름은 그 «옆에 작게» 선다.
+                */}
+                <span aria-hidden style={{
+                  fontSize: mobile ? 11 : 13, fontWeight: FW.meta, color: C.faint, letterSpacing: 0,
+                  marginLeft: SHOP.sp.tight,
+                }}>✕</span>
+                <span style={{
+                  fontSize: mobile ? 13 : 16, fontWeight: FW.head, color: C.faint, letterSpacing: '-0.02em',
+                }}>freepass</span>
               </div>
-            </div>
+            </a>
           )}
           <div style={{ flex: 1 }} />
           {/* 폰 머리띠 오른쪽 — 상세의 관심·공유(위 `headerActions` 참고). 목록에서는 비어 있다. */}
@@ -133,8 +205,9 @@ export function WhitelabelFrame({
             <>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: SHOP.sp.tight }}>
                 <span style={{ fontSize: SHOP.fs.cap, color: C.faint }}>{who ? `담당 ${who}` : '고객센터'}</span>
+                {/* ★번호는 «읽는 값»이라 서식을 입힌다 — 01049943330 은 사람이 못 읽는다(집 원자 `fmtPhone`). */}
                 <span style={{ fontSize: SHOP.fs.body, fontWeight: FW.title, color: C.ink, fontVariantNumeric: 'tabular-nums' }}>
-                  {phone}
+                  {phoneText}
                 </span>
               </div>
               <Btn href={telHref} title="담당자에게 전화합니다">
@@ -157,7 +230,7 @@ export function WhitelabelFrame({
         <ShopDock fixed sideWidth="auto" side={(
           <div style={{ display: 'flex', flexDirection: 'column', gap: SHOP.sp.tight, whiteSpace: 'nowrap' }}>
             <span style={{ fontSize: SHOP.fs.cap, color: C.faint }}>{who ? '담당' : '고객센터'}</span>
-            <span style={{ fontSize: SHOP.fs.body, fontWeight: FW.title, color: C.ink }}>{who || phone}</span>
+            <span style={{ fontSize: SHOP.fs.body, fontWeight: FW.title, color: C.ink }}>{who || phoneText}</span>
           </div>
         )}>
           <ShopDockAction href={telHref} label="담당자에게 전화합니다">
@@ -178,6 +251,15 @@ export function WhitelabelFrame({
           </div>
           <div style={{ fontSize: SHOP.fs.sub, color: C.faint, lineHeight: 1.9 }}>
             {wl.bizLines.map((line) => <div key={line}>{line}</div>)}
+            {/*
+              ★★**운영 주체를 밝힌다**(사장님 2026-09-07 「하단에는 **프리패스모빌리티가 운영을
+                해주고 있다**고 해야 하고」). 계약·정산은 채널이 하고 **판을 굴리는 것은 우리**다 —
+                손님이 「이 사이트 누가 만들었나」를 물을 때 답이 화면에 있어야 한다.
+              ★머리띠의 «✕ freepass» 와 짝이다 — 위에서 한 번 보이고 아래에서 한 번 밝힌다.
+            */}
+            <div style={{ marginTop: SHOP.sp.snug }}>
+              이 홈페이지는 <strong style={{ fontWeight: FW.title, color: C.mute }}>프리패스모빌리티 주식회사</strong>가 운영합니다.
+            </div>
           </div>
           {/*
             영업자 로그인 — **푸터 맨 밑에 조용히**(사장님 2026-09-05 「그 주소로 들어가면 상품부터

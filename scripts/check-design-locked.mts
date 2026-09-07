@@ -508,7 +508,10 @@ must(/\{title\}[\s\S]{0,400}?\{facts \? \([\s\S]{0,400}?<\/h1>/.test(shopDetail)
 must(/const bar = mobile \? null :/.test(shopDetail)
   && /headerActions=\{<FavShare/.test(read('app/q/[code]/ShopDetailView.tsx'))
   && /\{mobile \? headerActions : null\}/.test(wlFrame)
-  && /mobile && headerActions \? \{ position: 'sticky' as const, top: 0/.test(wlFrame),
+  /* ⚠ 2026-09-07 — 머리띠는 이제 «웹에서도» 붙박이다(사장님 「웹페이지 틀고정 … 상세페이지도」).
+       그래서 조건이 `mobile && headerActions` 가 아니라 «언제나»다. 묻는 것은 그대로 —
+       머리띠가 붙박여 있어야 스크롤해도 공유·전화가 손에 남는다. */
+  && /position: 'sticky' as const, top: 0, zIndex: 15,/.test(wlFrame),
   '폰의 관심·공유가 머리띠를 떠났거나 머리띠 고정이 풀렸습니다 — 스크롤하면 공유가 사라집니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-2');
 

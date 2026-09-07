@@ -3,7 +3,7 @@ import { QuoteView } from './QuoteView';
 import { ShopDetailView } from './ShopDetailView';
 import { headers } from 'next/headers';
 import { loadGuestQuote } from '@/lib/server/guest-quote';
-import { hasBrand, resolveGuestWhitelabel } from '@/lib/whitelabel';
+import { coBrandName, hasBrand, resolveGuestWhitelabel } from '@/lib/whitelabel';
 import { vehicleNameOf } from '@/lib/domain/vehicle-name';
 import { cheapest } from '@/lib/domain/product';
 import { fuelDisplay, yearDisplay } from '@/lib/domain/vehicle-master-match';
@@ -37,7 +37,8 @@ export async function generateMetadata({ params, searchParams }: Params): Promis
   const share = one(sp.a);
   /** 브랜드 도메인이면 못 찾았을 때도 «그 회사 이름»으로 떨어진다 — 「상품 안내」는 노브랜드용이다. */
   const wl = resolveGuestWhitelabel((await headers()).get('host'), one(sp.wl));
-  const fallbackSite = hasBrand(wl) ? wl.name : '상품 안내';
+  /* ★사이트 이름은 «채널 ✕ freepass» — 탭 제목은 그 «차»가 주인이라 그대로 둔다. */
+  const fallbackSite = hasBrand(wl) ? coBrandName(wl) : '상품 안내';
 
   // 상품이 없거나 읽기에 실패해도 **브랜드가 새면 안 된다** — 중립 문구로 떨어뜨린다.
   // ⚠ title 은 **absolute** 로 준다 — 루트 레이아웃 template(`%s · freepasserp.com`)이 브랜드를 도로 붙인다.

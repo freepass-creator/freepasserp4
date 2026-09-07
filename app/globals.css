@@ -1256,11 +1256,14 @@ html[data-fp-filter="0"] .fp-finder > .fp-sidebar { display: none; }
    *   반쯤 가린다(2026-09-05). 웹은 머리띠가 같이 흐르므로 0 이다.
    *   56 은 `WhitelabelFrame` 폰 머리띠 높이다 — 거기를 바꾸면 여기도 같이 바꾼다.
    */
-  position: sticky; top: 0; z-index: 6;
+  /* ★머리띠가 «웹에서도» 붙박이가 됐다(2026-09-07) — 그 실제 높이만큼 내려가 선다.
+       변수는 `WhitelabelFrame` 이 재서 `.fp-wl` 에 걸어 준다. */
+  position: sticky; top: var(--fp-wl-head-h, 72px); z-index: 6;
   background: var(--bg-page);
   margin-inline: -16px; padding-inline: 16px;
 }
 @media (max-width: 760px) {
+  /* 폰 머리띠는 56 고정이다 — 변수와 무관하게 그 값이 규격이다(`.fp-shop-stick` 머리말). */
   .fp-shop-stick { top: 56px; }
 }
 /*
@@ -1274,8 +1277,8 @@ html[data-fp-filter="0"] .fp-finder > .fp-sidebar { display: none; }
  */
 .fp-shop-aside {
   position: sticky;
-  top: calc(var(--fp-shop-stick-h, 132px) + 12px);
-  max-height: calc(100dvh - var(--fp-shop-stick-h, 132px) - 24px);
+  top: calc(var(--fp-wl-head-h, 72px) + var(--fp-shop-stick-h, 132px) + 12px);
+  max-height: calc(100dvh - var(--fp-wl-head-h, 72px) - var(--fp-shop-stick-h, 132px) - 24px);
   overflow-y: auto;
   overscroll-behavior: contain;   /* 기둥 끝에서 목록이 딸려 굴러가지 않게 */
   scrollbar-width: thin;

@@ -179,6 +179,21 @@ export const WHITELABELS: Whitelabel[] = [
    */
 ];
 
+/**
+ * **채널 ✕ freepass** — 손님에게 보이는 «동반 표기»의 정본.
+ *
+ * ★사장님 2026-09-07 「**유니오토모빌 X freepass** 이렇게 해줘야 함 홈페이지는」 ·
+ *   「**그 브라우저에 그렇게 보여야** 한다는 거야」 — 화면 머리띠뿐 아니라 **브라우저 탭·공유 미리보기**
+ *   에도 그렇게 뜬다는 뜻이다.
+ * ★이 홈페이지는 채널의 얼굴이지만 **우리가 만들어 주는 것**이다. 만든 쪽을 숨기지 않고 옆에 적는다.
+ * ⚠ 업무동 규칙(「브랜드 표식은 안 세운다」)과 «다른 자리»다 — 그건 공급사·영업자가 같이 쓰는
+ *   콕핏 얘기고, 여기는 손님에게 나가는 채널 홈페이지다.
+ * ★노브랜드(FREEPASS)면 붙이지 않는다 — 「 ✕ freepass」만 홀로 서는 꼴이 된다.
+ */
+export function coBrandName(wl: Whitelabel): string {
+  return hasBrand(wl) ? `${wl.name} ✕ freepass` : wl.name;
+}
+
 /** 호스트 정규화 — 대소문자·포트·앞뒤 공백을 걷어낸다. */
 function normHost(raw: string | null | undefined): string {
   return String(raw || '').trim().toLowerCase().split(':')[0];
