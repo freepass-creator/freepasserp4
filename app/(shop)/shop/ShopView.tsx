@@ -439,7 +439,8 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
               <div style={{ height: HEAD_H, display: 'flex', alignItems: 'center' }}>
                 <ShopCount value={rows === null ? '—' : String(total)} />
               </div>
-              <div style={{
+              {/* ★구르는 것은 «이 판»이다 — 머리는 위에 서 있는다(`.fp-shop-axes` 머리말). */}
+              <div className="fp-shop-axes" style={{
                 border: `1px solid ${C.line2}`, borderRadius: SHOP.r.card,
                 padding: `${SHOP.sp.tight}px ${SHOP.sp.edge}px`,
               }}>

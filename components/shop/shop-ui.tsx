@@ -502,7 +502,8 @@ export function ShopSort({ value, onChange, options }: {
 }) {
   const mobile = useIsMobile();
   return (
-    <div style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
+    /* 초점 상자를 이 화면 말투로 바꾸는 자리 — `.fp-shop-sort` (globals.css). */
+    <div className="fp-shop-sort" style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
       <select value={value} onChange={(e) => onChange(e.target.value)} aria-label="정렬"
         style={{
           appearance: 'none', WebkitAppearance: 'none',
