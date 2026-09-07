@@ -1,6 +1,7 @@
 import { cache } from 'react';
 import 'server-only';
 import { firestoreAdminRef } from '@/lib/server/firestore-ref-shim';
+import { guestSource } from '@/lib/server/guest-source';
 import { sanitizeAgentForGuest, sanitizeProductForGuest } from '@/lib/domain/public-catalog';
 import { isOfferableProduct } from '@/lib/domain/product';
 import { codeCandidates, matchAgentByShareCode, shareToken, splitShareSegment } from '@/lib/domain/product-share';
@@ -52,10 +53,10 @@ function findProduct(all: Record<string, Rec>, raw: string): { key: string; prod
 export async function resolveProduct(segment: string): Promise<{ key: string; product: Rec; share: string } | null> {
   const seg = S(segment);
   if (!seg) return null;
-  const db = firestoreAdminRef();
-  const snap = await db.ref('v4/products').get();
+  /* ★재고는 «공용 캐시»에서 받는다(`guest-source`) — 목록·상세·미리보기가 같은 것을 본다. */
+  const src = await guestSource();
   const all: Record<string, Rec> = {};
-  for (const [docKey, v] of Object.entries((snap.val() || {}) as Record<string, Rec>)) {
+  for (const [docKey, v] of Object.entries(src.products)) {
     if (v && typeof v === 'object') all[S(v._key) || S(v.product_code) || docKey] = v;
   }
   const hit = findProduct(all, seg);
@@ -115,7 +116,7 @@ async function loadGuestQuoteUncached(segment: string, shareFromQuery: string): 
   const policyCode = S((product as Rec).policy_code);
   let policy: Rec | null = null;
   if (policyCode) {
-    const pool = ((await db.ref('policies').get()).val() || {}) as Record<string, Rec>;
+    const pool = (await guestSource()).policies;   /* 캐시라 공짜다 */
     policy = Object.entries(pool)
       .map(([k, v]) => ({ ...(v || {}), _key: k } as Rec))
       .find((x) => S(x.policy_code) === policyCode || S(x._key) === policyCode) || null;

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { firestoreAdminRef } from '@/lib/server/firestore-ref-shim';
+import { guestSource } from '@/lib/server/guest-source';
 import { sanitizeAgentForGuest, sanitizeProductForGuest } from '@/lib/domain/public-catalog';
 import { isListableProduct } from '@/lib/domain/product';
 import { matchAgentByShareCode } from '@/lib/domain/product-share';
@@ -47,12 +48,11 @@ export async function GET(request: Request) {
      * ★읽는 순서·컬렉션 이름은 그대로다(products · policy · partner · user).
      */
     const db = firestoreAdminRef();
-    const [productSnap, policySnap] = await Promise.all([
-      db.ref('v4/products').get(),
-      db.ref('policies').get(),
-    ]);
+    /* ★재고·정책은 «공용 캐시»에서 받는다(`guest-source`) — 60초. 상세·미리보기와 같은 것을 본다. */
+    const src = await guestSource();
+    const productSnap = { val: () => src.products };
     const policyByCode = new Map<string, Rec>();
-    for (const [k, v] of Object.entries((policySnap.val() || {}) as Record<string, Rec>)) {
+    for (const [k, v] of Object.entries(src.policies)) {
       if (v && typeof v === 'object') policyByCode.set(S(v.policy_code) || k, v);
     }
 
