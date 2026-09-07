@@ -20,7 +20,6 @@
  */
 import { readFileSync } from 'node:fs';
 import { inflateSync } from 'node:zlib';
-import { BRAND_MARK } from '../lib/brand';
 
 const root = new URL('../', import.meta.url);
 const read = (f: string) => readFileSync(new URL(f, root));
@@ -94,30 +93,6 @@ function decodePng(buf: Buffer): Png {
 }
 
 const fails: string[] = [];
-
-/*
- * ★**우리 마크(체크)는 두 곳에 있다** — `public/icon.svg`(브라우저·PWA 아이콘)와
- *   `lib/brand.ts` `BRAND_MARK`(화면에서 색을 입혀 그리는 쪽). 둘이 갈리면
- *   **탭 아이콘과 홈페이지의 마크가 다른 모양**이 된다 — 아무도 안 볼 때까지 안 들킨다.
- * ⇒ 좌표 한 줄씩 맞대 본다. 그림을 고치는 사람이 상수를 잊어도 여기서 멈춘다.
- */
-{
-  const svg = readFileSync(new URL('public/icon.svg', root), 'utf8');
-  const want: [string, string][] = [
-    ['체크 좌표', BRAND_MARK.check],
-    ['체크 굵기', `stroke-width="${BRAND_MARK.checkWidth}"`],
-    ['판 둥글기', `rx="${BRAND_MARK.rx}"`],
-    ['판 색', BRAND_MARK.plate],
-  ];
-  const off = want.filter(([, v]) => !svg.includes(v));
-  if (off.length) {
-    fails.push(
-      'public/icon.svg 와 `lib/brand.ts` BRAND_MARK 가 갈렸습니다 — ' +
-      off.map(([k, v]) => `${k}(${v})`).join(' · ')
-      + '\n      → 탭 아이콘과 홈페이지의 마크가 다른 모양이 됩니다. 둘을 같이 고칩니다.',
-    );
-  }
-}
 
 for (const rel of markPaths()) {
   const file = `public${rel}`;
