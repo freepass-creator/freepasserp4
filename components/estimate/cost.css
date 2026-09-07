@@ -101,7 +101,7 @@
   .est-root.cost .phone{
     max-width:none;width:100%;min-height:100vh;
     display:grid;
-    grid-template-columns:280px minmax(360px,0.9fr) minmax(440px,1.1fr);
+    grid-template-columns:repeat(4,minmax(0,1fr));   /* 1:1:1:1 — 공통규격(WorkPage) */
     align-content:start;
     border-left:0;border-right:0;padding-bottom:0;
   }
@@ -112,15 +112,12 @@
 
   .est-root.cost .phone > .col{display:block;min-width:0}
 
-  .est-root.cost .phone > .col.c1{
+   /* 기둥마다 제 안에서 스크롤하고 오른쪽에 선 — `WorkPage` 와 같은 짜임. */
+  .est-root.cost .phone > .col{
     position:sticky;top:0;max-height:100vh;overflow-y:auto;
-    border-right:1px solid var(--line-2);background:var(--surface);padding:6px 6px 20px;
+    border-right:1px solid var(--line-2);padding:6px 6px 24px;
   }
-  .est-root.cost .phone > .col.c1 .card{border:0;border-radius:0;margin:0}
-
-  .est-root.cost .phone > .col.c2{padding:6px 4px 24px}
-
-  .est-root.cost .phone > .col.c3{
-    border-left:1px solid var(--line-2);background:var(--bg);padding:6px 4px 24px;
-  }
+  .est-root.cost .phone > .col.c4{border-right:0}
+  .est-root.cost .phone > .col.c1{background:var(--surface)}
+  .est-root.cost .phone > .col .card{border:0;border-radius:0;margin:0 0 4px}
 }

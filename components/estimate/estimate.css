@@ -223,7 +223,13 @@
 @media (min-width:1000px){
   .est-root:not(.cost) .phone{
     max-width:none;width:100%;min-height:100vh;
-    display:grid;grid-template-columns:400px minmax(0,1fr);
+    /* ★★**1 : 1 : 1 : 1** — 업무동 공통 패널 규격에 맞춘다(사장님 2026-09-07
+       「패널 규격은 **1 1 1 1 패널** 쓰고 있으니까 거기에 맞춰야지, **공통규격으로**」).
+       정본 = `components/WorkPage.tsx` — 목록 기둥이 `flex:1 1 0`, 패널마다 `flex:${paneRatio} 1 0`
+       이고 **기본 ratio 가 1** 이다(`defaultPaneRatio = panes.length === 1 ? 3 : 1`).
+       ⇒ 손오공 원본의 「좌 400 고정」보다 **우리 집 규격이 먼저**다. 원본은 얼굴(무엇이 어느 칸인지)에서
+         배우고, 칸의 «넓이»는 공통규격을 쓴다. 안 그러면 화면마다 기둥 폭이 달라진다. */
+    display:grid;grid-template-columns:repeat(4,minmax(0,1fr));
     align-content:start;
     border-left:0;border-right:0;
     padding-bottom:0;
@@ -236,15 +242,15 @@
   .est-root:not(.cost) .phone > .col{display:block;min-width:0}
 
   /* 좌 — 차 고르고 조건 세팅. 제 안에서 스크롤하고 오른쪽에 선을 긋는다(원본 `.vside`). */
-  .est-root:not(.cost) .phone > .col.main{
-    position:sticky;top:0;
-    max-height:100vh;overflow-y:auto;
-    border-right:1px solid var(--line-2);
-    background:var(--surface);
-    padding:6px 6px 24px;
+   /* 기둥마다 제 안에서 스크롤하고 오른쪽에 선을 긋는다 — `WorkPage` 와 같은 짜임. */
+  .est-root:not(.cost) .phone > .col{
+    position:sticky;top:0;max-height:100vh;overflow-y:auto;
+    border-right:1px solid var(--line-2);padding:6px 6px 24px;
   }
-  .est-root:not(.cost) .phone > .col.main .card{border:0;border-radius:0;margin:0 0 4px}
-  .est-root:not(.cost) .phone > .col.main .card .step{margin:0 -13px 13px}
+  .est-root:not(.cost) .phone > .col.c4{border-right:0}
+  .est-root:not(.cost) .phone > .col.c1{background:var(--surface)}
+  .est-root:not(.cost) .phone > .col .card{border:0;border-radius:0;margin:0 0 4px}
+  .est-root:not(.cost) .phone > .col .card .step{margin:0 -13px 13px}
 
   /*
    * 우 — 넓은 패널(원본 `.main`). 배경을 한 톤 내려 좌우가 갈린다.

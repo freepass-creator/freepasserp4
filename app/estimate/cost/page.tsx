@@ -324,6 +324,10 @@ function EstimateCostPageInner() {
         </div>
 
         {/* ────────────────── Ⅱ 판매비와관리비 ────────────────── */}
+        </div>{/* .col.c2 — Ⅰ 직접비 */}
+
+        <div className="col c3">
+
         <div className="gsec"><b>Ⅱ 판매비와관리비</b><span>차 한 대에 <b>1:1로 못 붙이는</b> 돈 · 회사를 굴리는 값</span></div>
 
         {/* 5 판매비 — 「파는 데」 드는 돈. 건별로 붙지만 차가 아니라 «영업»에 붙는 돈이라 판관비다. */}
@@ -376,9 +380,9 @@ function EstimateCostPageInner() {
         </div>
 
         {/* ────────────────── Ⅳ 이익과 잔가 ────────────────── */}
-        </div>{/* .col.c2 — 가운데: 원가 설정 */}
+        </div>{/* .col.c3 — Ⅱ 판관비 · Ⅲ 영업외 */}
 
-        <div className="col c3">
+        <div className="col c4">
         <div className="gsec"><b>Ⅳ 이익과 잔가</b><span>원가가 아니다 — 값을 맞추는 <b>두 손잡이</b></span></div>
 
         {/* 8 목표 수익률 */}
@@ -435,7 +439,7 @@ function EstimateCostPageInner() {
           <div className="onote">국산 <b>표준 잔가 곡선</b>({YEARS.map((y) => `${y}년 ${STD[y]}%`).join(' · ')})에 차종별 델타(±%p)를 얹은 값 · 등록 {VEHICLES.length}건 · 보정: 주행 −2%p/만km · 사고 · 노후 · <b>여기서는 못 고친다</b></div>
         </div>
 
-        </div>{/* .col.c3 — 우: 이익·잔가 */}
+        </div>{/* .col.c4 — Ⅳ 이익과 잔가 */}
 
         <div className="basis">
           <span className="bi">원가 기준</span>

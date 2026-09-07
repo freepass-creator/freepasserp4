@@ -270,7 +270,7 @@ function EstimatePageInner() {
         {/* ★웹에서 두 기둥으로 서기 위한 감싸개 — **폰에서는 없는 셈**이다(`.col{display:contents}`).
             사장님 2026-09-06 「웹 전용 화면은 없네, 견적기가」. 폰 화면을 한 픽셀도 안 건드리려고
             감싸개를 CSS 로만 켠다 — 마크업은 폰·웹이 같고, 넓은 화면에서만 두 기둥이 된다. */}
-        <div className="col main">
+        <div className="col c1">
 
         {/* STEP 1 차량 */}
         <div className="card">
@@ -356,12 +356,9 @@ function EstimatePageInner() {
             if (c.source === 'new') { setUsedMileage(0); setUsedYear(nowYear); }
           }} />
 
-        </div>{/* .col.main — 좌측은 «차량 고르기»까지다(사장님 2026-09-07
-                 「좌측에서는 차량만 선택하고, 그 외 책정값들은 공간 많으니까 우측 패널에서 하자고 —
-                  이거는 기존 견적기도 그렇게 했잖아」). 손오공 원본도 조건(보증금·선납·수수료)은
-                  우측 `.condbar` 에 있었다. */}
+        </div>{/* .col.c1 — 차량 고르기(사장님 2026-09-07 「좌측에서는 차량만 선택」) */}
 
-        <div className="col side">
+        <div className="col c2">
 
         {/* STEP 2 상품 조건 */}
         <div className="card">
@@ -383,6 +380,10 @@ function EstimatePageInner() {
           <div className="crow"><span className="lb">선납</span><Chips opts={PCTS} cur={pre} unit="%" onPick={setPre} /></div>
           <div className="crow"><span className="lb">수수료</span><Chips opts={fees} cur={fee} unit="%" onPick={setFee} /></div>
         </div>
+
+        </div>{/* .col.c2 — 조건 */}
+
+        <div className="col c3">
 
         {/* STEP 4 연도별 잔가 */}
         <div className="card" style={{ marginTop: 12 }}>
@@ -410,6 +411,10 @@ function EstimatePageInner() {
             {' '}<b>수익률 10% 공통</b> · 업계 기준선 추정
           </span>
         </div>
+
+        </div>{/* .col.c3 — 잔가·원가기준 */}
+
+        <div className="col c4">
 
         {/* ⑤ — ①~④ 와 같은 상자. 기간 다섯 줄이 그 안에 든다(사장님 2026-09-06). */}
         <div className="card terms">
@@ -525,7 +530,7 @@ function EstimatePageInner() {
           )}
         </div>
 
-        </div>{/* .col.side */}
+        </div>{/* .col.c4 — 견적 상세 */}
 
         <div className="foot">
           <b>업계 기준선 추정</b> — 잔가=시장 벤치마크 역산, 수익률=업계 영업이익률(SK렌터카 9.9%).
