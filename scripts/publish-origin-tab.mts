@@ -875,12 +875,24 @@ let gid = ((meta.sheets || []) as Rec[]).find((s) => S(s.properties?.title).star
          *   그래서 양쪽 글자를 문패로 **코드로 환원**한 뒤 센다. 환원이 안 되는 글자(문패에 없는
          *   공급사)는 글자 그대로 둔다 — 모르는 것을 같다고 우기지 않는다.
          */
-        const codeOf = new Map<string, string>();
+        /**
+         * ★companyAlias 단일키가 아니라 supplierNameKeys(SA↔에스에이·J&J↔제이앤제이 SPELL_PAIRS 다리 포함)로 잇는다.
+         *   가드가 이 다리를 안 타서, 문패 이름표가 「에스에이」→「SA」·「제이앤제이」→「J&J」로 바뀐 날
+         *   같은 회사를 prev=에스에이 / now=SA 로 갈라 보아 「11대→0」 오발동했다(2026-09-04·09-07 3일 발행중단).
+         *   문패 대조·정제칸·정책 도구가 이미 supplierNameKeys 를 쓰므로 가드도 같은 열쇠로 통일한다.
+         * ⚠ 단 supplierNameKeys 의 short 키(렌터카/캐피탈 제거)는 「가온렌터카 vs 가온캐피탈」처럼 다른 두 회사를
+         *   「가온」 한 키로 뭉갤 수 있다(코덱스 2026-09-07 반례). 그러면 한 회사 소실을 놓친다.
+         *   ⇒ **키가 «한 코드에만» 매핑될 때만 등록**한다. 두 코드 이상이 다투는 모호한 키는 문패로 안 써서
+         *     (ident 가 그 라벨을 그대로 두어) 가드의 소실 보호를 약화시키지 않는다. code 자신은 항상 등록.
+         */
+        const keyToCodes = new Map<string, Set<string>>();
+        const addKey = (k: string, c: string) => { if (!k) return; (keyToCodes.get(k) || keyToCodes.set(k, new Set()).get(k)!).add(c); };
         for (const [c, p] of byCode) {
-          codeOf.set(c, c);
-          const label = companyAlias(S(p.partner_name || p.name)) || S(p.partner_name || p.name);
-          if (label) codeOf.set(label, c);
+          addKey(c, c);
+          for (const k of supplierNameKeys(S(p.partner_name || p.name))) addKey(k, c);
         }
+        const codeOf = new Map<string, string>();
+        for (const [k, codes] of keyToCodes) if (codes.size === 1) codeOf.set(k, [...codes][0]);
         const ident = (w: string) => codeOf.get(S(w)) || S(w);
         const count = (list: string[][], at: number) => {
           const m = new Map<string, { n: number; seen: Set<string> }>();
