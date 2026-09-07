@@ -135,6 +135,13 @@ export type CostSettings = {
    */
   depositMonths: number;
   penaltyRecoveryAPct: number; penaltyRecoveryBPct: number; penaltyRecoveryCPct: number;
+  /**
+   * **전기차 구매보조금**(원) — 신차 전기차의 취득가에서 뺀다.
+   * ★국고 + 지자체를 합친 «회사가 실제로 받는» 금액. 차종·연도·사업장 소재지마다 달라
+   *   법정값처럼 박을 수 없다 — 그래서 여기 칸이다.
+   * ⚠ 취득세 감면(140만)·공채 면제는 **법정**이라 여기 없다(`data/cost-config.js` FUEL.ev).
+   */
+  evSubsidy: number;
   /** 잔가 가감(±%p) — 「잔가로 조정」하는 손잡이. 곡선 전체를 통째로 올리거나 내린다. */
   residualAdjustPct: number;
   /**
@@ -223,6 +230,9 @@ export const COST_DEFAULTS: CostSettings = {
   // 보증금 두 달 치 = 저신용 실무(사장님 2026-09-06). 회수율은 「저신용은 거의 못 받거든」을 숫자로 옮긴 것.
   depositMonths: 2,
   penaltyRecoveryAPct: 80, penaltyRecoveryBPct: 50, penaltyRecoveryCPct: 10,
+  // 전기차 보조금 600만 — 2026년 국고(중형 EV 기준 ~580만)에 지자체 일부를 더한 보수적 자리.
+  //   실제로는 사업장 소재지가 정한다. 회사가 아는 값을 넣으면 그 값이 이긴다.
+  evSubsidy: 6_000_000,
   residualAdjustPct: 0,
   returnDeliveryFee: 250000,  // 회수 탁송(편도) — 1차 탁송과 같은 자리. 기보유 차도 «나갈 때는» 든다
   disposalFeePct: 3,          // 매각 — 중고차 경매 낙찰가 대비 수수료 2~3% + 출품료
@@ -319,6 +329,8 @@ export function configFrom(cs: CostSettings, opts: { newCar?: boolean; path?: Ac
       depositMonths: cs.depositMonths,
       penaltyRecoveryRate: r(recoveryPct),
     },
+    // 전기차 보조금 — 엔진이 «전기차일 때만» 쓴다(다른 연료는 무시).
+    evSubsidy: cs.evSubsidy,
     setting: {
       ...D.setting,
       // 등록·탁송은 «새로 들여온 차»만. 기보유는 이미 났다 — 새 계약에 또 물리지 않는다.
