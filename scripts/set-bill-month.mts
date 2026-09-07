@@ -22,6 +22,7 @@
  * ```
  */
 import { readFileSync } from 'node:fs';
+import { JWT } from 'google-auth-library';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getDatabase } from 'firebase-admin/database';
 import { billingMonthIn, lockedMonthsOf, type SettlementRow } from '../lib/domain/settlement-stage';
@@ -72,7 +73,45 @@ for (const { plate: p, who: w0 } of PLATES) {
 }
 console.log(`\n   박을 줄 ${puts.length}개 · 「왜」 = ${WHY}`);
 if (!puts.length) { console.log('\n  박을 것이 없습니다.\n'); process.exit(0); }
+/**
+ * ★★★**원장(F04)에도 같이 박는다 — 거기가 정본이다.**
+ *   원자에만 박으면 다음 `atomize` 가 원장을 다시 부으면서 조용히 되돌린다
+ *   (실측 2026-09-07 — 인도일 없는 세 줄이 그렇게 8월 청구서에서 도로 빠졌다).
+ */
+const F04 = '1BjGBqAjRLEb9ZMKarpQsMF-q_UjdgmEqBAl1uVk8SR4';
+const A1 = (n: number) => { let s = ''; for (let x = n + 1; x > 0; x = Math.floor((x - 1) / 26)) s = String.fromCharCode(65 + ((x - 1) % 26)) + s; return s; };
+const jwt = new JWT({ email: sa.client_email, key: sa.private_key, subject: 'pyh@teamjpk.com',
+  scopes: ['https://www.googleapis.com/auth/spreadsheets'] });
+const tok = async () => (await jwt.getAccessToken()).token;
+const api = async (m: string, b?: unknown) => {
+  const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${F04}${m}`, { method: b ? 'POST' : 'GET',
+    headers: { Authorization: `Bearer ${await tok()}`, 'Content-Type': 'application/json' }, body: b ? JSON.stringify(b) : undefined });
+  if (!r.ok) { console.log(`\n  ✕ 원장 조회·쓰기 실패 ${r.status} — ${(await r.text()).slice(0, 160)}\n`); process.exit(1); }
+  return r.json() as Promise<{ values?: unknown[][] }>;
+};
+const want = new Map(PLATES.map((x) => [x.plate, x.who || WHO]));
+const cells: { range: string; values: (string | number)[][] }[] = [];
+console.log('\n■ 원장(F04) 청구년·청구월');
+for (const tab of ['접수', '완납실적', '분납실적']) {
+  const g = (await api(`/values/${encodeURIComponent(`'${tab}'!A1:BB900`)}?valueRenderOption=UNFORMATTED_VALUE`)).values || [];
+  const h0 = g.findIndex((r) => (r || []).some((c) => S(c) === '차량번호')); if (h0 < 0) continue;
+  const h = (g[h0] || []).map(S); const ix = (n: string) => h.indexOf(n);
+  for (let i = h0 + 1; i < g.length; i++) {
+    const r = g[i] || []; const p = P(r[ix('차량번호')]);
+    if (!want.has(p)) continue;
+    const w = want.get(p); if (w && S(r[ix('고객명')]) !== w) continue;
+    const hadY = S(r[ix('청구년')]); const hadM = S(r[ix('청구월')]);
+    if (hadY === MONTH.slice(0, 4) && Number(hadM) === Number(MONTH.slice(5))) { console.log(`  ○ ${p} ${tab}${i + 1}행 — 이미 ${MONTH}`); continue; }
+    console.log(`  + ${p} ${S(r[ix('고객명')])} ${tab}${i + 1}행  ${hadY || '(빈칸)'}/${hadM || '(빈칸)'} → ${MONTH.slice(0, 4)}/${Number(MONTH.slice(5))}`);
+    cells.push({ range: `'${tab}'!${A1(ix('청구년'))}${i + 1}`, values: [[Number(MONTH.slice(0, 4))]] });
+    cells.push({ range: `'${tab}'!${A1(ix('청구월'))}${i + 1}`, values: [[Number(MONTH.slice(5))]] });
+    const bi = ix('비고'); const hadNote = S(r[bi]);
+    if (bi >= 0 && !hadNote.includes(WHY)) cells.push({ range: `'${tab}'!${A1(bi)}${i + 1}`, values: [[hadNote ? `${hadNote} · ${WHY}` : WHY]] });
+  }
+}
+console.log(`   원장에서 고칠 칸 ${cells.length}개`);
 if (!APPLY) { console.log('\n※ dry-run — 아무것도 안 썼습니다. --apply 로 박습니다.\n'); process.exit(0); }
+if (cells.length) await api('/values:batchUpdate', { valueInputOption: 'RAW', data: cells } as never);
 for (const [k, had] of puts) {
   const cur = S((await db.ref(`v4/settlement_rows/${k}/note`).get()).val());
   await db.ref(`v4/settlement_rows/${k}`).update({
