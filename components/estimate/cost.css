@@ -99,7 +99,7 @@
 
 @media (min-width:1000px){
   .est-root.cost .phone{
-    max-width:none;width:100%;min-height:100vh;
+    max-width:none;width:100%;min-height:calc(100vh - var(--topbar-h, 0px));
     display:grid;
     grid-template-columns:repeat(4,minmax(0,1fr));   /* 1:1:1:1 — 공통규격(WorkPage) */
     align-content:start;
@@ -114,7 +114,7 @@
 
    /* 기둥마다 제 안에서 스크롤하고 오른쪽에 선 — `WorkPage` 와 같은 짜임. */
   .est-root.cost .phone > .col{
-    position:sticky;top:0;max-height:100vh;overflow-y:auto;
+    position:sticky;top:0;max-height:calc(100vh - var(--topbar-h, 0px));overflow-y:auto;
     border-right:1px solid var(--line-2);padding:6px 6px 24px;
   }
   .est-root.cost .phone > .col.c4{border-right:0}

@@ -266,8 +266,10 @@ function EstimatePageInner() {
   return (
     <div className="est-root">
       <div className="phone">
-        <div className="hd">
-          <div className="wm"><span className="a">freepass</span><span className="b">mobility</span></div>
+        {/* ★워드마크를 뺐다 — ERP 상단바가 위에 서므로 머리가 둘이 된다.
+            CLAUDE.md 「브랜드 표식은 안 세운다(노브랜드)」와도 그래야 맞는다.
+            남는 것은 «견적 ↔ 원가» 전환뿐이다. */}
+        <div className="hd bare">
           <div className="modesw">
             <span className="on">견적</span>
             <Link href="/estimate/cost">원가</Link>
