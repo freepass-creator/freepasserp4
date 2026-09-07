@@ -288,7 +288,11 @@ for (let i = hi + 1; i < all.length; i++) {
     settleTarget: (ax.settleTarget as Atom['settleTarget']) || '양쪽',
     settleRatio: ax.settleRatio ?? 1, billHold: ax.billHold ?? false, settleExclude: ax.settleExclude ?? false,
     settledAlready: ax.settledAlready ?? false, vatIncluded: ax.vatIncluded ?? false,
-    settleTerms: '', settleNote: ax.settleNote || '',
+    /**
+     * ★삶은 축 메모(「업무지원비」·「공급사만 정산」 등)를 «말로도» 남긴다 —
+     *   축으로만 바꾸면 그 말이 사라져 산정기준에 적을 것이 없어진다(사장님 2026-09-07).
+     */
+    settleTerms: '', settleNote: ax.settleNote || (AXIS[memo] ? memo : ''),
     billed: false, collected: false,
     note: AXIS[memo] ? '' : memo, sourceRow: i + 1, sourceTab: TAB,
     /**

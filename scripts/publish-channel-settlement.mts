@@ -161,6 +161,13 @@ const lineOf = (r: Row): Line => {
   } else if (f) how = `표 규칙 「${f.pay}」 — 개별 협의분`;
   else how = '개별 협의분';
   /**
+   * ★★**공급사가 없는 줄은 «지원금»이다** — 사장님 2026-09-07
+   *   「사무실지원금, 업무지원비 이런 거 수수료 산정기준에 넣어주고」.
+   *   차도 공급사도 없는 줄에 「개별 협의분」이라 적히면 무슨 돈인지 알 길이 없다.
+   *   ⇒ 원장이 아는 이름(축 메모 「업무지원비」 · 항목명 · 상품구분)을 그대로 적는다.
+   */
+  if (!S(r.supplier)) how = S(r.settleNote) || S(r.customer) || S(r.product) || '지원금';
+  /**
    * ★★**예정 줄은 «예정»이라고 적는다.** 금액이 0 이면 아직 인도 전이라 수수료가 안 정해진 것이다 —
    *   빈칸으로 두면 「0원 받는다」로 읽힌다. 왜 0 인지를 그 자리에 적어야 묻지 않는다.
    */
@@ -414,19 +421,31 @@ for (const j of jobs) {
    *   「정산서 밑에 여백이 5개 넣어두면 추가하라고 빠진거 있으면 추가해달라고」.
    *   ⚠⚠ 다시 찍을 때 «적어 둔 줄을 덮으면» 그게 사고다 — 빠진 건을 적어 놨는데 지워지는 셈이다.
    */
-  const missed: string[][] = [];
+  const missed: Record<string, string>[] = [];
   /** ★상대가 고친 칸을 맞대 보려면 «지금 시트에 있는 표»가 필요하다 — 아래 블록 밖으로 들고 나온다. */
   let live: unknown[][] = [];
   {
     const got = await (await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${bookId}/values/${encodeURIComponent(`'${tab}'!A1:AZ400`)}`, { headers: { Authorization: `Bearer ${await tok()}` } })).json() as { values?: unknown[][] };
     const g = got.values || [];
     live = g;
-    const mi = g.findIndex((r) => S((r || [])[1]) === '합계');
+    /**
+     * ★★★**적어 둔 줄은 «칸 이름»으로 거둔다 — 자리로 거두면 칸 차례가 바될 때 어긋난다.**
+     *   실측 2026-09-07 — 칸 차례를 접수 양식에 맞춰 바꾸자, 합계 아래 「누락」 열덟 줄의
+     *   차번이 «공급사 칸»으로 밀려 차량번호가 통째로 빈 꼴이 됐다.
+     *   ⇒ 거둘 때 지금 시트의 머리글로 이름을 붙여 둔다. 찍을 때는 새 머리글 자리로 다시 넣는다.
+     */
+    const hRow = g.findIndex((r) => (r || []).some((c) => S(c) === '차량번호'));
+    const hNames = hRow >= 0 ? (g[hRow] || []).map(S) : [];
+    /** ⚠ 머리줄에도 「합계」 칸이 있다 — 반드시 머리줄 «아래»에서 찾는다. */
+    const mi = g.findIndex((r, i) => i > hRow && (r || []).some((c) => S(c).replace(/\s/g, '') === '합계'));
     if (mi >= 0) {
       for (const r of g.slice(mi + 1)) {
         const cells = (r || []).map(S);
         if (cells.some((c) => c.startsWith('지급 예정일은') || c.startsWith('세금계산서') || c.includes(CORP.email))) break;
-        if (cells.some((c) => c && !c.startsWith('빠진 건이'))) missed.push(cells);
+        if (!cells.some((c) => c && !c.startsWith('빠진 건이'))) continue;
+        const m: Record<string, string> = {};
+        cells.forEach((v, c) => { const n = hNames[c]; if (n && v) m[n] = v; });
+        missed.push(Object.keys(m).length ? m : Object.fromEntries(cells.map((v, c) => [hNames[c] || `열${c + 1}`, v])));
       }
     }
     const hi = g.findIndex((r) => (r || []).some((c) => S(c) === '차량번호'));
@@ -639,7 +658,7 @@ for (const j of jobs) {
      *   빠진 건이 있을 때 «어디에 적나»를 묻지 않게, 자리를 먼저 내어 둔다.
      * ⚠⚠ 다시 찍을 때 «적어 둔 줄은 그대로 되돌려 놓는다»(missed) — 안 그러면 적어 놓은 게 지워진다.
      */
-    ...missed.map((r) => [...r, ...pad(Math.max(0, HEAD.length - r.length))].slice(0, HEAD.length)),
+    ...missed.map((m) => HEAD.map((h) => S(m[h]))),
     ...Array.from({ length: Math.max(0, 5 - missed.length) }, (_, k) => (k === 0 && !missed.length
       /**
        * ★★**「금액까지」 적어 달라고 말한다.** 사장님 2026-09-04

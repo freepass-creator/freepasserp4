@@ -139,7 +139,14 @@ export function applyPending(opts: {
     byKey.set(e.key, [...(byKey.get(e.key) || []), e]);
   }
   let n = 0;
+  /**
+   * ★★★**열쇠가 «(차번없음)» 이면 얻지 않는다 — 그건 열쇠가 아니다.**
+   *   지원금·수수료 같은 «차가 없는» 줄은 둘 다 「(차번없음)」이라, 한 줄에 적힌 고침이
+   *   다른 줄에까지 얹힌다 — 실측 2026-09-07 사무실비 300,000 줄이 최사랑 100,000 으로 바뀌었다.
+   */
+  const NOKEY = /^\(?차번없음\)?$|^\(미기재\)$|^-$/;
   for (const r of rows) {
+    if (NOKEY.test(S(r[ki]))) continue;
     for (const e of byKey.get(S(r[ki])) || []) {
       const c = head.indexOf(e.column);
       /** ★우리 값이 그새 바뀌었으면(원장을 고쳤으면) 얹지 않는다 — 그 고침은 이미 «끝난» 것이다. */
