@@ -671,9 +671,15 @@ for (const j of jobs) {
   /** ★칸이 26개를 넘으면 한 글자로 못 적는다 — AA 꼴까지 센다. */
   const colName = (n: number) => { let s = ''; for (let x = n; x > 0; x = Math.floor((x - 1) / 26)) s = String.fromCharCode(65 + ((x - 1) % 26)) + s; return s; };
   const endCol = colName(HEAD.length);
+  /**
+   * ★★★**범위만 넓히면 지워지지 않는다 — «빈 줄»을 같이 보내야 지워진다.**
+   *   지난번보다 줄이 줄어들면 아래에 남은 옆 줄이 그대로 살아있는다.
+   *   구글 values.update 는 «보낸 칸»만 쓴다 — 범위를 넓게 적는 것으로는 안 지워진다.
+   */
+  const wipe = Array.from({ length: 5 }, () => Array.from({ length: HEAD.length }, () => ''));
   await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${bookId}/values/${encodeURIComponent(`'${tab}'!A1:${endCol}${values.length + 5}`)}?valueInputOption=RAW`, {
     method: 'PUT', headers: { Authorization: `Bearer ${await tok()}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ values }),
+    body: JSON.stringify({ values: [...values, ...wipe] }),
   });
 
   /**

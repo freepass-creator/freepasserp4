@@ -156,7 +156,20 @@ export function buildInvoice(opts: {
   clawbacks?: SettlementRow[];
 }): Invoice {
   const claim = opts.axis === '공급사';
-  const lines: InvoiceLine[] = opts.rows.map((r) => {
+  /**
+   * ★★★**0원 줄은 종이에 안 싣는다 — 시트와 «줄 수»까지 같아야 한다.**
+   *   사장님 2026-09-07 「정산서랑 시트랑 맞는지도 확인해 주고」
+   *
+   *   실측 2026-09-07 웰릭스 8월 — 금액은 4,369,900 으로 시트와 같은데 **종이는 6건, 시트는 4건**이었다.
+   *   0원 줄 둘(조건이 「영업만 정산」인 161허1700 · 조건을 못 받아 자리만 놓은 161호1543)이
+   *   종이에만 실린 탓이다. 받는 쪽은 합계가 같아도 **줄 수가 다르면 그 자리에서 묻는다.**
+   *   ⇒ 시트(발행기)가 0원 줄을 빼는 규칙과 여기를 맞춘다. 환수(마이너스)는 그대로 싣는다.
+   *   ⚠ 「청구가 0인 곳은 청구서 자체를 안 낸다」는 아래 규칙과 다른 층이다 — 여기는 «줄», 저기는 «장».
+   */
+  const lines: InvoiceLine[] = opts.rows.filter((r) => {
+    const m = moneyOf(r);
+    return (claim ? m.claim : m.pay) !== 0;
+  }).map((r) => {
     const m = moneyOf(r);
     const amount = claim ? m.claim : m.pay;
     const vat = claim ? m.claimVat : m.payVat;

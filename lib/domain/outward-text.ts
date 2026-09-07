@@ -39,6 +39,28 @@ export function outwardText(text: unknown, others: readonly string[] = []): stri
   return kept.join(' · ');
 }
 
+/**
+ * **밖으로 나가는 종이에 «손님 이름»을 통째로 싣지 않는다 — 가운데를 가린다.**
+ *
+ * ★사장님 2026-09-07 「임차인 정보는 **임\*인** 으로 해 주면 됨」
+ *   (웰릭스에 8월 정산서를 메일로 보내면서 하신 말씀)
+ *
+ * ```
+ * 3자   임차인 → 임*인      2자   김철 → 김*      4자   남궁민수 → 남**수
+ * ```
+ * ⚠ **사람 이름만 가린다.** 임차인 칸에는 사람이 아닌 것도 들어온다 —
+ *   「사무실비 지원금」 같은 항목 줄이 그렇다. 그것까지 가리면 무슨 줄인지 알 수 없게 된다.
+ *   ⇒ 한글 2~4자만 가린다. 그 밖(회사명·긴 말·영문·공백 낀 것)은 그대로 둔다.
+ * ⚠ 우리 원장에는 «본명 그대로» 남는다. 가리는 것은 나가는 종이·시트뿐이다.
+ */
+export function maskName(v: unknown): string {
+  const t = S(v);
+  if (!/^[가-힣]{2,4}$/.test(t)) return t;
+  const c = [...t];
+  if (c.length === 2) return `${c[0]}*`;
+  return `${c[0]}${'*'.repeat(c.length - 2)}${c[c.length - 1]}`;
+}
+
 /** 이 글에 «나가면 안 되는 것»이 남아 있나 — 붙이기 전에 기계가 본다. */
 export const hasInside = (text: unknown, others: readonly string[] = []): boolean => {
   const t = S(text);

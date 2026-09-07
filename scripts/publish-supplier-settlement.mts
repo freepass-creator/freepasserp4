@@ -41,7 +41,7 @@ import { SETTLE_NOTE } from '../lib/server/channel-sheet-tabs';
 /** 공급사가 적는 넉 칸 — [확인, 정정, 정정금액, 메모(정정사유)]. */
 type Keep = [boolean, boolean, number | '', string];
 import { feeKindOf, feeRuleFor, SUPPLIER_ALIAS } from '../lib/domain/settlement-fee-table';
-import { outwardText } from '../lib/domain/outward-text';
+import { outwardText, maskName } from '../lib/domain/outward-text';
 
 const MONTH = (process.argv.find((a) => /^\d{4}-\d{2}$/.test(a)) || '').trim();
 const APPLY = process.argv.includes('--apply');
@@ -353,7 +353,7 @@ for (const j of jobs) {
   const rowOf = (m: Record<string, string | number | boolean>): (string | number | boolean)[] =>
     HEAD.map((h) => (m[h] === undefined ? '' : m[h]));
   const body: (string | number | boolean)[][] = j.lines.map((l, i) => rowOf({
-    'No.': i + 1, 차량번호: l.plate, 접수일: l.recv, 인도일: l.deliv, 모델명: l.model, 임차인: l.cust,
+    'No.': i + 1, 차량번호: l.plate, 접수일: l.recv, 인도일: l.deliv, 모델명: l.model, 임차인: maskName(l.cust),
     '상품 구분': l.product, '계약 기간': l.term || '', 렌탈료: l.rent || '', [BASIS[0]]: l.how,
     공급가액: l.net, 부가세: l.vat, 합계: l.total,
     확인: note(l.plate)[0], 정정: note(l.plate)[1], 정정금액: note(l.plate)[2], '메모(정정사유)': note(l.plate)[3],
@@ -431,9 +431,16 @@ for (const j of jobs) {
   /** ★칸이 26개를 넘으면 한 글자로 못 적는다 — AA 꼴까지 센다. */
   const colName = (n: number) => { let t = ''; for (let x = n; x > 0; x = Math.floor((x - 1) / 26)) t = String.fromCharCode(65 + ((x - 1) % 26)) + t; return t; };
   const endCol = colName(HEAD.length);
+  /**
+   * ★★★**범위만 넓히면 지워지지 않는다 — «빈 줄»을 같이 보내야 지워진다.**
+   *   지난달보다 줄이 줄어들면 아래에 남은 옆 줄이 그대로 살아있는다 — 실측 2026-09-07
+   *   웰릭스 8월 탭이 5줄→4줄로 줄면서 「한 달간 함께해 주셔서 감사합니다」가 세 번 찍혔다.
+   *   구글 values.update 는 «보낸 칸»만 쓴다. 범위를 넓게 적는 것으로는 아무것도 안 지워진다.
+   */
+  const wipe = Array.from({ length: 5 }, () => Array.from({ length: HEAD.length }, () => ''));
   await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${j.sheetId}/values/${encodeURIComponent(`'${tab}'!A1:${endCol}${values.length + 5}`)}?valueInputOption=RAW`, {
     method: 'PUT', headers: { Authorization: `Bearer ${await tok()}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ values }),
+    body: JSON.stringify({ values: [...values, ...wipe] }),
   });
 
   const r0 = 3;                        // 머리줄
