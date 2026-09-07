@@ -3,7 +3,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import {
-  ArrowLeft, Car, Check, ChevronLeft, ChevronRight, CircleCheck, Coins, FileText, Plus, Tag,
+  ArrowLeft, Car, Check, ChevronDown, ChevronLeft, ChevronRight, ChevronUp,
+  CircleCheck, Coins, FileText, Plus, Tag,
   IdCard, ImageOff, Info, Lock, Phone, Share2, ShieldCheck,
   type LucideIcon,
 } from 'lucide-react';
@@ -1892,11 +1893,106 @@ function Head({ title, facts, stateMarks, perkMarks }: {
  * ★사진이 한 장뿐이면 화살표도 점도 세는 표시도 안 그린다 — 누를 데가 없는 단추를 두지 않는다.
  * ★사진이 없으면 «없다»고 조용히 말한다. 실측 28%가 그렇다 — 회색 판만 두면 고장으로 보인다.
  */
+/**
+ * 웹 사진 칸의 키 — **사진과 썸네일 줄이 «같은 값»을 쓴다.**
+ *
+ * ★넓은 화면에서 4:3 을 그대로 두면 사진이 669px 이 되어 첫 화면이 사진 하나로 끝난다.
+ *   그래서 여기서 끊는다(2026-09-05). 폰은 390 폭이라 292px 이라 안 끊는다.
+ * ⚠ 두 곳에 숫자를 따로 적으면 한쪽만 고쳐져 **썸네일 줄이 사진보다 길거나 짧아진다** —
+ *   옆에 나란히 서는 것들이라 그 어긋남이 바로 눈에 띈다. 그래서 한 곳에서 정한다.
+ */
+/**
+ * 썸네일 칸의 위·아래 단추 — 한 번에 «한 화면»씩 굴린다.
+ * ★사진 옆 좌우 화살표와 같은 몸짓이라 손이 안 헷갈린다.
+ * ★갈 데가 없으면 흐리고 못 누른다 — 눌러도 아무 일이 없는 단추를 살려 두지 않는다.
+ */
+/**
+ * 위·아래 단추의 키 — **24.** 사다리(`SHOP.pill` 32 · `tap` 36)보다 작다.
+ * ★일부러 작다. 이건 «누르는 것»이 아니라 «칸 안을 넘기는 손잡이»라, 32 로 세우면 위아래로
+ *   64 를 먹어 정작 썸네일이 두 줄 줄어든다 — 손잡이가 내용을 밀어내면 안 된다.
+ * ★폭이 200 이라 누를 면적은 넉넉하다(200×24). 작은 것은 «높이»지 과녁이 아니다.
+ */
+const RAIL_STEP_H = 24;
+
+function RailStep({ dir, boxRef, disabled }: {
+  dir: 1 | -1; boxRef: React.RefObject<HTMLDivElement | null>; disabled: boolean;
+}) {
+  const Icon = dir < 0 ? ChevronUp : ChevronDown;
+  return (
+    <button
+      type="button"
+      className="fp-shop-press"
+      disabled={disabled}
+      aria-label={dir < 0 ? '이전 사진들' : '다음 사진들'}
+      onClick={() => {
+        const el = boxRef.current;
+        /*
+         * ⚠⚠ `behavior: 'smooth'` 를 쓰면 **아무 일도 안 일어난다**(2026-09-07 실측 —
+         *   핸들러는 돌고 ref 도 살아 있는데 `scrollTop` 이 0 에서 안 움직였다).
+         *   구르는 동안 `onScroll` → 상태변경 → 다시 그리기가 일어나고, 그때 인라인 `style` 이
+         *   다시 칠해지면서 **애니메이션이 취소**된다. 눌러도 안 되는 단추가 된다.
+         * ⇒ 즉시 이동. 썸네일 칸은 «훑는» 곳이라 미끄러지는 맛보다 «눌렀으면 간다»가 낫다.
+         */
+        if (el) el.scrollBy({ top: dir * Math.round(el.clientHeight * 0.8) });
+      }}
+      style={{
+        flex: '0 0 auto', height: RAIL_STEP_H, width: '100%',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        border: `1px solid ${C.line2}`, borderRadius: SHOP.r.chip,
+        background: 'transparent', cursor: disabled ? 'default' : 'pointer',
+        color: C.mute, opacity: disabled ? 0.35 : 1,
+      }}
+    >
+      <Icon size={15} aria-hidden />
+    </button>
+  );
+}
+
+const STAGE_H = 520;
+
 function Gallery({ p, mobile }: { p: EntityRecord; mobile?: boolean }) {
   const photos = useProductPhotos(p, 1280);
   const railRef = useRef<HTMLDivElement>(null);
+  /** 썸네일 칸 — 보고 있는 장이 이 칸 «안»에 있도록 따라 굴린다(아래 `useEffect`). */
+  const thumbsRef = useRef<HTMLDivElement>(null);
   const [i, setI] = useState(0);
   const n = photos.length;
+
+  /*
+   * ★보고 있는 장을 썸네일 칸 안으로 데려온다 — 화살표로 스무 장을 넘겼는데 썸네일은 첫 줄에
+   *   멈춰 있으면 「지금 어디쯤인지」를 잃는다. `nearest` 라 이미 보이면 안 움직인다(안 튄다).
+   */
+  useEffect(() => {
+    const box = thumbsRef.current;
+    const on = box?.querySelector<HTMLElement>('[data-on="1"]');
+    on?.scrollIntoView({ block: 'nearest' });   // smooth 는 재렌더에 취소된다(위 RailStep 머리말)
+  }, [i]);
+
+  /** 위·아래로 더 갈 데가 있나 — 없으면 그쪽 단추를 흐린다. */
+  const [thumbTop, setThumbTop] = useState(false);
+  const [thumbBottom, setThumbBottom] = useState(false);
+  const onThumbScroll = () => {
+    const el = thumbsRef.current;
+    if (!el) return;
+    setThumbTop(el.scrollTop > 2);
+    setThumbBottom(el.scrollTop + el.clientHeight < el.scrollHeight - 2);
+  };
+  /*
+   * ★★**굴릴 게 없으면 단추를 아예 안 그린다**(사장님 2026-09-07 「딱 8장만 보이는데 이거를
+   *   그냥 일단 **10장까지는 다 보여주고**」).
+   * ⚠ 실측 — 재고의 직접 사진은 **최대 10장**이고, 10장이면 두 열 다섯 줄(332px)이라 520 안에
+   *   다 들어간다. 그런 차가 대부분인데 위아래에 «눌러도 아무 일 없는» 막대를 둘씩 세우면
+   *   그게 화면을 더 어지럽힌다. 흐리게 두는 것보다 «없는» 게 낫다.
+   * ★사진이 링크로 오는 차(545대)는 서버가 푼 뒤 열 장을 넘길 수 있다 — 그때 단추가 «생긴다».
+   */
+  const [rolls, setRolls] = useState(false);
+  /* 처음 그린 뒤·장수가 바뀔 때 한 번 잰다. 링크 해석으로 사진이 늘면 그때 단추가 붙는다. */
+  useEffect(() => {
+    const el = thumbsRef.current;
+    if (!el) return;
+    setRolls(el.scrollHeight > el.clientHeight + 2);
+    onThumbScroll();
+  }, [n]);
 
   /** 어느 장을 보고 있나 — 스크롤 위치를 폭으로 나눈다. 스크롤이 정본이라 손·화살표가 안 갈린다. */
   const onScroll = () => {
@@ -1933,7 +2029,7 @@ function Gallery({ p, mobile }: { p: EntityRecord; mobile?: boolean }) {
        * ⚠ 4:3 → 1.7:1 이라 위아래가 12%씩 잘린다. 차 사진은 대개 가로라 견디지만,
        *   잘려서 못 보는 장이 있으면 화살표·「n / N」 로 다음 장을 본다.
        */
-      maxHeight: mobile ? undefined : 520,
+      maxHeight: mobile ? undefined : STAGE_H,
       borderRadius: SHOP.r.card, background: C.placeholder,
     }}>
       {n ? (
@@ -1992,16 +2088,54 @@ function Gallery({ p, mobile }: { p: EntityRecord; mobile?: boolean }) {
    * ★폰에는 안 그린다 — 밀어서 넘기는 게 이미 제일 빠르고, 좁은 화면에 썸네일을 넣으면
    *   정작 사진이 작아진다.
    */
+  /*
+   * ★★★**두 열 그대로, 넘치면 «위아래로 굴린다»**(사장님 2026-09-07 「여기 사진이 많은데
+   *   **2줄로 주고 더 있으면 위아래로 스크롤** 할 수 있어야 하는데」 · 「**메인사진 우측** 말하는 거야」).
+   *
+   * ⚠ 여덟 장에서 끊고 여덟째 칸에 「+25」를 얹었다. 그런데 **그 칸을 눌러도 아무 일이 없었다** —
+   *   숫자가 「더 있다」고 말해 놓고 갈 길을 안 줬다. 33장짜리 차에서 아홉째 장부터는
+   *   화살표를 스물다섯 번 눌러야 닿았다.
+   * ⇒ **전부 그린다.** 사진 높이(520)만큼만 보이고 나머지는 이 칸 «안에서» 굴러간다.
+   * ★「+N」은 뺐다 — 이제 굴리면 다 보이고, 몇 장인지는 사진 위 「8 / 33」이 이미 말한다.
+   * ⚠⚠ `overscroll-behavior` 를 **걸지 않는다.** 조건칸에서 그것 때문에 「왜 안 내려가지」가
+   *   났다(2026-09-07). 여기서도 걸면 썸네일 위에 커서를 둔 채로는 페이지가 안 내려간다.
+   *   끝에 닿으면 페이지로 «넘겨준다» — 그래야 구르는 곳이 둘이어도 손이 안 걸린다.
+   * ★화살표로 넘길 때 썸네일도 따라온다(`thumbsRef` + `scrollIntoView`) — 안 그러면 보고 있는
+   *   장이 이 칸 밖에 있어서 「지금 어디쯤인지」를 잃는다.
+   */
   const thumbs = !mobile && n > 1 ? (
     <div style={{
-      flex: '0 0 auto', width: 200,
-      display: 'grid', gridTemplateColumns: '1fr 1fr', gap: SHOP.sp.snug, alignContent: 'start',
+      flex: '0 0 auto', width: 200, height: STAGE_H,
+      display: 'flex', flexDirection: 'column', gap: SHOP.sp.tight,
     }}>
-      {photos.slice(0, 8).map((src, k) => (
+      {/*
+        ★★**위아래 버튼**(사장님 2026-09-07 「썸네일을 **살짝 줄여서 위아래로 버튼**이 있어야 하고,
+          **스크롤도 되어야지** 그 공간에서는」).
+        ★굴리기와 «둘 다» 준다 — 마우스 휠이 익숙한 사람은 굴리고, 버튼을 찾는 사람은 누른다.
+          사진 옆 좌우 화살표와 짝이라, 이 칸에도 화살표가 있는 게 손에 자연스럽다.
+        ★끝에 닿으면 흐려진다(`disabled`) — 눌러도 아무 일이 없는 단추를 살려 두지 않는다.
+      */}
+      {rolls ? <RailStep dir={-1} boxRef={thumbsRef} disabled={!thumbTop} /> : null}
+      <div
+        ref={thumbsRef}
+        onScroll={onThumbScroll}
+        style={{
+          flex: 1, minHeight: 0, overflowY: 'auto',
+          display: 'grid', gridTemplateColumns: '1fr 1fr', gap: SHOP.sp.snug, alignContent: 'start',
+          scrollbarWidth: 'thin',
+        }}
+      >
+      {photos.map((src, k) => (
         <button key={src} type="button" onClick={() => goTo(k)} className="fp-shop-press"
+          data-on={k === i ? '1' : undefined}
           aria-label={`${k + 1}번째 사진 보기`} aria-pressed={k === i}
           style={{
-            position: 'relative', padding: 0, aspectRatio: '4 / 3', overflow: 'hidden',
+            /*
+             * ★썸네일은 **16:10** 이다 — 사진(4:3)보다 «살짝 낮다»(96×72 → 96×60).
+             *   위아래 버튼이 들어갈 자리를 그 차이에서 번다(사장님 「살짝 줄여서 위아래로 버튼」).
+             *   목록 카드의 사진과 같은 비율이라 눈에 낯설지도 않다.
+             */
+            position: 'relative', padding: 0, aspectRatio: '16 / 10', overflow: 'hidden',
             borderRadius: SHOP.r.chip, cursor: 'pointer', background: C.placeholder,
             /* 보고 있는 장만 테두리로 표시한다 — 색을 칠하면 사진 위에 색이 얹혀 지저분하다. */
             border: k === i ? `2px solid ${C.brand}` : `1px solid ${C.line2}`,
@@ -2009,21 +2143,10 @@ function Gallery({ p, mobile }: { p: EntityRecord; mobile?: boolean }) {
           {/* eslint-disable-next-line @next/next/no-img-element -- 원본은 외부 도메인(프록시 경유)이다. */}
           <img src={src} alt="" decoding="async" loading="lazy"
             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-          {/* 여덟째 칸에 남은 장 수 — 「더 있다」를 숫자로 말한다. */}
-          {k === 7 && n > 8 ? (
-            <span className="fp-onphoto" style={{
-              position: 'absolute', inset: 0, display: 'flex',
-              alignItems: 'center', justifyContent: 'center',
-              /*
-               * 사진 위 딤·글자 — 둘 다 토큰이다. `.fp-onphoto` 가 그 안에서 `--text-main` 을
-               * 흰색으로 뒤집으므로 `C.ink` 를 그대로 쓰면 된다(사진 위 글자의 집 규격 · 카드와 같은 수법).
-               */
-              background: SCRIM.light, color: C.ink,
-              fontSize: SHOP.fs.sub, fontWeight: 700,
-            }}>+{n - 8}</span>
-          ) : null}
         </button>
       ))}
+      </div>
+      {rolls ? <RailStep dir={1} boxRef={thumbsRef} disabled={!thumbBottom} /> : null}
     </div>
   ) : null;
 
