@@ -160,9 +160,15 @@ function EstimateCostPageInner() {
         : '저장하지 못했습니다. 잠시 뒤 다시 시도해 주세요.');
   };
 
+  /**
+   * 잔존가 표는 **검색해야만 보인다**(사장님 2026-09-06 「밑에 잔존가는 검색해서만 볼 수 있게
+   * 하면 되지, 다 볼 필요 없고」). 등록 차종이 235건이라 통째로 깔면 화면이 표에 먹힌다 —
+   * 여기 오는 사람은 «내 차»의 잔가를 보러 오지 목록을 훑으러 오지 않는다.
+   */
   const rows = useMemo(() => {
     const s = q.trim();
-    return (s ? VEHICLES.filter((v) => v.name.includes(s) || v.seg.includes(s)) : VEHICLES).slice(0, 40);
+    if (!s) return [];
+    return VEHICLES.filter((v) => v.name.includes(s) || v.seg.includes(s)).slice(0, 40);
   }, [q]);
 
   const isRent = polCh === 'rent';
@@ -170,7 +176,9 @@ function EstimateCostPageInner() {
   const missing = useMemo(() => unsetFees(cs), [cs]);
 
   return (
-    <div className="est-root">
+    /* `cost` 표식 — 웹 레이아웃이 견적과 다르다(견적=입력·결과 두 기둥 / 원가=설정 카드 두 단).
+       폰에서는 아무 뜻도 없다. CSS 가 넓은 화면에서만 갈라 쓴다. */
+    <div className="est-root cost">
       <div className="phone">
         <div className="hd">
           <div className="wm"><span className="a">freepass</span><span className="b">mobility</span></div>
@@ -379,7 +387,13 @@ function EstimateCostPageInner() {
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="m20 20-3-3" /></svg>
             <input placeholder="차종 검색 (제조사·모델)" value={q} onChange={(e) => setQ(e.target.value)} />
           </div>
-          {master === 'new' ? (
+          {master === 'new' && !q.trim() ? (
+            <div className="byrow">
+              <b>차종을 검색하세요</b> — 등록 {VEHICLES.length}건. 제조사나 모델을 넣으면 그 차의 연도별 잔존가율이 뜬다.
+            </div>
+          ) : master === 'new' && rows.length === 0 ? (
+            <div className="byrow"><b>「{q.trim()}」로 찾은 차종이 없다</b> — 리스트에 없는 차는 견적 화면 STEP 4 에서 건별 입력한다.</div>
+          ) : master === 'new' ? (
             <div style={{ overflowX: 'auto', marginTop: 10 }}>
               <table className="rtb">
                 <thead><tr><th style={{ textAlign: 'left', paddingLeft: 9 }}>차종</th>{YEARS.map((y) => <th key={y}>{y}년</th>)}</tr></thead>
@@ -400,7 +414,9 @@ function EstimateCostPageInner() {
           ) : (
             <div className="byrow"><b>중고마스터</b>는 아직 안 붙었다 — 중고 잔가는 같은 곡선을 «현재 연식 대비»로 환산해 견적이 자동으로 낸다</div>
           )}
-          <div className="byrow"><b>리스트에 없는 차량</b>은 견적 화면 STEP 4 에서 잔존가를 건별 입력</div>
+          {q.trim() && rows.length > 0 ? (
+            <div className="byrow"><b>리스트에 없는 차량</b>은 견적 화면 STEP 4 에서 잔존가를 건별 입력</div>
+          ) : null}
           <div className="onote">국산 <b>표준 잔가 곡선</b>({YEARS.map((y) => `${y}년 ${STD[y]}%`).join(' · ')})에 차종별 델타(±%p)를 얹은 값 · 등록 {VEHICLES.length}건 · 보정: 주행 −2%p/만km · 사고 · 노후 · <b>여기서는 못 고친다</b></div>
         </div>
 
