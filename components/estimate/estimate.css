@@ -198,31 +198,83 @@
 .est-root .gate-go{display:grid;place-items:center;height:40px;margin-top:14px;border-radius:var(--r);background:var(--accent);color:var(--on);font-weight:700;font-size:13px;text-decoration:none}
 
 
-/* ══ 웹(≥900) 두 기둥 — 좌 입력 · 우 결과 ══════════════════════════════
-   ★폰에서는 감싸개가 «없는 셈»이다. 이 한 줄이 그걸 만든다. */
+/* ══════════════════════════════════════════════════════════════════════════
+   웹 = **손오공 견적기 원본 화면** — 좌 400 고정(차 고르고 조건 세팅) · 우 넓은 패널(결과)
+
+   ★사장님 2026-09-07 「견적기 웹 화면은 **원래 손오공 견적기에 있었는데** … 작업하던 거 하고
+     **웹페이지 구현은 동일하게** 해 줘야 하는데」 · 「**좌측에서 차량 선택하고 조건 세팅하고 …
+     우측 넓은 패널에** 조건 나오고」.
+
+   ⇒ 원본 `C:\dev\sonogong-estimator/src/App.vue` 의 치수를 그대로 옮겼다. 지어내지 않았다.
+       .board  grid-template-columns: **400px 1fr**   (여기: `.phone`)
+       .vside  overflow-y:auto · padding 18 · border-right   (여기: `.col.main`)
+       .main   overflow-y:auto · padding 20 24            (여기: `.col.side`)
+       .qcols  grid repeat(N,1fr) · .qcol border-left      (여기: `.card.terms .prods`)
+       분기점  **1000px**
+   ⚠ 내가 9/7 오전에 만들었던 「좌 넓게 · 우 400 붙박이」는 **좌우가 반대**였다. 되돌렸다.
+
+   ★★**폰은 목업 그대로다.** 이 블록은 1000px 이상에서만 켜진다.
+     감싸개(`.col`)는 기본이 `display:contents` 라 폰에서 «없는 셈»이다.
+   ⚠ 원가 화면(`.est-root.cost`)은 이 짜임을 안 쓴다 — 거긴 입력·결과가 아니라 설정 목록이라
+     카드 두 단으로 흐른다(`cost.css`). 그래서 `:not(.cost)` 로 가둔다.
+   ══════════════════════════════════════════════════════════════════════════ */
 .est-root .col{display:contents}
 
-@media (min-width:900px){
-  .est-root .phone{
-    max-width:1080px;
-    display:flex;flex-wrap:wrap;align-items:flex-start;
-    /* ⚠ `align-content` 를 안 잡으면 `.phone{min-height:100vh}` 의 남는 높이가 «줄 사이»로
-       흩어져 머리와 카드가 110px 떨어진다(2026-09-06 실측). 위에서부터 쌓게 못 박는다. */
-    align-content:flex-start;
-    column-gap:16px;
-    padding-left:16px;padding-right:16px;
+@media (min-width:1000px){
+  .est-root:not(.cost) .phone{
+    max-width:none;width:100%;min-height:100vh;
+    display:grid;grid-template-columns:400px minmax(0,1fr);
+    align-content:start;
+    border-left:0;border-right:0;
+    padding-bottom:0;
   }
   /* 머리와 바닥은 한 줄을 통째로 쓴다. */
-  .est-root .phone > .hd,
-  .est-root .phone > .foot{flex:1 0 100%}
+  .est-root:not(.cost) .phone > .hd,
+  .est-root:not(.cost) .phone > .foot{grid-column:1 / -1}
+
   /* 감싸개가 여기서 «기둥»이 된다. */
-  .est-root .phone > .col{display:block;min-width:0}
-  .est-root .phone > .col.main{flex:1 1 0}
-  /* 결과 기둥은 **붙박이**다 — 조건을 바꾸면 값이 눈앞에서 움직여야 한다. */
-  .est-root .phone > .col.side{flex:0 0 400px;position:sticky;top:14px}
-  /* 기둥 안 첫 카드는 위 여백을 지운다(머리 바로 밑에 나란히 서야 한다). */
-  .est-root .phone > .col > .card:first-child,
-  .est-root .phone > .col > .basis:first-child{margin-top:12px}
-  /* 폰에서 손가락으로 누르던 칩·세그가 웹에서는 줄바꿈 없이 한 줄에 들어간다. */
+  .est-root:not(.cost) .phone > .col{display:block;min-width:0}
+
+  /* 좌 — 차 고르고 조건 세팅. 제 안에서 스크롤하고 오른쪽에 선을 긋는다(원본 `.vside`). */
+  .est-root:not(.cost) .phone > .col.main{
+    position:sticky;top:0;
+    max-height:100vh;overflow-y:auto;
+    border-right:1px solid var(--line-2);
+    background:var(--surface);
+    padding:6px 6px 24px;
+  }
+  .est-root:not(.cost) .phone > .col.main .card{border:0;border-radius:0;margin:0 0 4px}
+  .est-root:not(.cost) .phone > .col.main .card .step{margin:0 -13px 13px}
+
+  /* 우 — 넓은 결과 패널(원본 `.main`). 배경을 한 톤 내려 좌우가 갈린다. */
+  .est-root:not(.cost) .phone > .col.side{background:var(--bg);padding:6px 12px 20px}
+
+  /*
+   * 기간별 대여료 — 넓은 패널에서는 **세로 목록이 아니라 가로 열**이다(원본 `.qcols`).
+   * 다섯이 나란히 서야 「몇 년이 얼마인지」를 한눈에 견준다 — 그게 이 화면을 웹으로 여는 까닭이다.
+   * ⚠ 열이 되면 아코디언(`.prod.open`)이 뜻이 없다 — 넓으니 **다 펼친다**(원본도 항상 펼침).
+   */
+  .est-root .card.terms .prods{margin:0}
+  .est-root .card.terms .prod{
+    border:0;border-left:1px solid var(--line);border-radius:0;
+    padding:0 6px 0 14px;background:transparent;
+  }
+  .est-root .card.terms .prod:first-child{border-left:0;padding-left:4px}
+  .est-root .card.terms .prodh{padding:0 0 8px;cursor:default}
+  .est-root .card.terms .prod.open .prodh{background:transparent;border-bottom:0}
+  .est-root .card.terms .pd{display:block;padding:0 0 4px}
   .est-root .prods{max-height:none}
+}
+
+/*
+ * 기간 다섯을 **가로로** 세우는 것은 «다섯이 다 들어가는 폭»에서만 켠다.
+ * 한 칸에 170 은 있어야 「4년 · 580,000원 · 매출/원가」가 안 접힌다 →
+ * 5×170 = 850 이 결과 패널 안폭으로 필요하고, 좌 400 을 더하면 **1280** 이다.
+ * ⚠ 그 아래에서 켜면 «4 + 1» 로 접혀 다섯째 해만 혼자 다음 줄에 선다 — 안 켠 것만 못하다
+ *   (2026-09-07 1440 에서 minmax(200) 로 켰다가 그 꼴을 봤다).
+ */
+@media (min-width:1280px){
+  .est-root .card.terms .prods{
+    display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0;
+  }
 }
