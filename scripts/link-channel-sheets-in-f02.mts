@@ -117,4 +117,61 @@ if (!r.ok) { console.log(`\n  ✕ 못 썼습니다 — ${r.status} ${(await r.te
 console.log(`\n  ✓ 「${NEW}」 칸에 링크 ${hits.length}개를 걸었습니다.`);
 console.log('  ⚠ C:\\dev\\sheetops\\partners-rebuild.mjs 의 CH_HEAD 에도 이 칸을 더해야 합니다 —');
 console.log('     그 스크립트가 이 탭을 다시 찍을 때 없으면 통째로 사라집니다.\n');
+
+/**
+ * ★★**「시작」 탭에 «청구서 폴더» 길을 낸다** — 사장님 2026-09-04
+ *   「그리고 시작에는 PDF파일 모아놓은 청구서 링크도 해줘야함」.
+ *
+ *   달마다 정산서가 드라이브에 쌓이는데 그 자리를 아는 사람이 만든 사람뿐이었다.
+ *   거래처를 여는 시트 첫 화면에 길을 내 둔다.
+ * ⚠ 주소를 «칸 하나에 홀로» 둔다 — 설명과 섞으면 시트가 링크로 안 알아본다.
+ * ⚠ `partners-rebuild.mjs` 의 `startBlocks` 에도 같은 블록이 있어야 한다. 그 스크립트가
+ *   이 탭을 통째로 다시 찍는다 — 없으면 다음 실행 때 사라진다.
+ */
+async function ensureInvoiceLinksOnStart() {
+  const TAB2 = '시작';
+  const meta2 = await (await api(`https://sheets.googleapis.com/v4/spreadsheets/${F02}?fields=sheets.properties(title,sheetId)`)).json() as {
+    sheets?: { properties: { title: string; sheetId: number } }[] };
+  const s2 = (meta2.sheets || []).find((s) => s.properties.title === TAB2);
+  if (!s2) { console.log(`  ~ 「${TAB2}」 탭이 없어 건너뜁니다`); return; }
+  const g2 = (((await (await api(`https://sheets.googleapis.com/v4/spreadsheets/${F02}/values/${encodeURIComponent(`'${TAB2}'!A1:B60`)}`)).json()) as { values?: unknown[][] }).values) || [];
+  if (g2.some((r) => /정산 서류/.test(S((r || [])[0])))) { console.log(`  ○ 「${TAB2}」에 이미 있습니다`); return; }
+
+  /** 달 폴더는 드라이브에서 찾는다 — 이름을 손으로 박으면 다음 달에 틀린 말이 된다. */
+  const folder = async (name: string, parent?: string) => {
+    const q = `name = '${name}' and mimeType='application/vnd.google-apps.folder' and trashed=false${parent ? ` and '${parent}' in parents` : ''}`;
+    const f = (((await (await api(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name)&supportsAllDrives=true&includeItemsFromAllDrives=true`)).json()) as { files?: { id: string }[] }).files) || [];
+    return f[0]?.id || '';
+  };
+  const root = await folder('프리패스 정산서');
+  if (!root) { console.log('  ~ 「프리패스 정산서」 폴더를 못 찾아 건너뜁니다'); return; }
+  const now = new Date();
+  const month = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const last = `${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, '0')}`;
+  const mid = (await folder(month, root)) || (await folder(last, root));
+  const midName = (await folder(month, root)) ? month : last;
+  const link = (id: string) => `https://drive.google.com/drive/folders/${id}`;
+  const rows: [string, string][] = [
+    ['달마다 새 폴더가 생기는 곳', link(root)],
+    [`${midName} 전체`, mid ? link(mid) : '(아직 없음)'],
+    [`${midName} 공급사 청구서 — 우리가 «받을» 것`, mid ? link(await folder('공급사 청구서', mid)) : '(아직 없음)'],
+    [`${midName} 영업채널 정산서 — 우리가 «줄» 것`, mid ? link(await folder('영업채널 정산서', mid)) : '(아직 없음)'],
+    ['만드는 명령', 'npx tsx scripts/run-settlement-month.mts 2026-08 --apply'],
+  ];
+  const at = g2.length + 1;                       // 빈 줄 하나 띄우고 이어 붙인다
+  await api(`https://sheets.googleapis.com/v4/spreadsheets/${F02}/values/${encodeURIComponent(`'${TAB2}'!A${at + 1}:B${at + 2 + rows.length}`)}?valueInputOption=USER_ENTERED`, {
+    method: 'PUT', body: JSON.stringify({ values: [['정산 서류 (PDF) — 달마다 여기에 쌓인다', ''], ['무엇', '어디'], ...rows] }) });
+  const id2 = s2.properties.sheetId;
+  const band = (row: number, bold: boolean, bg?: { red: number; green: number; blue: number }) => ({ repeatCell: {
+    range: { sheetId: id2, startRowIndex: row, endRowIndex: row + 1, startColumnIndex: 0, endColumnIndex: 2 },
+    cell: { userEnteredFormat: { textFormat: { bold }, ...(bg ? { backgroundColor: bg } : {}) } },
+    fields: `userEnteredFormat(textFormat${bg ? ',backgroundColor' : ''})` } });
+  await api(`https://sheets.googleapis.com/v4/spreadsheets/${F02}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests: [
+    band(at, true), band(at + 1, true, { red: 0.93, green: 0.95, blue: 0.98 }),
+  ] }) });
+  console.log(`  ✓ 「${TAB2}」에 「정산 서류」 ${rows.length}줄을 붙였습니다 (${at + 1}행부터)`);
+}
+await ensureInvoiceLinksOnStart();
+
 process.exit(0);
