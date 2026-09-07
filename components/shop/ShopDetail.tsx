@@ -1318,28 +1318,26 @@ function Facts({ rows, cols, mobile }: {
   }
 
   /*
-   * 웹 — 무리 하나가 «띠» 하나. 띠는 들어가는 데까지 옆으로 붙고, 남으면 다음 줄로 내려간다.
-   * ⚠ 띠 «안»에서만 줄바꿈이 일어나야 무리가 갈리지 않는다 — 그래서 띠도 제 안에서 접는다.
-   * ★칸 최소폭 150 — 라벨(「구동방식」)과 값(「2,497cc」)이 안 접히는 폭이다.
-   *   고정폭이 아니라 «최소»폭이라 「외부 ● 화이트 내부 ● 블랙」처럼 긴 값은 제 폭을 쓴다.
-   */
-  const bands: FactRow[][] = [[]];
-  for (const row of rows) {
-    if (row[0] === GROUP_BREAK) { bands.push([]); continue; }
-    bands[bands.length - 1].push(row);
-  }
-  /*
-   * ★세로는 폰과 «같은 규칙»이다 — 칸 사이 `snug`(8) · 무리 사이 `edge`(16).
-   *   가로만 넓다(칸 사이 24 · 무리 사이 48) — 웹은 옆으로 남는 폭이 있어서다.
-   * ⚠ 한쪽만 고치면 「폰은 붙었는데 웹만 멀다」가 된다(집 규격 §3 — 규칙은 양쪽에 한 번에).
+   * ★★**웹도 «칸이 똑같이 나뉜 격자»다 — 흐르는 띠가 아니다**(사장님 2026-09-07
+   *   「밑에 3개랑 **동일하게 3분할로 가로 간격 맞춰**주면 안 돼?」).
+   *
+   * ⚠ 여기는 값 폭에 맞춰 흐르는 «띠»였다. 그래서 윗줄(색상·연식·주행거리)과 아랫줄
+   *   (배기량·연료·구동방식…)의 칸이 **서로 다른 자리에서 시작**했다 — 색상 값이 길어서
+   *   연식을 오른쪽으로 밀었기 때문이다. 표처럼 읽히려면 세로줄이 맞아야 한다.
+   * ⇒ **3분할 고정 격자.** 무리가 바뀌어도 칸의 x 자리는 그대로다.
+   * ★세로는 폰과 «같은 규칙» — 칸 사이 `snug`(8) · 무리 사이 `edge`(16).
+   *   가로만 넓다(`part` 24) — 웹은 옆으로 남는 폭이 있어서다.
+   * ★무리가 갈리는 자리(`GROUP_BREAK`)는 **빈 줄 하나**로 표시한다 — 폰과 같은 짜임이라,
+   *   다음 무리가 «첫 칸»에서 시작하고 사이가 저절로 한 단 벌어진다.
    */
   return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', columnGap: SHOP.sp.wide, rowGap: SHOP.sp.edge }}>
-      {bands.filter((b) => b.length).map((band, bi) => (
-        <div key={bi} style={{ display: 'flex', flexWrap: 'wrap', columnGap: SHOP.sp.part, rowGap: SHOP.sp.snug }}>
-          {band.map((row) => cell(row, row[0], 150))}
-        </div>
-      ))}
+    <div style={{
+      display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+      columnGap: SHOP.sp.part, rowGap: SHOP.sp.snug, alignItems: 'start',
+    }}>
+      {rows.map((row, i) => (row[0] === GROUP_BREAK
+        ? <div key={`break-${i}`} aria-hidden style={{ gridColumn: '1 / -1', height: 0 }} />
+        : cell(row, row[0])))}
     </div>
   );
 }
