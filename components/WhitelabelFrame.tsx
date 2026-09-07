@@ -2,6 +2,7 @@
 import { useCallback, useState, type ReactNode } from 'react';
 import { Phone, X } from 'lucide-react';
 import { Btn, C, FW, ICON, R_CARD, fmtPhone } from '@/components/ui';
+import { BRAND_FONT, BRAND_MAIN, BRAND_MARK } from '@/lib/brand';
 import { SHOP, ShopDock, ShopDockAction } from '@/components/shop/shop-ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { hasBrand, whitelabelVars, type Whitelabel } from '@/lib/whitelabel';
@@ -161,52 +162,23 @@ export function WhitelabelFrame({
              *   ★주소는 «채널의 첫 화면»이다 — 도메인이 붙었으면 `/`, 아직이면 임시 주소(`previewPath`).
              *     조건(`?rent=`·`?dep=`…)은 안 달고 간다. 그게 리셋이다.
              * ★★**하나의 브랜드처럼 붙인다**(같은 날 「유니오토모빌 CI 도 **간격 잘 맞춰서 하나
-             *   브랜드인 것처럼**」) — 마크와 글자는 `snug`(8)로 «한 덩어리», 그 뒤 «✕ freepass» 만
-             *   `cozy`(12)로 한 단 떼어 놓는다. 붙은 것은 한 이름으로, 뗀 것은 «동반»으로 읽힌다.
+             *   브랜드인 것처럼**」) — 채널 간판(`ChannelSign`)은 마크와 글자가 «한 덩어리»고,
+             *   그 뒤 동반 표기(`CoBrandFreepass`)만 `cozy`(12)로 한 단 떼어 놓는다.
+             *   붙은 것은 한 이름으로, 뗀 것은 «동반»으로 읽힌다.
              */
             <a href={homeHref} aria-label={`${wl.name} 첫 화면으로`} style={{
-              display: 'flex', alignItems: 'center', gap: SHOP.sp.snug,
+              display: 'flex', alignItems: 'center', gap: mobile ? SHOP.sp.snug : SHOP.sp.cozy,
               whiteSpace: 'nowrap', textDecoration: 'none', color: 'inherit',
             }}>
-              {wl.logo ? (
-                // eslint-disable-next-line @next/next/no-img-element -- 채널마다 다른 마크라 정적 최적화 대상이 아니다.
-                <img src={wl.logo.src} alt={wl.logo.alt}
-                  style={{ height: mobile ? 24 : 28, width: 'auto', display: 'block' }} />
-              ) : null}
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: SHOP.sp.snug }}>
-                <span style={{ fontSize: mobile ? 22 : 26, fontWeight: FW.head, letterSpacing: '-0.03em', color: C.ink }}>
-                  {wl.wordmark.main}
-                </span>
-                <span style={{ fontSize: mobile ? 12 : 15, fontWeight: FW.meta, letterSpacing: '0.15em', color: C.ink }}>
-                  {wl.wordmark.sub}
-                </span>
-                {/*
-                  ★★**«채널 ✕ freepass» 동반 표기**(사장님 2026-09-07 「**유니오토모빌 X freepass**
-                    이렇게 해줘야 함 홈페이지는」). 이 홈페이지는 채널의 얼굴이지만 **우리가 만들어
-                    주는 것**이라, 만든 쪽을 숨기지 않고 «옆에» 적는다.
-                  ⚠ 이건 업무동 규칙(「브랜드 표식은 안 세운다」)과 «다른 자리»다 — 그건 공급사·영업자가
-                    같이 쓰는 콕핏 얘기고, 여기는 손님에게 나가는 «채널 홈페이지»다.
-                  ★크기·색으로 위계를 준다 — 채널 이름이 주인이고 우리 이름은 그 «옆에 작게» 선다.
-                */}
-                {/*
-                  ★★**아주 연하게**(사장님 2026-09-07 「홈페이지에는 그냥 유니오토모빌 x freepass
-                    **연하게** 표현해줘 · CI 뒤에 x 랑 freepass 는 **아주 연하게**」).
-                    간판의 주인은 채널이다 — 우리 이름은 «있다는 것만» 보이면 된다.
-                  ★연하게 만드는 방법 셋을 같이 쓴다: 작게 · 가늘게 · 흐리게(투명도).
-                    색을 새로 만들지 않는다 — `C.faint` 에 투명도만 얹는다(토큰 규격).
-                */}
-                <span style={{
-                  display: 'inline-flex', alignItems: 'baseline', gap: SHOP.sp.tight,
-                  marginLeft: SHOP.sp.tight, opacity: 0.55, color: C.faint,
-                }}>
-                  <span aria-hidden style={{
-                    fontSize: mobile ? 10 : 12, fontWeight: FW.meta, letterSpacing: 0,
-                  }}>✕</span>
-                  <span style={{
-                    fontSize: mobile ? 12 : 14, fontWeight: FW.meta, letterSpacing: '-0.01em',
-                  }}>freepass</span>
-                </span>
-              </div>
+              <ChannelSign wl={wl} mobile={mobile} />
+              {/*
+                ★★**«채널 ✕ freepass» 동반 표기**(사장님 2026-09-07 「**유니오토모빌 X freepass**
+                  이렇게 해줘야 함 홈페이지는」). 이 홈페이지는 채널의 얼굴이지만 **우리가 만들어
+                  주는 것**이라, 만든 쪽을 숨기지 않고 «옆에» 적는다.
+                ⚠ 이건 업무동 규칙(「브랜드 표식은 안 세운다」)과 «다른 자리»다 — 그건 공급사·영업자가
+                  같이 쓰는 콕핏 얘기고, 여기는 손님에게 나가는 «채널 홈페이지»다.
+              */}
+              <CoBrandFreepass mobile={mobile} />
             </a>
           )}
           <div style={{ flex: 1 }} />
@@ -316,6 +288,112 @@ export function WhitelabelFrame({
         </div>
       </footer>
     </div>
+  );
+}
+
+/**
+ * **간판(CI) 짜임 — 마크와 워드마크는 «한 덩어리»다.**
+ *
+ * 사장님 2026-09-07 「**유니오토모빌도 짜임새 있게 CI 구성**해줘야 함」.
+ *
+ * ⚠⚠ 전에는 우리가 **CI 를 지어내고 있었다.** 「UNI」만 26/700 으로 크게, 「AUTOMOBILE」은
+ *   15/500 에 자간 0.15em 으로 — 웹에서 흔한 «두 톤 워드마크» 꼴이다. 그런데 **그 회사의 실제
+ *   CI 는 그렇게 안 생겼다.** 받은 원본(`public/brand/uni-black.png`)을 실측하면 —
+ *
+ *   | | 공식 CI | 우리가 그리던 것 |
+ *   |---|---|---|
+ *   | 굵기·크기 | **둘이 같다**(한 워드마크) | UNI 700/26 · AUTOMOBILE 500/15 |
+ *   | 자간 | 글자 사이 = 캡높이의 **0.24배**(고르게) | UNI −0.03em · AUTOMOBILE +0.15em |
+ *   | 전체 폭 | 캡높이의 **12.4배** | 캡높이의 8.7배 |
+ *
+ *   ⇒ 「채널이 실제로 쓰는 마크를 쓴다. 우리가 지어내지 않는다」(`lib/whitelabel.ts`)는 규칙은
+ *     **마크에만** 지켜지고 있었고 글자에는 안 지켜지고 있었다. 그래서 공식 짜임으로 맞춘다 —
+ *     **한 크기 · 한 굵기 · 고른 자간**, 두 낱말 사이는 낱말 사이만큼.
+ *
+ * ★**마크 높이는 «캡 높이»에 매단다**(1.5배). 글자 크기가 바뀌면 마크가 같이 따라온다 —
+ *   전에는 마크 28 · 캡 19 라 마크가 글자를 **위로 6.2 · 아래로 2.8** 만큼 삐져나와 있었다.
+ * ★**세로는 «캡 밴드 가운데»에 맞춘다.** 바깥이 `center` 인데 글자는 대문자뿐이라(밑으로 내려가는
+ *   획이 없다) 줄상자 가운데와 캡 가운데가 어긋난다 — 그 차이(`CAP_NUDGE`)만큼 마크를 내린다.
+ */
+const SIGN = {
+  web: { mark: 1.5, fs: 22, track: '0.045em', gap: 9 },
+  mobile: { mark: 1.5, fs: 16, track: '0.045em', gap: 7 },
+} as const;
+/** 대문자 캡 높이 ÷ 글자 크기 (Pretendard 실측 19/26 · 11/15). */
+const CAP = 0.73;
+/**
+ * 줄상자 가운데 → 캡 밴드 가운데 (em). `line-height:1` 일 때 대문자는 상자 가운데보다 이만큼 밑에 있다.
+ * (Pretendard asc 1.06 · desc 0.196 실측에서 나온 값 — 글자 크기와 무관한 비율이라 상수로 둔다.)
+ */
+const CAP_NUDGE = 0.067;
+
+function ChannelSign({ wl, mobile }: { wl: Whitelabel; mobile: boolean }) {
+  const s = mobile ? SIGN.mobile : SIGN.web;
+  const cap = s.fs * CAP;
+  return (
+    <span style={{ display: 'flex', alignItems: 'center', gap: s.gap }}>
+      {wl.logo ? (
+        // eslint-disable-next-line @next/next/no-img-element -- 채널마다 다른 마크라 정적 최적화 대상이 아니다.
+        <img src={wl.logo.src} alt={wl.logo.alt} style={{
+          height: Math.round(cap * s.mark), width: 'auto', display: 'block',
+          /* ⚠ `margin` 이 아니라 `transform` 이다 — 여백을 주면 줄상자가 같이 커져 나란한 것들이 다 밀린다. */
+          transform: `translateY(${(s.fs * CAP_NUDGE).toFixed(2)}px)`,
+        }} />
+      ) : null}
+      {/*
+        ★한 낱말처럼 «한 span» 이다 — 둘로 쪼개면 사이 간격이 자간이 아니라 flex gap 이 되어
+          글자 크기를 바꿀 때마다 낱말 사이만 따로 어긋난다.
+        ★글자는 **먹색**이다. 로고가 검정이라 「UNI」만 브랜드색으로 칠하면 로고와 색이 갈린다.
+      */}
+      <span style={{
+        fontSize: s.fs, fontWeight: FW.head, letterSpacing: s.track, lineHeight: 1, color: C.ink,
+      }}>
+        {`${wl.wordmark.main} ${wl.wordmark.sub}`.trim()}
+      </span>
+    </span>
+  );
+}
+
+/**
+ * **✕ freepass — 우리 CI 로 적는다. 아주 연하게.**
+ *
+ * 사장님 2026-09-07 ① 「CI 뒤에 x 랑 freepass 는 **아주 연하게**」
+ *                  ② 「**프리패스도 CI 있는데 그거 반영 전혀 안 했고**」
+ *
+ * ⚠ 둘은 안 부딪힌다. ①은 **톤**이고 ②는 **꼴**이다. 전에는 우리 이름을 본문 서체(Pretendard)
+ *   맨글자로 적어 놨었다 — 그건 연한 게 아니라 **CI 가 아예 없는** 것이다.
+ * ⇒ 꼴은 정본대로(마크 + Exo 2 소문자 워드마크), 톤만 내린다.
+ *   · 마크는 남색 판을 그대로 쓰지 않는다 — 그 자리에서 남색 네모는 채널 간판보다 세게 튄다.
+ *     **판을 지금 글자색(연회색)으로 칠하고 체크를 바탕색으로 도려낸다** — 모양은 아이콘 그대로,
+ *     무게만 내려온다. 좌표는 `lib/brand.ts` `BRAND_MARK`(= `public/icon.svg` 와 같은 값).
+ *   · 워드마크는 **Exo 2 600 소문자**(명함 CI). 본문 서체로 적으면 그건 그냥 글자다.
+ * ★크기·색으로 위계를 준다 — 채널 이름이 주인이고 우리 이름은 그 «옆에 작게» 선다.
+ */
+const CO = {
+  web: { x: 12, fs: 13, gap: 5 },
+  mobile: { x: 10, fs: 11, gap: 4 },
+} as const;
+
+function CoBrandFreepass({ mobile }: { mobile: boolean }) {
+  const s = mobile ? CO.mobile : CO.web;
+  const mark = Math.round(s.fs * CAP * 1.5);
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'center', gap: s.gap,
+      opacity: 0.55, color: C.faint,
+    }}>
+      <span aria-hidden style={{ fontSize: s.x, fontWeight: FW.meta, lineHeight: 1 }}>✕</span>
+      <svg width={mark} height={mark} viewBox={`0 0 ${BRAND_MARK.box} ${BRAND_MARK.box}`}
+        aria-hidden style={{ display: 'block', flex: '0 0 auto' }}>
+        <rect width={BRAND_MARK.box} height={BRAND_MARK.box} rx={BRAND_MARK.rx} fill="currentColor" />
+        <path d={BRAND_MARK.check} fill="none" stroke={C.bg} strokeWidth={BRAND_MARK.checkWidth}
+          strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+      <span style={{
+        fontFamily: BRAND_FONT, fontSize: s.fs, fontWeight: 600,
+        letterSpacing: '-0.04em', textTransform: 'lowercase', lineHeight: 1,
+      }}>{BRAND_MAIN}</span>
+    </span>
   );
 }
 
