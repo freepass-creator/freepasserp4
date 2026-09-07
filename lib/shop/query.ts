@@ -19,7 +19,7 @@ import type { EntityRecord } from '@/lib/intake/entities';
 import { cheapest, creditDisplay, isListableProduct, priceList } from '@/lib/domain/product';
 import { matchProductQuery } from '@/lib/domain/search';
 import {
-  RENT_BANDS, DEP_BANDS, MILE_BANDS, CREDITS, CATALOG_PERKS, hasPerk, type Band,
+  RENT_BANDS, DEP_BANDS, MILE_BANDS, CREDITS, CATALOG_PERKS, hasPerk, popularRank, type Band,
 } from '@/lib/domain/product-filters';
 import { fuelDisplay, makerDisplay, yearFullDisplay } from '@/lib/domain/vehicle-master-format';
 import { CUSTOMER_VEHICLE_CLASSES, customerVehicleClass } from '@/lib/domain/catalog-facets';
@@ -35,6 +35,14 @@ export const AXIS_LABEL: Record<ShopAxis, string> = {
 };
 
 export const SHOP_SORTS = [
+  /*
+   * ★★★**기본 정렬 = 인기순**(사장님 2026-09-07 「그리고 **기본 정렬은 인기순으로**」).
+   *   순위는 «바깥»에서 온다 — `POPULAR_MODELS`(product-filters). 우리 재고가 정하지 않는다.
+   * ★맨 앞에 둔다 — 기본값이 목록 가운데 있으면 고르개를 열었을 때 지금 무엇으로 보고 있는지
+   *   눈이 한 번 더 찾아야 한다.
+   * ★순위 밖 차는 «뒤»로 가되 사라지지 않는다. 뒤에서는 싼 것부터 선다(아래 `sortValue`).
+   */
+  { key: 'popular', label: '인기순' },
   { key: 'asc', label: '낮은 대여료순' },
   { key: 'desc', label: '높은 대여료순' },
   { key: 'dep', label: '보증금 낮은순' },
@@ -54,13 +62,29 @@ export const SHOP_SORTS = [
 ] as const;
 export type ShopSort = (typeof SHOP_SORTS)[number]['key'];
 
+/**
+ * **첫 화면의 정렬 — 한 곳에서 정한다.**
+ *
+ * ⚠⚠ 이 값이 **네 군데에 흩어져** 있었다(`emptyQuery` · 주소 읽기 두 곳 · 주소 쓰기).
+ *   그래서 2026-09-07 에 기본을 인기순으로 바꿨을 때 **한 곳만 고쳐져 안 먹었다** —
+ *   주소에 `sort` 가 없으면 읽는 쪽이 다시 `'asc'` 로 채웠기 때문이다.
+ * ★주소에 «기본값은 안 싣는다»는 규칙이 있어서(아래 `writeQuery`), 읽는 쪽과 쓰는 쪽이
+ *   **같은 값**을 봐야 한다. 다르면 링크를 복사할 때마다 정렬이 슬쩍 바뀐다.
+ */
+export const SHOP_DEFAULT_SORT: ShopSort = 'popular';
+
 export type ShopSel = Record<ShopAxis, string[]>;
 export type ShopQuery = { q: string; sort: ShopSort; sel: ShopSel };
 
 export const emptySel = (): ShopSel =>
   Object.fromEntries(SHOP_AXES.map((a) => [a, [] as string[]])) as unknown as ShopSel;
 
-export const emptyQuery = (): ShopQuery => ({ q: '', sort: 'asc', sel: emptySel() });
+/*
+ * ★첫 화면의 정렬 = **인기순**(사장님 2026-09-07). 전에는 「낮은 대여료순」이었는데,
+ *   그러면 첫 화면이 «제일 싼 차»로 채워진다 — 값이 싼 데는 이유가 있고(연식·주행) 그게
+ *   우리 판의 첫인상이 된다. 손님이 아는 차가 먼저 보여야 한다.
+ */
+export const emptyQuery = (): ShopQuery => ({ q: '', sort: SHOP_DEFAULT_SORT, sel: emptySel() });
 
 export const queryCount = (query: ShopQuery): number =>
   SHOP_AXES.reduce((n, a) => n + query.sel[a].length, 0);
@@ -87,10 +111,10 @@ export function readQuery(params: URLSearchParams): ShopQuery {
     const raw = params.get(a);
     if (raw) sel[a] = raw.split(',').map((v) => v.trim()).filter(Boolean);
   }
-  const sort = String(params.get('sort') || 'asc') as ShopSort;
+  const sort = String(params.get('sort') || SHOP_DEFAULT_SORT) as ShopSort;
   return {
     q: params.get('q') || '',
-    sort: SHOP_SORTS.some((s) => s.key === sort) ? sort : 'asc',
+    sort: SHOP_SORTS.some((s) => s.key === sort) ? sort : SHOP_DEFAULT_SORT,
     sel,
   };
 }
@@ -106,7 +130,7 @@ export function writeQuery(query: ShopQuery, keep?: URLSearchParams): string {
     if (k !== 'q' && k !== 'sort' && !(SHOP_AXES as readonly string[]).includes(k)) out.set(k, v);
   }
   if (query.q.trim()) out.set('q', query.q.trim());
-  if (query.sort !== 'asc') out.set('sort', query.sort);
+  if (query.sort !== SHOP_DEFAULT_SORT) out.set('sort', query.sort);
   for (const a of SHOP_AXES) if (query.sel[a].length) out.set(a, query.sel[a].join(','));
   const s = out.toString();
   return s ? `?${s}` : '';
@@ -151,6 +175,11 @@ const sameCarKey = (p: EntityRecord): string =>
 
 const sortValue = (p: EntityRecord, sort: ShopSort): number => {
   const price = cheapest(p);
+  /*
+   * ★인기순 — 순위(0,1,2…)가 잣대다. 같은 모델끼리는 «싼 것부터»(아래 tie-break).
+   *   순위 밖은 `MAX_SAFE_INTEGER` 라 통째로 뒤에 서고, 그 안에서 다시 싼 것부터 선다.
+   */
+  if (sort === 'popular') return popularRank(p.model);
   if (sort === 'dep') return price?.deposit ?? Number.MAX_SAFE_INTEGER;
   if (sort === 'year') return -(Number(yearFullDisplay(p.year)) || 0);
   if (sort === 'mile') return Number(p.mileage) || Number.MAX_SAFE_INTEGER;
@@ -243,7 +272,14 @@ export function runShopQuery(rows: EntityRecord[] | null, query: ShopQuery): Sho
     };
   }
 
-  const list = kept.sort((a, b) => sortValue(a, query.sort) - sortValue(b, query.sort));
+  /*
+   * ⚠ 인기순은 «같은 값»이 무더기로 나온다(그랜저 89대가 전부 순위 1). 2차 잣대가 없으면
+   *   원천이 준 순서 그대로 서서, 새로고침할 때마다 첫 화면이 달라 보인다.
+   *   ⇒ 같은 순위면 싼 것부터. 그러면 목록이 늘 같은 얼굴이다.
+   */
+  const list = kept.sort((a, b) =>
+    (sortValue(a, query.sort) - sortValue(b, query.sort))
+    || (query.sort === 'popular' ? sortValue(a, 'asc') - sortValue(b, 'asc') : 0));
   return { list, total: pool.length, facets };
 }
 
