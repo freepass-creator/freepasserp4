@@ -235,7 +235,7 @@ function CheckList({ axis, options, selected, onToggle, mobile, columns }: {
       }}>
         {shown.map((o) => (
           <CheckRow key={o.key} label={o.label} count={o.count} tight={columns > 1}
-            logo={axis === 'maker' ? makerLogoSrc(o.label) : null}
+            logo={axis === 'maker' ? makerLogoSrc(o.label) : undefined}
             on={selected.includes(o.key)} onClick={() => onToggle(axis, o.key)} />
         ))}
       </div>
@@ -258,8 +258,18 @@ function CheckList({ axis, options, selected, onToggle, mobile, columns }: {
 function CheckRow({ label, count, on, onClick, tight, logo }: {
   label: string; count: number; on: boolean; onClick: () => void;
   /**
-   * 제조사 마크(CI) — 있으면 글자 앞에 선다(사장님 2026-09-06 「제조사는 그 CI 를 달아주면 되고」).
-   * ★파일이 없으면 `null` 이라 **글자만** 그린다 — 한 장도 없어도 안 깨지고, 한 장 넣으면 그것만 뜬다.
+   * 제조사 마크(CI) — 글자 앞에 선다(사장님 2026-09-06 「제조사는 그 CI 를 달아주면 되고」).
+   *
+   * ★★**세 가지 값이 세 가지 뜻이다.**
+   *   · `undefined` = 마크를 쓰지 않는 축(차종·연료…) — **자리를 안 만든다.**
+   *   · `null`      = 마크를 쓰는 축인데 **이 브랜드만 파일이 없다** — 자리는 «비워서» 남긴다.
+   *   · 주소        = 그린다.
+   * ⚠⚠ 전에는 없는 것을 `null` 하나로 뭉뚱그려 **자리째 사라졌다.** 그래서 제조사 목록에서
+   *   마크가 있는 줄(기아·현대)은 글자가 148 에서 시작하고 없는 줄(제네시스·KGM)은 122 에서
+   *   시작해 **왼선이 26px 씩 들쭉날쭉했다**(2026-09-07 실측). 목록에서 제일 먼저 보이는 것이
+   *   글자의 왼선인데 그게 갈리면 훑는 눈이 매 줄 다시 자리를 잡는다.
+   * ★마크 없는 브랜드는 앞으로도 «있다» — 규격이 「없는 마크를 지어내지 않는다」이기 때문이다
+   *   (제네시스·KGM·BYD). 그러니 빈자리는 예외가 아니라 **정상 상태**고, 자리는 늘 있어야 한다.
    *   (자리·파일명은 `lib/domain/maker-logo` 가 정한다.)
    */
   logo?: string | null;
@@ -316,17 +326,27 @@ function CheckRow({ label, count, on, onClick, tight, logo }: {
       }}>
         {on ? <Check size={mobile ? 13 : 12} strokeWidth={2.25} style={{ color: C.inverse }} /> : null}
       </span>
-      {logo ? (
+      {logo !== undefined ? (
         /*
-         * ⚠⚠ **파일이 없으면 «조용히» 사라져야 한다.** 주소만 있고 파일이 없으면 브라우저가
+         * ★**자리는 늘 있고, 그림만 없을 수 있다.** 그래야 마크가 없는 브랜드의 글자도
+         *   있는 브랜드와 «같은 왼선»에서 시작한다(위 `logo` 머리말의 26px 어긋남).
+         * ⚠⚠ 파일이 없으면 그림은 «조용히» 사라져야 한다. 주소만 있고 파일이 없으면 브라우저가
          *   **깨진 그림 아이콘**을 그린다 — 열일곱 줄에 깨진 아이콘이 서면 안 다는 것만 못하다
          *   (2026-09-06 실측으로 잡았다. 표에는 이름을 다 적었는데 파일은 한 장도 없었다).
-         * ⇒ `onError` 로 그 자리를 지운다. 파일을 넣는 순간 그 브랜드만 바로 뜬다.
+         * ⇒ `onError` 는 **그림만** 숨긴다(`visibility`) — `display:none` 이면 자리째 접혀
+         *   방금 고친 어긋남이 그대로 돌아온다. 파일을 넣는 순간 그 브랜드만 바로 뜬다.
          */
-        // eslint-disable-next-line @next/next/no-img-element -- 브랜드 마크는 정적 최적화 대상이 아니다(작은 SVG).
-        <img src={logo} alt="" aria-hidden width={18} height={18}
-          onError={(e) => { e.currentTarget.style.display = 'none'; }}
-          style={{ flex: '0 0 auto', width: 18, height: 18, objectFit: 'contain' }} />
+        <span aria-hidden style={{
+          flex: '0 0 auto', width: 18, height: 18,
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          {logo ? (
+            // eslint-disable-next-line @next/next/no-img-element -- 브랜드 마크는 정적 최적화 대상이 아니다(작은 SVG).
+            <img src={logo} alt="" aria-hidden width={18} height={18}
+              onError={(e) => { e.currentTarget.style.visibility = 'hidden'; }}
+              style={{ width: 18, height: 18, objectFit: 'contain' }} />
+          ) : null}
+        </span>
       ) : null}
       <span style={{ display: 'flex', alignItems: 'baseline', gap: SHOP.sp.snug, flex: 1, minWidth: 0 }}>
         <span style={{
