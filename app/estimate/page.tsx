@@ -1,37 +1,31 @@
 'use client';
 /**
- * 견적 — **완전 별도 페이지**(사장님 2026-09-06 「모바일에서 보여지는 거 그대로 · 완전 별도 페이지라고
- * 얘기할 정도로」). 설계서 §11·§12.
+ * 견적 — **화면 정본 = 웰릭스 테이블**(`C:\dev\welrixtable/index.html`).
  *
- * ★★화면의 정본은 **사장님이 주신 목업** `C:\Users\admin\Documents\프리패스-목업-모바일계산기.html` 이다.
- *   마크업·클래스·문구·차례를 그 목업에서 그대로 옮겼다. 스타일은 `components/estimate/estimate.css`
- *   (목업 `<style>` 통째로 · `.est-root` 로만 가둠).
- *   ⚠ 2026-09-06 에 한 번 다른 소스(sonogong-estimator `MobileApp.vue`)를 옮겨 놓았다가
- *     「목업을 줬는데 그거 그대로 하라는데 이게 이렇게 힘드냐」를 들었다. **목업이 이긴다.**
- *   ⚠ 목업에 없는 칸을 여기서 «만들지» 않는다. 필요하면 목업을 먼저 고친다.
+ * ★★사장님 2026-09-07 「야 일단 **웰릭스 테이블을 그대로 복사**해와봐」
+ *   「거기서 **신차에서 중고차로만 변환**하고 **원가구조만 다르게** 쓰면 되는 거잖아」
+ *   ⇒ 짜임·클래스·치수는 웰릭스 원본 그대로다. 우리가 바꾼 것은 **딱 둘**이다:
+ *     ㉠ 왼쪽이 신차 카탈로그(제조사→모델→트림→옵션·색상)가 아니라 **중고 차종 + 시세·연식·주행**
+ *     ㉡ 오른쪽 셋째 칸이 계약·채팅이 아니라 **우리 원가·손익**
+ *   그 밖에는 원본을 «고치지 않는다». 스타일은 `components/estimate/welrix.css` —
+ *   원본 `<style>` 을 한 글자도 안 고치고 `.wx-root` 안에만 가둔 것이다(`tmp/wx-extract.py`).
  *
- * ★이 층은 업무동 규격을 안 따른다. 전자계약(`/sign`)과 «같은 갈래»다 —
- *   자기 CSS 를 갖고, ERP 상단바·하단 홈바를 벗는다.
- *   벗기는 건 `lib/guest-surface.ts` 한 곳이 정한다(거기 한 줄이 이 페이지를 독립으로 만든다).
- *   ⚠ 로그인은 **필요하다** — `lib/public-access.ts` 에 넣지 않았다.
- *     이 화면은 원가·마진·손익을 보여준다. 손님이 우리 원가를 보면 안 된다.
+ * ★이 층은 ERP «안»의 페이지다 — 상단바·전체메뉴를 입는다(사장님 2026-09-07
+ *   「난 로그인해서 **내부 페이지**처럼 하자는 거였음」). 그래서 원본 상단바에는
+ *   **브랜드 표식을 안 세운다**(CLAUDE.md 노브랜드) — 웰릭스 CI 레드도 남색으로 돌렸다.
+ *   ⚠ 로그인은 **필요하다** — 원가·마진·손익이 보이므로 `EstimateGate` 가 관리자·공급사만 들인다.
  *
  * ★숫자는 **한 줄도 여기서 계산하지 않는다.** 전부 `lib/domain/estimate` 엔진이 낸다
- *   (손오공 견적기에서 무손실 이관 · 회귀 39개 = `npm run test:estimate`).
- *   ⇒ 목업 `<script>` 의 간이 계산식(`calc()`)은 **안 옮겼다.** 그건 「업계 기준선 추정」용 목업 셈이고,
- *     우리 정본은 엔진이다. 화면 구성만 목업을 따르고 숫자는 엔진에서 온다.
- *   ⇒ 그래서 목업 손익표의 「일반관리·간접비」 줄은 없다 — 엔진은 간접비를 따로 세지 않고
- *     직접비·수수료로 다 잡는다. 없는 값을 지어내느니 줄을 뺐다.
- *     대신 엔진에만 있는 「손바뀜 위험」은 값이 있을 때만 한 줄 선다(안 보이면 매출총이익이 안 맞는다).
+ *   (회귀 39개 = `npm run test:estimate` · 로직 정본 = `docs/견적-원가-로직.md`).
  *
- * ★아직 안 붙은 것(설계서 §11 남은 일):
- *   ① 차종 검색(중고마스터) — 지금은 목업이 박아 둔 그 차 한 대가 기본값이다.
- *   ② 헤더 「원가」 탭 — 관리자 원가설정 화면이 없어 눌리지 않게 두었다(목업은 외부 링크였다).
+ * ⚠ **사고 이력 칸은 일부러 없다.** 붙였다가 실측하고 걷었다 — 중고는 «시세»를 입력받고
+ *   그 시세에 사고·주행이 이미 녹아 있어 엔진이 보정을 건너뛴다(`residualAgeBaked`).
+ *   웰릭스·손오공에 있다고 우리에도 있어야 하는 게 아니다. 까닭은 로직 정본 §3-4.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import EstimateGate from '@/features/estimate/EstimateGate';
-import '@/components/estimate/estimate.css';
+import '@/components/estimate/welrix.css';
 import { useAppBar } from '@/lib/appbar';
 import CarPicker from '@/features/estimate/CarPicker';
 import type { PickedCar } from '@/lib/domain/estimate/car-index';
@@ -46,11 +40,20 @@ import { useIsMobile } from '@/lib/use-mobile';
 
 /** 목업 `TERMS/PCTS/CREDIT` 그대로. */
 const TERMS = [12, 24, 36, 48, 60];
-const PCTS = [0, 10, 20, 30];
-/** 수수료 칩 — 원가 설정의 기본값이 목록에 없으면 그 값도 함께 세운다(고른 값이 안 보이면 안 된다). */
-const FEE_CHIPS = [0, 2.5, 5];
-const DISCS = [0, 2, 5, 10];
 const CREDIT = ['고신용', '중신용', '저신용'];
+/** 원본 왼쪽 첫 칸이 묻던 것 — 웰릭스는 「상품」 카드 줄이다(`.grid-2 > .card`). */
+const SOURCES = [
+  { v: 'used' as const, label: '중고', sub: '시세로 센다' },
+  { v: 'new' as const, label: '신차', sub: '신차마스터 공표가' },
+];
+const CHANNELS = [
+  { v: 'rent' as const, label: '렌트', sub: '영업용 · 자동차세 저렴' },
+  { v: 'sub' as const, label: '구독', sub: '비영업용' },
+];
+const TYPES = [
+  { v: 'return' as const, label: '반납형', sub: '만기에 돌려받는다' },
+  { v: 'acquire' as const, label: '인수형', sub: '만기에 손님이 산다' },
+];
 /**
  * 취득 경로 — 같은 차라도 «어떻게 들여왔나»에 따라 초기비가 다르다(사장님 2026-09-06).
  * ⚠ 신차에는 안 묻는다. 신차는 언제나 사 오는 차다(등록·탁송 O · 상품화 X).
@@ -81,11 +84,38 @@ const DEFAULT_USED_YEAR = 2021;
 const DEFAULT_USED_MILEAGE = 48000;
 
 const digits = (v: string) => Number(String(v).replace(/[^\d]/g, '')) || 0;
+/** 원본 `src/lib/format.js` 의 `fmt` — 견적 카드 금액은 전부 이걸 탄다. */
+const fmtNum = (n: number | undefined) => Math.round(n || 0).toLocaleString('ko-KR');
+/** 원본 `src/lib/format.js` 의 `fmtTel` — 치는 도중에도 하이픈이 붙는다. */
+function fmtTel(tel: string) {
+  const d = String(tel || '').replace(/\D/g, '').slice(0, 11);
+  if (!d) return '';
+  if (/^01[016789]/.test(d)) {
+    if (d.length <= 3) return d;
+    if (d.length <= 7) return `${d.slice(0, 3)}-${d.slice(3)}`;
+    return `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}`;
+  }
+  if (d.startsWith('02')) {
+    if (d.length <= 2) return d;
+    if (d.length <= 6) return `${d.slice(0, 2)}-${d.slice(2)}`;
+    if (d.length <= 9) return `${d.slice(0, 2)}-${d.slice(2, 5)}-${d.slice(5)}`;
+    return `${d.slice(0, 2)}-${d.slice(2, 6)}-${d.slice(6)}`;
+  }
+  if (/^0[3-6]/.test(d)) {
+    if (d.length <= 3) return d;
+    if (d.length <= 7) return `${d.slice(0, 3)}-${d.slice(3)}`;
+    return `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}`;
+  }
+  if (/^1[5-9]/.test(d)) return d.length <= 4 ? d : `${d.slice(0, 4)}-${d.slice(4)}`;
+  return d;
+}
 const won = (n: number) => `${Math.round(n || 0).toLocaleString('ko-KR')}원`;
 const man = (n: number) => `${Math.round((n || 0) / 10000).toLocaleString('ko-KR')}만`;
 
 type Card = {
   term: number; payVat?: number; monthlySupply?: number; months?: number;
+  /** 엔진이 세우는 깃발 — 배기량을 모르면 자동차세가 «조용히 0» 이 된다. 화면이 말해야 한다. */
+  incompleteCc?: boolean;
   subtotal?: number; deposit?: number; residualRate?: number;
   cost?: Record<string, number>;
 };
@@ -107,42 +137,6 @@ function pnl(c: Card, prepay: number) {
   };
 }
 
-const IconSearch = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="11" cy="11" r="7" /><path d="m20 20-3-3" /></svg>
-);
-const IconCar = () => (
-  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round"><path d="M4 13l1.6-4.4A2 2 0 0 1 7.5 7.2h9A2 2 0 0 1 18.4 8.6L20 13" /><path d="M3 13h18v3.4a1 1 0 0 1-1 1h-1.3a1 1 0 0 1-1-1V16H7.3v.4a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z" /></svg>
-);
-const IconChevron = () => (
-  <svg className="cv" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="m6 9 6 6 6-6" /></svg>
-);
-
-/** 목업 `.chips` — 칩 한 줄. */
-function Chips<T extends string | number>({ opts, cur, unit = '', onPick }: {
-  opts: readonly T[]; cur: T; unit?: string; onPick: (v: T) => void;
-}) {
-  return (
-    <div className="chips">
-      {opts.map((v) => (
-        <button key={String(v)} type="button" className={v === cur ? 'on' : ''} onClick={() => onPick(v)}>{v}{unit}</button>
-      ))}
-    </div>
-  );
-}
-
-/** 목업 `.seg` — 세그먼트. */
-function Seg<T extends string>({ tone, opts, cur, onPick }: {
-  tone: 't1' | 't2' | 't3'; opts: readonly { v: T; label: string }[]; cur: T; onPick: (v: T) => void;
-}) {
-  return (
-    <div className={`seg ${tone}`}>
-      {opts.map((o) => (
-        <button key={o.v} type="button" className={o.v === cur ? 'on' : ''} onClick={() => onPick(o.v)}>{o.label}</button>
-      ))}
-    </div>
-  );
-}
-
 /** ★문지기(`EstimateGate`)가 관리자·공급사만 들여보낸다 — 메뉴에서 숨기는 것만으로는 막은 게 아니다. */
 export default function EstimatePagePage() {
   return <EstimateGate><EstimatePageInner /></EstimateGate>;
@@ -156,15 +150,9 @@ function EstimatePageInner() {
   const [credit, setCredit] = useState('중신용');
   /** 고른 차 한 대 — 중고는 차종마스터, 신차는 신차마스터에서 온다(`features/estimate/CarPicker`). */
   const [picked, setPicked] = useState<PickedCar>(DEFAULT_USED);
-  /* 넓은 화면에서는 기간을 «열»로 편다 — 아래 손익표(`.qmx`). 폰은 목업 그대로 아코디언. */
+  /* 차 고르기가 «어디에 서는가»를 가른다 — 웹은 좌패널에 박히고(원본 캐스케이드 자리),
+     폰은 시트로 뜬다. 원본도 ≤1024px 에서는 한 줄로 접힌다. */
   const mobile = useIsMobile();
-  /**
-   * 손익표는 **다 들어가는 폭**에서만 편다. 표가 요구하는 최소폭이 760px 인데(항목 150 +
-   * 기간 112×5 + 간격 10×5), 두 칸을 써도 화면이 1,600 은 돼야 그만큼이 나온다(1,560 에서는 다섯째 해가 잘렸다 — 실측).
-   * 그 아래에서는 폰과 같은 **아코디언**을 쓴다 — 반쪽만 보이는 표는 안 편 것만 못하다
-   * (2026-09-07 코덱스 실측: 1600 화면 한 칸에서 표시폭이 388px 이었다).
-   */
-  const narrow = useIsMobile(1600);
   const [pickerOpen, setPickerOpen] = useState(false);
   /** 중고 시세는 마스터에 없다 — 사람이 넣는다. 신차는 공표가라 자동으로 찬다. */
   const [usedPrice, setUsedPrice] = useState(DEFAULT_USED_PRICE);
@@ -186,6 +174,19 @@ function EstimatePageInner() {
   const [open, setOpen] = useState<number | null>(48);
   /** 잔가는 «자동(표준+델타)»이 기본이고, 목업 STEP 4 처럼 건별로 덮어쓸 수 있다. */
   const [residOverride, setResidOverride] = useState<Record<number, number>>({});
+  /** 손님·담당자 — 원본 `CustomerStaffForm`. 견적서에 찍혀 나갈 이름이라 견적 화면이 묻는다. */
+  const [custName, setCustName] = useState('');
+  const [staffName, setStaffName] = useState('');
+  const [staffTel, setStaffTel] = useState('');
+  /**
+   * 손님 발송용 견적 — 원본 `TermsGrid`. 「기본 견적」과 달리 **열마다** 기간·보증금·선납이 따로 논다.
+   * 체크한 열만 손님에게 나간다(발송 자체는 아직 안 붙었다 — 다음 일감).
+   */
+  const [scen, setScen] = useState([
+    { term: 36, dep: 10, pre: 0, send: true },
+    { term: 48, dep: 10, pre: 0, send: true },
+    { term: 60, dep: 10, pre: 0, send: true },
+  ]);
 
   // 회사 값을 받아 덮는다 — 사장님이 정한 원가가 있으면 그것이 이긴다.
   useEffect(() => {
@@ -193,7 +194,6 @@ function EstimatePageInner() {
     fetchSharedCost().then((r) => { if (alive) { setCost(r.cost); setFee(r.cost.salesFeePct); } }).catch(() => {});
     return () => { alive = false; };
   }, []);
-  const fees = useMemo(() => Array.from(new Set([...FEE_CHIPS, cost.salesFeePct])).sort((a, b) => a - b), [cost.salesFeePct]);
 
   const isNew = cond === 'new';
   // 갈래를 바꾸면 고른 차도 그 갈래의 것으로 돌아간다 — 중고를 고른 채 신차 값이 계산되면 안 된다.
@@ -225,7 +225,7 @@ function EstimatePageInner() {
     return out;
   }, [autoResid, residOverride]);
 
-  const cards = useMemo<Card[]>(() => {
+  const mk = useCallback((t: number, d: number, p: number): Card => {
     // 신차는 «출고가»라 업금액을 안 얹는다(중고는 매입가에 얹는다) — `configFrom` 이 갈래로 고른다.
     // 신용 구간(A/B/C)에 따라 금리·대출비율이 갈린다 — 항목은 같고 값만 다르다.
     const base = configFrom(cost, { newCar: isNew, path: acq, credit });
@@ -241,15 +241,23 @@ function EstimatePageInner() {
         price, cc, fuel: picked.fuel, accident: 'none',
         mileage: isNew ? 0 : usedMileage, year: isNew ? nowYear : usedYear, credit,
       },
-      conditions: { depositPct: dep, prepayPct: pre },
+      conditions: { depositPct: d, prepayPct: p },
       residual: null, residualDefault, credit, defaultGroup: 'B', nowYear,
     });
-    return TERMS.map((t) => ({ ...safeComputeTerm(t, input, { idx: t }), term: t }));
-  }, [ch, type, price, isNew, credit, dep, pre, fee, residPct, nowYear, cost, cc, picked.fuel, usedMileage, usedYear, acq]);
+    return { ...safeComputeTerm(t, input, { idx: t }), term: t };
+  }, [ch, type, price, isNew, credit, fee, residPct, nowYear, cost, cc, picked.fuel, usedMileage, usedYear, acq]);
+
+  /** 손익 칸이 쓰는 다섯 기간 — 조건은 위 폼에서 온다. */
+  const cards = useMemo<Card[]>(() => TERMS.map((t) => mk(t, dep, pre)), [mk, dep, pre]);
+  /** 「기본 견적」 — 원본대로 60·48·36 세 장 고정, 조건은 위 폼 그대로(편집 X). */
+  const refCards = useMemo<Card[]>(() => [60, 48, 36].map((t) => mk(t, dep, pre)), [mk, dep, pre]);
+  /** 「손님 발송용 견적」 — 열마다 제 조건으로 따로 센다. */
+  const scenCards = useMemo<Card[]>(() => scen.map((x) => mk(x.term, x.dep, x.pre)), [mk, scen]);
 
   /** 손바뀜을 «몇 번»으로 풀어 보여 주기 위한 값 — 원가 설정의 반납률에서 온다. */
-  const retentionPct = credit === '저신용' ? cost.retentionLowPct
-    : credit === '중신용' ? cost.retentionMidPct : cost.retentionNormalPct;
+  const retentionOf = useCallback((c: string) => (c === '저신용' ? cost.retentionLowPct
+    : c === '중신용' ? cost.retentionMidPct : cost.retentionNormalPct), [cost]);
+  const retentionPct = retentionOf(credit);
   const turnovers = expectedTurnovers(retentionPct / 100);
 
   const prepayAmt = Math.round(price * pre / 100);
@@ -264,293 +272,309 @@ function EstimatePageInner() {
     [picked, cond]);
 
   return (
-    <div className="est-root">
-      <div className="phone">
-        {/* ★워드마크를 뺐다 — ERP 상단바가 위에 서므로 머리가 둘이 된다.
-            CLAUDE.md 「브랜드 표식은 안 세운다(노브랜드)」와도 그래야 맞는다.
-            남는 것은 «견적 ↔ 원가» 전환뿐이다. */}
-        <div className="hd bare">
-          <div className="modesw">
-            <span className="on">견적</span>
-            <Link href="/estimate/cost">원가</Link>
-          </div>
+    <div className="wx-root">
+      {/* ══ 상단바 — 원본 `.global-topbar`. ★브랜드 표식은 안 세운다(CLAUDE.md 노브랜드).
+             원본의 CI 이미지·워드마크 자리는 비웠고, 위에는 ERP 상단바가 따로 선다. ══ */}
+      <div className="global-topbar">
+        <span className="global-topbar__hint">{isNew ? '신차' : '중고'} 장기렌터카 견적</span>
+        <span className="spacer" />
+        <div className="global-topbar__actions">
+          <button type="button" className="gt-btn outline" onClick={() => setPickerOpen(true)}>
+            {isNew ? '신차 고르기' : '차종 고르기'}
+          </button>
+          <span className="gt-divider" aria-hidden="true" />
+          <Link className="gt-btn outline" href="/estimate/cost">원가 설정</Link>
         </div>
+      </div>
 
-        {/* ★웹에서 두 기둥으로 서기 위한 감싸개 — **폰에서는 없는 셈**이다(`.col{display:contents}`).
-            사장님 2026-09-06 「웹 전용 화면은 없네, 견적기가」. 폰 화면을 한 픽셀도 안 건드리려고
-            감싸개를 CSS 로만 켠다 — 마크업은 폰·웹이 같고, 넓은 화면에서만 두 기둥이 된다. */}
-        <div className="col c1">
-
-        {/* STEP 1 차량 */}
-        <div className="card">
-          <div className="step"><span className="no">1</span>차량<span className="veh">{vehTag}</span></div>
-          <Seg tone="t1" cur={cond} onPick={setCond} opts={[{ v: 'used', label: '중고' }, { v: 'new', label: '신차' }]} />
-          {/* 차 고르기 — 목업은 중고=읽기전용 검색칸 · 신차=select 셋이었다.
-              둘을 «한 줄»로 합치고 시트를 연다(옵션·조합규칙은 select 로 못 담는다 · CarPicker 머리말). */}
-          {/* 폰에서만 «고르기 버튼»이 선다 — 웹은 이 카드 밑에 피커가 통째로 박힌다(아래). */}
-          {mobile ? (
-            <button type="button" className="vsearch" onClick={() => setPickerOpen(true)}>
-              <IconSearch />
-              <span className="vt">{picked.name}</span>
-              <span className="vg">{isNew ? '신차 고르기' : '차종 고르기'}</span>
-            </button>
-          ) : null}
-          <div className="vchip">
-            <div className="ic"><IconCar /></div>
-            <div><div className="nm">{picked.name}</div><div className="mt">{vMeta}</div></div>
-          </div>
-
-          {/* 마스터가 못 주는 값은 사람이 넣는다 — 중고 시세·연식·주행은 마스터에 없다. */}
-          {!isNew ? (
-            <>
-              {/* 취득 경로 — 기보유/매입, 상품화 여부. 초기비가 여기서 켜지고 꺼진다. */}
-              <div className="crow" style={{ marginTop: 12 }}>
-                <span className="lb">취득</span>
-                <Chips opts={ACQ.map((a) => a.label)} cur={ACQ.find((a) => a.v === acq)!.label}
-                  onPick={(l) => setAcq(ACQ.find((a) => a.label === l)!.v)} />
-              </div>
-              <div className="crow">
-                {/* ★중고는 «무조건 시세를 입력»한다(사장님 2026-09-06). 장부가·최초매입가가 아니다 —
-                    「지금부터 이 차를 굴리면 얼마 까먹나」가 맞게 나오려면 지금 값이어야 한다. */}
-                <span className="lb">시세</span>
-                <span className="pin w"><input inputMode="numeric" value={man(usedPrice)}
-                  onChange={(e) => setUsedPrice(digits(e.target.value) * 10000)} /><i>만원</i></span>
-              </div>
-              <div className="crow">
-                <span className="lb">연식</span>
-                <span className="pin"><input inputMode="numeric" value={usedYear}
-                  onChange={(e) => setUsedYear(digits(e.target.value))} /><i>년</i></span>
-              </div>
-              <div className="crow">
-                <span className="lb">주행</span>
-                <span className="pin w"><input inputMode="numeric" value={usedMileage.toLocaleString('ko-KR')}
-                  onChange={(e) => setUsedMileage(digits(e.target.value))} /><i>km</i></span>
-              </div>
-            </>
-          ) : (
-            <div className="crow" style={{ marginTop: 12 }}>
-              <span className="lb">차량가</span>
-              <span className="pin w"><input value={man(listPrice)} disabled /><i>만원</i></span>
-              <span className="hint">공표가 + 옵션</span>
+      {/* ══ 좌 400px — 차량 (원본 `.wrap`) ══════════════════════════════════ */}
+      <div className="wrap">
+        <section id="sec-source">
+          <div className="step-title">상품</div>
+          <div className="grid-1">
+            <div className="grid-2">
+              {SOURCES.map((o) => (
+                <button key={o.v} type="button" className={`card${cond === o.v ? ' active' : ''}`}
+                  onClick={() => setCond(o.v)}>
+                  <div className="name">{o.label}</div><div className="sub">{o.sub}</div>
+                </button>
+              ))}
             </div>
-          )}
-          {needCc ? (
-            <div className="crow">
-              <span className="lb">배기량</span>
-              <span className="pin w"><input inputMode="numeric" value={manualCc ? manualCc.toLocaleString('ko-KR') : ''}
-                placeholder="0" onChange={(e) => setManualCc(digits(e.target.value))} /><i>cc</i></span>
-              <span className="hint">마스터에 없음</span>
+            <div className="grid-2">
+              {CHANNELS.map((o) => (
+                <button key={o.v} type="button" className={`card${ch === o.v ? ' active' : ''}`}
+                  onClick={() => setCh(o.v)}>
+                  <div className="name">{o.label}</div><div className="sub">{o.sub}</div>
+                </button>
+              ))}
             </div>
-          ) : null}
-
-          <div className="crow">
-            <span className="lb">매입 할인</span>
-            <Chips opts={DISCS} cur={disc} unit="%" onPick={setDisc} />
+            <div className="grid-2">
+              {TYPES.map((o) => (
+                <button key={o.v} type="button" className={`card${type === o.v ? ' active' : ''}`}
+                  onClick={() => setType(o.v)}>
+                  <div className="name">{o.label}</div><div className="sub">{o.sub}</div>
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
+        </section>
 
-        {/*
-          * ★★**차 고르기는 좌 기둥 «안»에 박힌다**(웹) — 사장님 2026-09-07
-          *   「차량 고르는 거 좌측에서 다 골랐잖아 … **왜 패널이 새로 뜨니**」.
-          *   원본 둘 다 그렇다: 손오공 `.vside`(400) 에 차종검색·캐스케이드·차량정보가 박혀 있고,
-          *   웰릭스 `.wrap`(400) 에 제조사→모델→트림→옵션이 박혀 있다.
-          *   모달은 «바구니·견적서·공지» 같은 **결과물**에만 쓰고, «고르는 일»에는 안 쓴다.
-          * ⚠ 폰은 시트 그대로다 — 좌 기둥이 없으니 띄울 수밖에 없다. 그래서 `open` 이 갈린다.
-          */}
-        <CarPicker open={mobile ? pickerOpen : true} inline={!mobile} mode={cond}
-          onClose={() => setPickerOpen(false)}
-          onPick={(c) => {
-            setPicked(c);
-            // 신차는 공표가가 곧 차량가다. 연식·주행은 새 차니 올해·0.
-            if (c.source === 'new') { setUsedMileage(0); setUsedYear(nowYear); }
-          }} />
-
-        </div>{/* .col.c1 — 차량 고르기(사장님 2026-09-07 「좌측에서는 차량만 선택」) */}
-
-        <div className="col c2">
-
-        {/* STEP 2 상품 조건 */}
-        <div className="card">
-          <div className="step"><span className="no">2</span>상품 조건</div>
-          <Seg tone="t2" cur={ch} onPick={setCh} opts={[{ v: 'rent', label: '렌트' }, { v: 'sub', label: '구독' }]} />
-          <Seg tone="t3" cur={type} onPick={setType} opts={[{ v: 'return', label: '반납형' }, { v: 'acquire', label: '인수형' }]} />
-          {isNew ? (
-            <div className="crow" style={{ marginTop: 12 }}>
-              <span className="lb">신용</span>
-              <Chips opts={CREDIT} cur={credit} onPick={setCredit} />
-            </div>
-          ) : null}
-        </div>
-
-        {/* STEP 3 영업자 책정 */}
-        <div className="card">
-          <div className="step"><span className="no">3</span>영업자 책정<span className="veh" style={{ color: 'var(--ink-4)' }}>보증금·선납·수수료 함께</span></div>
-          <div className="crow first"><span className="lb">보증금</span><Chips opts={PCTS} cur={dep} unit="%" onPick={setDep} /></div>
-          <div className="crow"><span className="lb">선납</span><Chips opts={PCTS} cur={pre} unit="%" onPick={setPre} /></div>
-          <div className="crow"><span className="lb">수수료</span><Chips opts={fees} cur={fee} unit="%" onPick={setFee} /></div>
-        </div>
-
-
-        {/* STEP 4 연도별 잔가 */}
-        <div className="card" style={{ marginTop: 12 }}>
-          <div className="step"><span className="no">4</span>연도별 잔가<span className="veh" style={{ color: 'var(--ink-4)' }}>리스트에 없으면 건별 입력</span></div>
-          <div className="resid-in">
-            {TERMS.map((t) => (
-              <div className="ri" key={t}>
-                <span className="ry">{t / 12}년</span>
-                <span className="pin">
-                  <input
-                    inputMode="numeric" value={residPct[t]}
-                    onChange={(e) => setResidOverride((o) => ({ ...o, [t]: Number(String(e.target.value).replace(/[^\d]/g, '')) || 0 }))}
-                  />
-                  <i>%</i>
+        <section id="sec-credit">
+          <div className="step-title">신용</div>
+          <div className="grid-1">
+            {CREDIT.map((c) => (
+              <button key={c} type="button" className={`trim-row${credit === c ? ' active' : ''}`}
+                onClick={() => setCredit(c)}>
+                <span className="info">
+                  <span className="name">{c}</span>
+                  <span className="meta">유지율 {retentionOf(c)}% · 손바뀜 {expectedTurnovers(retentionOf(c) / 100).toFixed(2)}회</span>
                 </span>
+              </button>
+            ))}
+          </div>
+        </section>
+
+        <section id="sec-vehicle">
+          <div className="step-title">차종</div>
+          {/* 폰은 시트로 열고, 웹은 좌패널에 통째로 박는다 — 원본 좌측 캐스케이드가 서던 자리다. */}
+          {mobile ? (
+            <button type="button" className="card" onClick={() => setPickerOpen(true)}>
+              <div className="name">{picked.name}</div>
+              <div className="sub">{picked.meta}</div>
+            </button>
+          ) : (
+            <CarPicker open inline mode={cond} onClose={() => setPickerOpen(false)}
+              onPick={(c) => { setPicked(c); if (c.source === 'new') { setUsedMileage(0); setUsedYear(nowYear); } }} />
+          )}
+        </section>
+
+        <section id="sec-carinfo">
+          <div className="step-title">차량 정보</div>
+          <div className="vfields">
+            {isNew ? (
+              <div className="cs-field cs-field--wide">
+                <label>차량가</label>
+                <span className="qc-pct"><input value={man(listPrice)} disabled /><em>만원</em></span>
+              </div>
+            ) : (
+              <>
+                {/* 취득 경로 — 기보유면 등록·탁송·상품화가 원가에서 빠진다. */}
+                <div className="cs-field cs-field--wide">
+                  <label>취득</label>
+                  <select value={acq} onChange={(e) => setAcq(e.target.value as AcqPath)}>
+                    {ACQ.map((a) => <option key={a.v} value={a.v}>{a.label}</option>)}
+                  </select>
+                </div>
+                {/* ★중고는 «무조건 시세»다(사장님 2026-09-06) — 장부가·최초매입가가 아니다. */}
+                <div className="cs-field">
+                  <label>시세</label>
+                  <span className="qc-pct"><input inputMode="numeric" value={man(usedPrice)}
+                    onChange={(e) => setUsedPrice(digits(e.target.value) * 10000)} /><em>만원</em></span>
+                </div>
+                <div className="cs-field">
+                  <label>연식</label>
+                  <span className="qc-pct"><input inputMode="numeric" value={usedYear}
+                    onChange={(e) => setUsedYear(digits(e.target.value))} /><em>년</em></span>
+                </div>
+                <div className="cs-field">
+                  <label>주행</label>
+                  <span className="qc-pct"><input inputMode="numeric" value={usedMileage.toLocaleString('ko-KR')}
+                    onChange={(e) => setUsedMileage(digits(e.target.value))} /><em>km</em></span>
+                </div>
+              </>
+            )}
+            {/* 마스터가 배기량을 안 주면 여기서 묻는다 — 0 으로 두면 자동차세가 «조용히» 0 이 된다. */}
+            {needCc ? (
+              <div className="cs-field">
+                <label>배기량</label>
+                <span className="qc-pct"><input inputMode="numeric" placeholder="0"
+                  value={manualCc ? manualCc.toLocaleString('ko-KR') : ''}
+                  onChange={(e) => setManualCc(digits(e.target.value))} /><em>cc</em></span>
+              </div>
+            ) : null}
+            {cards[0]?.incompleteCc ? (
+              <div className="wx-warn">배기량이 없어 자동차세가 0 으로 섭니다 — 위 칸에 넣어 주세요.</div>
+            ) : null}
+            <div className="cs-field">
+              <label>매입 할인</label>
+              <span className="qc-pct"><input inputMode="numeric" value={disc}
+                onChange={(e) => setDisc(Math.max(0, Math.min(50, digits(e.target.value))))} /><em>%</em></span>
+            </div>
+          </div>
+        </section>
+
+        <section id="sec-resid">
+          <div className="step-title">연도별 잔가 <b>{delta ? '차종곡선' : '표준곡선'}</b></div>
+          <div className="vfields">
+            {TERMS.map((t) => (
+              <div className="cs-field" key={t}>
+                <label>{t / 12}년</label>
+                <span className="qc-pct"><input inputMode="numeric" value={residPct[t]}
+                  onChange={(e) => setResidOverride((o) => ({ ...o, [t]: digits(e.target.value) }))} /><em>%</em></span>
               </div>
             ))}
           </div>
+        </section>
+      </div>
+
+      {/* ══ 하단 총액 띠 — 원본 `.total-bar` (≤1024px 에서는 원본대로 숨는다) ══ */}
+      <div className="total-bar">
+        <div className="inner">
+          <div className="total-row sub"><span>{picked.name} · {vMeta}</span></div>
+          <div className="total-row main">
+            <span className="label">차량가{disc ? ` · 매입할인 ${disc}%` : ''}</span>
+            <span className="v">{man(price)}원</span>
+          </div>
+        </div>
+      </div>
+
+      {/* ══ 가운데 — 조건과 견적 (원본 `.quote-panel`) ══════════════════════ */}
+      <section className="quote-panel">
+        <div className="qp-summary-mini">
+          <div className="qp-summary-mini__row">
+            <span className={`qp-vehicle${listPrice ? '' : ' empty'}`}>{picked.name}</span>
+            {listPrice ? (
+              <span className="qp-formula">
+                {isNew ? '출고가' : '시세'} <b>{man(listPrice)}</b>
+                {disc ? <> − 할인 <b>{disc}%</b></> : null}
+                {' = 차량가 '}<b className="total">{man(price)}원</b>
+              </span>
+            ) : null}
+          </div>
         </div>
 
-        <div className="basis">
-          <span className="bi">원가 기준</span>
-          <span className="bt">
-            조달금리 6.5% · 국산 표준잔가 + 차종델타 · 손바뀜(신용등급) · 취득세·공채·등록비·자동차세·보험·정비 반영 ·
-            {' '}<b>수익률 10% 공통</b> · 업계 기준선 추정
-          </span>
+        {/* 손님·담당자 — 원본 `CustomerStaffForm`. 견적서로 나갈 이름이라 견적 화면이 묻는다. */}
+        <div className="cs-form">
+          <div className="cs-field">
+            <label>손님</label>
+            <input value={custName} onChange={(e) => setCustName(e.target.value)} placeholder="VIP 고객" />
+          </div>
+          <div className="cs-field">
+            <label>담당자</label>
+            <input value={staffName} onChange={(e) => setStaffName(e.target.value)} placeholder="홍길동 과장" />
+          </div>
+          <div className="cs-field">
+            <label>연락처</label>
+            <input value={staffTel} onChange={(e) => setStaffTel(fmtTel(e.target.value))}
+              placeholder="010-0000-0000" inputMode="tel" />
+          </div>
+          <div className="cs-field">
+            <label>수수료</label>
+            <span className="qc-pct"><input inputMode="numeric" value={fee}
+              onChange={(e) => setFee(Math.max(0, Math.min(20, Number(e.target.value.replace(/[^0-9.]/g, '')) || 0)))} /><em>%</em></span>
+          </div>
         </div>
 
-        </div>{/* .col.c2 — 조건 · 잔가 · 원가기준 */}
+        {/* 견적 조건 — 원본 `ConditionsForm`. 여기 보증금·선납이 「기본 견적」 세 장을 움직인다. */}
+        <div className="qp-form qp-form--conds">
+          <div className="qc-field">
+            <label>보증금</label>
+            <span className="qc-pct"><input type="number" min={0} max={100} value={dep}
+              onChange={(e) => setDep(Math.max(0, Math.min(100, Number(e.target.value) || 0)))} /><em>%</em></span>
+          </div>
+          <div className="qc-field">
+            <label>선납금</label>
+            <span className="qc-pct"><input type="number" min={0} max={100} value={pre}
+              onChange={(e) => setPre(Math.max(0, Math.min(100, Number(e.target.value) || 0)))} /><em>%</em></span>
+          </div>
+        </div>
 
-        <div className="col c3 wide">
-
-        {/* ⑤ — ①~④ 와 같은 상자. 기간 다섯 줄이 그 안에 든다(사장님 2026-09-06). */}
-        <div className="card terms">
-          <div className="step"><span className="no">5</span>기간별 대여료 · 수익</div>
-          {/* ⚠ 배기량이 없으면 자동차세가 «조용히 0» 으로 잡힌다. 화면이 그 사실을 말해야 한다
-              (2026-09-07 — 신차 79쌍 중 32이 배기량 null 이었고 아무도 몰랐다). */}
-          {cards.some((c) => (c as { incompleteCc?: boolean }).incompleteCc) ? (
-            <div className="byrow" style={{ marginBottom: 10 }}>
-              <b>배기량을 넣어야 정확합니다</b> — 지금은 <b>자동차세가 0</b> 으로 잡혀 있어 원가가 실제보다 적습니다.
-              위 <b>차량</b> 칸의 배기량을 채워 주세요.
+        <div className="qp-terms__title">기본 견적</div>
+        <div className="reference-grid">
+          {refCards.map((c) => (
+            <div className={`term-card term-card--ref${c.payVat ? '' : ' term-card--empty'}`} key={c.term}>
+              <div className="term-card__head"><span className="ref-term-label">{c.term}개월</span></div>
+              <div className="term-card__monthly">{c.payVat ? fmtNum(c.payVat) : '—'}<em>원</em></div>
+              <div className="term-card__row"><span>보증금 <em className="ref-pct">{dep}%</em></span><b>{fmtNum(c.deposit)}</b></div>
+              <div className="term-card__row"><span>선납금 <em className="ref-pct">{pre}%</em></span><b>{fmtNum(prepayAmt)}</b></div>
             </div>
-          ) : null}
-          {/*
-            * ★★넓은 화면에서는 기간을 «열», 항목을 «행»으로 놓는다
-            *   (사장님 2026-09-07 「총 4개 패널 중 1개를 차량 선택하는 패널로 쓰고, 나머지 조건과
-            *    **1년부터 5년까지 견적 나오는 거는 우측 패널에서 상세하게** 나온다고 —
-            *    이걸 어떻게 구현할 건가가 관건임」).
-            *
-            *   왜 표인가 — 기간마다 카드를 세우면 「매출·감가·이자·수수료…」 라벨이 **다섯 번 반복**된다.
-            *   폭을 그만큼 버리고, 정작 «3년과 4년의 감가가 얼마나 다른지»는 눈으로 못 맞춘다.
-            *   행으로 세우면 같은 항목이 한 줄에 서서 다섯 해가 그 자리에서 견줘진다.
-            *   ⇒ 손오공 원본 `.qcols`(열마다 반복)보다 한 발 더 간 것이다. 원본은 기간이 넷이고
-            *     항목이 셋뿐이라 반복이 견딜 만했지만, 우리는 기간 다섯 × 항목 열이다.
-            *
-            * ⚠ **폰은 목업 그대로 아코디언**이다. 표는 폰에서 여섯 열이 되어 못 읽는다.
-            *   그래서 여기만 `useIsMobile()` 로 갈린다 — 색이 아니라 «짜임»이라 첫 그림이 한 번
-            *   바뀌어도 번쩍이지 않는다(색을 JS 로 가르면 흰 띠가 번쩍인다 — CLAUDE.md 상단바 항목).
-            */}
-          {narrow ? (
-          <div className="prods">
-          {cards.map((c) => {
-            const v = pnl(c, prepayAmt);
-            const isOpen = open === c.term;
+          ))}
+        </div>
+
+        {/* 손님 발송용 견적 — 원본 `TermsGrid`. 열마다 기간·보증금·선납을 따로 잡고, 체크한 것만 보낸다. */}
+        <div className="qp-terms__title qp-terms__title--customer">손님 발송용 견적 <small>· 자유 조합 + 발송 체크</small></div>
+        <div className="terms-grid">
+          {scen.map((s, i) => {
+            const c = scenCards[i];
             return (
-              <div className={`prod${isOpen ? ' open' : ''}`} key={c.term}>
-                <button type="button" className="prodh" onClick={() => setOpen(isOpen ? null : c.term)}>
-                  <span className="yr">{c.term / 12}년</span>
-                  <span className="amt">{Math.round(c.payVat || 0).toLocaleString('ko-KR')}<small>원/월</small></span>
-                  <span className="mg">수익 {man(v.opProfit)} · {(v.opPct * 100).toFixed(0)}%</span>
-                  <IconChevron />
-                </button>
-                <div className="pd">
-                  <div className="li"><span className="k">매출 <em>공급가·{c.term / 12}년</em></span><span className="v">{won(v.rev)}</span></div>
-                  <div className="li sub"><span className="k">매출원가</span><span className="v" /></div>
-                  <div className="li minus"><span className="k">· 차량 감가 <em>취득−잔존 · 잔가 {Math.round((c.residualRate || 0) * 100)}%</em></span><span className="v">−{won(v.dep)}</span></div>
-                  <div className="li minus"><span className="k">· 금융비용 <em>조달이자</em></span><span className="v">−{won(v.interest)}</span></div>
-                  <div className="li minus"><span className="k">· 직접 운영비 <em>보험·자차충당·정비·GPS·세금</em></span><span className="v">−{won(v.direct)}</span></div>
-                  {v.turnover > 0 ? (
-                    <div className="li minus">
-                      <span className="k">· 손바뀜 위험 <em>{credit} · 유지율 {retentionPct}% → {turnovers.toFixed(2)}회 × {man(v.turnover / turnovers)}</em></span>
-                      <span className="v">−{won(v.turnover)}</span>
-                    </div>
-                  ) : null}
-                  <div className="li"><span className="k">매출총이익</span><span className="v">{won(v.gp)}</span></div>
-                  <div className="li sub"><span className="k">판매관리비</span><span className="v" /></div>
-                  <div className="li minus"><span className="k">· 영업수수료 <em>{fee}%</em></span><span className="v">−{won(v.fee)}</span></div>
-                  <div className="li pay"><span className="k">영업이익 <em>{(v.opPct * 100).toFixed(1)}%</em></span><span className="v">{won(v.opProfit)}</span></div>
-                  <div className="li"><span className="k">보증금 <em>{dep}%</em> · 선납 <em>{pre}%</em></span><span className="v">{won(v.depAmt)} · {won(v.preAmt)}</span></div>
+              <div className={`term-card${s.send ? '' : ' unchecked'}`} key={i}>
+                <div className="term-card__head">
+                  <select className="term-card__term-dd" value={s.term}
+                    onChange={(e) => setScen((a) => a.map((x, j) => (j === i ? { ...x, term: Number(e.target.value) } : x)))}>
+                    {TERMS.map((t) => <option key={t} value={t}>{t}개월</option>)}
+                  </select>
+                  <label className={`term-card__check${s.send ? ' is-checked' : ''}`}>
+                    <input type="checkbox" checked={s.send}
+                      onChange={(e) => setScen((a) => a.map((x, j) => (j === i ? { ...x, send: e.target.checked } : x)))} />
+                    <span className="term-card__check-cap">견적서에 포함</span>
+                  </label>
                 </div>
+                <div className="term-card__monthly">{c.payVat ? fmtNum(c.payVat) : '—'}<em>원</em></div>
+                <div className="term-card__cond">
+                  <label><span>보증금</span><span className="pct-cell"><input type="text" inputMode="numeric" maxLength={3} value={s.dep}
+                    onChange={(e) => setScen((a) => a.map((x, j) => (j === i ? { ...x, dep: Math.min(100, digits(e.target.value)) } : x)))} />%</span></label>
+                  <label><span>선납금</span><span className="pct-cell"><input type="text" inputMode="numeric" maxLength={3} value={s.pre}
+                    onChange={(e) => setScen((a) => a.map((x, j) => (j === i ? { ...x, pre: Math.min(100, digits(e.target.value)) } : x)))} />%</span></label>
+                </div>
+                <div className="term-card__row">
+                  <span>만기인수<em className="resid-pct">{Math.round((c.residualRate || 0) * 100)}%</em></span>
+                  <b>{fmtNum(Math.round(price * (c.residualRate || 0)))}</b>
+                </div>
+                <div className="term-card__row"><span>보증금</span><b>{fmtNum(c.deposit)}</b></div>
+                <div className="term-card__row"><span>선납금</span><b>{fmtNum(Math.round(price * s.pre / 100))}</b></div>
               </div>
             );
           })}
-          </div>
-          ) : (
-          <div className="qmxw">
-          <div className="qmx" style={{ gridTemplateColumns: `minmax(150px,1.1fr) repeat(${cards.length}, minmax(112px,1fr))` }}>
-            <span className="qk hd" />
-            {cards.map((c) => <span className="qc hd" key={`h${c.term}`}>{c.term / 12}년</span>)}
-
-            <span className="qk big">월 납입금 <em>VAT 포함</em></span>
-            {cards.map((c) => (
-              <span className="qc big" key={`p${c.term}`}>{Math.round(c.payVat || 0).toLocaleString('ko-KR')}</span>
-            ))}
-
-            <span className="qk">매출 <em>공급가</em></span>
-            {cards.map((c) => <span className="qc" key={`r${c.term}`}>{won(pnl(c, prepayAmt).rev)}</span>)}
-
-            <span className="qk sub">매출원가</span>
-            {cards.map((c) => <span className="qc sub" key={`cg${c.term}`} />)}
-
-            <span className="qk in">· 차량 감가 <em>취득−잔존</em></span>
-            {cards.map((c) => <span className="qc minus" key={`d${c.term}`}>−{won(pnl(c, prepayAmt).dep)}</span>)}
-
-            <span className="qk in">· 금융비용 <em>조달이자</em></span>
-            {cards.map((c) => <span className="qc minus" key={`i${c.term}`}>−{won(pnl(c, prepayAmt).interest)}</span>)}
-
-            <span className="qk in">· 직접 운영비 <em>보험·자차·정비·GPS·세금</em></span>
-            {cards.map((c) => <span className="qc minus" key={`o${c.term}`}>−{won(pnl(c, prepayAmt).direct)}</span>)}
-
-            <span className="qk in">· 손바뀜 위험 <em>{credit} · 유지율 {retentionPct}% → {turnovers.toFixed(2)}회</em></span>
-            {cards.map((c) => {
-              const t = pnl(c, prepayAmt).turnover;
-              return <span className="qc minus" key={`t${c.term}`}>{t > 0 ? `−${won(t)}` : '—'}</span>;
-            })}
-
-            <span className="qk">매출총이익</span>
-            {cards.map((c) => <span className="qc" key={`g${c.term}`}>{won(pnl(c, prepayAmt).gp)}</span>)}
-
-            <span className="qk sub">판매관리비</span>
-            {cards.map((c) => <span className="qc sub" key={`s${c.term}`} />)}
-
-            <span className="qk in">· 영업수수료 <em>{fee}%</em></span>
-            {cards.map((c) => <span className="qc minus" key={`f${c.term}`}>−{won(pnl(c, prepayAmt).fee)}</span>)}
-
-            <span className="qk pay">영업이익</span>
-            {cards.map((c) => {
-              const v = pnl(c, prepayAmt);
-              return <span className="qc pay" key={`op${c.term}`}>{won(v.opProfit)}<em>{(v.opPct * 100).toFixed(1)}%</em></span>;
-            })}
-
-            <span className="qk">잔가율</span>
-            {cards.map((c) => <span className="qc" key={`rr${c.term}`}>{Math.round((c.residualRate || 0) * 100)}%</span>)}
-
-            <span className="qk">보증금 <em>{dep}%</em> · 선납 <em>{pre}%</em></span>
-            {cards.map((c) => {
-              const v = pnl(c, prepayAmt);
-              return <span className="qc" key={`dp${c.term}`}>{won(v.depAmt)} · {won(v.preAmt)}</span>;
-            })}
-          </div>
-          </div>
-          )}
         </div>
 
-        </div>{/* .col.c3.wide — 손익표. **두 칸**을 쓴다(아래 CSS) — 표가 760px 를 요구한다 */}
-
-        <div className="foot">
-          <b>업계 기준선 추정</b> — 잔가=시장 벤치마크 역산, 수익률=업계 영업이익률(SK렌터카 9.9%).
-          실채택 전 엔카·KB차차차 실시세 검산 필요. 잔존가만 건별 입력.
+        <div className="footnote">
+          금액은 부가세 포함 월 대여료 · 잔가는 국산 표준곡선 + 차종델타 · 원가는 <Link href="/estimate/cost">원가 설정</Link>이 정한 값<br />
+          조달금리·손바뀜·취득세·공채·등록비·자동차세·보험·정비 반영 · 업계 기준선 추정<br />
+          실채택 전 엔카·KB차차차 실시세 검산 필요
         </div>
-      </div>
+      </section>
+
+      {/* ══ 우 — 원가·손익 (원본이 계약·채팅을 놓던 셋째 칸) ═══════════════
+             ★사장님 2026-09-07 「신차에서 중고차로만 «변환»하고 «원가구조»만 다르게 쓰면 된다」.
+               짜임은 웰릭스 그대로 두고, 이 칸에만 우리 원가가 선다. ══ */}
+      <aside className="contract-panel">
+        <div className="qp-terms__title">원가 · 손익</div>
+        <div className="pnl-tabs">
+          {TERMS.map((t) => (
+            <button key={t} type="button" className={open === t ? 'on' : ''} onClick={() => setOpen(t)}>{t / 12}년</button>
+          ))}
+        </div>
+        {(() => {
+          const c = cards.find((x) => x.term === open) ?? cards[0];
+          const v = pnl(c, prepayAmt);
+          return (
+            <>
+              <div className="pnl-row sum"><span className="k">매출 <em>공급가 · {c.term / 12}년</em></span><span className="v">{won(v.rev)}</span></div>
+              <div className="pnl-row head"><span className="k">매출원가</span><span className="v" /></div>
+              <div className="pnl-row minus"><span className="k">차량 감가 <em>취득 − 잔존 · 잔가 {Math.round((c.residualRate || 0) * 100)}%</em></span><span className="v">−{won(v.dep)}</span></div>
+              <div className="pnl-row minus"><span className="k">금융비용 <em>조달이자</em></span><span className="v">−{won(v.interest)}</span></div>
+              <div className="pnl-row minus"><span className="k">직접 운영비 <em>보험·자차충당·정비·GPS·세금</em></span><span className="v">−{won(v.direct)}</span></div>
+              {v.turnover > 0 ? (
+                <div className="pnl-row minus">
+                  <span className="k">손바뀜 위험 <em>{credit} · 유지율 {retentionPct}% → {turnovers.toFixed(2)}회 × {man(v.turnover / turnovers)}원</em></span>
+                  <span className="v">−{won(v.turnover)}</span>
+                </div>
+              ) : null}
+              <div className="pnl-row sum"><span className="k">매출총이익</span><span className="v">{won(v.gp)}</span></div>
+              <div className="pnl-row head"><span className="k">판매관리비</span><span className="v" /></div>
+              <div className="pnl-row minus"><span className="k">영업수수료 <em>{fee}%</em></span><span className="v">−{won(v.fee)}</span></div>
+              <div className="pnl-row pay"><span className="k">영업이익 <em>{(v.opPct * 100).toFixed(1)}%</em></span><span className="v">{won(v.opProfit)}</span></div>
+              <div className="pnl-row"><span className="k">보증금 <em>{dep}%</em> · 선납 <em>{pre}%</em></span><span className="v">{won(v.depAmt)} · {won(v.preAmt)}</span></div>
+            </>
+          );
+        })()}
+      </aside>
+
+      {/* 폰에서만 시트로 뜬다 — 웹은 좌패널에 박혀 있어 이 시트가 필요 없다. */}
+      {mobile ? (
+        <CarPicker open={pickerOpen} mode={cond} onClose={() => setPickerOpen(false)}
+          onPick={(c) => { setPicked(c); if (c.source === 'new') { setUsedMileage(0); setUsedYear(nowYear); } }} />
+      ) : null}
     </div>
   );
 }
