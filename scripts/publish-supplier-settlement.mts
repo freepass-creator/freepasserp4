@@ -110,7 +110,7 @@ const claws = (Object.values((await db.ref('v4/settlement_clawbacks').get()).val
   .filter((c) => S(c.month) === MONTH);
 
 type Line = { plate: string; recv: string; deliv: string; model: string; cust: string; product: string;
-  term: number; rent: number; deposit: number; how: string; net: number; vat: number; total: number };
+  term: number; rent: number; deposit: number; price: number; payKind: string; how: string; net: number; vat: number; total: number };
 /**
  * ★청구탭·정산서와 «같은 규칙»으로 센다 — 정산 대상·비율·보류·부가세포함.
  * ★★**산출조건은 원장 청구탭 `lineOf` 와 «같은 식»이다**(`산출근거`).
@@ -144,7 +144,7 @@ const lineOf = (r: Row): Line => {
   if (isSoon(r)) how = raw ? `예정 · ${how}` : `예정 · 인도 뒤 정해집니다 (${S(r.payKind) || '분납'} · 접수 ${S(r.receivedAt) || '-'})`;
   return {
     plate: S(r.plate) || '(차번없음)', recv: S(r.receivedAt), deliv: S(r.deliveredAt),
-    model, cust: S(r.customer), product, term, rent: N(r.rent), deposit: N(r.deposit), how,
+    model, cust: S(r.customer), product, term, rent: N(r.rent), deposit: N(r.deposit), price: N(r.price), payKind: S(r.payKind), how,
     net, vat, total: net + vat,
   };
 };
@@ -251,9 +251,10 @@ const NOTE = SETTLE_NOTE;
  *   ★보증금은 «계약 조건»이지 정산 금액이 아니다 — 공급사도 영업자도 본다(사장님 2026-08-26).
  *   ⚠ 영업채널 시트는 이미 «렌탈료 · 보증금 · 납입 방식» 순서다. 거울이니 같은 자리에 선다.
  */
-const HEAD = ['No.', '차량번호', '접수일', '인도일', '모델명', '임차인', '상품 구분', '계약 기간', '렌탈료', '보증금',
+const HEAD = ['No.', '접수일', '차량번호', '모델명', '임차인', '상품 구분', '계약 기간',
+  '렌탈료', '보증금', '차량 가격(신차)', '납입 방식', '인도일',
   ...BASIS, '공급가액', '부가세', '합계', ...NOTE];
-const WIDTH = [40, 92, 84, 84, 150, 76, 112, 76, 92, 96, 250, 100, 88, 108, 56, 56, 110, 240];
+const WIDTH = [40, 84, 92, 150, 76, 112, 76, 92, 96, 108, 84, 84, 250, 100, 88, 108, 56, 56, 110, 240];
 /**
  * ★★★**영업자 «지급» 수수료는 공급사 시트에 «절대» 안 들어간다** — 사장님 2026-09-03
  *   「절대 영업자 지급 수수료가 얼만지 공급사시트에는 반영되면 안돼」.
@@ -270,7 +271,7 @@ if (leak.length) { console.log(`\n  ✕ 멈춥니다 — 공급사 시트에 못
 const iB = HEAD.indexOf(BASIS[0]);          // 산출조건 첫 칸
 const iM = HEAD.indexOf('공급가액');          // 돈 첫 칸
 const LEFT = ['모델명', ...BASIS];
-const MONEY = ['렌탈료', '보증금', '공급가액', '부가세', '합계', '정정금액'];
+const MONEY = ['렌탈료', '보증금', '차량 가격(신차)', '공급가액', '부가세', '합계', '정정금액'];
 
 for (const j of jobs) {
   const tab = j.tab;
@@ -361,7 +362,7 @@ for (const j of jobs) {
     HEAD.map((h) => (m[h] === undefined ? '' : m[h]));
   const body: (string | number | boolean)[][] = j.lines.map((l, i) => rowOf({
     'No.': i + 1, 차량번호: l.plate, 접수일: l.recv, 인도일: l.deliv, 모델명: l.model, 임차인: maskName(l.cust),
-    '상품 구분': l.product, '계약 기간': l.term || '', 렌탈료: l.rent || '', 보증금: l.deposit || '', [BASIS[0]]: l.how,
+    '상품 구분': l.product, '계약 기간': l.term || '', 렌탈료: l.rent || '', 보증금: l.deposit || '', '차량 가격(신차)': l.price || '', '납입 방식': l.payKind, [BASIS[0]]: l.how,
     공급가액: l.net, 부가세: l.vat, 합계: l.total,
     확인: note(l.plate)[0], 정정: note(l.plate)[1], 정정금액: note(l.plate)[2], '메모(정정사유)': note(l.plate)[3],
   }));
