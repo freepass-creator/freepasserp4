@@ -224,6 +224,14 @@ export function WhitelabelFrame({
                   있었다**(실측 UNI 43.5 · ✕ freepass 40.5). ✕ 는 「A ✕ B」로 두 이름을 잇는
                   기호다 — 두 이름이 한 줄에 서지 않으면 그 뜻이 안 산다.
                   사이는 원자가 한 단 더 뗀다(`ChannelWordmark.after`).
+
+                ★★**우리 가게(`wl.self`)에도 붙인다**(사장님 2026-09-07 「**우리거에도 붙여야지
+                  남들한테 보여줄거야 여기에 당신들 브랜드 들어가는 자리라고**」).
+                  ⚠ 처음엔 「같은 이름을 두 번 적는 꼴」이라고 안 붙였다 — 그 판단을 물린다.
+                    이 화면은 우리 가게이면서 **영업채널에게 보여주는 견본**이라, 「여기가 당신들
+                    자리」를 말하려면 그 자리가 비어 있으면 안 된다.
+                  ⇒ 대신 **두 표기를 가른다** — 간판은 국문 CI(프리패스모빌리티), 동반은 영문 CI
+                    (freepassmobility). 둘 다 CI 정본이고, 글자가 갈리니 자리가 눈에 보인다.
               */}
               <ChannelSign wl={wl} fs={mobile ? 17 : 23} gap={mobile ? 8 : 10}
                 after={<CoBrandFreepass fs={mobile ? 11 : 13} gap={mobile ? 9 : 12} />} />
@@ -350,9 +358,25 @@ export function WhitelabelFrame({
                 말이 제 몫을 하면 굵기는 필요 없다 — 굵게 세우면 손님 화면에서 «우리 사정»이 앞선다.
               ★그래서 `faint` 한 톤으로 두 줄. 첫 줄이 관계, 둘째 줄이 내용이다.
             */}
+            {/*
+              ★**우리 가게(`wl.self`)도 이 자리를 그린다** — 머리띠와 짝이라(사장님 2026-09-07
+                「우리거에도 붙여야지」) 한쪽만 그리면 위아래가 다른 말을 한다.
+              ⚠ 다만 **문장은 갈린다.** 주인이 하나면 「양사 협약」이 없다 — 두 이름을 나란히
+                적어 봐야 같은 회사다. 그래서 짝 줄은 «국문 ✕ 영문»(머리띠와 같은 짜임)으로 두고,
+                아랫줄은 「직접 운영합니다」로 말만 바꾼다. 없는 협약을 지어 적지 않는다.
+            */}
             <div style={{ marginTop: SHOP.sp.cozy }}>
-              <div>{wl.name} ✕ {CORP.koMain}{CORP.koSub} 전략적 파트너십</div>
-              <div>양사 협약에 따라 {CORP.name}가 차량과 계약 시스템을 제공합니다.</div>
+              {wl.self ? (
+                <>
+                  <div>{wl.name} ✕ {CORP.markMain}{CORP.markSub}</div>
+                  <div>{CORP.name}가 차량과 계약 시스템을 직접 운영합니다.</div>
+                </>
+              ) : (
+                <>
+                  <div>{wl.name} ✕ {CORP.koMain}{CORP.koSub} 전략적 파트너십</div>
+                  <div>양사 협약에 따라 {CORP.name}가 차량과 계약 시스템을 제공합니다.</div>
+                </>
+              )}
             </div>
           </div>
           {/*
