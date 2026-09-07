@@ -142,7 +142,35 @@ export function pickUsed(c: CarEntry, p: CarPt, trim: string): PickedCar {
  *   ⚠ 못 찾으면 `null` 을 낸다 — **지어내지 않는다.** 그때는 화면이 배기량 칸을 열어 사람에게 묻는다.
  *     0 으로 떨어뜨리면 자동차세가 «조용히» 0 이 되어, 아무도 모르는 채로 싸게 나간다.
  */
+/**
+ * 신차 연료 표기에서 **배기량**을 뽑는다 — 「3.5 가솔린」 · 「가솔린 2.5」 · 「LPi 3.5」 · 「1.6 가솔린 터보」.
+ *
+ * ★2026-09-07 — 신차마스터에 **배기량 필드가 없어** 중고 인덱스에서 이름으로 추측하고 있었는데,
+ *   신차 모델명은 **영문 슬러그**(`carnival`·`seltos`)이고 중고 인덱스는 **한글**(「더 뉴 모닝 JA」)이라
+ *   매칭이 근본적으로 안 됐다. 79 쌍 중 **32 가 null** 이었고, `Number(null)=0` 이라
+ *   **자동차세가 조용히 0** 으로 빠졌다(`safe-calc` 도 유한수만 보므로 오류로 안 잡힌다).
+ *
+ * ★표시 리터는 반올림값이다(1.6 → 실제 1,598 · 2.5 → 2,497). 그래도 안전한 까닭은
+ *   **세율 경계를 법대로 고쳤기** 때문이다 — 1,598 도 1,600 도 「1,600cc 이하」 한 구간,
+ *   2,497 도 2,500 도 「2,500cc 이하」 한 구간이다(`data/cost-config.js` 머리말).
+ *   ⚠ 경계를 되돌리면 이 반올림이 곧바로 세금 오류가 된다. 둘은 한 몸이다.
+ *
+ * ⚠ 못 뽑는 것도 있다 — 하이브리드 12(「하이브리드」만 적힘) · 제네시스 6(「가솔린」만 적힘).
+ *   그때는 아래 중고 인덱스 폴백을 타고, 그래도 없으면 **화면이 배기량을 묻는다**(`manualCc`).
+ *   지어내지 않는다. 전기차는 배기량이 없는 것이 정상이라 null 이 맞다.
+ */
+export function ccFromFuelLabel(fuel: string | null | undefined): number | null {
+  const m = /(?:^|[^0-9.])([1-6]\.[0-9])(?![0-9])/.exec(String(fuel ?? ''));
+  if (!m) return null;
+  const liter = Number(m[1]);
+  if (!Number.isFinite(liter) || liter <= 0) return null;
+  return Math.round(liter * 1000);
+}
+
 export function guessCc(cars: CarEntry[], maker: string, subModel: string, fuel: string): number | null {
+  // ★연료 표기에 리터가 있으면 그게 «원천»이다 — 남의 인덱스에서 이름으로 추측하는 것보다 낫다.
+  const fromLabel = ccFromFuelLabel(fuel);
+  if (fromLabel) return fromLabel;
   const want = norm(subModel);
   const ef = engineFuel(fuel);
   const hits: number[] = [];
