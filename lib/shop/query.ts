@@ -40,6 +40,17 @@ export const SHOP_SORTS = [
   { key: 'dep', label: '보증금 낮은순' },
   { key: 'year', label: '연식 최신순' },
   { key: 'mile', label: '주행거리 짧은순' },
+  /*
+   * ★★**같은 차가 여러 대 있는 것부터**(사장님 2026-09-07 「정렬 방식은 **상품 많은 수**도 있어야 해」).
+   *
+   * ★왜 쓸모가 있나 — 우리 판에서 「그 차 한 대뿐」은 **못 파는 차에 가깝다.** 손님이 색을 고르거나
+   *   조건을 바꾸면 바로 없어진다. 같은 차가 열 대 있으면 상담이 끝까지 간다.
+   *   영업자가 손님에게 보낼 목록을 고를 때 제일 먼저 보는 값이기도 하다.
+   * ★세는 단위는 **제조사 + 모델**이다(「기아 모닝」). 세부트림까지 묶으면(「모닝 어반 JA」)
+   *   거의 다 한 대가 되어 이 정렬이 아무 일도 안 한다.
+   * ★같은 대수면 **싼 것부터** — 순서가 안 흔들려야 새로고침해도 같은 화면이 나온다.
+   */
+  { key: 'many', label: '같은 차 많은순' },
 ] as const;
 export type ShopSort = (typeof SHOP_SORTS)[number]['key'];
 
@@ -130,6 +141,14 @@ const axisMatch: Record<ShopAxis, (p: EntityRecord, key: string) => boolean> = {
 const passes = (p: EntityRecord, sel: ShopSel, skip?: ShopAxis) =>
   SHOP_AXES.every((a) => a === skip || !sel[a].length || sel[a].some((k) => axisMatch[a](p, k)));
 
+/**
+ * 「같은 차」를 세는 열쇠 — **제조사 + 모델**.
+ * ★세부트림까지 넣으면(「모닝 어반 JA」) 거의 다 한 대가 되어 「많은순」이 아무 일도 안 한다.
+ * ★대소문자·공백은 지우고 본다 — 원천이 「기아 」와 「기아」를 섞어 보낸다.
+ */
+const sameCarKey = (p: EntityRecord): string =>
+  `${makerDisplay(p.maker) || ''}|${String(p.model ?? '').trim()}`.toLowerCase().replace(/\s+/g, '');
+
 const sortValue = (p: EntityRecord, sort: ShopSort): number => {
   const price = cheapest(p);
   if (sort === 'dep') return price?.deposit ?? Number.MAX_SAFE_INTEGER;
@@ -202,8 +221,29 @@ export function runShopQuery(rows: EntityRecord[] | null, query: ShopQuery): Sho
     mile: bandTally('mile', MILE_BANDS),
   };
 
-  const list = searched.filter((p) => passes(p, sel))
-    .sort((a, b) => sortValue(a, query.sort) - sortValue(b, query.sort));
+  const kept = searched.filter((p) => passes(p, sel));
+
+  /*
+   * ★「같은 차 많은순」만 **한 대를 봐서는 못 정하는** 값이다 — 목록 전체를 세어야 순위가 나온다.
+   *   그래서 `sortValue`(한 대짜리 잣대)에 못 넣고 여기서 «센 뒤에» 정렬한다.
+   * ★세는 모수는 «조건을 통과한 목록»이다. 전체 재고로 세면 「기아가 원래 많으니까」로 줄이 서서
+   *   조건을 걸어도 순서가 안 변한다 — 손님이 방금 좁힌 것을 안 반영하는 꼴이다.
+   */
+  if (query.sort === 'many') {
+    const tally = new Map<string, number>();
+    for (const p of kept) tally.set(sameCarKey(p), (tally.get(sameCarKey(p)) || 0) + 1);
+    return {
+      list: [...kept].sort((a, b) => {
+        const d = (tally.get(sameCarKey(b)) || 0) - (tally.get(sameCarKey(a)) || 0);
+        // 같은 대수면 싼 것부터 — 순서가 안 흔들려야 새로고침해도 같은 화면이다.
+        return d || (sortValue(a, 'asc') - sortValue(b, 'asc'));
+      }),
+      total: pool.length,
+      facets,
+    };
+  }
+
+  const list = kept.sort((a, b) => sortValue(a, query.sort) - sortValue(b, query.sort));
   return { list, total: pool.length, facets };
 }
 
