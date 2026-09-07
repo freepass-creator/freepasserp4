@@ -794,18 +794,14 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
   return (
     <main style={{
       /*
-       * ★★★**목록과 «같은 폭»이다 — 1280**(사장님 2026-09-07 「상세페이지 가로가 **전체 페이지
-       *   가로랑 동일**하게 하고」).
-       *
-       * ⚠ 1120 이었다. 머리띠·푸터·목록이 전부 1280 인데 상세만 160 좁아서, 목록에서 상세로
-       *   들어가는 순간 **화면이 안으로 한 뼘 오므라들었다.** 같은 동인데 창문 크기가 달랐던 것이다
-       *   (`docs/건물도면.md` — 같은 동이면 문·창문이 같아야 한다).
-       * ★폭을 늘리면서 제목 기둥도 같이 넓힌다(아래 `Sec`) — 안 그러면 늘어난 160 이 전부
-       *   값 칸으로 가서 「한쪽만 넓어진다」(사장님, 같은 날). 늘어난 만큼 «나눠» 가진다.
-       * ★1280 이라고 한 줄이 1,280 으로 뻗는 게 아니다 — 값 칸은 940 이고, 그 안이 다시
-       *   3분할 격자(각 297)라 실제로 읽는 한 줄은 300 남짓이다.
+       * 웹 1120 · 폰은 어차피 화면 폭이다.
+       * ⚠ 한때 940 으로 줄였었다 — 「한 줄이 1,100px 로 뻗으면 눈이 줄 끝에서 다음 줄 머리를
+       *   못 찾는다」는 이유였고, 그건 **제목까지 한 칸에 쌓던 때** 맞는 말이었다.
+       * 2026-09-05 에 `Sec` 이 웹에서 **제목을 왼쪽 기둥(200)으로** 빼면서 값이 흐르는 칸은
+       *   1120 − 48(여백) − 200 − 40(사이) ≒ **830** 이 된다 — 한 줄이 길어지지 않으면서
+       *   가로로는 펴진다(사장님 2026-09-05 「가로로 이렇게 좀 펼쳐져서 보인다든가」).
        */
-      maxWidth: mobile ? 940 : 1280, margin: '0 auto',
+      maxWidth: mobile ? 940 : 1120, margin: '0 auto',
       /* ⚠ 하단독 자리는 «원자»가 비운다(`ShopDock fixed` 가 제 높이만큼 자리표를 놓는다).
          여기서 또 108 을 비우면 폰 상세 끝에 빈 화면이 두 겹으로 남는다(2026-09-06 코덱스 검수). */
       padding: mobile ? `${SHOP.sp.edge}px ${SHOP.sp.edge}px ${SHOP.sp.part}px` : '24px 24px 40px',
@@ -1237,20 +1233,9 @@ function Sec({ title, icon, accent, tag, mobile, children }: {
   return (
     <>
       <Rule mobile={mobile} />
-      {/*
-        ★★★**제목 기둥 260 · 사이 32 — «목록 화면과 같은 세로줄»이다**(사장님 2026-09-07
-          「너무 **한쪽만 넓어지니까** 섹션이랑 내용 페이지랑 **적당히 벌려서 맞추는** 거로」).
-        ⚠ 200 + 48 이었다. 폭을 1120 → 1280 으로 늘리면 그 160 이 **전부 값 칸으로** 가서
-          제목 200 : 값 984 가 된다 — 한쪽만 넓어지는 꼴이다.
-        ⇒ 목록 화면의 두 기둥을 그대로 가져온다: **조건칸 260 · 사이 `sp.pane`(32) · 나머지.**
-          그러면 두 화면의 세로줄이 «같은 x»에 선다 — 목록에서 상세로 들어가도 눈이 자리를
-          다시 안 잡는다. 실측 목표: 제목 왼선 79 · 값 왼선 371(목록의 조건칸·카드와 같다).
-        ★48(`wide`)은 「웹 가로 구역 사이」인데, 여기는 «구역 사이»가 아니라 «기둥 사이»다 —
-          사다리에서 기둥 사이는 `pane`(32)이다. 값을 바꾼 게 아니라 제 칸을 찾아 준 것이다.
-      */}
       <section aria-label={title} style={mobile ? undefined : {
-        display: 'grid', gridTemplateColumns: '260px minmax(0, 1fr)',
-        columnGap: SHOP.sp.pane, alignItems: 'start',
+        display: 'grid', gridTemplateColumns: '200px minmax(0, 1fr)',
+        columnGap: SHOP.sp.wide, alignItems: 'start',
       }}>
         <SecTitle icon={icon} accent={accent} tag={tag}>{title}</SecTitle>
         <div style={{ minWidth: 0 }}>{children}</div>
