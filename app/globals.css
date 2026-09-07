@@ -1261,6 +1261,22 @@ html[data-fp-filter="0"] .fp-finder > .fp-sidebar { display: none; }
 .fp-wl .fp-shop-search input:focus { outline: none; box-shadow: none; }
 .fp-wl .fp-shop-search:focus-within { outline: none; border-bottom-color: var(--brand); }
 
+/*
+ * **정렬 고르개의 «초점 상자»도 걷는다** — 검색칸과 같은 이유다.
+ *
+ * ★사장님 2026-09-07 「드랍다운 선택해도 **검정색 테두리가 선택되어서 좀 보기 흉하네**」.
+ * ⚠ `<select>` 만 유독 눈에 띄는 이유 — 크롬은 단추를 «마우스로» 누르면 초점 테를 안 그리는데
+ *   고르개는 누른 «뒤에도» 초점이 남는 물건이라 검은 상자가 화면에 그대로 서 있는다.
+ *   집 전역 규칙(2px 외곽선 + 4px 링)이 그 위에 얹혀 목록 머리에서 제일 진한 것이 «정렬»이 됐다.
+ * ★★**초점 표시를 없애지는 않는다** — 상자 대신 **면 안쪽에 브랜드색 실선 한 줄**이다.
+ *   키보드로 다니는 사람은 그대로 보이고, 마우스로 고른 사람 눈에는 상자가 안 남는다.
+ */
+.fp-wl .fp-shop-sort select:focus { outline: none; box-shadow: none; }
+.fp-wl .fp-shop-sort select:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 1.5px var(--brand);
+}
+
 .fp-shop-stick {
   /*
    * 검색줄 + 빠른조건 줄 — **웹·폰 둘 다 위에 남는다**(사장님 2026-09-07 「웹에서 스크롤하면
@@ -1294,12 +1310,33 @@ html[data-fp-filter="0"] .fp-finder > .fp-sidebar { display: none; }
  * ★위 여백은 붙박인 검색줄의 «실제 높이»(`--fp-shop-stick-h`, JS 가 잰다)를 따른다 —
  *   숫자를 손으로 적으면 검색줄이 한 줄 늘어난 날 조건칸이 그 밑으로 숨는다.
  */
+/*
+ * 웹 조건칸 — 목록을 내려가도 «따라온다». 716대를 내려가다 조건을 바꾸려고 매번 맨 위로
+ * 올라갈 수는 없다.
+ *
+ * ★★**기둥은 안 구른다 — 구르는 것은 «축 목록»뿐이다**(사장님 2026-09-07 「필터 스크롤은
+ *   **필터 내용만** 스크롤이 되어야지」).
+ * ⚠ 여기에 `overflow-y:auto` 가 있었다. 그러면 기둥 «전체»가 구르는 상자가 되어
+ *   ㉠ 머리(「전체차량 721대」)가 축과 함께 위로 사라지고 — 조건을 고르는 내내 몇 대인지 못 본다.
+ *     그 숫자를 조건칸 머리로 올린 이유가 「조건을 만지는 손이 숫자를 같은 자리에서 본다」였는데,
+ *     같이 굴러가면 그 이유가 통째로 없어진다.
+ *   ㉡ 스크롤바가 머리 «옆»까지 올라와 선다 — 사장님이 화면에서 짚으신 그 막대다.
+ * ⇒ 높이 제한과 구르기는 **축 목록(`.fp-shop-axes`)**이 진다. 기둥은 자리만 잡는다.
+ */
 .fp-shop-aside {
   position: sticky;
   top: calc(var(--fp-wl-head-h, 72px) + var(--fp-shop-stick-h, 132px) + 12px);
-  max-height: calc(100dvh - var(--fp-wl-head-h, 72px) - var(--fp-shop-stick-h, 132px) - 24px);
+}
+/*
+ * 축 목록 — 아홉 축이 화면보다 길어서 «안에서» 구른다.
+ * ★`44px` = 조건칸 머리 한 줄(`HEAD_H`). 머리는 안 구르므로 그만큼을 빼야 판의 밑이 화면에 걸린다.
+ * ★`overscroll-behavior: contain` — 축 끝에서 목록이 딸려 굴러가지 않게(그러면 조건을 보다가
+ *   화면이 통째로 튄다).
+ */
+.fp-shop-axes {
+  max-height: calc(100dvh - var(--fp-wl-head-h, 72px) - var(--fp-shop-stick-h, 132px) - 44px - 24px);
   overflow-y: auto;
-  overscroll-behavior: contain;   /* 기둥 끝에서 목록이 딸려 굴러가지 않게 */
+  overscroll-behavior: contain;
   scrollbar-width: thin;
 }
 .fp-shop-stick::after {
