@@ -34,6 +34,8 @@ import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getDatabase } from 'firebase-admin/database';
 import { billingMonthIn, lockedMonthsOf, settleTargetOf, type SettlementRow } from '../lib/domain/settlement-stage';
 import { claimOf, payOf } from '../lib/domain/settlement-money';
+/** ★나간 종이는 이름을 가린다(「임*인」) — 원자 이름도 같이 가려야 짝이 맞는다. */
+import { maskName } from '../lib/domain/outward-text';
 
 const S = (v: unknown) => String(v ?? '').trim();
 const N = (v: unknown) => { const n = Number(S(v).replace(/[,\s원₩]/g, '')); return Number.isFinite(n) ? n : 0; };
@@ -137,7 +139,7 @@ for (const r of mine) {
   const same = all.filter((x) => P(x.plate) === p && S(x.customer) === who);
   if (same.length > 1) dupLedger.push(`  ${tag} 원장 ${same.length}줄 — ${same.map((x) => `${monthOf(x) || '(달 없음)'} 청구 ${won(claimOf(x))} / 지급 ${won(payOf(x))}`).join('  ·  ')}`);
   /** ㉢ **이미 나간 종이에 그 차가 다른 달로 실려 있다** — 이번 달이 두 번째다. */
-  const past = (issued.get(`${p}|${who}`) || []).filter((h) => h.month !== MONTH);
+  const past = (issued.get(`${p}|${maskName(who)}`) || issued.get(`${p}|${who}`) || []).filter((h) => h.month !== MONTH);
   if (past.length) dupPaper.push(`  ${tag} 지난 달 종이에 있음 — ${past.map((h) => `${h.month} ${h.side} ${won(h.amount)} 〈${h.tab}〉`).join('  ·  ')}`);
   /**
    * ㉣ ★★★**주기로 해 놓고 «청구서에는 안 실린» 줄.**
@@ -146,7 +148,7 @@ for (const r of mine) {
    *   ⇒ 영업채널 정산서에는 있는데 공급사 청구서에 없으면, 그 달치는 **우리가 그냥 물어 준다.**
    *   ⚠ 청구가 애초에 0인 줄(조건이 「영업만 정산」)은 여기 오지 않는다 — 그건 ㉠ 이 따로 센다.
    */
-  const onBill = (issued.get(`${p}|${who}`) || []).some((h) => h.side === '청구' && h.month === MONTH);
+  const onBill = (issued.get(`${p}|${maskName(who)}`) || issued.get(`${p}|${who}`) || []).some((h) => h.side === '청구' && h.month === MONTH);
   if (claim !== 0 && !onBill) noBill.push(`  ${tag} 청구 ${pad(won(claim), 11)} 지급 ${pad(won(pay), 11)} ← ${MONTH} 공급사 청구서에 없음`);
 }
 
