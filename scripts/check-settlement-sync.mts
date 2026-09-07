@@ -80,8 +80,18 @@ if (existsSync(DIR)) {
 }
 
 // ── ③ 시트 ────────────────────────────────────────────────
-const H = { Authorization: `Bearer ${await tok()}` };
-const drive = async (q: string) => (((await (await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name)&pageSize=80&supportsAllDrives=true&includeItemsFromAllDrives=true`, { headers: H })).json()) as { files?: { id: string; name: string }[] }).files) || [];
+/**
+ * ⚠⚠ **토큰을 «한 번 만들어 두고» 돌려 쓰지 마라.** 그러면 뒤쪽 조회가 조용히 빈 값을 내고,
+ *   이 검사는 그것을 「시트 없음」으로 적는다 — 실제로는 시트에 값이 멀쩡히 있는데도.
+ *   실측 2026-09-04 — 공급사 13곳은 맞았는데 채널 넷이 통째로 「없음」으로 떴다.
+ *   ★검증 도구가 조용히 거짓을 말하는 것이 가장 나쁘다. 부를 때마다 새로 받는다.
+ */
+const drive = async (q: string) => {
+  const r = await fetch(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&fields=files(id,name)&pageSize=80&supportsAllDrives=true&includeItemsFromAllDrives=true`, { headers: { Authorization: `Bearer ${await tok()}` } });
+  if (!r.ok) { console.log(`
+  ✕ 드라이브 조회 실패 ${r.status} — 「${q.slice(0, 40)}…」`); process.exit(1); }
+  return (((await r.json()) as { files?: { id: string; name: string }[] }).files) || [];
+};
 const TAB = `${MONTH.slice(2, 4)}년${MONTH.slice(5)}월 정산`;
 const sheet = new Map<string, number>();
 for (const q of ["name contains '프리패스 재고'", "name contains '프리패스 정산'"]) {
