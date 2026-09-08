@@ -5,6 +5,9 @@ export const C = {
   bg: 'var(--bg-page)', zebra: 'var(--bg-stripe)', head: 'var(--bg-header)', hover: 'var(--bg-hover)',
   danger: 'var(--red-text)', ok: 'var(--green-text)', warn: 'var(--orange-text)', accent: 'var(--text-link)',
   brand: 'var(--brand)', brandDeep: 'var(--brand-h)',
+  /** 브랜드 면(面) — 강조가 아니라 «바탕»으로 깔 때. 안내 블록·틴트 배경.
+   *  globals.css 에 이미 있던 변수를 열어 준 것이라 지금 화면 값은 그대로다. */
+  brandBg: 'var(--brand-bg)', brandSoft: 'var(--brand-soft)',
   /** 네이비의 짝 — 색 사다리 4단(영업자 패널 면). docs/DESIGN_COLOR_LADDER.md */
   sky: 'var(--sky)', skyBg: 'var(--sky-bg)', taupe: 'var(--text-sub)', taupeBg: 'var(--bg-card)', taupeLine: 'var(--border)',
   placeholder: 'var(--bg-placeholder)', // 사진/빈 서피스 배경
@@ -53,6 +56,9 @@ export const SCRIM = {
   heavy: 'var(--scrim-heavy)',
   /** 풀블리드 라이트박스(사진·문서) — light/heavy와 알파가 다름. */
   black: 'var(--scrim-black)',
+  /** 밝은 «유리» — 사진 위 화살표처럼 바탕 위에 얹혀 읽혀야 하는 것. 딤과 «반대 방향»이다.
+   *  ⚠ 생 `rgba(255,255,255,…)` 로 쓰면 다크에서 흰 유리가 그대로 남아 그 위 글자가 안 보인다. */
+  glass: 'var(--scrim-glass)',
 } as const;
 
 /**

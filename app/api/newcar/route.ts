@@ -1,0 +1,118 @@
+import { NextResponse } from 'next/server';
+import { getFirestore } from 'firebase-admin/firestore';
+import { firebaseAdminApp } from '@/lib/server/firebase-admin';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+// ★폴백 — Firestore(new_car_trim)가 배포 키 문제로 빈값일 때, 로컬 조합지도 config 에서 트림을 복원한다.
+//   (사장님 「막힘없게」 — 견적기가 raw 트림을 못 받는 일이 없게. config 는 배포에 무조건 실리는 로컬파일.)
+function localTrimsFallback(): any[] {
+  const out: any[] = [];
+  try {
+    const gen = JSON.parse(readFileSync(join(process.cwd(), 'data/new-car/genesis-config-fs.json'), 'utf8'));
+    for (const m of gen.models || []) {
+      const mm = m.minMax || {};
+      const min = mm.min ?? m.base;
+      out.push({ maker: '제네시스', sub_model: String(m.model || ''), carType: String(m.model || ''), fuel: String(m.fuel || ''),
+        trim: '기본', priceBefore: Number(min || 0), priceAfter: Number(min || 0), options: [], _fallback: true });
+    }
+  } catch { /* skip */ }
+  try {
+    const hk = JSON.parse(readFileSync(join(process.cwd(), 'data/new-car/hk-config.json'), 'utf8'));
+    for (const m of hk.models || []) {
+      for (const t of m.trimLadder || []) {
+        out.push({ maker: String(m.maker || ''), sub_model: String(m.sub_model || ''), carType: String(m.sub_model || ''),
+          fuel: String(t.fuel || ''), trim: String(t.trim || ''), priceBefore: Number(t.priceAfter || 0), priceAfter: Number(t.priceAfter || 0),
+          options: [], _fallback: true });
+      }
+    }
+  } catch { /* skip */ }
+  return out;
+}
+
+export const runtime = 'nodejs';
+export const dynamic = 'force-dynamic';
+
+/**
+ * 신차마스터 피드 — 신차 견적기(welrix, 외부 임베드)가 «차량 가격을 확정»하려고 땡겨 가는 원천.
+ *   (사장님 2026-09-05 「신차 견적기에서 요 데이터를 땡겨 가서 차량 가격을 확정」)
+ *
+ * 제조사 「내 차 만들기」에서 크롤한 new_car_trim(현대·기아·제네시스·르노)을 «인증 없이» 낸다.
+ *   가격·옵션은 공개정보(제조사 공표가)라 화이트리스트가 필요 없다. 견적기는 netlify 별도 오리진이라
+ *   CORS 를 열어 준다(GET·읽기 전용).
+ *
+ *   ?maker=현대           그 제조사만(현대·기아·제네시스·르노)
+ *   ?model=그랜저          sub_model 부분일치(현대 「디 올 뉴 아반떼」 · 기아 「sorento」 슬러그)
+ *   ?group=model          모델별로 묶어서(견적기 「모델 고르고 → 트림·옵션」 흐름용)
+ * ※ new_car_trim 컬렉션 자체가 «제조사 크롤 실가»만 담으므로 별도 priced 필터 불필요.
+ * 응답: { count, makers, updatedAt, trims:[{maker, sub_model, carType, fuel, trim, priceBefore, priceAfter, options[], basePrices?, rules?}] }
+ *   group=model 이면 { modelCount, models:[{maker, sub_model, fuels[], trimCount, trims[]}] }
+ */
+const S = (v: unknown) => String(v ?? '').trim();
+const N = (v: unknown) => S(v).toLowerCase().replace(/[\s()·-]/g, '');
+
+// 공개 제조사 공표가 — 견적기(netlify) 외 누구나 읽어도 무방. 오리진·메서드만 공통.
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
+};
+const OK_CACHE = { ...CORS, 'Cache-Control': 'public, max-age=3600' }; // 정상만 1시간 캐시
+const ERR_CACHE = { ...CORS, 'Cache-Control': 'no-store' };            // ★장애는 캐시 금지(Codex)
+
+export function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: CORS });
+}
+
+const MAKERS = ['현대', '기아', '제네시스', '르노'];
+
+export async function GET(request: Request): Promise<Response> {
+  const url = new URL(request.url);
+  const maker = S(url.searchParams.get('maker'));
+  const model = S(url.searchParams.get('model'));
+  const group = S(url.searchParams.get('group')) === 'model'; // 모델별로 묶어서
+
+  try {
+    const fs = getFirestore(firebaseAdminApp());
+    let q: FirebaseFirestore.Query = fs.collection('new_car_trim');
+    if (maker) q = q.where('maker', '==', maker);
+    const snap = await q.get();
+    let trims = snap.docs.map((d) => {
+      const v = d.data();
+      return {
+        maker: S(v.maker), sub_model: S(v.sub_model), carType: S(v.carType), fuel: S(v.fuel),
+        trim: S(v.trim), priceBefore: Number(v.priceBefore || 0), priceAfter: Number(v.priceAfter || 0),
+        options: Array.isArray(v.options) ? v.options : [],
+        ...(Array.isArray(v.basePrices) ? { basePrices: v.basePrices } : {}),
+        ...(Array.isArray(v.rules) && v.rules.length ? { rules: v.rules } : {}),
+      };
+    });
+    // ★Firestore 가 비면(배포 키 문제 등) 로컬 config 로 폴백 — 견적기가 빈값 안 받게
+    let fallback = false;
+    if (trims.length === 0) {
+      let fb = localTrimsFallback();
+      if (maker) fb = fb.filter((t) => N(t.maker) === N(maker));
+      if (fb.length) { trims = fb; fallback = true; }
+    }
+    if (model) trims = trims.filter((t) => N(t.sub_model).includes(N(model)) || N(t.carType).includes(N(model)));
+    trims.sort((a, b) => a.maker.localeCompare(b.maker) || a.sub_model.localeCompare(b.sub_model) || a.priceBefore - b.priceBefore);
+    // ★updatedAt = 실제 수집일(문서 crawledAt 최대), 요청일 아님(Codex — 오래된 자료가 최신처럼 보이던 것)
+    const crawledMax = snap.docs.reduce((m, d) => { const c = S(d.data().crawledAt); return c > m ? c : m; }, '');
+    const meta: any = { count: trims.length, makers: MAKERS, updatedAt: crawledMax || null };
+    if (fallback) meta.source = 'local-config-fallback (Firestore 빈값 — 트림사다리·base 복원. 정밀 옵션은 /api/newcar/config)';
+    if (group) {
+      // 모델별 묶음 — 견적기가 «모델 고르고 → 트림·옵션» 흐름으로 쓰기 좋게
+      const byModel = new Map<string, any>();
+      for (const t of trims) {
+        const k = `${t.maker}|${t.sub_model}`;
+        if (!byModel.has(k)) byModel.set(k, { maker: t.maker, sub_model: t.sub_model, fuels: new Set<string>(), trims: [] as any[] });
+        const g = byModel.get(k); g.fuels.add(t.fuel); g.trims.push(t);
+      }
+      const models = [...byModel.values()].map((g) => ({ maker: g.maker, sub_model: g.sub_model, fuels: [...g.fuels], trimCount: g.trims.length, trims: g.trims }));
+      return NextResponse.json({ ...meta, modelCount: models.length, models }, { headers: OK_CACHE });
+    }
+    return NextResponse.json({ ...meta, trims }, { headers: OK_CACHE });
+  } catch {
+    // ★오류 상세는 공개하지 않는다(Codex — detail 로 내부 메시지 누출). 캐시도 안 한다.
+    return NextResponse.json({ error: 'newcar feed unavailable' }, { status: 503, headers: ERR_CACHE });
+  }
+}

@@ -33,6 +33,7 @@ import { productType } from '../lib/domain/sales-sheet-clean';
 import { parsePublishedSalesMapping, SALES_ALIAS, SALES_COLUMNS } from '../lib/domain/sales-sheet-mapping';
 import { salesPublishedTabIndex } from '../lib/domain/sales-published-tabs';
 import { HANDOVER_TAB, STALE_DAYS, daysSince, readLog } from '../lib/domain/supplier-handover-log';
+import { isMirrorSheet } from '../lib/domain/mirror-sources';
 import { SHEET_NAME_MATCH, isOurNonInventoryTab, supplierSheetLabel } from '../lib/domain/supplier-template-sheet';
 import { mileageCompact, pickPolicy, policyCell, readPolicyTab, type PolicyBook } from '../lib/domain/supplier-policy-read';
 import { POLICY_TAB_ALIASES } from '../lib/domain/supplier-template-sheet';
@@ -450,13 +451,23 @@ for (const [code, p] of [...byCode].sort()) {
    *   자체시트 공급사(아이카·오플·이안카)는 우리 규격화시트를 거쳐 온다. 그 시트는
    *   `sync-mirror-sheet` 가 원본에서 채워 주는데, 그게 멈추면 아무도 안 죽고 화면에도
    *   표시가 없고 **값만 조용히 낡는다.** 이 구조의 유일한 조용한 실패 경로다.
-   *   숨긴 탭 「AI 인계」의 @이력을 보고 오래됐으면 알린다. 이력이 없으면 규격화시트가 아니다.
+   *   숨긴 탭 「AI 인계」의 @이력을 보고 오래됐으면 알린다.
+   *
+   * ★★**미러 대상일 때만 본다**(`isMirrorSheet`). 「@이력이 있으면 규격화시트」로 갈랐더니
+   *   **오경보가 났다** — 실측 2026-09-04: 렌트존·SA·리더스·스타·우리캐피탈·스카이 여섯 곳이
+   *   「17일째 동기화 안 됨」으로 매 회차 떴는데, 문패를 읽어 보니 여섯 다 **공급사 자기 시트**를
+   *   가리키고 있었다. 미러할 게 애초에 없는 곳이다(mirror-sources 주석의 「아직 문패가 자기 시트다」).
+   *   그 시트에 「AI 인계」 탭이 남아 있어서 낡은 이력이 잡힌 것뿐이다.
+   *   ⇒ **늘 켜져 있는 빨간불은 아무도 안 믿는다.** 진짜 미러 넷이 멈췄을 때 그 불을 보려면
+   *     안 멈춘 곳까지 켜 두면 안 된다(도면 「좋아진 것까지 빨갛게 뜨면」과 같은 이유).
    */
-  try {
-    const lg = await api(`https://sheets.googleapis.com/v4/spreadsheets/${readId}/values/${encodeURIComponent(`'${HANDOVER_TAB}'!A1:C400`)}`) as { values?: string[][] };
-    const days = daysSince(readLog((lg.values || []) as string[][]));
-    if (days !== null && days > STALE_DAYS) staleSheets.push(`${who}(${code}) — ${Math.floor(days)}일째 동기화 안 됨`);
-  } catch { /* 「AI 인계」가 없으면 규격화시트가 아니다 — 알릴 것이 없다 */ }
+  if (isMirrorSheet(readId)) {
+    try {
+      const lg = await api(`https://sheets.googleapis.com/v4/spreadsheets/${readId}/values/${encodeURIComponent(`'${HANDOVER_TAB}'!A1:C400`)}`) as { values?: string[][] };
+      const days = daysSince(readLog((lg.values || []) as string[][]));
+      if (days !== null && days > STALE_DAYS) staleSheets.push(`${who}(${code}) — ${Math.floor(days)}일째 동기화 안 됨`);
+    } catch { /* 「AI 인계」를 못 읽으면 알릴 것이 없다 */ }
+  }
   let n = 0;
   for (const t of read.tabs) {
     if (isOurNonInventoryTab(S(t.title))) continue;    // 우리 탭은 재고표가 아니다
@@ -850,10 +861,80 @@ let gid = ((meta.sheets || []) as Rec[]).find((s) => S(s.properties?.title).star
       const prevHdr = (prevRows[0] || []).map(S);
       const prevAt = prevHdr.indexOf('공급사');
       if (prevAt >= 0 && supplierAt >= 0) {
-        const count = (list: string[][], at: number) => { const m = new Map<string, number>(); for (const r of list) { const w = S(r[at]); if (w) m.set(w, (m.get(w) || 0) + 1); } return m; };
+        /**
+         * ★★**이름표가 아니라 «정체»로 센다.**
+         *   공급사 칸은 `companyAlias(partner_name) || code` 다(위 `who`). 그래서 문패의
+         *   「공급사명」을 채우거나 지우면 같은 회사가 어제는 `RP004`, 오늘은 `아이카` 로 적힌다.
+         *   글자로 맞대면 그날 **차는 그대로인데 「77대→0」** 이 되어 발행이 멈춘다.
+         *
+         *   실측 2026-09-04 19:49 — 여덟 곳이 「통째로 0대」로 잡혀 중단됐는데,
+         *   같은 회차의 ① 단계는 「✓ 아이카(RP004) 재고 — 차 77대」로 멀쩡히 읽고 있었다.
+         *   게다가 총계는 331→315 로 **16대만** 줄었다. 209대가 사라졌다면 나올 수 없는 총계다.
+         *   ⇒ 사라진 게 아니라 이름표가 바뀐 것이었다. 가드가 오발동한 것이다.
+         *
+         *   그래서 양쪽 글자를 문패로 **코드로 환원**한 뒤 센다. 환원이 안 되는 글자(문패에 없는
+         *   공급사)는 글자 그대로 둔다 — 모르는 것을 같다고 우기지 않는다.
+         */
+        /**
+         * ★companyAlias 단일키가 아니라 supplierNameKeys(SA↔에스에이·J&J↔제이앤제이 SPELL_PAIRS 다리 포함)로 잇는다.
+         *   가드가 이 다리를 안 타서, 문패 이름표가 「에스에이」→「SA」·「제이앤제이」→「J&J」로 바뀐 날
+         *   같은 회사를 prev=에스에이 / now=SA 로 갈라 보아 「11대→0」 오발동했다(2026-09-04·09-07 3일 발행중단).
+         *   문패 대조·정제칸·정책 도구가 이미 supplierNameKeys 를 쓰므로 가드도 같은 열쇠로 통일한다.
+         * ⚠ 단 supplierNameKeys 의 short 키(렌터카/캐피탈 제거)는 「가온렌터카 vs 가온캐피탈」처럼 다른 두 회사를
+         *   「가온」 한 키로 뭉갤 수 있다(코덱스 2026-09-07 반례). 그러면 한 회사 소실을 놓친다.
+         *   ⇒ **키가 «한 코드에만» 매핑될 때만 등록**한다. 두 코드 이상이 다투는 모호한 키는 문패로 안 써서
+         *     (ident 가 그 라벨을 그대로 두어) 가드의 소실 보호를 약화시키지 않는다. code 자신은 항상 등록.
+         */
+        const keyToCodes = new Map<string, Set<string>>();
+        const addKey = (k: string, c: string) => { if (!k) return; (keyToCodes.get(k) || keyToCodes.set(k, new Set()).get(k)!).add(c); };
+        for (const [c, p] of byCode) {
+          addKey(c, c);
+          for (const k of supplierNameKeys(S(p.partner_name || p.name))) addKey(k, c);
+        }
+        const codeOf = new Map<string, string>();
+        for (const [k, codes] of keyToCodes) if (codes.size === 1) codeOf.set(k, [...codes][0]);
+        const ident = (w: string) => codeOf.get(S(w)) || S(w);
+        const count = (list: string[][], at: number) => {
+          const m = new Map<string, { n: number; seen: Set<string> }>();
+          for (const r of list) {
+            const w = S(r[at]);
+            if (!w) continue;
+            const k = ident(w);
+            const cur = m.get(k) || { n: 0, seen: new Set<string>() };
+            cur.n += 1; cur.seen.add(w);
+            m.set(k, cur);
+          }
+          return m;
+        };
         const before = count(prevRows.slice(1), prevAt);
         const now = count(rows, supplierAt);
-        const gone = [...before].filter(([w, n]) => n >= 3 && !(now.get(w) || 0)).map(([w, n]) => `${w} ${n}대→0`);
+        /**
+         * ★★**«차 정체» 겹침 사면** — 이름이 아니라 «그 차»가 그대로 있는지 본다(2026-09-07, B-2).
+         *   이름표 환원(supplierNameKeys)이 못 잇는 «임의 개명»(철자·접미사 연결이 아예 없는 새 이름)에도,
+         *   그 공급사의 «직전 차 전부»가 이번 발행에 (어느 코드로든) 그대로 있으면 = 차는 그대로, 이름만 바뀐 것 → 사면.
+         *   차 정체 = «차량번호»다. 상품리스트엔 차대번호(VIN)를 안 싣는다(사장님 2026-08-22 · SALES_RETIRED_COLUMNS)—
+         *   그래서 실번호만이 «그 차»다. 번호는 이 표 전체의 열쇠라(dedup·ERP매칭·계약·사진 다 번호로 건다) 이름처럼 재사용·오연결되지 않는다.
+         *   ⚠ **한 대라도 확인 안 되면(사라졌거나 번호 없음) 사면하지 않고 막는다** — 「한 대만 남고 둘은 사라진」 표를 통과시키지 않는다(코덱스 B-2 §3).
+         *   ⚠ 「미정」·빈칸 등 실번호 아닌 것은 차로 세지 않는다 — 실번호 정규식만 «차»다(코덱스 B-2 §4). 진짜 소실(429 빈 표)은 그 번호들이 없어 그대로 막힌다.
+         */
+        const REAL_PLATE_G = /^\d{2,3}[가-힣]\d{4}$/;   // 차 적재 필터(REAL_PLATE)와 같은 규격
+        const prevPlateAt = prevHdr.indexOf('차량번호');
+        const carId = (r: string[], pAt: number) => { const p = pAt >= 0 ? norm(r[pAt]) : ''; return REAL_PLATE_G.test(p) ? p : ''; };
+        const nowIds = new Set<string>();
+        for (const r of rows) { const id = carId(r, plateAt0); if (id) nowIds.add(id); }
+        const prevCars = new Map<string, { total: number; here: number }>();   // 코드별 직전 줄 수 / 이번에 번호로 확인된 차 수
+        for (const r of prevRows.slice(1)) {
+          const w = S(r[prevAt]); if (!w) continue;
+          const k = ident(w); const id = carId(r, prevPlateAt);
+          const cur = prevCars.get(k) || { total: 0, here: 0 };
+          cur.total += 1; if (id && nowIds.has(id)) cur.here += 1;
+          prevCars.set(k, cur);
+        }
+        // 사면은 «직전 줄 전부»가 이번 발행에 살아 있을 때만(한 대라도 안 보이면 막는다 → 소실 은폐 없음).
+        const alive = (k: string) => { const c = prevCars.get(k); return !!c && c.total > 0 && c.here === c.total; };
+        const gone = [...before]
+          .filter(([k, v]) => v.n >= 3 && !(now.get(k)?.n || 0) && !alive(k))
+          .map(([k, v]) => `${[...v.seen].join('/')}${k && ![...v.seen].includes(k) ? `(${k})` : ''} ${v.n}대→0`);
         if (gone.length) throw new Error(`직전 표에 있던 공급사가 통째로 0대 — 발행하지 않는다: ${gone.join(' · ')} (못 읽은 것인지 먼저 보라 — 맞으면 --force-shrink)`);
       }
     }

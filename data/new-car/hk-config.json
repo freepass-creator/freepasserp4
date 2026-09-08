@@ -1,0 +1,4756 @@
+{
+ "_meta": {
+  "source": "new_car_trim(현재 트림·가격) + 현대 공식 PDF 옵션(parse-hyundai-pdf) 병합. 2026-09-06.",
+  "note": "트림계층 구조. min=최저트림 세제후·트림사다리·optionCatalog 는 코덱스 검증 확정(38모델 min 산술 일치·현대 hyundai.json 공식API 일치·아반떼 공식페이지 일치). «모델 단일 max»는 산정 안 함 — 트림별 옵션 적용성이 달라 초집합 단순합은 과대(코덱스). 최고가는 견적기가 트림별 계산.",
+  "caveats": "① K5/K8 는 LPG·렌터카·장애인KIT 최저구성이 더 낮음(용도·자격별). ② 모닝/레이 min 은 밴(승용 최저는 더 높음). ③ 현대 옵션 일부는 구형 PDF·이름조각·중복(그랜저 클러스터·쏘나타 등 코덱스 지적) — optionCatalog 는 «카탈로그»지 트림별 확정가 아님. ④ K9·셀토스·파비스 옵션 미수집.",
+  "updatedAt": "2026-09-06",
+  "modelCount": 38,
+  "withOptions": 35,
+  "status": "코덱스 검증: min·트림사다리 확정. 옵션카탈로그는 참고(트림별 정밀은 견적기/후속)."
+ },
+ "models": [
+  {
+   "maker": "기아",
+   "sub_model": "carnival",
+   "trimCount": 10,
+   "trimLadder": [
+    {
+     "fuel": "3.5 가솔린",
+     "trim": "프레스티지",
+     "priceAfter": 36860000
+    },
+    {
+     "fuel": "3.5 가솔린",
+     "trim": "노블레스",
+     "priceAfter": 41210000
+    },
+    {
+     "fuel": "3.5 가솔린",
+     "trim": "아웃도어",
+     "priceAfter": 42830000
+    },
+    {
+     "fuel": "3.5 가솔린",
+     "trim": "노블레스",
+     "priceAfter": 43820000
+    },
+    {
+     "fuel": "3.5 가솔린",
+     "trim": "시그니처",
+     "priceAfter": 44560000
+    },
+    {
+     "fuel": "3.5 가솔린",
+     "trim": "X-Line",
+     "priceAfter": 45320000
+    },
+    {
+     "fuel": "3.5 가솔린",
+     "trim": "시그니처",
+     "priceAfter": 47380000
+    },
+    {
+     "fuel": "3.5 가솔린",
+     "trim": "X-Line",
+     "priceAfter": 47910000
+    },
+    {
+     "fuel": "3.5 가솔린",
+     "trim": "노블레스",
+     "priceAfter": 52110000
+    },
+    {
+     "fuel": "3.5 가솔린",
+     "trim": "시그니처",
+     "priceAfter": 55660000
+    }
+   ],
+   "optionCatalog": [
+    {
+     "name": "모니터링 팩",
+     "price": 1950000
+    },
+    {
+     "name": "HUD + 빌트인캠2",
+     "price": 1950000
+    },
+    {
+     "name": "옵션2",
+     "price": 1400000
+    },
+    {
+     "name": "12.3인치 클러스터 와이즈",
+     "price": 1200000
+    },
+    {
+     "name": "옵션1",
+     "price": 1100000
+    },
+    {
+     "name": "옵션5",
+     "price": 900000
+    },
+    {
+     "name": "옵션7",
+     "price": 900000
+    }
+   ],
+   "optionSource": "new_car_trim",
+   "minMax": {
+    "min": 36860000,
+    "minConfig": "최저 트림 「3.5 가솔린 프레스티지」 세제후",
+    "topTrimPrice": 55660000,
+    "topTrimConfig": "최고 트림 「3.5 가솔린 시그니처」 옵션 전",
+    "maxNote": "★현대·기아는 트림계층이라 «모델 단일 max»를 산정하지 않는다(코덱스 검증: 옵션초집합 단순합은 특장·상호배제·기본포함·구형 옵션까지 더해 과대). 실제 최고가 = 견적기가 «선택 트림 가격 + 그 트림에 적용 가능한 옵션»으로 계산. optionCatalog 는 모델에서 살 수 있는 옵션 카탈로그(트림별 적용성은 견적기가 판단)."
+   }
+  },
+  {
+   "maker": "기아",
+   "sub_model": "ev3",
+   "trimCount": 6,
+   "trimLadder": [
+    {
+     "fuel": "EV",
+     "trim": "에어 스탠다드",
+     "priceAfter": 39950000
+    },
+    {
+     "fuel": "EV",
+     "trim": "어스 스탠다드",
+     "priceAfter": 43900000
+    },
+    {
+     "fuel": "EV",
+     "trim": "에어 롱레인지",
+     "priceAfter": 44150000
+    },
+    {
+     "fuel": "EV",
+     "trim": "GT-Line 스탠다드",
+     "priceAfter": 44750000
+    },
+    {
+     "fuel": "EV",
+     "trim": "어스 롱레인지",
+     "priceAfter": 48100000
+    },
+    {
+     "fuel": "EV",
+     "trim": "GT-Line 롱레인지",
+     "priceAfter": 48950000
+    }
+   ],
+   "optionCatalog": [
+    {
+     "name": "4WD",
+     "price": 2270000
+    },
+    {
+     "name": "전용 4WD",
+     "price": 2270000
+    },
+    {
+     "name": "옵션4",
+     "price": 1290000
+    },
+    {
+     "name": "와이즈",
+     "price": 1090000
+    },
+    {
+     "name": "공통 와이즈",
+     "price": 1090000
+    },
+    {
+     "name": "옵션6",
+     "price": 1040000
+    },
+    {
+     "name": "옵션1",
+     "price": 940000
+    },
+    {
+     "name": "옵션3",
+     "price": 890000
+    },
+    {
+     "name": "선루프",
+     "price": 640000
+    },
+    {
+     "name": "사운드",
+     "price": 590000
+    },
+    {
+     "name": "디스플레이",
+     "price": 590000
+    },
+    {
+     "name": "휠&타이어",
+     "price": 490000
+    },
+    {
+     "name": "옵션2",
+     "price": 490000
+    },
+    {
+     "name": "플러스",
+     "price": 450000
+    },
+    {
+     "name": "컬렉션",
+     "price": 150000
+    }
+   ],
+   "optionSource": "new_car_trim",
+   "minMax": {
+    "min": 39950000,
+    "minConfig": "최저 트림 「EV 에어 스탠다드」 세제후",
+    "topTrimPrice": 48950000,
+    "topTrimConfig": "최고 트림 「EV GT-Line 롱레인지」 옵션 전",
+    "maxNote": "★현대·기아는 트림계층이라 «모델 단일 max»를 산정하지 않는다(코덱스 검증: 옵션초집합 단순합은 특장·상호배제·기본포함·구형 옵션까지 더해 과대). 실제 최고가 = 견적기가 «선택 트림 가격 + 그 트림에 적용 가능한 옵션»으로 계산. optionCatalog 는 모델에서 살 수 있는 옵션 카탈로그(트림별 적용성은 견적기가 판단)."
+   }
+  },
+  {
+   "maker": "기아",
+   "sub_model": "ev4",
+   "trimCount": 6,
+   "trimLadder": [
+    {
+     "fuel": "EV",
+     "trim": "에어 스탠다드",
+     "priceAfter": 40420000
+    },
+    {
+     "fuel": "EV",
+     "trim": "에어 롱레인지",
+     "priceAfter": 44620000
+    },
+    {
+     "fuel": "EV",
+     "trim": "어스 스탠다드",
+     "priceAfter": 45010000
+    },
+    {
+     "fuel": "EV",
+     "trim": "GT-Line 스탠다드",
+     "priceAfter": 46110000
+    },
+    {
+     "fuel": "EV",
+     "trim": "어스 롱레인지",
+     "priceAfter": 49210000
+    },
+    {
+     "fuel": "EV",
+     "trim": "GT-Line 롱레인지",
+     "priceAfter": 50310000
+    }
+   ],
+   "optionCatalog": [
+    {
+     "name": "옵션12",
+     "price": 2270000
+    },
+    {
+     "name": "옵션6",
+     "price": 1280000
+    },
+    {
+     "name": "공통",
+     "price": 1280000
+    },
+    {
+     "name": "옵션5",
+     "price": 1040000
+    },
+    {
+     "name": "옵션2",
+     "price": 890000
+    },
+    {
+     "name": "옵션3",
+     "price": 890000
+    },
+    {
+     "name": "옵션1",
+     "price": 740000
+    },
+    {
+     "name": "옵션8",
+     "price": 640000
+    },
+    {
+     "name": "사운드",
+     "price": 640000
+    },
+    {
+     "name": "옵션11",
+     "price": 590000
+    },
+    {
+     "name": "옵션4",
+     "price": 490000
+    },
+    {
+     "name": "플러스",
+     "price": 450000
+    },
+    {
+     "name": "옵션7",
+     "price": 400000
+    }
+   ],
+   "optionSource": "new_car_trim",
+   "minMax": {
+    "min": 40420000,
+    "minConfig": "최저 트림 「EV 에어 스탠다드」 세제후",
+    "topTrimPrice": 50310000,
+    "topTrimConfig": "최고 트림 「EV GT-Line 롱레인지」 옵션 전",
+    "maxNote": "★현대·기아는 트림계층이라 «모델 단일 max»를 산정하지 않는다(코덱스 검증: 옵션초집합 단순합은 특장·상호배제·기본포함·구형 옵션까지 더해 과대). 실제 최고가 = 견적기가 «선택 트림 가격 + 그 트림에 적용 가능한 옵션»으로 계산. optionCatalog 는 모델에서 살 수 있는 옵션 카탈로그(트림별 적용성은 견적기가 판단)."
+   }
+  },
+  {
+   "maker": "기아",
+   "sub_model": "ev5",
+   "trimCount": 6,
+   "trimLadder": [
+    {
+     "fuel": "EV",
+     "trim": "에어 스탠다드",
+     "priceAfter": 41550000
+    },
+    {
+     "fuel": "EV",
+     "trim": "어스 스탠다드",
+     "priceAfter": 45300000
+    },
+    {
+     "fuel": "EV",
+     "trim": "에어 롱레인지",
+     "priceAfter": 45750000
+    },
+    {
+     "fuel": "EV",
+     "trim": "GT-Line 스탠다드",
+     "priceAfter": 46400000
+    },
+    {
+     "fuel": "EV",
+     "trim": "어스 롱레인지",
+     "priceAfter": 49500000
+    },
+    {
+     "fuel": "EV",
+     "trim": "GT-Line 롱레인지",
+     "priceAfter": 50600000
+    }
+   ],
+   "optionCatalog": [
+    {
+     "name": "옵션10",
+     "price": 2370000
+    },
+    {
+     "name": "옵션6",
+     "price": 1380000
+    },
+    {
+     "name": "옵션2",
+     "price": 1380000
+    },
+    {
+     "name": "공통",
+     "price": 1340000
+    },
+    {
+     "name": "옵션7",
+     "price": 1340000
+    },
+    {
+     "name": "옵션12",
+     "price": 1190000
+    },
+    {
+     "name": "옵션1",
+     "price": 890000
+    },
+    {
+     "name": "옵션3",
+     "price": 690000
+    },
+    {
+     "name": "옵션8",
+     "price": 640000
+    },
+    {
+     "name": "옵션9",
+     "price": 590000
+    },
+    {
+     "name": "옵션13",
+     "price": 400000
+    },
+    {
+     "name": "옵션4",
+     "price": 300000
+    },
+    {
+     "name": "전용",
+     "price": 150000
+    }
+   ],
+   "optionSource": "new_car_trim",
+   "minMax": {
+    "min": 41550000,
+    "minConfig": "최저 트림 「EV 에어 스탠다드」 세제후",
+    "topTrimPrice": 50600000,
+    "topTrimConfig": "최고 트림 「EV GT-Line 롱레인지」 옵션 전",
+    "maxNote": "★현대·기아는 트림계층이라 «모델 단일 max»를 산정하지 않는다(코덱스 검증: 옵션초집합 단순합은 특장·상호배제·기본포함·구형 옵션까지 더해 과대). 실제 최고가 = 견적기가 «선택 트림 가격 + 그 트림에 적용 가능한 옵션»으로 계산. optionCatalog 는 모델에서 살 수 있는 옵션 카탈로그(트림별 적용성은 견적기가 판단)."
+   }
+  },
+  {
+   "maker": "기아",
+   "sub_model": "ev6",
+   "trimCount": 7,
+   "trimLadder": [
+    {
+     "fuel": "EV",
+     "trim": "라이트 스탠다드",
+     "priceAfter": 43600000
+    },
+    {
+     "fuel": "EV",
+     "trim": "라이트 롱레인지",
+     "priceAfter": 47600000
+    },
+    {
+     "fuel": "EV",
+     "trim": "에어 스탠다드",
+     "priceAfter": 48600000
+    },
+    {
+     "fuel": "EV",
+     "trim": "어스 스탠다드",
+     "priceAfter": 52600000
+    },
+    {
+     "fuel": "EV",
+     "trim": "에어 롱레인지",
+     "priceAfter": 52600000
+    },
+    {
+     "fuel": "EV",
+     "trim": "어스 롱레인지",
+     "priceAfter": 56600000
+    },
+    {
+     "fuel": "EV",
+     "trim": "GT-Line 롱레인지",
+     "priceAfter": 57200000
+    }
+   ],
+   "optionCatalog": [
+    {
+     "name": "옵션12",
+     "price": 2470000
+    },
+    {
+     "name": "옵션2",
+     "price": 1100000
+    },
+    {
+     "name": "옵션3",
+     "price": 1040000
+    },
+    {
+     "name": "옵션7",
+     "price": 1040000
+    },
+    {
+     "name": "옵션9",
+     "price": 990000
+    },
+    {
+     "name": "옵션5",
+     "price": 900000
+    },
+    {
+     "name": "옵션8",
+     "price": 790000
+    },
+    {
+     "name": "옵션13",
+     "price": 700000
+    },
+    {
+     "name": "공통",
+     "price": 690000
+    },
+    {
+     "name": "옵션10",
+     "price": 640000
+    },
+    {
+     "name": "옵션4",
+     "price": 500000
+    },
+    {
+     "name": "옵션11",
+     "price": 450000
+    },
+    {
+     "name": "옵션1",
+     "price": 400000
+    },
+    {
+     "name": "전용",
+     "price": 400000
+    },
+    {
+     "name": "옵션14",
+     "price": 400000
+    }
+   ],
+   "optionSource": "new_car_trim",
+   "minMax": {
+    "min": 43600000,
+    "minConfig": "최저 트림 「EV 라이트 스탠다드」 세제후",
+    "topTrimPrice": 57200000,
+    "topTrimConfig": "최고 트림 「EV GT-Line 롱레인지」 옵션 전",
+    "maxNote": "★현대·기아는 트림계층이라 «모델 단일 max»를 산정하지 않는다(코덱스 검증: 옵션초집합 단순합은 특장·상호배제·기본포함·구형 옵션까지 더해 과대). 실제 최고가 = 견적기가 «선택 트림 가격 + 그 트림에 적용 가능한 옵션»으로 계산. optionCatalog 는 모델에서 살 수 있는 옵션 카탈로그(트림별 적용성은 견적기가 판단)."
+   }
+  },
+  {
+   "maker": "기아",
+   "sub_model": "ev9",
+   "trimCount": 10,
+   "trimLadder": [
+    {
+     "fuel": "",
+     "trim": "라이트 스탠다드",
+     "priceAfter": 61970000
+    },
+    {
+     "fuel": "",
+     "trim": "에어 스탠다드",
+     "priceAfter": 64120000
+    },
+    {
+     "fuel": "",
+     "trim": "라이트 롱레인지",
+     "priceAfter": 66420000
+    },
+    {
+     "fuel": "",
+     "trim": "에어 롱레인지",
+     "priceAfter": 68570000
+    },
+    {
+     "fuel": "",
+     "trim": "어스 스탠다드",
+     "priceAfter": 68910000
+    },
+    {
+     "fuel": "EV",
+     "trim": "라이트 롱레인지",
+     "priceAfter": 69900000
+    },
+    {
+     "fuel": "EV",
+     "trim": "에어 롱레인지",
+     "priceAfter": 72050000
+    },
+    {
+     "fuel": "",
+     "trim": "어스 롱레인지",
+     "priceAfter": 73360000
+    },
+    {
+     "fuel": "EV",
+     "trim": "어스 롱레인지",
+     "priceAfter": 76890000
+    },
+    {
+     "fuel": "EV",
+     "trim": "GT-Line 롱레인지",
+     "priceAfter": 79170000
+    }
+   ],
+   "optionCatalog": [
+    {
+     "name": "옵션2",
+     "price": 1980000
+    },
+    {
+     "name": "전 가격",
+     "price": 1980000
+    },
+    {
+     "name": ": 세제혜택",
+     "price": 1190000
+    },
+    {
+     "name": "6인승",
+     "price": 1140000
+    },
+    {
+     "name": "옵션5",
+     "price": 690000
+    },
+    {
+     "name": "옵션8",
+     "price": 590000
+    }
+   ],
+   "optionSource": "new_car_trim",
+   "minMax": {
+    "min": 61970000,
+    "minConfig": "최저 트림 「 라이트 스탠다드」 세제후",
+    "topTrimPrice": 79170000,
+    "topTrimConfig": "최고 트림 「EV GT-Line 롱레인지」 옵션 전",
+    "maxNote": "★현대·기아는 트림계층이라 «모델 단일 max»를 산정하지 않는다(코덱스 검증: 옵션초집합 단순합은 특장·상호배제·기본포함·구형 옵션까지 더해 과대). 실제 최고가 = 견적기가 «선택 트림 가격 + 그 트림에 적용 가능한 옵션»으로 계산. optionCatalog 는 모델에서 살 수 있는 옵션 카탈로그(트림별 적용성은 견적기가 판단)."
+   }
+  },
+  {
+   "maker": "기아",
+   "sub_model": "k5",
+   "trimCount": 13,
+   "trimLadder": [
+    {
+     "fuel": "2.0 가솔린",
+     "trim": "스마트 셀렉션",
+     "priceAfter": 27630000
+    },
+    {
+     "fuel": "2.0 가솔린",
+     "trim": "프레스티지",
+     "priceAfter": 28920000
+    },
+    {
+     "fuel": "1.6 가솔린 터보",
+     "trim": "프레스티지",
+     "priceAfter": 29730000
+    },
+    {
+     "fuel": "2.0 가솔린",
+     "trim": "베스트 셀렉션",
+     "priceAfter": 30140000
+    },
+    {
+     "fuel": "1.6 가솔린 터보",
+     "trim": "베스트 셀렉션",
+     "priceAfter": 30950000
+    },
+    {
+     "fuel": "2.0 가솔린",
+     "trim": "노블레스",
+     "priceAfter": 32440000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "프레스티지",
+     "priceAfter": 33340000
+    },
+    {
+     "fuel": "1.6 가솔린 터보",
+     "trim": "노블레스",
+     "priceAfter": 33680000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "베스트 셀렉션",
+     "priceAfter": 34430000
+    },
+    {
+     "fuel": "2.0 가솔린",
+     "trim": "시그니처",
+     "priceAfter": 35580000
+    },
+    {
+     "fuel": "1.6 가솔린 터보",
+     "trim": "시그니처",
+     "priceAfter": 36370000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "노블레스",
+     "priceAfter": 36700000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "시그니처",
+     "priceAfter": 39640000
+    }
+   ],
+   "optionCatalog": [
+    {
+     "name": "클러스터",
+     "price": 1300000
+    },
+    {
+     "name": "팩 드라이브 와이즈",
+     "price": 1140000
+    },
+    {
+     "name": "파노라마 선루프",
+     "price": 1090000
+    }
+   ],
+   "optionSource": "new_car_trim",
+   "minMax": {
+    "min": 27630000,
+    "minConfig": "최저 트림 「2.0 가솔린 스마트 셀렉션」 세제후",
+    "topTrimPrice": 39640000,
+    "topTrimConfig": "최고 트림 「하이브리드 시그니처」 옵션 전",
+    "maxNote": "★현대·기아는 트림계층이라 «모델 단일 max»를 산정하지 않는다(코덱스 검증: 옵션초집합 단순합은 특장·상호배제·기본포함·구형 옵션까지 더해 과대). 실제 최고가 = 견적기가 «선택 트림 가격 + 그 트림에 적용 가능한 옵션»으로 계산. optionCatalog 는 모델에서 살 수 있는 옵션 카탈로그(트림별 적용성은 견적기가 판단)."
+   }
+  },
+  {
+   "maker": "기아",
+   "sub_model": "k8",
+   "trimCount": 15,
+   "trimLadder": [
+    {
+     "fuel": "2.5 가솔린",
+     "trim": "노블레스 라이트",
+     "priceAfter": 37310000
+    },
+    {
+     "fuel": "2.5 가솔린",
+     "trim": "기아 AI 어시스턴트 베스트 셀렉션",
+     "priceAfter": 38850000
+    },
+    {
+     "fuel": "3.5 가솔린",
+     "trim": "노블레스 라이트",
+     "priceAfter": 40430000
+    },
+    {
+     "fuel": "2.5 가솔린",
+     "trim": "오토 디포그 노블레스",
+     "priceAfter": 41430000
+    },
+    {
+     "fuel": "3.5 가솔린",
+     "trim": "기아 AI 어시스턴트 베스트 셀렉션",
+     "priceAfter": 41720000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "노블레스 라이트",
+     "priceAfter": 42670000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "기아 AI 어시스턴트 베스트 셀렉션",
+     "priceAfter": 44200000
+    },
+    {
+     "fuel": "3.5 가솔린",
+     "trim": "오토 디포그 노블레스",
+     "priceAfter": 44300000
+    },
+    {
+     "fuel": "2.5 가솔린",
+     "trim": "시그니처",
+     "priceAfter": 45020000
+    },
+    {
+     "fuel": "2.5 가솔린",
+     "trim": "시그니처 블랙",
+     "priceAfter": 46600000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "오토 디포그 노블레스",
+     "priceAfter": 46780000
+    },
+    {
+     "fuel": "3.5 가솔린",
+     "trim": "시그니처",
+     "priceAfter": 47890000
+    },
+    {
+     "fuel": "3.5 가솔린",
+     "trim": "시그니처 블랙",
+     "priceAfter": 49470000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "시그니처",
+     "priceAfter": 50380000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "시그니처 블랙",
+     "priceAfter": 51750000
+    }
+   ],
+   "optionCatalog": [
+    {
+     "name": "옵션6",
+     "price": 2180000
+    },
+    {
+     "name": "옵션1",
+     "price": 1090000
+    },
+    {
+     "name": "옵션5",
+     "price": 1090000
+    },
+    {
+     "name": "옵션8",
+     "price": 1090000
+    },
+    {
+     "name": "옵션9",
+     "price": 1090000
+    },
+    {
+     "name": "옵션4",
+     "price": 1090000
+    },
+    {
+     "name": "옵션7",
+     "price": 690000
+    }
+   ],
+   "optionSource": "new_car_trim",
+   "minMax": {
+    "min": 37310000,
+    "minConfig": "최저 트림 「2.5 가솔린 노블레스 라이트」 세제후",
+    "topTrimPrice": 51750000,
+    "topTrimConfig": "최고 트림 「하이브리드 시그니처 블랙」 옵션 전",
+    "maxNote": "★현대·기아는 트림계층이라 «모델 단일 max»를 산정하지 않는다(코덱스 검증: 옵션초집합 단순합은 특장·상호배제·기본포함·구형 옵션까지 더해 과대). 실제 최고가 = 견적기가 «선택 트림 가격 + 그 트림에 적용 가능한 옵션»으로 계산. optionCatalog 는 모델에서 살 수 있는 옵션 카탈로그(트림별 적용성은 견적기가 판단)."
+   }
+  },
+  {
+   "maker": "기아",
+   "sub_model": "k9",
+   "trimCount": 8,
+   "trimLadder": [
+    {
+     "fuel": "3.8 가솔린",
+     "trim": "플래티넘",
+     "priceAfter": 60340000
+    },
+    {
+     "fuel": "3.3 가솔린 터보",
+     "trim": "플래티넘",
+     "priceAfter": 66880000
+    },
+    {
+     "fuel": "3.8 가솔린",
+     "trim": "베스트",
+     "priceAfter": 68990000
+    },
+    {
+     "fuel": "3.3 가솔린 터보",
+     "trim": "베스트",
+     "priceAfter": 74750000
+    },
+    {
+     "fuel": "3.8 가솔린",
+     "trim": "마스터즈",
+     "priceAfter": 75200000
+    },
+    {
+     "fuel": "3.3 가솔린 터보",
+     "trim": "마스터즈",
+     "priceAfter": 79940000
+    },
+    {
+     "fuel": "3.8 가솔린",
+     "trim": "베스트",
+     "priceAfter": 82290000
+    },
+    {
+     "fuel": "3.3 가솔린 터보",
+     "trim": "베스트",
+     "priceAfter": 87030000
+    }
+   ],
+   "optionCatalog": [],
+   "optionSource": "new_car_trim",
+   "minMax": {
+    "min": 60340000,
+    "minConfig": "최저 트림 「3.8 가솔린 플래티넘」 세제후",
+    "topTrimPrice": 87030000,
+    "topTrimConfig": "최고 트림 「3.3 가솔린 터보 베스트」 옵션 전",
+    "maxNote": "★현대·기아는 트림계층이라 «모델 단일 max»를 산정하지 않는다(코덱스 검증: 옵션초집합 단순합은 특장·상호배제·기본포함·구형 옵션까지 더해 과대). 실제 최고가 = 견적기가 «선택 트림 가격 + 그 트림에 적용 가능한 옵션»으로 계산. optionCatalog 는 모델에서 살 수 있는 옵션 카탈로그(트림별 적용성은 견적기가 판단)."
+   }
+  },
+  {
+   "maker": "기아",
+   "sub_model": "morning",
+   "trimCount": 6,
+   "trimLadder": [
+    {
+     "fuel": "1.0 가솔린",
+     "trim": "트렌디",
+     "priceAfter": 13860000
+    },
+    {
+     "fuel": "1.0 가솔린",
+     "trim": "트렌디",
+     "priceAfter": 14210000
+    },
+    {
+     "fuel": "1.0 가솔린",
+     "trim": "프레스티지",
+     "priceAfter": 14510000
+    },
+    {
+     "fuel": "1.0 가솔린",
+     "trim": "프레스티지",
+     "priceAfter": 16010000
+    },
+    {
+     "fuel": "1.0 가솔린",
+     "trim": "시그니처",
+     "priceAfter": 18160000
+    },
+    {
+     "fuel": "1.0 가솔린",
+     "trim": "GT-Line",
+     "priceAfter": 19110000
+    }
+   ],
+   "optionCatalog": [
+    {
+     "name": "옵션2",
+     "price": 850000
+    },
+    {
+     "name": "옵션7",
+     "price": 700000
+    },
+    {
+     "name": "옵션9",
+     "price": 400000
+    }
+   ],
+   "optionSource": "new_car_trim",
+   "minMax": {
+    "min": 13860000,
+    "minConfig": "최저 트림 「1.0 가솔린 트렌디」 세제후",
+    "topTrimPrice": 19110000,
+    "topTrimConfig": "최고 트림 「1.0 가솔린 GT-Line」 옵션 전",
+    "maxNote": "★현대·기아는 트림계층이라 «모델 단일 max»를 산정하지 않는다(코덱스 검증: 옵션초집합 단순합은 특장·상호배제·기본포함·구형 옵션까지 더해 과대). 실제 최고가 = 견적기가 «선택 트림 가격 + 그 트림에 적용 가능한 옵션»으로 계산. optionCatalog 는 모델에서 살 수 있는 옵션 카탈로그(트림별 적용성은 견적기가 판단)."
+   }
+  },
+  {
+   "maker": "기아",
+   "sub_model": "niro",
+   "trimCount": 3,
+   "trimLadder": [
+    {
+     "fuel": "하이브리드",
+     "trim": "트렌디",
+     "priceAfter": 29270000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "프레스티지",
+     "priceAfter": 32420000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "시그니처",
+     "priceAfter": 35150000
+    }
+   ],
+   "optionCatalog": [
+    {
+     "name": "옵션4",
+     "price": 1240000
+    },
+    {
+     "name": "옵션6",
+     "price": 1150000
+    },
+    {
+     "name": "옵션7",
+     "price": 990000
+    },
+    {
+     "name": "옵션2",
+     "price": 970000
+    },
+    {
+     "name": "옵션11",
+     "price": 850000
+    },
+    {
+     "name": "옵션10",
+     "price": 750000
+    },
+    {
+     "name": "옵션1",
+     "price": 650000
+    },
+    {
+     "name": "옵션8",
+     "price": 590000
+    },
+    {
+     "name": "옵션12",
+     "price": 590000
+    },
+    {
+     "name": "옵션3",
+     "price": 490000
+    },
+    {
+     "name": "옵션9",
+     "price": 450000
+    },
+    {
+     "name": "옵션13",
+     "price": 450000
+    },
+    {
+     "name": "옵션5",
+     "price": 420000
+    }
+   ],
+   "optionSource": "new_car_trim",
+   "minMax": {
+    "min": 29270000,
+    "minConfig": "최저 트림 「하이브리드 트렌디」 세제후",
+    "topTrimPrice": 35150000,
+    "topTrimConfig": "최고 트림 「하이브리드 시그니처」 옵션 전",
+    "maxNote": "★현대·기아는 트림계층이라 «모델 단일 max»를 산정하지 않는다(코덱스 검증: 옵션초집합 단순합은 특장·상호배제·기본포함·구형 옵션까지 더해 과대). 실제 최고가 = 견적기가 «선택 트림 가격 + 그 트림에 적용 가능한 옵션»으로 계산. optionCatalog 는 모델에서 살 수 있는 옵션 카탈로그(트림별 적용성은 견적기가 판단)."
+   }
+  },
+  {
+   "maker": "기아",
+   "sub_model": "ray",
+   "trimCount": 10,
+   "trimLadder": [
+    {
+     "fuel": "1.0 가솔린",
+     "trim": "트렌디",
+     "priceAfter": 14800000
+    },
+    {
+     "fuel": "1.0 가솔린",
+     "trim": "트렌디",
+     "priceAfter": 14900000
+    },
+    {
+     "fuel": "1.0 가솔린",
+     "trim": "프레스티지",
+     "priceAfter": 15400000
+    },
+    {
+     "fuel": "1.0 가솔린",
+     "trim": "트렌디",
+     "priceAfter": 15550000
+    },
+    {
+     "fuel": "1.0 가솔린",
+     "trim": "프레스티지",
+     "priceAfter": 15550000
+    },
+    {
+     "fuel": "1.0 가솔린",
+     "trim": "스페셜",
+     "priceAfter": 15950000
+    },
+    {
+     "fuel": "1.0 가솔린",
+     "trim": "스페셜",
+     "priceAfter": 16100000
+    },
+    {
+     "fuel": "1.0 가솔린",
+     "trim": "프레스티지",
+     "priceAfter": 18150000
+    },
+    {
+     "fuel": "1.0 가솔린",
+     "trim": "시그니처",
+     "priceAfter": 19550000
+    },
+    {
+     "fuel": "1.0 가솔린",
+     "trim": "X-Line",
+     "priceAfter": 20600000
+    }
+   ],
+   "optionCatalog": [
+    {
+     "name": "8인치 내비게이션",
+     "price": 500000
+    },
+    {
+     "name": "샤크핀",
+     "price": 500000
+    }
+   ],
+   "optionSource": "new_car_trim",
+   "minMax": {
+    "min": 14800000,
+    "minConfig": "최저 트림 「1.0 가솔린 트렌디」 세제후",
+    "topTrimPrice": 20600000,
+    "topTrimConfig": "최고 트림 「1.0 가솔린 X-Line」 옵션 전",
+    "maxNote": "★현대·기아는 트림계층이라 «모델 단일 max»를 산정하지 않는다(코덱스 검증: 옵션초집합 단순합은 특장·상호배제·기본포함·구형 옵션까지 더해 과대). 실제 최고가 = 견적기가 «선택 트림 가격 + 그 트림에 적용 가능한 옵션»으로 계산. optionCatalog 는 모델에서 살 수 있는 옵션 카탈로그(트림별 적용성은 견적기가 판단)."
+   }
+  },
+  {
+   "maker": "기아",
+   "sub_model": "seltos",
+   "trimCount": 8,
+   "trimLadder": [
+    {
+     "fuel": "1.6 가솔린 터보",
+     "trim": "트렌디",
+     "priceAfter": 25120000
+    },
+    {
+     "fuel": "1.6 가솔린 터보",
+     "trim": "프레스티지",
+     "priceAfter": 28800000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "트렌디",
+     "priceAfter": 29400000
+    },
+    {
+     "fuel": "1.6 가솔린 터보",
+     "trim": "시그니처",
+     "priceAfter": 31450000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "프레스티지",
+     "priceAfter": 32550000
+    },
+    {
+     "fuel": "1.6 가솔린 터보",
+     "trim": "X-Line",
+     "priceAfter": 32630000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "시그니처",
+     "priceAfter": 35200000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "X-Line",
+     "priceAfter": 36360000
+    }
+   ],
+   "optionCatalog": [],
+   "optionSource": "new_car_trim",
+   "minMax": {
+    "min": 25120000,
+    "minConfig": "최저 트림 「1.6 가솔린 터보 트렌디」 세제후",
+    "topTrimPrice": 36360000,
+    "topTrimConfig": "최고 트림 「하이브리드 X-Line」 옵션 전",
+    "maxNote": "★현대·기아는 트림계층이라 «모델 단일 max»를 산정하지 않는다(코덱스 검증: 옵션초집합 단순합은 특장·상호배제·기본포함·구형 옵션까지 더해 과대). 실제 최고가 = 견적기가 «선택 트림 가격 + 그 트림에 적용 가능한 옵션»으로 계산. optionCatalog 는 모델에서 살 수 있는 옵션 카탈로그(트림별 적용성은 견적기가 판단)."
+   }
+  },
+  {
+   "maker": "기아",
+   "sub_model": "sorento",
+   "trimCount": 10,
+   "trimLadder": [
+    {
+     "fuel": "2.5 가솔린 터보",
+     "trim": "프레스티지",
+     "priceAfter": 36410000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "프레스티지",
+     "priceAfter": 39630000
+    },
+    {
+     "fuel": "2.5 가솔린 터보",
+     "trim": "노블레스",
+     "priceAfter": 39660000
+    },
+    {
+     "fuel": "2.5 가솔린 터보",
+     "trim": "시그니처",
+     "priceAfter": 42470000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "노블레스",
+     "priceAfter": 42990000
+    },
+    {
+     "fuel": "2.5 가솔린 터보",
+     "trim": "X-Line",
+     "priceAfter": 43410000
+    },
+    {
+     "fuel": "2.5 가솔린 터보",
+     "trim": "블랙 에디션",
+     "priceAfter": 44410000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "시그니처",
+     "priceAfter": 45760000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "X-Line",
+     "priceAfter": 46700000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "블랙 에디션",
+     "priceAfter": 48950000
+    }
+   ],
+   "optionCatalog": [
+    {
+     "name": "옵션1",
+     "price": 2320000
+    },
+    {
+     "name": "옵션7",
+     "price": 1290000
+    },
+    {
+     "name": "드라이브 와이즈",
+     "price": 1290000
+    },
+    {
+     "name": "옵션4",
+     "price": 1240000
+    },
+    {
+     "name": "빌트인 캠 2",
+     "price": 1190000
+    },
+    {
+     "name": "HUD + 빌트인",
+     "price": 1190000
+    },
+    {
+     "name": "옵션8",
+     "price": 1190000
+    },
+    {
+     "name": "옵션11",
+     "price": 1090000
+    },
+    {
+     "name": "옵션2",
+     "price": 840000
+    },
+    {
+     "name": "옵션3",
+     "price": 690000
+    },
+    {
+     "name": "사운드",
+     "price": 640000
+    },
+    {
+     "name": "옵션5",
+     "price": 600000
+    },
+    {
+     "name": "옵션9",
+     "price": 600000
+    },
+    {
+     "name": "옵션6",
+     "price": 590000
+    }
+   ],
+   "optionSource": "new_car_trim",
+   "minMax": {
+    "min": 36410000,
+    "minConfig": "최저 트림 「2.5 가솔린 터보 프레스티지」 세제후",
+    "topTrimPrice": 48950000,
+    "topTrimConfig": "최고 트림 「하이브리드 블랙 에디션」 옵션 전",
+    "maxNote": "★현대·기아는 트림계층이라 «모델 단일 max»를 산정하지 않는다(코덱스 검증: 옵션초집합 단순합은 특장·상호배제·기본포함·구형 옵션까지 더해 과대). 실제 최고가 = 견적기가 «선택 트림 가격 + 그 트림에 적용 가능한 옵션»으로 계산. optionCatalog 는 모델에서 살 수 있는 옵션 카탈로그(트림별 적용성은 견적기가 판단)."
+   }
+  },
+  {
+   "maker": "기아",
+   "sub_model": "sportage",
+   "trimCount": 12,
+   "trimLadder": [
+    {
+     "fuel": "1.6 가솔린 터보",
+     "trim": "프레스티지",
+     "priceAfter": 29440000
+    },
+    {
+     "fuel": "2.0 LPG",
+     "trim": "프레스티지",
+     "priceAfter": 30090000
+    },
+    {
+     "fuel": "1.6 가솔린 터보",
+     "trim": "노블레스",
+     "priceAfter": 33220000
+    },
+    {
+     "fuel": "2.0 LPG",
+     "trim": "노블레스",
+     "priceAfter": 33870000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "프레스티지",
+     "priceAfter": 34360000
+    },
+    {
+     "fuel": "1.6 가솔린 터보",
+     "trim": "시그니처",
+     "priceAfter": 35570000
+    },
+    {
+     "fuel": "1.6 가솔린 터보",
+     "trim": "X-Line",
+     "priceAfter": 36220000
+    },
+    {
+     "fuel": "2.0 LPG",
+     "trim": "시그니처",
+     "priceAfter": 36220000
+    },
+    {
+     "fuel": "2.0 LPG",
+     "trim": "X-Line",
+     "priceAfter": 36870000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "노블레스",
+     "priceAfter": 38030000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "시그니처",
+     "priceAfter": 40380000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "X-Line",
+     "priceAfter": 41030000
+    }
+   ],
+   "optionCatalog": [
+    {
+     "name": "전자식",
+     "price": 2230000
+    },
+    {
+     "name": "파노라마",
+     "price": 1190000
+    },
+    {
+     "name": "옵션8",
+     "price": 1140000
+    },
+    {
+     "name": "옵션9",
+     "price": 1140000
+    },
+    {
+     "name": "옵션4",
+     "price": 1040000
+    },
+    {
+     "name": "옵션3",
+     "price": 1040000
+    },
+    {
+     "name": "드라이브",
+     "price": 910000
+    },
+    {
+     "name": "옵션2",
+     "price": 890000
+    },
+    {
+     "name": "옵션1",
+     "price": 890000
+    },
+    {
+     "name": "옵션6",
+     "price": 640000
+    },
+    {
+     "name": "옵션5",
+     "price": 640000
+    },
+    {
+     "name": "KRELL 사운드",
+     "price": 590000
+    },
+    {
+     "name": "헤드업",
+     "price": 590000
+    },
+    {
+     "name": "옵션7",
+     "price": 450000
+    },
+    {
+     "name": "19인치",
+     "price": 250000
+    }
+   ],
+   "optionSource": "new_car_trim",
+   "minMax": {
+    "min": 29440000,
+    "minConfig": "최저 트림 「1.6 가솔린 터보 프레스티지」 세제후",
+    "topTrimPrice": 41030000,
+    "topTrimConfig": "최고 트림 「하이브리드 X-Line」 옵션 전",
+    "maxNote": "★현대·기아는 트림계층이라 «모델 단일 max»를 산정하지 않는다(코덱스 검증: 옵션초집합 단순합은 특장·상호배제·기본포함·구형 옵션까지 더해 과대). 실제 최고가 = 견적기가 «선택 트림 가격 + 그 트림에 적용 가능한 옵션»으로 계산. optionCatalog 는 모델에서 살 수 있는 옵션 카탈로그(트림별 적용성은 견적기가 판단)."
+   }
+  },
+  {
+   "maker": "현대",
+   "sub_model": "넥쏘",
+   "trimCount": 3,
+   "trimLadder": [
+    {
+     "fuel": "수소전기",
+     "trim": "모던",
+     "priceAfter": 76470532
+    },
+    {
+     "fuel": "수소전기",
+     "trim": "익스클루시브",
+     "priceAfter": 79369771
+    },
+    {
+     "fuel": "수소전기",
+     "trim": "프레스티지",
+     "priceAfter": 83789923
+    }
+   ],
+   "optionCatalog": [
+    {
+     "name": "와이드 선루프 + 루프랙",
+     "price": 790000
+    },
+    {
+     "name": "19인치 알로이 휠 & 미쉐린 타이어",
+     "price": 250000
+    }
+   ],
+   "optionSource": "현대 공식 PDF",
+   "minMax": {
+    "min": 76470532,
+    "minConfig": "최저 트림 「수소전기 모던」 세제후",
+    "topTrimPrice": 83789923,
+    "topTrimConfig": "최고 트림 「수소전기 프레스티지」 옵션 전",
+    "maxNote": "★현대·기아는 트림계층이라 «모델 단일 max»를 산정하지 않는다(코덱스 검증: 옵션초집합 단순합은 특장·상호배제·기본포함·구형 옵션까지 더해 과대). 실제 최고가 = 견적기가 «선택 트림 가격 + 그 트림에 적용 가능한 옵션»으로 계산. optionCatalog 는 모델에서 살 수 있는 옵션 카탈로그(트림별 적용성은 견적기가 판단)."
+   }
+  },
+  {
+   "maker": "현대",
+   "sub_model": "더 뉴 그랜저",
+   "trimCount": 11,
+   "trimLadder": [
+    {
+     "fuel": "가솔린 2.5",
+     "trim": "프리미엄",
+     "priceAfter": 42450000
+    },
+    {
+     "fuel": "LPi 3.5",
+     "trim": "프리미엄",
+     "priceAfter": 43930000
+    },
+    {
+     "fuel": "가솔린 3.5",
+     "trim": "프리미엄",
+     "priceAfter": 44910000
+    },
+    {
+     "fuel": "가솔린 2.5",
+     "trim": "익스클루시브",
+     "priceAfter": 46940000
+    },
+    {
+     "fuel": "하이브리드 1.6T",
+     "trim": "프리미엄",
+     "priceAfter": 48328999
+    },
+    {
+     "fuel": "LPi 3.5",
+     "trim": "익스클루시브",
+     "priceAfter": 48420000
+    },
+    {
+     "fuel": "가솔린 3.5",
+     "trim": "익스클루시브",
+     "priceAfter": 49410000
+    },
+    {
+     "fuel": "하이브리드 1.6T",
+     "trim": "익스클루시브",
+     "priceAfter": 52819000
+    },
+    {
+     "fuel": "가솔린 2.5",
+     "trim": "캘리그래피",
+     "priceAfter": 53100000
+    },
+    {
+     "fuel": "가솔린 3.5",
+     "trim": "캘리그래피",
+     "priceAfter": 55570000
+    },
+    {
+     "fuel": "하이브리드 1.6T",
+     "trim": "캘리그래피",
+     "priceAfter": 58989000
+    }
+   ],
+   "optionCatalog": [
+    {
+     "name": "르블랑 퍼포먼스",
+     "price": 3950000
+    },
+    {
+     "name": "가솔린 3.3 + 랙구동형 전동식 파워 스티어링",
+     "price": 2900000
+    },
+    {
+     "name": "플래티넘 플러스(빌트인 캠 포함)",
+     "price": 1460000
+    },
+    {
+     "name": "플래티넘 플러스 (빌트인 캠 포함)",
+     "price": 1460000
+    },
+    {
+     "name": "파노라마 선루프",
+     "price": 1100000
+    },
+    {
+     "name": "현대 스마트센스",
+     "price": 1050000
+    },
+    {
+     "name": "파킹 어시스트 플러스",
+     "price": 1050000
+    },
+    {
+     "name": "디자인 플러스",
+     "price": 1050000
+    },
+    {
+     "name": "헤드업 디스플레이",
+     "price": 1000000
+    },
+    {
+     "name": "현대 스마트센스Ⅰ",
+     "price": 990000
+    },
+    {
+     "name": "멀티미디어 내비 플러스Ⅰ",
+     "price": 890000
+    },
+    {
+     "name": "인테리어 디자인",
+     "price": 800000
+    },
+    {
+     "name": "현대 스마트센스Ⅱ",
+     "price": 800000
+    },
+    {
+     "name": "프리미엄 초이스",
+     "price": 750000
+    },
+    {
+     "name": "빌트인 캠 플러스",
+     "price": 750000
+    },
+    {
+     "name": "JBL 프리미엄 사운드 시스템",
+     "price": 700000
+    },
+    {
+     "name": "빌트인 캠(보조배터리 포함)",
+     "price": 650000
+    },
+    {
+     "name": "컴포트 II",
+     "price": 610000
+    },
+    {
+     "name": "18인치 알로이 휠 & 타이어",
+     "price": 230000
+    }
+   ],
+   "optionSource": "현대 공식 PDF",
+   "minMax": {
+    "min": 42450000,
+    "minConfig": "최저 트림 「가솔린 2.5 프리미엄」 세제후",
+    "topTrimPrice": 58989000,
+    "topTrimConfig": "최고 트림 「하이브리드 1.6T 캘리그래피」 옵션 전",
+    "maxNote": "★현대·기아는 트림계층이라 «모델 단일 max»를 산정하지 않는다(코덱스 검증: 옵션초집합 단순합은 특장·상호배제·기본포함·구형 옵션까지 더해 과대). 실제 최고가 = 견적기가 «선택 트림 가격 + 그 트림에 적용 가능한 옵션»으로 계산. optionCatalog 는 모델에서 살 수 있는 옵션 카탈로그(트림별 적용성은 견적기가 판단)."
+   }
+  },
+  {
+   "maker": "현대",
+   "sub_model": "더 뉴 그랜저 택시",
+   "trimCount": 1,
+   "trimLadder": [
+    {
+     "fuel": "LPi 3.5",
+     "trim": "고급형",
+     "priceAfter": 42170000
+    }
+   ],
+   "optionCatalog": [
+    {
+     "name": "르블랑 퍼포먼스",
+     "price": 3950000
+    },
+    {
+     "name": "가솔린 3.3 + 랙구동형 전동식 파워 스티어링",
+     "price": 2900000
+    },
+    {
+     "name": "플래티넘 플러스(빌트인 캠 포함)",
+     "price": 1460000
+    },
+    {
+     "name": "플래티넘 플러스 (빌트인 캠 포함)",
+     "price": 1460000
+    },
+    {
+     "name": "파노라마 선루프",
+     "price": 1100000
+    },
+    {
+     "name": "현대 스마트센스",
+     "price": 1050000
+    },
+    {
+     "name": "파킹 어시스트 플러스",
+     "price": 1050000
+    },
+    {
+     "name": "디자인 플러스",
+     "price": 1050000
+    },
+    {
+     "name": "헤드업 디스플레이",
+     "price": 1000000
+    },
+    {
+     "name": "현대 스마트센스Ⅰ",
+     "price": 990000
+    },
+    {
+     "name": "멀티미디어 내비 플러스Ⅰ",
+     "price": 890000
+    },
+    {
+     "name": "인테리어 디자인",
+     "price": 800000
+    },
+    {
+     "name": "현대 스마트센스Ⅱ",
+     "price": 800000
+    },
+    {
+     "name": "프리미엄 초이스",
+     "price": 750000
+    },
+    {
+     "name": "빌트인 캠 플러스",
+     "price": 750000
+    },
+    {
+     "name": "JBL 프리미엄 사운드 시스템",
+     "price": 700000
+    },
+    {
+     "name": "빌트인 캠(보조배터리 포함)",
+     "price": 650000
+    },
+    {
+     "name": "컴포트 II",
+     "price": 610000
+    },
+    {
+     "name": "18인치 알로이 휠 & 타이어",
+     "price": 230000
+    }
+   ],
+   "optionSource": "현대 공식 PDF",
+   "minMax": {
+    "min": 42170000,
+    "minConfig": "최저 트림 「LPi 3.5 고급형」 세제후",
+    "topTrimPrice": 42170000,
+    "topTrimConfig": "최고 트림 「LPi 3.5 고급형」 옵션 전",
+    "maxNote": "★현대·기아는 트림계층이라 «모델 단일 max»를 산정하지 않는다(코덱스 검증: 옵션초집합 단순합은 특장·상호배제·기본포함·구형 옵션까지 더해 과대). 실제 최고가 = 견적기가 «선택 트림 가격 + 그 트림에 적용 가능한 옵션»으로 계산. optionCatalog 는 모델에서 살 수 있는 옵션 카탈로그(트림별 적용성은 견적기가 판단)."
+   }
+  },
+  {
+   "maker": "현대",
+   "sub_model": "더 뉴 스타리아",
+   "trimCount": 17,
+   "trimLadder": [
+    {
+     "fuel": "LPG 3.5",
+     "trim": "Smart",
+     "priceAfter": 32590000
+    },
+    {
+     "fuel": "LPG 3.5",
+     "trim": "Smart(센터콘솔)",
+     "priceAfter": 33460000
+    },
+    {
+     "fuel": "LPG 3.5",
+     "trim": "Modern",
+     "priceAfter": 34120000
+    },
+    {
+     "fuel": "LPG 3.5",
+     "trim": "Modern",
+     "priceAfter": 34900000
+    },
+    {
+     "fuel": "LPG 3.5",
+     "trim": "Smart",
+     "priceAfter": 35020000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "Smart(센터콘솔)",
+     "priceAfter": 36250000
+    },
+    {
+     "fuel": "LPG 3.5",
+     "trim": "Modern",
+     "priceAfter": 36590000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "Smart(센터콘솔)",
+     "priceAfter": 36990000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "Modern",
+     "priceAfter": 37450000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "Modern",
+     "priceAfter": 38200000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "Smart",
+     "priceAfter": 38700000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "Smart",
+     "priceAfter": 38760000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "Modern",
+     "priceAfter": 39990000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "Modern",
+     "priceAfter": 39990000
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "Modern",
+     "priceAfter": 57920000
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "Modern",
+     "priceAfter": 58700000
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "Modern",
+     "priceAfter": 60290000
+    }
+   ],
+   "optionCatalog": [
+    {
+     "name": "구급 패키지Ⅲ",
+     "price": 10290000
+    },
+    {
+     "name": "소방 패키지Ⅲ",
+     "price": 9570000
+    },
+    {
+     "name": "전동 회전시트",
+     "price": 7430000
+    },
+    {
+     "name": "구급 패키지Ⅱ",
+     "price": 5680000
+    },
+    {
+     "name": "소방 패키지Ⅰ",
+     "price": 4460000
+    },
+    {
+     "name": "소방 패키지Ⅱ",
+     "price": 3990000
+    },
+    {
+     "name": "구급 패키지Ⅰ",
+     "price": 3800000
+    },
+    {
+     "name": "헤드앤 백레스트",
+     "price": 2510000
+    },
+    {
+     "name": "HTRAC",
+     "price": 1950000
+    },
+    {
+     "name": "테크Ⅰ",
+     "price": 1350000
+    },
+    {
+     "name": "H Genuine Accessories",
+     "price": 1270000
+    },
+    {
+     "name": "테크Ⅱ",
+     "price": 1250000
+    },
+    {
+     "name": "컴포트(5인승)",
+     "price": 1100000
+    },
+    {
+     "name": "테크",
+     "price": 1100000
+    },
+    {
+     "name": "듀얼 와이드 선루프 + LED 실내등",
+     "price": 900000
+    },
+    {
+     "name": "컴포트(3인승)",
+     "price": 850000
+    },
+    {
+     "name": "멀티미디어 라이트",
+     "price": 750000
+    },
+    {
+     "name": "컴포트",
+     "price": 700000
+    },
+    {
+     "name": "트윈 스윙 도어",
+     "price": 400000
+    },
+    {
+     "name": "윈도우 밴(3인승)",
+     "price": 300000
+    },
+    {
+     "name": "구급충전",
+     "price": 250000
+    },
+    {
+     "name": "윈도우 밴(5인승)",
+     "price": 200000
+    }
+   ],
+   "optionSource": "현대 공식 PDF",
+   "minMax": {
+    "min": 32590000,
+    "minConfig": "최저 트림 「LPG 3.5 Smart」 세제후",
+    "topTrimPrice": 60290000,
+    "topTrimConfig": "최고 트림 「전기모터 Modern」 옵션 전",
+    "maxNote": "★현대·기아는 트림계층이라 «모델 단일 max»를 산정하지 않는다(코덱스 검증: 옵션초집합 단순합은 특장·상호배제·기본포함·구형 옵션까지 더해 과대). 실제 최고가 = 견적기가 «선택 트림 가격 + 그 트림에 적용 가능한 옵션»으로 계산. optionCatalog 는 모델에서 살 수 있는 옵션 카탈로그(트림별 적용성은 견적기가 판단)."
+   }
+  },
+  {
+   "maker": "현대",
+   "sub_model": "더 뉴 스타리아 라운지",
+   "trimCount": 7,
+   "trimLadder": [
+    {
+     "fuel": "하이브리드",
+     "trim": "Prestige",
+     "priceAfter": 44990000
+    },
+    {
+     "fuel": "LPG 3.5",
+     "trim": "Inspiration",
+     "priceAfter": 47720000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "Inspiration",
+     "priceAfter": 48760000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "Inspiration",
+     "priceAfter": 50920000
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "Prestige",
+     "priceAfter": 63593156
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "Prestige",
+     "priceAfter": 65490000
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "Inspiration",
+     "priceAfter": 67309885
+    }
+   ],
+   "optionCatalog": [
+    {
+     "name": "구급 패키지Ⅲ",
+     "price": 10290000
+    },
+    {
+     "name": "소방 패키지Ⅲ",
+     "price": 9570000
+    },
+    {
+     "name": "전동 회전시트",
+     "price": 7430000
+    },
+    {
+     "name": "구급 패키지Ⅱ",
+     "price": 5680000
+    },
+    {
+     "name": "소방 패키지Ⅰ",
+     "price": 4460000
+    },
+    {
+     "name": "소방 패키지Ⅱ",
+     "price": 3990000
+    },
+    {
+     "name": "구급 패키지Ⅰ",
+     "price": 3800000
+    },
+    {
+     "name": "헤드앤 백레스트",
+     "price": 2510000
+    },
+    {
+     "name": "HTRAC",
+     "price": 1950000
+    },
+    {
+     "name": "테크Ⅰ",
+     "price": 1350000
+    },
+    {
+     "name": "H Genuine Accessories",
+     "price": 1270000
+    },
+    {
+     "name": "테크Ⅱ",
+     "price": 1250000
+    },
+    {
+     "name": "컴포트(5인승)",
+     "price": 1100000
+    },
+    {
+     "name": "테크",
+     "price": 1100000
+    },
+    {
+     "name": "듀얼 와이드 선루프 + LED 실내등",
+     "price": 900000
+    },
+    {
+     "name": "컴포트(3인승)",
+     "price": 850000
+    },
+    {
+     "name": "멀티미디어 라이트",
+     "price": 750000
+    },
+    {
+     "name": "컴포트",
+     "price": 700000
+    },
+    {
+     "name": "트윈 스윙 도어",
+     "price": 400000
+    },
+    {
+     "name": "윈도우 밴(3인승)",
+     "price": 300000
+    },
+    {
+     "name": "구급충전",
+     "price": 250000
+    },
+    {
+     "name": "윈도우 밴(5인승)",
+     "price": 200000
+    }
+   ],
+   "optionSource": "현대 공식 PDF",
+   "minMax": {
+    "min": 44990000,
+    "minConfig": "최저 트림 「하이브리드 Prestige」 세제후",
+    "topTrimPrice": 67309885,
+    "topTrimConfig": "최고 트림 「전기모터 Inspiration」 옵션 전",
+    "maxNote": "★현대·기아는 트림계층이라 «모델 단일 max»를 산정하지 않는다(코덱스 검증: 옵션초집합 단순합은 특장·상호배제·기본포함·구형 옵션까지 더해 과대). 실제 최고가 = 견적기가 «선택 트림 가격 + 그 트림에 적용 가능한 옵션»으로 계산. optionCatalog 는 모델에서 살 수 있는 옵션 카탈로그(트림별 적용성은 견적기가 판단)."
+   }
+  },
+  {
+   "maker": "현대",
+   "sub_model": "더 뉴 스타리아 라운지 모빌리티",
+   "trimCount": 3,
+   "trimLadder": [
+    {
+     "fuel": "LPG 3.5",
+     "trim": "모빌리티",
+     "priceAfter": 44670000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "모빌리티",
+     "priceAfter": 47060000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "모빌리티",
+     "priceAfter": 47870000
+    }
+   ],
+   "optionCatalog": [
+    {
+     "name": "구급 패키지Ⅲ",
+     "price": 10290000
+    },
+    {
+     "name": "소방 패키지Ⅲ",
+     "price": 9570000
+    },
+    {
+     "name": "전동 회전시트",
+     "price": 7430000
+    },
+    {
+     "name": "구급 패키지Ⅱ",
+     "price": 5680000
+    },
+    {
+     "name": "소방 패키지Ⅰ",
+     "price": 4460000
+    },
+    {
+     "name": "소방 패키지Ⅱ",
+     "price": 3990000
+    },
+    {
+     "name": "구급 패키지Ⅰ",
+     "price": 3800000
+    },
+    {
+     "name": "헤드앤 백레스트",
+     "price": 2510000
+    },
+    {
+     "name": "HTRAC",
+     "price": 1950000
+    },
+    {
+     "name": "테크Ⅰ",
+     "price": 1350000
+    },
+    {
+     "name": "H Genuine Accessories",
+     "price": 1270000
+    },
+    {
+     "name": "테크Ⅱ",
+     "price": 1250000
+    },
+    {
+     "name": "컴포트(5인승)",
+     "price": 1100000
+    },
+    {
+     "name": "테크",
+     "price": 1100000
+    },
+    {
+     "name": "듀얼 와이드 선루프 + LED 실내등",
+     "price": 900000
+    },
+    {
+     "name": "컴포트(3인승)",
+     "price": 850000
+    },
+    {
+     "name": "멀티미디어 라이트",
+     "price": 750000
+    },
+    {
+     "name": "컴포트",
+     "price": 700000
+    },
+    {
+     "name": "트윈 스윙 도어",
+     "price": 400000
+    },
+    {
+     "name": "윈도우 밴(3인승)",
+     "price": 300000
+    },
+    {
+     "name": "구급충전",
+     "price": 250000
+    },
+    {
+     "name": "윈도우 밴(5인승)",
+     "price": 200000
+    }
+   ],
+   "optionSource": "현대 공식 PDF",
+   "minMax": {
+    "min": 44670000,
+    "minConfig": "최저 트림 「LPG 3.5 모빌리티」 세제후",
+    "topTrimPrice": 47870000,
+    "topTrimConfig": "최고 트림 「하이브리드 모빌리티」 옵션 전",
+    "maxNote": "★현대·기아는 트림계층이라 «모델 단일 max»를 산정하지 않는다(코덱스 검증: 옵션초집합 단순합은 특장·상호배제·기본포함·구형 옵션까지 더해 과대). 실제 최고가 = 견적기가 «선택 트림 가격 + 그 트림에 적용 가능한 옵션»으로 계산. optionCatalog 는 모델에서 살 수 있는 옵션 카탈로그(트림별 적용성은 견적기가 판단)."
+   }
+  },
+  {
+   "maker": "현대",
+   "sub_model": "더 뉴 스타리아 리무진",
+   "trimCount": 3,
+   "trimLadder": [
+    {
+     "fuel": "하이브리드",
+     "trim": "Inspiration",
+     "priceAfter": 59800000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "Inspiration",
+     "priceAfter": 70060000
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "Inspiration",
+     "priceAfter": 84820000
+    }
+   ],
+   "optionCatalog": [
+    {
+     "name": "구급 패키지Ⅲ",
+     "price": 10290000
+    },
+    {
+     "name": "소방 패키지Ⅲ",
+     "price": 9570000
+    },
+    {
+     "name": "전동 회전시트",
+     "price": 7430000
+    },
+    {
+     "name": "구급 패키지Ⅱ",
+     "price": 5680000
+    },
+    {
+     "name": "소방 패키지Ⅰ",
+     "price": 4460000
+    },
+    {
+     "name": "소방 패키지Ⅱ",
+     "price": 3990000
+    },
+    {
+     "name": "구급 패키지Ⅰ",
+     "price": 3800000
+    },
+    {
+     "name": "헤드앤 백레스트",
+     "price": 2510000
+    },
+    {
+     "name": "HTRAC",
+     "price": 1950000
+    },
+    {
+     "name": "테크Ⅰ",
+     "price": 1350000
+    },
+    {
+     "name": "H Genuine Accessories",
+     "price": 1270000
+    },
+    {
+     "name": "테크Ⅱ",
+     "price": 1250000
+    },
+    {
+     "name": "컴포트(5인승)",
+     "price": 1100000
+    },
+    {
+     "name": "테크",
+     "price": 1100000
+    },
+    {
+     "name": "듀얼 와이드 선루프 + LED 실내등",
+     "price": 900000
+    },
+    {
+     "name": "컴포트(3인승)",
+     "price": 850000
+    },
+    {
+     "name": "멀티미디어 라이트",
+     "price": 750000
+    },
+    {
+     "name": "컴포트",
+     "price": 700000
+    },
+    {
+     "name": "트윈 스윙 도어",
+     "price": 400000
+    },
+    {
+     "name": "윈도우 밴(3인승)",
+     "price": 300000
+    },
+    {
+     "name": "구급충전",
+     "price": 250000
+    },
+    {
+     "name": "윈도우 밴(5인승)",
+     "price": 200000
+    }
+   ],
+   "optionSource": "현대 공식 PDF",
+   "minMax": {
+    "min": 59800000,
+    "minConfig": "최저 트림 「하이브리드 Inspiration」 세제후",
+    "topTrimPrice": 84820000,
+    "topTrimConfig": "최고 트림 「전기모터 Inspiration」 옵션 전",
+    "maxNote": "★현대·기아는 트림계층이라 «모델 단일 max»를 산정하지 않는다(코덱스 검증: 옵션초집합 단순합은 특장·상호배제·기본포함·구형 옵션까지 더해 과대). 실제 최고가 = 견적기가 «선택 트림 가격 + 그 트림에 적용 가능한 옵션»으로 계산. optionCatalog 는 모델에서 살 수 있는 옵션 카탈로그(트림별 적용성은 견적기가 판단)."
+   }
+  },
+  {
+   "maker": "현대",
+   "sub_model": "더 뉴 스타리아 킨더",
+   "trimCount": 4,
+   "trimLadder": [
+    {
+     "fuel": "LPG 3.5",
+     "trim": "Modern",
+     "priceAfter": 41660000
+    },
+    {
+     "fuel": "LPG 3.5",
+     "trim": "Modern",
+     "priceAfter": 44530000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "Modern",
+     "priceAfter": 45060000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "Modern",
+     "priceAfter": 47930000
+    }
+   ],
+   "optionCatalog": [
+    {
+     "name": "구급 패키지Ⅲ",
+     "price": 10290000
+    },
+    {
+     "name": "소방 패키지Ⅲ",
+     "price": 9570000
+    },
+    {
+     "name": "전동 회전시트",
+     "price": 7430000
+    },
+    {
+     "name": "구급 패키지Ⅱ",
+     "price": 5680000
+    },
+    {
+     "name": "소방 패키지Ⅰ",
+     "price": 4460000
+    },
+    {
+     "name": "소방 패키지Ⅱ",
+     "price": 3990000
+    },
+    {
+     "name": "구급 패키지Ⅰ",
+     "price": 3800000
+    },
+    {
+     "name": "헤드앤 백레스트",
+     "price": 2510000
+    },
+    {
+     "name": "HTRAC",
+     "price": 1950000
+    },
+    {
+     "name": "테크Ⅰ",
+     "price": 1350000
+    },
+    {
+     "name": "H Genuine Accessories",
+     "price": 1270000
+    },
+    {
+     "name": "테크Ⅱ",
+     "price": 1250000
+    },
+    {
+     "name": "컴포트(5인승)",
+     "price": 1100000
+    },
+    {
+     "name": "테크",
+     "price": 1100000
+    },
+    {
+     "name": "듀얼 와이드 선루프 + LED 실내등",
+     "price": 900000
+    },
+    {
+     "name": "컴포트(3인승)",
+     "price": 850000
+    },
+    {
+     "name": "멀티미디어 라이트",
+     "price": 750000
+    },
+    {
+     "name": "컴포트",
+     "price": 700000
+    },
+    {
+     "name": "트윈 스윙 도어",
+     "price": 400000
+    },
+    {
+     "name": "윈도우 밴(3인승)",
+     "price": 300000
+    },
+    {
+     "name": "구급충전",
+     "price": 250000
+    },
+    {
+     "name": "윈도우 밴(5인승)",
+     "price": 200000
+    }
+   ],
+   "optionSource": "현대 공식 PDF",
+   "minMax": {
+    "min": 41660000,
+    "minConfig": "최저 트림 「LPG 3.5 Modern」 세제후",
+    "topTrimPrice": 47930000,
+    "topTrimConfig": "최고 트림 「하이브리드 Modern」 옵션 전",
+    "maxNote": "★현대·기아는 트림계층이라 «모델 단일 max»를 산정하지 않는다(코덱스 검증: 옵션초집합 단순합은 특장·상호배제·기본포함·구형 옵션까지 더해 과대). 실제 최고가 = 견적기가 «선택 트림 가격 + 그 트림에 적용 가능한 옵션»으로 계산. optionCatalog 는 모델에서 살 수 있는 옵션 카탈로그(트림별 적용성은 견적기가 판단)."
+   }
+  },
+  {
+   "maker": "현대",
+   "sub_model": "더 뉴 아이오닉 6",
+   "trimCount": 19,
+   "trimLadder": [
+    {
+     "fuel": "전기모터",
+     "trim": "E-Value +(스탠다드) 18인치",
+     "priceAfter": 48564639
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "E-LITE(롱레인지) 18인치",
+     "priceAfter": 50636881
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "Exclusive(스탠다드) 18인치",
+     "priceAfter": 50950570
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "E-LITE(롱레인지) 20인치",
+     "priceAfter": 51197719
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "E-LITE(롱레인지) 18인치",
+     "priceAfter": 52984791
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "E-LITE(롱레인지) 20인치",
+     "priceAfter": 53545627
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "Exclusive(롱레인지) 18인치",
+     "priceAfter": 55152091
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "Prestige(스탠다드) 18인치",
+     "priceAfter": 55532319
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "Exclusive(롱레인지) 20인치",
+     "priceAfter": 55712927
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "N Line Exclusive(롱레인지) 20인치",
+     "priceAfter": 57452472
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "Exclusive(롱레인지) 18인치",
+     "priceAfter": 57499999
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "Exclusive(롱레인지) 20인치",
+     "priceAfter": 58060836
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "Prestige(롱레인지) 18인치",
+     "priceAfter": 59724335
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "N Line Exclusive(롱레인지) 20인치",
+     "priceAfter": 59800380
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "Prestige(롱레인지) 20인치",
+     "priceAfter": 60285171
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "N Line Prestige(롱레인지) 20인치",
+     "priceAfter": 61321293
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "Prestige(롱레인지) 18인치",
+     "priceAfter": 62072243
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "Prestige(롱레인지) 20인치",
+     "priceAfter": 62633079
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "N Line Prestige(롱레인지) 20인치",
+     "priceAfter": 63669201
+    }
+   ],
+   "optionCatalog": [
+    {
+     "name": "HTRAC(전륜모터)",
+     "price": 2470000
+    },
+    {
+     "name": "파킹 어시스트",
+     "price": 1680000
+    },
+    {
+     "name": "현대 스마트센스",
+     "price": 1480000
+    },
+    {
+     "name": "디지털 사이드 미러",
+     "price": 1380000
+    },
+    {
+     "name": "컨비니언스",
+     "price": 720000
+    },
+    {
+     "name": "플래티넘",
+     "price": 710000
+    },
+    {
+     "name": "빌트인 캠(보조배터리 포함)",
+     "price": 690000
+    },
+    {
+     "name": "와이드 선루프",
+     "price": 640000
+    },
+    {
+     "name": "컴포트 플러스",
+     "price": 630000
+    },
+    {
+     "name": "20인치 휠 & 피렐리 타이어",
+     "price": 590000
+    },
+    {
+     "name": "BOSE 프리미엄 사운드",
+     "price": 450000
+    }
+   ],
+   "optionSource": "현대 공식 PDF",
+   "minMax": {
+    "min": 48564639,
+    "minConfig": "최저 트림 「전기모터 E-Value +(스탠다드) 18인치」 세제후",
+    "topTrimPrice": 63669201,
+    "topTrimConfig": "최고 트림 「전기모터 N Line Prestige(롱레인지) 20인치」 옵션 전",
+    "maxNote": "★현대·기아는 트림계층이라 «모델 단일 max»를 산정하지 않는다(코덱스 검증: 옵션초집합 단순합은 특장·상호배제·기본포함·구형 옵션까지 더해 과대). 실제 최고가 = 견적기가 «선택 트림 가격 + 그 트림에 적용 가능한 옵션»으로 계산. optionCatalog 는 모델에서 살 수 있는 옵션 카탈로그(트림별 적용성은 견적기가 판단)."
+   }
+  },
+  {
+   "maker": "현대",
+   "sub_model": "더 뉴 파비스",
+   "trimCount": 12,
+   "trimLadder": [
+    {
+     "fuel": "디젤 6.8",
+     "trim": "프리미엄",
+     "priceAfter": 83090000
+    },
+    {
+     "fuel": "디젤 6.8",
+     "trim": "프리미엄",
+     "priceAfter": 83290000
+    },
+    {
+     "fuel": "디젤 6.8",
+     "trim": "프리미엄",
+     "priceAfter": 84590000
+    },
+    {
+     "fuel": "디젤 6.8",
+     "trim": "프리미엄",
+     "priceAfter": 85890000
+    },
+    {
+     "fuel": "디젤 6.8",
+     "trim": "프리미엄",
+     "priceAfter": 85990000
+    },
+    {
+     "fuel": "디젤 6.8",
+     "trim": "프리미엄",
+     "priceAfter": 86990000
+    },
+    {
+     "fuel": "디젤 6.8",
+     "trim": "프리미엄",
+     "priceAfter": 88390000
+    },
+    {
+     "fuel": "디젤 6.8",
+     "trim": "프리미엄",
+     "priceAfter": 88590000
+    },
+    {
+     "fuel": "디젤 6.8",
+     "trim": "프리미엄",
+     "priceAfter": 89890000
+    },
+    {
+     "fuel": "디젤 6.8",
+     "trim": "프리미엄",
+     "priceAfter": 91190000
+    },
+    {
+     "fuel": "디젤 6.8",
+     "trim": "프리미엄",
+     "priceAfter": 91290000
+    },
+    {
+     "fuel": "디젤 6.8",
+     "trim": "프리미엄",
+     "priceAfter": 92290000
+    }
+   ],
+   "optionCatalog": [],
+   "optionSource": "new_car_trim",
+   "minMax": {
+    "min": 83090000,
+    "minConfig": "최저 트림 「디젤 6.8 프리미엄」 세제후",
+    "topTrimPrice": 92290000,
+    "topTrimConfig": "최고 트림 「디젤 6.8 프리미엄」 옵션 전",
+    "maxNote": "★현대·기아는 트림계층이라 «모델 단일 max»를 산정하지 않는다(코덱스 검증: 옵션초집합 단순합은 특장·상호배제·기본포함·구형 옵션까지 더해 과대). 실제 최고가 = 견적기가 «선택 트림 가격 + 그 트림에 적용 가능한 옵션»으로 계산. optionCatalog 는 모델에서 살 수 있는 옵션 카탈로그(트림별 적용성은 견적기가 판단)."
+   }
+  },
+  {
+   "maker": "현대",
+   "sub_model": "디 올 뉴 아반떼",
+   "trimCount": 6,
+   "trimLadder": [
+    {
+     "fuel": "가솔린",
+     "trim": "모던",
+     "priceAfter": 23980000
+    },
+    {
+     "fuel": "가솔린",
+     "trim": "프리미엄",
+     "priceAfter": 27710000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "모던",
+     "priceAfter": 30420000
+    },
+    {
+     "fuel": "가솔린",
+     "trim": "인스퍼레이션",
+     "priceAfter": 31520000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "프리미엄",
+     "priceAfter": 33610000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "인스퍼레이션",
+     "priceAfter": 36990000
+    }
+   ],
+   "optionCatalog": [
+    {
+     "name": "컴포트 I",
+     "price": 1200000
+    },
+    {
+     "name": "현대 스마트센스 I",
+     "price": 1150000
+    },
+    {
+     "name": "컴포트 II",
+     "price": 1100000
+    },
+    {
+     "name": "컨비니언스 I",
+     "price": 900000
+    },
+    {
+     "name": "현대 스마트센스 II",
+     "price": 850000
+    },
+    {
+     "name": "현대 스마트센스 III",
+     "price": 700000
+    },
+    {
+     "name": "익스테리어 디자인",
+     "price": 700000
+    },
+    {
+     "name": "컨비니언스 II",
+     "price": 650000
+    },
+    {
+     "name": "17인치 알로이 휠 & 타이어 I",
+     "price": 500000
+    },
+    {
+     "name": "선루프",
+     "price": 450000
+    },
+    {
+     "name": "파노라마 디스플레이",
+     "price": 400000
+    },
+    {
+     "name": "17인치 알로이 휠 & 타이어 II",
+     "price": 300000
+    }
+   ],
+   "optionSource": "현대 공식 PDF",
+   "minMax": {
+    "min": 23980000,
+    "minConfig": "최저 트림 「가솔린 모던」 세제후",
+    "topTrimPrice": 36990000,
+    "topTrimConfig": "최고 트림 「하이브리드 인스퍼레이션」 옵션 전",
+    "maxNote": "★현대·기아는 트림계층이라 «모델 단일 max»를 산정하지 않는다(코덱스 검증: 옵션초집합 단순합은 특장·상호배제·기본포함·구형 옵션까지 더해 과대). 실제 최고가 = 견적기가 «선택 트림 가격 + 그 트림에 적용 가능한 옵션»으로 계산. optionCatalog 는 모델에서 살 수 있는 옵션 카탈로그(트림별 적용성은 견적기가 판단)."
+   }
+  },
+  {
+   "maker": "현대",
+   "sub_model": "베뉴",
+   "trimCount": 3,
+   "trimLadder": [
+    {
+     "fuel": "가솔린 1.6",
+     "trim": "Smart",
+     "priceAfter": 19940000
+    },
+    {
+     "fuel": "가솔린 1.6",
+     "trim": "PREMIUM",
+     "priceAfter": 22920000
+    },
+    {
+     "fuel": "가솔린 1.6",
+     "trim": "FLUX",
+     "priceAfter": 24400000
+    }
+   ],
+   "optionCatalog": [
+    {
+     "name": "스타일",
+     "price": 790000
+    },
+    {
+     "name": "모던 초이스Ⅰ",
+     "price": 450000
+    },
+    {
+     "name": "선루프",
+     "price": 400000
+    },
+    {
+     "name": "투톤 컬러 루프",
+     "price": 400000
+    },
+    {
+     "name": "테크",
+     "price": 350000
+    },
+    {
+     "name": "인조가죽 시트 + 1열 열선시트",
+     "price": 250000
+    },
+    {
+     "name": "하이패스",
+     "price": 200000
+    }
+   ],
+   "optionSource": "현대 공식 PDF",
+   "minMax": {
+    "min": 19940000,
+    "minConfig": "최저 트림 「가솔린 1.6 Smart」 세제후",
+    "topTrimPrice": 24400000,
+    "topTrimConfig": "최고 트림 「가솔린 1.6 FLUX」 옵션 전",
+    "maxNote": "★현대·기아는 트림계층이라 «모델 단일 max»를 산정하지 않는다(코덱스 검증: 옵션초집합 단순합은 특장·상호배제·기본포함·구형 옵션까지 더해 과대). 실제 최고가 = 견적기가 «선택 트림 가격 + 그 트림에 적용 가능한 옵션»으로 계산. optionCatalog 는 모델에서 살 수 있는 옵션 카탈로그(트림별 적용성은 견적기가 판단)."
+   }
+  },
+  {
+   "maker": "현대",
+   "sub_model": "싼타페",
+   "trimCount": 48,
+   "trimLadder": [
+    {
+     "fuel": "가솔린 2.5T",
+     "trim": "익스클루시브",
+     "priceAfter": 36570000
+    },
+    {
+     "fuel": "가솔린 2.5T",
+     "trim": "익스클루시브",
+     "priceAfter": 37260000
+    },
+    {
+     "fuel": "가솔린 2.5T",
+     "trim": "익스클루시브",
+     "priceAfter": 37610000
+    },
+    {
+     "fuel": "가솔린 2.5T",
+     "trim": "익스클루시브",
+     "priceAfter": 38800000
+    },
+    {
+     "fuel": "가솔린 2.5T",
+     "trim": "프레스티지",
+     "priceAfter": 39440000
+    },
+    {
+     "fuel": "가솔린 2.5T",
+     "trim": "익스클루시브",
+     "priceAfter": 39490000
+    },
+    {
+     "fuel": "가솔린 2.5T",
+     "trim": "익스클루시브",
+     "priceAfter": 39840000
+    },
+    {
+     "fuel": "가솔린 2.5T",
+     "trim": "프레스티지",
+     "priceAfter": 40130000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "익스클루시브",
+     "priceAfter": 40219000
+    },
+    {
+     "fuel": "가솔린 2.5T",
+     "trim": "프레스티지",
+     "priceAfter": 40480000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "익스클루시브",
+     "priceAfter": 40909000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "익스클루시브",
+     "priceAfter": 41258999
+    },
+    {
+     "fuel": "가솔린 2.5T",
+     "trim": "프레스티지",
+     "priceAfter": 41670000
+    },
+    {
+     "fuel": "가솔린 2.5T",
+     "trim": "H-Pick",
+     "priceAfter": 42090000
+    },
+    {
+     "fuel": "가솔린 2.5T",
+     "trim": "프레스티지",
+     "priceAfter": 42360000
+    },
+    {
+     "fuel": "가솔린 2.5T",
+     "trim": "프레스티지",
+     "priceAfter": 42710000
+    },
+    {
+     "fuel": "가솔린 2.5T",
+     "trim": "H-Pick",
+     "priceAfter": 42780000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "프레스티지",
+     "priceAfter": 43089000
+    },
+    {
+     "fuel": "가솔린 2.5T",
+     "trim": "H-Pick",
+     "priceAfter": 43130000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "익스클루시브",
+     "priceAfter": 43450000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "프레스티지",
+     "priceAfter": 43778999
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "프레스티지",
+     "priceAfter": 44129000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "익스클루시브",
+     "priceAfter": 44140000
+    },
+    {
+     "fuel": "가솔린 2.5T",
+     "trim": "H-Pick",
+     "priceAfter": 44320000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "익스클루시브",
+     "priceAfter": 44490000
+    },
+    {
+     "fuel": "가솔린 2.5T",
+     "trim": "H-Pick",
+     "priceAfter": 45010000
+    },
+    {
+     "fuel": "가솔린 2.5T",
+     "trim": "H-Pick",
+     "priceAfter": 45360000
+    },
+    {
+     "fuel": "가솔린 2.5T",
+     "trim": "캘리그래피",
+     "priceAfter": 45470000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "H-Pick",
+     "priceAfter": 45728998
+    },
+    {
+     "fuel": "가솔린 2.5T",
+     "trim": "캘리그래피",
+     "priceAfter": 46160000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "프레스티지",
+     "priceAfter": 46320000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "H-Pick",
+     "priceAfter": 46419000
+    },
+    {
+     "fuel": "가솔린 2.5T",
+     "trim": "캘리그래피",
+     "priceAfter": 46510000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "H-Pick",
+     "priceAfter": 46768999
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "프레스티지",
+     "priceAfter": 47010000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "프레스티지",
+     "priceAfter": 47360000
+    },
+    {
+     "fuel": "가솔린 2.5T",
+     "trim": "캘리그래피",
+     "priceAfter": 47700000
+    },
+    {
+     "fuel": "가솔린 2.5T",
+     "trim": "캘리그래피",
+     "priceAfter": 48390000
+    },
+    {
+     "fuel": "가솔린 2.5T",
+     "trim": "캘리그래피",
+     "priceAfter": 48740000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "캘리그래피",
+     "priceAfter": 48768999
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "H-Pick",
+     "priceAfter": 48960000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "캘리그래피",
+     "priceAfter": 49458999
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "H-Pick",
+     "priceAfter": 49650000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "캘리그래피",
+     "priceAfter": 49808998
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "H-Pick",
+     "priceAfter": 50000000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "캘리그래피",
+     "priceAfter": 52000000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "캘리그래피",
+     "priceAfter": 52690000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "캘리그래피",
+     "priceAfter": 53040000
+    }
+   ],
+   "optionCatalog": [
+    {
+     "name": "디자인 플러스Ⅰ",
+     "price": 1290000
+    },
+    {
+     "name": "하이테크 플러스",
+     "price": 1240000
+    },
+    {
+     "name": "6인승",
+     "price": 1040000
+    },
+    {
+     "name": "플래티넘Ⅱ",
+     "price": 990000
+    },
+    {
+     "name": "듀얼와이드선루프",
+     "price": 890000
+    },
+    {
+     "name": "현대스마트센스",
+     "price": 790000
+    },
+    {
+     "name": "디자인 플러스Ⅱ",
+     "price": 790000
+    },
+    {
+     "name": "파킹 어시스트 플러스Ⅱ",
+     "price": 790000
+    },
+    {
+     "name": "시트플러스",
+     "price": 740000
+    },
+    {
+     "name": "7인승",
+     "price": 690000
+    },
+    {
+     "name": "BOSE 프리미엄 사운드",
+     "price": 640000
+    },
+    {
+     "name": "헤드업디스플레이",
+     "price": 590000
+    },
+    {
+     "name": "H Genuine Accessories",
+     "price": 490000
+    },
+    {
+     "name": "빌트인 캠 2, 증강현실 내비게이션",
+     "price": 450000
+    },
+    {
+     "name": "플래티넘Ⅰ",
+     "price": 450000
+    },
+    {
+     "name": "동승석 8way 전동시트",
+     "price": 200000
+    }
+   ],
+   "optionSource": "현대 공식 PDF",
+   "minMax": {
+    "min": 36570000,
+    "minConfig": "최저 트림 「가솔린 2.5T 익스클루시브」 세제후",
+    "topTrimPrice": 53040000,
+    "topTrimConfig": "최고 트림 「하이브리드 캘리그래피」 옵션 전",
+    "maxNote": "★현대·기아는 트림계층이라 «모델 단일 max»를 산정하지 않는다(코덱스 검증: 옵션초집합 단순합은 특장·상호배제·기본포함·구형 옵션까지 더해 과대). 실제 최고가 = 견적기가 «선택 트림 가격 + 그 트림에 적용 가능한 옵션»으로 계산. optionCatalog 는 모델에서 살 수 있는 옵션 카탈로그(트림별 적용성은 견적기가 판단)."
+   }
+  },
+  {
+   "maker": "현대",
+   "sub_model": "쏘나타 디 엣지",
+   "trimCount": 17,
+   "trimLadder": [
+    {
+     "fuel": "가솔린 2.0",
+     "trim": "Premium",
+     "priceAfter": 28660000
+    },
+    {
+     "fuel": "가솔린 1.6T-GDi",
+     "trim": "Premium",
+     "priceAfter": 29330000
+    },
+    {
+     "fuel": "LPi 2.0",
+     "trim": "Premium",
+     "priceAfter": 29510000
+    },
+    {
+     "fuel": "가솔린 2.0",
+     "trim": "S",
+     "priceAfter": 29980000
+    },
+    {
+     "fuel": "가솔린 1.6T-GDi",
+     "trim": "S",
+     "priceAfter": 30650000
+    },
+    {
+     "fuel": "가솔린 2.0",
+     "trim": "Exclusive",
+     "priceAfter": 33060000
+    },
+    {
+     "fuel": "하이브리드 2.0",
+     "trim": "Premium",
+     "priceAfter": 33179000
+    },
+    {
+     "fuel": "LPi 2.0",
+     "trim": "Exclusive",
+     "priceAfter": 33560000
+    },
+    {
+     "fuel": "가솔린 1.6T-GDi",
+     "trim": "Exclusive",
+     "priceAfter": 33730000
+    },
+    {
+     "fuel": "하이브리드 2.0",
+     "trim": "S",
+     "priceAfter": 34199000
+    },
+    {
+     "fuel": "가솔린 2.0",
+     "trim": "Inspiration",
+     "priceAfter": 36000000
+    },
+    {
+     "fuel": "LPi 2.0",
+     "trim": "Inspiration",
+     "priceAfter": 36250000
+    },
+    {
+     "fuel": "가솔린 1.6T-GDi",
+     "trim": "Inspiration",
+     "priceAfter": 36660000
+    },
+    {
+     "fuel": "가솔린 1.6 T-GDi(N라인)",
+     "trim": "N Line",
+     "priceAfter": 37260000
+    },
+    {
+     "fuel": "하이브리드 2.0",
+     "trim": "Exclusive",
+     "priceAfter": 37268998
+    },
+    {
+     "fuel": "가솔린 2.5 T-GDi(N라인)",
+     "trim": "N Line",
+     "priceAfter": 39260000
+    },
+    {
+     "fuel": "하이브리드 2.0",
+     "trim": "Inspiration",
+     "priceAfter": 40368999
+    }
+   ],
+   "optionCatalog": [
+    {
+     "name": "플래티넘 플러스",
+     "price": 1560000
+    },
+    {
+     "name": "인포테인먼트 내비 I",
+     "price": 1410000
+    },
+    {
+     "name": "클러스터(12.3인치 컬러 LCD) [400,000]",
+     "price": 1250000
+    },
+    {
+     "name": "파노라마 선루프",
+     "price": 1200000
+    },
+    {
+     "name": "인포테인먼트 내비 II",
+     "price": 1050000
+    },
+    {
+     "name": "스마트 스트림 가솔린 1.6 터보엔진",
+     "price": 830000
+    },
+    {
+     "name": "현대 스마트센스",
+     "price": 750000
+    },
+    {
+     "name": "현대스마트 센스",
+     "price": 700000
+    },
+    {
+     "name": "BOSE 프리미엄 사운드",
+     "price": 650000
+    },
+    {
+     "name": "컨비니언스 Ⅳ",
+     "price": 650000
+    },
+    {
+     "name": "컨비니언스Ⅱ",
+     "price": 600000
+    },
+    {
+     "name": "컴포트 IV",
+     "price": 590000
+    },
+    {
+     "name": "컴포트 I(1열 편의)",
+     "price": 550000
+    },
+    {
+     "name": "컴포트 I (1열 편의)",
+     "price": 550000
+    },
+    {
+     "name": "컴포트 II(2열 편의)",
+     "price": 510000
+    },
+    {
+     "name": "컴포트 II (2열 편의)",
+     "price": 510000
+    },
+    {
+     "name": "스마트스트림 가솔린 1.6터보엔진 전용",
+     "price": 480000
+    },
+    {
+     "name": "컴포트 V",
+     "price": 420000
+    },
+    {
+     "name": "익스테리어 디자인 II",
+     "price": 420000
+    },
+    {
+     "name": "익스테리어 디자인 I",
+     "price": 420000
+    },
+    {
+     "name": "빌트인캠",
+     "price": 400000
+    },
+    {
+     "name": "나파가죽 시트(카멜/그레이지/네이비)",
+     "price": 400000
+    },
+    {
+     "name": "클러스터(12.3인치 컬러 LCD)",
+     "price": 400000
+    },
+    {
+     "name": "빌트인 캠",
+     "price": 400000
+    },
+    {
+     "name": "스마트 초이스",
+     "price": 390000
+    },
+    {
+     "name": "18인치 알로이 휠 & 피렐리 타이어",
+     "price": 350000
+    },
+    {
+     "name": "컨비니언스Ⅲ",
+     "price": 300000
+    },
+    {
+     "name": "컨비니언스 I",
+     "price": 280000
+    },
+    {
+     "name": "컨비니언스 III",
+     "price": 280000
+    },
+    {
+     "name": "하이패스 + ECM 룸미러",
+     "price": 250000
+    },
+    {
+     "name": "18인치 알로이 휠 & 타이어",
+     "price": 250000
+    },
+    {
+     "name": "17인치 알로이 휠 & 타이어",
+     "price": 200000
+    }
+   ],
+   "optionSource": "현대 공식 PDF",
+   "minMax": {
+    "min": 28660000,
+    "minConfig": "최저 트림 「가솔린 2.0 Premium」 세제후",
+    "topTrimPrice": 40368999,
+    "topTrimConfig": "최고 트림 「하이브리드 2.0 Inspiration」 옵션 전",
+    "maxNote": "★현대·기아는 트림계층이라 «모델 단일 max»를 산정하지 않는다(코덱스 검증: 옵션초집합 단순합은 특장·상호배제·기본포함·구형 옵션까지 더해 과대). 실제 최고가 = 견적기가 «선택 트림 가격 + 그 트림에 적용 가능한 옵션»으로 계산. optionCatalog 는 모델에서 살 수 있는 옵션 카탈로그(트림별 적용성은 견적기가 판단)."
+   }
+  },
+  {
+   "maker": "현대",
+   "sub_model": "쏘나타 택시",
+   "trimCount": 1,
+   "trimLadder": [
+    {
+     "fuel": "LPi 2.0",
+     "trim": "모빌리티",
+     "priceAfter": 25950000
+    }
+   ],
+   "optionCatalog": [
+    {
+     "name": "플래티넘 플러스",
+     "price": 1560000
+    },
+    {
+     "name": "인포테인먼트 내비 I",
+     "price": 1410000
+    },
+    {
+     "name": "클러스터(12.3인치 컬러 LCD) [400,000]",
+     "price": 1250000
+    },
+    {
+     "name": "파노라마 선루프",
+     "price": 1200000
+    },
+    {
+     "name": "인포테인먼트 내비 II",
+     "price": 1050000
+    },
+    {
+     "name": "스마트 스트림 가솔린 1.6 터보엔진",
+     "price": 830000
+    },
+    {
+     "name": "현대 스마트센스",
+     "price": 750000
+    },
+    {
+     "name": "현대스마트 센스",
+     "price": 700000
+    },
+    {
+     "name": "BOSE 프리미엄 사운드",
+     "price": 650000
+    },
+    {
+     "name": "컨비니언스 Ⅳ",
+     "price": 650000
+    },
+    {
+     "name": "컨비니언스Ⅱ",
+     "price": 600000
+    },
+    {
+     "name": "컴포트 IV",
+     "price": 590000
+    },
+    {
+     "name": "컴포트 I(1열 편의)",
+     "price": 550000
+    },
+    {
+     "name": "컴포트 I (1열 편의)",
+     "price": 550000
+    },
+    {
+     "name": "컴포트 II(2열 편의)",
+     "price": 510000
+    },
+    {
+     "name": "컴포트 II (2열 편의)",
+     "price": 510000
+    },
+    {
+     "name": "스마트스트림 가솔린 1.6터보엔진 전용",
+     "price": 480000
+    },
+    {
+     "name": "컴포트 V",
+     "price": 420000
+    },
+    {
+     "name": "익스테리어 디자인 II",
+     "price": 420000
+    },
+    {
+     "name": "익스테리어 디자인 I",
+     "price": 420000
+    },
+    {
+     "name": "빌트인캠",
+     "price": 400000
+    },
+    {
+     "name": "나파가죽 시트(카멜/그레이지/네이비)",
+     "price": 400000
+    },
+    {
+     "name": "클러스터(12.3인치 컬러 LCD)",
+     "price": 400000
+    },
+    {
+     "name": "빌트인 캠",
+     "price": 400000
+    },
+    {
+     "name": "스마트 초이스",
+     "price": 390000
+    },
+    {
+     "name": "18인치 알로이 휠 & 피렐리 타이어",
+     "price": 350000
+    },
+    {
+     "name": "컨비니언스Ⅲ",
+     "price": 300000
+    },
+    {
+     "name": "컨비니언스 I",
+     "price": 280000
+    },
+    {
+     "name": "컨비니언스 III",
+     "price": 280000
+    },
+    {
+     "name": "하이패스 + ECM 룸미러",
+     "price": 250000
+    },
+    {
+     "name": "18인치 알로이 휠 & 타이어",
+     "price": 250000
+    },
+    {
+     "name": "17인치 알로이 휠 & 타이어",
+     "price": 200000
+    }
+   ],
+   "optionSource": "현대 공식 PDF",
+   "minMax": {
+    "min": 25950000,
+    "minConfig": "최저 트림 「LPi 2.0 모빌리티」 세제후",
+    "topTrimPrice": 25950000,
+    "topTrimConfig": "최고 트림 「LPi 2.0 모빌리티」 옵션 전",
+    "maxNote": "★현대·기아는 트림계층이라 «모델 단일 max»를 산정하지 않는다(코덱스 검증: 옵션초집합 단순합은 특장·상호배제·기본포함·구형 옵션까지 더해 과대). 실제 최고가 = 견적기가 «선택 트림 가격 + 그 트림에 적용 가능한 옵션»으로 계산. optionCatalog 는 모델에서 살 수 있는 옵션 카탈로그(트림별 적용성은 견적기가 판단)."
+   }
+  },
+  {
+   "maker": "현대",
+   "sub_model": "아반떼 N",
+   "trimCount": 2,
+   "trimLadder": [
+    {
+     "fuel": "가솔린 2.0 터보",
+     "trim": "N",
+     "priceAfter": 33560000
+    },
+    {
+     "fuel": "가솔린 2.0 터보",
+     "trim": "N",
+     "priceAfter": 35640000
+    }
+   ],
+   "optionCatalog": [
+    {
+     "name": "컴포트 I",
+     "price": 1200000
+    },
+    {
+     "name": "현대 스마트센스 I",
+     "price": 1150000
+    },
+    {
+     "name": "컴포트 II",
+     "price": 1100000
+    },
+    {
+     "name": "컨비니언스 I",
+     "price": 900000
+    },
+    {
+     "name": "현대 스마트센스 II",
+     "price": 850000
+    },
+    {
+     "name": "현대 스마트센스 III",
+     "price": 700000
+    },
+    {
+     "name": "익스테리어 디자인",
+     "price": 700000
+    },
+    {
+     "name": "컨비니언스 II",
+     "price": 650000
+    },
+    {
+     "name": "17인치 알로이 휠 & 타이어 I",
+     "price": 500000
+    },
+    {
+     "name": "선루프",
+     "price": 450000
+    },
+    {
+     "name": "파노라마 디스플레이",
+     "price": 400000
+    },
+    {
+     "name": "17인치 알로이 휠 & 타이어 II",
+     "price": 300000
+    }
+   ],
+   "optionSource": "현대 공식 PDF",
+   "minMax": {
+    "min": 33560000,
+    "minConfig": "최저 트림 「가솔린 2.0 터보 N」 세제후",
+    "topTrimPrice": 35640000,
+    "topTrimConfig": "최고 트림 「가솔린 2.0 터보 N」 옵션 전",
+    "maxNote": "★현대·기아는 트림계층이라 «모델 단일 max»를 산정하지 않는다(코덱스 검증: 옵션초집합 단순합은 특장·상호배제·기본포함·구형 옵션까지 더해 과대). 실제 최고가 = 견적기가 «선택 트림 가격 + 그 트림에 적용 가능한 옵션»으로 계산. optionCatalog 는 모델에서 살 수 있는 옵션 카탈로그(트림별 적용성은 견적기가 판단)."
+   }
+  },
+  {
+   "maker": "현대",
+   "sub_model": "아이오닉 5",
+   "trimCount": 15,
+   "trimLadder": [
+    {
+     "fuel": "전기차",
+     "trim": "E-Value +(스탠다드) 19인치",
+     "priceAfter": 47347908
+    },
+    {
+     "fuel": "전기차",
+     "trim": "E-Lite(롱레인지) 19인치",
+     "priceAfter": 50636881
+    },
+    {
+     "fuel": "전기차",
+     "trim": "모던(롱레인지) 19인치",
+     "priceAfter": 52899239
+    },
+    {
+     "fuel": "전기차",
+     "trim": "E-Lite(롱레인지) 19인치",
+     "priceAfter": 52984791
+    },
+    {
+     "fuel": "전기차",
+     "trim": "모던(롱레인지) 19인치",
+     "priceAfter": 55247148
+    },
+    {
+     "fuel": "전기차",
+     "trim": "프리미엄(롱레인지) 19인치",
+     "priceAfter": 58241444
+    },
+    {
+     "fuel": "전기차",
+     "trim": "프리미엄(롱레인지) 20인치",
+     "priceAfter": 58707224
+    },
+    {
+     "fuel": "전기차",
+     "trim": "N LINE(롱레인지) 20인치",
+     "priceAfter": 59448669
+    },
+    {
+     "fuel": "전기차",
+     "trim": "프리미엄(롱레인지) 19인치",
+     "priceAfter": 60589354
+    },
+    {
+     "fuel": "전기차",
+     "trim": "프리미엄(롱레인지) 20인치",
+     "priceAfter": 61055132
+    },
+    {
+     "fuel": "전기차",
+     "trim": "인스퍼레이션(롱레인지) 19인치",
+     "priceAfter": 61283270
+    },
+    {
+     "fuel": "전기차",
+     "trim": "인스퍼레이션(롱레인지) 20인치",
+     "priceAfter": 61749048
+    },
+    {
+     "fuel": "전기차",
+     "trim": "N LINE(롱레인지) 20인치",
+     "priceAfter": 61796577
+    },
+    {
+     "fuel": "전기차",
+     "trim": "인스퍼레이션(롱레인지) 19인치",
+     "priceAfter": 63631178
+    },
+    {
+     "fuel": "전기차",
+     "trim": "인스퍼레이션(롱레인지) 20인치",
+     "priceAfter": 64096958
+    }
+   ],
+   "optionCatalog": [
+    {
+     "name": "HTRAC",
+     "price": 2470000
+    },
+    {
+     "name": "현대 스마트센스",
+     "price": 1530000
+    },
+    {
+     "name": "파킹 어시스트",
+     "price": 1430000
+    },
+    {
+     "name": "디지털 사이드 미러",
+     "price": 1380000
+    },
+    {
+     "name": "컴포트",
+     "price": 890000
+    },
+    {
+     "name": "비전루프",
+     "price": 740000
+    },
+    {
+     "name": "빌트인 캠 (보조배터리 포함)",
+     "price": 690000
+    },
+    {
+     "name": "컴포트 플러스",
+     "price": 590000
+    },
+    {
+     "name": "컴포트(영업용)",
+     "price": 590000
+    },
+    {
+     "name": "20인치 알로이 휠 & 미쉐린 타이어",
+     "price": 490000
+    },
+    {
+     "name": "20인치 알로이 휠 & 미쉘린 타이어",
+     "price": 490000
+    }
+   ],
+   "optionSource": "현대 공식 PDF",
+   "minMax": {
+    "min": 47347908,
+    "minConfig": "최저 트림 「전기차 E-Value +(스탠다드) 19인치」 세제후",
+    "topTrimPrice": 64096958,
+    "topTrimConfig": "최고 트림 「전기차 인스퍼레이션(롱레인지) 20인치」 옵션 전",
+    "maxNote": "★현대·기아는 트림계층이라 «모델 단일 max»를 산정하지 않는다(코덱스 검증: 옵션초집합 단순합은 특장·상호배제·기본포함·구형 옵션까지 더해 과대). 실제 최고가 = 견적기가 «선택 트림 가격 + 그 트림에 적용 가능한 옵션»으로 계산. optionCatalog 는 모델에서 살 수 있는 옵션 카탈로그(트림별 적용성은 견적기가 판단)."
+   }
+  },
+  {
+   "maker": "현대",
+   "sub_model": "아이오닉 5 N",
+   "trimCount": 2,
+   "trimLadder": [
+    {
+     "fuel": "전기모터(N)",
+     "trim": "IONIQ 5 N Essential",
+     "priceAfter": 78790000
+    },
+    {
+     "fuel": "전기모터(N)",
+     "trim": "IONIQ 5 N",
+     "priceAfter": 81420000
+    }
+   ],
+   "optionCatalog": [
+    {
+     "name": "HTRAC",
+     "price": 2470000
+    },
+    {
+     "name": "현대 스마트센스",
+     "price": 1530000
+    },
+    {
+     "name": "파킹 어시스트",
+     "price": 1430000
+    },
+    {
+     "name": "디지털 사이드 미러",
+     "price": 1380000
+    },
+    {
+     "name": "컴포트",
+     "price": 890000
+    },
+    {
+     "name": "비전루프",
+     "price": 740000
+    },
+    {
+     "name": "빌트인 캠 (보조배터리 포함)",
+     "price": 690000
+    },
+    {
+     "name": "컴포트 플러스",
+     "price": 590000
+    },
+    {
+     "name": "컴포트(영업용)",
+     "price": 590000
+    },
+    {
+     "name": "20인치 알로이 휠 & 미쉐린 타이어",
+     "price": 490000
+    },
+    {
+     "name": "20인치 알로이 휠 & 미쉘린 타이어",
+     "price": 490000
+    }
+   ],
+   "optionSource": "현대 공식 PDF",
+   "minMax": {
+    "min": 78790000,
+    "minConfig": "최저 트림 「전기모터(N) IONIQ 5 N Essential」 세제후",
+    "topTrimPrice": 81420000,
+    "topTrimConfig": "최고 트림 「전기모터(N) IONIQ 5 N」 옵션 전",
+    "maxNote": "★현대·기아는 트림계층이라 «모델 단일 max»를 산정하지 않는다(코덱스 검증: 옵션초집합 단순합은 특장·상호배제·기본포함·구형 옵션까지 더해 과대). 실제 최고가 = 견적기가 «선택 트림 가격 + 그 트림에 적용 가능한 옵션»으로 계산. optionCatalog 는 모델에서 살 수 있는 옵션 카탈로그(트림별 적용성은 견적기가 판단)."
+   }
+  },
+  {
+   "maker": "현대",
+   "sub_model": "아이오닉 6 N",
+   "trimCount": 1,
+   "trimLadder": [
+    {
+     "fuel": "전기모터(N)",
+     "trim": "N",
+     "priceAfter": 79904942
+    }
+   ],
+   "optionCatalog": [
+    {
+     "name": "HTRAC(전륜모터)",
+     "price": 2470000
+    },
+    {
+     "name": "파킹 어시스트",
+     "price": 1680000
+    },
+    {
+     "name": "현대 스마트센스",
+     "price": 1480000
+    },
+    {
+     "name": "디지털 사이드 미러",
+     "price": 1380000
+    },
+    {
+     "name": "컨비니언스",
+     "price": 720000
+    },
+    {
+     "name": "플래티넘",
+     "price": 710000
+    },
+    {
+     "name": "빌트인 캠(보조배터리 포함)",
+     "price": 690000
+    },
+    {
+     "name": "와이드 선루프",
+     "price": 640000
+    },
+    {
+     "name": "컴포트 플러스",
+     "price": 630000
+    },
+    {
+     "name": "20인치 휠 & 피렐리 타이어",
+     "price": 590000
+    },
+    {
+     "name": "BOSE 프리미엄 사운드",
+     "price": 450000
+    }
+   ],
+   "optionSource": "현대 공식 PDF",
+   "minMax": {
+    "min": 79904942,
+    "minConfig": "최저 트림 「전기모터(N) N」 세제후",
+    "topTrimPrice": 79904942,
+    "topTrimConfig": "최고 트림 「전기모터(N) N」 옵션 전",
+    "maxNote": "★현대·기아는 트림계층이라 «모델 단일 max»를 산정하지 않는다(코덱스 검증: 옵션초집합 단순합은 특장·상호배제·기본포함·구형 옵션까지 더해 과대). 실제 최고가 = 견적기가 «선택 트림 가격 + 그 트림에 적용 가능한 옵션»으로 계산. optionCatalog 는 모델에서 살 수 있는 옵션 카탈로그(트림별 적용성은 견적기가 판단)."
+   }
+  },
+  {
+   "maker": "현대",
+   "sub_model": "아이오닉 9",
+   "trimCount": 30,
+   "trimLadder": [
+    {
+     "fuel": "전기모터",
+     "trim": "익스클루시브 19인치",
+     "priceAfter": 67585551
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "익스클루시브 19인치",
+     "priceAfter": 68165399
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "익스클루시브 19인치",
+     "priceAfter": 70247148
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "익스클루시브 19인치",
+     "priceAfter": 70826995
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "익스클루시브 19인치",
+     "priceAfter": 71102661
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "익스클루시브 19인치",
+     "priceAfter": 71682509
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "프레스티지 19인치",
+     "priceAfter": 73241445
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "프레스티지 21인치",
+     "priceAfter": 73241445
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "프레스티지 19인치",
+     "priceAfter": 73735741
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "프레스티지 21인치",
+     "priceAfter": 73735741
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "프레스티지 19인치",
+     "priceAfter": 75903041
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "프레스티지 21인치",
+     "priceAfter": 75903041
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "프레스티지 19인치",
+     "priceAfter": 76397338
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "프레스티지 21인치",
+     "priceAfter": 76397338
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "프레스티지 19인치",
+     "priceAfter": 76758555
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "프레스티지 21인치",
+     "priceAfter": 76758555
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "프레스티지 19인치",
+     "priceAfter": 77252851
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "프레스티지 21인치",
+     "priceAfter": 77252851
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "캘리그래피 19인치",
+     "priceAfter": 78108365
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "캘리그래피 21인치",
+     "priceAfter": 78108365
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "캘리그래피 19인치",
+     "priceAfter": 79600760
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "캘리그래피 21인치",
+     "priceAfter": 79600760
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "캘리그래피 19인치",
+     "priceAfter": 80769961
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "캘리그래피 21인치",
+     "priceAfter": 80769961
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "캘리그래피 19인치",
+     "priceAfter": 81625475
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "캘리그래피 21인치",
+     "priceAfter": 81625475
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "캘리그래피 19인치",
+     "priceAfter": 82262357
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "캘리그래피 21인치",
+     "priceAfter": 82262357
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "캘리그래피 19인치",
+     "priceAfter": 83149999
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "캘리그래피 21인치",
+     "priceAfter": 83149999
+    }
+   ],
+   "optionCatalog": [
+    {
+     "name": "HTRACⅡ",
+     "price": 3700000
+    },
+    {
+     "name": "HTRACⅠ",
+     "price": 2800000
+    },
+    {
+     "name": "후석 스마트 엔터테인먼트 시스템",
+     "price": 2770000
+    },
+    {
+     "name": "컴팩트 디지털 사이드 미러",
+     "price": 1380000
+    },
+    {
+     "name": "파킹 어시스트",
+     "price": 1350000
+    },
+    {
+     "name": "1열 릴랙션 컴포트 +",
+     "price": 1300000
+    },
+    {
+     "name": "파노라마 선루프",
+     "price": 1190000
+    },
+    {
+     "name": "플래티넘",
+     "price": 1100000
+    },
+    {
+     "name": "21인치 휠 & 타이어",
+     "price": 1000000
+    },
+    {
+     "name": "2열 프리미엄 릴랙션 시트",
+     "price": 1000000
+    },
+    {
+     "name": "2열 다이내믹 바디케어 시트",
+     "price": 800000
+    },
+    {
+     "name": "컴포트 플러스",
+     "price": 630000
+    },
+    {
+     "name": "빌트인 캠 2",
+     "price": 590000
+    },
+    {
+     "name": "사이드스텝",
+     "price": 450000
+    },
+    {
+     "name": "블랙잉크",
+     "price": 400000
+    }
+   ],
+   "optionSource": "현대 공식 PDF",
+   "minMax": {
+    "min": 67585551,
+    "minConfig": "최저 트림 「전기모터 익스클루시브 19인치」 세제후",
+    "topTrimPrice": 83149999,
+    "topTrimConfig": "최고 트림 「전기모터 캘리그래피 21인치」 옵션 전",
+    "maxNote": "★현대·기아는 트림계층이라 «모델 단일 max»를 산정하지 않는다(코덱스 검증: 옵션초집합 단순합은 특장·상호배제·기본포함·구형 옵션까지 더해 과대). 실제 최고가 = 견적기가 «선택 트림 가격 + 그 트림에 적용 가능한 옵션»으로 계산. optionCatalog 는 모델에서 살 수 있는 옵션 카탈로그(트림별 적용성은 견적기가 판단)."
+   }
+  },
+  {
+   "maker": "현대",
+   "sub_model": "코나",
+   "trimCount": 21,
+   "trimLadder": [
+    {
+     "fuel": "가솔린 2.0",
+     "trim": "Modern",
+     "priceAfter": 23930000
+    },
+    {
+     "fuel": "가솔린 1.6 터보",
+     "trim": "Modern",
+     "priceAfter": 24630000
+    },
+    {
+     "fuel": "가솔린 2.0",
+     "trim": "H-Pick",
+     "priceAfter": 26250000
+    },
+    {
+     "fuel": "가솔린 1.6 터보",
+     "trim": "H-Pick",
+     "priceAfter": 26850000
+    },
+    {
+     "fuel": "가솔린 1.6 터보",
+     "trim": "Premium",
+     "priceAfter": 29150000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "Modern",
+     "priceAfter": 29379000
+    },
+    {
+     "fuel": "가솔린 1.6 터보",
+     "trim": "Premium",
+     "priceAfter": 31180000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "H-Pick",
+     "priceAfter": 31198998
+    },
+    {
+     "fuel": "가솔린 1.6 터보",
+     "trim": "Inspiration",
+     "priceAfter": 31460000
+    },
+    {
+     "fuel": "가솔린 1.6 터보",
+     "trim": "N Line Inspiration",
+     "priceAfter": 32450000
+    },
+    {
+     "fuel": "가솔린 1.6 터보",
+     "trim": "Inspiration",
+     "priceAfter": 33490000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "Premium",
+     "priceAfter": 33669000
+    },
+    {
+     "fuel": "가솔린 1.6 터보",
+     "trim": "N Line Inspiration",
+     "priceAfter": 34480000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "Inspiration",
+     "priceAfter": 35629000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "N Line Inspiration",
+     "priceAfter": 36619000
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "E-Value +",
+     "priceAfter": 41520912
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "Premium",
+     "priceAfter": 43564638
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "Modern plus",
+     "priceAfter": 45655893
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "Premium",
+     "priceAfter": 46568440
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "Inspiration",
+     "priceAfter": 49923954
+    },
+    {
+     "fuel": "전기모터",
+     "trim": "N Line Inspiration",
+     "priceAfter": 50865018
+    }
+   ],
+   "optionCatalog": [
+    {
+     "name": "N Line 디자인 패키지Ⅱ",
+     "price": 1650000
+    },
+    {
+     "name": "스타일Ⅱ",
+     "price": 1150000
+    },
+    {
+     "name": "테크Ⅰ",
+     "price": 1080000
+    },
+    {
+     "name": "현대스마트센스",
+     "price": 1000000
+    },
+    {
+     "name": "파킹어시스트",
+     "price": 1000000
+    },
+    {
+     "name": "N Line 디자인 패키지Ⅳ",
+     "price": 1000000
+    },
+    {
+     "name": "내비게이션Ⅰ",
+     "price": 1000000
+    },
+    {
+     "name": "현대 스마트센스Ⅱ",
+     "price": 1000000
+    },
+    {
+     "name": "스타일Ⅰ",
+     "price": 900000
+    },
+    {
+     "name": "컨비니언스",
+     "price": 600000
+    },
+    {
+     "name": "BOSE 프리미엄 사운드",
+     "price": 600000
+    },
+    {
+     "name": "와이드 선루프",
+     "price": 600000
+    },
+    {
+     "name": "KRELL 프리미엄 사운드",
+     "price": 550000
+    },
+    {
+     "name": "시트 플러스Ⅰ",
+     "price": 530000
+    },
+    {
+     "name": "시트플러스",
+     "price": 500000
+    },
+    {
+     "name": "빌트인 캠 2",
+     "price": 450000
+    },
+    {
+     "name": "선루프",
+     "price": 450000
+    },
+    {
+     "name": "시트 플러스Ⅱ",
+     "price": 420000
+    },
+    {
+     "name": "클러스터(12.3인치 컬러 LCD)",
+     "price": 400000
+    },
+    {
+     "name": "클러스터(10.25인치 컬러 LCD)",
+     "price": 400000
+    },
+    {
+     "name": "헤드업 디스플레이",
+     "price": 400000
+    },
+    {
+     "name": "투톤 컬러 루프",
+     "price": 300000
+    },
+    {
+     "name": "하이패스",
+     "price": 200000
+    },
+    {
+     "name": "실내 컬러 패키지",
+     "price": 200000
+    }
+   ],
+   "optionSource": "현대 공식 PDF",
+   "minMax": {
+    "min": 23930000,
+    "minConfig": "최저 트림 「가솔린 2.0 Modern」 세제후",
+    "topTrimPrice": 50865018,
+    "topTrimConfig": "최고 트림 「전기모터 N Line Inspiration」 옵션 전",
+    "maxNote": "★현대·기아는 트림계층이라 «모델 단일 max»를 산정하지 않는다(코덱스 검증: 옵션초집합 단순합은 특장·상호배제·기본포함·구형 옵션까지 더해 과대). 실제 최고가 = 견적기가 «선택 트림 가격 + 그 트림에 적용 가능한 옵션»으로 계산. optionCatalog 는 모델에서 살 수 있는 옵션 카탈로그(트림별 적용성은 견적기가 판단)."
+   }
+  },
+  {
+   "maker": "현대",
+   "sub_model": "투싼",
+   "trimCount": 20,
+   "trimLadder": [
+    {
+     "fuel": "1.6 가솔린 터보",
+     "trim": "Modern",
+     "priceAfter": 28440000
+    },
+    {
+     "fuel": "1.6 가솔린 터보",
+     "trim": "Modern",
+     "priceAfter": 30420000
+    },
+    {
+     "fuel": "1.6 가솔린 터보",
+     "trim": "Premium",
+     "priceAfter": 31120000
+    },
+    {
+     "fuel": "1.6 가솔린 터보",
+     "trim": "H-Pick",
+     "priceAfter": 32010000
+    },
+    {
+     "fuel": "1.6 가솔린 터보",
+     "trim": "Premium",
+     "priceAfter": 33100000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "Modern",
+     "priceAfter": 33179000
+    },
+    {
+     "fuel": "1.6 가솔린 터보",
+     "trim": "H-Pick",
+     "priceAfter": 33990000
+    },
+    {
+     "fuel": "1.6 가솔린 터보",
+     "trim": "Inspiration",
+     "priceAfter": 34560000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "Modern",
+     "priceAfter": 35409000
+    },
+    {
+     "fuel": "1.6 가솔린 터보",
+     "trim": "N Line",
+     "priceAfter": 35410000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "Premium",
+     "priceAfter": 35648999
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "H-Pick",
+     "priceAfter": 36489000
+    },
+    {
+     "fuel": "1.6 가솔린 터보",
+     "trim": "Inspiration",
+     "priceAfter": 36540000
+    },
+    {
+     "fuel": "1.6 가솔린 터보",
+     "trim": "N Line",
+     "priceAfter": 37390000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "Premium",
+     "priceAfter": 37879000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "H-Pick",
+     "priceAfter": 38719000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "Inspiration",
+     "priceAfter": 39169000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "N Line",
+     "priceAfter": 39819000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "Inspiration",
+     "priceAfter": 41399000
+    },
+    {
+     "fuel": "하이브리드",
+     "trim": "N Line",
+     "priceAfter": 42049001
+    }
+   ],
+   "optionCatalog": [
+    {
+     "name": "플래티넘Ⅱ",
+     "price": 2520000
+    },
+    {
+     "name": "플래티넘Ⅱ(디젤)",
+     "price": 2520000
+    },
+    {
+     "name": "HTRAC(험로주행모드)",
+     "price": 2230000
+    },
+    {
+     "name": "플래티넘Ⅰ(가솔린)",
+     "price": 2230000
+    },
+    {
+     "name": "스마트스트림 디젤 2.0",
+     "price": 2160000
+    },
+    {
+     "name": "스마트스트림 디젤 2.0 엔진",
+     "price": 2160000
+    },
+    {
+     "name": "HTRAC",
+     "price": 1980000
+    },
+    {
+     "name": "플래티넘 IV",
+     "price": 1780000
+    },
+    {
+     "name": "플래티넘 Ⅳ",
+     "price": 1780000
+    },
+    {
+     "name": "플래티넘Ⅳ(디젤)",
+     "price": 1780000
+    },
+    {
+     "name": "플래티넘 Ⅳ(디젤)",
+     "price": 1780000
+    },
+    {
+     "name": "플래티넘Ⅲ(가솔린)",
+     "price": 1480000
+    },
+    {
+     "name": "플래티넘 Ⅲ(가솔린)",
+     "price": 1480000
+    },
+    {
+     "name": "멀티미디어 내비Ⅰ",
+     "price": 1290000
+    },
+    {
+     "name": "파노라마 선루프 + 루프랙",
+     "price": 1240000
+    },
+    {
+     "name": "파노라마 선루프",
+     "price": 1140000
+    },
+    {
+     "name": "컴포트",
+     "price": 1140000
+    },
+    {
+     "name": "익스테리어Ⅰ플러스",
+     "price": 940000
+    },
+    {
+     "name": "현대 스마트센스",
+     "price": 890000
+    },
+    {
+     "name": "익스테리어Ⅰ",
+     "price": 690000
+    },
+    {
+     "name": "익스테리어Ⅱ",
+     "price": 690000
+    },
+    {
+     "name": "빌트인 캠(보조배터리 포함)",
+     "price": 640000
+    },
+    {
+     "name": "인테리어 디자인Ⅱ",
+     "price": 590000
+    },
+    {
+     "name": "컨비니언스",
+     "price": 540000
+    },
+    {
+     "name": "익스테리어Ⅲ",
+     "price": 450000
+    },
+    {
+     "name": "H Genuine Accessories",
+     "price": 340000
+    },
+    {
+     "name": "무광컬러(티타늄 그레이 매트)",
+     "price": 300000
+    },
+    {
+     "name": "인테리어 디자인Ⅰ",
+     "price": 250000
+    },
+    {
+     "name": "미쉐린 타이어",
+     "price": 200000
+    }
+   ],
+   "optionSource": "현대 공식 PDF",
+   "minMax": {
+    "min": 28440000,
+    "minConfig": "최저 트림 「1.6 가솔린 터보 Modern」 세제후",
+    "topTrimPrice": 42049001,
+    "topTrimConfig": "최고 트림 「하이브리드 N Line」 옵션 전",
+    "maxNote": "★현대·기아는 트림계층이라 «모델 단일 max»를 산정하지 않는다(코덱스 검증: 옵션초집합 단순합은 특장·상호배제·기본포함·구형 옵션까지 더해 과대). 실제 최고가 = 견적기가 «선택 트림 가격 + 그 트림에 적용 가능한 옵션»으로 계산. optionCatalog 는 모델에서 살 수 있는 옵션 카탈로그(트림별 적용성은 견적기가 판단)."
+   }
+  },
+  {
+   "maker": "현대",
+   "sub_model": "팰리세이드",
+   "trimCount": 36,
+   "trimLadder": [
+    {
+     "fuel": "가솔린 2.5",
+     "trim": "익스클루시브",
+     "priceAfter": 44780000
+    },
+    {
+     "fuel": "가솔린 2.5",
+     "trim": "익스클루시브",
+     "priceAfter": 46100000
+    },
+    {
+     "fuel": "가솔린 2.5",
+     "trim": "익스클루시브",
+     "priceAfter": 47060000
+    },
+    {
+     "fuel": "가솔린 2.5",
+     "trim": "익스클루시브",
+     "priceAfter": 48500000
+    },
+    {
+     "fuel": "가솔린 2.5",
+     "trim": "H-Pick",
+     "priceAfter": 50400000
+    },
+    {
+     "fuel": "하이브리드 2.5",
+     "trim": "익스클루시브",
+     "priceAfter": 50770000
+    },
+    {
+     "fuel": "하이브리드 2.5",
+     "trim": "익스클루시브",
+     "priceAfter": 51399000
+    },
+    {
+     "fuel": "가솔린 2.5",
+     "trim": "H-Pick",
+     "priceAfter": 52030000
+    },
+    {
+     "fuel": "가솔린 2.5",
+     "trim": "XRT",
+     "priceAfter": 52110000
+    },
+    {
+     "fuel": "가솔린 2.5",
+     "trim": "H-Pick",
+     "priceAfter": 52680000
+    },
+    {
+     "fuel": "하이브리드 2.5",
+     "trim": "익스클루시브",
+     "priceAfter": 53050000
+    },
+    {
+     "fuel": "가솔린 2.5",
+     "trim": "XRT",
+     "priceAfter": 53820000
+    },
+    {
+     "fuel": "가솔린 2.5",
+     "trim": "XRT",
+     "priceAfter": 54390000
+    },
+    {
+     "fuel": "가솔린 2.5",
+     "trim": "H-Pick",
+     "priceAfter": 54430000
+    },
+    {
+     "fuel": "하이브리드 2.5",
+     "trim": "익스클루시브",
+     "priceAfter": 54800000
+    },
+    {
+     "fuel": "가솔린 2.5",
+     "trim": "캘리그래피",
+     "priceAfter": 56060000
+    },
+    {
+     "fuel": "가솔린 2.5",
+     "trim": "XRT",
+     "priceAfter": 56220000
+    },
+    {
+     "fuel": "하이브리드 2.5",
+     "trim": "H-Pick",
+     "priceAfter": 56400000
+    },
+    {
+     "fuel": "가솔린 2.5",
+     "trim": "캘리그래피",
+     "priceAfter": 58070000
+    },
+    {
+     "fuel": "하이브리드 2.5",
+     "trim": "H-Pick",
+     "priceAfter": 58320000
+    },
+    {
+     "fuel": "가솔린 2.5",
+     "trim": "캘리그래피",
+     "priceAfter": 58340000
+    },
+    {
+     "fuel": "하이브리드 2.5",
+     "trim": "H-Pick",
+     "priceAfter": 58680000
+    },
+    {
+     "fuel": "가솔린 2.5",
+     "trim": "캘리그래피",
+     "priceAfter": 60470000
+    },
+    {
+     "fuel": "하이브리드 2.5",
+     "trim": "H-Pick",
+     "priceAfter": 60720000
+    },
+    {
+     "fuel": "하이브리드 2.5",
+     "trim": "캘리그래피",
+     "priceAfter": 62060000
+    },
+    {
+     "fuel": "하이브리드 2.5",
+     "trim": "캘리그래피",
+     "priceAfter": 64340000
+    },
+    {
+     "fuel": "하이브리드 2.5",
+     "trim": "캘리그래피",
+     "priceAfter": 64360000
+    },
+    {
+     "fuel": "하이브리드 2.5",
+     "trim": "캘리그래피",
+     "priceAfter": 66760000
+    },
+    {
+     "fuel": "가솔린 2.5",
+     "trim": "하이루프",
+     "priceAfter": 72440000
+    },
+    {
+     "fuel": "가솔린 2.5",
+     "trim": "하이루프",
+     "priceAfter": 74720000
+    },
+    {
+     "fuel": "가솔린 2.5",
+     "trim": "하이루프",
+     "priceAfter": 75300000
+    },
+    {
+     "fuel": "가솔린 2.5",
+     "trim": "하이루프",
+     "priceAfter": 77700000
+    },
+    {
+     "fuel": "하이브리드 2.5",
+     "trim": "하이루프",
+     "priceAfter": 78440000
+    },
+    {
+     "fuel": "하이브리드 2.5",
+     "trim": "하이루프",
+     "priceAfter": 80720000
+    },
+    {
+     "fuel": "하이브리드 2.5",
+     "trim": "하이루프",
+     "priceAfter": 81590000
+    },
+    {
+     "fuel": "하이브리드 2.5",
+     "trim": "하이루프",
+     "priceAfter": 83990000
+    }
+   ],
+   "optionCatalog": [
+    {
+     "name": "VIP패키지",
+     "price": 5740000
+    },
+    {
+     "name": "H Genuine Accessories 트레일러",
+     "price": 1580000
+    },
+    {
+     "name": "디젤 2.2 엔진",
+     "price": 1480000
+    },
+    {
+     "name": "컴포트Ⅱ",
+     "price": 1090000
+    },
+    {
+     "name": "듀얼 와이드 선루프",
+     "price": 890000
+    },
+    {
+     "name": "현대스마트센스Ⅰ",
+     "price": 790000
+    },
+    {
+     "name": "주차보조 시스템Ⅱ",
+     "price": 690000
+    },
+    {
+     "name": "KRELL 사운드 패키지",
+     "price": 690000
+    },
+    {
+     "name": "H Genuine Accessories",
+     "price": 690000
+    },
+    {
+     "name": "빌트인 캠",
+     "price": 690000
+    },
+    {
+     "name": "2열 통풍시트",
+     "price": 400000
+    }
+   ],
+   "optionSource": "현대 공식 PDF",
+   "minMax": {
+    "min": 44780000,
+    "minConfig": "최저 트림 「가솔린 2.5 익스클루시브」 세제후",
+    "topTrimPrice": 83990000,
+    "topTrimConfig": "최고 트림 「하이브리드 2.5 하이루프」 옵션 전",
+    "maxNote": "★현대·기아는 트림계층이라 «모델 단일 max»를 산정하지 않는다(코덱스 검증: 옵션초집합 단순합은 특장·상호배제·기본포함·구형 옵션까지 더해 과대). 실제 최고가 = 견적기가 «선택 트림 가격 + 그 트림에 적용 가능한 옵션»으로 계산. optionCatalog 는 모델에서 살 수 있는 옵션 카탈로그(트림별 적용성은 견적기가 판단)."
+   }
+  }
+ ]
+}

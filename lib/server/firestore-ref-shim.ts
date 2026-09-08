@@ -28,6 +28,18 @@ const COL: Record<string, string> = {
 };
 const ENTITY = new Set(['contracts', 'settlements', 'policies', 'partners', 'customers', 'users']);
 const docSafe = (s: string) => s.replace(/[/#.$\[\]]/g, '_');
+/** 파이어스토어가 이 시간 안에 대답 못 하면 RTDB 로 간다 — 매달려 죽는 것보다 낫다. */
+const FS_TIMEOUT_MS = Number(process.env.FIRESTORE_READ_TIMEOUT_MS || 1500);
+/**
+ * **한 번 막히면 그 서버에서는 더 두드리지 않는다.**
+ *
+ * ⚠⚠ 2026-09-05 운영. 자격증명이 파이어스토어를 못 열자 읽는 곳마다 제한시간을 꼬박 기다렸고
+ *   (재고·정책·공급사·사용자 넷이면 그것만으로 십수 초), 함수가 통째로 타임아웃 나서
+ *   **손님 화면에 차가 한 대도 안 나왔다.** 폴백이 있어도 «매번 기다리면» 폴백이 아니다.
+ * ⇒ 첫 실패를 기억해 두고 그 뒤로는 **곧장 RTDB** 로 간다. 서버 인스턴스가 새로 뜨면 다시 한 번 시도한다
+ *   (자격증명이 고쳐지면 저절로 파이어스토어로 돌아온다 — 코드 배포가 필요 없다).
+ */
+let firestoreBlocked = false;
 const companyOf = (v: any) => String(v?.companyId || v?.provider_company_code || v?.company_code || v?.partner_code || 'PT-0000');
 
 type Parsed = { col: string; node: string; docId: string | null; field: string[] };
@@ -59,16 +71,34 @@ class RefShim {
   private docRef() { return this.p.docId ? this.fs.collection(this.p.col).doc(this.p.docId) : null; }
 
   async get(): Promise<Snap> {
+    if (firestoreBlocked) return new Snap((await this.rtdb.ref(this.path).get()).val(), this.key);
     try {
+      /*
+       * ⚠⚠ 2026-09-05 운영 사고. 배포한 서버에서 파이어스토어가 `16 UNAUTHENTICATED` 로 막히자
+       *   SDK 가 **재시도하며 매달렸고**, 함수가 타임아웃 나서 손님 화면에 **차가 한 대도 안 나왔다**
+       *   (로그 상태코드 0). 폴백이 있어도 «빠르게 실패»하지 않으면 폴백까지 못 간다.
+       * ⇒ 파이어스토어에 **시간 제한**을 건다. 그 안에 못 읽으면 RTDB 로 떨어진다.
+       *   손님 화면에서 제일 나쁜 것은 옛 데이터가 아니라 빈 화면이다.
+       */
+      const guard = <T,>(work: Promise<T>) => Promise.race([
+        work,
+        new Promise<never>((_, no) => setTimeout(() => no(new Error('firestore-timeout')), FS_TIMEOUT_MS)),
+      ]);
       if (!this.p.docId) {
         // 노드 전체 → { docId: data } 맵 (RTDB 노드 읽기 흉내)
-        const q = await this.fs.collection(this.p.col).get();
+        const q = await guard(this.fs.collection(this.p.col).get());
         if (!q.empty) { const out: Record<string, any> = {}; q.forEach((d) => { const x: any = d.data(); out[String(x._key || d.id)] = x; }); return new Snap(out, this.p.node); }
       } else {
-        const d = await this.docRef()!.get();
+        const d = await guard(this.docRef()!.get());
         if (d.exists) return new Snap(this.p.field.length ? dig(d.data(), this.p.field) : d.data(), this.key);
       }
-    } catch { /* Firestore 실패 → RTDB 폴백 */ }
+    } catch (e) {
+      /* ★왜 떨어졌는지 «한 번만» 남긴다 — 조용히 옛 데이터가 나가면 아무도 눈치채지 못한다. */
+      const why = e instanceof Error ? e.message : 'unknown';
+      if (!firestoreBlocked) console.error('[firestore-shim] 폴백 — 이 서버는 RTDB 로 읽습니다', this.p.col, why);
+      /* 자격증명·연결이 막힌 것이면 이 서버에서는 더 두드리지 않는다(위 `firestoreBlocked` 머리말). */
+      if (/UNAUTHENTICATED|PERMISSION_DENIED|firestore-timeout|UNAVAILABLE|DEADLINE/i.test(why)) firestoreBlocked = true;
+    }
     const snap = await this.rtdb.ref(this.path).get();
     return new Snap(snap.val(), this.key);
   }
@@ -85,7 +115,24 @@ class RefShim {
   }
 
   async update(obj: Record<string, any>): Promise<void> {
-    const ref = this.docRef(); if (!ref) throw new Error(`update 은 문서 경로여야 함: ${this.path}`);
+    const ref = this.docRef();
+    if (!ref) {
+      // ★루트/노드 팬아웃 업데이트(RTDB `db.ref('v4').update({'esign_events/CT/e':X, 'contracts/CT/f':Y})`).
+      //   각 «경로키»를 매핑해 문서 쓰기로 분해. ≤450은 한 배치(원자적). 시트동기 등 대량은 450단위로 쪼개 커밋.
+      const entries = Object.entries(obj);
+      for (let i = 0; i < entries.length; i += 450) {
+        const batch = this.fs.batch();
+        for (const [rawKey, val] of entries.slice(i, i + 450)) {
+          const sub = parse(`${this.path}/${rawKey}`.replace(/\/+/g, '/'));
+          if (!sub.docId) throw new Error(`update 경로키가 문서까지 못 감: ${this.path} / ${rawKey}`);
+          const dref = this.fs.collection(sub.col).doc(sub.docId);
+          if (sub.field.length) batch.set(dref, { [sub.field.join('.')]: val }, { merge: true });
+          else batch.set(dref, ENTITY.has(sub.node) && val && typeof val === 'object' && !Array.isArray(val) ? { ...val, companyId: companyOf(val), _key: sub.docId } : val, { merge: true });
+        }
+        await batch.commit();
+      }
+      return;
+    }
     const prefix = this.p.field.length ? this.p.field.join('.') + '.' : '';
     const patch: Record<string, any> = {}; for (const [k, v] of Object.entries(obj)) patch[prefix + k] = v;
     await ref.set(patch, { merge: true }); // set-merge = RTDB update(없으면 생성) 의미와 동일

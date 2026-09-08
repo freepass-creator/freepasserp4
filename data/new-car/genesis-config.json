@@ -1,0 +1,1854 @@
+{
+ "_meta": {
+  "source": "제네시스 BTO 견적기 + mtops 가격표 «두 소스 교차검증»(코덱스 2026-09-06). BTO=배타 라이브·mtops=전 옵션가·패키지 포함관계.",
+  "note": "min=기본구성 · maxCandidate=배타상한+자유 단순합(번들 미제거·비교용) · maxPrecise=풀옵션(할인번들 대신 개별 다 구매, 개별합≥번들가). GV80/쿠페=손검증 정밀. 나머지 5모델=split 자동변환(가격행 완전배정 mapOk + 패키지 포함관계로 정밀 max). G90=패키지 추출 실패로 maxPrecise 미반영(수작업 필요). 남은 오차=개별 간 상호배제·종속·연료분기(BTO 재확인).",
+  "updatedAt": "2026-09-06",
+  "dataFreshness": "⚠ mtops 가격표 기반 = «표준 라인업·구가» 소지. 2026 «블랙 에디션»(전 모델)이 빠져 있을 수 있음(GV80쿠페에서 확인). 전시장가만 담고 액세서리·취득·등록 실구매 부대비용은 미포함. 현재가·블랙·실구매가 정본은 genesis.com/carnoon. 사장님 2026-09-06 GV80쿠페 지적으로 발견.",
+  "stage": "1단계(base·라인업·엔진·단종 현재가 교정) 진행: GV80쿠페·GV80일반형 완주(옵션 포함), GV70·G70·G80·G90·GV60 은 base·라인업 교정+옵션 BTO 재확인 대기. 2단계=모델별 BTO 정밀 옵션."
+ },
+ "models": [
+  {
+   "model": "gv80-coupe",
+   "label": "GV80 Coupe",
+   "modelCode": "gv80-coupe-2026-jxqb",
+   "btoUrl": "/kr/ko/models/luxury-suv-genesis/gv80-coupe/bto.html",
+   "priceSource": "carnoon 2026(현재·라인업 완전) + mtops(옵션 대조). 사장님 지시대로 하나씩 디테일 완주.",
+   "basePrice": 81400000,
+   "basePriceEngine": "가솔린 2.5 터보",
+   "baseDefaults": "2.5T · AWD · 5인승 · 유광 · 20인치 · 셀렉션Ⅰ",
+   "exclusiveGroups": [
+    {
+     "group": "엔진 타입",
+     "pick": 1,
+     "status": "xcheck",
+     "choices": [
+      {
+       "label": "가솔린 2.5 터보",
+       "addWon": 0,
+       "isDefault": true
+      },
+      {
+       "label": "가솔린 3.5 터보",
+       "addWon": 4200000
+      },
+      {
+       "label": "가솔린 3.5 터보 48V 일렉트릭 슈퍼차저",
+       "addWon": 10550000
+      }
+     ]
+    },
+    {
+     "group": "구동 타입",
+     "pick": 1,
+     "status": "xcheck",
+     "choices": [
+      {
+       "label": "AWD",
+       "addWon": 0,
+       "isDefault": true
+      }
+     ]
+    },
+    {
+     "group": "인승",
+     "pick": 1,
+     "status": "xcheck",
+     "choices": [
+      {
+       "label": "5인승",
+       "addWon": 0,
+       "isDefault": true
+      }
+     ]
+    },
+    {
+     "group": "외장 컬러",
+     "pick": 1,
+     "status": "xcheck",
+     "choices": [
+      {
+       "label": "글로시(유광)",
+       "addWon": 0,
+       "isDefault": true
+      },
+      {
+       "label": "매트(무광)",
+       "addWon": 700000
+      }
+     ]
+    },
+    {
+     "group": "휠 & 타이어",
+     "pick": 1,
+     "status": "xcheck",
+     "engineDependent": true,
+     "choices": [
+      {
+       "label": "265/50R20 (2.5T)",
+       "addWon": 0,
+       "isDefault": true,
+       "engine": "2.5T"
+      },
+      {
+       "label": "265/40R22 (2.5T)",
+       "addWon": 1200000,
+       "engine": "2.5T"
+      },
+      {
+       "label": "265/50R20 (3.5T)",
+       "addWon": 0,
+       "engine": "3.5T"
+      },
+      {
+       "label": "265/40R22 (3.5T)",
+       "addWon": 1200000,
+       "engine": "3.5T"
+      },
+      {
+       "label": "265/40R22 (48V)",
+       "addWon": 0,
+       "engine": "48V",
+       "note": "48V는 22인치가 기본(0원)"
+      }
+     ],
+     "note": "코덱스 재검(2026-09-06): 48V에서 22인치가 0원이어야 추천#3=108,250,000·상한=115,190,000이 맞는다. 원문 마지막 0원 휠 행에 엔진표제가 없어 48V 귀속은 mtops 단독으론 미확정 → BTO 라이브 재확인 필요. 2.5T/3.5T는 22인치 +1,200,000."
+    },
+    {
+     "group": "내장 디자인 & 컬러",
+     "pick": 1,
+     "status": "discrepancy",
+     "choices": [
+      {
+       "label": "쿠페 디자인 셀렉션Ⅰ(알루미늄)",
+       "addWon": 0,
+       "isDefault": true
+      },
+      {
+       "label": "쿠페 디자인 셀렉션Ⅱ(리얼우드/카본)",
+       "addWon": 1500000
+      }
+     ],
+     "note": "⚠BTO 라이브는 +0으로 읽혔으나 mtops는 +1,500,000 — BTO 그룹레벨만 봐서 놓친 듯. mtops 채택, BTO 재확인 필요."
+    },
+    {
+     "group": "내장 가니쉬",
+     "pick": 1,
+     "status": "xcheck",
+     "note": "셀렉션Ⅰ=알루미늄·셀렉션Ⅱ=오픈포어 리얼우드/카본 포함. 별도 추가금 없음(내장디자인에 종속)."
+    }
+   ],
+   "freeOptions": {
+    "status": "xcheck",
+    "packages": [
+     {
+      "name": "파퓰러 패키지",
+      "price": 6200000,
+      "includes": [
+       "헤드업 디스플레이",
+       "드라이빙 어시스턴스 패키지Ⅰ",
+       "드라이빙 어시스턴스 패키지Ⅱ",
+       "빌트인 캠 패키지"
+      ],
+      "note": "포함 4항목 개별합 6,800,000 → 파퓰러가 600,000 이득. 파퓰러 선택 시 포함품 개별가 중복가산 금지."
+     }
+    ],
+    "items": [
+     {
+      "name": "파노라마 선루프",
+      "price": 1400000
+     },
+     {
+      "name": "헤드업 디스플레이",
+      "price": 1300000,
+      "inPackage": "파퓰러 패키지"
+     },
+     {
+      "name": "컨비니언스 패키지",
+      "price": 3200000
+     },
+     {
+      "name": "드라이빙 어시스턴스 패키지Ⅰ",
+      "price": 1950000,
+      "inPackage": "파퓰러 패키지"
+     },
+     {
+      "name": "드라이빙 어시스턴스 패키지Ⅱ",
+      "price": 2700000,
+      "inPackage": "파퓰러 패키지"
+     },
+     {
+      "name": "후석 컴포트 패키지",
+      "price": 2200000
+     },
+     {
+      "name": "뱅앤올룹슨 사운드 패키지",
+      "price": 1900000
+     },
+     {
+      "name": "빌트인 캠 패키지",
+      "price": 850000,
+      "inPackage": "파퓰러 패키지"
+     },
+     {
+      "name": "후석 스마트 엔터테인먼트 시스템",
+      "price": 3000000,
+      "kind": "Genuine Parts"
+     },
+     {
+      "name": "전동식 사이드 스텝",
+      "price": 2450000,
+      "kind": "Genuine Parts",
+      "note": "고정식과 배타 추정(각주 없음)"
+     },
+     {
+      "name": "고정식 사이드 스텝",
+      "price": 490000,
+      "kind": "Genuine Parts"
+     },
+     {
+      "name": "차량 보호 필름",
+      "price": 500000,
+      "kind": "Genuine Parts"
+     },
+     {
+      "name": "프로텍션 매트 패키지(1/2열)",
+      "price": 200000,
+      "kind": "Genuine Parts"
+     },
+     {
+      "name": "플로팅 휠 캡",
+      "price": 90000,
+      "kind": "Genuine Parts"
+     }
+    ]
+   },
+   "minMax": {
+    "min": 81400000,
+    "minConfig": "표준 2.5T·AWD·5인승·유광·20인치·셀렉션Ⅰ·유료선택 없음(개소세5%)",
+    "maxCandidate": 115890000,
+    "maxConfig": "48V + 22인치 + 무광 + 셀렉션Ⅱ + 파퓰러(포함품 중복 안 함) + 파노라마 + 컨비니언스 + 후석컴포트 + 뱅앤올룹슨 + 후석엔터 + 전동사이드스텝 + 보호필름 + 프로텍션매트 + 플로팅휠캡",
+    "maxStatus": "표준 라인업 전시장 풀옵션(개별경로) 115,890,000 — 코덱스 재계산 검증. 블랙(~118.19M)·실구매 부대비용은 lineups·realWorldNote. base 81.4M 갱신 반영.",
+    "recommendedCrossCheck": [
+     {
+      "config": "2.5T+22인치+셀렉션Ⅱ+파퓰러+파노라마",
+      "computed": 91600000,
+      "listed": 91600000,
+      "match": true
+     },
+     {
+      "config": "위+뱅앤올룹슨+컨비니언스+후석컴포트",
+      "computed": 98900000,
+      "listed": 103100000,
+      "match": false,
+      "note": "표기가 4,200,000(=3.5T) 높음 — mtops 내부 모순, 임의보정 안 함"
+     },
+     {
+      "config": "48V+22인치+셀렉션Ⅱ+동일5패키지",
+      "computed": 108250000,
+      "listed": 108250000,
+      "match": true
+     }
+    ],
+    "maxPrecise": 115890000,
+    "maxPreciseConfig": "표준 48V 91,950,000 + 무광 700,000 + 셀렉션Ⅱ 1,500,000 + 22인치(48V 기본 0) + 개별옵션 21,740,000 = 115,890,000 (코덱스 검증). 파퓰러 경로면 115,290,000(600,000 낮음)이라 개별이 최고.",
+    "recommendedCrossCheck_note": "⚠ 이 값들은 mtops 구가(base 81.3M) 기준 대조라 현재가(base 81.4M·carnoon)와 100,000 어긋난다. 현재가 정본은 lineups. 감사이력으로만 보존."
+   },
+   "liveCrossCheck": {
+    "config": "48V만 선택",
+    "observedEstimate": 91850000,
+    "expected": 91850000,
+    "note": "BTO 라이브 = 기본 + 48V. 배타 교차검증 통과 ⚠ expected 91,850,000 은 개소세 3.5%(tax35) 관측 — 현재 tax5 base 91,950,000 과 100,000 차이. 세율 기준 다름."
+   },
+   "lineups": {
+    "source": "carnoon 2026-07 기준(현재). 개소세 5% / 3.5%(실효) 병기.",
+    "표준": {
+     "note": "2WD 없음(AWD 전용)·5인승 고정. 셀렉션Ⅰ 기본, 셀렉션Ⅱ +1,500,000 선택.",
+     "engines": {
+      "2.5T": {
+       "tax5": 81400000
+      },
+      "3.5T": {
+       "tax5": 85600000,
+       "note": "+약 4,200,000"
+      },
+      "3.5T 48V 슈퍼차저": {
+       "tax5": 91950000,
+       "note": "+약 10,550,000·22인치 필수·스포츠+/런치컨트롤 기본"
+      }
+     },
+     "maxPreciseShowroom": 115890000,
+     "maxNote": "48V 전시장 풀옵션(개별경로) 코덱스 검증 115,890,000."
+    },
+    "블랙": {
+     "note": "표준 대비 표준 대비(22인치 통일 시) +18,500,000·미보정 +19,700,000. 쿠페 디자인 셀렉션Ⅱ·빌트인캠·22인치·블랙 외장 «기본 포함». 추가선택은 파노라마 선루프 + 액세서리 위주. 사이드스텝 등 블랙 전용가(전동 2,550,000·고정 540,000).",
+     "engines": {
+      "2.5T": {
+       "tax5": 101100000
+      },
+      "3.5T": {
+       "tax5": 105300000
+      },
+      "3.5T 48V 슈퍼차저": {
+       "tax5": 110450000
+      }
+     },
+     "maxPreciseShowroom": 118190000,
+     "maxNote": "블랙 48V 전시장 풀옵션 ≈ 110,450,000 + 파노라마 1,400,000 + 후석엔터 3,000,000 + 전동사이드(블랙)2,550,000 + 보호필름 500,000 + 프로텍션매트 200,000 + 플로팅휠캡 90,000 ≈ 118,190,000. 블랙 포함항목 정확 목록은 genesis.com BTO 재확인(카눈 요약 기반)."
+    },
+    "taxNote": "개소세 5%(tax5)만 정본으로 남긴다 — 3.5% 실효가는 WebFetch 추출이 불안정해(엔진 간 감면차 앞뒤 안 맞음, 코덱스 지적) 제거. 3.5% 필요 시 genesis.com/carnoon 재확인."
+   },
+   "realWorldNote": "★사장님 「48V 슈퍼차저 1억 3천」 = 블랙 48V 전시장 풀옵션 ~118,190,000 + 취득세(약7%)·등록 등 «실구매 부대비용» ≈ 1억 2천 8백~3천. 표준 48V 전시장 풀옵션은 115,190,000. maxPrecise 계열은 «전시장가»지 실구매가 아니다.",
+   "baseNote": "표준 2.5T 개소세5%. 개소세 3.5% = 80,160,000. 라인업/엔진별은 lineups 참조."
+  },
+  {
+   "model": "gv80",
+   "label": "GV80 (일반형)",
+   "modelCode": "gv80-2026",
+   "btoUrl": "/kr/ko/models/luxury-suv-genesis/gv80/bto.html",
+   "priceSource": "carnoon 2026 F/L(현재·라인업 완전). mtops 옵션은 구가라 재확인 대상. 사장님 지시대로 하나씩 완주.",
+   "basePrice": 68950000,
+   "basePriceEngine": "가솔린 2.5 터보",
+   "baseDefaults": "2.5T · 2WD · 5인승 · 유광 · 19인치 · 스탠다드 디자인",
+   "baseNote": "2026 F/L 개소세5% · 2.5T·2WD·5인승. (mtops 구가 62,500,000 → 2026 68,950,000, +6,450,000). 디젤 3.0 단종·48V 없음(일반형).",
+   "exclusiveGroups": [
+    {
+     "group": "엔진 타입",
+     "pick": 1,
+     "status": "xcheck",
+     "choices": [
+      {
+       "label": "가솔린 2.5 터보",
+       "addWon": 0,
+       "isDefault": true
+      },
+      {
+       "label": "가솔린 3.5 터보",
+       "addWon": 5500000,
+       "note": "2026 F/L: 74,450,000-68,950,000=5,500,000. 디젤 3.0 단종"
+      }
+     ]
+    },
+    {
+     "group": "구동 타입",
+     "pick": 1,
+     "status": "xcheck",
+     "choices": [
+      {
+       "label": "2WD(후륜)",
+       "addWon": 0,
+       "isDefault": true
+      },
+      {
+       "label": "AWD",
+       "addWon": 3500000,
+       "note": "e-LSD·터레인 모드 포함"
+      }
+     ]
+    },
+    {
+     "group": "인승",
+     "pick": 1,
+     "status": "xcheck",
+     "choices": [
+      {
+       "label": "5인승",
+       "addWon": 0,
+       "isDefault": true
+      },
+      {
+       "label": "6인승",
+       "addWon": 2500000,
+       "note": "2열 독립시트·센터콘솔·무선충전·3열 5:5 전동폴딩"
+      },
+      {
+       "label": "7인승",
+       "addWon": 1000000,
+       "note": "3열 5:5 전동폴딩·에어벤트"
+      }
+     ]
+    },
+    {
+     "group": "외장 컬러",
+     "pick": 1,
+     "status": "xcheck",
+     "choices": [
+      {
+       "label": "글로시(유광 8종)",
+       "addWon": 0,
+       "isDefault": true
+      },
+      {
+       "label": "매트(무광 4종)",
+       "addWon": 700000
+      }
+     ]
+    },
+    {
+     "group": "휠 & 타이어",
+     "pick": 1,
+     "status": "xcheck",
+     "engineDependent": true,
+     "choices": [
+      {
+       "label": "265/55R19 피렐리 & 다이아몬드컷",
+       "addWon": 0,
+       "isDefault": true,
+       "engine": "2.5T/디젤"
+      },
+      {
+       "label": "265/50R20 미쉐린 & 다이아몬드컷 + 전륜 모노블럭(4P)",
+       "addWon": 1200000,
+       "engine": "2.5T/디젤"
+      },
+      {
+       "label": "265/40R22 미쉐린 & 스퍼터링 + 전륜 모노블럭(4P)",
+       "addWon": 2400000,
+       "engine": "2.5T/디젤"
+      },
+      {
+       "label": "265/50R20 미쉐린 & 다이아몬드컷",
+       "addWon": 0,
+       "engine": "3.5T"
+      },
+      {
+       "label": "265/40R22 미쉐린 & 스퍼터링",
+       "addWon": 1200000,
+       "engine": "3.5T"
+      }
+     ],
+     "note": "mtops 원문이 3.5T 분기를 «3.3 터보»로 오기(GV80엔 3.3 없음). 3.5T로 채택."
+    },
+    {
+     "group": "내장 디자인",
+     "pick": 1,
+     "status": "xcheck",
+     "choices": [
+      {
+       "label": "스탠다드 디자인",
+       "addWon": 0,
+       "isDefault": true,
+       "includes": "천연가죽시트·블랙하이그로시"
+      },
+      {
+       "label": "시그니쳐 디자인 셀렉션Ⅰ",
+       "addWon": 1500000,
+       "includes": "테크니컬펀칭 가죽·G-MATRIX 알루미늄·인조가죽"
+      },
+      {
+       "label": "시그니쳐 디자인 셀렉션Ⅱ",
+       "addWon": 3000000,
+       "includes": "프라임나파·오픈포어 리얼우드·스웨이드 (3열 나파)"
+      }
+     ]
+    }
+   ],
+   "freeOptions": {
+    "status": "⚠ mtops 구가 옵션 — 2026 F/L 재확인 대상(가격·구성 변동 가능). 골격만 참고.",
+    "packages": [
+     {
+      "name": "파퓰러 패키지",
+      "price": 6500000,
+      "includes": [
+       "헤드업 디스플레이",
+       "하이테크 패키지",
+       "드라이빙 어시스턴스 패키지Ⅰ",
+       "2열 컴포트 패키지"
+      ],
+      "note": "포함 4항목 개별합 7,200,000(1,300k+1,600k+1,800k+2,500k) → 파퓰러가 700,000 이득. 선택 시 포함품 중복가산 금지."
+     }
+    ],
+    "items": [
+     {
+      "name": "파노라마 선루프",
+      "price": 1400000
+     },
+     {
+      "name": "헤드업 디스플레이",
+      "price": 1300000,
+      "inPackage": "파퓰러 패키지"
+     },
+     {
+      "name": "컨비니언스 패키지",
+      "price": 1900000,
+      "includes": "에르고모션 시트(18방향)·고스트 도어클로징"
+     },
+     {
+      "name": "하이테크 패키지",
+      "price": 1600000,
+      "inPackage": "파퓰러 패키지",
+      "includes": "12.3인치 3D클러스터·전방주시경고·지능형헤드램프"
+     },
+     {
+      "name": "드라이빙 어시스턴스 패키지Ⅰ",
+      "price": 1800000,
+      "inPackage": "파퓰러 패키지"
+     },
+     {
+      "name": "드라이빙 어시스턴스 패키지Ⅱ",
+      "price": 1500000
+     },
+     {
+      "name": "2열 컴포트 패키지",
+      "price": 2500000,
+      "inPackage": "파퓰러 패키지"
+     },
+     {
+      "name": "뒷좌석 듀얼 모니터",
+      "price": 2500000,
+      "note": "6인승은 2열 센터콘솔 컨트롤러 포함"
+     },
+     {
+      "name": "렉시콘 사운드 패키지",
+      "price": 1600000,
+      "includes": "18스피커·액티브 로드노이즈 컨트롤"
+     },
+     {
+      "name": "아웃도어 패키지",
+      "price": 400000,
+      "includes": "2열 220V·러기지 스크린/매트"
+     },
+     {
+      "name": "빌트인 캠 패키지",
+      "price": 700000
+     },
+     {
+      "name": "전동식 사이드 스텝",
+      "price": 2450000,
+      "kind": "Genuine Parts",
+      "note": "고정식과 배타 추정"
+     },
+     {
+      "name": "고정식 사이드 스텝",
+      "price": 490000,
+      "kind": "Genuine Parts"
+     },
+     {
+      "name": "트레일러 히치",
+      "price": 1550000,
+      "kind": "Genuine Parts"
+     },
+     {
+      "name": "카본 익스테리어 패키지",
+      "price": 2900000,
+      "kind": "Genuine Parts"
+     },
+     {
+      "name": "2열 콘솔 냉/온장 컵홀더",
+      "price": 800000,
+      "kind": "Genuine Parts"
+     },
+     {
+      "name": "차량 보호 필름",
+      "price": 500000,
+      "kind": "Genuine Parts"
+     },
+     {
+      "name": "프로텍션 매트 패키지",
+      "price": 200000,
+      "kind": "Genuine Parts"
+     }
+    ]
+   },
+   "minMax": {
+    "min": 68950000,
+    "minConfig": "표준 2.5T·2WD·5인승·유광·19인치·스탠다드·유료선택 없음(개소세5%, 2026 F/L)",
+    "maxNote": "★2026 F/L 로 base·엔진 갱신(디젤 단종·48V 없음). 표준 최고 기본구성 = 3.5T AWD 6인승 79,950,000. 여기에 셀렉션Ⅱ + 옵션. 블랙은 lineups 참조.",
+    "optionStatus": "⚠ 옵션 가격·구성은 mtops 구가라 2026 재확인 필요(carnoon 은 컨비니언스 등 일부 다름). 정밀 max 는 genesis.com BTO 재확인 후 확정. 개별 옵션가 미확정이라 max 는 잠정 미기재.",
+    "blackNote": "블랙 최고 기본 = 3.5T AWD 6인승 101,900,000. + 파노라마·액세서리. 실구매(취득·등록)는 별도."
+   },
+   "priceRowCheck": {
+    "count": 32,
+    "allMapped": true,
+    "note": "가격행 32개 전부 옵션명에 배정, 남는 숫자 0. 이 완전배정이 GV80쿠페(코덱스 22개 일치)와 같은 급의 교차검증."
+   },
+   "lineups": {
+    "source": "carnoon 2026 F/L(2026-09-10 출시). 개소세 5% 기준. 3.5% 실효가는 재확인.",
+    "표준": {
+     "note": "2WD/AWD·5/6/7인승. 셀렉션Ⅰ +1,500,000·Ⅱ +3,000,000.",
+     "base_2WD_5인": {
+      "2.5T": 68950000,
+      "3.5T": 74450000
+     },
+     "drive": {
+      "2WD": 0,
+      "AWD": 3000000
+     },
+     "seats": {
+      "5인": 0,
+      "6인": 2500000,
+      "7인": 1000000
+     }
+    },
+    "블랙": {
+     "note": "AWD 전용. 표준 대비 약 +23,250,000(2.5T AWD 5인 기준). 블랙 외장·전용 사양 기본 포함.",
+     "base_AWD": {
+      "2.5T": {
+       "5인": 95200000,
+       "6인": 97700000,
+       "7인": 96200000
+      },
+      "3.5T": {
+       "5인": 99400000,
+       "6인": 101900000,
+       "7인": 100280000
+      }
+     }
+    },
+    "taxNote": "개소세 5%만 정본. 3.5% 실효가는 재확인(WebFetch 불안정)."
+   }
+  },
+  {
+   "model": "g90",
+   "label": "G90",
+   "priceSource": "carnoon 현재가(2026/신형/F/L). base·라인업 교정. 옵션·정밀max 는 genesis.com BTO 재확인 대상. 사장님 지시 1단계(넓게-빠르게).",
+   "basePrice": 97600000,
+   "basePriceTax35": 94070000,
+   "isEV": false,
+   "exclusiveGroups": [
+    {
+     "group": "엔진",
+     "pick": 1,
+     "status": "xcheck",
+     "choices": [
+      {
+       "label": "3.5 터보",
+       "addWon": 0,
+       "isDefault": true
+      },
+      {
+       "label": "가솔린 3.5 터보 48V 일렉트릭 슈퍼차저",
+       "addWon": 6000000,
+       "isDefault": false
+      }
+     ]
+    },
+    {
+     "group": "구동",
+     "pick": 1,
+     "status": "xcheck",
+     "choices": [
+      {
+       "label": "2WD(후륜)",
+       "addWon": 0,
+       "isDefault": true
+      },
+      {
+       "label": "AWD",
+       "addWon": 3500000,
+       "isDefault": false
+      }
+     ]
+    },
+    {
+     "group": "인승",
+     "pick": 1,
+     "status": "xcheck",
+     "choices": [
+      {
+       "label": "(5인승)",
+       "addWon": 0,
+       "isDefault": true
+      },
+      {
+       "label": "퍼스트 클래스 VIP 시트(4인승)",
+       "addWon": 3500000,
+       "isDefault": false
+      }
+     ]
+    },
+    {
+     "group": "외장 컬러",
+     "pick": 1,
+     "status": "xcheck",
+     "choices": [
+      {
+       "label": "컬러(유광, 10종 중 선택)",
+       "addWon": 0,
+       "isDefault": true
+      },
+      {
+       "label": "매트 컬러(무광, 2종 중 선택: 베르비에 화이트, 마칼루 그레이)",
+       "addWon": 800000,
+       "isDefault": false
+      }
+     ]
+    },
+    {
+     "group": "휠 & 타이어",
+     "pick": 1,
+     "status": "xcheck",
+     "choices": [
+      {
+       "label": "[가솔린 2.5 터보] 245/50R19 피렐리 타이어 & 다이아몬드 컷팅 휠",
+       "addWon": 0,
+       "isDefault": true
+      },
+      {
+       "label": "245/45R20(앞), 275/40R20(뒤) 미쉐린 타이어 & 다이아몬드 컷팅 휠",
+       "addWon": 1000000,
+       "isDefault": false
+      },
+      {
+       "label": "245/45R20(앞), 275/40R20(뒤) 미쉐린 타이어 & 다크 하이퍼 실버 휠",
+       "addWon": 1000000,
+       "isDefault": false
+      },
+      {
+       "label": " 3.5 터보 48V 일렉트릭 슈퍼차저] 245/45R20(앞), 275/40R20(뒤) 미쉐린 타이어 & 다이아몬드 컷팅 휠",
+       "addWon": 0,
+       "isDefault": true
+      },
+      {
+       "label": "245/45R20(앞), 275/40R20(뒤) 미쉐린 타이어 & 다크 하이퍼 실버 휠",
+       "addWon": 0,
+       "isDefault": true
+      },
+      {
+       "label": "245/40R21(앞), 275/35R21(뒤) 미쉐린 타이어 & 다이아몬드 컷팅 휠",
+       "addWon": 1200000,
+       "isDefault": false
+      }
+     ]
+    },
+    {
+     "group": "내장 디자인",
+     "pick": 1,
+     "status": "xcheck",
+     "choices": [
+      {
+       "label": "인",
+       "addWon": 0,
+       "isDefault": true
+      },
+      {
+       "label": "시그니쳐 디자인 셀렉션",
+       "addWon": 5500000,
+       "isDefault": false
+      },
+      {
+       "label": "시그니쳐 + 메탈 G-MATRIX 내장재(오픈포어 대체)",
+       "addWon": 6500000,
+       "note": "코덱스: 시그니쳐 5,500,000 + 메탈 내장재 1,000,000. 내장 최대선택"
+      }
+     ]
+    }
+   ],
+   "freeOptions": {
+    "status": "⚠ mtops 구가 — 2026 재확인 대상(골격 참고만)",
+    "items": [
+     {
+      "name": "파퓰러 컬렉션",
+      "price": 8500000
+     },
+     {
+      "name": "프리미엄 컬렉션",
+      "price": 20000000
+     },
+     {
+      "name": "프레스티지 컬렉션",
+      "price": 25000000
+     },
+     {
+      "name": "멀티 챔버 에어 서스펜션",
+      "price": 3500000
+     },
+     {
+      "name": "능동형 후륜 조향(RWS)",
+      "price": 1500000
+     },
+     {
+      "name": "이지 클로즈 시스템",
+      "price": 1500000
+     },
+     {
+      "name": "파노라마 선루프",
+      "price": 2000000
+     },
+     {
+      "name": "전동식 뒷좌석 듀얼 모니터(좌/우 독립제어, USB 단자(충전/데이터 리딩))",
+      "price": 3000000
+     },
+     {
+      "name": "하이테크 패키지",
+      "price": 2000000
+     },
+     {
+      "name": "컨비니언스 패키지",
+      "price": 3500000
+     },
+     {
+      "name": "뒷좌석 컴포트 패키지Ⅰ",
+      "price": 3500000
+     },
+     {
+      "name": "뒷좌석 컴포트 패키지Ⅱ",
+      "price": 3000000
+     },
+     {
+      "name": "뱅앤올룹슨 사운드 패키지",
+      "price": 4000000
+     },
+     {
+      "name": "빌트인 캠 패키지",
+      "price": 800000
+     },
+     {
+      "name": "차량 보호 필름",
+      "price": 550000,
+      "kind": "Genuine Parts"
+     },
+     {
+      "name": "플로팅 휠 캡 & 메탈 페달",
+      "price": 200000,
+      "kind": "Genuine Parts"
+     }
+    ]
+   },
+   "minMax": {
+    "min": 97600000,
+    "minConfig": "현재 최저 기본구성(개소세5%) — currentPricing 참조",
+    "optionStatus": "⚠ 1단계(base·라인업 교정) 완료. 옵션가·배타조합·정밀 max 는 2단계 genesis.com BTO 재확인 후 확정. mtops 구가 옵션은 신뢰 안 함.",
+    "note": "최고가 트림 = 48V LWB BLACK 174,980,000. 코덱스 검증 145.55M 는 «표준 48V 풀옵션»이지 LWB/BLACK 아님."
+   },
+   "priceRowCheck": {
+    "count": 26,
+    "allMapped": true,
+    "note": "가격행 완전배정 = 코덱스 22개 일치(GV80쿠페)와 같은 급 교차검증."
+   },
+   "baseNote": "신형 개소세5% 3.5T 2WD (mtops 95.5M→97.6M). 48V·BLACK·LWB 변형.",
+   "currentPricing": {
+    "source": "carnoon 현재",
+    "engines": {
+     "가솔린 3.5T": {
+      "2WD": 97600000
+     },
+     "3.5T 48V": {
+      "2WD": 103600000
+     },
+     "BLACK(AWD)": 129440000,
+     "LWB 48V(AWD)": 167690000,
+     "48V LWB BLACK(AWD)": 174980000
+    },
+    "note": "최고가 트림 = 48V LWB BLACK 174,980,000. 코덱스 검증 145.55M 는 «표준 48V 풀옵션»이지 LWB/BLACK 아님."
+   }
+  },
+  {
+   "model": "gv70",
+   "label": "GV70",
+   "priceSource": "carnoon 현재가(2026/신형/F/L). base·라인업 교정. 옵션·정밀max 는 genesis.com BTO 재확인 대상. 사장님 지시 1단계(넓게-빠르게).",
+   "basePrice": 54000000,
+   "basePriceTax35": 2470000,
+   "isEV": false,
+   "exclusiveGroups": [
+    {
+     "group": "엔진",
+     "pick": 1,
+     "status": "xcheck",
+     "choices": [
+      {
+       "label": "2.5 터보",
+       "addWon": 0,
+       "isDefault": true
+      },
+      {
+       "label": "디젤 2.2",
+       "addWon": 2470000,
+       "isDefault": false
+      },
+      {
+       "label": "가솔린 3.5 터보",
+       "addWon": 9490000,
+       "isDefault": false
+      }
+     ]
+    },
+    {
+     "group": "구동",
+     "pick": 1,
+     "status": "xcheck",
+     "choices": [
+      {
+       "label": "2WD(후륜)",
+       "addWon": 0,
+       "isDefault": true
+      },
+      {
+       "label": "AWD(터레인 모드 포함)",
+       "addWon": 2970000,
+       "isDefault": false
+      }
+     ]
+    },
+    {
+     "group": "외장 컬러",
+     "pick": 1,
+     "status": "xcheck",
+     "choices": [
+      {
+       "label": "컬러(유광 7종 중 선택)",
+       "addWon": 0,
+       "isDefault": true
+      },
+      {
+       "label": "매트 컬러(무광 3종 중 선택)",
+       "addWon": 690000,
+       "isDefault": false
+      }
+     ]
+    },
+    {
+     "group": "휠 & 타이어",
+     "pick": 1,
+     "status": "xcheck",
+     "choices": [
+      {
+       "label": "[가솔린 2.5 터보 / 디젤 2.2] 235/60R18 브리지스톤 타이어 & 휠",
+       "addWon": 0,
+       "isDefault": true
+      },
+      {
+       "label": "235/55R19 미쉐린 타이어 & 휠",
+       "addWon": 990000,
+       "isDefault": false
+      },
+      {
+       "label": "255/40R21 미쉐린 타이어 & 휠",
+       "addWon": 3260000,
+       "isDefault": false
+      },
+      {
+       "label": "[가솔린 3.3 터보] 235/55R19 미쉐린 타이어 & 휠",
+       "addWon": 0,
+       "isDefault": true
+      },
+      {
+       "label": "255/40R21 미쉐린 타이어 & 휠",
+       "addWon": 1190000,
+       "isDefault": false
+      },
+      {
+       "label": "[가솔린 2.5 터보 / 디젤 2.2] 235/55R19 미쉐린 타이어 & 스포츠 전용 휠",
+       "addWon": 0,
+       "isDefault": true
+      },
+      {
+       "label": "255/40R21 미쉐린 타이어 & 스포츠 전용 휠",
+       "addWon": 1190000,
+       "isDefault": false
+      },
+      {
+       "label": "[가솔린 3.3 터보] 255/40R21 미쉐린 타이어 & 스포츠 전용 휠",
+       "addWon": 0,
+       "isDefault": true
+      }
+     ]
+    },
+    {
+     "group": "내장 디자인",
+     "pick": 1,
+     "status": "xcheck",
+     "choices": [
+      {
+       "label": "인",
+       "addWon": 0,
+       "isDefault": true
+      },
+      {
+       "label": "시그니쳐 디자인 셀렉션Ⅰ",
+       "addWon": 1680000,
+       "isDefault": false
+      },
+      {
+       "label": "시그니쳐 디자인 셀렉션Ⅱ",
+       "addWon": 2970000,
+       "isDefault": false
+      }
+     ]
+    },
+    {
+     "group": "스포츠 패키지",
+     "pick": 1,
+     "status": "xcheck",
+     "choices": [
+      {
+       "label": "2.5 터보 / 디젤 2.2",
+       "addWon": 4050000,
+       "isDefault": false
+      },
+      {
+       "label": "가솔린 3.5 터보",
+       "addWon": 3160000,
+       "isDefault": false
+      }
+     ]
+    },
+    {
+     "group": "내장 디자인(스포츠)",
+     "pick": 1,
+     "status": "xcheck",
+     "choices": [
+      {
+       "label": "드 디자인",
+       "addWon": 0,
+       "isDefault": true
+      },
+      {
+       "label": "스포츠 디자인 셀렉션Ⅰ",
+       "addWon": 2270000,
+       "isDefault": false
+      },
+      {
+       "label": "스포츠 디자인 셀렉션Ⅱ",
+       "addWon": 2270000,
+       "isDefault": false
+      }
+     ]
+    }
+   ],
+   "freeOptions": {
+    "status": "⚠ mtops 구가 — 2026 재확인 대상(골격 참고만)",
+    "items": [
+     {
+      "name": "파퓰러 패키지Ⅰ",
+      "price": 4150000
+     },
+     {
+      "name": "파퓰러 패키지Ⅱ",
+      "price": 7420000
+     },
+     {
+      "name": "프리뷰 전자제어 서스펜션",
+      "price": 1109000
+     },
+     {
+      "name": "파노라마 선루프",
+      "price": 1380000
+     },
+     {
+      "name": "헤드업 디스플레이",
+      "price": 1290000
+     },
+     {
+      "name": "컨비니언스 패키지",
+      "price": 1680000
+     },
+     {
+      "name": "하이테크 패키지",
+      "price": 1580000
+     },
+     {
+      "name": "드라이빙 어시스턴스 패키지Ⅰ",
+      "price": 1780000
+     },
+     {
+      "name": "드라이빙 어시스턴스 패키지Ⅱ",
+      "price": 1480000
+     },
+     {
+      "name": "2열 컴포트 패키지",
+      "price": 690000
+     },
+     {
+      "name": "아웃도어 패키지",
+      "price": 400000
+     },
+     {
+      "name": "렉시콘 사운드 패키지",
+      "price": 1290000
+     },
+     {
+      "name": "빌트인 캠 패키지",
+      "price": 740000
+     },
+     {
+      "name": "사이드 스텝",
+      "price": 470000,
+      "kind": "Genuine Parts"
+     },
+     {
+      "name": "차량 보호 필름",
+      "price": 450000,
+      "kind": "Genuine Parts"
+     },
+     {
+      "name": "프로텍션 매트 패키지",
+      "price": 250000,
+      "kind": "Genuine Parts"
+     },
+     {
+      "name": "알칸타라 인테리어 패키지",
+      "price": 380000,
+      "kind": "Genuine Parts"
+     },
+     {
+      "name": "빌트인 공기 청정기",
+      "price": 450000,
+      "kind": "Genuine Parts"
+     }
+    ]
+   },
+   "minMax": {
+    "min": 54000000,
+    "minConfig": "현재 최저 기본구성(개소세5%) — currentPricing 참조",
+    "optionStatus": "2단계 carnoon 초안 반영(stage2_carnoon_draft). provisional max 83,130,000. 원단위 확정은 공식 PDF/BTO — 초안 caveats 참조.",
+    "note": "디젤 단종. BLACK 별도 확인 필요. Electrified GV70(전기)는 별도 모델.",
+    "provisionalMaxPrecise": 83130000
+   },
+   "priceRowCheck": {
+    "count": 33,
+    "allMapped": true,
+    "note": "가격행 완전배정 = 코덱스 22개 일치(GV80쿠페)와 같은 급 교차검증."
+   },
+   "baseNote": "2026 개소세5% 2.5T 2WD. 디젤 단종(mtops 49.4M→54.0M). 일렉트리파이드 GV70 별도.",
+   "currentPricing": {
+    "source": "carnoon 현재",
+    "engines": {
+     "가솔린 2.5T": {
+      "2WD": 54000000,
+      "AWD": 57000000
+     },
+     "가솔린 3.5T": {
+      "2WD": 59430000,
+      "AWD": 62430000
+     }
+    },
+    "note": "디젤 단종. BLACK 별도 확인 필요. Electrified GV70(전기)는 별도 모델."
+   },
+   "stage2_carnoon_draft": {
+    "source": "carnoon 10534 2026(WebFetch 요약 — 초안·검증 전)",
+    "exclusiveAdds": {
+     "엔진(3.5T)": 5430000,
+     "구동(AWD)": 3000000,
+     "휠(21인치)": 3300000,
+     "내장(셀렉션Ⅱ)": 3000000
+    },
+    "freeOptions": {
+     "헤드업": 1300000,
+     "드라Ⅰ": 1950000,
+     "드라Ⅱ": 2000000,
+     "2열컴포트": 1100000,
+     "아웃도어": 400000,
+     "컨비니언스": 2600000,
+     "빌트인캠": 850000,
+     "뱅올": 1700000,
+     "프리뷰서스펜션": 1100000,
+     "파노라마": 1400000
+    },
+    "bundles": {
+     "파퓰러 패키지Ⅰ": 2950000,
+     "파퓰러 패키지Ⅱ": 6600000,
+     "파퓰러Ⅱ 포함": "헤드업+드라Ⅰ+2열컴포트+드라Ⅱ+빌트인캠(개별합≥번들이라 max는 개별)"
+    },
+    "provisionalMaxPrecise": 83130000,
+    "caveats": "⚠ carnoon 요약 모호: ①base 54.0M vs 상세페이지 53.93M(±70k) ②스포츠 패키지 미표기(mtops엔 있었음) ③기본 휠 0원 항목 불명확. 정밀 확정은 제네시스 공식 가격표 PDF/BTO 필요. 이 provisional 은 참고값."
+   }
+  },
+  {
+   "model": "g70",
+   "label": "G70",
+   "priceSource": "carnoon 현재가(2026/신형/F/L). base·라인업 교정. 옵션·정밀max 는 genesis.com BTO 재확인 대상. 사장님 지시 1단계(넓게-빠르게).",
+   "basePrice": 45060000,
+   "basePriceTax35": 43150000,
+   "isEV": false,
+   "exclusiveGroups": [
+    {
+     "group": "엔진",
+     "pick": 1,
+     "status": "xcheck",
+     "choices": [
+      {
+       "label": "2.5 터보",
+       "addWon": 0,
+       "isDefault": true
+      },
+      {
+       "label": "가솔린 3.3 터보",
+       "addWon": 5000000,
+       "isDefault": false
+      }
+     ]
+    },
+    {
+     "group": "구동",
+     "pick": 1,
+     "status": "xcheck",
+     "choices": [
+      {
+       "label": "2WD(후륜)",
+       "addWon": 0,
+       "isDefault": true
+      },
+      {
+       "label": "AWD",
+       "addWon": 2500000,
+       "isDefault": false
+      }
+     ]
+    },
+    {
+     "group": "외장 컬러",
+     "pick": 1,
+     "status": "xcheck",
+     "choices": [
+      {
+       "label": "컬러(유광, 11종 중 선택)",
+       "addWon": 0,
+       "isDefault": true
+      },
+      {
+       "label": "매트 컬러(무광, 3종 중 선택)",
+       "addWon": 700000,
+       "isDefault": false
+      }
+     ]
+    },
+    {
+     "group": "휠 & 타이어",
+     "pick": 1,
+     "status": "xcheck",
+     "choices": [
+      {
+       "label": "[가솔린 2.5 터보] 225/45R18 브리지스톤 타이어 & 다크 하이퍼 실버 휠",
+       "addWon": 0,
+       "isDefault": true
+      },
+      {
+       "label": "(기본)",
+       "addWon": 700000,
+       "isDefault": false
+      },
+      {
+       "label": "[가솔린 3.3 터보] 225/40R19(앞), 255/35R19(뒤) 미쉐린 타이어 & 다이아몬드 컷팅 휠",
+       "addWon": 0,
+       "isDefault": true
+      },
+      {
+       "label": "[가솔린 2.5 터보] 225/40R19(앞), 255/35R19(뒤) 미쉐린 타이어 & 다크 그레이 매트 휠(스포츠 전용)",
+       "addWon": 0,
+       "isDefault": true
+      },
+      {
+       "label": " [가솔린 3.3 터보] 225/40R19(앞), 255/35R19(뒤) 미쉐린 타이어 & 다크 그레이 매트 휠(스포츠 전용)",
+       "addWon": 0,
+       "isDefault": true
+      }
+     ]
+    },
+    {
+     "group": "내장 디자인",
+     "pick": 1,
+     "status": "xcheck",
+     "choices": [
+      {
+       "label": "인",
+       "addWon": 0,
+       "isDefault": true
+      },
+      {
+       "label": "천연 가죽 패키지",
+       "addWon": 1200000,
+       "isDefault": false
+      },
+      {
+       "label": "시그니쳐 디자인 셀렉션",
+       "addWon": 2400000,
+       "isDefault": false
+      }
+     ]
+    },
+    {
+     "group": "스포츠 패키지",
+     "pick": 1,
+     "status": "xcheck",
+     "choices": [
+      {
+       "label": "미쉐린 타이어 & 스포츠 전용 휠, 스포츠 전용 천연 가죽 시트, 스포츠 내외장 [가솔린 2.5 터보] 2WD(후륜) 선택 시",
+       "addWon": 3600000,
+       "isDefault": false
+      },
+      {
+       "label": "AWD 선택 시",
+       "addWon": 3400000,
+       "isDefault": false
+      },
+      {
+       "label": "[가솔린 3.3 터보]",
+       "addWon": 2400000,
+       "isDefault": false
+      }
+     ]
+    },
+    {
+     "group": "내장 디자인(스포츠)",
+     "pick": 1,
+     "status": "xcheck",
+     "choices": [
+      {
+       "label": "드 디자인",
+       "addWon": 0,
+       "isDefault": true
+      },
+      {
+       "label": "스포츠 디자인 셀렉션",
+       "addWon": 1500000,
+       "isDefault": false
+      }
+     ]
+    }
+   ],
+   "freeOptions": {
+    "status": "⚠ mtops 구가 — 2026 재확인 대상(골격 참고만)",
+    "items": [
+     {
+      "name": "파퓰러 패키지",
+      "price": 4150000
+     },
+     {
+      "name": "전자제어 서스펜션",
+      "price": 1000000
+     },
+     {
+      "name": "와이드 선루프",
+      "price": 800000
+     },
+     {
+      "name": "헤드업 디스플레이",
+      "price": 1100000
+     },
+     {
+      "name": "컨비니언스 패키지",
+      "price": 1300000
+     },
+     {
+      "name": "하이테크 패키지",
+      "price": 1600000
+     },
+     {
+      "name": "컴포트 패키지",
+      "price": 1100000
+     },
+     {
+      "name": "렉시콘 사운드 패키지",
+      "price": 1200000
+     },
+     {
+      "name": "드라이빙 어시스턴스 패키지",
+      "price": 1700000
+     },
+     {
+      "name": "차량 보호 필름",
+      "price": 400000,
+      "kind": "Genuine Parts"
+     },
+     {
+      "name": "플로팅 휠 캡",
+      "price": 90000,
+      "kind": "Genuine Parts"
+     },
+     {
+      "name": "카본 리어 스포일러",
+      "price": 890000,
+      "kind": "Genuine Parts"
+     },
+     {
+      "name": "알칸타라 인테리어 패키지",
+      "price": 430000,
+      "kind": "Genuine Parts"
+     }
+    ]
+   },
+   "minMax": {
+    "min": 45060000,
+    "minConfig": "현재 최저 기본구성(개소세5%) — currentPricing 참조",
+    "optionStatus": "⚠ 1단계(base·라인업 교정) 완료. 옵션가·배타조합·정밀 max 는 2단계 genesis.com BTO 재확인 후 확정. mtops 구가 옵션은 신뢰 안 함.",
+    "note": "BLACK 없음(그래파이트 에디션만). 슈팅브레이크 없음."
+   },
+   "priceRowCheck": {
+    "count": 25,
+    "allMapped": true,
+    "note": "가격행 완전배정 = 코덱스 22개 일치(GV80쿠페)와 같은 급 교차검증."
+   },
+   "baseNote": "2026 개소세5% 2.5T 2WD (mtops 43.95M→45.06M). 3.3T 유지.",
+   "currentPricing": {
+    "source": "carnoon 현재",
+    "engines": {
+     "가솔린 2.5T": {
+      "2WD": 45060000
+     },
+     "가솔린 3.3T": {
+      "2WD": 50010000
+     }
+    },
+    "note": "BLACK 없음(그래파이트 에디션만). 슈팅브레이크 없음."
+   }
+  },
+  {
+   "model": "g80",
+   "label": "G80",
+   "priceSource": "carnoon 현재가(2026/신형/F/L). base·라인업 교정. 옵션·정밀max 는 genesis.com BTO 재확인 대상. 사장님 지시 1단계(넓게-빠르게).",
+   "basePrice": 60700000,
+   "basePriceTax35": 53110000,
+   "isEV": false,
+   "exclusiveGroups": [
+    {
+     "group": "엔진",
+     "pick": 1,
+     "status": "xcheck",
+     "choices": [
+      {
+       "label": "2.5 터보",
+       "addWon": 0,
+       "isDefault": true
+      },
+      {
+       "label": "가솔린 3.5 터보",
+       "addWon": 6600000,
+       "isDefault": false
+      }
+     ]
+    },
+    {
+     "group": "구동",
+     "pick": 1,
+     "status": "xcheck",
+     "choices": [
+      {
+       "label": "2WD(후륜)",
+       "addWon": 0,
+       "isDefault": true
+      },
+      {
+       "label": "AWD",
+       "addWon": 2800000,
+       "isDefault": false
+      }
+     ]
+    },
+    {
+     "group": "외장 컬러",
+     "pick": 1,
+     "status": "xcheck",
+     "choices": [
+      {
+       "label": "컬러(유광 8종 중 선택)",
+       "addWon": 0,
+       "isDefault": true
+      },
+      {
+       "label": "매트 컬러(무광 2종 중 선택)",
+       "addWon": 700000,
+       "isDefault": false
+      }
+     ]
+    },
+    {
+     "group": "휠 & 타이어",
+     "pick": 1,
+     "status": "xcheck",
+     "choices": [
+      {
+       "label": "[가솔린 2.5 터보] 245/50R18 피렐리 타이어 & 다이아몬드 컷팅 휠",
+       "addWon": 0,
+       "isDefault": true
+      },
+      {
+       "label": "245/45R19(앞), 275/40R19(뒤) 콘티넨탈 타이어 & 하이퍼 실버 휠, 전륜 모노블럭(4P) 브레이크",
+       "addWon": 1200000,
+       "isDefault": false
+      },
+      {
+       "label": "앞), 275/35R20(뒤) 피렐리 타이어 & 스퍼터링 휠, 전륜 모노블럭(4P) 브레이크 (프리뷰 전자제어 서스펜션 포함)",
+       "addWon": 3000000,
+       "isDefault": false
+      },
+      {
+       "label": "[가솔린 3.3 터보] 245/45R19(앞), 275/40R19(뒤) 콘티넨탈 타이어 & 하이퍼 실버 휠",
+       "addWon": 0,
+       "isDefault": true
+      },
+      {
+       "label": "(기본)",
+       "addWon": 700000,
+       "isDefault": false
+      },
+      {
+       "label": "[가솔린 2.5 터보] 245/45R19(앞), 275/40R19(뒤) 콘티넨탈 타이어 & 스포츠 전용 휠",
+       "addWon": 0,
+       "isDefault": true
+      },
+      {
+       "label": "245/40R20(앞), 275/35R20(뒤) 피렐리 타이어 & 스포츠 전용 휠",
+       "addWon": 700000,
+       "isDefault": false
+      },
+      {
+       "label": "[가솔린 3.3 터보] 245/40R20(앞), 275/35R20(뒤) 피렐리 타이어 & 스포츠 전용 휠",
+       "addWon": 0,
+       "isDefault": true
+      },
+      {
+       "label": "다이내믹 패키지",
+       "addWon": 3100000,
+       "isDefault": false
+      }
+     ]
+    },
+    {
+     "group": "내장 디자인",
+     "pick": 1,
+     "status": "xcheck",
+     "choices": [
+      {
+       "label": "인",
+       "addWon": 0,
+       "isDefault": true
+      },
+      {
+       "label": "시그니쳐 디자인 셀렉션Ⅰ",
+       "addWon": 1500000,
+       "isDefault": false
+      },
+      {
+       "label": "시그니쳐 디자인 셀렉션Ⅱ",
+       "addWon": 3000000,
+       "isDefault": false
+      }
+     ]
+    },
+    {
+     "group": "스포츠 패키지",
+     "pick": 1,
+     "status": "xcheck",
+     "choices": [
+      {
+       "label": "[가솔린 2.5 터보]",
+       "addWon": 4300000,
+       "isDefault": false
+      },
+      {
+       "label": "[가솔린 3.3 터보]",
+       "addWon": 3000000,
+       "isDefault": false
+      }
+     ]
+    },
+    {
+     "group": "내장 디자인(스포츠)",
+     "pick": 1,
+     "status": "xcheck",
+     "choices": [
+      {
+       "label": "드 디자인",
+       "addWon": 0,
+       "isDefault": true
+      },
+      {
+       "label": "스포츠 디자인 셀렉션",
+       "addWon": 2700000,
+       "isDefault": false
+      }
+     ]
+    }
+   ],
+   "freeOptions": {
+    "status": "⚠ mtops 구가 — 2026 재확인 대상(골격 참고만)",
+    "items": [
+     {
+      "name": "파퓰러 패키지",
+      "price": 5100000
+     },
+     {
+      "name": "프리뷰 전자제어 서스펜션",
+      "price": 1100000
+     },
+     {
+      "name": "파노라마 선루프",
+      "price": 1400000
+     },
+     {
+      "name": "헤드업 디스플레이",
+      "price": 1300000
+     },
+     {
+      "name": "컨비니언스 패키지",
+      "price": 1900000
+     },
+     {
+      "name": "하이테크 패키지",
+      "price": 1600000
+     },
+     {
+      "name": "드라이빙 어시스턴스 패키지Ⅰ",
+      "price": 1800000
+     },
+     {
+      "name": "드라이빙 어시스턴스 패키지Ⅱ",
+      "price": 1500000
+     },
+     {
+      "name": "2열 컴포트 패키지Ⅰ",
+      "price": 1000000
+     },
+     {
+      "name": "2열 컴포트 패키지Ⅱ",
+      "price": 2500000
+     },
+     {
+      "name": "뒷좌석 듀얼 모니터",
+      "price": 2500000
+     },
+     {
+      "name": "렉시콘 사운드 패키지",
+      "price": 1400000
+     },
+     {
+      "name": "빌트인 캠 패키지",
+      "price": 700000
+     },
+     {
+      "name": "차량 보호 필름",
+      "price": 450000,
+      "kind": "Genuine Parts"
+     }
+    ]
+   },
+   "minMax": {
+    "min": 60700000,
+    "minConfig": "현재 최저 기본구성(개소세5%) — currentPricing 참조",
+    "optionStatus": "⚠ 1단계(base·라인업 교정) 완료. 옵션가·배타조합·정밀 max 는 2단계 genesis.com BTO 재확인 후 확정. mtops 구가 옵션은 신뢰 안 함.",
+    "note": "블랙 에디션(AWD 전용) 추가. Electrified G80(전기) 별도 모델."
+   },
+   "priceRowCheck": {
+    "count": 29,
+    "allMapped": true,
+    "note": "가격행 완전배정 = 코덱스 22개 일치(GV80쿠페)와 같은 급 교차검증."
+   },
+   "baseNote": "2026 F/L 개소세5% 2.5T 2WD (mtops 54.1M→60.7M). 블랙 추가.",
+   "currentPricing": {
+    "source": "carnoon 현재",
+    "engines": {
+     "가솔린 2.5T": {
+      "2WD": 60700000
+     },
+     "가솔린 3.5T": {
+      "2WD": 67300000
+     },
+     "BLACK(AWD)": {
+      "2.5T": 83700000,
+      "3.5T": 88000000
+     }
+    },
+    "note": "블랙 에디션(AWD 전용) 추가. Electrified G80(전기) 별도 모델."
+   }
+  },
+  {
+   "model": "gv60",
+   "label": "GV60 (EV)",
+   "priceSource": "carnoon 현재가(2026/신형/F/L). base·라인업 교정. 옵션·정밀max 는 genesis.com BTO 재확인 대상. 사장님 지시 1단계(넓게-빠르게).",
+   "basePrice": 64900788,
+   "basePriceTax35": null,
+   "isEV": true,
+   "exclusiveGroups": [
+    {
+     "group": "PE 시스템(구동/성능)",
+     "pick": 1,
+     "status": "xcheck",
+     "choices": [
+      {
+       "label": "드 2WD - 후륜 168kW 모터",
+       "addWon": 0,
+       "isDefault": true
+      },
+      {
+       "label": "스탠다드 AWD - 234kW 구동 모터(전륜 74kW / 후륜 160kW 듀얼모터 사륜구동(AWD) 시스템)",
+       "addWon": 5000000,
+       "isDefault": false
+      },
+      {
+       "label": "(기본)",
+       "addWon": 10500000,
+       "isDefault": false
+      }
+     ]
+    },
+    {
+     "group": "외장 컬러",
+     "pick": 1,
+     "status": "xcheck",
+     "choices": [
+      {
+       "label": "컬러(유광, 7종 중 선택)",
+       "addWon": 0,
+       "isDefault": true
+      },
+      {
+       "label": "스페셜 컬러(상파울로 라임)",
+       "addWon": 700000,
+       "isDefault": false
+      },
+      {
+       "label": "매트 컬러(무광, 3종 중 선택: 마테호른 화이트, 아타카마 코퍼, 멜버른 그레이)",
+       "addWon": 700000,
+       "isDefault": false
+      }
+     ]
+    },
+    {
+     "group": "휠 & 타이어",
+     "pick": 1,
+     "status": "xcheck",
+     "choices": [
+      {
+       "label": "[스탠다드 2WD] 235/55R19 미쉐린 타이어 & 휠",
+       "addWon": 0,
+       "isDefault": true
+      },
+      {
+       "label": "[스탠다드 AWD] 235/55R19 미쉐린 타이어 & 휠",
+       "addWon": 0,
+       "isDefault": true
+      },
+      {
+       "label": "235/55R19 미쉐린 타이어 & 휠, 전륜 화이트도장 모노블럭(4P) 브레이크",
+       "addWon": 1600000,
+       "isDefault": false
+      },
+      {
+       "label": "(기본)",
+       "addWon": 700000,
+       "isDefault": false
+      },
+      {
+       "label": "255/45R20 미쉐린 타이어 & 휠, 전륜 화이트도장 모노블럭(4P) 브레이",
+       "addWon": 2300000,
+       "isDefault": false
+      },
+      {
+       "label": "(기본)",
+       "addWon": 0,
+       "isDefault": true
+      }
+     ]
+    },
+    {
+     "group": "내장 디자인",
+     "pick": 1,
+     "status": "xcheck",
+     "choices": [
+      {
+       "label": "[스탠다드 2WD/AWD] 스탠다드 디자인",
+       "addWon": 0,
+       "isDefault": true
+      },
+      {
+       "label": "시그니쳐 디자인 셀렉션Ⅰ",
+       "addWon": 1500000,
+       "isDefault": false
+      },
+      {
+       "label": "시그니쳐 디자인 셀렉션Ⅱ",
+       "addWon": 2700000,
+       "isDefault": false
+      },
+      {
+       "label": "시그니쳐 디자인 셀렉션Ⅱ(코퍼 패키지)",
+       "addWon": 2700000,
+       "isDefault": false
+      },
+      {
+       "label": "[퍼포먼스 AWD] 퍼포먼스 스탠다드 디자인",
+       "addWon": 0,
+       "isDefault": true
+      },
+      {
+       "label": "퍼포먼스 디자인 셀렉션",
+       "addWon": 1200000,
+       "isDefault": false
+      }
+     ]
+    }
+   ],
+   "freeOptions": {
+    "status": "⚠ mtops 구가 — 2026 재확인 대상(골격 참고만)",
+    "items": [
+     {
+      "name": "파퓰러 패키지",
+      "price": 5200000
+     },
+     {
+      "name": "헤드업 디스플레이",
+      "price": 1300000
+     },
+     {
+      "name": "디지털 사이드 미러",
+      "price": 1500000
+     },
+     {
+      "name": "비전루프",
+      "price": 1000000
+     },
+     {
+      "name": "컨비니언스 패키지",
+      "price": 1400000
+     },
+     {
+      "name": "하이테크 패키지",
+      "price": 1100000
+     },
+     {
+      "name": "드라이빙 어시스턴스 패키지Ⅰ",
+      "price": 2000000
+     },
+     {
+      "name": "드라이빙 어시스턴스 패키지Ⅱ",
+      "price": 1500000
+     },
+     {
+      "name": "아웃도어 패키지",
+      "price": 600000
+     },
+     {
+      "name": "뱅앤올룹슨 사운드 시스템",
+      "price": 1900000
+     },
+     {
+      "name": "빌트인 캠 패키지",
+      "price": 700000
+     },
+     {
+      "name": "차량 보호 필름",
+      "price": 400000,
+      "kind": "Genuine Parts"
+     },
+     {
+      "name": "프로텍션 매트 패",
+      "price": 200000,
+      "kind": "Genuine Parts"
+     }
+    ]
+   },
+   "minMax": {
+    "min": 64900788,
+    "minConfig": "현재 최저 기본구성(개소세5%, 세제혜택 후) — currentPricing 참조",
+    "optionStatus": "⚠ 1단계(base·라인업 교정) 완료. 옵션가·배타조합·정밀 max 는 2단계 genesis.com BTO 재확인 후 확정. mtops 구가 옵션은 신뢰 안 함.",
+    "note": "F/L(페이스리프트). 세제혜택 후 기준. PE 시스템(스탠2WD/스탠AWD/퍼포먼스)."
+   },
+   "priceRowCheck": {
+    "count": 28,
+    "allMapped": true,
+    "note": "가격행 완전배정 = 코덱스 22개 일치(GV80쿠페)와 같은 급 교차검증."
+   },
+   "baseNote": "F/L 2027년형 개소세5% 세제혜택후 스탠다드 2WD (mtops 59.9M→64.9M).",
+   "currentPricing": {
+    "source": "carnoon 현재",
+    "engines": {
+     "스탠다드 2WD 19\":": 64900788,
+     "스탠다드 AWD 19\":": 68508497,
+     "스탠다드 AWD 20\":": 70692111,
+     "퍼포먼스 AWD 21\":": 76760000
+    },
+    "note": "F/L(페이스리프트). 세제혜택 후 기준. PE 시스템(스탠2WD/스탠AWD/퍼포먼스)."
+   }
+  }
+ ]
+}

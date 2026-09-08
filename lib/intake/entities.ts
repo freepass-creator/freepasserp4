@@ -291,6 +291,14 @@ export const ENTITIES: Record<string, Entity> = {
       { key: 'driver_age_upper_limit', label: '최대연령', type: 'select', options: sheetOpts('최대연령'), manual: true, note: '「만 70세 이하」 · 넘으면 계약 불가 · 시트 「최대연령」' },
       { key: 'license_period', label: '면허 경력요건', type: 'select', options: sheetOpts('면허기간'), manual: true, note: '약관 제13조 · 시트 「면허기간」' },
       { key: 'annual_mileage', label: '약정 주행거리', type: 'select', options: sheetOpts('기본주행'), manual: true, note: '초과분은 초과 주행요금 · 시트 「기본주행」' },
+      /*
+       * ★**최대 주행거리** — 이 정책에서 «올릴 수 있는 상한»(2026-09-05 사장님
+       *   「최대 주행거리에 있는데 정책에다가 최대 주행거리를 안 넣어놨네. 그것도 넣을 수 있게끔」).
+       *   기본 약정(`annual_mileage`)에서 1만km씩 올릴 수 있는데, 어디까지 올릴 수 있는지가
+       *   여태 «칸이 없어» 아무 데도 안 적혔다 — 영업자가 물으면 매번 공급사에 확인해야 했다.
+       * ⚠ 시트 옵션 목록이 아직 없어 `text` 다. 시트에 열이 생기면 `sheetOpts` 로 바꾼다.
+       */
+      { key: 'max_annual_mileage', label: '최대 주행거리', type: 'text', manual: true, note: '이 정책에서 올릴 수 있는 상한 · 예 「연 50,000km」' },
       {
         key: 'mileage_upcharge_per_10000km', label: '추가주행 금액(1만km당)', type: 'select', options: sheetOpts('추가주행 금액'), manual: true,
         // 약정을 «정할 때»의 가격표(2만km 월 65만 / 3만km 월 75만). 계약이 굳으면 월 대여료에 녹는다.
