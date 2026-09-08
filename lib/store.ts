@@ -185,7 +185,7 @@ class FirestoreAdapter implements StoreAdapter {
   async save(entityKey: string, companyId: string, records: EntityRecord[]): Promise<SaveResult> {
     const { getFirestore, collection, query, where, getDocs, doc, setDoc } = await import('firebase/firestore');
     const db = getFirestore(getFirebaseApp()!);
-    const col = collection(db, entityKey);
+    const col = collection(db, entityKey === 'product' ? 'products' : entityKey);   // 상품은 products 컬렉션
     // dedup: 같은 회사·자연키 존재 확인
     const snap = await withTimeout(getDocs(query(col, where('companyId', '==', companyId))));
     const seen = new Set<string>();
@@ -194,7 +194,9 @@ class FirestoreAdapter implements StoreAdapter {
     for (const rec of records) {
       const key = naturalKey(entityKey, rec);
       if (key && seen.has(key)) { duplicates++; continue; }
-      const id = key ? `${companyId}__${key}` : `${companyId}__${Date.now()}_${Math.random().toString(36).slice(2, 7)}`;
+      // ★상품은 미러와 같은 «자연키»(차번/상품코드) 문서 id — 복합키로 쓰면 미러 문서와 갈라진다.
+      const id = entityKey === 'product' && key ? String(key)
+        : (key ? `${companyId}__${key}` : `${companyId}__${Date.now()}_${Math.random().toString(36).slice(2, 7)}`);
       const stored = { ...rec, companyId, _key: key, createdAt: new Date().toISOString(), createdBy: 'system' };
       await withTimeout(setDoc(doc(col, id), stored));
       if (key) seen.add(key);
@@ -267,30 +269,43 @@ class FirestoreAdapter implements StoreAdapter {
       return snap.exists() ? (snap.data() as EntityRecord) : null;
     } catch (e) { console.warn(`Firestore get(${entityKey}) 대기 실패(DB·규칙 확인):`, (e as Error).message); return null; }
   }
+  /** 상품 쓰기 대상 = «products»(복수) 컬렉션 · 문서 id = 미러가 쓴 자연키(product_code 조회→그 id, 아니면 key=차번). */
+  private async productWriteId(db: import('firebase/firestore').Firestore, key: string): Promise<string> {
+    const { collection, query, where, getDocs } = await import('firebase/firestore');
+    const byCode = await withTimeout(getDocs(query(collection(db, 'products'), where('product_code', '==', key))));
+    return byCode.empty ? key : byCode.docs[0].id;
+  }
   async update(entityKey: string, companyId: string, key: string, patch: EntityRecord): Promise<void> {
     const { getFirestore, doc, setDoc } = await import('firebase/firestore');
     const db = getFirestore(getFirebaseApp()!);
     // 역할 격리 엔티티는 «실제 문서 id»(공급사코드 프리픽스)로 써야 한다 — 세션 회사로 만든 id 로 쓰면 엉뚱한 새 문서가 생긴다.
-    let docId = `${companyId}__${key}`;
+    let col = entityKey, docId = `${companyId}__${key}`;
     let before: EntityRecord | null;
     if (entityKey === 'contract' || entityKey === 'settlement') {
       const hit = await this.findRoleIsolated(entityKey, key);
       before = hit?.data ?? null;
       if (hit) docId = hit.id;
+    } else if (entityKey === 'product') {
+      // ★상품은 «products» 컬렉션 · 자연키(미러와 같은 문서로 써야 읽기와 안 갈린다). 읽기(get)와 대칭.
+      col = 'products'; docId = await this.productWriteId(db, key);
+      before = await this.get(entityKey, companyId, key);
     } else {
       before = await this.get(entityKey, companyId, key);
     }
     const after = { ...(before || {}), ...patch, updatedAt: new Date().toISOString() };
-    await setDoc(doc(db, entityKey, docId), { ...patch, updatedAt: after.updatedAt }, { merge: true });
+    await setDoc(doc(db, col, docId), { ...patch, updatedAt: after.updatedAt }, { merge: true });
     this.logAudit(entityKey, companyId, key, patch.deletedAt ? 'delete' : 'update', before, after);
   }
   async bulkPatch(entityKey: string, companyId: string, patches: { key: string; patch: EntityRecord }[]): Promise<number> {
     const { getFirestore, doc, writeBatch } = await import('firebase/firestore');
     const db = getFirestore(getFirebaseApp()!);
     const now = new Date().toISOString();
+    const isProduct = entityKey === 'product';   // 상품은 products 컬렉션·자연키(미러와 같은 문서)
     let n = 0, batch = writeBatch(db), inB = 0;
     for (const { key, patch } of patches) {
-      batch.set(doc(db, entityKey, `${companyId}__${key}`), { ...patch, updatedAt: now }, { merge: true });
+      const col = isProduct ? 'products' : entityKey;
+      const docId = isProduct ? await this.productWriteId(db, key) : `${companyId}__${key}`;
+      batch.set(doc(db, col, docId), { ...patch, updatedAt: now }, { merge: true });
       n++; if (++inB >= 400) { await batch.commit(); batch = writeBatch(db); inB = 0; }
     }
     if (inB) await batch.commit();
@@ -305,8 +320,9 @@ class FirestoreAdapter implements StoreAdapter {
     const conflicts: string[] = [];
     let updated = 0;
     for (const { key, patch, expected } of patches) {
+      const pid = await this.productWriteId(db, key);   // ★products 자연키 (미러 문서). 'product'/복합키 아님.
       const applied = await runTransaction(db, async (tx) => {
-        const target = doc(db, 'product', `${companyId}__${key}`);
+        const target = doc(db, 'products', pid);
         const snapshot = await tx.get(target);
         const current = snapshot.exists() ? snapshot.data() as EntityRecord : null;
         if (!productPatchPreconditionMatches(current, expected, patch)) return false;
@@ -328,7 +344,7 @@ class FirestoreAdapter implements StoreAdapter {
   async listDeleted(entityKey: string, companyId: string): Promise<EntityRecord[]> {
     const { getFirestore, collection, query, where, getDocs } = await import('firebase/firestore');
     const db = getFirestore(getFirebaseApp()!);
-    const snap = await getDocs(query(collection(db, entityKey), where('companyId', '==', companyId)));
+    const snap = await getDocs(query(collection(db, entityKey === 'product' ? 'products' : entityKey), where('companyId', '==', companyId)));
     return snap.docs.map((d) => d.data() as EntityRecord).filter((r) => r.deletedAt);
   }
   async restore(entityKey: string, companyId: string, key: string): Promise<void> {
@@ -341,7 +357,7 @@ class FirestoreAdapter implements StoreAdapter {
       const db = getFirestore(getFirebaseApp()!);
       const id = String(entry._key);
       const companyId = String(entry.companyId || '');
-      await setDoc(doc(db, 'audit_log', `${companyId}__${id}`), entry);
+      await setDoc(doc(db, 'audit_logs', `${companyId}__${id}`), entry);   // ★미러·이관과 같은 컬렉션명(audit_logs 복수). 'audit_log' 는 엔티티키일 뿐.
     } catch { /* best-effort */ }
   }
   private logAudit(entityKey: string, companyId: string, key: string, action: string, before: EntityRecord | null, after: EntityRecord | null) {
