@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { Check, CircleCheck, ImageOff, ShieldCheck, Tag } from 'lucide-react';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { C, FW, NUM } from '@/components/ui';
-import { BADGE, PerkMarks, SHOP, markIconFor, type ShopMark } from '@/components/shop/shop-ui';
+import { BADGE, PerkMarks, SHOP, markIconFor, type ShopMark, ShopPhoto, PHOTO_SIZES } from '@/components/shop/shop-ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { useInView } from '@/lib/use-in-view';
 import { useFirstPhoto } from '@/components/use-product-photos';
@@ -359,9 +359,13 @@ function ShopThumb({ p, marks = [] }: { p: EntityRecord; marks?: ShopMark[] }) {
       background: C.placeholder, borderRadius: SHOP.r.card,
     }}>
       {photo ? (
-        // eslint-disable-next-line @next/next/no-img-element -- 원본은 외부 도메인(프록시 경유)이라 next/image 최적화 대상이 아니다.
-        <img src={photo} alt="" loading="lazy" decoding="async"
-          style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+        /*
+         * ★사진은 원자를 지난다(`ShopPhoto`) — 크기를 줄여 AVIF/WebP 로 내보낸다.
+         * ⚠ 여기 「프록시 경유라 최적화 대상이 아니다」라고 적혀 있었다. **거꾸로였다** —
+         *   프록시(`/api/img?...`)는 «동일 오리진 상대주소»라 최적화가 제일 잘 되는 꼴이다.
+         *   그 오해 때문에 **1.4MB 원본 PNG 가 330px 칸에** 그대로 들어왔다(2026-09-08 실측).
+         */
+        <ShopPhoto src={photo} sizes={PHOTO_SIZES.card} />
       ) : (
         <div style={{
           position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',

@@ -12,8 +12,7 @@ import type { EntityRecord } from '@/lib/intake/entities';
 import { C, ColorMark, FW, FS, ICON, NUM, SCRIM } from '@/components/ui';
 import {
   BADGE, PerkMarks, SHOP, ShopDock, ShopDockAction, ShopIconBtn, StateChip, markIconFor,
-  type ShopMark,
-} from '@/components/shop/shop-ui';
+  type ShopMark, ShopPhoto, PHOTO_SIZES } from '@/components/shop/shop-ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { useProductPhotos } from '@/components/use-product-photos';
 import { haptic } from '@/lib/haptics';
@@ -2036,13 +2035,12 @@ function PhotoAll({ photos, at, title, mobile, onPick, onClose }: {
           }}
         >
           {photos.map((src) => (
-            // eslint-disable-next-line @next/next/no-img-element -- 원본은 외부 도메인(프록시 경유)이다.
             /* ★자리를 «미리» 잡는다 — 안 실린 장이 높이 0 이면 굴러갈 길이가 짧게 잡히고,
                  실릴 때마다 화면이 튄다. 실제 비율은 실리면서 맞춰진다. */
-            <img key={src} src={src} alt="" decoding="async" loading="lazy"
+            <ShopPhoto key={src} src={src} mode="box" fit="contain" sizes={PHOTO_SIZES.hero}
               style={{
-                width: '100%', height: 'auto', aspectRatio: '4 / 3', objectFit: 'contain',
-                display: 'block', borderRadius: SHOP.r.chip,
+                width: '100%', height: 'auto', aspectRatio: '4 / 3',
+                borderRadius: SHOP.r.chip,
               }} />
           ))}
         </div>
@@ -2057,9 +2055,8 @@ function PhotoAll({ photos, at, title, mobile, onPick, onClose }: {
       >
         {/* 왼쪽 — 큰 사진. `contain` 이라 잘리지 않는다(여기는 «제대로 보는» 곳이다). */}
         <div style={{ position: 'relative', flex: 1, minWidth: 0, display: 'flex' }}>
-          {/* eslint-disable-next-line @next/next/no-img-element -- 원본은 외부 도메인(프록시 경유)이다. */}
-          <img src={photos[cur]} alt="" decoding="async"
-            style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
+          <ShopPhoto src={photos[cur]} mode="box" fit="contain" priority sizes={PHOTO_SIZES.hero}
+            style={{ width: '100%', height: '100%' }} />
           {cur > 0 ? <GalleryArrow side="left" onClick={() => setCur((k) => k - 1)} /> : null}
           {cur < n - 1 ? <GalleryArrow side="right" onClick={() => setCur((k) => k + 1)} /> : null}
           <span className="fp-onphoto" style={{
@@ -2085,9 +2082,7 @@ function PhotoAll({ photos, at, title, mobile, onPick, onClose }: {
                 borderRadius: SHOP.r.chip, cursor: 'pointer', background: C.placeholder,
                 border: k === cur ? `2px solid ${C.brand}` : '1px solid transparent',
               }}>
-              {/* eslint-disable-next-line @next/next/no-img-element -- 원본은 외부 도메인(프록시 경유)이다. */}
-              <img src={src} alt="" decoding="async" loading="lazy"
-                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+              <ShopPhoto src={src} sizes={PHOTO_SIZES.thumb} />
             </button>
           ))}
         </div>
@@ -2201,9 +2196,10 @@ function Gallery({ p, mobile }: { p: EntityRecord; mobile?: boolean }) {
           }}
           style={{ width: '100%', height: '100%', cursor: n > 1 ? 'pointer' : 'default' }}>
           {photos.map((src, k) => (
-            // eslint-disable-next-line @next/next/no-img-element -- 원본은 외부 도메인(프록시 경유)이라 next/image 최적화 대상이 아니다.
-            <img key={src} src={src} alt="" decoding="async" loading={k === 0 ? 'eager' : 'lazy'}
-              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+            /* ★첫 장만 «먼저» 받는다(`priority`) — 손님이 상세를 열면 제일 먼저 보는 그림이다.
+                 전부 켜면 「먼저」가 아무 뜻이 없어진다(`ShopPhoto` 머리말). */
+            <ShopPhoto key={src} src={src} mode="box" sizes={PHOTO_SIZES.hero} priority={k === 0}
+              style={{ width: '100%', height: '100%' }} />
           ))}
         </div>
       ) : (
@@ -2316,9 +2312,7 @@ function Gallery({ p, mobile }: { p: EntityRecord; mobile?: boolean }) {
               /* 보고 있는 장만 테두리로 — 색을 칠하면 사진 위에 색이 얹혀 지저분하다. */
               border: !isDoor && k === i ? `2px solid ${C.brand}` : `1px solid ${C.line2}`,
             }}>
-            {/* eslint-disable-next-line @next/next/no-img-element -- 원본은 외부 도메인(프록시 경유)이다. */}
-            <img src={src} alt="" decoding="async" loading="lazy"
-              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+            <ShopPhoto src={src} sizes={PHOTO_SIZES.thumb} />
             {isDoor ? (
               /*
                * 사진 위 딤·글자 — 둘 다 토큰이다. `.fp-onphoto` 가 그 안에서 `--text-main` 을
