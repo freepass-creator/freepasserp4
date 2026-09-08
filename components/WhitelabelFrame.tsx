@@ -240,7 +240,28 @@ export function WhitelabelFrame({
           <div style={{ flex: 1 }} />
           {/* 폰 머리띠 오른쪽 — 상세의 관심·공유(위 `headerActions` 참고). 목록에서는 비어 있다. */}
           {mobile ? headerActions : null}
-          {phone && !mobile ? (
+          {!mobile && !who && wl.homepage ? (
+            /*
+             * ★★**우리 가게는 여기가 «회사 홈페이지로 가는 문»이다**(사장님 2026-09-07
+             *   「프리패스거는 **우측상단에 대표번호 이런거 빼고** 공간있으니까 거기에 **회사
+             *   홈페이지**를 거기로 넣으면 됨」 · 「원래는 회사홈페이지에서 누르면 이리로 오는데
+             *   **당분간 메인을 이거로** 하겠음」).
+             *   ⇒ 매물 화면이 대문이 되면 회사 소개로 갈 길이 사라진다. 그 되돌아갈 문을 여기 세운다.
+             * ★대표번호는 안 없앤다 — **자리를 옮긴 것**이다. 푸터의 「상담 및 문의」와
+             *   폰 하단독이 그대로 든다(폰에서 연락처는 하단이라는 확정 규격, 2026-09-07).
+             * ⚠ **담당 영업자(`?a=`)가 붙어 온 손님에게는 안 보인다** — 그 자리는 담당자 몫이다.
+             *   손님이 「누구에게 말하나」를 먼저 알아야 한다. 회사 소개는 푸터에도 있다.
+             * ★단추가 아니라 «글자 + 나가는 화살표»다 — 이 화면의 주인공은 차다(면을 쓰지 않는다).
+             */
+            <a href={wl.homepage.href} style={{
+              display: 'inline-flex', alignItems: 'center', gap: SHOP.sp.tight,
+              fontSize: SHOP.fs.body, fontWeight: FW.title, color: C.ink,
+              textDecoration: 'none', whiteSpace: 'nowrap',
+            }}>
+              {wl.homepage.label}
+              <SquareArrowOutUpRight size={ICON.sm} aria-hidden style={{ color: C.faint }} />
+            </a>
+          ) : phone && !mobile ? (
             /*
              * ★★**웹은 «누르는 것»이 아니다 — 번호를 읽고 손님이 제 전화기로 건다**
              *   (사장님 2026-09-07 「**웹은 누르는 거 아니고** 그냥 고객센터 1800-6454 로 가면 되고」).
@@ -367,10 +388,14 @@ export function WhitelabelFrame({
             */}
             <div style={{ marginTop: SHOP.sp.cozy }}>
               {wl.self ? (
-                <>
-                  <div>{wl.name} ✕ {CORP.markMain}{CORP.markSub}</div>
-                  <div>{CORP.name}가 차량과 계약 시스템을 직접 운영합니다.</div>
-                </>
+                /*
+                 * ★★**우리 가게는 «한 줄»이다**(사장님 2026-09-07 「여기도 좀 수정해야하고」).
+                 *   ⚠ 여기 「프리패스모빌리티 ✕ freepassmobility」 + 「…가 직접 운영합니다」 두 줄이
+                 *     서 있었다. 바로 위 사업자 표기까지 세면 **같은 이름이 세 번**이다.
+                 *   ★✕ 줄은 머리띠가 이미 든다 — 아래서 또 말하면 그건 강조가 아니라 소음이다.
+                 *     남길 말은 하나뿐이다: **여기가 «공식» 판매 페이지라는 것.**
+                 */
+                <div>{CORP.name}가 직접 운영하는 공식 판매 페이지입니다.</div>
               ) : (
                 <>
                   <div>{wl.name} ✕ {CORP.koMain}{CORP.koSub} 전략적 파트너십</div>
