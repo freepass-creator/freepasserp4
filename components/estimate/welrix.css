@@ -3263,6 +3263,30 @@
   .wx-root .wrap .pin input, .wx-root .qp-form--conds .pin input { font-size: 16px; }
 }
 
+/* 「견적서 보기」 — 손님에게 나가는 길. 기간 표 바로 밑에 한 줄로 선다. */
+.wx-root .qdock { padding: 14px 0 4px; }
+.wx-root .qdock__go {
+  width: 100%; height: 44px; border: 1px solid var(--brand); border-radius: var(--r-sm);
+  background: var(--brand); color: #fff; font: inherit; font-size: 13.5px; font-weight: 700;
+  cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+}
+.wx-root .qdock__go em { font-style: normal; font-size: 11.5px; font-weight: 400; opacity: .75; }
+.wx-root .qdock__go:disabled { background: var(--bg-muted); border-color: var(--line-2); color: var(--ink-4); cursor: not-allowed; }
+.wx-root .qdock__go:not(:disabled):hover { background: var(--brand-700); border-color: var(--brand-700); }
+
+/* 인쇄 — 견적서만 나온다. 화면의 조건·원가는 종이에 실리지 않는다.
+   ⚠ 원본 print 규칙은 `#print-target` 을 쓰는데 우리는 그 마크업이 아니다. 우리 것으로 다시 적는다. */
+@media print {
+  body * { visibility: hidden !important; }
+  #quote-doc-print, #quote-doc-print * { visibility: visible !important; }
+  #quote-doc-print { position: absolute; left: 0; top: 0; width: 100%; }
+  .wx-root .quote-modal-backdrop { position: static; background: none; display: block; }
+  .wx-root .quote-modal { max-height: none; box-shadow: none; width: 100%; max-width: none; }
+  .wx-root .quote-modal__head, .wx-root .qdock { display: none !important; }
+  /* ⚠ 조상이 «잘라내면» 절대배치한 문서가 한 장에서 끊긴다 — 100vh·overflow 를 풀어 준다. */
+  .wx-root, .wx-root .quote-modal__body { height: auto !important; overflow: visible !important; }
+}
+
 /* 「추정」 표시 — 우리가 채운 값이라는 것을 «말한다»(사장님 2026-09-08 「평균시세는 틀릴 수 있으니까」).
    ⚠ 표시를 빼면 사람이 그 값을 «우리가 아는 시세»로 믿는다. 그게 더 위험하다. */
 .wx-root .seedmark {

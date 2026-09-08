@@ -527,6 +527,82 @@ must(tPen < tNoPen && tPen >= 0,
   '위약금이 손바뀜 원가를 안 깎거나 음수가 됩니다 — 상쇄는 하되 0 밑으로는 안 내려갑니다',
   'lib/domain/estimate/turnover-cost.js');
 
+/* ══ 5. 손님 견적서 — «내보내는 길» ══════════════════════════════════════════
+     사장님 2026-09-08 「다음 ㄱㄱㄱ」 — 화면에서 보고 끝나면 손님한테 갈 길이 없다. */
+const qp = read('features/estimate/QuotePreview.tsx');
+/* ⚠ 주석은 빼고 «코드»만 본다 — 여기 주석은 「원가는 안 나간다」를 «설명»하느라 그 말들을 쓴다.
+   주석까지 세면 규격을 적어 둔 것이 규격 위반이 된다. */
+const qpCode = qp.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*/g, '');
+
+/* 5-1. ★★원가·손익이 손님 문서에 «자리조차» 없어야 한다.
+   자리가 있으면 언젠가 채워지고, 채워지면 손님이 우리 마진을 본다. */
+for (const w of ['opProfit', 'cogs', 'depreciation', 'interest', 'turnoverCost', 'commission',
+  '감가', '조달금리', '손바뀜', '영업이익', '매출총이익', '영업수수료', '원가']) {
+  must(!qpCode.includes(w),
+    `손님 견적서에 원가말 「${w}」 가 들어 있습니다 — 원가·손익은 한 줄도 안 나갑니다`,
+    'features/estimate/QuotePreview.tsx');
+}
+must(/export type QuoteLine = \{[^}]*\}/s.test(qpCode) && !/QuoteLine = \{[^}]*(cost|profit|margin)/is.test(qpCode),
+  '`QuoteLine` 에 원가·손익 자리가 생겼습니다 — 자리를 두지 않는 것이 이 문서의 규격입니다',
+  'features/estimate/QuotePreview.tsx');
+
+/* 5-2. 웰릭스 CSS 가 기다리는 «속 짜임»을 지킨다 — 클래스만 베끼면 글자가 붙어 나온다.
+   2026-09-08 실측: `.qd-people__col` 을 <b>/<span> 으로 짰더니 「고객님고객」이 됐다. */
+for (const [sel, hint] of [
+  ['<h4>고객</h4>', '.qd-people__col 은 h4 + .name 이다'],
+  ['className="name"', '.qd-people__col .name'],
+  ['className="label">Total', '.qd-vehicle__price 는 .label + .value 다'],
+  ['className="price"', '.qd-monthly__price 는 .price + .unit + .residual 이다'],
+  ['className="unit"', '.qd-monthly__price .unit'],
+  ['<ul className="qd-notes">', '.qd-notes 는 ul>li 다'],
+] as const) {
+  must(qp.includes(sel), `손님 견적서 짜임이 웰릭스 CSS 와 안 맞습니다 — ${hint}`,
+    'features/estimate/QuotePreview.tsx');
+}
+
+/* 5-3. ★노브랜드 — 우리 이름·로고·계좌를 손님 문서에 세우지 않는다(사장님 2026-08-30). */
+for (const w of ['qd-hero__logo', 'qd-footer__bank', '프리패스', 'freepass', '웰릭스']) {
+  must(!qpCode.includes(w),
+    `손님 견적서에 브랜드 표식 「${w}」 이 있습니다 — 공급사·영업자가 같이 쓰는 판입니다`,
+    'features/estimate/QuotePreview.tsx');
+}
+
+/* 5-4. 인쇄 길 — 견적서만 남기는 @media print 가 있어야 「PDF 로 저장」이 문서 한 장이 된다. */
+must(wxCss.includes('#quote-doc-print'),
+  '인쇄 규칙(@media print)이 없습니다 — 인쇄하면 견적기 화면이 통째로 찍힙니다',
+  'scripts/extract-welrix-css.py');
+
+/* 5-5. 화면에서 문서로 가는 길이 실제로 걸려 있는가. */
+must(page.includes('QuotePreview') && page.includes('setDocOpen(true)'),
+  '견적서 버튼이 문서를 안 엽니다',
+  'app/estimate/page.tsx');
+must(page.includes("scen.filter((x) => x.send)"),
+  '체크하지 않은 기간까지 손님 견적서에 담깁니다 — 「체크한 칸만 나갑니다」가 화면의 약속입니다',
+  'app/estimate/page.tsx');
+
+/* ══ 6. 마스터의 «구멍»을 화면이 삼키지 않는가 ═══════════════════════════════
+     2026-09-08 실측 — 제네시스 여덟 모델은 트림명이 «비어» 있고(BTO 가 기본 한 대 + 옵션),
+     제네시스 G80 은 같은 이름 옵션이 두 줄이다(AWD 280만/0원 · 파노라마 110만/140만). */
+
+/* 6-1. 이름 없는 트림도 고를 수 있어야 한다 — 값이 빈 문자열이면 «고를 안내문»과 구별이 안 된다. */
+must(cascade.includes("t.trim || '기본'") && cascade.includes('newTrims.map((t, i)'),
+  '이름 없는 트림을 못 고릅니다 — 제네시스 여덟 모델이 전부 트림명이 비어 있습니다',
+  'features/estimate/VehicleCascade.tsx');
+must(!/\{ v: t\.trim, label: t\.trim \}/.test(cascade),
+  '신차 트림 값을 «이름»으로 나릅니다 — 이름이 비면 고를 수 없게 됩니다',
+  'features/estimate/VehicleCascade.tsx');
+
+/* 6-2. 옵션은 «이름»이 아니라 «줄»로 센다 — 같은 이름 두 줄이 한 칸을 같이 쥐면 값이 틀어진다. */
+must(page.includes('const optKey =') && page.includes('optSel[optKey(o, i)]'),
+  '옵션을 이름으로 셉니다 — 같은 이름이 두 줄인 트림에서 하나를 누르면 둘이 켜집니다',
+  'app/estimate/page.tsx');
+must(!/optSel\[o\.name\]/.test(page),
+  '옵션 선택이 아직 이름 키를 씁니다',
+  'app/estimate/page.tsx');
+must(page.includes('setOptSel({})'),
+  '차를 바꿔도 고른 옵션이 안 지워집니다 — 앞 차의 옵션이 다음 차에 붙습니다',
+  'app/estimate/page.tsx');
+
 if (fails.length) {
   console.error(`\n✗ 견적 로직이 정본과 다릅니다 — ${fails.length}건\n`);
   for (const f of fails) console.error(`  · ${f}\n`);
