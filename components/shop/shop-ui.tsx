@@ -1,6 +1,7 @@
 'use client';
 import type { CSSProperties, ReactNode } from 'react';
 import Link from 'next/link';
+import NextImage from 'next/image';
 import {
   Banknote, Calendar, Car, CarFront, Check, ChevronDown, Coins, Factory, FileText, Fuel, Gauge,
   Gift, IdCard, PiggyBank, Search, SearchCheck, ShieldCheck, UserRound, Wallet, X, Zap,
@@ -896,3 +897,72 @@ export function PerkMarks({ marks, fs, size, columnGap = SHOP.sp.edge }: {
     </div>
   );
 }
+
+/* ── 사진 ────────────────────────────────────────────────────────────────
+ * **손님 화면의 모든 매물 사진은 이 원자를 지난다** — 목록 카드 · 상세 큰 사진 · 상세 썸네일.
+ *
+ * 사장님 2026-09-08 「**안 느려지게 이런 사이트 통상 하는 방법으로** 처리해 줘」.
+ *
+ * ⚠ 무슨 일이 있었나(운영 실측) — 카드 사진이 **원본 PNG 그대로** 나갔다. 한 장 **1.4MB** 를
+ *   **330px 칸**에 그렸고, 첫 화면에 카드가 60장이었다. 화면이 늦게 뜨는 것도, 대역폭이 드는 것도
+ *   전부 여기 하나였다.
+ *
+ * ★**통상 하는 방법 셋**을 다 얹는다:
+ *   ① 화면 폭에 맞는 크기만 내려보낸다(`sizes` → Next 가 srcset 을 짠다)
+ *   ② AVIF/WebP 로 바꿔 보낸다(`next.config` `formats`)
+ *   ③ 첫 화면 밖은 스크롤할 때 받는다(`loading="lazy"`) · 첫 장은 먼저 받는다(`priority`)
+ * ★자리가 «미리» 잡혀 있어야 한다 — 부모가 `position: relative` + 비율을 쥐고, 사진은 `fill` 로
+ *   그 안을 채운다. 안 그러면 사진이 도착할 때마다 목록이 **아래로 밀린다**(누르려던 카드가 도망간다).
+ *
+ * ⚠⚠ **최적화가 «안 되는» 주소가 있다.** Next 는 화이트리스트 밖 원격 호스트를 거부한다
+ *   (`next.config` `images.remotePatterns`). 공급사가 새 호스트를 쓰기 시작하면 그 차만
+ *   **사진이 통째로 안 뜨는** 꼴이 된다 — 목록에서 그건 「그 차가 없는」 것과 같다.
+ *   ⇒ 그래서 **못 태우는 주소는 원본 `<img>` 로 떨어뜨린다.** 느린 게 안 보이는 것보다 낫다.
+ *   ★대부분은 `/api/img` 프록시를 타서 **동일 오리진 상대주소**라 여기 걸릴 일이 없다.
+ */
+const OPTIMIZABLE = /^\/(?!\/)/;   // 동일 오리진 상대주소만 — 절대주소는 호스트 화이트리스트에 걸린다
+
+/**
+ * ★**두 가지 방식**이 필요하다 — 담는 그릇이 다르기 때문이다.
+ *   · `fill`  = 그릇이 «자리를 이미 쥐고 있을 때»(부모가 `position:relative` + 비율/높이).
+ *              목록 카드 · 상세 썸네일이 이쪽이다. 자리가 미리 잡혀 화면이 안 튄다.
+ *   · `box`   = 그릇이 사진에 맞춰 늘어날 때(전면 보기 · 미는 갤러리).
+ *              구조를 안 건드리려고 `width`/`height` 를 «비율 힌트»로만 주고 크기는 style 이 쥔다.
+ * ⚠ `fill` 을 자리 안 잡힌 그릇에 쓰면 사진이 **높이 0** 으로 사라진다. 그릇을 보고 고른다.
+ */
+export function ShopPhoto({ src, sizes, priority, alt = '', fit = 'cover', mode = 'fill', style }: {
+  src: string;
+  /** 이 사진이 화면에서 «몇 px» 로 그려지나 — Next 가 이걸 보고 크기를 고른다. 빠뜨리면 제일 큰 걸 보낸다. */
+  sizes: string;
+  /** 첫 화면에 보이는 한 장만 true — 전부 켜면 「먼저」가 아무 뜻이 없어진다. */
+  priority?: boolean;
+  alt?: string;
+  /** `cover` = 채우고 자른다(고르는 자리) · `contain` = 다 보인다(뜯어보는 자리). */
+  fit?: 'cover' | 'contain';
+  mode?: 'fill' | 'box';
+  style?: CSSProperties;
+}) {
+  const base: CSSProperties = { objectFit: fit, display: 'block', ...style };
+  if (!OPTIMIZABLE.test(src)) {
+    /* eslint-disable-next-line @next/next/no-img-element -- 최적화 화이트리스트 밖 주소(위 머리말) */
+    return <img src={src} alt={alt} decoding="async" loading={priority ? 'eager' : 'lazy'}
+      style={mode === 'fill' ? { ...base, width: '100%', height: '100%' } : base} />;
+  }
+  if (mode === 'box') {
+    /* 1200×900 = 4:3 «비율 힌트»다. 실제 크기는 style 이 쥔다(위 머리말). */
+    return <NextImage src={src} alt={alt} width={1200} height={900} sizes={sizes} style={base}
+      priority={priority} loading={priority ? undefined : 'lazy'} />;
+  }
+  return <NextImage src={src} alt={alt} fill sizes={sizes} style={base}
+    priority={priority} loading={priority ? undefined : 'lazy'} />;
+}
+
+/** 화면 폭별 사진 크기 — 한 곳에 적는다(카드·상세가 따로 적으면 한쪽만 커진다). */
+export const PHOTO_SIZES = {
+  /** 목록 카드 — 폰은 화면 폭, 웹은 세 칸이라 1/3. */
+  card: '(max-width: 760px) 100vw, 33vw',
+  /** 상세 큰 사진 — 폰은 화면 폭, 웹은 왼쪽 기둥 절반쯤. */
+  hero: '(max-width: 760px) 100vw, 60vw',
+  /** 상세 아래 작은 사진 줄. */
+  thumb: '120px',
+} as const;
