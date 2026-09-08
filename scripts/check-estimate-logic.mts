@@ -142,6 +142,7 @@ const estCss = read('components/estimate/estimate.css');
 const costCss = read('components/estimate/cost.css');
 const picker = read('features/estimate/CarPicker.tsx');
 const cascade = read('features/estimate/VehicleCascade.tsx');
+const carIndexSrc = read('lib/domain/estimate/car-index.ts');
 const gate = read('features/estimate/EstimateGate.tsx');
 const costApi = read('app/api/estimate/cost/route.ts');
 const workPage = read('components/WorkPage.tsx');
@@ -290,6 +291,26 @@ must(/const listPrice = isNew \? \(picked\.price \?\? 0\) \+ optSum : usedPrice;
 must(/from '@\/lib\/domain\/color-master'/.test(page) && !/#[0-9a-fA-F]{6}/.test(page),
   '색을 화면이 지어냈습니다 — 규격색·색칩은 색상마스터(SSOT)에서만 당깁니다',
   'app/estimate/page.tsx lib/domain/color-master');
+
+/* ㉦ 원가에 속한 것은 견적 화면에서 «접어» 둔다 + 시세는 «채워 주되 잠그지 않는다»
+     사장님 2026-09-08 「기존 웰릭스 손오공거 감안해서 **원가페이지에 들어갈 거는 안 보여주는** 거야」
+                     「**잔가 수동 넣기는 숨겨놨다가 꺼내서** 쓸 수 있는 거고」
+                     「없으면 **평균시세는 입력해주고 바꿀 수 있게끔**. 평균시세는 틀릴 수 있으니까」 */
+must(/className="foldhead"/.test(page) && /residOpen \? \(/.test(page),
+  '연도별 잔가가 «접혀» 있지 않습니다 — 원가에 속한 값이라 꺼내서 쓰는 것이 규격입니다',
+  'app/estimate/page.tsx #sec-resid');
+must(!/className="vfields" hidden=/.test(page),
+  '`hidden` 으로 접고 있습니다 — `.vfields{display:grid}` 가 이겨서 «안 접힙니다»(2026-09-08 실측)',
+  'app/estimate/page.tsx');
+must(/guessMarketPrice/.test(page) && /priceSeeded/.test(page),
+  '시세를 «채워 주지» 않습니다 — 차를 바꾸면 앞 차 시세가 남아 대여료가 엉뚱해집니다',
+  'app/estimate/page.tsx');
+must(/const priceKnown = /.test(page) && /priceKnown && c\.payVat/.test(page),
+  '시세를 모르는데 대여료가 섭니다 — 감가만 0 이고 고정비가 남은 «찌꺼기»입니다(2026-09-08 실측 274,000원)',
+  'app/estimate/page.tsx priceKnown');
+must(/koModel\(al, m\.sub_model\)/.test(carIndexSrc),
+  '신차 이름을 «한글로도» 안 맞춥니다 — 기아가 영문 슬러그(ray)로 와서 통째로 안 잡힙니다',
+  'lib/domain/estimate/car-index.ts guessMarketPrice');
 
 /* ㉥ 기둥은 «둘»이다 — 셋째 칸을 두지 않는 것이 규격이다(2026-09-08 사장님 「우측에 따로 놓지 말고」) */
 must(!/className="contract-panel"/.test(page),

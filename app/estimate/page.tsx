@@ -37,7 +37,7 @@ import { EXT_COLORS, INT_COLORS, colorSwatch } from '@/lib/domain/color-master';
 import CarPicker from '@/features/estimate/CarPicker';
 import VehicleCascade from '@/features/estimate/VehicleCascade';
 
-import type { PickedCar } from '@/lib/domain/estimate/car-index';
+import { guessMarketPrice, loadCarIndex, loadNewModels, koModel, type PickedCar, type NewModel, type CarIndex } from '@/lib/domain/estimate/car-index';
 import { deltaKeyFor } from '@/lib/domain/estimate/residual-by-name';
 import { expectedTurnovers } from '@/lib/domain/estimate/turnover-cost.js';
 import { adjustResidual, configFrom, type AcqPath } from '@/lib/domain/estimate/cost-settings';
@@ -219,6 +219,26 @@ function EstimatePageInner() {
   const [usedMileage, setUsedMileage] = useState(DEFAULT_USED_MILEAGE);
   /** 마스터가 배기량을 안 주면 여기서 묻는다 — 0 으로 떨어뜨리면 자동차세가 «조용히» 0 이 된다. */
   const [manualCc, setManualCc] = useState(0);
+  /**
+   * 시세를 **사람이 손댔나** — 손대면 그 값이 이긴다(자동 채움이 덮지 않는다).
+   * ★사장님 2026-09-08 「평균시세는 **틀릴 수 있으니까**」 — 그래서 채워는 주되 **잠그지 않는다**.
+   */
+  const [priceTyped, setPriceTyped] = useState(false);
+  /**
+   * 지금 시세가 **우리가 짚은 값인가**. 「추정」 표시는 이것에만 붙는다.
+   * ⚠ 첫 화면의 박아 둔 차(그랜저 2,700만)는 «짚은 값»이 아니라 «박은 값»이다 — 붙이면 거짓말이다
+   *   (2026-09-08 눌러 보고 잡음).
+   */
+  const [priceSeeded, setPriceSeeded] = useState(false);
+  /** 신차 공표가 — 중고 시세를 짚는 씨앗이다(우리에게 시세 원장이 없다). */
+  const [newModels, setNewModels] = useState<NewModel[] | null>(null);
+  /** 이름 사전 — 신차마스터가 기아를 영문 슬러그로 주므로 한글로 되짚어야 한다. */
+  const [carIdx, setCarIdx] = useState<CarIndex | null>(null);
+  /**
+   * 연도별 잔가 — **접어 둔다**(사장님 2026-09-08 「잔가 수동 넣기는 **숨겨놨다가 꺼내서** 쓸 수 있는 거고」).
+   * 잔가는 «원가»에 속한 값이라 견적할 때는 안 보이는 게 맞다 — 원본(웰릭스·손오공)도 그렇다.
+   */
+  const [residOpen, setResidOpen] = useState(false);
   /** 중고 취득 경로 — 기보유면 등록·탁송·상품화가 원가에서 빠진다. */
   const [acq, setAcq] = useState<AcqPath>('prep');
   const [disc, setDisc] = useState(0);
@@ -262,6 +282,14 @@ function EstimatePageInner() {
   /** 어느 해의 «속»을 펼쳐 봤나 — 줄을 누르면 그 해의 원가 분해가 그 자리에서 열린다. */
   const [openTerm, setOpenTerm] = useState<number | null>(48);
 
+  /* 신차 공표가 — 중고 시세를 짚는 데 쓴다. 견적 첫 그림을 막지 않게 뒤늦게 받는다. */
+  useEffect(() => {
+    let alive = true;
+    loadNewModels().then((m) => alive && setNewModels(m)).catch(() => {});
+    loadCarIndex().then((j) => alive && setCarIdx(j)).catch(() => {});
+    return () => { alive = false; };
+  }, []);
+
   // 회사 값을 받아 덮는다 — 사장님이 정한 원가가 있으면 그것이 이긴다.
   useEffect(() => {
     let alive = true;
@@ -274,6 +302,38 @@ function EstimatePageInner() {
   useEffect(() => { setPicked(cond === 'new' ? DEFAULT_NEW : DEFAULT_USED); setManualCc(0); }, [cond]);
   /* ⚠ 차(트림)가 바뀌면 옵션·색을 «비운다». 안 비우면 딴 차의 옵션값이 남아 차량가가 조용히 틀어진다. */
   useEffect(() => { setOptSel({}); setColorExt(''); setColorInt(''); }, [picked]);
+
+  /**
+   * ★★차를 바꾸면 **연식과 시세를 채워 준다** — 사장님 2026-09-08
+   *   「없으면 **평균시세는 입력해주고 바꿀 수 있게끔**. 평균시세는 틀릴 수 있으니까」.
+   *
+   *   전에는 차를 바꿔도 앞 차의 시세가 그대로 남았다 — 레이를 골라도 2,700만원(그랜저 값)이라
+   *   대여료가 엉뚱하게 나왔다(2026-09-08 실측).
+   *
+   *   ⚠ **사람이 시세를 손댔으면 안 덮는다.** 채워 주는 것이지 정해 주는 것이 아니다.
+   *   ⚠ 못 짚으면 **0 으로 두고 화면이 「모른다」고 말한다.** 지어낸 시세로 견적을 내면 그게 더 위험하다.
+   */
+  useEffect(() => {
+    if (isNew || picked === DEFAULT_USED) return;
+    // 연식 — 그 세부모델 생산기간의 «가운데». 2019~2022 면 2020, 2022~현재면 (2022+올해)/2.
+    const from = Number(picked.ys) || 0;
+    const to = /현재|now/i.test(String(picked.ye)) ? nowYear : (Number(picked.ye) || from);
+    const year = from ? Math.round((from + to) / 2) : nowYear - 3;
+    setUsedYear(year);
+    setPriceTyped(false);
+    setPriceSeeded(false);
+  }, [picked, isNew, nowYear]);
+
+  /** 채워 넣을 시세 — 신차 공표가(가운데 트림) × 연식 잔가곡선. 사람이 손대면 멈춘다. */
+  useEffect(() => {
+    if (isNew || priceTyped || picked === DEFAULT_USED) return;
+    const k = deltaKeyFor(picked.maker, picked.model);
+    const age = Math.max(0, nowYear - (usedYear || nowYear));
+    const seed = guessMarketPrice(newModels, picked.maker, picked.model, age,
+      (y) => newcarResidPct(k?.makerId ?? null, k?.modelCode ?? null, y), carIdx?.al);
+    setUsedPrice(seed);
+    setPriceSeeded(seed > 0);
+  }, [picked, isNew, priceTyped, newModels, carIdx, usedYear, nowYear]);
 
   /** 고른 트림의 옵션 줄 — 원본 규격대로 «가격 0 = 기본 포함»은 고르는 대상이 아니다. */
   const optionRows = useMemo(() => (picked.newTrim?.options ?? []).filter((o) => o && o.name), [picked]);
@@ -337,6 +397,14 @@ function EstimatePageInner() {
    *   같은 숫자를 세 군데서 세니 어디를 봐야 하는지가 흐려졌다(사장님 2026-09-08 「우측에 따로 놓지 말고」).
    */
   const lines = useMemo<Card[]>(() => scen.map((x) => mk(x.term, x.dep, x.pre)), [mk, scen]);
+
+  /**
+   * ★★시세를 모르면 **견적을 안 낸다.**
+   *   2026-09-08 눌러 보고 잡았다 — 시세 0 인 차에 「274,000원」이 섰다. 감가만 0 이고
+   *   보험·정비·세금 같은 고정비가 남아서 나온 숫자다. **그건 견적이 아니라 찌꺼기다.**
+   *   ⇒ 값을 못 짚었으면 다섯 칸이 「—」로 선다. 지어낸 숫자보다 빈 칸이 정직하다.
+   */
+  const priceKnown = isNew ? listPrice > 0 : usedPrice > 0;
 
   /** 손바뀜을 «몇 번»으로 풀어 보여 주기 위한 값 — 원가 설정의 반납률에서 온다. */
   const retentionOf = useCallback((c: string) => (c === '저신용' ? cost.retentionLowPct
@@ -493,10 +561,19 @@ function EstimatePageInner() {
                   <Chips opts={ACQ.map((a) => ({ v: a.v, label: a.label }))} cur={acq} onPick={setAcq} />
                 </div>
                 {/* ★중고는 «무조건 시세»다(사장님 2026-09-06) — 장부가·최초매입가가 아니다. */}
-                <div className="cs-field">
+                {/* ★시세는 «채워 주되 잠그지 않는다» — 사장님 2026-09-08 「평균시세는 틀릴 수 있으니까」.
+                    자동으로 채운 값에는 「추정」이 붙고, 손대면 그 표시가 사라진다. */}
+                <div className="cs-field cs-field--wide">
                   <label>시세</label>
-                  <span className="pin w"><input inputMode="numeric" value={man(usedPrice)}
-                    onChange={(e) => setUsedPrice(digits(e.target.value) * 10000)} /><i>만원</i></span>
+                  <span className="pin w"><input inputMode="numeric" value={usedPrice ? man(usedPrice) : ''}
+                    placeholder="0"
+                    onChange={(e) => { setPriceTyped(true); setPriceSeeded(false); setUsedPrice(digits(e.target.value) * 10000); }} /><i>만원</i></span>
+                  {priceSeeded && !priceTyped
+                    ? <span className="seedmark" title="신차 공표가와 연식 잔가곡선으로 짚은 값입니다 — 실거래 시세가 아닙니다. 고쳐 쓰세요.">추정</span>
+                    : null}
+                  {usedPrice <= 0 && !isNew
+                    ? <span className="seedmark warn">시세를 넣어 주세요 — 이 차는 못 짚었습니다</span>
+                    : null}
                 </div>
                 <div className="cs-field">
                   <label>연식</label>
@@ -530,8 +607,20 @@ function EstimatePageInner() {
           </div>
         </section>
 
+        {/* ══ 연도별 잔가 — **접어 둔다** ══════════════════════════════════════
+               사장님 2026-09-08 「잔가 수동 넣기는 **숨겨놨다가 꺼내서 쓸 수 있는** 거고」
+                              「**원가페이지에 들어갈 거는 안 보여주는** 거야(웰릭스·손오공 감안)」
+             ⇒ 잔가는 «원가»에 속한 값이다. 견적을 낼 때는 곡선이 알아서 잡고, 손댈 일이 있을 때만 꺼낸다.
+               원본(웰릭스·손오공)도 견적 화면에 잔가 입력이 없다 — 관리자 쪽에 있다. ══ */}
         <section id="sec-resid">
-          <div className="step-title">연도별 잔가 <b>{delta ? '차종곡선' : '표준곡선'}</b></div>
+          <button type="button" className="foldhead" onClick={() => setResidOpen((v) => !v)}>
+            연도별 잔가 <b>{delta ? '차종곡선' : '표준곡선'}</b>
+            <span className="fold-note">{Object.keys(residOverride).length ? '건별로 고쳐 둠' : '자동'}</span>
+            <span className="fold-cv">{residOpen ? '−' : '+'}</span>
+          </button>
+          {/* ⚠ `hidden` 속성으로는 안 접힌다 — `.vfields{display:grid}` 가 UA 의 `[hidden]{display:none}` 을
+              이긴다(작성자 스타일이 더 세다). 2026-09-08 눌러 보고 잡았다. ⇒ 아예 안 그린다. */}
+          {residOpen ? (
           <div className="vfields">
             {TERMS.map((t) => (
               <div className="cs-field" key={t}>
@@ -541,6 +630,7 @@ function EstimatePageInner() {
               </div>
             ))}
           </div>
+          ) : null}
         </section>
       </div>
 
@@ -637,7 +727,7 @@ function EstimatePageInner() {
                   </label>
                 </div>
 
-                <div className="term-card__monthly">{c.payVat ? fmtNum(c.payVat) : '—'}<em>원</em></div>
+                <div className="term-card__monthly">{priceKnown && c.payVat ? fmtNum(c.payVat) : '—'}<em>원</em></div>
 
                 <div className="term-card__cond">
                   <label>
@@ -664,11 +754,11 @@ function EstimatePageInner() {
                 </div>
 
                 {/* 수익·원가 — 이 칸의 «장부» 세 줄. 뺄셈이 눈으로 맞는다(매출 − 원가 = 영업이익). */}
-                <div className="term-card__row bk"><span>매출</span><b>{man(v.rev)}</b></div>
-                <div className="term-card__row bk"><span>원가</span><b>{man(cogs)}</b></div>
-                <div className={`term-card__row bk profit${v.opProfit < 0 ? ' neg' : ''}`}>
-                  <span>영업이익<em className="resid-pct">{(v.opPct * 100).toFixed(1)}%</em></span>
-                  <b>{man(v.opProfit)}</b>
+                <div className="term-card__row bk"><span>매출</span><b>{priceKnown ? man(v.rev) : '—'}</b></div>
+                <div className="term-card__row bk"><span>원가</span><b>{priceKnown ? man(cogs) : '—'}</b></div>
+                <div className={`term-card__row bk profit${priceKnown && v.opProfit < 0 ? ' neg' : ''}`}>
+                  <span>영업이익{priceKnown ? <em className="resid-pct">{(v.opPct * 100).toFixed(1)}%</em> : null}</span>
+                  <b>{priceKnown ? man(v.opProfit) : '—'}</b>
                 </div>
 
                 <button type="button" className="qopen" onClick={() => setOpenTerm(isOpen ? null : sc.term)}>
