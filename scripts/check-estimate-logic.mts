@@ -308,18 +308,25 @@ must(/qp-form--conds[\s\S]{0,900}CHANNELS\.map[\s\S]{0,900}CREDIT\.map/.test(pag
      사장님 2026-09-08 「기존 웰릭스 손오공거 감안해서 **원가페이지에 들어갈 거는 안 보여주는** 거야」
                      「**잔가 수동 넣기는 숨겨놨다가 꺼내서** 쓸 수 있는 거고」
                      「없으면 **평균시세는 입력해주고 바꿀 수 있게끔**. 평균시세는 틀릴 수 있으니까」 */
-must(/className="foldhead"/.test(page) && /residOpen \? \(/.test(page),
-  '연도별 잔가가 «접혀» 있지 않습니다 — 원가에 속한 값이라 꺼내서 쓰는 것이 규격입니다',
-  'app/estimate/page.tsx #sec-resid');
-must(!/className="vfields" hidden=/.test(page),
-  '`hidden` 으로 접고 있습니다 — `.vfields{display:grid}` 가 이겨서 «안 접힙니다»(2026-09-08 실측)',
+/* ★★잔가는 «오른쪽»에 있고 «둘»이다 — 사장님 2026-09-08
+     「우는 견적을 확정짓는 곳 — 렌트 구독 반납인수부터 보증금 선납금 수수료 **잔가** 이런 거 선택하는 거지」
+     「**그 해당 기간에 잔가를 직접 넣을 수 있게끔** 되는 거야」
+     「잔가는 내부에서 **견적용 잔가와 손님 인수용 잔가가 2개**가 있음」
+   ⚠ 둘을 한 값으로 묶으면 「손님에게 싸게 넘기려고 잔가를 올렸더니 대여료가 같이 싸지는」 사고가 난다. */
+must(/const buyoutPct = /.test(page) && /buyoutOverride/.test(page),
+  '잔가가 하나뿐입니다 — 견적용과 손님 인수용은 «다른 값»입니다',
+  'app/estimate/page.tsx buyoutPct');
+must(/className="term-card__cond resid2"/.test(page),
+  '기간 칸에서 잔가를 «직접» 못 넣습니다 — 그 해당 기간에 넣는 것이 규격입니다',
+  'app/estimate/page.tsx .resid2');
+must(!/id="sec-resid"/.test(page),
+  '잔가가 아직 왼쪽에 있습니다 — 왼쪽은 «차량가격을 확정짓는 곳», 잔가는 견적이라 오른쪽입니다',
   'app/estimate/page.tsx');
-must(/guessMarketPrice/.test(page) && /priceSeeded/.test(page),
-  '시세를 «채워 주지» 않습니다 — 차를 바꾸면 앞 차 시세가 남아 대여료가 엉뚱해집니다',
-  'app/estimate/page.tsx');
-must(/const priceKnown = /.test(page) && /priceKnown && c\.payVat/.test(page),
-  '시세를 모르는데 대여료가 섭니다 — 감가만 0 이고 고정비가 남은 «찌꺼기»입니다(2026-09-08 실측 274,000원)',
-  'app/estimate/page.tsx priceKnown');
+/* ★인수 잔가가 대여료를 «건드리지 않는지» — 엔진에 들어가는 것은 견적용뿐이다. */
+must(/residualDefault = adjustResidual\(raw, cost\.residualAdjustPct\)/.test(page)
+  && !/buyoutPct\[[^\]]*\][\s\S]{0,200}createQuoteInput/.test(page),
+  '인수 잔가가 대여료 계산에 흘러들었습니다 — 인수용은 만기에 받는 돈이지 월납이 아닙니다',
+  'app/estimate/page.tsx createQuoteInput');
 must(/koModel\(al, m\.sub_model\)/.test(carIndexSrc),
   '신차 이름을 «한글로도» 안 맞춥니다 — 기아가 영문 슬러그(ray)로 와서 통째로 안 잡힙니다',
   'lib/domain/estimate/car-index.ts guessMarketPrice');

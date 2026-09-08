@@ -215,6 +215,16 @@ tail = """
 .wx-root .qp-form--conds .seg { margin-bottom: 0; width: 100%; }
 .wx-root .qp-form--conds .chips { width: 100%; }
 
+/* 오른쪽 단 구분 — 사장님 2026-09-08 「**위계랑 섹션 구분 잘해주고**」.
+   원본은 제목이 둘뿐이라 여백만으로 갈렸다. 우리는 넷(①②③·손님)이라 «선»이 있어야 단이 보인다. */
+.wx-root .quote-panel .qp-terms__title { margin-top: 18px; padding-top: 10px; border-top: 1px solid var(--line-2); }
+.wx-root .quote-panel .qp-summary-mini + .qp-terms__title { margin-top: 10px; border-top: 0; padding-top: 0; }
+.wx-root .quote-panel .qp-terms__title small { font-weight: 400; color: var(--ink-4); margin-left: 4px; }
+
+/* 잔가 두 줄 — 견적용 / 인수용(사장님 2026-09-08 「잔가는 내부에서 견적용 잔가와 손님 인수용 잔가가 2개」).
+   조건 줄(`term-card__cond`)과 같은 짜임을 쓰되, 위와 구별되게 선 하나로 가른다. */
+.wx-root .term-card__cond.resid2 { border-top: 1px dashed var(--line-2); padding-top: 6px; margin-top: 4px; }
+
 /* 「추정」 표시 — 우리가 채운 값이라는 것을 «말한다»(사장님 2026-09-08 「평균시세는 틀릴 수 있으니까」).
    ⚠ 표시를 빼면 사람이 그 값을 «우리가 아는 시세»로 믿는다. 그게 더 위험하다. */
 .wx-root .seedmark {
