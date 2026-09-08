@@ -16,7 +16,7 @@
  *
  *   npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/ingest-rotation.mts [--apply] [--n=3]
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
@@ -41,10 +41,20 @@ for (const v of docs) {
   const code = S(v.provider_company_code); if (!code) continue;
   const r = by.get(code) || { code, name: S(v.provider_name) || code, n: 0, last: 0 };
   r.n++; if (S(v.provider_name)) r.name = S(v.provider_name);
-  r.last = Math.max(r.last, Number(v._direct_ingest_at) || 0);
+  r.last = Math.max(r.last, Number(v._direct_ingest_at) || 0, Number(v._var_polled_at) || 0);
   by.set(code, r);
 }
+/**
+ * ★★**«본 때»는 회차가 스스로 적는다.**
+ *   ⚠ 자동 회차는 이제 `--variable`(상태만)이라, **바뀐 게 없으면 원자에 아무 도장도 안 찍힌다.**
+ *   원자의 `_direct_ingest_at` 만 보고 차례를 정하면 «봤는데 안 본 것»으로 세어져 같은 곳만 계속 고른다.
+ *   ⇒ 회차가 「누구를 언제 봤나」를 따로 적는다. 원자 도장은 «처음 들인 때»의 뜻으로 남는다.
+ */
+const SEEN = 'tmp/수집-본때.json';
+let 본때: Record<string, number> = {};
+try { 본때 = JSON.parse(readFileSync(SEEN, 'utf8')) as Record<string, number>; } catch { /* 첫 회차 */ }
 const 시간 = (t: number) => (t ? Math.round((Date.now() - t) / 36e5) : 9999);
+for (const r of by.values()) r.last = Math.max(r.last, Number(본때[r.code]) || 0);
 const all = [...by.values()].sort((a, b) => 시간(b.last) - 시간(a.last) || b.n - a.n);
 
 console.log(`\n■ 원자 갱신 나이 — 공급사 ${all.length}곳`);
@@ -64,24 +74,31 @@ if (!APPLY) { console.log('\n미리보기 — 실제로 당기려면 --apply\n')
 const 성공: string[] = [], 실패: string[] = [];
 for (const r of 이번차례) {
   /**
+   * ★★**자동 회차는 «상태값만» 바꾼다** (`--variable`) — 사장님 2026-09-08
+   *   「우리는 **상태값만 바꾸고** 없는 거 추가는 **등록하는 개념**으로 가는 거지」.
+   *   원천에 새 차번이 뜨면 자동으로 들이지 않고 `tmp/등록대기.json` 에 적어만 둔다.
+   *   들이는 것은 사람의 한 수다 — `scripts/register-car.mts`.
+   *   ⚠ 자동으로 들이면 원천의 실수(시험 줄·남의 차·오타 차번)가 그대로 상품이 된다.
+   *
    * ★**`--retire` 를 켠다 — 원천에서 빠진 차를 내린다.**
    *   ⚠ 실측 2026-09-08 — 손오공 원천(291대)에 «없는» 차 9대가 원자에선 「출고가능」으로 서 있었다.
    *   원천이 안 주는 차를 팔 수 있다고 두면 **판 차를 또 파는** 길이 열린다.
    *   ★안전판 둘이 이미 있다 — 계약중(락)은 안 내린다 · 수집분이 우리 것의 절반도 안 되면 아예 안 내린다
    *     (원천 읽기 실패 의심). 그 둘 덕에 「못 읽은 날 재고가 사라지는」 사고는 안 난다.
    */
-  const out = spawnSync('npx', ['tsx', '--require', './scripts/lib/server-only-shim.cjs', 'scripts/ingest-supplier-to-firestore.mts', `--code=${r.code}`, '--apply', '--retire'], {
+  const out = spawnSync('npx', ['tsx', '--require', './scripts/lib/server-only-shim.cjs', 'scripts/ingest-supplier-to-firestore.mts', `--code=${r.code}`, '--apply', '--variable', '--retire'], {
     encoding: 'utf8', shell: process.platform === 'win32', env: process.env,
   });
   const txt = `${out.stdout || ''}${out.stderr || ''}`;
-  const done = /반영 완료/.test(txt);
+  const done = /반영 완료|변동 폴링 완료/.test(txt);
   const 내림 = Number((txt.match(/listable=false (\d+)건/) || [])[1] || 0);
+  const 대기 = Number((txt.match(/원천에 «새 차» (\d+)대/) || [])[1] || 0);
   const 왜 = /요금이 한 대도/.test(txt) ? '요금 열을 못 읽음(두 줄 머리글 — 정제시트 길로 들어온다)'
     : /폐기된 시트/.test(txt) ? '원천이 폐기 주소 — 문패를 고쳐라'
     : /RESOURCE_EXHAUSTED|429/.test(txt) ? '구글 요청한도(다음 회차에 다시)'
     : /PERMISSION_DENIED|403/.test(txt) ? '권한 — 어느 신분으로 읽는지부터 보라'
     : (txt.match(/Error: ([^\n]{0,80})/)?.[1] || '까닭 모름');
-  if (done) { 성공.push(`${r.name} ${(txt.match(/직접 원자 (\d+)건/) || [])[1] || '?'}건${내림 ? ` · 내림 ${내림}` : ''}`); console.log(`  ✔ ${r.name} — ${성공[성공.length - 1]}`); }
+  if (done) { 성공.push(`${r.name} ${(txt.match(/바뀐 (\d+) 씀|직접 원자 (\d+)건/) || []).slice(1).find(Boolean) || '0'}건${내림 ? ` · 내림 ${내림}` : ''}${대기 ? ` · 등록대기 ${대기}` : ''}`); console.log(`  ✔ ${r.name} — ${성공[성공.length - 1]}`); }
   else { 실패.push(`${r.name}: ${왜}`); console.log(`  ✗ ${r.name} — ${왜}`); }
 }
 console.log(`\n✓ 돌아가며 수집 — 성공 ${성공.length} · 실패 ${실패.length}`);

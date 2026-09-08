@@ -15,7 +15,7 @@
  * 실행: GOOGLE_APPLICATION_CREDENTIALS=tmp/firebase-auth/sa.json \
  *   npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/ingest-supplier-to-firestore.mts --code=RP004 [--apply]
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { listSheetTabs, readSheetGrid } from '../lib/server/google-sheets';
@@ -496,7 +496,12 @@ console.log(`  요금 일치: ${priceBoth ? Math.round((priceSame / priceBoth) *
 
 const VARIABLE = process.argv.includes('--variable');
 const docId = (car: string) => car.replace(/\s/g, '').replace(/[/#.$[\]]/g, '_');
-const VAR_FIELDS = ['status', 'status_kind', 'status_reason', 'listable', 'status_label_raw', 'mileage', 'price'] as const;
+/**
+ * ★**변동 폴링이 만지는 칸** — 「자주 바뀌는 것」만.
+ *   ⚠ 2026-09-08 — 여기에 `vehicle_status` 가 빠져 있었다. 그래서 변동만 돌린 차는 `status` 만 바뀌고
+ *   `vehicle_status` 는 옛 값에 머물러 **상태가 두 벌**이 됐다(시트·손님 면은 `vehicle_status` 를 읽는다).
+ */
+const VAR_FIELDS = ['vehicle_status', 'status', 'status_kind', 'status_reason', 'listable', 'status_label_raw', 'mileage', 'price'] as const;
 
 // ── 검증(--verify) — 원자를 «차종마스터 ↔ 원문»과 대조. 제대로 당겼나 한 번 본다. ──
 if (process.argv.includes('--verify')) {
@@ -554,9 +559,13 @@ if (VARIABLE) {
     for (const a of items.slice(i, i + 400)) {
       const c = cur.get(a.car_number)!;
       const jsonSorted = (o: unknown) => JSON.stringify(o ?? {}, (_k, v) => (v && typeof v === 'object' && !Array.isArray(v)) ? Object.fromEntries(Object.entries(v as Record<string, unknown>).sort()) : v);
-      const sMoved = S(a.status) !== S(c.status) || a.listable !== c.listable || S(a.status_kind) !== S(c.status_kind);
+      /** ⚠ 상태는 `vehicle_status` 가 정본 — 그것도 같이 견줘야 한 벌로 따라간다. */
+      const sMoved = S(a.vehicle_status) !== S(c.vehicle_status) || S(a.status) !== S(c.status)
+        || a.listable !== c.listable || S(a.status_kind) !== S(c.status_kind);
       const mMoved = S(a.mileage) !== S(c.mileage);
-      const pMoved = Object.keys(a.price).length > 0 && jsonSorted(a.price) !== jsonSorted(c.price);
+      /** ⚠ 요금 없는 차가 있다 — `Object.keys(undefined)` 로 회차가 통째로 죽는다(웰릭스와 같은 꼴). */
+      const ap = (a.price && typeof a.price === 'object' ? a.price : {}) as Record<string, unknown>;
+      const pMoved = Object.keys(ap).length > 0 && jsonSorted(ap) !== jsonSorted(c.price);
       if (!sMoved && !mMoved && !pMoved) continue;
       const upd: Record<string, unknown> = { _var_polled_at: Date.now() };
       for (const f of VAR_FIELDS) if (a[f] !== undefined) upd[f] = a[f];
@@ -566,6 +575,41 @@ if (VARIABLE) {
     if (any) await batch.commit();
   }
   console.log(`\n변동 폴링 완료 — ${PROV} 아는 차 ${items.length} 중 바뀐 ${changed} 씀 (상태 ${sChg} · 주행 ${mChg} · 요금 ${pChg}). 불변 안 건드림.`);
+
+  /**
+   * ★★**없는 차는 «등록»이다 — 자동으로 밀어 넣지 않는다.**
+   *
+   * > 사장님 2026-09-08 「우리는 **상태값만 바꾸고** 없는 거 추가는 **등록하는 개념**으로 가는 거지.
+   * >  나중에 **등록을 손으로 할 수 있어야** 하는 거고」
+   *
+   * 자동 회차가 하는 일은 **아는 차의 상태를 따라가는 것**뿐이다. 원천에 새 차번이 뜨면 그건
+   * 「고칠 것」이 아니라 «들일 것»이다 — 값이 제대로 왔는지, 우리가 팔 차가 맞는지 사람이 본다.
+   * ⚠ 자동으로 들이면 원천의 실수(시험 줄·남의 차·오타 차번)가 그대로 상품이 된다.
+   *   실제로 오플 배너 줄이 «차»가 되어 채널 시트까지 나갔던 것이 그런 꼴이다.
+   *
+   * ⇒ 여기서는 **적어만 둔다**(`tmp/등록대기.json`). 들이는 것은 사람의 한 수다:
+   * ```
+   *   npx tsx … scripts/ingest-supplier-to-firestore.mts --code=RP004 --apply     ← 원천에 있는 새 차를 전부 등록
+   *   npx tsx … scripts/register-car.mts 109호1234 [--code=RP004]                 ← 한 대만 손으로 등록
+   * ```
+   */
+  const 새차 = now.filter((a) => !cur.has(a.car_number));
+  const WAIT = 'tmp/등록대기.json';
+  let 대기: Record<string, unknown[]> = {};
+  try { 대기 = JSON.parse(readFileSync(WAIT, 'utf8')) as Record<string, unknown[]>; } catch { /* 첫 회차 */ }
+  대기[PROV] = 새차.map((a) => ({
+    차번: S(a.car_number), 이름: `${S(a.maker)} ${S(a.model)} ${S(a.sub_model)}`.trim(),
+    상태: S(a.vehicle_status), 구분: S(a.product_type),
+    원문: S((a['원문'] as { 차명?: string } | undefined)?.차명),
+    본때: new Date(Date.now() + 9 * 36e5).toISOString().slice(0, 16).replace('T', ' '),
+  }));
+  mkdirSync('tmp', { recursive: true });
+  writeFileSync(WAIT, JSON.stringify(대기, null, 1), 'utf8');
+  if (새차.length) {
+    console.log(`\n▲ 원천에 «새 차» ${새차.length}대 — 자동으로 안 들인다(등록은 사람의 한 수).`);
+    for (const a of 새차.slice(0, 8)) console.log(`   ${S(a.car_number).padEnd(11)} ${S(a.maker)} ${S(a.model)} ${S(a.sub_model)}  「${S((a['원문'] as { 차명?: string } | undefined)?.차명).slice(0, 30)}」`);
+    console.log(`   들이려면 — --apply(전부) 또는 scripts/register-car.mts <차번>(한 대)`);
+  }
   process.exit(0);
 }
 

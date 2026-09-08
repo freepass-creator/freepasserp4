@@ -32,6 +32,8 @@ import {
 } from '../lib/domain/settlement-ledger';
 import { SHEET_NAME_MATCH, supplierSheetLabel, isOurNonInventoryTab } from '../lib/domain/supplier-template-sheet';
 import { SALES_SHEET_ID } from '../lib/domain/legacy-sheets';
+import { initializeApp, cert } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
 
 const APPLY = process.argv.includes('--apply');
 const S = (v: unknown) => String(v ?? '').trim();
@@ -93,6 +95,8 @@ const when = (r: string[], iy: number, im: number, ir: number) => {
 
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 const jwt = new JWT({ email: sa.client_email, key: sa.private_key, subject: 'pyh@teamjpk.com', scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive'] });
+/** 원자(Firestore)에도 같은 상태를 세운다 — 아래 「원자에도 세운다」. */
+initializeApp({ credential: cert({ projectId: sa.project_id, clientEmail: sa.client_email, privateKey: String(sa.private_key).replace(/\\n/g, '\n') }) });
 const SH = 'https://sheets.googleapis.com/v4/spreadsheets';
 const api = async (u: string, init?: RequestInit): Promise<any> => {
   for (let n = 0; ; n++) {
@@ -225,4 +229,49 @@ if (!APPLY) { console.log('\n※ dry-run — 아무것도 안 썼다. 반영은 
 for (const { id, data } of supplierData) await api(`${SH}/${id}/values:batchUpdate`, { method: 'POST', body: JSON.stringify({ valueInputOption: 'RAW', data }) });
 if (salesData.length) await api(`${SH}/${SALES_SHEET_ID}/values:batchUpdate`, { method: 'POST', body: JSON.stringify({ valueInputOption: 'RAW', data: salesData }) });
 
+/**
+ * ★★**원자에도 세운다 — 이제 원자가 정본이다.**
+ *
+ * ⚠⚠ 이 파일 머리의 「ERP 는 판매시트를 그대로 읽으므로 따로 손대지 않는다(2026-08-20 확정)」는
+ *   **2026-09-08 에 깨졌다.** 그날 파인더·손님 면·상품리스트·하허호가 모두 **Firestore 원자**를 읽게 됐다.
+ *   그런데 여기는 시트 «칸»만 고치고 원자를 안 고쳐서, 시트↔원자 대조에 **17건**이 걸렸다 —
+ *   시트는 「출고불가」, 원자는 「계약중」. 같은 차를 두고 화면마다 다른 말을 한 것이다.
+ *   ⇒ 시트 칸 메우기는 그대로 두되(발행 사이를 메운다), **원자에도 같은 상태를 세운다.**
+ *
+ * ★규칙은 이 파일 머리와 «같다» — **잠그기만 하고 절대 풀지 않는다.**
+ *   · 「출고불가」는 「계약중」으로 **안 덮는다**(더 센 말이다).
+ *   · 원장이 환수·취소로 바뀌어도 여기서 출고가능으로 되돌리지 않는다 — 푸는 건 공급사 몫.
+ * ★상태는 «한 벌»이다 — `vehicle_status` 를 정본으로 쓰고 `status`·`status_kind`·`listable` 을 같이 맞춘다
+ *   (`docs/원자-내려보내기-로직.md` §1). 한 칸만 고치면 읽는 곳마다 다른 말을 한다.
+ */
+let 원자칸 = 0, 원자안덮음 = 0;
+{
+  const fsdb = getFirestore();
+  const 센말 = (v: string) => (v === '출고불가' ? 2 : v === '계약중' ? 1 : 0);
+  const snap = await fsdb.collection('products').get();
+  const picks: { ref: FirebaseFirestore.DocumentReference; to: string }[] = [];
+  for (const d of snap.docs) {
+    const v = d.data() as Record<string, unknown>;
+    const to = want.get(key(v.car_number)); if (!to) continue;
+    const now = S(v.vehicle_status) || S(v.status);
+    if (now === to) continue;
+    if (센말(now) > 센말(to)) { 원자안덮음++; continue; }   // 더 센 말이 이미 있다 — 안 덮는다
+    picks.push({ ref: d.ref, to });
+  }
+  for (let i = 0; i < picks.length; i += 400) {
+    const batch = fsdb.batch();
+    for (const e of picks.slice(i, i + 400)) {
+      batch.set(e.ref, {
+        vehicle_status: e.to, status: e.to,
+        status_kind: e.to === '출고불가' ? '불가' : '선점',
+        listable: e.to !== '출고불가',
+        status_reason: '정산원장',
+        _ledger_status_at: Date.now(),
+      }, { merge: true });
+      원자칸++;
+    }
+    await batch.commit();
+  }
+}
+console.log(`   원자 ${원자칸}대에 같은 상태를 세웠다${원자안덮음 ? ` · 더 센 말이 있어 안 덮은 차 ${원자안덮음}` : ''}.`);
 console.log(`\n■ 끝 — 공급사 ${supplierData.reduce((n, x) => n + x.data.length, 0)}칸 · 상품리스트 ${salesData.length}칸을 세웠다.\n`);
