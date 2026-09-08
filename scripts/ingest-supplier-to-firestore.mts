@@ -195,7 +195,13 @@ function sheetPrice(get: (i: number) => string, ci: { dep: number; periods: Reco
  */
 const depositNote = (raw: string) => {
   const s = S(raw);
-  return s && won(s) === 0 ? s : '';
+  if (!s || won(s) > 0) return '';
+  /**
+   * ⚠ **숫자꼴은 «말»이 아니다.** 원천이 「0」·「-」을 적어 둔 칸도 `won()`이 0 이라 여기로 온다.
+   *   그대로 실으면 시트에 **「장기보증=0」**이 서는데, 0원은 사람이 쓰는 말이 아니다(실측 2026-09-08 경진 2대).
+   *   ⇒ 한글·영문이 든 «말»만 싣는다 — 「무보증」·「협의」처럼 읽으면 뜻이 통하는 것.
+   */
+  return /[가-힣A-Za-z]/.test(s) ? s : '';
 };
 
 // ── 원천 리더 — 종류마다 «우리필드 키 행(Row)»을 낸다. 원자화는 하나로 공유한다. ──────

@@ -178,7 +178,13 @@ const priceCell = (price: any, col: string): string => {
   if (!price || typeof price !== 'object') return '';
   const P = price as Record<string, any>;
   const rentK = (k: string) => (P[k]?.rent != null ? money(P[k].rent) : '');
-  const depAny = (suffix = '') => { for (const t of ['60', '48', '36', '24', '12']) { const k = suffix ? `${t}${suffix}` : t; if (P[k]?.deposit != null) return money(P[k].deposit); } return ''; };
+  /**
+   * ★**보증금 0 은 «0」이라 적지 않는다.**
+   *   ⚠ 2026-09-08 실측 — 시트에 「장기보증=0」이 서 있었다. 0원은 사람이 쓰는 말이 아니다 —
+   *   보증금이 없는 상품이면 원천이 **「무보증」**이라 적어 준다(`deposit_note`). 그 말을 쓰게
+   *   여기서는 빈 값을 돌려주고, 부르는 쪽이 원천의 말로 채운다. 말이 없으면 빈칸이고 문지기가 잡는다.
+   */
+  const depAny = (suffix = '') => { for (const t of ['60', '48', '36', '24', '12']) { const k = suffix ? `${t}${suffix}` : t; const d = P[k]?.deposit; if (d != null) return Number(d) > 0 ? money(d) : ''; } return ''; };
   const m = col.match(/(\d+)개월/);
   /**
    * ★★**보증금은 «요금 규격 축»이 정한다** — `lib/domain/fee-shapes`. 축은 셋이다(표준·손오공·오플).
@@ -188,7 +194,7 @@ const priceCell = (price: any, col: string): string => {
    */
   if (/반납형\s*보증금|보증금\s*반납형|장기보증/.test(col)) return depAny();
   if (/인수형\s*보증금|보증금\s*인수형/.test(col)) return depAny('_인수형');
-  if (/단기보증/.test(col)) { for (const t of ['1', '6']) { if (P[t]?.deposit != null) return money(P[t].deposit); } return ''; }
+  if (/단기보증/.test(col)) { for (const t of ['1', '6']) { const d = P[t]?.deposit; if (d != null) return Number(d) > 0 ? money(d) : ''; } return ''; }
   if (m) {
     const n = m[1];
     if (/인수형/.test(col)) return rentK(`${n}_인수형`);
