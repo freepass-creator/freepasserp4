@@ -292,6 +292,18 @@ must(/from '@\/lib\/domain\/color-master'/.test(page) && !/#[0-9a-fA-F]{6}/.test
   '색을 화면이 지어냈습니다 — 규격색·색칩은 색상마스터(SSOT)에서만 당깁니다',
   'app/estimate/page.tsx lib/domain/color-master');
 
+/* ★★좌 = «차» · 우 = «견적» — 화면의 뼈대다(사장님 2026-09-08
+     「차에 관련된 거만 좌측에서 선택, 우측은 견적에 관련된 거」).
+   가르는 법 = 「그 차의 성질인가, 이 견적의 조건인가」.
+   채널·만기·신용은 같은 차라도 건마다 달라진다 ⇒ 견적 ⇒ 오른쪽 조건 줄. */
+const leftRail = page.slice(page.indexOf('className="wrap"'), page.indexOf('className="total-bar"'));
+must(!/CHANNELS\.map/.test(leftRail) && !/TYPES\.map/.test(leftRail) && !/CREDIT\.map/.test(leftRail),
+  '채널·만기·신용이 왼쪽에 있습니다 — 왼쪽은 «차», 오른쪽이 «견적»입니다',
+  'app/estimate/page.tsx .wrap');
+must(/qp-form--conds[\s\S]{0,900}CHANNELS\.map[\s\S]{0,900}CREDIT\.map/.test(page),
+  '오른쪽 조건 줄에 채널·만기·신용이 없습니다 — 견적의 조건은 오른쪽에 모입니다',
+  'app/estimate/page.tsx .qp-form--conds');
+
 /* ㉦ 원가에 속한 것은 견적 화면에서 «접어» 둔다 + 시세는 «채워 주되 잠그지 않는다»
      사장님 2026-09-08 「기존 웰릭스 손오공거 감안해서 **원가페이지에 들어갈 거는 안 보여주는** 거야」
                      「**잔가 수동 넣기는 숨겨놨다가 꺼내서** 쓸 수 있는 거고」
