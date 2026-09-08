@@ -207,6 +207,14 @@ tail = """
 .wx-root .wrap .tchips button { display: inline-flex; align-items: center; }
 .wx-root .wrap .tchips em { font-style: normal; font-size: 10.5px; opacity: .7; margin-left: 5px; }
 
+/* 조건 줄 — 원본은 넷(신용·약정주행·보증금·선납) 고정 격자였다. 우리는 **다섯**이다
+   (채널·만기·신용·보증금·선납 — 사장님 2026-09-08 「우측은 견적에 관련된 거」).
+   고정 넷으로 두면 다섯째가 아래로 떨어져 줄이 두 단이 된다. ⇒ 폭에 맞춰 «흐르게» 한다. */
+.wx-root .qp-form--conds { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)) !important; }
+/* 세그·칩이 칸 안에서 제 폭을 다 쓰게 — 라벨 옆 칸이 좁아 넘치면 글자가 잘린다. */
+.wx-root .qp-form--conds .seg { margin-bottom: 0; width: 100%; }
+.wx-root .qp-form--conds .chips { width: 100%; }
+
 /* 「추정」 표시 — 우리가 채운 값이라는 것을 «말한다»(사장님 2026-09-08 「평균시세는 틀릴 수 있으니까」).
    ⚠ 표시를 빼면 사람이 그 값을 «우리가 아는 시세»로 믿는다. 그게 더 위험하다. */
 .wx-root .seedmark {
