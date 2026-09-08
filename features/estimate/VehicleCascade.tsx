@@ -21,7 +21,6 @@
  *   원본도 고르는 즉시 반영한다. 누르는 걸음이 하나 늘면 그만큼 통화 중에 느려진다.
  */
 import { useEffect, useMemo, useState } from 'react';
-import Chips from './Chips';
 import {
   loadCarIndex, loadNewModels, pickUsed, pickNew, guessCc, koModel,
   type CarIndex, type CarEntry, type NewModel, type NewTrim, type PickedCar,
@@ -43,7 +42,17 @@ function Step({ id, label, value, options, disabled, current, scroll, empty, onC
   return (
     <section id={id} className={`${disabled ? 'hidden' : ''}${current ? ' is-current' : ''}`}>
       <div className="step-title">{label}</div>
-      <Chips opts={options} cur={value} onPick={onChange} scroll={scroll} empty={empty} />
+      {/* 기존 칩(`picker.css .tchips`)을 그대로 쓴다 — 사장님 2026-09-08 「기존거 활용하라고 했는데」. */}
+      {options.length ? (
+        <div className={`tchips${scroll ? ' scroll' : ''}`}>
+          {options.map((o) => (
+            <button key={o.v} type="button" className={String(o.v) === String(value) ? 'on' : ''}
+              disabled={disabled} onClick={() => onChange(o.v)}>
+              {o.label}{o.sub ? <em>{o.sub}</em> : null}
+            </button>
+          ))}
+        </div>
+      ) : <div className="empty-state">{empty ?? '고를 것이 없습니다'}</div>}
     </section>
   );
 }

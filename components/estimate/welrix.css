@@ -4,6 +4,8 @@
  *   뜬 법 : scripts/extract-welrix-css.py — 규칙은 «한 글자도» 고치지 않고 선택자 앞에 `.wx-root` 만 붙였다.
  *           (`body`·`html`·`:root` 는 `.wx-root` 로 치환 · `*` 는 `.wx-root *`)
  *   왜   : 견적은 ERP 껍데기 «안»에 서는 페이지다. 웰릭스 전역 리셋이 풀리면 ERP 전체가 물든다.
+ *   ★한 가지만 «고쳐서» 옮긴다 — `tabular-nums` 에 `slashed-zero` 를 붙인다(0 과 O 를 가른다).
+ *     프리패스 기존 규격이 그렇다(`estimate.css`). 그 밖에는 한 글자도 안 고친다.
  *   ⚠ 이 파일을 손으로 고치지 마라. 원본이 바뀌면 위 스크립트를 다시 돌린다.
  *     우리 사정(껍데기 높이 등)으로 덮을 것은 맨 아래 「프리패스 덧칠」에만 적는다.
  * ───────────────────────────────────────────────────────────────────────── */
@@ -126,7 +128,7 @@
   .wx-root .global-topbar__ver{
     font-size: 11px; font-weight: 600; color: var(--ink-4);
     margin-left: 10px; padding: 2px 7px; border-radius: 5px;
-    background: var(--brand-50); font-variant-numeric: tabular-nums;
+    background: var(--brand-50); font-variant-numeric: tabular-nums slashed-zero;
   }
   .wx-root .global-topbar .spacer{ flex: 1; }
   .wx-root .global-topbar__actions{ display: flex; gap: 2px; }
@@ -172,7 +174,7 @@
     border-radius: var(--radius-pill);
     background: var(--brand); color: #fff;
     font-size: 10.5px; font-weight: 600;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: tabular-nums slashed-zero;
     line-height: 1;
     transition: background .15s;
   }
@@ -517,7 +519,7 @@
   .wx-root .option-row .o-info{ flex: 1; min-width: 0; }
   .wx-root .option-row .o-name{ font-weight: 400; font-size: 13px; line-height: 1.4; color: var(--ink-1); }
   .wx-root .option-row .o-sub{ font-size: 11px; color: var(--ink-4); margin-top: 2px; line-height: 1.4; }
-  .wx-root .option-row .o-price{ font-weight: 500; font-size: 12.5px; color: var(--brand); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .wx-root .option-row .o-price{ font-weight: 500; font-size: 12.5px; color: var(--brand); white-space: nowrap; font-variant-numeric: tabular-nums slashed-zero; }
   .wx-root .colors{ display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; }
   .wx-root .color-card{
     display: flex; align-items: center; gap: 10px;
@@ -587,7 +589,7 @@
     letter-spacing: 12px;
     color: var(--ink-1);
     outline: none;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: tabular-nums slashed-zero;
     transition: border-color .12s;
   }
   .wx-root #gate-pin:focus{ border-color: var(--brand); }
@@ -692,7 +694,7 @@
   .wx-root .cdd__sub{
     margin-left: auto; padding-left: 12px; padding-right: 18px;
     font-size: 12px; color: var(--ink-1); font-weight: 600;
-    font-variant-numeric: tabular-nums; flex-shrink: 0;
+    font-variant-numeric: tabular-nums slashed-zero; flex-shrink: 0;
     letter-spacing: -0.1px;
   }
   .wx-root .cdd__chev{
@@ -742,19 +744,19 @@
   /* 메뉴 항목 sub — 옅게 (label 보조). 선택 시 brand 강조 */
   .wx-root .cdd__opt-sub{
     font-size: 11.5px; color: var(--ink-3); font-weight: 500;
-    font-variant-numeric: tabular-nums; flex-shrink: 0;
+    font-variant-numeric: tabular-nums slashed-zero; flex-shrink: 0;
     padding-left: 12px;
     letter-spacing: -0.1px;
   }
   .wx-root .cdd__opt:hover .cdd__opt-sub{ color: var(--brand); font-weight: 600; }
   .wx-root .cdd__opt--sel .cdd__opt-sub{ color: var(--brand); font-weight: 600; }
-  .wx-root .qp-summary-mini .qp-price{ font-weight: 500; color: var(--ink-1); font-variant-numeric: tabular-nums; }
+  .wx-root .qp-summary-mini .qp-price{ font-weight: 500; color: var(--ink-1); font-variant-numeric: tabular-nums slashed-zero; }
   .wx-root .qp-summary-mini .qp-price:empty{ display: none; }
   /* 가격 공식 — 트림 + 옵션 = 총 X만원 */
   .wx-root .qp-formula{
     margin-left: auto;
     font-size: 11.5px; color: var(--ink-3);
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: tabular-nums slashed-zero;
     white-space: nowrap;
   }
   .wx-root .qp-formula:empty{ display: none; }
@@ -772,7 +774,7 @@
     vertical-align: 1px;
   }
   .wx-root .tax-pill:hover{ background: var(--accent-soft); border-color: var(--ink-4); color: var(--ink-1); }
-  .wx-root .tax-pill b{ font-weight: 500; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+  .wx-root .tax-pill b{ font-weight: 500; color: var(--ink-2); font-variant-numeric: tabular-nums slashed-zero; }
   /* ===== 뱃지(badge) 규격 — 옵션/속성 표시용 ===== */
   .wx-root .badge{
     display: inline-flex; align-items: center;
@@ -902,7 +904,7 @@
     height: 28px; padding: 0 0 0 2px;
     border: none; background: transparent;
     font-size: 13px; color: var(--ink-1); font-family: inherit;
-    font-variant-numeric: tabular-nums; text-align: right;
+    font-variant-numeric: tabular-nums slashed-zero; text-align: right;
     outline: none;
     -moz-appearance: textfield;
   }
@@ -914,7 +916,7 @@
     height: 28px; padding: 0 0 0 2px;
     border: none; border-bottom: 1px solid var(--line-2); border-radius: 0;
     background: transparent; font-size: 13px; font-family: inherit; color: var(--ink-1);
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: tabular-nums slashed-zero;
     outline: none;
     transition: border-color .12s;
   }
@@ -1036,7 +1038,7 @@
   /* HERO — 월 대여료 */
   .wx-root .term-card__monthly{
     font-size: 30px; font-weight: 700; color: var(--ink-1);
-    letter-spacing: -0.04em; font-variant-numeric: tabular-nums;
+    letter-spacing: -0.04em; font-variant-numeric: tabular-nums slashed-zero;
     line-height: 1.1;
     margin-bottom: 14px;
   }
@@ -1068,7 +1070,7 @@
     flex: 1; min-width: 0; height: 22px;
     border: 0; background: transparent; padding: 0;
     font-size: 13px; color: var(--ink-1); font-weight: 500;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: tabular-nums slashed-zero;
     text-align: right; font-family: inherit;
     outline: none;
     -moz-appearance: textfield;
@@ -1087,12 +1089,12 @@
     font-weight: 400;
   }
   .wx-root .term-card__row b{
-    color: var(--ink-2); font-weight: 500; font-variant-numeric: tabular-nums;
+    color: var(--ink-2); font-weight: 500; font-variant-numeric: tabular-nums slashed-zero;
     font-size: 12px;
   }
   .wx-root .term-card__row .resid-pct{
     font-style: normal; font-size: 10px; font-weight: 500;
-    color: var(--brand); font-variant-numeric: tabular-nums;
+    color: var(--brand); font-variant-numeric: tabular-nums slashed-zero;
     background: var(--brand-50);
     padding: 1px 5px; border-radius: var(--radius-pill);
   }
@@ -1184,7 +1186,7 @@
     margin-top: 14px;
     display: flex; justify-content: space-between;
     font-size: 11px; color: #999;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: tabular-nums slashed-zero;
   }
   .wx-root .qd-hero__meta b{ color: #555; font-weight: 500; }
 
@@ -1217,7 +1219,7 @@
   }
   .wx-root .qd-people__col .tel{
     font-size: 12px; color: #888;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: tabular-nums slashed-zero;
   }
 
   /* --- 차량 카드 --- */
@@ -1249,7 +1251,7 @@
   }
   .wx-root .qd-vehicle__price .value{
     font-size: 18px; font-weight: 700; color: #1a1a1a;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: tabular-nums slashed-zero;
   }
   .wx-root .qd-vehicle__rows{
     display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px;
@@ -1306,7 +1308,7 @@
   }
   .wx-root .qd-monthly__term{
     font-size: 15px; font-weight: 700; color: #1a1a1a;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: tabular-nums slashed-zero;
   }
   .wx-root .qd-monthly__term em{
     font-style: normal; font-size: 11px; font-weight: 500; color: #999;
@@ -1321,13 +1323,13 @@
   }
   .wx-root .qd-monthly__price .price{
     font-size: 19px; font-weight: 700; color: var(--brand);
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: tabular-nums slashed-zero;
     letter-spacing: -0.5px;
   }
   .wx-root .qd-monthly__price .unit{ font-size: 12px; font-weight: 500; color: #999; }
   .wx-root .qd-monthly__price .residual{
     font-size: 10.5px; color: #999; margin-top: 1px;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: tabular-nums slashed-zero;
   }
   .wx-root .qd-monthly__badge{
     position: absolute; top: -7px; right: 14px;
@@ -1389,7 +1391,7 @@
   }
   .wx-root .qd-footer__bank{
     font-size: 11px; color: var(--ink-2); margin-bottom: 10px;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: tabular-nums slashed-zero;
   }
   .wx-root .qd-footer__bank .label{
     color: #999; margin-right: 4px; font-size: 10px;
@@ -1404,7 +1406,7 @@
   .wx-root .qd-footer__sign .staff{ color: #555; }
   .wx-root .qd-footer__sign .staff b{ color: #1a1a1a; font-weight: 600; }
   .wx-root .qd-footer__sign .tel{
-    color: #888; font-variant-numeric: tabular-nums;
+    color: #888; font-variant-numeric: tabular-nums slashed-zero;
   }
 
   .wx-root .quote-doc__empty{
@@ -1487,7 +1489,7 @@
   }
   .wx-root .ofq-hero__right{
     text-align: right; font-size: 11px; color: #666;
-    line-height: 1.7; font-variant-numeric: tabular-nums;
+    line-height: 1.7; font-variant-numeric: tabular-nums slashed-zero;
   }
   .wx-root .ofq-hero__right b{ color: #1a1a1a; font-weight: 600; }
   .wx-root .ofq-hero__right .ofq-hero__badge{ margin-bottom: 3px; }
@@ -1534,7 +1536,7 @@
     width: 100%;
     border-collapse: separate; border-spacing: 0;
     font-size: 11px;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: tabular-nums slashed-zero;
   }
   .wx-root .ofq-table th, .wx-root .ofq-table td{
     border-right: 1px solid var(--line-2);
@@ -1678,13 +1680,13 @@
   .wx-root .ofq-vcard__total .value{
     font-size: 22px; font-weight: 700;
     color: var(--brand);
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: tabular-nums slashed-zero;
     letter-spacing: -0.5px;
   }
   .wx-root .ofq-vcard__total .breakdown{
     margin-top: 4px;
     font-size: 11px; color: #999;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: tabular-nums slashed-zero;
   }
   .wx-root .ofq-vcard__total .breakdown b{
     color: #555; font-weight: 600;
@@ -1817,7 +1819,7 @@
     border: 1px solid var(--line-2);
     font-size: 11px; color: var(--ink-1); font-weight: 500;
     margin-top: 6px;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: tabular-nums slashed-zero;
   }
   .wx-root .ofq-footer__bank b{ color: var(--brand); }
   .wx-root .ofq-footer__company{
@@ -1851,7 +1853,7 @@
     width: 100%;
     border-collapse: separate; border-spacing: 0;
     font-size: 11.5px;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: tabular-nums slashed-zero;
   }
   .wx-root .qd-compare thead th{
     padding: 10px 6px 12px;
@@ -2005,7 +2007,7 @@
   .wx-root .ds-table{
     width: 100%; border-collapse: collapse;
     font-size: var(--font-size-base);
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: tabular-nums slashed-zero;
   }
   .wx-root .ds-table th, .wx-root .ds-table td{
     border: 1px solid var(--line-3);
@@ -2672,7 +2674,7 @@
   .wx-root .tint-chip .tp{
     font-style: normal;
     font-size: 10px; font-weight: 500; color: var(--ink-1);
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: tabular-nums slashed-zero;
     line-height: 1.2;
     letter-spacing: -0.2px;
     white-space: nowrap;  /* '+105,000원' 줄바꿈 방지 */
@@ -2819,7 +2821,7 @@
     background: #fff;
     font-family: inherit; font-size: 13px;
     letter-spacing: 4px; text-align: center;
-    font-variant-numeric: tabular-nums;
+    font-variant-numeric: tabular-nums slashed-zero;
     color: var(--ink-1); outline: none;
     transition: border-color .12s;
   }
@@ -3056,7 +3058,7 @@
   color: var(--ink-1);
   outline: none; padding: 0;
   width: 100%; min-width: 0;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: tabular-nums slashed-zero;
   transition: border-color .12s;
 }
 .wx-root .cs-field input::placeholder{ color: var(--ink-4); }
@@ -3073,7 +3075,7 @@
 .wx-root .ref-pct{
   font-style: normal; font-size: 10px; font-weight: 500;
   color: var(--ink-3); margin-left: 2px;
-  font-variant-numeric: tabular-nums;
+  font-variant-numeric: tabular-nums slashed-zero;
 }
 
 
@@ -3156,25 +3158,18 @@
 .wx-root .term-card.open .qopen { border-color: var(--brand); color: var(--brand); background: var(--brand-50); }
 .wx-root .qdetail { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--line); }
 
-/* ── 고르는 버튼 줄(`features/estimate/Chips`) ─────────────────────────────
-   사장님 2026-09-08 「드랍다운보다는 **버튼**으로 할 수 있으면 버튼으로 해」.
-   ⚠ 그래도 «얇아야» 한다 — 칩은 26px 한 단이고, 긴 칸은 `scroll` 로 키를 묶는다. */
-.wx-root .wxchips { display: flex; flex-wrap: wrap; gap: 4px; }
-.wx-root .wxchips.scroll { max-height: 132px; overflow-y: auto; padding-right: 2px; }
-.wx-root .wxchip {
-  height: 26px; padding: 0 9px; display: inline-flex; align-items: center; gap: 5px;
-  border: 1px solid var(--line-2); border-radius: var(--r-sm); background: var(--bg);
-  font: inherit; font-size: 12px; color: var(--ink-2); cursor: pointer; white-space: nowrap;
-  transition: border-color .12s, background .12s, color .12s;
-}
-.wx-root .wxchip:hover { border-color: var(--ink-3); color: var(--ink-1); }
-.wx-root .wxchip.on { border-color: var(--brand); background: var(--brand-50); color: var(--brand); font-weight: 600; }
-.wx-root .wxchip:disabled { opacity: .4; cursor: not-allowed; }
-.wx-root .wxchip em { font-style: normal; font-size: 10.5px; color: var(--ink-4); }
-.wx-root .wxchip.on em { color: var(--brand); }
-.wx-root .wxchip .sw { width: 11px; height: 11px; border-radius: 50%; border: 1px solid rgba(0,0,0,.25); flex: none; }
-/* 폰 — 손가락으로 누르는 자리는 32px(업무동 sm 규격 언저리). 16px 글씨는 입력칸만 해당된다. */
-@media (max-width: 760px) { .wx-root .wxchip { height: 32px; font-size: 13px; padding: 0 11px; } }
+/* 고르는 칸은 **기존 것**을 쓴다(사장님 2026-09-08 「기존거 활용하라고 했는데」) —
+   `.seg`·`.chips`·`.pin`(estimate.css) · `.mkrow`·`.tchips`·`.oprow`(picker.css).
+   ⇒ 여기서 칩을 «새로 만들지 않는다». 자리만 잡아 준다. */
+.wx-root .wrap .seg { margin-bottom: 0; }
+.wx-root .wrap .chips { flex: 1 1 auto; }
+.wx-root .wrap .tchips { margin-top: 0; }
+.wx-root .wrap .mkrow { padding: 0; }
+/* 긴 칸(제조사·모델)은 키를 묶는다 — 안 묶으면 열일곱·수십 개가 왼쪽을 통째로 민다. */
+.wx-root .wrap .tchips.scroll { max-height: 132px; overflow-y: auto; padding-right: 2px; }
+.wx-root .wrap .tchips .sw { width: 11px; height: 11px; border-radius: 50%; border: 1px solid rgba(0,0,0,.25); margin-right: 5px; flex: none; }
+.wx-root .wrap .tchips button { display: inline-flex; align-items: center; }
+.wx-root .wrap .tchips em { font-style: normal; font-size: 10.5px; opacity: .7; margin-left: 5px; }
 
 /* 원가 화면 — 머리는 견적과 «같고», 몸통만 제 짜임을 쓴다(설정 34칸이라 기둥이 넷이다).
    사장님 2026-09-08 「각 페이지는 이거랑 맞춰야지, 원가랑 견적은 동일하게」.
@@ -3225,7 +3220,7 @@
 .wx-root .pnl-row { display: flex; justify-content: space-between; gap: 8px; font-size: 11.5px; padding: 5px 0; border-bottom: 1px solid var(--line); }
 .wx-root .pnl-row .k { color: var(--ink-3); min-width: 0; }
 .wx-root .pnl-row .k em { font-style: normal; color: var(--ink-4); font-size: 10px; display: block; }
-.wx-root .pnl-row .v { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.wx-root .pnl-row .v { font-variant-numeric: tabular-nums slashed-zero; white-space: nowrap; }
 .wx-root .pnl-row.minus .v { color: var(--ink-2); }
 .wx-root .pnl-row.head { border-bottom: 0; padding-top: 12px; color: var(--ink-4); font-size: 10px; letter-spacing: .6px; }
 .wx-root .pnl-row.sum { border-bottom: 2px solid var(--line-3); font-weight: 600; color: var(--ink-1); }
