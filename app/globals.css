@@ -115,6 +115,25 @@
        다크는 아래 `html[data-theme="dark"]` 한 곳에서만 뒤집는다. */
   --scrim-glass: rgba(255,255,255,0.72);
 }
+/* ★★0 에 «사선» — 사장님 2026-09-08 「숫자 있는 거는 **숫자에 사선 나오는** 프리텐다드 써야 함」
+ *   「글꼴도 0 에 사선 들어가는 거로 해야 함」
+ *
+ *   왜 — 차번·금액·계좌를 눈으로 읽는 판이다. 0 과 O 가 같아 보이면 잘못 읽는다.
+ *
+ *   ★왜 `font-feature-settings` 인가(`font-variant-numeric: slashed-zero` 가 아니라) —
+ *     `font-variant-numeric` 은 **덮어쓰기다.** 어느 원자가 제 자리에서 `tabular-nums` 만 걸면
+ *     그 순간 사선이 꺼진다(집 안에 그런 자리가 **143곳**이다).
+ *     `font-feature-settings` 는 **따로 산다** — 재 봤다(2026-09-08):
+ *       `font-feature-settings:'zero' 1` + `font-variant-numeric: tabular-nums` → **사선이 살아남는다.**
+ *     ⇒ 그래서 143곳을 쓸지 않고 뿌리에 한 줄만 둔다. 새로 짜는 곳도 저절로 따라온다.
+ *   ⚠ 어딘가에서 `font-feature-settings` 를 «다시 걸면» 이 줄이 지워진다(그 속성은 통째로 덮인다).
+ *     지금 집 안에 그런 자리는 없다. 검사(`check:tokens`)가 그걸 지킨다.
+ *   ⚠ 프리텐다드가 실제로 사선 0 을 갖고 있는지도 재 봤다 — **있다**(dynamic-subset 판도 그렇다).
+ */
+html {
+  font-feature-settings: 'zero' 1;
+}
+
 /* 숫자 폭 고정 — 표에 세로로 쌓이는 금액이 행마다 흔들리지 않게.
  * --font-mono 가 이름과 달리 Pretendard(가변폭)라 서체만으로는 자릿수가 안 맞는다.
  * 표 밖의 낱개 숫자에는 tokens.ts TNUM 을 얹는다. */
