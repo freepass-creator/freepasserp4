@@ -12,6 +12,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { JWT } from 'google-auth-library';
 import { buildSalesFormatRequests, columnWidths, isDepositColumn } from '../lib/domain/sales-sheet-format';
 import { companyAlias } from '../lib/domain/identity';
+import { groupPoliciesByProvider, autoPolicyCode } from '../lib/domain/supplier-policy-link';
 import { autoplusDepositRuleText } from '../lib/domain/sales-published-tabs';
 import { isPlate } from '../lib/domain/plate-registry';
 
@@ -53,12 +54,15 @@ for (const [k, p] of Object.entries(policies)) {
   const prov = S((p as any).provider_company_code);
   if (prov) { const a = provPolicies.get(prov) || []; if (!a.includes(p)) a.push(p); provPolicies.set(prov, a); }
 }
-// ★공급사 정책이 «하나뿐」이면 그 공급사 차 전부에 적용(사장님 규칙). 둘 이상이면 코드로만(차번별 매칭은 이후 수집작업).
-const provSingle = new Map<string, any>();
-for (const [prov, arr] of provPolicies) if (arr.length === 1) provSingle.set(prov, arr[0]);
-// ★「프리패스 공통 렌트」를 정책 2개+ 공급사에 씌우지 «않는다»(사장님 2026-09-03 「공통정책으로 다 채운 건 안 됨」).
-//   실제로 맞는 것만: 코드(정확·퍼지) + 정책이 «진짜 하나뿐인 공급사」. 나머지는 빈칸 — 내일 구형 시트로 실제 정책 채움.
-const policyOf = (v: any) => polByCode.get(S(v.policy_code)) || polByKey.get(S(v.policy_code)) || polByNorm.get(normCode(v.policy_code)) || provSingle.get(S(v.provider_company_code)) || {};
+// ★정책 매칭 = 화면(resolveAtom)과 «같은 규칙»(supplier-policy-link) — 시트=화면이 되게(사장님 2026-09-08 「자꾸 갈린다」).
+//   공급사 정책 1개→자동 · 여럿이면 «렌트/구독 버킷»으로 번호판별 상품구분에 맞춰 고름 · 모호(공통렌트+재렌트 겹침)면 빈칸(안 씌운다).
+const byProvider = groupPoliciesByProvider(Object.entries(policies).map(([k, p]) => ({ _key: k, ...(p as Record<string, unknown>) })));
+const policyOf = (v: any) => {
+  const direct = polByCode.get(S(v.policy_code)) || polByKey.get(S(v.policy_code)) || polByNorm.get(normCode(v.policy_code));
+  if (direct) return direct;
+  const code = autoPolicyCode(v, byProvider);   // 공급사 매칭(1개→자동·렌트/구독 버킷) — 못 정하면 ''(빈칸)
+  return (code && (polByCode.get(code) || polByKey.get(code))) || {};
+};
 const docs = (await getFirestore().collection('products').get()).docs.map((d) => d.data());
 const listable = docs.filter((v) => v.listable === true);
 
