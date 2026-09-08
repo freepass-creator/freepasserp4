@@ -160,25 +160,17 @@ must(/if \(!admin\) return NextResponse\.json\(\{ error: 'forbidden' \}/.test(co
   '원가 **쓰기**가 열렸습니다 — 열면 아무나 우리 대여료를 바꿉니다(읽기만 임시 공개입니다)',
   'app/api/estimate/cost/route.ts PUT');
 
-/* ㉮ 견적은 **ERP «안»의 페이지**다 — 상단바·전체메뉴를 입는다.
-     ⚠ 2026-09-07 사장님이 바로잡으셨다 — 「난 로그인해서 «내부 페이지»처럼 하자는 거였음」.
-       9/6 「완전 별도 페이지」를 «껍데기를 벗어라»로 읽고 `guest-surface` 에 넣었던 것이 어긋난 것이었다. */
-must(/const OWN_HEADER_PREFIXES = \[\] as const;/.test(guestSurface),
-  '견적이 ERP 상단바를 다시 벗고 있습니다 — 「내부 페이지처럼」이 규격입니다(`OWN_HEADER_PREFIXES` 는 비어 있어야 합니다)',
+/* ㉮ ★★견적기는 **별도 페이지**다 — ERP 상단바를 벗는다(2026-09-08 확정).
+     사장님 「이거 **별도 페이지**라서 위에 **상단바 없어도 되고**, 프리패스erp 내의 페이지가 아니라
+     **별도 페이지**야」 · 「**나중에 합치더라도 별도로 운용할 계획**임」
+   ⇒ 같은 날 셋이 한 방향으로 움직였다 — ㉠ 모두 공개(로그인 없음) ㉡ 「웰릭스·손오공은 없고
+     **프리패스 견적기**로 간다」 ㉢ 별도 페이지. 견적기는 ERP 의 한 층이 아니라 «따로 서는 물건»이다.
+   ★길은 자체 머리에 있다 — `.global-topbar` 의 「견적내기 | 원가설정」 토글.
+   ⚠ 2026-09-07 에는 반대였다(「난 로그인해서 «내부 페이지»처럼 하자는 거였음」). **뒤엣것이 이긴다** —
+     그때는 로그인이 걸려 있고 ERP 메뉴로만 들어오는 화면이었다. 지금은 아니다. */
+must(/const OWN_HEADER_PREFIXES = \['\/estimate'\] as const;/.test(guestSurface),
+  '견적이 ERP 상단바를 다시 입고 있습니다 — 「별도 페이지」가 규격입니다',
   'lib/guest-surface.ts');
-/* ★사장님 2026-09-08 「원가설정에는 왜 **밑줄**이 가져 있지?」 · 「견적내기 / 원가설정 **잘 정렬**해 주고」
-     · 「각 페이지는 이거랑 맞춰야지, **원가랑 견적은 동일하게**」
-   ⇒ 두 화면이 «같은» 머리 띠(`.global-topbar`)와 «같은» 토글(`.gt-modes`)을 쓴다.
-     한쪽만 고치면 또 어긋나므로 둘을 함께 잰다. 밑줄은 `.gt-modes` 가 없앤다. */
-must(/className="global-topbar"/.test(page) && /className="global-topbar"/.test(costPage),
-  '견적·원가의 머리 띠가 다릅니다 — 두 화면은 «같은» 머리를 씁니다',
-  'app/estimate/**/page.tsx .global-topbar');
-must(/className="gt-modes"/.test(page) && /className="gt-modes"/.test(costPage),
-  '「견적내기 / 원가설정」 토글이 두 화면에 같이 서 있지 않습니다',
-  'app/estimate/**/page.tsx .gt-modes');
-must(/\.gt-modes > \*\s*\{[\s\S]*?text-decoration: none/.test(wxCss),
-  '토글 링크에 밑줄이 다시 그어집니다 — 링크라 그어지던 것을 `.gt-modes` 가 없앱니다',
-  'components/estimate/welrix.css .gt-modes');
 must(!/className="wm"/.test(page) && !/className="wm"/.test(costPage),
   '견적·원가 자체 머리에 워드마크가 다시 섰습니다 — ERP 상단바가 위에 있어 머리가 둘이 됩니다(노브랜드 규칙)',
   'app/estimate/**/page.tsx');
@@ -257,9 +249,38 @@ must(/term-card__check/.test(page),
   'app/estimate/page.tsx .term-card__check');
 /* ★고르는 것은 «버튼»이다 — 사장님 2026-09-08 「드랍다운보다는 버튼으로 할 수 있으면 버튼으로 해」.
    드롭다운은 열고 고르느라 두 번 누른다. 통화 중에 그 한 걸음이 그대로 느려짐이 된다. */
-must(!/<select/.test(page) && !/<select/.test(cascade),
-  '고르는 칸에 드롭다운이 다시 섰습니다 — 견적기에서 고르는 것은 전부 버튼입니다',
-  'app/estimate/page.tsx · features/estimate/VehicleCascade.tsx');
+/* ★★고르는 «방식»은 **목록 길이**가 정한다(2026-09-08 오후 확정):
+     **두셋 = 버튼** — 상품(중고/신차) · 채널 · 만기 · 신용 · 취득
+        사장님 「드랍다운보다는 버튼으로 할 수 있으면 버튼으로 해」 — 열고 고르는 두 걸음을 아낀다
+     **여럿 = 드롭다운** — 제조사 · 모델 · 세부모델 · 트림 · **색상**
+        사장님 「차 고르는 거는 드랍다운으로 해야지… 한 줄 한 줄」 · 「드랍다운처럼 눌러야 선택되게끔」
+        칩으로 펴면 열일곱·수십·열둘이 왼쪽을 두세 줄씩 먹는다(실측). */
+must(/<Seg tone="t2"/.test(page) && /<Chips opts={CREDIT/.test(page) && /<Chips opts={ACQ/.test(page),
+  '두셋 중 하나를 고르는 칸이 버튼이 아닙니다 — 상품·신용·취득은 버튼입니다',
+  'app/estimate/page.tsx');
+must(/className="color-wrap"/.test(page) && /className="step-dd" value={colorExt}/.test(page),
+  '색상이 «드롭다운»이 아닙니다 — 열두 색을 펴면 왼쪽을 두 줄 먹습니다',
+  'app/estimate/page.tsx #sec-color');
+/* ★★고르는 «방식»은 목록 길이가 정한다 — 사장님 2026-09-08
+     오전 「드랍다운보다는 **버튼**으로 할 수 있으면 버튼으로 해」
+     오후 「**차 고르는 거는 드랍다운으로 해야지… 한 줄 한 줄.** 신차 같은 경우나 중고차도」
+   부딪히지 않는다. **재 보고 갈린 것**이다 — 제조사 열일곱·세부모델 수십을 칩으로 펴니
+   왼쪽이 세 줄씩 먹었다. 규칙:
+     두셋 = 버튼(상품·채널·만기·신용·취득) · 여럿 = 드롭다운(제조사·모델·세부모델·트림)
+     색상만 예외 — **색을 봐야 고르는** 것이라 칩이다. */
+must(/className="step-dd"/.test(cascade) && !/tchips/.test(cascade),
+  '차 고르기가 «한 줄 드롭다운»이 아닙니다 — 목록이 길면 칩으로 펴서 왼쪽을 먹습니다',
+  'features/estimate/VehicleCascade.tsx');
+/* 걸음은 갈래마다 다르다 — 중고는 파워트레인 걸음이 «아직» 없다(원자가 없어서). */
+must(/mode === 'used' \? '모델' : '세부모델'/.test(cascade)
+  && /mode === 'used' \? '세부모델' : '파워트레인'/.test(cascade),
+  '걸음 이름이 갈래와 안 맞습니다 — 중고=모델·세부모델·트림 / 신차=세부모델·파워트레인·트림',
+  'features/estimate/VehicleCascade.tsx');
+/* ★메인컬러는 프리패스 남색 하나 — 웰릭스의 검정(#0a0a0a)이 이기면 버튼이 검게 나온다(실측). */
+must(/\.wx-root\.est-root \{[\s\S]{0,300}--accent: #1B2A4A/.test(wxCss),
+  '메인컬러가 안 잡혀 있습니다 — 웰릭스의 검정이 이겨 선택 버튼이 검게 나옵니다',
+  'components/estimate/welrix.css');
+
 /* ★고르는 칸은 «기존 것»을 쓴다 — 사장님 2026-09-08 「**기존거 활용하라고 했는데**」.
    견적기에는 이미 세그·칩·숫자칸이 있었다: `.seg`·`.chips`·`.pin`(estimate.css) ·
    `.mkrow`·`.tchips`·`.oprow`(picker.css). 새로 만들면 규격이 둘이 되고, 그러면 또 갈린다. */

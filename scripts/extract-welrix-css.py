@@ -244,6 +244,50 @@ tail = """
    조건 줄(`term-card__cond`)과 같은 짜임을 쓰되, 위와 구별되게 선 하나로 가른다. */
 .wx-root .term-card__cond.resid2 { border-top: 1px dashed var(--line-2); padding-top: 6px; margin-top: 4px; }
 
+/* ══ 견적기 규격 — 색 하나, 치수 하나 ═══════════════════════════════════════
+   사장님 2026-09-08 「**버튼이나 박스 이런 거 간격들 잘 규격 맞춰서 해 제대로**」
+                  「그리고 **버튼 컬러나 이런 거 메인컬러가 있는데**」
+
+   ㉠ **색** — 메인컬러는 프리패스 남색(#1B2A4A) 하나다.
+     ⚠ 웰릭스는 `--accent: #0a0a0a`(검정)를 갖고 있어, CSS 싣는 순서에 따라 그게 이겼다.
+       실측 — 선택 버튼 배경이 `rgb(10,10,10)`, 즉 **검정**이었다(2026-09-08).
+     ⇒ 순서에 기대지 않는다. 두 뿌리를 «함께» 잡아(`.wx-root.est-root`) 못 이기게 한다.
+
+   ㉡ **치수** — 한 화면에서 22·28·30·32·40 이 섞여 있었다(실측).
+     ⇒ 고르는 것과 숫자칸은 **32**, 기간 칸 «안»의 작은 입력만 **26**. 라운드는 **4** 하나.
+     ⚠ 폰은 손가락 규격이 따로다 — 아래 폰 블록에서 40 으로 올린다. */
+.wx-root.est-root {
+  --accent: #1B2A4A; --accent-2: #5b6c88; --accent-soft: #eef1f6; --accent-line: #c4cdda; --on: #fff;
+  --brand: #1B2A4A; --brand-700: #111d35; --brand-100: #c6cdda; --brand-50: #eef1f6;
+}
+
+/* 고르는 것 — 세그 · 칩 · 드롭다운 */
+.wx-root .wrap .seg, .wx-root .qp-form--conds .seg,
+.wx-root .wrap .chips, .wx-root .qp-form--conds .chips { border-radius: 4px; overflow: hidden; }
+.wx-root .wrap .seg button, .wx-root .qp-form--conds .seg button,
+.wx-root .wrap .chips button, .wx-root .qp-form--conds .chips button,
+.wx-root .wrap .tchips button { height: 32px; font-size: 12.5px; }
+.wx-root .wrap .step-dd { height: 32px; border-radius: 4px; }
+.wx-root .wrap .tchips button { border-radius: 4px; }
+
+/* 숫자칸 — 왼쪽·조건 줄 모두 32. 라운드도 같게. */
+.wx-root .wrap .pin, .wx-root .qp-form--conds .pin { height: 32px; border-radius: 4px; padding: 0 8px; }
+.wx-root .wrap .pin input, .wx-root .qp-form--conds .pin input { font-size: 13px; }
+
+/* 기간 칸 «안»은 좁아서 한 단 작다 — 그 안에서는 26 으로 통일한다. */
+.wx-root .term-card .pct-cell { height: 26px; display: inline-flex; align-items: center; }
+.wx-root .term-card .pct-cell input { height: 24px; }
+
+/* 폰 — 손가락으로 누르는 자리는 40(업무동 md 규격). */
+@media (max-width: 760px) {
+  .wx-root .wrap .seg button, .wx-root .qp-form--conds .seg button,
+  .wx-root .wrap .chips button, .wx-root .qp-form--conds .chips button,
+  .wx-root .wrap .tchips button { height: 40px; font-size: 14px; }
+  .wx-root .wrap .step-dd { height: 40px; font-size: 16px; }
+  .wx-root .wrap .pin, .wx-root .qp-form--conds .pin { height: 40px; }
+  .wx-root .wrap .pin input, .wx-root .qp-form--conds .pin input { font-size: 16px; }
+}
+
 /* 「추정」 표시 — 우리가 채운 값이라는 것을 «말한다»(사장님 2026-09-08 「평균시세는 틀릴 수 있으니까」).
    ⚠ 표시를 빼면 사람이 그 값을 «우리가 아는 시세»로 믿는다. 그게 더 위험하다. */
 .wx-root .seedmark {

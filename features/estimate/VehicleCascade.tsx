@@ -29,29 +29,35 @@ import {
 type Props = { mode: 'used' | 'new'; picked: PickedCar; onPick: (car: PickedCar) => void };
 
 /**
- * 한 걸음 = `<section id>` + 라벨 + **버튼 줄**.
- * ★사장님 2026-09-08 「드랍다운보다는 **버튼**으로 할 수 있으면 버튼으로 해」 —
- *   원본은 드롭다운이지만 그건 열고 고르느라 두 번 누른다. 눈에 다 보이면 한 번이다.
- * ★긴 칸(제조사·모델)은 `scroll` 로 키를 묶는다 — 안 묶으면 열일곱·수십 개가 왼쪽을 통째로 민다.
+ * 한 걸음 = `<section id>` + 라벨 + **한 줄 드롭다운**.
+ *
+ * ★★사장님 2026-09-08 「**차 고르는 거는 드랍다운으로 해야지… 한 줄 한 줄.**
+ *   신차 같은 경우나 **중고차도**」
+ *
+ * ⚠ 같은 날 오전에는 「드랍다운보다는 **버튼**으로 할 수 있으면 버튼으로 해」였다. 부딪히지 않는다 —
+ *   **재 보고 갈린 것**이다. 제조사가 열일곱, 세부모델이 수십이라 칩으로 펴니 왼쪽이 세 줄씩 먹었다.
+ *   ⇒ 규칙은 이렇게 굳는다:
+ *       **고를 것이 두셋 = 버튼**(상품·채널·만기·신용·취득) — 눈에 다 보이니 한 번에 누른다
+ *       **고를 것이 여럿 = 드롭다운**(제조사·모델·파워트레인·트림) — 펴면 화면을 먹는다
+ *   ⚠ 색상은 칩으로 둔다 — **색을 봐야 고르는** 것이라 이름만 늘어놓으면 못 고른다.
+ *
+ * ★긴 목록이라도 «걸음»은 넷 그대로다 — 위를 바꾸면 아래가 비워진다.
  */
-function Step({ id, label, value, options, disabled, current, scroll, empty, onChange }: {
-  id: string; label: string; value: string; disabled: boolean; current: boolean;
-  scroll?: boolean; empty?: string;
+function Step({ id, label, value, options, disabled, current, empty, onChange }: {
+  id: string; label: string; value: string; disabled: boolean; current: boolean; empty?: string;
   options: { v: string; label: string; sub?: string }[]; onChange: (v: string) => void;
 }) {
   return (
     <section id={id} className={`${disabled ? 'hidden' : ''}${current ? ' is-current' : ''}`}>
       <div className="step-title">{label}</div>
-      {/* 기존 칩(`picker.css .tchips`)을 그대로 쓴다 — 사장님 2026-09-08 「기존거 활용하라고 했는데」. */}
-      {options.length ? (
-        <div className={`tchips${scroll ? ' scroll' : ''}`}>
+      {options.length || disabled ? (
+        <select className="step-dd" value={value} disabled={disabled}
+          onChange={(e) => onChange(e.target.value)}>
+          <option value="">{label} 선택{options.length ? ` (${options.length})` : ''}</option>
           {options.map((o) => (
-            <button key={o.v} type="button" className={String(o.v) === String(value) ? 'on' : ''}
-              disabled={disabled} onClick={() => onChange(o.v)}>
-              {o.label}{o.sub ? <em>{o.sub}</em> : null}
-            </button>
+            <option key={o.v} value={o.v}>{o.label}{o.sub ? ` · ${o.sub}` : ''}</option>
           ))}
-        </div>
+        </select>
       ) : <div className="empty-state">{empty ?? '고를 것이 없습니다'}</div>}
     </section>
   );
@@ -95,41 +101,76 @@ export default function VehicleCascade({ mode, picked, onPick }: Props) {
     return [...seen.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'ko')).map(([m]) => m);
   }, [cars, models, mode]);
 
-  // ── 걸음 ② 모델(중고=세부모델 · 신차=모델) ────────────────────────────────
-  const usedModels = useMemo(
-    () => (cars ?? []).filter((c) => c.mk === maker).sort((a, b) => a.sm.localeCompare(b.sm, 'ko')),
-    [cars, maker]);
+  /**
+   * ★★걸음이 갈래마다 다르다 — 사장님 2026-09-08
+   *     **중고** : 제조사 → **모델** → **세부모델** → 트림
+   *     **신차** : 제조사 → **세부모델** → **파워트레인** → 트림 → (옵션·색상)
+   *
+   *   ⚠ 중고에 파워트레인 걸음이 «없는» 것은 일부러다 — 사장님 「나중에 모델 세부모델 파워트레인
+   *     세부트림으로 가긴 할 건데 **아직 원자가 없어서** 그래」.
+   *     ⇒ 대신 **트림 이름에 파워트레인을 붙여** 보여 준다(「캘리그래피 · 가솔린 2.5」).
+   *       고르면 그 파워트레인이 같이 정해진다 — 걸음은 셋인데 «잃는 것은 없다».
+   *       ★이게 중요한 까닭은 시세다 — 파워트레인을 모르면 가솔린과 하이브리드가 같은 값이 된다
+   *         (사장님 「파워트레인이 들어가야 신차가 딱 걸린다」).
+   *   ⚠ 신차마스터에는 «모델» 단이 없다(피드가 세부모델 단위다). 그래서 신차는 셋째가 파워트레인이다.
+   */
+  // ── 걸음 ② 중고=모델 · 신차=세부모델 ────────────────────────────────────
+  const usedModels = useMemo(() => {
+    const seen = new Map<string, number>();
+    for (const c of cars ?? []) if (c.mk === maker) seen.set(c.md, (seen.get(c.md) ?? 0) + 1);
+    return [...seen.entries()].sort((a, b) => a[0].localeCompare(b[0], 'ko'));
+  }, [cars, maker]);
   const newModels = useMemo(
-    () => (models ?? []).filter((m) => m.maker === maker).sort((a, b) => ko(a.sub_model).localeCompare(ko(b.sub_model), 'ko')),
+    () => (models ?? []).filter((m) => m.maker === maker)
+      .sort((a, b) => ko(a.sub_model).localeCompare(ko(b.sub_model), 'ko')),
     [models, maker, index]);
-
-  const usedCar: CarEntry | null = useMemo(
-    () => usedModels.find((c) => c.i === model) ?? null, [usedModels, model]);
   const newModel: NewModel | null = useMemo(
     () => newModels.find((m) => m.sub_model === model) ?? null, [newModels, model]);
 
-  // ── 걸음 ③ 파워트레인(중고) · 연료(신차) ──────────────────────────────────
+  // ── 걸음 ③ 중고=세부모델 · 신차=파워트레인 ──────────────────────────────
+  const usedSubs = useMemo(
+    () => (cars ?? []).filter((c) => c.mk === maker && c.md === model)
+      .sort((a, b) => a.sm.localeCompare(b.sm, 'ko')),
+    [cars, maker, model]);
+  const usedCar: CarEntry | null = useMemo(
+    () => usedSubs.find((c) => c.i === variant) ?? null, [usedSubs, variant]);
+
   const variants = useMemo(() => {
     if (mode === 'new') return (newModel?.fuels ?? []).map((f) => ({ v: f, label: f }));
-    return (usedCar?.p ?? []).map((p, i) => ({ v: String(i), label: p.pt }));
-  }, [mode, newModel, usedCar]);
+    return usedSubs.map((c) => ({
+      v: c.i,
+      label: c.sm,
+      sub: [c.ys && `${c.ys}~${c.ye || '현재'}`, c.g].filter(Boolean).join(' · '),
+    }));
+  }, [mode, newModel, usedSubs]);
 
   // ── 걸음 ④ 트림 ───────────────────────────────────────────────────────────
+  /**
+   * 중고 트림 — 파워트레인 걸음이 없으므로 **모든 파워트레인의 트림을 합쳐** 보여 준다.
+   * 같은 트림명이 여럿이면 파워트레인마다 한 줄씩 선다(「캘리그래피 · 가솔린 2.5」·「… · 하이브리드 1.6T」).
+   * ⇒ 고르면 파워트레인이 «같이» 정해진다. 값은 `pt|trim` 으로 둘을 함께 나른다.
+   */
   const trims = useMemo(() => {
     if (mode === 'new') {
       return (newModel?.trims ?? []).filter((t) => !variant || t.fuel === variant)
         .map((t) => ({ v: t.trim, label: t.trim }));
     }
-    const p = usedCar?.p[Number(variant)];
-    return (p?.t ?? []).map((t) => ({ v: t, label: t }));
+    if (!usedCar) return [];
+    const out: { v: string; label: string; sub?: string }[] = [];
+    usedCar.p.forEach((p, pi) => {
+      for (const t of p.t) out.push({ v: `${pi}|${t}`, label: t, sub: p.pt });
+    });
+    return out;
   }, [mode, newModel, usedCar, variant]);
 
   /* ★고르는 즉시 위로 올린다 — 「확인」 단추 없음(원본과 같다). */
   useEffect(() => {
     if (!trim) return;
     if (mode === 'used') {
-      const p = usedCar?.p[Number(variant)];
-      if (usedCar && p) onPick(pickUsed(usedCar, p, trim));
+      // 트림 값은 «파워트레인 번호 | 트림명» 이다 — 걸음이 셋이라 둘을 함께 나른다.
+      const [pi, name] = trim.split('|');
+      const p = usedCar?.p[Number(pi)];
+      if (usedCar && p && name) onPick(pickUsed(usedCar, p, name));
       return;
     }
     const t: NewTrim | undefined = newModel?.trims.find((x) => x.trim === trim && (!variant || x.fuel === variant));
@@ -146,22 +187,19 @@ export default function VehicleCascade({ mode, picked, onPick }: Props) {
     <>
       <Step id="sec-manufacturer" label="제조사"
         value={maker} disabled={loading} current={!maker}
-        scroll empty="차종을 받는 중입니다"
+        empty="차종을 받는 중입니다"
         options={makers.map((m) => ({ v: m, label: m }))}
         onChange={(v) => { setMaker(v); setModel(''); setVariant(''); setTrim(''); }} />
 
-      <Step id="sec-model" label={mode === 'used' ? '세부모델' : '모델'}
-        value={model} disabled={!maker} current={!!maker && !model} scroll
+      <Step id="sec-model" label={mode === 'used' ? '모델' : '세부모델'}
+        value={model} disabled={!maker} current={!!maker && !model}
         empty="이 제조사의 차가 아직 없습니다"
         options={mode === 'used'
-          ? usedModels.map((c) => ({ v: c.i, label: `${c.sm}${c.ys ? ` (${c.ys}~${c.ye || '현재'})` : ''}` }))
+          ? usedModels.map(([md, n]) => ({ v: md, label: md, sub: `${n}종` }))
           : newModels.map((m) => ({ v: m.sub_model, label: ko(m.sub_model) }))}
         onChange={(v) => { setModel(v); setVariant(''); setTrim(''); }} />
 
-      {/* ★신차마스터의 「연료」 값이 곧 파워트레인이다(「가솔린 2.5」·「LPi 3.5」·「하이브리드 1.6T」).
-          이름을 「연료」라고 부르면 «가솔린/디젤»만 고르는 칸으로 오해한다 —
-          사장님 2026-09-08 「**파워트레인이라는 게 들어가거든? 그래야 신차가 딱 걸릴 거야**」. */}
-      <Step id="sec-variant" label="파워트레인"
+      <Step id="sec-variant" label={mode === 'used' ? '세부모델' : '파워트레인'}
         value={variant} disabled={!model} current={!!model && !variant}
         options={variants} onChange={(v) => { setVariant(v); setTrim(''); }} />
 

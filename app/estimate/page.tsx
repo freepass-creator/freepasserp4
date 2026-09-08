@@ -538,17 +538,34 @@ function EstimatePageInner() {
           <section id="sec-color">
             <div className="step-title">색상 <b>견적서 표기용</b></div>
             <div className="vfields">
-              {/* 색도 버튼이다 — 색 칩이 보이면 이름을 안 읽어도 고른다.
-                  ⚠ 색·이름은 **색상마스터**가 준 것만 쓴다(화면이 색을 지어내지 않는다). */}
-              <div className="cs-field cs-field--wide">
+              {/* ★색상은 «드롭다운»이다 — 사장님 2026-09-08
+                  「신차에서 **색깔 저렇게 나오면 안 되지**」 · 「**드랍다운처럼 눌러야 선택되게끔** 해야지」
+                  열두 색을 칩으로 펴니 왼쪽을 두 줄씩 먹었다. 고를 것이 여럿이면 드롭다운이다.
+                  ★짜임은 원본 그대로 — `.color-wrap`(자리잡이) + `.color-swatch-mini`(색점) + 드롭다운.
+                    색점은 `position:absolute` 라 **반드시** `.color-wrap` 안에 있어야 한다.
+                  ⚠⚠ 여기 뜨는 것은 **우리 규격색 12색**이지 제조사 색상명이 아니다
+                    (「어비스 블랙 펄」이 아니라 「블랙」). **신차마스터에 색상이 없다** — 실측으로 확인했다
+                    (트림 필드: maker·sub_model·carType·fuel·trim·priceBefore·priceAfter·options·rules).
+                    제조사 색상표가 들어오면 그것으로 바꾼다. 그때까지는 규격색으로 «적어만» 둔다. */}
+              <div className="cs-field">
                 <label>외장</label>
-                <TChips opts={EXT_COLORS.map((c) => ({ v: c, label: c, swatch: colorSwatch(c) }))}
-                  cur={colorExt} onPick={setColorExt} />
+                <div className="color-wrap">
+                  {colorExt ? <span className="color-swatch-mini" style={{ background: colorSwatch(colorExt) }} /> : null}
+                  <select className="step-dd" value={colorExt} onChange={(e) => setColorExt(e.target.value)}>
+                    <option value="">외장 색상</option>
+                    {EXT_COLORS.map((c) => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
               </div>
-              <div className="cs-field cs-field--wide">
+              <div className="cs-field">
                 <label>내장</label>
-                <TChips opts={INT_COLORS.map((c) => ({ v: c, label: c, swatch: colorSwatch(c) }))}
-                  cur={colorInt} onPick={setColorInt} />
+                <div className="color-wrap">
+                  {colorInt ? <span className="color-swatch-mini" style={{ background: colorSwatch(colorInt) }} /> : null}
+                  <select className="step-dd" value={colorInt} onChange={(e) => setColorInt(e.target.value)}>
+                    <option value="">내장 색상</option>
+                    {INT_COLORS.map((c) => <option key={c} value={c}>{c}</option>)}
+                  </select>
+                </div>
               </div>
             </div>
           </section>
@@ -653,18 +670,13 @@ function EstimatePageInner() {
              ★보증금·선납은 여기서 바꾸면 다섯 칸이 한꺼번에 따라온다(칸마다 따로도 잡는다). ══ */}
         <div className="qp-terms__title">조건 <small>· 보증금·선납은 다섯 칸에 한꺼번에</small></div>
         <div className="qp-form qp-form--conds flow">
-          <div className="qc-field">
-            <label>채널</label>
-            <Seg tone="t3" opts={CHANNELS.map((o) => ({ v: o.v, label: o.label }))} cur={ch} onPick={setCh} />
-          </div>
-          <div className="qc-field">
-            <label>만기</label>
-            <Seg tone="t3" opts={TYPES.map((o) => ({ v: o.v, label: o.label }))} cur={type} onPick={setType} />
-          </div>
-          <div className="qc-field">
-            <label>신용</label>
-            <Chips opts={CREDIT.map((c) => ({ v: c, label: c }))} cur={credit} onPick={setCredit} />
-          </div>
+          {/* ★라벨을 걷었다 — 사장님 2026-09-08 「채널 만기 신용 이거 **굳이 안 써도 알건데**…
+              그냥 **버튼만 있으면 되지** 뭐」. 「렌트|구독」·「반납형|인수형」·「고신용|중신용|저신용」은
+              글자만 봐도 무엇을 고르는 칸인지 안다. 라벨을 세우면 그만큼 줄만 길어진다.
+              ⚠ 숫자칸(보증금·선납·수수료)은 라벨을 남긴다 — 「10 %」만 있으면 무엇의 10% 인지 모른다. */}
+          <Seg tone="t3" opts={CHANNELS.map((o) => ({ v: o.v, label: o.label }))} cur={ch} onPick={setCh} />
+          <Seg tone="t3" opts={TYPES.map((o) => ({ v: o.v, label: o.label }))} cur={type} onPick={setType} />
+          <Chips opts={CREDIT.map((c) => ({ v: c, label: c }))} cur={credit} onPick={setCredit} />
           <div className="qc-field">
             <label>보증금</label>
             <span className="pin"><input inputMode="numeric" value={dep}
