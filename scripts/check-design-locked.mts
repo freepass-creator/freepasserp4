@@ -17,7 +17,15 @@ const read = (f: string) => readFileSync(new URL(`../${f}`, import.meta.url), 'u
 const fails: string[] = [];
 const must = (ok: boolean, what: string, where: string) => { if (!ok) fails.push(`${what}\n      → ${where}`); };
 
-const css = read('app/globals.css');
+/*
+ * ★★**스타일시트가 둘이다**(2026-09-08) — 업무동 `globals.css` · 손님 동 `whitelabel.css`.
+ *   아래 규격 검사들은 「어느 파일에 있느냐」가 아니라 「그 규칙이 살아 있느냐」를 본다.
+ *   그래서 둘을 이어 붙여 읽는다 — 규칙을 파일 사이로 옮기는 것만으로 검사가 깨지면
+ *   다음 사람이 «검사를 피하려고» 규칙을 옮기게 된다.
+ * ⚠ 「섞이지 않았는가」는 이것과 «다른» 검사다(맨 아래) — 거기서는 두 파일을 따로 읽는다.
+ */
+const css = [read('app/globals.css'), read('app/whitelabel.css')].join(`
+`);
 const rowCard = read('components/ProductRowCard.tsx');
 const perks = read('components/product-card-perks.tsx');
 const badgeView = read('components/product-card-badge-view.tsx');
@@ -862,6 +870,30 @@ must(/wl\.tel/.test(read('app/q/[code]/ShopDetailView.tsx')),
   must(strays.length === 0,
     `세로 리듬이 사다리를 벗어났습니다(${strays.slice(0, 4).join(' · ')}) — 간격은 SHOP.sp 만 씁니다.`,
     'components/shop/ShopDetail.tsx §세로 리듬');
+}
+
+/* ── 스타일시트가 다시 섞이지 않았는가 ────────────────────────────────────
+ * 2026-09-08 에 손님 동 CSS 346줄을 `app/whitelabel.css` 로 뗐다. 뗀 이유는 «취향»이 아니라
+ * **사고 셋**이다 — 업무동 쪽을 고치다 손님 목록이 통째로 접혔다(08-31 · 09-01 · 09-04).
+ * 그중 한 번은 하루 넘게 아무도 몰랐다.
+ * ⇒ 다시 섞이면 그 사고가 돌아온다. 「한 줄쯤이야」로 다시 붙는 것을 여기서 막는다.
+ * ★반대 방향도 막는다 — 업무동 규칙(`.fp-finder-*`·`.fp-topbar`)이 손님 시트로 넘어오면
+ *   이번엔 손님 쪽을 고치다 업무동이 깨진다. 벽은 양쪽으로 서 있어야 벽이다.
+ */
+{
+  const strip = (t: string) => t.replace(/\/\*[\s\S]*?\*\//g, '');
+  const guestSel = /\.fp-(?:wl|shop)[-\s.,:>[{]/;
+  const workSel = /\.fp-(?:finder|topbar|onbar)[-\s.,:>[{]/;
+  must(!guestSel.test(strip(read('app/globals.css'))),
+    '손님 동 규칙(.fp-wl / .fp-shop-*)이 **업무동 스타일시트로 돌아왔습니다**.',
+    'app/globals.css → app/whitelabel.css 로 옮기세요(섞여서 손님 목록이 세 번 접혔습니다)');
+  must(!workSel.test(strip(read('app/whitelabel.css'))),
+    '업무동 규칙(.fp-finder-* / .fp-topbar)이 **손님 스타일시트로 넘어왔습니다**.',
+    'app/whitelabel.css → app/globals.css 로 돌리세요(벽은 양쪽으로 서 있어야 합니다)');
+  const layout = read('app/layout.tsx');
+  must(layout.indexOf("globals.css") < layout.indexOf("whitelabel.css") && layout.includes("whitelabel.css"),
+    '손님 스타일시트가 `globals.css` **뒤**에 실리지 않습니다.',
+    'app/layout.tsx — 뒤여야 같은 세기일 때 손님 동 규칙이 이깁니다');
 }
 
 if (fails.length) {

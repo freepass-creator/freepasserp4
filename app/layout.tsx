@@ -1,6 +1,14 @@
 import { BRAND, BRAND_DESCRIPTION, BRAND_TAGLINE } from '@/lib/brand';
 import { hasBrand, resolveGuestWhitelabel, resolveWhitelabel } from '@/lib/whitelabel';
 import './globals.css';
+/*
+ * ★★**손님 동 스타일시트는 «따로»다**(2026-09-08). 업무동 규칙을 고치다 손님 목록이 통째로
+ *   접힌 사고가 세 번 났고(08-31 · 09-01 · 09-04), 한 번은 하루 넘게 아무도 몰랐다.
+ *   파일이 갈리면 업무동을 고칠 때 저 파일이 «열리지 않는다» — 그것이 분리의 전부다.
+ * ⚠ **`globals.css` «뒤»에 둔다.** 같은 세기일 때 손님 동 규칙이 이겨야 한다 —
+ *   앞에 두면 업무동 규칙이 손님 화면을 다시 덮는다. 줄 순서가 곧 규칙이다.
+ */
+import './whitelabel.css';
 import type { Metadata, Viewport } from 'next';
 import { cookies, headers } from 'next/headers';
 import { AppBarProvider } from '@/lib/appbar';
