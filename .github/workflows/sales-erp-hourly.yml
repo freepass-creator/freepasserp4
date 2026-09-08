@@ -3,6 +3,8 @@ name: 판매·천이·ERP 시간별 동기
 on:
   schedule:
     # 평일 KST 09:00~18:00. 원본→정제 점검(매시 08:50~) 뒤에 실행한다.
+    # ★가벼운 「최신화」는 refresh-30min 이 30분마다 따로 돈다(같은 concurrency 로 줄을 선다).
+    #   여긴 무거운 쪽 — 손오공 pull · 정제시트 · ⑥ 4탭 · ⑦ ERP · 천이카드.
     - cron: '0 0-9 * * 1-5'
   workflow_dispatch:
     inputs:
@@ -18,7 +20,9 @@ concurrency:
 jobs:
   sync:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # ⚠ 2026-09-08 실측 한 회차 «48분» — 45분이면 깃허브가 중간에 잘라 버린다(반쪽 반영).
+    #   자주 바뀌는 것은 30분 회차(refresh-30min)가 따로 맡으므로, 여긴 넉넉히 준다.
+    timeout-minutes: 70
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
