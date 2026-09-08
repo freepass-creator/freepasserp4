@@ -283,8 +283,8 @@ BI · 브랜드   착한거래 · 렌터카매니저 · freepasserp.com(프리�
 
 | | 값 | 어디서 오나 |
 |---|---|---|
-| 주소 | **`freepassmobility.com`**(꼭지) · `freepasserp.com/freepass`(`sitePath`) | 2026-09-07 사장님 「여기에 붙이자 우리거는」 |
-| 회사 소개 | **`www.freepassmobility.com`** — 웹 머리띠 오른쪽 「**회사 소개** ↗」 | 꼭지만 옮겼다. 소개는 `www` 에 그대로 산다 |
+| 주소 | **`freepassmobility.com`** · **`www.`** 둘 다 · `freepasserp.com/freepass`(`sitePath`) | 2026-09-07 「여기에 붙이자 우리거는」 · 09-08 「www 여기도 그냥 다 바꿔주고」 |
+| 회사 소개 | **`freepasshomepage.vercel.app`** — 웹 머리띠 오른쪽 「**회사 소개** ↗」 | 꼭지·www 둘 다 매물이라 소개는 제 주소로 물러났다(임시) |
 | 이름 | **프리패스모빌리티** | `CORP.koMain+koSub` — 「주식회사」는 푸터의 법적 표기 몫 |
 | 간판 워드마크 | **국문 CI** — 프리패스600 + 모빌리티300 · 사이 **0.048em** | `CORP.koMain/koSub` · `kind: 'lockup-ko'` |
 | 동반 표기 | **✕ freepassmobility** — 영문 CI, 아주 연하게 | 우리 가게에도 **붙인다**(아래) · `CoBrandFreepass` |
@@ -318,14 +318,18 @@ BI · 브랜드   착한거래 · 렌터카매니저 · freepasserp.com(프리�
   ★실측(2026-09-07) — 웹 23px: 잉크 왼쪽 24 · 조각 사이 1 · ✕ 좌우 12/12.
     폰 17px: 잉크 왼쪽 12 · 조각 사이 1 · ✕ 좌우 9/9.
 
-★★**꼭지(apex)와 `www` 를 갈랐다 — 2026-09-07.**
-  `freepassmobility.com` = **매물 화면**(이 프로젝트) · `www.freepassmobility.com` = **회사 소개**
-  (`freepasshomepage` 프로젝트 그대로). 사장님 「당분간 **메인을 이거로** 하겠음」.
-  ⇒ 둘 다 이미 Vercel 을 보고 있어서 **DNS 를 손대지 않고** 그날 바로 가를 수 있었다
-    (가비아 네임서버 · 꼭지 A 76.76.21.21 · www CNAME cname.vercel-dns.com).
-  ⚠ 그래서 `hosts` 에 **`www` 를 넣지 않는다.** 넣으면 소개 홈페이지 자리를 우리가 뺏는다.
-  ★소개를 `about.` 같은 주소로 옮기려면 가비아에 CNAME 한 줄이면 된다 — 그때 `hosts` 와
-    `homepage.href` 를 같이 고친다.
+★★**꼭지와 `www` 가 «같은 화면»이다 — 2026-09-08.**
+  `freepassmobility.com` · `www.freepassmobility.com` **둘 다 매물 화면.**
+  회사 소개는 제 프로젝트 주소(`freepasshomepage.vercel.app`)로 물러났다.
+  ⚠ 하루 전에는 꼭지만 옮기고 `www` 에 소개를 남겼다. 서버는 양쪽 다 200 이었는데
+    **사장님 화면에는 소개 페이지가 떴다** — 브라우저가 예전 기록으로 `www.` 를 자동완성한다
+    (「지금 안 뜨는데」). 사람에게 같은 주소인 둘이 다른 사이트면 그건 **안 열린 것**이다.
+  ⚠⚠ **도메인과 `hosts` 는 한 짝이다.** Vercel 에서 `www` 를 옮기고 표를 안 고친 몇 분 동안
+    `www` 가 **업무동 로그인 화면**을 보여 줬다(노브랜드로 떨어져 `/` 가 rewrite 되지 않는다).
+  ★**두 화면이 서로 문을 갖는다** — 매물 머리띠의 「회사 소개」 ↔ 소개 홈페이지 머리의 「상품 찾기」
+    (사장님 「파트너 시작 그 자리를 써서 거기에 버튼 붙여 놓자」). 한쪽만 물려 있으면 길이 막힌다.
+  ★`vercel.app` 주소는 **임시**다 — 가비아에 `about` CNAME 한 줄이면
+    `about.freepassmobility.com` 으로 바꾼다(`homepage.href`).
   ⚠ 색인은 **아직 막혀 있다**(브랜드 호스트는 `robots: noindex` — `app/layout.tsx`).
     회사 이름 검색은 `www`(소개)가 받는다. 매물 화면을 검색에 태우려면 그건 **따로 정할 일**이다.
 
