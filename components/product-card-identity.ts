@@ -1,9 +1,21 @@
 import type { EntityRecord } from '@/lib/intake/entities';
 import { kmDisplay } from '@/lib/format';
 import { vehicleNameOf, vehicleNameParts } from '@/lib/domain/vehicle-name';
+import { isNoTrimLabel } from '@/lib/domain/vehicle-master-options';
 import {
   fuelDisplay, fuelEmbeddedCc, yearDisplay,
 } from '@/lib/domain/vehicle-master-match';
+
+/**
+ * 배기량 cc → 리터 표시 «2.5·1.6» (사장님 2026-09-05 「배기량을 1.6 이렇게 변환해서 표시 · 원자 값은 그대로」).
+ * 원자의 engine_cc(cc)는 안 바꾼다 — 표시만 리터로. 세부모델·연료와 나란히 놓여 «어떤 연료의 어떤 배기량」이 한눈에.
+ * 0·전기(cc 없음)는 빈칸(배터리 용량이 그 자리를 대신).
+ */
+export function displacementL(cc: unknown): string {
+  const n = Number(cc) || 0;
+  if (n <= 0) return '';
+  return (Math.round(n / 100) / 10).toFixed(1);
+}
 
 /** 카드 2줄 표기 — 굵은 줄(제조사+모델) + 회색 보조줄(파워트레인·트림·추가표기). 조립은 vehicle-name.ts SSOT. */
 export function idParts(product: EntityRecord): { idMain: string; idExt: string } {
@@ -32,7 +44,7 @@ export function specLine(product: EntityRecord): string {
     kmDisplay(product.mileage),
     fuel,
     product.drive_type && String(product.drive_type),
-    engineCc > 0 && `${engineCc.toLocaleString()}cc`,
+    displacementL(engineCc),
     product.seats && `${product.seats}인승`,
     product.ext_color && `외장 ${product.ext_color}`,
     product.int_color && String(product.int_color) !== '-' && `내장 ${product.int_color}`,
@@ -55,7 +67,7 @@ export function cardMileage(product: EntityRecord): string {
 function cardEngineCc(product: EntityRecord): string {
   const value = Number(product.engine_cc) || fuelEmbeddedCc(product.fuel_type);
   if (!Number.isFinite(value) || value <= 0) return '미입력';
-  return `${value.toLocaleString()}cc`;
+  return displacementL(value);
 }
 
 /**
@@ -76,7 +88,7 @@ function cardEngineCc(product: EntityRecord): string {
 export function specAtoms(product: EntityRecord): string[] {
   const kwh = Number(product.battery_capacity) || 0;
   const cc = Number(product.engine_cc) || fuelEmbeddedCc(product.fuel_type);
-  const power = kwh > 0 ? `${kwh}kWh` : (cc > 0 ? `${cc.toLocaleString()}cc` : '');
+  const power = kwh > 0 ? `${kwh}kWh` : displacementL(cc);
   return [
     yearDisplay(product.year),
     kmDisplay(product.mileage),
@@ -97,6 +109,36 @@ export function specLineCard(product: EntityRecord): string {
 
 export function cardTitle(product: EntityRecord, _mobileNarrow = false): string {
   return vehicleNameOf({ kind: 'product', product }, { tier: 'short', omitMaker: true, fallback: 'plate' });
+}
+
+/**
+ * **차 «정체» 한 줄 — 손님이 딱 보고 어떤 차인지 특정하게** (사장님 2026-09-05).
+ *   내연: 세부모델 · 배기량L · 연료 · 트림     (배기량이 연료 앞 — 「2.5 가솔린」)
+ *   전기: 모델 · 전기 · 트림 · 배터리kWh        (배터리는 트림 뒤 · 있을 때만)
+ *   aux(구동·인승)는 뒤에 옅게.
+ *
+ * ★**확정값만. 없으면 뺀다 — 억지로 안 채운다**(사장님 「어설픈 걸로 억지로 넣으면 안 돼, 확정된 값만」).
+ *   빈 슬롯은 구분자째 빠지고(`filter(Boolean)`), 트림 「기본형」은 트림 아님이라 뺀다(`isNoTrimLabel`).
+ *   배기량·배터리 없으면 그 자리 없음. 추론(fuelEmbeddedCc)은 원천이 차명에 적은 값일 때만.
+ * ★값은 전부 기존 SSOT·마스터에서 당긴다 — 이름=vehicleNameParts · 배기량=displacementL · 연료=fuelDisplay.
+ */
+export function carIdentity(product: EntityRecord): { core: string[]; aux: string[] } {
+  const name = vehicleNameParts({ kind: 'product', product }, { tier: 'full' }).main; // 세부모델‖모델(제조사 제외)
+  const fuel = fuelDisplay(product.fuel_type);
+  const trimRaw = String(product.trim_name ?? '').trim();
+  // 「기본형」은 §3 «트림 없음» 표기(pad) — 소개줄엔 억지로 안 넣는다(사장님 「확정값만」). isNoTrimLabel 케이스도 뺀다.
+  const trim = (isNoTrimLabel(trimRaw) || trimRaw === '기본형') ? '' : trimRaw;
+  const kwh = Number(product.battery_capacity) || 0;
+  const isEv = /전기|일렉트릭|\bev\b/i.test(String(product.fuel_type ?? '')) || kwh > 0;
+  const core = (isEv
+    ? [name, fuel, trim, kwh > 0 ? `${kwh}kWh` : '']
+    : [name, displacementL(Number(product.engine_cc) || fuelEmbeddedCc(product.fuel_type)), fuel, trim]
+  ).filter(Boolean).map(String);
+  const aux = [
+    String(product.drive_type ?? '').trim(),
+    Number(product.seats) > 0 ? `${product.seats}인승` : '',
+  ].filter(Boolean);
+  return { core, aux };
 }
 
 /** 차번 옆 한 줄 — 차례는 `specAtoms` 가 정한다(연식 · 주행 · 연료 · 배기량 · 구동). */

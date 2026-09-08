@@ -61,6 +61,27 @@ function colorSearchAliases(...values: unknown[]): string {
   ].filter(Boolean).join(' ');
 }
 
+/**
+ * **심사 — 손님이 «치는 말»은 화면 표기와 다르다.**
+ *
+ * 사장님 2026-09-07 「여기 **무보증 분납 21세 무심사** 이런 거 조건도 다 검색 가능」.
+ *
+ * ⚠ 화면 표기는 `creditDisplay` 가 셋으로 «정규화»한다(무심사 · 소득확인 · 신용조회).
+ *   그래서 원문에 「저신용」이라 적힌 정책도 화면에는 **「무심사」**로 뜨고, 손님이 실제로 치는
+ *   **「저신용」은 한 대도 안 걸렸다**(2026-09-07 운영 실측 0대).
+ *   ⇒ 정규화된 «한 말»만 넣지 말고 **같은 뜻의 말을 다 받아 준다.** 이 사업에 오는 손님은
+ *     제 상황을 제 말로 친다 — 화면이 정한 낱말로 치지 않는다.
+ * ★검색어 사전은 화면에 «안 보이는» 값이다. 문구 톤(「저돌적으로 쓰지 마라」)과 다른 층이다.
+ */
+function creditSearchAliases(p: EntityRecord): string {
+  switch (creditDisplay(p)) {
+    case '무심사': return '무심사 무심사가능 심사없음 심사x 신용무관 신용조회없음 저신용 저신용자';
+    case '소득확인': return '소득확인 소득증빙 재직확인';
+    case '신용조회': return '신용조회 신용확인 신용심사';
+    default: return '';
+  }
+}
+
 /** 퀵필터에서 계산하는 파생 조건을 통합검색에서도 같은 말로 찾게 한다. */
 function productConditionHaystack(p: EntityRecord): string {
   const age = minAge(p);
@@ -68,9 +89,10 @@ function productConditionHaystack(p: EntityRecord): string {
   return parts(
     age ? `만${age}세 ${age}세 ${age}살 운전자` : '',
     age > 0 && age <= 21 ? '21세 가능 만21세 가능 젊은운전자' : '',
-    noDeposit(p) ? '무보증 보증금없음 보증금 0원' : '',
-    installmentOk(p) ? '분납 보증금분납 분할납부' : '',
+    noDeposit(p) ? '무보증 보증금없음 보증금없는 보증금 0원 무보증금' : '',
+    installmentOk(p) ? '분납 보증금분납 분할납부 나눠서 할부' : '',
     shortExperience(p) ? '경력무관 면허경력무관 1년미만' : '',
+    creditSearchAliases(p),
     periods,
     colorSearchAliases(p.ext_color, p.int_color),
   );

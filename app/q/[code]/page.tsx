@@ -1,6 +1,9 @@
 import type { Metadata } from 'next';
 import { QuoteView } from './QuoteView';
+import { ShopDetailView } from './ShopDetailView';
+import { headers } from 'next/headers';
 import { loadGuestQuote } from '@/lib/server/guest-quote';
+import { coBrandName, hasBrand, resolveGuestWhitelabel } from '@/lib/whitelabel';
 import { vehicleNameOf } from '@/lib/domain/vehicle-name';
 import { cheapest } from '@/lib/domain/product';
 import { fuelDisplay, yearDisplay } from '@/lib/domain/vehicle-master-match';
@@ -32,6 +35,10 @@ export async function generateMetadata({ params, searchParams }: Params): Promis
   // 조각은 통째로 넘긴다 — 가르는 판단은 loadGuestQuote 가 «못 찾았을 때만» 한다(하이픈 품은 상품키 보호).
   const seg = decodeURIComponent(String(code || ''));
   const share = one(sp.a);
+  /** 브랜드 도메인이면 못 찾았을 때도 «그 회사 이름»으로 떨어진다 — 「상품 안내」는 노브랜드용이다. */
+  const wl = resolveGuestWhitelabel((await headers()).get('host'), one(sp.wl));
+  /* ★사이트 이름은 «채널 ✕ freepass» — 탭 제목은 그 «차»가 주인이라 그대로 둔다. */
+  const fallbackSite = hasBrand(wl) ? coBrandName(wl) : '상품 안내';
 
   // 상품이 없거나 읽기에 실패해도 **브랜드가 새면 안 된다** — 중립 문구로 떨어뜨린다.
   // ⚠ title 은 **absolute** 로 준다 — 루트 레이아웃 template(`%s · freepasserp.com`)이 브랜드를 도로 붙인다.
@@ -39,7 +46,7 @@ export async function generateMetadata({ params, searchParams }: Params): Promis
     title: { absolute: '상품 안내' },
     description: '차량 상품 안내입니다.',
     robots: { index: false, follow: false },
-    openGraph: { title: '상품 안내', description: '차량 상품 안내입니다.', siteName: '상품 안내', type: 'website' },
+    openGraph: { title: '상품 안내', description: '차량 상품 안내입니다.', siteName: fallbackSite, type: 'website' },
     twitter: { card: 'summary', title: '상품 안내', description: '차량 상품 안내입니다.' },
   };
 
@@ -69,7 +76,7 @@ export async function generateMetadata({ params, searchParams }: Params): Promis
     const desc = [specLine, priceLine].filter(Boolean).join('\n') || '차량 상품 안내입니다.';
     // 사이트 이름 자리 = 담당자. 우리 브랜드(BRAND)는 손님 화면에 어디에도 쓰지 않는다.
     const who = String(agent?.name || '').trim();
-    const siteName = who ? `담당 ${who}` : '상품 안내';
+    const siteName = who ? `담당 ${who}` : fallbackSite;
     const images = Array.isArray(product.image_urls) ? (product.image_urls as string[]).slice(0, 1) : [];
 
     return {
@@ -92,6 +99,36 @@ export async function generateMetadata({ params, searchParams }: Params): Promis
   }
 }
 
-export default function QuotePage() {
-  return <QuoteView />;
+/**
+ * ★상세도 **브랜드 안**에 있어야 한다(사장님 2026-09-04 「껍데기를 좀 제대로 만들어봐」).
+ *   전에는 손님이 유니오토 사이트에서 차를 누르면 머리띠·색·담당자가 통째로 사라졌다 —
+ *   그 순간 「남의 사이트로 튕겼다」가 된다. 목록과 같은 방식으로 서버가 호스트를 보고 정한다.
+ *
+ * ★★브랜드가 있으면 **가게 상세**(`ShopDetailView`), 없으면 예전 상품안내 그대로.
+ *   갈림을 «여기»(서버 껍데기)에 둔 이유가 둘이다.
+ *   ㉠ 주소를 못 바꾼다 — 카톡·문자로 이미 나간 공유링크는 회수할 수 없다.
+ *   ㉡ 화면 «안»에서 `if (브랜드)` 로 가르면 두 화면이 원자를 나눠 쓰게 되고, 목록에서 겪은
+ *      그 사고(영업자 잣대로 세다 축 셋을 잃음)가 그대로 재현된다. 라우팅에서 가르면 안 섞인다.
+ */
+export default async function QuotePage({ params, searchParams }: Params) {
+  const sp = await searchParams;
+  /*
+   * 호스트가 정본이고 `?wl=` 은 도메인 붙이기 «전» 미리보기용 — 목록(`/shop`)과 같은 규칙이다.
+   * ⚠⚠ **`resolveGuestWhitelabel` 이다**(2026-09-06). 예전 `resolveWhitelabel` 은 ERP 도메인에서
+   *   노브랜드로 떨어져, 손님이 주소에서 `?wl=` 만 지우면 **프리패스 「상품 안내」**가 떴다.
+   *   손님이 지울 수 있는 값이 브랜드를 정하고 있었다(그 함수 머리말 참고).
+   */
+  const wl = resolveGuestWhitelabel((await headers()).get('host'), one(sp.wl));
+  /*
+   * ★★**읽은 것을 화면에 넘긴다 — 브라우저가 다시 묻지 않게**(2026-09-07).
+   *   `generateMetadata` 가 방금 같은 값을 읽었고, `cache()` 덕에 여기선 «공짜»다.
+   *   넘기지 않으면 브라우저가 `/api/catalog/quote` 로 또 부르고, 그 왕복이 끝나야 화면이 그려진다.
+   *   실측 — 통째 읽기 776ms · 그게 한 화면에 두 번이었다.
+   * ⚠ 못 찾으면 `null` 을 넘긴다 — 화면이 제 폴백(옛 링크·직접 진입)으로 굴러간다.
+   */
+  const { code } = await params;
+  const found = hasBrand(wl)
+    ? await loadGuestQuote(decodeURIComponent(String(code || '')), one(sp.a)).catch(() => null)
+    : null;
+  return hasBrand(wl) ? <ShopDetailView wl={wl} initial={found} /> : <QuoteView wl={wl} />;
 }

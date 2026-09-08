@@ -3,6 +3,9 @@ import { useEffect, useState } from 'react';
 import dynamic from 'next/dynamic';
 import { useParams, useRouter } from 'next/navigation';
 import { getStore, peekCached } from '@/lib/store';
+
+/** 상세를 열어 둔 채 상태를 다시 묻는 주기 — 60초. 묻는 곳은 ERP 다(아래 효과 머리말). */
+const STATUS_POLL_MS = 60_000;
 import { getCompanyId } from '@/lib/tenant';
 import { seedIfEmpty } from '@/lib/seed';
 import { type EntityRecord } from '@/lib/intake/entities';
@@ -21,7 +24,6 @@ import { useAppBar } from '@/lib/appbar';
 import { PageStatus } from '@/components/PageStatus';
 import { NAV_ICON } from '@/lib/tabbar';
 import { useContentColumn } from '@/lib/content-column';
-import { fetchSheetLiveStatuses, SHEET_LIVE_STATUS_POLL_MS } from '@/lib/firebase/sheet-live-status-client';
 
 // 가격/전달/사진 보조 패널은 상품 본문보다 늦게 떠도 된다. 상세 첫 페인트에서는
 // 가벼운 layout hook만 쓰고, 실제 영업 보조 UI는 역할·폭이 필요한 시점에 불러온다.
@@ -97,32 +99,47 @@ export default function Detail() {
     return () => { alive = false; };
   }, [key, co, authReady]);
 
-  // 상세를 오래 열어 둬도 상품마스터의 상태를 놓치지 않는다. 제원·가격은 현재
-  // 상세 스냅샷을 유지하고 vehicle_status 한 원자만 교체한다.
+  /*
+   * 상세를 오래 열어 둬도 상태를 놓치지 않는다. 제원·가격은 현재 스냅샷을 유지하고
+   * `vehicle_status` 한 원자만 갈아 끼운다.
+   *
+   * ★★**읽는 곳은 «ERP»다 — 공급사 시트가 아니다**(2026-09-06 검수에서 고침).
+   *   여기 있던 것은 `fetchSheetLiveStatuses()` — **브라우저가 60초마다 공급사 시트를 다시 읽어**
+   *   상태를 덮는 짜임이었다. 집 규격이 금지한 바로 그것이다(CLAUDE.md 「화면이 시트를 «직접»
+   *   읽어 상태를 덮지 않는다」). 2026-09-01 에 상품찾기가 같은 짓을 해서 **대수가 582 → 694 로
+   *   1초 만에 튀었고**, 그때 목록에서는 걷었는데 **이 상세에는 그대로 남아 있었다.**
+   *   ⇒ 목록과 상세가 서로 다른 원천을 보면 «어느 상태가 맞는지»를 아무도 못 말한다.
+   * ★시트→ERP 반영은 매시간 자동동기(`hourly-sync`)의 몫이다. 화면은 **ERP 가 아는 것**만 보여준다.
+   * ★주기·눈뜸(focus/visibility)은 그대로 둔다 — 바뀐 것은 «어디서 읽나» 하나뿐이다.
+   */
   useEffect(() => {
     if (!authReady) return;
     let alive = true;
     let refreshing = false;
-    const controller = new AbortController();
     const refresh = async () => {
       if (!alive || refreshing || document.visibilityState === 'hidden') return;
       refreshing = true;
       try {
-        const statuses = await fetchSheetLiveStatuses(controller.signal);
-        if (!alive || !statuses) return;
-        setP((current) => {
-          if (!current) return current;
-          const statusKey = String(current._key || current.product_code || key);
-          if (!Object.prototype.hasOwnProperty.call(statuses, statusKey)) return current;
-          const status = String(statuses[statusKey] || '').trim();
-          return String(current.vehicle_status || '').trim() !== status
-            ? { ...current, vehicle_status: status }
-            : current;
-        });
+        /*
+         * ★★**`getFresh` 다 — `get` 이 아니다**(2026-09-06 코덱스 검수).
+         *   `get()` 은 «홈 목록 캐시»를 먼저 본다(`lib/store` 머리말 — 상세로 즉시 넘어가려고 그렇게 짰다).
+         *   그 캐시는 **세션 내내 유지**되므로, 60초마다 물어도 **처음 받아 둔 옛 상태**를 그대로 돌려준다 —
+         *   「다시 읽는다」고 해 놓고 사실은 아무것도 다시 안 읽는 꼴이었다.
+         *   ⇒ 캐시를 건너뛰는 단건 조회를 쓴다. 값이 비싸지만 60초에 한 번, 열어 둔 상세에서만이다.
+         */
+        const store = getStore();
+        /* 어댑터에 따라 `getFresh` 가 없을 수 있다 — 있으면 그걸, 없으면 예전대로(엔진과 같은 꼴). */
+        const fresh = await (store.getFresh
+          ? store.getFresh('product', co, key)
+          : store.get('product', co, key));
+        if (!alive || !fresh) return;
+        const status = String(fresh.vehicle_status || '').trim();
+        if (!status) return;
+        setP((current) => (current && String(current.vehicle_status || '').trim() !== status
+          ? { ...current, vehicle_status: status }
+          : current));
       } catch (error) {
-        if ((error as Error)?.name !== 'AbortError') {
-          console.warn('[detail] 차량상태 실시간 갱신 실패(기존 상태 유지):', (error as Error).message);
-        }
+        console.warn('[detail] 차량상태 갱신 실패(기존 상태 유지):', (error as Error).message);
       } finally {
         refreshing = false;
       }
@@ -132,17 +149,16 @@ export default function Detail() {
       if (document.visibilityState === 'visible') void refresh();
     };
     void refresh();
-    const timer = window.setInterval(() => { void refresh(); }, SHEET_LIVE_STATUS_POLL_MS);
+    const timer = window.setInterval(() => { void refresh(); }, STATUS_POLL_MS);
     window.addEventListener('focus', onFocus);
     document.addEventListener('visibilitychange', onVisibility);
     return () => {
       alive = false;
-      controller.abort();
       window.clearInterval(timer);
       window.removeEventListener('focus', onFocus);
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [authReady, key]);
+  }, [authReady, co, key]);
 
   useEffect(() => { if (p && isStockedProduct(p)) touchRecent(p); }, [p]);
 

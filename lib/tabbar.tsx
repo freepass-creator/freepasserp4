@@ -2,7 +2,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import {
   CarFront, MessageCircleMore, FileText, FileSignature, Box, Settings, Star, type LucideIcon, Banknote,
-  Search as SearchIcon,
+  Search as SearchIcon, Calculator,
 } from 'lucide-react';
 import type { Role } from '@/lib/domain/deal';
 
@@ -41,6 +41,7 @@ export const NAV_ICON = {
   ledger: Banknote,
   settings: Settings,
   interest: Star,
+  estimate: Calculator,
 } as const satisfies Record<string, LucideIcon>;
 
 /**
@@ -59,8 +60,16 @@ export const NAV_ICON = {
  */
 export const NAV_LABEL = {
   product: '상품찾기',
+  // 견적(/estimate) = 「이 차가 얼마입니까」에 그 자리에서 답하는 곳. 재고에 «없는» 차도 센다.
+  estimate: '견적',
   chat: '계약문의',
-  contract: '계약·정산확인',
+  /**
+   * 정산확인(/contract) — 사장님 2026-09-06 메뉴 재정립 「상품찾기 · **정산확인** · 재고관리 요기까지가
+   * 영업자와 공급사가 보는 거고」. 그전 이름은 「계약·정산확인」이었다.
+   * ⚠ 이 화면은 «내 계약이 어디까지 왔나»(진행 목록)이기도 하다. 이름이 정산 쪽으로 좁아졌으니,
+   *   계약 상태를 찾는 사람이 헤매면 이름을 다시 본다 — 화면을 쪼갤 일이 아니라 이름 문제다.
+   */
+  contract: '정산확인',
   inventory: '재고관리',
   settings: '설정',
   // 내가본상품 = 이 기기의 관심(찜)·최근 본 상품 모음(product-interest) — 모바일 하단탭 입구(사장님 2026-08-22)
@@ -69,7 +78,7 @@ export const NAV_LABEL = {
   // 계약서관리(/esign) = 계약서를 만들어 손님에게 보내고 서명을 추적하는 곳. /contract(계약진행)와 축이 다르다 —
   //   저기는 «내 계약이 어디까지 왔나», 여기는 «계약서를 보낸다/손님이 서명했나»(2026-08-08 결정).
   //   2026-08-19 사장님: 메뉴는 관리자 쪽(관리 그룹 맨 위, 파트너사관리 위)으로. 계약진행은 목록+진행상황 화면(원래 /contract).
-  esign: '계약서관리',
+  esign: '계약관리',   // 2026-09-06 사장님 메뉴 재정립 — 그전 이름은 「계약서관리」
   /**
    * 정산관리(/settlement/ledger) = 계약서를 보낸 «그다음». 계약이 인도되고 청구가 나가는 곳.
    * ★계약서관리 바로 밑에 둔다(사장님 2026-08-26 「계약서관리 밑에 정산관리 메뉴 만들어 주고
@@ -79,7 +88,7 @@ export const NAV_LABEL = {
   ledger: '정산관리',
   /** 관리자 월별정산(RTDB). 공급사·영업자의 «정산확인»은 계약·정산확인(/contract) 안으로 합쳤다. */
   settlement: '월별정산',
-  members: '회원관리',
+  members: '회원사관리',   // 2026-09-06 사장님 메뉴 재정립 — 그전 이름은 「회원관리」
   partners: '파트너사관리',
   audit: '감사·휴지통',
   dataCheck: '데이터점검',
@@ -93,6 +102,8 @@ export const NAV_LABEL = {
  */
 const NAV_TAB_LABEL: Partial<Record<keyof typeof NAV_LABEL, string>> = {
   contract: '계약진행',
+  // 하단바가 넷이 되면서 한 칸이 좁아졌다 — 「상품찾기」 네 자는 줄바꿈된다. 탭에서만 「찾기」.
+  product: '찾기',
 };
 const tabLabel = (k: keyof typeof NAV_LABEL): string => NAV_TAB_LABEL[k] ?? NAV_LABEL[k];
 
@@ -124,7 +135,24 @@ export type AppTab = {
  *   · 검색은 라우트가 아니라 행동이라 `action: 'search'` 다(위 AppTab 주석).
  */
 export function appTabsFor(_role: Role): AppTab[] {
-  // 역할과 무관하게 셋 — 폰에서 하는 일이 역할마다 다르지 않다(찾아서 보낸다).
+  /*
+   * 찾기 · 검색 · 설정 — **셋. 역할과 무관하게 «공통»이다.**
+   *
+   * ★사장님 2026-09-06 「**하단 메뉴는 다 공통 버튼**이고 … 햄버거는 관리자 다르고 공급사 다르고 …
+   *   영업자는 햄버거 메뉴가 아예 안 보이고」.
+   *   ⇒ **갈리는 것은 하단에 두지 않는다.** 하단은 누구나 같은 셋, 역할별로 다른 것은 폰 우측 햄버거로.
+   *   ⇒ 그래서 잠깐 넷째로 섰던 «견적»은 하단에서 내렸다 — 관리자·공급사만 보는 것이라
+   *     하단에 두면 사람마다 탭 수가 달라진다. 지금은 `showsMobileMenu` 뒤 햄버거에 있다.
+   *
+   * ★2026-08-30 에는 셋(찾기·검색·설정)이었다. 사장님 2026-09-06 에 **견적**을 하나 더 다셨다 —
+   *   「빠르게 «이 차가 얼마입니다»를 하려면 그냥 찾기·검색·견적·설정. 나머지는 햄버거 버튼에서
+   *   재고관리랑 자주 안 쓰는 버튼이니까」.
+   *   ⇒ 견적이 탭인 이유: **재고에 «없는» 차도 센다.** 매물 상세 안에만 두면 우리 재고에 없는 차를
+   *     물어 온 손님에게 답할 길이 없다. 통화하면서 여는 화면이라 두 번 눌러 들어가면 안 된다.
+   * ★여기가 SSOT 다. 탭을 늘리려면 이 배열 하나만 고친다(AppTabBar 는 그리기만 한다).
+   * ⚠ 다음은 **우측 햄버거** — 재고관리처럼 «자주 안 쓰는」 것을 거기로 모은다(사장님 같은 날).
+   *   그때도 하단바는 늘리지 않는다. 하단은 «매일 쓰는 것»만 서는 자리다.
+   */
   return [
     // '/' 는 공개 안내 페이지(상품시트 입장)가 됐다 — 내부 매물 화면은 /finder 다(2026-08-15).
     { href: '/finder', label: tabLabel('product'), icon: NAV_ICON.product },
@@ -133,8 +161,25 @@ export function appTabsFor(_role: Role): AppTab[] {
   ];
 }
 
+/**
+ * **폰 우측 햄버거를 보여 주나** — 관리자·공급사만.
+ *
+ * ★사장님 2026-09-06 「햄버거는 관리자 다르고 공급사 다르고 … 공급사는 재고 관리를 거기서 할 수 있고 …
+ *   관리자는 햄버거 메뉴에 다 들어가는 거고 · **영업자는 햄버거 메뉴가 아예 안 보이고**」.
+ * ★영업자가 폰에서 하는 일은 「찾아서 보내기」뿐이다(2026-08-30 확정) — 열 곳이 없어 버튼을 안 세운다.
+ *   ⚠ 「보일 항목이 없으면 숨긴다」로 짜지 않았다. 영업자에게도 상품찾기·계약진행은 명단에 남아 있어
+ *     그 방식으로는 안 숨겨진다. **역할로** 판정한다.
+ * ⚠ **웹은 그대로**다 — 웹 전체메뉴는 영업자도 쓴다(계약문의·계약진행·내 손님 링크가 거기 있다).
+ *   이건 «폰» 이야기다. 폰에서 안 하는 일을 폰 메뉴에 세우지 않는 것뿐이다.
+ */
+export function showsMobileMenu(role: Role): boolean {
+  return role === 'admin' || role === 'provider';
+}
+
 export function isTabRoute(path: string, role?: Role): boolean {
   if (path === '/finder' || path.startsWith('/finder/')) return true;
+  // 견적·원가 — 제 머리를 가졌지만 하단 홈바로 오간다(`lib/guest-surface` hidesTopBar/hidesTabBar).
+  if (path === '/estimate' || path.startsWith('/estimate/')) return true;
   if (path === '/chat' || path.startsWith('/chat/')) return true;
   if (path === '/contract' || path.startsWith('/contract/')) return true;
   if (path === '/settlement' || path.startsWith('/settlement/')) return role == null || role === 'admin';

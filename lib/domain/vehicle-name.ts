@@ -32,7 +32,18 @@ import { type EntityRecord } from '@/lib/intake/entities';
 import { makerDisplay } from '@/lib/domain/vehicle-master-format';
 import { isNoTrimLabel } from '@/lib/domain/vehicle-master-options';
 
-export type NameTier = 'short' | 'full' | 'raw';
+/**
+ * 이름의 «단».
+ *   base  = 제조사 + **모델**만        「현대 그랜저」        ← 요약·머리에 쓴다
+ *   short = 제조사 + 세부모델 + 트림   「현대 더 뉴 그랜저 IG 르블랑」
+ *   full  = short + variant·부가       (제일 긴 것)
+ *   raw   = 감사 증거(정규화 안 함)
+ *
+ * ★`base` 는 2026-09-05 에 더했다. 사장님 「요약으로 보여주는 데는 **그냥 현대, 그랜저**
+ *   이렇게만 보여줘도 상관은 없어. 그리고 차량 정보에 좀 **디테일한 차명 세부 트림**이 들어가는 거고」.
+ *   손님 상세가 머리(요약)와 차량 정보 첫 줄에서 **같은 이름을 두 번** 말하고 있어서 갈랐다.
+ */
+export type NameTier = 'base' | 'short' | 'full' | 'raw';
 
 /** 빈 차명일 때 무엇으로 대신할지. 표·KV 자리는 'dash' 를 **명시적으로** 고른다(암묵 분기 금지). */
 export type NameFallback = 'plate' | 'dash' | 'none';
@@ -236,7 +247,14 @@ function partsOfRecord(p: EntityRecord, tier: NameTier, omitMaker: boolean): Omi
    *   공급사 원문은 **상세 「기타」에 참고용**으로 따로 선다(「2중 보관」) — 버리는 게 아니라 자리를 옮긴 것이다.
    *   정제칸이 통째로 빈 차만 마지막 수단으로 원문을 쓴다(이름이 없는 것보다는 낫다).
    */
-  const rawMain = text(sub || model || S((display as Record<string, unknown>).supplier_vehicle_name));
+  /*
+   * ★`base` 는 **모델**을 먼저 본다(그 밖의 단은 세부모델이 먼저다).
+   *   「그랜저」가 있으면 그걸 쓰고, 모델칸이 빈 차만 세부모델로 떨어진다 —
+   *   이름이 아예 없는 것보다는 세부모델이라도 있는 게 낫다.
+   */
+  const rawMain = tier === 'base'
+    ? text(model || sub || S((display as Record<string, unknown>).supplier_vehicle_name))
+    : text(sub || model || S((display as Record<string, unknown>).supplier_vehicle_name));
   let main = removeKnownPhrases(rawMain, makerAliases);
   // 실데이터: maker=테슬라, 차종 공란, variant=EV RWD, trim="테슬라 모델Y RWD".
   // 제조사가 들어간 완성형 trim에 한해서만 제원 토큰을 걷어 모델명을 복원한다.
@@ -261,7 +279,10 @@ function partsOfRecord(p: EntityRecord, tier: NameTier, omitMaker: boolean): Omi
   );
 
   let ext = '';
-  if (tier === 'short') {
+  if (tier === 'base') {
+    /* 「현대 그랜저」에서 끝낸다 — 트림·variant·부가는 한 조각도 안 붙인다. */
+    ext = '';
+  } else if (tier === 'short') {
     ext = cleanTrim;
   } else {
     ext = appendUnique(ext, variant);
@@ -293,7 +314,7 @@ function partsOfRecord(p: EntityRecord, tier: NameTier, omitMaker: boolean): Omi
       ],
       identity,
     );
-    if (tier === 'full' || !cleanTrim) ext = appendUnique(ext, legacyExtra);
+    if (tier !== 'base' && (tier === 'full' || !cleanTrim)) ext = appendUnique(ext, legacyExtra);
   }
 
   return {

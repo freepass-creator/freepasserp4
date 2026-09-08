@@ -19,6 +19,7 @@ const num = (v: unknown) => { const n = Number(v); return Number.isFinite(n) ? n
 export function buildMasterIndex(entries: MasterEntry[]): MasterIndex {
   const SUB = new Set<string>(); const TRIMS = new Map<string, string[]>();
   for (const e of entries) {
+    if ((e as { retired?: boolean }).retired) continue; // 비활성(연료축 분리로 하이브리드 라벨 은퇴 등) — 검증에서 제외
     const mo = N(e.model), sm = N(e.sub_model); if (!mo || !sm) continue;
     for (const a of makerGroup(N(e.maker))) { SUB.add(`${a}|${mo}|${sm}`); if (e.trims?.length) TRIMS.set(`${a}|${mo}|${sm}`, e.trims); }
   }

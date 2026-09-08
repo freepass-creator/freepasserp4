@@ -1,0 +1,123 @@
+/**
+ * 원가 설정(`/estimate/cost`) — **견적과 «같은» 얼굴**이다.
+ *
+ * ★사장님 2026-09-06 「견적과 원가가 같은 UI여야 한다. 견적은 UI를 마무리해 놨으니
+ *   **견적에 맞춰서 원가도 그렇게 하면 된다**」.
+ *   ⇒ 그래서 이 파일은 «독립 규격»이 아니다. `estimate.css` 를 먼저 싣고 그 위에 얹는 **덧칠**이다.
+ *     토큰(`--accent`·`--ink-*`·`--line`·`--surface`)·글꼴·슬래시 제로·`.phone`·`.card`·`.step`·
+ *     `.seg`·`.chips`·`.pin`·`.vsearch`·`.basis`·`.foot` 은 전부 견적 것을 그대로 쓴다.
+ *     여기 있는 것은 **견적에 없는 조각뿐**이다 — 원가 줄(`.orow`) · 잔가표(`.rtb`) ·
+ *     안내 상자(`.byrow`) · 저장 바(`.savebar`) · 분류 띠(`.gsec`) · 줄 묶음(`.osub`).
+ *
+ * ⚠ 2026-09-06 이전 판은 원가 목업(`프리패스-목업-원가설정.html`)의 자체 규격
+ *   (920px 2열·둥근 14px·그림자·다른 회색)을 그대로 옮겨 «두 얼굴»이 됐었다. 사장님이 하나로 맞추라 하셨다.
+ *   ⇒ 원가 목업은 이제 «무엇을 넣을지»(항목·문구·축)의 정본이고, «어떻게 보일지»는 견적이 정본이다.
+ *
+ * ⚠ 새 조각을 만들기 전에 `estimate.css` 에 같은 게 있는지 먼저 본다. 있으면 그것을 쓴다.
+ */
+
+/* 머리 오른쪽 꼬리표 — 견적은 인라인으로 흐리게 칠했다. 원가는 줄이 많아 클래스로 뽑는다. */
+.est-root .step .veh.dim{color:var(--ink-4)}
+
+/* 원가 한 줄 — 왼쪽 이름(설명 한 줄 딸림) · 오른쪽 숫자칸. 견적 `.crow` 는 라벨폭이 52 로 고정이라 못 쓴다. */
+.est-root .orow{display:flex;align-items:center;gap:10px;margin-top:11px}
+.est-root .orow.first{margin-top:0}
+.est-root .orow .ol{flex:1;min-width:0;font-size:12px;font-weight:700;color:var(--ink-3)}
+.est-root .orow .ol em{display:block;font-style:normal;font-weight:500;font-size:10.5px;color:var(--ink-4);margin-top:1px;line-height:1.4}
+.est-root .orow .na{font-size:12px;font-weight:700;color:var(--ink-4);flex:none}
+
+/* 숫자칸 — 견적 `.pin` 을 그대로 쓰되, 금액은 자릿수가 길어 넓은 칸(`w`)을 하나 더 둔다. */
+.est-root .pin.w input{width:92px;text-align:right}
+.est-root .pin input:disabled{color:var(--ink-4)}
+
+/* ★축 뱃지(`.ax`)는 걷었다 — 사장님 2026-09-06 「이거 직관적이지 못한데」.
+   한 카드에 두 축을 담아 놓고 줄마다 뱃지로 「이건 어느 축」이라 일러 주는 방식이었는데,
+   세그를 눌러도 일부 줄만 바뀌어 뱃지를 읽어야 알았다. 지금은 **축마다 카드를 나누고
+   그 축의 세그를 그 값들 바로 위에** 둔다 — 붙어 있으면 설명이 필요 없다. 되돌리지 말 것. */
+
+/* ★분류 띠 — 원가를 «장부와 같은 갈래»로 묶는다(사장님 2026-09-06
+   「원가에 직접비·판관비·영업외비용 … 이걸 나눠 가지고 매칭을 시키면 장부하고도 연계가 되니까
+    이해하기가 쉬울 것 같은데」). 카드 위에 서서 「여기부터 무슨 갈래인지」를 말한다. */
+.est-root .gsec{margin:18px 12px 8px;padding-left:9px;border-left:3px solid var(--accent);display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.est-root .gsec b{font-size:13px;font-weight:800;color:var(--ink-1);letter-spacing:-.2px}
+.est-root .gsec span{font-size:11px;font-weight:600;color:var(--ink-4)}
+
+/* 카드 안 줄 묶음 — 「조합마다 갈리는 값」과 「공통」을 갈라 준다.
+   ★줄마다 뱃지를 붙이는 대신 **묶어서 한 번만** 말한다(뱃지는 2026-09-06 에 물렸다). */
+.est-root .osub{margin-top:15px;padding-bottom:6px;border-bottom:1px solid var(--line);font-size:10.5px;font-weight:800;color:var(--ink-4);letter-spacing:.2px}
+.est-root .osub:first-of-type{margin-top:2px}
+.est-root .osub em{font-style:normal;color:var(--accent)}
+.est-root .osub + .orow{margin-top:9px}
+
+/* 잔가표 — 견적 색·선을 그대로 쓴다. 폰에서는 가로로 밀린다(감싼 쪽이 overflow-x). */
+.est-root .rtb{width:100%;border-collapse:collapse;margin-top:2px}
+.est-root .rtb th{font-size:11px;font-weight:700;color:var(--ink-3);padding:7px 6px;background:var(--surface-2);border:1px solid var(--line);text-align:center;white-space:nowrap}
+.est-root .rtb td{border:1px solid var(--line);padding:6px 4px;text-align:center;font-size:12px;font-weight:700;color:var(--ink-1);white-space:nowrap}
+.est-root .rtb td i{font-style:normal;font-size:10px;color:var(--ink-4);font-weight:600;margin-left:1px}
+.est-root .rtb .vn{text-align:left;padding-left:9px;font-size:12px}
+.est-root .rtb .vn span{color:var(--ink-4);font-weight:500}
+
+/* 안내 상자 — 「아직 안 붙은 것」을 적는 자리. 견적 `.basis` 와 같은 톤, 점선으로만 구분한다. */
+.est-root .byrow{margin-top:11px;padding:9px 11px;border:1px dashed var(--accent-line);border-radius:var(--r);background:var(--accent-soft);font-size:11px;font-weight:600;color:var(--ink-2);line-height:1.5}
+.est-root .byrow b{color:var(--accent)}
+.est-root .onote{margin-top:11px;font-size:11px;color:var(--ink-4);line-height:1.55}
+.est-root .onote b{color:var(--ink-3)}
+
+/* 저장 — 견적 하단독(`.c-footer.wiz`)과 같은 짜임: 꽉 채운 한 줄, 높이 40. */
+.est-root .savebar{margin:12px 12px 0;display:flex;gap:8px}
+.est-root .savebar button{flex:1;height:40px;border:0;border-radius:var(--r);background:var(--accent);color:var(--on);font:inherit;font-weight:700;font-size:13px;cursor:pointer}
+.est-root .savebar button[disabled]{background:var(--surface);color:var(--ink-4);border:1px solid var(--line-2);cursor:default}
+
+/* 칸 설명 — 「커서를 갖다 대면 설명」(사장님 2026-09-06 「렌터카 처음 하는 사람들도 이 구조를 이해해서
+   이런 원가를 넣으시면 됩니다」). 웹은 커서만 올려도, 폰은 눌러도 열린다 — 폰에는 hover 가 없다. */
+.est-root .ohint{flex:none;width:16px;height:16px;margin-left:5px;padding:0;border:1px solid var(--line-2);border-radius:50%;background:var(--surface);color:var(--ink-4);font:inherit;font-size:10px;font-weight:800;line-height:1;cursor:pointer;display:inline-grid;place-items:center;vertical-align:middle}
+.est-root .ohint:hover,.est-root .ohint.on{border-color:var(--accent);background:var(--accent);color:var(--on)}
+.est-root .ohelp{margin:6px 0 2px;padding:8px 10px;border-left:2px solid var(--accent-line);background:var(--surface-2);border-radius:0 3px 3px 0;font-size:11px;font-weight:500;color:var(--ink-2);line-height:1.6}
+.est-root .ohelp b{color:var(--accent);font-weight:700}
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   웹 = **전체 페이지가 원가 설정 화면이 된다** — 원본 손오공 `Admin.vue` 짜임
+
+   ★사장님 2026-09-07 「원가 페이지에서는 **전체 페이지가 다 바뀌면서** 원가를 설정할 수 있는 게
+     나와야지」 · 「페이지가 견적페이지랑 원가페이지가 **아예 따로** 있는 거야」.
+     그전까지는 1,080 짜리 가운데 기둥에 카드를 두 단으로 흘렸다 — 1920 화면에서 좌우가 텅 비어
+     «폰 화면을 크게 띄운 것»이었지 원가 설정 화면이 아니었다.
+
+   ⇒ 원본 `Admin.vue:824` 를 그대로 옮긴다.
+       .board  grid-template-columns: **280px  minmax(360px,0.9fr)  minmax(440px,1.1fr)**
+
+   우리 배치
+       좌 280   「지금 보는 조합」(렌트/구독 · A/B/C)    — 원본 `.vside` 자리
+       가운데   Ⅰ 직접비 · Ⅱ 판관비 · Ⅲ 영업외 설정 카드
+       우       Ⅳ 이익과 잔가 + 잔존가 표               — 원본 `.rightpanel` 자리
+
+   ★★**폰은 목업 그대로다.** 감싸개(`.col`)가 `display:contents` 라 폰에서는 «없는 셈»이다.
+   ⚠ 접힘은 **1000px** — 원본 손오공과 같은 자리(`App.vue:1021`).
+   ══════════════════════════════════════════════════════════════════════════ */
+.est-root.cost .col{display:contents}
+
+@media (min-width:1000px){
+  .est-root.cost .phone{
+    max-width:none;width:100%;min-height:calc(100vh - var(--topbar-h, 0px));
+    display:grid;
+    grid-template-columns:repeat(4,minmax(0,1fr));   /* 1:1:1:1 — 공통규격(WorkPage) */
+    align-content:start;
+    border-left:0;border-right:0;padding-bottom:0;
+  }
+  .est-root.cost .phone > .hd,
+  .est-root.cost .phone > .savebar,
+  .est-root.cost .phone > .foot,
+  .est-root.cost .phone > .byrow{grid-column:1 / -1}
+
+  .est-root.cost .phone > .col{display:block;min-width:0}
+
+   /* 기둥마다 제 안에서 스크롤하고 오른쪽에 선 — `WorkPage` 와 같은 짜임. */
+  .est-root.cost .phone > .col{
+    position:sticky;top:0;max-height:calc(100vh - var(--topbar-h, 0px));overflow-y:auto;
+    border-right:1px solid var(--line-2);padding:6px 6px 24px;
+  }
+  .est-root.cost .phone > .col.c4{border-right:0}
+  .est-root.cost .phone > .col.c1{background:var(--surface)}
+  .est-root.cost .phone > .col .card{border:0;border-radius:0;margin:0 0 4px}
+}

@@ -9,8 +9,14 @@
  * 그래서 화면이 둘로 갈렸다 —
  * ```
  * 정산관리 /settlement/ledger   관리자가 «만드는» 곳. 접수·진행·금액·정산서
- * 계약·정산확인 /contract        영업자·공급사가 «가지고 가는» 곳 — 이 파일
+ * 정산확인 /contract             영업자·공급사가 «가지고 가는» 곳 — 이 파일
  * ```
+ * ★★2026-09-06 사장님 「정산확인은 말 그대로 **영업 채널이나 공급사들이 들어와서 우리 얼마나 팔았지,
+ *   우리 얼마나 실적했지** 보는 거야. 관리자가 보는 정산관리는 거기에다가 **입력을 하는 곳**이고.
+ *   이제 **계약 진행 이런 거 없어**」.
+ *   ⇒ 이름을 「계약·정산확인」에서 **정산확인**으로 좁히고, 첫 화면을 **달별 추이**로 바꿨다
+ *     (그날 승인 — 「달별 추이가 먼저」). 묻는 것이 「이번 달 몇 건이냐」가 아니라
+ *     **「달마다 얼마나 쌓였느냐」**이기 때문이다. 달을 고르면 그 달 건별로 들어간다.
  * ★★**이 파일에는 관리자 분기가 없다.** 한 화면에 역할 분기를 쌓으면
  *   「관리자한테만 보여야 할 것」이 조건 하나 어긋나서 새어 나간다. 아예 안 두는 게 안전하다.
  * ★★금액은 서버가 애초에 안 보낸다(`/api/settlement/mine`). 여기서 가리는 게 아니다 —
@@ -57,6 +63,24 @@ const toneOf = (r: PublicRow): 'gray' | 'blue' | 'green' | 'red' =>
 /** 실적을 세는 달 — 인도된 달. 인도 전이면 접수한 달로 잡아 둔다. */
 const monthOf = (r: PublicRow) => (r.deliveredAt || r.receivedAt || '').slice(0, 7);
 
+/**
+ * **달별 추이** — 「우리 얼마나 팔았지」에 답하는 첫 화면(사장님 2026-09-06 승인).
+ * ★세는 것은 **실적(인도 완료)**이다. 접수만 된 건은 아직 판 게 아니다 — 따로 센다.
+ * ⚠ 취소는 어느 쪽에도 안 넣는다. 판 것도 아니고 진행 중도 아니다.
+ */
+function monthsOf(rows: PublicRow[]): { m: string; done: number; open: number }[] {
+  const by = new Map<string, { m: string; done: number; open: number }>();
+  for (const r of rows) {
+    const m = monthOf(r);
+    if (!m || r.cancelled) continue;
+    const got = by.get(m) || { m, done: 0, open: 0 };
+    if (r.delivered) got.done += 1; else got.open += 1;
+    by.set(m, got);
+  }
+  return [...by.values()].sort((a, b) => b.m.localeCompare(a.m));
+}
+const monthLabel = (m: string) => `${m.slice(0, 4)}년 ${Number(m.slice(5, 7))}월`;
+
 export function MyLedger() {
   const [data, setData] = useState<Payload | null>(null);
   const [tab, setTab] = useState<Tab>('진행중');
@@ -79,11 +103,17 @@ export function MyLedger() {
 
   const all = useMemo(() => data?.rows || [], [data]);
 
-  /** 들어오면 이번 달이 잡혀 있어야 한다 — 물어보는 것은 늘 «이번 달 내 실적»이다. */
+  /**
+   * 들어오면 달 하나가 잡혀 있어야 한다.
+   * ★**이번 달이 아니라 «자료가 있는 최신 달»**이다. 이번 달에 아직 실적이 없으면 빈 화면을 보게 되는데,
+   *   그때 물어보고 싶은 것은 「지난달엔 얼마나 팔았지」다. 빈 달을 열어 두면 화면이 아무 말도 안 한다.
+   */
   useEffect(() => {
     if (month || !all.length) return;
     const now = new Date();
-    setMonth(`${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`);
+    const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const ms = monthsOf(all);
+    setMonth(ms.find((x) => x.m === thisMonth)?.m || ms[0]?.m || thisMonth);
   }, [all, month]);
 
   const loadConfirm = async (m: string) => {
@@ -95,7 +125,12 @@ export function MyLedger() {
   };
   useEffect(() => { loadConfirm(month); }, [month]);
 
-  const rows = useMemo(() => all.filter((r) => inTab(r, tab)), [all, tab]);
+  const months = useMemo(() => monthsOf(all), [all]);
+  // 목록은 «고른 달»의 것만 본다 — 달을 고른 뒤에 건별로 들어가는 차례다.
+  const rows = useMemo(
+    () => all.filter((r) => (!month || monthOf(r) === month) && inTab(r, tab)),
+    [all, tab, month],
+  );
   const picked = useMemo(() => all.find((r) => r.plate + r.receivedAt === sel) || null, [all, sel]);
   /** 이 달 내 실적 — 확인은 이 건수에 대고 하는 것이다. */
   const ofMonth = useMemo(
@@ -138,6 +173,29 @@ export function MyLedger() {
           </div>
         ))}
       </div>
+
+      {/* ★달별 추이 — 「우리 얼마나 팔았지」. 누르면 그 달 건별로 들어간다(사장님 2026-09-06).
+          줄은 공용 원자(`ListRow`)를 쓴다 — 목록 행을 손으로 짜지 않는다(집 규격 절대원칙 1). */}
+      {months.length > 0 && (
+        <div style={{ marginBottom: 8 }}>
+          <ListGroup>
+            {months.slice(0, 12).map((x) => (
+              <ListRow
+                key={x.m}
+                selected={x.m === month}
+                onClick={() => { setMonth(x.m); setSel(''); }}
+                main={monthLabel(x.m)}
+                sub={x.open > 0 ? `진행 ${x.open}건` : ''}
+                right={
+                  <span style={{ fontSize: FS.body, fontWeight: FW.head, color: C.ink, fontVariantNumeric: NUM }}>
+                    {x.done}<span style={{ fontSize: FS.micro, color: C.mute, fontWeight: FW.body }}> 건 실적</span>
+                  </span>
+                }
+              />
+            ))}
+          </ListGroup>
+        </div>
+      )}
 
       {/* ★실적 확인 — 청구 앞에 놓인 문. 묻는 것은 «건»이지 «금액»이 아니다. */}
       {month && (
@@ -239,12 +297,12 @@ export function MyLedger() {
   ) : <CenterNote>목록에서 계약을 고르세요.</CenterNote>;
 
   const panes: WorkPane[] = [
-    { key: 'one', title: '계약', icon: ListChecks, node: <><PaneHead title="계약 진행" /><PaneBody>{detail}</PaneBody></> },
+    { key: 'one', title: '내역', icon: ListChecks, node: <><PaneHead title="계약 내역" /><PaneBody>{detail}</PaneBody></> },
   ];
 
   return (
     <WorkPage
-      title="계약·정산확인"
+      title="정산확인"
       statusLabel={data.whoami || ''}
       statusCount={data.count ?? 0}
       listCount={rows.length}

@@ -155,6 +155,19 @@ export function yearDisplay(value: unknown): string {
   return year > 0 ? `${String(year % 100).padStart(2, '0')}년` : '';
 }
 
+/**
+ * 손님 화면용 연식 — **네 자리 그대로**("2019"). 업무동 `yearDisplay` 와 «일부러» 다르다.
+ *
+ * 콕핏은 줄이 좁아 두 자리(「19년」)로 줄이는 게 이득이지만, 손님이 차 이름 앞에서 보는 연식은
+ * 중고차 마켓이 다 네 자리다(현대인증중고차·티카·리본카 실측 2026-09-04). 두 자리로 쓰면
+ * 「26년 엑센트」처럼 **트림 숫자와 섞여** 무슨 뜻인지 한 번 더 생각하게 된다.
+ * ⚠ 그렇다고 `yearDisplay` 를 바꾸면 업무동 목록 줄이 다 벌어진다 — 그래서 함수를 나눈다.
+ */
+export function yearFullDisplay(value: unknown): string {
+  const year = parseYear(value);
+  return year > 0 ? String(year) : '';
+}
+
 export const FUEL_ALIAS: Record<string, string> = {
   휘발유: '가솔린',
   가솔린: '가솔린',
