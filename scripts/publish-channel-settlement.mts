@@ -132,15 +132,33 @@ const isSoon = (r: Row) => FORECAST && billingMonthIn(asRow(r), locked) !== MONT
 const claws = (Object.values((await db.ref('v4/settlement_clawbacks').get()).val() || {}) as Row[])
   .filter((c) => S(c.month) === MONTH);
 
+/**
+ * ★★★**그쪽이 「누락」이라 적어 준 차번** — 금액이 0 이어도 본표에 올린다.
+ *   사장님 2026-09-08 「누락블럭에 있는 거 올려야지」 ·
+ *   「정산서에 반영하고 우리 정산원장에 접수에 없으면 넣어야 하고」
+ *
+ *   합계 아래 누락 블록은 «그쪽 메모장»이다. 거기만 남아 있으면 우리 숫자에는 없는 셔이라
+ *   다음 달에 또 「누락」으로 올라온다 — 실측 161호1543 송해민이 그랬다.
+ * ⚠ 원자의 「비고」로 가리지 않는다 — 원자의 note 는 원장 「계약번호」 칸에서 오므로
+ *   우리가 비고에 적어 둔 말은 거기 안 온다. «그쪽이 적은 것»(sheet_edits 「누락」)이 정본이다.
+ */
+const missedPlates = new Set(
+  (Object.values((await db.ref('v4/sheet_edits').get()).val() || {}) as SheetEdit[])
+    .filter((e) => S(e.month) === MONTH && S(e.column) === '누락' && S(e.status) === '대기')
+    .map((e) => `${S(e.channel)}|${S(e.key).replace(/\s/g, '')}`),
+);
+
 type Line = { plate: string; recv: string; deliv: string; model: string; price: number; cust: string; agent: string;
   sup: string; product: string; term: number; rent: number; deposit: number; payKind: string;
-  how: string; net: number; vat: number; total: number };
+  how: string; net: number; vat: number; total: number; waiting: boolean };
 /**
  * ★원장 청구탭·정산서와 «같은 규칙»으로 센다 — 정산 대상·비율·제외·부가세포함.
  * ★★**여기서 세는 것은 «지급» 한 축뿐이다.** `claimWritten` 은 이 파일이 읽지 않는다.
  */
 const lineOf = (r: Row): Line => {
   const ratio = N(r.settleRatio) || 1;
+  /** ★그쪽이 「누락」이라 알려 줘서 우리가 자리만 놓은 줄인가. */
+  const waiting = missedPlates.has(`${S(r.channel)}|${S(r.plate).replace(/\s/g, '')}`);
   /** ★돈은 «한 함수»가 센다 — 인센티브(무보증 수수료 등)까지 포함한다. */
   const raw = payOf(r);
   const gross = r.vatIncluded === true;
@@ -168,6 +186,14 @@ const lineOf = (r: Row): Line => {
    */
   if (!S(r.supplier)) how = S(r.settleNote) || S(r.customer) || S(r.product) || '지원금';
   /**
+   * ★★★**그쪽이 「누락」이라 적어 준 줄은 금액이 0 이어도 본표에 올린다.**
+   *   사장님 2026-09-08 「누락블럭에 있는 거 올려야지」 ·
+   *   「정산서에 반영하고 우리 정산원장에 접수에 없으면 넣어야 하고」
+   *   합계 아래 누락 블록은 «그쪽 메모장»이다. 거기만 남아 있으면 우리 숫자에는 없는 셔이라
+   *   다음 달에 또 「누락」으로 올라온다. ⇒ 본표로 올리고, 뭐가 없는지를 그 자리에 적는다.
+   */
+  if (waiting && !raw) how = '조건 대기 — 대여료·기간·납입방식을 받으면 금액이 섭니다';
+  /**
    * ★★**예정 줄은 «예정»이라고 적는다.** 금액이 0 이면 아직 인도 전이라 수수료가 안 정해진 것이다 —
    *   빈칸으로 두면 「0원 받는다」로 읽힌다. 왜 0 인지를 그 자리에 적어야 묻지 않는다.
    */
@@ -180,7 +206,7 @@ const lineOf = (r: Row): Line => {
      *   ⚠ 차량 가격은 «신차만» 값이 있다(재렌트·구독은 원천이 0 을 준다). 0 은 빈칸으로 내보낸다.
      */
     price: N(r.price), agent: S(r.agent), deposit: N(r.deposit), payKind: S(r.payKind),
-    net, vat, total: net + vat,
+    net, vat, total: net + vat, waiting,
   };
 };
 
@@ -218,7 +244,7 @@ const jobs: Job[] = [];
 for (const ch of chans) {
   if (ONLY && !ch.includes(ONLY)) continue;
   /** ★예정 달에는 금액 0 인 줄도 싣는다 — 「이 건이 옵니다」가 알려 줄 값이다. */
-  const mine = rows.filter((r) => S(r.channel) === ch).map(lineOf).filter((l) => FORECAST || l.total !== 0);
+  const mine = rows.filter((r) => S(r.channel) === ch).map(lineOf).filter((l) => FORECAST || l.total !== 0 || l.waiting);
   const mineBacks: Back[] = claws.filter((c) => S(c.channel) === ch)
     /** ★사유에서 «우리끼리 하는 말»과 남의 상호를 걷는다 — 공급사 쪽 빗장의 거울. */
     .map((c) => ({ plate: S(c.plate), sup: S(c.supplier), amt: N(c.agentAmt),
@@ -364,8 +390,21 @@ for (const j of jobs) {
   const meta = await (await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${bookId}?fields=sheets.properties`, { headers: { Authorization: `Bearer ${await tok()}` } })).json() as {
     sheets?: { properties: { sheetId: number; title: string } }[] };
   const all = meta.sheets || [];
-  /** ★건수는 달마다 바뀜다 — 앞글로 찾는다. */
-  let id = all.find((s) => settleTabBase(s.properties.title) === tab)?.properties.sheetId;
+  /**
+   * ★건수는 달마다 바뀜다 — 앞글로 찾는다.
+   * ⚠⚠ **칸을 읽고 쓸 때는 «지금 붙어 있는 이름»을 써야 한다**(`tabRef`).
+   *   실측 2026-09-08 — 탭을 「26년08월 정산 (42건)」으로 바꿔 놓고 범위는 앞글로 적어
+   *   「Unable to parse range」 400 으로 값 쓰기가 통째로 실패했다. 그러고도 「✓ 붙였습니다」가 찍혔다.
+   */
+  /**
+   * ★★**앞글이 같은 탭이 둘일 수 있다** — 예전 한 번 쓰기가 실패했을 때
+   *   「26년08월 정산」과 「26년08월 정산 (2건)」이 같이 남았다(실측 경진카·에스에이).
+   *   ⇒ 건수가 붙은 쪽을 고른다 — 그것이 우리가 마지막으로 찍은 탭이다.
+   */
+  const cands = all.filter((s) => settleTabBase(s.properties.title) === tab);
+  const found0 = cands.find((s) => s.properties.title !== tab) || cands[0];
+  let id = found0?.properties.sheetId;
+  let tabRef = found0?.properties.title || tab;
   const rowsNeed = j.lines.length + 20;
   /**
    * ★**옛 이름(「26년08월 지급」)은 «이름만 바꿔» 이어 쓴다** — 지우면 상대가 적어 둔 메모가 날아간다.
@@ -426,7 +465,7 @@ for (const j of jobs) {
   /** ★상대가 고친 칸을 맞대 보려면 «지금 시트에 있는 표»가 필요하다 — 아래 블록 밖으로 들고 나온다. */
   let live: unknown[][] = [];
   {
-    const got = await (await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${bookId}/values/${encodeURIComponent(`'${tab}'!A1:AZ400`)}`, { headers: { Authorization: `Bearer ${await tok()}` } })).json() as { values?: unknown[][] };
+    const got = await (await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${bookId}/values/${encodeURIComponent(`'${tabRef}'!A1:AZ400`)}`, { headers: { Authorization: `Bearer ${await tok()}` } })).json() as { values?: unknown[][] };
     const g = got.values || [];
     live = g;
     /**
@@ -697,10 +736,25 @@ for (const j of jobs) {
    *   구글 values.update 는 «보낸 칸»만 쓴다 — 범위를 넓게 적는 것으로는 안 지워진다.
    */
   const wipe = Array.from({ length: 5 }, () => Array.from({ length: HEAD.length }, () => ''));
-  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${bookId}/values/${encodeURIComponent(`'${tab}'!A1:${endCol}${values.length + 5}`)}?valueInputOption=RAW`, {
-    method: 'PUT', headers: { Authorization: `Bearer ${await tok()}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ values: [...values, ...wipe] }),
-  });
+  /**
+   * ★★★**값을 쓰는 이 한 번을 «안 보고» 있었다.**
+   *   실측 2026-09-08 — 분당 한도(429)에 걸려 이 PUT 이 조용히 실패했는데,
+   *   서식 요청만 성공해 「✓ 붙였습니다」가 찍혔다. 시트는 옆 판 그대로인데
+   *   화면은 새 줄 수를 말해 «올라간 줄이 안 보인다»가 됐다(161호1543 송해민).
+   *   ⇒ 쓰기는 반드시 답을 본다. 429 는 쌀었다 다시 쓴다.
+   */
+  for (let t = 0; ; t++) {
+    const wr = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${bookId}/values/${encodeURIComponent(`'${tabRef}'!A1:${endCol}${values.length + 5}`)}?valueInputOption=RAW`, {
+      method: 'PUT', headers: { Authorization: `Bearer ${await tok()}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ values: [...values, ...wipe] }),
+    });
+    if (wr.ok) break;
+    if ((wr.status === 429 || wr.status >= 500) && t < 5) { await new Promise((z) => setTimeout(z, wr.status === 429 ? 20_000 : 2_000)); continue; }
+    console.log(`
+  ✕ 값을 못 썼습니다 ${wr.status} — ${(await wr.text()).slice(0, 160)}
+`);
+    process.exit(1);
+  }
 
   /**
    * ★★**서식은 «정본 한 곳»이 낸다** — `settleTabFormat`(`channel-sheet-tabs`).

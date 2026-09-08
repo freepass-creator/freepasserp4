@@ -282,9 +282,19 @@ for (const j of jobs) {
   const meta = await (await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${j.sheetId}?fields=sheets.properties`, { headers: { Authorization: `Bearer ${await tok()}` } })).json() as {
     sheets?: { properties: { sheetId: number; title: string } }[] };
   const all = meta.sheets || [];
-  /** ★건수는 달마다 바뀜다 — 앞글로 찾는다. */
-  const hit0 = all.find((s) => settleTabBase(s.properties.title) === tab);
+  /**
+   * ★건수는 달마다 바뀜다 — 앞글로 찾는다.
+   * ⚠⚠ 칸을 읽고 쓸 때는 «지금 붙어 있는 이름»(`tabRef`)을 쓴다 — 채널 발행기와 같은 사고.
+   */
+  /**
+   * ★★**앞글이 같은 탭이 둘일 수 있다** — 예전 한 번 쓰기가 실패했을 때
+   *   「26년08월 정산」과 「26년08월 정산 (2건)」이 같이 남았다(실측 경진카·에스에이).
+   *   ⇒ 건수가 붙은 쪽을 고른다 — 그것이 우리가 마지막으로 찍은 탭이다.
+   */
+  const cands = all.filter((s) => settleTabBase(s.properties.title) === tab);
+  const hit0 = cands.find((s) => s.properties.title !== tab) || cands[0];
   let id = hit0?.properties.sheetId;
+  let tabRef = hit0?.properties.title || tab;
   const rowsNeed = j.lines.length + 20;
   /**
    * ★**이름을 «가른» 첫 달에는 이름 없는 옛 탭이 남는다** — 그것을 «고쳐 쓴다».
@@ -331,7 +341,7 @@ for (const j of jobs) {
   /** 공급사가 적는 넉 칸 — [확인, 정정, 정정금액, 메모(정정사유)]. */
   const kept = new Map<string, Keep>();
   {
-    const got = await (await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${j.sheetId}/values/${encodeURIComponent(`'${tab}'!A1:AZ400`)}`, { headers: { Authorization: `Bearer ${await tok()}` } })).json() as { values?: unknown[][] };
+    const got = await (await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${j.sheetId}/values/${encodeURIComponent(`'${tabRef}'!A1:AZ400`)}`, { headers: { Authorization: `Bearer ${await tok()}` } })).json() as { values?: unknown[][] };
     const g = got.values || [];
     const hi = g.findIndex((r) => (r || []).some((c) => S(c) === '차량번호'));
     if (hi >= 0) {
@@ -452,10 +462,25 @@ for (const j of jobs) {
    *   구글 values.update 는 «보낸 칸»만 쓴다. 범위를 넓게 적는 것으로는 아무것도 안 지워진다.
    */
   const wipe = Array.from({ length: 5 }, () => Array.from({ length: HEAD.length }, () => ''));
-  await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${j.sheetId}/values/${encodeURIComponent(`'${tab}'!A1:${endCol}${values.length + 5}`)}?valueInputOption=RAW`, {
-    method: 'PUT', headers: { Authorization: `Bearer ${await tok()}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ values: [...values, ...wipe] }),
-  });
+  /**
+   * ★★★**값을 쓰는 이 한 번을 «안 보고» 있었다.**
+   *   실측 2026-09-08 — 분당 한도(429)에 걸려 이 PUT 이 조용히 실패했는데,
+   *   서식 요청만 성공해 「✓ 붙였습니다」가 찍혔다. 시트는 옆 판 그대로인데
+   *   화면은 새 줄 수를 말해 «올라간 줄이 안 보인다»가 됐다(161호1543 송해민).
+   *   ⇒ 쓰기는 반드시 답을 본다. 429 는 쌀었다 다시 쓴다.
+   */
+  for (let t = 0; ; t++) {
+    const wr = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${j.sheetId}/values/${encodeURIComponent(`'${tabRef}'!A1:${endCol}${values.length + 5}`)}?valueInputOption=RAW`, {
+      method: 'PUT', headers: { Authorization: `Bearer ${await tok()}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ values: [...values, ...wipe] }),
+    });
+    if (wr.ok) break;
+    if ((wr.status === 429 || wr.status >= 500) && t < 5) { await new Promise((z) => setTimeout(z, wr.status === 429 ? 20_000 : 2_000)); continue; }
+    console.log(`
+  ✕ 값을 못 썼습니다 ${wr.status} — ${(await wr.text()).slice(0, 160)}
+`);
+    process.exit(1);
+  }
 
   const r0 = 3;                        // 머리줄
   const last = r0 + 1 + body.length;   // 합계줄
