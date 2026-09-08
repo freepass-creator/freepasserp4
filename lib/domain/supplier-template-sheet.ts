@@ -1281,7 +1281,15 @@ export const OUR_NON_INVENTORY_TABS = [...POLICY_TAB_ALIASES, COMPANY_INFO_TAB_N
  *   사장님: 「이가 나간 것처럼 보이면 안 된다」. 그 줄들은 «덜 아는 차»가 아니라 **차가 아니었다.**
  * ⚠ 이름으로만 가른다 — 열을 보고 판정하면 정산 열이 바뀔 때마다 판정이 흔들린다.
  */
-const NON_INVENTORY_TAB_RE = /(^|\s|·)정산(\s|·|$)|^수수료/;
+/**
+ * ⚠⚠ 2026-09-08 — 「^수수료」로 앞머리만 잡았더니 오토플러스의
+ *   「★★★ 전기차(EV6,니로EV 등) 프로모션(**수수료 150만원**) ★★★」 탭이 **재고로 읽혔다.**
+ *   그 탭의 배너 줄이 차로 실렸고, 열 이름이 재고 탭과 달라 기간키가 «두 벌»이 됐다
+ *   (`12_3만` 옆에 `12_20000` — 같은 것이 둘로 세어져 시트 칸이 갈린다).
+ *   ★**우리 몫(수수료·커미션·마진·원가)이 이름에 있는 탭은 «어디에 있든» 재고가 아니다.**
+ *   견적서·양식·안내·프로모션도 마찬가지 — 사람이 보는 종이지 차 목록이 아니다.
+ */
+const NON_INVENTORY_TAB_RE = /(^|\s|·)정산(\s|·|$)|수수료|커미션|마진|원가|견적서|프로모|양식|작성\s*안내/;
 export const isOurNonInventoryTab = (title: unknown) => {
   const t = String(title ?? '').trim();
   return OUR_NON_INVENTORY_TABS.some((x) => t === x) || NON_INVENTORY_TAB_RE.test(t);

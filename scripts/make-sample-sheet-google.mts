@@ -10,7 +10,7 @@ import { initializeApp, cert } from 'firebase-admin/app';
 import { getDatabase } from 'firebase-admin/database';
 import { getFirestore } from 'firebase-admin/firestore';
 import { JWT } from 'google-auth-library';
-import { buildSalesFormatRequests, columnWidths } from '../lib/domain/sales-sheet-format';
+import { buildSalesFormatRequests, columnWidths, isDepositColumn } from '../lib/domain/sales-sheet-format';
 import { companyAlias } from '../lib/domain/identity';
 import { autoplusDepositRuleText } from '../lib/domain/sales-published-tabs';
 import { isPlate } from '../lib/domain/plate-registry';
@@ -292,7 +292,18 @@ const cell = (col: string, v: any): string => {
    *     숫자를 지어 넣으면 그게 곧 «우리가 만든 오류»다 — 기간마다 다른 값을 한 칸에 못 담는다.
    */
   if (col === '보증금' && S(v.provider_company_code) === 'RP023') return autoplusDepositRuleText(S(v.maker));
-  if (/보증|개월|반납형|인수형|만km|장기보증/.test(col)) return priceCell(v.price, col);
+  if (/보증|개월|반납형|인수형|만km|장기보증/.test(col)) {
+    const cell = priceCell(v.price, col);
+    /**
+     * ★★**보증금이 «말»로 적힌 것을 빈칸으로 두지 않는다** (사장님 2026-09-08 「보증금 잘 챙기고」).
+     *   ⚠ 실측 — 아이카 96대 중 **50대**가 시트에서 보증금 빈칸이었는데, 원천엔 **「무보증」**이라 적혀 있었다.
+     *   `won('무보증')=0` 이라 숫자로만 실은 탓이다. **빈칸은 「없다」가 아니라 「모른다」로 읽힌다** —
+     *   영업자가 매번 전화로 물어야 한다. 원천이 말로 준 것은 그 말 그대로 싣는다(오플 규칙문구와 같은 결).
+     *   ⚠ 단 **요금 칸에는 안 쓴다** — 보증금 칸에만.
+     */
+    if (!cell && isDepositColumn(col) && S(v.deposit_note)) return S(v.deposit_note);
+    return cell;
+  }
   return '';   // 소비자가격·그 밖 요금·연주행·탁송비·분납·사고다발 = 원천 없음(빈칸)
 };
 

@@ -209,6 +209,8 @@ const mark = `${stamp.slice(5, 10).replace('-', '.')} ${stamp.slice(11, 16)}`;
 
 const reqs: any[] = [];
 const puts: { range: string; values: string[][] }[] = [];
+/** 이번 회차에 실제로 채운 탭 — 여기 없는 회사 탭은 묵은 것이라 지운다(아래). */
+const 쓴탭 = new Set<number>();
 let index = 1;   // 0 = 공지사항
 for (const [company, list] of order) {
   /**
@@ -270,8 +272,27 @@ for (const [company, list] of order) {
   reqs.push({ updateSheetProperties: { properties: { sheetId: gid, tabColor: TAB_HUES[index % TAB_HUES.length] }, fields: 'tabColor' } });
   reqs.push({ setBasicFilter: { filter: { range: { sheetId: gid, startRowIndex: 0, endRowIndex: list.length + 1, startColumnIndex: 0, endColumnIndex: cols.length } } } });
   puts.push({ range: `'${title}'!A1`, values: [cols, ...body] });
+  쓴탭.add(gid);
   index++;
 }
+
+/**
+ * ★★**이번에 안 쓴 회사 탭은 지운다.**
+ *
+ * ⚠ 2026-09-08 실측 — F86 에 「(공급사 없음) 84대」·「KH 09.08 11:56 · 11대」 같은 **묵은 탭**이 남아 있었다.
+ *   옛 회차가 만든 것인데, 지우지 않으니 채널은 **이미 사라진 재고를 계속 보고 있었다.**
+ *   시트에 서 있는 차는 「팔 수 있다」는 뜻이라 — 묵은 탭은 «덜 새로운 표»가 아니라 **틀린 표**다.
+ * ★공지사항·안내 탭은 남긴다(사람이 적는 것). 우리가 만든 «회사 탭»만 거둔다.
+ */
+{
+  const 지킴 = /공지|안내|이 시트|시트 지도/;
+  const 버릴 = have.filter(([t, p]) => !지킴.test(t) && !쓴탭.has(Number(p.sheetId)));
+  if (버릴.length) {
+    console.log(`   ○ 묵은 탭 ${버릴.length}장 지움 — ${버릴.map(([t]) => t).join(' · ')}`);
+    for (const [, p] of 버릴) reqs.push({ deleteSheet: { sheetId: Number(p.sheetId) } });
+  }
+}
+
 for (let i = 0; i < reqs.length; i += 60) {
   await api(`https://sheets.googleapis.com/v4/spreadsheets/${id}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests: reqs.slice(i, i + 60) }) });
 }

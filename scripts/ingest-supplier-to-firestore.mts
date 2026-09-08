@@ -20,6 +20,7 @@ import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { listSheetTabs, readSheetGrid } from '../lib/server/google-sheets';
 import { HUB_CODE_SHEET_ID } from '../lib/domain/legacy-sheets';
+import { isOurNonInventoryTab } from '../lib/domain/supplier-template-sheet';
 import { pickSupplierSource, hubSourceMap } from '../lib/domain/supplier-source';
 import { snapToMaster, makerGroup } from '../lib/domain/vehicle-master-match';
 import type { MasterEntry } from '../lib/domain/vehicle-master-types';
@@ -184,10 +185,22 @@ function sheetPrice(get: (i: number) => string, ci: { dep: number; periods: Reco
   for (const [pk, idx] of Object.entries(ci.periods)) { if (idx < 0) continue; const rent = won(get(idx)); if (rent > 0) price[pk] = { rent, deposit: dep }; }
   return price;
 }
+/**
+ * ★**보증금이 «말»로 적힌 것을 잃지 않는다** (사장님 2026-09-08 「보증금 잘 챙기고」).
+ *
+ * ⚠ 실측 2026-09-08 — 아이카 96대 중 **51대**가 시트에 보증금 빈칸이었다. 그런데 원천에는
+ *   장기보증 칸에 **「무보증」**이라 «적혀» 있었다. `won('무보증') = 0` 이라 숫자로만 실었더니
+ *   시트에서 빈칸이 됐고, 빈칸은 **「없다」가 아니라 「모른다」로 읽힌다** — 영업자가 물어봐야 한다.
+ *   ⇒ 숫자가 아닌 보증금은 **그 말을 그대로** 싣는다. 오토플러스 규칙문구와 같은 결이다.
+ */
+const depositNote = (raw: string) => {
+  const s = S(raw);
+  return s && won(s) === 0 ? s : '';
+};
 
 // ── 원천 리더 — 종류마다 «우리필드 키 행(Row)»을 낸다. 원자화는 하나로 공유한다. ──────
-type Row = { car: string; status: string; kind: string; maker: string; model: string; vname: string; trim: string; fuel: string; ext: string; int: string; km: string; opt: string; firstReg: string; cc: string; klass: string; price: Price; tab: string; row: string };
-const blank: Omit<Row, 'car' | 'tab' | 'row'> = { status: '', kind: '', maker: '', model: '', vname: '', trim: '', fuel: '', ext: '', int: '', km: '', opt: '', firstReg: '', cc: '', klass: '', price: {} };
+type Row = { car: string; status: string; kind: string; maker: string; model: string; vname: string; trim: string; fuel: string; ext: string; int: string; km: string; opt: string; firstReg: string; cc: string; klass: string; price: Price; depNote: string; tab: string; row: string };
+const blank: Omit<Row, 'car' | 'tab' | 'row'> = { status: '', kind: '', maker: '', model: '', vname: '', trim: '', fuel: '', ext: '', int: '', km: '', opt: '', firstReg: '', cc: '', klass: '', price: {}, depNote: '' };
 
 // 번호판 꼴만 차로 본다 — 헤더 밑 제목·프로모 배너·빈 행이 «차»로 새는 걸 막는다(오토플러스 실측).
 const isPlate = (s: string) => /\d{2,3}\s*[가-힣]\s*\d{4}/.test(S(s));
@@ -235,7 +248,17 @@ async function readRows(): Promise<Row[]> {
     return out;
   }
   // 시트형 — 탭·머리행 자동탐지 후 MIRROR_ALIAS 로 열 해석.
-  const tabs = await listSheetTabs(SHEET);
+  /**
+   * ★**재고가 아닌 탭은 읽지 않는다** (규칙 SSOT = `isOurNonInventoryTab`).
+   *   ⚠ 2026-09-08 — 여기가 «모든 탭»을 읽어서 오토플러스의
+   *   「★★★ … 프로모션(수수료 150만원) ★★★」 탭이 재고로 들어왔다. 배너 줄이 차가 됐고,
+   *   그 탭 열 이름이 달라 기간키가 두 벌(`12_3만` 옆에 `12_20000`)이 되어 시트 칸이 갈렸다.
+   *   발행기는 진작 이 규칙을 썼는데 수집기만 안 썼다 — 같은 규칙을 양쪽이 쓴다.
+   */
+  const allTabs = await listSheetTabs(SHEET);
+  const tabs = allTabs.filter((t) => !isOurNonInventoryTab(t));
+  const 뺀탭 = allTabs.filter((t) => isOurNonInventoryTab(t));
+  if (뺀탭.length) console.log(`  재고 아닌 탭 ${뺀탭.length}장 건너뜀 — ${뺀탭.map((t) => t.slice(0, 24)).join(' · ')}`);
   for (const tab of tabs) {
     const grid = await readSheetGrid(SHEET, tab);
     const allRows = [grid.header, ...grid.rows];
@@ -260,7 +283,8 @@ async function readRows(): Promise<Row[]> {
       const composed = rawVname || composeVehicleName(model, trim) || [maker0, model, trim].filter(Boolean).join(' ');
       const vname = N(composed) === N(maker0) ? '' : composed;
       const price = sheetPrice((i) => S(r[i]), ci);
-      push({ car, status: S(r[ci.status]), kind: ci.kind >= 0 ? S(r[ci.kind]) : '', maker: maker0, model, vname, trim, fuel: ci.fuel >= 0 ? S(r[ci.fuel]) : '', ext: ci.ext >= 0 ? S(r[ci.ext]) : '', int: ci.int >= 0 ? S(r[ci.int]) : '', km: ci.km >= 0 ? S(r[ci.km]) : '', opt: ci.opt >= 0 ? S(r[ci.opt]) : '', firstReg: ci.firstReg >= 0 ? S(r[ci.firstReg]) : '', cc: ci.cc >= 0 ? S(r[ci.cc]) : '', klass: ci.klass >= 0 ? S(r[ci.klass]) : '', price, tab, row: String(rowNo) });
+      const depNote = depositNote(ci.dep >= 0 ? S(r[ci.dep]) : '');
+      push({ car, status: S(r[ci.status]), kind: ci.kind >= 0 ? S(r[ci.kind]) : '', maker: maker0, model, vname, trim, fuel: ci.fuel >= 0 ? S(r[ci.fuel]) : '', ext: ci.ext >= 0 ? S(r[ci.ext]) : '', int: ci.int >= 0 ? S(r[ci.int]) : '', km: ci.km >= 0 ? S(r[ci.km]) : '', opt: ci.opt >= 0 ? S(r[ci.opt]) : '', firstReg: ci.firstReg >= 0 ? S(r[ci.firstReg]) : '', cc: ci.cc >= 0 ? S(r[ci.cc]) : '', klass: ci.klass >= 0 ? S(r[ci.klass]) : '', price, depNote, tab, row: String(rowNo) });
     }
   }
   return out;
@@ -305,6 +329,7 @@ function atomize(row: Row, pinned: Map<string, Record<string, unknown>>): Atom {
     ...statusDetail(row.status, pin?.locked_by_contract), mileage: row.km, options: row.opt,
     ...(rawSeats(vname) ? { seats: rawSeats(vname) } : null),   // 원문에 인승 있으면만
     ...(Object.keys(row.price).length ? { price: row.price } : null),
+    ...(row.depNote ? { deposit_note: row.depNote } : null),   // 「무보증」처럼 «말»로 적힌 보증금 — 빈칸으로 두지 않는다
     _pin_state: state,
     원문: { 차명: vname, ...(row.opt ? { 옵션: row.opt } : null) },
     provider_company_code: PROV, partner_code: PROV,
@@ -397,6 +422,23 @@ if (process.argv.includes('--verify')) {
   process.exit(0);
 }
 
+/**
+ * ★★**요금을 «한 대도» 못 읽었으면 쓰지 않는다.**
+ *
+ * ⚠ 2026-09-08 실측 — 오토플러스 원본의 요금 머리글은 **두 줄**이다(윗줄 「12개월」·아랫줄 「2만km」).
+ *   범용 해석기는 한 줄만 보므로 요금 열을 하나도 못 찾고, 그런데도 차 71대를 «요금 없이» 써 넣었다.
+ *   그 8대가 시트에서 대여료 빈칸으로 섰다 — **요금 없는 차는 영업자가 못 파는 차**다.
+ *   ⇒ 차는 있는데 요금이 0대면 그건 «무보증 상품»이 아니라 **열을 못 읽은 것**이다. 멈춘다.
+ *   (오토플러스처럼 두 줄 머리글인 곳은 정제시트를 거쳐 들어온다 — 그 길이 이미 있다.)
+ */
+{
+  const 요금있는차 = now.filter((a) => a.price && typeof a.price === 'object' && Object.keys(a.price as object).length).length;
+  if (now.length >= 3 && 요금있는차 === 0) {
+    console.error(`\n✗ ${PROV}: 차 ${now.length}대를 읽었는데 **요금이 한 대도 없다** — 요금 열을 못 읽은 것이다.`);
+    console.error(`  원천 머리글이 두 줄이거나 열 이름이 별칭에 없다. 쓰지 않고 멈춘다(요금 없는 차는 못 판다).`);
+    process.exit(1);
+  }
+}
 if (!APPLY) { console.log(`\n미리보기 — Firestore 안 씀. 쓰려면 --apply${VARIABLE ? '(변동만)' : ''}.`); process.exit(0); }
 
 // ── 변동 폴링(--variable) — 아는 차의 상태·주행만 delta. 불변은 «절대» 안 건드린다. ──
