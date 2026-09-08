@@ -268,7 +268,7 @@ async function hasBook(ch: string): Promise<boolean> {
 const chans = [...new Set([...rows.map((r) => S(r.channel)), ...claws.map((c) => S(c.channel))].filter(Boolean))];
 console.log(`\n■ ${MONTH} — 영업채널 ${chans.length}곳 ${APPLY ? '(반영)' : '(대조만)'}\n`);
 
-type Back = { plate: string; sup: string; amt: number; why: string };
+type Back = { plate: string; sup: string; model: string; amt: number; why: string };
 type Job = { ch: string; tab: string; lines: Line[]; backs: Back[]; net: number; vat: number };
 /** 지급일이 다른 공급사인가 — 맨 아래로 내리는 기준이자 줄마다 찍는 날의 기준. */
 const isLate = (sup: string) => SPLIT_SUPPLIERS.some((s) => key(sup).includes(key(s)));
@@ -279,7 +279,7 @@ for (const ch of chans) {
   const mine = rows.filter((r) => S(r.channel) === ch).map(lineOf).filter((l) => FORECAST || l.total !== 0 || l.waiting);
   const mineBacks: Back[] = claws.filter((c) => S(c.channel) === ch)
     /** ★사유에서 «우리끼리 하는 말»과 남의 상호를 걷는다 — 공급사 쪽 빗장의 거울. */
-    .map((c) => ({ plate: S(c.plate), sup: S(c.supplier), amt: N(c.agentAmt),
+    .map((c) => ({ plate: S(c.plate), sup: S(c.supplier), model: S(c.model), amt: N(c.agentAmt),
       why: outwardText(c.reason, [...new Set(rows.map((r) => S(r.supplier)))].filter((x) => x !== S(c.supplier))) }))
     .filter((b) => b.amt !== 0);
   if (!mine.length && !mineBacks.length) continue;
@@ -574,9 +574,18 @@ for (const j of jobs) {
     확인: note(l.plate)[0], 정정: note(l.plate)[1], 정정금액: note(l.plate)[2], '메모(정정사유)': note(l.plate)[3],
   }));
   /** ★환수는 «같은 표»에 음수로 선다 — 표를 둘로 쪼개면 합계를 두 번 보게 된다. */
+  /**
+   * ★★**환수는 «상품 구분»에 적는다** — 사장님 2026-09-08
+   *   「환수 상품구분에 넣으면 되겠다 · 환수 지원금 이런 거」.
+   *   여태 모델명 칸에 「지난 지급분 환수」라고 적었는데, 그러면 **어느 차인지**를 적을 자리를 잃는다.
+   *   상품 구분은 원래 「이 줄이 무슨 줄이냐」를 말하는 칸이다 — 환수도 거기가 제자리다.
+   *
+   * ★차가 없는 환수(지원금을 되돌려 받는 것)는 «환수 지원금»이라고 적는다.
+   */
   for (const b of j.backs) {
     body.push(rowOf({
-      차량번호: b.plate, 공급사: b.sup, 모델명: '지난 지급분 환수', 영업채널: j.ch, [BASIS[0]]: b.why,
+      차량번호: b.plate, 공급사: b.sup, 모델명: b.model, '상품 구분': b.plate ? '환수' : '환수 지원금',
+      영업채널: j.ch, [BASIS[0]]: b.why || '지난 지급분 환수',
       공급가액: -b.amt, 부가세: -Math.round(b.amt * VAT), 합계: -(b.amt + Math.round(b.amt * VAT)),
       '지급 예정일': payKo(b.sup), 확인: note(b.plate)[0], 정정: note(b.plate)[1], 정정금액: note(b.plate)[2], '메모(정정사유)': note(b.plate)[3],
     }));

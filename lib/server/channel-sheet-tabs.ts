@@ -654,7 +654,7 @@ export async function ensureMonthTab(tok: Tok, bookId: string, month: string): P
     { repeatCell: { range: { sheetId: id, startRowIndex: 2, endRowIndex: 3, startColumnIndex: 0, endColumnIndex: H.length },
       cell: { userEnteredFormat: { backgroundColor: TINT } }, fields: 'userEnteredFormat.backgroundColor' } },
     { repeatCell: { range: { sheetId: id, startRowIndex: 4, endRowIndex: 5, startColumnIndex: 0, endColumnIndex: H.length },
-      cell: { userEnteredFormat: { textFormat: { fontSize: 10, italic: true, foregroundColor: { red: 0.42, green: 0.45, blue: 0.5 } } } }, fields: 'userEnteredFormat.textFormat' } },
+      cell: { userEnteredFormat: { textFormat: { fontSize: 10, foregroundColor: { red: 0.42, green: 0.45, blue: 0.5 } } } }, fields: 'userEnteredFormat.textFormat' } },
     ...CHANNEL_SETTLE_WIDTH.map((w, c) => ({ updateDimensionProperties: { range: { sheetId: id, dimension: 'COLUMNS', startIndex: c, endIndex: c + 1 }, properties: { pixelSize: w }, fields: 'pixelSize' } })),
     { repeatCell: { range: { sheetId: id }, cell: { userEnteredFormat: { textFormat: { fontFamily: 'Roboto' } } }, fields: 'userEnteredFormat.textFormat.fontFamily' } },
     freezeRows(id, 4),
@@ -742,10 +742,14 @@ export function settleTabFormat(s: SettleTabSpec): Record<string, unknown>[] {
      */
     { repeatCell: { range: { sheetId: id, startRowIndex: r0 + 1, endRowIndex: last, startColumnIndex: iB, endColumnIndex: iB + basisLen },
       cell: { userEnteredFormat: { textFormat: { fontSize: 9 } } }, fields: 'userEnteredFormat.textFormat' } },
-    /** ★「빠진 건」 빈 줄 안내는 «흐린 기울임» — 진하게 적으면 정산 줄로 오해한다. */
+    /**
+     * ★「빠진 건」 빈 줄 안내는 «흐리게» — 진하게 적으면 정산 줄로 오해한다.
+     * ⚠ **기울임은 안 쓴다**(사장님 2026-09-08 「기울임꼴 정산서에 있을 필요 없어」).
+     *   흐린 회색만으로 «본 줄이 아니다»가 충분히 읽힌다.
+     */
     ...(blanks ? [
       { repeatCell: { range: wide(last + 1, last + 1 + blanks),
-        cell: { userEnteredFormat: { textFormat: { italic: true, fontSize: 10, foregroundColor: { red: 0.62, green: 0.65, blue: 0.70 } } } }, fields: 'userEnteredFormat.textFormat' } },
+        cell: { userEnteredFormat: { textFormat: { italic: false, fontSize: 10, foregroundColor: { red: 0.62, green: 0.65, blue: 0.70 } } } }, fields: 'userEnteredFormat.textFormat' } },
       { updateDimensionProperties: { range: { sheetId: id, dimension: 'ROWS', startIndex: last + 1, endIndex: last + 1 + blanks }, properties: { pixelSize: 24 }, fields: 'pixelSize' } },
     ] : []),
     ...H.map((h, c) => ({ repeatCell: { range: { sheetId: id, ...DATA, startColumnIndex: c, endColumnIndex: c + 1 },

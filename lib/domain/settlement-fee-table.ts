@@ -192,7 +192,13 @@ export const EV_MODEL = /\bEV\d?\b|아이오닉\s*[56]|모델\s*[3YXS]|테슬라
 export const feeKindOf = (product: string, model: string): { kind: FeeRule['kind']; form?: string; fallback?: FeeRule['kind'] } => {
   if (/견적출고/.test(product)) return { kind: '신차', form: '매칭출고' };
   const ev = EV_MODEL.test(model);
-  if (/선출고/.test(product)) return ev ? { kind: '전기차', fallback: '신차' } : { kind: '신차', form: '선출고' };
+  /**
+   * ★★**「신차발주」도 선출고다** — 사장님 2026-09-08 「하허호 161호1543 신차발주 정산에 반영해야 함」.
+   *   하허호가 8월 탭에 그렇게 적어 주셨는데 이 표는 그 말을 몰라 **재렌트 사다리로 흘러내렸다** —
+   *   차량가액 54,041,912 이 적힌 줄을 「대여료 × 기간」으로 세는 꼴이 된다.
+   *   ⇒ 새 차를 발주해 내보내는 것은 선출고와 같은 계산(차량가액 기준)이다.
+   */
+  if (/선출고|신차발주/.test(product)) return ev ? { kind: '전기차', fallback: '신차' } : { kind: '신차', form: '선출고' };
   /**
    * ★★★**구독도 전기차를 가른다** — 사장님 2026-09-04
    *   「전기 프로모션 오십만원 더 주는 거 **그거 왜 안 넣냐고**」 · 「아 오십만원 같다.

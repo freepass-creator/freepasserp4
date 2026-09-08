@@ -195,7 +195,7 @@ const findSheet = (name: string) => live.filter((f) => {
 });
 
 /** `backs` — 환수를 «줄로» 든다. 합산만 들고 있으면 어느 차인지를 못 적는다. */
-type Back = { plate: string; amt: number; why: string };
+type Back = { plate: string; model: string; amt: number; why: string };
 type Job = { sup: string; sheetId: string; sheetName: string; tab: string; via: string; lines: Line[]; backs: Back[]; net: number; vat: number; claw: number };
 const jobs: Job[] = []; const skip: string[] = [];
 for (const sup of sups) {
@@ -221,7 +221,7 @@ for (const sup of sups) {
      *   ⚠ 사람 이름·내부 처리 말뿐 아니라 **남의 상호**가 새는 것이 사고다 —
      *     리더스가 「하허호」를 볼 이유가 없다. 지급 요율을 가린 것과 같은 까닭이다.
      */
-    .map((c) => ({ plate: S(c.plate), amt: N(c.supplierAmt),
+    .map((c) => ({ plate: S(c.plate), model: S(c.model), amt: N(c.supplierAmt),
       why: outwardText(c.reason, [S(c.channel), ...[...new Set(rows.map((r) => S(r.channel)))]]) }))
     .filter((b) => b.amt !== 0);
   const cl = backs.reduce((a, b) => a + b.amt, 0);
@@ -436,9 +436,18 @@ for (const j of jobs) {
     확인: note(l.plate)[0], 정정: note(l.plate)[1], 정정금액: note(l.plate)[2], '메모(정정사유)': note(l.plate)[3],
   }));
   /** ★환수 줄은 «차번을 적는다» — 어느 차인지 못 보면 상대가 바로 묻는다. */
+  /**
+   * ★★**환수는 «상품 구분»에 적는다** — 사장님 2026-09-08
+   *   「환수 상품구분에 넣으면 되겠다 · 환수 지원금 이런 거」.
+   *   여태 모델명 칸에 「지난 지급분 환수」라고 적었는데, 그러면 **어느 차인지**를 적을 자리를 잃는다.
+   *   상품 구분은 원래 「이 줄이 무슨 줄이냐」를 말하는 칸이다 — 환수도 거기가 제자리다.
+   *
+   * ★차가 없는 환수(지원금을 되돌려 받는 것)는 «환수 지원금»이라고 적는다.
+   */
   for (const b of j.backs) {
     body.push(rowOf({
-      차량번호: b.plate, 모델명: '지난 정산분 환수', [BASIS[0]]: b.why,
+      차량번호: b.plate, 모델명: b.model, '상품 구분': b.plate ? '환수' : '환수 지원금',
+      [BASIS[0]]: b.why || '지난 정산분 환수',
       공급가액: -b.amt, 부가세: -Math.round(b.amt * VAT), 합계: -(b.amt + Math.round(b.amt * VAT)),
       확인: note(b.plate)[0], 정정: note(b.plate)[1], 정정금액: note(b.plate)[2], '메모(정정사유)': note(b.plate)[3],
     }));

@@ -278,7 +278,9 @@ for (let i = hi + 1; i < all.length; i++) {
 
   if (st === '환수') {
     claws.push({
-      plate, at: ymd(x[C.deliv]) || '', supplierAmt: claim, agentAmt: pay,
+      /** ★모델명을 같이 싣는다 — 환수 줄의 모델명 칸에 그 차 이름이 서야 한다
+       *   (2026-09-08 「지난 지급분 환수」를 모델명에서 «상품 구분»으로 옮기면서 자리가 비었다). */
+      plate, model: S(x[C.model]), at: ymd(x[C.deliv]) || '', supplierAmt: claim, agentAmt: pay,
       reason: (C.clawWhy >= 0 ? S(x[C.clawWhy]) : '') || memo || '', supplier: S(x[C.sup]), channel: S(x[C.ch]),
       month: MONTH, sourceRow: i + 1, sourceTab: TAB, by: 'atomize-settlement-month', updatedAt: Date.now(),
     });
