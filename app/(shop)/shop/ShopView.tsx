@@ -320,10 +320,34 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
               첫 칩이 화면 끝에 붙는다(2026-09-04 실측 x=0). 세로 여백만 만진다. */}
           {/* 칩 줄 위아래 = «덩어리의 경계»(cozy 12) — 검색칸·목록과 갈라 준다. */}
           <div className="fp-shop-rail" style={{ paddingBlock: SHOP.sp.cozy }}>
-            {quick.map((k) => (
+            {/*
+              ★★**누른 칩은 제자리에서 빠져 «뒤로 옮겨 붙는다»**(웹) — 사장님 2026-09-08
+                「기존 퀵필터 뒤에 **누른 거를 따라 붙게** 만들자」.
+              ⚠ 처음엔 자리에 둔 채 뒤에도 토큰을 세웠다. 그랬더니 「승용」이 **한 줄에 둘**이 됐다 —
+                켜진 칩(브랜드 면)과 걸린 조건 토큰(같은 브랜드 면)이 나란히 서서 같은 것이 둘로 보였다.
+                2026-09-07 에 「같은 것이 두 얼굴」을 없앤 그 이유와 같은 문제다.
+              ⇒ 켜진 축·값은 이 줄에서 **뺀다.** 뒤에 선 토큰이 그 칩의 «지금 자리»다.
+                끄는 길도 하나뿐이라(토큰의 ✕) 「어느 쪽을 눌러야 꺼지나」가 안 생긴다.
+              ★폰은 안 뺀다 — 걸린 조건이 **저 밑 제 줄**에 있어, 여기서 칩까지 사라지면
+                누른 것이 화면에서 «사라진» 것처럼 보인다. 옆에 붙을 때만 성립하는 짜임이다.
+            */}
+            {(mobile ? quick : quick.filter((k) => !query.sel[k.axis].includes(k.key))).map((k) => (
               <ShopPill key={`${k.axis}:${k.key}`} on={query.sel[k.axis].includes(k.key)}
                 onClick={() => onToggle(k.axis, k.key)}>{k.label || soloLabel(k.key) || k.key}</ShopPill>
             ))}
+            {/*
+              ★★**걸린 조건이 «이 줄 뒤»에 따라 붙는다**(웹) — 사장님 2026-09-08
+                「**이거 위치 제일 베스트로 찾았다** … 기존 퀵필터 뒤에 **누른 거를 따라 붙게** …
+                **약간 위계만 주고** … **모바일은 밑에**」.
+              ★누른 것이 «누르는 자리» 옆에 서므로 손이 안 옮겨 간다. 위계는 가름선 한 칸과
+                면 색(회색 ↔ 브랜드)이 준다(`ShopTokens` `inline` 머리말).
+              ⚠ 폰은 여기 안 붙인다 — 이 줄은 화면 밖으로 흐르는 줄이라 끝에 붙으면 밀어야 보인다.
+            */}
+            {!mobile ? (
+              <ShopTokens inline tokens={tokens}
+                onRemove={(axis, key) => onToggle(axis as ShopAxis, key)}
+                onClear={list.length ? onClearAll : undefined} />
+            ) : null}
           </div>
         </div>
 
@@ -343,12 +367,11 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
           ★폰은 여기가 아니라 **제 어깨 줄(건수+정렬) 밑**이다 — 아래 `mobile ?` 를 보라.
             규칙은 같다: **건수 밑줄.** 기둥이 없으니 가로지를 것이 없을 뿐이다.
         */}
-        {!mobile ? (
-          <ShopTokens tokens={tokens}
-            onRemove={(axis, key) => onToggle(axis as ShopAxis, key)}
-            /* 0건이면 본문 한가운데 「처음부터 다시 찾기」가 그 일을 한다 — 문을 둘 두지 않는다. */
-            onClear={list.length ? onClearAll : undefined} />
-        ) : null}
+        {/*
+          ⚠ 여기 웹 «제 줄»이 있었다(2026-09-06~09-08). 사장님이 2026-09-08 에 **칩 줄 뒤**로
+            옮기라 하셔서 위(`fp-shop-rail` 안)로 갔다. 폰은 그대로 제 줄이다 — 아래를 보라.
+          ★2026-09-06 에 물린 「건수 줄 오른쪽」과는 **다른 자리**다(`ShopTokens` `inline` 머리말).
+        */}
 
         <div style={{
           display: 'flex', gap: SHOP.sp.pane, alignItems: 'flex-start',
