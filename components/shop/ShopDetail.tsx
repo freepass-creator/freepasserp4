@@ -21,6 +21,7 @@ import { getAuthClient } from '@/lib/firebase/client';
 import { useSession, useAuthReady } from '@/lib/auth-context';
 import { creditDisplay, CREDIT_UNSET, parseProductOptions, priceList } from '@/lib/domain/product';
 import { PERKS, hasPerk } from '@/lib/domain/product-filters';
+import { displacementL } from '@/components/product-card-identity';
 import { vehicleNameOf } from '@/lib/domain/vehicle-name';
 import { yearFullDisplay, fuelDisplay, makerDisplay } from '@/lib/domain/vehicle-master-format';
 import { isEvFuel, kmDisplay, kmValue, manWon } from '@/lib/format';
@@ -235,7 +236,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
       [isEvSpec ? '배터리' : '배기량',
         isEvSpec
           ? (Number(p.battery_capacity) > 0 ? `${Number(p.battery_capacity)}kWh` : '')
-          : (cc > 0 ? `${cc.toLocaleString('ko-KR')}cc` : '')],
+          : displacementL(cc)],   // 리터 표기(카드와 같은 함수 — `displacementL`)
       ['연료', fuelDisplay(p.fuel_type) || String(p.fuel_type || '')],
       ['구동방식', String(p.drive_type || '')],
       ['승차정원', seats > 0 ? `${seats}인승` : ''],

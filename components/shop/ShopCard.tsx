@@ -12,6 +12,7 @@ import { haptic } from '@/lib/haptics';
 import { cheapest, creditDisplay, CREDIT_UNSET } from '@/lib/domain/product';
 import { PERKS, hasPerk } from '@/lib/domain/product-filters';
 import { vehicleNameOf } from '@/lib/domain/vehicle-name';
+import { displacementL } from '@/components/product-card-identity';
 import { yearFullDisplay, fuelDisplay } from '@/lib/domain/vehicle-master-format';
 import { isEvFuel, kmDisplay, kmValue, manShort } from '@/lib/format';
 
@@ -98,7 +99,13 @@ export const ShopCard = memo(function ShopCard({ p, href }: {
   const facts = [
     yearFullDisplay(p.year),
     km > 0 ? kmDisplay(p.mileage) : '',
-    cc > 0 ? `${cc.toLocaleString('ko-KR')}cc` : '',
+    /*
+     * ★배기량은 **리터**로 적는다 — 「2,151cc」가 아니라 「2.2」(사장님 2026-09-05 「배기량을
+     *   **1.6 이렇게 변환해서 표시** · 원자 값은 그대로」). 원자의 `engine_cc` 는 안 바꾼다 —
+     *   **보이는 것만** 바꾼다(업무동 카드도 같은 함수를 쓴다 — `displacementL`).
+     * ★단위를 안 붙인다 — 「2.2 · 디젤」이면 손님은 «2.2리터 디젤»로 읽는다(중고차 판의 말버릇).
+     */
+    displacementL(cc),
     fuelDisplay(p.fuel_type) || String(p.fuel_type || '').trim(),
   ].filter(Boolean).join(' · ');
 
