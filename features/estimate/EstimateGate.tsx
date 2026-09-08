@@ -15,10 +15,17 @@ import Link from 'next/link';
 import '@/components/estimate/estimate.css';
 import { useSession, useAuthReady } from '@/lib/auth-context';
 import { canSeeEstimate } from '@/lib/domain/estimate/audience';
+import { isPublicPath } from '@/lib/public-access';
 
 export default function EstimateGate({ children }: { children: ReactNode }) {
   const ready = useAuthReady();
   const session = useSession();
+
+  /* ★★2026-09-08 «임시 공개» — 사장님 「일단 모두 공개로 해주고 로그인할지 말지는 나중에」.
+     문지기를 **지우지 않고** 열어 둔다. 닫을 때 이 한 줄만 걷으면 명단이 그대로 되살아난다
+     (`lib/domain/estimate/audience` · `lib/public-access.ts` 도 같이 되돌린다).
+     ⚠ 지우면 다음 사람이 「원래 문이 없던 화면」으로 안다. 그래서 남겨 둔다. */
+  if (isPublicPath('/estimate')) return <>{children}</>;
 
   if (!ready) return null;                       // 판정 전에는 아무것도 말하지 않는다
   if (canSeeEstimate(session?.role)) return <>{children}</>;

@@ -168,6 +168,7 @@ function EstimatePageInner() {
   const [disc, setDisc] = useState(0);
   const [dep, setDep] = useState(10);
   const [pre, setPre] = useState(0);
+  /* 위 조건 칸은 «다섯 줄을 한꺼번에» 바꾸는 손잡이다. 줄마다 따로 잡고 싶으면 그 줄에서 고친다. */
   /**
    * 원가 설정(`/estimate/cost`)이 정한 값 — 견적은 그것으로 계산한다.
    * ★첫 그림은 «캐시»로 즉시 그리고(대여료가 서 있어야 한다), 곧바로 **회사 값**을 받아 덮는다.
@@ -198,11 +199,12 @@ function EstimatePageInner() {
    * 손님 발송용 견적 — 원본 `TermsGrid`. 「기본 견적」과 달리 **열마다** 기간·보증금·선납이 따로 논다.
    * 체크한 열만 손님에게 나간다(발송 자체는 아직 안 붙었다 — 다음 일감).
    */
-  const [scen, setScen] = useState([
-    { term: 36, dep: 10, pre: 0, send: true },
-    { term: 48, dep: 10, pre: 0, send: true },
-    { term: 60, dep: 10, pre: 0, send: true },
-  ]);
+  /** 다섯 해 각각의 조건 — 보증금·선납은 «줄마다» 잡는다(그게 「설계」다). */
+  const [scen, setScen] = useState(() => TERMS.map((term) => ({
+    term, dep: 10, pre: 0, send: term >= 36,
+  })));
+  /** 어느 해의 «속»을 펼쳐 봤나 — 줄을 누르면 그 해의 원가 분해가 그 자리에서 열린다. */
+  const [openTerm, setOpenTerm] = useState<number | null>(48);
 
   // 회사 값을 받아 덮는다 — 사장님이 정한 원가가 있으면 그것이 이긴다.
   useEffect(() => {
@@ -273,12 +275,12 @@ function EstimatePageInner() {
     return { ...safeComputeTerm(t, input, { idx: t }), term: t };
   }, [ch, type, price, isNew, credit, fee, residPct, nowYear, cost, cc, picked.fuel, usedMileage, usedYear, acq]);
 
-  /** 손익 칸이 쓰는 다섯 기간 — 조건은 위 폼에서 온다. */
-  const cards = useMemo<Card[]>(() => TERMS.map((t) => mk(t, dep, pre)), [mk, dep, pre]);
-  /** 「기본 견적」 — 원본대로 60·48·36 세 장 고정, 조건은 위 폼 그대로(편집 X). */
-  const refCards = useMemo<Card[]>(() => [60, 48, 36].map((t) => mk(t, dep, pre)), [mk, dep, pre]);
-  /** 「손님 발송용 견적」 — 열마다 제 조건으로 따로 센다. */
-  const scenCards = useMemo<Card[]>(() => scen.map((x) => mk(x.term, x.dep, x.pre)), [mk, scen]);
+  /**
+   * ★다섯 해가 «각자 제 조건»으로 선다 — 이 한 벌이 화면의 전부다.
+   *   그 전에는 「기본 견적(고정 3장)」과 「손님 발송용(자유 3열)」과 「손익(오른쪽 탭)」 셋이 따로 있었다.
+   *   같은 숫자를 세 군데서 세니 어디를 봐야 하는지가 흐려졌다(사장님 2026-09-08 「우측에 따로 놓지 말고」).
+   */
+  const lines = useMemo<Card[]>(() => scen.map((x) => mk(x.term, x.dep, x.pre)), [mk, scen]);
 
   /** 손바뀜을 «몇 번»으로 풀어 보여 주기 위한 값 — 원가 설정의 반납률에서 온다. */
   const retentionOf = useCallback((c: string) => (c === '저신용' ? cost.retentionLowPct
@@ -483,7 +485,7 @@ function EstimatePageInner() {
                   onChange={(e) => setManualCc(digits(e.target.value))} /><em>cc</em></span>
               </div>
             ) : null}
-            {cards[0]?.incompleteCc ? (
+            {lines[0]?.incompleteCc ? (
               <div className="wx-warn">배기량이 없어 자동차세가 0 으로 섭니다 — 위 칸에 넣어 주세요.</div>
             ) : null}
             <div className="cs-field">
@@ -562,105 +564,99 @@ function EstimatePageInner() {
           <div className="qc-field">
             <label>보증금</label>
             <span className="qc-pct"><input type="number" min={0} max={100} value={dep}
-              onChange={(e) => setDep(Math.max(0, Math.min(100, Number(e.target.value) || 0)))} /><em>%</em></span>
+              onChange={(e) => { const v = Math.max(0, Math.min(100, Number(e.target.value) || 0)); setDep(v); setScen((a) => a.map((x) => ({ ...x, dep: v }))); }} /><em>%</em></span>
           </div>
           <div className="qc-field">
             <label>선납금</label>
             <span className="qc-pct"><input type="number" min={0} max={100} value={pre}
-              onChange={(e) => setPre(Math.max(0, Math.min(100, Number(e.target.value) || 0)))} /><em>%</em></span>
+              onChange={(e) => { const v = Math.max(0, Math.min(100, Number(e.target.value) || 0)); setPre(v); setScen((a) => a.map((x) => ({ ...x, pre: v }))); }} /><em>%</em></span>
           </div>
         </div>
 
-        <div className="qp-terms__title">기본 견적</div>
-        <div className="reference-grid">
-          {refCards.map((c) => (
-            <div className={`term-card term-card--ref${c.payVat ? '' : ' term-card--empty'}`} key={c.term}>
-              <div className="term-card__head"><span className="ref-term-label">{c.term}개월</span></div>
-              <div className="term-card__monthly">{c.payVat ? fmtNum(c.payVat) : '—'}<em>원</em></div>
-              <div className="term-card__row"><span>보증금 <em className="ref-pct">{dep}%</em></span><b>{fmtNum(c.deposit)}</b></div>
-              <div className="term-card__row"><span>선납금 <em className="ref-pct">{pre}%</em></span><b>{fmtNum(prepayAmt)}</b></div>
-            </div>
-          ))}
-        </div>
-
-        {/* 손님 발송용 견적 — 원본 `TermsGrid`. 열마다 기간·보증금·선납을 따로 잡고, 체크한 것만 보낸다. */}
-        <div className="qp-terms__title qp-terms__title--customer">손님 발송용 견적 <small>· 자유 조합 + 발송 체크</small></div>
-        <div className="terms-grid">
-          {scen.map((s, i) => {
-            const c = scenCards[i];
+        {/* ══ 1년 ~ 5년 — **각 줄에 대여료·조건·수익·원가가 다 있다** ══════════════
+               사장님 2026-09-08 「우측에서 1년부터 5년까지 **설계**되게끔 해주고
+               각 기간별로 **수익이나 원가 볼 수 있게끔 그 라인에 표현**해주면 돼. **우측에 따로 놓지 말고**」
+             · 보증금·선납은 **줄마다** 잡는다(그게 「설계」다). 위 조건 칸은 다섯 줄을 한꺼번에 바꾼다.
+             · 줄을 누르면 그 해의 **원가 분해**가 그 자리에서 열린다 — 탭으로 옮겨 다니지 않는다.
+             · 체크한 줄만 손님 견적서로 나간다(원본 「견적서에 포함」). ══ */}
+        <div className="qp-terms__title">기간별 설계 <small>· 줄마다 조건 · 누르면 원가</small></div>
+        <div className="qlines">
+          <div className="qline__cap">
+            <span /><span>기간</span><span>월 대여료</span><span>보증금</span><span>선납금</span>
+            <span>만기인수</span><span>매출</span><span>원가</span><span>영업이익</span><span />
+          </div>
+          {scen.map((sc, i) => {
+            const c = lines[i];
+            const v = pnl(c, Math.round(price * sc.pre / 100));
+            /* 원가 칸은 «총원가»다 — 매출원가 + 판관비. 그래야 「매출 − 원가 = 영업이익」이 눈으로 맞는다.
+               (매출원가만 넣으면 수수료가 빠져 줄에서 뺄셈이 안 맞는다 — 2026-09-08 정지 그림에서 잡았다.) */
+            const cogs = v.rev - v.opProfit;
+            const isOpen = openTerm === sc.term;
             return (
-              <div className={`term-card${s.send ? '' : ' unchecked'}`} key={i}>
-                <div className="term-card__head">
-                  <select className="term-card__term-dd" value={s.term}
-                    onChange={(e) => setScen((a) => a.map((x, j) => (j === i ? { ...x, term: Number(e.target.value) } : x)))}>
-                    {TERMS.map((t) => <option key={t} value={t}>{t}개월</option>)}
-                  </select>
-                  <label className={`term-card__check${s.send ? ' is-checked' : ''}`}>
-                    <input type="checkbox" checked={s.send}
+              <div className={`qline${isOpen ? ' open' : ''}${sc.send ? '' : ' off'}`} key={sc.term}>
+                <div className="qline__head">
+                  <label className="qline__send" title="체크한 줄만 손님 견적서로 나갑니다">
+                    <input type="checkbox" checked={sc.send}
                       onChange={(e) => setScen((a) => a.map((x, j) => (j === i ? { ...x, send: e.target.checked } : x)))} />
-                    <span className="term-card__check-cap">견적서에 포함</span>
                   </label>
+                  <button type="button" className="qline__term" onClick={() => setOpenTerm(isOpen ? null : sc.term)}>
+                    {sc.term / 12}년<em>{sc.term}개월</em>
+                  </button>
+                  <span className="qline__pay">{c.payVat ? fmtNum(c.payVat) : '—'}<em>원/월</em></span>
+
+                  <span className="qline__f pct" data-cap="보증금">
+                    <input type="text" inputMode="numeric" maxLength={3} value={sc.dep}
+                      onChange={(e) => setScen((a) => a.map((x, j) => (j === i ? { ...x, dep: Math.min(100, digits(e.target.value)) } : x)))} />
+                    <i>%</i><b>{man(c.deposit || 0)}</b>
+                  </span>
+                  <span className="qline__f pct" data-cap="선납금">
+                    <input type="text" inputMode="numeric" maxLength={3} value={sc.pre}
+                      onChange={(e) => setScen((a) => a.map((x, j) => (j === i ? { ...x, pre: Math.min(100, digits(e.target.value)) } : x)))} />
+                    <i>%</i><b>{man(Math.round(price * sc.pre / 100))}</b>
+                  </span>
+                  <span className="qline__f" data-cap="만기인수">
+                    <b>{man(Math.round(price * (c.residualRate || 0)))}</b>
+                    <i>{Math.round((c.residualRate || 0) * 100)}%</i>
+                  </span>
+                  <span className="qline__f" data-cap="매출"><b>{man(v.rev)}</b></span>
+                  <span className="qline__f" data-cap="원가"><b>{man(cogs)}</b></span>
+                  <span data-cap="영업이익" className={`qline__f profit${v.opProfit < 0 ? ' neg' : ''}`}>
+                    <b>{man(v.opProfit)}</b><i>{(v.opPct * 100).toFixed(1)}%</i>
+                  </span>
+                  <button type="button" className="qline__more" onClick={() => setOpenTerm(isOpen ? null : sc.term)}
+                    aria-label={isOpen ? '접기' : '원가 펼치기'}>{isOpen ? '−' : '+'}</button>
                 </div>
-                <div className="term-card__monthly">{c.payVat ? fmtNum(c.payVat) : '—'}<em>원</em></div>
-                <div className="term-card__cond">
-                  <label><span>보증금</span><span className="pct-cell"><input type="text" inputMode="numeric" maxLength={3} value={s.dep}
-                    onChange={(e) => setScen((a) => a.map((x, j) => (j === i ? { ...x, dep: Math.min(100, digits(e.target.value)) } : x)))} />%</span></label>
-                  <label><span>선납금</span><span className="pct-cell"><input type="text" inputMode="numeric" maxLength={3} value={s.pre}
-                    onChange={(e) => setScen((a) => a.map((x, j) => (j === i ? { ...x, pre: Math.min(100, digits(e.target.value)) } : x)))} />%</span></label>
-                </div>
-                <div className="term-card__row">
-                  <span>만기인수<em className="resid-pct">{Math.round((c.residualRate || 0) * 100)}%</em></span>
-                  <b>{fmtNum(Math.round(price * (c.residualRate || 0)))}</b>
-                </div>
-                <div className="term-card__row"><span>보증금</span><b>{fmtNum(c.deposit)}</b></div>
-                <div className="term-card__row"><span>선납금</span><b>{fmtNum(Math.round(price * s.pre / 100))}</b></div>
+
+                {isOpen ? (
+                  <div className="qline__body">
+                    <div className="pnl-row sum"><span className="k">매출 <em>공급가 · {sc.term / 12}년</em></span><span className="v">{won(v.rev)}</span></div>
+                    <div className="pnl-row head"><span className="k">매출원가</span><span className="v" /></div>
+                    <div className="pnl-row minus"><span className="k">차량 감가 <em>취득 − 잔존 · 잔가 {Math.round((c.residualRate || 0) * 100)}%</em></span><span className="v">−{won(v.dep)}</span></div>
+                    <div className="pnl-row minus"><span className="k">금융비용 <em>조달이자</em></span><span className="v">−{won(v.interest)}</span></div>
+                    <div className="pnl-row minus"><span className="k">직접 운영비 <em>보험·자차충당·정비·GPS·세금</em></span><span className="v">−{won(v.direct)}</span></div>
+                    {v.turnover > 0 ? (
+                      <div className="pnl-row minus">
+                        <span className="k">손바뀜 위험 <em>{credit} · 유지율 {retentionPct}% → {turnovers.toFixed(2)}회 × {man(v.turnover / turnovers)}원</em></span>
+                        <span className="v">−{won(v.turnover)}</span>
+                      </div>
+                    ) : null}
+                    <div className="pnl-row sum"><span className="k">매출총이익</span><span className="v">{won(v.gp)}</span></div>
+                    <div className="pnl-row head"><span className="k">판매관리비</span><span className="v" /></div>
+                    <div className="pnl-row minus"><span className="k">영업수수료 <em>{fee}%</em></span><span className="v">−{won(v.fee)}</span></div>
+                    <div className="pnl-row pay"><span className="k">영업이익 <em>{(v.opPct * 100).toFixed(1)}%</em></span><span className="v">{won(v.opProfit)}</span></div>
+                  </div>
+                ) : null}
               </div>
             );
           })}
         </div>
 
         <div className="footnote">
-          금액은 부가세 포함 월 대여료 · 잔가는 국산 표준곡선 + 차종델타 · 원가는 <Link href="/estimate/cost">원가 설정</Link>이 정한 값<br />
+          금액은 부가세 포함 월 대여료 · 잔가는 국산 표준곡선 + 차종델타 · 원가는 <Link href="/estimate/cost">원가설정</Link>이 정한 값<br />
           조달금리·손바뀜·취득세·공채·등록비·자동차세·보험·정비 반영 · 업계 기준선 추정<br />
           실채택 전 엔카·KB차차차 실시세 검산 필요
         </div>
       </section>
-
-      {/* ══ 우 — 원가·손익 (원본이 계약·채팅을 놓던 셋째 칸) ═══════════════
-             ★사장님 2026-09-07 「신차에서 중고차로만 «변환»하고 «원가구조»만 다르게 쓰면 된다」.
-               짜임은 웰릭스 그대로 두고, 이 칸에만 우리 원가가 선다. ══ */}
-      <aside className="contract-panel">
-        <div className="qp-terms__title">원가 · 손익</div>
-        <div className="pnl-tabs">
-          {TERMS.map((t) => (
-            <button key={t} type="button" className={open === t ? 'on' : ''} onClick={() => setOpen(t)}>{t / 12}년</button>
-          ))}
-        </div>
-        {(() => {
-          const c = cards.find((x) => x.term === open) ?? cards[0];
-          const v = pnl(c, prepayAmt);
-          return (
-            <>
-              <div className="pnl-row sum"><span className="k">매출 <em>공급가 · {c.term / 12}년</em></span><span className="v">{won(v.rev)}</span></div>
-              <div className="pnl-row head"><span className="k">매출원가</span><span className="v" /></div>
-              <div className="pnl-row minus"><span className="k">차량 감가 <em>취득 − 잔존 · 잔가 {Math.round((c.residualRate || 0) * 100)}%</em></span><span className="v">−{won(v.dep)}</span></div>
-              <div className="pnl-row minus"><span className="k">금융비용 <em>조달이자</em></span><span className="v">−{won(v.interest)}</span></div>
-              <div className="pnl-row minus"><span className="k">직접 운영비 <em>보험·자차충당·정비·GPS·세금</em></span><span className="v">−{won(v.direct)}</span></div>
-              {v.turnover > 0 ? (
-                <div className="pnl-row minus">
-                  <span className="k">손바뀜 위험 <em>{credit} · 유지율 {retentionPct}% → {turnovers.toFixed(2)}회 × {man(v.turnover / turnovers)}원</em></span>
-                  <span className="v">−{won(v.turnover)}</span>
-                </div>
-              ) : null}
-              <div className="pnl-row sum"><span className="k">매출총이익</span><span className="v">{won(v.gp)}</span></div>
-              <div className="pnl-row head"><span className="k">판매관리비</span><span className="v" /></div>
-              <div className="pnl-row minus"><span className="k">영업수수료 <em>{fee}%</em></span><span className="v">−{won(v.fee)}</span></div>
-              <div className="pnl-row pay"><span className="k">영업이익 <em>{(v.opPct * 100).toFixed(1)}%</em></span><span className="v">{won(v.opProfit)}</span></div>
-              <div className="pnl-row"><span className="k">보증금 <em>{dep}%</em> · 선납 <em>{pre}%</em></span><span className="v">{won(v.depAmt)} · {won(v.preAmt)}</span></div>
-            </>
-          );
-        })()}
-      </aside>
 
       {/* 왼쪽은 이제 캐스케이드다. 이 시트는 **이름을 알 때 한 번에 가는 길**(폰 하단 「검색」 탭)로만 뜬다 —
           왼쪽에 박아 두면 그게 굵어진다(사장님 2026-09-08 「저렇게 굵을 필요 없고」).

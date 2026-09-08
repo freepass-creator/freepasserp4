@@ -147,6 +147,96 @@ tail = """
 /* 고른 차 되짚기 — 넷을 다 누르고 나면 위가 안 보인다. */
 .wx-root .cascade-echo { padding: 8px 0 0; font-size: 11.5px; color: var(--ink-3); line-height: 1.5; }
 
+/* ══ 기둥이 «둘»이 됐다 — 사장님 2026-09-08 「우측에 따로 놓지 말고」 ═══════════
+   원본 웰릭스는 셋째 칸에 계약접수·채팅을 놓았고, 우리는 거기에 원가·손익을 놓았었다.
+   그런데 원가를 따로 두면 「4년이 왜 이 값인지」를 보려고 탭을 옮겨 다녀야 하고
+   다섯 해를 **나란히 견줄 수가 없다.** ⇒ 셋째 칸을 없애고 각 «줄» 안으로 넣었다.
+   좌 400(차량 선택) : 우 나머지(조건 + 1~5년 설계). */
+.wx-root:not(.cost) { grid-template-columns: 400px minmax(0, 1fr); }
+
+/* ── 1년~5년 줄 ────────────────────────────────────────────────────────────
+   한 줄에 = [체크] 기간 · 월대여료 · 보증금 · 선납금 · 만기인수 · 매출 · 원가 · 영업이익 · [펼치기]
+   ⚠ 숫자는 **줄바꿈하지 않는다**. 좁으면 표가 «제 안에서» 밀린다(화면 전체가 밀리면 안 된다). */
+.wx-root .qlines { overflow-x: auto; }
+.wx-root .qline__cap,
+.wx-root .qline__head {
+  display: grid;
+  grid-template-columns: 26px 78px minmax(120px, 1.1fr) 104px 104px 104px 92px 92px 108px 26px;
+  align-items: center; gap: 8px; min-width: 940px;
+}
+.wx-root .qline__cap {
+  padding: 0 2px 6px; font-size: 10px; color: var(--ink-4); letter-spacing: .3px;
+  border-bottom: 1px solid var(--line-2);
+}
+.wx-root .qline__cap > span { text-align: right; }
+.wx-root .qline__cap > span:nth-child(2) { text-align: left; }
+.wx-root .qline { border-bottom: 1px solid var(--line); }
+.wx-root .qline:hover { background: var(--bg-soft); }
+.wx-root .qline.off { opacity: .45; }
+.wx-root .qline.open { background: var(--brand-50); }
+.wx-root .qline__head { padding: 10px 2px; }
+.wx-root .qline__send { display: flex; align-items: center; justify-content: center; cursor: pointer; }
+.wx-root .qline__send input { width: 15px; height: 15px; accent-color: var(--brand); cursor: pointer; }
+.wx-root .qline__term {
+  border: 0; background: transparent; font-family: inherit; cursor: pointer; text-align: left;
+  font-size: 15px; font-weight: 700; color: var(--ink-1); padding: 0; line-height: 1.15;
+}
+.wx-root .qline__term em { display: block; font-style: normal; font-size: 10px; font-weight: 400; color: var(--ink-4); }
+.wx-root .qline__pay {
+  text-align: right; font-size: 20px; font-weight: 700; color: var(--ink-1);
+  font-variant-numeric: tabular-nums; white-space: nowrap; letter-spacing: -.6px;
+}
+.wx-root .qline__pay em { font-style: normal; font-size: 10.5px; font-weight: 400; color: var(--ink-4); margin-left: 3px; }
+.wx-root .qline__f {
+  display: flex; flex-direction: column; align-items: flex-end; gap: 1px;
+  font-variant-numeric: tabular-nums; white-space: nowrap; min-width: 0;
+}
+.wx-root .qline__f b { font-size: 12.5px; font-weight: 600; color: var(--ink-1); }
+.wx-root .qline__f i { font-style: normal; font-size: 10px; color: var(--ink-4); }
+.wx-root .qline__f.pct { flex-direction: row; align-items: baseline; justify-content: flex-end; gap: 2px; flex-wrap: wrap; }
+.wx-root .qline__f.pct input {
+  width: 34px; height: 24px; text-align: right; padding: 0 2px;
+  border: 0; border-bottom: 1px solid var(--line-2); background: transparent;
+  font: inherit; font-size: 12.5px; font-weight: 600; color: var(--brand); outline: none;
+  font-variant-numeric: tabular-nums;
+}
+.wx-root .qline__f.pct input:focus { border-bottom-color: var(--ink-1); }
+.wx-root .qline__f.pct b { flex-basis: 100%; text-align: right; font-size: 10.5px; font-weight: 500; color: var(--ink-4); }
+.wx-root .qline__f.profit b { color: var(--brand); font-size: 13.5px; }
+.wx-root .qline__f.profit.neg b { color: #b23b3b; }
+.wx-root .qline__more {
+  width: 22px; height: 22px; border: 1px solid var(--line-2); border-radius: var(--r-sm);
+  background: var(--bg); color: var(--ink-3); font-family: inherit; font-size: 13px; line-height: 1;
+  cursor: pointer; padding: 0;
+}
+.wx-root .qline__more:hover { border-color: var(--ink-3); color: var(--ink-1); }
+.wx-root .qline__body { padding: 4px 2px 14px; }
+
+/* 폰 — 열이 열이라 표가 안 들어간다. 라벨을 붙여 «카드 한 장»으로 접는다. */
+@media (max-width: 900px) {
+  .wx-root .qline__cap { display: none; }
+  .wx-root .qline__head {
+    grid-template-columns: 26px 1fr auto; min-width: 0;
+    grid-template-areas: 'send term pay' 'dep pre resid' 'rev cogs profit' 'more more more';
+    row-gap: 8px;
+  }
+  .wx-root .qline__send { grid-area: send; }
+  .wx-root .qline__term { grid-area: term; }
+  .wx-root .qline__pay { grid-area: pay; }
+  .wx-root .qline__head > .qline__f:nth-of-type(1) { grid-area: dep; }
+  .wx-root .qline__head > .qline__f:nth-of-type(2) { grid-area: pre; }
+  .wx-root .qline__head > .qline__f:nth-of-type(3) { grid-area: resid; }
+  .wx-root .qline__head > .qline__f:nth-of-type(4) { grid-area: rev; }
+  .wx-root .qline__head > .qline__f:nth-of-type(5) { grid-area: cogs; }
+  .wx-root .qline__head > .qline__f:nth-of-type(6) { grid-area: profit; }
+  .wx-root .qline__more { grid-area: more; width: 100%; }
+  /* 폰에서는 무슨 숫자인지 라벨이 붙어야 한다 — 머리줄이 없기 때문이다. */
+  .wx-root .qline__f::before {
+    content: attr(data-cap); font-size: 10px; color: var(--ink-4); margin-right: auto;
+  }
+  .wx-root .qline__f { flex-direction: row; align-items: baseline; justify-content: space-between; gap: 6px; }
+}
+
 /* 원가 화면 — 머리는 견적과 «같고», 몸통만 제 짜임을 쓴다(설정 34칸이라 기둥이 넷이다).
    사장님 2026-09-08 「각 페이지는 이거랑 맞춰야지, 원가랑 견적은 동일하게」.
    ⇒ 「동일하게」는 «머리·색·글꼴·토글»이다. 몸통까지 400/52/20 으로 밀면 설정 칸이 안 들어간다. */
