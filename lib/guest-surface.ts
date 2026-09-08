@@ -41,6 +41,14 @@ const channelPaths = (): string[] => WHITELABELS.map((w) => w.sitePath || '').fi
  * 제 머리를 가진 업무 면 — **상단바만** 벗는다(하단 홈바는 얹는다).
  * 화면이 자기 헤더를 이미 그리고 있어 ERP 상단바를 얹으면 머리가 둘이 된다.
  *
+ * ★★**`/estimate` 는 2026-09-08 에 «다시» 들어왔다** — 사장님
+ *   「이거 **별도 페이지**라서 위에 **상단바 없어도 되고**, 프리패스erp 내의 페이지가 아니라 **별도 페이지**야」
+ *   「**나중에 합치더라도 별도로 운용할 계획**임」
+ *   ⇒ 견적기는 이제 ERP 의 한 층이 아니라 **따로 서는 물건**이다. 같은 날 「모두 공개」(로그인 없음)로
+ *     바뀌었고, 「웰릭스·손오공은 없고 **프리패스 견적기**로 간다」고도 하셨다 — 셋이 한 방향이다.
+ *   ★길은 자체 머리에 있다 — `.global-topbar` 의 「견적내기 | 원가설정」 토글.
+ *
+ * ⚠ 아래는 그 전 이야기다(2026-09-07 에 뺐던 까닭). 뒤엣것이 이긴다.
  * ⚠⚠ **`/estimate` 는 2026-09-07 에 여기서 뺐다.**
  *   9/6 사장님 「완전 별도 페이지라고 얘기할 정도로」를 «껍데기를 벗어라»로 읽고 넣었는데,
  *   9/7 사장님이 바로잡으셨다 — 「**난 로그인해서 «내부 페이지»처럼 하자는 거였음**」
@@ -49,7 +57,7 @@ const channelPaths = (): string[] => WHITELABELS.map((w) => w.sitePath || '').fi
  *     상단바·전체메뉴를 도로 얹고, 견적기 자체 머리에서는 **워드마크를 뺐다**(머리가 둘이 되지 않게).
  *   ⚠ 로그인은 처음부터 필요했고 지금도 필요하다(관리자·공급사만 · `EstimateGate`).
  */
-const OWN_HEADER_PREFIXES = [] as const;
+const OWN_HEADER_PREFIXES = ['/estimate'] as const;
 
 function matches(list: readonly string[], pathname: string): boolean {
   return list.some((p) => (
