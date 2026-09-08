@@ -1188,7 +1188,14 @@ html[data-fp-filter="0"] .fp-finder > .fp-sidebar { display: none; }
  * ★`overflow-y: visible` 이 아니라 hidden 이어야 세로로 덜컹거리지 않는다(가로만 민다).
  */
 .fp-shop-rail {
-  display: flex; flex-wrap: nowrap; gap: 8px;
+  /*
+   * ★★**세로 가운데로 세운다.** 안 걸면 기본값이 `stretch` 라, 높이를 «안 박은» 것만
+   *   골라 위로 붙는다 — 칩은 26 을 박아 멀쩡한데 가름선(16)만 5px 떠 보였다
+   *   (사장님 2026-09-08 「세로바도 안 맞고 · 위치 정렬 가로라인 잘 맞춰 주세요」).
+   * ⇒ 줄에 서는 것이 늘 «같은 높이»라는 보장이 없다. 가운데로 못 박아 두면
+   *   다음에 높이가 다른 것을 하나 더 얹는 날 또 어긋난다.
+   */
+  display: flex; flex-wrap: nowrap; gap: 8px; align-items: center;
   overflow-x: auto; overflow-y: hidden;
   -webkit-overflow-scrolling: touch;
   scrollbar-width: none; -ms-overflow-style: none;
