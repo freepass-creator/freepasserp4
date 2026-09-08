@@ -496,7 +496,7 @@ for (const j of jobs) {
     HEAD.map((h) => (m[h] === undefined ? '' : m[h]));
   const body: (string | number | boolean)[][] = j.lines.map((l, i) => rowOf({
     'No.': i + 1, 차량번호: l.plate, 접수일: l.recv, 인도일: l.deliv, 공급사: l.sup, 모델명: l.model,
-    '차량 가격(신차)': l.price || '', 임차인: maskName(l.cust), 영업사: l.agent, '상품 구분': l.product,
+    '차량 가격(신차)': l.price || '', 임차인: maskName(l.cust), 영업채널: j.ch, 영업담당자: l.agent, '상품 구분': l.product,
     '계약 기간': l.term || '', 렌탈료: l.rent || '', 보증금: l.deposit, '납입 방식': l.payKind,
     [BASIS[0]]: l.how, 공급가액: l.net, 부가세: l.vat, 합계: l.total, '지급 예정일': payKo(l.sup),
     확인: note(l.plate)[0], 정정: note(l.plate)[1], 정정금액: note(l.plate)[2], '메모(정정사유)': note(l.plate)[3],
@@ -504,7 +504,7 @@ for (const j of jobs) {
   /** ★환수는 «같은 표»에 음수로 선다 — 표를 둘로 쪼개면 합계를 두 번 보게 된다. */
   for (const b of j.backs) {
     body.push(rowOf({
-      차량번호: b.plate, 공급사: b.sup, 모델명: '지난 지급분 환수', [BASIS[0]]: b.why,
+      차량번호: b.plate, 공급사: b.sup, 모델명: '지난 지급분 환수', 영업채널: j.ch, [BASIS[0]]: b.why,
       공급가액: -b.amt, 부가세: -Math.round(b.amt * VAT), 합계: -(b.amt + Math.round(b.amt * VAT)),
       '지급 예정일': payKo(b.sup), 확인: note(b.plate)[0], 정정: note(b.plate)[1], 정정금액: note(b.plate)[2], '메모(정정사유)': note(b.plate)[3],
     }));
