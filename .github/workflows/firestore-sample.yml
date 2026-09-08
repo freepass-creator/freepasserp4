@@ -28,7 +28,11 @@ jobs:
       - run: npm ci
 
       - name: 자격증명 놓기
-        env: { SA: ${{ secrets.GOOGLE_SA_JSON }} }
+        # ★흐름형(`{ }`) 안에 «${{ }}» 를 맨몸으로 두면 YAML 이 못 읽는다 — `{` 가 또 다른
+        #   흐름 매핑의 시작으로 잡힌다. 그러면 GitHub 이 스텝을 돌리기도 «전»에 런을 실패시킨다
+        #   (2026-09-08 발견: 이 한 줄 때문에 이 워크플로는 첫 커밋부터 성공한 적이 없다).
+        env:
+          SA: ${{ secrets.GOOGLE_SA_JSON }}
         run: |
           test -n "$SA" || { echo '::error::GOOGLE_SA_JSON 시크릿이 없습니다. Settings → Secrets 에 넣어라.'; exit 1; }
           mkdir -p tmp/firebase-auth
