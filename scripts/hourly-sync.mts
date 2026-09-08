@@ -826,6 +826,20 @@ if (APPLY) {
    *   여기서 정제시트의 세부트림·외장색상·주행거리를 읽어 «비었거나 명백히 틀린 것만» 채운다(기존값·상태 안 건드림).
    *   ⑭ 미러 «앞»이라 이번 시각에 채운 값이 곧바로 Firestore 로 전파된다. best-effort — 실패해도 안 멈춘다.
    */
+  /**
+   * ⑬¼ **원천 → 원자 직접수집(돌아가며)** — 매 회차 «가장 오래된 몇 곳»만 다시 당긴다.
+   *   ⚠⚠ 2026-09-08 발견 — 직접수집이 **이 회차에 아예 없었다.** 사람이 손으로 돌릴 때만 원자가 갱신됐고,
+   *   그래서 웰릭스가 **폐기된 시트**를 24일 읽는 동안 아무도 몰랐다(K8이 「모닝」으로 실렸다).
+   *   원자가 낡으면 상품리스트·하허호·ERP·손님 면이 **한꺼번에** 낡는다.
+   * ★스무 곳을 한 회차에 다 읽으면 구글 분당 한도로 죽고, 죽으면 한 곳도 갱신이 안 된다 —
+   *   그래서 셋씩 돌아간다(일곱 시간에 한 바퀴 · 하루 세 바퀴). best-effort.
+   */
+  const rot = run('⑬¼ 원천→원자 수집(돌아가며)', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/ingest-rotation.mts', '--apply'], /돌아가며 수집|이틀 넘게|▲|✔|✗/);
+  if (rot.ok) line.push(rot.picked.find((l) => /돌아가며 수집/.test(l))?.replace(/^.*— /, '수집 ') || '수집 ok');
+  else warnings.push('⑬¼ 원천→원자 수집 실패(발행엔 영향 없음)');
+  const 묵은 = rot.picked.find((l) => /이틀 넘게 원자를 못 채운/.test(l));
+  if (묵은) warnings.push(묵은.replace(/^\s*▲\s*/, ''));
+
   const heal = run('⑬½ 원자 치유(정제시트)', ['scripts/fix-atoms-from-refined-sheets.mts', '--apply'], /반영 완료|교정:|미리보기/);
   if (heal.ok) line.push(heal.picked.find((l) => /교정:/.test(l))?.replace(/^.*교정: /, '치유 ') || '치유 ok');
   else warnings.push('⑬½ 원자 치유 실패(발행엔 영향 없음)');
