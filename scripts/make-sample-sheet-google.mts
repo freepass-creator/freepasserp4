@@ -12,6 +12,8 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { JWT } from 'google-auth-library';
 import { buildSalesFormatRequests, columnWidths } from '../lib/domain/sales-sheet-format';
 import { companyAlias } from '../lib/domain/identity';
+import { autoplusDepositRuleText } from '../lib/domain/sales-published-tabs';
+import { isPlate } from '../lib/domain/plate-registry';
 
 const S = (v: unknown) => String(v ?? '').trim();
 const SRC_SHEET = '1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs';   // 기존 판매시트 = 본시트(영업자가 보는 곳). 헤더를 여기서 읽는다.
@@ -62,6 +64,25 @@ const listable = docs.filter((v) => v.listable === true);
 
 // ★전용계좌·공급사명 = 공급사(파트너) 정보(사장님 2026-09-03·09-04 「계좌·공급사명도 원자화된 거 갖고 와야지」).
 //   provider_company_code → 은행·계좌·예금주 · 회사명.
+/** 이름을 못 찾은 공급사 코드 — 코드로 때우지 않고 세어서 화면에 알린다. */
+/** 차번이 아니라 안 실은 줄 — 조용히 빼지 않고 목록으로 찍는다. */
+/**
+ * ★★**인기순 = «실제로 나간 것»(계약 실적)이다** (사장님 2026-09-08 「상품 많은 순은 별도고 인기순은 별도야」).
+ *   ERP 의 `popular` 은 라벨이 「상품 많은 순」이고 셈도 **재고 대수**라 «손님이 많이 찾는 차»가 아니다.
+ *   ⇒ 인기는 정산원장 계약 실적으로 센다(`scripts/build-model-popularity.mts` → `public/data/model-popularity.json`).
+ * ⚠ 실적 파일이 없으면 인기 축은 «없는 셈» 치고 넘어간다 — 재고 대수로 몰래 대신하지 않는다.
+ *   그렇게 대신하면 사장님이 갈라 놓으라 한 두 축이 다시 한 칸으로 뭉친다.
+ */
+const modelSold = new Map<string, number>();
+try {
+  const j = JSON.parse(readFileSync('public/data/model-popularity.json', 'utf8')) as { 순위?: Record<string, number> };
+  for (const [m, n] of Object.entries(j.순위 || {})) modelSold.set(S(m), Number(n) || 0);
+  console.log(`인기순(계약 실적) ${modelSold.size}가지 로드`);
+} catch { console.warn('인기순 파일 없음 — 인기 축은 건너뛴다(build-model-popularity 로 만든다)'); }
+/** 같은 실적이면 재고가 많은 모델을 위로 — 「상품 많은 순」은 «보조»축이다. */
+const modelCount = new Map<string, number>();
+const skippedNotPlate: string[] = [];
+const unnamedProviders = new Map<string, number>();
 const acctByProvider = new Map<string, string>();
 const nameByProvider = new Map<string, string>();
 {
@@ -76,6 +97,23 @@ const nameByProvider = new Map<string, string>();
     if (code && acct) acctByProvider.set(code, acct);
     if (code && nm) nameByProvider.set(code, nm);
   }
+  /**
+   * ★★**코드는 공급사가 아니다** (사장님 2026-09-08 「이제 절대 코드명으로 공급사 취급 안 할 거야」).
+   *   `v4/partners` 는 RTDB 이관 중이라 구멍이 있어, 이름을 못 찾은 차가 시트에 `RP031`·`RP004` 처럼
+   *   **코드로 실렸다**(실측 2026-09-08 · 310대). 그러면 한 회사가 두 이름으로 갈려 세어진다.
+   *   ⇒ 문패 「공급사시트정리」(공급사명 | 공급사코드 | 시트주소)를 **정본**으로 먼저 읽는다.
+   *     그 표는 발행기 ⑥ 이 시트 주소를 읽는 곳이라, ⑥ 과 ⑯ 의 공급사명이 저절로 같아진다.
+   */
+  try {
+    const INDEX_SHEET = '1TVeVXyJJRx0SzD2vxqy3eEjSojmMIWXSu7AdsKmpfmY';
+    const iv = await api(`https://sheets.googleapis.com/v4/spreadsheets/${INDEX_SHEET}/values/A1:Z200`);
+    for (const row of ((iv.values || []) as any[][])) {
+      const cells = (row || []).map(S);
+      const code = cells.find((c) => /^(RP|PT)[-_]?\d+/i.test(c));
+      const raw = cells.find((c) => c && c !== code && !/^https?:/.test(c));
+      if (code && raw) nameByProvider.set(code, companyAlias(raw) || raw);
+    }
+  } catch (e) { console.warn('  문패 못 읽음 — 공급사명은 partners 만 쓴다:', (e as Error).message); }
   console.log(`전용계좌 ${acctByProvider.size}개 · 공급사명 ${nameByProvider.size}개 로드`);
 }
 
@@ -142,8 +180,15 @@ const priceCell = (price: any, col: string): string => {
   const rentK = (k: string) => (P[k]?.rent != null ? money(P[k].rent) : '');
   const depAny = (suffix = '') => { for (const t of ['60', '48', '36', '24', '12']) { const k = suffix ? `${t}${suffix}` : t; if (P[k]?.deposit != null) return money(P[k].deposit); } return ''; };
   const m = col.match(/(\d+)개월/);
-  if (/반납형\s*보증금|보증금\s*반납형|^보증금$|장기보증/.test(col)) return depAny();
+  /**
+   * ★★**보증금은 «요금 규격 축»이 정한다** — `lib/domain/fee-shapes`. 축은 셋이다(표준·손오공·오플).
+   *   ⚠ 예전엔 여기서 `60·48·36·24·12` 키만 뒤져서 **오플이 통째로 빠졌다**(키가 `12_2만` 꼴).
+   *     원자엔 72대에 보증금이 있는데 시트 「보증금」 칸은 0/84 였다(실측 2026-09-08).
+   *   ⇒ 칸 이름으로 축의 보증금 규칙을 찾아 쓴다. 못 찾으면 «옛 규칙»으로 떨어진다(하위호환).
+   */
+  if (/반납형\s*보증금|보증금\s*반납형|장기보증/.test(col)) return depAny();
   if (/인수형\s*보증금|보증금\s*인수형/.test(col)) return depAny('_인수형');
+  if (/단기보증/.test(col)) { for (const t of ['1', '6']) { if (P[t]?.deposit != null) return money(P[t].deposit); } return ''; }
   if (m) {
     const n = m[1];
     if (/인수형/.test(col)) return rentK(`${n}_인수형`);
@@ -226,13 +271,36 @@ const cell = (col: string, v: any): string => {
   if (col in direct) return direct[col];
   if (col === '차번링크') return ticaByCar.get(NKEY(v.car_number)) || '';   // 픽업 = 티카 상품링크
   if (col === '전용계좌') return acctByProvider.get(S(v.provider_company_code)) || '';   // 공급사 계좌
-  if (col === '공급사') return nameByProvider.get(S(v.provider_company_code)) || S(v.provider_company_code);   // 공급사명(원자 파트너)
+  /**
+   * ★**공급사 칸에는 «이름»만 넣는다 — 코드는 안 넣는다** (사장님 2026-09-08).
+   *   예전엔 이름을 못 찾으면 코드를 그대로 실었다. 그러면 영업자·채널이 「RP031」을 회사로 읽고,
+   *   같은 회사가 «이안카»와 «RP031» 두 이름으로 갈려 세어진다(실측 310대).
+   *   못 찾으면 **비우고 아래에서 목록으로 찍는다** — 지어내지도, 코드로 때우지도 않는다.
+   */
+  if (col === '공급사') {
+    const code = S(v.provider_company_code);
+    const nm = nameByProvider.get(code);
+    if (!nm && code) unnamedProviders.set(code, (unnamedProviders.get(code) || 0) + 1);
+    return nm || '';
+  }
+  /**
+   * ★★**오플 「보증금」은 «금액이 아니라 말»이다** (사장님 2026-08-19 · 2026-09-08 「그냥 금액으로 넣는 게 아니라
+   *   말로 넣으면 된다고」). 오플 시트에는 보증금 칸이 아예 없고, 보증금은 «산출 규칙»으로만 정해진다 —
+   *   국산 = 월 대여료 ×2 · 수입 = 12개월 ×3, 18개월↑ ×6.
+   *   정본 = `sales-published-tabs.autoplusDepositRuleText` (「금액을 계산하지 않고 규칙만 글자로 둔다」).
+   *   ⚠ ⑯ 이 그 정본을 안 쓰고 금액을 찾다 못 찾아 **0/84 로 비워 두고 있었다**(실측 2026-09-08).
+   *     숫자를 지어 넣으면 그게 곧 «우리가 만든 오류»다 — 기간마다 다른 값을 한 칸에 못 담는다.
+   */
+  if (col === '보증금' && S(v.provider_company_code) === 'RP023') return autoplusDepositRuleText(S(v.maker));
   if (/보증|개월|반납형|인수형|만km|장기보증/.test(col)) return priceCell(v.price, col);
   return '';   // 소비자가격·그 밖 요금·연주행·탁송비·분납·사고다발 = 원천 없음(빈칸)
 };
 
 // ── 고정 시트 제자리 갱신 · 탭 이름 = 「base 업데이트시각 · N대」(기존 판매시트처럼) ──
 const kstNow = (() => { const d = new Date(Date.now() + 9 * 3600e3); const p = (n: number) => String(n).padStart(2, '0'); return `${p(d.getUTCMonth() + 1)}.${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`; })();
+for (const list of Object.values(groups)) for (const v of (list as any[])) {
+  const m = S((v as any).model); if (m) modelCount.set(m, (modelCount.get(m) || 0) + 1);
+}
 const titleOf = (base: string) => `${base} ${kstNow} · ${(groups[base] || []).length}대`;
 
 let sheetId = SAMPLE_SHEET_ID, fresh = false;
@@ -262,7 +330,67 @@ if (!meta) {
 const bodies: Record<string, string[][]> = {};
 const data = TAB_ORDER.map((t) => {
   const HEAD = headerCache[t];
-  const rows = (groups[t] || []).sort((a, b) => S(a.provider_company_code).localeCompare(S(b.provider_company_code)) || S(a.car_number).localeCompare(S(b.car_number))).map((v) => HEAD.map((c) => cell(c, v)));
+  /**
+   * ★★**차번이 아니면 싣지 않는다** (사장님 2026-09-08 「차량번호 없으면 당기면 안 되지」).
+   *   발행기 ⑥ 에는 이 가드가 있었는데(`REAL_PLATE`) 여기엔 없었다. 그래서 오플 원본 시트의
+   *   **배너 줄이 «차»가 되어 실렸다** — 「★★★ 전기차 프로모션(**수수료 150만원**) 페이지 참고 ★★★」.
+   *   차번 칸에 우리 수수료가 적힌 채 영업자·채널 시트로 나갔다(실측 2026-09-08 · 원자 3건).
+   * ⚠ 차번 없는 신차(선출고)는 «차대번호»로 싣는 길이 따로 있다 — 그건 여기서 막지 않는다.
+   */
+  const rows = (groups[t] || [])
+    .filter((v) => {
+      const car = S(v.car_number);
+      if (!car) return false;
+      if (isPlate(car)) return true;
+      skippedNotPlate.push(`${S(v.provider_company_code)} 「${car.slice(0, 40)}」`);
+      return false;
+    })
+    /**
+     * ★★**시트 기본 정렬 — 어떤 리스트도 같다** (사장님 2026-09-08).
+     *   매뉴얼 = `docs/영업자시트-매뉴얼.md` 「기본 정렬」. 새 시트를 만들면 여기 규칙을 그대로 쓴다.
+     *
+     * ```
+     * ① 신차가 맨 위               상품구분에 「신차」가 들면 먼저
+     * ② 모델별로 «묶는다»           신차는 인기순(계약 실적)으로 · 같은 실적이면 상품 많은 순 → 모델명
+     * ③ 묶음 «안»에서
+     *      신차 → 싼 대여료         새 차는 연식이 다 같아서 값이 갈림의 전부다
+     *      중고 → 최신 연식 먼저     같은 모델이면 연식이 값보다 먼저다(사장님 2026-09-08)
+     *                              연식이 같으면 그 다음이 싼 대여료
+     * ④ 공급사 · 차번               눈이 안 헤매게 고정 차례
+     * ```
+     * ★**「인기순」과 「상품 많은 순」은 다른 축이다** — 인기는 «팔린 것»(정산원장 계약 실적),
+     *   상품 많은 순은 «들고 있는 것»(재고 대수). ERP 는 둘을 `popular` 한 칸에 뭉쳐 두었는데
+     *   그건 고쳐야 할 자리라, 시트가 그 오류를 베끼지 않는다(사장님 2026-09-08 「ERP 정본이 잘못된 거야」).
+     * ⚠ 정렬은 «보는 차례»만 바꾼다. 한 줄의 값은 손대지 않는다.
+     */
+    .sort((a, b) => {
+      const isNew = (v: any) => (/신차/.test(S(v.product_type)) ? 0 : 1);
+      const sold = (v: any) => -(modelSold.get(S(v.model)) || 0);           // 많이 나간 차종이 위로(인기)
+      const pop = (v: any) => -(modelCount.get(S(v.model)) || 0);           // 같은 실적이면 재고 많은 쪽(보조)
+      /** 연식 — 「24년」·「2024」 섞여 들어온다. 숫자만 뽑아 두 자리는 2000년대로 편다. */
+      const year = (v: any) => {
+        const n = Number(S(v.year).replace(/[^0-9]/g, '').slice(0, 4));
+        if (!Number.isFinite(n) || !n) return 0;
+        return n < 100 ? 2000 + n : n;
+      };
+      const cheap = (v: any) => {
+        const P = v.price && typeof v.price === 'object' ? v.price as Record<string, any> : null;
+        if (!P) return Number.MAX_SAFE_INTEGER;
+        const rents = Object.values(P).map((x: any) => Number(x?.rent)).filter((n) => Number.isFinite(n) && n > 0);
+        return rents.length ? Math.min(...rents) : Number.MAX_SAFE_INTEGER;
+      };
+      const 묶음 = isNew(a) - isNew(b)
+        || sold(a) - sold(b)
+        || pop(a) - pop(b)
+        || S(a.model).localeCompare(S(b.model), 'ko');
+      if (묶음) return 묶음;
+      /** 묶음 안 — 신차는 값, 중고는 연식이 먼저다. */
+      const 안 = isNew(a) === 0 ? 0 : (year(b) - year(a));
+      return 안 || cheap(a) - cheap(b)
+        || S(a.provider_company_code).localeCompare(S(b.provider_company_code))
+        || S(a.car_number).localeCompare(S(b.car_number));
+    })
+    .map((v) => HEAD.map((c) => cell(c, v)));
   bodies[t] = rows;
   console.log(`  ${titleOf(t)} · ${HEAD.length}열`);
   return { range: `'${titleOf(t).replace(/'/g, "''")}'!A1`, values: [HEAD, ...rows] };

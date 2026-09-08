@@ -181,7 +181,15 @@ async function readRows(): Promise<Row[]> {
   const out: Row[] = [];
   const seen = new Set<string>();
   const push = (o: Partial<Row> & { car: string; tab: string; row: string }) => {
-    if (!o.car || seen.has(o.car) || !isPlate(o.car)) return; seen.add(o.car);
+    if (!o.car || seen.has(o.car) || !isPlate(o.car)) return;
+    /**
+     * ★**우리 수수료·원가가 적힌 줄은 원자로 만들지 않는다** (사장님 2026-09-08).
+     *   공급사 원본에는 「★★★ 전기차 프로모션(수수료 150만원) 페이지 참고 ★★★」 같은 배너 줄이 섞인다.
+     *   차번 가드를 지나더라도 그 글자가 원자에 남으면 **영업자·영업채널 시트로 우리 몫이 새어 나간다.**
+     *   실측 2026-09-08 — 오플 배너 3줄이 원자에 들어와 오플구독 탭 2행에 서 있었다.
+     */
+    if (/수수료|커미션|마진|원가/.test(`${o.car} ${S((o as any).vname)}`)) return;
+    seen.add(o.car);
     out.push({ ...blank, ...o });
   };
   if (src.kind === 'iron') {

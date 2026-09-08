@@ -830,6 +830,18 @@ if (APPLY) {
   if (heal.ok) line.push(heal.picked.find((l) => /교정:/.test(l))?.replace(/^.*교정: /, '치유 ') || '치유 ok');
   else warnings.push('⑬½ 원자 치유 실패(발행엔 영향 없음)');
 
+  /**
+   * ⑬¾ **원자 문지기** — 미러·발행 «앞»에서 원자를 검사한다(사장님 2026-09-08 「문제 생길 거 사전에 예방」).
+   *   2026-09-08 하루에 터진 사고를 갈래로 세운 것이다:
+   *   차가 아닌 줄(오플 배너)이 실리고 · 그 배너에 «수수료 150만원»이 적혀 채널 시트까지 나가고 ·
+   *   구분이 비어 픽업 265대가 상품리스트로 흐르고 · 어제 있던 값이 사라진 걸 아무도 몰랐다.
+   * ★막는 것과 알리는 것을 가른다 — 차가 아닌 줄·우리 몫 유출·대수 급감은 «멈춤», 나머지는 «알림».
+   * ⚠ 여기서 멈추면 ⑯ 이 «틀린 원자»로 시트를 덮는 것을 막는다. 시트엔 ⑥ 의 올바른 표가 남는다.
+   */
+  const gate = run('⑬¾ 원자 문지기', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/check-atom-intake.mts'], /문지기 통과|문지기가 막는다|▲|⛔/);
+  if (!gate.ok) stop('원자 문지기가 막았다 — 원자를 고치기 전엔 발행하지 않는다');
+  line.push('문지기 ok');
+
   const mir = run('⑭ Firestore 미러', ['scripts/mirror-to-firestore.mts', '--apply'], /미러 완료|중단|✗/);
   line.push(mir.ok ? (mir.picked.find((l) => /미러 완료/.test(l))?.replace('미러 완료 — ', '') || '미러 ok') : '★미러 실패');
   if (!mir.ok) warnings.push('Firestore 미러 실패');

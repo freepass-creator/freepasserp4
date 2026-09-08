@@ -828,16 +828,36 @@ if (!APPLY) { console.log('\n※ dry-run. 실제 반영은 --apply\n'); process.
  */
 if (!rows.length) throw new Error('한 대도 못 읽었다 — 발행하지 않는다(빈 표로 덮으면 영업자 표가 날아간다)');
 
+/** ★내가 찍은 탭별 대수 — 감소 가드가 «남이 덮은 탭 이름» 대신 이걸 기준으로 쓴다. */
+const LAST_COUNT_FILE = 'tmp/판매탭-직전대수.json';
+const readLastCounts = (): Record<string, number> => {
+  try { return JSON.parse(readFileSync(LAST_COUNT_FILE, 'utf8')) as Record<string, number>; } catch { return {}; }
+};
 const meta = await api(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET}?fields=sheets.properties(sheetId,title)`);
 let gid = ((meta.sheets || []) as Rec[]).find((s) => S(s.properties?.title).startsWith(TAB))?.properties?.sheetId as number | undefined;
 /**
  * ★**갑자기 확 줄면 멈춘다.** 「매번 센다」는 규칙을 사람 눈이 아니라 코드가 지키게 한다.
- *   직전 대수는 탭 이름에 적혀 있다(「상품리스트 08.14 13:34 · 379대」) — 따로 저장할 것이 없다.
+ *
+ * ★★**직전 대수는 «내가 찍은 것»이라야 한다** (실측 2026-09-08).
+ *   예전엔 탭 이름에서 읽었다. 발행기가 하나뿐일 때는 그게 맞았다. 그런데 2026-09-04 에
+ *   ⑯ 본시트 발행(`make-sample-sheet-google --main`)이 생겨 **같은 탭을 덮어쓴다.**
+ *   ⑯ 은 원자 전부(4탭 몫)를 쓰므로 대수가 다르다 — 탭 이름이 더는 ⑥ 의 값이 아니다.
+ *
+ *   실측 — ⑥ 이 마지막으로 찍은 것은 「09.07 12:39 · 329대」인데 5분 뒤 ⑯ 이 「12:44 · 652대」로 덮었다.
+ *   그 뒤 ⑥ 은 매 회차 «652 → 325 = 50% 감소»로 읽고 멈추었다. **21회차 연속 발행이 죽었다.**
+ *   329 → 325 는 1% 라 원래 지나갔어야 할 값이다.
+ *
+ *   ⇒ **내가 찍은 대수를 내가 적어 두고 그것과 견준다.** 남이 같은 탭에 무엇을 적든 판정이 안 흔들린다.
+ *   ⚠ 적어 둔 것이 없으면 예전처럼 탭 이름을 본다 — 가드를 끄는 게 아니다.
  * ⚠ 공급사가 실제로 재고를 줄이는 날도 있다. 그때는 `--force-shrink` 로 지나간다.
  */
 {
   const prevTitle = S(((meta.sheets || []) as Rec[]).find((s) => Number(s.properties?.sheetId) === gid)?.properties?.title);
-  const prev = Number((prevTitle.match(/·\s*(\d+)대/) || [])[1] || 0);
+  const fromTitle = Number((prevTitle.match(/·\s*(\d+)대/) || [])[1] || 0);
+  const mine = Number(readLastCounts()[TAB]);
+  const useMine = Number.isFinite(mine) && mine > 0;
+  if (fromTitle || useMine) console.log(`  직전 대수 ${useMine ? mine : fromTitle}대 (${useMine ? '내가 적어 둔 값' : `탭 이름 「${prevTitle}」`})`);
+  const prev = useMine ? mine : fromTitle;
   const drop = prev ? 1 - rows.length / prev : 0;
   if (prev && drop >= 0.2 && !process.argv.includes('--force-shrink')) {
     throw new Error(`직전 ${prev}대 → 지금 ${rows.length}대 (${Math.round(drop * 100)}% 줄었다). `
@@ -991,4 +1011,13 @@ await api(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET}/values/${encod
   const linked = pi < 0 ? 0 : rows.filter((r) => S(r[pi]).startsWith('http')).length;
   console.log(`  차량번호에 사진링크 ${linked}대 · 링크 없는 차 ${rows.length - linked}대는 글자만`);
 }
+/**
+ * ★**내가 찍은 대수를 적어 둔다** — 다음 회차의 감소 가드가 이 값과 견준다.
+ * ⚠ 발행이 «끝난 뒤»에만 적는다. 먼저 적으면 실패한 회차의 수가 기준이 된다.
+ */
+try {
+  const all = readLastCounts();
+  all[TAB] = rows.length;
+  writeFileSync(LAST_COUNT_FILE, JSON.stringify(all, null, 1), 'utf8');
+} catch { /* 못 적어도 발행은 이미 됐다 */ }
 console.log(`\n  반영 완료 — 탭 「${title}」\n  https://docs.google.com/spreadsheets/d/${SHEET}/edit#gid=${gid}\n`);

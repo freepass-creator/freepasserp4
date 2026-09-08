@@ -14,6 +14,8 @@ const LIMIT = Number((process.argv.find((x) => x.startsWith('--limit=')) || '').
 const S = (x) => String(x ?? '').trim();
 const N = (x) => S(x).replace(/\s/g, '');
 const DRIVE = 'https://www.googleapis.com/drive/v3/files';
+/** 손오공 사진이 «상대경로»(`/api/file/preview?…`)로 올 때 붙일 호스트. lib/sonokong.mjs 의 API 와 같은 곳. */
+const SOKRC = 'https://sokrc.com';
 const EXTRA = 'includeItemsFromAllDrives=true&supportsAllDrives=true';
 const call = makeCall(await token());
 const driveFolder = (x) => /drive\.google\.com\/drive\/folders\/[\w-]{15,}/i.test(S(x));
@@ -50,7 +52,16 @@ await withLease('drive', { agent: 'codex', taskId: `OPS-${new Date().toISOString
   for (const [i, j] of (LIMIT ? jobs.slice(0, LIMIT) : jobs).entries()) {
     const car = await folder(`${j.plate} ${j.model}`.trim(), sup); const have = new Set((await children(car)).map((x) => S(x.name))); let files = have.size;
     for (let k = 0; k < j.shots.length; k++) try {
-      const u = S(j.shots[k]); const r = await fetch(u, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(30000) }); if (!r.ok) throw Error(`HTTP ${r.status}`);
+      /**
+       * ★**손오공 구독 사진 주소는 «상대경로»로 온다** — `/api/file/preview?file_name=…` (호스트가 없다).
+       *   그대로 `fetch` 하면 `Failed to parse URL` 로 죽는다. 실측 2026-09-08 — 이 한 줄 때문에
+       *   ⓪′ 백업이 매 회차 실패했고, 그래서 **손오공 구독에 드라이브 링크가 아예 안 생겼다.**
+       *   사장님 2026-09-04 · 2026-09-08 「손오공 구독은 구글드라이브로 다운받아서 그걸 사진링크 걸기로 했잖아」.
+       *   ⇒ 호스트를 붙여 절대주소로 만든다. 이미 절대주소면 그대로 둔다.
+       */
+      const raw = S(j.shots[k]);
+      const u = /^https?:\/\//i.test(raw) ? raw : `${SOKRC}${raw.startsWith('/') ? '' : '/'}${raw}`;
+      const r = await fetch(u, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(30000) }); if (!r.ok) throw Error(`HTTP ${r.status}`);
       const bytes = Buffer.from(await r.arrayBuffer()); if (bytes.length < 4096) throw Error('너무 작은 파일');
       const ext = new URL(u).pathname.match(/\.(jpe?g|png|webp)$/i)?.[1]?.replace('jpeg', 'jpg') || 'jpg'; const name = `sonokong_${String(k + 1).padStart(2, '0')}.${ext}`;
       if (!have.has(name)) { await put(name, bytes, S(r.headers.get('content-type')) || 'image/jpeg', car); have.add(name); uploaded++; } files++;

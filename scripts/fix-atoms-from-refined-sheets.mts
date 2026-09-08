@@ -40,11 +40,33 @@ const TR: [RegExp, string][] = [
 const normT = (s: string) => { let x = S(s).toLowerCase(); for (const [r, v] of TR) x = x.replace(r, v); return x.replace(/[\s()\/\-·.]/g, ''); };
 // ★사람이 확인해 박는 식별 오버라이드(차번→제조사·모델·세부모델·세부트림) — 매처가 못 박은 것. 최우선.
 const identOv: Record<string, Record<string, string>> = (() => { try { return JSON.parse(readFileSync('public/data/vehicle-identity-overrides.json', 'utf8')); } catch { return {}; } })();
+/**
+ * 세부트림 고르기 — 그 세부모델의 마스터 trims 풀에서만 고른다(지어내지 않는다).
+ *
+ * ★★**풀에 없으면 「기본형」이다** — `docs/차종명명-정제-매뉴얼.md` §3 「세부트림 없으면 「기본형」」 ·
+ *   §3-1 ④ 「원문에 없거나 풀에 없으면 → 「기본형」」. 정본 모듈(`submodel-normalize-f03`)도 그렇게 돈다.
+ *
+ * ⚠ **실측 2026-09-08 — 여기가 빠져 있어 200대의 세부트림이 통째로 비어 나갔다.**
+ *   (상품리스트 103 · 손오공구독 39 · 픽업구독 14 · 오플구독 44 — 원문에는 전부 글자가 있었다:
+ *    「기본형」·「프레스티지」·「렌터카 스탠다드」·「Iconic」·「인스크립션」·「에어(Air)」…)
+ *   못 고른 것을 «빈칸»으로 두면 영업자 표에 이가 나간다. 「기본형」은 «모른다»가 아니라
+ *   **「그 세대에 트림 구분이 없다」는 답**이다 — 공급사 원문도 실제로 「기본형」이라 적는다.
+ *
+ * ⚠ 세부모델이 아직 안 정해졌으면(풀 자체가 없으면) 손대지 않는다 — 그건 정말 «모른다»다.
+ */
 const pickTrim = (sub: string, raw: string): string => {
-  const trims = subTrims.get(S(sub)); if (!trims || !raw) return '';
+  /**
+   * ★**세부모델이 정해졌으면 트림은 «반드시 값이 있다»** — 못 고르면 「기본형」.
+   *   ⚠ 마스터에 트림 풀이 «통째로 없는» 세부모델이 1,816개 중 579개다(G80 RG3 등 — 풀에
+   *     「(세부등급 없음)」밖에 없는 것 포함). 예전엔 그런 차를 「미확정」으로 보고 건너뛰어
+   *     세부트림이 영영 빈칸으로 남았다(사장님 2026-09-08 「G80 RG3 도 기본형으로 채워라」).
+   *   ⇒ 풀이 없거나 원문과 안 맞으면 **기본형**. 세부모델 자체가 비었을 때만 손대지 않는다.
+   */
+  if (!S(sub)) return '';                                       // 세부모델 미확정 = 진짜 모른다
+  const trims = subTrims.get(S(sub)) || [];
   const r = normT(raw);
   for (const t of trims) { const tn = normT(t); if (tn.length >= 2 && r.includes(tn)) return t; }   // 긴 것부터 → 가장 구체적
-  return '';
+  return '기본형';
 };
 
 // 정제시트 → 차번별 {트림, 색, 주행} (공급사코드 붙여)
@@ -74,7 +96,51 @@ for (const src of MIRROR_SOURCES) {
     console.log(`${src.name}(${src.code}) 정제시트 읽음`);
   } catch (e) { console.warn(`${src.name} 실패:`, (e as Error).message); }
 }
-console.log(`정제시트 차번 총 ${truth.size}대\n`);
+console.log(`정제시트 차번 총 ${truth.size}대`);
+
+/**
+ * ★**손오공(RP012) 구분 = 제공시트 「분류」가 정본이다.**
+ *
+ *   손오공은 MIRROR_SOURCES 에 없어(자체 API 유입) 위 `truth` 에 안 잡힌다. 그래서 아래 ⑤ 구분 규칙이
+ *   RP023·재렌트 둘만 다루는 동안 **손오공 차의 `product_type` 이 통째로 비어 있었다**(실측 2026-09-08 · 289대).
+ *
+ *   그 빈칸 하나가 표를 통째로 흔들었다 —
+ *   ⑯ 본시트 발행이 `product_type` 으로 탭을 가르는데(`픽업구독`·`손오공구독`·`오플구독`·나머지),
+ *   구분이 비니 **픽업 265대가 「나머지」로 떨어져 상품리스트에 얹혔다.** 그래서
+ *   상품리스트 325 → 652 · 픽업구독 269 → 6 이 되고, ⑥ 의 20% 감소 가드가 「절반이 사라졌다」고 멈췄다.
+ *   ⇒ 시트가 09-07 12:44 에 얼어붙은 진짜 원인이 여기다.
+ *
+ * ★**빈 칸만 채운다.** 값이 있으면 안 덮는다 — 이 파일 전체의 규칙과 같다.
+ * ★**상태는 안 건드린다.** 출고불가 판정은 매시간 상태연동이 소유한다(이 파일 머리 주석).
+ */
+const SONO_SHEET = '1WIFn5ObK_nCVGLTjj6rO96i6vxub1QzJmiVW0BpJLcA';
+const sonoGubun = new Map<string, string>();   // 차번 → 분류
+try {
+  for (const tab of ['렌트재고', '구독재고', '픽업재고']) {
+    const vv = await api(`https://sheets.googleapis.com/v4/spreadsheets/${SONO_SHEET}/values/${encodeURIComponent(`'${tab}'!A1:BZ5000`)}`);
+    const rows = vv.values || []; if (rows.length < 2) continue;
+    const hd = (rows[0] || []).map(S);
+    const ci = hd.indexOf('차량번호'); const gi = hd.indexOf('분류');
+    if (ci < 0 || gi < 0) continue;
+    for (const r of rows.slice(1)) {
+      const car = NKEY(r[ci]); const g = S(r[gi]);
+      if (car && g) sonoGubun.set(car, g);
+    }
+  }
+  console.log(`손오공 제공시트 「분류」 ${sonoGubun.size}대 읽음`);
+} catch (e) { console.warn('손오공 제공시트 실패:', (e as Error).message); }
+/**
+ * ⚠ **덜 읽고 그냥 지나가지 않는다.** 2026-09-08 실측 — 회차와 구글 쿼터를 다투다 손오공 분류를
+ *   629대 중 «100대»만 읽고 그대로 진행해, 채워야 할 291대 중 25대만 채웠다.
+ *   (같은 부류: 2026-08-18 429 로 빈 표를 읽어 60대가 빠진 표가 발행됐다.)
+ *   못 읽은 것은 «없다»가 아니라 «모른다»다 — 확연히 모자라면 그 공급사 구분은 이번 회차에 손대지 않는다.
+ */
+const SONO_MIN = 300;
+if (sonoGubun.size && sonoGubun.size < SONO_MIN) {
+  console.warn(`  ⚠ 손오공 분류를 ${sonoGubun.size}대만 읽었다(평소 600+) — 덜 읽은 것이라 이번 회차는 구분을 안 건드린다`);
+  sonoGubun.clear();
+}
+console.log('');
 
 const products = (await rtdb.ref('v4/products').get()).val() as Record<string, any> || {};
 const updates: Record<string, any> = {};
@@ -91,7 +157,10 @@ for (const [key, v] of Object.entries(products)) {
   }
   // ⑤ 상품구분(불변) 정규화 — 5개 캐논만. 오플(RP023)=오플구독 · 재랜트/재렌트=중고렌트. (모든 공급사)
   const curPt = S(v.product_type);
-  const newPt = code === 'RP023' ? '오플구독' : (/재랜트|재렌트/.test(curPt) ? '중고렌트' : '');
+  const newPt = code === 'RP023' ? '오플구독'
+    : (/재랜트|재렌트/.test(curPt) ? '중고렌트'
+    /* ★손오공은 구분이 비었을 때만 제공시트 「분류」에서 가져온다(픽업구독·중고구독…). 있는 값은 안 덮는다. */
+    : (code === 'RP012' && !curPt ? S(sonoGubun.get(car)) : ''));
   if (newPt && newPt !== curPt) { updates[`v4/products/${key}/product_type`] = newPt; stat.gubun++; changes.push(`구분 「${curPt}」→「${newPt}」`); }
   // ② 제원·스펙(불변) 채움 — 정제시트(차종마스터 정제본) 있는 공급사만, «비었을 때만».
   const t = truth.get(`${code}|${car}`);
