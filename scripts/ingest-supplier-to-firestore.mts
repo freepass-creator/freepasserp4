@@ -19,7 +19,7 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { listSheetTabs, readSheetGrid } from '../lib/server/google-sheets';
-import { HUB_CODE_SHEET_ID } from '../lib/domain/legacy-sheets';
+import { HUB_CODE_SHEET_ID, isLegacySheetId } from '../lib/domain/legacy-sheets';
 import { isOurNonInventoryTab } from '../lib/domain/supplier-template-sheet';
 import { companyAlias } from '../lib/domain/identity';
 import { pickSupplierSource, hubSourceMap, hubNameMap, myStockTabs } from '../lib/domain/supplier-source';
@@ -62,7 +62,18 @@ const SON_CODE = 'RP012';
 async function srcConfig(): Promise<{ code: string; name: string; kind: Kind; from?: string; shared?: string[] }> {
   if (CODE === SON_CODE || CODE === 'SONOKONG' || CODE === '손오공') return { code: SON_CODE, name: '손오공', kind: 'sonokong' };
   const m = MIRROR_SOURCES.find((x) => x.code === CODE);
-  if (m) return { code: m.code, name: m.name, kind: m.kind as Kind, from: m.from };
+  if (m) {
+    /**
+     * ⚠ 2026-09-08(코덱스가 잡았다) — 정제시트로 연동한 곳(`MIRROR_SOURCES`)은 **폐기 검사 «앞»에서
+     *   그냥 돌아가고 있었다.** 웰릭스를 24일 망가뜨린 것이 바로 「폐기된 주소를 조용히 읽는 일」인데,
+     *   이 길만 그 문을 안 지났다. 표에 적힌 주소도 언젠가 폐기될 수 있다 — 같은 문을 지나게 한다.
+     */
+    if (m.from && isLegacySheetId(m.from)) {
+      throw new Error(`${CODE}: MIRROR_SOURCES 의 원천(${m.from})이 «폐기된 시트»다.`
+        + `\n  죽은 시트를 읽으면 차명·상태가 통째로 틀어진다. lib/domain/mirror-sources 의 그 줄을 고쳐라.`);
+    }
+    return { code: m.code, name: m.name, kind: m.kind as Kind, from: m.from };
+  }
   /**
    * 나머지 공급사 = **문패(공급사시트정리)가 정본**. `partner.sheet_url` 은 늦는 사본이라 마지막 수단이다.
    * ⚠ 2026-09-08 — 이 자리가 `partner.sheet_url` 만 봤고, 그 값이 **폐기된 옛 시트**여서
@@ -202,7 +213,7 @@ function sheetPrice(get: (i: number) => string, ci: { dep: number; periods: Reco
 /**
  * ★**보증금이 «말»로 적힌 것을 잃지 않는다** (사장님 2026-09-08 「보증금 잘 챙기고」).
  *
- * ⚠ 실측 2026-09-08 — 아이카 96대 중 **51대**가 시트에 보증금 빈칸이었다. 그런데 원천에는
+ * ⚠ 실측 2026-09-08 — 아이카 96대 중 **50대**가 시트에 보증금 빈칸이었다. 그런데 원천에는
  *   장기보증 칸에 **「무보증」**이라 «적혀» 있었다. `won('무보증') = 0` 이라 숫자로만 실었더니
  *   시트에서 빈칸이 됐고, 빈칸은 **「없다」가 아니라 「모른다」로 읽힌다** — 영업자가 물어봐야 한다.
  *   ⇒ 숫자가 아닌 보증금은 **그 말을 그대로** 싣는다. 오토플러스 규칙문구와 같은 결이다.
@@ -377,11 +388,16 @@ async function readRows(): Promise<Row[]> {
  *   (규칙 SSOT = `docs/원자-내려보내기-로직.md` §1)
  * ★단 하나 예외 = `engine_cc` — 전기·수소차는 배기량이 «없는 것»이 맞다(evEngineCc 가 일부러 비운다).
  */
-const CLEARABLE = new Set(['engine_cc']);
+/**
+ * ⚠ 2026-09-08(적대 검토가 잡았다) — 예외를 `engine_cc` «이름»에 걸어 두었더니, 전기차가 아닌 차도
+ *   원천에 배기량 열이 없으면 빈 값으로 아는 값을 덮었다(실측 6대 — 스타 가솔린 K3·그랜저 등).
+ *   ⇒ 예외는 **전기·수소차일 때만**. 그때만 「배기량이 없는 것」이 사실이다.
+ */
 const strip = (doc: Record<string, unknown>) => {
+  const ev = FUEL_EV.test(S(doc.fuel_type));
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(doc)) {
-    if (v === '' && !CLEARABLE.has(k)) continue;   // 빈 문자열 = 「모른다」 → 안 쓴다
+    if (v === '' && !(k === 'engine_cc' && ev)) continue;   // 빈 문자열 = 「모른다」 → 안 쓴다
     if (v === undefined || v === null) continue;
     out[k] = v;
   }
@@ -431,7 +447,18 @@ function atomize(row: Row, pinned: Map<string, Record<string, unknown>>): Atom {
     car_number: car,
     maker: identity.maker, model: identity.model, sub_model: identity.sub_model, trim_name: identity.trim_name, origin: identity.origin, ...spec, engine_cc: evEngineCc(S(spec.fuel_type), S(spec.engine_cc)),
     product_type: canonProductType(row.kind),
-    ...statusDetail(row.status, pin?.locked_by_contract), mileage: row.km, options: row.opt,
+    /**
+     * ★★**원천이 상태를 «안 준» 것은 「모른다」다 — 아는 상태를 덮지 않는다.**
+     *
+     * ⚠⚠ 2026-09-08 실측(적대 검토가 잡았다) — `canonSheetVehicleStatus('')` 는 **「출고협의」**를 돌려준다
+     *   (`sheet-import.ts:159` — 상태 칸이 없는 시트를 함부로 출고가능으로 보지 않으려는 뜻).
+     *   그런데 그 값은 «빈 문자열이 아니라서» `strip` 을 통과해 merge 로 나가고, `listable=true` 라
+     *   **이미 「출고불가」로 내려 둔 차를 되살린다.** 공급사가 상태 칸을 한 번 비우면 판 차가 목록에 다시 선다.
+     *   ⇒ 원천 상태가 비었고 «이미 아는 차»면 상태 칸을 **아예 안 쓴다**(merge 가 옛 값을 지킨다).
+     *   ★처음 보는 차는 그대로 「출고협의」 — 모르는 차를 출고가능으로 세우지 않는다는 뜻은 살린다.
+     */
+    ...(S(row.status) || !pin ? statusDetail(row.status, pin?.locked_by_contract) : null),
+    mileage: row.km, options: row.opt,
     ...(rawSeats(vname) ? { seats: rawSeats(vname) } : null),   // 원문에 인승 있으면만
     ...(Object.keys(row.price).length ? { price: row.price } : null),
     ...(row.depNote ? { deposit_note: row.depNote } : null),   // 「무보증」처럼 «말»로 적힌 보증금 — 빈칸으로 두지 않는다
@@ -577,8 +604,11 @@ if (VARIABLE) {
       const pMoved = Object.keys(ap).length > 0 && jsonSorted(ap) !== jsonSorted(c.price);
       if (!sMoved && !mMoved && !pMoved) continue;
       const upd: Record<string, unknown> = { _var_polled_at: Date.now() };
-      for (const f of VAR_FIELDS) if (a[f] !== undefined) upd[f] = a[f];
-      batch.set(fs.collection('products').doc(docId(a.car_number)), upd, { merge: true });
+      for (const f of VAR_FIELDS) if (a[f] !== undefined && a[f] !== '') upd[f] = a[f];
+      const ref = fs.collection('products').doc(docId(a.car_number));
+      batch.set(ref, upd, { merge: true });
+      /** ★요금은 갈아 끼운다 — merge 는 맵 키를 못 지워 «지금 안 파는 기간»이 남는다(위 전체 반영과 같은 규칙). */
+      if (Object.keys(ap).length) batch.update(ref, { price: ap });
       changed++; if (sMoved) sChg++; if (mMoved) mChg++; if (pMoved) pChg++; any = true;
     }
     if (any) await batch.commit();
@@ -619,7 +649,12 @@ if (VARIABLE) {
     for (const a of 새차.slice(0, 8)) console.log(`   ${S(a.car_number).padEnd(11)} ${S(a.maker)} ${S(a.model)} ${S(a.sub_model)}  「${S((a['원문'] as { 차명?: string } | undefined)?.차명).slice(0, 30)}」`);
     console.log(`   들이려면 — --apply(전부) 또는 scripts/register-car.mts <차번>(한 대)`);
   }
-  process.exit(0);
+  /**
+   * ⚠⚠ **여기서 끝내지 않는다** — 아래 「사라진 차 내리기」까지 가야 한다.
+   *   2026-09-08 실측(코덱스가 잡았다) — 여기 `process.exit(0)` 이 있어서, 자동 회차를 `--variable` 로
+   *   돌리게 바꾼 순간 **내림이 아예 안 돌았다.** 방금 켠 장치를 도로 끈 셈이었다.
+   *   ★변동 모드가 «안 해야 하는 것»은 «새 차 들이기»와 «불변 덮어쓰기»뿐이다. 내림은 상태 일이라 해야 한다.
+   */
 }
 
 // ── 전체 반영(불변+상태) = «한 번 정확히» + (--retire 일 때만) 사라진 차 listable=false ──
@@ -637,11 +672,21 @@ const RETIRE = process.argv.includes('--retire');
 const 세운차 = [...cur.values()].filter((v) => (v as { listable?: unknown }).listable === true).length;
 const safeToRetire = RETIRE && (세운차 === 0 || now.length >= 세운차 * 0.5);
 let wrote = 0, retired = 0;
-for (let i = 0; i < now.length; i += 400) {
+/** ★불변까지 덮는 «전체 반영»은 `--apply` 전용이다 — 변동 모드는 위에서 상태만 쓰고 여기를 건너뛴다. */
+if (!VARIABLE) for (let i = 0; i < now.length; i += 400) {
   const batch = fs.batch();
   for (const a of now.slice(i, i + 400)) {
     const { _pin_state, ...doc } = a; void _pin_state;
-    batch.set(fs.collection('products').doc(docId(a.car_number)), { ...strip(doc), _direct_ingest_at: Date.now() }, { merge: true });
+    const ref = fs.collection('products').doc(docId(a.car_number));
+    batch.set(ref, { ...strip(doc), _direct_ingest_at: Date.now() }, { merge: true });
+    /**
+     * ★★**요금은 «갈아 끼운다» — 합치지 않는다.**
+     *   ⚠ 2026-09-08(적대 검토가 잡았다) — `price` 는 맵이라 `merge:true` 가 **기존 기간 키와 합친다.**
+     *   원천에서 없어진 기간(60개월을 뺐다든지)이 **영원히 안 지워져**, 시트 60개월 칸에 «지금 안 파는 값»이 선다.
+     *   ⇒ 원천이 요금을 준 차만, `update` 로 맵을 통째 대체한다(같은 배치라 set 뒤에 온다).
+     *   ⚠ 요금이 «아예 없는» 차는 안 건드린다 — 못 읽은 것과 없어진 것을 구별할 수 없기 때문이다.
+     */
+    if (a.price && typeof a.price === 'object' && Object.keys(a.price as object).length) batch.update(ref, { price: a.price });
     wrote++;
   }
   await batch.commit();
@@ -677,5 +722,7 @@ if (safeToRetire && gone.length) {
 } else if (gone.length) {
   console.log(`  · 사라진 차 ${gone.length}건 마킹 안 함 — ${RETIRE ? `안전판(수집 ${now.length} < 세워 둔 ${세운차}의 절반, 원천 읽기 의심)` : '--retire 없음(오탐 방지, 기본 끔)'}.`);
 }
-console.log(`\n반영 완료 — ${PROV} 직접 원자 ${wrote}건 merge(불변+상태) · 사라진 차 listable=false ${retired}건. 요금은 별도(가격블록).`);
+console.log(VARIABLE
+  ? `\n변동 반영 완료 — ${PROV} · 사라진 차 listable=false ${retired}건. 불변은 안 건드림.`
+  : `\n반영 완료 — ${PROV} 직접 원자 ${wrote}건 merge(불변+상태) · 사라진 차 listable=false ${retired}건. 요금은 별도(가격블록).`);
 process.exit(0);

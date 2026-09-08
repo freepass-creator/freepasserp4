@@ -6,13 +6,20 @@
 import { readFileSync } from 'node:fs';
 import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
+import { PRODUCT_TYPES } from '../lib/intake/entities';
 
 const S = (v: unknown) => String(v ?? '').trim();
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 initializeApp({ credential: cert({ projectId: sa.project_id, clientEmail: sa.client_email, privateKey: sa.private_key.replace(/\\n/g, '\n') }), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' });
 
 const COLORS = /^(블랙|화이트|흰색|검정|검정색|블루|하늘색|그레이|회색|쥐색|실버|은색|레드|빨강|펄|진주|남색|네이비|브라운|베이지|골드|녹색|카키|퍼플)/;
-const CANON = new Set(['중고렌트', '신차렌트', '중고구독', '픽업구독', '오플구독', '신차구독']);
+/**
+ * ★**캐논을 여기에 «베껴 두지» 않는다** — 정본은 `lib/intake/entities` 의 `PRODUCT_TYPES` 다.
+ *   ⚠ 실측 2026-09-08 — 여기에 여섯 개를 손으로 적어 둔 탓에, 캐논에 진작 있던 **「오공구독」**을
+ *   모르고 손오공 64대를 「캐논 밖」이라 잡았다. **검사가 거짓으로 울면 사람이 검사를 안 믿는다.**
+ *   정본이 늘어도 검사가 따라오게, 읽어서 쓴다.
+ */
+const CANON = new Set<string>(PRODUCT_TYPES);
 const docs = (await getFirestore().collection('products').get()).docs.map((d) => d.data());
 
 type Fail = { rule: string; cars: string[] };
@@ -26,7 +33,7 @@ const c2 = add('listable 인데 model/sub_model 빔', docs.filter((v) => v.lista
 // ③ ext_color 에 「/」(외장/내장 미분리)
 const c3 = add('ext_color 에 「/」(미분리)', docs.filter((v) => S(v.ext_color).includes('/')));
 // ④ product_type 가 5캐논 밖(빈 것 제외 — 검수대기는 빔 허용)
-const c4 = add('product_type 5캐논 밖', docs.filter((v) => S(v.product_type) && !CANON.has(S(v.product_type))));
+const c4 = add(`product_type 캐논(${PRODUCT_TYPES.length}) 밖`, docs.filter((v) => S(v.product_type) && !CANON.has(S(v.product_type))));
 // ⑤ listable 인데 원문없음
 const c5 = add('listable 인데 원문없음', docs.filter((v) => v.listable === true && S(v.검수상태) === '원문없음'));
 

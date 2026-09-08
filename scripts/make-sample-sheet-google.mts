@@ -184,17 +184,27 @@ const priceCell = (price: any, col: string): string => {
    *   보증금이 없는 상품이면 원천이 **「무보증」**이라 적어 준다(`deposit_note`). 그 말을 쓰게
    *   여기서는 빈 값을 돌려주고, 부르는 쪽이 원천의 말로 채운다. 말이 없으면 빈칸이고 문지기가 잡는다.
    */
-  const depAny = (suffix = '') => { for (const t of ['60', '48', '36', '24', '12']) { const k = suffix ? `${t}${suffix}` : t; const d = P[k]?.deposit; if (d != null) return Number(d) > 0 ? money(d) : ''; } return ''; };
+  /**
+   * ★★**단기보증 = 1·6·12개월 · 장기보증 = 24개월 이상** (사장님 2026-09-08
+   *   「단기보증 1 6 12 장기보증 24 36 48 60 이게 기본 대여료 칸 구분이지」).
+   *   ⚠ 2026-09-08(코덱스가 잡았다) — 코드가 **12를 장기 쪽에서** 찾고 단기는 1·6만 봤다.
+   *   매뉴얼이 경고해 둔 바로 그 자리다 — 「12개월을 장기에 넣으면 단기가 통째로 빈다」.
+   */
+  const 장기 = ['60', '48', '36', '24'] as const;
+  const 단기 = ['1', '6', '12'] as const;
+  const depAny = (suffix = '') => { for (const t of 장기) { const k = suffix ? `${t}${suffix}` : t; const d = P[k]?.deposit; if (d != null) return Number(d) > 0 ? money(d) : ''; } return ''; };
   const m = col.match(/(\d+)개월/);
   /**
-   * ★★**보증금은 «요금 규격 축»이 정한다** — `lib/domain/fee-shapes`. 축은 셋이다(표준·손오공·오플).
+   * ★★**보증금 칸은 «F01 의 열»이 정한다** — 우리가 규격을 새로 만들지 않는다.
+   *   ⚠ 예전 주석은 `lib/domain/fee-shapes` 를 가리켰는데 **그 파일은 지웠다**(2026-09-08).
+   *     규격을 따로 지어 봤다가 오플 탭 열을 두 벌로 만들어 시트를 깨뜨렸다 — 사장님 「이미 정답이 있는데」.
    *   ⚠ 예전엔 여기서 `60·48·36·24·12` 키만 뒤져서 **오플이 통째로 빠졌다**(키가 `12_2만` 꼴).
    *     원자엔 72대에 보증금이 있는데 시트 「보증금」 칸은 0/84 였다(실측 2026-09-08).
    *   ⇒ 칸 이름으로 축의 보증금 규칙을 찾아 쓴다. 못 찾으면 «옛 규칙»으로 떨어진다(하위호환).
    */
   if (/반납형\s*보증금|보증금\s*반납형|장기보증/.test(col)) return depAny();
   if (/인수형\s*보증금|보증금\s*인수형/.test(col)) return depAny('_인수형');
-  if (/단기보증/.test(col)) { for (const t of ['1', '6']) { const d = P[t]?.deposit; if (d != null) return Number(d) > 0 ? money(d) : ''; } return ''; }
+  if (/단기보증/.test(col)) { for (const t of 단기) { const d = P[t]?.deposit; if (d != null) return Number(d) > 0 ? money(d) : ''; } return ''; }
   if (m) {
     const n = m[1];
     if (/인수형/.test(col)) return rentK(`${n}_인수형`);
@@ -328,7 +338,22 @@ for (const list of Object.values(groups)) for (const v of (list as any[])) {
 const titleOf = (base: string) => `${base} ${kstNow} · ${(groups[base] || []).length}대`;
 
 let sheetId = SAMPLE_SHEET_ID, fresh = false;
-const meta = SAMPLE_SHEET_ID.startsWith('1FZ8placeholder') ? null : await api(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?fields=sheets.properties(sheetId,title)`).catch(() => null);
+/**
+ * ★★**메타를 «못 읽은 것»과 «시트가 없는 것»은 다르다.**
+ *
+ * ⚠⚠ 2026-09-08(적대 검토가 잡았다) — 여기서 `.catch(() => null)` 로 삼켰다. 그래서 그 GET 한 번이
+ *   5xx·403(도메인 위임 일시 실패 등)으로 실패하면 「시트가 없다」로 보고 **새 스프레드시트를 만들고
+ *   `type:'anyone'` 으로 전체공개**했다. 본시트는 갱신이 안 된 채 옛 값으로 남고, 대신 전 재고가 담긴
+ *   **아무나 읽는 새 문서**가 생긴다 — 로그는 「새로 만들었다」며 성공으로 찍힌다.
+ * ⇒ **주소가 자리표(placeholder)일 때만** 새로 만든다. 진짜 주소인데 못 읽으면 **멈춘다** —
+ *   새 문서를 만드는 것보다 그 회차를 거르는 게 낫다.
+ */
+const PLACEHOLDER = SAMPLE_SHEET_ID.startsWith('1FZ8placeholder');
+const meta = PLACEHOLDER ? null : await api(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?fields=sheets.properties(sheetId,title)`).catch((e: unknown) => {
+  console.error(`\n✗ 본시트(${sheetId}) 메타를 못 읽었다 — ${(e as Error).message.slice(0, 140)}`);
+  console.error('  «시트가 없다»가 아니라 «못 읽었다»다. 새로 만들지 않고 멈춘다(전체공개 새 문서가 생기는 사고를 막는다).');
+  process.exit(1);
+});
 const gidByBase: Record<string, number> = {};
 if (!meta) {
   const created = await api('https://sheets.googleapis.com/v4/spreadsheets', { method: 'POST', body: JSON.stringify({ properties: { title: '프리패스 — 상품리스트(영업자용)' }, sheets: TAB_ORDER.map((t, i) => ({ properties: { sheetId: i, title: titleOf(t) } })) }) });

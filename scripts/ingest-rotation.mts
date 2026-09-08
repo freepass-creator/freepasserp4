@@ -101,6 +101,15 @@ for (const r of 이번차례) {
   if (done) { 성공.push(`${r.name} ${(txt.match(/바뀐 (\d+) 씀|직접 원자 (\d+)건/) || []).slice(1).find(Boolean) || '0'}건${내림 ? ` · 내림 ${내림}` : ''}${대기 ? ` · 등록대기 ${대기}` : ''}`); console.log(`  ✔ ${r.name} — ${성공[성공.length - 1]}`); }
   else { 실패.push(`${r.name}: ${왜}`); console.log(`  ✗ ${r.name} — ${왜}`); }
 }
+/**
+ * ★★**«본 때»를 적는다 — 성공·실패와 «무관하게».**
+ *   ⚠ 2026-09-08(코덱스가 잡았다) — 읽기만 하고 «쓰기»가 없어서 파일이 안 생겼고, 차례가 안 넘어갔다.
+ *   ★실패한 곳도 「봤다」로 적는다. 안 그러면 못 읽는 한 곳을 매 회차 붙잡고 나머지가 굶는다
+ *     (실패한 까닭은 위에 찍혀 있고, 다음 바퀴에 다시 온다).
+ */
+mkdirSync('tmp', { recursive: true });
+for (const r of 이번차례) 본때[r.code] = Date.now();
+writeFileSync(SEEN, JSON.stringify(본때, null, 1), 'utf8');
 console.log(`\n✓ 돌아가며 수집 — 성공 ${성공.length} · 실패 ${실패.length}`);
 for (const x of 실패) console.log(`  ▲ ${x}`);
 process.exit(0);

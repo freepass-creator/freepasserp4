@@ -145,7 +145,19 @@ for (const prefix of SALES_PUBLISHED_TAB_PREFIXES) {
  */
 const OUT_COLS = [...COLUMNS];
 const by = new Map<string, Row[]>();
-for (const x of rowsAll) { const k = x.company || '(공급사 없음)'; const l = by.get(k) || []; l.push(x); by.set(k, l); }
+/**
+ * ★★**공급사를 모르는 차는 채널에 안 내보낸다.**
+ *   ⚠ 2026-09-08(적대 검토가 잡았다) — F01 은 이름을 못 찾으면 「공급사」 칸을 **일부러 비운다**
+ *   (코드로 때우지 않는다는 규칙). 그 빈칸을 여기서 「(공급사 없음)」 탭으로 묶어 내보내고 있었다 —
+ *   영업채널이 «공급사 모르는 차 목록»을 받는 꼴이다. 지운 그 탭을 이번 회차가 다시 만들던 자리다.
+ *   ⇒ 빼고, 몇 대인지 알린다. 고칠 곳은 **문패의 공급사명**이지 이 시트가 아니다.
+ */
+const 이름없음: Row[] = [];
+for (const x of rowsAll) {
+  if (!x.company) { 이름없음.push(x); continue; }
+  const l = by.get(x.company) || []; l.push(x); by.set(x.company, l);
+}
+if (이름없음.length) console.log(`  ⚠ 공급사 이름을 모르는 차 ${이름없음.length}대 — 채널에 안 내보낸다(문패 「공급사명」을 채워라): ${이름없음.slice(0, 6).map((x) => S(x.cells['차량번호'])).join(' · ')}`);
 /**
  * ★**줄 차례 = 판매시트와 «같은 규칙»** — 매뉴얼 `docs/영업자시트-매뉴얼.md` 「기본 정렬」.
  *   ① 신차 → ② 인기순(계약 실적) → ③ 상품 많은 순 → ④ 모델명 → ⑤ 싼 대여료 → ⑥ 차번.
@@ -300,7 +312,14 @@ for (const [company, list] of order) {
  */
 {
   const 지킴 = /공지|안내|이 시트|시트 지도/;
-  const 버릴 = have.filter(([t, p]) => !지킴.test(t) && !쓴탭.has(Number(p.sheetId)));
+  /**
+   * ⚠⚠ **읽은 게 없으면 아무것도 지우지 않는다** (2026-09-08 적대 검토가 잡았다).
+   *   F01 탭 이름이 안 걸리거나 그 시트가 비어 있으면 `order` 가 빈다 → `쓴탭` 도 빈다 →
+   *   **공지사항만 빼고 회사 탭을 전부 지우고** 값은 하나도 안 쓴다. 채널이 재고 0을 본다.
+   *   ★지우는 일은 «채운 회차»만의 몫이다 — 못 읽은 회차는 옛 표를 그대로 두는 게 낫다.
+   */
+  const 버릴 = 쓴탭.size === 0 ? [] : have.filter(([t, p]) => !지킴.test(t) && !쓴탭.has(Number(p.sheetId)));
+  if (!쓴탭.size) console.log('   ⚠ 이번 회차에 채운 탭이 없다 — 묵은 탭 정리를 «건너뛴다»(못 읽은 회차일 수 있다).');
   if (버릴.length) {
     console.log(`   ○ 묵은 탭 ${버릴.length}장 지움 — ${버릴.map(([t]) => t).join(' · ')}`);
     for (const [, p] of 버릴) reqs.push({ deleteSheet: { sheetId: Number(p.sheetId) } });
