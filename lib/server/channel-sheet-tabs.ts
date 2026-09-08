@@ -555,7 +555,12 @@ export const SETTLE_NOTE = ['확인', '정정', '정정금액', '메모(정정�
  *   공급사 발행기가 칸 이름을 다시 한번 기계로 검사한다(FORBIDDEN) — 이중 잠금이다.
  * ⚠ 「공급사」 칸은 공급사 종이에서 빼는다 — 자기 이름을 줄마다 읽을 이유가 없다.
  */
-export type SettleCol = { name: string; w: number; hide?: '공급사'; money?: true; left?: true };
+/**
+ * ★`as` — **축마다 이름이 달라야 하는 칸.** 같은 자리·같은 값인데 부르는 말이 다르다.
+ *   공급사에게 우리는 «청구»하고 영업채널에는 «지급»한다 — 「청구월」을 채널 시트에 그대로 세우면
+ *   채널이 「나한테 청구한다는 건가」로 읽는다. 자리는 하나, 이름만 축을 따른다.
+ */
+export type SettleCol = { name: string; w: number; hide?: '공급사'; money?: true; left?: true; as?: { 영업채널?: string; 공급사?: string } };
 export const SETTLE_COLUMNS: SettleCol[] = [
   { name: 'No.', w: 40 },
   { name: '접수일', w: 84 },
@@ -572,6 +577,17 @@ export const SETTLE_COLUMNS: SettleCol[] = [
   { name: '차량 가격(신차)', w: 108, money: true },
   { name: '납입 방식', w: 84 },
   { name: '인도일', w: 84 },
+  /**
+   * ★★**청구월은 «양쪽 시트에 다» 적는다** — 사장님 2026-09-08
+   *   「공급사 영업자 정산시트에도 청구월 넣어주자 그 칸에」 · 「**같이 확인하는 거지**」 ·
+   *   「그걸 모아서 청구 드리고 지급 드리는 거니까」.
+   *
+   *   한 달 탭에 실린 줄이라도 «왜 이 달인가»는 줄마다 다르다 — 인도한 달일 수도, 분납 회차가
+   *   오는 달일 수도, 접수만 된 달일 수도 있다. 그 답이 이 칸이다.
+   *   ⇒ 상대가 우리한테 「이건 왜 이번 달이냐」를 묻지 않아도 되고, 우리도 같은 칸을 보고 답한다.
+   * ⚠ 접수 탭 차례와 같게 「인도일」 바로 뒤에 둔다(사장님 「접수 양식이랑 맞춰서 그대로 순서 동일하게」).
+   */
+  { name: '청구월', w: 84, as: { 영업채널: '지급월' } },
   { name: SETTLE_BASIS[0], w: 250, left: true },
   { name: '공급가액', w: 100, money: true },
   { name: '부가세', w: 88, money: true },
@@ -582,7 +598,7 @@ export const SETTLE_COLUMNS: SettleCol[] = [
 /** 그 쪽이 보는 칸만. */
 export const settleColumnsFor = (axis: '영업채널' | '공급사') =>
   SETTLE_COLUMNS.filter((c) => c.hide !== axis);
-export const settleHeadFor = (axis: '영업채널' | '공급사') => settleColumnsFor(axis).map((c) => c.name);
+export const settleHeadFor = (axis: '영업채널' | '공급사') => settleColumnsFor(axis).map((c) => c.as?.[axis] || c.name);
 export const settleWidthFor = (axis: '영업채널' | '공급사') => settleColumnsFor(axis).map((c) => c.w);
 export const settleMoneyFor = (axis: '영업채널' | '공급사') => settleColumnsFor(axis).filter((c) => c.money).map((c) => c.name);
 export const settleLeftFor = (axis: '영업채널' | '공급사') => settleColumnsFor(axis).filter((c) => c.left).map((c) => c.name);
@@ -727,6 +743,14 @@ export function settleTabFormat(s: SettleTabSpec): Record<string, unknown>[] {
   return [
     { unmergeCells: { range: { sheetId: id } } },
     { mergeCells: { range: wide(0, 1), mergeType: 'MERGE_ALL' } },
+    /**
+     * ★★★**얼룩(지브라)을 걷는다** — 사장님 2026-09-08 「그리고 얼룩이 하지 말자고 했고」.
+     *   («얼룩무늬 뺀다»는 화면 쪽에서 이미 정해진 규격이다 — `check-design-locked`.)
+     * ⚠ **흰색을 «명시»해야 걷힌다.** 예전에 칠한 바탕은 값처럼 지워지지 않고 시트에 남는다 —
+     *   기울임 때와 같은 종류다. 본문을 흰 바탕으로 먼저 깔고, 합계·환수처럼 «색이 있어야 하는»
+     *   줄은 아래에서 덮는다(요청 차례가 곧 칠하는 차례다).
+     */
+    { repeatCell: { range: wide(r0 + 1, last), cell: { userEnteredFormat: { backgroundColor: { red: 1, green: 1, blue: 1 } } }, fields: 'userEnteredFormat.backgroundColor' } },
     { repeatCell: { range: wide(0, 1),
       cell: { userEnteredFormat: { backgroundColor: NAVY, textFormat: { bold: true, fontSize: 12, foregroundColor: { red: 1, green: 1, blue: 1 } }, verticalAlignment: 'MIDDLE', padding: { left: 10, right: 10, top: 2, bottom: 2 } } },
       fields: 'userEnteredFormat(backgroundColor,textFormat,verticalAlignment,padding)' } },
@@ -751,6 +775,13 @@ export function settleTabFormat(s: SettleTabSpec): Record<string, unknown>[] {
       { repeatCell: { range: wide(last + 1, last + 1 + blanks),
         cell: { userEnteredFormat: { textFormat: { italic: false, fontSize: 10, foregroundColor: { red: 0.62, green: 0.65, blue: 0.70 } } } }, fields: 'userEnteredFormat.textFormat' } },
       { updateDimensionProperties: { range: { sheetId: id, dimension: 'ROWS', startIndex: last + 1, endIndex: last + 1 + blanks }, properties: { pixelSize: 24 }, fields: 'pixelSize' } },
+      /**
+       * ★★★**예비줄에서 체크박스를 «걷는다».** 지난 달에 본표였던 줄이 이번 달엔 예비줄이 되는데,
+       *   데이터 검증은 값처럼 지워지지 않아 «적으라고 낸 빈 줄»에 확인·정정 체크박스가 남는다
+       *   (사장님 2026-09-08 「빠진 거 입력하는 거에 박스랑 이거 밀려서 안 맞네」).
+       *   ⇒ 규칙 없는 setDataValidation 으로 걷는다. 가감사유 때와 같은 처방이다.
+       */
+      { setDataValidation: { range: wide(last + 1, last + 1 + blanks) } },
     ] : []),
     ...H.map((h, c) => ({ repeatCell: { range: { sheetId: id, ...DATA, startColumnIndex: c, endColumnIndex: c + 1 },
       cell: { userEnteredFormat: { horizontalAlignment: money.includes(h) ? 'RIGHT' : left.includes(h) ? 'LEFT' : 'CENTER', verticalAlignment: 'MIDDLE' } },

@@ -86,7 +86,7 @@ const ladder = (supplier: string, kind: FeeRule['kind'], when = WHEN, note?: str
 const newCar = (supplier: string, sr = 0.035, ar = 0.03, when = WHEN, note?: string): FeeRule[] => [
   { supplier, kind: '신차', form: '선출고', term: 0, basis: '차량가액', claim: sr, pay: ar, when, auto: true, note },
   { supplier, kind: '신차', form: '선발주', term: 0, basis: '차량가액', claim: sr, pay: ar, when, auto: true, note },
-  { supplier, kind: '신차', form: '발주', term: 0, basis: '범위', claim: '주는 대로', pay: '주는 대로', when, auto: false, note: '요율 없음 — 받은 만큼 준다. 적힌 금액이 정본' },
+  { supplier, kind: '신차', form: '발주', term: 0, basis: '범위', claim: '건별 책정', pay: '건별 책정', when, auto: false, note: '요율 없음 — 영업자가 넣는다. 적힌 금액이 정본' },
   { supplier, kind: '신차', form: '매칭출고', term: 0, basis: '범위', claim: '최대 9%', pay: '최대 9%', when, auto: false, note: '영업자 조율 — 사람이 넣는다' },
 ];
 

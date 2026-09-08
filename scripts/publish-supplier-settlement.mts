@@ -136,8 +136,13 @@ const lineOf = (r: Row): Line => {
       : f.basis === '차량가액' ? `차량가액 ${won(N(r.price))} × ${rs}`
         : `렌탈료 ${won(N(r.rent))} × ${term}개월 × ${rs}`;
     if (ratio !== 1) how += ` × 비율 ${ratio}`;
-  } else if (f) how = `표 규칙 「${f.claim}」 — 개별 협의분`;
-  else how = '개별 협의분';
+  /**
+   * ★**상대에게 나가는 종이에는 «수수료 정책»이라고 적는다** — 사장님 2026-09-08
+   *   「표 규칙 이런 거 창피하다 · **수수료 정책**이라고 하든지」.
+   *   「표 규칙」은 우리끼리 부르는 말이다. 남의 회사가 받는 청구서에 우리 내부 말이 서면 안 된다.
+   */
+  } else if (f) how = `수수료 정책 「${f.claim}」 — 개별 협의`;
+  else how = '개별 협의';
   /**
    * ★★★**문구가 «적힌 금액»과 안 맞으면 그 문구를 쓰지 않는다.**
    *
@@ -159,7 +164,7 @@ const lineOf = (r: Row): Line => {
      *   실측 2026-09-08 — 카핑 133호1997(723,750 = 1,447,500 × 0.5) · 하허호 161하1266(462,000 = 924,000 × 0.5).
      *   여기서 뭉뚱그려 「개별 협의분」이라 하면, 상대는 «왜 절반인지»를 물으러 전화해야 한다.
      */
-    how = Math.abs(expect * 0.5 - got) <= 1 ? `${how} × 비율 0.5 (분납 1회차)` : '개별 협의분';
+    how = Math.abs(expect * 0.5 - got) <= 1 ? `${how} × 비율 0.5 (분납 1회차)` : '개별 협의';
   }
   /**
    * ★★**예정 줄은 «예정»이라고 적는다.** 금액이 0 이면 아직 인도 전이라 수수료가 안 정해진 것이다 —
@@ -251,8 +256,7 @@ const TINT = { red: 0.93, green: 0.95, blue: 0.98 };
 /** ★산출조건은 «별도 영역» — 원장 청구탭과 같은 연보라를 쓴다. */
 const BASIS_HEAD = { red: 0.90, green: 0.87, blue: 0.96 };
 const BASIS_BODY = { red: 0.975, green: 0.97, blue: 0.99 };
-/** 얼룩 줄 · 구역 칸막이 · 환수 줄 — 읽는 결을 만드는 세 가지. */
-const ZEBRA = { red: 0.972, green: 0.976, blue: 0.984 };
+/** 구역 칸막이 · 환수 줄 — 읽는 결을 만드는 둘. ★얼룩(지브라)은 쓰지 않는다(사장님 2026-09-08). */
 const LINE = { red: 0.78, green: 0.80, blue: 0.85 };
 /** ★환수 줄 — «연한 분홍 바탕»만(사장님 2026-09-04 「두껍게 이런건 하지마」). */
 const BACK_ROW = { red: 1, green: 0.945, blue: 0.955 };
@@ -430,7 +434,7 @@ for (const j of jobs) {
   const rowOf = (m: Record<string, string | number | boolean>): (string | number | boolean)[] =>
     HEAD.map((h) => (m[h] === undefined ? '' : m[h]));
   const body: (string | number | boolean)[][] = j.lines.map((l, i) => rowOf({
-    'No.': i + 1, 차량번호: l.plate, 접수일: l.recv, 인도일: l.deliv, 모델명: l.model, 임차인: maskName(l.cust),
+    'No.': i + 1, 차량번호: l.plate, 접수일: l.recv, 인도일: l.deliv, 청구월: monthKo(MONTH), 모델명: l.model, 임차인: maskName(l.cust),
     '상품 구분': l.product, '계약 기간': l.term || '', 렌탈료: l.rent || '', 보증금: l.deposit || '', '차량 가격(신차)': l.price || '', '납입 방식': l.payKind, [BASIS[0]]: l.how,
     공급가액: l.net, 부가세: l.vat, 합계: l.total,
     확인: note(l.plate)[0], 정정: note(l.plate)[1], 정정금액: note(l.plate)[2], '메모(정정사유)': note(l.plate)[3],
@@ -539,7 +543,12 @@ for (const j of jobs) {
      */
     ...onlyMissed.map((m) => HEAD.map((h) => S(m[h]))),
     ...Array.from({ length: Math.max(0, BLANKS - onlyMissed.length) }, (_, k) => (k === 0 && !onlyMissed.length
-      ? [...pad(HEAD.length - 1), '빠진 건이 있으면 이 줄부터 적어 주세요 — 차량번호·임차인과 «공급가액»까지 적어 주시면 그대로 청구에 넣습니다']
+      /**
+       * ★**안내문은 «첫 칸»에 둔다** — 사장님 2026-09-08 「빠진 거 입력하는 거에 박스랑 이거 밀려서 안 맞네」.
+       *   맨 끝 칸(메모)에 넣었더니 표 오른쪽 끝에 붙어 «밀려» 보였다.
+       *   적기 시작하는 자리에 있어야 「이 줄부터 적어 주세요」가 말이 된다.
+       */
+      ? ['빠진 건이 있으면 이 줄부터 적어 주세요 — 차량번호·임차인과 «공급가액»까지 적어 주시면 그대로 청구에 넣습니다', ...pad(HEAD.length - 1)]
       : pad(HEAD.length))),
     /**
      * ★빈 줄도 «칸 수만큼» 적는다 — `[]` 로 두면 그 줄을 안 건드려 «옷 글이 남는다».
@@ -609,6 +618,14 @@ for (const j of jobs) {
       cell: { userEnteredFormat: { backgroundColor: NAVY, textFormat: { bold: true, fontSize: 12, foregroundColor: { red: 1, green: 1, blue: 1 } }, verticalAlignment: 'MIDDLE', padding: { left: 10, right: 10, top: 2, bottom: 2 } } },
       fields: 'userEnteredFormat(backgroundColor,textFormat,verticalAlignment,padding)' } },
     { updateDimensionProperties: { range: { sheetId: id, dimension: 'ROWS', startIndex: 0, endIndex: 1 }, properties: { pixelSize: 40 }, fields: 'pixelSize' } },
+    /**
+     * ★★★**얼룩(지브라)을 걷는다** — 사장님 2026-09-08 「그리고 얼룩이 하지 말자고 했고」.
+     *   («얼룩무늬 뺀다»는 화면 쪽에서 이미 정해진 규격이다 — `check-design-locked`.)
+     * ⚠ **흰색을 «명시»해야 걷힌다.** 지금 코드는 얼룩을 안 칠하지만, 예전에 칠한 것은
+     *   값처럼 지워지지 않고 시트에 그대로 남는다 — 기울임 때와 같은 종류다.
+     *   ⇒ 본문 줄을 흰 바탕으로 먼저 깔고, 합계·환수처럼 «색이 있어야 하는» 줄은 뒤에서 덮는다.
+     */
+    { repeatCell: { range: all1(r0 + 1, last), cell: { userEnteredFormat: { backgroundColor: { red: 1, green: 1, blue: 1 } } }, fields: 'userEnteredFormat.backgroundColor' } },
     bar(1, true), bar(r0, false), tint(2), tint(last),
     /** ★머리줄 40 — 「수수료 산정 기준」이 안 잘리게 두 줄 자리를 준다. */
     { updateDimensionProperties: { range: { sheetId: id, dimension: 'ROWS', startIndex: r0, endIndex: r0 + 1 }, properties: { pixelSize: 40 }, fields: 'pixelSize' } },
@@ -632,6 +649,13 @@ for (const j of jobs) {
       cell: { userEnteredFormat: { textFormat: { fontSize: 10, foregroundColor: { red: 0.55, green: 0.58, blue: 0.63 } }, horizontalAlignment: 'CENTER', verticalAlignment: 'MIDDLE' } },
       fields: 'userEnteredFormat(textFormat,horizontalAlignment,verticalAlignment)' } },
     { updateDimensionProperties: { range: { sheetId: id, dimension: 'ROWS', startIndex: last + 1, endIndex: last + 1 + BLANKS }, properties: { pixelSize: 24 }, fields: 'pixelSize' } },
+    /**
+     * ★★★**예비줄에서 체크박스를 «걷는다».** 지난 달에 본표였던 줄이 이번 달엔 예비줄이 되는데,
+     *   데이터 검증은 값처럼 지워지지 않아 «적으라고 낸 빈 줄»에 확인·정정 체크박스가 남는다
+     *   (사장님 2026-09-08 스크린샷 — 안내문 옆에 박스 둘이 떠 있었다).
+     *   ⇒ 범위 전체에 «규칙 없는» setDataValidation 을 보내 걷는다. 가감사유 때와 같은 처방이다.
+     */
+    { setDataValidation: { range: all1(last + 1, last + 1 + BLANKS) } },
     /** ★꼬리 넉 줄 — 예비줄만큼 내려온다. 범위를 같이 늘리지 않으면 마지막 줄이 헐벗는다. */
     { repeatCell: { range: all1(last + 2 + BLANKS, last + 6 + BLANKS),
       cell: { userEnteredFormat: { textFormat: { fontSize: 10 }, horizontalAlignment: 'LEFT' } }, fields: 'userEnteredFormat(textFormat,horizontalAlignment)' } },
