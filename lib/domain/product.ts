@@ -34,7 +34,20 @@ export function normalizeProductOptionsText(raw: unknown): string {
   return parseProductOptions(cleaned).join(',');
 }
 
-/** 상품구분 캐논 — 재렌트→중고렌트 · 재구독→중고구독. 필터·뱃지·매칭 SSOT. */
+/**
+ * 상품구분 캐논 — 재렌트→중고렌트 · 재구독→중고구독. 필터·뱃지·매칭 SSOT.
+ *
+ * ⚠⚠ **모르는 갈래를 «접지» 않는다**(2026-09-08).
+ *   여기 `if (s.includes('구독')) return '중고구독'` 한 줄이 있었다. 「구독」이라는 글자만 있으면
+ *   무엇이든 중고구독으로 접는 줄이다. 그래서 원자에 **「오플구독」이라고 적힌 70대가
+ *   화면·필터·계약서에서 «중고구독»으로 둔갑**해 있었다(2026-09-08 운영 실측 730대 중 70).
+ *   ★카드는 원자를 그대로 찍어 「오플구독」이라 뜨는데 필터·검색·엑셀은 캐논을 봐서 중고구독이라
+ *     답했다 — **한 원자가 화면마다 다른 답**을 냈다. 이게 제일 나쁘다.
+ * ⇒ **아는 변형만 접는다.** 「중고/재」가 붙은 구독만 중고구독으로 보고, 그 밖의 구독 갈래는
+ *   **원자 그대로 내보낸다.** 새 갈래가 생기면 규격(`PRODUCT_TYPES`)에 넣어 주면 되고,
+ *   넣기 전까지도 화면은 «원자가 말한 그대로» 보여 준다. 파이프라인은 원자를 옮기는 일이지
+ *   원자를 고쳐 쓰는 일이 아니다.
+ */
 export function canonProductType(raw: unknown): string {
   const s = String(raw || '').replace(/\s+/g, '');
   if (!s) return '';
@@ -42,7 +55,8 @@ export function canonProductType(raw: unknown): string {
   if ((PRODUCT_TYPES as readonly string[]).includes(s)) return s;
   if (s.includes('신차') && s.includes('구독')) return '신차구독';
   if (s.includes('신차')) return '신차렌트';
-  if (s.includes('구독')) return '중고구독';
+  /* ★「중고구독」·「재구독」의 띄어쓰기·표기 변형만 접는다 — 처음 보는 구독 갈래는 안 접는다. */
+  if ((s.includes('중고') || s.includes('재')) && s.includes('구독')) return '중고구독';
   if (s.includes('렌트') || s.includes('재렌') || s.includes('재랜')) return '중고렌트';   // 재랜트=재렌트 오탈자 변형(이안카)
   return s;
 }

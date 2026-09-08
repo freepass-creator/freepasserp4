@@ -9,7 +9,7 @@ import { useIsMobile } from '@/lib/use-mobile';
 import { useInView } from '@/lib/use-in-view';
 import { useFirstPhoto } from '@/components/use-product-photos';
 import { haptic } from '@/lib/haptics';
-import { cheapest, creditDisplay, CREDIT_UNSET } from '@/lib/domain/product';
+import { canonProductType, cheapest, creditDisplay, CREDIT_UNSET } from '@/lib/domain/product';
 import { PERKS, hasPerk } from '@/lib/domain/product-filters';
 import { vehicleNameOf } from '@/lib/domain/vehicle-name';
 import { displacementL } from '@/components/product-card-identity';
@@ -144,7 +144,13 @@ export const ShopCard = memo(function ShopCard({ p, href }: {
    *   밀어내지 않고, 「살 수 있는 차인가」는 목록에서 제일 먼저 확인하는 값이다.
    */
   const status = String(p.vehicle_status || '').trim();
-  const kind = String(p.product_type || '').trim();
+  /*
+   * ★★**원자를 «캐논 한 번»만 거쳐 쓴다**(2026-09-08). 카드는 원자를 그대로 찍고 필터·검색은
+   *   `canonProductType` 을 보던 탓에, 같은 차가 카드에선 「오플구독」·필터에선 「중고구독」이었다.
+   *   ⇒ 화면도 같은 함수를 쓴다. 캐논은 이제 «모르는 갈래를 안 접으므로»(그 머리말 참고)
+   *     원자에 적힌 말이 그대로 나온다 — 접는 것은 「재렌트→중고렌트」 같은 옛 표기뿐이다.
+   */
+  const kind = canonProductType(p.product_type);
   const stateMarks: ShopMark[] = [
     ...(status ? [{ text: status, icon: CircleCheck, good: /출고가능|즉시출고/.test(status) }] : []),
     ...(kind ? [{ text: kind, icon: Tag }] : []),
