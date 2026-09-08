@@ -123,6 +123,8 @@
     "settlement:fill": "tsx scripts/fill-intake-from-atoms.mts",
     "settlement:confirm": "tsx scripts/check-settlement-confirm.mts",
     "settlement:heal": "tsx scripts/heal-intake-format.mts",
+    "settlement:agents": "tsx scripts/fill-agent-from-rooms.mts",
+    "settlement:taborder": "tsx scripts/order-settlement-tabs.mts",
     "build:estimate-cars": "tsx scripts/generate-estimate-car-index.mts"
   },
   "dependencies": {
