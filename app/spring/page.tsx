@@ -11,6 +11,7 @@ import type { MasterEntry } from '@/lib/domain/vehicle-master-types';
 import { nonCommonKeys, unknownKeys } from '@/lib/domain/atom-fields';
 import { colorSwatch, snapColorOrEtc } from '@/lib/domain/color-master';
 import { buildMasterIndex, atomHealth, joinPolicy, fareTable, lowestRent, updatedAt, HEALTH_RANK, type Health } from '@/lib/domain/atom-health';
+import { groupPoliciesByProvider, autoPolicyCode, type PolicyLite } from '@/lib/domain/supplier-policy-link';
 import type { MasterIndex } from '@/lib/domain/atom-invariants';
 
 /**
@@ -85,6 +86,9 @@ export default function SpringPage() {
     for (const p of policies) m.set(S(p._key), p);
     return m;
   }, [policies]);
+  // ★공급사 «입력 정책» 자동연결 — policy_code 가 빈 매물도 그 공급사 정책(1개→자동·렌트/구독)으로 조인해 화면에 보인다.
+  //   materialize(상품리스트용 원자)와 «같은 규칙»(supplier-policy-link)이라 화면·시트가 갈리지 않는다(사장님 2026-09-08).
+  const byProvider = useMemo(() => groupPoliciesByProvider(policies as Record<string, unknown>[]), [policies]);
 
   const enriched = useMemo<Enriched[]>(() => {
     if (!rows || !idx) return [];
@@ -206,7 +210,7 @@ export default function SpringPage() {
 
           {/* ── 상세 = 변동·무결성·정책·요금·원문(비공통) ── */}
           <div style={{ flex: mobile ? undefined : '1 1 0', width: mobile ? '100%' : undefined, minWidth: 0, position: mobile ? undefined : 'sticky', top: 8 }}>
-            {sel ? <AtomDetail e={sel} polByKey={polByKey} now={now} /> : <CenterNote>줄을 고르면 그 원자의 변동·정책·요금·원문이 여기에</CenterNote>}
+            {sel ? <AtomDetail e={sel} polByKey={polByKey} byProvider={byProvider} now={now} /> : <CenterNote>줄을 고르면 그 원자의 변동·정책·요금·원문이 여기에</CenterNote>}
           </div>
         </div>
       )}
@@ -214,9 +218,10 @@ export default function SpringPage() {
   );
 }
 
-function AtomDetail({ e, polByKey, now }: { e: Enriched; polByKey: Map<string, Record<string, unknown>>; now: number }) {
+function AtomDetail({ e, polByKey, byProvider, now }: { e: Enriched; polByKey: Map<string, Record<string, unknown>>; byProvider: Map<string, PolicyLite[]>; now: number }) {
   const r = e.r;
-  const pol = joinPolicy(polByKey, S(r.policy_code));
+  const effCode = S(r.policy_code) || autoPolicyCode(r, byProvider);   // 빈칸이면 공급사 정책으로 자동해소(materialize 와 같은 규칙)
+  const pol = joinPolicy(polByKey, effCode);
   const pv = (k: string) => S(pol?.[k]);
   const combo = (a: string, b: string) => { const A = pv(a), B = pv(b); return A ? (B && B !== A ? `${A} (${B})` : A) : ''; };
   const ft = fareTable(r.price);
@@ -277,7 +282,7 @@ function AtomDetail({ e, polByKey, now }: { e: Enriched; polByKey: Map<string, R
         </>
       ) : (
         <Section title="주요 정책">
-          <div style={{ padding: '8px 12px', fontSize: FS.sub, color: C.warn }}>정책코드 «{S(r.policy_code) || '—'}» 미조인 — 프리패스 표준정책 자동적용 또는 미배정(검수 대상).</div>
+          <div style={{ padding: '8px 12px', fontSize: FS.sub, color: C.warn }}>정책 미배정 «{effCode || S(r.policy_code) || '—'}» — 공급사 정책 미입력이거나 렌트/구독 겹침(사람이 정함). 입력되면 자동으로 붙는다.</div>
         </Section>
       )}
 
