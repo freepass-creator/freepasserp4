@@ -75,9 +75,9 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
    * ★자리는 채널 표 한 곳이다(`lib/whitelabel.ts`) — 「줄 하나 = 채널 하나」 규칙 그대로,
    *   필터도 그 줄 안에서 끝난다. 화면 코드는 채널이 늘어도 안 갈린다.
    */
-  const quick = wl.quick ?? DEFAULT_QUICK;
+  const quickAll = wl.quick ?? DEFAULT_QUICK;
   /* 이 줄에 «단추가 있는» 조건 — 뒤에 토큰으로 또 세우지 않는다(아래 칩 줄 머리말). */
-  const quickKeys = useMemo(() => new Set(quick.map((k) => `${k.axis}:${k.key}`)), [quick]);
+  const quickKeys = useMemo(() => new Set(quickAll.map((k) => `${k.axis}:${k.key}`)), [quickAll]);
   const mobile = useIsMobile();
   const [rows, setRows] = useState<EntityRecord[] | null>(null);
   const [agent, setAgent] = useState<{ name?: string; phone?: string } | null>(null);
@@ -241,6 +241,22 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
   useEffect(() => { setLimit(PAGE); }, [query]);
 
   const { list, total, facets } = useMemo(() => runShopQuery(rows, query), [rows, query]);
+
+  /*
+   * ★★**한 대도 없는 빠른 조건은 세우지 않는다.**
+   *
+   * ⚠ 실측(2026-09-08 · 이안카 채널) — 「보증 없음」 칩이 서 있는데 그 채널 87대 중 **0대**였다.
+   *   누르면 빈 화면이 나온다. 왼쪽 조건칸은 이미 «건수 0인 값은 안 보여준다»는 규칙을 지키는데,
+   *   빠른 칩만 표(`quick`)에 적힌 대로 무조건 서 있어서 그 규칙 밖에 있었다.
+   * ★채널마다 재고가 다르니 이건 **채널이 늘수록 반드시 생기는 일**이다 — 표를 손으로 맞추는 게
+   *   아니라 화면이 «지금 재고»를 보고 지운다.
+   * ⚠ **이미 켠 칩은 남긴다** — 걸어 둔 조건이 사라지면 그게 「숨은 필터」다(조건칸과 같은 규칙).
+   */
+  const quick = useMemo(
+    () => quickAll.filter((k) => query.sel[k.axis].includes(k.key)
+      || facets[k.axis].some((o) => o.key === k.key && o.count > 0)),
+    [quickAll, facets, query.sel],
+  );
   const tokens = useMemo(
     () => activeTokens(query, facets).map((t) => ({ ...t, axisLabel: AXIS_LABEL[t.axis] })),
     [query, facets],
