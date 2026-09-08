@@ -9,12 +9,13 @@
  *
  * ★**왜 «돌아가며»인가** — 구글 시트 읽기는 «분당» 한도가 있다. 스무 곳을 한 회차에 다 읽으면
  *   429 로 죽고, 죽으면 **한 곳도 갱신이 안 된다**. 그래서 매 회차 **가장 오래된 몇 곳만** 읽는다.
- *   한 시간에 셋이면 스무 곳이 일곱 시간 안에 한 바퀴 돈다 — 하루에 세 바퀴다.
+ *   두 시간에 셋이면 스무 곳이 하루 안에 한 바퀴 돈다.
+ * ★**하루 단은 `--all`** — 나눠 볼 까닭이 없다. 실측 20곳 한 바퀴에 한도는 «한 번도» 안 걸렸다.
  *
  * ★**실패는 알리되 멈추지 않는다.** 한 공급사가 못 읽힌다고 나머지를 굶기지 않는다.
  *   ⚠ 다만 **얼마나 묵었는지**는 반드시 찍는다 — 24일을 몰랐던 것은 「본 적이 없어서」다.
  *
- *   npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/ingest-rotation.mts [--apply] [--n=3]
+ *   npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/ingest-rotation.mts [--apply] [--n=3|--all]
  */
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
@@ -25,6 +26,17 @@ import nextEnv from '@next/env';
 nextEnv.loadEnvConfig(process.cwd());
 const S = (v: unknown) => String(v ?? '').trim();
 const APPLY = process.argv.includes('--apply');
+/**
+ * ★★**`--all` 이면 «전 공급사»를 다 돈다** — 하루 한 번 도는 단(day)의 몫이다.
+ *
+ * > 사장님 2026-09-08 「**프리패스 일일은 전체를 다 봐주면 좋지 — 하루에 한 번 하는 건데**」
+ *
+ * ⚠ 실측 2026-09-08 — 하루 회차도 기본값 `--n=3` 으로 돌고 있었다. 하루에 한 번 도는데
+ *   세 곳만 보니 스무 곳 한 바퀴가 **일주일**이었다. 「하루에 한 번 전부 최신화」가 아니었던 것이다.
+ *   그래서 원천에서 사라진 차 59대가 계속 서 있었다(내림은 그 공급사를 «읽어야» 도는 일이다).
+ * ★돌아가며는 «자주 도는 단»의 장치다. 하루 한 번이면 나눠 볼 까닭이 없다 — 다 본다.
+ */
+const ALL = process.argv.includes('--all');
 const N = Number(process.argv.find((a) => a.startsWith('--n='))?.split('=')[1] || 3);
 /** ★`--status-only` 를 그대로 넘긴다 — 30분 회차는 차량상태만 본다(사장님 2026-09-08). */
 const STATUS_ONLY = process.argv.includes('--status-only');
@@ -69,7 +81,7 @@ for (const r of all) {
 const 묵음 = all.filter((r) => 시간(r.last) >= 48);
 if (묵음.length) console.log(`\n  ▲ 이틀 넘게 원자를 못 채운 공급사 ${묵음.length}곳 — ${묵음.map((r) => `${r.name}(${시간(r.last) >= 9999 ? '없음' : `${Math.round(시간(r.last) / 24)}일`})`).join(' · ')}`);
 
-const 이번차례 = all.slice(0, Math.max(1, N));
+const 이번차례 = ALL ? all : all.slice(0, Math.max(1, N));
 console.log(`\n■ 이번 회차 ${이번차례.length}곳 — ${이번차례.map((r) => r.name).join(' · ')}`);
 if (!APPLY) { console.log('\n미리보기 — 실제로 당기려면 --apply\n'); process.exit(0); }
 
@@ -88,16 +100,33 @@ for (const r of 이번차례) {
    *   ★안전판 둘이 이미 있다 — 계약중(락)은 안 내린다 · 수집분이 우리 것의 절반도 안 되면 아예 안 내린다
    *     (원천 읽기 실패 의심). 그 둘 덕에 「못 읽은 날 재고가 사라지는」 사고는 안 난다.
    */
-  const out = spawnSync('npx', ['tsx', '--require', './scripts/lib/server-only-shim.cjs', 'scripts/ingest-supplier-to-firestore.mts', `--code=${r.code}`, '--apply', '--variable', '--retire', ...(STATUS_ONLY ? ['--status-only'] : [])], {
+  const 한번 = () => spawnSync('npx', ['tsx', '--require', './scripts/lib/server-only-shim.cjs', 'scripts/ingest-supplier-to-firestore.mts', `--code=${r.code}`, '--apply', '--variable', '--retire', ...(STATUS_ONLY ? ['--status-only'] : [])], {
     encoding: 'utf8', shell: process.platform === 'win32', env: process.env,
   });
-  const txt = `${out.stdout || ''}${out.stderr || ''}`;
+  let out = 한번();
+  let txt = `${out.stdout || ''}${out.stderr || ''}`;
+  /**
+   * ★★**한도(429)면 쉬었다 «한 번 더» 묻는다 — 특히 전체(`--all`)를 돌 때.**
+   *
+   * ⚠ 실측 2026-09-08 — 스무 곳을 잇달아 읽으면 구글 «분당» 한도에 걸린다. 한 곳이 걸리면
+   *   그 공급사는 **다음 바퀴까지 통째로 낡은 채**로 남는데, 하루 한 번 도는 단에서는
+   *   그게 «하루»다. 「돌았는데 세 곳이 비었다」는 것을 사람이 알 길도 없다.
+   * ★한도는 «고장»이 아니라 잠깐 밀린 것이다. 35초 쉬고 한 번만 더 — 그래도 안 되면 적어 둔다.
+   * ★**503·500(서버가 잠깐 안 되는 것)도 같이 넣는다** — 한도보다 더 명백한 「잠깐 밀린 것」이다.
+   *   실측 2026-09-08 전체 한 바퀴에서 경진렌트카·웰릭스가 이것 하나로 빠졌다(둘 다 멀쩡한 시트다).
+   */
+  if (/RESOURCE_EXHAUSTED|Quota exceeded|429|Sheets 50[03]|UNAVAILABLE/.test(txt) && !/반영 완료|변동 폴링 완료/.test(txt)) {
+    console.log(`  ⏳ ${r.name} — 잠깐 밀린 것(한도·503), 35초 쉬고 한 번 더`);
+    spawnSync(process.execPath, ['-e', 'setTimeout(()=>{},35000)'], { stdio: 'ignore' });
+    out = 한번(); txt = `${out.stdout || ''}${out.stderr || ''}`;
+  }
   const done = /반영 완료|변동 폴링 완료/.test(txt);
   const 내림 = Number((txt.match(/listable=false (\d+)건/) || [])[1] || 0);
   const 대기 = Number((txt.match(/원천에 «새 차» (\d+)대/) || [])[1] || 0);
   const 왜 = /요금이 한 대도/.test(txt) ? '요금 열을 못 읽음(두 줄 머리글 — 정제시트 길로 들어온다)'
     : /폐기된 시트/.test(txt) ? '원천이 폐기 주소 — 문패를 고쳐라'
     : /RESOURCE_EXHAUSTED|429/.test(txt) ? '구글 요청한도(다음 회차에 다시)'
+    : /Sheets 50[03]|UNAVAILABLE/.test(txt) ? '구글이 잠깐 안 됨(503 — 다음 회차에 다시)'
     : /PERMISSION_DENIED|403/.test(txt) ? '권한 — 어느 신분으로 읽는지부터 보라'
     : (txt.match(/Error: ([^\n]{0,80})/)?.[1] || '까닭 모름');
   if (done) { 성공.push(`${r.name} ${(txt.match(/바뀐 (\d+) 씀|직접 원자 (\d+)건/) || []).slice(1).find(Boolean) || '0'}건${내림 ? ` · 내림 ${내림}` : ''}${대기 ? ` · 등록대기 ${대기}` : ''}`); console.log(`  ✔ ${r.name} — ${성공[성공.length - 1]}`); }
