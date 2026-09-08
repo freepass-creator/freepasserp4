@@ -23,7 +23,7 @@ import { PERKS, hasPerk } from '@/lib/domain/product-filters';
 import { displacementL } from '@/components/product-card-identity';
 import { vehicleNameOf } from '@/lib/domain/vehicle-name';
 import { yearFullDisplay, fuelDisplay, makerDisplay } from '@/lib/domain/vehicle-master-format';
-import { isEvFuel, kmDisplay, kmValue, manWon } from '@/lib/format';
+import { isEvFuel, kmDisplay, kmValue, wonKo } from '@/lib/format';
 
 /**
  * 가게 상세 — 손님이 «이 차로 할까»를 정하는 화면.
@@ -677,7 +677,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
               <span style={{
                 fontSize: SHOP.fs.hero, fontWeight: FW.head, color: C.ink,
                 letterSpacing: '-0.045em', fontVariantNumeric: 'tabular-nums',
-              }}>{manWon(plan.rent)}</span>
+              }}>{wonKo(plan.rent)}</span>
             </div>
             {/*
               ★이 줄은 **큰 숫자의 닻**이다. 없애 보니 「월 15만원」이 «어느 기간인지 모르는 숫자»가 됐다
@@ -689,7 +689,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
                 color: plan.deposit > 0 ? C.sub : C.ok,
                 fontWeight: plan.deposit > 0 ? 400 : 700,
               }}>
-                {plan.deposit > 0 ? `보증금 ${manWon(plan.deposit)}` : '보증금 없음'}
+                {plan.deposit > 0 ? `보증금 ${wonKo(plan.deposit)}` : '보증금 없음'}
               </span> · {plan.m}개월 약정
             </div>
           </div>
@@ -815,11 +815,11 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
                     <td style={{
                       padding: '12px 8px', textAlign: 'right', whiteSpace: 'nowrap',
                       fontSize: rateFs, fontWeight: on ? 800 : 600, color: C.ink,
-                    }}>{manWon(x.rent)}</td>
+                    }}>{wonKo(x.rent)}</td>
                     <td style={{
                       padding: '12px 8px', textAlign: 'right', whiteSpace: 'nowrap',
                       fontSize: rateFs, color: C.mute,
-                    }}>{x.deposit > 0 ? manWon(x.deposit) : '없음'}</td>
+                    }}>{x.deposit > 0 ? wonKo(x.deposit) : '없음'}</td>
                     {/* ★계약조건 — 정책 단위 값이라 줄마다 같다(위 `rateConds` 머리말). 돈이 아니므로 한 단 조용하게. */}
                     {rateConds.map((c) => (
                       <td key={c.h} style={{
