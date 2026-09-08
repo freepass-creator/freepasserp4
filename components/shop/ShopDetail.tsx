@@ -19,7 +19,7 @@ import { useProductPhotos } from '@/components/use-product-photos';
 import { haptic } from '@/lib/haptics';
 import { getAuthClient } from '@/lib/firebase/client';
 import { useSession, useAuthReady } from '@/lib/auth-context';
-import { creditDisplay, CREDIT_UNSET, parseProductOptions, priceList } from '@/lib/domain/product';
+import { canonProductType, creditDisplay, CREDIT_UNSET, parseProductOptions, priceList } from '@/lib/domain/product';
 import { PERKS, hasPerk } from '@/lib/domain/product-filters';
 import { displacementL } from '@/components/product-card-identity';
 import { vehicleNameOf } from '@/lib/domain/vehicle-name';
@@ -591,7 +591,13 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
    *   칩마다 색을 주면 그 순간 촌스러워진다(대여료 큰 줄과 같은 규칙).
    */
   const status = S2(p.vehicle_status);
-  const kind = S2(p.product_type);
+  /*
+   * ★★**원자를 «캐논 한 번»만 거쳐 쓴다**(2026-09-08). 카드는 원자를 그대로 찍고 필터·검색은
+   *   `canonProductType` 을 보던 탓에, 같은 차가 카드에선 「오플구독」·필터에선 「중고구독」이었다.
+   *   ⇒ 화면도 같은 함수를 쓴다. 캐논은 이제 «모르는 갈래를 안 접으므로»(그 머리말 참고)
+   *     원자에 적힌 말이 그대로 나온다 — 접는 것은 「재렌트→중고렌트」 같은 옛 표기뿐이다.
+   */
+  const kind = canonProductType(p.product_type);
   const creditChip = creditDisplay(p);
   /* 표시 칩의 꼴은 목록 카드와 «같은 원자»가 든다(`shop-ui` `ShopMark`). */
   type Mark = ShopMark;

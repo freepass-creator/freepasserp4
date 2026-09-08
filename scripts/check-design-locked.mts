@@ -446,8 +446,11 @@ must(/display: mobile \? 'block' : 'flex', flexWrap: 'wrap',/.test(shopDetail)
  * 차명 밑 «표시 칩» — 출고상태 · 상품구분 · 심사 · 우대조건. **아이콘 + 글자**이고 테두리가 없다.
  * ⚠ 출고상태·상품구분은 한때 상세에 아예 없었다 — 목록 카드는 보여 주는데 상세에서 사라졌다.
  */
+/* ⚠ 2026-09-08 — 상품구분은 «캐논 한 번»을 거쳐 읽는다(`canonProductType`). 카드는 원자를 그대로
+     찍고 필터는 캐논을 보던 탓에 같은 차가 「오플구독」/「중고구독」 두 답을 냈다. 원자를 안 읽는
+     것이 아니라 «같은 함수로» 읽는 것이라 이 검사의 뜻은 그대로다. */
 must(/const stateMarks: Mark\[\]/.test(shopDetail) && /const perkMarks: Mark\[\]/.test(shopDetail)
-  && /S2\(p\.vehicle_status\)/.test(shopDetail) && /S2\(p\.product_type\)/.test(shopDetail),
+  && /S2\(p\.vehicle_status\)/.test(shopDetail) && /canonProductType\(p\.product_type\)/.test(shopDetail),
   '표시 칩이 사라졌거나 신원(출고상태·구분)과 조건(심사·우대)이 다시 한 덩어리가 됐습니다 — 신원은 차명 줄 오른쪽, 조건은 그 밑입니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1');
 /*
