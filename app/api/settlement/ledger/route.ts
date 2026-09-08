@@ -15,7 +15,7 @@
  */
 import { NextResponse } from 'next/server';
 import { getDatabase } from 'firebase-admin/database';
-import { firebaseAdminApp, verifyActiveBearer } from '@/lib/server/firebase-admin';
+import { firebaseAdminApp, verifyActiveBearer, firebaseAdminDatabase } from '@/lib/server/firebase-admin';
 import { billingMonth, bucketOf, moneyOf, nextInstalment, stageOf } from '@/lib/domain/settlement-stage';
 import { billStateOf, issuedKey } from '@/lib/domain/settlement-billstate';
 import { iso, ledgerUrl } from '@/lib/server/settlement-ledger-read';
@@ -49,7 +49,7 @@ export async function GET(req: Request) {
    * ★**「청구완료」는 «청구서가 나갔나»로 판정한다.** 날짜가 지났다고 나간 게 아니다 —
    *   날짜로 치면 「청구한 줄 알았는데 아무도 안 보낸」 건이 조용히 완료로 넘어간다.
    */
-  const snap = await getDatabase(firebaseAdminApp()).ref('v4/settlement_invoices').get().catch(() => null);
+  const snap = await firebaseAdminDatabase().ref('v4/settlement_invoices').get().catch(() => null);
   const invoices = (snap?.val() || {}) as Record<string, { month?: string; axis?: string; party?: string }>;
   const issued = new Set(
     Object.values(invoices)

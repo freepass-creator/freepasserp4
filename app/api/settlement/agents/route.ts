@@ -13,7 +13,7 @@
  */
 import { NextResponse } from 'next/server';
 import { getDatabase } from 'firebase-admin/database';
-import { firebaseAdminApp, verifyActiveBearer } from '@/lib/server/firebase-admin';
+import { firebaseAdminApp, verifyActiveBearer, firebaseAdminDatabase } from '@/lib/server/firebase-admin';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -27,7 +27,7 @@ export async function GET(req: Request) {
   if (!who) return NextResponse.json({ ok: false, reason: '로그인이 필요합니다.' }, { status: 401 });
   if (who.role !== 'admin') return NextResponse.json({ ok: false, reason: '관리자만 볼 수 있습니다.' }, { status: 403 });
 
-  const snap = await getDatabase(firebaseAdminApp()).ref('users').get().catch(() => null);
+  const snap = await firebaseAdminDatabase().ref('users').get().catch(() => null);
   const users = (snap?.val() || {}) as Record<string, U>;
 
   const live = Object.values(users).filter((u) => {

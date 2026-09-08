@@ -21,7 +21,7 @@
  */
 import { NextResponse } from 'next/server';
 import { getDatabase } from 'firebase-admin/database';
-import { firebaseAdminApp, verifyActiveBearer } from '@/lib/server/firebase-admin';
+import { firebaseAdminApp, verifyActiveBearer, firebaseAdminDatabase } from '@/lib/server/firebase-admin';
 import { iso, ledgerError, ledgerUrl, readLedger, sheetsToken, type LedgerExtra } from '@/lib/server/settlement-ledger-read';
 import { billingMonth, moneyOf, type SettlementRow } from '@/lib/domain/settlement-stage';
 import { countsOf, publicRowOf, scopeRows, type AdminRow, type Viewer } from '@/lib/domain/settlement-view';
@@ -60,7 +60,7 @@ async function siblingCodes(db: ReturnType<typeof getDatabase>, me: { user_code?
  *   앞머리로 풀어야 하는데, 그 앞머리가 유일한지 보려면 나머지를 알아야 한다.
  */
 async function viewerOf(who: { uid: string; role: 'agent' | 'provider' | 'admin'; companyCode: string }): Promise<Viewer> {
-  const db = getDatabase(firebaseAdminApp());
+  const db = firebaseAdminDatabase();
   if (who.role !== 'provider') {
     const u = (await db.ref(`users/${who.uid}`).get().catch(() => null))?.val() as { name?: string; user_code?: string; company_name?: string; phone?: string } | null;
     // ★코드가 있으면 코드가 이긴다 — 원장에 이름만 있으면 동명이인을 못 가른다(사장님 2026-08-26).

@@ -12,7 +12,7 @@
  */
 import { NextResponse } from 'next/server';
 import { getDatabase } from 'firebase-admin/database';
-import { firebaseAdminApp, verifyActiveBearer } from '@/lib/server/firebase-admin';
+import { firebaseAdminApp, verifyActiveBearer, firebaseAdminDatabase } from '@/lib/server/firebase-admin';
 import { iso } from '@/lib/server/settlement-ledger-read';
 import { listRows, storeError } from '@/lib/server/settlement-store';
 import { billingMonth } from '@/lib/domain/settlement-stage';
@@ -99,7 +99,7 @@ export async function GET(req: Request) {
   const read = await listRows();
   if (!read) return NextResponse.json({ ok: false, reason: storeError() || '원장을 못 읽었습니다.' }, { status: 503 });
 
-  const db = getDatabase(firebaseAdminApp());
+  const db = firebaseAdminDatabase();
   const [issuerSnap, allSnap, allV4Snap] = await Promise.all([
     db.ref(`partners/${ISSUER_CODE}`).get().catch(() => null),
     db.ref('partners').get().catch(() => null),
@@ -246,7 +246,7 @@ export async function GET(req: Request) {
 
 /** 발행 기록을 찾는다 — 같은 달·같은 축·같은 상대면 같은 문서다. */
 async function findIssued(month: string, axis: string, party: string): Promise<IssuedInvoice | null> {
-  const snap = await getDatabase(firebaseAdminApp()).ref(ISSUED_NODE).get().catch(() => null);
+  const snap = await firebaseAdminDatabase().ref(ISSUED_NODE).get().catch(() => null);
   const all = (snap?.val() || {}) as Record<string, IssuedInvoice>;
   const want = invoiceKey(month, axis, party);
   return Object.values(all).find((v) => invoiceKey(v.month, v.axis, v.party) === want) || null;
@@ -276,7 +276,7 @@ export async function POST(req: Request) {
   const already = await findIssued(month, axis, party);
   if (already) return NextResponse.json({ ok: true, ...already, reused: true });
 
-  const db = getDatabase(firebaseAdminApp());
+  const db = firebaseAdminDatabase();
   if (axis === '공급사') {
     // UI 경고가 아니라 서버에서 다시 원장을 읽어 막는다. 직접 API 호출로 우회할 수 없다.
     const read = await listRows();
