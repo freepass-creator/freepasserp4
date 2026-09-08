@@ -510,6 +510,16 @@ export function ShopTokens({ tokens, onRemove, onClear, inline }: {
       */}
       {inline ? (
         <span aria-hidden style={{
+          /*
+           * ⚠⚠ **`alignSelf: 'center'` 를 «반드시» 준다.** 사장님 2026-09-08 「**세로바도 안 맞고**」.
+           *   칩 줄(`.fp-shop-rail`)은 `align-items` 를 안 걸어 기본값(stretch)으로 선다. 칩들은
+           *   저마다 **높이 26 을 박고** 있어서 stretch 가 안 먹지만, 이 막대는 높이가 16 이라
+           *   stretch 대상이 되고 — 늘일 수 없으니 **줄 위쪽에 붙는다.**
+           *   실측(운영 2026-09-08) — 칩 275.2~301.2 · 막대 275.2~**291.2**. 5px 떠 있었다.
+           * ★높이 16 = 칩 26 의 **62%**. 가름선은 이웃보다 낮아야 «가르는 선»으로 읽힌다 —
+           *   칩과 같은 높이면 그건 선이 아니라 «빈 칩»으로 보인다.
+           */
+          alignSelf: 'center',
           flex: '0 0 auto', width: 1, height: SHOP.pill.web - 10,
           background: C.line, margin: `0 ${SHOP.sp.tight}px`,
         }} />
