@@ -183,7 +183,7 @@ export default function SpringPage() {
                       <td style={{ padding: '5px 9px', color: C.mute }}>{[r.ext_color, r.int_color].some((c) => S(c) && S(c) !== '-') ? (
                         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>{[r.ext_color, r.int_color].map((cn, i) => { const nm = S(cn); if (!nm || nm === '-') return null; const hex = colorSwatch(snapColorOrEtc(nm)); return (
                           <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                            <span title={`${nm} ${hex}`} style={{ width: 11, height: 11, borderRadius: 2, background: hex, border: `1px solid ${C.line}`, display: 'inline-block', flex: 'none' }} />
+                            <span title={`${nm} ${hex}`} style={{ width: 11, aspectRatio: '1 / 1', borderRadius: R, background: hex, border: `1px solid ${C.line}`, display: 'inline-block', flex: 'none' }} />
                             {nm}
                           </span>
                         ); })}</span>
