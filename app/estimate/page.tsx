@@ -381,18 +381,18 @@ function EstimatePageInner() {
             사장님 2026-09-08 「저렇게 굵을 필요 없고」. 값·차례는 그대로, 짜임만 얇아졌다. */}
         {/* ★고르는 것은 전부 «버튼»이다 — 사장님 2026-09-08 「드랍다운보다는 버튼으로 할 수 있으면
             버튼으로 해」. 드롭다운은 열고 고르느라 두 번 누른다. 통화 중에 그 한 걸음이 그대로 느려짐이 된다. */}
+        {/* ══ 상품 — **한 칸**에서 좌우로 셋을 고른다 ═══════════════════════════
+               사장님 2026-09-08 「중고/신차 · 렌트/구독 · 반납/인수 — 이거는 **한 칸? 한 부분에서
+               좌우로 선택**할 수 있게끔 해주면 되잖아」
+             ⇒ 칸 셋(상품·채널·만기)을 **하나로 합쳤다.** 세 줄 다 «좌 아니면 우»뿐이라
+               라벨을 세 번 세울 값어치가 없었다 — 그만큼 왼쪽이 길어지기만 했다.
+             ⚠ 값·차례는 그대로다. 짜임만 한 칸으로 모았다.
+             ★그 다음이 «차 고르기»다(신차/중고에 따라 갈린다) — 사장님 「그러고 나서 신차 중고에
+               따른 차량 고르는 게 나오고」. 그래서 이 칸이 캐스케이드 «바로 위»에 선다. ══ */}
         <section id="sec-source">
           <div className="step-title">상품</div>
           <Seg tone="t2" opts={SOURCES.map((o) => ({ v: o.v, label: o.label }))} cur={cond} onPick={setCond} />
-        </section>
-
-        <section id="sec-channel">
-          <div className="step-title">채널</div>
           <Seg tone="t3" opts={CHANNELS.map((o) => ({ v: o.v, label: o.label }))} cur={ch} onPick={setCh} />
-        </section>
-
-        <section id="sec-type">
-          <div className="step-title">만기</div>
           <Seg tone="t3" opts={TYPES.map((o) => ({ v: o.v, label: o.label }))} cur={type} onPick={setType} />
         </section>
 

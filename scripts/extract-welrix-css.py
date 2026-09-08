@@ -124,16 +124,15 @@ tail = """
    우리가 새로 세운 칸(상품·채널·만기·신용)도 **같은 줄**에 서야 한다
    (사장님 2026-09-08 「저렇게 굵을 필요 없고」). 원본 규칙은 안 건드리고 이름만 보탠다. */
 @media (min-width: 1025px) {
-  .wx-root #sec-source, .wx-root #sec-channel, .wx-root #sec-type, .wx-root #sec-credit {
+  .wx-root #sec-source, .wx-root #sec-credit {
     display: grid !important; grid-template-columns: 96px 1fr;
-    align-items: center; column-gap: 12px; row-gap: 4px; padding: 12px 0 !important;
+    align-items: start; column-gap: 12px; row-gap: 4px; padding: 12px 0 !important;
   }
-  .wx-root #sec-source > .step-title, .wx-root #sec-channel > .step-title,
-  .wx-root #sec-type > .step-title, .wx-root #sec-credit > .step-title {
+  .wx-root #sec-source > .step-title, .wx-root #sec-credit > .step-title {
     grid-column: 1; margin-bottom: 0 !important; white-space: nowrap;
+    align-self: start; padding-top: 8px;   /* 세 줄이 겹쳐 서는 칸이라 라벨을 첫 줄에 맞춘다 */
   }
-  .wx-root #sec-source > *:not(.step-title), .wx-root #sec-channel > *:not(.step-title),
-  .wx-root #sec-type > *:not(.step-title), .wx-root #sec-credit > *:not(.step-title) {
+  .wx-root #sec-source > *:not(.step-title), .wx-root #sec-credit > *:not(.step-title) {
     grid-column: 2; min-width: 0;
   }
 }
