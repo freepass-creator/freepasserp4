@@ -631,16 +631,26 @@ export function ShopMore({ shown, total, onMore }: { shown: number; total: numbe
   if (shown >= total) return null;
   return (
     <div style={{ display: 'flex', justifyContent: 'center', padding: `${SHOP.sp.part}px 0 ${SHOP.sp.snug}px` }}>
+      {/*
+        ★★**면을 걷고 «아이콘 + 글자»로 둔다**(사장님 2026-09-08 「여기도 **아이콘 텍스트로
+          깔끔하게** 하는 게 나을 거 같음」). 집 규칙과 같은 말이다 — 「박스 뱃지 쓰지 말고
+          아이콘 텍스트로, **모든 곳에서**」(2026-08-28·08-30).
+        ⚠ 회색 면(`C.head`)을 깔고 있었다. 목록 «끝»에서 카드보다 진한 덩어리가 하나 서서,
+          차를 보는 화면에 단추가 먼저 눈에 들어왔다. 여기서 손님이 하는 일은 「더 볼까」뿐이다.
+        ★누름 영역(`SHOP.h`)은 그대로다 — 보이는 면만 걷고 손가락 닿는 곳은 안 줄인다.
+        ★아이콘은 아래꺾쇠 — 「밑에 더 있다」를 말이 아니라 방향으로 말한다.
+      */}
       <button type="button" onClick={onMore} className="fp-shop-press"
         style={{
           /* ★높이는 손님 동 사다리(`SHOP.h`) — 52 는 사다리 밖의 숫자였다(2026-09-06 검수). */
           ...bare, height: mobile ? SHOP.h.mobile : SHOP.h.web, padding: `0 ${SHOP.sp.pane}px`,
-          borderRadius: SHOP.r.ctrl,
-          /* 목록 끝의 «비주요» 누름 — 칩과 같은 회색 면. 테두리 상자로 두면 여기만 촌스럽다. */
-          background: C.head, color: C.ink,
+          borderRadius: SHOP.r.ctrl, background: 'transparent', color: C.ink,
+          display: 'inline-flex', alignItems: 'center', gap: SHOP.sp.snug,
           fontSize: SHOP.fs.body, fontWeight: 700,
         }}>
-        차량 더 보기 <span style={{ color: C.mute, fontWeight: 500, marginLeft: SHOP.sp.snug }}>{shown} / {total}</span>
+        <ChevronDown size={ICON.md} aria-hidden style={{ color: C.mute }} />
+        차량 더 보기
+        <span style={{ color: C.mute, fontWeight: 500 }}>{shown} / {total}</span>
       </button>
     </div>
   );
