@@ -163,7 +163,14 @@ class RefShim {
 
   /** RTDB transaction(fn) → 문서 단위 Firestore 트랜잭션. fn 이 undefined 반환 시 중단(committed:false). */
   async transaction(fn: (current: any) => any, _onComplete?: unknown, _applyLocally?: boolean): Promise<{ committed: boolean; snapshot: Snap }> {
-    const ref = this.docRef(); if (!ref) throw new Error(`transaction 은 문서 경로여야 함: ${this.path}`);
+    const ref = this.docRef();
+    if (!ref) {
+      // ★루트/컬렉션 트랜잭션(db.ref('v4').transaction 등)은 Firestore 단일 문서로 못 옮긴다(v4 전체 원자 read 불가).
+      //   재설계(문서단위) 전까지 «RTDB 로 폴백» — RTDB 살아있는 동안 안전한 다리. 인벤토리 apply/rollback·manual-offers 해당.
+      //   ⚠ RTDB 삭제 «전»에 이 경로들을 반드시 문서단위로 재설계해야 한다(그때까지 삭제 금지).
+      const r = await this.rtdb.ref(this.path).transaction(fn);
+      return { committed: r.committed, snapshot: new Snap(r.snapshot.val(), this.key) };
+    }
     const fieldKey = this.p.field.length ? this.p.field.join('.') : '';
     const result = await this.fs.runTransaction(async (tx) => {
       const d = await tx.get(ref);

@@ -12,14 +12,18 @@ import { ref, get } from 'firebase/database';
 
 const isFirestore = () => String(process.env.NEXT_PUBLIC_DATA_BACKEND || '').trim() === 'firestore';
 
-/** 회원 프로필 — users/{uid}(RTDB) 또는 user/{uid}(Firestore). 없으면 null. */
+/** 회원 프로필 — user/{uid}(Firestore) 우선, «없으면 RTDB 폴백». 없으면 null.
+ *  ★폴백 이유: 아직 가입 쓰기가 RTDB 라, 새 가입자는 Firestore 에 없다 → 폴백 없으면 flip 뒤 새 가입자 로그인 실패.
+ *  기존 회원(미러됨)은 Firestore 에서 바로 나와 RTDB 를 안 읽는다(비용 0). RTDB 삭제 전 가입 쓰기 이관 필요. */
 export async function readUserProfile(uid: string): Promise<Record<string, unknown> | null> {
   if (isFirestore()) {
     const app = getFirebaseApp();
-    if (!app) return null;
-    const { getFirestore, doc, getDoc } = await import('firebase/firestore');
-    const snap = await getDoc(doc(getFirestore(app), 'user', uid));
-    return snap.exists() ? (snap.data() as Record<string, unknown>) : null;
+    if (app) {
+      const { getFirestore, doc, getDoc } = await import('firebase/firestore');
+      const snap = await getDoc(doc(getFirestore(app), 'user', uid));
+      if (snap.exists()) return snap.data() as Record<string, unknown>;
+      // Firestore 에 없으면(새 가입 등) 아래 RTDB 폴백
+    }
   }
   const db = getRtdb();
   if (!db) return null;
