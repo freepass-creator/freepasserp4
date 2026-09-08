@@ -38,6 +38,7 @@ import { JWT } from 'google-auth-library';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getDatabase } from 'firebase-admin/database';
 import { getFirestore } from 'firebase-admin/firestore';
+import { shapeAtom, stageOf } from '../lib/domain/settlement-atom';
 
 const S = (v: unknown) => String(v ?? '').trim();
 const P = (v: unknown) => S(v).replace(/\s/g, '');
@@ -127,21 +128,28 @@ for (const [code, r] of mine) {
   const ch = plate ? byCh.get(plate) : undefined;
   const billedAt = publishedAt(S(r.channel)) || (sup || ch ? new Date().toISOString() : '');
   const billed = !!(sup || ch);
-  /** ★한 낱말 — 물으면 이걸 답한다. 위에서 아래로, 먼저 맞는 것이 이긴다. */
-  const stage = r.settleExclude === true ? '보류'
-    : r.cancelled === true ? '취소'
-      : (sup?.fix || ch?.fix) ? '정정'
-        : (sup?.ok || ch?.ok) ? '확인'
-          : billed ? '청구' : '접수';
+  /**
+   * ★★**두 축을 따로 센다** — 우리는 공급사에게 «받고» 영업채널에 «준다».
+   *   공급사가 아직 안 냈는데 채널에는 이미 줬을 수 있다. 한 낱말로 뭉치면 그 어긋남이 안 보인다.
+   * ⚠ 수금·지급은 여기서 «모른다» — 시트에 그 사실이 없다. 이미 서 있는 값을 지키고 덮지 않는다.
+   */
+  const off = r.settleExclude === true ? '보류' : r.cancelled === true ? '취소' : '';
+  const claimStage = r.collected === true ? '수금'
+    : sup?.fix ? '정정' : sup?.ok ? '확인' : billed ? '청구' : '접수';
+  const payStage = r.paid === true ? '지급'
+    : ch?.fix ? '정정' : ch?.ok ? '확인' : billed ? '통보' : '접수';
+  const stage = stageOf(claimStage, payStage, off as '보류' | '취소' | '');
   tally.set(stage, (tally.get(stage) || 0) + 1);
   const state = {
-    billed, billedAt: billed ? billedAt : '',
-    supplierOk: !!sup?.ok, supplierFix: !!sup?.fix, supplierFixAmt: sup?.amt ?? '', supplierMemo: sup?.memo || '',
-    channelOk: !!ch?.ok, channelFix: !!ch?.fix, channelFixAmt: ch?.amt ?? '', channelMemo: ch?.memo || '',
-    stage, stateAt: new Date().toISOString(),
+    billed, billedAt: billed ? billedAt : S(r.billedAt),
+    supplierOk: !!sup?.ok, supplierFix: !!sup?.fix, supplierFixAmt: sup?.amt || 0, supplierMemo: sup?.memo || '',
+    channelOk: !!ch?.ok, channelFix: !!ch?.fix, channelFixAmt: ch?.amt || 0, channelMemo: ch?.memo || '',
+    claimStage, payStage, stage, stateAt: new Date().toISOString(),
   };
-  patch[`v4/settlement_rows/${code}`] = { ...r, ...state };
-  fsWrites.push([code, { ...r, ...state }]);
+  /** ★규격을 거쳐 담는다 — 모든 줄이 모든 밭을 갖는다. */
+  const shaped = shapeAtom({ ...r, ...state });
+  patch[`v4/settlement_rows/${code}`] = shaped;
+  fsWrites.push([code, shaped]);
 }
 for (const [k, v] of [...tally].sort((a, b) => b[1] - a[1])) console.log(`   ${pad(k, 6)} ${String(v).padStart(3)}줄`);
 

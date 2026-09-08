@@ -91,10 +91,17 @@ export const SETTLEMENT_FIELDS: AtomField[] = [
   { key: 'settleNote', label: '산정 조건', group: '정산 축', type: 'string', from: '계약번호(메모)', empty: '', note: '축으로 옮긴 말을 «말로도» 남긴다' },
 
   // ── 상태 ─────────────────────────────────────────────
-  { key: 'stage', label: '지금 어디', group: '상태', type: 'string', from: null, empty: '접수', note: '보류·취소·접수·청구·정정·확인 — 물으면 이걸 답한다' },
+  { key: 'stage', label: '지금 어디', group: '상태', type: 'string', from: null, empty: '접수', note: '두 축을 모은 한 낱말 — 물으면 이걸 답한다' },
+  { key: 'claimStage', label: '청구 축', group: '상태', type: 'string', from: null, empty: '접수', note: '접수→청구→확인→수금. 공급사에게 «받는» 길' },
+  { key: 'payStage', label: '지급 축', group: '상태', type: 'string', from: null, empty: '접수', note: '접수→통보→확인→지급. 영업채널에 «주는» 길' },
   { key: 'billed', label: '청구서 나감', group: '상태', type: 'boolean', from: null, empty: false },
   { key: 'billedAt', label: '청구서 나간 날', group: '상태', type: 'string', from: null, empty: '' },
-  { key: 'collected', label: '수금됨', group: '상태', type: 'boolean', from: '수금', empty: false, note: '⚠ 시트가 아직 안 알려 준다 — 통장을 봐야 한다' },
+  { key: 'collected', label: '수금됨', group: '상태', type: 'boolean', from: '수금', empty: false, note: '공급사가 돈을 냈다' },
+  { key: 'collectedAt', label: '수금한 날', group: '상태', type: 'string', from: null, empty: '' },
+  { key: 'collectedAmt', label: '수금액', group: '상태', type: 'number', from: null, empty: 0, note: '일부만 들어올 수 있다 — 청구액과 다를 수 있다' },
+  { key: 'paid', label: '지급됨', group: '상태', type: 'boolean', from: null, empty: false, note: '영업채널에 돈을 줬다' },
+  { key: 'paidAt', label: '지급한 날', group: '상태', type: 'string', from: null, empty: '' },
+  { key: 'paidAmt', label: '지급액(실제)', group: '상태', type: 'number', from: null, empty: 0 },
   { key: 'supplierOk', label: '공급사 확인', group: '상태', type: 'boolean', from: null, empty: false, note: '상대가 시트에서 켠 체크' },
   { key: 'supplierFix', label: '공급사 정정요청', group: '상태', type: 'boolean', from: null, empty: false },
   { key: 'supplierFixAmt', label: '공급사 정정금액', group: '상태', type: 'number', from: null, empty: 0 },
@@ -133,6 +140,41 @@ export const SETTLEMENT_FIELDS: AtomField[] = [
  */
 export const ATOM_NOT_KEPT = ['phone', 'age', 'agentPhone', 'clawback', 'clawbackAmount', 'clawbackAt',
   'clawbackReason', 'contractNo', 'settleTerms', 'paidRounds', 'paperBy', 'paperFee', 'region', 'upsell'] as const;
+
+/**
+ * ★★★**정산 생애주기 — 접수부터 «돈 받은 것»까지.**
+ *
+ *   사장님 2026-09-08 「**청구까지 완료, 돈 받은 거까지 정산 생애주기를 관리**하면 되지」
+ *
+ * ★★**축이 둘이다.** 한 줄에서 우리는 공급사에게 «받고» 영업채널에 «준다».
+ *   두 축은 따로 흐른다 — 공급사가 아직 안 냈는데 채널에는 이미 줬을 수 있다.
+ *   한 낱말로 뭉치면 그 어긋남이 안 보인다.
+ * ```
+ * 청구 축(공급사)   접수 → 청구 → 확인 → 수금        ← 받는 길
+ * 지급 축(영업채널) 접수 → 통보 → 확인 → 지급        ← 주는 길
+ *
+ * 곁길   보류(당분간 안 센다) · 취소(계약이 깨졌다) · 정정(상대가 다르다고 했다)
+ * ```
+ *
+ * ★**「모른다」와 「아니다」를 가른다.** 수금·지급은 통장이 알려 준다 —
+ *   아직 그 길이 안 뚫려 있으면 `collected`·`paid` 는 거짓이 아니라 «모름»이다.
+ *   그래서 물으면 「아직」이라 답하지 「안 받았다」고 하지 않는다.
+ */
+export const CLAIM_STAGES = ['접수', '청구', '정정', '확인', '수금'] as const;
+export const PAY_STAGES = ['접수', '통보', '정정', '확인', '지급'] as const;
+export const OFF_STAGES = ['보류', '취소'] as const;
+
+/** 두 축을 모아 «한 낱말»로. 곁길이 먼저 이기고, 그 다음은 «덜 간 쪽»이 그 줄의 지금이다. */
+export function stageOf(claim: string, pay: string, off?: '보류' | '취소' | ''): string {
+  if (off) return off;
+  const rank = (s: string, order: readonly string[]) => {
+    const i = order.indexOf(s);
+    return i < 0 ? 0 : i;
+  };
+  /** 정정은 «멈춘» 것이라 어느 쪽이든 정정이면 그게 지금이다 — 우리가 볼 차례라는 뜻. */
+  if (claim === '정정' || pay === '정정') return '정정';
+  return rank(claim, CLAIM_STAGES) <= rank(pay, PAY_STAGES) ? claim : pay;
+}
 
 export const ATOM_KEYS = SETTLEMENT_FIELDS.map((f) => f.key);
 export const atomField = (key: string) => SETTLEMENT_FIELDS.find((f) => f.key === key);

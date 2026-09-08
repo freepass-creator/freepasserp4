@@ -78,7 +78,27 @@ if (hits.length === 1) {
   console.log(`   ${pad('청구(공급사)', 12)} ${won(N(r.claimWritten) + N(r.claimIncentive))}`);
   console.log(`   ${pad('지급(영업)', 12)} ${won(N(r.payWritten) + N(r.payIncentive))}`);
   console.log('');
+  /**
+   * ★★**생애주기를 «두 축»으로 보여 준다** — 사장님 2026-09-08
+   *   「청구까지 완료, 돈 받은 거까지 정산 생애주기를 관리하면 되지」.
+   *   우리는 공급사에게 «받고» 영업채널에 «준다». 한 줄로 뭉치면 어긋남이 안 보인다.
+   */
+  /**
+   * ⚠ **「정정」은 길 위의 «칸»이 아니다 — 멈춰 선 것이다.** 길에 없는 낱말이라
+   *   그대로 찍으면 지금 자리가 아무 데도 안 보인다(실측 2026-09-08).
+   *   ⇒ 길은 길대로 그리고, 멈춘 것은 «옆에» 적는다.
+   */
+  const road = (now: string, order: readonly string[], who: string, verb: string) => {
+    const stuck = now === '정정' || now === '보류' || now === '취소';
+    const at = stuck ? '' : now;
+    return `${order.map((x) => (x === at ? `[${x}]` : x)).join(' → ')}${stuck ? `   ★${now}에서 멈춤` : ''}   ${who || '-'} ${verb}`;
+  };
+  console.log(`   ${pad('청구 축', 12)} ${road(S(r.claimStage) || '접수', ['접수', '청구', '확인', '수금'], S(r.supplier), '에게 받는다')}`);
+  console.log(`   ${pad('지급 축', 12)} ${road(S(r.payStage) || '접수', ['접수', '통보', '확인', '지급'], S(r.channel), '에 준다')}`);
+  console.log('');
   console.log(`   ${pad('청구서 나감', 12)} ${r.billed === true ? `예 ${S(r.billedAt).slice(0, 10)}` : '아직'}`);
+  console.log(`   ${pad('수금', 12)} ${r.collected === true ? `받음 ${S(r.collectedAt).slice(0, 10)} ${N(r.collectedAmt) ? won(N(r.collectedAmt)) : ''}` : '아직 — 통장을 봐야 압니다'}`);
+  console.log(`   ${pad('지급', 12)} ${r.paid === true ? `줌 ${S(r.paidAt).slice(0, 10)} ${N(r.paidAmt) ? won(N(r.paidAmt)) : ''}` : '아직 — 통장을 봐야 압니다'}`);
   console.log(`   ${pad('공급사', 12)} ${r.supplierFix === true ? `정정 요청${S(r.supplierFixAmt) ? ` ${won(N(r.supplierFixAmt))}` : ' (금액 안 적음)'}` : r.supplierOk === true ? '확인함' : '말 없음'}${S(r.supplierMemo) ? `  — ${S(r.supplierMemo)}` : ''}`);
   console.log(`   ${pad('영업채널', 12)} ${r.channelFix === true ? `정정 요청${S(r.channelFixAmt) ? ` ${won(N(r.channelFixAmt))}` : ' (금액 안 적음)'}` : r.channelOk === true ? '확인함' : '말 없음'}${S(r.channelMemo) ? `  — ${S(r.channelMemo)}` : ''}`);
   if (S(r.carryNote)) console.log(`
