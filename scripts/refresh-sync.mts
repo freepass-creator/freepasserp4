@@ -33,7 +33,7 @@
  *   npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/refresh-sync.mts --apply
  */
 import { spawnSync } from 'node:child_process';
-import { writeFileSync, mkdirSync, statSync, readFileSync, existsSync } from 'node:fs';
+import { writeFileSync, mkdirSync, statSync, readFileSync, existsSync, unlinkSync } from 'node:fs';
 import nextEnv from '@next/env';
 
 nextEnv.loadEnvConfig(process.cwd());
@@ -105,6 +105,31 @@ const SHIM = ['--require', './scripts/lib/server-only-shim.cjs'];
  * 자물쇠 = 무거운 회차가 남기는 기록 파일의 «나이». 회차가 끝나면 「■ 끝」이 찍힌다.
  * 아직 안 찍혔고 파일이 최근에 손대졌으면 «도는 중»으로 본다.
  */
+/**
+ * ★★**저희끼리도 겹치지 않는다 — 30분 회차의 «제» 자물쇠.**
+ *
+ * ⚠⚠ 실측 2026-09-08 — ⑤′ 정산원장이 **21분 37초**가 걸린 회차가 있었다(평소 23~32초).
+ *   구글 한도에 걸려 스스로 쉬며 기다린 것이다. 30분마다 도는데 한 회차가 20분을 넘으면
+ *   **다음 회차가 그 위에 올라탄다** — 둘이 같은 시트를 쓰고, 어느 값이 이겼는지 아무도 모른다.
+ *   ⚠ 무거운 회차 자물쇠(아래)는 «남»을 막을 뿐 «자기»는 못 막는다. 자물쇠가 하나 더 있어야 한다.
+ *
+ * ★기록 파일의 나이로는 못 잰다 — 그 파일은 «끝날 때» 쓰이므로, 도는 중에는 «지난 회차»가 들어 있다.
+ *   그래서 시작할 때 «표»를 놓고 끝날 때 치운다. 40분이 지난 표는 죽은 것으로 보고 무시한다
+ *   (컴퓨터가 꺼졌거나 프로세스가 죽어 표를 못 치운 경우 — 표 하나 때문에 영영 안 도는 일이 없게).
+ */
+const LOCK = 'tmp/refresh-sync.lock';
+try {
+  const st = statSync(LOCK);
+  const 분 = (Date.now() - st.mtimeMs) / 60000;
+  if (분 < 40) {
+    console.log(`⏭ 앞 최신화가 아직 도는 중이다(${Math.round(분)}분째) — 이번 회차는 건너뛴다.`);
+    process.exit(0);
+  }
+  console.log(`▲ 죽은 자물쇠(${Math.round(분)}분) — 무시하고 돈다.`);
+} catch { /* 표가 없으면 도는 게 없다 */ }
+mkdirSync('tmp', { recursive: true });
+writeFileSync(LOCK, `${process.pid} ${kst()}`, 'utf8');
+
 {
   const LOG = 'tmp/hourly-sync-last.txt';
   try {
@@ -191,6 +216,8 @@ function finish(done: boolean): never {
   for (const w of warn) out.push(`   ▲ ${w}`);
   mkdirSync('tmp', { recursive: true });
   writeFileSync('tmp/refresh-sync-last.txt', out.join('\n'), 'utf8');
+  /** ★자물쇠는 «반드시» 치운다 — 남기면 다음 회차가 40분 동안 건너뛴다. */
+  try { unlinkSync(LOCK); } catch { /* 이미 없으면 그만 */ }
   console.log(`\n${done ? '■ 끝' : '⛔ 중단'} · ${sec}초${warn.length ? ` · 알림 ${warn.length}` : ''}`);
   for (const w of warn) console.log(`   ▲ ${w}`);
   process.exit(done && !warn.length ? 0 : done ? 0 : 1);
