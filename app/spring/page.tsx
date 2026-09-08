@@ -9,6 +9,7 @@ import { subscribeFirestorePolicies } from '@/lib/firebase/firestore-policy-clie
 import type { EntityRecord } from '@/lib/intake/entities';
 import type { MasterEntry } from '@/lib/domain/vehicle-master-types';
 import { nonCommonKeys, unknownKeys } from '@/lib/domain/atom-fields';
+import { colorSwatch, snapColorOrEtc } from '@/lib/domain/color-master';
 import { buildMasterIndex, atomHealth, joinPolicy, fareTable, lowestRent, updatedAt, HEALTH_RANK, type Health } from '@/lib/domain/atom-health';
 import type { MasterIndex } from '@/lib/domain/atom-invariants';
 
@@ -179,7 +180,14 @@ export default function SpringPage() {
                       <td style={{ padding: '5px 9px' }}><Badge tone={HEALTH_TONE[e.health]}>{e.health}</Badge></td>
                       <td style={{ padding: '5px 9px', fontFamily: NUM, fontWeight: FW.strong, color: C.ink }}>{e.car}</td>
                       <td style={{ padding: '5px 9px', color: C.ink }}>{[S(r.maker), S(r.model), S(r.sub_model), S(r.trim_name)].filter(Boolean).join(' · ') || <span style={{ color: C.faint }}>—</span>}</td>
-                      <td style={{ padding: '5px 9px', color: C.mute }}>{[S(r.ext_color), S(r.int_color)].filter(Boolean).join('/') || '—'}</td>
+                      <td style={{ padding: '5px 9px', color: C.mute }}>{[r.ext_color, r.int_color].some((c) => S(c) && S(c) !== '-') ? (
+                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>{[r.ext_color, r.int_color].map((cn, i) => { const nm = S(cn); if (!nm || nm === '-') return null; const hex = colorSwatch(snapColorOrEtc(nm)); return (
+                          <span key={i} style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                            <span title={`${nm} ${hex}`} style={{ width: 11, height: 11, borderRadius: 2, background: hex, border: `1px solid ${C.line}`, display: 'inline-block', flex: 'none' }} />
+                            {nm}
+                          </span>
+                        ); })}</span>
+                      ) : '—'}</td>
                       <td style={{ padding: '5px 9px', color: C.mute, fontSize: FS.cap }}>{[S(r.year), S(r.fuel_type), S(r.engine_cc) && `${S(r.engine_cc)}cc`, S(r.drive_type), S(r.seats) && `${S(r.seats)}인`].filter(Boolean).join(' · ') || '—'}</td>
                       <td style={{ padding: '5px 9px' }}><span style={{ color: C[statusTone(S(r.status) || S(r.status_kind)) === 'gray' ? 'mute' : statusTone(S(r.status) || S(r.status_kind)) === 'green' ? 'ok' : statusTone(S(r.status) || S(r.status_kind)) === 'red' ? 'danger' : 'warn'], fontWeight: FW.strong }}>{S(r.status) || S(r.status_kind) || '—'}</span></td>
                       <td style={{ padding: '5px 9px', fontFamily: NUM, color: C.mute }}>{S(r.mileage) ? `${Number(r.mileage).toLocaleString()}km` : '—'}</td>

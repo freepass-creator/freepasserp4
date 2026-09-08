@@ -212,6 +212,14 @@ export function applyColors(p: EntityRecord): EntityRecord {
   absorb('ext_color', '_raw_ext_color', 'ext');
   absorb('int_color', '_raw_int_color', 'int');
 
+  // 색칩 코드 파생 — «색상마스터 자신의» colorSwatch 로 hex 를 당겨 박는다(로컬 색맵 새로 안 만든다).
+  // 원자가 색을 스스로 설명해 다른 데서 당겨갈 때 코드까지 온다(사장님 2026-09-05). 이름 바뀌면 코드도 갱신.
+  const codeFor = (name: unknown) => { const s = String(name ?? '').trim(); return s && s !== '-' ? colorSwatch(s) : ''; };
+  const ec = codeFor(out.ext_color);
+  const ic = codeFor(out.int_color);
+  if (ec !== String(out.ext_color_code ?? '')) { if (ec) out.ext_color_code = ec; else delete (out as Record<string, unknown>).ext_color_code; changed = true; }
+  if (ic !== String(out.int_color_code ?? '')) { if (ic) out.int_color_code = ic; else delete (out as Record<string, unknown>).int_color_code; changed = true; }
+
   if (changed) out._colors_snapped = true;
   return out;
 }
