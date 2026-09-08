@@ -506,6 +506,10 @@ for (const j of jobs) {
     }
   }
 
+  /** 본표에 이미 선 차번 — 누락 블록에서 걷어낼 기준이다. */
+  const onTable = new Set(body.map((r) => S(r[HEAD.indexOf('차량번호')])).filter(Boolean));
+  const onlyMissed = missed.filter((m) => !onTable.has(S(m['차량번호'])));
+  if (missed.length !== onlyMissed.length) console.log(`   · 누락 블록에서 ${missed.length - onlyMissed.length}줄을 걷었습니다 — 본표에 올랐습니다`);
   const values: (string | number | boolean)[][] = [
     /**
      * ★**제목은 «맨 앞»에서 시작한다** — 사장님 2026-09-03 「여기 제목을 앞으로 보내고 틀고정 필요없음」.
@@ -526,8 +530,15 @@ for (const j of jobs) {
      *   영업채널 시트와 **같은 양식**이다 — 「최대한 양식을 같이 써야 함」(2026-09-08).
      * ⚠⚠ 다시 찍을 때 «적어 둔 줄은 그대로 되돌려 놓는다»(missed).
      */
-    ...missed.map((m) => HEAD.map((h) => S(m[h]))),
-    ...Array.from({ length: Math.max(0, BLANKS - missed.length) }, (_, k) => (k === 0 && !missed.length
+    /**
+     * ★★★**본표에 오른 차는 누락 블록에서 «걷는다».** 사장님 2026-09-08 「정산 위에 칸에 반영하라고」.
+     *   적어 주신 줄을 본표에 세워 놓고 아래에도 그대로 두면 **같은 차가 두 번** 보인다 —
+     *   실측 161호1543 송해민이 15행(본표)과 51행(누락)에 같이 서 있었다.
+     *   상대는 「반영이 된 건가 안 된 건가」를 우리한테 물어야 한다.
+     *   ⇒ 되돌려 놓는 것은 «아직 본표에 없는» 줄뿐이다. 올라간 줄은 위에서 보면 된다.
+     */
+    ...onlyMissed.map((m) => HEAD.map((h) => S(m[h]))),
+    ...Array.from({ length: Math.max(0, BLANKS - onlyMissed.length) }, (_, k) => (k === 0 && !onlyMissed.length
       ? [...pad(HEAD.length - 1), '빠진 건이 있으면 이 줄부터 적어 주세요 — 차량번호·임차인과 «공급가액»까지 적어 주시면 그대로 청구에 넣습니다']
       : pad(HEAD.length))),
     /**
