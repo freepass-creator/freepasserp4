@@ -42,6 +42,8 @@ export function normalizeProductOptionsText(raw: unknown): string {
 export function canonProductType(raw: unknown): string {
   const s = String(raw || '').replace(/\s+/g, '');
   if (!s) return '';
+  // 시트 오류토큰(#REF!·#N/A…)이 원천에서 새어들면 «빈칸»으로 — 시트·ERP에 «#REF!» 가 뜨지 않게(2026-09-08 실측 08주6722).
+  if (/^#(REF!|N\/A|VALUE!|DIV\/0!|NAME\?|NULL!|NUM!)$/i.test(s)) return '';
   if (PRODUCT_TYPE_LEGACY[s]) return PRODUCT_TYPE_LEGACY[s];
   if ((PRODUCT_TYPES as readonly string[]).includes(s)) return s;
   if (s.includes('신차') && s.includes('구독')) return '신차구독';
