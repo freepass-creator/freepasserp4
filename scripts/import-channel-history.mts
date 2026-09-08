@@ -196,7 +196,7 @@ console.log(`\n■ ${found[0].name}`);
 const HEAD = CHANNEL_SETTLE_HEAD;
 const WIDTH = CHANNEL_SETTLE_WIDTH;
 const BASIS = SETTLE_BASIS;
-const MONEY = ['렌탈료', '보증금', '차량 가격(신차)', '공급가액', '부가세', '합계'];
+const MONEY = ['렌탈료', '보증금', '차량 가격(신차)', '공급가액', '부가세', '합계', '정정금액'];
 const LEFT = ['모델명', ...BASIS];
 const iM = HEAD.indexOf('공급가액');
 /**
@@ -221,7 +221,8 @@ for (const j of jobs) {
   const rowsNeed = j.rows.length + 20;
 
   /** ★★상대가 적어 둔 「확인·메모」는 차량번호로 찾아 그대로 되돌려 놓는다. */
-  const kept = new Map<string, [boolean, string]>();
+  /** 상대가 적는 넉 칸 — [확인, 정정, 정정금액, 메모]. */
+  const kept = new Map<string, [boolean, boolean, number | '', string]>();
   if (id === undefined) {
     const add = await (await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${bookId}:batchUpdate`, {
       method: 'POST', headers: { Authorization: `Bearer ${await tok()}`, 'Content-Type': 'application/json' },
@@ -234,13 +235,16 @@ for (const j of jobs) {
     const hi = g.findIndex((r) => (r || []).some((c) => S(c) === '차량번호'));
     if (hi >= 0) {
       const h = (g[hi] || []).map(S);
-      const [cp, cc, cm] = ['차량번호', '확인', '메모'].map((n) => h.indexOf(n));
-      if (cp >= 0 && (cc >= 0 || cm >= 0)) {
+      const [cp, cc, cx, cf, cm] = ['차량번호', '확인', '정정', '정정금액', '메모(정정사유)'].map((n) => h.indexOf(n));
+      const on = (v: unknown) => /^(TRUE|true|1|Y|O|v|✓)$/.test(S(v));
+      if (cp >= 0 && [cc, cx, cf, cm].some((i) => i >= 0)) {
         for (const r of g.slice(hi + 1)) {
           const p = plateOf((r || [])[cp]);
-          const chk = cc >= 0 && /^(TRUE|true|1|Y|O|v|✓)$/.test(S((r || [])[cc]));
+          const chk = cc >= 0 && on((r || [])[cc]);
+          const fixOn = cx >= 0 && on((r || [])[cx]);
+          const fix = cf >= 0 && S((r || [])[cf]) ? N((r || [])[cf]) : '';
           const memo = cm >= 0 ? S((r || [])[cm]) : '';
-          if (p && (chk || memo)) kept.set(p, [chk, memo]);
+          if (p && (chk || fixOn || memo || fix !== '')) kept.set(p, [chk, fixOn, fix, memo]);
         }
       }
     }
@@ -254,7 +258,7 @@ for (const j of jobs) {
     });
   }
   if (id === undefined) { console.log(`   x ${j.month} — 탭을 못 만들었습니다`); continue; }
-  const note = (p: string): [boolean, string] => kept.get(p) || [false, ''];
+  const note = (p: string): [boolean, boolean, number | '', string] => kept.get(p) || [false, false, '', ''];
 
   const tail = (a: string | number, b: string | number, c: string | number) =>
     [...pad(iM), a, b, c, ...pad(HEAD.length - iM - 3)];
@@ -263,7 +267,7 @@ for (const j of jobs) {
     '차량 가격(신차)': r.price || '', 임차인: r.cust, 영업사: r.agent, '상품 구분': r.product,
     '계약 기간': r.term || '', 렌탈료: r.rent || '', '납입 방식': r.payKind, [BASIS[0]]: r.why,
     공급가액: r.net, 부가세: r.vat, 합계: r.total, '지급 예정일': dayKo(payDate(j.month, r.sup)),
-    확인: note(r.plate)[0], 메모: note(r.plate)[1],
+    확인: note(r.plate)[0], 정정: note(r.plate)[1], 정정금액: note(r.plate)[2], '메모(정정사유)': note(r.plate)[3],
   }));
   const backAt = j.rows.map((r, i) => (r.total < 0 ? i : -1)).filter((i) => i >= 0);
   const values: (string | number | boolean)[][] = [
@@ -280,6 +284,7 @@ for (const j of jobs) {
      */
     [`지난 기록입니다 — ${CH} 제공 원본을 그대로 옮겼습니다 (${j.papers.map((p) => `${p.file} ${won(p.total)}`).join(' · ')}).`, ...pad(HEAD.length - 1)],
     ['원본에 접수일·보증금 금액이 없어 그 두 칸은 비워 두었습니다. 모델명은 차량번호로 채웠습니다.', ...pad(HEAD.length - 1)],
+    ['맞으면 「확인」을 켜 주세요. 다를 때는 「정정」을 켜고 「정정금액」에 공급가액(부가세 별도)을, 「메모」에 까닭을 적어 주시면 저희가 원장과 맞대 보고 고칩니다.', ...pad(HEAD.length - 1)],
     [`${CORP.staff} · ${S(CORP.staffPhone) || CORP.phone} · ${CORP.email}`, ...pad(HEAD.length - 1)],
   ];
   await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${bookId}/values/${encodeURIComponent(`'${TAB}'!A1:${colName(HEAD.length)}${values.length + 5}`)}?valueInputOption=RAW`, {
@@ -293,7 +298,7 @@ for (const j of jobs) {
     body: JSON.stringify({ requests: settleTabFormat({
       sheetId: id, head: HEAD, width: WIDTH, r0: 3, bodyLen: body.length, backAt,
       /** 지난 달은 «닫힌 달»이다 — 「빠진 건 적어 주세요」 빈 줄을 두지 않는다. */
-      blanks: 0, footLen: 3, basisLen: BASIS.length, money: MONEY, left: LEFT,
+      blanks: 0, footLen: 4, basisLen: BASIS.length, money: MONEY, left: LEFT,
     }) }),
   });
   console.log(`   ${fr.ok ? 'o' : '! 서식'} ${TAB}  ${String(j.rows.length).padStart(2)}줄 · ${won(j.net + j.vat).padStart(12)}${backAt.length ? `  (환수 ${backAt.length}줄)` : ''}`);
