@@ -65,6 +65,7 @@ function policyCells(p: Record<string, unknown> | undefined): Record<string, str
     '무보험': S(p.uninsured_limit_deductible_legacy) || [S(p.uninsured_damage), S(p.uninsured_deductible)].filter(Boolean).join(' / '),
     '자차': S(p.own_damage_limit_deductible_legacy) || (() => { const mn = S(p.own_damage_min_deductible), mx = S(p.own_damage_max_deductible); const ded = mn && mx ? (mn === mx ? mn : `${mn}~${mx}`) : (mn || mx); return [S(p.own_damage_compensation), ded].filter(Boolean).join(' / '); })(),
     '정책UID': S(p.policy_code),
+    '정책명': S(p.policy_name) || S(p.term_name),   // ★사장님 2026-09-08 「정책명 해놔도 원자로 반영해주면 금방 확인」 — 코드(UID)와 «이름» 둘 다 낸다
     '심사조건': S(p.screening_criteria),
     '대여지역': S(p.rental_region),
     '분납': S(p.installment_allowed),
