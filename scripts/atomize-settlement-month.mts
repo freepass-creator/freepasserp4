@@ -25,6 +25,7 @@ import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getDatabase } from 'firebase-admin/database';
+import { getFirestore } from 'firebase-admin/firestore';
 
 const APPLY = process.argv.includes('--apply');
 const SRC = '10gsCRpRZZVI9WGZK0b1JeGeti9mQFt4ojWXHqPCW-Ls';
@@ -474,6 +475,42 @@ for (const [k] of stale) patch[`${ROWS_NODE}/${k}`] = null;  // ★묵은 줄은
 await db.ref().update(patch);
 console.log(`\n   ✓ ${Object.keys(patch).length}개 올림 — 원자 ${atoms.length} · 환수 ${claws.length}`);
 
+/**
+ * ★★★**파이어스토어에도 «같이» 박는다** — 사장님 2026-09-08
+ *   「파이어스토어에 박으면서 가자」 · 「절대 안 틀리게」.
+ *
+ * ★★**왜 옮기나.** RTDB 는 노드를 «통째로» 갈아 끼우는 꼴이라, 걷는 기준이 한 칸만 어긋나도
+ *   남의 달이 통째로 사라진다 — 실측 2026-09-08, 9월을 원자화하자 하허호 8월이 44줄에서 1줄이 됐다.
+ *   파이어스토어는 **줄이 곧 문서**라 한 줄을 고치는 일이 다른 줄에 닿지 않는다.
+ *   그 사고가 «구조적으로» 안 난다.
+ *
+ * ⚠ **아직 «읽는 곳»은 RTDB 다.** 여기서는 두 곳에 같은 것을 쓰기만 한다(이중 쓰기).
+ *   읽기를 옮기는 것은 두 곳이 오래 같은 것을 확인한 «뒤»다 — 한 번에 옮기면 틀렸을 때 되돌릴 곳이 없다.
+ * ⚠ 문서 열쇠는 원자 코드(`stl_…`) 그대로. 환수는 `차번_달`. RTDB 열쇠와 «같게» 둔다 —
+ *   갈라지면 두 곳을 맞댈 수가 없다.
+ */
+const fs = getFirestore();
+const ROWS_COL = 'settlement_rows';
+const CLAW_COL = 'settlement_clawbacks';
+{
+  const clawId = (c: Record<string, unknown>) => `${S(c.plate).replace(/[.$#[\]/\s]/g, '_')}_${MONTH}`;
+  const writes: [string, string, Record<string, unknown> | null][] = [
+    ...atoms.map((a) => [ROWS_COL, a.code, { ...a, updatedAt: Date.now(), fromSheet: TAB }] as [string, string, Record<string, unknown>]),
+    ...claws.map((c) => [CLAW_COL, clawId(c), c] as [string, string, Record<string, unknown>]),
+    ...stale.map(([k]) => [ROWS_COL, k, null] as [string, string, null]),
+  ];
+  /** ★한 묶음에 500개까지다 — 넘으면 나눠 보낸다. */
+  for (let i = 0; i < writes.length; i += 400) {
+    const b = fs.batch();
+    for (const [col, id, data] of writes.slice(i, i + 400)) {
+      const ref = fs.collection(col).doc(id);
+      if (data === null) b.delete(ref); else b.set(ref, data);
+    }
+    await b.commit();
+  }
+  console.log(`   ✓ 파이어스토어에도 ${writes.length}개 박았다 — ${ROWS_COL} · ${CLAW_COL}`);
+}
+
 // ── 되읽어 대조 ──
 const back = ((await db.ref(ROWS_NODE).get()).val() || {}) as Record<string, Record<string, unknown>>;
 const bad: string[] = [];
@@ -483,6 +520,19 @@ for (const a of atoms) {
   if (N(g.payWritten) !== a.payWritten) bad.push(`${a.plate} 지급 — 넣은 ${won(a.payWritten)} · 읽은 ${won(N(g.payWritten))}`);
   if (N(g.claimWritten) !== a.claimWritten) bad.push(`${a.plate} 청구 — 넣은 ${won(a.claimWritten)} · 읽은 ${won(N(g.claimWritten))}`);
 }
+/**
+ * ★★★**두 곳을 «다» 되읽어 맞댄다 — 하나만 보면 갈린 줄 모른다.**
+ *   사장님 2026-09-08 「절대 안 틀리게」.
+ *   이중 쓰기의 값은 «둘이 같다»는 데 있지 «둘 다 썼다»에 있지 않다.
+ *   한쪽만 성공한 채 지나가면, 읽기를 옮기는 날 조용히 틀린 숫자로 갈아탄다.
+ */
+for (const a of atoms) {
+  const d = await fs.collection(ROWS_COL).doc(a.code).get();
+  if (!d.exists) { bad.push(`${a.plate} — 파이어스토어에 안 올라갔다`); continue; }
+  const g = d.data() as Record<string, unknown>;
+  if (N(g.payWritten) !== a.payWritten) bad.push(`${a.plate} 지급(FS) — 넣은 ${won(a.payWritten)} · 읽은 ${won(N(g.payWritten))}`);
+  if (N(g.claimWritten) !== a.claimWritten) bad.push(`${a.plate} 청구(FS) — 넣은 ${won(a.claimWritten)} · 읽은 ${won(N(g.claimWritten))}`);
+}
 if (bad.length) { console.log(`\n   ✕ 되읽기 어긋남 ${bad.length}건`); for (const b of bad.slice(0, 10)) console.log(`      ${b}`); process.exit(1); }
-console.log('   ✓ 되읽어 대조 — 넣은 값 그대로다.\n');
+console.log('   ✓ 되읽어 대조 — RTDB·파이어스토어 «둘 다» 넣은 값 그대로다.\n');
 process.exit(0);
