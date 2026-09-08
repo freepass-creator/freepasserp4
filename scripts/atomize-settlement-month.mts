@@ -26,6 +26,8 @@ import { JWT } from 'google-auth-library';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getDatabase } from 'firebase-admin/database';
 import { getFirestore } from 'firebase-admin/firestore';
+import { shapeAtom } from '../lib/domain/settlement-atom';
+import { PARTNER_CI } from '../lib/domain/partner-ci';
 
 const APPLY = process.argv.includes('--apply');
 const SRC = '10gsCRpRZZVI9WGZK0b1JeGeti9mQFt4ojWXHqPCW-Ls';
@@ -486,7 +488,25 @@ if (stale.length) {
 if (!APPLY) { console.log('\n※ dry-run — 아무것도 안 썼다. --apply 로 올린다.\n'); process.exit(0); }
 
 const patch: Record<string, unknown> = {};
-for (const a of atoms) patch[`${ROWS_NODE}/${a.code}`] = { ...a, updatedAt: Date.now(), fromSheet: TAB };
+/**
+ * ★★★**규격을 «거쳐서만» 쓴다** — `shapeAtom` 이 모든 밭을 갖추고 표 밖의 것은 버린다.
+ *   사장님 2026-09-08 「각 항목을 항목별로 … 어떤 거를 담아 갈 건지 뽑아내서 파이어스토어에 담아내야지」.
+ *   실측 2026-09-08 — 규격 없이 쌓았더니 461줄에 밭이 72개인데 줄마다 달랐다.
+ *   ⇒ 이 한 줄이 「모든 줄이 모든 밭을 갖는다」를 지킨다. 규격은 lib/domain/settlement-atom.ts.
+ * ⚠ `createdAt` 은 «있던 것»을 지킨다 — 새로 서는 줄만 지금을 적는다.
+ */
+/**
+ * ★★**이름 옆에 «코드»를 같이 싣는다** — 이름은 바뀌지만 코드는 안 바뀐다.
+ *   「손오공」이 「손오공렌터카」가 되어도 `RP012` 는 그대로다.
+ *   ⚠ 못 찾으면 «빈 값»이다 — 지어내지 않는다. 명단(PARTNER_CI)에 없는 상대라는 뜻이고, 그게 사실이다.
+ */
+const codeOf = (name: string) => S(PARTNER_CI.find((c) => S(c.alias) === S(name))?.code);
+const shaped = atoms.map((a) => shapeAtom({
+  supplierCode: codeOf(a.supplier), channelCode: codeOf(a.channel),
+  ...a, updatedAt: Date.now(), fromSheet: TAB,
+  createdAt: N(have[a.code]?.createdAt) || Date.now(),
+}));
+for (const a of shaped) patch[`${ROWS_NODE}/${S(a.code)}`] = a;
 for (const c of claws) patch[`${CLAW_NODE}/${S(c.plate).replace(/[.$#[\]/\s]/g, '_')}_${MONTH}`] = c;
 for (const [k] of stale) patch[`${ROWS_NODE}/${k}`] = null;  // ★묵은 줄은 걷는다
 await db.ref().update(patch);
@@ -512,7 +532,7 @@ const CLAW_COL = 'settlement_clawbacks';
 {
   const clawId = (c: Record<string, unknown>) => `${S(c.plate).replace(/[.$#[\]/\s]/g, '_')}_${MONTH}`;
   const writes: [string, string, Record<string, unknown> | null][] = [
-    ...atoms.map((a) => [ROWS_COL, a.code, { ...a, updatedAt: Date.now(), fromSheet: TAB }] as [string, string, Record<string, unknown>]),
+    ...shaped.map((a) => [ROWS_COL, S(a.code), a] as [string, string, Record<string, unknown>]),
     ...claws.map((c) => [CLAW_COL, clawId(c), c] as [string, string, Record<string, unknown>]),
     ...stale.map(([k]) => [ROWS_COL, k, null] as [string, string, null]),
   ];

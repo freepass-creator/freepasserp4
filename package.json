@@ -116,6 +116,7 @@
     "settlement:review": "tsx scripts/publish-supplier-review.mts",
     "settlement:month": "tsx scripts/run-settlement-month.mts",
     "check:rules": "firebase emulators:exec --only firestore --project demo-freepass-rules \"npx tsx scripts/check-firestore-rules.mts\"",
+    "check:atom": "tsx scripts/check-settlement-atom.mts",
     "settlement:ask": "tsx scripts/settlement-ask.mts",
     "settlement:state": "tsx scripts/harvest-settlement-state.mts",
     "check:parity": "tsx scripts/check-settlement-parity.mts",
