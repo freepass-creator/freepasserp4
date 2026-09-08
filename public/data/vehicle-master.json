@@ -3735,7 +3735,9 @@
         "700h 프레스티지"
       ],
       "market_class": "중고",
-      "newcar_priced": false
+      "newcar_priced": false,
+      "retired": true,
+      "_retiredReason": "연료축 분리(hybrid→fuel_type) · 트림 2개 «K7 VG»로 병합"
     },
     {
       "id": "mf-002.md-002.sm-vg__new-k7-vg",
@@ -3963,7 +3965,9 @@
         "LPI VG270 디럭스",
         "기본형",
         "스페셜",
-        "프리미엄"
+        "프리미엄",
+        "700h 럭셔리",
+        "700h 프레스티지"
       ],
       "market_class": "중고",
       "newcar_priced": false
@@ -9895,7 +9899,10 @@
       "trims": [
         "모던",
         "프리미엄",
-        "인스퍼레이션"
+        "인스퍼레이션",
+        "기본형",
+        "어드밴스팩",
+        "이지팩"
       ],
       "market_class": "신차",
       "newcar_priced": true
@@ -10407,7 +10414,9 @@
         "이지팩"
       ],
       "market_class": "중고",
-      "newcar_priced": false
+      "newcar_priced": false,
+      "retired": true,
+      "_retiredReason": "연료축 분리(hybrid→fuel_type) · 트림 3개 «아반떼»로 병합"
     },
     {
       "id": "mf-001.md-019.sm-hd__아반떼-hd",
@@ -10730,7 +10739,9 @@
         "프리미엄"
       ],
       "market_class": "신차",
-      "newcar_priced": true
+      "newcar_priced": true,
+      "retired": true,
+      "_retiredReason": "연료축 분리(hybrid→fuel_type) · 트림 0개 «쏘나타 디 엣지 DN8»로 병합"
     },
     {
       "id": "mf-001.md-018.sm-dn8__쏘나타-dn8",
@@ -11180,12 +11191,12 @@
       "id": "mf-001.md-018.sm-yf__쏘나타-하이브리드-yf",
       "maker": "현대",
       "model": "쏘나타",
-      "sub_model": "쏘나타 하이브리드",
+      "sub_model": "쏘나타",
       "gen_code": "YF",
       "origin": "국산",
       "year_start": "2011",
       "year_end": "2014",
-      "title": "현대 쏘나타 하이브리드",
+      "title": "현대 쏘나타",
       "variants": [
         {
           "label": "하이브리드 2.0",
@@ -15825,12 +15836,12 @@
       "id": "mf-001.md-053.sm-더-뉴-아이오닉-하이브리드",
       "maker": "현대",
       "model": "아이오닉",
-      "sub_model": "더 뉴 아이오닉 하이브리드",
+      "sub_model": "더 뉴 아이오닉",
       "gen_code": "",
       "origin": "국산",
       "year_start": "2019",
       "year_end": "2021",
-      "title": "현대 더 뉴 아이오닉 하이브리드",
+      "title": "현대 더 뉴 아이오닉",
       "variants": [
         {
           "label": "하이브리드 1.6",
@@ -15893,12 +15904,12 @@
       "id": "mf-001.md-053.sm-아이오닉-하이브리드",
       "maker": "현대",
       "model": "아이오닉",
-      "sub_model": "아이오닉 하이브리드",
+      "sub_model": "아이오닉",
       "gen_code": "",
       "origin": "국산",
       "year_start": "2016",
       "year_end": "2019",
-      "title": "현대 아이오닉 하이브리드",
+      "title": "현대 아이오닉",
       "variants": [
         {
           "label": "하이브리드 1.6",
