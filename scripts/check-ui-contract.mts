@@ -34,18 +34,20 @@ const RAW_ALLOW = new Map<string, Allow>([
      ⇒ 마크업이 원본 것이라 업무동 원자를 쓸 수 없다 — 원자를 끼우는 순간 «그대로»가 깨진다.
        입히는 것은 `components/estimate/welrix.css`(원본 `<style>` 을 한 글자도 안 고치고 `.wx-root` 에 가둔 것).
      raw 를 세면 이렇게 된다 —
-       button 7  = 상품 카드 6(중고/신차 · 렌트/구독 · 반납/인수) + 차종 고르기 1
-                   ※ 신용 카드 3 · 손익 기간 탭 5 는 `.map` 안이라 계약 검사가 세는 리터럴이 아니다
+       button 1  = 손익 기간 탭(1~5년)
+                   ★2026-09-08 에 **일곱에서 하나로 줄었다** — 사장님 「저렇게 굵을 필요 없고」로
+                     상품 카드 여섯과 「차종 고르기」 단추를 걷고 **한 줄짜리 드롭다운**으로 바꿨다.
        input 17  = 차량정보(시세·연식·주행·배기량·매입할인·신차 차량가) + 잔가 5 +
                    손님·담당자·연락처·수수료 + 조건(보증금·선납) + **옵션 체크 1**
                    … 원본 `.cs-field`/`.qc-field`/`.option-row` 짜임
-       select 4  = 취득 경로 · 「손님 발송용」 기간 드롭다운 · **외장/내장 색상 2**
+       select 8  = 취득 경로 · 「손님 발송용」 기간 · 외장/내장 색상 2 ·
+                   **상품 · 채널 · 만기 · 신용 4**(원본처럼 「라벨 + 한 줄」)
      ★2026-09-08 에 셋이 늘었다 — 사장님 「1번으로」로 **옵션·색상을 원본처럼 왼쪽 별도 칸**
        (`#sec-options`·`#sec-color`)으로 뺐다. 그 전에는 옵션이 차 고르기 시트 «안»에 있었다.
      ⚠ 숫자가 달라지면 화면이 «원본에서» 벗어났다는 뜻이다. 고치기 전에 **원본과 대조**할 것
        (`C:\dev\welrixtable/index.html` · `src/components/*.vue`). */
   ['app/estimate/page.tsx', {
-    counts: { button: 7, input: 17, select: 4 },
+    counts: { button: 1, input: 17, select: 8 },
     reason: '견적 = 웰릭스 테이블 그대로 — 상품 카드·차종·**선택 옵션·색상**·차량정보·잔가·손님/담당자·조건·발송용 견적',
   }],
   /* 원가 설정(`/estimate/cost`)도 같은 갈래 — 목업 `프리패스-목업-원가설정.html` 을 그대로 옮겼다.
@@ -54,6 +56,13 @@ const RAW_ALLOW = new Map<string, Allow>([
   /* 차 고르기 시트(`features/estimate/CarPicker`) — 견적 얼굴의 조각이라 업무동 원자를 쓰지 않는다.
      button 12 = 제조사 칩·목록 줄·파워트레인/트림 칩·연료 세그·옵션 줄·닫기·이전·확정 (전부 시트 안).
      input 1 = 차종 검색칸. ⚠ 늘면 「고르는 길」이 늘었다는 뜻이다 — 걸음 둘을 넘겼는지 먼저 본다. */
+  /* 차종 캐스케이드 — 원본 `VehicleCascade.vue` 를 옮긴 것이라 원자를 쓰지 않는다.
+     select 1 = 걸음 한 칸(`Step`)의 드롭다운 하나. 넷은 그 한 줄을 네 번 부른 것이다.
+     ⚠ 늘면 「걸음이 늘었다」는 뜻이다 — 원본은 넷(제조사→모델→세부→트림)이다. */
+  ['features/estimate/VehicleCascade.tsx', {
+    counts: { button: 0, input: 0, select: 1 },
+    reason: '차종 캐스케이드 — 웰릭스 원본 좌측 넷을 그대로. 「라벨 96 + 한 줄」 짜임은 원본 CSS 가 입힌다',
+  }],
   ['features/estimate/CarPicker.tsx', {
     counts: { button: 12, input: 1, select: 0 },
     reason: '견적 차 고르기 시트 — 중고(차종마스터)·신차(신차마스터) 두 갈래를 한 시트에서',

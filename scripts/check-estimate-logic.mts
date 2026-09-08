@@ -141,6 +141,7 @@ const wxCss = read('components/estimate/welrix.css');
 const estCss = read('components/estimate/estimate.css');
 const costCss = read('components/estimate/cost.css');
 const picker = read('features/estimate/CarPicker.tsx');
+const cascade = read('features/estimate/VehicleCascade.tsx');
 const workPage = read('components/WorkPage.tsx');
 
 /* ㉮ 견적은 **ERP «안»의 페이지**다 — 상단바·전체메뉴를 입는다.
@@ -149,6 +150,19 @@ const workPage = read('components/WorkPage.tsx');
 must(/const OWN_HEADER_PREFIXES = \[\] as const;/.test(guestSurface),
   '견적이 ERP 상단바를 다시 벗고 있습니다 — 「내부 페이지처럼」이 규격입니다(`OWN_HEADER_PREFIXES` 는 비어 있어야 합니다)',
   'lib/guest-surface.ts');
+/* ★사장님 2026-09-08 「원가설정에는 왜 **밑줄**이 가져 있지?」 · 「견적내기 / 원가설정 **잘 정렬**해 주고」
+     · 「각 페이지는 이거랑 맞춰야지, **원가랑 견적은 동일하게**」
+   ⇒ 두 화면이 «같은» 머리 띠(`.global-topbar`)와 «같은» 토글(`.gt-modes`)을 쓴다.
+     한쪽만 고치면 또 어긋나므로 둘을 함께 잰다. 밑줄은 `.gt-modes` 가 없앤다. */
+must(/className="global-topbar"/.test(page) && /className="global-topbar"/.test(costPage),
+  '견적·원가의 머리 띠가 다릅니다 — 두 화면은 «같은» 머리를 씁니다',
+  'app/estimate/**/page.tsx .global-topbar');
+must(/className="gt-modes"/.test(page) && /className="gt-modes"/.test(costPage),
+  '「견적내기 / 원가설정」 토글이 두 화면에 같이 서 있지 않습니다',
+  'app/estimate/**/page.tsx .gt-modes');
+must(/\.gt-modes > \*\s*\{[\s\S]*?text-decoration: none/.test(wxCss),
+  '토글 링크에 밑줄이 다시 그어집니다 — 링크라 그어지던 것을 `.gt-modes` 가 없앱니다',
+  'components/estimate/welrix.css .gt-modes');
 must(!/className="wm"/.test(page) && !/className="wm"/.test(costPage),
   '견적·원가 자체 머리에 워드마크가 다시 섰습니다 — ERP 상단바가 위에 있어 머리가 둘이 됩니다(노브랜드 규칙)',
   'app/estimate/**/page.tsx');
@@ -181,8 +195,21 @@ must(/--brand: #1B2A4A;/.test(wxCss),
 must(/inline\?: boolean;/.test(picker) && /est-picker inline/.test(picker),
   '차 고르기에 «인라인»이 없습니다 — 원본 둘 다 좌 기둥에 박혀 있고, 모달은 결과물에만 씁니다',
   'features/estimate/CarPicker.tsx');
-must(/<CarPicker open inline optionsOutside mode=\{cond\}/.test(page),
-  '견적 화면이 웹에서 피커를 «항상 펼치지» 않습니다 — 좌 기둥이 차 고르는 자리입니다',
+/* ★2026-09-08 뒤집힘 — 9/7 에는 「웹은 피커를 좌 기둥에 통째로 펼친다」가 규격이었다.
+     사장님 「차량 선택하는 거는 **저렇게 굵을 필요 없고**」 · 「**버튼만** 만들어 주면 되고」
+             「차량 고르는 거는 **딱딱 누르는 거에 연동**이 되어야지」
+   ⇒ 왼쪽은 **캐스케이드 넷**(제조사→모델→파워트레인/연료→트림)이다. 판을 박지 않는다.
+     ⚠ 9/7 「왜 패널이 새로 뜨니」와 부딪히지 않는다 — 그건 «왼쪽에서 다 고른 뒤 또» 뜬 것을
+       두고 하신 말이고, 지금은 왼쪽에서 고르고 끝난다. */
+must(/<VehicleCascade mode=\{cond\}/.test(page),
+  '왼쪽이 «딱딱 눌러 이어지는» 차종 캐스케이드가 아닙니다 — 판을 박으면 왼쪽이 굵어집니다',
+  'app/estimate/page.tsx VehicleCascade');
+must(/id="sec-manufacturer"/.test(cascade) && /id="sec-model"/.test(cascade)
+  && /id="sec-variant"/.test(cascade) && /id="sec-trim"/.test(cascade),
+  '캐스케이드 칸 이름이 원본 것이 아닙니다 — 웰릭스 CSS 가 그 이름에 「라벨 96 + 한 줄」을 겁니다',
+  'features/estimate/VehicleCascade.tsx');
+must(!/<CarPicker open inline/.test(page),
+  '차 고르기 «판»이 왼쪽에 다시 박혔습니다 — 그게 「굵다」의 정체였습니다(2026-09-08)',
   'app/estimate/page.tsx');
 
 /* ㉣ 원본에 있던 것이 사라지지 않았나 — 손님·담당자 줄과 「손님 발송용 견적」 */
@@ -200,7 +227,7 @@ must(/term-card__check/.test(page),
 must(/id="sec-options"/.test(page) && /id="sec-color"/.test(page),
   '선택 옵션·색상 칸이 왼쪽에 없습니다 — 원본은 차종 밑에 «별도 칸»으로 세웁니다',
   'app/estimate/page.tsx #sec-options / #sec-color');
-must(/<CarPicker open inline optionsOutside/.test(page) && /optionsOutside\?: boolean;/.test(picker),
+must(/optionsOutside mode=\{cond\}/.test(page) && /optionsOutside\?: boolean;/.test(picker),
   '차 고르기 시트가 옵션을 «또» 묻습니다 — 두 군데서 고르면 어느 값이 이겼는지 모릅니다',
   'features/estimate/CarPicker.tsx optionsOutside');
 must(/const listPrice = isNew \? \(picked\.price \?\? 0\) \+ optSum : usedPrice;/.test(page),

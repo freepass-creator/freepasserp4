@@ -3081,6 +3081,49 @@
 /* 원본은 body 가 곧 판이라 100vh 였다. 우리는 ERP 상단바 밑에 선다. */
 .wx-root { height: calc(100vh - var(--topbar-h, 0px)); }
 
+/* 왼쪽 칸 짜임 — 원본은 `#sec-manufacturer…` 넷에만 「라벨 96 + 한 줄」을 걸어 뒀다.
+   우리가 새로 세운 칸(상품·채널·만기·신용)도 **같은 줄**에 서야 한다
+   (사장님 2026-09-08 「저렇게 굵을 필요 없고」). 원본 규칙은 안 건드리고 이름만 보탠다. */
+@media (min-width: 1025px) {
+  .wx-root #sec-source, .wx-root #sec-channel, .wx-root #sec-type, .wx-root #sec-credit {
+    display: grid !important; grid-template-columns: 96px 1fr;
+    align-items: center; column-gap: 12px; row-gap: 4px; padding: 12px 0 !important;
+  }
+  .wx-root #sec-source > .step-title, .wx-root #sec-channel > .step-title,
+  .wx-root #sec-type > .step-title, .wx-root #sec-credit > .step-title {
+    grid-column: 1; margin-bottom: 0 !important; white-space: nowrap;
+  }
+  .wx-root #sec-source > *:not(.step-title), .wx-root #sec-channel > *:not(.step-title),
+  .wx-root #sec-type > *:not(.step-title), .wx-root #sec-credit > *:not(.step-title) {
+    grid-column: 2; min-width: 0;
+  }
+}
+
+/* 머리 토글 「견적내기 / 원가설정」 — 사장님 2026-09-08 「원가설정에는 왜 «밑줄»이 가져 있지?」
+   ⇒ 링크(`<a>`)라 밑줄이 그어졌고, 옆 버튼과 높이가 달라 줄이 안 맞았다. 한 덩이로 묶고 밑줄을 없앤다.
+   ★견적·원가 **두 화면이 같은 것을 쓴다** — 한쪽만 고치면 또 어긋난다. */
+.wx-root .gt-modes { display: inline-flex; border: 1px solid var(--line-2); border-radius: var(--r-sm); overflow: hidden; }
+.wx-root .gt-modes > * {
+  display: inline-flex; align-items: center; justify-content: center;
+  height: 28px; padding: 0 14px; font-size: 12px; font-weight: 500; font-family: inherit;
+  color: var(--ink-3); background: var(--bg); border: 0; cursor: pointer;
+  text-decoration: none;
+  white-space: nowrap; letter-spacing: -0.2px;
+}
+.wx-root .gt-modes > * + * { border-left: 1px solid var(--line-2); }
+.wx-root .gt-modes > *:hover { background: var(--accent-soft); color: var(--ink-1); }
+.wx-root .gt-modes > .on, .wx-root .gt-modes > .on:hover { background: var(--brand); color: #fff; font-weight: 600; cursor: default; }
+
+/* 고른 차 되짚기 — 넷을 다 누르고 나면 위가 안 보인다. */
+.wx-root .cascade-echo { padding: 8px 0 0; font-size: 11.5px; color: var(--ink-3); line-height: 1.5; }
+
+/* 원가 화면 — 머리는 견적과 «같고», 몸통만 제 짜임을 쓴다(설정 34칸이라 기둥이 넷이다).
+   사장님 2026-09-08 「각 페이지는 이거랑 맞춰야지, 원가랑 견적은 동일하게」.
+   ⇒ 「동일하게」는 «머리·색·글꼴·토글»이다. 몸통까지 400/52/20 으로 밀면 설정 칸이 안 들어간다. */
+.wx-root.cost { grid-template-columns: 1fr; }
+.wx-root.cost > .est-root { min-width: 0; height: 100%; overflow-y: auto; }
+.wx-root.cost .phone { min-height: 0; }
+
 /* 폰 — 원본은 폰을 «다른 페이지»(mobile.html)로 보내 버려서, 이 폭에서 세 기둥이 제자리를 못 잡는다.
    칸마다 `height:100% + overflow:auto` 라 스크롤 상자 셋이 겹쳐 뒤 칸이 통째로 잘린다(2026-09-07 실측).
    우리는 폰에서도 «같은 페이지»를 쓴다(CLAUDE.md 「웹·모바일 양립」) — 세로로 이어 붙이고
