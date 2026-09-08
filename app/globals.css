@@ -108,7 +108,12 @@
   --shadow-modal: 0 24px 60px rgba(0,0,0,0.28);
   --scrim-light: rgba(15,23,42,0.25);
   --scrim-heavy: rgba(15,23,42,0.42);
-  --scrim-black: rgba(0,0,0,0.92); /* 라이트박스·문서 미리보기 */
+  --scrim-black: rgba(0,0,0,0.92);
+  /* 밝은 «유리» — 사진 위 화살표처럼 «바탕 위에 얹혀 읽혀야» 하는 것. 딤(어둡게)과 반대 방향이다.
+     ⚠ 다크 값은 여기 두지 않는다 — 같은 블록에 두 번 적으면 «뒤엣것»이 늘 이겨서 앞엣것이 죽는다
+       (2026-09-07 코덱스 검수 — 다크용 rgba(23,28,34)가 그렇게 죽어 있었다).
+       다크는 아래 `html[data-theme="dark"]` 한 곳에서만 뒤집는다. */
+  --scrim-glass: rgba(255,255,255,0.72);
 }
 /* 숫자 폭 고정 — 표에 세로로 쌓이는 금액이 행마다 흔들리지 않게.
  * --font-mono 가 이름과 달리 Pretendard(가변폭)라 서체만으로는 자릿수가 안 맞는다.
@@ -165,6 +170,8 @@ html[data-theme="dark"] {
   --scrim-light: rgba(0,0,0,0.45);
   --scrim-heavy: rgba(0,0,0,0.62);
   --scrim-black: rgba(0,0,0,0.92);
+  /* 다크에서는 «유리»도 어두워야 그 위 글자가 흰색으로 읽힌다. */
+  --scrim-glass: rgba(23,28,34,0.72);
 }
 
 * { box-sizing: border-box; }
@@ -1111,6 +1118,302 @@ html[data-fp-filter="0"] .fp-finder > .fp-sidebar { display: none; }
   --border-soft: rgba(255, 255, 255, 0.16);
   --border-strong: rgba(255, 255, 255, 0.36);
 }
+
+/*
+ * 화이트라벨 동(손님 사이트) — **제 바탕을 «자기가» 칠한다.**
+ *
+ * `whitelabelVars` 가 .fp-wl 안에서 `--bg-page` 를 흰색으로 뒤집어 두지만, 그것만으로는
+ * 화면이 안 하얘진다. 종이를 «까는» 규칙은 `body { background: var(--bg-page) }` 한 줄뿐이고
+ * body 는 .fp-wl 의 «조상»이라 :root 의 값(업무동 회색 #eaedf2)을 읽는다. 그래서 토큰은 흰데
+ * 화면은 회색인 꼴이 됐다(사장님 2026-09-04 「아니 근데 왜 배경이 회색이야」).
+ * 자손이 조상의 배경을 바꿀 수는 없으니 **화이트라벨 껍데기가 제 종이를 직접 깐다.**
+ *
+ * ★min-height 로 화면 끝까지 덮는다 — 목록이 짧은 날(조건을 좁혀 몇 대만 남을 때) 카드 아래로
+ *   업무동 회색이 드러나면 「밑에 딴 사이트가 깔려 있다」로 보인다.
+ * ★색은 여전히 «토큰»이다. 채널이 바탕을 바꾸고 싶으면 `lib/whitelabel.ts` 한 줄만 고치면 된다 —
+ *   여기에 흰색을 박으면 그 SSOT 가 깨진다.
+ */
+.fp-wl {
+  background: var(--bg-page);
+  min-height: 100vh;
+  /*
+   * ⚠⚠ **이 한 줄이 빠져서 배경이 다시 회색이었다**(2026-09-05 실측으로 잡음).
+   * 구르는 칸(`.fp-main-pad`)이 **세로 flex 컨테이너**라, 그 안의 `.fp-wl` 은 flex 아이템이다.
+   * flex 아이템은 기본이 `flex-shrink: 1` — 컨테이너(844)보다 크면 **찌그러진다.**
+   * 그래서 내용이 2,155px 인데 `.fp-wl` 은 844px 로 앉아 있었고, **첫 화면만 흰색**이고
+   * 그 아래로는 업무동 회색(#eaedf2)이 그대로 드러났다. 손님이 스크롤하면 배경이 바뀐다.
+   * ★`min-height:100vh` 는 이걸 못 막는다 — 그건 «최소»지 «줄지 마라»가 아니다.
+   * ★위에서 흰 바탕을 확인하고 넘어가면 절대 안 걸린다. 첫 화면은 멀쩡했다.
+   */
+  flex: 0 0 auto;
+}
+
+/*
+ * 손님 화면의 스크롤 칸은 **아래에 고정독만큼 여지를 둔다**(2026-09-05).
+ * 상세 폰 화면은 하단 고정독(금액+전화, 약 90px)이 화면 밑에 늘 떠 있다. 탭으로 칸을 옮기면
+ * 브라우저가 그 칸을 «화면 안»으로 굴려 주는데, 브라우저는 고정독이 있는 줄 모른다 —
+ * 그래서 마지막 몇 줄은 **독 뒤에 가려진 채로 포커스만 가 있는** 상태가 된다(포커스가 안 보인다).
+ * `scroll-padding-bottom` 은 「여기까지는 굴려 세우지 마라」는 뜻이라, 이 한 줄이 그걸 막는다.
+ * ⚠ 구르는 것은 `.fp-main-pad` 다(html/body 는 overflow hidden) — 그 칸에 걸어야 먹는다.
+ */
+.fp-wl .fp-main-pad,
+.fp-main-pad:has(.fp-wl) { scroll-padding-bottom: 100px; }
+
+/*
+ * 가게의 «스르륵 가는» 알약 줄 — 조건 칩을 **한 줄로 두고 좌우로 민다**
+ * (사장님 2026-09-04 「좌우로 스크롤하는 그 알약처럼 생긴 그 필터, 그게 스르륵 이렇게 왔다 가야 되고」).
+ *
+ * 접어서 두 줄·세 줄로 쌓으면 조건이 늘어날수록 목록이 아래로 밀린다 — 폰에서 첫 화면에
+ * 상품이 안 보이면 그 화면은 진 것이다. 한 줄로 못 박고 넘치는 것은 손가락이 민다.
+ * ★막대는 숨긴다. 폰에는 원래 안 보이고, 데스크톱에서 보이면 칩 밑에 회색 선이 하나 더 그어진 꼴이 된다.
+ * ★`overflow-y: visible` 이 아니라 hidden 이어야 세로로 덜컹거리지 않는다(가로만 민다).
+ */
+.fp-shop-rail {
+  display: flex; flex-wrap: nowrap; gap: 8px;
+  overflow-x: auto; overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; -ms-overflow-style: none;
+  /* 끝까지 밀었을 때 마지막 칩이 화면 가장자리에 딱 붙지 않게 — 더 있는지 없는지 눈에 보인다. */
+  scroll-padding-inline: 16px;
+}
+/*
+ * 폰에서는 본문 여백을 «넘어» 화면 끝까지 흐른다 — 안쪽에서 잘리면 거기가 끝인 줄 안다.
+ * 여백만큼 밖으로 빼고 같은 만큼 안쪽 패딩으로 돌려주면, 첫 칩 위치는 그대로면서 오른쪽으로만 이어진다.
+ * (당근·네이버가 다 이렇게 한다. `--fp-bar-pad-x` 가 아니라 가게 본문 여백 16 을 쓴다.)
+ */
+@media (max-width: 759px) {
+  .fp-shop-rail { margin-inline: -16px; padding-inline: 16px; }
+}
+
+/* ────────────────────────────────────────────────────────────────────────
+ * 가게 마감 — «요즘 쓰는 것»만 얹는다(사장님 2026-09-04 「최신 트렌드만 반영해서 네가 꾸미고
+ * 싶은 대로 꾸며. 제일 무난하고 평범하고 트렌드 따라가는 걸로」).
+ *
+ * 얹은 것 넷. 어느 것도 «우리만의 것»이 아니다 — 지금 커머스 앱이 다 이렇게 한다.
+ *   ① 누르면 살짝 들어간다      ② 카드에 마우스를 얹으면 사진이 아주 조금 커진다
+ *   ③ 불러오는 자리는 흐르는 빛  ④ 검색줄이 위에 붙어 따라온다
+ *
+ * ★★`prefers-reduced-motion` 을 지킨다. 움직임에 멀미하는 사람이 실제로 있고,
+ *   그 사람에게는 이 넷이 전부 «화면이 흔들리는 것»으로 온다. 끄면 기능은 그대로 남는다.
+ */
+
+/* ① 누름 — 손가락이 닿았다는 것을 12ms 안에 알려 준다. 없으면 「먹었나?」 하고 두 번 누른다. */
+.fp-shop-press {
+  transition: transform .12s ease, background-color .14s ease, border-color .14s ease, color .14s ease;
+}
+.fp-shop-press:active { transform: scale(.97); }
+
+/*
+ * 조건 체크 행 — **행 전체가 반응한다.** 요즘 필터가 다 이 짜임이다(에어비앤비·무신사·리니어).
+ * ★네모 하나만 물들면 「어디를 눌러야 하나」를 손이 한 번 생각한다 — 행이 물들면 그 생각이 없다.
+ * ★네모의 면·선은 **부드럽게** 바뀐다. 딸깍 바뀌면 그 자체가 옛날 폼(form)처럼 보인다.
+ * ⚠ 행에는 `transform` 을 안 건다 — 목록에서 줄이 튀면 눈이 따라가느라 훑기가 끊긴다.
+ */
+.fp-shop-checkbox { transition: background-color .14s ease, border-color .14s ease; }
+@media (hover: hover) and (pointer: fine) {
+  /* 판(회색 면)을 걷었으므로 hover 는 다시 «옅은 회색»이다 — 흰 바탕 위에서 그게 보인다. */
+  .fp-shop-check:hover { background: var(--bg-stripe); }
+}
+
+/*
+ * 「면」으로 서는 누름 — 조건 칩·정렬·공유·더 보기(shop-ui `ShopPill` 머리말).
+ * 테두리가 없으니 **마우스가 있는 기기에서는 면이 한 단 짙어지는 것**이 유일한 손짓이다.
+ * ⚠ 켜진 칩(브랜드 남색)까지 회색으로 덮으면 켜짐이 풀린 것처럼 보인다 — 그건 밝기로만 민다.
+ */
+@media (hover: hover) and (pointer: fine) {
+  .fp-shop-fill:hover { background: var(--bg-hover); }
+  .fp-shop-fill[aria-pressed="true"]:hover { background: var(--brand); filter: brightness(1.15); }
+}
+
+/* ② 카드 — 마우스가 있는 기기에서만. 사진만 아주 조금(1.04) 커지고 카드는 살짝 뜬다.
+ *    ⚠ 카드 자체를 키우면 격자가 밀린다(레이아웃이 다시 계산된다) — 사진만 transform 으로 민다. */
+.fp-shop-card { transition: box-shadow .2s ease, transform .2s ease; }
+.fp-shop-card .fp-shop-thumb > img { transition: transform .4s cubic-bezier(.2,.6,.2,1); }
+@media (hover: hover) and (pointer: fine) {
+  .fp-shop-card:hover { transform: translateY(-2px); }
+  .fp-shop-card:hover .fp-shop-thumb > img { transform: scale(1.04); }
+}
+
+/* ③ 불러오는 자리 — 회색 판을 «가만히» 두면 고장 난 것처럼 보인다. 빛이 한 번씩 흐르면 「오는 중」이 된다. */
+@keyframes fp-shop-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+.fp-shop-skel {
+  background-image: linear-gradient(90deg,
+    var(--bg-placeholder) 0%, var(--bg-placeholder) 38%,
+    color-mix(in srgb, var(--bg-placeholder) 55%, #fff) 50%,
+    var(--bg-placeholder) 62%, var(--bg-placeholder) 100%);
+  background-size: 200% 100%;
+  animation: fp-shop-shimmer 1.4s linear infinite;
+}
+
+/* ④ 검색줄이 위에 붙는다 — 목록을 한참 내려가다 다시 찾고 싶을 때 위로 되돌아가지 않아도 된다.
+ *    ⚠ 구르는 것은 `.fp-main-pad` 다(html/body 는 overflow hidden). sticky 는 그 안에서 잡힌다.
+ *    ⚠ 옆으로 새지 않게 여백만큼 밖으로 뺐다가 안쪽 패딩으로 돌려준다 — 알약 줄과 같은 수법이다. */
+/*
+ * **검색칸의 «초점 상자»를 걷는다** — 손님 동에서만.
+ *
+ * ★사장님 2026-09-07 「여기 검색창 누르면 **박스 저렇게 나오는 거도 오버**고, 저건 **모바일도 마찬가지**야」.
+ * ⚠ 집 전역 규칙(`:focus-visible` → 2px 외곽선 + 4px 링)이 걸려 있었다. 업무동 콕핏에서는 맞는 규칙이지만,
+ *   손님 검색칸은 «밑줄 하나»로 서는 얼굴이라 거기에 상자가 씌워지면 얼굴이 두 개가 된다.
+ * ★★**초점 표시를 «없애지»는 않는다** — 없애면 키보드로 다니는 사람이 지금 어디 있는지 모른다.
+ *   상자 대신 **밑줄·테두리가 브랜드색으로** 바뀐다. 보이는 표시는 그대로 두고 «모양»만 이 화면의 말투로.
+ */
+.fp-wl .fp-shop-search input:focus-visible,
+.fp-wl .fp-shop-search input:focus { outline: none; box-shadow: none; }
+.fp-wl .fp-shop-search:focus-within { outline: none; border-bottom-color: var(--brand); }
+
+/*
+ * **정렬 고르개의 «초점 상자»도 걷는다** — 검색칸과 같은 이유다.
+ *
+ * ★사장님 2026-09-07 「드랍다운 선택해도 **검정색 테두리가 선택되어서 좀 보기 흉하네**」.
+ * ⚠ `<select>` 만 유독 눈에 띄는 이유 — 크롬은 단추를 «마우스로» 누르면 초점 테를 안 그리는데
+ *   고르개는 누른 «뒤에도» 초점이 남는 물건이라 검은 상자가 화면에 그대로 서 있는다.
+ *   집 전역 규칙(2px 외곽선 + 4px 링)이 그 위에 얹혀 목록 머리에서 제일 진한 것이 «정렬»이 됐다.
+ * ★★**초점 표시를 없애지는 않는다** — 상자 대신 **면 안쪽에 브랜드색 실선 한 줄**이다.
+ *   키보드로 다니는 사람은 그대로 보이고, 마우스로 고른 사람 눈에는 상자가 안 남는다.
+ */
+.fp-wl .fp-shop-sort select:focus { outline: none; box-shadow: none; }
+.fp-wl .fp-shop-sort select:focus-visible {
+  outline: none;
+  box-shadow: inset 0 0 0 1.5px var(--brand);
+}
+
+.fp-shop-stick {
+  /*
+   * 검색줄 + 빠른조건 줄 — **웹·폰 둘 다 위에 남는다**(사장님 2026-09-07 「웹에서 스크롤하면
+   * 검색창 위에 남고, 옆에 필터도 틀고정은 되어야지」).
+   * ⚠ 폰은 머리띠가 «고정»(56)이라 그 «밑»에 선다 — 0 으로 두면 칩 줄이 머리띠 뒤로 기어들어가
+   *   반쯤 가린다(2026-09-05). 웹은 머리띠가 같이 흐르므로 0 이다.
+   *   56 은 `WhitelabelFrame` 폰 머리띠 높이다 — 거기를 바꾸면 여기도 같이 바꾼다.
+   */
+  /* ★머리띠가 «웹에서도» 붙박이가 됐다(2026-09-07) — 그 실제 높이만큼 내려가 선다.
+       변수는 `WhitelabelFrame` 이 재서 `.fp-wl` 에 걸어 준다. */
+  position: sticky; top: var(--fp-wl-head-h, 72px); z-index: 6;
+  background: var(--bg-page);
+  margin-inline: -16px; padding-inline: 16px;
+}
+@media (max-width: 760px) {
+  /*
+   * ⚠⚠ 여기 `56px` 을 «못 박아» 뒀다가 깨졌다(2026-09-07 실측).
+   *   담당자가 없는 손님 화면에서는 머리띠가 «둘째 줄»(상담·문의 번호)을 얻어 **86px** 이 된다.
+   *   56 에 붙여 두니 빠른 조건 칩 줄이 머리띠 뒤로 반쯤 기어들어갔다.
+   * ⇒ 폰도 «잰 높이»를 본다. 변수는 `WhitelabelFrame` 이 ResizeObserver 로 재서 걸어 준다 —
+   *   머리띠가 한 줄이든 두 줄이든 저절로 맞는다. 폴백 56 은 변수가 아직 안 걸린 첫 프레임용이다.
+   */
+  .fp-shop-stick { top: var(--fp-wl-head-h, 56px); }
+}
+/*
+ * 웹 조건칸 — **아무 일도 안 한다.** 자리를 잡는 이름표일 뿐이다.
+ *
+ * ★★★**스크롤은 «하나»다 — 상단바 밑으로 한 번**(사장님 2026-09-07 「그냥 스크롤은 딱 하나,
+ *   전체 상단바 아래로 그냥 스크롤 하나면 될 듯」).
+ *
+ * ⚠⚠ 여기에 `position:sticky` + `max-height` + `overflow-y:auto` 가 있었다. 그러면 화면에
+ *   구르는 곳이 **둘**이 된다 — 페이지와 조건칸. 마우스가 어디 있느냐에 따라 굴러가는 것이
+ *   달라져 「왜 안 내려가지」가 생긴다(조건칸 위에서는 목록이 안 움직이고, 축 끝에 닿으면
+ *   `overscroll-behavior: contain` 때문에 거기서 멈춘다).
+ * ★엔카도 그렇다 — 실측 2026-09-07, 왼쪽 기둥이 **2,182px · overflow visible · position static**.
+ *   그냥 페이지와 «같이» 내려간다. 값이 큰 판일수록 구르는 곳이 하나여야 손이 안 헷갈린다.
+ * ★잃는 것을 알고 버린다 — 한참 내려가서 조건을 바꾸려면 위로 올라가야 한다.
+ *   그건 엔카도 같고, 구르는 곳이 둘인 혼란보다 싸다.
+ * ⚠ 이 자리는 세 번 뒤집혔다(09-06 붙박이 걷음 → 09-07 붙박이+내부스크롤 → 09-07 둘 다 걷음).
+ *   되돌리기 전에 **구르는 곳이 몇 개가 되는지**부터 세라. 답은 «하나»다.
+ * ⇒ 고정되는 것은 **머리(상단바 + 검색줄·칩)**뿐이다. 조건칸은 목록과 «같이» 내려간다.
+ */
+.fp-shop-aside { /* 이름표만 — 붙박이도 내부 스크롤도 없다(위 머리말) */ }
+
+.fp-shop-stick::after {
+  /* 붙어 있을 때만 보이는 가는 선 — 목록과 «떠 있는 머리»를 갈라 준다. */
+  content: ''; position: absolute; left: 0; right: 0; bottom: -1px; height: 1px;
+  background: var(--border-soft); opacity: 0; transition: opacity .2s ease;
+}
+.fp-shop-stick.is-stuck::after { opacity: 1; }
+
+/*
+ * 상세 사진 — **손가락으로 민다.** 화살표만 두면 폰에서 아무도 안 누른다(사진은 미는 것이라고
+ * 손이 이미 알고 있다). 브라우저의 스크롤을 그대로 쓰므로 관성·고무줄이 공짜로 따라온다 —
+ * JS 로 드래그를 흉내 내면 그 둘이 없어 «싸구려 같은» 움직임이 된다.
+ * ★`scroll-snap` 이 한 장씩 딱 멈추게 한다. 없으면 두 장 사이에 어정쩡하게 선다.
+ * ★막대는 숨긴다 — 사진 밑에 회색 줄이 그어진 꼴이 된다.
+ */
+/*
+ * **손님 동 글자 사다리 — 폰에서 한 단 올린다.**
+ *
+ * 사장님 2026-09-05 「모바일 버전은 **전체 텍스트**하고 뭐 움직임하고 이런 것들 좀 한번 봐봐.
+ * 통상적으로 쓰는 그게 있을 거 아냐 … 통상 모바일 규격이 있을 거 아니니」.
+ *
+ * ⚠ 실측(390px 목록) — 화면 글자 438개 중 **13px 이 259개**, 12px 이 27개, 11px 이 3개였다.
+ *   손님 동 사다리(body 14.5 · sub 13 · cap 12)가 **웹 기준**인데 폰에서 그대로 쓰였기 때문이다.
+ * ★통상 규격 — iOS 기본 본문 17 · 머티리얼 body 14~16sp · 우리 집 규격도 「모바일 입력·버튼 16」이다.
+ *   13px 짜리 본문은 그 어느 쪽에도 못 미친다.
+ * ⇒ 사다리를 **CSS 변수 한 곳**에 두고 폰에서만 올린다. 값을 쓰는 자리(67곳)를 안 건드리므로
+ *   웹은 한 픽셀도 안 변한다 — SSOT 는 여기 이 다섯 줄이다.
+ * ⚠⚠ 처음에 16/14/13 으로 «한 단» 올렸다가 반 단(15/13.5/12.5)으로 내렸다
+ *   (사장님 2026-09-05 「버튼이나 이런 게 쪼끔 커 보이는 느낌이 있어. 유튜브나 다른 데 가보니까
+ *   버튼·칩이나 검색창이 좀 크다고 느껴지는데」 — 맞는 지적이다).
+ *   본문 16 은 «읽는 글」에는 맞지만 목록·칩처럼 **훑는 글**에는 크다. 유튜브·플레이스토어의 칩 글자가 14 다.
+ * ★그래도 **입력칸만은 16 을 지킨다** — 그 밑이면 iOS 가 화면을 확대한다(집 규격).
+ */
+/*
+ * ★★**영업자홈피 글자 사다리 — 여기가 «한 곳»이다**(사장님 2026-09-06 「규격만 통일돼서
+ *   움직일 수 있으면 돼. **공통 규격으로 쓸 수 있게끔**」).
+ *
+ * ⚠ 고치기 전 실측 — 폰 한 화면에 글자 크기가 **12가지**였다
+ *   (22·21·18·16·15·14.5·13.5·13·12.5·12·11·10). 개수보다 «출처»가 문제였다:
+ *   손님 동이 **업무동 토큰(`FS.*`)을 섞어 써서** 14.5·13·12·11 이 생겼다.
+ *   업무동은 콕핏 규격(본문 12~13)이라, 그 값이 섞이면 **폰 사다리를 올려도 그 글자만 안 따라온다**
+ *   — 2026-09-05 「본문이 13px 로 내려앉는다」로 이미 한 번 겪었다.
+ * ⇒ 역할마다 이름을 주고 **폰·웹 두 값을 여기 한 곳**에 둔다. 화면은 이름만 부른다.
+ *   숫자를 화면에 박으면 그 자리만 사다리에서 떨어져 나간다.
+ *
+ * | 이름 | 웹 | 폰 | 쓰는 곳 |
+ * |---|---|---|---|
+ * | `hero`  | 34 | 32 | 상세 요금 — 화면에서 제일 큰 값 |
+ * | `h1`    | 30 | 22 | 화면 제목 — 안내 블록 · 상세 차명 |
+ * | `num`   | 26 | 16 | 건수 숫자 |
+ * | `sec`   | 20 | 20 | 구역 제목(차량정보·보험·이용조건) |
+ * | `price` | 20 | 21 | **목록 대여료** — 폰이 더 크다(카드에서 견주는 값) |
+ * | `lead`  | 18 | 17 | 앞세우는 값 — 모델명 · 「상품 상세」 · 웹 검색칸 |
+ * | `h2`    | 16 | 16 | 카드 차명 · 시트 제목 |
+ * | `body`  | 14.5 | 15 | 누르는 것 — 칩 · 버튼 |
+ * | `sub`   | 13 | 13.5 | 차번 · 사실 줄 · 푸터 |
+ * | `cap`   | 12 | 12.5 | 뱃지 · 라벨 · 캡션 |
+ * | `tag`   | 10.5 | 10 | 최저가 태그 · 건수 동그라미 |
+ *
+ * ★**예외 둘**만 사다리 밖이다 —
+ *   ㉠ **워드마크**(채널 이름): 로고와 짝이라 브랜드마다 다르다. 글자가 아니라 «표식»이다.
+ *   ㉡ **검색 «입력칸» 폰 16 고정**: 그 밑이면 iOS 가 화면을 확대한다. 사다리를 내려도 못 내린다.
+ */
+.fp-wl {
+  --shop-fs-hero: 34px; --shop-fs-h1: 30px;   --shop-fs-num: 26px;
+  --shop-fs-sec: 20px;  --shop-fs-price: 19px; --shop-fs-lead: 18px;
+  --shop-fs-h2: 15px;   --shop-fs-body: 14.5px;
+  --shop-fs-sub: 13px;  --shop-fs-cap: 12px;  --shop-fs-tag: 10.5px;
+}
+@media (max-width: 760px) {
+  .fp-wl {
+    --shop-fs-hero: 32px; --shop-fs-h1: 22px;   --shop-fs-num: 16px;
+    --shop-fs-sec: 20px;  --shop-fs-price: 19px; --shop-fs-lead: 17px;
+    --shop-fs-h2: 15px;   --shop-fs-body: 15px;
+    --shop-fs-sub: 13.5px; --shop-fs-cap: 12.5px; --shop-fs-tag: 10px;
+  }
+}
+
+.fp-shop-gallery {
+  display: flex; overflow-x: auto; overflow-y: hidden;
+  scroll-snap-type: x mandatory; -webkit-overflow-scrolling: touch;
+  scrollbar-width: none; -ms-overflow-style: none;
+}
+.fp-shop-gallery::-webkit-scrollbar { display: none; }
+.fp-shop-gallery > * { flex: 0 0 100%; scroll-snap-align: center; }
+
+@media (prefers-reduced-motion: reduce) {
+  .fp-shop-press, .fp-shop-card, .fp-shop-card .fp-shop-thumb > img { transition: none; }
+  .fp-shop-press:active, .fp-shop-card:hover { transform: none; }
+  .fp-shop-card:hover .fp-shop-thumb > img { transform: none; }
+  .fp-shop-skel { animation: none; }
+}
+.fp-shop-rail::-webkit-scrollbar { display: none; }
+.fp-shop-rail > * { flex: 0 0 auto; }
 
 /* 조건 드롭다운 줄이 툴바 «안»에 들어왔다 — 좁아지면 잘리지 말고 가로로 굴린다.
    팝오버가 잘리면 안 되므로 세로는 visible 로 둔다(모바일 퀵필터 줄과 같은 처리). */

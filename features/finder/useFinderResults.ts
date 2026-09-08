@@ -8,7 +8,8 @@ import {
 } from '@/lib/domain/product';
 import {
   activeCount, aggregateDynFaceted, excelMonths, facetPool,
-  matchPopularModel, matchProduct, presentFilterOptionsFaceted, type FState, type VehicleFilter,
+  POPULAR_MODELS, matchPopularModel, matchProduct, presentFilterOptionsFaceted,
+  type FState, type VehicleFilter,
 } from '@/lib/domain/product-filters';
 import { excelColumnMatches, excelColumnSortValue, isNumericExcelColumn, type ColSort } from './excel-columns';
 import { FINDER_DEFAULT_SORT, numOr, type FilterBag, type InterestKey } from './filter-state';
@@ -88,17 +89,21 @@ export function useFinderResults(params: Params) {
     () => facetPool(rows || [], facetState, facetModels, { vehicle: true }),
     [rows, facetState, facetModels],
   );
+  /*
+   * ★★★**인기차종 = «바깥 순위»다**(사장님 2026-09-07 「외부순위로 인기순 가라… 그게 맞음」).
+   *   정본은 `POPULAR_MODELS`(`lib/domain/product-filters`) — 매월 사장님이 거기만 고치신다.
+   *
+   * ⚠⚠ 여기가 **「재고 많은 순 열 개」를 세고 있었다.** 이름만 「인기」였지 실제로는 「재고순」이라,
+   *   창고에 많이 들여놓은 차가 저절로 「인기」가 되는 순환논리였다. 손님이 아는 인기는
+   *   «시장»에서 정해지고 우리 재고는 그걸 따라가는 쪽이다.
+   * ★순서는 **바깥 순위 그대로** 둔다 — 재고 대수로 다시 줄 세우면 방금 고친 것이 되돌아간다.
+   * ★재고에 **한 대도 없는 이름은 뺀다** — 눌러도 0건인 칩을 세워 두지 않는다(집 규칙).
+   *   목록 자체는 안 고친다(정본은 시장 순위다). 화면에서 «지금 못 거는 것»만 감춘다.
+   */
   const popularModels = useMemo(() => {
     const pool = facetPool(rows || [], facetState, facetModels, { models: true });
-    const counts = new Map<string, number>();
-    for (const product of pool) {
-      const model = String(product.model || '').trim();
-      if (model) counts.set(model, (counts.get(model) || 0) + 1);
-    }
-    return [...counts.entries()]
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 10)
-      .map(([model]) => ({ key: model, label: model }));
+    const have = new Set(pool.map((product) => String(product.model || '').trim()).filter(Boolean));
+    return POPULAR_MODELS.filter((model) => have.has(model)).map((model) => ({ key: model, label: model }));
   }, [rows, facetState, facetModels]);
 
   const list = useMemo(() => {

@@ -11,7 +11,7 @@
  *
  * 바꾸려면: 사장님께 여쭙고 → 문서를 고치고 → 이 검사를 고친다. 그 차례를 지킨다.
  */
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
 const read = (f: string) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
 const fails: string[] = [];
@@ -26,6 +26,13 @@ const priceTable = read('components/ProductPriceTable.tsx');
 const identity = read('components/product-card-identity.ts');
 const entities = read('lib/intake/entities.ts');
 const product = read('lib/domain/product.ts');
+/* 가게(손님 동) — 정본은 docs/DESIGN_CONFIRMED_SHOP.md */
+const shopDetail = read('components/shop/ShopDetail.tsx');
+const shopCard = read('components/shop/ShopCard.tsx');
+const shopQuery = read('lib/shop/query.ts');
+const shopView = read('app/(shop)/shop/ShopView.tsx');
+const shopUi = read('components/shop/shop-ui.tsx');
+const qPage = read('app/q/[code]/page.tsx');
 
 /* ── 1. 목록 ── */
 must(/^\s*\/\* \.fp-card\.fp-card-row:nth-child\(even\)/m.test(css),
@@ -98,10 +105,769 @@ must(!/purple|teal|amber|green/.test(priceTable),
   '대여료표에 새 색(hue)이 들어왔습니다. 색은 네이비 하나, 다른 건 세기뿐입니다.',
   'docs/DESIGN_COLOR_LADDER.md');
 
+/* ── 5. 가게(손님 동) — docs/DESIGN_CONFIRMED_SHOP.md ── */
+
+// 상세 실행줄 셋. 공유가 빠지면 손님이 화면을 «찍어» 보내고 담당자 귀속이 끊긴다 — 퍼널이 끊기는 것이다.
+must(/목록으로/.test(shopDetail) && /navigator\.share/.test(shopDetail) && /aria-label="이 차량 공유하기"/.test(shopDetail),
+  '상세 실행줄(목록으로·관심·공유)이 사라졌습니다. 공유는 이 사업의 퍼널입니다.',
+  'components/shop/ShopDetail.tsx TopBar');
+must(/window\.location\.href/.test(shopDetail),
+  '공유가 «지금 주소 그대로»를 안 보냅니다. 손으로 조립하면 ?a= 담당 귀속을 흘립니다.',
+  'components/shop/ShopDetail.tsx share()');
+must(/listHref/.test(shopDetail),
+  '「목록으로」가 담당 귀속(?a=)을 안 물고 갑니다. 돌아가면 담당자가 바뀝니다.',
+  'components/shop/ShopDetail.tsx listHref');
+
+// 대여료 = 표. 기간 오름차순.
+must(/<table/.test(shopDetail) && /월 대여료/.test(shopDetail) && /byMonth/.test(shopDetail),
+  '대여료가 표에서 칩으로 되돌아갔습니다. 다른 기간이 얼마인지 눌러 봐야 알게 됩니다.',
+  'components/shop/ShopDetail.tsx 대여료');
+must(/sort\(\(a, b\) => a\.m - b\.m\)/.test(shopDetail),
+  '대여료 표가 기간 오름차순이 아닙니다. 「길게 하면 싸지는구나」가 안 읽힙니다.',
+  'components/shop/ShopDetail.tsx byMonth');
+
+/*
+ * 정책은 넷으로 갈린다 — **가르는 축은 «손님이 묻는 순서»**다(사장님 2026-09-05
+ * 「손님 입장에서 뭐가 궁금할지를 한번 생각을 해봐」).
+ * ⚠ 여기 이름이 「보험 / 계약 / 운전 / 기타」였다. 넷으로 가른다는 규칙은 그대로고 «축»만 바뀌었다 —
+ *   그건 공급사 정책표의 칸 이름이지 손님의 말이 아니다. 손님은 「계약 조건」이 아니라
+ *   「목돈이 얼마나 들어가나」를 궁금해한다.
+ * 구역이 «있는가»만 본다 — 어떤 배열로 그리는지(표·타일·큰줄)는 구역마다 달라도 된다.
+ */
+for (const sec of ['차량 정보', '대여료 및 보증금', '보험', '이용 조건']) {
+  // ⚠ «모양»이 아니라 «있는가»를 본다 — 전에 아이콘 프롭 하나 붙였다고 구역이 사라졌다고 잡았다.
+  must(new RegExp(`title="${sec}"|<SecTitle[^>]*>${sec}`).test(shopDetail),
+    `상세에서 「${sec}」 구역이 사라졌습니다. 한 표에 몰면 보험을 찾다 납부 방법을 지나칩니다.`,
+    'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
+}
+
+// 금액은 반올림하지 않는다 — man 은 반올림이라 손님 화면 금지.
+for (const [f, name] of [[shopDetail, 'ShopDetail'], [shopCard, 'ShopCard']] as [string, string][]) {
+  must(/manWon/.test(f) && !/\bman\(/.test(f),
+    `${name} 이 금액을 반올림합니다(man). 손님이 보는 금액은 낼 금액입니다 — manWon 을 씁니다.`,
+    'lib/format.ts man vs manWon');
+}
+
+// 조건은 주소에 실린다.
+must(/export function readQuery/.test(shopQuery) && /export function writeQuery/.test(shopQuery)
+  && /writeQuery\(query, keep\)/.test(shopView),
+  '조건이 주소에서 빠졌습니다. 영업자가 「이 조건으로 골라 둔 목록」을 못 보냅니다.',
+  'lib/shop/query.ts · ShopView');
+
+// 건수는 교차 집계(그 축을 뺀 나머지 조건으로 센다).
+must(/passes\(p, sel, axis\)/.test(shopQuery),
+  '조건 건수가 교차 집계를 안 합니다. 「디젤 120」이라 써 놓고 눌렀을 때 3대가 나옵니다.',
+  'lib/shop/query.ts baseFor');
+
+/*
+ * 상세 조건으로 가는 문 — 폰에는 왼쪽 기둥이 없어 이 문이 사라지면 축 아홉으로 갈 길이 없다.
+ * ⚠ 자리가 옮겨졌다(2026-09-05): 검색줄 «안» → **머리띠 오른쪽**(검색 아이콘 옆).
+ *   검색이 머리띠로 올라갔으므로 조건도 같이 올라가야 한다 — 둘이 갈리면 손님이 두 군데를 뒤진다.
+ */
+must(/label="상세 조건 열기"/.test(shopView) && /count=\{queryCount\(query\)\}/.test(shopView),
+  '상세 조건 버튼이 머리띠에서 빠졌습니다. 폰에는 왼쪽 기둥이 없어 축 아홉으로 갈 길이 사라집니다.',
+  'app/(shop)/shop/ShopView.tsx headerActions');
+
+// 브랜드 갈림은 서버 껍데기가 한다 — 화면 안에서 가르면 두 화면이 원자를 나눠 쓴다.
+must(/hasBrand\(wl\) \? <ShopDetailView/.test(qPage),
+  '/q/[code] 의 브랜드 갈림이 서버 껍데기에서 사라졌습니다. 화면 안에서 가르면 두 화면이 섞입니다.',
+  'app/q/[code]/page.tsx');
+
+// 손님 동에 하드코딩 hex 금지 — 채널이 늘어도 화면을 안 고치는 근거다.
+for (const [f, name] of [[shopDetail, 'ShopDetail'], [shopCard, 'ShopCard'], [shopUi, 'shop-ui']] as [string, string][]) {
+  must(!/#[0-9a-fA-F]{6}\b/.test(f.replace(/#fff\b/g, '')),
+    `${name} 에 하드코딩 hex 가 들어왔습니다. 색은 토큰만 — 채널 색은 lib/whitelabel.ts 한 줄입니다.`,
+    'docs/DESIGN_CONFIRMED_SHOP.md §3');
+}
+
+// 요금 밑에 「심사」를 쓰지 않는다 — 무심사가 셀링포인트인데 요금 옆에서 그 말을 도로 꺼내면 안 된다.
+must(!/심사·재고에 따라/.test(shopDetail),
+  '요금 밑 안내문이 되살아났습니다. 「심사」를 요금 옆에서 도로 꺼내는 자해입니다 — 마감 안내문 한 번이면 충분합니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-11');
+/*
+ * 차량 정보 = 「이 차가 무엇인가」. **차 설명하는 순서**로 든다(사장님 2026-09-05).
+ * ⚠ 여기 있던 검사는 정반대였다 — 「사실줄과 겹치는 줄이 돌아왔나」를 잡았다(구 §1-11).
+ *   그 규칙으로 고른 결과가 «차 설명»이 아니라 «남은 것 모음»이라 폐기됐다.
+ *   검사를 지운 게 아니라 **새 규격을 지키도록** 바꾼 것이다.
+ */
+must(/>제조사 · 세부모델 · 세부트림</.test(shopDetail),
+  '차량 정보에서 「제조사 · 세부모델 · 세부트림」 첫 줄이 사라졌습니다. 이 줄이 「이 차가 무엇인가」의 머리입니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-11');
+/*
+ * **색상은 «한 칸»이고 내·외부가 같이 든다 + 색 견본을 단다**(사장님 2026-09-05
+ *   「색상은 왜 «외부 색상»이니? 색상에는 **내외부 색상이 다 있는 거지**」 ·
+ *   「그 **색상 칩**을 만들었거든? 이렇게 색상 보이는 거, **직관적으로**? 색상 칩 달아주면 되고」).
+ * ⚠ 여기 검사는 정반대였다 — 「외부 색상」·「내부 색상」 두 칸을 «요구»했다. 사장님 지시로 뒤집었다.
+ *   두 칸으로 쪼개면 내장색이 없는 차(32%)는 늘 한 칸이 비어 「덜 채운 표」가 된다.
+ * ★색 코드는 `lib/domain/color-chips` 가 정본 — 화면이 hex 를 새로 정하면 그때부터 갈린다.
+ */
+/*
+ * ⚠ 2026-09-07 — 색상이 «제 줄»에서 **격자의 첫 칸**으로 옮겨 갔다(사장님 「색상 연식 주행거리를
+ *   배정하자고」). 그래서 `aria-label="색상"` 은 더 없다. 묻는 것은 그대로다:
+ *   **한 칸 안에 내·외부가 견본과 함께** 있어야 한다(두 칸으로 쪼개면 내장색 없는 차 32%가 늘 빈다).
+ */
+must(/\['색상', colorText,/.test(shopDetail)
+  && /<ColorMark name=\{p\.ext_color\} label="외부"/.test(shopDetail)
+  && /<ColorMark name=\{p\.int_color\} label="내부"/.test(shopDetail)
+  && /from '@\/lib\/domain\/color-chips'/.test(read('components/ui/badges.tsx')),
+  '색상이 다시 두 칸으로 갈렸거나 색 견본이 빠졌습니다 — 색상은 한 칸에 내·외부, 견본과 함께입니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-11');
+/*
+ * ⚠ 여기 「구동방식이 돌아왔나」를 잡는 줄이 있었다. **폐기한다**(2026-09-05).
+ *   09-05 낮 지적(「연식이, 이륜구동, 이런 걸 넣는 게 아니라」)은 «구동방식이 첫 칸이었던 것»이지
+ *   «있으면 안 된다»가 아니었다. 같은 날 사장님이 차량 정보에 넣을 것을 세어 주시면서
+ *   **구동 방식을 직접 부르셨다.** 검사가 사장님 지시를 막고 있었다.
+ * ⇒ 대신 **세어 주신 칸이 다 있는지**를 잡는다.
+ */
+for (const f of ['색상', '연식', '주행거리', '배기량', '연료', '구동방식', '승차정원', '배터리', '차량 가격']) {
+  must(new RegExp(`\['"]${f}['"]`).test(shopDetail),
+    `차량 정보에서 「${f}」 칸이 사라졌습니다 — 사장님이 세어 주신 목록입니다(값이 없으면 줄만 안 그려집니다).`,
+    'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
+}
+/*
+ * 선택 옵션은 **차량 정보 구역 안, 차명 줄 바로 다음**이다(사장님 2026-09-05
+ * 「차명 밑에 선택 옵션을 넣으라는 거는 그 **차량 정보 섹션** 차명 들어가고 선택 옵션 들어가는 거야.
+ *  그 위에 요약표에 들어가는 그 밑에를 말하는 게 아니라」).
+ * ⚠ 코덱스가 넣은 검사는 `[\s\S]*` 가 파일 전체를 먹어 **옵션이 어디 있든 통과**했다.
+ *   그래서 차명 밑에 있든 차량 정보 안에 있든 빨간불이 안 떴다. 구간을 «구역 안»으로 좁혔다.
+ */
+{
+  const vi = Math.max(shopDetail.indexOf('<Sec title="차량 정보"'), shopDetail.indexOf('<section aria-label="차량 정보">'));
+  const opt = shopDetail.indexOf('aria-label="선택 옵션"');
+  const model = shopDetail.indexOf('제조사 · 세부모델 · 세부트림');
+  must(vi >= 0 && opt > vi && model > vi && opt > model,
+    '선택 옵션이 차량 정보 구역 «안 · 차명 줄 다음»에 없습니다. 옵션은 그 차가 무엇인가의 일부입니다.',
+    'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
+}
+must((shopDetail.match(/aria-label="선택 옵션"/g) || []).length === 1,
+  '선택 옵션이 두 군데에 중복됐습니다. 차명 아래 한 번만 보입니다.',
+  'components/shop/ShopDetail.tsx');
+/*
+ * 대표 요금 · 기간표 · 납부는 **한 구역(대여료)** 안이다 — 손님이 돈 이야기를 한자리에서 끝낸다.
+ * ⚠ 구역 «제목»을 박지 않는다. 코덱스가 「기간별 대여료」라는 제목을 정규식에 박아 뒀는데,
+ *   그러면 제목을 한 글자만 바꿔도 «구조가 깨졌다»고 잡는다. 검사는 **구조**를 본다.
+ */
+must(/icon=\{Coins\}[\s\S]*<table/.test(shopDetail),
+  '대표 대여료와 기간표가 다른 구역으로 갈라졌습니다. 요금·기간표·납부는 「대여료」 한 구역 안입니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
+must(/>납부</.test(shopDetail),
+  '대여료 구역에서 「납부」(분납·카드·납부 방법)가 빠졌습니다. 돈 이야기는 한 구역에서 끝냅니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
+must(/title="기타 사항"|>기타 사항</.test(shopDetail),
+  '「기타 사항」 구역이 사라졌습니다 — 정비·대차·긴급출동·이용 지역이 갈 데가 없어집니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
+/*
+ * 웹 요금 칸에는 전화 버튼을 세우지 않는다 — 머리띠가 이미 연락처를 든다.
+ * (사장님 2026-09-05 「담당자한테 연락하는 저 구성 때문에 되게 쌩뚱맞아」)
+ * 폰 하단독의 전화는 `mobile ?` 안에 있어 이 검사에 안 걸린다.
+ */
+must(!/\{!mobile && telHref/.test(shopDetail),
+  '웹 대여료 칸에 전화 버튼이 돌아왔습니다. 가격을 읽는 자리에 영업이 끼어듭니다 — 웹은 머리띠 연락처로 충분합니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-2');
+// 「대여료에 포함」은 되살리지 않는다 — 우리 상품은 «따로 붙이는» 쪽이라 그 격자가 「별도·불가·확인」만 찍었다.
+// ⚠ «그려지는» 글자만 본다 — 이 파일 주석이 「대여료에 포함」을 걷은 이유를 적고 있다.
+must(!/title="대여료에 포함"|>대여료에 포함</.test(shopDetail),
+  '「대여료에 포함」 격자가 되살아났습니다. 우리 상품에서 그 칸은 「별도·담당자 확인·불가」만 찍습니다 — 포함이라 써 놓고 포함 안 된 칸입니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
+// 전기차에 배기량을 쓰지 않는다 — 전기 42대 중 9대에 엉뚱한 cc 가 붙어 있다(니로 넷은 1580).
+must(/isEv \? 0 :/.test(shopDetail),
+  '전기차에 배기량이 다시 뜹니다. 전기차는 배기량이 없는데 원천에 값이 붙어 있어 «거짓 숫자»가 나갑니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
+/*
+ * ★★**한 값은 «한 자리»에만 선다**(사장님 2026-09-05 「어떤 원자가 그 해당 섹션에 들어가야 되고
+ *   **중복되면 안 되지** … 어정쩡한 데에 명분 없이 들어가지 마. 꼭 있어야 될 자리에 있어야 되고」).
+ * 겹쳐서 걷은 둘을 되돌아오지 못하게 잡는다.
+ *   ① 대여료 밑 우대조건 뱃지 — 분납가능·무보증·만21세·경력무관이 전부 아래 제자리와 같은 말이었다.
+ *      뱃지는 「있다/없다」만, 제자리는 「얼마·몇 회·몇 살까지」를 말한다. 뱃지가 덜 정확한 쪽이다.
+ *   ② 요약줄의 연식·주행·배기량·연료 — 바로 아래 차량 정보와 같은 값이다. 요약줄은 차번 하나다.
+ */
+must(!/const badges/.test(shopDetail),
+  '대여료 밑에 우대조건 뱃지가 되살아났습니다. 분납가능·무보증·만21세·경력무관은 납부·대여료·이용 조건에 «값»으로 이미 있습니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
+must(/const facts = String\(p\.car_number \|\| ''\)\.trim\(\);/.test(shopDetail),
+  '요약줄에 연식·주행·배기량·연료가 돌아왔습니다 — 바로 아래 차량 정보와 같은 값입니다. 요약줄은 차번 하나입니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
+/*
+ * 보험 = **한도가 메인, 면책금은 그 밑, 긴급출동이 맨 밑**(사장님 2026-09-05
+ * 「보험은 한도를 메인에 하고 그 밑에 면책금에 대한 거를 써야겠다」).
+ * ⚠ 한때 반대로(면책금 위) 세웠었다 — 순서가 뒤집히면 이 검사가 잡는다.
+ */
+{
+  const cov = shopDetail.indexOf('rows={coverage}');
+  const ded = shopDetail.indexOf('>면책금<');
+  must(cov > 0 && ded > cov,
+    '보험 순서가 뒤집혔습니다 — 「보장 한도」가 메인(위)이고 「면책금」이 그 밑입니다.',
+    'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
+}
+/*
+ * 보험 안에서 **넷은 위계가 다르다**(사장님 2026-09-05
+ * 「보험료 포함 여부와 보상 한도, 긴급출동, 자차 면책금 요기가 조금씩 다 그 위계가 달라야 돼」).
+ *   ① 보험료 포함 여부 — 상품 조건. 보상 한도와 «다른 영역»이라 같은 격자에 안 둔다
+ *   ② 보상 한도       — 격자
+ *   ③ 면책금          — 자차가 «따로» 서고 나머지 셋은 그 밑에
+ *   ④ 긴급출동        — 보험이 아니다. 여백으로 떨어뜨린다
+ */
+/*
+ * ① 보험료 포함/별도는 **구역 제목 옆**에 붙는다(사장님 2026-09-05 「보험 타이틀 옆에다가
+ *   표시를 해주는 것이 직관적일 거 같애」). 값이 둘뿐이라 본문에 줄을 하나 더 쓰지 않는다.
+ * ⚠ 한때 본문 큰 줄(BigRow)로 세웠었다 — 「보상 한도와 다른 영역」이라는 판단은 그대로고,
+ *   자리만 제목 옆으로 옮겼다. 격자에 섞이면 이 검사가 잡는다.
+ */
+must(/tag=\{insuranceFee\}/.test(shopDetail),
+  '보험료 포함 여부가 제목 옆에서 빠졌습니다 — 보장 내용이 아니라 상품 조건이라 제목 옆 한 낱말로 섭니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
+must(!/\['보험료', S\('insurance_included'\)\]/.test(shopDetail),
+  '보험료가 보상 한도 격자 «안»으로 돌아갔습니다 — 그러면 대인·대물과 같은 무게로 읽힙니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
+must(/>보상 한도</.test(shopDetail) && />면책금</.test(shopDetail),
+  '보험에서 「보상 한도」 또는 「면책금」 소제목이 사라졌습니다 — 둘은 성격이 달라 섞이면 안 됩니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
+/*
+ * 자차 면책금 = **「수리비 ○○% · 최소 얼마 ~ 최대 얼마」 한 줄**이고, 정렬은 다른 면책금과 같다
+ * (사장님 2026-09-05 「자차 면책금은 수리비 땡땡 프로, 최소 얼마에서 최대 얼마 표현해 줘야 되고 …
+ *  **이것도 면책금이니까 우측 정렬**을 해줘야지」).
+ * ⚠ 한때 자차만 왼쪽 정렬 큰 줄로 떼어 놓았다 — 그러면 넷이 «다른 종류»로 보인다.
+ *   갈라야 할 것은 «정렬»이 아니라 **무게**다(`strongFirst`).
+ */
+must(/const ownDamageDeductible = \[/.test(shopDetail)
+  && /수리비 \$\{S\('own_damage_repair_ratio'\)\}/.test(shopDetail)
+  && /최소 \$\{S\('own_damage_min_deductible'\)\} ~ 최대/.test(shopDetail),
+  '자차 면책금이 「수리비 ○○% · 최소 ~ 최대」 한 줄에서 갈라졌습니다 — 셋은 한 값의 세 조각입니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
+must(/const ownDamageDeductible = \[/.test(shopDetail),
+  '자차 면책금 줄이 사라졌습니다 — 사고 나면 실제로 무는 돈이라 한 줄을 통째로 씁니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
+/*
+ * ★2026-09-07 — 문장(「긴급출동 {roadside}」)에서 **라벨+값 한 칸**으로 바뀌었다.
+ *   「보험이 아니다」는 이제 «짜임»이 아니라 «큰 여백»이 말한다(문서 §1-5 ④).
+ *   그래도 **이 자리에 긴급출동이 있어야 한다**는 규격은 그대로라, 라벨과 값을 같이 본다.
+ */
+must(/\['긴급출동', roadside\]/.test(shopDetail),
+  '보험 맨 밑 「긴급출동」이 사라졌습니다 — 사고가 아니라 고장일 때 부르는 것이라 여기가 제자리입니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
+/*
+ * **심사는 셋(무심사·소득확인·신용조회)이고, 화면에 «한 자리»만 쓴다.**
+ * 계속 띄우되(사장님 「심사 조건은 계속 띄워요」) 두 번 쓰지 않는다(「중복되면 안 되지」).
+ * 자리는 차명 밑 조건 칩 — 손님이 제일 먼저 재는 값이라 위에 있어야 한다.
+ * ⚠ 무심사만 초록(`good`)이고 나머지 둘은 «해야 할 일»(`ask`)이라 흐리다.
+ * ★그림은 **값마다 다르다**(`markIconFor` — 방패/서류/조회). 셋이 같은 방패였을 때는
+ *   글자를 읽어야만 구분됐다(사장님 2026-09-06 「아이콘이 다 똑같은데 다 다르게 해줘야 돼」).
+ */
+must(/text: creditChip, icon: markIconFor\(creditChip\),/.test(shopDetail)
+  && /good: \/무심사\/\.test\(creditChip\), ask: !\/무심사\/\.test\(creditChip\)/.test(shopDetail)
+  && !/\['심사', credit\]/.test(shopDetail),
+  '심사가 사라졌거나 다시 두 자리(조건 칩 + 이용 조건)에 실렸습니다 — 셋 중 하나를 칩 한 자리에만 씁니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
+must(/'screening_criteria'/.test(read('lib/domain/public-catalog.ts')),
+  '손님 화이트리스트에서 screening_criteria 가 빠졌습니다 — 값이 안 오면 화면에 심사가 안 뜹니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
+// 웹은 구역마다 「제목 왼쪽 기둥 | 값 오른쪽」으로 편다 — 폰은 그대로 쌓는다.
+must(/gridTemplateColumns: '200px minmax\(0, 1fr\)'/.test(shopDetail),
+  '웹의 구역 제목 기둥이 사라졌습니다 — 웹이 다시 «폰을 늘려 놓은» 꼴이 됩니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1');
+/*
+ * 보험에서 「없음」은 «값»이다 — 면책금 없음 = 내 돈이 안 나간다 · 보장 없음 = 보상이 안 된다.
+ * 둘 다 확정된 사실이라 `meaningful`(없음을 지운다)로 거르면 정보를 없앤다.
+ */
+must(/const insRows = /.test(shopDetail) && /const coverage = insRows\(/.test(shopDetail)
+  && /insMeaningful/.test(shopDetail),
+  '보험이 다시 「없음」을 지우는 필터를 씁니다 — 면책금 없음·보장 없음은 손님이 알아야 할 확정된 사실입니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
+/*
+ * 면책금은 **두 줄**이다 — 자차 한 줄, 나머지 한 줄(사장님 2026-09-05
+ * 「기타 면책금이라고 하긴 좀 그렇고 … 면책금을 면책금이라고 해 놓고, 있는 면책금은 그냥
+ *  「대인 얼마 대물 얼마」, 없는 거는 쓰지 말고. **자차는 다가 한 줄로 좀 길게**」).
+ * ⚠ 소제목이 이미 「면책금」이라 줄에서는 **이름만** 쓴다 — 「대인 면책금」처럼 낱말을 또 붙이지 않는다.
+ */
+/*
+ * ★2026-09-07 — 나머지 넷이 «통 문장 한 줄»에서 **보상 한도와 같은 격자**로 바뀌었다(문서 §1-5).
+ *   지켜야 하는 것은 그대로다 — ㉠ 네 이름이 다 있고 ㉡ 있는 것만 나오고(`insRows`)
+ *   ㉢ 자차는 여전히 제 한 줄. 바뀐 것은 낱말이 아니라 짜임이라, 검사도 «짜임»만 옮겨 본다.
+ */
+must(/const otherDeductibles: FactRow\[\] = insRows\(\[/.test(shopDetail)
+  && /\['대인', S\('injury_deductible'\)\]/.test(shopDetail)
+  && /\['대물', S\('property_deductible'\)\]/.test(shopDetail)
+  && /\['자손', S\('self_body_deductible'\)\]/.test(shopDetail)
+  && /\['무보험', S\('uninsured_deductible'\)\]/.test(shopDetail)
+  && /rows=\{otherDeductibles\}/.test(shopDetail),
+  '면책금 넷(대인·대물·자손·무보험)이 빠졌거나 보상 한도와 다른 짜임으로 돌아갔습니다 — 같은 격자에 세웁니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
+must(!/'자차 면책금'|'대인 면책금'|'기타 면책금'/.test(shopDetail),
+  '면책금 줄에 「…면책금」 라벨이 돌아왔습니다 — 소제목이 이미 「면책금」이라 낱말이 두 번 나옵니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
+/*
+ * 보험에서 「없음」은 «값»이다 — 면책금 없음 = 내 돈이 안 나간다 · 보장 없음 = 보상이 안 된다.
+ * 둘 다 확정된 사실이라 `meaningful`(없음을 지운다)로 거르면 정보를 없앤다.
+ */
+must(/const insRows = /.test(shopDetail) && /const coverage = insRows\(/.test(shopDetail)
+  && /insMeaningful/.test(shopDetail),
+  '보험이 다시 「없음」을 지우는 필터를 씁니다 — 면책금 없음·보장 없음은 손님이 알아야 할 확정된 사실입니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
+/*
+ * 약정 주행의 가산액은 **「1만km 추가 시」**다 — 「초과」가 아니다(사장님 2026-09-05
+ * 「연간 약정 주행거리는 **1만km 추가 시 10만원**이야. 그 표현을 명확하게 해줘야 돼」).
+ * ⚠ 「초과」는 «약정을 넘겨서 무는 벌칙»으로 읽힌다. 실제로는 «약정을 미리 올릴 때의 가산액»이고
+ *   정책 정본도 「1만km 상향 요금」이라 적어 두었다(필드 이름부터 `upcharge`).
+ */
+must(/1만km당 ↑\$\{S\('mileage_upcharge_per_10000km'\)\}/.test(shopDetail)
+  && /\['최대 주행', S\('max_annual_mileage'\)\]/.test(shopDetail),
+  '약정 주행이 「1만km당 ↑금액」이 아니거나 「최대 주행」이 빠졌습니다 — 1만km씩 되풀이해 올릴 수 있고, 어디까지 올릴 수 있는지도 말해야 합니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
+/*
+ * 연령 낮추기 = **「낮추는 나이 ↑얹히는 돈」**, 못 낮추면 **「불가」**(사장님 2026-09-05
+ * 「연령 낮추기는 **21세, 23세가 있으니까**, 아예 불가하면 그냥 **「연령 낮추기 불가」**.
+ *  그리고 21세에 23세, 거기다가 **플러스 얼마**」).
+ * ⚠ 낮추는 나이가 차마다 다르다 — 목표 나이를 빼고 값만 쓰면 «몇 살까지» 내려가는지가 사라진다.
+ * ⚠ 「불가」도 확정된 사실이라 줄을 지우지 않는다.
+ */
+must(/\/불가\/\.test\(raw\) \? '불가' : ''/.test(shopDetail)
+  && /\$\{age\(lowered\)\} ↑\$\{cost\}/.test(shopDetail),
+  '연령 낮추기가 「나이 ↑금액」이 아니거나 「불가」를 안 씁니다 — 낮추는 나이는 차마다 다르고, 불가도 확정된 사실입니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-5');
+/*
+ * 웹은 **사진 옆에 썸네일 줄**, **기간표 옆에 납부**를 세워 오른쪽 공백을 메운다(2026-09-05).
+ * ⚠ 사진 높이를 520 에서 끊자 4:3 때문에 폭이 693 으로 줄어 **오른쪽 427px 가 통째로 비었다.**
+ *   기간표(520)도 내용 칸(832) 안에서 오른쪽 310 을 비웠다. 둘 다 «덜 만든 화면»으로 보였다.
+ */
+must(/const thumbs = !mobile && n > 1 \?/.test(shopDetail)
+  && /번째 사진 보기/.test(shopDetail),
+  '웹 사진 옆 썸네일 줄이 사라졌습니다 — 사진이 왼쪽에 떠 오른쪽이 통째로 빕니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1');
+/*
+ * 웹에서는 기간표 «오른쪽»에 납부가 선다. 다만 좁은 웹(760~900)에서는 아래로 내려간다 —
+ * 폭을 못 박아 두었더니 칸 밖으로 넘쳤다(코덱스 2026-09-05 · 820px 실측).
+ * ⇒ 가로 배치 + 줄바꿈 + 납부의 «최소폭»(이게 없으면 줄바꿈 대신 65px 로 찌그러진다) 셋이 다 있어야 한다.
+ */
+must(/display: mobile \? 'block' : 'flex', flexWrap: 'wrap',/.test(shopDetail)
+  && /flex: '1 1 300px', minWidth: 260/.test(shopDetail),
+  '웹에서 기간표와 납부가 다시 세로로 쌓였거나, 좁은 웹에서 납부 칸이 찌그러집니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1');
+/*
+ * 차명 밑 «표시 칩» — 출고상태 · 상품구분 · 심사 · 우대조건. **아이콘 + 글자**이고 테두리가 없다.
+ * ⚠ 출고상태·상품구분은 한때 상세에 아예 없었다 — 목록 카드는 보여 주는데 상세에서 사라졌다.
+ */
+/* ⚠ 2026-09-08 — 상품구분은 «캐논 한 번»을 거쳐 읽는다(`canonProductType`). 카드는 원자를 그대로
+     찍고 필터는 캐논을 보던 탓에 같은 차가 「오플구독」/「중고구독」 두 답을 냈다. 원자를 안 읽는
+     것이 아니라 «같은 함수로» 읽는 것이라 이 검사의 뜻은 그대로다. */
+must(/const stateMarks: Mark\[\]/.test(shopDetail) && /const perkMarks: Mark\[\]/.test(shopDetail)
+  && /S2\(p\.vehicle_status\)/.test(shopDetail) && /canonProductType\(p\.product_type\)/.test(shopDetail),
+  '표시 칩이 사라졌거나 신원(출고상태·구분)과 조건(심사·우대)이 다시 한 덩어리가 됐습니다 — 신원은 차명 줄 오른쪽, 조건은 그 밑입니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1');
+/*
+ * 폰에는 «위 실행줄»이 없다 — 관심·공유는 **머리띠 오른쪽**이 받고, 그 머리띠는 폰에서 고정이다.
+ * ⚠ 되돌아가면 ㉠ 상세 맨 위에 짝 없는 빈 줄이 다시 생기거나 ㉡ 스크롤 한 번에 공유가 사라진다.
+ *   공유는 이 사업의 퍼널이라 ㉡ 는 화면이 깨지는 것보다 조용하고 더 비싸다.
+ */
+/*
+ * **관련 있는 것끼리 뭉쳐 놓는다**(사장님 2026-09-05). 순서가 흐트러지면 화면은 멀쩡해 보이는데
+ * 손님이 눈으로 값을 다시 맞춰야 한다 — 연식과 주행거리가 갈리면 「2022년식」과 「12만km」가
+ * 서로 다른 이야기가 된다.
+ *   차량 정보 ㉠연식·주행거리 ㉡배기량/배터리·연료·구동방식 ㉢색·인승 ㉣신차가
+ *   이용 조건 ㉠나이 셋 ㉡심사·면허·범위·추가운전자 ㉢주행 둘
+ */
+const at = (needle: string) => shopDetail.indexOf(needle);
+/*
+ * **사람이 차를 보는 차례** — 이름(제조사·세부모델·세부트림) → **선택 옵션** → **색상·연식·주행거리**
+ * (사장님 2026-09-05 「사람들이 차를 볼 때 «아 이게 어느 트림이고, 옵션이 뭐고, 아 색상이
+ *  뭐구나» 이렇게 들어간단 말이야」).
+ * ★옵션은 격자 칸이 아니라 **한 줄을 통째로** 쓴다(사장님 2026-09-07 「선택옵션 줄을 한 줄 다 쓰는 거고」).
+ * ★★그 다음 줄이 **색상 · 연식 · 주행거리**다(같은 날 「그다음엔 색상 연식 주행거리를 배정하자고」) —
+ *   색상이 제 줄을 통째로 쓰던 것을 격자 «첫 칸»으로 옮겼다. 웹 1400 에서 오른쪽 660px 이 비었었다.
+ */
+must(at('>제조사 · 세부모델 · 세부트림<') < at('aria-label="선택 옵션"')
+  && at('aria-label="선택 옵션"') < at('<Facts rows={specs}')
+  /* 격자 첫 무리가 «색상 → 연식 → 주행거리» 차례여야 한다. */
+  && at("['색상', colorText,") < at("['연식', yearFullDisplay(p.year)]")
+  && at("['연식', yearFullDisplay(p.year)]") < at("['주행거리',"),
+  '차량 정보의 차례가 흩어졌습니다 — 이름 → 선택 옵션 → (색상·연식·주행거리) 순입니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-2-2');
+must(/function grouped\(/.test(shopDetail) && /const specs: FactRow\[\] = grouped\(/.test(shopDetail)
+  && at("['연식'") < at("? '배터리' : '배기량'")
+  && at("['주행거리'") < at("['연료'")
+  && at("['구동방식'") < at("['승차정원'")
+  && at("['승차정원'") < at("['차량 가격'")
+  /*
+   * ★★**웹도 «3분할 고정 격자»다**(사장님 2026-09-07 「밑에 3개랑 **동일하게 3분할로 가로 간격
+   *   맞춰**주면 안 돼?」). 세로줄이 맞아야 표처럼 읽힌다.
+   * ⚠⚠ 2026-09-05 에는 정반대로 정했었다 — 「웹은 «띠»로 흐른다」. 그때 근거도 실측이었다:
+   *   1440px 에서 190px 네 칸 «고정»이면 열두 자리 중 여섯이 비었다.
+   *   ⇒ 3분할은 그 빈자리를 «감수»하는 선택이다(1400 에서 칸 폭 259, 승차정원이 제 줄로 내려간다).
+   *     사장님이 «맞은 세로줄»을 더 친다고 판단하셨다. 되돌리려면 먼저 여쭙는다.
+   */
+  && /gridTemplateColumns: 'repeat\(3, minmax\(0, 1fr\)\)'/.test(shopDetail)
+  && /if \(mobile\) \{[\s\S]{0,160}?display: 'grid'/.test(shopDetail),
+  '차량 정보의 차례가 흐트러졌거나, 웹 격자가 3분할이 아닙니다 — 색상 / 연식·주행 / 동력 / 신차가.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-2-3');
+must(/const useRows = grouped\(/.test(shopDetail)
+  && at("['기본 운전 연령'") < at("['연령 낮추기'")
+  && at("['연령 낮추기'") < at("['면허'")
+  && at("['추가 운전자'") < at("['약정 주행'"),
+  '이용 조건의 무리가 흐트러졌습니다 — 나이 셋 / 심사·면허·범위·추가운전자 / 주행 둘 차례입니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-2-3');
+
+const wlFrame = read('components/WhitelabelFrame.tsx');
+/*
+ * 폰 상세 머리띠는 «채널 간판»이 아니라 「상품 상세」다 — 손님은 이미 그 가게 안이다.
+ * 그리고 차번은 «차명 뒤»에 붙는다 — 제 줄을 하나 차지하지도, 머리띠로 올라가지도 않는다.
+ */
+must(/mobile && headerLead \? headerLead :/.test(wlFrame)
+  && /headerLead=\{<ShopDetailLead \/>\}/.test(read('app/q/[code]/ShopDetailView.tsx'))
+  && />상품 상세</.test(shopDetail),
+  '폰 상세 머리띠가 다시 채널 간판을 들었습니다 — 상세는 「상품 상세」입니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-2-1');
+/* 차번은 차명 줄 «안»에 있다 — h1 이 닫히기 전에 나와야 이름의 끝으로 읽힌다. */
+must(/\{title\}[\s\S]{0,400}?\{facts \? \([\s\S]{0,400}?<\/h1>/.test(shopDetail),
+  '차번이 차명에서 떨어졌습니다 — 「현대 그랜저 122두8108」처럼 이름 뒤에 붙습니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-2-1');
+
+must(/const bar = mobile \? null :/.test(shopDetail)
+  && /headerActions=\{<FavShare/.test(read('app/q/[code]/ShopDetailView.tsx'))
+  && /\{mobile \? headerActions : null\}/.test(wlFrame)
+  /* ⚠ 2026-09-07 — 머리띠는 이제 «웹에서도» 붙박이다(사장님 「웹페이지 틀고정 … 상세페이지도」).
+       그래서 조건이 `mobile && headerActions` 가 아니라 «언제나»다. 묻는 것은 그대로 —
+       머리띠가 붙박여 있어야 스크롤해도 공유·전화가 손에 남는다. */
+  && /position: 'sticky' as const, top: 0, zIndex: 15,/.test(wlFrame),
+  '폰의 관심·공유가 머리띠를 떠났거나 머리띠 고정이 풀렸습니다 — 스크롤하면 공유가 사라집니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-2');
+
+/*
+ * 신원 칩과 조건 칩은 «얼굴»도 달라야 한다 — 자리만 갈라 놓으면 여전히 한 종류로 보인다.
+ * 신원 = 연한 «면» 위 작은 흐린 글자(딱지) · 조건 = 면 «없이» 아이콘 + 진한 글자.
+ */
+const stateChipSrc = (shopUi.split('export function StateChip')[1] ?? '').split('export function PerkMark')[0];
+const perkMarkSrc = (shopUi.split('export function PerkMark(')[1] ?? '').slice(0, 700);
+must(stateChipSrc.includes('background') && !perkMarkSrc.includes('background'),
+  '신원 칩과 조건 칩이 다시 같은 얼굴이 됐습니다 — 신원은 연한 면 위 딱지, 조건은 면 없이 아이콘+진한 글자입니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1');
+/*
+ * **카드의 신원 칩은 «사진 우하»이고, 차번은 «차명 뒤»다**(사장님 2026-09-05).
+ * 업무동 카드와 같은 자리·같은 처리(.fp-onphoto/.fp-signal-chip)라 두 목록이 한 짜임으로 읽힌다.
+ */
+must(/className="fp-onphoto"/.test(shopCard) && /className="fp-signal-chip"/.test(shopCard)
+  && /<ShopThumb p=\{p\} marks=\{stateMarks\} \/>/.test(shopCard)
+  && /\{title\}[\s\S]{0,300}?\{plate \? \(/.test(shopCard),
+  '카드의 신원 칩이 사진 우하를 떠났거나 차번이 차명에서 떨어졌습니다 — 상세·업무동과 같은 짜임입니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-2-3-2');
+
+/*
+ * **폰 규격 — 글자 사다리가 «한 곳»에서 한 단 올라간다.**
+ * 사장님 2026-09-05 「모바일 버전은 전체 텍스트하고 움직임하고 … 통상 모바일 규격이 있을 거 아니니」.
+ * ⚠ 되돌아가면 폰 본문이 다시 13px 이 된다 — 실측 438개 글자 중 259개가 그 크기였다.
+ */
+must(/--shop-fs-body: 15px/.test(css) && /@media \(max-width: 760px\)/.test(css)
+  && /body: 'var\(--shop-fs-body\)'/.test(shopUi)
+  /*
+   * ★★**글자는 사다리 «한 곳»에서만 온다**(사장님 2026-09-06 「규격만 통일돼서 움직일 수 있으면 돼.
+   *   **공통 규격으로 쓸 수 있게끔**」). 이름 열하나가 폰·웹 두 값을 CSS 변수로 쥔다.
+   * ⚠⚠ **손님 동은 업무동 토큰(`FS.*`)을 쓰지 않는다.** 그게 폰 화면에 14.5·13·12·11 을 만들어
+   *   글자 크기를 **12가지**로 벌려 놓은 출처였다. 업무동은 콕핏 규격(본문 12~13)이라 그 값이
+   *   섞이면 **폰 사다리를 올려도 그 글자만 안 따라온다** — 2026-09-05 에 한 번 겪은 사고다.
+   * ★예외 둘만 사다리 밖 — 워드마크(브랜드 타이포)와 검색 «입력칸» 폰 16 고정(iOS 확대 방지).
+   */
+  && /--shop-fs-price: 19px/.test(css) && /price: 'var\(--shop-fs-price\)'/.test(shopUi)
+  && /--shop-fs-tag/.test(css) && /--shop-fs-hero/.test(css)
+  && !/FS\.[a-z]/.test(shopUi) && !/FS\.[a-z]/.test(shopCard)
+  && !/FS\.[a-z]/.test(shopDetail) && !/FS\.[a-z]/.test(wlFrame),
+  '손님 동 글자가 사다리를 벗어났습니다 — 업무동 토큰(FS.*)을 섞었거나 숫자를 화면에 박았습니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-3');
+
+/*
+ * **조건 목록 — 건수는 «제 라벨»에 붙는다. 폰 시트는 한 열이다.**
+ *
+ * 사장님 2026-09-06 「필터 **연식이 두 줄로 돼 있어가지고 좀 짤리는 게** 있고」.
+ * ⚠ 실측 — 잘린 글자는 없었다. 두 열에서 건수를 칸 «오른쪽 끝»에 세우니
+ *   `2026 … 128 │ 2025 … 75` 에서 **128 이 제 라벨과 40px, 옆 칸 라벨과 12px** 였다.
+ *   숫자가 엉뚱한 이름에 묶여 읽히는 것이 「짤린다」의 정체다.
+ * ⇒ ㉠ 폰 시트는 **전부 한 열**(연식 예외를 걷었다) ㉡ 두 열로 서는 웹 축은 **건수를 라벨 뒤에 붙인다.**
+ * ★한 열일 때는 반대다 — 오른쪽 끝에 세워야 숫자가 세로로 맞아 훑기 좋다.
+ */
+must(/tight=\{columns > 1\}/.test(read('components/shop/ShopFilters.tsx'))
+  && /flex: tight \? '0 1 auto' : 1/.test(read('components/shop/ShopFilters.tsx'))
+  && /mobile columns=\{1\}/.test(read('components/shop/ShopFilterSheet.tsx')),
+  '조건 건수가 다시 옆 칸 라벨에 붙어 읽힙니다 — 폰 시트는 한 열, 두 열은 건수를 라벨 뒤에 붙입니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-3');
+
+/*
+ * **카드는 «안은 좁게 · 밖은 넓게»** — 대여료가 차명을 잡아먹지 않는다.
+ *
+ * 사장님 2026-09-05 「목록에서 각 간격이 **너무 막 멀게 떨어져 있거나** 굳이 그렇게 간격을 멀리
+ * 안 둬도 되는데 그렇게 해놨거나, **대여료만 굳이 너무 도드라지게 크거나**」.
+ * ★한 카드 안의 넉 줄은 «같은 차를 설명하는 한 덩어리»라 사이가 좁아야 한다(8 균등). 카드끼리는
+ *   테두리가 없어 여백만이 경계라 넓어야 한다(32 = 안의 4배). 안팎이 비슷해지면 넉 줄이 흩어진다.
+ * ★★줄간격은 **균등**이다 — 위계는 여백이 아니라 «글자 크기»가 낸다(16/13.5/21/12.5).
+ *   4·12·12 로 갈랐더니 들쭉날쭉했고, 4 로 다 붙였더니 한 문단으로 뭉갰다. 당근 실측도 8 균등이다.
+ * ★대여료 21(`fs.price`) = 차명 16(`fs.h2`)의 1.3배 — 값은 사다리(globals.css)가 쥔다. 25 였을 때는 1.6배라 카드에서 **금액이 먼저 읽히고 차가 나중**이었다 —
+ *   손님이 고르는 것은 차고, 금액은 그 차의 값이다.
+ */
+must(/fontSize: SHOP\.fs\.price, fontWeight: FW\.head/.test(shopCard)
+  && /gap: mobile \? '32px 12px' : '32px 24px'/.test(shopView)
+  /* 넉 줄은 «8 균등»이다(당근도 그렇다) — 위계는 여백이 아니라 글자 크기가 낸다. */
+  && /gap: SHOP\.sp\.snug, minWidth: 0, flex: 1/.test(shopCard)
+  && !/marginTop: 'auto', paddingTop/.test(shopCard),
+  '카드 줄간격이 다시 들쭉날쭉해졌거나 카드끼리가 좁아졌습니다 — 줄 8 균등 · 밖 32 · 대여료 21 입니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-3');
+
+/*
+ * **우대조건 줄 — 옅은 «면» 위 뱃지 · 아이콘은 값마다 다르다.**
+ *
+ * 사장님 2026-09-06 ① 「심사 조건, 만21세 요쪽 라인들, 그 **살짝 배경 있는 그 배지** 그거를
+ * 해줘야지. 그 이렇게 **테두리는 아니고 배경**」 ② 「분납가능 이런 거 **아이콘이 다 똑같은데
+ * 다 다르게** 해줘야 돼」.
+ * ⚠ 그림이 같으면 **글자를 읽어야만** 구분된다 — 그럴 거면 그림이 없는 것과 같다.
+ * ★표(`MARK_ICON`)가 정본이다. 카드·상세가 각자 정하고 있어서 **한쪽만 고치면 갈렸다**.
+ * ★면은 조건 칩(`C.head`)보다 한 단 옅다(`C.zebra`) — **누를 수 있는 것이 더 진하다.**
+ */
+/*
+ * **뱃지는 «한 벌» 규격이다** — 사진 위 신원 칩과 본문 우대조건이 같은 치수.
+ * 사장님 2026-09-06 「**배지 규격은 다 통일해** 줘야지 … 근데 뱃지가 **너무 많이 삐져나갈 필요가
+ * 없다** — 거의 **텍스트를 살짝만 감쌀 정도**면 된다」.
+ * ⚠ 실측 — 사진 위 `2px 6px`/아이콘11/높이20 vs 본문 `4px 8px`/아이콘13/높이27 로 갈려 있었다.
+ *   한쪽을 고칠 때 다른 쪽이 안 따라와서다. ⇒ `BADGE` 한 벌이 정본이다.
+ * ★사진 위 칩만 «유리 바탕 + 흰 실선»을 더 갖는다 — 치수가 아니라 «바탕»의 차이다(사진 위에서 읽히려면 필요).
+ */
+/*
+ * **같은 일을 하는 문을 한 화면에 둘 두지 않는다**(사장님 2026-09-06 「닫기 버튼이 있는데
+ * 위쪽에 또 X 표가 있을 필요 없고 … 한 페이지에 같은 버튼이 굳이 두 개가 있을 필요가 없잖아」).
+ * ⚠ 되돌아가면 «어느 것을 눌러야 하나»를 손님이 매번 한 번씩 생각한다.
+ *   시트 머리 X(바닥 닫기와 중복) · 웹 기둥 「선택 초기화」(조건 줄과 중복) · 열린 검색의 돋보기(죽은 단추).
+ */
+/* ⚠ 2026-09-06 — 시트 하단독을 `ShopDock` 원자로 합치면서 마크업 «모양»이 바뀌었다.
+   묻는 것은 그대로다: **바닥에 「닫기」가 있고 · 머리에 X(label="닫기")가 없다.** */
+must(!/label="닫기"/.test(read('components/shop/ShopFilterSheet.tsx'))
+  && />닫기</.test(read('components/shop/ShopFilterSheet.tsx'))
+  && !/>선택 초기화</.test(read('components/shop/ShopFilters.tsx'))
+  && /\{searchOpen \? null : \(/.test(shopView)
+  && /onClear=\{list\.length \? onClearAll : undefined\}/.test(shopView),
+  '같은 일을 하는 문이 한 화면에 둘로 늘었습니다 — 시트 X · 기둥 초기화 · 열린 검색의 돋보기.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-3');
+
+must(/export const BADGE = \{/.test(shopUi)
+  && /padY: 2,/.test(shopUi) && /padX: 6,/.test(shopUi) && /icon: 12,/.test(shopUi)
+  && /padding: `\$\{BADGE\.padY\}px \$\{BADGE\.padX\}px`/.test(shopUi)
+  && /<m\.icon size=\{BADGE\.icon\}/.test(shopCard)
+  /*
+   * ⚠ 2026-09-06 — `StateChip`(신원 딱지)만 이 한 벌을 «안» 따르고 있었다(`5px 10px`·아이콘 13).
+   *   그래서 상세 머리에서 신원 29 · 조건 18 로 **두 줄의 딱지 높이가 달랐다.**
+   *   머리말에는 「둘이 같은 치수」라고 적혀 있었는데 글만 그랬다 — 이제 자가 잡는다
+   *   (사장님 2026-09-06 「같은 원자·같은 항목이면 그것끼리도 높이나 이런 게 같아야지」).
+   */
+  /* 신원 딱지·조건 칩 «둘 다» 이 한 벌을 쓴다 — 한 곳이라도 제 치수를 쓰면 높이가 갈린다. */
+  && (shopUi.match(/padding: `\$\{BADGE\.padY\}px \$\{BADGE\.padX\}px`/g) || []).length >= 2
+  && (shopUi.match(/lineHeight: BADGE\.lineHeight/g) || []).length >= 2
+  && !/padding: '5px 10px'/.test(shopUi)
+  && /<Icon size=\{BADGE\.icon\} aria-hidden \/>\{mark\.text\}/.test(shopUi)
+  && !/<PerkMarks marks=\{marks\} fs=/.test(shopCard),
+  '뱃지 규격이 다시 두 벌로 갈렸습니다 — 신원 딱지·사진 위 칩·본문 우대조건은 같은 치수(BADGE)입니다.',
+  'components/shop/shop-ui.tsx BADGE');
+
+must(/export function markIconFor/.test(shopUi)
+  && /무심사: ShieldCheck/.test(shopUi) && /분납가능: Coins/.test(shopUi)
+  && /만21세: UserRound/.test(shopUi) && /경력무관: IdCard/.test(shopUi)
+  && /background: C\.zebra, padding: `\$\{BADGE\.padY\}px \$\{BADGE\.padX\}px`/.test(shopUi)
+  && /icon: markIconFor\(k\)/.test(shopCard) && /icon: markIconFor\(k\)/.test(shopDetail),
+  '우대조건 뱃지의 면이 사라졌거나 아이콘이 다시 한 그림으로 돌아갔습니다.',
+  'components/shop/shop-ui.tsx MARK_ICON · PerkMark');
+
+/*
+ * **여백은 «사다리»에서만 고른다** — 4·8·12·16·24·32 여섯 칸(`SHOP.sp`).
+ *
+ * 사장님 2026-09-05 「**간격이랑 이런 거도 좀 짜임새 있게** 맞춰보자고」.
+ * ⚠ 실측 — 가게 다섯 파일에 여백이 **열아홉 가지**(3·4·5·6·7·8·9·10·11·12·13·14·18·20·22·26·28·30·34)
+ *   섞여 있었다. 9 와 10 은 눈에 같은 간격이라, 「붙은 것/떨어진 것」이 우연히 갈렸다.
+ * ★되돌아가면 여백이 다시 뜻을 잃는다 — 고칠 때마다 한두 픽셀씩 다르게 찍히기 때문이다.
+ */
+must(/sp: \{ tight: 4, snug: 8, cozy: 12, edge: 16, part: 24, pane: 32, wide: 48 \}/.test(shopUi)
+  && /gap: SHOP\.sp\.pane/.test(shopView)
+  && /paddingBlock: SHOP\.sp\.cozy/.test(shopView)
+  && !/SHOP\.gap/.test(shopView)
+  /* 목록만 사다리를 타면 상세로 넘어갈 때 다시 어긋난다 — 가게 넉 화면이 같이 탄다. */
+  && /SHOP\.sp\./.test(shopCard) && /SHOP\.sp\./.test(shopDetail)
+  && /SHOP\.sp\./.test(read('components/shop/ShopFilterSheet.tsx'))
+  && /SHOP\.sp\./.test(read('components/shop/ShopFilters.tsx')),
+  '가게 여백 사다리(SHOP.sp)가 사라졌거나 손으로 찍은 숫자로 되돌아갔습니다.',
+  'components/shop/shop-ui.tsx SHOP.sp');
+
+/*
+ * **ERP 도메인에서 손님 화면이 «프리패스»로 떨어지지 않는다.**
+ *
+ * 사장님 2026-09-06 「프리패스 erp 점 컴에서 **원래 상세 페이지가 조회되거나 그러면 안 되는데**」.
+ * ⚠ 실측 — `www.freepasserp.com/q/<토큰>` 에서 **`?wl=` 꼬리표만 떼면** 프리패스 「상품 안내」가 떴고,
+ *   `/shop` 은 재고 전체를 프리패스 껍데기로 공개했으며, `/uniauto` 는 겉만 유니오토이고
+ *   **소스에 `프리패스모빌리티 주식회사`** 가 실려 나갔다. 손님이 주소창에서 지울 수 있는 값이
+ *   브랜드를 정하고 있었던 것이다(카톡 미리보기 봇은 애초에 꼬리표 없는 주소를 긁는다).
+ * ★뿌리는 **채널 도메인이 아직 안 붙은 것**이다. 그래서 「호스트가 정본, 못 찾으면 임시 채널」로 두었다 —
+ *   도메인을 붙이면 호스트가 이겨서 이 폴백은 안 탄다(코드 재수정 없음).
+ * ⚠ 업무동(`/login`·`/inventory`)은 **예전 그대로**여야 한다 — 콕핏은 우리 화면이다.
+ */
+/*
+ * ⚠ 2026-09-06 — 채널마다 있던 라우트 파일(`app/(shop)/uniauto/page.tsx`)을 **걷었다.**
+ *   채널 하나 더 파는 일이 「표에 한 줄」이어야 해서(사장님 「홍길동 영업채널 걸로 하나 파줘,
+ *   그럼 바로 파줘야 되는 거야」), 임시 주소는 **미들웨어가 `/shop` 으로 다시 쓴다.**
+ *   묻는 것은 그대로다 — **ERP 도메인의 손님 화면이 노브랜드로 안 떨어진다.**
+ *   오히려 한 줄 더 묻는다: 껍데기 판정(`guest-surface`)이 **채널 표를 읽는가** —
+ *   여기서 표를 안 보면 새 채널 화면 위에만 업무동 남색 상단바가 얹힌다.
+ */
+must(/export function resolveGuestWhitelabel/.test(read('lib/whitelabel.ts'))
+  && /export function isGuestPath/.test(read('lib/guest-surface.ts'))
+  && /WHITELABELS/.test(read('lib/guest-surface.ts'))
+  && /resolveGuestWhitelabel\(\(await headers\(\)\)\.get\('host'\), one\(sp\.wl\)\)/.test(read('app/q/[code]/page.tsx'))
+  && /resolveGuestWhitelabel\(\(await headers\(\)\)\.get\('host'\), one\(sp\.wl\)\)/.test(read('app/(shop)/shop/page.tsx'))
+  && /isGuestPath\(request\.nextUrl\.pathname\)/.test(read('middleware.ts'))
+  && /x-fp-guest/.test(read('app/layout.tsx'))
+  /* 채널 임시 주소 → `/shop` 다시쓰기 + 손님 표시. 이 셋이 한 덩어리다. */
+  && /w\.sitePath && request\.nextUrl\.pathname === w\.sitePath/.test(read('middleware.ts'))
+  && /target\.searchParams\.set\('wl', channel\.key\)/.test(read('middleware.ts')),
+  'ERP 도메인의 손님 화면이 다시 노브랜드(프리패스)로 떨어집니다 — 상세·목록·소스에 우리 이름이 샙니다.',
+  'lib/whitelabel.ts resolveGuestWhitelabel');
+
+/*
+ * **폰 검색 = 머리띠 돋보기 → «퀵필터 칩 줄 위»로 나온다.** 목록 위에 상시로 깔지 않는다.
+ *
+ * 사장님 2026-09-05 「유튜브 모바일 **우측 상단에 돋보기를 누르면** 우리 원래 있던 그 **퀵필터 칩**
+ * 있잖아. **그 위에 검색창이 나온다고. 거기서 검색을 하는 거**라고」
+ * · 「유니오토모빌 **CI 가 좌측에 타이트하게** 잘 붙게끔」.
+ * ⚠ 머리띠를 «통째로» 검색줄로 갈아입히지 않는다 — 거기는 간판(CI)의 자리다. 처음에 그렇게
+ *   만들었다가 바로 잡혔다(2026-09-05). 돋보기는 «부르는 단추»고 칸은 본문에 선다.
+ * ⚠ 되돌아가 상시 노출이 되면 폰 첫 화면이 검색줄에 60px + 여백을 다시 내준다 —
+ *   손님이 여기 오는 이유는 「차를 본다」이지 「검색한다」가 아니다.
+ * ★검색어가 있으면 **접히지 않는다**(`searchOn || !!typed.trim()`) — 접히면 목록이 왜 줄었는지
+ *   화면이 말해 주지 않는다.
+ */
+must(/: searchOpen \? \(\s*<ShopRevealSearch/.test(shopView)
+  && /searchOn \|\| !!typed\.trim\(\)/.test(shopView)
+  && /\{!mobile \? \(\s*<ShopSearch/.test(shopView)
+  && !/headerOverlay/.test(wlFrame)
+  && /padding: mobile \? '0 4px 0 12px'/.test(wlFrame),
+  '폰 검색이 상시 검색줄로 돌아왔거나, 머리띠를 통째로 덮었거나, CI 가 좌측에서 떨어졌습니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-3');
+
+/*
+ * **가게의 «비주요» 누름은 선이 아니라 «면»이다** — 조건 칩·정렬·더 보기·공유·하단독 이전.
+ *
+ * 사장님 2026-09-05 「유튜브 보니까 퀵필터가 약간 **회색 배경에 텍스트**가 들어갔는데 우리도
+ * 그렇게 할까? **박스로 가두는 거는 조금 촌스러워** 보이고」.
+ * ⚠ 되돌아가면 한 줄에 칩이 예닐곱 서면서 **가는 테두리가 그만큼 그어져** 목록보다 칩이 시끄러워진다.
+ *   켜짐/꺼짐도 「선 색 + 면」 두 축으로 갈려 무엇이 켜진 것인지 한눈에 안 읽힌다.
+ */
+must(/background: on \? C\.brand : C\.head/.test(shopUi)
+  && !/border: `1px solid \$\{on \? C\.brand : C\.line\}`/.test(shopUi)
+  && /className="fp-shop-press fp-shop-fill"/.test(shopUi)
+  && /\.fp-shop-fill:hover/.test(css),
+  '가게 조건 칩이 다시 «테두리 상자»가 됐습니다 — 꺼짐은 회색 면, 켜짐은 브랜드 면입니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-3');
+
+/*
+ * **누르는 «영역» ≠ 보이는 «크기»** — 폰 치수 셋(tap 44 · pill 38 · icon 40).
+ *
+ * 사장님 2026-09-05 「**버튼이나 칩·검색창이 좀 커 보인다**. 유튜브나 다른 데 가보니까…」 — 맞다.
+ * 앞서 「모바일 통상 규격」을 듣고 **44/48 을 «보이는 높이»에 그대로 박아** 칩까지 44 로 키웠다.
+ * 머티리얼 규격서의 48dp 는 «터치 대상»이고 칩의 높이는 32dp 다. 둘을 다시 붙이면 같은 사고가 난다.
+ * ⚠ 되돌아가면 목록 칩·정렬·아이콘이 다시 손가락만 해져 한 화면에 드는 매물이 줄어든다.
+ */
+must(/tap: \{ web: 36, mobile: 44 \}/.test(shopUi)
+  /* ⚠ 2026-09-07 — 칩을 두 번 내렸다. 44 → 36 → 32/36(「칩이 너무 뚱뚱한 거 같은데」) →
+       **26/32**(같은 날 저녁 「칩을 얇게는 해줄 수 있지 않나」 · 「조금 더 얇아도 되지 않을까」).
+       32 의 근거였던 머리띠 「전화 상담」 단추가 같은 날 사라져(「웹은 누르는 거 아니고」)
+       그 값에 묶일 이유도 없어졌다. 되돌리려면 먼저 여쭙는다. */
+  && /pill: \{ web: 26, mobile: 32 \}/.test(shopUi)
+  && /icon: \{ web: 36, mobile: 40 \}/.test(shopUi)
+  && !/height: mobile \? 4[48] :/.test(shopUi),
+  '가게 컨트롤이 다시 «터치 영역» 크기로 부풀었습니다 — 폰은 줄 44 · 칩 32 · 아이콘 40 입니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-3');
+
+/*
+ * **둥글기 사다리 넷** — 담는 것 12 · 누르는 것 10 · 표시 8 · 진짜 원만 999
+ * (사장님 2026-09-05 「무게감 있게 격식 있게 통일감」). 알약을 컨트롤에 쓰지 않는다.
+ * ⚠ 되돌아가면 이 화면에 둥글기가 규칙 없이 셋 섞인 상태로 되돌아간다.
+ */
+must(/r: \{ chip: 8, ctrl: 10, box: R_CARD, card: 12, pill: PILL_R \}/.test(shopUi)
+  && !/borderRadius: 999/.test(shopUi) && !/borderRadius: 999/.test(shopDetail)
+  && !/borderRadius: 999/.test(shopCard),
+  '둥글기가 다시 알약(999)으로 돌아갔습니다 — 담는 것 12 · 누르는 것 10 · 표시 8 · 진짜 원만 999 입니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §브랜드');
+
+/*
+ * **관심(하트)은 손님 화면에 없다** — 손님은 로그인이 없다(사장님 2026-09-05
+ * 「손님들이 여기에 로그인을 안 할 거라서 관심을 못 찍을 거야 … 영업사원 전용 로그인이야」).
+ * 담아 둔 것을 다시 꺼내 볼 «내 목록»이 없는데 담는 단추만 있었다. 공유는 남는다 — 받는 사람은
+ * 남의 화면이라 로그인이 필요 없고, 그게 이 사업의 퍼널이다.
+ */
+must(!/aria-label=\{faved/.test(shopDetail) && !/Heart/.test(shopDetail) && !/Heart/.test(shopCard)
+  && /aria-label="이 차량 공유하기"/.test(shopDetail),
+  '손님 화면에 관심(하트)이 되살아났거나 공유가 사라졌습니다 — 손님은 로그인이 없어 관심을 다시 볼 곳이 없습니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-2');
+
+/*
+ * **목록 카드와 상세가 같은 칩 원자를 쓴다**(사장님 2026-09-05 「목록 페이지하고 전체 구성 한번
+ * 맞춰보자 — 일체감이 있는지」). 카드만 «박스 뱃지»로 남아 같은 값이 두 화면에서 다르게 보였다.
+ * 집 규칙도 그쪽이 틀렸다 — 「박스 뱃지 쓰지 말고 아이콘 텍스트로, **모든 곳에서**」(2026-08-28·30).
+ */
+must(/<PerkMarks marks=/.test(shopDetail) && /<PerkMarks marks=/.test(shopCard)
+  && !/<Badge/.test(shopCard),
+  '손님 카드가 다시 박스 뱃지를 씁니다 — 목록·상세가 같은 칩 원자(PerkMarks)를 써야 합니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1 · docs/DESIGN_CONFIRMED_LIST_CARD.md');
+// 전화는 담당자 → 대표번호로 떨어진다 — ?a= 없는 손님에게 전화 링크가 0개가 되면 안 된다.
+must(/wl\.tel/.test(read('app/q/[code]/ShopDetailView.tsx')),
+  '상세가 대표번호 폴백을 잃었습니다. ?a= 없이 들어온 손님은 폰에서 전화 링크가 0개가 됩니다.',
+  'docs/DESIGN_CONFIRMED_SHOP.md §1-9');
+
+/*
+ * ★★**채널마다 라우트 파일을 만들지 않는다**(2026-09-06).
+ *   사장님 「홍길동 영업채널 걸로 하나 파줘 그럼 **바로 파줘야** 되는 거야」 —
+ *   채널 하나 파는 일이 「표에 한 줄」이려면 화면이 «한 벌»이어야 한다.
+ *   임시 주소는 미들웨어가 `/shop` 으로 다시 쓴다. 파일을 만들면 화면이 두 벌이 되고,
+ *   한쪽만 고쳐지는 순간 「그 채널만 예전 화면」이 된다.
+ * ⚠ 표에서 `sitePath` 를 읽어 «그 경로의 라우트 파일이 없는지»를 센다 —
+ *   채널이 늘어도 이 검사는 안 고친다.
+ */
+{
+  const table = read('lib/whitelabel.ts');
+  const paths = [...table.matchAll(/sitePath:\s*'([^']+)'/g)].map((m) => m[1]);
+  const stray = paths.filter((p) => existsSync(new URL(`../app/(shop)${p}/page.tsx`, import.meta.url))
+    || existsSync(new URL(`../app${p}/page.tsx`, import.meta.url)));
+  must(stray.length === 0,
+    `채널 전용 라우트 파일이 생겼습니다(${stray.join(' · ')}) — 채널은 «표 한 줄»이고 화면은 한 벌입니다.`,
+    'docs/영업자홈피-채널-매뉴얼.md §2');
+}
+
+/*
+ * ★★★**세로 리듬은 «사다리»만 쓴다**(사장님 2026-09-06 「줄 간격들을 … **다 통일** 시켰으면
+ *   좋겠어. **어디는 넓고 어딘 좁고** 이러지 않고」).
+ *   손님 동 파일에서 `margin*: <숫자>` 가 사다리(0·4·8·12·16·24·32·48 = `SHOP.sp`) 밖이면 걸린다.
+ * ⚠ 실측 2026-09-06 — 무리 사이가 **16·24·28** 로, 라벨 밑이 **4·8** 로 갈려 있었다.
+ *   보는 사람은 규칙을 못 읽고 「여기는 왜 붙었지」만 느낀다.
+ * ★**세로만 본다**(`marginTop|marginBottom|margin`). 가로(`marginLeft/Right`)는 아이콘을 1px 밀어
+ *   글자 밑선에 맞추는 «눈맞춤»이 섞여 있어 사다리로 잴 값이 아니다.
+ * ★`padding` 은 안 본다 — 뱃지 규격(`BADGE.padY` 2)처럼 «리듬이 아닌» 값이 섞여 있다.
+ */
+{
+  const LADDER = new Set([0, 4, 8, 12, 16, 24, 32, 48]);
+  const files = [
+    'components/shop/ShopDetail.tsx', 'components/shop/ShopCard.tsx',
+    'components/shop/ShopFilters.tsx', 'components/shop/ShopFilterSheet.tsx',
+    'components/shop/shop-ui.tsx', 'components/WhitelabelFrame.tsx',
+    'app/(shop)/shop/ShopView.tsx',
+  ];
+  const strays: string[] = [];
+  for (const f of files) {
+    const src = read(f).replace(/\/\*[\s\S]*?\*\//g, '');
+    for (const m of src.matchAll(/margin(?:Top|Bottom)?:\s*(\d+)/g)) {
+      if (!LADDER.has(Number(m[1]))) strays.push(`${f} margin ${m[1]}`);
+    }
+    /* ★`gap` 도 «사이»다 — 줄 사이든 칸 사이든 같은 사다리를 탄다(2026-09-06 실측으로 여덟 군데 잡았다). */
+    for (const m of src.matchAll(/(?:^|[^A-Za-z])(?:row|column)?[Gg]ap:\s*(\d+)/g)) {
+      if (!LADDER.has(Number(m[1]))) strays.push(`${f} gap ${m[1]}`);
+    }
+  }
+  must(strays.length === 0,
+    `세로 리듬이 사다리를 벗어났습니다(${strays.slice(0, 4).join(' · ')}) — 간격은 SHOP.sp 만 씁니다.`,
+    'components/shop/ShopDetail.tsx §세로 리듬');
+}
+
 if (fails.length) {
   console.error(`\n✗ 확정 디자인이 바뀌었습니다 — ${fails.length}건\n`);
   for (const f of fails) console.error(`   · ${f}\n`);
   console.error('  바꾸려면: 사장님께 여쭙고 → docs/DESIGN_CONFIRMED_LIST_CARD.md 를 고치고 → 이 검사를 고칩니다.\n');
   process.exit(1);
 }
-console.log('✓ 확정 디자인 유지 — 목록·카드·상세·색 사다리 정합');
+console.log('✓ 확정 디자인 유지 — 목록·카드·상세·색 사다리·가게 정합');

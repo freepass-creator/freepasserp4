@@ -29,6 +29,87 @@ const RAW_ALLOW = new Map<string, Allow>([
     counts: { button: 14, input: 4, select: 2 },
     reason: '착한거래 규격 화면 — 단계 버튼·숨김 파일 선택기(신분증·얼굴·추가운전자 면허증·요청서류)·선택 칸',
   }],
+  /* 견적(`/estimate`)의 화면 정본은 **웰릭스 테이블**이다(사장님 2026-09-07 「야 일단 웰릭스 테이블을
+     **그대로 복사**해와봐」 · 「거기서 **신차에서 중고차로만 변환**하고 **원가구조만 다르게** 쓰면 되는 거잖아」).
+     ⇒ 마크업이 원본 것이라 업무동 원자를 쓸 수 없다 — 원자를 끼우는 순간 «그대로»가 깨진다.
+       입히는 것은 `components/estimate/welrix.css`(원본 `<style>` 을 한 글자도 안 고치고 `.wx-root` 에 가둔 것).
+     raw 를 세면 이렇게 된다 —
+       button 1  = 손익 기간 탭(1~5년)
+                   ★2026-09-08 에 **일곱에서 하나로 줄었다** — 사장님 「저렇게 굵을 필요 없고」로
+                     상품 카드 여섯과 「차종 고르기」 단추를 걷고 **한 줄짜리 드롭다운**으로 바꿨다.
+       input 17  = 차량정보(시세·연식·주행·배기량·매입할인·신차 차량가) + 잔가 5 +
+                   손님·담당자·연락처·수수료 + 조건(보증금·선납) + **옵션 체크 1**
+                   … 원본 `.cs-field`/`.qc-field`/`.option-row` 짜임
+       select 8  = 취득 경로 · 「손님 발송용」 기간 · 외장/내장 색상 2 ·
+                   **상품 · 채널 · 만기 · 신용 4**(원본처럼 「라벨 + 한 줄」)
+     ★2026-09-08 에 셋이 늘었다 — 사장님 「1번으로」로 **옵션·색상을 원본처럼 왼쪽 별도 칸**
+       (`#sec-options`·`#sec-color`)으로 뺐다. 그 전에는 옵션이 차 고르기 시트 «안»에 있었다.
+     ⚠ 숫자가 달라지면 화면이 «원본에서» 벗어났다는 뜻이다. 고치기 전에 **원본과 대조**할 것
+       (`C:\dev\welrixtable/index.html` · `src/components/*.vue`). */
+  ['app/estimate/page.tsx', {
+    counts: { button: 1, input: 17, select: 8 },
+    reason: '견적 = 웰릭스 테이블 그대로 — 상품 카드·차종·**선택 옵션·색상**·차량정보·잔가·손님/담당자·조건·발송용 견적',
+  }],
+  /* 원가 설정(`/estimate/cost`)도 같은 갈래 — 목업 `프리패스-목업-원가설정.html` 을 그대로 옮겼다.
+     raw 는 `components/estimate/cost.css` 가 제 규격으로 입힌다(920px 2열·둥근 14px·그림자 — 업무동 규격이 아니다).
+     button 2 = 세그(채널·신용·마스터 묶음 한 개 + 저장) · input 2 = 숫자칸(`Pin`) · 차종 검색. */
+  /* 차 고르기 시트(`features/estimate/CarPicker`) — 견적 얼굴의 조각이라 업무동 원자를 쓰지 않는다.
+     button 12 = 제조사 칩·목록 줄·파워트레인/트림 칩·연료 세그·옵션 줄·닫기·이전·확정 (전부 시트 안).
+     input 1 = 차종 검색칸. ⚠ 늘면 「고르는 길」이 늘었다는 뜻이다 — 걸음 둘을 넘겼는지 먼저 본다. */
+  /* 차종 캐스케이드 — 원본 `VehicleCascade.vue` 를 옮긴 것이라 원자를 쓰지 않는다.
+     select 1 = 걸음 한 칸(`Step`)의 드롭다운 하나. 넷은 그 한 줄을 네 번 부른 것이다.
+     ⚠ 늘면 「걸음이 늘었다」는 뜻이다 — 원본은 넷(제조사→모델→세부→트림)이다. */
+  ['features/estimate/VehicleCascade.tsx', {
+    counts: { button: 0, input: 0, select: 1 },
+    reason: '차종 캐스케이드 — 웰릭스 원본 좌측 넷을 그대로. 「라벨 96 + 한 줄」 짜임은 원본 CSS 가 입힌다',
+  }],
+  ['features/estimate/CarPicker.tsx', {
+    counts: { button: 12, input: 1, select: 0 },
+    reason: '견적 차 고르기 시트 — 중고(차종마스터)·신차(신차마스터) 두 갈래를 한 시트에서',
+  }],
+  ['app/estimate/cost/page.tsx', {
+    counts: { button: 3, input: 2, select: 0 },
+    reason: '원가 면 — 세그·저장·«칸 설명 ⓘ»(3) · 숫자칸·차종 검색(2). ⓘ 는 2026-09-06 에 늘었다 — 사장님 「렌터카 처음 하는 사람들도 이 구조를 이해해서 … 커서를 갖다 대면 설명」',
+  }],
+  /*
+   * ★★**손님 동(가게)은 «제 원자층»을 갖는다** — `components/shop/shop-ui.tsx`.
+   *   사장님 2026-09-04 「검색창이고 좌측 사이드바 필터하고 **기존 거 활용하지 말고 새로이** 설계하고」.
+   *   업무동 원자는 «하루 종일 콕핏을 보는 사람» 규격(높이 32·글자 12~13·각진 모서리 4)이고,
+   *   손님은 «한 번 훑고 고르는» 사람이라 타깃·글자·둥글기가 다르다. 전자계약·견적과 같은 갈래다.
+   * ⚠ 그래서 이 파일의 raw 는 «원자의 본체»다(components/ui 와 같은 지위 — sign/atoms 와 같음).
+   *   나머지 손님 동 파일은 **shop-ui 원자를 써야 한다** — 개수를 못 박아 새 raw 는 계속 걸리게 둔다.
+   * ⚠⚠ 2026-09-06 검수 — 하단 실행독이 세 곳에 손으로 짜여 높이가 54·52·48 로 갈렸고 둘은
+   *   아이폰 안전영역을 안 봤다. `ShopDock`·`ShopDockAction` 원자로 합쳤다. **다시 손으로 짜지 말 것.**
+   */
+  ['components/shop/shop-ui.tsx', {
+    counts: { button: 6, input: 2, select: 1 },
+    reason: '가게 «원자 파일» 자체 — ShopPill·ShopIconBtn·ShopTextBtn·ShopDock/ShopDockAction·ShopSearch·ShopSort 의 본체',
+  }],
+  ['components/shop/ShopDetail.tsx', {
+    counts: { button: 5 },
+    reason: '상세 — 기간 고르는 줄(접근성상 진짜 button)·사진 갤러리 타일·갤러리 좌우 화살표'
+      + '·썸네일 칸 위아래 화살표(2026-09-07 — 갤러리 화살표와 같은 종류, 사진 넘기는 손잡이)'
+      + '·공유. 나머지는 shop-ui 원자',
+  }],
+  ['components/shop/ShopFilters.tsx', {
+    counts: { button: 2 },
+    reason: '조건칸 — 축 접기 머리·줄 전체가 누름 영역인 체크 줄(줄 자체가 컨트롤이라 원자로 못 감싼다)',
+  }],
+  ['components/shop/ShopFilterSheet.tsx', {
+    counts: { button: 1 },
+    reason: '폰 조건 시트 — 축 고르는 왼쪽 기둥. 하단독은 ShopDock 원자다',
+  }],
+  ['components/WhitelabelFrame.tsx', {
+    counts: { button: 1 },
+    reason: '채널 껍데기 — 안내 띠 닫기. 하단 전화독은 ShopDock 원자다',
+  }],
+  /*
+   * ⚠⚠ **2026-09-07 — 이 블록이 통째로 «두 번» 붙어 있었다**(주석까지 그대로).
+   *   `new Map([...])` 은 **뒤엣것이 이긴다.** 그래서 앞 블록은 죽은 코드였고,
+   *   거기 숫자를 고쳐도 검사는 꿈쩍도 안 했다(썸네일 화살표를 더하면서 실제로 겪었다).
+   * ★같은 키를 두 번 적지 마라 — 고친 사람은 고쳤다고 믿고, 검사는 옛 값을 본다.
+   *   그게 제일 나쁜 종류다(둘 다 «맞다»고 말한다).
+   */
   ['components/sign/atoms.tsx', {
     counts: { button: 2, input: 1 },
     reason: '착한거래 «원자 파일» 자체 — SignOption·SignConsent·SignInput 의 본체(components/ui 와 같은 지위)',

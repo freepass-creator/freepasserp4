@@ -49,6 +49,8 @@ for (const h of hybEntries) {
 console.log(`\n요약: retired ${retired} · 개명 ${renamed} · 트림 병합 ${merged}개. (삭제 0 · 원자 변경 0)`);
 
 if (!APPLY) { console.log('\n[드라이런] --apply 로 json 저장.'); process.exit(0); }
-writeFileSync('public/data/vehicle-master.json', JSON.stringify(raw, null, 1));
+/* ★서식은 «2칸»이다 — apply-market-class·apply-newcar-priced 와 같은 값.
+ * 한 칸으로 쓰면 7만 줄이 통째로 다시 쓰여 파일 전체가 병합충돌이 된다(2026-09-08 실제로 났다). */
+writeFileSync('public/data/vehicle-master.json', JSON.stringify(raw, null, 2));
 console.log('✓ public/data/vehicle-master.json 저장 (RTDB 재발행은 publish-master-to-rtdb 별도)');
 process.exit(0);

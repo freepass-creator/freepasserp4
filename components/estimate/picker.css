@@ -1,0 +1,89 @@
+/**
+ * 견적 «차 고르기» 시트 — 견적 얼굴 위의 덧칠.
+ *
+ * ★`estimate.css` 를 먼저 싣고 그 위에 얹는다. 토큰·글꼴·`.card`·`.step`·`.seg`·`.chips`·`.vsearch`·
+ *   `.pin` 은 견적 것을 그대로 쓴다. 여기 있는 것은 **시트에만 있는 조각**뿐 —
+ *   덮개(`.psheet`) · 고르는 줄(`.prow`) · 트림 칩(`.tchip`) · 옵션 줄(`.oprow`) · 하단 확정 바(`.pdock`).
+ *
+ * ★시트다(폰 규격) — 하단에서 올라오고, 열 때 **자동 포커스하지 않는다**.
+ *   키보드가 조건을 덮으면 조건 보러 온 사람이 매번 키보드를 내려야 한다(집 규격 · finder 와 같은 이유).
+ */
+
+.est-picker{position:fixed;inset:0;z-index:120;display:flex;flex-direction:column;justify-content:flex-end;background:rgba(20,28,46,.34)}
+.est-picker .psheet{position:relative;width:100%;max-width:440px;margin:0 auto;background:var(--bg);border-top-left-radius:12px;border-top-right-radius:12px;display:flex;flex-direction:column;max-height:88vh;overflow:hidden}
+.est-picker .phead{display:flex;align-items:center;gap:9px;padding:12px 14px;background:var(--surface);border-bottom:1px solid var(--line-2);flex:none}
+.est-picker .phead b{font-size:14px;font-weight:800;letter-spacing:-.2px}
+.est-picker .phead .sub{font-size:11.5px;color:var(--ink-4);font-weight:600}
+.est-picker .phead .x{margin-left:auto;width:30px;height:30px;border:1px solid var(--line-2);background:var(--surface);color:var(--ink-3);border-radius:3px;cursor:pointer;display:grid;place-items:center;flex:none}
+.est-picker .pbody{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:12px}
+.est-picker .pbody .card{margin-top:10px}
+
+/* 제조사 칩 줄 — 가로로 민다(17곳이라 접지 않는다). */
+.est-picker .mkrow{display:flex;gap:6px;overflow-x:auto;padding:10px 12px 0;scrollbar-width:none}
+.est-picker .mkrow::-webkit-scrollbar{display:none}
+.est-picker .mkrow button{flex:none;height:30px;padding:0 12px;border:1px solid var(--line-2);background:var(--surface);color:var(--ink-2);border-radius:999px;font:inherit;font-size:12px;font-weight:700;cursor:pointer}
+.est-picker .mkrow button.on{background:var(--accent);border-color:var(--accent);color:var(--on)}
+
+/* 고르는 줄 — 세부모델 한 대 / 신차 모델 한 대 / 트림 한 줄. 전부 같은 모양이다. */
+.est-picker .plist{margin:10px 12px 0;background:var(--surface);border:1px solid var(--line-2);border-radius:4px;overflow:hidden}
+.est-picker .prow{display:flex;align-items:center;gap:10px;width:100%;padding:11px 13px;border:0;border-top:1px solid var(--line);background:transparent;font:inherit;text-align:left;cursor:pointer}
+.est-picker .prow:first-child{border-top:0}
+.est-picker .prow .pn{flex:1;min-width:0}
+.est-picker .prow .pn b{display:block;font-size:13px;font-weight:700;color:var(--ink-1);letter-spacing:-.2px}
+.est-picker .prow .pn em{display:block;font-style:normal;font-size:11px;color:var(--ink-4);font-weight:500;margin-top:2px}
+.est-picker .prow .pv{flex:none;font-size:13px;font-weight:800;color:var(--accent)}
+.est-picker .prow .pv small{font-size:10.5px;font-weight:600;color:var(--ink-4);margin-left:2px}
+.est-picker .prow .cv{flex:none;color:var(--ink-4)}
+.est-picker .prow.on{background:var(--accent-soft)}
+.est-picker .pempty{margin:10px 12px 0;padding:22px 14px;text-align:center;font-size:12px;color:var(--ink-4);line-height:1.7;background:var(--surface);border:1px solid var(--line-2);border-radius:4px}
+.est-picker .pempty b{color:var(--ink-2)}
+
+/* 트림 칩 — 여러 줄로 접힌다(트림 이름은 길이가 제각각이라 격자로 못 세운다). */
+.est-picker .tchips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.est-picker .tchips button{height:32px;padding:0 12px;border:1px solid var(--line-2);background:var(--surface);color:var(--ink-2);border-radius:3px;font:inherit;font-size:12px;font-weight:600;cursor:pointer}
+.est-picker .tchips button.on{background:var(--accent);border-color:var(--accent);color:var(--on)}
+
+/* 옵션 한 줄 — 네모 체크 + 이름 + 값. 여러 개 고를 수 있다는 표시가 네모다(가게 조건칸과 같은 규칙). */
+.est-picker .oprow{display:flex;align-items:center;gap:10px;width:100%;padding:9px 2px;border:0;border-bottom:1px solid var(--line);background:transparent;font:inherit;text-align:left;cursor:pointer}
+.est-picker .oprow:last-child{border-bottom:0}
+.est-picker .oprow .bx{flex:none;width:17px;height:17px;border:1.5px solid var(--line-3);border-radius:3px;display:grid;place-items:center;color:transparent}
+.est-picker .oprow.on .bx{background:var(--accent);border-color:var(--accent);color:var(--on)}
+.est-picker .oprow .on2{flex:1;min-width:0;font-size:12.5px;font-weight:600;color:var(--ink-2)}
+.est-picker .oprow .ov{flex:none;font-size:12px;font-weight:700;color:var(--ink-1)}
+.est-picker .oprow.base{cursor:default}
+.est-picker .oprow.base .ov{color:var(--ink-4);font-weight:600}
+
+/* 하단 확정 바 — 견적 하단독과 같은 짜임(비주요 92 고정 · 주요 나머지 · 높이 40). */
+.est-picker .pdock{flex:none;display:flex;gap:8px;padding:8px 12px;background:var(--surface);border-top:1px solid var(--line-2);padding-bottom:calc(8px + env(safe-area-inset-bottom, 0px))}
+.est-picker .pdock button{height:40px;border:0;border-radius:3px;font:inherit;font-weight:700;font-size:13px;cursor:pointer}
+.est-picker .pdock .prev{flex:0 0 92px;background:var(--surface);border:1px solid var(--line-2);color:var(--ink-2)}
+.est-picker .pdock .go{flex:1;background:var(--accent);color:var(--on)}
+.est-picker .pdock .go[disabled]{background:var(--surface);border:1px solid var(--line-2);color:var(--ink-4);cursor:default}
+.est-picker .psum{padding:9px 12px 0;font-size:11.5px;color:var(--ink-3);font-weight:600;text-align:right}
+.est-picker .psum b{color:var(--accent);font-size:13px;font-weight:800}
+.est-picker .prules{margin-top:10px;padding:9px 11px;border:1px dashed var(--accent-line);border-radius:3px;background:var(--accent-soft);font-size:11px;color:var(--ink-2);font-weight:600;line-height:1.55}
+.est-picker .prules b{color:var(--accent)}
+
+/* ══ 인라인 — 좌 400 기둥 «안»에 박힐 때 ══════════════════════════════════
+   ★사장님 2026-09-07 「차량 고르는 거 좌측에서 다 골랐잖아 … **왜 패널이 새로 뜨니**」.
+     웹은 좌 기둥이 «차 고르는 자리»다. 거기 두고 시트를 또 띄우면 두 번 고르는 꼴이다.
+   ★원본 둘 다 인라인이다 — 손오공 `.vside`(400) 에 차종검색·캐스케이드·차량정보가 박혀 있고,
+     웰릭스 `.wrap`(400) 에 제조사→모델→트림→옵션이 박혀 있다.
+     모달은 «바구니·견적서·공지» 같은 **결과물**에만 쓴다.
+   ⚠ 폰은 위 시트 그대로다 — 좌 기둥이 없으니 띄울 수밖에 없다. */
+.est-picker.inline{position:static;inset:auto;z-index:auto;display:block;background:transparent}
+.est-picker.inline .psheet{
+  max-width:none;margin:10px 12px 0;background:var(--surface);
+  border:1px solid var(--line-2);border-radius:var(--r);
+  max-height:none;overflow:visible;
+}
+/* 머리는 카드 머리(`.step`)와 같은 얼굴로 — 좌 기둥에서 ① 차량 카드와 나란히 선다. */
+.est-picker.inline .phead{
+  padding:8px 13px;background:var(--surface-2);border-bottom:1px solid var(--line);
+  border-radius:var(--r) var(--r) 0 0;
+}
+.est-picker.inline .phead b{font-size:11px;font-weight:700;color:var(--ink-2);letter-spacing:.5px;text-transform:uppercase}
+.est-picker.inline .phead .sub{margin-left:auto;font-size:12px;font-weight:700;color:var(--ink-1)}
+/* 몸통은 제 안에서 스크롤한다 — 좌 기둥이 이미 스크롤하므로 높이를 물린다. */
+.est-picker.inline .pbody{max-height:min(52vh,520px);overflow-y:auto;padding:0 13px 12px}
+.est-picker.inline .pbody .card{margin:10px 0 0;border:0;padding:0}
