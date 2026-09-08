@@ -237,12 +237,33 @@ for (const sup of sups) {
   jobs.push({ sup, sheetId: hit[0].id, sheetName: hit[0].name, tab: tabOf(MONTH), via, lines: mine, backs, net, vat, claw: cl });
 }
 /**
- * ★★**한 시트에 두 곳이 들어오면 탭 이름에 «누구 것»을 붙인다.**
- *   청구서는 빌린카·엘씨 «두 장»이 따로 나간다. 금액을 한 탭에 합치면 어느 종이와도 안 맞는다.
- *   ⇒ 종이 한 장 = 탭 하나. 같은 시트에 둘이면 「26년08월 정산 · 엘씨렌트」로 갈라 세운다.
+ * ★★**같은 회사면 한 탭으로 합친다** (사장님 2026-09-08 「정산탭 하나로 합쳐 빌린카 엘씨」).
+ *
+ * ⚠ 2026-09-08 까지는 «한 시트에 두 이름이 들어오면 갈라 세웠다» — 「26년08월 정산 · 엘씨렌트」처럼.
+ *   까닭은 「청구서가 두 장 나가니 합치면 어느 종이와도 안 맞는다」였다. 그런데 **도메인은 진작
+ *   둘을 한 회사로 보고 있었다** — `SUPPLIER_ALIAS` 에 「엘씨렌트 ↔ 빌린카」, 수수료표도 「빌린카(LC)」 한 줄
+ *   (`settlement-fee-table` §빌린카(LC) = 엘씨렌트). 종이만 둘로 나가던 것이다.
+ *   ⇒ 별칭으로 같은 회사면 **한 탭**. 실측 2026-08 — 빌린카 816,750 + 엘씨렌트 726,000 = **1,542,750**.
+ *
+ * ★**줄마다 어느 이름으로 온 것인지는 남긴다** — 합친 탭이 «누구 것인지 모를 표»가 되면 안 된다.
+ * ⚠ 별칭이 «아닌» 두 곳이 한 시트를 쓰면 예전처럼 갈라 세운다 — 남의 돈을 한 장에 담지 않는다.
  */
-for (const j of jobs) {
-  if (jobs.filter((k) => k.sheetId === j.sheetId).length > 1) j.tab = `${tabOf(MONTH)} · ${j.sup}`;
+{
+  const 한몸 = (a: string, b: string) => a === b || SUPPLIER_ALIAS[a] === b || SUPPLIER_ALIAS[b] === a;
+  const merged: Job[] = [];
+  for (const j of jobs) {
+    const 짝 = merged.find((m) => m.sheetId === j.sheetId && 한몸(m.sup, j.sup));
+    if (!짝) { merged.push({ ...j, lines: [...j.lines], backs: [...j.backs] }); continue; }
+    짝.lines.push(...j.lines); 짝.backs.push(...j.backs);
+    짝.net += j.net; 짝.vat += j.vat; 짝.claw += j.claw;
+    짝.sup = `${짝.sup}·${j.sup}`;
+    console.log(`   ○ 같은 회사라 한 탭으로 — ${짝.sup}`);
+  }
+  jobs.length = 0; jobs.push(...merged);
+  /** 별칭이 아닌 두 곳이 같은 시트를 쓰면, 예전대로 이름을 붙여 갈라 세운다. */
+  for (const j of jobs) {
+    if (jobs.filter((k) => k.sheetId === j.sheetId).length > 1) j.tab = `${tabOf(MONTH)} · ${j.sup}`;
+  }
 }
 for (const j of jobs) {
   console.log(`   ${j.sup.padEnd(11)} ${String(j.lines.length).padStart(2)}줄  합계 ${won(j.net + j.vat).padStart(12)}${j.claw ? `  (환수 -${won(j.claw)})` : ''}`);
@@ -329,6 +350,19 @@ for (const j of jobs) {
   const hit0 = cands.find((s) => s.properties.title !== tab) || cands[0];
   let id = hit0?.properties.sheetId;
   let tabRef = hit0?.properties.title || tab;
+  /**
+   * ★★**같은 달 탭을 «합칠» 때는 옛 탭들의 「확인·정정」을 다 거둬 온다.**
+   *   2026-09-08 에 빌린카·엘씨를 한 탭으로 합치기로 했다(사장님). 그런데 공급사가 적어 둔 넉 칸은
+   *   **옛 두 탭**(「…정산 · 빌린카」·「…정산 · 엘씨렌트」)에 들어 있다. 새 탭만 보고 찍으면 그게 지워진다 —
+   *   **자리를 내어 주고 지우는 것이 자리를 안 내는 것보다 나쁘다**(이 파일의 「빠진 건」 규칙과 같은 까닭).
+   *   ⇒ 「26년08월 정산」으로 시작하는 탭을 «모두» 읽어 넉 칸을 모은 뒤, 합친 탭 하나로 남긴다.
+   */
+  const 같은달 = all.filter((s) => {
+    const t = settleTabBase(S(s.properties.title));
+    return t === tab || t.startsWith(`${tabOf(MONTH)} · `) || t === tabOf(MONTH);
+  });
+  const 거둘탭 = [...new Set([tabRef, ...같은달.map((s) => S(s.properties.title))])].filter(Boolean);
+  if (거둘탭.length > 1) console.log(`   ○ ${j.sup} — 같은 달 탭 ${거둘탭.length}장에서 적어 둔 것을 거둔다: ${거둘탭.join(' · ')}`);
   const rowsNeed = j.lines.length + 20;
   /**
    * ★**이름을 «가른» 첫 달에는 이름 없는 옛 탭이 남는다** — 그것을 «고쳐 쓴다».
@@ -381,8 +415,8 @@ for (const j of jobs) {
    *     자리만 내어 주고 지우는 것이 자리를 안 내는 것보다 나쁘다.
    */
   const missed: Record<string, string>[] = [];
-  {
-    const got = await (await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${j.sheetId}/values/${encodeURIComponent(`'${tabRef}'!A1:AZ400`)}`, { headers: { Authorization: `Bearer ${await tok()}` } })).json() as { values?: unknown[][] };
+  for (const 읽을탭 of 거둘탭) {
+    const got = await (await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${j.sheetId}/values/${encodeURIComponent(`'${읽을탭}'!A1:AZ400`)}`, { headers: { Authorization: `Bearer ${await tok()}` } })).json() as { values?: unknown[][] };
     const g = got.values || [];
     const hi = g.findIndex((r) => (r || []).some((c) => S(c) === '차량번호'));
     /**
@@ -718,6 +752,24 @@ for (const j of jobs) {
   });
   console.log(`   ${fr.ok ? 'o' : '! 서식'} ${j.sup.padEnd(11)} ${String(j.lines.length).padStart(2)}줄 · ${won(j.net + j.vat).padStart(12)}  →  ${aliasOf(j.sheetName)} 시트`);
   if (!fr.ok) console.log(`      ${(await fr.text()).slice(0, 160)}`);
+
+  /**
+   * ★★**합친 뒤 남은 «옛 달 탭»을 거둔다 — 같은 달이 두 장이면 어느 것도 못 믿는다.**
+   *   빌린카·엘씨를 한 탭으로 합치면 「…정산 · 빌린카」·「…정산 · 엘씨렌트」가 남는다. 그대로 두면
+   *   공급사가 어느 종이를 보고 입금해야 할지 모른다(이 파일 위쪽 「같은 달을 두 규칙으로 세면」과 같은 까닭).
+   * ⚠ **적어 둔 넉 칸을 «먼저 거둔 뒤»에만 지운다** — 위에서 `거둘탭` 을 다 읽어 합친 탭에 실었다.
+   *   ★찍은 것이 성공했을 때만(`fr.ok`) 지운다. 실패한 회차에 옛 표까지 없애면 남는 게 없다.
+   */
+  if (fr.ok) {
+    const 옛탭 = 같은달.filter((x) => x.properties.sheetId !== id);
+    if (옛탭.length) {
+      const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${j.sheetId}:batchUpdate`, {
+        method: 'POST', headers: { Authorization: `Bearer ${await tok()}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ requests: 옛탭.map((x) => ({ deleteSheet: { sheetId: x.properties.sheetId } })) }),
+      });
+      console.log(`      ${r.ok ? '○' : '! '} 합쳐서 남은 옛 탭 ${옛탭.length}장 ${r.ok ? '거둠' : '못 거둠'} — ${옛탭.map((x) => S(x.properties.title)).join(' · ')}`);
+    }
+  }
 }
 /**
  * ★★**자리 세우기는 «발행의 마지막»이다** — 사장님 2026-09-08
