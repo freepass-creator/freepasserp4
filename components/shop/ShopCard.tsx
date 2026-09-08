@@ -189,7 +189,17 @@ export const ShopCard = memo(function ShopCard({ p, href, rank = 99 }: {
           **사진만 둥글게 하고 글자는 그냥 밑에** 둔다 — 카드를 «나누는» 것은 선이 아니라 여백이다.
           사진 없는 차도 둥근 회색 판이라 네모난 빈 상자보다 낫다.
       */}
-      <Link href={href} onClick={() => haptic.nav()} className="fp-shop-card"
+      {/*
+        ⚠⚠ **아이폰에서 카드를 눌러도 아무 일이 안 일어났다**(2026-09-08 전수 검사).
+          · `:hover` 반응은 `@media (hover: hover)` 안이라 **손가락에는 안 걸린다**
+          · 브라우저 기본 탭 하이라이트는 집 전역에서 꺼 두었다
+          · `haptic.nav()` 의 `navigator.vibrate` 는 **iOS 가 아예 구현하지 않는다**
+          ⇒ 세 길이 다 막혀 «누른 티»가 0 이었다. 손님은 안 눌린 줄 알고 한 번 더 누른다.
+        ★고치는 데 새 규격이 필요 없다 — 원자 `.fp-shop-press`(누르면 0.97 로 들어간다)가
+          **이미 있고 공유 단추·칩이 쓰고 있다.** 카드만 안 쓰고 있었다.
+        ★`prefers-reduced-motion` 도 그 원자가 이미 지킨다.
+      */}
+      <Link href={href} onClick={() => haptic.nav()} className="fp-shop-card fp-shop-press"
         style={{
           display: 'flex', flexDirection: 'column', height: '100%',
           textDecoration: 'none', color: 'inherit',

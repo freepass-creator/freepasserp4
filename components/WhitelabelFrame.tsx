@@ -306,9 +306,19 @@ export function WhitelabelFrame({
       */}
       {!who && phone && mobile && dock ? (
         <ShopDock fixed>
+          {/*
+            ⚠⚠ **손가락이 닿는 자리가 26px 이었다**(2026-09-08 전수 검사 실측).
+              바(독)는 48 인데 이 앵커에 높이가 없어, `align-items: baseline` 로 글자 높이만큼만
+              차지하고 바 가운데에 «주저앉아» 있었다. 위아래 11px 씩이 죽은 칸이었다.
+            ★★그런데 이 자리는 **담당자 없이 채널 홈으로 들어온 손님이 문의로 가는 «유일한» 길**이다.
+              그 손님이 26px 을 겨냥해야 했다(집 규격 최소 터치 44).
+            ⇒ 앵커가 바를 통째로 차지하게 한다 — 보이는 꼴은 한 픽셀도 안 바뀌고,
+              닿는 자리만 48 이 된다. 글자 밑선 맞춤은 그대로 둔다(그건 «보이는» 규격이다).
+          */}
           <a href={telHref} style={{
             display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: SHOP.sp.snug,
-            width: '100%', textDecoration: 'none', whiteSpace: 'nowrap',
+            width: '100%', height: '100%', paddingBlock: SHOP.sp.snug,
+            textDecoration: 'none', whiteSpace: 'nowrap',
           }}>
             <span style={{ fontSize: SHOP.fs.cap, color: C.faint }}>{CONTACT_LABEL}</span>
             {/* ★번호는 «읽는 값»이라 서식을 입힌다(집 원자 `fmtPhone`). */}
