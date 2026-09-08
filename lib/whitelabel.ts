@@ -113,7 +113,23 @@ export type Whitelabel = {
    *   배율마다 선명하지만, **이름 자체가 그림인 회사**(한글 로고타이프 + 뱃지 같은 짜임)는
    *   그걸 본문 서체로 흉내 내는 순간 그 회사 CI 가 아니다.
    */
-  logo?: { src: string; alt: string; role?: 'mark' | 'lockup' };
+  logo?: {
+    src: string; alt: string; role?: 'mark' | 'lockup';
+    /**
+     * **그림 세로 중 «이름 글자»가 차지하는 비율** — `lockup` 일 때만 쓴다. 잰 값이다.
+     *
+     * ★★왜 필요한가 — 간판 그림은 «글자»만 들어 있지 않다. 하허호 간판(290×78)은
+     *   **악수 심볼이 세로를 다 쓰고**(94×78) 정작 「하허호」 글자는 **33px** 뿐이다(0.423).
+     *   그림 «전체»를 워드마크 크기에 맞추면 글자가 그 비율만큼 작아진다 —
+     *   2026-09-08 에 실제로 그렇게 내보냈다가 글자가 **10.6px** 로 앉았다(「UNI」 는 16.7).
+     *   사장님 「**하허호 CI 는 조금 커야지**」.
+     * ⇒ 맞추는 것은 그림이 아니라 **글자**다. 높이 = `fs · CAP ÷ nameBand`.
+     *   그러면 채널이 달라도 «이름이 같은 크기»로 읽힌다 — 그림 크기는 그 결과일 뿐이다.
+     * ★재는 법 = 그림의 잉크 열(列)을 끊어 조각을 나누고, «글자» 조각의 세로 ÷ 전체 세로.
+     *   그림이 바뀌면 다시 잰다. 짐작한 값을 넣지 마라(이 파일이 그래서 두 번 틀렸다).
+     */
+    nameBand?: number;
+  };
   /** 브랜드색 — `.fp-wl` 안에서 `--brand`/`--text-link` 를 이 값으로 뒤집는다. 빈 값이면 안 뒤집는다. */
   brandColor: string;
   /** 대표번호 — 담당 영업자(`?a=`)가 없을 때 손님이 걸 번호. */
@@ -377,16 +393,25 @@ export const WHITELABELS: Whitelabel[] = [
    *   CI 는 우리 정산 정본에도 이미 있었다(`lib/domain/partner-ci.ts` alias 「하허호」 · 코드 SP001).
    */
   {
-    key: 'hahuho',
-    /** 이 채널의 주소 — `freepasserp.com/hahuho`. **지우지 않는다**(위 `sitePath` 머리말). */
-    sitePath: '/hahuho',
+    key: 'haheoho',
+    /**
+     * 이 채널의 주소 — `freepasserp.com/haheoho`. **지우지 않는다**(위 `sitePath` 머리말).
+     *
+     * ⚠ 2026-09-08 에 이걸 `/hahuho` 로 냈다가 같은 날 고쳤다 — 사장님 「**haheoho 인데?**」.
+     *   「허」는 `heo` 다(`hahuho` 는 「하후호」로 읽힌다). 회사 이름을 우리가 «음대로» 적으면
+     *   그 회사가 명함·검색에 쓰는 철자와 갈린다. 별칭을 남기지 않고 통째로 고쳤다 —
+     *   배포 10분이라 나간 링크가 없었기 때문이다. **나간 뒤였으면 못 고친다**(옛 주소가 죽는다).
+     * ★교훈 = **로마자는 짐작하지 말고 그 회사가 쓰는 철자를 쓴다.** 브랜드는 재는 것이지
+     *   옮겨 적는 것이 아니다(`components/brand-ci.tsx` 머리말과 같은 이야기).
+     */
+    sitePath: '/haheoho',
     /*
      * ★우리 도메인의 서브도메인만 적는다. **그 회사 제 도메인(하허호무심사.com)은 «적지 않는다»** —
      *   거기는 그 회사가 이미 운영 중인 홈페이지다. 우리가 그 호스트를 표에 적어도 DNS 를 우리가
      *   쥔 게 아니라 아무 일도 안 일어나지만, 다음 사람이 「저 주소가 우리 화면인가」로 읽는다.
      * ★서브도메인은 Vercel 에 한 줄 추가하면 바로 산다 — 사서 붙일 필요가 없다.
      */
-    hosts: ['hahuho.freepasserp.com', 'www.hahuho.freepasserp.com'],
+    hosts: ['haheoho.freepasserp.com', 'www.haheoho.freepasserp.com'],
     /** 아직 아무 도메인도 안 붙였다 — Vercel 에 붙이면 true. 그전까지 공유 화면은 미리보기를 준다. */
     domainReady: false,
     /** 손님에게 보이는 이름 = 홈페이지·사업자 표기가 다 쓰는 «하허호무심사». */
@@ -406,7 +431,11 @@ export const WHITELABELS: Whitelabel[] = [
      *   `290×78` 로 넣었다(위 4px · 아래 2px 이 붙어 있었다 — 그대로 두면 간판이 내려앉는다).
      * ★기계 검사 = `npm run check:brand`(투명 배경 · 여백 없음).
      */
-    logo: { src: '/brand/hahuho-lockup.png', alt: '하허호무심사', role: 'lockup' },
+    /*
+     * ★`nameBand` = 「하허호」 글자 33px ÷ 그림 세로 78px = **0.423**(2026-09-08 실측).
+     *   나머지 세로는 악수 심볼(78)과 「무심사」 뱃지(39)가 쓴다.
+     */
+    logo: { src: '/brand/haheoho-lockup.png', alt: '하허호무심사', role: 'lockup', nameBand: 33 / 78 },
     /*
      * ★★브랜드색 — 그 회사 CI 오렌지를 **재서** 얻은 값은 `#FD7015` 다
      *   (로고 잉크 823px · 홈페이지 요소 12곳이 같은 `rgb(253,112,21)`).

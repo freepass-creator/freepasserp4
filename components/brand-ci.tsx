@@ -137,17 +137,25 @@ export function ChannelWordmark({ wl, fs, color = C.ink, after }: {
   /*
     ★★**이름 자체가 그림인 회사** — 하허호무심사(한글 로고타이프 + 「무심사」 오렌지 뱃지).
       본문 서체로 흉내 내면 그건 그 회사 CI 가 아니다(`lib/whitelabel` `logo.role` 머리말).
-    ★크기는 마크와 «같은 밴드»(`fs·CAP·1.5`)다 — 채널이 바뀌어도 머리띠의 간판 높이는 같아야
-      바가 들쭉날쭉하지 않는다. 유니오토 육각형이 서는 그 높이에 하허호 간판이 선다.
+    ★★**맞추는 것은 «그림»이 아니라 «글자»다.**
+      사장님 2026-09-08 「**하허호 CI 는 조금 커야지**」.
+      ⚠ 처음엔 그림 전체를 마크와 같은 밴드(`fs·CAP·1.5`)에 넣었다. 그런데 간판 그림에는
+        글자만 있는 게 아니다 — 하허호는 **악수 심볼이 세로를 다 쓰고** 「하허호」 글자는
+        그 42%뿐이라, 그림을 25 로 맞추면 글자가 **10.6px** 로 앉는다(「UNI」 는 16.7).
+        그림끼리 높이를 맞췄더니 **이름끼리 크기가 갈린** 것이다.
+      ⇒ 글자 밴드(`logo.nameBand`)를 되나눠 **글자가 워드마크 캡(`fs·CAP`)과 같아지게** 한다.
+        비율을 안 준 그림은 예전대로 마크 밴드에 선다(하위호환).
     ⚠ **그림은 색을 못 바꾼다.** 푸터는 톤을 흐리려고 `color` 를 넘기는데 그림엔 안 먹는다 —
       그래서 «불투명도»로 내린다. 흐리게 달라는 뜻은 같고 수단만 다르다.
   */
   if (wl.logo?.role === 'lockup') {
+    const band = wl.logo.nameBand;
+    const h = band && band > 0 ? Math.round((fs * CAP) / band) : Math.round(fs * CAP * 1.5);
     return (
       <span style={{ display: 'inline-flex', alignItems: 'center', lineHeight: 1, whiteSpace: 'nowrap' }}>
         {/* eslint-disable-next-line @next/next/no-img-element -- 채널마다 다른 간판이라 정적 최적화 대상이 아니다. */}
         <img src={wl.logo.src} alt={wl.logo.alt} style={{
-          height: Math.round(fs * CAP * 1.5), width: 'auto', display: 'block',
+          height: h, width: 'auto', display: 'block',
           ...(color === C.ink ? null : { opacity: 0.55 }),
         }} />
         {after}

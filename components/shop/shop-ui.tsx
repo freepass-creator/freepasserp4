@@ -164,7 +164,17 @@ export function ShopSearch({ value, onChange, placeholder }: {
        */
       height: 48, borderBottom: `2px solid ${C.ink}`,
     }}>
-      <Search size={21} aria-hidden style={{ flex: '0 0 auto', color: C.ink }} />
+      {/*
+        ★★**돋보기가 «켜진다»** — 사장님 2026-09-08 「검색창에 뭐 가져가면 **돋보기가 밝아지면서
+          웅웅거리는 느낌? 은은하게**…」.
+        ★밑줄 한 줄짜리 검색은 눌러도 «들어간» 티가 안 난다(상자가 없으니 테두리가 굵어질 데도 없다).
+          그래서 손님이 「여기 지금 글 쳐도 되나」를 모른다. 돋보기가 그 대답을 한다.
+        ★색·숨결은 **CSS 가 준다**(`app/globals.css` 「돋보기 숨」). 여기서 색을 인라인으로 박으면
+          CSS 가 못 이겨서 포커스에도 안 밝아진다 — 그래서 `color` 를 여기서 «안» 준다.
+      */}
+      <span className="fp-shop-search__ico" style={{ flex: '0 0 auto', display: 'inline-flex' }}>
+        <Search size={21} aria-hidden />
+      </span>
       <input
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -457,9 +467,25 @@ export function ShopDockAction({ tone = 'brand', href, onClick, label, children 
  * 그래서 걸린 조건을 목록 «바로 위»에 늘어놓고, 하나씩 떼어 낼 수 있게 한다.
  * ★토큰에는 축 이름을 붙인다(「제조사 기아」) — 「기아」만 있으면 그게 제조사인지 모델인지 모른다.
  */
-export function ShopTokens({ tokens, onRemove, onClear }: {
+export function ShopTokens({ tokens, onRemove, onClear, inline }: {
   tokens: { axis: string; key: string; label: string; axisLabel: string; solo?: boolean }[];
   onRemove: (axis: string, key: string) => void;
+  /**
+   * **빠른 조건 줄 «뒤»에 이어 붙는다** — 제 줄을 만들지 않는다(웹).
+   *
+   * 사장님 2026-09-08 「**이거 위치 제일 베스트로 찾았다** … 기존 퀵필터 뒤에 **누른 거를 따라
+   * 붙게** 만들자. **약간 위계만 주고** … 이러면 넘어가기 전까지는 괜찮을 듯 … **모바일은 밑에**」.
+   *
+   * ⚠⚠ **이건 2026-09-06 에 되돌린 그 자리가 «아니다».** 그때 물린 것은 「**건수 줄** 오른쪽에
+   *   끼우기」였다 — 「1대 중 1–1 · 월 50~60만」이 한 문장으로 뭉쳐 결과와 조건이 안 갈렸다.
+   *   이번 자리는 **칩 줄 뒤**다. 옆에 선 것이 «건수»가 아니라 «내가 누를 수 있는 조건»이라,
+   *   뭉쳐도 같은 말(조건)로 읽힌다. 오히려 누른 것이 누르는 자리 옆에 있어 손이 안 옮겨 간다.
+   * ★**위계는 «가름선 + 면»이 준다.** 빠른 조건은 회색 면(안 걸린 것) · 걸린 조건은 브랜드 면.
+   *   그 사이에 실선 한 칸을 세워 「여기부터는 걸린 것」을 말한다.
+   * ★폰은 이걸 «안» 쓴다 — 칩 줄이 화면 밖으로 흐르는 줄이라, 걸린 조건이 그 끝에 붙으면
+   *   손가락으로 밀어야 보인다. 폰에서는 예전대로 건수 밑 제 줄이다.
+   */
+  inline?: boolean;
   /**
    * 전부 지우기 — **없으면 안 그린다.**
    * ⚠ 0건 화면에는 본문 한가운데 「처음부터 다시 찾기」가 이미 서 있다. 둘이 같이 뜨면
@@ -476,11 +502,18 @@ export function ShopTokens({ tokens, onRemove, onClear }: {
    */
     const mobile = useIsMobile();
   if (!tokens.length) return null;
-  return (
-    <div style={{
-      display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: SHOP.sp.snug,
-      padding: `${SHOP.sp.cozy}px 0 ${SHOP.sp.tight}px`,
-    }}>
+  const body = (
+    <>
+      {/*
+        ★가름선 — 「여기까지가 고를 것, 여기부터가 고른 것」. `inline` 일 때만 선다.
+          제 줄로 설 때(폰)는 줄이 이미 갈라져 있어 선이 필요 없다.
+      */}
+      {inline ? (
+        <span aria-hidden style={{
+          flex: '0 0 auto', width: 1, height: SHOP.pill.web - 10,
+          background: C.line, margin: `0 ${SHOP.sp.tight}px`,
+        }} />
+      ) : null}
       {tokens.map((t) => (
         <span key={`${t.axis}:${t.key}`}
           style={{
@@ -494,6 +527,8 @@ export function ShopTokens({ tokens, onRemove, onClear }: {
              *   ⇒ 높이·둥글기·면·글자를 **켜진 칩(`ShopPill` on)과 한 벌로** 맞춘다.
              *     다른 것은 뒤에 붙는 ✕ 하나뿐이고, 그게 이 줄이 하는 일(빼기)이다.
              */
+            /* 칩 줄은 `nowrap` 이라 안 박아 두면 글자가 눌려 「승…」이 된다. */
+            flex: '0 0 auto', whiteSpace: 'nowrap',
             height: mobile ? SHOP.pill.mobile : SHOP.pill.web,
             padding: `0 ${SHOP.sp.snug}px 0 ${mobile ? SHOP.sp.edge : SHOP.sp.cozy}px`,
             borderRadius: SHOP.r.ctrl,
@@ -518,6 +553,16 @@ export function ShopTokens({ tokens, onRemove, onClear }: {
         </span>
       ))}
       {onClear ? <ShopTextBtn onClick={onClear}>조건 모두 지우기</ShopTextBtn> : null}
+    </>
+  );
+  /* 칩 줄 «안»에 들 때는 제 상자를 만들지 않는다 — 만들면 칩 줄 안에 줄이 하나 더 생긴다. */
+  if (inline) return body;
+  return (
+    <div style={{
+      display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: SHOP.sp.snug,
+      padding: `${SHOP.sp.cozy}px 0 ${SHOP.sp.tight}px`,
+    }}>
+      {body}
     </div>
   );
 }

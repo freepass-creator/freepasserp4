@@ -76,6 +76,8 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
    *   필터도 그 줄 안에서 끝난다. 화면 코드는 채널이 늘어도 안 갈린다.
    */
   const quick = wl.quick ?? DEFAULT_QUICK;
+  /* 이 줄에 «단추가 있는» 조건 — 뒤에 토큰으로 또 세우지 않는다(아래 칩 줄 머리말). */
+  const quickKeys = useMemo(() => new Set(quick.map((k) => `${k.axis}:${k.key}`)), [quick]);
   const mobile = useIsMobile();
   const [rows, setRows] = useState<EntityRecord[] | null>(null);
   const [agent, setAgent] = useState<{ name?: string; phone?: string } | null>(null);
@@ -324,6 +326,26 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
               <ShopPill key={`${k.axis}:${k.key}`} on={query.sel[k.axis].includes(k.key)}
                 onClick={() => onToggle(k.axis, k.key)}>{k.label || soloLabel(k.key) || k.key}</ShopPill>
             ))}
+            {/*
+              ★★**이 줄에 «없는» 조건만 뒤에 ✕ 로 붙는다**(웹) — 사장님 2026-09-08
+                「위에 **퀵버튼이 있는 거는 그게 그냥 켜지면** 되는 거 아닌가?
+                 거기에 **없는 거만 ✕ 로 없앨 수 있게** 하면 되고」.
+
+              ★한 조건 = 한 자리. 「승용」처럼 여기 단추가 있는 조건은 **그 단추가 켜져서** 말하고,
+                왼쪽 조건칸에서만 걸 수 있는 것(제조사·연식 등)은 **여기 뒤에** 와서 말한다.
+                그래야 손님이 「무엇을 걸었나」를 한 줄에서 다 읽는다.
+              ⚠ 처음엔 걸린 것을 «전부» 뒤에 세웠다. 그랬더니 「승용」이 한 줄에 둘이 됐고
+                (켜진 칩 + 같은 얼굴의 토큰), 그다음엔 켜진 칩을 줄에서 빼 봤더니 이번엔
+                칩이 «사라지는» 꼴이 됐다. 둘 다 아니다 — **켜진 칩은 그대로 두고 토큰만 안 만든다.**
+              ★위계는 가름선 한 칸과 면 색(회색 ↔ 브랜드)이 준다(`ShopTokens` `inline` 머리말).
+              ⚠ 폰은 여기 안 붙인다 — 이 줄은 화면 밖으로 흐르는 줄이라 끝에 붙으면 밀어야 보인다.
+                폰의 «건수 밑 제 줄»은 걸린 것을 **전부** 싣는다(칩이 밀려 나가 안 보일 수 있으므로).
+            */}
+            {!mobile ? (
+              <ShopTokens inline tokens={tokens.filter((t) => !quickKeys.has(`${t.axis}:${t.key}`))}
+                onRemove={(axis, key) => onToggle(axis as ShopAxis, key)}
+                onClear={list.length ? onClearAll : undefined} />
+            ) : null}
           </div>
         </div>
 
@@ -343,12 +365,11 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
           ★폰은 여기가 아니라 **제 어깨 줄(건수+정렬) 밑**이다 — 아래 `mobile ?` 를 보라.
             규칙은 같다: **건수 밑줄.** 기둥이 없으니 가로지를 것이 없을 뿐이다.
         */}
-        {!mobile ? (
-          <ShopTokens tokens={tokens}
-            onRemove={(axis, key) => onToggle(axis as ShopAxis, key)}
-            /* 0건이면 본문 한가운데 「처음부터 다시 찾기」가 그 일을 한다 — 문을 둘 두지 않는다. */
-            onClear={list.length ? onClearAll : undefined} />
-        ) : null}
+        {/*
+          ⚠ 여기 웹 «제 줄»이 있었다(2026-09-06~09-08). 사장님이 2026-09-08 에 **칩 줄 뒤**로
+            옮기라 하셔서 위(`fp-shop-rail` 안)로 갔다. 폰은 그대로 제 줄이다 — 아래를 보라.
+          ★2026-09-06 에 물린 「건수 줄 오른쪽」과는 **다른 자리**다(`ShopTokens` `inline` 머리말).
+        */}
 
         <div style={{
           display: 'flex', gap: SHOP.sp.pane, alignItems: 'flex-start',
