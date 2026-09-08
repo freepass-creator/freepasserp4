@@ -12,8 +12,10 @@
  *
  * ```
  * 30분 회차 — 상태가 바뀌었나 보고 → 시트에 내고 → 박혔나 잰다
- *   ⑤′ 정산원장 계약상태     원장에 접수가 뜬 차를 계약중/출고불가로
- *   ⑬¼ 원천→원자 «상태만»    `--status-only` — 주행·요금은 안 건드린다 · 사라진 차는 내림
+ *   ⓪ 손오공 원천 당기기     훑기가 읽을 덤프를 새로 뜬다 — 세운 차의 42%가 여기서 온다
+ *   ⑤ 차량상태 한 바퀴      ★심장. 전 공급사를 «한 곳당 두드림 한 번»으로 — 차번·상태 두 칸만
+ *   ⑤′ 정산원장 계약상태     원장에 접수가 뜬 차를 계약중/출고불가로  ← 훑기 «다음»이다(잠금이 이긴다)
+ *   （⑬¼ 돌아가며 수집은 2시간 회차로 옮겼다 — 훑기와 한도를 다퉜다）
  *   ⑬½¼ 상태 아물기         status ↔ vehicle_status 를 한 벌로
  *   ⑬¾ 원자 문지기          차가 아닌 줄 · 우리 몫 유출 · 대수 급감이면 «멈춘다»
  *   ⑯ 본시트 · ⑯¼ 하허호 F86 · ⑯½ 시트↔원자 대조
@@ -31,7 +33,7 @@
  *   npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/refresh-sync.mts --apply
  */
 import { spawnSync } from 'node:child_process';
-import { writeFileSync, mkdirSync, statSync, readFileSync } from 'node:fs';
+import { writeFileSync, mkdirSync, statSync, readFileSync, existsSync } from 'node:fs';
 import nextEnv from '@next/env';
 
 nextEnv.loadEnvConfig(process.cwd());
@@ -53,9 +55,10 @@ const warn: string[] = [];
  *   거짓으로 우는 검사는 사람이 안 믿게 되고, 그게 진짜 경보까지 죽인다.
  *   ⇒ 「끝났다」는 말이 있으면 통과. 다만 코드가 어긋났다는 사실은 «적어» 둔다.
  */
-function run(label: string, args: string[], pick: RegExp, doneWord?: RegExp): { ok: boolean; picked: string[]; 한도: boolean } {
+function run(label: string, args: string[], pick: RegExp, doneWord?: RegExp, runner: 'npx' | 'node' = 'npx'): { ok: boolean; picked: string[]; 한도: boolean } {
   const t0 = Date.now();
-  let r = spawnSync('npx', ['tsx', ...args], { encoding: 'utf8', shell: process.platform === 'win32', env: process.env });
+  const go = () => spawnSync(runner, runner === 'node' ? args : ['tsx', ...args], { encoding: 'utf8', shell: process.platform === 'win32', env: process.env });
+  let r = go();
   let txt = `${r.stdout || ''}${r.stderr || ''}`;
   /**
    * ★**요청한도면 «한 번» 쉬었다 다시 한다** — 매시 회차가 하는 것과 같다.
@@ -67,7 +70,7 @@ function run(label: string, args: string[], pick: RegExp, doneWord?: RegExp): { 
     out.push(`   ⏳ ${label} — 요청한도, 35초 쉬고 한 번 더`);
     console.log(`⏳ ${label} — 요청한도, 35초 쉬고 한 번 더`);
     spawnSync(process.execPath, ['-e', 'setTimeout(()=>{},35000)'], { stdio: 'ignore' });
-    r = spawnSync('npx', ['tsx', ...args], { encoding: 'utf8', shell: process.platform === 'win32', env: process.env });
+    r = go();
     txt = `${r.stdout || ''}${r.stderr || ''}`;
   }
   const picked = txt.split('\n').filter((l) => pick.test(l)).map((l) => l.replace(/\s+$/, ''));
@@ -117,14 +120,43 @@ const SHIM = ['--require', './scripts/lib/server-only-shim.cjs'];
   } catch { /* 기록이 없으면 무거운 회차가 안 돈 것 — 그냥 간다 */ }
 }
 
+/**
+ * ⓪ 손오공 원천 당기기 — **훑기가 읽을 덤프를 새로 뜬다.**
+ *   ★손오공이 세운 차의 **42%**(308/727)다. 안 당기면 30분 최신화가 «절반짜리»가 된다.
+ *   ★캐시를 써서 거의 공짜다(실측 10초 안팎) — 무거운 회차의 ⓪ 와 같은 스크립트, 같은 자격증명.
+ *   ⚠ 계정 파일이 없으면 건너뛴다. 여기서 죽어 나머지 회차를 굶기지 않는다.
+ */
+if (existsSync('sonokong/lib/wonja/.손오공계정.json')) {
+  const son = run('⓪ 손오공 원천 당기기', ['sonokong/scripts/손오공.mjs', '--조용'], /완료|실패/, /완료/, 'node');
+  if (!son.ok) warn.push('손오공 pull 실패 — 훑기가 묵은 덤프를 본다');
+} else out.push('\n── ⓪ 손오공 — 계정 파일 없음, 건너뜀');
+
+/**
+ * ⑤ **차량상태 한 바퀴 — 이 회차의 심장.**
+ *   전 공급사를 «한 곳당 두드림 한 번»으로 훑어 차번·상태 두 칸만 본다(실측 23곳 · 24번 · 12초).
+ *   ★돌아가며 수집(⑬¼)은 한 회차에 세 곳이라 한 바퀴가 «세 시간 반»이다 — 30분 최신화가 안 된다.
+ *     그래서 상태만은 여기서 «전부» 본다. 뒤의 ⑬¼ 는 그대로 두어 주행·요금·등록대기를 마저 챙긴다.
+ *   ⚠ **정산원장(⑤′)보다 «먼저»** 돈다 — 잠금이 늘 이기게. 순서를 뒤집으면 시트가 원장을 덮는다.
+ */
+const sw = run('⑤ 차량상태 한 바퀴', [...SHIM, 'scripts/sweep-status.mts', ...A], /한 바퀴 —|상태를 확인한 차|못 본 차|원천에 없는 차|손오공 덤프|못 읽은 곳|되돌리려 한다|⛔/, /한 바퀴 —/);
+if (sw.ok) line.push(sw.picked.find((l) => /상태를 확인한 차/.test(l))?.replace(/^\s*[✓▲]\s*/, '') || '상태훑기 ok');
+else (sw.한도 ? line : warn).push(sw.한도 ? '상태훑기 한도(다음 회차)' : '★상태 훑기 실패 — 30분 최신화의 심장이다');
+
 // ⑤′ 정산원장 계약상태 — 접수가 뜬 차를 계약중/출고불가로. 시트 칸과 원자를 같이 세운다.
 const led = run('⑤′ 정산원장 계약상태', [...SHIM, 'scripts/mark-contract-in-listings.mts', ...A], /세울 차|고칠 칸|원자 |끝 —/, /끝 — 공급사/);
 if (!led.ok) warn.push('정산원장 계약상태 실패');
 
-// ⑬¼ 원천→원자 — 아는 차의 상태·주행·요금만. 새 차는 등록대기로.
-const rot = run('⑬¼ 원천→원자 수집(돌아가며)', [...SHIM, 'scripts/ingest-rotation.mts', '--status-only', ...A], /돌아가며 수집|이틀 넘게|✔|✗/, /돌아가며 수집 —/);
-if (rot.ok) line.push(rot.picked.find((l) => /돌아가며 수집/.test(l))?.replace(/^.*— /, '수집 ') || '수집 ok');
-else (rot.한도 ? line : warn).push(rot.한도 ? '수집 한도(다음 회차)' : '원천→원자 수집 실패');
+/**
+ * ⑬¼ **돌아가며 수집은 «2시간 회차»로 옮겼다** — 여기서 돌리지 않는다.
+ *
+ * ⚠⚠ 실측 2026-09-08 — ⑤ 훑기가 두드림 46번을 쓰자 바로 뒤 ⑬¼ 이 **구글 요청한도에 걸려
+ *   세 곳 모두 실패**했다(「웰릭스·스타·우리캐피탈 — 구글 요청한도」). 한 회차가 저희끼리 다툰 것이다.
+ * ★애초에 이 단은 「**30분 단위는 차량상태만 확인하자**」(사장님)다.
+ *   상태는 훑기가 «전 공급사»를 챙기니 여기서 세 곳을 더 읽을 까닭이 없다.
+ *   수집이 하던 나머지 — 주행·요금·제원, 사라진 차 내리기(`--retire`), 새 차 등록대기 —
+ *   는 전부 「내용」이라 **2시간 회차**의 몫이다.
+ * ⇒ 뺀다. 뺀 것은 «뺐다»고 여기 적어 둔다 — 다음 사람이 「왜 없지」 하고 도로 넣지 않게.
+ */
 
 const heal = run('⑬½¼ 상태 아물기', [...SHIM, 'scripts/heal-atom-status.mts', ...A], /한 벌로 아물렀다|이미 한 벌|▲/, /아물렀다|이미 한 벌|미리보기/);
 if (!heal.ok) warn.push('상태 아물기 실패');
