@@ -21,6 +21,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { listSheetTabs, readSheetGrid } from '../lib/server/google-sheets';
 import { HUB_CODE_SHEET_ID } from '../lib/domain/legacy-sheets';
 import { isOurNonInventoryTab } from '../lib/domain/supplier-template-sheet';
+import { companyAlias } from '../lib/domain/identity';
 import { pickSupplierSource, hubSourceMap } from '../lib/domain/supplier-source';
 import { snapToMaster, makerGroup } from '../lib/domain/vehicle-master-match';
 import type { MasterEntry } from '../lib/domain/vehicle-master-types';
@@ -50,7 +51,7 @@ const fs = getFirestore();
 // 원천 종류 셋 — 시트(공급사 구글시트) · 홈피(ironrentcar.com) · 손오공(API 덤프 JSON).
 type Kind = 'sheet' | 'iron' | 'sonokong';
 const SON_CODE = 'RP012';
-async function srcConfig(): Promise<{ code: string; name: string; kind: Kind; from?: string }> {
+async function srcConfig(): Promise<{ code: string; name: string; kind: Kind; from?: string; shared?: string[] }> {
   if (CODE === SON_CODE || CODE === 'SONOKONG' || CODE === '손오공') return { code: SON_CODE, name: '손오공', kind: 'sonokong' };
   const m = MIRROR_SOURCES.find((x) => x.code === CODE);
   if (m) return { code: m.code, name: m.name, kind: m.kind as Kind, from: m.from };
@@ -62,9 +63,12 @@ async function srcConfig(): Promise<{ code: string; name: string; kind: Kind; fr
   const snap = await fs.collection('partner').where('partner_code', '==', CODE).limit(1).get();
   const p = snap.docs[0]?.data() as { name?: string; sheet_url?: string } | undefined;
   const hubRows = (await readSheetGrid(HUB_CODE_SHEET_ID, (await listSheetTabs(HUB_CODE_SHEET_ID))[0]));
-  const pick = pickSupplierSource(CODE, hubSourceMap([hubRows.header, ...hubRows.rows]), p?.sheet_url);
+  const hub = hubSourceMap([hubRows.header, ...hubRows.rows]);
+  const pick = pickSupplierSource(CODE, hub, p?.sheet_url);
   console.log(`  원천 주소 ← ${pick.from} · ${pick.id}`);
-  return { code: CODE, name: S(p?.name) || CODE, kind: 'sheet', from: pick.id };
+  /** ★한 시트를 «여러 회사»가 나눠 쓰는가 — 그러면 탭으로 갈라 읽어야 한다(아래 readRows). */
+  const shared = [...hub].filter(([, id]) => id === pick.id).map(([c]) => c);
+  return { code: CODE, name: S(p?.name) || CODE, kind: 'sheet', from: pick.id, shared };
 }
 const src = await srcConfig();
 const PROV = src.code;   // Firestore 태깅·pin 조회는 공급사 정식 코드로(손오공=RP012)
@@ -275,9 +279,35 @@ async function readRows(): Promise<Row[]> {
    *   발행기는 진작 이 규칙을 썼는데 수집기만 안 썼다 — 같은 규칙을 양쪽이 쓴다.
    */
   const allTabs = await listSheetTabs(SHEET);
-  const tabs = allTabs.filter((t) => !isOurNonInventoryTab(t));
+  let tabs = allTabs.filter((t) => !isOurNonInventoryTab(t));
   const 뺀탭 = allTabs.filter((t) => isOurNonInventoryTab(t));
   if (뺀탭.length) console.log(`  재고 아닌 탭 ${뺀탭.length}장 건너뜀 — ${뺀탭.map((t) => t.slice(0, 24)).join(' · ')}`);
+
+  /**
+   * ★★**한 시트를 여러 회사가 나눠 쓰면 «제 탭»만 읽는다.**
+   *
+   * ⚠⚠ 2026-09-08 실측 사고 — 스타(RP018)와 스카이(RP033)가 시트 하나를 「스타재고」·「스카이재고」
+   *   두 탭으로 나눠 쓴다. 경진렌트(RP015)·경진카(RP016)도 마찬가지다. 그런데 여기서 **모든 탭을 읽고
+   *   `--code` 하나로 통째 태그**해서, 스카이 차 10대가 스타 것이 되고 경진카 3대가 경진렌트 것이 됐다.
+   *   ★공급사 코드는 **정산이 매달리는 열쇠**다 — 남의 차를 우리 회사 것으로 적으면 돈이 어긋난다.
+   *   (문지기가 「공급사가 통째로 0대 — RP033 10→0」으로 잡아 회차를 막았다. 그래서 알았다.)
+   *
+   * ⇒ 문패에 같은 주소를 쓰는 코드가 둘 이상이면, **회사 이름이 든 탭만** 읽는다.
+   *   ⚠ 짝이 하나도 없으면 «전부 읽는» 쪽으로 돌아가지 않는다 — **아무것도 안 읽고 멈춘다.**
+   *     남의 차를 우리 것으로 적느니 그 회차를 거르는 게 낫다.
+   */
+  if ((src.shared?.length || 0) > 1) {
+    const 나 = companyAlias(src.name) || S(src.name);
+    const 내탭 = tabs.filter((t) => 나 && N(t).includes(N(나)));
+    if (!내탭.length) {
+      console.error(`\n✗ ${PROV}(${src.name}): 이 시트는 ${src.shared!.join('·')} 가 나눠 쓴다.`);
+      console.error(`  그런데 「${나}」 이름이 든 탭이 없다 — 탭 ${tabs.join(' · ')}`);
+      console.error(`  전부 읽으면 남의 차를 우리 코드로 적게 된다(정산이 어긋난다). 아무것도 안 읽고 멈춘다.`);
+      process.exit(1);
+    }
+    console.log(`  ★시트를 ${src.shared!.length}곳이 나눠 쓴다 — 「${나}」 탭만 읽는다: ${내탭.join(' · ')}`);
+    tabs = 내탭;
+  }
   for (const tab of tabs) {
     const grid = await readSheetGrid(SHEET, tab);
     const allRows = [grid.header, ...grid.rows];

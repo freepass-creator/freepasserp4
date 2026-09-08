@@ -47,13 +47,19 @@ const jwt = new JWT({
   email: sa.client_email, key: sa.private_key, subject: 'pyh@teamjpk.com',
   scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive'],
 });
+/**
+ * ★**얼마나 두드렸나를 센다.** 구글 시트는 «분당» 한도가 있어, 한도를 넘으면 그 회차가 통째로 죽는다.
+ *   실측 2026-09-08 — 회차 여럿이 429 로 죽었다. 세지 않으면 어디가 무거운지 짐작만 하게 된다.
+ */
+const 셈 = { 읽기: 0, 쓰기: 0, 재시도: 0, 시작: Date.now() };
 const api = async (u: string, init?: RequestInit): Promise<any> => {
+  if (String(init?.method || 'GET').toUpperCase() === 'GET') 셈.읽기++; else 셈.쓰기++;
   for (let n = 0; ; n++) {
     const tok = (await jwt.getAccessToken()).token;
     const r = await fetch(u, { ...init, headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json', ...(init?.headers || {}) } });
     const t = await r.text();
     if (r.ok) return t ? JSON.parse(t) : {};
-    if ((r.status === 429 || r.status >= 500) && n < 6) { await new Promise((k) => setTimeout(k, 4000 * (n + 1))); continue; }
+    if ((r.status === 429 || r.status >= 500) && n < 6) { 셈.재시도++; await new Promise((k) => setTimeout(k, 4000 * (n + 1))); continue; }
     throw new Error(`${r.status} ${t.slice(0, 200)}`);
   }
 };
@@ -293,12 +299,28 @@ for (const [company, list] of order) {
   }
 }
 
-for (let i = 0; i < reqs.length; i += 60) {
-  await api(`https://sheets.googleapis.com/v4/spreadsheets/${id}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests: reqs.slice(i, i + 60) }) });
+/**
+ * ★**서식 요청은 크게 묶어 보낸다.**
+ *   ⚠ 2026-09-08 실측 — 60개씩 쪼개 보내느라 쓰기가 **83번**, 112초였다. 구글은 «분당» 한도라
+ *   두드림 수가 곧 죽을 확률이다(같은 날 회차 여럿이 429 로 죽었다). 값은 같은데 두드림만 많았다.
+ *   ⇒ 300개씩. 묶음이 크면 실패도 «한 번»이라 반쪽 서식이 남을 자리도 줄어든다.
+ */
+for (let i = 0; i < reqs.length; i += 300) {
+  await api(`https://sheets.googleapis.com/v4/spreadsheets/${id}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests: reqs.slice(i, i + 300) }) });
 }
-for (const p of puts) {
-  await api(`https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${encodeURIComponent(p.range)}?valueInputOption=RAW`, { method: 'PUT', body: JSON.stringify({ values: p.values }) });
+/**
+ * ★**탭 열여덟 장을 «한 번»에 쓴다** (`values:batchUpdate`).
+ *   ⚠ 2026-09-08 까지 탭마다 PUT 을 따로 날렸다 — 열여덟 번. 값은 같은데 두드림만 열여덟 배였고,
+ *   구글 «분당» 한도를 그만큼 빨리 먹었다(실측 회차 여럿이 429 로 죽었다).
+ *   ★한 번에 쓰면 실패도 «한 번»이라, 절반만 쓰이고 멈춘 «반쪽 시트»가 안 남는다.
+ */
+for (let i = 0; i < puts.length; i += 40) {
+  await api(`https://sheets.googleapis.com/v4/spreadsheets/${id}/values:batchUpdate`, {
+    method: 'POST',
+    body: JSON.stringify({ valueInputOption: 'RAW', data: puts.slice(i, i + 40).map((p) => ({ range: p.range, values: p.values })) }),
+  });
 }
+console.log(`   ○ 구글 두드림 — 읽기 ${셈.읽기} · 쓰기 ${셈.쓰기} · 재시도 ${셈.재시도} · 서식요청 ${reqs.length} · ${Math.round((Date.now() - 셈.시작) / 1000)}초`);
 console.log(`\n✓ 반영 완료 — 탭 ${order.length}장 · ${rowsAll.length}대 · 열 ${OUT_COLS.length}`);
 console.log(`   https://docs.google.com/spreadsheets/d/${id}/edit`);
 process.exit(0);
