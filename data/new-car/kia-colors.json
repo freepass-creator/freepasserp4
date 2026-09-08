@@ -1,0 +1,763 @@
+{
+ "updated": "2026-09-08",
+ "models": {
+  "sportage": {
+   "ext": [
+    {
+     "name": "스노우 화이트 펄",
+     "code": "SWP",
+     "price": 80000,
+     "ok": "Y"
+    },
+    {
+     "name": "그래비티 그레이",
+     "code": "KDG",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "헤리티지 블루",
+     "code": "HRB",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "퓨전 블랙",
+     "code": "FSB",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "울프 그레이",
+     "code": "C7A",
+     "price": 0,
+     "ok": "Y"
+    }
+   ],
+   "int": [
+    {
+     "name": "블랙",
+     "code": "WK",
+     "price": 0,
+     "ok": "Y"
+    }
+   ],
+   "rc": "KRNQ327"
+  },
+  "seltos": {
+   "ext": [
+    {
+     "name": "스노우 화이트 펄",
+     "code": "SWP",
+     "price": 80000,
+     "ok": "Y"
+    },
+    {
+     "name": "그래비티 그레이",
+     "code": "KDG",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "아이보리 실버",
+     "code": "ISG",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "아이스버그 그린",
+     "code": "IEG",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "퓨전 블랙",
+     "code": "FSB",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "프로스트 블루",
+     "code": "EBB",
+     "price": 0,
+     "ok": "Y"
+    }
+   ],
+   "int": [
+    {
+     "name": "그레이",
+     "code": "OVG",
+     "price": 0,
+     "ok": "Y"
+    }
+   ],
+   "rc": "KRST290"
+  },
+  "sorento": {
+   "ext": [
+    {
+     "name": "스노우 화이트 펄",
+     "code": "SWP",
+     "price": 80000,
+     "ok": "Y"
+    },
+    {
+     "name": "볼캐닉 샌드 브라운",
+     "code": "BN4",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "시티스케이프 그린",
+     "code": "CGE",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "인터스텔라 그레이",
+     "code": "AGT",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "오로라 블랙 펄",
+     "code": "ABP",
+     "price": 0,
+     "ok": "Y"
+    }
+   ],
+   "int": [
+    {
+     "name": "올리브 브라운",
+     "code": "MY7",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "블랙",
+     "code": "WK",
+     "price": 0,
+     "ok": "Y"
+    }
+   ],
+   "rc": "KRMQ326"
+  },
+  "k5": {
+   "ext": [
+    {
+     "name": "스노우 화이트 펄",
+     "code": "SWP",
+     "price": 80000,
+     "ok": "Y"
+    },
+    {
+     "name": "울프 그레이",
+     "code": "D7S",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "인터스텔라 그레이",
+     "code": "AGT",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "오로라 블랙 펄",
+     "code": "ABP",
+     "price": 0,
+     "ok": "Y"
+    }
+   ],
+   "int": [
+    {
+     "name": "블랙",
+     "code": "WK",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "마션 브라운",
+     "code": "BM1",
+     "price": 0,
+     "ok": "Y"
+    }
+   ],
+   "rc": "KRDL308"
+  },
+  "k8": {
+   "ext": [
+    {
+     "name": "스노우 화이트 펄",
+     "code": "SWP",
+     "price": 80000,
+     "ok": "Y"
+    },
+    {
+     "name": "아이보리 실버",
+     "code": "ISG",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "문스케이프 매트 그레이",
+     "code": "KLM",
+     "price": 400000,
+     "ok": "Y"
+    },
+    {
+     "name": "선셋 베이지",
+     "code": "BYG",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "인터스텔라 그레이",
+     "code": "AGT",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "오로라 블랙 펄",
+     "code": "ABP",
+     "price": 0,
+     "ok": "Y"
+    }
+   ],
+   "int": [
+    {
+     "name": "블랙",
+     "code": "BLK",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "라운지 브라운 투톤",
+     "code": "BRQ",
+     "price": 0,
+     "ok": "Y"
+    }
+   ],
+   "rc": "KRGL301"
+  },
+  "k9": {
+   "ext": [
+    {
+     "name": "스노우 화이트 펄",
+     "code": "SWP",
+     "price": 80000,
+     "ok": "Y"
+    },
+    {
+     "name": "페블 그레이",
+     "code": "DFG",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "판테라 메탈",
+     "code": "P2M",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "딥 크로마 블루",
+     "code": "D9B",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "오로라 블랙 펄",
+     "code": "ABP",
+     "price": 0,
+     "ok": "Y"
+    }
+   ],
+   "int": [
+    {
+     "name": "블랙",
+     "code": "RBQ",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "베이지",
+     "code": "AYK",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "마션 브라운",
+     "code": "BM1",
+     "price": 0,
+     "ok": "Y"
+    }
+   ],
+   "rc": "KRJR296"
+  },
+  "morning": {
+   "ext": [
+    {
+     "name": "클리어 화이트",
+     "code": "UD",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "밀키 베이지",
+     "code": "M9Y",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "어드벤쳐러스 그린",
+     "code": "A2G",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "스파클링 실버",
+     "code": "KCS",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "시그널 레드",
+     "code": "BEG",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "아스트로 그레이",
+     "code": "M7G",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "오로라 블랙 펄",
+     "code": "ABP",
+     "price": 0,
+     "ok": "Y"
+    }
+   ],
+   "int": [
+    {
+     "name": "블랙",
+     "code": "WK",
+     "price": 0,
+     "ok": "Y"
+    }
+   ],
+   "rc": "KRJA305"
+  },
+  "ray": {
+   "ext": [
+    {
+     "name": "클리어 화이트",
+     "code": "UD",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "밀키 베이지",
+     "code": "M9Y",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "아스트로 그레이",
+     "code": "M7G",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "오로라 블랙 펄",
+     "code": "ABP",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "아쿠아 민트",
+     "code": "AEQ",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "어드벤쳐러스 그린",
+     "code": "A2G",
+     "price": 0,
+     "ok": "Y"
+    }
+   ],
+   "int": [
+    {
+     "name": "블랙",
+     "code": "EQ",
+     "price": 0,
+     "ok": "Y"
+    }
+   ],
+   "rc": "KRTM311"
+  },
+  "niro": {
+   "ext": [
+    {
+     "name": "스노우 화이트 펄",
+     "code": "SWP",
+     "price": 80000,
+     "ok": "Y"
+    },
+    {
+     "name": "스틸 그레이",
+     "code": "KLG",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "시티스케이프 그린",
+     "code": "CGE",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "인터스텔라 그레이",
+     "code": "AGT",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "오로라 블랙 펄",
+     "code": "ABP",
+     "price": 0,
+     "ok": "Y"
+    }
+   ],
+   "int": [
+    {
+     "name": "차콜",
+     "code": "CCV",
+     "price": 0,
+     "ok": "Y"
+    }
+   ],
+   "rc": "KRSG300"
+  },
+  "ev3": {
+   "ext": [
+    {
+     "name": "스노우 화이트 펄",
+     "code": "SWP",
+     "price": 80000,
+     "ok": "Y"
+    },
+    {
+     "name": "아이보리 매트 실버",
+     "code": "ISM",
+     "price": 300000,
+     "ok": "Y"
+    },
+    {
+     "name": "아이보리 실버",
+     "code": "ISG",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "셰일 그레이",
+     "code": "EBD",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "프로스트 블루",
+     "code": "EBB",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "어벤쳐린 그린",
+     "code": "AG3",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "오로라 블랙 펄",
+     "code": "ABP",
+     "price": 0,
+     "ok": "Y"
+    }
+   ],
+   "int": [
+    {
+     "name": "미디움 그레이",
+     "code": "MGR",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "네이비",
+     "code": "NVY",
+     "price": 0,
+     "ok": "Y"
+    }
+   ],
+   "rc": "KRSV292"
+  },
+  "ev4": {
+   "ext": [
+    {
+     "name": "스노우 화이트 펄",
+     "code": "SWP",
+     "price": 80000,
+     "ok": "Y"
+    },
+    {
+     "name": "아이보리 실버",
+     "code": "ISG",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "셰일 그레이",
+     "code": "EBD",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "오로라 블랙 펄",
+     "code": "ABP",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "모닝 헤이즈",
+     "code": "ACW",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "마그마 레드",
+     "code": "OVR",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "아이보리 매트 실버",
+     "code": "ISM",
+     "price": 300000,
+     "ok": "Y"
+    }
+   ],
+   "int": [
+    {
+     "name": "블랙",
+     "code": "RBQ",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "브라운",
+     "code": "LBR",
+     "price": 0,
+     "ok": "Y"
+    }
+   ],
+   "rc": "KRCT294"
+  },
+  "ev5": {
+   "ext": [
+    {
+     "name": "스노우 화이트 펄",
+     "code": "SWP",
+     "price": 80000,
+     "ok": "Y"
+    },
+    {
+     "name": "마그마 레드",
+     "code": "OVR",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "그래비티 그레이",
+     "code": "KDG",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "아이보리 실버",
+     "code": "ISG",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "아이스버그 그린",
+     "code": "IEG",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "아이스버그 매트 그린",
+     "code": "IEB",
+     "price": 300000,
+     "ok": "Y"
+    },
+    {
+     "name": "퓨전 블랙",
+     "code": "FSB",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "프로스트 블루",
+     "code": "EBB",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "다크 오션 블루",
+     "code": "BU3",
+     "price": 0,
+     "ok": "Y"
+    }
+   ],
+   "int": [
+    {
+     "name": "블랙",
+     "code": "OVS",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "브라운",
+     "code": "NGB",
+     "price": 0,
+     "ok": "Y"
+    }
+   ],
+   "rc": "KROV262"
+  },
+  "ev6": {
+   "ext": [
+    {
+     "name": "스노우 화이트 펄",
+     "code": "SWP",
+     "price": 80000,
+     "ok": "Y"
+    },
+    {
+     "name": "문스케이프 매트 그레이",
+     "code": "KLM",
+     "price": 300000,
+     "ok": "Y"
+    },
+    {
+     "name": "아이보리 매트 실버",
+     "code": "ISM",
+     "price": 300000,
+     "ok": "Y"
+    },
+    {
+     "name": "요트 블루",
+     "code": "DU3",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "런웨이 레드",
+     "code": "CR5",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "인터스텔라 그레이",
+     "code": "AGT",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "오로라 블랙 펄",
+     "code": "ABP",
+     "price": 0,
+     "ok": "Y"
+    }
+   ],
+   "int": [
+    {
+     "name": "미디움 그레이",
+     "code": "DFS",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "블랙",
+     "code": "WK",
+     "price": 0,
+     "ok": "Y"
+    }
+   ],
+   "rc": "KRCV324"
+  },
+  "ev9": {
+   "ext": [
+    {
+     "name": "스노우 화이트 펄",
+     "code": "SWP",
+     "price": 100000,
+     "ok": "Y"
+    },
+    {
+     "name": "아이스버그 그린",
+     "code": "IEG",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "오션 블루",
+     "code": "OBG",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "아이보리 매트 실버",
+     "code": "ISM",
+     "price": 490000,
+     "ok": "Y"
+    },
+    {
+     "name": "페블 그레이",
+     "code": "DFG",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "판테라 메탈",
+     "code": "P2M",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "오로라 블랙 펄",
+     "code": "ABP",
+     "price": 0,
+     "ok": "Y"
+    }
+   ],
+   "int": [
+    {
+     "name": "블랙",
+     "code": "RBQ",
+     "price": 0,
+     "ok": "Y"
+    },
+    {
+     "name": "브라운",
+     "code": "CRN",
+     "price": 0,
+     "ok": "Y"
+    }
+   ],
+   "rc": "KRMV297"
+  }
+ }
+}
