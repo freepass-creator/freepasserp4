@@ -16,7 +16,9 @@ import { vehicleNameOf } from '@/lib/domain/vehicle-name';
 import { CONSULT_LABEL } from '@/features/chat/room-display';
 import { displayNumber, newId, stableId } from '@/lib/domain/ids';
 
-export type Role = 'agent' | 'provider' | 'admin';
+/** ★역할 셋은 공용(`lib/domain/roles`)이다 — 여기서 다시 내보내기만 한다(2026-09-08 갈랐다). */
+export type { Role } from '@/lib/domain/roles';
+import type { Role } from '@/lib/domain/roles';
 // v4 3역할 라벨 = 원본 5역할 라벨(entities.ROLE_LABEL_RAW SSOT)에서 파생. 값 복붙 금지.
 export const ROLE_LABEL: Record<Role, string> = {
   agent: ROLE_LABEL_RAW.agent, provider: ROLE_LABEL_RAW.provider, admin: ROLE_LABEL_RAW.admin,

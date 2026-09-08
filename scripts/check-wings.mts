@@ -20,7 +20,7 @@
  */
 import { readFileSync, writeFileSync, existsSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname, resolve, relative } from 'node:path';
-import { WINGS, ROUTE_WING, SEAMS, type Wing } from '../lib/domain/wings';
+import { WINGS, ROUTE_WING, SEAMS, SEAMS_SOLVED, type Wing } from '../lib/domain/wings';
 
 const SLASH = (p: string) => p.split('\\').join('/');
 const ROOT = SLASH(process.cwd());
@@ -123,10 +123,49 @@ for (const [p, ls] of [...byPair.entries()].sort((a, b) => b[1].length - a[1].le
 }
 if (!leaks.length) console.log('   없습니다.');
 
+/**
+ * ★★**걸린 자리는 «걸어가서» 본다.** 직접 import 만 보면 한 칸만 건너뛴 얽힘을
+ *   「풀렸다」고 말한다 — 실측 2026-09-08, `store.ts → rtdb-adapter → contract-dedupe` 를
+ *   직접 import 가 없다는 이유로 풀렸다고 찍었다. 안 풀렸는데 초록불이 뜨는 게 제일 나쁘다.
+ */
+const pathTo = (from: string, to: string): string[] | null => {
+  const start = join(ROOT, from);
+  if (!existsSync(start)) return null;
+  const back = new Map<string, string>();
+  const seen = new Set([SLASH(start)]);
+  const q = [SLASH(start)];
+  while (q.length) {
+    const f = q.shift() as string;
+    if (rel(f) === to) {
+      const out: string[] = [];
+      for (let c: string | undefined = f; c; c = back.get(c)) out.unshift(rel(c));
+      return out;
+    }
+    for (const i of impsOf(f)) if (!seen.has(i)) { seen.add(i); back.set(i, f); q.push(i); }
+  }
+  return null;
+};
 console.log(`\n■ 아직 안 푼 «걸린 자리» ${SEAMS.length}곳 — 찾기를 뜯어낼 때 이것부터 푼다\n`);
 for (const s of SEAMS) {
-  const still = existsSync(join(ROOT, s.from)) && impsOf(join(ROOT, s.from)).some((i) => rel(i) === s.to);
-  console.log(`   ${still ? '·' : '✓'} ${pad(s.from, 30)} → ${pad(s.to, 42)} ${still ? s.how : '풀렸습니다'}`);
+  const path = pathTo(s.from, s.to);
+  if (!path) { console.log(`   ✓ ${pad(s.from, 26)} → ${pad(s.to, 38)} 풀렸습니다`); continue; }
+  console.log(`   · ${pad(s.from, 26)} → ${pad(s.to, 38)} ${s.how}`);
+  console.log(`        ${path.join('  →  ')}`);
+}
+
+/**
+ * ★★★**한 번 푼 것은 다시 얽히면 «멈춘다».** 풀어 놓기만 하고 안 지키면,
+ *   다음 사람이 편한 쪽으로 한 줄 부르면서 조용히 되돌아간다 — 그게 여태 겪은 회귀의 정체다.
+ */
+console.log(`
+■ 다시 얽히면 안 되는 길 ${SEAMS_SOLVED.length}곳`);
+for (const s of SEAMS_SOLVED) {
+  const path = pathTo(s.from, s.to);
+  console.log(`   ${path ? '✕' : '✓'} ${pad(s.from, 26)} ↛ ${pad(s.to, 34)} ${s.at} ${s.how}`);
+  if (path) {
+    console.log(`        ${path.join('  →  ')}`);
+    problems.push({ what: `${s.from} 가 «다시» ${s.to} 를 끌고 있습니다`, where: `lib/domain/wings.ts · SEAMS_SOLVED — ${s.how}` });
+  }
 }
 
 if (soloShelf.length) {

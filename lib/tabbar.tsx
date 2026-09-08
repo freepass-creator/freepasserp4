@@ -4,7 +4,8 @@ import {
   CarFront, MessageCircleMore, FileText, FileSignature, Box, Settings, Star, type LucideIcon, Banknote,
   Search as SearchIcon, Calculator,
 } from 'lucide-react';
-import type { Role } from '@/lib/domain/deal';
+/** ★하단 홈바가 «계약 파일»을 부르지 않게 — 역할은 공용에서 받는다(2026-09-08). */
+import type { Role } from '@/lib/domain/roles';
 
 /** 탭바 표시 여부 — 상세 오버레이 때 숨김. */
 const HideCtx = createContext<{ hide: boolean; setHide: (v: boolean) => void }>({

@@ -86,25 +86,41 @@ export const ROUTE_WING: Record<string, Wing | '공용'> = {
 };
 
 /**
- * ★★**「정책」은 지금 두 채에 걸쳐 있다 — 여기가 진짜 경계다.**
+ * ★★★**걸린 자리 — 「찾기」를 뜯어낼 때 «따라오는 짐».**
  *
- * 실측 2026-09-08 — 찾기 층 열둘이 «하나도 빠짐없이» 거래동 코드를 끌고 온다. 길은 셋뿐이다.
+ * 실측 2026-09-08 — 찾기 층 열둘이 «하나도 빠짐없이» 거래 쪽 파일을 끌고 있었다.
+ * 손님만 보는 `/shop`·`/q`·`/m` 도 그랬다. 길은 넷이었는데, **재 보니 셋은 짐이 아니었다.**
  * ```
- * ① lib/domain/product.ts    → policy-money-rate · esign-required-documents(→ esign-contract-kind)
- * ② lib/intake/entities.ts   → policy-value-spec
- * ③ lib/tabbar.tsx           → lib/domain/deal.ts  (type Role 하나)
+ * product.ts → policy-money-rate      import 0개 — 아무것도 안 끈다. 이름만 «policy» 다
+ * entities.ts → policy-value-spec     import 0개 — 같다. 원자 스키마의 일부다
+ * tabbar.tsx → deal.ts (type Role)    type 라 빌드에선 지워진다 — 그래도 파일 경계는 짐이었다
+ * product.ts → esign-required-documents → esign-contract-kind   ★이것만 진짜였다
  * ```
- *   ①②는 **상품 카드의 「정책 넷」**(보험·계약·운전·기타)을 그리려고 끄는 것이고,
- *   ③은 **역할 타입 하나**다. 셋 다 「계약을 맺는 일」이 아니라 «보여주는 일»에 필요한 것이라,
- *   거래 채가 아니라 **공용**으로 내려와야 맞다.
  *
- * ⇒ 찾기를 뜯어낼 때 이 셋을 안 풀면 전자계약 코드가 통째로 따라간다.
+ * ⇒ **이름이 아니라 «딸려 오는 것»으로 잰다.** `check:wings` 가 파일마다 그 무게를 세므로,
+ *   여기 손으로 적어 둔 목록을 믿지 않는다 — 아래는 «푼 기록»이다.
+ *
+ * ★★푼 것(2026-09-08)
+ * ```
+ * lib/domain/required-documents.ts   서류를 «읽는» 것만 — 공용. product.ts 가 여기를 부른다
+ * lib/domain/esign-required-documents.ts   계약을 «진행»할 때 쓰는 것만 남기고 위를 다시 내보낸다
+ * lib/domain/roles.ts                역할 셋(agent·provider·admin) — 공용. deal.ts 가 다시 내보낸다
+ * ```
+ *   이제 손님 매물 화면은 위약금율·지연이자·계약종류(`esign-contract-kind`)를 안 끈다.
+ *
+ * ⚠ **아직 안 푼 것** — `lib/store.ts` → `rtdb-adapter` → `contract-dedupe`.
+ *   저장소 어댑터가 계약을 안다. 찾기가 제 저장소를 갖게 될 때 같이 본다.
  */
+export const SEAMS_SOLVED = [
+  { from: 'lib/domain/product.ts', to: 'lib/domain/esign-contract-kind.ts',
+    how: 'required-documents(공용)로 «읽기»만 갈랐다', at: '2026-09-08' },
+  { from: 'lib/tabbar.tsx', to: 'lib/domain/deal.ts',
+    how: 'roles.ts(공용)로 옮기고 deal 이 다시 내보낸다', at: '2026-09-08' },
+] as const;
+
+/** 아직 안 푼 것 — 재서 줄여 나간다. */
 export const SEAMS = [
-  { from: 'lib/domain/product.ts', to: 'lib/domain/policy-money-rate.ts', why: '카드·상세의 정책 표기(금액/요율 글자)', how: '공용으로 내린다 — 계약을 맺는 코드가 아니다' },
-  { from: 'lib/domain/product.ts', to: 'lib/domain/esign-required-documents.ts', why: '정책에서 「필요 서류」를 읽어 카드에 적는다', how: '서류 «목록»만 공용으로 내리고 전자계약 진행 로직은 거래에 남긴다' },
-  { from: 'lib/intake/entities.ts', to: 'lib/domain/policy-value-spec.ts', why: '정책 칸의 값 규격', how: '공용으로 내린다 — 원자 스키마의 일부다' },
-  { from: 'lib/tabbar.tsx', to: 'lib/domain/deal.ts', why: 'type Role 하나(하단바가 역할을 본다)', how: 'Role 을 공용 신원 파일로 옮긴다(lib/domain/authorization 또는 identity)' },
+  { from: 'lib/store.ts', to: 'lib/domain/contract-dedupe.ts', why: '저장소 어댑터(rtdb-adapter)가 계약 중복제거를 안다', how: '찾기가 제 저장소를 갖게 될 때 같이 본다' },
 ] as const;
 
 /** `app/` 아래 폴더 이름에서 채를 읽는다. 모르면 `null` — 그건 도면에 없는 층이다. */

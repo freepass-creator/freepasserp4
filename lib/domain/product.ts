@@ -8,7 +8,11 @@ import { fuelDisplay, fuelEmbeddedCc, yearDisplay, makerDisplay } from '@/lib/do
 import { kmDisplay, ymdDisplay } from '@/lib/format';
 import { vehicleNameOf } from '@/lib/domain/vehicle-name';
 import { moneyOrRateText, moneyOrRatePercent, wonLabel } from '@/lib/domain/policy-money-rate';
-import { policyEsignRequiredDocuments } from '@/lib/domain/esign-required-documents';
+/**
+ * ★**«읽기» 쪽만 부른다** — 카드에 「무슨 서류 필요해요?」 한 줄을 적으려는 것뿐이다.
+ *   `esign-required-documents`(거래 채)를 부르면 위약금율·계약종류까지 따라온다(2026-09-08 갈랐다).
+ */
+import { policyEsignRequiredDocuments } from '@/lib/domain/required-documents';
 export { PROMO_BADGES, PROMO_BADGES_ACTIVE, PROMO_BADGES_PLANNED, MAX_PROMO_BADGES } from '@/lib/intake/entities';
 
 /**
