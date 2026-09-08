@@ -902,6 +902,17 @@ if (APPLY) {
   const pub = run('⑯ 본시트 발행', ['scripts/make-sample-sheet-google.mts', '--main'], /본시트 반영 완료|중단|Error/);
   line.push(pub.ok ? (pub.picked.find((l) => /본시트 반영 완료/.test(l))?.replace(/^.*본시트 반영 완료 /, '').replace(/:.*$/, '') || '본시트 ok') : '★본시트 발행 실패');
   if (!pub.ok) warnings.push('⑯ 본시트 발행 실패 — 시트는 ⑥ 값(단순 서식) 유지');
+
+  /**
+   * ⑯½ **발행한 시트가 원자와 «정말 같은가»** — 칸 단위 대조.
+   *   > 사장님 2026-09-08 「너무 빠르게만 필요없고 **적당한 속도에 완벽하게 박혀야 함**」
+   *   발행기가 「반영 완료」라 찍는 것은 구글이 200 을 줬다는 뜻이지 «그 칸에 그 값이 들어갔다»는 뜻이 아니다.
+   *   같은 날 「장기보증=0」이 서 있었고 「(공급사 없음) 84대」 탭이 남아 있었다 — 둘 다 발행은 «성공»했다.
+   * ★알림만 한다 — 이미 시트에 나간 뒤라 여기서 멈춰도 되돌려지지 않는다. 대신 «무엇이 어긋났는지»를 남긴다.
+   */
+  const parity = run('⑯½ 시트↔원자 대조', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/audit-sheet-vs-atom.mts'], /원자대로 박혔다|안 박혔다|빠진 차|값이 다른 칸/);
+  if (parity.ok) line.push('대조 ok');
+  else warnings.push(parity.picked.find((l) => /안 박혔다/.test(l))?.trim() || '시트↔원자 대조 어긋남');
 }
 
 const seconds = Math.round((Date.now() - started) / 1000);

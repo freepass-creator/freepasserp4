@@ -22,7 +22,7 @@ import { listSheetTabs, readSheetGrid } from '../lib/server/google-sheets';
 import { HUB_CODE_SHEET_ID } from '../lib/domain/legacy-sheets';
 import { isOurNonInventoryTab } from '../lib/domain/supplier-template-sheet';
 import { companyAlias } from '../lib/domain/identity';
-import { pickSupplierSource, hubSourceMap } from '../lib/domain/supplier-source';
+import { pickSupplierSource, hubSourceMap, hubNameMap, myStockTabs } from '../lib/domain/supplier-source';
 import { snapToMaster, makerGroup } from '../lib/domain/vehicle-master-match';
 import type { MasterEntry } from '../lib/domain/vehicle-master-types';
 import type { EntityRecord } from '../lib/intake/entities';
@@ -68,7 +68,9 @@ async function srcConfig(): Promise<{ code: string; name: string; kind: Kind; fr
   console.log(`  원천 주소 ← ${pick.from} · ${pick.id}`);
   /** ★한 시트를 «여러 회사»가 나눠 쓰는가 — 그러면 탭으로 갈라 읽어야 한다(아래 readRows). */
   const shared = [...hub].filter(([, id]) => id === pick.id).map(([c]) => c);
-  return { code: CODE, name: S(p?.name) || CODE, kind: 'sheet', from: pick.id, shared };
+  /** ★이름도 문패가 정본이다 — 재고 탭을 회사별로 가를 때 「경진렌트카」·「경진카」처럼 정확해야 한다. */
+  const hubName = hubNameMap([hubRows.header, ...hubRows.rows]).get(CODE.toUpperCase());
+  return { code: CODE, name: S(hubName) || S(p?.name) || CODE, kind: 'sheet', from: pick.id, shared };
 }
 const src = await srcConfig();
 const PROV = src.code;   // Firestore 태깅·pin 조회는 공급사 정식 코드로(손오공=RP012)
@@ -297,16 +299,31 @@ async function readRows(): Promise<Row[]> {
    *     남의 차를 우리 것으로 적느니 그 회차를 거르는 게 낫다.
    */
   if ((src.shared?.length || 0) > 1) {
-    const 나 = companyAlias(src.name) || S(src.name);
-    const 내탭 = tabs.filter((t) => 나 && N(t).includes(N(나)));
+    const 나 = S(src.name);
+    const 내탭 = myStockTabs(tabs, 나);
+    /**
+     * ★★**탭이 둘이라고 회사가 둘인 게 아니다** (사장님 2026-09-08 「스카이랑 스타가 같은 계열이라서 …
+     *   공급사도 탭 2개로 관리하나?? 잘봐봐」 — 보니 **아니었다**).
+     *   우리가 관계사마다 재고 탭을 둘 만들어 줬는데, 실제로 둘 다 쓰는 곳은 «경진» 하나뿐이다:
+     * ```
+     *   스타·스카이   회사정보 「(주) 스타스카이」 · 사업자번호 하나 · 정산 탭도 하나
+     *                 스타재고 25줄 · 스카이재고 0줄     → 한 회사, 탭 하나만 쓴다
+     *   경진          경진카재고 3 · 경진렌트재고 3      → 진짜 둘 다 쓴다
+     *   빌린카·엘씨   빌린카재고 48 · 엘씨재고 0         → 재고는 한 탭, 정산은 둘로 갈려 있다
+     * ```
+     * ★그래도 **읽는 규칙은 하나로 단순하게** — «내 이름이 든 탭»만 읽는다.
+     *   내 탭이 비었으면 그건 «내 재고가 없다»는 뜻이지, 남의 탭을 읽을 이유가 아니다.
+     *   (한 계열을 한 덩이로 보여 주는 것은 발행 쪽 몫이다 — `build-channel-supplier-sheet` 의 FAMILY.)
+     */
     if (!내탭.length) {
       console.error(`\n✗ ${PROV}(${src.name}): 이 시트는 ${src.shared!.join('·')} 가 나눠 쓴다.`);
       console.error(`  그런데 「${나}」 이름이 든 탭이 없다 — 탭 ${tabs.join(' · ')}`);
       console.error(`  전부 읽으면 남의 차를 우리 코드로 적게 된다(정산이 어긋난다). 아무것도 안 읽고 멈춘다.`);
       process.exit(1);
+    } else {
+      console.log(`  ★시트를 ${src.shared!.length}곳이 나눠 쓴다 — 「${나}」 탭만 읽는다: ${내탭.join(' · ')}`);
+      tabs = 내탭;
     }
-    console.log(`  ★시트를 ${src.shared!.length}곳이 나눠 쓴다 — 「${나}」 탭만 읽는다: ${내탭.join(' · ')}`);
-    tabs = 내탭;
   }
   for (const tab of tabs) {
     const grid = await readSheetGrid(SHEET, tab);
@@ -383,7 +400,14 @@ function atomize(row: Row, pinned: Map<string, Record<string, unknown>>): Atom {
     const conf = snap?.confidence || 'none';
     confirmed = !!canon && conf === 'high';
     identity = canon
-      ? { maker: canon.maker, model: canon.model, sub_model: canon.sub_model, trim_name: S(snap?.trim_name) || row.trim, origin: S(snap?.origin) }
+      /**
+       * ★**세부트림이 비면 「기본형」** (`docs/차종명명-정제-매뉴얼` §3 · 사장님 2026-09-04
+       *   「티카는 옵션이 없는 게 기본형이어서 없는 건가?」 — 그렇다. 옵션 없는 차가 기본형이다).
+       *   ⚠ 실측 2026-09-08 — 이 규칙이 «치유기»에만 있고 수집기엔 없어서, 세부모델이 확정된 차 16대가
+       *   트림 빈칸으로 남았다. 규칙이 한 곳에만 있으면 다른 길로 들어온 차는 그 규칙을 못 받는다.
+       *   ★세부모델이 마스터에 «있는» 차에만 붙인다 — 모르는 차에 기본형을 찍으면 그게 지어낸 값이다.
+       */
+      ? { maker: canon.maker, model: canon.model, sub_model: canon.sub_model, trim_name: S(snap?.trim_name) || S(row.trim) || '기본형', origin: S(snap?.origin) }
       : { maker: row.maker, model: row.model, sub_model: '', trim_name: row.trim, origin: '' };
     // ★세대 판별 — 원문의 「N세대」·섀시코드가 답, 없으면 최초등록으로 신형.
     if (canon) identity.sub_model = resolveGen(identity.maker, identity.model, identity.sub_model, row.firstReg, N(vname));

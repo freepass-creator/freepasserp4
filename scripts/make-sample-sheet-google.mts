@@ -253,7 +253,14 @@ const cell = (col: string, v: any): string => {
     return raw;
   }
   const direct: Record<string, string> = {
-    '배차상태': S(v.status), '구분': S(v.product_type), '차량번호': S(v.car_number),
+    /**
+     * ★★**배차상태는 `vehicle_status` 가 정본**이다 — `status` 가 아니다.
+     *   ⚠ 2026-09-08 실측 — 여기서 `status` 를 쓰는 바람에, 두 칸이 갈린 차의 시트 값이
+     *   문지기·손님 면과 **다른 말**을 했다(133호6494 시트「출고협의」↔ 원자「상품화중」).
+     *   상태를 두 군데서 읽으면 어느 쪽이 진짜인지 화면이 말해 주지 않는다.
+     *   규칙 SSOT = `docs/원자-내려보내기-로직.md` §1 「상태 칸을 두 벌로 두지 않는다」.
+     */
+    '배차상태': S(v.vehicle_status) || S(v.status), '구분': S(v.product_type), '차량번호': S(v.car_number),
     '제조사': S(v.maker), '모델': S(v.model), '세부모델': S(v.sub_model),
     // 세부트림 — snap 이 「기본형」을 버려 비지만, 원문에 기본형이면 그대로 표기(사장님 2026-09-03).
     '세부트림': S(v.trim_name) || (/기본\s*형|\b기본\b/.test(S(v['원문']?.['차명'])) ? '기본형' : ''),
