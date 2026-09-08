@@ -22,6 +22,7 @@ import { isOurNonInventoryTab } from '../lib/domain/supplier-template-sheet';
 import { pickPublishedSalesTabs, SALES_PUBLISHED_TAB_PREFIXES } from '../lib/domain/sales-published-tabs';
 import { assessStatusPipeline, type StatusObservation } from '../lib/domain/status-drift';
 import type { EntityRecord } from '../lib/intake/entities';
+import { companyAlias } from '../lib/domain/identity';
 
 type Rec = Record<string, any>;
 type StatusRow = {
@@ -71,6 +72,14 @@ function providerIndex(partners: EntityRecord[]) {
     add(code, code);
     add(partner.name, code);
     add(partner.partner_name, code);
+    /**
+     * ★**발행기가 쓰는 표기를 «같은 별칭표»로 받는다** — `companyAlias`(SSOT = `lib/domain/identity`).
+     *   ⚠ 2026-09-08 — 판매시트가 공급사를 한글 이름으로 쓰기 시작하자(`KH` → 「케이에이치」)
+     *   이 대조기가 「공급사 매핑 없음(케이에이치)」로 죽었다. `sales-inventory-sheet` 도 같은 병이었다.
+     *   ★별칭표를 세 곳이 «따로» 들고 있으면, 표기를 바꾸는 순간 안 고친 곳이 조용히 갈라진다.
+     */
+    add(companyAlias(partner.name), code);
+    add(companyAlias(partner.partner_name), code);
   }
   const out = new Map<string, string>();
   for (const [key, codes] of candidates) if (codes.size === 1) out.set(key, [...codes][0]);

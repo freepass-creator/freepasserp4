@@ -8,6 +8,7 @@
 import type { EntityRecord } from '@/lib/intake/entities';
 import type { MasterEntry } from '@/lib/domain/vehicle-master-types';
 import { importSheetTable } from '@/lib/domain/sheet-import';
+import { companyAlias } from '@/lib/domain/identity';
 import { importAutoplusTables } from '@/lib/domain/sheet-autoplus';
 import { createPlateAllocator, type PlateAllocator } from '@/lib/domain/pending-plate';
 import {
@@ -77,7 +78,19 @@ export function salesSheetProviderIndex(partners: EntityRecord[]): Map<string, s
     add(code, code);
     add(partner.name, code);
     add(partner.partner_name, code);
-    for (const alias of PROVIDER_NAME_ALIASES[code] || []) add(alias, code);
+    /**
+     * ★★**발행기가 쓰는 표기를 «같은 별칭표»로 받는다** — `companyAlias`.
+     *
+     * ⚠⚠ 2026-09-08 실측 — 판매시트 발행기가 사장님 지시로 공급사를 «한글 이름»으로 쓰기 시작했다
+     *   (「이제 절대 코드명으로 공급사 취급 안 할 거야」 — `KH` → **「케이에이치」**).
+     *   그런데 여기 매칭표는 그 별칭표를 안 써서 **⑦ ERP 일일 동기가 통째로 멈췄다**
+     *   (「공급사 매칭 실패 — 122행 케이에이치 · 123행 …」). 회차 로그에 ✗ 로 남았다.
+     * ★표기를 바꾸는 쪽과 «읽는 쪽»이 다른 별칭표를 쓰면, 바꾸는 순간 조용히 갈라진다.
+     *   ⇒ 이름·별칭을 넣을 때마다 `companyAlias` 꼴도 같이 넣는다(SSOT = `lib/domain/identity`).
+     */
+    add(companyAlias(partner.name), code);
+    add(companyAlias(partner.partner_name), code);
+    for (const alias of PROVIDER_NAME_ALIASES[code] || []) { add(alias, code); add(companyAlias(alias), code); }
   }
   const index = new Map<string, string>();
   for (const [key, codes] of candidates) {

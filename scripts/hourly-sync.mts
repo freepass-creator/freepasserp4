@@ -695,7 +695,8 @@ line.push([
 }
 
 // ⑧ 대조 — 판매시트 ↔ ERP 가 실제로 같은지 매 시간 확인해 기록에 남긴다(규칙 정본 lib/domain/sheet-erp-parity.ts).
-const chk = run('⑧ 시트↔ERP 대조', ['scripts/audit-sheet-erp-parity.mts'], /판매시트 |안 뜨는 차|없는 차/, 'npx', true);
+/** ⚠ 2026-09-08 — 여기만 심(server-only-shim)을 안 줘서 매 회차 `Cannot find module 'server-only'` 로 죽었다. */
+const chk = run('⑧ 시트↔ERP 대조', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/audit-sheet-erp-parity.mts'], /판매시트 |안 뜨는 차|없는 차/, 'npx', true);
 line.push(chk.picked.find((l) => /안 뜨는 차/.test(l))?.replace('■ ', '') || '대조 ok');
 
 /**
