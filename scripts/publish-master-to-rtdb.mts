@@ -1,4 +1,16 @@
 /**
+ * ⛔ 폐기(2026-09-08) — RTDB `vehicle_master` 는 삭제됐다. 차종마스터 정본 = **Firestore `vehicle_master`**.
+ *   사장님 「알티디비 삭제하고 파이어스토어로 다 옮겨」. 방향이 뒤집혔다: 옛날엔 JSON→RTDB(발행), 이제는
+ *   Firestore 가 정본이고 파일 사본은 `scripts/export-master-firestore-to-json.mts` 로 «Firestore 에서» 재생성한다.
+ *   이 스크립트는 삭제된 노드를 되살려 두 정본을 만들 뿐이라 «실행 금지».
+ *
+ * (아래 원본 로직은 이력 보존용 — 맨 위 가드에서 즉시 종료한다.)
+ */
+if (!process.argv.includes('--force-revive-rtdb')) {
+  console.error('⛔ 폐기됨 — RTDB vehicle_master 삭제됨. 정본 = Firestore. 사본 재생성 = scripts/export-master-firestore-to-json.mts');
+  process.exit(1);
+}
+/**
  * 차종마스터 단일정본을 RTDB `vehicle_master` 에 박는다 — 엔진이 파일 대신 이걸 호출하게.
  *
  * 정본 소스 = `public/data/vehicle-master.json`(MasterEntry[] — snapToMaster·fill 이 쓰는 그것).
