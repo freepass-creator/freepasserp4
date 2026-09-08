@@ -399,6 +399,34 @@ if (zero.length) {
 }
 
 /**
+ * ★★★**신차는 «청구 = 지급» 이다 — 수익이 0 이다.**
+ *
+ *   사장님 2026-09-08 「우리는 **신차에는 마진을 남기지 않는다**」 · 「**청구 지급이 같은 거지 수익이 0**」.
+ *
+ * ★★**그래서 «어긋나면» 그건 마진이 아니라 사고다.** 둘 중 하나다 —
+ *   ㉠ 공급사에 **청구를 안 했다**(청구 0) ㉡ 한쪽 금액을 잘못 적었다.
+ *   실측 2026-09-08 — 웰릭스 견적출고 여섯 줄이 지급만 나가고 청구가 0 이었다(합계 17,179,867).
+ *   같은 시트의 형제 줄 다섯은 전부 청구 = 지급이었는데 이것만 0 이라, 규칙을 알고 보지 않으면
+ *   「신차는 원래 마진이 얇다」로 읽고 지나친다.
+ *
+ * ⚠ 멈추지는 않는다 — 지난 기록에는 청구를 안 담은 줄이 있다(「지난 기록은 시트가 기록이다」).
+ *   다만 **모르고 지나가지는 못하게** 이름을 대고 세운다.
+ */
+const NEWCAR = /선출고|선발주|신차발주|매칭출고|견적출고/;
+const skew = atoms.filter((a) => NEWCAR.test(a.product) && !a.settleExclude && !a.cancelled
+  && a.settleTarget === '양쪽'
+  && (a.claimWritten + a.claimIncentive) !== (a.payWritten + a.payIncentive));
+if (skew.length) {
+  console.log(`
+   ⚠ 신차인데 «청구 ≠ 지급» 인 줄 ${skew.length}개 — 신차는 수익이 0 이다`);
+  for (const k of skew) {
+    const c = k.claimWritten + k.claimIncentive; const p = k.payWritten + k.payIncentive;
+    console.log(`      ${(k.plate || '(차번없음)').padEnd(11)} ${k.customer.padEnd(8)} ${(k.supplier || '(공급사없음)').padEnd(10)} ${k.product.padEnd(8)}`
+      + ` 청구 ${won(c).padStart(11)} · 지급 ${won(p).padStart(11)} · 차이 ${won(c - p).padStart(11)}${c ? '' : '   ← 청구를 안 했다'}`);
+  }
+}
+
+/**
  * ⚠ **`settleExclude`(보류)도 «축»이다** — 2026-09-08 까지 이 걸름망에서 빠져 있어,
  *   보류를 박아 그 달에서 뺀 줄이 화면 어디에도 안 나왔다. 안 보이면 확인할 수가 없다.
  */
