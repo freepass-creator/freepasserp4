@@ -194,8 +194,8 @@ class FirestoreAdapter implements StoreAdapter {
     for (const rec of records) {
       const key = naturalKey(entityKey, rec);
       if (key && seen.has(key)) { duplicates++; continue; }
-      // ★상품은 미러와 같은 «자연키»(차번/상품코드) 문서 id — 복합키로 쓰면 미러 문서와 갈라진다.
-      const id = entityKey === 'product' && key ? String(key)
+      // ★상품은 미러와 같은 문서에 써야 갈라지지 않는다 — productWriteId 로 «미러가 쓴 실제 문서 id»(차번) 해석.
+      const id = entityKey === 'product' && key ? await this.productWriteId(db, String(key))
         : (key ? `${companyId}__${key}` : `${companyId}__${Date.now()}_${Math.random().toString(36).slice(2, 7)}`);
       const stored = { ...rec, companyId, _key: key, createdAt: new Date().toISOString(), createdBy: 'system' };
       await withTimeout(setDoc(doc(col, id), stored));
@@ -344,7 +344,13 @@ class FirestoreAdapter implements StoreAdapter {
   async listDeleted(entityKey: string, companyId: string): Promise<EntityRecord[]> {
     const { getFirestore, collection, query, where, getDocs } = await import('firebase/firestore');
     const db = getFirestore(getFirebaseApp()!);
-    const snap = await getDocs(query(collection(db, entityKey === 'product' ? 'products' : entityKey), where('companyId', '==', companyId)));
+    if (entityKey === 'product') {
+      // ★미러 상품은 companyId 필드가 없고 provider_company_code·차번docId 다 — list() 와 같은 보정 후 삭제만.
+      const snap = await getDocs(collection(db, 'products'));
+      return snap.docs.map((d) => { const x = d.data() as Record<string, unknown>; return { ...x, _key: String(x.product_code || x.car_number || d.id), companyId: String(x.provider_company_code || '') } as EntityRecord; })
+        .filter((r) => r.deletedAt && (!companyId || String(r.companyId) === companyId));
+    }
+    const snap = await getDocs(query(collection(db, entityKey), where('companyId', '==', companyId)));
     return snap.docs.map((d) => d.data() as EntityRecord).filter((r) => r.deletedAt);
   }
   async restore(entityKey: string, companyId: string, key: string): Promise<void> {

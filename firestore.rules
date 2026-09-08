@@ -43,8 +43,8 @@ service cloud.firestore {
       allow create, update: if isAdmin();
       allow delete: if false;
     }
-    // 감사로그 — append-only, 수정·삭제 금지
-    match /audit_log/{id} {
+    // 감사로그 — append-only, 수정·삭제 금지. ★컬렉션명 audit_logs(복수) — 미러·이관·어댑터와 일치(전엔 audit_log 단수라 쓰기 거부됐다).
+    match /audit_logs/{id} {
       allow read: if isAdmin() && myCompany(resource.data);
       allow create: if signedIn() && myCompany(request.resource.data);
       allow update, delete: if false;
@@ -57,9 +57,10 @@ service cloud.firestore {
       allow create, update: if isAdmin() && (col == 'policy' || col == 'partner');
       allow delete: if false;
     }
-    // 사용자 명부 — 관리자만.
+    // 사용자 명부 — 관리자 전체 + «자기 프로필»은 본인 read(문서 id=uid). 로그인 게이트가 자기 프로필을 읽어야 한다(RTDB 폐기).
+    //   ★쓰기는 관리자만(가입·승인은 서버 API 가 admin SDK 로 — 규칙 우회).
     match /user/{id} {
-      allow read: if isAdmin();
+      allow read: if isAdmin() || (signedIn() && request.auth.uid == id);
       allow create, update: if isAdmin();
       allow delete: if false;
     }
