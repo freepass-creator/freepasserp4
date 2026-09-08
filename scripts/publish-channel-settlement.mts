@@ -34,7 +34,7 @@ import { payOf, incentiveOf } from '../lib/domain/settlement-money';
 import { settlementMonthOf } from '../lib/domain/settlement-billing-month';
 import { feeKindOf, feeRuleFor } from '../lib/domain/settlement-fee-table';
 import { outwardText, maskName } from '../lib/domain/outward-text';
-import { channelSheetName, CHANNEL_SETTLE_HEAD, CHANNEL_SETTLE_WIDTH, SETTLE_BASIS, SETTLE_NOTE, settleTabOf, settleTabFormat, settleMoneyFor, settleLeftFor } from '../lib/server/channel-sheet-tabs';
+import { channelSheetName, CHANNEL_SETTLE_HEAD, CHANNEL_SETTLE_WIDTH, SETTLE_BASIS, SETTLE_NOTE, settleTabOf, settleTabFormat, settleMoneyFor, settleLeftFor, settleTabLabel, settleTabBase } from '../lib/server/channel-sheet-tabs';
 import { diffSheetRows, applyPending, editId, publishedId, type SheetEdit, type Published } from '../lib/server/sheet-edits';
 
 const MONTH = (process.argv.find((a) => /^\d{4}-\d{2}$/.test(a)) || '').trim();
@@ -364,14 +364,15 @@ for (const j of jobs) {
   const meta = await (await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${bookId}?fields=sheets.properties`, { headers: { Authorization: `Bearer ${await tok()}` } })).json() as {
     sheets?: { properties: { sheetId: number; title: string } }[] };
   const all = meta.sheets || [];
-  let id = all.find((s) => s.properties.title === tab)?.properties.sheetId;
+  /** ★건수는 달마다 바뀜다 — 앞글로 찾는다. */
+  let id = all.find((s) => settleTabBase(s.properties.title) === tab)?.properties.sheetId;
   const rowsNeed = j.lines.length + 20;
   /**
    * ★**옛 이름(「26년08월 지급」)은 «이름만 바꿔» 이어 쓴다** — 지우면 상대가 적어 둔 메모가 날아간다.
    *   사장님 2026-09-03 「정산서가 맞을거 같은데 지급명세서?? 이거 잘 생각해보고」.
    */
   if (id === undefined) {
-    const old = all.find((s) => s.properties.title === tab.replace('정산', '지급'))?.properties.sheetId;
+    const old = all.find((s) => settleTabBase(s.properties.title) === tab.replace('정산', '지급'))?.properties.sheetId;
     if (old !== undefined) {
       await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${bookId}:batchUpdate`, {
         method: 'POST', headers: { Authorization: `Bearer ${await tok()}`, 'Content-Type': 'application/json' },
@@ -711,6 +712,12 @@ for (const j of jobs) {
     backAt: j.backs.map((_, i) => j.lines.length + i),
     blanks: 5, footLen: 4, basisLen: BASIS.length, money: MONEY, left: LEFT,
   });
+  /**
+   * ★★**탭 이름에 건수를 달아 둔다** — 「26년08월 정산 (41건)」.
+   *   사장님 2026-09-08 「각 탭에는 건수 표시하자」 — 열어보기 전에 규모가 보인다.
+   *   ⚠ 찾기는 `settleTabBase` 로 «앞글»만 맞춘다 — 안 그러면 달마다 탭이 새로 생긴다.
+   */
+  reqs.push({ updateSheetProperties: { properties: { sheetId: id, title: settleTabLabel(tab, j.lines.length) }, fields: 'title' } });
   const fr = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${bookId}:batchUpdate`, {
     method: 'POST', headers: { Authorization: `Bearer ${await tok()}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ requests: reqs }),

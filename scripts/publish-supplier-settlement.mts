@@ -36,7 +36,7 @@ import { settleTargetOf, billingMonthIn, lockedMonthsOf, type SettlementRow } fr
 /** ★공급사 발행기는 «청구»만 센다 — payOf 는 부러 안 들여온다(지급액 빗장). */
 import { claimOf, incentiveOf } from '../lib/domain/settlement-money';
 import { settlementMonthOf } from '../lib/domain/settlement-billing-month';
-import { SETTLE_NOTE, settleHeadFor, settleWidthFor, settleMoneyFor, settleLeftFor } from '../lib/server/channel-sheet-tabs';
+import { SETTLE_NOTE, settleHeadFor, settleWidthFor, settleMoneyFor, settleLeftFor, settleTabLabel, settleTabBase } from '../lib/server/channel-sheet-tabs';
 
 /** 공급사가 적는 넉 칸 — [확인, 정정, 정정금액, 메모(정정사유)]. */
 type Keep = [boolean, boolean, number | '', string];
@@ -282,14 +282,16 @@ for (const j of jobs) {
   const meta = await (await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${j.sheetId}?fields=sheets.properties`, { headers: { Authorization: `Bearer ${await tok()}` } })).json() as {
     sheets?: { properties: { sheetId: number; title: string } }[] };
   const all = meta.sheets || [];
-  let id = all.find((s) => s.properties.title === tab)?.properties.sheetId;
+  /** ★건수는 달마다 바뀜다 — 앞글로 찾는다. */
+  const hit0 = all.find((s) => settleTabBase(s.properties.title) === tab);
+  let id = hit0?.properties.sheetId;
   const rowsNeed = j.lines.length + 20;
   /**
    * ★**이름을 «가른» 첫 달에는 이름 없는 옛 탭이 남는다** — 그것을 «고쳐 쓴다».
    *   지우지 않는다(남의 시트다). 이름만 바꿔 이어 쓰면 유령 탭이 안 생긴다.
    */
   if (id === undefined && tab !== tabOf(MONTH)) {
-    const plain = all.find((s) => s.properties.title === tabOf(MONTH))?.properties.sheetId;
+    const plain = all.find((s) => settleTabBase(s.properties.title) === tabOf(MONTH))?.properties.sheetId;
     if (plain !== undefined) {
       await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${j.sheetId}:batchUpdate`, {
         method: 'POST', headers: { Authorization: `Bearer ${await tok()}`, 'Content-Type': 'application/json' },
@@ -516,6 +518,12 @@ for (const j of jobs) {
     /** ★틀고정은 «안 건다» — 사장님 2026-09-03 「틀고정 필요없음」. 한 화면에 드는 표다. */
     { updateSheetProperties: { properties: { sheetId: id, gridProperties: { frozenRowCount: 0, frozenColumnCount: 0 } }, fields: 'gridProperties(frozenRowCount,frozenColumnCount)' } },
   ];
+  /**
+   * ★★**탭 이름에 건수를 달아 둔다** — 「26년08월 정산 (41건)」.
+   *   사장님 2026-09-08 「각 탭에는 건수 표시하자」 — 열어보기 전에 규모가 보인다.
+   *   ⚠ 찾기는 `settleTabBase` 로 «앞글»만 맞춘다 — 안 그러면 달마다 탭이 새로 생긴다.
+   */
+  reqs.push({ updateSheetProperties: { properties: { sheetId: id, title: settleTabLabel(tab, j.lines.length) }, fields: 'title' } });
   const fr = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${j.sheetId}:batchUpdate`, {
     method: 'POST', headers: { Authorization: `Bearer ${await tok()}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ requests: reqs }),

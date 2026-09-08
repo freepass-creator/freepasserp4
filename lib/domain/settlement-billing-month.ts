@@ -56,5 +56,19 @@ export function settlementMonthOf(r: { billMonth?: unknown; receivedAt?: unknown
     return ymOf(new Date(rc.getFullYear(), rc.getMonth() + (n - 1), rc.getDate()));
   }
   const d = dateOf(r.deliveredAt);
-  return d ? ymOf(d) : '';
+  if (d) return ymOf(d);
+  /**
+   * ★★★**인도를 기다리지 않는다 — 접수되면 «그 달» 청구서에 미리 올라간다.**
+   *   사장님 2026-09-08 「접수가 되면 청구서에 미리 올라가 있는 거지, 그 해당 달에」
+   *
+   *   일시납은 «인도월»이 정본이다. 그런데 인도 전이면 반환할 달이 없어
+   *   그 줄이 **어느 달에도 안 선다** — 실측 2026-09-08, 그렇게 사라진 줄이 25개였고
+   *   그중 344더50… 이주호는 청구 1,603,800 이 서 있는데도 아무 데도 안 보였다.
+   *   ⇒ 인도 전이면 **접수월**을 예정월로 잡는다. 대개 접수하고 며칠 안에 인도된다.
+   *   ★틀려도 인도가 찍히면 그자리에서 제 달로 옮겨 간다. **안 보이는 것보다
+   *     잘못된 달에라도 보이는 게 낫다** — 안 보이는 줄은 아무도 안 찾는다.
+   *   ⚠ 마감된 달은 이 규칙이 안 닿는다 — 발행기가 FORECAST(지난달 뒤)에만 예정을 얻는다.
+   */
+  const rc = dateOf(r.receivedAt);
+  return rc ? ymOf(rc) : '';
 }

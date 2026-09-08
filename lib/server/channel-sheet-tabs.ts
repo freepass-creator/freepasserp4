@@ -590,6 +590,16 @@ export const settleLeftFor = (axis: '영업채널' | '공급사') => settleColum
 export const CHANNEL_SETTLE_HEAD = settleHeadFor('영업채널');
 export const CHANNEL_SETTLE_WIDTH = settleWidthFor('영업채널');
 export const settleTabOf = (m: string) => `${m.slice(2, 4)}년${m.slice(5)}월 정산`;
+/**
+ * ★★**탭 이름에 건수를 달아 둔다** — 사장님 2026-09-08
+ *   「각 탭에는 건수 표시하자. 8월 00건 이런 식으로」
+ *   탭을 열어보기 전에 «몇 건짜리 달»인지 보이고, 달끼리 늘고 준 것이 차례로 보인다.
+ * ⚠ 그래서 **탭을 이름으로 찾을 때는 «앞글»만 맞춘다** — 건수는 달마다 바뀜다.
+ *   오타 하나로 탭이 둘로 갈라지면 그달 정산이 두 장이 된다.
+ */
+export const settleTabLabel = (base: string, n: number) => `${base} (${n}건)`;
+/** 건수를 떼어낸 알장이 — 「26년08월 정산 (41건)」 → 「26년08월 정산」. */
+export const settleTabBase = (title: string) => title.replace(/\s*\(\d+건\)\s*$/, '').trim();
 
 /**
  * 「26년09월 정산」 같은 **빈 달 탭을 미리 세운다.**
