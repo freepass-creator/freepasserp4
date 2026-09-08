@@ -5,7 +5,7 @@
  *   check:fonts 는 하위호환(오프스케일·800/900만).
  */
 import { readdirSync, readFileSync } from 'node:fs';
-import { join, relative } from 'node:path';
+import { join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
@@ -100,6 +100,31 @@ function walk(dir: string) {
 }
 
 for (const root of ROOTS) walk(join(ROOT, root));
+
+/* ★★0 에 «사선» — 사장님 2026-09-08 「글꼴도 0 에 사선 들어가는 거로 해야 함」.
+   뿌리 한 줄(`html{font-feature-settings:'zero' 1}`)이 집 전체를 덮는다.
+   ⚠ 그 속성은 **통째로 덮인다** — 어디선가 다시 걸면 그 가지에서 사선이 사라진다.
+     그래서 ㉠ 뿌리 줄이 살아 있는지 ㉡ 다시 거는 자리가 생겼는지 둘 다 본다. */
+const GLOBALS = readFileSync(join(ROOT, 'app/globals.css'), 'utf8');
+if (!/html\s*\{[^}]*font-feature-settings:\s*'zero'\s*1/.test(GLOBALS)) {
+  hits.push(`  app/globals.css\n    0 에 사선이 꺼졌습니다 — html{font-feature-settings:'zero' 1} 한 줄이 집 전체를 덮습니다\n    → 0 과 O 가 같아 보이면 차번·금액을 잘못 읽습니다`);
+}
+for (const root of ROOTS) {
+  const stack = [join(ROOT, root)];
+  while (stack.length) {
+    const dir = stack.pop()!;
+    for (const e of readdirSync(dir, { withFileTypes: true })) {
+      const full = join(dir, e.name);
+      if (e.isDirectory()) { if (e.name !== 'node_modules') stack.push(full); continue; }
+      if (!/[.](css|ts|tsx)$/.test(e.name)) continue;
+      const r = relative(ROOT, full).split(sep).join('/');
+      if (r === 'app/globals.css') continue;
+      if (/font-feature-settings/.test(readFileSync(full, 'utf8'))) {
+        hits.push(`  ${r}\n    font-feature-settings 를 다시 걸었습니다 — 뿌리의 «사선 0» 이 이 가지에서 꺼집니다\n    → 꼭 걸어야 하면 'zero' 1 을 함께 적으세요`);
+      }
+    }
+  }
+}
 
 if (hits.length) {
   console.log(`✗ 토큰 드리프트 ${hits.length}건 — FS/FW/C/SH/SCRIM으로 고칠 것:\n\n${hits.join('\n\n')}`);
