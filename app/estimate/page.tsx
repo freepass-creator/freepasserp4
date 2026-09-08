@@ -645,12 +645,14 @@ function EstimatePageInner() {
           </div>
         </div>
 
-        {/* ══ ① 상품 조건 — 「이 견적이 어떤 상품인가」 ═══════════════════════
-               사장님 2026-09-08 「위계랑 섹션 구분 잘해주고 **입력칸들 동선 안 꼬이게**」.
-             ⇒ 오른쪽을 이름 붙인 **세 단**으로 나눴다: ① 어떤 상품인가 → ② 공통 조건 → ③ 기간별.
-               위에서 아래로 한 번만 지나가면 견적이 선다. ══ */}
-        <div className="qp-terms__title">① 상품 조건</div>
-        <div className="qp-form qp-form--conds">
+        {/* ══ 조건 — **한 줄로 흐른다** ═════════════════════════════════════════
+               사장님 2026-09-08 「이런 거 **너무 칸 맞추려고 하지 말고 배열만 잘해** 봐.
+               버튼으로 하는 건데 **상품조건과 공통조건을 한 줄에 넣어도** 될 거 같기도 하고」
+             ⇒ ①상품 조건 · ②공통 조건을 **한 단**으로 합쳤다. 격자로 칸을 맞추던 것을 걷고
+               내용 폭대로 흐르게 했다 — 격자에 맞추니 「10 %」 하나가 칸을 다 먹어 늘어났다.
+             ★보증금·선납은 여기서 바꾸면 다섯 칸이 한꺼번에 따라온다(칸마다 따로도 잡는다). ══ */}
+        <div className="qp-terms__title">조건 <small>· 보증금·선납은 다섯 칸에 한꺼번에</small></div>
+        <div className="qp-form qp-form--conds flow">
           <div className="qc-field">
             <label>채널</label>
             <Seg tone="t3" opts={CHANNELS.map((o) => ({ v: o.v, label: o.label }))} cur={ch} onPick={setCh} />
@@ -660,31 +662,22 @@ function EstimatePageInner() {
             <Seg tone="t3" opts={TYPES.map((o) => ({ v: o.v, label: o.label }))} cur={type} onPick={setType} />
           </div>
           <div className="qc-field">
-            {/* 유지율이 여기서 갈린다 — 왜 등급마다 값이 다른지는 ③ 칸의 「손바뀜」에서 보인다. */}
             <label>신용</label>
             <Chips opts={CREDIT.map((c) => ({ v: c, label: c }))} cur={credit} onPick={setCredit} />
           </div>
-        </div>
-
-        {/* ══ ② 공통 조건 — **다섯 칸에 한꺼번에** 먹인다 ═══════════════════════
-               ⚠ 같은 이름(보증금·선납)이 ③ 칸에도 있다. 다른 것이 아니라 «범위»가 다르다 —
-                 여기는 다섯을 한꺼번에, 거기는 그 칸만. 그래서 제목에 그렇게 적어 둔다.
-               ★수수료를 여기로 옮겼다 — 손님 정보가 아니라 견적 조건이다(전에는 「손님·담당자」 줄에 끼어 있었다). ══ */}
-        <div className="qp-terms__title">② 공통 조건 <small>· 다섯 칸에 한꺼번에</small></div>
-        <div className="qp-form qp-form--conds">
           <div className="qc-field">
             <label>보증금</label>
-            <span className="pin w"><input type="number" min={0} max={100} value={dep}
-              onChange={(e) => { const v = Math.max(0, Math.min(100, Number(e.target.value) || 0)); setDep(v); setScen((a) => a.map((x) => ({ ...x, dep: v }))); }} /><i>%</i></span>
+            <span className="pin"><input inputMode="numeric" value={dep}
+              onChange={(e) => { const v = Math.max(0, Math.min(100, digits(e.target.value))); setDep(v); setScen((a) => a.map((x) => ({ ...x, dep: v }))); }} /><i>%</i></span>
           </div>
           <div className="qc-field">
             <label>선납금</label>
-            <span className="pin w"><input type="number" min={0} max={100} value={pre}
-              onChange={(e) => { const v = Math.max(0, Math.min(100, Number(e.target.value) || 0)); setPre(v); setScen((a) => a.map((x) => ({ ...x, pre: v }))); }} /><i>%</i></span>
+            <span className="pin"><input inputMode="numeric" value={pre}
+              onChange={(e) => { const v = Math.max(0, Math.min(100, digits(e.target.value))); setPre(v); setScen((a) => a.map((x) => ({ ...x, pre: v }))); }} /><i>%</i></span>
           </div>
           <div className="qc-field">
             <label>수수료</label>
-            <span className="pin w"><input inputMode="numeric" value={fee}
+            <span className="pin"><input inputMode="numeric" value={fee}
               onChange={(e) => setFee(Math.max(0, Math.min(20, Number(e.target.value.replace(/[^0-9.]/g, '')) || 0)))} /><i>%</i></span>
           </div>
         </div>
@@ -695,7 +688,7 @@ function EstimatePageInner() {
              · 보증금·선납은 **칸마다** 잡는다(그게 「설계」다). 위 조건 줄은 다섯 칸을 한꺼번에 바꾼다.
              · 「원가」를 누르면 그 칸 «안»에서 분해가 열린다. 다섯을 한꺼번에 펼쳐 견줄 수도 있다.
              ⚠ 짜임은 원본 `.term-card` 그대로다. 원본은 셋이고 우리는 다섯이라 열 수만 늘렸다. ══ */}
-        <div className="qp-terms__title">③ 기간별 설계 <small>· 칸마다 조건·잔가 · 「원가」를 누르면 분해</small></div>
+        <div className="qp-terms__title">기간별 설계 <small>· 칸마다 조건·잔가 · 「원가」를 누르면 분해</small></div>
         <div className="qgrid">
           {scen.map((sc, i) => {
             const c = lines[i];

@@ -210,10 +210,29 @@ tail = """
 /* 조건 줄 — 원본은 넷(신용·약정주행·보증금·선납) 고정 격자였다. 우리는 **다섯**이다
    (채널·만기·신용·보증금·선납 — 사장님 2026-09-08 「우측은 견적에 관련된 거」).
    고정 넷으로 두면 다섯째가 아래로 떨어져 줄이 두 단이 된다. ⇒ 폭에 맞춰 «흐르게» 한다. */
-.wx-root .qp-form--conds { grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)) !important; }
-/* 세그·칩이 칸 안에서 제 폭을 다 쓰게 — 라벨 옆 칸이 좁아 넘치면 글자가 잘린다. */
-.wx-root .qp-form--conds .seg { margin-bottom: 0; width: 100%; }
-.wx-root .qp-form--conds .chips { width: 100%; }
+/* ★조건 줄은 «격자»가 아니라 «흐름»이다 — 사장님 2026-09-08
+   「이런 거 **너무 칸 맞추려고 하지 말고 배열만 잘해** 봐」.
+   격자(1fr)로 맞추니 「10 %」 하나가 제 칸을 다 먹어 입력 상자가 화면 절반이 됐다.
+   ⇒ 내용 폭대로 흐르고, 넘치면 다음 줄로 접는다. */
+.wx-root .qp-form--conds.flow {
+  display: flex !important; flex-wrap: wrap; align-items: center;
+  column-gap: 20px; row-gap: 8px; grid-template-columns: none !important;
+}
+.wx-root .qp-form--conds.flow .qc-field {
+  display: inline-flex; align-items: center; gap: 8px;
+  grid-template-columns: none; padding: 4px 0; width: auto;
+}
+.wx-root .qp-form--conds.flow .qc-field > label { white-space: nowrap; }
+/* ⚠ `.seg`·`.chips` 는 안쪽 버튼이 `flex:1` 이라 «칸을 나눠 갖는» 짜임이다.
+   흐름 줄에 그냥 놓으면 컨테이너가 눌려 글자가 겹친다(2026-09-08 보고 잡음).
+   ⇒ 흐름 줄에서는 버튼이 «제 글자 폭»을 갖는다. */
+.wx-root .qp-form--conds.flow .seg,
+.wx-root .qp-form--conds.flow .chips { margin-bottom: 0; width: auto; flex: none; }
+.wx-root .qp-form--conds.flow .seg button,
+.wx-root .qp-form--conds.flow .chips button { flex: none; padding: 0 14px; white-space: nowrap; }
+/* 숫자 칸은 «숫자만큼»만 — 늘리지 않는다. */
+.wx-root .qp-form--conds.flow .pin { flex: none; }
+.wx-root .qp-form--conds.flow .pin input { width: 42px; }
 
 /* 오른쪽 단 구분 — 사장님 2026-09-08 「**위계랑 섹션 구분 잘해주고**」.
    원본은 제목이 둘뿐이라 여백만으로 갈렸다. 우리는 넷(①②③·손님)이라 «선»이 있어야 단이 보인다. */
