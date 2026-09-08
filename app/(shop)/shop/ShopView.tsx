@@ -130,6 +130,56 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
     } catch { setRows([]); }
   })(); }, []);
 
+  /*
+   * ── 보던 자리로 돌아온다 ────────────────────────────────────────────────
+   *
+   * 사장님 2026-09-08 「**일반 페이지들처럼 웹이든 앱이든 움직여 줘야 하는데**」.
+   *
+   * ★★**목록 → 상세 → 뒤로** 가 이 화면에서 제일 많이 하는 일이다. 그런데 돌아오면
+   *   **맨 위**였다. 스무 번째 카드를 보다 눌렀으면, 돌아와서 또 스무 번 내려야 했다.
+   *   앱이 아니라 «검색 결과 페이지»처럼 느껴지는 것이 대부분 이 하나 때문이다.
+   * ⚠ **브라우저가 대신 해 주지 않는다.** 이 집은 문서 자체가 `overflow: hidden` 이고
+   *   구르는 것은 `.fp-main-pad` «div» 다(집 규격). 브라우저의 자리 복원은 문서 스크롤에만 걸린다.
+   *   게다가 매물은 붙고 «나서» 받아오므로, 돌아온 순간에는 목록 높이가 0 이라
+   *   설령 문서 스크롤이었어도 복원할 자리가 없다.
+   * ⇒ 우리가 «몇 장 펼쳤는지»까지 같이 기억했다가, 매물이 도착한 뒤 되돌린다.
+   *
+   * ★열쇠에 **조건(주소)**을 넣는다 — 조건이 다르면 다른 목록이고, 남의 자리로 튀면 더 나쁘다.
+   * ★`sessionStorage` 다 — 탭을 닫으면 잊는다. 어제 보던 자리로 돌아가는 건 «복원»이 아니라 «침입»이다.
+   * ⚠ 한 번만 되돌린다(`restoredRef`). 매번 되돌리면 손님이 스크롤할 때마다 끌려 올라간다.
+   */
+  const restoredRef = useRef(false);
+  const spotKey = () => `shop:spot:${window.location.pathname}${window.location.search}`;
+  useEffect(() => {
+    if (rows === null) return;
+    const pad = document.querySelector('.fp-main-pad') as HTMLElement | null;
+    if (!pad) return;
+    if (!restoredRef.current) {
+      restoredRef.current = true;
+      try {
+        const raw = sessionStorage.getItem(spotKey());
+        if (raw) {
+          const spot = JSON.parse(raw) as { y?: number; limit?: number };
+          if (spot.limit && spot.limit > PAGE) setLimit(spot.limit);
+          if (spot.y) {
+            /* 카드가 «그려진 뒤»에 옮긴다 — 그리기 전에 옮기면 갈 자리가 아직 없다. */
+            requestAnimationFrame(() => requestAnimationFrame(() => { pad.scrollTop = spot.y as number; }));
+          }
+        }
+      } catch { /* 자리 기억은 «있으면 좋은 것»이다 — 실패해도 화면은 그대로 뜬다 */ }
+    }
+    let tick = 0;
+    const save = () => {
+      if (tick) return;
+      tick = window.setTimeout(() => {
+        tick = 0;
+        try { sessionStorage.setItem(spotKey(), JSON.stringify({ y: pad.scrollTop, limit })); } catch { /* 무시 */ }
+      }, 200);
+    };
+    pad.addEventListener('scroll', save, { passive: true });
+    return () => { pad.removeEventListener('scroll', save); if (tick) window.clearTimeout(tick); };
+  }, [rows, limit]);
+
   /* 검색 디바운스 — 180ms. 파인더와 같은 값으로 둔다(같은 손이 두 화면을 만진다). */
   useEffect(() => {
     const t = setTimeout(() => setQuery((q) => (q.q === typed ? q : { ...q, q: typed })), 180);
@@ -522,9 +572,9 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
             ) : (
               <>
                 <Grid mobile={mobile}>
-                  {shown.map((p) => (
-                    <ShopCard key={String(p.product_code)} p={p} href={href(p)}
- />
+                  {/* ★순번을 넘긴다 — 첫 화면 카드는 사진을 «기다리지 않고» 받는다(`ShopCard` `rank`). */}
+                  {shown.map((p, i) => (
+                    <ShopCard key={String(p.product_code)} p={p} href={href(p)} rank={i} />
                   ))}
                 </Grid>
                 <ShopMore shown={shown.length} total={list.length} onMore={() => setLimit((n) => n + PAGE)} />

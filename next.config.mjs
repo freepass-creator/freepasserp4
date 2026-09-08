@@ -31,6 +31,13 @@ const nextConfig = (phase) => ({
    *   대부분은 `/api/img` 프록시를 타므로 **동일 오리진 상대주소**라 이 목록과 무관하다.
    */
   images: {
+    /*
+     * ⚠ **동일 오리진 사진도 «허락»을 적어야 한다.** 우리 사진은 전부 `/api/img?url=...` 이라
+     *   물음표가 붙는데, Next 는 물음표 붙은 «우리» 주소를 Next 16 부터 «설정에 없으면 거부»한다
+     *   (2026-09-08 개발 콘솔 경고로 잡았다 — 지금은 경고지만 그때는 사진이 통째로 안 뜬다).
+     * ★그러니 지금 적어 둔다. 미루면 Next 를 올리는 날 손님 화면이 빈다.
+     */
+    localPatterns: [{ pathname: '/api/img' }],
     formats: ['image/avif', 'image/webp'],
     minimumCacheTTL: 2592000,
     remotePatterns: [
