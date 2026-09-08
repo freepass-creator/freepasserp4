@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import { ShopView } from './ShopView';
-import { coBrandName, hasBrand, resolveGuestWhitelabel } from '@/lib/whitelabel';
+import { coBrandName, hasBrand, resolveGuestWhitelabel, ogImage, OG_SIZE } from '@/lib/whitelabel';
 
 /**
  * 가게의 **서버 껍데기**. 화면은 `ShopView`(클라이언트)가 그린다.
@@ -34,12 +34,22 @@ export async function generateMetadata({ searchParams }: Params): Promise<Metada
   /* ★브라우저 탭·공유 미리보기도 «채널 ✕ freepass» 다(`coBrandName` 머리말). */
   const title = coBrandName(wl);
   const description = `${wl.name} 즉시출고 차량 — 조건별로 골라 보세요.`;
+  const og = ogImage(wl);
   return {
     title: { absolute: title },
     description,
     robots: { index: false, follow: false },
-    openGraph: { type: 'website', title, description, siteName: coBrandName(wl) },
-    twitter: { card: 'summary', title, description },
+    /*
+     * ★★**공유 미리보기 그림을 «우리가» 정한다**(`ogImage` 머리말). 안 주면 카카오가
+     *   페이지에서 아무 그림이나 주워다 정사각으로 잘라, 간판이 잘린 채 나간다.
+     * ★`summary_large_image` — 1200×630 을 주므로 큰 카드로 그리게 한다.
+     *   작은 카드로 두면 그 넓은 그림을 다시 정사각으로 자른다.
+     */
+    openGraph: {
+      type: 'website', title, description, siteName: coBrandName(wl),
+      ...(og ? { images: [{ url: og, ...OG_SIZE, alt: wl.name }] } : null),
+    },
+    twitter: { card: og ? 'summary_large_image' : 'summary', title, description, ...(og ? { images: [og] } : null) },
   };
 }
 

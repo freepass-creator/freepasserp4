@@ -569,6 +569,31 @@ export function coBrandName(wl: Whitelabel): string {
   return hasBrand(wl) ? `${wl.name} ✕ freepass` : wl.name;
 }
 
+/**
+ * **공유 미리보기 그림** — 카톡·라인·슬랙에 링크를 붙였을 때 뜨는 그 그림.
+ *
+ * 사장님 2026-09-08 「이거 줄 때 CI 있잖아 이거 **카카오톡 붙여넣으면 좀 맞춰서** 주라」 ·
+ * 「암튼 저거 **규격화** 좀 해」.
+ *
+ * ⚠⚠ **안 정해 주면 상대가 고른다.** `og:image` 가 없어서 카카오가 페이지에서 아무 그림이나
+ *   주워 갔고(머리띠 심볼 232×190), 그걸 정사각으로 잘라 **간판이 잘린 채** 나갔다.
+ * ★그림은 `npm run make:og` 가 **채널마다 한 장** 굽는다(1200×630 · 안전영역 가운데 630×630).
+ *   채널을 더하면 그 명령을 다시 돌린다 — `npm run check:brand` 가 빠진 것을 잡는다.
+ * ★마크가 없는 채널(우리 가게처럼 워드마크만)은 **안 준다** — 그때는 카톡이 글자 카드로 그린다.
+ *   빈 그림을 주느니 그편이 낫다.
+ */
+export function ogImage(wl: Whitelabel): string | undefined {
+  return wl.logo ? `/brand/og-${wl.key}.png` : undefined;
+}
+
+/**
+ * 공유 미리보기 그림의 «치수» — OG 표준 1.91:1.
+ * ★굽는 쪽(`scripts/make-og.mts`)과 알리는 쪽(메타)이 **같은 숫자**를 봐야 한다.
+ *   따로 적으면 그림만 바꾸고 메타는 옛 숫자를 말해, 카톡이 자리를 잘못 잡는다.
+ * ⚠ 라우트 파일에 숫자를 박지 않는다 — 건물도면 검사가 「하드코딩 높이」로 잡는다(그 규칙이 맞다).
+ */
+export const OG_SIZE = { width: 1200, height: 630 } as const;
+
 /** 호스트 정규화 — 대소문자·포트·앞뒤 공백을 걷어낸다. */
 function normHost(raw: string | null | undefined): string {
   return String(raw || '').trim().toLowerCase().split(':')[0];
