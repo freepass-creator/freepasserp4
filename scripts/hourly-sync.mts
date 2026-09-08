@@ -864,6 +864,15 @@ if (APPLY) {
   const mir = run('⑭ Firestore 미러', ['scripts/mirror-to-firestore.mts', '--apply'], /미러 완료|중단|✗/);
   line.push(mir.ok ? (mir.picked.find((l) => /미러 완료/.test(l))?.replace('미러 완료 — ', '') || '미러 ok') : '★미러 실패');
   if (!mir.ok) warnings.push('Firestore 미러 실패');
+  /**
+   * ⑭½ **원자 ↔ ERP 대조** — 시트가 보는 차와 ERP 가 보는 차가 같은가.
+   *   ⚠ 2026-09-08 실측 674대가 갈렸다(그중 상태 149대). 상태가 갈리면 **판 차가 ERP 에서 다시 선다.**
+   *   ★알림만 한다 — 어느 쪽으로 맞출지는 사람이 정할 일이고, 반대로도 밀면 미러와 두 방향 고리가 된다.
+   */
+  const erpGap = run('⑭½ 원자↔ERP 대조', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/audit-atom-vs-erp.mts'], /대체로 같다|크게 벌어졌다|값이 다른 차/);
+  if (erpGap.ok) { const l = erpGap.picked.find((x) => /값이 다른 차/.test(x)); if (l) line.push(l.trim()); }
+  if (erpGap.picked.some((x) => /크게 벌어졌다/.test(x))) warnings.push('원자와 ERP 가 다른 차를 말한다 — 시트와 화면이 어긋난다');
+
   const det = run('⑮ 원자 변경 검증', ['scripts/detect-atom-changes.mts'], /상태 전이|대여료 변경|기준선/);
   const stN = /상태 전이 (\d+)건/.exec(det.picked.join(' '))?.[1];
   const prN = /대여료 변경 (\d+)건/.exec(det.picked.join(' '))?.[1];
