@@ -61,6 +61,15 @@ class Snap {
 }
 
 function dig(obj: any, field: string[]) { let cur = obj; for (const f of field) { if (cur == null) return undefined; cur = cur[f]; } return cur; }
+/** 필드경로 → «중첩 객체». Firestore set(merge)는 «점 든 키»를 문자 그대로 저장한다(중첩 아님) — dig 읽기와 어긋난다.
+ *  그래서 { snapshot: { status: v } } 로 만들어 set-merge 하면 깊은 병합으로 중첩 저장돼 dig 와 대칭이 된다. */
+function nest(field: string[], val: any): any { return field.length ? { [field[0]]: nest(field.slice(1), val) } : val; }
+/** target 에 «중첩 경로»로 값을 심는다(여러 키를 한 patch 로 모을 때). */
+function deepSet(target: Record<string, any>, path: string[], val: any): void {
+  let cur = target;
+  for (let i = 0; i < path.length - 1; i++) { if (cur[path[i]] == null || typeof cur[path[i]] !== 'object') cur[path[i]] = {}; cur = cur[path[i]]; }
+  cur[path[path.length - 1]] = val;
+}
 
 class RefShim {
   private p: Parsed;
@@ -110,7 +119,7 @@ class RefShim {
 
   async set(val: any): Promise<void> {
     const ref = this.docRef(); if (!ref) throw new Error(`set 은 문서 경로여야 함: ${this.path}`);
-    if (this.p.field.length) { await ref.set({ [this.p.field.join('.')]: val }, { merge: true }); return; }
+    if (this.p.field.length) { await ref.set(nest(this.p.field, val), { merge: true }); return; }
     await ref.set(this.withMeta(val));
   }
 
@@ -126,15 +135,16 @@ class RefShim {
           const sub = parse(`${this.path}/${rawKey}`.replace(/\/+/g, '/'));
           if (!sub.docId) throw new Error(`update 경로키가 문서까지 못 감: ${this.path} / ${rawKey}`);
           const dref = this.fs.collection(sub.col).doc(sub.docId);
-          if (sub.field.length) batch.set(dref, { [sub.field.join('.')]: val }, { merge: true });
+          if (sub.field.length) batch.set(dref, nest(sub.field, val), { merge: true });
           else batch.set(dref, ENTITY.has(sub.node) && val && typeof val === 'object' && !Array.isArray(val) ? { ...val, companyId: companyOf(val), _key: sub.docId } : val, { merge: true });
         }
         await batch.commit();
       }
       return;
     }
-    const prefix = this.p.field.length ? this.p.field.join('.') + '.' : '';
-    const patch: Record<string, any> = {}; for (const [k, v] of Object.entries(obj)) patch[prefix + k] = v;
+    // ★중첩 경로를 «중첩 객체»로 심는다(점/슬래시 든 키 포함) — set-merge 는 점 키를 문자 그대로 저장하므로 nest 필요.
+    const patch: Record<string, any> = {};
+    for (const [k, v] of Object.entries(obj)) deepSet(patch, [...this.p.field, ...k.split(/[/.]/).filter(Boolean)], v);
     await ref.set(patch, { merge: true }); // set-merge = RTDB update(없으면 생성) 의미와 동일
   }
 
@@ -147,7 +157,7 @@ class RefShim {
   async push(val?: any): Promise<{ key: string }> {
     const id = this.fs.collection('_ids').doc().id; // 자동 id
     if (!this.p.docId) { if (val !== undefined) await this.fs.collection(this.p.col).doc(id).set(this.withMeta(val)); return { key: id }; }
-    if (val !== undefined) await this.docRef()!.set({ [[...this.p.field, id].join('.')]: val }, { merge: true });
+    if (val !== undefined) await this.docRef()!.set(nest([...this.p.field, id], val), { merge: true });
     return { key: id };
   }
 
@@ -164,7 +174,7 @@ class RefShim {
       } else { current = fieldKey ? dig(d.data(), this.p.field) : d.data(); }
       const next = fn(current === null ? undefined : current);
       if (next === undefined) return { committed: false, value: current };
-      if (fieldKey) tx.set(ref, { [fieldKey]: next }, { merge: true });
+      if (this.p.field.length) tx.set(ref, nest(this.p.field, next), { merge: true });
       else tx.set(ref, this.withMeta(next));
       return { committed: true, value: next };
     });
