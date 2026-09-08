@@ -183,20 +183,10 @@ function EstimateCostPageInner() {
     /* `cost` 표식 — 웹 레이아웃이 견적과 다르다(견적=입력·결과 두 기둥 / 원가=설정 카드 두 단).
        폰에서는 아무 뜻도 없다. CSS 가 넓은 화면에서만 갈라 쓴다. */
     <div className="wx-root cost">
-      {/* ══ 머리 — 견적 화면과 «똑같은» 띠·토글이다(사장님 2026-09-08).
-             ⚠ 「원가설정」에 밑줄이 그어졌던 것은 링크(`<a>`)라 그랬다. `.gt-modes` 가 밑줄을 없애고
-               두 칸의 높이·테두리를 맞춘다. 두 화면이 **같은 규칙**을 쓰므로 한쪽만 어긋날 수 없다. ══ */}
-      <div className="global-topbar">
-        <span className="global-topbar__hint">원가 설정 — 견적이 이 값으로 계산한다</span>
-        <span className="spacer" />
-        <div className="global-topbar__actions">
-          <div className="gt-modes">
-            <Link href="/estimate">견적내기</Link>
-            <span className="on">원가설정</span>
-          </div>
-        </div>
-      </div>
-
+      {/* ★★머리 띠가 «없다» — 견적 화면과 같은 규칙(사장님 2026-09-08 「상단바 없고 그냥
+             이거 자체가 별도 페이지야」). 대신 **갇히지 않게** 「견적으로」 한 줄만 둔다 —
+             띠가 아니라 화면 안 글자다. */}
+      <div className="backline"><Link href="/estimate">← 견적으로</Link></div>
       <div className="est-root cost">
       <div className="phone">
 
