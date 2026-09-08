@@ -14,7 +14,7 @@ import { PERKS, hasPerk } from '@/lib/domain/product-filters';
 import { vehicleNameOf } from '@/lib/domain/vehicle-name';
 import { displacementL } from '@/components/product-card-identity';
 import { yearFullDisplay, fuelDisplay } from '@/lib/domain/vehicle-master-format';
-import { isEvFuel, kmDisplay, kmValue, manShort } from '@/lib/format';
+import { isEvFuel, kmDisplay, kmValue, manShort, wonKo } from '@/lib/format';
 
 /**
  * 가게 카드 — 손님이 이 화면에서 «고르는 단위».
@@ -268,11 +268,18 @@ export const ShopCard = memo(function ShopCard({ p, href, rank = 99 }: {
             많이 남잖아, 그런 것들 활용해 가지고」). 셋을 각각 한 줄씩 쓰면 카드가 세로로만 길어지고
             가로는 텅 빈다. 한 줄에 세우면 손님이 «얼마에 얼마 걸고 몇 달» 을 한눈에 읽는다.
             ★위계는 크기로 낸다 — 대여료만 크고, 기간·보증금은 그 옆에 붙은 조건이다.
-            ★★**훑는 자리라 자릿수를 줄인다**(사장님 2026-09-05 「간단하게 보는 거에서는 보증금은
-              120만원 이렇게 뒤에 거 다 떼내고, 대여료는 46.7만원·99.9만원 이런 식으로 만까지만」).
-              대여료 = 만 단위 소수 한 자리(견주는 값이라 천원 자리가 판을 가른다) ·
-              보증금 = 만원 단위(목돈의 «크기»를 재는 값이다). 둘 다 **버린다 — 반올림 아니다**.
-            ⚠ 상세는 그대로 원 단위다(`manWon`) — 거기는 «낼 금액»을 확인하는 자리다.
+            ★★**둘이 자릿수가 다르다** — 이유가 다르기 때문이다.
+              · **대여료 = `wonKo`(「59만4천원」) · 한 원도 안 깎는다.** 사장님 2026-09-08
+                「**숫자에 0 들어가는 거** 이거 홈페이지에는 안 해도 될 거 같은데」 ·
+                「대여료 **97만3천원** 이렇게 하든가 아니면 **973,000원** 이렇게 하든가」.
+                ⇒ 소수점(97.3만원)도 `,000`(97만 3,000원)도 버린다. **상세와 같은 말**을 쓴다.
+              · **보증금 = `manShort`(「178만원」) · 뒤를 떼어 낸다.** 사장님 2026-09-05
+                「간단하게 보는 거에서는 **보증금은 120만원 이렇게 뒤에 거 다 떼내고**」.
+                「지금 목돈이 얼마나 드나」를 재는 값이라 «크기»가 먼저다 — 천원 자리가 붙으면
+                큰 숫자가 더 길어져 옆의 대여료를 가린다. **버린다(내림) — 반올림 아니다.**
+            ⚠ 09-08 에 대여료를 고치면서 보증금까지 같이 바꿨다가 되돌렸다. 그날 말씀은
+              **대여료** 이야기였고, 보증금의 「뒤에 거 떼기」는 09-05 에 따로 정한 것이다.
+            ⚠ **상세는 보증금도 원 단위**다(`wonKo`) — 거기는 «낼 금액»을 확인하는 자리다.
           */}
           {price && price.rent > 0 ? (
             /* ⚠ 잘라 내지 않는다 — 「보증금 103만 5,…」로 끝이 잘리고 있었다(2026-09-05 실측).
@@ -295,7 +302,7 @@ export const ShopCard = memo(function ShopCard({ p, href, rank = 99 }: {
                 fontSize: SHOP.fs.price, fontWeight: FW.head, color: C.ink, flex: '0 0 auto',
                 lineHeight: 1.15,  /* 큰 숫자일수록 기본 줄높이가 남긴 여백이 크다 — 여기서 제일 많이 붙는다. */
                 letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums',
-              }}>{manShort(price.rent, { decimal: true })}</span>
+              }}>{wonKo(price.rent)}</span>
               {/*
                 ★「보증금 없음」에만 색을 준다(2026-09-05). 저신용 손님의 1번 장벽은 월요금이 아니라
                   **지금 당장 필요한 목돈**이라, 이 판에서 제일 센 말이 이거다.
