@@ -19,6 +19,8 @@ import { readFileSync } from 'node:fs';
 import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { listSheetTabs, readSheetGrid } from '../lib/server/google-sheets';
+import { HUB_CODE_SHEET_ID } from '../lib/domain/legacy-sheets';
+import { pickSupplierSource, hubSourceMap } from '../lib/domain/supplier-source';
 import { snapToMaster, makerGroup } from '../lib/domain/vehicle-master-match';
 import type { MasterEntry } from '../lib/domain/vehicle-master-types';
 import type { EntityRecord } from '../lib/intake/entities';
@@ -51,12 +53,17 @@ async function srcConfig(): Promise<{ code: string; name: string; kind: Kind; fr
   if (CODE === SON_CODE || CODE === 'SONOKONG' || CODE === '손오공') return { code: SON_CODE, name: '손오공', kind: 'sonokong' };
   const m = MIRROR_SOURCES.find((x) => x.code === CODE);
   if (m) return { code: m.code, name: m.name, kind: m.kind as Kind, from: m.from };
-  // 나머지 공급사 = v4/partners(→ Firestore partner 그림자)에 등록된 sheet_url 을 원천으로.
+  /**
+   * 나머지 공급사 = **문패(공급사시트정리)가 정본**. `partner.sheet_url` 은 늦는 사본이라 마지막 수단이다.
+   * ⚠ 2026-09-08 — 이 자리가 `partner.sheet_url` 만 봤고, 그 값이 **폐기된 옛 시트**여서
+   *   웰릭스가 24일 동안 죽은 시트를 읽었다(K8 이 「모닝」으로 들어왔다). 규칙 SSOT = `lib/domain/supplier-source`.
+   */
   const snap = await fs.collection('partner').where('partner_code', '==', CODE).limit(1).get();
   const p = snap.docs[0]?.data() as { name?: string; sheet_url?: string } | undefined;
-  const id = sheetIdFromUrl(p?.sheet_url);
-  if (id) return { code: CODE, name: S(p?.name) || CODE, kind: 'sheet', from: id };
-  throw new Error(`${CODE}: MIRROR_SOURCES·손오공·partner.sheet_url 어디에도 원천이 없다 — 수동/일회성 공급사`);
+  const hubRows = (await readSheetGrid(HUB_CODE_SHEET_ID, (await listSheetTabs(HUB_CODE_SHEET_ID))[0]));
+  const pick = pickSupplierSource(CODE, hubSourceMap([hubRows.header, ...hubRows.rows]), p?.sheet_url);
+  console.log(`  원천 주소 ← ${pick.from} · ${pick.id}`);
+  return { code: CODE, name: S(p?.name) || CODE, kind: 'sheet', from: pick.id };
 }
 const src = await srcConfig();
 const PROV = src.code;   // Firestore 태깅·pin 조회는 공급사 정식 코드로(손오공=RP012)
@@ -145,7 +152,14 @@ function statusDetail(rawStatus: string, locked?: unknown) {
   else if (cur === '차량검수') { kind = '준비'; reason = '검수대기'; }
   else if (cur === '계약중') { kind = '선점'; reason = locked ? '계약선점' : '공급사표기'; }
   else if (cur === '출고불가') { kind = '불가'; reason = (AVAIL.has(raw) || raw === '출고협의') ? '시트이탈' : (raw ? '공급사불가' : '정보없음'); }
-  return { status: cur, status_kind: kind, status_reason: reason, listable: kind !== '불가', status_label_raw: raw };
+  /**
+   * ★★**상태는 «한 벌»이다** — `vehicle_status` 가 정본이고 나머지는 거기서 파생된다.
+   *   ⚠ 2026-09-08 실측: 직접수집이 `status` 만 쓰고 `vehicle_status` 를 안 써서, 한 차가
+   *   `status=출고가능` · `vehicle_status=출고불가` 로 **두 값을 동시에** 들고 있었다(108대).
+   *   판매시트·문지기는 `vehicle_status`, ERP 일부는 `status` 를 읽어 «판 차가 목록에 다시 서는» 길이 열렸다.
+   *   규칙 SSOT = `docs/원자-내려보내기-로직.md` §1.
+   */
+  return { vehicle_status: cur, status: cur, status_kind: kind, status_reason: reason, listable: kind !== '불가', status_label_raw: raw };
 }
 
 // ── 원본 열 자동 해석 (MIRROR_ALIAS) ───────────────────────────────────────
@@ -238,8 +252,13 @@ async function readRows(): Promise<Row[]> {
       const maker0 = ci.maker >= 0 ? S(r[ci.maker]) : '';
       // ★공급사 원문 차명 — 「어떤 형태로든지」 준 것을 다 훑는다(사장님 2026-09-05):
       //   원본 차명 열 → (없으면) 모델+트림 합성 → (그것도 없으면) 제조사+모델+트림. 빈 채로 굳지 않게.
+      // ⚠★**제조사 한 마디만 남으면 차명이 아니다 — 비운다.**
+      //   실측 2026-09-08: 웰릭스가 옆 시트의 「차명(트림)」 열을 못 읽어 vname이 「기아」가 됐고,
+      //   매칭기가 그걸 보고 K8을 **모닝**으로, 카니발을 **스포티지**로 붙였다.
+      //   「모른다」는 빈 칸으로 남기는 게 맞다 — 그래야 「원문없음」으로 잡혀 검수 목록에 오른다.
       const rawVname = ci.vname >= 0 ? S(r[ci.vname]) : '';
-      const vname = rawVname || composeVehicleName(model, trim) || [maker0, model, trim].filter(Boolean).join(' ');
+      const composed = rawVname || composeVehicleName(model, trim) || [maker0, model, trim].filter(Boolean).join(' ');
+      const vname = N(composed) === N(maker0) ? '' : composed;
       const price = sheetPrice((i) => S(r[i]), ci);
       push({ car, status: S(r[ci.status]), kind: ci.kind >= 0 ? S(r[ci.kind]) : '', maker: maker0, model, vname, trim, fuel: ci.fuel >= 0 ? S(r[ci.fuel]) : '', ext: ci.ext >= 0 ? S(r[ci.ext]) : '', int: ci.int >= 0 ? S(r[ci.int]) : '', km: ci.km >= 0 ? S(r[ci.km]) : '', opt: ci.opt >= 0 ? S(r[ci.opt]) : '', firstReg: ci.firstReg >= 0 ? S(r[ci.firstReg]) : '', cc: ci.cc >= 0 ? S(r[ci.cc]) : '', klass: ci.klass >= 0 ? S(r[ci.klass]) : '', price, tab, row: String(rowNo) });
     }
@@ -333,7 +352,14 @@ const jsonP = (o: unknown) => JSON.stringify(o ?? {}, (_k, v) => (v && typeof v 
 for (const a of now) {
   const c = cur.get(a.car_number); if (!c) continue; both++;
   if (IDF.every((f) => N(a[f]) === N(c[f]))) idSame++;
-  if (Object.keys(a.price).length && c.price) { priceBoth++; if (jsonP(a.price) === jsonP(c.price)) priceSame++; }
+  /**
+   * ⚠ **요금이 «없는» 차가 있다** — 출고불가·상품화중이거나 공급사가 아직 값을 안 적은 차다.
+   *   `a.price` 는 값이 있을 때만 붙는 칸이라 없으면 `undefined` 인데, 그대로 `Object.keys` 를 부르면 죽는다.
+   *   실측 2026-09-08 — 웰릭스(RP013)가 매 회차 여기서 터져 **원자가 통째로 안 들어왔다**.
+   *   그 집 차 여섯 대가 시트엔 41~44칸이 차 있는데 원자엔 12~14칸뿐이던 것이 이 한 줄 때문이다.
+   *   ★대조 «통계»를 내다가 유입 전체를 죽이면 안 된다 — 통계는 못 내도 원자는 들어와야 한다.
+   */
+  if (a.price && Object.keys(a.price).length && c.price) { priceBoth++; if (jsonP(a.price) === jsonP(c.price)) priceSame++; }
 }
 const gone = [...cur.keys()].filter((k) => !ingestedCars.has(k)); // 우리 것엔 있는데 원천에서 사라진 차
 const fresh = now.filter((a) => !cur.has(a.car_number)).length; // 원천엔 있는데 우리 것에 없던 새 차

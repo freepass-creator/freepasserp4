@@ -139,6 +139,21 @@ function writeFileSyncSnap(nowBy: Record<string, number>) {
   console.log(`⑦ 요금 없는 차 ${bad.length}`);
 }
 
+// ── ⑧ 상태가 두 벌 ─────────────────────────────────────────
+/**
+ * ⚠ 2026-09-08 — `status`(출고가능)와 `vehicle_status`(출고불가)가 한 문서에 같이 있었다(149대).
+ *   시트·문지기는 `vehicle_status`, ERP 일부는 `status` 를 읽으니 **판 차가 목록에 다시 설 수 있었다.**
+ *   ★멈춘다 — 그대로 나가면 이미 팔린 차를 또 판다.
+ */
+{
+  const bad = docs.filter((v) => S(v.status) && S(v.vehicle_status) && S(v.status) !== S(v.vehicle_status));
+  const blank = docs.filter((v) => !S(v.vehicle_status));
+  if (bad.length >= 5) 멈춤.push(`상태가 두 벌인 차 ${bad.length}건 — ${bad.slice(0, 4).map((v) => `${S(v.car_number)}(${S(v.status)}↔${S(v.vehicle_status)})`).join(' · ')}  ⚠ 판 차가 다시 설 수 있다. heal-atom-status 로 아물려라`);
+  else if (bad.length) 알림.push(`상태가 두 벌인 차 ${bad.length}건 — ${bad.map((v) => `${S(v.car_number)}(${S(v.status)}↔${S(v.vehicle_status)})`).join(' · ')}`);
+  if (blank.length) 알림.push(`배차상태가 빈 차 ${blank.length}건 — 시트 「배차상태」 칸이 빈다`);
+  console.log(`⑧ 상태 두 벌 ${bad.length} · 빈 상태 ${blank.length}`);
+}
+
 // ── 결과 ──────────────────────────────────────────────────
 console.log('');
 for (const x of 알림) console.log(`  ▲ ${x}`);

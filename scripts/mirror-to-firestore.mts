@@ -165,7 +165,43 @@ console.log(`RTDB v4/products ${rows.length} → Firestore products ${items.leng
 if (dups > 0) { console.error(`✗ 차번 겹침 ${dups} — 오류. 중단.`); process.exit(1); }
 console.log(`확정 ${stat.유효보존 + stat.치유high} (유효보존 ${stat.유효보존} + 치유high ${stat.치유high}, 트림보강 ${stat.트림보강}) · 검수대기 ${stat.치유med + stat.검수대기}(치유med ${stat.치유med} + 미해결 ${stat.검수대기})`);
 
+/**
+ * ★★**직접수집이 맡은 차는 미러가 덮지 않는다** (규칙 SSOT = `docs/원자-내려보내기-로직.md` §1).
+ *
+ * ⚠ 2026-09-08 — 원자 한 문서를 넷이 쓰면서 서로의 칸을 덮고 있었다. 미러는 파이프라인 «맨 끝»(⑭)이라
+ *   늘 마지막에 이기는데, 읽는 곳이 **이제 안 쓰는 RTDB** 다. 그래서 직접수집이 원천에서 방금 정확히
+ *   가져온 차 이름·제원·상태·요금을 옛 값으로 되돌려 놓았다 — 「왜 넣어도 되돌아가냐」의 정체.
+ *
+ * ⇒ `_direct_ingest_at` 이 찍힌 차는 **빈 칸만 채운다.** 미러가 «새로 알려 주는 것»은 받고,
+ *   «이미 아는 것»은 안 건드린다. 원천이 없는 옛 차(직접수집 밖)는 지금처럼 통째로 미러가 맡는다.
+ */
+const OWNED_BY_INGEST = new Set([
+  'maker', 'model', 'sub_model', 'trim_name', 'origin', '확정', '검수상태', '원문',
+  'ext_color', 'int_color', 'year', 'fuel_type', 'engine_cc', 'vehicle_class', 'drive_type', 'seats',
+  'first_registration_date', 'battery_capacity', 'options', 'mileage', 'price',
+  'status', 'vehicle_status', 'status_kind', 'status_reason', 'status_label_raw', 'listable', 'product_type',
+]);
+const curDocs = new Map<string, Record<string, unknown>>();
+for (const d of (await fs.collection('products').get()).docs) curDocs.set(d.id, d.data() as Record<string, unknown>);
+let 양보 = 0, 양보칸 = 0;
+for (const it of items) {
+  const c = curDocs.get(it.id);
+  if (!c || !c._direct_ingest_at) continue;   // 직접수집 밖의 차 — 예전처럼 미러가 맡는다
+  let cut = 0;
+  for (const f of Object.keys(it.doc)) {
+    if (!OWNED_BY_INGEST.has(f)) continue;
+    const have = c[f];
+    const 찼나 = have !== undefined && have !== '' && have !== null
+      && !(typeof have === 'object' && !Array.isArray(have) && Object.keys(have as object).length === 0);
+    if (찼나) { delete it.doc[f]; cut++; }     // 이미 아는 칸 — 안 덮는다
+  }
+  if (cut) { 양보++; 양보칸 += cut; }
+}
+console.log(`직접수집이 맡은 차 ${양보}대 — 이미 찬 칸 ${양보칸}개는 덮지 않는다(빈 칸만 채움).`);
+
 if (!APPLY) { console.log(`\n미리보기 — Firestore products ${items.length}개 merge(불변+변동+렌더). 실제: --apply`); process.exit(0); }
+
+
 let written = 0;
 for (let i = 0; i < items.length; i += 400) {
   const batch = fs.batch();
