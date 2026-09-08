@@ -120,6 +120,7 @@
     "check:intake": "tsx scripts/check-intake-gap.mts",
     "check:double": "tsx scripts/check-double-claim.mts",
     "settlement:parties": "tsx scripts/build-billing-parties.mts",
+    "settlement:fill": "tsx scripts/fill-intake-from-atoms.mts",
     "build:estimate-cars": "tsx scripts/generate-estimate-car-index.mts"
   },
   "dependencies": {
