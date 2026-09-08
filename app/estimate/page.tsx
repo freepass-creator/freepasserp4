@@ -234,11 +234,6 @@ function EstimatePageInner() {
   const [newModels, setNewModels] = useState<NewModel[] | null>(null);
   /** 이름 사전 — 신차마스터가 기아를 영문 슬러그로 주므로 한글로 되짚어야 한다. */
   const [carIdx, setCarIdx] = useState<CarIndex | null>(null);
-  /**
-   * 연도별 잔가 — **접어 둔다**(사장님 2026-09-08 「잔가 수동 넣기는 **숨겨놨다가 꺼내서** 쓸 수 있는 거고」).
-   * 잔가는 «원가»에 속한 값이라 견적할 때는 안 보이는 게 맞다 — 원본(웰릭스·손오공)도 그렇다.
-   */
-  const [residOpen, setResidOpen] = useState(false);
   /** 중고 취득 경로 — 기보유면 등록·탁송·상품화가 원가에서 빠진다. */
   const [acq, setAcq] = useState<AcqPath>('prep');
   const [disc, setDisc] = useState(0);
@@ -253,7 +248,18 @@ function EstimatePageInner() {
   const [fee, setFee] = useState(() => cachedCost().salesFeePct);
   const [open, setOpen] = useState<number | null>(48);
   /** 잔가는 «자동(표준+델타)»이 기본이고, 목업 STEP 4 처럼 건별로 덮어쓸 수 있다. */
+  /**
+   * ★★잔가는 **둘**이다 — 사장님 2026-09-08 「잔가는 내부에서 **견적용 잔가와 손님 인수용 잔가가 2개**가 있음」.
+   *
+   *   ㉠ **견적용**(`residOverride`) — 우리가 «얼마에 팔릴까»로 잡는 값. **대여료를 만든다.**
+   *      보수적으로 낮게 잡을수록 대여료가 올라가고 우리 위험이 줄어든다.
+   *   ㉡ **인수용**(`buyoutOverride`) — 만기에 **손님이 사 가는 값**. 견적서에 「만기인수」로 찍힌다.
+   *      ⇒ **대여료에는 안 들어간다.** 둘을 한 값으로 묶으면 「손님에게 싸게 넘기려고 잔가를 올렸더니
+   *        대여료가 같이 싸지는」 사고가 난다.
+   *   기본은 둘 다 곡선(표준+차종델타)이고, 칸마다 직접 넣을 수 있다.
+   */
   const [residOverride, setResidOverride] = useState<Record<number, number>>({});
+  const [buyoutOverride, setBuyoutOverride] = useState<Record<number, number>>({});
   /** 손님·담당자 — 원본 `CustomerStaffForm`. 견적서에 찍혀 나갈 이름이라 견적 화면이 묻는다. */
   const [custName, setCustName] = useState('');
   const [staffName, setStaffName] = useState('');
@@ -363,11 +369,21 @@ function EstimatePageInner() {
     }
     return out;
   }, [isNew, age, delta]);
+  /** 견적용 — 엔진이 이 값으로 대여료를 만든다. */
   const residPct = useMemo(() => {
     const out: Record<number, number> = {};
     for (const t of TERMS) out[t] = residOverride[t] ?? autoResid[t];
     return out;
   }, [autoResid, residOverride]);
+  /**
+   * 인수용 — 손님이 만기에 사 가는 값. 기본은 견적용과 같다(지금까지의 동작 그대로).
+   * ⚠ 이 값은 **대여료에 안 들어간다.** 올려도 월납은 안 움직인다 — 만기에 받는 돈만 달라진다.
+   */
+  const buyoutPct = useMemo(() => {
+    const out: Record<number, number> = {};
+    for (const t of TERMS) out[t] = buyoutOverride[t] ?? residPct[t];
+    return out;
+  }, [buyoutOverride, residPct]);
 
   const mk = useCallback((t: number, d: number, p: number): Card => {
     // 신차는 «출고가»라 업금액을 안 얹는다(중고는 매입가에 얹는다) — `configFrom` 이 갈래로 고른다.
@@ -599,31 +615,6 @@ function EstimatePageInner() {
           </div>
         </section>
 
-        {/* ══ 연도별 잔가 — **접어 둔다** ══════════════════════════════════════
-               사장님 2026-09-08 「잔가 수동 넣기는 **숨겨놨다가 꺼내서 쓸 수 있는** 거고」
-                              「**원가페이지에 들어갈 거는 안 보여주는** 거야(웰릭스·손오공 감안)」
-             ⇒ 잔가는 «원가»에 속한 값이다. 견적을 낼 때는 곡선이 알아서 잡고, 손댈 일이 있을 때만 꺼낸다.
-               원본(웰릭스·손오공)도 견적 화면에 잔가 입력이 없다 — 관리자 쪽에 있다. ══ */}
-        <section id="sec-resid">
-          <button type="button" className="foldhead" onClick={() => setResidOpen((v) => !v)}>
-            연도별 잔가 <b>{delta ? '차종곡선' : '표준곡선'}</b>
-            <span className="fold-note">{Object.keys(residOverride).length ? '건별로 고쳐 둠' : '자동'}</span>
-            <span className="fold-cv">{residOpen ? '−' : '+'}</span>
-          </button>
-          {/* ⚠ `hidden` 속성으로는 안 접힌다 — `.vfields{display:grid}` 가 UA 의 `[hidden]{display:none}` 을
-              이긴다(작성자 스타일이 더 세다). 2026-09-08 눌러 보고 잡았다. ⇒ 아예 안 그린다. */}
-          {residOpen ? (
-          <div className="vfields">
-            {TERMS.map((t) => (
-              <div className="cs-field" key={t}>
-                <label>{t / 12}년</label>
-                <span className="pin w"><input inputMode="numeric" value={residPct[t]}
-                  onChange={(e) => setResidOverride((o) => ({ ...o, [t]: digits(e.target.value) }))} /><i>%</i></span>
-              </div>
-            ))}
-          </div>
-          ) : null}
-        </section>
       </div>
 
       {/* ══ 하단 총액 띠 — 원본 `.total-bar` (≤1024px 에서는 원본대로 숨는다) ══ */}
@@ -653,33 +644,11 @@ function EstimatePageInner() {
           </div>
         </div>
 
-        {/* 손님·담당자 — 원본 `CustomerStaffForm`. 견적서로 나갈 이름이라 견적 화면이 묻는다. */}
-        <div className="cs-form">
-          <div className="cs-field">
-            <label>손님</label>
-            <input value={custName} onChange={(e) => setCustName(e.target.value)} placeholder="VIP 고객" />
-          </div>
-          <div className="cs-field">
-            <label>담당자</label>
-            <input value={staffName} onChange={(e) => setStaffName(e.target.value)} placeholder="홍길동 과장" />
-          </div>
-          <div className="cs-field">
-            <label>연락처</label>
-            <input value={staffTel} onChange={(e) => setStaffTel(fmtTel(e.target.value))}
-              placeholder="010-0000-0000" inputMode="tel" />
-          </div>
-          <div className="cs-field">
-            <label>수수료</label>
-            <span className="pin w"><input inputMode="numeric" value={fee}
-              onChange={(e) => setFee(Math.max(0, Math.min(20, Number(e.target.value.replace(/[^0-9.]/g, '')) || 0)))} /><i>%</i></span>
-          </div>
-        </div>
-
-        {/* ══ 우 = «견적에 관련된 것» — 원본 `ConditionsForm` 이 서던 자리다 ═════════
-               사장님 2026-09-08 「우측은 **견적에 관련된 거**」.
-             ★원본 웰릭스도 **신용**을 이 조건 줄에 둔다(`ConditionsForm`: 신용·약정주행·보증금·선납).
-               채널·만기는 우리 것이라 그 옆에 나란히 세운다.
-             ⚠ 보증금·선납을 여기서 바꾸면 **다섯 칸이 한꺼번에** 따라 움직인다(칸마다 따로도 잡을 수 있다). ══ */}
+        {/* ══ ① 상품 조건 — 「이 견적이 어떤 상품인가」 ═══════════════════════
+               사장님 2026-09-08 「위계랑 섹션 구분 잘해주고 **입력칸들 동선 안 꼬이게**」.
+             ⇒ 오른쪽을 이름 붙인 **세 단**으로 나눴다: ① 어떤 상품인가 → ② 공통 조건 → ③ 기간별.
+               위에서 아래로 한 번만 지나가면 견적이 선다. ══ */}
+        <div className="qp-terms__title">① 상품 조건</div>
         <div className="qp-form qp-form--conds">
           <div className="qc-field">
             <label>채널</label>
@@ -690,10 +659,18 @@ function EstimatePageInner() {
             <Seg tone="t3" opts={TYPES.map((o) => ({ v: o.v, label: o.label }))} cur={type} onPick={setType} />
           </div>
           <div className="qc-field">
-            {/* 유지율을 함께 보여 준다 — 왜 등급마다 값이 갈리는지가 «고르는 자리»에서 보여야 한다. */}
+            {/* 유지율이 여기서 갈린다 — 왜 등급마다 값이 다른지는 ③ 칸의 「손바뀜」에서 보인다. */}
             <label>신용</label>
             <Chips opts={CREDIT.map((c) => ({ v: c, label: c }))} cur={credit} onPick={setCredit} />
           </div>
+        </div>
+
+        {/* ══ ② 공통 조건 — **다섯 칸에 한꺼번에** 먹인다 ═══════════════════════
+               ⚠ 같은 이름(보증금·선납)이 ③ 칸에도 있다. 다른 것이 아니라 «범위»가 다르다 —
+                 여기는 다섯을 한꺼번에, 거기는 그 칸만. 그래서 제목에 그렇게 적어 둔다.
+               ★수수료를 여기로 옮겼다 — 손님 정보가 아니라 견적 조건이다(전에는 「손님·담당자」 줄에 끼어 있었다). ══ */}
+        <div className="qp-terms__title">② 공통 조건 <small>· 다섯 칸에 한꺼번에</small></div>
+        <div className="qp-form qp-form--conds">
           <div className="qc-field">
             <label>보증금</label>
             <span className="pin w"><input type="number" min={0} max={100} value={dep}
@@ -704,21 +681,20 @@ function EstimatePageInner() {
             <span className="pin w"><input type="number" min={0} max={100} value={pre}
               onChange={(e) => { const v = Math.max(0, Math.min(100, Number(e.target.value) || 0)); setPre(v); setScen((a) => a.map((x) => ({ ...x, pre: v }))); }} /><i>%</i></span>
           </div>
+          <div className="qc-field">
+            <label>수수료</label>
+            <span className="pin w"><input inputMode="numeric" value={fee}
+              onChange={(e) => setFee(Math.max(0, Math.min(20, Number(e.target.value.replace(/[^0-9.]/g, '')) || 0)))} /><i>%</i></span>
+          </div>
         </div>
 
-        {/* ══ 1년 ~ 5년 — **각 줄에 대여료·조건·수익·원가가 다 있다** ══════════════
-               사장님 2026-09-08 「우측에서 1년부터 5년까지 **설계**되게끔 해주고
-               각 기간별로 **수익이나 원가 볼 수 있게끔 그 라인에 표현**해주면 돼. **우측에 따로 놓지 말고**」
-             · 보증금·선납은 **줄마다** 잡는다(그게 「설계」다). 위 조건 칸은 다섯 줄을 한꺼번에 바꾼다.
-             · 줄을 누르면 그 해의 **원가 분해**가 그 자리에서 열린다 — 탭으로 옮겨 다니지 않는다.
-             · 체크한 줄만 손님 견적서로 나간다(원본 「견적서에 포함」). ══ */}
         {/* ══ 1년 ~ 5년 — **가로로 쭉**(폰에서는 위아래로) ═══════════════════════════
                사장님 2026-09-08 「**1~5년은 가로로 쭉** 나와야지」 · 「**모바일에서는 그게 위아래로 분리**되는 거고」
              · 한 칸(한 해) 안에 대여료·조건·수익·원가가 다 있다 — 오른쪽에 따로 두지 않는다.
              · 보증금·선납은 **칸마다** 잡는다(그게 「설계」다). 위 조건 줄은 다섯 칸을 한꺼번에 바꾼다.
              · 「원가」를 누르면 그 칸 «안»에서 분해가 열린다. 다섯을 한꺼번에 펼쳐 견줄 수도 있다.
              ⚠ 짜임은 원본 `.term-card` 그대로다. 원본은 셋이고 우리는 다섯이라 열 수만 늘렸다. ══ */}
-        <div className="qp-terms__title">기간별 설계 <small>· 칸마다 조건 · 「원가」를 누르면 분해</small></div>
+        <div className="qp-terms__title">③ 기간별 설계 <small>· 칸마다 조건·잔가 · 「원가」를 누르면 분해</small></div>
         <div className="qgrid">
           {scen.map((sc, i) => {
             const c = lines[i];
@@ -757,9 +733,31 @@ function EstimatePageInner() {
 
                 <div className="term-card__row"><span>보증금</span><b>{man(c.deposit || 0)}</b></div>
                 <div className="term-card__row"><span>선납금</span><b>{man(Math.round(price * sc.pre / 100))}</b></div>
+                {/* ★★잔가 둘 — 사장님 2026-09-08 「그 **해당 기간에 잔가를 직접 넣을 수 있게끔**」
+                       「잔가는 내부에서 **견적용 잔가와 손님 인수용 잔가가 2개**가 있음」
+                    · 견적 잔가 = **대여료를 만드는** 값(낮출수록 월납이 올라간다)
+                    · 인수 잔가 = 만기에 **손님이 사 가는** 값(월납에는 «안» 들어간다)
+                    ⚠ 둘을 한 값으로 묶으면 「손님에게 싸게 넘기려고 잔가를 올렸더니 대여료가 같이
+                      싸지는」 사고가 난다. 그래서 나눠 둔다. */}
+                <div className="term-card__cond resid2">
+                  <label title="우리가 「얼마에 팔릴까」로 잡는 값 — 이 값이 대여료를 만듭니다">
+                    <span>견적 잔가</span>
+                    <span className="pct-cell">
+                      <input type="text" inputMode="numeric" maxLength={3} value={residPct[sc.term]}
+                        onChange={(e) => setResidOverride((o) => ({ ...o, [sc.term]: Math.min(98, digits(e.target.value)) }))} />%
+                    </span>
+                  </label>
+                  <label title="만기에 손님이 사 가는 값 — 대여료에는 들어가지 않습니다">
+                    <span>인수 잔가</span>
+                    <span className="pct-cell">
+                      <input type="text" inputMode="numeric" maxLength={3} value={buyoutPct[sc.term]}
+                        onChange={(e) => setBuyoutOverride((o) => ({ ...o, [sc.term]: Math.min(98, digits(e.target.value)) }))} />%
+                    </span>
+                  </label>
+                </div>
                 <div className="term-card__row">
-                  <span>만기인수<em className="resid-pct">{Math.round((c.residualRate || 0) * 100)}%</em></span>
-                  <b>{man(Math.round(price * (c.residualRate || 0)))}</b>
+                  <span>만기인수</span>
+                  <b>{priceKnown ? man(Math.round(price * buyoutPct[sc.term] / 100)) : '—'}</b>
                 </div>
 
                 {/* 수익·원가 — 이 칸의 «장부» 세 줄. 뺄셈이 눈으로 맞는다(매출 − 원가 = 영업이익). */}
@@ -793,6 +791,28 @@ function EstimatePageInner() {
               </div>
             );
           })}
+        </div>
+
+        {/* ══ 손님·담당자 — **맨 아래**다 ═════════════════════════════════════
+               견적서에 찍힐 이름이라 **발송 직전**에 적는다. 맨 위에서 물으면 차·조건을 보러 온 사람이
+               이름 칸부터 지나가야 한다(사장님 2026-09-08 「입력칸들 동선 안 꼬이게」).
+             ⚠ 원본 웰릭스는 이 줄이 위에 있다 — 거기서는 조건이 넷뿐이라 위든 아래든 같았다.
+               우리는 조건이 세 단이라 차례가 뜻을 갖는다. ══ */}
+        <div className="qp-terms__title">손님 · 담당자 <small>· 견적서에 찍힙니다</small></div>
+        <div className="cs-form">
+          <div className="cs-field">
+            <label>손님</label>
+            <input value={custName} onChange={(e) => setCustName(e.target.value)} placeholder="VIP 고객" />
+          </div>
+          <div className="cs-field">
+            <label>담당자</label>
+            <input value={staffName} onChange={(e) => setStaffName(e.target.value)} placeholder="홍길동 과장" />
+          </div>
+          <div className="cs-field">
+            <label>연락처</label>
+            <input value={staffTel} onChange={(e) => setStaffTel(fmtTel(e.target.value))}
+              placeholder="010-0000-0000" inputMode="tel" />
+          </div>
         </div>
 
         <div className="footnote">
