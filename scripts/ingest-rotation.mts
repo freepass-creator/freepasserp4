@@ -100,7 +100,23 @@ for (const r of 이번차례) {
    *   ★안전판 둘이 이미 있다 — 계약중(락)은 안 내린다 · 수집분이 우리 것의 절반도 안 되면 아예 안 내린다
    *     (원천 읽기 실패 의심). 그 둘 덕에 「못 읽은 날 재고가 사라지는」 사고는 안 난다.
    */
-  const 한번 = () => spawnSync('npx', ['tsx', '--require', './scripts/lib/server-only-shim.cjs', 'scripts/ingest-supplier-to-firestore.mts', `--code=${r.code}`, '--apply', '--variable', '--retire', ...(STATUS_ONLY ? ['--status-only'] : [])], {
+  /**
+   * ★★**오토플러스(RP023)는 «홈피»에서 당긴다 — 시트가 원천이 아니다.**
+   *
+   * > 사장님 2026-09-08 「**오플은 이제 홈피 연동이잖아**」 · 「너는 **원자만 당기는** 거야」
+   *
+   * ⚠⚠ 실측 2026-09-08 — 그런데 `ingest-reborncar-to-firestore` 가 **어느 회차에도 안 붙어 있었다.**
+   *   그래서 회차는 여태 오플 «시트»를 읽으려다 매번 「요금이 한 대도」로 ✗ 를 냈다.
+   *   시트의 기간 칸이 「12개월2만 · 12개월3만 …」처럼 주행거리 밴드로 두 벌이라 우리 파서가 못 읽는데,
+   *   **홈피는 그 두 벌을 그대로 원자 키(`12_20000`·`12_30000`)로 준다.** 골라야 할 일이 아니라 당기면 될 일이었다.
+   *
+   * ★상태는 여전히 «시트»가 말한다 — 30분 훑기(`sweep-status`)가 오플 「판매상태」 칸을 읽는다.
+   *   원천이 둘이라 헷갈리지 않게 나눠 둔다: **상태 = 시트 · 내용(제원·요금·옵션) = 홈피.**
+   */
+  const 홈피 = r.code === 'RP023';
+  const 한번 = () => spawnSync('npx', 홈피
+    ? ['tsx', '--require', './scripts/lib/server-only-shim.cjs', 'scripts/ingest-reborncar-to-firestore.mts', '--apply']
+    : ['tsx', '--require', './scripts/lib/server-only-shim.cjs', 'scripts/ingest-supplier-to-firestore.mts', `--code=${r.code}`, '--apply', '--variable', '--retire', ...(STATUS_ONLY ? ['--status-only'] : [])], {
     encoding: 'utf8', shell: process.platform === 'win32', env: process.env,
   });
   let out = 한번();
@@ -120,7 +136,8 @@ for (const r of 이번차례) {
     spawnSync(process.execPath, ['-e', 'setTimeout(()=>{},35000)'], { stdio: 'ignore' });
     out = 한번(); txt = `${out.stdout || ''}${out.stderr || ''}`;
   }
-  const done = /반영 완료|변동 폴링 완료/.test(txt);
+  /** ★홈피 길은 끝말이 다르다 — 「■ --apply — 매칭 오플 N대」. 끝말을 안 맞추면 성공을 실패로 센다. */
+  const done = /반영 완료|변동 폴링 완료|■ --apply —/.test(txt);
   const 내림 = Number((txt.match(/listable=false (\d+)건/) || [])[1] || 0);
   const 대기 = Number((txt.match(/원천에 «새 차» (\d+)대/) || [])[1] || 0);
   const 왜 = /요금이 한 대도/.test(txt) ? '요금 열을 못 읽음(두 줄 머리글 — 정제시트 길로 들어온다)'
@@ -129,7 +146,7 @@ for (const r of 이번차례) {
     : /Sheets 50[03]|UNAVAILABLE/.test(txt) ? '구글이 잠깐 안 됨(503 — 다음 회차에 다시)'
     : /PERMISSION_DENIED|403/.test(txt) ? '권한 — 어느 신분으로 읽는지부터 보라'
     : (txt.match(/Error: ([^\n]{0,80})/)?.[1] || '까닭 모름');
-  if (done) { 성공.push(`${r.name} ${(txt.match(/바뀐 (\d+) 씀|직접 원자 (\d+)건/) || []).slice(1).find(Boolean) || '0'}건${내림 ? ` · 내림 ${내림}` : ''}${대기 ? ` · 등록대기 ${대기}` : ''}`); console.log(`  ✔ ${r.name} — ${성공[성공.length - 1]}`); }
+  if (done) { 성공.push(`${r.name} ${(txt.match(/바뀐 (\d+) 씀|직접 원자 (\d+)건|매칭 오플 (\d+)대/) || []).slice(1).find(Boolean) || '0'}건${내림 ? ` · 내림 ${내림}` : ''}${대기 ? ` · 등록대기 ${대기}` : ''}`); console.log(`  ✔ ${r.name} — ${성공[성공.length - 1]}`); }
   else { 실패.push(`${r.name}: ${왜}`); console.log(`  ✗ ${r.name} — ${왜}`); }
 }
 /**
