@@ -122,6 +122,7 @@
     "settlement:parties": "tsx scripts/build-billing-parties.mts",
     "settlement:fill": "tsx scripts/fill-intake-from-atoms.mts",
     "settlement:confirm": "tsx scripts/check-settlement-confirm.mts",
+    "settlement:heal": "tsx scripts/heal-intake-format.mts",
     "build:estimate-cars": "tsx scripts/generate-estimate-car-index.mts"
   },
   "dependencies": {

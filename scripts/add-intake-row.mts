@@ -86,7 +86,13 @@ const rowOf = (it: Item, claim: number, pay: number, rate: { claim: number; pay:
   r[26] = /구독/.test(S(it.product)) ? '구독' : /선출고|신차/.test(S(it.product)) ? '신차렌트' : '재렌트';
   r[27] = rate.claim; r[28] = claim; r[32] = rate.pay; r[33] = pay; r[35] = 0;
   r[38] = S(it.note); r[46] = `프리패스 ${it.billMonth.slice(2, 4)}/${Number(it.billMonth.slice(5))}`;
-  for (const c of [49, 50, 51, 52, 53]) r[c] = false;
+  /**
+   * ★체크 칸은 「청구 · 수금 · 청구가감 · 지급가감」 넷이다.
+   * ⚠⚠ **53 「가감사유」는 글을 적는 칸이다** — 여기까지 false 를 찍어
+   *   그 열이 통째로 체크박스가 됐다(사장님 2026-09-08 「가감사유가 왜 박스야??」).
+   *   사유를 적어야 하는 칸을 네모로 만들면 사람이 적을 길을 잃는다.
+   */
+  for (const c of [49, 50, 51, 52]) r[c] = false;
   return r;
 };
 
