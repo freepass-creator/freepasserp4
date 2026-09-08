@@ -139,6 +139,19 @@ function writeFileSyncSnap(nowBy: Record<string, number>) {
   console.log(`⑦ 요금 없는 차 ${bad.length}`);
 }
 
+// ── ⑦½ 시트 오류 토큰 ──────────────────────────────────────
+/**
+ * ⚠ 2026-09-08 — 빌린카 08주6722 의 상품구분이 **「#REF!」** 였다. 시트에서 수식이 깨진 칸을 그대로 실은 것.
+ *   ★빈칸은 이 문지기가 잡지만 「#REF!」는 **값처럼 보여** 안 잡힌다 — 그래서 따로 센다.
+ *   ★멈춘다 — 오류 글자가 상품구분·상태로 서면 탭 가르기와 목록이 통째로 어긋난다.
+ */
+{
+  const ERR = /^#(REF|VALUE|N\/A|NAME|DIV\/0|NUM|ERROR|GETTING_DATA)[!?]?$/i;
+  const bad = docs.filter((v) => Object.values(v).some((x) => typeof x === 'string' && ERR.test(S(x))));
+  if (bad.length) 멈춤.push(`시트 오류 토큰(#REF! 등)이 든 원자 ${bad.length}건 — ${bad.slice(0, 4).map((v) => S(v.car_number)).join(' · ')}`);
+  console.log(`⑦½ 시트 오류 토큰이 든 차 ${bad.length}`);
+}
+
 // ── ⑧ 상태가 두 벌 ─────────────────────────────────────────
 /**
  * ⚠ 2026-09-08 — `status`(출고가능)와 `vehicle_status`(출고불가)가 한 문서에 같이 있었다(149대).

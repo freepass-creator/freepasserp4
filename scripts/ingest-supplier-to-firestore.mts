@@ -40,6 +40,14 @@ const CODE = (process.argv.find((a) => a.startsWith('--code='))?.split('=')[1] |
 const S = (v: unknown) => String(v ?? '').trim();
 const N = (v: unknown) => S(v).toLowerCase().replace(/\s+/g, '');
 const won = (v: unknown) => { const n = Number(S(v).replace(/[^0-9.]/g, '')); return Number.isFinite(n) && n > 0 ? Math.round(n) : 0; };
+/**
+ * ★**시트 오류 토큰은 값이 아니다** — `#REF!` · `#N/A` · `#VALUE!` …
+ *   ⚠ 실측 2026-09-08 — 빌린카 08주6722 의 상품구분이 **「#REF!」** 였다. 시트에서 수식이 깨진 칸을
+ *   그대로 실은 것이다. 그 차는 상품찾기에서 구분이 「#REF!」인 채로 섰다.
+ *   ★오류 토큰은 «모른다»다 — 빈칸으로 둔다. 빈칸은 문지기가 잡지만, 「#REF!」는 값처럼 보여 안 잡힌다.
+ */
+const SHEET_ERR = /^#(REF|VALUE|N\/A|NAME|DIV\/0|NUM|ERROR|GETTING_DATA)[!?]?$/i;
+const clean = (v: unknown) => { const s = S(v); return SHEET_ERR.test(s) ? '' : s; };
 type Price = Record<string, { rent: number; deposit: number }>;
 const PERIOD_ALIAS: [string, string[]][] = [['1', ['1개월', '월렌트', '월세']], ['6', ['6개월']], ['12', ['12개월']], ['18', ['18개월']], ['24', ['24개월']], ['36', ['36개월']], ['48', ['48개월']], ['60', ['60개월']]];
 
@@ -336,21 +344,22 @@ async function readRows(): Promise<Row[]> {
     for (const r of allRows.slice(hi + 1)) {
       rowNo += 1;
       const car = S(r[ci.car]); if (!car) continue;
-      const model = ci.model >= 0 ? S(r[ci.model]) : '';
-      const trim = ci.trim >= 0 ? S(r[ci.trim]) : '';
-      const maker0 = ci.maker >= 0 ? S(r[ci.maker]) : '';
+      const model = ci.model >= 0 ? clean(r[ci.model]) : '';
+      const trim = ci.trim >= 0 ? clean(r[ci.trim]) : '';
+      const maker0 = ci.maker >= 0 ? clean(r[ci.maker]) : '';
       // ★공급사 원문 차명 — 「어떤 형태로든지」 준 것을 다 훑는다(사장님 2026-09-05):
       //   원본 차명 열 → (없으면) 모델+트림 합성 → (그것도 없으면) 제조사+모델+트림. 빈 채로 굳지 않게.
       // ⚠★**제조사 한 마디만 남으면 차명이 아니다 — 비운다.**
       //   실측 2026-09-08: 웰릭스가 옆 시트의 「차명(트림)」 열을 못 읽어 vname이 「기아」가 됐고,
       //   매칭기가 그걸 보고 K8을 **모닝**으로, 카니발을 **스포티지**로 붙였다.
       //   「모른다」는 빈 칸으로 남기는 게 맞다 — 그래야 「원문없음」으로 잡혀 검수 목록에 오른다.
-      const rawVname = ci.vname >= 0 ? S(r[ci.vname]) : '';
+      const rawVname = ci.vname >= 0 ? clean(r[ci.vname]) : '';
       const composed = rawVname || composeVehicleName(model, trim) || [maker0, model, trim].filter(Boolean).join(' ');
       const vname = N(composed) === N(maker0) ? '' : composed;
       const price = sheetPrice((i) => S(r[i]), ci);
       const depNote = depositNote(ci.dep >= 0 ? S(r[ci.dep]) : '');
-      push({ car, status: S(r[ci.status]), kind: ci.kind >= 0 ? S(r[ci.kind]) : '', maker: maker0, model, vname, trim, fuel: ci.fuel >= 0 ? S(r[ci.fuel]) : '', ext: ci.ext >= 0 ? S(r[ci.ext]) : '', int: ci.int >= 0 ? S(r[ci.int]) : '', km: ci.km >= 0 ? S(r[ci.km]) : '', opt: ci.opt >= 0 ? S(r[ci.opt]) : '', firstReg: ci.firstReg >= 0 ? S(r[ci.firstReg]) : '', cc: ci.cc >= 0 ? S(r[ci.cc]) : '', klass: ci.klass >= 0 ? S(r[ci.klass]) : '', price, depNote, tab, row: String(rowNo) });
+      /** ★칸마다 «시트 오류 토큰»을 걷는다(`clean`) — 「#REF!」가 값처럼 실려 상품구분이 된 적이 있다. */
+      push({ car, status: clean(r[ci.status]), kind: ci.kind >= 0 ? clean(r[ci.kind]) : '', maker: maker0, model, vname, trim, fuel: ci.fuel >= 0 ? clean(r[ci.fuel]) : '', ext: ci.ext >= 0 ? clean(r[ci.ext]) : '', int: ci.int >= 0 ? clean(r[ci.int]) : '', km: ci.km >= 0 ? clean(r[ci.km]) : '', opt: ci.opt >= 0 ? clean(r[ci.opt]) : '', firstReg: ci.firstReg >= 0 ? clean(r[ci.firstReg]) : '', cc: ci.cc >= 0 ? clean(r[ci.cc]) : '', klass: ci.klass >= 0 ? clean(r[ci.klass]) : '', price, depNote, tab, row: String(rowNo) });
     }
   }
   return out;
