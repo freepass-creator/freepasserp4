@@ -26,6 +26,8 @@ nextEnv.loadEnvConfig(process.cwd());
 const S = (v: unknown) => String(v ?? '').trim();
 const APPLY = process.argv.includes('--apply');
 const N = Number(process.argv.find((a) => a.startsWith('--n='))?.split('=')[1] || 3);
+/** ★`--status-only` 를 그대로 넘긴다 — 30분 회차는 차량상태만 본다(사장님 2026-09-08). */
+const STATUS_ONLY = process.argv.includes('--status-only');
 if (!S(process.env.GOOGLE_APPLICATION_CREDENTIALS)) process.env.GOOGLE_APPLICATION_CREDENTIALS = 'tmp/firebase-auth/sa.json';
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS), 'utf8'));
 initializeApp({ credential: cert({ projectId: sa.project_id, clientEmail: sa.client_email, privateKey: S(sa.private_key).replace(/\\n/g, '\n') }) });
@@ -86,7 +88,7 @@ for (const r of 이번차례) {
    *   ★안전판 둘이 이미 있다 — 계약중(락)은 안 내린다 · 수집분이 우리 것의 절반도 안 되면 아예 안 내린다
    *     (원천 읽기 실패 의심). 그 둘 덕에 「못 읽은 날 재고가 사라지는」 사고는 안 난다.
    */
-  const out = spawnSync('npx', ['tsx', '--require', './scripts/lib/server-only-shim.cjs', 'scripts/ingest-supplier-to-firestore.mts', `--code=${r.code}`, '--apply', '--variable', '--retire'], {
+  const out = spawnSync('npx', ['tsx', '--require', './scripts/lib/server-only-shim.cjs', 'scripts/ingest-supplier-to-firestore.mts', `--code=${r.code}`, '--apply', '--variable', '--retire', ...(STATUS_ONLY ? ['--status-only'] : [])], {
     encoding: 'utf8', shell: process.platform === 'win32', env: process.env,
   });
   const txt = `${out.stdout || ''}${out.stderr || ''}`;

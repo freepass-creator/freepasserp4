@@ -531,13 +531,22 @@ console.log(`  대조: 아는 차 불변일치 ${both ? Math.round((idSame / bot
 console.log(`  요금 일치: ${priceBoth ? Math.round((priceSame / priceBoth) * 100) : 0}% (${priceSame}/${priceBoth}, 양쪽에 요금 있는 차)`);
 
 const VARIABLE = process.argv.includes('--variable');
+/**
+ * ★**`--status-only` — 차량상태만 본다** (사장님 2026-09-08 「30분 단위는 차량상태만 확인하자」).
+ *   30분마다 도는 회차의 몫이다. 주행·요금은 그렇게 자주 안 바뀌는데 매번 읽으면 한도만 먹는다.
+ *   ⇒ 상태 칸만 쓰고, 주행·요금은 «안 건드린다»(2시간 회차가 맡는다).
+ */
+const STATUS_ONLY = process.argv.includes('--status-only');
 const docId = (car: string) => car.replace(/\s/g, '').replace(/[/#.$[\]]/g, '_');
 /**
  * ★**변동 폴링이 만지는 칸** — 「자주 바뀌는 것」만.
  *   ⚠ 2026-09-08 — 여기에 `vehicle_status` 가 빠져 있었다. 그래서 변동만 돌린 차는 `status` 만 바뀌고
  *   `vehicle_status` 는 옛 값에 머물러 **상태가 두 벌**이 됐다(시트·손님 면은 `vehicle_status` 를 읽는다).
  */
-const VAR_FIELDS = ['vehicle_status', 'status', 'status_kind', 'status_reason', 'listable', 'status_label_raw', 'mileage', 'price'] as const;
+const VAR_FIELDS_ALL = ['vehicle_status', 'status', 'status_kind', 'status_reason', 'listable', 'status_label_raw', 'mileage', 'price'] as const;
+/** 상태 칸만 — `--status-only` 일 때. 주행·요금은 빼고 «안 건드린다». */
+const VAR_FIELDS_STATUS = ['vehicle_status', 'status', 'status_kind', 'status_reason', 'listable', 'status_label_raw'] as const;
+const VAR_FIELDS: readonly string[] = STATUS_ONLY ? VAR_FIELDS_STATUS : VAR_FIELDS_ALL;
 
 // ── 검증(--verify) — 원자를 «차종마스터 ↔ 원문»과 대조. 제대로 당겼나 한 번 본다. ──
 if (process.argv.includes('--verify')) {
@@ -598,17 +607,17 @@ if (VARIABLE) {
       /** ⚠ 상태는 `vehicle_status` 가 정본 — 그것도 같이 견줘야 한 벌로 따라간다. */
       const sMoved = S(a.vehicle_status) !== S(c.vehicle_status) || S(a.status) !== S(c.status)
         || a.listable !== c.listable || S(a.status_kind) !== S(c.status_kind);
-      const mMoved = S(a.mileage) !== S(c.mileage);
+      const mMoved = !STATUS_ONLY && S(a.mileage) !== S(c.mileage);
       /** ⚠ 요금 없는 차가 있다 — `Object.keys(undefined)` 로 회차가 통째로 죽는다(웰릭스와 같은 꼴). */
       const ap = (a.price && typeof a.price === 'object' ? a.price : {}) as Record<string, unknown>;
-      const pMoved = Object.keys(ap).length > 0 && jsonSorted(ap) !== jsonSorted(c.price);
+      const pMoved = !STATUS_ONLY && Object.keys(ap).length > 0 && jsonSorted(ap) !== jsonSorted(c.price);
       if (!sMoved && !mMoved && !pMoved) continue;
       const upd: Record<string, unknown> = { _var_polled_at: Date.now() };
       for (const f of VAR_FIELDS) if (a[f] !== undefined && a[f] !== '') upd[f] = a[f];
       const ref = fs.collection('products').doc(docId(a.car_number));
       batch.set(ref, upd, { merge: true });
       /** ★요금은 갈아 끼운다 — merge 는 맵 키를 못 지워 «지금 안 파는 기간»이 남는다(위 전체 반영과 같은 규칙). */
-      if (Object.keys(ap).length) batch.update(ref, { price: ap });
+      if (!STATUS_ONLY && Object.keys(ap).length) batch.update(ref, { price: ap });
       changed++; if (sMoved) sChg++; if (mMoved) mChg++; if (pMoved) pChg++; any = true;
     }
     if (any) await batch.commit();

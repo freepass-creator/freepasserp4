@@ -33,6 +33,22 @@ import { Worker } from 'node:worker_threads';
 
 const APPLY = process.argv.includes('--apply');
 /**
+ * ★★**회차는 세 단이다** (사장님 2026-09-08)
+ * ```
+ *   30분   차량상태만        scripts/refresh-sync.mts --apply        실측 98초
+ *   2시간  «내용»이 제대로 들어갔나   --tier=2h                        원천→정제→시트 채우고 대조
+ *   1일    «대여료»가 바뀌었나        --tier=day (기본)                 요금 검수·변경 검증까지
+ * ```
+ * ★자주 바뀌는 것만 자주 본다 — 상태는 하루에도 여러 번 바뀌고, 제원·요금은 그렇지 않다.
+ *   안 바뀌는 것까지 매번 읽으면 구글 한도만 먹고, 그러면 «정작 바뀐 것»도 못 읽는다.
+ * ⚠ 기본은 `day`(전부) — 깃발을 안 주면 예전처럼 다 돈다. 빼먹어서 조용히 안 도는 일이 없게.
+ */
+const TIER = (process.argv.find((a) => a.startsWith('--tier='))?.split('=')[1] || 'day').trim();
+const 하루단 = TIER === 'day';
+/** 그 단에서 «안 하는» 것은 통째로 건너뛴다 — 돌린 척하지 않는다. */
+const 건너뜀: string[] = [];
+const skip = (label: string) => { 건너뜀.push(label); console.log(`⏭ ${label} — 이 단(${TIER})에서는 안 한다`); };
+/**
  * ★`--같은범위` — **aiops 가 하는 단계만** 돈다(첫 대조용).
  *
  *   우리 파이프라인은 aiops 가 안 하는 단계를 더 한다 — 차명 정리·모델명 통일·입고일자·
@@ -706,7 +722,10 @@ line.push(chk.picked.find((l) => /안 뜨는 차/.test(l))?.replace('■ ', '') 
  */
 /* ★⑨ 의 exit 2 는 「갈림을 찾았다」가 아니라 **「감사를 온전히 못 했다」**(globalErrors·unknownRows)다.
    신호로 넘기면 «못 본 것»을 «본 것»으로 적게 된다 — 코덱스 3차 지적. 실패로 둔다. */
-const drift = run('⑨ 상태 갈림 신호', ['scripts/audit-status-drift.mts'], /상태가 다른 차|★/);
+/** ★⑨ 상태 갈림 신호 = «1일 단» — 네 층을 훑어 무거운데, 층 사이 갈림은 하루에 한 번 보면 된다. */
+const drift = 하루단
+  ? run('⑨ 상태 갈림 신호', ['scripts/audit-status-drift.mts'], /상태가 다른 차|★/)
+  : (skip('⑨ 상태 갈림 신호'), { ok: true, picked: [] as string[] });
 // 미확인(동일 차번 상태 충돌 등)은 감사가 읽어 낸 유의미한 신호다. 이때 exit=2가
 // 나도 요약을 버리고 «0»이나 단순 실패로 적지 않는다. 요약 자체가 없을 때만 실패다.
 const driftSummary = drift.picked.find((l) => /상태가 다른 차/.test(l))?.replace('■ ', '');
@@ -751,7 +770,10 @@ if (손오공탭발행) {
  *   · 「시트에도 대여료 없음」 = 공급사 몫. 울리지 않는다.
  * **거짓 빨간불을 없애야 진짜 빨간불을 믿는다.**
  */
-const fee = run('⑪ 요금 검수(판매↔ERP)', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/audit-sales-vs-erp.mts'], /없는 차 \d+대|나르다 빠졌다|보증금이 비었다|살아있음 \d+/);
+/** ★⑪ 요금 검수 = «1일 단» — 사장님 「1일단위는 대여료 변경이 있는지」. */
+const fee = 하루단
+  ? run('⑪ 요금 검수(판매↔ERP)', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/audit-sales-vs-erp.mts'], /없는 차 \d+대|나르다 빠졌다|보증금이 비었다|살아있음 \d+/)
+  : (skip('⑪ 요금 검수'), { ok: true, picked: [] as string[] });
 const feeAll = fee.picked.join(' ');
 const feeN = /ERP 목록에 없는 차 (\d+)대/.exec(feeAll);
 const 흘림 = Number(/(\d+)대\s+대여료·보증금 다 있는데/.exec(feeAll)?.[1] || 0);
@@ -801,7 +823,10 @@ if (새차종) {
  * ⚠ **멈추지는 않는다(경고).** 의미가 바뀐 값은 이미 시트에 들어간 뒤라, 발행을 막아도 되돌려지지 않는다.
  *   오히려 오늘처럼 18건으로 8일간 발행이 멈추면 그게 더 큰 손해다. **알리되 흐름은 잇는다.**
  */
-const master = run('⑬ 차종마스터 계약', ['scripts/audit-vehicle-trim-key-contract.mts', '--register-new'], /PASS|위반|거부|새 키/);
+/** ★⑬ 차종마스터 계약 = «1일 단» — 차종 코드는 하루에 몇 번씩 바뀌지 않는다. */
+const master = 하루단
+  ? run('⑬ 차종마스터 계약', ['scripts/audit-vehicle-trim-key-contract.mts', '--register-new'], /PASS|위반|거부|새 키/)
+  : (skip('⑬ 차종마스터 계약'), { ok: true, picked: [] as string[] });
 const 새키 = /새 키 (\d+)개만 기준판에 추가/.exec(master.picked.join(' '))?.[1];
 line.push(master.ok ? (새키 ? `마스터계약 ok(새 키 ${새키})` : '마스터계약 ok') : '★마스터계약 위반');
 if (!master.ok) {
@@ -888,7 +913,13 @@ if (APPLY) {
   if (erpGap.ok) { const l = erpGap.picked.find((x) => /값이 다른 차/.test(x)); if (l) line.push(l.trim()); }
   if (erpGap.picked.some((x) => /크게 벌어졌다/.test(x))) warnings.push('원자와 ERP 가 다른 차를 말한다 — 시트와 화면이 어긋난다');
 
-  const det = run('⑮ 원자 변경 검증', ['scripts/detect-atom-changes.mts'], /상태 전이|대여료 변경|기준선/);
+  /**
+   * ★★**⑮ 원자 변경 검증 = «1일 단»** — 사장님 2026-09-08 「**1일단위는 대여료 변경이 있는지**」.
+   *   이 단계가 「상태 전이 N건 · 대여료 변경 N건」을 센다. 대여료는 하루에 몇 번씩 바뀌지 않는다.
+   */
+  const det = 하루단
+    ? run('⑮ 원자 변경 검증', ['scripts/detect-atom-changes.mts'], /상태 전이|대여료 변경|기준선/)
+    : (skip('⑮ 원자 변경 검증(대여료)'), { ok: false, picked: [] as string[] });
   const stN = /상태 전이 (\d+)건/.exec(det.picked.join(' '))?.[1];
   const prN = /대여료 변경 (\d+)건/.exec(det.picked.join(' '))?.[1];
   line.push(det.ok ? `변경 상태${stN ?? '?'}·요금${prN ?? '?'}` : '검증 실패');
@@ -929,6 +960,8 @@ if (APPLY) {
 }
 
 const seconds = Math.round((Date.now() - started) / 1000);
+if (건너뜀.length) out.push(`
+   ⏭ 이 단(${TIER})에서 안 한 것 ${건너뜀.length} — ${건너뜀.join(' · ')}`);
 out.push(`\n■ ${allOk ? '끝' : '끝(일부 실패)'} ${kst()} KST · ${seconds}초`);
 writeFileSync('tmp/hourly-sync-last.txt', out.join('\n'));
 appendFileSync('tmp/hourly-sync-log.txt', `${kst()} ${APPLY ? '반영' : '미리'} ${seconds}초 · ${allOk ? '' : '⚠일부실패 · '}${line.join(' · ')}\n`);
