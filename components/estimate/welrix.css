@@ -3080,8 +3080,20 @@
 
 
 /* ══ 프리패스 덧칠 — 원본을 «고치지 않고» 우리 껍데기에 맞추는 것만 ══════════ */
-/* 원본은 body 가 곧 판이라 100vh 였다. 우리는 ERP 상단바 밑에 선다. */
-.wx-root { height: calc(100vh - var(--topbar-h, 0px)); }
+/* ★머리 띠가 없다 — 화면 전부가 이 판이다(사장님 2026-09-08 「상단바 없고 그냥 이거 자체가
+   별도 페이지야」). ⚠ 예전엔 `calc(100vh - var(--topbar-h))` 였는데, 상단바를 벗고도 그 변수가
+   56px 로 남아 화면이 그만큼 «짧았다»(2026-09-08 실측). 뺄 것이 없으므로 안 뺀다. */
+.wx-root { height: 100vh; }
+/* ⚠ 원본 판은 `grid-template-rows: 48px 1fr` 였다 — 첫 행이 «머리 띠» 자리다.
+   머리를 걷었는데 그 행을 그대로 두면 왼쪽 기둥이 48px 칸에 갇혀 통째로 잘린다(2026-09-08 실측).
+   ⇒ 행은 하나다. */
+.wx-root { grid-template-rows: 1fr; }
+.wx-root.cost .phone { min-height: 0; }
+
+/* 「← 견적으로」 — 원가 화면이 갇히지 않게 두는 글자 한 줄(띠가 아니다). */
+.wx-root .backline { padding: 10px 16px 0; font-size: 12px; }
+.wx-root .backline a { color: var(--ink-3); text-decoration: none; }
+.wx-root .backline a:hover { color: var(--ink-1); }
 
 /* 왼쪽 칸 짜임 — 원본은 `#sec-manufacturer…` 넷에만 「라벨 96 + 한 줄」을 걸어 뒀다.
    우리가 새로 세운 칸(상품·채널·만기·신용)도 **같은 줄**에 서야 한다

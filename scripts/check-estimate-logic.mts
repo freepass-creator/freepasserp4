@@ -171,6 +171,22 @@ must(/if \(!admin\) return NextResponse\.json\(\{ error: 'forbidden' \}/.test(co
 must(/const OWN_HEADER_PREFIXES = \['\/estimate'\] as const;/.test(guestSurface),
   '견적이 ERP 상단바를 다시 입고 있습니다 — 「별도 페이지」가 규격입니다',
   'lib/guest-surface.ts');
+/* ★★머리 띠가 «없는» 것이 규격이다 — 사장님 2026-09-08
+     「**상단바 없고 그냥 이거 자체가 별도 페이지야**」.
+   ERP 상단바도, 견적기 «자체» 머리 띠(`.global-topbar`)도 없다. 화면이 곧 페이지다.
+   ★길은 끊기지 않았다 — 견적은 맨 아래 주석 줄의 「원가설정」, 원가는 「← 견적으로」 한 줄.
+   ⚠ 판의 «행»도 하나여야 한다 — 원본은 `48px 1fr`(첫 행이 머리 자리)이라, 머리를 걷고 그 행을
+     그대로 두면 왼쪽 기둥이 48px 칸에 갇혀 통째로 잘린다(2026-09-08 실측으로 잡음). */
+must(!/className="global-topbar"/.test(page) && !/className="global-topbar"/.test(costPage),
+  '머리 띠가 다시 섰습니다 — 「그냥 이거 자체가 별도 페이지」가 규격입니다',
+  'app/estimate/**/page.tsx');
+must(/\.wx-root \{ grid-template-rows: 1fr; \}/.test(wxCss),
+  '판의 행이 아직 «머리 자리»를 남기고 있습니다 — 왼쪽 기둥이 48px 에 갇혀 잘립니다',
+  'components/estimate/welrix.css');
+must(/원가설정<\/Link>/.test(page) && /← 견적으로/.test(costPage),
+  '두 화면 사이 길이 끊겼습니다 — 띠가 없으니 화면 안에 글자로 남아 있어야 합니다',
+  'app/estimate/**/page.tsx');
+
 must(!/className="wm"/.test(page) && !/className="wm"/.test(costPage),
   '견적·원가 자체 머리에 워드마크가 다시 섰습니다 — ERP 상단바가 위에 있어 머리가 둘이 됩니다(노브랜드 규칙)',
   'app/estimate/**/page.tsx');
