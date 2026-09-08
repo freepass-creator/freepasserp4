@@ -336,7 +336,8 @@ function EstimatePageInner() {
     const k = deltaKeyFor(picked.maker, picked.model);
     const age = Math.max(0, nowYear - (usedYear || nowYear));
     const seed = guessMarketPrice(newModels, picked.maker, picked.model, age,
-      (y) => newcarResidPct(k?.makerId ?? null, k?.modelCode ?? null, y), carIdx?.al);
+      (y) => newcarResidPct(k?.makerId ?? null, k?.modelCode ?? null, y), carIdx?.al,
+      picked.powertrain);
     setUsedPrice(seed);
     setPriceSeeded(seed > 0);
   }, [picked, isNew, priceTyped, newModels, carIdx, usedYear, nowYear]);
