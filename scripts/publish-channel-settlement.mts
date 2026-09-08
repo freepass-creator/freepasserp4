@@ -34,7 +34,7 @@ import { payOf, incentiveOf } from '../lib/domain/settlement-money';
 import { settlementMonthOf } from '../lib/domain/settlement-billing-month';
 import { feeKindOf, feeRuleFor } from '../lib/domain/settlement-fee-table';
 import { outwardText, maskName } from '../lib/domain/outward-text';
-import { channelSheetName, CHANNEL_SETTLE_HEAD, CHANNEL_SETTLE_WIDTH, SETTLE_BASIS, SETTLE_NOTE, settleTabOf, settleTabFormat } from '../lib/server/channel-sheet-tabs';
+import { channelSheetName, CHANNEL_SETTLE_HEAD, CHANNEL_SETTLE_WIDTH, SETTLE_BASIS, SETTLE_NOTE, settleTabOf, settleTabFormat, settleMoneyFor, settleLeftFor } from '../lib/server/channel-sheet-tabs';
 import { diffSheetRows, applyPending, editId, publishedId, type SheetEdit, type Published } from '../lib/server/sheet-edits';
 
 const MONTH = (process.argv.find((a) => /^\d{4}-\d{2}$/.test(a)) || '').trim();
@@ -282,8 +282,8 @@ if (leak.length) { console.log(`\n  ✕ 멈춥니다 — 영업채널 시트에 
 
 const iB = HEAD.indexOf(BASIS[0]);
 const iM = HEAD.indexOf('공급가액');
-const LEFT = ['모델명', ...BASIS];
-const MONEY = ['렌탈료', '보증금', '차량 가격(신차)', '공급가액', '부가세', '합계', '정정금액'];
+const LEFT = settleLeftFor('영업채널');
+const MONEY = settleMoneyFor('영업채널');
 
 /**
  * ★★**「공지사항」 탭 — 프로모션을 알리는 자리.** 사장님 2026-09-03

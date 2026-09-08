@@ -36,7 +36,7 @@ import { settleTargetOf, billingMonthIn, lockedMonthsOf, type SettlementRow } fr
 /** ★공급사 발행기는 «청구»만 센다 — payOf 는 부러 안 들여온다(지급액 빗장). */
 import { claimOf, incentiveOf } from '../lib/domain/settlement-money';
 import { settlementMonthOf } from '../lib/domain/settlement-billing-month';
-import { SETTLE_NOTE } from '../lib/server/channel-sheet-tabs';
+import { SETTLE_NOTE, settleHeadFor, settleWidthFor, settleMoneyFor, settleLeftFor } from '../lib/server/channel-sheet-tabs';
 
 /** 공급사가 적는 넉 칸 — [확인, 정정, 정정금액, 메모(정정사유)]. */
 type Keep = [boolean, boolean, number | '', string];
@@ -251,10 +251,14 @@ const NOTE = SETTLE_NOTE;
  *   ★보증금은 «계약 조건»이지 정산 금액이 아니다 — 공급사도 영업자도 본다(사장님 2026-08-26).
  *   ⚠ 영업채널 시트는 이미 «렌탈료 · 보증금 · 납입 방식» 순서다. 거울이니 같은 자리에 선다.
  */
-const HEAD = ['No.', '접수일', '차량번호', '모델명', '임차인', '상품 구분', '계약 기간',
-  '렌탈료', '보증금', '차량 가격(신차)', '납입 방식', '인도일',
-  ...BASIS, '공급가액', '부가세', '합계', ...NOTE];
-const WIDTH = [40, 84, 92, 150, 76, 112, 76, 92, 96, 108, 84, 84, 250, 100, 88, 108, 56, 56, 110, 240];
+/**
+ * ★★★**칸은 «한 곳»이 짓는다** — `channel-sheet-tabs`의 `SETTLE_COLUMNS`.
+ *   사장님 2026-09-08 「최대한 양식을 같이 써야 함」.
+ *   여기서 다시 적지 않는다 — 따로 적으면 칸을 하나 더할 때 한쪽만 고쳐 갈라진다.
+ *   공급사가 보면 안 되는 칸(공급사·영업채널·영업담당자·지급 예정일)은 그 표가 걸러 낸다.
+ */
+const HEAD = settleHeadFor('공급사');
+const WIDTH = settleWidthFor('공급사');
 /**
  * ★★★**영업자 «지급» 수수료는 공급사 시트에 «절대» 안 들어간다** — 사장님 2026-09-03
  *   「절대 영업자 지급 수수료가 얼만지 공급사시트에는 반영되면 안돼」.
@@ -270,8 +274,8 @@ if (leak.length) { console.log(`\n  ✕ 멈춥니다 — 공급사 시트에 못
 
 const iB = HEAD.indexOf(BASIS[0]);          // 산출조건 첫 칸
 const iM = HEAD.indexOf('공급가액');          // 돈 첫 칸
-const LEFT = ['모델명', ...BASIS];
-const MONEY = ['렌탈료', '보증금', '차량 가격(신차)', '공급가액', '부가세', '합계', '정정금액'];
+const LEFT = settleLeftFor('공급사');
+const MONEY = settleMoneyFor('공급사');
 
 for (const j of jobs) {
   const tab = j.tab;

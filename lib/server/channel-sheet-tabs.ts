@@ -540,10 +540,55 @@ export const SETTLE_NOTE = ['확인', '정정', '정정금액', '메모(정정�
  *   모아 볼 때 «줄 하나만 봐도 어느 채널 누구 건인지»가 보여야 분류가 된다.
  *   ⚠ 공급사 청구서에는 둘 다 안 들어간다 — 그건 빗장이다.
  */
-export const CHANNEL_SETTLE_HEAD = ['No.', '접수일', '차량번호', '공급사', '모델명', '영업채널', '영업담당자', '임차인',
-  '상품 구분', '계약 기간', '렌탈료', '보증금', '차량 가격(신차)', '납입 방식', '인도일',
-  ...SETTLE_BASIS, '공급가액', '부가세', '합계', '지급 예정일', ...SETTLE_NOTE];
-export const CHANNEL_SETTLE_WIDTH = [40, 84, 92, 92, 150, 84, 84, 76, 112, 76, 92, 96, 108, 84, 84, 250, 100, 88, 108, 96, 56, 56, 110, 240];
+/**
+ * ★★★**정산서 칸은 «한 곳»에서 짓는다 — 공급사는 거기서 빗장 칸만 걸러 낸다.**
+ *
+ * ★사장님 2026-09-08 「최대한 양식을 같이 써야 함. 쉽게 말해서 탭이나 양식마다
+ *   어디까지는 같은 걸 그대로 옮긴다」
+ *
+ *   여태 두 발행기가 칸 목록을 각자 들고 있어, 칸을 하나 더할 때마다 양쪽을 따로 고쳤다 —
+ *   한쪽만 고치면 그냠로 갈라진다(실측 2026-09-07 보증금이 채널에만 있었다).
+ *   ⇒ «한 줄을 짓는 칸»을 여기 한 번 적고, 누가 보느냐만 `hide` 로 가른다.
+ *
+ * ⚠ `hide: '공급사'` 가 곳 셋이 «빗장»이다 — 공급사가 영업채널·담당자를 보면
+ *   그 자리에서 «우리를 건너뛴 값»이 선다. 「지급 예정일」은 지급 축이라 마찬가지다.
+ *   공급사 발행기가 칸 이름을 다시 한번 기계로 검사한다(FORBIDDEN) — 이중 잠금이다.
+ * ⚠ 「공급사」 칸은 공급사 종이에서 빼는다 — 자기 이름을 줄마다 읽을 이유가 없다.
+ */
+export type SettleCol = { name: string; w: number; hide?: '공급사'; money?: true; left?: true };
+export const SETTLE_COLUMNS: SettleCol[] = [
+  { name: 'No.', w: 40 },
+  { name: '접수일', w: 84 },
+  { name: '차량번호', w: 92 },
+  { name: '공급사', w: 92, hide: '공급사' },
+  { name: '모델명', w: 150, left: true },
+  { name: '영업채널', w: 84, hide: '공급사' },
+  { name: '영업담당자', w: 84, hide: '공급사' },
+  { name: '임차인', w: 76 },
+  { name: '상품 구분', w: 112 },
+  { name: '계약 기간', w: 76 },
+  { name: '렌탈료', w: 92, money: true },
+  { name: '보증금', w: 96, money: true },
+  { name: '차량 가격(신차)', w: 108, money: true },
+  { name: '납입 방식', w: 84 },
+  { name: '인도일', w: 84 },
+  { name: SETTLE_BASIS[0], w: 250, left: true },
+  { name: '공급가액', w: 100, money: true },
+  { name: '부가세', w: 88, money: true },
+  { name: '합계', w: 108, money: true },
+  { name: '지급 예정일', w: 96, hide: '공급사' },
+  ...SETTLE_NOTE.map((n) => ({ name: n, w: n === '메모(정정사유)' ? 240 : n === '정정금액' ? 110 : 56, ...(n === '정정금액' ? { money: true as const } : {}) })),
+];
+/** 그 쪽이 보는 칸만. */
+export const settleColumnsFor = (axis: '영업채널' | '공급사') =>
+  SETTLE_COLUMNS.filter((c) => c.hide !== axis);
+export const settleHeadFor = (axis: '영업채널' | '공급사') => settleColumnsFor(axis).map((c) => c.name);
+export const settleWidthFor = (axis: '영업채널' | '공급사') => settleColumnsFor(axis).map((c) => c.w);
+export const settleMoneyFor = (axis: '영업채널' | '공급사') => settleColumnsFor(axis).filter((c) => c.money).map((c) => c.name);
+export const settleLeftFor = (axis: '영업채널' | '공급사') => settleColumnsFor(axis).filter((c) => c.left).map((c) => c.name);
+
+export const CHANNEL_SETTLE_HEAD = settleHeadFor('영업채널');
+export const CHANNEL_SETTLE_WIDTH = settleWidthFor('영업채널');
 export const settleTabOf = (m: string) => `${m.slice(2, 4)}년${m.slice(5)}월 정산`;
 
 /**
