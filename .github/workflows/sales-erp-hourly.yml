@@ -1,9 +1,13 @@
 name: 판매·천이·ERP 시간별 동기
 
+# ⚠⚠ 2026-09-08 — **cron 을 뺐다.** 위 YAML 오류로 이 워크플로는 첫 커밋부터 한 번도 돈 적이 없고,
+#   그동안 이 파이프라인은 **이 집 PC 의 작업 스케줄러**(`scripts/hourly-sync.cmd`)가 돌려 왔다.
+#   YAML 만 고치고 cron 을 그대로 두면 «오케스트레이터가 둘»이 되어 시트·ERP 를 두 군데서 쓴다
+#   (아래 주석의 「★오케스트레이터는 하나다」가 그 뜻이다). 그래서 지금은 **손으로 부를 때만** 돈다.
+# ⇒ 클라우드로 «옮길» 때 되살린다. 순서는 ㉠ GOOGLE_SA_JSON 시크릿 확인 ㉡ 로컬 스케줄러 정지
+#   ㉢ 아래 schedule 복구. 그 전에 켜면 두 대가 같은 시트를 쓴다.
+#   (되살릴 값: 평일 KST 09:00~18:00 = `cron: '0 0-9 * * 1-5'` · 원본→정제 점검 뒤)
 on:
-  schedule:
-    # 평일 KST 09:00~18:00. 원본→정제 점검(매시 08:50~) 뒤에 실행한다.
-    - cron: '0 0-9 * * 1-5'
   workflow_dispatch:
     inputs:
       apply:
@@ -25,7 +29,11 @@ jobs:
         with: { node-version: '22', cache: 'npm' }
       - run: npm ci
       - name: 자격증명 준비
-        env: { SA: ${{ secrets.GOOGLE_SA_JSON }} }
+        # ★흐름형(`{ }`) 안에 «${{ }}» 를 맨몸으로 두면 YAML 이 못 읽는다 — `{` 가 또 다른
+        #   흐름 매핑의 시작으로 잡힌다. 그러면 GitHub 이 스텝을 돌리기도 «전»에 런을 실패시킨다
+        #   (2026-09-08 발견: 이 한 줄 때문에 이 워크플로는 첫 커밋부터 성공한 적이 없다).
+        env:
+          SA: ${{ secrets.GOOGLE_SA_JSON }}
         run: |
           test -n "$SA" || { echo '::error::GOOGLE_SA_JSON 시크릿이 없습니다.'; exit 1; }
           mkdir -p tmp/firebase-auth
