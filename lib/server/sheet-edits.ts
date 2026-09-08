@@ -23,7 +23,12 @@
  */
 
 const S = (v: unknown) => String(v ?? '').trim();
-const N = (v: unknown) => { const n = Number(S(v).replace(/[,\s원]/g, '')); return Number.isFinite(n) ? n : NaN; };
+/**
+ * ⚠⚠⚠ **빈 값은 «0» 이 아니라 «모름»이다.** `Number('')` 은 0 이라, 이걸 그대로 두면
+ *   「금액을 안 적었다」가 「0원이라고 적었다」가 된다 — 실측 2026-09-08 이 한 줄 때문에
+ *   125호2615 이태섭의 공급가액 896,400 이 시트에서 통째로 지워지고 부가세·합계가 0 이 됐다.
+ */
+const N = (v: unknown) => { const t = S(v).replace(/[,\s원]/g, ''); if (!t) return NaN; const n = Number(t); return Number.isFinite(n) ? n : NaN; };
 
 export type EditStatus = '대기' | '받음' | '물림';
 export type SheetEdit = {
@@ -193,6 +198,13 @@ export function applyPending(opts: {
        *     남아 **그 줄 하나가 스스로 어긋난** 꼴이 됐다. 빈 값으로 지우는 것도 마찬가지다.
        *   ⇒ 얹을 값이 «수»가 아니면 우리 값을 그대로 둔다. 그쪽 뜻은 「정정」 체크와 메모가 이미 나른다.
        */
+      /**
+       * ★★★**빈 값은 «지우라는 말»이 아니다 — 「아직 안 적었다」는 뜻이다.**
+       *   상대가 「정정」만 켜고 금액을 안 적은 줄이 그렇다. 그걸 얹으면 우리 금액이 사라진다.
+       *   실측 2026-09-08 — 125호2615 이태섭의 공급가액이 통째로 지워져 최사랑 팀장이 바로 보셨다.
+       *   ⇒ 얹을 것이 비어 있으면 우리 값을 그대로 둔다. 그쪽 뜻은 「정정」 체크와 메모가 나른다.
+       */
+      if (!S(e.theirs)) continue;
       if (!Number.isNaN(N(e.ours)) && Number.isNaN(N(e.theirs))) continue;
       /**
        * ★★★**「수수료 산정 기준」은 돈 칸의 «짝»이다 — 돈을 안 받으면 기준도 안 얹는다.**

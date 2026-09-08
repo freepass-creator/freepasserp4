@@ -36,7 +36,7 @@ import { settleTargetOf, billingMonthIn, lockedMonthsOf, type SettlementRow } fr
 /** ★공급사 발행기는 «청구»만 센다 — payOf 는 부러 안 들여온다(지급액 빗장). */
 import { claimOf, incentiveOf, claimBaseOf } from '../lib/domain/settlement-money';
 import { settlementMonthOf } from '../lib/domain/settlement-billing-month';
-import { SETTLE_NOTE, settleHeadFor, settleWidthFor, settleMoneyFor, settleLeftFor, settleTabBase } from '../lib/server/channel-sheet-tabs';
+import { SETTLE_NOTE, settleHeadFor, settleWidthFor, settleMoneyFor, settleLeftFor, settleTabBase, layoutMonthTabs } from '../lib/server/channel-sheet-tabs';
 import { editId } from '../lib/server/sheet-edits';
 
 /** 공급사가 적는 넉 칸 — [확인, 정정, 정정금액, 메모(정정사유)]. */
@@ -719,5 +719,12 @@ for (const j of jobs) {
   console.log(`   ${fr.ok ? 'o' : '! 서식'} ${j.sup.padEnd(11)} ${String(j.lines.length).padStart(2)}줄 · ${won(j.net + j.vat).padStart(12)}  →  ${aliasOf(j.sheetName)} 시트`);
   if (!fr.ok) console.log(`      ${(await fr.text()).slice(0, 160)}`);
 }
-console.log(`\n   ✓ ${jobs.length}곳에 붙였습니다.\n`);
+/**
+ * ★★**자리 세우기는 «발행의 마지막»이다** — 사장님 2026-09-08
+ *   「정산 탭은 회사정보 뒤에 가장 빠른 달 10월 9월 8월 이렇게 있다니까???? 그래야 편하지」.
+ *   발행기가 새 탭을 맨 오른쪽에 만들기 때문에, 정렬을 «따로» 돌려도 다음 발행에 도로 밀린다.
+ *   여기서 부르면 손이 안 간다. 지금 정산하는 달은 탭 색을 진하게 준다.
+ */
+for (const id of [...new Set(jobs.map((j) => j.sheetId))]) await layoutMonthTabs(tok, id, CLOSED);
+console.log(`\n   ✓ ${jobs.length}곳에 붙였습니다. 달 탭은 «최근이 왼쪽» · ${monthKo(CLOSED)}은 진한 색.\n`);
 process.exit(0);

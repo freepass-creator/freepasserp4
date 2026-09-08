@@ -57,6 +57,46 @@ async function addTab(tok: Tok, bookId: string, title: string, index: number, ro
   return r.replies?.[0]?.addSheet?.properties?.sheetId;
 }
 
+/**
+ * **달 탭을 «제자리»에 세우고, 지금 정산하는 달을 진하게 칠한다.** 발행 «끝»에 부른다.
+ *
+ * ★★★사장님 2026-09-08 「정산 탭은 **회사정보 뒤에 가장 빠른 달 10월 9월 8월** 이렇게 있다니까????
+ *   그래야 편하지」 · 「현재 정산하는 달 탭 색깔 진하게 해 주고」
+ *
+ * ⚠⚠ **정렬을 «따로» 돌리면 소용없다.** 발행기가 새 탭을 «맨 오른쪽»에 만들기 때문에,
+ *   차례를 세워 놓아도 다음 발행에 도로 밀린다 — 실측 2026-09-08
+ *   「26년10월 · 26년08월 · 26년09월」처럼 뒤죽박죽이 됐다.
+ *   ⇒ 자리 세우기는 «발행의 마지막 단계»여야 한다. 그래야 손이 안 간다.
+ *
+ * ⚠ 고정 탭(재고·공지사항·회사정보·수수료…)은 안 건드린다. 첫 달 탭이 서 있던 자리에서부터 내림차순.
+ * ⚠ **한 번에 하나씩 옮긴다** — 여러 개를 한 요청에 담으면 자리가 서로 밀린다.
+ */
+export const MONTH_TAB_RE = /^(\d{2})년(\d{2})월 정산/;
+/** 지금 정산하는 달 — 진한 남색. 나머지 달 탭은 색을 지운다(그래야 «이 달»이 도드라진다). */
+const TAB_NOW = { red: 0.10, green: 0.20, blue: 0.42 };
+
+export async function layoutMonthTabs(tok: Tok, bookId: string, currentMonth: string): Promise<void> {
+  const all = (await (await api(tok, `https://sheets.googleapis.com/v4/spreadsheets/${bookId}?fields=sheets.properties(sheetId,title,index)`)).json() as {
+    sheets?: { properties: { sheetId: number; title: string; index: number } }[] }).sheets?.map((x) => x.properties) || [];
+  const months = all.filter((x) => MONTH_TAB_RE.test(x.title)).sort((a, b) => a.index - b.index);
+  if (!months.length) return;
+  const at = Math.min(...months.map((x) => x.index));
+  const key = (t: string) => { const m = MONTH_TAB_RE.exec(t); return m ? `${m[1]}${m[2]}` : ''; };
+  const want = [...months].sort((x, y) => key(y.title).localeCompare(key(x.title)) || x.title.localeCompare(y.title));
+  for (let k = 0; k < want.length; k++) {
+    if (want[k].index === at + k) continue;
+    await format(tok, bookId, [{ updateSheetProperties: { properties: { sheetId: want[k].sheetId, index: at + k }, fields: 'index' } }]);
+  }
+  /** ★색은 한 번에 — 자리와 달리 서로 밀리지 않는다. */
+  const now = `${currentMonth.slice(2, 4)}년${currentMonth.slice(5)}월`;
+  await format(tok, bookId, want.map((x) => ({
+    updateSheetProperties: {
+      properties: { sheetId: x.sheetId, ...(x.title.startsWith(now) ? { tabColor: TAB_NOW } : { tabColorStyle: { rgbColor: {} } }) },
+      fields: x.title.startsWith(now) ? 'tabColor' : 'tabColorStyle',
+    },
+  })));
+}
+
 const put = (tok: Tok, bookId: string, range: string, values: (string | number)[][]) =>
   api(tok, `https://sheets.googleapis.com/v4/spreadsheets/${bookId}/values/${encodeURIComponent(range)}?valueInputOption=RAW`,
     { method: 'PUT', body: JSON.stringify({ values }) });

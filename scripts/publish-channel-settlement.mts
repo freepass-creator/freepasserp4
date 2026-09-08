@@ -34,7 +34,7 @@ import { payOf, incentiveOf, payBaseOf } from '../lib/domain/settlement-money';
 import { settlementMonthOf } from '../lib/domain/settlement-billing-month';
 import { feeKindOf, feeRuleFor } from '../lib/domain/settlement-fee-table';
 import { outwardText } from '../lib/domain/outward-text';
-import { channelSheetName, CHANNEL_SETTLE_HEAD, CHANNEL_SETTLE_WIDTH, SETTLE_BASIS, SETTLE_NOTE, settleTabOf, settleTabFormat, settleMoneyFor, settleLeftFor, settleTabBase } from '../lib/server/channel-sheet-tabs';
+import { channelSheetName, CHANNEL_SETTLE_HEAD, CHANNEL_SETTLE_WIDTH, SETTLE_BASIS, SETTLE_NOTE, settleTabOf, settleTabFormat, settleMoneyFor, settleLeftFor, settleTabBase, layoutMonthTabs } from '../lib/server/channel-sheet-tabs';
 import { diffSheetRows, applyPending, editId, publishedId, type SheetEdit, type Published } from '../lib/server/sheet-edits';
 
 const MONTH = (process.argv.find((a) => /^\d{4}-\d{2}$/.test(a)) || '').trim();
@@ -868,5 +868,12 @@ for (const [, id] of bookOf) {
 
 console.log('\n■ 시트');
 for (const [ch, id] of bookOf) console.log(`   ${ch.padEnd(12)} https://docs.google.com/spreadsheets/d/${id}`);
-console.log(`\n   ✓ ${jobs.length}개 탭을 붙였습니다.\n`);
+/**
+ * ★★**자리 세우기는 «발행의 마지막»이다** — 사장님 2026-09-08
+ *   「정산 탭은 회사정보 뒤에 가장 빠른 달 10월 9월 8월 이렇게 있다니까???? 그래야 편하지」.
+ *   발행기가 새 탭을 맨 오른쪽에 만들기 때문에, 정렬을 «따로» 돌려도 다음 발행에 도로 밀린다.
+ *   여기서 부르면 손이 안 간다. 지금 정산하는 달은 탭 색을 진하게 준다.
+ */
+for (const id of [...new Set([...bookOf.values()])]) await layoutMonthTabs(tok, id, CLOSED);
+console.log(`\n   ✓ ${jobs.length}개 탭을 붙였습니다. 달 탭은 «최근이 왼쪽» · ${monthKo(CLOSED)}은 진한 색.\n`);
 process.exit(0);
