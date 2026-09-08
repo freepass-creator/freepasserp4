@@ -70,7 +70,16 @@ const COLUMNS: Partial<Record<ShopAxis, 1 | 2>> = {
  * ★특히 보증금은 저신용 손님의 **1번 장벽**이다(지금 당장 있어야 하는 목돈).
  *   접어 두면 「얼마 있어야 되나」를 묻는 손님이 그 축을 못 찾는다.
  */
-const OPEN_BY_DEFAULT: ShopAxis[] = ['vc', 'maker', 'rent', 'dep'];
+/*
+ * ★**계약기간도 펼쳐 둔다**(2026-09-08). 위 「가격」 논리의 연장이다 —
+ *   월 대여료가 **기간마다 다른 금액**이라, 기간은 「가격」 축의 앞머리다.
+ *   접어 두면 손님이 그 축이 있다는 걸 모른 채 60개월 값만 보고 판단한다.
+ * ★특히 **단기(1·6개월)**를 찾는 손님은 접힌 축 뒤에서 그 차를 영영 못 찾는다
+ *   (실측 1개월 98대 · 6개월 43대).
+ * ⚠ 차급(`vclass`)은 «접어» 둔다 — 차종(승용·SUV·승합·화물)이 이미 굵은 갈래를 잡아 주고,
+ *   차급은 그 안에서 더 좁히는 축이라 처음부터 열어 두면 왼쪽 기둥이 길어지기만 한다.
+ */
+const OPEN_BY_DEFAULT: ShopAxis[] = ['vc', 'maker', 'term', 'rent', 'dep'];
 /**
  * 긴 목록을 «한 번에 몇 개씩» 여는가 — **다섯**(사장님 2026-09-07 「웹 필터는 **5개씩 보고
  * 더보기 5개씩** 하는 거로, **5개 이하면 남은 거만큼만** 보게 하고」).
@@ -99,6 +108,17 @@ const MARK_W = 44;
 const MARK_H = 18;
 
 const HEAD_COUNT = 5;
+/**
+ * **「더보기」로 안 접는 축** — 값을 «눈금처럼» 훑는 축이다.
+ *
+ * ★「다섯 개씩 + 더보기 다섯」은 **긴 목록**(제조사 열둘)을 접는 장치다. 거기서는 아래쪽 값이
+ *   대수 몇 대짜리라 늘 보일 값이 아니다.
+ * ⚠ 계약기간은 다르다. 값이 여덟(1·6·12·18·24·36·48·60)인데 다섯에서 자르면
+ *   **제일 흔한 36·48·60이 「더보기」 뒤로 숨는다**(실측 48개월 757대). 손님이 제일 많이
+ *   고를 값을 접어 두는 셈이고, 기간은 눈금이라 중간이 끊기면 축으로 안 읽힌다.
+ * ⇒ 기간만 전부 편다. 두 칸 격자라 여덟 개가 네 줄이다 — 기둥이 길어지지도 않는다.
+ */
+const ALL_SHOWN: ShopAxis[] = ['term'];
 /** 「더보기」 한 번에 더 여는 수 — 처음 보여 주는 수와 같다(리듬이 갈리면 단추가 딴 물건이 된다). */
 const MORE_STEP = 5;
 
@@ -263,7 +283,7 @@ function CheckList({ axis, options, selected, onToggle, mobile, columns }: {
   const floor = deepestPick < HEAD_COUNT ? HEAD_COUNT
     : HEAD_COUNT + Math.ceil((deepestPick + 1 - HEAD_COUNT) / MORE_STEP) * MORE_STEP;
   const [opened, setOpened] = useState(0);
-  const limit = Math.max(HEAD_COUNT + opened, floor);
+  const limit = ALL_SHOWN.includes(axis) ? options.length : Math.max(HEAD_COUNT + opened, floor);
   const shown = options.slice(0, limit);
   const rest = options.length - shown.length;
   /** 단추에 적는 수 = «이번에 정말 나올 수». 남은 게 셋이면 「더보기 3」이고 셋만 나온다. */
