@@ -119,7 +119,20 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
     setWlKey(wlParam || (hasBrand(wl) && !hostIsChannel ? wl.key : ''));
     try {
       const p = new URLSearchParams();
-      if (params.get('p')) p.set('p', String(params.get('p')));
+      /*
+       * ★★**공급사 전용 채널은 «그 회사 차만» 싣는다**(`lib/whitelabel.ts` `providerCode`).
+       *
+       * 사장님 2026-09-08 「이거 가능하지? **이안카한테 줄 건데**」 · 「**이안카 차만 모아서 주는 거**」.
+       *
+       * ⚠⚠ **표에 `providerCode` 칸은 있었는데 아무 데도 안 실렸다.** 주소에 손으로 `?p=` 를 붙였을
+       *   때만 걸렸다 — 즉 **채널에 적어도 아무 일이 안 일어났다.** 있는 줄 알고 적으면
+       *   그 회사 홈페이지에 **남의 차가 통째로** 뜬다. 있는 것보다 나쁜 종류의 빈칸이다.
+       * ⇒ 채널이 제 코드를 갖고 있으면 그것이 «이긴다». 주소의 `?p=` 는 코드가 없는 채널에서만 쓴다
+       *   (영업채널은 우리 재고 전체를 파는 것이라 코드가 비어 있다 — 그 칸의 머리말 참고).
+       * ★건수(「전체차량 N대」)도 같이 줄어든다 — 서버가 거른 뒤에 세기 때문이다(실측 RP031 = 87대).
+       */
+      const only = String(wl.providerCode || '').trim() || String(params.get('p') || '').trim();
+      if (only) p.set('p', only);
       if (a) p.set('a', a);
       const res = await fetch(`/api/catalog/feed?${p}`, { cache: 'no-store' });
       const body = await res.json().catch(() => ({})) as {
