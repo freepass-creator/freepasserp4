@@ -85,8 +85,18 @@ const OPEN_BY_DEFAULT: ShopAxis[] = ['vc', 'maker', 'rent', 'dep'];
 /**
  * 제조사 마크의 «자리» 크기 — 그림과 빈자리가 **같은 값**이어야 왼선이 안 갈린다.
  * 한 곳에서 정한다(둘을 따로 적으면 한쪽만 고쳐져 그 어긋남이 조용히 돌아온다).
+ *
+ * ★★**칸은 정사각이 아니라 «가로로 넓다»**(2026-09-08).
+ *   ⚠ 18×18 짜리 정사각이었다. 그래서 **가로로 긴 마크가 실처럼 눌렸다** — 제네시스 엠블럼은
+ *     날개 달린 방패라 원본 판이 126×26(4.8:1)이다. 정사각 칸에 `contain` 으로 넣으면 높이가
+ *     3.7px 이 되어, 앞 사람이 날개를 잘라내고 «방패만» 남겼다. 사장님 2026-09-08
+ *     「필터에 제네시스 로고 저거 아닌데」 — 날개 없는 방패는 그 회사 마크가 아니다.
+ *   ⇒ 칸을 **44×18** 로 넓힌다. 정사각 마크(기아·현대·BMW…)는 높이 18 그대로 왼쪽에 서고,
+ *     가로로 긴 마크만 제 비율대로 펴진다. **왼선은 칸 폭이 고정이라 그대로다.**
+ *   ★그림을 칸에 맞추지 않는다 — 칸을 그림에 맞춘다. 남의 상표를 우리가 자르지 않는다.
  */
-const MARK = 18;
+const MARK_W = 44;
+const MARK_H = 18;
 
 const HEAD_COUNT = 5;
 /** 「더보기」 한 번에 더 여는 수 — 처음 보여 주는 수와 같다(리듬이 갈리면 단추가 딴 물건이 된다). */
@@ -364,14 +374,16 @@ function CheckRow({ label, count, on, onClick, tight, logo }: {
          *   방금 고친 어긋남이 그대로 돌아온다. 파일을 넣는 순간 그 브랜드만 바로 뜬다.
          */
         <span aria-hidden style={{
-          flex: '0 0 auto', width: MARK, height: MARK,
-          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          flex: '0 0 auto', width: MARK_W, height: MARK_H,
+          /* ★왼쪽 정렬 — 가운데로 모으면 정사각 마크와 가로로 긴 마크의 «시작점»이 갈린다. */
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-start',
         }}>
           {logo ? (
             // eslint-disable-next-line @next/next/no-img-element -- 브랜드 마크는 정적 최적화 대상이 아니다(작은 SVG).
-            <img src={logo} alt="" aria-hidden width={MARK} height={MARK}
+            <img src={logo} alt="" aria-hidden
               onError={(e) => { e.currentTarget.style.visibility = 'hidden'; }}
-              style={{ width: MARK, height: MARK, objectFit: 'contain' }} />
+              /* ★`contain` + 최대치 둘 — 정사각은 높이에, 가로로 긴 것은 폭에 걸린다(제 비율 유지). */
+              style={{ maxWidth: MARK_W, maxHeight: MARK_H, objectFit: 'contain' }} />
           ) : null}
         </span>
       ) : null}
