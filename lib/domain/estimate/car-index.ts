@@ -70,7 +70,9 @@ export function engineFuel(masterFuel: string | null | undefined): EngineFuel {
    */
   if (f.includes('전기') || U.includes('ELECTRIC') || /(^|[^A-Z])EV([^A-Z]|$)/.test(U)) return 'ev';
   if (f.includes('플러그인') || f.includes('하이브리드') || U.includes('PHEV') || U.includes('HEV')) return 'hybrid';
-  if (f.includes('바이퓨얼') || f.toUpperCase().includes('LPG')) return 'lpg';
+  /* ⚠ 신차마스터는 「LPi 3.5」로 준다 — 「LPG」가 아니라 «LPi»다. 안 잡으면 가솔린으로 떨어져
+     연료 설정(감면·공채·세금)이 통째로 틀어진다(2026-09-08 파워트레인 맞추다 잡음). */
+  if (f.includes('바이퓨얼') || U.includes('LPG') || U.includes('LPI')) return 'lpg';
   if (f.includes('디젤')) return 'diesel';
   return 'gasoline';
 }
@@ -170,7 +172,8 @@ export function pickUsed(c: CarEntry, p: CarPt, trim: string): PickedCar {
  * ⚠ 이 값을 다시 잔가 계산에 넣어도 «돌지» 않는다 — 엔진은 시세를 «입력»으로만 쓴다.
  */
 export function guessMarketPrice(models: NewModel[] | null, maker: string, model: string,
-  age: number, curve: (years: number) => number, al?: Record<string, string>): number {
+  age: number, curve: (years: number) => number, al?: Record<string, string>,
+  powertrain?: string | null): number {
   if (!models?.length) return 0;
   const norm = (s: string) => String(s || '').replace(/\s+/g, '').toLowerCase();
   const want = norm(model);
@@ -180,8 +183,29 @@ export function guessMarketPrice(models: NewModel[] | null, maker: string, model
   const hit = models.filter((m) => m.maker === maker
     && names(m).some((n) => n === want || n.includes(want) || want.includes(n)));
   if (!hit.length) return 0;
-  // 트림이 여럿이면 **가운데 값**을 쓴다 — 최저트림은 너무 싸고 최고트림은 너무 비싸다.
-  const prices = hit.flatMap((m) => m.trims.map((t) => Number(t.priceAfter) || Number(t.priceBefore) || 0))
+  /**
+   * ★★**파워트레인으로 좁힌다** — 사장님 2026-09-08 「파워트레인이라는 게 들어가거든?
+   *   **그래야 신차가 딱 걸릴 거야**」.
+   *
+   *   그랜저 하나에 「가솔린 2.5(4,245만) · LPi 3.5 · 가솔린 3.5 · 하이브리드 1.6T(4,833만)」가 있다.
+   *   모델 이름만 맞추고 전부의 중앙값을 쓰면 **어느 차의 값도 아니게** 된다.
+   *   ⇒ 연료 갈래(가솔린/디젤/LPG/하이브리드/전기) + 배기량(리터)이 같은 트림만 남긴다.
+   *   ⚠ 신차마스터의 표기는 뒤죽박죽이다 — 「가솔린 2.5」·「2.5 가솔린」·「가솔린 2.5T」·「LPi 3.5」.
+   *     그래서 «글자»가 아니라 «연료 갈래 + 리터»로 맞춘다.
+   *   ⇒ 좁혀서 아무것도 안 남으면 연료 갈래만으로, 그것도 없으면 전부로 물러선다.
+   *     못 맞췄다고 0 을 주진 않는다 — 대충이라도 그 모델의 값이 낫다.
+   */
+  let trims = hit.flatMap((m) => m.trims);
+  if (powertrain) {
+    const wantFuel = engineFuel(powertrain);
+    const wantCc = ccFromFuelLabel(powertrain);
+    const byBoth = trims.filter((t) => engineFuel(t.fuel) === wantFuel
+      && (!wantCc || ccFromFuelLabel(t.fuel) === wantCc));
+    const byFuel = trims.filter((t) => engineFuel(t.fuel) === wantFuel);
+    trims = byBoth.length ? byBoth : (byFuel.length ? byFuel : trims);
+  }
+  // 남은 것이 여럿이면 **가운데 값** — 최저트림은 너무 싸고 최고트림은 너무 비싸다.
+  const prices = trims.map((t) => Number(t.priceAfter) || Number(t.priceBefore) || 0)
     .filter((n) => n > 0).sort((a, b) => a - b);
   if (!prices.length) return 0;
   const mid = prices[Math.floor(prices.length / 2)];

@@ -327,6 +327,18 @@ must(/residualDefault = adjustResidual\(raw, cost\.residualAdjustPct\)/.test(pag
   && !/buyoutPct\[[^\]]*\][\s\S]{0,200}createQuoteInput/.test(page),
   '인수 잔가가 대여료 계산에 흘러들었습니다 — 인수용은 만기에 받는 돈이지 월납이 아닙니다',
   'app/estimate/page.tsx createQuoteInput');
+/* ★★파워트레인으로 신차를 «딱» 건다 — 사장님 2026-09-08
+     「**파워트레인이라는 게 들어가거든? 그래야 신차가 딱 걸릴 거야**」.
+   모델 이름만 맞추면 그랜저 하나에 「가솔린 2.5 · LPi 3.5 · 가솔린 3.5 · 하이브리드 1.6T」가 섞여
+   **어느 차의 값도 아닌** 중앙값이 나온다(실측: 스포티지 가솔린 3,560만 / 하이브리드 4,040만이
+   좁히기 전에는 둘 다 3,620만이었다). */
+must(/powertrain\?: string \| null/.test(carIndexSrc) && /engineFuel\(powertrain\)/.test(carIndexSrc),
+  '시세를 짚을 때 파워트레인을 «안 봅니다» — 그러면 하이브리드와 가솔린이 같은 값이 됩니다',
+  'lib/domain/estimate/car-index.ts guessMarketPrice');
+must(/picked\.powertrain\)/.test(page),
+  '화면이 고른 차의 파워트레인을 «안 넘깁니다»',
+  'app/estimate/page.tsx guessMarketPrice');
+
 must(/koModel\(al, m\.sub_model\)/.test(carIndexSrc),
   '신차 이름을 «한글로도» 안 맞춥니다 — 기아가 영문 슬러그(ray)로 와서 통째로 안 잡힙니다',
   'lib/domain/estimate/car-index.ts guessMarketPrice');
@@ -422,7 +434,10 @@ must(evYes.residualAmt < evNo.residualAmt && evYes.deposit < evNo.deposit,
        보조금·취득세 감면·공채 면제가 하나도 안 걸리고 자동차세는 cc 가 없어 0 이 됐다. */
 const { engineFuel } = await import('../lib/domain/estimate/car-index');
 for (const [label, want] of [['EV', 'ev'], ['ev', 'ev'], ['전기', 'ev'], ['EV 롱레인지', 'ev'],
-  ['PHEV', 'hybrid'], ['하이브리드', 'hybrid'], ['3.5 가솔린', 'gasoline'], ['디젤', 'diesel']] as const) {
+  ['PHEV', 'hybrid'], ['하이브리드', 'hybrid'], ['3.5 가솔린', 'gasoline'], ['디젤', 'diesel'],
+  /* ⚠ 신차마스터는 LPG 를 「LPi 3.5」로 준다 — 안 잡으면 가솔린으로 떨어져 연료 설정이 통째로 틀어진다
+     (2026-09-08 파워트레인을 맞추다 잡음). */
+  ['LPi 3.5', 'lpg'], ['LPG 3.5', 'lpg']] as const) {
   must(engineFuel(label) === want,
     `연료 「${label}」가 «${engineFuel(label)}» 로 잡힙니다 — «${want}» 여야 합니다`,
     'lib/domain/estimate/car-index.ts engineFuel');

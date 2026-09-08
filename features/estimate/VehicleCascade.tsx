@@ -158,7 +158,10 @@ export default function VehicleCascade({ mode, picked, onPick }: Props) {
           : newModels.map((m) => ({ v: m.sub_model, label: ko(m.sub_model) }))}
         onChange={(v) => { setModel(v); setVariant(''); setTrim(''); }} />
 
-      <Step id="sec-variant" label={mode === 'used' ? '파워트레인' : '연료'}
+      {/* ★신차마스터의 「연료」 값이 곧 파워트레인이다(「가솔린 2.5」·「LPi 3.5」·「하이브리드 1.6T」).
+          이름을 「연료」라고 부르면 «가솔린/디젤»만 고르는 칸으로 오해한다 —
+          사장님 2026-09-08 「**파워트레인이라는 게 들어가거든? 그래야 신차가 딱 걸릴 거야**」. */}
+      <Step id="sec-variant" label="파워트레인"
         value={variant} disabled={!model} current={!!model && !variant}
         options={variants} onChange={(v) => { setVariant(v); setTrim(''); }} />
 
