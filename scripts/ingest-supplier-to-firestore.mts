@@ -243,7 +243,20 @@ async function readRows(): Promise<Row[]> {
       const low = (c.저신용월납 || {}) as { SUBSCRIBE_RETURN?: Record<string, number>; SUBSCRIBE_BUYOUT?: Record<string, number> };
       for (const [p, rent] of Object.entries(low.SUBSCRIBE_RETURN || {})) { const r = won(rent); if (r > 0) price[p] = { rent: r, deposit: Math.round((Number(p) / 12) * r) }; }
       for (const [p, rent] of Object.entries(low.SUBSCRIBE_BUYOUT || {})) { const r = won(rent); if (r > 0) price[`${p}_인수형`] = { rent: r, deposit: Math.round((Number(p) / 12) * r) }; }
-      push({ car, status, kind: c.중고 ? '중고구독' : '', maker: S(c.제조사), model: S(c.모델), vname: S(c.차명) || S(c.세부), fuel: S(c.연료), ext: S(c.외장), int: S(c.내장), km: c.주행거리 == null ? '' : String(c.주행거리), opt: S(c.옵션), firstReg: S(c.최초등록) || S(c.연식), cc: c.배기량 == null ? '' : String(c.배기량), klass: '', price, tab: '손오공API', row: S(c.id) });
+      /**
+       * ★★**손오공 상품구분은 «버킷»이 말해 준다** — 원천이 진작 주고 있었는데 안 읽었다.
+       * ```
+       *   TCAR_EXTERNAL  227대  →  픽업구독   (티카에서 온 차)
+       *   SON_NO_KONG     64대  →  오공구독   (손오공 제 물건)
+       * ```
+       * ⚠ 2026-09-08 실측 — 여기서 「중고면 중고구독, 아니면 «빈칸»」으로 읽고 있었다. 그 빈칸이
+       *   merge 로 나가 **이미 알던 픽업구독·오공구독을 246대나 지웠다**(상품구분 빈 차 4 → 312).
+       *   탭 가르기가 이 칸을 보므로, 비면 그 차가 통째로 상품리스트로 흘러가 시트 넉 장이 뒤섞인다.
+       * ★「오공구독」은 7캐논에 이미 있다 — 손오공 제 물건을 「중고구독」이라 부르던 옛 표기를 여기서 끝낸다.
+       */
+      const 버킷 = S(c.버킷);
+      const kind = 버킷 === 'TCAR_EXTERNAL' ? '픽업구독' : (버킷 === 'SON_NO_KONG' ? '오공구독' : (c.중고 ? '중고구독' : ''));
+      push({ car, status, kind, maker: S(c.제조사), model: S(c.모델), vname: S(c.차명) || S(c.세부), fuel: S(c.연료), ext: S(c.외장), int: S(c.내장), km: c.주행거리 == null ? '' : String(c.주행거리), opt: S(c.옵션), firstReg: S(c.최초등록) || S(c.연식), cc: c.배기량 == null ? '' : String(c.배기량), klass: '', price, tab: '손오공API', row: S(c.id) });
     }
     return out;
   }
@@ -289,6 +302,29 @@ async function readRows(): Promise<Row[]> {
   }
   return out;
 }
+
+/**
+ * ★★**빈 값으로 «아는 값»을 덮지 않는다.**
+ *
+ * ⚠⚠ 2026-09-08 실측 — 손오공을 다시 당겼더니 **상품구분이 빈 차가 4대 → 312대**로 뛰었다.
+ *   손오공 원천은 「중고」가 아닌 차의 분류를 안 준다(`kind: ''`). 그 빈 값이 merge 로 나가면서
+ *   **이미 알고 있던 「픽업구독」·「오공구독」을 지워 버렸다.** 탭 가르기가 이 칸을 보므로,
+ *   비면 그 차가 통째로 상품리스트로 흘러간다 — 회차 한 번으로 시트 넉 장이 뒤섞인다.
+ *
+ * ★원천이 «말 안 한 것»은 «없다」가 아니라 «모른다»다. 모르는 것으로 아는 것을 지우지 않는다.
+ *   (규칙 SSOT = `docs/원자-내려보내기-로직.md` §1)
+ * ★단 하나 예외 = `engine_cc` — 전기·수소차는 배기량이 «없는 것»이 맞다(evEngineCc 가 일부러 비운다).
+ */
+const CLEARABLE = new Set(['engine_cc']);
+const strip = (doc: Record<string, unknown>) => {
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(doc)) {
+    if (v === '' && !CLEARABLE.has(k)) continue;   // 빈 문자열 = 「모른다」 → 안 쓴다
+    if (v === undefined || v === null) continue;
+    out[k] = v;
+  }
+  return out;
+};
 
 // ── 원자화 (pin: 차번으로 박은 것 지킴) — 원천 종류 무관하게 하나로 ────────────
 type Atom = Record<string, unknown> & { car_number: string };
@@ -476,7 +512,7 @@ for (let i = 0; i < now.length; i += 400) {
   const batch = fs.batch();
   for (const a of now.slice(i, i + 400)) {
     const { _pin_state, ...doc } = a; void _pin_state;
-    batch.set(fs.collection('products').doc(docId(a.car_number)), { ...doc, _direct_ingest_at: Date.now() }, { merge: true });
+    batch.set(fs.collection('products').doc(docId(a.car_number)), { ...strip(doc), _direct_ingest_at: Date.now() }, { merge: true });
     wrote++;
   }
   await batch.commit();
