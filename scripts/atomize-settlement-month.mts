@@ -377,9 +377,33 @@ console.log(`\n   기존 원자와 붙음 ${matched}줄 · 새 줄 ${fresh.lengt
 for (const f of fresh) console.log(`      새 — ${(f.plate || "(차번없음)").padEnd(11)} ${(f.supplier || "(공급사없음)").padEnd(10)} ${f.channel} ${f.receivedAt} ${f.settleNote || f.note}`);
 if (fixes.length) { console.log(`\n   ★고쳐지는 금액 ${fixes.length}건 (수식X 우선)`); for (const f of fixes) console.log(f); }
 
-const ax = atoms.filter((a) => a.settleTarget !== '양쪽' || a.settleRatio !== 1 || a.billHold || a.settledAlready || a.vatIncluded);
+/**
+ * ★★★**청구도 지급도 0 인 줄을 «이름을 대고» 알린다 — 조용히 0 으로 나가지 않게.**
+ *
+ * ⚠ **무슨 일이 있었나.** 2026-09-08 실측 — 오플 8월 192거5102 신경섭(GV80)은 계약서·인도까지
+ *   다 끝났는데 원장의 **수수료 칸이 통째로 비어** 청구 0 · 지급 0 으로 서 있었다.
+ *   아무도 몰랐다. 「누락」이라고 알려 주는 것은 «표에 없는 줄»뿐이고, 이렇게 **표에는 있는데
+ *   금액만 0 인 줄**은 상대 눈에도 우리 눈에도 안 걸린다 — 그냥 한 줄이 0원으로 나갈 뿐이다.
+ *
+ * ⇒ 「보류」·「취소」·「환수」처럼 «0 이 맞는» 줄은 빼고, 그 밖에 둘 다 0 인 줄은 여기서 세워 보여 준다.
+ *   멈추지는 않는다 — 0 이 맞는 달도 있다(청구보류·정산완료). 다만 **모르고 지나가지는 못하게** 한다.
+ */
+const zero = atoms.filter((a) => !a.claimWritten && !a.payWritten && !a.claimIncentive && !a.payIncentive
+  && !a.settleExclude && !a.settledAlready && !a.cancelled);
+if (zero.length) {
+  console.log(`
+   ⚠ 청구·지급이 «둘 다 0» 인 줄 ${zero.length}개 — 요율이 빈 것은 아닌지 보세요`);
+  for (const z of zero) console.log(`      ${(z.plate || '(차번없음)').padEnd(11)} ${z.customer.padEnd(8)} ${(z.supplier || '(공급사없음)').padEnd(10)} ${z.channel.padEnd(6)} ${z.product}   ${z.sourceTab} ${z.sourceRow}행`);
+}
+
+/**
+ * ⚠ **`settleExclude`(보류)도 «축»이다** — 2026-09-08 까지 이 걸름망에서 빠져 있어,
+ *   보류를 박아 그 달에서 뺀 줄이 화면 어디에도 안 나왔다. 안 보이면 확인할 수가 없다.
+ */
+const ax = atoms.filter((a) => a.settleTarget !== '양쪽' || a.settleRatio !== 1 || a.billHold
+  || a.settleExclude || a.settledAlready || a.vatIncluded);
 console.log(`\n   ★메모에서 옮긴 축 ${ax.length}줄`);
-for (const a of ax) console.log(`      ${a.plate.padEnd(11)} 대상 ${a.settleTarget.padEnd(5)} 비율 ${a.settleRatio} ${a.settleExclude ? '· 보류(양쪽 다 0)' : ''}${a.billHold ? '· 청구보류' : ''}${a.settledAlready ? ' · 정산완료' : ''}${a.vatIncluded ? ' · 부가세포함' : ''}`);
+for (const a of ax) console.log(`      ${(a.plate || '(차번없음)').padEnd(11)} ${a.customer.padEnd(8)} 대상${a.settleTarget.padEnd(5)} 비율 ${a.settleRatio} ${a.settleExclude ? '· 보류(양쪽 다 0)' : ''}${a.billHold ? '· 청구보류' : ''}${a.settledAlready ? ' · 정산완료' : ''}${a.vatIncluded ? ' · 부가세포함' : ''}`);
 console.log(`\n   ★환수 ${claws.length}건`);
 for (const c of claws) console.log(`      ${S(c.plate).padEnd(11)} ${S(c.supplier).padEnd(10)} 공급사 ${won(N(c.supplierAmt))} · 영업자 ${won(N(c.agentAmt))} · 환수일 ${S(c.at) || '(없음 — 사람이 채워야 한다)'}`);
 

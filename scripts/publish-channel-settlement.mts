@@ -30,11 +30,11 @@ import { CORP } from '../lib/domain/corporate-ci';
 import { payDate, payDayOf, PAY_DAY_BY_SUPPLIER } from '../lib/domain/settlement-cycle';
 import { settleTargetOf, billingMonthIn, lockedMonthsOf, type SettlementRow } from '../lib/domain/settlement-stage';
 /** ★채널 발행기는 «지급»만 센다 — claimOf 는 부러 안 들여온다(청구액 빗장). */
-import { payOf, incentiveOf } from '../lib/domain/settlement-money';
+import { payOf, incentiveOf, payBaseOf } from '../lib/domain/settlement-money';
 import { settlementMonthOf } from '../lib/domain/settlement-billing-month';
 import { feeKindOf, feeRuleFor } from '../lib/domain/settlement-fee-table';
 import { outwardText } from '../lib/domain/outward-text';
-import { channelSheetName, CHANNEL_SETTLE_HEAD, CHANNEL_SETTLE_WIDTH, SETTLE_BASIS, SETTLE_NOTE, settleTabOf, settleTabFormat, settleMoneyFor, settleLeftFor, settleTabLabel, settleTabBase } from '../lib/server/channel-sheet-tabs';
+import { channelSheetName, CHANNEL_SETTLE_HEAD, CHANNEL_SETTLE_WIDTH, SETTLE_BASIS, SETTLE_NOTE, settleTabOf, settleTabFormat, settleMoneyFor, settleLeftFor, settleTabBase } from '../lib/server/channel-sheet-tabs';
 import { diffSheetRows, applyPending, editId, publishedId, type SheetEdit, type Published } from '../lib/server/sheet-edits';
 
 const MONTH = (process.argv.find((a) => /^\d{4}-\d{2}$/.test(a)) || '').trim();
@@ -178,6 +178,29 @@ const lineOf = (r: Row): Line => {
     if (ratio !== 1) how += ` × 비율 ${ratio}`;
   } else if (f) how = `표 규칙 「${f.pay}」 — 개별 협의분`;
   else how = '개별 협의분';
+  /**
+   * ★★★**문구가 «적힌 금액»과 안 맞으면 그 문구를 쓰지 않는다.**
+   *
+   * ⚠ **무슨 일이 있었나.** 2026-09-08 카핑이 133호1997 을 「선출고」로 바로잡아 상품구분을 고쳤더니,
+   *   공급사(우리캐피탈) 청구서의 산정기준만 «차량가액 × 3.50%»로 바뀌고 **금액은 사다리 값
+   *   1,228,500 그대로**였다. 종이 위에서 식과 금액이 서로 다른 말을 하게 된 것이다.
+   *   상대가 그 식으로 검산하면 우리 청구서가 틀린 것이 된다.
+   *
+   * ⇒ 표 규칙으로 «세어 본 값»과 적힌 금액(인센티브 뺀 사다리분)이 다르면 식을 지우고
+   *   「개별 협의분」이라고만 적는다. 모르는 것을 아는 척하지 않는 것이 정확한 것이다.
+   */
+  const expect = f && f.auto ? Math.round((f.basis === '정액' ? Number(f.pay)
+    : f.basis === '차량가액' ? N(r.price) * Number(f.pay)
+      : N(r.rent) * term * Number(f.pay)) * ratio) : 0;
+  const got = payBaseOf(r);
+  if (expect && Math.abs(expect - got) > 1) {
+    /**
+     * ★★**절반이면 「절반」이라고 말한다** — 2회분납의 1회차는 표 값의 0.5 다.
+     *   실측 2026-09-08 — 카핑 133호1997(723,750 = 1,447,500 × 0.5) · 하허호 161하1266(462,000 = 924,000 × 0.5).
+     *   여기서 뭉뚱그려 「개별 협의분」이라 하면, 상대는 «왜 절반인지»를 물으러 전화해야 한다.
+     */
+    how = Math.abs(expect * 0.5 - got) <= 1 ? `${how} × 비율 0.5 (분납 1회차)` : '개별 협의분';
+  }
   /**
    * ★★**공급사가 없는 줄은 «지원금»이다** — 사장님 2026-09-07
    *   「사무실지원금, 업무지원비 이런 거 수수료 산정기준에 넣어주고」.
@@ -467,7 +490,7 @@ for (const j of jobs) {
   /**
    * ★**「누락분」에 적어 둔 줄도 거둔다** — 사장님 2026-09-03
    *   「정산시트에 누락된거 있으면 몇개 넣을수 있게끔 몇줄 만들어 놓자」 ·
-   *   「정산서 밑에 여백이 5개 넣어두면 추가하라고 빠진거 있으면 추가해달라고」.
+   *   「정산서 밑에 여백을 열 줄 놓아 두면 추가하라고 빠진거 있으면 추가해달라고」.
    *   ⚠⚠ 다시 찍을 때 «적어 둔 줄을 덮으면» 그게 사고다 — 빠진 건을 적어 놨는데 지워지는 셈이다.
    */
   const missed: Record<string, string>[] = [];
@@ -701,14 +724,14 @@ for (const j of jobs) {
     ...body,
     ['', '합계', `${j.lines.length}건`, ...pad(iM - 3), j.net, j.vat, j.net + j.vat, ...pad(HEAD.length - iM - 3)],
     /**
-     * ★★**합계 아래에 «빈 다섯 줄»을 둔다** — 사장님 2026-09-03
-     *   「정산서 밑에 여백이 5개 넣어두면 추가하라고 빠진거 있으면 추가해달라고」 ·
+     * ★★**합계 아래에 «빈 열 줄»을 둔다** — 사장님 2026-09-03
+     *   「정산서 밑에 여백을 열 줄 놓아 두면 추가하라고 빠진거 있으면 추가해달라고」 ·
      *   「살짝 흐리게 써놔주면 되지」 · 「메모에 써도 되겄네」.
      *   빠진 건이 있을 때 «어디에 적나»를 묻지 않게, 자리를 먼저 내어 둔다.
      * ⚠⚠ 다시 찍을 때 «적어 둔 줄은 그대로 되돌려 놓는다»(missed) — 안 그러면 적어 놓은 게 지워진다.
      */
     ...missed.map((m) => HEAD.map((h) => S(m[h]))),
-    ...Array.from({ length: Math.max(0, 5 - missed.length) }, (_, k) => (k === 0 && !missed.length
+    ...Array.from({ length: Math.max(0, 10 - missed.length) }, (_, k) => (k === 0 && !missed.length
       /**
        * ★★**「금액까지」 적어 달라고 말한다.** 사장님 2026-09-04
        *   「오플거 누락된거 못찾으면 둬」 · 「**그냥 최팀장거로 청구하게**」.
@@ -773,14 +796,13 @@ for (const j of jobs) {
   const reqs = settleTabFormat({
     sheetId: id, head: HEAD, width: WIDTH, r0: 3, bodyLen: body.length,
     backAt: j.backs.map((_, i) => j.lines.length + i),
-    blanks: 5, footLen: 4, basisLen: BASIS.length, money: MONEY, left: LEFT,
+    blanks: 10, footLen: 4, basisLen: BASIS.length, money: MONEY, left: LEFT,
   });
   /**
    * ★★**탭 이름에 건수를 달아 둔다** — 「26년08월 정산 (41건)」.
    *   사장님 2026-09-08 「각 탭에는 건수 표시하자」 — 열어보기 전에 규모가 보인다.
    *   ⚠ 찾기는 `settleTabBase` 로 «앞글»만 맞춘다 — 안 그러면 달마다 탭이 새로 생긴다.
    */
-  reqs.push({ updateSheetProperties: { properties: { sheetId: id, title: settleTabLabel(tab, j.lines.length) }, fields: 'title' } });
   const fr = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${bookId}:batchUpdate`, {
     method: 'POST', headers: { Authorization: `Bearer ${await tok()}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ requests: reqs }),

@@ -34,9 +34,10 @@ import { CORP } from '../lib/domain/corporate-ci';
 import { dueDate } from '../lib/domain/settlement-cycle';
 import { settleTargetOf, billingMonthIn, lockedMonthsOf, type SettlementRow } from '../lib/domain/settlement-stage';
 /** ★공급사 발행기는 «청구»만 센다 — payOf 는 부러 안 들여온다(지급액 빗장). */
-import { claimOf, incentiveOf } from '../lib/domain/settlement-money';
+import { claimOf, incentiveOf, claimBaseOf } from '../lib/domain/settlement-money';
 import { settlementMonthOf } from '../lib/domain/settlement-billing-month';
-import { SETTLE_NOTE, settleHeadFor, settleWidthFor, settleMoneyFor, settleLeftFor, settleTabLabel, settleTabBase } from '../lib/server/channel-sheet-tabs';
+import { SETTLE_NOTE, settleHeadFor, settleWidthFor, settleMoneyFor, settleLeftFor, settleTabBase } from '../lib/server/channel-sheet-tabs';
+import { editId } from '../lib/server/sheet-edits';
 
 /** 공급사가 적는 넉 칸 — [확인, 정정, 정정금액, 메모(정정사유)]. */
 type Keep = [boolean, boolean, number | '', string];
@@ -137,6 +138,29 @@ const lineOf = (r: Row): Line => {
     if (ratio !== 1) how += ` × 비율 ${ratio}`;
   } else if (f) how = `표 규칙 「${f.claim}」 — 개별 협의분`;
   else how = '개별 협의분';
+  /**
+   * ★★★**문구가 «적힌 금액»과 안 맞으면 그 문구를 쓰지 않는다.**
+   *
+   * ⚠ **무슨 일이 있었나.** 2026-09-08 카핑이 133호1997 을 「선출고」로 바로잡아 상품구분을 고쳤더니,
+   *   공급사(우리캐피탈) 청구서의 산정기준만 «차량가액 × 3.50%»로 바뀌고 **금액은 사다리 값
+   *   1,228,500 그대로**였다. 종이 위에서 식과 금액이 서로 다른 말을 하게 된 것이다.
+   *   상대가 그 식으로 검산하면 우리 청구서가 틀린 것이 된다.
+   *
+   * ⇒ 표 규칙으로 «세어 본 값»과 적힌 금액(인센티브 뺀 사다리분)이 다르면 식을 지우고
+   *   「개별 협의분」이라고만 적는다. 모르는 것을 아는 척하지 않는 것이 정확한 것이다.
+   */
+  const expect = f && f.auto ? Math.round((f.basis === '정액' ? Number(f.claim)
+    : f.basis === '차량가액' ? N(r.price) * Number(f.claim)
+      : N(r.rent) * term * Number(f.claim)) * ratio) : 0;
+  const got = claimBaseOf(r);
+  if (expect && Math.abs(expect - got) > 1) {
+    /**
+     * ★★**절반이면 「절반」이라고 말한다** — 2회분납의 1회차는 표 값의 0.5 다.
+     *   실측 2026-09-08 — 카핑 133호1997(723,750 = 1,447,500 × 0.5) · 하허호 161하1266(462,000 = 924,000 × 0.5).
+     *   여기서 뭉뚱그려 「개별 협의분」이라 하면, 상대는 «왜 절반인지»를 물으러 전화해야 한다.
+     */
+    how = Math.abs(expect * 0.5 - got) <= 1 ? `${how} × 비율 0.5 (분납 1회차)` : '개별 협의분';
+  }
   /**
    * ★★**예정 줄은 «예정»이라고 적는다.** 금액이 0 이면 아직 인도 전이라 수수료가 안 정해진 것이다 —
    *   빈칸으로 두면 「0원 청구한다」로 읽힌다. 왜 0 인지를 그 자리에 적어야 묻지 않는다.
@@ -340,10 +364,34 @@ for (const j of jobs) {
    */
   /** 공급사가 적는 넉 칸 — [확인, 정정, 정정금액, 메모(정정사유)]. */
   const kept = new Map<string, Keep>();
+  /**
+   * ★★**합계 아래 「빠진 건」 줄** — 공급사가 거기 적어 준 것. 채널 시트와 «같은 양식»이다
+   *   (사장님 2026-09-08 「10줄씩 넣자 예비줄」 · 「최대한 양식을 같이 써야 함」).
+   *   ⚠⚠ 자리를 내어 주었으면 **적힌 것을 읽어 와야** 한다. 안 읽고 다시 찍으면 적어 둔 것이 지워진다 —
+   *     자리만 내어 주고 지우는 것이 자리를 안 내는 것보다 나쁘다.
+   */
+  const missed: Record<string, string>[] = [];
   {
     const got = await (await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${j.sheetId}/values/${encodeURIComponent(`'${tabRef}'!A1:AZ400`)}`, { headers: { Authorization: `Bearer ${await tok()}` } })).json() as { values?: unknown[][] };
     const g = got.values || [];
     const hi = g.findIndex((r) => (r || []).some((c) => S(c) === '차량번호'));
+    /**
+     * ★**적어 둔 줄은 «칸 이름»으로 거둔다** — 자리로 거두면 칸 차례가 바뀔 때 통째로 밀린다
+     *   (실측 2026-09-07 채널 시트에서 차번이 공급사 칸으로 밀렸다).
+     */
+    {
+      const hNames = hi >= 0 ? (g[hi] || []).map(S) : [];
+      const mi = g.findIndex((r, i) => i > hi && (r || []).some((c) => S(c).replace(/\s/g, '') === '합계'));
+      if (hi >= 0 && mi >= 0) for (const r of g.slice(mi + 1)) {
+        const cells = (r || []).map(S);
+        if (cells.some((c) => c.startsWith('맞으면 「확인」') || c.startsWith(`${Number(MONTH.slice(5))}월은 아직`)
+          || c.includes('입금 부탁드립니다') || c.includes(CORP.email) || c.startsWith('한 달간'))) break;
+        if (!cells.some((c) => c && !c.startsWith('빠진 건이'))) continue;
+        const m: Record<string, string> = {};
+        cells.forEach((v, c) => { const n = hNames[c]; if (n && v) m[n] = v; });
+        missed.push(Object.keys(m).length ? m : Object.fromEntries(cells.map((v, c) => [hNames[c] || `열${c + 1}`, v])));
+      }
+    }
     if (hi >= 0) {
       const h = (g[hi] || []).map(S);
       const [cp, cc, cx, cf, cm] = ['차량번호', '확인', '정정', '정정금액', '메모(정정사유)'].map((n) => h.indexOf(n));
@@ -367,6 +415,11 @@ for (const j of jobs) {
       }
     }
   }
+  /**
+   * ★합계 아래 예비줄 수 — 영업채널 시트와 같은 열 줄(사장님 2026-09-08 「10줄씩 넣자 예비줄」).
+   * ⚠ **값을 짓기 «전»에 선언한다** — 옷 짜는 곳에 두었다가 TDZ 로 터졌다(2026-09-08).
+   */
+  const BLANKS = 10;
   const note = (p: string): Keep => kept.get(p) || [false, false, '', ''];
 
   const pad = (n: number) => Array.from({ length: n }, () => '');
@@ -399,7 +452,7 @@ for (const j of jobs) {
   {
     const [iPl, iNet, iOn, iFix, iMemo] = ['차량번호', '공급가액', '정정', '정정금액', '메모(정정사유)'].map((n) => HEAD.indexOf(n));
     const known = (Object.values((await db.ref('v4/sheet_edits').get()).val() || {}) as Record<string, unknown>[])
-      .filter((e) => S(e.channel) === j.sup && S(e.month) === MONTH && S(e.column) === '공급가액');
+      .filter((e) => S(e.channel) === j.sup && S(e.month) === MONTH && ['공급가액', '누락'].includes(S(e.column)));
     const patch: Record<string, Record<string, unknown>> = {};
     for (const r of body) {
       const plate = S(r[iPl]); if (!plate) continue;
@@ -407,12 +460,36 @@ for (const j of jobs) {
       if (!on && !fix) continue;
       const ours = S(r[iNet]);
       if (!on && fix && N(fix) === N(ours)) continue;
-      const id = `${j.sup}_${MONTH}_${plate}_공급가액`.replace(/[.#$/[]s]/g, '_');
-      const theirs = fix || '(금액 안 적음 · 「정정」만 켜짐)';
-      if (known.some((e) => S(e.theirs) === theirs)) continue;
+      /** ★열쇠는 `editId` 한 곳에서 만든다 — 손으로 짠 정규식이 틀려 있었다(2026-09-08). */
+      const id = editId(j.sup, MONTH, plate, '공급가액');
+      /**
+       * ⚠⚠ **금액을 안 적었으면 `theirs` 는 «빈 값»이다.** 여기에 안내문을 넣으면
+       *   그 글자가 `applyPending` 을 타고 **상대에게 나가는 종이의 돈 칸**에 그대로 찍힌다
+       *   — 채널 쪽에서 실제로 났던 사고다(2026-09-07 하허호 161허1334).
+       *   ⇒ 안내문은 «왜»에 적는다. 돈 칸에 들어갈 수 있는 것은 수뿐이다.
+       */
+      const theirs = fix;
+      const was = known.find((e) => editId(S(e.channel), S(e.month), S(e.key), S(e.column)) === id);
+      if (was && S(was.theirs) === theirs) continue;
       patch[id] = { channel: j.sup, kind: '공급사', month: MONTH, key: plate, column: '공급가액',
         ours, theirs, seenAt: new Date().toISOString(), status: '대기',
-        why: S(r[iMemo]) ? `그쪽 메모 — ${S(r[iMemo])}` : '' };
+        why: [S(r[iMemo]) ? `그쪽 메모 — ${S(r[iMemo])}` : '', fix ? '' : '금액 안 적음 · 「정정」만 켜짐'].filter(Boolean).join(' · ') };
+    }
+    /**
+     * ★★★**합계 아래 「빠진 건」 줄도 올린다 — 그게 «우리가 놓친 차»를 알려 주는 말이다.**
+     *   공급사는 자기가 내보낸 차를 안다. 자리를 내어 주었으면 적힌 것을 읽어 와야 자리를 낸 값을 한다.
+     */
+    for (const cells of missed) {
+      const plate = S(cells['차량번호']); if (!plate) continue;
+      const who = [S(cells['임차인']), S(cells['모델명'])].filter(Boolean).join(' · ');
+      const amt = N(cells['공급가액']) || N(cells['정정금액']);
+      const said = [S(cells['메모(정정사유)']), amt ? `공급가액 ${won(amt)}` : '금액 안 적힘']
+        .filter(Boolean).join(' · ') || Object.values(cells).filter(Boolean).join(' ');
+      const id = editId(j.sup, MONTH, plate, '누락');
+      if (known.some((e) => editId(S(e.channel), S(e.month), S(e.key), S(e.column)) === id && S(e.theirs) === said)) continue;
+      patch[id] = { channel: j.sup, kind: '공급사', month: MONTH, key: plate, column: '누락',
+        ours: '(이 달 표에 없음)', theirs: said, seenAt: new Date().toISOString(), status: '대기',
+        why: who ? `그쪽이 적음 — ${who}` : '' };
     }
     if (Object.keys(patch).length) {
       await db.ref('v4/sheet_edits').update(patch);
@@ -434,6 +511,16 @@ for (const j of jobs) {
     HEAD,
     ...body,
     ['', '합계', `${j.lines.length}건`, ...pad(iM - 3), j.net, j.vat, j.net + j.vat, ...pad(HEAD.length - iM - 3)],
+    /**
+     * ★★**합계 아래 «빈 열 줄»** — 사장님 2026-09-03 「정산서 밑에 여백을 열 줄 놓아 두면
+     *   추가하라고 빠진 거 있으면 추가해 달라고」 · 2026-09-08 「10줄씩 넣자 예비줄」.
+     *   영업채널 시트와 **같은 양식**이다 — 「최대한 양식을 같이 써야 함」(2026-09-08).
+     * ⚠⚠ 다시 찍을 때 «적어 둔 줄은 그대로 되돌려 놓는다»(missed).
+     */
+    ...missed.map((m) => HEAD.map((h) => S(m[h]))),
+    ...Array.from({ length: Math.max(0, BLANKS - missed.length) }, (_, k) => (k === 0 && !missed.length
+      ? [...pad(HEAD.length - 1), '빠진 건이 있으면 이 줄부터 적어 주세요 — 차량번호·임차인과 «공급가액»까지 적어 주시면 그대로 청구에 넣습니다']
+      : pad(HEAD.length))),
     /**
      * ★빈 줄도 «칸 수만큼» 적는다 — `[]` 로 두면 그 줄을 안 건드려 «옷 글이 남는다».
      *   실측 2026-09-04 — 환수 줄이 늘면서 꼬리가 한 칸 밀렸는데 옷 꼬리가 그대로 남아
@@ -518,8 +605,15 @@ for (const j of jobs) {
     ...MONEY.map((h) => col(h, { startRowIndex: 2, endRowIndex: last + 1 }, { numberFormat: { type: 'NUMBER', pattern: '#,##0' } }, 'userEnteredFormat.numberFormat')),
     col('계약 기간', DATA, { numberFormat: { type: 'NUMBER', pattern: '0"개월"' } }, 'userEnteredFormat.numberFormat'),
     col('차량번호', DATA, { numberFormat: { type: 'TEXT' } }, 'userEnteredFormat.numberFormat'),
-    /** ★꼬리 넉 줄 — 「어디에 적으시라」가 늘면서 한 줄 늘었다. 범위를 같이 늘리지 않으면 마지막 줄이 헐벗는다. */
-    { repeatCell: { range: all1(last + 2, last + 6),
+    /**
+     * ★**예비줄 띠** — 흐린 글씨로 두어 «적으라고 낸 자리»임이 보이게. 줄 높이는 표와 같은 24.
+     */
+    { repeatCell: { range: all1(last + 1, last + 1 + BLANKS),
+      cell: { userEnteredFormat: { textFormat: { fontSize: 10, foregroundColor: { red: 0.55, green: 0.58, blue: 0.63 } }, horizontalAlignment: 'CENTER', verticalAlignment: 'MIDDLE' } },
+      fields: 'userEnteredFormat(textFormat,horizontalAlignment,verticalAlignment)' } },
+    { updateDimensionProperties: { range: { sheetId: id, dimension: 'ROWS', startIndex: last + 1, endIndex: last + 1 + BLANKS }, properties: { pixelSize: 24 }, fields: 'pixelSize' } },
+    /** ★꼬리 넉 줄 — 예비줄만큼 내려온다. 범위를 같이 늘리지 않으면 마지막 줄이 헐벗는다. */
+    { repeatCell: { range: all1(last + 2 + BLANKS, last + 6 + BLANKS),
       cell: { userEnteredFormat: { textFormat: { fontSize: 10 }, horizontalAlignment: 'LEFT' } }, fields: 'userEnteredFormat(textFormat,horizontalAlignment)' } },
     ...WIDTH.map((w, c) => ({ updateDimensionProperties: { range: { sheetId: id, dimension: 'COLUMNS', startIndex: c, endIndex: c + 1 }, properties: { pixelSize: w }, fields: 'pixelSize' } })),
     { repeatCell: { range: { sheetId: id }, cell: { userEnteredFormat: { textFormat: { fontFamily: 'Roboto' } } }, fields: 'userEnteredFormat.textFormat.fontFamily' } },
@@ -548,7 +642,6 @@ for (const j of jobs) {
    *   사장님 2026-09-08 「각 탭에는 건수 표시하자」 — 열어보기 전에 규모가 보인다.
    *   ⚠ 찾기는 `settleTabBase` 로 «앞글»만 맞춘다 — 안 그러면 달마다 탭이 새로 생긴다.
    */
-  reqs.push({ updateSheetProperties: { properties: { sheetId: id, title: settleTabLabel(tab, j.lines.length) }, fields: 'title' } });
   const fr = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${j.sheetId}:batchUpdate`, {
     method: 'POST', headers: { Authorization: `Bearer ${await tok()}`, 'Content-Type': 'application/json' },
     body: JSON.stringify({ requests: reqs }),

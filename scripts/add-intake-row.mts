@@ -27,6 +27,8 @@
  * ```
  */
 import { readFileSync } from 'node:fs';
+/** ★줄을 붙인 «뒤» 옷을 다시 입히려면 이게 있어야 한다 — 없으면 붙이자마자 터진다(2026-09-08). */
+import { spawnSync } from 'node:child_process';
 import { JWT } from 'google-auth-library';
 import { feeKindOf, feeRuleFor } from '../lib/domain/settlement-fee-table';
 

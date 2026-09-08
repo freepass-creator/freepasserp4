@@ -38,6 +38,30 @@ export const editId = (channel: string, month: string, key: string, column: stri
   `${channel}_${month}_${key}_${column}`.replace(/[.#$/[\]\s]/g, '_');
 
 /**
+ * ★★★**차가 없는 줄은 「(차번없음)」이 열쇠가 아니다 — 임차인까지 붙여야 열쇠다.**
+ *
+ * ⚠ **무슨 일이 있었나.** 지원금·수수료처럼 차가 없는 줄은 발행기가 차량번호 칸에
+ *   똑같이 「(차번없음)」을 찍는다. 하허호 8월 탭에 그런 줄이 «둘»(사무실비 지원금 300,000 ·
+ *   최사랑 업무지원비 100,000) 있었는데, 맞대는 쪽이 뒤엣것으로 앞엣것을 덮어 버려
+ *   **한 줄의 값이 다른 줄의 「그쪽이 고침」으로 올라왔다** — 실측 2026-09-07,
+ *   사무실비 300,000 이 「최사랑 100,000 으로 고침」 아홉 칸으로 잡혔다.
+ *
+ * ⇒ 차번이 있으면 차번이 열쇠다. 없으면 **임차인**을 붙여 가른다.
+ *   임차인마저 없으면 **열쇠가 없는 것**이고, 열쇠 없는 줄은 아예 맞대지 않는다(빈 문자열).
+ *   ★그래서 우리한테 없는 «그쪽만의» 무차번 줄은 짝을 못 찾아 그대로 남는다 —
+ *     그게 「그쪽 시트에만 있는 줄」이라는 참말이고, 조용히 남의 줄에 얹히지 않는다.
+ */
+export const NO_PLATE = /^\(?차번없음\)?$|^\(미기재\)$|^-$/;
+export function rowKeyOf(head: readonly string[], row: readonly unknown[], keyCol = '차량번호', nameCol = '임차인'): string {
+  const ki = head.indexOf(keyCol);
+  const k = ki >= 0 ? S((row || [])[ki]) : '';
+  if (k && !NO_PLATE.test(k)) return k;
+  const ni = head.indexOf(nameCol);
+  const nm = ni >= 0 ? S((row || [])[ni]) : '';
+  return nm ? `${k || '(차번없음)'}·${nm}` : '';
+}
+
+/**
  * ★★★**우리가 «지난번에 찍은 것»을 적어 두는 자리.**
  *
  * ⚠⚠ **이게 없으면 우리 옛 출력이 「그쪽이 고친 칸」으로 잡힌다.** 실측 2026-09-07 —
@@ -78,6 +102,8 @@ export function diffSheetRows(opts: {
   const keyCol = opts.keyCol || '차량번호';
   const ki = head.indexOf(keyCol);
   if (ki < 0) return [];
+  /** ★열쇠는 `rowKeyOf` 한 곳에서만 만든다 — 맞대는 쪽과 얹는 쪽이 갈리면 또 남의 줄에 얹힌다. */
+  const K = (r: readonly unknown[]) => rowKeyOf(head, r, keyCol);
 
   const same = (a: unknown, b: unknown) => {
     const x = S(a), y = S(b);
@@ -90,12 +116,13 @@ export function diffSheetRows(opts: {
 
   const out: { key: string; column: string; ours: string; theirs: string }[] = [];
   const byKey = new Map<string, unknown[]>();
-  for (const r of theirs) { const k = S((r || [])[ki]); if (k) byKey.set(k, r); }
+  for (const r of theirs) { const k = K(r || []); if (k) byKey.set(k, r); }
 
   const orphans: number[] = [];
   ours.forEach((o, i) => {
-    const k = S(o[ki]);
-    const t = byKey.get(k);
+    const k = K(o);
+    /** ★열쇠가 없는 줄(차번도 임차인도 없음)은 맞대지 않는다 — 어느 줄인지 알 수 없다. */
+    const t = k ? byKey.get(k) : undefined;
     if (!t) { orphans.push(i); return; }
     head.forEach((h, c) => {
       if (own.has(h) || skip.has(h) || same(o[c], (t || [])[c])) return;
@@ -107,13 +134,18 @@ export function diffSheetRows(opts: {
    * ★**차번을 고친 줄** — 짝을 못 찾은 우리 줄과, 우리한테 없는 시트 줄을 «자리»로 맞댄다.
    *   양쪽 다 하나씩 남았을 때만 짝으로 본다. 둘 이상이면 어느 것이 어느 것인지 알 수 없어 손대지 않는다.
    */
-  const ourKeys = new Set(ours.map((o) => S(o[ki])));
-  const extra = theirs.filter((r) => { const k = S((r || [])[ki]); return k && !ourKeys.has(k); });
+  const ourKeys = new Set(ours.map((o) => K(o)).filter(Boolean));
+  const extra = theirs.filter((r) => { const k = K(r || []); return k && !ourKeys.has(k); });
   if (orphans.length === 1 && extra.length === 1) {
     const o = ours[orphans[0]]; const t = extra[0];
-    head.forEach((h, c) => {
+    /**
+     * ⚠ **차번이 «둘 다» 있을 때만 자리로 맞댄다.** 한쪽이 무차번 줄이면 차번을 고친 것이 아니라
+     *   «그쪽에만 있는 줄»일 가능성이 높다 — 그걸 짝으로 보면 남의 줄 값을 통째로 옮겨 오게 된다.
+     */
+    const real = (r: readonly unknown[]) => { const v = S((r || [])[ki]); return !!v && !NO_PLATE.test(v); };
+    if (real(o) && real(t)) head.forEach((h, c) => {
       if (own.has(h) || skip.has(h) || same(o[c], (t || [])[c])) return;
-      out.push({ key: S(o[ki]), column: h, ours: S(o[c]), theirs: S((t || [])[c]) });
+      out.push({ key: K(o), column: h, ours: S(o[c]), theirs: S((t || [])[c]) });
     });
   }
   return out;
@@ -140,14 +172,16 @@ export function applyPending(opts: {
   }
   let n = 0;
   /**
-   * ★★★**열쇠가 «(차번없음)» 이면 얻지 않는다 — 그건 열쇠가 아니다.**
-   *   지원금·수수료 같은 «차가 없는» 줄은 둘 다 「(차번없음)」이라, 한 줄에 적힌 고침이
-   *   다른 줄에까지 얹힌다 — 실측 2026-09-07 사무실비 300,000 줄이 최사랑 100,000 으로 바뀌었다.
+   * ★★★**열쇠가 «(차번없음)» 하나면 그건 열쇠가 아니다** — `rowKeyOf` 가 임차인을 붙여 가른다.
+   *   지원금·수수료 같은 «차가 없는» 줄은 차량번호가 다 「(차번없음)」이라, 그것만으로 맞대면
+   *   한 줄에 적힌 고침이 다른 줄에까지 얹힌다 —
+   *   실측 2026-09-07 사무실비 300,000 줄이 최사랑 100,000 으로 바뀌었다.
    */
-  const NOKEY = /^\(?차번없음\)?$|^\(미기재\)$|^-$/;
   for (const r of rows) {
-    if (NOKEY.test(S(r[ki]))) continue;
-    for (const e of byKey.get(S(r[ki])) || []) {
+    /** ★열쇠는 `rowKeyOf` 가 만든다 — 차번이 없으면 임차인까지 붙어야 열쇠다. 그래도 없으면 넘어간다. */
+    const k = rowKeyOf(head, r, opts.keyCol || '차량번호');
+    if (!k) continue;
+    for (const e of byKey.get(k) || []) {
       const c = head.indexOf(e.column);
       /** ★우리 값이 그새 바뀌었으면(원장을 고쳤으면) 얹지 않는다 — 그 고침은 이미 «끝난» 것이다. */
       if (c < 0 || S(r[c]) !== e.ours) continue;
