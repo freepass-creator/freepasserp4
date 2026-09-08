@@ -56,8 +56,16 @@ const RAW_ALLOW = new Map<string, Allow>([
      ⚠ 숫자가 달라지면 화면이 «원본에서» 벗어났다는 뜻이다. 고치기 전에 **원본과 대조**할 것
        (`C:\dev\welrixtable/index.html` · `src/components/*.vue`). */
   ['app/estimate/page.tsx', {
-    counts: { button: 4, input: 18, select: 2 },
-    reason: '견적 = 웰릭스 테이블 그대로 — 상품 카드·차종·**선택 옵션·색상**·차량정보·잔가·손님/담당자·조건·발송용 견적',
+    counts: { button: 5, input: 18, select: 2 },
+    reason: '견적 = 웰릭스 테이블 그대로 — 상품 카드·차종·**선택 옵션·색상**·차량정보·잔가·손님/담당자·조건·발송용 견적 + «견적서 보기»',
+  }],
+  /* 손님 견적서(`features/estimate/QuotePreview`) — 웰릭스 원본 `.quote-modal`/`.qd-*` 마크업 그대로다.
+     ⚠ 원자를 끼우면 원본 CSS 가 기다리는 «속 짜임»이 깨진다(`.qd-people__col` 은 h4+.name 을 기다린다).
+     button 2 = 「인쇄 · PDF」 + 「닫기 ✕」 — 모달 머리 둘뿐이고, 문서 본문에는 누를 것이 없다.
+     ⚠ 늘면 「손님 문서에 «누르는 것»이 생겼다」는 뜻이다 — 인쇄물이 될 문서라 먼저 그게 맞는지 본다. */
+  ['features/estimate/QuotePreview.tsx', {
+    counts: { button: 2, input: 0, select: 0 },
+    reason: '손님 견적서 — 웰릭스 견적서 마크업 그대로(모달 머리 인쇄·닫기 둘)',
   }],
   /* 원가 설정(`/estimate/cost`)도 같은 갈래 — 목업 `프리패스-목업-원가설정.html` 을 그대로 옮겼다.
      raw 는 `components/estimate/cost.css` 가 제 규격으로 입힌다(920px 2열·둥근 14px·그림자 — 업무동 규격이 아니다).

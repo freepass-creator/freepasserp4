@@ -36,6 +36,7 @@ import { useAppBar } from '@/lib/appbar';
 import { EXT_COLORS, INT_COLORS, colorSwatch } from '@/lib/domain/color-master';
 import CarPicker from '@/features/estimate/CarPicker';
 import VehicleCascade from '@/features/estimate/VehicleCascade';
+import QuotePreview, { type QuoteDoc } from '@/features/estimate/QuotePreview';
 
 import { guessMarketPrice, loadCarIndex, loadNewModels, koModel, type PickedCar, type NewModel, type CarIndex } from '@/lib/domain/estimate/car-index';
 import { deltaKeyFor } from '@/lib/domain/estimate/residual-by-name';
@@ -277,6 +278,8 @@ function EstimatePageInner() {
    */
   const [colorExt, setColorExt] = useState('');
   const [colorInt, setColorInt] = useState('');
+  /** 손님 견적서를 펼쳤나 — 체크한 기간만 담아 보여 준다(사장님 2026-09-08 「다음 ㄱㄱㄱ」). */
+  const [docOpen, setDocOpen] = useState(false);
   /**
    * 손님 발송용 견적 — 원본 `TermsGrid`. 「기본 견적」과 달리 **열마다** 기간·보증금·선납이 따로 논다.
    * 체크한 열만 손님에게 나간다(발송 자체는 아직 안 붙었다 — 다음 일감).
@@ -344,7 +347,26 @@ function EstimatePageInner() {
 
   /** 고른 트림의 옵션 줄 — 원본 규격대로 «가격 0 = 기본 포함»은 고르는 대상이 아니다. */
   const optionRows = useMemo(() => (picked.newTrim?.options ?? []).filter((o) => o && o.name), [picked]);
-  const optChosen = useMemo(() => optionRows.filter((o) => Number(o.price) > 0 && optSel[o.name]), [optionRows, optSel]);
+  /**
+   * ⚠⚠ 옵션은 **이름이 아니라 «줄»로 센다.**
+   *   같은 이름이 두 줄인 트림이 있다(2026-09-08 실측 423개 중 5개 · 제네시스 G80 은
+   *   「AWD」가 280만/0원 두 줄, 「파노라마 선루프」가 110만/140만 두 줄이다 —
+   *   BTO 에서 엔진마다 값이 다른 것이 한 트림으로 합쳐진 탓이다).
+   *   이름으로 세면 두 줄이 **한 칸을 같이 쥐어** 하나를 누르면 둘이 켜지고, 값도 어느 쪽인지 모른다.
+   *   (React 도 같은 key 라고 콘솔에 경고했다 — 「둘 중 하나가 빠질 수 있다」.)
+   */
+  const optKey = (o: { name: string }, i: number) => `${i}|${o.name}`;
+  /**
+   * ⚠ 차를 바꾸면 고른 옵션은 **버린다.** 안 버리면 그랜저에서 켠 「파노라마 선루프」가
+   *   G80 으로 넘어가 붙는다 — 줄 번호가 키라 이름이 달라도 «자리»가 겹친다.
+   *   ⇒ 트림이 바뀌는 순간이 버리는 자리다.
+   */
+  const trimSig = [picked.source, picked.maker, picked.subModel, picked.powertrain, picked.trim].join('|');
+  useEffect(() => { setOptSel({}); }, [trimSig]);
+  const optChosen = useMemo(
+    () => optionRows.filter((o, i) => Number(o.price) > 0 && optSel[optKey(o, i)]),
+    [optionRows, optSel],
+  );
   const optSum = optChosen.reduce((n, o) => n + (Number(o.price) || 0), 0);
   /** 기아는 가격표를 «좌표»로 읽어 옵션 «이름»이 조각으로 온다(「옵션3」) — 값은 정확하다. 숨기지도 지어내지도 않는다. */
   const optNamesPartial = useMemo(() => optionRows.some((o) => /^옵션\s*\d+$/.test(o.name.trim())), [optionRows]);
@@ -440,6 +462,36 @@ function EstimatePageInner() {
   const retentionPct = retentionOf(credit);
   const turnovers = expectedTurnovers(retentionPct / 100);
 
+  /**
+   * 손님 견적서에 담을 것 — **체크한 기간만**, 그리고 **손님이 볼 것만**.
+   * ⚠ 원가·손익은 «한 줄도» 안 담는다. 담을 자리조차 두지 않았다(`QuoteLine` 에 없다) —
+   *   자리가 있으면 언젠가 채워지고, 채워지면 손님이 우리 마진을 본다.
+   */
+  const quoteDoc = useMemo<QuoteDoc>(() => ({
+    customer: custName, staff: staffName, tel: staffTel,
+    // 제조사는 «따로» 준다 — 견적서 차량칸이 브랜드 줄(`.qd-vehicle__title`)을 따로 세운다.
+    brand: picked.maker,
+    carName: picked.maker && picked.name.startsWith(`${picked.maker} `)
+      ? picked.name.slice(picked.maker.length + 1) : picked.name,
+    carSub: [picked.powertrain, picked.trim].filter(Boolean).join(' · '),
+    price: listPrice,
+    channel: CHANNELS.find((c) => c.v === ch)!.label,
+    endType: TYPES.find((t) => t.v === type)!.label,
+    credit,
+    colorExt, colorInt,
+    options: optChosen.map((o) => ({ name: o.name, price: Number(o.price) || 0 })),
+    lines: scen.filter((x) => x.send).map((x, i) => {
+      const c = lines[scen.findIndex((y) => y.term === x.term)] ?? lines[i];
+      return {
+        term: x.term,
+        pay: Math.round(c?.payVat || 0),
+        depositPct: x.dep, deposit: Math.round(c?.deposit || 0),
+        prepayPct: x.pre, prepay: Math.round(price * x.pre / 100),
+        buyoutPct: buyoutPct[x.term], buyout: Math.round(price * buyoutPct[x.term] / 100),
+      };
+    }),
+  }), [custName, staffName, staffTel, picked, listPrice, ch, type, credit, colorExt, colorInt, optChosen, scen, lines, price, buyoutPct]);
+
   const prepayAmt = Math.round(price * pre / 100);
   const vehTag = listPrice ? `${man(listPrice)}원` : '차를 고르세요';
   const vMeta = isNew
@@ -499,13 +551,14 @@ function EstimatePageInner() {
               </div>
             ) : (
               <div className="grid-1">
-                {optionRows.map((o) => {
+                {optionRows.map((o, i) => {
+                  const k = optKey(o, i);
                   const base = !(Number(o.price) > 0);
-                  const on = !base && !!optSel[o.name];
+                  const on = !base && !!optSel[k];
                   return (
-                    <label key={o.name} className={`option-row${on ? ' active' : ''}${base ? ' disabled' : ''}`}>
+                    <label key={k} className={`option-row${on ? ' active' : ''}${base ? ' disabled' : ''}`}>
                       <input type="checkbox" checked={on} disabled={base}
-                        onChange={() => setOptSel((v) => ({ ...v, [o.name]: !v[o.name] }))} />
+                        onChange={() => setOptSel((v) => ({ ...v, [k]: !v[k] }))} />
                       <div className="o-info"><div className="o-name">{o.name}</div></div>
                       <div className="o-price">{base ? '기본' : `+${man(o.price)}원`}</div>
                     </label>
@@ -822,12 +875,23 @@ function EstimatePageInner() {
           </div>
         </div>
 
+        {/* ★손님에게 나가는 길 — 체크한 기간만 담아 견적서로 편다. */}
+        <div className="qdock">
+          <button type="button" className="qdock__go" disabled={!priceKnown || !quoteDoc.lines.length}
+            onClick={() => setDocOpen(true)}>
+            견적서 보기
+            <em>{quoteDoc.lines.length ? `${quoteDoc.lines.length}개 기간` : '보낼 기간을 체크하세요'}</em>
+          </button>
+        </div>
+
         <div className="footnote">
           금액은 부가세 포함 월 대여료 · 잔가는 국산 표준곡선 + 차종델타 · 원가는 <Link href="/estimate/cost">원가설정</Link>이 정한 값<br />
           조달금리·손바뀜·취득세·공채·등록비·자동차세·보험·정비 반영 · 업계 기준선 추정<br />
           실채택 전 엔카·KB차차차 실시세 검산 필요
         </div>
       </section>
+
+      {docOpen ? <QuotePreview doc={quoteDoc} onClose={() => setDocOpen(false)} /> : null}
 
       {/* 왼쪽은 이제 캐스케이드다. 이 시트는 **이름을 알 때 한 번에 가는 길**(폰 하단 「검색」 탭)로만 뜬다 —
           왼쪽에 박아 두면 그게 굵어진다(사장님 2026-09-08 「저렇게 굵을 필요 없고」).

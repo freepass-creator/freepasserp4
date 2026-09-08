@@ -150,10 +150,19 @@ export default function VehicleCascade({ mode, picked, onPick }: Props) {
    * 같은 트림명이 여럿이면 파워트레인마다 한 줄씩 선다(「캘리그래피 · 가솔린 2.5」·「… · 하이브리드 1.6T」).
    * ⇒ 고르면 파워트레인이 «같이» 정해진다. 값은 `pt|trim` 으로 둘을 함께 나른다.
    */
+  /** 신차 — 파워트레인으로 좁힌 트림 «목록». 값(자리 번호)과 되짚기가 같은 목록을 봐야 안 어긋난다. */
+  const newTrims = useMemo(
+    () => (newModel?.trims ?? []).filter((t) => !variant || t.fuel === variant),
+    [newModel, variant],
+  );
+
   const trims = useMemo(() => {
     if (mode === 'new') {
-      return (newModel?.trims ?? []).filter((t) => !variant || t.fuel === variant)
-        .map((t) => ({ v: t.trim, label: t.trim }));
+      // ⚠⚠ **이름 없는 트림이 있다** — 제네시스 여덟 모델이 전부 그렇다(BTO 가 「기본 한 대 + 옵션」이라
+      //   트림명 자리가 비어 있다 · 2026-09-08 실측 423개 중 8개). 이름을 그대로 값으로 쓰면
+      //   빈 값이 되어 «고를 안내문»과 구별이 안 되고, 그래서 **제네시스는 한 대도 못 골랐다.**
+      //   ⇒ 값은 «자리 번호»로 나르고, 이름이 비면 「기본」이라 적는다.
+      return newTrims.map((t, i) => ({ v: `${i}|${t.trim}`, label: t.trim || '기본' }));
     }
     if (!usedCar) return [];
     const out: { v: string; label: string; sub?: string }[] = [];
@@ -161,7 +170,7 @@ export default function VehicleCascade({ mode, picked, onPick }: Props) {
       for (const t of p.t) out.push({ v: `${pi}|${t}`, label: t, sub: p.pt });
     });
     return out;
-  }, [mode, newModel, usedCar, variant]);
+  }, [mode, newTrims, usedCar, variant]);
 
   /* ★고르는 즉시 위로 올린다 — 「확인」 단추 없음(원본과 같다). */
   useEffect(() => {
@@ -173,13 +182,13 @@ export default function VehicleCascade({ mode, picked, onPick }: Props) {
       if (usedCar && p && name) onPick(pickUsed(usedCar, p, name));
       return;
     }
-    const t: NewTrim | undefined = newModel?.trims.find((x) => x.trim === trim && (!variant || x.fuel === variant));
+    const t: NewTrim | undefined = newTrims[Number(trim.split('|')[0])];
     if (newModel && t) {
       onPick(pickNew(newModel, t, [], guessCc(cars ?? [], newModel.maker, newModel.sub_model, t.fuel), ko(newModel.sub_model)));
     }
     // onPick 은 매 그림마다 새로 만들어져 의존에 넣으면 무한히 돈다 — 고른 값이 바뀔 때만 올린다.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [trim, variant, model, maker, mode, usedCar, newModel]);
+  }, [trim, variant, model, maker, mode, usedCar, newModel, newTrims]);
 
   const loading = mode === 'new' ? !models : !cars;
 
