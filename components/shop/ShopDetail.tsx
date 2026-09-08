@@ -218,6 +218,16 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
        *   색상까지 셋이 「이 차의 겉과 이력」 한 묶음이다.
        */
       ['연식', yearFullDisplay(p.year)],
+      /*
+       * ★★**최초등록이 돌아왔다**(사장님 2026-09-08 「1은 하자」 — 최초등록일·차급을 넣자는 안).
+       * ⚠ 09-05 에 **뺐었다.** 그때 이유는 「사장님이 세어 주신 목록에 없다」였는데, 그건 목록을
+       *   «닫힌 것»으로 읽은 것이다. 09-08 에 직접 넣으라 하셨으므로 되돌린다.
+       * ★왜 값진가 — **연식만으로는 같은 해 3월차와 12월차가 안 갈린다.** 중고 시장에서 실제로
+       *   값을 가르는 숫자고, 엔카도 「19/08식」으로 앞세운다. 실측 채움률 **96%**(791대 중 762).
+       * ★날은 안 쓴다(`regDate` 머리말) — 손님이 재는 것은 「언제쯤 나온 차인가」다.
+       *   원천이 이 칸에 트림명을 넣어 둔 26대는 `regDate` 가 걸러서 안 찍는다.
+       */
+      ['최초등록', regDate(p.first_registration_date)],
       ['주행거리', km > 0 ? kmDisplay(p.mileage) : ''],
     ],
     [
@@ -239,6 +249,13 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
       ['연료', fuelDisplay(p.fuel_type) || String(p.fuel_type || '')],
       ['구동방식', String(p.drive_type || '')],
       ['승차정원', seats > 0 ? `${seats}인승` : ''],
+      /*
+       * ★★**차급**(사장님 2026-09-08). 조건칸에는 「차급」 축이 있는데 상세엔 없어서, 손님이
+       *   걸러 놓고 들어와도 「이게 무슨 급인지」를 상세에서 다시 확인할 수 없었다.
+       *   실측 채움률 **97%**(791대 중 767) — 빈칸이 거의 안 생긴다.
+       * ★자리는 이 무리다 — 「어떻게 굴러가고 몇 명 타나」 옆에 「어느 급인가」가 붙는다.
+       */
+      ['차급', String(p.vehicle_class || '')],
     ],
     [
       /*
@@ -914,10 +931,22 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
              * ★옵션은 **한 줄로 길게** 준다(사장님 2026-09-05 「그 밑에 **한 줄로 선택 옵션을 길게**」) —
              *   격자 칸에 가두면 여덟 개짜리 차가 좁은 칸 안에서 다섯 줄로 접힌다. 폭을 통째로 쓴다.
              */}
-            {options.length ? (
+            {/*
+              ★★★**옵션이 없으면 «없다»고 말한다 — 줄을 지우지 않는다**(사장님 2026-09-08
+                「옵션이 없는 건 **없다고 초라해도 보여주면 됨**」).
+              ⚠ 여태는 옵션이 0개면 이 줄이 통째로 사라졌다. 실측 — **0개가 13%(100대)**,
+                1~2개가 39%다. 줄이 사라지면 손님은 「옵션 칸이 원래 없는 화면」으로 읽고,
+                옵션이 많은 차와 없는 차를 **같은 눈으로 비교할 수가 없다.**
+              ★「없음」은 «모른다»가 아니라 **확정된 사실**이다 — 원천이 옵션 칸을 비워 보낸 것이
+                곧 「달린 옵션이 없다」다. 보험 구역에서 「없음」을 값으로 살리는 규칙과 같다.
+            */}
+            {true ? (
               <div aria-label="선택 옵션" style={{ marginBottom: SHOP.sp.edge }}>
                 <div style={{ marginBottom: 0, fontSize: SHOP.fs.cap, color: C.faint }}>선택 옵션</div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: SHOP.sp.snug }}>
+                  {!options.length ? (
+                    <span style={{ fontSize: SHOP.fs.body, fontWeight: 700, color: C.ink }}>없음</span>
+                  ) : null}
                   {options.map((o) => (
                     /*
                      * ★★**옵션 칩은 «누르는 것»이 아니다 — 그래서 얇다**(사장님 2026-09-06
@@ -1377,8 +1406,15 @@ function Facts({ rows, cols, mobile }: {
         <div style={{
           fontSize: SHOP.fs.cap, color: C.faint, marginBottom: 0, letterSpacing: '0.01em',
         }}>{k}</div>
+        {/*
+          ★「미입력」은 **값이 아니다 — 값처럼 보이면 안 된다**(사장님 2026-09-08 「없다는 걸
+            표현해 주는 게 좋을 거 같고」 — 표현하되 «읽히는 무게»는 달라야 한다).
+          ⇒ 굵기를 빼고 한 단 흐리게. 훑는 눈은 실린 값만 잡고, 찾는 눈에는 빈 칸이 보인다.
+        */}
         <div style={{
-          fontSize: SHOP.fs.body, fontWeight: 700, color: C.ink,
+          fontSize: SHOP.fs.body,
+          fontWeight: v === '미입력' ? 400 : 700,
+          color: v === '미입력' ? C.faint : C.ink,
           wordBreak: 'keep-all', lineHeight: 1.45,
         }}>
           {/* 그림으로 보여줄 값(색 견본 등)은 셋째 자리가 든다 — 글자 값은 그대로 남아 검색·낭독에 쓰인다. */}
@@ -1693,9 +1729,28 @@ type FactRow = [string, string, ReactNode?];
  * 무리마다 빈 값을 먼저 걷고, **남은 것이 없는 무리는 통째로 건너뛴다** —
  * 값이 하나도 없는 무리 때문에 빈 줄만 두 개 생기는 일이 없어야 한다.
  */
+/**
+ * 무리를 이어 붙인다 — 그리고 **빈칸을 지우지 않는다.**
+ *
+ * ★★★사장님 2026-09-08 「**입력값이 없거나 `-` 이런 거는 «없다는 걸 표현»**해 주는 게 좋을 거 같고」.
+ * ⚠ 여태는 값이 비면 **그 칸이 통째로 사라졌다.** 그러면 차마다 격자의 칸 수가 달라지고
+ *   (승차정원 84% · 구동방식 89% · 내부색 67%), 손님은 「이 차는 원래 그 항목이 없는 화면」으로
+ *   읽는다. 차끼리 **같은 눈으로 비교가 안 된다** — 화면이 초라해 보이는 진짜 이유가 이것이다.
+ *
+ * ★★**「없음」과 «미입력»은 다른 말이다.** 여기서 갈라 쓴다:
+ *   · **미입력** — 차에 반드시 있는 값인데 원천이 안 준 것(색상·정원·구동방식·최초등록…).
+ *     「없다」고 하면 거짓말이다. 「모른다」가 사실이고, 집 규칙 ②가 그것이다.
+ *   · **없음**  — 유무가 갈리는 값(옵션·면책금·대차). 비어 온 것이 곧 「그게 없다」다.
+ *     그건 각 자리에서 직접 「없음」을 적는다(옵션 줄·보험 구역).
+ * ⇒ 격자는 **자리를 지키고 「미입력」**이라고 말한다. 지어내지 않으면서 칸도 안 빈다.
+ *
+ * ⚠ 무리가 통째로 비면 그 무리는 뺀다 — 「미입력」 넷이 한 줄에 서면 그건 정보가 아니라 소음이다.
+ */
 function grouped(...lists: FactRow[][]): FactRow[] {
   return lists
-    .map((list) => list.filter(([, v]) => meaningful(v)))
+    .map((list) => (list.some(([, v]) => meaningful(v))
+      ? list.map(([k, v, node]) => [k, meaningful(v) ? v : '미입력', node] as FactRow)
+      : []))
     .filter((list) => list.length)
     .flatMap((list, i) => (i ? [[GROUP_BREAK, ''] as FactRow, ...list] : list));
 }
