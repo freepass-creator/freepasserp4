@@ -82,6 +82,13 @@ export async function GET(request: Request): Promise<Response> {
         maker: S(v.maker), sub_model: S(v.sub_model), carType: S(v.carType), fuel: S(v.fuel),
         trim: S(v.trim), priceBefore: Number(v.priceBefore || 0), priceAfter: Number(v.priceAfter || 0),
         options: Array.isArray(v.options) ? v.options : [],
+        /* ★★제조사 «실제» 색상 — 사장님 2026-09-08 「신차마스터에는 **제조사 색상 그대로** 해야지」
+             「**중고마스터 색상과 신차마스터 색상은 각각 존재**해야 함」.
+           ⚠ 크롤러는 처음부터 받아 넣고 있었다(`crawl-newcar-hyundai.mts` extColors·intColors) —
+             **여기서 버리고 있었다.** 화면이 우리 규격색 12색(「블랙」)을 대신 보여 준 까닭이다.
+             제조사 색은 「어비스 블랙 펄」처럼 이름이 따로 있고 **값이 붙는 색**도 있다. */
+        ...(Array.isArray(v.extColors) && v.extColors.length ? { extColors: v.extColors } : {}),
+        ...(Array.isArray(v.intColors) && v.intColors.length ? { intColors: v.intColors } : {}),
         ...(Array.isArray(v.basePrices) ? { basePrices: v.basePrices } : {}),
         ...(Array.isArray(v.rules) && v.rules.length ? { rules: v.rules } : {}),
       };
