@@ -1,5 +1,6 @@
 'use client';
 import type { CSSProperties, ReactNode } from 'react';
+import { useCallback, useState } from 'react';
 import Link from 'next/link';
 import NextImage from 'next/image';
 import {
@@ -930,31 +931,61 @@ const OPTIMIZABLE = /^\/(?!\/)/;   // 동일 오리진 상대주소만 — 절�
  *              구조를 안 건드리려고 `width`/`height` 를 «비율 힌트»로만 주고 크기는 style 이 쥔다.
  * ⚠ `fill` 을 자리 안 잡힌 그릇에 쓰면 사진이 **높이 0** 으로 사라진다. 그릇을 보고 고른다.
  */
-export function ShopPhoto({ src, sizes, priority, alt = '', fit = 'cover', mode = 'fill', style }: {
+export function ShopPhoto({ src, sizes, priority, eager, alt = '', fit = 'cover', mode = 'fill', style }: {
   src: string;
   /** 이 사진이 화면에서 «몇 px» 로 그려지나 — Next 가 이걸 보고 크기를 고른다. 빠뜨리면 제일 큰 걸 보낸다. */
   sizes: string;
   /** 첫 화면에 보이는 한 장만 true — 전부 켜면 「먼저」가 아무 뜻이 없어진다. */
   priority?: boolean;
+  /**
+   * **기다리지 않고 바로 받는다** — 첫 화면에 이미 보이는 사진.
+   * ★`priority` 와 다르다: `priority` 는 「제일 먼저」라는 «표»(앞 몇 장만), `eager` 는
+   *   「스크롤을 기다리지 마라」는 «해제»다. 첫 화면 카드는 표는 없어도 해제는 되어야 한다.
+   */
+  eager?: boolean;
   alt?: string;
   /** `cover` = 채우고 자른다(고르는 자리) · `contain` = 다 보인다(뜯어보는 자리). */
   fit?: 'cover' | 'contain';
   mode?: 'fill' | 'box';
   style?: CSSProperties;
 }) {
-  const base: CSSProperties = { objectFit: fit, display: 'block', ...style };
+  /*
+   * ★★**사진은 «떠오른다» — 툭 나타나지 않는다**(사장님 2026-09-08 「일반 페이지들처럼 …
+   *   움직여 줘야 하는데」). 회색 자리에서 사진으로 0.35초에 걸쳐 바뀐다.
+   *   갑자기 바뀌면 눈이 «깜빡였다»고 읽어 화면이 오히려 어수선해 보인다.
+   * ⚠ 캐시에서 즉시 오는 장(뒤로 가기 등)은 `complete` 라 아예 안 흐린다 — 이미 있는 그림을
+   *   일부러 흐렸다 켜면 그게 «더 느린» 화면이다.
+   * ★움직임을 싫어하는 사람에게는 끈다(`prefers-reduced-motion` · CSS 쪽에서 처리).
+   */
+  /*
+   * ⚠⚠ **기본값은 «보인다» 다.** 반대로 짜면(기본 숨김 → 실리면 보임) 한 가지 경우에
+   *   사진이 **영영 안 보인다** — 캐시에서 즉시 온 그림은 붙기 «전»에 이미 실려 있어서
+   *   `onLoad` 가 아예 안 뜬다(뒤로 가기가 딱 그 경우다).
+   * ⇒ 못 알아채면 **흐려지는 연출만 없고 사진은 보인다.** 실패는 이 방향이어야 한다.
+   */
+  const [hidden, setHidden] = useState(false);
+  const onMount = useCallback((el: HTMLImageElement | null) => {
+    if (el && !(el.complete && el.naturalWidth > 0)) setHidden(true);
+  }, []);
+  const base: CSSProperties = {
+    objectFit: fit, display: 'block',
+    opacity: hidden ? 0 : 1, transition: 'opacity .35s ease',
+    ...style,
+  };
+  const done = () => setHidden(false);
+  const load = priority || eager ? 'eager' : 'lazy';
   if (!OPTIMIZABLE.test(src)) {
     /* eslint-disable-next-line @next/next/no-img-element -- 최적화 화이트리스트 밖 주소(위 머리말) */
-    return <img src={src} alt={alt} decoding="async" loading={priority ? 'eager' : 'lazy'}
+    return <img src={src} alt={alt} decoding="async" loading={load} ref={onMount} onLoad={done}
       style={mode === 'fill' ? { ...base, width: '100%', height: '100%' } : base} />;
   }
   if (mode === 'box') {
     /* 1200×900 = 4:3 «비율 힌트»다. 실제 크기는 style 이 쥔다(위 머리말). */
     return <NextImage src={src} alt={alt} width={1200} height={900} sizes={sizes} style={base}
-      priority={priority} loading={priority ? undefined : 'lazy'} />;
+      priority={priority} loading={priority ? undefined : load} ref={onMount} onLoad={done} />;
   }
   return <NextImage src={src} alt={alt} fill sizes={sizes} style={base}
-    priority={priority} loading={priority ? undefined : 'lazy'} />;
+    priority={priority} loading={priority ? undefined : load} ref={onMount} onLoad={done} />;
 }
 
 /** 화면 폭별 사진 크기 — 한 곳에 적는다(카드·상세가 따로 적으면 한쪽만 커진다). */

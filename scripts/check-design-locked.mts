@@ -552,7 +552,10 @@ must(stateChipSrc.includes('background') && !perkMarkSrc.includes('background'),
  * 업무동 카드와 같은 자리·같은 처리(.fp-onphoto/.fp-signal-chip)라 두 목록이 한 짜임으로 읽힌다.
  */
 must(/className="fp-onphoto"/.test(shopCard) && /className="fp-signal-chip"/.test(shopCard)
-  && /<ShopThumb p=\{p\} marks=\{stateMarks\} \/>/.test(shopCard)
+  /* ⚠ 뒤에 붙는 속성까지 «글자 그대로» 재지 않는다 — 이 검사가 지키는 것은 «칩이 사진 우하에
+       선다»는 자리다. 2026-09-08 에 성능용 `rank` 를 하나 더 넘겼더니, 자리는 그대로인데
+       검사가 깨졌다. 그때 규격을 고친 것이 아니라 «자»가 너무 좁았던 것이다. */
+  && /<ShopThumb p=\{p\} marks=\{stateMarks\}/.test(shopCard)
   && /\{title\}[\s\S]{0,300}?\{plate \? \(/.test(shopCard),
   '카드의 신원 칩이 사진 우하를 떠났거나 차번이 차명에서 떨어졌습니다 — 상세·업무동과 같은 짜임입니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-2-3-2');

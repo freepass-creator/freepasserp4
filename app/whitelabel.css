@@ -368,3 +368,12 @@
 }
 .fp-shop-rail::-webkit-scrollbar { display: none; }
 .fp-shop-rail > * { flex: 0 0 auto; }
+
+/*
+ * **움직임을 싫어하는 사람에게는 «떠오르기»를 끈다.**
+ * 사진이 회색 자리에서 0.35초에 걸쳐 떠오르는 연출(`ShopPhoto`)은 화면을 부드럽게 하지만,
+ * 움직임에 멀미하는 사람에게는 그것도 «흔들림»이다. 끄면 사진은 그대로 뜬다 — 기능은 안 사라진다.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .fp-wl img { transition: none !important; }
+}

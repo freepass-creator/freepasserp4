@@ -53,9 +53,20 @@ import { isEvFuel, kmDisplay, kmValue, manShort } from '@/lib/format';
  *     같이 되돌려야 한다. 한쪽만 바꾸면 다시 갈린다.
  *   ★색은 아이콘에만(무심사 초록 · 소득확인·신용조회는 흐림 · 나머지 채널색), 글자는 먹색.
  */
-export const ShopCard = memo(function ShopCard({ p, href }: {
+export const ShopCard = memo(function ShopCard({ p, href, rank = 99 }: {
   p: EntityRecord;
   href: string;
+  /**
+   * **목록에서 몇 번째인가** — 첫 화면에 이미 보이는 카드는 «기다리지 않게» 하려고 받는다.
+   *
+   * ⚠ 무슨 일이 있었나(2026-09-08 운영 실측) — 첫 줄 카드가 회색으로 한참 남았다.
+   *   사진이 «화면에 들어오면» 붙는 구조(`useInView`)라, 이미 보이는 카드도
+   *   ① 붙고 ② 관찰자가 돌고 ③ 상태가 바뀌고 ④ 그제야 요청이 나간다. 네 걸음을 헛돈다.
+   *   거기에 `loading="lazy"` 가 한 겹 더 걸린다.
+   * ⇒ 첫 화면 카드는 관찰자를 건너뛰고 바로 받는다. 사장님 「**좀 빠르게 보이고**」.
+   * ★기본값 99 = 「첫 화면 아님」. 안 넘기면 예전 그대로 굴러간다.
+   */
+  rank?: number;
 }) {
   const mobile = useIsMobile();
   const price = cheapest(p);
@@ -183,7 +194,7 @@ export const ShopCard = memo(function ShopCard({ p, href }: {
           display: 'flex', flexDirection: 'column', height: '100%',
           textDecoration: 'none', color: 'inherit',
         }}>
-        <ShopThumb p={p} marks={stateMarks} />
+        <ShopThumb p={p} marks={stateMarks} rank={rank} />
 
         <div style={{
           /*
@@ -339,9 +350,16 @@ export const ShopCard = memo(function ShopCard({ p, href }: {
  *   있는데도 불구하고 사진에 들어갈 필요는 없을 것 같고」). 사진 위 글자는 어떤 사진이 오느냐에
  *   따라 읽히기도 하고 안 읽히기도 한다 — 밑에 자리가 남는데 굳이 그럴 이유가 없다.
  */
-function ShopThumb({ p, marks = [] }: { p: EntityRecord; marks?: ShopMark[] }) {
+function ShopThumb({ p, marks = [], rank = 99 }: { p: EntityRecord; marks?: ShopMark[]; rank?: number }) {
+  /*
+   * ★**첫 화면 카드는 관찰자를 안 기다린다**(위 `rank` 머리말).
+   *   8 = 웹 3열이면 세 줄쯤, 폰이면 첫 화면 두 장 + 여유. 화면에 들어올 «가능성이 큰» 만큼만이다.
+   * ★그중 **앞 세 장만 `priority`** — 브라우저에 「이게 제일 먼저」라고 말하는 표다.
+   *   여덟 장을 다 «먼저»라고 하면 아무것도 먼저가 아니게 된다(그리고 Next 가 경고한다).
+   */
+  const eager = rank < 8;
   const { ref, inView } = useInView<HTMLDivElement>();
-  const photo = useFirstPhoto(p, 640, inView);
+  const photo = useFirstPhoto(p, 640, eager || inView);
   return (
     <div ref={ref} className="fp-shop-thumb" style={{
       /*
@@ -365,7 +383,7 @@ function ShopThumb({ p, marks = [] }: { p: EntityRecord; marks?: ShopMark[] }) {
          *   프록시(`/api/img?...`)는 «동일 오리진 상대주소»라 최적화가 제일 잘 되는 꼴이다.
          *   그 오해 때문에 **1.4MB 원본 PNG 가 330px 칸에** 그대로 들어왔다(2026-09-08 실측).
          */
-        <ShopPhoto src={photo} sizes={PHOTO_SIZES.card} />
+        <ShopPhoto src={photo} sizes={PHOTO_SIZES.card} priority={rank < 3} eager={eager} />
       ) : (
         <div style={{
           position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
