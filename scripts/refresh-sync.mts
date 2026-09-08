@@ -19,14 +19,15 @@
  *   손오공 pull · 정제시트 갱신 · 정제칸 채움 · ⑥ 판매 4탭 · ⑦ ERP 동기 · 천이카드 · 검수 도구들
  * ```
  *
- * ★**둘이 같은 4탭을 쓴다.** 겹치면 한쪽이 쓰는 중에 다른 쪽이 덮는다 —
- *   깃허브 워크플로의 `concurrency` 를 «같은 이름»으로 묶어 둔다(둘 다 `sales-erp-hourly`).
- *   그러면 가벼운 회차는 무거운 회차 뒤에 줄을 선다. 늦는 것이 겹치는 것보다 낫다.
+ * ★★**오케스트레이터는 «하나»다 — 이 집 PC 의 작업 스케줄러**(「프리패스-자동동기」 · 매시).
+ *   깃허브 워크플로는 그래서 cron 을 빼 두었다(켜면 두 대가 같은 시트를 쓴다).
+ *   ⇒ 30분 회차도 **로컬 작업 스케줄러**로 건다 — `scripts/refresh-sync.cmd`.
+ * ★무거운 회차가 도는 중이면 **아무것도 안 하고 나간다**(아래 자물쇠). 늦는 것이 겹치는 것보다 낫다.
  *
  *   npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/refresh-sync.mts --apply
  */
 import { spawnSync } from 'node:child_process';
-import { writeFileSync, mkdirSync } from 'node:fs';
+import { writeFileSync, mkdirSync, statSync, readFileSync } from 'node:fs';
 import nextEnv from '@next/env';
 
 nextEnv.loadEnvConfig(process.cwd());
@@ -50,8 +51,21 @@ const warn: string[] = [];
  */
 function run(label: string, args: string[], pick: RegExp, doneWord?: RegExp): { ok: boolean; picked: string[]; 한도: boolean } {
   const t0 = Date.now();
-  const r = spawnSync('npx', ['tsx', ...args], { encoding: 'utf8', shell: process.platform === 'win32', env: process.env });
-  const txt = `${r.stdout || ''}${r.stderr || ''}`;
+  let r = spawnSync('npx', ['tsx', ...args], { encoding: 'utf8', shell: process.platform === 'win32', env: process.env });
+  let txt = `${r.stdout || ''}${r.stderr || ''}`;
+  /**
+   * ★**요청한도면 «한 번» 쉬었다 다시 한다** — 매시 회차가 하는 것과 같다.
+   *   ⚠ 구글 한도는 «분당»이라 429 가 즉시 떨어진다(실측 2초). 그대로 넘기면 그 단계가 매번 비고,
+   *   30분마다 도는 회차에서는 «늘 한 칸이 빠진 회차»가 된다.
+   *   ⇒ 35초 쉬고 한 번만 더. 그래도 안 되면 다음 회차 몫으로 넘긴다(기록엔 남긴다).
+   */
+  if (r.status !== 0 && /RESOURCE_EXHAUSTED|Quota exceeded|429/.test(txt)) {
+    out.push(`   ⏳ ${label} — 요청한도, 35초 쉬고 한 번 더`);
+    console.log(`⏳ ${label} — 요청한도, 35초 쉬고 한 번 더`);
+    spawnSync(process.execPath, ['-e', 'setTimeout(()=>{},35000)'], { stdio: 'ignore' });
+    r = spawnSync('npx', ['tsx', ...args], { encoding: 'utf8', shell: process.platform === 'win32', env: process.env });
+    txt = `${r.stdout || ''}${r.stderr || ''}`;
+  }
   const picked = txt.split('\n').filter((l) => pick.test(l)).map((l) => l.replace(/\s+$/, ''));
   const 끝말 = !!doneWord && doneWord.test(txt);
   /**
@@ -70,6 +84,34 @@ function run(label: string, args: string[], pick: RegExp, doneWord?: RegExp): { 
   return { ok, picked, 한도 };
 }
 const SHIM = ['--require', './scripts/lib/server-only-shim.cjs'];
+
+/**
+ * ★★**무거운 회차가 돌고 있으면 이번은 건너뛴다** — 둘이 같은 판매 4탭을 쓴다.
+ *
+ * ⚠⚠ 2026-09-08 실측 — 이 파이프라인의 오케스트레이터는 **이 집 PC 의 작업 스케줄러**
+ *   「프리패스-자동동기」(매시 · `scripts/hourly-sync.cmd`)다. 깃허브 워크플로는 그래서 cron 을 뺐다
+ *   (「오케스트레이터가 둘이면 시트·ERP 를 두 군데서 쓴다」).
+ *   매시 회차는 **48분**이라 :30 에 이 회차를 돌리면 «거의 항상» 그 위에 겹친다.
+ *   ⇒ 무거운 회차가 자물쇠를 쥐고 있으면 **아무것도 안 하고 나간다.**
+ *   ★늦는 것이 겹치는 것보다 낫다 — 겹치면 한쪽이 쓰는 중에 다른 쪽이 덮는다.
+ *
+ * 자물쇠 = 무거운 회차가 남기는 기록 파일의 «나이». 회차가 끝나면 「■ 끝」이 찍힌다.
+ * 아직 안 찍혔고 파일이 최근에 손대졌으면 «도는 중»으로 본다.
+ */
+{
+  const LOG = 'tmp/hourly-sync-last.txt';
+  try {
+    const st = statSync(LOG);
+    const 분 = (Date.now() - st.mtimeMs) / 60000;
+    const txt = readFileSync(LOG, 'utf8');
+    const 끝났나 = /\n■ 끝/.test(txt);
+    if (!끝났나 && 분 < 70) {
+      console.log(`⏭ 무거운 회차가 도는 중이다(${Math.round(분)}분째) — 이번 최신화는 건너뛴다.`);
+      out.push(`\n⏭ 무거운 회차 진행중 — 건너뜀`);
+      finish(true);
+    }
+  } catch { /* 기록이 없으면 무거운 회차가 안 돈 것 — 그냥 간다 */ }
+}
 
 // ⑤′ 정산원장 계약상태 — 접수가 뜬 차를 계약중/출고불가로. 시트 칸과 원자를 같이 세운다.
 const led = run('⑤′ 정산원장 계약상태', [...SHIM, 'scripts/mark-contract-in-listings.mts', ...A], /세울 차|고칠 칸|원자 |끝 —/, /끝 — 공급사/);
