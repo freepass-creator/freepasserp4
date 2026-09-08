@@ -295,7 +295,7 @@ export const WHITELABELS: Whitelabel[] = [
      * 회사 소개로 되돌아가는 문(위 `homepage` 머리말). 주소는 **`www`** 다 —
      * 꼭지는 이제 매물 화면이고, 소개 홈페이지는 `www` 에 그대로 서 있다.
      */
-    homepage: { label: '회사 홈페이지', href: `https://www.${CORP.web}` },
+    homepage: { label: '회사 소개', href: `https://www.${CORP.web}` },
     /**
      * 사업자 표기 — **법적 표기다. 지어내지 않는다.** 값은 법인 CI 정본에서 읽는다.
      * ⚠ 통신판매업신고 번호는 아직 모른다 — `[대괄호]` 로 둔다(화면에서는 그 조각만 빠진다).

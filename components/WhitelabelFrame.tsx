@@ -388,10 +388,14 @@ export function WhitelabelFrame({
             */}
             <div style={{ marginTop: SHOP.sp.cozy }}>
               {wl.self ? (
-                <>
-                  <div>{wl.name} ✕ {CORP.markMain}{CORP.markSub}</div>
-                  <div>{CORP.name}가 차량과 계약 시스템을 직접 운영합니다.</div>
-                </>
+                /*
+                 * ★★**우리 가게는 «한 줄»이다**(사장님 2026-09-07 「여기도 좀 수정해야하고」).
+                 *   ⚠ 여기 「프리패스모빌리티 ✕ freepassmobility」 + 「…가 직접 운영합니다」 두 줄이
+                 *     서 있었다. 바로 위 사업자 표기까지 세면 **같은 이름이 세 번**이다.
+                 *   ★✕ 줄은 머리띠가 이미 든다 — 아래서 또 말하면 그건 강조가 아니라 소음이다.
+                 *     남길 말은 하나뿐이다: **여기가 «공식» 판매 페이지라는 것.**
+                 */
+                <div>{CORP.name}가 직접 운영하는 공식 판매 페이지입니다.</div>
               ) : (
                 <>
                   <div>{wl.name} ✕ {CORP.koMain}{CORP.koSub} 전략적 파트너십</div>
