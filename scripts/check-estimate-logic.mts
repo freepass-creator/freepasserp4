@@ -143,7 +143,6 @@ const costCss = read('components/estimate/cost.css');
 const picker = read('features/estimate/CarPicker.tsx');
 const cascade = read('features/estimate/VehicleCascade.tsx');
 const gate = read('features/estimate/EstimateGate.tsx');
-const chips = read('features/estimate/Chips.tsx');
 const costApi = read('app/api/estimate/cost/route.ts');
 const workPage = read('components/WorkPage.tsx');
 
@@ -259,9 +258,23 @@ must(/term-card__check/.test(page),
 must(!/<select/.test(page) && !/<select/.test(cascade),
   '고르는 칸에 드롭다운이 다시 섰습니다 — 견적기에서 고르는 것은 전부 버튼입니다',
   'app/estimate/page.tsx · features/estimate/VehicleCascade.tsx');
-must(/className={`wxchip/.test(chips),
-  '버튼 줄 원자(`features/estimate/Chips`)가 없습니다 — 견적기 안에서는 이것 하나만 씁니다',
-  'features/estimate/Chips.tsx');
+/* ★고르는 칸은 «기존 것»을 쓴다 — 사장님 2026-09-08 「**기존거 활용하라고 했는데**」.
+   견적기에는 이미 세그·칩·숫자칸이 있었다: `.seg`·`.chips`·`.pin`(estimate.css) ·
+   `.mkrow`·`.tchips`·`.oprow`(picker.css). 새로 만들면 규격이 둘이 되고, 그러면 또 갈린다. */
+must(/className={`seg /.test(page) && /className="chips"/.test(page) && /tchips/.test(page),
+  '고르는 칸이 «기존 것»이 아닙니다 — `.seg`·`.chips`·`.tchips` 를 씁니다(새로 만들지 않습니다)',
+  'app/estimate/page.tsx');
+must(/className="pin w"/.test(page),
+  '숫자칸이 «기존 것»(`.pin`)이 아닙니다',
+  'app/estimate/page.tsx');
+must(/est-root/.test(page) && /estimate\.css/.test(page) && /picker\.css/.test(page),
+  '기존 견적기 규격을 안 싣고 있습니다 — 칩·세그·숫자칸과 **사선 0** 이 거기 있습니다',
+  'app/estimate/page.tsx');
+/* ★숫자에 «사선 0» — 사장님 2026-09-08 「숫자 있는 거는 숫자에 사선 나오는 프리텐다드 써야 함」.
+   0 과 O 가 안 갈리면 차번·금액을 잘못 읽는다. 원본은 `tabular-nums` 만 걸어 사선이 꺼져 있었다. */
+must(!/font-variant-numeric:\s*tabular-nums(?!\s+slashed-zero)/.test(wxCss),
+  '숫자에 «사선 0» 이 꺼진 자리가 있습니다 — 0 과 O 가 안 갈립니다',
+  'components/estimate/welrix.css');
 
 /* ㉤ 옵션·색상은 «왼쪽 별도 칸»이다 — 원본과 같은 자리(사장님 2026-09-08 「1번으로」) */
 must(/id="sec-options"/.test(page) && /id="sec-color"/.test(page),

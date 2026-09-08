@@ -95,12 +95,21 @@ for rel in SFC:
         css += chr(10) + '/* -- 원본 ' + rel + ' 의 <style scoped> -- */' + chr(10) + m
 
 out = walk(css)
+
+# ★숫자에 «사선 0» — 사장님 2026-09-08 「숫자 있는 거는 **숫자에 사선 나오는 프리텐다드** 써야 함」.
+#   웰릭스 원본은 서른 군데 넘게 `tabular-nums` 만 건다. 그러면 0 과 O 가 안 갈린다.
+#   뿌리에서 한 번 켜 봐야 그 규칙들이 제 자리에서 도로 끈다(선택자가 더 세다).
+#   ⇒ 싸우지 말고 **원본 규칙 자체에 붙인다**. 기계가 하는 한 줄이라 손댄 자리가 남지 않는다.
+#   (프리패스 기존 규격도 같다 — `estimate.css` 의 `tabular-nums slashed-zero`.)
+out = re.sub(r'tabular-nums(?!\s+slashed-zero)', 'tabular-nums slashed-zero', out)
 head = r"""/* ─────────────────────────────────────────────────────────────────────────
  * 웰릭스 견적기 화면 — **원본 그대로 옮긴 CSS**
  *   원천 : C:\dev\welrixtable/index.html 의 <style> 넷 (2026-09-07 기준)
  *   뜬 법 : scripts/extract-welrix-css.py — 규칙은 «한 글자도» 고치지 않고 선택자 앞에 `.wx-root` 만 붙였다.
  *           (`body`·`html`·`:root` 는 `.wx-root` 로 치환 · `*` 는 `.wx-root *`)
  *   왜   : 견적은 ERP 껍데기 «안»에 서는 페이지다. 웰릭스 전역 리셋이 풀리면 ERP 전체가 물든다.
+ *   ★한 가지만 «고쳐서» 옮긴다 — `tabular-nums` 에 `slashed-zero` 를 붙인다(0 과 O 를 가른다).
+ *     프리패스 기존 규격이 그렇다(`estimate.css`). 그 밖에는 한 글자도 안 고친다.
  *   ⚠ 이 파일을 손으로 고치지 마라. 원본이 바뀌면 위 스크립트를 다시 돌린다.
  *     우리 사정(껍데기 높이 등)으로 덮을 것은 맨 아래 「프리패스 덧칠」에만 적는다.
  * ───────────────────────────────────────────────────────────────────────── */
@@ -186,25 +195,18 @@ tail = """
 .wx-root .term-card.open .qopen { border-color: var(--brand); color: var(--brand); background: var(--brand-50); }
 .wx-root .qdetail { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--line); }
 
-/* ── 고르는 버튼 줄(`features/estimate/Chips`) ─────────────────────────────
-   사장님 2026-09-08 「드랍다운보다는 **버튼**으로 할 수 있으면 버튼으로 해」.
-   ⚠ 그래도 «얇아야» 한다 — 칩은 26px 한 단이고, 긴 칸은 `scroll` 로 키를 묶는다. */
-.wx-root .wxchips { display: flex; flex-wrap: wrap; gap: 4px; }
-.wx-root .wxchips.scroll { max-height: 132px; overflow-y: auto; padding-right: 2px; }
-.wx-root .wxchip {
-  height: 26px; padding: 0 9px; display: inline-flex; align-items: center; gap: 5px;
-  border: 1px solid var(--line-2); border-radius: var(--r-sm); background: var(--bg);
-  font: inherit; font-size: 12px; color: var(--ink-2); cursor: pointer; white-space: nowrap;
-  transition: border-color .12s, background .12s, color .12s;
-}
-.wx-root .wxchip:hover { border-color: var(--ink-3); color: var(--ink-1); }
-.wx-root .wxchip.on { border-color: var(--brand); background: var(--brand-50); color: var(--brand); font-weight: 600; }
-.wx-root .wxchip:disabled { opacity: .4; cursor: not-allowed; }
-.wx-root .wxchip em { font-style: normal; font-size: 10.5px; color: var(--ink-4); }
-.wx-root .wxchip.on em { color: var(--brand); }
-.wx-root .wxchip .sw { width: 11px; height: 11px; border-radius: 50%; border: 1px solid rgba(0,0,0,.25); flex: none; }
-/* 폰 — 손가락으로 누르는 자리는 32px(업무동 sm 규격 언저리). 16px 글씨는 입력칸만 해당된다. */
-@media (max-width: 760px) { .wx-root .wxchip { height: 32px; font-size: 13px; padding: 0 11px; } }
+/* 고르는 칸은 **기존 것**을 쓴다(사장님 2026-09-08 「기존거 활용하라고 했는데」) —
+   `.seg`·`.chips`·`.pin`(estimate.css) · `.mkrow`·`.tchips`·`.oprow`(picker.css).
+   ⇒ 여기서 칩을 «새로 만들지 않는다». 자리만 잡아 준다. */
+.wx-root .wrap .seg { margin-bottom: 0; }
+.wx-root .wrap .chips { flex: 1 1 auto; }
+.wx-root .wrap .tchips { margin-top: 0; }
+.wx-root .wrap .mkrow { padding: 0; }
+/* 긴 칸(제조사·모델)은 키를 묶는다 — 안 묶으면 열일곱·수십 개가 왼쪽을 통째로 민다. */
+.wx-root .wrap .tchips.scroll { max-height: 132px; overflow-y: auto; padding-right: 2px; }
+.wx-root .wrap .tchips .sw { width: 11px; height: 11px; border-radius: 50%; border: 1px solid rgba(0,0,0,.25); margin-right: 5px; flex: none; }
+.wx-root .wrap .tchips button { display: inline-flex; align-items: center; }
+.wx-root .wrap .tchips em { font-style: normal; font-size: 10.5px; opacity: .7; margin-left: 5px; }
 
 /* 원가 화면 — 머리는 견적과 «같고», 몸통만 제 짜임을 쓴다(설정 34칸이라 기둥이 넷이다).
    사장님 2026-09-08 「각 페이지는 이거랑 맞춰야지, 원가랑 견적은 동일하게」.
@@ -255,7 +257,7 @@ tail = """
 .wx-root .pnl-row { display: flex; justify-content: space-between; gap: 8px; font-size: 11.5px; padding: 5px 0; border-bottom: 1px solid var(--line); }
 .wx-root .pnl-row .k { color: var(--ink-3); min-width: 0; }
 .wx-root .pnl-row .k em { font-style: normal; color: var(--ink-4); font-size: 10px; display: block; }
-.wx-root .pnl-row .v { font-variant-numeric: tabular-nums; white-space: nowrap; }
+.wx-root .pnl-row .v { font-variant-numeric: tabular-nums slashed-zero; white-space: nowrap; }
 .wx-root .pnl-row.minus .v { color: var(--ink-2); }
 .wx-root .pnl-row.head { border-bottom: 0; padding-top: 12px; color: var(--ink-4); font-size: 10px; letter-spacing: .6px; }
 .wx-root .pnl-row.sum { border-bottom: 2px solid var(--line-3); font-weight: 600; color: var(--ink-1); }

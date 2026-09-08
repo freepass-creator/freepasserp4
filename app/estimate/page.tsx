@@ -26,12 +26,17 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import EstimateGate from '@/features/estimate/EstimateGate';
 import '@/components/estimate/welrix.css';
+/* ★기존 견적기 규격을 그대로 쓴다 — 사장님 2026-09-08 「기존거 활용하라고 했는데」.
+   칩·세그·숫자칸(`.chips`·`.seg`·`.pin`)과 **사선 0**(`tabular-nums slashed-zero`)이 여기 있다.
+   ⚠ 웰릭스 뒤에 실어야 한다 — 같은 이름 토큰은 «뒤엣것»이 이긴다(글꼴·사선·색을 기존 것으로 맞춘다). */
+import '@/components/estimate/estimate.css';
+import '@/components/estimate/picker.css';
 import { useAppBar } from '@/lib/appbar';
 /* 색은 화면이 지어내지 않는다 — 규격색·색칩은 색상마스터(SSOT)에서만 당긴다. */
 import { EXT_COLORS, INT_COLORS, colorSwatch } from '@/lib/domain/color-master';
 import CarPicker from '@/features/estimate/CarPicker';
 import VehicleCascade from '@/features/estimate/VehicleCascade';
-import Chips from '@/features/estimate/Chips';
+
 import type { PickedCar } from '@/lib/domain/estimate/car-index';
 import { deltaKeyFor } from '@/lib/domain/estimate/residual-by-name';
 import { expectedTurnovers } from '@/lib/domain/estimate/turnover-cost.js';
@@ -139,6 +144,56 @@ function pnl(c: Card, prepay: number) {
     opPct: rev ? (rev - (c.subtotal || 0)) / rev : 0,
     depAmt: c.deposit || 0, preAmt: prepay,
   };
+}
+
+/**
+ * 세그 — **기존 것**(`estimate.css .seg`). 두셋 중 하나를 고르는 칸.
+ * ★사장님 2026-09-08 「기존거 활용하라고 했는데」 — 새로 만들지 않는다.
+ */
+function Seg<T extends string>({ tone, opts, cur, onPick }: {
+  tone: 't1' | 't2' | 't3'; opts: readonly { v: T; label: string }[]; cur: T; onPick: (v: T) => void;
+}) {
+  return (
+    <div className={`seg ${tone}`}>
+      {opts.map((o) => (
+        <button key={o.v} type="button" className={o.v === cur ? 'on' : ''} onClick={() => onPick(o.v)}>{o.label}</button>
+      ))}
+    </div>
+  );
+}
+
+/** 칩 줄 — **기존 것**(`estimate.css .chips`). 칸을 같은 폭으로 나눠 가진다. */
+function Chips<T extends string | number>({ opts, cur, onPick }: {
+  opts: readonly { v: T; label: string }[]; cur: T; onPick: (v: T) => void;
+}) {
+  return (
+    <div className="chips">
+      {opts.map((o) => (
+        <button key={String(o.v)} type="button" className={o.v === cur ? 'on' : ''} onClick={() => onPick(o.v)}>{o.label}</button>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * 고를 것이 많은 칸 — **기존 것**(`picker.css .tchips`). 접히는 칩이라 열일곱·수십도 받는다.
+ * 긴 칸은 `scroll` 로 키를 묶는다(안 묶으면 왼쪽을 통째로 민다).
+ */
+function TChips<T extends string>({ opts, cur, onPick, scroll, empty }: {
+  opts: { v: T; label: string; sub?: string; swatch?: string }[];
+  cur: T | ''; onPick: (v: T) => void; scroll?: boolean; empty?: string;
+}) {
+  if (!opts.length) return <div className="empty-state">{empty ?? '고를 것이 없습니다'}</div>;
+  return (
+    <div className={`tchips${scroll ? ' scroll' : ''}`}>
+      {opts.map((o) => (
+        <button key={o.v} type="button" className={String(o.v) === String(cur) ? 'on' : ''} onClick={() => onPick(o.v)}>
+          {o.swatch ? <span className="sw" style={{ background: o.swatch }} /> : null}
+          {o.label}{o.sub ? <em>{o.sub}</em> : null}
+        </button>
+      ))}
+    </div>
+  );
 }
 
 /** ★문지기(`EstimateGate`)가 관리자·공급사만 들여보낸다 — 메뉴에서 숨기는 것만으로는 막은 게 아니다. */
@@ -302,7 +357,7 @@ function EstimatePageInner() {
     [picked, cond]);
 
   return (
-    <div className="wx-root">
+    <div className="wx-root est-root">
       {/* ══ 상단바 — 원본 `.global-topbar`. ★브랜드 표식은 안 세운다(CLAUDE.md 노브랜드).
              원본의 CI 이미지·워드마크 자리는 비웠고, 위에는 ERP 상단바가 따로 선다. ══ */}
       <div className="global-topbar">
@@ -328,24 +383,23 @@ function EstimatePageInner() {
             버튼으로 해」. 드롭다운은 열고 고르느라 두 번 누른다. 통화 중에 그 한 걸음이 그대로 느려짐이 된다. */}
         <section id="sec-source">
           <div className="step-title">상품</div>
-          <Chips opts={SOURCES.map((o) => ({ v: o.v, label: o.label, sub: o.sub }))} cur={cond} onPick={setCond} />
+          <Seg tone="t2" opts={SOURCES.map((o) => ({ v: o.v, label: o.label }))} cur={cond} onPick={setCond} />
         </section>
 
         <section id="sec-channel">
           <div className="step-title">채널</div>
-          <Chips opts={CHANNELS.map((o) => ({ v: o.v, label: o.label }))} cur={ch} onPick={setCh} />
+          <Seg tone="t3" opts={CHANNELS.map((o) => ({ v: o.v, label: o.label }))} cur={ch} onPick={setCh} />
         </section>
 
         <section id="sec-type">
           <div className="step-title">만기</div>
-          <Chips opts={TYPES.map((o) => ({ v: o.v, label: o.label }))} cur={type} onPick={setType} />
+          <Seg tone="t3" opts={TYPES.map((o) => ({ v: o.v, label: o.label }))} cur={type} onPick={setType} />
         </section>
 
         <section id="sec-credit">
           {/* 유지율을 칩에 붙여 둔다 — 왜 등급마다 값이 갈리는지가 «고르는 자리»에서 보여야 한다. */}
           <div className="step-title">신용</div>
-          <Chips opts={CREDIT.map((c) => ({ v: c, label: c, sub: `유지 ${retentionOf(c)}%` }))}
-            cur={credit} onPick={setCredit} />
+          <Chips opts={CREDIT.map((c) => ({ v: c, label: c }))} cur={credit} onPick={setCredit} />
         </section>
 
         {/* ★★차 고르기 «판»을 걷었다 — 사장님 2026-09-08 「버튼만 만들어 주면 되고」
@@ -411,12 +465,12 @@ function EstimatePageInner() {
                   ⚠ 색·이름은 **색상마스터**가 준 것만 쓴다(화면이 색을 지어내지 않는다). */}
               <div className="cs-field cs-field--wide">
                 <label>외장</label>
-                <Chips opts={EXT_COLORS.map((c) => ({ v: c, label: c, swatch: colorSwatch(c) }))}
+                <TChips opts={EXT_COLORS.map((c) => ({ v: c, label: c, swatch: colorSwatch(c) }))}
                   cur={colorExt} onPick={setColorExt} />
               </div>
               <div className="cs-field cs-field--wide">
                 <label>내장</label>
-                <Chips opts={INT_COLORS.map((c) => ({ v: c, label: c, swatch: colorSwatch(c) }))}
+                <TChips opts={INT_COLORS.map((c) => ({ v: c, label: c, swatch: colorSwatch(c) }))}
                   cur={colorInt} onPick={setColorInt} />
               </div>
             </div>
@@ -429,7 +483,7 @@ function EstimatePageInner() {
             {isNew ? (
               <div className="cs-field cs-field--wide">
                 <label>차량가</label>
-                <span className="qc-pct"><input value={man(listPrice)} disabled /><em>만원</em></span>
+                <span className="pin w"><input value={man(listPrice)} disabled /><i>만원</i></span>
               </div>
             ) : (
               <>
@@ -441,18 +495,18 @@ function EstimatePageInner() {
                 {/* ★중고는 «무조건 시세»다(사장님 2026-09-06) — 장부가·최초매입가가 아니다. */}
                 <div className="cs-field">
                   <label>시세</label>
-                  <span className="qc-pct"><input inputMode="numeric" value={man(usedPrice)}
-                    onChange={(e) => setUsedPrice(digits(e.target.value) * 10000)} /><em>만원</em></span>
+                  <span className="pin w"><input inputMode="numeric" value={man(usedPrice)}
+                    onChange={(e) => setUsedPrice(digits(e.target.value) * 10000)} /><i>만원</i></span>
                 </div>
                 <div className="cs-field">
                   <label>연식</label>
-                  <span className="qc-pct"><input inputMode="numeric" value={usedYear}
-                    onChange={(e) => setUsedYear(digits(e.target.value))} /><em>년</em></span>
+                  <span className="pin w"><input inputMode="numeric" value={usedYear}
+                    onChange={(e) => setUsedYear(digits(e.target.value))} /><i>년</i></span>
                 </div>
                 <div className="cs-field">
                   <label>주행</label>
-                  <span className="qc-pct"><input inputMode="numeric" value={usedMileage.toLocaleString('ko-KR')}
-                    onChange={(e) => setUsedMileage(digits(e.target.value))} /><em>km</em></span>
+                  <span className="pin w"><input inputMode="numeric" value={usedMileage.toLocaleString('ko-KR')}
+                    onChange={(e) => setUsedMileage(digits(e.target.value))} /><i>km</i></span>
                 </div>
               </>
             )}
@@ -460,9 +514,9 @@ function EstimatePageInner() {
             {needCc ? (
               <div className="cs-field">
                 <label>배기량</label>
-                <span className="qc-pct"><input inputMode="numeric" placeholder="0"
+                <span className="pin w"><input inputMode="numeric" placeholder="0"
                   value={manualCc ? manualCc.toLocaleString('ko-KR') : ''}
-                  onChange={(e) => setManualCc(digits(e.target.value))} /><em>cc</em></span>
+                  onChange={(e) => setManualCc(digits(e.target.value))} /><i>cc</i></span>
               </div>
             ) : null}
             {lines[0]?.incompleteCc ? (
@@ -470,8 +524,8 @@ function EstimatePageInner() {
             ) : null}
             <div className="cs-field">
               <label>매입 할인</label>
-              <span className="qc-pct"><input inputMode="numeric" value={disc}
-                onChange={(e) => setDisc(Math.max(0, Math.min(50, digits(e.target.value))))} /><em>%</em></span>
+              <span className="pin w"><input inputMode="numeric" value={disc}
+                onChange={(e) => setDisc(Math.max(0, Math.min(50, digits(e.target.value))))} /><i>%</i></span>
             </div>
           </div>
         </section>
@@ -482,8 +536,8 @@ function EstimatePageInner() {
             {TERMS.map((t) => (
               <div className="cs-field" key={t}>
                 <label>{t / 12}년</label>
-                <span className="qc-pct"><input inputMode="numeric" value={residPct[t]}
-                  onChange={(e) => setResidOverride((o) => ({ ...o, [t]: digits(e.target.value) }))} /><em>%</em></span>
+                <span className="pin w"><input inputMode="numeric" value={residPct[t]}
+                  onChange={(e) => setResidOverride((o) => ({ ...o, [t]: digits(e.target.value) }))} /><i>%</i></span>
               </div>
             ))}
           </div>
@@ -534,8 +588,8 @@ function EstimatePageInner() {
           </div>
           <div className="cs-field">
             <label>수수료</label>
-            <span className="qc-pct"><input inputMode="numeric" value={fee}
-              onChange={(e) => setFee(Math.max(0, Math.min(20, Number(e.target.value.replace(/[^0-9.]/g, '')) || 0)))} /><em>%</em></span>
+            <span className="pin w"><input inputMode="numeric" value={fee}
+              onChange={(e) => setFee(Math.max(0, Math.min(20, Number(e.target.value.replace(/[^0-9.]/g, '')) || 0)))} /><i>%</i></span>
           </div>
         </div>
 
@@ -543,13 +597,13 @@ function EstimatePageInner() {
         <div className="qp-form qp-form--conds">
           <div className="qc-field">
             <label>보증금</label>
-            <span className="qc-pct"><input type="number" min={0} max={100} value={dep}
-              onChange={(e) => { const v = Math.max(0, Math.min(100, Number(e.target.value) || 0)); setDep(v); setScen((a) => a.map((x) => ({ ...x, dep: v }))); }} /><em>%</em></span>
+            <span className="pin w"><input type="number" min={0} max={100} value={dep}
+              onChange={(e) => { const v = Math.max(0, Math.min(100, Number(e.target.value) || 0)); setDep(v); setScen((a) => a.map((x) => ({ ...x, dep: v }))); }} /><i>%</i></span>
           </div>
           <div className="qc-field">
             <label>선납금</label>
-            <span className="qc-pct"><input type="number" min={0} max={100} value={pre}
-              onChange={(e) => { const v = Math.max(0, Math.min(100, Number(e.target.value) || 0)); setPre(v); setScen((a) => a.map((x) => ({ ...x, pre: v }))); }} /><em>%</em></span>
+            <span className="pin w"><input type="number" min={0} max={100} value={pre}
+              onChange={(e) => { const v = Math.max(0, Math.min(100, Number(e.target.value) || 0)); setPre(v); setScen((a) => a.map((x) => ({ ...x, pre: v }))); }} /><i>%</i></span>
           </div>
         </div>
 
