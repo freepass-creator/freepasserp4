@@ -20,6 +20,17 @@ const dead = (r: Rec) => r?._deleted === true || S(r?.status) === 'deleted';
 
 export interface PolicyLite { policy_code: string; provider_company_code: string; policy_name: string; product_types?: string[]; }
 
+/**
+ * 상품구분/정책명 → «렌트 or 구독» 버킷 (사장님 2026-09-08 「렌트와 구독 나눠서 번호판으로 정책 매칭하면 되고」).
+ *   구독(픽업구독·중고구독·오플구독·오공구독·신차구독) vs 렌트(신차렌트·중고렌트·재렌트). 못 정하면 ''.
+ */
+export function rentSubBucket(text: unknown): '렌트' | '구독' | '' {
+  const s = String(text ?? '');
+  if (/구독/.test(s)) return '구독';
+  if (/렌트|재렌|재랜/.test(s)) return '렌트';
+  return '';
+}
+
 /** 정책 원자 배열 → 공급사코드별 그룹(삭제/코드없음 제외). */
 export function groupPoliciesByProvider(policies: Rec[]): Map<string, PolicyLite[]> {
   const by = new Map<string, PolicyLite[]>();
@@ -46,7 +57,13 @@ export function autoPolicyCode(product: Rec, byProvider: Map<string, PolicyLite[
   const cands = byProvider.get(prov) || [];
   if (cands.length === 0) return '';                                 // 그 공급사 정책 아직 입력 안 됨
   if (cands.length === 1) return cands[0].policy_code;               // 정책 1개(오플) → 자동
-  // 여럿 — 상품구분이 정책명/product_types 에 담겨 있으면 그걸로
+  // 여럿 — «렌트/구독»으로 나눠 번호판(이 매물)의 상품구분과 맞댄다(사장님 2026-09-08 손오공·이안카 모델)
+  const bucket = rentSubBucket(product.product_type);
+  if (bucket) {
+    const byBucket = cands.filter((c) => rentSubBucket((c.product_types || []).join(' ') + ' ' + c.policy_name) === bucket);
+    if (byBucket.length === 1) return byBucket[0].policy_code;
+  }
+  // 그래도 여럿이면 상품구분 정확일치로 한 번 더
   const type = S(product.product_type);
   const byType = cands.filter((c) => (c.product_types && c.product_types.includes(type)) || (type && c.policy_name.includes(type)));
   if (byType.length === 1) return byType[0].policy_code;
