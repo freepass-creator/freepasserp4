@@ -50,14 +50,29 @@ const b64u = (buf: Buffer | string) =>
 
 let cached: { token: string; expiresAt: number } | null = null;
 
-/** 서비스계정 JWT → 액세스토큰. 만료 60초 전에 재발급한다. */
-async function accessToken(): Promise<string> {
-  if (cached && Date.now() < cached.expiresAt) return cached.token;
+/**
+ * ★★**우리 도메인 사람으로 읽는다** (`sub` = 도메인 전체 위임).
+ *
+ * ⚠⚠ 2026-09-08 실측 — 시트를 읽는 «신분이 둘»이었다. 발행기(`build-channel-supplier-sheet`)는
+ *   `pyh@teamjpk.com` 을 대행해 읽는데, 여기는 서비스계정 «그대로» 읽었다. 그런데 공급사 시트는
+ *   **teamjpk.com 도메인 단위로 공유**돼 있어(도메인 밖인 서비스계정은 못 본다) 이런 차이가 났다:
+ * ```
+ *   서비스계정 그대로   마음카 ✗403 · 하허호 F86 ✗403 · 상품리스트 F01 ✔
+ *   pyh@ 대행          마음카 ✔    · 하허호 F86 ✔    · 상품리스트 F01 ✔
+ * ```
+ *   그래서 마음카 3대가 «요금 없는 차»로 남아 있었다 — 시트 공유가 안 된 게 아니라
+ *   **우리가 약한 신분으로 두드리고 있었다.** 사람에게 「공유해 달라」고 할 일이 아니었다.
+ * ★위임이 안 걸린 환경도 있을 수 있으니 **실패하면 옛 방식(서비스계정 그대로)으로 떨어진다.**
+ */
+const IMPERSONATE = String(process.env.GOOGLE_SHEETS_SUBJECT || 'pyh@teamjpk.com').trim();
+
+async function mintToken(subject: string): Promise<{ token: string; ttl: number }> {
   const sa = serviceAccountJson();
   const now = Math.floor(Date.now() / 1000);
   const header = b64u(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
   const claim = b64u(JSON.stringify({
     iss: sa.client_email, scope: SCOPE, aud: TOKEN_URL, iat: now, exp: now + 3600,
+    ...(subject ? { sub: subject } : null),
   }));
   const signer = createSign('RSA-SHA256');
   signer.update(`${header}.${claim}`);
@@ -72,7 +87,21 @@ async function accessToken(): Promise<string> {
   if (!res.ok || !body.access_token) {
     throw new Error(`구글 토큰 발급 실패 ${res.status}: ${body.error || ''} ${body.error_description || ''}`.trim());
   }
-  cached = { token: body.access_token, expiresAt: Date.now() + ((body.expires_in || 3600) - 60) * 1000 };
+  return { token: body.access_token, ttl: (body.expires_in || 3600) - 60 };
+}
+
+/** 서비스계정 JWT → 액세스토큰. 만료 60초 전에 재발급한다. */
+async function accessToken(): Promise<string> {
+  if (cached && Date.now() < cached.expiresAt) return cached.token;
+  let got: { token: string; ttl: number };
+  try {
+    got = await mintToken(IMPERSONATE);
+  } catch (e) {
+    if (!IMPERSONATE) throw e;
+    console.warn(`[sheets] ${IMPERSONATE} 대행 실패 — 서비스계정 그대로 간다(도메인 공유 시트는 못 볼 수 있다): ${(e as Error).message.slice(0, 90)}`);
+    got = await mintToken('');
+  }
+  cached = { token: got.token, expiresAt: Date.now() + got.ttl * 1000 };
   return cached.token;
 }
 
