@@ -160,5 +160,17 @@ const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${LEDGER}/v
 });
 if (!r.ok) { console.log(`\n  ✕ 못 넣었습니다 — ${r.status} ${(await r.text()).slice(0, 200)}\n`); process.exit(1); }
 console.log(`\n  ✓ 접수 탭에 ${ok.length}줄을 넣었습니다.`);
+/**
+ * ★★★**붙였으면 옷을 다시 입힌다.**
+ *   `values:append` 는 바로 위 줄의 서식을 «반쪽만» 물려준다 — 바탕색은 오고 아래 테두리는 안 온다.
+ *   그러면 그 줄부터 표가 «벌어져» 보이고, 청구년·청구월은 날짜 서식을 물려받아
+ *   8 이 「00-01-07」 로 찍힌다(실측 2026-09-08 84~91행).
+ *   사장님 2026-09-08 「가운데가 왜 확 벌어졌지??」 · 「이거 재발 방지해줘」
+ *   ⇒ 재발 방지는 사람 기억이 아니라 «순서»에 박는다. 붙인 도구가 스스로 부른다.
+ */
+{
+  const heal = spawnSync('npx', ['tsx', 'scripts/heal-intake-format.mts', '--apply'], { stdio: 'inherit', shell: true });
+  if (heal.status !== 0) console.log('  ⚠ 옷을 다시 입히다 멈췄습니다 — npx tsx scripts/heal-intake-format.mts --apply 를 따로 불러 주세요.');
+}
 console.log('  ※ 이어서 — npm run settlement:import → 그 달 탭·정산서·시트를 다시 뽑습니다.\n');
 process.exit(0);
