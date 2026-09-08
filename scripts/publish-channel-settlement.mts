@@ -826,6 +826,8 @@ for (const j of jobs) {
   const reqs = settleTabFormat({
     sheetId: id, head: HEAD, width: WIDTH, r0: 3, bodyLen: body.length,
     backAt: j.backs.map((_, i) => j.lines.length + i),
+    /** ★상대가 「정정」을 켠 줄 — 표에서 바로 보이게 색을 준다. */
+    fixAt: body.map((r, i) => (r[HEAD.indexOf('정정')] === true ? i : -1)).filter((i) => i >= 0),
     blanks: 10, footLen: 4, basisLen: BASIS.length, money: MONEY, left: LEFT,
   });
   /**

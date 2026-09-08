@@ -712,6 +712,8 @@ export type SettleTabSpec = {
   bodyLen: number;
   /** 연분홍으로 칠할 줄 — 표 안 자리(0부터). 환수·회수처럼 «빼는 돈». */
   backAt: readonly number[];
+  /** 상대가 「정정」을 켠 줄 자리 — 손보는 중이라고 색으로 말한다. */
+  fixAt?: readonly number[];
   blanks: number;
   footLen: number;
   basisLen: number;
@@ -719,13 +721,20 @@ export type SettleTabSpec = {
   left: readonly string[];
 };
 
+/**
+ * ★★**상대가 「정정」을 켠 줄 — «손보는 중»이라 눈에 띄어야 한다.**
+ *   사장님 2026-09-08 「청구 만지고 있는 거를 색깔 해 주고」.
+ *   실측 2026-09-08 — 하허호 8월 탭에 정정이 다섯 줄 켜져 있었는데 표에서는 안 보였다.
+ *   체크 하나는 스무 칸 너머에 있어, 스무 줄을 훑어야 어느 줄이 걸렸는지 안다.
+ */
+const FIX_ROW = { red: 1, green: 0.96, blue: 0.80 };
 /** 환수 줄 — «연한 분홍 바탕»만(사장님 2026-09-04 「두껍게 이런건 하지마」). */
 const BACK_ROW = { red: 1, green: 0.945, blue: 0.955 };
 /** 구역 칸막이 — 색만으로 가르면 인쇄·흑백에서 사라진다. 선은 남는다. */
 const CUT_LINE = { red: 0.78, green: 0.80, blue: 0.85 };
 
 export function settleTabFormat(s: SettleTabSpec): Record<string, unknown>[] {
-  const { sheetId: id, head: H, width: W, r0, bodyLen, backAt, blanks, footLen, basisLen, money, left } = s;
+  const { sheetId: id, head: H, width: W, r0, bodyLen, backAt, fixAt = [], blanks, footLen, basisLen, money, left } = s;
   const last = r0 + 1 + bodyLen;
   const foot0 = last + blanks + 2;
   const iB = H.indexOf('수수료 산정 기준');
@@ -758,6 +767,9 @@ export function settleTabFormat(s: SettleTabSpec): Record<string, unknown>[] {
     bar(1, true), bar(r0, false), tintRow(2), tintRow(last),
     { updateDimensionProperties: { range: { sheetId: id, dimension: 'ROWS', startIndex: r0, endIndex: r0 + 1 }, properties: { pixelSize: 40 }, fields: 'pixelSize' } },
     { updateDimensionProperties: { range: { sheetId: id, dimension: 'ROWS', startIndex: r0 + 1, endIndex: last + 1 }, properties: { pixelSize: 24 }, fields: 'pixelSize' } },
+    /** ★「정정」 켠 줄 — 환수보다 «먼저» 칠한다. 둘이 겹치면 환수 색이 이긴다. */
+    ...fixAt.map((k) => ({ repeatCell: { range: wide(r0 + 1 + k, r0 + 2 + k),
+      cell: { userEnteredFormat: { backgroundColor: FIX_ROW } }, fields: 'userEnteredFormat.backgroundColor' } })),
     ...backAt.map((k) => ({ repeatCell: { range: wide(r0 + 1 + k, r0 + 2 + k),
       cell: { userEnteredFormat: { backgroundColor: BACK_ROW, textFormat: { bold: false } } }, fields: 'userEnteredFormat(backgroundColor,textFormat)' } })),
     /**
@@ -812,6 +824,22 @@ export function settleTabFormat(s: SettleTabSpec): Record<string, unknown>[] {
     /** ★필터 — 공급사·상품 구분으로 그 자리에서 추린다. 합계줄은 넣지 않는다(걸러도 따라 사라진다). */
     { setBasicFilter: { filter: { range: { sheetId: id, startRowIndex: r0, endRowIndex: last, startColumnIndex: 0, endColumnIndex: H.length } } } },
     /** ★「확인」·「정정」은 체크칸 — 상대가 누르기만 하면 된다. */
+    /**
+     * ★★★**체크칸을 새로 걸기 «전»에 표 전체의 데이터 확인을 걷는다.**
+     *
+     * ⚠ 실측 2026-09-08 — 「청구월/지급월」 칸을 넣으면서 확인·정정이 한 칸씩 밀렸는데,
+     *   체크박스 규칙은 **옛 자리에 그대로 남았다.** 그래서 「지급월·합계·지급 예정일」 칸에
+     *   BOOLEAN 규칙이 걸린 채 글자가 들어 시트가 **「잘못된 입력」** 이라고 빨간 표시를 냈다
+     *   (사장님 「잘못 입력이라고 오류 뜨는 거 체크해 주고」).
+     *   `setDataValidation` 은 «건 자리»에만 걸고 옛 자리를 안 걷는다.
+     *   ⇒ 칸이 늘거나 줄 때마다 이 사고가 난다. 먼저 통째로 걷고 다시 건다.
+     */
+    /**
+     * ⚠ **본문만 걷으면 «합계 줄»에 남는다.** 실측 2026-09-08 — 합계 줄의 「합계」 칸에
+     *   체크박스 규칙이 남아 41,772,909 가 「잘못된 입력」으로 빨갛게 떴다.
+     *   ⇒ 우리가 쓰는 자리 «전부»(본문·합계·예비줄·꼬리)를 걷고, 체크칸만 다시 건다.
+     */
+    { setDataValidation: { range: wide(r0 + 1, last + blanks + footLen + 3) } },
     ...['확인', '정정'].map((h) => H.indexOf(h)).filter((c) => c >= 0).map((c) => ({
       setDataValidation: { range: { sheetId: id, startRowIndex: r0 + 1, endRowIndex: last, startColumnIndex: c, endColumnIndex: c + 1 }, rule: { condition: { type: 'BOOLEAN' }, strict: true, showCustomUi: true } } })),
   ];

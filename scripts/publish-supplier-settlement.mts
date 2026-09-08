@@ -258,6 +258,12 @@ const BASIS_HEAD = { red: 0.90, green: 0.87, blue: 0.96 };
 const BASIS_BODY = { red: 0.975, green: 0.97, blue: 0.99 };
 /** 구역 칸막이 · 환수 줄 — 읽는 결을 만드는 둘. ★얼룩(지브라)은 쓰지 않는다(사장님 2026-09-08). */
 const LINE = { red: 0.78, green: 0.80, blue: 0.85 };
+/**
+ * ★★**상대가 「정정」을 켠 줄 — «손보는 중»이라 눈에 띄어야 한다**(사장님 2026-09-08
+ *   「청구 만지고 있는 거를 색깔 해 주고」). 체크 하나는 스무 칸 너머에 있어,
+ *   색이 없으면 어느 줄이 걸렸는지 스무 줄을 훑어야 안다.
+ */
+const FIX_ROW = { red: 1, green: 0.96, blue: 0.80 };
 /** ★환수 줄 — «연한 분홍 바탕»만(사장님 2026-09-04 「두껍게 이런건 하지마」). */
 const BACK_ROW = { red: 1, green: 0.945, blue: 0.955 };
 /** 임차인정보 ── 산출조건 ── 금액. 이름은 원장 청구탭과 같게 둔다. */
@@ -631,6 +637,10 @@ for (const j of jobs) {
     { updateDimensionProperties: { range: { sheetId: id, dimension: 'ROWS', startIndex: r0, endIndex: r0 + 1 }, properties: { pixelSize: 40 }, fields: 'pixelSize' } },
     { updateDimensionProperties: { range: { sheetId: id, dimension: 'ROWS', startIndex: r0 + 1, endIndex: last + 1 }, properties: { pixelSize: 24 }, fields: 'pixelSize' } },
     /** ★환수 줄은 연한 붉은빛 — «빼는 돈»이라 숫자만 음수면 눈에 안 들어온다. */
+    /** ★「정정」 켠 줄 — 환수보다 «먼저» 칠한다. 겹치면 환수 색이 이긴다. */
+    ...body.map((r, i) => (r[HEAD.indexOf('정정')] === true ? i : -1)).filter((i) => i >= 0)
+      .map((i) => ({ repeatCell: { range: all1(r0 + 1 + i, r0 + 2 + i),
+        cell: { userEnteredFormat: { backgroundColor: FIX_ROW } }, fields: 'userEnteredFormat.backgroundColor' } })),
     ...(j.claw ? [body.length - 1] : []).map((i: number) => ({ repeatCell: { range: all1(r0 + 1 + i, r0 + 2 + i),
       cell: { userEnteredFormat: { backgroundColor: BACK_ROW, textFormat: { bold: false } } }, fields: 'userEnteredFormat(backgroundColor,textFormat)' } })),
     // 정렬 — 돈은 우측 · 글은 좌측 · 나머지 가운데
@@ -669,6 +679,22 @@ for (const j of jobs) {
     { setBasicFilter: { filter: { range: { sheetId: id, startRowIndex: r0, endRowIndex: last, startColumnIndex: 0, endColumnIndex: HEAD.length } } } },
     /** ★「확인」은 체크칸으로 — 공급사가 누르기만 하면 된다. */
     /** ★「확인」·「정정」은 체크칸 — 상대가 누르기만 하면 된다. */
+    /**
+     * ★★★**체크칸을 새로 걸기 «전»에 표 전체의 데이터 확인을 걷는다.**
+     *
+     * ⚠ 실측 2026-09-08 — 「청구월/지급월」 칸을 넣으면서 확인·정정이 한 칸씩 밀렸는데,
+     *   체크박스 규칙은 **옛 자리에 그대로 남았다.** 그래서 「지급월·합계·지급 예정일」 칸에
+     *   BOOLEAN 규칙이 걸린 채 글자가 들어 시트가 **「잘못된 입력」** 이라고 빨간 표시를 냈다
+     *   (사장님 「잘못 입력이라고 오류 뜨는 거 체크해 주고」).
+     *   `setDataValidation` 은 «건 자리»에만 걸고 옛 자리를 안 걷는다.
+     *   ⇒ 칸이 늘거나 줄 때마다 이 사고가 난다. 먼저 통째로 걷고 다시 건다.
+     */
+    /**
+     * ⚠ **본문만 걷으면 «합계 줄»에 남는다** — 합계 칸에 체크박스 규칙이 남아
+     *   「잘못된 입력」으로 빨갛게 뜬다(실측 2026-09-08).
+     *   ⇒ 우리가 쓰는 자리 전부를 걷고 체크칸만 다시 건다.
+     */
+    { setDataValidation: { range: all1(r0 + 1, last + BLANKS + 8) } },
     ...['확인', '정정'].map((h) => HEAD.indexOf(h)).filter((c) => c >= 0).map((c) => ({
       setDataValidation: { range: { sheetId: id, startRowIndex: r0 + 1, endRowIndex: last, startColumnIndex: c, endColumnIndex: c + 1 }, rule: { condition: { type: 'BOOLEAN' }, strict: true, showCustomUi: true } } })),
     /**

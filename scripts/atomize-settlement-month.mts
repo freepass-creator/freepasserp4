@@ -155,10 +155,16 @@ if (!FROM_LEDGER) {
 console.log(`■ ${MONTH} 원자화 — 원본 ${FROM_LEDGER ? "[F04] 정산원장" : "계약현황"} 「${TAB}」 → 파이어베이스 ${APPLY ? '(반영)' : '(대조만)'}\n`);
 
 // ── 시트 읽기 (값 + 필터) ─────────────────────────────────
+/** ★분당 한도(429)에 걸리면 쉬었다 다시 읽는다 — 여기서 멈추면 그 달 원자화가 통째로 안 돈다. */
+const nap = (ms: number) => new Promise((z) => setTimeout(z, ms));
 const readTab = async (id: string, tab: string): Promise<string[][]> => {
-  const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${encodeURIComponent(`'${tab}'!A1:BZ900`)}?valueRenderOption=UNFORMATTED_VALUE`, { headers: { Authorization: `Bearer ${await tok()}` } });
-  if (!r.ok) { console.log(`   ✕ 「${tab}」 를 못 읽었다 ${r.status}`); process.exit(1); }
-  return (((await r.json()) as { values?: unknown[][] }).values || []).map((v) => (v || []).map(S));
+  for (let t = 0; t < 6; t++) {
+    const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${id}/values/${encodeURIComponent(`'${tab}'!A1:BZ900`)}?valueRenderOption=UNFORMATTED_VALUE`, { headers: { Authorization: `Bearer ${await tok()}` } });
+    if (r.ok) return (((await r.json()) as { values?: unknown[][] }).values || []).map((v) => (v || []).map(S));
+    if (r.status === 429 || r.status >= 500) { console.log(`   · 「${tab}」 ${r.status} — 20초 쉬었다 다시 (${t + 1}/6)`); await nap(20_000); continue; }
+    console.log(`   ✕ 「${tab}」 를 못 읽었다 ${r.status}`); process.exit(1);
+  }
+  console.log(`   ✕ 「${tab}」 — 한도에 계속 걸립니다`); process.exit(1);
 };
 let all: string[][];
 if (!FROM_LEDGER) all = await readTab(SRC, TAB);
@@ -443,7 +449,16 @@ for (const c of claws) console.log(`      ${S(c.plate).padEnd(11)} ${S(c.supplie
  *   (2026-09-02 최사랑 10만원 두 줄이 그랬다). 걷은 것은 반드시 «이름을 대고» 지운다.
  */
 const alive = new Set(atoms.map((a) => a.code));
-const stale = Object.entries(have).filter(([k, r]) => S(r.fromSheet) === TAB && !alive.has(k));
+/**
+ * ⚠⚠⚠ **«그 달»의 묵은 줄만 걷는다 — 달을 안 보면 다른 달을 통째로 지운다.**
+ *
+ *   실측 2026-09-08 — 원장(F04)은 세 탭에 «모든 달»이 누적되므로 `fromSheet` 가
+ *   「접수 + 완납실적 + 분납실적」로 달마다 **똑같다.** 그래서 9월을 원자화하자
+ *   8월 원자 43줄이 「이번 취합엔 없다」로 잡혀 통째로 걷혔다 —
+ *   하허호 8월 정산서가 44줄에서 **1줄**이 됐다.
+ *   ⇒ 걷는 기준은 «같은 원천 + 같은 달»이다. 달이 다르면 남의 달이다.
+ */
+const stale = Object.entries(have).filter(([k, r]) => S(r.fromSheet) === TAB && S(r.billMonth) === MONTH && !alive.has(k));
 if (stale.length) {
   console.log(`
    ★묵은 줄 ${stale.length}개 — 이 탭에서 올렸는데 이번 취합엔 «없다». 걷는다`);

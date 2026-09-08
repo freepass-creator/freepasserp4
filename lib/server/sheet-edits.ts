@@ -207,6 +207,23 @@ export function applyPending(opts: {
        */
       if (e.column === '수수료 산정 기준') continue;
       r[c] = e.theirs; n++;
+      /**
+       * ★★★**공급가액을 얹으면 «부가세·합계»도 같이 다시 센다 — 아니면 줄이 스스로 어긋난다.**
+       *
+       * ⚠ 실측 2026-09-08 — 하허호가 46소3954 를 1,074,000 으로 정정했는데 공급가액 칸만 바뀌고
+       *   부가세 102,600 · 합계 1,128,600 은 «우리 값(1,026,000)» 기준 그대로 남았다.
+       *   사장님이 바로 보셨다 — 「공급가는 맞는데 **부가세 잘못 계산된 듯**」.
+       *   한 줄 안에서 셋이 서로 다른 말을 하면, 상대는 어느 것을 믿어야 할지 모른다.
+       */
+      if (e.column === '공급가액') {
+        const net = N(e.theirs);
+        if (!Number.isNaN(net)) {
+          const iv = head.indexOf('부가세'); const it = head.indexOf('합계');
+          const vat = Math.round(net * 0.1);
+          if (iv >= 0) r[iv] = vat;
+          if (it >= 0) r[it] = net + vat;
+        }
+      }
     }
   }
   return n;
