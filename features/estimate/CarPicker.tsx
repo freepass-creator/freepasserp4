@@ -58,12 +58,18 @@ export type CarPickerProps = {
    * ⚠ 폰은 시트가 맞다 — 좌 기둥이 없다.
    */
   inline?: boolean;
+  /**
+   * **옵션은 밖에서 고른다** — 웰릭스 원본이 옵션을 왼쪽 «별도 칸»(`#sec-options`)에 세우기 때문이다
+   * (사장님 2026-09-08 「1번으로」). 이 값이 켜지면 시트는 **트림까지만** 묻고 바로 확정한다.
+   * ⚠ 그러면 시트가 돌려주는 `price` 는 «옵션 뺀 트림값»이다 — 옵션 합산은 부르는 쪽이 한다.
+   */
+  optionsOutside?: boolean;
   mode: 'used' | 'new';
   onClose: () => void;
   onPick: (car: PickedCar) => void;
 };
 
-export default function CarPicker({ open, mode, onClose, onPick, inline }: CarPickerProps) {
+export default function CarPicker({ open, mode, onClose, onPick, inline, optionsOutside }: CarPickerProps) {
   const [index, setIndex] = useState<CarIndex | null>(null);
   const [models, setModels] = useState<NewModel[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -275,7 +281,8 @@ export default function CarPicker({ open, mode, onClose, onPick, inline }: CarPi
                 </div>
               </div>
 
-              {nTrim ? (
+              {/* ★옵션을 «밖»에서 고를 때는 이 칸이 통째로 없다 — 두 군데서 고르면 어느 값이 이겼는지 모른다. */}
+              {nTrim && !optionsOutside ? (
                 <div className="card">
                   <div className="step"><span className="no">3</span>옵션<span className="veh dim">{optionRows.length ? `${optionRows.length}개` : '미수집'}</span></div>
                   {optionRows.length ? optionRows.map((o) => {
