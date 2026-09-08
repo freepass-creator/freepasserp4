@@ -34,20 +34,22 @@ const RAW_ALLOW = new Map<string, Allow>([
      ⇒ 마크업이 원본 것이라 업무동 원자를 쓸 수 없다 — 원자를 끼우는 순간 «그대로»가 깨진다.
        입히는 것은 `components/estimate/welrix.css`(원본 `<style>` 을 한 글자도 안 고치고 `.wx-root` 에 가둔 것).
      raw 를 세면 이렇게 된다 —
-       button 2  = 기간 줄의 «기간» 단추 · «펼치기» 단추 (둘 다 그 해의 원가를 연다)
+       button 1  = 기간 칸의 「원가 펼치기」
+                   ★2026-09-08 «고르는 것»은 전부 `features/estimate/Chips` 로 옮겼다
+                     (사장님 「드랍다운보다는 버튼으로 할 수 있으면 버튼으로 해」) — 그래서 여기 남은
+                     단추는 «펼치기» 하나뿐이다.
                    ★2026-09-08 에 **일곱에서 하나로 줄었다** — 사장님 「저렇게 굵을 필요 없고」로
                      상품 카드 여섯과 「차종 고르기」 단추를 걷고 **한 줄짜리 드롭다운**으로 바꿨다.
        input 17  = 차량정보(시세·연식·주행·배기량·매입할인·신차 차량가) + 잔가 5 +
                    손님·담당자·연락처·수수료 + 조건(보증금·선납) + **옵션 체크 1**
                    … 원본 `.cs-field`/`.qc-field`/`.option-row` 짜임
-       select 7  = 취득 경로 · 외장/내장 색상 2 ·
-                   **상품 · 채널 · 만기 · 신용 4**(원본처럼 「라벨 + 한 줄」)
+       select 0  = **드롭다운이 하나도 없다.** 상품·채널·만기·신용·취득·색상이 전부 버튼 줄이다.
      ★2026-09-08 에 셋이 늘었다 — 사장님 「1번으로」로 **옵션·색상을 원본처럼 왼쪽 별도 칸**
        (`#sec-options`·`#sec-color`)으로 뺐다. 그 전에는 옵션이 차 고르기 시트 «안»에 있었다.
      ⚠ 숫자가 달라지면 화면이 «원본에서» 벗어났다는 뜻이다. 고치기 전에 **원본과 대조**할 것
        (`C:\dev\welrixtable/index.html` · `src/components/*.vue`). */
   ['app/estimate/page.tsx', {
-    counts: { button: 2, input: 17, select: 7 },
+    counts: { button: 1, input: 17, select: 0 },
     reason: '견적 = 웰릭스 테이블 그대로 — 상품 카드·차종·**선택 옵션·색상**·차량정보·잔가·손님/담당자·조건·발송용 견적',
   }],
   /* 원가 설정(`/estimate/cost`)도 같은 갈래 — 목업 `프리패스-목업-원가설정.html` 을 그대로 옮겼다.
@@ -59,9 +61,17 @@ const RAW_ALLOW = new Map<string, Allow>([
   /* 차종 캐스케이드 — 원본 `VehicleCascade.vue` 를 옮긴 것이라 원자를 쓰지 않는다.
      select 1 = 걸음 한 칸(`Step`)의 드롭다운 하나. 넷은 그 한 줄을 네 번 부른 것이다.
      ⚠ 늘면 「걸음이 늘었다」는 뜻이다 — 원본은 넷(제조사→모델→세부→트림)이다. */
+  /* 버튼 줄 — 견적기 «안»의 유일한 고르기 원자(사장님 2026-09-08 「버튼으로 할 수 있으면 버튼으로」).
+     업무동 원자(`Btn`/`FilterChips`)를 못 쓴다 — 견적기는 웰릭스 토큰을 쓰는 층이라 치수·색이 어긋난다.
+     button 1 = 칩 하나. 왼쪽의 모든 고르기가 이 한 줄을 부른 것이다.
+     ⚠ 늘면 「고르기 원자가 둘이 됐다」는 뜻이다 — 그러면 또 갈린다. */
+  ['features/estimate/Chips.tsx', {
+    counts: { button: 1, input: 0, select: 0 },
+    reason: '견적기 고르기 원자 — 칩 한 줄(라벨·작은글씨·색칩)',
+  }],
   ['features/estimate/VehicleCascade.tsx', {
-    counts: { button: 0, input: 0, select: 1 },
-    reason: '차종 캐스케이드 — 웰릭스 원본 좌측 넷을 그대로. 「라벨 96 + 한 줄」 짜임은 원본 CSS 가 입힌다',
+    counts: { button: 0, input: 0, select: 0 },
+    reason: '차종 캐스케이드 — 걸음 넷. 고르는 일은 전부 `Chips` 가 한다(드롭다운 없음)',
   }],
   ['features/estimate/CarPicker.tsx', {
     counts: { button: 12, input: 1, select: 0 },

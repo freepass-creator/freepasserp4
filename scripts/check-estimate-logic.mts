@@ -143,6 +143,7 @@ const costCss = read('components/estimate/cost.css');
 const picker = read('features/estimate/CarPicker.tsx');
 const cascade = read('features/estimate/VehicleCascade.tsx');
 const gate = read('features/estimate/EstimateGate.tsx');
+const chips = read('features/estimate/Chips.tsx');
 const costApi = read('app/api/estimate/cost/route.ts');
 const workPage = read('components/WorkPage.tsx');
 
@@ -235,18 +236,32 @@ must(/className="cs-form"/.test(page),
      사장님 「우측에서 **1년부터 5년까지 설계**되게끔 해주고, 각 기간별로 **수익이나 원가 볼 수 있게끔
      그 라인에 표현**해주면 돼. **우측에 따로 놓지 말고**」
    ⇒ 같은 숫자를 세 군데서 세면 어디를 봐야 하는지가 흐려지고, 다섯 해를 나란히 못 견준다. */
-must(/className="qlines"/.test(page) && /className="qline__cap"/.test(page),
-  '1~5년이 «줄»로 서 있지 않습니다 — 다섯 해를 나란히 견주는 것이 이 화면의 일입니다',
-  'app/estimate/page.tsx .qlines');
+must(/className="qgrid"/.test(page),
+  '1~5년이 «가로로» 서 있지 않습니다 — 다섯 해를 나란히 견주는 것이 이 화면의 일입니다',
+  'app/estimate/page.tsx .qgrid');
+must(/grid-template-columns: repeat\(5, minmax\(0, 1fr\)\)/.test(wxCss),
+  '기간 칸이 다섯이 아닙니다 — 1년부터 5년까지 가로로 쭉 섭니다',
+  'components/estimate/welrix.css .qgrid');
+must(/@media \(max-width: 760px\) \{ \.wx-root \.qgrid \{ grid-template-columns: 1fr; \} \}/.test(wxCss),
+  '폰에서 기간 칸이 «위아래로» 안 갈립니다 — 폰은 한 해가 한 장입니다',
+  'components/estimate/welrix.css .qgrid 폰');
 must(/const cogs = v\.rev - v\.opProfit;/.test(page),
-  '줄에서 「매출 − 원가 = 영업이익」이 안 맞습니다 — 원가 칸은 «총원가»(매출원가+판관비)입니다',
+  '칸에서 「매출 − 원가 = 영업이익」이 안 맞습니다 — 원가는 «총원가»(매출원가+판관비)입니다',
   'app/estimate/page.tsx cogs');
-must(/className="qline__body"/.test(page) && /className="pnl-row/.test(page),
-  '줄을 눌러도 원가가 «그 자리에서» 안 열립니다 — 탭으로 옮겨 다니지 않는 것이 규격입니다',
-  'app/estimate/page.tsx .qline__body');
-must(/className="qline__send"/.test(page),
-  '「견적서에 포함」 체크가 없습니다 — 발송할 약정만 고르는 것이 원본 `TermsGrid` 의 핵심입니다',
-  'app/estimate/page.tsx .qline__send');
+must(/className="qdetail"/.test(page) && /className="qopen"/.test(page),
+  '「원가 펼치기」가 없습니다 — 그 칸 «안»에서 열리는 것이 규격입니다(탭으로 옮겨 다니지 않습니다)',
+  'app/estimate/page.tsx .qdetail');
+must(/term-card__check/.test(page),
+  '「발송」 체크가 없습니다 — 보낼 기간만 고르는 것이 원본 `TermsGrid` 의 핵심입니다',
+  'app/estimate/page.tsx .term-card__check');
+/* ★고르는 것은 «버튼»이다 — 사장님 2026-09-08 「드랍다운보다는 버튼으로 할 수 있으면 버튼으로 해」.
+   드롭다운은 열고 고르느라 두 번 누른다. 통화 중에 그 한 걸음이 그대로 느려짐이 된다. */
+must(!/<select/.test(page) && !/<select/.test(cascade),
+  '고르는 칸에 드롭다운이 다시 섰습니다 — 견적기에서 고르는 것은 전부 버튼입니다',
+  'app/estimate/page.tsx · features/estimate/VehicleCascade.tsx');
+must(/className={`wxchip/.test(chips),
+  '버튼 줄 원자(`features/estimate/Chips`)가 없습니다 — 견적기 안에서는 이것 하나만 씁니다',
+  'features/estimate/Chips.tsx');
 
 /* ㉤ 옵션·색상은 «왼쪽 별도 칸»이다 — 원본과 같은 자리(사장님 2026-09-08 「1번으로」) */
 must(/id="sec-options"/.test(page) && /id="sec-color"/.test(page),
@@ -267,7 +282,8 @@ must(/from '@\/lib\/domain\/color-master'/.test(page) && !/#[0-9a-fA-F]{6}/.test
 must(!/className="contract-panel"/.test(page),
   '셋째 칸이 다시 섰습니다 — 원가는 «각 줄 안»에 있습니다(따로 두면 다섯 해를 못 견줍니다)',
   'app/estimate/page.tsx');
-must(/\.wx-root:not\(\.cost\) \{ grid-template-columns: 400px minmax\(0, 1fr\); \}/.test(wxCss),
+must(/\.wx-root:not\(\.cost\) \{ grid-template-columns: 400px minmax\(0, 1fr\); \}/.test(wxCss)
+  && /@media \(min-width: 1025px\) \{[\s\S]{0,400}?\.wx-root:not\(\.cost\)/.test(wxCss),
   '견적 기둥이 둘이 아닙니다 — 좌 400(차량 선택) : 우 나머지(조건 + 1~5년 설계)',
   'components/estimate/welrix.css');
 
