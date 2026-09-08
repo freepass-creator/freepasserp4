@@ -36,6 +36,8 @@ export type PickedCar = {
   /** 신차 — 고른 옵션과 조합규칙(있으면). */
   options?: { name: string; price: number }[];
   rules?: string[];
+  /** 중고 — 그 세부모델의 생산 연식(「2019」~「2022」·「현재」). 시세를 짐작할 때 쓴다. */
+  ys?: string; ye?: string;
   /**
    * 신차 — **고른 트림 원본**. 옵션 목록·조합규칙이 여기 들어 있다.
    * ★2026-09-08 부터 옵션은 «차 고르기 시트 밖»(왼쪽 `#sec-options` 칸)에서 고른다 —
@@ -150,7 +152,43 @@ export function pickUsed(c: CarEntry, p: CarPt, trim: string): PickedCar {
     meta: ['중고', carYears(c), p.pt].filter(Boolean).join(' · '),
     maker: c.mk, model: c.md, subModel: c.sm, trim, powertrain: p.pt,
     fuel: engineFuel(p.f), cc: p.cc,
+    ys: c.ys, ye: c.ye,
   };
+}
+
+/**
+ * **평균시세 짐작** — 사장님 2026-09-08 「평균시세가 있어?? **없으면 평균시세는 입력해주고
+ * 바꿀 수 있게끔** 평균시세는 틀릴 수 있으니까」.
+ *
+ * ⚠⚠ **우리에게 시세 원장이 없다.** 차종마스터는 제원만 있고(260종·1,907트림) 값은 한 줄도 없다.
+ *   그래서 «있는 것»으로 짚는다 — **신차 공표가 × 연식 잔가곡선**.
+ *   ⇒ 이것은 «실거래 시세»가 아니라 **첫 숫자**다. 화면이 「추정」이라고 말하고, 사람이 고치면 그 값이 이긴다.
+ *   ⇒ 못 짚으면 **0 을 주고 「모른다」고 한다.** 지어내지 않는다.
+ *
+ * ★왜 신차가인가 — 우리가 가진 유일한 «금액»이다(신차마스터 공표가).
+ *   ★왜 잔가곡선인가 — 그 차가 몇 해 지났는지에 따라 값이 어떻게 빠지는지를 이미 그 곡선이 쥐고 있다.
+ * ⚠ 이 값을 다시 잔가 계산에 넣어도 «돌지» 않는다 — 엔진은 시세를 «입력»으로만 쓴다.
+ */
+export function guessMarketPrice(models: NewModel[] | null, maker: string, model: string,
+  age: number, curve: (years: number) => number, al?: Record<string, string>): number {
+  if (!models?.length) return 0;
+  const norm = (s: string) => String(s || '').replace(/\s+/g, '').toLowerCase();
+  const want = norm(model);
+  /* ⚠ 신차마스터는 기아 모델명을 **영문 슬러그**(`ray`)로 준다. 중고는 한글(`레이`)이다.
+     한글로 바꿔서도 맞대 보지 않으면 기아가 통째로 안 잡힌다(2026-09-08 눌러 보고 잡음). */
+  const names = (m: NewModel) => [norm(m.sub_model), norm(koModel(al, m.sub_model))];
+  const hit = models.filter((m) => m.maker === maker
+    && names(m).some((n) => n === want || n.includes(want) || want.includes(n)));
+  if (!hit.length) return 0;
+  // 트림이 여럿이면 **가운데 값**을 쓴다 — 최저트림은 너무 싸고 최고트림은 너무 비싸다.
+  const prices = hit.flatMap((m) => m.trims.map((t) => Number(t.priceAfter) || Number(t.priceBefore) || 0))
+    .filter((n) => n > 0).sort((a, b) => a - b);
+  if (!prices.length) return 0;
+  const mid = prices[Math.floor(prices.length / 2)];
+  const pct = curve(Math.max(0, age));
+  if (!(pct > 0)) return 0;
+  // 만원 자리에서 끊는다 — 「23,487,913원」은 시세처럼 안 보인다.
+  return Math.round(mid * (pct / 100) / 100000) * 100000;
 }
 
 /**
