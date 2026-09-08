@@ -31,6 +31,10 @@ import Link from 'next/link';
 import EstimateGate from '@/features/estimate/EstimateGate';
 import '@/components/estimate/estimate.css';
 import '@/components/estimate/cost.css';
+/* ★머리(상단 띠·「견적내기/원가설정」 토글)는 **견적과 같은 것**을 쓴다 —
+   사장님 2026-09-08 「각 페이지는 이거랑 맞춰야지, **원가랑 견적은 동일하게**」.
+   몸통(설정 34칸)만 제 짜임(`cost.css` 4단)을 쓴다. */
+import '@/components/estimate/welrix.css';
 import { unsetFees, type CostSettings } from '@/lib/domain/estimate/cost-settings';
 import { cachedCost, fetchSharedCost, saveSharedCost } from '@/lib/domain/estimate/cost-client';
 import { STANDARD, residDelta } from '@/lib/domain/estimate/residual-lookup.js';
@@ -178,15 +182,23 @@ function EstimateCostPageInner() {
   return (
     /* `cost` 표식 — 웹 레이아웃이 견적과 다르다(견적=입력·결과 두 기둥 / 원가=설정 카드 두 단).
        폰에서는 아무 뜻도 없다. CSS 가 넓은 화면에서만 갈라 쓴다. */
-    <div className="est-root cost">
-      <div className="phone">
-        {/* 워드마크는 뺐다 — ERP 상단바가 위에 선다(견적 화면과 같은 규칙). */}
-        <div className="hd bare">
-          <div className="modesw">
-            <Link href="/estimate">견적</Link>
-            <span className="on">원가</span>
+    <div className="wx-root cost">
+      {/* ══ 머리 — 견적 화면과 «똑같은» 띠·토글이다(사장님 2026-09-08).
+             ⚠ 「원가설정」에 밑줄이 그어졌던 것은 링크(`<a>`)라 그랬다. `.gt-modes` 가 밑줄을 없애고
+               두 칸의 높이·테두리를 맞춘다. 두 화면이 **같은 규칙**을 쓰므로 한쪽만 어긋날 수 없다. ══ */}
+      <div className="global-topbar">
+        <span className="global-topbar__hint">원가 설정 — 견적이 이 값으로 계산한다</span>
+        <span className="spacer" />
+        <div className="global-topbar__actions">
+          <div className="gt-modes">
+            <Link href="/estimate">견적내기</Link>
+            <span className="on">원가설정</span>
           </div>
         </div>
+      </div>
+
+      <div className="est-root cost">
+      <div className="phone">
 
         {/* ★비어 있는 실비를 «말한다» — 0 이라 원가에 안 잡히는 칸이 있으면 그 견적은 표준이 아니다.
             사장님 2026-09-06 「공통으로 들어가는 부분 중 얼마인지 모르는 부분들을 쭉 만들어 놓고
@@ -467,6 +479,7 @@ function EstimateCostPageInner() {
             ? <>지금 보이는 값 = <b>회사 원가</b>{shared.updatedAt ? ` · ${shared.updatedAt.slice(0, 10)} 갱신` : ''}</>
             : <>아직 <b>회사 원가가 정해지지 않았다</b> — 지금은 엔진 기본값이다.</>}
         </div>
+      </div>
       </div>
     </div>
   );

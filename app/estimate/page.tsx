@@ -30,6 +30,7 @@ import { useAppBar } from '@/lib/appbar';
 /* 색은 화면이 지어내지 않는다 — 규격색·색칩은 색상마스터(SSOT)에서만 당긴다. */
 import { EXT_COLORS, INT_COLORS, colorSwatch } from '@/lib/domain/color-master';
 import CarPicker from '@/features/estimate/CarPicker';
+import VehicleCascade from '@/features/estimate/VehicleCascade';
 import type { PickedCar } from '@/lib/domain/estimate/car-index';
 import { deltaKeyFor } from '@/lib/domain/estimate/residual-by-name';
 import { expectedTurnovers } from '@/lib/domain/estimate/turnover-cost.js';
@@ -304,75 +305,64 @@ function EstimatePageInner() {
       <div className="global-topbar">
         <span className="global-topbar__hint">{isNew ? '신차' : '중고'} 장기렌터카 견적</span>
         <span className="spacer" />
+        {/* ★사장님 2026-09-08 「원가설정에는 왜 **밑줄**이 가져 있지?」 · 「견적내기 / 원가설정 **잘 정렬**해 주고」
+            ⇒ 링크(`<a>`)라 밑줄이 그어졌고, 옆 버튼과 높이·테두리가 달라 줄이 안 맞았다.
+              둘을 **한 덩이 토글**(`.gt-modes`)로 묶었다 — 지금 선 자리가 눌린 칸이다.
+              ⚠ 견적·원가 **두 화면이 같은 것을 쓴다**. 한쪽만 고치면 또 어긋난다. */}
         <div className="global-topbar__actions">
-          <button type="button" className="gt-btn outline" onClick={() => setPickerOpen(true)}>
-            {isNew ? '신차 고르기' : '차종 고르기'}
-          </button>
-          <span className="gt-divider" aria-hidden="true" />
-          <Link className="gt-btn outline" href="/estimate/cost">원가 설정</Link>
+          <div className="gt-modes">
+            <span className="on">견적내기</span>
+            <Link href="/estimate/cost">원가설정</Link>
+          </div>
         </div>
       </div>
 
       {/* ══ 좌 400px — 차량 (원본 `.wrap`) ══════════════════════════════════ */}
       <div className="wrap">
+        {/* ★원본은 왼쪽이 전부 「라벨 + 한 줄」이다 — 카드로 쌓지 않는다.
+            사장님 2026-09-08 「저렇게 굵을 필요 없고」. 값·차례는 그대로, 짜임만 얇아졌다. */}
         <section id="sec-source">
           <div className="step-title">상품</div>
-          <div className="grid-1">
-            <div className="grid-2">
-              {SOURCES.map((o) => (
-                <button key={o.v} type="button" className={`card${cond === o.v ? ' active' : ''}`}
-                  onClick={() => setCond(o.v)}>
-                  <div className="name">{o.label}</div><div className="sub">{o.sub}</div>
-                </button>
-              ))}
-            </div>
-            <div className="grid-2">
-              {CHANNELS.map((o) => (
-                <button key={o.v} type="button" className={`card${ch === o.v ? ' active' : ''}`}
-                  onClick={() => setCh(o.v)}>
-                  <div className="name">{o.label}</div><div className="sub">{o.sub}</div>
-                </button>
-              ))}
-            </div>
-            <div className="grid-2">
-              {TYPES.map((o) => (
-                <button key={o.v} type="button" className={`card${type === o.v ? ' active' : ''}`}
-                  onClick={() => setType(o.v)}>
-                  <div className="name">{o.label}</div><div className="sub">{o.sub}</div>
-                </button>
-              ))}
-            </div>
-          </div>
+          <select className="step-dd" value={cond} onChange={(e) => setCond(e.target.value as 'used' | 'new')}>
+            {SOURCES.map((o) => <option key={o.v} value={o.v}>{o.label} — {o.sub}</option>)}
+          </select>
+        </section>
+
+        <section id="sec-channel">
+          <div className="step-title">채널</div>
+          <select className="step-dd" value={ch} onChange={(e) => setCh(e.target.value as 'rent' | 'sub')}>
+            {CHANNELS.map((o) => <option key={o.v} value={o.v}>{o.label} — {o.sub}</option>)}
+          </select>
+        </section>
+
+        <section id="sec-type">
+          <div className="step-title">만기</div>
+          <select className="step-dd" value={type} onChange={(e) => setType(e.target.value as 'return' | 'acquire')}>
+            {TYPES.map((o) => <option key={o.v} value={o.v}>{o.label} — {o.sub}</option>)}
+          </select>
         </section>
 
         <section id="sec-credit">
           <div className="step-title">신용</div>
-          <div className="grid-1">
+          {/* 유지율·손바뀜을 «고르는 자리»에서 같이 보여 준다 — 왜 등급마다 값이 갈리는지가 여기서 정해진다. */}
+          <select className="step-dd" value={credit} onChange={(e) => setCredit(e.target.value)}>
             {CREDIT.map((c) => (
-              <button key={c} type="button" className={`trim-row${credit === c ? ' active' : ''}`}
-                onClick={() => setCredit(c)}>
-                <span className="info">
-                  <span className="name">{c}</span>
-                  <span className="meta">유지율 {retentionOf(c)}% · 손바뀜 {expectedTurnovers(retentionOf(c) / 100).toFixed(2)}회</span>
-                </span>
-              </button>
+              <option key={c} value={c}>
+                {c} — 유지율 {retentionOf(c)}% · 손바뀜 {expectedTurnovers(retentionOf(c) / 100).toFixed(2)}회
+              </option>
             ))}
-          </div>
+          </select>
         </section>
 
-        <section id="sec-vehicle">
-          <div className="step-title">차종</div>
-          {/* 폰은 시트로 열고, 웹은 좌패널에 통째로 박는다 — 원본 좌측 캐스케이드가 서던 자리다. */}
-          {mobile ? (
-            <button type="button" className="card" onClick={() => setPickerOpen(true)}>
-              <div className="name">{picked.name}</div>
-              <div className="sub">{picked.meta}</div>
-            </button>
-          ) : (
-            <CarPicker open inline optionsOutside mode={cond} onClose={() => setPickerOpen(false)}
-              onPick={(c) => { setPicked(c); if (c.source === 'new') { setUsedMileage(0); setUsedYear(nowYear); } }} />
-          )}
-        </section>
+        {/* ★★차 고르기 «판»을 걷었다 — 사장님 2026-09-08 「버튼만 만들어 주면 되고」
+            「차량 고르는 거는 **딱딱 누르는 거에 연동**이 되어야지」.
+            제조사 → 모델 → 파워트레인 → 트림, **한 줄짜리 넷**이 위아래로 물린다(원본 `VehicleCascade`).
+            ⚠ 9/7 에 왼쪽에 박았던 검색칸·제조사 칩·목록은 여기서 사라진다 — 그게 「굵다」의 정체였다.
+              검색은 폰 하단 「검색」 탭에 남는다(이름을 알 때 한 번에 가는 길). */}
+        <VehicleCascade mode={cond} picked={picked} onPick={(c) => {
+          setPicked(c);
+          if (c.source === 'new') { setUsedMileage(0); setUsedYear(nowYear); }
+        }} />
 
         {/* ══ 선택 옵션 — 원본 `#sec-options`. 신차에만 선다(중고는 이미 달려 나온 차다). ══ */}
         {isNew ? (
@@ -672,11 +662,12 @@ function EstimatePageInner() {
         })()}
       </aside>
 
-      {/* 폰에서만 시트로 뜬다 — 웹은 좌패널에 박혀 있어 이 시트가 필요 없다. */}
-      {mobile ? (
-        <CarPicker open={pickerOpen} optionsOutside mode={cond} onClose={() => setPickerOpen(false)}
-          onPick={(c) => { setPicked(c); if (c.source === 'new') { setUsedMileage(0); setUsedYear(nowYear); } }} />
-      ) : null}
+      {/* 왼쪽은 이제 캐스케이드다. 이 시트는 **이름을 알 때 한 번에 가는 길**(폰 하단 「검색」 탭)로만 뜬다 —
+          왼쪽에 박아 두면 그게 굵어진다(사장님 2026-09-08 「저렇게 굵을 필요 없고」).
+          ⚠ 웹에서는 부르는 자리가 없다 — 하단바가 없기 때문이다. 왼쪽 넷으로 고른다. */}
+      <CarPicker open={pickerOpen} optionsOutside mode={cond} onClose={() => setPickerOpen(false)}
+        onPick={(c) => { setPicked(c); if (c.source === 'new') { setUsedMileage(0); setUsedYear(nowYear); } }} />
+
     </div>
   );
 }
