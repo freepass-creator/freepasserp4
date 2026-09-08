@@ -143,6 +143,7 @@ const costCss = read('components/estimate/cost.css');
 const picker = read('features/estimate/CarPicker.tsx');
 const cascade = read('features/estimate/VehicleCascade.tsx');
 const carIndexSrc = read('lib/domain/estimate/car-index.ts');
+const pickerCss = read('components/estimate/picker.css');
 const gate = read('features/estimate/EstimateGate.tsx');
 const costApi = read('app/api/estimate/cost/route.ts');
 const workPage = read('components/WorkPage.tsx');
@@ -327,6 +328,18 @@ must(/residualDefault = adjustResidual\(raw, cost\.residualAdjustPct\)/.test(pag
   && !/buyoutPct\[[^\]]*\][\s\S]{0,200}createQuoteInput/.test(page),
   '인수 잔가가 대여료 계산에 흘러들었습니다 — 인수용은 만기에 받는 돈이지 월납이 아닙니다',
   'app/estimate/page.tsx createQuoteInput');
+/* ★★2026-09-08 사고 — 선택자를 «문자열 치환»으로 넓혔더니 «뒷부분만» 넓어졌다.
+     `.est-picker .tchips button` → `.est-root .tchips, .est-picker .tchips button`
+   앞은 컨테이너, 뒤는 버튼이 되어 **`.est-root .tchips button` 규칙이 사라졌다.**
+   제조사 칩 열일곱이 브라우저 기본 버튼(2px outset)으로 나와 검은 덩어리가 됐다.
+   사장님 「야 지금 이거 뭐냐???」 — **내가 바꿔 놓고 눈으로 안 봤다.**
+   ⇒ 넓힐 때는 «선택자 통째로» 짝을 짓는다. 기계가 그 짝을 센다. */
+for (const sel of ['.est-root .mkrow button', '.est-root .tchips button', '.est-root .oprow .bx']) {
+  must(pickerCss.includes(sel),
+    `시트 칩 규칙 「${sel}」 이 없습니다 — 선택자를 넓힐 때 «통째로» 짝지어야 합니다`,
+    'components/estimate/picker.css');
+}
+
 /* ★★파워트레인으로 신차를 «딱» 건다 — 사장님 2026-09-08
      「**파워트레인이라는 게 들어가거든? 그래야 신차가 딱 걸릴 거야**」.
    모델 이름만 맞추면 그랜저 하나에 「가솔린 2.5 · LPi 3.5 · 가솔린 3.5 · 하이브리드 1.6T」가 섞여
