@@ -76,6 +76,8 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
    *   필터도 그 줄 안에서 끝난다. 화면 코드는 채널이 늘어도 안 갈린다.
    */
   const quick = wl.quick ?? DEFAULT_QUICK;
+  /* 이 줄에 «단추가 있는» 조건 — 뒤에 토큰으로 또 세우지 않는다(아래 칩 줄 머리말). */
+  const quickKeys = useMemo(() => new Set(quick.map((k) => `${k.axis}:${k.key}`)), [quick]);
   const mobile = useIsMobile();
   const [rows, setRows] = useState<EntityRecord[] | null>(null);
   const [agent, setAgent] = useState<{ name?: string; phone?: string } | null>(null);
@@ -320,31 +322,27 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
               첫 칩이 화면 끝에 붙는다(2026-09-04 실측 x=0). 세로 여백만 만진다. */}
           {/* 칩 줄 위아래 = «덩어리의 경계»(cozy 12) — 검색칸·목록과 갈라 준다. */}
           <div className="fp-shop-rail" style={{ paddingBlock: SHOP.sp.cozy }}>
-            {/*
-              ★★**누른 칩은 제자리에서 빠져 «뒤로 옮겨 붙는다»**(웹) — 사장님 2026-09-08
-                「기존 퀵필터 뒤에 **누른 거를 따라 붙게** 만들자」.
-              ⚠ 처음엔 자리에 둔 채 뒤에도 토큰을 세웠다. 그랬더니 「승용」이 **한 줄에 둘**이 됐다 —
-                켜진 칩(브랜드 면)과 걸린 조건 토큰(같은 브랜드 면)이 나란히 서서 같은 것이 둘로 보였다.
-                2026-09-07 에 「같은 것이 두 얼굴」을 없앤 그 이유와 같은 문제다.
-              ⇒ 켜진 축·값은 이 줄에서 **뺀다.** 뒤에 선 토큰이 그 칩의 «지금 자리»다.
-                끄는 길도 하나뿐이라(토큰의 ✕) 「어느 쪽을 눌러야 꺼지나」가 안 생긴다.
-              ★폰은 안 뺀다 — 걸린 조건이 **저 밑 제 줄**에 있어, 여기서 칩까지 사라지면
-                누른 것이 화면에서 «사라진» 것처럼 보인다. 옆에 붙을 때만 성립하는 짜임이다.
-            */}
-            {(mobile ? quick : quick.filter((k) => !query.sel[k.axis].includes(k.key))).map((k) => (
+            {quick.map((k) => (
               <ShopPill key={`${k.axis}:${k.key}`} on={query.sel[k.axis].includes(k.key)}
                 onClick={() => onToggle(k.axis, k.key)}>{k.label || soloLabel(k.key) || k.key}</ShopPill>
             ))}
             {/*
-              ★★**걸린 조건이 «이 줄 뒤»에 따라 붙는다**(웹) — 사장님 2026-09-08
-                「**이거 위치 제일 베스트로 찾았다** … 기존 퀵필터 뒤에 **누른 거를 따라 붙게** …
-                **약간 위계만 주고** … **모바일은 밑에**」.
-              ★누른 것이 «누르는 자리» 옆에 서므로 손이 안 옮겨 간다. 위계는 가름선 한 칸과
-                면 색(회색 ↔ 브랜드)이 준다(`ShopTokens` `inline` 머리말).
+              ★★**이 줄에 «없는» 조건만 뒤에 ✕ 로 붙는다**(웹) — 사장님 2026-09-08
+                「위에 **퀵버튼이 있는 거는 그게 그냥 켜지면** 되는 거 아닌가?
+                 거기에 **없는 거만 ✕ 로 없앨 수 있게** 하면 되고」.
+
+              ★한 조건 = 한 자리. 「승용」처럼 여기 단추가 있는 조건은 **그 단추가 켜져서** 말하고,
+                왼쪽 조건칸에서만 걸 수 있는 것(제조사·연식 등)은 **여기 뒤에** 와서 말한다.
+                그래야 손님이 「무엇을 걸었나」를 한 줄에서 다 읽는다.
+              ⚠ 처음엔 걸린 것을 «전부» 뒤에 세웠다. 그랬더니 「승용」이 한 줄에 둘이 됐고
+                (켜진 칩 + 같은 얼굴의 토큰), 그다음엔 켜진 칩을 줄에서 빼 봤더니 이번엔
+                칩이 «사라지는» 꼴이 됐다. 둘 다 아니다 — **켜진 칩은 그대로 두고 토큰만 안 만든다.**
+              ★위계는 가름선 한 칸과 면 색(회색 ↔ 브랜드)이 준다(`ShopTokens` `inline` 머리말).
               ⚠ 폰은 여기 안 붙인다 — 이 줄은 화면 밖으로 흐르는 줄이라 끝에 붙으면 밀어야 보인다.
+                폰의 «건수 밑 제 줄»은 걸린 것을 **전부** 싣는다(칩이 밀려 나가 안 보일 수 있으므로).
             */}
             {!mobile ? (
-              <ShopTokens inline tokens={tokens}
+              <ShopTokens inline tokens={tokens.filter((t) => !quickKeys.has(`${t.axis}:${t.key}`))}
                 onRemove={(axis, key) => onToggle(axis as ShopAxis, key)}
                 onClear={list.length ? onClearAll : undefined} />
             ) : null}
