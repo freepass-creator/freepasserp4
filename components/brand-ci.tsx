@@ -134,6 +134,26 @@ export function ChannelWordmark({ wl, fs, color = C.ink, after }: {
   after?: ReactNode;
 }) {
   const sub = wl.wordmark.sub.trim();
+  /*
+    ★★**이름 자체가 그림인 회사** — 하허호무심사(한글 로고타이프 + 「무심사」 오렌지 뱃지).
+      본문 서체로 흉내 내면 그건 그 회사 CI 가 아니다(`lib/whitelabel` `logo.role` 머리말).
+    ★크기는 마크와 «같은 밴드»(`fs·CAP·1.5`)다 — 채널이 바뀌어도 머리띠의 간판 높이는 같아야
+      바가 들쭉날쭉하지 않는다. 유니오토 육각형이 서는 그 높이에 하허호 간판이 선다.
+    ⚠ **그림은 색을 못 바꾼다.** 푸터는 톤을 흐리려고 `color` 를 넘기는데 그림엔 안 먹는다 —
+      그래서 «불투명도»로 내린다. 흐리게 달라는 뜻은 같고 수단만 다르다.
+  */
+  if (wl.logo?.role === 'lockup') {
+    return (
+      <span style={{ display: 'inline-flex', alignItems: 'center', lineHeight: 1, whiteSpace: 'nowrap' }}>
+        {/* eslint-disable-next-line @next/next/no-img-element -- 채널마다 다른 간판이라 정적 최적화 대상이 아니다. */}
+        <img src={wl.logo.src} alt={wl.logo.alt} style={{
+          height: Math.round(fs * CAP * 1.5), width: 'auto', display: 'block',
+          ...(color === C.ink ? null : { opacity: 0.55 }),
+        }} />
+        {after}
+      </span>
+    );
+  }
   return (
     /*
       ⚠⚠ **두 겹이다.** 바깥은 `gap: 0` 이고 안쪽 낱말 줄만 `gap` 을 갖는다.
@@ -226,11 +246,20 @@ export function ChannelSign({ wl, fs, gap, after }: {
   after?: ReactNode;
 }) {
   const markH = Math.round(fs * CAP * 1.5);
+  /*
+   * ★★**그림이 «간판»이면 맞출 글자가 없다.**
+   *   `lockup` = 이름째로 그려진 그림(하허호무심사). 워드마크를 대신하므로 옆에 설 글자가 없고,
+   *   그러면 아래 두 보정은 **쓸 자리가 없다** — 둘 다 「마크를 «앞 글자의 캡 밴드»에 맞추는」 값이다.
+   *   맞출 글자가 없는데 그 값을 그대로 얹으면 간판이 이유 없이 위로 뜬다.
+   * ⇒ 세로는 줄의 가운데(`alignItems: center`)에 맡긴다. 동반 표기(`✕ freepassmobility`)와도
+   *   그렇게 가운데로 선다.
+   */
+  const lockup = wl.logo?.role === 'lockup';
   /* 캡 밴드로 내리고(+) · 심볼 무게가 아래로 쏠린 만큼 올린다(−). 둘 다 «잰» 값이다. */
   const shift = fs * CAP_NUDGE - markH * MARK_OPTICAL;
   return (
-    <span style={{ display: 'flex', alignItems: 'center', gap }}>
-      {wl.logo ? (
+    <span style={{ display: 'flex', alignItems: 'center', gap: lockup ? 0 : gap }}>
+      {wl.logo && !lockup ? (
         // eslint-disable-next-line @next/next/no-img-element -- 채널마다 다른 마크라 정적 최적화 대상이 아니다.
         <img src={wl.logo.src} alt={wl.logo.alt} style={{
           height: markH, width: 'auto', display: 'block',
@@ -238,6 +267,12 @@ export function ChannelSign({ wl, fs, gap, after }: {
           transform: `translateY(${shift.toFixed(2)}px)`,
         }} />
       ) : null}
+      {/*
+        ★★**간판 그림(`lockup`)은 여기서 안 그린다 — 워드마크가 그린다.**
+          그 그림은 «이름»이지 심볼이 아니다. 워드마크가 그려야 **푸터·로그인처럼
+          `ChannelWordmark` 만 부르는 자리에서도 같은 얼굴**이 나온다.
+          여기서 그리면 머리띠에만 간판이 서고 푸터는 «빈 줄»이 된다(2026-09-08 실제로 그럴 뻔했다).
+      */}
       <ChannelWordmark wl={wl} fs={fs} after={after} />
     </span>
   );
