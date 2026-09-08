@@ -65,7 +65,20 @@ export async function generateMetadata(): Promise<Metadata> {
     ? resolveGuestWhitelabel(hdrs.get('host'))
     : resolveWhitelabel(hdrs.get('host'));
   if (hasBrand(wl)) {
-    const site = wl.hosts[0] || wl.name;
+    /*
+     * ★★**주소는 «지금 열린 그 주소»다 — 아직 안 산 도메인을 적지 않는다.**
+     *
+     * ⚠⚠ 여기서 `wl.hosts[0]` 을 그대로 썼다. 그건 「도메인이 붙으면 이 주소」라는 **계획**이지
+     *   지금 사는 주소가 아니다(`domainReady` 가 그걸 가른다). 그래서 손님이
+     *   `www.freepasserp.com/eancar` 를 카톡에 붙이면 미리보기 그림 주소가
+     *   `https://eancar.freepasserp.com/...` 로 나갔다 — **아무 데도 없는 주소**라
+     *   카톡이 그림을 못 받아 온다(2026-09-08 실측으로 잡았다).
+     * ⇒ 도메인이 «실제로 붙었을 때»(`domainReady`)만 그 주소를 쓰고, 아니면 지금 요청의 호스트다.
+     * ★`metadataBase` 는 상대주소(`/brand/og-*.png`)를 절대주소로 바꾸는 자다 —
+     *   여기가 틀리면 그림·아이콘·정규주소가 통째로 죽은 주소를 가리킨다.
+     */
+    const host = String(hdrs.get('host') || '').split(':')[0];
+    const site = (wl.domainReady && wl.hosts[0]) || host || wl.hosts[0] || wl.name;
     return {
       metadataBase: new URL(`https://${site}`),
       // 꼬리표(`%s · freepasserp.com`)를 안 붙인다 — 붙이면 «모든 층» 탭에 우리 도메인이 뜬다.

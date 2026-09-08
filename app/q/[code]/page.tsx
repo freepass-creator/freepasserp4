@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { QuoteView } from './QuoteView';
 import { ShopDetailView } from './ShopDetailView';
+import { firstProductImage } from '@/lib/domain/product-photos';
 import { headers } from 'next/headers';
 import { loadGuestQuote } from '@/lib/server/guest-quote';
 import { coBrandName, hasBrand, resolveGuestWhitelabel } from '@/lib/whitelabel';
@@ -77,7 +78,22 @@ export async function generateMetadata({ params, searchParams }: Params): Promis
     // 사이트 이름 자리 = 담당자. 우리 브랜드(BRAND)는 손님 화면에 어디에도 쓰지 않는다.
     const who = String(agent?.name || '').trim();
     const siteName = who ? `담당 ${who}` : fallbackSite;
-    const images = Array.isArray(product.image_urls) ? (product.image_urls as string[]).slice(0, 1) : [];
+    /*
+     * ★★**공유 미리보기 사진은 «카드와 같은 함수»로 고른다**(`firstProductImage`).
+     *
+     * 사장님 2026-09-08 「카카오톡 붙여넣으면 좀 맞춰서 주라」 · 「규격화 좀 해」.
+     * ⚠⚠ 전에는 `image_urls` «배열»일 때만 붙였다. 그런데 원천마다 사진이 담긴 칸이 다르다 —
+     *   `image_url`(홑) 인 차, 드라이브 폴더(`photo_link`)인 차가 있다.
+     *   그래서 **사진이 있는데도 공유에는 안 나가는 차**가 있었다(실측 — `/q` 응답에 `og:image` 없음).
+     *   영업자가 손님한테 «이 차»를 보내는 게 이 화면의 존재 이유인데, 그 링크에 사진이 없었다.
+     * ⇒ 목록 카드가 쓰는 그 함수를 그대로 쓴다. 갈리면 「목록엔 사진이 있는데 공유엔 없는」 꼴이 된다.
+     * ⚠ 폴더(드라이브)만 있는 차는 서버가 풀어야 나오는데 그건 느려서 «미리보기»에는 안 쓴다 —
+     *   그런 차는 사진 없이 나간다(글자 카드). 링크가 안 열리는 것보다 낫다.
+     * ★주소는 «절대»여야 한다 — 카톡은 우리 페이지 밖에서 그림을 받아 간다.
+     *   루트 레이아웃의 `metadataBase` 가 상대주소를 절대주소로 바꿔 준다.
+     */
+    const photo = firstProductImage(product);
+    const images = photo ? [photo] : [];
 
     return {
       title: { absolute: name },

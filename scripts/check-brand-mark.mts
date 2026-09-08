@@ -21,6 +21,7 @@
 import { readFileSync } from 'node:fs';
 /* ★PNG 푸는 일은 «자»(measure-brand-mark)와 한 코드를 본다 — 둘이 갈리면 같은 그림을 두 값으로 읽는다. */
 import { decodePng, type Png } from './lib/png.mts';
+import { WHITELABELS } from '../lib/whitelabel.ts';
 
 const root = new URL('../', import.meta.url);
 const read = (f: string) => readFileSync(new URL(f, root));
@@ -75,6 +76,41 @@ for (const rel of markPaths()) {
       '      → 간판 잉크가 그만큼 안으로 밀려, 밑의 본문 왼쪽 줄과 안 맞습니다.\n' +
       '      → 잉크에 딱 맞게 자른 뒤 넣습니다(잘린 원본은 git 이력에 남습니다).',
     );
+  }
+}
+
+/* ── 공유 미리보기 그림이 있는가 ────────────────────────────────────────────
+ * 카톡·라인에 링크를 붙였을 때 뜨는 그림(`og:image`)이다.
+ * ⚠ 안 정해 주면 **상대가 고른다** — 실제로 카카오가 머리띠 심볼(232×190)을 주워다
+ *   정사각으로 잘라, 간판이 잘린 채 나갔다(2026-09-08 사장님 지적).
+ * ★굽는 것은 `npm run make:og` — 채널을 더하거나 마크를 바꾸면 다시 돌린다.
+ *   여기서 막지 않으면 «채널을 판 그날»에는 아무도 모르고, 링크를 보낸 뒤에야 안다.
+ * ★1200×630 = OG 표준 비율. 크기까지 재는 이유는, 마크를 바꾸고 다시 굽지 않으면
+ *   옛 그림이 그대로 남기 때문이다(파일이 있기만 하면 통과해 버린다).
+ */
+{
+  /* ★표를 «읽지» 말고 그대로 «쓴다» — 정규식으로 훑으면 이웃 줄을 물어 엉뚱한 채널을 잡는다
+       (실제로 노브랜드 `freepass` 를 잡았다). 굽는 쪽(`make-og`)과 같은 목록을 본다. */
+  for (const wl of WHITELABELS) {
+    if (!wl.logo) continue;   // 워드마크뿐인 채널은 글자 카드로 나가는 편이 낫다(`ogImage` 머리말)
+    const file = `public/brand/og-${wl.key}.png`;
+    let png: Png | null = null;
+    try { png = decodePng(read(file)); } catch { png = null; }
+    if (!png) {
+      fails.push(
+        `${file} — **공유 미리보기 그림이 없습니다**(채널 「${wl.key}」).
+` +
+        '      → `npm run make:og` 를 돌리세요. 없으면 카톡이 페이지에서 아무 그림이나 주워 갑니다.',
+      );
+      continue;
+    }
+    if (png.w !== 1200 || png.h !== 630) {
+      fails.push(
+        `${file} — 크기가 ${png.w}×${png.h} 입니다(1200×630 이어야 합니다).
+` +
+        '      → `npm run make:og` 로 다시 구우세요.',
+      );
+    }
   }
 }
 

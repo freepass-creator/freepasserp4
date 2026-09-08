@@ -2014,10 +2014,26 @@ function PhotoAll({ photos, at, title, mobile, onPick, onClose }: {
           폰에서 사진을 보는 몸짓은 «엄지로 밀어 내리는 것»이지 «골라 누르는 것»이 아니다.
         ★닫을 때 «지금 보던 장»이 본문으로 따라간다 — 스크롤 위치에서 읽는다(`onScroll`).
       */}
-      {mobile ? (
+      {/*
+        ★★★**전면에서는 «상하로 굴린다» — 폰도 웹도 같다**(엔카가 그렇게 한다).
+          사장님 2026-09-08 「사진 더보기 했을 때 전체 화면 나오는 거 있잖아 그거 **좌우로 누르는 게
+          아니고 그냥 상하 스크롤** 되게 만들어 줘야 하고」 · 2026-09-07 「메인 사진 누르면
+          **모바일은 큰 사진만 상하 스크롤**할 수 있게끔」.
+        ⚠ 웹만 «좌우 화살표 + 한 장씩»이었다. 스무 장을 보려면 열아홉 번 눌러야 했고,
+          같은 화면인데 폰과 웹이 다른 몸짓을 요구했다. ⇒ 하나로 모은다. 화살표는 걷었다.
+        ★웹은 오른쪽에 **길잡이 기둥**을 남긴다 — 굴러가는 위치를 표시하고, 누르면 그 장으로 간다.
+          폰에는 안 세운다(390px 폭에 기둥을 세우면 정작 사진이 반으로 준다).
+        ★닫을 때 «지금 보던 장»이 본문으로 따라간다 — 스크롤 위치에서 읽는다.
+      */}
+      <div
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          flex: 1, minHeight: 0, display: 'flex', gap: mobile ? 0 : SHOP.sp.cozy,
+          padding: mobile ? 0 : `0 ${SHOP.sp.edge}px ${SHOP.sp.edge}px`,
+        }}
+      >
         <div
           ref={columnRef}
-          onClick={(e) => e.stopPropagation()}
           onScroll={() => {
             const el = columnRef.current;
             if (!el || !el.clientHeight) return;
@@ -2029,68 +2045,71 @@ function PhotoAll({ photos, at, title, mobile, onPick, onClose }: {
             setCur(k);
           }}
           style={{
-            flex: 1, minHeight: 0, overflowY: 'auto',
+            flex: 1, minWidth: 0, minHeight: 0, overflowY: 'auto',
             display: 'flex', flexDirection: 'column', gap: SHOP.sp.snug,
             padding: `0 ${SHOP.sp.cozy}px ${SHOP.sp.part}px`,
           }}
         >
-          {photos.map((src) => (
+          {photos.map((src, k) => (
             /* ★자리를 «미리» 잡는다 — 안 실린 장이 높이 0 이면 굴러갈 길이가 짧게 잡히고,
                  실릴 때마다 화면이 튄다. 실제 비율은 실리면서 맞춰진다. */
             <ShopPhoto key={src} src={src} mode="box" fit="contain" sizes={PHOTO_SIZES.hero}
+              priority={k === 0}
               style={{
                 width: '100%', height: 'auto', aspectRatio: '4 / 3',
-                borderRadius: SHOP.r.chip,
+                borderRadius: SHOP.r.chip, flex: '0 0 auto',
               }} />
           ))}
         </div>
-      ) : (
-      /* 판 자체는 눌러도 안 닫힌다 — 사진을 고르려다 닫히면 화가 난다. */
-      <div
-        onClick={(e) => e.stopPropagation()}
-        style={{
-          flex: 1, minHeight: 0, display: 'flex', gap: SHOP.sp.cozy,
-          padding: `0 ${SHOP.sp.edge}px ${SHOP.sp.edge}px`,
-        }}
-      >
-        {/* 왼쪽 — 큰 사진. `contain` 이라 잘리지 않는다(여기는 «제대로 보는» 곳이다). */}
-        <div style={{ position: 'relative', flex: 1, minWidth: 0, display: 'flex' }}>
-          <ShopPhoto src={photos[cur]} mode="box" fit="contain" priority sizes={PHOTO_SIZES.hero}
-            style={{ width: '100%', height: '100%' }} />
-          {cur > 0 ? <GalleryArrow side="left" onClick={() => setCur((k) => k - 1)} /> : null}
-          {cur < n - 1 ? <GalleryArrow side="right" onClick={() => setCur((k) => k + 1)} /> : null}
-          <span className="fp-onphoto" style={{
-            position: 'absolute', left: '50%', transform: 'translateX(-50%)', bottom: 12,
-            padding: `${BADGE.padY}px ${BADGE.padX}px`, borderRadius: SHOP.r.chip,
-            background: SCRIM.heavy, color: C.ink,
-            fontSize: SHOP.fs.cap, fontWeight: 700, fontVariantNumeric: 'tabular-nums',
-          }}>{cur + 1} / {n}</span>
-        </div>
 
-        {/* 오른쪽 — 두 열 썸네일 기둥. 여기서는 «굴린다»(페이지의 열 칸과 달리 전부 든다). */}
-        <div ref={stripRef} style={{
-          flex: '0 0 auto', width: 280, overflowY: 'auto',
-          display: 'grid', gridTemplateColumns: '1fr 1fr', gap: SHOP.sp.snug,
-          alignContent: 'start', scrollbarWidth: 'thin',
-        }}>
-          {photos.map((src, k) => (
-            <button key={src} type="button" className="fp-shop-press"
-              onClick={() => setCur(k)} data-on={k === cur ? '1' : undefined}
-              aria-label={`${k + 1}번째 사진 보기`} aria-pressed={k === cur}
-              style={{
-                position: 'relative', padding: 0, aspectRatio: '4 / 3', overflow: 'hidden',
-                borderRadius: SHOP.r.chip, cursor: 'pointer', background: C.placeholder,
-                border: k === cur ? `2px solid ${C.brand}` : '1px solid transparent',
-              }}>
-              <ShopPhoto src={src} sizes={PHOTO_SIZES.thumb} />
-            </button>
-          ))}
-        </div>
+        {!mobile ? (
+          /*
+           * 길잡이 기둥 — 굴러가는 위치를 보여 주고, 누르면 그 장으로 «굴려» 준다.
+           * ⚠⚠ **칸이 찌그러지지 않게 «높이»를 못 박는다.** 전에는 `aspectRatio` 만 주고
+           *   높이를 안 정해, 기둥이 사진 수만큼 늘어나면서 칸이 세로로 눌렸다
+           *   (사장님 2026-09-08 「여기 옆에 사진도 좀 **제대로 안 겹치게** 보여 줘야지」).
+           *   격자 줄 높이(`gridAutoRows`)를 칸 폭에서 «계산해» 박으면 몇 장이 오든 4:3 을 지킨다.
+           */
+          <div ref={stripRef} style={{
+            flex: '0 0 auto', width: STRIP.w, overflowY: 'auto', overflowX: 'hidden',
+            display: 'grid', gridTemplateColumns: `repeat(2, ${STRIP.cell}px)`,
+            gridAutoRows: `${Math.round((STRIP.cell * 3) / 4)}px`,
+            gap: SHOP.sp.snug, justifyContent: 'center', alignContent: 'start',
+            scrollbarWidth: 'thin',
+          }}>
+            {photos.map((src, k) => (
+              <button key={src} type="button" className="fp-shop-press"
+                onClick={() => {
+                  setCur(k);
+                  const el = columnRef.current;
+                  const kid = el?.children[k] as HTMLElement | undefined;
+                  if (el && kid) el.scrollTo({ top: kid.offsetTop - 8, behavior: 'smooth' });
+                }}
+                data-on={k === cur ? '1' : undefined}
+                aria-label={`${k + 1}번째 사진으로`} aria-pressed={k === cur}
+                style={{
+                  position: 'relative', padding: 0, overflow: 'hidden',
+                  width: STRIP.cell, height: Math.round((STRIP.cell * 3) / 4),
+                  borderRadius: SHOP.r.chip, cursor: 'pointer', background: C.placeholder,
+                  /* 테두리는 «안쪽»으로 그린다 — 바깥으로 그리면 고른 칸만 2px 커져 줄이 밀린다. */
+                  border: 'none',
+                  boxShadow: k === cur ? `inset 0 0 0 2px ${C.brand}` : 'none',
+                }}>
+                <ShopPhoto src={src} sizes={`${STRIP.cell}px`} />
+              </button>
+            ))}
+          </div>
+        ) : null}
       </div>
-      )}
     </div>
   );
 }
+
+/**
+ * 전면 뷰어 «길잡이 기둥» 치수 — 칸 폭을 못 박아 4:3 을 지킨다(위 머리말).
+ * ★두 열 + 사이 8 + 좌우 여백 8 → 기둥 폭 = 132×2 + 8 + 16 = 288.
+ */
+const STRIP = { w: 288, cell: 132 } as const;
 
 const THUMB = { min: 60, max: 120 } as const;
 
