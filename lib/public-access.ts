@@ -8,7 +8,16 @@ export const PUBLIC_PATH_PREFIXES = ['/q/', '/sign/'] as const;
 
 /** 로그인 없이 열리는 단일 경로(임베드 견적/구독 앱 등). 접두 프리픽스와 별도.
  *  /terms·/privacy 는 가입 화면에서 동의하기 전에 읽어야 하므로 반드시 비로그인 통과. */
-const PUBLIC_EXACT = ['/welrix', '/sonogong', '/terms', '/privacy'] as const;
+const PUBLIC_EXACT = [
+  '/welrix', '/sonogong', '/terms', '/privacy',
+  /* ★★2026-09-08 «임시 공개» — 사장님 「일단 **모두 공개**로 해주고 **로그인할지 말지는 나중에**」.
+     견적기(`/estimate`)·원가설정(`/estimate/cost`)·상품찾기(`/finder`) 셋을 로그인 없이 연다.
+     ⚠⚠ **원가·마진·손익이 그대로 보인다.** 주소를 아는 사람은 우리 조달금리·수수료·손바뀜 비용까지
+       다 본다. 「나중에」 정하실 때 **원가설정만이라도 먼저 닫는 것**을 권한다.
+     ⚠ 관리자 동(계약·정산·손님정보)은 여기 **안 넣었다** — 개인정보라 되돌리기 어려운 노출이다.
+     ⇒ 닫을 때는 이 줄 셋만 지우면 된다(문지기 `EstimateGate` 는 그대로 살아 있다). */
+  '/estimate', '/estimate/cost', '/finder',
+] as const;
 
 /**
  * 지금 보고 있는 주소가 «채널 도메인»인가 — 브라우저에서만 답한다.

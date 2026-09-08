@@ -79,21 +79,32 @@ function clean(raw: unknown): { ok: true; cost: CostSettings } | { ok: false; ba
 
 const NO_STORE = { 'Cache-Control': 'no-store' };
 
-/** GET — **관리자·공급사만** 읽는다(견적 화면을 보는 사람과 같은 명단). */
+/**
+ * GET — **읽기는 «임시로» 누구나**(사장님 2026-09-08 「일단 모두 공개로 해주고 로그인할지 말지는 나중에」).
+ *
+ * ⚠⚠ 여기서 나가는 값이 곧 **우리 원가**다 — 조달금리·대출비율·수수료·손바뀜 회당비용·잔가 가감.
+ *   주소를 아는 사람은 그대로 읽는다. 「나중에」 정하실 때 **여기부터** 닫는 것을 권한다.
+ *   ⇒ 닫는 법 : 아래 `PUBLIC_READ` 를 false 로 되돌린다. 명단(`canSeeEstimate`)은 지우지 않았다.
+ * ★**쓰기(PUT)는 그대로 관리자만**이다 — 열면 아무나 우리 대여료를 바꿀 수 있다. 그건 안 연다.
+ */
+const PUBLIC_READ = true;
+
 export async function GET(request: Request): Promise<Response> {
-  let who: Awaited<ReturnType<typeof verifyActiveBearer>>;
+  let who: Awaited<ReturnType<typeof verifyActiveBearer>> = null;
   try {
     who = await verifyActiveBearer(request);
   } catch {
-    return NextResponse.json({ error: 'server auth unavailable' }, { status: 503, headers: NO_STORE });
+    if (!PUBLIC_READ) return NextResponse.json({ error: 'server auth unavailable' }, { status: 503, headers: NO_STORE });
   }
-  if (!who) return NextResponse.json({ error: 'unauthorized' }, { status: 401, headers: NO_STORE });
-  if (!canSeeEstimate(who.role)) return NextResponse.json({ error: 'forbidden' }, { status: 403, headers: NO_STORE });
+  if (!PUBLIC_READ) {
+    if (!who) return NextResponse.json({ error: 'unauthorized' }, { status: 401, headers: NO_STORE });
+    if (!canSeeEstimate(who.role)) return NextResponse.json({ error: 'forbidden' }, { status: 403, headers: NO_STORE });
+  }
   try {
     const snap = await getFirestore(firebaseAdminApp()).collection(COLL).doc(DOC).get();
     const data = snap.exists ? (snap.data() as { cost?: unknown; updatedAt?: string; updatedBy?: string }) : null;
     // 저장된 적이 없으면 «없다»고 말한다 — 기본값을 「누가 정한 값」인 척 내보내지 않는다.
-    if (!data?.cost) return NextResponse.json({ cost: null, canEdit: who.role === 'admin' }, { headers: NO_STORE });
+    if (!data?.cost) return NextResponse.json({ cost: null, canEdit: who?.role === 'admin' }, { headers: NO_STORE });
     const checked = clean(data.cost);
     return NextResponse.json({
       cost: checked.ok ? checked.cost : COST_DEFAULTS,
@@ -101,7 +112,7 @@ export async function GET(request: Request): Promise<Response> {
       stale: checked.ok ? undefined : checked.bad,
       updatedAt: data.updatedAt ?? null,
       updatedBy: data.updatedBy ?? null,
-      canEdit: who.role === 'admin',
+      canEdit: who?.role === 'admin',
     }, { headers: NO_STORE });
   } catch {
     return NextResponse.json({ error: 'estimate cost unavailable' }, { status: 503, headers: NO_STORE });

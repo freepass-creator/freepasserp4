@@ -142,7 +142,22 @@ const estCss = read('components/estimate/estimate.css');
 const costCss = read('components/estimate/cost.css');
 const picker = read('features/estimate/CarPicker.tsx');
 const cascade = read('features/estimate/VehicleCascade.tsx');
+const gate = read('features/estimate/EstimateGate.tsx');
+const chips = read('features/estimate/Chips.tsx');
+const costApi = read('app/api/estimate/cost/route.ts');
 const workPage = read('components/WorkPage.tsx');
+
+/* ㉭ ★★«임시 공개» — 사장님 2026-09-08 「일단 모두 공개로 해주고 **로그인할지 말지는 나중에**」.
+     ⚠ 이건 규격이 아니라 **임시 상태**다. 검사는 「열려 있다」가 아니라 **「열어 둔 것을 알고 있다」**를 지킨다:
+       ㉠ 문지기(`EstimateGate`)를 **지우지 않았다** — 닫을 때 한 줄만 걷으면 명단이 되살아난다
+       ㉡ 원가 **쓰기(PUT)는 여전히 관리자만**이다 — 열면 아무나 우리 대여료를 바꾼다
+     ⇒ 닫을 때는 `lib/public-access.ts` 의 세 줄과 `PUBLIC_READ` 를 되돌린다. */
+must(/canSeeEstimate/.test(gate),
+  '문지기의 명단이 «지워졌습니다» — 임시 공개는 문을 지우는 게 아니라 열어 두는 것입니다',
+  'features/estimate/EstimateGate.tsx');
+must(/if \(!admin\) return NextResponse\.json\(\{ error: 'forbidden' \}/.test(costApi),
+  '원가 **쓰기**가 열렸습니다 — 열면 아무나 우리 대여료를 바꿉니다(읽기만 임시 공개입니다)',
+  'app/api/estimate/cost/route.ts PUT');
 
 /* ㉮ 견적은 **ERP «안»의 페이지**다 — 상단바·전체메뉴를 입는다.
      ⚠ 2026-09-07 사장님이 바로잡으셨다 — 「난 로그인해서 «내부 페이지»처럼 하자는 거였음」.
@@ -216,12 +231,37 @@ must(!/<CarPicker open inline/.test(page),
 must(/className="cs-form"/.test(page),
   '손님·담당자 줄이 없습니다 — 원본 `CustomerStaffForm` 자리입니다(견적서에 찍혀 나갈 이름)',
   'app/estimate/page.tsx .cs-form');
-must(/className="reference-grid"/.test(page) && /qp-terms__title--customer/.test(page),
-  '「기본 견적」·「손님 발송용 견적」 두 줄 중 하나가 없습니다 — 원본은 둘을 나눠 놓습니다',
-  'app/estimate/page.tsx');
+/* ★★2026-09-08 — 「기본 견적(고정 3장)」·「손님 발송용(자유 3열)」·「오른쪽 손익(기간 탭)」 셋을
+     **다섯 줄 한 벌**로 합쳤다.
+     사장님 「우측에서 **1년부터 5년까지 설계**되게끔 해주고, 각 기간별로 **수익이나 원가 볼 수 있게끔
+     그 라인에 표현**해주면 돼. **우측에 따로 놓지 말고**」
+   ⇒ 같은 숫자를 세 군데서 세면 어디를 봐야 하는지가 흐려지고, 다섯 해를 나란히 못 견준다. */
+must(/className="qgrid"/.test(page),
+  '1~5년이 «가로로» 서 있지 않습니다 — 다섯 해를 나란히 견주는 것이 이 화면의 일입니다',
+  'app/estimate/page.tsx .qgrid');
+must(/grid-template-columns: repeat\(5, minmax\(0, 1fr\)\)/.test(wxCss),
+  '기간 칸이 다섯이 아닙니다 — 1년부터 5년까지 가로로 쭉 섭니다',
+  'components/estimate/welrix.css .qgrid');
+must(/@media \(max-width: 760px\) \{ \.wx-root \.qgrid \{ grid-template-columns: 1fr; \} \}/.test(wxCss),
+  '폰에서 기간 칸이 «위아래로» 안 갈립니다 — 폰은 한 해가 한 장입니다',
+  'components/estimate/welrix.css .qgrid 폰');
+must(/const cogs = v\.rev - v\.opProfit;/.test(page),
+  '칸에서 「매출 − 원가 = 영업이익」이 안 맞습니다 — 원가는 «총원가»(매출원가+판관비)입니다',
+  'app/estimate/page.tsx cogs');
+must(/className="qdetail"/.test(page) && /className="qopen"/.test(page),
+  '「원가 펼치기」가 없습니다 — 그 칸 «안»에서 열리는 것이 규격입니다(탭으로 옮겨 다니지 않습니다)',
+  'app/estimate/page.tsx .qdetail');
 must(/term-card__check/.test(page),
-  '「견적서에 포함」 체크가 없습니다 — 발송할 약정만 고르는 것이 원본 `TermsGrid` 의 핵심입니다',
+  '「발송」 체크가 없습니다 — 보낼 기간만 고르는 것이 원본 `TermsGrid` 의 핵심입니다',
   'app/estimate/page.tsx .term-card__check');
+/* ★고르는 것은 «버튼»이다 — 사장님 2026-09-08 「드랍다운보다는 버튼으로 할 수 있으면 버튼으로 해」.
+   드롭다운은 열고 고르느라 두 번 누른다. 통화 중에 그 한 걸음이 그대로 느려짐이 된다. */
+must(!/<select/.test(page) && !/<select/.test(cascade),
+  '고르는 칸에 드롭다운이 다시 섰습니다 — 견적기에서 고르는 것은 전부 버튼입니다',
+  'app/estimate/page.tsx · features/estimate/VehicleCascade.tsx');
+must(/className={`wxchip/.test(chips),
+  '버튼 줄 원자(`features/estimate/Chips`)가 없습니다 — 견적기 안에서는 이것 하나만 씁니다',
+  'features/estimate/Chips.tsx');
 
 /* ㉤ 옵션·색상은 «왼쪽 별도 칸»이다 — 원본과 같은 자리(사장님 2026-09-08 「1번으로」) */
 must(/id="sec-options"/.test(page) && /id="sec-color"/.test(page),
@@ -238,10 +278,14 @@ must(/from '@\/lib\/domain\/color-master'/.test(page) && !/#[0-9a-fA-F]{6}/.test
   '색을 화면이 지어냈습니다 — 규격색·색칩은 색상마스터(SSOT)에서만 당깁니다',
   'app/estimate/page.tsx lib/domain/color-master');
 
-/* ㉥ 셋째 칸은 «우리 것» — 원본의 계약·채팅 자리에 원가·손익이 선다 */
-must(/className="contract-panel"/.test(page) && /className="pnl-row/.test(page),
-  '셋째 칸에 원가·손익이 없습니다 — 「원가구조만 다르게」가 이 화면이 우리 것인 이유입니다',
-  'app/estimate/page.tsx .contract-panel');
+/* ㉥ 기둥은 «둘»이다 — 셋째 칸을 두지 않는 것이 규격이다(2026-09-08 사장님 「우측에 따로 놓지 말고」) */
+must(!/className="contract-panel"/.test(page),
+  '셋째 칸이 다시 섰습니다 — 원가는 «각 줄 안»에 있습니다(따로 두면 다섯 해를 못 견줍니다)',
+  'app/estimate/page.tsx');
+must(/\.wx-root:not\(\.cost\) \{ grid-template-columns: 400px minmax\(0, 1fr\); \}/.test(wxCss)
+  && /@media \(min-width: 1025px\) \{[\s\S]{0,400}?\.wx-root:not\(\.cost\)/.test(wxCss),
+  '견적 기둥이 둘이 아닙니다 — 좌 400(차량 선택) : 우 나머지(조건 + 1~5년 설계)',
+  'components/estimate/welrix.css');
 
 /* ㉤ 컨트롤 — 폰 분기와 입력 16px(iOS 확대 방지) */
 must(/--ctrl-input-fs:16px/.test(estCss),

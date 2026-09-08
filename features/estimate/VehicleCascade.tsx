@@ -21,6 +21,7 @@
  *   원본도 고르는 즉시 반영한다. 누르는 걸음이 하나 늘면 그만큼 통화 중에 느려진다.
  */
 import { useEffect, useMemo, useState } from 'react';
+import Chips from './Chips';
 import {
   loadCarIndex, loadNewModels, pickUsed, pickNew, guessCc, koModel,
   type CarIndex, type CarEntry, type NewModel, type NewTrim, type PickedCar,
@@ -28,18 +29,21 @@ import {
 
 type Props = { mode: 'used' | 'new'; picked: PickedCar; onPick: (car: PickedCar) => void };
 
-/** 원본 짜임 그대로 — 한 칸 = `<section id>` + 라벨 + 한 줄 드롭다운. */
-function Step({ id, label, value, options, disabled, current, onChange }: {
+/**
+ * 한 걸음 = `<section id>` + 라벨 + **버튼 줄**.
+ * ★사장님 2026-09-08 「드랍다운보다는 **버튼**으로 할 수 있으면 버튼으로 해」 —
+ *   원본은 드롭다운이지만 그건 열고 고르느라 두 번 누른다. 눈에 다 보이면 한 번이다.
+ * ★긴 칸(제조사·모델)은 `scroll` 로 키를 묶는다 — 안 묶으면 열일곱·수십 개가 왼쪽을 통째로 민다.
+ */
+function Step({ id, label, value, options, disabled, current, scroll, empty, onChange }: {
   id: string; label: string; value: string; disabled: boolean; current: boolean;
-  options: { v: string; label: string }[]; onChange: (v: string) => void;
+  scroll?: boolean; empty?: string;
+  options: { v: string; label: string; sub?: string }[]; onChange: (v: string) => void;
 }) {
   return (
     <section id={id} className={`${disabled ? 'hidden' : ''}${current ? ' is-current' : ''}`}>
       <div className="step-title">{label}</div>
-      <select className="step-dd" value={value} disabled={disabled} onChange={(e) => onChange(e.target.value)}>
-        <option value="">{label} 선택</option>
-        {options.map((o) => <option key={o.v} value={o.v}>{o.label}</option>)}
-      </select>
+      <Chips opts={options} cur={value} onPick={onChange} scroll={scroll} empty={empty} />
     </section>
   );
 }
@@ -133,11 +137,13 @@ export default function VehicleCascade({ mode, picked, onPick }: Props) {
     <>
       <Step id="sec-manufacturer" label="제조사"
         value={maker} disabled={loading} current={!maker}
+        scroll empty="차종을 받는 중입니다"
         options={makers.map((m) => ({ v: m, label: m }))}
         onChange={(v) => { setMaker(v); setModel(''); setVariant(''); setTrim(''); }} />
 
       <Step id="sec-model" label={mode === 'used' ? '세부모델' : '모델'}
-        value={model} disabled={!maker} current={!!maker && !model}
+        value={model} disabled={!maker} current={!!maker && !model} scroll
+        empty="이 제조사의 차가 아직 없습니다"
         options={mode === 'used'
           ? usedModels.map((c) => ({ v: c.i, label: `${c.sm}${c.ys ? ` (${c.ys}~${c.ye || '현재'})` : ''}` }))
           : newModels.map((m) => ({ v: m.sub_model, label: ko(m.sub_model) }))}
