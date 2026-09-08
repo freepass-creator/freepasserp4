@@ -9,6 +9,7 @@ import {
 } from 'firebase/auth';
 import { ref, get, set, update } from 'firebase/database';
 import { getAuthClient, getRtdb, firebaseReady } from './client';
+import { readUserProfile, readPartnersMap } from './client-profile';
 import { setSession, getSession, mapRole, clearLegacyGuestState } from '../auth-session';
 import { buildAuditEntry } from '@/lib/domain/audit';
 import { currentActor } from '@/lib/session';
@@ -81,9 +82,7 @@ async function activateLegacySelfSignup(
       console.warn('[auth] 기존 가입자 자동 활성화 거절:', response.status);
       return profile;
     }
-    const db = getRtdb();
-    if (!db) return profile;
-    return (await get(ref(db, `users/${user.uid}`))).val() || profile;
+    return (await readUserProfile(user.uid)) || profile;   // 단일 플래그: firestore면 user/{uid}, 아니면 RTDB
   } catch (error) {
     console.warn('[auth] 기존 가입자 자동 활성화 실패:', (error as Error)?.message || error);
     return profile;
@@ -95,7 +94,6 @@ export function initAuth(): Promise<void> {
   if (!firebaseReady()) return Promise.resolve();
   if (boot.promise) return boot.promise;
   const auth = getAuthClient();
-  const db = getRtdb();
   if (!auth) return Promise.resolve();
 
   boot.promise = (async () => {
@@ -110,10 +108,10 @@ export function initAuth(): Promise<void> {
         if (uid === boot.lastUid && uid !== null) { done(); return; }
         boot.lastUid = uid;
         await clearScopedStoreCache();
-        if (user && db) {
+        if (user) {
           try {
-            let profile: Record<string, unknown> = (await get(ref(db, `users/${user.uid}`))).val() || {};
-            if (!profile.role) { await new Promise((r) => setTimeout(r, 300)); profile = (await get(ref(db, `users/${user.uid}`))).val() || profile; }
+            let profile: Record<string, unknown> = (await readUserProfile(user.uid)) || {};
+            if (!profile.role) { await new Promise((r) => setTimeout(r, 300)); profile = (await readUserProfile(user.uid)) || profile; }
             profile = await activateLegacySelfSignup(user, profile);
             const rawRole = String(profile.role || '');
             const role = mapRole(rawRole);
@@ -151,12 +149,6 @@ export function initAuth(): Promise<void> {
               agent_channel_code: '', user_code: user.uid,
             });
           }
-        } else if (user && !db) {
-          setSession({
-            uid: user.uid, email: user.email || '', role: 'agent', rawRole: '',
-            name: user.email || '', phone: '', code: user.uid, company_code: '',
-            agent_channel_code: '', user_code: user.uid,
-          });
         } else {
           // 진짜 비로그인만 지움. auth.currentUser 가 있으면(복원 직후 race) 캐시 세션 유지.
           if (!auth.currentUser) setSession(null);
@@ -198,6 +190,8 @@ export async function resetPassword(email: string): Promise<void> {
  *  (공유 'SP999' 채널 금지: 규칙 게시 시 개인끼리 방/계약/정산 교차열람).
  *  회원관리에서 만든 파트너는 v4 오버레이에 있으므로 v3∪v4 를 본다. */
 async function readPartnersForMatch(): Promise<Record<string, Record<string, unknown>>> {
+  // 단일 플래그: firestore 면 partner 컬렉션(이미 병합됨). 아니면 기존 v3∪v4 병합.
+  if (String(process.env.NEXT_PUBLIC_DATA_BACKEND || '').trim() === 'firestore') return readPartnersMap();
   const db = getRtdb();
   if (!db) return {};
   const [live, overlay] = await Promise.all([
