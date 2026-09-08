@@ -14,6 +14,7 @@
  * npm run settlement:ask 웰릭스 2026-08  공급사 + 달
  * npm run settlement:ask 정정            지금 «정정» 걸린 것만
  * npm run settlement:ask 접수            아직 청구 안 나간 것만
+ * npm run settlement:ask 넘길것          다음 달에 할 말이 붙은 줄만(계산서 수정 등)
  * ```
  */
 import { readFileSync } from 'node:fs';
@@ -41,9 +42,16 @@ const STAGES = ['보류', '취소', '접수', '청구', '정정', '확인'];
 /** 무엇을 물었나 — 차번·이름·상대·상태 넷 중 하나로 읽는다. */
 const q = P(Q);
 const isStage = STAGES.includes(Q);
+/**
+ * ★「넘길것」 — **다음 달에 할 말이 붙은 줄**만. 계산서 수정·가감이 여기 모인다.
+ *   사장님 2026-09-08 「이거 다음 달에 계산서 수정 메모 남겨야겠다」 —
+ *   머릿속에 두면 잊으니 줄에 붙여 두고, 다음 달에 이 한 마디로 꺼낸다.
+ */
+const isCarry = ['넘길것', '넘길거', '다음달', '이월'].includes(Q);
 let hits = all.filter((r) => {
   if (MONTH && S(r.billMonth) !== MONTH) return false;
   if (!Q) return true;
+  if (isCarry) return !!S(r.carryNote);
   if (isStage) return S(r.stage) === Q;
   return P(r.plate).includes(q) || P(r.customer).includes(q)
     || P(r.supplier).includes(q) || P(r.channel).includes(q) || P(r.agent).includes(q);
@@ -73,6 +81,8 @@ if (hits.length === 1) {
   console.log(`   ${pad('청구서 나감', 12)} ${r.billed === true ? `예 ${S(r.billedAt).slice(0, 10)}` : '아직'}`);
   console.log(`   ${pad('공급사', 12)} ${r.supplierFix === true ? `정정 요청${S(r.supplierFixAmt) ? ` ${won(N(r.supplierFixAmt))}` : ' (금액 안 적음)'}` : r.supplierOk === true ? '확인함' : '말 없음'}${S(r.supplierMemo) ? `  — ${S(r.supplierMemo)}` : ''}`);
   console.log(`   ${pad('영업채널', 12)} ${r.channelFix === true ? `정정 요청${S(r.channelFixAmt) ? ` ${won(N(r.channelFixAmt))}` : ' (금액 안 적음)'}` : r.channelOk === true ? '확인함' : '말 없음'}${S(r.channelMemo) ? `  — ${S(r.channelMemo)}` : ''}`);
+  if (S(r.carryNote)) console.log(`
+   ${pad('다음 달에', 12)} ${S(r.carryNote)}${S(r.carryMonth) ? `  (${S(r.carryMonth)})` : ''}`);
   if (S(r.settleNote)) console.log(`\n   ${pad('산정 조건', 12)} ${S(r.settleNote)}`);
   if (S(r.note)) console.log(`   ${pad('비고', 12)} ${S(r.note)}`);
   console.log(`\n   ※ 「수금·지급완료」는 원자가 모릅니다 — 통장을 봐야 합니다.\n`);

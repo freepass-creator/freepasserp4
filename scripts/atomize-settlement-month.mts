@@ -47,6 +47,12 @@ const S = (v: unknown) => String(v ?? '').trim();
 const N = (v: unknown) => { const n = Number(S(v).replace(/[,\s원₩]/g, '')); return Number.isFinite(n) ? n : 0; };
 const won = (n: number) => Math.round(n).toLocaleString('ko-KR');
 const flat = (s: string) => s.replace(/[\s\n()]/g, '');
+/** 달 더하기 — 「2026-08」 + 1 = 「2026-09」. */
+const ymAdd = (m: string, n: number) => {
+  const [y, mm] = m.split('-').map(Number);
+  const d = new Date(Date.UTC(y, mm - 1 + n, 1));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+};
 const SERIAL0 = Date.UTC(1899, 11, 30);
 const ymd = (v: unknown): string => {
   const n = Number(S(v));
@@ -108,6 +114,12 @@ type Atom = {
   settleRatio: number; billHold: boolean; settleExclude: boolean; settledAlready: boolean;
   vatIncluded: boolean; settleTerms: string; settleNote: string;
   billed: boolean; collected: boolean;
+  /**
+   * ★★**다음 달에 «해야 할 말»** — 계산서 수정·가감처럼 이번 달에 못 끝내고 넘기는 것.
+   *   사장님 2026-09-08 「이거 다음 달에 계산서 수정 메모 남겨야겠다」.
+   *   머릿속에 두면 다음 달에 잊는다. 줄에 붙여 두면 그 달 정산을 열 때 같이 따라온다.
+   */
+  carryNote: string; carryMonth: string;
   note: string; sourceRow: number; sourceTab: string; billMonth: string;
   /** 사다리 «밖»에서 따로 붙는 수수료 — 무보증 수수료 등. 청구·지급에 더해진다. */
   claimIncentive: number; payIncentive: number;
@@ -236,6 +248,8 @@ const C = {
   /** 원장에만 있는 칸 — 취소·환수는 체크로 온다. */
   cancel: col('취소', undefined, false), claw: col('환수', undefined, false),
   clawWhy: col('환수사유', undefined, false), clawAmt: col('환수금액', undefined, false),
+  /** ★「가감사유」 = 다음 달로 넘기는 말(계산서 수정·가감). 원장에만 있는 칸이라 없어도 넘어간다. */
+  carryWhy: col('가감사유', undefined, false),
 };
 /**
  * ★★**「추가 인센티브」 두 칸** — 무보증 수수료 등이 여기 붙는다(사장님 2026-09-04 「무보증 수수료」).
@@ -313,6 +327,9 @@ for (let i = hi + 1; i < all.length; i++) {
      */
     settleTerms: '', settleNote: ax.settleNote || (AXIS[memo] ? memo : ''),
     billed: false, collected: false,
+    /** ★원장 「가감사유」에 적힌 말을 다음 달로 나른다 — 그 칸이 곧 「다음 달에 할 말」이다. */
+    carryNote: C.carryWhy >= 0 ? S(x[C.carryWhy]) : '',
+    carryMonth: (C.carryWhy >= 0 && S(x[C.carryWhy])) ? ymAdd(MONTH, 1) : '',
     note: AXIS[memo] ? '' : memo, sourceRow: i + 1, sourceTab: TAB,
     /**
      * ★★★**청구년·청구월이 박혀 있으면 그 달이다 — 인도를 기다리지 않는다.**
