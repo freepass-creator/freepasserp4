@@ -144,6 +144,7 @@ const picker = read('features/estimate/CarPicker.tsx');
 const cascade = read('features/estimate/VehicleCascade.tsx');
 const carIndexSrc = read('lib/domain/estimate/car-index.ts');
 const pickerCss = read('components/estimate/picker.css');
+const newcarApi = read('app/api/newcar/route.ts');
 const gate = read('features/estimate/EstimateGate.tsx');
 const costApi = read('app/api/estimate/cost/route.ts');
 const workPage = read('components/WorkPage.tsx');
@@ -265,6 +266,23 @@ must(/term-card__check/.test(page),
   'app/estimate/page.tsx .term-card__check');
 /* ★고르는 것은 «버튼»이다 — 사장님 2026-09-08 「드랍다운보다는 버튼으로 할 수 있으면 버튼으로 해」.
    드롭다운은 열고 고르느라 두 번 누른다. 통화 중에 그 한 걸음이 그대로 느려짐이 된다. */
+/* ★★색상은 «둘»이다 — 사장님 2026-09-08
+     「신차마스터에는 **제조사 색상 그대로** 해야지」
+     「**중고마스터 색상과 신차마스터 색상은 각각 존재**해야 함」
+   ⚠ 색상은 처음부터 있었다 — 크롤러가 받아 Firestore 에 넣는데 **API 가 버리고 있었다**
+     (실측 423 트림 중 284 = 67% 에 있다). 화면이 우리 규격색 12색을 대신 보여 준 까닭이다.
+   ★값이 붙는 색이 있다 — 「세레니티 화이트 펄 +10만」·「녹턴그레이매트 +30만」.
+     옵션과 같이 **차량가에 더한다**(실측: 4,245만 → 4,275만 · 월 150.0만 → 150.9만). */
+must(/extColors/.test(newcarApi) && /intColors/.test(newcarApi),
+  '신차 API 가 제조사 색상을 «버립니다» — 크롤러는 넣고 있는데 화면까지 못 옵니다',
+  'app/api/newcar/route.ts');
+must(/isNew && extColors\.length/.test(page) && /EXT_COLORS\.map/.test(page),
+  '색상이 갈래별로 갈리지 않습니다 — 신차는 제조사 색, 중고는 규격색입니다',
+  'app/estimate/page.tsx #sec-color');
+must(/\+ optSum \+ colorAdd/.test(page),
+  '유료 색상이 차량가에 «안 붙습니다» — 「+30만」을 골라도 대여료가 그대로입니다',
+  'app/estimate/page.tsx listPrice');
+
 /* ★★고르는 «방식»은 **목록 길이**가 정한다(2026-09-08 오후 확정):
      **두셋 = 버튼** — 상품(중고/신차) · 채널 · 만기 · 신용 · 취득
         사장님 「드랍다운보다는 버튼으로 할 수 있으면 버튼으로 해」 — 열고 고르는 두 걸음을 아낀다
@@ -322,7 +340,7 @@ must(/id="sec-options"/.test(page) && /id="sec-color"/.test(page),
 must(/optionsOutside mode=\{cond\}/.test(page) && /optionsOutside\?: boolean;/.test(picker),
   '차 고르기 시트가 옵션을 «또» 묻습니다 — 두 군데서 고르면 어느 값이 이겼는지 모릅니다',
   'features/estimate/CarPicker.tsx optionsOutside');
-must(/const listPrice = isNew \? \(picked\.price \?\? 0\) \+ optSum : usedPrice;/.test(page),
+must(/const listPrice = isNew \? \(picked\.price \?\? 0\) \+ optSum \+ colorAdd : usedPrice;/.test(page),
   '신차 차량가에 고른 옵션이 «안 더해집니다» — 옵션을 밖에서 고르면 더하는 일은 화면 몫입니다',
   'app/estimate/page.tsx listPrice');
 /* 색은 화면이 지어내지 않는다 — 규격색·색칩은 색상마스터 한 곳에서만 온다(로컬 색맵 금지). */

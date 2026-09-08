@@ -18,7 +18,17 @@ export type CarEntry = { i: string; mk: string; md: string; sm: string; g: strin
 export type CarIndex = { v: number; source: string; data_as_of: string | null; carCount: number; trimCount: number; cars: CarEntry[]; al?: Record<string, string> };
 
 /** 신차 피드 — 모델 하나와 그 트림들. */
-export type NewTrim = { maker: string; sub_model: string; carType?: string; fuel: string; trim: string; priceBefore: number; priceAfter: number; options?: { name: string; price: number }[]; rules?: string[]; basePrices?: { label: string; price: number }[] };
+/** 제조사 색상 한 줄 — 이름·코드·값(외장만 값이 붙는다)·고를 수 있나. */
+export type NewColor = { name: string; code?: string; price?: number; ok?: string };
+export type NewTrim = { maker: string; sub_model: string; carType?: string; fuel: string; trim: string; priceBefore: number; priceAfter: number; options?: { name: string; price: number }[]; rules?: string[]; basePrices?: { label: string; price: number }[];
+  /**
+   * ★제조사 «실제» 색상 — 사장님 2026-09-08 「신차마스터에는 **제조사 색상 그대로** 해야지」.
+   *   「어비스 블랙 펄」·「클라우드 펄(+30만)」처럼 이름과 값이 제조사 것이다.
+   *   ⚠ 우리 규격색 12색(「블랙」)과 **다른 물건**이다 — 규격색은 «중고»가 쓴다
+   *     (사장님 「중고마스터 색상과 신차마스터 색상은 각각 존재해야 함」).
+   *   ⚠ 트림의 67% 에만 있다(2026-09-08 실측 423 중 284) — 없으면 화면이 그렇다고 말한다.
+   */
+  extColors?: NewColor[]; intColors?: NewColor[] };
 export type NewModel = { maker: string; sub_model: string; fuels: string[]; trimCount: number; trims: NewTrim[] };
 
 /** 견적 STEP 1 이 받는 «고른 차 한 대». 중고·신차가 같은 모양으로 온다. */

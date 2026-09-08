@@ -349,8 +349,19 @@ function EstimatePageInner() {
   /** 기아는 가격표를 «좌표»로 읽어 옵션 «이름»이 조각으로 온다(「옵션3」) — 값은 정확하다. 숨기지도 지어내지도 않는다. */
   const optNamesPartial = useMemo(() => optionRows.some((o) => /^옵션\s*\d+$/.test(o.name.trim())), [optionRows]);
 
+  /** 제조사 색상 — 고를 수 있는 것만(`choiceYn`). 없으면 빈 목록이고 화면이 그렇다고 말한다. */
+  const extColors = useMemo(
+    () => (picked.newTrim?.extColors ?? []).filter((c) => c?.name && c.ok !== 'N'), [picked]);
+  const intColors = useMemo(
+    () => (picked.newTrim?.intColors ?? []).filter((c) => c?.name && c.ok !== 'N'), [picked]);
+  /** ★값이 붙는 색은 «차량가»에 더한다 — 옵션과 같다(「클라우드 펄 +30만」). */
+  const colorAdd = useMemo(() => {
+    if (!isNew) return 0;
+    return Math.max(0, Number(extColors.find((c) => c.name === colorExt)?.price) || 0);
+  }, [isNew, extColors, colorExt]);
+
   /* ★신차 차량가 = «트림값 + 고른 옵션». 옵션을 밖에서 고르므로 더하는 일은 화면 몫이다. */
-  const listPrice = isNew ? (picked.price ?? 0) + optSum : usedPrice;
+  const listPrice = isNew ? (picked.price ?? 0) + optSum + colorAdd : usedPrice;
   const price = Math.round(listPrice * (1 - disc / 100));
   const age = isNew ? 0 : Math.max(0, nowYear - (usedYear || nowYear));
   const cc = picked.cc ?? (manualCc || null);
@@ -519,43 +530,46 @@ function EstimatePageInner() {
           </section>
         ) : null}
 
-        {/* ══ 색상 — 원본 `#sec-color`. ⚠ 값에는 영향이 없다(우리 마스터에 색상별 가격이 없다). ══ */}
-        {isNew ? (
-          <section id="sec-color">
-            <div className="step-title">색상 <b>견적서 표기용</b></div>
-            <div className="vfields">
-              {/* ★색상은 «드롭다운»이다 — 사장님 2026-09-08
-                  「신차에서 **색깔 저렇게 나오면 안 되지**」 · 「**드랍다운처럼 눌러야 선택되게끔** 해야지」
-                  열두 색을 칩으로 펴니 왼쪽을 두 줄씩 먹었다. 고를 것이 여럿이면 드롭다운이다.
-                  ★짜임은 원본 그대로 — `.color-wrap`(자리잡이) + `.color-swatch-mini`(색점) + 드롭다운.
-                    색점은 `position:absolute` 라 **반드시** `.color-wrap` 안에 있어야 한다.
-                  ⚠⚠ 여기 뜨는 것은 **우리 규격색 12색**이지 제조사 색상명이 아니다
-                    (「어비스 블랙 펄」이 아니라 「블랙」). **신차마스터에 색상이 없다** — 실측으로 확인했다
-                    (트림 필드: maker·sub_model·carType·fuel·trim·priceBefore·priceAfter·options·rules).
-                    제조사 색상표가 들어오면 그것으로 바꾼다. 그때까지는 규격색으로 «적어만» 둔다. */}
-              <div className="cs-field">
-                <label>외장</label>
-                <div className="color-wrap">
-                  {colorExt ? <span className="color-swatch-mini" style={{ background: colorSwatch(colorExt) }} /> : null}
-                  <select className="step-dd" value={colorExt} onChange={(e) => setColorExt(e.target.value)}>
-                    <option value="">외장 색상</option>
-                    {EXT_COLORS.map((c) => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div className="cs-field">
-                <label>내장</label>
-                <div className="color-wrap">
-                  {colorInt ? <span className="color-swatch-mini" style={{ background: colorSwatch(colorInt) }} /> : null}
-                  <select className="step-dd" value={colorInt} onChange={(e) => setColorInt(e.target.value)}>
-                    <option value="">내장 색상</option>
-                    {INT_COLORS.map((c) => <option key={c} value={c}>{c}</option>)}
-                  </select>
-                </div>
+        {/* ══ 색상 — 신차는 «제조사 색», 중고는 «규격색» ═════════════════════
+               사장님 2026-09-08 「신차마스터에는 **제조사 색상 그대로** 해야지」
+                              「**중고마스터 색상과 신차마스터 색상은 각각 존재**해야 함」
+             · 신차 = 제조사가 준 이름 그대로(「어비스 블랙 펄」). **값이 붙는 색은 차량가에 더한다.**
+             · 중고 = 우리 규격색 12색(색상마스터) — 실제 차의 색을 적는 칸이라 이름이 규격이면 된다.
+             ⚠ 제조사 색은 트림의 67% 에만 있다(2026-09-08 실측). 없으면 그렇다고 «말하고» 규격색을 쓴다. ══ */}
+        <section id="sec-color">
+          <div className="step-title">색상 {isNew ? <b>{extColors.length ? '제조사 색상' : '아직 안 들어옴'}</b> : <b>규격색</b>}</div>
+          <div className="vfields">
+            <div className="cs-field">
+              <label>외장</label>
+              <div className="color-wrap">
+                {!isNew && colorExt ? <span className="color-swatch-mini" style={{ background: colorSwatch(colorExt) }} /> : null}
+                <select className="step-dd" value={colorExt} onChange={(e) => setColorExt(e.target.value)}>
+                  <option value="">외장 색상</option>
+                  {isNew && extColors.length
+                    ? extColors.map((c) => (
+                      <option key={c.name} value={c.name}>{c.name}{c.price ? ` (+${man(c.price)}원)` : ''}</option>
+                    ))
+                    : EXT_COLORS.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
               </div>
             </div>
-          </section>
-        ) : null}
+            <div className="cs-field">
+              <label>내장</label>
+              <div className="color-wrap">
+                {!isNew && colorInt ? <span className="color-swatch-mini" style={{ background: colorSwatch(colorInt) }} /> : null}
+                <select className="step-dd" value={colorInt} onChange={(e) => setColorInt(e.target.value)}>
+                  <option value="">내장 색상</option>
+                  {isNew && intColors.length
+                    ? intColors.map((c) => <option key={c.name} value={c.name}>{c.name}</option>)
+                    : INT_COLORS.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+            </div>
+            {isNew && !extColors.length ? (
+              <div className="wx-warn">이 트림의 **제조사 색상**이 아직 안 들어왔습니다 — 규격색으로 적어 둡니다.</div>
+            ) : null}
+          </div>
+        </section>
 
         <section id="sec-carinfo">
           <div className="step-title">차량 정보</div>
@@ -641,6 +655,7 @@ function EstimatePageInner() {
               <span className="qp-formula">
                 {isNew ? '트림' : '시세'} <b>{man(isNew ? (picked.price ?? 0) : listPrice)}</b>
                 {isNew && optSum ? <> + 옵션 <b>{man(optSum)}</b></> : null}
+                {isNew && colorAdd ? <> + 색상 <b>{man(colorAdd)}</b></> : null}
                 {disc ? <> − 할인 <b>{disc}%</b></> : null}
                 {' = 차량가 '}<b className="total">{man(price)}원</b>
               </span>
