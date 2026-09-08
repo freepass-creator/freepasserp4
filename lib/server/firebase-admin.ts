@@ -121,32 +121,15 @@ type GateProfile = {
 } | null;
 
 /**
- * 인증 게이트의 사용자 프로필 읽기 — RTDB 폐기 준비(2026-09-04).
+ * 인증 게이트의 사용자 프로필 읽기 — RTDB 폐기(2026-09-08 사장님 「완전 버리자」).
  *
- * 기본은 지금과 동일하게 RTDB `users/{uid}` 를 읽는다(운영 무변경). `AUTH_GATE_FROM_FIRESTORE=1`
- * 일 때만 Firestore `user` 컬렉션(그림자복사 · 문서 `{회사}__{uid}` · `_key`=uid)을 «먼저» 읽고,
- * 없거나 실패하면 RTDB 로 폴백한다. 게이트는 하나라도 어긋나면 전 화면이 닫히는 자리라, 스위치는
- * 폴백을 항상 켠 채 단계로 넘긴다. 완전 이관·검증 뒤에만 RTDB 읽기를 걷는다.
+ * ★단일 플래그(`NEXT_PUBLIC_DATA_BACKEND`)를 탄다 — `firebaseAdminDatabase()` 는 backend=rtdb 면 RTDB,
+ *   backend=firestore 면 심(firestore-ref-shim)이 «같은 .ref('users/{uid}')» 를 Firestore `user/{uid}` 로 보낸다
+ *   (user 문서 id=uid 확인됨). 그래서 별도 `AUTH_GATE_FROM_FIRESTORE` 플래그가 필요 없다.
+ *   운영은 아직 rtdb 라 무변경. 심이 실패 시 RTDB 폴백하므로 게이트가 닫히지 않는다(폴백 제거는 삭제 직전 마지막 단계).
  */
-async function readGateProfile(app: App, uid: string): Promise<GateProfile> {
-  if (String(process.env.AUTH_GATE_FROM_FIRESTORE || '') === '1') {
-    try {
-      const snap = await getFirestore(app).collection('user').where('_key', '==', uid).limit(1).get();
-      const data = snap.docs[0]?.data() as Record<string, unknown> | undefined;
-      if (data && data.role) {
-        return {
-          role: String(data.role || ''),
-          status: String(data.status || ''),
-          is_active: (data.is_active as boolean | string | undefined),
-          company_code: String(data.company_code || ''),
-          agent_channel_code: String(data.agent_channel_code || ''),
-        };
-      }
-    } catch {
-      // Firestore 조회 실패는 삼키고 RTDB 로 폴백한다(게이트를 닫지 않는다).
-    }
-  }
-  const snapshot = await getDatabase(app).ref(`users/${uid}`).get();
+async function readGateProfile(_app: App, uid: string): Promise<GateProfile> {
+  const snapshot = await firebaseAdminDatabase().ref(`users/${uid}`).get();
   return snapshot.val() as GateProfile;
 }
 
