@@ -189,8 +189,8 @@ export function SevTag({ high }: { high: boolean }) {
 
 export const PRODUCT_TYPE_TONE: Record<string, BadgeTone> = {
   '신차렌트': 'blue', '신차구독': 'blue', '중고렌트': 'gray', '중고구독': 'gray',
-  // 픽업구독(손오공 T카) = 중고구독과 다른 갈래라 색도 가른다(2026-08-28).
-  '픽업구독': 'teal',
+  // 픽업구독(손오공 T카)·오플구독(오토플러스)·오공구독(손오공 픽업이 부러져 재판매) = 중고구독과 다른 갈래라 색도 가른다(2026-08-28·09-08).
+  '픽업구독': 'teal', '오플구독': 'amber', '오공구독': 'purple',
   '신차': 'blue', '중고': 'gray',
 };
 
