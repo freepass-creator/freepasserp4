@@ -209,13 +209,17 @@ const C = {
   memo: col('계약번호', '비고'), state: col('상태 표기', '인도완료'), sup: col('업체명', '공급사'),
   recv: col('접수일'), deliv: col('인도일'),
   rentKind: col('렌트구분'), product: col('상품구분'), plate: col('차량번호'), model: col('모델명'),
-  cust: col('고객명'), age: col('연령', undefined, false), /**
-   * ★★**고객연락처는 «없어도 된다»** — 원자에 PII 를 담지 않는다는 규칙과 같은 줄이다.
-   *   실측 2026-09-08 — 접수 탭 8번 칸이 「고객연락처」에서 「특이사항」으로 바뀜는데
-   *   그 칸을 «반드시 있어야 하는 것»으로 보고 원자화가 통째로 멈쿼 그달 정산이 멈추었다.
-   *   사람이 칸 이름을 바꿔서 정산이 멈추는 것은 맞지 않다 — 안 쓰는 칸이면 더더욱.
+  cust: col('고객명'), age: col('연령', undefined, false),
+  /**
+   * ★★★**고객 연락처는 «안 받는다» — 칸을 아예 안 읽는다.**
+   *   사장님 2026-09-08 「정산에 고객연락처는 필요없을 거 같다.
+   *   **프리패스가 손님 연락처 취득할 이유 없음**」
+   *   정산은 «누가 얼마를 주고받나»만 알면 된다. 손님에게 전화할 일은
+   *   공급사·영업자의 일이지 우리 일이 아니다. 들고 있지 않으면 새지도 않는다.
+   *   ★실측 2026-09-08 — 원장 네 탭에도, 원자 459줄에도 연락처는 한 건도 없었다 —
+   *     칸만 열려 있었다. 네 탭 모두 「특이사항」으로 바꾸고 그 칸을 닫았다.
    */
-  phone: col('고객연락처', undefined, false), term: col('계약기간'),
+  term: col('계약기간'),
   deposit: col('보증금'), payKind: col('분납여부'), ctype: col('계약형태'), rent: col('렌탈료'), price: col('차량가액'),
   supRate: col('수수료율 (공급사)', '공급사수수료율'), claimY: col('판매 수수료', '판매수수료'),
   /** ★「수식X」는 계약현황에만 있다 — 원장에는 그 자리가 없으니 «없어도» 넘어간다. */
@@ -281,7 +285,7 @@ for (let i = hi + 1; i < all.length; i++) {
     continue;
   }
   atoms.push({
-    code: '', plate: plate || '', model: S(x[C.model]), customer: S(x[C.cust]), phone: S(x[C.phone]), age: S(x[C.age]),
+    code: '', plate: plate || '', model: S(x[C.model]), customer: S(x[C.cust]), phone: '', age: S(x[C.age]),
     supplier: S(x[C.sup]), channel: S(x[C.ch]), agent: S(x[C.agent]),
     product: S(x[C.product]), rentKind: S(x[C.rentKind]), contractType: S(x[C.ctype]), term: N(x[C.term]),
     rent: N(x[C.rent]), deposit: N(x[C.deposit]), price: N(x[C.price]), payKind: S(x[C.payKind]),
