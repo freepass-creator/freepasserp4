@@ -33,7 +33,7 @@ import { settleTargetOf, billingMonthIn, lockedMonthsOf, type SettlementRow } fr
 import { payOf, incentiveOf } from '../lib/domain/settlement-money';
 import { settlementMonthOf } from '../lib/domain/settlement-billing-month';
 import { feeKindOf, feeRuleFor } from '../lib/domain/settlement-fee-table';
-import { outwardText, maskName } from '../lib/domain/outward-text';
+import { outwardText } from '../lib/domain/outward-text';
 import { channelSheetName, CHANNEL_SETTLE_HEAD, CHANNEL_SETTLE_WIDTH, SETTLE_BASIS, SETTLE_NOTE, settleTabOf, settleTabFormat, settleMoneyFor, settleLeftFor, settleTabLabel, settleTabBase } from '../lib/server/channel-sheet-tabs';
 import { diffSheetRows, applyPending, editId, publishedId, type SheetEdit, type Published } from '../lib/server/sheet-edits';
 
@@ -536,7 +536,7 @@ for (const j of jobs) {
     HEAD.map((h) => (m[h] === undefined ? '' : m[h]));
   const body: (string | number | boolean)[][] = j.lines.map((l, i) => rowOf({
     'No.': i + 1, 차량번호: l.plate, 접수일: l.recv, 인도일: l.deliv, 공급사: l.sup, 모델명: l.model,
-    '차량 가격(신차)': l.price || '', 임차인: maskName(l.cust), 영업채널: j.ch, 영업담당자: l.agent, '상품 구분': l.product,
+    '차량 가격(신차)': l.price || '', 임차인: l.cust, 영업채널: j.ch, 영업담당자: l.agent, '상품 구분': l.product,
     '계약 기간': l.term || '', 렌탈료: l.rent || '', 보증금: l.deposit, '납입 방식': l.payKind,
     [BASIS[0]]: l.how, 공급가액: l.net, 부가세: l.vat, 합계: l.total, '지급 예정일': payKo(l.sup),
     확인: note(l.plate)[0], 정정: note(l.plate)[1], 정정금액: note(l.plate)[2], '메모(정정사유)': note(l.plate)[3],

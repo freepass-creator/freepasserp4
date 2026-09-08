@@ -646,6 +646,13 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
   const money = claim ? '청구금액' : '지급금액';
   const no = S(opts?.invoiceNo);
   const issued = opts?.issuedAt ? new Date(opts.issuedAt) : new Date();
+  /**
+   * ★★**손님 이름은 «공급사에게만» 가린다** — 사장님 2026-09-08
+   *   「임차인은 그냥 이름만 써주라」(하허호 정산서를 보시면서).
+   *   영업채널은 그 손님을 «자기가 받은» 사람이다 — 가리면 줄을 못 찾는다.
+   *   공급사 재고 시트는 링크만 알면 열리는 곳이 많아 그쪽만 가린다.
+   */
+  const nameFor = (v: unknown) => (claim ? maskName(v) : S(v));
   /** ★계좌는 방향을 따라 뒤집힌다. 청구서면 «우리 계좌», 정산서면 «상대 계좌». */
   const acc = claim ? inv.issuer : inv.receiver;
   const accText = join(acc.bank, acc.account, acc.holder);
@@ -843,7 +850,7 @@ export function invoiceDocHtml(inv: Invoice, opts?: { invoiceNo?: string; issued
      * ★산출식 칸을 뺐다(사장님 2026-09-03 「산출식은 뭐 따로 정해둔게 있어서 줄마다 산출식은 필요없을거 같음」).
      *   수수료표가 따로 있으니 종이가 줄마다 다시 설명할 일이 아니다. 그 자리를 이 칸이 받는다.
      */
-    l.minus ? (esc(S(l.reason)) || '사유 미기재') : (esc(join(maskName(l.customer), l.product, l.term ? `${l.term}개월` : '')) || '&nbsp;')
+    l.minus ? (esc(S(l.reason)) || '사유 미기재') : (esc(join(nameFor(l.customer), l.product, l.term ? `${l.term}개월` : '')) || '&nbsp;')
   }</span></td>
       <td class="n">${num(l.amount)}</td>
       <td class="n">${num(l.vat)}</td>
