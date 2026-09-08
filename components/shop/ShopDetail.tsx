@@ -5,7 +5,7 @@ import Link from 'next/link';
 import {
   ArrowLeft, Car, Check, ChevronLeft, ChevronRight,
   CircleCheck, Coins, FileText, Plus, Tag, X,
-  IdCard, ImageOff, Info, Lock, Phone, Share2, ShieldCheck,
+  IdCard, ImageOff, Images as ImageIcon, Info, Lock, Phone, Share2, ShieldCheck,
   type LucideIcon,
 } from 'lucide-react';
 import type { EntityRecord } from '@/lib/intake/entities';
@@ -2183,17 +2183,21 @@ function Gallery({ p, mobile }: { p: EntityRecord; mobile?: boolean }) {
          */
         <div ref={railRef} onScroll={onScroll} className="fp-shop-gallery"
           /*
-           * ★★**폰과 웹이 하는 일이 다르다.**
-           *   · 폰 — **전면으로 연다**(사장님 2026-09-07 「메인 사진 누르면 **모바일은 큰 사진만
-           *     상하 스크롤**할 수 있게끔」). 폰에는 썸네일 기둥이 없어 «다 보는 길»이 여기뿐이다.
-           *   · 웹 — **다음 장으로** 넘긴다. 옆에 썸네일 기둥이 이미 있고, 열 칸을 넘으면
-           *     「+N · 모두 보기」 문이 전면을 연다. 큰 사진까지 전면을 열면 문이 둘이 된다.
-           * ★끝에서는 첫 장으로 돌아온다 — 마지막에서만 안 눌리면 그게 「눌러도 아무 일 없는」 자리다.
+           * ★★**큰 사진을 누르면 «전면»으로 연다 — 폰도 웹도 같다**(엔카가 그렇게 한다).
+           *
+           * 사장님 2026-09-08 「그래서 **저 사진을 엔카처럼 볼 수 있게** 해 주면 감사하겠습니다」.
+           *
+           * ⚠⚠ **여기 「웹은 다음 장으로 넘긴다」고 적혀 있었다. 그게 문을 잠갔다.**
+           *   웹에서 전면으로 가는 길이 「+N · 모두 보기」 타일 **하나뿐**이었는데, 그 타일은
+           *   **사진이 열한 장부터** 생긴다. 실측(2026-09-08 운영) — 사진 있는 450대 중
+           *   **정확히 열 장인 차가 251대**다. 그 251대는 웹에서 **전면 갤러리를 열 방법이 아예 없었다.**
+           *   「문이 둘이면 안 된다」고 적어 놓고, 정작 대부분의 차에서 **문이 영이 됐다.**
+           * ⇒ 큰 사진이 곧 문이다. 다음 장으로 넘기는 일은 **좌우 화살표**가 이미 한다
+           *   (그쪽이 «방향»을 말하는 물건이라 그 일에 맞다).
+           * ★타일의 「+N · 모두 보기」는 그대로 둔다 — 엔카도 문이 둘이다(큰 사진 · 마지막 썸네일).
+           *   문제는 문이 둘인 것이 아니라 **영인 것**이었다.
            */
-          onClick={() => {
-            if (mobile) { setAllOpen(true); return; }
-            if (aimRef.current < n - 1) go(1); else goTo(0);
-          }}
+          onClick={() => setAllOpen(true)}
           style={{ width: '100%', height: '100%', cursor: n > 1 ? 'pointer' : 'default' }}>
           {photos.map((src, k) => (
             /* ★첫 장만 «먼저» 받는다(`priority`) — 손님이 상세를 열면 제일 먼저 보는 그림이다.
@@ -2216,15 +2220,27 @@ function Gallery({ p, mobile }: { p: EntityRecord; mobile?: boolean }) {
         <>
           {i > 0 ? <GalleryArrow side="left" onClick={() => go(-1)} /> : null}
           {i < n - 1 ? <GalleryArrow side="right" onClick={() => go(1)} /> : null}
+          {/*
+            ★★**「1 / 19」가 곧 «문»이다** — 사진 위에 「눌러서 다 볼 수 있다」를 적어 둔다.
+              엔카·케이카가 사진 우하에 두는 그 표식이다.
+            ⚠ 숫자만 있으면 그건 «세는 말»이라, 손님이 눌러 볼 생각을 안 한다. 그래서
+              사진 아이콘을 앞에 세운다 — 「이건 사진 묶음이고 열린다」가 한눈에 읽힌다.
+            ★큰 사진 전체도 눌리지만(위 `onClick`) 그건 «보이지 않는» 문이다.
+              보이는 문이 하나는 있어야 한다.
+          */}
           <span className="fp-onphoto" style={{
             position: 'absolute', right: 12, bottom: 12,
+            display: 'inline-flex', alignItems: 'center', gap: SHOP.sp.tight,
             /* 뱃지 한 벌 규격(`BADGE`) — 사진 위든 본문이든 표식의 치수는 같다. */
             padding: `${BADGE.padY}px ${BADGE.padX}px`, borderRadius: SHOP.r.chip,
             /* 딤·글자 둘 다 토큰 — `.fp-onphoto` 가 `--text-main` 을 흰색으로 뒤집는다. */
             background: SCRIM.heavy, color: C.ink,
             fontSize: SHOP.fs.cap, fontWeight: 700, fontVariantNumeric: 'tabular-nums',
             lineHeight: BADGE.lineHeight,
-          }}>{Math.min(i + 1, n)} / {n}</span>
+          }}>
+            <ImageIcon size={ICON.sm} aria-hidden />
+            {Math.min(i + 1, n)} / {n}
+          </span>
           {/*
             ⚠ 여기 점(dots)을 뒀다가 뺐다(2026-09-05 검토). 바로 옆 「n / N」이 **같은 말을 더 정확히** 한다
               (점은 8장까지만 그려 아홉 장부터는 뜻이 달라지기까지 했다).
