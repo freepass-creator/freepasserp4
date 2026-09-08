@@ -34,7 +34,7 @@ import { AXIS_LABEL, SHOP_AXES, type ShopAxis, type ShopFacets, type ShopSel } f
  * ★그래서 고르는 것은 **초안(draft)**이다. 적용을 눌러야 목록이 바뀌고, 닫기는 되돌린다.
  *   축 목록·건수도 초안으로 센다(`preview`) — 안 그러면 버튼 숫자와 옆의 건수가 서로 다른 말을 한다.
  */
-export function ShopFilterSheet({ sel, preview, onApply, onClose }: {
+export function ShopFilterSheet({ sel, preview, onApply, onClose, axes: only }: {
   /** 지금 «화면»에 걸린 조건 — 시트를 열 때 초안의 출발점이다. */
   sel: ShopSel;
   /** 초안으로 세어 본다 — 축 목록과 바닥 버튼 숫자가 **같은 값**에서 나와야 한다. */
@@ -43,6 +43,11 @@ export function ShopFilterSheet({ sel, preview, onApply, onClose }: {
   onApply: (sel: ShopSel) => void;
   /** 닫기 — 초안을 버리고 닫는다(위 머리말). */
   onClose: () => void;
+  /**
+   * **이 채널이 쓰는 축**(순서까지) — 안 주면 집 기본. 웹 조건칸(`ShopFilters`)과 «같은 값»을 받아야
+   * 폰과 웹에서 축이 갈리지 않는다(사장님 2026-09-08 「회사별로 필터값이나 빠른필터나 원하는 게 달라서」).
+   */
+  axes?: readonly ShopAxis[];
 }) {
   /* 초안 — 시트는 열릴 때마다 새로 뜨므로 여기서 한 번만 복사하면 된다. */
   const [draft, setDraft] = useState<ShopSel>(sel);
@@ -56,7 +61,8 @@ export function ShopFilterSheet({ sel, preview, onApply, onClose }: {
   );
 
   /** 값이 하나도 없는 축은 아예 안 세운다 — 눌러도 빈 칸이 나오는 이름을 지도에 두지 않는다. */
-  const axes = useMemo(() => SHOP_AXES.filter((a) => facets[a].length), [facets]);
+  /* ★채널이 쓰는 축만 세운다(위 `only`) — 웹 조건칸과 «같은 목록»이어야 폰에서 축이 갈리지 않는다. */
+  const axes = useMemo(() => (only ?? SHOP_AXES).filter((a) => facets[a].length), [facets, only]);
   const [active, setActive] = useState<ShopAxis>(axes[0] ?? 'vc');
 
   /*

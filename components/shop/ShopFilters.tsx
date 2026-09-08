@@ -102,16 +102,22 @@ const HEAD_COUNT = 5;
 /** 「더보기」 한 번에 더 여는 수 — 처음 보여 주는 수와 같다(리듬이 갈리면 단추가 딴 물건이 된다). */
 const MORE_STEP = 5;
 
-export function ShopFilters({ facets, sel, onToggle, onClearAxis, mobile: forceMobile }: {
+export function ShopFilters({ facets, sel, onToggle, onClearAxis, mobile: forceMobile, axes: only }: {
   facets: ShopFacets;
   sel: ShopSel;
   onToggle: (axis: ShopAxis, key: string) => void;
   onClearAxis: (axis: ShopAxis) => void;
   mobile?: boolean;
+  /**
+   * **이 채널이 쓰는 축**(순서까지) — 안 주면 집 기본(`SHOP_AXES` 전부).
+   * 사장님 2026-09-08 「회사별로 필터값이나 빠른필터나 원하는 게 달라서」.
+   * ⚠ 값이 하나도 없는 축은 원래도 안 뜬다 — 이건 «값이 있어도 안 세우는» 칸이다.
+   */
+  axes?: readonly ShopAxis[];
 }) {
   const isMobile = useIsMobile();
   const mobile = forceMobile ?? isMobile;
-  const axes = SHOP_AXES.filter((a) => facets[a].length);
+  const axes = (only ?? SHOP_AXES).filter((a) => facets[a].length);
   const [open, setOpen] = useState<Record<string, boolean>>(
     () => Object.fromEntries(axes.map((a) => [a, OPEN_BY_DEFAULT.includes(a)])),
   );

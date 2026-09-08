@@ -35,6 +35,32 @@ export const AXIS_LABEL: Record<ShopAxis, string> = {
   credit: '심사', year: '연식', mile: '주행거리', fuel: '연료', perk: '혜택',
 };
 
+/** 빠른필터 칩 하나 — 축 + 그 축의 값. 이름은 구간이 스스로 말한다(`soloLabel`). */
+export type ShopQuickChip = { axis: ShopAxis; key: string; label?: string };
+
+/**
+ * **집 기본 빠른필터** — 채널이 제 것을 안 정하면 이게 선다.
+ *
+ * ★★**채널마다 다를 수 있다**(사장님 2026-09-08 「그 **회사별로 필터값이나 빠른필터나 원하는 게
+ *   달라서** 그걸 구현해 주려고 해」). 그래서 이 목록은 «기본값»이고, 채널이 제 줄
+ *   (`lib/whitelabel.ts` `quick`)에 적으면 그것이 이긴다.
+ * ★★**구간은 이름을 «손으로 안 적는다»** — `soloLabel(key)` 가 준다. 예전엔 화면에서만 손으로
+ *   적어(「보증금 0원」) 걸린 조건 칩(「보증 없음」)과 **한 화면에서 두 말**이 됐다.
+ * ★차종·연료는 구간이 아니라 값이 곧 말이라 여기 적는다 —
+ *   손님이 «말로 하는» 조건이다(「SUV 있어요?」 「전기차 돼요?」가 상담 첫 마디).
+ */
+export const DEFAULT_QUICK: ShopQuickChip[] = [
+  { axis: 'dep', key: 'd0' },
+  { axis: 'rent', key: 'r50' },
+  { axis: 'rent', key: 'r60' },
+  { axis: 'rent', key: 'r70' },
+  { axis: 'vc', key: 'SUV', label: 'SUV' },
+  { axis: 'vc', key: '승합', label: '승합·카니발' },
+  { axis: 'vc', key: '승용', label: '승용' },
+  { axis: 'fuel', key: '전기', label: '전기차' },
+  { axis: 'fuel', key: '하이브리드', label: '하이브리드' },
+];
+
 export const SHOP_SORTS = [
   /*
    * ★★★**기본 정렬 = 인기순**(사장님 2026-09-07 「그리고 **기본 정렬은 인기순으로**」).
