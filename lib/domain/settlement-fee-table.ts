@@ -66,9 +66,27 @@ const LADDER: { term: number; c: number | string; p: number | string; basis: Fee
 const ladder = (supplier: string, kind: FeeRule['kind'], when = WHEN, note?: string): FeeRule[] =>
   LADDER.map((x) => ({ supplier, kind, form: '', term: x.term, basis: x.basis, claim: x.c, pay: x.p, when, auto: true, note }));
 
-/** 표준 신차 — 선출고 3.5%/3.0% · 매칭출고 최대 9%. */
+/**
+ * 표준 신차 — **선출고·선발주 3.5%/3.0%** · 매칭출고 최대 9% · **신차발주는 「주는 대로」**.
+ *
+ * ★★★사장님 2026-09-08 「**신차발주는 주는 대로**고, **선출고 선발주가 3%**야」
+ *
+ * ★★★**「신차발주」에는 요율이 없다 — «영업자가 정해서 넣는다».**
+ *   사장님 2026-09-08 「신차 발주는 **요율을 영업자가 입력해서 넣기 나름**이야」 ·
+ *   「**1% 넣을 수도 있고 0% 넣을 수도 있고**」.
+ *
+ *   신차 발주는 영업자가 손님에게 팔 조건을 스스로 짜는 것이라, 그 마진이 곧 영업자 몫이다.
+ *   0% 도 정상이다 — 「요율이 없다」가 아니라 「그 줄마다 다르다」는 뜻이다.
+ *   ⇒ 표가 세면 **반드시 틀린다.** `auto: false` — 적힌 금액이 정본이고 종이에는 「주는 대로」라고 적는다.
+ *
+ *   ⚠ 2026-09-08 에 이것을 선출고와 같은 갈래로 보냈다가 차량가액 × 3.00% 로 세었다 —
+ *     하허호가 「차량가 8.5%」로 넣어 준 줄을 우리 요율로 덮은 셈이다.
+ *     요율이 없는 것을 «없는 대로» 두지 않고 가장 비슷한 규칙에 끼워 넣으면 그게 조용한 오답이다.
+ */
 const newCar = (supplier: string, sr = 0.035, ar = 0.03, when = WHEN, note?: string): FeeRule[] => [
   { supplier, kind: '신차', form: '선출고', term: 0, basis: '차량가액', claim: sr, pay: ar, when, auto: true, note },
+  { supplier, kind: '신차', form: '선발주', term: 0, basis: '차량가액', claim: sr, pay: ar, when, auto: true, note },
+  { supplier, kind: '신차', form: '발주', term: 0, basis: '범위', claim: '주는 대로', pay: '주는 대로', when, auto: false, note: '요율 없음 — 받은 만큼 준다. 적힌 금액이 정본' },
   { supplier, kind: '신차', form: '매칭출고', term: 0, basis: '범위', claim: '최대 9%', pay: '최대 9%', when, auto: false, note: '영업자 조율 — 사람이 넣는다' },
 ];
 
@@ -190,15 +208,20 @@ export const SUPPLIER_ALIAS: Record<string, string> = { 에스에이: 'SA', SA: 
 export const EV_MODEL = /\bEV\d?\b|아이오닉\s*[56]|모델\s*[3YXS]|테슬라|폴스타|택시/i;
 
 export const feeKindOf = (product: string, model: string): { kind: FeeRule['kind']; form?: string; fallback?: FeeRule['kind'] } => {
-  if (/견적출고/.test(product)) return { kind: '신차', form: '매칭출고' };
+  /** ★「매칭출고」라는 말 자체도 잡는다 — 여태 「견적출고」만 잡아 재렌트 사다리로 흘러내렸다. */
+  if (/견적출고|매칭출고/.test(product)) return { kind: '신차', form: '매칭출고' };
   const ev = EV_MODEL.test(model);
   /**
-   * ★★**「신차발주」도 선출고다** — 사장님 2026-09-08 「하허호 161호1543 신차발주 정산에 반영해야 함」.
-   *   하허호가 8월 탭에 그렇게 적어 주셨는데 이 표는 그 말을 몰라 **재렌트 사다리로 흘러내렸다** —
-   *   차량가액 54,041,912 이 적힌 줄을 「대여료 × 기간」으로 세는 꼴이 된다.
-   *   ⇒ 새 차를 발주해 내보내는 것은 선출고와 같은 계산(차량가액 기준)이다.
+   * ★★★**「신차발주」는 요율이 없다 — 「주는 대로」다**(사장님 2026-09-08).
+   *   ⚠ 여기서 선출고로 보내면 차량가액 × 3.00% 로 «우리가 세어» 버린다.
+   *     실측 2026-09-08 — 하허호 161호1543 을 그렇게 보내 1,621,257 을 찍었는데,
+   *     그쪽이 적은 것은 「차량가 8.5%」(4,593,562)였다.
+   *   ⇒ 갈래를 따로 둔다. 규칙이 `auto: false` 라 종이에는 「주는 대로」라고 적히고 금액은 적힌 값이 선다.
+   * ★**선출고·선발주는 3%**다 — 이 둘만 차량가액으로 «센다».
    */
-  if (/선출고|신차발주/.test(product)) return ev ? { kind: '전기차', fallback: '신차' } : { kind: '신차', form: '선출고' };
+  if (/신차발주/.test(product)) return { kind: '신차', form: '발주' };
+  if (/선발주/.test(product)) return ev ? { kind: '전기차', fallback: '신차' } : { kind: '신차', form: '선발주' };
+  if (/선출고/.test(product)) return ev ? { kind: '전기차', fallback: '신차' } : { kind: '신차', form: '선출고' };
   /**
    * ★★★**구독도 전기차를 가른다** — 사장님 2026-09-04
    *   「전기 프로모션 오십만원 더 주는 거 **그거 왜 안 넣냐고**」 · 「아 오십만원 같다.
