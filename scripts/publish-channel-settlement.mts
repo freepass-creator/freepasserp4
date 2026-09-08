@@ -186,6 +186,15 @@ const lineOf = (r: Row): Line => {
    */
   if (!S(r.supplier)) how = S(r.settleNote) || S(r.customer) || S(r.product) || '지원금';
   /**
+   * ★★**지원금은 접수일이 없으면 «그 달 말일»로 본다** — 사장님 2026-09-08
+   *   「지원금 형태는 접수일 없으면 말일자로 반영해주면 되고」
+   *   지원금은 계약이 아니라 접수한 날이 없다. 빈칸로 두면 차례가 맨 앞으로 튀고
+   *   「언젠가」처럼 읽힌다 — 그 달 마지막 날이 «그 달 몷»이라는 뜻을 가장 잘 말한다.
+   */
+  const supportDay = !S(r.supplier) && !S(r.receivedAt)
+    ? `${MONTH}-${String(new Date(Number(MONTH.slice(0, 4)), Number(MONTH.slice(5)), 0).getDate()).padStart(2, '0')}`
+    : S(r.receivedAt);
+  /**
    * ★★★**그쪽이 「누락」이라 적어 준 줄은 금액이 0 이어도 본표에 올린다.**
    *   사장님 2026-09-08 「누락블럭에 있는 거 올려야지」 ·
    *   「정산서에 반영하고 우리 정산원장에 접수에 없으면 넣어야 하고」
@@ -199,7 +208,7 @@ const lineOf = (r: Row): Line => {
    */
   if (isSoon(r)) how = raw ? `예정 · ${how}` : `예정 · 인도 뒤 정해집니다 (${S(r.payKind) || '분납'} · 접수 ${S(r.receivedAt) || '-'})`;
   return {
-    plate: S(r.plate) || '(차번없음)', recv: S(r.receivedAt), deliv: S(r.deliveredAt),
+    plate: S(r.plate) || '(차번없음)', recv: supportDay, deliv: S(r.deliveredAt),
     model, cust: S(r.customer), sup: S(r.supplier) || '(미기재)', product, term, rent: N(r.rent), how,
     /**
      * ★하허호 메모대로 붙인 넷 — 차량 가격(신차) · 영업사 · 보증금 · 납입 방식.

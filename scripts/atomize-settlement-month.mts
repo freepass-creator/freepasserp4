@@ -209,7 +209,13 @@ const C = {
   memo: col('계약번호', '비고'), state: col('상태 표기', '인도완료'), sup: col('업체명', '공급사'),
   recv: col('접수일'), deliv: col('인도일'),
   rentKind: col('렌트구분'), product: col('상품구분'), plate: col('차량번호'), model: col('모델명'),
-  cust: col('고객명'), age: col('연령', undefined, false), phone: col('고객연락처'), term: col('계약기간'),
+  cust: col('고객명'), age: col('연령', undefined, false), /**
+   * ★★**고객연락처는 «없어도 된다»** — 원자에 PII 를 담지 않는다는 규칙과 같은 줄이다.
+   *   실측 2026-09-08 — 접수 탭 8번 칸이 「고객연락처」에서 「특이사항」으로 바뀜는데
+   *   그 칸을 «반드시 있어야 하는 것»으로 보고 원자화가 통째로 멈쿼 그달 정산이 멈추었다.
+   *   사람이 칸 이름을 바꿔서 정산이 멈추는 것은 맞지 않다 — 안 쓰는 칸이면 더더욱.
+   */
+  phone: col('고객연락처', undefined, false), term: col('계약기간'),
   deposit: col('보증금'), payKind: col('분납여부'), ctype: col('계약형태'), rent: col('렌탈료'), price: col('차량가액'),
   supRate: col('수수료율 (공급사)', '공급사수수료율'), claimY: col('판매 수수료', '판매수수료'),
   /** ★「수식X」는 계약현황에만 있다 — 원장에는 그 자리가 없으니 «없어도» 넘어간다. */

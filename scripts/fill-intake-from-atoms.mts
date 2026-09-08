@@ -80,13 +80,23 @@ const pickPrice = (price: unknown, term: number, km: string): Money | null => {
 const g = (await api(`/values/${encodeURIComponent("'접수'!A1:BB900")}?valueRenderOption=UNFORMATTED_VALUE`)).values || [];
 const h0 = g.findIndex((r) => (r || []).some((c) => S(c) === '차량번호'));
 if (h0 < 0) { console.log('\n  ✕ 「접수」 탭에서 머리줄을 못 찾았습니다\n'); process.exit(1); }
-const h = (g[h0] || []).map(S); const ix = (n: string) => h.indexOf(n);
 
-console.log(`\n■ 접수 탭 — 차번으로 원자를 당겨 «빈칸만» 채운다 ${APPLY ? '(반영)' : '(대조만)'}\n`);
+/**
+ * ★★**세 탭을 다 돈다** — 사장님 2026-09-08 「모델명에 차 빠진 건 프리패스 원자 활용해서 채워봐」.
+ *   줄은 접수에만 있지 않다 — 청구가 끝나면 분납실적·완납실적으로 옮겨 간다.
+ *   접수만 보면 이미 옮겨 간 줄은 영영 빈칸으로 남는다.
+ */
+const TABS = ['접수', '완납실적', '분납실적'];
+console.log(`\n■ 정산원장 세 탭 — 차번으로 원자를 당겨 «빈칸만» 채운다 ${APPLY ? '(반영)' : '(대조만)'}\n`);
 const puts: { range: string; values: (string | number)[][] }[] = [];
 let touched = 0; let noAtom = 0; let full = 0;
-for (let i = h0 + 1; i < g.length; i++) {
-  const r = g[i] || []; const plate = P(r[ix('차량번호')]);
+for (const TAB of TABS) {
+const gt = TAB === '접수' ? g : ((await api(`/values/${encodeURIComponent(`'${TAB}'!A1:BB900`)}?valueRenderOption=UNFORMATTED_VALUE`)).values || []);
+const ht = gt.findIndex((r) => (r || []).some((c) => S(c) === '차량번호'));
+if (ht < 0) continue;
+const h = (gt[ht] || []).map(S); const ix = (n: string) => h.indexOf(n);
+for (let i = ht + 1; i < gt.length; i++) {
+  const r = gt[i] || []; const plate = P(r[ix('차량번호')]);
   if (!plate || (ONLY && plate !== ONLY)) continue;
   const doc = await fs.collection('products').doc(plate).get();
   if (!doc.exists) { noAtom++; if (ONLY) console.log(`  ✕ ${plate} — 원자에 없습니다`); continue; }
@@ -104,12 +114,13 @@ for (let i = h0 + 1; i < g.length; i++) {
   for (const [name, val] of from) {
     const c = ix(name); if (c < 0 || !val) continue;
     if (S(r[c])) continue;                       // ★있는 값은 안 덮는다
-    puts.push({ range: `'접수'!${A1(c)}${i + 1}`, values: [[val]] });
+    puts.push({ range: `'${TAB}'!${A1(c)}${i + 1}`, values: [[val]] });
     did.push(`${name}=${typeof val === 'number' ? won(val) : val}`);
   }
   if (!did.length) { full++; continue; }
   touched++;
-  console.log(`  + ${pad(plate, 10)} ${pad(S(r[ix('고객명')]), 8)} ${i + 1}행  ${did.join(' · ')}${money ? `   〈요금표 ${money.key}〉` : ''}`);
+  console.log(`  + ${pad(plate, 10)} ${pad(S(r[ix('고객명')]), 8)} ${pad(TAB, 5)}${String(i + 1).padStart(4)}행  ${did.join(' · ')}${money ? `   〈요금표 ${money.key}〉` : ''}`);
+}
 }
 console.log(`\n   채울 줄 ${touched} · 이미 다 찬 줄 ${full} · 원자에 없는 차 ${noAtom} · 고칠 칸 ${puts.length}`);
 console.log('   ※ 뿌릴 곳은 원자가 이미 압니다 — 공급사는 그 재고 시트로, 영업채널은 그 정산 시트로.');
