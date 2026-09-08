@@ -63,17 +63,25 @@ if (!APPLY) { console.log('\n미리보기 — 실제로 당기려면 --apply\n')
 
 const 성공: string[] = [], 실패: string[] = [];
 for (const r of 이번차례) {
-  const out = spawnSync('npx', ['tsx', '--require', './scripts/lib/server-only-shim.cjs', 'scripts/ingest-supplier-to-firestore.mts', `--code=${r.code}`, '--apply'], {
+  /**
+   * ★**`--retire` 를 켠다 — 원천에서 빠진 차를 내린다.**
+   *   ⚠ 실측 2026-09-08 — 손오공 원천(291대)에 «없는» 차 9대가 원자에선 「출고가능」으로 서 있었다.
+   *   원천이 안 주는 차를 팔 수 있다고 두면 **판 차를 또 파는** 길이 열린다.
+   *   ★안전판 둘이 이미 있다 — 계약중(락)은 안 내린다 · 수집분이 우리 것의 절반도 안 되면 아예 안 내린다
+   *     (원천 읽기 실패 의심). 그 둘 덕에 「못 읽은 날 재고가 사라지는」 사고는 안 난다.
+   */
+  const out = spawnSync('npx', ['tsx', '--require', './scripts/lib/server-only-shim.cjs', 'scripts/ingest-supplier-to-firestore.mts', `--code=${r.code}`, '--apply', '--retire'], {
     encoding: 'utf8', shell: process.platform === 'win32', env: process.env,
   });
   const txt = `${out.stdout || ''}${out.stderr || ''}`;
   const done = /반영 완료/.test(txt);
+  const 내림 = Number((txt.match(/listable=false (\d+)건/) || [])[1] || 0);
   const 왜 = /요금이 한 대도/.test(txt) ? '요금 열을 못 읽음(두 줄 머리글 — 정제시트 길로 들어온다)'
     : /폐기된 시트/.test(txt) ? '원천이 폐기 주소 — 문패를 고쳐라'
     : /RESOURCE_EXHAUSTED|429/.test(txt) ? '구글 요청한도(다음 회차에 다시)'
     : /PERMISSION_DENIED|403/.test(txt) ? '권한 — 어느 신분으로 읽는지부터 보라'
     : (txt.match(/Error: ([^\n]{0,80})/)?.[1] || '까닭 모름');
-  if (done) { 성공.push(`${r.name} ${(txt.match(/직접 원자 (\d+)건/) || [])[1] || '?'}건`); console.log(`  ✔ ${r.name} — ${성공[성공.length - 1]}`); }
+  if (done) { 성공.push(`${r.name} ${(txt.match(/직접 원자 (\d+)건/) || [])[1] || '?'}건${내림 ? ` · 내림 ${내림}` : ''}`); console.log(`  ✔ ${r.name} — ${성공[성공.length - 1]}`); }
   else { 실패.push(`${r.name}: ${왜}`); console.log(`  ✗ ${r.name} — ${왜}`); }
 }
 console.log(`\n✓ 돌아가며 수집 — 성공 ${성공.length} · 실패 ${실패.length}`);

@@ -428,7 +428,14 @@ function atomize(row: Row, pinned: Map<string, Record<string, unknown>>): Atom {
     ...(row.depNote ? { deposit_note: row.depNote } : null),   // 「무보증」처럼 «말»로 적힌 보증금 — 빈칸으로 두지 않는다
     _pin_state: state,
     원문: { 차명: vname, ...(row.opt ? { 옵션: row.opt } : null) },
+    /**
+     * ★★**코드만 박지 말고 «이름»을 같이 박는다** (사장님 2026-09-08 「이제 절대 코드명으로 공급사 취급 안 할 거야」).
+     *   ⚠ 실측 2026-09-08 — 여기가 코드만 써서, 직접수집으로 «새로 들어온» 차 20대가 시트에
+     *   「RP012」·「RP006」으로 섰다. 이름은 옛 미러가 얹어 주던 것이라, 미러가 안 도는 차는 이름이 없다.
+     *   ★이름 정본은 **문패**다(`src.name` = 문패 「공급사명」). 못 찾으면 «비운다» — 코드로 때우지 않는다.
+     */
     provider_company_code: PROV, partner_code: PROV,
+    ...(S(src.name) && S(src.name) !== PROV ? { provider_name: S(src.name) } : null),
     source: src.kind, source_schema: PROV, sheet_source_tab: row.tab, sheet_source_row: row.row,
   };
   // ★불변식 게이트 — block 위반이 있으면 «확정될 수 없다»(검수대기). 모순이 확정된 채 존재하는 게 구조적으로 불가능.
@@ -566,7 +573,16 @@ if (VARIABLE) {
 // ⚠ 사라진-차 마킹은 오탐이 곧 «차가 사라져 보임»이라 별도 플래그(--retire)로만. 안전판도 함께:
 //   수집분이 우리 것의 절반도 안 되면(원천 읽기 실패 의심) 마킹하지 않는다.
 const RETIRE = process.argv.includes('--retire');
-const safeToRetire = RETIRE && (cur.size === 0 || now.length >= cur.size * 0.5);
+/**
+ * ★**안전판은 «지금 세워 둔 차»와 견준다** — 한 번이라도 본 차 «전부»가 아니다.
+ *   ⚠ 실측 2026-09-08 — 손오공은 원천 291대인데 우리 원자가 630대(대부분 이미 출고불가로 쌓인 옛 차)라,
+ *   「절반도 못 읽었다」로 판정돼 **내리기가 영원히 안 걸렸다.** 그 사이 원천에 없는 차 9대가
+ *   「출고가능」으로 서 있었다. 잣대가 너무 세면 안전판이 아니라 «자물쇠»가 된다.
+ *   ⇒ 견줄 대상 = `listable === true` 인 차(=지금 목록에 세운 것). 291 vs 354 → 통과, 630 vs 291 → 막힘.
+ * ★뜻은 그대로다 — 「우리가 «보여 주고 있던» 것의 절반도 못 읽었으면 원천 읽기를 의심한다」.
+ */
+const 세운차 = [...cur.values()].filter((v) => (v as { listable?: unknown }).listable === true).length;
+const safeToRetire = RETIRE && (세운차 === 0 || now.length >= 세운차 * 0.5);
 let wrote = 0, retired = 0;
 for (let i = 0; i < now.length; i += 400) {
   const batch = fs.batch();
@@ -579,16 +595,34 @@ for (let i = 0; i < now.length; i += 400) {
 }
 if (safeToRetire && gone.length) {
   // ★계약중(락 걸린) 차는 «안» 내린다 — 원천에서 잠깐 빠져도 진행 중인 거래를 숨기면 안 된다.
-  const locked = gone.filter((car) => { const c = cur.get(car) || {}; return S(c.status) === '계약중' || S(c.status_kind) === '선점' || S(c.locked_by_contract) || S(c.vehicle_status) === '계약중'; });
+  /**
+   * ★★**「팔 수 있다」던 차만 내린다.** 원천에 없다는 것이 «사라졌다»의 증거가 되려면,
+   *   원천이 그 상태의 차를 «보여 주기는 했어야» 한다.
+   *   ⚠ 실측 2026-09-08 — 손오공 API 는 `계약가능=Y` 인 차만 준다(291대 전부). 그러니 협의·준비·검수 중인
+   *   차가 목록에 없는 것은 «빠진 것»이 아니라 **원래 안 보여 주는 것**이다. 그걸 내리면 멀쩡한 차를 숨긴다.
+   *   ⇒ 지금 「출고가능·즉시출고」인 차만 내린다. 계약중(락)·출고협의·상품화중·차량검수는 그대로 둔다.
+   * ★내리는 쪽이 조심스러워야 한다 — **팔 수 있는 차를 숨기는 것**이 여기서 가장 나쁜 결과다.
+   */
+  const 지킴 = (c: Record<string, unknown>) => {
+    const st = S(c.vehicle_status) || S(c.status);
+    return st !== '출고가능' && st !== '즉시출고';
+  };
+  const locked = gone.filter((car) => 지킴(cur.get(car) || {}) || !!S((cur.get(car) || {}).locked_by_contract));
   const toRetire = gone.filter((car) => !locked.includes(car));
   for (let i = 0; i < toRetire.length; i += 400) {
     const batch = fs.batch();
-    for (const car of toRetire.slice(i, i + 400)) { batch.set(fs.collection('products').doc(docId(car)), { listable: false, status_reason: '원천 이탈(직접수집)', _direct_ingest_at: Date.now() }, { merge: true }); retired++; }
+    /**
+     * ★**내릴 때는 «상태»도 같이 바꾼다** — `listable` 만 내리면 `vehicle_status` 는 「출고가능」인 채라
+     *   읽는 곳마다 다른 말을 한다(상태 두 벌). 규격은 「기계는 줄을 지우지 않는다 — 안 파는 차는
+     *   상태만 출고불가」(`ai-touch-rules`)다. 원천이 더 이상 주지 않는 차는 «출고불가»가 맞다.
+     *   ⚠ 계약중(락)은 위에서 이미 뺐다 — 진행 중인 거래를 숨기지 않는다.
+     */
+    for (const car of toRetire.slice(i, i + 400)) { batch.set(fs.collection('products').doc(docId(car)), { listable: false, vehicle_status: '출고불가', status: '출고불가', status_kind: '불가', status_reason: '원천 이탈(직접수집)', _direct_ingest_at: Date.now() }, { merge: true }); retired++; }
     await batch.commit();
   }
-  if (locked.length) console.log(`  · 사라진 차 중 계약중(락) ${locked.length}건은 안 내림(거래 진행중).`);
+  if (locked.length) console.log(`  · 사라진 차 중 ${locked.length}건은 안 내림 — 계약중(락)이거나 「출고가능」이 아니던 차(원천이 원래 안 보여 주는 상태).`);
 } else if (gone.length) {
-  console.log(`  · 사라진 차 ${gone.length}건 마킹 안 함 — ${RETIRE ? `안전판(수집 ${now.length} < 우리 것 ${cur.size}의 절반, 원천 읽기 의심)` : '--retire 없음(오탐 방지, 기본 끔)'}.`);
+  console.log(`  · 사라진 차 ${gone.length}건 마킹 안 함 — ${RETIRE ? `안전판(수집 ${now.length} < 세워 둔 ${세운차}의 절반, 원천 읽기 의심)` : '--retire 없음(오탐 방지, 기본 끔)'}.`);
 }
 console.log(`\n반영 완료 — ${PROV} 직접 원자 ${wrote}건 merge(불변+상태) · 사라진 차 listable=false ${retired}건. 요금은 별도(가격블록).`);
 process.exit(0);
