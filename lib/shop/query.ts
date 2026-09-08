@@ -16,7 +16,7 @@
  *   **무엇을 모수로 삼고 어떻게 세는가**뿐이다.
  */
 import type { EntityRecord } from '@/lib/intake/entities';
-import { cheapest, creditDisplay, isListableProduct, priceList } from '@/lib/domain/product';
+import { cheapest, creditDisplay, isListableProduct, isOperatedPeriod, priceList } from '@/lib/domain/product';
 import { matchProductQuery } from '@/lib/domain/search';
 import { firstProductImage } from '@/lib/domain/product-photos';
 import {
@@ -26,14 +26,35 @@ import { fuelDisplay, makerDisplay, yearFullDisplay } from '@/lib/domain/vehicle
 import { CUSTOMER_VEHICLE_CLASSES, customerVehicleClass } from '@/lib/domain/catalog-facets';
 
 /** 고를 수 있는 축. 값은 주소 파라미터 이름이기도 하다 — 짧고 안 바뀌는 이름으로 둔다. */
-export const SHOP_AXES = ['vc', 'maker', 'rent', 'dep', 'credit', 'year', 'mile', 'fuel', 'perk'] as const;
+/*
+ * ★★**순서가 곧 손님이 좁혀 가는 차례다.**
+ *   ① 무슨 차인가(차종 → 차급 → 제조사)  ② 얼마인가(기간 → 월 대여료 → 보증금)
+ *   ③ 될까(심사)                        ④ 어떤 차인가(연식 · 주행 · 연료 · 혜택)
+ * ★**기간이 월 대여료 «앞»이다** — 그 금액이 기간에 따라 달라지기 때문이다.
+ *   뒤에 두면 「50만원대」를 고른 뒤에야 「어느 기간의 50만원인지」를 묻는 꼴이 된다.
+ * ⚠ 새 축을 «끼워 넣을» 때 나머지 순서는 건드리지 않는다 — 손님은 자리로 기억한다.
+ */
+export const SHOP_AXES = ['vc', 'vclass', 'maker', 'term', 'rent', 'dep', 'credit', 'year', 'mile', 'fuel', 'perk'] as const;
 export type ShopAxis = (typeof SHOP_AXES)[number];
 
 /** 축 이름 — 조건칸 제목이자 「적용한 조건」 토큰의 앞머리. 한 곳에서만 적는다. */
 export const AXIS_LABEL: Record<ShopAxis, string> = {
-  vc: '차종', maker: '제조사', rent: '월 대여료', dep: '보증금',
+  vc: '차종', vclass: '차급', term: '계약기간', maker: '제조사', rent: '월 대여료', dep: '보증금',
   credit: '심사', year: '연식', mile: '주행거리', fuel: '연료', perk: '혜택',
 };
+
+/**
+ * **계약기간 축** — 「이 기간으로 계약할 수 있는 차」.
+ *
+ * ★★왜 넣었나(2026-09-08 · 703대 실측) — 손님은 「월 얼마」로 고르는데 **그 금액이 기간마다 다르다.**
+ *   그런데 손님 화면에는 기간을 고르는 자리가 아예 없었다. 게다가 데이터가 잘 갈린다:
+ *   48개월 87% · 36개월 78% · 24개월 68% · 12개월 57% · **1개월 98대 · 6개월 43대**.
+ *   ⇒ **단기(1·6개월)를 찾는 손님은 지금 그 차를 찾을 길이 없었다.**
+ * ★값은 «데이터가 가진 것»만 세운다(`freeTally` 가 0건을 지운다) — 없는 기간을 세워 두지 않는다.
+ * ⚠ 「인수형」·「연 3만km」 같은 **변형 키는 여기 안 든다.** 그건 같은 기간의 «다른 조건»이지
+ *   기간 자체가 아니다 — 섞으면 「12개월」이 두 줄이 된다(`isStandardPeriod` 밖은 그대로 둔다).
+ */
+const TERM_LABEL = (m: number) => `${m}개월`;
 
 /** 빠른필터 칩 하나 — 축 + 그 축의 값. 이름은 구간이 스스로 말한다(`soloLabel`). */
 export type ShopQuickChip = { axis: ShopAxis; key: string; label?: string };
@@ -169,6 +190,15 @@ const bandOf = (bands: Band[], key: string) => bands.find((b) => b.k === key);
 
 const axisMatch: Record<ShopAxis, (p: EntityRecord, key: string) => boolean> = {
   vc: (p, k) => customerVehicleClass(p) === k,
+  /*
+   * ★**차급** — 「준대형 세단」·「중형 SUV」 처럼 손님이 실제로 말하는 단위다.
+   *   위 `vc`(승용·SUV·승합·화물)는 **네 갈래**라 빠른 조건 칩에는 맞지만, 「경차」나 「대형 세단」을
+   *   찾는 손님에게는 너무 굵다. 실측 19종이 고르게 갈린다(준대형 세단 27% · 중형 SUV 13% …).
+   * ★원천 값을 그대로 쓴다 — 우리가 이름을 새로 지으면 그 순간 차종마스터와 갈린다.
+   */
+  vclass: (p, k) => String(p.vehicle_class || '').trim() === k,
+  /* 그 기간의 요금이 «있는가». 없는 기간으로는 계약이 안 된다(위 `TERM_LABEL` 머리말). */
+  term: (p, k) => priceList(p).some((x) => isOperatedPeriod(x.m) && TERM_LABEL(x.m) === k),
   maker: (p, k) => makerDisplay(p.maker) === k,
   year: (p, k) => yearFullDisplay(p.year) === k,
   fuel: (p, k) => (fuelDisplay(p.fuel_type) || String(p.fuel_type || '').trim()) === k,
@@ -264,6 +294,24 @@ export function runShopQuery(rows: EntityRecord[] | null, query: ShopQuery): Sho
 
   const facets: ShopFacets = {
     vc: fixedTally('vc', CUSTOMER_VEHICLE_CLASSES),
+    /*
+     * ★기간은 **짧은 것부터** 세운다 — 대수 순으로 세우면 48·36·24·60·12 처럼 뒤죽박죽이 되어
+     *   「기간」이라는 축으로 안 읽힌다. 숫자에는 손님이 이미 아는 순서가 있다.
+     * ⚠⚠ **표준 여섯(1·12·24·36·48·60)만 세우면 «단기가 사라진다».**
+     *   처음에 `PERIODS` 로 박았다가 **6개월 43대 · 18개월** 이 통째로 안 나왔다 —
+     *   그 축을 넣은 이유의 절반이 「단기를 찾을 길이 없다」였는데 정작 6개월을 빼먹은 것이다.
+     * ⇒ **데이터가 가진 기간을 그대로 세운다.** 원천이 새 기간을 주면 저절로 선다.
+     */
+    term: fixedTally('term', [...new Set(baseFor('term')
+      .flatMap((p) => priceList(p).filter((x) => isOperatedPeriod(x.m)).map((x) => x.m)))]
+      .sort((a, b) => a - b).map(TERM_LABEL)),
+    /*
+     * ★차급은 **대수 많은 순**이다. 「준대형 세단」이 27% 인데 이름 순으로 세우면 「경형 해치백」이
+     *   맨 위에 선다 — 손님이 열에 세 번 고를 것을 맨 밑에 두는 셈이다.
+     * ★열둘까지 — 제조사와 같은 규칙이다(스물을 세우면 그게 벽이다).
+     */
+    vclass: freeTally('vclass', (p) => String(p.vehicle_class || '').trim())
+      .sort((a, b) => b.count - a.count || a.key.localeCompare(b.key, 'ko')).slice(0, 12),
     credit: fixedTally('credit', CREDITS),
     perk: fixedTally('perk', CATALOG_PERKS),
     // 제조사는 대수 많은 순 열둘까지 — 스물을 세우면 그게 벽이다.
