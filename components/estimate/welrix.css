@@ -3078,6 +3078,1009 @@
   font-variant-numeric: tabular-nums slashed-zero;
 }
 
+/* -- 원본 src/components/mobile/MobileApp.vue 의 <style scoped> -- */
+
+.wx-root .m-shell{
+  display: flex; flex-direction: column;
+  min-height: 100vh;
+  background: var(--bg);
+}
+
+/* 헤더 — 상단 항상 고정 */
+.wx-root .m-header{
+  position: fixed; top: 0; left: 0; right: 0;
+  z-index: 20;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: calc(var(--safe-top) + 10px) 14px 10px;
+  background: var(--bg);
+  gap: 8px;
+}
+.wx-root .m-header__brand{
+  display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1;
+}
+.wx-root .m-ci{
+  height: 20px; width: auto;
+  object-fit: contain;
+  flex-shrink: 0;
+}
+.wx-root .m-ver{
+  flex-shrink: 0;
+  font-size: 10.5px; font-weight: var(--fw-semi);
+  color: var(--ink-4); letter-spacing: -0.2px;
+  padding: 2px 6px; border-radius: 5px;
+  background: var(--bg-soft);
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+.wx-root .m-title{
+  font-size: 12.5px; font-weight: 600; color: var(--ink-1);
+  letter-spacing: -0.3px; white-space: nowrap;
+  overflow: hidden; text-overflow: ellipsis;
+}
+.wx-root .m-header__actions{
+  display: flex; gap: 6px; flex-shrink: 0;
+}
+.wx-root .m-act{
+  display: inline-flex; align-items: center; gap: 5px;
+  height: var(--h-chip); padding: 0 6px;
+  background: transparent;
+  color: var(--brand);
+  border: 0;
+  font-family: inherit; font-size: var(--fs-md); font-weight: var(--fw-semi);
+  cursor: pointer; transition: opacity .12s;
+  letter-spacing: -0.2px;
+}
+.wx-root .m-act i{ font-size: 16px; }
+.wx-root .m-act:disabled{
+  color: var(--ink-4);
+  cursor: not-allowed;
+}
+.wx-root .m-act:not(:disabled):active{ opacity: 0.6; }
+
+.wx-root .m-progress{
+  display: flex; gap: 4px;
+  position: fixed; top: calc(var(--safe-top) + 56px); left: 0; right: 0;
+  padding: 0 14px 6px;
+  background: var(--bg);
+  z-index: 19;
+}
+.wx-root .m-progress__seg{
+  flex: 1; height: 3px;
+  background: var(--line);
+  border-radius: 2px;
+  transition: background .25s ease-out;
+}
+.wx-root .m-progress__seg.is-done{
+  background: var(--brand);
+}
+
+.wx-root .m-main{
+  flex: 1;
+  padding: calc(var(--safe-top) + 80px) 20px calc(var(--safe-bottom) + 220px);
+  overflow-y: auto;
+}
+
+.wx-root .m-footer{
+  position: fixed; bottom: 0; left: 0; right: 0;
+  display: flex; gap: 8px;
+  padding: 12px 16px calc(var(--safe-bottom) + 12px);
+  background: var(--bg);
+  z-index: 30;
+}
+.wx-root .m-btn{
+  height: var(--h-cta);
+  border: 0; border-radius: var(--r-card);
+  font-family: inherit; font-weight: 600;
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  transition: background .12s, opacity .12s;
+}
+.wx-root .m-btn i{ font-size: 18px; }
+.wx-root .m-btn--ghost{
+  flex: 0 0 96px;
+  background: var(--bg-soft);
+  color: var(--ink-2);
+  font-size: 14px;
+}
+.wx-root .m-btn--ghost:active{ background: var(--line-2); }
+.wx-root .m-btn--primary{
+  flex: 1;
+  background: var(--brand); color: #fff;
+  font-size: 16px;
+}
+.wx-root .m-btn--primary:not(:disabled):active{ background: var(--brand-700); }
+.wx-root .m-btn:disabled{ opacity: 0.4; cursor: not-allowed; }
+
+/* -- 원본 src/components/mobile/StepVehicle.vue 의 <style scoped> -- */
+
+.wx-root .sv{ padding-top: 4px; }
+.wx-root .sv-title{
+  font-size: 22px; font-weight: 700;
+  color: var(--ink-1); margin: 0 0 24px;
+  line-height: 1.35; letter-spacing: -0.5px;
+}
+
+/* breadcrumb */
+.wx-root .sv-crumbs{
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  margin-bottom: 18px;
+}
+.wx-root .sv-crumb{
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 0; border: 0; background: transparent;
+  color: var(--ink-2); font-weight: var(--fw-medium);
+  font-family: inherit; font-size: var(--fs-sm);
+  cursor: pointer;
+  letter-spacing: -0.2px;
+}
+.wx-root .sv-crumb img{ width: 14px; height: 14px; }
+.wx-root .sv-crumb:active{ color: var(--brand); }
+
+/* 시작 조건 — 수수료·보증금·선납금 3-up */
+.wx-root .sv-precond{
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+  margin-bottom: 20px;
+}
+.wx-root .sv-pc{ display: flex; flex-direction: column; gap: 6px; }
+.wx-root .sv-pc__lab{
+  font-size: var(--fs-sm); font-weight: var(--fw-semi); color: var(--ink-2);
+  letter-spacing: -0.2px;
+}
+.wx-root .sv-pc__in{
+  display: flex; align-items: baseline; gap: 3px;
+  height: var(--h-input);
+  padding: 0 10px;
+  background: var(--bg);
+  border: 1.5px solid var(--line);
+  border-radius: var(--r-chip);
+  transition: border-color .12s;
+}
+.wx-root .sv-pc__in:focus-within{ border-color: var(--brand); }
+.wx-root .sv-pc__in input{
+  flex: 1; min-width: 0; height: 100%;
+  border: 0; background: transparent;
+  font-family: inherit; font-size: var(--fs-lg);
+  color: var(--ink-1); outline: none;
+  font-variant-numeric: tabular-nums slashed-zero;
+  text-align: right; padding: 0;
+  -moz-appearance: textfield;
+}
+.wx-root .sv-pc__in input::-webkit-outer-spin-button, .wx-root .sv-pc__in input::-webkit-inner-spin-button{ -webkit-appearance: none; margin: 0; }
+.wx-root .sv-pc__in em{
+  font-style: normal; font-size: var(--fs-md);
+  color: var(--ink-4); flex-shrink: 0;
+}
+
+/* 제조사 카드 */
+.wx-root .sv-brand-grid{ display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+.wx-root .sv-brand-card{
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 10px; padding: 22px 8px;
+  background: var(--bg-soft);
+  border: 1.5px solid transparent;
+  border-radius: 14px;
+  font-family: inherit; cursor: pointer;
+  transition: transform .12s, border-color .12s, background .12s;
+}
+.wx-root .sv-brand-card img{ width: 38px; height: 38px; object-fit: contain; }
+.wx-root .sv-brand-card img[src*="genesis"]{ width: auto; height: 18px; max-width: 70px; }
+.wx-root .sv-brand-card__name{ font-size: 13.5px; font-weight: 600; color: var(--ink-1); }
+.wx-root .sv-brand-card:active{ transform: scale(0.97); }
+.wx-root .sv-brand-card.is-selected{ border-color: var(--brand); background: var(--brand-50); }
+
+.wx-root .sv-debug{
+  padding: 12px 14px;
+  background: #fff8e1;
+  border: 1px solid #f4d35e;
+  border-radius: 8px;
+  font-size: 12px; color: #936916;
+  margin-bottom: 12px;
+}
+
+/* 리스트 */
+.wx-root .sv-list{ display: flex; flex-direction: column; gap: 8px; }
+.wx-root .sv-row{
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 18px 16px;
+  background: var(--bg-soft);
+  border: 1.5px solid transparent;
+  border-radius: 12px;
+  font-family: inherit; cursor: pointer;
+  transition: background .12s, border-color .12s;
+}
+.wx-root .sv-row__label{ font-size: 16px; font-weight: 500; color: var(--ink-1); letter-spacing: -0.3px; }
+.wx-root .sv-row__chev{ font-size: 18px; color: var(--ink-4); }
+.wx-root .sv-row:active{ background: var(--brand-50); }
+.wx-root .sv-row.is-selected{ border-color: var(--brand); background: var(--brand-50); }
+
+/* 트림 카드 */
+.wx-root .sv-trim-card{
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 16px;
+  background: var(--bg-soft);
+  border: 1.5px solid transparent;
+  border-radius: 12px;
+  text-align: left;
+  font-family: inherit; cursor: pointer;
+}
+.wx-root .sv-trim-card__top{ display: flex; align-items: center; justify-content: space-between; }
+.wx-root .sv-trim-card__name{ font-size: 15px; font-weight: 600; color: var(--ink-1); letter-spacing: -0.3px; }
+.wx-root .sv-trim-card__check{ font-size: 20px; color: var(--brand); font-weight: 700; }
+.wx-root .sv-trim-card__price{
+  font-size: 15px; font-weight: 700; color: var(--brand);
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+.wx-root .sv-trim-card:active{ background: var(--brand-50); }
+.wx-root .sv-trim-card.is-selected{ border-color: var(--brand); background: var(--brand-50); }
+
+/* 옵션·색상 sub-step */
+.wx-root .sv-block{ margin-bottom: 22px; }
+.wx-root .sv-block__label{
+  display: flex; align-items: baseline; justify-content: space-between;
+  font-size: 13px; font-weight: 600; color: var(--ink-2);
+  margin-bottom: 10px; letter-spacing: -0.2px;
+}
+.wx-root .sv-block__hint{ font-size: 11.5px; color: var(--ink-3); font-weight: 400; }
+.wx-root .sv-block__val{
+  font-size: 13px; color: var(--brand); font-weight: 700;
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+
+/* 색상 grid — 외장/내장 공통 (swatch + 이름 + 가격) */
+.wx-root .sv-color-grid{
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px;
+}
+.wx-root .sv-color-card{
+  position: relative;
+  display: flex; flex-direction: column; align-items: center; gap: 6px;
+  padding: 12px 6px;
+  background: var(--bg-soft);
+  border: 1.5px solid transparent;
+  border-radius: 12px;
+  font-family: inherit; cursor: pointer;
+  transition: background .12s, border-color .12s;
+}
+.wx-root .sv-color-swatch{
+  width: 44px; height: 44px; border-radius: 50%;
+  border: 1px solid rgba(0,0,0,0.12);
+  box-shadow: inset 0 0 0 2px #fff;
+}
+.wx-root .sv-color-card.is-selected .sv-color-swatch{
+  box-shadow: inset 0 0 0 2px #fff, 0 0 0 2px var(--brand);
+}
+.wx-root .sv-color-name{
+  font-size: 11.5px; color: var(--ink-2); text-align: center;
+  line-height: 1.2; word-break: keep-all;
+}
+.wx-root .sv-color-card.is-selected .sv-color-name{ color: var(--brand); font-weight: 600; }
+.wx-root .sv-color-price{
+  font-size: 10px; color: var(--ink-4);
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+.wx-root .sv-color-card.is-selected{ border-color: var(--brand); background: var(--brand-50); }
+.wx-root .sv-color-check{
+  position: absolute; top: 6px; right: 8px;
+  font-size: 14px; color: var(--brand); font-weight: 700;
+}
+
+.wx-root .sv-empty{
+  padding: 18px; text-align: center;
+  background: var(--bg-soft);
+  border-radius: 10px;
+  color: var(--ink-4); font-size: 13px;
+}
+
+/* 할인 — 접힘 disclosure */
+.wx-root .sv-disclosure{
+  margin-top: 18px;
+  background: var(--bg-soft);
+  border-radius: var(--r-chip);
+  padding: 12px 14px;
+}
+.wx-root .sv-disclosure__summary{
+  display: flex; align-items: center; gap: 8px;
+  list-style: none;
+  cursor: pointer;
+  user-select: none;
+}
+.wx-root .sv-disclosure__summary::-webkit-details-marker{ display: none; }
+.wx-root .sv-disclosure__label{
+  font-size: 14px; font-weight: 600; color: var(--ink-1);
+}
+.wx-root .sv-disclosure__val{
+  font-size: 13px; color: var(--brand); font-weight: 700;
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+.wx-root .sv-disclosure__hint{
+  font-size: 11.5px; color: var(--ink-4);
+}
+.wx-root .sv-disclosure__caret{
+  margin-left: auto;
+  font-size: 16px; color: var(--ink-3);
+  transition: transform .15s;
+}
+.wx-root .sv-disclosure[open] .sv-disclosure__caret{ transform: rotate(180deg); }
+.wx-root .sv-disclosure[open] .sv-discount{ margin-top: 10px; }
+
+/* 할인 입력 */
+.wx-root .sv-discount{
+  display: flex; align-items: center; gap: 6px;
+  height: 46px;
+  padding: 0 14px;
+  background: var(--bg);
+  border: 1.5px solid var(--line);
+  border-radius: var(--r-chip);
+}
+.wx-root .sv-discount:focus-within{ border-color: var(--brand); }
+.wx-root .sv-discount__input{
+  flex: 1; min-width: 0;
+  height: 100%;
+  border: 0; background: transparent;
+  font-family: inherit; font-size: 15px;
+  color: var(--ink-1);
+  outline: none;
+  font-variant-numeric: tabular-nums slashed-zero;
+  text-align: right;
+  -moz-appearance: textfield;
+}
+.wx-root .sv-discount__input::-webkit-outer-spin-button, .wx-root .sv-discount__input::-webkit-inner-spin-button{ -webkit-appearance: none; margin: 0; }
+.wx-root .sv-discount__unit{ font-size: 13px; color: var(--ink-4); font-weight: 500; }
+.wx-root .sv-block__val{ font-size: 13px; color: var(--brand); font-weight: 700; font-variant-numeric: tabular-nums slashed-zero; }
+
+/* 옵션 카드 */
+.wx-root .sv-opts{ display: flex; flex-direction: column; gap: 8px; }
+.wx-root .sv-opt{
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 12px 14px;
+  background: var(--bg-soft);
+  border: 1.5px solid transparent;
+  border-radius: 10px;
+  text-align: left;
+  font-family: inherit; cursor: pointer;
+  transition: background .12s, border-color .12s, opacity .12s;
+}
+.wx-root .sv-opt__top{ display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.wx-root .sv-opt__name{ font-size: 14px; font-weight: 600; color: var(--ink-1); }
+.wx-root .sv-opt__price{
+  font-size: 13px; font-weight: 700; color: var(--brand);
+  font-variant-numeric: tabular-nums slashed-zero; flex-shrink: 0;
+}
+.wx-root .sv-opt__sub{ font-size: 11.5px; color: var(--ink-3); line-height: 1.4; }
+.wx-root .sv-opt__group{
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 10.5px; color: var(--ink-4); margin-top: 2px;
+}
+.wx-root .sv-opt__group i{ font-size: 12px; }
+.wx-root .sv-opt__req{
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 10.5px; color: #c62828; margin-top: 2px;
+}
+.wx-root .sv-opt:active{ background: var(--brand-50); }
+.wx-root .sv-opt.is-selected{
+  border-color: var(--brand); background: var(--brand-50);
+}
+.wx-root .sv-opt.is-disabled{
+  opacity: 0.55; cursor: not-allowed;
+}
+
+/* 가격 합산 카드 */
+.wx-root .sv-total{
+  margin-top: 28px;
+  padding: 14px 16px;
+  background: var(--brand-50);
+  border-radius: 12px;
+}
+.wx-root .sv-total__row{
+  display: flex; justify-content: space-between;
+  font-size: 13px; color: var(--ink-2);
+  font-variant-numeric: tabular-nums slashed-zero;
+  padding: 3px 0;
+}
+.wx-root .sv-total__row--total{
+  border-top: 1px solid rgba(13,78,139,0.2);
+  margin-top: 6px; padding-top: 8px;
+  font-size: 15px; color: var(--brand); font-weight: 700;
+}
+
+/* -- 원본 src/components/mobile/StepConditions.vue 의 <style scoped> -- */
+
+.wx-root .sc-title{
+  font-size: var(--fs-2xl); font-weight: var(--fw-bold);
+  color: var(--ink-1); margin: 0 0 24px;
+  line-height: 1.35; letter-spacing: -0.5px;
+}
+.wx-root .sc-field{ margin-bottom: 22px; }
+.wx-root .sc-label{
+  display: flex; align-items: baseline; justify-content: space-between;
+  font-size: var(--fs-md); font-weight: var(--fw-semi); color: var(--ink-2);
+  margin-bottom: 10px; letter-spacing: -0.2px;
+}
+.wx-root .sc-label__hint{
+  font-size: var(--fs-xs); color: var(--ink-4); font-weight: var(--fw-regular);
+}
+.wx-root .sc-chips{
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+.wx-root .sc-note{
+  margin: 4px 0 0; padding: 12px 14px;
+  background: var(--bg-soft); border-radius: var(--r-chip);
+  font-size: var(--fs-sm); color: var(--ink-3); line-height: 1.5;
+  letter-spacing: -0.2px;
+}
+.wx-root .sc-note b{ color: var(--ink-2); font-weight: var(--fw-semi); }
+.wx-root .sc-note__cur{
+  display: block; margin-top: 4px;
+  font-variant-numeric: tabular-nums slashed-zero; color: var(--ink-2);
+}
+.wx-root .sc-chip{
+  padding: 10px 14px;
+  background: var(--bg-soft);
+  border: 1.5px solid transparent;
+  border-radius: var(--r-chip);
+  font-family: inherit; font-size: var(--fs-base); font-weight: var(--fw-medium);
+  color: var(--ink-2);
+  cursor: pointer;
+  transition: background .12s, color .12s, border-color .12s;
+}
+.wx-root .sc-chip:active{ background: var(--brand-50); }
+.wx-root .sc-chip.is-selected{
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+}
+
+/* 보증금/선납금/수수료 — 직접 입력 */
+.wx-root .sc-pct{
+  display: flex; align-items: baseline; gap: 4px;
+  height: var(--h-input);
+  padding: 0 14px;
+  background: var(--bg);
+  border: 1.5px solid var(--line);
+  border-radius: var(--r-chip);
+  transition: border-color .12s;
+}
+.wx-root .sc-pct:focus-within{ border-color: var(--brand); }
+.wx-root .sc-pct input{
+  flex: 1; min-width: 0;
+  height: 100%;
+  border: 0; background: transparent;
+  font-family: inherit; font-size: var(--fs-lg);
+  color: var(--ink-1);
+  outline: none;
+  font-variant-numeric: tabular-nums slashed-zero;
+  text-align: right;
+  padding: 0;
+  -moz-appearance: textfield;
+}
+.wx-root .sc-pct input::-webkit-outer-spin-button, .wx-root .sc-pct input::-webkit-inner-spin-button{ -webkit-appearance: none; margin: 0; }
+.wx-root .sc-pct em{
+  font-style: normal; font-size: var(--fs-md);
+  color: var(--ink-4); flex-shrink: 0;
+}
+
+/* -- 원본 src/components/mobile/StepExtras.vue 의 <style scoped> -- */
+
+.wx-root .se-title{
+  font-size: 22px; font-weight: 700;
+  color: var(--ink-1); margin: 0 0 24px;
+  line-height: 1.35; letter-spacing: -0.5px;
+}
+.wx-root .se-divider{
+  height: 1px; background: var(--line);
+  margin: 18px 0;
+}
+.wx-root .se-field{ margin-bottom: 22px; }
+.wx-root .se-label{
+  display: flex; align-items: baseline; justify-content: space-between;
+  font-size: 13px; font-weight: 600; color: var(--ink-2);
+  margin-bottom: 10px; letter-spacing: -0.2px;
+}
+.wx-root .se-label__val{
+  font-size: 13px; color: var(--brand); font-weight: 700;
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+
+/* chip 카드 (케어) */
+.wx-root .se-cards{ display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.wx-root .se-card{
+  display: flex; flex-direction: column; gap: 4px;
+  padding: 14px;
+  background: var(--bg-soft);
+  border: 1.5px solid transparent;
+  border-radius: 12px;
+  text-align: left;
+  font-family: inherit; cursor: pointer;
+}
+.wx-root .se-card__label{ font-size: 15px; font-weight: 600; color: var(--ink-1); }
+.wx-root .se-card__sub{ font-size: 12px; color: var(--ink-3); }
+.wx-root .se-card:active{ background: var(--brand-50); }
+.wx-root .se-card.is-selected{ border-color: var(--brand); background: var(--brand-50); }
+.wx-root .se-card.is-selected .se-card__label{ color: var(--brand); }
+
+/* chip (보험/운전자) */
+.wx-root .se-chips{ display: flex; flex-wrap: wrap; gap: 6px; }
+.wx-root .se-chip{
+  padding: 10px 14px;
+  background: var(--bg-soft);
+  border: 1.5px solid transparent;
+  border-radius: 10px;
+  font-family: inherit; font-size: 14px; font-weight: 500;
+  color: var(--ink-2); cursor: pointer;
+}
+.wx-root .se-chip:active{ background: var(--brand-50); }
+.wx-root .se-chip.is-selected{
+  background: var(--brand); border-color: var(--brand); color: #fff;
+}
+
+/* native select — 모바일 친화 (iOS/Android picker) */
+.wx-root .se-row{ display: flex; gap: 8px; }
+.wx-root .se-row .se-select{ flex: 1; }
+.wx-root .se-select{
+  width: 100%;
+  height: 46px;
+  padding: 0 32px 0 14px;
+  background: var(--bg);
+  border: 1.5px solid var(--line);
+  border-radius: 10px;
+  font-family: inherit; font-size: 15px;
+  color: var(--ink-1);
+  cursor: pointer;
+  appearance: none; -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12' fill='none' stroke='%23737373' stroke-width='1.5' stroke-linecap='round'><polyline points='3 5 6 8 9 5'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  background-size: 14px;
+}
+.wx-root .se-select:focus{ border-color: var(--brand); outline: none; }
+.wx-root .se-select:disabled{ background-color: var(--bg-soft); color: var(--ink-4); cursor: not-allowed; }
+
+/* 추가 할인 input */
+.wx-root .se-discount{
+  display: flex; align-items: center; gap: 6px;
+  height: 46px;
+  padding: 0 14px;
+  background: var(--bg);
+  border: 1.5px solid var(--line);
+  border-radius: var(--r-chip);
+}
+.wx-root .se-discount:focus-within{ border-color: var(--brand); }
+.wx-root .se-discount__input{
+  flex: 1; min-width: 0;
+  height: 100%;
+  border: 0; background: transparent;
+  font-family: inherit; font-size: 15px;
+  color: var(--ink-1);
+  outline: none;
+  font-variant-numeric: tabular-nums slashed-zero;
+  text-align: right;
+  -moz-appearance: textfield;
+}
+.wx-root .se-discount__input::-webkit-outer-spin-button, .wx-root .se-discount__input::-webkit-inner-spin-button{ -webkit-appearance: none; margin: 0; }
+.wx-root .se-discount__unit{
+  font-size: 13px; color: var(--ink-4); font-weight: 500;
+}
+
+/* 선팅 부위 grid */
+.wx-root .se-tint-areas{
+  display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+  margin-top: 10px;
+}
+.wx-root .se-tint-area{
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  padding: 10px 12px;
+  background: var(--bg-soft);
+  border: 1.5px solid transparent;
+  border-radius: 10px;
+  font-family: inherit; cursor: pointer;
+}
+.wx-root .se-tint-area__label{ font-size: 13px; font-weight: 500; color: var(--ink-1); }
+.wx-root .se-tint-area__price{
+  font-size: 11px; color: var(--ink-4);
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+.wx-root .se-tint-area:active{ background: var(--brand-50); }
+.wx-root .se-tint-area.is-selected{
+  border-color: var(--brand); background: var(--brand-50);
+}
+.wx-root .se-tint-area.is-selected .se-tint-area__label{ color: var(--brand); }
+
+/* -- 원본 src/components/mobile/StickyQuote.vue 의 <style scoped> -- */
+
+.wx-root .sq{
+  position: fixed; bottom: 78px; left: 0; right: 0;
+  background: var(--bg);
+  border-top: 1px solid var(--line);
+  border-radius: var(--r-sheet) var(--r-sheet) 0 0;
+  box-shadow: 0 -4px 16px rgba(0,0,0,0.06);
+  padding-bottom: 8px;
+  z-index: 25;
+  transition: max-height .25s;
+  max-height: 175px;
+  overflow: hidden;
+}
+.wx-root .sq--expanded{
+  max-height: 75vh; overflow-y: auto;
+}
+
+.wx-root .sq-summary{
+  display: flex; flex-direction: column; align-items: stretch;
+  padding: 6px 20px 8px;
+  cursor: pointer;
+  user-select: none;
+}
+.wx-root .sq-summary__bar{
+  align-self: center;
+  width: 38px; height: 4px;
+  background: var(--line-2);
+  border-radius: 2px;
+  margin-bottom: 6px;
+}
+.wx-root .sq-summary__row{
+  display: flex; align-items: center; justify-content: space-between;
+}
+.wx-root .sq-summary__label{
+  display: flex; align-items: baseline; gap: 6px;
+  font-size: 11.5px; color: var(--ink-3); font-weight: 500;
+}
+.wx-root .sq-summary__hint{ font-size: 10px; color: var(--ink-4); }
+.wx-root .sq-summary__caret{ font-size: 16px; color: var(--ink-3); }
+
+/* 기간 카드 grid — 항상 표시 */
+.wx-root .sq-terms{
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;
+  padding: 0 16px 6px;
+}
+.wx-root .sq-term-card{
+  position: relative;
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+  padding: 8px 6px;
+  background: var(--bg-soft);
+  border: 1.5px solid transparent;
+  border-radius: var(--r-card);
+  font-family: inherit;
+  transition: background .12s, border-color .12s;
+}
+.wx-root .sq-term-card.is-checked{
+  border-color: var(--brand);
+  background: var(--brand-50);
+}
+.wx-root .sq-term-card__check-btn{
+  position: absolute; top: 4px; right: 4px;
+  width: 22px; height: 22px;
+  background: transparent; border: 0; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--ink-4);
+  font-size: 16px;
+}
+.wx-root .sq-term-card.is-checked .sq-term-card__check-btn{ color: var(--brand); }
+.wx-root .sq-term-card__term{
+  font-size: 11px; color: var(--ink-3); font-weight: 500;
+}
+.wx-root .sq-term-card.is-checked .sq-term-card__term{ color: var(--brand); }
+/* 펼침 표 헤더 — 기간 변경 select */
+.wx-root .sq-table__term-select{
+  appearance: none; -webkit-appearance: none;
+  background: transparent; border: 0;
+  font-family: inherit;
+  font-size: 11.5px; font-weight: 600; color: var(--ink-1);
+  text-align: center; text-align-last: center;
+  padding: 0 2px;
+  cursor: pointer;
+  outline: none;
+  width: 100%;
+}
+.wx-root .sq-table__term-select:focus{ color: var(--brand); }
+.wx-root .sq-table thead th.is-dim .sq-table__term-select{ color: var(--ink-4); }
+.wx-root .sq-term-card__monthly{
+  font-size: 15px; font-weight: 700; color: var(--ink-1);
+  font-variant-numeric: tabular-nums slashed-zero;
+  letter-spacing: -0.4px;
+}
+.wx-root .sq-term-card__monthly em{
+  font-style: normal; font-size: 10px; color: var(--ink-3);
+  font-weight: 500;
+  margin-left: 1px;
+}
+.wx-root .sq-term-card.is-checked .sq-term-card__monthly{ color: var(--brand); }
+
+/* 펼침: 보증금/선납금 % 입력 */
+.wx-root .sq-pct-cell{
+  display: inline-flex; align-items: center; gap: 1px;
+}
+.wx-root .sq-pct-input{
+  width: 32px; height: 22px;
+  border: 1px solid var(--line-2); border-radius: var(--radius-sm);
+  background: var(--bg);
+  font-family: inherit;
+  font-size: 11px; color: var(--ink-1); font-weight: 600;
+  text-align: center;
+  font-variant-numeric: tabular-nums slashed-zero;
+  outline: none;
+  padding: 0 2px;
+}
+.wx-root .sq-pct-input:focus{ border-color: var(--brand); }
+/* 숫자 input 화살표 제거 */
+.wx-root .sq-pct-input::-webkit-outer-spin-button, .wx-root .sq-pct-input::-webkit-inner-spin-button{ -webkit-appearance: none; margin: 0; }
+.wx-root .sq-pct-input{ -moz-appearance: textfield; }
+
+.wx-root .sq-empty{
+  padding: 20px 16px;
+  text-align: center;
+  color: var(--ink-4); font-size: 13px;
+}
+
+/* 펼침 표 — PC 견적표 형태 */
+.wx-root .sq-detail{
+  border-top: 1px solid var(--line);
+  padding: 12px 16px;
+}
+.wx-root .sq-table{
+  width: 100%; border-collapse: collapse;
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums slashed-zero;
+  margin-bottom: 12px;
+}
+.wx-root .sq-table th, .wx-root .sq-table td{
+  padding: 7px 4px;
+  text-align: center;
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+  line-height: 1.3;
+}
+.wx-root .sq-table thead th{
+  background: var(--bg-soft);
+  font-weight: 600; color: var(--ink-1);
+  font-size: 11.5px;
+  border-bottom: 1.5px solid var(--brand);
+}
+.wx-root .sq-table__rowlabel{
+  text-align: left !important;
+  color: var(--ink-3); font-weight: 500;
+  font-size: 11px;
+  background: var(--bg-soft);
+  width: 60px;
+  padding-left: 8px !important;
+}
+.wx-root .sq-table small{
+  font-size: 10px; color: var(--ink-3); font-weight: 400;
+}
+.wx-root .sq-table tbody tr:last-child th, .wx-root .sq-table tbody tr:last-child td{
+  border-bottom: 0;
+}
+.wx-root .sq-table thead th.is-dim{
+  color: var(--ink-4);
+  opacity: 0.5;
+}
+.wx-root .sq-table__discount{
+  color: var(--brand); font-weight: var(--fw-semi);
+}
+.wx-root .sq-table__monthly-row td{
+  background: var(--brand-50);
+}
+.wx-root .sq-table__monthly b{
+  font-size: 13px; font-weight: 700; color: var(--brand);
+  letter-spacing: -0.3px;
+}
+.wx-root .sq-table__monthly small{
+  font-size: 10px; color: var(--ink-3); font-weight: 400;
+  margin-left: 2px;
+}
+
+/* 메타 */
+.wx-root .sq-meta{ padding-top: 4px; }
+.wx-root .sq-meta__row{
+  display: flex; justify-content: space-between;
+  padding: 5px 0;
+  font-size: 12.5px;
+}
+.wx-root .sq-meta__key{ color: var(--ink-3); }
+.wx-root .sq-meta__val{
+  color: var(--ink-1); font-weight: 500;
+  font-variant-numeric: tabular-nums slashed-zero;
+  text-align: right;
+  max-width: 65%;
+}
+
+/* -- 원본 src/components/mobile/SendSheet.vue 의 <style scoped> -- */
+
+.wx-root .ss-backdrop{
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.4);
+  display: flex; align-items: flex-end;
+  z-index: 100;
+  animation: ssFadeIn .2s ease-out;
+}
+@keyframes ssFadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+.wx-root .ss-sheet{
+  width: 100%;
+  background: var(--bg);
+  border-radius: var(--r-sheet) var(--r-sheet) 0 0;
+  padding: 0 20px calc(var(--safe-bottom) + 20px);
+  max-height: 85vh;
+  overflow-y: auto;
+  animation: ssSlideUp .25s ease-out;
+}
+@keyframes ssSlideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+.wx-root .ss-handle{
+  display: flex; align-items: center; justify-content: center;
+  width: 100%; height: 28px;
+  border: 0; background: transparent;
+  cursor: pointer;
+}
+.wx-root .ss-handle__bar{
+  width: 38px; height: 4px;
+  background: var(--line-2);
+  border-radius: 2px;
+}
+
+.wx-root .ss-title{
+  font-size: var(--fs-xl); font-weight: var(--fw-bold);
+  color: var(--ink-1);
+  letter-spacing: -0.3px;
+  margin: 0 0 18px;
+}
+
+/* CI 제외 — iOS 스타일 토글 switch row */
+.wx-root .ss-ci{
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 16px;
+  margin-top: 8px;
+  background: var(--bg-soft);
+  border-radius: var(--r-card);
+  cursor: pointer;
+  position: relative;
+}
+.wx-root .ss-ci__left{ flex: 1; min-width: 0; }
+.wx-root .ss-ci__label{
+  font-size: var(--fs-lg); font-weight: var(--fw-semi);
+  color: var(--ink-1); letter-spacing: -0.3px;
+}
+.wx-root .ss-ci__hint{
+  font-size: var(--fs-xs); color: var(--ink-3);
+  margin-top: 2px;
+}
+.wx-root .ss-ci__input{
+  position: absolute; opacity: 0; pointer-events: none;
+}
+.wx-root .ss-ci__switch{
+  flex-shrink: 0;
+  position: relative;
+  width: 52px; height: 30px;
+  background: var(--line-2);
+  border-radius: 999px;
+  transition: background .2s;
+}
+.wx-root .ss-ci__switch::after{
+  content: '';
+  position: absolute;
+  left: 3px; top: 3px;
+  width: 24px; height: 24px;
+  background: #fff;
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+  transition: transform .2s;
+}
+.wx-root .ss-ci__input:checked ~ .ss-ci__switch{
+  background: var(--brand);
+}
+.wx-root .ss-ci__input:checked ~ .ss-ci__switch::after{
+  transform: translateX(22px);
+}
+
+.wx-root .ss-field{ margin-bottom: 14px; }
+.wx-root .ss-label{
+  display: block;
+  font-size: var(--fs-sm); color: var(--ink-3); font-weight: var(--fw-medium);
+  margin-bottom: 6px;
+}
+
+/* 담당자 정보 — collapsed 뷰 */
+.wx-root .ss-staff{
+  padding: 12px 14px;
+  background: var(--bg-soft);
+  border-radius: var(--r-chip);
+  margin-bottom: 14px;
+}
+.wx-root .ss-staff__row{
+  display: flex; align-items: center; gap: 6px;
+  font-size: var(--fs-md); color: var(--ink-2);
+}
+.wx-root .ss-staff__row i{ font-size: 18px; color: var(--ink-3); }
+.wx-root .ss-staff__name{ font-weight: var(--fw-semi); color: var(--ink-1); }
+.wx-root .ss-staff__sep{ color: var(--ink-4); }
+.wx-root .ss-staff__tel{ font-variant-numeric: tabular-nums slashed-zero; }
+.wx-root .ss-staff__edit{
+  margin-left: auto;
+  background: transparent; border: 0;
+  color: var(--brand); font-weight: var(--fw-semi);
+  font-size: var(--fs-md); font-family: inherit;
+  cursor: pointer;
+}
+/* 담당자 — editing 뷰 */
+.wx-root .ss-staff-edit{
+  padding: 14px;
+  background: var(--bg-soft);
+  border-radius: var(--r-chip);
+  margin-bottom: 14px;
+}
+.wx-root .ss-staff-edit__title{
+  font-size: var(--fs-sm); color: var(--ink-3); font-weight: var(--fw-medium);
+  margin-bottom: 10px;
+}
+.wx-root .ss-staff__done{
+  width: 100%; height: 40px;
+  background: var(--brand); color: #fff;
+  border: 0; border-radius: var(--r-chip);
+  font-family: inherit; font-size: var(--fs-md); font-weight: var(--fw-semi);
+  cursor: pointer; margin-top: 4px;
+}
+.wx-root .ss-input{
+  width: 100%;
+  height: var(--h-input);
+  padding: 0 14px;
+  border: 1.5px solid var(--line);
+  border-radius: var(--r-chip);
+  background: var(--bg);
+  font-family: inherit; font-size: var(--fs-lg);
+  color: var(--ink-1);
+  outline: none;
+}
+.wx-root .ss-input:focus{ border-color: var(--brand); }
+
+.wx-root .ss-actions{ display: flex; flex-direction: column; gap: 8px; margin-top: 20px; }
+.wx-root .ss-actions-row{ display: flex; gap: 8px; }
+.wx-root .ss-actions-row .ss-action{ flex: 1; }
+.wx-root .ss-action{
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  height: var(--h-cta);
+  border: 1.5px solid var(--line);
+  border-radius: var(--r-card);
+  background: var(--bg);
+  font-family: inherit; font-size: var(--fs-lg); font-weight: var(--fw-semi);
+  color: var(--ink-1); cursor: pointer;
+  transition: background .12s, border-color .12s;
+}
+.wx-root .ss-action i{ font-size: 18px; }
+.wx-root .ss-action:active{ background: var(--bg-soft); }
+.wx-root .ss-action--primary{
+  background: var(--brand); color: #fff; border-color: var(--brand);
+}
+.wx-root .ss-action--primary:active{ background: var(--brand-700); }
+.wx-root .ss-action--ghost{
+  font-size: var(--fs-md);
+  color: var(--ink-2);
+  background: var(--bg-soft);
+  border-color: transparent;
+}
+.wx-root .ss-action--ghost:active{ background: var(--line); }
+.wx-root .ss-action:disabled{ opacity: 0.5; cursor: not-allowed; }
+
+.wx-root .ss-link{
+  padding: 12px 14px;
+  background: var(--brand-50);
+  border-radius: var(--r-chip);
+  margin-top: 12px;
+}
+.wx-root .ss-link__label{
+  font-size: var(--fs-sm); color: var(--ink-3); font-weight: var(--fw-medium);
+  margin-bottom: 4px;
+}
+.wx-root .ss-link__url{
+  font-size: var(--fs-md); color: var(--brand); font-weight: var(--fw-medium);
+  word-break: break-all;
+  font-family: ui-monospace, Menlo, monospace;
+}
+.wx-root .ss-error{
+  padding: 10px 14px;
+  background: var(--bg-soft);
+  color: var(--ink-1);
+  border: 1px solid var(--line-2);
+  border-radius: var(--r-chip);
+  font-size: var(--fs-md);
+  margin-top: 12px;
+}
+
 
 /* ══ 프리패스 덧칠 — 원본을 «고치지 않고» 우리 껍데기에 맞추는 것만 ══════════ */
 /* ★머리 띠가 없다 — 화면 전부가 이 판이다(사장님 2026-09-08 「상단바 없고 그냥 이거 자체가
@@ -3367,3 +4370,32 @@
 .wx-root .pnl-tabs { display: flex; gap: 4px; padding: 10px 0 4px; }
 .wx-root .pnl-tabs button { flex: 1; height: 28px; border: 1px solid var(--line-2); background: #fff; border-radius: var(--r-sm); font-size: 11.5px; font-family: inherit; color: var(--ink-3); cursor: pointer; }
 .wx-root .pnl-tabs button.on { border-color: var(--brand); background: var(--brand-50); color: var(--brand); font-weight: 600; }
+
+/* == 폰 마법사 껍데기 맞추기 ================================================
+   원본 폰은 «별도 앱»이라 제 몸(.m-shell)이 문서 전체였다. 우리 견적기는 한 페이지라
+   .wx-root 가 이미 «100vh 격자»다 — 그대로 얹으면 머리가 본문을 덮는다(2026-09-09 실측).
+   => 마법사 쪽에서만 격자를 푼다. 데스크톱(.est-root)은 한 픽셀도 안 건드린다. */
+.wx-root.est-root--wiz {
+  display: block; height: auto; min-height: 100vh; overflow: visible;
+  /* 원본 폰 토큰 — index.html 에 없어서 안 따라왔다(--safe-* 는 노치, --h-cta 는 큰 단추). */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --r-sheet: 16px;
+  --h-cta: 48px;
+}
+/* 우리 폰에는 **하단 홈바(찾기·검색·설정)가 남는다** — /estimate 는 상단바만 벗는다
+   (CLAUDE.md · lib/guest-surface). 원본에 없던 것이라 그 높이만큼 들어 올린다.
+   안 올리면 「이전·다음」이 홈바 밑에 깔려 **안 눌린다**(2026-09-09 실측). */
+.wx-root.est-root--wiz .m-footer { bottom: var(--fp-bar-h, 56px); }
+.wx-root.est-root--wiz .sq { bottom: calc(var(--fp-bar-h, 56px) + 72px); }
+.wx-root.est-root--wiz .m-main {
+  padding-bottom: calc(var(--safe-bottom) + var(--fp-bar-h, 56px) + 260px);
+}
+/* 머리 왼쪽은 «지금 무엇을 고르는가»뿐이다 — 노브랜드라 마크가 없다. */
+.wx-root.est-root--wiz .m-step-label { font-size: 15px; font-weight: 700; color: var(--ink-1); }
+/* 마법사 안에서는 데스크톱 칸 제목을 안 쓴다 — 쪽마다 제목이 sv-title 하나다. */
+.wx-root.est-root--wiz .sv--fields .step-title { display: none; }
+.wx-root.est-root--wiz .sv--fields > section { padding: 0; }
+.wx-root.est-root--wiz .sv--fields .vfields { display: grid; gap: 12px; }
+/* 기간 칸은 폰에서 위아래로 — 원본 데스크톱 격자(.qgrid)를 한 줄로 편다. */
+.wx-root.est-root--wiz .sv--wide .qgrid { grid-template-columns: 1fr; }

@@ -88,7 +88,18 @@ def walk(s, in_keyframes=False):
 
 # 컴포넌트 안에만 있던 <style scoped> 도 같이 뜬다 — index.html 에 없어서 안 뜨면
 # `.cs-form`(손님·담당자 줄)·`.ref-pct`(기본견적 % 글씨)가 «맨몸»으로 서게 된다.
-SFC = ['src/components/CustomerStaffForm.vue', 'src/components/ReferenceGrid.vue']
+SFC = ['src/components/CustomerStaffForm.vue', 'src/components/ReferenceGrid.vue',
+# ★★폰 마법사 — 사장님 2026-09-09 「그래서 **모바일에서는 이거를 다음 다음 다음** 이렇게 하게
+#   만들었잖아 **직관적으로**. **웰릭스 테이블에 이미 있는 내용**이고」.
+#   맞다. 원본은 폰을 «따로» 짰다(`src/components/mobile/`) — 여덟 쪽 마법사다.
+#   ⚠ 2026-09-08 에 나는 사장님 「모바일 버전은 다음다음 하게 해놨어」를 «미룬다»는 뜻으로 읽었다.
+#     그게 아니라 «이미 그렇게 만들어 놨다»는 말씀이었다. 그래서 폰이 여태 데스크톱을 눌러 담은 꼴이었다.
+       'src/components/mobile/MobileApp.vue',
+       'src/components/mobile/StepVehicle.vue',
+       'src/components/mobile/StepConditions.vue',
+       'src/components/mobile/StepExtras.vue',
+       'src/components/mobile/StickyQuote.vue',
+       'src/components/mobile/SendSheet.vue']
 for rel in SFC:
     v = io.open('C:/dev/welrixtable/' + rel, encoding='utf-8').read()
     for m in re.findall(r'<style[^>]*>(.*?)</style>', v, re.S):
@@ -404,6 +415,35 @@ tail = """
 .wx-root .pnl-tabs { display: flex; gap: 4px; padding: 10px 0 4px; }
 .wx-root .pnl-tabs button { flex: 1; height: 28px; border: 1px solid var(--line-2); background: #fff; border-radius: var(--r-sm); font-size: 11.5px; font-family: inherit; color: var(--ink-3); cursor: pointer; }
 .wx-root .pnl-tabs button.on { border-color: var(--brand); background: var(--brand-50); color: var(--brand); font-weight: 600; }
+
+/* == 폰 마법사 껍데기 맞추기 ================================================
+   원본 폰은 «별도 앱»이라 제 몸(.m-shell)이 문서 전체였다. 우리 견적기는 한 페이지라
+   .wx-root 가 이미 «100vh 격자»다 — 그대로 얹으면 머리가 본문을 덮는다(2026-09-09 실측).
+   => 마법사 쪽에서만 격자를 푼다. 데스크톱(.est-root)은 한 픽셀도 안 건드린다. */
+.wx-root.est-root--wiz {
+  display: block; height: auto; min-height: 100vh; overflow: visible;
+  /* 원본 폰 토큰 — index.html 에 없어서 안 따라왔다(--safe-* 는 노치, --h-cta 는 큰 단추). */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --r-sheet: 16px;
+  --h-cta: 48px;
+}
+/* 우리 폰에는 **하단 홈바(찾기·검색·설정)가 남는다** — /estimate 는 상단바만 벗는다
+   (CLAUDE.md · lib/guest-surface). 원본에 없던 것이라 그 높이만큼 들어 올린다.
+   안 올리면 「이전·다음」이 홈바 밑에 깔려 **안 눌린다**(2026-09-09 실측). */
+.wx-root.est-root--wiz .m-footer { bottom: var(--fp-bar-h, 56px); }
+.wx-root.est-root--wiz .sq { bottom: calc(var(--fp-bar-h, 56px) + 72px); }
+.wx-root.est-root--wiz .m-main {
+  padding-bottom: calc(var(--safe-bottom) + var(--fp-bar-h, 56px) + 260px);
+}
+/* 머리 왼쪽은 «지금 무엇을 고르는가»뿐이다 — 노브랜드라 마크가 없다. */
+.wx-root.est-root--wiz .m-step-label { font-size: 15px; font-weight: 700; color: var(--ink-1); }
+/* 마법사 안에서는 데스크톱 칸 제목을 안 쓴다 — 쪽마다 제목이 sv-title 하나다. */
+.wx-root.est-root--wiz .sv--fields .step-title { display: none; }
+.wx-root.est-root--wiz .sv--fields > section { padding: 0; }
+.wx-root.est-root--wiz .sv--fields .vfields { display: grid; gap: 12px; }
+/* 기간 칸은 폰에서 위아래로 — 원본 데스크톱 격자(.qgrid)를 한 줄로 편다. */
+.wx-root.est-root--wiz .sv--wide .qgrid { grid-template-columns: 1fr; }
 """
 io.open('components/estimate/welrix.css', 'w', encoding='utf-8', newline='\n').write(head + out + tail)
 print('원본 CSS', len(css), '자 →', len(out), '자')

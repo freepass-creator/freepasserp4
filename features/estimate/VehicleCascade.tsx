@@ -20,13 +20,43 @@
  * ⚠ 트림까지 고르면 **그 자리에서** 위로 올려 보낸다(`onPick`). 「확인」 단추를 따로 두지 않는다 —
  *   원본도 고르는 즉시 반영한다. 누르는 걸음이 하나 늘면 그만큼 통화 중에 느려진다.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   loadCarIndex, loadNewModels, pickUsed, pickNew, guessCc, koModel,
   type CarIndex, type CarEntry, type NewModel, type NewTrim, type PickedCar,
 } from '@/lib/domain/estimate/car-index';
 
-type Props = { mode: 'used' | 'new'; picked: PickedCar; onPick: (car: PickedCar) => void };
+/** 폰 마법사가 «한 번에 한 걸음»만 그릴 때 쓰는 걸음 이름 — 원본 `VEHICLE_SUB_STEPS` 와 같다. */
+export type CarStep = 'brand' | 'model' | 'variant' | 'trim';
+export const CAR_STEPS: CarStep[] = ['brand', 'model', 'variant', 'trim'];
+
+type Props = {
+  mode: 'used' | 'new'; picked: PickedCar; onPick: (car: PickedCar) => void;
+  /**
+   * ★★폰은 «다음 다음 다음»이다 — 사장님 2026-09-09
+   *   「모바일에서는 이거를 **다음 다음 다음** 이렇게 하게 만들었잖아 **직관적으로**.
+   *    **웰릭스 테이블에 이미 있는 내용**이고」.
+   *   원본 `src/components/mobile/StepVehicle.vue` 는 걸음마다 «한 쪽»을 꽉 채워 그리고,
+   *   고르면 **바로 다음 쪽으로 넘어간다**(누르는 걸음이 하나 준다).
+   * ⇒ 걸음 상태는 «밖»(마법사 껍데기)이 쥔다 — 진행 막대·이전/다음 단추가 같은 값을 봐야 하기 때문이다.
+   * ⚠ 데이터를 뽑는 셈(제조사·모델·파워트레인·트림)은 **여기 한 곳**이다. 폰이 따로 세면 어긋난다.
+   */
+  wizard?: {
+    step: CarStep;
+    /**
+     * ⚠⚠ 차 걸음이 «아닐» 때도 이 조각은 **붙어 있어야 한다**(그리지만 않는다).
+     *   2026-09-09 실측 — 트림을 고르면 껍데기가 바로 다음 쪽으로 넘어가면서 이 조각이 떨어져 나갔고,
+     *   그래서 «고른 차를 위로 올리는» 효과(`onPick`)가 **한 번도 안 돌았다.**
+     *   색상은 규격색으로 뜨고, 옵션은 「트림을 먼저 고르면」이라 하고, 기간 칸은 전부 「—원」이었다.
+     *   ⇒ 떼지 말고 «감춘다». 붙어 있어야 효과가 돈다.
+     */
+    hidden?: boolean;
+    /** 그 걸음에서 하나 골랐다 — 껍데기가 다음 쪽으로 넘긴다. */
+    onPicked: (step: CarStep) => void;
+    /** 걸음마다 «고를 것이 있나 · 골랐나»를 껍데기에 알린다(다음 단추를 켜고 끄는 데 쓴다). */
+    onState: (s: { step: CarStep; count: number; chosen: boolean }) => void;
+  };
+};
 
 /**
  * 한 걸음 = `<section id>` + 라벨 + **한 줄 드롭다운**.
@@ -63,7 +93,7 @@ function Step({ id, label, value, options, disabled, current, empty, onChange }:
   );
 }
 
-export default function VehicleCascade({ mode, picked, onPick }: Props) {
+export default function VehicleCascade({ mode, picked, onPick, wizard }: Props) {
   const [index, setIndex] = useState<CarIndex | null>(null);
   const [models, setModels] = useState<NewModel[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -90,7 +120,9 @@ export default function VehicleCascade({ mode, picked, onPick }: Props) {
   useEffect(() => { setMaker(''); setModel(''); setVariant(''); setTrim(''); }, [mode]);
 
   const cars = index?.cars ?? null;
-  const ko = (sub: string) => koModel(index?.al, sub);
+  /** ⚠ `useCallback` 이라야 한다 — 그림마다 새로 만들면 이걸 의존에 넣은 `useMemo` 가 매번 다시 돌고,
+     그 값을 보는 효과가 setState 를 불러 **무한히 돈다**(2026-09-09 실측 · 콘솔에 3천 줄). */
+  const ko = useCallback((sub: string) => koModel(index?.al, sub), [index]);
 
   // ── 걸음 ① 제조사 ─────────────────────────────────────────────────────────
   const makers = useMemo(() => {
@@ -221,6 +253,93 @@ export default function VehicleCascade({ mode, picked, onPick }: Props) {
   }, [trim, variant, model, maker, mode, usedCar, newModel, newTrims]);
 
   const loading = mode === 'new' ? !models : !cars;
+
+  /* ── 폰 마법사 — 한 걸음이 한 쪽이다(원본 `StepVehicle.vue` 짜임 그대로) ────────── */
+  type StepOpt = { v: string; label: string; sub?: string };
+  const stepData = useMemo<Record<CarStep, { title: string; title2: string; value: string; options: StepOpt[] }>>(() => ({
+    brand: { title: '어떤 제조사를', title2: '선택할까요?', value: maker,
+      options: makers.map((m) => ({ v: m, label: m })) },
+    model: { title: `${maker}에서`, title2: mode === 'used' ? '어떤 모델로 갈까요?' : '어떤 차로 갈까요?', value: model,
+      options: mode === 'used'
+        ? usedModels.map(([md, n]) => ({ v: md, label: md, sub: `${n}종` }))
+        : newModels.map((m) => ({ v: m.sub_model, label: ko(m.sub_model) })) },
+    variant: { title: ko(model), title2: mode === 'used' ? '세부 모델을 골라주세요' : '파워트레인을 골라주세요',
+      value: variant, options: variants },
+    trim: { title: ko(model), title2: '트림을 골라주세요', value: trim, options: trims },
+  }), [maker, model, variant, trim, makers, usedModels, newModels, variants, trims, mode, ko]);
+
+  const wStep = wizard?.step ?? null;
+  const wOnState = wizard?.onState;
+  /* ⚠ 의존은 «원시값»으로 둔다 — 객체(`stepData`)를 넣으면 그림마다 달라져 효과가 끝없이 돈다. */
+  const wCount = wStep ? stepData[wStep].options.length : 0;
+  const wChosen = wStep ? !!stepData[wStep].value : false;
+  useEffect(() => {
+    if (!wStep || !wOnState) return;
+    wOnState({ step: wStep, count: wCount, chosen: wChosen });
+  }, [wStep, wOnState, wCount, wChosen]);
+
+  if (wizard) {
+    if (wizard.hidden) return null;   // 붙어는 있고 그리지만 않는다(위 주석)
+    const d = stepData[wizard.step];
+    const set = (v: string) => {
+      if (wizard.step === 'brand') { setMaker(v); setModel(''); setVariant(''); setTrim(''); }
+      else if (wizard.step === 'model') { setModel(v); setVariant(''); setTrim(''); }
+      else if (wizard.step === 'variant') { setVariant(v); setTrim(''); }
+      else setTrim(v);
+      // ★고르면 «바로» 넘어간다 — 원본도 그렇다. 누르는 걸음이 하나 준다.
+      wizard.onPicked(wizard.step);
+    };
+    return (
+      <div className="sv">
+        {/* 지나온 걸음 — 누르면 그 걸음으로 되돌아간다(원본 `sv-crumbs`). */}
+        {maker ? (
+          <div className="sv-crumbs">
+            <button type="button" className="sv-crumb" onClick={() => wizard.onPicked('brand')}>{maker}</button>
+            {model ? <button type="button" className="sv-crumb" onClick={() => wizard.onPicked('model')}>{ko(model)}</button> : null}
+            {variant ? <button type="button" className="sv-crumb" onClick={() => wizard.onPicked('variant')}>{stepData.variant.options.find((o) => o.v === variant)?.label ?? variant}</button> : null}
+            {trim ? <button type="button" className="sv-crumb" onClick={() => wizard.onPicked('trim')}>{stepData.trim.options.find((o) => o.v === trim)?.label ?? trim}</button> : null}
+          </div>
+        ) : null}
+        <div className="sv-section">
+          <h2 className="sv-title">{d.title}<br />{d.title2}</h2>
+          {loading ? <div className="sv-empty">차종을 받는 중입니다…</div>
+            : !d.options.length ? <div className="sv-empty">고를 것이 없습니다.</div>
+            : wizard.step === 'brand' ? (
+              <div className="sv-brand-grid">
+                {d.options.map((o) => (
+                  <button type="button" key={o.v} className={`sv-brand-card${o.v === d.value ? ' is-selected' : ''}`}
+                    onClick={() => set(o.v)}>
+                    <span className="sv-brand-card__name">{o.label}</span>
+                  </button>
+                ))}
+              </div>
+            ) : wizard.step === 'trim' ? (
+              /* 트림은 값이 붙는다 — 원본도 트림 쪽에서만 값을 보여 준다(고르는 근거가 값이라서). */
+              <div className="sv-list">
+                {d.options.map((o) => (
+                  <button type="button" key={o.v} className={`sv-trim-card${o.v === d.value ? ' is-selected' : ''}`}
+                    onClick={() => set(o.v)}>
+                    <div className="sv-trim-card__top"><span className="sv-trim-card__name">{o.label}</span></div>
+                    {o.sub ? <div className="sv-trim-card__price">{o.sub}</div> : null}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className="sv-list">
+                {d.options.map((o) => (
+                  <button type="button" key={o.v} className={`sv-row${o.v === d.value ? ' is-selected' : ''}`}
+                    onClick={() => set(o.v)}>
+                    <span className="sv-row__label">{o.label}{o.sub ? <em> · {o.sub}</em> : null}</span>
+                    <span className="sv-row__chev">›</span>
+                  </button>
+                ))}
+              </div>
+            )}
+        </div>
+        {err ? <div className="sv-empty">차종을 못 받았습니다 — {err}</div> : null}
+      </div>
+    );
+  }
 
   return (
     <>

@@ -76,9 +76,22 @@ const RAW_ALLOW = new Map<string, Allow>([
   /* 차종 캐스케이드 — 원본 `VehicleCascade.vue` 를 옮긴 것이라 원자를 쓰지 않는다.
      select 1 = 걸음 한 칸(`Step`)의 드롭다운 하나. 넷은 그 한 줄을 네 번 부른 것이다.
      ⚠ 늘면 「걸음이 늘었다」는 뜻이다 — 원본은 넷(제조사→모델→세부→트림)이다. */
+  /* ★2026-09-09 폰 마법사가 붙으면서 이 조각이 «두 얼굴»이 됐다 — 사장님 「모바일에서는 이거를
+     **다음 다음 다음** 이렇게 하게 만들었잖아 **직관적으로**. **웰릭스 테이블에 이미 있는 내용**이고」.
+       웹 = 한 줄 드롭다운 하나(`select` 1)
+       폰 = 그 걸음의 목록을 «쪽 하나»로 편다 — 원본 `StepVehicle.vue` 짜임 그대로
+            button 7 = 지나온 걸음 넷(`sv-crumb`) + 제조사 칸·트림 칸·목록 줄
+     ⚠ 데이터를 뽑는 셈은 **여기 한 곳**이다. 폰이 따로 세면 두 화면이 어긋난다 — 그래서 한 조각에 둔다. */
   ['features/estimate/VehicleCascade.tsx', {
-    counts: { button: 0, input: 0, select: 1 },
-    reason: '차종 캐스케이드 — 걸음 넷(중고=모델·세부모델·트림 / 신차=세부모델·파워트레인·트림). 한 줄 드롭다운',
+    counts: { button: 7, input: 0, select: 1 },
+    reason: '차종 캐스케이드 — 웹은 한 줄 드롭다운, 폰은 «다음 다음 다음» 마법사 쪽(원본 StepVehicle 짜임)',
+  }],
+  /* 폰 견적 마법사 껍데기(`features/estimate/EstimateWizard`) — 원본 `MobileApp.vue` 마크업 그대로다.
+     button 5 = 머리 「견적서」 + 상품 두 줄 + 발 「이전」·「다음/견적서 보기」.
+     ⚠ 원자를 끼우면 원본 CSS(`.m-btn`·`.sv-row`)가 기다리는 짜임이 깨진다 — 견적기는 제 얼굴을 가진다. */
+  ['features/estimate/EstimateWizard.tsx', {
+    counts: { button: 5, input: 0, select: 0 },
+    reason: '폰 견적 마법사 — 머리 견적서 · 상품 두 줄 · 발 이전/다음(원본 MobileApp 짜임)',
   }],
   ['features/estimate/CarPicker.tsx', {
     counts: { button: 12, input: 1, select: 0 },
