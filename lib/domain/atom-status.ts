@@ -44,7 +44,7 @@ export function resolveStatus(input: { base?: unknown; raw?: unknown; locked?: u
   else if (cur === '출고협의') { kind = '협의'; reason = '공급사협의'; }
   else if (cur === '상품화중') { kind = '준비'; reason = '상품화중'; }
   else if (cur === '차량검수') { kind = '준비'; reason = '검수대기'; }
-  else if (cur === '계약중') { kind = '선점'; reason = input.locked ? '계약선점' : '공급사표기'; }
+  else if (cur === '계약중') { kind = '선점'; reason = S(input.locked) ? '계약선점' : '공급사표기'; }
   else if (cur === '출고불가') { kind = '불가'; reason = (AVAIL_STATUSES.has(raw) || raw === '출고협의') ? '시트이탈' : (raw ? '공급사불가' : '정보없음'); }
   return { status: cur, vehicle_status: cur, status_kind: kind, status_reason: reason, listable: kind !== '불가', status_label_raw: raw };
 }
