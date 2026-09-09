@@ -388,11 +388,55 @@ F03으로 이름을 만들지 않는다. 자동화 = `docs/자동동기-매뉴�
 - **차량 락** — 계약금 입금(확인) 선점 = `계약중`(목록 노출·마크) · 계약완료 = `출고불가`(목록 숨김). 문의·서류만으로는 잠그지 않는다(여러 영업 병행, 입금 선점이 이김).
   락 주인은 `product.locked_by_contract`. 락 쓰기는 `syncVehicleLock` 한 곳(매 체크마다 재계산 — 분기를 늘리면 해제 누락이 생긴다). 삭제보호는 `blockingContractFor`(락보다 넓음).
 - 식별코드 = `lib/domain/ids.ts`(`usr_/sup_/veh_/pol_/chn_`).
-- **v3 = 라이브 읽기 / v4 = `v4/` 오버레이 쓰기** (`lib/firebase/rtdb-adapter.ts`). 읽기 = v3 라이브 ∪ v4 오버레이 필드단위 병합, 쓰기는 전부 `v4/{node}/{key}` — **v3 구데이터 write 금지**.
-  ※ 초기 설계였던 "v4=Firestore 독립 새집 + 일괄 ETL 이관"은 폐기됨(브리지로 대체). `lib/migrate/v3.ts` 도 함께 삭제(2026-07-21).
+- ★★★**갈 곳은 Firestore 다. 그런데 «아직 다 안 갔다» — 그 둘을 섞어 읽지 마라.**
+  > 사장님 2026-09-09 「**알티디비는 안 쓸 거야 폐기했음**」 · 「**파이어스토어가 맞음. 거기로 갈 거야**」
+
+  **서버에는 문이 «하나»다** — `lib/server/firebase-admin.ts` 의 `firebaseAdminDatabase()`.
+  `NEXT_PUBLIC_DATA_BACKEND=firestore` 면 **같은 `.ref()` 얼굴의 Firestore 심**을 돌려준다.
+  그 문으로 들어간 **35 파일**(AST 실호출 기준)은 «대체로» 코드 없이 넘어간다.
+
+  ⚠⚠⚠ **「한 줄 플립이면 끝」이 아니다 — 지금 플립하면 «터지는» 자리가 있다.**
+    심은 **문서 경로 아닌 `transaction()` 을 거부한다**(`firestore-ref-shim` 「transaction 은 문서 경로여야 함」).
+    그런데 컬렉션·루트 경로로 부르는 곳이 **4 파일 6 자리** 있다(2026-09-09 실측):
+    ```
+    app/api/inventory/ironrentcar/apply/route.ts:229      ref('v4').transaction
+    app/api/inventory/ironrentcar/rollback/route.ts:170·239  ref('v4').transaction
+    lib/server/sheet-daily-sync.ts:320·439                 ref('v4/products').transaction
+    lib/server/sheet-live-status.ts:101                    ref('v4/products').transaction
+    ```
+    ★코덱스가 심을 **실제로 실행해** 재현했다(2026-09-09 독립검증) — 추론이 아니다.
+    ⇒ **플립 전에 이 여섯을 문서 단위로 쪼개거나 다른 잠금으로 바꾼다.** 스왑점 주석은 이걸
+      「루트 트랜잭션 2곳」이라 적고 있었는데 **실제로는 넷·여섯**이다.
+
+  ⚠⚠ **빚은 그 문을 «건너뛴» 것들이다** — 플립해도 안 넘어간다.
+    2026-09-09 실측(AST · import 기준) — **스왑점을 건너뛰고 RTDB 를 직접 여는 파일 **24개**가 남았다.**
+    (`lib/server` 9 · `lib/firebase` 7 · `app/api` 3 · 그 외 5 — 정산·시트·auth 계열)
+    ⚠ 정적 `import` 만 세면 23인데, **동적 `import()`·`require()` 까지 세서 24** 다
+      (코덱스 2차 검증이 `lib/login-helpers.ts:14` 를 잡았다). 재노출·별칭 경로는 아직 못 본다.
+    ★**`npm run check:store` 가 센다** — 늘면 exit 1, 줄면 `-- --tighten` 으로 기준을 같이 내린다.
+    ★새 코드는 **`getStore()` 또는 `firebaseAdminDatabase()`** 로 붙인다. 그래야 플립에 같이 딸려 온다.
+    ⚠ 문 셋(`firebase-admin` · `firestore-ref-shim` · `rtdb-adapter`)은 RTDB 를 여는 게 제 일이라 안 센다.
+
+  ⚠⚠⚠ **`/api/version` 의 `store:"firestore"` 를 «앱 전체가 Firestore»로 읽지 마라.**
+    그건 `firestore-ref-shim` **제 상태**다. 심은 Firestore 가 «비어도» RTDB 로 내려가는데
+    그 폴백은 차단 표시를 안 남긴다 — **RTDB 로 읽고도 `firestore` 라고 말할 수 있다.**
+    (2026-09-09 코덱스 독립검증. 대수가 이상하면 여기«부터» 보되, 여기«까지»만 보지 마라.)
+
+  ★**손님 화면은 이미 Firestore 를 판다** — `firestore-ref-shim` 을 직접 import 하는 **10 파일**
+    (정적 import 기준 · 그중 `/api/version` 은 데이터가 아니라 `storeHealth` 만 가져온다).
+    ⚠ 2026-09-08 에 그 화면이 **폐기된 RTDB 를 읽고 있었다** — 화면 703 vs 원장 709인데
+      차번으로 맞대니 56대는 원장에만 · 50대는 화면에만 있었다.
+      **「숫자가 비슷하다」가 「같은 원장」이라는 뜻이 아니다.**
+
+  ※ v3/v4 브리지(`lib/firebase/rtdb-adapter.ts`)는 **폐기 대상**이다. 읽기 = v3 라이브 ∪ v4 오버레이
+    필드단위 병합 · 쓰기는 `v4/{node}/{key}` — **v3 구데이터 write 금지**.
+    초기 설계였던 "v4=Firestore 독립 새집 + 일괄 ETL 이관"은 폐기(브리지로 대체) · `lib/migrate/v3.ts` 삭제(2026-07-21).
+  ⚠ **플립·삭제 전에 맞출 것** — Firestore 1,438 vs RTDB 1,365, **73건**이 아직 안 맞는다(미대조 · 파이프라인 세션 몫).
+  ⚠ **운영의 `NEXT_PUBLIC_DATA_BACKEND` 실제 값은 [미확인]** — `/diag` 는 로그인이 걸려 있다.
+    로컬 `.env.local` 과 스왑점 주석은 `rtdb` 라고 말한다. **확정하려면 Vercel env 를 봐라.**
 
 ## 레인
-- 이 저장소는 두 AI 도구 동시 작업. **v3 데이터 연동/브리지 = 다른 도구 담당**. UI·원자·페이지·규격 = 이 규격 따름. 같은 파일 동시편집 시 .next 청크 desync 주의(백지=stale 서버, `.next` 삭제 후 재기동).
+- 이 저장소는 여러 AI 도구 동시 작업. **v3→Firestore 이관·브리지 = 파이프라인 세션 담당**(위 「원장은 Firestore」). UI·원자·페이지·규격 = 이 규격 따름. 같은 파일 동시편집 시 .next 청크 desync 주의(백지=stale 서버, `.next` 삭제 후 재기동).
 
 ## 금지 (드리프트 원흉)
 손롤(원자 안 쓰고 raw 컨트롤) · 로컬 색맵 · 하드코딩 hex/height · 모바일 미분기(웹치수 그대로) · 페이지별 별도규격 · 확정 기능 임의변경.
