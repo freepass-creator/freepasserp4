@@ -441,7 +441,40 @@ tail = """
 /* 마법사 안에서는 데스크톱 칸 제목을 안 쓴다 — 쪽마다 제목이 sv-title 하나다. */
 .wx-root.est-root--wiz .sv--fields .step-title { display: none; }
 .wx-root.est-root--wiz .sv--fields > section { padding: 0; }
-.wx-root.est-root--wiz .sv--fields .vfields { display: grid; gap: 12px; }
+.wx-root.est-root--wiz .sv--fields .vfields { display: grid; gap: 14px; grid-template-columns: 1fr; }
+/* 폰은 «한 줄에 하나»다 — 데스크톱 왼쪽 칸은 라벨 40 + 좁은 칸 둘이 나란히 서지만,
+   폰에서 그대로 두면 색 이름(「옵시디언 블랙 모노톤 - 시그니처 디자인 셀렉션I」)이 칸을 못 채운다.
+   ⇒ 라벨을 위로 올리고 칸이 폭을 다 먹는다(2026-09-09 운영 폰에서 보고 고침). */
+.wx-root.est-root--wiz .sv--fields .cs-field,
+.wx-root.est-root--wiz .sv--fields .qc-field {
+  display: grid; grid-template-columns: 1fr; gap: 6px; width: 100%;
+}
+.wx-root.est-root--wiz .sv--fields .cs-field > label,
+.wx-root.est-root--wiz .sv--fields .qc-field > label {
+  width: auto; font-size: 12px; color: var(--ink-3);
+}
+.wx-root.est-root--wiz .sv--fields .color-wrap,
+.wx-root.est-root--wiz .sv--fields .step-dd,
+.wx-root.est-root--wiz .sv--fields input { width: 100%; }
+/* 손가락 규격 — 폰 컨트롤은 40 이고 입력 글자는 16 이다(그 밑이면 iOS 가 확대한다). */
+.wx-root.est-root--wiz .sv--fields .step-dd,
+.wx-root.est-root--wiz .sv--fields input { min-height: 40px; font-size: 16px; }
+/* 조건 줄도 폰에서는 위아래로 — 데스크톱은 한 줄에 다 세운다. */
+.wx-root.est-root--wiz .sv--fields .qp-form--conds.flow { flex-direction: column; align-items: stretch; gap: 10px; }
+.wx-root.est-root--wiz .sv--fields .qp-form--conds.flow > * { width: 100%; }
+/* 세그(렌트·구독 / 반납형·인수형 / 신용)는 폰에서 폭을 «균등하게» 나눠 먹는다 —
+   내용폭으로 두면 왼쪽에 뭉쳐 서서 누를 자리가 작아진다(2026-09-09 폰에서 보고 고침). */
+.wx-root.est-root--wiz .sv--fields .seg,
+.wx-root.est-root--wiz .sv--fields .chips {
+  /* ⚠ `flex: 1` 로는 안 된다 — 원본 `.seg` 는 **격자**다(`--seg2`·`--seg3` 로 칸을 잡는다).
+     칸을 «가로로 흐르는 균등 칸»으로 다시 잡아야 폭을 나눠 먹는다(2026-09-09 실측). */
+  display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; width: 100%;
+}
+.wx-root.est-root--wiz .sv--fields .seg > *,
+.wx-root.est-root--wiz .sv--fields .chips > * { min-height: 40px; font-size: 15px; }
+/* 숫자칸(`.pin`)도 한 줄을 다 쓴다 — 라벨은 위, 값은 크게. */
+.wx-root.est-root--wiz .sv--fields .pin { width: 100%; }
+.wx-root.est-root--wiz .sv--fields .pin input { text-align: left; }
 /* 기간 칸은 폰에서 위아래로 — 원본 데스크톱 격자(.qgrid)를 한 줄로 편다. */
 .wx-root.est-root--wiz .sv--wide .qgrid { grid-template-columns: 1fr; }
 """
