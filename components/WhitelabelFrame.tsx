@@ -197,7 +197,23 @@ export function WhitelabelFrame({
               긴 목록을 내려가다가도 조건을 다시 걸 수 있다.
             ⚠ 폰 상세의 `headerLead`(「상품 상세」)는 **라벨이 아니라 «이 화면의 이름»**이라 그대로 둔다.
           */}
-          {!hasBrand(wl) && !(mobile && headerLead) ? null : mobile && headerLead ? headerLead : (
+          {!hasBrand(wl) && !(mobile && headerLead) ? (
+            /*
+             * ★★**라벨이 없는 얼굴의 간판 자리** — 회사 이름 대신 «무엇을 하는 판인가»를 적는다
+             *   (사장님 2026-09-09 「손님들이 보는 게 아니라 **내부자용 같은 느낌**을 줘서
+             *   얘네가 직접 하려고 하는 거 **막으려고**」). 업무 시스템으로 읽혀야 한다.
+             * ★말은 표에서 온다(`wl.headline`) — 화면에 박지 않는다. 이름이 정해지면 표 한 줄만 고친다.
+             * ★크기는 간판보다 한 단 작고 굵기도 낮춘다 — 이건 «이름»이 아니라 «설명»이라,
+             *   워드마크만큼 세우면 그게 라벨로 읽힌다.
+             * ★누르면 첫 화면으로 — 간판이 하던 일(리셋)은 그대로다.
+             */
+            wl.headline ? (
+              <a href={homeHref} style={{
+                textDecoration: 'none', color: C.ink, whiteSpace: 'nowrap',
+                fontSize: mobile ? 15 : 18, fontWeight: FW.title, letterSpacing: '-0.02em',
+              }}>{wl.headline}</a>
+            ) : null
+          ) : mobile && headerLead ? headerLead : (
             /*
              * ★**마크 + 글자**다(사장님 2026-09-05 로고·명함 전달). 마크만 그림이고 이름은 글자다 —
              *   워드마크까지 그림으로 넣으면 배율마다 글자가 뭉개진다.
