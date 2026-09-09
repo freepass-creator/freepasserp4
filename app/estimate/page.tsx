@@ -503,7 +503,12 @@ function EstimatePageInner() {
     carName: picked.maker && picked.name.startsWith(`${picked.maker} `)
       ? picked.name.slice(picked.maker.length + 1) : picked.name,
     carSub: [picked.powertrain, picked.trim].filter(Boolean).join(' · '),
-    price: listPrice,
+    /* ★★**견적서 안에서 기준이 하나여야 한다**(사장님 2026-09-09 「견적만 제대로 나오게 해 기준만
+       있으면 됩니다」). 예전에는 차량가만 «할인 전»(listPrice)이고 선납·인수는 «할인 후»(price)라,
+       손님이 「차량가 × 인수율」을 손으로 계산하면 우리 숫자와 안 맞았다. 둘 다 «할인 후»로 맞춘다 —
+       실제로 그 값에 차를 드리는 것이므로 손님 쪽 기준도 그것이다. */
+    price,
+    priceBasis: picked.priceBasis,
     channel: CHANNELS.find((c) => c.v === ch)!.label,
     endType: TYPES.find((t) => t.v === type)!.label,
     credit,
@@ -521,10 +526,15 @@ function EstimatePageInner() {
         buyoutPct: buyoutPct[x.term], buyout: Math.round(price * buyoutPct[x.term] / 100),
       };
     }),
-  }), [custName, staffName, staffTel, picked, listPrice, ch, type, credit, colorExt, colorInt, optChosen, scen, lines, price, buyoutPct]);
+    /* ⚠ `optIds`·`ruled`·`optSpec` 이 빠져 있었다 — 규칙판에서 옵션을 갈아도 견적서가
+       «지난 옵션»을 실었다(2026-09-09 검수). 화면과 문서가 갈리면 문서가 이긴다(손님이 그걸 본다). */
+  }), [custName, staffName, staffTel, picked, ch, type, credit, colorExt, colorInt,
+    ruled, optIds, optSpec, optChosen, scen, lines, price, buyoutPct]);
 
   const prepayAmt = Math.round(price * pre / 100);
-  const vehTag = listPrice ? `${man(listPrice)}원` : '차를 고르세요';
+  /* ★차량가는 «세 자리»에 뜬다 — 폰 고정요약 · 웹 딱지 · 손님 견적서. 셋이 같은 값이어야 한다
+     (사장님 2026-09-09 「기준만 있으면 됩니다」). 그래서 다 «할인 후»(price)로 맞춘다. */
+  const vehTag = price ? `${man(price)}원` : '차를 고르세요';
   const vMeta = isNew
     ? [picked.meta, (ruled ? optIds.size : optChosen.length) ? `옵션 ${ruled ? optIds.size : optChosen.length}개 +${man(optSum)}` : null,
       listPrice ? `차량가 ${man(listPrice)}` : null].filter(Boolean).join(' · ')
@@ -871,11 +881,11 @@ function EstimatePageInner() {
       .filter((c) => c && c.payVat)
       .sort((a, b) => (a!.payVat || 0) - (b!.payVat || 0))[0];
     return {
-      carName: picked.name, carMeta: vMeta, price: listPrice,
+      carName: picked.name, carMeta: vMeta, price,
       monthly: priceKnown ? Math.round(cheapest?.payVat || 0) : 0,
       term: cheapest?.term ?? 0,
     };
-  }, [scen, lines, picked, vMeta, listPrice, priceKnown]);
+  }, [scen, lines, picked, vMeta, price, priceKnown]);
 
   if (mobile) {
     return (

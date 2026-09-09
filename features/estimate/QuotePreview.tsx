@@ -38,6 +38,9 @@ export type QuoteDoc = {
   customer: string; staff: string; tel: string;
   brand: string; carName: string; carSub: string;
   price: number;           // 차량가
+  /** ★그 차량가가 «어느 기준»인가 — 신차 「세제혜택 전(개소세 5%)」이 정본. 손님이 다른 곳에서
+   *  본 값과 다를 때 «왜 다른지»를 말해 준다. 안 적으면 손님이 우리 숫자를 못 믿는다. */
+  priceBasis?: string;
   channel: string; endType: string; credit: string;
   colorExt: string; colorInt: string;
   options: { name: string; price: number }[];
@@ -136,10 +139,15 @@ export default function QuotePreview({ doc, onClose }: { doc: QuoteDoc; onClose:
                     <div className="value">{man(doc.price)}원</div>
                   </div>
                 </div>
-                {doc.colorExt || doc.colorInt ? (
+                {/* ★기준은 «원본이 가진 줄»(.qd-vehicle__row)에 적는다 — `.label`/`.value` 를 건드리면
+                    웰릭스 CSS 짜임이 깨진다(check:estimate 가 잡는다). */}
+                {doc.colorExt || doc.colorInt || doc.priceBasis ? (
                   <div className="qd-vehicle__rows">
                     <div className="qd-vehicle__row"><span className="k">외장</span><span className="v">{doc.colorExt || '-'}</span></div>
                     <div className="qd-vehicle__row"><span className="k">내장</span><span className="v">{doc.colorInt || '-'}</span></div>
+                    {doc.priceBasis
+                      ? <div className="qd-vehicle__row"><span className="k">가격기준</span><span className="v">{doc.priceBasis}</span></div>
+                      : null}
                   </div>
                 ) : null}
                 {doc.options.length ? (

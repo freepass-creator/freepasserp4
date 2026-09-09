@@ -1100,6 +1100,42 @@ for (const f of ['scripts/backfill-newcar-names.mts', 'scripts/ingest-newcar-opt
     'lib/domain/estimate/option-rules.ts optionList');
 }
 
+/* ══ 14. ★★차량가 «기준»은 하나다 — 세제혜택 «전»(개별소비세 5% = 제조사 표시가) ══════
+     사장님 2026-09-09 「견적만 제대로 나오게 해 기준만 있으면 됩니다」.
+
+   ⚠⚠ 「후」를 쓰면 **취득세 감면을 두 번** 뺀다 — `calc.js` 가 `max(0, costEx × 세율 − 140만)` 으로
+     직접 감면하는데, `priceAfter` 에는 그게 이미 빠져 있다. 게다가 **옵션값은 「전」 기준**이라
+     차값만 「후」로 쓰면 한 견적서 안에서 기준이 섞인다(기아 144트림 중 60개가 갈리고,
+     EV9 GT-Line 롱레인지는 412만원 차이).
+   ⚠ 이 검사를 고쳐서 통과시키지 마라 — 견적서 금액이 통째로 바뀐다. 정본 = docs/신차마스터-피드.md. */
+{
+  const ci = code('lib/domain/estimate/car-index.ts');
+  must(/export const trimPrice[\s\S]{0,200}Number\(t\?\.priceBefore\)\s*\|\|\s*Number\(t\?\.priceAfter\)/.test(ci),
+    '신차 차량가가 «세제혜택 후»에서 출발합니다 — 취득세 감면을 두 번 빼고, 옵션(「전」 기준)과 기준이 섞입니다',
+    'lib/domain/estimate/car-index.ts trimPrice');
+  must(/priceBasis: trimBasis\(t\)/.test(ci),
+    '어느 기준의 값인지 «말하지» 않습니다 — 「전」이 비어 「후」로 물러선 줄을 구별할 수 없습니다',
+    'lib/domain/estimate/car-index.ts pickNew');
+
+  /* ★★★**문은 하나다.** 값을 따로 꺼내는 곳이 하나라도 있으면 기준이 또 갈린다 —
+     실제로 여섯 군데가 따로 꺼내 손님이 「7,917만」을 고르고 견적서엔 「8,329만」이 찍혔다
+     (EV9 GT-Line 롱레인지 · **412만** 차이 · 2026-09-09 화면 실측). */
+  for (const f of ['lib/domain/estimate/car-index.ts', 'features/estimate/VehicleCascade.tsx',
+    'features/estimate/CarPicker.tsx', 'app/estimate/page.tsx']) {
+    /* 문 자체(`trimPrice`·`trimBasis`)의 선언 줄은 빼고 «나머지»를 본다. */
+    const src = code(f).split('\n')
+      .filter((l) => !/export const trim(Price|Basis)/.test(l) && !/Number\(t\?\.price/.test(l))
+      .join('\n');
+    must(!src.includes('priceAfter ||') && !src.includes('priceAfter)'),
+      '차량가를 «문 밖에서» 꺼냅니다 — 고를 때와 견적서의 값이 갈립니다(`trimPrice` 를 쓰세요)', f);
+  }
+
+  /* ★엔진이 «제 줄»에서 감면한다는 전제가 깨지면 위 기준도 무너진다. 같이 못 박는다. */
+  must(/acqTaxCredit/.test(code('lib/domain/estimate/calc.js')),
+    '엔진이 전기차 취득세 감면을 «제 줄»에서 안 뺍니다 — 그러면 차량가 기준(「전」)의 전제가 깨집니다',
+    'lib/domain/estimate/calc.js acqTax');
+}
+
 if (fails.length) {
   console.error(`\n✗ 견적 로직이 정본과 다릅니다 — ${fails.length}건\n`);
   for (const f of fails) console.error(`  · ${f}\n`);

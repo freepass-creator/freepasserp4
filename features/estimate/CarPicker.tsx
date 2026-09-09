@@ -27,6 +27,7 @@ import '@/components/estimate/picker.css';
 import {
   loadCarIndex, loadNewModels, searchCars, carSubtitle, carYears, pickUsed, pickNew, guessCc, koModel,
   type CarEntry, type CarPt, type CarIndex, type NewModel, type NewTrim, type PickedCar,
+  trimPrice,
 } from '@/lib/domain/estimate/car-index';
 
 const won = (n: number) => `${Math.round(n || 0).toLocaleString('ko-KR')}원`;
@@ -137,7 +138,7 @@ export default function CarPicker({ open, mode, onClose, onPick, inline, options
   const optNamesPartial = useMemo(() => optionRows.some((o) => /^옵션\s*\d+$/.test(o.name.trim())), [optionRows]);
   const chosen = useMemo(() => optionRows.filter((o) => Number(o.price) > 0 && opts[o.name]), [optionRows, opts]);
   const optSum = chosen.reduce((n, o) => n + (Number(o.price) || 0), 0);
-  const newTotal = nTrim ? (Number(nTrim.priceAfter) || Number(nTrim.priceBefore) || 0) + optSum : 0;
+  const newTotal = nTrim ? trimPrice(nTrim) + optSum : 0;
 
   if (!open) return null;
 
@@ -274,7 +275,7 @@ export default function CarPicker({ open, mode, onClose, onPick, inline, options
                     <button key={`${t.trim}/${t.fuel}`} type="button" className={`prow${nTrim === t ? ' on' : ''}`}
                       onClick={() => { setNTrim(t); setOpts({}); }}>
                       <span className="pn"><b>{t.trim}</b><em>{t.fuel}{(t.options?.length ?? 0) ? ` · 옵션 ${t.options!.length}` : ''}</em></span>
-                      <span className="pv">{man(t.priceAfter || t.priceBefore)}<small>원</small></span>
+                      <span className="pv">{man(trimPrice(t))}<small>원</small></span>
                     </button>
                   ))}
                   {!trimRows.length ? <div style={{ padding: 14, fontSize: 12, color: 'var(--ink-4)' }}>트림이 없습니다</div> : null}
@@ -317,7 +318,7 @@ export default function CarPicker({ open, mode, onClose, onPick, inline, options
                   ) : null}
                   <div className="psum">
                     차량가 <b>{won(newTotal)}</b>
-                    {optSum ? <> · 기본 {man(nTrim.priceAfter || nTrim.priceBefore)} + 옵션 {man(optSum)}</> : null}
+                    {optSum ? <> · 기본 {man(trimPrice(nTrim))} + 옵션 {man(optSum)}</> : null}
                   </div>
                 </div>
               ) : null}

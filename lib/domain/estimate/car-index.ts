@@ -43,6 +43,31 @@ export type NewTrim = { maker: string; sub_model: string; carType?: string; fuel
 export type NewModel = { maker: string; sub_model: string; fuels: string[]; trimCount: number; trims: NewTrim[] };
 
 /** 견적 STEP 1 이 받는 «고른 차 한 대». 중고·신차가 같은 모양으로 온다. */
+/**
+ * ★★**신차 차량가를 꺼내는 문 — 여기 하나다.**
+ *   사장님 2026-09-09 「견적만 제대로 나오게 해 **기준만 있으면** 됩니다」.
+ *
+ * 기준 = **`priceBefore` (개별소비세 5% · 세제혜택 «전» = 제조사 표시가)**. 셋이 한 방향이다:
+ *   ① **세제혜택은 «원가 엔진»이 제 줄에서 뺀다** — `calc.js` 가 전기차 구매보조금을 취득가에서 빼고,
+ *      취득세는 `max(0, costEx × 세율 − acqTaxCredit 140만)` 으로 «직접» 감면한다.
+ *      그런데 `priceAfter` 는 **개소세·교육세·취득세 감면을 «섞어» 뺀 값**이다
+ *      (`scripts/crawl-newcar-hyundai.mts:40` — `taxIncentive`). ⇒ 쓰면 **취득세 감면을 두 번** 뺀다.
+ *   ② **옵션값이 「전」 기준**이다(제조사 공식 가격표 = 개소세 5%). 차값만 「후」면 한 견적서에서 기준이 섞인다.
+ *   ③ 피드 정본이 그렇게 적었다 — `docs/신차마스터-피드.md` 「모든 가격 = 개별소비세 5% 기준 …
+ *      개소세 감면은 **받는 쪽에서 적용**」.
+ *
+ * ⚠⚠ **여섯 군데가 따로 꺼내고 있었다** — 캐스케이드 트림 딱지 · 차 고르기 시트(셋) · 잔가 짚기 · 견적.
+ *   그래서 손님은 「7,917만」을 고르고 견적서에는 「8,329만」이 찍혔다(EV9 GT-Line · **412만** 차이).
+ *   ⇒ 값은 이 문으로만 꺼낸다. 기준을 바꾸려면 **여기 한 줄**을 바꾼다.
+ * ⚠ 「전」이 비면 «지어내지 않는다» — 「후」로 물러서되 `trimBasis` 로 말한다(피드 폴백 줄).
+ */
+export const trimPrice = (t: { priceBefore?: number; priceAfter?: number } | null | undefined): number =>
+  Number(t?.priceBefore) || Number(t?.priceAfter) || 0;
+
+/** 그 값이 «어느 기준»인가 — 손님 견적서가 이 말을 적는다. */
+export const trimBasis = (t: { priceBefore?: number; priceAfter?: number } | null | undefined): string =>
+  Number(t?.priceBefore) ? '세제혜택 전' : (Number(t?.priceAfter) ? '세제혜택 후' : '');
+
 export type PickedCar = {
   source: 'used' | 'new';
   /** 화면 첫 줄 — 「현대 그랜저 GN11 · 캘리그래피」 */
@@ -54,6 +79,8 @@ export type PickedCar = {
   fuel: EngineFuel; cc: number | null;
   /** 신차만 자동으로 찬다(공표가 + 고른 옵션). 중고 시세는 마스터에 없어 사람이 넣는다. */
   price?: number;
+  /** ★그 값이 «어느 기준»인가 — 신차는 「세제혜택 전」(개소세 5%)이 정본. 비면 「후」로 물러선 줄이다. */
+  priceBasis?: string;
   /** 신차 — 고른 옵션과 조합규칙(있으면). */
   options?: { name: string; price: number }[];
   rules?: string[];
@@ -226,7 +253,7 @@ export function guessMarketPrice(models: NewModel[] | null, maker: string, model
     trims = byBoth.length ? byBoth : (byFuel.length ? byFuel : trims);
   }
   // 남은 것이 여럿이면 **가운데 값** — 최저트림은 너무 싸고 최고트림은 너무 비싸다.
-  const prices = trims.map((t) => Number(t.priceAfter) || Number(t.priceBefore) || 0)
+  const prices = trims.map(trimPrice)
     .filter((n) => n > 0).sort((a, b) => a - b);
   if (!prices.length) return 0;
   const mid = prices[Math.floor(prices.length / 2)];
@@ -301,7 +328,9 @@ export function pickNew(m: NewModel, t: NewTrim, chosen: { name: string; price: 
     // ★잔가 델타는 «모델» 이름으로 되짚는다 — 한글 이름이 있어야 표(residual-delta)와 맞는다.
     maker: m.maker, model: label, subModel: label, trim: t.trim, powertrain: t.fuel,
     fuel: engineFuel(t.fuel), cc,   // 없으면 null → 화면이 배기량을 묻는다(위 `guessCc` 주석)
-    price: (Number(t.priceAfter) || Number(t.priceBefore) || 0) + optSum,
+    /* ★값은 «문»으로만 꺼낸다 — 기준 설명은 `trimPrice` 에 있다. */
+    price: trimPrice(t) + optSum,
+    priceBasis: trimBasis(t),
     options: chosen,
     rules: t.rules,
     newTrim: t,
