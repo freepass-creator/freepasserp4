@@ -27,6 +27,39 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { canonFuel } from '@/lib/domain/estimate/newcar-normalize';
 
+/**
+ * ★★★**제네시스 `base` 의 «기준»은 모델마다 다르다.** 정본이 그렇게 적혀 있다.
+ *   `genesis-config-fs.json` 실측(2026-09-09):
+ *     G80-EV  minConfig 「**세제혜택 후** 최저(…개소세5%)」 · variants{「세제전」: 89,080,000}
+ *     GV60    variants{「스탠2WD **세제후**」: 64,900,000, 「스탠AWD **세제전**」: 72,080,000}
+ *     GV70-EV variants 없음 — **기준 미확인**
+ *     내연(G70·G80·G90·GV70·GV80) — 「세제전」 표시 없음. 피드 정본의 「모든 가격 = 개소세 5%」를 따른다.
+ *
+ * ⚠⚠ 2026-09-09 개발센터 4-AI 관문에서 **Codex 가 잡았다.** 피드 폴백이 이 `base` 를
+ *   무조건 `priceBefore` 에 넣고 **「세제혜택 전」이라고 이름 붙이고** 있었다 —
+ *   G80-EV 는 84,790,000(후)을 「전」이라 말했다. **금액의 기준 자체를 잘못 설명한 것**이다.
+ *   코드 주석까지 「제네시스 min 은 세제혜택 전이다」라고 반대로 적혀 있었다. 주석은 증거가 아니다.
+ *
+ * ⇒ 「전」이 있으면 그것을 쓰고, 없으면 **「후」라고 말한다.** 모르면 「미확인」이라고 말한다.
+ *   지어내지 않는다.
+ */
+export type GenesisBasis = { price: number; basis: '세제혜택 전' | '세제혜택 후' | '기준 미확인' };
+
+export function basisOf(m: { model?: string; fuel?: string; base?: number; minMax?: { min?: number; minConfig?: string; variants?: Record<string, unknown> } }): GenesisBasis {
+  const mm = m.minMax ?? {};
+  const vs = (mm.variants ?? {}) as Record<string, unknown>;
+  const before = Object.entries(vs).find(([k]) => /세제전/.test(k));
+  if (before && Number(before[1]) > 0) return { price: Number(before[1]), basis: '세제혜택 전' };
+  const price = Number(mm.min ?? m.base ?? 0) || 0;
+  const said = `${S(mm.minConfig)} ${Object.keys(vs).join(' ')}`;
+  if (/세제후|세제혜택\s*후/.test(said)) return { price, basis: '세제혜택 후' };
+  /* ★표시가 없으면 피드 정본의 규칙을 따른다 — 「모든 가격 = 개별소비세 5% 기준」.
+     ⚠ 다만 **전기 모델은 예외**다. 형제 EV(G80-EV·GV60)가 「세제후」로 적혀 있어,
+       표시가 없는 EV(GV70-EV)를 「전」이라 단정하면 **또 지어내는 것**이다. 「미확인」으로 둔다. */
+  const isEv = /-EV$|일렉트리파이드|electrified/i.test(S(m.model)) || /전기/.test(S(m.fuel));
+  return { price, basis: isEv ? '기준 미확인' : '세제혜택 전' };
+}
+
 export type LineupRow = { fuel: string; trim: string; price: number };
 
 type Choice = { label?: string; name?: string; add?: number; addWon?: number; default?: boolean };

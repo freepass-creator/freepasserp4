@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { basisOf } from '@/lib/domain/estimate/genesis-lineup';
 import { getFirestore } from 'firebase-admin/firestore';
 import { firebaseAdminApp } from '@/lib/server/firebase-admin';
 import { readFileSync } from 'node:fs';
@@ -12,11 +13,15 @@ function localTrimsFallback(): any[] {
   try {
     const gen = JSON.parse(readFileSync(join(process.cwd(), 'data/new-car/genesis-config-fs.json'), 'utf8'));
     for (const m of gen.models || []) {
-      const mm = m.minMax || {};
-      const min = mm.min ?? m.base;
-      /* ⚠ 제네시스 `min` 은 **세제혜택 «전»**(개소세 5%)이다. 「후」를 지어내지 않는다. */
+      /* ⚠⚠ 예전 주석은 「제네시스 min 은 세제혜택 «전»이다」였다. **틀렸다.**
+         정본이 G80-EV 를 「세제혜택 «후» 최저」라 적어 두었는데 그걸 「전」이라 이름 붙여 내보냈다
+         (2026-09-09 개발센터 4-AI 관문 · Codex). 주석은 증거가 아니다 — 데이터가 말하게 한다. */
+      const b = basisOf(m as Parameters<typeof basisOf>[0]);
       out.push({ maker: '제네시스', sub_model: String(m.model || ''), carType: String(m.model || ''), fuel: String(m.fuel || ''),
-        trim: '기본', priceBefore: Number(min || 0), priceAfter: 0, priceBasis: '세제혜택 전', options: [], _fallback: true });
+        trim: '기본',
+        priceBefore: b.basis === '세제혜택 전' ? b.price : 0,
+        priceAfter: b.basis === '세제혜택 전' ? 0 : b.price,
+        priceBasis: b.basis, options: [], _fallback: true });
     }
   } catch { /* skip */ }
   try {

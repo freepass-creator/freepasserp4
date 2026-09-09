@@ -16,7 +16,8 @@
 import { readFileSync } from 'node:fs';
 import { splitNote, readRule, rulesFrom, priceOf } from '../lib/domain/estimate/option-note';
 import { impliedOf } from '../lib/domain/estimate/implied-options';
-import { modelKey } from '../lib/domain/estimate/genesis-lineup';
+import { modelKey, basisOf } from '../lib/domain/estimate/genesis-lineup';
+import { trimPrice, trimBasis } from '../lib/domain/estimate/car-index';
 import { splitAxis } from '../lib/domain/estimate/newcar-normalize';
 import { optionList, optionSum, isEnabled, toggleOption, type OptionSpec } from '../lib/domain/estimate/option-rules';
 
@@ -1109,27 +1110,41 @@ for (const f of ['scripts/backfill-newcar-names.mts', 'scripts/ingest-newcar-opt
      EV9 GT-Line 롱레인지는 412만원 차이).
    ⚠ 이 검사를 고쳐서 통과시키지 마라 — 견적서 금액이 통째로 바뀐다. 정본 = docs/신차마스터-피드.md. */
 {
-  const ci = code('lib/domain/estimate/car-index.ts');
-  must(/export const trimPrice[\s\S]{0,200}Number\(t\?\.priceBefore\)\s*\|\|\s*Number\(t\?\.priceAfter\)/.test(ci),
-    '신차 차량가가 «세제혜택 후»에서 출발합니다 — 취득세 감면을 두 번 빼고, 옵션(「전」 기준)과 기준이 섞입니다',
+  /* ★★★**문을 «불러서» 잰다.** 문자열로 재면 뚫린다 —
+     2026-09-09 개발센터 4-AI 관문에서 Codex 가 네 가지 우회를 재현했다:
+       · `t["priceAfter"]` 대괄호 접근        · `Number(t?.priceAfter)` 직접 접근
+       · 문자열 리터럴 `"/*"` 로 code() 를 속여 코드를 지우기
+       · 쉼표 연산자 `(A, Number(t?.priceAfter) || 0)` — **실제로 79,170,000 을 돌려주는데 통과**
+     ⇒ 규격은 «값»으로 잰다. 아래는 전/후가 다른 진짜 트림(EV9 GT-Line 롱레인지)이다. */
+  const ev9 = { priceBefore: 83290000, priceAfter: 79170000 };
+  must(trimPrice(ev9) === 83290000,
+    `차량가가 «세제혜택 후»에서 나옵니다 — ${trimPrice(ev9).toLocaleString('ko-KR')}원(나와야 할 값 83,290,000원). `
+    + '옵션값이 「전」 기준이라 한 견적서에서 기준이 섞이고, 제조사마다 「후」의 뜻이 달라 비교가 안 됩니다',
     'lib/domain/estimate/car-index.ts trimPrice');
-  must(/priceBasis: trimBasis\(t\)/.test(ci),
-    '어느 기준의 값인지 «말하지» 않습니다 — 「전」이 비어 「후」로 물러선 줄을 구별할 수 없습니다',
+  must(trimBasis(ev9) === '세제혜택 전',
+    `기준을 「${trimBasis(ev9)}」 라고 말합니다`, 'lib/domain/estimate/car-index.ts trimBasis');
+  /* 「전」이 비면 «지어내지 않는다» — 「후」로 물러서되 그렇다고 말한다. */
+  must(trimPrice({ priceBefore: 0, priceAfter: 5000 }) === 5000
+    && trimBasis({ priceBefore: 0, priceAfter: 5000 }) === '세제혜택 후',
+    '「전」이 빈 줄에서 물러서지 않거나, 물러서고도 «후»라고 말하지 않습니다',
+    'lib/domain/estimate/car-index.ts trimBasis');
+  must(trimPrice(null) === 0 && trimBasis(undefined) === '',
+    '값이 없는데 0/빈 기준을 안 줍니다', 'lib/domain/estimate/car-index.ts trimPrice');
+
+  must(/priceBasis: trimBasis\(t\)/.test(code('lib/domain/estimate/car-index.ts')),
+    '고른 차가 «어느 기준»인지 안 들고 다닙니다 — 견적서가 말할 수 없습니다',
     'lib/domain/estimate/car-index.ts pickNew');
 
   /* ★★★**문은 하나다.** 값을 따로 꺼내는 곳이 하나라도 있으면 기준이 또 갈린다 —
      실제로 여섯 군데가 따로 꺼내 손님이 「7,917만」을 고르고 견적서엔 「8,329만」이 찍혔다
-     (EV9 GT-Line 롱레인지 · **412만** 차이 · 2026-09-09 화면 실측). */
-  for (const f of ['lib/domain/estimate/car-index.ts', 'features/estimate/VehicleCascade.tsx',
-    'features/estimate/CarPicker.tsx', 'app/estimate/page.tsx']) {
-    /* 문 자체(`trimPrice`·`trimBasis`)의 선언 줄은 빼고 «나머지»를 본다. */
-    const src = code(f).split('\n')
-      .filter((l) => !/export const trim(Price|Basis)/.test(l) && !/Number\(t\?\.price/.test(l))
-      .join('\n');
-    must(!src.includes('priceAfter ||') && !src.includes('priceAfter)'),
+     (EV9 GT-Line 롱레인지 · **412만** 차이 · 2026-09-09 화면 실측).
+     ⇒ 문(`car-index.ts`) 밖에서는 `priceAfter` 라는 낱말이 **아예 안 나와야** 한다.
+       대괄호·구조분해·변수 경유를 다 막으려면 「쓰지 마라」가 「이렇게 쓰지 마라」보다 낫다. */
+  for (const f of ['features/estimate/VehicleCascade.tsx', 'features/estimate/CarPicker.tsx',
+    'app/estimate/page.tsx']) {
+    must(!code(f).includes('priceAfter'),
       '차량가를 «문 밖에서» 꺼냅니다 — 고를 때와 견적서의 값이 갈립니다(`trimPrice` 를 쓰세요)', f);
   }
-
   /* ★엔진이 «제 줄»에서 감면한다는 전제가 깨지면 위 기준도 무너진다. 같이 못 박는다. */
   must(/acqTaxCredit/.test(code('lib/domain/estimate/calc.js')),
     '엔진이 전기차 취득세 감면을 «제 줄»에서 안 뺍니다 — 그러면 차량가 기준(「전」)의 전제가 깨집니다',
@@ -1213,6 +1228,45 @@ for (const f of ['scripts/backfill-newcar-names.mts', 'scripts/ingest-newcar-opt
   must(!after.has('w20'),
     '안 파는 옵션이 토글로 들어옵니다 — 있을 수 없는 차의 값이 견적서에 찍힙니다',
     'lib/domain/estimate/option-rules.ts toggleOption');
+}
+
+/* ══ 17. ★★★제네시스 `base` 의 «기준»은 모델마다 다르다 — 이름을 잘못 붙이지 않는다 ═══
+     ⚠⚠ 2026-09-09 개발센터 4-AI 관문에서 **Codex 가 잡았다.**
+       정본(`genesis-config-fs.json`)이 G80-EV 를 「**세제혜택 후** 최저」라 적어 두었는데,
+       피드 폴백이 그 값을 `priceBefore` 에 넣고 **「세제혜택 전」이라 이름 붙여** 내보냈다.
+       코드 주석까지 「제네시스 min 은 세제혜택 전이다」로 **반대로** 적혀 있었다.
+       ★**주석은 증거가 아니다. 데이터가 말하게 한다.** */
+{
+  const g80ev = { model: 'G80-EV', base: 84790000,
+    minMax: { min: 84790000, minConfig: '세제혜택 후 최저(스탠다드 2WD/단일AWD, 개소세5%)',
+      variants: { 'AWD 세제후': 84790000, '세제전': 89080000 } } };
+  const b1 = basisOf(g80ev);
+  must(b1.price === 89080000 && b1.basis === '세제혜택 전',
+    `「세제전」이 «적혀 있는데» 안 씁니다 — ${b1.price.toLocaleString('ko-KR')}원 / ${b1.basis}`,
+    'lib/domain/estimate/genesis-lineup.ts basisOf');
+
+  /* 「전」이 없고 「후」라고 적혀 있으면 — 값은 쓰되 «후»라고 말한다. 지어내지 않는다. */
+  const onlyAfter = { model: 'X-EV', base: 1000, minMax: { min: 1000, minConfig: '세제후 최저', variants: {} } };
+  const b2 = basisOf(onlyAfter);
+  must(b2.price === 1000 && b2.basis === '세제혜택 후',
+    `「후」밖에 없는데 「${b2.basis}」 라고 말합니다 — 금액의 기준 자체를 잘못 설명합니다`,
+    'lib/domain/estimate/genesis-lineup.ts basisOf');
+
+  /* 표시가 없는 내연 = 피드 정본 규칙(개소세 5%)대로 「전」. */
+  must(basisOf({ model: 'G80', base: 60630000, minMax: { min: 60630000, variants: {} } }).basis === '세제혜택 전',
+    '표시가 없는 내연 모델을 「전」으로 안 봅니다 — 피드 정본은 「모든 가격 = 개소세 5%」입니다',
+    'lib/domain/estimate/genesis-lineup.ts basisOf');
+
+  /* ★표시가 없는 «전기»는 「미확인」이다 — 형제 EV 가 「세제후」라 「전」이라 단정하면 지어내는 것이다. */
+  must(basisOf({ model: 'GV70-EV', base: 79740000, minMax: { min: 79740000, variants: {} } }).basis === '기준 미확인',
+    '기준이 안 적힌 전기 모델을 「전」이라 단정합니다 — 형제 EV 는 「세제후」로 적혀 있습니다',
+    'lib/domain/estimate/genesis-lineup.ts basisOf');
+
+  /* ★피드 폴백이 그 판정을 «쓰는가» — 판정만 만들고 안 쓰면 아무것도 안 고친 것이다. */
+  const rt = code('app/api/newcar/route.ts');
+  must(/basisOf\(/.test(rt) && !/priceBasis: '세제혜택 전', options: \[\], _fallback/.test(rt),
+    '제네시스 폴백이 기준을 «무조건 전»으로 박습니다 — 세제후 값을 「전」이라 부릅니다',
+    'app/api/newcar/route.ts');
 }
 
 if (fails.length) {

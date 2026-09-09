@@ -33,10 +33,29 @@ export const disp = (t: string) => /([1-6]\.[0-9])/.exec(S(t))?.[1] ?? '';
  */
 export const engineSig = (t: string) => [
   disp(t),
-  /터보|turbo|t-gdi/i.test(t) ? 'T' : '',
+  /터보|turbo|t-gdi|[1-6]\.[0-9]\s*T(?![a-z])/i.test(t) ? 'T' : '',   // ★「3.5T」도 터보다(Codex 반례 B)
   /48V|슈퍼차저|supercharg/i.test(t) ? 'E' : '',
   /black|블랙/i.test(t) ? 'B' : '',
 ].join('|');
+
+/**
+ * ★★**연료말은 «서명»이 아니라 «거부권»이다.**
+ *   서명에 넣으면 「3.5T 엔진」처럼 연료말이 없는 이름이 영영 안 맞는다(Codex 반례 B).
+ *   그렇다고 안 보면 「디젤 2.0」 트림이 「가솔린 2.0 엔진」을 「이미 샀다」고 한다(Codex 반례 A) —
+ *   그러면 인제스터가 그 옵션을 사전에서 **지운다. 유료 옵션이 조용히 사라진다.**
+ *   ⇒ **양쪽에 연료말이 다 있고 서로 다르면 «아니다».** 한쪽이 없으면 거부하지 않는다.
+ */
+const fuelVeto = (a: string, b: string) => {
+  const x = fuelWord(a); const y = fuelWord(b);
+  return !!x && !!y && x !== y;
+};
+
+/**
+ * ★★**부품은 구동·엔진 «그 자체»가 아니다.**
+ *   「AWD 전용 휠」·「트레일러 히치(4WD 선택 시)」는 이름에 구동말이 들어 있을 뿐 **파는 물건**이다.
+ *   이것을 「이미 샀다」로 접으면 **진짜 유료 옵션이 사라진다**(Codex 반례 C).
+ */
+const PART = /(휠|타이어|wheel|tire|램프|시트|트레일러|히치|커버|패키지|가니시|스포일러|배지|엠블럼|매트|스텝|캐리어|루프박스)/i;
 
 /** 서명이 통째로 비었나 — 「엔진」이라고만 적힌 것끼리 «같다»고 하면 안 된다. */
 const blank = (sig: string) => !sig.replace(/\|/g, '');
@@ -46,8 +65,12 @@ const blank = (sig: string) => !sig.replace(/\|/g, '');
  * ⚠ 양쪽 서명이 «둘 다» 있어야 같다고 말한다. 한쪽이 비면 «모른다»이지 «같다»가 아니다.
  */
 export function impliedByFuel(id: string, o: ImpliedOpt, fuel: string): boolean {
-  const hay = `${id} ${S(o.name)} ${S(o.sub)}`;
-  if (!/엔진|engine/i.test(hay)) return false;
+  /* ⚠ `sub` 는 «규칙 문장»이다(「4WD 선택 시 장착 가능」). 그걸 이름처럼 읽으면
+     조건이 걸린 «별도 옵션»을 「이미 샀다」로 접는다. 판정은 id·이름으로만 한다. */
+  const hay = `${id} ${S(o.name)}`;
+  if (!/엔진|engine|모터|motor/i.test(hay)) return false;
+  if (PART.test(hay)) return false;
+  if (fuelVeto(hay, fuel)) return false;
   const a = engineSig(hay); const b = engineSig(fuel);
   if (blank(a) || blank(b)) return false;
   return a === b;
@@ -66,8 +89,9 @@ const driveKey = (s: string) =>
 export function impliedByTrim(id: string, o: ImpliedOpt, trim: string): boolean {
   const t = S(trim);
   if (!DRIVE.test(t)) return false;
-  const hay = `${id} ${S(o.name)} ${S(o.sub)}`;
+  const hay = `${id} ${S(o.name)}`;          // ⚠ `sub`(규칙 문장) 제외 — 위 주석 참조
   if (!DRIVE.test(hay)) return false;
+  if (PART.test(hay)) return false;          // 「AWD 전용 휠」은 파는 물건이다
   const k = driveKey(hay);
   return k !== '' && k === driveKey(t);
 }
