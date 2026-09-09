@@ -934,6 +934,44 @@ must(kiaOptSrc.includes('withSuffix(x.trim, splitAxis(x.fuelTab'),
   '트림 꼬리 정규화를 안 태웁니다 — EV9 처럼 탭이 구동인 모델이 안 붙습니다',
   'scripts/crawl-newcar-kia-options.mts');
 
+/* ══ 13. 현대도 «공식에서 직접» — 가격표 HTML 에 선택품목이 있다 ═════════════
+     ★★사장님 2026-09-09 「추천대로 ㄱㄱ」 — 브라우저를 몰기 전에 HTML 부터 재 봤고, 거기 다 있었다. */
+const hdOptSrc = read('scripts/crawl-newcar-hyundai-options.mts');
+
+/* 13-1. `__NUXT__` 이스케이프를 «다» 푼다 — `
+` 을 빼먹으면 트림 머리가 통째로 안 읽힌다. */
+must(hdOptSrc.includes("+[rt]'"),
+  '`\r`·`\t` 를 안 풉니다 — 트림 머리가 「\r \r Smart \r (스마트)」가 되어 이름도 값도 못 읽습니다',
+  'scripts/crawl-newcar-hyundai-options.mts unescapeNuxt');
+
+/* 13-2. 트림 이름을 «영문·한글 둘 다» 담는다 — 우리 마스터는 BFF 영문(「Smart」)을 쓴다. */
+must(hdOptSrc.includes('trimEn') && hdOptSrc.includes('trimKo'),
+  '트림 이름을 한 갈래만 담습니다 — 스타리아·아이오닉이 통째로 안 붙습니다',
+  'scripts/crawl-newcar-hyundai-options.mts');
+
+/* 13-3. 값은 «세제혜택 전»(개소세 5%)이다 — 피드 문서가 정한 basis. */
+must(/세제혜택\s\*전/.test(hdOptSrc) || hdOptSrc.includes('beforeTax'),
+  '세제혜택 «후» 값을 씁니다 — 현대·기아·제네시스의 basis 가 어긋납니다',
+  'scripts/crawl-newcar-hyundai-options.mts');
+
+/* 13-4. 규칙이 «두 모양»으로 온다 — 괄호와 ※. 둘 다 읽어야 이름에 문장이 안 남는다. */
+must(hdOptSrc.includes('※'),
+  '「※ … 선택 시 가능」 을 안 읽습니다 — 규칙이 옵션 «이름» 안에 문장으로 남습니다',
+  'scripts/crawl-newcar-hyundai-options.mts');
+
+/* 13-5. 기아와 같은 두 빗장 — 색상 이중계상 금지 · 이미 실린 규칙 안 덮기. */
+must(hdOptSrc.includes('colorNames.has(N(o.name))'),
+  '유료 색상이 옵션에도 들어갑니다 — 색상값을 두 번 받습니다',
+  'scripts/crawl-newcar-hyundai-options.mts');
+must(hdOptSrc.includes('if (v.optionsMaster && Object.keys(v.optionsMaster).length)'),
+  '이미 실린 조합 규칙을 덮어씁니다',
+  'scripts/crawl-newcar-hyundai-options.mts');
+
+/* 13-6. 슬러그는 «짐작»이 아니라 사이트가 건 링크다 — 짐작으로는 48개 중 셋만 맞았다. */
+must(hdOptSrc.includes("'the-all-new-avante'") && hdOptSrc.includes("'the-new-staria-lounge'"),
+  '현대 슬러그 목록이 비었습니다 — 이름·이미지로 유추하면 대부분 404 입니다',
+  'scripts/crawl-newcar-hyundai-options.mts');
+
 if (fails.length) {
   console.error(`\n✗ 견적 로직이 정본과 다릅니다 — ${fails.length}건\n`);
   for (const f of fails) console.error(`  · ${f}\n`);

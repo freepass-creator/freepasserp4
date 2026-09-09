@@ -56,3 +56,4 @@ sonokong/lib/wonja/
 # 옵션 조합 드라이런 산출물 — 정본은 Firestore(new_car_trim). 적재기가 언제든 다시 만든다.
 data/new-car/option-packs.json
 data/new-car/kia-options.json
+data/new-car/hyundai-options.json
