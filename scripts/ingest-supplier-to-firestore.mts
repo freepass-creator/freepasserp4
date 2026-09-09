@@ -34,6 +34,7 @@ import { snapColor } from '../lib/domain/color-master';
 import { MIRROR_SOURCES } from '../lib/domain/mirror-sources';
 import { sheetIdFromUrl } from '../lib/domain/supplier-sheet-read';
 import { FUEL_EV, rawSeats, atomViolations, type MasterIndex } from '../lib/domain/atom-invariants';
+import { cleanTrim } from '../lib/domain/clean-trim';
 
 const APPLY = process.argv.includes('--apply');
 const CODE = (process.argv.find((a) => a.startsWith('--code='))?.split('=')[1] || 'RP004').trim();
@@ -450,16 +451,10 @@ function atomize(row: Row, pinned: Map<string, Record<string, unknown>>): Atom {
     const canon = snap ? validCanon(snap.maker, snap.model, snap.sub_model) : null;
     const conf = snap?.confidence || 'none';
     confirmed = !!canon && conf === 'high';
+    // ★트림 후보는 snap(마스터 매칭) 또는 원문 트림 — 아래에서 cleanTrim 이 «마스터 복사 or 공란»으로 확정한다.
     identity = canon
-      /**
-       * ★**세부트림이 비면 「기본형」** (`docs/차종명명-정제-매뉴얼` §3 · 사장님 2026-09-04
-       *   「티카는 옵션이 없는 게 기본형이어서 없는 건가?」 — 그렇다. 옵션 없는 차가 기본형이다).
-       *   ⚠ 실측 2026-09-08 — 이 규칙이 «치유기»에만 있고 수집기엔 없어서, 세부모델이 확정된 차 16대가
-       *   트림 빈칸으로 남았다. 규칙이 한 곳에만 있으면 다른 길로 들어온 차는 그 규칙을 못 받는다.
-       *   ★세부모델이 마스터에 «있는» 차에만 붙인다 — 모르는 차에 기본형을 찍으면 그게 지어낸 값이다.
-       */
-      ? { maker: canon.maker, model: canon.model, sub_model: canon.sub_model, trim_name: S(snap?.trim_name) || S(row.trim) || '기본형', origin: S(snap?.origin) }
-      : { maker: row.maker, model: row.model, sub_model: '', trim_name: row.trim, origin: '' };
+      ? { maker: canon.maker, model: canon.model, sub_model: canon.sub_model, trim_name: S(snap?.trim_name) || S(row.trim), origin: S(snap?.origin) }
+      : { maker: row.maker, model: row.model, sub_model: '', trim_name: S(row.trim), origin: '' };
     // ★세대 판별 — 원문의 「N세대」·섀시코드가 답, 없으면 최초등록으로 신형.
     if (canon) identity.sub_model = resolveGen(identity.maker, identity.model, identity.sub_model, row.firstReg, N(vname));
     state = confirmed ? 'new-high' : 'new-review';
@@ -469,6 +464,9 @@ function atomize(row: Row, pinned: Map<string, Record<string, unknown>>): Atom {
       engine_cc: row.cc, vehicle_class: row.klass, first_registration_date: row.firstReg,
     };
   }
+  // ★세부트림 = 마스터에서 «복사» — 마스터에 없으면 공란(검수대기). 지어내지 않는다(사장님 2026-09-09 「마스터에 있는 내용으로만 · 분명하게 복사」).
+  //   원자의 트림은 오직 둘 — 마스터 트림 복사, 또는 공란. 공란인 차는 clean-atom-trims 정규화기 뒤 경고 리포트가 뽑는다.
+  identity.trim_name = cleanTrim(identity.trim_name, identity.maker, identity.model, identity.sub_model, trimsFor(identity.maker, identity.model, identity.sub_model));
   const atom: Atom = {
     car_number: car,
     maker: identity.maker, model: identity.model, sub_model: identity.sub_model, trim_name: identity.trim_name, origin: identity.origin, ...spec, engine_cc: evEngineCc(S(spec.fuel_type), S(spec.engine_cc)),

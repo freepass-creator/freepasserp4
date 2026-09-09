@@ -27,6 +27,7 @@ import { canonSheetVehicleStatus } from '../lib/domain/sheet-import';
 import { canonProductType } from '../lib/domain/product';
 import { composeVehicleName } from '../lib/domain/mirror-sheet-mapping';
 import { snapColor } from '../lib/domain/color-master';
+import { cleanTrim } from '../lib/domain/clean-trim';
 
 const APPLY = process.argv.includes('--apply');
 const S = (v: unknown) => String(v ?? '').trim();
@@ -49,6 +50,10 @@ const validCanon = (maker: unknown, model: unknown, sub: unknown) => {
   for (const a of makerGroup(N(maker))) { const hit = SUB.get(`${a}|${mo}|${sm}`); if (hit) return hit; }
   return null;
 };
+// 세부모델 → 마스터 트림 목록 (트림 복사용). 별칭 제조사 전개.
+const TRIMS = new Map<string, string[]>();
+for (const e of MASTER) { if (!e.trims?.length) continue; for (const a of makerGroup(N(e.maker))) TRIMS.set(`${a}|${N(e.model)}|${N(e.sub_model)}`, e.trims); }
+const trimsFor = (maker: unknown, model: unknown, sub: unknown) => { for (const a of makerGroup(N(maker))) { const t = TRIMS.get(`${a}|${N(model)}|${N(sub)}`); if (t) return t; } return []; };
 /** 최초등록 → 연식. 아이카 원본은 «YY-M-D»(26-5-22)라 두 자리 연도를 20YY 로. 네 자리면 그대로. */
 const yearOf = (firstReg: string) => {
   const s = S(firstReg);
@@ -106,6 +111,8 @@ async function ingest(pinned: Map<string, Record<string, unknown>>): Promise<Ato
         state = 'new-review'; if (confirmed) state = 'new-high';
         spec = { ext_color: snapColor(S(r[ci.ext]), 'ext'), int_color: snapColor(S(r[ci.int]), 'int'), year: yearOf(S(r[ci.firstReg])), fuel_type: normFuel(S(r[ci.fuel])), engine_cc: S(r[ci.cc]), vehicle_class: S(r[ci.klass]), first_registration_date: S(r[ci.firstReg]) };
       }
+      // ★세부트림 = 마스터에서 «복사» — 마스터에 없으면 공란(검수대기). 지어내지 않는다(사장님 2026-09-09 「마스터에 있는 내용으로만 · 분명하게 복사」).
+      identity.trim_name = cleanTrim(identity.trim_name, identity.maker, identity.model, identity.sub_model, trimsFor(identity.maker, identity.model, identity.sub_model));
       atoms.push({
         car_number: car,
         // 불변 (pinned = 우리 것 지킴 · new = 마스터 학습)

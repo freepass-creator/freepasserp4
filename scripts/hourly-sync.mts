@@ -909,6 +909,17 @@ if (APPLY) {
   const mir = run('⑭ Firestore 미러', ['scripts/mirror-to-firestore.mts', '--apply'], /미러 완료|중단|✗/);
   line.push(mir.ok ? (mir.picked.find((l) => /미러 완료/.test(l))?.replace('미러 완료 — ', '') || '미러 ok') : '★미러 실패');
   if (!mir.ok) warnings.push('Firestore 미러 실패');
+
+  /**
+   * ⑭¾ **세부트림 정규화 — «마스터 복사 or 공란»으로 통일** (사장님 2026-09-09 「마스터에 있는 내용으로만 · 분명하게 복사」).
+   *   ★수집기(⑬¼·⑭)가 여럿이라 트림 규칙이 흩어졌었다 — 여기 «한 곳»에서 원자 전체를 훑어 마스터 밖 트림을 비운다.
+   *     이게 「한 곳에서 판정」의 실현. 수집기가 무엇을 써넣든, 마스터에 없는 트림은 «발행 전에» 공란이 된다(원문은 보존).
+   *   ★반드시 ⑭ 미러 «뒤» · ⑯ 발행 «앞» — 미러가 이번 회차에 쓴 것까지 훑고, 그 결과가 시트에 실린다.
+   *   best-effort — 실패해도 회차를 멈추지 않는다(트림이 덜 정리될 뿐 발행은 옳게 나간다).
+   */
+  const trimNorm = run('⑭¾ 세부트림 정규화', ['scripts/clean-atom-trims.mts', '--apply'], /트림 정리|비움|미리보기|Error/);
+  if (trimNorm.ok) { const l = trimNorm.picked.find((x) => /비움/.test(x)); if (l) line.push(l.trim()); }
+  else warnings.push('⑭¾ 세부트림 정규화 실패(발행엔 영향 없음)');
   /**
    * ⑭½ **원자 ↔ ERP 대조** — 시트가 보는 차와 ERP 가 보는 차가 같은가.
    *   ⚠ 2026-09-08 실측 674대가 갈렸다(그중 상태 149대). 상태가 갈리면 **판 차가 ERP 에서 다시 선다.**
