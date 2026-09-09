@@ -99,8 +99,14 @@ export async function GET(request: Request): Promise<Response> {
         ...(v.optionsMaster && Object.keys(v.optionsMaster).length ? { optionsMaster: v.optionsMaster } : {}),
         ...(Array.isArray(v.exclusiveGroups) && v.exclusiveGroups.length ? { exclusiveGroups: v.exclusiveGroups } : {}),
         ...(v.optionExcludes && Object.keys(v.optionExcludes).length ? { optionExcludes: v.optionExcludes } : {}),
-        ...(Array.isArray(v.availableOptions) && v.availableOptions.length ? { availableOptions: v.availableOptions } : {}),
-        ...(Array.isArray(v.impliedOptions) && v.impliedOptions.length ? { impliedOptions: v.impliedOptions } : {}),
+        /* ★★★**빈 배열을 «버리지» 않는다.** 「빈 배열 = 고를 것이 없다」와 「칸이 없다 = 못 받았다」는
+           다른 말인데, `&& .length` 가 빈 배열을 통째로 떨궈 소비자가 「못 받았다」로 읽었다.
+           그러면 `optionList` 가 폴백으로 **옵션 «전부»를 연다** — 그 트림에 없는 것을 판다.
+           ⚠⚠ 2026-09-09 개발센터 4-AI 관문에서 **Codex 가 잡았다**(EMPTY_AVAIL 재현).
+             나는 «만드는 쪽»(크롤러)과 «쓰는 쪽»(option-rules)을 다 막아 놓고
+             **그 사이 파이프**를 안 막아, 방어가 통째로 무력화돼 있었다. */
+        ...(Array.isArray(v.availableOptions) ? { availableOptions: v.availableOptions } : {}),
+        ...(Array.isArray(v.impliedOptions) ? { impliedOptions: v.impliedOptions } : {}),
       };
     });
     // ★Firestore 가 비면(배포 키 문제 등) 로컬 config 로 폴백 — 견적기가 빈값 안 받게

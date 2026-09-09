@@ -39,7 +39,14 @@ export function optionList(s: OptionSpec): { id: string; def: OptionDef }[] {
   /* ⚠ `availableOptions` 가 «있는데 비어 있으면» 그 트림에서 고를 것이 «없다»는 뜻이다.
      예전에는 빈 배열을 «못 받았다»로 읽어 옵션 «전부»를 열어 줬다 — 고를 수 없는 것을 팔게 된다
      (2026-09-09 코덱스 검수). 필드가 아예 «없을» 때만 전부를 보여 준다. */
-  const ids = (Array.isArray(s.availableOptions) ? s.availableOptions : Object.keys(om)).filter((id) => om[id]);
+  /* ★★★**「이미 산 것」은 «팔 물건»이 아니다** — 그 트림의 값에 이미 들어 있다.
+     ⚠⚠ 2026-09-09 개발센터 4-AI 관문에서 **Codex 가 잡았다.** 그때까지 `impliedOptions` 는
+       `requiresOf` 에서 「선행 충족」으로만 쓰였고, **목록·합계는 아무것도 안 걸렀다.**
+       그래서 「3.5 엔진 +246만」이 체크칸으로 그대로 서고, 체크하면 합계에 더해졌다 —
+       막았다고 적어 놓고 **한 푼도 안 막고 있었다.**(재현: optionSum(…,{eng35}) = 2,460,000) */
+  const implied = new Set(s.impliedOptions ?? []);
+  const ids = (Array.isArray(s.availableOptions) ? s.availableOptions : Object.keys(om))
+    .filter((id) => om[id] && !implied.has(id));
   return ids.map((id) => ({ id, def: om[id] }));
 }
 
@@ -58,6 +65,12 @@ export function requiresOf(s: OptionSpec, id: string): string[] {
  */
 export function isEnabled(s: OptionSpec, id: string, chosen: ReadonlySet<string>): boolean {
   if (!s.optionsMaster?.[id]) return false;
+  /* ★「이미 산 것」은 켜고 끌 것이 아니다 — 켜지면 합계에 또 더해진다. */
+  if ((s.impliedOptions ?? []).includes(id)) return false;
+  /* ★★그 트림에서 «파는 것»이 아니면 켤 수 없다. 예전에는 `availableOptions` 를 목록에서만 보고
+     여기서는 안 봐서, G80 2.5T 줄에서 「20\" 피렐리(3.5T 전용)」를 켜고 **70만원을 받을 수** 있었다
+     (2026-09-09 개발센터 4-AI 관문 · Codex 재현). 목록에서 빠진 것이 합계에는 드는 꼴이다. */
+  if (Array.isArray(s.availableOptions) && !s.availableOptions.includes(id)) return false;
   for (const r of requiresOf(s, id)) if (!chosen.has(r)) return false;
   for (const [parent, blocked] of Object.entries(s.optionExcludes ?? {})) {
     if (chosen.has(parent) && (blocked ?? []).includes(id)) return false;
@@ -96,8 +109,11 @@ export function toggleOption(s: OptionSpec, id: string, chosen: ReadonlySet<stri
 /** 고른 것들의 값 합 — 「이미 산 엔진」은 값에 이미 들어 있어 안 더한다. */
 export function optionSum(s: OptionSpec, chosen: ReadonlySet<string>): number {
   const om = s.optionsMaster ?? {};
+  /* ★★**마지막 빗장**이다. 목록·토글을 뚫고 들어와도(저장된 옛 선택·URL·버그) 돈은 안 나간다.
+     빗장을 «세 군데» 거는 까닭 — 하나만 걸면 다음 사람이 그 하나를 지나치는 길을 만든다. */
+  const implied = new Set(s.impliedOptions ?? []);
   let n = 0;
-  for (const id of chosen) n += Number(om[id]?.price) || 0;
+  for (const id of chosen) { if (implied.has(id)) continue; n += Number(om[id]?.price) || 0; }
   return n;
 }
 

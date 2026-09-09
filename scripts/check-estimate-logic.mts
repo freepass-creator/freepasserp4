@@ -18,7 +18,7 @@ import { splitNote, readRule, rulesFrom, priceOf } from '../lib/domain/estimate/
 import { impliedOf } from '../lib/domain/estimate/implied-options';
 import { modelKey } from '../lib/domain/estimate/genesis-lineup';
 import { splitAxis } from '../lib/domain/estimate/newcar-normalize';
-import { optionList, type OptionSpec } from '../lib/domain/estimate/option-rules';
+import { optionList, optionSum, isEnabled, toggleOption, type OptionSpec } from '../lib/domain/estimate/option-rules';
 
 const read = (f: string) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
 /** 소스에서 «주석을 걷은» 코드만 — 개발센터 SSOT 의견서 FP-SSOT-04:
@@ -1134,6 +1134,85 @@ for (const f of ['scripts/backfill-newcar-names.mts', 'scripts/ingest-newcar-opt
   must(/acqTaxCredit/.test(code('lib/domain/estimate/calc.js')),
     '엔진이 전기차 취득세 감면을 «제 줄»에서 안 뺍니다 — 그러면 차량가 기준(「전」)의 전제가 깨집니다',
     'lib/domain/estimate/calc.js acqTax');
+}
+
+/* ══ 15. ★★★「이미 산 것」이 **돈에서 실제로 빠지는가** ══════════════════════
+     ⚠⚠ 2026-09-09 개발센터 4-AI 관문에서 **Codex 가 잡았다.**
+       §12·§13 은 크롤러가 `impliedOptions` 를 «만드는지»만 봤다. 그런데 화면 쪽은
+       `requiresOf` 에서 「선행 충족」으로만 썼고 **목록·토글·합계는 아무것도 안 걸렀다.**
+       ⇒ 「3.5 엔진 +246만」이 체크칸으로 서고, 체크하면 합계에 그대로 더해졌다.
+       **「막았다」고 문서·주석·커밋에 적어 놓고 한 푼도 안 막고 있었다.**
+       (재현: optionSum({optionsMaster:{eng35:2460000}, impliedOptions:['eng35']}, {'eng35'}) = 2,460,000)
+
+     ★교훈 — **「만드는 쪽」을 검사하고 「쓰는 쪽」을 안 검사하면 그게 거짓 합격이다.**
+       데이터에 표시를 남기는 것과 돈이 안 나가는 것은 «다른 일»이다. 여기서는 돈을 잰다. */
+{
+  const spec: OptionSpec = {
+    optionsMaster: {
+      eng35: { name: '가솔린 3.5 터보 엔진', price: 2460000 },
+      awd: { name: 'HTRAC', price: 2470000 },
+      cf: { name: '컴포트 I', price: 900000 },
+    },
+    availableOptions: ['eng35', 'awd', 'cf'],
+    impliedOptions: ['eng35', 'awd'],
+  };
+  /* ㉠ 팔 물건 목록에 서면 안 된다 — 서면 영업자가 누른다. */
+  const ids = optionList(spec).map((x) => x.id);
+  must(!ids.includes('eng35') && !ids.includes('awd') && ids.includes('cf'),
+    `「이미 산 것」이 팔 물건 목록에 섭니다 — [${ids.join(',')}] · 누르면 엔진값을 또 받습니다`,
+    'lib/domain/estimate/option-rules.ts optionList');
+
+  /* ㉡ 켜지면 안 된다. */
+  must(!isEnabled(spec, 'eng35', new Set()) && isEnabled(spec, 'cf', new Set()),
+    '「이미 산 것」을 켤 수 있습니다 — 켜지면 합계에 또 더해집니다',
+    'lib/domain/estimate/option-rules.ts isEnabled');
+
+  /* ㉢ ★마지막 빗장 — 목록·토글을 «뚫고» 들어와도(저장된 옛 선택·URL·버그) 돈은 안 나간다. */
+  const sum = optionSum(spec, new Set(['eng35', 'awd', 'cf']));
+  must(sum === 900000,
+    `「이미 산 것」이 합계에 더해집니다 — ${sum.toLocaleString('ko-KR')}원(나와야 할 값 900,000원) · 그랜저 246만·HTRAC 247만 이중계상`,
+    'lib/domain/estimate/option-rules.ts optionSum');
+
+  /* ㉣ 선행 조건으로는 «충족»으로 본다 — 이미 갖고 있으니까. 이건 원래 되던 것이라 지킨다. */
+  const dep: OptionSpec = { ...spec, optionsMaster: { ...spec.optionsMaster, pkg: { name: '패키지', price: 500000, requires: ['eng35'] } },
+    availableOptions: ['cf', 'pkg'] };
+  must(isEnabled(dep, 'pkg', new Set()),
+    '「이미 산 것」을 선행으로 삼는 옵션이 영영 안 켜집니다 — 이미 갖고 있는데 못 고르게 막습니다',
+    'lib/domain/estimate/option-rules.ts requiresOf');
+}
+
+/* ══ 16. ★★★**파이프도 검사한다** — 만드는 쪽·쓰는 쪽만 막으면 사이로 샌다 ═══════
+     ⚠⚠ 2026-09-09 개발센터 4-AI 관문에서 **Codex 가 잡았다.**
+       나는 크롤러(만드는 쪽)와 `option-rules`(쓰는 쪽)를 다 막아 놓고, **그 사이 피드**를 안 봤다.
+       `/api/newcar` 가 `&& v.availableOptions.length` 로 **빈 배열을 통째로 떨궜고**,
+       소비자는 칸이 없으니 「못 받았다」로 읽어 **옵션 «전부»를 열었다.**
+       ⇒ 「빈 배열 = 고를 것이 없다」 방어가 운영에서 **통째로 무력화**돼 있었다.
+     ★교훈 — 「없다」와 「비었다」를 가르기로 해 놓고 **전송에서 둘을 합치면** 가른 적이 없는 것이다. */
+{
+  const api = code('app/api/newcar/route.ts');
+  for (const f of ['availableOptions', 'impliedOptions']) {
+    must(!new RegExp(`Array\\.isArray\\(v\\.${f}\\)\\s*&&\\s*v\\.${f}\\.length`).test(api),
+      `피드가 빈 «${f}» 를 버립니다 — 소비자가 「못 받았다」로 읽어 그 트림에 없는 옵션을 팝니다`,
+      'app/api/newcar/route.ts');
+    must(new RegExp(`Array\\.isArray\\(v\\.${f}\\)\\s*\\?`).test(api),
+      `피드가 «${f}» 를 배열 그대로 안 보냅니다`, 'app/api/newcar/route.ts');
+  }
+}
+
+/* 16-2. ★그 트림에서 «파는 것»이 아니면 켤 수 없다 — 목록에서 뺀 것이 합계에 들면 안 된다.
+     G80 2.5T 줄에서 「20" 피렐리(3.5T 전용)」를 켜고 70만원을 받을 수 있었다(Codex 재현). */
+{
+  const spec: OptionSpec = {
+    optionsMaster: { w20: { name: '20" 피렐리 타이어&휠', price: 700000 }, cf: { name: '컴포트 I', price: 900000 } },
+    availableOptions: ['cf'],
+  };
+  must(!isEnabled(spec, 'w20', new Set()) && isEnabled(spec, 'cf', new Set()),
+    '그 트림에서 «안 파는» 옵션을 켤 수 있습니다 — 목록에 없는 것이 합계에 듭니다',
+    'lib/domain/estimate/option-rules.ts isEnabled');
+  const after = toggleOption(spec, 'w20', new Set(['cf']));
+  must(!after.has('w20'),
+    '안 파는 옵션이 토글로 들어옵니다 — 있을 수 없는 차의 값이 견적서에 찍힙니다',
+    'lib/domain/estimate/option-rules.ts toggleOption');
 }
 
 if (fails.length) {
