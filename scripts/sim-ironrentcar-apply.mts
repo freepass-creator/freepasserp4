@@ -1,6 +1,7 @@
 import { applyIronRentcarPublicOverlay } from '../lib/domain/ironrentcar-apply';
 import { planIronRentcarReconcile } from '../lib/domain/ironrentcar-reconcile';
 import type { IronRentcarCatalogItem } from '../lib/server/ironrentcar-source';
+import { createSourceSnapshotV1 } from '../lib/server/source-snapshot';
 import type { EntityRecord } from '../lib/intake/entities';
 import { readFileSync } from 'node:fs';
 import { mergeV3V4Records } from '../lib/firebase/rtdb-records';
@@ -16,7 +17,7 @@ const item = (plate: string, status = '출고가능'): IronRentcarCatalogItem =>
     provider_company_code: 'RP006', vehicle_status: status,
     price: { 36: { rent: 600000, deposit: 1200000 } },
   };
-  return { externalId: plate, sourceUrl: `https://ironrentcar.com/vehicles/${plate}`, condition: 'used', sold: status === '출고불가', product, privateProduct: { vehicle_price: 30_000_000 }, policySnapshot: {}, fingerprint: plate };
+  return { externalId: plate, sourceUrl: `https://ironrentcar.com/vehicles/${plate}`, condition: 'used', sold: status === '출고불가', product, privateProduct: { vehicle_price: 30_000_000 }, policySnapshot: {}, sourceSnapshot: createSourceSnapshotV1({ providerCode: 'RP006', sourceKind: 'test', sourceExternalId: plate, sourceUrl: `https://ironrentcar.com/vehicles/${plate}`, observedAt: '2026-09-09T00:00:00.000Z', rawPayload: plate, inventoryKey: `RP006_${plate}`, carNumber: plate }), inventoryAtom: product, fingerprint: plate };
 };
 
 const existing: EntityRecord[] = [

@@ -20,6 +20,7 @@ import {
   type IronRentcarSyncRun,
 } from '../lib/domain/ironrentcar-rollback';
 import type { IronRentcarCatalogItem } from '../lib/server/ironrentcar-source';
+import { createSourceSnapshotV1 } from '../lib/server/source-snapshot';
 import type { EntityRecord } from '../lib/intake/entities';
 
 let pass = 0;
@@ -44,6 +45,8 @@ const item = (plate: string): IronRentcarCatalogItem => {
     product,
     privateProduct: {},
     policySnapshot: {},
+    sourceSnapshot: createSourceSnapshotV1({ providerCode: 'RP006', sourceKind: 'test', sourceExternalId: plate, sourceUrl: `https://ironrentcar.com/vehicles/${plate}`, observedAt: '2026-09-09T00:00:00.000Z', rawPayload: plate, inventoryKey: `RP006_${plate}`, carNumber: plate }),
+    inventoryAtom: product,
     fingerprint: plate,
   };
 };
