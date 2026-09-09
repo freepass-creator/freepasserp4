@@ -60,7 +60,11 @@ export function basisOf(m: { model?: string; fuel?: string; base?: number; minMa
   return { price, basis: isEv ? '기준 미확인' : '세제혜택 전' };
 }
 
-export type LineupRow = { fuel: string; trim: string; price: number };
+export type LineupRow = {
+  fuel: string; trim: string; price: number;
+  /** ★그 구성에 «이미 들어 있다»고 정본이 말한 이름 조각들(Codex #4). 부르는 쪽이 사전과 맞댄다. */
+  included?: string[];
+};
 
 type Choice = { label?: string; name?: string; add?: number; addWon?: number; default?: boolean };
 type Group = { group?: string; choices?: Choice[]; options?: Choice[] };
@@ -73,6 +77,7 @@ type GenModel = {
 };
 
 import { impliedOf } from './implied-options';
+import { includedNames, matchIncluded, type GenLineupLike } from './genesis-included';
 
 const S = (v: unknown) => String(v ?? '').trim();
 /**
@@ -96,7 +101,8 @@ const choicesOf = (g?: Group) => (g?.choices ?? g?.options ?? []).filter((c) => 
 const findGroup = (gs: Group[] | undefined, re: RegExp) => (gs ?? []).find((g) => re.test(S(g.group)));
 
 /** 한 라인업(또는 모델 본체)을 엔진 × 구동으로 편다. */
-function rowsOf(base: number, groups: Group[] | undefined, trimPrefix: string, rowFuel: string): LineupRow[] {
+function rowsOf(base: number, groups: Group[] | undefined, trimPrefix: string, rowFuel: string,
+  lineup?: GenLineupLike, conditionals?: string): LineupRow[] {
   if (!(base > 0)) return [];
   const engines = choicesOf(findGroup(groups, /엔진|모터/)).filter((c) => looksLikeEngine(label(c)));
   const drives = choicesOf(findGroup(groups, /구동/));
@@ -108,7 +114,11 @@ function rowsOf(base: number, groups: Group[] | undefined, trimPrefix: string, r
       const trim = [trimPrefix, label(d)].filter(Boolean).join(' · ');
       /* 라벨은 «한 규격»으로 — 정본이 「가솔린 2.5T」라 적어도 마스터 전체는 「가솔린 2.5 터보」다.
          갈리면 파워트레인 칸에 같은 엔진이 두 이름으로 선다. */
-      out.push({ fuel: canonFuel(label(e) || rowFuel), trim: trim || '기본', price: base + addWon(e) + addWon(d) });
+      /* ★★그 줄에 «이미 들어 있는» 것을 같이 싣는다 — 안 실으면 기본 포함을 또 판다
+         (G80 3.5T 의 ECS 110만 · GV80 블랙의 AWD 300만 · Codex #4). */
+      const included = lineup ? includedNames(lineup, label(e) || rowFuel, conditionals) : [];
+      out.push({ fuel: canonFuel(label(e) || rowFuel), trim: trim || '기본',
+        price: base + addWon(e) + addWon(d), ...(included.length ? { included } : {}) });
     }
   }
   return out;
@@ -118,10 +128,13 @@ function rowsOf(base: number, groups: Group[] | undefined, trimPrefix: string, r
 export function lineupOf(m: GenModel, rowFuel: string): LineupRow[] | null {
   const out: LineupRow[] = [];
   // 라인업(표준·블랙 …)이 따로 있으면 그 이름이 트림 앞자리가 된다 — GV80 이 그렇다.
+  const cond = S((m as { options?: { conditionals?: string } }).options?.conditionals);
   for (const [name, l] of Object.entries(m.lineups ?? {})) {
-    out.push(...rowsOf(Number(l.base) || 0, l.exclusiveGroups, name === '표준' ? '' : name, rowFuel));
+    out.push(...rowsOf(Number(l.base) || 0, l.exclusiveGroups, name === '표준' ? '' : name, rowFuel,
+      l as GenLineupLike, cond));
   }
-  if (!out.length) out.push(...rowsOf(Number(m.base) || 0, m.exclusiveGroups, '', rowFuel));
+  if (!out.length) out.push(...rowsOf(Number(m.base) || 0, m.exclusiveGroups, '', rowFuel,
+    m as GenLineupLike, cond));
   return out.length >= 2 ? out : null;
 }
 
@@ -182,9 +195,19 @@ export function expandGenesis<T extends { maker?: string; sub_model?: string; fu
          G80 「3.5 터보 · AWD · 7,003만」 줄이 엔진 660만 + AWD 280만을 **또 받는다**
          (2026-09-09 검수). 값이 엔진×구동으로 이미 오른 줄이므로 여기서 다시 잰다. */
       const om = (t as { optionsMaster?: Record<string, { name?: string; sub?: string }> }).optionsMaster;
+      /* ★★★**펴 놓은 줄마다 「이미 산 것」을 «다시» 센다.**
+         ㉠ 이름으로 재는 것(엔진·구동) + ㉡ **정본이 「기본포함」이라 적어 둔 것**.
+         ㉡ 이 없으면 GV80 블랙에서 AWD 300만, G80 3.5T 에서 ECS 110만을 또 판다(Codex #4).
+         ⚠ 못 맞대면 «지우지 않는다» — 넘겨 짚으면 유료 옵션이 사라진다(Codex #7 의 교훈). */
+      let implied: string[] | undefined;
+      if (om) {
+        const names = Object.fromEntries(Object.entries(om).map(([id, o]) => [id, S(o.name)]));
+        const byName = (r.included ?? []).map((p) => matchIncluded(p, names)).filter(Boolean) as string[];
+        implied = [...new Set([...impliedOf(om, r.fuel, r.trim), ...byName])];
+      }
       out.push({
         ...t, fuel: r.fuel, trim: r.trim, priceBefore: r.price, priceAfter: r.price,
-        ...(om ? { impliedOptions: impliedOf(om, r.fuel, r.trim) } : {}),
+        ...(implied ? { impliedOptions: implied } : {}),
         lineupSource: 'genesis-config-fs',
       } as T);
     }

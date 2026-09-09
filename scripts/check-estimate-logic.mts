@@ -16,7 +16,8 @@
 import { readFileSync } from 'node:fs';
 import { splitNote, readRule, rulesFrom, priceOf } from '../lib/domain/estimate/option-note';
 import { impliedOf } from '../lib/domain/estimate/implied-options';
-import { modelKey, basisOf } from '../lib/domain/estimate/genesis-lineup';
+import { modelKey, basisOf, expandGenesis } from '../lib/domain/estimate/genesis-lineup';
+import { matchIncluded } from '../lib/domain/estimate/genesis-included';
 import { trimPrice, trimBasis } from '../lib/domain/estimate/car-index';
 import { splitAxis } from '../lib/domain/estimate/newcar-normalize';
 import { optionList, optionSum, isEnabled, toggleOption, type OptionSpec } from '../lib/domain/estimate/option-rules';
@@ -1049,11 +1050,9 @@ must(kiaOptCode.includes('sameFuel'),
     'lib/domain/estimate/implied-options.ts impliedByTrim');
 }
 
-/* 13-2. ★★제네시스를 «엔진 × 구동»으로 펼 때 원본 줄의 판정을 복사하지 않는다.
-     `{...t}` 는 «펴기 전» 값으로 잰 impliedOptions 를 그대로 나른다. */
-must(/impliedOptions: impliedOf\(om, r\.fuel, r\.trim\)/.test(code('lib/domain/estimate/genesis-lineup.ts')),
-  '펴 놓은 제네시스 줄이 «펴기 전» 판정을 복사합니다 — 엔진·구동을 또 팝니다',
-  'lib/domain/estimate/genesis-lineup.ts expandGenesis');
+/* 13-2. ★★제네시스를 «엔진 × 구동»으로 펴 때 원본 줄의 판정을 복사하지 않는다.
+     → 이제 §18 이 «값»으로 잰다(G80 3.5T·AWD = 70,030,000 · GV80 블랙 = 95,080,000).
+     ★문자열 검사를 행동 검사로 «올린» 것이지 낮춘 것이 아니다 — 지우는 방향이 중요하다. */
 
 /* 13-3. ★모델 이름은 «한글이 살아 있어야» 짝이 맞는다 — 영숫자만 남기면 통째로 뭉개진다. */
 must(modelKey('일렉트리파이드 GV70') !== modelKey('GV70'),
@@ -1267,6 +1266,67 @@ for (const f of ['scripts/backfill-newcar-names.mts', 'scripts/ingest-newcar-opt
   must(/basisOf\(/.test(rt) && !/priceBasis: '세제혜택 전', options: \[\], _fallback/.test(rt),
     '제네시스 폴백이 기준을 «무조건 전»으로 박습니다 — 세제후 값을 「전」이라 부릅니다',
     'app/api/newcar/route.ts');
+}
+
+/* ══ 18. ★★★펴 놓은 제네시스 줄은 «기본 포함»도 다시 센다 ══════════════════════
+     ⚠⚠ 2026-09-09 개발센터 4-AI 관문 · **Codex #4.** 엔진 × 구동으로 펴면서 «펴기 전»
+       옵션 조건을 그대로 복사해, 정본이 「기본포함」이라 적어 둔 것을 **또 팔고** 있었다:
+         · G80 3.5T·AWD 70,030,000 → ECS(프리뷰 전자제어 서스펜션) 선택 → **71,130,000**
+         · GV80 블랙 2.5T 95,080,000 → AWD 선택 → **98,080,000**
+       ★「이름에 AWD 가 없으면 진짜 옵션」이라는 규칙이 **기본구성 정보와 충돌**했다 —
+         구동 그룹이 «없는» 라인업은 구동이 base 에 박힌 것이지 «없는» 것이 아니다.
+     ⇒ 정본이 «사람 말»로 적어 둔 세 자리를 읽는다(`baseConfig` · 엔진 `note` · `conditionals`). */
+{
+  const om = {
+    ecs: { name: '프리뷰 전자제어 서스펜션', price: 1100000 },
+    awd: { name: 'AWD', price: 3000000 },
+    bo: { name: '뱅앤올룹슨', price: 1900000 },
+    pano: { name: '파노라마 선루프', price: 1400000 },
+  };
+  const rows = expandGenesis([{
+    maker: '제네시스', sub_model: 'G80', fuel: '가솔린', priceBefore: 0, priceAfter: 0,
+    optionsMaster: om, availableOptions: Object.keys(om),
+  } as never]) as Record<string, unknown>[];
+  const find = (fuelRe: RegExp, trim: string) =>
+    rows.find((r) => fuelRe.test(String(r.fuel)) && String(r.trim) === trim);
+
+  /* 재현 A — G80 3.5T 는 ECS 가 기본이다(`choices[3.5T].note` 「ECS·19인치 콘티 기본」). */
+  const a = find(/3\.5/, 'AWD');
+  const aIm = (a?.impliedOptions ?? []) as string[];
+  must(!!a && Number(a.priceBefore) === 70030000 && aIm.includes('ecs') && aIm.includes('awd'),
+    `G80 3.5T·AWD 가 기본 포함을 «또 팝니다» — ${Number(a?.priceBefore || 0).toLocaleString('ko-KR')}원 / implied=[${aIm.join(',')}]. `
+    + 'ECS 를 고르면 110만이 더 붙습니다',
+    'lib/domain/estimate/genesis-lineup.ts expandGenesis');
+  /* ⚠ 2.5T 에서는 ECS 가 «진짜 유료 옵션»이다 — 넘겨 짚어 지우면 유료 옵션이 사라진다. */
+  const b25 = find(/2\.5/, '2WD');
+  must(!((b25?.impliedOptions ?? []) as string[]).includes('ecs'),
+    'G80 2.5T 에서 ECS 를 「이미 샀다」고 지웁니다 — 거기서는 진짜 유료 옵션(110만)입니다',
+    'lib/domain/estimate/genesis-lineup.ts expandGenesis');
+
+  /* 재현 B — GV80 블랙은 구동 그룹이 «없고» base 가 AWD 다(`baseConfig` 「2.5T·AWD·…」). */
+  const gv = (expandGenesis([{
+    maker: '제네시스', sub_model: 'GV80', fuel: '가솔린', priceBefore: 0, priceAfter: 0,
+    optionsMaster: om, availableOptions: Object.keys(om),
+  } as never]) as Record<string, unknown>[]).find((r) => String(r.trim) === '블랙' && /2\.5/.test(String(r.fuel)));
+  const gvIm = (gv?.impliedOptions ?? []) as string[];
+  must(!!gv && Number(gv.priceBefore) === 95080000 && gvIm.includes('awd'),
+    `GV80 블랙이 AWD 를 «또 팝니다» — ${Number(gv?.priceBefore || 0).toLocaleString('ko-KR')}원 / implied=[${gvIm.join(',')}]. `
+    + '구동 그룹이 없는 라인업은 구동이 base 에 박힌 것입니다(+300만)',
+    'lib/domain/estimate/genesis-lineup.ts expandGenesis');
+
+  /* ★그래서 돈이 실제로 안 나가는가 — 판정만 만들고 안 쓰면 아무것도 안 고친 것이다(§15 의 교훈). */
+  const spec: OptionSpec = { optionsMaster: om, availableOptions: Object.keys(om), impliedOptions: aIm };
+  must(optionSum(spec, new Set([...aIm, 'pano'])) === 1400000,
+    '기본 포함이 합계에 더해집니다 — 파노라마만 고른 값(1,400,000원)이 나와야 합니다',
+    'lib/domain/estimate/option-rules.ts optionSum');
+
+  /* ⚠ 줄임말 맞대기가 «넘겨 짚지» 않는가 — 못 찾으면 지우지 않는다. */
+  must(matchIncluded('없는이름', { a: '컴포트 I' }) === undefined,
+    '없는 이름을 아무 옵션에나 갖다 붙입니다 — 유료 옵션이 사라집니다',
+    'lib/domain/estimate/genesis-included.ts matchIncluded');
+  must(matchIncluded('뱅올', { bo: '뱅앤올룹슨' }) === 'bo' && matchIncluded('ECS', { e: '프리뷰 전자제어 서스펜션' }) === 'e',
+    '정본이 줄여 쓴 말(「뱅올」·「ECS」)을 못 알아봅니다 — 기본 포함을 또 팝니다',
+    'lib/domain/estimate/genesis-included.ts matchIncluded');
 }
 
 if (fails.length) {
