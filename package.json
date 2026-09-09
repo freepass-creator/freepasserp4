@@ -29,6 +29,7 @@
     "check:deployed": "tsx scripts/check-deployed.mts --fetch",
     "check:finder-rows": "tsx scripts/check-finder-rows.mts",
     "check:atoms": "tsx scripts/check-atoms.mts",
+    "check:publish-atom": "tsx scripts/check-publishers-read-atoms.mts",
     "check:invariants": "tsx scripts/check-atom-invariants.mts",
     "check:no-client-sheet-live-status": "tsx scripts/check-no-client-sheet-live-status.mts",
     "check:no-global-settlement-badge": "tsx scripts/check-no-global-settlement-badge.mts",
@@ -130,7 +131,8 @@
     "settlement:heal": "tsx scripts/heal-intake-format.mts",
     "settlement:agents": "tsx scripts/fill-agent-from-rooms.mts",
     "settlement:taborder": "tsx scripts/order-settlement-tabs.mts",
-    "build:estimate-cars": "tsx scripts/generate-estimate-car-index.mts"
+    "build:estimate-cars": "tsx scripts/generate-estimate-car-index.mts",
+    "check:engine": "tsx scripts/check-settlement-engine.mts"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",
