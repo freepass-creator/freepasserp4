@@ -73,3 +73,40 @@ export function updatedLabelKo(ms: number, now = new Date()): string {
   const sameDay = t.getFullYear() === n.getFullYear() && t.getMonth() === n.getMonth() && t.getDate() === n.getDate();
   return sameDay ? hhmm : `${t.getMonth() + 1}. ${t.getDate()}. ${hhmm}`;
 }
+
+/**
+ * **지금 시각 — «실시간»으로 돈다**(사장님 2026-09-09 「오늘 날짜, 시간, 날씨 이거를
+ * **실시간으로** 좀 보여달라는 거지」).
+ *
+ * ★**첫 그림에는 안 그린다.** 서버가 그린 시각과 브라우저 시각이 다르면 React 가
+ *   「안 맞는다」고 경고하고 화면이 한 번 튄다(hydration). 그래서 `null` 로 시작해
+ *   브라우저가 붙은 뒤 채운다 — 시계는 손님 쪽 시각이 맞다.
+ * ★**분마다** 갱신한다. 초까지 보여 주지 않으므로 초마다 다시 그릴 이유가 없다 —
+ *   1초 타이머는 배터리만 먹는다.
+ * ⚠ 다음 «정각(분)»에 맞춰 첫 박을 놓는다. 그냥 60초 간격으로 돌면 표시가 최대 59초 늦는다.
+ */
+export function useNowKst(): Date | null {
+  const [now, setNow] = useState<Date | null>(null);
+  useEffect(() => {
+    setNow(new Date());
+    let timer: ReturnType<typeof setInterval> | null = null;
+    const first = setTimeout(() => {
+      setNow(new Date());
+      timer = setInterval(() => setNow(new Date()), 60_000);
+    }, 60_000 - (Date.now() % 60_000));
+    return () => { clearTimeout(first); if (timer) clearInterval(timer); };
+  }, []);
+  return now;
+}
+
+/**
+ * **지금 — 「9. 9.(수) 13:05」.** 한국 시간으로 못박아 잰다.
+ * ★날짜와 시각이 «한 줄»이다 — 이 자리가 말하는 것은 「지금」 하나다.
+ */
+export function nowLabelKo(now: Date): string {
+  const kst = new Date(now.getTime() + (now.getTimezoneOffset() + 540) * 60_000);
+  const day = ['일', '월', '화', '수', '목', '금', '토'][kst.getDay()];
+  const hh = String(kst.getHours()).padStart(2, '0');
+  const mm = String(kst.getMinutes()).padStart(2, '0');
+  return `${kst.getMonth() + 1}. ${kst.getDate()}.(${day}) ${hh}:${mm}`;
+}
