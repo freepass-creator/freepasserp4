@@ -230,11 +230,16 @@ const depositNote = (raw: string) => {
 };
 
 // ── 원천 리더 — 종류마다 «우리필드 키 행(Row)»을 낸다. 원자화는 하나로 공유한다. ──────
-type Row = { car: string; status: string; kind: string; maker: string; model: string; vname: string; trim: string; fuel: string; ext: string; int: string; km: string; opt: string; firstReg: string; cc: string; klass: string; price: Price; depNote: string; tab: string; row: string };
+type Row = { car: string; link?: string; status: string; kind: string; maker: string; model: string; vname: string; trim: string; fuel: string; ext: string; int: string; km: string; opt: string; firstReg: string; cc: string; klass: string; price: Price; depNote: string; tab: string; row: string };
 const blank: Omit<Row, 'car' | 'tab' | 'row'> = { status: '', kind: '', maker: '', model: '', vname: '', trim: '', fuel: '', ext: '', int: '', km: '', opt: '', firstReg: '', cc: '', klass: '', price: {}, depNote: '' };
 
 // 번호판 꼴만 차로 본다 — 헤더 밑 제목·프로모 배너·빈 행이 «차»로 새는 걸 막는다(오토플러스 실측).
 const isPlate = (s: string) => /\d{2,3}\s*[가-힣]\s*\d{4}/.test(S(s));
+/**
+ * 손오공 「픽업재고」 탭의 차번 → 티카 상품링크. 리더가 채우고, 쓰기 단계도 본다.
+ * ⚠ 덤프(API)에 없는데 시트에는 있는 차가 있다(실측 5대). 리더 안에서만 쓰면 그 차들은 링크를 못 받는다.
+ */
+const 픽업링크 = new Map<string, string>();
 async function readRows(): Promise<Row[]> {
   const out: Row[] = [];
   const seen = new Set<string>();
@@ -263,6 +268,27 @@ async function readRows(): Promise<Row[]> {
     return out;
   }
   if (src.kind === 'sonokong') {
+    /**
+     * ★★**「차번링크」(티카 상품링크)도 «원자»가 갖고 온다** — 사장님 2026-09-09
+     *   「네가 **시트까지 원자가 갖고 왔다고 가정하고 그 갖고 온 원자에서 다 주는** 거잖아」.
+     *
+     * ⚠ 실측 2026-09-09 — 이 링크는 API 덤프에 없고 손오공 「프리패스 재고」 시트의 «픽업재고» 탭에만 있어서,
+     *   **발행기가 발행할 때마다 그 시트를 다시 읽고** 있었다. 발행기가 원천을 읽으면
+     *   ㉠ 시트가 잠깐 안 읽히는 회차엔 229대 링크가 통째로 빈칸이 되고(로그는 성공),
+     *   ㉡ 원자만 보는 곳(ERP·화이트라벨)은 그 링크를 «영영 모른다».
+     *   ⇒ 당길 때 같이 당겨 원자에 박는다. 발행기는 원자만 본다.
+     */
+    try {
+      const SONO = '1WIFn5ObK_nCVGLTjj6rO96i6vxub1QzJmiVW0BpJLcA';   // 손오공 프리패스 재고
+      const tabs = await listSheetTabs(SONO);
+      const pk = tabs.find((t) => /픽업/.test(t));
+      if (pk) {
+        const g = await readSheetGrid(SONO, pk);
+        const hd = g.header.map(N); const ci = hd.indexOf(N('차량번호')), li = hd.indexOf(N('차번링크'));
+        if (ci >= 0 && li >= 0) for (const r of g.rows) { const c = N(r[ci]), l = S(r[li]); if (c && /^https?:/i.test(l)) 픽업링크.set(c, l); }
+      }
+      console.log(`  픽업 차번링크 ${픽업링크.size}개 (손오공 재고시트 「${pk || '픽업 탭 없음'}」)`);
+    } catch (e) { console.warn(`  ▲ 픽업 차번링크 못 읽음 — ${(e as Error).message.slice(0, 60)} (아는 링크는 merge 가 지킨다)`); }
     const dump = JSON.parse(readFileSync('sonokong/lib/wonja/손오공차량.json', 'utf8')) as { 차량?: Record<string, unknown>[] };
     const cars = dump.차량 || [];
     console.log(`  원본 손오공 API 덤프 — ${cars.length}대`);
@@ -287,7 +313,7 @@ async function readRows(): Promise<Row[]> {
        */
       const 버킷 = S(c.버킷);
       const kind = 버킷 === 'TCAR_EXTERNAL' ? '픽업구독' : (버킷 === 'SON_NO_KONG' ? '오공구독' : (c.중고 ? '중고구독' : ''));
-      push({ car, status, kind, maker: S(c.제조사), model: S(c.모델), vname: S(c.차명) || S(c.세부), fuel: S(c.연료), ext: S(c.외장), int: S(c.내장), km: c.주행거리 == null ? '' : String(c.주행거리), opt: S(c.옵션), firstReg: S(c.최초등록) || S(c.연식), cc: c.배기량 == null ? '' : String(c.배기량), klass: '', price, tab: '손오공API', row: S(c.id) });
+      push({ car, link: 픽업링크.get(N(car)) || '', status, kind, maker: S(c.제조사), model: S(c.모델), vname: S(c.차명) || S(c.세부), fuel: S(c.연료), ext: S(c.외장), int: S(c.내장), km: c.주행거리 == null ? '' : String(c.주행거리), opt: S(c.옵션), firstReg: S(c.최초등록) || S(c.연식), cc: c.배기량 == null ? '' : String(c.배기량), klass: '', price, tab: '손오공API', row: S(c.id) });
     }
     return out;
   }
@@ -462,6 +488,7 @@ function atomize(row: Row, pinned: Map<string, Record<string, unknown>>): Atom {
     ...(rawSeats(vname) ? { seats: rawSeats(vname) } : null),   // 원문에 인승 있으면만
     ...(Object.keys(row.price).length ? { price: row.price } : null),
     ...(row.depNote ? { deposit_note: row.depNote } : null),   // 「무보증」처럼 «말»로 적힌 보증금 — 빈칸으로 두지 않는다
+    ...(S(row.link) ? { tica_link: S(row.link) } : null),   // 픽업구독 「차번링크」 — 원천이 줄 때만(빈 값으로 아는 링크를 덮지 않는다)
     _pin_state: state,
     원문: { 차명: vname, ...(row.opt ? { 옵션: row.opt } : null) },
     /**
@@ -543,7 +570,8 @@ const docId = (car: string) => car.replace(/\s/g, '').replace(/[/#.$[\]]/g, '_')
  *   ⚠ 2026-09-08 — 여기에 `vehicle_status` 가 빠져 있었다. 그래서 변동만 돌린 차는 `status` 만 바뀌고
  *   `vehicle_status` 는 옛 값에 머물러 **상태가 두 벌**이 됐다(시트·손님 면은 `vehicle_status` 를 읽는다).
  */
-const VAR_FIELDS_ALL = ['vehicle_status', 'status', 'status_kind', 'status_reason', 'listable', 'status_label_raw', 'mileage', 'price'] as const;
+/** ★`tica_link` 도 «변동»이다 — 손오공이 차를 넣고 빼면 링크도 따라 바뀐다(발행기가 시트를 다시 읽지 않게 원자에 둔다). */
+const VAR_FIELDS_ALL = ['vehicle_status', 'status', 'status_kind', 'status_reason', 'listable', 'status_label_raw', 'mileage', 'price', 'tica_link'] as const;
 /** 상태 칸만 — `--status-only` 일 때. 주행·요금은 빼고 «안 건드린다». */
 const VAR_FIELDS_STATUS = ['vehicle_status', 'status', 'status_kind', 'status_reason', 'listable', 'status_label_raw'] as const;
 const VAR_FIELDS: readonly string[] = STATUS_ONLY ? VAR_FIELDS_STATUS : VAR_FIELDS_ALL;
@@ -598,7 +626,7 @@ if (!APPLY) { console.log(`\n미리보기 — Firestore 안 씀. 쓰려면 --app
 //   사장님 「한 번 정확히 가져오면 그 다음은 상태값만 읽어 바뀐 거 체크. 제일 바뀌는 게 차량상태.」
 if (VARIABLE) {
   const items = now.filter((a) => cur.has(a.car_number)); // 아는 차만(새 차는 --apply 몫)
-  let changed = 0, sChg = 0, mChg = 0, pChg = 0;
+  let changed = 0, sChg = 0, mChg = 0, pChg = 0, lChg = 0;
   for (let i = 0; i < items.length; i += 400) {
     const batch = fs.batch(); let any = false;
     for (const a of items.slice(i, i + 400)) {
@@ -611,18 +639,45 @@ if (VARIABLE) {
       /** ⚠ 요금 없는 차가 있다 — `Object.keys(undefined)` 로 회차가 통째로 죽는다(웰릭스와 같은 꼴). */
       const ap = (a.price && typeof a.price === 'object' ? a.price : {}) as Record<string, unknown>;
       const pMoved = !STATUS_ONLY && Object.keys(ap).length > 0 && jsonSorted(ap) !== jsonSorted(c.price);
-      if (!sMoved && !mMoved && !pMoved) continue;
+      /**
+       * ★**「바뀌었나」 판정에 «링크»도 넣는다.**
+       *   ⚠ 실측 2026-09-09 — `tica_link` 를 쓸 필드 목록에만 넣고 이 판정에 안 넣었더니,
+       *   상태·주행·요금이 그대로인 차는 여기서 `continue` 되어 **링크가 한 대도 안 박혔다**(0/228).
+       *   쓸 목록과 견줄 목록이 갈리면 「넣었는데 안 들어간다」가 된다.
+       */
+      const lMoved = !STATUS_ONLY && S(a.tica_link) !== '' && S(a.tica_link) !== S(c.tica_link);
+      if (!sMoved && !mMoved && !pMoved && !lMoved) continue;
       const upd: Record<string, unknown> = { _var_polled_at: Date.now() };
       for (const f of VAR_FIELDS) if (a[f] !== undefined && a[f] !== '') upd[f] = a[f];
       const ref = fs.collection('products').doc(docId(a.car_number));
       batch.set(ref, upd, { merge: true });
       /** ★요금은 갈아 끼운다 — merge 는 맵 키를 못 지워 «지금 안 파는 기간»이 남는다(위 전체 반영과 같은 규칙). */
       if (!STATUS_ONLY && Object.keys(ap).length) batch.update(ref, { price: ap });
-      changed++; if (sMoved) sChg++; if (mMoved) mChg++; if (pMoved) pChg++; any = true;
+      changed++; if (sMoved) sChg++; if (mMoved) mChg++; if (pMoved) pChg++; if (lMoved) lChg++; any = true;
     }
     if (any) await batch.commit();
   }
-  console.log(`\n변동 폴링 완료 — ${PROV} 아는 차 ${items.length} 중 바뀐 ${changed} 씀 (상태 ${sChg} · 주행 ${mChg} · 요금 ${pChg}). 불변 안 건드림.`);
+  console.log(`\n변동 폴링 완료 — ${PROV} 아는 차 ${items.length} 중 바뀐 ${changed} 씀 (상태 ${sChg} · 주행 ${mChg} · 요금 ${pChg} · 링크 ${lChg}). 불변 안 건드림.`);
+
+  /**
+   * ★★**덤프에 없는데 시트에는 있는 차의 링크도 챙긴다.**
+   *   ⚠ 실측 2026-09-09 — 손오공 API 덤프(308대)와 「픽업재고」 시트(314줄)가 딱 맞지 않는다.
+   *   덤프 안 차만 링크를 받으면 **5대가 링크를 잃는다** — 예전엔 발행기가 시트를 직접 읽어 갖고 있던 값이라,
+   *   원자로 옮기면서 «있던 것을 잃는» 꼴이 된다. 옮기는 일이 잃는 일이 되면 안 된다.
+   *   ⇒ 아는 우리 차(`cur`)면 시트가 준 링크를 그대로 박는다. 새 차를 만들지는 «않는다».
+   */
+  if (!STATUS_ONLY && 픽업링크.size) {
+    const 더 = [...cur.values()].filter((c) => {
+      const l = 픽업링크.get(N(c.car_number));
+      return !!l && S(c.tica_link) !== l;
+    });
+    for (let i = 0; i < 더.length; i += 400) {
+      const b = fs.batch();
+      for (const c of 더.slice(i, i + 400)) b.set(fs.collection('products').doc(docId(c.car_number)), { tica_link: 픽업링크.get(N(c.car_number)), _var_polled_at: Date.now() }, { merge: true });
+      await b.commit();
+    }
+    if (더.length) console.log(`  링크만 채운 차 ${더.length} (덤프에 없지만 픽업재고 시트에 있는 차 포함)`);
+  }
 
   /**
    * ★★**없는 차는 «등록»이다 — 자동으로 밀어 넣지 않는다.**

@@ -17,9 +17,11 @@
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { initializeApp, cert } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
 import { getDatabase } from 'firebase-admin/database';
-import { SALES_PUBLISHED_TAB_PREFIXES } from '../lib/domain/sales-published-tabs';
 import { companyAlias } from '../lib/domain/identity';
+import { isPlate } from '../lib/domain/plate-registry';
+import { loadSalesRowContext, makeCell, tabOf, TAB_ORDER, compareSalesRows } from '../lib/domain/sales-atom-row';
 import { buildSalesFormatRequests, columnWidths, isMoneyColumn } from '../lib/domain/sales-sheet-format';
 import { ensureNoticeTab } from '../lib/server/channel-sheet-tabs';
 import nextEnv from '@next/env';
@@ -65,31 +67,32 @@ const api = async (u: string, init?: RequestInit): Promise<any> => {
 };
 
 /**
- * 공급사 코드 → 회사 이름.
- * ★정본은 **문패 「공급사시트정리」**(공급사명 | 공급사코드 | 시트주소) — 발행기 ⑥ 이 주소를 읽는 그 표다.
- *   RTDB `v4/partners` 는 이관 중이라 비어 있을 수 있어(실측 2026-09-08 여섯 곳이 코드로 남았다) 문패를 먼저 본다.
+ * ★★**줄은 «원자»에서 만든다 — 판매시트를 다시 읽지 않는다.**
+ *
+ * > 사장님 2026-09-09 「당겨오는 거는 **원자 쪽에서** 당겨오는 거고 …
+ * >  네가 **시트까지 원자가 갖고 왔다고 가정하고 그 갖고 온 원자에서 다 주는** 거잖아」
+ *
+ * ⚠⚠ 실측 2026-09-09 — 여기가 F01 의 네 탭을 `values/'탭'!A1:CZ3000` 으로 **통째로 다시 읽어**
+ *   줄을 만들고 있었다. 원자 → F01 시트 → F86 시트로 다리가 하나 더 있었던 것이다. 그래서
+ *   ㉠ F01 발행이 실패한 회차엔 **옛 시트를 베끼고**(그런데 로그는 성공으로 찍힌다),
+ *   ㉡ F01 이 잘못 실은 값을 그대로 물려받고,
+ *   ㉢ 열값·정렬 규칙이 **두 벌**로 적혀 있어 한쪽만 고치면 갈렸다(공급사명이 실제로 갈렸다).
+ *
+ * ⇒ 원자에서 만든다. 줄 만드는 법·문맥·차례는 전부 `lib/domain/sales-atom-row` 한 벌이다.
+ * ★**시트에서 읽는 것은 «머리글 한 줄»뿐**이다 — 열 이름은 여전히 판매시트가 정한다
+ *   (사장님 「이미 정답이 있는데」). 값은 원자가 준다.
  */
-const INDEX_SHEET = '1TVeVXyJJRx0SzD2vxqy3eEjSojmMIWXSu7AdsKmpfmY';
-const nameOf = new Map<string, string>();
-try {
-  const iv = await api(`https://sheets.googleapis.com/v4/spreadsheets/${INDEX_SHEET}/values/A1:Z200`);
-  for (const r of (iv.values || []) as any[][]) {
-    const cells = (r || []).map(S);
-    const code = cells.find((c) => /^(RP|PT)[-_]?\d+/i.test(c));
-    const nm = cells.find((c) => c && c !== code && !/^https?:/.test(c));
-    if (code && nm) nameOf.set(code, companyAlias(nm) || nm);
-  }
-  console.log(`  문패에서 공급사 이름 ${nameOf.size}개 읽음`);
-} catch (e) { console.warn('  문패 못 읽음:', (e as Error).message); }
-const partners = (await getDatabase().ref('v4/partners').get()).val() as Record<string, any> || {};
-for (const p of Object.values(partners)) {
-  if (!p || typeof p !== 'object') continue;
-  const code = S(p.provider_company_code) || S(p.partner_code);
-  const nm = S(p.partner_name) || S(p.company_name) || S(p.name);
-  if (code && nm && !nameOf.has(code)) nameOf.set(code, companyAlias(nm) || nm);
-}
+const rowCtx = await loadSalesRowContext({
+  api,
+  rtdb: async (path) => ((await getDatabase().ref(path).get()).val() as Record<string, any>) || {},
+  companyAlias,
+});
+const cell = makeCell(rowCtx);
+const nameOf = rowCtx.nameByProvider;
+console.log(`  공급사 이름 ${nameOf.size}개 · 전용계좌 ${rowCtx.acctByProvider.size}개 (공용 문맥)`);
+
 /**
- * ★**같은 식구는 한 탭으로 모은다** (사장님 2026-09-08 「경진렌트 경진카는 같은 식구니까 한 탭으로」 ·
+ * ★★**같은 식구는 한 탭으로 모은다** (사장님 2026-09-08 「경진렌트 경진카는 같은 식구니까 한 탭으로」 ·
  *   「한 줄에도 어차피 회사명 들어가니까」).
  *   한 문서를 나눠 쓰는 관계사다 — 정책 탭도 2026-08-21 에 「운영정책」 한 장으로 합쳤다.
  *   ⇒ 탭은 식구 이름 하나로 모으고, 어느 법인인지는 줄의 「공급사」 칸이 말한다.
@@ -108,35 +111,53 @@ const companyOf = (v: string) => {
   const s = S(v);
   const named = /^(RP|PT)[-_]?\d+/i.test(s) ? (nameOf.get(s) || s) : s;   // 코드면 이름으로
   const one = companyAlias(named) || named;                               // 표기 통일(SA → 에스에이 등)
-  return FAMILY[one] || one;                                              // 식구는 한 이름으로
+  return FAMILY[one] || one;
 };
 
-// ── 판매 4탭 읽기 ────────────────────────────────────────────
-const meta = await api(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET}?fields=sheets.properties.title`);
-const titles: string[] = (meta.sheets || []).map((s: any) => S(s.properties?.title));
-const COLUMNS: string[] = [];
 /**
- * ★**같은 값인데 이름이 둘인 요금 칸을 한 벌로 모은다.**
- *   픽업구독 탭만 「반납형보증금 / 인수형보증금」을 쓰고, 상품리스트·손오공구독은 「보증금 반납형 / 보증금 인수형」이다
+ * ★**열 = 판매시트 «그대로»** — 한 칸도 빼지 않는다(「데이터 완벽하게」). 탭마다 열이 달라 «합집합»으로 세운다.
+ * ⚠ 픽업구독 탭만 「반납형보증금 / 인수형보증금」을 쓰고, 상품리스트·손오공구독은 「보증금 반납형 / 보증금 인수형」이다
  *   (2026-09-04 픽업 탭 지시). 한 회사(손오공)를 한 탭에 모으면 그 둘이 **두 벌로 선다** — 실측 요금 칸 18개.
  *   ⇒ 판매시트 다수 표기로 통일한다. 값은 그대로, 이름만 한 벌.
  */
 const FEE_ALIAS: Record<string, string> = { 반납형보증금: '보증금 반납형', 인수형보증금: '보증금 인수형' };
-type Row = { company: string; kind: string; cells: Record<string, string> };
-const rowsAll: Row[] = [];
-for (const prefix of SALES_PUBLISHED_TAB_PREFIXES) {
-  const t = titles.find((x) => x.startsWith(prefix)); if (!t) continue;
-  const v = await api(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET}/values/${encodeURIComponent(`'${t}'!A1:CZ3000`)}`);
-  const grid: string[][] = (v.values || []).map((r: any[]) => r.map(S));
-  const hdr = grid[0] || [];
-  for (const h of hdr) { const n = FEE_ALIAS[S(h)] || S(h); if (n && !COLUMNS.includes(n)) COLUMNS.push(n); }
-  for (const r of grid.slice(1)) {
-    if (!r.some((c) => c)) continue;
-    const cells: Record<string, string> = {};
-    hdr.forEach((h, i) => { if (S(h)) cells[FEE_ALIAS[S(h)] || S(h)] = S(r[i]); });
-    rowsAll.push({ company: companyOf(cells['공급사'] || ''), kind: prefix, cells });
+const COLUMNS: string[] = [];
+const headOf: Record<string, string[]> = {};
+{
+  const meta = await api(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET}?fields=sheets.properties(title)`);
+  const titles: string[] = (meta.sheets || []).map((s: any) => S(s.properties?.title));
+  for (const prefix of TAB_ORDER) {
+    const t = titles.find((x) => x.startsWith(prefix)); if (!t) continue;
+    const v = await api(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET}/values/${encodeURIComponent(`'${t.replace(/'/g, "''")}'!A1:BZ1`)}`);
+    const raw = ((v.values || [[]])[0] as string[]).map(S).filter(Boolean);
+    /** F01 은 픽업 탭 머리글을 「반납형보증금」으로 «바꿔서» 쓴다 — 값을 같게 하려면 그 이름으로 물어야 한다. */
+    headOf[prefix] = prefix === '픽업구독'
+      ? raw.map((h) => (h === '보증금 반납형' ? '반납형보증금' : h === '보증금 인수형' ? '인수형보증금' : h))
+      : raw;
+    for (const h of headOf[prefix]) { const n = FEE_ALIAS[h] || h; if (n && !COLUMNS.includes(n)) COLUMNS.push(n); }
   }
-  console.log(`  읽음 ${t} — ${Math.max(0, grid.length - 1)}줄`);
+}
+
+type Row = { company: string; kind: string; atom: any; cells: Record<string, string> };
+const rowsAll: Row[] = [];
+{
+  const docs = (await getFirestore().collection('products').get()).docs.map((d) => d.data() as any);
+  const listable = docs.filter((v) => v.listable === true);
+  const 탭수: Record<string, number> = {};
+  for (const v of listable) {
+    const kind = tabOf(v);
+    const HEAD = headOf[kind]; if (!HEAD) continue;
+    /**
+     * ★★**차번이 아니면 싣지 않는다** — F01 과 «같은 가드»(사장님 2026-09-08 「차량번호 없으면 당기면 안 되지」).
+     *   오플 원본 시트의 배너 줄이 «차»가 되어 실린 적이 있다(「★★★ … 수수료 150만원 … ★★★」).
+     */
+    const car = S(v.car_number); if (!car || !isPlate(car)) continue;
+    const cells: Record<string, string> = {};
+    for (const h of HEAD) cells[FEE_ALIAS[h] || h] = cell(h, v);
+    rowsAll.push({ company: companyOf(cells['공급사'] || ''), kind, atom: v, cells });
+    탭수[kind] = (탭수[kind] || 0) + 1;
+  }
+  console.log(`  원자에서 만든 줄 ${rowsAll.length} — ${TAB_ORDER.map((t) => `${t} ${탭수[t] || 0}`).join(' · ')}`);
 }
 
 /**
@@ -159,9 +180,9 @@ for (const x of rowsAll) {
 }
 if (이름없음.length) console.log(`  ⚠ 공급사 이름을 모르는 차 ${이름없음.length}대 — 채널에 안 내보낸다(문패 「공급사명」을 채워라): ${이름없음.slice(0, 6).map((x) => S(x.cells['차량번호'])).join(' · ')}`);
 /**
- * ★**줄 차례 = 판매시트와 «같은 규칙»** — 매뉴얼 `docs/영업자시트-매뉴얼.md` 「기본 정렬」.
- *   ① 신차 → ② 인기순(계약 실적) → ③ 상품 많은 순 → ④ 모델명 → ⑤ 싼 대여료 → ⑥ 차번.
- *   시트마다 정렬이 다르면 같은 재고가 두 차례로 보인다 — 그게 「왜 또 바뀌었냐」의 자리다.
+ * ★**줄 차례 = 판매시트와 «같은 규칙»** — 이제 «같은 함수»(`compareSalesRows`)를 쓴다.
+ *   ⚠ 예전엔 같은 규칙이 여기 따로 적혀 있었고, 시트 «칸»(글자)으로 견주느라 F01(원자로 견줌)과
+ *     미묘하게 달랐다. 시트마다 차례가 다르면 같은 재고가 두 차례로 보인다 — 「왜 또 바뀌었냐」의 자리다.
  */
 const modelSold = new Map<string, number>();
 try {
@@ -169,32 +190,14 @@ try {
   for (const [m, n] of Object.entries(j.순위 || {})) modelSold.set(S(m), Number(n) || 0);
   console.log(`  인기순(계약 실적) ${modelSold.size}가지 로드`);
 } catch { console.warn('  인기순 파일 없음 — 인기 축은 건너뛴다'); }
-const modelCount = new Map<string, number>();
-for (const r of rowsAll) { const m = S(r.cells['모델']); if (m) modelCount.set(m, (modelCount.get(m) || 0) + 1); }
-const RENT_RE = /개월/;   // 최저가는 «기간 요금»만 본다(보증금은 값이 아니라 담보다)
-const cheapOf = (c: Record<string, string>) => {
-  const ns = COLUMNS.filter((x) => RENT_RE.test(x)).map((x) => Number(S(c[x]).replace(/[^\d]/g, ''))).filter((n) => Number.isFinite(n) && n > 0);
-  return ns.length ? Math.min(...ns) : Number.MAX_SAFE_INTEGER;
-};
 /**
- * ★줄 차례 = 판매시트와 «같은 규칙». 매뉴얼 `docs/영업자시트-매뉴얼.md` 「기본 정렬」.
- *   ① 신차 먼저 ② 모델별로 묶기(인기 → 상품 많은 순 → 모델명)
- *   ③ 묶음 안 — 신차는 싼 대여료, 중고는 «최신 연식 먼저» 그다음 값 ④ 차번
+ * ⚠⚠ **보조축(재고 대수)은 «F01 전체»로 센다 — 회사별로 세지 않는다.**
+ *   F01 은 탭 전체에서 모델을 세는데 여기서 회사 안에서만 세면 같은 모델의 차례가 시트마다 달라진다.
  */
-const YEAR = (v: string) => { const n = Number(S(v).replace(/[^0-9]/g, '').slice(0, 4)); return !n ? 0 : n < 100 ? 2000 + n : n; };
-for (const list of by.values()) {
-  list.sort((a, b) => {
-    const isNew = (x: Row) => (/신차/.test(S(x.cells['구분'])) ? 0 : 1);
-    const sold = (x: Row) => -(modelSold.get(S(x.cells['모델'])) || 0);
-    const pop = (x: Row) => -(modelCount.get(S(x.cells['모델'])) || 0);
-    const 묶음 = isNew(a) - isNew(b) || sold(a) - sold(b) || pop(a) - pop(b)
-      || S(a.cells['모델']).localeCompare(S(b.cells['모델']), 'ko');
-    if (묶음) return 묶음;
-    const 안 = isNew(a) === 0 ? 0 : (YEAR(b.cells['연식']) - YEAR(a.cells['연식']));
-    return 안 || cheapOf(a.cells) - cheapOf(b.cells)
-      || S(a.cells['차량번호']).localeCompare(S(b.cells['차량번호']));
-  });
-}
+const modelCount = new Map<string, number>();
+for (const r of rowsAll) { const m = S(r.atom.model); if (m) modelCount.set(m, (modelCount.get(m) || 0) + 1); }
+const cmp = compareSalesRows(modelSold, modelCount);
+for (const list of by.values()) list.sort((a, b) => cmp(a.atom, b.atom));
 const order = [...by.entries()].sort((a, b) => b[1].length - a[1].length);
 console.log(`\n■ ${DOC_NAME} — 회사 ${order.length}곳 · 총 ${rowsAll.length}대 · 열 ${OUT_COLS.length}`);
 for (const [k, list] of order) {
