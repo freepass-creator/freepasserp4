@@ -92,6 +92,12 @@ export async function GET(request: Request): Promise<Response> {
         ...(Array.isArray(v.intColors) && v.intColors.length ? { intColors: v.intColors } : {}),
         ...(Array.isArray(v.basePrices) ? { basePrices: v.basePrices } : {}),
         ...(Array.isArray(v.rules) && v.rules.length ? { rules: v.rules } : {}),
+        /* ★옵션 조합 규칙 — 배타·선행·배제. 없는 트림도 많아 «있을 때만» 싣는다. */
+        ...(v.optionsMaster && Object.keys(v.optionsMaster).length ? { optionsMaster: v.optionsMaster } : {}),
+        ...(Array.isArray(v.exclusiveGroups) && v.exclusiveGroups.length ? { exclusiveGroups: v.exclusiveGroups } : {}),
+        ...(v.optionExcludes && Object.keys(v.optionExcludes).length ? { optionExcludes: v.optionExcludes } : {}),
+        ...(Array.isArray(v.availableOptions) && v.availableOptions.length ? { availableOptions: v.availableOptions } : {}),
+        ...(Array.isArray(v.impliedOptions) && v.impliedOptions.length ? { impliedOptions: v.impliedOptions } : {}),
       };
     });
     // ★Firestore 가 비면(배포 키 문제 등) 로컬 config 로 폴백 — 견적기가 빈값 안 받게

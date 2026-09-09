@@ -28,7 +28,18 @@ export type NewTrim = { maker: string; sub_model: string; carType?: string; fuel
    *     (사장님 「중고마스터 색상과 신차마스터 색상은 각각 존재해야 함」).
    *   ⚠ 트림의 67% 에만 있다(2026-09-08 실측 423 중 284) — 없으면 화면이 그렇다고 말한다.
    */
-  extColors?: NewColor[]; intColors?: NewColor[] };
+  extColors?: NewColor[]; intColors?: NewColor[];
+  /**
+   * ★옵션 «조합 규칙» — 배타(택1)·선행필수·배제. 사장님 2026-09-09
+   *   「옵션은 명확하게 다 구현하는 게 웰릭스 테이블에 있는데」.
+   *   정본(`new_car_trim`)에 실려 있다(`scripts/ingest-newcar-options.mts` · 272줄).
+   *   ⚠ 없는 트림도 많다(웰릭스가 모르는 모델) — 없으면 화면이 평면 목록으로 그린다.
+   */
+  optionsMaster?: Record<string, { name: string; sub?: string; price: number; requires?: string[] }>;
+  exclusiveGroups?: { id: string; label: string; members: string[] }[];
+  optionExcludes?: Record<string, string[]>;
+  availableOptions?: string[];
+  impliedOptions?: string[] };
 export type NewModel = { maker: string; sub_model: string; fuels: string[]; trimCount: number; trims: NewTrim[] };
 
 /** 견적 STEP 1 이 받는 «고른 차 한 대». 중고·신차가 같은 모양으로 온다. */

@@ -4292,6 +4292,12 @@
 
 /* 「추정」 표시 — 우리가 채운 값이라는 것을 «말한다»(사장님 2026-09-08 「평균시세는 틀릴 수 있으니까」).
    ⚠ 표시를 빼면 사람이 그 값을 «우리가 아는 시세»로 믿는다. 그게 더 위험하다. */
+/* 옵션 줄의 «설명»과 «못 고르는 까닭» — 원본 `.option-row` 에는 없던 두 줄이다.
+   ⚠ 왜 안 되는지 안 적으면 사람이 「고장났다」고 읽는다(사장님 2026-09-09 「명확하게 다 구현」). */
+.wx-root .option-row .o-sub { font-size: 11px; color: var(--ink-4); margin-top: 2px; line-height: 1.4; }
+.wx-root .option-row .o-why { font-size: 11px; color: var(--warn, #b45309); margin-top: 2px; line-height: 1.4; }
+.wx-root .option-row.disabled .o-name { color: var(--ink-4); }
+
 .wx-root .seedmark {
   align-self: center; font-size: 10px; line-height: 1; padding: 3px 6px;
   border-radius: var(--r-sm); background: var(--accent-soft); color: var(--accent);

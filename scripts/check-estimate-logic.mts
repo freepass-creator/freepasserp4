@@ -825,6 +825,81 @@ must(ws('프레스티지(9인)', '9인승') === '프레스티지(9인)',
   '이미 들어 있는 꼬리를 또 붙입니다',
   'lib/domain/estimate/newcar-normalize.ts withSuffix');
 
+/* ══ 11. 옵션 «조합 규칙» — 배타(택1)·선행필수·배제 ═══════════════════════════
+     ★★사장님 2026-09-09 「야 **옵션은 명확하게 다 구현하는 게 웰릭스 테이블에 있는데**」
+     여태는 규칙을 «글»로만 보여 주고 안 막았다 — 그러면 «있을 수 없는 차»의 값이 견적서에 찍힌다. */
+const OR = await import('../lib/domain/estimate/option-rules');
+
+/* 11-1. 선행필수 — 3.5 엔진을 안 사면 HTRAC 을 못 고른다(현대 그랜저 실물 규칙). */
+{
+  const spec: import('../lib/domain/estimate/option-rules').OptionSpec = {
+    optionsMaster: {
+      engine_3_5: { name: '가솔린 3.5 엔진', price: 2_470_000 },
+      htrac: { name: 'HTRAC (4WD)', price: 2_200_000, requires: ['engine_3_5'] },
+      roof_a: { name: '파노라마 선루프', price: 1_200_000 },
+      roof_b: { name: '스마트 비전 루프', price: 900_000 },
+    },
+    exclusiveGroups: [{ id: 'roof', label: '루프', members: ['roof_a', 'roof_b'] }],
+    optionExcludes: { roof_b: ['htrac'] },
+    availableOptions: ['engine_3_5', 'htrac', 'roof_a', 'roof_b'],
+  };
+  const none = new Set<string>();
+  must(!OR.isEnabled(spec, 'htrac', none),
+    '선행이 없는데 옵션을 고를 수 있습니다 — 있을 수 없는 차의 값이 견적서에 찍힙니다',
+    'lib/domain/estimate/option-rules.ts isEnabled');
+  must(/선행 필요/.test(OR.whyBlocked(spec, 'htrac', none)),
+    '못 고르는 까닭을 안 말해 줍니다 — 사람이 「고장났다」고 읽습니다',
+    'lib/domain/estimate/option-rules.ts whyBlocked');
+
+  /* 11-2. 배타(택1) — 같은 그룹에서 하나를 고르면 형제가 꺼진다. */
+  let ch = OR.toggleOption(spec, 'roof_a', none);
+  ch = OR.toggleOption(spec, 'roof_b', ch);
+  must(ch.has('roof_b') && !ch.has('roof_a'),
+    '배타그룹에서 둘이 동시에 켜집니다 — 「중 1개만」이 말뿐입니다',
+    'lib/domain/estimate/option-rules.ts toggleOption');
+
+  /* 11-3. 선행을 끄면 그것을 딛고 선 것도 «같이» 꺼진다(사슬까지). */
+  let c2 = OR.toggleOption(spec, 'engine_3_5', new Set<string>());
+  c2 = OR.toggleOption(spec, 'htrac', c2);
+  must(c2.has('htrac'), '선행을 켰는데도 못 고릅니다', 'lib/domain/estimate/option-rules.ts');
+  must(OR.optionSum(spec, c2) === 4_670_000,
+    `옵션 합이 다릅니다(${OR.optionSum(spec, c2)}) — 247만 + 220만 = 467만`,
+    'lib/domain/estimate/option-rules.ts optionSum');
+  const c3 = OR.toggleOption(spec, 'engine_3_5', c2);
+  must(!c3.has('htrac'),
+    '선행을 껐는데 그것을 딛고 선 옵션이 남습니다 — 값이 남아 차량가가 틀립니다',
+    'lib/domain/estimate/option-rules.ts toggleOption');
+
+  /* 11-4. 배제 — 부모를 켜면 막힌 것은 못 고른다. */
+  const c4 = OR.toggleOption(spec, 'roof_b', new Set<string>());
+  must(!OR.isEnabled(spec, 'htrac', c4),
+    '배제 규칙이 안 먹습니다 — 「동시 선택 불가」가 말뿐입니다',
+    'lib/domain/estimate/option-rules.ts isEnabled');
+}
+
+/* 11-5. 규칙이 «없는» 트림은 막지 않는다 — 못 받은 것을 없는 것으로 만들지 않는다. */
+must(!OR.hasRules({}), '규칙이 없는데 있다고 봅니다', 'lib/domain/estimate/option-rules.ts hasRules');
+
+/* 11-6. 화면이 실제로 그 규칙을 쓰는가. */
+must(page.includes('hasRules(optSpec)') || page.includes('const ruled = hasRules'),
+  '화면이 조합 규칙을 안 씁니다 — 규칙을 실어 놓고 안 쓰면 실은 뜻이 없습니다',
+  'app/estimate/page.tsx');
+must(page.includes('toggleOption(optSpec, id, prev)') && page.includes('whyBlocked(optSpec, id, optIds)'),
+  '옵션 줄이 규칙대로 «막지» 않습니다',
+  'app/estimate/page.tsx');
+/* ⚠ 규칙판에서 고른 것이 차량가·견적서에 그대로 들어가야 한다. */
+must(page.includes('ruled ? optionSum(optSpec, optIds)'),
+  '규칙판에서 고른 옵션이 차량가에 안 들어갑니다',
+  'app/estimate/page.tsx');
+
+/* 11-7. 피드가 규칙을 내보내는가 — 화면이 아니라 «피드»가 실어야 견적기(netlify)도 같이 낫는다. */
+{
+  const api = read('app/api/newcar/route.ts');
+  for (const f of ['optionsMaster', 'exclusiveGroups', 'optionExcludes', 'availableOptions', 'impliedOptions']) {
+    must(api.includes(f), `신차 피드가 「${f}」 를 안 내보냅니다`, 'app/api/newcar/route.ts');
+  }
+}
+
 if (fails.length) {
   console.error(`\n✗ 견적 로직이 정본과 다릅니다 — ${fails.length}건\n`);
   for (const f of fails) console.error(`  · ${f}\n`);
