@@ -900,6 +900,40 @@ must(page.includes('ruled ? optionSum(optSpec, optIds)'),
   }
 }
 
+/* ══ 12. 제조사에서 «직접» 받은 옵션 — 웰릭스가 모르는 모델을 메운다 ══════════
+     ★★사장님 2026-09-09 「다음 ㄱㄱㄱ」 — 웰릭스 조합지도는 25모델뿐이라
+       EV3~EV9·스타리아·아이오닉·르노가 통째로 비어 있었다. 기아는 공식 HTML 에 선택품목이 있다. */
+/* ⚠ 크롤러를 «부르지» 않는다 — 부르면 제조사에 요청이 나간다. 소스를 «읽어» 규격만 본다. */
+const kiaOptSrc = read('scripts/crawl-newcar-kia-options.mts');
+
+/* 12-1. 「블랙 루프스킨(선루프와 동시 적용 불가)」 — 괄호 뒤는 «이름»이 아니라 «규칙»이다. */
+{
+  const src = kiaOptSrc;
+  must(/동시\s\*적용\s\*불가/.test(src) || src.includes('동시'),
+    '「동시 적용 불가」를 안 읽습니다 — 이름에 규칙이 섞여 들어옵니다',
+    'scripts/crawl-newcar-kia-options.mts');
+  /* ⚠ 상대를 못 찾으면 규칙을 «만들지 않는다» — 지어낸 배타는 고를 수 있는 것을 막는다. */
+  must(src.includes('if (!partner) continue;'),
+    '상대를 못 찾았는데 배타를 세웁니다 — 고를 수 있는 것을 막게 됩니다',
+    'scripts/crawl-newcar-kia-options.mts');
+}
+
+/* 12-2. ★★색상은 옵션에서 뺀다 — 화면이 색상을 «따로» 더한다(colorAdd). 두 번 받으면 안 된다. */
+must(kiaOptSrc.includes('colorNames.has(N(o.name))'),
+  '유료 색상이 옵션에도 들어갑니다 — 색상값을 두 번 받습니다',
+  'scripts/crawl-newcar-kia-options.mts');
+
+/* 12-3. ★이미 실린 «규칙»을 덮지 않는다 — 기아 공식 HTML 은 배타·선행을 안 준다.
+     덮으면 웰릭스에서 얻은 규칙이 사라져 뒷걸음질이다. */
+must(kiaOptSrc.includes('if (v.optionsMaster && Object.keys(v.optionsMaster).length)'),
+  '이미 실린 조합 규칙을 덮어씁니다 — 배타·선행이 사라집니다',
+  'scripts/crawl-newcar-kia-options.mts');
+
+/* 12-4. 트림 꼬리 정규화를 «같이» 태운다 — 안 태우면 EV9 열 줄이 통째로 안 붙는다(실측). */
+must(kiaOptSrc.includes('withSuffix(x.trim, splitAxis(x.fuelTab'),
+  '트림 꼬리 정규화를 안 태웁니다 — EV9 처럼 탭이 구동인 모델이 안 붙습니다',
+  'scripts/crawl-newcar-kia-options.mts');
+
 if (fails.length) {
   console.error(`\n✗ 견적 로직이 정본과 다릅니다 — ${fails.length}건\n`);
   for (const f of fails) console.error(`  · ${f}\n`);
