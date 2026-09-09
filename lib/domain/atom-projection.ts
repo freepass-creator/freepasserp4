@@ -26,8 +26,21 @@ export interface AtomRefs {
   providerNames?: Map<string, string>;                  // 공급사코드 → 회사명(보조; product.provider_name 우선)
 }
 
-/** 매물에 붙는 «해소된 원자» — 소비처는 이걸 포맷만 한다. */
+/** 매물에 붙는 «해소된 원자» = «완전한 읽기 모델». 소비처(카드·시트·ERP·손님상세)는 이걸 «포맷만» 한다.
+ *  ★Codex 2026-09-09 FP-SSOT-01: 일부 조인만 공통화하면 소비처가 정체·제원·상태를 «날것»으로 읽어 재해석한다
+ *    (실측: 판매시트가 트림 「기본형」을 다시 지어내고, 상태를 vehicle_status||status 로 다시 골랐다).
+ *  ⇒ 정체·제원·상태·개체까지 «여기서» 실어 보낸다. 소비처는 이 모델 «밖»을 읽지 않는다(원문·시트 재읽기 금지). */
 export interface ResolvedAtom {
+  // ── 정체 (identity — 마스터에서 복사된 것) ──
+  car_number: string;
+  maker: string; model: string; sub_model: string; trim_name: string; origin: string;
+  // ── 제원 (spec — 마스터/원천이 준 불변) ──
+  ext_color: string; int_color: string; year: string; fuel_type: string; engine_cc: string;
+  vehicle_class: string; drive_type: string; seats: string; battery_capacity: string; first_registration_date: string;
+  mileage: string; options: string;
+  // ── 상태 (write 경로 resolveStatus 가 정한 것을 «그대로» 실어 보낸다 — 읽기 모델은 재계산하지 않는다) ──
+  status: string; vehicleStatus: string; statusKind: string; statusReason: string; listable: boolean;
+  // ── 조인 (정책·회사·상품구분·요금) ──
   productType: string;                                  // 상품구분 (7캐논)
   company: string;                                      // 회사명 (코드 아님)
   policyCode: string;                                   // 적힌 값 | 회사 정책 자동해소
@@ -35,6 +48,8 @@ export interface ResolvedAtom {
   policy: Record<string, unknown> | null;               // 조인된 정책 문서 (없으면 null)
   fare: FareTable;
   lowestRent: number;
+  // ── 근거 (원문 — 표시용 아님, 추적·검수용) ──
+  원문: Record<string, unknown> | null;
 }
 
 /** policies·partners 배열 → AtomRefs. 한 번 만들어 여러 매물에 쓴다. */
@@ -53,7 +68,19 @@ export function resolveAtom(p: Record<string, unknown>, refs: AtomRefs): Resolve
   const rawName = S(p.provider_name) || refs.providerNames?.get(provCode) || provCode;
   const policyCode = autoPolicyCode(p, refs.byProvider);          // 적힌 값 우선 · 없으면 회사 정책(1개→자동·렌트/구독)
   const policy = policyCode ? joinPolicy(refs.policyByCode, policyCode) : null;
+  const 원문 = (p['원문'] && typeof p['원문'] === 'object') ? p['원문'] as Record<string, unknown> : null;
   return {
+    // 정체 — 원자에 박힌 값을 «그대로»(트림은 이미 마스터 복사 or 공란 · 여기서 다시 지어내지 않는다).
+    car_number: S(p.car_number),
+    maker: S(p.maker), model: S(p.model), sub_model: S(p.sub_model), trim_name: S(p.trim_name), origin: S(p.origin),
+    // 제원 — 불변. 상태와 무관하게 늘 싣는다(사장님 2026-09-04 「상태로 데이터 가리지 않는다」).
+    ext_color: S(p.ext_color), int_color: S(p.int_color), year: S(p.year), fuel_type: S(p.fuel_type), engine_cc: S(p.engine_cc),
+    vehicle_class: S(p.vehicle_class), drive_type: S(p.drive_type), seats: S(p.seats), battery_capacity: S(p.battery_capacity),
+    first_registration_date: S(p.first_registration_date), mileage: S(p.mileage), options: S(p.options),
+    // 상태 — write 경로(resolveStatus)가 정한 것을 그대로. 읽기 모델은 vehicle_status 를 정본으로 삼고 재계산하지 않는다.
+    status: S(p.vehicle_status) || S(p.status), vehicleStatus: S(p.vehicle_status) || S(p.status),
+    statusKind: S(p.status_kind), statusReason: S(p.status_reason), listable: p.listable === true,
+    // 조인
     productType: canonProductType(p.product_type),
     company: companyAlias(rawName) || rawName,
     policyCode,
@@ -61,5 +88,6 @@ export function resolveAtom(p: Record<string, unknown>, refs: AtomRefs): Resolve
     policy,
     fare: fareTable(p.price),
     lowestRent: lowestRent(p.price),
+    원문,
   };
 }
