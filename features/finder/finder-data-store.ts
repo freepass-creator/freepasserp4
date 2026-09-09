@@ -124,8 +124,10 @@ function startFirestore(entry: FinderDataEntry) {
       if (!entry.partners) void loadFinderPartners(entry);
     },
     (err) => {
-      // ㉡ 핸들 완전 해제(다음 재구독이 다시 시도할 수 있게) · ㉢ RTDB 단발 폴백(빈 화면 방지).
       if (entries.get(entry.key) !== entry) return;
+      // ㉡ 핸들을 «호출해» 완전 해제 — 반환된 정리함수를 안 부르고 undefined 로만 두면 구독 콜백(subs/errSubs)이 남아
+      //    재구독 때 «옛 콜백»이 중복으로 산다(Codex 2026-09-09 반례). fsUnsub 를 «호출»해 콜백까지 뗀다.
+      entry.fsUnsub?.();
       entry.fsUnsub = undefined;
       console.warn('[finder] Firestore 실패 → RTDB 폴백:', err);
       void loadProducts(entry);
