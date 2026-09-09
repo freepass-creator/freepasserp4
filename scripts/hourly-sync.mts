@@ -567,8 +567,11 @@ else warnings.push('⓪⅗ 차종마스터 최신화 실패 — 지난 사본이
  */
 try {
   const mj = JSON.parse(readFileSync('public/data/vehicle-master.json', 'utf8')) as { entries?: unknown[] } | unknown[];
-  const n = (Array.isArray(mj) ? mj : mj.entries)?.length || 0;
-  if (n < 1) stop('차종마스터 캐시가 비었다 — 마스터 없이 발행하지 않는다(export 실패 + 지난 완본 없음)');
+  const arr = Array.isArray(mj) ? mj : (mj as { entries?: unknown[] }).entries;
+  // ★«길이»만 보면 안 된다 — 4-AI 적대검증(Codex 2026-09-09): {"entries":"x"}(문자열 length 1)·{"entries":[{}]}(빈 문서)가
+  //   통과했다. «배열인가 + 식별필드(sub_model)를 가진 항목이 하나라도 있나»를 본다. 아니면 마스터 없이 도느니 멈춘다.
+  const 실속 = Array.isArray(arr) ? arr.filter((e) => e && typeof e === 'object' && String((e as { sub_model?: unknown }).sub_model ?? '').trim()).length : 0;
+  if (!Array.isArray(arr) || 실속 < 1) stop('차종마스터 캐시가 비었거나 형식이 깨졌다(배열·sub_model 없음) — 마스터 없이 발행하지 않는다');
 } catch { stop('차종마스터 캐시가 없거나 손상됐다 — 마스터 없이 발행하지 않는다(export 실패 + 지난 완본 손상)'); }
 
 // ① 정제시트(원본이 자체시트·홈페이지인 4곳) — 새 차 추가 · 사라진 차 출고불가 · 요금/상태 갱신
