@@ -23,6 +23,7 @@ import {
   RENT_BANDS, DEP_BANDS, MILE_BANDS, CREDITS, CATALOG_PERKS, hasPerk, popularRank, type Band,
 } from '@/lib/domain/product-filters';
 import { fuelDisplay, makerDisplay, yearFullDisplay } from '@/lib/domain/vehicle-master-format';
+import { canonProductType } from '@/lib/domain/product';
 import { CUSTOMER_VEHICLE_CLASSES, customerVehicleClass } from '@/lib/domain/catalog-facets';
 
 /** 고를 수 있는 축. 값은 주소 파라미터 이름이기도 하다 — 짧고 안 바뀌는 이름으로 둔다. */
@@ -34,12 +35,12 @@ import { CUSTOMER_VEHICLE_CLASSES, customerVehicleClass } from '@/lib/domain/cat
  *   뒤에 두면 「50만원대」를 고른 뒤에야 「어느 기간의 50만원인지」를 묻는 꼴이 된다.
  * ⚠ 새 축을 «끼워 넣을» 때 나머지 순서는 건드리지 않는다 — 손님은 자리로 기억한다.
  */
-export const SHOP_AXES = ['vc', 'vclass', 'maker', 'term', 'rent', 'dep', 'credit', 'year', 'mile', 'fuel', 'perk'] as const;
+export const SHOP_AXES = ['vc', 'ptype', 'vclass', 'maker', 'term', 'rent', 'dep', 'credit', 'year', 'mile', 'fuel', 'perk'] as const;
 export type ShopAxis = (typeof SHOP_AXES)[number];
 
 /** 축 이름 — 조건칸 제목이자 「적용한 조건」 토큰의 앞머리. 한 곳에서만 적는다. */
 export const AXIS_LABEL: Record<ShopAxis, string> = {
-  vc: '차종', vclass: '차급', term: '계약기간', maker: '제조사', rent: '월 대여료', dep: '보증금',
+  vc: '차종', ptype: '상품구분', vclass: '차급', term: '계약기간', maker: '제조사', rent: '월 대여료', dep: '보증금',
   credit: '심사', year: '연식', mile: '주행거리', fuel: '연료', perk: '혜택',
 };
 
@@ -191,6 +192,19 @@ const bandOf = (bands: Band[], key: string) => bands.find((b) => b.k === key);
 const axisMatch: Record<ShopAxis, (p: EntityRecord, key: string) => boolean> = {
   vc: (p, k) => customerVehicleClass(p) === k,
   /*
+   * ★★**상품구분** — 「신차렌트냐 중고렌트냐 구독이냐」. 사장님 2026-09-09
+   *   「차종구분 밑에 **상품구분도 넣어주라** … 신차렌트 중고렌트 오공구독 오플구독 중고구독 이런 식으로」.
+   * ★★**값을 «정본»에서 안 가져오고 재고에서 «센다».** 이유가 있다 —
+   *   정본(`PRODUCT_TYPES`, 다섯)이 지금 재고를 못 따라간다. 2026-09-09 실측 710대:
+   *   중고렌트 266 · 픽업구독 221 · **오플구독 72** · 신차렌트 68 · **오공구독 60** · 중고구독 22.
+   *   **오공·오플구독은 정본에 없고 신차구독은 재고에 없다.** 정본으로 칸을 박으면 손님 화면에서
+   *   132대(19%)가 통째로 안 걸리고, 있지도 않은 「신차구독」이 서 있게 된다.
+   * ⇒ `canonProductType` 으로 **표기 변형만 접고**(재렌트→중고렌트) 값은 데이터가 정한다.
+   *   원천이 새 갈래를 주면 저절로 선다. 정본은 정본대로 고쳐야 하지만, 그건 **원자 일**이지
+   *   손님 화면이 기다릴 일이 아니다.
+   */
+  ptype: (p, k) => canonProductType(p.product_type) === k,
+  /*
    * ★**차급** — 「준대형 세단」·「중형 SUV」 처럼 손님이 실제로 말하는 단위다.
    *   위 `vc`(승용·SUV·승합·화물)는 **네 갈래**라 빠른 조건 칩에는 맞지만, 「경차」나 「대형 세단」을
    *   찾는 손님에게는 너무 굵다. 실측 19종이 고르게 갈린다(준대형 세단 27% · 중형 SUV 13% …).
@@ -294,6 +308,15 @@ export function runShopQuery(rows: EntityRecord[] | null, query: ShopQuery): Sho
 
   const facets: ShopFacets = {
     vc: fixedTally('vc', CUSTOMER_VEHICLE_CLASSES),
+    /*
+     * ★**상품구분은 «물량 많은 순»**(사장님 2026-09-09 「물량 많은 거부터겠지 당연히 순서는」).
+     *   차급·제조사와 같은 규칙이다. 0대인 갈래는 `freeTally` 가 알아서 뺀다 —
+     *   그래서 정본에만 있고 재고에 없는 「신차구독」은 안 선다.
+     * ⚠ 열둘로 자르지 않는다 — 제조사(수십)와 달리 갈래가 예닐곱이라 잘릴 일이 없고,
+     *   자르면 새 갈래가 생겼을 때 조용히 사라진다.
+     */
+    ptype: freeTally('ptype', (p) => canonProductType(p.product_type))
+      .sort((a, b) => b.count - a.count || a.key.localeCompare(b.key, 'ko')),
     /*
      * ★기간은 **짧은 것부터** 세운다 — 대수 순으로 세우면 48·36·24·60·12 처럼 뒤죽박죽이 되어
      *   「기간」이라는 축으로 안 읽힌다. 숫자에는 손님이 이미 아는 순서가 있다.

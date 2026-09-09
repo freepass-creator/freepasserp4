@@ -54,8 +54,8 @@ must(undocumented.length === 0, '모든 칸이 문서에 있다',
 must(doc.includes(`**아홉**`) && DEFAULT_QUICK.length === 9, '빠른필터 기본 수',
   `코드 ${DEFAULT_QUICK.length}개 · 문서 「아홉」`);
 
-must(doc.includes('**열하나**') && SHOP_AXES.length === 11, '세부필터 기본 수',
-  `코드 ${SHOP_AXES.length}축 · 문서 「열하나」`);
+must(doc.includes('**열둘**') && SHOP_AXES.length === 12, '세부필터 기본 수',
+  `코드 ${SHOP_AXES.length}축 · 문서 「열둘」`);
 
 /* 축은 «순서»가 뜻이다(손님이 좁혀 가는 차례) — 이름을 그 순서대로 이어 적었는지 본다. */
 const axisLine = SHOP_AXES.map((a) => AXIS_LABEL[a]).join(' · ');
