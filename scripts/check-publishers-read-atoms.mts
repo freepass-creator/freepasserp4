@@ -42,20 +42,26 @@ const 원천표식: [RegExp, string][] = [
 ];
 
 const 어긋남: string[] = [];
+/** 주석은 규칙을 정하지 못한다 — 먼저 걷어낸다. 줄번호는 보존한다(블록주석은 공백으로, 줄바꿈 유지).
+ *  ★Codex 2026-09-09 재현: 주석 속 `collection('products')`·범위 문자열이 «거짓 통과»했다. 그래서 검사 전에 주석을 없앤다. */
+const 주석뺀다 = (raw: string): string =>
+  raw.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' '))       // 블록주석 → 공백(줄바꿈 유지)
+     .split('\n').map((l) => l.replace(/(^|[^:])\/\/.*$/, '$1')).join('\n'); // 줄주석 (http:// 보호)
 for (const f of 발행기) {
-  let src = '';
-  try { src = readFileSync(f, 'utf8'); } catch { 어긋남.push(`${f} — 파일이 없다(명단을 고쳐라)`); continue; }
+  let raw = '';
+  try { raw = readFileSync(f, 'utf8'); } catch { 어긋남.push(`${f} — 파일이 없다(명단을 고쳐라)`); continue; }
+  const src = 주석뺀다(raw);   // ★이하 모든 검사는 «주석 걷어낸» 코드로만 — 주석은 통과·불통을 정하지 못한다
   const lines = src.split('\n');
 
   lines.forEach((line, i) => {
-    if (/^\s*\*/.test(line) || /^\s*\/\//.test(line)) return;   // 주석은 규칙이 아니다
-
     /**
-     * `values/…!A1:CZ3000` 처럼 «두 줄 이상»을 읽는 자리를 잡는다.
-     * 머리글만 읽는 `!A1:BZ1` 은 통과 — 끝 행이 1 이다.
+     * 시트에서 읽어도 되는 건 «머리글 한 줄»(A1:…1)뿐. 그 밖의 범위 = 차 줄을 읽는 것.
+     * ★A1 뿐 아니라 B2·A2 처럼 «머리 아래»에서 시작하거나, 끝 행이 2+ 이거나, 행이 없어 열 전체(A:Z)를 읽으면 잡는다(Codex 2026-09-09 재현).
+     *   머리글만 통과 = 시작·끝이 모두 1행(A1:Z1). ⚠ 변수로 만든 범위·helper 우회는 정적검사가 못 잡는다 — 그건 발행기 가상의존성 테스트의 몫(후속).
      */
-    for (const m of line.matchAll(/!A1:([A-Z]{1,2})(\d+)/g)) {
-      if (Number(m[2]) <= 1) continue;
+    for (const m of line.matchAll(/!([A-Z]{1,2})(\d*):([A-Z]{1,2})(\d*)/g)) {
+      const 머리글만 = m[2] === '1' && m[4] === '1';   // A1:Z1 만 통과
+      if (머리글만) continue;
       if (line.includes(문패)) continue;
       어긋남.push(`${f}:${i + 1} — 시트에서 «${m[0]}»를 읽는다(차 줄은 원자에서 온다)\n      ${line.trim().slice(0, 120)}`);
     }
@@ -64,7 +70,7 @@ for (const f of 발행기) {
     }
   });
 
-  /** 발행기 한 곳은 반드시 원자를 읽어야 한다 — 「아무것도 안 읽는 발행기」는 껍데기다. */
+  /** 발행기 한 곳은 반드시 원자를 읽어야 한다 — «주석 걷어낸» 코드로 본다(주석 속 collection('products')는 무효). */
   if (f.startsWith('scripts/') && !/collection\('products'\)/.test(src)) {
     어긋남.push(`${f} — 원자(products)를 읽지 않는다. 무엇을 내보내는지 알 수 없다`);
   }
