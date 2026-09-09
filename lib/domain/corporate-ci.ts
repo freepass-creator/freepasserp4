@@ -80,3 +80,21 @@ export const CORP_COLOR = {
   /** 본색보다 한 단계 짙게(그라데이션 끝) */
   deep: '#0F1B35',
 } as const;
+
+/**
+ * **BI 색 — `freepasserp.com`(서비스 브랜드).** CI 센터 `fpe` 정의 그대로.
+ *
+ * ⚠⚠ **법인 CI(`CORP_COLOR`)와 «다른 팔레트»다.** 본색·보조는 우연히 같지만
+ *   **강조가 다르다**(BI `#5B9FD4` ↔ CI `#9EC5F3`). 같아 보인다고 `CORP_COLOR.accent` 를
+ *   서비스 화면에 쓰면 그건 «법인 색을 브랜드에 바른 것»이다 — CI 센터가 둘을 갈라 놓은 뜻이 죽는다.
+ * ★워드마크 조각 색이 여기서 나온다 — 앞(`main`) 600 은 `main`, 뒤(`base`) 300 은 `base`
+ *   (CI 센터 `roleColor()`). 「한 색으로 칠한 두 무게」는 CI 의 절반이다.
+ */
+export const ERP_COLOR = {
+  /** 본색 — 워드마크 앞 조각(`freepass`) */
+  main: '#1B2A4A',
+  /** 강조 — CI 보다 한 톤 짙은 하늘. **법인 강조와 다르다** */
+  accent: '#5B9FD4',
+  /** 보조 — 워드마크 뒤 조각(`erp.com`) */
+  base: '#7F93B3',
+} as const;

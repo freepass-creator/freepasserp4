@@ -33,7 +33,7 @@
  *   순수 상수 파일이라 미들웨어(엣지)까지 그대로 따라온다.
  */
 import { BRAND_TAGLINE } from '@/lib/brand';
-import { CORP, CORP_COLOR } from '@/lib/domain/corporate-ci';
+import { CORP, CORP_COLOR, ERP_COLOR } from '@/lib/domain/corporate-ci';
 
 import type { ShopAxis, ShopQuickChip } from '@/lib/shop/query';
 
@@ -133,7 +133,19 @@ export type Whitelabel = {
    *     CI 센터가 브랜드마다 영문·국문 두 벌을 정의한다(`ci_center/index.html` `parts`/`koParts`).
    * ⚠ 짜임을 잘못 고르면 그건 「연하게 그린 CI」가 아니라 **CI 가 아닌 것**이다.
    */
-  wordmark: { main: string; sub: string; kind?: 'split' | 'lockup' | 'lockup-ko' };
+  wordmark: {
+    main: string; sub: string; kind?: 'split' | 'lockup' | 'lockup-ko';
+    /**
+     * **조각마다 «색»이 다른 CI** — 앞(600)과 뒤(300)를 다른 색으로 칠한다.
+     *
+     * ★CI 센터가 조각에 «역할»을 매기고 그 역할로 색을 고른다(`roleColor()` — `main`/`base`).
+     *   두 무게를 한 색으로만 칠하면 그건 **CI 의 절반**이다.
+     * ⚠ 지어내지 않는다 — 그 회사 CI 센터·명함이 정의한 두 색만 적는다. 없으면 비운다(한 색).
+     * ⚠ 지금은 `lockup` 짜임만 이 값을 읽는다. 다른 짜임에 필요해지면 **그때 그 가지에 단다** —
+     *   미리 달아 두면 「먹히는 줄 알았는데 안 먹는 칸」이 표에 남는다.
+     */
+    tone?: { main: string; sub: string };
+  };
   /**
    * 로고 그림. **없으면 글자만 그린다.**
    * ★채널이 실제로 쓰는 마크를 쓴다. 우리가 지어내지 않는다(2026-09-05 사장님이 로고·명함을 주셨다).
@@ -436,21 +448,36 @@ export const WHITELABELS: Whitelabel[] = [
      */
     hosts: [],
     /**
-     * 손님에게 보이는 이름 — **프리패스모빌리티**(국문 CI 두 조각). 「주식회사」는 붙이지 않는다:
-     * 그건 푸터의 «법적 표기» 자리 몫이고(`bizLines`), 간판은 이름만 선다.
+     * 손님에게 보이는 이름 — **`freepasserp.com`**(서비스 BI). 탭 제목·OG·앱 이름이 이걸 쓴다.
+     *
+     * ★**간판(`wordmark`)과 «같은 이름»이어야 한다.** 머리에 뜬 글자와 탭 제목이 다르면
+     *   손님은 자기가 어디 있는지 두 번 확인해야 한다.
+     * ⚠ 법인명(「프리패스모빌리티 주식회사」)은 여기가 아니라 푸터의 «법적 표기» 자리 몫이다
+     *   (`bizLines` · 「…가 직접 운영하는 공식 판매 페이지」 줄). **간판은 브랜드, 책임 표기는 법인.**
      */
-    name: `${CORP.koMain}${CORP.koSub}`,
+    name: CORP.erp,
     /**
-     * ★★**CI 정본 그대로 — 한 낱말 두 무게**(프리패스600 + 모빌리티300).
-     *   사장님 2026-09-07 「프리패스도 CI 있는데 그거 반영 전혀 안 했고」.
-     * ⚠ 유니오토식 `split`(앞 이름 + 뒤 보조격 · 자간)으로 그리면 그건 **우리 CI 가 아니다.**
-     *   짜임이 다르면 아무리 예뻐도 남의 글자다.
-     * ★★**간판은 «국문», 동반 표기는 «영문»**(위 `self` 머리말) — 우리 가게에도 「✕ freepass」를
-     *   세우기 때문이다. 둘 다 CI 센터의 정본이고, 갈라 놓아야 「A ✕ B」 자리가 눈에 보인다.
-     *   ⚠ 손님에게 서는 회사 이름은 어차피 국문이다 — 푸터 사업자 표기도 국문이고,
-     *     검색해 볼 이름도 「프리패스모빌리티」다.
+     * ★★**간판은 «BI» — `freepasserp.com`**(사장님 2026-09-09 「프리패스 거
+     *   **freepasserp.com 으로 브랜드로고 바꿔주라** 지금 한글로 프리패스모빌리티 되어 있는데」).
+     *
+     * ⚠ **하루 전 판단을 물린다.** 여기 「간판은 «국문»(프리패스모빌리티) · 동반 표기는 «영문»」
+     *   이라고 적어 뒀었다 — 「대외에 나가는 이름은 법인」이라는 이유였다. 사장님이 뒤집으셨고,
+     *   그 편이 맞다: 이 화면은 **문서가 아니라 서비스**다. 손님이 다시 찾아올 때 치는 것도
+     *   법인명이 아니라 **주소(`freepasserp.com`)**다.
+     * ★법인은 사라지지 않는다 — 푸터 사업자 표기(`bizLines`)와 「…가 직접 운영하는 공식
+     *   판매 페이지」 줄이 법인명을 그대로 든다. **간판은 브랜드, 책임 표기는 법인.**
+     * ★★덤으로 동반 표기가 «제 뜻»을 되찾는다 — 예전엔 「프리패스모빌리티 ✕ freepassmobility」로
+     *   **같은 이름이 두 번** 섰다. 이제 「freepasserp.com ✕ freepassmobility」 = BI ✕ 법인이다.
+     *
+     * ★★**짜임·색은 CI 센터 `fpe` 정본 그대로**(사장님 같은 날 「**ci 센터 확인해서 똑같이**
+     *   해야 돼 이거는 이미지가 아니고 **폰트로 니가 만들게** 되어 있으니까 잘 만들고」):
+     *   Exo 2 소문자 한 낱말 · 앞 `freepass` 600 · 뒤 `erp.com` 300 · **두 색**(본색 + 보조).
+     * ⚠ 글자를 손으로 고르지 않는다 — 값은 전부 `lib/brand`·`corporate-ci` 상수에서 읽는다.
      */
-    wordmark: { main: CORP.koMain, sub: CORP.koSub, kind: 'lockup-ko' },
+    wordmark: {
+      main: CORP.erpMain, sub: CORP.erpSub, kind: 'lockup',
+      tone: { main: ERP_COLOR.main, sub: ERP_COLOR.base },
+    },
     /*
      * ★**마크는 안 세운다 — 영문 워드마크만**(같은 날 「프리패스는 그냥 CI 대로 영문만」).
      *   법인 CI 는 워드마크가 정본이고 심볼이 따로 없다(CI 센터 `ci_center/index.html`).
@@ -697,12 +724,18 @@ export const WHITELABELS: Whitelabel[] = [
  * ★이 홈페이지는 채널의 얼굴이지만 **우리가 만들어 주는 것**이다. 만든 쪽을 숨기지 않고 옆에 적는다.
  * ⚠ 업무동 규칙(「브랜드 표식은 안 세운다」)과 «다른 자리»다 — 그건 공급사·영업자가 같이 쓰는
  *   콕핏 얘기고, 여기는 손님에게 나가는 채널 홈페이지다.
- * ★노브랜드(FREEPASS)면 붙이지 않는다 — 「 ✕ freepass」만 홀로 서는 꼴이 된다.
+ * ★노브랜드(FREEPASS)면 붙이지 않는다 — 「 ✕ freepassmobility」만 홀로 서는 꼴이 된다.
  * ★★**우리 가게(`self`)에도 붙인다**(사장님 2026-09-07 「우리거에도 붙여야지」) — 화면에서
  *   보이는 것과 탭 제목·공유 미리보기가 달라지면 그건 두 화면이다.
+ *
+ * ⚠⚠ **여기 「✕ freepass」라고 «반쪽»만 적혀 있었다**(2026-09-09 발견). 화면 머리띠는 그날
+ *   사장님이 「ㅇㅇ **프리패스모빌리티**로 하자」 하신 대로 `freepassmobility` 로 고쳤는데,
+ *   탭 제목만 옛 문자열로 남은 것이다 — 바로 위에 「화면과 탭이 다르면 두 화면」이라 적어 놓고
+ *   실제로 두 화면이었다. **동반 표기 이름은 법인 CI 상수(`CORP`)에서 읽는다.** 손으로 적으면
+ *   또 갈린다.
  */
 export function coBrandName(wl: Whitelabel): string {
-  return hasBrand(wl) ? `${wl.name} ✕ freepass` : wl.name;
+  return hasBrand(wl) ? `${wl.name} ✕ ${CORP.markMain}${CORP.markSub}` : wl.name;
 }
 
 /**

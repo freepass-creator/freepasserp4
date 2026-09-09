@@ -2,7 +2,7 @@
 import type { ReactNode } from 'react';
 import { C, FW } from '@/components/ui';
 import { BRAND_FONT, BRAND_WEIGHT } from '@/lib/brand';
-import { CORP } from '@/lib/domain/corporate-ci';
+import { CORP, ERP_COLOR } from '@/lib/domain/corporate-ci';
 import { hasBrand, type Whitelabel } from '@/lib/whitelabel';
 
 /**
@@ -37,8 +37,12 @@ import { hasBrand, type Whitelabel } from '@/lib/whitelabel';
  *   **CI(법인)** = teamjpk · **freepassmobility** / **BI(서비스)** = 착한거래 · 렌터카매니저 · freepasserp.com.
  *   이 자리는 「이 홈페이지를 **누가 운영하는가**」이고, 푸터도 「프리패스모빌리티 주식회사가
  *   운영합니다」라고 말한다 — **대외에 나가는 이름은 법인**이다.
- * ⚠ `BRAND_MAIN`/`BRAND_SUB`(freepasserp.com)은 **서비스 브랜드**라 여기 쓰지 않는다.
- *   그건 로그인·탭 제목처럼 «우리 시스템을 쓰는 사람»이 보는 자리의 이름이다.
+ * ⚠ `BRAND_MAIN`/`BRAND_SUB`(freepasserp.com)은 **서비스 브랜드**라 «이 자리»에는 쓰지 않는다.
+ *   여기는 「누가 운영하는가」를 밝히는 동반 표기라, 답이 법인이다.
+ * ★★**간판 쪽은 2026-09-09 에 BI 로 바뀌었다**(사장님 「프리패스 거 **freepasserp.com 으로
+ *   브랜드로고 바꿔주라**」) — 우리 채널 워드마크는 이제 `freepass`+`erp.com` 이다.
+ *   덕분에 이 줄이 제 뜻을 되찾았다: 「freepasserp.com ✕ freepassmobility」 = **BI ✕ 법인**.
+ *   전에는 「프리패스모빌리티 ✕ freepassmobility」로 **같은 이름이 두 번** 서 있었다.
  * ⚠ 톤은 그대로 아주 연하게 둔다(사장님 2026-09-07 「CI 뒤에 x 랑 freepass 는 **아주 연하게**」).
  *   **꼴과 톤은 다른 이야기다** — 꼴은 정본대로, 톤만 내린다.
  * ★★**마크(체크)는 안 붙인다 — 영문 워드마크만**(사장님 2026-09-07 「프리패스는 그냥 **CI 대로
@@ -102,6 +106,85 @@ const TRACK_SUB = '0.16em';
  * ⇒ 자간을 준 낱말에는 같은 값의 «음수 오른쪽 여백»을 얹는다. 그러면 **적은 숫자 = 보이는 간격**이다.
  */
 const trackFix = (track: string) => ({ marginRight: `-${track}` });
+
+/**
+ * **한 낱말 두 무게 사이 «한 올»** — CI 센터가 조각 사이에 주는 그 틈(글자 크기 대비).
+ *
+ * ⚠⚠ **«2px» 로 박지 않는다 — 비율로 잰다.** CI 센터(`ci_center/index.html` `logoPartsHtml`)가
+ *   조각 사이에 `margin-left:2px` 를 준다. 그런데 거기 글자는 `.ci-logo` 의 **42px** 다 —
+ *   즉 **0.048em**. 그 2 를 숫자 그대로 폰 간판(17px)에 옮기면 **0.118em** 이 되어, 두 조각
+ *   사이가 «낱말 사이»처럼 벌어진다. 「freepasserp.com」도 「프리패스모빌리티」도 **한 낱말**이다.
+ * ⇒ 우리 크기(11~25)에서는 전부 **1px** 로 앉는다. 나머지는 굵기(600↔300)가 가른다 — CI 제 장치다.
+ * ★국문(`lockup-ko`)·영문(`lockup`)이 **같은 값**을 본다. CI 센터도 한 함수로 둘 다 그린다.
+ */
+const LOCKUP_GAP = 2 / 42;
+
+/**
+ * **영문 CI 워드마크 — 「한 낱말 두 무게」를 그리는 곳은 여기 하나다.**
+ *
+ * 사장님 2026-09-09 「**ci 센터 확인해서 똑같이** 해야 돼 이거는 이미지가 아니고
+ * **폰트로 니가 만들게** 되어 있으니까 잘 만들고」.
+ *
+ * ## CI 센터(`ci_center/index.html`)가 정한 값 — 그대로 옮긴다
+ *
+ * | | CI 센터 | 여기 |
+ * |---|---|---|
+ * | 서체 | `.ci-logo` = Exo 2 (`brandFont(b)`) | `BRAND_FONT` |
+ * | 자간 | `.ci-logo` **−0.02em** (국문 `.ci-logo.ko` 만 −0.04) | `-0.02em` |
+ * | 무게 | `parts[].w` = 600 / 300 | `BRAND_WEIGHT` |
+ * | 사이 | `margin-left:2px` @42px | `LOCKUP_GAP` |
+ * | 색 | `roleColor()` — `main` 역할 → 본색 · `base` 역할 → 보조색 | `tone` |
+ *
+ * ⚠⚠ **자간을 −0.04em 으로 적어 뒀었다**(2026-09-07~09-08). 그건 CI 센터의 «국문» 값이다 —
+ *   영문 `.ci-logo` 는 −0.02em 이고, 국문에만 `.ko` 가 −0.04em 을 덮어쓴다. 두 벌을 한 값으로
+ *   합쳐 놓으면 영문이 그만큼 조여져 **CI 센터와 다른 글자**가 된다.
+ * ⚠ **색은 두 개다.** 한 색으로 칠한 두 무게는 CI 의 절반이다 — CI 센터는 조각마다 «역할»을
+ *   매기고(`main`/`base`) 역할로 색을 고른다. 다만 색을 **여기서 고르지 않는다** — 채널 표
+ *   (`lib/whitelabel` `wordmark.tone`)가 준 것만 칠하고, 안 주면 부르는 쪽 `color` 를 따른다.
+ * ★**흐릴 때는 «색을 버리지» 않고 «불투명도»로 내린다**(푸터). 간판 그림(`logo.role:'lockup'`)을
+ *   흐리는 방법과 같다 — 「연하게」는 톤 이야기지 색을 바꾸라는 뜻이 아니다.
+ */
+function LockupWord({ main, sub, fs, tone, dim }: {
+  main: string; sub: string; fs: number;
+  tone?: { main: string; sub: string };
+  /** 톤만 내린다(푸터). 색은 그대로 두고 불투명도로 낮춘다. */
+  dim?: boolean;
+}) {
+  return (
+    <span style={{
+      display: 'inline-flex', alignItems: 'baseline', gap: Math.round(fs * LOCKUP_GAP),
+      fontFamily: BRAND_FONT, fontSize: fs, letterSpacing: '-0.02em',
+      textTransform: 'lowercase', lineHeight: 1,
+      ...(tone && dim ? { opacity: 0.55 } : null),
+    }}>
+      {/*
+        ⚠⚠ **서체를 «조각마다» 다시 적는다.** 물려받게 두면 안 된다 — 로그인 현관 CSS 에
+          `.login-page *{font-family:Pretendard}` 처럼 **자식을 «직접» 때리는 규칙**이 있으면,
+          부모의 인라인 서체를 이겨서 우리 CI 가 본문 서체로 눕는다(2026-09-09 실측).
+          상속은 «지정이 없을 때»만 온다. 그러니 지정한다.
+      */}
+      <span style={{ fontFamily: BRAND_FONT, fontWeight: BRAND_WEIGHT.main, ...(tone ? { color: tone.main } : null) }}>{main}</span>
+      {sub ? (
+        <span style={{ fontFamily: BRAND_FONT, fontWeight: BRAND_WEIGHT.sub, ...(tone ? { color: tone.sub } : null) }}>{sub}</span>
+      ) : null}
+    </span>
+  );
+}
+
+/**
+ * **우리 이름 = `freepasserp.com`(서비스 BI).** 채널이 «없는» 화면이 우리 간판을 세울 때 부른다.
+ *
+ * ⚠⚠ **로그인 현관이 이걸 CSS 로 «또» 짜고 있었다**(2026-09-09 실측 — `.login-brand`).
+ *   자간 −0.04em(CI 센터 영문은 −0.02) · 조각 사이 없음 · 뒤 글자 색 `--text-sub`(#52525B,
+ *   CI 보조색은 #7F93B3). **같은 이름이 두 규격으로** 서 있었던 것이다 — 손님이 가게에서
+ *   푸터 「영업자 로그인」을 누르면 한 주소 안에서 간판이 바뀐다.
+ * ⇒ 그리는 곳은 여기 하나다(이 파일 머리말 ③). 화면은 «크기»만 정한다.
+ *
+ * ★색은 **BI 팔레트**(`ERP_COLOR`)다 — 법인 CI 가 아니다(강조색이 서로 다르다).
+ */
+export function BrandWordmark({ fs }: { fs: number }) {
+  return <LockupWord main={CORP.erpMain} sub={CORP.erpSub} fs={fs} tone={{ main: ERP_COLOR.main, sub: ERP_COLOR.base }} />;
+}
 
 /**
  * 채널 워드마크 — **앞 글자가 «주», 뒤 글자가 «보조»다.**
@@ -193,7 +276,7 @@ export function ChannelWordmark({ wl, fs, color = C.ink, after }: {
           ⇒ 17px·23px 둘 다 1px 로 앉는다. 나머지는 굵기(600↔300)가 가른다 — CI 제 장치다.
         */
         <span style={{
-          display: 'inline-flex', alignItems: 'baseline', gap: Math.round(fs * 0.048),
+          display: 'inline-flex', alignItems: 'baseline', gap: Math.round(fs * LOCKUP_GAP),
           letterSpacing: '-0.04em', lineHeight: 1,
         }}>
           <span style={{ fontSize: fs, fontWeight: BRAND_WEIGHT.main, lineHeight: 1 }}>{wl.wordmark.main}</span>
@@ -201,22 +284,17 @@ export function ChannelWordmark({ wl, fs, color = C.ink, after }: {
         </span>
       ) : wl.wordmark.kind === 'lockup' ? (
         /*
-          ★★**한 낱말 두 무게** — 프리패스 CI 의 짜임이다(`freepass`600 + `mobility`300, Exo 2 소문자).
-            사장님 2026-09-07 「프리패스도 CI 있는데 그거 반영 전혀 안 했고」 ·
-            「프리패스는 그냥 **CI 대로 영문만** 쓰면 되고」.
-          ⚠ 여기 `gap` 을 주면 안 된다 — **한 낱말**이다. 유니오토식 `split`(이름 + 보조격)으로
-            그리면 사이가 벌어지고 뒤 낱말이 작아져, 그건 우리 CI 가 아니라 남의 짜임이다.
-          ★무게·서체는 명함·CI 센터가 정의한 값(`lib/brand`)을 그대로 쓴다 — 여기서 고르지 않는다.
-          ★동반 표기(`CoBrandFreepass`)가 이미 «같은 규칙»으로 우리 이름을 그린다. 두 곳이
-            갈리지 않게 짜임을 여기 한 번 더 적는 것이 아니라, **같은 상수**를 본다.
+          ★★**한 낱말 두 무게** — 영문 CI 의 짜임이다(우리 간판 = `freepass`600 + `erp.com`300).
+            사장님 2026-09-09 「**freepasserp.com 으로 브랜드로고 바꿔주라**」 ·
+            「**ci 센터 확인해서 똑같이** 해야 돼 … **폰트로 니가 만들게** 되어 있으니까 잘 만들고」.
+          ★★**짜임은 «한 곳»에서 그린다**(`LockupWord`) — 동반 표기(`CoBrandFreepass`)도 같은 짜임이라,
+            여기 한 번 더 적으면 한쪽만 고쳐져 두 이름이 다른 얼굴로 선다. 같은 함수를 본다.
+          ★푸터는 톤을 내리려 `color` 를 넘긴다 — 두 색 CI 는 색을 버리지 않고 «불투명도»로 내린다.
         */
-        <span style={{
-          fontFamily: BRAND_FONT, fontSize: fs, letterSpacing: '-0.04em',
-          textTransform: 'lowercase', lineHeight: 1,
-        }}>
-          <span style={{ fontWeight: BRAND_WEIGHT.main }}>{wl.wordmark.main}</span>
-          <span style={{ fontWeight: BRAND_WEIGHT.sub }}>{sub}</span>
-        </span>
+        <LockupWord
+          main={wl.wordmark.main} sub={sub} fs={fs}
+          tone={wl.wordmark.tone} dim={color !== C.ink}
+        />
       ) : (
         <span style={{
           display: 'inline-flex', alignItems: 'baseline', gap: Math.round(fs * 0.36),
@@ -348,21 +426,18 @@ export function CoBrandFreepass({ fs, gap }: {
     }}>
       <span aria-hidden style={{ fontSize: Math.round(fs * 0.85), fontWeight: FW.meta, lineHeight: 1 }}>✕</span>
       {/*
-        ★★**CI 정본 그대로** — `freepass`(600) + `erp.com`(300), **Exo 2 소문자 한 낱말**
+        ★★**CI 정본 그대로** — `freepass`(600) + `mobility`(300), **Exo 2 소문자 한 낱말**
           (사장님 2026-09-07 「**프리패스 CI 있잖아 그거 그대로 잘 반영**해달라고」).
           명함·CI센터(`ci_center/index.html`)가 워드마크를 «두 무게»로 정의한다 —
           앞은 굵게(이름) 뒤는 가늘게(무엇). 앞부분만 쓰면 그건 CI 의 절반이다.
-        ⚠ 둘 사이는 **붙인다.** 한 낱말이라 flex gap 을 주면 안 된다 —
-          그래서 이 안쪽만 `gap: 0` 짜리 제 줄로 감싼다.
+        ★★**간판과 «같은 렌더러»를 본다**(`LockupWord`). 짜임을 여기 또 적어 두면 한쪽만
+          고쳐져 두 이름이 다른 얼굴로 선다 — 2026-09-09 에 실제로 자간이 갈려 있었다
+          (여기 −0.04em · CI 센터 영문 −0.02em).
+        ⚠ **여기는 `tone` 을 안 준다.** 동반 표기는 「아주 연하게」가 규격이라 두 색을 칠하면
+          채널 간판보다 눈에 띈다 — 색은 겉의 `C.faint`·`opacity` 가 통째로 든다.
         ★본문 서체(Pretendard)로 적으면 그건 CI 가 아니라 그냥 글자다.
       */}
-      <span style={{
-        fontFamily: BRAND_FONT, fontSize: fs, letterSpacing: '-0.04em',
-        textTransform: 'lowercase', lineHeight: 1,
-      }}>
-        <span style={{ fontWeight: BRAND_WEIGHT.main }}>{CORP.markMain}</span>
-        <span style={{ fontWeight: BRAND_WEIGHT.sub }}>{CORP.markSub}</span>
-      </span>
+      <LockupWord main={CORP.markMain} sub={CORP.markSub} fs={fs} />
     </span>
   );
 }
