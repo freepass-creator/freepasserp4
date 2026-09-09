@@ -41,6 +41,10 @@ export type QuoteDoc = {
   /** ★그 차량가가 «어느 기준»인가 — 신차 「세제혜택 전(개소세 5%)」이 정본. 손님이 다른 곳에서
    *  본 값과 다를 때 «왜 다른지»를 말해 준다. 안 적으면 손님이 우리 숫자를 못 믿는다. */
   priceBasis?: string;
+  /** ★판매가격 세제감면(개소세·교육세) — 0 이 아니면 견적서가 «드러낸다». */
+  saleTaxCredit?: number;
+  /** 감면 후 «적용가» — 보증금·선납·인수가 이 값 위에 선다. */
+  netPrice?: number;
   channel: string; endType: string; credit: string;
   colorExt: string; colorInt: string;
   options: { name: string; price: number }[];
@@ -141,12 +145,20 @@ export default function QuotePreview({ doc, onClose }: { doc: QuoteDoc; onClose:
                 </div>
                 {/* ★기준은 «원본이 가진 줄»(.qd-vehicle__row)에 적는다 — `.label`/`.value` 를 건드리면
                     웰릭스 CSS 짜임이 깨진다(check:estimate 가 잡는다). */}
-                {doc.colorExt || doc.colorInt || doc.priceBasis ? (
+                {doc.colorExt || doc.colorInt || doc.priceBasis || doc.saleTaxCredit ? (
                   <div className="qd-vehicle__rows">
                     <div className="qd-vehicle__row"><span className="k">외장</span><span className="v">{doc.colorExt || '-'}</span></div>
                     <div className="qd-vehicle__row"><span className="k">내장</span><span className="v">{doc.colorInt || '-'}</span></div>
                     {doc.priceBasis
                       ? <div className="qd-vehicle__row"><span className="k">가격기준</span><span className="v">{doc.priceBasis}</span></div>
+                      : null}
+                    {/* ★감면을 «숨기지» 않는다 — 차량가와 보증금·인수의 기준이 갈려 보이면
+                        손님이 손으로 두드렸을 때 안 맞는다. 그 사이를 이 두 줄이 잇는다. */}
+                    {doc.saleTaxCredit
+                      ? <>
+                        <div className="qd-vehicle__row"><span className="k">세제혜택</span><span className="v">−{man(doc.saleTaxCredit)}원</span></div>
+                        <div className="qd-vehicle__row"><span className="k">적용가</span><span className="v">{man(doc.netPrice ?? 0)}원</span></div>
+                      </>
                       : null}
                   </div>
                 ) : null}

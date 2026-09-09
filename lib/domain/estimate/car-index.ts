@@ -44,22 +44,30 @@ export type NewModel = { maker: string; sub_model: string; fuels: string[]; trim
 
 /** 견적 STEP 1 이 받는 «고른 차 한 대». 중고·신차가 같은 모양으로 온다. */
 /**
- * ★★**신차 차량가를 꺼내는 문 — 여기 하나다.**
+ * ★★★**차량가 «표시» 기준 = `priceBefore` (개별소비세 5% · 제조사 표시가 = 세제혜택 «전»).**
  *   사장님 2026-09-09 「견적만 제대로 나오게 해 **기준만 있으면** 됩니다」.
  *
- * 기준 = **`priceBefore` (개별소비세 5% · 세제혜택 «전» = 제조사 표시가)**. 셋이 한 방향이다:
- *   ① **세제혜택은 «원가 엔진»이 제 줄에서 뺀다** — `calc.js` 가 전기차 구매보조금을 취득가에서 빼고,
- *      취득세는 `max(0, costEx × 세율 − acqTaxCredit 140만)` 으로 «직접» 감면한다.
- *      그런데 `priceAfter` 는 **개소세·교육세·취득세 감면을 «섞어» 뺀 값**이다
- *      (`scripts/crawl-newcar-hyundai.mts:40` — `taxIncentive`). ⇒ 쓰면 **취득세 감면을 두 번** 뺀다.
- *   ② **옵션값이 「전」 기준**이다(제조사 공식 가격표 = 개소세 5%). 차값만 「후」면 한 견적서에서 기준이 섞인다.
- *   ③ 피드 정본이 그렇게 적었다 — `docs/신차마스터-피드.md` 「모든 가격 = 개별소비세 5% 기준 …
- *      개소세 감면은 **받는 쪽에서 적용**」.
+ * ⚠⚠ **처음에 댄 근거는 틀렸다.** 「후를 쓰면 취득세 감면을 두 번 뺀다」고 적었는데,
+ *   2026-09-09 개발센터 4-AI 관문에서 **실데이터로 반증됐다**:
+ *     · 기아·현대 공식 가격표가 둘 다 「세제혜택 전/후 **판매가격**」이라 인쇄한다.
+ *       판매«가격»에 취득세(등록 단계 세금)가 들어갈 수 없다.
+ *     · 회귀 실측 — 전기 77줄 감면 216만~436만 = 가격의 **4.81~4.94%(비례·절편 0)**,
+ *       하이브리드 35줄 = **정액 1,001,000**(코나부터 그랜저까지 같은 값).
+ *       취득세 감면(한도 140만)이 섞였다면 하이브리드가 140만보다 작을 수 없다.
+ *   ⇒ 「이중차감」이 아니라 **「미차감」**이었다. 우리는 감면을 «어디서도» 빼지 않았다.
  *
- * ⚠⚠ **여섯 군데가 따로 꺼내고 있었다** — 캐스케이드 트림 딱지 · 차 고르기 시트(셋) · 잔가 짚기 · 견적.
- *   그래서 손님은 「7,917만」을 고르고 견적서에는 「8,329만」이 찍혔다(EV9 GT-Line · **412만** 차이).
- *   ⇒ 값은 이 문으로만 꺼낸다. 기준을 바꾸려면 **여기 한 줄**을 바꾼다.
- * ⚠ 「전」이 비면 «지어내지 않는다» — 「후」로 물러서되 `trimBasis` 로 말한다(피드 폴백 줄).
+ * ★그래서 갈랐다 — **표시는 「전」 하나로, 원가에서만 감면을 뺀다.**
+ *   ① 손님이 보는 차량가·옵션·선납·인수 = 「전」 한 기준(제조사 표시가와 같다)
+ *   ② 원가 = 표시 − `saleTaxCredit`(제조사가 준 「전 − 후」) — `calc.js` netPrice 에서 뺀다
+ *   ③ 취득세 감면(`acqTaxCredit` 140만)은 **겹치지 않는 별개**라 그대로 둔다
+ *
+ * ★「전」으로 «표시»하는 근거는 여전히 셋이다:
+ *   ① 옵션값이 「전」 기준(제조사 공식 가격표)이라, 차값만 「후」면 한 견적서에서 기준이 섞인다.
+ *   ② `priceAfter` 의 «출처»가 제조사마다 다르다 — 기아·현대는 제조사 인쇄값이지만
+ *      **제네시스·르노는 `priceAfter = priceBefore` 로 «복사»만 되어 있다**
+ *      (`apply-genesis.mjs:17` · `write-renault-filante.mts:24`). 「후」로 통일하면
+ *      제네시스 전기차만 감면을 통째로 못 받는다. 「전」은 넷 다 뜻이 하나다.
+ *   ③ 피드 정본 — 「모든 가격 = 개별소비세 5% 기준 … 감면은 **받는 쪽에서 적용**」.
  */
 export const trimPrice = (t: { priceBefore?: number; priceAfter?: number } | null | undefined): number =>
   Number(t?.priceBefore) || Number(t?.priceAfter) || 0;
@@ -67,6 +75,18 @@ export const trimPrice = (t: { priceBefore?: number; priceAfter?: number } | nul
 /** 그 값이 «어느 기준»인가 — 손님 견적서가 이 말을 적는다. */
 export const trimBasis = (t: { priceBefore?: number; priceAfter?: number } | null | undefined): string =>
   Number(t?.priceBefore) ? '세제혜택 전' : (Number(t?.priceAfter) ? '세제혜택 후' : '');
+
+/**
+ * ★★**판매가격 세제감면**(개별소비세·교육세) = 제조사가 준 「전 − 후」.
+ *   손님에게 보이는 차량가는 「전」(한 기준)으로 두고, **원가에서만** 이 값을 뺀다.
+ *   ⇒ 화면의 기준은 하나로 유지되면서, 원가는 실제 매입가를 따른다.
+ * ⚠ 짐작하지 않는다 — 법정 한도를 우리가 계산하지 않고 제조사가 인쇄한 두 값의 차를 쓴다.
+ * ⚠ 「후」가 「전」과 같거나(제네시스·르노는 후=전으로 실린다) 크면 **0** 이다. 지어내지 않는다.
+ */
+export const trimSaleTaxCredit = (t: { priceBefore?: number; priceAfter?: number } | null | undefined): number => {
+  const before = Number(t?.priceBefore) || 0; const after = Number(t?.priceAfter) || 0;
+  return before > 0 && after > 0 && before > after ? before - after : 0;
+};
 
 export type PickedCar = {
   source: 'used' | 'new';
@@ -81,6 +101,8 @@ export type PickedCar = {
   price?: number;
   /** ★그 값이 «어느 기준»인가 — 신차는 「세제혜택 전」(개소세 5%)이 정본. 비면 「후」로 물러선 줄이다. */
   priceBasis?: string;
+  /** ★판매가격 세제감면(개소세·교육세) — 제조사 「전−후」. **원가에서만** 뺀다. 손님 표시가는 「전」 그대로. */
+  saleTaxCredit?: number;
   /** 신차 — 고른 옵션과 조합규칙(있으면). */
   options?: { name: string; price: number }[];
   rules?: string[];
@@ -331,6 +353,7 @@ export function pickNew(m: NewModel, t: NewTrim, chosen: { name: string; price: 
     /* ★값은 «문»으로만 꺼낸다 — 기준 설명은 `trimPrice` 에 있다. */
     price: trimPrice(t) + optSum,
     priceBasis: trimBasis(t),
+    saleTaxCredit: trimSaleTaxCredit(t),
     options: chosen,
     rules: t.rules,
     newTrim: t,

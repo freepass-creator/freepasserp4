@@ -44,7 +44,12 @@ export function readRule(note: string): { needs: string[]; bans: string[] } {
   const ban = /^(.*?)\s*(?:와|과)?\s*(?:동시|중복)\s*(?:선택|적용)?\s*불가/.exec(t)?.[1];
   if (ban) { bans.push(...ban.split(/\s*,\s*/).map((x) => x.trim()).filter(Boolean)); return { needs, bans }; }
   const need = /^(.*?)\s*(?:적용|선택)\s*시(?:\s*(?:만)?\s*(?:가능|선택\s*가능))?/.exec(t)?.[1];
-  if (need) needs.push(...need.split(/\s*,\s*/).map((x) => x.trim()).filter(Boolean));
+  if (need) { needs.push(...need.split(/\s*,\s*/).map((x) => x.trim()).filter(Boolean)); return { needs, bans }; }
+  /* ★「A 선택 불가」 — 「동시/중복」이 «없는» 갈래다. 운영 데이터에 실제로 있다
+     (「투톤 컬러 루프 *블랙 익스테리어 선택 불가」 · 2026-09-09 독립 Claude 검토 F3).
+     이 갈래를 안 읽어 **규칙이 한 개도 안 섰는데** 게이트는 초록이었다. */
+  const ban2 = /^(.*?)\s*(?:선택|적용)\s*불가/.exec(t)?.[1];
+  if (ban2) bans.push(...ban2.split(/\s*,\s*/).map((x) => x.trim()).filter(Boolean));
   return { needs, bans };
 }
 
@@ -89,7 +94,15 @@ export function rulesFrom(opts: NamedOption[]): {
 export function priceOf(li: string): number | null {
   const m = /class="[^"]*item-price[^"]*"[^>]*>([\s\S]*?)</.exec(li);
   if (!m) return null;
-  const digits = m[1].replace(/[^\d]/g, '');
-  if (!digits) return null;
-  return Number(digits);
+  /* ⚠⚠ 예전에는 «숫자만 남겨» 붙였다. 그래서
+       「1,200,000 ~ 2,000,000」 → **12,000,002,000,000원**(12조) 이 되고,
+       「150만원」 → **150원** 이 됐다(2026-09-09 독립 Claude 검토 F4).
+     ⇒ 값은 «한 덩어리»만 읽는다. 범위면 **낮은 쪽**(고지 최저가), 「만원」은 만 배. */
+  const txt = m[1].replace(/&[a-z]+;/gi, ' ');
+  const man = /([0-9][0-9,]*)\s*만\s*원?/.exec(txt);
+  if (man) { const n = Number(man[1].replace(/,/g, '')); return n > 0 ? n * 10000 : null; }
+  const first = /([0-9][0-9,]{2,})/.exec(txt);
+  if (!first) return null;
+  const n = Number(first[1].replace(/,/g, ''));
+  return n > 0 ? n : null;
 }

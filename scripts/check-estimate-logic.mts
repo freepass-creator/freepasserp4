@@ -18,7 +18,7 @@ import { splitNote, readRule, rulesFrom, priceOf } from '../lib/domain/estimate/
 import { impliedOf } from '../lib/domain/estimate/implied-options';
 import { modelKey, basisOf, expandGenesis } from '../lib/domain/estimate/genesis-lineup';
 import { matchIncluded } from '../lib/domain/estimate/genesis-included';
-import { trimPrice, trimBasis } from '../lib/domain/estimate/car-index';
+import { trimPrice, trimBasis, trimSaleTaxCredit } from '../lib/domain/estimate/car-index';
 import { splitAxis } from '../lib/domain/estimate/newcar-normalize';
 import { optionList, optionSum, isEnabled, toggleOption, type OptionSpec } from '../lib/domain/estimate/option-rules';
 
@@ -62,7 +62,7 @@ must(/ev:\s*\{[^}]*bondExempt:\s*true/.test(cfg),
 must(/fuelCfg\.acqTaxCredit/.test(calc) && /fuelCfg\.bondExempt/.test(calc),
   '엔진이 전기차 감면·면제를 «읽지 않습니다» — 선언만 두면 적용되는 줄 오해합니다',
   'lib/domain/estimate/calc.js');
-must(/const evSubsidy\s*=\s*fuel === 'ev'/.test(calc) && /const netPrice\s*=\s*Math\.max\(0,\s*price - evSubsidy\)/.test(calc),
+must(/const evSubsidy\s*=\s*fuel === 'ev'/.test(calc) && /const netPrice\s*=\s*Math\.max\(0,\s*price - evSubsidy(?: - saleTaxCredit)?\)/.test(calc),
   '전기차 보조금이 `price` 단계에서 «먼저» 빠지지 않습니다 — 취득세·공채·잔가·보증금이 다 같이 낮은 값 기준이어야 합니다',
   'lib/domain/estimate/calc.js');
 
@@ -1103,8 +1103,10 @@ for (const f of ['scripts/backfill-newcar-names.mts', 'scripts/ingest-newcar-opt
 /* ══ 14. ★★차량가 «기준»은 하나다 — 세제혜택 «전»(개별소비세 5% = 제조사 표시가) ══════
      사장님 2026-09-09 「견적만 제대로 나오게 해 기준만 있으면 됩니다」.
 
-   ⚠⚠ 「후」를 쓰면 **취득세 감면을 두 번** 뺀다 — `calc.js` 가 `max(0, costEx × 세율 − 140만)` 으로
-     직접 감면하는데, `priceAfter` 에는 그게 이미 빠져 있다. 게다가 **옵션값은 「전」 기준**이라
+   ⚠⚠ **여기 적혀 있던 「취득세를 두 번 뺀다」는 틀렸다**(2026-09-09 실데이터 반증 · §19 참조).
+     맞는 근거는 이것이다 — **옵션값이 「전」 기준**이고, `priceAfter` 의 출처가 제조사마다 달라
+     (제네시스·르노는 「후 = 전」 복사) 「후」로는 통일이 안 된다. 감면은 §19 가 원가에서 뺀다.
+     게다가 **옵션값은 「전」 기준**이라
      차값만 「후」로 쓰면 한 견적서 안에서 기준이 섞인다(기아 144트림 중 60개가 갈리고,
      EV9 GT-Line 롱레인지는 412만원 차이).
    ⚠ 이 검사를 고쳐서 통과시키지 마라 — 견적서 금액이 통째로 바뀐다. 정본 = docs/신차마스터-피드.md. */
@@ -1327,6 +1329,74 @@ for (const f of ['scripts/backfill-newcar-names.mts', 'scripts/ingest-newcar-opt
   must(matchIncluded('뱅올', { bo: '뱅앤올룹슨' }) === 'bo' && matchIncluded('ECS', { e: '프리뷰 전자제어 서스펜션' }) === 'e',
     '정본이 줄여 쓴 말(「뱅올」·「ECS」)을 못 알아봅니다 — 기본 포함을 또 팝니다',
     'lib/domain/estimate/genesis-included.ts matchIncluded');
+}
+
+/* ══ 19. ★★★**판매가격 세제감면을 «실제로» 뺀다** ═══════════════════════════
+     ⚠⚠ 2026-09-09 개발센터 4-AI 관문 · **독립 Claude F1.** 우리는 차량가를
+       「세제혜택 «전»」(표시가)으로 통일해 놓고 그 감면을 **어디서도 빼지 않았다.**
+       「이중차감」이 아니라 **「미차감」**이었고, 나는 그 틀린 전제를 §14 에
+       「고치지 마라 — 규격을 지운 것과 같다」로 **잠가** 두었다.
+       ★반증은 실데이터다 — 전기 77줄 감면이 가격의 4.81~4.94%(비례·절편 0),
+         하이브리드 35줄이 **정액 1,001,000**. 취득세 감면(한도 140만)이 섞였다면
+         하이브리드가 그보다 작을 수 없다. ⇒ 판매«가격» 세제와 취득세는 **겹치지 않는다.**
+       실측 손해: EV9 GT-Line 렌트반납 48개월 **월 63,000원 · 48개월 302만원** 비쌌다. */
+{
+  /* 19-1. 제조사가 준 두 값의 «차»를 쓴다 — 법정 한도를 우리가 계산하지 않는다. */
+  must(trimSaleTaxCredit({ priceBefore: 83290000, priceAfter: 79170000 }) === 4120000,
+    '판매가격 세제감면을 «제조사가 준 차»로 안 잡습니다', 'lib/domain/estimate/car-index.ts trimSaleTaxCredit');
+  /* ⚠ 「후」가 「전」과 같으면 0 — 제네시스·르노는 `priceAfter = priceBefore` 로 «복사»만 되어 있다.
+       「없다」가 아니라 「아직 안 받아왔다」이다. 지어내지 않는다. */
+  must(trimSaleTaxCredit({ priceBefore: 60630000, priceAfter: 60630000 }) === 0
+    && trimSaleTaxCredit({ priceBefore: 0, priceAfter: 5000 }) === 0,
+    '감면이 없는 줄에서 값을 «지어냅니다»', 'lib/domain/estimate/car-index.ts trimSaleTaxCredit');
+
+  /* 19-2. ★★**엔진이 그것을 실제로 뺀다** — 값만 만들고 안 쓰면 아무것도 안 고친 것이다
+       (§15 에서 겪은 그대로: `impliedOptions` 를 만들어 놓고 합계에서 안 뺐다). */
+  const cj = code('lib/domain/estimate/calc.js');
+  must(/netPrice = Math\.max\(0, price - evSubsidy - saleTaxCredit\)/.test(cj),
+    '엔진이 판매가격 세제감면을 취득가에서 안 뺍니다 — 전기·하이브리드 견적이 그만큼 비쌉니다',
+    'lib/domain/estimate/calc.js netPrice');
+  /* ⚠ 취득세 감면은 «별개»다 — 같이 지우면 이번엔 반대로 두 번 빼게 된다. */
+  must(/acqTaxCredit/.test(cj),
+    '취득세 감면(별개)을 같이 지웠습니다 — 판매가격 세제와 취득세는 겹치지 않습니다',
+    'lib/domain/estimate/calc.js acqTax');
+  must(code('lib/domain/estimate/quote-input.js').includes('saleTaxCredit'),
+    '견적 입력이 감면을 엔진에 안 넘깁니다', 'lib/domain/estimate/quote-input.js');
+  must(code('app/estimate/page.tsx').includes('saleTaxCredit'),
+    '화면이 고른 차의 감면을 안 싣습니다', 'app/estimate/page.tsx');
+
+  /* 19-3. ★손님이 보는 값은 «안 움직인다» — 표시는 「전」 하나, 감면은 원가에서만.
+       고른 차량가에서 감면을 빼 버리면 제조사 표시가와 달라져 손님이 못 믿는다. */
+  must(trimPrice({ priceBefore: 83290000, priceAfter: 79170000 }) === 83290000,
+    '표시 차량가에서 감면을 빼 버립니다 — 제조사 표시가와 달라집니다',
+    'lib/domain/estimate/car-index.ts trimPrice');
+}
+
+/* ══ 20. 규칙·값 읽기의 «갈래»를 빠뜨리지 않는다 (독립 Claude F3·F4) ═══════════ */
+{
+  /* 20-1. 「A 선택 불가」 — 「동시/중복」이 «없는» 갈래. 운영 데이터에 실제로 있다. */
+  must(readRule('블랙 익스테리어 선택 불가').bans.includes('블랙 익스테리어'),
+    '「… 선택 불가」(동시·중복 없는 갈래)를 안 읽습니다 — 규칙이 한 개도 안 섭니다',
+    'lib/domain/estimate/option-note.ts readRule');
+  must(readRule('선루프와 동시 적용 불가').bans.includes('선루프')
+    && readRule('19인치 휠 적용 시 가능').needs.includes('19인치 휠'),
+    '갈래를 늘리다 원래 되던 것을 깼습니다', 'lib/domain/estimate/option-note.ts readRule');
+
+  /* 20-2. ★값을 «붙여 읽지» 않는다 — 「1,200,000 ~ 2,000,000」이 12조가 됐다. */
+  must(priceOf('<p class="item-price">1,200,000 ~ 2,000,000</p>') === 1200000,
+    `범위 값을 붙여 읽습니다 — ${priceOf('<p class="item-price">1,200,000 ~ 2,000,000</p>')}`,
+    'lib/domain/estimate/option-note.ts priceOf');
+  must(priceOf('<p class="item-price">150만원</p>') === 1500000,
+    `「만원」 표기를 원 단위로 읽습니다 — ${priceOf('<p class="item-price">150만원</p>')}원`,
+    'lib/domain/estimate/option-note.ts priceOf');
+
+  /* 20-3. ★구동말이 «들어 있다»고 구동 그 자체는 아니다 — G90 「후륜 조향 시스템」 150만이 사라졌다. */
+  must(impliedOf({ rs: { name: '후륜 조향 시스템' } }, '가솔린 3.5 터보', '2WD(후륜)').length === 0,
+    '「후륜 조향 시스템」을 「이미 산 구동」으로 지웁니다 — 150만원짜리 유료 옵션이 사라집니다',
+    'lib/domain/estimate/implied-options.ts impliedByTrim');
+  must(impliedOf({ d: { name: '전자제어 풀타임 4WD' } }, '가솔린 2.5 터보', 'AWD').length === 1,
+    '진짜 구동(「전자제어 풀타임 4WD」)까지 안 걸러냅니다 — 구동값을 또 받습니다',
+    'lib/domain/estimate/implied-options.ts impliedByTrim');
 }
 
 if (fails.length) {

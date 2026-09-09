@@ -414,6 +414,17 @@ function EstimatePageInner() {
   /* ★신차 차량가 = «트림값 + 고른 옵션». 옵션을 밖에서 고르므로 더하는 일은 화면 몫이다. */
   const listPrice = isNew ? (picked.price ?? 0) + optSum + colorAdd : usedPrice;
   const price = Math.round(listPrice * (1 - disc / 100));
+  /**
+   * ★★**판매가격 세제감면**(개소세·교육세) — 제조사가 준 「세제혜택 전 − 후」.
+   *   손님 표시가(`price`)는 「전」 그대로 두고, **돈이 도는 값**은 감면 후(`netPrice`)로 잇는다.
+   *   ⚠ 안 이으면 또 갈린다 — 보증금은 엔진이 감면 후로 세는데 선납·인수는 표시가로 세어,
+   *     손님이 「차량가 × 인수율」을 두드리면 안 맞는다(2026-09-09).
+   *   ⚠ 할인율만큼 감면도 같이 줄인다 — 할인된 차의 감면은 그 값 기준이다.
+   */
+  const taxCredit = isNew && listPrice > 0
+    ? Math.round((picked.saleTaxCredit ?? 0) * (price / listPrice)) : 0;
+  /** 돈이 도는 값 — 보증금·선납·인수·원가가 다 이 위에 선다. */
+  const netPrice = Math.max(0, price - taxCredit);
   const age = isNew ? 0 : Math.max(0, nowYear - (usedYear || nowYear));
   const cc = picked.cc ?? (manualCc || null);
   const needCc = !picked.cc;
@@ -463,12 +474,16 @@ function EstimatePageInner() {
       form: {
         price, cc, fuel: picked.fuel, accident: 'none',
         mileage: isNew ? 0 : usedMileage, year: isNew ? nowYear : usedYear, credit,
+        /* ★판매가격 세제감면(개소세·교육세) — 손님 표시가는 「세제혜택 전」 그대로 두고
+           **원가에서만** 뺀다. 할인율만큼 감면도 같이 줄인다(할인된 차의 감면은 그 값 기준이다). */
+        saleTaxCredit: taxCredit,
       },
       conditions: { depositPct: d, prepayPct: p },
       residual: null, residualDefault, credit, defaultGroup: 'B', nowYear,
     });
     return { ...safeComputeTerm(t, input, { idx: t }), term: t };
-  }, [ch, type, price, isNew, credit, fee, residPct, nowYear, cost, cc, picked.fuel, usedMileage, usedYear, acq]);
+  }, [ch, type, price, listPrice, isNew, credit, fee, residPct, nowYear, cost, cc,
+    picked.fuel, picked.saleTaxCredit, usedMileage, usedYear, acq]);
 
   /**
    * ★다섯 해가 «각자 제 조건»으로 선다 — 이 한 벌이 화면의 전부다.
@@ -509,6 +524,8 @@ function EstimatePageInner() {
        실제로 그 값에 차를 드리는 것이므로 손님 쪽 기준도 그것이다. */
     price,
     priceBasis: picked.priceBasis,
+    saleTaxCredit: taxCredit,
+    netPrice,
     channel: CHANNELS.find((c) => c.v === ch)!.label,
     endType: TYPES.find((t) => t.v === type)!.label,
     credit,
@@ -521,17 +538,23 @@ function EstimatePageInner() {
       return {
         term: x.term,
         pay: Math.round(c?.payVat || 0),
-        depositPct: x.dep, deposit: Math.round(c?.deposit || 0),
-        prepayPct: x.pre, prepay: Math.round(price * x.pre / 100),
-        buyoutPct: buyoutPct[x.term], buyout: Math.round(price * buyoutPct[x.term] / 100),
+        /* ★★보증금은 «%»가 아니라 «월납 배수»로 정해질 수 있다(`resolveDeposit` · 기준기간 월납 × 배수).
+           그때는 세 기간이 다 같은 금액이 되고, 「10%」라는 딱지는 **손님에게 거짓말**이 된다
+           (EV9 실측: 적용가 7,917만인데 「보증금 10% · 525만」 — 실제로는 6.6% · 2026-09-09 화면에서 발견).
+           ⇒ 딱지는 «금액에서 되짚어» 붙인다. 화면 입력값을 그대로 인쇄하지 않는다. */
+        depositPct: netPrice > 0
+          ? Math.round((Math.round(c?.deposit || 0) / netPrice) * 1000) / 10 : x.dep,
+        deposit: Math.round(c?.deposit || 0),
+        prepayPct: x.pre, prepay: Math.round(netPrice * x.pre / 100),
+        buyoutPct: buyoutPct[x.term], buyout: Math.round(netPrice * buyoutPct[x.term] / 100),
       };
     }),
     /* ⚠ `optIds`·`ruled`·`optSpec` 이 빠져 있었다 — 규칙판에서 옵션을 갈아도 견적서가
        «지난 옵션»을 실었다(2026-09-09 검수). 화면과 문서가 갈리면 문서가 이긴다(손님이 그걸 본다). */
   }), [custName, staffName, staffTel, picked, ch, type, credit, colorExt, colorInt,
-    ruled, optIds, optSpec, optChosen, scen, lines, price, buyoutPct]);
+    ruled, optIds, optSpec, optChosen, scen, lines, price, taxCredit, netPrice, buyoutPct]);
 
-  const prepayAmt = Math.round(price * pre / 100);
+  const prepayAmt = Math.round(netPrice * pre / 100);
   /* ★차량가는 «세 자리»에 뜬다 — 폰 고정요약 · 웹 딱지 · 손님 견적서. 셋이 같은 값이어야 한다
      (사장님 2026-09-09 「기준만 있으면 됩니다」). 그래서 다 «할인 후»(price)로 맞춘다. */
   const vehTag = price ? `${man(price)}원` : '차를 고르세요';
