@@ -21,6 +21,7 @@
  */
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getDatabase } from 'firebase-admin/database';
+import { getFirestore } from 'firebase-admin/firestore';
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { SETTLEMENT_LEDGER_ID as LEDGER } from '../lib/domain/settlement-ledger';
@@ -45,6 +46,7 @@ const D = (v: unknown): Date | null => {
 
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 if (!getApps().length) {
+const fsdb = getFirestore();
   initializeApp({ credential: cert(sa), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' });
 }
 const jwt = new JWT({ email: sa.client_email, key: sa.private_key, subject: 'pyh@teamjpk.com', scopes: ['https://www.googleapis.com/auth/spreadsheets'] });
@@ -108,7 +110,7 @@ for (const tab of ['접수', '취소', '분납실적', '완납실적']) {
 }
 
 // ── ERP 쪽 ────────────────────────────────────────────────
-const snap = await getDatabase().ref('v4/settlement_rows').get();
+const snap = { val: () => Object.fromEntries((await fsdb.collection('settlement_rows').get()).docs.map((d) => [d.id, d.data()])) };
 const recs = Object.values((snap.val() || {}) as Record<string, SettlementRecord>).map((r) => normalizeRecord(r));
 const fromErp = new Map(recs.map((r) => [`${S(r.plate)}|${S(r.receivedAt)}`, rowOf(r)]));
 

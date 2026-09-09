@@ -15,6 +15,7 @@
 import { readFileSync } from 'node:fs';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getDatabase } from 'firebase-admin/database';
+import { getFirestore } from 'firebase-admin/firestore';
 import { billingMonth, type SettlementRow } from '../lib/domain/settlement-stage';
 import { normalizeRecord, type SettlementRecord } from '../lib/domain/settlement-record';
 import { confirmKey, confirmLabel, providerBillGate, type Confirmation } from '../lib/domain/settlement-confirm';
@@ -27,13 +28,14 @@ const NODE = 'v4/settlement_confirmations';
 const sa = JSON.parse(readFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS || 'tmp/firebase-auth/sa.json', 'utf8'));
 if (!getApps().length) initializeApp({ credential: cert(sa), databaseURL: process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL });
 const db = getDatabase();
+const fsdb = getFirestore();
 
 /** 저장 기록 → 규칙이 먹는 줄. 정산서 뽑는 스크립트와 «같은 변환»이어야 한다. */
 const D = (v: unknown) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(S(v)); return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null; };
 const asRow = (r: SettlementRecord): SettlementRow => ({
   ...r, receivedAt: D(r.receivedAt), deliveredAt: D(r.deliveredAt), clawbackAt: D(r.clawbackAt),
 } as unknown as SettlementRow);
-const recs = Object.values((await db.ref('v4/settlement_rows').get()).val() || {})
+const recs = (await fsdb.collection('settlement_rows').get()).docs.map((d) => d.data())
   .map((r) => normalizeRecord(r as SettlementRecord));
 const live = recs.filter((r) => !r.cancelled && billingMonth(asRow(r)) === MONTH);
 const confs = (Object.values((await db.ref(NODE).get().catch(() => null))?.val() || {}) as Confirmation[])

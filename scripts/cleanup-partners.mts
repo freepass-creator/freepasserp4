@@ -22,6 +22,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getDatabase } from 'firebase-admin/database';
+import { getFirestore } from 'firebase-admin/firestore';
 
 const APPLY = process.argv.includes('--apply');
 const S = (v: unknown) => String(v ?? '').trim();
@@ -72,7 +73,7 @@ const db = getDatabase();
 const g = async (p: string) => ((await db.ref(p).get().catch(() => null))?.val() || {}) as Record<string, Record<string, unknown>>;
 
 const [pBase, pOver, users, srows, veh, vehV4, prod, prodV4, pol, polV4, con, conV4] = await Promise.all([
-  g('partners'), g('v4/partners'), g('users'), g('v4/settlement_rows'),
+  g('partners'), g('v4/partners'), g('users'), g('settlement_rows'),
   g('vehicles'), g('v4/vehicles'), g('products'), g('v4/products'),
   g('policies'), g('v4/policies'), g('contracts'), g('v4/contracts'),
 ]);

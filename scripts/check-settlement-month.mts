@@ -13,6 +13,7 @@ import { claimOf, payOf } from '../lib/domain/settlement-money';
 import { JWT } from 'google-auth-library';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getDatabase } from 'firebase-admin/database';
+import { getFirestore } from 'firebase-admin/firestore';
 import { SETTLEMENT_LEDGER_ID as LEDGER } from '../lib/domain/settlement-ledger';
 
 const MONTH = (process.argv.find((a) => /^\d{4}-\d{2}$/.test(a)) || '2026-08').trim();
@@ -27,10 +28,11 @@ const SINCE = '2026-09';
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 if (!getApps().length) initializeApp({ credential: cert(sa), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' });
 const db = getDatabase();
+const fsdb = getFirestore();
 const jwt = new JWT({ email: sa.client_email, key: sa.private_key, subject: 'pyh@teamjpk.com', scopes: ['https://www.googleapis.com/auth/spreadsheets'] });
 
 type Row = Record<string, unknown>;
-const rows = (Object.values((await db.ref('v4/settlement_rows').get()).val() || {}) as Row[]).filter((r) => r.cancelled !== true);
+const rows = ((await fsdb.collection('settlement_rows').get()).docs.map((d) => d.data()) as Row[]).filter((r) => r.cancelled !== true);
 const monthOf = (r: Row): string => {
   if (S(r.billMonth)) return S(r.billMonth);
   const d = D(r.deliveredAt); if (!d) return '';
@@ -103,7 +105,7 @@ const line = (r: Row) => {
     claim: claimOf(r), pay: payOf(r),
   };
 };
-const claws = (Object.values((await db.ref('v4/settlement_clawbacks').get()).val() || {}) as Row[]).filter((c) => S(c.month) === MONTH);
+const claws = ((await fsdb.collection('settlement_clawbacks').get()).docs.map((d) => d.data()) as Row[]).filter((c) => S(c.month) === MONTH);
 const grp = (key: (r: Row) => string, side: 'claim' | 'pay') => {
   const m = new Map<string, { n: number; v: number }>();
   for (const r of mine) { const k = key(r) || '(미기재)'; const g = m.get(k) || { n: 0, v: 0 }; g.n++; g.v += line(r)[side]; m.set(k, g); }

@@ -16,6 +16,7 @@
 import { readFileSync } from 'node:fs';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getDatabase } from 'firebase-admin/database';
+import { getFirestore } from 'firebase-admin/firestore';
 import { FEE_RULES, feeKindOf, feeRuleFor } from '../lib/domain/settlement-fee-table';
 import { settleTargetOf } from '../lib/domain/settlement-stage';
 
@@ -27,10 +28,11 @@ const won = (n: number) => Math.round(n).toLocaleString('ko-KR');
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 if (!getApps().length) initializeApp({ credential: cert(sa), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' });
 const db = getDatabase();
+const fsdb = getFirestore();
 
 
 type Row = Record<string, unknown>;
-const rows = (Object.values((await db.ref('v4/settlement_rows').get()).val() || {}) as Row[])
+const rows = ((await fsdb.collection('settlement_rows').get()).docs.map((d) => d.data()) as Row[])
   .filter((r) => r.cancelled !== true && S(r.billMonth) === MONTH);
 
 console.log(`\n■ 수수료표 규칙 ${FEE_RULES.length}줄 · 공급사 ${new Set(FEE_RULES.map((r) => r.supplier)).size}곳`);

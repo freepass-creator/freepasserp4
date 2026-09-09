@@ -20,6 +20,7 @@
 import { readFileSync } from 'node:fs';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getDatabase } from 'firebase-admin/database';
+import { getFirestore } from 'firebase-admin/firestore';
 import { editId, type SheetEdit, type EditStatus } from '../lib/server/sheet-edits';
 
 const S = (v: unknown) => String(v ?? '').trim();
@@ -29,6 +30,7 @@ const TAKE = arg('받음'); const DROP = arg('물림'); const WHY = arg('왜');
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 if (!getApps().length) initializeApp({ credential: cert(sa), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' });
 const db = getDatabase();
+const fsdb = getFirestore();
 
 /**
  * **시트 칸 ↔ 원장 밭.** 여기 없는 칸은 «계산에서 나오는 값»이라 자동으로 못 받는다.
@@ -67,7 +69,7 @@ if (!pick.length) { console.log(`\n  ✕ 번호를 못 읽었습니다 (1~${pend
 const status: EditStatus = TAKE ? '받음' : '물림';
 
 /** 원장에서 그 줄을 찾는다 — 차량번호로. 여러 줄이면 손대지 않는다(어느 줄인지 알 수 없다). */
-const rowsRaw = (await db.ref('v4/settlement_rows').get()).val() || {};
+const rowsRaw = Object.fromEntries((await fsdb.collection('settlement_rows').get()).docs.map((d) => [d.id, d.data()]));
 const rows = Object.entries(rowsRaw) as [string, Record<string, unknown>][];
 const plateOf = (v: unknown) => S(v).replace(/\s+/g, '');
 
@@ -87,7 +89,7 @@ for (const n of pick) {
   if (hits.length !== 1) { console.log(`  ✕ ${e.key} — 원장에서 줄을 «하나»로 못 찾았습니다(${hits.length}줄)`); skipped++; continue; }
   const [code] = hits[0];
   const val: string | number = NUMFIELD.has(field) ? Number(S(e.theirs).replace(/[,\s원개월]/g, '')) || 0 : S(e.theirs);
-  await db.ref(`v4/settlement_rows/${code}`).update({ [field]: val, updatedAt: new Date().toISOString() });
+  await fsdb.collection('settlement_rows').doc(code).set({ [field]: val, updatedAt: new Date().toISOString() });
   await db.ref(`v4/sheet_edits/${id}`).update({ status, why: WHY });
   console.log(`  받음  ${e.channel} ${e.month} ${e.key} 「${e.column}」  ${S(e.ours) || '(빈칸)'} → ${S(e.theirs)}   (원장 ${code}.${field})`);
   ok++;

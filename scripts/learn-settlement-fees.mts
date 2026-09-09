@@ -21,6 +21,7 @@
 import { readFileSync } from 'node:fs';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getDatabase } from 'firebase-admin/database';
+import { getFirestore } from 'firebase-admin/firestore';
 import { feeKindOf, feeRuleFor } from '../lib/domain/settlement-fee-table';
 
 const S = (v: unknown) => String(v ?? '').trim();
@@ -31,9 +32,10 @@ const pc = (n: number) => `${(n * 100).toFixed(2)}%`;
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 if (!getApps().length) initializeApp({ credential: cert(sa), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' });
 const db = getDatabase();
+const fsdb = getFirestore();
 
 type Row = Record<string, unknown>;
-const rows = (Object.values((await db.ref('v4/settlement_rows').get()).val() || {}) as Row[]).filter((r) => r.cancelled !== true);
+const rows = ((await fsdb.collection('settlement_rows').get()).docs.map((d) => d.data()) as Row[]).filter((r) => r.cancelled !== true);
 
 /** 그 줄의 셈 기준과 밑값. 못 정하면 null. */
 const baseOf = (r: Row): { basis: '고정' | '차량가액' | '대여료×기간'; base: number } | null => {

@@ -29,6 +29,7 @@ import * as XLSX from 'xlsx';
 import { JWT } from 'google-auth-library';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getDatabase } from 'firebase-admin/database';
+import { getFirestore } from 'firebase-admin/firestore';
 import { CORP } from '../lib/domain/corporate-ci';
 import { payDate, PAY_DAY_BY_SUPPLIER } from '../lib/domain/settlement-cycle';
 import { CHANNEL_SETTLE_HEAD, CHANNEL_SETTLE_WIDTH, SETTLE_BASIS, settleTabOf, settleTabFormat } from '../lib/server/channel-sheet-tabs';
@@ -174,13 +175,14 @@ if (!APPLY) { console.log('\n※ dry-run — 아무것도 안 썼습니다. --ap
 // ── 붙이기 ────────────────────────────────────────────────
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 if (!getApps().length) initializeApp({ credential: cert(sa), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' });
+const fsdb = getFirestore();
 const jwt = new JWT({ email: sa.client_email, key: sa.private_key, subject: 'pyh@teamjpk.com',
   scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive'] });
 const tok = async () => (await jwt.getAccessToken()).token;
 
 /** ★모델명만 우리 원자에서 빌린다 — 차 한 대의 모델은 안 변하니 차번으로 찾으면 된다. */
 const modelOf = new Map<string, string>();
-for (const r of Object.values((await getDatabase().ref('v4/settlement_rows').get()).val() || {}) as Record<string, unknown>[]) {
+for (const r of (await fsdb.collection('settlement_rows').get()).docs.map((d) => d.data()) as Record<string, unknown>[]) {
   const p = plateOf(r.plate); const m = S(r.model);
   if (p && m && !modelOf.has(p)) modelOf.set(p, m);
 }

@@ -42,8 +42,8 @@ if (!MONTH) {
   process.exit(1);
 }
 let TAB = '';
-const ROWS_NODE = 'v4/settlement_rows';
-const CLAW_NODE = 'v4/settlement_clawbacks';
+const ROWS_NODE = 'settlement_rows';
+const CLAW_NODE = 'settlement_clawbacks';
 
 const S = (v: unknown) => String(v ?? '').trim();
 const N = (v: unknown) => { const n = Number(S(v).replace(/[,\s원₩]/g, '')); return Number.isFinite(n) ? n : 0; };
@@ -371,7 +371,7 @@ for (let i = hi + 1; i < all.length; i++) {
 }
 
 // ── 기존 원자와 열쇠 맞추기 (차번|접수일 → stl_ 코드) ─────
-const have = ((await db.ref(ROWS_NODE).get().catch(() => null))?.val() || {}) as Record<string, { plate?: string; receivedAt?: string; code?: string; payWritten?: number; claimWritten?: number; channel?: string; customer?: string; billMonth?: string; fromSheet?: string }>;
+const have = Object.fromEntries((await getFirestore().collection(ROWS_NODE).get()).docs.map((d) => [d.id, d.data()])) as Record<string, { plate?: string; receivedAt?: string; code?: string; payWritten?: number; claimWritten?: number; channel?: string; customer?: string; billMonth?: string; fromSheet?: string }>;
 /**
  * ★★**차번 없는 줄의 열쇠에 «줄 번호»를 쓰지 않는다.**
  *   「업무지원비」처럼 차가 없는 정산이 있다(사장님 2026-09-01 「차량번호 없이 주는것도 있고」).
@@ -500,31 +500,21 @@ const patch: Record<string, unknown> = {};
  *   「손오공」이 「손오공렌터카」가 되어도 `RP012` 는 그대로다.
  *   ⚠ 못 찾으면 «빈 값»이다 — 지어내지 않는다. 명단(PARTNER_CI)에 없는 상대라는 뜻이고, 그게 사실이다.
  */
-const codeOf = (name: string) => S(PARTNER_CI.find((c) => S(c.alias) === S(name))?.code);
+/** ⚠ 위쪽 `codeOf`(줄 열쇠 → 원자 코드 Map)와 «다른 것»이다. 이름이 겹쳐 esbuild 가 멎었다(2026-09-09). */
+const partnerCodeOf = (name: string) => S(PARTNER_CI.find((c) => S(c.alias) === S(name))?.code);
 const shaped = atoms.map((a) => shapeAtom({
-  supplierCode: codeOf(a.supplier), channelCode: codeOf(a.channel),
+  supplierCode: partnerCodeOf(a.supplier), channelCode: partnerCodeOf(a.channel),
   ...a, updatedAt: Date.now(), fromSheet: TAB,
   createdAt: N(have[a.code]?.createdAt) || Date.now(),
 }));
-for (const a of shaped) patch[`${ROWS_NODE}/${S(a.code)}`] = a;
-for (const c of claws) patch[`${CLAW_NODE}/${S(c.plate).replace(/[.$#[\]/\s]/g, '_')}_${MONTH}`] = c;
-for (const [k] of stale) patch[`${ROWS_NODE}/${k}`] = null;  // ★묵은 줄은 걷는다
-await db.ref().update(patch);
-console.log(`\n   ✓ ${Object.keys(patch).length}개 올림 — 원자 ${atoms.length} · 환수 ${claws.length}`);
-
 /**
- * ★★★**파이어스토어에도 «같이» 박는다** — 사장님 2026-09-08
- *   「파이어스토어에 박으면서 가자」 · 「절대 안 틀리게」.
+ * ★★★**파이어스토어 «한 곳»에만 쓴다** — 사장님 2026-09-09
+ *   「rtdb 는 이제 아예 안 쓴다고」·「왜 자꾸 알티디비가 슬렁슬렁 나오냐 그냥 꺼 버려」.
  *
- * ★★**왜 옮기나.** RTDB 는 노드를 «통째로» 갈아 끼우는 꼴이라, 걷는 기준이 한 칸만 어긋나도
- *   남의 달이 통째로 사라진다 — 실측 2026-09-08, 9월을 원자화하자 하허호 8월이 44줄에서 1줄이 됐다.
- *   파이어스토어는 **줄이 곧 문서**라 한 줄을 고치는 일이 다른 줄에 닿지 않는다.
- *   그 사고가 «구조적으로» 안 난다.
- *
- * ⚠ **아직 «읽는 곳»은 RTDB 다.** 여기서는 두 곳에 같은 것을 쓰기만 한다(이중 쓰기).
- *   읽기를 옮기는 것은 두 곳이 오래 같은 것을 확인한 «뒤»다 — 한 번에 옮기면 틀렸을 때 되돌릴 곳이 없다.
- * ⚠ 문서 열쇠는 원자 코드(`stl_…`) 그대로. 환수는 `차번_달`. RTDB 열쇠와 «같게» 둔다 —
- *   갈라지면 두 곳을 맞댈 수가 없다.
+ * ⚠ 전에는 두 곳에 같이 썼다(이중 쓰기). 그 사이에 «읽는 곳»이 갈려
+ *   원자를 고쳐도 정산서만 옛 값으로 남는 사고가 났다(우리캐피탈 9,841,650 ≠ 9,457,525).
+ * ★파이어스토어는 **줄이 곧 문서**라 한 줄을 고치는 일이 다른 줄에 닿지 않는다 —
+ *   RTDB 처럼 노드를 통째로 갈아 끼우다 남의 달을 지우는 사고(2026-09-08 하허호 8월)가 구조적으로 안 난다.
  */
 const fs = getFirestore();
 const ROWS_COL = 'settlement_rows';
@@ -549,7 +539,7 @@ const CLAW_COL = 'settlement_clawbacks';
 }
 
 // ── 되읽어 대조 ──
-const back = ((await db.ref(ROWS_NODE).get()).val() || {}) as Record<string, Record<string, unknown>>;
+const back = Object.fromEntries((await fs.collection(ROWS_COL).get()).docs.map((d) => [d.id, d.data()])) as Record<string, Record<string, unknown>>;
 const bad: string[] = [];
 for (const a of atoms) {
   const g = back[a.code];

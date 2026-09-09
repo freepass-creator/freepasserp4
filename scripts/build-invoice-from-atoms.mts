@@ -18,6 +18,7 @@
 import { readFileSync } from 'node:fs';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getDatabase } from 'firebase-admin/database';
+import { getFirestore } from 'firebase-admin/firestore';
 import { feeKindOf, feeRuleFor } from '../lib/domain/settlement-fee-table';
 import { settleTargetOf } from '../lib/domain/settlement-stage';
 import { claimOf, payOf } from '../lib/domain/settlement-money';
@@ -31,12 +32,13 @@ const won = (n: number) => Math.round(n).toLocaleString('ko-KR');
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 if (!getApps().length) initializeApp({ credential: cert(sa), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' });
 const db = getDatabase();
+const fsdb = getFirestore();
 
 
 type Row = Record<string, unknown>;
-const rows = (Object.values((await db.ref('v4/settlement_rows').get()).val() || {}) as Row[])
+const rows = ((await fsdb.collection('settlement_rows').get()).docs.map((d) => d.data()) as Row[])
   .filter((r) => r.cancelled !== true && S(r.billMonth) === MONTH);
-const claws = (Object.values((await db.ref('v4/settlement_clawbacks').get()).val() || {}) as Row[]).filter((c) => S(c.month) === MONTH);
+const claws = ((await fsdb.collection('settlement_clawbacks').get()).docs.map((d) => d.data()) as Row[]).filter((c) => S(c.month) === MONTH);
 
 type L = { plate: string; sup: string; ch: string; model: string; product: string; term: number;
   writeC: number; writeP: number; calcC: number | null; calcP: number | null; why: string; target: string; ratio: number };

@@ -28,6 +28,7 @@ import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getDatabase } from 'firebase-admin/database';
+import { getFirestore } from 'firebase-admin/firestore';
 import { billingMonthIn, lockedMonthsOf, type SettlementRow } from '../lib/domain/settlement-stage';
 import { claimOf, payOf } from '../lib/domain/settlement-money';
 import { PARTNER_CI, ciOf } from '../lib/domain/partner-ci';
@@ -46,6 +47,7 @@ const key = (v: unknown) => S(v).toLowerCase().replace(/[\s()·\-_.㈜]/g, '')
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 if (!getApps().length) initializeApp({ credential: cert(sa), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' });
 const db = getDatabase();
+const fsdb = getFirestore();
 const jwt = new JWT({ email: sa.client_email, key: sa.private_key, subject: 'pyh@teamjpk.com',
   scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive'] });
 const tok = async () => (await jwt.getAccessToken()).token;
@@ -57,11 +59,11 @@ const api = async (u: string, m?: string, b?: unknown) => {
 
 // ── 그 달에 돈이 오가는 곳 ─────────────────────────────────
 type Row = Record<string, unknown>;
-const all = (Object.values((await db.ref('v4/settlement_rows').get()).val() || {}) as Row[]).filter((r) => r.cancelled !== true);
+const all = ((await fsdb.collection('settlement_rows').get()).docs.map((d) => d.data()) as Row[]).filter((r) => r.cancelled !== true);
 const asRow = (r: Row) => ({ ...r, receivedAt: D(r.receivedAt), deliveredAt: D(r.deliveredAt) } as unknown as SettlementRow);
 const locked = lockedMonthsOf(all.map(asRow));
 const rows = all.filter((r) => (S(r.billMonth) || billingMonthIn(asRow(r), locked)) === MONTH);
-const claws = (Object.values((await db.ref('v4/settlement_clawbacks').get()).val() || {}) as Row[]).filter((c) => S(c.month) === MONTH);
+const claws = ((await fsdb.collection('settlement_clawbacks').get()).docs.map((d) => d.data()) as Row[]).filter((c) => S(c.month) === MONTH);
 
 /**
  * ★★**나간 종이와 «한 원까지» 같은 수를 적는다.**

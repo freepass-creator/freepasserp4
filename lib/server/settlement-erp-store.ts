@@ -38,7 +38,7 @@ const N = (v: unknown) => { const n = Number(S(v).replace(/[,\s원]/g, '')); ret
 const ON = (v: unknown) => v === true || /^(TRUE|true|참|Y|예|1)$/i.test(S(v));
 
 /** 정산 줄이 사는 곳. */
-export const ROWS_NODE = 'v4/settlement_rows';
+export const ROWS_NODE = 'settlement_rows';
 
 const db = () => firebaseAdminDatabase();
 

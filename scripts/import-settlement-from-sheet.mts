@@ -39,6 +39,7 @@
  */
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getDatabase } from 'firebase-admin/database';
+import { getFirestore } from 'firebase-admin/firestore';
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { SETTLEMENT_LEDGER_ID as LEDGER } from '../lib/domain/settlement-ledger';
@@ -46,7 +47,7 @@ import { recordFromSheet, normalizeRecord, type SettlementRecord } from '../lib/
 
 const APPLY = process.argv.includes('--apply');
 const OVERWRITE = process.argv.includes('--overwrite');
-const NODE = 'v4/settlement_rows';
+const NODE = 'settlement_rows';
 const EVENTS = 'v4/settlement_events';
 const TABS = ['접수', '취소', '분납실적', '완납실적'];
 const S = (v: unknown) => String(v ?? '').trim();

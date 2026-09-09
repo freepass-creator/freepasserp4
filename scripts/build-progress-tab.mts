@@ -33,6 +33,7 @@ import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getDatabase } from 'firebase-admin/database';
+import { getFirestore } from 'firebase-admin/firestore';
 import { SETTLEMENT_LEDGER_ID as SHEET } from '../lib/domain/settlement-ledger';
 import { normalizeRecord, type SettlementRecord } from '../lib/domain/settlement-record';
 import { billingMonth, type SettlementRow } from '../lib/domain/settlement-stage';
@@ -86,7 +87,8 @@ if (!getApps().length) {
   });
 }
 const db = getDatabase();
-const recs = Object.values(((await db.ref('v4/settlement_rows').get()).val() || {}) as Record<string, SettlementRecord>)
+const fsdb = getFirestore();
+const recs = ((await fsdb.collection('settlement_rows').get()).docs.map((d) => d.data()) as Record<string, SettlementRecord>)
   .map(normalizeRecord);
 const invoices = ((await db.ref('v4/settlement_invoices').get().catch(() => null))?.val() || {}) as Record<string, { month?: string; axis?: string; party?: string }>;
 const issued = new Set(Object.values(invoices).filter((v) => S(v?.axis) === '공급사').map((v) => issuedKey(S(v?.month), S(v?.party))));

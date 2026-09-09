@@ -26,7 +26,7 @@ import { recordFromSheet, normalizeRecord, type SettlementRecord } from '@/lib/d
 import { LEDGER_TABS, sheetsToken } from '@/lib/server/settlement-ledger-read';
 
 const S = (v: unknown) => String(v ?? '').trim();
-const NODE = 'v4/settlement_rows';
+const NODE = 'settlement_rows';
 const EVENTS = 'v4/settlement_events';
 
 /** 견줄 칸 — 원자만. 코드·시각·출처는 «어디서 왔나»라 견주지 않는다. */

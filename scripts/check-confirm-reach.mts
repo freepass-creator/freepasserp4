@@ -8,12 +8,14 @@
  */
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getDatabase } from 'firebase-admin/database';
+import { getFirestore } from 'firebase-admin/firestore';
 import { readFileSync } from 'node:fs';
 import { normalizeRecord, type SettlementRecord } from '../lib/domain/settlement-record';
 import { billingMonth, type SettlementRow } from '../lib/domain/settlement-stage';
 const sa = JSON.parse(readFileSync('tmp/firebase-auth/sa.json', 'utf8'));
 if (!getApps().length) initializeApp({ credential: cert(sa), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' });
 const db = getDatabase();
+const fsdb = getFirestore();
 const S = (v: unknown) => String(v ?? '').trim();
 const K = (v: unknown) => S(v).toLowerCase().replace(/\s+/g, '');
 const D = (v: unknown) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(S(v)); return m ? new Date(+m[1], +m[2] - 1, +m[3]) : null; };
@@ -23,7 +25,7 @@ const live = Object.values(users).filter((u) => !['deleted', 'rejected'].include
 const byName = new Set(live.map((u) => K(u.name)));
 const byCode = new Set(live.map((u) => K(u.user_code)).filter(Boolean));
 
-const rows = Object.values((await db.ref('v4/settlement_rows').get()).val() || {}).map((r) => normalizeRecord(r as SettlementRecord));
+const rows = (await fsdb.collection('settlement_rows').get()).docs.map((d) => d.data()).map((r) => normalizeRecord(r as SettlementRecord));
 const asRow = (r: SettlementRecord) => ({ ...r, receivedAt: D(r.receivedAt), deliveredAt: D(r.deliveredAt), clawbackAt: D(r.clawbackAt) } as unknown as SettlementRow);
 const aug = rows.filter((r) => !r.cancelled && billingMonth(asRow(r)) === '2026-08');
 

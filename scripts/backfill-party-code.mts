@@ -15,12 +15,13 @@
 import { readFileSync } from 'node:fs';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getDatabase } from 'firebase-admin/database';
+import { getFirestore } from 'firebase-admin/firestore';
 import { normalizeRecord, type SettlementRecord } from '../lib/domain/settlement-record';
 import { partnerRefsOf, partyCodeOf, type PartyAxis, type PartyWhy } from '../lib/domain/partner-code';
 
 const APPLY = process.argv.includes('--apply');
 const S = (v: unknown) => String(v ?? '').trim();
-const ROWS = 'v4/settlement_rows';
+const ROWS = 'settlement_rows';
 
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 if (!getApps().length) {

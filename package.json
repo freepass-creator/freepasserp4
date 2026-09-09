@@ -133,7 +133,8 @@
     "settlement:taborder": "tsx scripts/order-settlement-tabs.mts",
     "build:estimate-cars": "tsx scripts/generate-estimate-car-index.mts",
     "check:engine": "tsx scripts/check-settlement-engine.mts",
-    "check:chain": "tsx scripts/check-settlement-chain.mts"
+    "check:chain": "tsx scripts/check-settlement-chain.mts",
+    "check:nortdb": "tsx scripts/check-no-rtdb-settlement.mts"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",

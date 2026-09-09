@@ -18,6 +18,7 @@
 import { readFileSync } from 'node:fs';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getDatabase } from 'firebase-admin/database';
+import { getFirestore } from 'firebase-admin/firestore';
 import { normalizeRecord, type SettlementRecord } from '../lib/domain/settlement-record';
 import { partnerRefsOf, partyCodeOf, type PartyAxis } from '../lib/domain/partner-code';
 import { nameKey } from '../lib/domain/settlement-view';
@@ -32,8 +33,9 @@ if (!getApps().length) {
   });
 }
 const db = getDatabase();
+const fsdb = getFirestore();
 const [baseSnap, overSnap, rowSnap] = await Promise.all([
-  db.ref('partners').get(), db.ref('v4/partners').get(), db.ref('v4/settlement_rows').get(),
+  db.ref('partners').get(), db.ref('v4/partners').get(), fsdb.collection('settlement_rows').get().then((q) => ({ val: () => Object.fromEntries(q.docs.map((d) => [d.id, d.data()])) })),
 ]);
 const base = (baseSnap.val() || {}) as Record<string, unknown>;
 const over = (overSnap.val() || {}) as Record<string, unknown>;

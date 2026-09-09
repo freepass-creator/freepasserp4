@@ -14,6 +14,7 @@ import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getDatabase } from 'firebase-admin/database';
+import { getFirestore } from 'firebase-admin/firestore';
 import { normalizeRecord, type SettlementRecord } from '../lib/domain/settlement-record';
 import { billingMonth, moneyOf, paidRoundsOf, roundsOf, type SettlementRow } from '../lib/domain/settlement-stage';
 import { alertsOf, countAlerts, levelOf, type Alert } from '../lib/domain/settlement-alert';
@@ -46,11 +47,12 @@ const iso = (d: Date | null) => (d ? `${d.getFullYear()}-${p2(d.getMonth() + 1)}
  */
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 if (!getApps().length) {
+const fsdb = getFirestore();
   initializeApp({ credential: cert(sa), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' });
 }
 
 type Rec = { row: SettlementRow; tab: string; channel: string };
-const recs: Rec[] = Object.values((await getDatabase().ref('v4/settlement_rows').get()).val() || {})
+const recs: Rec[] = (await fsdb.collection('settlement_rows').get()).docs.map((d) => d.data())
   .map((raw) => normalizeRecord(raw as SettlementRecord))
   .map((r) => ({
     tab: '', channel: S(r.channel),

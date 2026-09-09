@@ -13,6 +13,7 @@
  *   NEXT_PUBLIC_FIREBASE_DATABASE_URL=... GOOGLE_APPLICATION_CREDENTIALS=tmp/firebase-auth/sa.json  *     npx tsx scripts/check-intake-roundtrip.mts
  */
 import { getDatabase } from 'firebase-admin/database';
+import { getFirestore } from 'firebase-admin/firestore';
 import { firebaseAdminApp } from '../lib/server/firebase-admin';
 import { appendIntake, listRows } from '../lib/server/settlement-erp-store';
 
@@ -40,10 +41,10 @@ console.log('  줄 수 늘었나    ' + (rows.length === before + 1 ? `○ ${bef
 
 // ★시험 줄은 «반드시» 지운다. 정본에 시험 데이터가 남으면 다음 사람이 진짜인 줄 안다.
 const db = getDatabase(firebaseAdminApp());
-const all = (await db.ref('v4/settlement_rows').get()).val() || {};
+const all = Object.fromEntries((await fsdb.collection('settlement_rows').get()).docs.map((d) => [d.id, d.data()]));
 let gone = 0;
 for (const [k, v] of Object.entries(all as Record<string, Record<string, unknown>>)) {
-  if (S(v.plate) === PLATE) { await db.ref(`v4/settlement_rows/${k}`).remove(); gone++; }
+  if (S(v.plate) === PLATE) { await fsdb.collection('settlement_rows').doc(k).delete(); gone++; }
 }
 const after = (await listRows()).length;
 console.log('  치우기          ' + (gone && after === before ? `○ ${gone}줄 지움 · ${after}줄로 되돌림` : `⛔ ${gone}줄 지웠는데 ${after}줄`));

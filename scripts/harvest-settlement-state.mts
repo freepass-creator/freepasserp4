@@ -149,7 +149,7 @@ for (const [code, r] of mine) {
   };
   /** ★규격을 거쳐 담는다 — 모든 줄이 모든 밭을 갖는다. */
   const shaped = shapeAtom({ ...r, ...state });
-  patch[`v4/settlement_rows/${code}`] = shaped;
+  patch[`settlement_rows/${code}`] = shaped;
   fsWrites.push([code, shaped]);
 }
 for (const [k, v] of [...tally].sort((a, b) => b[1] - a[1])) console.log(`   ${pad(k, 6)} ${String(v).padStart(3)}줄`);

@@ -19,6 +19,7 @@
 import { readFileSync } from 'node:fs';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getDatabase } from 'firebase-admin/database';
+import { getFirestore } from 'firebase-admin/firestore';
 
 const S = (v: unknown) => String(v ?? '').trim();
 const N = (v: unknown) => { const n = Number(S(v).replace(/[,\s원]/g, '')); return Number.isFinite(n) ? n : 0; };
@@ -43,15 +44,16 @@ const reason = arg('reason');
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 if (!getApps().length) initializeApp({ credential: cert(sa), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' });
 const db = getDatabase();
+const fsdb = getFirestore();
 
 type Row = Record<string, unknown>;
-const rows = Object.values((await db.ref('v4/settlement_rows').get()).val() || {}) as Row[];
+const rows = (await fsdb.collection('settlement_rows').get()).docs.map((d) => d.data()) as Row[];
 const hit = rows.filter((r) => S(r.plate).replace(/\s/g, '') === PLATE);
 if (hit.length !== 1) { console.log(`\n  ✕ ${PLATE} 를 «하나»로 못 찾았습니다(${hit.length}건)\n`); process.exit(1); }
 const r = hit[0];
 
 const key = `${PLATE}_${MONTH}`;
-const already = (await db.ref(`v4/settlement_clawbacks/${key}`).get()).val();
+const already = (await fsdb.collection('settlement_clawbacks').doc(key).get()).data();
 
 console.log(`\n■ 환수 ${key} ${APPLY ? '(반영)' : '(대조만)'}`);
 console.log(`   차량 ${S(r.plate)} · ${S(r.customer)} · ${S(r.model)} · ${S(r.product)} ${N(r.term)}개월`);
@@ -65,7 +67,7 @@ if (already) console.log(`\n   ⚠ 이미 있습니다 — 공급사 ${won(N((al
 if (!supplierAmt && !agentAmt) { console.log('\n  ✕ 금액이 둘 다 0입니다\n'); process.exit(1); }
 if (!APPLY) { console.log('\n※ dry-run — 아무것도 안 박았습니다. --apply 로 박습니다.\n'); process.exit(0); }
 
-await db.ref(`v4/settlement_clawbacks/${key}`).set({
+await fsdb.collection('settlement_clawbacks').doc(key).set({
   plate: S(r.plate), supplier: S(r.supplier), channel: S(r.channel), month: MONTH,
   supplierAmt, agentAmt, reason, at: new Date().toISOString().slice(0, 10),
   by: 'add-clawback', updatedAt: Date.now(),

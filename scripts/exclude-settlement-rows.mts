@@ -13,6 +13,7 @@
 import { readFileSync } from 'node:fs';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getDatabase } from 'firebase-admin/database';
+import { getFirestore } from 'firebase-admin/firestore';
 
 const S = (v: unknown) => String(v ?? '').trim();
 const N = (v: unknown) => { const n = Number(S(v).replace(/[,\s원]/g, '')); return Number.isFinite(n) ? n : 0; };
@@ -31,9 +32,10 @@ if (!PLATES.length || (!WHY && !UNDO)) {
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 if (!getApps().length) initializeApp({ credential: cert(sa), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' });
 const db = getDatabase();
+const fsdb = getFirestore();
 
 type Row = Record<string, unknown>;
-const all = Object.entries((await db.ref('v4/settlement_rows').get()).val() || {}) as [string, Row][];
+const all = (await fsdb.collection('settlement_rows').get()).docs.map((d) => [d.id, d.data()]) as [string, Row][];
 
 console.log(`\n■ 정산 ${UNDO ? '제외 해제' : '제외'} ${PLATES.length}대 ${APPLY ? '(반영)' : '(대조만)'}\n`);
 const patch: Record<string, unknown> = {};
@@ -49,6 +51,6 @@ for (const p of PLATES) {
 if (miss) { console.log(`\n  ✕ ${miss}대를 못 찾아 멈춥니다 — 차번을 확인해 주세요\n`); process.exit(1); }
 if (!APPLY) { console.log('\n※ dry-run — 아무것도 안 건드렸습니다. --apply 로 반영합니다.\n'); process.exit(0); }
 
-await db.ref('v4/settlement_rows').update(patch);
+{ const b = fsdb.batch(); for (const [k, v] of Object.entries(patch)) b.set(fsdb.collection('settlement_rows').doc(k), v as Record<string, unknown>, { merge: true }); await b.commit(); }
 console.log(`\n   ✓ ${UNDO ? '해제했습니다' : '뺐습니다'} — 원장·정산서·시트 어디에서도 안 세어집니다\n`);
 process.exit(0);

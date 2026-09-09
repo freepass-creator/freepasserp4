@@ -28,6 +28,7 @@ import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getDatabase } from 'firebase-admin/database';
+import { getFirestore } from 'firebase-admin/firestore';
 
 const S = (v: unknown) => String(v ?? '').trim();
 /** 차번은 가운데 빈칸이 섞여 온다 — 「133하 5131」과 「133하5131」은 같은 차다. */
@@ -59,6 +60,7 @@ const TO = MONTH || THIS;
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 if (!getApps().length) initializeApp({ credential: cert(sa), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' });
 const db = getDatabase();
+const fsdb = getFirestore();
 const jwt = new JWT({ email: sa.client_email, key: sa.private_key, subject: 'pyh@teamjpk.com',
   scopes: ['https://www.googleapis.com/auth/spreadsheets'] });
 const tok = async () => (await jwt.getAccessToken()).token;
@@ -76,7 +78,7 @@ const HISTORY = '1twPcUSbJkBs-8TF3AL_f7pSpj3iGBfSboI1fUFY_n4M';  // [A02] 계약
  *   (실측 `116하2308` 은 최진우·이정민·남보석 셋을 태웠다). 차번만 보면 새 계약을 「이미 있다」로 넘긴다.
  */
 const mine = new Set<string>(); const minePlates = new Set<string>();
-for (const r of Object.values((await db.ref('v4/settlement_rows').get()).val() || {}) as Record<string, unknown>[]) {
+for (const r of (await fsdb.collection('settlement_rows').get()).docs.map((d) => d.data()) as Record<string, unknown>[]) {
   const p = P(r.plate); if (!p) continue;
   minePlates.add(p); mine.add(`${p}|${nm(r.customer)}`);
 }

@@ -25,6 +25,7 @@ import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getDatabase } from 'firebase-admin/database';
+import { getFirestore } from 'firebase-admin/firestore';
 import { billingMonthIn, lockedMonthsOf, type SettlementRow } from '../lib/domain/settlement-stage';
 import { claimOf, payOf } from '../lib/domain/settlement-money';
 
@@ -48,8 +49,9 @@ if (!/^\d{4}-\d{2}$/.test(MONTH) || !PLATES.length) {
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 if (!getApps().length) initializeApp({ credential: cert(sa), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' });
 const db = getDatabase();
+const fsdb = getFirestore();
 
-const rows = Object.entries((await db.ref('v4/settlement_rows').get()).val() || {}) as [string, Record<string, unknown>][];
+const rows = (await fsdb.collection('settlement_rows').get()).docs.map((d) => [d.id, d.data()]) as [string, Record<string, unknown>][];
 const asRow = (r: Record<string, unknown>) => ({ ...r, receivedAt: D(r.receivedAt), deliveredAt: D(r.deliveredAt) } as unknown as SettlementRow);
 const locked = lockedMonthsOf(rows.map(([, r]) => asRow(r)));
 
@@ -113,8 +115,8 @@ console.log(`   원장에서 고칠 칸 ${cells.length}개`);
 if (!APPLY) { console.log('\n※ dry-run — 아무것도 안 썼습니다. --apply 로 박습니다.\n'); process.exit(0); }
 if (cells.length) await api('/values:batchUpdate', { valueInputOption: 'RAW', data: cells } as never);
 for (const [k, had] of puts) {
-  const cur = S((await db.ref(`v4/settlement_rows/${k}/note`).get()).val());
-  await db.ref(`v4/settlement_rows/${k}`).update({
+  const cur = S(((await fsdb.collection('settlement_rows').doc(k).get()).data() || {}).note);
+  await fsdb.collection('settlement_rows').doc(k).set({
     billMonth: MONTH, updatedAt: Date.now(),
     note: [cur, `청구월 ${had || '(없음)'} → ${MONTH} · ${WHY}`].filter(Boolean).join(' / '),
   });

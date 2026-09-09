@@ -26,6 +26,7 @@ import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getDatabase } from 'firebase-admin/database';
+import { getFirestore } from 'firebase-admin/firestore';
 import { SETTLEMENT_LEDGER_ID as LEDGER } from '../lib/domain/settlement-ledger';
 import { feeKindOf, feeRuleFor } from '../lib/domain/settlement-fee-table';
 import { settlementMonthOf } from '../lib/domain/settlement-billing-month';
@@ -63,12 +64,13 @@ const COLLECTED: Record<string, string[]> = { '2026-08': ['우리캐피탈'] };
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 if (!getApps().length) initializeApp({ credential: cert(sa), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' });
 const db = getDatabase();
+const fsdb = getFirestore();
 const jwt = new JWT({ email: sa.client_email, key: sa.private_key, subject: 'pyh@teamjpk.com', scopes: ['https://www.googleapis.com/auth/spreadsheets'] });
 const tok = async () => (await jwt.getAccessToken()).token;
 
 type Row = Record<string, unknown>;
-const rows = (Object.values((await db.ref('v4/settlement_rows').get()).val() || {}) as Row[]).filter((r) => r.cancelled !== true);
-const claws = Object.values((await db.ref('v4/settlement_clawbacks').get()).val() || {}) as Row[];
+const rows = ((await fsdb.collection('settlement_rows').get()).docs.map((d) => d.data()) as Row[]).filter((r) => r.cancelled !== true);
+const claws = (await fsdb.collection('settlement_clawbacks').get()).docs.map((d) => d.data()) as Row[];
 
 /** ★달을 세는 규칙은 공용이다 — 원장·공급사시트·채널시트가 같은 함수를 본다. */
 const monthOf = settlementMonthOf;

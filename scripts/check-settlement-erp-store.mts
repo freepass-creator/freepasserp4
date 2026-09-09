@@ -19,10 +19,12 @@
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { getDatabase } from 'firebase-admin/database';
+import { getFirestore } from 'firebase-admin/firestore';
 import { readFileSync } from 'node:fs';
 const S = (v: unknown) => String(v ?? '').trim();
 const sa = JSON.parse(readFileSync('tmp/firebase-auth/sa.json', 'utf8'));
 if (!getApps().length) initializeApp({ credential: cert(sa), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' });
+const fsdb = getFirestore();
 const users = (await getDatabase().ref('users').get()).val() || {};
 const [uid] = Object.entries(users as Record<string, any>).find(([, u]) => S(u?.role) === 'admin' && S(u?.status) !== 'deleted')!;
 const custom = await getAuth().createCustomToken(uid);
@@ -80,10 +82,10 @@ const nope: any = await (await fetch(API, { method: 'PATCH', headers: H, body: J
 ok('★금액 칸은 화면에서 못 고친다', nope.ok === false);
 
 // ⑥ 치운다
-const snap = await getDatabase().ref('v4/settlement_rows').get();
+const snap = { val: () => Object.fromEntries((await fsdb.collection('settlement_rows').get()).docs.map((d) => [d.id, d.data()])) };
 const all = (snap.val() || {}) as Record<string, any>;
 const code = Object.entries(all).find(([, r]) => S(r?.plate) === PLATE)?.[0];
-if (code) await getDatabase().ref(`v4/settlement_rows/${code}`).remove();
+if (code) await fsdb.collection('settlement_rows').doc(code).delete();
 const list3: any = await (await fetch(API, { headers: H })).json();
 ok('시험 줄을 치웠다', !list3.rows?.some((r: any) => S(r.plate) === PLATE));
 ok('원래 줄 수로 돌아왔다', list3.count === BEFORE);
