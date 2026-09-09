@@ -47,8 +47,16 @@ const 손안댐: string[] = [];
 for (const d of docs) {
   const v = d.data() as any;
   const a = S(v.status), b = S(v.vehicle_status);
-  if (a === b && a) continue;
   const car = S(v.car_number) || d.id;
+  // ★★정산원장에 계약이 올라간 차(locked)는 «맨 먼저 확인» — 상태가 계약상태여야 한다(사장님 2026-09-09).
+  //   status·vehicle_status 가 둘 다 «가용»으로 clobber 됐어도(레이스·옛 버그) 여기서 잡는다 = heal 이 판 차를 되살리지 않는다.
+  //   완료(어느 한쪽이 출고불가)면 숨기고, 아니면 계약중(선점). ⚠ 취소는 정산이 락을 «푼다» — 그때 locked 가 비어 아래 원천흐름으로.
+  if (S(v.locked_by_contract)) {
+    const desired = (a === '출고불가' || b === '출고불가') ? '출고불가' : '계약중';
+    if (a !== desired || b !== desired) 채움.push({ ref: d.ref, car, to: desired, why: `정산원장 계약(${a || '∅'} ↔ ${b || '∅'})` });
+    continue;
+  }
+  if (a === b && a) continue;
   if (!a && !b) continue;                                   // 둘 다 없다 — 원천이 채울 몫
   if (!a || !b) { 채움.push({ ref: d.ref, car, to: a || b, why: '한쪽만 있음' }); continue; }
   const 잠금 = Math.min(세기(a), 세기(b));
