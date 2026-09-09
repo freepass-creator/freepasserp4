@@ -245,6 +245,18 @@ export type FormatInput = {
    * 안 주면 링크를 안 건다 — 값은 그대로다.
    */
   body?: string[][];
+  /**
+   * ★★**링크를 «따로» 받아 간다** — 값을 «나중에» 쓰는 발행기용.
+   *
+   * ⚠⚠ 실측 2026-09-09 — 채널시트(F86)는 서식을 먼저 보내고 `values:batchUpdate` 를 나중에 했다.
+   *   그 값 쓰기가 차번 셀의 `userEnteredValue` 를 덮으면서 **글자 run 에 얹힌 링크가 같이 죽었다** —
+   *   하허호 시트 **703대 중 차번 링크가 «한 대도» 없었다**(맞음 0). 서식은 멀쩡해서 눈에 안 띈다.
+   *   매뉴얼이 「맨 끝이어야 한다」고 경고한 그 자리인데, 「맨 끝」이 «요청 배열의 끝»이지
+   *   «쓰기 차례의 끝»이 아니었던 것이다.
+   * ⇒ 링크 요청을 여기 담아 주면 본체에서 빼고, 발행기가 **값을 쓴 뒤** 따로 보낸다.
+   *   값을 먼저 쓰는 발행기(F01)는 이 옵션 없이 그대로 쓴다 — 지금 잘 돌고 있는 길을 안 건드린다.
+   */
+  linkOut?: Record<string, unknown>[];
 };
 
 /**
@@ -489,7 +501,8 @@ export function buildSalesFormatRequests(input: FormatInput): Record<string, unk
   const iph = idx('사진');
   const idl = idx('차번링크');
   if (ipl >= 0 && (iph >= 0 || idl >= 0) && input.body) {
-    out.push({ repeatCell: {
+    /** ★옛 링크 걷어내기도 링크와 «같은 묶음»에 둔다 — 갈라 두면 걷어내기만 먼저 가서 헛일이 된다. */
+    (input.linkOut || out).push({ repeatCell: {
       range: { sheetId: gid, startRowIndex: H + 1, startColumnIndex: ipl, endColumnIndex: ipl + 1 },
       cell: { userEnteredFormat: { textFormat: {} } },
       fields: 'userEnteredFormat.textFormat.link',
@@ -501,7 +514,7 @@ export function buildSalesFormatRequests(input: FormatInput): Record<string, unk
       const uri = /^https?:\/\//i.test(detail) ? detail : (iph >= 0 ? first(r[iph]) : '');
       const plate = String(r[ipl] ?? '').trim();
       if (!plate || !/^https?:\/\//i.test(uri)) return;
-      out.push({ updateCells: {
+      (input.linkOut || out).push({ updateCells: {
         range: {
           sheetId: gid, startRowIndex: H + 1 + i, endRowIndex: H + 2 + i,
           startColumnIndex: ipl, endColumnIndex: ipl + 1,

@@ -237,6 +237,8 @@ const stamp = new Date(Date.now() + 9 * 36e5).toISOString();
 const mark = `${stamp.slice(5, 10).replace('-', '.')} ${stamp.slice(11, 16)}`;
 
 const reqs: any[] = [];
+/** ★차번 셀 링크 요청 — 값 쓰기 «뒤»에 따로 보낸다(먼저 보내면 값 쓰기가 지운다). */
+const 링크요청: any[] = [];
 const puts: { range: string; values: string[][] }[] = [];
 /** 이번 회차에 실제로 채운 탭 — 여기 없는 회사 탭은 묵은 것이라 지운다(아래). */
 const 쓴탭 = new Set<number>();
@@ -284,9 +286,15 @@ for (const [company, list] of order) {
    */
   /** 본문 — 열너비를 재고 차번 셀 링크를 거는 데 쓴다(서식보다 «먼저» 있어야 한다). */
   const body = list.map((x) => cols.map((c) => S(x.cells[c])));
+  /**
+   * ★★**차번 셀 링크는 «값을 쓴 뒤»에 건다** — 아래 `링크요청` 으로 따로 받아 둔다.
+   *   ⚠⚠ 실측 2026-09-09 — 여기서 링크까지 `reqs` 에 담아 «먼저» 보내고 값을 나중에 썼더니,
+   *   그 값 쓰기가 차번 셀을 덮으면서 링크가 같이 죽었다 — **703대 중 링크가 «한 대도» 없었다.**
+   *   서식(색·글꼴)은 멀쩡해서 눈으로는 안 띈다. 채널이 차번을 눌러도 사진이 안 열리는 채로 나갔다.
+   */
   reqs.push(...buildSalesFormatRequests({
     gid, columns: cols, headerAt: 0, widths: columnWidths(cols, body),
-    columnCountNow: cols.length, tabTitle: title, body,
+    columnCountNow: cols.length, tabTitle: title, body, linkOut: 링크요청,
   }) as any[]);
   /**
    * ★**탭 색은 회사마다 다르게** (사장님 2026-09-08 「각 회사별 탭 다르게 해주고」).
@@ -350,7 +358,15 @@ for (let i = 0; i < puts.length; i += 40) {
     body: JSON.stringify({ valueInputOption: 'RAW', data: puts.slice(i, i + 40).map((p) => ({ range: p.range, values: p.values })) }),
   });
 }
-console.log(`   ○ 구글 두드림 — 읽기 ${셈.읽기} · 쓰기 ${셈.쓰기} · 재시도 ${셈.재시도} · 서식요청 ${reqs.length} · ${Math.round((Date.now() - 셈.시작) / 1000)}초`);
+/**
+ * ★★**마지막 — 차번 셀 링크.** 값 쓰기가 끝난 «뒤»여야 한다.
+ *   매뉴얼 「사진링크는 맨 끝」의 «끝»은 요청 배열의 끝이 아니라 **쓰기 차례의 끝**이다.
+ *   (F01 은 값을 먼저 쓰고 서식을 나중에 하므로 그 길에선 저절로 맞는다.)
+ */
+for (let i = 0; i < 링크요청.length; i += 300) {
+  await api(`https://sheets.googleapis.com/v4/spreadsheets/${id}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests: 링크요청.slice(i, i + 300) }) });
+}
+console.log(`   ○ 구글 두드림 — 읽기 ${셈.읽기} · 쓰기 ${셈.쓰기} · 재시도 ${셈.재시도} · 서식요청 ${reqs.length} · 차번링크 ${링크요청.length} · ${Math.round((Date.now() - 셈.시작) / 1000)}초`);
 console.log(`\n✓ 반영 완료 — 탭 ${order.length}장 · ${rowsAll.length}대 · 열 ${OUT_COLS.length}`);
 console.log(`   https://docs.google.com/spreadsheets/d/${id}/edit`);
 process.exit(0);
