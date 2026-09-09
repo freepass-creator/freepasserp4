@@ -37,6 +37,7 @@ import { EXT_COLORS, INT_COLORS, colorSwatch } from '@/lib/domain/color-master';
 import CarPicker from '@/features/estimate/CarPicker';
 import VehicleCascade from '@/features/estimate/VehicleCascade';
 import QuotePreview, { type QuoteDoc } from '@/features/estimate/QuotePreview';
+import EstimateWizard from '@/features/estimate/EstimateWizard';
 
 import { guessMarketPrice, loadCarIndex, loadNewModels, koModel, type PickedCar, type NewModel, type CarIndex } from '@/lib/domain/estimate/car-index';
 import { deltaKeyFor } from '@/lib/domain/estimate/residual-by-name';
@@ -511,6 +512,337 @@ function EstimatePageInner() {
   useAppBar({ search: { onOpen: () => setPickerOpen(true), active: picked !== DEFAULT_USED && picked !== DEFAULT_NEW } },
     [picked, cond]);
 
+  /**
+   * ★★화면 조각을 «변수»로 뽑는다 — 데스크톱과 폰이 **같은 조각**을 쓴다.
+   *   사장님 2026-09-09 「모바일에서는 이거를 **다음 다음 다음** … 웰릭스 테이블에 이미 있는 내용」.
+   *   ⚠ 폰용 마크업을 «따로» 짜면 두 화면이 갈린다 — 규격을 고칠 때 한쪽만 고쳐지고,
+   *     그게 사장님이 여러 번 겪으신 「또 원래대로 돌아왔다」의 정체다(CLAUDE.md 절대원칙 3).
+   *   ⇒ 조각은 하나, 그것을 «두 껍데기»가 나눠 쓴다.
+   */
+  const secColor = (
+    <section id="sec-color">
+      <div className="step-title">색상 {isNew ? <b>{extColors.length ? '제조사 색상' : '아직 안 들어옴'}</b> : <b>규격색</b>}</div>
+      <div className="vfields">
+        <div className="cs-field">
+          <label>외장</label>
+          <div className="color-wrap">
+            {!isNew && colorExt ? <span className="color-swatch-mini" style={{ background: colorSwatch(colorExt) }} /> : null}
+            <select className="step-dd" value={colorExt} onChange={(e) => setColorExt(e.target.value)}>
+              <option value="">외장 색상</option>
+              {isNew && extColors.length
+                ? extColors.map((c) => (
+                  <option key={c.name} value={c.name}>{c.name}{c.price ? ` (+${man(c.price)}원)` : ''}</option>
+                ))
+                : EXT_COLORS.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+        </div>
+        <div className="cs-field">
+          <label>내장</label>
+          <div className="color-wrap">
+            {!isNew && colorInt ? <span className="color-swatch-mini" style={{ background: colorSwatch(colorInt) }} /> : null}
+            <select className="step-dd" value={colorInt} onChange={(e) => setColorInt(e.target.value)}>
+              <option value="">내장 색상</option>
+              {isNew && intColors.length
+                ? intColors.map((c) => <option key={c.name} value={c.name}>{c.name}{c.price ? ` (+${man(c.price)}원)` : ''}</option>)
+                : INT_COLORS.map((c) => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+        </div>
+        {isNew && !extColors.length ? (
+          <div className="wx-warn">이 트림의 **제조사 색상**이 아직 안 들어왔습니다 — 규격색으로 적어 둡니다.</div>
+        ) : null}
+      </div>
+    </section>
+  );
+  const secOptions = (
+    isNew ? (
+      <section id="sec-options">
+        <div className="step-title">선택 옵션 {optionRows.length ? <b>{optionRows.length}개</b> : null}</div>
+        {!picked.newTrim ? (
+          <div className="empty-state">트림을 먼저 고르면 옵션이 나옵니다</div>
+        ) : !optionRows.length ? (
+          <div className="empty-state">
+            이 트림의 옵션은 <b>아직 안 들어왔습니다</b> — 「없다」가 아니라 「못 받았다」입니다.
+            제조사 가격표에서 연료가 안 잡힌 트림은 틀린 옵션을 붙이지 않으려고 비워 둡니다.
+          </div>
+        ) : (
+          <div className="grid-1">
+            {optionRows.map((o, i) => {
+              const k = optKey(o, i);
+              const base = !(Number(o.price) > 0);
+              const on = !base && !!optSel[k];
+              return (
+                <label key={k} className={`option-row${on ? ' active' : ''}${base ? ' disabled' : ''}`}>
+                  <input type="checkbox" checked={on} disabled={base}
+                    onChange={() => setOptSel((v) => ({ ...v, [k]: !v[k] }))} />
+                  <div className="o-info"><div className="o-name">{o.name}</div></div>
+                  <div className="o-price">{base ? '기본' : `+${man(o.price)}원`}</div>
+                </label>
+              );
+            })}
+          </div>
+        )}
+        {optNamesPartial ? (
+          <div className="footnote">
+            <b>옵션 이름이 일부만 들어왔습니다</b> — 제조사 가격표를 좌표로 읽어 이름이 조각난 것이고,
+            <b> 가격은 정확합니다</b>. 이름이 필요하면 제조사 가격표를 함께 보세요.
+          </div>
+        ) : null}
+        {picked.newTrim?.rules?.length ? (
+          <div className="footnote">
+            <b>조합규칙</b> — {picked.newTrim.rules.slice(0, 4).join(' · ')}
+            {picked.newTrim.rules.length > 4 ? ` 외 ${picked.newTrim.rules.length - 4}건` : ''}
+            <br />※ 아직 <b>글</b>로만 있습니다 — 원본(웰릭스)은 여기서 «고를 수 없게» 막습니다.
+            규칙이 원자로 정의되면 우리도 막습니다. 지금은 <b>고를 수 없는 조합도 골립니다.</b>
+          </div>
+        ) : null}
+      </section>
+    ) : null
+  );
+  const secCarinfo = (
+    <section id="sec-carinfo">
+      <div className="step-title">차량 정보</div>
+      <div className="vfields">
+        {isNew ? (
+          <div className="cs-field cs-field--wide">
+            <label>차량가</label>
+            <span className="pin w"><input value={man(listPrice)} disabled /><i>만원</i></span>
+          </div>
+        ) : (
+          <>
+            {/* 취득 경로 — 기보유면 등록·탁송·상품화가 원가에서 빠진다. */}
+            <div className="cs-field cs-field--wide">
+              <label>취득</label>
+              <Chips opts={ACQ.map((a) => ({ v: a.v, label: a.label }))} cur={acq} onPick={setAcq} />
+            </div>
+            {/* ★중고는 «무조건 시세»다(사장님 2026-09-06) — 장부가·최초매입가가 아니다. */}
+            {/* ★시세는 «채워 주되 잠그지 않는다» — 사장님 2026-09-08 「평균시세는 틀릴 수 있으니까」.
+                자동으로 채운 값에는 「추정」이 붙고, 손대면 그 표시가 사라진다. */}
+            <div className="cs-field cs-field--wide">
+              <label>시세</label>
+              <span className="pin w"><input inputMode="numeric" value={usedPrice ? man(usedPrice) : ''}
+                placeholder="0"
+                onChange={(e) => { setPriceTyped(true); setPriceSeeded(false); setUsedPrice(digits(e.target.value) * 10000); }} /><i>만원</i></span>
+              {priceSeeded && !priceTyped
+                ? <span className="seedmark" title="신차 공표가와 연식 잔가곡선으로 짚은 값입니다 — 실거래 시세가 아닙니다. 고쳐 쓰세요.">추정</span>
+                : null}
+              {usedPrice <= 0 && !isNew
+                ? <span className="seedmark warn">시세를 넣어 주세요 — 이 차는 못 짚었습니다</span>
+                : null}
+            </div>
+            <div className="cs-field">
+              <label>연식</label>
+              <span className="pin w"><input inputMode="numeric" value={usedYear}
+                onChange={(e) => setUsedYear(digits(e.target.value))} /><i>년</i></span>
+            </div>
+            <div className="cs-field">
+              <label>주행</label>
+              <span className="pin w"><input inputMode="numeric" value={usedMileage.toLocaleString('ko-KR')}
+                onChange={(e) => setUsedMileage(digits(e.target.value))} /><i>km</i></span>
+            </div>
+          </>
+        )}
+        {/* 마스터가 배기량을 안 주면 여기서 묻는다 — 0 으로 두면 자동차세가 «조용히» 0 이 된다. */}
+        {needCc ? (
+          <div className="cs-field">
+            <label>배기량</label>
+            <span className="pin w"><input inputMode="numeric" placeholder="0"
+              value={manualCc ? manualCc.toLocaleString('ko-KR') : ''}
+              onChange={(e) => setManualCc(digits(e.target.value))} /><i>cc</i></span>
+          </div>
+        ) : null}
+        {lines[0]?.incompleteCc ? (
+          <div className="wx-warn">배기량이 없어 자동차세가 0 으로 섭니다 — 위 칸에 넣어 주세요.</div>
+        ) : null}
+        <div className="cs-field">
+          <label>매입 할인</label>
+          <span className="pin w"><input inputMode="numeric" value={disc}
+            onChange={(e) => setDisc(Math.max(0, Math.min(50, digits(e.target.value))))} /><i>%</i></span>
+        </div>
+      </div>
+    </section>
+  );
+  const condRow = (
+    <div className="qp-form qp-form--conds flow">
+      {/* ★라벨을 걷었다 — 사장님 2026-09-08 「채널 만기 신용 이거 **굳이 안 써도 알건데**…
+          그냥 **버튼만 있으면 되지** 뭐」. 「렌트|구독」·「반납형|인수형」·「고신용|중신용|저신용」은
+          글자만 봐도 무엇을 고르는 칸인지 안다. 라벨을 세우면 그만큼 줄만 길어진다.
+          ⚠ 숫자칸(보증금·선납·수수료)은 라벨을 남긴다 — 「10 %」만 있으면 무엇의 10% 인지 모른다. */}
+      <Seg tone="t3" opts={CHANNELS.map((o) => ({ v: o.v, label: o.label }))} cur={ch} onPick={setCh} />
+      <Seg tone="t3" opts={TYPES.map((o) => ({ v: o.v, label: o.label }))} cur={type} onPick={setType} />
+      <Chips opts={CREDIT.map((c) => ({ v: c, label: c }))} cur={credit} onPick={setCredit} />
+      <div className="qc-field">
+        <label>보증금</label>
+        <span className="pin"><input inputMode="numeric" value={dep}
+          onChange={(e) => { const v = Math.max(0, Math.min(100, digits(e.target.value))); setDep(v); setScen((a) => a.map((x) => ({ ...x, dep: v }))); }} /><i>%</i></span>
+      </div>
+      <div className="qc-field">
+        <label>선납금</label>
+        <span className="pin"><input inputMode="numeric" value={pre}
+          onChange={(e) => { const v = Math.max(0, Math.min(100, digits(e.target.value))); setPre(v); setScen((a) => a.map((x) => ({ ...x, pre: v }))); }} /><i>%</i></span>
+      </div>
+      <div className="qc-field">
+        <label>수수료</label>
+        <span className="pin"><input inputMode="numeric" value={fee}
+          onChange={(e) => setFee(Math.max(0, Math.min(20, Number(e.target.value.replace(/[^0-9.]/g, '')) || 0)))} /><i>%</i></span>
+      </div>
+    </div>
+  );
+  const termGrid = (
+    <div className="qgrid">
+      {scen.map((sc, i) => {
+        const c = lines[i];
+        const v = pnl(c, Math.round(price * sc.pre / 100));
+        const cogs = v.rev - v.opProfit;
+        const isOpen = openTerm === sc.term;
+        return (
+          <div className={`term-card${sc.send ? '' : ' unchecked'}${isOpen ? ' open' : ''}`} key={sc.term}>
+            <div className="term-card__head">
+              <span className="qterm">{sc.term / 12}년<em>{sc.term}개월</em></span>
+              <label className={`term-card__check${sc.send ? ' is-checked' : ''}`} title="체크한 칸만 손님 견적서로 나갑니다">
+                <input type="checkbox" checked={sc.send}
+                  onChange={(e) => setScen((a) => a.map((x, j) => (j === i ? { ...x, send: e.target.checked } : x)))} />
+                <span className="term-card__check-cap">발송</span>
+              </label>
+            </div>
+
+            <div className="term-card__monthly">{priceKnown && c.payVat ? fmtNum(c.payVat) : '—'}<em>원</em></div>
+
+            <div className="term-card__cond">
+              <label>
+                <span>보증금</span>
+                <span className="pct-cell">
+                  <input type="text" inputMode="numeric" maxLength={3} value={sc.dep}
+                    onChange={(e) => setScen((a) => a.map((x, j) => (j === i ? { ...x, dep: Math.min(100, digits(e.target.value)) } : x)))} />%
+                </span>
+              </label>
+              <label>
+                <span>선납금</span>
+                <span className="pct-cell">
+                  <input type="text" inputMode="numeric" maxLength={3} value={sc.pre}
+                    onChange={(e) => setScen((a) => a.map((x, j) => (j === i ? { ...x, pre: Math.min(100, digits(e.target.value)) } : x)))} />%
+                </span>
+              </label>
+            </div>
+
+            <div className="term-card__row"><span>보증금</span><b>{man(c.deposit || 0)}</b></div>
+            <div className="term-card__row"><span>선납금</span><b>{man(Math.round(price * sc.pre / 100))}</b></div>
+            {/* ★★잔가 둘 — 사장님 2026-09-08 「그 **해당 기간에 잔가를 직접 넣을 수 있게끔**」
+                   「잔가는 내부에서 **견적용 잔가와 손님 인수용 잔가가 2개**가 있음」
+                · 견적 잔가 = **대여료를 만드는** 값(낮출수록 월납이 올라간다)
+                · 인수 잔가 = 만기에 **손님이 사 가는** 값(월납에는 «안» 들어간다)
+                ⚠ 둘을 한 값으로 묶으면 「손님에게 싸게 넘기려고 잔가를 올렸더니 대여료가 같이
+                  싸지는」 사고가 난다. 그래서 나눠 둔다. */}
+            <div className="term-card__cond resid2">
+              <label title="우리가 「얼마에 팔릴까」로 잡는 값 — 이 값이 대여료를 만듭니다">
+                <span>견적 잔가</span>
+                <span className="pct-cell">
+                  <input type="text" inputMode="numeric" maxLength={3} value={residPct[sc.term]}
+                    onChange={(e) => setResidOverride((o) => ({ ...o, [sc.term]: Math.min(98, digits(e.target.value)) }))} />%
+                </span>
+              </label>
+              <label title="만기에 손님이 사 가는 값 — 대여료에는 들어가지 않습니다">
+                <span>인수 잔가</span>
+                <span className="pct-cell">
+                  <input type="text" inputMode="numeric" maxLength={3} value={buyoutPct[sc.term]}
+                    onChange={(e) => setBuyoutOverride((o) => ({ ...o, [sc.term]: Math.min(98, digits(e.target.value)) }))} />%
+                </span>
+              </label>
+            </div>
+            <div className="term-card__row">
+              <span>만기인수</span>
+              <b>{priceKnown ? man(Math.round(price * buyoutPct[sc.term] / 100)) : '—'}</b>
+            </div>
+
+            {/* 수익·원가 — 이 칸의 «장부» 세 줄. 뺄셈이 눈으로 맞는다(매출 − 원가 = 영업이익). */}
+            <div className="term-card__row bk"><span>매출</span><b>{priceKnown ? man(v.rev) : '—'}</b></div>
+            <div className="term-card__row bk"><span>원가</span><b>{priceKnown ? man(cogs) : '—'}</b></div>
+            <div className={`term-card__row bk profit${priceKnown && v.opProfit < 0 ? ' neg' : ''}`}>
+              <span>영업이익{priceKnown ? <em className="resid-pct">{(v.opPct * 100).toFixed(1)}%</em> : null}</span>
+              <b>{priceKnown ? man(v.opProfit) : '—'}</b>
+            </div>
+
+            <button type="button" className="qopen" onClick={() => setOpenTerm(isOpen ? null : sc.term)}>
+              {isOpen ? '원가 접기' : '원가 펼치기'}
+            </button>
+
+            {isOpen ? (
+              <div className="qdetail">
+                <div className="term-card__row"><span>차량 감가</span><b>−{man(v.dep)}</b></div>
+                <div className="term-card__row"><span>금융비용</span><b>−{man(v.interest)}</b></div>
+                <div className="term-card__row"><span>직접 운영비</span><b>−{man(v.direct)}</b></div>
+                {v.turnover > 0 ? (
+                  <div className="term-card__row">
+                    <span>손바뀜<em className="resid-pct">{turnovers.toFixed(2)}회</em></span>
+                    <b>−{man(v.turnover)}</b>
+                  </div>
+                ) : null}
+                <div className="term-card__row sum"><span>매출총이익</span><b>{man(v.gp)}</b></div>
+                <div className="term-card__row"><span>영업수수료<em className="resid-pct">{fee}%</em></span><b>−{man(v.fee)}</b></div>
+                <div className="term-card__row sum"><span>영업이익</span><b>{man(v.opProfit)}</b></div>
+              </div>
+            ) : null}
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  /**
+   * ★★폰은 «다음 다음 다음»이다 — 사장님 2026-09-09
+   *   「모바일에서는 이거를 **다음 다음 다음** 이렇게 하게 만들었잖아 **직관적으로**.
+   *    **웰릭스 테이블에 이미 있는 내용**이고」.
+   *   원본은 폰을 «따로» 짰다(`src/components/mobile/` 여덟 쪽 마법사). 우리도 그 짜임을 쓴다.
+   * ⚠ 2026-09-08 에 나는 사장님 「모바일 버전은 다음다음 하게 해놨어」를 «미룬다»로 읽고 미뤘다.
+   *   그게 아니라 «이미 그렇게 만들어 놨다»는 말씀이었다. 그래서 폰이 데스크톱 두 칸을 눌러 담고 있었다.
+   * ⚠ 조각(`secColor`·`secOptions`·`condRow`·`termGrid`…)은 **데스크톱과 같은 것**을 넘긴다.
+   */
+  /**
+   * 상품(중고↔신차)을 바꿀 때 — **앞 갈래의 찌꺼기를 안 물려준다.**
+   * ⚠ 신차를 고르면 연식·주행을 0/올해로 눌러 둔다(신차라 당연하다). 그 상태로 중고로 돌아오면
+   *   「2026년식 · 0km 중고차」가 되어 **말이 안 되는 견적**이 조용히 나온다(2026-09-09 폰에서 잡음).
+   *   ⇒ 중고로 돌아오면 기본값을 되돌린다. 사람이 넣은 값은 어차피 신차 고를 때 이미 지워졌다.
+   */
+  const setSource = useCallback((m: 'used' | 'new') => {
+    setCond(m);
+    setOptSel({});
+    if (m === 'used' && (usedMileage === 0 || usedYear >= nowYear)) {
+      setUsedYear(DEFAULT_USED_YEAR); setUsedMileage(DEFAULT_USED_MILEAGE);
+    }
+  }, [usedMileage, usedYear]);
+
+  const wizSummary = useMemo(() => {
+    const sent = scen.filter((x) => x.send);
+    const cheapest = sent
+      .map((x) => lines[scen.findIndex((y) => y.term === x.term)])
+      .filter((c) => c && c.payVat)
+      .sort((a, b) => (a!.payVat || 0) - (b!.payVat || 0))[0];
+    return {
+      carName: picked.name, carMeta: vMeta, price: listPrice,
+      monthly: priceKnown ? Math.round(cheapest?.payVat || 0) : 0,
+      term: cheapest?.term ?? 0,
+    };
+  }, [scen, lines, picked, vMeta, listPrice, priceKnown]);
+
+  if (mobile) {
+    return (
+      <div className="wx-root est-root est-root--wiz">
+        <EstimateWizard
+          mode={cond}
+          onMode={setSource}
+          picked={picked}
+          onPick={(c) => { setPicked(c); if (c.source === 'new') { setUsedMileage(0); setUsedYear(nowYear); } }}
+          sections={{ carinfo: secCarinfo, colors: secColor, options: secOptions, conditions: condRow, terms: termGrid }}
+          summary={wizSummary}
+          onQuote={() => setDocOpen(true)}
+          canQuote={priceKnown && quoteDoc.lines.length > 0}
+        />
+        {docOpen ? <QuotePreview doc={quoteDoc} onClose={() => setDocOpen(false)} /> : null}
+      </div>
+    );
+  }
+
   return (
     <div className="wx-root est-root">
       {/* ★★머리 띠가 «없다» — 사장님 2026-09-08 「**상단바 없고 그냥 이거 자체가 별도 페이지야**」.
@@ -532,7 +864,7 @@ function EstimatePageInner() {
              ★그래서 이 칸 바로 밑이 차종 캐스케이드다 — 중고냐 신차냐에 따라 고를 목록이 갈린다. ══ */}
         <section id="sec-source">
           <div className="step-title">상품</div>
-          <Seg tone="t2" opts={SOURCES.map((o) => ({ v: o.v, label: o.label }))} cur={cond} onPick={setCond} />
+          <Seg tone="t2" opts={SOURCES.map((o) => ({ v: o.v, label: o.label }))} cur={cond} onPick={setSource} />
         </section>
 
         {/* ★★차 고르기 «판»을 걷었다 — 사장님 2026-09-08 「버튼만 만들어 주면 되고」
@@ -556,147 +888,12 @@ function EstimatePageInner() {
              · 신차 = 제조사가 준 이름 그대로(「어비스 블랙 펄」). **값이 붙는 색은 차량가에 더한다.**
              · 중고 = 우리 규격색 12색(색상마스터) — 실제 차의 색을 적는 칸이라 이름이 규격이면 된다.
              ⚠ 제조사 색은 트림의 67% 에만 있다(2026-09-08 실측). 없으면 그렇다고 «말하고» 규격색을 쓴다. ══ */}
-        <section id="sec-color">
-          <div className="step-title">색상 {isNew ? <b>{extColors.length ? '제조사 색상' : '아직 안 들어옴'}</b> : <b>규격색</b>}</div>
-          <div className="vfields">
-            <div className="cs-field">
-              <label>외장</label>
-              <div className="color-wrap">
-                {!isNew && colorExt ? <span className="color-swatch-mini" style={{ background: colorSwatch(colorExt) }} /> : null}
-                <select className="step-dd" value={colorExt} onChange={(e) => setColorExt(e.target.value)}>
-                  <option value="">외장 색상</option>
-                  {isNew && extColors.length
-                    ? extColors.map((c) => (
-                      <option key={c.name} value={c.name}>{c.name}{c.price ? ` (+${man(c.price)}원)` : ''}</option>
-                    ))
-                    : EXT_COLORS.map((c) => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </div>
-            </div>
-            <div className="cs-field">
-              <label>내장</label>
-              <div className="color-wrap">
-                {!isNew && colorInt ? <span className="color-swatch-mini" style={{ background: colorSwatch(colorInt) }} /> : null}
-                <select className="step-dd" value={colorInt} onChange={(e) => setColorInt(e.target.value)}>
-                  <option value="">내장 색상</option>
-                  {isNew && intColors.length
-                    ? intColors.map((c) => <option key={c.name} value={c.name}>{c.name}{c.price ? ` (+${man(c.price)}원)` : ''}</option>)
-                    : INT_COLORS.map((c) => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </div>
-            </div>
-            {isNew && !extColors.length ? (
-              <div className="wx-warn">이 트림의 **제조사 색상**이 아직 안 들어왔습니다 — 규격색으로 적어 둡니다.</div>
-            ) : null}
-          </div>
-        </section>
+        {secColor}
 
         {/* ══ 선택 옵션 — 원본 `#sec-options`. 신차에만 선다(중고는 이미 달려 나온 차다). ══ */}
-        {isNew ? (
-          <section id="sec-options">
-            <div className="step-title">선택 옵션 {optionRows.length ? <b>{optionRows.length}개</b> : null}</div>
-            {!picked.newTrim ? (
-              <div className="empty-state">트림을 먼저 고르면 옵션이 나옵니다</div>
-            ) : !optionRows.length ? (
-              <div className="empty-state">
-                이 트림의 옵션은 <b>아직 안 들어왔습니다</b> — 「없다」가 아니라 「못 받았다」입니다.
-                제조사 가격표에서 연료가 안 잡힌 트림은 틀린 옵션을 붙이지 않으려고 비워 둡니다.
-              </div>
-            ) : (
-              <div className="grid-1">
-                {optionRows.map((o, i) => {
-                  const k = optKey(o, i);
-                  const base = !(Number(o.price) > 0);
-                  const on = !base && !!optSel[k];
-                  return (
-                    <label key={k} className={`option-row${on ? ' active' : ''}${base ? ' disabled' : ''}`}>
-                      <input type="checkbox" checked={on} disabled={base}
-                        onChange={() => setOptSel((v) => ({ ...v, [k]: !v[k] }))} />
-                      <div className="o-info"><div className="o-name">{o.name}</div></div>
-                      <div className="o-price">{base ? '기본' : `+${man(o.price)}원`}</div>
-                    </label>
-                  );
-                })}
-              </div>
-            )}
-            {optNamesPartial ? (
-              <div className="footnote">
-                <b>옵션 이름이 일부만 들어왔습니다</b> — 제조사 가격표를 좌표로 읽어 이름이 조각난 것이고,
-                <b> 가격은 정확합니다</b>. 이름이 필요하면 제조사 가격표를 함께 보세요.
-              </div>
-            ) : null}
-            {picked.newTrim?.rules?.length ? (
-              <div className="footnote">
-                <b>조합규칙</b> — {picked.newTrim.rules.slice(0, 4).join(' · ')}
-                {picked.newTrim.rules.length > 4 ? ` 외 ${picked.newTrim.rules.length - 4}건` : ''}
-                <br />※ 아직 <b>글</b>로만 있습니다 — 원본(웰릭스)은 여기서 «고를 수 없게» 막습니다.
-                규칙이 원자로 정의되면 우리도 막습니다. 지금은 <b>고를 수 없는 조합도 골립니다.</b>
-              </div>
-            ) : null}
-          </section>
-        ) : null}
+        {secOptions}
 
-        <section id="sec-carinfo">
-          <div className="step-title">차량 정보</div>
-          <div className="vfields">
-            {isNew ? (
-              <div className="cs-field cs-field--wide">
-                <label>차량가</label>
-                <span className="pin w"><input value={man(listPrice)} disabled /><i>만원</i></span>
-              </div>
-            ) : (
-              <>
-                {/* 취득 경로 — 기보유면 등록·탁송·상품화가 원가에서 빠진다. */}
-                <div className="cs-field cs-field--wide">
-                  <label>취득</label>
-                  <Chips opts={ACQ.map((a) => ({ v: a.v, label: a.label }))} cur={acq} onPick={setAcq} />
-                </div>
-                {/* ★중고는 «무조건 시세»다(사장님 2026-09-06) — 장부가·최초매입가가 아니다. */}
-                {/* ★시세는 «채워 주되 잠그지 않는다» — 사장님 2026-09-08 「평균시세는 틀릴 수 있으니까」.
-                    자동으로 채운 값에는 「추정」이 붙고, 손대면 그 표시가 사라진다. */}
-                <div className="cs-field cs-field--wide">
-                  <label>시세</label>
-                  <span className="pin w"><input inputMode="numeric" value={usedPrice ? man(usedPrice) : ''}
-                    placeholder="0"
-                    onChange={(e) => { setPriceTyped(true); setPriceSeeded(false); setUsedPrice(digits(e.target.value) * 10000); }} /><i>만원</i></span>
-                  {priceSeeded && !priceTyped
-                    ? <span className="seedmark" title="신차 공표가와 연식 잔가곡선으로 짚은 값입니다 — 실거래 시세가 아닙니다. 고쳐 쓰세요.">추정</span>
-                    : null}
-                  {usedPrice <= 0 && !isNew
-                    ? <span className="seedmark warn">시세를 넣어 주세요 — 이 차는 못 짚었습니다</span>
-                    : null}
-                </div>
-                <div className="cs-field">
-                  <label>연식</label>
-                  <span className="pin w"><input inputMode="numeric" value={usedYear}
-                    onChange={(e) => setUsedYear(digits(e.target.value))} /><i>년</i></span>
-                </div>
-                <div className="cs-field">
-                  <label>주행</label>
-                  <span className="pin w"><input inputMode="numeric" value={usedMileage.toLocaleString('ko-KR')}
-                    onChange={(e) => setUsedMileage(digits(e.target.value))} /><i>km</i></span>
-                </div>
-              </>
-            )}
-            {/* 마스터가 배기량을 안 주면 여기서 묻는다 — 0 으로 두면 자동차세가 «조용히» 0 이 된다. */}
-            {needCc ? (
-              <div className="cs-field">
-                <label>배기량</label>
-                <span className="pin w"><input inputMode="numeric" placeholder="0"
-                  value={manualCc ? manualCc.toLocaleString('ko-KR') : ''}
-                  onChange={(e) => setManualCc(digits(e.target.value))} /><i>cc</i></span>
-              </div>
-            ) : null}
-            {lines[0]?.incompleteCc ? (
-              <div className="wx-warn">배기량이 없어 자동차세가 0 으로 섭니다 — 위 칸에 넣어 주세요.</div>
-            ) : null}
-            <div className="cs-field">
-              <label>매입 할인</label>
-              <span className="pin w"><input inputMode="numeric" value={disc}
-                onChange={(e) => setDisc(Math.max(0, Math.min(50, digits(e.target.value))))} /><i>%</i></span>
-            </div>
-          </div>
-        </section>
+        {secCarinfo}
 
       </div>
 
@@ -736,30 +933,7 @@ function EstimatePageInner() {
                내용 폭대로 흐르게 했다 — 격자에 맞추니 「10 %」 하나가 칸을 다 먹어 늘어났다.
              ★보증금·선납은 여기서 바꾸면 다섯 칸이 한꺼번에 따라온다(칸마다 따로도 잡는다). ══ */}
         <div className="qp-terms__title">조건 <small>· 보증금·선납은 다섯 칸에 한꺼번에</small></div>
-        <div className="qp-form qp-form--conds flow">
-          {/* ★라벨을 걷었다 — 사장님 2026-09-08 「채널 만기 신용 이거 **굳이 안 써도 알건데**…
-              그냥 **버튼만 있으면 되지** 뭐」. 「렌트|구독」·「반납형|인수형」·「고신용|중신용|저신용」은
-              글자만 봐도 무엇을 고르는 칸인지 안다. 라벨을 세우면 그만큼 줄만 길어진다.
-              ⚠ 숫자칸(보증금·선납·수수료)은 라벨을 남긴다 — 「10 %」만 있으면 무엇의 10% 인지 모른다. */}
-          <Seg tone="t3" opts={CHANNELS.map((o) => ({ v: o.v, label: o.label }))} cur={ch} onPick={setCh} />
-          <Seg tone="t3" opts={TYPES.map((o) => ({ v: o.v, label: o.label }))} cur={type} onPick={setType} />
-          <Chips opts={CREDIT.map((c) => ({ v: c, label: c }))} cur={credit} onPick={setCredit} />
-          <div className="qc-field">
-            <label>보증금</label>
-            <span className="pin"><input inputMode="numeric" value={dep}
-              onChange={(e) => { const v = Math.max(0, Math.min(100, digits(e.target.value))); setDep(v); setScen((a) => a.map((x) => ({ ...x, dep: v }))); }} /><i>%</i></span>
-          </div>
-          <div className="qc-field">
-            <label>선납금</label>
-            <span className="pin"><input inputMode="numeric" value={pre}
-              onChange={(e) => { const v = Math.max(0, Math.min(100, digits(e.target.value))); setPre(v); setScen((a) => a.map((x) => ({ ...x, pre: v }))); }} /><i>%</i></span>
-          </div>
-          <div className="qc-field">
-            <label>수수료</label>
-            <span className="pin"><input inputMode="numeric" value={fee}
-              onChange={(e) => setFee(Math.max(0, Math.min(20, Number(e.target.value.replace(/[^0-9.]/g, '')) || 0)))} /><i>%</i></span>
-          </div>
-        </div>
+        {condRow}
 
         {/* ══ 1년 ~ 5년 — **가로로 쭉**(폰에서는 위아래로) ═══════════════════════════
                사장님 2026-09-08 「**1~5년은 가로로 쭉** 나와야지」 · 「**모바일에서는 그게 위아래로 분리**되는 거고」
@@ -768,103 +942,7 @@ function EstimatePageInner() {
              · 「원가」를 누르면 그 칸 «안»에서 분해가 열린다. 다섯을 한꺼번에 펼쳐 견줄 수도 있다.
              ⚠ 짜임은 원본 `.term-card` 그대로다. 원본은 셋이고 우리는 다섯이라 열 수만 늘렸다. ══ */}
         <div className="qp-terms__title">기간별 설계 <small>· 칸마다 조건·잔가 · 「원가」를 누르면 분해</small></div>
-        <div className="qgrid">
-          {scen.map((sc, i) => {
-            const c = lines[i];
-            const v = pnl(c, Math.round(price * sc.pre / 100));
-            const cogs = v.rev - v.opProfit;
-            const isOpen = openTerm === sc.term;
-            return (
-              <div className={`term-card${sc.send ? '' : ' unchecked'}${isOpen ? ' open' : ''}`} key={sc.term}>
-                <div className="term-card__head">
-                  <span className="qterm">{sc.term / 12}년<em>{sc.term}개월</em></span>
-                  <label className={`term-card__check${sc.send ? ' is-checked' : ''}`} title="체크한 칸만 손님 견적서로 나갑니다">
-                    <input type="checkbox" checked={sc.send}
-                      onChange={(e) => setScen((a) => a.map((x, j) => (j === i ? { ...x, send: e.target.checked } : x)))} />
-                    <span className="term-card__check-cap">발송</span>
-                  </label>
-                </div>
-
-                <div className="term-card__monthly">{priceKnown && c.payVat ? fmtNum(c.payVat) : '—'}<em>원</em></div>
-
-                <div className="term-card__cond">
-                  <label>
-                    <span>보증금</span>
-                    <span className="pct-cell">
-                      <input type="text" inputMode="numeric" maxLength={3} value={sc.dep}
-                        onChange={(e) => setScen((a) => a.map((x, j) => (j === i ? { ...x, dep: Math.min(100, digits(e.target.value)) } : x)))} />%
-                    </span>
-                  </label>
-                  <label>
-                    <span>선납금</span>
-                    <span className="pct-cell">
-                      <input type="text" inputMode="numeric" maxLength={3} value={sc.pre}
-                        onChange={(e) => setScen((a) => a.map((x, j) => (j === i ? { ...x, pre: Math.min(100, digits(e.target.value)) } : x)))} />%
-                    </span>
-                  </label>
-                </div>
-
-                <div className="term-card__row"><span>보증금</span><b>{man(c.deposit || 0)}</b></div>
-                <div className="term-card__row"><span>선납금</span><b>{man(Math.round(price * sc.pre / 100))}</b></div>
-                {/* ★★잔가 둘 — 사장님 2026-09-08 「그 **해당 기간에 잔가를 직접 넣을 수 있게끔**」
-                       「잔가는 내부에서 **견적용 잔가와 손님 인수용 잔가가 2개**가 있음」
-                    · 견적 잔가 = **대여료를 만드는** 값(낮출수록 월납이 올라간다)
-                    · 인수 잔가 = 만기에 **손님이 사 가는** 값(월납에는 «안» 들어간다)
-                    ⚠ 둘을 한 값으로 묶으면 「손님에게 싸게 넘기려고 잔가를 올렸더니 대여료가 같이
-                      싸지는」 사고가 난다. 그래서 나눠 둔다. */}
-                <div className="term-card__cond resid2">
-                  <label title="우리가 「얼마에 팔릴까」로 잡는 값 — 이 값이 대여료를 만듭니다">
-                    <span>견적 잔가</span>
-                    <span className="pct-cell">
-                      <input type="text" inputMode="numeric" maxLength={3} value={residPct[sc.term]}
-                        onChange={(e) => setResidOverride((o) => ({ ...o, [sc.term]: Math.min(98, digits(e.target.value)) }))} />%
-                    </span>
-                  </label>
-                  <label title="만기에 손님이 사 가는 값 — 대여료에는 들어가지 않습니다">
-                    <span>인수 잔가</span>
-                    <span className="pct-cell">
-                      <input type="text" inputMode="numeric" maxLength={3} value={buyoutPct[sc.term]}
-                        onChange={(e) => setBuyoutOverride((o) => ({ ...o, [sc.term]: Math.min(98, digits(e.target.value)) }))} />%
-                    </span>
-                  </label>
-                </div>
-                <div className="term-card__row">
-                  <span>만기인수</span>
-                  <b>{priceKnown ? man(Math.round(price * buyoutPct[sc.term] / 100)) : '—'}</b>
-                </div>
-
-                {/* 수익·원가 — 이 칸의 «장부» 세 줄. 뺄셈이 눈으로 맞는다(매출 − 원가 = 영업이익). */}
-                <div className="term-card__row bk"><span>매출</span><b>{priceKnown ? man(v.rev) : '—'}</b></div>
-                <div className="term-card__row bk"><span>원가</span><b>{priceKnown ? man(cogs) : '—'}</b></div>
-                <div className={`term-card__row bk profit${priceKnown && v.opProfit < 0 ? ' neg' : ''}`}>
-                  <span>영업이익{priceKnown ? <em className="resid-pct">{(v.opPct * 100).toFixed(1)}%</em> : null}</span>
-                  <b>{priceKnown ? man(v.opProfit) : '—'}</b>
-                </div>
-
-                <button type="button" className="qopen" onClick={() => setOpenTerm(isOpen ? null : sc.term)}>
-                  {isOpen ? '원가 접기' : '원가 펼치기'}
-                </button>
-
-                {isOpen ? (
-                  <div className="qdetail">
-                    <div className="term-card__row"><span>차량 감가</span><b>−{man(v.dep)}</b></div>
-                    <div className="term-card__row"><span>금융비용</span><b>−{man(v.interest)}</b></div>
-                    <div className="term-card__row"><span>직접 운영비</span><b>−{man(v.direct)}</b></div>
-                    {v.turnover > 0 ? (
-                      <div className="term-card__row">
-                        <span>손바뀜<em className="resid-pct">{turnovers.toFixed(2)}회</em></span>
-                        <b>−{man(v.turnover)}</b>
-                      </div>
-                    ) : null}
-                    <div className="term-card__row sum"><span>매출총이익</span><b>{man(v.gp)}</b></div>
-                    <div className="term-card__row"><span>영업수수료<em className="resid-pct">{fee}%</em></span><b>−{man(v.fee)}</b></div>
-                    <div className="term-card__row sum"><span>영업이익</span><b>{man(v.opProfit)}</b></div>
-                  </div>
-                ) : null}
-              </div>
-            );
-          })}
-        </div>
+        {termGrid}
 
         {/* ══ 손님·담당자 — **맨 아래**다 ═════════════════════════════════════
                견적서에 찍힐 이름이라 **발송 직전**에 적는다. 맨 위에서 물으면 차·조건을 보러 온 사람이

@@ -707,6 +707,68 @@ must(cascade.includes('variants.length !== 1'),
   '고를 것이 하나뿐인 파워트레인 걸음을 자동으로 안 넘깁니다 — 막힌 문이 됩니다',
   'features/estimate/VehicleCascade.tsx');
 
+/* ══ 9. 폰은 «다음 다음 다음» ══════════════════════════════════════════════
+     ★★사장님 2026-09-09 「그래서 **모바일에서는 이거를 다음 다음 다음** 이렇게 하게 만들었잖아
+       **직관적으로**. **웰릭스 테이블에 이미 있는 내용**이고」
+     ⚠ 2026-09-08 에 나는 「모바일 버전은 다음다음 하게 해놨어」를 «미룬다»로 읽고 미뤘다. */
+const wiz = read('features/estimate/EstimateWizard.tsx');
+
+/* 9-1. 원본 폰 CSS 가 실제로 들어와 있는가 — 안 들어오면 마법사가 맨몸으로 선다. */
+for (const sel of ['.m-progress__seg', '.sv-brand-card', '.sv-trim-card', '.sq-term-card', '.m-btn']) {
+  must(wxCss.includes(sel), `원본 폰 스타일 「${sel}」 이 없습니다 — 생성기 SFC 목록에서 mobile 조각이 빠졌습니다`,
+    'scripts/extract-welrix-css.py');
+}
+must(wxCss.includes('.wx-root.est-root--wiz'),
+  '마법사 껍데기 맞춤이 없습니다 — `.wx-root` 의 100vh 격자를 안 풀면 머리가 본문을 덮습니다',
+  'scripts/extract-welrix-css.py');
+/* ⚠ 하단 홈바가 남는 화면이다 — 안 들어 올리면 「다음」이 홈바 밑에 깔려 «안 눌린다». */
+must(/est-root--wiz \.m-footer \{ bottom: var\(--fp-bar-h/.test(wxCss),
+  '마법사 발이 하단 홈바에 깔립니다 — `--fp-bar-h` 만큼 들어 올려야 합니다',
+  'scripts/extract-welrix-css.py');
+
+/* 9-2. 쪽 차례가 제조사 「내 차 만들기」와 같은가 — 색상이 옵션 «앞». */
+{
+  const m = /const steps = useMemo<WizStep\[\]>\(\(\) => \[([\s\S]*?)\], \[isNew\]\)/.exec(wiz);
+  must(!!m, '마법사 쪽 차례를 못 찾습니다', 'features/estimate/EstimateWizard.tsx');
+  const body = m ? m[1] : '';
+  must(body.indexOf("'colors'") >= 0 && body.indexOf("'colors'") < body.indexOf("'options'"),
+    '폰 쪽 차례가 제조사와 다릅니다 — 색상이 옵션 «앞»이어야 합니다',
+    'features/estimate/EstimateWizard.tsx');
+}
+
+/* 9-3. ★★조각은 데스크톱과 «같은 것»을 쓴다 — 폰용 마크업을 따로 짜면 두 화면이 갈린다
+     (CLAUDE.md 절대원칙 3 · 사장님 「작업을 하고 배포까지 했는데 왜 또 얼레벌레 자꾸 바뀌는거여」). */
+must(/sections=\{\{ carinfo: secCarinfo, colors: secColor, options: secOptions, conditions: condRow, terms: termGrid \}\}/.test(page),
+  '폰이 데스크톱과 다른 조각을 씁니다 — 같은 변수를 넘겨야 두 화면이 안 갈립니다',
+  'app/estimate/page.tsx');
+for (const v of ['const secColor = (', 'const secOptions = (', 'const secCarinfo = (', 'const condRow = (', 'const termGrid = (']) {
+  must(page.includes(v), `화면 조각 「${v.slice(6, -4)}」 이 변수로 안 뽑혀 있습니다 — 두 껍데기가 나눠 쓸 수 없습니다`,
+    'app/estimate/page.tsx');
+}
+
+/* 9-4. ⚠⚠ 차 걸음이 아닐 때도 캐스케이드는 «붙어» 있어야 한다.
+     떼면 트림을 고른 순간 조각이 떨어져 `onPick` 이 한 번도 안 돌고,
+     색상·옵션·기간이 통째로 빈다(2026-09-09 실측 — 옵션 칸이 「트림을 먼저 고르면」이었다). */
+must(cascade.includes('hidden?: boolean') && cascade.includes('if (wizard.hidden) return null'),
+  '차 걸음이 아닐 때 캐스케이드를 «떼고» 있습니다 — 감추기만 해야 고른 차가 위로 올라갑니다',
+  'features/estimate/VehicleCascade.tsx');
+must(/hidden: !isCarStep/.test(wiz),
+  '마법사가 캐스케이드를 조건부로 그립니다 — 붙여 두고 `hidden` 으로 감춰야 합니다',
+  'features/estimate/EstimateWizard.tsx');
+
+/* 9-5. 무한 되그림 막이 — `ko` 가 그림마다 새로 만들어지면 효과가 끝없이 돈다(콘솔 3천 줄). */
+must(/const ko = useCallback\(/.test(cascade),
+  '`ko` 가 그림마다 새로 만들어집니다 — 이걸 의존에 넣은 useMemo 가 매번 돌아 무한 되그림이 납니다',
+  'features/estimate/VehicleCascade.tsx');
+must(/}, \[wStep, wOnState, wCount, wChosen\]\)/.test(cascade),
+  '걸음 상태를 알리는 효과가 «객체»를 의존으로 씁니다 — 원시값이어야 안 돕니다',
+  'features/estimate/VehicleCascade.tsx');
+
+/* 9-6. 갈래를 바꾸면 앞 갈래 찌꺼기를 안 물려준다 — 「2026년식 0km 중고차」가 나오던 것. */
+must(page.includes('const setSource = useCallback(') && /onPick=\{setSource\}/.test(page),
+  '상품을 바꿔도 연식·주행이 안 되돌아갑니다 — 신차를 봤다 오면 「올해식 0km 중고차」가 됩니다',
+  'app/estimate/page.tsx');
+
 if (fails.length) {
   console.error(`\n✗ 견적 로직이 정본과 다릅니다 — ${fails.length}건\n`);
   for (const f of fails) console.error(`  · ${f}\n`);
