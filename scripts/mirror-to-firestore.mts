@@ -131,6 +131,9 @@ for (const v of rows) {
     car_number: S(v.car_number),
     origin: ident.origin, maker: ident.maker, model: ident.model, sub_model: ident.sub_model, trim_name: ident.trim_name,
     확정: confirmed, 검수상태: confirmed ? '확정' : (ident.sub_model ? '검수대기' : (raw ? '매칭실패' : '원문없음')),
+    // ★원천 표식 — 「이 차 어디서 왔나」 추적(불변식 PROV). 원본 v 에 있으면 잇고, 없으면 «mirror»(RTDB 미러 경로 = 레거시 시트).
+    //   직접수집은 sheet·sonokong·iron 을 찍는데 미러만 안 찍어 484대가 source 없었다(2026-09-09 실측). 컷오버 뒤 직접수집으로 넘어가면 실제 채널로 바뀐다.
+    source: S(v.source) || 'mirror', ...(S(v.source_schema) ? { source_schema: S(v.source_schema) } : null),
     _mirror_at: Date.now(),
   };
   for (const f of SPEC) doc[f] = S(v[f]);
