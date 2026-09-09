@@ -15,6 +15,7 @@ import { getDatabase } from 'firebase-admin/database';
 import { getFirestore } from 'firebase-admin/firestore';
 import { snapToMaster, makerGroup } from '../lib/domain/vehicle-master-match';
 import { cleanTrim } from '../lib/domain/clean-trim';
+import { resolveStatus } from '../lib/domain/atom-status';
 import type { MasterEntry } from '../lib/domain/vehicle-master-types';
 import type { EntityRecord } from '../lib/intake/entities';
 import { MIRROR_SOURCES } from '../lib/domain/mirror-sources';
@@ -68,25 +69,9 @@ function publicPrice(price: unknown): unknown {
 }
 const SPEC = ['ext_color', 'int_color', 'year', 'fuel_type', 'engine_cc', 'vehicle_class', 'drive_type', 'seats', 'battery_capacity', 'first_registration_date'];
 
-// 상태 디테일 — 한 값에 뭉치지 않는다. status(표시)·status_kind(분류)·status_reason(왜)·listable.
-//   ★출고불가는 「공급사가 불가」와 「시트에서 사라짐」이 다르다 — 원시가 가용/협의였는데 불가면 사라진 것.
-const AVAIL = new Set(['즉시출고', '출고가능']);
-const statusDetail = (v: Record<string, any>) => {
-  const raw = S(v.status_label_raw);
-  // ★계약중·점검중은 «출고불가로 접지 않는다»(사장님 2026-09-04 「계약중·점검중도 데이터 비우지 말고 보여줘」).
-  //   계약중은 사라진 게 아니라 잡힌 것(선점). 원시가 계약중/점검이면 vehicle_status 가 출고불가여도 살린다.
-  let cur = S(v.vehicle_status) || '차량검수';
-  if (/계약중/.test(raw)) cur = '계약중';
-  else if (/점검|검수|정비/.test(raw)) cur = '차량검수';
-  let kind = '불가', reason = '';
-  if (cur === '즉시출고' || cur === '출고가능') kind = '가용';
-  else if (cur === '출고협의') { kind = '협의'; reason = '공급사협의'; }
-  else if (cur === '상품화중') { kind = '준비'; reason = '상품화중'; }
-  else if (cur === '차량검수') { kind = '준비'; reason = '검수대기'; }
-  else if (cur === '계약중') { kind = '선점'; reason = S(v.locked_by_contract) ? '계약선점' : '공급사표기'; }
-  else if (cur === '출고불가') { kind = '불가'; reason = (AVAIL.has(raw) || raw === '출고협의') ? '시트이탈' : (raw ? '공급사불가' : '정보없음'); }
-  return { status: cur, status_kind: kind, status_reason: reason, listable: kind !== '불가' };
-};
+// 상태 디테일 — 판정은 «한 곳»(lib/domain/atom-status resolveStatus)에서만. mirror 는 원천 필드를 넘긴다.
+//   base=현 vehicle_status · raw=원천 표기 · locked=계약잠금. (규칙·주석 = atom-status.ts)
+const statusDetail = (v: Record<string, any>) => resolveStatus({ base: v.vehicle_status, raw: v.status_label_raw, locked: v.locked_by_contract });
 
 const isObj = (v: unknown): v is Record<string, any> => !!v && typeof v === 'object' && !Array.isArray(v);
 const alive = (v: Record<string, any>) => v._deleted !== true && S(v.status) !== 'deleted';

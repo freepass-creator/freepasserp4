@@ -21,6 +21,7 @@ import { readFileSync } from 'node:fs';
 import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import nextEnv from '@next/env';
+import { resolveStatus } from '../lib/domain/atom-status';
 
 nextEnv.loadEnvConfig(process.cwd());
 const S = (v: unknown) => String(v ?? '').trim();
@@ -33,15 +34,11 @@ const fs = getFirestore();
 /** 잠그는 순서 — 앞일수록 세다. 여기 없는 값끼리 다르면 손대지 않는다. */
 const LOCK = ['출고불가', '계약중'];
 const 세기 = (v: string) => { const i = LOCK.indexOf(v); return i < 0 ? LOCK.length : i; };
-/** `vehicle_status` 에서 파생되는 것들 — 따로 적는 값이 아니다. */
-const AVAIL = new Set(['즉시출고', '출고가능']);
+/** `vehicle_status` 에서 파생되는 것들 — 판정은 «한 곳»(atom-status resolveStatus). 여기선 상태만 넘긴다.
+ *  ★status_label_raw·status_reason 은 «안 덮는다» — 원천 표기를 지우지 않으려고 골라 쓴다(merge). */
 const derive = (st: string) => {
-  let kind = '불가';
-  if (AVAIL.has(st)) kind = '가용';
-  else if (st === '출고협의') kind = '협의';
-  else if (st === '상품화중' || st === '차량검수') kind = '준비';
-  else if (st === '계약중') kind = '선점';
-  return { status: st, vehicle_status: st, status_kind: kind, listable: kind !== '불가' };
+  const b = resolveStatus({ base: st });
+  return { status: b.status, vehicle_status: b.vehicle_status, status_kind: b.status_kind, listable: b.listable };
 };
 
 const docs = (await fs.collection('products').get()).docs;

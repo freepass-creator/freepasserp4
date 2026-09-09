@@ -35,6 +35,7 @@ import { MIRROR_SOURCES } from '../lib/domain/mirror-sources';
 import { sheetIdFromUrl } from '../lib/domain/supplier-sheet-read';
 import { FUEL_EV, rawSeats, atomViolations, type MasterIndex } from '../lib/domain/atom-invariants';
 import { cleanTrim } from '../lib/domain/clean-trim';
+import { resolveStatus } from '../lib/domain/atom-status';
 
 const APPLY = process.argv.includes('--apply');
 const CODE = (process.argv.find((a) => a.startsWith('--code='))?.split('=')[1] || 'RP004').trim();
@@ -165,28 +166,10 @@ const yearOf = (firstReg: string) => {
 //   ⚠ 세부모델 «이름»(일렉트리파이드)으로는 판단 안 한다 — 이름 오매핑 위험(2026-09-05). FUEL_EV·rawSeats 도 SSOT.
 const evEngineCc = (fuel: string, cc: string): string => (FUEL_EV.test(fuel) ? '' : cc);
 
-// 상태 디테일 — mirror-to-firestore 와 «같은» 분류(한 값에 안 뭉침). status·status_kind·status_reason·listable.
-const AVAIL = new Set(['즉시출고', '출고가능']);
+// 상태 디테일 — 판정은 «한 곳»(lib/domain/atom-status resolveStatus)에서만. 여기선 원천 raw 를 canon 해 base 로 넘긴다.
+//   ★상태는 «한 벌»(vehicle_status 정본, 나머지 파생) — 두 값을 다르게 들면 판 차가 목록에 다시 선다. 규칙·주석 = atom-status.ts.
 function statusDetail(rawStatus: string, locked?: unknown) {
-  const raw = S(rawStatus);
-  let cur = canonSheetVehicleStatus(raw) || '차량검수';
-  if (/계약중/.test(raw)) cur = '계약중';
-  else if (/점검|검수|정비/.test(raw)) cur = '차량검수';
-  let kind = '불가', reason = '';
-  if (cur === '즉시출고' || cur === '출고가능') kind = '가용';
-  else if (cur === '출고협의') { kind = '협의'; reason = '공급사협의'; }
-  else if (cur === '상품화중') { kind = '준비'; reason = '상품화중'; }
-  else if (cur === '차량검수') { kind = '준비'; reason = '검수대기'; }
-  else if (cur === '계약중') { kind = '선점'; reason = locked ? '계약선점' : '공급사표기'; }
-  else if (cur === '출고불가') { kind = '불가'; reason = (AVAIL.has(raw) || raw === '출고협의') ? '시트이탈' : (raw ? '공급사불가' : '정보없음'); }
-  /**
-   * ★★**상태는 «한 벌»이다** — `vehicle_status` 가 정본이고 나머지는 거기서 파생된다.
-   *   ⚠ 2026-09-08 실측: 직접수집이 `status` 만 쓰고 `vehicle_status` 를 안 써서, 한 차가
-   *   `status=출고가능` · `vehicle_status=출고불가` 로 **두 값을 동시에** 들고 있었다(108대).
-   *   판매시트·문지기는 `vehicle_status`, ERP 일부는 `status` 를 읽어 «판 차가 목록에 다시 서는» 길이 열렸다.
-   *   규칙 SSOT = `docs/원자-내려보내기-로직.md` §1.
-   */
-  return { vehicle_status: cur, status: cur, status_kind: kind, status_reason: reason, listable: kind !== '불가', status_label_raw: raw };
+  return resolveStatus({ base: canonSheetVehicleStatus(S(rawStatus)), raw: rawStatus, locked });
 }
 
 // ── 원본 열 자동 해석 (MIRROR_ALIAS) ───────────────────────────────────────
