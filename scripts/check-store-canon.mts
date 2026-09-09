@@ -127,4 +127,67 @@ if (direct.length < base) {
   console.log(`\n✓ 기준을 ${base} → ${direct.length} 로 내렸다(${DOC}).`);
   process.exit(0);
 }
+
+/*
+ * ── 플립을 막는 자리 — 컬렉션·루트 경로 `transaction()` ──────────────────
+ *
+ * ★★**세는 이유**(코덱스 2026-09-09 독립검증 · 심을 실제로 «실행해» 재현):
+ *   Firestore 심은 **문서 경로 아닌 `transaction()` 을 거부**한다
+ *   (`firestore-ref-shim` — 「transaction 은 문서 경로여야 함」).
+ *   그런데 `ref('v4')` · `ref('v4/products')` 처럼 컬렉션·루트로 부르는 곳이 남아 있다.
+ *   ⇒ `NEXT_PUBLIC_DATA_BACKEND=firestore` 로 플립하는 순간 **그 자리들이 터진다.**
+ *     스왑점 주석은 이걸 「루트 트랜잭션 2곳」이라 적고 있었다 — 실제는 그보다 많다.
+ *
+ * ★이건 «파일 수»가 아니라 «호출 자리 수»다. 한 파일에 둘 있으면 둘로 센다 —
+ *   고칠 것이 자리 단위이기 때문이다.
+ * ⚠ 경로가 변수·템플릿이면 세그먼트를 못 세므로 **안 센다.** 그런 자리는 이 자가 못 본다 —
+ *   「0이 되면 플립해도 된다」는 뜻이 아니라 「보이는 것이 0」이라는 뜻이다.
+ */
+const txCalls: string[] = [];
+for (const r of ROOTS) for (const f of walk(r)) {
+  const src = readFileSync(join(ROOT, f), 'utf8');
+  for (const m of src.matchAll(/\.ref\(\s*['"`]([^'"`$]*)['"`]\s*\)\s*\.transaction\(/g)) {
+    /*
+     * ★★**심의 «제» 규칙을 그대로 쓴다 — 지어내지 않는다**(`firestore-ref-shim` `parse()`):
+     *   맨 앞 `v4` 를 떼고 → 다음 조각이 컬렉션 → 그다음이 문서 id.
+     *   그래서 **`v4` 를 뗀 뒤 두 조각 이상**이어야 문서다. 그 미만이면 `docRef()` 가 null 이라 던진다.
+     * ⚠ 처음엔 「세그먼트 홀수 = 컬렉션」이라 «가정»했다가 `v4/products` 를 놓쳤다(6 중 3만 셌다).
+     *   규칙은 읽는 것이지 짐작하는 것이 아니다.
+     */
+    const segs = m[1].split('/').filter(Boolean);
+    if (segs[0] === 'v4') segs.shift();
+    if (segs.length < 2) {
+      const line = src.slice(0, m.index).split('\n').length;
+      txCalls.push(`${f}:${line}  ref('${m[1]}')`);
+    }
+  }
+}
+
+console.log('\n플립을 막는 자리 — 컬렉션·루트 경로 transaction()\n');
+if (!txCalls.length) console.log('   (보이는 것 없음 — 변수 경로는 이 자가 못 본다)');
+for (const c of txCalls) console.log(`   ${c}`);
+console.log(`   ${String(txCalls.length).padStart(4)}  자리`);
+
+const txSaid = doc.match(/컬렉션·루트 경로로 부르는 곳이 \*\*(\d+) 파일 (\d+) 자리\*\*/);
+if (!txSaid) {
+  console.error(`\n✗ ${DOC} 에서 플립 선행 숫자를 못 찾았다 — 「컬렉션·루트 경로로 부르는 곳이 **N 파일 M 자리**」 문구가 있어야 한다.`);
+  process.exit(1);
+}
+const txBase = Number(txSaid[2]);
+if (txCalls.length > txBase) {
+  console.error(`\n✗ 플립을 막는 자리가 늘었다 — 기준 ${txBase} → 지금 ${txCalls.length}.`);
+  console.error('   컬렉션·루트 경로 transaction() 은 Firestore 심이 못 받는다. 문서 단위로 쪼개거나 다른 잠금을 써라.');
+  process.exit(1);
+}
+if (txCalls.length < txBase && !TIGHTEN) {
+  console.log(`\n✓ 줄었다 — 플립 선행 ${txBase} → ${txCalls.length}. \`-- --tighten\` 으로 기준도 내려라.`);
+  process.exit(1);
+}
+if (txCalls.length < txBase && TIGHTEN) {
+  const files = new Set(txCalls.map((c) => c.split(':')[0])).size;
+  writeFileSync(join(ROOT, DOC),
+    readFileSync(join(ROOT, DOC), 'utf8')
+      .replace(txSaid[0], `컬렉션·루트 경로로 부르는 곳이 **${files} 파일 ${txCalls.length} 자리**`), 'utf8');
+  console.log(`\n✓ 플립 선행 기준을 ${txBase} → ${txCalls.length} 로 내렸다.`);
+}
 console.log(`\n✓ 기준대로 ${base}개 — 늘지 않았다.`);

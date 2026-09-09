@@ -432,8 +432,13 @@ F03으로 이름을 만들지 않는다. 자동화 = `docs/자동동기-매뉴�
     필드단위 병합 · 쓰기는 `v4/{node}/{key}` — **v3 구데이터 write 금지**.
     초기 설계였던 "v4=Firestore 독립 새집 + 일괄 ETL 이관"은 폐기(브리지로 대체) · `lib/migrate/v3.ts` 삭제(2026-07-21).
   ⚠ **플립·삭제 전에 맞출 것** — Firestore 1,438 vs RTDB 1,365, **73건**이 아직 안 맞는다(미대조 · 파이프라인 세션 몫).
-  ⚠ **운영의 `NEXT_PUBLIC_DATA_BACKEND` 실제 값은 [미확인]** — `/diag` 는 로그인이 걸려 있다.
-    로컬 `.env.local` 과 스왑점 주석은 `rtdb` 라고 말한다. **확정하려면 Vercel env 를 봐라.**
+  ★★★**운영은 아직 `rtdb` 다 — 확정했다**(2026-09-09).
+    `/diag` 는 로그인이 걸려 있지만 `NEXT_PUBLIC_*` 는 **빌드 때 번들에 박힌다** — 배포된 청크에서
+    `label:"DATA_BACKEND",children:String("rtdb")` 를 그대로 읽었다. 로그인 없이 재는 법이다.
+    ⇒ **`getStore()` 도 `firebaseAdminDatabase()` 도 지금은 RTDB 를 판다.**
+      운영에서 Firestore 를 보는 것은 **심을 직접 import 한 10 파일(손님 화면)뿐**이다.
+      그래서 `/api/version` 이 `firestore` 라고 말하는 것이고, 그건 **앱 전체 얘기가 아니다.**
+    ⚠ 값을 바꾸는 것은 Vercel env 이므로 **코드 배포와 별개다** — 바꾸면 위 여섯 자리가 먼저 터진다.
 
 ## 레인
 - 이 저장소는 여러 AI 도구 동시 작업. **v3→Firestore 이관·브리지 = 파이프라인 세션 담당**(위 「원장은 Firestore」). UI·원자·페이지·규격 = 이 규격 따름. 같은 파일 동시편집 시 .next 청크 desync 주의(백지=stale 서버, `.next` 삭제 후 재기동).
