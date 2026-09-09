@@ -558,7 +558,18 @@ const 손오공탭발행 = existsSync(손오공계정);
  */
 const mx = run('⓪⅗ 차종마스터 최신화', ['scripts/export-master-firestore-to-json.mts'], /vehicle_master|원자적 교체|중단|✗/);
 if (mx.ok) line.push(mx.picked.find((l) => /vehicle_master/.test(l))?.replace(/^■\s*/, '').replace(/\s*→.*$/, '') || '마스터 최신');
-else warnings.push('⓪⅗ 차종마스터 최신화 실패 — 지난 사본으로 진행(이번 회차 마스터 수정은 다음 회차에 반영)');
+else warnings.push('⓪⅗ 차종마스터 최신화 실패 — 지난 사본이 유효하면 그대로 진행');
+/**
+ * ⓪⅗′ **«지난 완본» 가정을 검증한다** (Codex 2026-09-09 지적 — 높음).
+ *   export 가 실패해도 «지난 완본이 있으니 안전»하다는 건 **파일이 실제로 유효할 때만** 참이다.
+ *   부재·손상이면 ①은 마스터 없이 시트를 갱신하고(오류를 []로 삼킴) ①′는 크래시한다 — 둘 다 회차를 안 멈춘다.
+ *   ⇒ 여기서 «파일이 있고, 파싱되고, entries≥1»을 «직접» 확인한다. 아니면 마스터 없이 도느니 회차를 멈춘다.
+ */
+try {
+  const mj = JSON.parse(readFileSync('public/data/vehicle-master.json', 'utf8')) as { entries?: unknown[] } | unknown[];
+  const n = (Array.isArray(mj) ? mj : mj.entries)?.length || 0;
+  if (n < 1) stop('차종마스터 캐시가 비었다 — 마스터 없이 발행하지 않는다(export 실패 + 지난 완본 없음)');
+} catch { stop('차종마스터 캐시가 없거나 손상됐다 — 마스터 없이 발행하지 않는다(export 실패 + 지난 완본 손상)'); }
 
 // ① 정제시트(원본이 자체시트·홈페이지인 4곳) — 새 차 추가 · 사라진 차 출고불가 · 요금/상태 갱신
 const s1 = run('① 정제시트 갱신', ['scripts/sync-mirror-all.mts', ...A], /새 차|사라진|갱신할|끝|실패|✓|✗/);
@@ -990,8 +1001,10 @@ if (APPLY) {
 }
 
 const seconds = Math.round((Date.now() - started) / 1000);
-if (건너뜀.length) out.push(`
-   ⏭ 이 단(${TIER})에서 안 한 것 ${건너뜀.length} — ${건너뜀.join(' · ')}`);
+// ★건너뛴 단계 = steps 중 신호가 「건너뜀」인 것(skip 이 그렇게 적는다). 예전엔 없는 `건너뜀` 배열을 참조해 회차 끝에서 크래시했다(Codex 2026-09-09).
+const 건너뛴 = steps.filter((s) => typeof s.신호 === 'string' && s.신호.startsWith('건너뜀')).map((s) => s.단계);
+if (건너뛴.length) out.push(`
+   ⏭ 이 단(${TIER})에서 안 한 것 ${건너뛴.length} — ${건너뛴.join(' · ')}`);
 out.push(`\n■ ${allOk ? '끝' : '끝(일부 실패)'} ${kst()} KST · ${seconds}초`);
 writeFileSync('tmp/hourly-sync-last.txt', out.join('\n'));
 appendFileSync('tmp/hourly-sync-log.txt', `${kst()} ${APPLY ? '반영' : '미리'} ${seconds}초 · ${allOk ? '' : '⚠일부실패 · '}${line.join(' · ')}\n`);
