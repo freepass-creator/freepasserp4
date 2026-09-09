@@ -30,6 +30,7 @@ import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getDatabase } from 'firebase-admin/database';
+import { getFirestore } from 'firebase-admin/firestore';
 import { CORP } from '../lib/domain/corporate-ci';
 import { dueDate } from '../lib/domain/settlement-cycle';
 import { settleTargetOf, billingMonthIn, lockedMonthsOf, type SettlementRow } from '../lib/domain/settlement-stage';
@@ -63,6 +64,16 @@ const key = (v: unknown) => S(v).toLowerCase().replace(/[\s()·\-_.]/g, '')
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 if (!getApps().length) initializeApp({ credential: cert(sa), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' });
 const db = getDatabase();
+/**
+ * ★★★**정산 줄은 «파이어스토어»에서 읽는다** — 사장님 2026-09-09
+ *   「야 우리 파이어스토어를 쓰는데 뭔 RT 야」·「RTDB 는 이제 아예 안 쓴다고」.
+ *
+ * ⚠ 2026-09-09 사고 — 원자(파이어스토어)를 고쳤는데 이 발행기가 RTDB 를 읽고 있어
+ *   정산서만 «옛 값»으로 남았다(우리캐피탈 9,841,650 ≠ 계산서 9,457,525).
+ *   저장소가 둘이면 어느 쪽이 정본인지 종이마다 달라진다.
+ * → 아직 RTDB 에 남아 있는 것은 「상대가 고친 칸」(`sheet_edits`)뿐이고, 그건 따로 옮긴다.
+ */
+const fsdb = getFirestore();
 const jwt = new JWT({ email: sa.client_email, key: sa.private_key, subject: 'pyh@teamjpk.com',
   scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive'] });
 const tok = async () => (await jwt.getAccessToken()).token;
@@ -86,7 +97,7 @@ type Row = Record<string, unknown>;
  */
 const D = (v: unknown) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(S(v)); return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null; };
 const asRow = (r: Row) => ({ ...r, receivedAt: D(r.receivedAt), deliveredAt: D(r.deliveredAt) } as unknown as SettlementRow);
-const allRows = Object.values((await db.ref('v4/settlement_rows').get()).val() || {}) as Row[];
+const allRows = (await fsdb.collection('settlement_rows').get()).docs.map((d) => d.data()) as Row[];
 const locked = lockedMonthsOf(allRows.map(asRow));
 /**
  * ★★★**아직 안 끝난 달은 «예정»으로 미리 채운다** — 사장님 2026-09-04
@@ -107,7 +118,7 @@ const rows = allRows.filter((r) => r.cancelled !== true
   && (billingMonthIn(asRow(r), locked) === MONTH || (FORECAST && soonMonth(r) === MONTH)));
 /** 이 줄이 «예정»인가 — 마감 규칙으로는 아직 이 달에 안 잡히는 줄. */
 const isSoon = (r: Row) => FORECAST && billingMonthIn(asRow(r), locked) !== MONTH;
-const claws = (Object.values((await db.ref('v4/settlement_clawbacks').get()).val() || {}) as Row[])
+const claws = ((await fsdb.collection('settlement_clawbacks').get()).docs.map((d) => d.data()) as Row[])
   .filter((c) => S(c.month) === MONTH);
 
 type Line = { plate: string; recv: string; deliv: string; model: string; cust: string; product: string;
