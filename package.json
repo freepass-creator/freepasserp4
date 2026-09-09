@@ -110,7 +110,8 @@
     "check:settlement": "tsx scripts/check-settlement-locked.mts",
     "check:estimate": "tsx scripts/check-estimate-logic.mts",
     "measure:brand": "tsx scripts/measure-brand-mark.mts",
-    "make:og": "tsx scripts/make-og.mts"
+    "make:og": "tsx scripts/make-og.mts",
+    "check:whitelabel": "tsx scripts/check-whitelabel-surface.mts"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",
