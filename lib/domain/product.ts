@@ -12,12 +12,42 @@ import { policyEsignRequiredDocuments } from '@/lib/domain/esign-required-docume
 export { PROMO_BADGES, PROMO_BADGES_ACTIVE, PROMO_BADGES_PLANNED, MAX_PROMO_BADGES } from '@/lib/intake/entities';
 
 /**
- * 선택옵션 구분 SSOT = `,` 또는 `/` 만.
- * 표시·칩·검색·상세는 전부 이 파서. 시트 입고는 normalizeProductOptionsText로 맞춤.
+ * 선택옵션 구분 SSOT = `,` 또는 `/` — **단, «괄호 밖»의 것만.**
+ * 표시·칩·검색·상세는 전부 이 파서. 시트 입고는 `normalizeProductOptionsText` 로 맞춤.
+ *
+ * ## ★★괄호 안의 콤마로 자르면 «없는 옵션»이 생긴다
+ *
+ * 사장님 2026-09-09 「**선택옵션은 왜 잘못된 정보를 끌고 오는가**」.
+ * 운영 709대 실측 — 괄호가 든 옵션 원문이 **249대**다. 예전 파서는 `[,/]` 를 그냥 잘라서:
+ *
+ * ```
+ *   원문   …, 차체자세제어장치(VDC,ESC,ESP), …
+ *   조각   「차체자세제어장치(VDC」 · 「ESC」 · 「ESP)」      ← 셋 다 «옵션이 아니다»
+ * ```
+ *
+ * 손님 카드에 **`ESP)` 같은 칩**이 서 있었다. 게다가 그 셋이 각각 191대씩 집계되어
+ * 「많이 달린 옵션」 상위에 올라와 있었다 — **숫자까지 오염된다.**
+ * ⚠ 검색 haystack 도 이 파서를 쓴다. 「VDC」로 찾으면 걸리고 「VDC,ESC,ESP」로는 안 걸렸다.
+ *
+ * ⇒ **괄호 깊이가 0 일 때만 자른다.** 여는 괄호 안에서는 콤마도 슬래시도 글자다.
+ * ★반각 `()` 과 전각 `（）` 을 같이 본다 — 공급사 시트에 둘 다 온다.
+ * ⚠ 원문에 짝 안 맞는 괄호가 있어도 **끝까지 삼키지 않는다** — 깊이는 0 아래로 안 내려가고,
+ *   닫히지 않은 것은 그 조각 안에 남는다(잘못 자르느니 붙어 있는 편이 낫다).
  */
 export function parseProductOptions(raw: unknown): string[] {
   if (Array.isArray(raw)) return raw.map(String).map((s) => s.trim()).filter(Boolean);
-  return String(raw ?? '').split(/[,/]/).map((s) => s.trim()).filter(Boolean);
+  const src = String(raw ?? '');
+  const out: string[] = [];
+  let depth = 0;
+  let cur = '';
+  for (const ch of src) {
+    if (ch === '(' || ch === '（') { depth += 1; cur += ch; continue; }
+    if (ch === ')' || ch === '）') { depth = Math.max(0, depth - 1); cur += ch; continue; }
+    if ((ch === ',' || ch === '/') && depth === 0) { out.push(cur); cur = ''; continue; }
+    cur += ch;
+  }
+  out.push(cur);
+  return out.map((s) => s.trim()).filter(Boolean);
 }
 
 /**
