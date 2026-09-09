@@ -25,6 +25,7 @@
     "check:ui": "tsx scripts/check-ui-contract.mts",
     "check:design": "tsx scripts/check-design-locked.mts",
     "check:brand": "tsx scripts/check-brand-mark.mts",
+    "check:guest": "tsx scripts/check-guest-default.mts",
     "check:guest-fields": "tsx scripts/check-guest-fields.mts",
     "check:building": "tsx scripts/check-building.mts",
     "check:branches": "tsx scripts/check-branches.mts",
