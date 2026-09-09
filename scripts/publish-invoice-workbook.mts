@@ -87,10 +87,22 @@ const TAB_WAS = (sup: string) => `${MON} ${sup}`;
 const SUMMARY = '발행 요약';
 
 /** 요약 탭 칸 — 「야 이 금액으로 발행해」에 바로 쓰는 표. */
-const SUM_HEAD = ['No.', '거래처', '정식 상호', '사업자등록번호', '대표자', '건수', '공급가액', '부가세', '합계', '환수 반영', '발행', '발행일', '비고'] as const;
-const SUM_WIDTH = [40, 110, 200, 130, 84, 56, 110, 96, 120, 100, 56, 96, 240];
+/**
+ * ★**「가감」은 «금액» 칸이다** — 사장님 2026-09-09 「요약에 **환수 금액 넣는 칸**이 있으면 되지」·「**가감 칸**」.
+ *   전에는 「-600,000 반영」이라고 «말»로 적었다. 말은 더할 수가 없다 — 숫자로 적어야 합계가 선다.
+ *   ⚠ 이 금액은 왼쪽 「공급가액」에 **이미 빠져 있다**. 두 번 빼지 말 것.
+ */
+const SUM_HEAD = ['No.', '거래처', '정식 상호', '사업자등록번호', '대표자', '건수',
+  '정산액', '가감', '가감 사유', '공급가액', '부가세', '합계', '발행', '발행일', '비고'] as const;
+const SUM_WIDTH = [40, 110, 190, 124, 78, 48, 110, 100, 200, 110, 96, 120, 56, 96, 200];
 /** ★사람이 적는 칸 — 다시 찍을 때 되돌려 놓는다. */
-const SUM_KEEP = ['발행', '발행일', '비고'] as const;
+/**
+ * ★사람이 적는 칸 — 다시 찍을 때 되돌려 놓는다.
+ *   ★★**「가감」·「가감 사유」도 사람 칸이다** — 사장님 2026-09-09
+ *   「정산 1000만원인데 **더 주는 거로 100 플러스**야, 그거 **사유를 써 주면 되고 최종 발행은 얼마다**」.
+ *   환수는 우리가 셈해 «처음 값»으로 넣지만, 그 뒤 사람이 고치면 그것이 이긴다.
+ */
+const SUM_KEEP = ['가감', '가감 사유', '발행', '발행일', '비고'] as const;
 /** 내역 칸 = 공급사 정산서와 같은 규격에서 «상대가 적는 넉 칸»만 뺀 것. */
 const HEAD = settleHeadFor('공급사').filter((h) => !SETTLE_NOTE.includes(h));
 const WIDTH = settleWidthFor('공급사').filter((_, i) => !SETTLE_NOTE.includes(settleHeadFor('공급사')[i]));
@@ -210,7 +222,7 @@ for (const j of jobs) {
   console.log(`   ${pad(j.sup, 11)} ${String(j.lines.length).padStart(2)}건  공급가액 ${won(j.net).padStart(12)} · 부가세 ${won(j.vat).padStart(10)} · 합계 ${won(j.net + j.vat).padStart(12)}`
     + `${j.claw ? `  (환수 -${won(j.claw)})` : ''}   ${c?.bizNo || '★사업자번호 없음'}`);
 }
-const TOT = jobs.reduce((a, j) => ({ n: a.n + j.lines.length, net: a.net + j.net, vat: a.vat + j.vat }), { n: 0, net: 0, vat: 0 });
+const TOT = jobs.reduce((a, j) => ({ n: a.n + j.lines.length, net: a.net + j.net, vat: a.vat + j.vat, claw: a.claw + j.claw }), { n: 0, net: 0, vat: 0, claw: 0 });
 console.log(`\n   ${pad('합계', 11)} ${String(TOT.n).padStart(2)}건  공급가액 ${won(TOT.net).padStart(12)} · 부가세 ${won(TOT.vat).padStart(10)} · 합계 ${won(TOT.net + TOT.vat).padStart(12)}`);
 
 /* ── ② 공급사 시트 합계와 맞대 본다 — 갈리면 멈춘다 ────────────────── */
@@ -367,9 +379,10 @@ const tabId = async (title: string, cols: number, rowsNeed: number): Promise<num
   return p?.sheetId;
 };
 
-const put = async (title: string, values: (string | number | boolean)[][]) => {
+const put = async (title: string, values: (string | number | boolean)[][], formula = false) => {
   const end = `${A1(Math.max(...values.map((v) => v.length)))}${values.length}`;
-  const r = await call(`https://sheets.googleapis.com/v4/spreadsheets/${bookId}/values/${encodeURIComponent(`'${title}'!A1:${end}`)}?valueInputOption=RAW`, 'PUT', { values });
+  /** ★요약은 «수식»을 쓴다(USER_ENTERED) — 가감을 손대면 최종이 따라 움직여야 한다. */
+  const r = await call(`https://sheets.googleapis.com/v4/spreadsheets/${bookId}/values/${encodeURIComponent(`'${title}'!A1:${end}`)}?valueInputOption=${formula ? 'USER_ENTERED' : 'RAW'}`, 'PUT', { values });
   return !!r;
 };
 
@@ -451,24 +464,38 @@ const kept = new Map<string, (string | number | boolean)[]>();
     }
   }
 }
+/**
+ * ★★**청구서와 «같은 짜임»** — 정산액 → 가감(±) → 사유 → «최종 발행액».
+ *   사장님 2026-09-09 「우리 청구서가 그렇게 되어 있잖아」.
+ *   ★최종 셋(공급가액·부가세·합계)은 **수식**이다 — 가감을 손대면 그 자리에서 따라 움직인다.
+ *     숫자로 박아 두면 사람이 고친 가감과 최종이 어긋나 «어느 쪽이 발행액인지» 모르게 된다.
+ */
 const sumBody = jobs.map((j, i) => {
-  const c = ci(j.sup); const k = kept.get(j.sup) || ['', '', ''];
+  const c = ci(j.sup); const k = kept.get(j.sup) || [];
+  const row = 4 + i;  // 머리 3줄 뒤
+  const base = j.net + j.claw;                       // 가감 «전» 정산액
+  const adj = S(k[0]) !== '' ? Number(S(k[0]).replace(/[,\s원]/g, '')) || 0 : (j.claw ? -j.claw : '');
+  const why = S(k[1]) || (j.backs.length ? `환수 — ${[...new Set(j.backs.map((b) => S(b.why) || S(b.plate)))].join(' · ')}` : '');
   return [i + 1, j.sup, c?.legal || '★법인 확인 필요', c?.bizNo || '★사업자번호 없음', c?.ceo || '',
-    j.lines.length, j.net, j.vat, j.net + j.vat,
-    j.claw ? `-${won(j.claw)} 반영` : '', k[0] === 'TRUE' || k[0] === true, k[1] || '', k[2] || ''];
+    j.lines.length, base, adj, why,
+    `=G${row}+H${row}`, `=ROUND(J${row}*0.1)`, `=J${row}+K${row}`,
+    k[2] === 'TRUE' || k[2] === true, k[3] || '', k[4] || ''];
 });
+const sumRows = sumBody.length;
 const sumValues: (string | number | boolean)[][] = [
   [`${MON} 세금계산서 발행 목록   ·   ${CORP.name} → 공급사   ·   거래처 ${jobs.length}곳`, ...Array.from({ length: SUM_HEAD.length - 1 }, () => '')],
-  ['', '', '', '', '', TOT.n, TOT.net, TOT.vat, TOT.net + TOT.vat, '', '', '', '아래 금액대로 «법인별» 발행'],
+  ['', '', '', '', '', TOT.n, TOT.net + TOT.claw, TOT.claw ? -TOT.claw : '', '',
+    `=SUM(J4:J${3 + sumRows})`, `=SUM(K4:K${3 + sumRows})`, `=SUM(L4:L${3 + sumRows})`, '', '', '아래 «합계»대로 법인별 발행'],
   [...SUM_HEAD],
   ...sumBody,
-  ['', '합계', '', '', '', TOT.n, TOT.net, TOT.vat, TOT.net + TOT.vat, '', '', '', ''],
+  ['', '합계', '', '', '', TOT.n, `=SUM(G4:G${3 + sumRows})`, `=SUM(H4:H${3 + sumRows})`, '',
+    `=SUM(J4:J${3 + sumRows})`, `=SUM(K4:K${3 + sumRows})`, `=SUM(L4:L${3 + sumRows})`, '', '', ''],
   Array.from({ length: SUM_HEAD.length }, () => ''),
-  ['공급가액은 부가세 별도입니다. 「합계」가 계산서 총액입니다. ★탭·계산서는 «사업자등록번호» 하나가 한 장입니다.', ...Array.from({ length: SUM_HEAD.length - 1 }, () => '')],
+  ['「정산액 + 가감 = 공급가액」이고 「합계」가 «최종 발행액»입니다. 가감을 고치면 최종이 따라 움직입니다 — 더 주는 것은 «플러스», 환수는 «마이너스»로 적고 사유를 적어 주세요. ★계산서는 «사업자등록번호» 하나가 한 장입니다.', ...Array.from({ length: SUM_HEAD.length - 1 }, () => '')],
   ['발행하면 「발행」을 켜고 「발행일」을 적어 주세요 — 다시 뽑아도 그 칸은 그대로 둡니다.', ...Array.from({ length: SUM_HEAD.length - 1 }, () => '')],
   [`내역은 「${MON} 거래처이름」 탭에 있습니다.`, ...Array.from({ length: SUM_HEAD.length - 1 }, () => '')],
 ];
-if (!(await put(SUMMARY, sumValues))) { console.log('\n  ✕ 「발행 요약」 을 못 썼습니다\n'); process.exit(1); }
+if (!(await put(SUMMARY, sumValues, true))) { console.log('\n  ✕ 「발행 요약」 을 못 썼습니다\n'); process.exit(1); }
 const sLast = 3 + sumBody.length;
 await call(`https://sheets.googleapis.com/v4/spreadsheets/${bookId}:batchUpdate`, 'POST', { requests: [
   { mergeCells: { range: { sheetId: sumId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: SUM_HEAD.length }, mergeType: 'MERGE_ALL' } },
@@ -479,13 +506,18 @@ await call(`https://sheets.googleapis.com/v4/spreadsheets/${bookId}:batchUpdate`
   bar(sumId, 1, SUM_HEAD.length, true), bar(sumId, 2, SUM_HEAD.length),
   { repeatCell: { range: { sheetId: sumId, startRowIndex: sLast, endRowIndex: sLast + 1, startColumnIndex: 0, endColumnIndex: SUM_HEAD.length },
     cell: { userEnteredFormat: { backgroundColor: TINT, textFormat: { bold: true } } }, fields: 'userEnteredFormat(backgroundColor,textFormat)' } },
-  ...['공급가액', '부가세', '합계'].map((h) => ({ repeatCell: { range: { sheetId: sumId, startRowIndex: 1, endRowIndex: sLast + 1, startColumnIndex: SUM_HEAD.indexOf(h as typeof SUM_HEAD[number]), endColumnIndex: SUM_HEAD.indexOf(h as typeof SUM_HEAD[number]) + 1 },
+  ...['정산액', '가감', '공급가액', '부가세', '합계'].map((h) => ({ repeatCell: { range: { sheetId: sumId, startRowIndex: 1, endRowIndex: sLast + 1, startColumnIndex: SUM_HEAD.indexOf(h as typeof SUM_HEAD[number]), endColumnIndex: SUM_HEAD.indexOf(h as typeof SUM_HEAD[number]) + 1 },
     cell: { userEnteredFormat: { numberFormat: { type: 'NUMBER', pattern: '#,##0' }, horizontalAlignment: 'RIGHT' } }, fields: 'userEnteredFormat(numberFormat,horizontalAlignment)' } })),
   { repeatCell: { range: { sheetId: sumId, startRowIndex: 3, endRowIndex: sLast, startColumnIndex: 1, endColumnIndex: 2 },
     cell: { userEnteredFormat: { horizontalAlignment: 'LEFT', textFormat: { bold: true } } }, fields: 'userEnteredFormat(horizontalAlignment,textFormat)' } },
-  { repeatCell: { range: { sheetId: sumId, startRowIndex: 3, endRowIndex: sLast, startColumnIndex: SUM_HEAD.indexOf('비고'), endColumnIndex: SUM_HEAD.indexOf('비고') + 1 },
-    cell: { userEnteredFormat: { horizontalAlignment: 'LEFT' } }, fields: 'userEnteredFormat.horizontalAlignment' } },
-  /** ★「발행」은 체크칸 — 직원이 누르기만 하면 된다. */
+  ...['가감 사유', '비고'].map((h) => ({ repeatCell: { range: { sheetId: sumId, startRowIndex: 3, endRowIndex: sLast, startColumnIndex: SUM_HEAD.indexOf(h as typeof SUM_HEAD[number]), endColumnIndex: SUM_HEAD.indexOf(h as typeof SUM_HEAD[number]) + 1 },
+    cell: { userEnteredFormat: { horizontalAlignment: 'LEFT' } }, fields: 'userEnteredFormat.horizontalAlignment' } })),
+  /**
+   * ★★**체크칸은 «걷고 나서» 다시 단다.** 칸을 하나 끼우면 옛 규칙이 그 자리에 남아
+   *   엉뚱한 칸(가감)에 체크박스가 뜬다 — 2026-09-09 사장님 화면에서 실제로 그랬다.
+   *   ⇒ 우리가 쓰는 자리를 «통째로» 걷고, 「발행」에만 다시 건다.
+   */
+  { setDataValidation: { range: { sheetId: sumId, startRowIndex: 0, endRowIndex: sLast + 6, startColumnIndex: 0, endColumnIndex: SUM_HEAD.length } } },
   { setDataValidation: { range: { sheetId: sumId, startRowIndex: 3, endRowIndex: sLast, startColumnIndex: SUM_HEAD.indexOf('발행'), endColumnIndex: SUM_HEAD.indexOf('발행') + 1 },
     rule: { condition: { type: 'BOOLEAN' }, strict: true, showCustomUi: true } } },
   ...SUM_WIDTH.map((w, c) => ({ updateDimensionProperties: { range: { sheetId: sumId, dimension: 'COLUMNS', startIndex: c, endIndex: c + 1 }, properties: { pixelSize: w }, fields: 'pixelSize' } })),
