@@ -1,7 +1,8 @@
 'use client';
-import { useCallback, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useState, type ReactNode } from 'react';
 import { LogIn, Phone, SquareArrowOutUpRight, X } from 'lucide-react';
 import { C, FW, ICON, R_CARD, fmtPhone } from '@/components/ui';
+import { todayKo, todayKst } from '@/lib/format';
 import { SHOP, ShopDock, ShopDockAction } from '@/components/shop/shop-ui';
 import { ChannelSign, ChannelWordmark, CoBrandFreepass } from '@/components/brand-ci';
 import { CORP } from '@/lib/domain/corporate-ci';
@@ -298,6 +299,23 @@ export function WhitelabelFrame({
                 {phoneText}
               </span>
             </div>
+          ) : wl.stampToday && !mobile ? (
+            /*
+             * ★★**라벨이 없는 얼굴은 이 자리에 «날짜»를 세운다**(사장님 2026-09-09
+             *   「**우측 상단에는 날짜 정도는 있어야겠지**」).
+             *   회사 소개도 상담 번호도 없는 얼굴이라 여기가 비어 있었다. 빈 자리는
+             *   «덜 만든 화면»으로 읽힌다 — 날짜가 서면 그 순간 **재고표**로 읽힌다.
+             * ★**짜임은 앞 칸(상담 번호)과 «같다»** — 작은 라벨 + 읽는 값 두 줄. 자리를 새로
+             *   만든 게 아니라 «말만 바꾼» 것이라, 얼굴이 바뀌어도 머리띠 균형이 그대로다.
+             * ⚠ 값은 **한국 시간으로 못박아** 잰다(`todayKo`) — 서버는 UTC 라 새벽에 «어제»를
+             *   그린다. 그러면 내려간 HTML 과 화면이 다른 날짜를 말한다.
+             */
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: SHOP.sp.tight }}>
+              <span style={{ fontSize: SHOP.fs.cap, color: C.faint }}>재고 기준</span>
+              <span style={{ fontSize: SHOP.fs.body, fontWeight: FW.title, color: C.ink, fontVariantNumeric: 'tabular-nums' }}>
+                {todayKo()}
+              </span>
+            </div>
           ) : null}
         </div>
       </header>
@@ -480,18 +498,51 @@ export function WhitelabelFrame({
  * 검색창 «위» 안내 블록 — 상품이 무엇인지 알리고, **손님이 X 로 끈다**(사장님 2026-09-04).
  *
  * ★문구는 브랜드 정본(`wl.notice`)에서 온다 — 채널마다 홍보가 다르므로 화면에 박지 않는다.
- * ★★**끈 것을 기억하지 않는다**(사장님 2026-09-04 「새로고침하거나 다시 오면 그거 다시 떠야지」).
- *   X 는 «지금 이 화면에서 치우는» 버튼이지 «다시는 보지 않기»가 아니다.
- *   이 자리가 회사 홍보·이벤트를 갈아 끼우는 칸이라, 한 번 껐다고 영영 안 뜨면
- *   다음에 건 홍보를 그 손님은 평생 못 본다. 그래서 localStorage 에 저장하지 않는다.
+ *
+ * ## X = 「오늘 하루 안 보기」
+ *
+ * 사장님 2026-09-09 「배너는 눌러서 끌 수 있잖아 **오늘 하루 안 보기** 해놔」.
+ *
+ * ⚠ **2026-09-04 판단을 물린다** — 그때는 「끈 것을 기억하지 않는다(새로고침하면 다시 떠야지)」
+ *   였다. 그 이유는 **「한 번 껐다고 영영 안 뜨면 다음에 건 홍보를 그 손님은 평생 못 본다」**
+ *   였는데, 「오늘 하루」는 그 걱정을 그대로 지운다 — **내일이면 다시 뜬다.**
+ *   ⇒ 두 말이 부딪히지 않는다. 「영영」과 「오늘 하루」는 다른 것이다.
+ *
+ * ★★**채널마다 따로 기억한다**(열쇠에 `wl.key`). 문구가 채널마다 다른데 한 열쇠로 묶으면,
+ *   유니오토에서 끈 손님이 하허호에서도 그 채널 홍보를 못 본다.
+ * ★값은 «끈 날»이다(불리언 아님). 그래야 날이 바뀌는 순간 저절로 되살아난다 —
+ *   자정에 지우는 타이머가 필요 없다.
+ * ⚠ 날은 **한국 시간으로 못박아** 잰다(`todayKst`) — 안 그러면 매일 새벽 9시간 동안
+ *   저장한 날과 읽는 날이 갈려 「오늘 하루」가 안 먹는다.
  */
+const NOTICE_OFF = (key: string) => `fp:notice-off:${key}`;
+
+/**
+ * ⚠⚠ **`useEffect` 로 감추면 «껐던 배너가 한 번 번쩍인다».**
+ *   서버는 저장소를 못 본다 — 배너가 든 HTML 이 먼저 내려가고, 화면이 붙은 «뒤»에 감추면
+ *   껐던 손님에게 배너가 한 번 그려졌다가 사라지며 목록이 위로 튄다.
+ * ⇒ 그림 그리기 «전»에 도는 효과를 쓴다. 서버에는 그런 것이 없으므로 서버에서만 `useEffect` 다
+ *   (거기서는 어차피 안 돈다 — 경고만 피하는 것이다).
+ */
+const useIsoLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
+
 function WhitelabelNotice({ wl, mobile }: { wl: Whitelabel; mobile: boolean }) {
   const notice = wl.notice;
   const [closed, setClosed] = useState(false);
 
+  /* ⚠ 저장소는 «없을 수도» 있다(사생활 보호 창·차단 설정) — 못 읽으면 그냥 보여준다. */
+  useIsoLayoutEffect(() => {
+    try {
+      if (localStorage.getItem(NOTICE_OFF(wl.key)) === todayKst()) setClosed(true);
+    } catch { /* 못 읽으면 보여준다 — 안내를 못 보는 것보다 낫다 */ }
+  }, [wl.key]);
+
   if (!notice || closed) return null;
 
-  const close = () => setClosed(true);
+  const close = () => {
+    setClosed(true);
+    try { localStorage.setItem(NOTICE_OFF(wl.key), todayKst()); } catch { /* 못 적어도 이번 화면은 닫힌다 */ }
+  };
 
   return (
     /* 면(brandSoft)이 이미 경계를 만든다 — 그 위에 선을 또 그으면 테두리가 두 겹이 된다. */
@@ -513,7 +564,7 @@ function WhitelabelNotice({ wl, mobile }: { wl: Whitelabel; mobile: boolean }) {
         <button
           type="button"
           onClick={close}
-          aria-label="안내 닫기"
+          aria-label="안내 닫기 — 오늘 하루 안 보기"
           style={{
             position: 'absolute', right: mobile ? 10 : 18, top: mobile ? 12 : 22,
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',

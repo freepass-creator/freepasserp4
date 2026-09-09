@@ -166,3 +166,25 @@ export function msgClock(ms: unknown, opts?: { dateOnly?: boolean }): string {
   const md = `${d.getMonth() + 1}/${d.getDate()}`;
   return opts?.dateOnly ? md : `${md} ${hm}`;
 }
+
+/**
+ * **오늘 — «한국 시간»으로 잰다.** 기계용(`todayKst`)과 사람용(`todayKo`) 한 짝.
+ *
+ * ⚠⚠ **`new Date()` 를 그냥 찍으면 하루가 어긋난다.** 서버(Vercel)는 UTC 로 돌고 손님 기기는
+ *   KST 다 — 한국 시각 **자정~오전 9시** 사이에는 서버가 «어제»를 그린다. 그 HTML 이 내려간 뒤
+ *   화면이 «오늘»로 다시 그리면 날짜가 눈앞에서 바뀌고(hydration 불일치), 「오늘 하루 안 보기」는
+ *   저장한 날과 읽는 날이 갈려 **매일 아침 9시간 동안 안 먹는다.**
+ * ⇒ 양쪽 다 `timeZone: 'Asia/Seoul'` 로 못박는다. 어디서 재든 같은 값이다.
+ * ★둘이 «같은 시계»를 본다 — 화면에 적는 날짜와 저장하는 열쇠가 따로 놀면 안 된다.
+ */
+const KST = { timeZone: 'Asia/Seoul' } as const;
+
+/** 기계용 — `2026-09-09`. 저장 열쇠·비교에 쓴다(`en-CA` 가 곧 ISO 차림이다). */
+export function todayKst(now: Date = new Date()): string {
+  return now.toLocaleDateString('en-CA', KST);
+}
+
+/** 사람용 — `2026. 9. 9.`. 화면에 적는 값. */
+export function todayKo(now: Date = new Date()): string {
+  return now.toLocaleDateString('ko-KR', { ...KST, year: 'numeric', month: 'numeric', day: 'numeric' });
+}
