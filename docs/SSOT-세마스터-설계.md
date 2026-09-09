@@ -131,10 +131,14 @@ Firestore vehicle_master (정본)  ──[export 잡 «수동 실행»]──▶
   ④ 그 «다음에» 현재 220 「기본형」을 비운다 → 이제 다음 회차에도 안 돌아온다.
 - **2단계 — 정본 전파 자동화(㉡)**: export 를 미러 «직전»에, 실패 시 회차 중단. (그 뒤 ㉠ 직접읽기로 캐시 폐기.)
 - **3단계 — 상태 한 함수화 ✓(2026-09-09)**: `lib/domain/atom-status.ts resolveStatus` 로 mirror·ingest·heal 통합. 로직 동일(8케이스 대조).
-  ⚠ **아직 남은 위험(기존 결함 · Codex 확인)**: resolveStatus 는 `locked` 를 «이유 표시»에만 쓴다 — 계약잠금이 있어도
-    공급사 원천이 「출고가능」이면 `가용/listable=true` 로 돌려줘 **계약한 차가 목록에 다시 선다**(사장님 최대 우려).
-    ⇒ 락은 `syncVehicleLock`(settlement) 소유라 이 경계를 함께 봐야 안전. mark-contract/syncVehicleLock 재적용으로
-    자가치유되는 창이 있으나 순서상 틈이 있다. **다음 단계 후보 — settlement 경계 확인 필요(사장님/정산세션).**
+  ★**계약 우선(정산원장 맨 먼저) 구현(2026-09-09)**: 사장님 「정산원장에 계약이 올라가면 맨 먼저 확인, 계약이 이긴다.」
+    - resolveStatus: `locked` 있으면 공급사 「출고가능」이 못 덮는다 — 완료(출고불가)면 숨기고 아니면 계약중(선점).
+    - ingest: 잠금 시 base=pin.vehicle_status(우리가 아는 현 상태). heal: 락 있으면 상태를 계약상태로 강제(clobber 복구).
+  ⚠ **아직 «airtight» 아님(Codex FAIL, 정산 도메인·컷오버와 얽힘)** — 아래 셋은 이 파이프라인만으로 못 닫는다:
+    ① 수집 레이스: ingest 가 pin 읽은 «뒤» 계약이 올라가면 그 회차는 락을 못 본다(재읽기/쓰기가드 필요).
+    ② 락 저장소 갈림: 락이 RTDB(app flag=rtdb)·Firestore(mark-contract) 양쪽 — 파이프라인이 읽는 한 곳으로 모아야(=RTDB 컷오버 몫).
+    ③ 정산엔진 취소경로: `settlement-engine.ts:277` 이 상태가 계약중/출고불가일 때만 락을 푼다 — clobber 뒤 취소면 락이 남아 «계약중에 갇힘». (정산세션 파일)
+    ⇒ 우선순위는 사장님 규칙과 일치(판 차 재노출 < 팔 차 잠깐 숨김). airtight 는 정산세션 + 컷오버 조율 필요.
   ✔ 다른 상태 writer 는 «별도 도메인/레거시»라 통합 대상 아님 — mark-contract(계약잠금=정산 소유) · RTDB writer(폐기 경로) · retire(원천이탈 이유 별도).
 - **4단계 — 나가는 한 문**: 소비처(finder·make-sample·ERP)가 resolveAtom «완전 출력»만 읽게. 원문 재읽기·재계산 금지.
 - **마스터갭 4건**(아반떼 인스퍼레이션 등)·**세대갈림 19건**(그랜저 IG/GN7 등)은 사람 검수 후 마스터 채움/매칭 교정.
