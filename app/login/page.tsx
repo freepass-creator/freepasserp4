@@ -10,6 +10,8 @@ import { login, signup, logout, resetPassword, writeUserProfile } from '@/lib/fi
 import { getSession, firebaseReadySafe } from '@/lib/login-helpers';
 import { fmtPhone, C, FS, FW, R, CTRL, ICON, ctrlPadX, Btn, Input, Select, Checkbox, Loading } from '@/components/ui';
 import { BRAND_MAIN, BRAND_SUB } from '@/lib/brand';
+import { BrandWordmark } from '@/components/brand-ci';
+import { useIsMobile } from '@/lib/use-mobile';
 import { LEGAL_VERSION } from '@/lib/legal';
 import { toast } from '@/components/Toaster';
 /**
@@ -225,13 +227,22 @@ export default function LoginPage() {
   };
 
   const msgColor = msg.tone === 'ok' ? C.ok : msg.tone === 'err' ? C.danger : C.faint;
+  /* 워드마크는 «크기»만 화면이 정한다(웹 25 · 폰 22). 짜임·색은 원자가 안다. */
+  const mobile = useIsMobile();
 
   return (
     <div className="fp-login">
       <div className="login-page">
+        {/*
+          ★★**우리 간판도 «원자»가 그린다**(`BrandWordmark` · `components/brand-ci`).
+            ⚠ 2026-09-09 까지 여기서 CSS 로 한 벌 더 짜고 있었다 — 자간 −0.04em(CI 센터 영문은
+              **−0.02em**) · 조각 사이 없음 · 뒤 글자 색 `--text-sub`(#52525B, CI 보조색은 #7F93B3).
+              가게 머리띠(`WhitelabelFrame`)와 **같은 이름이 다른 규격**으로 서 있었고, 손님이
+              푸터 「영업자 로그인」을 누르면 한 주소 안에서 간판이 바뀌었다.
+            ⇒ 그리는 곳은 하나다(`brand-ci` 머리말 ③). 여기 CI 를 다시 적지 말 것.
+        */}
         <div className="login-brand" aria-label={`${BRAND_MAIN}${BRAND_SUB}`}>
-          <span className="login-brand-main">{BRAND_MAIN}</span>
-          <span className="login-brand-sub">{BRAND_SUB}</span>
+          <BrandWordmark fs={mobile ? 22 : 25} />
         </div>
 
         {mode === 'login' && (
@@ -308,12 +319,9 @@ const LOGIN_CSS = `
 .fp-login .login-page{min-height:100vh;min-height:100dvh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;padding:40px 16px;padding-top:max(40px,env(safe-area-inset-top));padding-bottom:max(32px,env(safe-area-inset-bottom));background:var(--bg-page);-webkit-user-select:none;user-select:none;font-size:13px;line-height:1.5;}
 .fp-login .login-page,.fp-login .login-page *{font-family:'Pretendard',-apple-system,BlinkMacSystemFont,system-ui,'Segoe UI',sans-serif;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;}
 .fp-login .login-page input{-webkit-user-select:text;user-select:text;}
-/* 워드마크 = 명함 CI(Exo 2): freepass(600·brand) + erp.com(300·sub).
-   .login-page * Pretendard 덮어쓰기보다 specificity 높게 — 자식에도 Exo 2 강제 */
-.fp-login .login-brand,.fp-login .login-brand span{font-size:25px;letter-spacing:-0.04em;text-transform:lowercase;font-family:'Exo 2','Pretendard',sans-serif;line-height:1;}
+/* 워드마크 «자리»만 잡는다 — 서체·무게·자간·색은 원자(BrandWordmark)가 안다.
+   ⚠ 여기에 CI 를 다시 적지 말 것. 그러면 가게 머리띠와 현관이 두 얼굴이 된다(2026-09-09). */
 .fp-login .login-brand{display:flex;align-items:baseline;justify-content:center;}
-.fp-login .login-brand-main{font-weight:600;color:var(--brand);}
-.fp-login .login-brand-sub{font-weight:300;color:var(--text-sub);}
 .fp-login .login-card{position:relative;width:100%;max-width:400px;background:var(--bg-card);border:none;border-radius:2px;padding:40px 32px;box-shadow:var(--shadow-md);display:grid;gap:24px;overflow:hidden;margin:0;}
 /* ★처리 중 덮개 — 스피너를 CSS 로 손롤하지 않는다. 공용 Loading 원자가 그린다. */
 .fp-login .login-busy{position:absolute;inset:0;z-index:10;display:grid;place-items:center;background:color-mix(in srgb, var(--bg-card) 85%, transparent);}
@@ -334,8 +342,7 @@ const LOGIN_CSS = `
 .fp-login .biz-no-match.is-miss{color:var(--red-text);}
 @media (max-width:768px){
 .fp-login .login-page{align-items:stretch;padding:max(24px,env(safe-area-inset-top)) 0 max(24px,env(safe-area-inset-bottom));gap:20px;}
-.fp-login .login-brand,.fp-login .login-brand span{font-size:22px;text-align:center;}
-.fp-login .login-brand{padding:0 24px;}
+.fp-login .login-brand{padding:0 24px;text-align:center;}
 /* ★모바일 로그인은 **한 면이 흰 바탕**이다(사장님 2026-08-23 「모바일 로그인 화면에 배경하고 로그인 박스랑 좀 다르고」).
    카드에서 테두리·그림자·모서리를 걷어 전체폭으로 폈는데 **배경만 흰색(--bg-card)으로 남아**,
    회색 페이지(--bg-page) 위에 경계 없는 흰 띠가 떠 보였다(실측 412px: 페이지 234,237,242 / 카드 255,255,255).
