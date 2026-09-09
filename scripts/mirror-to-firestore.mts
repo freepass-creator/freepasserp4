@@ -14,6 +14,7 @@ import { initializeApp, cert } from 'firebase-admin/app';
 import { getDatabase } from 'firebase-admin/database';
 import { getFirestore } from 'firebase-admin/firestore';
 import { snapToMaster, makerGroup } from '../lib/domain/vehicle-master-match';
+import { cleanTrim } from '../lib/domain/clean-trim';
 import type { MasterEntry } from '../lib/domain/vehicle-master-types';
 import type { EntityRecord } from '../lib/intake/entities';
 import { MIRROR_SOURCES } from '../lib/domain/mirror-sources';
@@ -27,6 +28,9 @@ const rtdb = getDatabase(app);
 const fs = getFirestore(app);
 const masterRaw = JSON.parse(readFileSync('public/data/vehicle-master.json', 'utf8')) as any;
 const MASTER = ((Array.isArray(masterRaw) ? masterRaw : masterRaw.entries) || []) as MasterEntry[];
+// ★세부모델 → 마스터 트림 목록 (세부트림 청소기용 — 차명 원문이 통째로 새어드는 걸 막는다, 사장님 2026-09-09).
+const masterTrimsBySub = new Map<string, string[]>();
+for (const m of MASTER) { const sm = S((m as any).sub_model); if (!sm) continue; const cur = masterTrimsBySub.get(sm) || []; for (const t of ((m as any).trims || [])) { const ts = S(t); if (ts && !cur.includes(ts)) cur.push(ts); } masterTrimsBySub.set(sm, cur); }
 
 // 마스터 유효 세부모델 → 정본 표기(별칭 제조사 전개).
 const SUB = new Map<string, { maker: string; model: string; sub_model: string; origin?: string }>();
@@ -136,6 +140,8 @@ for (const v of rows) {
     }
   }
 
+  // ★세부트림 청소 — 차명 원문 통째(「K5 렌터카 LPi 2.0 스탠다드 4 23MY」)가 세부트림에 새어들지 못하게. 마스터 트림에 맞추거나 노이즈 벗겨 핵심만(사장님 2026-09-09 「진짜 힘들다」).
+  ident.trim_name = cleanTrim(ident.trim_name, ident.maker, ident.model, ident.sub_model, masterTrimsBySub.get(ident.sub_model) || []);
   const doc: Record<string, any> = {
     car_number: S(v.car_number),
     origin: ident.origin, maker: ident.maker, model: ident.model, sub_model: ident.sub_model, trim_name: ident.trim_name,
