@@ -44,7 +44,17 @@ import { NAVY, TINT, settleHeadFor, settleWidthFor, settleMoneyFor, settleLeftFo
 
 const S = (v: unknown) => String(v ?? '').trim();
 const P = (v: unknown) => S(v).replace(/\s/g, '');
-const N = (v: unknown) => Number(S(v).replace(/[,\s원]/g, '')) || 0;
+/**
+ * ★★**되읽을 때 «우리가 쓴 글자»를 우리가 못 읽으면 안 된다.**
+ *   2026-09-09 사고 — 「가감」에 `[Red]−#,##0` 서식을 걸었더니 되읽기가 «−600,000»(U+2212)을 받아
+ *   `Number()` 가 NaN → 0 이 됐고, 환수가 통째로 사라져 합계가 139만 원 늘었다.
+ *   ⇒ 유니코드 마이너스·전각 부호·괄호 음수까지 «사람이 쓰는 모양»을 다 받아 준다.
+ */
+const N = (v: unknown) => {
+  let t = S(v).replace(/[,\s원]/g, '').replace(/[−–—－]/g, '-').replace(/＋/g, '+');
+  if (/^\(.*\)$/.test(t)) t = `-${t.slice(1, -1)}`;
+  return Number(t) || 0;
+};
 const won = (n: number) => Math.round(n).toLocaleString('ko-KR');
 const pad = (s: string, n: number) => s + ' '.repeat(Math.max(0, n - [...s].reduce((a, c) => a + (c.charCodeAt(0) > 0x2000 ? 2 : 1), 0)));
 const APPLY = process.argv.includes('--apply');
@@ -381,6 +391,11 @@ const tabId = async (title: string, cols: number, rowsNeed: number): Promise<num
 
 const put = async (title: string, values: (string | number | boolean)[][], formula = false) => {
   const end = `${A1(Math.max(...values.map((v) => v.length)))}${values.length}`;
+  /**
+   * ★**먼저 걷고 쓴다.** 줄 수가 «줄면» 우리가 덮는 자리 밖에 옛 줄이 남는다 —
+   *   2026-09-09 에 안내문이 한 줄 겹쳐 두 번 찍혔다. 우리 표는 우리가 통째로 다시 그린다.
+   */
+  await call(`https://sheets.googleapis.com/v4/spreadsheets/${bookId}/values/${encodeURIComponent(`'${title}'!A1:Z400`)}:clear`, 'POST', {});
   /** ★요약은 «수식»을 쓴다(USER_ENTERED) — 가감을 손대면 최종이 따라 움직여야 한다. */
   const r = await call(`https://sheets.googleapis.com/v4/spreadsheets/${bookId}/values/${encodeURIComponent(`'${title}'!A1:${end}`)}?valueInputOption=${formula ? 'USER_ENTERED' : 'RAW'}`, 'PUT', { values });
   return !!r;
@@ -449,12 +464,13 @@ for (const j of jobs) {
 }
 
 /* ── ⑤ 「발행 요약」 — 사람이 적은 칸은 되돌려 놓는다 ──────────────── */
-const sumId = await tabId(SUMMARY, SUM_HEAD.length, jobs.length + 12);
+const sumId = await tabId(SUMMARY, SUM_HEAD.length, jobs.length + 11);
 if (sumId === undefined) { console.log('\n  ✕ 「발행 요약」 탭을 못 만들었습니다\n'); process.exit(1); }
 /** ★직원이 켜 둔 「발행·발행일·비고」를 거둔다 — 열쇠는 거래처 이름. */
 const kept = new Map<string, (string | number | boolean)[]>();
 {
-  const g = ((await call(`https://sheets.googleapis.com/v4/spreadsheets/${bookId}/values/${encodeURIComponent(`'${SUMMARY}'!A1:Z200`)}`)) as { values?: unknown[][] } | null)?.values || [];
+  /** ★**날값(UNFORMATTED_VALUE)으로 읽는다** — 서식 입은 글자를 읽으면 위 사고가 또 난다. */
+  const g = ((await call(`https://sheets.googleapis.com/v4/spreadsheets/${bookId}/values/${encodeURIComponent(`'${SUMMARY}'!A1:Z200`)}?valueRenderOption=UNFORMATTED_VALUE`)) as { values?: unknown[][] } | null)?.values || [];
   const hi = g.findIndex((r) => (r || []).some((c) => S(c) === '거래처'));
   if (hi >= 0) {
     const h = (g[hi] || []).map(S);
@@ -472,9 +488,17 @@ const kept = new Map<string, (string | number | boolean)[]>();
  */
 const sumBody = jobs.map((j, i) => {
   const c = ci(j.sup); const k = kept.get(j.sup) || [];
-  const row = 4 + i;  // 머리 3줄 뒤
+  const row = 3 + i;  // 제목 1줄 + 머리 1줄 뒤
   const base = j.net + j.claw;                       // 가감 «전» 정산액
-  const adj = S(k[0]) !== '' ? Number(S(k[0]).replace(/[,\s원]/g, '')) || 0 : (j.claw ? -j.claw : '');
+  /**
+   * ★**가감 — 우리 셈이 바탕, 사람이 고치면 그것이 이긴다.**
+   *   환수는 우리가 셈해 넣지만, 「더 주는 것 +100만」처럼 사람이 적는 것도 여기 온다.
+   *   ⇒ «우리가 넣었던 값 그대로»면 다시 셈해 덮고, 다르면 사람이 만진 것이라 살린다.
+   */
+  const mine = j.claw ? -j.claw : 0;
+  /** ⚠ «0» 은 사람이 고친 값이 아니라 «빈 칸»이다 — 0 을 사람 값으로 보면 환수가 통째로 사라진다(2026-09-09). */
+  const had = S(k[0]) === '' || N(k[0]) === 0 ? null : N(k[0]);
+  const adj = had === null || had === mine ? (mine || '') : had;
   const why = S(k[1]) || (j.backs.length ? `환수 — ${[...new Set(j.backs.map((b) => S(b.why) || S(b.plate)))].join(' · ')}` : '');
   return [i + 1, j.sup, c?.legal || '★법인 확인 필요', c?.bizNo || '★사업자번호 없음', c?.ceo || '',
     j.lines.length, base, adj, why,
@@ -484,31 +508,30 @@ const sumBody = jobs.map((j, i) => {
 const sumRows = sumBody.length;
 const sumValues: (string | number | boolean)[][] = [
   [`${MON} 세금계산서 발행 목록   ·   ${CORP.name} → 공급사   ·   거래처 ${jobs.length}곳`, ...Array.from({ length: SUM_HEAD.length - 1 }, () => '')],
-  ['', '', '', '', '', TOT.n, TOT.net + TOT.claw, TOT.claw ? -TOT.claw : '', '',
-    `=SUM(J4:J${3 + sumRows})`, `=SUM(K4:K${3 + sumRows})`, `=SUM(L4:L${3 + sumRows})`, '', '', '아래 «합계»대로 법인별 발행'],
   [...SUM_HEAD],
   ...sumBody,
-  ['', '합계', '', '', '', TOT.n, `=SUM(G4:G${3 + sumRows})`, `=SUM(H4:H${3 + sumRows})`, '',
-    `=SUM(J4:J${3 + sumRows})`, `=SUM(K4:K${3 + sumRows})`, `=SUM(L4:L${3 + sumRows})`, '', '', ''],
+  ['', '합계', '', '', '', TOT.n, `=SUM(G3:G${2 + sumRows})`, `=SUM(H3:H${2 + sumRows})`, '',
+    `=SUM(J3:J${2 + sumRows})`, `=SUM(K3:K${2 + sumRows})`, `=SUM(L3:L${2 + sumRows})`, '', '', ''],
   Array.from({ length: SUM_HEAD.length }, () => ''),
   ['「정산액 + 가감 = 공급가액」이고 「합계」가 «최종 발행액»입니다. 가감을 고치면 최종이 따라 움직입니다 — 더 주는 것은 «플러스», 환수는 «마이너스»로 적고 사유를 적어 주세요. ★계산서는 «사업자등록번호» 하나가 한 장입니다.', ...Array.from({ length: SUM_HEAD.length - 1 }, () => '')],
   ['발행하면 「발행」을 켜고 「발행일」을 적어 주세요 — 다시 뽑아도 그 칸은 그대로 둡니다.', ...Array.from({ length: SUM_HEAD.length - 1 }, () => '')],
   [`내역은 「${MON} 거래처이름」 탭에 있습니다.`, ...Array.from({ length: SUM_HEAD.length - 1 }, () => '')],
 ];
 if (!(await put(SUMMARY, sumValues, true))) { console.log('\n  ✕ 「발행 요약」 을 못 썼습니다\n'); process.exit(1); }
-const sLast = 3 + sumBody.length;
+/** 합계 줄 자리 — 제목 1줄 + 머리 1줄 + 본문. (위쪽 총합 줄은 «아래와 겹쳐» 없앴다) */
+const sLast = 2 + sumBody.length;
 await call(`https://sheets.googleapis.com/v4/spreadsheets/${bookId}:batchUpdate`, 'POST', { requests: [
   { mergeCells: { range: { sheetId: sumId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: SUM_HEAD.length }, mergeType: 'MERGE_ALL' } },
   { repeatCell: { range: { sheetId: sumId, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: SUM_HEAD.length },
     cell: { userEnteredFormat: { backgroundColor: NAVY, textFormat: { bold: true, fontSize: 12, foregroundColor: { red: 1, green: 1, blue: 1 } }, verticalAlignment: 'MIDDLE', padding: { left: 10 } } },
     fields: 'userEnteredFormat(backgroundColor,textFormat,verticalAlignment,padding)' } },
   { updateDimensionProperties: { range: { sheetId: sumId, dimension: 'ROWS', startIndex: 0, endIndex: 1 }, properties: { pixelSize: 40 }, fields: 'pixelSize' } },
-  bar(sumId, 1, SUM_HEAD.length, true), bar(sumId, 2, SUM_HEAD.length),
-  ...['정산액', '가감', '공급가액', '부가세', '합계'].map((h) => ({ repeatCell: { range: { sheetId: sumId, startRowIndex: 1, endRowIndex: sLast + 1, startColumnIndex: SUM_HEAD.indexOf(h as typeof SUM_HEAD[number]), endColumnIndex: SUM_HEAD.indexOf(h as typeof SUM_HEAD[number]) + 1 },
+  bar(sumId, 1, SUM_HEAD.length),
+  ...['정산액', '가감', '공급가액', '부가세', '합계'].map((h) => ({ repeatCell: { range: { sheetId: sumId, startRowIndex: 2, endRowIndex: sLast + 1, startColumnIndex: SUM_HEAD.indexOf(h as typeof SUM_HEAD[number]), endColumnIndex: SUM_HEAD.indexOf(h as typeof SUM_HEAD[number]) + 1 },
     cell: { userEnteredFormat: { numberFormat: { type: 'NUMBER', pattern: '#,##0' }, horizontalAlignment: 'RIGHT' } }, fields: 'userEnteredFormat(numberFormat,horizontalAlignment)' } })),
-  { repeatCell: { range: { sheetId: sumId, startRowIndex: 3, endRowIndex: sLast, startColumnIndex: 1, endColumnIndex: 2 },
+  { repeatCell: { range: { sheetId: sumId, startRowIndex: 2, endRowIndex: sLast, startColumnIndex: 1, endColumnIndex: 2 },
     cell: { userEnteredFormat: { horizontalAlignment: 'LEFT', textFormat: { bold: true } } }, fields: 'userEnteredFormat(horizontalAlignment,textFormat)' } },
-  ...['가감 사유', '비고'].map((h) => ({ repeatCell: { range: { sheetId: sumId, startRowIndex: 3, endRowIndex: sLast, startColumnIndex: SUM_HEAD.indexOf(h as typeof SUM_HEAD[number]), endColumnIndex: SUM_HEAD.indexOf(h as typeof SUM_HEAD[number]) + 1 },
+  ...['가감 사유', '비고'].map((h) => ({ repeatCell: { range: { sheetId: sumId, startRowIndex: 2, endRowIndex: sLast, startColumnIndex: SUM_HEAD.indexOf(h as typeof SUM_HEAD[number]), endColumnIndex: SUM_HEAD.indexOf(h as typeof SUM_HEAD[number]) + 1 },
     cell: { userEnteredFormat: { horizontalAlignment: 'LEFT' } }, fields: 'userEnteredFormat.horizontalAlignment' } })),
   /**
    * ★★**구간마다 «연한» 바탕을 깔고, 정렬을 구간에 맞춘다** — 사장님 2026-09-09
@@ -523,38 +546,53 @@ await call(`https://sheets.googleapis.com/v4/spreadsheets/${bookId}:batchUpdate`
    * ```
    *   ★**「합계」가 이 표의 답**이라 거기만 진하고 남색이다. 「공급가액」도 진하게 둔다.
    */
+  /**
+   * ★**표 «아래»는 흰 바탕으로 되돌린다.** 값은 걷어도 서식은 남는다 —
+   *   줄 수가 바뀌면 옛 합계줄 색이 빈 줄에 묻어 있다(2026-09-09 실측 17행).
+   */
+  { repeatCell: { range: { sheetId: sumId, startRowIndex: sLast + 1, endRowIndex: sLast + 9, startColumnIndex: 0, endColumnIndex: SUM_HEAD.length },
+    cell: { userEnteredFormat: { backgroundColor: { red: 1, green: 1, blue: 1 }, textFormat: { bold: false, italic: false, foregroundColor: { red: 0.35, green: 0.35, blue: 0.35 }, fontSize: 9 }, horizontalAlignment: 'LEFT' } },
+    fields: 'userEnteredFormat(backgroundColor,textFormat,horizontalAlignment)' } },
+  /**
+   * ★★**본문 글자꼴을 «명시»한다.** 칸·줄을 끼우거나 빼면 옛 머리줄(남색 바탕 · 흰 글자) 자리에
+   *   본문이 내려앉아 **흰 바탕에 흰 글자**가 된다 — 2026-09-09 경진카 줄이 그렇게 안 보였다.
+   *   ⇒ 바탕만 칠하지 말고 글자색·굵기·크기를 늘 다시 적는다. «남은 서식»은 늘 우리 탓이다.
+   */
+  { repeatCell: { range: { sheetId: sumId, startRowIndex: 2, endRowIndex: sLast + 1, startColumnIndex: 0, endColumnIndex: SUM_HEAD.length },
+    cell: { userEnteredFormat: { textFormat: { bold: false, italic: false, fontSize: 10, foregroundColor: { red: 0, green: 0, blue: 0 } }, verticalAlignment: 'MIDDLE' } },
+    fields: 'userEnteredFormat(textFormat,verticalAlignment)' } },
   ...[
     { from: 'No.', to: '대표자', bg: { red: 1, green: 1, blue: 1 } },
     { from: '건수', to: '가감 사유', bg: { red: 0.99, green: 0.98, blue: 0.94 } },
     { from: '공급가액', to: '합계', bg: { red: 0.93, green: 0.96, blue: 1 } },
     { from: '발행', to: '비고', bg: { red: 1, green: 0.99, blue: 0.90 } },
-  ].map((g) => ({ repeatCell: { range: { sheetId: sumId, startRowIndex: 3, endRowIndex: sLast + 1,
+  ].map((g) => ({ repeatCell: { range: { sheetId: sumId, startRowIndex: 2, endRowIndex: sLast + 1,
       startColumnIndex: SUM_HEAD.indexOf(g.from as typeof SUM_HEAD[number]), endColumnIndex: SUM_HEAD.indexOf(g.to as typeof SUM_HEAD[number]) + 1 },
     cell: { userEnteredFormat: { backgroundColor: g.bg } }, fields: 'userEnteredFormat.backgroundColor' } })),
   /** ★**가감은 «색으로» 말한다** — 더 주는 것은 파랑 +, 환수는 빨강 −. 0 이면 아무것도 안 쓴다. */
-  { repeatCell: { range: { sheetId: sumId, startRowIndex: 1, endRowIndex: sLast + 1, startColumnIndex: SUM_HEAD.indexOf('가감'), endColumnIndex: SUM_HEAD.indexOf('가감') + 1 },
+  { repeatCell: { range: { sheetId: sumId, startRowIndex: 2, endRowIndex: sLast + 1, startColumnIndex: SUM_HEAD.indexOf('가감'), endColumnIndex: SUM_HEAD.indexOf('가감') + 1 },
     cell: { userEnteredFormat: { numberFormat: { type: 'NUMBER', pattern: '[Blue]+#,##0;[Red]−#,##0;""' }, horizontalAlignment: 'RIGHT', textFormat: { bold: true } } },
     fields: 'userEnteredFormat(numberFormat,horizontalAlignment,textFormat)' } },
   /** ★최종 셋 — 공급가액은 진하게, «합계»는 진하고 남색. 눈이 마지막 칸에 멎게 한다. */
-  { repeatCell: { range: { sheetId: sumId, startRowIndex: 3, endRowIndex: sLast + 1, startColumnIndex: SUM_HEAD.indexOf('공급가액'), endColumnIndex: SUM_HEAD.indexOf('공급가액') + 1 },
+  { repeatCell: { range: { sheetId: sumId, startRowIndex: 2, endRowIndex: sLast + 1, startColumnIndex: SUM_HEAD.indexOf('공급가액'), endColumnIndex: SUM_HEAD.indexOf('공급가액') + 1 },
     cell: { userEnteredFormat: { textFormat: { bold: true } } }, fields: 'userEnteredFormat.textFormat.bold' } },
-  { repeatCell: { range: { sheetId: sumId, startRowIndex: 3, endRowIndex: sLast + 1, startColumnIndex: SUM_HEAD.indexOf('합계'), endColumnIndex: SUM_HEAD.indexOf('합계') + 1 },
+  { repeatCell: { range: { sheetId: sumId, startRowIndex: 2, endRowIndex: sLast + 1, startColumnIndex: SUM_HEAD.indexOf('합계'), endColumnIndex: SUM_HEAD.indexOf('합계') + 1 },
     cell: { userEnteredFormat: { textFormat: { bold: true, fontSize: 11, foregroundColor: NAVY } } }, fields: 'userEnteredFormat.textFormat' } },
   /** ★정렬 — 이름은 왼쪽, 번호·날짜는 가운데. 돈은 위에서 이미 오른쪽으로 맞췄다. */
-  ...['사업자등록번호', '대표자', '건수', '발행', '발행일'].map((h) => ({ repeatCell: { range: { sheetId: sumId, startRowIndex: 3, endRowIndex: sLast + 1,
+  ...['사업자등록번호', '대표자', '건수', '발행', '발행일'].map((h) => ({ repeatCell: { range: { sheetId: sumId, startRowIndex: 2, endRowIndex: sLast + 1,
       startColumnIndex: SUM_HEAD.indexOf(h as typeof SUM_HEAD[number]), endColumnIndex: SUM_HEAD.indexOf(h as typeof SUM_HEAD[number]) + 1 },
     cell: { userEnteredFormat: { horizontalAlignment: 'CENTER' } }, fields: 'userEnteredFormat.horizontalAlignment' } })),
-  { repeatCell: { range: { sheetId: sumId, startRowIndex: 3, endRowIndex: sLast + 1, startColumnIndex: SUM_HEAD.indexOf('정식 상호'), endColumnIndex: SUM_HEAD.indexOf('정식 상호') + 1 },
+  { repeatCell: { range: { sheetId: sumId, startRowIndex: 2, endRowIndex: sLast + 1, startColumnIndex: SUM_HEAD.indexOf('정식 상호'), endColumnIndex: SUM_HEAD.indexOf('정식 상호') + 1 },
     cell: { userEnteredFormat: { horizontalAlignment: 'LEFT' } }, fields: 'userEnteredFormat.horizontalAlignment' } },
   /** ★줄 높이를 조금 띄운다 — 열다섯 칸이 붙어 있으면 줄을 헛짚는다. */
-  { updateDimensionProperties: { range: { sheetId: sumId, dimension: 'ROWS', startIndex: 3, endIndex: sLast + 1 }, properties: { pixelSize: 26 }, fields: 'pixelSize' } },
+  { updateDimensionProperties: { range: { sheetId: sumId, dimension: 'ROWS', startIndex: 2, endIndex: sLast + 1 }, properties: { pixelSize: 26 }, fields: 'pixelSize' } },
   /**
    * ★★**체크칸은 «걷고 나서» 다시 단다.** 칸을 하나 끼우면 옛 규칙이 그 자리에 남아
    *   엉뚱한 칸(가감)에 체크박스가 뜬다 — 2026-09-09 사장님 화면에서 실제로 그랬다.
    *   ⇒ 우리가 쓰는 자리를 «통째로» 걷고, 「발행」에만 다시 건다.
    */
   { setDataValidation: { range: { sheetId: sumId, startRowIndex: 0, endRowIndex: sLast + 6, startColumnIndex: 0, endColumnIndex: SUM_HEAD.length } } },
-  { setDataValidation: { range: { sheetId: sumId, startRowIndex: 3, endRowIndex: sLast, startColumnIndex: SUM_HEAD.indexOf('발행'), endColumnIndex: SUM_HEAD.indexOf('발행') + 1 },
+  { setDataValidation: { range: { sheetId: sumId, startRowIndex: 2, endRowIndex: sLast, startColumnIndex: SUM_HEAD.indexOf('발행'), endColumnIndex: SUM_HEAD.indexOf('발행') + 1 },
     rule: { condition: { type: 'BOOLEAN' }, strict: true, showCustomUi: true } } },
   { repeatCell: { range: { sheetId: sumId, startRowIndex: sLast, endRowIndex: sLast + 1, startColumnIndex: 0, endColumnIndex: SUM_HEAD.length },
     cell: { userEnteredFormat: { backgroundColor: TINT, textFormat: { bold: true } } }, fields: 'userEnteredFormat(backgroundColor,textFormat)' } },
