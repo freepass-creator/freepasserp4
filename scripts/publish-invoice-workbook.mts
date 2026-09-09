@@ -453,6 +453,57 @@ console.log(`   o ${pad('발행 요약', 11)} ${jobs.length}곳 · ${won(TOT.net
   }
 }
 
+/* ── ⑦ ★원자에 되쓴다 — 어느 법인 장에 실렸나 · 사람이 켠 「발행」 ───── */
+/**
+ * ★★★사장님 2026-09-09 「공급사 계산서 발행해야 할 것들 명확하게 **정산원장이랑 연동**하고
+ *   **SSOT 원자에 잘 반영**해서」
+ *
+ *   지금까지 계산서는 **시트에만** 있었다. 원자는 「이 줄이 어느 계산서에 실렸는지」도,
+ *   「그 계산서를 끊었는지」도 몰랐다. 그러면 `settlement:ask` 로 물어도 대답을 못 하고,
+ *   「보냈는데 안 끊은」 달이 아무 데도 안 보인다 — 그게 매출 누락이다.
+ * ⇒ 낼 때마다 줄에 **사업자등록번호**를 박고, 요약 탭에서 사람이 켠 「발행·발행일」을 거둬 온다.
+ *
+ * ⚠ **발행 여부는 우리가 «정하지» 않는다.** 시트에서 직원이 켠 것만 가져온다 —
+ *   우리가 켜면 「끊었다」가 거짓말이 된다(수금을 우리가 못 적는 것과 같은 이치).
+ */
+{
+  const bizByJob = new Map<string, string>();
+  for (const j of jobs) bizByJob.set(j.sup, bizOf(j.sup.split('·')[0]));
+  const jobOf = (sup: string) => jobs.find((j) => 한몸(j.sup.split('·')[0], sup));
+  const patches: { id: string; patch: Record<string, unknown> }[] = [];
+  for (const d of (await fsdb.collection('settlement_rows').get()).docs) {
+    const r = d.data() as Record<string, unknown>;
+    if (S(r.billMonth) !== MONTH || r.cancelled === true) continue;
+    const j = S(r.supplier) ? jobOf(S(r.supplier)) : undefined;
+    /** 계산서에 안 실린 줄(청구 0·공급사 없음)은 «빈 값»으로 둔다 — 남은 표시가 거짓이 되지 않게. */
+    const biz = j && invoiceMoneyOf(r as never).total !== 0 ? S(bizByJob.get(j.sup)) : '';
+    const k = j ? kept.get(j.sup) : undefined;
+    const on = /^(TRUE|true|O|o|Y|y|1|예|발행)$/.test(S(k?.[0]));
+    const at = S(k?.[1]);
+    const patch: Record<string, unknown> = {};
+    if (S(r.invoiceBiz) !== biz) patch.invoiceBiz = biz;
+    if ((r.invoiceIssued === true) !== on) patch.invoiceIssued = on;
+    if (S(r.invoiceAt) !== at) patch.invoiceAt = at;
+    if (Object.keys(patch).length) { patch.updatedAt = Date.now(); patches.push({ id: d.id, patch }); }
+  }
+  if (patches.length) {
+    for (let i = 0; i < patches.length; i += 400) {
+      const b = fsdb.batch();
+      for (const p of patches.slice(i, i + 400)) b.set(fsdb.collection('settlement_rows').doc(p.id), p.patch, { merge: true });
+      await b.commit();
+    }
+    /** ★되읽어 «한 밭씩» 맞대 본다 — 「반영했다」가 거짓말이 되지 않게. */
+    const gapA: string[] = [];
+    for (const p of patches) {
+      const back = (await fsdb.collection('settlement_rows').doc(p.id).get()).data() || {};
+      for (const [k2, v] of Object.entries(p.patch)) if (k2 !== 'updatedAt' && S(back[k2]) !== S(v)) gapA.push(`${p.id}.${k2}`);
+    }
+    if (gapA.length) { console.log(`\n  ✕ 원자 되읽기에서 ${gapA.length}밭이 다릅니다 — ${gapA.slice(0, 5).join(' · ')}\n`); process.exit(1); }
+  }
+  const issued = patches.filter((p) => p.patch.invoiceIssued === true).length;
+  console.log(`   o ${pad('원자 반영', 11)} ${patches.length}줄 고침${issued ? ` · 「발행」 켜진 줄 ${issued}` : ''} — 되읽어 확인`);
+}
+
 if (failed.length) {
   console.log(`\n  ✕ ${failed.length}곳을 못 냈습니다 — ${failed.join(' · ')}`);
   console.log('  잠시 뒤 다시 돌려 주세요(분당 한도일 수 있습니다).\n');

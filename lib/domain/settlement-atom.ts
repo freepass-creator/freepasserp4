@@ -96,6 +96,18 @@ export const SETTLEMENT_FIELDS: AtomField[] = [
   { key: 'payStage', label: '지급 축', group: '상태', type: 'string', from: null, empty: '접수', note: '접수→통보→확인→지급. 영업채널에 «주는» 길' },
   { key: 'billed', label: '청구서 나감', group: '상태', type: 'boolean', from: null, empty: false },
   { key: 'billedAt', label: '청구서 나간 날', group: '상태', type: 'string', from: null, empty: '' },
+  /**
+   * ★★**세금계산서는 청구서와 «다른» 일이다.**
+   *   `billed` = 공급사에게 정산서(청구서)를 보냈다.  이 셋 = 그 돈으로 **세금계산서를 끊었다**.
+   *   둘을 한 칸으로 뭉치면 「보냈는데 안 끊은」 달이 안 보인다 — 그게 매출 누락이다.
+   *
+   * ⚠ **계산서는 법인에 끊는다**(사장님 2026-09-09 「탭은 법인별로 해야 함」).
+   *   그래서 줄마다 «어느 법인 계산서에 실렸는지»를 사업자등록번호로 적어 둔다.
+   *   별칭이 같아도 번호가 다르면 다른 장이다(빌린카 247-87-03117 ≠ 엘씨렌트 819-81-00849).
+   */
+  { key: 'invoiceBiz', label: '실린 계산서(사업자번호)', group: '상태', type: 'string', from: null, empty: '', note: '[F06] 에서 어느 법인 장에 실렸나' },
+  { key: 'invoiceIssued', label: '계산서 발행', group: '상태', type: 'boolean', from: null, empty: false },
+  { key: 'invoiceAt', label: '계산서 발행일', group: '상태', type: 'string', from: null, empty: '' },
   { key: 'collected', label: '수금됨', group: '상태', type: 'boolean', from: '수금', empty: false, note: '공급사가 돈을 냈다' },
   { key: 'collectedAt', label: '수금한 날', group: '상태', type: 'string', from: null, empty: '' },
   { key: 'collectedAmt', label: '수금액', group: '상태', type: 'number', from: null, empty: 0, note: '일부만 들어올 수 있다 — 청구액과 다를 수 있다' },
