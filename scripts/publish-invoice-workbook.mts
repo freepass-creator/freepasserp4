@@ -33,7 +33,8 @@ import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
-import { claimOf } from '../lib/domain/settlement-money';
+/** ★돈·부가세·환수는 «엔진 문»으로만 — 여기서 다시 셈하면 정본이 둘이 된다. */
+import { claimOf, invoiceMoneyOf, clawMoneyOf, VAT } from '../lib/domain/settlement/engine';
 import type { SettlementRow } from '../lib/domain/settlement-stage';
 import { feeKindOf, feeRuleFor, SUPPLIER_ALIAS } from '../lib/domain/settlement-fee-table';
 import { PARTNER_CI } from '../lib/domain/partner-ci';
@@ -46,7 +47,6 @@ const N = (v: unknown) => Number(S(v).replace(/[,\s원]/g, '')) || 0;
 const won = (n: number) => Math.round(n).toLocaleString('ko-KR');
 const pad = (s: string, n: number) => s + ' '.repeat(Math.max(0, n - [...s].reduce((a, c) => a + (c.charCodeAt(0) > 0x2000 ? 2 : 1), 0)));
 const APPLY = process.argv.includes('--apply');
-const VAT = 0.1;
 const MONTH = (process.argv.find((a) => /^\d{4}-\d{2}$/.test(a)) || '').trim();
 if (!MONTH) { console.log('\n  달을 적어 주세요 — npx tsx scripts/publish-invoice-workbook.mts 2026-08 [--apply]\n'); process.exit(1); }
 /** ★탭 이름 규격 — 「26년09월 아이카」. 달이 앞이라야 달로 묶여 정렬된다(정산 탭과 같은 결). */
@@ -98,9 +98,8 @@ type Line = { plate: string; recv: string; deliv: string; model: string; cust: s
 const lineOf = (r: Record<string, unknown>): Line => {
   const ratio = N(r.settleRatio) || 1;
   const raw = claimOf(r as unknown as SettlementRow);
-  const gross = r.vatIncluded === true;
-  const net = gross ? Math.round(raw / (1 + VAT)) : raw;
-  const vat = gross ? raw - net : Math.round(net * VAT);
+  /** ★부가세 가르기는 «엔진»이 한다 — 여기서 또 나누면 사슬 검사와 1원씩 갈린다(2026-09-09). */
+  const { net, vat } = invoiceMoneyOf(r as never);
   const product = S(r.product); const term = N(r.term);
   const { kind, form, fallback } = feeKindOf(product, S(r.model));
   const f = feeRuleFor(S(r.supplier), kind, term, form, fallback);
@@ -160,7 +159,7 @@ for (const sup of [...new Set(rows.map((r) => S(r.supplier)).filter(Boolean))].s
   const claw = backs.reduce((a, b) => a + b.amt, 0);
   if (!mine.length && !claw) continue;
   const net = mine.reduce((a, b) => a + b.net, 0) - claw;
-  const vat = mine.reduce((a, b) => a + b.vat, 0) - Math.round(claw * VAT);
+  const vat = mine.reduce((a, b) => a + b.vat, 0) - clawMoneyOf(claw).vat;
   const 짝 = jobs.find((m) => 한몸(m.sup.split('·')[0], sup));
   if (짝) {
     짝.lines.push(...mine); 짝.backs.push(...backs); 짝.net += net; 짝.vat += vat; 짝.claw += claw;
@@ -339,7 +338,7 @@ for (const j of jobs) {
   for (const b of j.backs) {
     const m: Record<string, string | number> = { 차량번호: b.plate, 모델명: b.model, '상품 구분': b.plate ? '환수' : '환수 지원금',
       청구월: MON, '수수료 산정 기준': b.why || '지난 청구분 환수',
-      공급가액: -b.amt, 부가세: -Math.round(b.amt * VAT), 합계: -(b.amt + Math.round(b.amt * VAT)) };
+      공급가액: -b.amt, 부가세: -clawMoneyOf(b.amt).vat, 합계: -(b.amt + clawMoneyOf(b.amt).vat) };
     body.push(HEAD.map((h) => m[h] ?? ''));
   }
   const iM = HEAD.indexOf('공급가액');

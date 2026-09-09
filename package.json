@@ -132,7 +132,8 @@
     "settlement:agents": "tsx scripts/fill-agent-from-rooms.mts",
     "settlement:taborder": "tsx scripts/order-settlement-tabs.mts",
     "build:estimate-cars": "tsx scripts/generate-estimate-car-index.mts",
-    "check:engine": "tsx scripts/check-settlement-engine.mts"
+    "check:engine": "tsx scripts/check-settlement-engine.mts",
+    "check:chain": "tsx scripts/check-settlement-chain.mts"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",

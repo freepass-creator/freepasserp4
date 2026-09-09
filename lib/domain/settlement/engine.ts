@@ -72,8 +72,10 @@ export type { SettlementRow, SettlementChecks } from '../settlement-stage';
    ② 돈 — 청구(공급사에게 받는다) · 지급(영업채널에 준다)
    ★두 축은 «절대» 섞지 않는다. 청구액은 채널 시트에, 지급액은 공급사 시트에 못 간다.
    ══════════════════════════════════════════════════════════════════════ */
-export type { MoneyRow } from '../settlement-money';
+export type { MoneyRow, InvoiceRow } from '../settlement-money';
 export { claimOf, payOf, claimBaseOf, payBaseOf, incentiveOf } from '../settlement-money';
+/** ★부가세 가르기 — 줄마다 가르고 «그 다음에» 더한다. 총액에 곱하면 1원씩 어긋난다. */
+export { invoiceMoneyOf, clawMoneyOf } from '../settlement-money';
 export type { Money, FeeBase, SettleTarget } from '../settlement-stage';
 export { moneyOf, feeOf, feeBaseOf, VAT, SETTLE_TARGETS, settleTargetOf } from '../settlement-stage';
 
