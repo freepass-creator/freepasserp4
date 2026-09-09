@@ -3,7 +3,7 @@ import type { ReactNode } from 'react';
 import { C, FW } from '@/components/ui';
 import { BRAND_FONT, BRAND_WEIGHT } from '@/lib/brand';
 import { CORP } from '@/lib/domain/corporate-ci';
-import type { Whitelabel } from '@/lib/whitelabel';
+import { hasBrand, type Whitelabel } from '@/lib/whitelabel';
 
 /**
  * **간판(CI) 원자 — 채널 이름과 우리 이름을 «CI 로» 세우는 곳은 여기 하나다.**
@@ -80,6 +80,13 @@ const CAP_NUDGE = -0.0435;
  *   마크가 바뀌면 다시 재서 이 상수를 고친다.
  */
 const MARK_OPTICAL = 0.0353;
+/**
+ * **설명 글(`headline`) ÷ 간판 글자** — 라벨 없는 얼굴의 머리 글자 크기.
+ *
+ * ★이름보다 **한 단 작다.** 워드마크만큼 세우면 그게 라벨로 읽혀, 「라벨이 없다」는 뜻이 사라진다.
+ * ★비율이라 사다리가 바뀌어도 따라온다 — 화면이 숫자를 적지 않는다(웹 23→18 · 폰 17→13).
+ */
+const HEADLINE_RATIO = 0.78;
 /** 워드마크 앞 글자(주) 자간 — 굵고 크므로 살짝 조인다. */
 const TRACK_MAIN = '-0.02em';
 /** 뒤 글자(보조) 자간 — 작을수록 벌려야 «이름»으로 읽힌다. */
@@ -240,6 +247,17 @@ export function ChannelWordmark({ wl, fs, color = C.ink, after }: {
 /**
  * 채널 간판 = **마크 + 워드마크 한 덩어리.**
  *
+ * ## ★★라벨이 «없는» 얼굴도 여기서 그린다 (2026-09-09)
+ *
+ * 사장님 「**화이트라벨 공통규격은 써 줘야 함. 여기서만 달리 하면 안 되고**」.
+ * ⚠ 라벨 없는 얼굴(`plain`)의 머리 글자를 껍데기(`WhitelabelFrame`) 안에 **손으로 짰었다** —
+ *   크기 18/15 를 화면에 적어 넣은 것이라, 채널이 늘거나 사다리를 고칠 때 **그 자리만 갈라진다**
+ *   (집 규격 절대원칙 ① 「페이지는 원자 배열만 · 손롤 금지」).
+ * ⇒ 껍데기는 언제나 `ChannelSign` **하나만** 부른다. 라벨이 붙었으면 마크+워드마크를,
+ *   없으면 «무엇을 하는 판인가»(`wl.headline`)를 — **무엇을 그릴지는 원자가 안다.**
+ * ★크기도 화면이 안 정한다. 껍데기가 넘긴 간판 크기(`fs`)에서 **비율로** 뽑는다 —
+ *   설명 글은 이름보다 한 단 작아야 라벨로 안 읽힌다(`HEADLINE_RATIO`).
+ *
  * ★**마크 높이는 «앞 글자의 캡 높이»에 매단다**(1.5배) — 글자 크기가 바뀌면 마크가 따라온다.
  *   전에는 마크 28 · 캡 19 라 마크가 글자를 **위로 6.2 · 아래로 2.8** 삐져나와 있었다.
  * ★★**세로는 «앞 글자(UNI)의 캡 밴드»에 맞춘다**(사장님 2026-09-07 「심볼은 텍스트 **uni 랑**
@@ -253,6 +271,22 @@ export function ChannelSign({ wl, fs, gap, after }: {
   /** 워드마크 «뒤»에 같은 밑선으로 붙는 것 — 동반 표기(위 `ChannelWordmark.after`). */
   after?: ReactNode;
 }) {
+  /*
+   * ★★**라벨이 없으면 «무엇을 하는 판인가»를 그린다** — 회사 이름 자리에 설명 글이 선다.
+   *   (사장님 2026-09-09 「손님들이 보는 게 아니라 **내부자용 같은 느낌**을 줘서 얘네가
+   *   직접 하려고 하는 거 **막으려고**」 — 업무 시스템으로 읽혀야 한다.)
+   * ★말은 표에서 온다(`wl.headline`). 여기 박지 않는다 — 이름이 정해지면 표 한 줄만 고친다.
+   * ★동반 표기(`after`)는 안 붙는다 — 「✕ freepass」는 «두 이름»을 잇는 기호라, 이름이
+   *   하나도 없는 자리에서는 할 말이 없다.
+   */
+  if (!hasBrand(wl)) {
+    return wl.headline ? (
+      <span style={{
+        fontSize: Math.round(fs * HEADLINE_RATIO), fontWeight: FW.title,
+        letterSpacing: '-0.02em', lineHeight: 1, color: C.ink, whiteSpace: 'nowrap',
+      }}>{wl.headline}</span>
+    ) : null;
+  }
   const markH = Math.round(fs * CAP * 1.5);
   /*
    * ★★**그림이 «간판»이면 맞출 글자가 없다.**
