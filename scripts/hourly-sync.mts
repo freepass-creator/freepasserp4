@@ -546,6 +546,20 @@ if (existsSync(손오공계정)) {
 /** 손오공을 못 돌렸으면 손오공 탭은 «건드리지 않는다» — 낡은 값을 새로 발행하지 않기 위해. */
 const 손오공탭발행 = existsSync(손오공계정);
 
+/**
+ * ⓪⅗ **차종마스터 최신화 — Firestore(정본) → public/data/vehicle-master.json(파생 캐시).**
+ *   ★정본은 Firestore `vehicle_master`(2026-09-08). 그런데 ①·①′·직접수집·미러·정제가 읽는 것은 «파생 JSON»이다.
+ *     이 export 를 «수동»으로만 돌리던 탓에, Firestore 마스터를 고쳐도 파이프라인에 안 닿았다
+ *     (2026-09-09 — 「백번 얘기해도 안 되네」의 기계적 정체). ⇒ 매 회차 «① 앞»에서 자동 재생성한다.
+ *   ★반드시 ① «앞» — ① 이후 모든 단계가 이 파일을 읽으므로, 여기서 한 번 최신화하면 이번 회차가 «같은 최신 마스터»를 본다(회차 버전 일관).
+ *   ★원자적 교체(임시파일→rename)라 회차 중 읽어도 완본만 본다. 0개면 안 덮는다(exporter가 exit 1).
+ *   best-effort — 실패해도 «지난 완본»이 남아 있으니 회차를 멈추지 않는다(단, 이번 회차 마스터 수정은 다음 회차까지 지연). 경고로 남긴다.
+ *   ⚠ 이건 «로컬 파이프라인»의 캐시다 — 배포된 앱(carmaster API 1시간 캐시)까지는 안 닿는다. 그건 소비처 Firestore 직접읽기(㉠)로 별도 해결.
+ */
+const mx = run('⓪⅗ 차종마스터 최신화', ['scripts/export-master-firestore-to-json.mts'], /vehicle_master|원자적 교체|중단|✗/);
+if (mx.ok) line.push(mx.picked.find((l) => /vehicle_master/.test(l))?.replace(/^■\s*/, '').replace(/\s*→.*$/, '') || '마스터 최신');
+else warnings.push('⓪⅗ 차종마스터 최신화 실패 — 지난 사본으로 진행(이번 회차 마스터 수정은 다음 회차에 반영)');
+
 // ① 정제시트(원본이 자체시트·홈페이지인 4곳) — 새 차 추가 · 사라진 차 출고불가 · 요금/상태 갱신
 const s1 = run('① 정제시트 갱신', ['scripts/sync-mirror-all.mts', ...A], /새 차|사라진|갱신할|끝|실패|✓|✗/);
 if (!s1.ok) stop('정제시트 갱신 실패');
