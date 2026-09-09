@@ -4,8 +4,77 @@
     {
       "name": "freepasserp4",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
       "port": 4004
+    },
+    {
+      "name": "fp-shop",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "--max-old-space-size=8192",
+        "C:/dev/fp-shop-pr/node_modules/next/dist/bin/next",
+        "dev",
+        "C:/dev/fp-shop-pr",
+        "-p",
+        "4055",
+        "--turbo"
+      ],
+      "port": 4055
+    },
+    {
+      "name": "cf",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "--max-old-space-size=8192",
+        "C:/dev/fp-shop-pr/node_modules/next/dist/bin/next",
+        "dev",
+        "C:/dev/_wt-cf",
+        "-p",
+        "4077"
+      ],
+      "port": 4077
+    },
+    {
+      "name": "flt",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "--max-old-space-size=8192",
+        "C:/dev/_wt-flt/node_modules/next/dist/bin/next",
+        "dev",
+        "C:/dev/_wt-flt",
+        "-p",
+        "4033"
+      ],
+      "port": 4033
+    },
+    {
+      "name": "fpm",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "--max-old-space-size=8192",
+        "C:/dev/fp-freepass/node_modules/next/dist/bin/next",
+        "dev",
+        "C:/dev/fp-freepass",
+        "-p",
+        "4088"
+      ],
+      "port": 4088
+    },
+    {
+      "name": "flt2",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "--max-old-space-size=8192",
+        "C:/dev/fp-shop-pr/node_modules/next/dist/bin/next",
+        "dev",
+        "C:/dev/_wt-flt2",
+        "-p",
+        "4017"
+      ],
+      "port": 4017
     }
   ]
 }
