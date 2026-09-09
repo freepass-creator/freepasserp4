@@ -1,0 +1,102 @@
+/**
+ * **정산 콕핏의 얼굴** — 사장님 2026-09-09 「정산페이지도 별도 페이지로 만든다니까??? 프리패스랑 안 붙이고」
+ *
+ * ★★전자계약(`sign.css`)·견적(`estimate.css`)과 «같은 갈래»다 — 제 머리를 갖고 ERP 껍데기를 벗는다.
+ *   그래도 색은 프리패스 결을 그대로 쓴다(남색 #0f1c35) — 별도 페이지지 남의 회사 화면이 아니다.
+ * ★모든 규칙을 `.stl-root` 안에 가둔다. 밖으로 새면 업무동 화면이 같이 바뀐다.
+ * ★칸(입력·버튼)은 여기서 안 그린다 — 원자(`components/ui`)가 그린다.
+ *   여기는 «껍데기»만 — 머리·바탕·카드·하단 바.
+ */
+
+.stl-root {
+  --stl-navy: #0f1c35;
+  --stl-line: #e3e7ee;
+  --stl-bg: #f4f6f9;
+  --stl-card: #ffffff;
+  --stl-mute: #6b7280;
+  --stl-bar-h: 56px;
+  min-height: 100dvh;
+  background: var(--stl-bg);
+  color: #111827;
+}
+
+/* ── 머리 — 남색 띠. 늘 붙어 있어 어느 달을 보는지 안 잊는다 ─────────── */
+.stl-head {
+  position: sticky; top: 0; z-index: 20;
+  background: var(--stl-navy); color: #fff;
+  padding: 10px 14px;
+  display: flex; align-items: center; gap: 10px;
+}
+.stl-head b { font-size: 16px; letter-spacing: -0.2px; }
+.stl-head .stl-count { margin-left: auto; font-size: 12px; opacity: 0.75; }
+/** 달 고르는 칸 — 남색 위라 테두리만 남기고 속을 비운다. */
+.stl-head select {
+  background: rgba(255, 255, 255, 0.12); color: #fff;
+  border: 1px solid rgba(255, 255, 255, 0.28); border-radius: 4px;
+  height: 30px; padding: 0 8px; font-size: 13px;
+}
+.stl-head select option { color: #111827; }
+
+/* ── 탭 — 머리 바로 밑에 붙는다. 손가락 하나로 오간다 ───────────────── */
+.stl-tabs {
+  position: sticky; top: 50px; z-index: 19;
+  display: flex; gap: 6px; padding: 8px 14px;
+  background: var(--stl-bg); border-bottom: 1px solid var(--stl-line);
+}
+.stl-tab {
+  flex: 1; height: 36px; border: 1px solid var(--stl-line); border-radius: 4px;
+  background: #fff; color: #374151; font-size: 14px; font-weight: 600; cursor: pointer;
+}
+.stl-tab[aria-selected='true'] { background: var(--stl-navy); border-color: var(--stl-navy); color: #fff; }
+
+/* ── 본문 — 흰 카드. 뜻이 다른 묶음은 카드로 갈린다 ────────────────── */
+.stl-body { padding: 12px 14px calc(var(--stl-bar-h) + 28px); max-width: 1100px; margin: 0 auto; }
+.stl-card {
+  background: var(--stl-card); border: 1px solid var(--stl-line); border-radius: 6px;
+  padding: 12px 14px; margin-bottom: 12px;
+}
+.stl-card > h3 {
+  margin: 0 0 10px; font-size: 13px; font-weight: 700; color: #374151;
+  display: flex; align-items: center; gap: 6px;
+}
+.stl-card > h3 small { font-weight: 400; color: var(--stl-mute); font-size: 12px; }
+
+/** 칸 격자 — 폰 둘, 웹 넷. 라벨은 «위»에 세운다(시트를 보던 눈이 따라오게). */
+.stl-grid { display: grid; gap: 10px; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+@media (min-width: 760px) { .stl-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.stl-grid.stl-3 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+@media (min-width: 760px) { .stl-grid.stl-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+.stl-fld { display: grid; gap: 4px; min-width: 0; }
+.stl-fld > span { font-size: 12px; color: var(--stl-mute); }
+.stl-fld.stl-key > span { color: var(--stl-navy); font-weight: 700; }
+
+/* ── 줄 목록 — 요약·찾기·넘길것이 같은 결로 선다 ──────────────────── */
+.stl-row { padding: 9px 2px; border-bottom: 1px solid #eef1f5; }
+.stl-row:last-child { border-bottom: 0; }
+.stl-row .stl-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.stl-row .stl-sub { color: var(--stl-mute); font-size: 12px; margin-top: 2px; }
+.stl-money { margin-left: auto; font-variant-numeric: tabular-nums; font-size: 13px; }
+
+/** 그 달 총액 — 표의 «답»이라 다른 줄과 갈린다. */
+.stl-sum { display: flex; justify-content: space-between; align-items: baseline; padding: 7px 0; }
+.stl-sum + .stl-sum { border-top: 1px dashed #eef1f5; }
+.stl-sum span { color: var(--stl-mute); font-size: 13px; }
+.stl-sum b { font-variant-numeric: tabular-nums; font-size: 15px; }
+.stl-sum.stl-net b { color: var(--stl-navy); font-size: 17px; }
+
+/* ── 하단 실행 바 — 폰에서 스크롤 끝까지 안 가도 누른다 ─────────────── */
+.stl-dock {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+  height: var(--stl-bar-h); background: #fff; border-top: 1px solid var(--stl-line);
+  display: flex; align-items: center; gap: 8px; padding: 0 14px;
+}
+.stl-dock .stl-hint { color: var(--stl-mute); font-size: 12px; flex: 1; min-width: 0; }
+.stl-dock > .fp-press { flex: 0 0 auto; }
+
+/** 재고 원자에서 붙은 차 — 「이 차가 맞나」를 한 줄로 보여 준다. */
+.stl-car {
+  background: #eef4ff; border: 1px solid #d6e2fb; border-radius: 6px;
+  padding: 8px 12px; margin-bottom: 10px;
+}
+.stl-car b { font-size: 14px; }
+.stl-car .stl-sub { margin-top: 2px; }

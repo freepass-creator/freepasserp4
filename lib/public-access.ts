@@ -8,7 +8,14 @@ export const PUBLIC_PATH_PREFIXES = ['/q/', '/sign/'] as const;
 
 /** 로그인 없이 열리는 단일 경로(임베드 견적/구독 앱 등). 접두 프리픽스와 별도.
  *  /terms·/privacy 는 가입 화면에서 동의하기 전에 읽어야 하므로 반드시 비로그인 통과. */
-const PUBLIC_EXACT = ['/welrix', '/sonogong', '/terms', '/privacy'] as const;
+const PUBLIC_EXACT = ['/welrix', '/sonogong', '/terms', '/privacy',
+  /**
+   * ★**정산 콕핏 «미리보기»** — 사장님 2026-09-09 「일단 로그인 없이 만들어서 로그인 붙이면 되잖아」.
+   *   얼굴을 다듬는 동안 로그인이 길을 막으면 한 번 고칠 때마다 로그인을 해야 한다.
+   *   ⚠ 이 문은 **서버를 안 부른다** — 화면에 박힌 «지어낸 값»만 그린다.
+   *     진짜 원자는 `/settlement/board`(로그인+관리자)에서만 나온다.
+   */
+  '/settlement/board/preview'] as const;
 
 /**
  * 지금 보고 있는 주소가 «채널 도메인»인가 — 브라우저에서만 답한다.
