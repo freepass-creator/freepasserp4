@@ -303,7 +303,9 @@ async function readRows(): Promise<Row[]> {
        */
       const 버킷 = S(c.버킷);
       const kind = 버킷 === 'TCAR_EXTERNAL' ? '픽업구독' : (버킷 === 'SON_NO_KONG' ? '오공구독' : (c.중고 ? '중고구독' : ''));
-      push({ car, link: 픽업링크.get(N(car)) || '', status, kind, maker: S(c.제조사), model: S(c.모델), vname: S(c.차명) || S(c.세부), fuel: S(c.연료), ext: S(c.외장), int: S(c.내장), km: c.주행거리 == null ? '' : String(c.주행거리), opt: S(c.옵션), firstReg: S(c.최초등록) || S(c.연식), cc: c.배기량 == null ? '' : String(c.배기량), klass: '', price, tab: '손오공API', row: S(c.id) });
+      // ★옵션 = 기본옵션 + «유료옵션» 둘 다 땡긴다(사장님 2026-09-09 「옵션 다 빠진거 아냐」). 덤프에 유료옵션이 별도 필드로 있는데 안 읽고 있었다.
+      const 옵션 = [S(c.옵션), S(c.유료옵션)].filter(Boolean).join(', ');
+      push({ car, link: 픽업링크.get(N(car)) || '', status, kind, maker: S(c.제조사), model: S(c.모델), vname: S(c.차명) || S(c.세부), fuel: S(c.연료), ext: S(c.외장), int: S(c.내장), km: c.주행거리 == null ? '' : String(c.주행거리), opt: 옵션, firstReg: S(c.최초등록) || S(c.연식), cc: c.배기량 == null ? '' : String(c.배기량), klass: '', price, tab: '손오공API', row: S(c.id) });
     }
     return out;
   }
