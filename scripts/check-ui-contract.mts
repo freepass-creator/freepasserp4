@@ -301,6 +301,65 @@ if (!esignCenterSource.includes('const store = getStore()')
   hits.push('components/EsignSendCenter.tsx: 계약 목록 데이터 직접 조립 유지');
 }
 
+/*
+ * ── 원자 사전이 «실재하는 부품»을 가리키는가 ────────────────────────────────
+ *
+ * 사장님 2026-09-09 개발센터 견학에서 잡혔다. `CLAUDE.md` 원자 사전이 적은 이름 94개를
+ * 실제 export 와 대조하니 **`CardKind` 는 코드에 아예 없었다** — 사전 두 줄과 주석 하나에
+ * 이름만 남아 있었고(리팩터 때 사라졌는데 사전만 안 고쳤다), `CreateListRow` 는 로컬 함수라
+ * import 조차 안 됐다.
+ *
+ * ★★**없는 원자를 「쓰라」고 적어 두면 그게 손롤의 원인이 된다.** 다음 사람은 그 이름을
+ *   찾다가 못 찾고 「그럼 내가 만들지」로 간다 — 사전이 막으려던 바로 그 일이다.
+ * ★레거시로 적은 이름은 **반대로 «없어야»** 한다. 되살아나면 그것도 드리프트다.
+ * ⚠ `export default` 도 export 다(`TopBar`). named 만 찾으면 멀쩡한 것을 없다고 한다 —
+ *   견학에서 실제로 그럴 뻔했다.
+ * ⚠ 소괄호가 붙은 것(`badges()`)은 «부르는 법»을 적은 것이라 이름만 떼서 본다.
+ */
+const claudeMd = readFileSync(join(ROOT, 'CLAUDE.md'), 'utf8');
+const dictStart = claudeMd.indexOf('## 원자 사전 — 이걸 써라');
+const dictEnd = claudeMd.indexOf('### 필터 ↔ 카드 축');
+if (dictStart < 0 || dictEnd < dictStart) {
+  hits.push('CLAUDE.md: 원자 사전 구간을 못 찾았다 — 제목이 바뀌었으면 이 검사도 같이 고친다');
+} else {
+  const dict = claudeMd.slice(dictStart, dictEnd);
+  const legacyLine = dict.split('\n').find((l) => l.startsWith('`Identity`→')) ?? '';
+  const nameOf = (s: string) => [...s.matchAll(/`([A-Z][A-Za-z0-9]{2,})(?:\(\))?`/g)].map((m) => m[1]);
+  /* ⚠ 레거시 줄은 `옛것`→`대체` 꼴이다 — **화살표 «왼쪽»만** 레거시다.
+     오른쪽은 지금 쓰는 원자라, 같이 세면 「CardTitle 이 되살아났다」 같은 헛소리가 나온다(실제로 났다). */
+  const legacy = new Set(legacyLine.split('·').flatMap((chunk) => nameOf(chunk.split('→')[0])));
+  const wanted = [...new Set(nameOf(dict))].filter((n) => !legacy.has(n));
+
+  /* 실제 export 를 «한 번만» 훑어 모은다 — 이름마다 파일을 다시 여는 것은 낭비다. */
+  const exported = new Set<string>();
+  const scanExports = (dir: string) => {
+    for (const e of readdirSync(join(ROOT, dir), { withFileTypes: true })) {
+      const rel = `${dir}/${e.name}`;
+      if (e.isDirectory()) { if (e.name !== 'node_modules') scanExports(rel); continue; }
+      if (!/\.tsx?$/.test(e.name)) continue;
+      const src = readFileSync(join(ROOT, rel), 'utf8');
+      for (const m of src.matchAll(/export\s+(?:default\s+)?(?:async\s+)?(?:function|const|class|type|interface)\s+([A-Za-z][A-Za-z0-9]*)/g)) exported.add(m[1]);
+      for (const m of src.matchAll(/export\s*\{([^}]*)\}/g)) {
+        for (const part of m[1].split(',')) {
+          const name = part.split(/\bas\b/).pop()?.trim();
+          if (name) exported.add(name);
+        }
+      }
+    }
+  };
+  for (const r of ['app', 'components', 'lib', 'features']) scanExports(r);
+
+  /* 대조군 — 이 둘이 안 잡히면 «재는 쪽»이 틀린 것이다(견학에서 94개 전부 없다고 나온 적이 있다). */
+  for (const control of ['PriceHero', 'TopBar']) {
+    if (!exported.has(control)) hits.push(`검사기 고장: 대조군 ${control} 를 못 찾았다 — 사전이 아니라 이 검사를 고쳐라`);
+  }
+  for (const n of wanted) {
+    if (!exported.has(n)) hits.push(`CLAUDE.md 원자 사전: ${n} 은 export 가 없다 — 사전에서 걷거나 실제 이름으로 고친다`);
+  }
+  for (const n of legacy) {
+    if (exported.has(n)) hits.push(`CLAUDE.md 레거시 목록: ${n} 이 되살아났다 — 대체 원자를 쓰거나 목록에서 뺀다`);
+  }
+}
 if (hits.length) {
   console.error(`✗ UI 계약 드리프트 ${hits.length}건\n\n${hits.map((hit) => `  ${hit}`).join('\n')}`);
   process.exit(1);
