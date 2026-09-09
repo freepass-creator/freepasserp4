@@ -46,8 +46,6 @@ const APPLY = process.argv.includes('--apply');
 const TIER = (process.argv.find((a) => a.startsWith('--tier='))?.split('=')[1] || 'day').trim();
 const 하루단 = TIER === 'day';
 /** 그 단에서 «안 하는» 것은 통째로 건너뛴다 — 돌린 척하지 않는다. */
-const 건너뜀: string[] = [];
-const skip = (label: string) => { 건너뜀.push(label); console.log(`⏭ ${label} — 이 단(${TIER})에서는 안 한다`); };
 /**
  * ★`--같은범위` — **aiops 가 하는 단계만** 돈다(첫 대조용).
  *
@@ -96,7 +94,7 @@ const MIRROR_ERP = process.argv.includes('--비추기');
  *   돌았는데도 로그가 그렇게 남아, 나중에 보는 사람이 「같은범위로 돌렸구나」로 잘못 읽는다.
  *   **로그가 거짓말하면 그 로그는 안 보게 된다.**
  */
-const skip = (label: string, why: string) => {
+const skip = (label: string, why = `이 단(${TIER})에서 안 한다`) => {
   line.push(`${label} 건너뜀(${why})`);
   console.log(`── ${label} — 건너뜀 · ${why}`);
   steps.push({ 단계: label, ok: true, 신호: `건너뜀 — ${why}` });
