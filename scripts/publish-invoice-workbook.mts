@@ -615,8 +615,10 @@ await call(`https://sheets.googleapis.com/v4/spreadsheets/${bookId}:batchUpdate`
    * ⚠ **글자 크기는 안 키운다**(사장님 2026-09-09 「야 폰트를 누가 키우냐」).
    *   표는 줄이 나란해야 읽힌다 — 한 칸만 커지면 그 줄이 들뜬다. 강조는 «굵기와 색»으로 한다.
    */
-  { repeatCell: { range: { sheetId: sumId, startRowIndex: 2, endRowIndex: sLast + 1, startColumnIndex: SUM_HEAD.indexOf('공급가액'), endColumnIndex: SUM_HEAD.indexOf('공급가액') + 1 },
-    cell: { userEnteredFormat: { textFormat: { bold: true } } }, fields: 'userEnteredFormat.textFormat.bold' } },
+  /** ★**«처음»과 «끝»을 굵게** — 정산액에서 시작해 합계로 끝난다(사장님 2026-09-09 「처음 정산액도 굵게는 해줘」). */
+  ...['정산액', '공급가액'].map((h) => ({ repeatCell: { range: { sheetId: sumId, startRowIndex: 2, endRowIndex: sLast + 1,
+      startColumnIndex: SUM_HEAD.indexOf(h as typeof SUM_HEAD[number]), endColumnIndex: SUM_HEAD.indexOf(h as typeof SUM_HEAD[number]) + 1 },
+    cell: { userEnteredFormat: { textFormat: { bold: true } } }, fields: 'userEnteredFormat.textFormat.bold' } })),
   { repeatCell: { range: { sheetId: sumId, startRowIndex: 2, endRowIndex: sLast + 1, startColumnIndex: SUM_HEAD.indexOf('합계'), endColumnIndex: SUM_HEAD.indexOf('합계') + 1 },
     cell: { userEnteredFormat: { textFormat: { bold: true, foregroundColor: NAVY } } }, fields: 'userEnteredFormat.textFormat' } },
   /** ★정렬 — 이름은 왼쪽, 번호·날짜는 가운데. 돈은 위에서 이미 오른쪽으로 맞췄다. */
