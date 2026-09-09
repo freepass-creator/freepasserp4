@@ -5,6 +5,7 @@ import Link from 'next/link';
 import NextImage from 'next/image';
 import {
   Banknote, Calendar, Car, CarFront, Check, ChevronDown, Coins, Factory, FileText, Fuel, Gauge,
+  RefreshCw,
   Gift, IdCard, PiggyBank, Search, SearchCheck, ShieldCheck, UserRound, Wallet, X, Zap,
   type LucideIcon,
 } from 'lucide-react';
@@ -634,6 +635,36 @@ export function ShopSort({ value, onChange, options }: {
  *   **폰은 이게 유일한 건수**라 손님이 「조건을 더 걸어야 하나 풀어야 하나」를 판단할 근거가 화면에 없었다.
  * ★말도 같이 바꾼다 — 조건이 걸린 채 「전체차량 3대」라고 하면 그건 재고가 3대라는 뜻이 된다.
  */
+/**
+ * **재고를 마지막으로 갱신한 시각** — 「⟳ 9. 4. 21:38」.
+ *
+ * 사장님 2026-09-09 「이거 업데이트 위치 찾았다 — **전체차량 대수 우측정렬로 오면 된다**」
+ * · 「그냥 **날짜 시간만** 쓰면 될 거 같아 **아이콘으로**」.
+ *
+ * ★★**왜 머리띠에서 내려왔나** — 머리띠 오른쪽은 «지금»(날짜·시각·날씨)이 주인이다.
+ *   갱신 시각은 «이 목록이 언제 것인가»라, 목록의 건수 줄 옆이 제자리다.
+ * ★**말을 아이콘이 대신한다** — 「update」라는 글자를 지우고 ⟳ 하나로 뜻을 세운다
+ *   (집 규칙 「박스 뱃지 쓰지 말고 아이콘 텍스트로, 모든 곳에서」 2026-08-28·08-30).
+ * ★톤은 «보조»다(`faint`). 이 줄의 주인공은 건수와 정렬이다.
+ * ⚠ 값이 없으면 **아무것도 안 그린다** — 「-」 나 오늘 날짜로 채우면 그건 거짓말이다.
+ */
+export function ShopUpdatedStamp({ label }: { label: string }) {
+  if (!label) return null;
+  return (
+    <span
+      title={`재고 갱신 ${label}`}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: SHOP.sp.tight,
+        fontSize: SHOP.fs.cap, color: C.faint, whiteSpace: 'nowrap',
+        fontVariantNumeric: 'tabular-nums',
+      }}
+    >
+      <RefreshCw size={ICON.sm} aria-hidden />
+      {label}
+    </span>
+  );
+}
+
 export function ShopCount({ value, filtered }: { value: string; filtered?: boolean }) {
   const mobile = useIsMobile();
   return (

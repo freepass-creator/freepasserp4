@@ -4,11 +4,12 @@ import { Search, SlidersHorizontal } from 'lucide-react';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { C } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
+import { updatedLabelKo, useShopHeadStatus } from '@/lib/shop/head-status';
 import { WhitelabelFrame } from '@/components/WhitelabelFrame';
 import { FREEPASS, hasBrand, type Whitelabel } from '@/lib/whitelabel';
 import {
   SHOP, ShopCount, ShopEmpty, ShopIconBtn, ShopMore, ShopPill,
-  ShopRevealSearch, ShopSearch, ShopSort, ShopTextBtn, ShopTokens,
+  ShopRevealSearch, ShopSearch, ShopSort, ShopTextBtn, ShopTokens, ShopUpdatedStamp,
 } from '@/components/shop/shop-ui';
 import { ShopFilters } from '@/components/shop/ShopFilters';
 import { ShopFilterSheet } from '@/components/shop/ShopFilterSheet';
@@ -79,6 +80,8 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
   /* 이 줄에 «단추가 있는» 조건 — 뒤에 토큰으로 또 세우지 않는다(아래 칩 줄 머리말). */
   const quickKeys = useMemo(() => new Set(quickAll.map((k) => `${k.axis}:${k.key}`)), [quickAll]);
   const mobile = useIsMobile();
+  /* ★재고 갱신 시각 — 건수 줄 오른쪽에 선다(`ShopUpdatedStamp`). 곁다리라 없으면 안 그린다. */
+  const head = useShopHeadStatus();
   const [rows, setRows] = useState<EntityRecord[] | null>(null);
   const [agent, setAgent] = useState<{ name?: string; phone?: string } | null>(null);
   const [attr, setAttr] = useState('');
@@ -573,6 +576,13 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
                 </span>
               )}
               <div style={{ flex: 1 }} />
+              {/*
+                ★★**재고 갱신 시각은 여기다**(사장님 2026-09-09 「이거 업데이트 위치 찾았다 —
+                  **전체차량 대수 우측정렬로 오면 된다**」). 머리띠 오른쪽은 «지금»(날짜·시각·날씨)이
+                  주인이고, 갱신 시각은 «이 목록이 언제 것인가»라 건수 줄 옆이 제자리다.
+                ★정렬 고르개 «왼쪽»에 붙어 우측 무리를 이룬다 — 맨 오른쪽은 손이 가는 것(정렬)이 갖는다.
+              */}
+              {head.updatedMs ? <ShopUpdatedStamp label={updatedLabelKo(head.updatedMs)} /> : null}
               <ShopSort value={query.sort} options={SHOP_SORTS}
                 onChange={(v) => setQuery((q) => ({ ...q, sort: v as ShopSortKey }))} />
             </div>

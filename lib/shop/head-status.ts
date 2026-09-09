@@ -22,6 +22,14 @@ export type ShopHeadStatus = {
 const EMPTY: ShopHeadStatus = { updatedMs: null, weather: null };
 
 /**
+ * **한 화면에서 한 번만 물어본다** — 머리띠(날씨·시각)와 목록 줄(갱신 시각)이 같은 값을 쓴다.
+ * ★둘이 각자 부르면 같은 답을 두 번 받아 오고, 새로고침 때마다 요청이 배로 는다.
+ * ⚠ 60초가 지나면 다시 묻는다 — 값이 분 단위라 그보다 촘촘할 이유가 없다.
+ */
+let cached: { at: number; value: ShopHeadStatus } | null = null;
+const FRESH_MS = 60_000;
+
+/**
  * ★**서버에서 안 부른다.** 첫 그림(SSR)은 값 없이 그리고, 브라우저가 붙은 뒤 채운다 —
  *   재고 목록이 이 값을 기다릴 이유가 없다(곁다리가 본 화면을 붙잡으면 안 된다).
  * ⚠ 실패하면 조용히 비운다. 날씨가 안 와서 가게가 비면 그건 사고다.
@@ -30,6 +38,7 @@ export function useShopHeadStatus(): ShopHeadStatus {
   const [s, setS] = useState<ShopHeadStatus>(EMPTY);
   useEffect(() => {
     let alive = true;
+    if (cached && Date.now() - cached.at < FRESH_MS) { setS(cached.value); return () => { alive = false; }; }
     (async () => {
       try {
         const res = await fetch('/api/shop/status');
@@ -38,10 +47,12 @@ export function useShopHeadStatus(): ShopHeadStatus {
         if (!alive) return;
         const ms = Number(j?.updated?.ms);
         const temp = Number(j?.weather?.temp);
-        setS({
+        const value: ShopHeadStatus = {
           updatedMs: Number.isFinite(ms) && ms > 0 ? ms : null,
           weather: Number.isFinite(temp) ? { temp, text: String(j?.weather?.text || '') } : null,
-        });
+        };
+        cached = { at: Date.now(), value };
+        setS(value);
       } catch { /* 곁다리다 — 조용히 비운다 */ }
     })();
     return () => { alive = false; };
