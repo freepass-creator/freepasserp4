@@ -496,6 +496,17 @@ const kept = new Map<string, (string | number | boolean)[]>();
  *     숫자로 박아 두면 사람이 고친 가감과 최종이 어긋나 «어느 쪽이 발행액인지» 모르게 된다.
  */
 /**
+ * ★**이미 발행된 곳** — 원자가 홈택스에서 거둔 것(`harvest-hometax-issued`).
+ *   법인(사업자번호)마다 «가장 늦은 발급일»을 든다.
+ */
+const issued = new Map<string, string>();
+for (const r of rows) {
+  if (r.invoiceIssued !== true || !S(r.invoiceBiz)) continue;
+  const at = S(r.invoiceAt);
+  if (at > (issued.get(S(r.invoiceBiz)) || '')) issued.set(S(r.invoiceBiz), at);
+}
+
+/**
  * ★**빠진 것을 «세어» 둔다** — 표에 안 실린 줄과, 거래처 정보가 모자란 곳.
  *   보는 사람이 「빠뜨린 건가?」를 매달 다시 묻지 않게 종이가 먼저 답한다.
  */
@@ -522,10 +533,19 @@ const sumBody = jobs.map((j, i) => {
   const had = S(k[0]) === '' || N(k[0]) === 0 ? null : N(k[0]);
   const adj = had === null || had === mine ? (mine || '') : had;
   const why = S(k[1]) || (j.backs.length ? `환수 — ${[...new Set(j.backs.map((b) => S(b.why) || S(b.plate)))].join(' · ')}` : '');
+  /**
+   * ★★★**이미 «나간» 것은 종이가 먼저 말해야 한다.**
+   *   사장님 2026-09-09 「지금 유민이가 발행하고 있음」 — 그런데 그때 렌트존·리더스·오토플러스·
+   *   우리캐피탈은 이미 나가 있었고 시트의 「발행」은 꺼져 있었다. **두 번 끊을 뻔했다.**
+   *   ⇒ 홈택스에서 거둔 원자(`invoiceIssued`)가 켜져 있으면 시트도 켠다.
+   *     사람이 켠 것과 «둘 중 하나라도» 켜졌으면 켠다 — 끄는 쪽으로는 안 움직인다.
+   */
+  const done = issued.get(S(c?.bizNo));
+  const on = k[2] === 'TRUE' || k[2] === true || !!done;
   return [i + 1, j.sup, c?.legal || '★법인 확인 필요', c?.bizNo || '★사업자번호 없음', c?.ceo || '',
     j.lines.length, base, adj, why,
     `=G${row}+H${row}`, `=ROUND(J${row}*0.1)`, `=J${row}+K${row}`,
-    k[2] === 'TRUE' || k[2] === true, k[3] || '', k[4] || ''];
+    on, S(k[3]) || done || '', k[4] || ''];
 });
 const sumRows = sumBody.length;
 const sumValues: (string | number | boolean)[][] = [
@@ -694,8 +714,17 @@ console.log(`   o ${pad('발행 요약', 11)} ${jobs.length}곳 · ${won(TOT.net
     /** 계산서에 안 실린 줄(청구 0·공급사 없음)은 «빈 값»으로 둔다 — 남은 표시가 거짓이 되지 않게. */
     const biz = j && invoiceMoneyOf(r as never).total !== 0 ? S(bizByJob.get(j.sup)) : '';
     const k = j ? kept.get(j.sup) : undefined;
-    const on = /^(TRUE|true|O|o|Y|y|1|예|발행)$/.test(S(k?.[0]));
-    const at = S(k?.[1]);
+    /**
+     * ⚠⚠ **자리로 읽으면 칸이 하나 끼는 순간 거짓말이 된다.**
+     *   2026-09-09 — 「가감·가감 사유」를 앞에 넣으면서 SUM_KEEP 차례가 밀렸는데
+     *   여기는 옛 자리(k[0]=발행)를 읽고 있었다. 그래서 발행기를 돌릴 때마다
+     *   홈택스에서 거둬 켜 둔 「발행」이 **도로 꺼졌다.** ⇒ 이름으로 찾는다.
+     */
+    const keepAt = (name: typeof SUM_KEEP[number]) => S(k?.[SUM_KEEP.indexOf(name)]);
+    const said = /^(TRUE|true|O|o|Y|y|1|예|발행)$/.test(keepAt('발행'));
+    /** ★**끄는 쪽으로는 안 움직인다** — 홈택스가 「끊었다」고 한 것을 시트가 뒤집을 수 없다. */
+    const on = said || r.invoiceIssued === true;
+    const at = keepAt('발행일') || S(r.invoiceAt);
     const patch: Record<string, unknown> = {};
     if (S(r.invoiceBiz) !== biz) patch.invoiceBiz = biz;
     if ((r.invoiceIssued === true) !== on) patch.invoiceIssued = on;
