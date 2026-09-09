@@ -266,6 +266,29 @@ export function WhitelabelFrame({
           <div style={{ flex: 1 }} />
           {/* 폰 머리띠 오른쪽 — 상세의 관심·공유(위 `headerActions` 참고). 목록에서는 비어 있다. */}
           {mobile ? headerActions : null}
+          {/*
+            ★★★**«지금»은 «공통»이다 — 채널을 안 가린다**(사장님 2026-09-09 「내가 **별도 규격**이라고
+              이야기하는 거 아니면 **일단 다 공통**으로 적용되어야 해. 화이트라벨은 **컬러만 빼고**」).
+            ⚠ 처음엔 이걸 `stampToday` 라는 «프리패스 전용» 손잡이 뒤에 두고, 담당자·홈페이지와
+              **배타 사슬**로 묶었다. 그래서 유니오토·하허호 머리띠에는 아예 안 떴다 —
+              내가 임의로 「이건 우리 것만」을 만든 것이고, 그 순간 채널마다 화면이 갈린다.
+            ⇒ 사슬에서 뺐다. **웹이면 늘 선다.** 담당자·연락처·홈페이지는 그 «오른쪽»에 이어 붙는다.
+            ★날짜·요일·시각·날씨 한 줄(사장님 「실시간으로 좀 두껍게 우측 거기에」).
+              시각은 분마다 스스로 돈다(`useNowKst`) — 새로고침해야 맞는 시계는 시계가 아니다.
+              첫 그림에는 날짜만 그린다(서버·브라우저 시각이 달라 화면이 튀는 것을 막는다).
+            ★날씨는 곁다리라 없으면 그냥 빠진다 — 자리가 흔들리지 않게 날짜가 먼저 선다.
+            ⚠ **폰에는 안 그린다.** 폰 머리띠 오른쪽은 검색·조건이 쓰는 확정 규격이라 자리가 없다
+              (2026-09-05). 이건 「채널마다 다르게」가 아니라 «화면 폭»의 문제다.
+          */}
+          {!mobile ? (
+            <span style={{
+              fontSize: SHOP.fs.body, fontWeight: FW.head, color: C.ink, whiteSpace: 'nowrap',
+              fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em',
+            }}>
+              {now ? nowLabelKo(now) : todayLabelKo()}
+              {head.weather ? ` · ${head.weather.text} ${head.weather.temp}°` : ''}
+            </span>
+          ) : null}
           {!mobile && !who && wl.homepage ? (
             /*
              * ★★**우리 가게는 여기가 «회사 홈페이지로 가는 문»이다**(사장님 2026-09-07
@@ -302,35 +325,6 @@ export function WhitelabelFrame({
               {/* ★번호는 «읽는 값»이라 서식을 입힌다 — 01049943330 은 사람이 못 읽는다(집 원자 `fmtPhone`). */}
               <span style={{ fontSize: SHOP.fs.body, fontWeight: FW.title, color: C.ink, fontVariantNumeric: 'tabular-nums' }}>
                 {phoneText}
-              </span>
-            </div>
-          ) : wl.stampToday && !mobile ? (
-            /*
-             * ★★**라벨이 없는 얼굴은 이 자리에 «날짜»를 세운다**(사장님 2026-09-09
-             *   「**우측 상단에는 날짜 정도는 있어야겠지**」).
-             *   회사 소개도 상담 번호도 없는 얼굴이라 여기가 비어 있었다. 빈 자리는
-             *   «덜 만든 화면»으로 읽힌다 — 날짜가 서면 그 순간 **재고표**로 읽힌다.
-             * ★**짜임은 앞 칸(상담 번호)과 «같다»** — 작은 라벨 + 읽는 값 두 줄. 자리를 새로
-             *   만든 게 아니라 «말만 바꾼» 것이라, 얼굴이 바뀌어도 머리띠 균형이 그대로다.
-             * ⚠ 값은 **한국 시간으로 못박아** 잰다(`todayKo`) — 서버는 UTC 라 새벽에 «어제»를
-             *   그린다. 그러면 내려간 HTML 과 화면이 다른 날짜를 말한다.
-             */
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: SHOP.sp.tight }}>
-              {/*
-                ★★**윗줄 = «지금» — 주(主)다. 날짜·요일·시각·날씨가 한 줄로 선다**
-                  (사장님 2026-09-09 「오늘 날짜, 시간, 날씨 이거를 **실시간으로** 좀 보여달라는
-                  거지 **좀 두껍게 우측 거기에**」).
-                ★**시각은 분마다 스스로 돈다**(`useNowKst`) — 새로고침해야 맞는 시계는 시계가 아니다.
-                  첫 그림에는 날짜만 그리고 브라우저가 붙은 뒤 시각이 채워진다(서버·브라우저 시각이
-                  달라 화면이 튀는 것을 막는다).
-                ★날씨는 곁다리라 **없으면 그냥 빠진다** — 자리가 흔들리지 않게 날짜가 먼저 선다.
-              */}
-              <span style={{
-                fontSize: SHOP.fs.body, fontWeight: FW.head, color: C.ink, whiteSpace: 'nowrap',
-                fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em',
-              }}>
-                {now ? nowLabelKo(now) : todayLabelKo()}
-                {head.weather ? ` · ${head.weather.text} ${head.weather.temp}°` : ''}
               </span>
             </div>
           ) : null}
