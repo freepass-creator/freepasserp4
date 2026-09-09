@@ -38,6 +38,8 @@ import CarPicker from '@/features/estimate/CarPicker';
 import VehicleCascade from '@/features/estimate/VehicleCascade';
 import QuotePreview, { type QuoteDoc } from '@/features/estimate/QuotePreview';
 import EstimateWizard from '@/features/estimate/EstimateWizard';
+import { hasRules, isEnabled, optionList, optionSum, toggleOption, whyBlocked, groupOf, type OptionSpec }
+  from '@/lib/domain/estimate/option-rules';
 
 import { guessMarketPrice, loadCarIndex, loadNewModels, koModel, type PickedCar, type NewModel, type CarIndex } from '@/lib/domain/estimate/car-index';
 import { deltaKeyFor } from '@/lib/domain/estimate/residual-by-name';
@@ -347,6 +349,25 @@ function EstimatePageInner() {
   }, [picked, isNew, priceTyped, newModels, carIdx, usedYear, nowYear]);
 
   /** 고른 트림의 옵션 줄 — 원본 규격대로 «가격 0 = 기본 포함»은 고르는 대상이 아니다. */
+  /**
+   * ★★옵션 «조합 규칙» — 배타(택1)·선행필수·배제. 사장님 2026-09-09
+   *   「야 **옵션은 명확하게 다 구현하는 게 웰릭스 테이블에 있는데**」.
+   *   여태는 규칙을 «글»로만 보여 주고 안 막았다 — 그러면 «있을 수 없는 차»의 값이 견적서에 찍힌다.
+   * ⚠ 규칙이 있는 트림만 막는다(272줄). 없는 트림은 지금처럼 평면 목록이다 —
+   *   규칙이 없다고 못 고르게 만들면 «못 받은 것»이 «없는 것»이 된다.
+   */
+  const optSpec = useMemo<OptionSpec>(() => ({
+    optionsMaster: picked.newTrim?.optionsMaster,
+    exclusiveGroups: picked.newTrim?.exclusiveGroups,
+    optionExcludes: picked.newTrim?.optionExcludes,
+    availableOptions: picked.newTrim?.availableOptions,
+    impliedOptions: picked.newTrim?.impliedOptions,
+  }), [picked]);
+  const ruled = hasRules(optSpec);
+  /** 규칙판에서 고른 것들 — 이름이 아니라 «옵션 id» 다. */
+  const [optIds, setOptIds] = useState<ReadonlySet<string>>(() => new Set());
+  const ruledRows = useMemo(() => (ruled ? optionList(optSpec) : []), [ruled, optSpec]);
+
   const optionRows = useMemo(() => (picked.newTrim?.options ?? []).filter((o) => o && o.name), [picked]);
   /**
    * ⚠⚠ 옵션은 **이름이 아니라 «줄»로 센다.**
@@ -363,12 +384,12 @@ function EstimatePageInner() {
    *   ⇒ 트림이 바뀌는 순간이 버리는 자리다.
    */
   const trimSig = [picked.source, picked.maker, picked.subModel, picked.powertrain, picked.trim].join('|');
-  useEffect(() => { setOptSel({}); }, [trimSig]);
+  useEffect(() => { setOptSel({}); setOptIds(new Set()); }, [trimSig]);
   const optChosen = useMemo(
     () => optionRows.filter((o, i) => Number(o.price) > 0 && optSel[optKey(o, i)]),
     [optionRows, optSel],
   );
-  const optSum = optChosen.reduce((n, o) => n + (Number(o.price) || 0), 0);
+  const optSum = ruled ? optionSum(optSpec, optIds) : optChosen.reduce((n, o) => n + (Number(o.price) || 0), 0);
   /** 기아는 가격표를 «좌표»로 읽어 옵션 «이름»이 조각으로 온다(「옵션3」) — 값은 정확하다. 숨기지도 지어내지도 않는다. */
   const optNamesPartial = useMemo(() => optionRows.some((o) => /^옵션\s*\d+$/.test(o.name.trim())), [optionRows]);
 
@@ -487,7 +508,9 @@ function EstimatePageInner() {
     endType: TYPES.find((t) => t.v === type)!.label,
     credit,
     colorExt, colorInt,
-    options: optChosen.map((o) => ({ name: o.name, price: Number(o.price) || 0 })),
+    options: ruled
+      ? [...optIds].map((id) => ({ name: optSpec.optionsMaster?.[id]?.name ?? id, price: optSpec.optionsMaster?.[id]?.price ?? 0 }))
+      : optChosen.map((o) => ({ name: o.name, price: Number(o.price) || 0 })),
     lines: scen.filter((x) => x.send).map((x, i) => {
       const c = lines[scen.findIndex((y) => y.term === x.term)] ?? lines[i];
       return {
@@ -503,7 +526,7 @@ function EstimatePageInner() {
   const prepayAmt = Math.round(price * pre / 100);
   const vehTag = listPrice ? `${man(listPrice)}원` : '차를 고르세요';
   const vMeta = isNew
-    ? [picked.meta, optChosen.length ? `옵션 ${optChosen.length}개 +${man(optSum)}` : null,
+    ? [picked.meta, (ruled ? optIds.size : optChosen.length) ? `옵션 ${ruled ? optIds.size : optChosen.length}개 +${man(optSum)}` : null,
       listPrice ? `차량가 ${man(listPrice)}` : null].filter(Boolean).join(' · ')
     : [picked.meta, `시세 ${man(usedPrice)}`, `${usedYear}년`, `${usedMileage.toLocaleString('ko-KR')}km`,
       ACQ.find((a) => a.v === acq)!.label].filter(Boolean).join(' · ');
@@ -558,9 +581,37 @@ function EstimatePageInner() {
   const secOptions = (
     isNew ? (
       <section id="sec-options">
-        <div className="step-title">선택 옵션 {optionRows.length ? <b>{optionRows.length}개</b> : null}</div>
+        <div className="step-title">
+          선택 옵션 {ruled ? <b>{ruledRows.length}개</b> : optionRows.length ? <b>{optionRows.length}개</b> : null}
+          {ruled ? <span className="seedmark" title="배타·선행·배제 규칙이 걸려 있습니다">조합규칙</span> : null}
+        </div>
         {!picked.newTrim ? (
           <div className="empty-state">트림을 먼저 고르면 옵션이 나옵니다</div>
+        ) : ruled ? (
+          /* ★규칙판 — 배타그룹은 «택1», 선행이 안 켜졌으면 못 고르고, 배제되면 못 고른다. */
+          <div className="grid-1">
+            {ruledRows.map(({ id, def }) => {
+              const on = optIds.has(id);
+              const ok = on || isEnabled(optSpec, id, optIds);
+              const g = groupOf(optSpec, id);
+              const why = ok ? '' : whyBlocked(optSpec, id, optIds);
+              return (
+                <label key={id} className={`option-row${on ? ' active' : ''}${ok ? '' : ' disabled'}`}>
+                  <input type="checkbox" checked={on} disabled={!ok}
+                    onChange={() => setOptIds((prev) => toggleOption(optSpec, id, prev))} />
+                  <div className="o-info">
+                    <div className="o-name">{def.name}</div>
+                    {def.sub ? <div className="o-sub">{def.sub}</div> : null}
+                    {/* ⚠ 그 트림에서 «형제가 실제로 보일 때»만 알린다 — 혼자 서 있으면 뜻이 없다. */}
+                    {g && g.members.filter((m) => ruledRows.some((r) => r.id === m)).length > 1
+                      ? <div className="o-sub">{g.label} 중 1개만</div> : null}
+                    {why ? <div className="o-why">{why}</div> : null}
+                  </div>
+                  <div className="o-price">{def.price > 0 ? `+${man(def.price)}원` : '기본'}</div>
+                </label>
+              );
+            })}
+          </div>
         ) : !optionRows.length ? (
           <div className="empty-state">
             이 트림의 옵션은 <b>아직 안 들어왔습니다</b> — 「없다」가 아니라 「못 받았다」입니다.
@@ -593,8 +644,9 @@ function EstimatePageInner() {
           <div className="footnote">
             <b>조합규칙</b> — {picked.newTrim.rules.slice(0, 4).join(' · ')}
             {picked.newTrim.rules.length > 4 ? ` 외 ${picked.newTrim.rules.length - 4}건` : ''}
-            <br />※ 아직 <b>글</b>로만 있습니다 — 원본(웰릭스)은 여기서 «고를 수 없게» 막습니다.
-            규칙이 원자로 정의되면 우리도 막습니다. 지금은 <b>고를 수 없는 조합도 골립니다.</b>
+            {ruled
+              ? <><br />※ 위 목록은 <b>규칙대로 막힙니다</b> — 배타그룹은 택1, 선행이 없으면 못 고릅니다.</>
+              : <><br />※ 이 트림은 아직 <b>글</b>로만 있습니다 — 조합지도가 안 들어온 모델이라 못 막습니다.</>}
           </div>
         ) : null}
       </section>
