@@ -115,7 +115,8 @@ for (const f of used) {
 const pub = (await db.ref('v4/sheet_published').get()).val() || {} as Record<string, { at?: string }>;
 const publishedAt = (who: string) => S((pub as Record<string, { at?: string }>)[`${who}_${MONTH}`.replace(/[.#$/[\]\s]/g, '_')]?.at);
 
-const rows = Object.entries((await db.ref('v4/settlement_rows').get()).val() || {}) as [string, Record<string, unknown>][];
+/** ★**읽는 곳도 파이어스토어다** — 정본이 하나여야 거둔 상태가 어긋나지 않는다(2026-09-09). */
+const rows = (await fsdb.collection('settlement_rows').get()).docs.map((d) => [d.id, d.data()]) as [string, Record<string, unknown>][];
 const mine = rows.filter(([, r]) => S(r.billMonth) === MONTH);
 console.log(`\n■ ${MONTH} 원자 ${mine.length}줄 — 상태를 박는다\n`);
 

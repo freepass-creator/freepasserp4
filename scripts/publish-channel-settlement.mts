@@ -26,6 +26,7 @@ import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getDatabase } from 'firebase-admin/database';
+import { getFirestore } from 'firebase-admin/firestore';
 import { CORP } from '../lib/domain/corporate-ci';
 import { payDate, payDayOf, PAY_DAY_BY_SUPPLIER } from '../lib/domain/settlement-cycle';
 import { settleTargetOf, billingMonthIn, lockedMonthsOf, type SettlementRow } from '../lib/domain/settlement-stage';
@@ -68,6 +69,13 @@ type Keep = [boolean, boolean, number | '', string];
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 if (!getApps().length) initializeApp({ credential: cert(sa), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' });
 const db = getDatabase();
+/**
+ * ★★★**정산 줄은 «파이어스토어»가 정본이다** — 사장님 2026-09-09
+ *   「파이어스토어에 원자 명확하게 맞추고 **이제 그거로 관리할거야**」.
+ * ⚠ 공급사 발행기가 RTDB 를 읽는 바람에 원자를 고쳐도 정산서만 옛 값으로 남은 적이 있다
+ *   (우리캐피탈 9,841,650 ≠ 9,457,525). 채널 축도 같은 곳을 봐야 두 종이가 어긋나지 않는다.
+ */
+const fsdb = getFirestore();
 const jwt = new JWT({ email: sa.client_email, key: sa.private_key, subject: 'pyh@teamjpk.com',
   scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive'] });
 const tok = async () => (await jwt.getAccessToken()).token;
@@ -91,7 +99,7 @@ type Row = Record<string, unknown>;
  */
 const D = (v: unknown) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(S(v)); return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null; };
 const asRow = (r: Row) => ({ ...r, receivedAt: D(r.receivedAt), deliveredAt: D(r.deliveredAt) } as unknown as SettlementRow);
-const allRows = Object.values((await db.ref('v4/settlement_rows').get()).val() || {}) as Row[];
+const allRows = (await fsdb.collection('settlement_rows').get()).docs.map((d) => d.data()) as Row[];
 const locked = lockedMonthsOf(allRows.map(asRow));
 /**
  * ★★★**아직 안 끝난 달은 «예정»으로 미리 채운다.**
@@ -129,7 +137,7 @@ const isSoon = (r: Row) => FORECAST && billingMonthIn(asRow(r), locked) !== MONT
  * ★★**환수를 «빠뜨리면» 종이와 안 맞는다** — 실측 2026-09-03 하허호가 585,600 어긋났다.
  *   지급 쪽 환수 금액은 `agentAmt` 다(공급사 쪽은 `supplierAmt`). 축을 헷갈리면 남의 돈을 뺀다.
  */
-const claws = (Object.values((await db.ref('v4/settlement_clawbacks').get()).val() || {}) as Row[])
+const claws = ((await fsdb.collection('settlement_clawbacks').get()).docs.map((d) => d.data()) as Row[])
   .filter((c) => S(c.month) === MONTH);
 
 /**
