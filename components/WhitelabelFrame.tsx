@@ -2,12 +2,13 @@
 import { useCallback, useEffect, useLayoutEffect, useState, type ReactNode } from 'react';
 import { LogIn, Phone, SquareArrowOutUpRight, X } from 'lucide-react';
 import { C, FW, ICON, R_CARD, fmtPhone } from '@/components/ui';
-import { todayKo, todayKst } from '@/lib/format';
+import { todayKst } from '@/lib/format';
 import { SHOP, ShopDock, ShopDockAction } from '@/components/shop/shop-ui';
 import { ChannelSign, ChannelWordmark, CoBrandFreepass } from '@/components/brand-ci';
 import { CORP } from '@/lib/domain/corporate-ci';
 import { useSession } from '@/lib/auth-context';
 import { useIsMobile } from '@/lib/use-mobile';
+import { todayLabelKo, updatedLabelKo, useShopHeadStatus } from '@/lib/shop/head-status';
 import { hasBrand, hasShopFrame, whitelabelVars, type Whitelabel } from '@/lib/whitelabel';
 
 /**
@@ -90,6 +91,8 @@ export function WhitelabelFrame({
   children: ReactNode;
 }) {
   const mobile = useIsMobile();
+  /* ★머리띠의 «지금» 값(재고 갱신 시각·날씨) — 곁다리라 브라우저가 붙은 뒤에 채워진다. */
+  const head = useShopHeadStatus();
   /*
    * ★머리띠의 «실제 높이»를 CSS 변수로 흘린다 — 붙박이가 됐으므로 그 밑에 서는 것들
    *   (목록의 검색줄)이 그만큼 내려가야 한다. 숫자를 손으로 적으면 머리띠가 한 줄 늘어난 날
@@ -311,10 +314,29 @@ export function WhitelabelFrame({
              *   그린다. 그러면 내려간 HTML 과 화면이 다른 날짜를 말한다.
              */
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: SHOP.sp.tight }}>
-              <span style={{ fontSize: SHOP.fs.cap, color: C.faint }}>재고 기준</span>
-              <span style={{ fontSize: SHOP.fs.body, fontWeight: FW.title, color: C.ink, fontVariantNumeric: 'tabular-nums' }}>
-                {todayKo()}
+              {/*
+                ★★**윗줄 = «오늘»** — 날짜·요일, 그리고 날씨가 오면 그 뒤에 붙는다
+                  (사장님 2026-09-09 「오늘 날짜 요일 **날씨**까지는 보여주면 좋을 거 같은데?」).
+                ★날씨는 곁다리라 **없으면 그냥 빠진다** — 자리가 흔들리지 않게 날짜가 먼저 선다.
+              */}
+              <span style={{ fontSize: SHOP.fs.cap, color: C.faint, whiteSpace: 'nowrap' }}>
+                {todayLabelKo()}{head.weather ? ` · ${head.weather.text} ${head.weather.temp}°` : ''}
               </span>
+              {/*
+                ★★**아랫줄 = «언제 갱신됐나»**(사장님 「재고 업데이트 시간을 올려줘야지」 ·
+                  「**update 언제 시간분까지**」). 영업자가 손님에게 「지금 출고 가능합니다」라고
+                  말하려면 그 정보가 언제 것인지 화면에 있어야 한다.
+                ⚠ 「**재고 기준**」이라는 말은 걷었다(같은 날 「재고 기준이라고 하지 말고」) —
+                  그 말은 «오늘 날짜»를 가리키고 있었고, 갱신 시각과는 다른 이야기였다.
+                ⚠⚠ **값이 없으면 줄째 안 그린다.** 오늘 날짜로 대신 채우면 「방금 갱신됨」처럼
+                  읽혀, 영업자가 그걸 믿고 손님에게 말하게 된다. 없는 것은 없다고 둔다.
+              */}
+              {head.updatedMs ? (
+                <span style={{ fontSize: SHOP.fs.body, fontWeight: FW.title, color: C.ink, fontVariantNumeric: 'tabular-nums' }}>
+                  <span style={{ fontSize: SHOP.fs.cap, fontWeight: FW.meta, color: C.faint, marginRight: SHOP.sp.tight }}>update</span>
+                  {updatedLabelKo(head.updatedMs)}
+                </span>
+              ) : null}
             </div>
           ) : null}
         </div>
