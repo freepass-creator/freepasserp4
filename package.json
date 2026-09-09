@@ -30,6 +30,7 @@
     "check:finder-rows": "tsx scripts/check-finder-rows.mts",
     "check:atoms": "tsx scripts/check-atoms.mts",
     "check:publish-atom": "tsx scripts/check-publishers-read-atoms.mts",
+    "check:sales-publish-context": "tsx scripts/check-sales-publish-context.mts",
     "check:invariants": "tsx scripts/check-atom-invariants.mts",
     "check:no-client-sheet-live-status": "tsx scripts/check-no-client-sheet-live-status.mts",
     "check:no-global-settlement-badge": "tsx scripts/check-no-global-settlement-badge.mts",

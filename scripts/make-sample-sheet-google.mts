@@ -1,13 +1,12 @@
 /**
  * Firestore 원자 → «기존 판매시트와 동일한」 샘플 구글시트 (사장님 2026-09-03 「기존 시트 동일하게」).
  *   ★열은 기존 판매시트(1Y1Mx…)의 각 탭 헤더를 «런타임에 읽어» 그대로 쓴다(열 이름·순서 100% 동일).
- *   값 = Firestore 원자 + 정책(v4/policies, policy_code 조인). 구독 요금은 원자 price 의 반납/인수/km 키로.
+ *   값 = Firestore 원자(products + policy + partner). 구독 요금은 원자 price 의 반납/인수/km 키로.
  *   올릴 수 있는(listable=출고불가 아님) 것만. 집안 서식(Roboto·배차상태색). 고정 시트 제자리 갱신(링크 안 바뀜).
  * 읽기(Firestore·기존시트 헤더)전용 + 고정 샘플시트 쓰기.
  */
 import { readFileSync } from 'node:fs';
 import { initializeApp, cert } from 'firebase-admin/app';
-import { getDatabase } from 'firebase-admin/database';
 import { getFirestore } from 'firebase-admin/firestore';
 import { JWT } from 'google-auth-library';
 import { buildSalesFormatRequests, columnWidths } from '../lib/domain/sales-sheet-format';
@@ -21,8 +20,8 @@ const SRC_SHEET = '1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs';   // 기존 �
 //   본시트에 쓸 때도 4개 상품탭만 rename·clear·재작성한다(AI 인계·차종사전 등 참조탭은 안 건드린다).
 const TO_MAIN = process.argv.includes('--main');
 const SAMPLE_SHEET_ID = TO_MAIN ? SRC_SHEET : (S(process.env.SAMPLE_SHEET_ID) || '1J7dcGCTI0hiHBSdbHx0SqKJKrBg57xkgsX-I8qyfv3c');
-const sa = JSON.parse(readFileSync('tmp/firebase-auth/sa.json', 'utf8'));
-initializeApp({ credential: cert({ projectId: sa.project_id, clientEmail: sa.client_email, privateKey: sa.private_key.replace(/\\n/g, '\n') }), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' });
+const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
+initializeApp({ credential: cert({ projectId: sa.project_id, clientEmail: sa.client_email, privateKey: sa.private_key.replace(/\\n/g, '\n') }) });
 const jwt = new JWT({ email: sa.client_email, key: sa.private_key, scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive'], subject: 'pyh@teamjpk.com' });
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const api = async (url: string, init?: RequestInit): Promise<any> => {
@@ -37,8 +36,8 @@ const api = async (url: string, init?: RequestInit): Promise<any> => {
 };
 
 // ── 데이터 ──
-const db = getDatabase();
-const docs = (await getFirestore().collection('products').get()).docs.map((d) => d.data());
+const firestore = getFirestore();
+const docs = (await firestore.collection('products').get()).docs.map((d) => d.data());
 const listable = docs.filter((v) => v.listable === true);
 
 // ★전용계좌·공급사명 = 공급사(파트너) 정보(사장님 2026-09-03·09-04 「계좌·공급사명도 원자화된 거 갖고 와야지」).
@@ -66,14 +65,24 @@ const skippedNotPlate: string[] = [];
  *   ⚠ 여기서 따로 모으면 F86 과 갈린다 — 실제로 갈려서 「(공급사 없음)」 탭이 채널에 나갔다.
  */
 const rowCtx = await loadSalesRowContext({
-  api,
-  rtdb: async (path) => ((await db.ref(path).get()).val() as Record<string, any>) || {},
+  policies: (await firestore.collection('policy').get()).docs.map((d) => ({ _key: d.id, ...d.data() })),
+  partners: (await firestore.collection('partner').get()).docs.map((d) => ({ _key: d.id, ...d.data() })),
   companyAlias,
 });
 const { unnamedProviders } = rowCtx;
 const cell = makeCell(rowCtx);
 const groups: Record<string, any[]> = {};
 for (const v of listable) { const t = tabOf(v); (groups[t] = groups[t] || []).push(v); }
+
+// 운영 시트를 비우기 전에 Firestore 원자만으로 전 행을 만들 수 있는지 확정한다.
+const invalidCars = listable.filter((v) => !isPlate(S(v.car_number)));
+for (const v of listable) cell('공급사', v);
+if (invalidCars.length || unnamedProviders.size) {
+  for (const [code, count] of unnamedProviders) console.error(`  ⛔ 공급사명 없음 ${code}: ${count}대`);
+  for (const v of invalidCars.slice(0, 10)) console.error(`  ⛔ 차번 아님: ${S(v.car_number)}`);
+  console.error('  본시트를 건드리기 전에 중단한다.');
+  process.exit(1);
+}
 
 
 
