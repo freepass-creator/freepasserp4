@@ -168,8 +168,11 @@ const evEngineCc = (fuel: string, cc: string): string => (FUEL_EV.test(fuel) ? '
 
 // 상태 디테일 — 판정은 «한 곳»(lib/domain/atom-status resolveStatus)에서만. 여기선 원천 raw 를 canon 해 base 로 넘긴다.
 //   ★상태는 «한 벌»(vehicle_status 정본, 나머지 파생) — 두 값을 다르게 들면 판 차가 목록에 다시 선다. 규칙·주석 = atom-status.ts.
-function statusDetail(rawStatus: string, locked?: unknown) {
-  return resolveStatus({ base: canonSheetVehicleStatus(S(rawStatus)), raw: rawStatus, locked });
+function statusDetail(rawStatus: string, locked?: unknown, lockedBase?: unknown) {
+  // ★계약이 있으면(정산원장) base = «우리가 아는 현 상태(pin)» — 공급사 canon 이 아니다(계약이 이긴다).
+  //   그래야 계약완료(출고불가)는 숨고, 계약중은 선점으로 남는다. 계약 없으면 공급사 원천대로.
+  const base = S(locked) ? S(lockedBase) : canonSheetVehicleStatus(S(rawStatus));
+  return resolveStatus({ base, raw: rawStatus, locked });
 }
 
 // ── 원본 열 자동 해석 (MIRROR_ALIAS) ───────────────────────────────────────
@@ -464,7 +467,7 @@ function atomize(row: Row, pinned: Map<string, Record<string, unknown>>): Atom {
      *   ⇒ 원천 상태가 비었고 «이미 아는 차»면 상태 칸을 **아예 안 쓴다**(merge 가 옛 값을 지킨다).
      *   ★처음 보는 차는 그대로 「출고협의」 — 모르는 차를 출고가능으로 세우지 않는다는 뜻은 살린다.
      */
-    ...(S(row.status) || !pin ? statusDetail(row.status, pin?.locked_by_contract) : null),
+    ...(S(row.status) || !pin ? statusDetail(row.status, pin?.locked_by_contract, pin?.vehicle_status) : null),
     mileage: row.km, options: row.opt,
     ...(rawSeats(vname) ? { seats: rawSeats(vname) } : null),   // 원문에 인승 있으면만
     ...(Object.keys(row.price).length ? { price: row.price } : null),

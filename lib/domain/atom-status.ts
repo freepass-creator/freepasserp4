@@ -35,6 +35,24 @@ export type StatusBundle = {
  */
 export function resolveStatus(input: { base?: unknown; raw?: unknown; locked?: unknown }): StatusBundle {
   const raw = S(input.raw);
+
+  // ★★정산원장(계약)을 «맨 먼저 확인»한다 — 계약이 올라간 차는 계약이 이긴다(사장님 2026-09-09).
+  //   「우리쪽 정산원장(나중에 정산ERP)에 계약이 올라가면 그거를 맨 먼저 확인하는거야.」
+  //   ⇒ 계약잠금(locked)이 있으면 공급사 원천이 「출고가능」이라 해도 «못 덮는다» = 「판 차가 다시 서는」 걸 막는다.
+  //   base(=우리가 아는 현 상태)가 완료(출고불가)면 숨기고(계약완료), 아니면 선점(계약중·목록엔 보여준다 — 사장님 규칙).
+  //   ⚠ 계약이 취소되면 락은 syncVehicleLock(정산 소유)이 «푼다» — 그때 locked 가 비어 공급사 흐름으로 돌아온다.
+  if (S(input.locked)) {
+    const cur = S(input.base) === '출고불가' ? '출고불가' : '계약중';
+    return {
+      status: cur, vehicle_status: cur,
+      status_kind: cur === '출고불가' ? '불가' : '선점',
+      status_reason: cur === '출고불가' ? '계약완료' : '계약선점',
+      listable: cur !== '출고불가',   // 계약중은 보여주고, 출고불가(완료)만 내린다
+      status_label_raw: raw,
+    };
+  }
+
+  // 계약이 없는 차 — 공급사 원천대로.
   let cur = S(input.base) || '차량검수';
   // 원천이 계약중/점검을 말하면 그게 이긴다(출고불가로 접힌 것을 되살리지 않되, 계약중·검수는 살린다 — 사장님 2026-09-04).
   if (/계약중/.test(raw)) cur = '계약중';
@@ -44,7 +62,7 @@ export function resolveStatus(input: { base?: unknown; raw?: unknown; locked?: u
   else if (cur === '출고협의') { kind = '협의'; reason = '공급사협의'; }
   else if (cur === '상품화중') { kind = '준비'; reason = '상품화중'; }
   else if (cur === '차량검수') { kind = '준비'; reason = '검수대기'; }
-  else if (cur === '계약중') { kind = '선점'; reason = S(input.locked) ? '계약선점' : '공급사표기'; }
+  else if (cur === '계약중') { kind = '선점'; reason = '공급사표기'; }   // 락 없이 원천만 계약중 — 원장 확인 전
   else if (cur === '출고불가') { kind = '불가'; reason = (AVAIL_STATUSES.has(raw) || raw === '출고협의') ? '시트이탈' : (raw ? '공급사불가' : '정보없음'); }
   return { status: cur, vehicle_status: cur, status_kind: kind, status_reason: reason, listable: kind !== '불가', status_label_raw: raw };
 }
