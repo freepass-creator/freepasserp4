@@ -14,17 +14,20 @@ function localTrimsFallback(): any[] {
     for (const m of gen.models || []) {
       const mm = m.minMax || {};
       const min = mm.min ?? m.base;
+      /* ⚠ 제네시스 `min` 은 **세제혜택 «전»**(개소세 5%)이다. 「후」를 지어내지 않는다. */
       out.push({ maker: '제네시스', sub_model: String(m.model || ''), carType: String(m.model || ''), fuel: String(m.fuel || ''),
-        trim: '기본', priceBefore: Number(min || 0), priceAfter: Number(min || 0), options: [], _fallback: true });
+        trim: '기본', priceBefore: Number(min || 0), priceAfter: 0, priceBasis: '세제혜택 전', options: [], _fallback: true });
     }
   } catch { /* skip */ }
   try {
     const hk = JSON.parse(readFileSync(join(process.cwd(), 'data/new-car/hk-config.json'), 'utf8'));
     for (const m of hk.models || []) {
       for (const t of m.trimLadder || []) {
+        /* ⚠ `hk-config` 의 trimLadder 는 **세제혜택 «후»** 값만 있다(`_meta` 가 그렇게 적어 둔다).
+           그것을 `priceBefore` 에도 적으면 「전」을 지어내는 것이다 — 「모른다」로 둔다(0). */
         out.push({ maker: String(m.maker || ''), sub_model: String(m.sub_model || ''), carType: String(m.sub_model || ''),
-          fuel: String(t.fuel || ''), trim: String(t.trim || ''), priceBefore: Number(t.priceAfter || 0), priceAfter: Number(t.priceAfter || 0),
-          options: [], _fallback: true });
+          fuel: String(t.fuel || ''), trim: String(t.trim || ''), priceBefore: 0, priceAfter: Number(t.priceAfter || 0),
+          priceBasis: '세제혜택 후', options: [], _fallback: true });
       }
     }
   } catch { /* skip */ }

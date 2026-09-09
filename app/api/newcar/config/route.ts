@@ -41,8 +41,15 @@ export async function GET(request: Request): Promise<Response> {
     // 제네시스 현재가 정본 = genesis-config-fs.json (공식 PDF·new_car_trim·audit통과).
     // genesis-config.json 은 배타그룹 상세 «구조»(단 mtops 구가) — detailStructure 로만 참고.
     let genesis: any;
+    /**
+     * ⚠⚠ **폐기 파일로 «조용히» 떨어지지 않는다.** 2026-09-09 검수에서 잡혔다 —
+     *   예전 판은 정본을 못 읽으면 `genesis-config.json`(mtops 구가)을 «표시 없이» 내보냈다.
+     *   받는 쪽은 구가인지 알 길이 없고, `_meta.source` 는 오히려 그럴듯하다
+     *   (사장님이 GV80 쿠페 1억3천으로 잡으셨던 그 값이다).
+     * ⇒ 정본을 못 읽으면 **제네시스를 안 낸다**. 「모른다」가 「틀린 값」보다 낫다.
+     */
     try { genesis = load('genesis-config-fs.json'); genesis._current = true; }
-    catch { genesis = load('genesis-config.json'); }
+    catch { genesis = { models: [], _unavailable: '제네시스 정본(genesis-config-fs.json)을 못 읽었습니다' }; }
     const hk = load('hk-config.json');
     let minor: any = null;
     try { minor = load('domestic-minor.json'); } catch { /* optional */ }

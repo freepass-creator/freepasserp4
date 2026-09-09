@@ -28,6 +28,7 @@
  */
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import vm from 'node:vm';
+import { impliedByFuel, impliedByTrim, impliedOf } from '../lib/domain/estimate/implied-options';
 
 const APPLY = process.argv.includes('--apply');
 const S = (v: unknown) => String(v ?? '').trim();
@@ -67,26 +68,6 @@ export const fuelMatches = (variantName: string, fuel: string) => {
   return !xs.length || !y || xs.includes(y);
 };
 
-/**
- * «엔진 서명» — 배기량·터보·48V(슈퍼차저)·블랙. 이 넷이 같아야 «같은 엔진»이다.
- * ⚠ 배기량만 보면 G90 의 「가솔린 3.5 터보 **48V 일렉트릭 슈퍼차저** +600만」이
- *   「이미 산 엔진」으로 잘못 걸려 **진짜 옵션이 사라진다**(2026-09-09 드라이런에서 잡음).
- */
-const engineSig = (t: string) => [
-  disp(t),
-  /터보|turbo|t-gdi/i.test(t) ? 'T' : '',
-  /48V|슈퍼차저|supercharg/i.test(t) ? 'E' : '',
-  /black|블랙/i.test(t) ? 'B' : '',
-].join('|');
-
-/** 이 옵션이 «이미 산 엔진»인가 — 그러면 또 팔면 안 된다(엔진값 이중 계상). */
-export function impliedByFuel(id: string, o: Opt, fuel: string): boolean {
-  if (!disp(fuel)) return false;
-  const hay = `${id} ${S(o.name)}`;
-  if (!/엔진|engine/i.test(hay)) return false;
-  return engineSig(hay) === engineSig(fuel);
-}
-
 export type OptionPack = {
   optionsMaster: Record<string, { name: string; sub?: string; price: number; requires?: string[] }>;
   exclusiveGroups: { id: string; label: string; members: string[] }[];
@@ -108,10 +89,14 @@ export function packFor(maker: string, subModel: string, fuel: string, trim: str
         const om = v.options_master ?? {};
         if (!Object.keys(om).length) continue;
 
-        const implied: string[] = [];
+        /* ⚠ «이미 산 것»을 먼저 다 골라낸다 — 뒤에서 `requires` 를 지울 때 그 목록이 완성돼 있어야 한다.
+           앞서는 훑으면서 채우고 있어서, 뒤에 나온 implied 를 앞 옵션의 선행에서 못 지웠다. */
+        const implied = Object.entries(om)
+          .filter(([id, o]) => impliedByFuel(id, o, fuel) || impliedByTrim(id, o, trim))
+          .map(([id]) => id);
         const optionsMaster: OptionPack['optionsMaster'] = {};
         for (const [id, o] of Object.entries(om)) {
-          if (impliedByFuel(id, o, fuel)) { implied.push(id); continue; }
+          if (implied.includes(id)) continue;
           optionsMaster[id] = {
             name: S(o.name) || id,
             ...(o.sub ? { sub: S(o.sub) } : {}),

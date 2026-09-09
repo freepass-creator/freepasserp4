@@ -14,8 +14,16 @@
  * ⚠ 이 검사를 «먼저» 고쳐 통과시키는 것은 규격을 지운 것과 같다.
  */
 import { readFileSync } from 'node:fs';
+import { splitNote, readRule, rulesFrom, priceOf } from '../lib/domain/estimate/option-note';
+import { impliedOf } from '../lib/domain/estimate/implied-options';
+import { modelKey } from '../lib/domain/estimate/genesis-lineup';
+import { splitAxis } from '../lib/domain/estimate/newcar-normalize';
+import { optionList, type OptionSpec } from '../lib/domain/estimate/option-rules';
 
 const read = (f: string) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
+/** 소스에서 «주석을 걷은» 코드만 — 개발센터 SSOT 의견서 FP-SSOT-04:
+ *  검사기가 파일 전체 문자열로 판정하면 **주석에만 있어도 초록**이 된다(재현됨). */
+const code = (f: string) => read(f).replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 const fails: string[] = [];
 const must = (ok: boolean, what: string, where: string) => { if (!ok) fails.push(`${what}\n      → ${where}`); };
 
@@ -902,75 +910,195 @@ must(page.includes('ruled ? optionSum(optSpec, optIds)'),
 
 /* ══ 12. 제조사에서 «직접» 받은 옵션 — 웰릭스가 모르는 모델을 메운다 ══════════
      ★★사장님 2026-09-09 「다음 ㄱㄱㄱ」 — 웰릭스 조합지도는 25모델뿐이라
-       EV3~EV9·스타리아·아이오닉·르노가 통째로 비어 있었다. 기아는 공식 HTML 에 선택품목이 있다. */
-/* ⚠ 크롤러를 «부르지» 않는다 — 부르면 제조사에 요청이 나간다. 소스를 «읽어» 규격만 본다. */
-const kiaOptSrc = read('scripts/crawl-newcar-kia-options.mts');
+       EV3~EV9·스타리아·아이오닉·르노가 통째로 비어 있었다. 기아는 공식 HTML 에 선택품목이 있다.
 
-/* 12-1. 「블랙 루프스킨(선루프와 동시 적용 불가)」 — 괄호 뒤는 «이름»이 아니라 «규칙»이다. */
+   ★★★2026-09-09 개발센터 SSOT 의견서 **FP-SSOT-04** 와 «같은 병»이 여기 있었다 —
+     「검사기가 파일 전체의 «문자열»로 판정해, 주석만 있어도 초록으로 통과한다」.
+     이 자리의 옛 검사가 정확히 그랬다:
+       · `/동시\s\*적용\s\*불가/` — `\s\*` 는 «공백 + 리터럴 별표». **절대 안 맞는 죽은 정규식**이었고,
+         `|| src.includes('동시')` 로 통과했다. 그 낱말은 **파일 머리 주석**에 있다.
+       · `includes('※')` · `includes("+[rt]'")` — 주석·따옴표 짜임에 못을 박은 검사.
+     ⇒ **소스를 읽지 말고 «불러서» 잰다.** 파서는 순수 함수라 부를 수 있다.
+   ⚠ 크롤러 자체는 «부르지» 않는다 — 부르면 제조사에 요청이 나간다. 규격만 소스로 본다. */
+const kiaOptCode = code('scripts/crawl-newcar-kia-options.mts');
+const hdOptCode = code('scripts/crawl-newcar-hyundai-options.mts');
+
+/* 12-1. 「블랙 루프스킨(선루프와 동시 적용 불가)」 — 괄호·※·* 뒤는 «이름»이 아니라 «규칙»이다. */
 {
-  const src = kiaOptSrc;
-  must(/동시\s\*적용\s\*불가/.test(src) || src.includes('동시'),
-    '「동시 적용 불가」를 안 읽습니다 — 이름에 규칙이 섞여 들어옵니다',
-    'scripts/crawl-newcar-kia-options.mts');
-  /* ⚠ 상대를 못 찾으면 규칙을 «만들지 않는다» — 지어낸 배타는 고를 수 있는 것을 막는다. */
-  must(src.includes('if (!partner) continue;'),
-    '상대를 못 찾았는데 배타를 세웁니다 — 고를 수 있는 것을 막게 됩니다',
-    'scripts/crawl-newcar-kia-options.mts');
+  const a = splitNote('블랙 루프스킨(선루프와 동시 적용 불가)');
+  must(a.name === '블랙 루프스킨' && a.notes.length === 1,
+    `괄호 규칙을 이름에서 안 뗍니다 — 「${a.name}」`, 'lib/domain/estimate/option-note.ts splitNote');
+
+  const b = splitNote('듀얼 모터 4WD ※ 19인치 휠&타이어 적용 시 듀얼모터 4WD 선택 가능');
+  must(b.name === '듀얼 모터 4WD' && b.notes.length === 1,
+    `「※」 규칙을 이름에서 안 뗍니다 — 「${b.name}」`, 'lib/domain/estimate/option-note.ts splitNote');
+
+  /* ★규칙이 «여럿» 붙는다 — 하나만 떼면 나머지가 이름에 문장으로 남는다(운영 실측 20개). */
+  const c = splitNote('투톤 컬러 루프 *와이드 선루프 중복 선택 불가 *블랙 익스테리어 선택 불가');
+  must(c.name === '투톤 컬러 루프' && c.notes.length === 2,
+    `규칙이 둘인데 하나만 뗍니다 — 「${c.name}」 / ${c.notes.length}건`, 'lib/domain/estimate/option-note.ts splitNote');
+
+  /* ⚠ 괄호가 «규칙말»이 아니면 이름이다 — 「(9인승)」을 떼면 트림이 안 갈린다. */
+  const d = splitNote('컴포트 II (9인승)');
+  must(d.name === '컴포트 II (9인승)' && d.notes.length === 0,
+    `규칙이 아닌 괄호를 뗍니다 — 「${d.name}」`, 'lib/domain/estimate/option-note.ts splitNote');
 }
 
-/* 12-2. ★★색상은 옵션에서 뺀다 — 화면이 색상을 «따로» 더한다(colorAdd). 두 번 받으면 안 된다. */
-must(kiaOptSrc.includes('colorNames.has(N(o.name))'),
-  '유료 색상이 옵션에도 들어갑니다 — 색상값을 두 번 받습니다',
+/* 12-2. 뗀 규칙을 «읽는다» — 선행(needs)과 배제(bans). 상대가 둘이면 둘 다. */
+{
+  const ban = readRule('선루프와 동시 적용 불가');
+  must(ban.bans.includes('선루프') && ban.needs.length === 0,
+    '「동시 적용 불가」를 배제로 안 읽습니다', 'lib/domain/estimate/option-note.ts readRule');
+
+  const need = readRule('19인치 휠&타이어 적용 시 듀얼모터 4WD 선택 가능');
+  must(need.needs.includes('19인치 휠&타이어') && need.bans.length === 0,
+    '「… 적용 시 … 가능」을 선행으로 안 읽습니다', 'lib/domain/estimate/option-note.ts readRule');
+
+  /* ★상대가 쉼표로 여럿 — 하나만 읽으면 나머지 조합이 안 막힌다. */
+  const two = readRule('선루프, 파노라마 선루프와 동시 선택 불가');
+  must(two.bans.length === 2,
+    `상대가 둘인 배제를 하나만 읽습니다 — ${two.bans.length}건`, 'lib/domain/estimate/option-note.ts readRule');
+}
+
+/* 12-3. ⚠⚠ **상대를 못 찾으면 규칙을 «만들지 않는다»** — 지어낸 배타는 고를 수 있는 것을 막는다. */
+{
+  const 없음 = rulesFrom([
+    { name: '블랙 루프스킨', price: 500000, note: '선루프와 동시 적용 불가' },
+    { name: '컴포트 I', price: 900000 },
+  ]);
+  must(Object.keys(없음.excludes).length === 0,
+    '목록에 없는 상대로 배타를 «지어냅니다» — 고를 수 있는 것을 막게 됩니다',
+    'lib/domain/estimate/option-note.ts rulesFrom');
+
+  const 있음 = rulesFrom([
+    { name: '블랙 루프스킨', price: 500000, note: '선루프와 동시 적용 불가' },
+    { name: '파노라마 선루프', price: 1200000 },
+  ]);
+  must((있음.excludes['블랙 루프스킨'] ?? []).includes('파노라마 선루프')
+    && (있음.excludes['파노라마 선루프'] ?? []).includes('블랙 루프스킨'),
+    '상대가 «있는데»도 배타를 안 세웁니다 — 규칙이 한쪽만 걸립니다',
+    'lib/domain/estimate/option-note.ts rulesFrom');
+}
+
+/* 12-4. ⚠⚠ **값을 못 읽으면 «0 원»이 아니라 «안 싣는다»** — 0 은 「기본 포함」과 구별이 안 된다. */
+{
+  must(priceOf('<p class="item-price"> 1,200,000 <span>원</span></p>') === 1200000,
+    '값 앞뒤 공백·태그가 끼면 값을 못 읽습니다', 'lib/domain/estimate/option-note.ts priceOf');
+  must(priceOf('<li><span class="item-name">기본 적용</span></li>') === null,
+    '값이 없는데 «0 원»으로 싣습니다 — 유료 옵션이 공짜가 됩니다', 'lib/domain/estimate/option-note.ts priceOf');
+}
+
+/* 12-5. 두 크롤러가 «같은 자»를 쓴다 — 한쪽에만 넣어서 운영 16줄·옵션 20개에 문장이 남았다. */
+for (const [f, src] of [['kia', kiaOptCode], ['hyundai', hdOptCode]] as const) {
+  must(/from '\.\.\/lib\/domain\/estimate\/option-note'/.test(src),
+    `${f} 가 규칙 파서를 «따로» 씁니다 — 한쪽만 고치면 다른 쪽에 문장이 남습니다`,
+    `scripts/crawl-newcar-${f}-options.mts`);
+  /* ★색상은 옵션에서 뺀다 — 화면이 색상을 «따로» 더한다(colorAdd). 두 번 받으면 안 된다. */
+  must(src.includes('colorNames.has(N(o.name))'),
+    `${f} — 유료 색상이 옵션에도 들어갑니다(색상값 이중계상)`, `scripts/crawl-newcar-${f}-options.mts`);
+  /* ★이미 실린 «규칙»을 덮지 않는다 — 공식 HTML 은 배타·선행을 안 준다. 덮으면 웰릭스 규칙이 사라진다. */
+  must(src.includes('if (v.optionsMaster && Object.keys(v.optionsMaster).length)'),
+    `${f} — 이미 실린 조합 규칙을 덮어씁니다(배타·선행 소실)`, `scripts/crawl-newcar-${f}-options.mts`);
+  /* ★★「이미 산 엔진·구동」을 «다시 팔지» 않는다 — 판정은 공용 원자 하나다. */
+  must(/impliedOptions:\s*impliedOf\(/.test(src),
+    `${f} — 「이미 산 엔진·구동」을 안 가립니다(그랜저 3.5 엔진 246만·아이오닉6 HTRAC 247만 이중계상)`,
+    `scripts/crawl-newcar-${f}-options.mts`);
+}
+
+/* 12-6. 붙이는 상대는 «모델 + 연료»로 고른다 — 값만 같으면 포터2에 아반떼 옵션이 붙는다(실측). */
+must(hdOptCode.includes('sameModel') && hdOptCode.includes('sameFuel'),
+  '값만 보고 옵션을 붙입니다 — 값이 같은 다른 모델에 남의 옵션이 실립니다',
+  'scripts/crawl-newcar-hyundai-options.mts');
+must(kiaOptCode.includes('sameFuel'),
+  '기아도 연료를 안 맞댑니다 — 다연료 모델에 틀린 연료의 옵션이 붙습니다',
   'scripts/crawl-newcar-kia-options.mts');
 
-/* 12-3. ★이미 실린 «규칙»을 덮지 않는다 — 기아 공식 HTML 은 배타·선행을 안 준다.
-     덮으면 웰릭스에서 얻은 규칙이 사라져 뒷걸음질이다. */
-must(kiaOptSrc.includes('if (v.optionsMaster && Object.keys(v.optionsMaster).length)'),
-  '이미 실린 조합 규칙을 덮어씁니다 — 배타·선행이 사라집니다',
-  'scripts/crawl-newcar-kia-options.mts');
+/* ══ 13. 「이미 산 것」 · 이름 · 배치 — 조용히 «돈»과 «데이터»가 새던 자리 ═══════ */
 
-/* 12-4. 트림 꼬리 정규화를 «같이» 태운다 — 안 태우면 EV9 열 줄이 통째로 안 붙는다(실측). */
-must(kiaOptSrc.includes('withSuffix(x.trim, splitAxis(x.fuelTab'),
-  '트림 꼬리 정규화를 안 태웁니다 — EV9 처럼 탭이 구동인 모델이 안 붙습니다',
-  'scripts/crawl-newcar-kia-options.mts');
+/* 13-1. ★★엔진값 이중계상 — 그 줄의 연료·트림이 곧 엔진·구동이면 옵션으로 또 팔지 않는다. */
+{
+  const om = {
+    g35: { name: '가솔린 3.5 터보 엔진' },
+    g35e: { name: '가솔린 3.5 터보 48V 일렉트릭 슈퍼차저 엔진' },
+    awd: { name: 'AWD' },
+    htrac: { name: 'HTRAC (상시 4륜 구동)' },
+    comfort: { name: '컴포트 I' },
+  };
+  const 편줄 = impliedOf(om, '가솔린 3.5 터보', 'AWD');
+  must(편줄.includes('g35') && 편줄.includes('awd'),
+    '펴 놓은 줄에서 엔진·구동을 «또» 팝니다 — G80 3.5T AWD 에서 940만원 이중계상',
+    'lib/domain/estimate/implied-options.ts impliedOf');
+  /* ⚠ 48V 슈퍼차저는 «다른 엔진»이다 — 배기량만 보면 진짜 옵션이 사라진다(G90 600만). */
+  must(!편줄.includes('g35e'),
+    '48V 슈퍼차저를 «같은 엔진»으로 봅니다 — G90 의 진짜 옵션 600만이 사라집니다',
+    'lib/domain/estimate/implied-options.ts engineSig');
+  must(!편줄.includes('comfort'),
+    '엔진·구동이 아닌 옵션까지 «이미 샀다»고 합니다', 'lib/domain/estimate/implied-options.ts');
 
-/* ══ 13. 현대도 «공식에서 직접» — 가격표 HTML 에 선택품목이 있다 ═════════════
-     ★★사장님 2026-09-09 「추천대로 ㄱㄱ」 — 브라우저를 몰기 전에 HTML 부터 재 봤고, 거기 다 있었다. */
-const hdOptSrc = read('scripts/crawl-newcar-hyundai-options.mts');
+  /* ⚠ 「모른다」를 「이미 샀다」로 삼키지 않는다 — 연료말에 배기량이 없으면 어떤 엔진인지 모른다. */
+  must(impliedOf({ e: { name: '엔진' } }, '가솔린', '프레스티지').length === 0,
+    '어떤 엔진인지 «모르는데» 이미 샀다고 합니다 — 진짜 옵션이 사라집니다',
+    'lib/domain/estimate/implied-options.ts impliedByFuel');
+  /* ⚠ 트림이 구동이 아니면 안 걸러야 한다 — 「블랙」 트림에서 AWD 는 진짜 옵션이다. */
+  must(!impliedOf(om, '가솔린 2.5 터보', '블랙').includes('awd'),
+    '구동이 아닌 트림에서 AWD 를 «이미 샀다»고 합니다', 'lib/domain/estimate/implied-options.ts impliedByTrim');
+  /* ★현대는 구동 이름이 「HTRAC」이다 — 낱말을 모르면 247만을 또 받는다. */
+  must(impliedOf(om, '가솔린 2.5 터보', 'HTRAC').includes('htrac'),
+    'HTRAC 를 구동으로 못 읽습니다 — 아이오닉6·그랜저에서 247만 이중계상',
+    'lib/domain/estimate/implied-options.ts impliedByTrim');
+}
 
-/* 13-1. `__NUXT__` 이스케이프를 «다» 푼다 — `
-` 을 빼먹으면 트림 머리가 통째로 안 읽힌다. */
-must(hdOptSrc.includes("+[rt]'"),
-  '`\r`·`\t` 를 안 풉니다 — 트림 머리가 「\r \r Smart \r (스마트)」가 되어 이름도 값도 못 읽습니다',
-  'scripts/crawl-newcar-hyundai-options.mts unescapeNuxt');
+/* 13-2. ★★제네시스를 «엔진 × 구동»으로 펼 때 원본 줄의 판정을 복사하지 않는다.
+     `{...t}` 는 «펴기 전» 값으로 잰 impliedOptions 를 그대로 나른다. */
+must(/impliedOptions: impliedOf\(om, r\.fuel, r\.trim\)/.test(code('lib/domain/estimate/genesis-lineup.ts')),
+  '펴 놓은 제네시스 줄이 «펴기 전» 판정을 복사합니다 — 엔진·구동을 또 팝니다',
+  'lib/domain/estimate/genesis-lineup.ts expandGenesis');
 
-/* 13-2. 트림 이름을 «영문·한글 둘 다» 담는다 — 우리 마스터는 BFF 영문(「Smart」)을 쓴다. */
-must(hdOptSrc.includes('trimEn') && hdOptSrc.includes('trimKo'),
-  '트림 이름을 한 갈래만 담습니다 — 스타리아·아이오닉이 통째로 안 붙습니다',
-  'scripts/crawl-newcar-hyundai-options.mts');
+/* 13-3. ★모델 이름은 «한글이 살아 있어야» 짝이 맞는다 — 영숫자만 남기면 통째로 뭉개진다. */
+must(modelKey('일렉트리파이드 GV70') !== modelKey('GV70'),
+  '모델 열쇠가 한글을 지웁니다 — 「일렉트리파이드 GV70」 이 「GV70」 과 같은 차가 됩니다',
+  'lib/domain/estimate/genesis-lineup.ts modelKey');
 
-/* 13-3. 값은 «세제혜택 전»(개소세 5%)이다 — 피드 문서가 정한 basis. */
-must(/세제혜택\s\*전/.test(hdOptSrc) || hdOptSrc.includes('beforeTax'),
-  '세제혜택 «후» 값을 씁니다 — 현대·기아·제네시스의 basis 가 어긋납니다',
-  'scripts/crawl-newcar-hyundai-options.mts');
+/* 13-4. ★인승은 «축»이다 — 11인승을 못 읽으면 스타리아 트림이 통째로 안 붙는다. */
+must(splitAxis('11인승').trimSuffix === '11인승' && splitAxis('9인승').trimSuffix === '9인승',
+  `두 자리 인승을 못 읽습니다 — 「${splitAxis('11인승').trimSuffix}」. 스타리아 11인승 줄이 통째로 안 붙습니다`,
+  'lib/domain/estimate/newcar-normalize.ts splitAxis');
 
-/* 13-4. 규칙이 «두 모양»으로 온다 — 괄호와 ※. 둘 다 읽어야 이름에 문장이 안 남는다. */
-must(hdOptSrc.includes('※'),
-  '「※ … 선택 시 가능」 을 안 읽습니다 — 규칙이 옵션 «이름» 안에 문장으로 남습니다',
-  'scripts/crawl-newcar-hyundai-options.mts');
+/* 13-5. ★★이름을 한글로 바꿔 실을 때 «나머지 칸을 들고 간다» — 안 들면 색상·옵션이 통째로 날아간다.
+     (2026-09-09 드라이런에서 잡음 — 기아 색상·옵션 전부가 사라질 뻔했다.) */
+{
+  const bf = code('scripts/backfill-newcar-names.mts');
+  must(bf.includes('const DROP') && bf.includes('carry('),
+    '이름만 새로 쓰고 «나머지 칸»을 안 들고 갑니다 — 색상·옵션이 통째로 지워집니다',
+    'scripts/backfill-newcar-names.mts');
+}
 
-/* 13-5. 기아와 같은 두 빗장 — 색상 이중계상 금지 · 이미 실린 규칙 안 덮기. */
-must(hdOptSrc.includes('colorNames.has(N(o.name))'),
-  '유료 색상이 옵션에도 들어갑니다 — 색상값을 두 번 받습니다',
-  'scripts/crawl-newcar-hyundai-options.mts');
-must(hdOptSrc.includes('if (v.optionsMaster && Object.keys(v.optionsMaster).length)'),
-  '이미 실린 조합 규칙을 덮어씁니다',
-  'scripts/crawl-newcar-hyundai-options.mts');
+/* 13-6. ★Firestore 배치는 500 이 한계다 — 안 끊으면 «전부» 안 써진다(조용히 실패). */
+for (const f of ['scripts/backfill-newcar-names.mts', 'scripts/ingest-newcar-options.mts',
+  'scripts/crawl-newcar-kia-options.mts', 'scripts/crawl-newcar-hyundai-options.mts']) {
+  must(/\bn[0-9]? >= 400\b/.test(code(f)), '배치를 안 끕습니다 — 500줄이 넘으면 통째로 안 써집니다', f);
+}
 
-/* 13-6. 슬러그는 «짐작»이 아니라 사이트가 건 링크다 — 짐작으로는 48개 중 셋만 맞았다. */
-must(hdOptSrc.includes("'the-all-new-avante'") && hdOptSrc.includes("'the-new-staria-lounge'"),
-  '현대 슬러그 목록이 비었습니다 — 이름·이미지로 유추하면 대부분 404 입니다',
-  'scripts/crawl-newcar-hyundai-options.mts');
+/* 13-7. ★★조합지도는 «폐기된 파일»로 몰래 물러서지 않는다 — 옛 mtops 값은 구가다.
+     물러서면 화면은 멀쩡히 그려지는데 «옛 가격»을 판다(사장님 GV80 쿠페 1억3천 지적의 정체). */
+{
+  const cfgRoute = code('app/api/newcar/config/route.ts');
+  must(!/genesis-config\.json/.test(cfgRoute.replace(/genesis-config-fs\.json/g, '')),
+    '폐기된 `genesis-config.json`(구가·mtops)으로 물러섭니다 — 옛 가격을 팝니다',
+    'app/api/newcar/config/route.ts');
+}
+
+/* 13-8. ★「고를 것이 없다」와 「못 받았다」를 가른다 — 빈 배열을 «전부 열기»로 읽으면 안 된다. */
+{
+  const 빈칸: OptionSpec = { optionsMaster: { a: { name: '컴포트', price: 900000 } }, availableOptions: [] };
+  must(optionList(빈칸).length === 0,
+    '그 트림에 «없는» 옵션을 열어 줍니다 — 고를 수 없는 것을 팝니다',
+    'lib/domain/estimate/option-rules.ts optionList');
+  const 없는칸: OptionSpec = { optionsMaster: { a: { name: '컴포트', price: 900000 } } };
+  must(optionList(없는칸).length === 1,
+    '목록을 «안 받았을» 때까지 닫아 버립니다 — 못 받은 것이 없는 것이 됩니다',
+    'lib/domain/estimate/option-rules.ts optionList');
+}
 
 if (fails.length) {
   console.error(`\n✗ 견적 로직이 정본과 다릅니다 — ${fails.length}건\n`);
@@ -980,4 +1108,4 @@ if (fails.length) {
   console.error('  ⚠ 이 검사를 «먼저» 고쳐 통과시키는 것은 규격을 지운 것과 같습니다.\n');
   process.exit(1);
 }
-console.log('✓ 견적 정합 — 법정값 · 배기량 · 원가 갈래 · 손바뀜 · 위약금 · 잔가 · **화면 규격(웰릭스 테이블)**');
+console.log('✓ 견적 정합 — 법정값 · 배기량 · 원가 갈래 · 손바뀜 · 위약금 · 잔가 · 화면 규격 · **옵션 규칙(행동 검사)**');

@@ -28,6 +28,9 @@
  *        --model=grandeur,staria
  */
 import { writeFileSync, mkdirSync, readFileSync } from 'node:fs';
+import { canonFuel } from '../lib/domain/estimate/newcar-normalize';
+import { priceOf, rulesFrom, splitNote } from '../lib/domain/estimate/option-note';
+import { impliedOf } from '../lib/domain/estimate/implied-options';
 
 const APPLY = process.argv.includes('--apply');
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36';
@@ -82,48 +85,25 @@ export type TrimOpts = {
   requires: Record<string, string[]>; excludes: Record<string, string[]>;
 };
 
-/** 한 묶음 안의 항목 — 이름과 값이 같은 `<li>` 안에 있다. */
+/**
+ * 한 묶음 안의 항목 — 이름과 값이 같은 `<li>` 안에 있다.
+ * ★규칙 떼기·값 읽기는 **기아와 같은 자**(`lib/domain/estimate/option-note.ts`)를 쓴다 —
+ *   두 크롤러가 자를 달리 쓰면 한쪽만 고쳐져 갈린다(실제로 기아가 `※` 를 못 읽고 있었다).
+ * ⚠⚠ **값을 못 읽으면 그 줄을 버린다** — 0 원으로 실으면 «공짜 옵션»이 된다(코덱스 검수).
+ */
 function itemsOf(block: string): Opt[] {
   const out: Opt[] = [];
   for (const m of block.matchAll(/<li>([\s\S]*?)<\/li>/g)) {
     const li = m[1];
-    const price = Number((/<span[^>]*class="[^"]*item-price[^"]*"[^>]*>([\d,]+)</.exec(li)?.[1] ?? '').replace(/[^\d]/g, '')) || 0;
+    const won = priceOf(li);
+    if (won === null) continue;
     const raw = T(li.replace(/<span[^>]*class="[^"]*item-price[^"]*"[\s\S]*?<\/span>/g, ''));
     if (!raw) continue;
-    /**
-     * 규칙이 이름 뒤에 «두 가지 모양»으로 붙는다(2026-09-09 실측) —
-     *   괄호  「HTRAC**(가솔린 3.5 선택 시 가능)**」
-     *   ※    「20인치 알로이 휠 & 타이어 **※ 플래티넘 선택 시 가능**」
-     *          「스마트 비전 루프 **※ 파노라마 선루프 중복 선택 불가**」
-     * ⚠ ※ 를 안 읽으면 규칙이 «이름 안»에 그대로 남아 옵션 이름이 문장이 된다.
-     */
-    const mStar = /^(.*?)\s*※\s*(.+)$/.exec(raw);
-    const m2 = mStar ?? /^(.*?)\s*\(([^()]*(?:선택\s*시|불가|필수)[^()]*)\)\s*$/.exec(raw);
-    out.push(m2 ? { name: m2[1].trim(), price, note: m2[2].trim() } : { name: raw, price });
+    const { name, notes } = splitNote(raw);
+    if (!name) continue;
+    out.push({ name, price: won, ...(notes.length ? { note: notes.join(' / ') } : {}) });
   }
   return out;
-}
-
-/** 이름 안의 규칙을 읽어 선행·배제를 세운다. **상대를 찾았을 때만** 세운다. */
-function rulesOf(opts: Opt[]): { requires: Record<string, string[]>; excludes: Record<string, string[]> } {
-  const requires: Record<string, string[]> = {};
-  const excludes: Record<string, string[]> = {};
-  const find = (who: string) => opts.find((x) => N(x.name).includes(N(who)) || (N(who).length > 3 && N(who).includes(N(x.name))));
-  for (const o of opts) {
-    if (!o.note) continue;
-    const need = /^(.*?)\s*선택\s*시(?:\s*(?:만)?\s*가능)?/.exec(o.note)?.[1];
-    if (need) {
-      const p = find(need.trim());
-      if (p && p !== o) (requires[o.name] ??= []).push(p.name);
-      continue;
-    }
-    const ban = /^(.*?)\s*(?:와|과)?\s*(?:동시|중복)\s*(?:선택|적용)?\s*불가/.exec(o.note)?.[1];
-    if (ban) {
-      const p = find(ban.trim());
-      if (p && p !== o) { (excludes[o.name] ??= []).push(p.name); (excludes[p.name] ??= []).push(o.name); }
-    }
-  }
-  return { requires, excludes };
 }
 
 /** 가격표 주소가 «두 갈래»다 — `/kr/ko/vehicles/…` 와 `/kr/ko/e/vehicles/…`. 모델마다 다르다(실측). */
@@ -184,7 +164,7 @@ export async function crawlModel(slug: string): Promise<TrimOpts[]> {
         if (/Genuine Accessories/i.test(p.slice(0, 60))) accessories = accessories.concat(items);
         else options = options.concat(items);
       }
-      out.push({ slug, koModel, powertrain, trim, trimEn, trimKo, price, options, accessories, ...rulesOf(options) });
+      out.push({ slug, koModel, powertrain, trim, trimEn, trimKo, price, options, accessories, ...rulesFrom(options) });
     }
   }
   const nOpt = out.reduce((n, x) => n + x.options.length, 0);
@@ -230,11 +210,26 @@ for (const d of snap.docs) {
    */
   const near = (a: number, b: number) => a > 0 && b > 0 && Math.abs(a - b) <= 10_000;
   const sameTrim = (x: TrimOpts) => [x.trim, x.trimEn, x.trimKo].some((n) => n && N(n) === N(v.trim));
-  const pick = all.find((x) => sameTrim(x)
-      && (near(x.price, Number(v.priceBefore || 0)) || near(x.price, Number(v.priceAfter || 0))))
-    /* 값이 안 맞아도 «같은 모델의 같은 트림»이면 옵션은 같다 — 공식 가격표는 대표 트림만 싣고
-       우리 마스터는 BFF 트림이라 더 잘게 쪼개져 있어 값이 자주 어긋난다(2026-09-09 실측). */
-    ?? all.find((x) => sameTrim(x) && x.koModel && N(x.koModel) === N(v.sub_model));
+  /**
+   * ⚠⚠ **모델과 파워트레인을 반드시 본다.** 2026-09-09 검수에서 잡혔다 —
+   *   ① 예전 1차 분기는 «트림 이름 + 값 ±1만원»만 봤다. 그런데
+   *      「the-all-new-avante 모던 23,980,000」 과 「porter2 모던 23,980,000」 이 **같은 값**이다.
+   *      포터2가 마스터에 들어오는 순간 포터2에 아반떼 옵션이 실린다.
+   *   ② 폴백은 `powertrain` 을 뽑아 놓고 한 번도 안 썼다 — 「더 뉴 그랜저」는 연료가 셋인데
+   *      `find` 가 «첫 줄»을 줘서 LPi 3.5 에 가솔린 2.5 옵션이 붙을 수 있었다.
+   * ⇒ 모델(한글) 일치는 «항상» 요구하고, 연료는 읽히면 맞대고 못 읽으면 «갈리면 안 붙인다».
+   */
+  const sameModel = (x: TrimOpts) => !!x.koModel && N(x.koModel) === N(v.sub_model);
+  const sameFuel = (x: TrimOpts) => {
+    const f = canonFuel(S(x.powertrain));
+    return !f || N(f) === N(canonFuel(S(v.fuel)));
+  };
+  const byModel = all.filter(sameModel);
+  const cands = byModel.filter((x) => sameTrim(x) && sameFuel(x));
+  /* 연료로 좁혀도 둘 이상 남으면 «값»으로 가른다. 그래도 안 갈리면 안 붙인다(지어내지 않는다). */
+  const pick = cands.length === 1 ? cands[0]
+    : cands.find((x) => near(x.price, Number(v.priceBefore || 0)) || near(x.price, Number(v.priceAfter || 0)))
+    ?? null;
   if (!pick || !pick.options.length) { skipped++; continue; }
 
   const colorNames = new Set([...(v.extColors ?? []), ...(v.intColors ?? [])].map((c: { name?: string }) => N(c?.name)));
@@ -255,7 +250,10 @@ for (const d of snap.docs) {
   }
   batch.set(d.ref, {
     optionsMaster, optionExcludes, exclusiveGroups: [],
-    availableOptions: Object.keys(optionsMaster), impliedOptions: [],
+    availableOptions: Object.keys(optionsMaster),
+    /* ★「이미 산 것」은 다시 팔지 않는다 — 그랜저 「가솔린 3.5」 줄이 「3.5 엔진 +246만」을,
+       아이오닉6 AWD 줄이 「HTRAC +247만」을 또 받고 있었다(2026-09-09 검수). 판정은 공용 원자. */
+    impliedOptions: impliedOf(optionsMaster, S(v.fuel), S(v.trim)),
     accessories: pick.accessories,
     optionSource: 'hyundai.com/price · 선택품목',
     optionAt: new Date().toISOString().slice(0, 10),

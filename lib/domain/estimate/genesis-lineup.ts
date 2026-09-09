@@ -39,9 +39,18 @@ type GenModel = {
   lineups?: Record<string, Lineup>;
 };
 
+import { impliedOf } from './implied-options';
+
 const S = (v: unknown) => String(v ?? '').trim();
-/** 「G80-EV」·「GV80 Coupe」가 「G80」·「GV80」에 잘못 붙지 않게 — 글자·숫자만 남겨 «통째로» 맞춘다. */
-export const modelKey = (s: unknown) => S(s).toLowerCase().replace(/[^a-z0-9]/g, '');
+/**
+ * 모델 이름을 «통째로» 맞추기 위한 키.
+ * ⚠⚠ 예전 판은 `[^a-z0-9]` 를 다 지워 **한글이 통째로 사라졌다**(2026-09-09 검수) —
+ *   「GV80 쿠페」→`gv80`, 「일렉트리파이드 GV70」→`gv70` 이 되어 **다른 차가 같은 차**가 됐다.
+ *   그러면 `masterFuel` 이 「일렉트리파이드 GV70」의 «전기»를 가솔린 GV70 에 물려 주고,
+ *   **가솔린 차에 전기차 보조금·취득세 감면이 붙는다.**
+ * ⇒ 한글도 남긴다. 지우는 것은 «띄어쓰기·붙임표» 같은 구분자뿐이다.
+ */
+export const modelKey = (s: unknown) => S(s).toLowerCase().replace(/[\s\-_()·.]/g, '');
 
 /** 이 이름이 «엔진»인가 — 연료말 **과** 배기량이 둘 다 있어야 엔진으로 본다(오염 방어). */
 const FUEL_WORD = /가솔린|디젤|전기|하이브리드|LPG|LPi|수소/i;
@@ -135,7 +144,16 @@ export function expandGenesis<T extends { maker?: string; sub_model?: string; fu
     const rows = m ? lineupOf(m, baseFuel) : null;
     if (!rows || rows.length < 2) { out.push(baseFuel !== S(t.fuel) ? ({ ...t, fuel: baseFuel } as T) : t); continue; }
     for (const r of rows) {
-      out.push({ ...t, fuel: r.fuel, trim: r.trim, priceBefore: r.price, priceAfter: r.price, lineupSource: 'genesis-config-fs' } as T);
+      /* ⚠⚠ **펴 놓은 줄마다 「이미 산 것」을 다시 센다.** `{...t}` 는 원본 한 줄의
+         `impliedOptions` 를 그대로 복사한다 — 그건 «펴기 전» 연료·트림으로 잰 값이라,
+         G80 「3.5 터보 · AWD · 7,003만」 줄이 엔진 660만 + AWD 280만을 **또 받는다**
+         (2026-09-09 검수). 값이 엔진×구동으로 이미 오른 줄이므로 여기서 다시 잰다. */
+      const om = (t as { optionsMaster?: Record<string, { name?: string; sub?: string }> }).optionsMaster;
+      out.push({
+        ...t, fuel: r.fuel, trim: r.trim, priceBefore: r.price, priceAfter: r.price,
+        ...(om ? { impliedOptions: impliedOf(om, r.fuel, r.trim) } : {}),
+        lineupSource: 'genesis-config-fs',
+      } as T);
     }
   }
   return out;

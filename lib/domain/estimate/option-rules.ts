@@ -36,7 +36,10 @@ export const hasRules = (s: OptionSpec | null | undefined): boolean =>
 /** 화면에 세울 옵션 줄들 — 그 트림에서 «고를 수 있는» 것만, 값 큰 것 뒤로. */
 export function optionList(s: OptionSpec): { id: string; def: OptionDef }[] {
   const om = s.optionsMaster ?? {};
-  const ids = (s.availableOptions?.length ? s.availableOptions : Object.keys(om)).filter((id) => om[id]);
+  /* ⚠ `availableOptions` 가 «있는데 비어 있으면» 그 트림에서 고를 것이 «없다»는 뜻이다.
+     예전에는 빈 배열을 «못 받았다»로 읽어 옵션 «전부»를 열어 줬다 — 고를 수 없는 것을 팔게 된다
+     (2026-09-09 코덱스 검수). 필드가 아예 «없을» 때만 전부를 보여 준다. */
+  const ids = (Array.isArray(s.availableOptions) ? s.availableOptions : Object.keys(om)).filter((id) => om[id]);
   return ids.map((id) => ({ id, def: om[id] }));
 }
 
@@ -77,7 +80,10 @@ export function toggleOption(s: OptionSpec, id: string, chosen: ReadonlySet<stri
     next.add(id);
   }
   // 더 이상 성립하지 않는 것들을 떨군다.
-  for (let i = 0; i < 20; i++) {
+  /* ⚠ 사슬이 길면 스무 번으로는 못 끝난다 — 옵션 수만큼 돌면 반드시 끝난다
+     (한 바퀴에 최소 하나는 꺼지므로). 2026-09-09 코덱스가 25단계 사슬에서 다섯 개가 남는 것을 재현했다. */
+  const rounds = Object.keys(s.optionsMaster ?? {}).length + 1;
+  for (let i = 0; i < rounds; i++) {
     let dropped = false;
     for (const x of [...next]) {
       if (!isEnabled(s, x, next) || !s.optionsMaster?.[x]) { next.delete(x); dropped = true; }
