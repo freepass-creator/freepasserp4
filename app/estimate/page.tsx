@@ -376,11 +376,18 @@ function EstimatePageInner() {
     () => (picked.newTrim?.extColors ?? []).filter((c) => c?.name && c.ok !== 'N'), [picked]);
   const intColors = useMemo(
     () => (picked.newTrim?.intColors ?? []).filter((c) => c?.name && c.ok !== 'N'), [picked]);
-  /** ★값이 붙는 색은 «차량가»에 더한다 — 옵션과 같다(「클라우드 펄 +30만」). */
+  /**
+   * ★값이 붙는 색은 «차량가»에 더한다 — 옵션과 같다(「클라우드 펄 +30만」).
+   * ★★**내장도 더한다**(사장님 2026-09-09 「제조사에서 **차량 가격 산출까지** 그 로직을 동일하게」) —
+   *   제네시스 「시그니쳐 디자인 셀렉션Ⅰ +150만」처럼 **내장에도 값이 붙는다.**
+   *   2026-09-08 판은 외장만 더해서, 유료 내장을 골라도 차량가가 그대로였다.
+   */
   const colorAdd = useMemo(() => {
     if (!isNew) return 0;
-    return Math.max(0, Number(extColors.find((c) => c.name === colorExt)?.price) || 0);
-  }, [isNew, extColors, colorExt]);
+    const e = Math.max(0, Number(extColors.find((c) => c.name === colorExt)?.price) || 0);
+    const i = Math.max(0, Number(intColors.find((c) => c.name === colorInt)?.price) || 0);
+    return e + i;
+  }, [isNew, extColors, colorExt, intColors, colorInt]);
 
   /* ★신차 차량가 = «트림값 + 고른 옵션». 옵션을 밖에서 고르므로 더하는 일은 화면 몫이다. */
   const listPrice = isNew ? (picked.price ?? 0) + optSum + colorAdd : usedPrice;
@@ -538,6 +545,52 @@ function EstimatePageInner() {
           if (c.source === 'new') { setUsedMileage(0); setUsedYear(nowYear); }
         }} />
 
+        {/* ★★칸 차례는 **제조사 「내 차 만들기」와 같다** — 사장님 2026-09-09
+               「신차는 제조사에서 **차량 가격 산출까지 어떻게 하는지 그 로직을 동일하게**」 ·
+               「**세부모델 · 파워트레인 · 세부트림 · 색상 · 옵션** 순서로 기억하고 있음」.
+             ⇒ 색상이 옵션 «위»다. 2026-09-08 판은 옵션이 위였다 — 웰릭스 원본 차례를 따랐던 것인데,
+               값을 쌓는 차례(트림값 → 색상 → 옵션)는 제조사 것이 정본이다. **뒤엣것이 이긴다.** */}
+        {/* ══ 색상 — 신차는 «제조사 색», 중고는 «규격색» ═════════════════════
+               사장님 2026-09-08 「신차마스터에는 **제조사 색상 그대로** 해야지」
+                              「**중고마스터 색상과 신차마스터 색상은 각각 존재**해야 함」
+             · 신차 = 제조사가 준 이름 그대로(「어비스 블랙 펄」). **값이 붙는 색은 차량가에 더한다.**
+             · 중고 = 우리 규격색 12색(색상마스터) — 실제 차의 색을 적는 칸이라 이름이 규격이면 된다.
+             ⚠ 제조사 색은 트림의 67% 에만 있다(2026-09-08 실측). 없으면 그렇다고 «말하고» 규격색을 쓴다. ══ */}
+        <section id="sec-color">
+          <div className="step-title">색상 {isNew ? <b>{extColors.length ? '제조사 색상' : '아직 안 들어옴'}</b> : <b>규격색</b>}</div>
+          <div className="vfields">
+            <div className="cs-field">
+              <label>외장</label>
+              <div className="color-wrap">
+                {!isNew && colorExt ? <span className="color-swatch-mini" style={{ background: colorSwatch(colorExt) }} /> : null}
+                <select className="step-dd" value={colorExt} onChange={(e) => setColorExt(e.target.value)}>
+                  <option value="">외장 색상</option>
+                  {isNew && extColors.length
+                    ? extColors.map((c) => (
+                      <option key={c.name} value={c.name}>{c.name}{c.price ? ` (+${man(c.price)}원)` : ''}</option>
+                    ))
+                    : EXT_COLORS.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+            </div>
+            <div className="cs-field">
+              <label>내장</label>
+              <div className="color-wrap">
+                {!isNew && colorInt ? <span className="color-swatch-mini" style={{ background: colorSwatch(colorInt) }} /> : null}
+                <select className="step-dd" value={colorInt} onChange={(e) => setColorInt(e.target.value)}>
+                  <option value="">내장 색상</option>
+                  {isNew && intColors.length
+                    ? intColors.map((c) => <option key={c.name} value={c.name}>{c.name}{c.price ? ` (+${man(c.price)}원)` : ''}</option>)
+                    : INT_COLORS.map((c) => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+            </div>
+            {isNew && !extColors.length ? (
+              <div className="wx-warn">이 트림의 **제조사 색상**이 아직 안 들어왔습니다 — 규격색으로 적어 둡니다.</div>
+            ) : null}
+          </div>
+        </section>
+
         {/* ══ 선택 옵션 — 원본 `#sec-options`. 신차에만 선다(중고는 이미 달려 나온 차다). ══ */}
         {isNew ? (
           <section id="sec-options">
@@ -582,47 +635,6 @@ function EstimatePageInner() {
             ) : null}
           </section>
         ) : null}
-
-        {/* ══ 색상 — 신차는 «제조사 색», 중고는 «규격색» ═════════════════════
-               사장님 2026-09-08 「신차마스터에는 **제조사 색상 그대로** 해야지」
-                              「**중고마스터 색상과 신차마스터 색상은 각각 존재**해야 함」
-             · 신차 = 제조사가 준 이름 그대로(「어비스 블랙 펄」). **값이 붙는 색은 차량가에 더한다.**
-             · 중고 = 우리 규격색 12색(색상마스터) — 실제 차의 색을 적는 칸이라 이름이 규격이면 된다.
-             ⚠ 제조사 색은 트림의 67% 에만 있다(2026-09-08 실측). 없으면 그렇다고 «말하고» 규격색을 쓴다. ══ */}
-        <section id="sec-color">
-          <div className="step-title">색상 {isNew ? <b>{extColors.length ? '제조사 색상' : '아직 안 들어옴'}</b> : <b>규격색</b>}</div>
-          <div className="vfields">
-            <div className="cs-field">
-              <label>외장</label>
-              <div className="color-wrap">
-                {!isNew && colorExt ? <span className="color-swatch-mini" style={{ background: colorSwatch(colorExt) }} /> : null}
-                <select className="step-dd" value={colorExt} onChange={(e) => setColorExt(e.target.value)}>
-                  <option value="">외장 색상</option>
-                  {isNew && extColors.length
-                    ? extColors.map((c) => (
-                      <option key={c.name} value={c.name}>{c.name}{c.price ? ` (+${man(c.price)}원)` : ''}</option>
-                    ))
-                    : EXT_COLORS.map((c) => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </div>
-            </div>
-            <div className="cs-field">
-              <label>내장</label>
-              <div className="color-wrap">
-                {!isNew && colorInt ? <span className="color-swatch-mini" style={{ background: colorSwatch(colorInt) }} /> : null}
-                <select className="step-dd" value={colorInt} onChange={(e) => setColorInt(e.target.value)}>
-                  <option value="">내장 색상</option>
-                  {isNew && intColors.length
-                    ? intColors.map((c) => <option key={c.name} value={c.name}>{c.name}</option>)
-                    : INT_COLORS.map((c) => <option key={c} value={c}>{c}</option>)}
-                </select>
-              </div>
-            </div>
-            {isNew && !extColors.length ? (
-              <div className="wx-warn">이 트림의 **제조사 색상**이 아직 안 들어왔습니다 — 규격색으로 적어 둡니다.</div>
-            ) : null}
-          </div>
-        </section>
 
         <section id="sec-carinfo">
           <div className="step-title">차량 정보</div>
@@ -707,8 +719,9 @@ function EstimatePageInner() {
             {listPrice ? (
               <span className="qp-formula">
                 {isNew ? '트림' : '시세'} <b>{man(isNew ? (picked.price ?? 0) : listPrice)}</b>
-                {isNew && optSum ? <> + 옵션 <b>{man(optSum)}</b></> : null}
+                {/* 쌓는 차례는 «고르는 차례»와 같다 — 트림 → 색상 → 옵션(제조사 「내 차 만들기」). */}
                 {isNew && colorAdd ? <> + 색상 <b>{man(colorAdd)}</b></> : null}
+                {isNew && optSum ? <> + 옵션 <b>{man(optSum)}</b></> : null}
                 {disc ? <> − 할인 <b>{disc}%</b></> : null}
                 {' = 차량가 '}<b className="total">{man(price)}원</b>
               </span>

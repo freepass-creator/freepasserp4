@@ -135,14 +135,24 @@ export default function VehicleCascade({ mode, picked, onPick }: Props) {
   const usedCar: CarEntry | null = useMemo(
     () => usedSubs.find((c) => c.i === variant) ?? null, [usedSubs, variant]);
 
+  /**
+   * 신차 파워트레인 목록 — **값은 «자리 번호»로 나른다.**
+   * ⚠⚠ 트림에서 겪은 것과 «같은» 함정이다(2026-09-08 제네시스). 연료 이름을 그대로 값으로 쓰면
+   *   이름이 빈 줄에서 값이 빈 문자열이 되어 「파워트레인 선택」 안내문과 구별이 안 되고 **못 고른다.**
+   *   실제로 그랬다 — 르노 필랑트(3트림)는 연료가 빈칸이라 **한 대도 못 골랐고**,
+   *   기아 EV9 는 열 줄 중 여섯 줄의 연료가 빈칸이라 그 여섯이 통째로 안 보였다(2026-09-09 실측).
+   *   ⇒ 비었으면 「미상」이라 **적고** 고를 수 있게 둔다. 원천이 안 준 것은 「없다」가 아니라 「비었다」다.
+   */
+  const newFuels = useMemo(() => newModel?.fuels ?? [], [newModel]);
+
   const variants = useMemo(() => {
-    if (mode === 'new') return (newModel?.fuels ?? []).map((f) => ({ v: f, label: f }));
+    if (mode === 'new') return newFuels.map((f, i) => ({ v: `${i}|${f}`, label: f || '미상' }));
     return usedSubs.map((c) => ({
       v: c.i,
       label: c.sm,
       sub: [c.ys && `${c.ys}~${c.ye || '현재'}`, c.g].filter(Boolean).join(' · '),
     }));
-  }, [mode, newModel, usedSubs]);
+  }, [mode, newFuels, usedSubs]);
 
   // ── 걸음 ④ 트림 ───────────────────────────────────────────────────────────
   /**
@@ -151,10 +161,23 @@ export default function VehicleCascade({ mode, picked, onPick }: Props) {
    * ⇒ 고르면 파워트레인이 «같이» 정해진다. 값은 `pt|trim` 으로 둘을 함께 나른다.
    */
   /** 신차 — 파워트레인으로 좁힌 트림 «목록». 값(자리 번호)과 되짚기가 같은 목록을 봐야 안 어긋난다. */
-  const newTrims = useMemo(
-    () => (newModel?.trims ?? []).filter((t) => !variant || t.fuel === variant),
-    [newModel, variant],
+  const pickedFuel = useMemo(
+    () => (mode === 'new' && variant ? newFuels[Number(variant.split('|')[0])] ?? null : null),
+    [mode, variant, newFuels],
   );
+  const newTrims = useMemo(
+    () => (newModel?.trims ?? []).filter((t) => pickedFuel === null || t.fuel === pickedFuel),
+    [newModel, pickedFuel],
+  );
+
+  /**
+   * 고를 것이 하나뿐인 걸음은 «묻지 않는다» — 눌러야 다음이 열리는데 고를 것이 없으면 막힌 문이다.
+   * (르노 필랑트·현대 파비스처럼 파워트레인이 한 종류인 차 · 제조사 「내 차 만들기」도 이럴 때 안 묻는다.)
+   */
+  useEffect(() => {
+    if (mode !== 'new' || !model || variant || variants.length !== 1) return;
+    setVariant(variants[0].v);
+  }, [mode, model, variant, variants]);
 
   const trims = useMemo(() => {
     if (mode === 'new') {
@@ -162,7 +185,14 @@ export default function VehicleCascade({ mode, picked, onPick }: Props) {
       //   트림명 자리가 비어 있다 · 2026-09-08 실측 423개 중 8개). 이름을 그대로 값으로 쓰면
       //   빈 값이 되어 «고를 안내문»과 구별이 안 되고, 그래서 **제네시스는 한 대도 못 골랐다.**
       //   ⇒ 값은 «자리 번호»로 나르고, 이름이 비면 「기본」이라 적는다.
-      return newTrims.map((t, i) => ({ v: `${i}|${t.trim}`, label: t.trim || '기본' }));
+      // 값을 곁들인다 — 제조사 견적기도 트림 옆에 값을 보여 준다. 이름이 겹치는 트림
+      // (기아 EV9 「라이트 롱레인지」가 6,642만·6,990만 두 줄)을 «값으로» 가릴 수 있게 하는 몫도 한다.
+      return newTrims.map((t, i) => ({
+        v: `${i}|${t.trim}`,
+        label: t.trim || '기본',
+        sub: (Number(t.priceAfter) || Number(t.priceBefore) || 0) > 0
+          ? `${Math.round((Number(t.priceAfter) || Number(t.priceBefore)) / 10000).toLocaleString('ko-KR')}만` : undefined,
+      }));
     }
     if (!usedCar) return [];
     const out: { v: string; label: string; sub?: string }[] = [];
@@ -170,7 +200,7 @@ export default function VehicleCascade({ mode, picked, onPick }: Props) {
       for (const t of p.t) out.push({ v: `${pi}|${t}`, label: t, sub: p.pt });
     });
     return out;
-  }, [mode, newTrims, usedCar, variant]);
+  }, [mode, newTrims, usedCar]);
 
   /* ★고르는 즉시 위로 올린다 — 「확인」 단추 없음(원본과 같다). */
   useEffect(() => {

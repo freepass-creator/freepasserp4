@@ -3,6 +3,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { firebaseAdminApp } from '@/lib/server/firebase-admin';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { expandGenesis, fillBlankFuel } from '@/lib/domain/estimate/genesis-lineup';
 
 // ★폴백 — Firestore(new_car_trim)가 배포 키 문제로 빈값일 때, 로컬 조합지도 config 에서 트림을 복원한다.
 //   (사장님 「막힘없게」 — 견적기가 raw 트림을 못 받는 일이 없게. config 는 배포에 무조건 실리는 로컬파일.)
@@ -100,6 +101,17 @@ export async function GET(request: Request): Promise<Response> {
       if (maker) fb = fb.filter((t) => N(t.maker) === N(maker));
       if (fb.length) { trims = fb; fallback = true; }
     }
+    /**
+     * ★★제네시스를 «엔진 × 변형»으로 편다 — 사장님 2026-09-09 「그랜저를 고르면 그랜저 것만 나오고,
+     *   2.5 터보를 누르면 그에 따른 세부 트림이 나와야」.
+     *   현대·기아는 크롤이 처음부터 그렇게 실어 왔다(그랜저 = 연료 4 × 트림 3 = 12줄).
+     *   ⚠ **제네시스만** 모델당 한 줄로 들어와 엔진이 「가솔린」 한 덩어리였다 — 조합은 우리가
+     *     `data/new-car/genesis-config.json` 에 이미 갖고 있었는데 피드가 안 쓰고 있었다.
+     *   ⇒ 8줄 → 23줄. 값은 carnoon 현재가를 쓴다([[mtops-price-staleness]] — 현재가 정본).
+     */
+    trims = expandGenesis(trims);
+    // ⚠ 빈 연료는 «돈»이 틀어진다 — 형제 줄이 한 목소리일 때만 채운다(기아 EV9 여섯 줄).
+    trims = fillBlankFuel(trims);
     if (model) trims = trims.filter((t) => N(t.sub_model).includes(N(model)) || N(t.carType).includes(N(model)));
     trims.sort((a, b) => a.maker.localeCompare(b.maker) || a.sub_model.localeCompare(b.sub_model) || a.priceBefore - b.priceBefore);
     // ★updatedAt = 실제 수집일(문서 crawledAt 최대), 요청일 아님(Codex — 오래된 자료가 최신처럼 보이던 것)
