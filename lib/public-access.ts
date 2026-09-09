@@ -2,7 +2,7 @@
  * 손님 공개면 — Auth·RTDB 세션 게이트 우회용.
  * /shop · /q · /catalog · /sign 은 로그인 없이 매물·서명 조회 가능해야 함.
  */
-import { WHITELABELS, hasBrand, resolveWhitelabel } from '@/lib/whitelabel';
+import { WHITELABELS, homeIsShop } from '@/lib/whitelabel';
 
 export const PUBLIC_PATH_PREFIXES = ['/q/', '/sign/'] as const;
 
@@ -20,12 +20,16 @@ const PUBLIC_EXACT = [
 ] as const;
 
 /**
- * 지금 보고 있는 주소가 «채널 도메인»인가 — 브라우저에서만 답한다.
+ * 지금 보고 있는 주소의 «첫 화면»이 가게인가 — 브라우저에서만 답한다.
  * 서버에서는 각 층의 서버 껍데기가 `headers()` 로 이미 판정하므로 여기서 알 필요가 없다.
+ *
+ * ★★**미들웨어와 «같은 함수»를 본다**(`homeIsShop`). 전에는 두 곳이 각자 계산해서,
+ *   한쪽만 고치면 **서버는 가게를 그리는데 이 게이트가 로그인으로 튕기는** 반쪽 상태가 났다.
+ *   그래서 우리 도메인을 가게로 켜는 스위치(`HOME_IS_SHOP`)도 저절로 양쪽에 같이 걸린다.
  */
-function isBrandedHost(): boolean {
+function homeIsShopHere(): boolean {
   if (typeof window === 'undefined') return false;
-  try { return hasBrand(resolveWhitelabel(window.location.host)); } catch { return false; }
+  try { return homeIsShop(window.location.host); } catch { return false; }
 }
 
 export function isPublicPath(pathname: string | null | undefined): boolean {
@@ -58,7 +62,7 @@ export function isPublicPath(pathname: string | null | undefined): boolean {
    *   여기서 `/` 를 공개로 안 열면 손님이 첫 화면에서 로그인으로 튕긴다 — 그 손님은 거기서 끝이다.
    * ⚠ 우리 도메인(freepasserp.com)의 `/` 는 예전 그대로 로그인이다. 채널 호스트일 때만 연다.
    */
-  if (pathname === '/' && isBrandedHost()) return true;
+  if (pathname === '/' && homeIsShopHere()) return true;
   if (PUBLIC_EXACT.some((p) => pathname === p || pathname.startsWith(p + '/'))) return true;
   return PUBLIC_PATH_PREFIXES.some((p) => pathname === p.slice(0, -1) || pathname.startsWith(p));
 }

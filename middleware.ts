@@ -1,16 +1,20 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { WHITELABELS, hasBrand, resolveWhitelabel } from '@/lib/whitelabel';
+import { WHITELABELS, homeIsShop } from '@/lib/whitelabel';
 import { isGuestPath } from '@/lib/guest-surface';
 
 const PUBLIC_SIGN_HOST = 'sign.freepasserp.com';
 /** 손님 동 표시 — 레이아웃이 읽는다(아래 머리말). `lib/whitelabel` 와 이름을 맞춘다. */
 const GUEST_HEADER = 'x-fp-guest';
 /**
- * 채널 도메인의 첫 화면인가 — 표(`lib/whitelabel`)를 그대로 본다.
+ * 이 호스트의 첫 화면이 «가게»인가 — 판정은 표(`lib/whitelabel` `homeIsShop`)가 한다.
+ *
  * ★채널이 늘어도 이 파일은 안 고친다. 표에 줄이 하나 늘 뿐이다.
+ * ★★**우리 도메인을 가게로 바꾸는 스위치(`HOME_IS_SHOP`)도 거기 있다** — 여기가 아니다.
+ *   미들웨어와 클라이언트 공개 판정이 «같은 함수»를 봐야 반쪽 상태(서버는 가게를 그리는데
+ *   게이트가 로그인으로 튕기는 꼴)가 안 난다.
  */
 const isShopHome = (host: string, pathname: string) =>
-  pathname === '/' && hasBrand(resolveWhitelabel(host));
+  pathname === '/' && homeIsShop(host);
 const LEGACY_SIGN_ORIGIN = 'https://chakhandeal.vercel.app';
 const FREEPASS_TOKEN = /^fps_[A-Za-z0-9_-]+$/;
 const LEGACY_TOKEN = /^[A-Za-z0-9_-]{22}$/;
@@ -36,10 +40,20 @@ export function middleware(request: NextRequest) {
    * ⚠ 브라우저 주소는 `/` 그대로라 클라이언트 인증 게이트가 `/` 를 본다 —
    *   `lib/public-access` 가 채널 호스트의 `/` 를 공개로 연다. 둘이 짝이라 한쪽만 고치면 튕긴다.
    */
+  /*
+   * ⚠⚠ **손님 표시(`x-fp-guest`)를 «여기서도» 붙인다**(2026-09-09).
+   *   안 붙이면 루트 레이아웃이 호스트로만 판정한다. 채널 도메인은 그래도 맞지만,
+   *   **우리 도메인을 가게로 켜는 순간**(`HOME_IS_SHOP`) 겉은 우리 가게인데 메타·JSON-LD 는
+   *   업무동 것(「장기렌터카 영업지원 플랫폼」)이 실려 나간다 — 2026-09-06 에 `/uniauto` 에서
+   *   똑같이 샜던 그 사고다. 표시를 붙이면 레이아웃이 손님 판정(`resolveGuestWhitelabel`)을 탄다.
+   * ★채널 도메인에도 붙는다 — 거기도 손님 화면이라 붙는 편이 정확하다(지금과 결과가 같다).
+   */
   if (isShopHome(host, request.nextUrl.pathname)) {
     const target = request.nextUrl.clone();
     target.pathname = '/shop';
-    return NextResponse.rewrite(target);
+    const headers = new Headers(request.headers);
+    headers.set(GUEST_HEADER, '1');
+    return NextResponse.rewrite(target, { request: { headers } });
   }
 
   /*
