@@ -634,31 +634,45 @@ must(/intColors\.find\(\(c\) => c\.name === colorInt\)/.test(page),
 const { expandGenesis, fillBlankFuel, lineupOf, genesisConfig } =
   await import('../lib/domain/estimate/genesis-lineup');
 
-/* 8-1. G80 이 엔진 둘 × 구동 둘로 펴지는가 — 값은 carnoon 현재가. */
+/* 8-0. ★★정본만 읽는다 — `genesis-config.json`(mtops)은 **구가·폐기**다.
+     `docs/신차마스터-피드.md` 와 `app/api/newcar/config/route.ts` 둘 다 그렇게 적어 두었는데
+     2026-09-09 오전에 내가 안 읽고 그 폐기 파일을 읽었다. 사장님 「여기도 SSOT 에서 제대로 갖고와야 한다」. */
+{
+  const src = read('lib/domain/estimate/genesis-lineup.ts');
+  must(!/readFileSync\([^)]*genesis-config\.json/.test(src) && !/'data\/new-car\/genesis-config\.json'/.test(src),
+    '폐기된 `genesis-config.json`(mtops 구가)을 읽고 있습니다 — 정본은 `genesis-config-fs.json` 입니다',
+    'lib/domain/estimate/genesis-lineup.ts');
+  must(src.includes('genesis-config-fs.json'),
+    '제네시스 정본(`genesis-config-fs.json`)을 안 읽습니다',
+    'lib/domain/estimate/genesis-lineup.ts');
+}
+
+/* 8-1. G80 이 엔진 둘 × 구동 둘로 펴지는가 — 값은 «정본»(공식 PDF·코덱스 확정) 이다. */
 {
   const g80 = genesisConfig().get('g80');
-  must(!!g80, '제네시스 조합지도(genesis-config.json)에서 G80 을 못 찾습니다',
-    'data/new-car/genesis-config.json');
+  must(!!g80, '제네시스 정본(genesis-config-fs.json)에서 G80 을 못 찾습니다',
+    'data/new-car/genesis-config-fs.json');
   const rows = g80 ? lineupOf(g80, '가솔린') ?? [] : [];
   const f = (fuel: string, trim: string) => rows.find((r) => r.fuel === fuel && r.trim === trim)?.price ?? 0;
   must(rows.length === 4, `G80 라인업이 넷이 아닙니다(${rows.length}) — 엔진 2 × 구동 2`,
     'lib/domain/estimate/genesis-lineup.ts');
-  must(f('가솔린 2.5T', '2WD') === 60_700_000 && f('가솔린 3.5T', '2WD') === 67_300_000,
-    'G80 엔진별 값이 다릅니다 — 2.5T 6,070만 · 3.5T 6,730만(carnoon 현재가)',
+  must(f('가솔린 2.5T', '2WD') === 60_630_000 && f('가솔린 3.5T', '2WD') === 67_230_000,
+    'G80 엔진별 값이 정본과 다릅니다 — base 6,063만 + 3.5T 660만(공식 PDF · 코덱스 확정)',
     'lib/domain/estimate/genesis-lineup.ts');
-  /* ⚠ 「BLACK(AWD)」 밑의 「2.5T」를 그대로 쓰면 파워트레인 칸에 「가솔린 2.5T」와 「2.5T」가 두 줄로 선다. */
-  must(!rows.some((r) => r.fuel === '2.5T' || r.fuel === '3.5T'),
-    '엔진 이름이 「2.5T」처럼 짧게 남았습니다 — 같은 엔진이 파워트레인 칸에 두 줄로 섭니다',
-    'lib/domain/estimate/genesis-lineup.ts canonEngine');
+  /* ⚠ 엔진 그룹에 옵션 문구가 섞인 모델이 있다(GV70 「브레이크 및 후륜 스타일링 커버…」).
+     연료말 «과» 배기량이 둘 다 있어야 엔진으로 본다. */
+  must(!lineupOf(genesisConfig().get('gv70')!, '가솔린')!.some((r) => /브레이크|커버/.test(r.fuel)),
+    'GV70 엔진 자리에 옵션 문구가 그대로 들어옵니다 — 엔진처럼 안 생긴 선택지는 버려야 합니다',
+    'lib/domain/estimate/genesis-lineup.ts looksLikeEngine');
 }
 
-/* 8-2. GV60 은 전기다 — 신차마스터가 「가솔린」이라 싣고 있어도 조합지도의 isEV 가 이긴다.
-     ⚠ 이게 틀리면 보조금·취득세 감면·공채 면제가 하나도 안 걸린다. */
+/* 8-2. GV60 은 전기다 — 신차마스터가 「가솔린」이라 싣고 있어도 **차종마스터**가 이긴다.
+     ⚠ 이게 틀리면 보조금 600만·취득세 감면 140만·공채 면제가 하나도 안 걸린다. */
 {
   const rows = expandGenesis([{ maker: '제네시스', sub_model: 'GV60', fuel: '가솔린', priceAfter: 64_900_000 }]);
-  must(rows.length > 1 && rows.every((r) => r.fuel === '전기'),
+  must(rows.every((r) => r.fuel === '전기'),
     'GV60 이 전기로 안 잡힙니다 — 신차마스터의 「가솔린」을 그대로 믿으면 EV 혜택이 다 빠집니다',
-    'lib/domain/estimate/genesis-lineup.ts');
+    'lib/domain/estimate/genesis-lineup.ts masterFuel');
 }
 
 /* 8-3. 못 펴는 모델은 «원본 한 줄»을 그대로 둔다 — 지어내지 않는다. */

@@ -1,98 +1,104 @@
 /**
- * 제네시스 «라인업 펴기» — 모델 한 줄을 **엔진 × 변형**으로 편다.
+ * 제네시스 «라인업 펴기» — 모델 한 줄을 **엔진 × 구동**으로 편다.
  *
- * ★★사장님 2026-09-09 「신차 «내 차 만들기»를 보고 그거에 따른 하위 «배타그룹»처럼,
- *   **그랜저를 고르면 그랜저 것만** 나와야 되고, 거기에 **2.5 터보를 누르면 그에 따른 세부 트림**이
- *   나와야 이런 식으로 하면 되잖아」 · 「우리 쪽 정보가 더 좋은데 **조합도 다 만들어 놨잖아**」
+ * ★★사장님 2026-09-09 「**여기도 SSOT 에서 제대로 갖고와야 한다**」
  *
- * 맞는 말씀이다. 현대는 «이미» 그렇게 돈다 —
- *   더 뉴 그랜저 → 가솔린 2.5 / LPi 3.5 / 가솔린 3.5 / 하이브리드 1.6T → 프리미엄 / 익스클루시브 / 캘리그래피.
- * ⚠⚠ **제네시스만** 신차마스터에 «모델당 한 줄»로 들어와 있다(트림 빈칸 · 연료 「가솔린」 한 덩어리).
- *   그래서 G80 을 골라도 엔진이 하나로 뭉개져 「가솔린」만 뜨고 트림 칸은 비어 있었다.
- *   2026-09-08 에 나는 그 빈칸을 「기본」이라 «적어» 덮었다 — 데이터를 찾지 않고 화면을 덮은 것이다.
+ * ⚠⚠ 첫 판(2026-09-09 오전)은 `data/new-car/genesis-config.json`(mtops)을 읽었다. **그 파일은 폐기다** —
+ *   `docs/신차마스터-피드.md` 가 「옛 mtops(genesis-config.json)는 **구가·폐기**」라고 못 박아 두었고,
+ *   `app/api/newcar/config/route.ts` 도 「제네시스 현재가 **정본 = genesis-config-fs.json**」이라 적어 두었다.
+ *   내가 그 두 곳을 안 읽고 폐기 파일을 썼다.
+ *   ⇒ **정본 하나만 읽는다: `data/new-car/genesis-config-fs.json`**
+ *     (공식 PDF 해독 · 모델마다 코덱스 독립검증 확정 `VERDICT-codex-*`).
  *
- * ⇒ 조합은 이미 우리에게 있다: `data/new-car/genesis-config.json`
- *     `currentPricing.engines` — carnoon 현재가 · 엔진 × 구동/에디션별 «실제 가격»
- *     `exclusiveGroups[group=엔진]` — BTO 배타그룹(엔진 추가금) · 코덱스 교차검증분
- *   이 파일을 읽어 **엔진 = 파워트레인 · 구동/에디션 = 트림**으로 편다.
+ * ★왜 펴야 하나 — 신차마스터(`new_car_trim`)에 제네시스는 «모델당 한 줄»로 들어와 있다(트림 빈칸 ·
+ *   연료 「가솔린」 한 덩어리). 그래서 G80 을 골라도 엔진이 하나로 뭉개졌다.
+ *   현대·기아는 크롤이 처음부터 연료×트림으로 실어서 멀쩡했다 — 헤맨 곳은 제네시스 하나였다.
  *
- * ⚠ **엔진 배타그룹 «말고»는 안 쓴다.** 같은 파일의 「휠 & 타이어」·「내장 디자인」 배타그룹은
- *   PDF 좌표 파싱이 이름을 잘라 먹어 「인」·「드 디자인」·「(기본)」 처럼 깨져 있고,
- *   G80 그룹에 G70 엔진(「가솔린 3.3 터보」)이 섞여 들어와 있다(2026-09-09 실측).
- *   깨진 이름을 옵션으로 내보내면 **견적 금액이 틀린다.** 엔진만 쓴다 — 엔진은 두 소스가 서로 맞는다
- *   (BTO 배타그룹 6,070+660=6,730만 ↔ carnoon 3.5T 6,730만).
+ * ★무엇을 무엇에 대응시키나
+ *     파워트레인 = 배타그룹 「엔진」   ·   트림 = 배타그룹 「구동(타입)」
+ *   값 = `base` + 엔진 add + 구동 add. 라인업(표준·블랙)이 따로 있으면 그 안의 base·그룹을 쓴다(GV80).
+ *
+ * ⚠ **엔진처럼 안 생긴 선택지는 버린다.** 정본도 PDF 좌표 파싱이라 「엔진」 그룹에 옵션 문구가 섞인
+ *   모델이 있다 — GV70 은 「브레이크 및 후륜 스타일링 커버 기본 적용 +550만」이 엔진 자리에 들어와 있고
+ *   (2026-09-09 실측), G70 은 「스포츠」 그룹 안에 엔진이 섞여 있다.
+ *   ⇒ 그런 모델은 **엔진을 안 편다**(구동만 편다). 지어내는 것보다 «못 편다»가 낫다.
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 export type LineupRow = { fuel: string; trim: string; price: number };
 
+type Choice = { label?: string; name?: string; add?: number; addWon?: number; default?: boolean };
+type Group = { group?: string; choices?: Choice[]; options?: Choice[] };
+type Lineup = { base?: number; exclusiveGroups?: Group[] };
 type GenModel = {
   model?: string;
-  isEV?: boolean;
-  basePrice?: number;
-  exclusiveGroups?: { group?: string; choices?: { label?: string; addWon?: number }[] }[];
-  currentPricing?: { engines?: Record<string, number | Record<string, number>> };
+  base?: number;
+  exclusiveGroups?: Group[];
+  lineups?: Record<string, Lineup>;
 };
 
 const S = (v: unknown) => String(v ?? '').trim();
-/** 가격표 키가 그대로 트림 이름이 된다 — 꼬리에 붙은 콜론·따옴표를 떼어 낸다(「스탠다드 2WD 19":」). */
-const label = (v: unknown) => S(v).replace(/[:\s"']+$/, '').trim();
 /** 「G80-EV」·「GV80 Coupe」가 「G80」·「GV80」에 잘못 붙지 않게 — 글자·숫자만 남겨 «통째로» 맞춘다. */
 export const modelKey = (s: unknown) => S(s).toLowerCase().replace(/[^a-z0-9]/g, '');
 
-/** 이 이름이 «엔진»인가 — 연료말이 있거나 배기량(2.5·3.5)이 박혀 있으면 엔진이다. */
-const ENGINE_WORD = /가솔린|디젤|전기|하이브리드|모터|LPG|LPi|수소/i;
+/** 이 이름이 «엔진»인가 — 연료말 **과** 배기량이 둘 다 있어야 엔진으로 본다(오염 방어). */
+const FUEL_WORD = /가솔린|디젤|전기|하이브리드|LPG|LPi|수소/i;
 const DISPLACEMENT = /(?:^|[^0-9.])[1-6]\.[0-9]/;
-export const looksLikeEngine = (s: string) => ENGINE_WORD.test(s) || DISPLACEMENT.test(s);
+export const looksLikeEngine = (s: string) => FUEL_WORD.test(s) && DISPLACEMENT.test(s);
 
-/**
- * 「2.5T」처럼 «짧게» 적힌 엔진을 그 모델의 «온전한» 엔진 이름에 붙인다.
- * ⚠ 안 붙이면 파워트레인 칸에 「가솔린 2.5T」와 「2.5T」가 **두 줄로** 선다 — 같은 엔진인데.
- *   G80 의 「BLACK(AWD)」 아래 값이 `{2.5T, 3.5T}` 로 오기 때문에 실제로 그렇게 됐다.
- */
-function canonEngine(label: string, engines: string[]): string {
-  const disp = /([1-6]\.[0-9])/.exec(label)?.[1];
-  if (disp) { const hit = engines.find((e) => e.includes(disp)); if (hit) return hit; }
-  // 「LWB 48V(AWD)」·「48V LWB BLACK(AWD)」은 48V 엔진의 변형이다 — 배기량이 안 적혀 있어 토큰으로 잡는다.
-  if (/48V/i.test(label)) { const hit = engines.find((e) => /48V/i.test(e)); if (hit) return hit; }
-  return '';
+const label = (c: Choice) => S(c.label ?? c.name);
+const addWon = (c: Choice) => Number(c.add ?? c.addWon ?? 0) || 0;
+const choicesOf = (g?: Group) => (g?.choices ?? g?.options ?? []).filter((c) => label(c));
+const findGroup = (gs: Group[] | undefined, re: RegExp) => (gs ?? []).find((g) => re.test(S(g.group)));
+
+/** 한 라인업(또는 모델 본체)을 엔진 × 구동으로 편다. */
+function rowsOf(base: number, groups: Group[] | undefined, trimPrefix: string, rowFuel: string): LineupRow[] {
+  if (!(base > 0)) return [];
+  const engines = choicesOf(findGroup(groups, /엔진|모터/)).filter((c) => looksLikeEngine(label(c)));
+  const drives = choicesOf(findGroup(groups, /구동/));
+  const eList: Choice[] = engines.length ? engines : [{ label: rowFuel, add: 0 }];
+  const dList: Choice[] = drives.length ? drives : [{ label: '', add: 0 }];
+  const out: LineupRow[] = [];
+  for (const e of eList) {
+    for (const d of dList) {
+      const trim = [trimPrefix, label(d)].filter(Boolean).join(' · ');
+      out.push({ fuel: label(e) || rowFuel, trim: trim || '기본', price: base + addWon(e) + addWon(d) });
+    }
+  }
+  return out;
 }
 
-/** 한 모델을 엔진 × 변형으로 편다. 못 펴면 `null`(원본 한 줄을 그대로 둔다). */
+/** 한 모델을 편다. 못 펴면 `null`(원본 한 줄을 그대로 둔다). */
 export function lineupOf(m: GenModel, rowFuel: string): LineupRow[] | null {
-  const evFuel = m.isEV ? '전기' : '';
-  const engines = m.currentPricing?.engines;
-  if (engines && Object.keys(engines).length) {
-    const engineKeys = Object.keys(engines).filter(looksLikeEngine);
-    // 엔진 이름이 하나도 없으면(GV60 처럼 「스탠다드 2WD 19"」 뿐) 연료는 그 차의 연료를 그대로 쓴다.
-    const base = evFuel || engineKeys[0] || rowFuel;
-    const out: LineupRow[] = [];
-    for (const [k, v] of Object.entries(engines)) {
-      const kEngine = looksLikeEngine(k);
-      if (typeof v === 'number') {
-        // 값이 숫자 하나 = 변형이 없는 줄. 이름이 엔진이면 엔진, 아니면 «에디션»으로 본다.
-        if (kEngine) out.push({ fuel: evFuel || k, trim: '기본', price: v });
-        else out.push({ fuel: evFuel || canonEngine(k, engineKeys) || base, trim: label(k), price: v });
-        continue;
-      }
-      for (const [sk, sv] of Object.entries(v as Record<string, number>)) {
-        if (kEngine) out.push({ fuel: evFuel || k, trim: label(sk), price: sv });
-        else if (looksLikeEngine(sk)) out.push({ fuel: evFuel || canonEngine(sk, engineKeys) || sk, trim: label(k), price: sv });
-        else out.push({ fuel: evFuel || base, trim: label(`${k} ${sk}`), price: sv });
-      }
-    }
-    return out.filter((r) => r.price > 0);
+  const out: LineupRow[] = [];
+  // 라인업(표준·블랙 …)이 따로 있으면 그 이름이 트림 앞자리가 된다 — GV80 이 그렇다.
+  for (const [name, l] of Object.entries(m.lineups ?? {})) {
+    out.push(...rowsOf(Number(l.base) || 0, l.exclusiveGroups, name === '표준' ? '' : name, rowFuel));
   }
-  // carnoon 현재가가 없는 모델(GV80·GV80 쿠페)은 BTO 엔진 배타그룹 + 기본가로 편다.
-  const eg = (m.exclusiveGroups ?? []).find((x) => /엔진/.test(S(x.group)));
-  const base = Number(m.basePrice) || 0;
-  if (eg?.choices?.length && base > 0) {
-    return eg.choices
-      .map((c) => ({ fuel: evFuel || S(c.label), trim: '기본', price: base + (Number(c.addWon) || 0) }))
-      .filter((r) => r.fuel && r.price > 0);
+  if (!out.length) out.push(...rowsOf(Number(m.base) || 0, m.exclusiveGroups, '', rowFuel));
+  return out.length >= 2 ? out : null;
+}
+
+/**
+ * 연료는 «차종마스터»가 정본이다 — `docs/신차마스터-피드.md` 「차종마스터 = 두 견적기 공통 «차량 식별» 소스」.
+ * ⚠ 신차마스터가 **GV60 을 「가솔린」이라 싣고 있다**(2026-09-09 실측). 그대로 두면 전기차 보조금 600만 ·
+ *   취득세 감면 140만 · 공채 면제가 **하나도 안 걸린다.** 차종마스터는 「전기 / 전기 AWD」로 맞게 안다.
+ * ★지어내지 않는다 — 그 모델의 «모든» variant 가 한 연료로 일치할 때만 따른다.
+ */
+let fuelCache: Map<string, string> | null = null;
+export function masterFuel(maker: string, subModel: string, cwd = process.cwd()): string {
+  if (!fuelCache) {
+    fuelCache = new Map();
+    try {
+      const j = JSON.parse(readFileSync(join(cwd, 'public/data/vehicle-master.json'), 'utf8'));
+      for (const e of j.entries ?? []) {
+        const fs2 = new Set((e.variants ?? []).map((v: { fuel?: string }) => S(v.fuel)).filter(Boolean));
+        if (fs2.size === 1) fuelCache.set(`${S(e.maker)}|${modelKey(e.sub_model)}`, [...fs2][0] as string);
+      }
+    } catch { /* 없으면 안 바로잡는다 */ }
   }
-  return null;
+  return fuelCache.get(`${S(maker)}|${modelKey(subModel)}`) ?? '';
 }
 
 let cache: Map<string, GenModel> | null = null;
@@ -100,7 +106,8 @@ export function genesisConfig(cwd = process.cwd()): Map<string, GenModel> {
   if (cache) return cache;
   const out = new Map<string, GenModel>();
   try {
-    const j = JSON.parse(readFileSync(join(cwd, 'data/new-car/genesis-config.json'), 'utf8'));
+    // ★정본 하나만 읽는다. `genesis-config.json`(mtops)은 구가라 폐기다 — 되살리지 말 것.
+    const j = JSON.parse(readFileSync(join(cwd, 'data/new-car/genesis-config-fs.json'), 'utf8'));
     for (const m of j.models ?? []) out.set(modelKey(m.model), m);
   } catch { /* 파일이 없으면 안 편다 — 원본 그대로 나간다 */ }
   cache = out;
@@ -108,8 +115,8 @@ export function genesisConfig(cwd = process.cwd()): Map<string, GenModel> {
 }
 
 /**
- * 신차마스터 줄들 중 «제네시스»를 엔진 × 변형으로 편다. 나머지 제조사는 손대지 않는다.
- * ⚠ 못 펴는 모델(G80-EV·GV70-EV — 전기 단일이라 조합이 없다)은 **원본 한 줄을 그대로** 둔다.
+ * 신차마스터 줄들 중 «제네시스»를 엔진 × 구동으로 편다. 나머지 제조사는 손대지 않는다.
+ * ⚠ 못 펴는 모델(G70·전기 단일 등)은 **원본 한 줄을 그대로** 둔다.
  */
 export function expandGenesis<T extends { maker?: string; sub_model?: string; fuel?: string; priceBefore?: number; priceAfter?: number }>(
   trims: T[], cwd = process.cwd(),
@@ -120,10 +127,12 @@ export function expandGenesis<T extends { maker?: string; sub_model?: string; fu
   for (const t of trims) {
     if (S(t.maker) !== '제네시스') { out.push(t); continue; }
     const m = cfg.get(modelKey(t.sub_model));
-    const rows = m ? lineupOf(m, S(t.fuel)) : null;
-    if (!rows || rows.length < 2) { out.push(t); continue; }
+    // 연료는 차종마스터가 이긴다 — 신차마스터가 GV60 을 「가솔린」이라 싣는다(위 주석).
+    const baseFuel = masterFuel(S(t.maker), S(t.sub_model), cwd) || S(t.fuel);
+    const rows = m ? lineupOf(m, baseFuel) : null;
+    if (!rows || rows.length < 2) { out.push(baseFuel !== S(t.fuel) ? ({ ...t, fuel: baseFuel } as T) : t); continue; }
     for (const r of rows) {
-      out.push({ ...t, fuel: r.fuel, trim: r.trim, priceBefore: r.price, priceAfter: r.price, lineupSource: 'genesis-config' } as T);
+      out.push({ ...t, fuel: r.fuel, trim: r.trim, priceBefore: r.price, priceAfter: r.price, lineupSource: 'genesis-config-fs' } as T);
     }
   }
   return out;
@@ -135,7 +144,6 @@ export function expandGenesis<T extends { maker?: string; sub_model?: string; fu
  * ⚠⚠ 이건 «보기»가 아니라 **돈** 문제다. 연료가 비면 `engineFuel('')` 이 «가솔린»으로 떨어져
  *   전기차 보조금(600만) · 취득세 감면(140만) · 공채 면제가 **하나도 안 걸리고**,
  *   자동차세도 배기량이 없어 0 이 된다. 기아 EV9 열 줄 중 «여섯 줄»이 연료가 비어 있다(2026-09-09 실측).
- *   그 여섯 줄은 여태 화면에서 안 보여 아무도 안 밟았는데, 이제 고를 수 있게 되어 밟힌다.
  *
  * ★지어내지 않는다 — **그 모델의 다른 줄이 이미 말하고 있을 때만** 채운다.
  *   EV9 는 나머지 네 줄이 전부 「EV」라 빈칸도 EV 다. 르노 필랑트는 세 줄이 다 비어 있어 **안 채운다**
