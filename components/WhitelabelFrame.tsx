@@ -550,7 +550,9 @@ function WhitelabelNotice({ wl, mobile }: { wl: Whitelabel; mobile: boolean }) {
       {/* ⚠ 폰 여백을 한 단 줄였다(사장님 2026-09-05 「간격이 너무 막 멀게 떨어져 있거나」) —
            이 블록이 폰 첫 화면에서 상품 앞에 서는 마지막 덩어리라, 여기서 번 세로가 곧 카드다. */}
       <div style={{ maxWidth: 1280, margin: '0 auto', padding: mobile ? '12px 16px 12px' : '24px 24px 24px', position: 'relative' }}>
-        <div style={{ fontSize: SHOP.fs.h1, fontWeight: FW.head, letterSpacing: '-0.04em', lineHeight: 1.3, color: C.ink, paddingRight: mobile ? 34 : 44 }}>
+        <div style={{ fontSize: SHOP.fs.h1, fontWeight: FW.head, letterSpacing: '-0.04em', lineHeight: 1.3, color: C.ink,
+          /* ⚠ 닫는 단추가 «글자 + ✕» 로 넓어졌다 — 제목이 그 밑으로 들어가지 않게 자리를 준다. */
+          paddingRight: mobile ? 120 : 140 }}>
           {notice.title}
         </div>
         <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginTop: 8 }}>
@@ -561,18 +563,34 @@ function WhitelabelNotice({ wl, mobile }: { wl: Whitelabel; mobile: boolean }) {
             </a>
           ) : null}
         </div>
+        {/*
+          ★★**«오늘 하루 안 보기»를 글자로 보여준다**(사장님 2026-09-09 「배너 x 표시에
+            **오늘 하루 안 보기 살짝 보이게** 해줘야지」).
+          ⚠ 동작은 진작 그랬는데 **읽어 주는 이름(aria)에만** 적혀 있었다. 눈으로 보는 손님에게는
+            그냥 「닫기」라, 누르면 오늘 안 뜬다는 걸 알 길이 없었다 — 안 보이는 약속은 없는 약속이다.
+          ★말은 «살짝» — `faint` 한 톤에 잔글씨(`fs.cap`)다. 이 자리의 주인공은 안내문이지
+            닫는 단추가 아니다.
+          ★글자와 ✕ 를 **한 단추**로 묶는다. 둘로 나누면 「글자는 오늘 하루, ✕ 는 지금만」처럼
+            읽혀 손님이 무엇을 누른 건지 모른다.
+          ★누름 높이는 그대로다(폰 44 · 웹 32) — 보이는 것만 늘리고 손가락 규격은 안 줄인다.
+        */}
         <button
           type="button"
           onClick={close}
-          aria-label="안내 닫기 — 오늘 하루 안 보기"
+          aria-label="오늘 하루 안 보기"
           style={{
             position: 'absolute', right: mobile ? 10 : 18, top: mobile ? 12 : 22,
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end',
+            gap: SHOP.sp.tight,
             /* ★폰 44 — 손가락 규격(HIG 44 · 머티리얼 48). 32 는 그 밑이라 X 를 몇 번 헛누른다. */
-            width: mobile ? 44 : 32, height: mobile ? 44 : 32, padding: 0, borderRadius: R_CARD,
+            height: mobile ? 44 : 32, padding: `0 ${SHOP.sp.tight}px`, borderRadius: R_CARD,
             border: 'none', background: 'transparent', color: C.mute, cursor: 'pointer',
+            fontFamily: 'inherit',
           }}
         >
+          <span style={{ fontSize: SHOP.fs.cap, color: C.faint, whiteSpace: 'nowrap' }}>
+            오늘 하루 안 보기
+          </span>
           <X size={ICON.md} aria-hidden />
         </button>
       </div>
