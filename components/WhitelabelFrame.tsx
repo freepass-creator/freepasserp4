@@ -8,7 +8,7 @@ import { ChannelSign, ChannelWordmark, CoBrandFreepass } from '@/components/bran
 import { CORP } from '@/lib/domain/corporate-ci';
 import { useSession } from '@/lib/auth-context';
 import { useIsMobile } from '@/lib/use-mobile';
-import { nowLabelKo, todayLabelKo, updatedLabelKo, useNowKst, useShopHeadStatus } from '@/lib/shop/head-status';
+import { nowLabelKo, todayLabelKo, useNowKst, useShopHeadStatus } from '@/lib/shop/head-status';
 import { hasBrand, hasShopFrame, whitelabelVars, type Whitelabel } from '@/lib/whitelabel';
 
 /**
@@ -332,26 +332,6 @@ export function WhitelabelFrame({
                 {now ? nowLabelKo(now) : todayLabelKo()}
                 {head.weather ? ` · ${head.weather.text} ${head.weather.temp}°` : ''}
               </span>
-              {/*
-                ★★**아랫줄 = «언제 갱신됐나» — «보조»다**(사장님 2026-09-09 「업데이트된 날짜
-                  시간은 **보조로 살짝** 해주면 되고」).
-                  ⚠ 처음엔 이 줄을 굵게(주) 세우고 오늘 날짜를 잔글씨로 뒀다. 위계가 거꾸로였다 —
-                    이 자리의 주인공은 «지금»이고, 갱신 시각은 그 «근거»다.
-                  영업자가 손님에게 「지금 출고 가능합니다」라고 말할 때 그 정보가 언제 것인지는
-                  필요하지만, 화면에서 제일 먼저 읽힐 값은 아니다.
-                ⚠ 「**재고 기준**」이라는 말은 걷었다(같은 날 「재고 기준이라고 하지 말고」) —
-                  그 말은 «오늘 날짜»를 가리키고 있었고, 갱신 시각과는 다른 이야기였다.
-                ⚠⚠ **값이 없으면 줄째 안 그린다.** 오늘 날짜로 대신 채우면 「방금 갱신됨」처럼
-                  읽혀, 영업자가 그걸 믿고 손님에게 말하게 된다. 없는 것은 없다고 둔다.
-              */}
-              {head.updatedMs ? (
-                <span style={{
-                  fontSize: SHOP.fs.cap, fontWeight: FW.meta, color: C.faint,
-                  whiteSpace: 'nowrap', fontVariantNumeric: 'tabular-nums',
-                }}>
-                  update {updatedLabelKo(head.updatedMs)}
-                </span>
-              ) : null}
             </div>
           ) : null}
         </div>
