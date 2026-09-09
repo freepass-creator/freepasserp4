@@ -51,8 +51,22 @@ const MONTH = (process.argv.find((a) => /^\d{4}-\d{2}$/.test(a)) || '').trim();
 if (!MONTH) { console.log('\n  달을 적어 주세요 — npx tsx scripts/publish-invoice-workbook.mts 2026-08 [--apply]\n'); process.exit(1); }
 /** ★탭 이름 규격 — 「26년09월 아이카」. 달이 앞이라야 달로 묶여 정렬된다(정산 탭과 같은 결). */
 const MON = `${MONTH.slice(2, 4)}년${MONTH.slice(5)}월`;
-const tabOf = (sup: string) => `${MON} ${sup}`;
-const BOOK = '[F06 사용중] 프리패스 계산서 발행';
+/**
+ * ★★**한 달에 책 한 권 — 탭은 «거래처 이름»만.**
+ *   사장님 2026-09-09 「이게 그냥 월별 계산서니까 그냥 **시트명을 8월로 하고 탭에는 월 빼자**」
+ *   달이 책 이름에 있으니 탭에 또 적을 까닭이 없다. 탭이 「아이카」면 그게 그 달 아이카다.
+ */
+const tabOf = (sup: string) => sup;
+/**
+ * ★★**F 코드가 아니라 «T» 다** — 사장님 2026-09-09
+ *   「이거는 시트명 **F06 말고 완전 번외로 T 로 하든지 tax 의 약자로**」
+ *   F 코드는 «일하는 표»(상품리스트·정산원장·재고)의 번호다. 세금계산서는 그 줄에 안 선다 —
+ *   달마다 새로 나고, 세무·회계 쪽 물건이라 번외로 둔다.
+ */
+const BOOK = `[T 사용중] 프리패스 세금계산서 ${MON}`;
+/** ⚠ 옛 이름 둘 — ① 한 권에 모든 달 ② 달은 갈랐지만 아직 F06. 만나면 «이름만» 고쳐 이어 쓴다. */
+const BOOK_WAS = ['[F06 사용중] 프리패스 계산서 발행', `[F06 사용중] 프리패스 계산서 발행 ${MON}`];
+const TAB_WAS = (sup: string) => `${MON} ${sup}`;
 const SUMMARY = '발행 요약';
 
 /** 요약 탭 칸 — 「야 이 금액으로 발행해」에 바로 쓰는 표. */
@@ -183,7 +197,7 @@ const TOT = jobs.reduce((a, j) => ({ n: a.n + j.lines.length, net: a.net + j.net
 console.log(`\n   ${pad('합계', 11)} ${String(TOT.n).padStart(2)}건  공급가액 ${won(TOT.net).padStart(12)} · 부가세 ${won(TOT.vat).padStart(10)} · 합계 ${won(TOT.net + TOT.vat).padStart(12)}`);
 
 /* ── ② 공급사 시트 합계와 맞대 본다 — 갈리면 멈춘다 ────────────────── */
-const files = ((await call(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent("mimeType='application/vnd.google-apps.spreadsheet' and trashed=false and (name contains '프리패스 재고' or name contains '프리패스 계산서')")}&fields=files(id,name)&pageSize=200&supportsAllDrives=true&includeItemsFromAllDrives=true`)) as { files?: { id: string; name: string }[] } | null)?.files || [];
+const files = ((await call(`https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent("mimeType='application/vnd.google-apps.spreadsheet' and trashed=false and (name contains '프리패스 재고' or name contains '프리패스 계산서' or name contains '프리패스 세금계산서')")}&fields=files(id,name)&pageSize=200&supportsAllDrives=true&includeItemsFromAllDrives=true`)) as { files?: { id: string; name: string }[] } | null)?.files || [];
 /**
  * ★**시트 찾기는 발행기와 «같은» 방식이다** — 이름 부분일치로는 못 찾는다.
  *   실측 2026-09-09 — 「스타스카이」의 시트 이름은 「스타 프리패스 재고」였고,
@@ -278,6 +292,24 @@ if (!APPLY) { console.log('\n※ dry-run — 아무것도 안 만들었습니다
 
 /* ── ③ 책을 찾거나 만든다 ─────────────────────────────────────────── */
 let bookId = files.find((f) => f.name === BOOK)?.id;
+/**
+ * ★옛 이름의 책을 만나면 **이름만 바꿔 이어 쓴다** — 새로 만들면 URL 도, 직원이 켜 둔 「발행」도 잃는다.
+ *   단 그 책이 «이 달 것»일 때만이다. 다른 달 탭이 섞여 있으면 손대지 않는다.
+ */
+if (!bookId) {
+  const was = files.find((f) => BOOK_WAS.includes(f.name));
+  if (was) {
+    const m = await call(`https://sheets.googleapis.com/v4/spreadsheets/${was.id}?fields=sheets.properties(title)`) as { sheets?: { properties: { title: string } }[] } | null;
+    const tabs = (m?.sheets || []).map((x) => x.properties.title).filter((t) => t !== SUMMARY);
+    const mine = tabs.every((t) => t.startsWith(`${MON} `) || !/^\d{2}년\d{2}월 /.test(t));
+    if (mine) {
+      await call(`https://www.googleapis.com/drive/v3/files/${was.id}?supportsAllDrives=true`, 'PATCH', { name: BOOK });
+      bookId = was.id;
+      console.log(`
+   ~ 옛 책 「${was.name}」 을 「${BOOK}」 으로 고쳐 이어 씁니다`);
+    }
+  }
+}
 if (!bookId) {
   const made = await call('https://sheets.googleapis.com/v4/spreadsheets', 'POST', { properties: { title: BOOK } }) as { spreadsheetId?: string } | null;
   bookId = made?.spreadsheetId;
@@ -296,6 +328,13 @@ const A1 = (n: number) => { let s = ''; for (let x = n; x > 0; x = Math.floor((x
 
 /** 탭을 찾거나 만든다. */
 const tabId = async (title: string, cols: number, rowsNeed: number): Promise<number | undefined> => {
+  /** ★옛 이름(「26년08월 아이카」)의 탭이 있으면 이름만 바꾼다 — 지우고 다시 만들면 서식·메모가 날아간다. */
+  const was = all.find((s) => s.title === TAB_WAS(title));
+  if (was && !all.some((s) => s.title === title)) {
+    await call(`https://sheets.googleapis.com/v4/spreadsheets/${bookId}:batchUpdate`, 'POST', { requests: [
+      { updateSheetProperties: { properties: { sheetId: was.sheetId, title }, fields: 'title' } } ] });
+    was.title = title;
+  }
   const found = all.find((s) => s.title === title);
   if (found) {
     await call(`https://sheets.googleapis.com/v4/spreadsheets/${bookId}:batchUpdate`, 'POST', { requests: [
@@ -443,9 +482,10 @@ console.log(`   o ${pad('발행 요약', 11)} ${jobs.length}곳 · ${won(TOT.net
   const m = await call(`https://sheets.googleapis.com/v4/spreadsheets/${bookId}?fields=sheets.properties(sheetId,title,index)`) as {
     sheets?: { properties: { sheetId: number; title: string; index: number } }[] } | null;
   const t = (m?.sheets || []).map((s) => s.properties);
-  const mons = t.filter((s) => /^\d{2}년\d{2}월 /.test(s.title))
-    .sort((a, b) => b.title.slice(0, 7).localeCompare(a.title.slice(0, 7)) || a.title.localeCompare(b.title));
-  const want = [...t.filter((s) => s.title === SUMMARY), ...mons, ...t.filter((s) => s.title !== SUMMARY && !/^\d{2}년\d{2}월 /.test(s.title))];
+  /** 요약이 맨 앞, 그 뒤는 거래처 «이름순». 달은 책 이름에 있으니 탭 차례에 안 쓴다. */
+  const names = new Set(jobs.map((j) => tabOf(j.sup)));
+  const rest = t.filter((s) => s.title !== SUMMARY && names.has(s.title)).sort((a, b) => a.title.localeCompare(b.title, 'ko'));
+  const want = [...t.filter((s) => s.title === SUMMARY), ...rest, ...t.filter((s) => s.title !== SUMMARY && !names.has(s.title))];
   for (let k = 0; k < want.length; k++) {
     if (want[k].index === k) continue;
     await call(`https://sheets.googleapis.com/v4/spreadsheets/${bookId}:batchUpdate`, 'POST', { requests: [
