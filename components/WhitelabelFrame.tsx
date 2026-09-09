@@ -364,10 +364,22 @@ export function WhitelabelFrame({
 
       <footer style={{ borderTop: `1px solid ${C.line}`, marginTop: 24 }}>
         <div style={{ maxWidth: 1280, margin: '0 auto', padding: '32px 24px 32px' }}>
-          {/* ★푸터도 «같은 CI» 다 — 머리띠와 짜임이 다르면 한 화면에 두 얼굴이 된다. 톤만 흐리게. */}
-          <div style={{ display: 'flex', alignItems: 'center', marginBottom: SHOP.sp.cozy }}>
-            <ChannelWordmark wl={wl} fs={18} color={C.faint} />
-          </div>
+          {/*
+            ★푸터도 «같은 CI» 다 — 머리띠와 짜임이 다르면 한 화면에 두 얼굴이 된다. 톤만 흐리게.
+            ⚠ **라벨이 없으면 이 줄째 없다.** 빈 워드마크를 그리면 글자는 안 보여도 `marginBottom`
+              이 남아 푸터에 «이유 없는 빈 칸»이 생긴다 — 안 그리는 것과 «비게» 그리는 것은 다르다.
+          */}
+          {hasBrand(wl) ? (
+            <div style={{ display: 'flex', alignItems: 'center', marginBottom: SHOP.sp.cozy }}>
+              <ChannelWordmark wl={wl} fs={18} color={C.faint} />
+            </div>
+          ) : null}
+          {/*
+            ★★**줄 것이 없으면 상자도 없다** — 사업자 표기도 협약 줄도 없는 얼굴(`plain`)이 있다.
+              사장님 2026-09-09 「**혹여라도 사람들이 보고 오해할 만한 거는 다 없애게 노브랜드에서는**」.
+            ⇒ 화면은 «분기»를 갖지 않는다. 표가 준 것만 그리고, 안 주면 상자째 안 그린다.
+          */}
+          {wl.bizLines.length || hasBrand(wl) ? (
           <div style={{ fontSize: SHOP.fs.sub, color: C.faint, lineHeight: 1.9 }}>
             {/*
               ⚠⚠ **「[미확인]」이 손님에게 그대로 나가고 있었다** — 2026-09-07 운영 실측
@@ -439,6 +451,7 @@ export function WhitelabelFrame({
               )}
             </div>
           </div>
+          ) : null}
           {/*
             영업자·직원 로그인 — **푸터 맨 밑에 조용히**(사장님 2026-09-05 「그 주소로 들어가면 상품부터
             다 보이는 거라고. 거길 들어가서 영업자는 로그인을 하는 거야」).
