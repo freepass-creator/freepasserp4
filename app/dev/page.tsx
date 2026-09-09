@@ -433,6 +433,12 @@ export default function DevTools() {
             {privateMigLog ? <CopyBlock text={privateMigLog} label="로그 복사" /> : null}
           </FormCard>
           <Message variant="warning">공급사 청구(R1), 영업 지급(R2), 관리자 순수익을 각 private 노드에 보존한 뒤 공개 정산에서 제거합니다. 실제 실행 전 미리보기와 RTDB 백업이 필요합니다.</Message>
+              {/**
+                * ★★**지금 쓰는 정산과 «다른 물건»이다.** 여기가 만지는 것은 옛 RTDB 노드 `settlements` 이고,
+                *   지금 정산 원자는 파이어스토어 `settlement_rows` 다(2026-09-09 RTDB 를 껐다 — `npm run check:nortdb`).
+                *   이름이 비슷해 섞이면 「고쳤는데 안 바뀐다」가 된다.
+                */}
+              <Message variant="warning">⚠ 이 도구는 <b>옛 RTDB 노드(settlements)</b> 것입니다. 지금 정산 원자(파이어스토어 settlement_rows)와 다른 물건이니 섞지 마세요 — 지금 정산은 <b>정산 콕핏</b>에서 봅니다.</Message>
           <FormCard title="정산 금액 → 역할별 private 이동">
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <Btn variant="ghost" onClick={() => runSettlementMigration(true)} disabled={migBusy}>정산 이동 미리보기</Btn>
@@ -487,6 +493,7 @@ export default function DevTools() {
       render: () => (
         <FormCard title="바로가기">
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            <Btn href="/settlement/board" size="sm" variant="ghost">정산 콕핏</Btn>
             <Btn href="/inventory" size="sm" variant="ghost">{NAV_LABEL.inventory}</Btn>
             <Btn href="/audit" size="sm" variant="ghost">감사로그</Btn>
             <Btn href="/data-check" size="sm" variant="ghost">데이터점검</Btn>

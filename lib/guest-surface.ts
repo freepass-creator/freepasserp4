@@ -57,7 +57,7 @@ const channelPaths = (): string[] => WHITELABELS.map((w) => w.sitePath || '').fi
  *     상단바·전체메뉴를 도로 얹고, 견적기 자체 머리에서는 **워드마크를 뺐다**(머리가 둘이 되지 않게).
  *   ⚠ 로그인은 처음부터 필요했고 지금도 필요하다(관리자·공급사만 · `EstimateGate`).
  */
-const OWN_HEADER_PREFIXES = ['/estimate'] as const;
+const OWN_HEADER_PREFIXES = ['/estimate', '/settlement/board'] as const;
 
 function matches(list: readonly string[], pathname: string): boolean {
   return list.some((p) => (
