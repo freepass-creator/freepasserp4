@@ -151,4 +151,28 @@ if (bad) {
   console.error('   오류도 안 나고 빌드도 통과한다. 퀵필터를 툴바 안팎으로 옮겼다면 이 값을 같이 고쳐라.');
   process.exit(1);
 }
+/*
+ * ── «적어 둔 숫자»도 같이 센다 ─────────────────────────────────────────────
+ *
+ * ⚠⚠ 행과 자식이 맞아도 **주석이 딴소리를 하면** 다음 사람이 그 주석을 믿고 고친다.
+ *   2026-09-09 실측 — `app/globals.css` 의 `.fp-finder-main` 주석이 「지금 자식은 **셋**」이라
+ *   적고 있었는데 실제(그리고 CSS 행)는 **둘**이었다. 그 주석대로 3행으로 고치면
+ *   목록이 통째로 사라진다 — 세 번 났던 바로 그 사고다.
+ * ⇒ 숫자를 적은 곳이 셋(마크업·CSS 행·주석)이면 셋 다 센다.
+ * ⚠ `css` 는 주석을 지운 값이라(위 38행) 여기서는 «원문»을 다시 읽는다.
+ */
+const KO_NUM: Record<string, number> = { 하나: 1, 둘: 2, 셋: 3, 넷: 4, 다섯: 5 };
+const cssRaw = read(CSS);
+const noteSaid = cssRaw.match(/지금 자식은 \*\*(하나|둘|셋|넷|다섯)\*\*/);
+if (noteSaid) {
+  const said = KO_NUM[noteSaid[1]];
+  if (said !== kids) {
+    console.error(`\n✗ CSS 주석이 「자식 ${noteSaid[1]}」(=${said})이라 적었는데 실제는 ${kids} 다.`);
+    console.error('   → 그 주석을 믿고 행을 고치면 목록이 사라진다. 주석의 숫자도 같이 고쳐라(app/globals.css).');
+    process.exit(1);
+  }
+  console.log(`   ✓ CSS 주석도 「자식 ${noteSaid[1]}」로 같다`);
+} else {
+  console.log('   ⚠ CSS 주석에 「지금 자식은 **N**」 문구가 없다 — 있으면 그것도 센다');
+}
 console.log(`\n✓ 행과 자식이 ${kids}로 같다`);

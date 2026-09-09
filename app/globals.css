@@ -541,8 +541,12 @@ html[data-fp-filter="0"] .fp-finder > .fp-sidebar { display: none; }
   /**
    * ★★**행 수는 `app/finder/page.tsx` 의 «자식 수»와 반드시 같아야 한다.**
    *
-   *   지금 자식은 **셋**이다 — `FinderToolbar` · `{!mobile ? <FinderQuickFilters/> : null}` · `.fp-finder-pane`.
-   *   그래서 행도 셋이다: 툴바(고정) · 퀵필터(auto) · 목록(남는 높이 전부).
+   *   지금 자식은 **둘**이다 — `FinderToolbar` · `.fp-finder-pane`.
+   *   그래서 행도 둘이다: 툴바(고정) · 목록(남는 높이 전부).
+   *   ⚠ 퀵필터는 **툴바 «안»으로 들어갔다** — 더 이상 형제가 아니다.
+   *     이 주석이 2026-09-09 까지 「셋」이라 적고 있었다(행·마크업은 둘). 그 주석을 믿고
+   *     3행으로 고쳤으면 목록이 통째로 사라진다 — 세 번 난 그 사고를 «주석»이 되풀이시킬 뻔했다.
+   *     ⇒ 이제 `check:finder-rows` 가 **이 주석의 숫자까지** 센다.
    *   ★**세는 자가 있다 — `npm run check:finder-rows`.** 눈으로 세지 말고 그걸 돌려라.
    *
    * ⚠ **틀리면 목록이 통째로 사라진다 — 오류도 안 난다.**

@@ -36,13 +36,24 @@
 **① `.fp-finder-main` 행 수 ≠ 자식 수** — 이 한 줄로 **세 번** 사고 났다(08-31 · 09-01 · 09-04).
    조건 줄을 툴바 안팎으로 옮기는 커밋은 `app/globals.css` 의 `grid-template-rows` 를 **같이** 고쳐야 한다.
    고치기 전에 `app/finder/page.tsx` 의 `<section className="fp-finder-main">` **직계 자식을 센다.**
-   지금은 **둘**(FinderToolbar · .fp-finder-pane).
+   지금은 **둘**(FinderToolbar · .fp-finder-pane) — 퀵필터는 툴바 «안»에 있다.
+   ★★**눈으로 세지 마라 — `npm run check:finder-rows`.** 마크업·CSS 행·CSS 주석 **셋을 다** 센다.
+     (2026-09-09 에 실제로 CSS «주석»만 「셋」이라 적혀 있었다. 그걸 믿고 고쳤으면 또 사고였다.)
+   ⚠ 작업트리 말고 **배포되는 가지**를 센다 — `npm run check:finder-rows -- --deployed`.
 
 **② 인증보다 먼저 뜬 구독** — `NEXT_PUBLIC_FINDER_FROM_FIRESTORE=1` 이 운영에 켜지자, 로그인 복원 전에
    Firestore `products` 를 구독했다가 규칙에 막히고, 실패한 핸들을 쥔 채 재구독도 RTDB 폴백도 안 했다.
    `rows=null` 이 굳어 본문은 스켈레톤인데 머리는 예전에 센 「742대」를 보여줬다 — **숫자는 맞는데 화면은 빈** 꼴.
-   ⇒ 2026-09-04 운영에서 그 플래그를 **뺐다**(코드 기본값 OFF = 운영 무변경). 다시 켜기 전에 셋을 먼저 고친다:
-   ㉠ 실제 UID 복원 뒤에만 구독 시작 ㉡ 실패 시 핸들 완전 해제 후 인증 완료 시 재시도 ㉢ 그래도 실패면 RTDB 단발 폴백.
+   ⇒ 2026-09-04 에 그 플래그를 **뺐다**. 그리고 **2026-09-08 에 다시 켰다 — 지금 기본값은 «켬»이다**
+   (`finderFromFirestoreEnabled()` = `!== '0'`). 끄려면 `NEXT_PUBLIC_FINDER_FROM_FIRESTORE=0`.
+   ★**끄기 전에 알아야 할 것** — 켠 이유는 「넷이 한 곳을 본다」다(사장님 「같은 데를 보고 같은 곳에서
+     뿌려야 함」). 파인더만 RTDB 를 파서 양쪽에 다 있는 674대의 값이 갈렸다(주행 286 · 세부모델 245 · **상태 149**).
+     되돌리면 그 갈림이 돌아온다.
+   ★**09-04 에 껐던 이유 셋은 이미 다 고쳐져 있다**(2026-09-09 코드 실측):
+   ㉠ 실 UID 복원 뒤에만 구독(`firebaseUserReady`) ㉡ 실패 시 핸들 완전 해제(`releaseOnError`)
+   ㉢ 그래도 실패면 RTDB 단발 폴백(`startFirestore` 의 onError).
+   ⚠ 이 문단은 2026-09-09 까지 「기본값 OFF · 셋을 먼저 고쳐라」로 남아 있었다 — **코드와 정반대**였다.
+     규격이 낡으면 「고쳐 놓은 것을 도로 끄는」 손이 나온다.
 
 ★**「742대」가 보인다고 목록이 보이는 게 아니다.** 머리 숫자와 본문은 서로 다른 길로 온다.
   배포 뒤 확인은 **카드가 그려지는지**를 본다 — 숫자·로그·게이트로 대신하지 않는다.
@@ -262,10 +273,15 @@ F03으로 이름을 만들지 않는다. 자동화 = `docs/자동동기-매뉴�
 | 가격 슬롯 | `PricePeekRoot`·`PriceAmounts`·`PeriodChips`·`PriceHero` | 요금 손롤 |
 | 카드 복합 | `ProductRowCard`(상세 4×2 SSOT)·`ProductCard`(간단 세로 파생) | 페이지에서 슬롯 재조립 |
 
-**준비만 되고 아직 안 쓰는 원자 (2026-07-21 실측 사용처 0):**
-`DataTable` · `ObjCard`/`Cards`/`Metric` · `KV`/`DetailRow`/`DetailEmpty`/`Dash` · `Sec`/`HiddenSecs` ·
-`Modal`/`Drawer`/`EmptyState`/`ListBox`/`DetailShell`/`VSplit`/`Panel` ·
+**쓰이기 시작한 원자 (2026-09-09 실측 — import 하는 곳이 있다):**
+`Modal`(5곳) · `DetailRow`(3곳) · `DetailShell`(1) · `VSplit`(1). **이건 이제 선례가 있다** — 위 표대로 쓰면 된다.
+
+**아직 안 쓰는 원자 (2026-09-09 실측 사용처 0):**
+`DataTable` · `ObjCard`/`Cards`/`Metric` · `KV`/`DetailEmpty`/`Dash` · `Sec`/`HiddenSecs` ·
+`Drawer`/`EmptyState`/`ListBox`/`Panel` ·
 `Status`/`StatusTag`/`RiskTag`/`SevTag` + `STATUS_TONE`/`RISK_TONE`/`PERK_TONE` · `PriceFare`/`PriceMini`/`OptionsInline`/`CardFacts`
+⚠ 이 목록은 **2026-07-21 값이 두 달 묵어 있었다** — 그 사이 넷이 쓰이기 시작했는데 문서는 「사용처 0」이라 적고 있었다.
+  「선례가 없다」는 말은 **재고 나서** 하는 말이다.
 
 **지우지 않는다**(모바일 분기·토큰까지 규격대로 짜여 있어 다시 만드는 비용이 더 크고, 미사용 export는 빌드에서 트리셰이킹됨).
 다만 **"이게 확립된 패턴"이라고 오해하지 말 것** — 선례가 없으므로, 쓰려면 먼저 실제 화면에 맞는지 확인하고 필요하면 원자를 고쳐 쓴다.
