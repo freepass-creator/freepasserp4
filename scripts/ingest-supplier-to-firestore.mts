@@ -282,11 +282,14 @@ async function readRows(): Promise<Row[]> {
     for (const c of cars) {
       const car = S(c.차번); if (!car) continue;
       const status = c.계약중 ? '계약중' : (S(c.계약가능) === 'Y' ? '출고가능' : '출고협의');
-      // 요금 = 저신용월납. RETURN=반납형(개월키) · BUYOUT=인수형(개월_인수형). deposit=(개월/12)×rent(현행 규칙).
+      // 요금 = 저신용월납. RETURN=반납형(개월키) · BUYOUT=인수형(개월_인수형).
+      // ★보증금 = 대여료 × 연수, «최대 3개월»(사장님 「손오공 규칙」 2026-08-28). 5년도 3개월치만 받는다.
+      //   min(개월/12, 3) 로 캡 — 48·60개월이 4·5개월치로 부풀던 것을 막는다.
+      const dep3 = (p: string, r: number) => Math.round(Math.min(Number(p) / 12, 3) * r);
       const price: Price = {};
       const low = (c.저신용월납 || {}) as { SUBSCRIBE_RETURN?: Record<string, number>; SUBSCRIBE_BUYOUT?: Record<string, number> };
-      for (const [p, rent] of Object.entries(low.SUBSCRIBE_RETURN || {})) { const r = won(rent); if (r > 0) price[p] = { rent: r, deposit: Math.round((Number(p) / 12) * r) }; }
-      for (const [p, rent] of Object.entries(low.SUBSCRIBE_BUYOUT || {})) { const r = won(rent); if (r > 0) price[`${p}_인수형`] = { rent: r, deposit: Math.round((Number(p) / 12) * r) }; }
+      for (const [p, rent] of Object.entries(low.SUBSCRIBE_RETURN || {})) { const r = won(rent); if (r > 0) price[p] = { rent: r, deposit: dep3(p, r) }; }
+      for (const [p, rent] of Object.entries(low.SUBSCRIBE_BUYOUT || {})) { const r = won(rent); if (r > 0) price[`${p}_인수형`] = { rent: r, deposit: dep3(p, r) }; }
       /**
        * ★★**손오공 상품구분은 «버킷»이 말해 준다** — 원천이 진작 주고 있었는데 안 읽었다.
        * ```
