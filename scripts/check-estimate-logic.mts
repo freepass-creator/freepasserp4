@@ -603,6 +603,110 @@ must(page.includes('setOptSel({})'),
   '차를 바꿔도 고른 옵션이 안 지워집니다 — 앞 차의 옵션이 다음 차에 붙습니다',
   'app/estimate/page.tsx');
 
+/* ══ 7. 신차 «내 차 만들기» — 고르는 차례와 값 쌓는 차례 ═══════════════════════
+     ★★사장님 2026-09-09 「신차는 제조사에서 **차량 가격 산출까지 어떻게 하는지 그 로직을 동일하게**」
+       「**세부모델 · 파워트레인 · 세부트림 · 색상 · 옵션** 순서로 기억하고 있음」 ·
+       「그랜저를 고르면 **그랜저 건만** 나와야 되고, **2.5 터보를 누르면 그에 따른 세부 트림**이」 */
+
+/* 7-1. 왼쪽 칸 차례가 제조사 차례와 같은가 — 색상이 «옵션 위»여야 한다. */
+{
+  const order = ['sec-color', 'sec-options', 'sec-carinfo']
+    .map((id) => page.indexOf(`id="${id}"`));
+  must(order.every((n) => n >= 0) && order[0] < order[1] && order[1] < order[2],
+    '왼쪽 칸 차례가 제조사 「내 차 만들기」와 다릅니다 — 색상 → 옵션 → 차량정보 여야 합니다',
+    'app/estimate/page.tsx');
+}
+
+/* 7-2. 값 쌓는 차례도 같은가 — 트림 → 색상 → 옵션. */
+must(page.indexOf('+ 색상 <b>') < page.indexOf('+ 옵션 <b>'),
+  '차량가 식이 «색상 → 옵션» 차례가 아닙니다 — 고르는 차례와 같아야 합니다',
+  'app/estimate/page.tsx');
+
+/* 7-3. ★내장 유료색도 차량가에 든다 — 제네시스 「시그니쳐 디자인 셀렉션Ⅰ +150만」.
+     2026-09-08 판은 외장만 더해, 유료 내장을 골라도 차량가가 그대로였다. */
+must(/intColors\.find\(\(c\) => c\.name === colorInt\)/.test(page),
+  '내장 유료색이 차량가에 안 듭니다 — 제조사는 내장에도 값을 매깁니다',
+  'app/estimate/page.tsx');
+
+/* ══ 8. 제네시스 라인업 펴기 — «모델 한 줄»을 엔진 × 변형으로 ═══════════════════
+     ⚠ 2026-09-08 에 나는 제네시스 트림 빈칸을 「기본」이라 적어 덮었다. 데이터를 안 찾고 화면을 덮은 것이다.
+       조합은 `data/new-car/genesis-config.json` 에 이미 있었다. */
+const { expandGenesis, fillBlankFuel, lineupOf, genesisConfig } =
+  await import('../lib/domain/estimate/genesis-lineup');
+
+/* 8-1. G80 이 엔진 둘 × 구동 둘로 펴지는가 — 값은 carnoon 현재가. */
+{
+  const g80 = genesisConfig().get('g80');
+  must(!!g80, '제네시스 조합지도(genesis-config.json)에서 G80 을 못 찾습니다',
+    'data/new-car/genesis-config.json');
+  const rows = g80 ? lineupOf(g80, '가솔린') ?? [] : [];
+  const f = (fuel: string, trim: string) => rows.find((r) => r.fuel === fuel && r.trim === trim)?.price ?? 0;
+  must(rows.length === 4, `G80 라인업이 넷이 아닙니다(${rows.length}) — 엔진 2 × 구동 2`,
+    'lib/domain/estimate/genesis-lineup.ts');
+  must(f('가솔린 2.5T', '2WD') === 60_700_000 && f('가솔린 3.5T', '2WD') === 67_300_000,
+    'G80 엔진별 값이 다릅니다 — 2.5T 6,070만 · 3.5T 6,730만(carnoon 현재가)',
+    'lib/domain/estimate/genesis-lineup.ts');
+  /* ⚠ 「BLACK(AWD)」 밑의 「2.5T」를 그대로 쓰면 파워트레인 칸에 「가솔린 2.5T」와 「2.5T」가 두 줄로 선다. */
+  must(!rows.some((r) => r.fuel === '2.5T' || r.fuel === '3.5T'),
+    '엔진 이름이 「2.5T」처럼 짧게 남았습니다 — 같은 엔진이 파워트레인 칸에 두 줄로 섭니다',
+    'lib/domain/estimate/genesis-lineup.ts canonEngine');
+}
+
+/* 8-2. GV60 은 전기다 — 신차마스터가 「가솔린」이라 싣고 있어도 조합지도의 isEV 가 이긴다.
+     ⚠ 이게 틀리면 보조금·취득세 감면·공채 면제가 하나도 안 걸린다. */
+{
+  const rows = expandGenesis([{ maker: '제네시스', sub_model: 'GV60', fuel: '가솔린', priceAfter: 64_900_000 }]);
+  must(rows.length > 1 && rows.every((r) => r.fuel === '전기'),
+    'GV60 이 전기로 안 잡힙니다 — 신차마스터의 「가솔린」을 그대로 믿으면 EV 혜택이 다 빠집니다',
+    'lib/domain/estimate/genesis-lineup.ts');
+}
+
+/* 8-3. 못 펴는 모델은 «원본 한 줄»을 그대로 둔다 — 지어내지 않는다. */
+{
+  const one = [{ maker: '제네시스', sub_model: 'G80-EV', fuel: '전기', priceAfter: 84_790_000 }];
+  must(expandGenesis(one).length === 1, '조합이 없는 모델까지 펴고 있습니다 — 없는 것을 지어내면 안 됩니다',
+    'lib/domain/estimate/genesis-lineup.ts');
+  must(expandGenesis([{ maker: '현대', sub_model: '더 뉴 그랜저', fuel: '가솔린 2.5', priceAfter: 42_450_000 }]).length === 1,
+    '제네시스가 아닌 제조사를 건드리고 있습니다 — 현대·기아는 크롤이 이미 제대로 싣는다',
+    'lib/domain/estimate/genesis-lineup.ts');
+}
+
+/* 8-4. 빈 연료는 «형제가 한 목소리일 때만» 채운다 — 기아 EV9 여섯 줄이 그렇다.
+     ⚠ 빈 연료는 `engineFuel('')` 이 가솔린으로 떨어져 **보조금·감면·자동차세가 통째로 틀어진다.** */
+{
+  const ev9 = fillBlankFuel([
+    { maker: '기아', sub_model: 'ev9', fuel: '' },
+    { maker: '기아', sub_model: 'ev9', fuel: 'EV' },
+    { maker: '르노', sub_model: '필랑트', fuel: '' },
+    { maker: '현대', sub_model: '아무개', fuel: '' },
+    { maker: '현대', sub_model: '아무개', fuel: '가솔린 2.0' },
+    { maker: '현대', sub_model: '아무개', fuel: '디젤 2.2' },
+  ]);
+  must(ev9[0].fuel === 'EV', '기아 EV9 의 빈 연료가 안 채워집니다 — 형제 줄이 전부 EV 입니다',
+    'lib/domain/estimate/genesis-lineup.ts fillBlankFuel');
+  must(ev9[2].fuel === '', '르노 필랑트의 빈 연료를 «지어냈습니다» — 형제도 다 비었으면 「모른다」가 맞습니다',
+    'lib/domain/estimate/genesis-lineup.ts fillBlankFuel');
+  must(ev9[3].fuel === '', '형제가 둘로 갈리는데 한쪽으로 채웠습니다 — 어느 쪽인지 모르면 비워 둡니다',
+    'lib/domain/estimate/genesis-lineup.ts fillBlankFuel');
+}
+
+/* 8-5. 피드가 실제로 펴서 내보내는가. */
+must(/expandGenesis\(trims\)/.test(read('app/api/newcar/route.ts'))
+  && /fillBlankFuel\(trims\)/.test(read('app/api/newcar/route.ts')),
+  '신차 피드가 제네시스를 안 펴고 내보냅니다 — 화면이 아니라 «피드»가 펴야 견적기(netlify)도 같이 낫습니다',
+  'app/api/newcar/route.ts');
+
+/* 8-6. 파워트레인 칸도 «자리 번호»로 나른다 — 이름이 비면 못 고르던 것(르노 필랑트·기아 EV9). */
+must(cascade.includes("label: f || '미상'") && cascade.includes('newFuels.map((f, i)'),
+  '연료가 빈 줄을 못 고릅니다 — 비었으면 「미상」이라 적고 고를 수 있게 둡니다',
+  'features/estimate/VehicleCascade.tsx');
+must(!/\{ v: f, label: f \}/.test(cascade),
+  '파워트레인 값을 «이름»으로 나릅니다 — 이름이 비면 안내문과 구별이 안 됩니다',
+  'features/estimate/VehicleCascade.tsx');
+must(cascade.includes('variants.length !== 1'),
+  '고를 것이 하나뿐인 파워트레인 걸음을 자동으로 안 넘깁니다 — 막힌 문이 됩니다',
+  'features/estimate/VehicleCascade.tsx');
+
 if (fails.length) {
   console.error(`\n✗ 견적 로직이 정본과 다릅니다 — ${fails.length}건\n`);
   for (const f of fails) console.error(`  · ${f}\n`);
