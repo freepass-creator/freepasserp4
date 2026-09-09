@@ -44,28 +44,29 @@ const NKEY = (c: unknown) => S(c).replace(/\s/g, '');
  * ⚠ 실측 2026-09-09 — F86 은 공급사 이름을 «제 나름대로» 또 모으고 있었다(문패 + `v4/partners`).
  *   같은 것을 두 군데서 모으면 한쪽만 고쳐졌을 때 **같은 차가 시트마다 다른 회사로** 선다.
  *   실제로 F01 은 이름을 못 찾으면 «비우는데» F86 은 그 빈칸을 「(공급사 없음)」 탭으로 묶어 내보냈다.
- * ⇒ 모으는 길도 한 벌. 부르는 쪽은 두드리는 방법(`api`·`rtdb`)만 준다.
+ * ⇒ 모으는 길도 한 벌. 부르는 쪽은 Firestore 원자(`policy`·`partner`)만 준다.
  */
 export type SalesRowDeps = {
-  /** 구글 API GET/POST — 부르는 쪽의 재시도·인증을 그대로 쓴다. */
-  api: (url: string, init?: RequestInit) => Promise<any>;
-  /** RTDB 한 갈래 읽기 — `v4/policies` · `v4/partners`. */
-  rtdb: (path: string) => Promise<Record<string, any>>;
+  /** Firestore `policy` 원자. 문서 ID는 `_key`로 함께 넘긴다. */
+  policies: Array<Record<string, any>>;
+  /** Firestore `partner` 원자. 문서 ID는 `_key`로 함께 넘긴다. */
+  partners: Array<Record<string, any>>;
   /** 공급사 표기 통일(`companyAlias`) — 도메인 순환참조를 피해 부르는 쪽이 넣는다. */
   companyAlias: (s: string) => string;
 };
 
 export async function loadSalesRowContext(deps: SalesRowDeps): Promise<SalesRowContext> {
-  const { api, companyAlias } = deps;
-  const policies = await deps.rtdb('v4/policies');
+  const { companyAlias } = deps;
+  const policies = deps.policies;
   // 코드 정규화 — 접미사 앞자리 0 차이 흡수(RP031_S1 ↔ RP031_S01). 사장님 2026-09-03 실측 123대.
   const normCode = (c: unknown) => S(c).toLowerCase().replace(/_([a-z]+)0*(\d+)/g, '_$1$2');
   const polByCode = new Map<string, any>();     // policy_code 필드
   const polByKey = new Map<string, any>();      // 노드 키
   const polByNorm = new Map<string, any>();     // 정규화 코드(퍼지)
   const provPolicies = new Map<string, any[]>();
-  for (const [k, p] of Object.entries(policies)) {
+  for (const p of policies) {
     if (!p || typeof p !== 'object') continue;
+    const k = S((p as any)._key);
     polByKey.set(k, p); polByNorm.set(normCode(k), p);
     const code = S((p as any).policy_code);
     if (code) { polByCode.set(code, p); polByNorm.set(normCode(code), p); }
@@ -74,7 +75,7 @@ export async function loadSalesRowContext(deps: SalesRowDeps): Promise<SalesRowC
   }
   // ★정책 매칭 = 화면(resolveAtom)과 «같은 규칙»(supplier-policy-link) — 시트=화면이 되게(사장님 2026-09-08 「자꾸 갈린다」).
   //   공급사 정책 1개→자동 · 여럿이면 «렌트/구독 버킷»으로 번호판별 상품구분에 맞춰 고름 · 모호(공통렌트+재렌트 겹침)면 빈칸(안 씌운다).
-  const byProvider = groupPoliciesByProvider(Object.entries(policies).map(([k, p]) => ({ _key: k, ...(p as Record<string, unknown>) })));
+  const byProvider = groupPoliciesByProvider(policies);
   const policyOf = (v: any) => {
     const direct = polByCode.get(S(v.policy_code)) || polByKey.get(S(v.policy_code)) || polByNorm.get(normCode(v.policy_code));
     if (direct) return direct;
@@ -85,8 +86,7 @@ export async function loadSalesRowContext(deps: SalesRowDeps): Promise<SalesRowC
   const acctByProvider = new Map<string, string>();
   const nameByProvider = new Map<string, string>();
   {
-    const partners = await deps.rtdb('v4/partners');
-    for (const p of Object.values(partners)) {
+    for (const p of deps.partners) {
       if (!p || typeof p !== 'object') continue;
       const code = S((p as any).partner_code) || S((p as any).provider_company_code);
       const acct = [S((p as any).bank_name), S((p as any).bank_account), S((p as any).bank_holder)].filter(Boolean).join(' ');
@@ -96,23 +96,6 @@ export async function loadSalesRowContext(deps: SalesRowDeps): Promise<SalesRowC
       if (code && acct) acctByProvider.set(code, acct);
       if (code && nm) nameByProvider.set(code, nm);
     }
-    /**
-     * ★★**코드는 공급사가 아니다** (사장님 2026-09-08 「이제 절대 코드명으로 공급사 취급 안 할 거야」).
-     *   `v4/partners` 는 RTDB 이관 중이라 구멍이 있어, 이름을 못 찾은 차가 시트에 `RP031`·`RP004` 처럼
-     *   **코드로 실렸다**(실측 2026-09-08 · 310대). 그러면 한 회사가 두 이름으로 갈려 세어진다.
-     *   ⇒ 문패 「공급사시트정리」(공급사명 | 공급사코드 | 시트주소)를 **정본**으로 먼저 읽는다.
-     *     그 표는 발행기 ⑥ 이 시트 주소를 읽는 곳이라, ⑥ 과 ⑯ 의 공급사명이 저절로 같아진다.
-     */
-    try {
-      const INDEX_SHEET = '1TVeVXyJJRx0SzD2vxqy3eEjSojmMIWXSu7AdsKmpfmY';
-      const iv = await api(`https://sheets.googleapis.com/v4/spreadsheets/${INDEX_SHEET}/values/A1:Z200`);
-      for (const row of ((iv.values || []) as any[][])) {
-        const cells = (row || []).map(S);
-        const code = cells.find((c) => /^(RP|PT)[-_]?\d+/i.test(c));
-        const raw = cells.find((c) => c && c !== code && !/^https?:/.test(c));
-        if (code && raw) nameByProvider.set(code, companyAlias(raw) || raw);
-      }
-    } catch (e) { console.warn('  문패 못 읽음 — 공급사명은 partners 만 쓴다:', (e as Error).message); }
     console.log(`전용계좌 ${acctByProvider.size}개 · 공급사명 ${nameByProvider.size}개 로드`);
   }
 
@@ -194,7 +177,7 @@ const combine = (pol: any, legacy: string, limit: string[], ded: string[]) => {
   const a = G(pol, ...limit), b = G(pol, ...ded);
   return [a, b].filter(Boolean).join(' / ');
 };
-// ★공급사별 정책 정본 = 구형 공급사시트에서 학습(사장님 2026-09-03). 공급사코드 → 정책 열값. v4/policies 보다 완전.
+// ★공급사별 정책 정본 = 구형 공급사시트에서 학습(사장님 2026-09-03). 공급사코드 → 정책 열값.
 const supPol: Record<string, Record<string, string>> = (() => { try { return JSON.parse(readFileSync('public/data/supplier-policies.json', 'utf8')); } catch { return {}; } })();
 // ★사장님 확인 오버라이드(21세/23세/1만+ 등) — supplier-policies 보다 우선. 알게 되는 대로 이 파일에 넣는다.
 const override: Record<string, Record<string, string>> = (() => { try { return JSON.parse(readFileSync('public/data/supplier-policy-overrides.json', 'utf8')); } catch { return {}; } })();

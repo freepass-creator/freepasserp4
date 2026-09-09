@@ -18,7 +18,6 @@ import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
-import { getDatabase } from 'firebase-admin/database';
 import { companyAlias } from '../lib/domain/identity';
 import { isPlate } from '../lib/domain/plate-registry';
 import { loadSalesRowContext, makeCell, tabOf, TAB_ORDER, compareSalesRows } from '../lib/domain/sales-atom-row';
@@ -43,8 +42,8 @@ const SHEET = S(process.env.INVENTORY_EXPORT_SHEET_ID);
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 initializeApp({
   credential: cert({ projectId: sa.project_id, clientEmail: sa.client_email, privateKey: sa.private_key.replace(/\\n/g, '\n') }),
-  databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app',
 });
+const firestore = getFirestore();
 const jwt = new JWT({
   email: sa.client_email, key: sa.private_key, subject: 'pyh@teamjpk.com',
   scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive'],
@@ -83,8 +82,8 @@ const api = async (u: string, init?: RequestInit): Promise<any> => {
  *   (사장님 「이미 정답이 있는데」). 값은 원자가 준다.
  */
 const rowCtx = await loadSalesRowContext({
-  api,
-  rtdb: async (path) => ((await getDatabase().ref(path).get()).val() as Record<string, any>) || {},
+  policies: (await firestore.collection('policy').get()).docs.map((d) => ({ _key: d.id, ...d.data() })),
+  partners: (await firestore.collection('partner').get()).docs.map((d) => ({ _key: d.id, ...d.data() })),
   companyAlias,
 });
 const cell = makeCell(rowCtx);
@@ -141,7 +140,7 @@ const headOf: Record<string, string[]> = {};
 type Row = { company: string; kind: string; atom: any; cells: Record<string, string> };
 const rowsAll: Row[] = [];
 {
-  const docs = (await getFirestore().collection('products').get()).docs.map((d) => d.data() as any);
+  const docs = (await firestore.collection('products').get()).docs.map((d) => d.data() as any);
   const listable = docs.filter((v) => v.listable === true);
   const 탭수: Record<string, number> = {};
   for (const v of listable) {
@@ -179,6 +178,10 @@ for (const x of rowsAll) {
   const l = by.get(x.company) || []; l.push(x); by.set(x.company, l);
 }
 if (이름없음.length) console.log(`  ⚠ 공급사 이름을 모르는 차 ${이름없음.length}대 — 채널에 안 내보낸다(문패 「공급사명」을 채워라): ${이름없음.slice(0, 6).map((x) => S(x.cells['차량번호'])).join(' · ')}`);
+if (APPLY && 이름없음.length) {
+  console.error('  ⛔ 공급사명이 없는 차를 누락한 채 운영 채널시트를 덮지 않는다.');
+  process.exit(1);
+}
 /**
  * ★**줄 차례 = 판매시트와 «같은 규칙»** — 이제 «같은 함수»(`compareSalesRows`)를 쓴다.
  *   ⚠ 예전엔 같은 규칙이 여기 따로 적혀 있었고, 시트 «칸»(글자)으로 견주느라 F01(원자로 견줌)과

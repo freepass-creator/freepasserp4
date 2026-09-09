@@ -39,6 +39,7 @@ const 원천표식: [RegExp, string][] = [
   [/mirror-iron-source|ironrentcar-source/, '아이언 홈페이지를 발행기가 직접 읽는다'],
   [/reborncar/, '오플 홈페이지를 발행기가 직접 읽는다'],
   [/hubSourceMap|HUB_CODE_SHEET_ID/, '공급사 원천 주소를 발행기가 들고 있다(수집기 몫이다)'],
+  [/getDatabase|v4\/(?:policies|partners)|firebase-admin\/database/, 'RTDB 정책·파트너를 읽는다(Firestore 원자만 사용해야 한다)'],
 ];
 
 const 어긋남: string[] = [];
