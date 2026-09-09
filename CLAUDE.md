@@ -233,6 +233,19 @@ F03으로 이름을 만들지 않는다. 자동화 = `docs/자동동기-매뉴�
   56 이면 빈 높이가 남아 머리가 목록에서 떨어져 «붕» 뜬다(사장님 2026-08-30 「붕 떠 보이게 하면 안 돼」).
   터치 대상이 아니라 40 규격에 묶일 이유도 없다. 하단 홈바·독은 56 그대로.
 
+## ★사전에 적힌 이름은 «실재하는 export» 여야 한다 — `npm run check:ui`
+
+사장님 2026-09-09 개발센터 견학에서 잡았다. 사전이 적은 이름 94개를 실제 export 와 대조하니
+**`CardKind` 는 코드에 아예 없었다** — CLAUDE.md 두 줄과 주석 하나에 «이름»만 남아 있었다
+(`IMPLEMENTATION_LOG` 1462행 「`CardKind`, `CardRailBadges` 이동」 — 하나는 살고 하나는 사라졌는데 사전만 안 고쳤다).
+`CreateListRow` 는 `list-rows.tsx` 안의 **로컬 함수**라 import 조차 안 됐다.
+
+★★**없는 원자를 「쓰라」고 적어 두면 그게 손롤의 원인이 된다.** 다음 사람은 그 이름을 찾다가
+  못 찾고, 「그럼 내가 만들지」로 간다 — 사전이 막으려던 바로 그 일이다.
+★그래서 검사가 잡는다: 이 사전의 이름이 실제 export 를 가리키는지, 그리고 **레거시로 적은 이름은
+  반대로 «없는지»**(되살아나면 그것도 드리프트다).
+⚠ `export default` 도 export 다(`TopBar`) — named 만 찾으면 멀쩡한 것을 없다고 한다.
+
 ## 원자 사전 — 이걸 써라 (`@/components/ui`, `@/components/product-card-atoms`)
 | 용도 | 원자 | raw 금지 |
 |---|---|---|
@@ -240,12 +253,12 @@ F03으로 이름을 만들지 않는다. 자동화 = `docs/자동동기-매뉴�
 | 버튼 | `Btn`(solid/ghost/danger·sm/md·href)·`IconBtn`·`IconSeg` | `<button>` |
 | 입력 | `Input`(full)·`SearchInput`(돋보기·X·full)·`Select`(full)·`WorkFields`/`WorkTable`/`WorkRow`(업무 표)·`WorkInput`/`WorkSelect`/`WorkTextarea`(표 안 칸)·`FormGrid`(스키마폼 내부)·`fmtPhone` | `<input>/<select>` · 페이지에서 `FormGrid`/`FormReadList` 직접 분기 · 표 줄을 CSS grid로 손짜기 |
 | 탭·필터 | `PillTabs`·`FilterChips`(단일+count)·`ToggleChips`(다중)·`FilterGroup`(접이식축+해제) | 탭/필터 `<button>` 群 |
-| 목록 | `FeedListRow` + `list-rows`(정본=`/esign`) · 등록 `CreateListRow` · 더보기 `ListMoreBar` · 단순 행 `ListRow` | 손 목록행 |
+| 목록 | `FeedListRow` + `list-rows`(정본=`/esign`) · 등록 `InventoryCreateRow`/`ContractCreateRow` · 더보기 `ListMoreBar` · 단순 행 `ListRow` | 손 목록행 |
 | 상태·라벨 | `Badge`·`CompanyBadge`·`CountPill` · 톤맵(`productTypeStyle`·`CREDIT_TONE`·`VEHICLE_STATUS_TONE`·`SETTLEMENT_STATUS_TONE`·`ACTOR_TONE`) (`badges.tsx`) | 로컬 색맵 |
 | 로딩·빈·알림 | `Loading`·`CenterNote`·`Message` · `toast`/`Toaster` | "불러오는 중" 손롤 |
 | 껍데기 | `Page`·`MobilePageShell`(모바일 4단 SSOT)·`WorkPage`·`BottomNav`·`TopBar`·`PaneHead`·`PaneBody`·`SectionLabel` | 손 레이아웃 |
 | 상세·폼 | `Section`·`DetailGrid`·`FormCard` | |
-| 카드 슬롯 | `CardThumb`·`CardTitle`·`CardKind`·`CardRailBadges`·`CardSpecs`·`CardBenefits`/`CardPerkLine`·`CardEvents`·`OptionChips`·`Plate`·`badges()`/`badgeSpecs`·`FavHeart` | 카드 표기 손롤 |
+| 카드 슬롯 | `CardThumb`·`CardTitle`·`CardRailBadges`·`CardSpecs`·`CardBenefits`/`CardPerkLine`·`CardEvents`·`OptionChips`·`Plate`·`badges()`/`badgeSpecs`·`FavHeart` | 카드 표기 손롤 |
 | 가격 슬롯 | `PricePeekRoot`·`PriceAmounts`·`PeriodChips`·`PriceHero` | 요금 손롤 |
 | 카드 복합 | `ProductRowCard`(상세 4×2 SSOT)·`ProductCard`(간단 세로 파생) | 페이지에서 슬롯 재조립 |
 
@@ -258,14 +271,16 @@ F03으로 이름을 만들지 않는다. 자동화 = `docs/자동동기-매뉴�
 다만 **"이게 확립된 패턴"이라고 오해하지 말 것** — 선례가 없으므로, 쓰려면 먼저 실제 화면에 맞는지 확인하고 필요하면 원자를 고쳐 쓴다.
 새로 쓰기 시작하면 위 표로 옮길 것.
 
-**레거시(쓰지 말 것 → 대체):** `Identity`→`CardTitle` · `SpecLine`→`CardSpecs` · `PriceHeadline`→`PriceHero` · `PriceRows`/`PricePeers`→`PriceFare` · `CardMarks`/`CardPerks`→`CardBenefits`.
-**사전 밖(기능 셸):** `InterestRail`·`ChatThread`·`ContractPanel` 등은 원자 아님 — 페이지/도메인 조립.
+**레거시 — «이미 다 지워졌다». 옛 코드에서 만나면 이걸로 읽어라(되살리지 말 것):**
+`Identity`→`CardTitle` · `SpecLine`→`CardSpecs` · `PriceHeadline`→`PriceHero` · `PriceRows`/`PricePeers`→`PriceFare` · `CardMarks`/`CardPerks`→`CardBenefits`.
+★일곱 다 `origin/main` 에 export 가 없다(2026-09-09 실측). 이 줄은 «쓰지 마라»가 아니라 **«옛 이름 사전»**이다.
+**사전 밖(기능 셸):** `InterestPanel`(`components/InterestRail`)·`ChatThread`·`ContractPanel` 등은 원자 아님 — 페이지/도메인 조립.
 
 ### 필터 ↔ 카드 축 (product-filters SSOT)
 | 축 | 티어 | 카드 원자 |
 |---|---|---|
 | 기간·월대여·보증 | CORE | `PriceHero` / `PriceAmounts`+`PeriodChips` |
-| 상품구분 | CORE | `CardKind` / rail `pt` (`productTypeStyle`) |
+| 상품구분 | CORE | rail `pt` (`CardRailBadges` · `productTypeStyle`) |
 | 출고상태 | CORE | rail `st` (`CardRailBadges`) |
 | 심사 | CORE | rail/thumb `cd` |
 | 연료 | CORE | `CardSpecs` |
