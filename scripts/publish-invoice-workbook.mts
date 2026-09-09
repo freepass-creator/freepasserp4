@@ -38,6 +38,7 @@ import { claimOf, invoiceMoneyOf, clawMoneyOf, VAT } from '../lib/domain/settlem
 import type { SettlementRow } from '../lib/domain/settlement-stage';
 import { feeKindOf, feeRuleFor, SUPPLIER_ALIAS } from '../lib/domain/settlement-fee-table';
 import { PARTNER_CI } from '../lib/domain/partner-ci';
+import { SETTLEMENT_BILLING_FROM } from '../lib/domain/settlement-ledger';
 import { CORP } from '../lib/domain/corporate-ci';
 import { NAVY, TINT, settleHeadFor, settleWidthFor, settleMoneyFor, settleLeftFor, SETTLE_NOTE } from '../lib/server/channel-sheet-tabs';
 
@@ -63,9 +64,25 @@ const tabOf = (sup: string) => sup;
  *   F 코드는 «일하는 표»(상품리스트·정산원장·재고)의 번호다. 세금계산서는 그 줄에 안 선다 —
  *   달마다 새로 나고, 세무·회계 쪽 물건이라 번외로 둔다.
  */
-const BOOK = `[T 사용중] 프리패스 세금계산서 ${MON}`;
-/** ⚠ 옛 이름 둘 — ① 한 권에 모든 달 ② 달은 갈랐지만 아직 F06. 만나면 «이름만» 고쳐 이어 쓴다. */
-const BOOK_WAS = ['[F06 사용중] 프리패스 계산서 발행', `[F06 사용중] 프리패스 계산서 발행 ${MON}`];
+/**
+ * ★**번호를 매긴다** — 사장님 2026-09-09 「T 로 하고 **번호는 매겨야지**」.
+ *   F 코드가 그렇듯 이름만으로는 어느 것이 먼저인지, 빠진 달이 있는지 안 보인다.
+ *   ⇒ **세금계산서를 처음 끊은 달(`SETTLEMENT_BILLING_FROM` = 2026-08)이 T01**, 한 달에 하나씩.
+ *     달에서 «셈해» 내므로 표를 따로 안 든다 — 26년08월 T01 · 26년09월 T02 · 26년10월 T03 …
+ */
+const TNO = (() => {
+  const [fy, fm] = SETTLEMENT_BILLING_FROM.split('-').map(Number);
+  const [yy, mm] = MONTH.split('-').map(Number);
+  const n = (yy - fy) * 12 + (mm - fm) + 1;
+  if (n < 1) { console.log(`
+  ✕ ${SETTLEMENT_BILLING_FROM} 부터가 세금계산서입니다 — ${MONTH} 은 그 전이라 번호가 없습니다
+`); process.exit(1); }
+  return String(n).padStart(2, '0');
+})();
+const BOOK = `[T${TNO} 사용중] 프리패스 세금계산서 ${MON}`;
+/** ⚠ 옛 이름들 — ① 한 권에 모든 달 ② F06+달 ③ 번호 없는 T. 만나면 «이름만» 고쳐 이어 쓴다. */
+const BOOK_WAS = ['[F06 사용중] 프리패스 계산서 발행', `[F06 사용중] 프리패스 계산서 발행 ${MON}`,
+  `[T 사용중] 프리패스 세금계산서 ${MON}`];
 const TAB_WAS = (sup: string) => `${MON} ${sup}`;
 const SUMMARY = '발행 요약';
 
