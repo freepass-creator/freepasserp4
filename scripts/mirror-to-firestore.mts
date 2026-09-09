@@ -87,7 +87,8 @@ const rows = Object.values(products).filter((v) => isObj(v) && alive(v) && S(v.c
 const partnersNode = (await rtdb.ref('v4/partners').get()).val() as Record<string, any> || {};
 const DIRECT = new Set<string>([...MIRROR_SOURCES.map((m) => m.code), 'RP012']);
 for (const p of Object.values(partnersNode)) if (isObj(p) && S(p.partner_code) && /docs\.google\.com/.test(S(p.sheet_url))) DIRECT.add(S(p.partner_code));
-const isDirect = (v: Record<string, any>) => DIRECT.has(S(v.provider_company_code) || S(v.partner_code));
+// ★두 코드를 «각각» 본다 — `a || b` 로 앞것만 보면 provider=LEGACY·partner=RP012 인 직접수집 차를 놓쳐 미러가 덮는다(Codex 2026-09-09 반례).
+const isDirect = (v: Record<string, any>) => DIRECT.has(S(v.provider_company_code)) || DIRECT.has(S(v.partner_code));
 
 const seen = new Set<string>();
 type Item = { id: string; doc: Record<string, any> };
@@ -174,6 +175,8 @@ const OWNED_BY_INGEST = new Set([
   'ext_color', 'int_color', 'year', 'fuel_type', 'engine_cc', 'vehicle_class', 'drive_type', 'seats',
   'first_registration_date', 'battery_capacity', 'options', 'mileage', 'price',
   'status', 'vehicle_status', 'status_kind', 'status_reason', 'status_label_raw', 'listable', 'product_type',
+  // ★source·source_schema 도 직접수집 소유 — 미러가 isDirect 를 놓친 회차에도 정확한 출처(sheet·sonokong·iron)를 «mirror»로 안 덮게(Codex 2026-09-09).
+  'source', 'source_schema',
 ]);
 const curDocs = new Map<string, Record<string, unknown>>();
 for (const d of (await fs.collection('products').get()).docs) curDocs.set(d.id, d.data() as Record<string, unknown>);
