@@ -184,8 +184,14 @@ must(/label="상세 조건 열기"/.test(shopView) && /count=\{queryCount\(query
   '상세 조건 버튼이 머리띠에서 빠졌습니다. 폰에는 왼쪽 기둥이 없어 축 아홉으로 갈 길이 사라집니다.',
   'app/(shop)/shop/ShopView.tsx headerActions');
 
-// 브랜드 갈림은 서버 껍데기가 한다 — 화면 안에서 가르면 두 화면이 원자를 나눠 쓴다.
-must(/hasBrand\(wl\) \? <ShopDetailView/.test(qPage),
+/*
+ * 브랜드 갈림은 서버 껍데기가 한다 — 화면 안에서 가르면 두 화면이 원자를 나눠 쓴다.
+ * ⚠ 2026-09-09 — 판정 «이름»이 갈렸다: `hasBrand`(라벨이 붙나) → `hasShopFrame`(가게인가).
+ *   라벨 없는 기본 얼굴(`plain`)이 생기면서, 「이름이 있나」로 가르면 그 얼굴이 옛 「상품 안내」로
+ *   떨어진다. **규격(서버 껍데기가 가른다)은 그대로**고 무엇으로 가르느냐만 바뀌었다 —
+ *   그래서 검사도 «서버에서 가르는가»만 본다. 화면 안에서 가르는 것은 여전히 막힌다.
+ */
+must(/(hasBrand|hasShopFrame)\(wl\)[\s\S]{0,200}?\?\s*<ShopDetailView|shop\s*\?\s*<ShopDetailView/.test(qPage),
   '/q/[code] 의 브랜드 갈림이 서버 껍데기에서 사라졌습니다. 화면 안에서 가르면 두 화면이 섞입니다.',
   'app/q/[code]/page.tsx');
 

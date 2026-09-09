@@ -83,7 +83,27 @@ export type Whitelabel = {
    *   키는 언제든 갈 수 있는 문자열이다. 「우리인가」는 표가 «값으로» 말한다.
    */
   self?: boolean;
-  /** 손님에게 보이는 회사명. 빈 문자열 = 브랜드 표식을 «세우지 않는다»(노브랜드). */
+  /**
+   * **라벨이 «없는» 얼굴인가** — 프리패스erp.com 의 기본 모습.
+   *
+   * 사장님 2026-09-09 「**화이트라벨은 회사 라벨이 붙는 거**고 · **프리패스erp.com 기본은
+   * 라벨이 없는 거**지. 그걸 일단 **모빌리티.com 에 구현해 놓고 도메인갈이** 하자고」
+   * · 「들어왔을 때 **브랜드 안 떠야 함**」 · 「일단 비워봐 **상단바를 없앨 수는 없으니까**」.
+   *
+   * ```
+   *  화이트라벨(라벨 붙음)   유니오토모빌 · 하허호무심사 · 프리패스모빌리티(/freepass)
+   *  라벨 없음(plain)       freepasserp.com 의 기본 얼굴 — 지금은 freepassmobility.com 에서 예행
+   * ```
+   *
+   * ★**껍데기는 쓰되 이름은 안 단다** — 머리띠·푸터·하단독은 그대로 서고(`hasShopFrame`),
+   *   머리띠 «간판 자리»만 비운다. 상단바를 없애면 검색·조건이 갈 데가 없다.
+   * ★탭 제목·메타는 저절로 노브랜드가 된다 — `hasBrand` 가 false 라 각 층이 루트 레이아웃
+   *   기본값(`freepasserp.com — 장기렌터카 영업지원 플랫폼`)을 그대로 쓴다.
+   * ⚠ 업무동 기본값(`FREEPASS`)과 **다른 것**이다. 저건 「콕핏」이라 껍데기조차 없고,
+   *   이건 「가게」라 껍데기가 있다. 둘을 한 값으로 합치면 로그인 현관이 사라진다.
+   */
+  plain?: boolean;
+  /** 손님에게 보이는 회사명. 빈 문자열 = 라벨을 «달지 않는다». */
   name: string;
   /**
    * 워드마크 이분 — 앞(굵게) + 뒤(가늘게·자간). 둘 다 비면 워드마크를 안 그린다.
@@ -205,6 +225,66 @@ export const FREEPASS: Whitelabel = {
  * 화면 코드는 손대지 않는다. 손대게 되면 그 순간 채널마다 화면이 갈라진다.
  */
 export const WHITELABELS: Whitelabel[] = [
+  /**
+   * ★★★**라벨 없는 기본 얼굴 — 「프리패스erp.com 이 될 모습」.**
+   *
+   * 사장님 2026-09-09 「**프리패스erp.com 기본 노브랜드**니까 · 화이트라벨은 회사 라벨이 붙는 거고 ·
+   * 프리패스erp.com 기본은 라벨이 없는 거지. **그걸 일단 모빌리티.com 에 구현해 놓고
+   * 도메인갈이 하자고**」 · 「들어왔을 때 **브랜드 안 떠야 함**」.
+   *
+   * ★지금은 `freepassmobility.com` 이 **예행장**이다. 손님 트래픽이 적어 마음껏 다듬을 수 있고,
+   *   다 되면 **도메인갈이** — 이 줄의 `hosts` 를 `freepasserp.com` 으로 옮기거나
+   *   `HOME_IS_SHOP` 을 켜면 그날부터 우리 대문이 이 얼굴이다.
+   * ★**간판 자리는 비운다.** 머리띠·푸터·하단독은 그대로 선다(`hasShopFrame`) — 상단바를 없애면
+   *   검색·조건이 갈 데가 없다. 탭 제목·메타는 저절로 노브랜드가 된다(`hasBrand` 가 false).
+   * ⚠ **간판 단 우리 가게는 따로 산다** — `freepasserp.com/freepass`(아래 `freepassmobility` 줄).
+   *   사장님 「freepasserp.com/freepass 는 우리 브랜드 달아주고」.
+   */
+  {
+    key: 'plain',
+    plain: true,
+    /** 우리 것이다 — 「✕ freepass」 동반 표기는 어차피 간판이 없어 안 그려진다. */
+    self: true,
+    /*
+     * ★★**도메인갈이의 «유일한» 손잡이가 여기다.** 지금은 예행장(모빌리티닷컴),
+     *   나중에 `freepasserp.com` 을 여기 적으면 그날부터 우리 대문이 이 얼굴이다.
+     * ⚠ Vercel 에서 도메인을 옮기면 **여기에도 반드시 적는다** — 안 적으면 그 호스트가
+     *   업무동으로 떨어져 손님이 로그인 화면을 본다(2026-09-08 실측).
+     */
+    hosts: [CORP.web, `www.${CORP.web}`],
+    /** 2026-09-08 실측 — 꼭지·www 둘 다 이 프로젝트를 가리킨다. */
+    domainReady: true,
+    /** 라벨이 없다 — 이름도 워드마크도 안 단다. 이게 이 얼굴의 정의다. */
+    name: '',
+    wordmark: { main: '', sub: '' },
+    /*
+     * ★색도 «안 뒤집는다» — 색은 라벨의 일부다. 브랜드색을 칠하면 이름을 안 적어도
+     *   「어느 회사 색」이 드러난다. 집 기본색으로 두면 그게 노브랜드의 얼굴이다.
+     * ★바탕은 그래도 흰색이다(`whitelabelVars` — 손님 화면은 흰 바탕이 규격).
+     */
+    brandColor: '',
+    /** 손님이 걸 번호 — 라벨이 없어도 «어디로 묻나»는 있어야 한다. */
+    tel: CORP.phone,
+    /*
+     * ⚠ 사업자 표기는 **법적 표기**라 라벨과 무관하게 남는다. 손님이 「여기 누구냐」를
+     *   물을 때 답이 화면에 있어야 하고, 통신판매업 고지 의무도 여기서 진다.
+     * ★그래서 「브랜드가 안 뜬다」와 「누군지 모른다」는 다른 말이다 — 머리에 간판을 안 걸 뿐,
+     *   바닥에는 우리가 누구인지 적혀 있다.
+     */
+    bizLines: [
+      `${CORP.name} · 대표 ${CORP.ceo} · 사업자등록번호 ${CORP.bizNo}`,
+      `${CORP.addr} · 통신판매업신고 [미확인]`,
+      `상담 및 문의 ${CORP.phone}`,
+    ],
+    /*
+     * ⚠ 「회사 소개」 링크는 **안 단다** — 누르면 프리패스 소개로 나가서 라벨이 드러난다.
+     *   머리띠 오른쪽은 대표번호가 받는다(간판 단 우리 가게에는 그 링크가 그대로 있다).
+     */
+    notice: {
+      title: '지금 바로 출고 가능한 차량입니다',
+      body: '신용조회 없이 이용하실 수 있습니다. 보증금과 월 대여료를 확인하고 편하게 골라 보세요.',
+    },
+  },
   {
     key: 'uniplan',
     /** 이 채널의 주소 — `freepasserp.com/uniauto`. **지우지 않는다**(위 `sitePath` 머리말). */
@@ -324,9 +404,14 @@ export const WHITELABELS: Whitelabel[] = [
      *   이 줄을 안 고친 몇 분 동안 실제로 그랬다). 도메인과 이 표는 «한 짝»이다.
      * ★회사 소개는 제 프로젝트 주소로 옮겨 갔다 — 아래 `homepage`.
      */
-    hosts: [CORP.web, `www.${CORP.web}`],
-    /** 2026-09-07 실측 — 꼭지가 이 프로젝트를 가리키고 매물 화면이 열린다. */
-    domainReady: true,
+    /*
+     * ⚠⚠ **도메인을 뗐다**(2026-09-09). `freepassmobility.com` 은 이제 «라벨 없는 얼굴»이 쓴다 —
+     *   사장님 「**freepasserp.com/freepass 는 우리 브랜드 달아주고** · 모빌리티.com 은
+     *   **erp.com 변경해 갈 거 미리 해 보는 거야**」.
+     * ⇒ 간판 단 우리 가게는 `sitePath: '/freepass'` 로 «남는다». 링크도 그 주소다.
+     * ★도메인갈이 때 이 표에서 옮기는 것은 **라벨 없는 얼굴의 `hosts`** 뿐이다(아래 줄).
+     */
+    hosts: [],
     /**
      * 손님에게 보이는 이름 — **프리패스모빌리티**(국문 CI 두 조각). 「주식회사」는 붙이지 않는다:
      * 그건 푸터의 «법적 표기» 자리 몫이고(`bizLines`), 간판은 이름만 선다.
@@ -688,13 +773,38 @@ export const GUEST_FALLBACK_KEY = 'uniplan';
  */
 export function resolveGuestWhitelabel(host?: string | null, wlKey?: string | null): Whitelabel {
   const wl = resolveWhitelabel(host, wlKey);
-  if (hasBrand(wl)) return wl;
+  /*
+   * ★**«가게»면 그대로 쓴다 — 라벨이 없어도.**
+   *   ⚠ 여기 `hasBrand` 였다. 그래서 라벨 없는 얼굴(`plain`)을 지목해도 「이름이 없다」는 이유로
+   *     기본 채널(유니오토)로 떨어졌다 — 노브랜드로 보려던 화면에 남의 간판이 섰다.
+   */
+  if (hasShopFrame(wl)) return wl;
   return WHITELABELS.find((w) => w.key === GUEST_FALLBACK_KEY) || wl;
 }
 
-/** 브랜드 표식을 세우는가 — 노브랜드면 머리띠·워드마크·푸터를 아예 그리지 않는다. */
+/**
+ * **회사 «라벨»이 붙는가** — 이름·워드마크·마크를 세우는가.
+ *
+ * 사장님 2026-09-09 「**화이트라벨은 회사 라벨이 붙는 거**고, 프리패스erp.com 기본은
+ * **라벨이 없는 거**지」.
+ * ⚠ 이 함수는 「가게 껍데기를 그리는가」가 **아니다** — 그건 `hasShopFrame` 이다.
+ *   라벨 없는 얼굴(`plain`)은 **껍데기는 쓰되 이름은 안 단다.**
+ */
 export function hasBrand(wl: Whitelabel): boolean {
   return !!wl.name || !!wl.wordmark.main;
+}
+
+/**
+ * **가게 껍데기(머리띠·푸터·하단독)를 세우는가.**
+ *
+ * ★라벨이 붙는 업체(화이트라벨)든 **라벨 없는 기본 얼굴**(`plain`)이든 «가게»다 —
+ *   손님이 매물을 보는 화면이므로 머리띠와 푸터가 있어야 한다
+ *   (사장님 2026-09-09 「일단 비워봐 **상단바를 없앨 수는 없으니까**」).
+ * ⚠ 업무동 기본값(`FREEPASS`)은 여기서도 false 다 — 거기는 콕핏이고, 이름도 껍데기도 없다.
+ *   그래야 `freepasserp.com/` 이 로그인 현관으로 남는다(`homeIsShop` 머리말의 그 벽).
+ */
+export function hasShopFrame(wl: Whitelabel): boolean {
+  return hasBrand(wl) || !!wl.plain;
 }
 
 /**
@@ -728,7 +838,8 @@ export const HOME_IS_SHOP = false;
  *   `x-fp-guest` 로 안다. 호스트로 판정하게 두면 스위치를 켠 순간 업무동 전 층에서 상단바가 사라진다.
  */
 export function homeIsShop(host?: string | null): boolean {
-  if (hasBrand(resolveWhitelabel(host))) return true;
+  /* ★라벨이 붙은 업체든 «라벨 없는 얼굴»(plain)이든 가게다 — 그래서 `hasShopFrame` 이다. */
+  if (hasShopFrame(resolveWhitelabel(host))) return true;
   return HOME_IS_SHOP;
 }
 
@@ -738,7 +849,15 @@ export function homeIsShop(host?: string | null): boolean {
  *   원자가 전부 따라온다(globals.css `.fp-topbar .fp-onbar` 와 같은 짜임).
  */
 export function whitelabelVars(wl: Whitelabel): Record<string, string> {
-  if (!wl.brandColor) return {};
+  /*
+   * ★★**바탕은 «라벨과 무관하게» 흰색이다.**
+   *   손님 화면 바탕은 흰색이 규격인데(업무동 기본값 `--bg-page:#eaedf2` 는 하루 종일 보는
+   *   콕핏용이다), 그 값이 여태 «브랜드색이 있을 때만» 걸렸다. 그대로 두면 **라벨 없는 얼굴**은
+   *   가게인데도 회색 판때기로 뜬다 — 색은 없어도 바탕은 흰색이어야 한다
+   *   (사장님 2026-09-04 「전체적으로 배경도 회색이고」 — 그때 고친 그 값이다).
+   */
+  const ground: Record<string, string> = hasShopFrame(wl) ? { '--bg-page': '#ffffff' } : {};
+  if (!wl.brandColor) return ground;
   return {
     '--brand': wl.brandColor,
     '--brand-h': wl.brandColor,

@@ -4,7 +4,7 @@ import { ShopDetailView } from './ShopDetailView';
 import { firstProductImage } from '@/lib/domain/product-photos';
 import { headers } from 'next/headers';
 import { loadGuestQuote } from '@/lib/server/guest-quote';
-import { coBrandName, hasBrand, resolveGuestWhitelabel } from '@/lib/whitelabel';
+import { coBrandName, hasBrand, hasShopFrame, resolveGuestWhitelabel } from '@/lib/whitelabel';
 import { vehicleNameOf } from '@/lib/domain/vehicle-name';
 import { cheapest } from '@/lib/domain/product';
 import { fuelDisplay, yearDisplay } from '@/lib/domain/vehicle-master-match';
@@ -143,8 +143,15 @@ export default async function QuotePage({ params, searchParams }: Params) {
    * ⚠ 못 찾으면 `null` 을 넘긴다 — 화면이 제 폴백(옛 링크·직접 진입)으로 굴러간다.
    */
   const { code } = await params;
-  const found = hasBrand(wl)
+  /*
+   * ★**«가게»면 새 상세를 쓴다 — 라벨이 있든 없든.**
+   *   ⚠ 여기 `hasBrand` 였다. 그대로 두면 라벨 없는 얼굴(`plain`)이 옛 「상품 안내」 화면으로
+   *     떨어져, **같은 매물이 주소에 따라 다른 화면**으로 열린다. 라벨은 «이름»의 문제고,
+   *     어느 화면을 그리느냐는 «가게인가»의 문제다.
+   */
+  const shop = hasShopFrame(wl);
+  const found = shop
     ? await loadGuestQuote(decodeURIComponent(String(code || '')), one(sp.a)).catch(() => null)
     : null;
-  return hasBrand(wl) ? <ShopDetailView wl={wl} initial={found} /> : <QuoteView wl={wl} />;
+  return shop ? <ShopDetailView wl={wl} initial={found} /> : <QuoteView wl={wl} />;
 }

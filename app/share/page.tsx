@@ -3,7 +3,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Check, Copy, ExternalLink, Share2 } from 'lucide-react';
 import { Btn, C, CenterNote, FS, FW, ICON, Message, Page, R, SectionLabel } from '@/components/ui';
 import { getSession } from '@/lib/auth-session';
-import { WHITELABELS, hasBrand, type Whitelabel } from '@/lib/whitelabel';
+import { WHITELABELS, hasShopFrame, type Whitelabel } from '@/lib/whitelabel';
 import { useIsMobile } from '@/lib/use-mobile';
 import { haptic } from '@/lib/haptics';
 
@@ -39,7 +39,8 @@ export default function SharePage() {
 
   const rows = useMemo(() => {
     if (!code) return [];
-    return WHITELABELS.filter(hasBrand).map((wl) => linkOf(wl, code, origin));
+    /* ★라벨 없는 얼굴도 손님에게 줄 수 있는 주소다 — 「가게인가」로 고른다. */
+    return WHITELABELS.filter(hasShopFrame).map((wl) => linkOf(wl, code, origin));
   }, [code, origin]);
 
   if (code === null) return <Page title="내 손님 링크"><CenterNote>불러오는 중…</CenterNote></Page>;
