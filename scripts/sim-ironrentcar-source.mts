@@ -1,4 +1,4 @@
-import { parseIronRentcarDetail, parseIronRentcarListingPage } from '../lib/server/ironrentcar-source';
+import { fetchIronRentcarCatalog, parseIronRentcarDetail, parseIronRentcarListingPage } from '../lib/server/ironrentcar-source';
 
 let pass = 0;
 function check(name: string, actual: unknown, expected: unknown): void {
@@ -42,6 +42,40 @@ check('옵션 결합', detail.product.options, '현대스마트센스1, 파킹�
 check('차량가 공개상품 제외', 'vehicle_price' in detail.product, false);
 check('차량가 private 분리', detail.privateProduct.vehicle_price, 45_600_000);
 check('보험 정책 분리', detail.policySnapshot.injury_compensation_limit, '무한');
+check('원문 HTML 바이트 그대로 보존', detail.sourceSnapshot.raw_payload, detailHtml);
+check('원문 해시를 SSOT 원자에 연결', detail.inventoryAtom.raw_payload_sha256, detail.sourceSnapshot.raw_payload_sha256);
+check('스냅샷 ID를 SSOT 원자에 연결', detail.inventoryAtom.source_snapshot_id, detail.sourceSnapshot.snapshot_id);
+check('기존 RTDB 상품에는 SSOT 필드 미주입', 'source_snapshot_id' in detail.product, false);
+check('재고 등록과 출고상태 분리', `${detail.inventoryAtom.inventory_registration}|${detail.inventoryAtom.availability_status}`, 'registered|available');
+check('완전한 제목 정제상태', detail.inventoryAtom.normalization_status, 'complete');
 check('지문 존재', typeof detail.fingerprint, 'string');
+
+const partial = parseIronRentcarDetail(
+  detailHtml.replace('현대 그랜저 프리미엄', '쏘렌토').replace('151호2230', '12가3456'),
+  { ...listing.listings[1], id: 'partial-title' },
+);
+check('제조사 없는 한 단어 원문을 모델로 보존', `${partial.product.maker}|${partial.product.model}`, '|쏘렌토');
+check('모델만 있어도 재고 등록', partial.inventoryAtom.inventory_registration, 'registered');
+check('모델만 있는 정제는 partial', partial.inventoryAtom.normalization_status, 'partial');
+
+const failedCatalog = await fetchIronRentcarCatalog({
+  cacheMs: 0,
+  fetchImpl: async (input) => {
+    const url = String(input);
+    if (url.includes('/vehicles?condition=new')) {
+      return new Response(`<!doctype html><html><main><article class="rental-product-card rental-product-card--sold"><a href="/vehicles/sold-detail-failed?condition=new"></a></article></main></html>`);
+    }
+    if (url.includes('/vehicles?condition=used')) {
+      return new Response(`<!doctype html><html><main><article class="rental-product-card"><a href="/vehicles/active-detail-failed?condition=used"></a></article></main></html>`);
+    }
+    return new Response('detail unavailable', { status: 503 });
+  },
+});
+const fallbacks = failedCatalog.sourceSnapshots.filter((snapshot) => snapshot.source_kind === 'ironrentcar_listing_observation_json');
+check('상세 실패 카탈로그는 complete 아님', failedCatalog.complete, false);
+check('상세 실패도 목록 기준 판매완료 수 보존', `${failedCatalog.active}|${failedCatalog.sold}`, '1|1');
+check('상세 실패 두 건 모두 fallback 원문', fallbacks.length, 2);
+check('차번 없는 fallback은 식별 대기', fallbacks.every((snapshot) => snapshot.inventory_registration === 'pending_identity'), true);
+check('실패 기록이 fallback snapshot을 가리킴', failedCatalog.errors.every((error) => fallbacks.some((snapshot) => snapshot.snapshot_id === error.snapshotId)), true);
 
 console.log(`ironrentcar source: ${pass}/${pass} PASS`);

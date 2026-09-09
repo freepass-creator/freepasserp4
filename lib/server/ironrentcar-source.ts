@@ -1,5 +1,8 @@
 import { load } from 'cheerio';
 import type { EntityRecord } from '@/lib/intake/entities';
+import { attachInventoryAtomState } from '@/lib/domain/inventory-atom-state';
+import { splitMakerModel } from '@/lib/domain/mirror-sheet-mapping';
+import { createSourceSnapshotV1, type SourceSnapshotV1 } from '@/lib/server/source-snapshot';
 
 /*
  * 차종마스터 파일(public/data/vehicle-master.json 1.7MB)을 읽던 자리였다 — 2026-08-23 걷어냈다.
@@ -26,6 +29,9 @@ export type IronRentcarCatalogItem = {
   privateProduct: EntityRecord;
   /** 공용 정책 생성·연결 전 검토용 스냅샷. */
   policySnapshot: EntityRecord;
+  sourceSnapshot: SourceSnapshotV1;
+  /** Firestore SSOT 후보. 기존 RTDB 공개 product 경로와 분리한다. */
+  inventoryAtom: EntityRecord;
   fingerprint: string;
 };
 
@@ -40,14 +46,14 @@ export type IronRentcarCatalog = {
   newCount: number;
   usedCount: number;
   items: IronRentcarCatalogItem[];
-  errors: { id: string; message: string }[];
+  sourceSnapshots: SourceSnapshotV1[];
+  errors: { id: string; message: string; snapshotId: string }[];
   revision: string;
 };
 
 type FetchLike = (input: string | URL | Request, init?: RequestInit) => Promise<Response>;
 
 const clean = (value: unknown): string => String(value ?? '').replace(/\s+/g, ' ').trim();
-
 function absoluteUrl(value: string, baseUrl: string): string {
   return new URL(value, baseUrl).toString();
 }
@@ -140,6 +146,7 @@ export function parseIronRentcarDetail(
   html: string,
   listing: IronRentcarListing,
   providerCode = IRONRENTCAR_PROVIDER_CODE,
+  observedAt = new Date().toISOString(),
 ): IronRentcarCatalogItem {
   const $ = load(html);
   const title = clean($('main h1.product-detail-title').first().text());
@@ -152,10 +159,11 @@ export function parseIronRentcarDetail(
     if (key && value && !facts.has(key)) facts.set(key, value);
   });
 
-  const titleParts = title.split(/\s+/).filter(Boolean);
-  const maker = titleParts[0] || '';
-  const model = titleParts[1] || '';
-  const trim = titleParts.slice(2).join(' ');
+  const splitTitle = splitMakerModel(title);
+  const titleParts = splitTitle.model.split(/\s+/).filter(Boolean);
+  const maker = splitTitle.maker;
+  const model = titleParts[0] || '';
+  const trim = titleParts.slice(1).join(' ');
   const subtitle = clean($('.product-detail-subtitle').first().text());
   const variant = clean(subtitle.split('·')[0]);
   const year = yearOf(subtitle);
@@ -182,9 +190,21 @@ export function parseIronRentcarDetail(
   const mileage = numberOf(facts.get('주행거리') || '');
   const sourceUrl = new URL(`/vehicles/${listing.id}?condition=${listing.condition}`, IRONRENTCAR_BASE_URL).toString();
 
+  const inventoryKey = `${providerCode}_${plate}`;
+  const sourceSnapshot = createSourceSnapshotV1({
+    providerCode,
+    sourceKind: 'ironrentcar_vehicle_detail_html',
+    sourceExternalId: listing.id,
+    sourceUrl,
+    observedAt,
+    rawPayload: html,
+    inventoryKey,
+    carNumber: plate,
+    context: { condition: listing.condition, sold_on_listing: listing.sold },
+  });
   const product: EntityRecord = {
-    _key: `${providerCode}_${plate}`,
-    product_code: `${providerCode}_${plate}`,
+    _key: inventoryKey,
+    product_code: inventoryKey,
     car_number: plate,
     maker,
     model,
@@ -211,6 +231,12 @@ export function parseIronRentcarDetail(
     source_url: sourceUrl,
     _raw_vehicle: { title, subtitle, maker, model, trim_name: trim, variant, year },
   };
+  const inventoryAtom = attachInventoryAtomState({
+    ...product,
+    source_snapshot_id: sourceSnapshot.snapshot_id,
+    source_revision: sourceSnapshot.source_revision,
+    raw_payload_sha256: sourceSnapshot.raw_payload_sha256,
+  });
 
   /**
    * ★**차종마스터 스냅을 걷어냈다**(사장님 2026-08-23 「차종마스터 관련 싹 다 걷어내고 정제칸을 정확히 반영한다」).
@@ -248,7 +274,7 @@ export function parseIronRentcarDetail(
     insurance_included: '보험료 포함',
   };
   const fingerprint = hash({ product, privateProduct, policySnapshot });
-  return { externalId: listing.id, sourceUrl, condition: listing.condition, sold: listing.sold, product, privateProduct, policySnapshot, fingerprint };
+  return { externalId: listing.id, sourceUrl, condition: listing.condition, sold: listing.sold, product, privateProduct, policySnapshot, sourceSnapshot, inventoryAtom, fingerprint };
 }
 
 async function fetchHtml(fetchImpl: FetchLike, url: string): Promise<string> {
@@ -264,20 +290,34 @@ async function fetchHtml(fetchImpl: FetchLike, url: string): Promise<string> {
   return html;
 }
 
-async function fetchListings(fetchImpl: FetchLike, condition: 'new' | 'used'): Promise<IronRentcarListing[]> {
+async function fetchListings(fetchImpl: FetchLike, condition: 'new' | 'used', observedAt: string): Promise<{
+  listings: IronRentcarListing[];
+  snapshots: SourceSnapshotV1[];
+}> {
   let pageUrl: string | null = `${IRONRENTCAR_BASE_URL}/vehicles?condition=${condition}`;
   const pages = new Set<string>();
   const found = new Map<string, IronRentcarListing>();
+  const snapshots: SourceSnapshotV1[] = [];
   while (pageUrl && pages.size < 10) {
     if (pages.has(pageUrl)) throw new Error(`${condition} 목록 페이지 순환`);
     pages.add(pageUrl);
-    const parsed = parseIronRentcarListingPage(await fetchHtml(fetchImpl, pageUrl), pageUrl, condition);
+    const html = await fetchHtml(fetchImpl, pageUrl);
+    snapshots.push(createSourceSnapshotV1({
+      providerCode: IRONRENTCAR_PROVIDER_CODE,
+      sourceKind: 'ironrentcar_vehicle_listing_html',
+      sourceExternalId: `${condition}:page:${pages.size}`,
+      sourceUrl: pageUrl,
+      observedAt,
+      rawPayload: html,
+      context: { condition, page: pages.size },
+    }));
+    const parsed = parseIronRentcarListingPage(html, pageUrl, condition);
     for (const listing of parsed.listings) found.set(listing.id, listing);
     pageUrl = parsed.nextUrl;
   }
   if (pageUrl) throw new Error(`${condition} 목록 10페이지 초과`);
   if (!found.size) throw new Error(`${condition} 목록 비어 있음`);
-  return [...found.values()];
+  return { listings: [...found.values()], snapshots };
 }
 
 async function mapLimit<T, R>(values: T[], limit: number, worker: (value: T) => Promise<R>): Promise<R[]> {
@@ -305,14 +345,33 @@ export async function fetchIronRentcarCatalog(options: {
   const cacheMs = Math.max(0, options.cacheMs ?? 300_000);
   if (!options.fetchImpl && cached && cached.expiresAt > now) return cached.catalog;
   const fetchImpl = options.fetchImpl || fetch;
-  const listings = [...await fetchListings(fetchImpl, 'new'), ...await fetchListings(fetchImpl, 'used')];
+  const observedAt = new Date(now).toISOString();
+  const [newSource, usedSource] = await Promise.all([
+    fetchListings(fetchImpl, 'new', observedAt),
+    fetchListings(fetchImpl, 'used', observedAt),
+  ]);
+  const listings = [...newSource.listings, ...usedSource.listings];
   const unique = [...new Map(listings.map((listing) => [listing.id, listing])).values()];
-  const errors: { id: string; message: string }[] = [];
+  const errors: { id: string; message: string; snapshotId: string }[] = [];
+  const sourceSnapshots = [...newSource.snapshots, ...usedSource.snapshots];
   const parsed = await mapLimit(unique, Math.max(1, Math.min(options.concurrency ?? 4, 8)), async (listing) => {
     try {
-      return parseIronRentcarDetail(await fetchHtml(fetchImpl, listing.url), listing);
+      const item = parseIronRentcarDetail(await fetchHtml(fetchImpl, listing.url), listing, IRONRENTCAR_PROVIDER_CODE, observedAt);
+      sourceSnapshots.push(item.sourceSnapshot);
+      return item;
     } catch (error) {
-      errors.push({ id: listing.id, message: String((error as Error)?.message || error) });
+      const fallback = createSourceSnapshotV1({
+        providerCode: IRONRENTCAR_PROVIDER_CODE,
+        sourceKind: 'ironrentcar_listing_observation_json',
+        sourceExternalId: listing.id,
+        sourceUrl: listing.url,
+        observedAt,
+        contentType: 'application/json; charset=utf-8',
+        rawPayload: JSON.stringify(listing),
+        context: { condition: listing.condition, sold_on_listing: listing.sold, detail_fetch_failed: true },
+      });
+      sourceSnapshots.push(fallback);
+      errors.push({ id: listing.id, message: String((error as Error)?.message || error), snapshotId: fallback.snapshot_id });
       return null;
     }
   });
@@ -324,13 +383,14 @@ export async function fetchIronRentcarCatalog(options: {
     fetchedAt: now,
     complete: errors.length === 0 && items.length === unique.length,
     listings: unique.length,
-    active: items.filter((item) => !item.sold).length,
-    sold: items.filter((item) => item.sold).length,
-    newCount: items.filter((item) => item.condition === 'new').length,
-    usedCount: items.filter((item) => item.condition === 'used').length,
+    active: unique.filter((item) => !item.sold).length,
+    sold: unique.filter((item) => item.sold).length,
+    newCount: unique.filter((item) => item.condition === 'new').length,
+    usedCount: unique.filter((item) => item.condition === 'used').length,
     items,
+    sourceSnapshots: sourceSnapshots.sort((a, b) => a.snapshot_id.localeCompare(b.snapshot_id)),
     errors,
-    revision: hash(items.map((item) => [item.externalId, item.fingerprint])),
+    revision: hash(sourceSnapshots.map((snapshot) => [snapshot.source_external_id, snapshot.source_revision]).sort()),
   };
   if (!options.fetchImpl && catalog.complete && cacheMs > 0) cached = { expiresAt: now + cacheMs, catalog };
   return catalog;

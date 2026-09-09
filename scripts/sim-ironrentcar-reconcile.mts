@@ -1,5 +1,6 @@
 import { planIronRentcarReconcile } from '../lib/domain/ironrentcar-reconcile';
 import type { IronRentcarCatalogItem } from '../lib/server/ironrentcar-source';
+import { createSourceSnapshotV1 } from '../lib/server/source-snapshot';
 import type { EntityRecord } from '../lib/intake/entities';
 import { mergeV3V4Records } from '../lib/firebase/rtdb-records';
 
@@ -17,7 +18,10 @@ function web(id: string, plate: string, status = '즉시출고', extra: EntityRe
   };
   return {
     externalId: id, sourceUrl: `https://ironrentcar.com/vehicles/${id}`, condition: 'used',
-    sold: status === '출고불가', product, privateProduct: {}, policySnapshot: {}, fingerprint: id,
+    sold: status === '출고불가', product, privateProduct: {}, policySnapshot: {},
+    sourceSnapshot: createSourceSnapshotV1({ providerCode: 'RP006', sourceKind: 'test', sourceExternalId: id, sourceUrl: `https://ironrentcar.com/vehicles/${id}`, observedAt: '2026-09-09T00:00:00.000Z', rawPayload: id, inventoryKey: `RP006_${plate}`, carNumber: plate }),
+    inventoryAtom: product,
+    fingerprint: id,
   };
 }
 
