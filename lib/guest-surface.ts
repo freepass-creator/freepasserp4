@@ -27,7 +27,7 @@ const GUEST_PREFIXES = ['/shop', '/uniauto', '/catalog', '/q/', '/sign/'] as con
  * 제 머리를 가진 업무 면 — **상단바만** 벗는다(하단 홈바는 얹는다).
  * 화면이 자기 헤더를 이미 그리고 있어 ERP 상단바를 얹으면 머리가 둘이 된다.
  */
-const OWN_HEADER_PREFIXES = ['/estimate'] as const;
+const OWN_HEADER_PREFIXES = ['/estimate', '/settlement/board'] as const;
 
 function matches(list: readonly string[], pathname: string): boolean {
   return list.some((p) => (
