@@ -25,7 +25,7 @@
 import { readFileSync } from 'node:fs';
 import {
   FREEPASS, GUEST_FALLBACK_KEY, HOME_IS_SHOP, WHITELABELS,
-  hasBrand, homeIsShop, resolveGuestWhitelabel, resolveWhitelabel,
+  hasBrand, hasShopFrame, homeIsShop, resolveGuestWhitelabel, resolveWhitelabel,
 } from '../lib/whitelabel';
 
 const root = new URL('../', import.meta.url);
@@ -107,6 +107,29 @@ for (const wl of WHITELABELS) {
       `${wl.key} 여야 하는데 ${got.key} 로 갔습니다.`);
   }
 }
+
+/* ── ⑥-2 라벨 없는 얼굴 — «가게»지만 «이름»은 없다 ───────────────────────── */
+/*
+ * 사장님 2026-09-09 「화이트라벨은 회사 라벨이 붙는 거고, **프리패스erp.com 기본은 라벨이 없는 거**지.
+ * 그걸 일단 모빌리티.com 에 구현해 놓고 도메인갈이 하자고」 · 「들어왔을 때 **브랜드 안 떠야 함**」.
+ */
+const plains = WHITELABELS.filter((w) => w.plain);
+console.log(`
+  ── 라벨 없는 얼굴 ${plains.length}벌`);
+for (const w of plains) {
+  must(!hasBrand(w), `라벨이 없다 · ${w.key}`,
+    '이름·워드마크가 있으면 그건 화이트라벨이지 «기본 얼굴»이 아닙니다.');
+  must(hasShopFrame(w), `껍데기는 선다 · ${w.key}`,
+    '머리띠·푸터가 없으면 검색·조건·연락처가 갈 데가 없습니다(사장님 「상단바를 없앨 수는 없으니까」).');
+  must(w.hosts.length > 0 || !!w.sitePath, `열 주소가 있다 · ${w.key}`,
+    '호스트도 주소도 없으면 아무도 그 얼굴을 볼 수 없습니다.');
+}
+/*
+ * ★★**업무동 기본값과 «다른 것»이다.** 둘을 한 값으로 합치면 로그인 현관이 사라진다 —
+ *   `FREEPASS` 는 콕핏이라 껍데기조차 없고, `plain` 은 가게라 껍데기가 있다.
+ */
+must(!hasShopFrame(FREEPASS), '업무동 기본값에는 껍데기가 없다',
+  'FREEPASS 에 plain 을 달면 freepasserp.com/ 이 가게로 바뀌어 로그인 현관이 사라집니다.');
 
 /* ── ⑦ 진화 스위치 ② — `freepasserp.com/` 를 가게로 바꿀 준비가 돼 있나 ────── */
 /*

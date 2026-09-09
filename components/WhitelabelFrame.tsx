@@ -7,7 +7,7 @@ import { ChannelSign, ChannelWordmark, CoBrandFreepass } from '@/components/bran
 import { CORP } from '@/lib/domain/corporate-ci';
 import { useSession } from '@/lib/auth-context';
 import { useIsMobile } from '@/lib/use-mobile';
-import { hasBrand, whitelabelVars, type Whitelabel } from '@/lib/whitelabel';
+import { hasBrand, hasShopFrame, whitelabelVars, type Whitelabel } from '@/lib/whitelabel';
 
 /**
  * 화이트라벨 껍데기 — 손님 카탈로그를 «그 회사 사이트»로 보이게 하는 머리띠·안내 블록·푸터.
@@ -126,7 +126,8 @@ export function WhitelabelFrame({
     const ro = new ResizeObserver(set);
     ro.observe(el);
   }, []);
-  if (!hasBrand(wl)) return <>{children}</>;
+  /* ★라벨이 없어도 «가게»면 껍데기는 선다 — 머리띠를 없애면 검색·조건이 갈 데가 없다. */
+  if (!hasShopFrame(wl)) return <>{children}</>;
 
   const who = String(agentName || '').trim();
   const phone = String(agentPhone || '').trim() || wl.tel;
@@ -186,7 +187,17 @@ export function WhitelabelFrame({
           display: 'flex', alignItems: 'center', gap: mobile ? 4 : 12,
         }}>
           {/* 폰 상세는 간판 대신 «이 화면의 이름»을 든다(위 `headerLead` 참고). 웹·목록은 워드마크. */}
-          {mobile && headerLead ? headerLead : (
+          {/*
+            ★★★**라벨이 없으면 간판 자리를 «비운다» — 머리띠는 그대로 선다**
+              (사장님 2026-09-09 「들어왔을 때 **브랜드 안 떠야 함**」 ·
+               「일단 비워봐 — **상단바를 없앨 수는 없으니까**」).
+            ★비운다 = 아무것도 안 그린다. 「상품 찾기」 같은 대체 글자도 안 세운다 —
+              세우는 순간 그게 **새 라벨**이 된다.
+            ★머리띠 자체는 남는다. 오른쪽의 검색·조건·연락처가 거기 서고, 폰에서는 붙박이라
+              긴 목록을 내려가다가도 조건을 다시 걸 수 있다.
+            ⚠ 폰 상세의 `headerLead`(「상품 상세」)는 **라벨이 아니라 «이 화면의 이름»**이라 그대로 둔다.
+          */}
+          {!hasBrand(wl) && !(mobile && headerLead) ? null : mobile && headerLead ? headerLead : (
             /*
              * ★**마크 + 글자**다(사장님 2026-09-05 로고·명함 전달). 마크만 그림이고 이름은 글자다 —
              *   워드마크까지 그림으로 넣으면 배율마다 글자가 뭉개진다.
@@ -396,8 +407,13 @@ export function WhitelabelFrame({
                 적어 봐야 같은 회사다. 그래서 짝 줄은 «국문 ✕ 영문»(머리띠와 같은 짜임)으로 두고,
                 아랫줄은 「직접 운영합니다」로 말만 바꾼다. 없는 협약을 지어 적지 않는다.
             */}
+            {/*
+              ⚠ **라벨 없는 얼굴에는 이 줄이 없다**(사장님 2026-09-09 「들어왔을 때 브랜드 안 떠야 함」).
+                사업자 표기(바로 위)는 «법적 표기»라 남지만, 「누가 운영한다 · 양사 협약」은
+                **브랜드가 하는 말**이다. 머리에 간판을 안 걸고 바닥에서 이름을 부르면 같은 말이 된다.
+            */}
             <div style={{ marginTop: SHOP.sp.cozy }}>
-              {wl.self ? (
+              {!hasBrand(wl) ? null : wl.self ? (
                 /*
                  * ★★**우리 가게는 «한 줄»이다**(사장님 2026-09-07 「여기도 좀 수정해야하고」).
                  *   ⚠ 여기 「프리패스모빌리티 ✕ freepassmobility」 + 「…가 직접 운영합니다」 두 줄이
