@@ -197,23 +197,16 @@ export function WhitelabelFrame({
               긴 목록을 내려가다가도 조건을 다시 걸 수 있다.
             ⚠ 폰 상세의 `headerLead`(「상품 상세」)는 **라벨이 아니라 «이 화면의 이름»**이라 그대로 둔다.
           */}
-          {!hasBrand(wl) && !(mobile && headerLead) ? (
-            /*
-             * ★★**라벨이 없는 얼굴의 간판 자리** — 회사 이름 대신 «무엇을 하는 판인가»를 적는다
-             *   (사장님 2026-09-09 「손님들이 보는 게 아니라 **내부자용 같은 느낌**을 줘서
-             *   얘네가 직접 하려고 하는 거 **막으려고**」). 업무 시스템으로 읽혀야 한다.
-             * ★말은 표에서 온다(`wl.headline`) — 화면에 박지 않는다. 이름이 정해지면 표 한 줄만 고친다.
-             * ★크기는 간판보다 한 단 작고 굵기도 낮춘다 — 이건 «이름»이 아니라 «설명»이라,
-             *   워드마크만큼 세우면 그게 라벨로 읽힌다.
-             * ★누르면 첫 화면으로 — 간판이 하던 일(리셋)은 그대로다.
-             */
-            wl.headline ? (
-              <a href={homeHref} style={{
-                textDecoration: 'none', color: C.ink, whiteSpace: 'nowrap',
-                fontSize: mobile ? 15 : 18, fontWeight: FW.title, letterSpacing: '-0.02em',
-              }}>{wl.headline}</a>
-            ) : null
-          ) : mobile && headerLead ? headerLead : (
+          {/*
+            ★★**간판 자리는 «원자»가 그린다 — 라벨이 있든 없든**(사장님 2026-09-09
+              「**화이트라벨 공통규격은 써 줘야 함. 여기서만 달리 하면 안 되고**」).
+            ⚠ 여기 라벨 없는 얼굴용 글자를 **손으로 짰었다**(크기 18/15 를 화면에 적음).
+              그러면 채널이 늘거나 사다리를 고칠 때 **이 자리만 갈라진다** — 집 규격 절대원칙 ①.
+            ⇒ 껍데기는 `ChannelSign` 하나만 부르고, 무엇을 그릴지(마크+워드마크 / 설명 글)는
+              원자가 안다. 크기도 원자가 `fs` 에서 비율로 뽑는다.
+          */}
+          {mobile && headerLead ? headerLead : (
+
             /*
              * ★**마크 + 글자**다(사장님 2026-09-05 로고·명함 전달). 마크만 그림이고 이름은 글자다 —
              *   워드마크까지 그림으로 넣으면 배율마다 글자가 뭉개진다.
@@ -231,7 +224,7 @@ export function WhitelabelFrame({
              *   브랜드인 것처럼**」) — 마크와 글자가 «한 덩어리»고, 그 뒤 «✕ freepass» 만 한 단
              *   떼어 놓는다. 붙은 것은 한 이름으로, 뗀 것은 «동반»으로 읽힌다.
              */
-            <a href={homeHref} aria-label={`${wl.name} 첫 화면으로`} style={{
+            <a href={homeHref} aria-label={`${wl.name || wl.headline || '가게'} 첫 화면으로`} style={{
               display: 'flex', alignItems: 'center',
               whiteSpace: 'nowrap', textDecoration: 'none', color: 'inherit',
             }}>
