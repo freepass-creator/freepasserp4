@@ -14,6 +14,7 @@ import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { makerGroup } from '../lib/domain/vehicle-master-match';
 import type { MasterEntry } from '../lib/domain/vehicle-master-types';
+import { cleanTrim } from '../lib/domain/clean-trim';
 
 const APPLY = process.argv.includes('--apply');
 const S = (v: unknown) => String(v ?? '').trim();
@@ -34,31 +35,29 @@ type Doc = { id: string; d: Record<string, unknown> };
 const docs: Doc[] = snap.docs.map((x) => ({ id: x.id, d: x.data() as Record<string, unknown> }));
 console.log(`products ${docs.length}`);
 
-// ① 트림 정리 — «명백한 쓰레기»만 비운다. 진짜인데 마스터에 없는 트림(마스터 갭)은 «보존»하고 따로 보고.
+// ① 트림 = «마스터에서 복사 or 공란» — 수집기·미러가 쓰는 cleanTrim «한 함수»로 통일한다.
+//   ★Codex 2026-09-09: 정규화기가 마스터밖 «진짜같은» 값을 «보존»하고 직접수집 cleanTrim 은 «공란»이라
+//     경로별 결과가 갈렸다(같은 Premium 이 한쪽은 남고 한쪽은 비었다). 이제 셋(ingest·mirror·정규화기)이
+//     «같은 규칙»을 쓴다 — 트림은 마스터 정본철자 복사, 아니면 공란(원문은 보존, 갭은 보고).
 const PLACEHOLDER = /^(기본형|기본\s*사양|기본|기본형태|없음|미정|해당없음|n\/a|-{1,}|\.+)$/i;
-const isJunk = (trim: string, mk: unknown, mo: unknown, sm: unknown) => {
-  const raw = S(trim); const t = N(trim);
-  if (PLACEHOLDER.test(raw)) return true;                         // 플레이스홀더
-  if (N(mo) && t.includes(N(mo))) return true;                    // 모델이 트림칸에 (그랜저GN7)
-  if (N(sm) && t.includes(N(sm))) return true;                    // 세부모델이 트림칸에
-  if (/\d\s*세대/.test(raw)) return true;                          // "4세대"
-  if (raw.length > 20) return true;                               // 원문 덩어리가 통째로 (G70 자가용 가솔린 3.3T…)
-  return false;
-};
-const toBlank: Doc[] = [];
+const isJunkish = (t: string, mo: unknown, sm: unknown) =>
+  PLACEHOLDER.test(t) || (N(mo) && N(t).includes(N(mo))) || (N(sm) && N(t).includes(N(sm))) || /\d\s*세대/.test(t) || t.length > 20;
+const 고칠것: { id: string; to: string }[] = [];   // to='' 비움 · to=마스터트림 철자교정(복사)
 const kept: string[] = [];
-const gap = new Map<string, number>();   // 진짜인데 마스터에 없는 트림 — 보존, 마스터 보강 후보
+const gap = new Map<string, number>();   // 공란으로 비운 것 중 «진짜같은데 마스터에 없음» — 값은 공란, 마스터 보강 후보로 보고만
+let 교정 = 0, 쓰레기 = 0;
 for (const { id, d } of docs) {
   const t = S(d.trim_name); if (!t) continue;
   const trims = trimsFor(d.maker, d.model, d.sub_model);
-  if (trims.some((x) => N(x) === N(t))) { kept.push(t); continue; }
-  if (isJunk(t, d.maker, d.model, d.sub_model)) { toBlank.push({ id, d }); continue; }
-  const key = `${S(d.maker)} ${S(d.sub_model)} 「${t}」`; gap.set(key, (gap.get(key) || 0) + 1);   // 마스터 갭 — 보존
+  const to = cleanTrim(t, d.maker, d.model, d.sub_model, trims);   // 복사(정본철자) or 공란
+  if (to === t) { kept.push(t); continue; }                        // 이미 정본
+  고칠것.push({ id, to });
+  if (to) 교정++;                                                   // 마스터 트림으로 철자교정(복사)
+  else if (isJunkish(t, d.model, d.sub_model)) 쓰레기++;             // 명백한 쓰레기 → 공란
+  else { const key = `${S(d.maker)} ${S(d.sub_model)} 「${t}」`; gap.set(key, (gap.get(key) || 0) + 1); }   // 마스터 갭 → 공란 + 보고
 }
-console.log(`\n① 트림 정리 — 마스터트림 유지 ${kept.length} · 쓰레기(비울 것) ${toBlank.length} · 마스터갭(보존·보강후보) ${[...gap.values()].reduce((a, b) => a + b, 0)}`);
-console.log('  ── 비울 쓰레기 표본 ──');
-for (const x of toBlank.slice(0, 12)) console.log(`   ${S(x.d.car_number)} 「${S(x.d.trim_name)}」 (${S(x.d.maker)} ${S(x.d.model)}/${S(x.d.sub_model)})`);
-console.log('  ── 마스터갭(안 비움 · 마스터 보강 후보) 표본 ──');
+console.log(`\n① 트림 = 마스터 복사 or 공란(cleanTrim 통일) — 유지 ${kept.length} · 철자교정(복사) ${교정} · 쓰레기 비움 ${쓰레기} · 마스터갭 비움 ${[...gap.values()].reduce((a, b) => a + b, 0)}`);
+console.log('  ── 마스터갭(비움 · 마스터에 넣으면 다음 회차 복사됨) 표본 ──');
 for (const [k, v] of [...gap.entries()].sort((a, b) => b[1] - a[1]).slice(0, 12)) console.log(`   ${k} ×${v}`);
 
 // ② 같은 원문 ↔ 세대(세부모델) 갈림 검수
@@ -73,12 +72,12 @@ const split = [...byRaw.entries()].filter(([, set]) => set.size > 1);
 console.log(`\n② 같은 원문인데 세대 갈림 ${split.length}건 (검수 — 자동으로 안 고침):`);
 for (const [raw, set] of split.slice(0, 12)) console.log(`  「${raw.slice(0, 26)}」 → ${[...set].join(' / ')}  [${(rawCars.get(raw) || []).slice(0, 6).join(' · ')}]`);
 
-if (!APPLY) { console.log(`\n미리보기 — 안 씀. 트림 비우려면 --apply(②는 사람 검수).`); process.exit(0); }
+if (!APPLY) { console.log(`\n미리보기 — 안 씀. --apply 로 트림을 마스터 정본으로(복사 or 공란). ②는 사람 검수.`); process.exit(0); }
 let w = 0;
-for (let i = 0; i < toBlank.length; i += 400) {
+for (let i = 0; i < 고칠것.length; i += 400) {
   const batch = fs.batch();
-  for (const { id } of toBlank.slice(i, i + 400)) { batch.set(fs.collection('products').doc(id), { trim_name: '', _trim_cleaned_at: Date.now() }, { merge: true }); w++; }
+  for (const { id, to } of 고칠것.slice(i, i + 400)) { batch.set(fs.collection('products').doc(id), { trim_name: to, _trim_cleaned_at: Date.now() }, { merge: true }); w++; }
   await batch.commit();
 }
-console.log(`\n반영 완료 — 마스터밖 트림 ${w}건 비움(원문 보존). 정체·②는 안 건드림.`);
+console.log(`\n반영 완료 — 트림 ${w}건 정본화(cleanTrim: 복사 or 공란, 원문 보존). 정체·②는 안 건드림.`);
 process.exit(0);
