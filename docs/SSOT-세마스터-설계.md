@@ -130,7 +130,12 @@ Firestore vehicle_master (정본)  ──[export 잡 «수동 실행»]──▶
   ③ 정규화기(`clean-atom-trims --apply`)를 «모든 수집 뒤·발행 앞» 한 단계로 파이프라인에 넣는다.
   ④ 그 «다음에» 현재 220 「기본형」을 비운다 → 이제 다음 회차에도 안 돌아온다.
 - **2단계 — 정본 전파 자동화(㉡)**: export 를 미러 «직전»에, 실패 시 회차 중단. (그 뒤 ㉠ 직접읽기로 캐시 폐기.)
-- **3단계 — 상태 한 함수화**: 공급사가용·ERP잠금을 각각 보존, 최종 판매가능은 한 곳(`statusDetail`+`settlement-engine`)에서만.
+- **3단계 — 상태 한 함수화 ✓(2026-09-09)**: `lib/domain/atom-status.ts resolveStatus` 로 mirror·ingest·heal 통합. 로직 동일(8케이스 대조).
+  ⚠ **아직 남은 위험(기존 결함 · Codex 확인)**: resolveStatus 는 `locked` 를 «이유 표시»에만 쓴다 — 계약잠금이 있어도
+    공급사 원천이 「출고가능」이면 `가용/listable=true` 로 돌려줘 **계약한 차가 목록에 다시 선다**(사장님 최대 우려).
+    ⇒ 락은 `syncVehicleLock`(settlement) 소유라 이 경계를 함께 봐야 안전. mark-contract/syncVehicleLock 재적용으로
+    자가치유되는 창이 있으나 순서상 틈이 있다. **다음 단계 후보 — settlement 경계 확인 필요(사장님/정산세션).**
+  ✔ 다른 상태 writer 는 «별도 도메인/레거시»라 통합 대상 아님 — mark-contract(계약잠금=정산 소유) · RTDB writer(폐기 경로) · retire(원천이탈 이유 별도).
 - **4단계 — 나가는 한 문**: 소비처(finder·make-sample·ERP)가 resolveAtom «완전 출력»만 읽게. 원문 재읽기·재계산 금지.
 - **마스터갭 4건**(아반떼 인스퍼레이션 등)·**세대갈림 19건**(그랜저 IG/GN7 등)은 사람 검수 후 마스터 채움/매칭 교정.
 
