@@ -25,6 +25,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { canonFuel } from '@/lib/domain/estimate/newcar-normalize';
 
 export type LineupRow = { fuel: string; trim: string; price: number };
 
@@ -63,7 +64,9 @@ function rowsOf(base: number, groups: Group[] | undefined, trimPrefix: string, r
   for (const e of eList) {
     for (const d of dList) {
       const trim = [trimPrefix, label(d)].filter(Boolean).join(' · ');
-      out.push({ fuel: label(e) || rowFuel, trim: trim || '기본', price: base + addWon(e) + addWon(d) });
+      /* 라벨은 «한 규격»으로 — 정본이 「가솔린 2.5T」라 적어도 마스터 전체는 「가솔린 2.5 터보」다.
+         갈리면 파워트레인 칸에 같은 엔진이 두 이름으로 선다. */
+      out.push({ fuel: canonFuel(label(e) || rowFuel), trim: trim || '기본', price: base + addWon(e) + addWon(d) });
     }
   }
   return out;

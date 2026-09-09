@@ -656,7 +656,7 @@ const { expandGenesis, fillBlankFuel, lineupOf, genesisConfig } =
   const f = (fuel: string, trim: string) => rows.find((r) => r.fuel === fuel && r.trim === trim)?.price ?? 0;
   must(rows.length === 4, `G80 라인업이 넷이 아닙니다(${rows.length}) — 엔진 2 × 구동 2`,
     'lib/domain/estimate/genesis-lineup.ts');
-  must(f('가솔린 2.5T', '2WD') === 60_630_000 && f('가솔린 3.5T', '2WD') === 67_230_000,
+  must(f('가솔린 2.5 터보', '2WD') === 60_630_000 && f('가솔린 3.5 터보', '2WD') === 67_230_000,
     'G80 엔진별 값이 정본과 다릅니다 — base 6,063만 + 3.5T 660만(공식 PDF · 코덱스 확정)',
     'lib/domain/estimate/genesis-lineup.ts');
   /* ⚠ 엔진 그룹에 옵션 문구가 섞인 모델이 있다(GV70 「브레이크 및 후륜 스타일링 커버…」).
@@ -782,6 +782,48 @@ must(/}, \[wStep, wOnState, wCount, wChosen\]\)/.test(cascade),
 must(page.includes('const setSource = useCallback(') && /onPick=\{setSource\}/.test(page),
   '상품을 바꿔도 연식·주행이 안 되돌아갑니다 — 신차를 봤다 오면 「올해식 0km 중고차」가 됩니다',
   'app/estimate/page.tsx');
+
+/* ══ 10. 이름 정제 — 원천마다 다른 표기를 «한 규격»으로 ═══════════════════════
+     ★★사장님 2026-09-09 「**여기도 SSOT 에서 제대로 갖고와야 한다**」 · 「**제대로 쌓아올려봐**」
+     이름이 지저분하면 옵션도 색상도 조합지도도 못 붙는다(실측 완전일치 27%). */
+const { canonFuel: cf, splitAxis: sa, withSuffix: ws } = await import('../lib/domain/estimate/newcar-normalize');
+
+/* 10-1. 연료 라벨이 규격으로 모이는가 — `{연료} {배기량}{ 터보}`. */
+for (const [raw, want] of [
+  ['1.6 가솔린 터보', '가솔린 1.6 터보'],   // 기아 어순
+  ['가솔린 1.6T-GDi', '가솔린 1.6 터보'],
+  ['가솔린 1.6 T-GDi(N라인)', '가솔린 1.6 터보'],
+  ['LPi 3.5', 'LPG 3.5'],
+  ['전기모터', '전기'], ['전기차', '전기'], ['EV', '전기'],
+  ['수소전기', '수소'],
+  ['하이브리드 1.6T', '하이브리드 1.6 터보'],
+  ['하이브리드', '하이브리드'],            // ⚠ 없는 배기량을 지어내지 않는다
+] as const) {
+  must(cf(raw) === want, `연료 라벨 「${raw}」가 «${cf(raw)}» 로 모입니다 — «${want}» 여야 합니다`,
+    'lib/domain/estimate/newcar-normalize.ts');
+}
+
+/* 10-2. 탭 라벨이 «연료»가 아닌 축이면 트림 꼬리로 옮긴다 — 안 옮기면 같은 트림이 값만 다르게 두 줄이 된다. */
+{
+  const a = sa('터보 하이브리드(전자식4WD)');
+  must(a.fuel === '하이브리드 터보' && a.trimSuffix.includes('전자식4WD'),
+    '구동 축이 트림 꼬리로 안 옮겨집니다 — 쏘렌토 하이브리드가 2WD/4WD 로 안 갈립니다',
+    'lib/domain/estimate/newcar-normalize.ts splitAxis');
+  const b = sa('2WD', true);
+  must(b.fuel === '전기' && b.trimSuffix === '2WD',
+    'EV9 의 「2WD」 탭이 전기로 안 잡힙니다 — 같은 트림이 값만 다르게 두 줄이 됩니다',
+    'lib/domain/estimate/newcar-normalize.ts splitAxis');
+  must(sa('9인승').fuel === '', '좌석 탭에서 연료를 «지어냈습니다» — 카니발은 연료를 모릅니다',
+    'lib/domain/estimate/newcar-normalize.ts splitAxis');
+}
+
+/* 10-3. 꼬리를 붙일 때 괄호가 겹치지 않는다. */
+must(ws('노블레스(9인승)', '9인승 하이루프') === '노블레스(9인승 하이루프)',
+  '트림 꼬리가 괄호를 겹쳐 붙입니다 — 「노블레스(9인승)(하이루프)」가 됩니다',
+  'lib/domain/estimate/newcar-normalize.ts withSuffix');
+must(ws('프레스티지(9인)', '9인승') === '프레스티지(9인)',
+  '이미 들어 있는 꼬리를 또 붙입니다',
+  'lib/domain/estimate/newcar-normalize.ts withSuffix');
 
 if (fails.length) {
   console.error(`\n✗ 견적 로직이 정본과 다릅니다 — ${fails.length}건\n`);

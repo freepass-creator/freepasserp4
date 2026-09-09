@@ -1,0 +1,1301 @@
+{
+ "updated": "2026-09-09",
+ "rows": [
+  {
+   "maker": "기아",
+   "sub_model": "모닝",
+   "fuel": "가솔린 1.0",
+   "trim": "트렌디",
+   "priceBefore": 14210000,
+   "priceAfter": 14210000,
+   "slug": "morning"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "모닝",
+   "fuel": "가솔린 1.0",
+   "trim": "프레스티지",
+   "priceBefore": 16010000,
+   "priceAfter": 16010000,
+   "slug": "morning"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "모닝",
+   "fuel": "가솔린 1.0",
+   "trim": "시그니처",
+   "priceBefore": 18160000,
+   "priceAfter": 18160000,
+   "slug": "morning"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "모닝",
+   "fuel": "가솔린 1.0",
+   "trim": "GT-Line",
+   "priceBefore": 19110000,
+   "priceAfter": 19110000,
+   "slug": "morning"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "모닝",
+   "fuel": "가솔린 1.0",
+   "trim": "트렌디(밴)",
+   "priceBefore": 13860000,
+   "priceAfter": 13860000,
+   "slug": "morning"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "모닝",
+   "fuel": "가솔린 1.0",
+   "trim": "프레스티지(밴)",
+   "priceBefore": 14510000,
+   "priceAfter": 14510000,
+   "slug": "morning"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "레이",
+   "fuel": "가솔린 1.0",
+   "trim": "트렌디",
+   "priceBefore": 15550000,
+   "priceAfter": 15550000,
+   "slug": "ray"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "레이",
+   "fuel": "가솔린 1.0",
+   "trim": "프레스티지",
+   "priceBefore": 18150000,
+   "priceAfter": 18150000,
+   "slug": "ray"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "레이",
+   "fuel": "가솔린 1.0",
+   "trim": "시그니처",
+   "priceBefore": 19550000,
+   "priceAfter": 19550000,
+   "slug": "ray"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "레이",
+   "fuel": "가솔린 1.0",
+   "trim": "X-Line",
+   "priceBefore": 20600000,
+   "priceAfter": 20600000,
+   "slug": "ray"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "레이",
+   "fuel": "가솔린 1.0",
+   "trim": "트렌디(1인승 밴)",
+   "priceBefore": 14800000,
+   "priceAfter": 14800000,
+   "slug": "ray"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "레이",
+   "fuel": "가솔린 1.0",
+   "trim": "프레스티지(1인승 밴)",
+   "priceBefore": 15400000,
+   "priceAfter": 15400000,
+   "slug": "ray"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "레이",
+   "fuel": "가솔린 1.0",
+   "trim": "프레스티지 스페셜(1인승 밴)",
+   "priceBefore": 15950000,
+   "priceAfter": 15950000,
+   "slug": "ray"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "레이",
+   "fuel": "가솔린 1.0",
+   "trim": "트렌디(2인승 밴)",
+   "priceBefore": 14900000,
+   "priceAfter": 14900000,
+   "slug": "ray"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "레이",
+   "fuel": "가솔린 1.0",
+   "trim": "프레스티지(2인승 밴)",
+   "priceBefore": 15550000,
+   "priceAfter": 15550000,
+   "slug": "ray"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "레이",
+   "fuel": "가솔린 1.0",
+   "trim": "프레스티지 스페셜(2인승 밴)",
+   "priceBefore": 16100000,
+   "priceAfter": 16100000,
+   "slug": "ray"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "K5",
+   "fuel": "하이브리드",
+   "trim": "프레스티지",
+   "priceBefore": 34340000,
+   "priceAfter": 33340000,
+   "slug": "k5"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "K5",
+   "fuel": "하이브리드",
+   "trim": "베스트 셀렉션",
+   "priceBefore": 35430000,
+   "priceAfter": 34430000,
+   "slug": "k5"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "K5",
+   "fuel": "하이브리드",
+   "trim": "노블레스",
+   "priceBefore": 37700000,
+   "priceAfter": 36700000,
+   "slug": "k5"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "K5",
+   "fuel": "하이브리드",
+   "trim": "시그니처",
+   "priceBefore": 40640000,
+   "priceAfter": 39640000,
+   "slug": "k5"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "K5",
+   "fuel": "가솔린 2.0",
+   "trim": "스마트 셀렉션",
+   "priceBefore": 27630000,
+   "priceAfter": 27630000,
+   "slug": "k5"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "K5",
+   "fuel": "가솔린 2.0",
+   "trim": "프레스티지",
+   "priceBefore": 28920000,
+   "priceAfter": 28920000,
+   "slug": "k5"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "K5",
+   "fuel": "가솔린 2.0",
+   "trim": "베스트 셀렉션",
+   "priceBefore": 30140000,
+   "priceAfter": 30140000,
+   "slug": "k5"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "K5",
+   "fuel": "가솔린 2.0",
+   "trim": "노블레스",
+   "priceBefore": 32440000,
+   "priceAfter": 32440000,
+   "slug": "k5"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "K5",
+   "fuel": "가솔린 2.0",
+   "trim": "시그니처",
+   "priceBefore": 35580000,
+   "priceAfter": 35580000,
+   "slug": "k5"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "K5",
+   "fuel": "가솔린 1.6 터보",
+   "trim": "프레스티지",
+   "priceBefore": 29730000,
+   "priceAfter": 29730000,
+   "slug": "k5"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "K5",
+   "fuel": "가솔린 1.6 터보",
+   "trim": "베스트 셀렉션",
+   "priceBefore": 30950000,
+   "priceAfter": 30950000,
+   "slug": "k5"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "K5",
+   "fuel": "가솔린 1.6 터보",
+   "trim": "노블레스",
+   "priceBefore": 33680000,
+   "priceAfter": 33680000,
+   "slug": "k5"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "K5",
+   "fuel": "가솔린 1.6 터보",
+   "trim": "시그니처",
+   "priceBefore": 36370000,
+   "priceAfter": 36370000,
+   "slug": "k5"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "K5",
+   "fuel": "LPG 2.0",
+   "trim": "프레스티지",
+   "priceBefore": 29610000,
+   "priceAfter": 29610000,
+   "slug": "k5"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "K5",
+   "fuel": "LPG 2.0",
+   "trim": "노블레스",
+   "priceBefore": 33230000,
+   "priceAfter": 33230000,
+   "slug": "k5"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "K5",
+   "fuel": "LPG 2.0",
+   "trim": "시그니처",
+   "priceBefore": 35480000,
+   "priceAfter": 35480000,
+   "slug": "k5"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "K8",
+   "fuel": "하이브리드 터보",
+   "trim": "노블레스 라이트",
+   "priceBefore": 43670000,
+   "priceAfter": 42670000,
+   "slug": "k8"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "K8",
+   "fuel": "하이브리드 터보",
+   "trim": "베스트 셀렉션",
+   "priceBefore": 45200000,
+   "priceAfter": 44200000,
+   "slug": "k8"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "K8",
+   "fuel": "하이브리드 터보",
+   "trim": "노블레스",
+   "priceBefore": 47780000,
+   "priceAfter": 46780000,
+   "slug": "k8"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "K8",
+   "fuel": "하이브리드 터보",
+   "trim": "시그니처",
+   "priceBefore": 51380000,
+   "priceAfter": 50380000,
+   "slug": "k8"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "K8",
+   "fuel": "하이브리드 터보",
+   "trim": "시그니처 블랙",
+   "priceBefore": 52750000,
+   "priceAfter": 51750000,
+   "slug": "k8"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "K8",
+   "fuel": "가솔린 2.5",
+   "trim": "노블레스 라이트",
+   "priceBefore": 37310000,
+   "priceAfter": 37310000,
+   "slug": "k8"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "K8",
+   "fuel": "가솔린 2.5",
+   "trim": "베스트 셀렉션",
+   "priceBefore": 38850000,
+   "priceAfter": 38850000,
+   "slug": "k8"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "K8",
+   "fuel": "가솔린 2.5",
+   "trim": "노블레스",
+   "priceBefore": 41430000,
+   "priceAfter": 41430000,
+   "slug": "k8"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "K8",
+   "fuel": "가솔린 2.5",
+   "trim": "시그니처",
+   "priceBefore": 45020000,
+   "priceAfter": 45020000,
+   "slug": "k8"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "K8",
+   "fuel": "가솔린 2.5",
+   "trim": "시그니처 블랙",
+   "priceBefore": 46600000,
+   "priceAfter": 46600000,
+   "slug": "k8"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "K8",
+   "fuel": "가솔린 3.5",
+   "trim": "노블레스 라이트",
+   "priceBefore": 40430000,
+   "priceAfter": 40430000,
+   "slug": "k8"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "K8",
+   "fuel": "가솔린 3.5",
+   "trim": "베스트 셀렉션",
+   "priceBefore": 41720000,
+   "priceAfter": 41720000,
+   "slug": "k8"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "K8",
+   "fuel": "가솔린 3.5",
+   "trim": "노블레스",
+   "priceBefore": 44300000,
+   "priceAfter": 44300000,
+   "slug": "k8"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "K8",
+   "fuel": "가솔린 3.5",
+   "trim": "시그니처",
+   "priceBefore": 47890000,
+   "priceAfter": 47890000,
+   "slug": "k8"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "K8",
+   "fuel": "가솔린 3.5",
+   "trim": "시그니처 블랙",
+   "priceBefore": 49470000,
+   "priceAfter": 49470000,
+   "slug": "k8"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "K8",
+   "fuel": "LPG 3.5",
+   "trim": "프레스티지",
+   "priceBefore": 37770000,
+   "priceAfter": 37770000,
+   "slug": "k8"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "K8",
+   "fuel": "LPG 3.5",
+   "trim": "노블레스",
+   "priceBefore": 41610000,
+   "priceAfter": 41610000,
+   "slug": "k8"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "K9",
+   "fuel": "가솔린 3.8",
+   "trim": "플래티넘",
+   "priceBefore": 60340000,
+   "priceAfter": 60340000,
+   "slug": "k9"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "K9",
+   "fuel": "가솔린 3.8",
+   "trim": "베스트 셀렉션 Ⅰ",
+   "priceBefore": 68990000,
+   "priceAfter": 68990000,
+   "slug": "k9"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "K9",
+   "fuel": "가솔린 3.8",
+   "trim": "마스터즈",
+   "priceBefore": 75200000,
+   "priceAfter": 75200000,
+   "slug": "k9"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "K9",
+   "fuel": "가솔린 3.8",
+   "trim": "베스트 셀렉션 Ⅱ",
+   "priceBefore": 82290000,
+   "priceAfter": 82290000,
+   "slug": "k9"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "K9",
+   "fuel": "가솔린 3.3 터보",
+   "trim": "플래티넘",
+   "priceBefore": 66880000,
+   "priceAfter": 66880000,
+   "slug": "k9"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "K9",
+   "fuel": "가솔린 3.3 터보",
+   "trim": "베스트 셀렉션 Ⅰ",
+   "priceBefore": 74750000,
+   "priceAfter": 74750000,
+   "slug": "k9"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "K9",
+   "fuel": "가솔린 3.3 터보",
+   "trim": "마스터즈",
+   "priceBefore": 79940000,
+   "priceAfter": 79940000,
+   "slug": "k9"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "K9",
+   "fuel": "가솔린 3.3 터보",
+   "trim": "베스트 셀렉션 Ⅱ",
+   "priceBefore": 87030000,
+   "priceAfter": 87030000,
+   "slug": "k9"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "셀토스",
+   "fuel": "가솔린 1.6 터보",
+   "trim": "트렌디",
+   "priceBefore": 25120000,
+   "priceAfter": 25120000,
+   "slug": "seltos"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "셀토스",
+   "fuel": "가솔린 1.6 터보",
+   "trim": "프레스티지",
+   "priceBefore": 28800000,
+   "priceAfter": 28800000,
+   "slug": "seltos"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "셀토스",
+   "fuel": "가솔린 1.6 터보",
+   "trim": "시그니처",
+   "priceBefore": 31450000,
+   "priceAfter": 31450000,
+   "slug": "seltos"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "셀토스",
+   "fuel": "가솔린 1.6 터보",
+   "trim": "X-Line",
+   "priceBefore": 32630000,
+   "priceAfter": 32630000,
+   "slug": "seltos"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "셀토스",
+   "fuel": "하이브리드",
+   "trim": "트렌디",
+   "priceBefore": 30400000,
+   "priceAfter": 29400000,
+   "slug": "seltos"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "셀토스",
+   "fuel": "하이브리드",
+   "trim": "프레스티지",
+   "priceBefore": 33550000,
+   "priceAfter": 32550000,
+   "slug": "seltos"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "셀토스",
+   "fuel": "하이브리드",
+   "trim": "시그니처",
+   "priceBefore": 36200000,
+   "priceAfter": 35200000,
+   "slug": "seltos"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "셀토스",
+   "fuel": "하이브리드",
+   "trim": "X-Line",
+   "priceBefore": 37360000,
+   "priceAfter": 36360000,
+   "slug": "seltos"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "니로",
+   "fuel": "하이브리드",
+   "trim": "트렌디",
+   "priceBefore": 30270000,
+   "priceAfter": 29270000,
+   "slug": "niro"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "니로",
+   "fuel": "하이브리드",
+   "trim": "프레스티지",
+   "priceBefore": 33420000,
+   "priceAfter": 32420000,
+   "slug": "niro"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "니로",
+   "fuel": "하이브리드",
+   "trim": "시그니처",
+   "priceBefore": 36150000,
+   "priceAfter": 35150000,
+   "slug": "niro"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "스포티지",
+   "fuel": "가솔린 1.6 터보",
+   "trim": "프레스티지",
+   "priceBefore": 29440000,
+   "priceAfter": 29440000,
+   "slug": "sportage"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "스포티지",
+   "fuel": "가솔린 1.6 터보",
+   "trim": "노블레스",
+   "priceBefore": 33220000,
+   "priceAfter": 33220000,
+   "slug": "sportage"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "스포티지",
+   "fuel": "가솔린 1.6 터보",
+   "trim": "시그니처",
+   "priceBefore": 35570000,
+   "priceAfter": 35570000,
+   "slug": "sportage"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "스포티지",
+   "fuel": "가솔린 1.6 터보",
+   "trim": "시그니처 X-Line",
+   "priceBefore": 36220000,
+   "priceAfter": 36220000,
+   "slug": "sportage"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "스포티지",
+   "fuel": "가솔린 1.6 터보",
+   "trim": "블랙 에디션",
+   "priceBefore": 35870000,
+   "priceAfter": 35870000,
+   "slug": "sportage"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "스포티지",
+   "fuel": "LPG 2.0",
+   "trim": "프레스티지",
+   "priceBefore": 30090000,
+   "priceAfter": 30090000,
+   "slug": "sportage"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "스포티지",
+   "fuel": "LPG 2.0",
+   "trim": "노블레스",
+   "priceBefore": 33870000,
+   "priceAfter": 33870000,
+   "slug": "sportage"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "스포티지",
+   "fuel": "LPG 2.0",
+   "trim": "시그니처",
+   "priceBefore": 36220000,
+   "priceAfter": 36220000,
+   "slug": "sportage"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "스포티지",
+   "fuel": "LPG 2.0",
+   "trim": "시그니처 X-Line",
+   "priceBefore": 36870000,
+   "priceAfter": 36870000,
+   "slug": "sportage"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "스포티지",
+   "fuel": "하이브리드 터보",
+   "trim": "프레스티지",
+   "priceBefore": 35360000,
+   "priceAfter": 34360000,
+   "slug": "sportage"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "스포티지",
+   "fuel": "하이브리드 터보",
+   "trim": "노블레스",
+   "priceBefore": 39030000,
+   "priceAfter": 38030000,
+   "slug": "sportage"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "스포티지",
+   "fuel": "하이브리드 터보",
+   "trim": "시그니처",
+   "priceBefore": 41380000,
+   "priceAfter": 40380000,
+   "slug": "sportage"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "스포티지",
+   "fuel": "하이브리드 터보",
+   "trim": "시그니처 X-Line",
+   "priceBefore": 42030000,
+   "priceAfter": 41030000,
+   "slug": "sportage"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "스포티지",
+   "fuel": "하이브리드 터보",
+   "trim": "블랙 에디션",
+   "priceBefore": 41680000,
+   "priceAfter": 40680000,
+   "slug": "sportage"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "쏘렌토",
+   "fuel": "가솔린 2.5 터보",
+   "trim": "프레스티지",
+   "priceBefore": 36410000,
+   "priceAfter": 36410000,
+   "slug": "sorento"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "쏘렌토",
+   "fuel": "가솔린 2.5 터보",
+   "trim": "노블레스",
+   "priceBefore": 39660000,
+   "priceAfter": 39660000,
+   "slug": "sorento"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "쏘렌토",
+   "fuel": "가솔린 2.5 터보",
+   "trim": "시그니처",
+   "priceBefore": 42470000,
+   "priceAfter": 42470000,
+   "slug": "sorento"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "쏘렌토",
+   "fuel": "가솔린 2.5 터보",
+   "trim": "X-Line",
+   "priceBefore": 43410000,
+   "priceAfter": 43410000,
+   "slug": "sorento"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "쏘렌토",
+   "fuel": "가솔린 2.5 터보",
+   "trim": "블랙 에디션",
+   "priceBefore": 44410000,
+   "priceAfter": 44410000,
+   "slug": "sorento"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "쏘렌토",
+   "fuel": "하이브리드 터보",
+   "trim": "프레스티지(2WD)",
+   "priceBefore": 40630000,
+   "priceAfter": 39630000,
+   "slug": "sorento"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "쏘렌토",
+   "fuel": "하이브리드 터보",
+   "trim": "노블레스(2WD)",
+   "priceBefore": 43990000,
+   "priceAfter": 42990000,
+   "slug": "sorento"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "쏘렌토",
+   "fuel": "하이브리드 터보",
+   "trim": "시그니처(2WD)",
+   "priceBefore": 46760000,
+   "priceAfter": 45760000,
+   "slug": "sorento"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "쏘렌토",
+   "fuel": "하이브리드 터보",
+   "trim": "X-Line(2WD)",
+   "priceBefore": 47700000,
+   "priceAfter": 46700000,
+   "slug": "sorento"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "쏘렌토",
+   "fuel": "하이브리드 터보",
+   "trim": "블랙 에디션(2WD)",
+   "priceBefore": 48950000,
+   "priceAfter": 48950000,
+   "slug": "sorento"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "쏘렌토",
+   "fuel": "하이브리드 터보",
+   "trim": "프레스티지(전자식4WD)",
+   "priceBefore": 42950000,
+   "priceAfter": 42950000,
+   "slug": "sorento"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "쏘렌토",
+   "fuel": "하이브리드 터보",
+   "trim": "노블레스(전자식4WD)",
+   "priceBefore": 46310000,
+   "priceAfter": 46310000,
+   "slug": "sorento"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "쏘렌토",
+   "fuel": "하이브리드 터보",
+   "trim": "시그니처(전자식4WD)",
+   "priceBefore": 49080000,
+   "priceAfter": 49080000,
+   "slug": "sorento"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "쏘렌토",
+   "fuel": "하이브리드 터보",
+   "trim": "X-Line(전자식4WD)",
+   "priceBefore": 50020000,
+   "priceAfter": 50020000,
+   "slug": "sorento"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "쏘렌토",
+   "fuel": "하이브리드 터보",
+   "trim": "블랙 에디션(전자식4WD)",
+   "priceBefore": 51270000,
+   "priceAfter": 51270000,
+   "slug": "sorento"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "카니발",
+   "fuel": "",
+   "trim": "프레스티지(9인)",
+   "priceBefore": 36860000,
+   "priceAfter": 36860000,
+   "slug": "carnival"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "카니발",
+   "fuel": "",
+   "trim": "노블레스(9인)",
+   "priceBefore": 41210000,
+   "priceAfter": 41210000,
+   "slug": "carnival"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "카니발",
+   "fuel": "",
+   "trim": "시그니처(9인)",
+   "priceBefore": 44560000,
+   "priceAfter": 44560000,
+   "slug": "carnival"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "카니발",
+   "fuel": "",
+   "trim": "X-Line(9인)",
+   "priceBefore": 45320000,
+   "priceAfter": 45320000,
+   "slug": "carnival"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "카니발",
+   "fuel": "",
+   "trim": "블랙 에디션(9인)",
+   "priceBefore": 45920000,
+   "priceAfter": 45920000,
+   "slug": "carnival"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "카니발",
+   "fuel": "",
+   "trim": "노블레스(7인)",
+   "priceBefore": 43820000,
+   "priceAfter": 43820000,
+   "slug": "carnival"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "카니발",
+   "fuel": "",
+   "trim": "노블레스 아웃도어(7인)",
+   "priceBefore": 42830000,
+   "priceAfter": 42830000,
+   "slug": "carnival"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "카니발",
+   "fuel": "",
+   "trim": "시그니처(7인)",
+   "priceBefore": 47380000,
+   "priceAfter": 47380000,
+   "slug": "carnival"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "카니발",
+   "fuel": "",
+   "trim": "X-Line(7인)",
+   "priceBefore": 47910000,
+   "priceAfter": 47910000,
+   "slug": "carnival"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "카니발",
+   "fuel": "",
+   "trim": "블랙 에디션(7인)",
+   "priceBefore": 48510000,
+   "priceAfter": 48510000,
+   "slug": "carnival"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "카니발",
+   "fuel": "",
+   "trim": "노블레스(9인승 하이루프)",
+   "priceBefore": 52110000,
+   "priceAfter": 52110000,
+   "slug": "carnival"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "카니발",
+   "fuel": "",
+   "trim": "시그니처(9인승 하이루프)",
+   "priceBefore": 55660000,
+   "priceAfter": 55660000,
+   "slug": "carnival"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "EV3",
+   "fuel": "전기",
+   "trim": "에어 스탠다드",
+   "priceBefore": 42030000,
+   "priceAfter": 39950000,
+   "slug": "ev3"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "EV3",
+   "fuel": "전기",
+   "trim": "에어 롱레인지",
+   "priceBefore": 46450000,
+   "priceAfter": 44150000,
+   "slug": "ev3"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "EV3",
+   "fuel": "전기",
+   "trim": "어스 스탠다드",
+   "priceBefore": 46180000,
+   "priceAfter": 43900000,
+   "slug": "ev3"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "EV3",
+   "fuel": "전기",
+   "trim": "어스 롱레인지",
+   "priceBefore": 50600000,
+   "priceAfter": 48100000,
+   "slug": "ev3"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "EV3",
+   "fuel": "전기",
+   "trim": "GT-Line 스탠다드",
+   "priceBefore": 47080000,
+   "priceAfter": 44750000,
+   "slug": "ev3"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "EV3",
+   "fuel": "전기",
+   "trim": "GT-Line 롱레인지",
+   "priceBefore": 51500000,
+   "priceAfter": 48950000,
+   "slug": "ev3"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "EV4",
+   "fuel": "전기",
+   "trim": "에어 스탠다드",
+   "priceBefore": 42520000,
+   "priceAfter": 40420000,
+   "slug": "ev4"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "EV4",
+   "fuel": "전기",
+   "trim": "에어 롱레인지",
+   "priceBefore": 46940000,
+   "priceAfter": 44620000,
+   "slug": "ev4"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "EV4",
+   "fuel": "전기",
+   "trim": "어스 스탠다드",
+   "priceBefore": 47350000,
+   "priceAfter": 45010000,
+   "slug": "ev4"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "EV4",
+   "fuel": "전기",
+   "trim": "어스 롱레인지",
+   "priceBefore": 51770000,
+   "priceAfter": 49210000,
+   "slug": "ev4"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "EV4",
+   "fuel": "전기",
+   "trim": "GT-Line 스탠다드",
+   "priceBefore": 48510000,
+   "priceAfter": 46110000,
+   "slug": "ev4"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "EV4",
+   "fuel": "전기",
+   "trim": "GT-Line 롱레인지",
+   "priceBefore": 52930000,
+   "priceAfter": 50310000,
+   "slug": "ev4"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "EV5",
+   "fuel": "전기",
+   "trim": "에어 스탠다드",
+   "priceBefore": 43710000,
+   "priceAfter": 41550000,
+   "slug": "ev5"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "EV5",
+   "fuel": "전기",
+   "trim": "에어 롱레인지",
+   "priceBefore": 48130000,
+   "priceAfter": 45750000,
+   "slug": "ev5"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "EV5",
+   "fuel": "전기",
+   "trim": "어스 스탠다드",
+   "priceBefore": 47660000,
+   "priceAfter": 45300000,
+   "slug": "ev5"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "EV5",
+   "fuel": "전기",
+   "trim": "어스 롱레인지",
+   "priceBefore": 52070000,
+   "priceAfter": 49500000,
+   "slug": "ev5"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "EV5",
+   "fuel": "전기",
+   "trim": "GT-Line 스탠다드",
+   "priceBefore": 48810000,
+   "priceAfter": 46400000,
+   "slug": "ev5"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "EV5",
+   "fuel": "전기",
+   "trim": "GT-Line 롱레인지",
+   "priceBefore": 53230000,
+   "priceAfter": 50600000,
+   "slug": "ev5"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "EV6",
+   "fuel": "전기",
+   "trim": "라이트 스탠다드",
+   "priceBefore": 45870000,
+   "priceAfter": 43600000,
+   "slug": "ev6"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "EV6",
+   "fuel": "전기",
+   "trim": "라이트 롱레인지",
+   "priceBefore": 50080000,
+   "priceAfter": 47600000,
+   "slug": "ev6"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "EV6",
+   "fuel": "전기",
+   "trim": "에어 스탠다드",
+   "priceBefore": 51130000,
+   "priceAfter": 48600000,
+   "slug": "ev6"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "EV6",
+   "fuel": "전기",
+   "trim": "에어 롱레인지",
+   "priceBefore": 55330000,
+   "priceAfter": 52600000,
+   "slug": "ev6"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "EV6",
+   "fuel": "전기",
+   "trim": "어스 스탠다드",
+   "priceBefore": 55330000,
+   "priceAfter": 52600000,
+   "slug": "ev6"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "EV6",
+   "fuel": "전기",
+   "trim": "어스 롱레인지",
+   "priceBefore": 59540000,
+   "priceAfter": 56600000,
+   "slug": "ev6"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "EV6",
+   "fuel": "전기",
+   "trim": "GT-Line 롱레인지",
+   "priceBefore": 60170000,
+   "priceAfter": 57200000,
+   "slug": "ev6"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "EV9",
+   "fuel": "전기",
+   "trim": "라이트 스탠다드(2WD)",
+   "priceBefore": 65190000,
+   "priceAfter": 61970000,
+   "slug": "ev9"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "EV9",
+   "fuel": "전기",
+   "trim": "라이트 롱레인지(2WD)",
+   "priceBefore": 69870000,
+   "priceAfter": 66420000,
+   "slug": "ev9"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "EV9",
+   "fuel": "전기",
+   "trim": "에어 스탠다드(2WD)",
+   "priceBefore": 67450000,
+   "priceAfter": 64120000,
+   "slug": "ev9"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "EV9",
+   "fuel": "전기",
+   "trim": "에어 롱레인지(2WD)",
+   "priceBefore": 72140000,
+   "priceAfter": 68570000,
+   "slug": "ev9"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "EV9",
+   "fuel": "전기",
+   "trim": "어스 스탠다드(2WD)",
+   "priceBefore": 72490000,
+   "priceAfter": 68910000,
+   "slug": "ev9"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "EV9",
+   "fuel": "전기",
+   "trim": "어스 롱레인지(2WD)",
+   "priceBefore": 77170000,
+   "priceAfter": 73360000,
+   "slug": "ev9"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "EV9",
+   "fuel": "전기",
+   "trim": "라이트 롱레인지(4WD)",
+   "priceBefore": 73540000,
+   "priceAfter": 69900000,
+   "slug": "ev9"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "EV9",
+   "fuel": "전기",
+   "trim": "에어 롱레인지(4WD)",
+   "priceBefore": 75800000,
+   "priceAfter": 72050000,
+   "slug": "ev9"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "EV9",
+   "fuel": "전기",
+   "trim": "어스 롱레인지(4WD)",
+   "priceBefore": 80890000,
+   "priceAfter": 76890000,
+   "slug": "ev9"
+  },
+  {
+   "maker": "기아",
+   "sub_model": "EV9",
+   "fuel": "전기",
+   "trim": "GT-Line 롱레인지(4WD)",
+   "priceBefore": 83290000,
+   "priceAfter": 79170000,
+   "slug": "ev9"
+  }
+ ]
+}
