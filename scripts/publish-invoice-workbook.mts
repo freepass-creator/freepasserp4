@@ -95,6 +95,15 @@ const BOOK_WAS = ['[F06 사용중] 프리패스 계산서 발행', `[F06 사용�
   `[T 사용중] 프리패스 세금계산서 ${MON}`];
 const TAB_WAS = (sup: string) => `${MON} ${sup}`;
 const SUMMARY = '발행 요약';
+/**
+ * ★**발행 실무에 필요한 셋** — 어느 줄이나 같으므로 칸이 아니라 «머리»에 한 번 적는다.
+ *   · 작성일자 = 그 달 말일 (용역이 그 달로 끝나므로)
+ *   · 발행기한 = 다음 달 10일 — 넘기면 가산세다. 종이가 먼저 말해 준다
+ *   · 품목     = 계산서 적요에 그대로 적는 말
+ */
+const LASTDAY = (() => { const [y, m] = MONTH.split('-').map(Number); const d = new Date(y, m, 0); return `${y}-${String(m).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; })();
+const DUE = (() => { const [y, m] = MONTH.split('-').map(Number); const n = m === 12 ? { y: y + 1, m: 1 } : { y, m: m + 1 }; return `${n.y}-${String(n.m).padStart(2, '0')}-10`; })();
+const ITEM = `${MON} 렌탈 판매수수료`;
 
 /** 요약 탭 칸 — 「야 이 금액으로 발행해」에 바로 쓰는 표. */
 /**
@@ -486,6 +495,19 @@ const kept = new Map<string, (string | number | boolean)[]>();
  *   ★최종 셋(공급가액·부가세·합계)은 **수식**이다 — 가감을 손대면 그 자리에서 따라 움직인다.
  *     숫자로 박아 두면 사람이 고친 가감과 최종이 어긋나 «어느 쪽이 발행액인지» 모르게 된다.
  */
+/**
+ * ★**빠진 것을 «세어» 둔다** — 표에 안 실린 줄과, 거래처 정보가 모자란 곳.
+ *   보는 사람이 「빠뜨린 건가?」를 매달 다시 묻지 않게 종이가 먼저 답한다.
+ */
+const offList = rows.filter((r) => !S(r.supplier) || invoiceMoneyOf(r as never).total === 0)
+  .map((r) => `${S(r.plate) || '(차번없음)'} ${S(r.customer)}${S(r.supplier) ? ` · ${S(r.supplier)}` : ''} — ${S(r.settleNote) || S(r.note) || '그 달 공급사 청구 없음'}`);
+const shortCi = jobs.map((j) => {
+  const c = ci(j.sup.split('·')[0]);
+  const miss = [!c ? '★거래처 명단에 없음' : '', c && !S(c.bizNo) ? '사업자번호' : '', c && !S(c.legal) ? '상호' : '',
+    c && !S(c.ceo) ? '대표자' : '', c && !S(c.addr) ? '주소' : '', c && !S(c.tel) ? '연락처' : ''].filter(Boolean);
+  return miss.length ? `${j.sup}(${miss.join('·')})` : '';
+}).filter(Boolean);
+
 const sumBody = jobs.map((j, i) => {
   const c = ci(j.sup); const k = kept.get(j.sup) || [];
   const row = 3 + i;  // 제목 1줄 + 머리 1줄 뒤
@@ -507,15 +529,30 @@ const sumBody = jobs.map((j, i) => {
 });
 const sumRows = sumBody.length;
 const sumValues: (string | number | boolean)[][] = [
-  [`${MON} 세금계산서 발행 목록   ·   ${CORP.name} → 공급사   ·   거래처 ${jobs.length}곳`, ...Array.from({ length: SUM_HEAD.length - 1 }, () => '')],
+  [`${MON} 세금계산서 발행 목록   ·   ${CORP.name} → 공급사 ${jobs.length}곳   ·   작성일자 ${LASTDAY}   ·   발행기한 ${DUE}   ·   품목 「${ITEM}」`, ...Array.from({ length: SUM_HEAD.length - 1 }, () => '')],
   [...SUM_HEAD],
   ...sumBody,
   ['', '합계', '', '', '', TOT.n, `=SUM(G3:G${2 + sumRows})`, `=SUM(H3:H${2 + sumRows})`, '',
     `=SUM(J3:J${2 + sumRows})`, `=SUM(K3:K${2 + sumRows})`, `=SUM(L3:L${2 + sumRows})`, '', '', ''],
   Array.from({ length: SUM_HEAD.length }, () => ''),
-  ['「정산액 + 가감 = 공급가액」이고 「합계」가 «최종 발행액»입니다. 가감을 고치면 최종이 따라 움직입니다 — 더 주는 것은 «플러스», 환수는 «마이너스»로 적고 사유를 적어 주세요. ★계산서는 «사업자등록번호» 하나가 한 장입니다.', ...Array.from({ length: SUM_HEAD.length - 1 }, () => '')],
-  ['발행하면 「발행」을 켜고 「발행일」을 적어 주세요 — 다시 뽑아도 그 칸은 그대로 둡니다.', ...Array.from({ length: SUM_HEAD.length - 1 }, () => '')],
-  [`내역은 「${MON} 거래처이름」 탭에 있습니다.`, ...Array.from({ length: SUM_HEAD.length - 1 }, () => '')],
+  ['「정산액 + 가감 = 공급가액」이고 「합계」가 «최종 발행액»입니다. 가감을 고치면 최종이 따라 움직입니다 — 더 주는 것은 «플러스», 환수는 «마이너스»로 적고 사유를 적어 주세요.', ...Array.from({ length: SUM_HEAD.length - 1 }, () => '')],
+  ['발행하면 「발행」을 켜고 「발행일」을 적어 주세요 — 다시 뽑아도 그 칸은 그대로 둡니다. ★계산서는 «사업자등록번호» 하나가 한 장입니다. 내역은 거래처 이름 탭에.', ...Array.from({ length: SUM_HEAD.length - 1 }, () => '')],
+  Array.from({ length: SUM_HEAD.length }, () => ''),
+  /**
+   * ★★**「계산서에 안 실린 줄」을 적어 둔다** — 사장님 2026-09-09
+   *   「훑어보고 **빠진 항목 같은 거 없을까**?? **어디에 얼마를 발행해야 하지**?? 를 보는 시트인데」
+   *
+   *   이 표는 47건인데 그 달 정산은 53줄이다. 여섯 줄이 어디 갔는지 종이가 말해 주지 않으면
+   *   보는 사람은 «빠뜨린 것»과 «일부러 뺀 것»을 못 가른다 — 그 의심이 매달 되풀이된다.
+   */
+  ...(offList.length ? [
+    [`★ 계산서에 «안 실린» 줄 ${offList.length}건 — 빠뜨린 것이 아니라 그 달 공급사 청구가 없는 줄입니다`, ...Array.from({ length: SUM_HEAD.length - 1 }, () => '')],
+    ...offList.map((o) => [`     · ${o}`, ...Array.from({ length: SUM_HEAD.length - 1 }, () => '')]),
+    Array.from({ length: SUM_HEAD.length }, () => ''),
+  ] : []),
+  ...(shortCi.length ? [
+    [`⚠ 거래처 정보가 모자란 곳 — ${shortCi.join(' / ')}  (전자계산서 기재란입니다. 채워 주시면 다음 달부터 표에 실립니다)`, ...Array.from({ length: SUM_HEAD.length - 1 }, () => '')],
+  ] : []),
 ];
 if (!(await put(SUMMARY, sumValues, true))) { console.log('\n  ✕ 「발행 요약」 을 못 썼습니다\n'); process.exit(1); }
 /** 합계 줄 자리 — 제목 1줄 + 머리 1줄 + 본문. (위쪽 총합 줄은 «아래와 겹쳐» 없앴다) */
@@ -598,8 +635,16 @@ await call(`https://sheets.googleapis.com/v4/spreadsheets/${bookId}:batchUpdate`
   { setDataValidation: { range: { sheetId: sumId, startRowIndex: 0, endRowIndex: sLast + 6, startColumnIndex: 0, endColumnIndex: SUM_HEAD.length } } },
   { setDataValidation: { range: { sheetId: sumId, startRowIndex: 2, endRowIndex: sLast, startColumnIndex: SUM_HEAD.indexOf('발행'), endColumnIndex: SUM_HEAD.indexOf('발행') + 1 },
     rule: { condition: { type: 'BOOLEAN' }, strict: true, showCustomUi: true } } },
+  /**
+   * ★**합계 줄은 «다른 색»이다** — 사장님 2026-09-09 「합계 색깔은 좀 다르게 하는 게 좋겠지」.
+   *   본문 최종 구간(#edf4ff)과 같은 톤이면 마지막 줄인지 한 줄 더 있는 건지 눈이 못 가른다.
+   *   ⇒ 한 톤 진한 남색 바탕 + 위에 남색 선 하나. 표가 «여기서 끝난다»고 말해 준다.
+   */
   { repeatCell: { range: { sheetId: sumId, startRowIndex: sLast, endRowIndex: sLast + 1, startColumnIndex: 0, endColumnIndex: SUM_HEAD.length },
-    cell: { userEnteredFormat: { backgroundColor: TINT, textFormat: { bold: true } } }, fields: 'userEnteredFormat(backgroundColor,textFormat)' } },
+    cell: { userEnteredFormat: { backgroundColor: { red: 0.85, green: 0.89, blue: 0.96 }, textFormat: { bold: true, foregroundColor: NAVY } } },
+    fields: 'userEnteredFormat(backgroundColor,textFormat)' } },
+  { updateBorders: { range: { sheetId: sumId, startRowIndex: sLast, endRowIndex: sLast + 1, startColumnIndex: 0, endColumnIndex: SUM_HEAD.length },
+    top: { style: 'SOLID_MEDIUM', color: NAVY } } },
   ...SUM_WIDTH.map((w, c) => ({ updateDimensionProperties: { range: { sheetId: sumId, dimension: 'COLUMNS', startIndex: c, endIndex: c + 1 }, properties: { pixelSize: w }, fields: 'pixelSize' } })),
   { repeatCell: { range: { sheetId: sumId }, cell: { userEnteredFormat: { textFormat: { fontFamily: 'Roboto' } } }, fields: 'userEnteredFormat.textFormat.fontFamily' } },
   { updateSheetProperties: { properties: { sheetId: sumId, index: 0 }, fields: 'index' } },
