@@ -15,9 +15,12 @@ export function erpPhotoSource(atom: PhotoAtom): string {
   return S(atom.photo_link);
 }
 
-/** 시트 차량번호 셀의 이동 대상: 픽업은 T카, 그 밖은 검증된 사진 링크다. */
+/** 시트 차량번호 셀의 이동 대상: 픽업은 T카(상세페이지 tica_link), 없으면 캐시된 T카 사진(photo_link)으로 폴백.
+ *  ★계약중 스테일 픽업은 원천서 빠져 tica_link가 없지만 photo_link에 T카(lotterentacar) 이미지가 남아 있다 —
+ *  둘 다 T카 호스트라 규칙을 만족한다(사장님 2026-09-11 「티카 사진 링크가 없을 수 없다」). */
 export function sheetPlateLink(atom: PhotoAtom): string {
-  return firstPhotoLink(isPickupPhotoAtom(atom) ? atom.tica_link : atom.photo_link);
+  if (isPickupPhotoAtom(atom)) return firstPhotoLink(S(atom.tica_link) || atom.photo_link);
+  return firstPhotoLink(atom.photo_link);
 }
 
 const hostOf = (value: string): string => {
