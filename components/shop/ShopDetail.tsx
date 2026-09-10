@@ -194,9 +194,19 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
    * ⚠ 09-05 의 «이름 → 옵션 → 색상» 무리 규칙은 폰에서 그대로 살아 있고, 웹에서도 색상은
    *   여전히 격자의 **첫 칸**이라 이름 바로 밑이다 — 무리가 흩어진 게 아니다.
    */
+  /*
+   * ★★**외부·내부를 «한 줄»에 세운다**(사장님 2026-09-10 「외부/내부 **한 줄로 해도 될 거 같은데**」).
+   *
+   * ⚠ 폰에서 접히고 있었다. 실측 — 칸 **163.5px** 에 「외부 화이트」 81.9 + 「내부 블랙」 69.1
+   *   = 151 인데, 사이가 **16** 이라 167 로 넘쳤다. 값이 넘친 게 아니라 **사이가 넘친 것**이다.
+   * ⇒ 폰만 사이를 한 단 좁힌다(8) — 159 로 앉는다. 웹은 칸이 넓어 16 그대로다.
+   *   이건 「폰만 다른 규칙」이 아니라 «화면 폭»의 문제다.
+   * ★긴 이름(「어비스블랙펄」 같은)은 여전히 접힌다 — 그건 값이 긴 것이라 접히는 편이 맞다.
+   */
   const colorNode = (
     <div style={{
-      display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: SHOP.sp.edge, rowGap: SHOP.sp.tight,
+      display: 'flex', alignItems: 'center', flexWrap: 'wrap',
+      columnGap: mobile ? SHOP.sp.snug : SHOP.sp.edge, rowGap: SHOP.sp.tight,
     }}>
       <ColorMark name={p.ext_color} label="외부" fontSize={SHOP.fs.cap} />
       <ColorMark name={p.int_color} label="내부" fontSize={SHOP.fs.cap} />
