@@ -961,7 +961,22 @@ must(/wl\.tel/.test(read('app/q/[code]/ShopDetailView.tsx')),
   must(/facets\[k\.axis\]\.some\(\(o\) => o\.key === k\.key && o\.base > 0\)/.test(shopView),
     '빠른조건 칩이 «지금 건수»로 사라집니다 — 조건을 누를 때마다 칩 줄이 같이 쭈그러듭니다.',
     'app/(shop)/shop/ShopView.tsx · docs/DESIGN_CONFIRMED_SHOP.md §11');
-}
+
+
+  /*
+   * ★★★**한 조건 = 한 자리 — 웹도 폰도.**
+   *   사장님 2026-09-10 「웹 버전과 모바일 버전 **필터 누르는 방식이 다르다니까.**
+   *   **퀵필터에 있는 거는 누르면 «자리»가 눌리는 거지 새로운 게 나오는 게 아니잖아**」.
+   *
+   * ⚠ 2026-09-08 에 웹만 고치고 **폰을 두 해 동안 남겨 뒀다.** 폰에서 「SUV」를 누르면
+   *   칩이 켜지는 동시에 **밑에 줄이 하나 새로 생겨** 목록이 밀렸다 — 한 조건이 한 화면에 두 번.
+   * ⇒ 두 곳 다 「칩이 있는 조건은 토큰을 안 만든다」를 걸어 둔다. 하나만 통과시킬 수 없게
+   *   **한 검사에서 둘을 같이** 본다(검사가 둘이면 한쪽만 고치는 일도 둘이다).
+   */
+  const tokenGuards = shopView.match(/tokens\.filter\(\(t\) => !quickKeys\.has\(/g) || [];
+  must(tokenGuards.length >= 2,
+    `퀵필터 칩과 «같은 조건»이 토큰으로 또 섭니다 — 누르면 자리가 눌려야지 새 줄이 생기면 안 됩니다(지금 ${tokenGuards.length}곳만 걸림 · 웹·폰 둘 다여야 합니다).`,
+    'app/(shop)/shop/ShopView.tsx · docs/DESIGN_CONFIRMED_SHOP.md §15');}
 
 if (fails.length) {
   console.error(`\n✗ 확정 디자인이 바뀌었습니다 — ${fails.length}건\n`);
