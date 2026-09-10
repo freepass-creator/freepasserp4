@@ -20,7 +20,7 @@ import { atomViolations, type AtomView, type MasterIndex } from '../lib/domain/a
 
 const PHASES = {
   atoms: [
-    'product_list_atom', 'products', 'vehicle_trim_master', 'new_car_trim',
+    'product_list_atom', 'products', 'vehicle_master', 'vehicle_trim_master', 'new_car_trim',
     'products_private', 'vehicle_claims',
     'policy', 'spec', 'plate_registry', 'sheet_conflict_resolutions',
   ],
@@ -28,8 +28,9 @@ const PHASES = {
   operations: [
     'quote', 'ops', 'inventory_sync_runs', 'inventory_sync_control',
     'settlement_issuance', 'settlement_confirmations',
-    'sheet_edits', 'sheet_published', 'sheet_sync_exclusions', 'sheet_conflict_decisions',
-    'esign_contract_seals',
+    'sheet_edits', 'sheet_published', 'sheet_sync_exclusions', 'sheet_conflict_decisions', 'sheet_identity_decisions',
+    'esign_contract_seals', 'esign_handover_verifications', 'contract_settlement_seals',
+    'esign_create_requests', 'esign_issuance', 'settlement_invoices', '_client_errors',
   ],
   business: [
     'rooms', 'messages',
@@ -45,6 +46,8 @@ const PHASES = {
 // 기존 프로젝트는 읽기 전용 증거 보관소로 유지한다. 이 과거 이력은 당시 프로젝트의
 // 쓰기와 롤백을 설명하는 자료라 새 운영 프로젝트에 섞지 않는다.
 const ARCHIVE_ONLY_COLLECTIONS = ['audit_logs', 'sheet_sync_backups'] as const;
+// 잠금과 상태 심장박동은 과거 값을 복사하면 새 프로젝트를 즉시 정지/오류로 오판한다.
+const FRESH_START_COLLECTIONS = ['system_locks', 'system_status'] as const;
 
 const APPLY = process.argv.includes('--apply');
 const VERIFY = process.argv.includes('--verify');
@@ -223,5 +226,6 @@ for (const collectionName of collections) {
 
 console.log(`${VERIFY ? 'VERIFIED' : REFRESH ? 'REFRESHED' : RESUME ? 'RESUMED' : APPLY ? 'APPLIED' : 'DRY_RUN'} phase=${phaseArg} collections=${collections.length} documents=${total} held=${held} failures=${verifyFailures}`);
 console.log(`archive_only=${ARCHIVE_ONLY_COLLECTIONS.join(',')} source_project_retained=true`);
+console.log(`fresh_start=${FRESH_START_COLLECTIONS.join(',')}`);
 await Promise.all([deleteApp(sourceApp), deleteApp(destApp)]);
 if (verifyFailures) process.exit(1);
