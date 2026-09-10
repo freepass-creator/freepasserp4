@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { Check, ChevronDown } from 'lucide-react';
 import { C } from '@/components/ui';
+import { haptic } from '@/lib/haptics';
 import { SHOP, ShopTextBtn, axisIconFor } from '@/components/shop/shop-ui';
 import { makerLogoSrc } from '@/lib/domain/maker-logo';
 import { useIsMobile } from '@/lib/use-mobile';
@@ -380,7 +381,7 @@ function CheckRow({ label, count, on, onClick, tight, logo }: {
 }) {
   const mobile = useIsMobile();
   return (
-    <button type="button" onClick={onClick} aria-pressed={on} className="fp-shop-press fp-shop-check"
+    <button type="button" onClick={() => { haptic.select(); onClick(); }} aria-pressed={on} className="fp-shop-press fp-shop-check"
       style={{
         display: 'flex', alignItems: 'center', gap: mobile ? SHOP.sp.cozy : SHOP.sp.snug,
         /*

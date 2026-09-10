@@ -154,11 +154,24 @@
 
 /* ② 카드 — 마우스가 있는 기기에서만. 사진만 아주 조금(1.04) 커지고 카드는 살짝 뜬다.
  *    ⚠ 카드 자체를 키우면 격자가 밀린다(레이아웃이 다시 계산된다) — 사진만 transform 으로 민다. */
-.fp-shop-card { transition: box-shadow .2s ease, transform .2s ease; }
+/* ★★**카드는 «떠 있다» — 그림자를 준다**(사장님 2026-09-10 「밋밋함을 없애는 입체감」).
+ *   ⚠ 여기 `transition: box-shadow` 는 처음부터 있었는데 **그림자를 한 번도 안 줬다.**
+ *     전환만 있고 실체가 없어서, 카드가 뜨는 게 아니라 «미끄러지는» 것처럼 보였다.
+ *   ★값은 집 토큰 그대로다(`--shadow-sm` → `--shadow-md`) — 새 색도 새 규격도 안 만든다.
+ *     쉬는 그림자는 1px 짜리라 «있는 줄도 모를» 만큼 옅다. 그게 맞다 — 카드가 판에서 살짝만
+ *     떠 있으면 되고, 진해지면 목록 스무 장이 그림자 떡이 된다.
+ */
+.fp-shop-card { box-shadow: var(--shadow-sm); transition: box-shadow .2s ease, transform .2s ease; }
 .fp-shop-card .fp-shop-thumb > img { transition: transform .4s cubic-bezier(.2,.6,.2,1); }
 @media (hover: hover) and (pointer: fine) {
-  .fp-shop-card:hover { transform: translateY(-2px); }
+  /* 뜰 때는 «그림자도 같이» 자란다 — 올라가는 것과 그늘이 같이 가야 떠 보인다. */
+  .fp-shop-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
   .fp-shop-card:hover .fp-shop-thumb > img { transform: scale(1.04); }
+}
+/* ★**손가락 기기에서는 «눌리는» 쪽이 입체감이다.** 마우스가 없으니 뜰 일이 없고,
+ *   누르는 동안 그림자가 줄면 「판에 눌러 붙는」 느낌이 난다(`fp-shop-press` 의 scale 과 함께). */
+@media (hover: none) {
+  .fp-shop-card:active { box-shadow: none; }
 }
 
 /* ③ 불러오는 자리 — 회색 판을 «가만히» 두면 고장 난 것처럼 보인다. 빛이 한 번씩 흐르면 「오는 중」이 된다. */
