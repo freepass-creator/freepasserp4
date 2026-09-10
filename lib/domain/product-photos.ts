@@ -44,7 +44,17 @@ export function toProxiedImage(url: string): string {
   } catch { return url; }
 }
 
-/** 토큰/쿼리 무시한 동일성 키 — Storage 토큰 다른 동일객체는 합치고, Drive id·lh3 path는 유지. */
+/**
+ * 토큰/쿼리 무시한 동일성 키 — Storage 토큰 다른 동일객체는 합치고, Drive id·lh3 path는 유지.
+ *
+ * ★★**밖에도 내준다**(2026-09-10). 사진을 «두 갈래»로 모으는 곳(`use-product-photos` 의
+ *   저장사진 + 링크해석)이 이 자를 안 쓰고 **글자 그대로** 견줬다. 같은 드라이브 파일인데
+ *   저장본은 `sz=w640`, 그 자리에서 푼 것은 `sz=w1280` 이라 **한 장이 두 장으로 세어졌다** —
+ *   운영 실측(109호3438): 실제 51장인데 화면이 **「1 / 91」**. 손님은 같은 사진을 두 번 넘긴다.
+ *   합치는 자가 하나여야 그런 일이 없다.
+ */
+export function photoDedupKey(url: string): string { return dedupKey(url); }
+
 function dedupKey(url: string): string {
   try {
     const s = String(url || '');
