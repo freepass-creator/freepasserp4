@@ -609,7 +609,7 @@
       "variant_id": "gasoline",
       "trim_id": "premium",
       "how": "이름",
-      "_label": "현대 | 더 뉴 그랜저 | 가솔린 2.5 | 프리미엄"
+      "_label": "현대 | 더 뉴 그랜저 | 가솔린 2.5 · 2WD | 프리미엄"
     },
     "GNJS4LAT4": {
       "manufacturer_id": "hyundai",
@@ -617,7 +617,7 @@
       "variant_id": "lpg_3_5",
       "trim_id": "premium",
       "how": "이름",
-      "_label": "현대 | 더 뉴 그랜저 | LPG 3.5 | 프리미엄"
+      "_label": "현대 | 더 뉴 그랜저 | LPG 3.5 · 2WD | 프리미엄"
     },
     "GNJS4RBT4": {
       "manufacturer_id": "hyundai",
@@ -625,7 +625,7 @@
       "variant_id": "gasoline",
       "trim_id": "exclusive",
       "how": "이름",
-      "_label": "현대 | 더 뉴 그랜저 | 가솔린 2.5 | 익스클루시브"
+      "_label": "현대 | 더 뉴 그랜저 | 가솔린 2.5 · 2WD | 익스클루시브"
     },
     "GNJS4LBT4": {
       "manufacturer_id": "hyundai",
@@ -633,7 +633,7 @@
       "variant_id": "lpg_3_5",
       "trim_id": "exclusive",
       "how": "이름",
-      "_label": "현대 | 더 뉴 그랜저 | LPG 3.5 | 익스클루시브"
+      "_label": "현대 | 더 뉴 그랜저 | LPG 3.5 · 2WD | 익스클루시브"
     },
     "GNJS4ZAT4": {
       "manufacturer_id": "hyundai",
@@ -641,7 +641,7 @@
       "variant_id": "hybrid",
       "trim_id": "premium",
       "how": "이름",
-      "_label": "현대 | 더 뉴 그랜저 | 하이브리드 1.6 터보 | 프리미엄"
+      "_label": "현대 | 더 뉴 그랜저 | 하이브리드 1.6 터보 · 2WD | 프리미엄"
     },
     "GNJS4RCT4": {
       "manufacturer_id": "hyundai",
@@ -649,7 +649,7 @@
       "variant_id": "gasoline",
       "trim_id": "calligraphy",
       "how": "이름",
-      "_label": "현대 | 더 뉴 그랜저 | 가솔린 2.5 | 캘리그래피"
+      "_label": "현대 | 더 뉴 그랜저 | 가솔린 2.5 · 2WD | 캘리그래피"
     },
     "GNJS4ZBT4": {
       "manufacturer_id": "hyundai",
@@ -657,7 +657,7 @@
       "variant_id": "hybrid",
       "trim_id": "exclusive",
       "how": "이름",
-      "_label": "현대 | 더 뉴 그랜저 | 하이브리드 1.6 터보 | 익스클루시브"
+      "_label": "현대 | 더 뉴 그랜저 | 하이브리드 1.6 터보 · 2WD | 익스클루시브"
     },
     "GNJS4ZCT4": {
       "manufacturer_id": "hyundai",
@@ -665,7 +665,7 @@
       "variant_id": "hybrid",
       "trim_id": "calligraphy",
       "how": "이름",
-      "_label": "현대 | 더 뉴 그랜저 | 하이브리드 1.6 터보 | 캘리그래피"
+      "_label": "현대 | 더 뉴 그랜저 | 하이브리드 1.6 터보 · 2WD | 캘리그래피"
     },
     "FNJS4RMT1": {
       "manufacturer_id": "hyundai",
@@ -705,7 +705,7 @@
       "variant_id": "gasoline",
       "trim_id": "smart",
       "how": "trim_id",
-      "_label": "현대 | 베뉴 | 가솔린 1.6 | Smart"
+      "_label": "현대 | 베뉴 | 가솔린 1.6 · 2WD | Smart"
     },
     "QXJJ5GDC6": {
       "manufacturer_id": "hyundai",
@@ -713,7 +713,7 @@
       "variant_id": "gasoline",
       "trim_id": "premium",
       "how": "trim_id",
-      "_label": "현대 | 베뉴 | 가솔린 1.6 | PREMIUM"
+      "_label": "현대 | 베뉴 | 가솔린 1.6 · 2WD | PREMIUM"
     },
     "QXJJ5GFC6": {
       "manufacturer_id": "hyundai",
@@ -721,7 +721,7 @@
       "variant_id": "gasoline",
       "trim_id": "flux",
       "how": "trim_id",
-      "_label": "현대 | 베뉴 | 가솔린 1.6 | FLUX"
+      "_label": "현대 | 베뉴 | 가솔린 1.6 · 2WD | FLUX"
     },
     "MXJJ5TCT3": {
       "manufacturer_id": "hyundai",
@@ -729,7 +729,7 @@
       "variant_id": "gasoline_2_5t",
       "trim_id": "exclusive",
       "how": "이름",
-      "_label": "현대 | 싼타페 | 가솔린 2.5 터보 | 익스클루시브"
+      "_label": "현대 | 싼타페 | 가솔린 2.5 터보 · 5인승 · 2WD | 익스클루시브"
     },
     "MXJJ7TCT3": {
       "manufacturer_id": "hyundai",
@@ -737,7 +737,7 @@
       "variant_id": "gasoline_2_5t",
       "trim_id": "exclusive",
       "how": "이름",
-      "_label": "현대 | 싼타페 | 가솔린 2.5 터보 | 익스클루시브"
+      "_label": "현대 | 싼타페 | 가솔린 2.5 터보 · 7인승 · 2WD | 익스클루시브"
     },
     "MXJJ6TCT3": {
       "manufacturer_id": "hyundai",
@@ -745,7 +745,7 @@
       "variant_id": "gasoline_2_5t",
       "trim_id": "exclusive",
       "how": "이름",
-      "_label": "현대 | 싼타페 | 가솔린 2.5 터보 | 익스클루시브"
+      "_label": "현대 | 싼타페 | 가솔린 2.5 터보 · 6인승 · 2WD | 익스클루시브"
     },
     "MXJJ5TCA3": {
       "manufacturer_id": "hyundai",
@@ -753,7 +753,7 @@
       "variant_id": "gasoline_2_5t",
       "trim_id": "exclusive",
       "how": "이름",
-      "_label": "현대 | 싼타페 | 가솔린 2.5 터보 | 익스클루시브"
+      "_label": "현대 | 싼타페 | 가솔린 2.5 터보 · 5인승 · 4WD | 익스클루시브"
     },
     "MXJJ5TFT3": {
       "manufacturer_id": "hyundai",
@@ -761,7 +761,7 @@
       "variant_id": "gasoline_2_5t",
       "trim_id": "prestige",
       "how": "이름",
-      "_label": "현대 | 싼타페 | 가솔린 2.5 터보 | 프레스티지"
+      "_label": "현대 | 싼타페 | 가솔린 2.5 터보 · 5인승 · 2WD | 프레스티지"
     },
     "MXJJ7TCA3": {
       "manufacturer_id": "hyundai",
@@ -769,7 +769,7 @@
       "variant_id": "gasoline_2_5t",
       "trim_id": "exclusive",
       "how": "이름",
-      "_label": "현대 | 싼타페 | 가솔린 2.5 터보 | 익스클루시브"
+      "_label": "현대 | 싼타페 | 가솔린 2.5 터보 · 7인승 · 4WD | 익스클루시브"
     },
     "MXJJ6TCA3": {
       "manufacturer_id": "hyundai",
@@ -777,7 +777,7 @@
       "variant_id": "gasoline_2_5t",
       "trim_id": "exclusive",
       "how": "이름",
-      "_label": "현대 | 싼타페 | 가솔린 2.5 터보 | 익스클루시브"
+      "_label": "현대 | 싼타페 | 가솔린 2.5 터보 · 6인승 · 4WD | 익스클루시브"
     },
     "MXJJ7TFT3": {
       "manufacturer_id": "hyundai",
@@ -785,7 +785,7 @@
       "variant_id": "gasoline_2_5t",
       "trim_id": "prestige",
       "how": "이름",
-      "_label": "현대 | 싼타페 | 가솔린 2.5 터보 | 프레스티지"
+      "_label": "현대 | 싼타페 | 가솔린 2.5 터보 · 7인승 · 2WD | 프레스티지"
     },
     "MXJJ6TFT3": {
       "manufacturer_id": "hyundai",
@@ -793,7 +793,7 @@
       "variant_id": "gasoline_2_5t",
       "trim_id": "prestige",
       "how": "이름",
-      "_label": "현대 | 싼타페 | 가솔린 2.5 터보 | 프레스티지"
+      "_label": "현대 | 싼타페 | 가솔린 2.5 터보 · 6인승 · 2WD | 프레스티지"
     },
     "MXJJ5ZCT3": {
       "manufacturer_id": "hyundai",
@@ -801,7 +801,7 @@
       "variant_id": "hybrid_1_6t",
       "trim_id": "exclusive",
       "how": "이름",
-      "_label": "현대 | 싼타페 | 하이브리드 | 익스클루시브"
+      "_label": "현대 | 싼타페 | 하이브리드 · 5인승 · 2WD | 익스클루시브"
     },
     "MXJJ5TFA3": {
       "manufacturer_id": "hyundai",
@@ -809,7 +809,7 @@
       "variant_id": "gasoline_2_5t",
       "trim_id": "prestige",
       "how": "이름",
-      "_label": "현대 | 싼타페 | 가솔린 2.5 터보 | 프레스티지"
+      "_label": "현대 | 싼타페 | 가솔린 2.5 터보 · 5인승 · 4WD | 프레스티지"
     },
     "MXJJ7ZCT3": {
       "manufacturer_id": "hyundai",
@@ -817,7 +817,7 @@
       "variant_id": "hybrid_1_6t",
       "trim_id": "exclusive",
       "how": "이름",
-      "_label": "현대 | 싼타페 | 하이브리드 | 익스클루시브"
+      "_label": "현대 | 싼타페 | 하이브리드 · 7인승 · 2WD | 익스클루시브"
     },
     "MXJJ5TMT3": {
       "manufacturer_id": "hyundai",
@@ -825,7 +825,7 @@
       "variant_id": "gasoline_2_5t",
       "trim_id": "hpick",
       "how": "이름",
-      "_label": "현대 | 싼타페 | 가솔린 2.5 터보 | H-Pick"
+      "_label": "현대 | 싼타페 | 가솔린 2.5 터보 · 5인승 · 2WD | H-Pick"
     },
     "MXJJ6ZCT3": {
       "manufacturer_id": "hyundai",
@@ -833,7 +833,7 @@
       "variant_id": "hybrid_1_6t",
       "trim_id": "exclusive",
       "how": "이름",
-      "_label": "현대 | 싼타페 | 하이브리드 | 익스클루시브"
+      "_label": "현대 | 싼타페 | 하이브리드 · 6인승 · 2WD | 익스클루시브"
     },
     "MXJJ7TFA3": {
       "manufacturer_id": "hyundai",
@@ -841,7 +841,7 @@
       "variant_id": "gasoline_2_5t",
       "trim_id": "prestige",
       "how": "이름",
-      "_label": "현대 | 싼타페 | 가솔린 2.5 터보 | 프레스티지"
+      "_label": "현대 | 싼타페 | 가솔린 2.5 터보 · 7인승 · 4WD | 프레스티지"
     },
     "MXJJ6TFA3": {
       "manufacturer_id": "hyundai",
@@ -849,7 +849,7 @@
       "variant_id": "gasoline_2_5t",
       "trim_id": "prestige",
       "how": "이름",
-      "_label": "현대 | 싼타페 | 가솔린 2.5 터보 | 프레스티지"
+      "_label": "현대 | 싼타페 | 가솔린 2.5 터보 · 6인승 · 4WD | 프레스티지"
     },
     "MXJJ7TMT3": {
       "manufacturer_id": "hyundai",
@@ -857,7 +857,7 @@
       "variant_id": "gasoline_2_5t",
       "trim_id": "hpick",
       "how": "이름",
-      "_label": "현대 | 싼타페 | 가솔린 2.5 터보 | H-Pick"
+      "_label": "현대 | 싼타페 | 가솔린 2.5 터보 · 7인승 · 2WD | H-Pick"
     },
     "MXJJ6TMT3": {
       "manufacturer_id": "hyundai",
@@ -865,7 +865,7 @@
       "variant_id": "gasoline_2_5t",
       "trim_id": "hpick",
       "how": "이름",
-      "_label": "현대 | 싼타페 | 가솔린 2.5 터보 | H-Pick"
+      "_label": "현대 | 싼타페 | 가솔린 2.5 터보 · 6인승 · 2WD | H-Pick"
     },
     "MXJJ5ZCA3": {
       "manufacturer_id": "hyundai",
@@ -873,7 +873,7 @@
       "variant_id": "hybrid_1_6t",
       "trim_id": "exclusive",
       "how": "이름",
-      "_label": "현대 | 싼타페 | 하이브리드 | 익스클루시브"
+      "_label": "현대 | 싼타페 | 하이브리드 · 5인승 · 4WD | 익스클루시브"
     },
     "MXJJ5ZFT3": {
       "manufacturer_id": "hyundai",
@@ -881,7 +881,7 @@
       "variant_id": "hybrid_1_6t",
       "trim_id": "prestige",
       "how": "이름",
-      "_label": "현대 | 싼타페 | 하이브리드 | 프레스티지"
+      "_label": "현대 | 싼타페 | 하이브리드 · 5인승 · 2WD | 프레스티지"
     },
     "MXJJ7ZCA3": {
       "manufacturer_id": "hyundai",
@@ -889,7 +889,7 @@
       "variant_id": "hybrid_1_6t",
       "trim_id": "exclusive",
       "how": "이름",
-      "_label": "현대 | 싼타페 | 하이브리드 | 익스클루시브"
+      "_label": "현대 | 싼타페 | 하이브리드 · 7인승 · 4WD | 익스클루시브"
     },
     "MXJJ5TMA3": {
       "manufacturer_id": "hyundai",
@@ -897,7 +897,7 @@
       "variant_id": "gasoline_2_5t",
       "trim_id": "hpick",
       "how": "이름",
-      "_label": "현대 | 싼타페 | 가솔린 2.5 터보 | H-Pick"
+      "_label": "현대 | 싼타페 | 가솔린 2.5 터보 · 5인승 · 4WD | H-Pick"
     },
     "MXJJ6ZCA3": {
       "manufacturer_id": "hyundai",
@@ -905,7 +905,7 @@
       "variant_id": "hybrid_1_6t",
       "trim_id": "exclusive",
       "how": "이름",
-      "_label": "현대 | 싼타페 | 하이브리드 | 익스클루시브"
+      "_label": "현대 | 싼타페 | 하이브리드 · 6인승 · 4WD | 익스클루시브"
     },
     "MXJJ7ZFT3": {
       "manufacturer_id": "hyundai",
@@ -913,7 +913,7 @@
       "variant_id": "hybrid_1_6t",
       "trim_id": "prestige",
       "how": "이름",
-      "_label": "현대 | 싼타페 | 하이브리드 | 프레스티지"
+      "_label": "현대 | 싼타페 | 하이브리드 · 7인승 · 2WD | 프레스티지"
     },
     "MXJJ7TMA3": {
       "manufacturer_id": "hyundai",
@@ -921,7 +921,7 @@
       "variant_id": "gasoline_2_5t",
       "trim_id": "hpick",
       "how": "이름",
-      "_label": "현대 | 싼타페 | 가솔린 2.5 터보 | H-Pick"
+      "_label": "현대 | 싼타페 | 가솔린 2.5 터보 · 7인승 · 4WD | H-Pick"
     },
     "MXJJ6ZFT3": {
       "manufacturer_id": "hyundai",
@@ -929,7 +929,7 @@
       "variant_id": "hybrid_1_6t",
       "trim_id": "prestige",
       "how": "이름",
-      "_label": "현대 | 싼타페 | 하이브리드 | 프레스티지"
+      "_label": "현대 | 싼타페 | 하이브리드 · 6인승 · 2WD | 프레스티지"
     },
     "MXJJ6TMA3": {
       "manufacturer_id": "hyundai",
@@ -937,7 +937,7 @@
       "variant_id": "gasoline_2_5t",
       "trim_id": "hpick",
       "how": "이름",
-      "_label": "현대 | 싼타페 | 가솔린 2.5 터보 | H-Pick"
+      "_label": "현대 | 싼타페 | 가솔린 2.5 터보 · 6인승 · 4WD | H-Pick"
     },
     "MXJJ5THT3": {
       "manufacturer_id": "hyundai",
@@ -945,7 +945,7 @@
       "variant_id": "gasoline_2_5t",
       "trim_id": "calligraphy",
       "how": "이름",
-      "_label": "현대 | 싼타페 | 가솔린 2.5 터보 | 캘리그래피"
+      "_label": "현대 | 싼타페 | 가솔린 2.5 터보 · 5인승 · 2WD | 캘리그래피"
     },
     "MXJJ7THT3": {
       "manufacturer_id": "hyundai",
@@ -953,7 +953,7 @@
       "variant_id": "gasoline_2_5t",
       "trim_id": "calligraphy",
       "how": "이름",
-      "_label": "현대 | 싼타페 | 가솔린 2.5 터보 | 캘리그래피"
+      "_label": "현대 | 싼타페 | 가솔린 2.5 터보 · 7인승 · 2WD | 캘리그래피"
     },
     "MXJJ5ZFA3": {
       "manufacturer_id": "hyundai",
@@ -961,7 +961,7 @@
       "variant_id": "hybrid_1_6t",
       "trim_id": "prestige",
       "how": "이름",
-      "_label": "현대 | 싼타페 | 하이브리드 | 프레스티지"
+      "_label": "현대 | 싼타페 | 하이브리드 · 5인승 · 4WD | 프레스티지"
     },
     "MXJJ6THT3": {
       "manufacturer_id": "hyundai",
@@ -969,7 +969,7 @@
       "variant_id": "gasoline_2_5t",
       "trim_id": "calligraphy",
       "how": "이름",
-      "_label": "현대 | 싼타페 | 가솔린 2.5 터보 | 캘리그래피"
+      "_label": "현대 | 싼타페 | 가솔린 2.5 터보 · 6인승 · 2WD | 캘리그래피"
     },
     "MXJJ5ZMT3": {
       "manufacturer_id": "hyundai",
@@ -977,7 +977,7 @@
       "variant_id": "hybrid_1_6t",
       "trim_id": "hpick",
       "how": "이름",
-      "_label": "현대 | 싼타페 | 하이브리드 | H-Pick"
+      "_label": "현대 | 싼타페 | 하이브리드 · 5인승 · 2WD | H-Pick"
     },
     "MXJJ7ZFA3": {
       "manufacturer_id": "hyundai",
@@ -985,7 +985,7 @@
       "variant_id": "hybrid_1_6t",
       "trim_id": "prestige",
       "how": "이름",
-      "_label": "현대 | 싼타페 | 하이브리드 | 프레스티지"
+      "_label": "현대 | 싼타페 | 하이브리드 · 7인승 · 4WD | 프레스티지"
     },
     "MXJJ6ZFA3": {
       "manufacturer_id": "hyundai",
@@ -993,7 +993,7 @@
       "variant_id": "hybrid_1_6t",
       "trim_id": "prestige",
       "how": "이름",
-      "_label": "현대 | 싼타페 | 하이브리드 | 프레스티지"
+      "_label": "현대 | 싼타페 | 하이브리드 · 6인승 · 4WD | 프레스티지"
     },
     "MXJJ7ZMT3": {
       "manufacturer_id": "hyundai",
@@ -1001,7 +1001,7 @@
       "variant_id": "hybrid_1_6t",
       "trim_id": "hpick",
       "how": "이름",
-      "_label": "현대 | 싼타페 | 하이브리드 | H-Pick"
+      "_label": "현대 | 싼타페 | 하이브리드 · 7인승 · 2WD | H-Pick"
     },
     "MXJJ5THA3": {
       "manufacturer_id": "hyundai",
@@ -1009,7 +1009,7 @@
       "variant_id": "gasoline_2_5t",
       "trim_id": "calligraphy",
       "how": "이름",
-      "_label": "현대 | 싼타페 | 가솔린 2.5 터보 | 캘리그래피"
+      "_label": "현대 | 싼타페 | 가솔린 2.5 터보 · 5인승 · 4WD | 캘리그래피"
     },
     "MXJJ6ZMT3": {
       "manufacturer_id": "hyundai",
@@ -1017,7 +1017,7 @@
       "variant_id": "hybrid_1_6t",
       "trim_id": "hpick",
       "how": "이름",
-      "_label": "현대 | 싼타페 | 하이브리드 | H-Pick"
+      "_label": "현대 | 싼타페 | 하이브리드 · 6인승 · 2WD | H-Pick"
     },
     "MXJJ7THA3": {
       "manufacturer_id": "hyundai",
@@ -1025,7 +1025,7 @@
       "variant_id": "gasoline_2_5t",
       "trim_id": "calligraphy",
       "how": "이름",
-      "_label": "현대 | 싼타페 | 가솔린 2.5 터보 | 캘리그래피"
+      "_label": "현대 | 싼타페 | 가솔린 2.5 터보 · 7인승 · 4WD | 캘리그래피"
     },
     "MXJJ6THA3": {
       "manufacturer_id": "hyundai",
@@ -1033,7 +1033,7 @@
       "variant_id": "gasoline_2_5t",
       "trim_id": "calligraphy",
       "how": "이름",
-      "_label": "현대 | 싼타페 | 가솔린 2.5 터보 | 캘리그래피"
+      "_label": "현대 | 싼타페 | 가솔린 2.5 터보 · 6인승 · 4WD | 캘리그래피"
     },
     "MXJJ5ZMA3": {
       "manufacturer_id": "hyundai",
@@ -1041,7 +1041,7 @@
       "variant_id": "hybrid_1_6t",
       "trim_id": "hpick",
       "how": "이름",
-      "_label": "현대 | 싼타페 | 하이브리드 | H-Pick"
+      "_label": "현대 | 싼타페 | 하이브리드 · 5인승 · 4WD | H-Pick"
     },
     "MXJJ7ZMA3": {
       "manufacturer_id": "hyundai",
@@ -1049,7 +1049,7 @@
       "variant_id": "hybrid_1_6t",
       "trim_id": "hpick",
       "how": "이름",
-      "_label": "현대 | 싼타페 | 하이브리드 | H-Pick"
+      "_label": "현대 | 싼타페 | 하이브리드 · 7인승 · 4WD | H-Pick"
     },
     "MXJJ5ZHT3": {
       "manufacturer_id": "hyundai",
@@ -1057,7 +1057,7 @@
       "variant_id": "hybrid_1_6t",
       "trim_id": "calligraphy",
       "how": "이름",
-      "_label": "현대 | 싼타페 | 하이브리드 | 캘리그래피"
+      "_label": "현대 | 싼타페 | 하이브리드 · 5인승 · 2WD | 캘리그래피"
     },
     "MXJJ6ZMA3": {
       "manufacturer_id": "hyundai",
@@ -1065,7 +1065,7 @@
       "variant_id": "hybrid_1_6t",
       "trim_id": "hpick",
       "how": "이름",
-      "_label": "현대 | 싼타페 | 하이브리드 | H-Pick"
+      "_label": "현대 | 싼타페 | 하이브리드 · 6인승 · 4WD | H-Pick"
     },
     "MXJJ7ZHT3": {
       "manufacturer_id": "hyundai",
@@ -1073,7 +1073,7 @@
       "variant_id": "hybrid_1_6t",
       "trim_id": "calligraphy",
       "how": "이름",
-      "_label": "현대 | 싼타페 | 하이브리드 | 캘리그래피"
+      "_label": "현대 | 싼타페 | 하이브리드 · 7인승 · 2WD | 캘리그래피"
     },
     "MXJJ6ZHT3": {
       "manufacturer_id": "hyundai",
@@ -1081,7 +1081,7 @@
       "variant_id": "hybrid_1_6t",
       "trim_id": "calligraphy",
       "how": "이름",
-      "_label": "현대 | 싼타페 | 하이브리드 | 캘리그래피"
+      "_label": "현대 | 싼타페 | 하이브리드 · 6인승 · 2WD | 캘리그래피"
     },
     "MXJJ5ZHA3": {
       "manufacturer_id": "hyundai",
@@ -1089,7 +1089,7 @@
       "variant_id": "hybrid_1_6t",
       "trim_id": "calligraphy",
       "how": "이름",
-      "_label": "현대 | 싼타페 | 하이브리드 | 캘리그래피"
+      "_label": "현대 | 싼타페 | 하이브리드 · 5인승 · 4WD | 캘리그래피"
     },
     "MXJJ7ZHA3": {
       "manufacturer_id": "hyundai",
@@ -1097,7 +1097,7 @@
       "variant_id": "hybrid_1_6t",
       "trim_id": "calligraphy",
       "how": "이름",
-      "_label": "현대 | 싼타페 | 하이브리드 | 캘리그래피"
+      "_label": "현대 | 싼타페 | 하이브리드 · 7인승 · 4WD | 캘리그래피"
     },
     "MXJJ6ZHA3": {
       "manufacturer_id": "hyundai",
@@ -1105,7 +1105,7 @@
       "variant_id": "hybrid_1_6t",
       "trim_id": "calligraphy",
       "how": "이름",
-      "_label": "현대 | 싼타페 | 하이브리드 | 캘리그래피"
+      "_label": "현대 | 싼타페 | 하이브리드 · 6인승 · 4WD | 캘리그래피"
     },
     "DNJS4SBT7": {
       "manufacturer_id": "hyundai",
@@ -1257,7 +1257,7 @@
       "variant_id": "gasoline_2_0",
       "trim_id": "modern",
       "how": "trim_id",
-      "_label": "현대 | 코나 | 가솔린 2.0 | Modern"
+      "_label": "현대 | 코나 | 가솔린 2.0 · 2WD | Modern"
     },
     "SXJJ5TAD4": {
       "manufacturer_id": "hyundai",
@@ -1265,7 +1265,7 @@
       "variant_id": "gasoline_1_6t",
       "trim_id": "modern",
       "how": "trim_id",
-      "_label": "현대 | 코나 | 가솔린 1.6 터보 | Modern"
+      "_label": "현대 | 코나 | 가솔린 1.6 터보 · 2WD | Modern"
     },
     "SXJJ5KHD4": {
       "manufacturer_id": "hyundai",
@@ -1273,7 +1273,7 @@
       "variant_id": "gasoline_2_0",
       "trim_id": "hpick",
       "how": "이름",
-      "_label": "현대 | 코나 | 가솔린 2.0 | H-Pick"
+      "_label": "현대 | 코나 | 가솔린 2.0 · 2WD | H-Pick"
     },
     "SXJJ5THD4": {
       "manufacturer_id": "hyundai",
@@ -1281,7 +1281,7 @@
       "variant_id": "gasoline_1_6t",
       "trim_id": "hpick",
       "how": "이름",
-      "_label": "현대 | 코나 | 가솔린 1.6 터보 | H-Pick"
+      "_label": "현대 | 코나 | 가솔린 1.6 터보 · 2WD | H-Pick"
     },
     "SXJJ5TBD4": {
       "manufacturer_id": "hyundai",
@@ -1289,7 +1289,7 @@
       "variant_id": "gasoline_1_6t",
       "trim_id": "premium",
       "how": "trim_id",
-      "_label": "현대 | 코나 | 가솔린 1.6 터보 | Premium"
+      "_label": "현대 | 코나 | 가솔린 1.6 터보 · 2WD | Premium"
     },
     "SXJJ5ZAD4": {
       "manufacturer_id": "hyundai",
@@ -1297,7 +1297,7 @@
       "variant_id": "hybrid_1_6",
       "trim_id": "modern",
       "how": "trim_id",
-      "_label": "현대 | 코나 | 하이브리드 | Modern"
+      "_label": "현대 | 코나 | 하이브리드 · 2WD | Modern"
     },
     "SXJJ5TBE4": {
       "manufacturer_id": "hyundai",
@@ -1305,7 +1305,7 @@
       "variant_id": "gasoline_1_6t",
       "trim_id": "premium",
       "how": "trim_id",
-      "_label": "현대 | 코나 | 가솔린 1.6 터보 | Premium"
+      "_label": "현대 | 코나 | 가솔린 1.6 터보 · 4WD | Premium"
     },
     "SXJJ5TCD4": {
       "manufacturer_id": "hyundai",
@@ -1313,7 +1313,7 @@
       "variant_id": "gasoline_1_6t",
       "trim_id": "inspiration",
       "how": "trim_id",
-      "_label": "현대 | 코나 | 가솔린 1.6 터보 | Inspiration"
+      "_label": "현대 | 코나 | 가솔린 1.6 터보 · 2WD | Inspiration"
     },
     "SXJJ5ZHD4": {
       "manufacturer_id": "hyundai",
@@ -1321,7 +1321,7 @@
       "variant_id": "hybrid_1_6",
       "trim_id": "hpick",
       "how": "이름",
-      "_label": "현대 | 코나 | 하이브리드 | H-Pick"
+      "_label": "현대 | 코나 | 하이브리드 · 2WD | H-Pick"
     },
     "SXJJ5TCE4": {
       "manufacturer_id": "hyundai",
@@ -1329,7 +1329,7 @@
       "variant_id": "gasoline_1_6t",
       "trim_id": "inspiration",
       "how": "trim_id",
-      "_label": "현대 | 코나 | 가솔린 1.6 터보 | Inspiration"
+      "_label": "현대 | 코나 | 가솔린 1.6 터보 · 4WD | Inspiration"
     },
     "SXJJ5ZBD4": {
       "manufacturer_id": "hyundai",
@@ -1337,7 +1337,7 @@
       "variant_id": "hybrid_1_6",
       "trim_id": "premium",
       "how": "trim_id",
-      "_label": "현대 | 코나 | 하이브리드 | Premium"
+      "_label": "현대 | 코나 | 하이브리드 · 2WD | Premium"
     },
     "SXJJ5ZCD4": {
       "manufacturer_id": "hyundai",
@@ -1345,7 +1345,7 @@
       "variant_id": "hybrid_1_6",
       "trim_id": "inspiration",
       "how": "trim_id",
-      "_label": "현대 | 코나 | 하이브리드 | Inspiration"
+      "_label": "현대 | 코나 | 하이브리드 · 2WD | Inspiration"
     },
     "NXJJ5TDD5": {
       "manufacturer_id": "hyundai",
@@ -1353,7 +1353,7 @@
       "variant_id": "gasoline_1_6t",
       "trim_id": "modern",
       "how": "trim_id",
-      "_label": "현대 | 투싼 | 가솔린 1.6 터보 | Modern"
+      "_label": "현대 | 투싼 | 가솔린 1.6 터보 · 2WD | Modern"
     },
     "NXJJ5TDH5": {
       "manufacturer_id": "hyundai",
@@ -1361,7 +1361,7 @@
       "variant_id": "gasoline_1_6t",
       "trim_id": "modern",
       "how": "trim_id",
-      "_label": "현대 | 투싼 | 가솔린 1.6 터보 | Modern"
+      "_label": "현대 | 투싼 | 가솔린 1.6 터보 · 4WD | Modern"
     },
     "NXJJ5TCD5": {
       "manufacturer_id": "hyundai",
@@ -1369,7 +1369,7 @@
       "variant_id": "gasoline_1_6t",
       "trim_id": "premium",
       "how": "trim_id",
-      "_label": "현대 | 투싼 | 가솔린 1.6 터보 | Premium"
+      "_label": "현대 | 투싼 | 가솔린 1.6 터보 · 2WD | Premium"
     },
     "NXJJ5THD5": {
       "manufacturer_id": "hyundai",
@@ -1377,7 +1377,7 @@
       "variant_id": "gasoline_1_6t",
       "trim_id": "hpick",
       "how": "이름",
-      "_label": "현대 | 투싼 | 가솔린 1.6 터보 | H-Pick"
+      "_label": "현대 | 투싼 | 가솔린 1.6 터보 · 2WD | H-Pick"
     },
     "NXJJ5TCH5": {
       "manufacturer_id": "hyundai",
@@ -1385,7 +1385,7 @@
       "variant_id": "gasoline_1_6t",
       "trim_id": "premium",
       "how": "trim_id",
-      "_label": "현대 | 투싼 | 가솔린 1.6 터보 | Premium"
+      "_label": "현대 | 투싼 | 가솔린 1.6 터보 · 4WD | Premium"
     },
     "NXJJ5THH5": {
       "manufacturer_id": "hyundai",
@@ -1393,7 +1393,7 @@
       "variant_id": "gasoline_1_6t",
       "trim_id": "hpick",
       "how": "이름",
-      "_label": "현대 | 투싼 | 가솔린 1.6 터보 | H-Pick"
+      "_label": "현대 | 투싼 | 가솔린 1.6 터보 · 4WD | H-Pick"
     },
     "NXJJ5ZDT5": {
       "manufacturer_id": "hyundai",
@@ -1401,7 +1401,7 @@
       "variant_id": "hybrid_1_6t",
       "trim_id": "modern",
       "how": "trim_id",
-      "_label": "현대 | 투싼 | 하이브리드 | Modern"
+      "_label": "현대 | 투싼 | 하이브리드 · 2WD | Modern"
     },
     "NXJJ5TPD5": {
       "manufacturer_id": "hyundai",
@@ -1409,7 +1409,7 @@
       "variant_id": "gasoline_1_6t",
       "trim_id": "inspiration",
       "how": "trim_id",
-      "_label": "현대 | 투싼 | 가솔린 1.6 터보 | Inspiration"
+      "_label": "현대 | 투싼 | 가솔린 1.6 터보 · 2WD | Inspiration"
     },
     "NXJJ5TMD5": {
       "manufacturer_id": "hyundai",
@@ -1417,7 +1417,7 @@
       "variant_id": "gasoline_1_6t",
       "trim_id": "n_line",
       "how": "trim_id",
-      "_label": "현대 | 투싼 | 가솔린 1.6 터보 | N Line"
+      "_label": "현대 | 투싼 | 가솔린 1.6 터보 · 2WD | N Line"
     },
     "NXJJ5ZDA5": {
       "manufacturer_id": "hyundai",
@@ -1425,7 +1425,7 @@
       "variant_id": "hybrid_1_6t",
       "trim_id": "modern",
       "how": "trim_id",
-      "_label": "현대 | 투싼 | 하이브리드 | Modern"
+      "_label": "현대 | 투싼 | 하이브리드 · 4WD | Modern"
     },
     "NXJJ5TPH5": {
       "manufacturer_id": "hyundai",
@@ -1433,7 +1433,7 @@
       "variant_id": "gasoline_1_6t",
       "trim_id": "inspiration",
       "how": "trim_id",
-      "_label": "현대 | 투싼 | 가솔린 1.6 터보 | Inspiration"
+      "_label": "현대 | 투싼 | 가솔린 1.6 터보 · 4WD | Inspiration"
     },
     "NXJJ5ZCT5": {
       "manufacturer_id": "hyundai",
@@ -1441,7 +1441,7 @@
       "variant_id": "hybrid_1_6t",
       "trim_id": "premium",
       "how": "trim_id",
-      "_label": "현대 | 투싼 | 하이브리드 | Premium"
+      "_label": "현대 | 투싼 | 하이브리드 · 2WD | Premium"
     },
     "NXJJ5TMH5": {
       "manufacturer_id": "hyundai",
@@ -1449,7 +1449,7 @@
       "variant_id": "gasoline_1_6t",
       "trim_id": "n_line",
       "how": "trim_id",
-      "_label": "현대 | 투싼 | 가솔린 1.6 터보 | N Line"
+      "_label": "현대 | 투싼 | 가솔린 1.6 터보 · 4WD | N Line"
     },
     "NXJJ5ZHT5": {
       "manufacturer_id": "hyundai",
@@ -1457,7 +1457,7 @@
       "variant_id": "hybrid_1_6t",
       "trim_id": "hpick",
       "how": "이름",
-      "_label": "현대 | 투싼 | 하이브리드 | H-Pick"
+      "_label": "현대 | 투싼 | 하이브리드 · 2WD | H-Pick"
     },
     "NXJJ5ZCA5": {
       "manufacturer_id": "hyundai",
@@ -1465,7 +1465,7 @@
       "variant_id": "hybrid_1_6t",
       "trim_id": "premium",
       "how": "trim_id",
-      "_label": "현대 | 투싼 | 하이브리드 | Premium"
+      "_label": "현대 | 투싼 | 하이브리드 · 4WD | Premium"
     },
     "NXJJ5ZHA5": {
       "manufacturer_id": "hyundai",
@@ -1473,7 +1473,7 @@
       "variant_id": "hybrid_1_6t",
       "trim_id": "hpick",
       "how": "이름",
-      "_label": "현대 | 투싼 | 하이브리드 | H-Pick"
+      "_label": "현대 | 투싼 | 하이브리드 · 4WD | H-Pick"
     },
     "NXJJ5ZPT5": {
       "manufacturer_id": "hyundai",
@@ -1481,7 +1481,7 @@
       "variant_id": "hybrid_1_6t",
       "trim_id": "inspiration",
       "how": "trim_id",
-      "_label": "현대 | 투싼 | 하이브리드 | Inspiration"
+      "_label": "현대 | 투싼 | 하이브리드 · 2WD | Inspiration"
     },
     "NXJJ5ZMT5": {
       "manufacturer_id": "hyundai",
@@ -1489,7 +1489,7 @@
       "variant_id": "hybrid_1_6t",
       "trim_id": "n_line",
       "how": "trim_id",
-      "_label": "현대 | 투싼 | 하이브리드 | N Line"
+      "_label": "현대 | 투싼 | 하이브리드 · 2WD | N Line"
     },
     "NXJJ5ZPA5": {
       "manufacturer_id": "hyundai",
@@ -1497,7 +1497,7 @@
       "variant_id": "hybrid_1_6t",
       "trim_id": "inspiration",
       "how": "trim_id",
-      "_label": "현대 | 투싼 | 하이브리드 | Inspiration"
+      "_label": "현대 | 투싼 | 하이브리드 · 4WD | Inspiration"
     },
     "NXJJ5ZMA5": {
       "manufacturer_id": "hyundai",
@@ -1505,7 +1505,135 @@
       "variant_id": "hybrid_1_6t",
       "trim_id": "n_line",
       "how": "trim_id",
-      "_label": "현대 | 투싼 | 하이브리드 | N Line"
+      "_label": "현대 | 투싼 | 하이브리드 · 4WD | N Line"
+    },
+    "FXJJ9TAT2": {
+      "manufacturer_id": "hyundai",
+      "model_id": "palisade",
+      "variant_id": "gasoline_25t_9",
+      "trim_id": "exclusive",
+      "how": "이름",
+      "_label": "현대 | 팰리세이드 | 가솔린 2.5 · 9인승 · 2WD | 익스클루시브"
+    },
+    "FXJJ7TAT2": {
+      "manufacturer_id": "hyundai",
+      "model_id": "palisade",
+      "variant_id": "gasoline_25t_7",
+      "trim_id": "exclusive",
+      "how": "이름",
+      "_label": "현대 | 팰리세이드 | 가솔린 2.5 · 7인승 · 2WD | 익스클루시브"
+    },
+    "FXJJ9TAA2": {
+      "manufacturer_id": "hyundai",
+      "model_id": "palisade",
+      "variant_id": "gasoline_25t_9",
+      "trim_id": "exclusive",
+      "how": "이름",
+      "_label": "현대 | 팰리세이드 | 가솔린 2.5 · 9인승 · 4WD | 익스클루시브"
+    },
+    "FXJJ7TAA2": {
+      "manufacturer_id": "hyundai",
+      "model_id": "palisade",
+      "variant_id": "gasoline_25t_7",
+      "trim_id": "exclusive",
+      "how": "이름",
+      "_label": "현대 | 팰리세이드 | 가솔린 2.5 · 7인승 · 4WD | 익스클루시브"
+    },
+    "FXJJ9ZAT2": {
+      "manufacturer_id": "hyundai",
+      "model_id": "palisade",
+      "variant_id": "hev_25t_9",
+      "trim_id": "exclusive",
+      "how": "이름",
+      "_label": "현대 | 팰리세이드 | 하이브리드 2.5 · 9인승 · 2WD | 익스클루시브"
+    },
+    "FXJJ7ZAT2": {
+      "manufacturer_id": "hyundai",
+      "model_id": "palisade",
+      "variant_id": "hev_25t_7",
+      "trim_id": "exclusive",
+      "how": "이름",
+      "_label": "현대 | 팰리세이드 | 하이브리드 2.5 · 7인승 · 2WD | 익스클루시브"
+    },
+    "FXJJ9ZAA2": {
+      "manufacturer_id": "hyundai",
+      "model_id": "palisade",
+      "variant_id": "hev_25t_9",
+      "trim_id": "exclusive",
+      "how": "이름",
+      "_label": "현대 | 팰리세이드 | 하이브리드 2.5 · 9인승 · 4WD | 익스클루시브"
+    },
+    "FXJJ7ZAA2": {
+      "manufacturer_id": "hyundai",
+      "model_id": "palisade",
+      "variant_id": "hev_25t_7",
+      "trim_id": "exclusive",
+      "how": "이름",
+      "_label": "현대 | 팰리세이드 | 하이브리드 2.5 · 7인승 · 4WD | 익스클루시브"
+    },
+    "FXJJ9TCT2": {
+      "manufacturer_id": "hyundai",
+      "model_id": "palisade",
+      "variant_id": "gasoline_25t_9",
+      "trim_id": "calligraphy",
+      "how": "이름",
+      "_label": "현대 | 팰리세이드 | 가솔린 2.5 · 9인승 · 2WD | 캘리그래피"
+    },
+    "FXJJ7TCT2": {
+      "manufacturer_id": "hyundai",
+      "model_id": "palisade",
+      "variant_id": "gasoline_25t_7",
+      "trim_id": "calligraphy",
+      "how": "이름",
+      "_label": "현대 | 팰리세이드 | 가솔린 2.5 · 7인승 · 2WD | 캘리그래피"
+    },
+    "FXJJ9TCA2": {
+      "manufacturer_id": "hyundai",
+      "model_id": "palisade",
+      "variant_id": "gasoline_25t_9",
+      "trim_id": "calligraphy",
+      "how": "이름",
+      "_label": "현대 | 팰리세이드 | 가솔린 2.5 · 9인승 · 4WD | 캘리그래피"
+    },
+    "FXJJ7TCA2": {
+      "manufacturer_id": "hyundai",
+      "model_id": "palisade",
+      "variant_id": "gasoline_25t_7",
+      "trim_id": "calligraphy",
+      "how": "이름",
+      "_label": "현대 | 팰리세이드 | 가솔린 2.5 · 7인승 · 4WD | 캘리그래피"
+    },
+    "FXJJ9ZCT2": {
+      "manufacturer_id": "hyundai",
+      "model_id": "palisade",
+      "variant_id": "hev_25t_9",
+      "trim_id": "calligraphy",
+      "how": "이름",
+      "_label": "현대 | 팰리세이드 | 하이브리드 2.5 · 9인승 · 2WD | 캘리그래피"
+    },
+    "FXJJ9ZCA2": {
+      "manufacturer_id": "hyundai",
+      "model_id": "palisade",
+      "variant_id": "hev_25t_9",
+      "trim_id": "calligraphy",
+      "how": "이름",
+      "_label": "현대 | 팰리세이드 | 하이브리드 2.5 · 9인승 · 4WD | 캘리그래피"
+    },
+    "FXJJ7ZCT2": {
+      "manufacturer_id": "hyundai",
+      "model_id": "palisade",
+      "variant_id": "hev_25t_7",
+      "trim_id": "calligraphy",
+      "how": "이름",
+      "_label": "현대 | 팰리세이드 | 하이브리드 2.5 · 7인승 · 2WD | 캘리그래피"
+    },
+    "FXJJ7ZCA2": {
+      "manufacturer_id": "hyundai",
+      "model_id": "palisade",
+      "variant_id": "hev_25t_7",
+      "trim_id": "calligraphy",
+      "how": "이름",
+      "_label": "현대 | 팰리세이드 | 하이브리드 2.5 · 7인승 · 4WD | 캘리그래피"
     }
   },
   "proposed": [],
@@ -1600,66 +1728,66 @@
     "genesis_gv80  ·  제네시스 | GV80 | 가솔린 3.5 터보 | AWD",
     "genesis_gv80  ·  제네시스 | GV80 | 가솔린 2.5 터보 | 블랙",
     "genesis_gv80  ·  제네시스 | GV80 | 가솔린 3.5 터보 | 블랙",
-    "HEJJ5HDT2  ·  현대 | 넥쏘 | 수소 | 모던",
-    "HEJJ5HAT2  ·  현대 | 넥쏘 | 수소 | 익스클루시브",
-    "HEJJ5HCT2  ·  현대 | 넥쏘 | 수소 | 프레스티지",
-    "GNJS4SAT4  ·  현대 | 더 뉴 그랜저 | 가솔린 3.5 | 프리미엄",
-    "GNJS4SBT4  ·  현대 | 더 뉴 그랜저 | 가솔린 3.5 | 익스클루시브",
-    "GNJS4SCT4  ·  현대 | 더 뉴 그랜저 | 가솔린 3.5 | 캘리그래피",
-    "GNTS4LVT4  ·  현대 | 더 뉴 그랜저 택시 | LPG 3.5 | 고급형",
-    "USJC3LST4  ·  현대 | 더 뉴 스타리아 | LPG 3.5 | Smart",
-    "USJC5LCT4  ·  현대 | 더 뉴 스타리아 | LPG 3.5 | Smart(센터콘솔)",
-    "USJC3LMT4  ·  현대 | 더 뉴 스타리아 | LPG 3.5 | Modern",
-    "USJC5LMT4  ·  현대 | 더 뉴 스타리아 | LPG 3.5 | Modern",
-    "USJTBLST4  ·  현대 | 더 뉴 스타리아 | LPG 3.5 | Smart",
-    "USJC2ZCT4  ·  현대 | 더 뉴 스타리아 | 하이브리드 | Smart(센터콘솔)",
-    "USJTBLMT4  ·  현대 | 더 뉴 스타리아 | LPG 3.5 | Modern",
-    "USJC5ZCT4  ·  현대 | 더 뉴 스타리아 | 하이브리드 | Smart(센터콘솔)",
-    "USJC2ZMT4  ·  현대 | 더 뉴 스타리아 | 하이브리드 | Modern",
-    "USJC5ZMT4  ·  현대 | 더 뉴 스타리아 | 하이브리드 | Modern",
-    "USJTBZST4  ·  현대 | 더 뉴 스타리아 | 하이브리드 | Smart",
-    "USJT9ZST4  ·  현대 | 더 뉴 스타리아 | 하이브리드 | Smart",
-    "USJT9ZMT4  ·  현대 | 더 뉴 스타리아 | 하이브리드 | Modern",
-    "USJTBZMT4  ·  현대 | 더 뉴 스타리아 | 하이브리드 | Modern",
-    "USJC3VMT4  ·  현대 | 더 뉴 스타리아 | 전기 | Modern",
-    "USJC5VMT4  ·  현대 | 더 뉴 스타리아 | 전기 | Modern",
-    "USJTBVMT4  ·  현대 | 더 뉴 스타리아 | 전기 | Modern",
-    "USJL9ZPT4  ·  현대 | 더 뉴 스타리아 라운지 | 하이브리드 | Prestige",
-    "USJL7LET4  ·  현대 | 더 뉴 스타리아 라운지 | LPG 3.5 | Inspiration",
-    "USJL9ZET4  ·  현대 | 더 뉴 스타리아 라운지 | 하이브리드 | Inspiration",
-    "USJL7ZET4  ·  현대 | 더 뉴 스타리아 라운지 | 하이브리드 | Inspiration",
-    "USJLBVPT4  ·  현대 | 더 뉴 스타리아 라운지 | 전기 | Prestige",
-    "USJL7VPT4  ·  현대 | 더 뉴 스타리아 라운지 | 전기 | Prestige",
-    "USJL7VET4  ·  현대 | 더 뉴 스타리아 라운지 | 전기 | Inspiration",
-    "USTL7LBT4  ·  현대 | 더 뉴 스타리아 라운지 모빌리티 | LPG 3.5 | 모빌리티",
-    "USTL9ZBT4  ·  현대 | 더 뉴 스타리아 라운지 모빌리티 | 하이브리드 | 모빌리티",
-    "USTL7ZBT4  ·  현대 | 더 뉴 스타리아 라운지 모빌리티 | 하이브리드 | 모빌리티",
-    "USJV9ZET4  ·  현대 | 더 뉴 스타리아 리무진 | 하이브리드 | Inspiration",
-    "USJV6ZET4  ·  현대 | 더 뉴 스타리아 리무진 | 하이브리드 | Inspiration",
-    "USJV6VET4  ·  현대 | 더 뉴 스타리아 리무진 | 전기 | Inspiration",
-    "USCTBLMT4  ·  현대 | 더 뉴 스타리아 킨더 | LPG 3.5 | Modern",
-    "USCTFLMT4  ·  현대 | 더 뉴 스타리아 킨더 | LPG 3.5 | Modern",
-    "USCTBZMT4  ·  현대 | 더 뉴 스타리아 킨더 | 하이브리드 | Modern",
-    "USCTFZMT4  ·  현대 | 더 뉴 스타리아 킨더 | 하이브리드 | Modern",
-    "CEJS4VHD3  ·  현대 | 더 뉴 아이오닉 6 | 전기 | E-Value +(스탠다드) 18인치",
-    "CEJS4VLD3  ·  현대 | 더 뉴 아이오닉 6 | 전기 | E-LITE(롱레인지) 18인치",
-    "CEJS4VAD3  ·  현대 | 더 뉴 아이오닉 6 | 전기 | Exclusive(스탠다드) 18인치",
-    "CEJS4VSD3  ·  현대 | 더 뉴 아이오닉 6 | 전기 | E-LITE(롱레인지) 20인치",
-    "CEJS4VLA3  ·  현대 | 더 뉴 아이오닉 6 | 전기 | E-LITE(롱레인지) 18인치",
-    "CEJS4VSA3  ·  현대 | 더 뉴 아이오닉 6 | 전기 | E-LITE(롱레인지) 20인치",
-    "CEJS4VBD3  ·  현대 | 더 뉴 아이오닉 6 | 전기 | Exclusive(롱레인지) 18인치",
-    "CEJS4VPD3  ·  현대 | 더 뉴 아이오닉 6 | 전기 | Prestige(스탠다드) 18인치",
-    "CEJS4VCD3  ·  현대 | 더 뉴 아이오닉 6 | 전기 | Exclusive(롱레인지) 20인치",
-    "CEJS4VMD3  ·  현대 | 더 뉴 아이오닉 6 | 전기 | N Line Exclusive(롱레인지) 20인치",
-    "CEJS4VBA3  ·  현대 | 더 뉴 아이오닉 6 | 전기 | Exclusive(롱레인지) 18인치",
-    "CEJS4VCA3  ·  현대 | 더 뉴 아이오닉 6 | 전기 | Exclusive(롱레인지) 20인치",
-    "CEJS4VFD3  ·  현대 | 더 뉴 아이오닉 6 | 전기 | Prestige(롱레인지) 18인치",
-    "CEJS4VMA3  ·  현대 | 더 뉴 아이오닉 6 | 전기 | N Line Exclusive(롱레인지) 20인치",
-    "CEJS4VGD3  ·  현대 | 더 뉴 아이오닉 6 | 전기 | Prestige(롱레인지) 20인치",
-    "CEJS4VND3  ·  현대 | 더 뉴 아이오닉 6 | 전기 | N Line Prestige(롱레인지) 20인치",
-    "CEJS4VFA3  ·  현대 | 더 뉴 아이오닉 6 | 전기 | Prestige(롱레인지) 18인치",
-    "CEJS4VGA3  ·  현대 | 더 뉴 아이오닉 6 | 전기 | Prestige(롱레인지) 20인치",
-    "CEJS4VNA3  ·  현대 | 더 뉴 아이오닉 6 | 전기 | N Line Prestige(롱레인지) 20인치",
+    "HEJJ5HDT2  ·  현대 | 넥쏘 | 수소 · 2WD | 모던",
+    "HEJJ5HAT2  ·  현대 | 넥쏘 | 수소 · 2WD | 익스클루시브",
+    "HEJJ5HCT2  ·  현대 | 넥쏘 | 수소 · 2WD | 프레스티지",
+    "GNJS4SAT4  ·  현대 | 더 뉴 그랜저 | 가솔린 3.5 · 2WD | 프리미엄",
+    "GNJS4SBT4  ·  현대 | 더 뉴 그랜저 | 가솔린 3.5 · 2WD | 익스클루시브",
+    "GNJS4SCT4  ·  현대 | 더 뉴 그랜저 | 가솔린 3.5 · 2WD | 캘리그래피",
+    "GNTS4LVT4  ·  현대 | 더 뉴 그랜저 택시 | LPG 3.5 · 2WD | 고급형",
+    "USJC3LST4  ·  현대 | 더 뉴 스타리아 | LPG 3.5 · 2WD | Smart",
+    "USJC5LCT4  ·  현대 | 더 뉴 스타리아 | LPG 3.5 · 2WD | Smart(센터콘솔)",
+    "USJC3LMT4  ·  현대 | 더 뉴 스타리아 | LPG 3.5 · 2WD | Modern",
+    "USJC5LMT4  ·  현대 | 더 뉴 스타리아 | LPG 3.5 · 2WD | Modern",
+    "USJTBLST4  ·  현대 | 더 뉴 스타리아 | LPG 3.5 · 2WD | Smart",
+    "USJC2ZCT4  ·  현대 | 더 뉴 스타리아 | 하이브리드 · 2WD | Smart(센터콘솔)",
+    "USJTBLMT4  ·  현대 | 더 뉴 스타리아 | LPG 3.5 · 2WD | Modern",
+    "USJC5ZCT4  ·  현대 | 더 뉴 스타리아 | 하이브리드 · 2WD | Smart(센터콘솔)",
+    "USJC2ZMT4  ·  현대 | 더 뉴 스타리아 | 하이브리드 · 2WD | Modern",
+    "USJC5ZMT4  ·  현대 | 더 뉴 스타리아 | 하이브리드 · 2WD | Modern",
+    "USJTBZST4  ·  현대 | 더 뉴 스타리아 | 하이브리드 · 2WD | Smart",
+    "USJT9ZST4  ·  현대 | 더 뉴 스타리아 | 하이브리드 · 2WD | Smart",
+    "USJT9ZMT4  ·  현대 | 더 뉴 스타리아 | 하이브리드 · 2WD | Modern",
+    "USJTBZMT4  ·  현대 | 더 뉴 스타리아 | 하이브리드 · 2WD | Modern",
+    "USJC3VMT4  ·  현대 | 더 뉴 스타리아 | 전기 · 2WD | Modern",
+    "USJC5VMT4  ·  현대 | 더 뉴 스타리아 | 전기 · 2WD | Modern",
+    "USJTBVMT4  ·  현대 | 더 뉴 스타리아 | 전기 · 2WD | Modern",
+    "USJL9ZPT4  ·  현대 | 더 뉴 스타리아 라운지 | 하이브리드 · 2WD | Prestige",
+    "USJL7LET4  ·  현대 | 더 뉴 스타리아 라운지 | LPG 3.5 · 2WD | Inspiration",
+    "USJL9ZET4  ·  현대 | 더 뉴 스타리아 라운지 | 하이브리드 · 2WD | Inspiration",
+    "USJL7ZET4  ·  현대 | 더 뉴 스타리아 라운지 | 하이브리드 · 2WD | Inspiration",
+    "USJLBVPT4  ·  현대 | 더 뉴 스타리아 라운지 | 전기 · 2WD | Prestige",
+    "USJL7VPT4  ·  현대 | 더 뉴 스타리아 라운지 | 전기 · 2WD | Prestige",
+    "USJL7VET4  ·  현대 | 더 뉴 스타리아 라운지 | 전기 · 2WD | Inspiration",
+    "USTL7LBT4  ·  현대 | 더 뉴 스타리아 라운지 모빌리티 | LPG 3.5 · 2WD | 모빌리티",
+    "USTL9ZBT4  ·  현대 | 더 뉴 스타리아 라운지 모빌리티 | 하이브리드 · 2WD | 모빌리티",
+    "USTL7ZBT4  ·  현대 | 더 뉴 스타리아 라운지 모빌리티 | 하이브리드 · 2WD | 모빌리티",
+    "USJV9ZET4  ·  현대 | 더 뉴 스타리아 리무진 | 하이브리드 · 2WD | Inspiration",
+    "USJV6ZET4  ·  현대 | 더 뉴 스타리아 리무진 | 하이브리드 · 2WD | Inspiration",
+    "USJV6VET4  ·  현대 | 더 뉴 스타리아 리무진 | 전기 · 2WD | Inspiration",
+    "USCTBLMT4  ·  현대 | 더 뉴 스타리아 킨더 | LPG 3.5 · 2WD | Modern",
+    "USCTFLMT4  ·  현대 | 더 뉴 스타리아 킨더 | LPG 3.5 · 2WD | Modern",
+    "USCTBZMT4  ·  현대 | 더 뉴 스타리아 킨더 | 하이브리드 · 2WD | Modern",
+    "USCTFZMT4  ·  현대 | 더 뉴 스타리아 킨더 | 하이브리드 · 2WD | Modern",
+    "CEJS4VHD3  ·  현대 | 더 뉴 아이오닉 6 | 전기 · 2WD | E-Value +(스탠다드) 18인치",
+    "CEJS4VLD3  ·  현대 | 더 뉴 아이오닉 6 | 전기 · 2WD | E-LITE(롱레인지) 18인치",
+    "CEJS4VAD3  ·  현대 | 더 뉴 아이오닉 6 | 전기 · 2WD | Exclusive(스탠다드) 18인치",
+    "CEJS4VSD3  ·  현대 | 더 뉴 아이오닉 6 | 전기 · 2WD | E-LITE(롱레인지) 20인치",
+    "CEJS4VLA3  ·  현대 | 더 뉴 아이오닉 6 | 전기 · 4WD | E-LITE(롱레인지) 18인치",
+    "CEJS4VSA3  ·  현대 | 더 뉴 아이오닉 6 | 전기 · 4WD | E-LITE(롱레인지) 20인치",
+    "CEJS4VBD3  ·  현대 | 더 뉴 아이오닉 6 | 전기 · 2WD | Exclusive(롱레인지) 18인치",
+    "CEJS4VPD3  ·  현대 | 더 뉴 아이오닉 6 | 전기 · 2WD | Prestige(스탠다드) 18인치",
+    "CEJS4VCD3  ·  현대 | 더 뉴 아이오닉 6 | 전기 · 2WD | Exclusive(롱레인지) 20인치",
+    "CEJS4VMD3  ·  현대 | 더 뉴 아이오닉 6 | 전기 · 2WD | N Line Exclusive(롱레인지) 20인치",
+    "CEJS4VBA3  ·  현대 | 더 뉴 아이오닉 6 | 전기 · 4WD | Exclusive(롱레인지) 18인치",
+    "CEJS4VCA3  ·  현대 | 더 뉴 아이오닉 6 | 전기 · 4WD | Exclusive(롱레인지) 20인치",
+    "CEJS4VFD3  ·  현대 | 더 뉴 아이오닉 6 | 전기 · 2WD | Prestige(롱레인지) 18인치",
+    "CEJS4VMA3  ·  현대 | 더 뉴 아이오닉 6 | 전기 · 4WD | N Line Exclusive(롱레인지) 20인치",
+    "CEJS4VGD3  ·  현대 | 더 뉴 아이오닉 6 | 전기 · 2WD | Prestige(롱레인지) 20인치",
+    "CEJS4VND3  ·  현대 | 더 뉴 아이오닉 6 | 전기 · 2WD | N Line Prestige(롱레인지) 20인치",
+    "CEJS4VFA3  ·  현대 | 더 뉴 아이오닉 6 | 전기 · 4WD | Prestige(롱레인지) 18인치",
+    "CEJS4VGA3  ·  현대 | 더 뉴 아이오닉 6 | 전기 · 4WD | Prestige(롱레인지) 20인치",
+    "CEJS4VNA3  ·  현대 | 더 뉴 아이오닉 6 | 전기 · 4WD | N Line Prestige(롱레인지) 20인치",
     "QV1BFABA7  ·  현대 | 더 뉴 파비스 | 디젤 6.8 | 프리미엄",
     "QV1BHABA7  ·  현대 | 더 뉴 파비스 | 디젤 6.8 | 프리미엄",
     "QV1BKABA7  ·  현대 | 더 뉴 파비스 | 디젤 6.8 | 프리미엄",
@@ -1676,99 +1804,83 @@
     "FNJS4ZPD1  ·  현대 | 디 올 뉴 아반떼 | 하이브리드 | 프리미엄",
     "DNJS4NLT7  ·  현대 | 쏘나타 디 엣지 | 가솔린 2.5 터보 | N Line",
     "TXTS4LMT2  ·  현대 | 쏘나타 택시 | LPG 2.0 | 모빌리티",
-    "NEJJ5VVD8  ·  현대 | 아이오닉 5 | 전기 | E-Value +(스탠다드) 19인치",
-    "NEJJ5VHD8  ·  현대 | 아이오닉 5 | 전기 | E-Lite(롱레인지) 19인치",
-    "NEJJ5VOD8  ·  현대 | 아이오닉 5 | 전기 | 모던(롱레인지) 19인치",
-    "NEJJ5VHA8  ·  현대 | 아이오닉 5 | 전기 | E-Lite(롱레인지) 19인치",
-    "NEJJ5VOA8  ·  현대 | 아이오닉 5 | 전기 | 모던(롱레인지) 19인치",
-    "NEJJ5VPD8  ·  현대 | 아이오닉 5 | 전기 | 프리미엄(롱레인지) 19인치",
-    "NEJJ5VUD8  ·  현대 | 아이오닉 5 | 전기 | 프리미엄(롱레인지) 20인치",
-    "NEJJ5VZD8  ·  현대 | 아이오닉 5 | 전기 | N LINE(롱레인지) 20인치",
-    "NEJJ5VPA8  ·  현대 | 아이오닉 5 | 전기 | 프리미엄(롱레인지) 19인치",
-    "NEJJ5VUA8  ·  현대 | 아이오닉 5 | 전기 | 프리미엄(롱레인지) 20인치",
-    "NEJJ5VID8  ·  현대 | 아이오닉 5 | 전기 | 인스퍼레이션(롱레인지) 19인치",
-    "NEJJ5VJD8  ·  현대 | 아이오닉 5 | 전기 | 인스퍼레이션(롱레인지) 20인치",
-    "NEJJ5VZA8  ·  현대 | 아이오닉 5 | 전기 | N LINE(롱레인지) 20인치",
-    "NEJJ5VIA8  ·  현대 | 아이오닉 5 | 전기 | 인스퍼레이션(롱레인지) 19인치",
-    "NEJJ5VJA8  ·  현대 | 아이오닉 5 | 전기 | 인스퍼레이션(롱레인지) 20인치",
+    "NEJJ5VVD8  ·  현대 | 아이오닉 5 | 전기 · 2WD | E-Value +(스탠다드) 19인치",
+    "NEJJ5VHD8  ·  현대 | 아이오닉 5 | 전기 · 2WD | E-Lite(롱레인지) 19인치",
+    "NEJJ5VOD8  ·  현대 | 아이오닉 5 | 전기 · 2WD | 모던(롱레인지) 19인치",
+    "NEJJ5VHA8  ·  현대 | 아이오닉 5 | 전기 · 4WD | E-Lite(롱레인지) 19인치",
+    "NEJJ5VOA8  ·  현대 | 아이오닉 5 | 전기 · 4WD | 모던(롱레인지) 19인치",
+    "NEJJ5VPD8  ·  현대 | 아이오닉 5 | 전기 · 2WD | 프리미엄(롱레인지) 19인치",
+    "NEJJ5VUD8  ·  현대 | 아이오닉 5 | 전기 · 2WD | 프리미엄(롱레인지) 20인치",
+    "NEJJ5VZD8  ·  현대 | 아이오닉 5 | 전기 · 2WD | N LINE(롱레인지) 20인치",
+    "NEJJ5VPA8  ·  현대 | 아이오닉 5 | 전기 · 4WD | 프리미엄(롱레인지) 19인치",
+    "NEJJ5VUA8  ·  현대 | 아이오닉 5 | 전기 · 4WD | 프리미엄(롱레인지) 20인치",
+    "NEJJ5VID8  ·  현대 | 아이오닉 5 | 전기 · 2WD | 인스퍼레이션(롱레인지) 19인치",
+    "NEJJ5VJD8  ·  현대 | 아이오닉 5 | 전기 · 2WD | 인스퍼레이션(롱레인지) 20인치",
+    "NEJJ5VZA8  ·  현대 | 아이오닉 5 | 전기 · 4WD | N LINE(롱레인지) 20인치",
+    "NEJJ5VIA8  ·  현대 | 아이오닉 5 | 전기 · 4WD | 인스퍼레이션(롱레인지) 19인치",
+    "NEJJ5VJA8  ·  현대 | 아이오닉 5 | 전기 · 4WD | 인스퍼레이션(롱레인지) 20인치",
     "NEJJ58BA7  ·  현대 | 아이오닉 5 N | 전기 | IONIQ 5 N Essential",
-    "NEJJ58RA7  ·  현대 | 아이오닉 5 N | 전기 | IONIQ 5 N",
-    "CEJS48RA4  ·  현대 | 아이오닉 6 N | 전기 | N",
-    "MEJJ7VAT2  ·  현대 | 아이오닉 9 | 전기 | 익스클루시브 19인치",
-    "MEJJ6VAT2  ·  현대 | 아이오닉 9 | 전기 | 익스클루시브 19인치",
-    "MEJJ7VAA2  ·  현대 | 아이오닉 9 | 전기 | 익스클루시브 19인치",
-    "MEJJ6VAA2  ·  현대 | 아이오닉 9 | 전기 | 익스클루시브 19인치",
-    "MEJJ7VAH2  ·  현대 | 아이오닉 9 | 전기 | 익스클루시브 19인치",
-    "MEJJ6VAH2  ·  현대 | 아이오닉 9 | 전기 | 익스클루시브 19인치",
-    "MEJJ7VBT2  ·  현대 | 아이오닉 9 | 전기 | 프레스티지 19인치",
-    "MEJJ7VDT2  ·  현대 | 아이오닉 9 | 전기 | 프레스티지 21인치",
-    "MEJJ6VBT2  ·  현대 | 아이오닉 9 | 전기 | 프레스티지 19인치",
-    "MEJJ6VDT2  ·  현대 | 아이오닉 9 | 전기 | 프레스티지 21인치",
-    "MEJJ7VBA2  ·  현대 | 아이오닉 9 | 전기 | 프레스티지 19인치",
-    "MEJJ7VDA2  ·  현대 | 아이오닉 9 | 전기 | 프레스티지 21인치",
-    "MEJJ6VBA2  ·  현대 | 아이오닉 9 | 전기 | 프레스티지 19인치",
-    "MEJJ6VDA2  ·  현대 | 아이오닉 9 | 전기 | 프레스티지 21인치",
-    "MEJJ7VBH2  ·  현대 | 아이오닉 9 | 전기 | 프레스티지 19인치",
-    "MEJJ7VDH2  ·  현대 | 아이오닉 9 | 전기 | 프레스티지 21인치",
-    "MEJJ6VBH2  ·  현대 | 아이오닉 9 | 전기 | 프레스티지 19인치",
-    "MEJJ6VDH2  ·  현대 | 아이오닉 9 | 전기 | 프레스티지 21인치",
-    "MEJJ7VCT2  ·  현대 | 아이오닉 9 | 전기 | 캘리그래피 19인치",
-    "MEJJ7VET2  ·  현대 | 아이오닉 9 | 전기 | 캘리그래피 21인치",
-    "MEJJ6VCT2  ·  현대 | 아이오닉 9 | 전기 | 캘리그래피 19인치",
-    "MEJJ6VET2  ·  현대 | 아이오닉 9 | 전기 | 캘리그래피 21인치",
-    "MEJJ7VCA2  ·  현대 | 아이오닉 9 | 전기 | 캘리그래피 19인치",
-    "MEJJ7VEA2  ·  현대 | 아이오닉 9 | 전기 | 캘리그래피 21인치",
-    "MEJJ7VCH2  ·  현대 | 아이오닉 9 | 전기 | 캘리그래피 19인치",
-    "MEJJ7VEH2  ·  현대 | 아이오닉 9 | 전기 | 캘리그래피 21인치",
-    "MEJJ6VCA2  ·  현대 | 아이오닉 9 | 전기 | 캘리그래피 19인치",
-    "MEJJ6VEA2  ·  현대 | 아이오닉 9 | 전기 | 캘리그래피 21인치",
-    "MEJJ6VCH2  ·  현대 | 아이오닉 9 | 전기 | 캘리그래피 19인치",
-    "MEJJ6VEH2  ·  현대 | 아이오닉 9 | 전기 | 캘리그래피 21인치",
-    "SXJJ5TMD4  ·  현대 | 코나 | 가솔린 1.6 터보 | N Line Inspiration",
-    "SXJJ5TME4  ·  현대 | 코나 | 가솔린 1.6 터보 | N Line Inspiration",
-    "SXJJ5ZMD4  ·  현대 | 코나 | 하이브리드 | N Line Inspiration",
+    "NEJJ58RA7  ·  현대 | 아이오닉 5 N | 전기 · 4WD | IONIQ 5 N",
+    "CEJS48RA4  ·  현대 | 아이오닉 6 N | 전기 · 4WD | N",
+    "MEJJ7VAT2  ·  현대 | 아이오닉 9 | 전기 · 7인승 · 2WD | 익스클루시브 19인치",
+    "MEJJ6VAT2  ·  현대 | 아이오닉 9 | 전기 · 6인승 · 2WD | 익스클루시브 19인치",
+    "MEJJ7VAA2  ·  현대 | 아이오닉 9 | 전기 · 7인승 · 4WD | 익스클루시브 19인치",
+    "MEJJ6VAA2  ·  현대 | 아이오닉 9 | 전기 · 6인승 · 4WD | 익스클루시브 19인치",
+    "MEJJ7VAH2  ·  현대 | 아이오닉 9 | 전기 · 7인승 · 4WD | 익스클루시브 19인치",
+    "MEJJ6VAH2  ·  현대 | 아이오닉 9 | 전기 · 6인승 · 4WD | 익스클루시브 19인치",
+    "MEJJ7VBT2  ·  현대 | 아이오닉 9 | 전기 · 7인승 · 2WD | 프레스티지 19인치",
+    "MEJJ7VDT2  ·  현대 | 아이오닉 9 | 전기 · 7인승 · 2WD | 프레스티지 21인치",
+    "MEJJ6VBT2  ·  현대 | 아이오닉 9 | 전기 · 6인승 · 2WD | 프레스티지 19인치",
+    "MEJJ6VDT2  ·  현대 | 아이오닉 9 | 전기 · 6인승 · 2WD | 프레스티지 21인치",
+    "MEJJ7VBA2  ·  현대 | 아이오닉 9 | 전기 · 7인승 · 4WD | 프레스티지 19인치",
+    "MEJJ7VDA2  ·  현대 | 아이오닉 9 | 전기 · 7인승 · 4WD | 프레스티지 21인치",
+    "MEJJ6VBA2  ·  현대 | 아이오닉 9 | 전기 · 6인승 · 4WD | 프레스티지 19인치",
+    "MEJJ6VDA2  ·  현대 | 아이오닉 9 | 전기 · 6인승 · 4WD | 프레스티지 21인치",
+    "MEJJ7VBH2  ·  현대 | 아이오닉 9 | 전기 · 7인승 · 4WD | 프레스티지 19인치",
+    "MEJJ7VDH2  ·  현대 | 아이오닉 9 | 전기 · 7인승 · 4WD | 프레스티지 21인치",
+    "MEJJ6VBH2  ·  현대 | 아이오닉 9 | 전기 · 6인승 · 4WD | 프레스티지 19인치",
+    "MEJJ6VDH2  ·  현대 | 아이오닉 9 | 전기 · 6인승 · 4WD | 프레스티지 21인치",
+    "MEJJ7VCT2  ·  현대 | 아이오닉 9 | 전기 · 7인승 · 2WD | 캘리그래피 19인치",
+    "MEJJ7VET2  ·  현대 | 아이오닉 9 | 전기 · 7인승 · 2WD | 캘리그래피 21인치",
+    "MEJJ6VCT2  ·  현대 | 아이오닉 9 | 전기 · 6인승 · 2WD | 캘리그래피 19인치",
+    "MEJJ6VET2  ·  현대 | 아이오닉 9 | 전기 · 6인승 · 2WD | 캘리그래피 21인치",
+    "MEJJ7VCA2  ·  현대 | 아이오닉 9 | 전기 · 7인승 · 4WD | 캘리그래피 19인치",
+    "MEJJ7VEA2  ·  현대 | 아이오닉 9 | 전기 · 7인승 · 4WD | 캘리그래피 21인치",
+    "MEJJ7VCH2  ·  현대 | 아이오닉 9 | 전기 · 7인승 · 4WD | 캘리그래피 19인치",
+    "MEJJ7VEH2  ·  현대 | 아이오닉 9 | 전기 · 7인승 · 4WD | 캘리그래피 21인치",
+    "MEJJ6VCA2  ·  현대 | 아이오닉 9 | 전기 · 6인승 · 4WD | 캘리그래피 19인치",
+    "MEJJ6VEA2  ·  현대 | 아이오닉 9 | 전기 · 6인승 · 4WD | 캘리그래피 21인치",
+    "MEJJ6VCH2  ·  현대 | 아이오닉 9 | 전기 · 6인승 · 4WD | 캘리그래피 19인치",
+    "MEJJ6VEH2  ·  현대 | 아이오닉 9 | 전기 · 6인승 · 4WD | 캘리그래피 21인치",
+    "SXJJ5TMD4  ·  현대 | 코나 | 가솔린 1.6 터보 · 2WD | N Line Inspiration",
+    "SXJJ5TME4  ·  현대 | 코나 | 가솔린 1.6 터보 · 4WD | N Line Inspiration",
+    "SXJJ5ZMD4  ·  현대 | 코나 | 하이브리드 · 2WD | N Line Inspiration",
     "SXJJ5VES3  ·  현대 | 코나 | 전기 | E-Value +",
     "SXJJ5VBS3  ·  현대 | 코나 | 전기 | Premium",
     "SXJJ5VPR3  ·  현대 | 코나 | 전기 | Modern plus",
     "SXJJ5VBR3  ·  현대 | 코나 | 전기 | Premium",
     "SXJJ5VCR3  ·  현대 | 코나 | 전기 | Inspiration",
     "SXJJ5VMR3  ·  현대 | 코나 | 전기 | N Line Inspiration",
-    "FXJJ9TAT2  ·  현대 | 팰리세이드 | 가솔린 2.5 | 익스클루시브",
-    "FXJJ7TAT2  ·  현대 | 팰리세이드 | 가솔린 2.5 | 익스클루시브",
-    "FXJJ9TAA2  ·  현대 | 팰리세이드 | 가솔린 2.5 | 익스클루시브",
-    "FXJJ7TAA2  ·  현대 | 팰리세이드 | 가솔린 2.5 | 익스클루시브",
-    "FXJJ9THT2  ·  현대 | 팰리세이드 | 가솔린 2.5 | H-Pick",
-    "FXJJ9ZAT2  ·  현대 | 팰리세이드 | 하이브리드 2.5 | 익스클루시브",
-    "FXJJ7THT2  ·  현대 | 팰리세이드 | 가솔린 2.5 | H-Pick",
-    "FXJJ9TDT2  ·  현대 | 팰리세이드 | 가솔린 2.5 | XRT",
-    "FXJJ7ZAT2  ·  현대 | 팰리세이드 | 하이브리드 2.5 | 익스클루시브",
-    "FXJJ9THA2  ·  현대 | 팰리세이드 | 가솔린 2.5 | H-Pick",
-    "FXJJ9ZAA2  ·  현대 | 팰리세이드 | 하이브리드 2.5 | 익스클루시브",
-    "FXJJ7TDT2  ·  현대 | 팰리세이드 | 가솔린 2.5 | XRT",
-    "FXJJ9TDA2  ·  현대 | 팰리세이드 | 가솔린 2.5 | XRT",
-    "FXJJ7THA2  ·  현대 | 팰리세이드 | 가솔린 2.5 | H-Pick",
-    "FXJJ7ZAA2  ·  현대 | 팰리세이드 | 하이브리드 2.5 | 익스클루시브",
-    "FXJJ9TCT2  ·  현대 | 팰리세이드 | 가솔린 2.5 | 캘리그래피",
-    "FXJJ7TDA2  ·  현대 | 팰리세이드 | 가솔린 2.5 | XRT",
-    "FXJJ9ZHT2  ·  현대 | 팰리세이드 | 하이브리드 2.5 | H-Pick",
-    "FXJJ7TCT2  ·  현대 | 팰리세이드 | 가솔린 2.5 | 캘리그래피",
-    "FXJJ7ZHT2  ·  현대 | 팰리세이드 | 하이브리드 2.5 | H-Pick",
-    "FXJJ9TCA2  ·  현대 | 팰리세이드 | 가솔린 2.5 | 캘리그래피",
-    "FXJJ9ZHA2  ·  현대 | 팰리세이드 | 하이브리드 2.5 | H-Pick",
-    "FXJJ7TCA2  ·  현대 | 팰리세이드 | 가솔린 2.5 | 캘리그래피",
-    "FXJJ7ZHA2  ·  현대 | 팰리세이드 | 하이브리드 2.5 | H-Pick",
-    "FXJJ9ZCT2  ·  현대 | 팰리세이드 | 하이브리드 2.5 | 캘리그래피",
-    "FXJJ9ZCA2  ·  현대 | 팰리세이드 | 하이브리드 2.5 | 캘리그래피",
-    "FXJJ7ZCT2  ·  현대 | 팰리세이드 | 하이브리드 2.5 | 캘리그래피",
-    "FXJJ7ZCA2  ·  현대 | 팰리세이드 | 하이브리드 2.5 | 캘리그래피",
-    "FXJJ9TET2  ·  현대 | 팰리세이드 | 가솔린 2.5 | 하이루프",
-    "FXJJ9TEA2  ·  현대 | 팰리세이드 | 가솔린 2.5 | 하이루프",
-    "FXJJ7TET2  ·  현대 | 팰리세이드 | 가솔린 2.5 | 하이루프",
-    "FXJJ7TEA2  ·  현대 | 팰리세이드 | 가솔린 2.5 | 하이루프",
-    "FXJJ9ZET2  ·  현대 | 팰리세이드 | 하이브리드 2.5 | 하이루프",
-    "FXJJ9ZEA2  ·  현대 | 팰리세이드 | 하이브리드 2.5 | 하이루프",
-    "FXJJ7ZET2  ·  현대 | 팰리세이드 | 하이브리드 2.5 | 하이루프",
-    "FXJJ7ZEA2  ·  현대 | 팰리세이드 | 하이브리드 2.5 | 하이루프"
+    "FXJJ9THT2  ·  현대 | 팰리세이드 | 가솔린 2.5 · 9인승 · 2WD | H-Pick",
+    "FXJJ7THT2  ·  현대 | 팰리세이드 | 가솔린 2.5 · 7인승 · 2WD | H-Pick",
+    "FXJJ9TDT2  ·  현대 | 팰리세이드 | 가솔린 2.5 · 9인승 · 2WD | XRT",
+    "FXJJ9THA2  ·  현대 | 팰리세이드 | 가솔린 2.5 · 9인승 · 4WD | H-Pick",
+    "FXJJ7TDT2  ·  현대 | 팰리세이드 | 가솔린 2.5 · 7인승 · 2WD | XRT",
+    "FXJJ9TDA2  ·  현대 | 팰리세이드 | 가솔린 2.5 · 9인승 · 4WD | XRT",
+    "FXJJ7THA2  ·  현대 | 팰리세이드 | 가솔린 2.5 · 7인승 · 4WD | H-Pick",
+    "FXJJ7TDA2  ·  현대 | 팰리세이드 | 가솔린 2.5 · 7인승 · 4WD | XRT",
+    "FXJJ9ZHT2  ·  현대 | 팰리세이드 | 하이브리드 2.5 · 9인승 · 2WD | H-Pick",
+    "FXJJ7ZHT2  ·  현대 | 팰리세이드 | 하이브리드 2.5 · 7인승 · 2WD | H-Pick",
+    "FXJJ9ZHA2  ·  현대 | 팰리세이드 | 하이브리드 2.5 · 9인승 · 4WD | H-Pick",
+    "FXJJ7ZHA2  ·  현대 | 팰리세이드 | 하이브리드 2.5 · 7인승 · 4WD | H-Pick",
+    "FXJJ9TET2  ·  현대 | 팰리세이드 | 가솔린 2.5 · 9인승 · 2WD | 하이루프",
+    "FXJJ9TEA2  ·  현대 | 팰리세이드 | 가솔린 2.5 · 9인승 · 4WD | 하이루프",
+    "FXJJ7TET2  ·  현대 | 팰리세이드 | 가솔린 2.5 · 7인승 · 2WD | 하이루프",
+    "FXJJ7TEA2  ·  현대 | 팰리세이드 | 가솔린 2.5 · 7인승 · 4WD | 하이루프",
+    "FXJJ9ZET2  ·  현대 | 팰리세이드 | 하이브리드 2.5 · 9인승 · 2WD | 하이루프",
+    "FXJJ9ZEA2  ·  현대 | 팰리세이드 | 하이브리드 2.5 · 9인승 · 4WD | 하이루프",
+    "FXJJ7ZET2  ·  현대 | 팰리세이드 | 하이브리드 2.5 · 7인승 · 2WD | 하이루프",
+    "FXJJ7ZEA2  ·  현대 | 팰리세이드 | 하이브리드 2.5 · 7인승 · 4WD | 하이루프"
   ],
   "unmatchedDetail": {
     "트림이름": [
@@ -2243,7 +2355,7 @@
       },
       {
         "key": "GNTS4LVT4",
-        "label": "현대 | 더 뉴 그랜저 택시 | LPG 3.5 | 고급형",
+        "label": "현대 | 더 뉴 그랜저 택시 | LPG 3.5 · 2WD | 고급형",
         "near": [
           "프리미엄(premium)",
           "익스클루시브(exclusive)"
@@ -2273,7 +2385,7 @@
       },
       {
         "key": "SXJJ5TMD4",
-        "label": "현대 | 코나 | 가솔린 1.6 터보 | N Line Inspiration",
+        "label": "현대 | 코나 | 가솔린 1.6 터보 · 2WD | N Line Inspiration",
         "near": [
           "모던(modern)",
           "H-Pick(hpick)",
@@ -2285,7 +2397,7 @@
       },
       {
         "key": "SXJJ5TME4",
-        "label": "현대 | 코나 | 가솔린 1.6 터보 | N Line Inspiration",
+        "label": "현대 | 코나 | 가솔린 1.6 터보 · 4WD | N Line Inspiration",
         "near": [
           "모던(modern)",
           "H-Pick(hpick)",
@@ -2297,7 +2409,7 @@
       },
       {
         "key": "SXJJ5ZMD4",
-        "label": "현대 | 코나 | 하이브리드 | N Line Inspiration",
+        "label": "현대 | 코나 | 하이브리드 · 2WD | N Line Inspiration",
         "near": [
           "모던(modern)",
           "H-Pick(hpick)",
@@ -2308,53 +2420,8 @@
         ]
       },
       {
-        "key": "FXJJ9TAT2",
-        "label": "현대 | 팰리세이드 | 가솔린 2.5 | 익스클루시브",
-        "near": [
-          "익스클루시브(exclusive)",
-          "프레스티지(prestige)",
-          "캘리그래피(calligraphy)"
-        ]
-      },
-      {
-        "key": "FXJJ7TAT2",
-        "label": "현대 | 팰리세이드 | 가솔린 2.5 | 익스클루시브",
-        "near": [
-          "익스클루시브(exclusive)",
-          "프레스티지(prestige)",
-          "캘리그래피(calligraphy)"
-        ]
-      },
-      {
-        "key": "FXJJ9TAA2",
-        "label": "현대 | 팰리세이드 | 가솔린 2.5 | 익스클루시브",
-        "near": [
-          "익스클루시브(exclusive)",
-          "프레스티지(prestige)",
-          "캘리그래피(calligraphy)"
-        ]
-      },
-      {
-        "key": "FXJJ7TAA2",
-        "label": "현대 | 팰리세이드 | 가솔린 2.5 | 익스클루시브",
-        "near": [
-          "익스클루시브(exclusive)",
-          "프레스티지(prestige)",
-          "캘리그래피(calligraphy)"
-        ]
-      },
-      {
         "key": "FXJJ9THT2",
-        "label": "현대 | 팰리세이드 | 가솔린 2.5 | H-Pick",
-        "near": [
-          "익스클루시브(exclusive)",
-          "프레스티지(prestige)",
-          "캘리그래피(calligraphy)"
-        ]
-      },
-      {
-        "key": "FXJJ9ZAT2",
-        "label": "현대 | 팰리세이드 | 하이브리드 2.5 | 익스클루시브",
+        "label": "현대 | 팰리세이드 | 가솔린 2.5 · 9인승 · 2WD | H-Pick",
         "near": [
           "익스클루시브(exclusive)",
           "프레스티지(prestige)",
@@ -2363,7 +2430,7 @@
       },
       {
         "key": "FXJJ7THT2",
-        "label": "현대 | 팰리세이드 | 가솔린 2.5 | H-Pick",
+        "label": "현대 | 팰리세이드 | 가솔린 2.5 · 7인승 · 2WD | H-Pick",
         "near": [
           "익스클루시브(exclusive)",
           "프레스티지(prestige)",
@@ -2372,16 +2439,7 @@
       },
       {
         "key": "FXJJ9TDT2",
-        "label": "현대 | 팰리세이드 | 가솔린 2.5 | XRT",
-        "near": [
-          "익스클루시브(exclusive)",
-          "프레스티지(prestige)",
-          "캘리그래피(calligraphy)"
-        ]
-      },
-      {
-        "key": "FXJJ7ZAT2",
-        "label": "현대 | 팰리세이드 | 하이브리드 2.5 | 익스클루시브",
+        "label": "현대 | 팰리세이드 | 가솔린 2.5 · 9인승 · 2WD | XRT",
         "near": [
           "익스클루시브(exclusive)",
           "프레스티지(prestige)",
@@ -2390,16 +2448,7 @@
       },
       {
         "key": "FXJJ9THA2",
-        "label": "현대 | 팰리세이드 | 가솔린 2.5 | H-Pick",
-        "near": [
-          "익스클루시브(exclusive)",
-          "프레스티지(prestige)",
-          "캘리그래피(calligraphy)"
-        ]
-      },
-      {
-        "key": "FXJJ9ZAA2",
-        "label": "현대 | 팰리세이드 | 하이브리드 2.5 | 익스클루시브",
+        "label": "현대 | 팰리세이드 | 가솔린 2.5 · 9인승 · 4WD | H-Pick",
         "near": [
           "익스클루시브(exclusive)",
           "프레스티지(prestige)",
@@ -2408,7 +2457,7 @@
       },
       {
         "key": "FXJJ7TDT2",
-        "label": "현대 | 팰리세이드 | 가솔린 2.5 | XRT",
+        "label": "현대 | 팰리세이드 | 가솔린 2.5 · 7인승 · 2WD | XRT",
         "near": [
           "익스클루시브(exclusive)",
           "프레스티지(prestige)",
@@ -2417,7 +2466,7 @@
       },
       {
         "key": "FXJJ9TDA2",
-        "label": "현대 | 팰리세이드 | 가솔린 2.5 | XRT",
+        "label": "현대 | 팰리세이드 | 가솔린 2.5 · 9인승 · 4WD | XRT",
         "near": [
           "익스클루시브(exclusive)",
           "프레스티지(prestige)",
@@ -2426,25 +2475,7 @@
       },
       {
         "key": "FXJJ7THA2",
-        "label": "현대 | 팰리세이드 | 가솔린 2.5 | H-Pick",
-        "near": [
-          "익스클루시브(exclusive)",
-          "프레스티지(prestige)",
-          "캘리그래피(calligraphy)"
-        ]
-      },
-      {
-        "key": "FXJJ7ZAA2",
-        "label": "현대 | 팰리세이드 | 하이브리드 2.5 | 익스클루시브",
-        "near": [
-          "익스클루시브(exclusive)",
-          "프레스티지(prestige)",
-          "캘리그래피(calligraphy)"
-        ]
-      },
-      {
-        "key": "FXJJ9TCT2",
-        "label": "현대 | 팰리세이드 | 가솔린 2.5 | 캘리그래피",
+        "label": "현대 | 팰리세이드 | 가솔린 2.5 · 7인승 · 4WD | H-Pick",
         "near": [
           "익스클루시브(exclusive)",
           "프레스티지(prestige)",
@@ -2453,7 +2484,7 @@
       },
       {
         "key": "FXJJ7TDA2",
-        "label": "현대 | 팰리세이드 | 가솔린 2.5 | XRT",
+        "label": "현대 | 팰리세이드 | 가솔린 2.5 · 7인승 · 4WD | XRT",
         "near": [
           "익스클루시브(exclusive)",
           "프레스티지(prestige)",
@@ -2462,16 +2493,7 @@
       },
       {
         "key": "FXJJ9ZHT2",
-        "label": "현대 | 팰리세이드 | 하이브리드 2.5 | H-Pick",
-        "near": [
-          "익스클루시브(exclusive)",
-          "프레스티지(prestige)",
-          "캘리그래피(calligraphy)"
-        ]
-      },
-      {
-        "key": "FXJJ7TCT2",
-        "label": "현대 | 팰리세이드 | 가솔린 2.5 | 캘리그래피",
+        "label": "현대 | 팰리세이드 | 하이브리드 2.5 · 9인승 · 2WD | H-Pick",
         "near": [
           "익스클루시브(exclusive)",
           "프레스티지(prestige)",
@@ -2480,16 +2502,7 @@
       },
       {
         "key": "FXJJ7ZHT2",
-        "label": "현대 | 팰리세이드 | 하이브리드 2.5 | H-Pick",
-        "near": [
-          "익스클루시브(exclusive)",
-          "프레스티지(prestige)",
-          "캘리그래피(calligraphy)"
-        ]
-      },
-      {
-        "key": "FXJJ9TCA2",
-        "label": "현대 | 팰리세이드 | 가솔린 2.5 | 캘리그래피",
+        "label": "현대 | 팰리세이드 | 하이브리드 2.5 · 7인승 · 2WD | H-Pick",
         "near": [
           "익스클루시브(exclusive)",
           "프레스티지(prestige)",
@@ -2498,16 +2511,7 @@
       },
       {
         "key": "FXJJ9ZHA2",
-        "label": "현대 | 팰리세이드 | 하이브리드 2.5 | H-Pick",
-        "near": [
-          "익스클루시브(exclusive)",
-          "프레스티지(prestige)",
-          "캘리그래피(calligraphy)"
-        ]
-      },
-      {
-        "key": "FXJJ7TCA2",
-        "label": "현대 | 팰리세이드 | 가솔린 2.5 | 캘리그래피",
+        "label": "현대 | 팰리세이드 | 하이브리드 2.5 · 9인승 · 4WD | H-Pick",
         "near": [
           "익스클루시브(exclusive)",
           "프레스티지(prestige)",
@@ -2516,43 +2520,7 @@
       },
       {
         "key": "FXJJ7ZHA2",
-        "label": "현대 | 팰리세이드 | 하이브리드 2.5 | H-Pick",
-        "near": [
-          "익스클루시브(exclusive)",
-          "프레스티지(prestige)",
-          "캘리그래피(calligraphy)"
-        ]
-      },
-      {
-        "key": "FXJJ9ZCT2",
-        "label": "현대 | 팰리세이드 | 하이브리드 2.5 | 캘리그래피",
-        "near": [
-          "익스클루시브(exclusive)",
-          "프레스티지(prestige)",
-          "캘리그래피(calligraphy)"
-        ]
-      },
-      {
-        "key": "FXJJ9ZCA2",
-        "label": "현대 | 팰리세이드 | 하이브리드 2.5 | 캘리그래피",
-        "near": [
-          "익스클루시브(exclusive)",
-          "프레스티지(prestige)",
-          "캘리그래피(calligraphy)"
-        ]
-      },
-      {
-        "key": "FXJJ7ZCT2",
-        "label": "현대 | 팰리세이드 | 하이브리드 2.5 | 캘리그래피",
-        "near": [
-          "익스클루시브(exclusive)",
-          "프레스티지(prestige)",
-          "캘리그래피(calligraphy)"
-        ]
-      },
-      {
-        "key": "FXJJ7ZCA2",
-        "label": "현대 | 팰리세이드 | 하이브리드 2.5 | 캘리그래피",
+        "label": "현대 | 팰리세이드 | 하이브리드 2.5 · 7인승 · 4WD | H-Pick",
         "near": [
           "익스클루시브(exclusive)",
           "프레스티지(prestige)",
@@ -2561,7 +2529,7 @@
       },
       {
         "key": "FXJJ9TET2",
-        "label": "현대 | 팰리세이드 | 가솔린 2.5 | 하이루프",
+        "label": "현대 | 팰리세이드 | 가솔린 2.5 · 9인승 · 2WD | 하이루프",
         "near": [
           "익스클루시브(exclusive)",
           "프레스티지(prestige)",
@@ -2570,7 +2538,7 @@
       },
       {
         "key": "FXJJ9TEA2",
-        "label": "현대 | 팰리세이드 | 가솔린 2.5 | 하이루프",
+        "label": "현대 | 팰리세이드 | 가솔린 2.5 · 9인승 · 4WD | 하이루프",
         "near": [
           "익스클루시브(exclusive)",
           "프레스티지(prestige)",
@@ -2579,7 +2547,7 @@
       },
       {
         "key": "FXJJ7TET2",
-        "label": "현대 | 팰리세이드 | 가솔린 2.5 | 하이루프",
+        "label": "현대 | 팰리세이드 | 가솔린 2.5 · 7인승 · 2WD | 하이루프",
         "near": [
           "익스클루시브(exclusive)",
           "프레스티지(prestige)",
@@ -2588,7 +2556,7 @@
       },
       {
         "key": "FXJJ7TEA2",
-        "label": "현대 | 팰리세이드 | 가솔린 2.5 | 하이루프",
+        "label": "현대 | 팰리세이드 | 가솔린 2.5 · 7인승 · 4WD | 하이루프",
         "near": [
           "익스클루시브(exclusive)",
           "프레스티지(prestige)",
@@ -2597,7 +2565,7 @@
       },
       {
         "key": "FXJJ9ZET2",
-        "label": "현대 | 팰리세이드 | 하이브리드 2.5 | 하이루프",
+        "label": "현대 | 팰리세이드 | 하이브리드 2.5 · 9인승 · 2WD | 하이루프",
         "near": [
           "익스클루시브(exclusive)",
           "프레스티지(prestige)",
@@ -2606,7 +2574,7 @@
       },
       {
         "key": "FXJJ9ZEA2",
-        "label": "현대 | 팰리세이드 | 하이브리드 2.5 | 하이루프",
+        "label": "현대 | 팰리세이드 | 하이브리드 2.5 · 9인승 · 4WD | 하이루프",
         "near": [
           "익스클루시브(exclusive)",
           "프레스티지(prestige)",
@@ -2615,7 +2583,7 @@
       },
       {
         "key": "FXJJ7ZET2",
-        "label": "현대 | 팰리세이드 | 하이브리드 2.5 | 하이루프",
+        "label": "현대 | 팰리세이드 | 하이브리드 2.5 · 7인승 · 2WD | 하이루프",
         "near": [
           "익스클루시브(exclusive)",
           "프레스티지(prestige)",
@@ -2624,7 +2592,7 @@
       },
       {
         "key": "FXJJ7ZEA2",
-        "label": "현대 | 팰리세이드 | 하이브리드 2.5 | 하이루프",
+        "label": "현대 | 팰리세이드 | 하이브리드 2.5 · 7인승 · 4WD | 하이루프",
         "near": [
           "익스클루시브(exclusive)",
           "프레스티지(prestige)",
@@ -2833,22 +2801,22 @@
       },
       {
         "key": "HEJJ5HDT2",
-        "label": "현대 | 넥쏘 | 수소 | 모던",
+        "label": "현대 | 넥쏘 | 수소 · 2WD | 모던",
         "near": []
       },
       {
         "key": "HEJJ5HAT2",
-        "label": "현대 | 넥쏘 | 수소 | 익스클루시브",
+        "label": "현대 | 넥쏘 | 수소 · 2WD | 익스클루시브",
         "near": []
       },
       {
         "key": "HEJJ5HCT2",
-        "label": "현대 | 넥쏘 | 수소 | 프레스티지",
+        "label": "현대 | 넥쏘 | 수소 · 2WD | 프레스티지",
         "near": []
       },
       {
         "key": "USJC3LST4",
-        "label": "현대 | 더 뉴 스타리아 | LPG 3.5 | Smart",
+        "label": "현대 | 더 뉴 스타리아 | LPG 3.5 · 2WD | Smart",
         "near": [
           "더 뉴 캐스퍼",
           "더 뉴 그랜저"
@@ -2856,7 +2824,7 @@
       },
       {
         "key": "USJC5LCT4",
-        "label": "현대 | 더 뉴 스타리아 | LPG 3.5 | Smart(센터콘솔)",
+        "label": "현대 | 더 뉴 스타리아 | LPG 3.5 · 2WD | Smart(센터콘솔)",
         "near": [
           "더 뉴 캐스퍼",
           "더 뉴 그랜저"
@@ -2864,7 +2832,7 @@
       },
       {
         "key": "USJC3LMT4",
-        "label": "현대 | 더 뉴 스타리아 | LPG 3.5 | Modern",
+        "label": "현대 | 더 뉴 스타리아 | LPG 3.5 · 2WD | Modern",
         "near": [
           "더 뉴 캐스퍼",
           "더 뉴 그랜저"
@@ -2872,7 +2840,7 @@
       },
       {
         "key": "USJC5LMT4",
-        "label": "현대 | 더 뉴 스타리아 | LPG 3.5 | Modern",
+        "label": "현대 | 더 뉴 스타리아 | LPG 3.5 · 2WD | Modern",
         "near": [
           "더 뉴 캐스퍼",
           "더 뉴 그랜저"
@@ -2880,7 +2848,7 @@
       },
       {
         "key": "USJTBLST4",
-        "label": "현대 | 더 뉴 스타리아 | LPG 3.5 | Smart",
+        "label": "현대 | 더 뉴 스타리아 | LPG 3.5 · 2WD | Smart",
         "near": [
           "더 뉴 캐스퍼",
           "더 뉴 그랜저"
@@ -2888,7 +2856,7 @@
       },
       {
         "key": "USJC2ZCT4",
-        "label": "현대 | 더 뉴 스타리아 | 하이브리드 | Smart(센터콘솔)",
+        "label": "현대 | 더 뉴 스타리아 | 하이브리드 · 2WD | Smart(센터콘솔)",
         "near": [
           "더 뉴 캐스퍼",
           "더 뉴 그랜저"
@@ -2896,7 +2864,7 @@
       },
       {
         "key": "USJTBLMT4",
-        "label": "현대 | 더 뉴 스타리아 | LPG 3.5 | Modern",
+        "label": "현대 | 더 뉴 스타리아 | LPG 3.5 · 2WD | Modern",
         "near": [
           "더 뉴 캐스퍼",
           "더 뉴 그랜저"
@@ -2904,7 +2872,7 @@
       },
       {
         "key": "USJC5ZCT4",
-        "label": "현대 | 더 뉴 스타리아 | 하이브리드 | Smart(센터콘솔)",
+        "label": "현대 | 더 뉴 스타리아 | 하이브리드 · 2WD | Smart(센터콘솔)",
         "near": [
           "더 뉴 캐스퍼",
           "더 뉴 그랜저"
@@ -2912,7 +2880,7 @@
       },
       {
         "key": "USJC2ZMT4",
-        "label": "현대 | 더 뉴 스타리아 | 하이브리드 | Modern",
+        "label": "현대 | 더 뉴 스타리아 | 하이브리드 · 2WD | Modern",
         "near": [
           "더 뉴 캐스퍼",
           "더 뉴 그랜저"
@@ -2920,7 +2888,7 @@
       },
       {
         "key": "USJC5ZMT4",
-        "label": "현대 | 더 뉴 스타리아 | 하이브리드 | Modern",
+        "label": "현대 | 더 뉴 스타리아 | 하이브리드 · 2WD | Modern",
         "near": [
           "더 뉴 캐스퍼",
           "더 뉴 그랜저"
@@ -2928,7 +2896,7 @@
       },
       {
         "key": "USJTBZST4",
-        "label": "현대 | 더 뉴 스타리아 | 하이브리드 | Smart",
+        "label": "현대 | 더 뉴 스타리아 | 하이브리드 · 2WD | Smart",
         "near": [
           "더 뉴 캐스퍼",
           "더 뉴 그랜저"
@@ -2936,7 +2904,7 @@
       },
       {
         "key": "USJT9ZST4",
-        "label": "현대 | 더 뉴 스타리아 | 하이브리드 | Smart",
+        "label": "현대 | 더 뉴 스타리아 | 하이브리드 · 2WD | Smart",
         "near": [
           "더 뉴 캐스퍼",
           "더 뉴 그랜저"
@@ -2944,7 +2912,7 @@
       },
       {
         "key": "USJT9ZMT4",
-        "label": "현대 | 더 뉴 스타리아 | 하이브리드 | Modern",
+        "label": "현대 | 더 뉴 스타리아 | 하이브리드 · 2WD | Modern",
         "near": [
           "더 뉴 캐스퍼",
           "더 뉴 그랜저"
@@ -2952,7 +2920,7 @@
       },
       {
         "key": "USJTBZMT4",
-        "label": "현대 | 더 뉴 스타리아 | 하이브리드 | Modern",
+        "label": "현대 | 더 뉴 스타리아 | 하이브리드 · 2WD | Modern",
         "near": [
           "더 뉴 캐스퍼",
           "더 뉴 그랜저"
@@ -2960,7 +2928,7 @@
       },
       {
         "key": "USJC3VMT4",
-        "label": "현대 | 더 뉴 스타리아 | 전기 | Modern",
+        "label": "현대 | 더 뉴 스타리아 | 전기 · 2WD | Modern",
         "near": [
           "더 뉴 캐스퍼",
           "더 뉴 그랜저"
@@ -2968,7 +2936,7 @@
       },
       {
         "key": "USJC5VMT4",
-        "label": "현대 | 더 뉴 스타리아 | 전기 | Modern",
+        "label": "현대 | 더 뉴 스타리아 | 전기 · 2WD | Modern",
         "near": [
           "더 뉴 캐스퍼",
           "더 뉴 그랜저"
@@ -2976,7 +2944,7 @@
       },
       {
         "key": "USJTBVMT4",
-        "label": "현대 | 더 뉴 스타리아 | 전기 | Modern",
+        "label": "현대 | 더 뉴 스타리아 | 전기 · 2WD | Modern",
         "near": [
           "더 뉴 캐스퍼",
           "더 뉴 그랜저"
@@ -2984,7 +2952,7 @@
       },
       {
         "key": "USJL9ZPT4",
-        "label": "현대 | 더 뉴 스타리아 라운지 | 하이브리드 | Prestige",
+        "label": "현대 | 더 뉴 스타리아 라운지 | 하이브리드 · 2WD | Prestige",
         "near": [
           "더 뉴 캐스퍼",
           "더 뉴 그랜저"
@@ -2992,7 +2960,7 @@
       },
       {
         "key": "USJL7LET4",
-        "label": "현대 | 더 뉴 스타리아 라운지 | LPG 3.5 | Inspiration",
+        "label": "현대 | 더 뉴 스타리아 라운지 | LPG 3.5 · 2WD | Inspiration",
         "near": [
           "더 뉴 캐스퍼",
           "더 뉴 그랜저"
@@ -3000,7 +2968,7 @@
       },
       {
         "key": "USJL9ZET4",
-        "label": "현대 | 더 뉴 스타리아 라운지 | 하이브리드 | Inspiration",
+        "label": "현대 | 더 뉴 스타리아 라운지 | 하이브리드 · 2WD | Inspiration",
         "near": [
           "더 뉴 캐스퍼",
           "더 뉴 그랜저"
@@ -3008,7 +2976,7 @@
       },
       {
         "key": "USJL7ZET4",
-        "label": "현대 | 더 뉴 스타리아 라운지 | 하이브리드 | Inspiration",
+        "label": "현대 | 더 뉴 스타리아 라운지 | 하이브리드 · 2WD | Inspiration",
         "near": [
           "더 뉴 캐스퍼",
           "더 뉴 그랜저"
@@ -3016,7 +2984,7 @@
       },
       {
         "key": "USJLBVPT4",
-        "label": "현대 | 더 뉴 스타리아 라운지 | 전기 | Prestige",
+        "label": "현대 | 더 뉴 스타리아 라운지 | 전기 · 2WD | Prestige",
         "near": [
           "더 뉴 캐스퍼",
           "더 뉴 그랜저"
@@ -3024,7 +2992,7 @@
       },
       {
         "key": "USJL7VPT4",
-        "label": "현대 | 더 뉴 스타리아 라운지 | 전기 | Prestige",
+        "label": "현대 | 더 뉴 스타리아 라운지 | 전기 · 2WD | Prestige",
         "near": [
           "더 뉴 캐스퍼",
           "더 뉴 그랜저"
@@ -3032,7 +3000,7 @@
       },
       {
         "key": "USJL7VET4",
-        "label": "현대 | 더 뉴 스타리아 라운지 | 전기 | Inspiration",
+        "label": "현대 | 더 뉴 스타리아 라운지 | 전기 · 2WD | Inspiration",
         "near": [
           "더 뉴 캐스퍼",
           "더 뉴 그랜저"
@@ -3040,7 +3008,7 @@
       },
       {
         "key": "USTL7LBT4",
-        "label": "현대 | 더 뉴 스타리아 라운지 모빌리티 | LPG 3.5 | 모빌리티",
+        "label": "현대 | 더 뉴 스타리아 라운지 모빌리티 | LPG 3.5 · 2WD | 모빌리티",
         "near": [
           "더 뉴 캐스퍼",
           "더 뉴 그랜저"
@@ -3048,7 +3016,7 @@
       },
       {
         "key": "USTL9ZBT4",
-        "label": "현대 | 더 뉴 스타리아 라운지 모빌리티 | 하이브리드 | 모빌리티",
+        "label": "현대 | 더 뉴 스타리아 라운지 모빌리티 | 하이브리드 · 2WD | 모빌리티",
         "near": [
           "더 뉴 캐스퍼",
           "더 뉴 그랜저"
@@ -3056,7 +3024,7 @@
       },
       {
         "key": "USTL7ZBT4",
-        "label": "현대 | 더 뉴 스타리아 라운지 모빌리티 | 하이브리드 | 모빌리티",
+        "label": "현대 | 더 뉴 스타리아 라운지 모빌리티 | 하이브리드 · 2WD | 모빌리티",
         "near": [
           "더 뉴 캐스퍼",
           "더 뉴 그랜저"
@@ -3064,7 +3032,7 @@
       },
       {
         "key": "USJV9ZET4",
-        "label": "현대 | 더 뉴 스타리아 리무진 | 하이브리드 | Inspiration",
+        "label": "현대 | 더 뉴 스타리아 리무진 | 하이브리드 · 2WD | Inspiration",
         "near": [
           "더 뉴 캐스퍼",
           "더 뉴 그랜저"
@@ -3072,7 +3040,7 @@
       },
       {
         "key": "USJV6ZET4",
-        "label": "현대 | 더 뉴 스타리아 리무진 | 하이브리드 | Inspiration",
+        "label": "현대 | 더 뉴 스타리아 리무진 | 하이브리드 · 2WD | Inspiration",
         "near": [
           "더 뉴 캐스퍼",
           "더 뉴 그랜저"
@@ -3080,7 +3048,7 @@
       },
       {
         "key": "USJV6VET4",
-        "label": "현대 | 더 뉴 스타리아 리무진 | 전기 | Inspiration",
+        "label": "현대 | 더 뉴 스타리아 리무진 | 전기 · 2WD | Inspiration",
         "near": [
           "더 뉴 캐스퍼",
           "더 뉴 그랜저"
@@ -3088,7 +3056,7 @@
       },
       {
         "key": "USCTBLMT4",
-        "label": "현대 | 더 뉴 스타리아 킨더 | LPG 3.5 | Modern",
+        "label": "현대 | 더 뉴 스타리아 킨더 | LPG 3.5 · 2WD | Modern",
         "near": [
           "더 뉴 캐스퍼",
           "더 뉴 그랜저"
@@ -3096,7 +3064,7 @@
       },
       {
         "key": "USCTFLMT4",
-        "label": "현대 | 더 뉴 스타리아 킨더 | LPG 3.5 | Modern",
+        "label": "현대 | 더 뉴 스타리아 킨더 | LPG 3.5 · 2WD | Modern",
         "near": [
           "더 뉴 캐스퍼",
           "더 뉴 그랜저"
@@ -3104,7 +3072,7 @@
       },
       {
         "key": "USCTBZMT4",
-        "label": "현대 | 더 뉴 스타리아 킨더 | 하이브리드 | Modern",
+        "label": "현대 | 더 뉴 스타리아 킨더 | 하이브리드 · 2WD | Modern",
         "near": [
           "더 뉴 캐스퍼",
           "더 뉴 그랜저"
@@ -3112,7 +3080,7 @@
       },
       {
         "key": "USCTFZMT4",
-        "label": "현대 | 더 뉴 스타리아 킨더 | 하이브리드 | Modern",
+        "label": "현대 | 더 뉴 스타리아 킨더 | 하이브리드 · 2WD | Modern",
         "near": [
           "더 뉴 캐스퍼",
           "더 뉴 그랜저"
@@ -3120,7 +3088,7 @@
       },
       {
         "key": "CEJS4VHD3",
-        "label": "현대 | 더 뉴 아이오닉 6 | 전기 | E-Value +(스탠다드) 18인치",
+        "label": "현대 | 더 뉴 아이오닉 6 | 전기 · 2WD | E-Value +(스탠다드) 18인치",
         "near": [
           "더 뉴 캐스퍼",
           "더 뉴 그랜저"
@@ -3128,7 +3096,7 @@
       },
       {
         "key": "CEJS4VLD3",
-        "label": "현대 | 더 뉴 아이오닉 6 | 전기 | E-LITE(롱레인지) 18인치",
+        "label": "현대 | 더 뉴 아이오닉 6 | 전기 · 2WD | E-LITE(롱레인지) 18인치",
         "near": [
           "더 뉴 캐스퍼",
           "더 뉴 그랜저"
@@ -3136,7 +3104,7 @@
       },
       {
         "key": "CEJS4VAD3",
-        "label": "현대 | 더 뉴 아이오닉 6 | 전기 | Exclusive(스탠다드) 18인치",
+        "label": "현대 | 더 뉴 아이오닉 6 | 전기 · 2WD | Exclusive(스탠다드) 18인치",
         "near": [
           "더 뉴 캐스퍼",
           "더 뉴 그랜저"
@@ -3144,7 +3112,7 @@
       },
       {
         "key": "CEJS4VSD3",
-        "label": "현대 | 더 뉴 아이오닉 6 | 전기 | E-LITE(롱레인지) 20인치",
+        "label": "현대 | 더 뉴 아이오닉 6 | 전기 · 2WD | E-LITE(롱레인지) 20인치",
         "near": [
           "더 뉴 캐스퍼",
           "더 뉴 그랜저"
@@ -3152,7 +3120,7 @@
       },
       {
         "key": "CEJS4VLA3",
-        "label": "현대 | 더 뉴 아이오닉 6 | 전기 | E-LITE(롱레인지) 18인치",
+        "label": "현대 | 더 뉴 아이오닉 6 | 전기 · 4WD | E-LITE(롱레인지) 18인치",
         "near": [
           "더 뉴 캐스퍼",
           "더 뉴 그랜저"
@@ -3160,7 +3128,7 @@
       },
       {
         "key": "CEJS4VSA3",
-        "label": "현대 | 더 뉴 아이오닉 6 | 전기 | E-LITE(롱레인지) 20인치",
+        "label": "현대 | 더 뉴 아이오닉 6 | 전기 · 4WD | E-LITE(롱레인지) 20인치",
         "near": [
           "더 뉴 캐스퍼",
           "더 뉴 그랜저"
@@ -3168,7 +3136,7 @@
       },
       {
         "key": "CEJS4VBD3",
-        "label": "현대 | 더 뉴 아이오닉 6 | 전기 | Exclusive(롱레인지) 18인치",
+        "label": "현대 | 더 뉴 아이오닉 6 | 전기 · 2WD | Exclusive(롱레인지) 18인치",
         "near": [
           "더 뉴 캐스퍼",
           "더 뉴 그랜저"
@@ -3176,7 +3144,7 @@
       },
       {
         "key": "CEJS4VPD3",
-        "label": "현대 | 더 뉴 아이오닉 6 | 전기 | Prestige(스탠다드) 18인치",
+        "label": "현대 | 더 뉴 아이오닉 6 | 전기 · 2WD | Prestige(스탠다드) 18인치",
         "near": [
           "더 뉴 캐스퍼",
           "더 뉴 그랜저"
@@ -3184,7 +3152,7 @@
       },
       {
         "key": "CEJS4VCD3",
-        "label": "현대 | 더 뉴 아이오닉 6 | 전기 | Exclusive(롱레인지) 20인치",
+        "label": "현대 | 더 뉴 아이오닉 6 | 전기 · 2WD | Exclusive(롱레인지) 20인치",
         "near": [
           "더 뉴 캐스퍼",
           "더 뉴 그랜저"
@@ -3192,7 +3160,7 @@
       },
       {
         "key": "CEJS4VMD3",
-        "label": "현대 | 더 뉴 아이오닉 6 | 전기 | N Line Exclusive(롱레인지) 20인치",
+        "label": "현대 | 더 뉴 아이오닉 6 | 전기 · 2WD | N Line Exclusive(롱레인지) 20인치",
         "near": [
           "더 뉴 캐스퍼",
           "더 뉴 그랜저"
@@ -3200,7 +3168,7 @@
       },
       {
         "key": "CEJS4VBA3",
-        "label": "현대 | 더 뉴 아이오닉 6 | 전기 | Exclusive(롱레인지) 18인치",
+        "label": "현대 | 더 뉴 아이오닉 6 | 전기 · 4WD | Exclusive(롱레인지) 18인치",
         "near": [
           "더 뉴 캐스퍼",
           "더 뉴 그랜저"
@@ -3208,7 +3176,7 @@
       },
       {
         "key": "CEJS4VCA3",
-        "label": "현대 | 더 뉴 아이오닉 6 | 전기 | Exclusive(롱레인지) 20인치",
+        "label": "현대 | 더 뉴 아이오닉 6 | 전기 · 4WD | Exclusive(롱레인지) 20인치",
         "near": [
           "더 뉴 캐스퍼",
           "더 뉴 그랜저"
@@ -3216,7 +3184,7 @@
       },
       {
         "key": "CEJS4VFD3",
-        "label": "현대 | 더 뉴 아이오닉 6 | 전기 | Prestige(롱레인지) 18인치",
+        "label": "현대 | 더 뉴 아이오닉 6 | 전기 · 2WD | Prestige(롱레인지) 18인치",
         "near": [
           "더 뉴 캐스퍼",
           "더 뉴 그랜저"
@@ -3224,7 +3192,7 @@
       },
       {
         "key": "CEJS4VMA3",
-        "label": "현대 | 더 뉴 아이오닉 6 | 전기 | N Line Exclusive(롱레인지) 20인치",
+        "label": "현대 | 더 뉴 아이오닉 6 | 전기 · 4WD | N Line Exclusive(롱레인지) 20인치",
         "near": [
           "더 뉴 캐스퍼",
           "더 뉴 그랜저"
@@ -3232,7 +3200,7 @@
       },
       {
         "key": "CEJS4VGD3",
-        "label": "현대 | 더 뉴 아이오닉 6 | 전기 | Prestige(롱레인지) 20인치",
+        "label": "현대 | 더 뉴 아이오닉 6 | 전기 · 2WD | Prestige(롱레인지) 20인치",
         "near": [
           "더 뉴 캐스퍼",
           "더 뉴 그랜저"
@@ -3240,7 +3208,7 @@
       },
       {
         "key": "CEJS4VND3",
-        "label": "현대 | 더 뉴 아이오닉 6 | 전기 | N Line Prestige(롱레인지) 20인치",
+        "label": "현대 | 더 뉴 아이오닉 6 | 전기 · 2WD | N Line Prestige(롱레인지) 20인치",
         "near": [
           "더 뉴 캐스퍼",
           "더 뉴 그랜저"
@@ -3248,7 +3216,7 @@
       },
       {
         "key": "CEJS4VFA3",
-        "label": "현대 | 더 뉴 아이오닉 6 | 전기 | Prestige(롱레인지) 18인치",
+        "label": "현대 | 더 뉴 아이오닉 6 | 전기 · 4WD | Prestige(롱레인지) 18인치",
         "near": [
           "더 뉴 캐스퍼",
           "더 뉴 그랜저"
@@ -3256,7 +3224,7 @@
       },
       {
         "key": "CEJS4VGA3",
-        "label": "현대 | 더 뉴 아이오닉 6 | 전기 | Prestige(롱레인지) 20인치",
+        "label": "현대 | 더 뉴 아이오닉 6 | 전기 · 4WD | Prestige(롱레인지) 20인치",
         "near": [
           "더 뉴 캐스퍼",
           "더 뉴 그랜저"
@@ -3264,7 +3232,7 @@
       },
       {
         "key": "CEJS4VNA3",
-        "label": "현대 | 더 뉴 아이오닉 6 | 전기 | N Line Prestige(롱레인지) 20인치",
+        "label": "현대 | 더 뉴 아이오닉 6 | 전기 · 4WD | N Line Prestige(롱레인지) 20인치",
         "near": [
           "더 뉴 캐스퍼",
           "더 뉴 그랜저"
@@ -3375,77 +3343,77 @@
       },
       {
         "key": "NEJJ5VVD8",
-        "label": "현대 | 아이오닉 5 | 전기 | E-Value +(스탠다드) 19인치",
+        "label": "현대 | 아이오닉 5 | 전기 · 2WD | E-Value +(스탠다드) 19인치",
         "near": []
       },
       {
         "key": "NEJJ5VHD8",
-        "label": "현대 | 아이오닉 5 | 전기 | E-Lite(롱레인지) 19인치",
+        "label": "현대 | 아이오닉 5 | 전기 · 2WD | E-Lite(롱레인지) 19인치",
         "near": []
       },
       {
         "key": "NEJJ5VOD8",
-        "label": "현대 | 아이오닉 5 | 전기 | 모던(롱레인지) 19인치",
+        "label": "현대 | 아이오닉 5 | 전기 · 2WD | 모던(롱레인지) 19인치",
         "near": []
       },
       {
         "key": "NEJJ5VHA8",
-        "label": "현대 | 아이오닉 5 | 전기 | E-Lite(롱레인지) 19인치",
+        "label": "현대 | 아이오닉 5 | 전기 · 4WD | E-Lite(롱레인지) 19인치",
         "near": []
       },
       {
         "key": "NEJJ5VOA8",
-        "label": "현대 | 아이오닉 5 | 전기 | 모던(롱레인지) 19인치",
+        "label": "현대 | 아이오닉 5 | 전기 · 4WD | 모던(롱레인지) 19인치",
         "near": []
       },
       {
         "key": "NEJJ5VPD8",
-        "label": "현대 | 아이오닉 5 | 전기 | 프리미엄(롱레인지) 19인치",
+        "label": "현대 | 아이오닉 5 | 전기 · 2WD | 프리미엄(롱레인지) 19인치",
         "near": []
       },
       {
         "key": "NEJJ5VUD8",
-        "label": "현대 | 아이오닉 5 | 전기 | 프리미엄(롱레인지) 20인치",
+        "label": "현대 | 아이오닉 5 | 전기 · 2WD | 프리미엄(롱레인지) 20인치",
         "near": []
       },
       {
         "key": "NEJJ5VZD8",
-        "label": "현대 | 아이오닉 5 | 전기 | N LINE(롱레인지) 20인치",
+        "label": "현대 | 아이오닉 5 | 전기 · 2WD | N LINE(롱레인지) 20인치",
         "near": []
       },
       {
         "key": "NEJJ5VPA8",
-        "label": "현대 | 아이오닉 5 | 전기 | 프리미엄(롱레인지) 19인치",
+        "label": "현대 | 아이오닉 5 | 전기 · 4WD | 프리미엄(롱레인지) 19인치",
         "near": []
       },
       {
         "key": "NEJJ5VUA8",
-        "label": "현대 | 아이오닉 5 | 전기 | 프리미엄(롱레인지) 20인치",
+        "label": "현대 | 아이오닉 5 | 전기 · 4WD | 프리미엄(롱레인지) 20인치",
         "near": []
       },
       {
         "key": "NEJJ5VID8",
-        "label": "현대 | 아이오닉 5 | 전기 | 인스퍼레이션(롱레인지) 19인치",
+        "label": "현대 | 아이오닉 5 | 전기 · 2WD | 인스퍼레이션(롱레인지) 19인치",
         "near": []
       },
       {
         "key": "NEJJ5VJD8",
-        "label": "현대 | 아이오닉 5 | 전기 | 인스퍼레이션(롱레인지) 20인치",
+        "label": "현대 | 아이오닉 5 | 전기 · 2WD | 인스퍼레이션(롱레인지) 20인치",
         "near": []
       },
       {
         "key": "NEJJ5VZA8",
-        "label": "현대 | 아이오닉 5 | 전기 | N LINE(롱레인지) 20인치",
+        "label": "현대 | 아이오닉 5 | 전기 · 4WD | N LINE(롱레인지) 20인치",
         "near": []
       },
       {
         "key": "NEJJ5VIA8",
-        "label": "현대 | 아이오닉 5 | 전기 | 인스퍼레이션(롱레인지) 19인치",
+        "label": "현대 | 아이오닉 5 | 전기 · 4WD | 인스퍼레이션(롱레인지) 19인치",
         "near": []
       },
       {
         "key": "NEJJ5VJA8",
-        "label": "현대 | 아이오닉 5 | 전기 | 인스퍼레이션(롱레인지) 20인치",
+        "label": "현대 | 아이오닉 5 | 전기 · 4WD | 인스퍼레이션(롱레인지) 20인치",
         "near": []
       },
       {
@@ -3455,162 +3423,162 @@
       },
       {
         "key": "NEJJ58RA7",
-        "label": "현대 | 아이오닉 5 N | 전기 | IONIQ 5 N",
+        "label": "현대 | 아이오닉 5 N | 전기 · 4WD | IONIQ 5 N",
         "near": []
       },
       {
         "key": "CEJS48RA4",
-        "label": "현대 | 아이오닉 6 N | 전기 | N",
+        "label": "현대 | 아이오닉 6 N | 전기 · 4WD | N",
         "near": []
       },
       {
         "key": "MEJJ7VAT2",
-        "label": "현대 | 아이오닉 9 | 전기 | 익스클루시브 19인치",
+        "label": "현대 | 아이오닉 9 | 전기 · 7인승 · 2WD | 익스클루시브 19인치",
         "near": []
       },
       {
         "key": "MEJJ6VAT2",
-        "label": "현대 | 아이오닉 9 | 전기 | 익스클루시브 19인치",
+        "label": "현대 | 아이오닉 9 | 전기 · 6인승 · 2WD | 익스클루시브 19인치",
         "near": []
       },
       {
         "key": "MEJJ7VAA2",
-        "label": "현대 | 아이오닉 9 | 전기 | 익스클루시브 19인치",
+        "label": "현대 | 아이오닉 9 | 전기 · 7인승 · 4WD | 익스클루시브 19인치",
         "near": []
       },
       {
         "key": "MEJJ6VAA2",
-        "label": "현대 | 아이오닉 9 | 전기 | 익스클루시브 19인치",
+        "label": "현대 | 아이오닉 9 | 전기 · 6인승 · 4WD | 익스클루시브 19인치",
         "near": []
       },
       {
         "key": "MEJJ7VAH2",
-        "label": "현대 | 아이오닉 9 | 전기 | 익스클루시브 19인치",
+        "label": "현대 | 아이오닉 9 | 전기 · 7인승 · 4WD | 익스클루시브 19인치",
         "near": []
       },
       {
         "key": "MEJJ6VAH2",
-        "label": "현대 | 아이오닉 9 | 전기 | 익스클루시브 19인치",
+        "label": "현대 | 아이오닉 9 | 전기 · 6인승 · 4WD | 익스클루시브 19인치",
         "near": []
       },
       {
         "key": "MEJJ7VBT2",
-        "label": "현대 | 아이오닉 9 | 전기 | 프레스티지 19인치",
+        "label": "현대 | 아이오닉 9 | 전기 · 7인승 · 2WD | 프레스티지 19인치",
         "near": []
       },
       {
         "key": "MEJJ7VDT2",
-        "label": "현대 | 아이오닉 9 | 전기 | 프레스티지 21인치",
+        "label": "현대 | 아이오닉 9 | 전기 · 7인승 · 2WD | 프레스티지 21인치",
         "near": []
       },
       {
         "key": "MEJJ6VBT2",
-        "label": "현대 | 아이오닉 9 | 전기 | 프레스티지 19인치",
+        "label": "현대 | 아이오닉 9 | 전기 · 6인승 · 2WD | 프레스티지 19인치",
         "near": []
       },
       {
         "key": "MEJJ6VDT2",
-        "label": "현대 | 아이오닉 9 | 전기 | 프레스티지 21인치",
+        "label": "현대 | 아이오닉 9 | 전기 · 6인승 · 2WD | 프레스티지 21인치",
         "near": []
       },
       {
         "key": "MEJJ7VBA2",
-        "label": "현대 | 아이오닉 9 | 전기 | 프레스티지 19인치",
+        "label": "현대 | 아이오닉 9 | 전기 · 7인승 · 4WD | 프레스티지 19인치",
         "near": []
       },
       {
         "key": "MEJJ7VDA2",
-        "label": "현대 | 아이오닉 9 | 전기 | 프레스티지 21인치",
+        "label": "현대 | 아이오닉 9 | 전기 · 7인승 · 4WD | 프레스티지 21인치",
         "near": []
       },
       {
         "key": "MEJJ6VBA2",
-        "label": "현대 | 아이오닉 9 | 전기 | 프레스티지 19인치",
+        "label": "현대 | 아이오닉 9 | 전기 · 6인승 · 4WD | 프레스티지 19인치",
         "near": []
       },
       {
         "key": "MEJJ6VDA2",
-        "label": "현대 | 아이오닉 9 | 전기 | 프레스티지 21인치",
+        "label": "현대 | 아이오닉 9 | 전기 · 6인승 · 4WD | 프레스티지 21인치",
         "near": []
       },
       {
         "key": "MEJJ7VBH2",
-        "label": "현대 | 아이오닉 9 | 전기 | 프레스티지 19인치",
+        "label": "현대 | 아이오닉 9 | 전기 · 7인승 · 4WD | 프레스티지 19인치",
         "near": []
       },
       {
         "key": "MEJJ7VDH2",
-        "label": "현대 | 아이오닉 9 | 전기 | 프레스티지 21인치",
+        "label": "현대 | 아이오닉 9 | 전기 · 7인승 · 4WD | 프레스티지 21인치",
         "near": []
       },
       {
         "key": "MEJJ6VBH2",
-        "label": "현대 | 아이오닉 9 | 전기 | 프레스티지 19인치",
+        "label": "현대 | 아이오닉 9 | 전기 · 6인승 · 4WD | 프레스티지 19인치",
         "near": []
       },
       {
         "key": "MEJJ6VDH2",
-        "label": "현대 | 아이오닉 9 | 전기 | 프레스티지 21인치",
+        "label": "현대 | 아이오닉 9 | 전기 · 6인승 · 4WD | 프레스티지 21인치",
         "near": []
       },
       {
         "key": "MEJJ7VCT2",
-        "label": "현대 | 아이오닉 9 | 전기 | 캘리그래피 19인치",
+        "label": "현대 | 아이오닉 9 | 전기 · 7인승 · 2WD | 캘리그래피 19인치",
         "near": []
       },
       {
         "key": "MEJJ7VET2",
-        "label": "현대 | 아이오닉 9 | 전기 | 캘리그래피 21인치",
+        "label": "현대 | 아이오닉 9 | 전기 · 7인승 · 2WD | 캘리그래피 21인치",
         "near": []
       },
       {
         "key": "MEJJ6VCT2",
-        "label": "현대 | 아이오닉 9 | 전기 | 캘리그래피 19인치",
+        "label": "현대 | 아이오닉 9 | 전기 · 6인승 · 2WD | 캘리그래피 19인치",
         "near": []
       },
       {
         "key": "MEJJ6VET2",
-        "label": "현대 | 아이오닉 9 | 전기 | 캘리그래피 21인치",
+        "label": "현대 | 아이오닉 9 | 전기 · 6인승 · 2WD | 캘리그래피 21인치",
         "near": []
       },
       {
         "key": "MEJJ7VCA2",
-        "label": "현대 | 아이오닉 9 | 전기 | 캘리그래피 19인치",
+        "label": "현대 | 아이오닉 9 | 전기 · 7인승 · 4WD | 캘리그래피 19인치",
         "near": []
       },
       {
         "key": "MEJJ7VEA2",
-        "label": "현대 | 아이오닉 9 | 전기 | 캘리그래피 21인치",
+        "label": "현대 | 아이오닉 9 | 전기 · 7인승 · 4WD | 캘리그래피 21인치",
         "near": []
       },
       {
         "key": "MEJJ7VCH2",
-        "label": "현대 | 아이오닉 9 | 전기 | 캘리그래피 19인치",
+        "label": "현대 | 아이오닉 9 | 전기 · 7인승 · 4WD | 캘리그래피 19인치",
         "near": []
       },
       {
         "key": "MEJJ7VEH2",
-        "label": "현대 | 아이오닉 9 | 전기 | 캘리그래피 21인치",
+        "label": "현대 | 아이오닉 9 | 전기 · 7인승 · 4WD | 캘리그래피 21인치",
         "near": []
       },
       {
         "key": "MEJJ6VCA2",
-        "label": "현대 | 아이오닉 9 | 전기 | 캘리그래피 19인치",
+        "label": "현대 | 아이오닉 9 | 전기 · 6인승 · 4WD | 캘리그래피 19인치",
         "near": []
       },
       {
         "key": "MEJJ6VEA2",
-        "label": "현대 | 아이오닉 9 | 전기 | 캘리그래피 21인치",
+        "label": "현대 | 아이오닉 9 | 전기 · 6인승 · 4WD | 캘리그래피 21인치",
         "near": []
       },
       {
         "key": "MEJJ6VCH2",
-        "label": "현대 | 아이오닉 9 | 전기 | 캘리그래피 19인치",
+        "label": "현대 | 아이오닉 9 | 전기 · 6인승 · 4WD | 캘리그래피 19인치",
         "near": []
       },
       {
         "key": "MEJJ6VEH2",
-        "label": "현대 | 아이오닉 9 | 전기 | 캘리그래피 21인치",
+        "label": "현대 | 아이오닉 9 | 전기 · 6인승 · 4WD | 캘리그래피 21인치",
         "near": []
       }
     ],
@@ -3633,7 +3601,7 @@
       },
       {
         "key": "GNJS4SAT4",
-        "label": "현대 | 더 뉴 그랜저 | 가솔린 3.5 | 프리미엄",
+        "label": "현대 | 더 뉴 그랜저 | 가솔린 3.5 · 2WD | 프리미엄",
         "near": [
           "가솔린 2.5/3.5",
           "LPG 3.5",
@@ -3642,7 +3610,7 @@
       },
       {
         "key": "GNJS4SBT4",
-        "label": "현대 | 더 뉴 그랜저 | 가솔린 3.5 | 익스클루시브",
+        "label": "현대 | 더 뉴 그랜저 | 가솔린 3.5 · 2WD | 익스클루시브",
         "near": [
           "가솔린 2.5/3.5",
           "LPG 3.5",
@@ -3651,7 +3619,7 @@
       },
       {
         "key": "GNJS4SCT4",
-        "label": "현대 | 더 뉴 그랜저 | 가솔린 3.5 | 캘리그래피",
+        "label": "현대 | 더 뉴 그랜저 | 가솔린 3.5 · 2WD | 캘리그래피",
         "near": [
           "가솔린 2.5/3.5",
           "LPG 3.5",

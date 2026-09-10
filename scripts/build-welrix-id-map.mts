@@ -130,7 +130,12 @@ export function findIds(makers: Maker[], row: Row): Hit | null {
     const van = /밴/.test(x) ? '밴' : '';
     return { seat, van };
   };
-  const mine = axis(row.trim);
+  /* ★인승·구동은 이제 **파워트레인 이름**에도 있다(「가솔린 2.5 · 7인승 · 4WD」).
+     트림 꼬리와 연료말 «둘 다» 보고 좁힌다 — 어느 쪽에 적혀 있든 같은 축이다. */
+  const mine = (() => {
+    const a = axis(row.trim); const b = axis(row.fuel);
+    return { seat: a.seat || b.seat, van: a.van || b.van };
+  })();
   const narrowed = (mine.seat || mine.van)
     ? cands0.filter(({ v }) => {
       const a = axis(S(v.variant_name));

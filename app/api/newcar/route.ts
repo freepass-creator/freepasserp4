@@ -114,6 +114,24 @@ Record<string, unknown> {
   return { ...(after > 0 && after < before ? {} : {}), ...(basis ? { priceBasis: basis } : {}) };
 }
 
+/**
+ * ★★★**파워트레인 이름에 «인승·구동»을 얹는다** — 원본이 그렇게 둔다(「가솔린 2.5 터보 **9인승**」).
+ *
+ * ⚠⚠ 사장님 2026-09-11 「팰리세이드 인승 이거 **파워트레인에서 구분** 찍고 가야지」.
+ *   맞다. 우리는 인승을 `body`(「7인승」)에, 구동을 `sourceName`(「… 4WD …」)에 갖고 있으면서
+ *   **피드에서 통째로 버리고** 있었다. 그래서:
+ *     · 화면 파워트레인 칸에 「가솔린 2.5」가 **여덟 번** 겹쳐 뜨고
+ *     · 팰리세이드 익스클루시브가 우리 4줄 ↔ 원본 2개로 «갈려» 원본 규칙이 하나도 안 붙었다
+ *     · 값이 다른 줄(7인승 4,610만 · 9인승 4,478만)을 손님이 구별할 수 없었다
+ * ⇒ 「가솔린 2.5 · 7인승 · 4WD」처럼 **한 줄에 다 적는다.** 고르는 축이 곧 값을 가르는 축이다.
+ * ⚠ 없는 것은 안 적는다 — 인승이 하나뿐인 차에 「5인승」을 붙이면 되레 시끄럽다.
+ */
+function powertrainLabel(fuel: string, body: string, sourceName: string): string {
+  const seat = /(\d{1,2}\s*인승)/.exec(S(body))?.[1]?.replace(/\s+/g, '') ?? '';
+  const drive = /(2WD|4WD|AWD|HTRAC)/i.exec(S(sourceName))?.[1] ?? '';
+  return [S(fuel), seat, drive].filter(Boolean).join(' · ');
+}
+
 export async function GET(request: Request): Promise<Response> {
   const url = new URL(request.url);
   const maker = S(url.searchParams.get('maker'));
@@ -133,7 +151,10 @@ export async function GET(request: Request): Promise<Response> {
            세 줄인데 하나로 취급됐다 · 2026-09-10 실측). 그래서 원본 대응표도, 옵션 붙이기도
            **엉뚱한 줄에 걸렸다.** id 는 Firestore 문서 열쇠(= 제조사 판매모델코드)다. */
         id: S(d.id),
-        maker: S(v.maker), sub_model: S(v.sub_model), carType: S(v.carType), fuel: S(v.fuel),
+        maker: S(v.maker), sub_model: S(v.sub_model), carType: S(v.carType),
+        fuel: powertrainLabel(S(v.fuel), S(v.body), S(v.sourceName)),
+        /* 원래 연료말도 같이 준다 — 규칙 맞대기·세제 갈래는 이것으로 본다(꾸민 이름이 아니라). */
+        fuelRaw: S(v.fuel),
         trim: S(v.trim), priceBefore: Number(v.priceBefore || 0), priceAfter: Number(v.priceAfter || 0),
         /* ★★**기준 이름은 정상 경로에도 붙여야 한다.** 폴백에만 붙였더니 Firestore 가 살아 있을 때
            제네시스 EV(전 = 후 = 84,790,000)가 손님 문서에 **「세제혜택 전」이라 찍혔다** —

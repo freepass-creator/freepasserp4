@@ -2133,6 +2133,42 @@ must((availableForEngine({ a: { name: '컴포트' } }, [], '가솔린 3.5 터보
   }
 }
 
+/* ══ 34. ★★★**인승·구동은 «파워트레인» 축이다** ═══════════════════════════════
+     ★★사장님 2026-09-11 「팰리세이드 인승 이거 **파워트레인에서 구분** 찍고 가야지」.
+
+     ⚠⚠ 우리는 인승을 `body`(「7인승」)에, 구동을 `sourceName`(「… 4WD …」)에 **갖고 있으면서
+       피드에서 통째로 버리고** 있었다. 그래서:
+         · 화면 파워트레인 칸에 「가솔린 2.5」가 **여덟 번** 겹쳐 떴다
+         · 팰리세이드 익스클루시브가 우리 4줄 ↔ 원본 2개로 «갈려» **원본 규칙이 하나도 안 붙었다**
+         · 값이 다른 줄(7인승 4,610만 · 9인승 4,478만)을 손님이 **구별할 수 없었다**
+     ★원본도 이 축을 variant 에 둔다 — 「가솔린 2.5 터보 **9인승**」. 고르는 축이 곧 값을 가르는 축이다. */
+{
+  const rt = code('app/api/newcar/route.ts');
+  must(/powertrainLabel\(/.test(rt) && /S\(v\.body\)/.test(rt),
+    '피드가 인승·구동을 버립니다 — 파워트레인 칸에 같은 이름이 여러 번 뜨고 규칙이 갈립니다',
+    'app/api/newcar/route.ts powertrainLabel');
+  /* ★꾸민 이름 «말고» 원래 연료말도 같이 줘야 한다 — 세제 갈래·규칙 맞대기는 그것으로 본다. */
+  must(/fuelRaw: S\(v\.fuel\)/.test(rt),
+    '원래 연료말을 안 줍니다 — 꾸민 이름으로 세제 갈래를 가르면 틀립니다',
+    'app/api/newcar/route.ts');
+
+  /* ★팩이 인승별로 «따로» 붙었는가 — 붙었으면 9인승과 7인승의 옵션 수가 다르다. */
+  try {
+    const raw = JSON.parse(read('data/new-car/option-packs.json')) as
+      { sub_model?: string; fuel?: string; trim?: string; optionsMaster?: Record<string, unknown> }[]
+      | { packs?: unknown[] };
+    const packs = (Array.isArray(raw) ? raw : []) as
+      { sub_model?: string; fuel?: string; trim?: string; optionsMaster?: Record<string, unknown> }[];
+    const pal = packs.filter((p) => S(p.sub_model).includes('팰리세이드') && S(p.trim) === '익스클루시브');
+    const seats = new Set(pal.map((p) => /(\d{1,2}인승)/.exec(S(p.fuel))?.[1] ?? ''));
+    if (pal.length) {
+      must(seats.size >= 2,
+        `팰리세이드 팩이 인승으로 안 갈립니다 — [${[...seats].join(',')}]. 9인승·7인승이 한 옵션판을 씁니다`,
+        'data/new-car/option-packs.json');
+    }
+  } catch { /* 산출물이 없으면 건너뛴다 — §32 가 그것을 잡는다 */ }
+}
+
 if (fails.length) {
   console.error(`\n✗ 견적 로직이 정본과 다릅니다 — ${fails.length}건\n`);
   for (const f of fails) console.error(`  · ${f}\n`);
