@@ -1,6 +1,6 @@
 'use client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pencil, Search, SlidersHorizontal } from 'lucide-react';
+import { Search, Settings2, SlidersHorizontal } from 'lucide-react';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { C, SH } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
@@ -490,10 +490,16 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
             {/*
               ★**고치는 문은 줄 «맨 앞»이다.** 이 줄은 한 줄로 흐르는(가로 스크롤) 줄이라
                 끝에 두면 밀어야 보인다 — 아홉 칸을 밀어야 닿는 단추는 없는 단추다.
-              ★★**글자를 떼고 «연필»만 둔다**(사장님 2026-09-10 「조건 고치기 저거 맨 앞에
+              ★★**글자를 떼고 글리프만 둔다**(사장님 2026-09-10 「조건 고치기 저거 맨 앞에
                 **그냥 아이콘으로**? **갖다 대면 설명 보이게** 해주면 안 되나」).
                 맞다 — 첫 자리는 손님이 «조건»을 읽는 자리다. 거기 우리 말이 네 글자 서 있으면
                 손님은 그것부터 읽고, 정작 첫 조건은 두 번째로 밀린다.
+              ★★**글리프는 «설정 눈금»(`Settings2`)이다**(사장님 2026-09-10 「어찌 됐든 뭔가
+                **퀵필터 칩을 설정한다**는 거니까」). 후보 열한 개를 실제 칩 줄 치수로 늘어놓고 골랐다.
+                ⚠ 처음엔 **연필**이었는데 혼자 「글을 쓴다」고 말해서, 조건을 고르는 줄에서 그것만
+                  성격이 달랐다(사장님 「저 연필은 아닌 거 같은데 너무」).
+                ⚠ 오른쪽 머리띠의 「조건」(`SlidersHorizontal`)과 **사촌지간이라 일부러 자리를 재 봤다** —
+                  그건 폰 머리띠 «오른쪽 끝»이고 이건 칩 줄 «왼쪽 끝»이라 한 화면에서 안 붙는다.
               ★설명은 **갖다 댔을 때만** 뜬다(`hint`) — 브라우저 말풍선이라 이 줄에서 안 잘린다
                 (직접 그리면 `overflow-y: hidden` 인 가로 줄이라 위아래로 잘린다).
               ★`chip` 치수 — 칩과 같은 높이다. `md`(36) 를 세우면 이 줄만 굵어진다.
@@ -501,7 +507,7 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
             <ShopIconBtn size="chip" label="조건 고치기"
               hint="이 줄에 세울 조건을 고칩니다 — 고친 줄은 이 가게를 보는 모든 분에게 같이 보입니다"
               onClick={() => setQuickOpen(true)}>
-              <Pencil size={mobile ? 16 : 14} aria-hidden />
+              <Settings2 size={mobile ? 16 : 14} aria-hidden />
             </ShopIconBtn>
             {quick.map((k) => (
               <ShopPill key={`${k.axis}:${k.key}`} mark={`${k.axis}:${k.key}`} on={query.sel[k.axis].includes(k.key)}
