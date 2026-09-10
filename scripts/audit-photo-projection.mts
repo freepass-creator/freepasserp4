@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { isOpenInventoryAtom } from '../lib/domain/inventory-contract';
-import { erpPhotoSource, isDirectPhotoUrl, isPickupPhotoAtom, isServerPhotoSource, photoProjectionViolations, sheetPlateLink } from '../lib/domain/photo-projection';
+import { erpPhotoSource, isDirectPhotoUrl, isPickupPhotoAtom, isServerPhotoSource, photoProjectionViolations, photoProjectionWarnings, sheetPlateLink } from '../lib/domain/photo-projection';
 import { readSalesPublishSnapshot } from '../lib/server/sales-publish-snapshot';
 
 type Rec = Record<string, unknown>;
@@ -30,6 +30,7 @@ const erpHosts = new Map<string, number>();
 const erpKinds = new Map<string, number>();
 const hostOf = (value: string): string => { try { return new URL(value).hostname.replace(/^www\./, '').toLowerCase(); } catch { return '(없음)'; } };
 const bad: { plate: string; provider: string; host: string; reason: string }[] = [];
+const warnings: { plate: string; provider: string; reason: string }[] = [];
 for (const atom of atoms) {
   if (isPickupPhotoAtom(atom)) pickup++;
   if (erpPhotoSource(atom)) {
@@ -51,12 +52,18 @@ for (const atom of atoms) {
     plate: S(atom.car_number) || S(atom._key), provider: S(atom.provider_company_code) || '(공급사없음)',
     host: hostOf(sheetPlateLink(atom)), reason,
   });
+  for (const reason of photoProjectionWarnings(atom)) warnings.push({
+    plate: S(atom.car_number) || S(atom._key), provider: S(atom.provider_company_code) || '(공급사없음)', reason,
+  });
 }
 console.log(`사진 투영 ${new Date().toISOString()} · ${source} · 재고 ${atoms.length}대`);
 console.log(`ERP 사진 원천 ${erpSource}대 · 픽업 ${pickup}대 중 T카 시트링크 ${pickupSheet}대 · 일반 시트링크 ${normalSheet}대`);
 console.log(`ERP 사진 출처 · ${[...erpHosts].sort((a, b) => b[1] - a[1]).map(([host, count]) => `${host} ${count}`).join(' · ')}`);
 console.log(`ERP 사진 방식 · ${[...erpKinds].map(([kind, count]) => `${kind} ${count}`).join(' · ')}`);
 console.log(`시트 링크 출처 · ${[...sheetHosts].sort((a, b) => b[1] - a[1]).map(([host, count]) => `${host} ${count}`).join(' · ')}`);
+if (warnings.length) {
+  console.warn(`⚠ 사진 투영 원천 누락 ${warnings.length}대 · ${warnings.slice(0, 10).map((x) => `${x.plate}(${x.reason})`).join(' · ')}`);
+}
 if (bad.length) {
   console.error(`⛔ 사진 투영 위반 ${bad.length}대 · ${bad.slice(0, 10).map((x) => `${x.plate}(${x.reason})`).join(' · ')}`);
   const groups = new Map<string, number>();
@@ -67,4 +74,4 @@ if (bad.length) {
   for (const [key, count] of [...groups].sort((a, b) => b[1] - a[1])) console.error(`  ${String(count).padStart(3)}대 | ${key}`);
   process.exit(1);
 }
-console.log('✓ ERP 사진과 Google Sheet 링크가 분리 규칙을 지킨다');
+console.log(`✓ ERP 사진과 Google Sheet 링크가 분리 규칙을 지킨다${warnings.length ? ` · 원천 누락 ${warnings.length}대는 빈 링크로 보존` : ''}`);
