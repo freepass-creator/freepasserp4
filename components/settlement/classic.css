@@ -1526,6 +1526,23 @@
  */
 .cl .cl-preview { padding: 3px 9px; color: #8fd3ff; font-size: 11px; }
 
+/**
+ * ★**아이콘 자리** — 원본 도구모음(`.cl-tbi`)과 «같은 셈법»이다: 폭을 못 박아
+ *   글리프가 세로로 맞는다. 값은 원본 그대로(erp-classic/classic.css:173).
+ *   ⚠ 앞서 죽은 규칙이라고 걷어냈는데, 메뉴 아이콘을 달며 «다시 쓰는» 것이 됐다. 값은 한 자도 안 고쳤다.
+ */
+.cl .cl-tbi { display: inline-block; width: var(--아이콘); text-align: center; font-size: 13px; line-height: 1; }
+.cl .cl-menu { display: inline-flex; align-items: center; gap: 4px; }
+
+/**
+ * ★**시계는 «자리가 안 흔들려야» 한다** — 초가 1 에서 2 로 갈 때 글자 폭이 바뀌면
+ *   옆에 있는 것들이 매초 들썩인다. 그래서 모노 글꼴로 못 박는다.
+ */
+.cl .cl-clock {
+  font-family: var(--font-hangeul), Consolas, GulimChe, 굴림체, monospace;
+  font-size: 11px; opacity: .92; font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+
 /* ══ 상세 — 사진 · 제원 전부. 가로를 넓혔다 ════════════════════════════
    ★사장님 2026-09-10 「정보는 현재 있는 원자들 다 때려넣을 수 있어야 되지」
      「상세에는 우리 상세 페이지를 활용해 봐 … 사진도 있어야 하고」

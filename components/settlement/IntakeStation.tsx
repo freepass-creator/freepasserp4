@@ -118,6 +118,16 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
    *   ⇒ 단추가 아니라 접수 칸의 한 줄로 둔다. 원자 밭 = `intakeKind`.
    */
   const KINDS = ['영업수수료', '인센티브', '업무지원비'] as const;
+  /**
+   * ★메뉴 아이콘 — 원본 규격대로 «얇은 홑색 글리프»다(erp-classic/classic.css 머리글:
+   *   「그림 파일도, 아이콘 글꼴도 쓰지 않는다. 그 시절 화면이 그랬다」).
+   *   ⌂ 집 · ▤ 표(실적) · ₩ 돈(청구) — 도구모음의 ⟳ ＋ ⎙ ★ 와 같은 계열이다.
+   */
+  const MENUS = [
+    { tab: '접수' as const, icon: '⌂' },
+    { tab: '실적' as const, icon: '▤' },
+    { tab: '청구' as const, icon: '₩' },
+  ];
   const [direct, setDirect] = useState<'' | typeof DIRECT[number]>('');
   /** 마지막에 쓴 채널·영업자 — 다음 접수에 그대로 들어온다. 타자가 하나로 준다. */
   const [last, setLast] = useState({ channel: '', agent: '' });
@@ -127,6 +137,52 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
   const [zoom, setZoom] = useState(false);
   /** 먼저 누른 차의 늦은 응답이 지금 고른 차를 덮지 못하게 하는 요청 순번. */
   const carRequest = useRef(0);
+
+  /**
+   * ★★**오른쪽 끝은 «상태»다** — 사장님 2026-09-10 「우측에는 날짜 시간 날씨 넣어주고」.
+   *   통상 고전 ERP 가 접속 서버·사람·시각을 두는 자리다(원본도 「DB PROD | SVR: was-01 | 2026-09-05 14:22:31」).
+   *
+   * ⚠ **첫 그림은 서버가 그린다** — 시각을 처음부터 그리면 서버가 그린 글자와 브라우저가 그린 글자가
+   *   달라 하이드레이션이 깨진다. 그래서 빈 채로 나가고 브라우저에서 채운다.
+   */
+  const [now, setNow] = useState('');
+  useEffect(() => {
+    const 그리기 = () => {
+      const d = new Date();
+      const p = (n: number) => String(n).padStart(2, '0');
+      const 요일 = ['일', '월', '화', '수', '목', '금', '토'][d.getDay()];
+      setNow(`${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}(${요일}) ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`);
+    };
+    그리기();
+    const h = setInterval(그리기, 1000);
+    return () => clearInterval(h);
+  }, []);
+
+  /**
+   * 날씨 — 열쇠 없이 열려 있는 곳(open-meteo)에서 서울 것을 한 번 받아 30분마다 새로 받는다.
+   * ⚠ **못 받아도 화면은 그대로 돈다** — 날씨는 «곁수»지 일이 아니다. 실패하면 자리를 비운다.
+   * ★글리프는 원본 계열(얇은 홑색)로 고른다 — 그림 아이콘을 끌어오지 않는다.
+   */
+  const [sky, setSky] = useState<{ icon: string; text: string }>({ icon: '', text: '' });
+  useEffect(() => {
+    let 살아있다 = true;
+    const 받기 = async () => {
+      try {
+        const r = await fetch('https://api.open-meteo.com/v1/forecast?latitude=37.5665&longitude=126.9780&current=temperature_2m,weather_code&timezone=Asia%2FSeoul');
+        if (!r.ok) return;
+        const j = await r.json() as { current?: { temperature_2m?: number; weather_code?: number } };
+        const t2 = j.current?.temperature_2m;
+        const w = Number(j.current?.weather_code ?? -1);
+        if (!살아있다 || typeof t2 !== 'number') return;
+        /** 날씨표(WMO) 를 글리프 다섯으로 줄인다 — 화면에 필요한 만큼만. */
+        const icon = w === 0 ? '☀' : w <= 3 ? '☁' : w <= 48 ? '≡' : w <= 67 ? '☂' : w <= 77 ? '❄' : w <= 82 ? '☂' : '☈';
+        setSky({ icon, text: `${Math.round(t2)}°` });
+      } catch { /* 날씨는 곁수다 — 못 받으면 자리를 비운다 */ }
+    };
+    void 받기();
+    const h = setInterval(받기, 30 * 60 * 1000);
+    return () => { 살아있다 = false; clearInterval(h); };
+  }, []);
 
   const today = useMemo(() => localSettlementDay(), []);
   const empty = {
@@ -260,18 +316,24 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
     <div className="cl">
       <div className="cl-menubar">
         <span className="cl-logo">FREEPASS ERP</span>
-        {/** ★접수 = 이 화면의 «집»이다. 그래서 이름이 «홈»이고 왼쪽 첫 자리에 선다. */}
-        <span className={`cl-menu${tab === '접수' ? ' on' : ''}`} onClick={() => setTab('접수')}>홈</span>
+        {/** ★로고 바로 뒤 = 이 프로그램이 하는 일 셋. 아이콘+텍스트(박스 뱃지 금지 — 확정 규격). */}
+        {MENUS.map((m) => (
+          <span key={m.tab} className={`cl-menu${tab === m.tab ? ' on' : ''}`} onClick={() => setTab(m.tab)}>
+            <span className="cl-tbi">{m.icon}</span>{m.tab === '접수' ? '홈' : m.tab}
+          </span>
+        ))}
         {preview && <span className="cl-preview">미리보기 — 지어낸 값</span>}
         <span className="cl-sp" />
-        {/** 오른쪽 끝 = «다른 데로 가는 길». 왼쪽의 «여기가 어디냐»와 갈라 둔다. */}
-        {(['실적', '청구'] as const).map((x) => (
-          <span key={x} className={`cl-menu${tab === x ? ' on' : ''}`} onClick={() => setTab(x)}>{x}</span>
-        ))}
-        <span className="cl-msep" />
+        {/** ★오른쪽 끝 = «상태». 통상 ERP 가 서버·사람·시각을 두는 자리다. */}
         <span className="cl-user">
-          재고 {board.cars.length}대 · 접수대기 {board.intake.length}건{todo ? ` · 할 일 ${todo}` : ''}
+          재고 {board.cars.length}대 · 대기 {board.intake.length}건{todo ? ` · 할 일 ${todo}` : ''}
         </span>
+        <span className="cl-msep" />
+        <span className="cl-user" style={{ marginLeft: 0 }}>
+          <span className="cl-tbi">{sky.icon}</span>{sky.text}
+        </span>
+        <span className="cl-msep" />
+        <span className="cl-clock">{now}</span>
       </div>
 
       {tab !== '접수' ? (
