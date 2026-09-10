@@ -17,7 +17,7 @@ import { readFileSync } from 'node:fs';
 import { splitNote, readRule, rulesFrom, priceOf } from '../lib/domain/estimate/option-note';
 import { impliedOf } from '../lib/domain/estimate/implied-options';
 import { modelKey, basisOf, expandGenesis } from '../lib/domain/estimate/genesis-lineup';
-import { matchIncluded, includedNames } from '../lib/domain/estimate/genesis-included';
+import { matchIncluded, includedNames, availableForEngine } from '../lib/domain/estimate/genesis-included';
 import { computeTerm } from '../lib/domain/estimate/calc.js';
 import { trimPrice, trimBasis, trimSaleTaxCredit } from '../lib/domain/estimate/car-index';
 import { splitAxis } from '../lib/domain/estimate/newcar-normalize';
@@ -1426,14 +1426,8 @@ for (const f of ['scripts/backfill-newcar-names.mts', 'scripts/ingest-newcar-opt
      한 견적에서 인수가가 **239만** 갈렸다(EV9 48개월: 화면 4,831만 vs 견적서 4,592만).
      ⚠ 「기준이 하나」는 **문서 안»에서만»이 아니라 화면과 문서 «사이»에서도** 지켜야 한다. */
 {
-  const pg = code('app/estimate/page.tsx');
-  for (const what of ['sc.pre / 100', 'buyoutPct[sc.term] / 100']) {
-    const line = pg.split('\n').find((l) => l.includes(what)) ?? '';
-    must(line.includes('netPrice'),
-      `화면 카드가 «감면 전» 값으로 셉니다 — 견적서와 갈립니다(${what})`, 'app/estimate/page.tsx');
-  }
-  must(!/Math\.round\(price \* (sc\.pre|buyoutPct)/.test(pg),
-    '화면에 «감면 전» 기준이 남아 있습니다 — 손님이 두 값을 보게 됩니다', 'app/estimate/page.tsx');
+  /* → 이 검사는 «띄어쓰기 하나로 뚫렸다»(2026-09-10 독립 Claude 발견 4).
+     §24-2 가 공백을 걷어 «글자»로 잰다. 문자열 검사를 더 단단하게 «올린» 것이지 낮춘 게 아니다. */
 }
 
 /* 21-2. ★★★**검사를 조작하지 않는다** — §18 은 «겹치는 항목을 뺀» 사전으로 초록을 냈다.
@@ -1552,6 +1546,73 @@ must(impliedOf({ htrac: { name: 'HTRAC' } }, '전기 롱레인지 2WD', 'Prestig
     '스포츠 3.5T 에서는 「뱅앤올룹슨」이 기본인데 또 팝니다',
     'lib/domain/estimate/genesis-included.ts includedNames');
 }
+
+/* ══ 24. ★★★3회차 관문에서 잡힌 것 — «돈»과 «뚫린 검사» ════════════════════════ */
+
+/* 24-1. ★★**3.5T 줄이 2.5T 전용을 팔고, 3.5T 전용은 못 판다** (Codex 3 · 독립 Claude 1)
+     웰릭스가 G80 을 「가솔린 2.5/3.5 터보」 한 덩어리로 묶어, `availableOptions` 가
+     **2.5T 목록으로 고정**돼 있었다. 정본은 옵션마다 엔진을 적어 두었는데(「2.5T -」·「3.5T 전용」)
+     펴 놓은 줄이 그걸 안 읽었다. ⇒ 손님이 **틀린 휠을 4.3배 값**(300만 vs 70만)에 산다. */
+{
+  const om = {
+    w25: { name: '20" 피렐리 타이어&휠', price: 3000000, sub: '2.5T - 프리뷰 ECS 포함' },
+    w35: { name: '20" 피렐리 타이어&휠', price: 700000, sub: '3.5T 전용' },
+    sp35: { name: '스포츠 패키지 (3.5T)', price: 5600000, sub: '20" 미쉐린+블랙 4P' },
+    bo: { name: '뱅앤올룹슨 사운드 패키지', price: 1900000 },
+  };
+  const a35 = availableForEngine(om, ['w25', 'bo'], '가솔린 3.5 터보') ?? [];
+  must(!a35.includes('w25') && a35.includes('w35') && a35.includes('sp35') && a35.includes('bo'),
+    `3.5T 줄의 «파는 목록»이 틀렸습니다 — [${a35.join(',')}]. `
+    + '2.5T 전용 300만이 팔리고 3.5T 전용 70만·560만이 안 팔립니다',
+    'lib/domain/estimate/genesis-included.ts availableForEngine');
+  const a25 = availableForEngine(om, ['w25', 'bo'], '가솔린 2.5 터보') ?? [];
+  must(a25.includes('w25') && !a25.includes('w35') && a25.includes('bo'),
+    `2.5T 줄의 «파는 목록»이 틀렸습니다 — [${a25.join(',')}]`,
+    'lib/domain/estimate/genesis-included.ts availableForEngine');
+  /* ⚠ 엔진을 «안 적은» 옵션은 손대지 않는다 — 모르는 것을 고르면 팔 물건이 사라진다. */
+  must((availableForEngine({ x: { name: '빌트인캠' } }, ['x'], '가솔린 3.5 터보') ?? []).includes('x'),
+    '엔진을 안 적은 옵션까지 지웁니다 — 팔 물건이 사라집니다',
+    'lib/domain/estimate/genesis-included.ts availableForEngine');
+
+  /* ★★그리고 «이미 산 것»이 제 배제를 나른다 — 3.5T 엔진이 막는 것은 못 골라야 한다. */
+  const spec: OptionSpec = {
+    optionsMaster: { e35: { name: '가솔린 3.5 터보 엔진', price: 6600000 }, w25: { name: '2.5T 20인치 휠', price: 3000000 } },
+    availableOptions: ['w25'], impliedOptions: ['e35'], optionExcludes: { e35: ['w25'] },
+  };
+  must(!isEnabled(spec, 'w25', new Set()) && optionSum(spec, new Set(['w25'])) === 0,
+    `「이미 산 엔진」이 막는 옵션이 팔립니다 — 합계 ${optionSum(spec, new Set(['w25'])).toLocaleString('ko-KR')}원(나와야 할 값 0). `
+    + '있을 수 없는 차의 값이 견적서에 찍힙니다',
+    'lib/domain/estimate/option-rules.ts isEnabled');
+}
+
+/* 24-2. ★★**게이트가 띄어쓰기로 뚫리지 않게** (독립 Claude 발견 4)
+     §21-1 은 `l.includes('sc.pre / 100')` 로 «첫 줄»을 집고 `/price \* sc\.pre/` 로 부정검사했다.
+     띄어쓰기를 지우면 다른 줄이 잡히고 부정검사도 안 맞아 **초록**이 됐다.
+     ⇒ 공백을 걷어 «글자»로 만든 뒤 잰다. */
+{
+  const pg = code('app/estimate/page.tsx').replace(/\s+/g, '');
+  for (const what of ['sc.pre/100', 'buyoutPct[sc.term]/100']) {
+    const hits = pg.split(what).length - 1;
+    must(hits > 0, `화면 카드에서 「${what}」 셈이 사라졌습니다`, 'app/estimate/page.tsx');
+  }
+  /* «감면 전» 값으로 세는 자리가 하나라도 있으면 안 된다 — 공백을 걷었으니 띄어쓰기로 못 피한다. */
+  must(!pg.includes('Math.round(price*sc.pre') && !pg.includes('Math.round(price*buyoutPct'),
+    '화면 카드가 «감면 전» 값으로 셉니다 — 견적서와 갈립니다(띄어쓰기로 피할 수 없습니다)',
+    'app/estimate/page.tsx');
+  /* ★선납금은 «화면이 보여 준 값»으로 엔진에 간다 — 엔진이 다시 세면 월납이 낮아진다. */
+  must(code('lib/domain/estimate/quote-input.js').replace(/\s+/g, '').includes('form.netPrice??form.price'),
+    '엔진이 선납금을 «감면 전»으로 다시 셉니다 — 손님이 낸다고 적힌 값보다 더 받은 것으로 계산합니다',
+    'lib/domain/estimate/quote-input.js');
+  /* ★§22 의 다리도 문자열 하나에 매달려 있었다 — 값이 «0 이 아닌지»까지 본다. */
+  must(trimSaleTaxCredit({ priceBefore: 100, priceAfter: 90 }) === 10,
+    '고른 차가 감면을 안 싣습니다', 'lib/domain/estimate/car-index.ts trimSaleTaxCredit');
+}
+
+/* 24-3. ★제네시스 기준 이름은 «정상 경로»에도 붙는다 (Codex 2)
+     폴백에만 붙여 두면 Firestore 가 살아 있을 때 G80-EV 가 손님 문서에 「세제혜택 전」으로 찍힌다. */
+must(code('app/api/newcar/route.ts').includes('genesisBasis(S(v.sub_model))'),
+  '정상 경로에서 제네시스 «가격 기준»을 안 붙입니다 — 「후」를 「전」이라 인쇄합니다',
+  'app/api/newcar/route.ts');
 
 if (fails.length) {
   console.error(`\n✗ 견적 로직이 정본과 다릅니다 — ${fails.length}건\n`);

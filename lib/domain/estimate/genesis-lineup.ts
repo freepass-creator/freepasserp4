@@ -81,7 +81,7 @@ type GenModel = {
 };
 
 import { impliedOf } from './implied-options';
-import { includedNames, matchIncluded, type GenLineupLike } from './genesis-included';
+import { includedNames, matchIncluded, availableForEngine, type GenLineupLike } from './genesis-included';
 
 const S = (v: unknown) => String(v ?? '').trim();
 /**
@@ -213,9 +213,15 @@ export function expandGenesis<T extends { maker?: string; sub_model?: string; fu
         const byName = (r.included ?? []).map((p) => matchIncluded(p, names, rowDrive)).filter(Boolean) as string[];
         implied = [...new Set([...impliedOf(om, r.fuel, `${r.trim} ${r.fuel}`), ...byName])];
       }
+      /* ★★그 엔진에서 «파는 것»을 다시 잰다 — `{...t}` 가 나르는 목록은 «펴기 전» 것이라
+         3.5T 줄이 2.5T 전용을 팔고 3.5T 전용은 못 판다(Codex 3 · 독립 Claude 1). */
+      const avail = om
+        ? availableForEngine(om, (t as { availableOptions?: string[] }).availableOptions, r.fuel)
+        : undefined;
       out.push({
         ...t, fuel: r.fuel, trim: r.trim, priceBefore: r.price, priceAfter: r.price,
         ...(implied ? { impliedOptions: implied } : {}),
+        ...(avail ? { availableOptions: avail } : {}),
         lineupSource: 'genesis-config-fs',
       } as T);
     }

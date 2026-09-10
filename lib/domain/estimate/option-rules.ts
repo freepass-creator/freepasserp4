@@ -72,8 +72,12 @@ export function isEnabled(s: OptionSpec, id: string, chosen: ReadonlySet<string>
      (2026-09-09 개발센터 4-AI 관문 · Codex 재현). 목록에서 빠진 것이 합계에는 드는 꼴이다. */
   if (Array.isArray(s.availableOptions) && !s.availableOptions.includes(id)) return false;
   for (const r of requiresOf(s, id)) if (!chosen.has(r)) return false;
+  /* ★★**「이미 산 것」도 «고른 것»이다.** `requiresOf` 는 그렇게 보는데 배제만 `chosen` 만 봤다 —
+     이미 값에 든 3.5T 엔진이 「2.5T 전용 휠」을 막는데, 그 휠이 그대로 팔렸다(300만).
+     있을 수 없는 차의 값이 견적서에 찍힌다(2026-09-10 개발센터 4-AI 관문 · Codex 발견 4). */
+  const held = new Set([...chosen, ...(s.impliedOptions ?? [])]);
   for (const [parent, blocked] of Object.entries(s.optionExcludes ?? {})) {
-    if (chosen.has(parent) && (blocked ?? []).includes(id)) return false;
+    if (held.has(parent) && (blocked ?? []).includes(id)) return false;
   }
   return true;
 }
@@ -127,8 +131,12 @@ export function whyBlocked(s: OptionSpec, id: string, chosen: ReadonlySet<string
   const om = s.optionsMaster ?? {};
   const need = requiresOf(s, id).filter((r) => !chosen.has(r));
   if (need.length) return `선행 필요 — ${need.map((r) => om[r]?.name ?? r).join(' · ')}`;
+  const held2 = new Set([...chosen, ...(s.impliedOptions ?? [])]);
   for (const [parent, blocked] of Object.entries(s.optionExcludes ?? {})) {
-    if (chosen.has(parent) && (blocked ?? []).includes(id)) return `${om[parent]?.name ?? parent} 선택 시 못 고름`;
+    if (held2.has(parent) && (blocked ?? []).includes(id)) {
+      const why = (s.impliedOptions ?? []).includes(parent) ? '이미 포함' : '선택 시';
+      return `${om[parent]?.name ?? parent} ${why} 못 고름`;
+    }
   }
   return '';
 }

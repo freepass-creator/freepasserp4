@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { basisOf } from '@/lib/domain/estimate/genesis-lineup';
+import { basisOf, genesisConfig, modelKey } from '@/lib/domain/estimate/genesis-lineup';
 import { getFirestore } from 'firebase-admin/firestore';
 import { firebaseAdminApp } from '@/lib/server/firebase-admin';
 import { readFileSync } from 'node:fs';
@@ -76,6 +76,18 @@ export function OPTIONS() {
 
 const MAKERS = ['현대', '기아', '제네시스', '르노'];
 
+/**
+ * 제네시스 한 줄의 «가격 기준» — 조합지도(`genesis-config-fs.json`)가 말해 준다.
+ * ⚠ 못 찾으면 «비운다». 「전」이라 단정하지 않는다 — 모르는 것을 안다고 하면 손님 문서가 거짓말한다.
+ */
+function genesisBasis(subModel: string): string {
+  try {
+    const cfg = genesisConfig(process.cwd());
+    const m = cfg.get(modelKey(subModel));
+    return m ? basisOf(m as Parameters<typeof basisOf>[0]).basis : '';
+  } catch { return ''; }
+}
+
 export async function GET(request: Request): Promise<Response> {
   const url = new URL(request.url);
   const maker = S(url.searchParams.get('maker'));
@@ -92,6 +104,11 @@ export async function GET(request: Request): Promise<Response> {
       return {
         maker: S(v.maker), sub_model: S(v.sub_model), carType: S(v.carType), fuel: S(v.fuel),
         trim: S(v.trim), priceBefore: Number(v.priceBefore || 0), priceAfter: Number(v.priceAfter || 0),
+        /* ★★**기준 이름은 정상 경로에도 붙여야 한다.** 폴백에만 붙였더니 Firestore 가 살아 있을 때
+           제네시스 EV(전 = 후 = 84,790,000)가 손님 문서에 **「세제혜택 전」이라 찍혔다** —
+           정본은 「후」다(2026-09-10 개발센터 4-AI 관문 · Codex 발견 2).
+           ⚠ 제네시스는 `priceAfter` 가 «복사»라 전=후다. 그 값의 «뜻»은 조합지도가 안다. */
+        ...(S(v.maker) === '제네시스' ? { priceBasis: genesisBasis(S(v.sub_model)) } : {}),
         options: Array.isArray(v.options) ? v.options : [],
         /* ★★제조사 «실제» 색상 — 사장님 2026-09-08 「신차마스터에는 **제조사 색상 그대로** 해야지」
              「**중고마스터 색상과 신차마스터 색상은 각각 존재**해야 함」.

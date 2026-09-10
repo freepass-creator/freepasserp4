@@ -158,3 +158,37 @@ export function matchIncluded(piece: string, names: Record<string, string>, driv
   const hits = fit(cands.filter(([, nm]) => N(nm).includes(p)));
   return hits.length === 1 ? hits[0][0] : undefined;
 }
+
+/**
+ * ★★★**펴 놓은 줄에서 «그 엔진의» 옵션 목록을 다시 잰다.**
+ *
+ * ⚠⚠ 2026-09-10 개발센터 4-AI 관문 — Codex 발견 3 · 독립 Claude 발견 1(2회차 F 가 안 죽은 것).
+ *   웰릭스는 G80 을 「가솔린 2.5/3.5 터보」 **한 덩어리**로 묶어 두어, `availableOptions` 가
+ *   **2.5T 목록으로 고정**돼 있었다. 그래서 G80 **3.5T** 줄에서:
+ *     · 「20" 피렐리(**2.5T** - 프리뷰 ECS 포함) **300만**」을 살 수 있고
+ *     · 정작 「20" 피렐리(**3.5T 전용**) **70만**」과 「스포츠 패키지(3.5T) **560만**」은 **못 산다.**
+ *   ⇒ 손님이 **틀린 휠을 4.3배 값**에 사고, 560만짜리는 팔 길이 없다.
+ *
+ * ★근거는 정본이 옵션마다 적어 둔 «엔진 표기»다 — `sub` 의 「2.5T -」·「3.5T 전용」·「(2.5T)」.
+ * ⚠ 엔진을 «안 적은» 옵션은 손대지 않는다 — 원래 목록 그대로 둔다(모르는 것을 고르지 않는다).
+ */
+const ENGINE_TAG = /([1-6]\.[0-9])\s*T/gi;
+
+export function availableForEngine(
+  om: Record<string, { name?: string; sub?: string }>,
+  available: string[] | undefined,
+  engine: string,
+): string[] | undefined {
+  const mine = /([1-6]\.[0-9])/.exec(S(engine))?.[1];
+  if (!mine || !om) return available;
+  const had = new Set(available ?? Object.keys(om));
+  const out: string[] = [];
+  for (const [id, o] of Object.entries(om)) {
+    const text = `${S(o.name)} ${S(o.sub)}`;
+    const tags = [...new Set([...text.matchAll(ENGINE_TAG)].map((m) => m[1]))];
+    if (!tags.length) { if (had.has(id)) out.push(id); continue; }   // 엔진을 안 적었다 → 그대로
+    if (tags.includes(mine)) out.push(id);                          // 내 엔진 것 → «없던 것도» 연다
+    // 다른 엔진 것만 적혀 있으면 뺀다(넣지 않는다)
+  }
+  return out;
+}

@@ -427,7 +427,12 @@ function EstimatePageInner() {
    *  ⚠⚠ **화면과 견적서가 «같은 값»을 써야 한다.** 2026-09-09 에 견적서만 여기로 옮기고
    *    화면 카드(선납·만기인수·손익)를 `price` 로 남겨, 한 견적에서 인수가가 **239만** 갈렸다
    *    (EV9 48개월 · 개발센터 4-AI 관문 Codex 발견 1·2). 세 자리를 한꺼번에 옮긴다. */
-  const netPrice = Math.max(0, price - taxCredit);
+  /* ⚠⚠ **엔진이 딛는 값과 «똑같아야» 한다.** `calc.js` 의 netPrice 는
+       `price − 전기차보조금 − 판매가격세제감면` 이고, 보증금이 그 위에서 나온다.
+       화면이 보조금을 안 빼면 보증금만 엔진 기준, 선납·인수는 화면 기준이 되어 또 갈린다
+       (2026-09-10 개발센터 4-AI 관문 · Codex 발견 1 — 선납금이 412,000원 어긋나 월납이 9,000원 낮았다). */
+  const evSub = isNew && picked.fuel === 'ev' ? Math.max(0, Number(cost.evSubsidy) || 0) : 0;
+  const netPrice = Math.max(0, price - evSub - taxCredit);
   const age = isNew ? 0 : Math.max(0, nowYear - (usedYear || nowYear));
   const cc = picked.cc ?? (manualCc || null);
   const needCc = !picked.cc;
@@ -480,6 +485,8 @@ function EstimatePageInner() {
         /* ★판매가격 세제감면(개소세·교육세) — 손님 표시가는 「세제혜택 전」 그대로 두고
            **원가에서만** 뺀다. 할인율만큼 감면도 같이 줄인다(할인된 차의 감면은 그 값 기준이다). */
         saleTaxCredit: taxCredit,
+        /* 선납금은 화면이 보여 준 그 값으로 — 엔진이 다시 세지 않는다. */
+        netPrice,
       },
       conditions: { depositPct: d, prepayPct: p },
       residual: null, residualDefault, credit, defaultGroup: 'B', nowYear,
