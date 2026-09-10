@@ -618,6 +618,18 @@ export function ShopSort({ value, onChange, options }: {
           borderRadius: SHOP.r.ctrl, border: 'none', background: 'transparent',
           fontFamily: 'inherit', fontSize: SHOP.fs.sub,
           color: C.ink, fontWeight: FW.head, cursor: 'pointer',
+          /*
+           * ★★**글자를 오른쪽에 붙인다**(사장님 2026-09-10 「인기순 > 이렇게 된 거 …
+           *   **텍스트 정렬을 우측 정렬로** 하면 좋겠네. 그래야 딱 붙어서 우측에 있으니까」).
+           *
+           * ⚠ 네이티브 `<select>` 는 **제일 «긴» 항목 폭으로 잡힌다** — 고른 값이 아니라.
+           *   그래서 「인기순」(셋)을 고르면 「같은 차 많은순」(일곱) 폭이 그대로 남고,
+           *   글자가 왼쪽에 붙어 **글자와 꺾쇠 사이가 뻥 뜬다.** 고를 때마다 그 틈이 달라져
+           *   오른쪽 끝이 들쭉날쭉해 보인다.
+           * ⇒ 글자를 오른쪽으로 몬다. 길든 짧든 **꺾쇠 바로 왼쪽에서 끝난다** — 오른쪽 끝이 한 줄로 선다.
+           * ★폭은 그대로 둔다(줄이면 고를 때마다 줄이 흔들린다). 옮기는 것은 «글자»뿐이다.
+           */
+          textAlign: 'right',
         }}>
         {options.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
       </select>
