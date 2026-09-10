@@ -1,6 +1,7 @@
 import { cache } from 'react';
 import 'server-only';
 import { firestoreAdminRef } from '@/lib/server/firestore-ref-shim';
+import { channelSellsProduct } from '@/lib/whitelabel';
 import { guestSource } from '@/lib/server/guest-source';
 import { sanitizeAgentForGuest, sanitizeProductForGuest } from '@/lib/domain/public-catalog';
 import { isOfferableProduct } from '@/lib/domain/product';
@@ -86,7 +87,7 @@ export async function resolveProduct(segment: string): Promise<{ key: string; pr
  */
 export const loadGuestQuote = cache(loadGuestQuoteUncached);
 
-async function loadGuestQuoteUncached(segment: string, shareFromQuery: string): Promise<GuestQuote | null> {
+async function loadGuestQuoteUncached(segment: string, shareFromQuery: string, onlyProvider = ''): Promise<GuestQuote | null> {
   const seg = S(segment);
   if (!seg) return null;
 
@@ -103,6 +104,17 @@ async function loadGuestQuoteUncached(segment: string, shareFromQuery: string): 
   const db = firestoreAdminRef();
   const { key, product } = hit;
   if (!product || dead(product)) return null;
+  /*
+   * ★★**공급사 전용 채널의 울타리는 «여기»다 — 정제 «전».**
+   *
+   * ⚠⚠ 처음엔 부르는 쪽(페이지·API)에서 `channelSellsProduct(found.product)` 로 막았다.
+   *   **하나도 안 막혔다** — 이 함수가 돌려주는 것은 이미 `sanitizeProductForGuest` 를 지난
+   *   값이라 공급사 칸(`provider_company_code`·`partner_code`)이 **지워져 있다.**
+   *   그래서 남의 차는 그대로 열리고 **이안카 «자기 차»가 404** 가 났다(2026-09-10 실측으로 잡았다).
+   * ⇒ 원본이 손에 있는 이 자리에서 판정한다. 규칙 자체는 표 한 곳(`channelSellsProduct`)이 갖는다.
+   * ★코드가 없는 채널은 `onlyProvider` 가 비어 늘 통과한다 — 영업채널은 재고 전체를 판다.
+   */
+  if (onlyProvider && !channelSellsProduct({ providerCode: onlyProvider } as never, product)) return null;
 
   const merged = { ...product, _key: key, product_code: S((product as Rec).product_code) || key } as EntityRecord;
   // 판매 가능 여부는 서버가 판정한다 — 만료·출고불가 매물이 링크로 계속 열리면 안 된다.

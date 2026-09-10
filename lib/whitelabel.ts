@@ -835,6 +835,46 @@ export function resolveWhitelabel(host?: string | null, wlKey?: string | null): 
 export const GUEST_FALLBACK_KEY = 'uniplan';
 
 /**
+ * **이 채널이 이 차를 팔 수 있나 — 공급사 전용 채널의 «울타리».**
+ *
+ * 사장님 2026-09-08 「**이안카 차만 모아서 주는 거**」 — 그 약속을 지키는 자리다.
+ *
+ * ⚠⚠ **2026-09-10 코덱스 검토에서 이 울타리가 «없다»는 것이 운영에서 재현됐다.**
+ * ```
+ *   /api/catalog/feed?p=RP023&wl=eancar  → 오토플러스 71대가 이안카 채널로 나왔다
+ *   /q/RP023_05수4035?wl=eancar          → 200 · 이안카 간판 아래 남의 차 상세가 열렸다
+ * ```
+ *   ㉠ 목록은 **손님이 준 `?p=`** 를 그대로 믿었다 ㉡ 상세는 채널을 아예 안 봤다.
+ *   즉 주소 한 줄로 그 회사 홈페이지에 **남의 재고**를 세울 수 있었다.
+ *
+ * ★그래서 판정은 **여기 한 곳**이다 — 문이 셋(목록 API·상세 API·상세 페이지)인데
+ *   각자 판정하면 한 곳만 고쳐지고 나머지로 새어 나간다. 실제로 그렇게 새고 있었다.
+ * ★`providerCode` 가 **없는 채널은 울타리가 없다** — 영업채널은 «우리 재고 전체»를 제 이름으로
+ *   파는 것이라 그게 정상이다(위 `providerCode` 머리말). 그때는 늘 `true` 다.
+ * ⚠ 차의 공급사는 두 칸에 온다(`provider_company_code` · `partner_code`) — 목록 거르개와
+ *   **같은 두 칸**을 본다. 한 칸만 보면 목록엔 있는데 상세가 안 열리는 차가 생긴다.
+ */
+export function channelSellsProduct(wl: Whitelabel, product: unknown): boolean {
+  const only = String(wl.providerCode || '').trim();
+  if (!only) return true;
+  const p = (product || {}) as Record<string, unknown>;
+  return String(p.provider_company_code ?? '').trim() === only
+    || String(p.partner_code ?? '').trim() === only;
+}
+
+/**
+ * **손님 공개 문이 «어느 공급사로» 걸러야 하나** — 손님이 준 값을 믿지 않는다.
+ *
+ * ⚠ `?p=` 는 손님이 주소창에서 고칠 수 있는 값이다. 채널이 제 코드를 가졌으면 **그것이 이긴다.**
+ * ★코드가 없는 채널에서만 `?p=` 를 쓴다 — 그 채널은 이미 재고 전체를 파는 곳이라
+ *   거기서 `?p=` 는 «울타리»가 아니라 그냥 «추림»이다(새는 것이 없다).
+ */
+export function guestProviderFence(wl: Whitelabel, askedProviderCode?: string | null): string {
+  const only = String(wl.providerCode || '').trim();
+  return only || String(askedProviderCode ?? '').trim();
+}
+
+/**
  * **손님 동 브랜드 판정** — 호스트 → `?wl=` → **임시 채널**.
  *
  * 사장님 2026-09-06 「프리패스 erp 점 컴에서 **원래 상세 페이지가 조회되거나 그러면 안 되는데**」.
