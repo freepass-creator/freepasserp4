@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { firebaseAdminDatabase, verifyActiveBearer } from '@/lib/server/firebase-admin';
+import { firebaseAdminStore, verifyActiveBearer } from '@/lib/server/firebase-admin';
 import { canSendChakhandealContract } from '@/lib/domain/chakhandeal-esign';
 import { findContractKind } from '@/lib/domain/esign-contract-kind';
 import { canIssueContract, type PolicyField } from '@/lib/domain/policy-tier';
@@ -93,7 +93,7 @@ export async function POST(request: Request) {
     return json({ error: '표준계약서 종류와 인수/반납 선택 조합이 올바르지 않습니다.' }, 400);
   }
 
-  const db = firebaseAdminDatabase();
+  const db = firebaseAdminStore();
   const [legacySnap, overlaySnap] = await Promise.all([
     db.ref(`contracts/${contractCode}`).get(),
     db.ref(`v4/contracts/${contractCode}`).get(),

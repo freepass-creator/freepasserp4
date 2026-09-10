@@ -20,7 +20,7 @@
  *   npx tsx scripts/check-erp-vs-sheet.mts
  */
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
-import { getDatabase } from 'firebase-admin/database';
+import { getDatabase } from './lib/disabled-rtdb.mts';
 import { getFirestore } from 'firebase-admin/firestore';
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';

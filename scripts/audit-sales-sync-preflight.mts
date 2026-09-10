@@ -2,8 +2,7 @@
 import nextEnv from '@next/env';
 
 nextEnv.loadEnvConfig(process.cwd());
-process.env.NEXT_PUBLIC_DATA_BACKEND = 'rtdb';
-const [{ sheetSyncCommitBlockReason }, { firebaseAdminDatabase }, { fetchSalesInventorySheet }, { readPartners }] = await Promise.all([
+const [{ sheetSyncCommitBlockReason }, { firebaseAdminStore }, { fetchSalesInventorySheet }, { readPartners }] = await Promise.all([
   import('../lib/domain/sheet-sync-all'),
   import('../lib/server/firebase-admin'),
   import('../lib/server/sales-inventory-sheet'),
@@ -11,7 +10,7 @@ const [{ sheetSyncCommitBlockReason }, { firebaseAdminDatabase }, { fetchSalesIn
 ]);
 
 const companyId = String(process.env.SHEET_SYNC_COMPANY_ID || 'freepass').trim();
-const db = firebaseAdminDatabase();
+const db = firebaseAdminStore();
 const partners = await readPartners(db, companyId);
 const fetched = await fetchSalesInventorySheet({ partners });
 const reason = sheetSyncCommitBlockReason(fetched);

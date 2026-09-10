@@ -1,3 +1,4 @@
+throw new Error('RTDB_REMOVED: 폐기된 RTDB 경로를 사용하는 스크립트입니다.');
 /**
  * **손오공 시트를 「렌트재고」·「구독재고」 두 탭으로 다시 찍는다.** 기본 dry-run, 반영은 `--apply`.
  *

@@ -1,3 +1,4 @@
+throw new Error('RTDB_REMOVED: legacy Realtime Database rule probe is permanently disabled');
 import assert from 'node:assert/strict';
 
 const projectId = process.env.GCLOUD_PROJECT || 'demo-freepasserp4';

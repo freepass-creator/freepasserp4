@@ -1,9 +1,8 @@
 /**
- * 공개 서명 슬롯 — RTDB contract_sign/{token}.
- * 규칙: $token .read true, 존재 후 .write 허용 → 손님 폰에서 열람·제출 가능.
+ * 공개 서명 슬롯 — Firestore contract_sign/{token}.
  */
-import { ref, get, update as dbUpdate } from 'firebase/database';
-import { getRtdb, firebaseReady } from '@/lib/firebase/client';
+import { doc, getDoc, getFirestore, setDoc } from 'firebase/firestore';
+import { getFirebaseApp, firebaseReady } from '@/lib/firebase/client';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { vehicleNameOf } from '@/lib/domain/vehicle-name';
 
@@ -23,12 +22,12 @@ export function isContractSignActive(record?: ContractSignRec | EntityRecord | n
 
 export async function readContractSign(token: string): Promise<ContractSignRec | null> {
   if (!firebaseReady() || !token) return null;
-  const db = getRtdb();
-  if (!db) return null;
+  const app = getFirebaseApp();
+  if (!app) return null;
   try {
-    const snap = await get(ref(db, `contract_sign/${token}`));
+    const snap = await getDoc(doc(getFirestore(app), 'contract_sign', token));
     if (!snap.exists()) return null;
-    const v = snap.val() as ContractSignRec;
+    const v = snap.data() as ContractSignRec;
     return { ...v, sign_token: token, _key: String(v.contract_code || token) };
   } catch (e) {
     console.warn('[contract_sign] read 실패:', (e as Error).message);
@@ -38,13 +37,13 @@ export async function readContractSign(token: string): Promise<ContractSignRec |
 
 export async function writeContractSign(token: string, patch: ContractSignRec): Promise<void> {
   if (!firebaseReady() || !token) return;
-  const db = getRtdb();
-  if (!db) return;
+  const app = getFirebaseApp();
+  if (!app) return;
   const clean: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(patch)) if (v !== undefined) clean[k] = v;
   clean.sign_token = token;
   clean.updated_at = Date.now();
-  await dbUpdate(ref(db, `contract_sign/${token}`), clean);
+  await setDoc(doc(getFirestore(app), 'contract_sign', token), clean, { merge: true });
 }
 
 /** store 계약 레코드 → 공개 슬롯용 요약(PII·금액 스냅샷). */

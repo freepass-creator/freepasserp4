@@ -11,7 +11,7 @@
  *   ... --apply    실제 기록(변경 전 원본은 tmp/backfill-channel-*.jsonl 에 남긴다)
  */
 import { initializeApp, cert, applicationDefault } from 'firebase-admin/app';
-import { getDatabase } from 'firebase-admin/database';
+import { getDatabase } from './lib/disabled-rtdb.mts';
 import { readFileSync, writeFileSync } from 'node:fs';
 
 const saPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;

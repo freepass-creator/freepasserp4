@@ -1,3 +1,4 @@
+throw new Error('RTDB_REMOVED: 폐기된 RTDB 경로를 사용하는 스크립트입니다.');
 const sa=JSON.parse((await import('node:fs')).readFileSync('tmp/firebase-auth/sa.json','utf8'));
 const {JWT}=await import('google-auth-library');
 const t=(await new JWT({email:sa.client_email,key:sa.private_key,scopes:['https://www.googleapis.com/auth/firebase.database','https://www.googleapis.com/auth/userinfo.email']}).getAccessToken()).token;

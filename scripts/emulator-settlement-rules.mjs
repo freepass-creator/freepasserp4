@@ -1,3 +1,4 @@
+throw new Error('RTDB_REMOVED: legacy Realtime Database emulator harness is permanently disabled');
 import assert from 'node:assert/strict';
 
 const projectId = process.env.GCLOUD_PROJECT || process.env.GOOGLE_CLOUD_PROJECT || 'demo-freepasserp4';

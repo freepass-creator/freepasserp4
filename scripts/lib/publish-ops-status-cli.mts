@@ -3,7 +3,7 @@
  *
  * ★왜 이게 필요한가 (2026-09-04 실측)
  *   자동동기 본체는 단계가 전부 `spawnSync`(블로킹)라, 메인 이벤트 루프가 단계 내내 막혀 있다.
- *   그래서 `void publishOpsStatus(status)` 처럼 «비동기로 던져 두면» RTDB 쓰기의 async 연속이
+ *   그래서 `void publishOpsStatus(status)` 처럼 «비동기로 던져 두면» Firestore 쓰기의 async 연속이
  *   끝까지 못 돌고, 마지막에 `process.exit()` 가 죽여 버린다 — 관제탑이 영영 안 켜졌다(문서 빈 채).
  *   → 상태를 파일(`tmp/ops-status.json`)에 동기로 적어 두고, 이 «자식 프로세스»가 자기 이벤트
  *     루프에서 느긋이 써넣는다. 부모는 `spawnSync` 로 이 자식이 끝날 때까지 «블로킹»으로 기다리므로

@@ -1,3 +1,4 @@
+throw new Error('RTDB_REMOVED: 폐기된 RTDB 경로를 사용하는 스크립트입니다.');
 /**
  * 계약 중복 접기 — 같은 `contract_code` 가 두 키로 들어간 것을 정본 하나로 접는다.
  * 기본 dry-run, 실제 반영은 --apply.

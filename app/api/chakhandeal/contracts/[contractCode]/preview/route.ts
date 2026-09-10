@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { verifyActiveBearer } from '@/lib/server/firebase-admin';
-import { firestoreAdminRef } from '@/lib/server/firestore-ref-shim';
+import { firestorePathStore } from '@/lib/server/firestore-path-store';
 import { fetchChakhandealDraftPreview, getChakhandealConfig } from '@/lib/server/chakhandeal-esign';
 
 export const dynamic = 'force-dynamic';
@@ -46,7 +46,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ cont
    * ⚠ v3(`contracts`)·v4(`v4/contracts`) 두 겹으로 읽던 것을 **한 겹**으로 줄였다 —
    *   파이어스토어에는 둘이 이미 합쳐져 들어가 있다(문서 121건). 두 번 읽으면 같은 문서를 두 번 본다.
    */
-  const db = firestoreAdminRef();
+  const db = firestorePathStore();
   const snap = await db.ref(`v4/contracts/${contractCode}`).get();
   const contract = (snap.val() as Record<string, unknown> | null) || {};
   const contractId = S(contract.esign_id);

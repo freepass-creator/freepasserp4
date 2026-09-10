@@ -15,7 +15,7 @@
  * 오픈하면 바로 쌓이기 시작하므로 audit.ts 의 scrubPii 가 그 전에 들어가 있어야 한다.
  */
 import { initializeApp, cert, applicationDefault } from 'firebase-admin/app';
-import { getDatabase } from 'firebase-admin/database';
+import { getDatabase } from './lib/disabled-rtdb.mts';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { AUDIT_SENSITIVE_FIELDS } from '../lib/domain/audit';
 

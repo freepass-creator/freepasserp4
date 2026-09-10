@@ -1,3 +1,4 @@
+throw new Error('RTDB_REMOVED: 폐기된 RTDB 경로를 사용하는 스크립트입니다.');
 /**
  * v3 `products.photo_link` → v4 `v4/products.photo_link` 일회성 이관. 기본 dry-run, 반영은 --apply.
  *

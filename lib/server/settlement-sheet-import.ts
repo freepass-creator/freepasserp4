@@ -20,7 +20,7 @@
  *   아무도 ERP 에서 안 고치게 된다.
  * ⚠ **시트가 빈칸인 것은 «지우라»가 아니다.** 창구가 아직 안 적었을 수 있다.
  */
-import { firebaseAdminDatabase } from '@/lib/server/firebase-admin';
+import { firebaseAdminStore } from '@/lib/server/firebase-admin';
 import { SETTLEMENT_LEDGER_ID } from '@/lib/domain/settlement-ledger';
 import { recordFromSheet, normalizeRecord, type SettlementRecord } from '@/lib/domain/settlement-record';
 import { LEDGER_TABS, sheetsToken } from '@/lib/server/settlement-ledger-read';
@@ -74,7 +74,7 @@ async function readSheetRecords(codeOf: Map<string, string>): Promise<{ made: Re
 }
 
 async function loadState(): Promise<{ have: Record<string, SettlementRecord>; touched: Map<string, number> }> {
-  const db = firebaseAdminDatabase();
+  const db = firebaseAdminStore();
   const [rowsSnap, evSnap] = await Promise.all([
     db.ref(NODE).get().catch(() => null),
     db.ref(EVENTS).get().catch(() => null),
@@ -157,7 +157,7 @@ export async function applySheetImport(opts?: { overwrite?: boolean }): Promise<
   }
   if (!Object.keys(patch).length) return { ok: true, added: 0, overwritten: 0, refused, diffs };
 
-  const db = firebaseAdminDatabase();
+  const db = firebaseAdminStore();
   await db.ref(NODE).update(patch);
 
   // ★되읽어 대조 — 쓰기 성공 응답과 «값이 맞다»는 다른 말이다.

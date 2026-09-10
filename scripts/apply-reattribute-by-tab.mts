@@ -21,7 +21,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
-import { getDatabase } from 'firebase-admin/database';
+import { getDatabase } from './lib/disabled-rtdb.mts';
 import { JWT } from 'google-auth-library';
 
 const DB = 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app';

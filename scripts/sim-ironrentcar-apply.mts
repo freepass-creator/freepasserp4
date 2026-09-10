@@ -4,7 +4,7 @@ import type { IronRentcarCatalogItem } from '../lib/server/ironrentcar-source';
 import { createSourceSnapshotV1 } from '../lib/server/source-snapshot';
 import type { EntityRecord } from '../lib/intake/entities';
 import { readFileSync } from 'node:fs';
-import { mergeV3V4Records } from '../lib/firebase/rtdb-records';
+import { mergeV3V4Records } from '../lib/firebase/legacy-records';
 
 let pass = 0;
 const check = (name: string, ok: boolean): void => {

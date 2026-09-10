@@ -11,7 +11,7 @@ const dead = (r: Rec) => r?._deleted === true || S(r?.status) === 'deleted';
 async function main() {
   const code = S(process.argv[2]) || 'RP031';
   const { initializeApp, cert, getApps } = await import('firebase-admin/app');
-  const { getDatabase } = await import('firebase-admin/database');
+  const { getDatabase } = await import('./lib/disabled-rtdb.mts');
   if (!getApps().length) {
     const sa = JSON.parse(readFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS || 'tmp/firebase-auth/sa.json', 'utf8'));
     initializeApp({ credential: cert(sa), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' });

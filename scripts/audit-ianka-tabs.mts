@@ -5,7 +5,7 @@
 import { readFileSync } from 'node:fs';
 import { sign } from 'node:crypto';
 import { cert, getApps, initializeApp } from 'firebase-admin/app';
-import { getDatabase } from 'firebase-admin/database';
+import { getDatabase } from './lib/disabled-rtdb.mts';
 import nextEnv from '@next/env';
 import { partnerSheetOpts, resolveAdapter } from '../lib/domain/sheet-adapters';
 import { importSheetTable, parseDelimited, type SheetTableFetchOptions } from '../lib/domain/sheet-import';

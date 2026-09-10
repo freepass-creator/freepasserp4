@@ -1,3 +1,4 @@
+throw new Error('RTDB_REMOVED: 폐기된 RTDB 경로를 사용하는 스크립트입니다.');
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { isHiddenFromCatalog, priceList } from '../lib/domain/product';

@@ -28,7 +28,7 @@ const localEnv = Object.fromEntries(
 
 async function main() {
   const { initializeApp, cert, getApps } = await import('firebase-admin/app');
-  const { getDatabase } = await import('firebase-admin/database');
+  const { getDatabase } = await import('./lib/disabled-rtdb.mts');
   if (!getApps().length) {
     const sa = JSON.parse(readFileSync(localEnv.GOOGLE_APPLICATION_CREDENTIALS || 'tmp/firebase-auth/sa.json', 'utf8'));
     initializeApp({

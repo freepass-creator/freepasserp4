@@ -19,7 +19,7 @@
  *   ... --only=RP012,RP013   특정 공급사만
  */
 import { initializeApp, cert } from 'firebase-admin/app';
-import { getDatabase } from 'firebase-admin/database';
+import { getDatabase } from './lib/disabled-rtdb.mts';
 import { readFileSync } from 'node:fs';
 import { autoMapHeaders, buildMappingHeaderSignature, normalizeSheetHeader } from '../lib/domain/sheet-import';
 import { resolveAdapter } from '../lib/domain/sheet-adapters';

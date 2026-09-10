@@ -17,7 +17,7 @@
  *   ... --apply
  */
 import { initializeApp, cert } from 'firebase-admin/app';
-import { getDatabase } from 'firebase-admin/database';
+import { getDatabase } from './lib/disabled-rtdb.mts';
 import { readFileSync, writeFileSync } from 'node:fs';
 import type { EntityRecord } from '../lib/intake/entities';
 

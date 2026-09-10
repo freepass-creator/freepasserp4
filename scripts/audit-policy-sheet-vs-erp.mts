@@ -1,3 +1,4 @@
+throw new Error('RTDB_REMOVED: 폐기된 RTDB 경로를 사용하는 스크립트입니다.');
 /**
  * **공급사 시트 → ERP 원자 반영** — 「운영정책」 탭 ↔ ERP 정책 · 「회사정보」 탭 ↔ ERP 파트너.
  *

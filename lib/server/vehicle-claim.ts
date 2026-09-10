@@ -1,7 +1,7 @@
 import 'server-only';
 
 import { createHash } from 'node:crypto';
-import type { Database } from 'firebase-admin/database';
+import type { AdminRef as Database } from './firestore-path-store';
 import type { ActiveBearer } from '@/lib/server/firebase-admin';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { hasDepositClaim, hasTermFrozen, isContractCancelled } from '@/lib/domain/contract';
@@ -65,13 +65,13 @@ function identityHash(identity: string): string {
 }
 
 async function loadSnapshot(db: Database) {
-  const [legacyContracts, overlayContracts, overlayProducts] = await Promise.all([
-    db.ref('contracts').get(), db.ref('v4/contracts').get(),
+  const [contracts, products] = await Promise.all([
+    db.ref('v4/contracts').get(),
     db.ref('v4/products').get(),
   ]);
   return {
-    contracts: mergeMaps(legacyContracts.val(), overlayContracts.val()),
-    products: mergeMaps({}, overlayProducts.val()),
+    contracts: mergeMaps({}, contracts.val()),
+    products: mergeMaps({}, products.val()),
   };
 }
 

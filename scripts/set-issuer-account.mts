@@ -1,7 +1,7 @@
 /** 우리 법인 입금계좌를 v4 오버레이에 박는다. 기본 dry-run, 반영은 --apply */
 import { readFileSync } from 'node:fs';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
-import { getDatabase } from 'firebase-admin/database';
+import { getDatabase } from './lib/disabled-rtdb.mts';
 const APPLY=process.argv.includes('--apply');
 const S=(v:unknown)=>String(v??'').trim();
 const sa=JSON.parse(readFileSync('tmp/firebase-auth/sa.json','utf8'));

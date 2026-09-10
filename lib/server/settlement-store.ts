@@ -24,7 +24,7 @@
  * ⚠ **금액·요율은 이 문으로 안 들어온다.** 수수료는 요율표에서 나오는 값이라
  *   화면에서 손대면 그날로 정본이 둘이 된다(`EDITABLE_FIELDS` 에 없다).
  */
-import { firebaseAdminDatabase } from '@/lib/server/firebase-admin';
+import { firebaseAdminStore } from '@/lib/server/firebase-admin';
 import { SETTLEMENT_LEDGER_ID } from '@/lib/domain/settlement-ledger';
 import type { SettlementRow } from '@/lib/domain/settlement-stage';
 import {
@@ -113,7 +113,7 @@ const eventKey = (k: LedgerKey) => keyOf(k).replace(/[.$#[\]/\s]/g, '_');
 
 async function recordEvents(key: LedgerKey, changes: LedgerEvent[]): Promise<void> {
   if (!changes.length) return;
-  const db = firebaseAdminDatabase();
+  const db = firebaseAdminStore();
   const base = db.ref(`${EVENT_NODE}/${eventKey(key)}`);
   // 한 번에 여러 칸이 바뀌어도 각각 한 줄로 남긴다 — 뭉치면 무엇이 바뀌었는지 못 읽는다.
   await Promise.all(changes.map((c) => base.push(c)));
@@ -121,7 +121,7 @@ async function recordEvents(key: LedgerKey, changes: LedgerEvent[]): Promise<voi
 
 /** 한 줄이 지나온 길을 읽는다. 없으면 빈 배열 — 「없다」가 아니라 「아직 안 남겼다」. */
 export async function listEvents(key: LedgerKey): Promise<LedgerEvent[]> {
-  const snap = await firebaseAdminDatabase().ref(`${EVENT_NODE}/${eventKey(key)}`).get().catch(() => null);
+  const snap = await firebaseAdminStore().ref(`${EVENT_NODE}/${eventKey(key)}`).get().catch(() => null);
   const all = (snap?.val() || {}) as Record<string, LedgerEvent>;
   return Object.values(all).sort((a, b) => a.at - b.at);
 }

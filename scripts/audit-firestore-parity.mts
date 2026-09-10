@@ -1,3 +1,4 @@
+throw new Error('RTDB_REMOVED: 폐기된 RTDB 경로를 사용하는 스크립트입니다.');
 /**
  * **파이어스토어 ↔ RTDB 대조** — 어디까지 옮겨졌고 무엇이 다른지 한 표로 본다. **읽기 전용**.
  *
@@ -17,7 +18,7 @@ const fsJwt = new JWT({ email: sa.client_email, key: sa.private_key, scopes: ['h
 const dbJwt = new JWT({ email: sa.client_email, key: sa.private_key, scopes: ['https://www.googleapis.com/auth/firebase.database', 'https://www.googleapis.com/auth/userinfo.email'] });
 const RTDB = 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app';
 
-/** RTDB 노드 → Firestore 컬렉션. `firestore-ref-shim` 의 표와 같아야 한다. */
+/** RTDB 노드 → Firestore 컬렉션. `firestore-path-store` 의 표와 같아야 한다. */
 const PAIRS: { label: string; nodes: string[]; col: string }[] = [
   { label: '재고',     nodes: ['v4/products'],            col: 'products' },
   { label: '정책',     nodes: ['policies', 'v4/policies'], col: 'policy' },

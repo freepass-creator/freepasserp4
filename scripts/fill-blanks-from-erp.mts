@@ -1,3 +1,4 @@
+throw new Error('RTDB_REMOVED: 폐기된 RTDB 경로를 사용하는 스크립트입니다.');
 /**
  * **우리 시트의 빈 칸을 ERP 값으로 채운다.** 기본 dry-run, 반영은 `--apply`.
  *

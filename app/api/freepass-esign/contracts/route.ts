@@ -24,7 +24,7 @@ import {
   canonicalFreepassDirectManualTerms,
   canonicalFreepassDirectManualTermsDraft,
 } from '@/lib/domain/freepass-direct-manual-terms';
-import { firebaseAdminDatabase, verifyActiveBearer } from '@/lib/server/firebase-admin';
+import { firebaseAdminStore, verifyActiveBearer } from '@/lib/server/firebase-admin';
 import {
   canManageFreepassEsign,
   freepassDirectSealMatchesContract,
@@ -191,7 +191,7 @@ export async function POST(request: Request) {
       driverAge, maturity, depositInstallment, paymentTiming, specialTermsChoice, specialTerms, buyoutPrice,
       driverScope: terms.driver_scope || '', maintenanceProduct: terms.maintenance_product || '',
     }));
-    const db = firebaseAdminDatabase();
+    const db = firebaseAdminStore();
     const now = Date.now();
     const requestRef = db.ref(`v4/esign_create_requests/${actor.uid}/${id}`);
     // 요청 node는 계약번호를 한 번만 배정한다. 실제 정본은 아래 seal transaction이므로

@@ -1,3 +1,4 @@
+throw new Error('RTDB_REMOVED: 폐기된 RTDB 경로를 사용하는 스크립트입니다.');
 /**
  * **대여료가 빈 차의 가격을 공급사 시트에서 채운다.** 기본 dry-run, 반영은 `--apply`.
  *

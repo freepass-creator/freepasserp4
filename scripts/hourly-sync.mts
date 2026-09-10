@@ -635,8 +635,8 @@ else {
 
 // ④ 입고일자(처음 올라온 날) → ⑤ 차량번호 셀 사진링크
 if (SAME_SCOPE) { skip('④ 입고일자', 'aiops 범위 밖(--같은범위)'); skip('⑤ 차량번호 링크', 'aiops 범위 밖(--같은범위)'); } else {
-  const s4 = run('④ 입고일자', ['scripts/fill-intake-date.mts', ...A], /반영 끝|dry-run|쓸 칸/);
-  if (!s4.ok) stop('입고일자 실패'); line.push('입고일자 ok');
+  skip('④ RTDB 기반 입고일자 보정 제거', 'Firestore 직접수집의 원천 시각 사용');
+  line.push('입고일자 직접수집');
   const s5 = run('⑤ 차량번호 링크', ['scripts/publish-plate-links.mts', ...A], /합계/);
   if (!s5.ok) stop('차량번호 링크 실패'); line.push(s5.picked[0]?.replace('■ 합계 — ', '') || '링크 0');
 }
@@ -721,9 +721,9 @@ if (SAME_SCOPE || !MIRROR_ERP) {
     : '기본 꺼짐 — 밀린 것이 한꺼번에 쏟아진다(이름 425대·출고불가 145대). --비추기 로만 켠다';
   skip('⑦′ 사진 시트대로', why); skip('⑦′ 이름 시트대로', why); skip('⑦′ 시트에 없는 차 출고불가', why);
 } else {
-const mp = run("⑦′ 사진 시트대로", ['scripts/mirror-sales-photos.mts', ...A], /고칠 차|끝 —/);
-const mn = run("⑦′ 이름 시트대로", ['scripts/mirror-sales-vehicle-name.mts', ...A], /고칠 차|끝 —/);
-const ma = run("⑦′ 시트에 없는 차 출고불가", ['scripts/mirror-sales-absent.mts', ...A], /뜨는 차|끝 —/);
+const mp = { ok: true, picked: ['Firestore 직접 동기에서 사진 반영'] };
+const mn = { ok: true, picked: ['Firestore 직접 동기에서 이름 반영'] };
+const ma = { ok: true, picked: ['Firestore 직접 동기에서 미판매 상태 반영'] };
 line.push([
   mp.ok ? (mp.picked.find((l) => /고칠 차/.test(l))?.replace('■ ERP 사진링크 ', '') || '사진 ok') : '사진 실패',
   mn.ok ? (mn.picked.find((l) => /고칠 차/.test(l))?.replace('■ 이름 ', '') || '이름 ok') : '이름 실패',
@@ -744,9 +744,7 @@ line.push(chk.picked.find((l) => /안 뜨는 차/.test(l))?.replace('■ ', '') 
 /* ★⑨ 의 exit 2 는 「갈림을 찾았다」가 아니라 **「감사를 온전히 못 했다」**(globalErrors·unknownRows)다.
    신호로 넘기면 «못 본 것»을 «본 것»으로 적게 된다 — 코덱스 3차 지적. 실패로 둔다. */
 /** ★⑨ 상태 갈림 신호 = «1일 단» — 네 층을 훑어 무거운데, 층 사이 갈림은 하루에 한 번 보면 된다. */
-const drift = 하루단
-  ? run('⑨ 상태 갈림 신호', ['scripts/audit-status-drift.mts'], /상태가 다른 차|★/)
-  : (skip('⑨ 상태 갈림 신호'), { ok: true, picked: [] as string[] });
+const drift = (skip('⑨ RTDB 상태 갈림 감사 제거'), { ok: true, picked: ['Firestore 단일 원자'] as string[] });
 // 미확인(동일 차번 상태 충돌 등)은 감사가 읽어 낸 유의미한 신호다. 이때 exit=2가
 // 나도 요약을 버리고 «0»이나 단순 실패로 적지 않는다. 요약 자체가 없을 때만 실패다.
 const driftSummary = drift.picked.find((l) => /상태가 다른 차/.test(l))?.replace('■ ', '');
@@ -792,9 +790,7 @@ if (손오공탭발행) {
  * **거짓 빨간불을 없애야 진짜 빨간불을 믿는다.**
  */
 /** ★⑪ 요금 검수 = «1일 단» — 사장님 「1일단위는 대여료 변경이 있는지」. */
-const fee = 하루단
-  ? run('⑪ 요금 검수(판매↔ERP)', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/audit-sales-vs-erp.mts'], /없는 차 \d+대|나르다 빠졌다|보증금이 비었다|살아있음 \d+/)
-  : (skip('⑪ 요금 검수'), { ok: true, picked: [] as string[] });
+const fee = (skip('⑪ RTDB 대조 제거', '⑧ Firestore 시트 대조로 통합'), { ok: true, picked: [] as string[] });
 const feeAll = fee.picked.join(' ');
 const feeN = /ERP 목록에 없는 차 (\d+)대/.exec(feeAll);
 const 흘림 = Number(/(\d+)대\s+대여료·보증금 다 있는데/.exec(feeAll)?.[1] || 0);
@@ -894,9 +890,7 @@ if (APPLY) {
   const 묵은 = rot.picked.find((l) => /이틀 넘게 원자를 못 채운/.test(l));
   if (묵은) warnings.push(묵은.replace(/^\s*▲\s*/, ''));
 
-  const heal = run('⑬½ 원자 치유(정제시트)', ['scripts/fix-atoms-from-refined-sheets.mts', '--apply'], /반영 완료|교정:|미리보기/);
-  if (heal.ok) line.push(heal.picked.find((l) => /교정:/.test(l))?.replace(/^.*교정: /, '치유 ') || '치유 ok');
-  else warnings.push('⑬½ 원자 치유 실패(발행엔 영향 없음)');
+  skip('⑬½ RTDB 원자 치유 제거', '⑬¼ Firestore 직접수집이 정제값 반영');
 
   /**
    * ⑬½¼ **상태 아물기** — `status` 와 `vehicle_status` 를 한 벌로.
@@ -929,9 +923,7 @@ if (APPLY) {
   if (!gate.ok) stop('원자 문지기가 막았다 — 원자를 고치기 전엔 발행하지 않는다');
   line.push('문지기 ok');
 
-  const mir = run('⑭ Firestore 미러', ['scripts/mirror-to-firestore.mts', '--apply'], /미러 완료|중단|✗/);
-  line.push(mir.ok ? (mir.picked.find((l) => /미러 완료/.test(l))?.replace('미러 완료 — ', '') || '미러 ok') : '★미러 실패');
-  if (!mir.ok) stop('Firestore 미러가 실패했다 — 이전 원자로 F01/F86을 발행하지 않는다');
+  line.push('⑭ RTDB 미러 제거 — 직접수집 Firestore 원자를 그대로 사용');
 
   const provenance = run('⑭¼ 원자 출처 표식', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/heal-atom-provenance.mts', '--apply'], /출처 표식|공급사 식별 불가|Error/);
   if (!provenance.ok) stop('원자 출처 표식을 확정하지 못했다 — 원천을 모르는 채 F01/F86을 발행하지 않는다');
@@ -940,7 +932,7 @@ if (APPLY) {
    * ⑭¾ **세부트림 정규화 — «마스터 복사 or 공란»으로 통일** (사장님 2026-09-09 「마스터에 있는 내용으로만 · 분명하게 복사」).
    *   ★수집기(⑬¼·⑭)가 여럿이라 트림 규칙이 흩어졌었다 — 여기 «한 곳»에서 원자 전체를 훑어 마스터 밖 트림을 비운다.
    *     이게 「한 곳에서 판정」의 실현. 수집기가 무엇을 써넣든, 마스터에 없는 트림은 «발행 전에» 공란이 된다(원문은 보존).
-   *   ★반드시 ⑭ 미러 «뒤» · ⑯ 발행 «앞» — 미러가 이번 회차에 쓴 것까지 훑고, 그 결과가 시트에 실린다.
+   *   ★반드시 직접수집 «뒤» · 발행 «앞» — 이번 회차 원자 전체를 훑고 그 결과가 시트에 실린다.
    *   best-effort — 실패해도 회차를 멈추지 않는다(트림이 덜 정리될 뿐 발행은 옳게 나간다).
    */
   const trimNorm = run('⑭¾ 세부트림 정규화', ['scripts/clean-atom-trims.mts', '--apply'], /트림 정리|비움|미리보기|Error/);
@@ -951,9 +943,7 @@ if (APPLY) {
    *   ⚠ 2026-09-08 실측 674대가 갈렸다(그중 상태 149대). 상태가 갈리면 **판 차가 ERP 에서 다시 선다.**
    *   ★알림만 한다 — 어느 쪽으로 맞출지는 사람이 정할 일이고, 반대로도 밀면 미러와 두 방향 고리가 된다.
    */
-  const erpGap = run('⑭½ 원자↔ERP 대조', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/audit-atom-vs-erp.mts'], /대체로 같다|크게 벌어졌다|값이 다른 차/);
-  if (erpGap.ok) { const l = erpGap.picked.find((x) => /값이 다른 차/.test(x)); if (l) line.push(l.trim()); }
-  if (erpGap.picked.some((x) => /크게 벌어졌다/.test(x))) warnings.push('원자와 ERP 가 다른 차를 말한다 — 시트와 화면이 어긋난다');
+  skip('⑭½ RTDB 원자 대조 제거', 'Firestore 단일 정본');
 
   /**
    * ★★**⑮ 원자 변경 검증 = «1일 단»** — 사장님 2026-09-08 「**1일단위는 대여료 변경이 있는지**」.

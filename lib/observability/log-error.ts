@@ -1,12 +1,12 @@
 /**
  * 클라이언트 에러 관측 최소치 — Sentry 없이 Firebase 스택에 맞춘 best-effort 수집.
  *   · 항상 console.error (개발자 도구)
- *   · 로그인 상태면 RTDB `v4/_client_errors`에 best-effort push(실패해도 앱 무영향)
+ *   · 로그인 상태면 Firestore `_client_errors`에 best-effort 기록(실패해도 앱 무영향)
  *   · PII/토큰 미포함 — 메시지·스택·경로(쿼리 제거)·UA·빌드만. 세션당 상한·중복억제로 플러딩 방지.
  * 관리자는 Firebase 콘솔이나 별도 뷰에서 이 노드를 watch → "터진 걸 아는" 최소 신호.
  */
-import { getRtdb } from '@/lib/firebase/client';
-import { ref, push, serverTimestamp } from 'firebase/database';
+import { getFirebaseApp } from '@/lib/firebase/client';
+import { addDoc, collection, getFirestore, serverTimestamp } from 'firebase/firestore';
 import { BUILD, VERSION } from '@/lib/brand';
 
 const CAP = 20; // 세션당 전송 상한(플러딩·과금 방지)
@@ -41,10 +41,10 @@ export function logClientError(err: unknown, context?: string): void {
     console.error('[fp4]', context || '', err);
 
     if (sent >= CAP || typeof window === 'undefined') return;
-    const db = getRtdb();
-    if (!db) return;
+    const app = getFirebaseApp();
+    if (!app) return;
     sent++;
-    push(ref(db, 'v4/_client_errors'), {
+    addDoc(collection(getFirestore(app), '_client_errors'), {
       msg,
       stack: String(e?.stack ?? '').slice(0, 1500),
       ctx: context || '',

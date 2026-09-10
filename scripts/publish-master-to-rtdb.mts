@@ -22,7 +22,7 @@ if (!process.argv.includes('--force-revive-rtdb')) {
  */
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { initializeApp, cert } from 'firebase-admin/app';
-import { getDatabase } from 'firebase-admin/database';
+import { getDatabase } from './lib/disabled-rtdb.mts';
 import { masterEntriesFromRtdbValue } from '../lib/domain/vehicle-master-rtdb';
 import type { MasterEntry } from '../lib/domain/vehicle-master-types';
 

@@ -54,7 +54,7 @@ const codeBySheet = new Map<string, string>(); for (const r of hub.slice(hi + 1)
 const erpFirst = new Map<string, string>();
 try {
   const { initializeApp, cert, getApps } = await import('firebase-admin/app');
-  const { getDatabase } = await import('firebase-admin/database');
+  const { getDatabase } = await import('./lib/disabled-rtdb.mts');
   if (!getApps().length) initializeApp({ credential: cert(sa), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' });
   const v4 = ((await getDatabase().ref('v4/products').get()).val() || {}) as Record<string, Rec>;
   for (const p of Object.values(v4)) {

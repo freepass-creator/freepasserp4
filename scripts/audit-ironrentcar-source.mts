@@ -3,7 +3,7 @@ import { fetchIronRentcarCatalog } from '../lib/server/ironrentcar-source';
 import { ironRentcarExistingRows, planIronRentcarReconcile } from '../lib/domain/ironrentcar-reconcile';
 import { readFileSync, writeFileSync } from 'node:fs';
 import type { EntityRecord } from '../lib/intake/entities';
-import { mergeV3V4Records } from '../lib/firebase/rtdb-records';
+import { mergeV3V4Records } from '../lib/firebase/legacy-records';
 
 const arg = (name: string): string => {
   const index = process.argv.indexOf(name);

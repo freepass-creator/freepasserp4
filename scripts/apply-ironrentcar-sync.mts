@@ -1,3 +1,4 @@
+throw new Error('RTDB_REMOVED: 폐기된 RTDB 경로를 사용하는 스크립트입니다.');
 /**
  * **아이언 홈페이지 수집을 재고에 반영한다.** 기본 dry-run, 반영은 `--apply`.
  *

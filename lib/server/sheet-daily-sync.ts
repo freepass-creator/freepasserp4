@@ -1,6 +1,6 @@
 import 'server-only';
 
-import type { Database } from 'firebase-admin/database';
+import type { AdminRef as Database } from './firestore-path-store';
 import {
   planDailySheetSync,
   planProductMasterProviderBatches,
@@ -9,9 +9,9 @@ import {
 } from '@/lib/domain/sheet-daily-sync';
 import { productPatchPreconditionMatches } from '@/lib/domain/product-write-guard';
 import { mergeProductPrivate, splitProductPrivate } from '@/lib/firebase/rtdb-products';
-import { toV4Record } from '@/lib/firebase/rtdb-records';
+import { toV4Record } from '@/lib/firebase/legacy-records';
 import type { EntityRecord } from '@/lib/intake/entities';
-import { firebaseAdminDatabase } from '@/lib/server/firebase-admin';
+import { firebaseAdminStore } from '@/lib/server/firebase-admin';
 import type { SheetConflictResolution } from '@/lib/domain/sheet-conflict-resolution';
 import { fetchSalesInventorySheet } from '@/lib/server/sales-inventory-sheet';
 import { isolateProductMasterBlockedProviders } from '@/lib/domain/product-master-import';
@@ -156,24 +156,9 @@ function normalizedRows(
     .map(([key, row]) => toV4Record(entity, key, row, companyId));
 }
 
-function mergeRows(v3: EntityRecord[], v4: EntityRecord[]): EntityRecord[] {
-  const rows = new Map<string, EntityRecord>();
-  for (const row of v3) rows.set(String(row._key), row);
-  for (const row of v4) {
-    const key = String(row._key);
-    const merged: EntityRecord = { ...(rows.get(key) || {}) };
-    for (const [field, value] of Object.entries(row)) if (value !== undefined) merged[field] = value;
-    rows.set(key, merged);
-  }
-  return [...rows.values()];
-}
-
 export async function readPartners(db: Database, companyId: string): Promise<EntityRecord[]> {
-  const [v3, v4] = await Promise.all([db.ref('partners').get(), db.ref('v4/partners').get()]);
-  return mergeRows(
-    normalizedRows('partner', v3.val(), companyId),
-    normalizedRows('partner', v4.val(), companyId),
-  );
+  const snapshot = await db.ref('v4/partners').get();
+  return normalizedRows('partner', snapshot.val(), companyId);
 }
 
 export async function readProducts(db: Database, companyId: string): Promise<{
@@ -200,11 +185,8 @@ export async function readProducts(db: Database, companyId: string): Promise<{
 }
 
 export async function readContracts(db: Database, companyId: string): Promise<EntityRecord[]> {
-  const [v3, v4] = await Promise.all([db.ref('contracts').get(), db.ref('v4/contracts').get()]);
-  return mergeRows(
-    normalizedRows('contract', v3.val(), companyId),
-    normalizedRows('contract', v4.val(), companyId),
-  );
+  const snapshot = await db.ref('v4/contracts').get();
+  return normalizedRows('contract', snapshot.val(), companyId);
 }
 
 export async function readResolutions(db: Database): Promise<SheetConflictResolution[]> {
@@ -275,7 +257,7 @@ export async function rollbackDailySheetSyncBackup(opts: {
       blockReason: '잘못된 원본 실행 ID',
     };
   }
-  const db = firebaseAdminDatabase();
+  const db = firebaseAdminStore();
   const backupPath = `v4/sheet_sync_backups/${sourceRunId}`;
   const [backupSnap, productsSnap] = await Promise.all([
     db.ref(backupPath).get(),
@@ -587,7 +569,7 @@ function plannedProviderResult(item: ProductMasterProviderPlan): DailySheetSyncP
 export async function runDailySheetSync(opts: { dryRun?: boolean; providerCodes?: string[] } = {}): Promise<DailySheetSyncResult> {
   const runId = newId('run');
   const companyId = String(process.env.SHEET_SYNC_COMPANY_ID || 'freepass').trim();
-  const db = firebaseAdminDatabase();
+  const db = firebaseAdminStore();
   let backupId: string | undefined;
   // dry-run은 계획 계산만 한다. 락·상태·실행이력도 운영 데이터 쓰기이므로 만들지 않는다.
   if (!opts.dryRun) await acquireLease(db, runId, Date.now());

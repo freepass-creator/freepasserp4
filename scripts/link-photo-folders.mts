@@ -1,3 +1,4 @@
+throw new Error('RTDB_REMOVED: 폐기된 RTDB 경로를 사용하는 스크립트입니다.');
 /**
  * **`freepasspics` 의 차량 폴더를 그 차의 「사진링크」로 잇는다.** 기본 dry-run, 반영은 `--apply`.
  *

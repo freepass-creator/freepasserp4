@@ -1,3 +1,4 @@
+throw new Error('RTDB_REMOVED: 폐기된 RTDB 경로를 사용하는 스크립트입니다.');
 /**
  * **사람이 「안 판다」고 판단해 내린 차에 `deleted_source: 'judgement'` 를 박는다.**
  *

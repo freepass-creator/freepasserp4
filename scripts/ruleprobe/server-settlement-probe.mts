@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import { getApps } from 'firebase-admin/app';
-import { firebaseAdminDatabase } from '../../lib/server/firebase-admin';
+import { firebaseAdminStore } from '../../lib/server/firebase-admin';
 import { SettlementIssuanceError } from '../../lib/domain/settlement-issuance';
 import { issueSettlementFromServer } from '../../lib/server/settlement-issuance';
 
-const db = firebaseAdminDatabase();
+const db = firebaseAdminStore();
 const base = `ruleprobe_settlement_${Date.now()}`;
 const actor = (uid: string, role: 'agent' | 'provider' | 'admin', rawRole = role, companyCode = '', agentChannelCode = '') => ({
   uid, role, rawRole, companyCode, agentChannelCode,

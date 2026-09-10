@@ -1,3 +1,4 @@
+throw new Error('RTDB_REMOVED: 폐기된 RTDB 경로를 사용하는 스크립트입니다.');
 /**
  * 공급사 사본 시트에 **서식만** 다시 입힌다. 기본 dry-run, 반영은 --apply.
  *

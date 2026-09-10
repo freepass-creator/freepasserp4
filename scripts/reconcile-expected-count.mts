@@ -13,7 +13,7 @@
  *   npx tsx scripts/reconcile-expected-count.mts --code=RP004    한 곳 상세
  */
 import { initializeApp, cert } from 'firebase-admin/app';
-import { getDatabase } from 'firebase-admin/database';
+import { getDatabase } from './lib/disabled-rtdb.mts';
 import { readFileSync } from 'node:fs';
 import { dedupeProductsByVehicle } from '../lib/firebase/rtdb-products';
 import { isOfferableProduct, vehicleIdentity } from '../lib/domain/product';

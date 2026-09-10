@@ -15,9 +15,8 @@ import {
 } from '../lib/domain/sheet-inventory-identity';
 
 nextEnv.loadEnvConfig(process.cwd());
-process.env.NEXT_PUBLIC_DATA_BACKEND = 'rtdb';
 
-const [{ firebaseAdminDatabase }, { fetchSalesInventorySheet }, { readContracts, readPartners, readProducts }] = await Promise.all([
+const [{ firebaseAdminStore }, { fetchSalesInventorySheet }, { readContracts, readPartners, readProducts }] = await Promise.all([
   import('../lib/server/firebase-admin'),
   import('../lib/server/sales-inventory-sheet'),
   import('../lib/server/sheet-daily-sync'),
@@ -36,7 +35,7 @@ const maskedPlate = (value: string) => value.length <= 4 ? '****' : `${value.sli
 const OUT = 'tmp/sheet-erp-parity.json';
 
 const companyId = S(process.env.SHEET_SYNC_COMPANY_ID || 'freepass');
-const db = firebaseAdminDatabase();
+const db = firebaseAdminStore();
 const partners = await readPartners(db, companyId);
 const [fetched, erpState, contracts] = await Promise.all([
   fetchSalesInventorySheet({ partners }),

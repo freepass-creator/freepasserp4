@@ -6,7 +6,7 @@ import {
   type SheetConflictDecision,
   type SheetConflictDecisionInput,
 } from '@/lib/domain/sheet-conflict-decision';
-import { firebaseAdminDatabase, verifyAdminBearer } from '@/lib/server/firebase-admin';
+import { firebaseAdminStore, verifyAdminBearer } from '@/lib/server/firebase-admin';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -32,7 +32,7 @@ function mergeRows(v3: EntityRecord[], v4: EntityRecord[]): EntityRecord[] {
 }
 
 async function protectionState(): Promise<{ products: EntityRecord[]; contracts: EntityRecord[] }> {
-  const db = firebaseAdminDatabase();
+  const db = firebaseAdminStore();
   const [v4Products, v3Contracts, v4Contracts] = await Promise.all([
     db.ref('v4/products').get(),
     db.ref('contracts').get(),
@@ -57,7 +57,7 @@ export async function GET(request: Request): Promise<Response> {
   const admin = await requireAdmin(request);
   if (admin instanceof Response) return admin;
   try {
-    const snapshot = await firebaseAdminDatabase().ref(DECISION_PATH).get();
+    const snapshot = await firebaseAdminStore().ref(DECISION_PATH).get();
     const decisions = Object.values((snapshot.val() || {}) as Record<string, SheetConflictDecision>)
       .filter((item) => item && typeof item === 'object');
     return NextResponse.json({ decisions });
@@ -122,7 +122,7 @@ export async function POST(request: Request): Promise<Response> {
       fingerprints: unique.map((item) => item.fingerprint),
       changes: [],
     };
-    await firebaseAdminDatabase().ref('v4').update(updates);
+    await firebaseAdminStore().ref('v4').update(updates);
     return NextResponse.json({ recorded: unique.length });
   } catch {
     return NextResponse.json({ error: 'decision recording failed' }, { status: 503 });
@@ -144,7 +144,7 @@ export async function DELETE(request: Request): Promise<Response> {
     return NextResponse.json({ error: 'invalid fingerprint batch' }, { status: 400 });
   }
   try {
-    const current = ((await firebaseAdminDatabase().ref(DECISION_PATH).get()).val()
+    const current = ((await firebaseAdminStore().ref(DECISION_PATH).get()).val()
       ?? null) as Record<string, SheetConflictDecision> | null;
     const eligible = fingerprints.filter((fingerprint) => current?.[fingerprint]?.status === 'recorded');
     if (!eligible.length) return NextResponse.json({ revoked: 0 });
@@ -169,7 +169,7 @@ export async function DELETE(request: Request): Promise<Response> {
       fingerprints: eligible,
       changes: [],
     };
-    await firebaseAdminDatabase().ref('v4').update(updates);
+    await firebaseAdminStore().ref('v4').update(updates);
     return NextResponse.json({ revoked: eligible.length });
   } catch {
     return NextResponse.json({ error: 'decision revoke failed' }, { status: 503 });

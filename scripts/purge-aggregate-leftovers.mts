@@ -1,3 +1,4 @@
+throw new Error('RTDB_REMOVED: 폐기된 RTDB 경로를 사용하는 스크립트입니다.');
 /**
  * **옛 종합시트에서 들어온 잔재를 내린다.** 기본 dry-run, 반영은 `--apply`.
  *

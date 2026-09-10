@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { firebaseAdminDatabase } from '@/lib/server/firebase-admin';
+import { firebaseAdminStore } from '@/lib/server/firebase-admin';
 import { cheapestRent, isOfferableProduct, vehicleName } from '@/lib/domain/product';
 import type { EntityRecord } from '@/lib/intake/entities';
 
@@ -27,7 +27,7 @@ const NO_INDEX = { index: false, follow: false } as const;
 
 async function loadProduct(code: string): Promise<EntityRecord | null> {
   try {
-    const db = firebaseAdminDatabase();
+    const db = firebaseAdminStore();
     // 상품키는 `product_code` 이거나 RTDB child 키다 — 먼저 키로 찔러 보고 없으면 훑는다.
     const direct = await db.ref(`v4/products/${encodeURIComponent(code).replace(/\./g, '%2E')}`).get().catch(() => null);
     let key = code;

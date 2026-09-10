@@ -1,3 +1,4 @@
+throw new Error('RTDB_REMOVED: 폐기된 RTDB 경로를 사용하는 스크립트입니다.');
 /**
  * **공급사 자기 시트를 우리 드라이브에 복사해 둔다.** 기본 dry-run, 실제 복사는 `--apply`.
  *

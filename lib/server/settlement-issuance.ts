@@ -1,6 +1,6 @@
 import 'server-only';
 
-import type { Database } from 'firebase-admin/database';
+import type { AdminRef as Database } from './firestore-path-store';
 import type { EntityRecord } from '@/lib/intake/entities';
 import type { ActiveBearer } from '@/lib/server/firebase-admin';
 import {
@@ -65,45 +65,21 @@ const SETTLEMENT_OPERATIONAL_OVERLAY_FIELDS = [
  * 따라서 v3가 있으면 그 원장을 사용하고, overlay가 원장 필드를 다르게 들고 있으면
  * 조용히 병합하지 않고 발행을 중단한다. 새 v4-only 계약은 key와 contract_code가 일치해야 한다.
  */
-function settlementSourceContract(legacyRaw: unknown, overlayRaw: unknown, key: string): {
+function settlementSourceContract(canonicalRaw: unknown, key: string): {
   contract: EntityRecord | null;
   legacyBacked: boolean;
   legacyCompleted: boolean;
 } {
-  const legacy = asRecord(legacyRaw);
-  const overlay = asRecord(overlayRaw);
-  if (Object.keys(legacy).length) {
-    const legacyCode = text(legacy.contract_code || key);
-    if (legacyCode !== key) throw new SettlementIssuanceError('기존 계약 원장 키가 일치하지 않습니다. 관리자에게 확인을 요청해 주세요.');
-    for (const field of LEGACY_SETTLEMENT_SOURCE_FIELDS) {
-      const expected = text(legacy[field]);
-      const actual = text(overlay[field]);
-      if (actual && expected && actual !== expected) {
-        throw new SettlementIssuanceError('계약 원장과 수정본의 정산 기준이 다릅니다. 관리자에게 확인을 요청해 주세요.');
-      }
-    }
-    // v4에는 v3 원장에 없는 진행 단계가 기록될 수 있다. 금전·당사자 기준은 legacy로
-    // 다시 고정하고, 역할별 rules로 통제되는 운영 단계만 overlay에서 합친다.
-    const operational = { ...legacy };
-    for (const field of SETTLEMENT_OPERATIONAL_OVERLAY_FIELDS) {
-      if (Object.hasOwn(overlay, field)) operational[field] = overlay[field];
-    }
-    // 취소는 되돌릴 수 없는 fail-closed 상태다. v3 원장 또는 v4 overlay 어느 한쪽이라도
-    // 취소이면, 다른 쪽의 "계약요청" 값으로 덮어 정산을 재개할 수 없다.
-    if (isContractCancelled(legacy) || isContractCancelled(overlay)) {
-      operational.contract_status = '계약취소';
-    }
-    return {
-      contract: { ...operational, _key: key, contract_code: key } as EntityRecord,
-      legacyBacked: true,
-      legacyCompleted: isContractCompleted(legacy),
-    };
-  }
-  if (!Object.keys(overlay).length) return { contract: null, legacyBacked: false, legacyCompleted: false };
-  if (text(overlay.contract_code) !== key) {
+  const canonical = asRecord(canonicalRaw);
+  if (!Object.keys(canonical).length) return { contract: null, legacyBacked: false, legacyCompleted: false };
+  if (text(canonical.contract_code || key) !== key) {
     throw new SettlementIssuanceError('계약 경로와 계약번호가 일치하지 않습니다. 관리자에게 확인을 요청해 주세요.');
   }
-  return { contract: { ...overlay, _key: key, contract_code: key } as EntityRecord, legacyBacked: false, legacyCompleted: false };
+  return {
+    contract: { ...canonical, _key: key, contract_code: key } as EntityRecord,
+    legacyBacked: false,
+    legacyCompleted: isContractCompleted(canonical),
+  };
 }
 
 function merged(legacy: unknown, overlay: unknown, key: string): EntityRecord | null {
@@ -189,11 +165,8 @@ export async function issueSettlementFromServer(
   const code = `ST_${contractCode}`;
   // Idempotent replies are still contract-scoped: do not let an unrelated actor
   // discover or reuse a settlement merely because it already exists.
-  const [initialLegacyContract, initialOverlayContract] = await Promise.all([
-    db.ref(`contracts/${contractCode}`).get(),
-    db.ref(`v4/contracts/${contractCode}`).get(),
-  ]);
-  const initialSource = settlementSourceContract(initialLegacyContract.val(), initialOverlayContract.val(), contractCode);
+  const initialContractSnap = await db.ref(`v4/contracts/${contractCode}`).get();
+  const initialSource = settlementSourceContract(initialContractSnap.val(), contractCode);
   const initialResolved = await settlementContractForIssue(db, initialSource.contract, contractCode);
   const initialContract = initialResolved.contract;
   if (!initialContract) throw new SettlementIssuanceError('계약을 찾을 수 없습니다.');
@@ -226,11 +199,8 @@ export async function issueSettlementFromServer(
   }
 
   try {
-    const [legacyContractSnap, overlayContractSnap] = await Promise.all([
-      db.ref(`contracts/${contractCode}`).get(),
-      db.ref(`v4/contracts/${contractCode}`).get(),
-    ]);
-    const source = settlementSourceContract(legacyContractSnap.val(), overlayContractSnap.val(), contractCode);
+    const contractSnap = await db.ref(`v4/contracts/${contractCode}`).get();
+    const source = settlementSourceContract(contractSnap.val(), contractCode);
     const resolved = await settlementContractForIssue(db, source.contract, contractCode);
     const contract = resolved.contract;
     if (!contract) throw new SettlementIssuanceError('계약을 찾을 수 없습니다.');
@@ -252,16 +222,13 @@ export async function issueSettlementFromServer(
     const providerCode = text(contract.provider_company_code);
     const agentUid = text(contract.agent_uid);
     const agentCode = text(contract.agent_code);
-    const [legacyProductSnap, overlayProductSnap, legacyPartnerSnap, overlayPartnerSnap, privatePartnerSnap, usersSnap, overlayUsersSnap] = await Promise.all([
-      productCode ? db.ref(`products/${productCode}`).get() : Promise.resolve(null),
+    const [productSnap, partnerSnap, privatePartnerSnap, usersSnap] = await Promise.all([
       productCode ? db.ref(`v4/products/${productCode}`).get() : Promise.resolve(null),
-      providerCode ? db.ref(`partners/${providerCode}`).get() : Promise.resolve(null),
       providerCode ? db.ref(`v4/partners/${providerCode}`).get() : Promise.resolve(null),
       providerCode ? db.ref(`v4/partners_private/${providerCode}`).get() : Promise.resolve(null),
-      db.ref('users').get(),
       db.ref('v4/users').get(),
     ]);
-    const product = merged(legacyProductSnap?.val(), overlayProductSnap?.val(), productCode);
+    const product = merged(null, productSnap?.val(), productCode);
     const frozenProductType = text(contract.product_type_snapshot);
     // 신규 계약은 상품구분을 계약에 고정한다. 과거 계약에 이 값이 없으면 현재
     // 매물값으로 정산 수수료를 바꿀 수 있으므로 일반 사용자 요청은 fail-closed 한다.
@@ -269,10 +236,9 @@ export async function issueSettlementFromServer(
       throw new SettlementIssuanceError('계약 당시 상품구분 동결값이 없어 정산을 생성할 수 없습니다. 관리자에게 확인을 요청해 주세요.');
     }
     const productType = resolved.directSeal?.settlementRateBasis.productType || frozenProductType || text(product?.product_type);
-    const partner = merged(legacyPartnerSnap?.val(), overlayPartnerSnap?.val(), providerCode);
+    const partner = merged(null, partnerSnap?.val(), providerCode);
     const users = asRecord(usersSnap.val());
-    const overlayUsers = asRecord(overlayUsersSnap.val());
-    const agent = userForContract(users, overlayUsers, agentUid, agentCode);
+    const agent = userForContract(users, {}, agentUid, agentCode);
     const privateAgentSnap = agent.key ? await db.ref(`v4/users_private/${agent.key}`).get() : null;
     const records = buildSettlementIssueRecords({
       contract,

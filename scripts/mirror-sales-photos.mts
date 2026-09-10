@@ -1,3 +1,4 @@
+throw new Error('RTDB_REMOVED: 폐기된 RTDB 경로를 사용하는 스크립트입니다.');
 /**
  * **ERP 사진링크를 판매시트 기준으로 갈아엎는다.** 기본 dry-run, 반영은 `--apply`.
  *

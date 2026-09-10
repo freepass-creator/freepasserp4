@@ -1,3 +1,4 @@
+throw new Error('RTDB_REMOVED: legacy Realtime Database rule probe is permanently disabled');
 /**
  * 비활성·삭제·반려 계정이 **서버에서** 막히는지 (QA AUTH-6).
  *

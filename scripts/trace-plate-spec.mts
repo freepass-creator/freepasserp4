@@ -40,7 +40,7 @@ for (const t of stabs) { const rows = (((await call(`${SH}/${SALES_SHEET_ID}/val
 const decisions = (JSON.parse(readFileSync('data/product-vehicle-review-decisions.json', 'utf8')).decisions || []) as Rec[];
 // ERP
 let v4: Record<string, Rec> = {};
-try { const { initializeApp, cert, getApps } = await import('firebase-admin/app'); const { getDatabase } = await import('firebase-admin/database'); if (!getApps().length) initializeApp({ credential: cert(sa), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' }); v4 = ((await getDatabase().ref('v4/products').get()).val() || {}) as Record<string, Rec>; } catch (e) { console.log('(ERP 못 읽음)', String((e as Error).message).slice(0, 60)); }
+try { const { initializeApp, cert, getApps } = await import('firebase-admin/app'); const { getDatabase } = await import('./lib/disabled-rtdb.mts'); if (!getApps().length) initializeApp({ credential: cert(sa), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' }); v4 = ((await getDatabase().ref('v4/products').get()).val() || {}) as Record<string, Rec>; } catch (e) { console.log('(ERP 못 읽음)', String((e as Error).message).slice(0, 60)); }
 
 const RAW = ['상태', '분류', '제조사', '차명(세부모델+트림)', '옵션', '외부색상', '내부색상', '연식', '주행거리', '연료', '배기량', '차량가격', '최초등록일'];
 const REF = ['차종코드', '제조사(정제)', '모델', '세부모델', '세부트림', '선택옵션', '외장색상', '내장색상', '배기량(정제)', '연료(정제)', '차종분류'];

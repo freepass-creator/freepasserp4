@@ -169,8 +169,7 @@ if (APPLY) {
   if (!a3.ok) stop('재고 필수값 빈 칸 감사 실패');
   const erp = run('⑦ 스테이징 → ERP 원자화', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/run-sheet-daily-sync-local.mts', ...STAGE, '--apply'], /반영|원본 |✗/);
   if (!erp.ok) stop('스테이징 → ERP 원자화 실패');
-  const mirror = run('⑧ ERP → Firestore 원자', ['scripts/mirror-to-firestore.mts', '--apply'], /미러 완료|중단|✗/);
-  if (!mirror.ok) stop('Firestore 원자 미러 실패');
+  report.push('⑧ RTDB 미러 제거 — ⑦에서 Firestore 원자에 직접 반영');
   const heal = run('⑨ 원자 상태 한 벌', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/heal-atom-status.mts', '--apply'], /한 벌로 아물렀다|이미 한 벌|▲/);
   if (!heal.ok) stop('원자 상태 복구 실패');
   const provenance = run('⑨½ 원자 출처 표식', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/heal-atom-provenance.mts', '--apply'], /출처 표식|공급사 식별 불가|Error/);

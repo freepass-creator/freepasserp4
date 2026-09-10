@@ -16,7 +16,7 @@
  *   npx tsx scripts/diff-sheet-vs-product.mts --code=RP021  한 곳만
  */
 import { initializeApp, cert } from 'firebase-admin/app';
-import { getDatabase } from 'firebase-admin/database';
+import { getDatabase } from './lib/disabled-rtdb.mts';
 import { readFileSync } from 'node:fs';
 import { resolveAdapter } from '../lib/domain/sheet-adapters';
 import type { EntityRecord } from '../lib/intake/entities';

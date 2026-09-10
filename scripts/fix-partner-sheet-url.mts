@@ -1,3 +1,4 @@
+throw new Error('RTDB_REMOVED: 폐기된 RTDB 경로를 사용하는 스크립트입니다.');
 /**
  * **공급사 파트너 레코드의 시트 주소를 채운다.** 기본 dry-run, 반영은 `--apply`.
  *

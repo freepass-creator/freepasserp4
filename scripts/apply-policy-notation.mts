@@ -2,12 +2,11 @@
 // 값(숫자)은 보존하고 «표기»만 규격으로. 계산값(돈·율·회차·보관/통지일)은 숫자라 안 건드림.
 // 소비자는 ageNumber()/policyNumber()로 숫자만 뽑아 써서 안전. 드라이런 기본, --apply.
 import { readFileSync, mkdirSync, writeFileSync } from 'node:fs';
-process.env.NEXT_PUBLIC_DATA_BACKEND = 'rtdb';
 for (const f of ['.env.local']) { try { for (const l of readFileSync(f,'utf8').split(/\r?\n/)) { const m=/^\s*([A-Z0-9_]+)\s*=\s*(.*)$/.exec(l); if(!m)continue; const v=m[2].replace(/^["']|["']$/g,''); if(v&&!process.env[m[1]])process.env[m[1]]=v; } } catch {} }
 const APPLY = process.argv.includes('--apply');
 const S = (v: unknown) => String(v ?? '').trim();
-const { firebaseAdminDatabase } = await import('../lib/server/firebase-admin');
-const db = firebaseAdminDatabase();
+const { firebaseAdminStore } = await import('../lib/server/firebase-admin');
+const db = firebaseAdminStore();
 // 필드 → 값에서 숫자 뽑아 규격 표기로. 숫자 없으면(협의·제한없음 등) 건드리지 않음(null 반환).
 const RULES: Record<string, (raw: string) => string | null> = {
   basic_driver_age: (r) => { const m = r.match(/(\d{2})/); return m ? `만 ${m[1]}세 이상` : null; },
