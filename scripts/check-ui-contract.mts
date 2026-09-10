@@ -16,7 +16,12 @@ const RAW = new Set(['button', 'input', 'select', 'textarea']);
 
 type Allow = { reason: string; counts?: Partial<Record<string, number>>; all?: boolean };
 
-const RAW_ALLOW = new Map<string, Allow>([
+/*
+ * ⚠⚠ **같은 파일 키를 두 번 적으면 «뒤엣것»이 이긴다**(2026-09-10 코덱스 검토 — 그냥 통과했다).
+ *   `Map` 은 조용히 덮어써서, 좁게 적어 둔 예외가 넓은 것으로 바뀌어도 아무도 모른다.
+ *   그래서 아래 목록을 «짝 배열»로 두고 **중복을 먼저 센다**(맨 밑 RAW_ALLOW_DUP 검사).
+ */
+const RAW_ALLOW_PAIRS: [string, Allow][] = [
   ['app/global-error.tsx', { all: true, reason: '루트 레이아웃·globals.css까지 실패한 독립 최종 방어선' }],
   /* app/login/page.tsx 는 2026-08-30 에 공용 원자로 갈아 raw 0 이 됐다(도면 §4 1순위).
      원자 높이(32/40)와 충돌해 예외였던 자리인데, CTRL 에 lg(44/48)를 더해 해소했다.
@@ -161,7 +166,16 @@ const RAW_ALLOW = new Map<string, Allow>([
    * 개수를 2로 못 박아 새 raw 컨트롤은 계속 걸리게 둔다. 갚을 빚: components/ui/ContextMenu SSOT 로 옮긴다.
    */
   ['features/finder/SheetView.tsx', { counts: { button: 2 }, reason: '한 클래스로 <a>·<span>과 같은 모양이어야 하는 우클릭 메뉴 항목' }],
-]);
+];
+
+/*
+ * ★★**중복 키를 먼저 잡는다** — `Map` 으로 만들면 뒤엣것이 조용히 이겨서,
+ *   좁게 적어 둔 예외가 넓은 것으로 바뀌어도 아무도 모른다(코덱스가 그렇게 넘었다).
+ */
+const RAW_ALLOW_DUP = RAW_ALLOW_PAIRS
+  .map(([k]) => k)
+  .filter((k, i, all) => all.indexOf(k) !== i);
+const RAW_ALLOW = new Map<string, Allow>(RAW_ALLOW_PAIRS);
 
 // 기능상 native 요소가 필요한 명시 예외: 파일 선택기와 이미지 갤러리의 행/셀 버튼.
 RAW_ALLOW.set('components/ChatThread.tsx', { counts: { button: 3, input: 1, textarea: 1 }, reason: '첨부 파일 선택기·갤러리 행/셀 버튼·채팅 입력기' });
@@ -229,6 +243,21 @@ for (const path of files) {
   if (!file.startsWith('components/ui/')) {
     const counts: Record<string, number> = {};
     const visit = (node: ts.Node) => {
+      /*
+       * ⚠ **JSX 만 보면 놓친다**(2026-09-10 코덱스 검토) — `createElement('button')` 은
+       *   JSX 가 아니라 «호출»이라 그냥 넘어갔다. 화면에 서는 것은 똑같은 raw 단추다.
+       * ★`React.createElement` 든 그냥 `createElement` 든 첫 인자가 태그 글자면 센다.
+       */
+      if (ts.isCallExpression(node)) {
+        const callee = node.expression.getText(sourceFile);
+        if (callee === 'createElement' || callee.endsWith('.createElement')) {
+          const first = node.arguments[0];
+          if (first && ts.isStringLiteral(first)) {
+            const tag = first.getText(sourceFile).slice(1, -1);
+            if (RAW.has(tag)) counts[tag] = (counts[tag] || 0) + 1;
+          }
+        }
+      }
       if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
         const tag = node.tagName.getText(sourceFile);
         if (RAW.has(tag)) counts[tag] = (counts[tag] || 0) + 1;
@@ -316,6 +345,11 @@ if (!esignCenterSource.includes('const store = getStore()')
  *   견학에서 실제로 그럴 뻔했다.
  * ⚠ 소괄호가 붙은 것(`badges()`)은 «부르는 법»을 적은 것이라 이름만 떼서 본다.
  */
+for (const k of RAW_ALLOW_DUP) {
+  hits.push(`raw 예외 목록: ${k} 가 두 번 적혀 있습니다 — 뒤엣것이 조용히 이겨 예외가 넓어집니다
+    → 한 줄로 합치세요`);
+}
+
 const claudeMd = readFileSync(join(ROOT, 'CLAUDE.md'), 'utf8');
 const dictStart = claudeMd.indexOf('## 원자 사전 — 이걸 써라');
 const dictEnd = claudeMd.indexOf('### 필터 ↔ 카드 축');

@@ -31,6 +31,23 @@ const CASES: Case[] = [
     why: '괄호 앞 공백이 있어도 같다' },
 ];
 
+/*
+ * ★★**배열로 들어오는 길도 잰다**(2026-09-10 코덱스 검토).
+ *   ⚠ 시험이 문자열 사례뿐이라, 배열 가지를 **통째로 `[]` 로 바꿔도 통과**했다.
+ *     원자는 실제로 배열을 받는다(`Array.isArray(raw)`) — 안 재는 길은 없는 길과 같다.
+ * ★배열은 «자르지 않는다» — 이미 조각으로 온 것이라 콤마가 값의 일부일 수 있다.
+ */
+const ARRAY_CASES: { raw: unknown[]; want: string[]; why: string }[] = [
+  { raw: ['스마트키', ' 네비게이션 '], want: ['스마트키', '네비게이션'],
+    why: '배열은 그대로 쓰되 앞뒤 빈칸만 턴다' },
+  { raw: ['차체자세제어장치(VDC,ESC,ESP)'], want: ['차체자세제어장치(VDC,ESC,ESP)'],
+    why: '배열 조각 안의 콤마는 «값»이다 — 다시 자르지 않는다' },
+  { raw: ['가/나'], want: ['가/나'],
+    why: '배열 조각 안의 슬래시도 값이다' },
+  { raw: ['', '  ', '열선시트(앞)'], want: ['열선시트(앞)'],
+    why: '빈 조각은 뺀다' },
+];
+
 let bad = 0;
 console.log('\n선택옵션 파서 — 「없는 옵션」을 만들지 않는가\n');
 for (const c of CASES) {
@@ -38,6 +55,16 @@ for (const c of CASES) {
   const ok = JSON.stringify(got) === JSON.stringify(c.want);
   if (!ok) { bad += 1; console.log(`  ✗ ${c.raw}\n      나온 것 ${JSON.stringify(got)}\n      바라는 것 ${JSON.stringify(c.want)}\n      ${c.why}`); }
   else console.log(`  ✓ ${c.raw}`);
+}
+
+for (const c of ARRAY_CASES) {
+  const got = parseProductOptions(c.raw);
+  const ok = JSON.stringify(got) === JSON.stringify(c.want);
+  if (!ok) { bad += 1; console.log(`  ✗ [배열] ${JSON.stringify(c.raw)}
+      나온 것 ${JSON.stringify(got)}
+      바라는 것 ${JSON.stringify(c.want)}
+      ${c.why}`); }
+  else console.log(`  ✓ [배열] ${JSON.stringify(c.raw)}`);
 }
 
 /* 어떤 입력이든 **괄호 짝이 깨진 조각**을 내놓으면 안 된다 — 화면에 「ESP)」 가 서는 꼴이다. */

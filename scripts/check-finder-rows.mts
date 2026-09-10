@@ -163,7 +163,13 @@ if (bad) {
  */
 const KO_NUM: Record<string, number> = { 하나: 1, 둘: 2, 셋: 3, 넷: 4, 다섯: 5 };
 const cssRaw = read(CSS);
-const noteSaid = cssRaw.match(/지금 자식은 \*\*(하나|둘|셋|넷|다섯)\*\*/);
+/*
+ * ⚠⚠ **문구를 «넓게» 잡는다 — 좁게 잡았더니 fail-open 이었다**(2026-09-10 코덱스 검토).
+ *   전에는 「지금 자식은 **셋**」만 봤다. 같은 뜻을 「**현재** 자식은 셋」으로 적으면
+ *   문구가 없다고 판단해 **경고만 내고 통과**했다 — 목록이 통째로 사라지는 그 사고를 못 잡는다.
+ * ⇒ 「자식은 **N**」 꼴이면 앞말이 무엇이든 잡는다. 그리고 **문구가 아예 없으면 «실패»다**(아래).
+ */
+const noteSaid = cssRaw.match(/자식은\s*\*\*(하나|둘|셋|넷|다섯)\*\*/);
 if (noteSaid) {
   const said = KO_NUM[noteSaid[1]];
   if (said !== kids) {
@@ -173,6 +179,14 @@ if (noteSaid) {
   }
   console.log(`   ✓ CSS 주석도 「자식 ${noteSaid[1]}」로 같다`);
 } else {
-  console.log('   ⚠ CSS 주석에 「지금 자식은 **N**」 문구가 없다 — 있으면 그것도 센다');
+  /*
+   * ★★**문구가 없으면 «실패»다 — 경고로 흘리면 그게 fail-open 이다**(2026-09-10).
+   *   이 주석은 「행 수를 왜 이렇게 뒀나」를 설명하는 자리다. 누가 지우거나 말을 바꾸면
+   *   다음 사람이 근거 없이 행을 고치게 된다 — 그 사고가 세 번 났다.
+   *   검사가 「없으면 조용히 통과」하면 있으나 마나다.
+   */
+  console.error('\n✗ CSS 주석에 「자식은 **N**」 문구가 없다 — 행 수의 근거가 사라졌다.');
+  console.error('   → app/globals.css 의 .fp-finder-main 주석에 「지금 자식은 **둘**」 꼴로 적어라.');
+  process.exit(1);
 }
 console.log(`\n✓ 행과 자식이 ${kids}로 같다`);

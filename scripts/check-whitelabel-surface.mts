@@ -70,14 +70,38 @@ must(doc.includes(axisLine), '세부필터 축 이름과 순서',
 const SCREENS = ['app/(shop)', 'components/shop', 'components/WhitelabelFrame.tsx'];
 const KEYS = [FREEPASS.key, ...WHITELABELS.map((w) => w.key)];
 const branchy: string[] = [];
+/*
+ * ★★**«비교»만 찾으면 안 된다 — 갈라서는 길은 여럿이다**(2026-09-10 코덱스 검토).
+ *   전에는 `=== '채널키'` 와 `!== '채널키'` 만 봤다. 코덱스가 셋으로 그냥 넘었다:
+ * ```
+ *     ({eancar: 1}[wl.key])        통과  ← 객체 조회
+ *     ['eancar'].includes(wl.key)  통과  ← 목록 조회
+ *     switch (wl.key) { case 'eancar': } 통과
+ * ```
+ * ⇒ 규칙을 뒤집는다 — **손님 화면에 «채널 키 글자»가 나오면 그게 분기다.**
+ *   그 글자가 화면 코드에 나올 «올바른» 이유가 없다. 채널이 다르고 싶으면 표에 칸을 만든다.
+ * ⚠ 주석·문자열 설명에도 나올 수 있으니 **주석은 걷고** 본다 — 왜 그런지 적어 둔 자리가
+ *   벌을 받으면 안 된다(사선 0 검사에서 같은 것을 배웠다).
+ * ⚠ 노브랜드 키(`freepass`)는 «단어 그대로» 다른 뜻으로 쓰인다(브랜드 이름·경로).
+ *   그래서 그 키만은 «따옴표로 감싼 값»일 때만 센다.
+ */
 for (const dir of SCREENS) {
   for (const file of walk(dir)) {
-    const text = readFileSync(file, 'utf8');
-    /* 빈칸을 걷고 본다 — `=== 'eancar'` 와 `==='eancar'` 는 같은 말이다(따옴표 세 가지 다). */
+    const raw = readFileSync(file, 'utf8');
+    const text = raw
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+    /*
+     * ⚠ **따옴표 없는 «맨 이름»도 본다** — 객체 조회는 키를 그냥 적는다:
+     *   `({eancar: 1})[wl.key]` 에는 따옴표가 없어 위 규칙을 그냥 넘었다(코덱스 재현).
+     *   그래서 «속성 자리»(`{키:` · `,키:`)도 센다. 빈칸을 걷고 봐야 `{ eancar :` 도 걸린다.
+     * ⚠ 노브랜드 키(`freepass`)는 맨 이름으로 다른 뜻이 많아(브랜드·경로) 속성 자리에서는 안 센다.
+     */
     const flat = text.replace(/\s+/g, '');
     for (const k of KEYS) {
-      const hit = ['===', '!=='].some((op) => ["'", '"', '`'].some((q) => flat.includes(op + q + k + q)));
-      if (hit) branchy.push(file + ' — 채널 «' + k + '» 로 갈라섬');
+      const quoted = ["'", '"', '`'].some((q) => text.includes(q + k + q));
+      const asProp = k !== 'freepass' && (flat.includes('{' + k + ':') || flat.includes(',' + k + ':'));
+      if (quoted || asProp) branchy.push(file + ' — 채널 «' + k + '» 글자가 화면 코드에 있다');
     }
   }
 }
