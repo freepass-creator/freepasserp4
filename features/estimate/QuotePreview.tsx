@@ -43,6 +43,8 @@ export type QuoteDoc = {
   priceBasis?: string;
   /** ★판매가격 세제감면(개소세·교육세) — 0 이 아니면 견적서가 «드러낸다». */
   saleTaxCredit?: number;
+  /** ★전기차 구매보조금 — 이것도 «적용가»를 끌어내린다. 안 적으면 손님이 그 차액을 못 짚는다. */
+  evSubsidy?: number;
   /** 감면 후 «적용가» — 보증금·선납·인수가 이 값 위에 선다. */
   netPrice?: number;
   channel: string; endType: string; credit: string;
@@ -145,7 +147,7 @@ export default function QuotePreview({ doc, onClose }: { doc: QuoteDoc; onClose:
                 </div>
                 {/* ★기준은 «원본이 가진 줄»(.qd-vehicle__row)에 적는다 — `.label`/`.value` 를 건드리면
                     웰릭스 CSS 짜임이 깨진다(check:estimate 가 잡는다). */}
-                {doc.colorExt || doc.colorInt || doc.priceBasis || doc.saleTaxCredit ? (
+                {doc.colorExt || doc.colorInt || doc.priceBasis || doc.saleTaxCredit || doc.evSubsidy ? (
                   <div className="qd-vehicle__rows">
                     <div className="qd-vehicle__row"><span className="k">외장</span><span className="v">{doc.colorExt || '-'}</span></div>
                     <div className="qd-vehicle__row"><span className="k">내장</span><span className="v">{doc.colorInt || '-'}</span></div>
@@ -154,11 +156,20 @@ export default function QuotePreview({ doc, onClose }: { doc: QuoteDoc; onClose:
                       : null}
                     {/* ★감면을 «숨기지» 않는다 — 차량가와 보증금·인수의 기준이 갈려 보이면
                         손님이 손으로 두드렸을 때 안 맞는다. 그 사이를 이 두 줄이 잇는다. */}
+                    {/* ⚠⚠ **차액을 하나라도 감추면 손님이 못 짚는다.** 세제혜택만 적고
+                        전기차 보조금(600만)을 안 적었더니, 차량가 8,329만 · 적용가 7,317만 사이의
+                        600만이 «설명 없는 구멍»이 됐다. 게다가 세제혜택이 0 이면 적용가 줄까지
+                        통째로 숨어, 보증금·선납·인수가 어느 값에서 나왔는지 알 수 없었다
+                        (2026-09-10 개발센터 4-AI 관문 · Codex 4회차 3). ⇒ **깎인 것은 다 적고,
+                        적용가는 차량가와 «다르면» 언제나 적는다.** */}
                     {doc.saleTaxCredit
-                      ? <>
-                        <div className="qd-vehicle__row"><span className="k">세제혜택</span><span className="v">−{man(doc.saleTaxCredit)}원</span></div>
-                        <div className="qd-vehicle__row"><span className="k">적용가</span><span className="v">{man(doc.netPrice ?? 0)}원</span></div>
-                      </>
+                      ? <div className="qd-vehicle__row"><span className="k">세제혜택</span><span className="v">−{man(doc.saleTaxCredit)}원</span></div>
+                      : null}
+                    {doc.evSubsidy
+                      ? <div className="qd-vehicle__row"><span className="k">전기차 보조금</span><span className="v">−{man(doc.evSubsidy)}원</span></div>
+                      : null}
+                    {(doc.netPrice ?? doc.price) !== doc.price
+                      ? <div className="qd-vehicle__row"><span className="k">적용가</span><span className="v">{man(doc.netPrice ?? 0)}원</span></div>
                       : null}
                   </div>
                 ) : null}

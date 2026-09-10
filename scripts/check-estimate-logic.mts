@@ -19,6 +19,20 @@ import { impliedOf } from '../lib/domain/estimate/implied-options';
 import { modelKey, basisOf, expandGenesis } from '../lib/domain/estimate/genesis-lineup';
 import { matchIncluded, includedNames, availableForEngine } from '../lib/domain/estimate/genesis-included';
 import { computeTerm } from '../lib/domain/estimate/calc.js';
+import * as React from 'react';
+const { createElement } = React;
+/* ⚠ tsx 는 JSX 를 «고전» 변환으로 돌려 컴포넌트 안에서 전역 `React` 를 찾는다. 대 준다. */
+(globalThis as unknown as { React?: unknown }).React = React;
+import { renderToStaticMarkup } from 'react-dom/server';
+import * as QuotePreviewMod from '../features/estimate/QuotePreview';
+
+/* ⚠ tsx 의 CJS 상호운용 때문에 기본 내보내기가 «객체»로 올 수 있다 — 함수를 꺼내 쓴다. */
+const pickFn = (x: unknown, depth = 3): unknown => {
+  if (typeof x === 'function' || depth <= 0) return x;
+  const d = (x as { default?: unknown } | null)?.default;
+  return d === undefined ? x : pickFn(d, depth - 1);
+};
+const QuotePreview = pickFn(QuotePreviewMod) as Parameters<typeof createElement>[0];
 import { trimPrice, trimBasis, trimSaleTaxCredit } from '../lib/domain/estimate/car-index';
 import { splitAxis } from '../lib/domain/estimate/newcar-normalize';
 import { optionList, optionSum, isEnabled, toggleOption, type OptionSpec } from '../lib/domain/estimate/option-rules';
@@ -1622,6 +1636,104 @@ must(impliedOf({ htrac: { name: 'HTRAC' } }, '전기 롱레인지 2WD', 'Prestig
 must(code('app/api/newcar/route.ts').includes('genesisBasis(S(v.sub_model))'),
   '정상 경로에서 제네시스 «가격 기준»을 안 붙입니다 — 「후」를 「전」이라 인쇄합니다',
   'app/api/newcar/route.ts');
+
+/* ══ 25. ★★★4회차 관문 — 「깎인 것을 다 적는다」와 «문자열이 아닌» 검사 ════════════ */
+
+/* 25-1. ★★★**견적서를 «그려서» 잰다** (Codex 4회차 3)
+     차액을 하나라도 감추면 손님이 못 짚는다 — 세제혜택만 적고 전기차 보조금(600만)을 안 적어
+     차량가 8,329만과 적용가 7,317만 사이의 600만이 «설명 없는 구멍»이 됐다. 세제혜택이 0 이면
+     적용가 줄까지 통째로 숨어, 보증금·선납·인수가 «어느 값»에서 나왔는지 알 수 없었다.
+
+     ⚠⚠ 처음엔 이것을 `includes('doc.evSubsidy')` 로 쟀다. 그런데 **`{false && doc.evSubsidy}` 로
+       줄을 죽여도 그대로 초록**이었다(내 변이시험에서 안 잡혔다). 낱말이 «있나»는 그 낱말이
+       «일하나»를 말해 주지 않는다. ⇒ **문서를 실제로 그려 «글자»가 나오는지 본다.** */
+{
+  const html = renderToStaticMarkup(createElement(QuotePreview, {
+    onClose: () => {},
+    doc: {
+      customer: '홍길동', staff: '담당자', tel: '010-0000-0000',
+      brand: '기아', carName: 'EV9 GT-Line', carSub: '전기',
+      price: 83290000, priceBasis: '세제혜택 전',
+      saleTaxCredit: 4120000, evSubsidy: 6000000, netPrice: 73170000,
+      channel: '렌트', endType: '반납형', credit: '중신용',
+      colorExt: '', colorInt: '', options: [],
+      lines: [{ term: 48, pay: 1595000, depositPct: 10, deposit: 7317000, prepayPct: 10, prepay: 7317000, buyoutPct: 58, buyout: 42438600 }],
+    },
+  }));
+  const t = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+  must(t.includes('전기차 보조금') && t.includes('600만'),
+    '견적서에 전기차 보조금이 «안 그려집니다» — 차량가와 적용가 사이에 설명 없는 600만이 남습니다',
+    'features/estimate/QuotePreview.tsx');
+  must(t.includes('세제혜택') && t.includes('412만'),
+    '견적서에 세제혜택이 «안 그려집니다»', 'features/estimate/QuotePreview.tsx');
+  must(t.includes('적용가') && t.includes('7,317만'),
+    '견적서에 적용가가 «안 그려집니다» — 보증금·선납·인수가 어느 값에서 나왔는지 알 수 없습니다',
+    'features/estimate/QuotePreview.tsx');
+  /* ★보조금만 있고 세제혜택이 0 인 줄도 적용가를 적어야 한다. */
+  const only = renderToStaticMarkup(createElement(QuotePreview, {
+    onClose: () => {},
+    doc: {
+      customer: '', staff: '', tel: '', brand: '기아', carName: 'EV6', carSub: '전기',
+      price: 60000000, priceBasis: '세제혜택 전', saleTaxCredit: 0, evSubsidy: 6000000, netPrice: 54000000,
+      channel: '렌트', endType: '반납형', credit: '중신용', colorExt: '', colorInt: '', options: [],
+      lines: [{ term: 48, pay: 1, depositPct: 10, deposit: 5400000, prepayPct: 0, prepay: 0, buyoutPct: 50, buyout: 27000000 }],
+    },
+  })).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+  must(only.includes('적용가') && only.includes('5,400만'),
+    '세제혜택이 0 이면 적용가를 숨깁니다 — 보조금만으로 값이 내려간 줄이 근거 없이 보입니다',
+    'features/estimate/QuotePreview.tsx');
+  /* ⚠ 원가·손익은 «한 줄도» 안 나간다 — 그리고 나서 확인한다. */
+  for (const 금지 of ['원가', '마진', '영업이익', '매출총이익']) {
+    must(!t.includes(금지), `손님 견적서에 「${금지}」가 나갑니다`, 'features/estimate/QuotePreview.tsx');
+  }
+}
+
+/* 25-2. ★★**문자열로 재던 것을 «값»으로 올린다** (Codex 4회차 4)
+     §24-2 는 공백을 걷었지만 `Math.round((price) * …)` 처럼 괄호 하나로 뚫린다.
+     ⇒ 화면이 쓰는 그 셈을 **여기서 직접 해서** 견적서 셈과 맞댄다. 표현이 어떻든 «값»은 못 속인다. */
+{
+  const 차량가 = 83290000; const 보조금 = 6000000; const 감면 = 4120000;
+  const net = 차량가 - 보조금 - 감면;                    // 화면·엔진·견적서가 딛는 값
+  must(net === 73170000, `적용가 셈이 틀렸습니다 — ${net}`, 'app/estimate/page.tsx netPrice');
+  /* 선납 10% · 인수 58% 가 «같은 값»에서 나와야 한다. */
+  must(Math.round(net * 0.1) === 7317000 && Math.round(net * 0.58) === 42438600,
+    '선납·인수가 적용가에서 안 나옵니다', 'app/estimate/page.tsx');
+  /* ★그리고 엔진이 딛는 값과 «같은지» — 엔진을 실제로 돌려 본다. */
+  const base = {
+    channel: 'rent', type: 'return', price: 차량가, cc: 0, fuel: 'ev', accident: 'none',
+    mileage: 0, year: 2026, nowYear: 2026, credit: '중신용',
+    depositPct: 10, prepayPct: 0, group: 'B', residualRates: null,
+  };
+  const r = computeTerm(48, { ...base, evSubsidy: 보조금, saleTaxCredit: 감면 } as never,
+    { idx: 48 } as never) as Record<string, number>;
+  must(Math.round(r.deposit) === Math.round(net * 0.1),
+    `엔진 보증금이 화면 적용가와 다릅니다 — ${Math.round(r.deposit).toLocaleString('ko-KR')} vs ${Math.round(net * 0.1).toLocaleString('ko-KR')}`,
+    'lib/domain/estimate/calc.js netPrice');
+}
+
+/* 25-3. ★부품말을 놓치면 «유료 옵션이 사라진다» — 포터II 「중량짐용 후륜 현가장치」 6만
+     (파워트레인 「II LPDi **2WD**」의 「후륜」 때문에 구동으로 오인 · Codex 4회차 추가반례). */
+must(impliedOf({ s: { name: '중량짐용 후륜 현가장치' } }, 'II LPDi 2WD', '스마트').length === 0,
+  '「후륜 현가장치」를 「이미 산 구동」으로 지웁니다 — 6만원짜리 유료 옵션이 사라집니다',
+  'lib/domain/estimate/implied-options.ts PART');
+
+/* 25-4. ★배타그룹(택1)은 합계에서도 하나만 (Codex 4회차 1 · 독립 Claude 5) */
+{
+  const spec: OptionSpec = {
+    optionsMaster: { w19: { name: '19인치', price: 1200000 }, w20: { name: '20인치', price: 3000000 }, cf: { name: '컴포트', price: 900000 } },
+    availableOptions: ['w19', 'w20', 'cf'],
+    exclusiveGroups: [{ id: 'wheel', label: '휠', members: ['w19', 'w20'] }],
+  };
+  const got = optionSum(spec, new Set(['w19', 'w20', 'cf']));
+  must(got === 3900000,
+    `배타그룹을 둘 다 더합니다 — ${got.toLocaleString('ko-KR')}원(나와야 할 값 3,900,000원 = 택1 최대 300만 + 90만)`,
+    'lib/domain/estimate/option-rules.ts optionSum');
+}
+
+/* 25-5. ★차량가는 «세 자리»가 한 값 — 폰 요약도(Codex 4회차 2 · 독립 Claude 3) */
+must(!code('app/estimate/page.tsx').replace(/\s+/g, '').includes('`차량가${man(listPrice)}`'),
+  '폰 고정요약만 «할인 전» 차량가를 씁니다 — 한 카드에 두 값이 뜹니다',
+  'app/estimate/page.tsx vMeta');
 
 if (fails.length) {
   console.error(`\n✗ 견적 로직이 정본과 다릅니다 — ${fails.length}건\n`);

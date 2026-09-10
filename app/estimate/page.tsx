@@ -535,6 +535,7 @@ function EstimatePageInner() {
     price,
     priceBasis: picked.priceBasis,
     saleTaxCredit: taxCredit,
+    evSubsidy: evSub,
     netPrice,
     channel: CHANNELS.find((c) => c.v === ch)!.label,
     endType: TYPES.find((t) => t.v === type)!.label,
