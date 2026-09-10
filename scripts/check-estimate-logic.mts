@@ -77,8 +77,14 @@ must(/ev:\s*\{[^}]*bondExempt:\s*true/.test(cfg),
 must(/fuelCfg\.acqTaxCredit/.test(calc) && /fuelCfg\.bondExempt/.test(calc),
   '엔진이 전기차 감면·면제를 «읽지 않습니다» — 선언만 두면 적용되는 줄 오해합니다',
   'lib/domain/estimate/calc.js');
-must(/const evSubsidy\s*=\s*fuel === 'ev'/.test(calc) && /const netPrice\s*=\s*Math\.max\(0,\s*price - evSubsidy(?: - saleTaxCredit)?\)/.test(calc),
-  '전기차 보조금이 `price` 단계에서 «먼저» 빠지지 않습니다 — 취득세·공채·잔가·보증금이 다 같이 낮은 값 기준이어야 합니다',
+/* ★2026-09-10 규격 변경 — 기준이 «둘»이다(결정 정본 `devcenter/ssot/FREEPASS-QUOTE-BASIS.md`).
+   보조금은 **원가 기준(netPrice)** 에서만 뺀다. 보증금·선납·인수는 **손님 기준(custBase)** 이다.
+   ⚠ 검사를 «먼저» 고친 것이 아니다 — 사장님 판단 → 결정 정본·피드 문서 → 그 다음 이 검사다. */
+must(/const evSubsidy\s*=\s*fuel === 'ev'/.test(calc)
+  && /const netPrice\s*=\s*Math\.max\(0,\s*price - evSubsidy - saleTaxCredit\)/.test(calc)
+  && /const custBase\s*=\s*Math\.max\(0,\s*price - saleTaxCredit\)/.test(calc)
+  && /depositByRate = custBase \*/.test(calc),
+  '원가 기준(netPrice)과 손님 기준(custBase)이 안 갈렸습니다 — 보조금은 «원가에서만» 빼고 보증금은 손님 기준입니다',
   'lib/domain/estimate/calc.js');
 
 /* ── 2. 배기량 — 지어내지 않는다. 못 찾으면 «화면이 묻는다» ───────────── */
@@ -526,9 +532,16 @@ const evBase = { channel: 'rent' as const, type: 'return' as const, price: 48_00
   accident: 'none', group: 'A', residualRates: { 12: 0.85, 24: 0.75, 36: 0.66, 48: 0.58, 60: 0.51 } };
 const evNo = computeTerm(48, evBase) as { residualAmt: number; deposit: number };
 const evYes = computeTerm(48, { ...evBase, evSubsidy: 6_000_000 }) as { residualAmt: number; deposit: number };
-must(evYes.residualAmt < evNo.residualAmt && evYes.deposit < evNo.deposit,
-  '전기차 보조금이 잔가·보증금까지 안 내려갑니다 — `price` 단계에서 «먼저» 빼야 앞뒤가 맞습니다',
+/* ★2026-09-10 규격 변경 — 보조금은 **잔가는 내리고 보증금은 «안» 내린다**.
+   잔가는 우리 원가(중고 EV 시세가 보조금 후 실구매가 위에서 형성된다) · 보증금은 손님이 낼 돈이다.
+   ⚠ 예전 검사는 「보증금도 내려가야」였다. 그러면 EV 만기인수가 348만 깎인다(결정 정본 참조). */
+must(evYes.residualAmt < evNo.residualAmt,
+  '전기차 보조금이 잔가에 안 먹습니다 — 중고 EV 시세는 보조금 후 실구매가 위에서 형성됩니다',
   'lib/domain/estimate/calc.js netPrice');
+must(evYes.deposit === evNo.deposit,
+  `보조금이 «손님» 보증금까지 내립니다 — ${evYes.deposit.toLocaleString('ko-KR')} vs ${evNo.deposit.toLocaleString('ko-KR')}. `
+  + '보조금은 우리가 받는 돈이라 손님 기준에서 빼지 않습니다(348만 차이)',
+  'lib/domain/estimate/calc.js custBase');
 
 /* 4. 연료 정규화 — 영문 「EV」도 전기차다. 「PHEV」는 하이브리드다.
      ⚠ 2026-09-07 전수 검사에서 잡혔다 — 신차마스터가 기아 전기차를 「EV」로 싣는데
@@ -1693,21 +1706,26 @@ must(code('app/api/newcar/route.ts').includes('genesisBasis(S(v.sub_model))'),
      ⇒ 화면이 쓰는 그 셈을 **여기서 직접 해서** 견적서 셈과 맞댄다. 표현이 어떻든 «값»은 못 속인다. */
 {
   const 차량가 = 83290000; const 보조금 = 6000000; const 감면 = 4120000;
-  const net = 차량가 - 보조금 - 감면;                    // 화면·엔진·견적서가 딛는 값
-  must(net === 73170000, `적용가 셈이 틀렸습니다 — ${net}`, 'app/estimate/page.tsx netPrice');
+  const net = 차량가 - 감면;                    // ★손님 기준 — 화면·견적서·보증금이 딛는 값
+  must(net === 79170000, `적용가 셈이 틀렸습니다 — ${net}`, 'app/estimate/page.tsx netPrice');
   /* 선납 10% · 인수 58% 가 «같은 값»에서 나와야 한다. */
-  must(Math.round(net * 0.1) === 7317000 && Math.round(net * 0.58) === 42438600,
-    '선납·인수가 적용가에서 안 나옵니다', 'app/estimate/page.tsx');
+  must(Math.round(net * 0.1) === 7917000 && Math.round(net * 0.58) === 45918600,
+    '선납·인수가 손님 기준에서 안 나옵니다', 'app/estimate/page.tsx');
   /* ★그리고 엔진이 딛는 값과 «같은지» — 엔진을 실제로 돌려 본다. */
   const base = {
     channel: 'rent', type: 'return', price: 차량가, cc: 0, fuel: 'ev', accident: 'none',
     mileage: 0, year: 2026, nowYear: 2026, credit: '중신용',
     depositPct: 10, prepayPct: 0, group: 'B', residualRates: null,
   };
+  const cust = 차량가 - 감면;                              // ★손님이 딛는 값(보조금은 «안» 뺀다)
   const r = computeTerm(48, { ...base, evSubsidy: 보조금, saleTaxCredit: 감면 } as never,
     { idx: 48 } as never) as Record<string, number>;
-  must(Math.round(r.deposit) === Math.round(net * 0.1),
-    `엔진 보증금이 화면 적용가와 다릅니다 — ${Math.round(r.deposit).toLocaleString('ko-KR')} vs ${Math.round(net * 0.1).toLocaleString('ko-KR')}`,
+  must(Math.round(r.deposit) === Math.round(cust * 0.1),
+    `엔진 보증금이 «손님 기준»과 다릅니다 — ${Math.round(r.deposit).toLocaleString('ko-KR')} vs ${Math.round(cust * 0.1).toLocaleString('ko-KR')}`,
+    'lib/domain/estimate/calc.js custBase');
+  /* ★원가는 보조금까지 빠진 값 위에 선다 — 둘이 «갈려» 있어야 한다. */
+  must(Math.round(r.costEx) < Math.round(cust / 1.1),
+    '원가가 손님 기준 위에 섭니다 — 보조금이 원가에서 안 빠졌습니다',
     'lib/domain/estimate/calc.js netPrice');
 }
 
@@ -1785,9 +1803,13 @@ must(!code('app/estimate/page.tsx').replace(/\s+/g, '').includes('`차량가${ma
      넘기는 줄이 빠지면 견적서는 멀쩡한데 손님 문서에 보조금이 안 찍힌다(변이시험에서 안 잡혔다). */
 {
   const pg = code('app/estimate/page.tsx').replace(/\s+/g, '');
+  /* ★★**보조금은 손님 문서에 «안» 적는다**(2026-09-10 결정) — 우리가 받는 돈이고,
+     적으면 달라는 이야기가 된다. 그래서 넘기는 것은 세제감면과 적용가 둘뿐이다. */
+  must(!pg.includes('evSubsidy:evSub'),
+    '손님 견적서에 전기차 보조금을 넘깁니다 — 우리가 받는 돈은 손님 문서에 안 적습니다',
+    'app/estimate/page.tsx quoteDoc');
   for (const [field, why] of [
     ['saleTaxCredit:taxCredit', '세제혜택'],
-    ['evSubsidy:evSub', '전기차 보조금'],
     ['netPrice,', '적용가'],
   ] as [string, string][]) {
     must(pg.includes(field),

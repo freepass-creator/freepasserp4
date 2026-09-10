@@ -431,8 +431,10 @@ function EstimatePageInner() {
        `price − 전기차보조금 − 판매가격세제감면` 이고, 보증금이 그 위에서 나온다.
        화면이 보조금을 안 빼면 보증금만 엔진 기준, 선납·인수는 화면 기준이 되어 또 갈린다
        (2026-09-10 개발센터 4-AI 관문 · Codex 발견 1 — 선납금이 412,000원 어긋나 월납이 9,000원 낮았다). */
-  const evSub = isNew && picked.fuel === 'ev' ? Math.max(0, Number(cost.evSubsidy) || 0) : 0;
-  const netPrice = Math.max(0, price - evSub - taxCredit);
+  /* ★★**보조금은 «우리» 돈이라 손님 기준에서 빼지 않는다**(사장님 2026-09-10).
+     원가 쪽은 엔진이 `evSubsidy` 로 따로 빼고 있다(`calc.js` netPrice) — 여기 손대지 않는다.
+     ⚠ 되돌리려면 아래 줄에 `- evSub` 를 더하면 된다(그러면 EV 만기인수가 348만 내려간다). */
+  const netPrice = Math.max(0, price - taxCredit);
   const age = isNew ? 0 : Math.max(0, nowYear - (usedYear || nowYear));
   const cc = picked.cc ?? (manualCc || null);
   const needCc = !picked.cc;
@@ -535,7 +537,6 @@ function EstimatePageInner() {
     price,
     priceBasis: picked.priceBasis,
     saleTaxCredit: taxCredit,
-    evSubsidy: evSub,
     netPrice,
     channel: CHANNELS.find((c) => c.v === ch)!.label,
     endType: TYPES.find((t) => t.v === type)!.label,
