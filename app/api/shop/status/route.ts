@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import { firestoreAdminRef } from '@/lib/server/firestore-ref-shim';
-import { firebaseAdminDatabase } from '@/lib/server/firebase-admin';
 import { OPS_PIPELINE_PATH, type OpsPipelineStatus } from '@/lib/ops-status';
 
 /**
@@ -87,30 +86,23 @@ function stampKo(ms: number): string {
  *   「재고가 «언제 것»인가」다 — 실패한 회차를 세면 그 답이 거짓이 된다.
  * ⚠ 하나도 성공한 게 없으면 `null` — 오늘 날짜로 대신 채우지 않는다(위 머리말).
  *
- * ## ⚠⚠ **«쓰는 곳»에서 읽는다 — 사본이 아니라**
+ * ## ★★파이어스토어 «한 곳»만 읽는다 — RTDB 는 안 쓴다
  *
- *   두 연동(`sheet-daily-sync` · `publish-ops-status`)은 **RTDB 에 적는다.** 그런데 이 라우트는
- *   Firestore 심(`firestoreAdminRef`)으로만 읽고 있었고, **그 사본이 2026-09-05 에 멈춰** 있었다.
- *   ⇒ 실측 — 같은 자리를 두 곳에서 읽으면 `RTDB 09-11 03:22` · `Firestore 09-05 02:01`.
- *   ⇒ 그래서 **두 곳을 다 읽고 가장 최근을 쓴다.** 이관이 끝나 사본이 정본이 되어도 이 코드는
- *     그대로 맞는다 — 어느 쪽이 앞서든 최신이 이긴다(`docs/PLAN` 이관 중이라 한동안 둘이 공존한다).
+ *   사장님 2026-09-10 「그냥 **RTDB 는 아예 안 쓴다**고 이제 좀 제발 좀」.
+ *
+ * ⚠ 한때 여기서 두 원장을 다 읽었다. 연동이 RTDB 에만 적고 파이어스토어 사본이 9/5 에 멈춰 있어
+ *   화면이 엿새 묵은 날짜를 보여 줬기 때문이다. **그건 읽는 쪽에서 때울 일이 아니었다** —
+ *   ⇒ **적는 쪽**(`lib/server/sheet-daily-sync` 의 `writeRun`)이 파이어스토어에도 남기도록 고쳤다.
+ * ★그래서 여기는 한 곳만 본다. **원장이 하나면 「어느 게 맞나」를 물을 일이 없다.**
  */
 async function loadUpdated(): Promise<{ ms: number; at: string } | null> {
-  /** 같은 자리를 «두 원장»에서 본다 — 이관 중이라 어느 쪽이 앞설지 모른다. */
-  const readers = [
-    (path: string) => firebaseAdminDatabase().ref(path).get(),
-    (path: string) => firestoreAdminRef().ref(path).get(),
-  ];
   const pick = async (path: string, read: (v: Record<string, unknown>) => number): Promise<number> => {
-    const got = await Promise.all(readers.map(async (get) => {
-      try {
-        const v = (await get(path)).val() as Record<string, unknown> | null;
-        if (!v || typeof v !== 'object') return 0;
-        const ms = read(v);
-        return Number.isFinite(ms) && ms > 0 ? ms : 0;
-      } catch { return 0; }
-    }));
-    return Math.max(0, ...got);
+    try {
+      const v = (await firestoreAdminRef().ref(path).get()).val() as Record<string, unknown> | null;
+      if (!v || typeof v !== 'object') return 0;
+      const ms = read(v);
+      return Number.isFinite(ms) && ms > 0 ? ms : 0;
+    } catch { return 0; }
   };
 
   const [daily, ops] = await Promise.all([
