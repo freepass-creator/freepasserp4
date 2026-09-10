@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { firestoreAdminRef } from '@/lib/server/firestore-ref-shim';
+import { firebaseAdminDatabase } from '@/lib/server/firebase-admin';
 import { OPS_PIPELINE_PATH, type OpsPipelineStatus } from '@/lib/ops-status';
 
 /**
@@ -54,15 +55,76 @@ function weatherText(code: number): string {
   return '';
 }
 
+/** 재고를 채우는 «날마다 도는» 연동이 회차를 닫는 자리(`lib/server/sheet-daily-sync`). */
+const DAILY_SYNC_PATH = 'v4/system_status/sheet_daily_sync';
+
+/** 한국 시각으로 「9. 11. 03:22」 — 화면이 쓰는 꼴 그대로. */
+function stampKo(ms: number): string {
+  const d = new Date(ms + 9 * 3_600_000);
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`;
+}
+
+/**
+ * **재고를 마지막으로 갱신한 시각 — «성공한 회차»만 센다.**
+ *
+ * ★★사장님 2026-09-10 「마지막 연동일이 **9월 4일**로 나오는데 저거 실제 연동일로 바꿔야 되거든?
+ *   저 연동일이 모든 데 뿌려진 건데 **왜 저거만 9월 4일**로 나오냐는 거야」.
+ *
+ * ⚠⚠ **엉뚱한 기록을 읽고 있었다.** 실측 2026-09-11:
+ * ```
+ *   v4/system_status/sheet_daily_sync   09-11 03:22   completed   ← 재고를 «실제로» 채우는 연동
+ *   v4/system_status/sheet_live_status  09-06 11:56   failed
+ *   v4/ops/pipeline                     09-04 21:38   ok:false    ← 가게가 읽던 것
+ * ```
+ *   `ops/pipeline` 은 **손으로 돌리는 시간별 파이프라인**이라 9/4 이후 안 돌았고, 그마저
+ *   실패로 끝나 있었다. 그런데 날마다 도는 시트 연동은 **오늘 새벽에도 정상으로 끝났다.**
+ *   ⇒ 손님은 「재고가 엿새 묵었다」고 읽었지만 실제 재고는 그날 것이었다.
+ *
+ * ★그래서 **둘을 다 보고 «성공한 것 중 가장 최근»을 준다.** 어느 쪽이 돌든 시각이 살아 있고,
+ *   나중에 파이프라인이 하나 더 늘어도 이 목록에 한 줄만 보태면 된다.
+ * ⚠ **실패한 회차는 안 센다.** 「마지막 연동일」은 「마지막으로 «시도»한 날」이 아니라
+ *   「재고가 «언제 것»인가」다 — 실패한 회차를 세면 그 답이 거짓이 된다.
+ * ⚠ 하나도 성공한 게 없으면 `null` — 오늘 날짜로 대신 채우지 않는다(위 머리말).
+ *
+ * ## ⚠⚠ **«쓰는 곳»에서 읽는다 — 사본이 아니라**
+ *
+ *   두 연동(`sheet-daily-sync` · `publish-ops-status`)은 **RTDB 에 적는다.** 그런데 이 라우트는
+ *   Firestore 심(`firestoreAdminRef`)으로만 읽고 있었고, **그 사본이 2026-09-05 에 멈춰** 있었다.
+ *   ⇒ 실측 — 같은 자리를 두 곳에서 읽으면 `RTDB 09-11 03:22` · `Firestore 09-05 02:01`.
+ *   ⇒ 그래서 **두 곳을 다 읽고 가장 최근을 쓴다.** 이관이 끝나 사본이 정본이 되어도 이 코드는
+ *     그대로 맞는다 — 어느 쪽이 앞서든 최신이 이긴다(`docs/PLAN` 이관 중이라 한동안 둘이 공존한다).
+ */
 async function loadUpdated(): Promise<{ ms: number; at: string } | null> {
-  try {
-    const snap = await firestoreAdminRef().ref(OPS_PIPELINE_PATH).get();
-    const v = snap.val() as OpsPipelineStatus | null;
-    if (!v || typeof v !== 'object') return null;
-    const ms = Number(v.updatedMs);
-    if (!Number.isFinite(ms) || ms <= 0) return null;
-    return { ms, at: String(v.updatedAt || '') };
-  } catch { return null; }
+  /** 같은 자리를 «두 원장»에서 본다 — 이관 중이라 어느 쪽이 앞설지 모른다. */
+  const readers = [
+    (path: string) => firebaseAdminDatabase().ref(path).get(),
+    (path: string) => firestoreAdminRef().ref(path).get(),
+  ];
+  const pick = async (path: string, read: (v: Record<string, unknown>) => number): Promise<number> => {
+    const got = await Promise.all(readers.map(async (get) => {
+      try {
+        const v = (await get(path)).val() as Record<string, unknown> | null;
+        if (!v || typeof v !== 'object') return 0;
+        const ms = read(v);
+        return Number.isFinite(ms) && ms > 0 ? ms : 0;
+      } catch { return 0; }
+    }));
+    return Math.max(0, ...got);
+  };
+
+  const [daily, ops] = await Promise.all([
+    pick(DAILY_SYNC_PATH, (v) => (String(v.status) === 'completed' ? Number(v.finished_at) : 0)),
+    pick(OPS_PIPELINE_PATH, (v) => {
+      const s = v as unknown as OpsPipelineStatus;
+      /* `ok === false` 는 «실패로 끝난 회차»다. 아직 도는 중(`running`)이면 아직 갱신이 아니다. */
+      return s.ok === false || s.running ? 0 : Number(s.updatedMs);
+    }),
+  ]);
+
+  const ms = Math.max(daily, ops);
+  if (!ms) return null;
+  return { ms, at: stampKo(ms) };
 }
 
 async function loadWeather(): Promise<{ temp: number; text: string } | null> {
