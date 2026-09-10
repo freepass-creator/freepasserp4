@@ -590,6 +590,14 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
                   {rows === null ? '불러오는 중입니다' : '왼쪽에서 조건을 골라 좁혀 보세요'}
                 </span>
               )}
+              {/*
+                ★★**폰은 «대수 바로 뒤»다**(사장님 2026-09-10 「모바일은 **전체 대수 뒤에**
+                  업데이트 시간 적어놓자」). 여백으로 밀어 오른쪽 끝에 두면 정렬 고르개와 붙어
+                  «고르는 것» 무리로 읽힌다 — 갱신 시각은 고르는 게 아니라 **그 숫자의 꼬리표**다.
+                ⚠ 그래서 여백(`flex:1`)보다 **앞**에 둔다. 웹은 기둥이 달라 아래가 아니라
+                  조건칸 머리에서 우측정렬로 붙는다(같은 규칙, 다른 줄).
+              */}
+              {mobile && head.updatedMs ? <ShopUpdatedStamp label={updatedLabelKo(head.updatedMs)} /> : null}
               <div style={{ flex: 1 }} />
               {/*
                 ★★**갱신 시각은 «건수 오른쪽»이다** — 그런데 «건수가 어느 줄에 있느냐»가 폰과 웹이 다르다.
@@ -598,7 +606,6 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
                 ⚠ 이 갈림을 안 두면 웹에서 스탬프가 «건수와 다른 기둥»에 홀로 선다 — 2026-09-10 까지 그랬다.
                 ★맨 오른쪽은 손이 가는 것(정렬)이 갖는다. 스탬프는 그 왼쪽이다.
               */}
-              {mobile && head.updatedMs ? <ShopUpdatedStamp label={updatedLabelKo(head.updatedMs)} /> : null}
               <ShopSort value={query.sort} options={SHOP_SORTS}
                 onChange={(v) => setQuery((q) => ({ ...q, sort: v as ShopSortKey }))} />
             </div>
