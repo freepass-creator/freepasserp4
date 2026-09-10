@@ -121,8 +121,11 @@ const supplierIngest = readFileSync('scripts/ingest-supplier-to-firestore.mts', 
 const inventoryEditor = readFileSync('features/inventory/useInventoryEditorLifecycle.ts', 'utf8');
 const storeSource = readFileSync('lib/store.ts', 'utf8');
 const firestoreRules = readFileSync('firestore.rules', 'utf8');
+const duplicateAudit = readFileSync('lib/server/product-duplicate-audit.ts', 'utf8');
 assert.match(storeSource, /room: 'rooms', message: 'messages'/, '채팅 엔티티는 이관된 복수형 Firestore 컬렉션을 사용한다');
 assert.match(firestoreRules, /col == 'rooms'[\s\S]{0,80}col == 'messages'/, '채팅 Rules가 실제 복수형 컬렉션을 허용한다');
+assert.match(duplicateAudit, /db\.ref\('quote'\)/, '중복 감사도 단수형 quote 정본을 읽는다');
+assert.doesNotMatch(duplicateAudit, /db\.ref\('(?:v4\/)?quotes'\)/, '폐기된 quotes 경로를 다시 읽지 않는다');
 assert.match(inventoryEditor, /if \(previous\)[\s\S]*update\('product'[\s\S]*else[\s\S]*save\('product'/);
 assert.doesNotMatch(inventoryEditor, /save\('product'[\s\S]{0,200}update\('product'/);
 assert.match(storeSource, /entityKey === 'product' && key && await this\.get\('product'/);

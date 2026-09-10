@@ -25,6 +25,7 @@ const PHASES = {
     'policy', 'spec', 'plate_registry', 'sheet_conflict_resolutions',
   ],
   identity: ['partner', 'partners_private', 'user', 'users_private'],
+  operations: ['quote', 'ops', 'inventory_sync_runs', 'inventory_sync_control', 'settlement_issuance', 'sheet_sync_exclusions'],
   business: [
     'rooms', 'messages',
     'customer', 'contract', 'contract_sign', 'settlement', 'settlement_rows',
@@ -35,6 +36,10 @@ const PHASES = {
     'esign_issue_claims', 'esign_manual_offers',
   ],
 } as const;
+
+// 기존 프로젝트는 읽기 전용 증거 보관소로 유지한다. 이 과거 이력은 당시 프로젝트의
+// 쓰기와 롤백을 설명하는 자료라 새 운영 프로젝트에 섞지 않는다.
+const ARCHIVE_ONLY_COLLECTIONS = ['audit_logs', 'sheet_sync_backups'] as const;
 
 const APPLY = process.argv.includes('--apply');
 const VERIFY = process.argv.includes('--verify');
@@ -212,5 +217,6 @@ for (const collectionName of collections) {
 }
 
 console.log(`${VERIFY ? 'VERIFIED' : REFRESH ? 'REFRESHED' : RESUME ? 'RESUMED' : APPLY ? 'APPLIED' : 'DRY_RUN'} phase=${phaseArg} collections=${collections.length} documents=${total} held=${held} failures=${verifyFailures}`);
+console.log(`archive_only=${ARCHIVE_ONLY_COLLECTIONS.join(',')} source_project_retained=true`);
 await Promise.all([deleteApp(sourceApp), deleteApp(destApp)]);
 if (verifyFailures) process.exit(1);

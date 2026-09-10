@@ -144,7 +144,7 @@ function relationOperations(
   duplicateKey: string,
   representativeKey: string,
 ): DuplicateDryRunOperation[] {
-  const node = entity === 'contract' ? 'contracts' : entity === 'room' ? 'rooms' : 'quotes';
+  const node = entity === 'contract' ? 'contracts' : entity === 'room' ? 'rooms' : 'quote';
   return rows.flatMap((row) => {
     const fields = matchingFields(row, duplicateKey);
     const key = relationKey(entity, row);

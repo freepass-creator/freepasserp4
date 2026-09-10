@@ -26,6 +26,7 @@ function firestore(): Firestore | null {
     const raw = String(process.env.FIREBASE_SERVICE_ACCOUNT_JSON || '').trim();
     const hasFile = String(process.env.GOOGLE_APPLICATION_CREDENTIALS || '').trim();
     const emulator = String(process.env.FIRESTORE_EMULATOR_HOST || '').trim();
+    const configuredProjectId = String(process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || '').trim();
     if (!raw && !hasFile && !emulator) return null;
     const name = 'ops-status-firestore';
     let app: App | undefined = getApps().find((item) => item.name === name);
@@ -35,6 +36,9 @@ function firestore(): Firestore | null {
         client_email?: string;
         private_key?: string;
       } : null;
+      if (!emulator && configuredProjectId && parsed?.project_id && parsed.project_id !== configuredProjectId) {
+        throw new Error(`Firebase 프로젝트 불일치: client=${configuredProjectId}, service=${parsed.project_id}`);
+      }
       app = initializeApp(emulator ? {
         projectId: process.env.GCLOUD_PROJECT || process.env.GOOGLE_CLOUD_PROJECT || 'demo-freepass-path-store',
       } : {
@@ -46,6 +50,9 @@ function firestore(): Firestore | null {
           })
           : applicationDefault(),
       }, name);
+    }
+    if (!emulator && configuredProjectId && app.options.projectId && app.options.projectId !== configuredProjectId) {
+      throw new Error(`Firebase 프로젝트 불일치: client=${configuredProjectId}, service=${app.options.projectId}`);
     }
     store = getFirestore(app);
     return store;
