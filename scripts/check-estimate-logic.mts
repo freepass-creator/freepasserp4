@@ -1279,11 +1279,15 @@ for (const f of ['scripts/backfill-newcar-names.mts', 'scripts/ingest-newcar-opt
          구동 그룹이 «없는» 라인업은 구동이 base 에 박힌 것이지 «없는» 것이 아니다.
      ⇒ 정본이 «사람 말»로 적어 둔 세 자리를 읽는다(`baseConfig` · 엔진 `note` · `conditionals`). */
 {
+  /* ⚠ **겹치는 항목을 빼지 않는다.** 정본 사전에는 「AWD」와 「드라이빙어시Ⅱ(AWD)」가 같이 있고,
+     그것을 빼 놓았더니 §18 이 초록인데 GV80 블랙이 AWD 300만을 또 팔고 있었다(2026-09-10 Codex). */
   const om = {
     ecs: { name: '프리뷰 전자제어 서스펜션', price: 1100000 },
     awd: { name: 'AWD', price: 3000000 },
     bo: { name: '뱅앤올룹슨', price: 1900000 },
     pano: { name: '파노라마 선루프', price: 1400000 },
+    d2a: { name: '드라이빙어시Ⅱ(2WD)', price: 2000000 },
+    d2b: { name: '드라이빙어시Ⅱ(AWD)', price: 2700000 },
   };
   const rows = expandGenesis([{
     maker: '제네시스', sub_model: 'G80', fuel: '가솔린', priceBefore: 0, priceAfter: 0,
@@ -1397,6 +1401,76 @@ for (const f of ['scripts/backfill-newcar-names.mts', 'scripts/ingest-newcar-opt
   must(impliedOf({ d: { name: '전자제어 풀타임 4WD' } }, '가솔린 2.5 터보', 'AWD').length === 1,
     '진짜 구동(「전자제어 풀타임 4WD」)까지 안 걸러냅니다 — 구동값을 또 받습니다',
     'lib/domain/estimate/implied-options.ts impliedByTrim');
+}
+
+/* ══ 21. ★★★2026-09-10 개발센터 4-AI 관문 «재검토»에서 잡힌 것 ═════════════════
+     앞 회차를 고치면서 **새로 만든 균열**과, 내가 **조작한 검사**가 드러났다. */
+
+/* 21-1. ★★★**화면과 견적서가 «같은 값»을 쓴다** (Codex 발견 1·2)
+     견적서만 감면 후(`netPrice`)로 옮기고 화면 카드(선납·만기인수·손익)를 `price` 로 남겨,
+     한 견적에서 인수가가 **239만** 갈렸다(EV9 48개월: 화면 4,831만 vs 견적서 4,592만).
+     ⚠ 「기준이 하나」는 **문서 안»에서만»이 아니라 화면과 문서 «사이»에서도** 지켜야 한다. */
+{
+  const pg = code('app/estimate/page.tsx');
+  for (const what of ['sc.pre / 100', 'buyoutPct[sc.term] / 100']) {
+    const line = pg.split('\n').find((l) => l.includes(what)) ?? '';
+    must(line.includes('netPrice'),
+      `화면 카드가 «감면 전» 값으로 셉니다 — 견적서와 갈립니다(${what})`, 'app/estimate/page.tsx');
+  }
+  must(!/Math\.round\(price \* (sc\.pre|buyoutPct)/.test(pg),
+    '화면에 «감면 전» 기준이 남아 있습니다 — 손님이 두 값을 보게 됩니다', 'app/estimate/page.tsx');
+}
+
+/* 21-2. ★★★**검사를 조작하지 않는다** — §18 은 «겹치는 항목을 뺀» 사전으로 초록을 냈다.
+     정본의 진짜 사전에는 「AWD」와 「드라이빙어시Ⅱ(AWD)」가 **같이** 있고, 그러면
+       · `matchIncluded('AWD')` 가 둘에 걸려 **못 찾고** → GV80 블랙이 AWD **300만**을 또 판다
+       · `matchIncluded('드라Ⅱ')` 가 **2WD 항목**을 집어 → AWD용 드라Ⅱ **270만**을 또 판다
+     (2026-09-10 Codex 발견 4 · 앞 회차 반례가 «죽지 않았다»).
+     ⇒ 아래 사전은 GV80 정본 `options.individual` 그대로다. 빼지 않는다. */
+{
+  const real = {
+    awd: 'AWD', pano: '파노라마 선루프', hud: '헤드업 디스플레이', conv: '컨비니언스 패키지',
+    d1: '드라이빙어시Ⅰ', d2a: '드라이빙어시Ⅱ(2WD)', d2b: '드라이빙어시Ⅱ(AWD)',
+    rear: '후석컴포트 패키지', bo: '뱅앤올룹슨', cam: '빌트인캠',
+  };
+  must(matchIncluded('AWD', real, 'AWD') === 'awd',
+    `이름이 «똑같은데» 못 찾습니다 — ${matchIncluded('AWD', real, 'AWD') ?? '(못 찾음)'}. GV80 블랙이 AWD 300만을 또 팝니다`,
+    'lib/domain/estimate/genesis-included.ts matchIncluded');
+  must(matchIncluded('드라Ⅱ', real, 'AWD') === 'd2b' && matchIncluded('드라Ⅱ', real, '2WD(후륜)') === 'd2a',
+    `구동이 갈리는 항목을 «그 줄의 구동»으로 안 고릅니다 — AWD줄에서 ${matchIncluded('드라Ⅱ', real, 'AWD')}. AWD용 270만을 또 팝니다`,
+    'lib/domain/estimate/genesis-included.ts matchIncluded');
+  /* ⚠ 구동을 «모르면» 고르지 않는다 — 지어내면 진짜 옵션이 사라진다. */
+  must(matchIncluded('드라Ⅱ', real, '') === undefined,
+    '구동을 모르는데 둘 중 하나를 «지어냅니다»', 'lib/domain/estimate/genesis-included.ts matchIncluded');
+}
+
+/* 21-3. ★★구동은 «트림»에만 있는 게 아니다 (Codex 발견 5)
+     아이오닉6·아이오닉9 는 파워트레인 쪽에 붙는다(「전기 롱레인지 AWD」·트림은 「Prestige」).
+     트림만 보면 **HTRAC 247만을 또 판다.** */
+must(impliedOf({ htrac: { name: 'HTRAC (상시 4륜 구동)' } }, '전기 롱레인지 AWD', 'Prestige').length === 1,
+  '파워트레인에 든 구동을 못 봅니다 — 아이오닉6 에서 HTRAC 247만을 또 팝니다',
+  'lib/domain/estimate/implied-options.ts impliedOf');
+must(impliedOf({ htrac: { name: 'HTRAC' } }, '전기 롱레인지 2WD', 'Prestige').length === 0,
+  '2WD 줄에서 HTRAC 를 「이미 샀다」고 지웁니다 — 진짜 유료 옵션입니다',
+  'lib/domain/estimate/implied-options.ts impliedOf');
+
+/* 21-4. ★★**마지막 빗장은 «고를 수 있는 것»만 센다** (Codex 발견 3)
+     예전 빗장은 「이미 산 것」만 막고, «그 트림에서 안 파는 것»·«규칙을 어긴 것»은 그대로 더했다. */
+{
+  const 금지: OptionSpec = {
+    optionsMaster: { f: { name: '3.5T 전용 휠', price: 700000 }, ok: { name: '컴포트 I', price: 900000 } },
+    availableOptions: ['ok'],
+  };
+  must(optionSum(금지, new Set(['f', 'ok'])) === 900000,
+    `안 파는 옵션이 합계에 듭니다 — ${optionSum(금지, new Set(['f', 'ok'])).toLocaleString('ko-KR')}원(나와야 할 값 900,000원)`,
+    'lib/domain/estimate/option-rules.ts optionSum');
+  const 선행: OptionSpec = {
+    optionsMaster: { a: { name: 'A', price: 100 }, b: { name: 'B', price: 200, requires: ['a'] } },
+    availableOptions: ['a', 'b'],
+  };
+  must(optionSum(선행, new Set(['b'])) === 0 && optionSum(선행, new Set(['a', 'b'])) === 300,
+    '선행을 안 갖춘 옵션이 합계에 듭니다 — 있을 수 없는 차의 값이 나갑니다',
+    'lib/domain/estimate/option-rules.ts optionSum');
 }
 
 if (fails.length) {

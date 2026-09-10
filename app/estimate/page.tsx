@@ -423,7 +423,10 @@ function EstimatePageInner() {
    */
   const taxCredit = isNew && listPrice > 0
     ? Math.round((picked.saleTaxCredit ?? 0) * (price / listPrice)) : 0;
-  /** 돈이 도는 값 — 보증금·선납·인수·원가가 다 이 위에 선다. */
+  /** 돈이 도는 값 — 보증금·선납·인수·원가가 다 이 위에 선다.
+   *  ⚠⚠ **화면과 견적서가 «같은 값»을 써야 한다.** 2026-09-09 에 견적서만 여기로 옮기고
+   *    화면 카드(선납·만기인수·손익)를 `price` 로 남겨, 한 견적에서 인수가가 **239만** 갈렸다
+   *    (EV9 48개월 · 개발센터 4-AI 관문 Codex 발견 1·2). 세 자리를 한꺼번에 옮긴다. */
   const netPrice = Math.max(0, price - taxCredit);
   const age = isNew ? 0 : Math.max(0, nowYear - (usedYear || nowYear));
   const cc = picked.cc ?? (manualCc || null);
@@ -778,7 +781,7 @@ function EstimatePageInner() {
     <div className="qgrid">
       {scen.map((sc, i) => {
         const c = lines[i];
-        const v = pnl(c, Math.round(price * sc.pre / 100));
+        const v = pnl(c, Math.round(netPrice * sc.pre / 100));
         const cogs = v.rev - v.opProfit;
         const isOpen = openTerm === sc.term;
         return (
@@ -812,7 +815,7 @@ function EstimatePageInner() {
             </div>
 
             <div className="term-card__row"><span>보증금</span><b>{man(c.deposit || 0)}</b></div>
-            <div className="term-card__row"><span>선납금</span><b>{man(Math.round(price * sc.pre / 100))}</b></div>
+            <div className="term-card__row"><span>선납금</span><b>{man(Math.round(netPrice * sc.pre / 100))}</b></div>
             {/* ★★잔가 둘 — 사장님 2026-09-08 「그 **해당 기간에 잔가를 직접 넣을 수 있게끔**」
                    「잔가는 내부에서 **견적용 잔가와 손님 인수용 잔가가 2개**가 있음」
                 · 견적 잔가 = **대여료를 만드는** 값(낮출수록 월납이 올라간다)
@@ -837,7 +840,7 @@ function EstimatePageInner() {
             </div>
             <div className="term-card__row">
               <span>만기인수</span>
-              <b>{priceKnown ? man(Math.round(price * buyoutPct[sc.term] / 100)) : '—'}</b>
+              <b>{priceKnown ? man(Math.round(netPrice * buyoutPct[sc.term] / 100)) : '—'}</b>
             </div>
 
             {/* 수익·원가 — 이 칸의 «장부» 세 줄. 뺄셈이 눈으로 맞는다(매출 − 원가 = 영업이익). */}

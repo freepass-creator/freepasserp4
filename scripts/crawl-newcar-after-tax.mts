@@ -60,9 +60,17 @@ export function afterTaxPairs(html: string): AfterTax[] {
     const trim = (/([가-힣A-Za-z0-9][가-힣A-Za-z0-9 ()+.\-]{0,24})\s*$/.exec(head)?.[1] ?? '').trim();
     out.push({ trim, before, after });
   }
-  // 같은 짝이 여러 번 찍힌다(탭·요약) — 「전가」로 하나만 남긴다.
+  /* 같은 짝이 여러 번 찍힌다(탭·요약) — 「전가」로 하나만 남긴다.
+     ⚠⚠ 단, **같은 전가에 «다른» 후가**가 오면 첫 값으로 덮지 않고 **둘 다 버린다** —
+       덮으면 남의 트림 감면이 붙는다(2026-09-10 개발센터 4-AI 관문 · Codex 발견 8). */
   const seen = new Map<number, AfterTax>();
-  for (const p of out) if (!seen.has(p.before)) seen.set(p.before, p);
+  const bad = new Set<number>();
+  for (const p of out) {
+    const prev = seen.get(p.before);
+    if (prev && prev.after !== p.after) { bad.add(p.before); continue; }
+    if (!prev) seen.set(p.before, p);
+  }
+  for (const b of bad) seen.delete(b);
   return [...seen.values()];
 }
 

@@ -110,22 +110,41 @@ const N = (s: string) => S(s).toLowerCase().replace(/[\s\-_()·.]/g, '');
 
 /**
  * 이름 조각 하나가 옵션 사전의 어느 항목인가 — **확실할 때만** 답한다.
- * ⚠ 못 찾으면 `undefined`. 넘겨 짚어 지우면 유료 옵션이 사라진다(Codex #7 의 교훈).
+ * ⚠ 못 찾으면 `undefined`. 넘겨 짚어 지우면 유료 옵션이 사라진다.
+ * @param drive 그 줄의 구동(「AWD」·「2WD」) — 구동이 갈리는 항목을 고를 때 쓴다.
  */
-export function matchIncluded(piece: string, names: Record<string, string>): string | undefined {
+export function matchIncluded(piece: string, names: Record<string, string>, drive = ''): string | undefined {
   const p = N(piece);
   if (p.length < 2) return undefined;
   const cands = Object.entries(names);
-  /* ① 별칭표가 먼저다 — 줄임말은 부분일치로 안 잡힌다. */
+  /* ⓪ ★**이름이 «똑같으면» 그것이다.** 이게 없어서 「AWD」가 「드라이빙어시Ⅱ(AWD)」와 겹쳐
+     못 찾았고, GV80 블랙에서 **AWD 300만을 다시 팔았다**(2026-09-09 Codex 발견 4). */
+  const exact = cands.filter(([, nm]) => N(nm) === p);
+  if (exact.length === 1) return exact[0][0];
+
+  /* 구동이 갈리는 항목(「드라이빙어시Ⅱ(2WD)」·「(AWD)」)은 **그 줄의 구동**으로 고른다.
+     ⚠ 예전에는 `find()` 가 «첫 값»을 집어 AWD 줄에 **2WD 항목**을 기본포함으로 붙였다 —
+       그러면 진짜 필요한 AWD 항목(270만)을 다시 판다. */
+  const dk = /AWD|4WD|사륜/i.test(drive) ? 'awd' : /2WD|후륜|전륜/i.test(drive) ? '2wd' : '';
+  const driveOf = (nm: string) => (/AWD|4WD|사륜/i.test(nm) ? 'awd' : /2WD|후륜|전륜/i.test(nm) ? '2wd' : '');
+  const fit = (list: [string, string][]) => {
+    if (list.length <= 1) return list;
+    const split = list.filter(([, nm]) => driveOf(nm));
+    if (!split.length || !dk) return list;
+    const keep = list.filter(([, nm]) => !driveOf(nm) || driveOf(nm) === dk);
+    return keep;
+  };
+
+  /* ① 별칭표 — 줄임말은 부분일치로 안 잡힌다. */
   for (const [k, fulls] of Object.entries(ALIAS)) {
     if (!p.startsWith(N(k))) continue;
     const suffix = p.slice(N(k).length);              // 「드라Ⅰ」 → 「Ⅰ」
     for (const full of fulls) {
-      const hit = cands.find(([, nm]) => N(nm).startsWith(N(full)) && (!suffix || N(nm).includes(suffix)));
-      if (hit) return hit[0];
+      const hits = fit(cands.filter(([, nm]) => N(nm).startsWith(N(full)) && (!suffix || N(nm).includes(suffix))));
+      if (hits.length === 1) return hits[0][0];
     }
   }
-  /* ② 그 다음이 부분일치 — «조각이 이름 안에» 있을 때만(반대는 위험하다). */
-  const hits = cands.filter(([, nm]) => N(nm).includes(p));
+  /* ② 부분일치 — «조각이 이름 안에» 있을 때만. 갈리면 «안 고른다»(지우면 유료 옵션이 사라진다). */
+  const hits = fit(cands.filter(([, nm]) => N(nm).includes(p)));
   return hits.length === 1 ? hits[0][0] : undefined;
 }

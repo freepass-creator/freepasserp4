@@ -115,7 +115,11 @@ export function impliedOf(
   fuel: string,
   trim: string,
 ): string[] {
+  /* ★★**구동은 트림에만 있는 게 아니다.** 아이오닉6·아이오닉9 는 파워트레인 쪽에 붙는다
+     (「전기 롱레인지 AWD」 · 트림은 「Prestige」). 트림만 보면 **HTRAC 247만을 또 판다**
+     (2026-09-09 개발센터 4-AI 관문 · Codex 발견 5). 둘을 합쳐 본다. */
+  const where = `${S(trim)} ${S(fuel)}`;
   return Object.entries(om ?? {})
-    .filter(([id, o]) => impliedByFuel(id, o, fuel) || impliedByTrim(id, o, trim))
+    .filter(([id, o]) => impliedByFuel(id, o, fuel) || impliedByTrim(id, o, where))
     .map(([id]) => id);
 }

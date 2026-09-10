@@ -202,8 +202,11 @@ export function expandGenesis<T extends { maker?: string; sub_model?: string; fu
       let implied: string[] | undefined;
       if (om) {
         const names = Object.fromEntries(Object.entries(om).map(([id, o]) => [id, S(o.name)]));
-        const byName = (r.included ?? []).map((p) => matchIncluded(p, names)).filter(Boolean) as string[];
-        implied = [...new Set([...impliedOf(om, r.fuel, r.trim), ...byName])];
+        /* ★그 줄의 «구동»을 같이 넘긴다 — 「드라이빙어시Ⅱ(2WD)/(AWD)」처럼 구동이 갈리는 항목을
+           구동 모르고 고르면 AWD 줄에 2WD 항목이 붙어 진짜 필요한 270만을 다시 판다. */
+        const rowDrive = `${r.trim} ${(r.included ?? []).join(' ')}`;
+        const byName = (r.included ?? []).map((p) => matchIncluded(p, names, rowDrive)).filter(Boolean) as string[];
+        implied = [...new Set([...impliedOf(om, r.fuel, `${r.trim} ${r.fuel}`), ...byName])];
       }
       out.push({
         ...t, fuel: r.fuel, trim: r.trim, priceBefore: r.price, priceAfter: r.price,

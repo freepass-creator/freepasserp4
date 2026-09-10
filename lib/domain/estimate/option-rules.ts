@@ -111,9 +111,14 @@ export function optionSum(s: OptionSpec, chosen: ReadonlySet<string>): number {
   const om = s.optionsMaster ?? {};
   /* ★★**마지막 빗장**이다. 목록·토글을 뚫고 들어와도(저장된 옛 선택·URL·버그) 돈은 안 나간다.
      빗장을 «세 군데» 거는 까닭 — 하나만 걸면 다음 사람이 그 하나를 지나치는 길을 만든다. */
-  const implied = new Set(s.impliedOptions ?? []);
+  /* ⚠⚠ **빗장이 반쪽이었다.** 「이미 산 것」만 막고 «그 트림에서 안 파는 것»과 «규칙을 어긴 것»은
+     그대로 더했다 — `availableOptions: []` 인데 금지 옵션 70만이 합계에 들었다
+     (2026-09-09 개발센터 4-AI 관문 · Codex 발견 3). 마지막 빗장은 **고를 수 있는 것만** 센다. */
   let n = 0;
-  for (const id of chosen) { if (implied.has(id)) continue; n += Number(om[id]?.price) || 0; }
+  for (const id of chosen) {
+    if (!isEnabled(s, id, chosen)) continue;   // 이미 산 것 · 안 파는 것 · 선행 미충족 · 배제됨
+    n += Number(om[id]?.price) || 0;
+  }
   return n;
 }
 
