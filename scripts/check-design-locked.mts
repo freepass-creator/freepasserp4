@@ -920,51 +920,48 @@ must(/wl\.tel/.test(read('app/q/[code]/ShopDetailView.tsx')),
 }
 
 /*
- * **조건칸은 «쭈구러들지» 않는다 — 줄은 그대로, 숫자만 0 이 된다** (2026-09-10 확정)
+ * **조건칸은 «쭈구러들지» 않는다 — 줄은 그대로, 숫자만 0** (2026-09-10 확정 · §12)
  *
  * 사장님 「필터는 **연동형 필터 아니고** 그냥 누른다고 해서 **다 없어지면 안 되는데**」 ·
- * 「그냥 기존 필터에서 **숫자가 0으로 바뀌면** 되잖아 **이게 쭈구러 든다**고」.
+ * 「그냥 기존 필터에서 **숫자가 0으로 바뀌면** 되잖아 **이게 쭈구러 든다**고」 ·
+ * 「**공통으로 쓰는 것들은 한 군데서 고치면 다 동일하게 고쳐져야지.** 좀 이상하다는 생각이 드는데?」
  *
- * ★명단·차례는 **재고 전체**(`base`)가 정하고, 숫자만 **지금 조건**(`count`)이 정한다.
- *   ⚠ 전에는 `count === 0` 이면 줄을 뺐다 — 손님이 「SUV」 하나만 눌러도 제조사 열둘이 셋으로
- *     줄고 차급 줄이 절반 사라졌다. 조건칸은 «지도»라 모양이 흔들리면 제 위치를 잃는다.
- * ★그래서 **빠른조건 칩도 `base` 로 판정한다** — 「지금 0대」로 칩을 걷으면 조건을 누를 때마다
- *   칩 줄까지 같이 쭈그러든다(같은 사고가 두 군데에서 난다).
- * ⚠ 재고에 «아예 없는» 값은 여전히 안 선다(`base > 0`) — 그건 「지금 0」이 아니라 「원래 없다」다.
- *   그 두 겹이 사장님 2026-09-10 「**있는 필터만** 갖다 놓겠음」을 지킨다.
+ * ★★★**그래서 이 검사는 «규칙이 한 곳에 있는가»를 본다.**
+ *   ⚠ 처음엔 손님 동·업무동 «두 파일»에 같은 규칙이 손으로 적혀 있었고, 이 검사도 두 군데를
+ *     각각 노려봤다. 그래서 2026-09-10 에 손님 동만 고치고 업무동을 하루 남겨 뒀다 —
+ *     **검사가 두 개면 한쪽만 통과시키는 일도 두 개**다.
+ *   ⇒ 규칙은 `lib/domain/facet-standing.ts` 하나이고, 두 동은 **그걸 부르기만** 한다.
+ *     여기서는 ㉠ 정본이 살아 있나 ㉡ 두 동이 정말 그걸 부르나 ㉢ 손으로 다시 짜지 않았나를 본다.
  */
 {
+  const standing = read('lib/domain/facet-standing.ts');
+  const finder = read('lib/domain/product-filters.ts');
   const editor = read('components/shop/ShopQuickEditor.tsx');
-  const query = read('lib/shop/query.ts');
-  must(/\.filter\(\(o\) => o\.base > 0\)/.test(query) && !/\.filter\(\(o\) => o\.count > 0\)/.test(query),
-    '조건칸이 다시 «쭈구러듭니다» — 건수 0 인 줄을 빼면, 조건 하나 누를 때마다 보던 줄이 사라집니다.',
-    'lib/shop/query.ts · docs/DESIGN_CONFIRMED_SHOP.md §12');
-  must(/count: live\.get\(key\) \|\| 0, base/.test(query),
-    '조건칸 숫자가 «지금 조건»을 안 봅니다 — 줄은 그대로 두되 숫자는 교차 집계여야 합니다.',
-    'lib/shop/query.ts · docs/DESIGN_CONFIRMED_SHOP.md §12');
+
+  // ㉠ 정본 — 줄은 base 가 세우고(0 이면 안 선다), 차례도 base 가 매긴다.
+  must(/\.filter\(\(o\) => o\.base > 0\)/.test(standing) && /b\.base - a\.base/.test(standing),
+    '조건칸 정본이 «지금 건수»로 줄을 세웁니다 — 조건 하나 누를 때마다 보던 줄이 사라집니다.',
+    'lib/domain/facet-standing.ts · docs/DESIGN_CONFIRMED_SHOP.md §12');
+
+  // ㉡ 두 동이 그 정본을 «부른다»
+  for (const [file, src] of [['lib/shop/query.ts', shopQuery], ['lib/domain/product-filters.ts', finder]] as const) {
+    must(/from '@\/lib\/domain\/facet-standing'/.test(src) && /standingFixed|standingRanked/.test(src),
+      `${file} 이 조건칸 정본(facet-standing)을 안 씁니다 — 규칙이 다시 두 벌이 됩니다.`,
+      'docs/DESIGN_CONFIRMED_SHOP.md §12');
+    // ㉢ 손으로 다시 짜지 않았나 — 건수 0 을 줄째 빼는 옛 버릇.
+    must(!/\.filter\(\(o\) => o\.count > 0\)/.test(src),
+      `${file} 에서 건수 0 인 줄을 다시 뺍니다 — 「0이라고 쓴다」가 규격입니다.`,
+      'docs/DESIGN_CONFIRMED_SHOP.md §12');
+  }
+
+  // ㉣ 빠른조건 칩도 같은 잣대다 — 「지금 0대」로 걷으면 칩 줄까지 같이 쭈그러든다.
   must(/facets\[axis\]\.filter\(\(o\) => o\.base > 0/.test(editor),
-    '빠른조건을 «있는 값»이 아닌 데서 고르게 됐습니다 — 고르는 목록은 조건칸과 같은 집계(facets)에서 옵니다.',
+    '빠른조건을 «있는 값»이 아닌 데서 고르게 됐습니다 — 고르는 목록은 조건칸과 같은 집계에서 옵니다.',
     'components/shop/ShopQuickEditor.tsx · docs/DESIGN_CONFIRMED_SHOP.md §11');
   must(/facets\[k\.axis\]\.some\(\(o\) => o\.key === k\.key && o\.base > 0\)/.test(shopView),
     '빠른조건 칩이 «지금 건수»로 사라집니다 — 조건을 누를 때마다 칩 줄이 같이 쭈그러듭니다.',
     'app/(shop)/shop/ShopView.tsx · docs/DESIGN_CONFIRMED_SHOP.md §11');
-
-
-  /*
-   * ★★**업무동 조건칸도 같은 규칙이다**(사장님 2026-09-10 「필터 했을 때 **0인 필터를 없애
-   *   버리니까 필터가 막 이렇게 올라갔다 내려갔다** 하잖아 … 그냥 **그 필터가 옆에다가 0이라고**
-   *   해줘야지」). 손님 동만 고치면 같은 회사 화면에서 필터가 «다른 물건»이 된다.
-   * ⚠ 실측 2026-09-10 — 상품찾기에서 「연료=전기」 하나만 걸어도 **공급사 축이 16 → 5** 로
-   *   줄었다(열한 줄이 사라졌다). 그래서 방금 누르려던 칩이 다른 자리로 가 버린다.
-   */
-  const finder = read('lib/domain/product-filters.ts');
-  must(/presentFilterOptions\(facetPool\(products, state, models, clear\), products\)/.test(finder),
-    '업무동 조건칸이 다시 «좁힌 모수»로 명단을 만듭니다 — 조건을 누를 때마다 칩이 사라져 줄이 뜁니다.',
-    'lib/domain/product-filters.ts · docs/DESIGN_CONFIRMED_SHOP.md §12');
-  must(/const base = aggregateDyn\(products\);/.test(finder)
-    && /\(base\[d\.key\] \|\| \[\]\)\.map\(\(\[k\]\) => \[k, live\.get\(k\) \|\| 0\]\)/.test(finder),
-    '업무동 제조사·색상·연식 칩이 다시 «지금 건수»로 만들어집니다 — 줄이 사라지고 차례가 뒤집힙니다.',
-    'lib/domain/product-filters.ts · docs/DESIGN_CONFIRMED_SHOP.md §12');}
+}
 
 if (fails.length) {
   console.error(`\n✗ 확정 디자인이 바뀌었습니다 — ${fails.length}건\n`);

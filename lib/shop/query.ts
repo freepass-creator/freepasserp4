@@ -18,6 +18,9 @@
 import type { EntityRecord } from '@/lib/intake/entities';
 import { cheapest, creditDisplay, isListableProduct, isOperatedPeriod, priceList } from '@/lib/domain/product';
 import { matchProductQuery } from '@/lib/domain/search';
+import {
+  standingFixed, standingRanked, tallyBy, tallyMatch,
+} from '@/lib/domain/facet-standing';
 import { firstProductImage } from '@/lib/domain/product-photos';
 import {
   RENT_BANDS, DEP_BANDS, MILE_BANDS, CREDITS, CATALOG_PERKS, hasPerk, popularRank, type Band,
@@ -318,30 +321,30 @@ export function runShopQuery(rows: EntityRecord[] | null, query: ShopQuery): Sho
    *   ㉡ `baseFor(axis)` — 지금 조건(제 축은 뺀다)+검색. **숫자**를 여기서 만든다.
    * ⚠ 명단까지 ㉡ 로 만들면 조건을 걸 때마다 조건칸이 쪼그라든다 — 그게 「쭈구러 든다」다.
    */
-  const freeTally = (axis: ShopAxis, of: (p: EntityRecord) => string): ShopOption[] => {
-    const uni = new Map<string, number>();
-    for (const p of pool) { const v = of(p); if (v) uni.set(v, (uni.get(v) || 0) + 1); }
-    const live = new Map<string, number>();
-    for (const p of baseFor(axis)) { const v = of(p); if (v) live.set(v, (live.get(v) || 0) + 1); }
-    return [...uni.entries()].map(([key, base]) => ({ key, label: key, count: live.get(key) || 0, base }));
-  };
+  /*
+   * ★★**줄이 서는 규칙은 «집 정본»이 정한다**(`lib/domain/facet-standing`).
+   *   사장님 2026-09-10 「**공통으로 쓰는 것들은 한 군데서 고치면 다 동일하게 고쳐져야지**」 —
+   *   같은 규칙이 여기와 업무동에 손으로 두 번 적혀 있어, 한쪽만 고치고 하루를 흘렸다.
+   * ★여기 남는 것은 «갈려야 하는 것»뿐이다 — **무엇을 세는가**(`of`·`axisMatch`)와
+   *   **손님 말 이름**(`label`). 규칙(0 을 남긴다·차례는 base 가 정한다)은 저기 있다.
+   */
+  const freeTally = (axis: ShopAxis, of: (p: EntityRecord) => string, opts?: Parameters<typeof standingRanked>[2]): ShopOption[] =>
+    standingRanked(tallyBy(pool, of), tallyBy(baseFor(axis), of), opts)
+      .map((o) => ({ ...o, label: o.key }));
   /** 값 목록이 정해진 축 — 순서를 재고 대수가 아니라 «손님이 말하는 순서»로 고정한다. */
-  const fixedTally = (axis: ShopAxis, order: readonly string[]): ShopOption[] => {
-    const live = baseFor(axis);
-    return order.map((k) => ({
-      key: k, label: k,
-      count: live.filter((p) => axisMatch[axis](p, k)).length,
-      base: pool.filter((p) => axisMatch[axis](p, k)).length,
-    })).filter((o) => o.base > 0);
-  };
+  const fixedTally = (axis: ShopAxis, order: readonly string[]): ShopOption[] =>
+    standingFixed(order,
+      tallyMatch(pool, order, (p, k) => axisMatch[axis](p, k)),
+      tallyMatch(baseFor(axis), order, (p, k) => axisMatch[axis](p, k)))
+      .map((o) => ({ ...o, label: o.key }));
   const bandTally = (axis: ShopAxis, bands: Band[]): ShopOption[] => {
-    const live = baseFor(axis);
+    const keys = bands.map((b) => b.k);
     /* ★손님 동은 «축 밑» 이름(`shop`)을 쓴다 — 화살표(`↓`·`↑`)는 우리끼리 쓰는 기호다. */
-    return bands.map((b) => ({
-      key: b.k, label: b.shop || b.label,
-      count: live.filter((p) => axisMatch[axis](p, b.k)).length,
-      base: pool.filter((p) => axisMatch[axis](p, b.k)).length,
-    })).filter((o) => o.base > 0);
+    const name = new Map(bands.map((b) => [b.k, b.shop || b.label]));
+    return standingFixed(keys,
+      tallyMatch(pool, keys, (p, k) => axisMatch[axis](p, k)),
+      tallyMatch(baseFor(axis), keys, (p, k) => axisMatch[axis](p, k)))
+      .map((o) => ({ ...o, label: name.get(o.key) || o.key }));
   };
 
   const facets: ShopFacets = {
@@ -353,8 +356,7 @@ export function runShopQuery(rows: EntityRecord[] | null, query: ShopQuery): Sho
      * ⚠ 열둘로 자르지 않는다 — 제조사(수십)와 달리 갈래가 예닐곱이라 잘릴 일이 없고,
      *   자르면 새 갈래가 생겼을 때 조용히 사라진다.
      */
-    ptype: freeTally('ptype', (p) => canonProductType(p.product_type))
-      .sort((a, b) => b.base - a.base || a.key.localeCompare(b.key, 'ko')),
+    ptype: freeTally('ptype', (p) => canonProductType(p.product_type)),
     /*
      * ★기간은 **짧은 것부터** 세운다 — 대수 순으로 세우면 48·36·24·60·12 처럼 뒤죽박죽이 되어
      *   「기간」이라는 축으로 안 읽힌다. 숫자에는 손님이 이미 아는 순서가 있다.
@@ -371,16 +373,14 @@ export function runShopQuery(rows: EntityRecord[] | null, query: ShopQuery): Sho
      *   맨 위에 선다 — 손님이 열에 세 번 고를 것을 맨 밑에 두는 셈이다.
      * ★열둘까지 — 제조사와 같은 규칙이다(스물을 세우면 그게 벽이다).
      */
-    vclass: freeTally('vclass', (p) => String(p.vehicle_class || '').trim())
-      .sort((a, b) => b.base - a.base || a.key.localeCompare(b.key, 'ko')).slice(0, 12),
+    vclass: freeTally('vclass', (p) => String(p.vehicle_class || '').trim(), { limit: 12 }),
     credit: fixedTally('credit', CREDITS),
     perk: fixedTally('perk', CATALOG_PERKS),
     // 제조사는 대수 많은 순 열둘까지 — 스물을 세우면 그게 벽이다.
-    maker: freeTally('maker', (p) => makerDisplay(p.maker))
-      .sort((a, b) => b.base - a.base || a.key.localeCompare(b.key, 'ko')).slice(0, 12),
-    year: freeTally('year', (p) => yearFullDisplay(p.year)).sort((a, b) => b.key.localeCompare(a.key, 'ko')),
-    fuel: freeTally('fuel', (p) => fuelDisplay(p.fuel_type) || String(p.fuel_type || '').trim())
-      .sort((a, b) => b.base - a.base),
+    maker: freeTally('maker', (p) => makerDisplay(p.maker), { limit: 12 }),
+    /* ★연식은 «값 자체»에 순서가 있다 — 대수 순으로 세우면 2019 가 2024 위에 선다. */
+    year: freeTally('year', (p) => yearFullDisplay(p.year), { order: (a, b) => b.localeCompare(a, 'ko') }),
+    fuel: freeTally('fuel', (p) => fuelDisplay(p.fuel_type) || String(p.fuel_type || '').trim(), { tie: () => 0 }),
     rent: bandTally('rent', RENT_BANDS),
     dep: bandTally('dep', DEP_BANDS),
     mile: bandTally('mile', MILE_BANDS),
