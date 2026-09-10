@@ -2384,6 +2384,43 @@ must((availableForEngine({ a: { name: '컴포트' } }, [], '가솔린 3.5 터보
   } catch { /* 산출물이 없으면 §33-3 이 잡는다 */ }
 }
 
+/* == 39. ★★**엔진 «이름»을 «파는 곳 표시»로 읽지 않는다** ==========================
+     §35 로 「기본/전용」을 가른 뒤, 실제 데이터의 «엔진 표기 17가지»를 전부 누계 보다
+     둘이 또 거꾸로 읽히는 것을 찾았다(2026-09-11 · 코덱스·제미나이가 못 돌아 혼자 훑음).
+       ① 「G 2.5 **T-GDI**+8단 습식DCT」 — 엔진 «이름»이다. 「2.5T 전용」으로 읽으면
+         「2.5 터보 퍼포먼스 200만」이 **1.6T 줄에서 사라진다** — 거기서 파는 업그레이드 옵션인데도.
+         (현대 공식가: 쓰나타 N Line 1.6T 3,726만 → 2.5T 3,926만 — 차이가 정확히 200만)
+       ② 「(1.6T 가솔린/HEV)」 — 빗금은 «여러을 아우르는» 말이다. 한 엔진 것으로 줄이면
+         HEV 줄에서 HTRAC 203만이 사라진다.
+     ★모르는 것은 고르지 않는다 — 애매하면 «아무 말도 안 한 것»으로 두어 원래 목록을 지킨다. */
+{
+  const packs = readPacks<{
+    optionsMaster?: Record<string, { name?: string; sub?: string; price?: number }>;
+    availableOptions?: string[];
+  }>();
+  const probe = (needle: string, engine: string) => {
+    for (const p of packs) {
+      const om = p.optionsMaster ?? {};
+      const id = Object.keys(om).find((k) => S(om[k]?.name) === needle);
+      const av = p.availableOptions ?? [];
+      if (!id || !av.includes(id)) continue;
+      const after = availableForEngine(om, av, engine) ?? [];
+      must(after.includes(id),
+        `「${needle}」(${(Number(om[id]?.price) || 0).toLocaleString()}원)이 「${engine}」 줄에서 사라졌습니다 — sub 「${S(om[id]?.sub).slice(0, 40)}」 의 엔진 말을 «파는 곳 표시»로 읽은 것입니다`,
+        'lib/domain/estimate/genesis-included.ts availableForEngine');
+      return true;
+    }
+    return false;
+  };
+  const a = probe('2.5 터보 퍼포먼스', '가솔린 1.6 터보');
+  /* ★「(1.6T 가솔린 / HEV)」 — sub 가 HEV 를 명시하므로 HEV 줄에서 살아있어야 한다.
+     ⚠ 배기량이 1.6 이면 우연히 통과해 가리지 못한다(돌연변이로 확인) — 2.0 으로 재야 갈린다. */
+  const b = probe('HTRAC', '하이브리드 2.0');
+  must(a || b,
+    '§39 가 재을 것을 못 찾았습니다 — 실측해서 검사를 고치십시오(붙박이로 대신하지 마십시오)',
+    'data/new-car/option-packs.json');
+}
+
 if (fails.length) {
   console.error(`\n✗ 견적 로직이 정본과 다릅니다 — ${fails.length}건\n`);
   for (const f of fails) console.error(`  · ${f}\n`);

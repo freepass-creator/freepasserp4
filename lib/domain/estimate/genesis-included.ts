@@ -198,7 +198,23 @@ export function availableForEngine(
     const text = `${S(o.name)} ${S(o.sub)}`;
     const std = new Set<string>();     // 「N.NT 기본」 — 그 엔진에선 기본 포함이라 «안 판다»
     const excl = new Set<string>();    // 「N.NT 전용」·「(N.NT)」 — 그 엔진 «것»이다
-    for (const m of text.matchAll(ENGINE_TAG)) (isStdSense(m[2]) ? std : excl).add(m[1]);
+    for (const m of text.matchAll(ENGINE_TAG)) {
+      const follow = S(m[2]);
+      /* ⚠ 「G 2.5 **T-GDI**+8단 습식DCT」 — 이건 엔진 «이름»이지 「어느 엔진에서 파느냐」가 아니다.
+         이걸 「2.5T 전용」으로 읽으면 「2.5 터보 퍼포먼스 200만」이 **1.6T 줄에서 사라진다** —
+         그건 1.6T 에서 2.5T 로 «올리는» 옵션이라 정확히 거기서 판다
+         (현대 공식가 쏘나타 N Line 1.6T 3,726만 → 2.5T 3,926만, 차이가 정확히 200만). */
+      if (/^-\s*GD/i.test(follow)) continue;
+      /* ⚠ 「(1.6T 가솔린 / HEV)」 — 빗금으로 «연료를 나열» 말은 「그 엔진 전용」이 아니다.
+         1.6T 가솔린«과» HEV 둘 다라는 뜻이라, 「1.6 전용」으로 줄여 읽으면 HEV 줄에서 HTRAC 203만이 사라진다.
+         ⚠ 오늘 데이터에서 이 꼴로 실제로 지워지는 줄은 **0개**다(실측). 그래도 두는 까닭은
+           ① 그 문자열이 지금 데이터에 **실제로 있고**(HTRAC 의 sub),
+           ② 이 가지는 «지우지 않는» 쪽으로만 움직이기 때문이다. §39 가 그 «읽기»를 직접 재다.
+         ★연료말이 들어간 빗금만 본다 — 「18/19"」 같은 치수 나열은 여기 해당 없다(좌우 어느 쪽으로도 답이 같다). */
+      if (/\/\s*(HEV|EV|가솔린|디젤|LPG|하이브리드|전기)/i.test(follow)
+        || /(HEV|EV|가솔린|디젤|LPG|하이브리드|전기)\s*\//i.test(follow)) continue;
+      (isStdSense(follow) ? std : excl).add(m[1]);
+    }
     if (std.has(mine)) continue;                                    // 내 엔진에 기본 포함 → 안 판다
     if (!excl.size) { if (had.has(id)) out.push(id); continue; }    // 전용 표기가 없다 → 원래 목록 그대로
     if (excl.has(mine)) out.push(id);                               // 내 엔진 전용 → «없던 것도» 연다
