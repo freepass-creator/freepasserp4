@@ -227,8 +227,8 @@ export const makeCell = (ctx: SalesRowContext) => (col: string, v: any): string 
      */
     '배차상태': S(v.vehicle_status) || S(v.status), '구분': S(v.product_type), '차량번호': S(v.car_number),
     '제조사': S(v.maker), '모델': S(v.model), '세부모델': S(v.sub_model),
-    // 세부트림 — snap 이 「기본형」을 버려 비지만, 원문에 기본형이면 그대로 표기(사장님 2026-09-03).
-    '세부트림': S(v.trim_name) || (/기본\s*형|\b기본\b/.test(S(v['원문']?.['차명'])) ? '기본형' : ''),
+    // 세부트림 — 정제 원자만 쓴다. 원문은 별도 칸에 보존하고 발행기가 값을 지어내지 않는다.
+    '세부트림': S(v.trim_name),
     '외장': S(v.ext_color), '내장': S(v.int_color), '연식': S(v.year), 'Km': S(v.mileage),
     '연료': S(v.fuel_type), '배기량': S(v.engine_cc), '차종구분': S(v.vehicle_class),
     '차명(원문)': S(v['원문']?.['차명']), '옵션(원문)': cleanOpt(S(v['원문']?.['옵션'])),
