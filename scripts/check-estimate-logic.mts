@@ -2058,12 +2058,38 @@ must((availableForEngine({ a: { name: '컴포트' } }, [], '가솔린 3.5 터보
         'scripts/ingest-newcar-options.mts trim_prices');
     }
 
-    /* 32-3. ★트림별 선행(`requires_in_trim`)이 실제로 실렸나 — 원본에 42개가 있다. */
+    /* 32-3. ★★★**「이미 산 것」을 사전에서 «지우지» 않는다** — 지우면 그걸 가리키는 규칙이 다 헛돈다.
+       ⚠⚠ 실측(2026-09-10 · Codex 원본 대조): implied **11개가 전부** `optionsMaster` 에 없었다.
+         그래서 내가 만든 **엔진 차단·대칭 배제가 한 번도 안 돌았다.** 만들고 안 부른 것과 같다.
+       ★원본도 옵션을 지우지 않는다 — `available_options` 에서 빼서 «안 판다»고 말할 뿐이다. */
+    let 없는것 = 0; let 파는데남음 = 0;
+    for (const p of packs) {
+      const om = p.optionsMaster ?? {};
+      const av = new Set((p as { availableOptions?: string[] }).availableOptions ?? []);
+      for (const i of ((p as { impliedOptions?: string[] }).impliedOptions ?? [])) {
+        if (!om[i]) 없는것++;
+        if (av.has(i)) 파는데남음++;
+      }
+    }
+    must(없는것 === 0,
+      `「이미 산 것」 ${없는것}개가 옵션 사전에 «없습니다» — 그것을 가리키는 규칙(엔진 차단·배제)이 헛돕니다`,
+      'scripts/ingest-newcar-options.mts');
+    must(파는데남음 === 0,
+      `「이미 산 것」 ${파는데남음}개가 «파는 목록»에 남아 있습니다 — 값에 든 것을 또 팝니다`,
+      'scripts/ingest-newcar-options.mts');
+
+    /* 32-4. ★트림별 선행(`requires_in_trim`)이 실제로 실렸나 — 원본에 42개가 있다. */
     const rit = packs.filter((p) => Object.values(p.optionsMaster ?? {})
       .some((o) => (o as { requiresInTrim?: unknown }).requiresInTrim)).length;
-    must(rit > 0,
-      '트림별 선행이 팩에 하나도 없습니다 — 인제스터를 다시 돌리세요(산출물이 묵으면 규칙이 안 옵니다)',
+    must(rit >= 100,
+      `트림별 선행이 실린 줄이 적습니다 — ${rit}/${packs.length}. `
+      + '선행표가 «두 층»에 있다(옵션 층 + variant 층 · 팰리세이드 `PALISADE_REQUIRES_9`). 둘 다 읽어야 합니다',
       'data/new-car/option-packs.json');
+    /* ★인제스터가 variant 층을 읽는가 — 안 읽으면 팰리세이드 프레스티지의 플래티넘·원격주차를
+       「컴포트 플러스」 없이 판다(2026-09-10 · Codex 원본 대조). */
+    must(/v\.requires_in_trim\?\.\[id\]/.test(code('scripts/ingest-newcar-options.mts')),
+      'variant 층 선행표를 안 읽습니다 — 팰리세이드 선행이 통째로 빠집니다',
+      'scripts/ingest-newcar-options.mts');
   }
 }
 

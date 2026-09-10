@@ -48,7 +48,10 @@ type Variant = {
   options_master?: Record<string, Opt>;
   exclusive_groups?: { id?: string; label?: string; members?: string[] }[];
   option_excludes?: Record<string, string[]>;
-  trims?: { name?: string; available_options?: string[] }[];
+  /** ★variant 층의 트림별 선행 — 원본 팰리세이드가 `PALISADE_REQUIRES_9` 로 이렇게 둔다.
+      옵션 층(`opt.requires_in_trim`)과 «같은 뜻»이라 합쳐서 읽는다(원본 index.html:1119 도 한 자리에서 본다). */
+  requires_in_trim?: Record<string, Record<string, string[]>>;
+  trims?: { name?: string; available_options?: string[]; trim_id?: string }[];
 };
 
 const word = (t: string) => /전기|EV/i.test(t) ? 'ev' : /하이브리드|HEV/i.test(t) ? 'hev'
@@ -124,7 +127,13 @@ export function packFor(maker: string, subModel: string, fuel: string, trim: str
         const trimKey = S((tHit0 as { trim_id?: string } | undefined)?.trim_id);
         const optionsMaster: OptionPack['optionsMaster'] = {};
         for (const [id, o] of Object.entries(om)) {
-          if (implied.includes(id)) continue;
+          /* ⚠⚠ **지우지 않는다 — «표시»만 한다.**
+             예전에는 「이미 산 것」을 `optionsMaster` 에서 **삭제**했다. 그러면
+             `impliedOptions` 가 가리키는 id 가 사전에 없어(실측 11/11 전부 없음)
+             **엔진 차단·대칭 배제가 한 번도 안 돌았다**
+             (2026-09-10 개발센터 4-AI 원본 대조 · Codex).
+             원본도 옵션을 지우지 않는다 — `available_options` 에서 빼서 «안 판다»고 말할 뿐이다.
+             ⇒ 사전에는 **남기고**, `availableOptions` 에서만 뺀다. 화면은 `optionList` 가 거른다. */
           optionsMaster[id] = {
             name: S(o.name) || id,
             ...(o.sub ? { sub: S(o.sub) } : {}),
@@ -148,15 +157,19 @@ export function packFor(maker: string, subModel: string, fuel: string, trim: str
                ⚠⚠ 사장님 2026-09-10 「예전에 다 만들어놨던 거란 말이야. 배타그룹까지 다 해놨던 거잖아」 —
                  맞다. 나는 규칙을 «옮기지» 않고 옵션 «이름»에서 다시 만들고 있었다.
                ⚠ 이미 산 것은 선행에서 뺀다(`requires` 와 같은 규칙). */
-            ...(o.requires_in_trim && Object.keys(o.requires_in_trim).length
-              ? {
-                requiresInTrim: Object.fromEntries(
-                  Object.entries(o.requires_in_trim)
-                    .map(([tk, arr]) => [tk, (arr ?? []).filter((r) => !implied.includes(r))])
-                    .filter(([, arr]) => (arr as string[]).length),
-                ),
-              }
-              : {}),
+            /* ⚠ **선행표가 두 층에 있다** — 옵션 층(`opt.requires_in_trim`)과 **variant 층**
+               (팰리세이드 `PALISADE_REQUIRES_9` = `{옵션id: {트림id: [선행]}}`). 뜻이 같아 합친다.
+               variant 층을 안 읽어 **팰리세이드 프레스티지의 플래티넘·원격주차를
+               「컴포트 플러스」 없이 팔고** 있었다(2026-09-10 · Codex 원본 대조). */
+            ...(() => {
+              const merged = { ...(v.requires_in_trim?.[id] ?? {}), ...(o.requires_in_trim ?? {}) };
+              const kept = Object.fromEntries(
+                Object.entries(merged)
+                  .map(([tk, arr]) => [tk, (arr ?? []).filter((r) => !implied.includes(r))])
+                  .filter(([, arr]) => (arr as string[]).length),
+              );
+              return Object.keys(kept).length ? { requiresInTrim: kept } : {};
+            })(),
           };
         }
         // 트림이 맞으면 그 트림의 목록, 아니면 그 세부모델 트림들의 합집합(있는 것을 다 보여 준다).
@@ -172,7 +185,7 @@ export function packFor(maker: string, subModel: string, fuel: string, trim: str
           optionExcludes: Object.fromEntries(Object.entries(v.option_excludes ?? {})
             .map(([k, arr]) => [k, (arr ?? []).filter((x) => optionsMaster[x])])
             .filter(([, arr]) => (arr as string[]).length)),
-          availableOptions: avail.filter((x) => optionsMaster[x]),
+          availableOptions: avail.filter((x) => optionsMaster[x] && !implied.includes(x)),
           ...(trimKey ? { trimKey } : {}),
           impliedOptions: implied,
           optionSource: `welrix vehicle-db · ${md.model_name} ${v.variant_name}`,

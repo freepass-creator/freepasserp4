@@ -97,7 +97,12 @@ export function isEnabled(s: OptionSpec, id: string, chosen: ReadonlySet<string>
        (`optionExcludes.popular = [da1, da2, cam]` — 부모가 `popular` 쪽이라 검사에 안 걸렸다).
      ⇒ 이 옵션이 막는 것 중 **이미 쥔 것이 있으면** 이 옵션도 못 고른다.
      (2026-09-10 개발센터 4-AI 관문 · 독립 Claude 5회차 필수 1) */
-  if ((ex[id] ?? []).some((b) => held.has(b))) return false;
+  /* ⚠ **«이미 산 것»에만 적용한다.** 원본의 배제는 방향이 있다 —
+     「부모 묶음을 고르면 그 구성품을 막는다」(index.html:1120·1405). 우리가 반대 방향까지
+     막으면 **원본보다 엄격**해져 정상 선택이 막힌다(2026-09-10 Codex 지적).
+     다만 구성품이 «이미 차값에 들어 있으면» 그 묶음은 살 수 없다 — 그건 이중청구다. */
+  const impliedSet = new Set(s.impliedOptions ?? []);
+  if ((ex[id] ?? []).some((b) => impliedSet.has(b))) return false;
   /* ★★**다른 엔진의 물건은 못 산다** — 정본이 옵션 이름에 엔진을 적어 둔다(「스포츠 패키지 (2.5T)」).
      G80 은 실데이터에 `engine_3_5t → sport_pkg_2_5` 배제가 **없어서**, 3.5T 를 «고른» 뒤에도
      2.5T 스포츠 패키지 400만이 팔렸다(진짜는 3.5T 용 560만 · **160만 갈림**).
