@@ -27,6 +27,38 @@
       "how": "이름",
       "_label": "기아 | 니로 | 하이브리드 | 시그니처"
     },
+    "kia_ray_가솔린1.0_트렌디1인승밴": {
+      "manufacturer_id": "kia",
+      "model_id": "ray",
+      "variant_id": "van_1seat",
+      "trim_id": "trendy",
+      "how": "꼬리뗌",
+      "_label": "기아 | 레이 | 가솔린 1.0 | 트렌디(1인승 밴)"
+    },
+    "kia_ray_가솔린1.0_트렌디2인승밴": {
+      "manufacturer_id": "kia",
+      "model_id": "ray",
+      "variant_id": "van_2seat",
+      "trim_id": "trendy",
+      "how": "꼬리뗌",
+      "_label": "기아 | 레이 | 가솔린 1.0 | 트렌디(2인승 밴)"
+    },
+    "kia_ray_가솔린1.0_프레스티지1인승밴": {
+      "manufacturer_id": "kia",
+      "model_id": "ray",
+      "variant_id": "van_1seat",
+      "trim_id": "prestige",
+      "how": "꼬리뗌",
+      "_label": "기아 | 레이 | 가솔린 1.0 | 프레스티지(1인승 밴)"
+    },
+    "kia_ray_가솔린1.0_프레스티지2인승밴": {
+      "manufacturer_id": "kia",
+      "model_id": "ray",
+      "variant_id": "van_2seat",
+      "trim_id": "prestige",
+      "how": "꼬리뗌",
+      "_label": "기아 | 레이 | 가솔린 1.0 | 프레스티지(2인승 밴)"
+    },
     "kia_ray_가솔린1.0_시그니처": {
       "manufacturer_id": "kia",
       "model_id": "ray",
@@ -42,6 +74,22 @@
       "trim_id": "x_line",
       "how": "이름",
       "_label": "기아 | 레이 | 가솔린 1.0 | X-Line"
+    },
+    "kia_morning_가솔린1.0_트렌디밴": {
+      "manufacturer_id": "kia",
+      "model_id": "morning",
+      "variant_id": "van",
+      "trim_id": "trendy",
+      "how": "꼬리뗌",
+      "_label": "기아 | 모닝 | 가솔린 1.0 | 트렌디(밴)"
+    },
+    "kia_morning_가솔린1.0_프레스티지밴": {
+      "manufacturer_id": "kia",
+      "model_id": "morning",
+      "variant_id": "van",
+      "trim_id": "prestige",
+      "how": "꼬리뗌",
+      "_label": "기아 | 모닝 | 가솔린 1.0 | 프레스티지(밴)"
     },
     "kia_morning_가솔린1.0_시그니처": {
       "manufacturer_id": "kia",
@@ -234,6 +282,22 @@
       "trim_id": "prestige",
       "how": "꼬리뗌",
       "_label": "기아 | 카니발 | 가솔린 3.5 | 프레스티지(9인)"
+    },
+    "kia_carnival_가솔린3.5_노블레스9인승하이루프": {
+      "manufacturer_id": "kia",
+      "model_id": "carnival",
+      "variant_id": "gasoline_3_5_9seat",
+      "trim_id": "noblesse",
+      "how": "꼬리뗌",
+      "_label": "기아 | 카니발 | 가솔린 3.5 | 노블레스(9인승 하이루프)"
+    },
+    "kia_carnival_가솔린3.5_시그니처9인승하이루프": {
+      "manufacturer_id": "kia",
+      "model_id": "carnival",
+      "variant_id": "gasoline_3_5_9seat",
+      "trim_id": "signature",
+      "how": "꼬리뗌",
+      "_label": "기아 | 카니발 | 가솔린 3.5 | 시그니처(9인승 하이루프)"
     },
     "kia_k5_가솔린2.0_스마트셀렉션": {
       "manufacturer_id": "kia",
@@ -1444,18 +1508,13 @@
       "_label": "현대 | 투싼 | 하이브리드 | N Line"
     }
   },
+  "proposed": [],
   "unmatched": [
-    "kia_ray_가솔린1.0_트렌디1인승밴  ·  기아 | 레이 | 가솔린 1.0 | 트렌디(1인승 밴)",
-    "kia_ray_가솔린1.0_트렌디2인승밴  ·  기아 | 레이 | 가솔린 1.0 | 트렌디(2인승 밴)",
-    "kia_ray_가솔린1.0_프레스티지1인승밴  ·  기아 | 레이 | 가솔린 1.0 | 프레스티지(1인승 밴)",
     "kia_ray_가솔린1.0_트렌디  ·  기아 | 레이 | 가솔린 1.0 | 트렌디",
-    "kia_ray_가솔린1.0_프레스티지2인승밴  ·  기아 | 레이 | 가솔린 1.0 | 프레스티지(2인승 밴)",
     "kia_ray_가솔린1.0_프레스티지스페셜1인승밴  ·  기아 | 레이 | 가솔린 1.0 | 프레스티지 스페셜(1인승 밴)",
     "kia_ray_가솔린1.0_프레스티지스페셜2인승밴  ·  기아 | 레이 | 가솔린 1.0 | 프레스티지 스페셜(2인승 밴)",
     "kia_ray_가솔린1.0_프레스티지  ·  기아 | 레이 | 가솔린 1.0 | 프레스티지",
-    "kia_morning_가솔린1.0_트렌디밴  ·  기아 | 모닝 | 가솔린 1.0 | 트렌디(밴)",
     "kia_morning_가솔린1.0_트렌디  ·  기아 | 모닝 | 가솔린 1.0 | 트렌디",
-    "kia_morning_가솔린1.0_프레스티지밴  ·  기아 | 모닝 | 가솔린 1.0 | 프레스티지(밴)",
     "kia_morning_가솔린1.0_프레스티지  ·  기아 | 모닝 | 가솔린 1.0 | 프레스티지",
     "kia_sportage_가솔린1.6터보_블랙에디션  ·  기아 | 스포티지 | 가솔린 1.6 터보 | 블랙 에디션",
     "kia_sportage_가솔린1.6터보_시그니처xline  ·  기아 | 스포티지 | 가솔린 1.6 터보 | 시그니처 X-Line",
@@ -1482,8 +1541,6 @@
     "kia_carnival_가솔린3.5_시그니처7인  ·  기아 | 카니발 | 가솔린 3.5 | 시그니처(7인)",
     "kia_carnival_가솔린3.5_xline7인  ·  기아 | 카니발 | 가솔린 3.5 | X-Line(7인)",
     "kia_carnival_가솔린3.5_블랙에디션7인  ·  기아 | 카니발 | 가솔린 3.5 | 블랙 에디션(7인)",
-    "kia_carnival_가솔린3.5_노블레스9인승하이루프  ·  기아 | 카니발 | 가솔린 3.5 | 노블레스(9인승 하이루프)",
-    "kia_carnival_가솔린3.5_시그니처9인승하이루프  ·  기아 | 카니발 | 가솔린 3.5 | 시그니처(9인승 하이루프)",
     "kia_ev3_전기_에어스탠다드  ·  기아 | EV3 | 전기 | 에어 스탠다드",
     "kia_ev3_전기_어스스탠다드  ·  기아 | EV3 | 전기 | 어스 스탠다드",
     "kia_ev3_전기_에어롱레인지  ·  기아 | EV3 | 전기 | 에어 롱레인지",
@@ -1712,5 +1769,1959 @@
     "FXJJ9ZEA2  ·  현대 | 팰리세이드 | 하이브리드 2.5 | 하이루프",
     "FXJJ7ZET2  ·  현대 | 팰리세이드 | 하이브리드 2.5 | 하이루프",
     "FXJJ7ZEA2  ·  현대 | 팰리세이드 | 하이브리드 2.5 | 하이루프"
-  ]
+  ],
+  "unmatchedDetail": {
+    "트림이름": [
+      {
+        "key": "kia_ray_가솔린1.0_트렌디",
+        "label": "기아 | 레이 | 가솔린 1.0 | 트렌디",
+        "near": [
+          "트렌디(trendy)",
+          "프레스티지(prestige)",
+          "시그니처(signature)",
+          "X-Line(x_line)",
+          "스페셜(special)"
+        ]
+      },
+      {
+        "key": "kia_ray_가솔린1.0_프레스티지스페셜1인승밴",
+        "label": "기아 | 레이 | 가솔린 1.0 | 프레스티지 스페셜(1인승 밴)",
+        "near": [
+          "트렌디(trendy)",
+          "프레스티지(prestige)",
+          "시그니처(signature)",
+          "X-Line(x_line)",
+          "스페셜(special)"
+        ]
+      },
+      {
+        "key": "kia_ray_가솔린1.0_프레스티지스페셜2인승밴",
+        "label": "기아 | 레이 | 가솔린 1.0 | 프레스티지 스페셜(2인승 밴)",
+        "near": [
+          "트렌디(trendy)",
+          "프레스티지(prestige)",
+          "시그니처(signature)",
+          "X-Line(x_line)",
+          "스페셜(special)"
+        ]
+      },
+      {
+        "key": "kia_ray_가솔린1.0_프레스티지",
+        "label": "기아 | 레이 | 가솔린 1.0 | 프레스티지",
+        "near": [
+          "트렌디(trendy)",
+          "프레스티지(prestige)",
+          "시그니처(signature)",
+          "X-Line(x_line)",
+          "스페셜(special)"
+        ]
+      },
+      {
+        "key": "kia_morning_가솔린1.0_트렌디",
+        "label": "기아 | 모닝 | 가솔린 1.0 | 트렌디",
+        "near": [
+          "트렌디(trendy)",
+          "프레스티지(prestige)",
+          "시그니처(signature)",
+          "GT-Line(gt_line)"
+        ]
+      },
+      {
+        "key": "kia_morning_가솔린1.0_프레스티지",
+        "label": "기아 | 모닝 | 가솔린 1.0 | 프레스티지",
+        "near": [
+          "트렌디(trendy)",
+          "프레스티지(prestige)",
+          "시그니처(signature)",
+          "GT-Line(gt_line)"
+        ]
+      },
+      {
+        "key": "kia_sportage_가솔린1.6터보_블랙에디션",
+        "label": "기아 | 스포티지 | 가솔린 1.6 터보 | 블랙 에디션",
+        "near": [
+          "프레스티지(prestige)",
+          "노블레스(noblesse)",
+          "시그니처(signature)",
+          "X-Line(x_line)"
+        ]
+      },
+      {
+        "key": "kia_sportage_가솔린1.6터보_시그니처xline",
+        "label": "기아 | 스포티지 | 가솔린 1.6 터보 | 시그니처 X-Line",
+        "near": [
+          "프레스티지(prestige)",
+          "노블레스(noblesse)",
+          "시그니처(signature)",
+          "X-Line(x_line)"
+        ]
+      },
+      {
+        "key": "kia_sportage_lpg2.0_시그니처xline",
+        "label": "기아 | 스포티지 | LPG 2.0 | 시그니처 X-Line",
+        "near": [
+          "프레스티지(prestige)",
+          "노블레스(noblesse)",
+          "시그니처(signature)",
+          "X-Line(x_line)"
+        ]
+      },
+      {
+        "key": "kia_sportage_하이브리드터보_블랙에디션",
+        "label": "기아 | 스포티지 | 하이브리드 터보 | 블랙 에디션",
+        "near": [
+          "프레스티지(prestige)",
+          "노블레스(noblesse)",
+          "시그니처(signature)",
+          "X-Line(x_line)"
+        ]
+      },
+      {
+        "key": "kia_sportage_하이브리드터보_시그니처xline",
+        "label": "기아 | 스포티지 | 하이브리드 터보 | 시그니처 X-Line",
+        "near": [
+          "프레스티지(prestige)",
+          "노블레스(noblesse)",
+          "시그니처(signature)",
+          "X-Line(x_line)"
+        ]
+      },
+      {
+        "key": "kia_sorento_하이브리드터보_프레스티지2wd",
+        "label": "기아 | 쏘렌토 | 하이브리드 터보 | 프레스티지(2WD)",
+        "near": [
+          "프레스티지(prestige)",
+          "노블레스(noblesse)",
+          "시그니처(signature)",
+          "X-Line(x_line)"
+        ]
+      },
+      {
+        "key": "kia_sorento_하이브리드터보_프레스티지전자식4wd",
+        "label": "기아 | 쏘렌토 | 하이브리드 터보 | 프레스티지(전자식4WD)",
+        "near": [
+          "프레스티지(prestige)",
+          "노블레스(noblesse)",
+          "시그니처(signature)",
+          "X-Line(x_line)"
+        ]
+      },
+      {
+        "key": "kia_sorento_하이브리드터보_노블레스2wd",
+        "label": "기아 | 쏘렌토 | 하이브리드 터보 | 노블레스(2WD)",
+        "near": [
+          "프레스티지(prestige)",
+          "노블레스(noblesse)",
+          "시그니처(signature)",
+          "X-Line(x_line)"
+        ]
+      },
+      {
+        "key": "kia_sorento_가솔린2.5터보_블랙에디션",
+        "label": "기아 | 쏘렌토 | 가솔린 2.5 터보 | 블랙 에디션",
+        "near": [
+          "프레스티지(prestige)",
+          "노블레스(noblesse)",
+          "시그니처(signature)",
+          "X-Line(x_line)"
+        ]
+      },
+      {
+        "key": "kia_sorento_하이브리드터보_노블레스전자식4wd",
+        "label": "기아 | 쏘렌토 | 하이브리드 터보 | 노블레스(전자식4WD)",
+        "near": [
+          "프레스티지(prestige)",
+          "노블레스(noblesse)",
+          "시그니처(signature)",
+          "X-Line(x_line)"
+        ]
+      },
+      {
+        "key": "kia_sorento_하이브리드터보_시그니처2wd",
+        "label": "기아 | 쏘렌토 | 하이브리드 터보 | 시그니처(2WD)",
+        "near": [
+          "프레스티지(prestige)",
+          "노블레스(noblesse)",
+          "시그니처(signature)",
+          "X-Line(x_line)"
+        ]
+      },
+      {
+        "key": "kia_sorento_하이브리드터보_xline2wd",
+        "label": "기아 | 쏘렌토 | 하이브리드 터보 | X-Line(2WD)",
+        "near": [
+          "프레스티지(prestige)",
+          "노블레스(noblesse)",
+          "시그니처(signature)",
+          "X-Line(x_line)"
+        ]
+      },
+      {
+        "key": "kia_sorento_하이브리드터보_블랙에디션2wd",
+        "label": "기아 | 쏘렌토 | 하이브리드 터보 | 블랙 에디션(2WD)",
+        "near": [
+          "프레스티지(prestige)",
+          "노블레스(noblesse)",
+          "시그니처(signature)",
+          "X-Line(x_line)"
+        ]
+      },
+      {
+        "key": "kia_sorento_하이브리드터보_시그니처전자식4wd",
+        "label": "기아 | 쏘렌토 | 하이브리드 터보 | 시그니처(전자식4WD)",
+        "near": [
+          "프레스티지(prestige)",
+          "노블레스(noblesse)",
+          "시그니처(signature)",
+          "X-Line(x_line)"
+        ]
+      },
+      {
+        "key": "kia_sorento_하이브리드터보_xline전자식4wd",
+        "label": "기아 | 쏘렌토 | 하이브리드 터보 | X-Line(전자식4WD)",
+        "near": [
+          "프레스티지(prestige)",
+          "노블레스(noblesse)",
+          "시그니처(signature)",
+          "X-Line(x_line)"
+        ]
+      },
+      {
+        "key": "kia_sorento_하이브리드터보_블랙에디션전자식4wd",
+        "label": "기아 | 쏘렌토 | 하이브리드 터보 | 블랙 에디션(전자식4WD)",
+        "near": [
+          "프레스티지(prestige)",
+          "노블레스(noblesse)",
+          "시그니처(signature)",
+          "X-Line(x_line)"
+        ]
+      },
+      {
+        "key": "kia_carnival_가솔린3.5_노블레스9인",
+        "label": "기아 | 카니발 | 가솔린 3.5 | 노블레스(9인)",
+        "near": [
+          "프레스티지(prestige)",
+          "노블레스(noblesse)",
+          "시그니처(signature)",
+          "X-Line(x_line)",
+          "아웃도어(outdoor)"
+        ]
+      },
+      {
+        "key": "kia_carnival_가솔린3.5_노블레스아웃도어7인",
+        "label": "기아 | 카니발 | 가솔린 3.5 | 노블레스 아웃도어(7인)",
+        "near": [
+          "프레스티지(prestige)",
+          "노블레스(noblesse)",
+          "시그니처(signature)",
+          "X-Line(x_line)",
+          "아웃도어(outdoor)"
+        ]
+      },
+      {
+        "key": "kia_carnival_가솔린3.5_노블레스7인",
+        "label": "기아 | 카니발 | 가솔린 3.5 | 노블레스(7인)",
+        "near": [
+          "프레스티지(prestige)",
+          "노블레스(noblesse)",
+          "시그니처(signature)",
+          "X-Line(x_line)",
+          "아웃도어(outdoor)"
+        ]
+      },
+      {
+        "key": "kia_carnival_가솔린3.5_시그니처9인",
+        "label": "기아 | 카니발 | 가솔린 3.5 | 시그니처(9인)",
+        "near": [
+          "프레스티지(prestige)",
+          "노블레스(noblesse)",
+          "시그니처(signature)",
+          "X-Line(x_line)",
+          "아웃도어(outdoor)"
+        ]
+      },
+      {
+        "key": "kia_carnival_가솔린3.5_xline9인",
+        "label": "기아 | 카니발 | 가솔린 3.5 | X-Line(9인)",
+        "near": [
+          "프레스티지(prestige)",
+          "노블레스(noblesse)",
+          "시그니처(signature)",
+          "X-Line(x_line)",
+          "아웃도어(outdoor)"
+        ]
+      },
+      {
+        "key": "kia_carnival_가솔린3.5_블랙에디션9인",
+        "label": "기아 | 카니발 | 가솔린 3.5 | 블랙 에디션(9인)",
+        "near": [
+          "프레스티지(prestige)",
+          "노블레스(noblesse)",
+          "시그니처(signature)",
+          "X-Line(x_line)",
+          "아웃도어(outdoor)"
+        ]
+      },
+      {
+        "key": "kia_carnival_가솔린3.5_시그니처7인",
+        "label": "기아 | 카니발 | 가솔린 3.5 | 시그니처(7인)",
+        "near": [
+          "프레스티지(prestige)",
+          "노블레스(noblesse)",
+          "시그니처(signature)",
+          "X-Line(x_line)",
+          "아웃도어(outdoor)"
+        ]
+      },
+      {
+        "key": "kia_carnival_가솔린3.5_xline7인",
+        "label": "기아 | 카니발 | 가솔린 3.5 | X-Line(7인)",
+        "near": [
+          "프레스티지(prestige)",
+          "노블레스(noblesse)",
+          "시그니처(signature)",
+          "X-Line(x_line)",
+          "아웃도어(outdoor)"
+        ]
+      },
+      {
+        "key": "kia_carnival_가솔린3.5_블랙에디션7인",
+        "label": "기아 | 카니발 | 가솔린 3.5 | 블랙 에디션(7인)",
+        "near": [
+          "프레스티지(prestige)",
+          "노블레스(noblesse)",
+          "시그니처(signature)",
+          "X-Line(x_line)",
+          "아웃도어(outdoor)"
+        ]
+      },
+      {
+        "key": "kia_k5_lpg2.0_프레스티지",
+        "label": "기아 | K5 | LPG 2.0 | 프레스티지",
+        "near": [
+          "프레스티지(prestige)",
+          "노블레스(noblesse)",
+          "시그니처(signature)",
+          "트렌디(trendy)"
+        ]
+      },
+      {
+        "key": "kia_k8_lpg3.5_프레스티지",
+        "label": "기아 | K8 | LPG 3.5 | 프레스티지",
+        "near": [
+          "프레스티지(prestige)",
+          "노블레스(noblesse)"
+        ]
+      },
+      {
+        "key": "kia_k8_lpg3.5_노블레스",
+        "label": "기아 | K8 | LPG 3.5 | 노블레스",
+        "near": [
+          "프레스티지(prestige)",
+          "노블레스(noblesse)"
+        ]
+      },
+      {
+        "key": "genesis_g70",
+        "label": "제네시스 | G70 | 가솔린 | ",
+        "near": [
+          "스탠다드(standard)",
+          "Graphite Edition(graphite)"
+        ]
+      },
+      {
+        "key": "genesis_g80",
+        "label": "제네시스 | G80 | 가솔린 2.5 터보 | 2WD",
+        "near": [
+          "스탠다드(standard)",
+          "Black(black)"
+        ]
+      },
+      {
+        "key": "genesis_g80",
+        "label": "제네시스 | G80 | 가솔린 2.5 터보 | AWD",
+        "near": [
+          "스탠다드(standard)",
+          "Black(black)"
+        ]
+      },
+      {
+        "key": "genesis_g80",
+        "label": "제네시스 | G80 | 가솔린 3.5 터보 | 2WD",
+        "near": [
+          "Black(black)"
+        ]
+      },
+      {
+        "key": "genesis_g80",
+        "label": "제네시스 | G80 | 가솔린 3.5 터보 | AWD",
+        "near": [
+          "Black(black)"
+        ]
+      },
+      {
+        "key": "genesis_g90",
+        "label": "제네시스 | G90 | 가솔린 3.5 터보 | 2WD(후륜)",
+        "near": [
+          "스탠다드 (5인승, 2WD 기본)(standard)",
+          "Long Wheel Base (5인승 기본)(lwb)",
+          "Black (5인승 기본)(black)",
+          "LWB Black (5인승 기본)(lwb_black)"
+        ]
+      },
+      {
+        "key": "genesis_g90",
+        "label": "제네시스 | G90 | 가솔린 3.5 터보 | AWD",
+        "near": [
+          "스탠다드 (5인승, 2WD 기본)(standard)",
+          "Long Wheel Base (5인승 기본)(lwb)",
+          "Black (5인승 기본)(black)",
+          "LWB Black (5인승 기본)(lwb_black)"
+        ]
+      },
+      {
+        "key": "genesis_gv70",
+        "label": "제네시스 | GV70 | 가솔린 2.5 터보 | 2WD(후륜)",
+        "near": [
+          "스탠다드 (2WD 기본)(standard)"
+        ]
+      },
+      {
+        "key": "genesis_gv70",
+        "label": "제네시스 | GV70 | 가솔린 2.5 터보 | AWD(오토 터레인 모드 포함)",
+        "near": [
+          "스탠다드 (2WD 기본)(standard)"
+        ]
+      },
+      {
+        "key": "genesis_gv80",
+        "label": "제네시스 | GV80 | 가솔린 2.5 터보 | 2WD(후륜)",
+        "near": [
+          "스탠다드 (2WD 기본)(standard)",
+          "Black(black)"
+        ]
+      },
+      {
+        "key": "genesis_gv80",
+        "label": "제네시스 | GV80 | 가솔린 2.5 터보 | AWD",
+        "near": [
+          "스탠다드 (2WD 기본)(standard)",
+          "Black(black)"
+        ]
+      },
+      {
+        "key": "genesis_gv80",
+        "label": "제네시스 | GV80 | 가솔린 3.5 터보 | 2WD(후륜)",
+        "near": [
+          "스탠다드 (2WD 기본)(standard)",
+          "Black(black)"
+        ]
+      },
+      {
+        "key": "genesis_gv80",
+        "label": "제네시스 | GV80 | 가솔린 3.5 터보 | AWD",
+        "near": [
+          "스탠다드 (2WD 기본)(standard)",
+          "Black(black)"
+        ]
+      },
+      {
+        "key": "genesis_gv80",
+        "label": "제네시스 | GV80 | 가솔린 2.5 터보 | 블랙",
+        "near": [
+          "스탠다드 (2WD 기본)(standard)",
+          "Black(black)"
+        ]
+      },
+      {
+        "key": "genesis_gv80",
+        "label": "제네시스 | GV80 | 가솔린 3.5 터보 | 블랙",
+        "near": [
+          "스탠다드 (2WD 기본)(standard)",
+          "Black(black)"
+        ]
+      },
+      {
+        "key": "GNTS4LVT4",
+        "label": "현대 | 더 뉴 그랜저 택시 | LPG 3.5 | 고급형",
+        "near": [
+          "프리미엄(premium)",
+          "익스클루시브(exclusive)"
+        ]
+      },
+      {
+        "key": "FNJS4RPT1",
+        "label": "현대 | 디 올 뉴 아반떼 | 가솔린 | 프리미엄",
+        "near": [
+          "스마트(smart)",
+          "모던(modern)",
+          "인스퍼레이션(inspiration)",
+          "N 라인(n_line)",
+          "N(n)"
+        ]
+      },
+      {
+        "key": "FNJS4ZPD1",
+        "label": "현대 | 디 올 뉴 아반떼 | 하이브리드 | 프리미엄",
+        "near": [
+          "스마트(smart)",
+          "모던 라이트(modern_lite)",
+          "모던(modern)",
+          "인스퍼레이션(inspiration)",
+          "N 라인(n_line)"
+        ]
+      },
+      {
+        "key": "SXJJ5TMD4",
+        "label": "현대 | 코나 | 가솔린 1.6 터보 | N Line Inspiration",
+        "near": [
+          "모던(modern)",
+          "H-Pick(hpick)",
+          "프리미엄(premium)",
+          "인스퍼레이션(inspiration)",
+          "블랙 익스테리어(black_exterior)",
+          "N 라인(n_line)"
+        ]
+      },
+      {
+        "key": "SXJJ5TME4",
+        "label": "현대 | 코나 | 가솔린 1.6 터보 | N Line Inspiration",
+        "near": [
+          "모던(modern)",
+          "H-Pick(hpick)",
+          "프리미엄(premium)",
+          "인스퍼레이션(inspiration)",
+          "블랙 익스테리어(black_exterior)",
+          "N 라인(n_line)"
+        ]
+      },
+      {
+        "key": "SXJJ5ZMD4",
+        "label": "현대 | 코나 | 하이브리드 | N Line Inspiration",
+        "near": [
+          "모던(modern)",
+          "H-Pick(hpick)",
+          "프리미엄(premium)",
+          "인스퍼레이션(inspiration)",
+          "블랙 익스테리어(black_exterior)",
+          "N 라인(n_line)"
+        ]
+      },
+      {
+        "key": "FXJJ9TAT2",
+        "label": "현대 | 팰리세이드 | 가솔린 2.5 | 익스클루시브",
+        "near": [
+          "익스클루시브(exclusive)",
+          "프레스티지(prestige)",
+          "캘리그래피(calligraphy)"
+        ]
+      },
+      {
+        "key": "FXJJ7TAT2",
+        "label": "현대 | 팰리세이드 | 가솔린 2.5 | 익스클루시브",
+        "near": [
+          "익스클루시브(exclusive)",
+          "프레스티지(prestige)",
+          "캘리그래피(calligraphy)"
+        ]
+      },
+      {
+        "key": "FXJJ9TAA2",
+        "label": "현대 | 팰리세이드 | 가솔린 2.5 | 익스클루시브",
+        "near": [
+          "익스클루시브(exclusive)",
+          "프레스티지(prestige)",
+          "캘리그래피(calligraphy)"
+        ]
+      },
+      {
+        "key": "FXJJ7TAA2",
+        "label": "현대 | 팰리세이드 | 가솔린 2.5 | 익스클루시브",
+        "near": [
+          "익스클루시브(exclusive)",
+          "프레스티지(prestige)",
+          "캘리그래피(calligraphy)"
+        ]
+      },
+      {
+        "key": "FXJJ9THT2",
+        "label": "현대 | 팰리세이드 | 가솔린 2.5 | H-Pick",
+        "near": [
+          "익스클루시브(exclusive)",
+          "프레스티지(prestige)",
+          "캘리그래피(calligraphy)"
+        ]
+      },
+      {
+        "key": "FXJJ9ZAT2",
+        "label": "현대 | 팰리세이드 | 하이브리드 2.5 | 익스클루시브",
+        "near": [
+          "익스클루시브(exclusive)",
+          "프레스티지(prestige)",
+          "캘리그래피(calligraphy)"
+        ]
+      },
+      {
+        "key": "FXJJ7THT2",
+        "label": "현대 | 팰리세이드 | 가솔린 2.5 | H-Pick",
+        "near": [
+          "익스클루시브(exclusive)",
+          "프레스티지(prestige)",
+          "캘리그래피(calligraphy)"
+        ]
+      },
+      {
+        "key": "FXJJ9TDT2",
+        "label": "현대 | 팰리세이드 | 가솔린 2.5 | XRT",
+        "near": [
+          "익스클루시브(exclusive)",
+          "프레스티지(prestige)",
+          "캘리그래피(calligraphy)"
+        ]
+      },
+      {
+        "key": "FXJJ7ZAT2",
+        "label": "현대 | 팰리세이드 | 하이브리드 2.5 | 익스클루시브",
+        "near": [
+          "익스클루시브(exclusive)",
+          "프레스티지(prestige)",
+          "캘리그래피(calligraphy)"
+        ]
+      },
+      {
+        "key": "FXJJ9THA2",
+        "label": "현대 | 팰리세이드 | 가솔린 2.5 | H-Pick",
+        "near": [
+          "익스클루시브(exclusive)",
+          "프레스티지(prestige)",
+          "캘리그래피(calligraphy)"
+        ]
+      },
+      {
+        "key": "FXJJ9ZAA2",
+        "label": "현대 | 팰리세이드 | 하이브리드 2.5 | 익스클루시브",
+        "near": [
+          "익스클루시브(exclusive)",
+          "프레스티지(prestige)",
+          "캘리그래피(calligraphy)"
+        ]
+      },
+      {
+        "key": "FXJJ7TDT2",
+        "label": "현대 | 팰리세이드 | 가솔린 2.5 | XRT",
+        "near": [
+          "익스클루시브(exclusive)",
+          "프레스티지(prestige)",
+          "캘리그래피(calligraphy)"
+        ]
+      },
+      {
+        "key": "FXJJ9TDA2",
+        "label": "현대 | 팰리세이드 | 가솔린 2.5 | XRT",
+        "near": [
+          "익스클루시브(exclusive)",
+          "프레스티지(prestige)",
+          "캘리그래피(calligraphy)"
+        ]
+      },
+      {
+        "key": "FXJJ7THA2",
+        "label": "현대 | 팰리세이드 | 가솔린 2.5 | H-Pick",
+        "near": [
+          "익스클루시브(exclusive)",
+          "프레스티지(prestige)",
+          "캘리그래피(calligraphy)"
+        ]
+      },
+      {
+        "key": "FXJJ7ZAA2",
+        "label": "현대 | 팰리세이드 | 하이브리드 2.5 | 익스클루시브",
+        "near": [
+          "익스클루시브(exclusive)",
+          "프레스티지(prestige)",
+          "캘리그래피(calligraphy)"
+        ]
+      },
+      {
+        "key": "FXJJ9TCT2",
+        "label": "현대 | 팰리세이드 | 가솔린 2.5 | 캘리그래피",
+        "near": [
+          "익스클루시브(exclusive)",
+          "프레스티지(prestige)",
+          "캘리그래피(calligraphy)"
+        ]
+      },
+      {
+        "key": "FXJJ7TDA2",
+        "label": "현대 | 팰리세이드 | 가솔린 2.5 | XRT",
+        "near": [
+          "익스클루시브(exclusive)",
+          "프레스티지(prestige)",
+          "캘리그래피(calligraphy)"
+        ]
+      },
+      {
+        "key": "FXJJ9ZHT2",
+        "label": "현대 | 팰리세이드 | 하이브리드 2.5 | H-Pick",
+        "near": [
+          "익스클루시브(exclusive)",
+          "프레스티지(prestige)",
+          "캘리그래피(calligraphy)"
+        ]
+      },
+      {
+        "key": "FXJJ7TCT2",
+        "label": "현대 | 팰리세이드 | 가솔린 2.5 | 캘리그래피",
+        "near": [
+          "익스클루시브(exclusive)",
+          "프레스티지(prestige)",
+          "캘리그래피(calligraphy)"
+        ]
+      },
+      {
+        "key": "FXJJ7ZHT2",
+        "label": "현대 | 팰리세이드 | 하이브리드 2.5 | H-Pick",
+        "near": [
+          "익스클루시브(exclusive)",
+          "프레스티지(prestige)",
+          "캘리그래피(calligraphy)"
+        ]
+      },
+      {
+        "key": "FXJJ9TCA2",
+        "label": "현대 | 팰리세이드 | 가솔린 2.5 | 캘리그래피",
+        "near": [
+          "익스클루시브(exclusive)",
+          "프레스티지(prestige)",
+          "캘리그래피(calligraphy)"
+        ]
+      },
+      {
+        "key": "FXJJ9ZHA2",
+        "label": "현대 | 팰리세이드 | 하이브리드 2.5 | H-Pick",
+        "near": [
+          "익스클루시브(exclusive)",
+          "프레스티지(prestige)",
+          "캘리그래피(calligraphy)"
+        ]
+      },
+      {
+        "key": "FXJJ7TCA2",
+        "label": "현대 | 팰리세이드 | 가솔린 2.5 | 캘리그래피",
+        "near": [
+          "익스클루시브(exclusive)",
+          "프레스티지(prestige)",
+          "캘리그래피(calligraphy)"
+        ]
+      },
+      {
+        "key": "FXJJ7ZHA2",
+        "label": "현대 | 팰리세이드 | 하이브리드 2.5 | H-Pick",
+        "near": [
+          "익스클루시브(exclusive)",
+          "프레스티지(prestige)",
+          "캘리그래피(calligraphy)"
+        ]
+      },
+      {
+        "key": "FXJJ9ZCT2",
+        "label": "현대 | 팰리세이드 | 하이브리드 2.5 | 캘리그래피",
+        "near": [
+          "익스클루시브(exclusive)",
+          "프레스티지(prestige)",
+          "캘리그래피(calligraphy)"
+        ]
+      },
+      {
+        "key": "FXJJ9ZCA2",
+        "label": "현대 | 팰리세이드 | 하이브리드 2.5 | 캘리그래피",
+        "near": [
+          "익스클루시브(exclusive)",
+          "프레스티지(prestige)",
+          "캘리그래피(calligraphy)"
+        ]
+      },
+      {
+        "key": "FXJJ7ZCT2",
+        "label": "현대 | 팰리세이드 | 하이브리드 2.5 | 캘리그래피",
+        "near": [
+          "익스클루시브(exclusive)",
+          "프레스티지(prestige)",
+          "캘리그래피(calligraphy)"
+        ]
+      },
+      {
+        "key": "FXJJ7ZCA2",
+        "label": "현대 | 팰리세이드 | 하이브리드 2.5 | 캘리그래피",
+        "near": [
+          "익스클루시브(exclusive)",
+          "프레스티지(prestige)",
+          "캘리그래피(calligraphy)"
+        ]
+      },
+      {
+        "key": "FXJJ9TET2",
+        "label": "현대 | 팰리세이드 | 가솔린 2.5 | 하이루프",
+        "near": [
+          "익스클루시브(exclusive)",
+          "프레스티지(prestige)",
+          "캘리그래피(calligraphy)"
+        ]
+      },
+      {
+        "key": "FXJJ9TEA2",
+        "label": "현대 | 팰리세이드 | 가솔린 2.5 | 하이루프",
+        "near": [
+          "익스클루시브(exclusive)",
+          "프레스티지(prestige)",
+          "캘리그래피(calligraphy)"
+        ]
+      },
+      {
+        "key": "FXJJ7TET2",
+        "label": "현대 | 팰리세이드 | 가솔린 2.5 | 하이루프",
+        "near": [
+          "익스클루시브(exclusive)",
+          "프레스티지(prestige)",
+          "캘리그래피(calligraphy)"
+        ]
+      },
+      {
+        "key": "FXJJ7TEA2",
+        "label": "현대 | 팰리세이드 | 가솔린 2.5 | 하이루프",
+        "near": [
+          "익스클루시브(exclusive)",
+          "프레스티지(prestige)",
+          "캘리그래피(calligraphy)"
+        ]
+      },
+      {
+        "key": "FXJJ9ZET2",
+        "label": "현대 | 팰리세이드 | 하이브리드 2.5 | 하이루프",
+        "near": [
+          "익스클루시브(exclusive)",
+          "프레스티지(prestige)",
+          "캘리그래피(calligraphy)"
+        ]
+      },
+      {
+        "key": "FXJJ9ZEA2",
+        "label": "현대 | 팰리세이드 | 하이브리드 2.5 | 하이루프",
+        "near": [
+          "익스클루시브(exclusive)",
+          "프레스티지(prestige)",
+          "캘리그래피(calligraphy)"
+        ]
+      },
+      {
+        "key": "FXJJ7ZET2",
+        "label": "현대 | 팰리세이드 | 하이브리드 2.5 | 하이루프",
+        "near": [
+          "익스클루시브(exclusive)",
+          "프레스티지(prestige)",
+          "캘리그래피(calligraphy)"
+        ]
+      },
+      {
+        "key": "FXJJ7ZEA2",
+        "label": "현대 | 팰리세이드 | 하이브리드 2.5 | 하이루프",
+        "near": [
+          "익스클루시브(exclusive)",
+          "프레스티지(prestige)",
+          "캘리그래피(calligraphy)"
+        ]
+      }
+    ],
+    "모델없음": [
+      {
+        "key": "kia_ev3_전기_에어스탠다드",
+        "label": "기아 | EV3 | 전기 | 에어 스탠다드",
+        "near": []
+      },
+      {
+        "key": "kia_ev3_전기_어스스탠다드",
+        "label": "기아 | EV3 | 전기 | 어스 스탠다드",
+        "near": []
+      },
+      {
+        "key": "kia_ev3_전기_에어롱레인지",
+        "label": "기아 | EV3 | 전기 | 에어 롱레인지",
+        "near": []
+      },
+      {
+        "key": "kia_ev3_전기_gtline스탠다드",
+        "label": "기아 | EV3 | 전기 | GT-Line 스탠다드",
+        "near": []
+      },
+      {
+        "key": "kia_ev3_전기_어스롱레인지",
+        "label": "기아 | EV3 | 전기 | 어스 롱레인지",
+        "near": []
+      },
+      {
+        "key": "kia_ev3_전기_gtline롱레인지",
+        "label": "기아 | EV3 | 전기 | GT-Line 롱레인지",
+        "near": []
+      },
+      {
+        "key": "kia_ev4_전기_에어스탠다드",
+        "label": "기아 | EV4 | 전기 | 에어 스탠다드",
+        "near": []
+      },
+      {
+        "key": "kia_ev4_전기_에어롱레인지",
+        "label": "기아 | EV4 | 전기 | 에어 롱레인지",
+        "near": []
+      },
+      {
+        "key": "kia_ev4_전기_어스스탠다드",
+        "label": "기아 | EV4 | 전기 | 어스 스탠다드",
+        "near": []
+      },
+      {
+        "key": "kia_ev4_전기_gtline스탠다드",
+        "label": "기아 | EV4 | 전기 | GT-Line 스탠다드",
+        "near": []
+      },
+      {
+        "key": "kia_ev4_전기_어스롱레인지",
+        "label": "기아 | EV4 | 전기 | 어스 롱레인지",
+        "near": []
+      },
+      {
+        "key": "kia_ev4_전기_gtline롱레인지",
+        "label": "기아 | EV4 | 전기 | GT-Line 롱레인지",
+        "near": []
+      },
+      {
+        "key": "kia_ev5_전기_에어스탠다드",
+        "label": "기아 | EV5 | 전기 | 에어 스탠다드",
+        "near": []
+      },
+      {
+        "key": "kia_ev5_전기_어스스탠다드",
+        "label": "기아 | EV5 | 전기 | 어스 스탠다드",
+        "near": []
+      },
+      {
+        "key": "kia_ev5_전기_에어롱레인지",
+        "label": "기아 | EV5 | 전기 | 에어 롱레인지",
+        "near": []
+      },
+      {
+        "key": "kia_ev5_전기_gtline스탠다드",
+        "label": "기아 | EV5 | 전기 | GT-Line 스탠다드",
+        "near": []
+      },
+      {
+        "key": "kia_ev5_전기_어스롱레인지",
+        "label": "기아 | EV5 | 전기 | 어스 롱레인지",
+        "near": []
+      },
+      {
+        "key": "kia_ev5_전기_gtline롱레인지",
+        "label": "기아 | EV5 | 전기 | GT-Line 롱레인지",
+        "near": []
+      },
+      {
+        "key": "kia_ev6_전기_라이트스탠다드",
+        "label": "기아 | EV6 | 전기 | 라이트 스탠다드",
+        "near": []
+      },
+      {
+        "key": "kia_ev6_전기_라이트롱레인지",
+        "label": "기아 | EV6 | 전기 | 라이트 롱레인지",
+        "near": []
+      },
+      {
+        "key": "kia_ev6_전기_에어스탠다드",
+        "label": "기아 | EV6 | 전기 | 에어 스탠다드",
+        "near": []
+      },
+      {
+        "key": "kia_ev6_전기_어스스탠다드",
+        "label": "기아 | EV6 | 전기 | 어스 스탠다드",
+        "near": []
+      },
+      {
+        "key": "kia_ev6_전기_에어롱레인지",
+        "label": "기아 | EV6 | 전기 | 에어 롱레인지",
+        "near": []
+      },
+      {
+        "key": "kia_ev6_전기_어스롱레인지",
+        "label": "기아 | EV6 | 전기 | 어스 롱레인지",
+        "near": []
+      },
+      {
+        "key": "kia_ev6_전기_gtline롱레인지",
+        "label": "기아 | EV6 | 전기 | GT-Line 롱레인지",
+        "near": []
+      },
+      {
+        "key": "kia_ev9_전기_라이트스탠다드2wd",
+        "label": "기아 | EV9 | 전기 | 라이트 스탠다드(2WD)",
+        "near": []
+      },
+      {
+        "key": "kia_ev9_전기_에어스탠다드2wd",
+        "label": "기아 | EV9 | 전기 | 에어 스탠다드(2WD)",
+        "near": []
+      },
+      {
+        "key": "kia_ev9_전기_라이트롱레인지2wd",
+        "label": "기아 | EV9 | 전기 | 라이트 롱레인지(2WD)",
+        "near": []
+      },
+      {
+        "key": "kia_ev9_전기_에어롱레인지2wd",
+        "label": "기아 | EV9 | 전기 | 에어 롱레인지(2WD)",
+        "near": []
+      },
+      {
+        "key": "kia_ev9_전기_어스스탠다드2wd",
+        "label": "기아 | EV9 | 전기 | 어스 스탠다드(2WD)",
+        "near": []
+      },
+      {
+        "key": "kia_ev9_전기_라이트롱레인지4wd",
+        "label": "기아 | EV9 | 전기 | 라이트 롱레인지(4WD)",
+        "near": []
+      },
+      {
+        "key": "kia_ev9_전기_에어롱레인지4wd",
+        "label": "기아 | EV9 | 전기 | 에어 롱레인지(4WD)",
+        "near": []
+      },
+      {
+        "key": "kia_ev9_전기_어스롱레인지2wd",
+        "label": "기아 | EV9 | 전기 | 어스 롱레인지(2WD)",
+        "near": []
+      },
+      {
+        "key": "kia_ev9_전기_어스롱레인지4wd",
+        "label": "기아 | EV9 | 전기 | 어스 롱레인지(4WD)",
+        "near": []
+      },
+      {
+        "key": "kia_ev9_전기_gtline롱레인지4wd",
+        "label": "기아 | EV9 | 전기 | GT-Line 롱레인지(4WD)",
+        "near": []
+      },
+      {
+        "key": "renault_필랑트_techno",
+        "label": "르노 | 필랑트 |  | techno",
+        "near": []
+      },
+      {
+        "key": "renault_필랑트_iconic",
+        "label": "르노 | 필랑트 |  | iconic",
+        "near": []
+      },
+      {
+        "key": "renault_필랑트_esprit Alpine",
+        "label": "르노 | 필랑트 |  | esprit Alpine",
+        "near": []
+      },
+      {
+        "key": "genesis_gv60",
+        "label": "제네시스 | GV60 | 전기 | ",
+        "near": [
+          "GV70",
+          "GV80"
+        ]
+      },
+      {
+        "key": "HEJJ5HDT2",
+        "label": "현대 | 넥쏘 | 수소 | 모던",
+        "near": []
+      },
+      {
+        "key": "HEJJ5HAT2",
+        "label": "현대 | 넥쏘 | 수소 | 익스클루시브",
+        "near": []
+      },
+      {
+        "key": "HEJJ5HCT2",
+        "label": "현대 | 넥쏘 | 수소 | 프레스티지",
+        "near": []
+      },
+      {
+        "key": "USJC3LST4",
+        "label": "현대 | 더 뉴 스타리아 | LPG 3.5 | Smart",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "USJC5LCT4",
+        "label": "현대 | 더 뉴 스타리아 | LPG 3.5 | Smart(센터콘솔)",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "USJC3LMT4",
+        "label": "현대 | 더 뉴 스타리아 | LPG 3.5 | Modern",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "USJC5LMT4",
+        "label": "현대 | 더 뉴 스타리아 | LPG 3.5 | Modern",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "USJTBLST4",
+        "label": "현대 | 더 뉴 스타리아 | LPG 3.5 | Smart",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "USJC2ZCT4",
+        "label": "현대 | 더 뉴 스타리아 | 하이브리드 | Smart(센터콘솔)",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "USJTBLMT4",
+        "label": "현대 | 더 뉴 스타리아 | LPG 3.5 | Modern",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "USJC5ZCT4",
+        "label": "현대 | 더 뉴 스타리아 | 하이브리드 | Smart(센터콘솔)",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "USJC2ZMT4",
+        "label": "현대 | 더 뉴 스타리아 | 하이브리드 | Modern",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "USJC5ZMT4",
+        "label": "현대 | 더 뉴 스타리아 | 하이브리드 | Modern",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "USJTBZST4",
+        "label": "현대 | 더 뉴 스타리아 | 하이브리드 | Smart",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "USJT9ZST4",
+        "label": "현대 | 더 뉴 스타리아 | 하이브리드 | Smart",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "USJT9ZMT4",
+        "label": "현대 | 더 뉴 스타리아 | 하이브리드 | Modern",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "USJTBZMT4",
+        "label": "현대 | 더 뉴 스타리아 | 하이브리드 | Modern",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "USJC3VMT4",
+        "label": "현대 | 더 뉴 스타리아 | 전기 | Modern",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "USJC5VMT4",
+        "label": "현대 | 더 뉴 스타리아 | 전기 | Modern",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "USJTBVMT4",
+        "label": "현대 | 더 뉴 스타리아 | 전기 | Modern",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "USJL9ZPT4",
+        "label": "현대 | 더 뉴 스타리아 라운지 | 하이브리드 | Prestige",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "USJL7LET4",
+        "label": "현대 | 더 뉴 스타리아 라운지 | LPG 3.5 | Inspiration",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "USJL9ZET4",
+        "label": "현대 | 더 뉴 스타리아 라운지 | 하이브리드 | Inspiration",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "USJL7ZET4",
+        "label": "현대 | 더 뉴 스타리아 라운지 | 하이브리드 | Inspiration",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "USJLBVPT4",
+        "label": "현대 | 더 뉴 스타리아 라운지 | 전기 | Prestige",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "USJL7VPT4",
+        "label": "현대 | 더 뉴 스타리아 라운지 | 전기 | Prestige",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "USJL7VET4",
+        "label": "현대 | 더 뉴 스타리아 라운지 | 전기 | Inspiration",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "USTL7LBT4",
+        "label": "현대 | 더 뉴 스타리아 라운지 모빌리티 | LPG 3.5 | 모빌리티",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "USTL9ZBT4",
+        "label": "현대 | 더 뉴 스타리아 라운지 모빌리티 | 하이브리드 | 모빌리티",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "USTL7ZBT4",
+        "label": "현대 | 더 뉴 스타리아 라운지 모빌리티 | 하이브리드 | 모빌리티",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "USJV9ZET4",
+        "label": "현대 | 더 뉴 스타리아 리무진 | 하이브리드 | Inspiration",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "USJV6ZET4",
+        "label": "현대 | 더 뉴 스타리아 리무진 | 하이브리드 | Inspiration",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "USJV6VET4",
+        "label": "현대 | 더 뉴 스타리아 리무진 | 전기 | Inspiration",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "USCTBLMT4",
+        "label": "현대 | 더 뉴 스타리아 킨더 | LPG 3.5 | Modern",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "USCTFLMT4",
+        "label": "현대 | 더 뉴 스타리아 킨더 | LPG 3.5 | Modern",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "USCTBZMT4",
+        "label": "현대 | 더 뉴 스타리아 킨더 | 하이브리드 | Modern",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "USCTFZMT4",
+        "label": "현대 | 더 뉴 스타리아 킨더 | 하이브리드 | Modern",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "CEJS4VHD3",
+        "label": "현대 | 더 뉴 아이오닉 6 | 전기 | E-Value +(스탠다드) 18인치",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "CEJS4VLD3",
+        "label": "현대 | 더 뉴 아이오닉 6 | 전기 | E-LITE(롱레인지) 18인치",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "CEJS4VAD3",
+        "label": "현대 | 더 뉴 아이오닉 6 | 전기 | Exclusive(스탠다드) 18인치",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "CEJS4VSD3",
+        "label": "현대 | 더 뉴 아이오닉 6 | 전기 | E-LITE(롱레인지) 20인치",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "CEJS4VLA3",
+        "label": "현대 | 더 뉴 아이오닉 6 | 전기 | E-LITE(롱레인지) 18인치",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "CEJS4VSA3",
+        "label": "현대 | 더 뉴 아이오닉 6 | 전기 | E-LITE(롱레인지) 20인치",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "CEJS4VBD3",
+        "label": "현대 | 더 뉴 아이오닉 6 | 전기 | Exclusive(롱레인지) 18인치",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "CEJS4VPD3",
+        "label": "현대 | 더 뉴 아이오닉 6 | 전기 | Prestige(스탠다드) 18인치",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "CEJS4VCD3",
+        "label": "현대 | 더 뉴 아이오닉 6 | 전기 | Exclusive(롱레인지) 20인치",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "CEJS4VMD3",
+        "label": "현대 | 더 뉴 아이오닉 6 | 전기 | N Line Exclusive(롱레인지) 20인치",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "CEJS4VBA3",
+        "label": "현대 | 더 뉴 아이오닉 6 | 전기 | Exclusive(롱레인지) 18인치",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "CEJS4VCA3",
+        "label": "현대 | 더 뉴 아이오닉 6 | 전기 | Exclusive(롱레인지) 20인치",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "CEJS4VFD3",
+        "label": "현대 | 더 뉴 아이오닉 6 | 전기 | Prestige(롱레인지) 18인치",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "CEJS4VMA3",
+        "label": "현대 | 더 뉴 아이오닉 6 | 전기 | N Line Exclusive(롱레인지) 20인치",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "CEJS4VGD3",
+        "label": "현대 | 더 뉴 아이오닉 6 | 전기 | Prestige(롱레인지) 20인치",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "CEJS4VND3",
+        "label": "현대 | 더 뉴 아이오닉 6 | 전기 | N Line Prestige(롱레인지) 20인치",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "CEJS4VFA3",
+        "label": "현대 | 더 뉴 아이오닉 6 | 전기 | Prestige(롱레인지) 18인치",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "CEJS4VGA3",
+        "label": "현대 | 더 뉴 아이오닉 6 | 전기 | Prestige(롱레인지) 20인치",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "CEJS4VNA3",
+        "label": "현대 | 더 뉴 아이오닉 6 | 전기 | N Line Prestige(롱레인지) 20인치",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "QV1BFABA7",
+        "label": "현대 | 더 뉴 파비스 | 디젤 6.8 | 프리미엄",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "QV1BHABA7",
+        "label": "현대 | 더 뉴 파비스 | 디젤 6.8 | 프리미엄",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "QV1BKABA7",
+        "label": "현대 | 더 뉴 파비스 | 디젤 6.8 | 프리미엄",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "QV1BLABA7",
+        "label": "현대 | 더 뉴 파비스 | 디젤 6.8 | 프리미엄",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "QV1BPABA7",
+        "label": "현대 | 더 뉴 파비스 | 디젤 6.8 | 프리미엄",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "QV1BQABA7",
+        "label": "현대 | 더 뉴 파비스 | 디젤 6.8 | 프리미엄",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "QV1BFABB7",
+        "label": "현대 | 더 뉴 파비스 | 디젤 6.8 | 프리미엄",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "QV1BHABB7",
+        "label": "현대 | 더 뉴 파비스 | 디젤 6.8 | 프리미엄",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "QV1BKABB7",
+        "label": "현대 | 더 뉴 파비스 | 디젤 6.8 | 프리미엄",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "QV1BLABB7",
+        "label": "현대 | 더 뉴 파비스 | 디젤 6.8 | 프리미엄",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "QV1BPABB7",
+        "label": "현대 | 더 뉴 파비스 | 디젤 6.8 | 프리미엄",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "QV1BQABB7",
+        "label": "현대 | 더 뉴 파비스 | 디젤 6.8 | 프리미엄",
+        "near": [
+          "더 뉴 캐스퍼",
+          "더 뉴 그랜저"
+        ]
+      },
+      {
+        "key": "TXTS4LMT2",
+        "label": "현대 | 쏘나타 택시 | LPG 2.0 | 모빌리티",
+        "near": [
+          "쏘나타 디 엣지"
+        ]
+      },
+      {
+        "key": "NEJJ5VVD8",
+        "label": "현대 | 아이오닉 5 | 전기 | E-Value +(스탠다드) 19인치",
+        "near": []
+      },
+      {
+        "key": "NEJJ5VHD8",
+        "label": "현대 | 아이오닉 5 | 전기 | E-Lite(롱레인지) 19인치",
+        "near": []
+      },
+      {
+        "key": "NEJJ5VOD8",
+        "label": "현대 | 아이오닉 5 | 전기 | 모던(롱레인지) 19인치",
+        "near": []
+      },
+      {
+        "key": "NEJJ5VHA8",
+        "label": "현대 | 아이오닉 5 | 전기 | E-Lite(롱레인지) 19인치",
+        "near": []
+      },
+      {
+        "key": "NEJJ5VOA8",
+        "label": "현대 | 아이오닉 5 | 전기 | 모던(롱레인지) 19인치",
+        "near": []
+      },
+      {
+        "key": "NEJJ5VPD8",
+        "label": "현대 | 아이오닉 5 | 전기 | 프리미엄(롱레인지) 19인치",
+        "near": []
+      },
+      {
+        "key": "NEJJ5VUD8",
+        "label": "현대 | 아이오닉 5 | 전기 | 프리미엄(롱레인지) 20인치",
+        "near": []
+      },
+      {
+        "key": "NEJJ5VZD8",
+        "label": "현대 | 아이오닉 5 | 전기 | N LINE(롱레인지) 20인치",
+        "near": []
+      },
+      {
+        "key": "NEJJ5VPA8",
+        "label": "현대 | 아이오닉 5 | 전기 | 프리미엄(롱레인지) 19인치",
+        "near": []
+      },
+      {
+        "key": "NEJJ5VUA8",
+        "label": "현대 | 아이오닉 5 | 전기 | 프리미엄(롱레인지) 20인치",
+        "near": []
+      },
+      {
+        "key": "NEJJ5VID8",
+        "label": "현대 | 아이오닉 5 | 전기 | 인스퍼레이션(롱레인지) 19인치",
+        "near": []
+      },
+      {
+        "key": "NEJJ5VJD8",
+        "label": "현대 | 아이오닉 5 | 전기 | 인스퍼레이션(롱레인지) 20인치",
+        "near": []
+      },
+      {
+        "key": "NEJJ5VZA8",
+        "label": "현대 | 아이오닉 5 | 전기 | N LINE(롱레인지) 20인치",
+        "near": []
+      },
+      {
+        "key": "NEJJ5VIA8",
+        "label": "현대 | 아이오닉 5 | 전기 | 인스퍼레이션(롱레인지) 19인치",
+        "near": []
+      },
+      {
+        "key": "NEJJ5VJA8",
+        "label": "현대 | 아이오닉 5 | 전기 | 인스퍼레이션(롱레인지) 20인치",
+        "near": []
+      },
+      {
+        "key": "NEJJ58BA7",
+        "label": "현대 | 아이오닉 5 N | 전기 | IONIQ 5 N Essential",
+        "near": []
+      },
+      {
+        "key": "NEJJ58RA7",
+        "label": "현대 | 아이오닉 5 N | 전기 | IONIQ 5 N",
+        "near": []
+      },
+      {
+        "key": "CEJS48RA4",
+        "label": "현대 | 아이오닉 6 N | 전기 | N",
+        "near": []
+      },
+      {
+        "key": "MEJJ7VAT2",
+        "label": "현대 | 아이오닉 9 | 전기 | 익스클루시브 19인치",
+        "near": []
+      },
+      {
+        "key": "MEJJ6VAT2",
+        "label": "현대 | 아이오닉 9 | 전기 | 익스클루시브 19인치",
+        "near": []
+      },
+      {
+        "key": "MEJJ7VAA2",
+        "label": "현대 | 아이오닉 9 | 전기 | 익스클루시브 19인치",
+        "near": []
+      },
+      {
+        "key": "MEJJ6VAA2",
+        "label": "현대 | 아이오닉 9 | 전기 | 익스클루시브 19인치",
+        "near": []
+      },
+      {
+        "key": "MEJJ7VAH2",
+        "label": "현대 | 아이오닉 9 | 전기 | 익스클루시브 19인치",
+        "near": []
+      },
+      {
+        "key": "MEJJ6VAH2",
+        "label": "현대 | 아이오닉 9 | 전기 | 익스클루시브 19인치",
+        "near": []
+      },
+      {
+        "key": "MEJJ7VBT2",
+        "label": "현대 | 아이오닉 9 | 전기 | 프레스티지 19인치",
+        "near": []
+      },
+      {
+        "key": "MEJJ7VDT2",
+        "label": "현대 | 아이오닉 9 | 전기 | 프레스티지 21인치",
+        "near": []
+      },
+      {
+        "key": "MEJJ6VBT2",
+        "label": "현대 | 아이오닉 9 | 전기 | 프레스티지 19인치",
+        "near": []
+      },
+      {
+        "key": "MEJJ6VDT2",
+        "label": "현대 | 아이오닉 9 | 전기 | 프레스티지 21인치",
+        "near": []
+      },
+      {
+        "key": "MEJJ7VBA2",
+        "label": "현대 | 아이오닉 9 | 전기 | 프레스티지 19인치",
+        "near": []
+      },
+      {
+        "key": "MEJJ7VDA2",
+        "label": "현대 | 아이오닉 9 | 전기 | 프레스티지 21인치",
+        "near": []
+      },
+      {
+        "key": "MEJJ6VBA2",
+        "label": "현대 | 아이오닉 9 | 전기 | 프레스티지 19인치",
+        "near": []
+      },
+      {
+        "key": "MEJJ6VDA2",
+        "label": "현대 | 아이오닉 9 | 전기 | 프레스티지 21인치",
+        "near": []
+      },
+      {
+        "key": "MEJJ7VBH2",
+        "label": "현대 | 아이오닉 9 | 전기 | 프레스티지 19인치",
+        "near": []
+      },
+      {
+        "key": "MEJJ7VDH2",
+        "label": "현대 | 아이오닉 9 | 전기 | 프레스티지 21인치",
+        "near": []
+      },
+      {
+        "key": "MEJJ6VBH2",
+        "label": "현대 | 아이오닉 9 | 전기 | 프레스티지 19인치",
+        "near": []
+      },
+      {
+        "key": "MEJJ6VDH2",
+        "label": "현대 | 아이오닉 9 | 전기 | 프레스티지 21인치",
+        "near": []
+      },
+      {
+        "key": "MEJJ7VCT2",
+        "label": "현대 | 아이오닉 9 | 전기 | 캘리그래피 19인치",
+        "near": []
+      },
+      {
+        "key": "MEJJ7VET2",
+        "label": "현대 | 아이오닉 9 | 전기 | 캘리그래피 21인치",
+        "near": []
+      },
+      {
+        "key": "MEJJ6VCT2",
+        "label": "현대 | 아이오닉 9 | 전기 | 캘리그래피 19인치",
+        "near": []
+      },
+      {
+        "key": "MEJJ6VET2",
+        "label": "현대 | 아이오닉 9 | 전기 | 캘리그래피 21인치",
+        "near": []
+      },
+      {
+        "key": "MEJJ7VCA2",
+        "label": "현대 | 아이오닉 9 | 전기 | 캘리그래피 19인치",
+        "near": []
+      },
+      {
+        "key": "MEJJ7VEA2",
+        "label": "현대 | 아이오닉 9 | 전기 | 캘리그래피 21인치",
+        "near": []
+      },
+      {
+        "key": "MEJJ7VCH2",
+        "label": "현대 | 아이오닉 9 | 전기 | 캘리그래피 19인치",
+        "near": []
+      },
+      {
+        "key": "MEJJ7VEH2",
+        "label": "현대 | 아이오닉 9 | 전기 | 캘리그래피 21인치",
+        "near": []
+      },
+      {
+        "key": "MEJJ6VCA2",
+        "label": "현대 | 아이오닉 9 | 전기 | 캘리그래피 19인치",
+        "near": []
+      },
+      {
+        "key": "MEJJ6VEA2",
+        "label": "현대 | 아이오닉 9 | 전기 | 캘리그래피 21인치",
+        "near": []
+      },
+      {
+        "key": "MEJJ6VCH2",
+        "label": "현대 | 아이오닉 9 | 전기 | 캘리그래피 19인치",
+        "near": []
+      },
+      {
+        "key": "MEJJ6VEH2",
+        "label": "현대 | 아이오닉 9 | 전기 | 캘리그래피 21인치",
+        "near": []
+      }
+    ],
+    "연료없음": [
+      {
+        "key": "genesis_g80-ev",
+        "label": "제네시스 | G80-EV | 전기 | ",
+        "near": [
+          "G80 가솔린 2.5/3.5 터보",
+          "G80 Black"
+        ]
+      },
+      {
+        "key": "genesis_gv70-ev",
+        "label": "제네시스 | GV70-EV | 전기 | ",
+        "near": [
+          "GV70 가솔린 2.5 터보",
+          "GV70 가솔린 3.5 터보 (AWD 기본)"
+        ]
+      },
+      {
+        "key": "GNJS4SAT4",
+        "label": "현대 | 더 뉴 그랜저 | 가솔린 3.5 | 프리미엄",
+        "near": [
+          "가솔린 2.5/3.5",
+          "LPG 3.5",
+          "하이브리드 1.6T"
+        ]
+      },
+      {
+        "key": "GNJS4SBT4",
+        "label": "현대 | 더 뉴 그랜저 | 가솔린 3.5 | 익스클루시브",
+        "near": [
+          "가솔린 2.5/3.5",
+          "LPG 3.5",
+          "하이브리드 1.6T"
+        ]
+      },
+      {
+        "key": "GNJS4SCT4",
+        "label": "현대 | 더 뉴 그랜저 | 가솔린 3.5 | 캘리그래피",
+        "near": [
+          "가솔린 2.5/3.5",
+          "LPG 3.5",
+          "하이브리드 1.6T"
+        ]
+      },
+      {
+        "key": "DNJS4NLT7",
+        "label": "현대 | 쏘나타 디 엣지 | 가솔린 2.5 터보 | N Line",
+        "near": [
+          "가솔린 1.6 터보",
+          "가솔린 2.0",
+          "하이브리드 2.0",
+          "LPG 2.0 (일반판매)"
+        ]
+      },
+      {
+        "key": "SXJJ5VES3",
+        "label": "현대 | 코나 | 전기 | E-Value +",
+        "near": [
+          "가솔린 1.6 터보",
+          "가솔린 2.0",
+          "하이브리드 1.6"
+        ]
+      },
+      {
+        "key": "SXJJ5VBS3",
+        "label": "현대 | 코나 | 전기 | Premium",
+        "near": [
+          "가솔린 1.6 터보",
+          "가솔린 2.0",
+          "하이브리드 1.6"
+        ]
+      },
+      {
+        "key": "SXJJ5VPR3",
+        "label": "현대 | 코나 | 전기 | Modern plus",
+        "near": [
+          "가솔린 1.6 터보",
+          "가솔린 2.0",
+          "하이브리드 1.6"
+        ]
+      },
+      {
+        "key": "SXJJ5VBR3",
+        "label": "현대 | 코나 | 전기 | Premium",
+        "near": [
+          "가솔린 1.6 터보",
+          "가솔린 2.0",
+          "하이브리드 1.6"
+        ]
+      },
+      {
+        "key": "SXJJ5VCR3",
+        "label": "현대 | 코나 | 전기 | Inspiration",
+        "near": [
+          "가솔린 1.6 터보",
+          "가솔린 2.0",
+          "하이브리드 1.6"
+        ]
+      },
+      {
+        "key": "SXJJ5VMR3",
+        "label": "현대 | 코나 | 전기 | N Line Inspiration",
+        "near": [
+          "가솔린 1.6 터보",
+          "가솔린 2.0",
+          "하이브리드 1.6"
+        ]
+      }
+    ]
+  }
 }
