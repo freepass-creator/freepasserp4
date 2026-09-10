@@ -2,7 +2,7 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { extname, join, relative } from 'node:path';
 
 const ROOTS = ['app', 'components', 'lib'];
-const EXT = new Set(['.ts', '.tsx', '.js', '.mjs', '.cjs']);
+const EXT = new Set(['.ts', '.tsx', '.js', '.mjs', '.cjs', '.mts']);
 const FORBIDDEN = [
   { code: 'CLIENT_IMPORT', re: /from\s+['"]firebase\/database['"]|import\s*\(['"]firebase\/database['"]\)/ },
   { code: 'ADMIN_IMPORT', re: /from\s+['"]firebase-admin\/database['"]|require\(['"]firebase-admin\/database['"]\)/ },
@@ -24,7 +24,7 @@ for (const root of ROOTS) walk(root);
 
 const failures: string[] = [];
 const isHardDisabled = (source: string) => /^\s*throw new Error\(['"]RTDB_REMOVED:/m.test(source)
-  || /(?:from|import\s*\()['"][^'"]*disabled-rtdb\.mts['"]/.test(source);
+  || /(?:from\s+|import\s+|import\s*\(\s*)['"][^'"]*disabled-rtdb\.mts['"]/.test(source);
 for (const file of files) {
   const text = readFileSync(file, 'utf8');
   const lines = text.split(/\r?\n/);

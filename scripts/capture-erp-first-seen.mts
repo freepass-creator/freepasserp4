@@ -1,3 +1,5 @@
+import './lib/disabled-rtdb.mts';
+
 /**
  * **RTDB 에만 있는 «처음 본 날»을 원자로 한 번 옮겨 담는다.** 기본 미리보기 · 반영은 `--apply`.
  *

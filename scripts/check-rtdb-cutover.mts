@@ -1,3 +1,5 @@
+import './lib/disabled-rtdb.mts';
+
 /**
  * **RTDB 폐기가 얼마나 남았나 — 숫자로 센다.** (읽기 전용 · 막지 않는다)
  *
