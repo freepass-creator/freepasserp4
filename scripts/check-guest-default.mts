@@ -51,16 +51,29 @@ const must = (cond: boolean, label: string, why: string) => {
  * ⚠ 다만 «채널 제 도메인»에서는 호스트가 이겨야 한다 — 안 그러면 손님이 주소에 `?wl=` 을 붙여
  *   남의 간판을 씌운다. 그래서 둘 다 잰다.
  */
+/*
+ * ★★**«우리» 도메인 «전부»에서 잰다 — 한 곳만 재면 다음 도메인에서 또 삼켜진다**(2026-09-10).
+ *   ⚠ 여기 `'freepasserp.com'` 이 손으로 박혀 있었다. 같은 날 사장님이 모빌리티닷컴에
+ *     간판 단 가게를 매칭하라 하셔서 **우리 얼굴이 둘**이 됐는데, 이 검사는 여전히 한 곳만 봤다 —
+ *     새로 받은 도메인에서 채널 넷이 삼켜져도 **초록불이 떴을** 것이다.
+ *   ⇒ 표에서 «우리 것»(`self`)의 호스트를 전부 긁어 곱한다. 우리 도메인이 늘어도 검사가 따라온다.
+ */
+const ourHosts = WHITELABELS.filter((w) => w.self).flatMap((w) => w.hosts);
+if (!ourHosts.length) {
+  must(false, '우리 도메인이 표에 있다',
+    '`self` 채널에 호스트가 하나도 없습니다 — 그러면 이 검사가 아무것도 재지 못합니다.');
+}
 for (const w of WHITELABELS) {
   if (!w.sitePath) continue;
-  const got = resolveGuestWhitelabel('freepasserp.com', w.key);
-  must(got.key === w.key, `sitePath 채널이 산다 · ${w.sitePath}`,
-    got.key === w.key
-      ? `${w.key} — 대문 도메인에서도 제 간판이 선다`
-      : `대문(freepasserp.com)에서 ?wl=${w.key} 가 «${got.key}» 로 떨어집니다 — 그 채널이 사라진 것입니다`);
+  const bad = ourHosts.filter((h) => resolveGuestWhitelabel(h, w.key).key !== w.key);
+  must(bad.length === 0, `sitePath 채널이 산다 · ${w.sitePath}`,
+    bad.length === 0
+      ? `${w.key} — 우리 도메인 ${ourHosts.length}곳 전부에서 제 간판이 선다`
+      : `${bad.join(' · ')} 에서 ?wl=${w.key} 가 «${resolveGuestWhitelabel(bad[0], w.key).key}» 로 떨어집니다 — 그 채널이 사라진 것입니다`);
 }
 {
-  const owner = WHITELABELS.find((w) => w.hosts.length && !w.plain);
+  /* ★협력채널 도메인에서는 호스트가 이긴다 — 재는 대상은 «우리 것이 아닌» 줄이다(`self`). */
+  const owner = WHITELABELS.find((w) => w.hosts.length && !w.self);
   if (owner) {
     const other = WHITELABELS.find((w) => w.key !== owner.key && !w.plain);
     const got = resolveGuestWhitelabel(owner.hosts[0], other?.key ?? null);
