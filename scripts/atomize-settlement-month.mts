@@ -48,6 +48,8 @@ const CLAW_NODE = 'settlement_clawbacks';
 const S = (v: unknown) => String(v ?? '').trim();
 const N = (v: unknown) => { const n = Number(S(v).replace(/[,\s원₩]/g, '')); return Number.isFinite(n) ? n : 0; };
 const won = (n: number) => Math.round(n).toLocaleString('ko-KR');
+/** 시트 체크칸 — TRUE·true·O·Y·1 을 다 참으로 본다. */
+const TRUE = (v: unknown) => /^(TRUE|true|O|o|Y|y|1|예)$/.test(S(v));
 const flat = (s: string) => s.replace(/[\s\n()]/g, '');
 /** 달 더하기 — 「2026-08」 + 1 = 「2026-09」. */
 const ymAdd = (m: string, n: number) => {
@@ -228,6 +230,7 @@ const col = (name: string, alt?: string, must = true) => {
 };
 const C = {
   memo: col('계약번호', '비고'), state: col('상태 표기', '인도완료'), sup: col('업체명', '공급사'),
+  paperBox: col('계약서', undefined, false), deliveredBox: col('인도완료', undefined, false),
   recv: col('접수일'), deliv: col('인도일'),
   rentKind: col('렌트구분'), product: col('상품구분'), plate: col('차량번호'), model: col('모델명'),
   cust: col('고객명'), age: col('연령', undefined, false),
@@ -319,7 +322,14 @@ for (let i = hi + 1; i < all.length; i++) {
     claimIncentive: INC.claim >= 0 ? Math.round(N(x[INC.claim])) : 0,
     payIncentive: INC.pay >= 0 ? Math.round(N(x[INC.pay])) : 0,
     receivedAt: ymd(x[C.recv]), deliveredAt: ymd(x[C.deliv]),
-    delivered: !!ymd(x[C.deliv]), paper: st === '계약 완료', cancelled: false,
+    /**
+     * ★**체크는 «시트가 켠 것»을 그대로 받는다** — 우리가 셈해서 만들지 않는다.
+     *   ⚠ 인도일이 있으면 인도된 것이지만, 체크가 있으면 그 체크가 이긴다(사람이 켠 것이다).
+     *   ⚠ 2026-09-09 까지 `paper` 가 「인도완료」를 받고 있었다 — 계약서와 인도는 다른 일이다.
+     */
+    delivered: C.deliveredBox >= 0 ? TRUE(x[C.deliveredBox]) : !!ymd(x[C.deliv]),
+    paper: C.paperBox >= 0 ? TRUE(x[C.paperBox]) : st === '계약 완료',
+    cancelled: false,
     settleTarget: (ax.settleTarget as Atom['settleTarget']) || '양쪽',
     settleRatio: ax.settleRatio ?? 1, billHold: ax.billHold ?? false, settleExclude: ax.settleExclude ?? false,
     settledAlready: ax.settledAlready ?? false, vatIncluded: ax.vatIncluded ?? false,

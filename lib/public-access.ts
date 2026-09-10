@@ -15,7 +15,7 @@ const PUBLIC_EXACT = ['/welrix', '/sonogong', '/terms', '/privacy',
    *   ⚠ 이 문은 **서버를 안 부른다** — 화면에 박힌 «지어낸 값»만 그린다.
    *     진짜 원자는 `/settlement/board`(로그인+관리자)에서만 나온다.
    */
-  '/settlement/board/preview'] as const;
+  '/settlement/board/preview', '/settlement/intake/preview'] as const;
 
 /**
  * 지금 보고 있는 주소가 «채널 도메인»인가 — 브라우저에서만 답한다.

@@ -109,14 +109,32 @@ function 내것(rows: (Row & { id: string })[], who: { role: string; companyCode
 }
 
 /**
- * ★★**링크로 여는 길** — 사장님 2026-09-10 「각각 사업자번호 누르면 그 링크가 열리는 거지」.
+ * ★★★**링크로 여는 길 — «잠가 두었다».** (2026-09-10 코덱스 검증 NO-GO)
  *
- *   열쇠(24자리)는 «사업자번호 + 서버 소금»으로 만든 것이라 되돌릴 수 없다.
- *   ⇒ 우리가 아는 거래처(PARTNER_CI) 번호를 하나씩 만들어 보고 같은 것을 찾는다.
- *   ★그래서 **모르는 번호로는 아무 링크도 안 열린다.**
- * ⚠ 열쇠로 열면 «그 사업자번호의 것»만 나온다 — 로그인 여부와 무관하다.
+ * 사장님 2026-09-10 「각각 사업자번호 누르면 그 링크가 열리는 거지」로 만들었다가,
+ * 코덱스 적대검증이 **P0 로 막았다** —
+ *
+ *   「서버 소금이 있어도 **사업자번호 기반의 고정 링크**는
+ *     **만료 · 개별 폐기 · 월별 범위 제한이 없다.**
+ *     링크 하나가 유출되면 그 거래처의 **모든 월 정산과 확인/정정 POST 권한까지 지속 노출**된다」
+ *
+ * ★맞는 지적이다. 사업자번호는 안 바뀌므로 이 열쇠도 «영원히» 같다 —
+ *   카톡 한 번 잘못 전달되면 되돌릴 방법이 없다. 끊을 손잡이가 없는 열쇠는 열쇠가 아니다.
+ *
+ * ⇒ **다시 낼 때는 이렇게 한다**(코덱스 권고 그대로):
+ *   ① 열쇠를 사업자번호에서 «뽑지» 않는다 — **발행된 정산서 스냅샷마다 무작위 고엔트로피 토큰**
+ *   ② **만료**가 있다(그 달 정산이 끝나면 닫힌다)
+ *   ③ **개별 폐기**가 된다(한 장만 끊어도 나머지는 산다)
+ *   ④ **범위가 그 달 그 거래처 한 장**이다(모든 월이 아니라)
+ *   ⑤ 쓰기(확인·정정)는 링크만으로 못 한다 — 그건 로그인이 맡는다
+ *
+ * ⚠ 그때까지 이 문은 **로그인으로만** 연다. `key` 는 받되 아무것도 안 열어 준다.
+ *   ★막아 두는 것을 «지우지» 않고 남기는 까닭 — 다음 사람이 같은 설계를 다시 지어내지 않게.
  */
+const 링크는_아직_잠겨있다 = true;
+
 function 열쇠로(key: string) {
+  if (링크는_아직_잠겨있다) return null;
   const biz = bizOfSettlementKey(key, PARTNER_CI.map((c) => c.bizNo));
   if (!biz) return null;
   const ci = PARTNER_CI.find((c) => S(c.bizNo).replace(/\D/g, '') === biz);
@@ -202,10 +220,14 @@ const 공급사칸 = { ok: 'supplierOk', fix: 'supplierFix', fixAmt: 'supplierFi
 const 채널칸 = { ok: 'channelOk', fix: 'channelFix', fixAmt: 'channelFixAmt', memo: 'channelMemo' } as const;
 
 export async function POST(req: Request) {
-  const key = S(new URL(req.url).searchParams.get('key'));
-  const 손님 = key ? 열쇠로(key) : null;
-  const who = 손님 || await verifyActiveBearer(req).catch(() => null);
-  if (!who) return NextResponse.json({ ok: false, error: key ? '링크가 맞지 않습니다.' : '로그인이 필요합니다.' }, { status: key ? 404 : 401 });
+  /**
+   * ★★**쓰기는 링크로 못 한다 — «로그인»만.** (2026-09-10 코덱스 P0)
+   *   읽기가 새는 것과 «쓰기 권한»이 새는 것은 무게가 다르다.
+   *   링크가 한 번 잘못 전달되면 남이 남의 정산에 「확인」을 켜고 정정을 적을 수 있다.
+   *   ⇒ 링크를 다시 열더라도 이 줄은 그대로 둔다.
+   */
+  const who = await verifyActiveBearer(req).catch(() => null);
+  if (!who) return NextResponse.json({ ok: false, error: '로그인이 필요합니다.' }, { status: 401 });
   if (who.role !== 'provider' && who.role !== 'agent') {
     return NextResponse.json({ ok: false, error: '공급사·영업채널만 쓸 수 있습니다.' }, { status: 403 });
   }

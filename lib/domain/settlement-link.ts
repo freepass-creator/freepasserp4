@@ -32,6 +32,15 @@ export const canMakeSettlementKey = (): boolean => !!String(process.env.SETTLEME
  * ⚠ 번호가 열 자리가 아니면 빈 문자열 — 짐작으로 만들지 않는다.
  */
 export function settlementKeyOf(bizNo: unknown): string {
+  /**
+   * ★★★**2026-09-10 코덱스 검증 P0 — 이 방식은 «쓰지 않는다».**
+   *   사업자번호는 안 바뀌므로 이 열쇠도 영원히 같다. 만료도, 개별 폐기도, 범위 제한도 없다.
+   *   링크 하나가 새면 그 거래처의 «모든 월»이 지속 노출된다. 끊을 손잡이가 없는 열쇠는 열쇠가 아니다.
+   *   ⇒ 다시 낼 때는 **발행된 정산서 스냅샷마다 무작위 토큰 + 만료 + 개별 폐기 + 그 달 한 장 범위**.
+   *   ★그때까지 이 함수는 아무것도 만들지 않는다. 지우지 않고 남기는 까닭은
+   *     다음 사람이 같은 설계를 다시 지어내지 않게 하려는 것이다.
+   */
+  if (true as boolean) return '';
   const d = 숫자만(bizNo);
   const salt = String(process.env.SETTLEMENT_LINK_SALT || '').trim();
   if (d.length !== 10 || !salt) return '';

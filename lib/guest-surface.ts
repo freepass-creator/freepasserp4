@@ -31,7 +31,7 @@ const GUEST_PREFIXES = ['/shop', '/uniauto', '/catalog', '/q/', '/sign/',
    *   ⚠ 그렇다고 로그인이 없는 건 아니다 — 진짜 문(`/settlement/board`)은 관리자만 들어간다.
    *     «껍데기를 벗는 것»과 «로그인 없이 여는 것»은 다른 물음이다(이 파일 머리글).
    */
-  '/settlement/board'] as const;
+  '/settlement/board', '/settlement/intake'] as const;
 
 /**
  * 제 머리를 가진 업무 면 — **상단바만** 벗는다(하단 홈바는 얹는다).
