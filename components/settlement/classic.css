@@ -687,8 +687,16 @@
  *      「번호」가 「돈」과 달라 보이는 것이 도움이 된다. 뜻이 다른 값은 달라 보여야 한다. */
 .cl .num {
   font-family: var(--font-hangeul), Consolas, GulimChe, 굴림체, monospace;
+  /**
+   * ⚠★**`font-feature-settings` 를 여기서 «다시 걸지» 않는다** — `npm run check:tokens` 가 막는다.
+   *   그 속성은 «통째로 덮이는» 것이라, 가지에서 한 번 걸면 뿌리 한 줄
+   *   (`html { font-feature-settings: 'zero' 1 }`)이 그 가지에서 통째로 꺼진다.
+   *   사장님 2026-09-08 「글꼴도 0 에 사선 들어가는 거로 해야 함」 — 0 과 O 가 같아 보이면
+   *   차번·금액을 잘못 읽는다.
+   * ★위 `font-variant-numeric: slashed-zero tabular-nums` 한 줄이 이미 같은 일을 한다 —
+   *   「안 먹는 브라우저를 위해 한 번 더」 적었던 것인데, 그 «한 번 더»가 뿌리를 껐다.
+   */
   font-variant-numeric: slashed-zero tabular-nums;
-  font-feature-settings: "zero" 1, "tnum" 1;   /* ★위 줄이 안 먹는 브라우저를 위해 한 번 더 */
 }
 /** ★★열쇠 칸 — 이 표에서 «무엇인가» 를 말하는 칸이다 (차량번호).
  *  전에는 차종·법인과 같은 무게라 눈이 처음 닿을 자리가 없었다.
