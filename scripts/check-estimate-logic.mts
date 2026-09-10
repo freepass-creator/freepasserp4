@@ -1735,6 +1735,96 @@ must(!code('app/estimate/page.tsx').replace(/\s+/g, '').includes('`차량가${ma
   '폰 고정요약만 «할인 전» 차량가를 씁니다 — 한 카드에 두 값이 뜹니다',
   'app/estimate/page.tsx vMeta');
 
+/* ══ 26. ★★★손님 문서의 «셈이 맞는지»를 잰다 ═════════════════════════════════
+     ⚠⚠ 2026-09-10 4회차 · 독립 Claude 발견 1. 화면 `netPrice` 에 전기차 보조금까지 넣어 놓고
+       견적서엔 세제혜택만 적어, 손님이 보는 셈이 **안 맞았다**:
+         Total 8,329만 − 세제혜택 412만 = 7,917만  ≠  적용가 **7,317만**   (600만이 말없이 사라짐)
+     ⇒ 줄을 더 그리는 것으로 끝내지 않고, **적힌 숫자끼리 실제로 빼서** 맞는지 본다.
+       ★낱말이 있나 · 줄이 있나가 아니라 **셈이 맞나**를 재는 것이 마지막 검사다. */
+{
+  const draw = (d: Record<string, unknown>) =>
+    renderToStaticMarkup(createElement(QuotePreview, { onClose: () => {}, doc: d } as never))
+      .replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+  const man = (n: number) => `${Math.round(n / 10000).toLocaleString('ko-KR')}만`;
+  const base = {
+    customer: '', staff: '', tel: '', brand: '기아', carName: 'EV9', carSub: '전기',
+    priceBasis: '세제혜택 전', channel: '렌트', endType: '반납형', credit: '중신용',
+    colorExt: '', colorInt: '', options: [],
+    lines: [{ term: 48, pay: 1, depositPct: 10, deposit: 1, prepayPct: 10, prepay: 1, buyoutPct: 58, buyout: 1 }],
+  };
+  /* 깎인 것이 둘 다 있는 줄 · 보조금만 있는 줄 · 아무것도 없는 줄 — 셋 다 셈이 맞아야 한다. */
+  for (const [label, price, credit, sub] of [
+    ['둘 다', 83290000, 4120000, 6000000],
+    ['보조금만', 60000000, 0, 6000000],
+    ['감면만', 50000000, 1001000, 0],
+    ['둘 다 없음', 30000000, 0, 0],
+  ] as [string, number, number, number][]) {
+    const net = price - credit - sub;
+    const t = draw({ ...base, price, saleTaxCredit: credit, evSubsidy: sub, netPrice: net });
+    /* 깎인 것은 «적혀» 있어야 한다. */
+    if (credit) must(t.includes('세제혜택') && t.includes(man(credit)),
+      `[${label}] 세제혜택 ${man(credit)}이 문서에 안 적힙니다`, 'features/estimate/QuotePreview.tsx');
+    if (sub) must(t.includes('전기차 보조금') && t.includes(man(sub)),
+      `[${label}] 전기차 보조금 ${man(sub)}이 문서에 안 적힙니다 — 손님이 그 차액을 못 짚습니다`,
+      'features/estimate/QuotePreview.tsx');
+    /* ★그리고 **적힌 것끼리 빼면 적용가가 나와야** 한다. */
+    if (net !== price) {
+      must(t.includes('적용가') && t.includes(man(net)),
+        `[${label}] 적용가 ${man(net)}이 문서에 안 적힙니다`, 'features/estimate/QuotePreview.tsx');
+      must(price - credit - sub === net,
+        `[${label}] 문서의 셈이 안 맞습니다 — ${man(price)} − ${man(credit)} − ${man(sub)} ≠ ${man(net)}`,
+        'app/estimate/page.tsx netPrice');
+    } else {
+      must(!t.includes('적용가'),
+        `[${label}] 깎인 것이 없는데 적용가를 적습니다`, 'features/estimate/QuotePreview.tsx');
+    }
+  }
+}
+
+/* 26-2. ★★**화면이 그 셋을 «넘기는가»** — §26 은 문서를 직접 만들어 재므로 «다리»는 못 본다.
+     넘기는 줄이 빠지면 견적서는 멀쩡한데 손님 문서에 보조금이 안 찍힌다(변이시험에서 안 잡혔다). */
+{
+  const pg = code('app/estimate/page.tsx').replace(/\s+/g, '');
+  for (const [field, why] of [
+    ['saleTaxCredit:taxCredit', '세제혜택'],
+    ['evSubsidy:evSub', '전기차 보조금'],
+    ['netPrice,', '적용가'],
+  ] as [string, string][]) {
+    must(pg.includes(field),
+      `화면이 견적서에 «${why}»를 안 넘깁니다 — 문서의 셈이 안 맞게 됩니다`,
+      'app/estimate/page.tsx quoteDoc');
+  }
+}
+
+/* ══ 27. 「고른」 엔진에도 그 엔진의 목록이 적용된다 (4회차 독립 Claude) ══════════
+     펴 놓은 줄은 `availableForEngine` 이 다시 재지만, 손님이 **옵션으로** 3.5T 엔진을 «고른» 경우엔
+     목록이 2.5T 그대로다 — 2.5T 스포츠 패키지 400만이 팔린다.
+     ⚠ 정본은 그것을 `optionExcludes.engine_3_5t` 로 막아 두었으므로, «고른» 경우엔 그 규칙이 선다.
+       여기서는 그 규칙이 실제로 서는지를 값으로 확인한다. */
+{
+  const spec: OptionSpec = {
+    optionsMaster: {
+      e35: { name: '가솔린 3.5 터보 엔진', price: 6600000 },
+      sp25: { name: '스포츠 패키지 (2.5T)', price: 4000000 },
+      cf: { name: '컴포트', price: 900000 },
+    },
+    availableOptions: ['e35', 'sp25', 'cf'],
+    optionExcludes: { e35: ['sp25'] },
+  };
+  must(!isEnabled(spec, 'sp25', new Set(['e35'])) && optionSum(spec, new Set(['e35', 'sp25'])) === 6600000,
+    `3.5T 를 «고른» 뒤에도 2.5T 전용이 팔립니다 — 합계 ${optionSum(spec, new Set(['e35', 'sp25'])).toLocaleString('ko-KR')}원`,
+    'lib/domain/estimate/option-rules.ts isEnabled');
+}
+
+/* ══ 28. `availableForEngine` 이 «배선돼» 있는가 — 만들고 안 부르면 아무것도 안 고친 것이다 ══ */
+must(/availableForEngine\(om,/.test(code('lib/domain/estimate/genesis-lineup.ts')),
+  '펴 놓은 줄이 «그 엔진의» 목록을 다시 재지 않습니다 — 3.5T 줄이 2.5T 목록으로 팝니다',
+  'lib/domain/estimate/genesis-lineup.ts expandGenesis');
+/* ⚠ 빈 목록을 «되살리지» 않는가 — 「고를 것이 없다」가 「전부 열기」로 바뀌면 안 된다. */
+must((availableForEngine({ a: { name: '컴포트' } }, [], '가솔린 3.5 터보') ?? []).length === 0,
+  '빈 목록을 되살립니다 — 「고를 것이 없다」가 「전부 열기」가 됩니다',
+  'lib/domain/estimate/genesis-included.ts availableForEngine');
+
 if (fails.length) {
   console.error(`\n✗ 견적 로직이 정본과 다릅니다 — ${fails.length}건\n`);
   for (const f of fails) console.error(`  · ${f}\n`);
