@@ -268,14 +268,20 @@ async function syncVehicleLock(
     //  계약 락(계약중/출고불가)으로 덮으면 공급사 수기 보류가 무효화·중복판매 → 스킵. (정상 딜은 cur가 출고가능/상품화중/자기락이라 미해당.)
     if (cur === '출고불가' && !owner) return;
     if (cur !== lock.status || owner !== lock.byContract) {
-      await store.update('product', co, productCode, { vehicle_status: lock.status, locked_by_contract: lock.byContract });
+      await store.update('product', co, productCode, {
+        vehicle_status: lock.status, status: lock.status,
+        status_kind: lock.status === '출고불가' ? '불가' : '선점',
+        listable: lock.status !== '출고불가', locked_by_contract: lock.byContract,
+      });
     }
     return;
   }
   const mine = owner === actingContractCode;
   const orphanClaim = !owner && cur === '계약중';
   if ((cur === '계약중' || cur === '출고불가') && (mine || orphanClaim)) {
-    await store.update('product', co, productCode, { vehicle_status: '출고가능', locked_by_contract: '' });
+    await store.update('product', co, productCode, {
+      vehicle_status: '출고가능', status: '출고가능', status_kind: '가용', listable: true, locked_by_contract: '',
+    });
   }
 }
 

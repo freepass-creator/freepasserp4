@@ -71,11 +71,17 @@ for (const f of 발행기) {
     }
   });
 
-  /** 발행기 한 곳은 반드시 원자를 읽어야 한다 — «주석 걷어낸» 코드로 본다(주석 속 collection('products')는 무효). */
-  if (f.startsWith('scripts/') && !/collection\('products'\)/.test(src)) {
+  /** 발행기는 Firestore를 직접 읽거나, 해시 검증된 공용 판매 스냅샷을 읽어야 한다. */
+  if (f.startsWith('scripts/') && !/collection\('products'\)|(?:read|capture)SalesPublishSnapshot/.test(src)) {
     어긋남.push(`${f} — 원자(products)를 읽지 않는다. 무엇을 내보내는지 알 수 없다`);
   }
 }
+
+const snapshotSource = 주석뺀다(readFileSync('lib/server/sales-publish-snapshot.ts', 'utf8'));
+for (const collection of ['products', 'policy', 'partner']) {
+  if (!new RegExp(`collection\\('${collection}'\\)`).test(snapshotSource)) 어긋남.push(`공용 판매 스냅샷이 Firestore ${collection} 원자를 읽지 않는다`);
+}
+if (!/createHash\('sha256'\)/.test(snapshotSource)) 어긋남.push('공용 판매 스냅샷에 SHA-256 무결성 검사가 없다');
 
 console.log(`\n■ 발행기는 원자에서 읽는가 — ${발행기.length}곳`);
 if (!어긋남.length) {

@@ -148,7 +148,7 @@ for (const v of rows) {
   doc.vehicle_status = sd.status;   // 빈 → 차량검수 로 정규화
   // ★데이터가 «아예 없는» 차(원문도 식별도 없음)는 내린다 — 팔 수 없으니 목록에서 뺀다(사장님 2026-09-04 「데이터 아예 없는 건 내려야지, 의미 없잖아」).
   //   계약중이어도 마찬가지 — 스펙·요금이 하나도 없으면 상품이 아니다. 원문은 있는데 매칭만 실패한 차(매칭실패)는 살린다(제조사·원문은 보인다).
-  if (doc.검수상태 === '원문없음') doc.listable = false;
+  // 원문/검수 품질은 별도 경고다. 재고 파생값은 vehicle_status 하나에서만 만든다.
   const rawObj: Record<string, any> = {};
   if (raw) rawObj['차명'] = raw;
   if (S(v.supplier_options)) rawObj['옵션'] = v.supplier_options;

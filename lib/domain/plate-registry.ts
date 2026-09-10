@@ -83,8 +83,8 @@ export const plateKey = (v: unknown) => S(v).replace(/[\s.$#[\]/-]/g, '');
 const NOT_A_PLATE = /^(미정|미배정|미상|없음|-|tbd|n\/a)$/i;
 export const isPlate = (v: unknown): boolean => {
   const t = plateKey(v);
-  // 「60호1234」 「12가3456」 「서울12가3456」 — 숫자로 끝나고 한글이 하나는 있어야 한다
-  return t.length >= 5 && t.length <= 12 && !NOT_A_PLATE.test(S(v)) && /[가-힣]/.test(t) && /\d$/.test(t);
+  // 「60호1234」 「123가4567」 「서울12가3456」. 설명문처럼 생긴 문자열은 통과시키지 않는다.
+  return !NOT_A_PLATE.test(S(v)) && /^(?:\d{1,3}[가-힣]\d{4}|[가-힣]{2}\d{1,2}[가-힣]\d{4})$/.test(t);
 };
 
 /**

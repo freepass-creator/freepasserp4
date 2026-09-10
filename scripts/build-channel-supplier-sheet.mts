@@ -19,10 +19,14 @@ import { JWT } from 'google-auth-library';
 import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { companyAlias } from '../lib/domain/identity';
+import { channelCompanyOf } from '../lib/domain/channel-company';
 import { isPlate } from '../lib/domain/plate-registry';
+import { hasInventoryPublicationViolations, inventoryCountSnapshot, isOpenInventoryAtom } from '../lib/domain/inventory-contract';
+import { captureSalesPublishSnapshot, readSalesPublishSnapshot, salesPublishMark } from '../lib/server/sales-publish-snapshot';
 import { loadSalesRowContext, makeCell, tabOf, TAB_ORDER, compareSalesRows } from '../lib/domain/sales-atom-row';
 import { buildSalesFormatRequests, columnWidths, isMoneyColumn } from '../lib/domain/sales-sheet-format';
 import { ensureNoticeTab } from '../lib/server/channel-sheet-tabs';
+import { channelColumnName, salesPublishedColumns } from '../lib/domain/sales-published-tab-columns';
 import nextEnv from '@next/env';
 
 nextEnv.loadEnvConfig(process.cwd());
@@ -30,6 +34,8 @@ const S = (v: unknown) => String(v ?? '').trim();
 const APPLY = process.argv.includes('--apply');
 const arg = (k: string) => (process.argv.find((a) => a.startsWith(`--${k}=`)) || '').split('=')[1] || '';
 const channel = S(arg('채널')) || '하허호';
+const snapshotPath = arg('snapshot');
+if (APPLY && !snapshotPath) throw new Error('채널시트 발행은 --snapshot=<회차별 고정 스냅샷>이 필요하다. 먼저 capture:sales-publish를 실행하라.');
 /**
  * ★문서 이름 = 「[F코드 사용중] 프리패스x<채널> 전용 상품시트」 (사장님 2026-09-08).
  *   F코드 정본은 `lib/server/channel-sheet-tabs` 의 `CHANNEL_F_CODE`(영업채널 = F80번대)와
@@ -38,12 +44,12 @@ const channel = S(arg('채널')) || '하허호';
  */
 const CHANNEL_PRODUCT_F: Record<string, string> = { 하허호: 'F86' };
 const DOC_NAME = `[${CHANNEL_PRODUCT_F[channel] || 'F8?'} 사용중] 프리패스x${channel} 전용 상품시트`;
-const SHEET = S(process.env.INVENTORY_EXPORT_SHEET_ID);
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 initializeApp({
   credential: cert({ projectId: sa.project_id, clientEmail: sa.client_email, privateKey: sa.private_key.replace(/\\n/g, '\n') }),
 });
 const firestore = getFirestore();
+const publishSnapshot = snapshotPath ? readSalesPublishSnapshot(snapshotPath) : await captureSalesPublishSnapshot(firestore);
 const jwt = new JWT({
   email: sa.client_email, key: sa.private_key, subject: 'pyh@teamjpk.com',
   scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive'],
@@ -82,8 +88,8 @@ const api = async (u: string, init?: RequestInit): Promise<any> => {
  *   (사장님 「이미 정답이 있는데」). 값은 원자가 준다.
  */
 const rowCtx = await loadSalesRowContext({
-  policies: (await firestore.collection('policy').get()).docs.map((d) => ({ _key: d.id, ...d.data() })),
-  partners: (await firestore.collection('partner').get()).docs.map((d) => ({ _key: d.id, ...d.data() })),
+  policies: publishSnapshot.policies,
+  partners: publishSnapshot.partners,
   companyAlias,
 });
 const cell = makeCell(rowCtx);
@@ -102,16 +108,7 @@ console.log(`  공급사 이름 ${nameOf.size}개 · 전용계좌 ${rowCtx.acctB
  * ⚠ 빌린카↔엘씨는 아직 안 묶는다 — 재고는 빌린카 탭 하나만 쓰지만 **정산 탭이 둘로 갈려 있다**
  *   (「26년08월 정산 · 빌린카」 · 「26년08월 정산 · 엘씨렌트」). 돈이 갈리는 곳은 사장님이 정한다.
  */
-const FAMILY: Record<string, string> = {
-  경진카: '경진', 경진렌트카: '경진', 경진렌트: '경진',
-  스타: '스타스카이', 스카이: '스타스카이', 스카이렌트카: '스타스카이', 스타렌트카: '스타스카이',
-};
-const companyOf = (v: string) => {
-  const s = S(v);
-  const named = /^(RP|PT)[-_]?\d+/i.test(s) ? (nameOf.get(s) || s) : s;   // 코드면 이름으로
-  const one = companyAlias(named) || named;                               // 표기 통일(SA → 에스에이 등)
-  return FAMILY[one] || one;
-};
+const companyOf = (v: string) => channelCompanyOf(v, nameOf);
 
 /**
  * ★**열 = 판매시트 «그대로»** — 한 칸도 빼지 않는다(「데이터 완벽하게」). 탭마다 열이 달라 «합집합»으로 세운다.
@@ -119,29 +116,29 @@ const companyOf = (v: string) => {
  *   (2026-09-04 픽업 탭 지시). 한 회사(손오공)를 한 탭에 모으면 그 둘이 **두 벌로 선다** — 실측 요금 칸 18개.
  *   ⇒ 판매시트 다수 표기로 통일한다. 값은 그대로, 이름만 한 벌.
  */
-const FEE_ALIAS: Record<string, string> = { 반납형보증금: '보증금 반납형', 인수형보증금: '보증금 인수형' };
 const COLUMNS: string[] = [];
 const headOf: Record<string, string[]> = {};
-{
-  const meta = await api(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET}?fields=sheets.properties(title)`);
-  const titles: string[] = (meta.sheets || []).map((s: any) => S(s.properties?.title));
-  for (const prefix of TAB_ORDER) {
-    const t = titles.find((x) => x.startsWith(prefix)); if (!t) continue;
-    const v = await api(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET}/values/${encodeURIComponent(`'${t.replace(/'/g, "''")}'!A1:BZ1`)}`);
-    const raw = ((v.values || [[]])[0] as string[]).map(S).filter(Boolean);
-    /** F01 은 픽업 탭 머리글을 「반납형보증금」으로 «바꿔서» 쓴다 — 값을 같게 하려면 그 이름으로 물어야 한다. */
-    headOf[prefix] = prefix === '픽업구독'
-      ? raw.map((h) => (h === '보증금 반납형' ? '반납형보증금' : h === '보증금 인수형' ? '인수형보증금' : h))
-      : raw;
-    for (const h of headOf[prefix]) { const n = FEE_ALIAS[h] || h; if (n && !COLUMNS.includes(n)) COLUMNS.push(n); }
-  }
+for (const prefix of TAB_ORDER) {
+  headOf[prefix] = salesPublishedColumns(prefix);
+  for (const h of headOf[prefix]) { const n = channelColumnName(h); if (n && !COLUMNS.includes(n)) COLUMNS.push(n); }
 }
 
 type Row = { company: string; kind: string; atom: any; cells: Record<string, string> };
 const rowsAll: Row[] = [];
 {
-  const docs = (await firestore.collection('products').get()).docs.map((d) => d.data() as any);
-  const listable = docs.filter((v) => v.listable === true);
+  const docs = publishSnapshot.products as any[];
+  const inventory = inventoryCountSnapshot(docs);
+  const listable = docs.filter(isOpenInventoryAtom);
+  if (hasInventoryPublicationViolations(inventory)) {
+    console.error(`  ⛔ 재고 계약 위반 — listable ${inventory.listableDrift} · status_kind ${inventory.statusKindDrift} · 원천 식별자 ${inventory.sourceIdentityViolations} · 삭제표식 ${inventory.deletedMarkerViolations} · 차량번호 ${inventory.blankPlateViolations}/${inventory.invalidPlateViolations}/${inventory.duplicatePlateViolations}`);
+    process.exit(1);
+  }
+  const invalidCars = listable.filter((v) => !isPlate(S(v.car_number)));
+  if (invalidCars.length) {
+    for (const v of invalidCars.slice(0, 10)) console.error(`  ⛔ 차번 아님: ${S(v.car_number)}`);
+    console.error('  채널시트를 건드리기 전에 중단한다.');
+    process.exit(1);
+  }
   const 탭수: Record<string, number> = {};
   for (const v of listable) {
     const kind = tabOf(v);
@@ -150,9 +147,9 @@ const rowsAll: Row[] = [];
      * ★★**차번이 아니면 싣지 않는다** — F01 과 «같은 가드»(사장님 2026-09-08 「차량번호 없으면 당기면 안 되지」).
      *   오플 원본 시트의 배너 줄이 «차»가 되어 실린 적이 있다(「★★★ … 수수료 150만원 … ★★★」).
      */
-    const car = S(v.car_number); if (!car || !isPlate(car)) continue;
+    const car = S(v.car_number);
     const cells: Record<string, string> = {};
-    for (const h of HEAD) cells[FEE_ALIAS[h] || h] = cell(h, v);
+    for (const h of HEAD) cells[channelColumnName(h)] = cell(h, v);
     rowsAll.push({ company: companyOf(cells['공급사'] || ''), kind, atom: v, cells });
     탭수[kind] = (탭수[kind] || 0) + 1;
   }
@@ -210,6 +207,9 @@ for (const [k, list] of order) {
 }
 if (!APPLY) { console.log('\n※ dry-run — --apply 로 만든다.\n'); process.exit(0); }
 
+// 준비 시간이 길었어도 실제 운영 시트를 건드리기 직전에 신선도와 해시를 다시 확인한다.
+readSalesPublishSnapshot(snapshotPath);
+
 // ── 채널 문서 (있으면 그것을 쓴다 — 돌릴 때마다 새 문서가 생기면 안 된다) ──
 const q = encodeURIComponent(`name = '${DOC_NAME}' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`);
 const found = await api(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)`);
@@ -236,8 +236,7 @@ if (!id) {
 }
 const cur = await api(`https://sheets.googleapis.com/v4/spreadsheets/${id}?fields=sheets.properties(sheetId,title)`);
 const have: [string, any][] = (cur.sheets || []).map((s: any) => [S(s.properties.title), s.properties]);
-const stamp = new Date(Date.now() + 9 * 36e5).toISOString();
-const mark = `${stamp.slice(5, 10).replace('-', '.')} ${stamp.slice(11, 16)}`;
+const mark = salesPublishMark(publishSnapshot);
 
 const reqs: any[] = [];
 /** ★차번 셀 링크 요청 — 값 쓰기 «뒤»에 따로 보낸다(먼저 보내면 값 쓰기가 지운다). */
@@ -250,7 +249,7 @@ for (const [company, list] of order) {
   /**
    * ★탭 이름 = 「회사 N대」 (사장님 2026-09-08 「그냥 손오공 몇 대만 탭으로 남겨줘」).
    *   판매시트는 탭 이름에 시각을 박지만(발행 시각이 곧 신선도라서), 채널이 보는 이 문서는
-   *   **회사와 대수**만 알면 된다. 갱신 시각은 「이 시트는」 안내로 따로 알린다.
+   *   회사·같은 스냅샷의 시각·대수를 함께 보여 준다.
    */
   /**
    * ★★**F01(판매시트)을 그대로 회사별로만 쪼갠다** (사장님 2026-09-08 「F01을 토대로 그냥 회사별로만
@@ -266,7 +265,7 @@ for (const [company, list] of order) {
   const 앞 = COLUMNS.indexOf('차명(원문)');
   /** ★F01 의 열 차례를 «그대로» 지킨다 — 다시 정렬하지 않는다(그러다 12·24 인수형이 끝으로 밀렸었다). */
   const cols = COLUMNS.filter((c, i) => (요금칸(c) ? 쓴다(c) : true));
-  const title = `${company} ${list.length}대`;
+  const title = `${company} ${mark} · ${list.length}대`;
   const old = have.find(([t]) => t.startsWith(`${company} `));
   let gid: number;
   if (old) {
@@ -372,4 +371,5 @@ for (let i = 0; i < 링크요청.length; i += 300) {
 console.log(`   ○ 구글 두드림 — 읽기 ${셈.읽기} · 쓰기 ${셈.쓰기} · 재시도 ${셈.재시도} · 서식요청 ${reqs.length} · 차번링크 ${링크요청.length} · ${Math.round((Date.now() - 셈.시작) / 1000)}초`);
 console.log(`\n✓ 반영 완료 — 탭 ${order.length}장 · ${rowsAll.length}대 · 열 ${OUT_COLS.length}`);
 console.log(`   https://docs.google.com/spreadsheets/d/${id}/edit`);
+console.log(`   스냅샷 ${publishSnapshot.snapshotId} · ${publishSnapshot.capturedAt}`);
 process.exit(0);

@@ -12,7 +12,7 @@
  *   ⑤′ 정산원장 최신 상태 반영(계약중 · 인도완료=출고불가)
  *   ⑥ 판매시트 «4탭» 발행(상품리스트 · 손오공구독 · 픽업구독 · 오플구독) + 요금블록
  *   ⑥′ (건너뜀) 상품마스터는 이제 안 거친다 — ERP 가 판매시트를 그대로 읽는다. `--with-product-master` 로만 켠다
- *   ⑦ ERP 일일 동기(sheet/sync-daily) — 실패해도 밤 02:00 크론이 다시 돈다(경고만)
+ *   ⑦ ERP 일일 동기(sheet/sync-daily) — 실패하면 이전 원자로 발행하지 않고 멈춘다
  *   ⑦′ ERP 를 시트 그대로 비춤 — 사진링크 · 모델/차명 · 시트에 없는 차 출고불가(일일 동기가 안 옮기는 것들)
  *   ⑧ 시트↔ERP 대조(audit-sheet-erp-parity) — 매시 기록에 「안 뜨는 차 N대」로 남긴다
  *   ⑨ 상태 갈림 신호(audit-status-drift) — 원본→정제시트→판매시트→ERP 중 «어디서 갈렸나». 고치지 않고 신호만
@@ -100,6 +100,8 @@ const skip = (label: string, why = `이 단(${TIER})에서 안 한다`) => {
   steps.push({ 단계: label, ok: true, 신호: `건너뜀 — ${why}` });
 };
 const A = APPLY ? ['--apply'] : [];
+const SALES_INGEST_STAGING_SHEET = S(process.env.SALES_INGEST_STAGING_SHEET_ID) || '1J7dcGCTI0hiHBSdbHx0SqKJKrBg57xkgsX-I8qyfv3c';
+const STAGE = [`--sheet=${SALES_INGEST_STAGING_SHEET}`];
 const kst = (ms = Date.now()) => new Date(ms + 9 * 3600e3).toISOString().slice(0, 16).replace('T', ' ');
 const started = Date.now();
 /**
@@ -665,26 +667,26 @@ line.push(contractStatus.picked.find((l) => /고칠 칸/.test(l))?.replace(/\s+/
  *   ⑥ 가드가 멈추던 진짜 원인은 «공급사 칸 표기 차이»였다 — ⑯ 이 공급사명을 `companyAlias(partner_name)` 로 통일해
  *   ⑥ 의 `who` 와 같은 값을 쓰게 고쳤다(make-sample). 이제 가드는 정상 작동하고, 진짜 공급사 유실은 여기서 멈춘다.
  */
-const p1 = run('⑥ 상품리스트', ['scripts/publish-origin-tab.mts', ...A], /우리 시트 |반영 완료|중단|Error/);
+const p1 = run('⑥ 수집 스테이징 상품리스트', ['scripts/publish-origin-tab.mts', ...STAGE, ...A], /우리 시트 |반영 완료|중단|Error/);
 if (!p1.ok) stop('상품리스트 발행 실패');
 line.push(p1.picked.find((l) => /반영 완료/.test(l))?.replace('반영 완료 — 탭 ', '') || '상품리스트 ok');
 /* 손오공 탭 셋은 ⓪ 이 돌았을 때만 발행한다 — 안 돌았으면 낡은 값을 새 발행으로 찍게 된다. */
 if (손오공탭발행) {
-  const p2 = run('⑥ 손오공구독', ['scripts/publish-origin-tab.mts', '--only=RP012:구독', '--tab=손오공구독', '--at=1', ...A], /반영 완료|중단|Error/);
+  const p2 = run('⑥ 스테이징 손오공구독', ['scripts/publish-origin-tab.mts', ...STAGE, '--only=RP012:구독', '--tab=손오공구독', '--at=1', ...A], /반영 완료|중단|Error/);
   if (!p2.ok) stop('손오공구독 발행 실패');
-  const p2b = run('⑥ 손오공 요금블록', ['scripts/publish-sonogong-tab.mts', ...A], /반영 완료|Error/);
+  const p2b = run('⑥ 스테이징 손오공 요금블록', ['scripts/publish-sonogong-tab.mts', ...STAGE, ...A], /반영 완료|Error/);
   if (!p2b.ok) stop('손오공 요금블록 실패');
   /* 픽업구독(손오공 픽업 = 티카) — 연동지도 「판매 4탭」의 하나. 빠져 있어 픽업이 판매시트에 안 실렸다. */
-  const p2c = run('⑥ 픽업구독', ['scripts/publish-origin-tab.mts', '--only=RP012:픽업', '--tab=픽업구독', '--at=2', ...A], /반영 완료|중단|Error/);
+  const p2c = run('⑥ 스테이징 픽업구독', ['scripts/publish-origin-tab.mts', ...STAGE, '--only=RP012:픽업', '--tab=픽업구독', '--at=2', ...A], /반영 완료|중단|Error/);
   if (!p2c.ok) stop('픽업구독 발행 실패');
-  const p2d = run('⑥ 픽업 요금블록', ['scripts/publish-sonogong-tab.mts', '--tab=픽업구독', ...A], /반영 완료|Error/);
+  const p2d = run('⑥ 스테이징 픽업 요금블록', ['scripts/publish-sonogong-tab.mts', ...STAGE, '--tab=픽업구독', ...A], /반영 완료|Error/);
   if (!p2d.ok) stop('픽업 요금블록 실패');
 } else {
   line.push('손오공·픽업 탭 발행 건너뜀');
 }
-const p3 = run('⑥ 오플구독', ['scripts/publish-origin-tab.mts', '--only=RP023', '--tab=오플구독', '--at=3', ...A], /반영 완료|중단|Error/);
+const p3 = run('⑥ 스테이징 오플구독', ['scripts/publish-origin-tab.mts', ...STAGE, '--only=RP023', '--tab=오플구독', '--at=3', ...A], /반영 완료|중단|Error/);
 if (!p3.ok) stop('오플구독 발행 실패');
-const p3b = run('⑥ 오플 요금블록', ['scripts/publish-sonogong-tab.mts', '--tab=오플구독', ...A], /반영 완료|Error/);
+const p3b = run('⑥ 스테이징 오플 요금블록', ['scripts/publish-sonogong-tab.mts', ...STAGE, '--tab=오플구독', ...A], /반영 완료|Error/);
 if (!p3b.ok) stop('오플 요금블록 실패');
 
 // ⑥′ 상품마스터 — ERP 가 읽는 표. 공급사 시트 유입 갱신 → 발행값(판매시트)으로 맞춤.
@@ -705,11 +707,12 @@ if (process.argv.includes('--with-product-master')) {
   line.push(m1.ok && m2.ok ? (m2.picked.find((l) => /어긋난 칸/.test(l))?.replace('어긋난 칸', 'PM 어긋난 칸') || 'PM ok') : 'PM 실패(경고)');
 } else line.push('PM 건너뜀(구버전)');
 
-// ⑦ ERP 일일 동기 — 로컬 코드로 돈다(배포본과 같은 함수). 실패는 경고(밤 02:00 크론이 다시 돈다).
+// ⑦ ERP 일일 동기 — 로컬 코드로 돈다(배포본과 같은 함수).
 //    ★2026-08-20 — ERP 원본이 «영업자 상품리스트»로 바뀌었다(lib/domain/sheet-erp-parity 규칙 ①).
 //      배포 전에는 배포본 API 가 옛 경로(상품마스터)라, 로컬 스크립트로 돌려야 시트와 ERP 가 같아진다.
-const erp = run('⑦ ERP 일일 동기', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/run-sheet-daily-sync-local.mts', ...A], /반영|미리보기|원본 |✗/);
+const erp = run('⑦ ERP 일일 동기', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/run-sheet-daily-sync-local.mts', ...STAGE, ...A], /반영|미리보기|원본 |✗/);
 line.push(erp.ok ? (erp.picked.find((l) => /원본 /.test(l))?.slice(0, 60) || 'ERP ok') : 'ERP 실패');
+if (!erp.ok) stop('ERP 원자화가 실패했다 — 이전 원자로 F01/F86을 발행하지 않는다');
 
 /**
  * ⑦′ **ERP 를 시트 그대로 비춘다 — 사진·이름·부재**(사장님 2026-08-20 「지금 기준으로 ERP 를 갈아엎어 줘야지
@@ -868,7 +871,7 @@ if (!master.ok) {
  *   재고를 Firestore 로 옮기는 중 — hourly-sync 가 RTDB 를 갱신한 뒤, 그 상태를 Firestore 원자에 비춘다.
  *   그래야 파인더가 Firestore 를 읽어도 «공급사 변화 → 1시간 내 반영»이 된다(RTDB 대역폭 컷).
  *   ⑮ 는 지난 스냅샷과 견줘 상태전이·대여료변경을 기록한다. 둘 다 «읽고 Firestore 만 쓴다» — 시트·ERP 안 건드림.
- * ⚠ best-effort — 실패해도 회차를 멈추지 않는다(경고만). --apply 회차에만 돈다.
+ * 미러가 실패하면 이전 Firestore 원자로 시트를 발행할 수 있으므로 즉시 멈춘다. --apply 회차에만 돈다.
  */
 if (APPLY) {
   /**
@@ -936,7 +939,10 @@ if (APPLY) {
 
   const mir = run('⑭ Firestore 미러', ['scripts/mirror-to-firestore.mts', '--apply'], /미러 완료|중단|✗/);
   line.push(mir.ok ? (mir.picked.find((l) => /미러 완료/.test(l))?.replace('미러 완료 — ', '') || '미러 ok') : '★미러 실패');
-  if (!mir.ok) warnings.push('Firestore 미러 실패');
+  if (!mir.ok) stop('Firestore 미러가 실패했다 — 이전 원자로 F01/F86을 발행하지 않는다');
+
+  const provenance = run('⑭¼ 원자 출처 표식', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/heal-atom-provenance.mts', '--apply'], /출처 표식|공급사 식별 불가|Error/);
+  if (!provenance.ok) stop('원자 출처 표식을 확정하지 못했다 — 원천을 모르는 채 F01/F86을 발행하지 않는다');
 
   /**
    * ⑭¾ **세부트림 정규화 — «마스터 복사 or 공란»으로 통일** (사장님 2026-09-09 「마스터에 있는 내용으로만 · 분명하게 복사」).
@@ -968,6 +974,12 @@ if (APPLY) {
   const prN = /대여료 변경 (\d+)건/.exec(det.picked.join(' '))?.[1];
   line.push(det.ok ? `변경 상태${stN ?? '?'}·요금${prN ?? '?'}` : '검증 실패');
 
+  /** F01·F86·사후검사가 같은 시점의 같은 차량 집합을 쓰도록 한 번만 캡처한다. */
+  // 회차마다 고유 파일을 쓴다. 수동 발행이 동시에 돌아도 이 회차의 F01·F86 입력을 덮지 못한다.
+  const salesSnapshot = `tmp/sales-publish-snapshots/${RUN_ID}.json`;
+  const captured = run('⑮¾ 판매 원자 스냅샷', ['scripts/capture-sales-publish-snapshot.mts', `--out=${salesSnapshot}`], /판매 스냅샷|재고 계약 위반|Error/);
+  if (!captured.ok) stop('판매 원자 스냅샷을 만들지 못했다 — 서로 다른 시점의 시트를 발행하지 않는다');
+
   /**
    * ⑯ **본시트(영업자 판매시트) 발행** — Firestore 원자 → 판매시트 4탭을 «집안 서식」으로 재발행.
    *   사장님 2026-09-04 「이제 본시트에 올리자」. ⑥ 이 정제시트로 쓴 4탭을 여기서 Firestore(⑭ 로 방금 신선)로
@@ -975,21 +987,21 @@ if (APPLY) {
    * ★반드시 ⑭ 미러 «뒤»다 — 생성기는 Firestore 를 읽으므로 미러가 먼저 돌아야 이번 시각 데이터가 실린다.
    * ★best-effort — 실패해도 회차를 멈추지 않는다. 실패하면 시트엔 ⑥ 의 «올바른(서식만 단순)» 표가 남는다.
    */
-  const pub = run('⑯ 본시트 발행', ['scripts/make-sample-sheet-google.mts', '--main'], /본시트 반영 완료|중단|Error/);
+  const pub = run('⑯ 본시트 발행', ['scripts/make-sample-sheet-google.mts', '--main', `--snapshot=${salesSnapshot}`], /본시트 반영 완료|중단|Error/);
   line.push(pub.ok ? (pub.picked.find((l) => /본시트 반영 완료/.test(l))?.replace(/^.*본시트 반영 완료 /, '').replace(/:.*$/, '') || '본시트 ok') : '★본시트 발행 실패');
-  if (!pub.ok) warnings.push('⑯ 본시트 발행 실패 — 시트는 ⑥ 값(단순 서식) 유지');
+  if (!pub.ok) stop('⑯ 본시트 발행 실패 — F86을 다른 회차로 발행하지 않는다');
 
   /**
-   * ⑯¼ **하허호 전용 상품시트(F86) 발행** — F01 을 회사별로만 쪼갠다.
+   * ⑯¼ **하허호 전용 상품시트(F86) 발행** — F01 과 같은 Firestore 원자를 회사별로 쪼갠다.
    *   ⚠⚠ 2026-09-08(매뉴얼 감사가 잡았다) — 이 호출이 **회차에 아예 없었다.** F01 은 매시간 갱신되는데
    *   F86 은 사람이 손으로 돌릴 때만 갱신돼, **채널이 묵은 재고를 계속 봤다.**
    *   게다가 ⑯½ 대조가 F01↔F86 을 재므로, 안 돌리면 매 회차 «어긋났다»는 경보가 상시로 울린다 —
    *   상시로 우는 경보는 곧 아무도 안 보는 경보다.
-   * ★반드시 ⑯ «뒤»다 — F86 은 F01 을 읽는다(원자를 따로 읽지 않는다).
+   * ★F01 과 F86 은 같은 원자와 같은 줄 생성 함수를 쓴다. 뒤에서 두 출력의 차량번호 집합을 대조한다.
    */
-  const ch = run('⑯¼ 하허호 F86 발행', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/build-channel-supplier-sheet.mts', '--apply'], /반영 완료|구글 두드림|묵은 탭|Error/);
+  const ch = run('⑯¼ 하허호 F86 발행', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/build-channel-supplier-sheet.mts', '--apply', `--snapshot=${salesSnapshot}`], /반영 완료|구글 두드림|묵은 탭|Error/);
   line.push(ch.ok ? (ch.picked.find((l) => /반영 완료/.test(l))?.replace(/^.*반영 완료 — /, 'F86 ') || 'F86 ok') : '★F86 발행 실패');
-  if (!ch.ok) warnings.push('⑯¼ 하허호 F86 발행 실패 — 채널이 묵은 재고를 본다');
+  if (!ch.ok) stop('⑯¼ 하허호 F86 발행 실패 — F01과 다른 회차가 되었으므로 성공 처리하지 않는다');
 
   /**
    * ⑯½ **발행한 시트가 원자와 «정말 같은가»** — 칸 단위 대조.
@@ -998,9 +1010,12 @@ if (APPLY) {
    *   같은 날 「장기보증=0」이 서 있었고 「(공급사 없음) 84대」 탭이 남아 있었다 — 둘 다 발행은 «성공»했다.
    * ★알림만 한다 — 이미 시트에 나간 뒤라 여기서 멈춰도 되돌려지지 않는다. 대신 «무엇이 어긋났는지»를 남긴다.
    */
-  const parity = run('⑯½ 시트↔원자 대조', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/audit-sheet-vs-atom.mts'], /원자대로 박혔다|안 박혔다|빠진 차|값이 다른 칸/);
+  const parity = run('⑯½ 시트↔원자 대조', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/audit-sheet-vs-atom.mts', `--snapshot=${salesSnapshot}`], /원자대로 박혔다|안 박혔다|빠진 차|값이 다른 칸/);
   if (parity.ok) line.push('대조 ok');
-  else warnings.push(parity.picked.find((l) => /안 박혔다/.test(l))?.trim() || '시트↔원자 대조 어긋남');
+  else stop(parity.picked.find((l) => /안 박혔다/.test(l))?.trim() || '시트↔원자 대조 어긋남');
+
+  const destinationAudit = run('⑯¾ 천이 출력 되읽기', ['scripts/audit-pipeline-destinations.mts'], /천이컴퍼니 대조|거래처 관리대장|★|⛔/);
+  if (!destinationAudit.ok) stop('천이 출력이 원본과 다르다');
 }
 
 const seconds = Math.round((Date.now() - started) / 1000);

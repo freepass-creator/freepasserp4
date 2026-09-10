@@ -14,6 +14,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { buildProductListRow } from '../lib/domain/product-list-atom';
 import { companyAlias } from '../lib/domain/identity';
 import { buildAtomRefs, resolveAtom } from '../lib/domain/atom-projection';
+import { hasInventoryPublicationViolations, inventoryCountSnapshot, isOpenInventoryAtom } from '../lib/domain/inventory-contract';
 
 const S = (v: unknown) => String(v ?? '').trim();
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
@@ -38,11 +39,15 @@ const policies = (await db.collection('policy').get()).docs.map((d) => ({ _key: 
 const refs = buildAtomRefs(policies, names);
 
 const prods = (await db.collection('products').get()).docs.map((d) => ({ id: d.id, x: d.data() as Record<string, unknown> }));
+const inventory = inventoryCountSnapshot(prods.map(({ x }) => x));
+if (hasInventoryPublicationViolations(inventory)) {
+  throw new Error(`재고 계약 위반 — listable ${inventory.listableDrift} · status_kind ${inventory.statusKindDrift} · 원천 식별자 ${inventory.sourceIdentityViolations} · 삭제표식 ${inventory.deletedMarkerViolations} · 차량번호 ${inventory.blankPlateViolations}/${inventory.invalidPlateViolations}/${inventory.duplicatePlateViolations}`);
+}
 let n = 0, batch = db.batch(), inB = 0, listable = 0, autoPol = 0;
 for (const { id, x } of prods) {
   if (!S(x.policy_code) && S(resolveAtom(x, refs).policyCode)) autoPol++;
   const row = buildProductListRow(x, refs, ovMap);
-  const isList = x.listable !== false && !/출고불가/.test(S(x.vehicle_status));
+  const isList = isOpenInventoryAtom(x);
   if (isList) listable++;
   batch.set(db.collection('product_list_atom').doc(id), { car_number: S(x.car_number), listable: isList, row, _from: 'spec/product_list_columns', _built_at: new Date().toISOString() });
   inB++; n++;

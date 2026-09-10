@@ -13,13 +13,18 @@ import { buildSalesFormatRequests, columnWidths } from '../lib/domain/sales-shee
 import { makeCell, tabOf, TAB_ORDER, loadSalesRowContext, compareSalesRows } from '../lib/domain/sales-atom-row';
 import { companyAlias } from '../lib/domain/identity';
 import { isPlate } from '../lib/domain/plate-registry';
+import { hasInventoryPublicationViolations, inventoryCountSnapshot, isOpenInventoryAtom } from '../lib/domain/inventory-contract';
+import { captureSalesPublishSnapshot, readSalesPublishSnapshot, salesPublishMark } from '../lib/server/sales-publish-snapshot';
+import { salesPublishedColumns } from '../lib/domain/sales-published-tab-columns';
 
 const S = (v: unknown) => String(v ?? '').trim();
+const arg = (name: string) => (process.argv.find((value) => value.startsWith(`--${name}=`)) || '').slice(name.length + 3);
 const SRC_SHEET = '1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs';   // 기존 판매시트 = 본시트(영업자가 보는 곳). 헤더를 여기서 읽는다.
 // ★--main = «본시트»(영업자가 보는 판매시트)에 직접 발행. 기본은 샘플(실수로 운영을 덮지 않게).
 //   본시트에 쓸 때도 4개 상품탭만 rename·clear·재작성한다(AI 인계·차종사전 등 참조탭은 안 건드린다).
 const TO_MAIN = process.argv.includes('--main');
-const SAMPLE_SHEET_ID = TO_MAIN ? SRC_SHEET : (S(process.env.SAMPLE_SHEET_ID) || '1J7dcGCTI0hiHBSdbHx0SqKJKrBg57xkgsX-I8qyfv3c');
+const SAMPLE_SHEET_ID = TO_MAIN ? SRC_SHEET : S(process.env.SAMPLE_SHEET_ID);
+if (!TO_MAIN && !SAMPLE_SHEET_ID) throw new Error('샘플 발행은 SAMPLE_SHEET_ID를 명시해야 한다. 수집 스테이징 시트를 기본값으로 함께 쓰지 않는다.');
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 initializeApp({ credential: cert({ projectId: sa.project_id, clientEmail: sa.client_email, privateKey: sa.private_key.replace(/\\n/g, '\n') }) });
 const jwt = new JWT({ email: sa.client_email, key: sa.private_key, scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive'], subject: 'pyh@teamjpk.com' });
@@ -37,8 +42,16 @@ const api = async (url: string, init?: RequestInit): Promise<any> => {
 
 // ── 데이터 ──
 const firestore = getFirestore();
-const docs = (await firestore.collection('products').get()).docs.map((d) => d.data());
-const listable = docs.filter((v) => v.listable === true);
+const snapshotPath = arg('snapshot');
+if (TO_MAIN && !snapshotPath) throw new Error('본시트 발행은 --snapshot=<회차별 고정 스냅샷>이 필요하다. 먼저 capture:sales-publish를 실행하라.');
+const publishSnapshot = snapshotPath ? readSalesPublishSnapshot(snapshotPath) : await captureSalesPublishSnapshot(firestore);
+const docs = publishSnapshot.products;
+const inventory = inventoryCountSnapshot(docs);
+const listable = docs.filter(isOpenInventoryAtom);
+if (hasInventoryPublicationViolations(inventory)) {
+  console.error(`  ⛔ 재고 계약 위반 — listable ${inventory.listableDrift} · status_kind ${inventory.statusKindDrift} · 원천 식별자 ${inventory.sourceIdentityViolations} · 삭제표식 ${inventory.deletedMarkerViolations} · 차량번호 ${inventory.blankPlateViolations}/${inventory.invalidPlateViolations}/${inventory.duplicatePlateViolations}`);
+  process.exit(1);
+}
 
 // ★전용계좌·공급사명 = 공급사(파트너) 정보(사장님 2026-09-03·09-04 「계좌·공급사명도 원자화된 거 갖고 와야지」).
 //   provider_company_code → 은행·계좌·예금주 · 회사명.
@@ -65,8 +78,8 @@ const skippedNotPlate: string[] = [];
  *   ⚠ 여기서 따로 모으면 F86 과 갈린다 — 실제로 갈려서 「(공급사 없음)」 탭이 채널에 나갔다.
  */
 const rowCtx = await loadSalesRowContext({
-  policies: (await firestore.collection('policy').get()).docs.map((d) => ({ _key: d.id, ...d.data() })),
-  partners: (await firestore.collection('partner').get()).docs.map((d) => ({ _key: d.id, ...d.data() })),
+  policies: publishSnapshot.policies,
+  partners: publishSnapshot.partners,
   companyAlias,
 });
 const { unnamedProviders } = rowCtx;
@@ -86,21 +99,12 @@ if (invalidCars.length || unnamedProviders.size) {
 
 
 
-// ── 기존 판매시트에서 각 탭 헤더를 읽는다(열 100% 동일) ──
-const srcMeta = await api(`https://sheets.googleapis.com/v4/spreadsheets/${SRC_SHEET}?fields=sheets.properties(title)`);
-const srcTitle = (want: string) => (srcMeta.sheets || []).map((s: any) => s.properties.title).find((t: string) => t.startsWith(want)) || want;
-const headerCache: Record<string, string[]> = {};
-for (const t of TAB_ORDER) {
-  const title = srcTitle(t);
-  const v = await api(`https://sheets.googleapis.com/v4/spreadsheets/${SRC_SHEET}/values/${encodeURIComponent(`'${title.replace(/'/g, "''")}'!A1:BZ1`)}`);
-  headerCache[t] = ((v.values || [[]])[0] as string[]).map(S).filter(Boolean);
-}
-// ★픽업구독 보증금 열 이름 = 「반납형보증금/인수형보증금」(사장님 2026-09-04). 값(대여료×연수 최대3배)은 그대로.
-if (headerCache['픽업구독']) headerCache['픽업구독'] = headerCache['픽업구독'].map((h) => h === '보증금 반납형' ? '반납형보증금' : h === '보증금 인수형' ? '인수형보증금' : h);
+// ── 네 탭 열은 코드 계약에서 읽는다. 운영 탭이 깨져도 그 깨진 머리글을 다음 회차가 복제하지 않는다. ──
+const headerCache: Record<string, string[]> = Object.fromEntries(TAB_ORDER.map((tab) => [tab, salesPublishedColumns(tab)]));
 
 
 // ── 고정 시트 제자리 갱신 · 탭 이름 = 「base 업데이트시각 · N대」(기존 판매시트처럼) ──
-const kstNow = (() => { const d = new Date(Date.now() + 9 * 3600e3); const p = (n: number) => String(n).padStart(2, '0'); return `${p(d.getUTCMonth() + 1)}.${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`; })();
+const kstNow = salesPublishMark(publishSnapshot);
 for (const list of Object.values(groups)) for (const v of (list as any[])) {
   const m = S((v as any).model); if (m) modelCount.set(m, (modelCount.get(m) || 0) + 1);
 }
@@ -118,6 +122,8 @@ let sheetId = SAMPLE_SHEET_ID, fresh = false;
  *   새 문서를 만드는 것보다 그 회차를 거르는 게 낫다.
  */
 const PLACEHOLDER = SAMPLE_SHEET_ID.startsWith('1FZ8placeholder');
+// 준비 시간이 길었어도 실제 운영 시트를 건드리기 직전에 신선도와 해시를 다시 확인한다.
+if (TO_MAIN && snapshotPath) readSalesPublishSnapshot(snapshotPath);
 const meta = PLACEHOLDER ? null : await api(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?fields=sheets.properties(sheetId,title)`).catch((e: unknown) => {
   console.error(`\n✗ 본시트(${sheetId}) 메타를 못 읽었다 — ${(e as Error).message.slice(0, 140)}`);
   console.error('  «시트가 없다»가 아니라 «못 읽었다»다. 새로 만들지 않고 멈춘다(전체공개 새 문서가 생기는 사고를 막는다).');
@@ -199,5 +205,6 @@ for (let i = 0; i < fmt.length; i += 200) await api(`https://sheets.googleapis.c
 
 const total = TAB_ORDER.reduce((a, t) => a + (groups[t]?.length || 0), 0);
 console.log(`\n★ ${TO_MAIN ? '본시트 반영 완료' : (fresh ? '새로 만든' : '제자리 갱신')} 상품시트(${total}대 · 기존시트 동일열):\nhttps://docs.google.com/spreadsheets/d/${sheetId}/edit`);
+console.log(`  스냅샷 ${publishSnapshot.snapshotId} · ${publishSnapshot.capturedAt}`);
 if (fresh) console.log(`\n※ 이 ID 를 SAMPLE_SHEET_ID 에 박으면 고정: ${sheetId}`);
 process.exit(0);

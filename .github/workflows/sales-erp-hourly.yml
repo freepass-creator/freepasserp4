@@ -12,7 +12,8 @@ on:
         default: false
 
 concurrency:
-  group: sales-erp-hourly
+  # 일일 수동 반영과도 같은 F01/F86을 쓰므로 두 워크플로가 한 줄로 선다.
+  group: freepass-sales-publish
   cancel-in-progress: false
 
 jobs:

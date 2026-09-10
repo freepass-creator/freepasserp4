@@ -36,6 +36,7 @@ import { sheetIdFromUrl } from '../lib/domain/supplier-sheet-read';
 import { FUEL_EV, rawSeats, atomViolations, type MasterIndex } from '../lib/domain/atom-invariants';
 import { cleanTrim } from '../lib/domain/clean-trim';
 import { resolveStatus } from '../lib/domain/atom-status';
+import { isOpenInventoryAtom } from '../lib/domain/inventory-contract';
 
 const APPLY = process.argv.includes('--apply');
 const CODE = (process.argv.find((a) => a.startsWith('--code='))?.split('=')[1] || 'RP004').trim();
@@ -767,7 +768,7 @@ const RETIRE = process.argv.includes('--retire');
  *   ⇒ 견줄 대상 = `listable === true` 인 차(=지금 목록에 세운 것). 291 vs 354 → 통과, 630 vs 291 → 막힘.
  * ★뜻은 그대로다 — 「우리가 «보여 주고 있던» 것의 절반도 못 읽었으면 원천 읽기를 의심한다」.
  */
-const 세운차 = [...cur.values()].filter((v) => (v as { listable?: unknown }).listable === true).length;
+const 세운차 = [...cur.values()].filter(isOpenInventoryAtom).length;
 const safeToRetire = RETIRE && (세운차 === 0 || now.length >= 세운차 * 0.5);
 let wrote = 0, retired = 0;
 /** ★불변까지 덮는 «전체 반영»은 `--apply` 전용이다 — 변동 모드는 위에서 상태만 쓰고 여기를 건너뛴다. */
