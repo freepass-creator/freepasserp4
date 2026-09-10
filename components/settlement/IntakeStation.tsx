@@ -193,6 +193,37 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
     { tab: '실적' as const, icon: '▤' },
     { tab: '청구' as const, icon: '₩' },
   ];
+  /**
+   * ★★★**왼쪽 업무 트리** — 사장님 2026-09-10
+   *   「좌측에 teamjpkwork 처럼 좌측에 메뉴 만들자」·「그게 있어야 맞는 거 같다… **그게 규격이다**」
+   *
+   *   원본 고전 ERP 의 왼쪽은 두 층이다 —
+   *     ① «빠른 단추»  이 회사가 매일 누르는 것. 펴지지 않고 바로 열린다.
+   *     ② «업무 트리»  갈래(그룹) 아래 화면들. 렌터카면 어느 회사든 이만큼은 있다.
+   *   ★코드(AR-0318 꼴)를 같이 적는다 — 전화로 「어느 화면이요?」를 주고받을 때 그것이 이름이다.
+   *
+   * ⚠ 아직 «안 만든» 화면은 흐리게 두고 눌러도 안 열린다 — 눌렸는데 빈 화면이 뜨면 고장으로 보인다.
+   */
+  const 빠른 = [
+    { icon: '⌂', name: '접수', code: 'ST-0110', tab: '접수' as const },
+    { icon: '▤', name: '실적', code: 'ST-0210', tab: '실적' as const },
+    { icon: '₩', name: '청구', code: 'ST-0310', tab: '청구' as const },
+  ];
+  const 트리: { g: string; code: string; items: { name: string; code: string; tab?: typeof tab; href?: string }[] }[] = [
+    { g: '정산', code: 'ST', items: [
+      { name: '접수 등록', code: 'ST-0110', tab: '접수' },
+      { name: '실적 확인', code: 'ST-0210', tab: '실적' },
+      { name: '청구 장부', code: 'ST-0310', tab: '청구' },
+    ] },
+    { g: '정산서', code: 'SB', items: [
+      { name: '보낼 곳·링크', code: 'SB-0110' },
+      { name: '확인·정정 받은 것', code: 'SB-0210' },
+    ] },
+    { g: '맞대보기', code: 'CK', items: [
+      { name: '원장 대조', code: 'CK-0110' },
+      { name: '계산서', code: 'CK-0210' },
+    ] },
+  ];
   const [direct, setDirect] = useState<'' | typeof DIRECT[number]>('');
   /** 마지막에 쓴 채널·영업자 — 다음 접수에 그대로 들어온다. 타자가 하나로 준다. */
   const [last, setLast] = useState({ channel: '', agent: '' });
@@ -491,6 +522,32 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
         <span className="cl-clock">{now}</span>
       </div>
 
+      {/**
+        * ★★**도구 모음** — 원본 규격. 아이콘은 얇은 홑색 글리프(⟳ ＋ ⎙ ⤓ ★ ?).
+        *   ⚠ 아직 «안 만든» 것은 흐리게 두고 안 눌린다 — 눌렀는데 아무 일도 안 나면 고장으로 보인다.
+        */}
+      <div className="cl-toolbar">
+        <button type="button" className="cl-tb" onClick={() => void load()} title="다시 불러오기">
+          <span className="cl-tbi">⟳</span>조회
+        </button>
+        <button type="button" className="cl-tb" onClick={() => openDirect('직접 접수')} title="차 없이 바로 접수">
+          <span className="cl-tbi">＋</span>신규
+        </button>
+        <span className="cl-tbsep" />
+        <button type="button" className="cl-tb" disabled title="준비 중"><span className="cl-tbi">⎙</span>출력</button>
+        <button type="button" className="cl-tb" disabled title="준비 중"><span className="cl-tbi">⤓</span>엑셀</button>
+        <span className="cl-sp" />
+        {/** ★문서 탭 — 지금 «어느 창»을 보고 있는지. 고른 것만 올라온다(원본 결). */}
+        <div className="cl-tabs">
+          {MENUS.map((m) => (
+            <div key={m.tab} className={`cl-tab${tab === m.tab ? ' on' : ''}`} onClick={() => setTab(m.tab)}>
+              <span className="cl-tbi">{m.icon}</span>{m.tab === '접수' ? '접수 등록' : m.tab === '실적' ? '실적 확인' : '청구 장부'}
+              <span className="cl-tcode">{m.tab === '접수' ? 'ST-0110' : m.tab === '실적' ? 'ST-0210' : 'ST-0310'}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
       {tab !== '접수' ? (
         <div className="cl-body">
           <main className="cl-main">
@@ -589,6 +646,35 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
           </div>
 
           <div className="cl-body" style={waitH ? ({ ['--아래높이' as string]: `${waitH}px` } as React.CSSProperties) : undefined}>
+            {/**
+              * ★왼쪽 업무 트리 — 원본 규격(빠른 단추 + 갈래별 화면).
+              *   ⚠ 접수 탭에서만 세우지 않는다. 어느 탭에서든 «어디로 갈지»가 보여야 한다.
+              */}
+            <nav className="cl-tree">
+              <div className="cl-tree-head">프리패스 정산</div>
+              <div className="cl-quick">
+                {빠른.map((q) => (
+                  <button key={q.code} type="button" className={`cl-qbtn${tab === q.tab ? ' on' : ''}`}
+                    onClick={() => setTab(q.tab)} title={q.code}>
+                    <span className="cl-qi">{q.icon}</span>{q.name}
+                  </button>
+                ))}
+              </div>
+              {트리.map((g) => (
+                <div key={g.code}>
+                  <div className="cl-tree-g">{g.g}<span className="cl-sp" /><span className="cl-tcode">{g.code}</span></div>
+                  {g.items.map((it) => (
+                    <div key={it.code}
+                      className={`cl-tree-s${it.tab && tab === it.tab ? ' on' : ''}${it.tab ? '' : ' off'}`}
+                      onClick={() => { if (it.tab) setTab(it.tab); }}
+                      title={it.tab ? it.code : '준비 중'}>
+                      {it.name}<span className="cl-sp" /><span className="cl-tcode">{it.code}</span>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </nav>
+
             {/* ── 왼쪽 — 위 상품 목록, 아래 접수 목록 ───────────── */}
             <main className="cl-main">
               <div className="cl-grid cl-cars">
@@ -674,7 +760,7 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
                         <th key={c.key} className={`${c.num ? 'cl-num' : ''}${c.mid ? ' cl-mid' : ''} sortable${sortKey === c.key ? ' on' : ''}`}
                           style={{ width: c.w }} onClick={() => flipSort(c.key)} title={c.title || c.label}>
                           {c.label}{c.unit ? <i>{c.unit}</i> : null}
-                          {sortKey === c.key ? <span className="cl-sorti">{sortAsc ? '▲' : '▼'}</span> : null}
+                          {sortKey === c.key ? <span className="cl-sort">{sortAsc ? '▲' : '▼'}</span> : null}
                         </th>
                       ))}
                     </tr>
@@ -730,7 +816,40 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
                       <tr><td colSpan={INTAKE_COLS.length} className="cl-note">접수된 줄이 없습니다</td></tr>
                     )}
                   </tbody>
+                  {/**
+                    * ★★**합계 줄** — 원본 규격(`cl-sum` · tfoot 붙박이).
+                    *   ⚠ 정산 화면인데 «합계가 없었다». 사장님 2026-09-10 「뭔가 정산은 좀 빠지는 거 같은데??」
+                    *     — 원본 클래스를 세어 보니 `cl-sum` 을 우리만 안 쓰고 있었다.
+                    *   ★합계는 «자료가 아니라 답»이다. 그래서 몸통과 선으로 뗀다(원본 주석 그대로).
+                    *   ★굴려도 아래에 붙어 있는다 — 답을 보려고 끝까지 내리지 않아도 된다.
+                    */}
+                  {sortedIntake.length > 0 && (
+                    <tfoot>
+                      <tr className="cl-sum">
+                        <td colSpan={9}>합계 {sortedIntake.length}건</td>
+                        <td className="cl-num">{sortedIntake.reduce((a, r) => a + (r.term || 0), 0) || ''}</td>
+                        <td className="cl-num">{won(sortedIntake.reduce((a, r) => a + (r.rent || 0), 0))}</td>
+                        <td className="cl-num">{man(sortedIntake.reduce((a, r) => a + (r.deposit || 0), 0))}</td>
+                        <td colSpan={5} />
+                        <td className="cl-num">{won(sortedIntake.reduce((a, r) => a + (r.claim || 0), 0))}</td>
+                        <td className="cl-num">{won(sortedIntake.reduce((a, r) => a + (r.pay || 0), 0))}</td>
+                        <td className="cl-num"><b>{won(sortedIntake.reduce((a, r) => a + ((r.claim || 0) - (r.pay || 0)), 0))}</b></td>
+                        <td colSpan={4} />
+                      </tr>
+                    </tfoot>
+                  )}
                 </table>
+              </div>
+
+              {/**
+                * ★**건수 줄** — 원본 규격(`cl-count`). 표 아래에서 «지금 몇 건을 보고 있나»를 말한다.
+                *   판 머리는 「무엇을 보는 판인가」, 여기는 「그 중 몇을 보고 있나」다 — 다른 물음이다.
+                */}
+              <div className="cl-count">
+                <b>{hits.length}</b>건 보는 중
+                <span className="cl-tilde"> / </span>재고 <b>{board.cars.length}</b>대
+                <span className="cl-sp" />
+                접수 <b>{sortedIntake.length}</b>건{todo ? <span className="cl-st warn"> · 할 일 {todo}</span> : null}
               </div>
             </main>
 

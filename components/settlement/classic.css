@@ -1702,7 +1702,7 @@
  *   여기서는 «지금 어느 칸으로 세웠는지»만 덧댄다 — 표시가 없으면 눌러 놓고도 뭘 눌렀는지 모른다.
  */
 .cl .cl-grid th.sortable.on { background: var(--고름); color: var(--머리); }
-.cl .cl-sorti { margin-left: 3px; font-size: 8px; opacity: .8; }
+/** ⓘ 정렬 표시는 원본 `.cl-sort` 를 쓴다 — 내가 `cl-sorti` 라는 이름을 지어냈었다. */
 
 /**
  * ★취소된 줄 — 지우지 않고 «그어» 둔다. 지우면 왜 없어졌는지 아무도 모른다.
