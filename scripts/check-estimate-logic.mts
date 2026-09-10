@@ -2200,6 +2200,90 @@ must((availableForEngine({ a: { name: '컴포트' } }, [], '가솔린 3.5 터보
   } catch { /* 산출물이 없으면 건너뛴다 — §32 가 그것을 잡는다 */ }
 }
 
+/* ══ 35. ★★★**「N.NT 기본」은 «전용»이 아니다** ═════════════════════════════════
+     ★★2026-09-11 — 「원본이 답을 갖고 있으면 짐작하지 않는다」를 지키려고 §28 의 엔진 읽기를
+       실제 데이터에 대 보다가, **제가 지어낸 규칙이 반대로 읽고 있는 것**을 찾았다.
+
+     K9 「프리뷰 전자제어 서스펜션 990,000 · sub「(3.3T **기본**, 3.8 가솔린 베스트 셀렉션 Ⅰ**만 옵션**)」」
+       · 「3.3T 기본」 = 3.3T 에선 **이미 들어 있다(안 판다)**
+       · 정본은 같은 칸에 「3.8 … 만 옵션」이라고 **판다고 적어 두었다**
+     그런데 표기에서 「3.3」만 떼고 **뒤를 안 읽어** 「3.3T 전용」으로 보았고, 그 결과
+       · 3.3T 에서 **이미 들어 있는 것을 또 팔고**
+       · 3.8 에서 **진짜 유료 99만·79만을 지웠다** — 둘 다 반대다.
+     ⚠ 「유료 옵션이 소리 없이 사라지는」 사고는 이 세션에서만 **다섯 번째**다(뱅앤올룹슨 190만 ·
+       G90 후륜조향 150만 · 포터II 현가 6만 · 안 파는 옵션 70만 · 여기).
+
+     ★그래서 «뜻»을 갈라 읽는다 — 「기본」이면 그 엔진에서 **빼고**, 다른 엔진에 대해선
+       **아무 말도 안 한 것**으로 본다(원래 목록 그대로). 「전용」·「(2.5T)」만 «그 엔진 것»이다.
+
+     ⚠⚠ 지어낸 붙박이로 재지 않는다 — **저장소의 진짜 팩**(G80)으로 잰다. 이 세션에서 붙박이를
+       세 번 짜맞춰 통과시킨 적이 있다(§18 · §27). 값·표기가 바뀌면 이 검사는 «건너뛴다»가 아니라
+       그때 다시 실측해서 고친다. */
+{
+  const packs = readPacks<{
+    sub_model?: string; fuel?: string; trim?: string;
+    optionsMaster?: Record<string, { name?: string; sub?: string; price?: number }>;
+    availableOptions?: string[];
+  }>();
+  const g80 = packs.find((p) => S(p.sub_model) === 'G80' && S(p.fuel).includes('3.5')
+    && !!(p.availableOptions ?? []).length && !!p.optionsMaster);
+  if (!g80) {
+    console.log('  ⚠ §35 건너뜀 — G80 3.5T 팩이 없습니다(인제스터 산출물).');
+  } else {
+    const om = g80.optionsMaster!;
+    const nameOf = (id: string) => S(om[id]?.name);
+    const after = availableForEngine(om, g80.availableOptions, S(g80.fuel)) ?? [];
+
+    /* ㉠ 「(3.5T 기본)」이 적힌 것은 3.5T 줄에서 **팔지 않는다**(이미 들어 있다). */
+    const std35 = Object.keys(om).filter((id) => /3\.5\s*T\s*기본/.test(`${S(om[id]?.name)} ${S(om[id]?.sub)}`));
+    for (const id of std35) {
+      must(!after.includes(id),
+        `「${nameOf(id)}」은 3.5T 에 «기본 포함»인데 3.5T 줄에서 팔고 있습니다 — 「기본」을 「전용」으로 읽고 있습니다`,
+        'lib/domain/estimate/genesis-included.ts availableForEngine');
+    }
+    must(std35.length > 0,
+      '§35 가 잴 것을 못 찾았습니다 — G80 3.5T 팩에 「3.5T 기본」 표기가 사라졌습니다. 실측해서 검사를 고치십시오',
+      'data/new-car/option-packs.json');
+
+    /* ㉡ ★**「3.3T 기본」 때문에 3.8 줄에서 «진짜 유료»를 지우지 않는다.**
+       ⚠ G80 팩에는 이 꼴이 없어서 G80 으로만 재면 **아무것도 안 재는 빈 검사**가 된다
+         (돌연변이로 확인 — 2026-09-11). 그래서 이 꼴이 실제로 있는 **K9 3.8 팩**으로 잰다.
+       ⚠ K9 는 오늘 이 함수를 타지 않지만(제네시스 줄만 탄다), 재는 것은 «함수의 읽기»다 —
+         다음에 배선이 넓어질 때 이 뜻이 뒤집혀 있으면 그때 99만·79만이 사라진다. */
+    const k9 = packs.find((p) => S(p.sub_model) === 'K9' && S(p.fuel).includes('3.8')
+      && !!(p.availableOptions ?? []).length && !!p.optionsMaster
+      && (p.availableOptions ?? []).some((id) => /3\.3\s*T\s*기본/.test(`${S(p.optionsMaster?.[id]?.name)} ${S(p.optionsMaster?.[id]?.sub)}`)));
+    if (!k9) {
+      console.log('  ⚠ §35㉡ 건너뜀 — 「3.3T 기본」이 적힌 K9 3.8 팩이 없습니다(인제스터 산출물).');
+    } else {
+      const k9om = k9.optionsMaster!;
+      const k9after = availableForEngine(k9om, k9.availableOptions, S(k9.fuel)) ?? [];
+      const paid = (k9.availableOptions ?? []).filter((id) =>
+        /3\.3\s*T\s*기본/.test(`${S(k9om[id]?.name)} ${S(k9om[id]?.sub)}`));
+      must(paid.length > 0, '§35㉡ 가 잴 것을 못 찾았습니다 — 실측해서 검사를 고치십시오',
+        'data/new-car/option-packs.json');
+      for (const id of paid) {
+        must(k9after.includes(id),
+          `「${S(k9om[id]?.name)}」(${(Number(k9om[id]?.price) || 0).toLocaleString()}원)이 3.8 줄에서 사라졌습니다 — 「3.3T 기본」은 3.8 을 두고 한 말이 아닙니다`,
+          'lib/domain/estimate/genesis-included.ts availableForEngine');
+      }
+    }
+
+    /* ㉢ 「3.5T 전용」은 여전히 열려야 한다 — §28 이 세운 것을 이번 수정이 무너뜨리면 안 된다. */
+    const excl35 = Object.keys(om).filter((id) => /3\.5\s*T\s*(전용|\))/.test(`${S(om[id]?.name)} ${S(om[id]?.sub)}`));
+    for (const id of excl35) {
+      must(after.includes(id),
+        `「${nameOf(id)}」은 3.5T 전용인데 3.5T 줄에서 못 팝니다 — §28 이 무너졌습니다`,
+        'lib/domain/estimate/genesis-included.ts availableForEngine');
+    }
+
+    /* ㉣ 트림을 «맞춘» 줄은 원본 목록을 그대로 쓴다 — 짐작이 정본을 덮지 않는다. */
+    must(/hasTrim/.test(code('lib/domain/estimate/genesis-lineup.ts')),
+      '트림을 맞춘 줄에서도 짐작(availableForEngine)이 원본 `available_options` 를 덮고 있습니다',
+      'lib/domain/estimate/genesis-lineup.ts');
+  }
+}
+
 if (fails.length) {
   console.error(`\n✗ 견적 로직이 정본과 다릅니다 — ${fails.length}건\n`);
   for (const f of fails) console.error(`  · ${f}\n`);

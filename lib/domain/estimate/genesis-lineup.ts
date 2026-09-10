@@ -215,9 +215,18 @@ export function expandGenesis<T extends { maker?: string; sub_model?: string; fu
       }
       /* ★★그 엔진에서 «파는 것»을 다시 잰다 — `{...t}` 가 나르는 목록은 «펴기 전» 것이라
          3.5T 줄이 2.5T 전용을 팔고 3.5T 전용은 못 판다(Codex 3 · 독립 Claude 1). */
-      const avail = om
+      /* ⚠⚠ **원본이 이미 답을 갖고 있으면 짐작하지 않는다.**
+         트림을 맞춘 줄(`trimKey` 있음)의 `availableOptions` 는 원본 `available_options` 그대로다 —
+         그것이 정답이다. 내 엔진 표기 읽기는 **거꾸로 읽는 자리가 있었다**:
+           K9 「프리뷰 전자제어 서스펜션 990,000 · sub「(3.3T **기본**, 3.8 베스트셀렉션Ⅰ만 옵션)」」
+             → 「3.3T 기본」은 «3.3T 에선 안 판다»는 뜻인데, 나는 「3.3T 전용」으로 읽어
+               3.3T 에서 **열고** 3.8 에서 **닫았다**. 둘 다 반대다(3.8 에선 진짜 유료 99만).
+         ⇒ 트림을 맞춘 줄은 원본 목록을 **그대로** 쓴다. 못 맞춘 줄(합집합 폴백)에서만 짐작한다.
+         (2026-09-11 사장님 「예전에 다 만들어놨던 거잖아」 — 옮긴 것이 지어낸 것보다 낫다) */
+      const hasTrim = !!S((t as { trimKey?: string }).trimKey);
+      const avail = om && !hasTrim
         ? availableForEngine(om, (t as { availableOptions?: string[] }).availableOptions, r.fuel)
-        : undefined;
+        : (t as { availableOptions?: string[] }).availableOptions;
       out.push({
         ...t, fuel: r.fuel, trim: r.trim, priceBefore: r.price, priceAfter: r.price,
         ...(implied ? { impliedOptions: implied } : {}),

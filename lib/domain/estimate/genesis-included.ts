@@ -172,7 +172,18 @@ export function matchIncluded(piece: string, names: Record<string, string>, driv
  * ★근거는 정본이 옵션마다 적어 둔 «엔진 표기»다 — `sub` 의 「2.5T -」·「3.5T 전용」·「(2.5T)」.
  * ⚠ 엔진을 «안 적은» 옵션은 손대지 않는다 — 원래 목록 그대로 둔다(모르는 것을 고르지 않는다).
  */
-const ENGINE_TAG = /([1-6]\.[0-9])\s*T/gi;
+/* ★엔진 표기를 «뜻까지» 읽는다 — 뒤따르는 몇 글자가 뜻을 가른다.
+   ⚠⚠ 2026-09-11 K9 로 드러난 «거꾸로 읽기». 처음엔 「3.3T」만 떼어 내고 뒤를 안 봐서
+     「3.3T **기본**」(= 3.3T 에선 기본 포함이라 **안 판다**)을 「3.3T **전용**」으로 읽었다. 그래서:
+       · 3.3T 줄에서 이미 들어 있는 것을 **또 팔고**
+       · 3.8 줄에서는 「3.3T 것」이라며 **진짜 유료 99만·79만을 지웠다** — 둘 다 반대다.
+     정본이 같은 칸에 「3.8 가솔린 베스트 셀렉션 Ⅰ**만 옵션**」이라고 «판다»고 적어 두었는데도 지웠다.
+   ⇒ 「기본」이 붙은 엔진 = 그 엔진에선 **빼고**, 다른 엔진에 대해선 **아무 말도 안 한 것**으로 본다
+     (원래 목록을 그대로 둔다 — 모르는 것을 고르지 않는다).
+   ⇒ 「전용」·「(2.5T)」·「2.5T -」 처럼 «기본»이 아닌 표기 = 그 엔진 것 → 거기서만 연다. */
+const ENGINE_TAG = /([1-6]\.[0-9])\s*T\s*([^,)\]]{0,4})/gi;
+/** 표기 뒤 몇 글자가 「기본」이면 «그 엔진에선 기본 포함(안 판다)»는 뜻이다. */
+const isStdSense = (follow: string) => /기본/.test(S(follow));
 
 export function availableForEngine(
   om: Record<string, { name?: string; sub?: string }>,
@@ -185,10 +196,13 @@ export function availableForEngine(
   const out: string[] = [];
   for (const [id, o] of Object.entries(om)) {
     const text = `${S(o.name)} ${S(o.sub)}`;
-    const tags = [...new Set([...text.matchAll(ENGINE_TAG)].map((m) => m[1]))];
-    if (!tags.length) { if (had.has(id)) out.push(id); continue; }   // 엔진을 안 적었다 → 그대로
-    if (tags.includes(mine)) out.push(id);                          // 내 엔진 것 → «없던 것도» 연다
-    // 다른 엔진 것만 적혀 있으면 뺀다(넣지 않는다)
+    const std = new Set<string>();     // 「N.NT 기본」 — 그 엔진에선 기본 포함이라 «안 판다»
+    const excl = new Set<string>();    // 「N.NT 전용」·「(N.NT)」 — 그 엔진 «것»이다
+    for (const m of text.matchAll(ENGINE_TAG)) (isStdSense(m[2]) ? std : excl).add(m[1]);
+    if (std.has(mine)) continue;                                    // 내 엔진에 기본 포함 → 안 판다
+    if (!excl.size) { if (had.has(id)) out.push(id); continue; }    // 전용 표기가 없다 → 원래 목록 그대로
+    if (excl.has(mine)) out.push(id);                               // 내 엔진 전용 → «없던 것도» 연다
+    // 다른 엔진 «전용»만 적혀 있으면 뺀다(넣지 않는다)
   }
   return out;
 }
