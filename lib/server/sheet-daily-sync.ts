@@ -12,6 +12,7 @@ import { mergeProductPrivate, splitProductPrivate } from '@/lib/firebase/rtdb-pr
 import { toV4Record } from '@/lib/firebase/rtdb-records';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { firebaseAdminDatabase } from '@/lib/server/firebase-admin';
+import { firestoreAdminRef } from '@/lib/server/firestore-ref-shim';
 import type { SheetConflictResolution } from '@/lib/domain/sheet-conflict-resolution';
 import { fetchSalesInventorySheet } from '@/lib/server/sales-inventory-sheet';
 import { isolateProductMasterBlockedProviders } from '@/lib/domain/product-master-import';
@@ -408,6 +409,23 @@ async function writeRun(
     'system_status/sheet_daily_sync': result,
     'system_locks/sheet_daily_sync': { run_id: runId, status, finished_at: at, expires_at: at },
   });
+
+  /*
+   * ★★**회차 기록은 «화면이 읽는 곳»에도 남긴다 — 파이어스토어.**
+   *   사장님 2026-09-10 「그냥 **RTDB 는 아예 안 쓴다**고」 · 「이제 파이어스토어 ERP 로 갈 거라서」.
+   *
+   *   손님 화면의 「마지막 연동일」은 이 한 줄을 읽는다. 그런데 이 함수는 RTDB 에만 적었고,
+   *   파이어스토어 사본은 **2026-09-05 에 멈춰** 있어서 화면이 엿새 묵은 날짜를 보여 줬다.
+   *   ⇒ 여기서 **직접** 적는다. 사본이 따라오기를 기다리지 않는다.
+   *
+   * ⚠ **이 줄이 실패해도 동기는 계속 간다.** 회차 기록은 «곁다리»고, 재고를 채우는 일이 본체다 —
+   *   기록을 못 남겼다고 그날 동기를 통째로 엎으면 그게 훨씬 큰 사고다.
+   * ⚠ 본체(상품·계약·락)를 여기서 옮기지 않는다. 그건 이관 세션의 일이고, 이 함수가 할 일은
+   *   「내가 언제 끝났나」를 화면이 읽는 자리에 남기는 것뿐이다.
+   */
+  try {
+    await firestoreAdminRef().ref('v4/system_status/sheet_daily_sync').set(result);
+  } catch { /* 곁다리다 — 동기를 멈추지 않는다 */ }
 }
 
 async function applyProductPlan(
