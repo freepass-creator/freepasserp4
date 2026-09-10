@@ -219,49 +219,48 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
    *   곁폭 = 오른쪽 상세의 폭 · 아래높이 = 접수 목록의 높이.
    *   ⚠ 첫 그림은 «기본값»으로 나간다 — 저장한 값을 처음부터 쓰면 서버가 그린 것과 달라 하이드레이션이 깨진다.
    */
-  const [sideW, setSideW] = useState(400);
-  const [waitH, setWaitH] = useState(180);
+  /**
+   * ★★**기본은 «반반»** — 사장님 2026-09-10 「기본 반반으로 해 주고」.
+   *   `null` 이면 둘이 남는 높이를 반씩 나눠 갖는다. 끌면 그때 픽셀이 정해진다.
+   *   ⚠ 첫 그림이 `null` 이라 서버가 그린 것과 브라우저가 그린 것이 같다 — 하이드레이션이 안 깨진다.
+   */
+  const [waitH, setWaitH] = useState<number | null>(null);
   useEffect(() => {
     try {
-      const a = Number(localStorage.getItem('fp_stl_sideW')); if (a >= 300 && a <= 760) setSideW(a);
-      const b = Number(localStorage.getItem('fp_stl_waitH')); if (b >= 90 && b <= 600) setWaitH(b);
-    } catch { /* 저장이 막힌 브라우저도 있다 — 기본값으로 돈다 */ }
+      const b = Number(localStorage.getItem('fp_stl_waitH'));
+      if (b >= 90 && b <= 900) setWaitH(b);
+    } catch { /* 저장이 막힌 브라우저도 있다 — 반반으로 돈다 */ }
   }, []);
 
   /**
    * 끌기 — 포인터를 «붙잡아» 둔다(setPointerCapture). 안 붙잡으면 표 위로 지나갈 때 끌기가 끊긴다.
    * ★가름바를 두 번 누르면 기본값으로 돌아간다 — 잘못 끌어 화면이 망가졌을 때 되돌릴 길이 있어야 한다.
    */
-  const 끌기 = (축: '곁' | '아래') => (e: React.PointerEvent<HTMLDivElement>) => {
+  /**
+   * 위아래 몫을 끈다 — 포인터를 «붙잡아» 둔다(setPointerCapture). 안 붙잡으면 표 위를 지날 때 끌기가 끊긴다.
+   * ★두 번 누르면 «반반»으로 돌아간다 — 잘못 끌어 화면이 망가졌을 때 되돌릴 길이 있어야 한다.
+   */
+  const 끌기 = (e: React.PointerEvent<HTMLDivElement>) => {
     e.preventDefault();
     const el = e.currentTarget;
     el.setPointerCapture(e.pointerId);
-    const 처음 = 축 === '곁' ? e.clientX : e.clientY;
-    const 값 = 축 === '곁' ? sideW : waitH;
+    const 처음 = e.clientY;
+    const 값 = (document.querySelector('.cl-wait') as HTMLElement)?.offsetHeight || 180;
     const 움직임 = (ev: PointerEvent) => {
-      /** 곁폭은 «왼쪽으로 끌수록» 커진다(오른쪽 칸이라), 아래높이는 «위로 끌수록» 커진다. */
-      const d = 축 === '곁' ? 처음 - ev.clientX : 처음 - ev.clientY;
-      const n = 축 === '곁'
-        ? Math.min(760, Math.max(300, 값 + d))
-        : Math.min(Math.round(window.innerHeight * 0.6), Math.max(90, 값 + d));
-      if (축 === '곁') setSideW(n); else setWaitH(n);
+      /** 위로 끌수록 아래 칸이 커진다. */
+      setWaitH(Math.min(Math.round(window.innerHeight * 0.75), Math.max(90, 값 + (처음 - ev.clientY))));
     };
     const 놓기 = () => {
       el.releasePointerCapture(e.pointerId);
       el.removeEventListener('pointermove', 움직임);
       el.removeEventListener('pointerup', 놓기);
-      try {
-        localStorage.setItem('fp_stl_sideW', String(축 === '곁' ? (document.querySelector('.cl-side') as HTMLElement)?.offsetWidth || sideW : sideW));
-        localStorage.setItem('fp_stl_waitH', String(축 === '아래' ? (document.querySelector('.cl-wait') as HTMLElement)?.offsetHeight || waitH : waitH));
-      } catch { /* 못 적어도 이번 판에서는 잘 돈다 */ }
+      const 끝 = (document.querySelector('.cl-wait') as HTMLElement)?.offsetHeight;
+      try { if (끝) localStorage.setItem('fp_stl_waitH', String(끝)); } catch { /* 못 적어도 이번 판에서는 잘 돈다 */ }
     };
     el.addEventListener('pointermove', 움직임);
     el.addEventListener('pointerup', 놓기);
   };
-  const 되돌리기 = (축: '곁' | '아래') => () => {
-    if (축 === '곁') { setSideW(400); try { localStorage.removeItem('fp_stl_sideW'); } catch { /* 무시 */ } }
-    else { setWaitH(180); try { localStorage.removeItem('fp_stl_waitH'); } catch { /* 무시 */ } }
-  };
+  const 되돌리기 = () => { setWaitH(null); try { localStorage.removeItem('fp_stl_waitH'); } catch { /* 무시 */ } };
   /** 먼저 누른 차의 늦은 응답이 지금 고른 차를 덮지 못하게 하는 요청 순번. */
   const carRequest = useRef(0);
 
@@ -590,7 +589,7 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
             </div>
           </div>
 
-          <div className="cl-body" style={{ ['--곁폭' as string]: `${sideW}px`, ['--아래높이' as string]: `${waitH}px` } as React.CSSProperties}>
+          <div className="cl-body" style={waitH ? ({ ['--아래높이' as string]: `${waitH}px` } as React.CSSProperties) : undefined}>
             {/* ── 왼쪽 — 위 상품 목록, 아래 접수 목록 ───────────── */}
             <main className="cl-main">
               <div className="cl-grid cl-cars">
@@ -647,7 +646,7 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
               </div>
 
               {/** ★가로 가름바 — 위(상품)와 아래(접수)의 몫을 담당자가 정한다. 두 번 누르면 기본값. */}
-              <div className="cl-gutter cl-gutter-h" onPointerDown={끌기('아래')} onDoubleClick={되돌리기('아래')}
+              <div className="cl-gutter cl-gutter-h" onPointerDown={끌기} onDoubleClick={되돌리기}
                 title="끌어서 위아래 크기 조절 · 두 번 누르면 기본값" role="separator" aria-orientation="horizontal"><i /></div>
               <div className="cl-grid cl-wait">
                 <div className="cl-crumb">
@@ -722,10 +721,6 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
                 </table>
               </div>
             </main>
-
-            {/** ★세로 가름바 — 왼쪽(목록)과 오른쪽(상세)의 몫. */}
-            <div className="cl-gutter cl-gutter-v" onPointerDown={끌기('곁')} onDoubleClick={되돌리기('곁')}
-              title="끌어서 좌우 크기 조절 · 두 번 누르면 기본값" role="separator" aria-orientation="vertical"><i /></div>
 
             {/* ── 오른쪽 — 상세 ↔ 접수. 자리는 그대로, 얼굴만 바뀐다 ── */}
             {/**
