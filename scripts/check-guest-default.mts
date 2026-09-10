@@ -39,6 +39,37 @@ const must = (cond: boolean, label: string, why: string) => {
   console.log(`  ✗ ${label.padEnd(34)}${why}`);
 };
 
+/*
+ * ── ★★sitePath 채널이 «대문 도메인»에 삼켜지지 않는가 ──────────────────
+ *
+ * ⚠⚠ 2026-09-10 사고. 「프리패스erp.com 얼굴 교체」로 `freepasserp.com` 이 라벨 없는 얼굴의
+ *   호스트가 되자, 호스트가 먼저 걸려 `?wl=` 을 아예 안 보게 됐다.
+ *   그 순간 도메인이 «없는» 채널 넷이 통째로 사라졌다 — `/freepass` `/haheoho` `/eancar` `/uniauto`
+ *   가 전부 노브랜드로 떨어졌다. 사장님 「화이트라벨 만들어 둔 거 다 어디 갔냐」.
+ * ★그 넷은 `sitePath` 로 산다 — 미들웨어가 `/shop?wl=<키>` 로 다시 쓴다.
+ *   즉 그 `?wl=` 은 손님이 붙인 게 아니라 **우리가 붙인 것**이라 이겨야 한다.
+ * ⚠ 다만 «채널 제 도메인»에서는 호스트가 이겨야 한다 — 안 그러면 손님이 주소에 `?wl=` 을 붙여
+ *   남의 간판을 씌운다. 그래서 둘 다 잰다.
+ */
+for (const w of WHITELABELS) {
+  if (!w.sitePath) continue;
+  const got = resolveGuestWhitelabel('freepasserp.com', w.key);
+  must(got.key === w.key, `sitePath 채널이 산다 · ${w.sitePath}`,
+    got.key === w.key
+      ? `${w.key} — 대문 도메인에서도 제 간판이 선다`
+      : `대문(freepasserp.com)에서 ?wl=${w.key} 가 «${got.key}» 로 떨어집니다 — 그 채널이 사라진 것입니다`);
+}
+{
+  const owner = WHITELABELS.find((w) => w.hosts.length && !w.plain);
+  if (owner) {
+    const other = WHITELABELS.find((w) => w.key !== owner.key && !w.plain);
+    const got = resolveGuestWhitelabel(owner.hosts[0], other?.key ?? null);
+    must(got.key === owner.key, '채널 도메인에서는 호스트가 이긴다',
+      got.key === owner.key
+        ? `${owner.hosts[0]} 에 ?wl=${other?.key} 를 붙여도 ${owner.key} 그대로`
+        : `${owner.hosts[0]} 에서 ?wl= 로 «${got.key}» 간판을 씌울 수 있습니다`);
+  }
+}
 console.log('\n손님 동 기본 간판 — 갈아쳐도 업무동은 그대로인가\n');
 
 /* ── ① 스위치가 «실재하는» 채널을 가리키나 ─────────────────────────────── */
