@@ -17,6 +17,7 @@
  *   모으는 길이 둘로 갈리면 같은 차가 시트마다 다른 값을 갖는다.
  */
 import { readFileSync } from 'node:fs';
+import { erpPhotoSource, isPickupPhotoAtom, sheetPlateLink } from './photo-projection';
 import { autoplusDepositRuleText } from './sales-published-tabs';
 import { isDepositColumn } from './sales-sheet-format';
 import { groupPoliciesByProvider, autoPolicyCode } from './supplier-policy-link';
@@ -106,7 +107,7 @@ export async function loadSalesRowContext(deps: SalesRowDeps): Promise<SalesRowC
 // 탭 배정 = 발행기 규칙
 export const tabOf = (v: any): string => {
   const prov = S(v.provider_company_code), pt = S(v.product_type);
-  if (prov === 'RP012' && pt === '픽업구독') return '픽업구독';
+  if (isPickupPhotoAtom(v)) return '픽업구독';
   if (prov === 'RP012' && pt.includes('구독')) return '손오공구독';
   if (prov === 'RP023') return '오플구독';
   return '상품리스트';
@@ -233,7 +234,8 @@ export const makeCell = (ctx: SalesRowContext) => (col: string, v: any): string 
     '연료': S(v.fuel_type), '배기량': S(v.engine_cc), '차종구분': S(v.vehicle_class),
     '차명(원문)': S(v['원문']?.['차명']), '옵션(원문)': cleanOpt(S(v['원문']?.['옵션'])),
     '원산지': S(v.origin), '구동': S(v.drive_type), '인승': S(v.seats), '배터리용량': S(v.battery_capacity),
-    '최초등록': S(v.first_registration_date), '차고지': S(v.location), '사진': S(v.photo_link),
+    // 「사진」은 ERP 사진 해석용 원천, 「차번링크」는 Google Sheet 이동용 주소다.
+    '최초등록': S(v.first_registration_date), '차고지': S(v.location), '사진': erpPhotoSource(v),
     '정책UID': S(v.policy_code),
     '대인': combine(pol, 'personal_injury_limit_deductible_legacy', ['injury_compensation_limit', 'personal_injury_compensation_limit'], ['injury_deductible', 'personal_injury_deductible']),
     '대물': combine(pol, 'property_limit_deductible_legacy', ['property_compensation_limit'], ['property_deductible']),
@@ -253,7 +255,7 @@ export const makeCell = (ctx: SalesRowContext) => (col: string, v: any): string 
    *   그 시트가 잠깐 안 읽히는 회차엔 링크 228칸이 통째로 빈칸이 되는데 로그는 성공으로 찍힌다.
    *   ⇒ 수집기가 당길 때 같이 당겨 `tica_link` 로 박는다(`ingest-supplier-to-firestore` 손오공 리더).
    */
-  if (col === '차번링크') return S(v.tica_link);
+  if (col === '차번링크') return sheetPlateLink(v);
   if (col === '전용계좌') return ctx.acctByProvider.get(S(v.provider_company_code)) || '';   // 공급사 계좌
   /**
    * ★**공급사 칸에는 «이름»만 넣는다 — 코드는 안 넣는다** (사장님 2026-09-08).

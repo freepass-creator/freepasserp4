@@ -979,6 +979,8 @@ if (APPLY) {
   const salesSnapshot = `tmp/sales-publish-snapshots/${RUN_ID}.json`;
   const captured = run('⑮¾ 판매 원자 스냅샷', ['scripts/capture-sales-publish-snapshot.mts', `--out=${salesSnapshot}`], /판매 스냅샷|재고 계약 위반|Error/);
   if (!captured.ok) stop('판매 원자 스냅샷을 만들지 못했다 — 서로 다른 시점의 시트를 발행하지 않는다');
+  const photoProjection = run('⑮⅞ 사진 투영 문지기', ['scripts/audit-photo-projection.mts', `--snapshot=${salesSnapshot}`], /사진 투영|사진으로 해석할 수 없는|T카 링크 누락|Error/);
+  if (!photoProjection.ok) stop('ERP 사진 또는 시트 공급사별 링크 규칙이 맞지 않는다');
 
   /**
    * ⑯ **본시트(영업자 판매시트) 발행** — Firestore 원자 → 판매시트 4탭을 «집안 서식」으로 재발행.
@@ -1013,6 +1015,9 @@ if (APPLY) {
   const parity = run('⑯½ 시트↔원자 대조', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/audit-sheet-vs-atom.mts', `--snapshot=${salesSnapshot}`], /원자대로 박혔다|안 박혔다|빠진 차|값이 다른 칸/);
   if (parity.ok) line.push('대조 ok');
   else stop(parity.picked.find((l) => /안 박혔다/.test(l))?.trim() || '시트↔원자 대조 어긋남');
+
+  const photoLinks = run('⑯⅝ 시트 사진링크 대조', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/check-plate-photo-link.mts'], /모두 규격대로 걸렸다|어긋났다|Error/);
+  if (!photoLinks.ok) stop('F01·F86 차량번호 사진링크가 공급사별 규칙과 다르다');
 
   const destinationAudit = run('⑯¾ 천이 출력 되읽기', ['scripts/audit-pipeline-destinations.mts'], /천이컴퍼니 대조|거래처 관리대장|★|⛔/);
   if (!destinationAudit.ok) stop('천이 출력이 원본과 다르다');

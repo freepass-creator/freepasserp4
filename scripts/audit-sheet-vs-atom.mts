@@ -30,6 +30,7 @@ import { companyAlias } from '../lib/domain/identity';
 import { channelCompanyOf } from '../lib/domain/channel-company';
 import { compareSalesRows, loadSalesRowContext, makeCell, tabOf } from '../lib/domain/sales-atom-row';
 import { channelColumnName, salesPublishedColumns } from '../lib/domain/sales-published-tab-columns';
+import { HAHUHO_PRODUCT_SHEET_ID, SALES_SHEET_ID } from '../lib/domain/legacy-sheets';
 
 nextEnv.loadEnvConfig(process.cwd());
 const S = (v: unknown) => String(v ?? '').trim();
@@ -56,8 +57,8 @@ const api = async (u: string): Promise<any> => {
     throw new Error(`${r.status} ${t.slice(0, 160)}`);
   }
 };
-const F01 = '1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs';
-const F86 = '1hQtshpWKL4L0zSR3H3UQ36atICtHv9Ka7dQh7d7K5Vg';
+const F01 = SALES_SHEET_ID;
+const F86 = HAHUHO_PRODUCT_SHEET_ID;
 
 /** 탭마다 GET 하지 않고 한 시트를 한 번에 읽어 분당 quota 초과를 막는다. */
 const readTabs = async (sheetId: string, titles: string[]): Promise<Map<string, string[][]>> => {

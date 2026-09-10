@@ -493,14 +493,13 @@ export function buildSalesFormatRequests(input: FormatInput): Record<string, unk
    * ★**픽업(T카)은 사진이 아니라 «티카 상세페이지»로 간다** (사장님 2026-08-28 · `aiops/docs/supplier-sheet-spec` §6-0
    *   「상품리스트·픽업구독에서 픽업차의 「차량번호」 셀을 누르면 티카 상세페이지로」).
    *   손오공이 티카를 연동한 물건이라 **원본 페이지에 사진·제원·조건이 다 있다.** 사진 한 장보다 그쪽이 낫다.
-   * ★고르는 차례 — 「차번링크」 칸에 주소가 있으면 그것, 없으면 예전처럼 「사진」 첫 장.
-   *   ⇒ 픽업만 「차번링크」가 차 있으므로 **다른 탭은 지금 그대로 굴러간다**(폴백이 곧 옛 규칙이다).
-   * ⚠ 여기서도 «판단하지 않는다» — 칸에 있는 주소를 그대로 건다.
-   */
+   * ★주소 선택은 `photo-projection.sheetPlateLink` 한 곳에서 이미 끝난다.
+   *   「사진」은 ERP 사진 해석용 원천이고, 「차번링크」는 Google Sheet 이동용 주소다.
+   *   둘 사이에서 폴백하면 공급사별 규칙이 섞이므로 여기서는 「차번링크」만 사용한다.
+  */
   const ipl = idx('차량번호');
-  const iph = idx('사진');
   const idl = idx('차번링크');
-  if (ipl >= 0 && (iph >= 0 || idl >= 0) && input.body) {
+  if (ipl >= 0 && idl >= 0 && input.body) {
     /** ★옛 링크 걷어내기도 링크와 «같은 묶음»에 둔다 — 갈라 두면 걷어내기만 먼저 가서 헛일이 된다. */
     (input.linkOut || out).push({ repeatCell: {
       range: { sheetId: gid, startRowIndex: H + 1, startColumnIndex: ipl, endColumnIndex: ipl + 1 },
@@ -510,8 +509,7 @@ export function buildSalesFormatRequests(input: FormatInput): Record<string, unk
     input.body.forEach((r, i) => {
       // 「사진」 칸이 여러 장(콤마·줄바꿈)이면 차번 셀 링크는 «첫 장»만 건다 — 전체를 href로 넣으면 깨진 링크가 된다.
       const first = (v: unknown) => String(v ?? '').split(/\s*[\n,]\s*/)[0].trim();
-      const detail = idl >= 0 ? first(r[idl]) : '';
-      const uri = /^https?:\/\//i.test(detail) ? detail : (iph >= 0 ? first(r[iph]) : '');
+      const uri = first(r[idl]);
       const plate = String(r[ipl] ?? '').trim();
       if (!plate || !/^https?:\/\//i.test(uri)) return;
       (input.linkOut || out).push({ updateCells: {

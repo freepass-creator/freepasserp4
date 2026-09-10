@@ -178,12 +178,16 @@ if (APPLY) {
   const snapshot = `tmp/sales-publish-snapshots/daily-${process.pid}-${Date.now()}.json`;
   const cap = run('⑩ 판매 원자 스냅샷', ['scripts/capture-sales-publish-snapshot.mts', `--out=${snapshot}`], /판매 스냅샷|Error/);
   if (!cap.ok) stop('판매 원자 스냅샷 실패');
+  const photoProjection = run('⑩½ 사진 투영 문지기', ['scripts/audit-photo-projection.mts', `--snapshot=${snapshot}`], /사진 투영|사진으로 해석할 수 없는|T카 링크 누락|Error/);
+  if (!photoProjection.ok) stop('ERP 사진 또는 시트 공급사별 링크 규칙이 맞지 않음');
   const f01 = run('⑪ F01 원자 발행', ['scripts/make-sample-sheet-google.mts', '--main', `--snapshot=${snapshot}`], /본시트 반영 완료|Error|중단/);
   if (!f01.ok) stop('F01 원자 발행 실패');
   const f86 = run('⑫ F86 원자 발행', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/build-channel-supplier-sheet.mts', '--apply', `--snapshot=${snapshot}`], /반영 완료|Error|중단/);
   if (!f86.ok) stop('F86 원자 발행 실패');
   const audit = run('⑬ F01·F86 원자 대조', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/audit-sheet-vs-atom.mts', `--snapshot=${snapshot}`], /원자대로 박혔다|안 박혔다|Error/);
   if (!audit.ok) stop('F01·F86 원자 대조 실패');
+  const photoLinks = run('⑬½ 시트 사진링크 대조', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/check-plate-photo-link.mts'], /모두 규격대로 걸렸다|어긋났다|Error/);
+  if (!photoLinks.ok) stop('F01·F86 차량번호 사진링크가 공급사별 규칙과 다름');
   const destinationAudit = run('⑭ 천이 출력 되읽기', ['scripts/audit-pipeline-destinations.mts'], /천이컴퍼니 대조|거래처 관리대장|★|⛔/);
   if (!destinationAudit.ok) stop('천이 출력이 원본과 다름');
 } else report.push('⑥ 검수와 원자 발행은 --apply 뒤에 돈다');

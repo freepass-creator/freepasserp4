@@ -25,6 +25,7 @@ import { hasInventoryPublicationViolations, inventoryCountSnapshot, isOpenInvent
 import { captureSalesPublishSnapshot, readSalesPublishSnapshot, salesPublishMark } from '../lib/server/sales-publish-snapshot';
 import { loadSalesRowContext, makeCell, tabOf, TAB_ORDER, compareSalesRows } from '../lib/domain/sales-atom-row';
 import { buildSalesFormatRequests, columnWidths, isMoneyColumn } from '../lib/domain/sales-sheet-format';
+import { HAHUHO_PRODUCT_SHEET_ID } from '../lib/domain/legacy-sheets';
 import { ensureNoticeTab } from '../lib/server/channel-sheet-tabs';
 import { channelColumnName, salesPublishedColumns } from '../lib/domain/sales-published-tab-columns';
 import nextEnv from '@next/env';
@@ -210,10 +211,19 @@ if (!APPLY) { console.log('\n※ dry-run — --apply 로 만든다.\n'); process
 // 준비 시간이 길었어도 실제 운영 시트를 건드리기 직전에 신선도와 해시를 다시 확인한다.
 readSalesPublishSnapshot(snapshotPath);
 
-// ── 채널 문서 (있으면 그것을 쓴다 — 돌릴 때마다 새 문서가 생기면 안 된다) ──
-const q = encodeURIComponent(`name = '${DOC_NAME}' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`);
-const found = await api(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)`);
-let id = (found.files || [])[0]?.id || '';
+// ── 채널 문서. 운영 중인 하허호 F86은 이름이 아니라 불변 ID로 고정한다. ──
+const fixedId = channel === '하허호' ? HAHUHO_PRODUCT_SHEET_ID : '';
+let id = fixedId;
+if (id) {
+  const fixedMeta = await api(`https://sheets.googleapis.com/v4/spreadsheets/${id}?fields=properties.title`);
+  if (S(fixedMeta?.properties?.title) !== DOC_NAME) {
+    throw new Error(`F86 불변 ID의 문서명이 다르다: ${S(fixedMeta?.properties?.title)} (${id})`);
+  }
+} else {
+  const q = encodeURIComponent(`name = '${DOC_NAME}' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`);
+  const found = await api(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)`);
+  id = (found.files || [])[0]?.id || '';
+}
 if (!id) {
   const made = await api('https://sheets.googleapis.com/v4/spreadsheets', {
     method: 'POST', body: JSON.stringify({ properties: { title: DOC_NAME, locale: 'ko_KR', timeZone: 'Asia/Seoul' } }),

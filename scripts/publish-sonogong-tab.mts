@@ -172,6 +172,6 @@ await api(`${SH}/${SHEET}/values/${encodeURIComponent(`'${tabTitle.replace(/'/g,
 }
 // 차량번호 셀의 사진 링크는 서식층(`buildSalesFormatRequests` 맨 끝)이 세 탭에 똑같이 건다.
 // ⚠ 여기서 따로 걸지 마라 — 갈래 탭만 되고 상품리스트는 안 되던 게 그래서였다.
-console.log(`  차량번호에 사진링크 ${rows.filter((r) => S(r[COLUMNS.indexOf('사진')]).startsWith('http')).length}대`);
+console.log(`  차량번호에 사진링크 ${rows.filter((r) => S(r[COLUMNS.indexOf('차번링크')]).startsWith('http')).length}대`);
 
 console.log(`\n  반영 완료 — 탭 「${tabTitle}」 (+${BLOCK.length}칸)\n  https://docs.google.com/spreadsheets/d/${SHEET}/edit#gid=${gid}\n`);
