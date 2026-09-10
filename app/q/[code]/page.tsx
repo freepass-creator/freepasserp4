@@ -52,7 +52,13 @@ export async function generateMetadata({ params, searchParams }: Params): Promis
   };
 
   try {
-    const found = await loadGuestQuote(seg, share);
+    /*
+     * ★★**메타에도 같은 울타리를 친다** — 여기가 «둘째 문»이다.
+     *   ⚠ 2026-09-10 실측 — 본문에 울타리를 치고도 `?wl=eancar` HTML 에 남의 차 번호·차명이
+     *     **여섯 번** 남아 있었다. 제목·설명·OG 를 만드느라 이 함수가 «따로» 한 번 더 불렀기 때문이다.
+     *   ⇒ 문이 둘이면 둘 다 막는다. 하나만 막으면 카톡 미리보기로 남의 차가 그대로 나간다.
+     */
+    const found = await loadGuestQuote(seg, share, String(wl.providerCode || ''));
     if (!found) return neutral;
     const { product, agent } = found;
     /**
@@ -150,8 +156,9 @@ export default async function QuotePage({ params, searchParams }: Params) {
    *     어느 화면을 그리느냐는 «가게인가»의 문제다.
    */
   const shop = hasShopFrame(wl);
+  /* ★울타리(공급사 전용 채널)는 `loadGuestQuote` 가 «정제 전»에 친다 — 위 API 와 같은 문이다. */
   const found = shop
-    ? await loadGuestQuote(decodeURIComponent(String(code || '')), one(sp.a)).catch(() => null)
+    ? await loadGuestQuote(decodeURIComponent(String(code || '')), one(sp.a), String(wl.providerCode || '')).catch(() => null)
     : null;
   return shop ? <ShopDetailView wl={wl} initial={found} /> : <QuoteView wl={wl} />;
 }

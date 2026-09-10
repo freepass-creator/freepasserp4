@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { loadGuestQuote } from '@/lib/server/guest-quote';
+import { resolveGuestWhitelabel } from '@/lib/whitelabel';
 
 export const dynamic = 'force-dynamic';
 const S = (v: unknown) => String(v ?? '').trim();
@@ -21,7 +22,15 @@ export async function GET(request: Request) {
    *   미리 쪼개면 `PT-0001_181하5327` 처럼 하이픈 품은 상품키가 `PT-0001` 로 잘려 옛 링크가 죽는다(2026-08-22 실측).
    */
   try {
-    const found = await loadGuestQuote(raw, S(url.searchParams.get('a')));
+    /*
+     * ★★**채널이 못 파는 차는 이 문으로도 안 나간다** — 화면만 막으면 여기로 새어 나간다.
+     *   상세 화면은 서버가 못 찾으면 «이 API 로» 다시 묻는 폴백이 있어서다(`ShopDetailView`).
+     * ⚠ 2026-09-10 코덱스 재현 — `/q/RP023_…?wl=eancar` 가 이안카 간판 아래 남의 차를 열었다.
+     * ★울타리는 `loadGuestQuote` 가 «정제 전»에 친다 — 결과를 보고 막으려 했더니
+     *   공급사 칸이 이미 지워져 있어 이안카 자기 차까지 막혔다(실측).
+     */
+    const wl = resolveGuestWhitelabel(request.headers.get('host'), url.searchParams.get('wl'));
+    const found = await loadGuestQuote(raw, S(url.searchParams.get('a')), S(wl.providerCode));
     if (!found) return NextResponse.json({ error: '현재 안내 가능한 상품이 아닙니다.' }, { status: 404 });
     return NextResponse.json(found, {
       headers: { 'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=600' },

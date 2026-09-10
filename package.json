@@ -113,7 +113,8 @@
     "make:og": "tsx scripts/make-og.mts",
     "check:whitelabel": "tsx scripts/check-whitelabel-surface.mts",
     "check:store": "tsx scripts/check-store-canon.mts",
-    "check:options": "tsx scripts/check-options-parse.mts"
+    "check:options": "tsx scripts/check-options-parse.mts",
+    "check:fence": "tsx scripts/check-guest-fence.mts"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",
