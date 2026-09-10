@@ -53,7 +53,15 @@ import './classic.css';
 
 const S = (v: unknown) => String(v ?? '').trim();
 const won = (n: number) => Math.round(n || 0).toLocaleString('ko-KR');
-/** 만원 단위 — 단위 글자는 «머리줄»이 말한다(값에 또 붙이면 칸만 좁아지고 자릿수가 안 맞는다). */
+/**
+ * ★★**돈은 «만원»으로 센다** — 사장님 2026-09-10
+ *   「주행 만Km 이거 뭐야, 월대여료 원 보증금 만???? **그냥 월대여료랑 보증금은 만원 단위로** 하면 되고」
+ *
+ *   ⚠ 앞서 대여료는 「520,000」(원), 보증금은 「100」(만) 으로 «단위가 섞여» 있었다.
+ *     한 표 안에서 단위가 갈리면 눈이 매번 자릿수를 다시 세어야 한다.
+ *   ⇒ 돈은 전부 만원. 「52 · 100 · 1,225」 — 세 자리를 안 넘어 한눈에 견줘진다.
+ *   ★단위는 «칸 이름»에 괄호로 한 번만 적는다 — 값에 붙이면 자릿수가 세로로 안 맞는다.
+ */
 const man = (n: number) => (n ? Math.round(n / 10000).toLocaleString('ko-KR') : '');
 /** 만km 단위 — 3.2 = 3만 2천 km. 단위는 머리줄이 말한다. */
 const km = (n: number) => (n ? (n / 10000).toFixed(1) : '');
@@ -85,16 +93,16 @@ const INTAKE_COLS: IntakeCol[] = [
   { key: 'channel', label: '영업채널', w: 70 },
   { key: 'agent', label: '영업담당', w: 62 },
   { key: 'term', label: '개월', w: 38, num: true },
-  { key: 'rent', label: '렌탈료', w: 66, unit: '원', num: true },
-  { key: 'deposit', label: '보증금', w: 58, unit: '만', num: true },
+  { key: 'rent', label: '렌탈료(만)', w: 66, num: true },
+  { key: 'deposit', label: '보증금(만)', w: 58, num: true },
   { key: 'payKind', label: '납입', w: 56 },
   { key: 'paper', label: '계약서', w: 46, mid: true },
   { key: 'delivered', label: '인도', w: 38, mid: true },
   { key: 'deliveredAt', label: '인도일', w: 58, num: true },
   { key: 'billMonth', label: '청구월', w: 62, num: true },
-  { key: 'claim', label: '청구액', w: 74, unit: '원', num: true },
-  { key: 'pay', label: '지급액', w: 74, unit: '원', num: true },
-  { key: 'mine', label: '우리 몫', w: 74, unit: '원', num: true, title: '청구 − 지급' },
+  { key: 'claim', label: '청구액(만)', w: 74, num: true },
+  { key: 'pay', label: '지급액(만)', w: 74, num: true },
+  { key: 'mine', label: '우리 몫(만)', w: 74, num: true, title: '청구 − 지급' },
   { key: 'billed', label: '청구서', w: 46, mid: true, title: '청구서를 보냈나 — 우리가 정하는 것이라 여기서 켠다' },
   { key: 'invoiceIssued', label: '계산서', w: 46, mid: true, title: '세금계산서 발행 여부(홈택스에서 거둔 값)' },
   { key: 'intakeKind', label: '갈래', w: 62, title: '영업수수료가 기본 — 다른 것만 보인다' },
@@ -372,7 +380,16 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
   const [f, setF] = useState<Record<string, string>>(empty);
   const set = (k: string, v: string) => setF((o) => ({ ...o, [k]: v }));
 
-  const load = async () => { const j = await api.load(); if (j) setBoard(j); };
+  const load = async (month?: string) => { const j = await api.load(month); if (j) setBoard(j); };
+  /**
+   * ★달을 바꾸면 «서버에서 다시» 받는다 — 화면이 갖고 있는 것은 그 달 것뿐이다.
+   *   ⚠ 바꾸는 동안 옛 달 숫자가 남아 있으면 「어느 달을 보는지」가 흐려진다 —
+   *     그래서 고른 줄도 같이 놓는다.
+   */
+  const 달바꾸기 = async (m: string) => {
+    setPickedLine(null); setLineSpec(null); setMode('보기');
+    await load(m);
+  };
   useEffect(() => { if (api.ready) void load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [api.ready]);
 
   const hits = useMemo(() => {
@@ -602,14 +619,16 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
   const 트리자리 = (
             <nav className="cl-tree">
               <div className="cl-tree-head">프리패스 정산</div>
-              <div className="cl-quick">
-                {빠른.map((q) => (
-                  <button key={q.code} type="button" className={`cl-qbtn${tab === q.tab ? ' on' : ''}`}
-                    onClick={() => setTab(q.tab)} title={q.code}>
-                    <span className="cl-qi">{q.icon}</span>{q.name}
-                  </button>
-                ))}
-              </div>
+              {/**
+                * ⓘ **빠른 단추를 걷었다** — 사장님 2026-09-10
+                *   「여기에 **불필요한 중복되는 거 다 없애 주고** 실제 필요한 거만 넣어 주세요」
+                *
+                *   접수·실적·청구가 «네 곳»에 있었다 — 메뉴바 · 빠른 단추 · 문서 탭 · 트리.
+                *   ⚠ 원본에서 빠른 단추는 «트리에 없는 것»(통합조회·업무등록·즐겨찾기)이었다.
+                *     우리는 트리와 «같은 것»을 적어 두 번 세운 꼴이었다.
+                *   ⇒ 길을 둘로 줄인다 — **트리 = 「어디로 갈까」 · 문서 탭 = 「지금 어디」.**
+                *     둘은 뜻이 다르므로 중복이 아니다.
+                */}
               {트리.map((g) => (
                 <div key={g.code}>
                   <div className="cl-tree-g">{g.g}<span className="cl-sp" /><span className="cl-tcode">{g.code}</span></div>
@@ -646,12 +665,11 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
     <div className="cl">
       <div className="cl-menubar">
         <span className="cl-logo">FREEPASS ERP</span>
-        {/** ★로고 바로 뒤 = 이 프로그램이 하는 일 셋. 아이콘+텍스트(박스 뱃지 금지 — 확정 규격). */}
-        {MENUS.map((m) => (
-          <span key={m.tab} className={`cl-menu${tab === m.tab ? ' on' : ''}`} onClick={() => setTab(m.tab)}>
-            <span className="cl-tbi">{m.icon}</span>{m.tab === '접수' ? '홈' : m.tab}
-          </span>
-        ))}
+        {/**
+          * ⓘ **메뉴바의 이동 메뉴도 걷었다** — 트리와 문서 탭이 이미 그 일을 한다.
+          *   원본에서 메뉴바는 «프로그램 메뉴»(장식에 가깝다)고, 화면 이동은 트리의 몫이다.
+          *   ⇒ 메뉴바에는 «이 프로그램이 무엇인가»(로고)와 «지금 상태»(재고·날씨·시각)만 남는다.
+          */}
         {preview && <span className="cl-preview">미리보기 — 지어낸 값</span>}
         <span className="cl-sp" />
         {/** ★오른쪽 끝 = «상태». 통상 ERP 가 서버·사람·시각을 두는 자리다. */}
@@ -709,6 +727,15 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
       {tab !== '접수' && (
         <div className="cl-filter cl-cond">
           <div className="cl-frow">
+            {/**
+              * ★★**달을 고른다** — 사장님 2026-09-10
+              *   「실적에서는 **월별로 볼 수 있어야** 하고, 청구도 **월별로 공급사별로** 볼 수 있어야 하고」
+              *   ⚠ 앞서 이 달(board.month) 하나만 봤다. 지난 달을 보려면 방법이 없었다.
+              *   ★있는 달만 세운다 — 원자에 없는 달을 고르게 하면 빈 화면이 뜬다.
+              */}
+            <select value={board.month} onChange={(e) => void 달바꾸기(e.target.value)}>
+              {board.months.map((m) => <option key={m} value={m}>{m}</option>)}
+            </select>
             <input className="cl-find" type="text" value={q2} placeholder={tab === '실적' ? '차번 · 고객 · 모델 · 공급사 · 채널 · 영업자' : '공급사로 찾기'}
               onChange={(e) => setQ2(e.target.value)} />
             <select value={sup2} onChange={(e) => setSup2(e.target.value)}>
@@ -776,9 +803,9 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
                       <th className="cl-num" style={{ width: 38 }}>개월</th>
                       <th className="cl-num" style={{ width: 62 }}>청구월</th>
                       <th className="cl-num" style={{ width: 54 }}>회차</th>
-                      <th className="cl-num" style={{ width: 78 }}>청구액<i>원</i></th>
-                      <th className="cl-num" style={{ width: 78 }}>지급액<i>원</i></th>
-                      <th className="cl-num" style={{ width: 78 }}>우리 몫<i>원</i></th>
+                      <th className="cl-num" style={{ width: 78 }}>청구액(만)</th>
+                      <th className="cl-num" style={{ width: 78 }}>지급액(만)</th>
+                      <th className="cl-num" style={{ width: 78 }}>우리 몫(만)</th>
                       <th className="cl-num" style={{ width: 62 }}>넘길 달</th>
                       <th style={{ width: 150 }}>비고</th>
                     </tr>
@@ -800,9 +827,9 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
                           <td className="cl-num">{r.term || ''}</td>
                           <td className="cl-num">{r.billMonth}</td>
                           <td className="cl-num">{회.말}</td>
-                          <td className="cl-num">{r.claim ? won(r.claim) : ''}</td>
-                          <td className="cl-num">{r.pay ? won(r.pay) : ''}</td>
-                          <td className={`cl-num${몫 < 0 ? ' cl-st bad' : ''}`}><b>{몫 ? won(몫) : ''}</b></td>
+                          <td className="cl-num">{man(r.claim || 0)}</td>
+                          <td className="cl-num">{man(r.pay || 0)}</td>
+                          <td className={`cl-num${몫 < 0 ? ' cl-st bad' : ''}`}><b>{man(몫)}</b></td>
                           <td className="cl-num">{S(r.carryMonth) || ''}</td>
                           <td title={r.note}>{r.carryNote || r.note}</td>
                         </tr>
@@ -813,9 +840,9 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
                   {실적본.length > 0 && (
                     <tfoot><tr className="cl-sum">
                       <td colSpan={10}>합계 {실적본.length}건 (분납 {분납.length} · 완납 {완납.length})</td>
-                      <td className="cl-num">{won(실적본.reduce((a, r) => a + (r.claim || 0), 0))}</td>
-                      <td className="cl-num">{won(실적본.reduce((a, r) => a + (r.pay || 0), 0))}</td>
-                      <td className="cl-num"><b>{won(실적본.reduce((a, r) => a + ((r.claim || 0) - (r.pay || 0)), 0))}</b></td>
+                      <td className="cl-num">{man(실적본.reduce((a, r) => a + (r.claim || 0), 0))}</td>
+                      <td className="cl-num">{man(실적본.reduce((a, r) => a + (r.pay || 0), 0))}</td>
+                      <td className="cl-num"><b>{man(실적본.reduce((a, r) => a + ((r.claim || 0) - (r.pay || 0)), 0))}</b></td>
                       <td colSpan={2} />
                     </tr></tfoot>
                   )}
@@ -842,11 +869,11 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
                     <tr>
                       <th style={{ width: 130 }}>공급사</th>
                       <th className="cl-num" style={{ width: 48 }}>건</th>
-                      <th className="cl-num" style={{ width: 96 }}>정산액<i>원</i></th>
-                      <th className="cl-num" style={{ width: 96 }}>환수<i>원</i></th>
-                      <th className="cl-num" style={{ width: 104 }}>공급가액<i>원</i></th>
-                      <th className="cl-num" style={{ width: 96 }}>부가세<i>원</i></th>
-                      <th className="cl-num" style={{ width: 110 }}>합계<i>원</i></th>
+                      <th className="cl-num" style={{ width: 96 }}>정산액(만)</th>
+                      <th className="cl-num" style={{ width: 96 }}>환수(만)</th>
+                      <th className="cl-num" style={{ width: 104 }}>공급가액(만)</th>
+                      <th className="cl-num" style={{ width: 96 }}>부가세(만)</th>
+                      <th className="cl-num" style={{ width: 110 }}>합계(만)</th>
                       <th className="cl-mid" style={{ width: 66 }}>계산서</th>
                       <th style={{ width: 180 }}>가감 사유</th>
                     </tr>
@@ -856,11 +883,11 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
                       <tr key={x.name}>
                         <td><b>{x.name}</b></td>
                         <td className="cl-num">{x.n}</td>
-                        <td className="cl-num">{won(x.정산)}</td>
-                        <td className={`cl-num${x.환수 ? ' cl-st bad' : ''}`}>{x.환수 ? `-${won(x.환수)}` : ''}</td>
-                        <td className="cl-num"><b>{won(x.공급가)}</b></td>
-                        <td className="cl-num">{won(x.부가세)}</td>
-                        <td className="cl-num"><b>{won(x.합계)}</b></td>
+                        <td className="cl-num">{man(x.정산)}</td>
+                        <td className={`cl-num${x.환수 ? ' cl-st bad' : ''}`}>{x.환수 ? `-${man(x.환수)}` : ''}</td>
+                        <td className="cl-num"><b>{man(x.공급가)}</b></td>
+                        <td className="cl-num">{man(x.부가세)}</td>
+                        <td className="cl-num"><b>{man(x.합계)}</b></td>
                         <td className="cl-mid">{x.issued ? <span className="cl-st ok">발행</span> : <span className="cl-st warn">아직</span>}</td>
                         <td className="cl-note">{x.사유}</td>
                       </tr>
@@ -871,11 +898,11 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
                     <tfoot><tr className="cl-sum">
                       <td>합계</td>
                       <td className="cl-num">{청구줄.reduce((a, x) => a + x.n, 0)}</td>
-                      <td className="cl-num">{won(청구줄.reduce((a, x) => a + x.정산, 0))}</td>
-                      <td className="cl-num">{won(청구줄.reduce((a, x) => a + x.환수, 0))}</td>
-                      <td className="cl-num"><b>{won(청구줄.reduce((a, x) => a + x.공급가, 0))}</b></td>
-                      <td className="cl-num">{won(청구줄.reduce((a, x) => a + x.부가세, 0))}</td>
-                      <td className="cl-num"><b>{won(청구줄.reduce((a, x) => a + x.합계, 0))}</b></td>
+                      <td className="cl-num">{man(청구줄.reduce((a, x) => a + x.정산, 0))}</td>
+                      <td className="cl-num">{man(청구줄.reduce((a, x) => a + x.환수, 0))}</td>
+                      <td className="cl-num"><b>{man(청구줄.reduce((a, x) => a + x.공급가, 0))}</b></td>
+                      <td className="cl-num">{man(청구줄.reduce((a, x) => a + x.부가세, 0))}</td>
+                      <td className="cl-num"><b>{man(청구줄.reduce((a, x) => a + x.합계, 0))}</b></td>
                       <td colSpan={2} />
                     </tr></tfoot>
                   )}
@@ -898,9 +925,9 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
                         <th style={{ width: 64 }}>고객</th>
                         <th style={{ width: 100 }}>공급사</th>
                         <th className="cl-num" style={{ width: 62 }}>넘길 달</th>
-                        <th className="cl-num" style={{ width: 90 }}>청구<i>원</i></th>
-                        <th className="cl-num" style={{ width: 90 }}>지급<i>원</i></th>
-                        <th className="cl-num" style={{ width: 90 }}>미리 받은<i>원</i></th>
+                        <th className="cl-num" style={{ width: 90 }}>청구(만)</th>
+                        <th className="cl-num" style={{ width: 90 }}>지급(만)</th>
+                        <th className="cl-num" style={{ width: 90 }}>미리 받은(만)</th>
                         <th>사유</th>
                       </tr></thead>
                       <tbody>
@@ -910,9 +937,9 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
                             <td>{c.customer}</td>
                             <td>{c.supplier}</td>
                             <td className="cl-num">{c.to}</td>
-                            <td className="cl-num">{c.claim ? won(c.claim) : ''}</td>
-                            <td className="cl-num">{c.pay ? won(c.pay) : ''}</td>
-                            <td className="cl-num">{c.prepaid ? won(c.prepaid) : ''}</td>
+                            <td className="cl-num">{man(c.claim || 0)}</td>
+                            <td className="cl-num">{man(c.pay || 0)}</td>
+                            <td className="cl-num">{man(c.prepaid || 0)}</td>
                             <td className="cl-note">{c.note}</td>
                           </tr>
                         ))}
@@ -1072,7 +1099,7 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
                       <th style={{ width: 76 }}>차종</th>
                       <th style={{ width: 76 }}>트림</th>
                       <th className="cl-num" style={{ width: 44 }}>연식</th>
-                      <th className="cl-num" style={{ width: 62 }}>주행<i>만km</i></th>
+                      <th className="cl-num" style={{ width: 62 }}>주행(만km)</th>
                       <th style={{ width: 62 }}>연료</th>
                       <th style={{ width: 54 }}>차급</th>
                       <th className="cl-num" style={{ width: 36 }}>인승</th>
@@ -1080,8 +1107,8 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
                       <th style={{ width: 66 }}>공급사</th>
                       <th style={{ width: 56 }}>상품</th>
                       <th className="cl-num" style={{ width: 38 }}>개월</th>
-                      <th className="cl-num" style={{ width: 74 }}>월대여료<i>원</i></th>
-                      <th className="cl-num" style={{ width: 58 }}>보증금<i>만</i></th>
+                      <th className="cl-num" style={{ width: 74 }}>월대여료(만)</th>
+                      <th className="cl-num" style={{ width: 58 }}>보증금(만)</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1100,7 +1127,8 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
                         <td>{c.supplier}</td>
                         <td>{c.product}</td>
                         <td className="cl-num">{c.term}</td>
-                        <td className="cl-num"><b>{won(c.rent)}</b></td>
+                        {/** ★돈은 «만원»으로 — 머리에 (만) 이라 적었으면 값도 만원이어야 한다. */}
+                        <td className="cl-num"><b>{man(c.rent)}</b></td>
                         <td className="cl-num">{man(c.deposit)}</td>
                       </tr>
                     ))}
@@ -1155,7 +1183,7 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
                           <td>{r.channel}</td>
                           <td>{r.agent}</td>
                           <td className="cl-num">{r.term || ''}</td>
-                          <td className="cl-num">{r.rent ? won(r.rent) : ''}</td>
+                          <td className="cl-num">{man(r.rent || 0)}</td>
                           <td className="cl-num">{man(r.deposit || 0)}</td>
                           <td>{r.payKind}</td>
                           <td className="cl-mid">
@@ -1167,10 +1195,10 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
                           <td className="cl-num">{d4(r.deliveredAt)}</td>
                           {/** 아직 안 박힌 달은 «칸을 비우지» 않는다 — 빈 칸은 「없다」인지 「모른다」인지 말하지 않는다. */}
                           <td className={`cl-num${S(r.billMonth) ? '' : ' cl-st warn'}`}>{S(r.billMonth) || '—'}</td>
-                          <td className="cl-num">{r.claim ? won(r.claim) : ''}</td>
-                          <td className="cl-num">{r.pay ? won(r.pay) : ''}</td>
+                          <td className="cl-num">{man(r.claim || 0)}</td>
+                          <td className="cl-num">{man(r.pay || 0)}</td>
                           {/** ★우리 몫 = 청구 − 지급. 화면이 «세는» 게 아니라 서버가 준 둘을 뺀 것뿐이다. */}
-                          <td className={`cl-num${mine < 0 ? ' cl-st bad' : ''}`}><b>{mine ? won(mine) : ''}</b></td>
+                          <td className={`cl-num${mine < 0 ? ' cl-st bad' : ''}`}><b>{man(mine)}</b></td>
                           <td className="cl-mid">
                             <input type="checkbox" checked={!!r.billed} onChange={(e) => void flip(r, 'billed', e.target.checked)} />
                           </td>
@@ -1196,12 +1224,12 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
                       <tr className="cl-sum">
                         <td colSpan={9}>합계 {sortedIntake.length}건</td>
                         <td className="cl-num">{sortedIntake.reduce((a, r) => a + (r.term || 0), 0) || ''}</td>
-                        <td className="cl-num">{won(sortedIntake.reduce((a, r) => a + (r.rent || 0), 0))}</td>
+                        <td className="cl-num">{man(sortedIntake.reduce((a, r) => a + (r.rent || 0), 0))}</td>
                         <td className="cl-num">{man(sortedIntake.reduce((a, r) => a + (r.deposit || 0), 0))}</td>
                         <td colSpan={5} />
-                        <td className="cl-num">{won(sortedIntake.reduce((a, r) => a + (r.claim || 0), 0))}</td>
-                        <td className="cl-num">{won(sortedIntake.reduce((a, r) => a + (r.pay || 0), 0))}</td>
-                        <td className="cl-num"><b>{won(sortedIntake.reduce((a, r) => a + ((r.claim || 0) - (r.pay || 0)), 0))}</b></td>
+                        <td className="cl-num">{man(sortedIntake.reduce((a, r) => a + (r.claim || 0), 0))}</td>
+                        <td className="cl-num">{man(sortedIntake.reduce((a, r) => a + (r.pay || 0), 0))}</td>
+                        <td className="cl-num"><b>{man(sortedIntake.reduce((a, r) => a + ((r.claim || 0) - (r.pay || 0)), 0))}</b></td>
                         <td colSpan={4} />
                       </tr>
                     </tfoot>
@@ -1293,7 +1321,7 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
 
                   <div className="cl-dh" style={{ padding: '8px 10px 4px' }}>기간별 요금 — 누르면 고릅니다</div>
                   <table className="cl-mini cl-fee">
-                    <thead><tr><th>기간<i>개월</i></th><th>월 대여료<i>원</i></th><th>보증금<i>원</i></th></tr></thead>
+                    <thead><tr><th>기간(개월)</th><th>월 대여료(만)</th><th>보증금(만)</th></tr></thead>
                     <tbody>
                       {fees.map((t) => (
                         <tr key={t.term} className={f.term === t.term.split('_')[0] ? 'on' : ''}
@@ -1401,7 +1429,7 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
                       <input value={f.agent} onChange={(e) => set('agent', e.target.value)} list="cl-ag" placeholder="「이」만 쳐도"
                         onKeyDown={(e) => { if (e.key === 'Enter' && ready) void submit(); }} /></div>
                     <div className="cl-fr2">
-                      <div><label>기간<i>개월</i></label><input value={f.term} onChange={(e) => set('term', e.target.value)} /></div>
+                      <div><label>기간(개월)</label><input value={f.term} onChange={(e) => set('term', e.target.value)} /></div>
                       <div><label>납입</label>
                         <select value={f.payKind} onChange={(e) => set('payKind', e.target.value)}>
                           {['일시납', '2회분납', '3회분납'].map((p) => <option key={p}>{p}</option>)}

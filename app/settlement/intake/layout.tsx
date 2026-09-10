@@ -14,6 +14,12 @@ import type { Metadata } from 'next';
 export const metadata: Metadata = {
   title: '정산 워크스테이션',
   description: '접수·실적·청구를 한 화면에서',
+  /**
+   * ★★**아이콘을 «여기서» 다시 적어야 한다** — 뿌리 레이아웃이 `metadata.icons` 를 명시하고 있어서
+   *   `app/settlement/icon.svg` 파일 규약만으로는 «덮이지 않는다»(실측 2026-09-10).
+   *   ⇒ 이 층에서 아이콘을 다시 적어 뿌리 것을 이긴다.
+   */
+  icons: { icon: [{ url: '/settlement/icon.svg', type: 'image/svg+xml' }] },
 };
 
 export default function SettlementIntakeLayout({ children }: { children: React.ReactNode }) {
