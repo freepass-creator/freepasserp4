@@ -74,12 +74,28 @@ for (const r of ROOTS) for (const f of walk(r)) {
     if (ts.isImportDeclaration(n) && ts.isStringLiteral(n.moduleSpecifier)) {
       if (DOORS.some((d) => d.test(n.moduleSpecifier.getText().slice(1, -1)))) { opens = true; return; }
     }
+    /*
+     * ⚠ **재노출(`export … from`)도 문이다**(2026-09-10 코덱스 검토 — 그냥 넘어갔다).
+     *   `export { x } from 'firebase/database'` 는 import 선언이 아니라 export 선언이라
+     *   위 가지에 안 걸린다. 그런데 그 파일을 쓰는 쪽에서는 똑같이 RTDB 로 들어간다.
+     */
+    if (ts.isExportDeclaration(n) && n.moduleSpecifier && ts.isStringLiteral(n.moduleSpecifier)) {
+      if (DOORS.some((d) => d.test(n.moduleSpecifier!.getText().slice(1, -1)))) { opens = true; return; }
+    }
     if (ts.isCallExpression(n)) {
       const callee = n.expression.getText();
+      const dynamic = callee === 'require' || n.expression.kind === ts.SyntaxKind.ImportKeyword;
       const arg = n.arguments[0];
-      if ((callee === 'require' || n.expression.kind === ts.SyntaxKind.ImportKeyword)
-        && arg && ts.isStringLiteral(arg)
-        && DOORS.some((d) => d.test(arg.getText().slice(1, -1)))) { opens = true; return; }
+      if (dynamic && arg) {
+        if (ts.isStringLiteral(arg) && DOORS.some((d) => d.test(arg.getText().slice(1, -1)))) { opens = true; return; }
+        /*
+         * ⚠⚠ **글자를 이어 붙인 주소는 «읽을 수 없다»**(코덱스 재현 — `import('firebase/' + 'database')`).
+         *   읽을 수 없는 것을 「없다」로 세면 그게 구멍이다. 조각 어디엔가 `firebase`·`database`
+         *   가 보이면 **문으로 친다** — 아니라고 증명할 수 없으면 «있다» 쪽으로 센다.
+         * ★정말 아니면 그 자리에서 글자 그대로 적으면 된다. 이어 붙일 이유가 없다.
+         */
+        if (!ts.isStringLiteral(arg) && /firebase|database/i.test(arg.getText())) { opens = true; return; }
+      }
     }
     ts.forEachChild(n, visit);
   };
