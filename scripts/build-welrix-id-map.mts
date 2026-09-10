@@ -319,6 +319,25 @@ async function main() {
     }
   }
 
+  /* ★★**원본이 「폐지」(`operating:false`)라 한 트림에 붙은 줄 — «기록만» 한다.**
+     ⚠⚠ 지우지 않는다. 우리 원천은 **제조사 현재 가격표**(hyundai.json·kia)이고 원본은 그보다 낡았다
+       ([[mtops-price-staleness]] — 「현재가 정본은 제조사」). 원본이 폐지라 해도 제조사가 아직 팔면
+       **파는 차를 우리가 없애는 것**이 된다 — 이 세션에서 「지우는 쪽」으로 다섯 번 사고 났다.
+     ★대신 «그 줄의 옵션판이 낡았을 수 있다»는 표시로 남겨, 사람이 볼 수 있게 한다. */
+  const stale: string[] = [];
+  for (const [k, v] of Object.entries(map)) {
+    const mk2 = makers.find((m) => S(m.manufacturer_id) === S(v.manufacturer_id));
+    const mo2 = (mk2?.models ?? []).find((m) => S(m.model_id) === S(v.model_id));
+    const va2 = (mo2?.variants ?? []).find((x) => S(x.variant_id) === S(v.variant_id));
+    const t2 = (va2?.trims ?? []).find((x) => S(x.trim_id) === S(v.trim_id)) as { operating?: boolean } | undefined;
+    if (t2 && t2.operating === false) stale.push(`${k}  ·  ${S((v as { _label?: string })._label)}`);
+  }
+  if (stale.length) {
+    console.log(`
+원본이 «폐지»라 한 트림에 붙은 줄 — ${stale.length}줄 (★지우지 않는다)`);
+    for (const x of stale.slice(0, 4)) console.log(`      ${x}`);
+  }
+
   if (!WRITE) { console.log('\n(미리보기 — 쓰려면 --write)'); return; }
   mkdirSync('data/new-car', { recursive: true });
   writeFileSync(OUT, `${JSON.stringify({
@@ -326,6 +345,8 @@ async function main() {
     _규칙: '확실한 것만 담는다. 갈리면 unmatched 에 남긴다. 사람이 고친 줄에 _pinned:true 를 달면 재생성이 안 덮는다.',
     _만든날: new Date().toISOString().slice(0, 10),
     map, proposed, unmatched, unmatchedDetail: detail,
+    /** 원본이 폐지라 한 트림에 붙은 줄 — «기록만». 지우는 데 쓰지 않는다(위 주석). */
+    staleTrims: stale,
   }, null, 2)}\n`);
   console.log(`\n→ ${OUT}`);
 }

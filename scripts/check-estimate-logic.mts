@@ -2358,6 +2358,32 @@ must((availableForEngine({ a: { name: '컴포트' } }, [], '가솔린 3.5 터보
   }
 }
 
+/* == 38. ★★**원본의 「폐지」를 «지우는 데» 쓰지 않는다** =========================
+     원본(웰릭스)은 트림 48개를 `operating:false` 로 표시해 둔다 — 그중 13줄이 우리 줄에 붙어 있다
+     (셀토스 X-Line · 쓰렌토 X-Line · K9 마스터즈·베스트셀렉션 …).
+     ⚠⚠ 그걸 가지고 줄을 내리면 **파는 차를 우리가 없애는 것**이다 — 우리 원천은 제조사
+       **현재 가격표**고 원본은 그보다 낡았다([[mtops-price-staleness]]).
+       「유료 옵션·파는 차가 소리 없이 사라지는」 사고는 이 세션에서만 다섯 번이다.
+     ⇒ 표시는 «남기되» 그 줄은 대응표에 그대로 있어야 한다. */
+{
+  try {
+    const raw = readFileSync('data/new-car/welrix-id-map.json', 'utf8');
+    const j = JSON.parse(raw) as { map?: Record<string, unknown>; staleTrims?: string[] };
+    const stale = j.staleTrims ?? [];
+    if (!Array.isArray(j.staleTrims)) {
+      console.log('  ⚠ §38 건너뜀 — welrix-id-map.json 에 staleTrims 가 없습니다(`npx tsx scripts/build-welrix-id-map.mts --write`).');
+    } else {
+      must(stale.length > 0,
+        '§38 이 재을 것을 못 찾았습니다 — 원본의 operating:false 표시가 사라졌습니다. 실측해서 검사를 고치십시오',
+        'data/new-car/welrix-id-map.json');
+      const gone = stale.map((x) => String(x).split('  ·  ')[0]).filter((k) => !(j.map ?? {})[k]);
+      must(gone.length === 0,
+        `원본이 «폐지»라 했다고 ${gone.length}줄을 대응표에서 내렸습니다 — 제조사가 아직 파는 차입니다. 표시는 «기록»이지 «필터»가 아닙니다`,
+        'scripts/build-welrix-id-map.mts');
+    }
+  } catch { /* 산출물이 없으면 §33-3 이 잡는다 */ }
+}
+
 if (fails.length) {
   console.error(`\n✗ 견적 로직이 정본과 다릅니다 — ${fails.length}건\n`);
   for (const f of fails) console.error(`  · ${f}\n`);
