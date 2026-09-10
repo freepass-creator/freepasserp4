@@ -8,7 +8,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { initializeApp, cert } from 'firebase-admin/app';
-import { getDatabase } from 'firebase-admin/database';
+import { getFirestore } from 'firebase-admin/firestore';
 import { JWT } from 'google-auth-library';
 import { MIRROR_SOURCES } from '../lib/domain/mirror-sources';
 
@@ -17,8 +17,9 @@ const S = (v: unknown) => String(v ?? '').trim();
 const NKEY = (c: unknown) => S(c).replace(/\s/g, '');
 const NUM = /^[\d,]+(\.\d+)?$/;
 const sa = JSON.parse(readFileSync('tmp/firebase-auth/sa.json', 'utf8'));
-initializeApp({ credential: cert({ projectId: sa.project_id, clientEmail: sa.client_email, privateKey: sa.private_key.replace(/\\n/g, '\n') }), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' });
-const rtdb = getDatabase();
+initializeApp({ credential: cert({ projectId: sa.project_id, clientEmail: sa.client_email, privateKey: sa.private_key.replace(/\\n/g, '\n') }) });
+/** ★원자 SSOT = Firestore. 이 스크립트는 RTDB 를 «아예» 열지 않는다(2026-09-10). */
+const fsdb = getFirestore();
 const jwt = new JWT({ email: sa.client_email, key: sa.private_key, scopes: ['https://www.googleapis.com/auth/spreadsheets'], subject: 'pyh@teamjpk.com' });
 const api = async (u: string) => { const t = (await jwt.getAccessToken()).token; const r = await fetch(u, { headers: { Authorization: `Bearer ${t}` } }); return JSON.parse(await r.text()); };
 
@@ -150,7 +151,20 @@ if (sonoGubun.size && sonoGubun.size < SONO_MIN) {
 }
 console.log('');
 
-const products = (await rtdb.ref('v4/products').get()).val() as Record<string, any> || {};
+/**
+ * ★★**원자는 Firestore 다 — 여기서 RTDB 를 읽지도 쓰지도 않는다.**
+ *
+ * > 사장님 2026-09-10 「너한테 지금 계속 얘기를 하는데도 **RTDB 를 왜 못 지우는지**」
+ *
+ * ⚠⚠ 실측 2026-09-10 — 회차가 부르는 스크립트 46개 중 **RTDB 에 «쓰는» 것은 이 하나뿐**이었다.
+ *   나머지는 읽기만 한다. 그런데 이 하나 때문에 규칙이 SSOT 에 안 닿았다 —
+ *   「기본형」 규칙이 이틀 전부터 코드에 있었는데 원자엔 기본형인 차가 **한 대도** 없었다.
+ *   여기서 고친 값은 「다음 미러가 Firestore 로 전파」하기를 기다렸고, 그 다리가 끊겨 있었다.
+ * ⇒ 읽기도 쓰기도 **Firestore `products`** 로 옮긴다. 이제 회차의 RTDB «쓰기»는 0 이다.
+ */
+const snap = await fsdb.collection('products').get();
+const products: Record<string, any> = {};
+for (const d of snap.docs) products[d.id] = d.data();
 const updates: Record<string, any> = {};
 const stat = { maker: 0, model: 0, sub: 0, trim: 0, color: 0, mileage: 0, gubun: 0 };
 const rows: string[] = [];
@@ -202,8 +216,21 @@ for (const [key, v] of Object.entries(products)) {
 console.log(`교정: 제조사 ${stat.maker} · 모델 ${stat.model} · 세부모델 ${stat.sub} · 세부트림 ${stat.trim} · 색 ${stat.color} · 주행 ${stat.mileage} · 구분 ${stat.gubun} (필드 ${Object.keys(updates).length})`);
 for (const r of rows) console.log(r);
 if (!APPLY) { console.log(`\n미리보기 — 실제: --apply`); process.exit(0); }
-// 큰 update 는 나눠서
-const entries = Object.entries(updates);
-for (let i = 0; i < entries.length; i += 500) { await rtdb.ref().update(Object.fromEntries(entries.slice(i, i + 500))); }
-console.log(`\n반영 완료 — ${Object.keys(updates).length} 필드. 다음 미러가 Firestore 로 전파.`);
+/**
+ * ★**원자 문서별로 모아 쓴다.** 예전엔 `v4/products/<키>/<칸>` 경로 한 벌로 RTDB 에 밀어 넣었는데,
+ *   그건 SSOT 가 아니었다. 같은 경로 문자열을 «문서 → 칸» 으로 되풀어 Firestore 에 쓴다.
+ */
+const 문서별 = new Map<string, Record<string, unknown>>();
+for (const [path, val] of Object.entries(updates)) {
+  const m = /^v4\/products\/([^/]+)\/(.+)$/.exec(path); if (!m) continue;
+  const [, id, field] = m;
+  (문서별.get(id) || 문서별.set(id, {}).get(id)!)[field] = val;
+}
+const ids = [...문서별.keys()];
+for (let i = 0; i < ids.length; i += 400) {
+  const batch = fsdb.batch();
+  for (const id of ids.slice(i, i + 400)) batch.set(fsdb.collection('products').doc(id), { ...문서별.get(id), _refined_at: Date.now() }, { merge: true });
+  await batch.commit();
+}
+console.log(`\n반영 완료 — 원자 ${ids.length}대 · ${Object.keys(updates).length} 칸 (Firestore 에 바로 썼다 · 미러를 안 기다린다).`);
 process.exit(0);
