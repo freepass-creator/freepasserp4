@@ -19,6 +19,11 @@ import { C, R, NUM } from '@/components/ui/tokens';
 import { useIsMobile } from '@/lib/use-mobile';
 import { toast } from '@/components/Toaster';
 import { deliveryTransitionPatch, intakeTermMonths, localSettlementDay, sameSettlementCar } from '@/lib/domain/settlement-intake';
+/**
+ * ★청구예정월의 정본 — 「박힌 값이 이긴다 · 분납은 접수일+(회차−1) · 일시납은 인도월 ·
+ *   인도 전이면 접수월」. 화면이 이 규칙을 다시 짜면 그 순간 정본이 둘이 된다.
+ */
+import { settlementMonthOf } from '@/lib/domain/settlement-billing-month';
 import './board.css';
 
 export type Line = {
@@ -178,16 +183,34 @@ export default function SettlementBoard({ api, preview = false }: { api: BoardAp
     setF((o) => ({ ...o, term, rent: String(p[key].rent || ''), deposit: String(p[key].deposit || '') }));
   };
 
+  /**
+   * ★**청구예정월** — 규칙(`settlementMonthOf`)이 내는 달. 비워 두면 이 달로 저장된다.
+   *   분납 = 접수일 + (회차−1) · 일시납 = 인도월 · 인도 전이면 접수월.
+   */
+  const 예정월 = settlementMonthOf({
+    billMonth: '', receivedAt: f.receivedAt, deliveredAt: f.deliveredAt,
+    payKind: Number(f.rounds) > 1 ? `${f.rounds}회분납` : '일시납',
+  }) || String(today).slice(0, 7);
+
   const submit = async () => {
     if (!S(f.plate) && !S(f.customer)) { toast('차량번호나 고객명 하나는 적어 주세요'); return; }
-    if (S(f.billMonth) && !S(f.deliveredAt)) { toast('청구월을 넣으려면 인도일을 먼저 적어 주세요'); return; }
+    /**
+     * ⚠★**여기서 인도일로 빗장을 걸지 않는다** — 2026-09-10 코덱스 검증 P0.
+     *   앞서 「청구월을 넣으려면 인도일을 먼저 적어 주세요」로 막아 뒀는데,
+     *   **규칙과 정반대**다(`settlement-billing-month.ts`) —
+     *     분납은 «접수일» + (회차−1) 이고, 일시납도 인도 전이면 «접수월»이 예정월이다.
+     *   ⇒ 접수 때 청구예정월을 정하는 것이 «정상»이다. 막으면 그 줄이 어느 달에도 안 선다.
+     *   ★그 정본 주석에도 적혀 있다 — 「인도일로 «빗장»을 걸지 않는다」.
+     */
     setBusy(true);
     try {
       /** ★형을 «여기서» 맞춰 보낸다 — 서버가 규격으로 다시 재지만, 숫자를 글자로 보내면 그 자리에서 막힌다. */
       const rounds = Math.max(1, Number(f.rounds) || 1);
       const patch: Record<string, unknown> = {
         plate: S(f.plate), customer: S(f.customer), supplier: S(f.supplier), channel: S(f.channel),
-        agent: S(f.agent), product: S(f.product), receivedAt: S(f.receivedAt), billMonth: S(f.billMonth),
+        agent: S(f.agent), product: S(f.product), receivedAt: S(f.receivedAt),
+        /** ★비우면 «규칙이 정한 달»이 들어간다 — 어느 달에도 안 서는 줄을 만들지 않는다. */
+        billMonth: S(f.billMonth) || 예정월,
         model: S(f.model), payKind: S(f.payKind), deliveredAt: S(f.deliveredAt),
         delivered: !!S(f.deliveredAt),
         /**
@@ -197,7 +220,7 @@ export default function SettlementBoard({ api, preview = false }: { api: BoardAp
          *     한쪽만 나누면 「받은 만큼만 주는」 균형이 깨진다.
          */
         settleRatio: rounds > 1 ? Number((1 / rounds).toFixed(4)) : 1,
-        carryMonth: rounds > 1 ? nextYm(S(f.billMonth)) : '',
+        carryMonth: rounds > 1 ? nextYm(S(f.billMonth) || 예정월) : '',
         carryNote: rounds > 1 ? `${rounds}회 분할 청구 — 이번이 ${f.round}회차. 남은 ${rounds - Number(f.round)}회차는 다음 달에 같은 비율로 청구·지급한다` : '',
         term: intakeTermMonths(f.term), rent: Number(String(f.rent).replace(/[,\s]/g, '')) || 0,
         deposit: Number(String(f.deposit).replace(/[,\s]/g, '')) || 0,
@@ -205,7 +228,7 @@ export default function SettlementBoard({ api, preview = false }: { api: BoardAp
       };
       const j = await api.save(patch);
       if (!j.ok) { toast(j.error || '못 남겼습니다'); return; }
-      toast(`접수했습니다 — ${S(f.plate) || S(f.customer)} · ${S(f.billMonth) ? `${S(f.billMonth)} 청구` : '접수 대기'}`);
+      toast(`접수했습니다 — ${S(f.plate) || S(f.customer)} · ${S(f.billMonth) || 예정월} 청구`);
       setJustId(S(j.id));
       setF((o) => ({ ...o, plate: '', customer: '', model: '', term: '', rent: '', deposit: '', price: '', note: '' }));
       await load(month);
@@ -370,7 +393,7 @@ export default function SettlementBoard({ api, preview = false }: { api: BoardAp
                     onChange={applyTerm} />
                 : <Input inputMode="numeric" value={f.term} onChange={(v) => set('term', v)} placeholder="48" full />}
             </Fld>
-            <Fld label="청구월" strong><Input value={f.billMonth} onChange={(v) => set('billMonth', v)} placeholder="비우면 접수 대기" full /></Fld>
+            <Fld label="청구월" strong><Input value={f.billMonth} onChange={(v) => set('billMonth', v)} placeholder={예정월} full /></Fld>
             <div className="stl-go"><Btn onClick={() => void submit()} disabled={busy} full={mob}>{busy ? '남기는 중…' : '접수'}</Btn></div>
           </div>
 

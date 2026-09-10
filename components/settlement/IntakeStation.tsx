@@ -41,6 +41,11 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from '@/components/Toaster';
 import { deliveryTransitionPatch, intakeTermMonths, localSettlementDay, sameSettlementCar } from '@/lib/domain/settlement-intake';
+/**
+ * ★청구예정월의 정본 — 「박힌 값이 이긴다 · 분납은 접수일+(회차−1) · 일시납은 인도월 ·
+ *   인도 전이면 접수월」. 화면이 이 규칙을 다시 짜면 그 순간 정본이 둘이 된다.
+ */
+import { settlementMonthOf } from '@/lib/domain/settlement-billing-month';
 /** ★상품구분 7캐논은 여기가 정본이다 — 화면이 목록을 다시 적으면 재고와 갈린다. */
 import { PRODUCT_TYPES } from '@/lib/intake/entities';
 import type { BoardApi, Board, Car, CarLite, Line, LineSpec } from './SettlementBoard';
@@ -423,6 +428,13 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
 
   /** ★갈래가 영업수수료가 아니면 «차»가 아니라 «무엇에 대한 것이냐»를 묻는다. */
   const isAid = f.intakeKind !== '영업수수료';
+  /**
+   * ★**청구예정월** — 지금 적힌 것으로 규칙이 내는 달. 담당자가 «지금 정하는» 값이다.
+   *   비워 두면 이 달로 저장된다. 적으면 적은 것이 이긴다.
+   */
+  const 예정월 = settlementMonthOf({
+    billMonth: '', receivedAt: f.receivedAt, deliveredAt: f.deliveredAt, payKind: f.payKind,
+  }) || today.slice(0, 7);
   /** ★필수는 «영업채널» 하나 — 차 정보는 재고에서 오고 고객명은 알면 적는다. */
   const ready = isAid ? !!S(f.customer) : (!!S(f.plate) && !!S(f.channel));
 
@@ -432,8 +444,10 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
       const res = await api.save({
         plate: S(f.plate), customer: S(f.customer), model: S(f.model), supplier: S(f.supplier),
         channel: S(f.channel), agent: S(f.agent), product: S(f.product), payKind: S(f.payKind),
-        receivedAt: S(f.receivedAt), deliveredAt: S(f.deliveredAt), billMonth: S(f.billMonth),
+        receivedAt: S(f.receivedAt), deliveredAt: S(f.deliveredAt),
         intakeKind: S(f.intakeKind) || '영업수수료',
+        /** ★비워 두면 «규칙이 정한 달»이 들어간다 — 어느 달에도 안 서는 줄을 만들지 않는다. */
+        billMonth: S(f.billMonth) || 예정월,
         term: intakeTermMonths(f.term),
         rent: Number(String(f.rent).replace(/[,\s]/g, '')) || 0,
         deposit: Number(String(f.deposit).replace(/[,\s]/g, '')) || 0,
@@ -1037,7 +1051,16 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
                       <div><label>접수일</label>
                         <input type="date" value={f.receivedAt} onChange={(e) => set('receivedAt', e.target.value)} /></div>
                       <div><label>청구월</label>
-                        <input type="month" value={f.billMonth} onChange={(e) => set('billMonth', e.target.value)} /></div>
+                        {/**
+                          * ★★**청구예정월은 «규칙»이 채운다** — 2026-09-10 코덱스 P0.
+                          *   비워 두면 `settlementMonthOf` 가 정한 달로 저장된다:
+                          *     분납 = 접수일 + (회차−1) · 일시납 = 인도월 · 인도 전이면 접수월.
+                          *   ⚠ 앞서 폰 콕핏은 «인도일이 없으면 청구월을 막았다» — 규칙과 정반대였다.
+                          *   ★사람이 적으면 그 값이 이긴다(정본 주석: 「박힌 청구월이 이긴다」).
+                          */}
+                        <input type="month" value={f.billMonth} placeholder={예정월}
+                          title={f.billMonth ? '적힌 값이 이깁니다' : `비워 두면 ${예정월} 로 들어갑니다`}
+                          onChange={(e) => set('billMonth', e.target.value)} /></div>
                     </div>
 
                     {more && (
