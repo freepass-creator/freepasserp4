@@ -611,8 +611,15 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
         *   ⚠ 아직 «안 만든» 것은 흐리게 두고 안 눌린다 — 눌렀는데 아무 일도 안 나면 고장으로 보인다.
         */}
       <div className="cl-toolbar">
-        <button type="button" className="cl-tb" onClick={() => void load()} title="다시 불러오기">
-          <span className="cl-tbi">⟳</span>조회
+        {/**
+          * ⚠★**「조회」가 아니다** — 사장님 2026-09-10 「야 근데 조회 버튼은 뭐야????」
+          *   원본 jpkwork 에서 「조회(F8)」는 «조건을 서버에 보내 다시 읽는» 단추다.
+          *   우리 화면은 재고를 한 번 받아 두고 **조건을 바꾸면 그 자리에서 좁힌다**(설계서 §5).
+          *   ⇒ 조회할 것이 없다. 이름이 「조회」인데 새로고침을 하면 그건 거짓말이다.
+          *   ★모양만 베끼고 뜻을 안 맞추면 쌍둥이가 아니라 «흉내»가 된다.
+          */}
+        <button type="button" className="cl-tb" onClick={() => void load()} title="원자를 서버에서 다시 받는다">
+          <span className="cl-tbi">⟳</span>다시 읽기
         </button>
         <button type="button" className="cl-tb" onClick={() => openDirect('직접 접수')} title="차 없이 바로 접수">
           <span className="cl-tbi">＋</span>신규
