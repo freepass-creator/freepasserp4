@@ -26,10 +26,13 @@
  * ④ 비율(settleRatio)         분납·부러진 회차 — 사다리와 인센티브에 «똑같이» 건다
  * ⑤ 인센티브                  사다리 수수료에 «더한다» (무보증 수수료 등)
  * ```
- * ⚠ 부가세는 여기서 안 센다 — `vatIncluded` 는 «그 값이 VAT 포함인가»를 말할 뿐이라
- *   부르는 쪽이 나누고 붙인다. 여기서 손대면 두 번 세는 곳이 생긴다.
+ * ★**부가세 가르기도 «여기»다** — `invoiceMoneyOf`.
+ *   ⚠ 2026-09-09 까지는 「부가세는 부르는 쪽이 나눈다」였다. 그랬더니 계산서 발행기와 사슬 검사가
+ *     **같은 나눗셈을 각자** 하다가 총합이 1원 갈렸다(줄마다 반올림 vs 총액에 곱하기).
+ *     한 원이라도 갈리면 「총 합이 맞아야 함」(사장님 2026-09-09)이 깨진다.
+ *   ⇒ 가르는 자리를 하나로 둔다. **줄마다 가르고, 그 다음에 더한다** — 순서가 곧 값이다.
  */
-import { settleTargetOf } from './settlement-stage';
+import { settleTargetOf, VAT } from './settlement-stage';
 
 const S = (v: unknown) => String(v ?? '').trim();
 const N = (v: unknown) => { const n = Number(S(v).replace(/[,\s원]/g, '')); return Number.isFinite(n) ? n : 0; };
@@ -70,6 +73,29 @@ export const payBaseOf = (r: MoneyRow): number => {
   if (r.settleExclude === true || settleTargetOf(r.settleTarget) === '공급') return 0;
   return Math.round(N(r.payWritten) * (N(r.settleRatio) || 1));
 };
+
+/** 그 줄이 «부가세 포함»으로 적혔나까지 보는 모양 — 계산서를 끊을 때 쓴다. */
+export type InvoiceRow = MoneyRow & { vatIncluded?: unknown };
+
+/**
+ * **계산서 한 줄 — 공급가액·부가세·합계.**
+ *
+ * ★`vatIncluded` 는 «적힌 값이 VAT 포함인가»를 말한다.
+ *   포함이면 1.1 로 «나눠» 공급가액을 얻고(부가세는 뺀 나머지 — 합이 원래 값과 어긋나지 않게),
+ *   아니면 적힌 값이 공급가액이고 부가세를 «붙인다».
+ * ⚠ **여러 줄을 셀 때는 줄마다 이 함수를 부르고 그 결과를 더한다.**
+ *   총액을 먼저 더하고 나중에 1.1 을 걸면 반올림이 한 번만 일어나 1원씩 어긋난다.
+ */
+export function invoiceMoneyOf(r: InvoiceRow): { net: number; vat: number; total: number } {
+  const raw = claimOf(r);
+  const gross = r.vatIncluded === true;
+  const net = gross ? Math.round(raw / (1 + VAT)) : raw;
+  const vat = gross ? raw - net : Math.round(net * VAT);
+  return { net, vat, total: net + vat };
+}
+
+/** 환수 한 줄 — 계산서에서 «빼는» 몫. 공급가액으로 적힌 값에 부가세를 붙여 뺀다. */
+export const clawMoneyOf = (amount: number) => ({ net: amount, vat: Math.round(amount * VAT) });
 
 /** 그 줄에 «따로 붙은» 수수료가 있나 — 산출근거에 적어 줘야 상대가 묻지 않는다. */
 export const incentiveOf = (r: MoneyRow) => ({
