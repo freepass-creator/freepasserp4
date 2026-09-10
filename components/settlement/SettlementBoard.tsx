@@ -66,6 +66,8 @@ export type CarLite = {
    *   화면이 다시 짜면 같은 차가 상품찾기와 이 화면에서 다르게 보인다.
    */
   perks?: string[];
+  /** 손님링크 토큰 — `/q/{share}`. 서버가 상품키에서 계산해 준다(product-share.shareToken). */
+  share?: string;
 };
 export type Board = {
   month: string; months: string[]; suggest: Suggest;

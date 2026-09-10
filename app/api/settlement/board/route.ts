@@ -27,6 +27,7 @@ import { createHash } from 'node:crypto';
 import { getFirestore } from 'firebase-admin/firestore';
 import { firebaseAdminApp, verifyActiveBearer } from '@/lib/server/firebase-admin';
 import { PERKS, hasPerk } from '@/lib/domain/product-filters';
+import { shareToken } from '@/lib/domain/product-share';
 import {
   claimOf, payOf, invoiceMoneyOf, shapeAtom, atomField,
   type SettlementRow,
@@ -241,6 +242,8 @@ export async function GET(req: Request) {
    */
   const cars = (await fs.collection('products')
     .select('car_number', 'maker', 'model', 'sub_model', 'trim_name', 'provider_name', 'product_type',
+      /** ★공유 링크(/q)를 만들려면 «키»가 필요하다 — 토큰은 키에서 계산한다(product-share.ts). */
+      'product_code', '_key',
       'year', 'vehicle_status', 'fuel_type', 'vehicle_class', 'mileage', 'seats', 'ext_color', 'price',
       /** ★우대조건(무보증·만21세·경력무관…)은 정책에서 나온다 — 그 밭을 같이 실어야 셀 수 있다. */
       '_policy', 'deposit_free', 'deposit_installment', 'accident_history').get()).docs
@@ -269,6 +272,15 @@ export async function GET(req: Request) {
          *     같은 차가 두 화면에서 다르게 보인다. 셈은 한 곳에서만 한다.
          */
         perks: PERKS.filter((pk) => hasPerk(v as never, pk)),
+        /**
+         * ★★**손님링크 토큰** — 사장님 2026-09-10 「접수하기랑 공유하기 하나 만들어 주자.
+         *   **영업자한테 링크 공유**해 줘야 하니까」
+         *   ⚠ 링크 «주소»를 서버가 만들지 않는다 — 토큰만 준다. 주소의 origin 은 보는 사람의 것이고,
+         *     서버가 박아 두면 미리보기·운영이 서로 다른 곳을 가리킨다.
+         *   ★열쇠 차례는 `loadGuestQuote` 와 «똑같이» 잡는다(_key → product_code → 문서 id) —
+         *     여기서 다른 차례로 계산하면 우리가 만든 링크가 우리 서버에서 안 열린다.
+         */
+        share: shareToken(S(v.product_code) || S((v as Row & { _key?: unknown })._key) || d.id),
       };
     }).filter((c) => c.plate);
   const plates = [...new Set(cars.map((c) => c.plate))].sort();

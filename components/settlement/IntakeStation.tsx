@@ -48,11 +48,11 @@ import { deliveryTransitionPatch, intakeTermMonths, localSettlementDay, sameSett
 import { settlementMonthOf } from '@/lib/domain/settlement-billing-month';
 /** ★상품구분 7캐논은 여기가 정본이다 — 화면이 목록을 다시 적으면 재고와 갈린다. */
 import { PRODUCT_TYPES } from '@/lib/intake/entities';
+import { guestShareUrlFromToken } from '@/lib/domain/product-share';
 import type { BoardApi, Board, Car, CarLite, Line, LineSpec } from './SettlementBoard';
 import './classic.css';
 
 const S = (v: unknown) => String(v ?? '').trim();
-const won = (n: number) => Math.round(n || 0).toLocaleString('ko-KR');
 /**
  * ★★**돈은 «만원»으로 센다** — 사장님 2026-09-10
  *   「주행 만Km 이거 뭐야, 월대여료 원 보증금 만???? **그냥 월대여료랑 보증금은 만원 단위로** 하면 되고」
@@ -63,6 +63,14 @@ const won = (n: number) => Math.round(n || 0).toLocaleString('ko-KR');
  *   ★단위는 «칸 이름»에 괄호로 한 번만 적는다 — 값에 붙이면 자릿수가 세로로 안 맞는다.
  */
 const man = (n: number) => (n ? Math.round(n / 10000).toLocaleString('ko-KR') : '');
+/**
+ * ★★**접수 칸의 돈도 «만원»이다** — 사장님 2026-09-10 「월대여료랑 보증금은 만원 단위로 하면 되고」
+ *   ⚠ 목록·요금표만 만원으로 고치고 «적는 칸»을 원 단위로 두면, 보이는 165 와 적는 1650000 이 갈려
+ *     직원이 어느 쪽 자릿수로 적어야 하는지 매번 헷갈린다.
+ *   ⇒ 화면은 전부 만원, **원장에 넣을 때만 원으로 되돌린다**(원장·엔진은 원 단위가 정본이다).
+ */
+const 만으로 = (n: number) => (n ? String(Math.round(n / 10000)) : '');
+const 원으로 = (v: unknown) => (Number(String(v ?? '').replace(/[,\s]/g, '')) || 0) * 10000;
 /** 만km 단위 — 3.2 = 3만 2천 km. 단위는 머리줄이 말한다. */
 const km = (n: number) => (n ? (n / 10000).toFixed(1) : '');
 /** 날짜는 «월-일»만 — 목록에서 해까지 읽을 일이 없다. 자리를 반으로 줄인다. */
@@ -235,13 +243,19 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
    * ⚠ 아직 «안 만든» 화면은 흐리게 두고 눌러도 안 열린다 — 눌렸는데 빈 화면이 뜨면 고장으로 보인다.
    */
   const 빠른 = [
-    { icon: '⌂', name: '접수', code: 'ST-0110', tab: '접수' as const },
+    { icon: '⌂', name: '상품 접수', code: 'ST-0110', tab: '접수' as const },
     { icon: '▤', name: '실적', code: 'ST-0210', tab: '실적' as const },
     { icon: '₩', name: '청구', code: 'ST-0310', tab: '청구' as const },
   ];
   const 트리: { g: string; code: string; items: { name: string; code: string; tab?: typeof tab; href?: string }[] }[] = [
     { g: '정산', code: 'ST', items: [
-      { name: '접수 등록', code: 'ST-0110', tab: '접수' },
+      /**
+       * ★★**「상품 접수」** — 사장님 2026-09-10 「메인 페이지는 접수 등록이 아니고 … 상품 찾고 접수도 하고
+       *   하는 메인 페이지인데 이걸 뭐라고 부를 거야?」 → 「**상품 접수**가 맞지 않을까?」
+       *   ⚠ 「접수 등록」은 «마지막 한 걸음»만 가리켜 좁았다. 이 화면이 실제로 하는 일은
+       *     상품을 찾고 · 손님에게 읽어 주고 · 그 자리에서 접수하는 것이다.
+       */
+      { name: '상품 접수', code: 'ST-0110', tab: '접수' },
       { name: '실적 확인', code: 'ST-0210', tab: '실적' },
       { name: '청구 장부', code: 'ST-0310', tab: '청구' },
     ] },
@@ -258,6 +272,25 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
   /** 마지막에 쓴 채널·영업자 — 다음 접수에 그대로 들어온다. 타자가 하나로 준다. */
   const [last, setLast] = useState({ channel: '', agent: '' });
   const [busy, setBusy] = useState(false);
+  /**
+   * ★★**공유하기** — 사장님 2026-09-10 「접수하기랑 공유하기 하나 만들어 주자.
+   *   **영업자한테 링크 공유**해 줘야 하니까…」
+   *
+   *   보내는 것은 상품찾기가 보내는 그 손님링크(`/q/{토큰}`)다 — 이 화면이 링크를
+   *   따로 지으면 같은 차가 두 주소를 가지게 된다. 주소 짓는 규칙은 `product-share.ts` 한 곳이다.
+   * ⚠ 우리 몸(origin)은 **보는 사람의 주소**로 짓는다 — 서버가 박아 두면 미리보기와 운영이 갈린다.
+   */
+  const 공유주소 = picked?.share ? guestShareUrlFromToken(picked.share) : '';
+  const 공유하기 = async () => {
+    if (!공유주소) { toast('이 차는 공유 링크가 없습니다'); return; }
+    try {
+      await navigator.clipboard.writeText(공유주소);
+      toast(`링크를 복사했습니다 — ${picked?.plate || ''}`);
+    } catch {
+      /* 손이 막히면(권한·구형 브라우저) 주소를 그대로 보여 준다 — 눈으로 읽어 옮길 수 있게. */
+      toast(공유주소);
+    }
+  };
   const [justId, setJustId] = useState('');
   /**
    * ★**머리줄을 눌러 줄을 세운다** — 원본에 이미 `.cl-grid th.sortable` 이 있다(값은 안 고쳤다).
@@ -455,7 +488,7 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
       supplier: S(o.supplier) || 찾.supplier,
       product: S(o.product) || 찾.product,
       term: S(o.term) || 찾.term,
-      rent: S(o.rent) || String(찾.rent || ''),
+      rent: S(o.rent) || 만으로(찾.rent),
       deposit: S(o.deposit) || String(찾.deposit || ''),
     }));
     /** 오른쪽 상세도 그 차로 — 「이 차가 맞나」를 눈으로 확인하게. */
@@ -468,7 +501,7 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
     if (!picked) return;
     setF((o) => ({
       ...o,
-      term: o.term || String(intakeTermMonths(picked.term) || ''), rent: o.rent || String(picked.rent || ''), deposit: o.deposit || String(picked.deposit || ''),
+      term: o.term || String(intakeTermMonths(picked.term) || ''), rent: o.rent || 만으로(picked.rent), deposit: o.deposit || 만으로(picked.deposit),
       channel: o.channel || last.channel, agent: o.agent || last.agent,
     }));
     setMode('접수');
@@ -483,7 +516,7 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
   };
 
   const useTerm = (term: string, rent: number, deposit: number) =>
-    setF((o) => ({ ...o, term: String(intakeTermMonths(term) || ''), rent: String(rent || ''), deposit: String(deposit || '') }));
+    setF((o) => ({ ...o, term: String(intakeTermMonths(term) || ''), rent: 만으로(rent), deposit: 만으로(deposit) }));
 
   /** ★갈래가 영업수수료가 아니면 «차»가 아니라 «무엇에 대한 것이냐»를 묻는다. */
   const isAid = f.intakeKind !== '영업수수료';
@@ -508,8 +541,9 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
         /** ★비워 두면 «규칙이 정한 달»이 들어간다 — 어느 달에도 안 서는 줄을 만들지 않는다. */
         billMonth: S(f.billMonth) || 예정월,
         term: intakeTermMonths(f.term),
-        rent: Number(String(f.rent).replace(/[,\s]/g, '')) || 0,
-        deposit: Number(String(f.deposit).replace(/[,\s]/g, '')) || 0,
+        /** ★화면은 만원, 원장은 원 — 여기서 한 번만 되돌린다. */
+        rent: 원으로(f.rent),
+        deposit: 원으로(f.deposit),
         price: Number(String(f.price).replace(/[,\s]/g, '')) || 0,
         note: S(f.note),
       });
@@ -555,6 +589,21 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
     const d = typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y), 'ko');
     return sortAsc ? d : -d;
   });
+  /**
+   * ★★★**접수 목록의 합 — «받을 돈 · 줄 돈 · 우리 몫»** — 사장님 2026-09-10
+   *   「접수 목록 합계 줄은 **하단에 고정**되어서 스크롤해도 총 몇 건에 얼마 했는지를 알아야지…
+   *    **받을 돈하고 줄 돈이 실시간으로** 보여야 함」
+   *
+   * ⚠ 앞서 합계는 표 «안»(tfoot)에 있었다. 줄이 늘면 같이 밀려 내려가 안 보이고,
+   *   무엇보다 칸에 숫자만 있고 «이름표»가 없어 어느 것이 받을 돈인지 표 머리까지 올려 봐야 했다.
+   * ⇒ 표 밖 붙박이 줄로 내리고 이름을 붙인다. 굴려도 안 움직인다.
+   * ★셈은 여기 한 곳에서만 한다 — 화면 두 곳에서 각자 더하면 갈릴 자리가 하나 더 생긴다.
+   */
+  const 접수합 = sortedIntake.reduce((a, r) => {
+    a.claim += r.claim || 0; a.pay += r.pay || 0; return a;
+  }, { claim: 0, pay: 0 });
+  const 접수몫 = 접수합.claim - 접수합.pay;
+
   /**
    * ★★**실적 — 정산이 «끝난 것»** (사장님 「정산을 해서 실적으로 만들고 분납 완납 모니터링」)
    *   그 달 청구월이 박힌 줄이 실적이다. 접수 목록(청구월 없는 것)과 갈린다.
@@ -699,8 +748,12 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
         <button type="button" className="cl-tb" onClick={() => void load()} title="원자를 서버에서 다시 받는다">
           <span className="cl-tbi">⟳</span>다시 읽기
         </button>
-        <button type="button" className="cl-tb" onClick={() => openDirect('직접 접수')} title="차 없이 바로 접수">
-          <span className="cl-tbi">＋</span>신규
+        {/**
+          * ★**「신규」가 아니라 「계약 접수」** — 사장님 2026-09-10 「신규 접수라고 하지 말고 ＋계약 접수라고
+          *   하는 게 맞잖아」. 「신규」는 «무엇의» 신규인지 말하지 않는다 — 이 단추가 여는 것은 계약 접수 칸이다.
+          */}
+        <button type="button" className="cl-tb" onClick={() => openDirect('직접 접수')} title="재고에 없는 차도 접수한다">
+          <span className="cl-tbi">＋</span>계약 접수
         </button>
         <span className="cl-tbsep" />
         <button type="button" className="cl-tb" disabled title="준비 중"><span className="cl-tbi">⎙</span>출력</button>
@@ -710,7 +763,7 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
         <div className="cl-tabs">
           {MENUS.map((m) => (
             <div key={m.tab} className={`cl-tab${tab === m.tab ? ' on' : ''}`} onClick={() => setTab(m.tab)}>
-              <span className="cl-tbi">{m.icon}</span>{m.tab === '접수' ? '접수 등록' : m.tab === '실적' ? '실적 확인' : '청구 장부'}
+              <span className="cl-tbi">{m.icon}</span>{m.tab === '접수' ? '상품 접수' : m.tab === '실적' ? '실적 확인' : '청구 장부'}
               <span className="cl-tcode">{m.tab === '접수' ? 'ST-0110' : m.tab === '실적' ? 'ST-0210' : 'ST-0310'}</span>
             </div>
           ))}
@@ -1213,27 +1266,9 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
                     )}
                   </tbody>
                   {/**
-                    * ★★**합계 줄** — 원본 규격(`cl-sum` · tfoot 붙박이).
-                    *   ⚠ 정산 화면인데 «합계가 없었다». 사장님 2026-09-10 「뭔가 정산은 좀 빠지는 거 같은데??」
-                    *     — 원본 클래스를 세어 보니 `cl-sum` 을 우리만 안 쓰고 있었다.
-                    *   ★합계는 «자료가 아니라 답»이다. 그래서 몸통과 선으로 뗀다(원본 주석 그대로).
-                    *   ★굴려도 아래에 붙어 있는다 — 답을 보려고 끝까지 내리지 않아도 된다.
+                    * ⓘ **합계는 표 «밖»으로 내렸다** — 아래 `cl-count` 줄이 그것이다(사장님 2026-09-10).
+                    *   표 안(tfoot)에 두면 줄이 늘 때 같이 밀려 내려가 «스크롤해야 보이는 답»이 된다.
                     */}
-                  {sortedIntake.length > 0 && (
-                    <tfoot>
-                      <tr className="cl-sum">
-                        <td colSpan={9}>합계 {sortedIntake.length}건</td>
-                        <td className="cl-num">{sortedIntake.reduce((a, r) => a + (r.term || 0), 0) || ''}</td>
-                        <td className="cl-num">{man(sortedIntake.reduce((a, r) => a + (r.rent || 0), 0))}</td>
-                        <td className="cl-num">{man(sortedIntake.reduce((a, r) => a + (r.deposit || 0), 0))}</td>
-                        <td colSpan={5} />
-                        <td className="cl-num">{man(sortedIntake.reduce((a, r) => a + (r.claim || 0), 0))}</td>
-                        <td className="cl-num">{man(sortedIntake.reduce((a, r) => a + (r.pay || 0), 0))}</td>
-                        <td className="cl-num"><b>{man(sortedIntake.reduce((a, r) => a + ((r.claim || 0) - (r.pay || 0)), 0))}</b></td>
-                        <td colSpan={4} />
-                      </tr>
-                    </tfoot>
-                  )}
                 </table>
               </div>
 
@@ -1241,11 +1276,20 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
                 * ★**건수 줄** — 원본 규격(`cl-count`). 표 아래에서 «지금 몇 건을 보고 있나»를 말한다.
                 *   판 머리는 「무엇을 보는 판인가」, 여기는 「그 중 몇을 보고 있나」다 — 다른 물음이다.
                 */}
-              <div className="cl-count">
+              <div className="cl-count cl-total">
                 <b>{hits.length}</b>건 보는 중
                 <span className="cl-tilde"> / </span>재고 <b>{board.cars.length}</b>대
                 <span className="cl-sp" />
+                {/**
+                  * ★**여기가 합계 줄이다** — 굴려도 안 움직인다(표 밖이라 애초에 안 굴러간다).
+                  *   ★이름표를 «돈이 오는 쪽»으로 적는다 — 「청구액·지급액」은 장부 말이고,
+                  *     전화하며 보는 사람에게 필요한 것은 「받을 돈·줄 돈」이다.
+                  */}
                 접수 <b>{sortedIntake.length}</b>건{todo ? <span className="cl-st warn"> · 할 일 {todo}</span> : null}
+                <span className="cl-vsep" />
+                받을 돈 <b className="cl-in">{man(접수합.claim) || 0}</b>만
+                <span className="cl-tilde">·</span>줄 돈 <b className="cl-out">{man(접수합.pay) || 0}</b>만
+                <span className="cl-tilde">·</span>우리 몫 <b className={접수몫 < 0 ? 'cl-out' : 'cl-in'}>{man(접수몫) || 0}</b>만
               </div>
             </main>
 
@@ -1327,8 +1371,14 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
                         <tr key={t.term} className={f.term === t.term.split('_')[0] ? 'on' : ''}
                           onClick={() => useTerm(t.term, t.rent, t.deposit)}>
                           <td>{t.term.replace('_', ' · ')}</td>
-                          <td>{won(t.rent)}</td>
-                          <td>{won(t.deposit)}</td>
+                          {/**
+                            * ⚠★**머리에 «(만)»이라 적었으면 값도 만원이어야 한다** — 2026-09-10 실측.
+                            *   목록·접수 칸은 만원으로 고쳤는데 «상세의 요금표만» 원 단위로 남아 있었다
+                            *   (1,650,000 이 「월 대여료(만)」 밑에 서 있었다). 그게 거짓말이다.
+                            *   ★단위를 바꿀 때는 «그 값이 서는 자리를 전부» 센다 — 한 곳이라도 남으면 화면이 거짓말을 한다.
+                            */}
+                          <td>{man(t.rent)}</td>
+                          <td>{man(t.deposit)}</td>
                         </tr>
                       ))}
                       {fees.length === 0 && <tr><td colSpan={3} className="cl-note">요금표가 없습니다</td></tr>}
@@ -1368,7 +1418,7 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
                     {picked && (
                       <div className="cl-pick cl-pick-in">
                         <div className="cl-pick-t">{picked.plate}</div>
-                        <div className="cl-pick-s">{picked.name} {picked.trim} · {f.term || picked.term}개월 · {won(Number(f.rent) || picked.rent)}</div>
+                        <div className="cl-pick-s">{picked.name} {picked.trim} · {f.term || picked.term}개월 · {S(f.rent) || 만으로(picked.rent) || 0}만</div>
                       </div>
                     )}
                     {/**
@@ -1459,8 +1509,14 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
                     {more && (
                       <>
                         <div className="cl-fr2">
-                          <div><label>대여료</label><input value={f.rent} onChange={(e) => set('rent', e.target.value)} /></div>
-                          <div><label>보증금</label><input value={f.deposit} onChange={(e) => set('deposit', e.target.value)} /></div>
+                          {/**
+                            * ★단위는 «칸 뒤»에 붙인다 — 라벨 자리는 44/62 로 못 박혀 있어(위 CSS)
+                            *   「보증금(만)」이라 적으면 두 줄로 접힌다. 자리를 넓히면 다른 줄이 다 어긋난다.
+                            */}
+                          <div><label>대여료</label><input value={f.rent} inputMode="numeric"
+                            onChange={(e) => set('rent', e.target.value)} /><i className="cl-unit">만</i></div>
+                          <div><label>보증금</label><input value={f.deposit} inputMode="numeric"
+                            onChange={(e) => set('deposit', e.target.value)} /><i className="cl-unit">만</i></div>
                         </div>
                         <div className="cl-fr"><label>비고</label>
                           <input value={f.note} onChange={(e) => set('note', e.target.value)} /></div>
@@ -1496,7 +1552,18 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
                 )}
 
                 {picked && mode === '보기' && (
-                  <button type="button" className="cl-btn cl-btn-p cl-go" onClick={toIntake}>접수하기</button>
+                  <>
+                    {/**
+                      * ★**공유하기는 왼쪽에 작게** — 사장님 2026-09-10
+                      *   「공유하기는 접수하기 좌측에 너무 크지 않게 적당히 **3:7 비율**로」
+                      *   이 화면에서 주인공은 «접수»다. 공유는 가는 길이 하나 더 있는 것이지 같은 무게가 아니다.
+                      */}
+                    <button type="button" className="cl-btn cl-share" onClick={() => void 공유하기()}
+                      disabled={!공유주소} title={공유주소 || '이 차는 공유 링크가 없습니다'}>
+                      공유하기
+                    </button>
+                    <button type="button" className="cl-btn cl-btn-p cl-go" onClick={toIntake}>접수하기</button>
+                  </>
                 )}
 
                 {(mode === '접수' && (picked || direct)) && (

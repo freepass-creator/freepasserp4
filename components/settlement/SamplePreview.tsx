@@ -59,23 +59,28 @@ const SAMPLE: Board = {
     { id: 'y2', code: 'stl_sample2', plate: '22나2222', customer: '이보기', supplier: '마바모빌리티', channel: '하나채널', agent: '최예제', product: '신차발주', billMonth: '2026-08', receivedAt: '2026-08-20', deliveredAt: '2026-08-26', claim: 3783000, pay: 3783000, stage: '정정', claimStage: '정정', payStage: '확인', invoiceIssued: true, invoiceAt: '2026-09-07', note: '신차는 청구 = 지급 · 수익 0', carryNote: '다음 달에 계산서 수정' },
   ],
   /** 재고 — 화면이 즉시 좁힌다(지어낸 값). */
+  /**
+   * ⚠★**미리보기의 공유 토큰은 «가짜»다** — 로그인 없이 열리는 문이라 진짜 상품 링크를 두면 안 된다.
+   *   생김새(10자·혼동문자 없는 사전)만 맞춰 「공유하기」가 눌리는 것을 볼 수 있게 한다.
+   *   눌러 복사되는 주소는 열리지 않는다 — 그게 맞다.
+   */
   cars: [
-    { plate: '11가1111', name: '기아 니로', maker: '기아', trim: 'SG2 에어', supplier: '차카렌터카', product: '중고구독', year: '2023', status: '출고가능',
+    { plate: '11가1111', share: 'jsampleca2', name: '기아 니로', maker: '기아', trim: 'SG2 에어', supplier: '차카렌터카', product: '중고구독', year: '2023', status: '출고가능',
       fuel: '하이브리드', cls: '소형 SUV', km: 32000, seats: 5, color: '흰색', rent: 700000, deposit: 1400000, term: '36',
       terms: [{ term: '36', rent: 700000, deposit: 1400000 }, { term: '24', rent: 730000, deposit: 1460000 }, { term: '12', rent: 770000, deposit: 1540000 }] },
-    { plate: '22나2222', name: '현대 아반떼', maker: '현대', trim: 'CN7 모던', supplier: '마바모빌리티', product: '중고렌트', year: '2024', status: '출고가능',
+    { plate: '22나2222', share: 'jsamplecb3', name: '현대 아반떼', maker: '현대', trim: 'CN7 모던', supplier: '마바모빌리티', product: '중고렌트', year: '2024', status: '출고가능',
       fuel: '가솔린', cls: '준중형 세단', km: 18000, seats: 5, color: '검정', rent: 520000, deposit: 1000000, term: '48',
       terms: [{ term: '48', rent: 520000, deposit: 1000000 }, { term: '36', rent: 560000, deposit: 1100000 }] },
-    { plate: '33다3333', name: '기아 쏘렌토', maker: '기아', trim: 'MQ4 시그니처', supplier: '가나렌트', product: '오플구독', year: '2022', status: '계약중',
+    { plate: '33다3333', share: 'jsamplecc4', name: '기아 쏘렌토', maker: '기아', trim: 'MQ4 시그니처', supplier: '가나렌트', product: '오플구독', year: '2022', status: '계약중',
       fuel: '디젤', cls: '중형 SUV', km: 54000, seats: 7, color: '회색', rent: 830000, deposit: 1660000, term: '48',
       terms: [{ term: '48', rent: 830000, deposit: 1660000 }] },
-    { plate: '44라4444', name: '현대 그랜저', maker: '현대', trim: 'GN7 캘리그래피', supplier: '가나렌트', product: '신차렌트', year: '2025', status: '출고가능',
+    { plate: '44라4444', share: 'jsamplecd5', name: '현대 그랜저', maker: '현대', trim: 'GN7 캘리그래피', supplier: '가나렌트', product: '신차렌트', year: '2025', status: '출고가능',
       fuel: '가솔린', cls: '준대형 세단', km: 3000, seats: 5, color: '남색', rent: 1120000, deposit: 2200000, term: '60',
       terms: [{ term: '60', rent: 1120000, deposit: 2200000 }, { term: '48', rent: 1180000, deposit: 2300000 }] },
-    { plate: '55마5555', name: '벤츠 E-클래스', maker: '벤츠', trim: 'W214 E250', supplier: '타파렌트', product: '중고렌트', year: '2024', status: '출고가능',
+    { plate: '55마5555', share: 'jsamplece6', name: '벤츠 E-클래스', maker: '벤츠', trim: 'W214 E250', supplier: '타파렌트', product: '중고렌트', year: '2024', status: '출고가능',
       fuel: '가솔린', cls: '대형 세단', km: 12000, seats: 5, color: '은색', rent: 1650000, deposit: 3300000, term: '36',
       terms: [{ term: '36', rent: 1650000, deposit: 3300000 }] },
-    { plate: '66바6666', name: '기아 카니발', maker: '기아', trim: 'KA4 노블레스', supplier: '사아자동차', product: '중고구독', year: '2023', status: '출고불가',
+    { plate: '66바6666', share: 'jsamplecf7', name: '기아 카니발', maker: '기아', trim: 'KA4 노블레스', supplier: '사아자동차', product: '중고구독', year: '2023', status: '출고불가',
       fuel: 'LPG', cls: '대형 MPV', km: 41000, seats: 9, color: '흰색', rent: 980000, deposit: 1960000, term: '48',
       terms: [{ term: '48', rent: 980000, deposit: 1960000 }] },
   ],
