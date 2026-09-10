@@ -1391,11 +1391,13 @@
 /** 왼쪽 차 목록 — 출고 상태를 «점»으로. 계약중·출고불가를 모르고 권하면 안 된다. */
 
 /* ══ 접수 워크스테이션 배치 — 가운데 큰 표 · 오른쪽 일감 ══════════════ */
-.cl .cl-find {
-  width: 300px; height: var(--잔높이); box-sizing: border-box; padding: 0 4px; font-size: var(--표글씨);
-  border: 1px solid var(--선); background: #fff; box-shadow: var(--오목); margin-right: 6px;
-}
-.cl .cl-find:focus { outline: 1px solid var(--머리); outline-offset: -1px; }
+/**
+ * ⓘ **찾기 칸은 규격을 «따로 적지 않는다»** — 2026-09-10
+ *   원본 `.cl-filter input[type="text"] { width: 220px }` 와 `.cl-filter select, input`(잔높이·오목·초점)이
+ *   이미 다 준다. 앞서 나는 폭 300 · 높이 · 그림자 · 초점을 여기 «또» 적어 두었고,
+ *   그 바람에 찾기 칸만 원본보다 80px 넓어 조건 줄이 일찍 접혔다.
+ *   ★규격이 두 곳에 적히면 언젠가 갈린다. 원본이 정한 것은 원본에 맡긴다.
+ */
 
 /** 가운데 — 차량 표가 남는 높이를 다 쓴다. 접수 대기는 아래에 «낮게» 붙는다. */
 .cl .cl-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0; }
@@ -1589,13 +1591,11 @@
 .cl .cl-grid th.cl-mid, .cl .cl-grid td.cl-mid { text-align: center; padding-left: 0; padding-right: 0; }
 .cl .cl-grid td.cl-mid input { margin: 0; vertical-align: middle; }
 
-/** 조건 줄 — 툴바와 «같은 볼록»을 입어 머리·툴바·표가 한 몸으로 보인다. */
-.cl .cl-cond select, .cl .cl-cond .cl-find, .cl .cl-cap input {
-  box-shadow: var(--오목); border-radius: 0;
-}
-.cl .cl-cond select:focus, .cl .cl-cond .cl-find:focus, .cl .cl-cap input:focus {
-  outline: 1px solid var(--머리); outline-offset: -1px;
-}
+/**
+ * ⓘ 조건 칸의 오목·초점도 원본 `.cl-filter select, .cl-filter input` 이 준다 — 여기서 다시 안 적는다.
+ *   ⚠ 앞서 세 곳(여기·`.cl-find`·아래 초점 규칙)에 같은 말을 적어 두었다.
+ *     세 곳이 같은 값이라 «지금은» 안 틀렸을 뿐, 한 곳만 고치는 날 셋이 갈린다.
+ */
 
 /** 오른쪽 칸 — 왼쪽 표와 갈리는 선에 그늘을 준다(고전 ERP 의 그 «판이 얹힌» 느낌). */
 .cl .cl-side { box-shadow: var(--왼빛), -1px 0 0 var(--선); }
@@ -1608,10 +1608,7 @@
  *   `box-shadow: var(--오목), var(--초점)` — 오목을 빼고 초점만 주면 눌린 칸이 «솟아» 버린다.
  *   사장님 2026-09-10 「입체감 동일하게 완벽하게, 한 칸 한 칸」.
  */
-.cl .cl-cond select:focus,
-.cl .cl-cond input:focus,
 .cl .cl-cap input:focus,
-.cl .cl-find:focus,
 .cl .cl-ipt input:focus,
 .cl .cl-ipt select:focus { outline: 0; border-color: var(--머리); box-shadow: var(--오목), var(--초점); }
 
