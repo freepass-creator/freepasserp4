@@ -81,9 +81,12 @@ const masterIndex: MasterIndex = {
   trimsOf: (maker, model, submodel) => makerGroup(N(maker)).flatMap((alias) => trimsBySubmodel.get(`${alias}|${N(model)}|${N(submodel)}`) || []),
 };
 
-function credential(path: string, name: string) {
+function credential(path: string, name: string, expectedProjectId: string) {
   if (!path) throw new Error(`${name} 환경변수 누락`);
   const value = JSON.parse(readFileSync(path, 'utf8'));
+  if (value.project_id !== expectedProjectId) {
+    throw new Error(`${name} 프로젝트 불일치: expected=${expectedProjectId}, actual=${value.project_id || ''}`);
+  }
   return cert({
     projectId: value.project_id,
     clientEmail: value.client_email,
@@ -91,8 +94,11 @@ function credential(path: string, name: string) {
   });
 }
 
-const sourceApp = initializeApp({ credential: credential(String(process.env.SOURCE_FIREBASE_SERVICE_ACCOUNT || ''), 'SOURCE_FIREBASE_SERVICE_ACCOUNT') }, 'migration-source');
-const destApp = initializeApp({ credential: credential(String(process.env.DEST_FIREBASE_SERVICE_ACCOUNT || ''), 'DEST_FIREBASE_SERVICE_ACCOUNT') }, 'migration-dest');
+const sourceProjectId = String(process.env.SOURCE_FIREBASE_PROJECT_ID || 'freepasserp3');
+const destProjectId = String(process.env.DEST_FIREBASE_PROJECT_ID || 'freepasserp5');
+if (sourceProjectId === destProjectId) throw new Error('원천과 목적지 Firebase 프로젝트가 같습니다.');
+const sourceApp = initializeApp({ credential: credential(String(process.env.SOURCE_FIREBASE_SERVICE_ACCOUNT || ''), 'SOURCE_FIREBASE_SERVICE_ACCOUNT', sourceProjectId) }, 'migration-source');
+const destApp = initializeApp({ credential: credential(String(process.env.DEST_FIREBASE_SERVICE_ACCOUNT || ''), 'DEST_FIREBASE_SERVICE_ACCOUNT', destProjectId) }, 'migration-dest');
 const source = getFirestore(sourceApp);
 const dest = getFirestore(destApp);
 

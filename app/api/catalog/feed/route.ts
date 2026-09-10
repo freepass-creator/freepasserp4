@@ -41,7 +41,7 @@ export async function GET(request: Request) {
      * ⚠⚠ 2026-09-05 운영 사고. 파이어스토어를 «직접» 부르게 고쳤더니 배포한 서버에서
      *   `16 UNAUTHENTICATED` 로 503 이 나고 **차가 한 대도 안 보였다**(로컬은 멀쩡했다).
      *   서버 자격증명이 파이어스토어까지 못 미치는 환경이 있다는 뜻이다.
-     * ⇒ 심(`firestore-path-store`)을 쓴다 — **파이어스토어를 먼저 보고, 못 읽으면 RTDB 로 떨어진다.**
+     * ⇒ 심(`firestore-path-store`)을 쓴다 — Firestore 읽기에 실패하면 503으로 닫는다.
      *   손님 화면에서 제일 나쁜 것은 「옛 데이터」가 아니라 **빈 화면**이다. 원인은 따로 잡되
      *   그동안 차는 나와야 한다.
      * ★읽는 순서·컬렉션 이름은 그대로다(products · policy · partner · user).

@@ -33,6 +33,10 @@ const idx: MasterIndex = {
 const sa = process.env.FIREBASE_SERVICE_ACCOUNT_JSON
   ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON)
   : JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
+const configuredProjectId = S(process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID);
+if (configuredProjectId && sa.project_id !== configuredProjectId) {
+  throw new Error(`Firebase 프로젝트 불일치: client=${configuredProjectId}, service=${sa.project_id || ''}`);
+}
 initializeApp({ credential: cert({ projectId: sa.project_id, clientEmail: sa.client_email, privateKey: S(sa.private_key).replace(/\\n/g, '\n') }) });
 const fs = getFirestore();
 const snap = await fs.collection('products').get();
