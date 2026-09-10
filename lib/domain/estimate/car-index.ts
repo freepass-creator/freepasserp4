@@ -20,7 +20,7 @@ export type CarIndex = { v: number; source: string; data_as_of: string | null; c
 /** 신차 피드 — 모델 하나와 그 트림들. */
 /** 제조사 색상 한 줄 — 이름·코드·값(외장만 값이 붙는다)·고를 수 있나. */
 export type NewColor = { name: string; code?: string; price?: number; ok?: string };
-export type NewTrim = { maker: string; sub_model: string; carType?: string; fuel: string; trim: string; priceBefore: number; priceAfter: number; options?: { name: string; price: number }[]; rules?: string[]; basePrices?: { label: string; price: number }[];
+export type NewTrim = { maker: string; sub_model: string; carType?: string; fuel: string; trim: string; trimKey?: string; priceBefore: number; priceAfter: number; options?: { name: string; price: number }[]; rules?: string[]; basePrices?: { label: string; price: number }[];
   /**
    * ★제조사 «실제» 색상 — 사장님 2026-09-08 「신차마스터에는 **제조사 색상 그대로** 해야지」.
    *   「어비스 블랙 펄」·「클라우드 펄(+30만)」처럼 이름과 값이 제조사 것이다.

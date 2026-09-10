@@ -362,6 +362,9 @@ function EstimatePageInner() {
     optionExcludes: picked.newTrim?.optionExcludes,
     availableOptions: picked.newTrim?.availableOptions,
     impliedOptions: picked.newTrim?.impliedOptions,
+    /* ★★**트림 열쇠를 «넘겨야»** 트림별 선행이 선다. 규칙만 옮기고 여기를 빼먹으면
+       옮긴 것이 아무 일도 안 한다 — 이 세션에서 그 실수를 세 번 했다(2026-09-10). */
+    trimKey: picked.newTrim?.trimKey,
   }), [picked]);
   const ruled = hasRules(optSpec);
   /** 규칙판에서 고른 것들 — 이름이 아니라 «옵션 id» 다. */

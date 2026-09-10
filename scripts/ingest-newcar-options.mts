@@ -74,6 +74,8 @@ export type OptionPack = {
   optionExcludes: Record<string, string[]>;
   availableOptions: string[];
   impliedOptions: string[];
+  /** 원본 `trim_id` — `requiresInTrim` 을 고르는 열쇠. 이름이 아니다. */
+  trimKey?: string;
   optionSource: string;
 };
 
@@ -124,6 +126,10 @@ export function packFor(maker: string, subModel: string, fuel: string, trim: str
         }
         // 트림이 맞으면 그 트림의 목록, 아니면 그 세부모델 트림들의 합집합(있는 것을 다 보여 준다).
         const tHit = (v.trims ?? []).find((t) => N(t.name) === N(trim));
+        /* ★★**원본의 트림 «열쇠»는 이름이 아니라 `trim_id` 다**(「스마트」가 아니라 `smart`).
+           `requires_in_trim: { smart: [...] }` 이 그 열쇠로 걸려 있어, 안 실으면 트림별 선행을
+           **영영 못 찾는다** — 규칙을 옮겨 놓고도 아무 일이 안 난다(2026-09-10). */
+        const trimKey = S((tHit as { trim_id?: string } | undefined)?.trim_id);
         const avail = tHit?.available_options
           ?? [...new Set((v.trims ?? []).flatMap((t) => t.available_options ?? []))];
 
@@ -136,6 +142,7 @@ export function packFor(maker: string, subModel: string, fuel: string, trim: str
             .map(([k, arr]) => [k, (arr ?? []).filter((x) => optionsMaster[x])])
             .filter(([, arr]) => (arr as string[]).length)),
           availableOptions: avail.filter((x) => optionsMaster[x]),
+          ...(trimKey ? { trimKey } : {}),
           impliedOptions: implied,
           optionSource: `welrix vehicle-db · ${md.model_name} ${v.variant_name}`,
         };

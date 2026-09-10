@@ -2008,10 +2008,18 @@ must((availableForEngine({ a: { name: '컴포트' } }, [], '가솔린 3.5 터보
     '트림별 선행을 «다른 트림에도» 적용합니다 — 팔 수 있는 것이 막힙니다',
     'lib/domain/estimate/option-rules.ts requiresOf');
 
-  /* ★인제스터가 그 필드를 «싣는가» — 안 실으면 위 검사는 헛것이다. */
-  must(/requiresInTrim:/.test(code('scripts/ingest-newcar-options.mts')),
-    '인제스터가 원본의 `requires_in_trim` 을 안 싣습니다 — 규칙이 원자에 안 들어옵니다',
-    'scripts/ingest-newcar-options.mts');
+  /* ★★★**다리 넷을 다 지킨다.** 규칙을 옮겨 놓고 어느 한 곳이 안 이어지면 «아무 일도 안 난다» —
+     이 세션에서 그 실수를 세 번 했다(impliedOptions 를 만들고 합계에서 안 뺌 · 빈 배열을 피드가
+     버림 · availableForEngine 을 만들고 안 부름). 그래서 **원천 → 인제스터 → 피드 → 화면**을 다 잰다. */
+  const bridges: [string, string, string][] = [
+    ['scripts/ingest-newcar-options.mts', 'requiresInTrim:', '인제스터가 원본의 `requires_in_trim` 을 안 싣습니다'],
+    ['scripts/ingest-newcar-options.mts', 'trim_id', '인제스터가 트림 «열쇠»(`trim_id`)를 안 싣습니다 — 이름으로는 못 찾습니다'],
+    ['app/api/newcar/route.ts', 'trimKey', '피드가 트림 열쇠를 안 내보냅니다'],
+    ['app/estimate/page.tsx', 'trimKey: picked.newTrim?.trimKey', '화면이 트림 열쇠를 안 넘깁니다'],
+  ];
+  for (const [f, needle, why] of bridges) {
+    must(code(f).includes(needle), `${why} — 옮긴 규칙이 아무 일도 안 합니다`, f);
+  }
 }
 
 if (fails.length) {

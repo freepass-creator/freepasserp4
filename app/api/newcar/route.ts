@@ -157,6 +157,8 @@ export async function GET(request: Request): Promise<Response> {
              **그 사이 파이프**를 안 막아, 방어가 통째로 무력화돼 있었다. */
         ...(Array.isArray(v.availableOptions) ? { availableOptions: v.availableOptions } : {}),
         ...(Array.isArray(v.impliedOptions) ? { impliedOptions: v.impliedOptions } : {}),
+        /* ★트림 열쇠 — `requiresInTrim` 을 고르는 데 쓴다. 안 보내면 트림별 선행이 안 선다. */
+        ...(S(v.trimKey) ? { trimKey: S(v.trimKey) } : {}),
       };
     });
     // ★Firestore 가 비면(배포 키 문제 등) 로컬 config 로 폴백 — 견적기가 빈값 안 받게
