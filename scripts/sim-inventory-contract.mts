@@ -7,7 +7,7 @@ import { isStockedProduct } from '../lib/domain/product';
 import type { EntityRecord } from '../lib/intake/entities';
 import { captureSalesPublishSnapshot, readSalesPublishSnapshot, salesPublishMark } from '../lib/server/sales-publish-snapshot';
 import { channelColumnName, salesPublishedColumns } from '../lib/domain/sales-published-tab-columns';
-import { erpPhotoSource, isPickupPhotoAtom, isServerPhotoSource, photoProjectionViolations, sheetPlateLink } from '../lib/domain/photo-projection';
+import { erpPhotoSource, isPickupPhotoAtom, isServerPhotoSource, photoProjectionViolations, photoProjectionWarnings, sheetPlateLink } from '../lib/domain/photo-projection';
 import { productExternalImages, scrapableSources } from '../lib/domain/product-photos';
 
 const rows = [
@@ -69,7 +69,8 @@ assert.equal(isPickupPhotoAtom(normalPhoto), false);
 assert.equal(erpPhotoSource(normalPhoto), normalPhoto.photo_link);
 assert.equal(sheetPlateLink(normalPhoto), normalPhoto.photo_link, '일반 시트는 검증된 사진 링크로 간다');
 assert.deepEqual(photoProjectionViolations(normalPhoto), []);
-assert.deepEqual(photoProjectionViolations({ provider_company_code: 'RP012', product_type: '픽업구독', photo_link: pickupPhoto.photo_link }), ['픽업구독 T카 링크 누락']);
+assert.deepEqual(photoProjectionViolations({ provider_company_code: 'RP012', product_type: '픽업구독', photo_link: pickupPhoto.photo_link }), []);
+assert.deepEqual(photoProjectionWarnings({ provider_company_code: 'RP012', product_type: '픽업구독', photo_link: pickupPhoto.photo_link }), ['픽업구독 T카 링크 누락']);
 assert.deepEqual(photoProjectionViolations({ provider_company_code: 'RP012', product_type: '픽업구독', tica_link: normalPhoto.photo_link }), ['픽업구독 시트 링크가 T카가 아님']);
 assert.equal(isPickupPhotoAtom({ provider_company_code: 'OTHER', product_type: '픽업구독' }), false);
 assert.deepEqual(photoProjectionViolations({ product_type: '중고렌트', photo_link: 'https://autoplus.co.kr/car/1' }), []);

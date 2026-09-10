@@ -76,8 +76,7 @@ export function photoProjectionViolations(atom: PhotoAtom): string[] {
   const link = sheetPlateLink(atom);
   const host = hostOf(link);
   if (isPickupPhotoAtom(atom)) {
-    if (!link) problems.push('픽업구독 T카 링크 누락');
-    else if (!isTicaHost(host)) problems.push('픽업구독 시트 링크가 T카가 아님');
+    if (link && !isTicaHost(host)) problems.push('픽업구독 시트 링크가 T카가 아님');
   } else if (link && !host) {
     problems.push('일반 재고 시트 링크 형식 오류');
   }
@@ -88,4 +87,9 @@ export function photoProjectionViolations(atom: PhotoAtom): string[] {
     if (!isDirectPhotoUrl(source)) problems.push('ERP 직접 사진 필드가 이미지 주소가 아님');
   }
   return [...new Set(problems)];
+}
+
+/** 원천이 더 이상 상세페이지를 제공하지 않아도 실제 ERP 사진과 계약중 원자는 보존한다. */
+export function photoProjectionWarnings(atom: PhotoAtom): string[] {
+  return isPickupPhotoAtom(atom) && !sheetPlateLink(atom) ? ['픽업구독 T카 링크 누락'] : [];
 }
