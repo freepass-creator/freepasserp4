@@ -119,7 +119,23 @@ for (const root of ROOTS) {
       if (!/[.](css|ts|tsx)$/.test(e.name)) continue;
       const r = relative(ROOT, full).split(sep).join('/');
       if (r === 'app/globals.css') continue;
-      if (/font-feature-settings/.test(readFileSync(full, 'utf8'))) {
+      const src = readFileSync(full, 'utf8');
+      /*
+       * ★★**예외는 «하나», 그것도 이름으로 안다** — 손님 동은 사선 0 을 쓰지 않는다
+       *   (사장님 2026-09-10 「글꼴 숫자에 0 에 사선 없어야 해 여기서는」).
+       *   업무동은 차번·계좌를 «대조»하니 사선이 있어야 하고, 손님은 값을 «읽을» 뿐이다.
+       *   ⇒ 규격이 뒤집힌 게 아니라 범위가 갈렸다. 그래서 뿌리 줄은 그대로 두고 손님 껍데기만 되돌린다.
+       * ⚠ **면제는 파일이 아니라 «그 한 줄»이다.** 같은 파일에서 다른 식으로 다시 걸면 그대로 막힌다 —
+       *   면제를 파일 단위로 주면 그 파일이 규칙 밖으로 나가 버린다.
+       */
+      const SHOP_OFF = ".fp-wl { font-feature-settings: normal; }";
+      if (r === 'app/whitelabel.css' && src.includes(SHOP_OFF)) {
+        /* ⚠ 주석은 걷고 본다 — 왜 껐는지 «설명»에도 그 낱말이 나온다. 설명까지 위반으로 세면
+             제대로 적어 둔 자리가 벌을 받는다. */
+        const rest = src.split(SHOP_OFF).join('').replace(/\/\*[\s\S]*?\*\//g, '');
+        if (!/font-feature-settings/.test(rest)) continue;
+      }
+      if (/font-feature-settings/.test(src)) {
         hits.push(`  ${r}\n    font-feature-settings 를 다시 걸었습니다 — 뿌리의 «사선 0» 이 이 가지에서 꺼집니다\n    → 꼭 걸어야 하면 'zero' 1 을 함께 적으세요`);
       }
     }
