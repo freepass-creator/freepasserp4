@@ -71,18 +71,25 @@ export function todayLabelKo(now = new Date()): string {
 }
 
 /**
- * **갱신 시각 — 「14:23」.** 시·분까지(사장님 「update 언제 시간분까지」).
- * ★날짜는 안 붙인다 — 바로 옆에 오늘 날짜가 이미 서 있다. 같은 말을 두 번 하지 않는다.
- * ⚠ **오늘이 아니면 날짜를 붙인다.** 어제 회차가 마지막이면 「14:23」만 보여 주는 것은
- *   거짓말에 가깝다 — 그때는 「9. 8. 14:23」으로 «언제»를 분명히 한다.
+ * **갱신 시각 — 「9. 11. 04:15」. 날짜와 시각을 «늘» 같이 적는다.**
+ *
+ * ★★사장님 2026-09-10 「업데이트는 **날짜 시간이 있어야** 되는데 … **모바일하고 웹에 날짜
+ *   시간이 안 들어가도 상관이 없나?** 들어가는 게 맞는 거 같긴 하거든」. 맞다.
+ *
+ * ⚠⚠ **전에는 «오늘이면 시각만» 보여 줬다**(「04:15」). 근거는 「바로 옆에 오늘 날짜가 이미
+ *   서 있으니 같은 말을 두 번 하지 않는다」였는데, 그 근거가 **폰에서는 성립하지 않는다** —
+ *   폰 머리띠에는 날짜·날씨가 아예 없다(웹에만 있다). 그래서 폰 손님은 「04:15」만 보고
+ *   **오늘인지 그저께인지 알 길이 없었다.**
+ * ★웹에서 날짜가 한 번 더 나오는 것은 «중복»이 아니다 — 머리띠의 날짜는 «오늘»이고 이건
+ *   «재고가 언제 것인가»다. 서로 다른 것을 말하는데 한쪽이 날짜를 빌려 쓰면 그게 오해다.
+ * ★해가 바뀌어도 연도는 안 붙인다 — 매일 도는 연동이라 「작년 것」이 뜰 일이 없고,
+ *   그런 일이 생기면 그건 표기가 아니라 **파이프라인이 멈춘 것**이라 다른 데서 잡아야 한다.
  */
-export function updatedLabelKo(ms: number, now = new Date()): string {
-  const toKst = (d: Date) => new Date(d.getTime() + (d.getTimezoneOffset() + 540) * 60_000);
-  const t = toKst(new Date(ms));
-  const n = toKst(now);
+export function updatedLabelKo(ms: number): string {
+  const d = new Date(ms);
+  const t = new Date(d.getTime() + (d.getTimezoneOffset() + 540) * 60_000);
   const hhmm = `${String(t.getHours()).padStart(2, '0')}:${String(t.getMinutes()).padStart(2, '0')}`;
-  const sameDay = t.getFullYear() === n.getFullYear() && t.getMonth() === n.getMonth() && t.getDate() === n.getDate();
-  return sameDay ? hhmm : `${t.getMonth() + 1}. ${t.getDate()}. ${hhmm}`;
+  return `${t.getMonth() + 1}. ${t.getDate()}. ${hhmm}`;
 }
 
 /**
