@@ -225,12 +225,20 @@ const bare: CSSProperties = {
  * ⚠ 이 규칙은 칩만의 것이 아니다 — 정렬 고르개·「차량 더 보기」·공유·하단독 「이전」까지
  *   **가게의 «비주요» 누름은 전부 회색 면**이다. 하나만 테두리로 남으면 그것만 촌스러워 보인다.
  */
-export function ShopPill({ on, onClick, children, title }: {
+export function ShopPill({ on, onClick, children, title, mark }: {
   on?: boolean; onClick: () => void; children: ReactNode; title?: string;
+  /**
+   * **이 칩이 무엇인가** — 부르는 쪽이 나중에 «찾아낼» 수 있게 붙이는 표식(`data-chip`).
+   *
+   * ★쓰는 데는 하나다 — 공유 링크로 들어와 조건이 이미 걸려 있을 때, **켜진 칩이 줄 밖에 있으면
+   *   보이지 않는다.** 그때 줄을 그 칩까지 밀어 두려면 「어느 것이 그 칩인가」를 알아야 한다.
+   * ⚠ 화면에는 아무 영향이 없다 — 안 주면 속성이 아예 안 붙는다.
+   */
+  mark?: string;
 }) {
   const mobile = useIsMobile();
   return (
-    <button type="button" onClick={onClick} title={title} aria-pressed={!!on} className="fp-shop-press fp-shop-fill"
+    <button type="button" onClick={onClick} title={title} aria-pressed={!!on} data-chip={mark} className="fp-shop-press fp-shop-fill"
       style={{
         ...bare,
         /*
