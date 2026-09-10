@@ -107,6 +107,10 @@ for (const file of [
 assert.match(readFileSync('scripts/audit-photo-projection.mts', 'utf8'), /photoProjectionViolations/);
 
 const hourly = readFileSync('scripts/hourly-sync.mts', 'utf8');
+assert.ok(
+  hourly.indexOf('const S =') < hourly.indexOf('const SALES_INGEST_STAGING_SHEET'),
+  '시간별 동기화는 환경값 정규화 함수 S를 사용하기 전에 선언해야 한다',
+);
 assert.match(hourly, /sales-publish-snapshots\/\$\{RUN_ID\}\.json/);
 assert.match(hourly, /if \(!pub\.ok\) stop/);
 assert.match(hourly, /if \(!ch\.ok\) stop/);
