@@ -306,14 +306,47 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
    * ⚠ **이미 켠 칩은 남긴다** — 걸어 둔 조건이 사라지면 그게 「숨은 필터」다(조건칸과 같은 규칙).
    */
   const quick = useMemo(
-    () => quickAll.filter((k) => query.sel[k.axis].includes(k.key)
-      || facets[k.axis].some((o) => o.key === k.key && o.base > 0)),
-    [quickAll, facets, query.sel],
+    /*
+     * ★★**아직 안 받았을 때는 «다 세운다»**(2026-09-10).
+     *   매물이 오기 전에는 집계가 통째로 비어 있어, 이 거르개가 **칩을 거의 다 지운다.**
+     *   그래서 첫 화면이 「연필 + 켠 칩 하나」로 쪼그라들었다가 데이터가 오면 아홉으로 «펴졌다» —
+     *   여는 순간 줄이 늘어나며 목록이 아래로 밀렸다. 사장님이 싫어하신 그 들썩임이다.
+     *   ⇒ 받기 전에는 표에 적힌 대로 다 세워 둔다. 어차피 받고 나면 «있는 것»만 남는다.
+     */
+    () => (rows === null ? quickAll : quickAll.filter((k) => query.sel[k.axis].includes(k.key)
+      || facets[k.axis].some((o) => o.key === k.key && o.base > 0))),
+    [rows, quickAll, facets, query.sel],
   );
   const tokens = useMemo(
     () => activeTokens(query, facets).map((t) => ({ ...t, axisLabel: AXIS_LABEL[t.axis] })),
     [query, facets],
   );
+
+  /*
+   * ★★**공유 링크로 들어오면 «켜진 칩»이 보이는 자리에 있어야 한다**(2026-09-10 실측).
+   *
+   *   `?vc=SUV` 를 물고 들어오면 조건은 걸려 있는데, 칩 줄은 맨 왼쪽에서 시작한다.
+   *   SUV 칩이 줄 오른쪽 «밖»이라 화면에는 「검색 228대」만 보이고 **무엇이 걸렸는지 안 보인다.**
+   *   직접 누른 사람은 손가락 밑이라 알지만, 링크를 받은 손님은 모른다.
+   *   ⇒ **처음 한 번만** 줄을 그 칩까지 밀어 둔다.
+   *
+   * ⚠ **누를 때마다 미는 것이 아니다.** 조건을 만질 때마다 줄이 저 혼자 움직이면 그게 §12·§14 에서
+   *   걷어낸 그 들썩임이다. 그래서 `aimed` 로 «첫 한 번»만 하고 다시는 안 한다.
+   * ⚠ 줄 «안»의 `scrollLeft` 만 만진다 — `scrollIntoView` 는 페이지까지 끌어내린다.
+   * ⚠ 부드럽게(smooth) 굴리지 않는다 — 갤러리에서 세 번 당했다(다시 그리면 애니메이션이 끊긴다).
+   */
+  const railRef = useRef<HTMLDivElement>(null);
+  const aimed = useRef(false);
+  useEffect(() => {
+    if (aimed.current || rows === null) return;
+    aimed.current = true;
+    const hit = quick.find((k) => query.sel[k.axis].includes(k.key));
+    const rail = railRef.current;
+    if (!hit || !rail) return;
+    const el = rail.querySelector<HTMLElement>(`[data-chip="${hit.axis}:${hit.key}"]`);
+    /* 왼쪽에 여백(edge 16)을 남겨 둔다 — 칸에 딱 붙으면 「밀린 줄」로 안 읽힌다. */
+    if (el) rail.scrollLeft = Math.max(0, el.offsetLeft - SHOP.sp.edge);
+  }, [rows, quick, query.sel]);
   const shown = list.slice(0, limit);
   /** 지금 조건으로 남은 수 — 폰 머리가 드는 값. 조건을 넷 걸어 3대면 3이라고 말해야 한다. */
   const shownText = rows === null ? '—' : String(list.length);
@@ -453,7 +486,7 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
           {/* ⚠ `padding` 단축속성을 쓰지 않는다 — CSS 의 `padding-inline: 16` 을 0 으로 덮어써
               첫 칩이 화면 끝에 붙는다(2026-09-04 실측 x=0). 세로 여백만 만진다. */}
           {/* 칩 줄 위아래 = «덩어리의 경계»(cozy 12) — 검색칸·목록과 갈라 준다. */}
-          <div className="fp-shop-rail" style={{ paddingBlock: SHOP.sp.cozy }}>
+          <div ref={railRef} className="fp-shop-rail" style={{ paddingBlock: SHOP.sp.cozy }}>
             {/*
               ★**고치는 문은 줄 «맨 앞»이다.** 이 줄은 한 줄로 흐르는(가로 스크롤) 줄이라
                 끝에 두면 밀어야 보인다 — 아홉 칸을 밀어야 닿는 단추는 없는 단추다.
@@ -471,7 +504,7 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
               <Pencil size={mobile ? 16 : 14} aria-hidden />
             </ShopIconBtn>
             {quick.map((k) => (
-              <ShopPill key={`${k.axis}:${k.key}`} on={query.sel[k.axis].includes(k.key)}
+              <ShopPill key={`${k.axis}:${k.key}`} mark={`${k.axis}:${k.key}`} on={query.sel[k.axis].includes(k.key)}
                 onClick={() => onToggle(k.axis, k.key)}>{k.label || soloLabel(k.key) || k.key}</ShopPill>
             ))}
             {/*
