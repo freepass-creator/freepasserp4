@@ -118,9 +118,23 @@ export function optionSum(s: OptionSpec, chosen: ReadonlySet<string>): number {
   /* ⚠⚠ **빗장이 반쪽이었다.** 「이미 산 것」만 막고 «그 트림에서 안 파는 것»과 «규칙을 어긴 것»은
      그대로 더했다 — `availableOptions: []` 인데 금지 옵션 70만이 합계에 들었다
      (2026-09-09 개발센터 4-AI 관문 · Codex 발견 3). 마지막 빗장은 **고를 수 있는 것만** 센다. */
+  /* ⚠ **배타그룹(택1)도 마지막 빗장이 봐야 한다.** `toggleOption` 이 형제를 꺼 주지만,
+     저장된 옛 선택·URL·버그로 둘이 같이 들어오면 합계는 **둘 다** 더했다
+     (19인치 120만 + 20인치 300만 = 420만 · 2026-09-10 독립 Claude 발견 5).
+     한 그룹에서는 «가장 비싼 하나»만 센다 — 지어내지 않되 두 번 받지도 않는다. */
+  const seen = new Set<string>();
   let n = 0;
   for (const id of chosen) {
     if (!isEnabled(s, id, chosen)) continue;   // 이미 산 것 · 안 파는 것 · 선행 미충족 · 배제됨
+    const g = groupOf(s, id);
+    if (g) {
+      if (seen.has(g.id)) continue;
+      const best = g.members.filter((m) => chosen.has(m) && isEnabled(s, m, chosen))
+        .reduce((a, b) => ((Number(om[b]?.price) || 0) > (Number(om[a]?.price) || 0) ? b : a), id);
+      seen.add(g.id);
+      n += Number(om[best]?.price) || 0;
+      continue;
+    }
     n += Number(om[id]?.price) || 0;
   }
   return n;

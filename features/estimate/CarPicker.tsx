@@ -42,9 +42,6 @@ const IconSearch = () => (
 const IconRight = () => (
   <svg className="cv" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="m9 6 6 6-6 6" /></svg>
 );
-const IconCheck = () => (
-  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"><path d="m5 12 5 5L19 7" /></svg>
-);
 
 export type CarPickerProps = {
   open: boolean;
@@ -64,13 +61,12 @@ export type CarPickerProps = {
    * (사장님 2026-09-08 「1번으로」). 이 값이 켜지면 시트는 **트림까지만** 묻고 바로 확정한다.
    * ⚠ 그러면 시트가 돌려주는 `price` 는 «옵션 뺀 트림값»이다 — 옵션 합산은 부르는 쪽이 한다.
    */
-  optionsOutside?: boolean;
   mode: 'used' | 'new';
   onClose: () => void;
   onPick: (car: PickedCar) => void;
 };
 
-export default function CarPicker({ open, mode, onClose, onPick, inline, optionsOutside }: CarPickerProps) {
+export default function CarPicker({ open, mode, onClose, onPick, inline }: CarPickerProps) {
   const [index, setIndex] = useState<CarIndex | null>(null);
   const [models, setModels] = useState<NewModel[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -84,13 +80,12 @@ export default function CarPicker({ open, mode, onClose, onPick, inline, options
   const [model, setModel] = useState<NewModel | null>(null);
   const [fuel, setFuel] = useState<string | null>(null);
   const [nTrim, setNTrim] = useState<NewTrim | null>(null);
-  const [opts, setOpts] = useState<Record<string, boolean>>({});
 
   // 열릴 때마다 첫 화면으로 — 지난번 고르던 자리에서 시작하면 「왜 이 차가 떠 있지」가 된다.
   useEffect(() => {
     if (!open) return;
     setQ(''); setMaker(null); setCar(null); setPtIdx(0); setTrim(null);
-    setModel(null); setFuel(null); setNTrim(null); setOpts({}); setErr(null);
+    setModel(null); setFuel(null); setNTrim(null); setErr(null);
   }, [open, mode]);
 
   // 인덱스는 «열 때» 받는다. 견적 첫 화면을 무겁게 하지 않는다.
@@ -155,7 +150,7 @@ export default function CarPicker({ open, mode, onClose, onPick, inline, options
 
   const back = () => {
     if (mode === 'used') { setCar(null); setTrim(null); setPtIdx(0); }
-    else { setModel(null); setFuel(null); setNTrim(null); setOpts({}); }
+    else { setModel(null); setFuel(null); setNTrim(null); }
   };
 
   return (
@@ -217,7 +212,7 @@ export default function CarPicker({ open, mode, onClose, onPick, inline, options
                     <div className="plist">
                       {newRows.map((m) => (
                         <button key={`${m.maker}/${m.sub_model}`} type="button" className="prow"
-                          onClick={() => { setModel(m); setFuel(m.fuels?.[0] ?? null); setNTrim(null); setOpts({}); }}>
+                          onClick={() => { setModel(m); setFuel(m.fuels?.[0] ?? null); setNTrim(null); }}>
                           <span className="pn"><b>{m.maker} {ko(m.sub_model)}</b><em>{(m.fuels ?? []).join('·')} · 트림 {m.trimCount}</em></span>
                           <IconRight />
                         </button>
@@ -263,14 +258,14 @@ export default function CarPicker({ open, mode, onClose, onPick, inline, options
                 {fuels.length > 1 ? (
                   <div className="seg t3">
                     {fuels.map((f) => (
-                      <button key={f} type="button" className={f === fuel ? 'on' : ''} onClick={() => { setFuel(f); setNTrim(null); setOpts({}); }}>{f}</button>
+                      <button key={f} type="button" className={f === fuel ? 'on' : ''} onClick={() => { setFuel(f); setNTrim(null); }}>{f}</button>
                     ))}
                   </div>
                 ) : null}
                 <div className="plist" style={{ margin: '10px 0 0' }}>
                   {trimRows.map((t) => (
                     <button key={`${t.trim}/${t.fuel}`} type="button" className={`prow${nTrim === t ? ' on' : ''}`}
-                      onClick={() => { setNTrim(t); setOpts({}); }}>
+                      onClick={() => { setNTrim(t); }}>
                       <span className="pn"><b>{t.trim}</b><em>{t.fuel}{(t.options?.length ?? 0) ? ` · 옵션 ${t.options!.length}` : ''}</em></span>
                       <span className="pv">{man(trimPrice(t))}<small>원</small></span>
                     </button>

@@ -348,9 +348,18 @@ must(!/font-variant-numeric:\s*tabular-nums(?!\s+slashed-zero)/.test(wxCss),
 must(/id="sec-options"/.test(page) && /id="sec-color"/.test(page),
   '선택 옵션·색상 칸이 왼쪽에 없습니다 — 원본은 차종 밑에 «별도 칸»으로 세웁니다',
   'app/estimate/page.tsx #sec-options / #sec-color');
-must(/optionsOutside mode=\{cond\}/.test(page) && /optionsOutside\?: boolean;/.test(picker),
-  '차 고르기 시트가 옵션을 «또» 묻습니다 — 두 군데서 고르면 어느 값이 이겼는지 모릅니다',
-  'features/estimate/CarPicker.tsx optionsOutside');
+/* ⚠⚠ 예전에는 `optionsOutside` «깃발이 있나»만 봤다. 그 깃발은 옵션 칸을 걷어낸 뒤로
+   **아무 일도 안 하므로**, 누가 시트에 평면 옵션 목록을 다시 넣어도 깃발만 남기면 초록이었다
+   (2026-09-10 개발센터 4-AI 관문 · 독립 Claude 발견 7). ⇒ 깃발이 아니라 «없는지»를 잰다. */
+{
+  const pk = code('features/estimate/CarPicker.tsx');
+  must(!/nTrim\.options/.test(pk) && !/setOpts\(/.test(pk),
+    '차 고르기 시트가 옵션을 «또» 묻습니다 — 그 목록은 빗장 셋을 안 거치고, 유료 색상이 두 번 더해집니다',
+    'features/estimate/CarPicker.tsx');
+  must(/const chosen: \{ name: string; price: number \}\[\] = \[\];/.test(pk),
+    '시트가 고른 옵션을 «싣고» 나갑니다 — 옵션은 왼쪽 별도 칸에서만 고릅니다',
+    'features/estimate/CarPicker.tsx');
+}
 must(/const listPrice = isNew \? \(picked\.price \?\? 0\) \+ optSum \+ colorAdd : usedPrice;/.test(page),
   '신차 차량가에 고른 옵션이 «안 더해집니다» — 옵션을 밖에서 고르면 더하는 일은 화면 몫입니다',
   'app/estimate/page.tsx listPrice');

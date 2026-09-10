@@ -110,7 +110,11 @@
     "check:settlement": "tsx scripts/check-settlement-locked.mts",
     "check:estimate": "tsx scripts/check-estimate-logic.mts",
     "measure:brand": "tsx scripts/measure-brand-mark.mts",
-    "make:og": "tsx scripts/make-og.mts"
+    "make:og": "tsx scripts/make-og.mts",
+    "newcar:after-tax": "tsx scripts/crawl-newcar-after-tax.mts",
+    "newcar:options:kia": "tsx scripts/crawl-newcar-kia-options.mts",
+    "newcar:options:hyundai": "tsx scripts/crawl-newcar-hyundai-options.mts",
+    "newcar:options:welrix": "tsx scripts/ingest-newcar-options.mts"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",

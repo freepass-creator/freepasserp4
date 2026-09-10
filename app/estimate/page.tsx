@@ -570,7 +570,10 @@ function EstimatePageInner() {
   const vehTag = price ? `${man(price)}원` : '차를 고르세요';
   const vMeta = isNew
     ? [picked.meta, (ruled ? optIds.size : optChosen.length) ? `옵션 ${ruled ? optIds.size : optChosen.length}개 +${man(optSum)}` : null,
-      listPrice ? `차량가 ${man(listPrice)}` : null].filter(Boolean).join(' · ')
+      /* ⚠ 여기만 «할인 전»(listPrice)이라, 매입할인을 넣으면 폰 고정요약 한 카드에
+         「차량가 8,329만」과 딱지 「7,496만」이 나란히 떴다(2026-09-10 독립 Claude 발견 3).
+         주석은 「다 할인 후로 맞춘다」고 적어 놓고 한 줄이 빠져 있었다 — 주석은 증거가 아니다. */
+      price ? `차량가 ${man(price)}` : null].filter(Boolean).join(' · ')
     : [picked.meta, `시세 ${man(usedPrice)}`, `${usedYear}년`, `${usedMileage.toLocaleString('ko-KR')}km`,
       ACQ.find((a) => a.v === acq)!.label].filter(Boolean).join(' · ');
 
@@ -1082,7 +1085,7 @@ function EstimatePageInner() {
       {/* 왼쪽은 이제 캐스케이드다. 이 시트는 **이름을 알 때 한 번에 가는 길**(폰 하단 「검색」 탭)로만 뜬다 —
           왼쪽에 박아 두면 그게 굵어진다(사장님 2026-09-08 「저렇게 굵을 필요 없고」).
           ⚠ 웹에서는 부르는 자리가 없다 — 하단바가 없기 때문이다. 왼쪽 넷으로 고른다. */}
-      <CarPicker open={pickerOpen} optionsOutside mode={cond} onClose={() => setPickerOpen(false)}
+      <CarPicker open={pickerOpen} mode={cond} onClose={() => setPickerOpen(false)}
         onPick={(c) => { setPicked(c); if (c.source === 'new') { setUsedMileage(0); setUsedYear(nowYear); } }} />
 
     </div>
