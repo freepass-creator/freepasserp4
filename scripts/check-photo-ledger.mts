@@ -27,6 +27,7 @@ const FILLER = 'scripts/cache-photo-urls.mts';
 const GUEST = 'lib/domain/public-catalog.ts';
 const SHIM = 'lib/server/firestore-ref-shim.ts';
 const MERGE = 'components/use-product-photos.ts';
+const MIRROR = 'scripts/mirror-to-firestore.mts';
 
 /** 주석을 걷고 본다 — 「왜 그런지」 적어 둔 자리가 벌을 받으면 안 된다(사선 0 검사에서 배운 것). */
 const code = (path: string): string => readFileSync(path, 'utf8')
@@ -74,6 +75,24 @@ const fsMerge = /\{\s*merge:\s*true\s*\}/.test(filler);
 must(fsMerge, '파이어스토어 쓰기가 «덮어쓰기»가 아니다',
   fsMerge ? '`{ merge: true }` — 사진칸만 얹고 나머지 재고 필드는 그대로 둔다'
     : `${FILLER} 의 파이어스토어 쓰기에 \`{ merge: true }\` 가 없습니다.\n      → 문서를 통째로 갈아치우면 재고 필드가 사라집니다.`);
+
+/* ── ②′ 미러가 «푼 사진»도 나르나 ───────────────────────────────────────
+ * ⚠⚠ 2026-09-10, 이 검사를 «되돌려» 시험해 보다가 찾은 구멍이다.
+ *   옛 판을 얹었더니 ①②③ 은 잡았는데 **미러의 `CARRY` 에서 `photo_cache` 가 빠진 것은 그냥 넘겼다.**
+ *   그 한 칸이 빠지면 RTDB 에 아무리 채워도 손님 원장에는 안 간다 — 원래 사고가 바로 그것이었다.
+ *   (사진**링크**는 나르는데 **푼 사진**은 안 날랐다.)
+ * ⇒ 매시간 도는 미러가 그 칸을 나르는지도 센다. **채우는 문이 둘이면 검사도 둘이어야 한다.**
+ */
+const mirror = code(MIRROR);
+const carry = /const CARRY\s*=\s*\[([^\]]*)\]/.exec(mirror);
+if (!carry) {
+  fail('미러의 나르는 칸 목록을 읽었다', `${MIRROR} 에서 「const CARRY = [...]」 를 못 찾았습니다 — 이름이 바뀌었으면 이 검사도 고칩니다`);
+} else {
+  const carries = carry[1].includes(`'photo_cache'`);
+  must(carries, '미러가 «푼 사진»도 나른다',
+    carries ? `${MIRROR} 의 \`CARRY\` 에 \`photo_cache\` 가 있다`
+      : `${MIRROR} 의 \`CARRY\` 에 \`photo_cache\` 가 없습니다(\`photo_link\` 만 나릅니다).\n      → RTDB 에 아무리 채워도 손님 원장에는 안 갑니다. 원래 사고가 그것이었습니다.`);
+}
 
 /* ── ③ 사진을 «두 갈래»로 모으는 곳은 합치는 자가 하나인가 ────────────────
    저장본은 `sz=w640`, 그 자리에서 푼 것은 `sz=w1280` 이라 글자로 견주면 한 장이 두 장이 된다.
