@@ -45,8 +45,36 @@
   --바닥띠그늘: 0 -2px 5px -3px rgba(0,0,0,.3);
   --초점: 0 0 0 1px rgba(74,111,165,.35);
   --그늘: 0 1px 2px rgba(22,49,77,.06), 0 4px 16px rgba(22,49,77,.06);
+  /** ★뜬 그림자는 «사다리 셋»이다(app/규격.css --shadow/2/3). 하나만 들여오면
+   *  판이 뜰 때마다 손으로 깊이를 지어내게 된다 — 2026-09-10 에 실제로 그랬다. */
+  --그늘2: 0 8px 24px rgba(22,49,77,.25);
+  --그늘3: 0 24px 60px rgba(0,0,0,.45);
+  --어둠: #0e1c2b;
   --꼬리표안: 2px 8px;
 }
+
+/**
+ * ★★★**상자 셈을 원본으로 되돌린다** — 사장님 2026-09-10 「입체감 동일하게 완벽하게, 한 칸 한 칸」
+ *
+ * ⚠ **이것이 「어정쩡함」의 가장 큰 몫이었다.** 실측(2026-09-10):
+ *     원본 teamjpkwork  `box-sizing: content-box` (브라우저 기본)
+ *     우리 freepasserp4 `box-sizing: border-box` (globals.css 가 전역으로 건다)
+ *
+ *   원본은 `.cl-menubar { height: 28px; border-bottom: 1px }` 로 **29** 를 의도한다.
+ *   그런데 border-box 에서는 테두리가 28 «안으로» 먹혀 **28** 이 된다 —
+ *   테두리가 있는 칸마다 1~2px 씩 눌리고, 그 눌림이 화면 전체에 쌓여 «결이 다른» 화면이 된다.
+ *   ★그래서 스킨 안에서만 원본 상자 셈으로 되돌린다. `.cl` 밖으로는 한 글자도 안 샌다.
+ *   ★이 줄은 «토큰 블록 바로 뒤»에 있어야 한다 — 뒤따르는 원본 규칙(필터·툴바 등)이
+ *     제 자리에서 `box-sizing: border-box` 를 «다시» 걸기 때문이다. 순서가 뒤집히면 그것들이 진다.
+ */
+.cl, .cl *, .cl *::before, .cl *::after { box-sizing: content-box; }
+/**
+ * ★입력·단추는 브라우저 기본(UA)이 border-box 다 — 원본은 그걸 «그대로 믿고» 쓴다.
+ *   원본 `.cl-btn` 에는 box-sizing 이 아예 없다 — 없어도 24 로 선다.
+ *   ⚠ 위 초기화가 그 UA 기본까지 덮어 단추가 26 으로 부푸러 올랐다(실측 2026-09-10).
+ *   그러면 조건 줄이 30 으로 밀리고 필터 판이 42 가 된다 — 원본은 36 이다.
+ */
+.cl input, .cl select, .cl textarea, .cl button { box-sizing: border-box; }
 
 .cl {
   --선: #a8b0bb;
@@ -1331,8 +1359,14 @@
    ══════════════════════════════════════════════════════════════════ */
 
 /** ※ 반드시 채우는 칸 — 안 채우면 「접수 등록」이 안 눌린다. */
-.cl .cl-must { color: #b23b3b; font-weight: 700; }
-.cl input.cl-empty { background: #fffdf5; border-color: #d9c9a3; }
+.cl .cl-must { color: var(--빨강); font-weight: 700; }
+/**
+ * ★아직 안 채운 필수 칸 — 테두리 색만 바꾼다(칸 크기를 건드리면 줄이 흔들린다).
+ *   ⚠ 이름을 `cl-empty` 로 두었다가 원본의 «빈 안내문» 클래스(padding: 28px !important)와 부딪혀
+ *     영업채널 칸만 58px 로 부풀었다(실측 2026-09-10).
+ *   ★원본에 있는 이름을 다시 쓰지 않는다 — 덮대는 쪽이 질 수밖에 없다(!important 까지 걸려 있으니).
+ */
+.cl input.cl-need { border-color: var(--주황); }
 
 /** 요금표 — 손님에게 읽어 주는 자리. 누르면 그 기간이 접수 칸에 들어간다. */
 .cl .cl-mini { width: auto; margin: 6px 0 2px; border-collapse: collapse; font-size: 11px; }
@@ -1340,7 +1374,7 @@
   border: 1px solid var(--칸선); padding: 3px 10px; text-align: right;
   font-family: var(--font-hangeul), Consolas, GulimChe, 굴림체, monospace;
 }
-.cl .cl-mini th { background: #eef2f7; color: var(--흐린); font-weight: 700; text-align: center; }
+.cl .cl-mini th { background: var(--띠); color: var(--흐린); font-weight: 700; text-align: center; }
 .cl .cl-mini td:first-child, .cl .cl-mini th:first-child { text-align: left; font-family: inherit; }
 .cl .cl-mini td:hover { background: var(--스침); }
 .cl .cl-mini td.on { background: var(--고름); font-weight: 700; box-shadow: inset 0 0 0 1px var(--머리); }
@@ -1349,20 +1383,16 @@
  * ★★**접수 줄의 네 자리를 «색»으로** — 목록을 훑을 때 「할 일」만 눈에 걸리면 된다.
  *   왼쪽 막대 하나로 말한다. 바탕을 진하게 칠하면 표가 아니라 «그림»이 된다.
  */
-.cl .cl-grid tbody tr[class*='cl-row-'] td:first-child { box-shadow: inset 3px 0 0 transparent; }
-.cl .cl-grid tbody tr.cl-row-new td:first-child { box-shadow: inset 3px 0 0 #b9c0ca; }
-.cl .cl-grid tbody tr.cl-row-paper td:first-child { box-shadow: inset 3px 0 0 #4a6fa5; }
-.cl .cl-grid tbody tr.cl-row-todo td:first-child { box-shadow: inset 3px 0 0 #d98b1e; }
-.cl .cl-grid tbody tr.cl-row-todo { background: #fdf7ec; }
-.cl .cl-grid tbody tr.cl-row-gone td:first-child { box-shadow: inset 3px 0 0 #3f8f52; }
+.cl .cl-grid tbody tr.cl-row-new td:first-child { box-shadow: inset 3px 0 0 var(--선); }
+.cl .cl-grid tbody tr.cl-row-paper td:first-child { box-shadow: inset 3px 0 0 var(--머리); }
+.cl .cl-grid tbody tr.cl-row-todo td:first-child { box-shadow: inset 3px 0 0 var(--주황); }
+.cl .cl-grid tbody tr.cl-row-gone td:first-child { box-shadow: inset 3px 0 0 var(--초록); }
 
 /** 왼쪽 차 목록 — 출고 상태를 «점»으로. 계약중·출고불가를 모르고 권하면 안 된다. */
-.cl .cl-tree-s .cl-st { font-size: 9px; }
-.cl .cl-tree-s.on .cl-st { color: rgba(255, 255, 255, .85); }
 
 /* ══ 접수 워크스테이션 배치 — 가운데 큰 표 · 오른쪽 일감 ══════════════ */
 .cl .cl-find {
-  width: 300px; height: 22px; padding: 0 7px; font-size: 12px;
+  width: 300px; height: var(--잔높이); box-sizing: border-box; padding: 0 4px; font-size: var(--표글씨);
   border: 1px solid var(--선); background: #fff; box-shadow: var(--오목); margin-right: 6px;
 }
 .cl .cl-find:focus { outline: 1px solid var(--머리); outline-offset: -1px; }
@@ -1378,7 +1408,7 @@
   flex: 0 0 300px; display: flex; flex-direction: column; min-height: 0; overflow: auto;
   background: var(--판); border-left: 1px solid var(--선); box-shadow: var(--왼그늘, none);
 }
-.cl .cl-pick { padding: 9px 10px; border-bottom: 1px solid var(--줄선); background: #f7f9fc; }
+.cl .cl-pick { padding: 6px var(--사이큼); border-bottom: 1px solid var(--줄선); background: var(--띠); }
 .cl .cl-pick-t { font-size: 15px; font-weight: 700; letter-spacing: .3px; }
 .cl .cl-pick-s { font-size: 12px; margin-top: 2px; }
 .cl .cl-pick-r { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 5px; font-size: 11px; color: var(--흐린); }
@@ -1392,38 +1422,49 @@
 .cl .cl-mini.cl-fee tbody tr.on td:first-child { box-shadow: inset 3px 0 0 var(--머리); }
 
 /** 접수 칸 — 세로로. 라벨을 왼쪽에 붙여 줄이 짧아진다. */
-.cl .cl-form { padding: 8px 10px 12px; }
-.cl .cl-fr, .cl .cl-fr2 { display: flex; align-items: center; gap: 6px; margin-bottom: 5px; }
-.cl .cl-fr2 { gap: 8px; }
+.cl .cl-ipt { padding: 8px var(--사이큼) 12px; }
+.cl .cl-fr, .cl .cl-fr2 { display: flex; align-items: center; gap: var(--사이); min-height: var(--잔높이); margin-bottom: 4px; }
+.cl .cl-fr2 { gap: var(--사이); }
 .cl .cl-fr2 > div { flex: 1; display: flex; align-items: center; gap: 5px; min-width: 0; }
-.cl .cl-form label { flex: 0 0 62px; font-size: 11px; color: var(--흐린); }
+.cl .cl-ipt label { flex: 0 0 62px; font-size: 11px; color: var(--흐린); }
 .cl .cl-fr2 label { flex: 0 0 auto; }
-.cl .cl-form input, .cl .cl-form select {
-  flex: 1; min-width: 0; height: 22px; padding: 0 6px; font-size: 12px;
+.cl .cl-ipt input, .cl .cl-ipt select {
+  flex: 1; min-width: 0; height: var(--잔높이); box-sizing: border-box; padding: 0 4px; font-size: var(--표글씨);
   border: 1px solid var(--선); background: #fff; box-shadow: var(--오목);
 }
-.cl .cl-form .cl-go { width: 100%; height: 28px; margin-top: 9px; font-size: 12px; font-weight: 700; }
+.cl .cl-ipt .cl-go { width: 100%; height: 28px; margin-top: 9px; font-size: 12px; font-weight: 700; }
 
 /* ══ 조건 줄 · 그 자리 펼침 — 2026-09-10 ═══════════════════════════════
    ★사장님 「한 화면에서 뭐 새로 열리고 이런 거 없이 … 목록으로~ 그걸 눌러서
      상세 화면을 보고 거기서 접수 눌러서 접수할 수 있어야 하는 거지」
    ⇒ 모달도 새 페이지도 없다. 누른 줄 «바로 아래»가 열린다.
    ══════════════════════════════════════════════════════════════════ */
-.cl .cl-cond { flex-wrap: wrap; gap: 5px 6px; padding: 5px 7px; }
+/**
+ * 조건 판 — 규격은 원본 `.cl-filter` 가 이미 다 준다(판·선·띠높이 36·padding 5/사이큼·gap 사이).
+ * 여기서는 «우리가 더 쓰는 것»만 덧댄다: 조건 축이 여섯이라 한 줄에 안 서면 접힌다.
+ * ⚠ 원본이 주는 값을 여기서 다시 적지 않는다 — 두 곳에 적히면 언젠가 갈린다.
+ */
+.cl .cl-cond .cl-frow { flex-wrap: wrap; row-gap: var(--사이); }
 .cl .cl-cond select {
-  height: 22px; font-size: 11px; padding: 0 4px;
+  height: var(--잔높이); box-sizing: border-box; font-size: var(--표글씨); padding: 0 4px;
   border: 1px solid var(--선); background: #fff; box-shadow: var(--오목);
 }
 .cl .cl-cap { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--흐린); }
-.cl .cl-cap input { width: 84px; height: 22px; padding: 0 6px; font-size: 11px; text-align: right;
+.cl .cl-cap input { width: 84px; height: var(--잔높이); box-sizing: border-box; padding: 0 4px; font-size: var(--표글씨); text-align: right;
   border: 1px solid var(--선); background: #fff; box-shadow: var(--오목);
   font-family: var(--font-hangeul), Consolas, GulimChe, 굴림체, monospace; }
-.cl .cl-chk { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; color: var(--흐린); cursor: pointer; }
-.cl .cl-tb.on { border-color: var(--선); background: var(--머리); color: #fff; box-shadow: var(--눌림); }
-.cl .cl-tb.on .cl-tbi { color: rgba(255, 255, 255, .85); }
+/**
+ * ★체크칸은 원본이 표에서 쓰는 13 그대로 — 안 맞추면 조건 줄이 «저 혼자» 30 으로 부푼다.
+ *   실측 2026-09-10: 체크칸을 안 재 놨더니 label 이 30 이 되고, 그 바람에 필터 판이 36 → 42 로 밀렸다.
+ *   ★한 칸이 어긋나면 그 줄이 밀리고, 줄이 밀리면 판이 밀린다. 「한 칸 한 칸」이 그래서다.
+ */
+.cl .cl-chk {
+  display: inline-flex; align-items: center; gap: 4px;
+  height: var(--잔높이); font-size: var(--표글씨); color: var(--흐린); cursor: pointer; white-space: nowrap;
+}
+.cl .cl-chk input[type='checkbox'] { width: 13px; height: 13px; margin: 0; vertical-align: middle; }
 
 /** 본문을 세로로 — 차량 표가 남는 높이를 다 쓰고 접수 대기가 아래에 낮게 붙는다. */
-.cl .cl-body.cl-col { flex-direction: column; min-height: 0; }
 .cl .cl-grid.cl-cars { flex: 1 1 auto; min-height: 0; overflow: auto; }
 /**
  * ★**접수 목록은 «다섯 줄»이면 된다** — 사장님 2026-09-10
@@ -1431,42 +1472,41 @@
  *   상품 목록이 주인공이라 자리를 뺏으면 안 된다. 넘치는 것은 그 안에서 굴린다.
  *   줄 높이 22 × 5 + 머리줄 + 크럼 = 약 170px.
  */
-.cl .cl-grid.cl-wait { flex: 0 0 auto; height: 170px; overflow: auto; border-top: 2px solid var(--선); }
+.cl .cl-grid.cl-wait { flex: 0 0 auto; height: calc(var(--줄높이) * 6); overflow: auto; border-top: 2px solid var(--선); }
 .cl .cl-grid.cl-wait .cl-crumb { position: sticky; top: 0; z-index: 2; }
 /** 숫자 칸 — 자릿수를 맞춰 세로로 견준다. */
 .cl .cl-num { text-align: right; font-family: var(--font-hangeul), Consolas, GulimChe, 굴림체, monospace; }
 
 /** 펼친 줄 — 표 안에서 열린다. 바탕을 살짝 눕혀 「여기가 열렸다」를 말한다. */
-.cl .cl-open > td { background: #f2f6fb; border-top: 2px solid var(--머리); padding: 0 !important; }
-.cl .cl-detail { display: flex; gap: 0; align-items: stretch; }
-.cl .cl-dcol { flex: 1; min-width: 0; padding: 8px 12px; border-right: 1px solid var(--칸선); }
-.cl .cl-dcol:last-child { border-right: 0; }
 /** ★오른쪽 칸이 «두 얼굴»을 갖는다 — 조건 보기 ↔ 접수. 자리는 그대로, 얼굴만 바뀐다. */
-.cl .cl-dcol.cl-dform { flex: 0 0 300px; background: #fff; box-shadow: var(--오목); }
 .cl .cl-dh { display: flex; align-items: center; gap: 8px; }
-.cl .cl-back {
-  margin-left: auto; border: 0; background: none; cursor: pointer;
-  font-size: 11px; color: var(--흐린); text-decoration: underline;
-}
+/**
+ * ★★**되돌아가기는 «단추»다** — 사장님 2026-09-10
+ *   「접수하기 버튼을 누르면 페이지 바뀌면서 **돌아가기나 이전 버튼으로 상세페이지 봐야지**」
+ *
+ *   있기는 있었다 — 11px 밑줄 링크로. 그런데 «없는 것과 같았다».
+ *   고전 ERP 에서 되돌아가는 길은 늘 볼록한 단추(`.cl-btn`)다. 링크는 «읽는 것»이고 단추는 «누르는 것»이라,
+ *   누를 것을 링크로 그리면 사람이 못 찾는다. ⇒ 자리만 여기서 정하고 결은 `.cl-btn` 이 준다.
+ */
+.cl .cl-back { margin-left: auto; padding: 0 8px; font-size: 11px; }
+
+/** 머리줄에 단추가 서므로 머리도 그 키에 맞춘다 — 24 단추 + 아래위 3 = 30(줄높이). */
+.cl .cl-tree-head { display: flex; align-items: center; gap: var(--사이); }
 .cl .cl-more {
   width: 100%; margin: 4px 0 0; padding: 3px; border: 1px dashed var(--선); background: none;
   font-size: 11px; color: var(--흐린); cursor: pointer;
 }
-.cl .cl-more:hover { background: #f5f8fc; }
+.cl .cl-more:hover { background: var(--스침); }
 /** 펼친 상세도 «제 안에서» 굴린다 — 목록 자리를 안 먹는다. */
-.cl .cl-detail { max-height: 260px; overflow: auto; }
 .cl .cl-dh { font-size: 11px; font-weight: 700; color: var(--머리); margin-bottom: 6px; }
-.cl .cl-dgrid { display: grid; grid-template-columns: 76px 1fr; gap: 3px 8px; font-size: 12px; align-items: baseline; }
-.cl .cl-dgrid > span { color: var(--흐린); font-size: 11px; }
 
 /* ══ 3분할 — 왼쪽 위 상품목록 · 왼쪽 아래 접수목록 · 오른쪽 상세↔접수 ══
    ★사장님 2026-09-10 「3개 분할인 거지. 상품 목록, 그 밑에 접수 목록, 우측에 상세 화면.
      상세 화면에서 접수하기 누르면 접수 화면으로 바뀌는 거지」
    ══════════════════════════════════════════════════════════════════ */
-.cl .cl-side-go { margin-top: auto; padding: 10px; border-top: 1px solid var(--줄선); background: #f7f9fc; }
-.cl .cl-side-go .cl-go { width: 100%; height: 30px; font-size: 12px; font-weight: 700; }
+.cl .cl-side-go { margin-top: auto; padding: var(--사이큼); border-top: 1px solid var(--줄선); background: var(--띠); }
+.cl .cl-side-go .cl-go { width: 100%; height: 28px; font-size: 12px; font-weight: 700; }
 .cl .cl-tree-head { display: flex; align-items: center; gap: 8px; }
-.cl .cl-dgrid { padding: 8px 10px; }
 .cl .cl-menu.on { background: rgba(255, 255, 255, .22); font-weight: 700; }
 
 /* ══ 상세 — 사진 · 제원 전부. 가로를 넓혔다 ════════════════════════════
@@ -1478,17 +1518,17 @@
 .cl .cl-side { flex: 0 0 380px; }
 
 /** 사진 — 손님 상세와 같은 4:3. 누르면 크게. */
-.cl .cl-photo { position: relative; border-bottom: 1px solid var(--줄선); cursor: zoom-in; background: #111; }
+.cl .cl-photo { position: relative; border-bottom: 1px solid var(--줄선); cursor: zoom-in; background: var(--어둠); }
 .cl .cl-photo img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; }
 .cl .cl-photo-z {
   position: absolute; right: 6px; bottom: 6px; padding: 2px 6px;
-  background: rgba(0, 0, 0, .55); color: #fff; font-size: 10px; border-radius: 2px;
+  background: var(--어둠); color: #fff; font-size: 10px; border-radius: 2px;
 }
 .cl .cl-zoom {
   position: fixed; inset: 0; z-index: 200; display: flex; align-items: center; justify-content: center;
-  background: rgba(0, 0, 0, .82); cursor: zoom-out;
+  background: var(--어둠); cursor: zoom-out;
 }
-.cl .cl-zoom img { max-width: 92vw; max-height: 88vh; object-fit: contain; box-shadow: 0 8px 40px rgba(0,0,0,.6); }
+.cl .cl-zoom img { max-width: 92vw; max-height: 88vh; object-fit: contain; box-shadow: var(--그늘3); }
 .cl .cl-zoom-x { position: absolute; right: 16px; top: 12px; color: #fff; font-size: 12px; opacity: .8; }
 
 /** 제원 — 원자에 있는 그대로. 표라서 눈이 줄을 따라간다. */
@@ -1496,7 +1536,7 @@
 .cl .cl-spec th, .cl .cl-spec td {
   border-bottom: 1px solid var(--칸선); padding: 3px 10px; text-align: left; vertical-align: top;
 }
-.cl .cl-spec th { width: 96px; color: var(--흐린); font-weight: 400; background: #f7f9fc; }
+.cl .cl-spec th { width: 96px; color: var(--흐린); font-weight: 400; background: var(--띠); }
 .cl .cl-spec td { font-family: var(--font-hangeul), Consolas, GulimChe, 굴림체, monospace; word-break: break-all; }
 
 /* ══ 표 디테일 — 2026-09-10 ═══════════════════════════════════════════
@@ -1524,7 +1564,45 @@
 }
 
 /** 오른쪽 칸 — 왼쪽 표와 갈리는 선에 그늘을 준다(고전 ERP 의 그 «판이 얹힌» 느낌). */
-.cl .cl-side { box-shadow: inset 1px 0 0 #fff, -1px 0 0 var(--선); }
-.cl .cl-side-go { box-shadow: inset 0 1px 0 #fff; }
+.cl .cl-side { box-shadow: var(--왼빛), -1px 0 0 var(--선); }
+.cl .cl-side-go { box-shadow: var(--윗빛); }
 /** 상세 제원 표 — 줄이 촘촘해야 «많은 정보»가 한눈에 들어온다. */
 .cl .cl-spec th, .cl .cl-spec td { padding: 2px 10px; line-height: 1.55; }
+
+/**
+ * ★★**초점은 «오목 위에» 얹는다** — 원본 `.cl-filter input:focus` 와 한 글자도 다르지 않게.
+ *   `box-shadow: var(--오목), var(--초점)` — 오목을 빼고 초점만 주면 눌린 칸이 «솟아» 버린다.
+ *   사장님 2026-09-10 「입체감 동일하게 완벽하게, 한 칸 한 칸」.
+ */
+.cl .cl-cond select:focus,
+.cl .cl-cond input:focus,
+.cl .cl-cap input:focus,
+.cl .cl-find:focus,
+.cl .cl-ipt input:focus,
+.cl .cl-ipt select:focus { outline: 0; border-color: var(--머리); box-shadow: var(--오목), var(--초점); }
+
+/**
+ * ★★**단위는 «머리줄»이 말한다** — 사장님 2026-09-10
+ *   「단위에 대해서 금액이나 주행거리 이런 거, 기간 이런 거 확실하게 맞춰놓고」
+ *
+ *   값에 단위를 붙이면(「1.8만km」·「100만원」) 칸이 좁아지고, 무엇보다 **자릿수가 세로로 안 맞는다** —
+ *   숫자 칸을 오른쪽에 붙이는 뜻이 사라진다. 그래서 단위는 머리에 한 번만 적고 값은 숫자만 둔다.
+ *   ★단위 글자는 머리 글자보다 «한 걸음 뒤»에 선다 — 읽는 것은 칸 이름이고, 단위는 그 곁수다.
+ */
+.cl .cl-grid th i, .cl .cl-mini th i {
+  font-style: normal; font-weight: 400; color: var(--흐림2);
+  font-size: 10px; margin-left: 3px; letter-spacing: 0;
+}
+
+/** 접수 칸 라벨의 단위도 표 머리와 «같은 결» — 두 곳이 다르면 같은 뜻이 두 얼굴이 된다. */
+.cl .cl-ipt label i { font-style: normal; font-weight: 400; color: var(--흐림2); font-size: 10px; margin-left: 3px; }
+
+/** 빈 상세 자리의 «직접 접수» — 아래에 붙여 늘 같은 자리에 선다. */
+.cl .cl-side-go .cl-go + .cl-go { margin-top: var(--사이); }
+
+/**
+ * ⓘ **여기서 걷어낸 것** — 2026-09-10
+ *   3판(줄 아래로 펼치던 판)의 잔해 14규칙을 지웠다: cl-col · cl-detail · cl-dcol · cl-dform · cl-dgrid · cl-open,
+ *   그리고 조건 줄을 툴바에서 «필터 판»으로 옮기며 죽은 cl-tb · cl-tbi · cl-tbsep · cl-tree-s.
+ *   ★안 쓰는 규칙을 남겨 두면 다음 사람이 그것을 «규격»으로 읽고, 지나간 판으로 되돌아간다.
+ */
