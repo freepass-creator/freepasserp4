@@ -40,6 +40,7 @@ import { POLICY_TAB_ALIASES } from '../lib/domain/supplier-template-sheet';
 import { classifyVehicleClass, composeRefinedVehicleName } from '../lib/domain/vehicle-class';
 import { vehicleClassDisplay } from '../lib/domain/vehicle-class-catalog';
 import { substFromAiRefineRows } from '../lib/domain/ai-refine-guard';
+import { googleSheetsServiceAccount } from '../lib/server/google-service-account';
 /** 정책 탭 값 — 「운영정책」 먼저, 없으면 옛 「정책」(사장님 2026-08-19 탭 개명 · 아직 안 바꾼 시트 호환). */
 /**
  * 정책 탭을 읽는다. 이름이 「운영정책」·「정책」이 아닐 수 있다 —
@@ -128,7 +129,7 @@ let COLUMNS: string[] = SALES_COLUMNS;
 /** 실제로 쓸 매핑. 아래에서 판매시트 「AI 인계」 @매핑 표를 읽어 채운다. */
 let ALIAS: Record<string, string[]> = SALES_ALIAS;
 
-const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
+const sa = googleSheetsServiceAccount('tmp/firebase-auth/sa.json');
 // drive 는 「○○ 프리패스 재고」 시트를 **이름으로 찾는 데만**(files.list) 쓴다 — fill-supplier-ai-columns 와 같은 위임 스코프.
 const gT = (await new JWT({ email: sa.client_email, key: sa.private_key,
   scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive'], subject: 'pyh@teamjpk.com' }).getAccessToken()).token;

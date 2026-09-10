@@ -16,7 +16,6 @@
  */
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
-import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { companyAlias } from '../lib/domain/identity';
 import { channelCompanyOf } from '../lib/domain/channel-company';
@@ -28,6 +27,8 @@ import { buildSalesFormatRequests, columnWidths, isMoneyColumn } from '../lib/do
 import { HAHUHO_PRODUCT_SHEET_ID } from '../lib/domain/legacy-sheets';
 import { ensureNoticeTab } from '../lib/server/channel-sheet-tabs';
 import { channelColumnName, salesPublishedColumns } from '../lib/domain/sales-published-tab-columns';
+import { firebaseAdminApp } from '../lib/server/firebase-admin';
+import { googleSheetsServiceAccount } from '../lib/server/google-service-account';
 import nextEnv from '@next/env';
 
 nextEnv.loadEnvConfig(process.cwd());
@@ -45,14 +46,11 @@ if (APPLY && !snapshotPath) throw new Error('채널시트 발행은 --snapshot=<
  */
 const CHANNEL_PRODUCT_F: Record<string, string> = { 하허호: 'F86' };
 const DOC_NAME = `[${CHANNEL_PRODUCT_F[channel] || 'F8?'} 사용중] 프리패스x${channel} 전용 상품시트`;
-const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
-initializeApp({
-  credential: cert({ projectId: sa.project_id, clientEmail: sa.client_email, privateKey: sa.private_key.replace(/\\n/g, '\n') }),
-});
-const firestore = getFirestore();
+const firestore = getFirestore(firebaseAdminApp());
+const sheetsAccount = googleSheetsServiceAccount('tmp/firebase-auth/sa.json');
 const publishSnapshot = snapshotPath ? readSalesPublishSnapshot(snapshotPath) : await captureSalesPublishSnapshot(firestore);
 const jwt = new JWT({
-  email: sa.client_email, key: sa.private_key, subject: 'pyh@teamjpk.com',
+  email: sheetsAccount.client_email, key: sheetsAccount.private_key, subject: 'pyh@teamjpk.com',
   scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive'],
 });
 /**

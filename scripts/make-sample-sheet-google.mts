@@ -6,7 +6,6 @@
  * 읽기(Firestore·기존시트 헤더)전용 + 고정 샘플시트 쓰기.
  */
 import { readFileSync } from 'node:fs';
-import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { JWT } from 'google-auth-library';
 import { buildSalesFormatRequests, columnWidths } from '../lib/domain/sales-sheet-format';
@@ -16,6 +15,8 @@ import { isPlate } from '../lib/domain/plate-registry';
 import { hasInventoryPublicationViolations, inventoryCountSnapshot, isOpenInventoryAtom } from '../lib/domain/inventory-contract';
 import { captureSalesPublishSnapshot, readSalesPublishSnapshot, salesPublishMark } from '../lib/server/sales-publish-snapshot';
 import { salesPublishedColumns } from '../lib/domain/sales-published-tab-columns';
+import { firebaseAdminApp } from '../lib/server/firebase-admin';
+import { googleSheetsServiceAccount } from '../lib/server/google-service-account';
 
 const S = (v: unknown) => String(v ?? '').trim();
 const arg = (name: string) => (process.argv.find((value) => value.startsWith(`--${name}=`)) || '').slice(name.length + 3);
@@ -25,9 +26,8 @@ const SRC_SHEET = '1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs';   // 기존 �
 const TO_MAIN = process.argv.includes('--main');
 const SAMPLE_SHEET_ID = TO_MAIN ? SRC_SHEET : S(process.env.SAMPLE_SHEET_ID);
 if (!TO_MAIN && !SAMPLE_SHEET_ID) throw new Error('샘플 발행은 SAMPLE_SHEET_ID를 명시해야 한다. 수집 스테이징 시트를 기본값으로 함께 쓰지 않는다.');
-const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
-initializeApp({ credential: cert({ projectId: sa.project_id, clientEmail: sa.client_email, privateKey: sa.private_key.replace(/\\n/g, '\n') }) });
-const jwt = new JWT({ email: sa.client_email, key: sa.private_key, scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive'], subject: 'pyh@teamjpk.com' });
+const sheetsAccount = googleSheetsServiceAccount('tmp/firebase-auth/sa.json');
+const jwt = new JWT({ email: sheetsAccount.client_email, key: sheetsAccount.private_key, scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive'], subject: 'pyh@teamjpk.com' });
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const api = async (url: string, init?: RequestInit): Promise<any> => {
   for (let attempt = 1; ; attempt++) {
@@ -41,7 +41,7 @@ const api = async (url: string, init?: RequestInit): Promise<any> => {
 };
 
 // ── 데이터 ──
-const firestore = getFirestore();
+const firestore = getFirestore(firebaseAdminApp());
 const snapshotPath = arg('snapshot');
 if (TO_MAIN && !snapshotPath) throw new Error('본시트 발행은 --snapshot=<회차별 고정 스냅샷>이 필요하다. 먼저 capture:sales-publish를 실행하라.');
 const publishSnapshot = snapshotPath ? readSalesPublishSnapshot(snapshotPath) : await captureSalesPublishSnapshot(firestore);

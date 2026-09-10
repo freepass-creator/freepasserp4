@@ -1,43 +1,33 @@
 import 'server-only';
 
-import { readFileSync } from 'node:fs';
 import { sign } from 'node:crypto';
+import { googleSheetsServiceAccount, type GoogleServiceAccount } from '@/lib/server/google-service-account';
 
 /**
  * 서비스계정으로 Google Sheets 에 쓰는 최소 클라이언트.
  *
- * RTDB 용 `FIREBASE_SERVICE_ACCOUNT_JSON` 과 같은 계정을 쓴다 — 대상 시트 공유에
- * 그 `client_email` 을 **편집자**로 추가해야 동작한다. 권한이 없으면 403 이 그대로 올라온다.
+ * `GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON`의 계정을 쓴다. 대상 시트 공유에 그
+ * `client_email`을 **편집자**로 추가해야 동작한다. 권한이 없으면 403이 그대로 올라온다.
  */
-type ServiceAccountJson = { client_email?: string; private_key?: string; token_uri?: string };
 type Rec = Record<string, unknown>;
 
 /**
- * 자격증명 — Vercel 은 `FIREBASE_SERVICE_ACCOUNT_JSON`, 로컬은 `GOOGLE_APPLICATION_CREDENTIALS`
- * 파일 경로를 쓴다(`lib/server/firebase-admin.ts` 와 같은 규칙). 둘 다 없으면 fail-closed.
+ * Vercel은 Google Sheets 전용 JSON을 쓰고, 기존 단일 자격증명 구성은 ERP3 호환 fallback이다.
  */
-function serviceAccount(): Required<Pick<ServiceAccountJson, 'client_email' | 'private_key'>> & { token_uri: string } {
-  const inline = String(process.env.FIREBASE_SERVICE_ACCOUNT_JSON || '').trim();
-  const file = String(process.env.GOOGLE_APPLICATION_CREDENTIALS || '').trim();
-  const raw = inline || (file ? readFileSync(file, 'utf8') : '');
-  if (!raw) throw new Error('시트 자격증명 미설정 — FIREBASE_SERVICE_ACCOUNT_JSON 또는 GOOGLE_APPLICATION_CREDENTIALS 가 필요합니다.');
-  const parsed = JSON.parse(raw) as ServiceAccountJson;
-  if (!parsed.client_email || !parsed.private_key) throw new Error('서비스계정 형식이 올바르지 않습니다.');
-  return {
-    client_email: parsed.client_email,
-    private_key: parsed.private_key.replace(/\\n/g, '\n'),
-    token_uri: String(parsed.token_uri || 'https://oauth2.googleapis.com/token'),
-  };
+function serviceAccount(): GoogleServiceAccount {
+  return googleSheetsServiceAccount();
 }
 
 const b64 = (value: unknown) => Buffer.from(JSON.stringify(value)).toString('base64url');
 
 async function sheetsToken(): Promise<string> {
   const sa = serviceAccount();
+  const subject = String(process.env.GOOGLE_WORKSPACE_SUBJECT || 'pyh@teamjpk.com').trim();
   const now = Math.floor(Date.now() / 1000);
   const unsigned = `${b64({ alg: 'RS256', typ: 'JWT' })}.${b64({
     iss: sa.client_email,
     scope: 'https://www.googleapis.com/auth/spreadsheets',
+    ...(subject ? { sub: subject } : null),
     aud: sa.token_uri,
     iat: now,
     exp: now + 3600,

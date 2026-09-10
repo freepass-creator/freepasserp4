@@ -13,16 +13,16 @@
  *   npx tsx scripts/setup-channel-sheet.mts YS모빌리티
  *   npx tsx scripts/setup-channel-sheet.mts YS모빌리티 --apply
  */
-import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { channelSheetName, ensureNoticeTab, ensureGuideTab, ensureFeeTab, ensureCompanyTab, ensureMonthTab } from '../lib/server/channel-sheet-tabs';
+import { googleSheetsServiceAccount } from '../lib/server/google-service-account';
 
 const S = (v: unknown) => String(v ?? '').trim();
 const APPLY = process.argv.includes('--apply');
 const CH = S(process.argv.slice(2).find((a) => !a.startsWith('--')));
 if (!CH) { console.log('\n  채널 이름을 주세요 — npx tsx scripts/setup-channel-sheet.mts YS모빌리티 [--apply]\n'); process.exit(1); }
 
-const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
+const sa = googleSheetsServiceAccount('tmp/firebase-auth/sa.json');
 const jwt = new JWT({ email: sa.client_email, key: sa.private_key, subject: 'pyh@teamjpk.com',
   scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive'] });
 const tok = async () => (await jwt.getAccessToken()).token;

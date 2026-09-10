@@ -32,8 +32,9 @@ import {
 } from '../lib/domain/settlement-ledger';
 import { SHEET_NAME_MATCH, supplierSheetLabel, isOurNonInventoryTab } from '../lib/domain/supplier-template-sheet';
 import { SALES_SHEET_ID } from '../lib/domain/legacy-sheets';
-import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { firebaseAdminApp } from '../lib/server/firebase-admin';
+import { googleSheetsServiceAccount } from '../lib/server/google-service-account';
 
 const APPLY = process.argv.includes('--apply');
 const S = (v: unknown) => String(v ?? '').trim();
@@ -93,10 +94,10 @@ const when = (r: string[], iy: number, im: number, ir: number) => {
   return ym * 100000 + (Number.isFinite(rv) && rv > 0 ? rv : 0);
 };
 
-const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
-const jwt = new JWT({ email: sa.client_email, key: sa.private_key, subject: 'pyh@teamjpk.com', scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive'] });
+const sheetsAccount = googleSheetsServiceAccount('tmp/firebase-auth/sa.json');
+const jwt = new JWT({ email: sheetsAccount.client_email, key: sheetsAccount.private_key, subject: 'pyh@teamjpk.com', scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive'] });
 /** 원자(Firestore)에도 같은 상태를 세운다 — 아래 「원자에도 세운다」. */
-initializeApp({ credential: cert({ projectId: sa.project_id, clientEmail: sa.client_email, privateKey: String(sa.private_key).replace(/\\n/g, '\n') }) });
+const firestore = getFirestore(firebaseAdminApp());
 const SH = 'https://sheets.googleapis.com/v4/spreadsheets';
 const api = async (u: string, init?: RequestInit): Promise<any> => {
   for (let n = 0; ; n++) {
@@ -246,7 +247,7 @@ if (salesData.length) await api(`${SH}/${SALES_SHEET_ID}/values:batchUpdate`, { 
  */
 let 원자칸 = 0, 원자안덮음 = 0;
 {
-  const fsdb = getFirestore();
+  const fsdb = firestore;
   const 센말 = (v: string) => (v === '출고불가' ? 2 : v === '계약중' ? 1 : 0);
   const snap = await fsdb.collection('products').get();
   const picks: { ref: FirebaseFirestore.DocumentReference; to: string }[] = [];

@@ -20,6 +20,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
+import { googleSheetsServiceAccount } from '../lib/server/google-service-account';
 import {
   BANNER_HEIGHT, CARD_EXCLUDE, CARD_ROWS, CHANNELS, COLUMN_WIDTHS, FONT, ROW_HEIGHT, S,
   buildCard, cardMerges, cardPolicy, cell, channelDocTitle, channelIdentityRows, channelManualRows,
@@ -31,7 +32,7 @@ const KEEP_NO_PRICE = process.argv.includes('--keep-no-price');
 const arg = (k: string, d = '') => (process.argv.find((a) => a.startsWith(`--${k}=`)) || '').slice(k.length + 3) || d;
 const ONLY = arg('channel');
 
-const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
+const sa = googleSheetsServiceAccount('tmp/firebase-auth/sa.json');
 const jwt = new JWT({ email: sa.client_email, key: sa.private_key, scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive'], subject: 'pyh@teamjpk.com' });
 const SS = 'https://sheets.googleapis.com/v4/spreadsheets';
 const DRIVE = 'https://www.googleapis.com/drive/v3/files';

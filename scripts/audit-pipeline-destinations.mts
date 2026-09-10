@@ -20,6 +20,7 @@ import { SUPPLIER_PREVIEW_TAB, supplierSheetLabel } from '../lib/domain/supplier
 const SUPPLIER_PREVIEW_RETIRED = true;
 import { parsePublishedSalesMapping } from '../lib/domain/sales-sheet-mapping';
 import { publishedSalesColumns } from '../lib/domain/sales-published-tabs';
+import { googleSheetsServiceAccount } from '../lib/server/google-service-account';
 import {
   buildSupplierPreviewValues,
   compareSheetMatrices,
@@ -37,7 +38,7 @@ import {
   type Rec,
 } from '../lib/domain/channel-card-sheet';
 
-const credentials = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
+const credentials = googleSheetsServiceAccount('tmp/firebase-auth/sa.json');
 const jwt = new JWT({
   email: credentials.client_email,
   key: credentials.private_key,

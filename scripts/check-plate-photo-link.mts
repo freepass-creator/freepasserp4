@@ -31,6 +31,7 @@ import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { HAHUHO_PRODUCT_SHEET_ID, SALES_SHEET_ID } from '../lib/domain/legacy-sheets';
 import { pickPublishedSalesTabs } from '../lib/domain/sales-published-tabs';
+import { googleSheetsServiceAccount } from '../lib/server/google-service-account';
 
 const S = (v: unknown) => String(v ?? '').trim();
 let bad = 0;
@@ -48,7 +49,7 @@ for (const f of PUBLISHERS) {
 }
 if (!bad) console.log('  ✓ 발행기는 링크를 따로 걸지 않는다 — 서식층 한 곳');
 
-const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
+const sa = googleSheetsServiceAccount('tmp/firebase-auth/sa.json');
 const jwt = new JWT({
   email: sa.client_email, key: sa.private_key, subject: 'pyh@teamjpk.com',
   scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive'],

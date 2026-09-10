@@ -21,6 +21,7 @@ import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { buildSalesFormatRequests, columnWidths, rgb, LINK, FONT, SIZE, ITALIC } from '../lib/domain/sales-sheet-format';
 import { NATIVE_MONEY_BLOCK, STANDARD_MONEY_COLUMNS, nativeMoneyLabel, type NativeLeadColumn } from '../lib/domain/sales-published-tabs';
+import { googleSheetsServiceAccount } from '../lib/server/google-service-account';
 
 type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim();
@@ -56,7 +57,7 @@ const ALIASES: Record<string, RegExp> = {
   '12개월 반납형': /^12개월\s*\(?반납형\)?$/, '24개월 반납형': /^24개월\s*\(?반납형\)?$/, '36개월 반납형': /^36개월\s*\(?반납형\)?$/, '48개월 반납형': /^48개월\s*\(?반납형\)?$/, '60개월 반납형': /^60개월\s*\(?반납형\)?$/,
 };
 
-const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
+const sa = googleSheetsServiceAccount('tmp/firebase-auth/sa.json');
 const jwt = new JWT({ email: sa.client_email, key: sa.private_key, scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive'], subject: 'pyh@teamjpk.com' });
 const api = async (u: string, init?: RequestInit) => {
   for (let n = 0; ; n++) {

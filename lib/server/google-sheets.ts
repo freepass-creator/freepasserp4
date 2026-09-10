@@ -6,14 +6,14 @@
  * `check:b2b-release` 가 이미 한 번 물어본 적 있는 지점이라(Firebase Admin/jose/jwks 버전),
  * 여기서는 node:crypto 로 JWT 를 직접 서명해 의존성을 0으로 둔다.
  *
- * 자격증명은 firebase-admin.ts 와 «같은» 것을 쓴다(FIREBASE_SERVICE_ACCOUNT_JSON).
- * 따라서 운영에서 새로 설정할 환경변수가 없다 — 런시트 2단계에 이미 들어 있는 그 값이다.
+ * 자격증명은 GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON을 우선 사용한다. ERP5 Firebase 계정과
+ * Google Workspace 도메인 위임 계정을 섞지 않는다.
  *
  * ⚠ 대상 스프레드시트는 서비스계정 이메일에 «편집자»로 공유돼 있어야 한다.
  *   공유 전에는 읽기만 200 이고 쓰기는 403 PERMISSION_DENIED 가 난다(실측 확인).
  */
 import { createSign } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { googleSheetsServiceAccount } from '@/lib/server/google-service-account';
 
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const SCOPE = 'https://www.googleapis.com/auth/spreadsheets';
@@ -29,16 +29,8 @@ const BAND_BG = { red: 0.97, green: 0.976, blue: 0.98 };
 type Rec = Record<string, unknown>;
 
 function serviceAccountJson(): { client_email: string; private_key: string } {
-  const raw = String(process.env.FIREBASE_SERVICE_ACCOUNT_JSON || '').trim();
-  const text = raw || (() => {
-    // 로컬 스크립트는 파일 기반 자격증명을 쓴다(firebase-admin.ts 와 같은 규칙).
-    const path = String(process.env.GOOGLE_APPLICATION_CREDENTIALS || '').trim();
-    if (!path) throw new Error('FIREBASE_SERVICE_ACCOUNT_JSON 또는 GOOGLE_APPLICATION_CREDENTIALS 미설정');
-    return readFileSync(path, 'utf8');
-  })();
-  const p = JSON.parse(text) as { client_email?: string; private_key?: string };
-  if (!p.client_email || !p.private_key) throw new Error('서비스계정 JSON 형식이 올바르지 않습니다.');
-  return { client_email: p.client_email, private_key: p.private_key.replace(/\\n/g, '\n') };
+  const account = googleSheetsServiceAccount();
+  return { client_email: account.client_email, private_key: account.private_key };
 }
 
 export function sheetsServiceAccountEmail(): string {
@@ -62,9 +54,12 @@ let cached: { token: string; expiresAt: number } | null = null;
  * ```
  *   그래서 마음카 3대가 «요금 없는 차»로 남아 있었다 — 시트 공유가 안 된 게 아니라
  *   **우리가 약한 신분으로 두드리고 있었다.** 사람에게 「공유해 달라」고 할 일이 아니었다.
- * ★위임이 안 걸린 환경도 있을 수 있으니 **실패하면 옛 방식(서비스계정 그대로)으로 떨어진다.**
+ * 위임 실패는 그대로 중단한다. 서비스계정으로 조용히 떨어지면 도메인 공유 탭 일부만 빠진 채
+ * 정상처럼 보일 수 있어 원천 누락을 만들기 때문이다.
  */
-const IMPERSONATE = String(process.env.GOOGLE_SHEETS_SUBJECT || 'pyh@teamjpk.com').trim();
+const IMPERSONATE = String(
+  process.env.GOOGLE_WORKSPACE_SUBJECT || process.env.GOOGLE_SHEETS_SUBJECT || 'pyh@teamjpk.com',
+).trim();
 
 async function mintToken(subject: string): Promise<{ token: string; ttl: number }> {
   const sa = serviceAccountJson();
@@ -93,14 +88,7 @@ async function mintToken(subject: string): Promise<{ token: string; ttl: number 
 /** 서비스계정 JWT → 액세스토큰. 만료 60초 전에 재발급한다. */
 async function accessToken(): Promise<string> {
   if (cached && Date.now() < cached.expiresAt) return cached.token;
-  let got: { token: string; ttl: number };
-  try {
-    got = await mintToken(IMPERSONATE);
-  } catch (e) {
-    if (!IMPERSONATE) throw e;
-    console.warn(`[sheets] ${IMPERSONATE} 대행 실패 — 서비스계정 그대로 간다(도메인 공유 시트는 못 볼 수 있다): ${(e as Error).message.slice(0, 90)}`);
-    got = await mintToken('');
-  }
+  const got = await mintToken(IMPERSONATE);
   cached = { token: got.token, expiresAt: Date.now() + got.ttl * 1000 };
   return cached.token;
 }

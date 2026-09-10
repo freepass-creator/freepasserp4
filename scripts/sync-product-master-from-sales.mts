@@ -24,6 +24,7 @@ import { JWT } from 'google-auth-library';
 import { pickPublishedSalesTabs, standardMoneyIndex } from '../lib/domain/sales-published-tabs';
 import { DEFAULT_PRODUCT_MASTER_SHEET_ID, PRODUCT_MASTER_TAB } from '../lib/domain/product-master-sheet';
 import { isExactRealPlate } from '../lib/domain/product';
+import { googleSheetsServiceAccount } from '../lib/server/google-service-account';
 
 type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim();
@@ -41,7 +42,7 @@ const isNoDeposit = (v: unknown) => NO_DEPOSIT.test(S(v).replace(/[\s,]/g, ''));
 const colA1 = (i: number) => { let t = '', n = i + 1; while (n > 0) { const r = (n - 1) % 26; t = String.fromCharCode(65 + r) + t; n = Math.floor((n - 1) / 26); } return t; };
 const SHORT = ['1', '12'] as const; const LONG = ['24', '36', '48', '60'] as const;
 
-const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
+const sa = googleSheetsServiceAccount('tmp/firebase-auth/sa.json');
 const jwt = new JWT({ email: sa.client_email, key: sa.private_key, scopes: ['https://www.googleapis.com/auth/spreadsheets'], subject: 'pyh@teamjpk.com' });
 const call = async (u: string, init?: RequestInit): Promise<Rec> => {
   for (let n = 0; ; n++) {

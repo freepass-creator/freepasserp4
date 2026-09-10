@@ -7,7 +7,6 @@
  * 반환 URL은 클라이언트에서 /api/img 프록시로 감싼다(CORS·referrer 회피).
  */
 import { NextResponse } from 'next/server';
-import { readFile } from 'node:fs/promises';
 import { sign } from 'node:crypto';
 /**
  * ★긁는 규칙은 **`lib/domain/scrape-photos` 한 벌뿐**이다(2026-09-01 합침).
@@ -15,29 +14,24 @@ import { sign } from 'node:crypto';
  *   화면에 뜨는 사진과 드라이브로 받아 두는 사진이 달라지면 안 된다.
  */
 import { scrapePage, isScrapableHost } from '@/lib/domain/scrape-photos';
+import { googleSheetsServiceAccount } from '@/lib/server/google-service-account';
 
 export const runtime = 'nodejs';
 
 const SHORTENER_HOSTS = ['tinyurl.com', 'bit.ly'];
-type ServiceAccount = { client_email: string; private_key: string; token_uri?: string };
 let driveTokenCache: { value: string; expiresAt: number } | null = null;
 
 async function driveAccessToken(): Promise<string> {
   if (driveTokenCache && driveTokenCache.expiresAt > Date.now() + 60_000) return driveTokenCache.value;
-  let raw = String(process.env.FIREBASE_SERVICE_ACCOUNT_JSON || '').trim();
-  if (!raw) {
-    const file = String(process.env.GOOGLE_APPLICATION_CREDENTIALS || '').trim();
-    if (file) raw = await readFile(file, 'utf8');
-  }
-  if (!raw) return '';
-  const account = JSON.parse(raw) as Partial<ServiceAccount>;
-  if (!account.client_email || !account.private_key) return '';
-  const tokenUri = account.token_uri || 'https://oauth2.googleapis.com/token';
+  const account = googleSheetsServiceAccount();
+  const tokenUri = account.token_uri;
+  const subject = String(process.env.GOOGLE_WORKSPACE_SUBJECT || 'pyh@teamjpk.com').trim();
   const now = Math.floor(Date.now() / 1000);
   const enc = (value: unknown) => Buffer.from(JSON.stringify(value)).toString('base64url');
   const unsigned = `${enc({ alg: 'RS256', typ: 'JWT' })}.${enc({
     iss: account.client_email,
     scope: 'https://www.googleapis.com/auth/drive.readonly',
+    ...(subject ? { sub: subject } : null),
     aud: tokenUri,
     iat: now,
     exp: now + 3600,

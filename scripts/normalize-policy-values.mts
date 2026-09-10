@@ -21,6 +21,7 @@
  */
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
+import { googleSheetsServiceAccount } from '../lib/server/google-service-account';
 import { excludeMirrorSheets } from '../lib/domain/mirror-sources';
 import { POLICY_KEY_COLUMNS, POLICY_SHEET_FIELDS, USE_COLOR, USE_LABEL, policyBlocks, policySheetHeader } from '../lib/domain/policy-sheet-layout';
 import { SHEET_NAME_MATCH, supplierSheetLabel } from '../lib/domain/supplier-template-sheet';
@@ -36,7 +37,7 @@ const ONE = arg('sheet');
 import { policyTabTitle } from '../lib/domain/supplier-template-sheet';
 import { policyRowLive } from '../lib/domain/supplier-policy-read';
 
-const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
+const sa = googleSheetsServiceAccount('tmp/firebase-auth/sa.json');
 const jwt = new JWT({ email: sa.client_email, key: sa.private_key,
   scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive'], subject: 'pyh@teamjpk.com' });
 const call = async (u: string, init?: RequestInit): Promise<Rec> => {

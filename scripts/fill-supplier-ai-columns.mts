@@ -47,6 +47,7 @@ import { MASTER_SHEET_ID, MASTER_TAB, masterCells, pickConfirmedMasterCode, read
 import type { MasterEntry } from '../lib/domain/vehicle-master-types';
 import { substFromAiRefineRows } from '../lib/domain/ai-refine-guard';
 import { VEHICLE_CLASS_VALUES, type EntityRecord } from '../lib/intake/entities';
+import { googleSheetsServiceAccount } from '../lib/server/google-service-account';
 
 type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim();
@@ -86,7 +87,7 @@ const fuelFromCarName = (name: string) => {
   return '';
 };
 
-const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
+const sa = googleSheetsServiceAccount('tmp/firebase-auth/sa.json');
 const gT = (await new JWT({ email: sa.client_email, key: sa.private_key,
   scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive'], subject: 'pyh@teamjpk.com' }).getAccessToken()).token;
 // ★차종마스터 = 파일(vehicle-master.json). 정적 데이터라 RTDB 안 쓴다(2026-09-03 사장님 — 실시간 아니면 RTDB 비용만 남는다).

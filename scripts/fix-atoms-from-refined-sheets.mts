@@ -9,20 +9,20 @@
  * 대상 = MIRROR_SOURCES 4곳(아이카·오토플러스·이안카·아이언). 기본 dry-run · --apply.
  */
 import { readFileSync } from 'node:fs';
-import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { JWT } from 'google-auth-library';
 import { MIRROR_SOURCES } from '../lib/domain/mirror-sources';
+import { firebaseAdminApp } from '../lib/server/firebase-admin';
+import { googleSheetsServiceAccount } from '../lib/server/google-service-account';
 
 const APPLY = process.argv.includes('--apply');
 const S = (v: unknown) => String(v ?? '').trim();
 const NKEY = (c: unknown) => S(c).replace(/\s/g, '');
 const NUM = /^[\d,]+(\.\d+)?$/;
-const sa = JSON.parse(readFileSync('tmp/firebase-auth/sa.json', 'utf8'));
-initializeApp({ credential: cert({ projectId: sa.project_id, clientEmail: sa.client_email, privateKey: sa.private_key.replace(/\\n/g, '\n') }) });
 /** ★원자 SSOT = Firestore. 이 스크립트는 RTDB 를 «아예» 열지 않는다(2026-09-10). */
-const fsdb = getFirestore();
-const jwt = new JWT({ email: sa.client_email, key: sa.private_key, scopes: ['https://www.googleapis.com/auth/spreadsheets'], subject: 'pyh@teamjpk.com' });
+const fsdb = getFirestore(firebaseAdminApp());
+const sheetsAccount = googleSheetsServiceAccount('tmp/firebase-auth/sa.json');
+const jwt = new JWT({ email: sheetsAccount.client_email, key: sheetsAccount.private_key, scopes: ['https://www.googleapis.com/auth/spreadsheets'], subject: 'pyh@teamjpk.com' });
 const api = async (u: string) => { const t = (await jwt.getAccessToken()).token; const r = await fetch(u, { headers: { Authorization: `Bearer ${t}` } }); return JSON.parse(await r.text()); };
 
 /**

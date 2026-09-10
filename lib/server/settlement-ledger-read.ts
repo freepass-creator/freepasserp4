@@ -8,11 +8,11 @@
  *
  * ★판정(자리·청구월·수수료)은 여기서 안 한다. `lib/domain/settlement-stage.ts` 가 정한다.
  */
-import { readFile } from 'node:fs/promises';
 import { JWT } from 'google-auth-library';
 import { getFirestore } from 'firebase-admin/firestore';
 import { SETTLEMENT_LEDGER_ID } from '@/lib/domain/settlement-ledger';
 import { firebaseAdminApp } from '@/lib/server/firebase-admin';
+import { googleSheetsServiceAccount } from '@/lib/server/google-service-account';
 import type { SettlementRow } from '@/lib/domain/settlement-stage';
 
 export const LEDGER_TABS = ['접수', '취소', '분납실적', '완납실적'] as const;
@@ -38,7 +38,6 @@ export const toDate = (v: unknown): Date | null => {
 const p2 = (n: number) => String(n).padStart(2, '0');
 export const iso = (d: Date | null) => (d ? `${d.getFullYear()}-${p2(d.getMonth() + 1)}-${p2(d.getDate())}` : '');
 
-type ServiceAccount = { client_email: string; private_key: string };
 let tokenCache: { value: string; expiresAt: number } | null = null;
 let lastError = '';
 /** 왜 못 읽었는지 화면에 그대로 보여 준다 — 「안 된다」만 뜨면 고칠 데를 못 찾는다. */
@@ -52,18 +51,11 @@ export const ledgerError = () => lastError;
  */
 export async function sheetsToken(): Promise<string> {
   if (tokenCache && tokenCache.expiresAt > Date.now() + 60_000) return tokenCache.value;
-  let raw = String(process.env.FIREBASE_SERVICE_ACCOUNT_JSON || '').trim();
-  if (!raw) {
-    const file = String(process.env.GOOGLE_APPLICATION_CREDENTIALS || 'tmp/firebase-auth/sa.json').trim();
-    raw = await readFile(file, 'utf8').catch(() => '');
-  }
-  if (!raw) { lastError = '서비스계정 파일을 못 읽었다 (GOOGLE_APPLICATION_CREDENTIALS)'; return ''; }
-  const account = JSON.parse(raw) as Partial<ServiceAccount>;
-  if (!account.client_email || !account.private_key) { lastError = '서비스계정에 client_email·private_key 가 없다'; return ''; }
   try {
+    const account = googleSheetsServiceAccount('tmp/firebase-auth/sa.json');
     const jwt = new JWT({
       email: account.client_email,
-      key: account.private_key.replace(/\n/g, String.fromCharCode(10)),
+      key: account.private_key,
       subject: 'pyh@teamjpk.com',
       scopes: ['https://www.googleapis.com/auth/spreadsheets'],
     });

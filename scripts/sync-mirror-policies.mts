@@ -16,13 +16,14 @@
  */
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
-import { cert, getApps, initializeApp } from 'firebase-admin/app';
+import { googleSheetsServiceAccount } from '../lib/server/google-service-account';
 import { getFirestore } from 'firebase-admin/firestore';
 import { SHEET_GRID_FIELDS, readSupplierSheet } from '../lib/domain/supplier-sheet-read';
 import { hasPolicyColumns, policyFieldsFrom, policySameKey, policyTabRowFrom, POLICY_SAME_KEYS, wonOf } from '../lib/domain/supplier-row-policy';
 import { policySheetHeader } from '../lib/domain/policy-sheet-layout';
 import { POLICY_TAB_ALIASES, policyTabTitle } from '../lib/domain/supplier-template-sheet';
 import type { EntityRecord } from '../lib/intake/entities';
+import { firebaseAdminApp } from '../lib/server/firebase-admin';
 
 type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim();
@@ -42,18 +43,9 @@ const REQUIRED_POLICY_FIELDS: Record<string, Rec> = {
   RP004: { basic_driver_age: '만 26세 이상', driver_age_lowering: '불가' },
 };
 
-const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
+const sa = googleSheetsServiceAccount('tmp/firebase-auth/sa.json');
 const jwt = new JWT({ email: sa.client_email, key: sa.private_key, scopes: ['https://www.googleapis.com/auth/spreadsheets'], subject: 'pyh@teamjpk.com' });
-const firebaseAppName = 'sync-mirror-policies-firestore';
-const firebaseApp = getApps().find((item) => item.name === firebaseAppName) || initializeApp({
-  credential: cert({
-    projectId: sa.project_id,
-    clientEmail: sa.client_email,
-    privateKey: String(sa.private_key || '').replace(/\\n/g, '\n'),
-  }),
-  projectId: sa.project_id,
-}, firebaseAppName);
-const firestore = getFirestore(firebaseApp);
+const firestore = getFirestore(firebaseAdminApp());
 const call = async (u: string, init?: RequestInit): Promise<Rec> => {
   for (let n = 0; ; n++) {
     const tok = (await jwt.getAccessToken()).token;

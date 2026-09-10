@@ -11,15 +11,16 @@
  */
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
-import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { SHEET_NAME_MATCH, isOurNonInventoryTab, supplierSheetLabel } from '../lib/domain/supplier-template-sheet';
+import { firebaseAdminApp } from '../lib/server/firebase-admin';
+import { googleSheetsServiceAccount } from '../lib/server/google-service-account';
 type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim(); const P = (v: unknown) => S(v).replace(/\s/g, ''); const norm = (v: unknown) => S(v).replace(/\s+/g, '');
 const APPLY = process.argv.includes('--apply'); const WHO = (process.argv.find((a) => a.startsWith('--who=')) || '').slice(6);
 const sleep = (ms: number) => new Promise((ok) => setTimeout(ok, ms));
-const sa = JSON.parse(readFileSync('tmp/firebase-auth/sa.json', 'utf8'));
-const jwt = new JWT({ email: sa.client_email, key: sa.private_key, scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive'], subject: 'pyh@teamjpk.com' });
+const sheetsAccount = googleSheetsServiceAccount('tmp/firebase-auth/sa.json');
+const jwt = new JWT({ email: sheetsAccount.client_email, key: sheetsAccount.private_key, scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive'], subject: 'pyh@teamjpk.com' });
 const tokenOf = async () => (await jwt.getAccessToken()).token as string;
 const call = async (u: string, init?: RequestInit): Promise<Rec> => { for (let n = 0; ; n++) { const tok = await tokenOf(); const r = await fetch(u, { ...init, headers: { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' } }); const t = await r.text(); if (r.ok) return t ? JSON.parse(t) : {}; if ((r.status === 429 || r.status >= 500) && n < 6) { await sleep(Math.min(60_000, 4_000 * 2 ** n)); continue; } throw new Error(`${r.status} ${t.slice(0, 300)}`); } };
 const SH = 'https://sheets.googleapis.com/v4/spreadsheets';
@@ -28,9 +29,8 @@ const kstDate = (iso: string) => new Date(new Date(iso).getTime() + 9 * 3600e3).
 const asDate = (v: string): string => { const s = S(v); let m = /^(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})/.exec(s); if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`; m = /^(\d{2})[.\-/](\d{1,2})[.\-/](\d{1,2})$/.exec(s); if (m) return `20${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`; return ''; };
 
 // A. «처음 본 날» — 원자(Firestore)에서 읽는다. RTDB 를 안 연다.
-if (!getApps().length) initializeApp({ credential: cert(sa) });
 const erpFirst = new Map<string, string>();
-for (const d of (await getFirestore().collection('products').get()).docs) {
+for (const d of (await getFirestore(firebaseAdminApp()).collection('products').get()).docs) {
   const v = d.data() as Rec;
   const plate = P(v.car_number); const day = S(v.erp_first_seen_date);
   if (!plate || !day) continue;

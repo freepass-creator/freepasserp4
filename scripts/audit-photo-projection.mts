@@ -1,10 +1,9 @@
 /** Firestore 원자에서 ERP 사진 원천과 Google Sheet 차량번호 링크의 분리를 읽기 전용 검사한다. */
-import { readFileSync } from 'node:fs';
-import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { isOpenInventoryAtom } from '../lib/domain/inventory-contract';
 import { erpPhotoSource, isDirectPhotoUrl, isPickupPhotoAtom, isServerPhotoSource, photoProjectionViolations, photoProjectionWarnings, sheetPlateLink } from '../lib/domain/photo-projection';
 import { readSalesPublishSnapshot } from '../lib/server/sales-publish-snapshot';
+import { firebaseAdminApp } from '../lib/server/firebase-admin';
 
 type Rec = Record<string, unknown>;
 const S = (value: unknown): string => String(value ?? '').trim();
@@ -16,11 +15,7 @@ if (snapshotPath) {
   allAtoms = snapshot.products;
   source = `snapshot ${snapshot.snapshotId}`;
 } else {
-  const sa = process.env.FIREBASE_SERVICE_ACCOUNT_JSON
-    ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON)
-    : JSON.parse(readFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS || 'tmp/firebase-auth/sa.json', 'utf8'));
-  initializeApp({ credential: cert({ projectId: sa.project_id, clientEmail: sa.client_email, privateKey: S(sa.private_key).replace(/\\n/g, '\n') }) });
-  const snap = await getFirestore().collection('products').get();
+  const snap = await getFirestore(firebaseAdminApp()).collection('products').get();
   allAtoms = snap.docs.map((doc) => ({ _key: doc.id, ...doc.data() } as Rec));
 }
 const atoms = allAtoms.filter(isOpenInventoryAtom);

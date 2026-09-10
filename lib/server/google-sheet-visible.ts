@@ -1,18 +1,12 @@
 import 'server-only';
 
-import { readFile } from 'node:fs/promises';
 import {
   visibleRowsFromGridResponse,
   type SheetsGridResponse,
   type VisibleSheetTable,
 } from '@/lib/domain/sheet-visible-grid';
 import { isRetryableSheetsReadFailure, SHEET_GRID_FIELDS } from '@/lib/domain/supplier-sheet-read';
-
-type ServiceAccount = {
-  client_email: string;
-  private_key: string;
-  token_uri: string;
-};
+import { googleSheetsServiceAccount, type GoogleServiceAccount } from '@/lib/server/google-service-account';
 
 let cachedToken: { value: string; expiresAt: number } | null = null;
 
@@ -20,22 +14,8 @@ function base64UrlJson(value: unknown): string {
   return Buffer.from(JSON.stringify(value)).toString('base64url');
 }
 
-async function serviceAccount(): Promise<ServiceAccount> {
-  let raw = String(process.env.FIREBASE_SERVICE_ACCOUNT_JSON || '').trim();
-  if (!raw) {
-    const file = String(process.env.GOOGLE_APPLICATION_CREDENTIALS || '').trim();
-    if (file) raw = await readFile(file, 'utf8');
-  }
-  if (!raw) throw new Error('Google Sheets 서버 자격증명 미설정');
-  const parsed = JSON.parse(raw) as Partial<ServiceAccount>;
-  if (!parsed.client_email || !parsed.private_key) {
-    throw new Error('Google Sheets 서버 자격증명 형식 오류');
-  }
-  return {
-    client_email: parsed.client_email,
-    private_key: parsed.private_key.replace(/\\n/g, '\n'),
-    token_uri: parsed.token_uri || 'https://oauth2.googleapis.com/token',
-  };
+async function serviceAccount(): Promise<GoogleServiceAccount> {
+  return googleSheetsServiceAccount();
 }
 
 async function sheetsAccessToken(): Promise<string> {

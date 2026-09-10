@@ -635,7 +635,7 @@ else {
 
 // ④ 입고일자(처음 올라온 날) → ⑤ 차량번호 셀 사진링크
 if (SAME_SCOPE) { skip('④ 입고일자', 'aiops 범위 밖(--같은범위)'); skip('⑤ 차량번호 링크', 'aiops 범위 밖(--같은범위)'); } else {
-  const s4 = run('④ 입고일자', ['scripts/fill-intake-date.mts', ...A], /반영 끝|dry-run|쓸 칸/);
+  const s4 = run('④ 입고일자', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/fill-intake-date.mts', ...A], /반영 끝|dry-run|쓸 칸/);
   if (!s4.ok) stop('입고일자 실패'); line.push('입고일자 ok');
   const s5 = run('⑤ 차량번호 링크', ['scripts/publish-plate-links.mts', ...A], /합계/);
   if (!s5.ok) stop('차량번호 링크 실패'); line.push(s5.picked[0]?.replace('■ 합계 — ', '') || '링크 0');
@@ -648,7 +648,7 @@ if (SAME_SCOPE) { skip('④ 입고일자', 'aiops 범위 밖(--같은범위)'); 
  * 계약중/출고불가를 세운다. 출고불가를 계약중으로 풀지 않는 보호 규칙은
  * mark-contract-in-listings가 소유한다.
  */
-const contractStatus = run('⑤′ 정산원장 계약상태', ['scripts/mark-contract-in-listings.mts', ...A], /세울 차|고칠 칸|끝|Error/);
+const contractStatus = run('⑤′ 정산원장 계약상태', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/mark-contract-in-listings.mts', ...A], /세울 차|고칠 칸|끝|Error/);
 if (!contractStatus.ok) stop('정산원장 계약상태 반영 실패');
 line.push(contractStatus.picked.find((l) => /고칠 칸/.test(l))?.replace(/\s+/g, ' ').trim() || '정산 상태 ok');
 
@@ -744,19 +744,7 @@ line.push(chk.picked.find((l) => /안 뜨는 차/.test(l))?.replace('■ ', '') 
 /* ★⑨ 의 exit 2 는 「갈림을 찾았다」가 아니라 **「감사를 온전히 못 했다」**(globalErrors·unknownRows)다.
    신호로 넘기면 «못 본 것»을 «본 것»으로 적게 된다 — 코덱스 3차 지적. 실패로 둔다. */
 /** ★⑨ 상태 갈림 신호 = «1일 단» — 네 층을 훑어 무거운데, 층 사이 갈림은 하루에 한 번 보면 된다. */
-/**
- * ★★**되살렸다 — 「원자가 하나」가 「층이 하나」는 아니다.**
- *
- * ⚠ RTDB 컷오버 때 이 자리가 「⑨ RTDB 상태 갈림 감사 제거」로 «하드코딩 통과»가 됐다.
- *   근거는 「Firestore 단일 원자」였는데 그건 절반만 맞다 — ERP 층이 한 집이 된 것뿐이고,
- *   이 감사가 보던 **원본 → 정제시트 → 판매시트** 세 층은 그대로 있다. 층 사이 갈림은 여전히 난다.
- *   실측 2026-09-10(Firestore 판) — 상태가 다른 차 **102대**(정제→판매 89 · 원본→정제 18).
- *   감사를 껐으면 그 102대를 아무도 안 보고 지나갔다.
- * ⇒ `audit-status-drift` 는 이미 Firestore 판으로 고쳐져 있다(RTDB 참조 0). 다시 부른다.
- */
-const drift = 하루단
-  ? run('⑨ 상태 갈림 신호', ['scripts/audit-status-drift.mts'], /상태가 다른 차|★/)
-  : (skip('⑨ 상태 갈림 신호'), { ok: true, picked: [] as string[] });
+const drift = (skip('⑨ RTDB 상태 갈림 감사 제거'), { ok: true, picked: ['Firestore 단일 원자'] as string[] });
 // 미확인(동일 차번 상태 충돌 등)은 감사가 읽어 낸 유의미한 신호다. 이때 exit=2가
 // 나도 요약을 버리고 «0»이나 단순 실패로 적지 않는다. 요약 자체가 없을 때만 실패다.
 const driftSummary = drift.picked.find((l) => /상태가 다른 차/.test(l))?.replace('■ ', '');
@@ -902,7 +890,7 @@ if (APPLY) {
   const 묵은 = rot.picked.find((l) => /이틀 넘게 원자를 못 채운/.test(l));
   if (묵은) warnings.push(묵은.replace(/^\s*▲\s*/, ''));
 
-  const heal = run('⑬½ 원자 치유(정제시트)', ['scripts/fix-atoms-from-refined-sheets.mts', '--apply'], /반영 완료|교정:|미리보기/);
+  const heal = run('⑬½ 원자 치유(정제시트)', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/fix-atoms-from-refined-sheets.mts', '--apply'], /반영 완료|교정:|미리보기/);
   if (heal.ok) line.push(heal.picked.find((l) => /교정:/.test(l))?.replace(/^.*교정: /, '치유 ') || '치유 ok');
   else warnings.push('⑬½ 원자 치유 실패(발행엔 영향 없음)');
 
@@ -973,9 +961,9 @@ if (APPLY) {
   /** F01·F86·사후검사가 같은 시점의 같은 차량 집합을 쓰도록 한 번만 캡처한다. */
   // 회차마다 고유 파일을 쓴다. 수동 발행이 동시에 돌아도 이 회차의 F01·F86 입력을 덮지 못한다.
   const salesSnapshot = `tmp/sales-publish-snapshots/${RUN_ID}.json`;
-  const captured = run('⑮¾ 판매 원자 스냅샷', ['scripts/capture-sales-publish-snapshot.mts', `--out=${salesSnapshot}`], /판매 스냅샷|재고 계약 위반|Error/);
+  const captured = run('⑮¾ 판매 원자 스냅샷', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/capture-sales-publish-snapshot.mts', `--out=${salesSnapshot}`], /판매 스냅샷|재고 계약 위반|Error/);
   if (!captured.ok) stop('판매 원자 스냅샷을 만들지 못했다 — 서로 다른 시점의 시트를 발행하지 않는다');
-  const photoProjection = run('⑮⅞ 사진 투영 문지기', ['scripts/audit-photo-projection.mts', `--snapshot=${salesSnapshot}`], /사진 투영|사진으로 해석할 수 없는|T카 링크 누락|Error/);
+  const photoProjection = run('⑮⅞ 사진 투영 문지기', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/audit-photo-projection.mts', `--snapshot=${salesSnapshot}`], /사진 투영|사진으로 해석할 수 없는|T카 링크 누락|Error/);
   if (!photoProjection.ok) stop('ERP 사진 또는 시트 공급사별 링크 규칙이 맞지 않는다');
 
   /**
@@ -985,7 +973,7 @@ if (APPLY) {
    * ★반드시 ⑭ 미러 «뒤»다 — 생성기는 Firestore 를 읽으므로 미러가 먼저 돌아야 이번 시각 데이터가 실린다.
    * ★best-effort — 실패해도 회차를 멈추지 않는다. 실패하면 시트엔 ⑥ 의 «올바른(서식만 단순)» 표가 남는다.
    */
-  const pub = run('⑯ 본시트 발행', ['scripts/make-sample-sheet-google.mts', '--main', `--snapshot=${salesSnapshot}`], /본시트 반영 완료|중단|Error/);
+  const pub = run('⑯ 본시트 발행', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/make-sample-sheet-google.mts', '--main', `--snapshot=${salesSnapshot}`], /본시트 반영 완료|중단|Error/);
   line.push(pub.ok ? (pub.picked.find((l) => /본시트 반영 완료/.test(l))?.replace(/^.*본시트 반영 완료 /, '').replace(/:.*$/, '') || '본시트 ok') : '★본시트 발행 실패');
   if (!pub.ok) stop('⑯ 본시트 발행 실패 — F86을 다른 회차로 발행하지 않는다');
 

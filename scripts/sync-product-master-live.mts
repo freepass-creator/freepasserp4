@@ -31,6 +31,7 @@ import {
 } from '../lib/domain/product-master-live-sync';
 import type { EntityRecord } from '../lib/intake/entities';
 import type { MasterEntry } from '../lib/domain/vehicle-master-types';
+import { googleSheetsServiceAccount } from '../lib/server/google-service-account';
 
 type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim();
@@ -63,7 +64,7 @@ function manualBlockedProviderCodes(manualTable: string[][]): Set<string> {
   return blocked;
 }
 
-const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8')) as Rec;
+const sa = googleSheetsServiceAccount('tmp/firebase-auth/sa.json');
 const auth = new JWT({
   email: S(sa.client_email), key: S(sa.private_key),
   scopes: ['https://www.googleapis.com/auth/spreadsheets'], subject: 'pyh@teamjpk.com',
@@ -245,10 +246,7 @@ for (const [code, p] of [...byCode].sort()) {
       const raw = sourceRaw.get(plate);
       const rawInfo = raw
         ? productMasterSourceRowInfo({ tab: raw.tab, headers: raw.headers, row: raw.row })
-        /** ⚠ `_raw_vehicle` 은 원천마다 모양이 달라 타입이 `{}` 다 — 칸을 꺼내려면 한 번 좁혀야 한다.
-         *   실측 2026-09-11 — 회차가 부르는 스크립트 중 «유일한» 타입오류가 여기였다.
-         *   값이 없으면 모델명으로 떨어지는 뜻은 그대로 둔다(지어내지 않는다). */
-        : S((product._raw_vehicle as { source_text?: unknown } | undefined)?.source_text || product.model || '');
+        : S(product._raw_vehicle?.source_text || product.model || '');
       const supplierName = raw
         ? productMasterSupplierVehicleName(rawInfo)
         : S(product.model || product.sub_model || '');

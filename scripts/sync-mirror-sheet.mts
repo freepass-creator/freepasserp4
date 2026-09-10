@@ -36,6 +36,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
+import { googleSheetsServiceAccount } from '../lib/server/google-service-account';
 import { SHEET_GRID_FIELDS, readSupplierSheet } from '../lib/domain/supplier-sheet-read';
 import { projectSourceRow, splitMakerModel, unmappedSourceColumns, isMirrorFollowSource } from '../lib/domain/mirror-sheet-mapping';
 import { AI_TAIL_COLUMNS, columnOwner, isOurNonInventoryTab } from '../lib/domain/supplier-template-sheet';
@@ -101,7 +102,7 @@ const OURS = new Set<string>([...AI_TAIL_COLUMNS.map((c) => c.name), '정책코�
 /** 「처음 한 번」 칸이라 원문으로 안 되돌린 칸 수 — 우리 기록이 지켜진 자리다. */
 let onceKept = 0;
 
-const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
+const sa = googleSheetsServiceAccount('tmp/firebase-auth/sa.json');
 const jwt = new JWT({
   email: sa.client_email, key: sa.private_key,
   scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive'],
