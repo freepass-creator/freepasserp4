@@ -1189,14 +1189,14 @@ check('엑셀 저장 매핑은 현재 헤더로 사전검증하고 drift 시 재
   && !excelLoaderSource.includes('saved?.headers ||'));
 
 const sheetMergeSource = readFileSync(new URL('../lib/domain/sheet-merge.ts', import.meta.url), 'utf8');
-const rtdbAdapterSource = readFileSync(new URL('../lib/firebase/rtdb-adapter.ts', import.meta.url), 'utf8');
+const storeSource = readFileSync(new URL('../lib/store.ts', import.meta.url), 'utf8');
 check('기존 병합과 부재차단 모두 일반 bulkPatch 대신 상품 CAS 저장 사용',
   (sheetMergeSource.match(/bulkPatchGuardedProduct\(/g) || []).length >= 2
   && !sheetMergeSource.includes("store.bulkPatch('product'"));
-check('RTDB 상품 CAS는 계약 상태 leaf와 같은 product 경로 transaction 사용',
-  rtdbAdapterSource.includes('runTransaction(')
-  && rtdbAdapterSource.includes('`${OVERLAY}/products/${key}`')
-  && rtdbAdapterSource.includes('productPatchPreconditionMatches(current'));
+check('Firestore 상품 CAS는 products 자연키 문서 transaction 사용',
+  storeSource.includes('runTransaction(db, async (tx)')
+  && storeSource.includes("doc(db, 'products', pid)")
+  && storeSource.includes('productPatchPreconditionMatches(current'));
 
 const duplicateShellRoster = await fetchAllPartnerSheets('freepass', [{} as any], {
   partnerRows: [

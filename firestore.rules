@@ -8,6 +8,7 @@ service cloud.firestore {
     function claim(k) { return request.auth.token[k]; }
     function myCompany(doc) { return doc.companyId == claim('company'); }
     function isAdmin() { return signedIn() && claim('role') == 'admin'; }
+    function isProvider() { return signedIn() && (claim('role') == 'provider' || claim('role') == 'provider_admin'); }
 
     // 매물 — 관리자 전체, 공급사는 자기 회사 매물만 write
     match /product/{id} {
@@ -21,7 +22,14 @@ service cloud.firestore {
     //   쓰기는 서버(미러/동기, admin SDK — 규칙 우회)만. 클라 쓰기 전면 금지.
     match /products/{id} {
       allow read: if signedIn();
-      allow write: if false;
+      allow create: if isAdmin()
+        || (isProvider()
+          && request.resource.data.provider_company_code == claim('provider_company_code'));
+      allow update: if isAdmin()
+        || (isProvider()
+          && resource.data.provider_company_code == claim('provider_company_code')
+          && request.resource.data.provider_company_code == claim('provider_company_code'));
+      allow delete: if false;
     }
     // 계약 — 관리자 전체 · 공급사=자기 공급사코드 · 영업자=자기 계약(agent_code=user_code).
     //   ★2026-09-04: companyId(계약)=공급사코드 base 라 myCompany(companyId==company) 는 영업자(company=SP999)에 안 맞는다.

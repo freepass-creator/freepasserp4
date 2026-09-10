@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { initializeTestEnvironment, assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
-import { doc, getDoc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, setDoc, deleteDoc, collection, query, where, getDocs } from 'firebase/firestore';
 
 const env = await initializeTestEnvironment({
   projectId: 'demo-freepass-rules',
@@ -14,6 +14,8 @@ await env.withSecurityRulesDisabled(async (ctx) => {
   await setDoc(doc(db, 'contract/RP004__A2'), { companyId: 'RP004', provider_company_code: 'RP004', agent_code: 'U0045', _key: 'A2', customer_name: 'A2' });
   await setDoc(doc(db, 'contract/RP005__B1'), { companyId: 'RP005', provider_company_code: 'RP005', agent_code: 'U0018', _key: 'B1', customer_name: 'B' });
   await setDoc(doc(db, 'settlement/RP004__S1'), { companyId: 'RP004', provider_company_code: 'RP004', agent_code: 'U0045', amount: 100 });
+  await setDoc(doc(db, 'products/RP004__CAR1'), { companyId: 'RP004', provider_company_code: 'RP004', product_code: 'CAR1', car_number: '11가1111' });
+  await setDoc(doc(db, 'products/RP005__CAR2'), { companyId: 'RP005', provider_company_code: 'RP005', product_code: 'CAR2', car_number: '22가2222' });
   await setDoc(doc(db, 'policy/RP004__P1'), { companyId: 'RP004', name: '정책A' });
   await setDoc(doc(db, 'partner/RP004__PT1'), { companyId: 'RP004', partner_name: '제일오토' });
   await setDoc(doc(db, 'customer/PT-0000__C1'), { companyId: 'PT-0000', created_by: 'uidA', customer_name: '손님A' });
@@ -49,6 +51,18 @@ await check('비로그인 계약 차단', 'deny', getDoc(doc(AN, 'contract/RP004
 
 // 정산 금액변경 — 영업자 차단(admin만)
 await check('영업자 정산 쓰기 차단', 'deny', setDoc(doc(A, 'settlement/RP004__S1'), { amount: 999 }));
+
+// === 상품 원자 — 로그인 read, admin 전체 write, 공급사는 자기 원자만 create/update, client delete 금지 ===
+await check('영업자 상품 읽기', 'ok', getDoc(doc(A, 'products/RP004__CAR1')));
+await check('영업자 상품 쓰기 차단', 'deny', setDoc(doc(A, 'products/RP004__CAR1'), { car_number: '11가9999' }, { merge: true }));
+await check('공급사 자기 상품 생성', 'ok', setDoc(doc(P, 'products/RP004__CAR3'), {
+  companyId: 'RP004', provider_company_code: 'RP004', product_code: 'CAR3', car_number: '33가3333',
+}));
+await check('공급사 자기 상품 수정', 'ok', setDoc(doc(P, 'products/RP004__CAR1'), { car_number: '11가1112' }, { merge: true }));
+await check('공급사 남의 상품 수정 차단', 'deny', setDoc(doc(P, 'products/RP005__CAR2'), { car_number: '22가9999' }, { merge: true }));
+await check('공급사 코드 갈아타기 차단', 'deny', setDoc(doc(P, 'products/RP004__CAR1'), { provider_company_code: 'RP005' }, { merge: true }));
+await check('공급사 상품 하드삭제 차단', 'deny', deleteDoc(doc(P, 'products/RP004__CAR1')));
+await check('관리자 상품 수정', 'ok', setDoc(doc(AD, 'products/RP005__CAR2'), { car_number: '22가2223' }, { merge: true }));
 
 // === 어댑터 쿼리 패턴(list) 격리 — 규칙은 «필터가 아니라 검증»이라 제약 없으면 쿼리 자체가 거부된다 ===
 await check('영업자A list(agent_code) 허용', 'ok', getDocs(query(collection(A, 'contract'), where('agent_code', '==', 'U0045'))));

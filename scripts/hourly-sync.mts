@@ -635,8 +635,8 @@ else {
 
 // ④ 입고일자(처음 올라온 날) → ⑤ 차량번호 셀 사진링크
 if (SAME_SCOPE) { skip('④ 입고일자', 'aiops 범위 밖(--같은범위)'); skip('⑤ 차량번호 링크', 'aiops 범위 밖(--같은범위)'); } else {
-  skip('④ RTDB 기반 입고일자 보정 제거', 'Firestore 직접수집의 원천 시각 사용');
-  line.push('입고일자 직접수집');
+  const s4 = run('④ 입고일자', ['scripts/fill-intake-date.mts', ...A], /반영 끝|dry-run|쓸 칸/);
+  if (!s4.ok) stop('입고일자 실패'); line.push('입고일자 ok');
   const s5 = run('⑤ 차량번호 링크', ['scripts/publish-plate-links.mts', ...A], /합계/);
   if (!s5.ok) stop('차량번호 링크 실패'); line.push(s5.picked[0]?.replace('■ 합계 — ', '') || '링크 0');
 }
@@ -890,7 +890,9 @@ if (APPLY) {
   const 묵은 = rot.picked.find((l) => /이틀 넘게 원자를 못 채운/.test(l));
   if (묵은) warnings.push(묵은.replace(/^\s*▲\s*/, ''));
 
-  skip('⑬½ RTDB 원자 치유 제거', '⑬¼ Firestore 직접수집이 정제값 반영');
+  const heal = run('⑬½ 원자 치유(정제시트)', ['scripts/fix-atoms-from-refined-sheets.mts', '--apply'], /반영 완료|교정:|미리보기/);
+  if (heal.ok) line.push(heal.picked.find((l) => /교정:/.test(l))?.replace(/^.*교정: /, '치유 ') || '치유 ok');
+  else warnings.push('⑬½ 원자 치유 실패(발행엔 영향 없음)');
 
   /**
    * ⑬½¼ **상태 아물기** — `status` 와 `vehicle_status` 를 한 벌로.
