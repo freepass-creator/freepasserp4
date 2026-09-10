@@ -76,10 +76,45 @@ export function isEnabled(s: OptionSpec, id: string, chosen: ReadonlySet<string>
      이미 값에 든 3.5T 엔진이 「2.5T 전용 휠」을 막는데, 그 휠이 그대로 팔렸다(300만).
      있을 수 없는 차의 값이 견적서에 찍힌다(2026-09-10 개발센터 4-AI 관문 · Codex 발견 4). */
   const held = new Set([...chosen, ...(s.impliedOptions ?? [])]);
-  for (const [parent, blocked] of Object.entries(s.optionExcludes ?? {})) {
+  const ex = s.optionExcludes ?? {};
+  for (const [parent, blocked] of Object.entries(ex)) {
     if (held.has(parent) && (blocked ?? []).includes(id)) return false;
   }
+  /* ★★**배타는 방향이 없다** — 「A 와 B 는 동시 불가」다.
+     한 방향만 봐서 **GV80 블랙의 파퓰러 패키지 550만이 이중청구**됐다:
+       블랙 기본구성에 드라Ⅰ·드라Ⅱ·빌트인캠이 이미 들었는데, 그 셋을 «담은» 묶음이 안 막혔다
+       (`optionExcludes.popular = [da1, da2, cam]` — 부모가 `popular` 쪽이라 검사에 안 걸렸다).
+     ⇒ 이 옵션이 막는 것 중 **이미 쥔 것이 있으면** 이 옵션도 못 고른다.
+     (2026-09-10 개발센터 4-AI 관문 · 독립 Claude 5회차 필수 1) */
+  if ((ex[id] ?? []).some((b) => held.has(b))) return false;
+  /* ★★**다른 엔진의 물건은 못 산다** — 정본이 옵션 이름에 엔진을 적어 둔다(「스포츠 패키지 (2.5T)」).
+     G80 은 실데이터에 `engine_3_5t → sport_pkg_2_5` 배제가 **없어서**, 3.5T 를 «고른» 뒤에도
+     2.5T 스포츠 패키지 400만이 팔렸다(진짜는 3.5T 용 560만 · **160만 갈림**).
+     ⚠ 엔진을 «안 적은» 옵션은 손대지 않는다 — 지우면 팔 물건이 사라진다. */
+  const eng = heldEngine(s, held);
+  if (eng) {
+    const tag = engineTag(`${S(s.optionsMaster[id]?.name)} ${S(s.optionsMaster[id]?.sub)}`);
+    if (tag && tag !== eng) return false;
+  }
   return true;
+}
+
+const S = (v: unknown) => String(v ?? '').trim();
+/** 이름·설명에 적힌 엔진 배기량(「2.5T」·「3.5T 전용」) — 없으면 빈 문자열. */
+/** 옵션 이름에 적힌 «전용 엔진» — 제조사는 부품에 「2.5T -」·「3.5T 전용」·「(2.5T)」처럼 적는다.
+    ⚠ 「2.0 오디오」 같은 우연을 안 잡으려고 **T 꼴만** 본다. */
+const engineTag = (t: string) => /([1-6]\.[0-9])\s*T/i.exec(S(t))?.[1] ?? '';
+/** 엔진 이름의 배기량 — 「가솔린 3.5 터보」처럼 T 가 없는 표기도 읽는다. */
+const engineDisp = (t: string) => /([1-6]\.[0-9])/.exec(S(t))?.[1] ?? '';
+/** 지금 «쥔» 엔진 — 이미 산 것이든 고른 것이든. 없으면 빈 문자열. */
+function heldEngine(s: OptionSpec, held: ReadonlySet<string>): string {
+  for (const id of held) {
+    const o = s.optionsMaster?.[id];
+    if (!o || !/엔진|engine/i.test(`${S(o.name)} ${S(o.sub)}`)) continue;
+    const tag = engineDisp(`${S(o.name)} ${S(o.sub)}`);
+    if (tag) return tag;
+  }
+  return '';
 }
 
 /**
