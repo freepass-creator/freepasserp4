@@ -57,7 +57,7 @@ const readTab = async (tab: string): Promise<string[][]> => {
 };
 
 /* ── ① 원장 ───────────────────────────────────────────────────── */
-type L = { month: string; plate: string; cust: string; sup: string; claim: number; pay: number; tab: string };
+type L = { month: string; plate: string; cust: string; sup: string; claim: number; pay: number; tab: string; claw: boolean };
 const led: L[] = [];
 for (const t of [SETTLEMENT_INTAKE_TAB, SETTLEMENT_DONE_TAB, SETTLEMENT_WATCH_TAB]) {
   const g = await readTab(t);
@@ -71,6 +71,16 @@ for (const t of [SETTLEMENT_INTAKE_TAB, SETTLEMENT_DONE_TAB, SETTLEMENT_WATCH_TA
   const iAL = c('출고수수료'); const iAM = c('출고 수수료 (수식X)');
   const iCI = c('공급사인센티브'); const iAI = c('에이전시인센티브');
   const iCan = c('취소'); const iPl = c('차량번호'); const iCu = c('고객명'); const iSup = c('업체명', '공급사');
+  /**
+   * ★★**환수는 원장이 «칸으로» 말한다** — 「환수」 체크. 짐작하지 않는다.
+   *   ⚠ 앞서 나는 `settlement_clawbacks` 에 같은 «달|차번»이 있으면 그 차의 원장행을 «전부» 뺐다.
+   *     Codex 적대검증(2026-09-10)이 반례를 재현했다:
+   *       PLATE_ONLY_FILTER before=2 classifiedClaw=2 kept=0  ← expected 1·1
+   *     같은 달·같은 차에 «정상행과 환수행»이 각각 있으면 둘 다 사라진다.
+   *     그러면 「일치」가 떠도 그건 환수 금액이 맞다는 뜻이 아니다 — **거짓 합격**이다.
+   *   ⇒ 원장의 「환수」 칸으로 가른다. 원장이 적어 둔 것을 읽지, 다른 데서 짐작하지 않는다.
+   */
+  const iClaw = c('환수');
   for (const r of g.slice(hi + 1)) {
     if (/^(TRUE|true|O|o|Y|y|1|취소)$/.test(S(r[iCan]))) continue;
     const y = N(r[iy]); const m = N(r[im]);
@@ -80,6 +90,7 @@ for (const t of [SETTLEMENT_INTAKE_TAB, SETTLEMENT_DONE_TAB, SETTLEMENT_WATCH_TA
       plate: S(r[iPl]) || '(차번없음)', cust: S(r[iCu]), sup: S(r[iSup]),
       claim: (iZ >= 0 && S(r[iZ]) ? N(r[iZ]) : N(r[iY])) + (iCI >= 0 ? N(r[iCI]) : 0),
       pay: (iAM >= 0 && S(r[iAM]) ? N(r[iAM]) : N(r[iAL])) + (iAI >= 0 ? N(r[iAI]) : 0),
+      claw: iClaw >= 0 && /^(TRUE|true|O|o|Y|y|1)$/.test(S(r[iClaw])),
     });
   }
 }
@@ -99,12 +110,11 @@ const atoms = (await fsdb.collection('settlement_rows').get()).docs.map((d) => d
  *   ★거짓 경보가 한 번 뜨면 그 검사는 그날로 안 믿게 된다 — 오늘만 이 병이 두 번째다.
  */
 const claws = (await fsdb.collection('settlement_clawbacks').get()).docs.map((d) => d.data() as Record<string, unknown>);
-const 환수키 = new Map<string, number>();
-for (const c of claws) {
-  const k = `${S(c.month)}|${S(c.plate).replace(/\s/g, '')}`;
-  환수키.set(k, (환수키.get(k) || 0) + 1);
-}
-const 환수인가 = (month: string, plate: string) => (환수키.get(`${month}|${plate.replace(/\s/g, '')}`) || 0) > 0;
+/**
+ * ⚠ 「달|차번이 clawbacks 에 있으면 환수」로 가르던 도우미는 걷어냈다 —
+ *   같은 달·같은 차의 «정상행»까지 같이 빼 버렸다(Codex 반례 PLATE_ONLY_FILTER).
+ *   환수 여부는 원장의 「환수」 칸이 말한다.
+ */
 
 /* ── ③ 달마다 맞댄다 ──────────────────────────────────────────── */
 const 달 = [...new Set([...led.map((r) => r.month), ...atoms.map((r) => S(r.billMonth))])]
@@ -121,10 +131,42 @@ for (const m of 달) {
    * ★환수로 담긴 줄은 원장 쪽에서도 뺀다 — 그래야 «rows ↔ rows» 끼리 견준다.
    *   환수는 아래에 따로 몇 건인지 찍는다. 섞어 세면 어느 쪽이 틀렸는지 못 가린다.
    */
-  const L환 = L전.filter((r) => 환수인가(m, r.plate));
-  const L2 = L전.filter((r) => !환수인가(m, r.plate));
+  const L환 = L전.filter((r) => r.claw);
+  const L2 = L전.filter((r) => !r.claw);
   const A2 = atoms.filter((r) => S(r.billMonth) === m);
-  const LC = L2.reduce((a, r) => a + r.claim, 0); const LP = L2.reduce((a, r) => a + r.pay, 0);
+
+  /**
+   * ★★★**정산 비율은 원자에서만 곱해진다** — Codex 적대검증 2026-09-10 이 재현했다.
+   *
+   *   원장 「계약번호(메모)」 칸에 「50%」 같은 말이 적히면 원자화가 그것을 축으로 옮기고
+   *   (`settleTarget`·`settleRatio`), `claimOf`/`payOf` 가 그 비율을 곱한다.
+   *   ⇒ **원장은 «원문», 원자는 «규칙 적용본»이다.** 그냥 견주면 비율 걸린 줄마다 갈린다.
+   *   실측: 161허1384 원장 1,372,800 → 원자 686,400 (0.5)
+   *        161허1169 청구 원문이 0 이라 «청구는 0 차이인데 지급만» 464,400 갈렸다
+   *        — 내가 못 풀던 그 비대칭의 정답이다.
+   *
+   * ⇒ 원장 값에 «그 줄의 원자가 쓴 비율»을 곱해 견준다. 그래야 «규칙 적용 후»끼리 견주게 된다.
+   * ⚠ 짝을 못 지으면 비율을 1 로 둔다 — 모르는 것을 0.5 로 짐작하면 갈린 것을 덮어 버린다.
+   */
+  const 비율표 = new Map<string, number[]>();
+  for (const a of A2) {
+    const k = `${S(a.plate).replace(/\s/g, '')}|${S(a.customer)}`;
+    const r = Number(a.settleRatio);
+    (비율표.get(k) || 비율표.set(k, []).get(k)!).push(r > 0 ? r : 1);
+  }
+  const 쓴비율 = new Map<string, number>();
+  const 비율of = (r: { plate: string; cust: string }) => {
+    const k = `${r.plate.replace(/\s/g, '')}|${r.cust}`;
+    const arr = 비율표.get(k);
+    if (!arr || !arr.length) return 1;
+    const i = 쓴비율.get(k) || 0;
+    쓴비율.set(k, i + 1);
+    return arr[Math.min(i, arr.length - 1)];
+  };
+  const 비율걸림: string[] = [];
+  const LC = L2.reduce((a, r) => { const v = 비율of(r); if (v !== 1) 비율걸림.push(`${r.plate} ×${v}`); return a + r.claim * v; }, 0);
+  쓴비율.clear();
+  const LP = L2.reduce((a, r) => a + r.pay * 비율of(r), 0);
   const AC = A2.reduce((a, r) => a + claimOf(r as unknown as SettlementRow), 0);
   const AP = A2.reduce((a, r) => a + payOf(r as unknown as SettlementRow), 0);
 
@@ -142,10 +184,24 @@ for (const m of 달) {
   const 지급갈림 = Math.abs(LP - AP) > 1;
   const 청구갈림 = Math.abs(LC - AC) > 1;
   const 표 = 줄갈림 || 지급갈림 ? ' ✕' : 청구갈림 ? ' △' : ' ✓';
-  const 환 = L환.length ? `  환수 ${L환.length}` : '';
+  const 환 = `${L환.length ? `  환수 ${L환.length}` : ''}${비율걸림.length ? `  비율 ${비율걸림.length}` : ''}`;
   console.log(`   ${pad(m, 9)} ${String(L2.length).padStart(4)} ${String(A2.length).padStart(4)}   ${W(LC).padStart(13)} ${W(AC).padStart(13)}   ${W(LP).padStart(13)} ${W(AP).padStart(13)}${표}${환}`);
 
   if (지급갈림) 사고.push(`${m}  지급이 갈립니다 — 원장 ${W(LP)} · 원자 ${W(AP)}  (지급 축엔 다리가 없습니다)`);
+
+  /**
+   * ★★**환수는 «금액까지» 맞댄다** — 건수만 세면 금액이 틀려도 통과한다.
+   *   원장 판매수수료 → `supplierAmt` · 출고수수료 → `agentAmt` 로 옮긴다
+   *   (atomize-settlement-month.mts:305). 소비처도 같은 축으로 차감하므로 뜻은 같다.
+   */
+  const C2 = claws.filter((c) => S(c.month) === m);
+  const 원장환수공급 = L환.reduce((a, r) => a + r.claim, 0);
+  const 원장환수영업 = L환.reduce((a, r) => a + r.pay, 0);
+  const 원자환수공급 = C2.reduce((a, c) => a + (Number(c.supplierAmt) || 0), 0);
+  const 원자환수영업 = C2.reduce((a, c) => a + (Number(c.agentAmt) || 0), 0);
+  if (L환.length !== C2.length) 사고.push(`${m}  환수 건수가 갈립니다 — 원장 ${L환.length}건 · 원자 ${C2.length}건`);
+  if (Math.abs(원장환수공급 - 원자환수공급) > 1) 사고.push(`${m}  환수 공급사 몫이 갈립니다 — 원장 ${W(원장환수공급)} · 원자 ${W(원자환수공급)}`);
+  if (Math.abs(원장환수영업 - 원자환수영업) > 1) 사고.push(`${m}  환수 영업자 몫이 갈립니다 — 원장 ${W(원장환수영업)} · 원자 ${W(원자환수영업)}`);
   if (청구갈림) 참고.push(`${m}  청구 차이 ${W(LC - AC)} — 「그 달 청구하지 않는 줄」 같은 다리인지는 npm run check:chain ${m} 이 말합니다`);
 
   if (!줄갈림) continue;
