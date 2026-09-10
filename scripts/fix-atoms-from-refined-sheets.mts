@@ -1,5 +1,7 @@
 /**
- * 외부 정제시트(차종마스터 정제본) → v4/products «한 번 원자화» 교정.
+ * 외부 정제시트(차종마스터 정제본) → **원자(Firestore `products`)** «한 번 원자화» 교정.
+ *   ⚠ 2026-09-10 까지 `v4/products`(RTDB)에 썼다 — 회차에 남은 «마지막» RTDB 쓰기였다. 그래서
+ *     여기서 고친 값이 SSOT 에 안 닿아 「기본형」 규칙이 이틀 동안 헛돌았다. 지금은 Firestore 에 바로 쓴다.
  *   사장님 2026-09-04 「외부시트/홈피를 차종마스터 기반 직접 원자화해두고 상태값만 반영하는 로직」 확인.
  *   색·주행·세부트림은 write-once 라 옛 시딩이 잘못/비어 있으면 정제시트가 맞아도 원자가 안 고쳐진다.
  *   정제시트의 «세부트림·외장색상·주행거리»(모두 차종마스터 정제칸)를 읽어, 원자가 비었거나 명백히 틀린 것만 채운다.
@@ -8,7 +10,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { initializeApp, cert } from 'firebase-admin/app';
-import { getDatabase } from 'firebase-admin/database';
+import { getFirestore } from 'firebase-admin/firestore';
 import { JWT } from 'google-auth-library';
 import { MIRROR_SOURCES } from '../lib/domain/mirror-sources';
 
@@ -17,11 +19,18 @@ const S = (v: unknown) => String(v ?? '').trim();
 const NKEY = (c: unknown) => S(c).replace(/\s/g, '');
 const NUM = /^[\d,]+(\.\d+)?$/;
 const sa = JSON.parse(readFileSync('tmp/firebase-auth/sa.json', 'utf8'));
-initializeApp({ credential: cert({ projectId: sa.project_id, clientEmail: sa.client_email, privateKey: sa.private_key.replace(/\\n/g, '\n') }), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' });
-const rtdb = getDatabase();
+initializeApp({ credential: cert({ projectId: sa.project_id, clientEmail: sa.client_email, privateKey: sa.private_key.replace(/\\n/g, '\n') }) });
+/** ★원자 SSOT = Firestore. 이 스크립트는 RTDB 를 «아예» 열지 않는다(2026-09-10). */
+const fsdb = getFirestore();
 const jwt = new JWT({ email: sa.client_email, key: sa.private_key, scopes: ['https://www.googleapis.com/auth/spreadsheets'], subject: 'pyh@teamjpk.com' });
 const api = async (u: string) => { const t = (await jwt.getAccessToken()).token; const r = await fetch(u, { headers: { Authorization: `Bearer ${t}` } }); return JSON.parse(await r.text()); };
 
+/**
+ * ⚠ **트림 규칙이 두 벌이다 — 고칠 때 «둘 다» 보라.**
+ *   여기 `pickTrim` 과 `lib/domain/trim-pick` 이 같은 일을 한다(후자는 `scripts/heal-atom-trim.mts` 가 쓴다).
+ *   실측 2026-09-10 — 둘의 트림 풀이 조금 다르다. 여기는 `variants[].trims` 만 보고,
+ *   `trim-pick` 은 위쪽 `trims` 까지 본다. 갈리면 답이 갈린다 — 합칠 때 그 차이부터 재라.
+ */
 // ── 트림 피커(모든 공급사) — 세부모델의 마스터 trims[] 를 원문과 정규화 대조해 세부트림을 뽑는다.
 //   사장님 2026-09-04 「원문에 세부트림 있으면 한 번 원자화하면 되지」. 마스터 trims 에서만 고르므로 지어내지 않는다.
 const master = JSON.parse(readFileSync('public/data/vehicle-master.json', 'utf8'));
@@ -142,18 +151,43 @@ if (sonoGubun.size && sonoGubun.size < SONO_MIN) {
 }
 console.log('');
 
-const products = (await rtdb.ref('v4/products').get()).val() as Record<string, any> || {};
-const updates: Record<string, any> = {};
+/**
+ * ★★**원자는 Firestore 다 — 여기서 RTDB 를 읽지도 쓰지도 않는다.**
+ *
+ * > 사장님 2026-09-10 「너한테 지금 계속 얘기를 하는데도 **RTDB 를 왜 못 지우는지**」
+ *
+ * ⚠⚠ 실측 2026-09-10 — 회차가 부르는 스크립트 46개 중 **RTDB 에 «쓰는» 것은 이 하나뿐**이었다.
+ *   나머지는 읽기만 한다. 그런데 이 하나 때문에 규칙이 SSOT 에 안 닿았다 —
+ *   「기본형」 규칙이 이틀 전부터 코드에 있었는데 원자엔 기본형인 차가 **한 대도** 없었다.
+ *   여기서 고친 값은 「다음 미러가 Firestore 로 전파」하기를 기다렸고, 그 다리가 끊겨 있었다.
+ * ⇒ 읽기도 쓰기도 **Firestore `products`** 로 옮긴다. 이제 회차의 RTDB «쓰기»는 0 이다.
+ */
+const snap = await fsdb.collection('products').get();
+const products: Record<string, any> = {};
+for (const d of snap.docs) products[d.id] = d.data();
+/**
+ * ★★**모으는 꼴 = 「문서 → 칸」이다. 경로 문자열을 만들지 않는다.**
+ *
+ * ⚠ 2026-09-10 까지 여기 `updates` 는 `v4/products/<문서>/<칸>` **경로 한 벌**이었다.
+ *   RTDB 쓰기를 걷어낸 «뒤에도» 그 문자열만 남아, 파일을 grep 하면 `v4/products` 가 16곳 나왔다 —
+ *   **RTDB 에 쓰지 않는데 코드가 RTDB 처럼 보였다.** 사장님 「왜 자꾸 RTDB 를 참조하냐」에
+ *   내가 보탠 것이 이것이다. 겉모습이 뜻과 다르면 다음 사람이 또 속는다.
+ * ⇒ 처음부터 문서별 «칸 묶음»으로 모아 Firestore batch 로 그대로 내려놓는다(되풀 단계 없음).
+ *   ★값은 전부 문자열이다(`S()` 통과) — 그래서 `Record<string, string>`. `_refined_at`(수) 는 쓸 때만 얹는다.
+ */
+const 문서별 = new Map<string, Record<string, string>>();
+let 칸수 = 0;                                  // 「필드 N」 = 전 문서 칸 합(예전 `updates` 키 수와 같은 값)
 const stat = { maker: 0, model: 0, sub: 0, trim: 0, color: 0, mileage: 0, gubun: 0 };
 const rows: string[] = [];
 for (const [key, v] of Object.entries(products)) {
   if (!v || typeof v !== 'object') continue;
   const code = S(v.provider_company_code); const car = NKEY(v.car_number);
   const changes: string[] = [];
+  const patch: Record<string, string> = {};   // 이 차 «한 대»의 고칠 칸. 비면 안 싣는다.
   // ★식별 오버라이드(사람 확인값) — 최우선. 매처가 못 박은 차를 여기서 박는다. 값 있는 필드만.
   const ov = identOv[car];
   if (ov) for (const f of ['maker', 'model', 'sub_model', 'trim_name'] as const) {
-    if (S(ov[f]) && S(v[f]) !== S(ov[f])) { updates[`v4/products/${key}/${f}`] = S(ov[f]); (stat as any)[f === 'sub_model' ? 'sub' : f === 'trim_name' ? 'trim' : f]++; changes.push(`${f}(확인)→「${S(ov[f])}」`); }
+    if (S(ov[f]) && S(v[f]) !== S(ov[f])) { patch[f] = S(ov[f]); (stat as any)[f === 'sub_model' ? 'sub' : f === 'trim_name' ? 'trim' : f]++; changes.push(`${f}(확인)→「${S(ov[f])}」`); }
   }
   // ⑤ 상품구분(불변) 정규화 — 5개 캐논만. 오플(RP023)=오플구독 · 재랜트/재렌트=중고렌트. (모든 공급사)
   const curPt = S(v.product_type);
@@ -161,41 +195,51 @@ for (const [key, v] of Object.entries(products)) {
     : (/재랜트|재렌트/.test(curPt) ? '중고렌트'
     /* ★손오공은 구분이 비었을 때만 제공시트 「분류」에서 가져온다(픽업구독·중고구독…). 있는 값은 안 덮는다. */
     : (code === 'RP012' && !curPt ? S(sonoGubun.get(car)) : ''));
-  if (newPt && newPt !== curPt) { updates[`v4/products/${key}/product_type`] = newPt; stat.gubun++; changes.push(`구분 「${curPt}」→「${newPt}」`); }
+  if (newPt && newPt !== curPt) { patch.product_type = newPt; stat.gubun++; changes.push(`구분 「${curPt}」→「${newPt}」`); }
   // ② 제원·스펙(불변) 채움 — 정제시트(차종마스터 정제본) 있는 공급사만, «비었을 때만».
   const t = truth.get(`${code}|${car}`);
   if (t) {
-    if (t.maker && !S(v.maker)) { updates[`v4/products/${key}/maker`] = t.maker; stat.maker++; changes.push(`제조사→「${t.maker}」`); }
-    if (t.model && !S(v.model)) { updates[`v4/products/${key}/model`] = t.model; stat.model++; changes.push(`모델→「${t.model}」`); }
-    if (t.sub && !S(v.sub_model)) { updates[`v4/products/${key}/sub_model`] = t.sub; stat.sub++; changes.push(`세부모델→「${t.sub}」`); }
-    if (t.trim && !S(v.trim_name)) { updates[`v4/products/${key}/trim_name`] = t.trim; stat.trim++; changes.push(`트림→「${t.trim}」`); }
-    if (t.color && !S(v.ext_color)) { updates[`v4/products/${key}/ext_color`] = t.color; stat.color++; changes.push(`색→「${t.color}」`); }
+    if (t.maker && !S(v.maker)) { patch.maker = t.maker; stat.maker++; changes.push(`제조사→「${t.maker}」`); }
+    if (t.model && !S(v.model)) { patch.model = t.model; stat.model++; changes.push(`모델→「${t.model}」`); }
+    if (t.sub && !S(v.sub_model)) { patch.sub_model = t.sub; stat.sub++; changes.push(`세부모델→「${t.sub}」`); }
+    if (t.trim && !S(v.trim_name)) { patch.trim_name = t.trim; stat.trim++; changes.push(`트림→「${t.trim}」`); }
+    if (t.color && !S(v.ext_color)) { patch.ext_color = t.color; stat.color++; changes.push(`색→「${t.color}」`); }
     // 주행거리는 «변동»(사장님 2026-09-04 「대여료처럼 변동」) — 정제시트 현재값을 매번 따른다(비었을 때만이 아니라 다르면 갱신).
-    if (t.mileage && S(v.mileage) !== t.mileage) { updates[`v4/products/${key}/mileage`] = t.mileage; stat.mileage++; changes.push(`주행 「${S(v.mileage)}」→「${t.mileage}」`); }
+    if (t.mileage && S(v.mileage) !== t.mileage) { patch.mileage = t.mileage; stat.mileage++; changes.push(`주행 「${S(v.mileage)}」→「${t.mileage}」`); }
   }
   // ② 세부트림 피커(모든 공급사) — 정제시트로도 못 채운 빈 트림을, 세부모델 마스터 trims 에서 원문 대조로 뽑는다(손오공·아이언 등).
-  const trimKey = `v4/products/${key}/trim_name`;
-  const subM = updates[`v4/products/${key}/sub_model`] || S(v.sub_model);
-  if (!S(v.trim_name) && !updates[trimKey] && subM) {
-    // ★v4/products(RTDB)의 원문은 supplier_vehicle_name 이다(«원문」 객체는 미러가 Firestore 에 만든다).
+  //   ★위에서 이번 회차에 «방금 채운» 세부모델(patch)도 같이 본다 — 원자의 옛 빈칸만 보면 새로 정해진 세부모델을 놓친다.
+  const subM = patch.sub_model || S(v.sub_model);
+  if (!S(v.trim_name) && !patch.trim_name && subM) {
+    // ★원문 차명은 원자의 `supplier_vehicle_name` 칸이다(미러가 Firestore 에 만든 «원문» 객체는 폴백).
     const raw = S(v.supplier_vehicle_name) || S(v['원문']?.['차명']);
     const picked = pickTrim(subM, raw);
-    if (picked) { updates[trimKey] = picked; stat.trim++; changes.push(`트림(원문)→「${picked}」`); }
+    if (picked) { patch.trim_name = picked; stat.trim++; changes.push(`트림(원문)→「${picked}」`); }
   }
   // ★외장/내장 색이 «한 칸에 붙은」 것 분리 — 「A / B」 → 외장=A · 내장=B (손오공구독 등, 사장님 2026-09-04).
-  const ec = S(updates[`v4/products/${key}/ext_color`] || v.ext_color);
+  const ec = S(patch.ext_color || v.ext_color);
   if (ec.includes('/') && !S(v.int_color)) {
     const parts = ec.split('/').map((x) => S(x));
-    if (parts[0]) updates[`v4/products/${key}/ext_color`] = parts[0];
-    if (parts[1]) { updates[`v4/products/${key}/int_color`] = parts[1]; stat.color++; changes.push(`외장/내장 분리 「${ec}」→「${parts[0]}」·「${parts[1]}」`); }
+    if (parts[0]) patch.ext_color = parts[0];
+    if (parts[1]) { patch.int_color = parts[1]; stat.color++; changes.push(`외장/내장 분리 「${ec}」→「${parts[0]}」·「${parts[1]}」`); }
   }
   if (changes.length && rows.length < 25) rows.push(`  ${code} ${car}: ${changes.join(' · ')}`);
+  const n = Object.keys(patch).length;
+  if (n) { 문서별.set(key, patch); 칸수 += n; }   // ★한 칸이라도 있는 차만 싣는다(빈 문서는 batch 에 안 올린다)
 }
-console.log(`교정: 제조사 ${stat.maker} · 모델 ${stat.model} · 세부모델 ${stat.sub} · 세부트림 ${stat.trim} · 색 ${stat.color} · 주행 ${stat.mileage} · 구분 ${stat.gubun} (필드 ${Object.keys(updates).length})`);
+console.log(`교정: 제조사 ${stat.maker} · 모델 ${stat.model} · 세부모델 ${stat.sub} · 세부트림 ${stat.trim} · 색 ${stat.color} · 주행 ${stat.mileage} · 구분 ${stat.gubun} (필드 ${칸수})`);
 for (const r of rows) console.log(r);
 if (!APPLY) { console.log(`\n미리보기 — 실제: --apply`); process.exit(0); }
-// 큰 update 는 나눠서
-const entries = Object.entries(updates);
-for (let i = 0; i < entries.length; i += 500) { await rtdb.ref().update(Object.fromEntries(entries.slice(i, i + 500))); }
-console.log(`\n반영 완료 — ${Object.keys(updates).length} 필드. 다음 미러가 Firestore 로 전파.`);
+/**
+ * ★**모은 그대로 문서별로 쓴다.** 위 고리에서 이미 「문서 → 칸」으로 모았으므로 되풀 단계가 없다.
+ *   `merge:true` — 여기서 정한 칸만 얹는다(상태값 등 남의 칸은 안 건드린다).
+ *   `_refined_at` 도장은 «이번 회차가 이 차를 손봤다»는 표시다(회차·감시판이 읽는다).
+ */
+const ids = [...문서별.keys()];
+for (let i = 0; i < ids.length; i += 400) {
+  const batch = fsdb.batch();
+  for (const id of ids.slice(i, i + 400)) batch.set(fsdb.collection('products').doc(id), { ...문서별.get(id), _refined_at: Date.now() }, { merge: true });
+  await batch.commit();
+}
+console.log(`\n반영 완료 — 원자 ${ids.length}대 · ${칸수} 칸 (Firestore 에 바로 썼다 · 미러를 안 기다린다).`);
 process.exit(0);

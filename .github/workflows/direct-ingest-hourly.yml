@@ -42,7 +42,6 @@ jobs:
       - name: 전 공급사 직접수집 → Firestore
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sa.json
-          NEXT_PUBLIC_FIREBASE_DATABASE_URL: https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app
         run: npx tsx scripts/ingest-all-suppliers.mts ${{ inputs.only && format('--only={0}', inputs.only) || '' }}
       - name: 자격증명 지우기
         if: always()

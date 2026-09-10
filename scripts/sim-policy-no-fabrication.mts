@@ -9,7 +9,7 @@
  * 빈칸보다 나쁘다 — 빈칸은 물어보게 만들지만 지어낸 값은 안 물어보게 만든다.
  */
 import assert from 'node:assert/strict';
-import { toV4Record } from '../lib/firebase/rtdb-records';
+import { toV4Record } from '../lib/firebase/legacy-records';
 import { publicPolicy } from '../lib/domain/public-catalog';
 
 const base = {

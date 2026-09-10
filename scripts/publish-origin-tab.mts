@@ -75,6 +75,8 @@ const norm = (v: unknown) => S(v).replace(/\s+/g, '');
 const APPLY = process.argv.includes('--apply');
 const arg = (k: string, d = '') => (process.argv.find((a) => a.startsWith(`--${k}=`)) || '').slice(k.length + 3) || d;
 const SHEET = arg('sheet', '1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs');
+const PRODUCTION_F01 = '1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs';
+if (APPLY && SHEET === PRODUCTION_F01) throw new Error('구형 원천 발행기는 운영 F01을 쓸 수 없다. --sheet=<수집 스테이징 시트>를 지정하라.');
 /**
  * 탭 이름. **기본값을 바꾸지 마라** — 아래 377행이 «이름으로» 기존 탭을 찾는다.
  * ⚠ 이름이 어긋나면 못 찾고 **새 탭을 하나 더 만든다.** 그러면 영업자 문서에
@@ -90,7 +92,6 @@ const TAB = arg('tab', '상품리스트');
 const ONLY = (() => { const v = arg('only'); if (!v) return null; const [code, tab = ''] = v.split(':'); return { code: code.trim(), tab: tab.trim() }; })();
 const AT = process.argv.some((a) => a.startsWith('--at=')) ? (Number(arg('at')) || 0) : salesPublishedTabIndex(TAB);
 const inScope = (code: string, tabTitle: string) => !ONLY || (ONLY.code === code && (!ONLY.tab || S(tabTitle).includes(ONLY.tab)));
-const DB = 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app';
 /** 「공급사시트정리」 — 공급사명 | 공급사코드 | 시트주소. 주소의 정본이다. */
 const INDEX_SHEET = arg('index', '1TVeVXyJJRx0SzD2vxqy3eEjSojmMIWXSu7AdsKmpfmY');
 
@@ -1007,7 +1008,7 @@ await api(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET}/values/${encod
 // ⚠ 여기서 따로 걸지 마라 — 여기 있던 코드는 「사진」 칸이 아니라 «원본 차번 셀 링크»만 봐서
 //    갈래 탭은 되고 상품리스트만 0대로 남았다(사장님 2026-08-24 「사진링크를 좀 동일하게 처리해줘야지」).
 {
-  const pi = COLUMNS.indexOf('사진');
+  const pi = COLUMNS.indexOf('차번링크');
   const linked = pi < 0 ? 0 : rows.filter((r) => S(r[pi]).startsWith('http')).length;
   console.log(`  차량번호에 사진링크 ${linked}대 · 링크 없는 차 ${rows.length - linked}대는 글자만`);
 }

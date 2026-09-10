@@ -130,7 +130,7 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
     try {
       await runContractMutation(async () => {
         const store = getStore();
-        if (store.backend.startsWith('rtdb')) {
+        if (store.backend.startsWith('firestore')) {
           // 운영에서는 기간·금액·요율·고객연락처·약정완료를 서버 한 전이로 묶는다.
           // 한 항목만 성공해 마지막 단계에서 정산이 막히는 부분완료를 만들지 않는다.
           const { completeContractAgreementFromClient } = await import('@/lib/firebase/contract-term-client');

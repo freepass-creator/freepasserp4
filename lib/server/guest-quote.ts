@@ -1,5 +1,5 @@
 import 'server-only';
-import { firestoreAdminRef } from '@/lib/server/firestore-ref-shim';
+import { firestorePathStore } from '@/lib/server/firestore-path-store';
 import { sanitizeAgentForGuest, sanitizeProductForGuest } from '@/lib/domain/public-catalog';
 import { isOfferableProduct } from '@/lib/domain/product';
 import { codeCandidates, matchAgentByShareCode, shareToken, splitShareSegment } from '@/lib/domain/product-share';
@@ -54,8 +54,8 @@ export async function loadGuestQuote(segment: string, shareFromQuery: string): P
    * ⚠ 문서 id 는 «차번»이고 RTDB 키는 「공급사_차번」이었다 — 키는 `_key || product_code || id` 차례로 잡는다.
    *   `findProduct` 가 키 «또는» `product_code` 로 찾으므로 이미 나간 공유 링크가 그대로 열린다.
    */
-  const db = firestoreAdminRef();
-  const snap = await db.ref('v4/products').get();
+  const db = firestorePathStore();
+  const snap = await db.ref('products').get();
   const all: Record<string, Rec> = {};
   for (const [docKey, v] of Object.entries((snap.val() || {}) as Record<string, Rec>)) {
     if (v && typeof v === 'object') all[S(v._key) || S(v.product_code) || docKey] = v;
@@ -86,7 +86,7 @@ export async function loadGuestQuote(segment: string, shareFromQuery: string): P
   const policyCode = S((product as Rec).policy_code);
   let policy: Rec | null = null;
   if (policyCode) {
-    const pool = ((await db.ref('policies').get()).val() || {}) as Record<string, Rec>;
+    const pool = ((await db.ref('policy').get()).val() || {}) as Record<string, Rec>;
     policy = Object.entries(pool)
       .map(([k, v]) => ({ ...(v || {}), _key: k } as Rec))
       .find((x) => S(x.policy_code) === policyCode || S(x._key) === policyCode) || null;
@@ -95,7 +95,7 @@ export async function loadGuestQuote(segment: string, shareFromQuery: string): P
   let agent: Rec | null = null;
   const shares = codeCandidates(share, 'usr');
   if (shares.length) {
-    const rows = Object.entries(((await db.ref('users').get()).val() || {}) as Record<string, Rec>)
+    const rows = Object.entries(((await db.ref('user').get()).val() || {}) as Record<string, Rec>)
       .map(([k, v]) => ({ ...(v || {}), _key: S(v?._key) || k, uid: S(v?.uid) || k })) as EntityRecord[];
     for (const s of shares) {
       const found = matchAgentByShareCode(rows, s) as Rec | null;

@@ -8,7 +8,6 @@
 import nextEnv from '@next/env';
 
 nextEnv.loadEnvConfig(process.cwd());
-process.env.NEXT_PUBLIC_DATA_BACKEND = 'rtdb';
 
 const APPLY = process.argv.includes('--apply');
 const sourceRunId = String(process.argv.find((arg) => arg.startsWith('--run=')) || '').slice('--run='.length).trim();

@@ -26,7 +26,7 @@ const IDS = {
 const url = (id: string, gid?: number) => `https://docs.google.com/spreadsheets/d/${id}/edit${gid !== undefined ? `#gid=${gid}` : ''}`;
 
 export const AI_MANUAL_TITLE = 'AI 운영 매뉴얼';
-export const AI_MANUAL_VERSION = '2026-08-27 v27';
+export const AI_MANUAL_VERSION = '2026-09-08 v28';
 
 export function buildAiOperatingManual(): ManualSection[] {
   return [
@@ -94,6 +94,25 @@ export function buildAiOperatingManual(): ManualSection[] {
       ['★공급사 시트가 읽히는 방식(2026-08-19 굳힘)', SHEET_READING_RULES.map((r) => `${r.what}: ${r.how}`).join(' / '), 'lib/domain/sheet-reading-rules.ts · 작성 안내·정제시트 안내 0장'],
       ['★같은 줄 어긋남 방지(2026-08-19 사고 후)', '① 표(Table)를 끝 열까지(extend-supplier-table) — 정렬해도 줄 전체 이동 ② 선택옵션·외장/내장색상은 매일 그 줄 원문에서 다시 계산(realign-derived-cells, run-daily ①″) ③ 시트에 남은 차종코드는 원문(제조사·차명·옵션)과 맞을 때만 정본으로 믿음(fill, code-vs-name) ④ 상품마스터 확정 코드 ↔ 지금 공급사 차명 대조(audit-code-vs-supplier-name) ⑤ 공급사 시트마다 「상품시트」 탭 = 발행된 판매시트 줄 그대로(publish-supplier-preview-tabs) ⑥ 제보는 trace-plate-spec 로 5단계 추적.', 'run-daily ①″·④ · 감사 도구'],
       ...AI_TOUCH_RULES.map((r) => [r.what, r.how, r.when] as ManualRow),
+    ] },
+    /**
+     * ★★사장님 2026-09-08 「**이거 연동로직이 딱 박혀 있어야 해**」 — 그 한 장이 이 절이다.
+     *   여기가 정본이고, 시트 20여 장의 「AI 운영 매뉴얼」 탭과 `docs/AI_OPERATING_MANUAL.md` 가 이 글의 사본이다.
+     *   ⇒ **글이 코드와 갈릴 수 없다** — 고치려면 이 파일을 고쳐 다시 찍는다.
+     */
+    { title: '4′. ★★원자 연동 한 장(2026-09-08 확정) — 원천이 어떻게 화면까지 오나', rows: [
+      ['한 줄', '원천(공급사 시트·홈피·API) → ① 직접수집 → **원자 Firestore products**(차번=문서키) → ② 문지기 → 상품리스트 F01 4탭 · 하허호 F86 · ERP 파인더 · 손님 면. **넷이 «같은 원자»를 읽는다** — 어느 하나가 따로 세거나 시트를 다시 읽으면 그 순간 갈린다.', 'docs/원자-내려보내기-로직.md'],
+      ['★자동은 «상태값만»', '매시간 회차는 **아는 차의 상태·주행·요금만** 따라간다(불변은 절대 안 건드린다). 원천에서 빠진 차는 내린다. 구글 분당 한도 때문에 **가장 오래된 세 곳씩 돌아간다**(일곱 시간에 한 바퀴).', 'scripts/ingest-rotation.mts --apply (회차 ⑬¼)'],
+      ['★없는 차는 «등록»', '원천의 새 차번은 **자동으로 안 들인다** — `tmp/등록대기.json` 에 적어만 둔다. 들이는 것은 사람의 한 수. 자동으로 들이면 원천의 실수(시험 줄·남의 차·오타 차번)가 그대로 상품이 된다.', 'scripts/register-car.mts'],
+      ['★원천 주소는 «문패»가 정본', '`partner.sheet_url` 은 늦는 사본이다. **폐기 명단에 있는 주소면 멈춘다** — 조용히 죽은 시트를 읽지 않는다(웰릭스가 24일 그랬다: K8이 「모닝」으로 실렸다).', 'lib/domain/supplier-source.ts · scripts/audit-supplier-source.mts (회차 ⑬½½)'],
+      ['★한 시트를 여러 회사가 쓰면 «제 탭»만', '공급사 코드는 **정산이 매달리는 열쇠**다. 남의 차를 우리 코드로 적으면 돈이 어긋난다. 이름이 든 탭이 없으면 **아무것도 안 읽고 멈춘다**.', 'lib/domain/supplier-source.ts myStockTabs'],
+      ['★상태는 «한 벌»', '`vehicle_status` 가 정본이고 `status`·`status_kind`·`listable` 은 거기서 파생된다. 두 벌이면 한쪽은 「출고불가」, 다른 쪽은 「계약중」이 되어 **판 차가 다시 선다**.', 'docs/원자-내려보내기-로직.md §1 · scripts/heal-atom-status.mts'],
+      ['★빈 값으로 아는 값을 덮지 않는다', '원천이 «말 안 한 것»은 「없다」가 아니라 «모른다»다. 빈 문자열은 merge 에서 뺀다(예외: 전기·수소차의 배기량). ⚠ 손오공 빈 분류가 픽업·오공구독을 246대 지운 적이 있다.', 'scripts/ingest-supplier-to-firestore.mts strip()'],
+      ['★요금은 «갈아 끼운다»', '`price` 는 맵이라 merge 하면 **없어진 기간이 영원히 남는다** — 시트에 「지금 안 파는 값」이 선다. 원천이 요금을 준 차만 통째 대체한다.', '같은 파일 batch.update({price})'],
+      ['★발행 뒤 «박혔는지»를 잰다', '「반영 완료」는 구글이 200 을 줬다는 뜻이지 «그 칸에 그 값이 들어갔다»는 뜻이 아니다. 원자↔F01, F01↔F86 을 **칸 단위**로 맞대 빠진 차·남은 차·값 어긋남을 센다.', 'scripts/audit-sheet-vs-atom.mts (회차 ⑯½)'],
+      ['★잣대는 발행기와 «하나»', '검사가 발행기와 다른 잣대로 세면 **거짓으로 운다**. 거짓으로 우는 검사는 사람이 안 믿고, 그게 진짜 경보까지 죽인다(캐논을 손으로 베껴 둬 64대를 잘못 잡은 일이 있다).', 'check:atoms 는 PRODUCT_TYPES 를 읽는다'],
+      ['★내리는 쪽이 조심스럽다', '원천에 없다고 다 내리지 않는다 — ① 계약중(락)은 안 내린다 ② 「출고가능」이던 차만 내린다(원천이 그 상태를 보여 주기는 했어야 한다) ③ 수집분이 «세워 둔 차»의 절반도 안 되면 아예 안 내린다. **팔 수 있는 차를 숨기는 것**이 가장 나쁜 결과다.', 'ingest-supplier-to-firestore 사라진차내리기()'],
+      ['⚠ 「고쳤다」와 «돈다»는 다르다', '2026-09-08 — 켠 줄 알았던 장치 셋이 실행 경로에 안 닿았다(내림·본때 저장·단기보증 12개월). 장치를 켰으면 **한 번 돌려서 숫자를 보라** — 「0」이 「없다」인지 「안 돌았다」인지 구별하라.', '코덱스·적대검토·매뉴얼대조 셋이 잡았다'],
     ] },
     { title: '5. 매일 순서(명령) — 이 차례로, 각각 dry-run 먼저', rows: [
       ['★한 방 오더', '공급사가 시트를 고친 것을 일괄 반영하려면 이 한 줄(②~⑤′~⑥을 차례로 돌리고 검수까지 보여 준다 · 한 단계가 실패하면 거기서 멈춘다). AI 에게는 「일일 반영 돌려」. 미리보기는 --apply 없이. 정제시트를 코드로 미러하면 --with-mirror, 발행 가드(공급사 0대)에 걸리면 확인 후 --force-shrink.', 'npx tsx scripts/run-daily.mts --apply'],

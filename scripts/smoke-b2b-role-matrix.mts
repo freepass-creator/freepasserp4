@@ -3,7 +3,7 @@
  * 토큰은 환경변수로만 받고 값·uid·상품키·원가를 출력하지 않는다.
  * 호출 endpoint는 GET /api/auth/session, GET /api/products/bridge뿐이다.
  */
-import { splitProductPrivate, stripProductCost } from '../lib/firebase/rtdb-products';
+import { splitProductPrivate, stripProductCost } from '../lib/firebase/product-private';
 import type { EntityRecord } from '../lib/intake/entities';
 
 type SessionPayload = {

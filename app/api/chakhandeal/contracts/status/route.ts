@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { projectChakhandealStatus } from '@/lib/domain/chakhandeal-esign-sync';
-import { firebaseAdminDatabase, verifyActiveBearer } from '@/lib/server/firebase-admin';
+import { firebaseAdminStore, verifyActiveBearer } from '@/lib/server/firebase-admin';
 import { getChakhandealConfig, getChakhandealContractStatus } from '@/lib/server/chakhandeal-esign';
 
 export const dynamic = 'force-dynamic';
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
     return json({ error: '계약번호가 올바르지 않습니다.' }, 400);
   }
 
-  const db = firebaseAdminDatabase();
+  const db = firebaseAdminStore();
   const results = await Promise.all(contractCodes.map(async (contractCode) => {
     try {
       const [overlaySnap, legacySnap] = await Promise.all([

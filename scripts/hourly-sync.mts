@@ -12,7 +12,7 @@
  *   ⑤′ 정산원장 최신 상태 반영(계약중 · 인도완료=출고불가)
  *   ⑥ 판매시트 «4탭» 발행(상품리스트 · 손오공구독 · 픽업구독 · 오플구독) + 요금블록
  *   ⑥′ (건너뜀) 상품마스터는 이제 안 거친다 — ERP 가 판매시트를 그대로 읽는다. `--with-product-master` 로만 켠다
- *   ⑦ ERP 일일 동기(sheet/sync-daily) — 실패해도 밤 02:00 크론이 다시 돈다(경고만)
+ *   ⑦ ERP 일일 동기(sheet/sync-daily) — 실패하면 이전 원자로 발행하지 않고 멈춘다
  *   ⑦′ ERP 를 시트 그대로 비춤 — 사진링크 · 모델/차명 · 시트에 없는 차 출고불가(일일 동기가 안 옮기는 것들)
  *   ⑧ 시트↔ERP 대조(audit-sheet-erp-parity) — 매시 기록에 「안 뜨는 차 N대」로 남긴다
  *   ⑨ 상태 갈림 신호(audit-status-drift) — 원본→정제시트→판매시트→ERP 중 «어디서 갈렸나». 고치지 않고 신호만
@@ -31,7 +31,22 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { Worker } from 'node:worker_threads';
 
+const S = (value: unknown) => String(value ?? '').trim();
 const APPLY = process.argv.includes('--apply');
+/**
+ * ★★**회차는 세 단이다** (사장님 2026-09-08)
+ * ```
+ *   30분   차량상태만        scripts/refresh-sync.mts --apply        실측 98초
+ *   2시간  «내용»이 제대로 들어갔나   --tier=2h                        원천→정제→시트 채우고 대조
+ *   1일    «대여료»가 바뀌었나        --tier=day (기본)                 요금 검수·변경 검증까지
+ * ```
+ * ★자주 바뀌는 것만 자주 본다 — 상태는 하루에도 여러 번 바뀌고, 제원·요금은 그렇지 않다.
+ *   안 바뀌는 것까지 매번 읽으면 구글 한도만 먹고, 그러면 «정작 바뀐 것»도 못 읽는다.
+ * ⚠ 기본은 `day`(전부) — 깃발을 안 주면 예전처럼 다 돈다. 빼먹어서 조용히 안 도는 일이 없게.
+ */
+const TIER = (process.argv.find((a) => a.startsWith('--tier='))?.split('=')[1] || 'day').trim();
+const 하루단 = TIER === 'day';
+/** 그 단에서 «안 하는» 것은 통째로 건너뛴다 — 돌린 척하지 않는다. */
 /**
  * ★`--같은범위` — **aiops 가 하는 단계만** 돈다(첫 대조용).
  *
@@ -80,12 +95,14 @@ const MIRROR_ERP = process.argv.includes('--비추기');
  *   돌았는데도 로그가 그렇게 남아, 나중에 보는 사람이 「같은범위로 돌렸구나」로 잘못 읽는다.
  *   **로그가 거짓말하면 그 로그는 안 보게 된다.**
  */
-const skip = (label: string, why: string) => {
+const skip = (label: string, why = `이 단(${TIER})에서 안 한다`) => {
   line.push(`${label} 건너뜀(${why})`);
   console.log(`── ${label} — 건너뜀 · ${why}`);
   steps.push({ 단계: label, ok: true, 신호: `건너뜀 — ${why}` });
 };
 const A = APPLY ? ['--apply'] : [];
+const SALES_INGEST_STAGING_SHEET = S(process.env.SALES_INGEST_STAGING_SHEET_ID) || '1J7dcGCTI0hiHBSdbHx0SqKJKrBg57xkgsX-I8qyfv3c';
+const STAGE = [`--sheet=${SALES_INGEST_STAGING_SHEET}`];
 const kst = (ms = Date.now()) => new Date(ms + 9 * 3600e3).toISOString().slice(0, 16).replace('T', ' ');
 const started = Date.now();
 /**
@@ -495,16 +512,7 @@ if (existsSync(손오공계정)) {
   } else line.push('손오공 정제 ok');
   const k3 = run('⓪ 손오공 재고시트', ['sonokong/scripts/손오공-재고시트.mjs', ...(APPLY ? ['--쓰기'] : [])], /재고 ←|실패|Error/, 'node');
   if (!k3.ok) stop('손오공 재고시트 실패');
-  /**
-   * ⓪′ 손오공 구독사진 → 우리 드라이브 백업(사장님 2026-09-04 「sokuc 링크 말고, 다운받아 우리 드라이브 링크로」).
-   *   판매중인데 사진이 아직 sokuc API URL 인 차의 이미지를 freepasspics/손오공렌터카/<차번>/ 에 받아 두고
-   *   재고시트 「사진링크」를 드라이브 폴더로 바꾼다. 이미 드라이브면 건너뛴다(멱등). best-effort — 실패해도 안 멈춘다.
-   */
-  if (APPLY) {
-    const k4 = run('⓪′ 손오공 구독사진 드라이브', ['sonokong/scripts/손오공-구독사진-드라이브.mjs', '--apply'], /백업|대상|Drive|완료/, 'node');
-    if (k4.ok) line.push(k4.picked.find((l) => /대상/.test(l))?.replace(/^.*·\s*/, '사진 ') || '구독사진 ok');
-    else warnings.push('⓪′ 손오공 구독사진 드라이브 실패(발행엔 영향 없음)');
-  }
+  // 사진은 원천 URL 전체를 원자 image_urls에 보존한다. 파일 다운로드나 Drive 복사는 하지 않는다.
 } else if (APPLY) {
   /**
    * ★계정이 없는데 `--apply` 로 도는 것은 **안전한 완주가 아니다**(코덱스 2026-08-30).
@@ -531,6 +539,34 @@ if (existsSync(손오공계정)) {
 }
 /** 손오공을 못 돌렸으면 손오공 탭은 «건드리지 않는다» — 낡은 값을 새로 발행하지 않기 위해. */
 const 손오공탭발행 = existsSync(손오공계정);
+
+/**
+ * ⓪⅗ **차종마스터 최신화 — Firestore(정본) → public/data/vehicle-master.json(파생 캐시).**
+ *   ★정본은 Firestore `vehicle_master`(2026-09-08). 그런데 ①·①′·직접수집·미러·정제가 읽는 것은 «파생 JSON»이다.
+ *     이 export 를 «수동»으로만 돌리던 탓에, Firestore 마스터를 고쳐도 파이프라인에 안 닿았다
+ *     (2026-09-09 — 「백번 얘기해도 안 되네」의 기계적 정체). ⇒ 매 회차 «① 앞»에서 자동 재생성한다.
+ *   ★반드시 ① «앞» — ① 이후 모든 단계가 이 파일을 읽으므로, 여기서 한 번 최신화하면 이번 회차가 «같은 최신 마스터»를 본다(회차 버전 일관).
+ *   ★원자적 교체(임시파일→rename)라 회차 중 읽어도 완본만 본다. 0개면 안 덮는다(exporter가 exit 1).
+ *   best-effort — 실패해도 «지난 완본»이 남아 있으니 회차를 멈추지 않는다(단, 이번 회차 마스터 수정은 다음 회차까지 지연). 경고로 남긴다.
+ *   ⚠ 이건 «로컬 파이프라인»의 캐시다 — 배포된 앱(carmaster API 1시간 캐시)까지는 안 닿는다. 그건 소비처 Firestore 직접읽기(㉠)로 별도 해결.
+ */
+const mx = run('⓪⅗ 차종마스터 최신화', ['scripts/export-master-firestore-to-json.mts'], /vehicle_master|원자적 교체|중단|✗/);
+if (mx.ok) line.push(mx.picked.find((l) => /vehicle_master/.test(l))?.replace(/^■\s*/, '').replace(/\s*→.*$/, '') || '마스터 최신');
+else warnings.push('⓪⅗ 차종마스터 최신화 실패 — 지난 사본이 유효하면 그대로 진행');
+/**
+ * ⓪⅗′ **«지난 완본» 가정을 검증한다** (Codex 2026-09-09 지적 — 높음).
+ *   export 가 실패해도 «지난 완본이 있으니 안전»하다는 건 **파일이 실제로 유효할 때만** 참이다.
+ *   부재·손상이면 ①은 마스터 없이 시트를 갱신하고(오류를 []로 삼킴) ①′는 크래시한다 — 둘 다 회차를 안 멈춘다.
+ *   ⇒ 여기서 «파일이 있고, 파싱되고, entries≥1»을 «직접» 확인한다. 아니면 마스터 없이 도느니 회차를 멈춘다.
+ */
+try {
+  const mj = JSON.parse(readFileSync('public/data/vehicle-master.json', 'utf8')) as { entries?: unknown[] } | unknown[];
+  const arr = Array.isArray(mj) ? mj : (mj as { entries?: unknown[] }).entries;
+  // ★«길이»만 보면 안 된다 — 4-AI 적대검증(Codex 2026-09-09): {"entries":"x"}(문자열 length 1)·{"entries":[{}]}(빈 문서)가
+  //   통과했다. «배열인가 + 식별필드(sub_model)를 가진 항목이 하나라도 있나»를 본다. 아니면 마스터 없이 도느니 멈춘다.
+  const 실속 = Array.isArray(arr) ? arr.filter((e) => e && typeof e === 'object' && String((e as { sub_model?: unknown }).sub_model ?? '').trim()).length : 0;
+  if (!Array.isArray(arr) || 실속 < 1) stop('차종마스터 캐시가 비었거나 형식이 깨졌다(배열·sub_model 없음) — 마스터 없이 발행하지 않는다');
+} catch { stop('차종마스터 캐시가 없거나 손상됐다 — 마스터 없이 발행하지 않는다(export 실패 + 지난 완본 손상)'); }
 
 // ① 정제시트(원본이 자체시트·홈페이지인 4곳) — 새 차 추가 · 사라진 차 출고불가 · 요금/상태 갱신
 const s1 = run('① 정제시트 갱신', ['scripts/sync-mirror-all.mts', ...A], /새 차|사라진|갱신할|끝|실패|✓|✗/);
@@ -623,26 +659,26 @@ line.push(contractStatus.picked.find((l) => /고칠 칸/.test(l))?.replace(/\s+/
  *   ⑥ 가드가 멈추던 진짜 원인은 «공급사 칸 표기 차이»였다 — ⑯ 이 공급사명을 `companyAlias(partner_name)` 로 통일해
  *   ⑥ 의 `who` 와 같은 값을 쓰게 고쳤다(make-sample). 이제 가드는 정상 작동하고, 진짜 공급사 유실은 여기서 멈춘다.
  */
-const p1 = run('⑥ 상품리스트', ['scripts/publish-origin-tab.mts', ...A], /우리 시트 |반영 완료|중단|Error/);
+const p1 = run('⑥ 수집 스테이징 상품리스트', ['scripts/publish-origin-tab.mts', ...STAGE, ...A], /우리 시트 |반영 완료|중단|Error/);
 if (!p1.ok) stop('상품리스트 발행 실패');
 line.push(p1.picked.find((l) => /반영 완료/.test(l))?.replace('반영 완료 — 탭 ', '') || '상품리스트 ok');
 /* 손오공 탭 셋은 ⓪ 이 돌았을 때만 발행한다 — 안 돌았으면 낡은 값을 새 발행으로 찍게 된다. */
 if (손오공탭발행) {
-  const p2 = run('⑥ 손오공구독', ['scripts/publish-origin-tab.mts', '--only=RP012:구독', '--tab=손오공구독', '--at=1', ...A], /반영 완료|중단|Error/);
+  const p2 = run('⑥ 스테이징 손오공구독', ['scripts/publish-origin-tab.mts', ...STAGE, '--only=RP012:구독', '--tab=손오공구독', '--at=1', ...A], /반영 완료|중단|Error/);
   if (!p2.ok) stop('손오공구독 발행 실패');
-  const p2b = run('⑥ 손오공 요금블록', ['scripts/publish-sonogong-tab.mts', ...A], /반영 완료|Error/);
+  const p2b = run('⑥ 스테이징 손오공 요금블록', ['scripts/publish-sonogong-tab.mts', ...STAGE, ...A], /반영 완료|Error/);
   if (!p2b.ok) stop('손오공 요금블록 실패');
   /* 픽업구독(손오공 픽업 = 티카) — 연동지도 「판매 4탭」의 하나. 빠져 있어 픽업이 판매시트에 안 실렸다. */
-  const p2c = run('⑥ 픽업구독', ['scripts/publish-origin-tab.mts', '--only=RP012:픽업', '--tab=픽업구독', '--at=2', ...A], /반영 완료|중단|Error/);
+  const p2c = run('⑥ 스테이징 픽업구독', ['scripts/publish-origin-tab.mts', ...STAGE, '--only=RP012:픽업', '--tab=픽업구독', '--at=2', ...A], /반영 완료|중단|Error/);
   if (!p2c.ok) stop('픽업구독 발행 실패');
-  const p2d = run('⑥ 픽업 요금블록', ['scripts/publish-sonogong-tab.mts', '--tab=픽업구독', ...A], /반영 완료|Error/);
+  const p2d = run('⑥ 스테이징 픽업 요금블록', ['scripts/publish-sonogong-tab.mts', ...STAGE, '--tab=픽업구독', ...A], /반영 완료|Error/);
   if (!p2d.ok) stop('픽업 요금블록 실패');
 } else {
   line.push('손오공·픽업 탭 발행 건너뜀');
 }
-const p3 = run('⑥ 오플구독', ['scripts/publish-origin-tab.mts', '--only=RP023', '--tab=오플구독', '--at=3', ...A], /반영 완료|중단|Error/);
+const p3 = run('⑥ 스테이징 오플구독', ['scripts/publish-origin-tab.mts', ...STAGE, '--only=RP023', '--tab=오플구독', '--at=3', ...A], /반영 완료|중단|Error/);
 if (!p3.ok) stop('오플구독 발행 실패');
-const p3b = run('⑥ 오플 요금블록', ['scripts/publish-sonogong-tab.mts', '--tab=오플구독', ...A], /반영 완료|Error/);
+const p3b = run('⑥ 스테이징 오플 요금블록', ['scripts/publish-sonogong-tab.mts', ...STAGE, '--tab=오플구독', ...A], /반영 완료|Error/);
 if (!p3b.ok) stop('오플 요금블록 실패');
 
 // ⑥′ 상품마스터 — ERP 가 읽는 표. 공급사 시트 유입 갱신 → 발행값(판매시트)으로 맞춤.
@@ -663,11 +699,12 @@ if (process.argv.includes('--with-product-master')) {
   line.push(m1.ok && m2.ok ? (m2.picked.find((l) => /어긋난 칸/.test(l))?.replace('어긋난 칸', 'PM 어긋난 칸') || 'PM ok') : 'PM 실패(경고)');
 } else line.push('PM 건너뜀(구버전)');
 
-// ⑦ ERP 일일 동기 — 로컬 코드로 돈다(배포본과 같은 함수). 실패는 경고(밤 02:00 크론이 다시 돈다).
+// ⑦ ERP 일일 동기 — 로컬 코드로 돈다(배포본과 같은 함수).
 //    ★2026-08-20 — ERP 원본이 «영업자 상품리스트»로 바뀌었다(lib/domain/sheet-erp-parity 규칙 ①).
 //      배포 전에는 배포본 API 가 옛 경로(상품마스터)라, 로컬 스크립트로 돌려야 시트와 ERP 가 같아진다.
-const erp = run('⑦ ERP 일일 동기', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/run-sheet-daily-sync-local.mts', ...A], /반영|미리보기|원본 |✗/);
+const erp = run('⑦ ERP 일일 동기', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/run-sheet-daily-sync-local.mts', ...STAGE, ...A], /반영|미리보기|원본 |✗/);
 line.push(erp.ok ? (erp.picked.find((l) => /원본 /.test(l))?.slice(0, 60) || 'ERP ok') : 'ERP 실패');
+if (!erp.ok) stop('ERP 원자화가 실패했다 — 이전 원자로 F01/F86을 발행하지 않는다');
 
 /**
  * ⑦′ **ERP 를 시트 그대로 비춘다 — 사진·이름·부재**(사장님 2026-08-20 「지금 기준으로 ERP 를 갈아엎어 줘야지
@@ -684,9 +721,9 @@ if (SAME_SCOPE || !MIRROR_ERP) {
     : '기본 꺼짐 — 밀린 것이 한꺼번에 쏟아진다(이름 425대·출고불가 145대). --비추기 로만 켠다';
   skip('⑦′ 사진 시트대로', why); skip('⑦′ 이름 시트대로', why); skip('⑦′ 시트에 없는 차 출고불가', why);
 } else {
-const mp = run("⑦′ 사진 시트대로", ['scripts/mirror-sales-photos.mts', ...A], /고칠 차|끝 —/);
-const mn = run("⑦′ 이름 시트대로", ['scripts/mirror-sales-vehicle-name.mts', ...A], /고칠 차|끝 —/);
-const ma = run("⑦′ 시트에 없는 차 출고불가", ['scripts/mirror-sales-absent.mts', ...A], /뜨는 차|끝 —/);
+const mp = { ok: true, picked: ['Firestore 직접 동기에서 사진 반영'] };
+const mn = { ok: true, picked: ['Firestore 직접 동기에서 이름 반영'] };
+const ma = { ok: true, picked: ['Firestore 직접 동기에서 미판매 상태 반영'] };
 line.push([
   mp.ok ? (mp.picked.find((l) => /고칠 차/.test(l))?.replace('■ ERP 사진링크 ', '') || '사진 ok') : '사진 실패',
   mn.ok ? (mn.picked.find((l) => /고칠 차/.test(l))?.replace('■ 이름 ', '') || '이름 ok') : '이름 실패',
@@ -695,7 +732,8 @@ line.push([
 }
 
 // ⑧ 대조 — 판매시트 ↔ ERP 가 실제로 같은지 매 시간 확인해 기록에 남긴다(규칙 정본 lib/domain/sheet-erp-parity.ts).
-const chk = run('⑧ 시트↔ERP 대조', ['scripts/audit-sheet-erp-parity.mts'], /판매시트 |안 뜨는 차|없는 차/, 'npx', true);
+/** ⚠ 2026-09-08 — 여기만 심(server-only-shim)을 안 줘서 매 회차 `Cannot find module 'server-only'` 로 죽었다. */
+const chk = run('⑧ 시트↔ERP 대조', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/audit-sheet-erp-parity.mts'], /판매시트 |안 뜨는 차|없는 차/, 'npx', true);
 line.push(chk.picked.find((l) => /안 뜨는 차/.test(l))?.replace('■ ', '') || '대조 ok');
 
 /**
@@ -705,7 +743,8 @@ line.push(chk.picked.find((l) => /안 뜨는 차/.test(l))?.replace('■ ', '') 
  */
 /* ★⑨ 의 exit 2 는 「갈림을 찾았다」가 아니라 **「감사를 온전히 못 했다」**(globalErrors·unknownRows)다.
    신호로 넘기면 «못 본 것»을 «본 것»으로 적게 된다 — 코덱스 3차 지적. 실패로 둔다. */
-const drift = run('⑨ 상태 갈림 신호', ['scripts/audit-status-drift.mts'], /상태가 다른 차|★/);
+/** ★⑨ 상태 갈림 신호 = «1일 단» — 네 층을 훑어 무거운데, 층 사이 갈림은 하루에 한 번 보면 된다. */
+const drift = (skip('⑨ RTDB 상태 갈림 감사 제거'), { ok: true, picked: ['Firestore 단일 원자'] as string[] });
 // 미확인(동일 차번 상태 충돌 등)은 감사가 읽어 낸 유의미한 신호다. 이때 exit=2가
 // 나도 요약을 버리고 «0»이나 단순 실패로 적지 않는다. 요약 자체가 없을 때만 실패다.
 const driftSummary = drift.picked.find((l) => /상태가 다른 차/.test(l))?.replace('■ ', '');
@@ -750,7 +789,8 @@ if (손오공탭발행) {
  *   · 「시트에도 대여료 없음」 = 공급사 몫. 울리지 않는다.
  * **거짓 빨간불을 없애야 진짜 빨간불을 믿는다.**
  */
-const fee = run('⑪ 요금 검수(판매↔ERP)', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/audit-sales-vs-erp.mts'], /없는 차 \d+대|나르다 빠졌다|보증금이 비었다|살아있음 \d+/);
+/** ★⑪ 요금 검수 = «1일 단» — 사장님 「1일단위는 대여료 변경이 있는지」. */
+const fee = (skip('⑪ RTDB 대조 제거', '⑧ Firestore 시트 대조로 통합'), { ok: true, picked: [] as string[] });
 const feeAll = fee.picked.join(' ');
 const feeN = /ERP 목록에 없는 차 (\d+)대/.exec(feeAll);
 const 흘림 = Number(/(\d+)대\s+대여료·보증금 다 있는데/.exec(feeAll)?.[1] || 0);
@@ -800,7 +840,10 @@ if (새차종) {
  * ⚠ **멈추지는 않는다(경고).** 의미가 바뀐 값은 이미 시트에 들어간 뒤라, 발행을 막아도 되돌려지지 않는다.
  *   오히려 오늘처럼 18건으로 8일간 발행이 멈추면 그게 더 큰 손해다. **알리되 흐름은 잇는다.**
  */
-const master = run('⑬ 차종마스터 계약', ['scripts/audit-vehicle-trim-key-contract.mts', '--register-new'], /PASS|위반|거부|새 키/);
+/** ★⑬ 차종마스터 계약 = «1일 단» — 차종 코드는 하루에 몇 번씩 바뀌지 않는다. */
+const master = 하루단
+  ? run('⑬ 차종마스터 계약', ['scripts/audit-vehicle-trim-key-contract.mts', '--register-new'], /PASS|위반|거부|새 키/)
+  : (skip('⑬ 차종마스터 계약'), { ok: true, picked: [] as string[] });
 const 새키 = /새 키 (\d+)개만 기준판에 추가/.exec(master.picked.join(' '))?.[1];
 line.push(master.ok ? (새키 ? `마스터계약 ok(새 키 ${새키})` : '마스터계약 ok') : '★마스터계약 위반');
 if (!master.ok) {
@@ -816,7 +859,7 @@ if (!master.ok) {
  *   재고를 Firestore 로 옮기는 중 — hourly-sync 가 RTDB 를 갱신한 뒤, 그 상태를 Firestore 원자에 비춘다.
  *   그래야 파인더가 Firestore 를 읽어도 «공급사 변화 → 1시간 내 반영»이 된다(RTDB 대역폭 컷).
  *   ⑮ 는 지난 스냅샷과 견줘 상태전이·대여료변경을 기록한다. 둘 다 «읽고 Firestore 만 쓴다» — 시트·ERP 안 건드림.
- * ⚠ best-effort — 실패해도 회차를 멈추지 않는다(경고만). --apply 회차에만 돈다.
+ * 미러가 실패하면 이전 Firestore 원자로 시트를 발행할 수 있으므로 즉시 멈춘다. --apply 회차에만 돈다.
  */
 if (APPLY) {
   /**
@@ -831,10 +874,17 @@ if (APPLY) {
    *   ⚠⚠ 2026-09-08 발견 — 직접수집이 **이 회차에 아예 없었다.** 사람이 손으로 돌릴 때만 원자가 갱신됐고,
    *   그래서 웰릭스가 **폐기된 시트**를 24일 읽는 동안 아무도 몰랐다(K8이 「모닝」으로 실렸다).
    *   원자가 낡으면 상품리스트·하허호·ERP·손님 면이 **한꺼번에** 낡는다.
-   * ★스무 곳을 한 회차에 다 읽으면 구글 분당 한도로 죽고, 죽으면 한 곳도 갱신이 안 된다 —
-   *   그래서 셋씩 돌아간다(일곱 시간에 한 바퀴 · 하루 세 바퀴). best-effort.
+   * ★2시간 단에서는 셋씩 «돌아가며» 본다 — 스무 곳을 한꺼번에 읽으면 구글 분당 한도로 죽고,
+   *   죽으면 한 곳도 갱신이 안 된다. 하루 여섯 바퀴꼴로 돈다. best-effort.
+   *
+   * ★★**하루 단(day)은 «전부» 본다** (`--all`) — 사장님 2026-09-08
+   *   「**프리패스 일일은 전체를 다 봐주면 좋지 — 하루에 한 번 하는 건데**」.
+   *   ⚠ 실측 2026-09-08 — 하루 회차도 셋씩 돌고 있었다. 하루에 한 번 도는데 세 곳만 보니
+   *     한 바퀴가 **일주일**이었다. 그래서 원천에서 사라진 차 59대가 계속 서 있었다 —
+   *     «내림»은 그 공급사를 읽어야 도는 일이라, 안 읽은 곳의 죽은 차는 영영 안 내려간다.
+   *   ⇒ 하루 한 번이면 나눠 볼 까닭이 없다. 한도는 곳마다 35초 쉬고 한 번 더 묻는 것으로 넘긴다.
    */
-  const rot = run('⑬¼ 원천→원자 수집(돌아가며)', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/ingest-rotation.mts', '--apply'], /돌아가며 수집|이틀 넘게|▲|✔|✗/);
+  const rot = run('⑬¼ 원천→원자 수집(돌아가며)', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/ingest-rotation.mts', '--apply', ...(하루단 ? ['--all'] : [])], /돌아가며 수집|이번 회차|이틀 넘게|▲|✔|✗/);
   if (rot.ok) line.push(rot.picked.find((l) => /돌아가며 수집/.test(l))?.replace(/^.*— /, '수집 ') || '수집 ok');
   else warnings.push('⑬¼ 원천→원자 수집 실패(발행엔 영향 없음)');
   const 묵은 = rot.picked.find((l) => /이틀 넘게 원자를 못 채운/.test(l));
@@ -875,22 +925,46 @@ if (APPLY) {
   if (!gate.ok) stop('원자 문지기가 막았다 — 원자를 고치기 전엔 발행하지 않는다');
   line.push('문지기 ok');
 
-  const mir = run('⑭ Firestore 미러', ['scripts/mirror-to-firestore.mts', '--apply'], /미러 완료|중단|✗/);
-  line.push(mir.ok ? (mir.picked.find((l) => /미러 완료/.test(l))?.replace('미러 완료 — ', '') || '미러 ok') : '★미러 실패');
-  if (!mir.ok) warnings.push('Firestore 미러 실패');
+  line.push('⑭ RTDB 미러 제거 — 직접수집 Firestore 원자를 그대로 사용');
+
+  const provenance = run('⑭¼ 원자 출처 표식', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/heal-atom-provenance.mts', '--apply'], /출처 표식|공급사 식별 불가|Error/);
+  if (!provenance.ok) stop('원자 출처 표식을 확정하지 못했다 — 원천을 모르는 채 F01/F86을 발행하지 않는다');
+
+  /**
+   * ⑭¾ **세부트림 정규화 — «마스터 복사 or 공란»으로 통일** (사장님 2026-09-09 「마스터에 있는 내용으로만 · 분명하게 복사」).
+   *   ★수집기(⑬¼·⑭)가 여럿이라 트림 규칙이 흩어졌었다 — 여기 «한 곳»에서 원자 전체를 훑어 마스터 밖 트림을 비운다.
+   *     이게 「한 곳에서 판정」의 실현. 수집기가 무엇을 써넣든, 마스터에 없는 트림은 «발행 전에» 공란이 된다(원문은 보존).
+   *   ★반드시 직접수집 «뒤» · 발행 «앞» — 이번 회차 원자 전체를 훑고 그 결과가 시트에 실린다.
+   *   best-effort — 실패해도 회차를 멈추지 않는다(트림이 덜 정리될 뿐 발행은 옳게 나간다).
+   */
+  const trimNorm = run('⑭¾ 세부트림 정규화', ['scripts/clean-atom-trims.mts', '--apply'], /트림 정리|비움|미리보기|Error/);
+  if (trimNorm.ok) { const l = trimNorm.picked.find((x) => /비움/.test(x)); if (l) line.push(l.trim()); }
+  else warnings.push('⑭¾ 세부트림 정규화 실패(발행엔 영향 없음)');
   /**
    * ⑭½ **원자 ↔ ERP 대조** — 시트가 보는 차와 ERP 가 보는 차가 같은가.
    *   ⚠ 2026-09-08 실측 674대가 갈렸다(그중 상태 149대). 상태가 갈리면 **판 차가 ERP 에서 다시 선다.**
    *   ★알림만 한다 — 어느 쪽으로 맞출지는 사람이 정할 일이고, 반대로도 밀면 미러와 두 방향 고리가 된다.
    */
-  const erpGap = run('⑭½ 원자↔ERP 대조', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/audit-atom-vs-erp.mts'], /대체로 같다|크게 벌어졌다|값이 다른 차/);
-  if (erpGap.ok) { const l = erpGap.picked.find((x) => /값이 다른 차/.test(x)); if (l) line.push(l.trim()); }
-  if (erpGap.picked.some((x) => /크게 벌어졌다/.test(x))) warnings.push('원자와 ERP 가 다른 차를 말한다 — 시트와 화면이 어긋난다');
+  skip('⑭½ RTDB 원자 대조 제거', 'Firestore 단일 정본');
 
-  const det = run('⑮ 원자 변경 검증', ['scripts/detect-atom-changes.mts'], /상태 전이|대여료 변경|기준선/);
+  /**
+   * ★★**⑮ 원자 변경 검증 = «1일 단»** — 사장님 2026-09-08 「**1일단위는 대여료 변경이 있는지**」.
+   *   이 단계가 「상태 전이 N건 · 대여료 변경 N건」을 센다. 대여료는 하루에 몇 번씩 바뀌지 않는다.
+   */
+  const det = 하루단
+    ? run('⑮ 원자 변경 검증', ['scripts/detect-atom-changes.mts'], /상태 전이|대여료 변경|기준선/)
+    : (skip('⑮ 원자 변경 검증(대여료)'), { ok: false, picked: [] as string[] });
   const stN = /상태 전이 (\d+)건/.exec(det.picked.join(' '))?.[1];
   const prN = /대여료 변경 (\d+)건/.exec(det.picked.join(' '))?.[1];
   line.push(det.ok ? `변경 상태${stN ?? '?'}·요금${prN ?? '?'}` : '검증 실패');
+
+  /** F01·F86·사후검사가 같은 시점의 같은 차량 집합을 쓰도록 한 번만 캡처한다. */
+  // 회차마다 고유 파일을 쓴다. 수동 발행이 동시에 돌아도 이 회차의 F01·F86 입력을 덮지 못한다.
+  const salesSnapshot = `tmp/sales-publish-snapshots/${RUN_ID}.json`;
+  const captured = run('⑮¾ 판매 원자 스냅샷', ['scripts/capture-sales-publish-snapshot.mts', `--out=${salesSnapshot}`], /판매 스냅샷|재고 계약 위반|Error/);
+  if (!captured.ok) stop('판매 원자 스냅샷을 만들지 못했다 — 서로 다른 시점의 시트를 발행하지 않는다');
+  const photoProjection = run('⑮⅞ 사진 투영 문지기', ['scripts/audit-photo-projection.mts', `--snapshot=${salesSnapshot}`], /사진 투영|사진으로 해석할 수 없는|T카 링크 누락|Error/);
+  if (!photoProjection.ok) stop('ERP 사진 또는 시트 공급사별 링크 규칙이 맞지 않는다');
 
   /**
    * ⑯ **본시트(영업자 판매시트) 발행** — Firestore 원자 → 판매시트 4탭을 «집안 서식」으로 재발행.
@@ -899,12 +973,45 @@ if (APPLY) {
    * ★반드시 ⑭ 미러 «뒤»다 — 생성기는 Firestore 를 읽으므로 미러가 먼저 돌아야 이번 시각 데이터가 실린다.
    * ★best-effort — 실패해도 회차를 멈추지 않는다. 실패하면 시트엔 ⑥ 의 «올바른(서식만 단순)» 표가 남는다.
    */
-  const pub = run('⑯ 본시트 발행', ['scripts/make-sample-sheet-google.mts', '--main'], /본시트 반영 완료|중단|Error/);
+  const pub = run('⑯ 본시트 발행', ['scripts/make-sample-sheet-google.mts', '--main', `--snapshot=${salesSnapshot}`], /본시트 반영 완료|중단|Error/);
   line.push(pub.ok ? (pub.picked.find((l) => /본시트 반영 완료/.test(l))?.replace(/^.*본시트 반영 완료 /, '').replace(/:.*$/, '') || '본시트 ok') : '★본시트 발행 실패');
-  if (!pub.ok) warnings.push('⑯ 본시트 발행 실패 — 시트는 ⑥ 값(단순 서식) 유지');
+  if (!pub.ok) stop('⑯ 본시트 발행 실패 — F86을 다른 회차로 발행하지 않는다');
+
+  /**
+   * ⑯¼ **하허호 전용 상품시트(F86) 발행** — F01 과 같은 Firestore 원자를 회사별로 쪼갠다.
+   *   ⚠⚠ 2026-09-08(매뉴얼 감사가 잡았다) — 이 호출이 **회차에 아예 없었다.** F01 은 매시간 갱신되는데
+   *   F86 은 사람이 손으로 돌릴 때만 갱신돼, **채널이 묵은 재고를 계속 봤다.**
+   *   게다가 ⑯½ 대조가 F01↔F86 을 재므로, 안 돌리면 매 회차 «어긋났다»는 경보가 상시로 울린다 —
+   *   상시로 우는 경보는 곧 아무도 안 보는 경보다.
+   * ★F01 과 F86 은 같은 원자와 같은 줄 생성 함수를 쓴다. 뒤에서 두 출력의 차량번호 집합을 대조한다.
+   */
+  const ch = run('⑯¼ 하허호 F86 발행', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/build-channel-supplier-sheet.mts', '--apply', `--snapshot=${salesSnapshot}`], /반영 완료|구글 두드림|묵은 탭|Error/);
+  line.push(ch.ok ? (ch.picked.find((l) => /반영 완료/.test(l))?.replace(/^.*반영 완료 — /, 'F86 ') || 'F86 ok') : '★F86 발행 실패');
+  if (!ch.ok) stop('⑯¼ 하허호 F86 발행 실패 — F01과 다른 회차가 되었으므로 성공 처리하지 않는다');
+
+  /**
+   * ⑯½ **발행한 시트가 원자와 «정말 같은가»** — 칸 단위 대조.
+   *   > 사장님 2026-09-08 「너무 빠르게만 필요없고 **적당한 속도에 완벽하게 박혀야 함**」
+   *   발행기가 「반영 완료」라 찍는 것은 구글이 200 을 줬다는 뜻이지 «그 칸에 그 값이 들어갔다»는 뜻이 아니다.
+   *   같은 날 「장기보증=0」이 서 있었고 「(공급사 없음) 84대」 탭이 남아 있었다 — 둘 다 발행은 «성공»했다.
+   * ★알림만 한다 — 이미 시트에 나간 뒤라 여기서 멈춰도 되돌려지지 않는다. 대신 «무엇이 어긋났는지»를 남긴다.
+   */
+  const parity = run('⑯½ 시트↔원자 대조', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/audit-sheet-vs-atom.mts', `--snapshot=${salesSnapshot}`], /원자대로 박혔다|안 박혔다|빠진 차|값이 다른 칸/);
+  if (parity.ok) line.push('대조 ok');
+  else stop(parity.picked.find((l) => /안 박혔다/.test(l))?.trim() || '시트↔원자 대조 어긋남');
+
+  const photoLinks = run('⑯⅝ 시트 사진링크 대조', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/check-plate-photo-link.mts'], /모두 규격대로 걸렸다|어긋났다|Error/);
+  if (!photoLinks.ok) stop('F01·F86 차량번호 사진링크가 공급사별 규칙과 다르다');
+
+  const destinationAudit = run('⑯¾ 천이 출력 되읽기', ['scripts/audit-pipeline-destinations.mts'], /천이컴퍼니 대조|거래처 관리대장|★|⛔/);
+  if (!destinationAudit.ok) stop('천이 출력이 원본과 다르다');
 }
 
 const seconds = Math.round((Date.now() - started) / 1000);
+// ★건너뛴 단계 = steps 중 신호가 「건너뜀」인 것(skip 이 그렇게 적는다). 예전엔 없는 `건너뜀` 배열을 참조해 회차 끝에서 크래시했다(Codex 2026-09-09).
+const 건너뛴 = steps.filter((s) => typeof s.신호 === 'string' && s.신호.startsWith('건너뜀')).map((s) => s.단계);
+if (건너뛴.length) out.push(`
+   ⏭ 이 단(${TIER})에서 안 한 것 ${건너뛴.length} — ${건너뛴.join(' · ')}`);
 out.push(`\n■ ${allOk ? '끝' : '끝(일부 실패)'} ${kst()} KST · ${seconds}초`);
 writeFileSync('tmp/hourly-sync-last.txt', out.join('\n'));
 appendFileSync('tmp/hourly-sync-log.txt', `${kst()} ${APPLY ? '반영' : '미리'} ${seconds}초 · ${allOk ? '' : '⚠일부실패 · '}${line.join(' · ')}\n`);

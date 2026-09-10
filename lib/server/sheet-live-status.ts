@@ -1,11 +1,11 @@
 import 'server-only';
 
-import type { Database } from 'firebase-admin/database';
+import type { AdminRef as Database } from './firestore-path-store';
 import { planSheetLiveStatusSync, type SheetLiveStatusPlan } from '@/lib/domain/sheet-live-status';
 import { productPatchPreconditionMatches } from '@/lib/domain/product-write-guard';
-import { splitProductPrivate } from '@/lib/firebase/rtdb-products';
+import { splitProductPrivate } from '@/lib/firebase/product-private';
 import type { EntityRecord } from '@/lib/intake/entities';
-import { firebaseAdminDatabase } from '@/lib/server/firebase-admin';
+import { firebaseAdminStore } from '@/lib/server/firebase-admin';
 import { fetchProductMasterSheet } from '@/lib/server/product-master-sheet';
 import { readPartners, readProducts } from '@/lib/server/sheet-daily-sync';
 import { newId } from '@/lib/domain/ids';
@@ -132,7 +132,7 @@ async function applyStatusPlan(
 
 /** 한 명의 화면만 Google Sheet를 읽고, 나머지 사용자는 같은 최신 결과를 공유한다. */
 export async function runSheetLiveStatusSync(): Promise<SheetLiveStatusResult> {
-  const db = firebaseAdminDatabase();
+  const db = firebaseAdminStore();
   const now = Date.now();
   if (String(process.env.SHEET_LIVE_STATUS_ENABLED || 'true').toLowerCase() === 'false') {
     return { ok: true, status: 'disabled', runId: '', syncedAt: 0, statuses: await readStatuses(db) };

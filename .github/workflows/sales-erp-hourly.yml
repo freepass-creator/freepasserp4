@@ -1,9 +1,9 @@
 name: 판매·천이·ERP 시간별 동기
 
+# ⚠⚠ **cron 을 켜지 않는다** — 오케스트레이터는 «하나»다(이 집 PC 의 「프리패스-자동동기」).
+#   켜면 두 대가 같은 시트를 쓴다. 클라우드로 옮길 때 되살린다
+#   (되살릴 값: 평일 KST 09:00~18:00 = `cron: '0 0-9 * * 1-5'`).
 on:
-  schedule:
-    # 평일 KST 09:00~18:00. 원본→정제 점검(매시 08:50~) 뒤에 실행한다.
-    - cron: '0 0-9 * * 1-5'
   workflow_dispatch:
     inputs:
       apply:
@@ -12,13 +12,16 @@ on:
         default: false
 
 concurrency:
-  group: sales-erp-hourly
+  # 일일 수동 반영과도 같은 F01/F86을 쓰므로 두 워크플로가 한 줄로 선다.
+  group: freepass-sales-publish
   cancel-in-progress: false
 
 jobs:
   sync:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # ⚠ 2026-09-08 실측 한 회차 «48분» — 45분이면 깃허브가 중간에 잘라 버린다(반쪽 반영).
+    #   자주 바뀌는 것은 30분 회차(refresh-30min)가 따로 맡으므로, 여긴 넉넉히 준다.
+    timeout-minutes: 70
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -33,13 +36,8 @@ jobs:
       # ★오케스트레이터는 하나다 — 로컬 작업 스케줄러도 같은 파일을 부른다(scripts/hourly-sync.cmd).
       #   전에는 여기만 run-sales-erp-hourly.mts 를 불러 단계가 갈렸다(픽업구독·천이·요금검수가 빠져 있었다).
       #   ⓪ 손오공은 계정 파일이 없으면 스스로 건너뛴다 — GHA 에 손오공 시크릿을 붙이기 전까지는 ①부터 돈다.
-      # ★관제탑(/hub)이 켜지려면 이 단계가 v4/ops/pipeline 을 써야 한다.
-      #   파이프라인 스크립트는 tmp/firebase-auth/sa.json «파일»을 직접 읽지만,
-      #   publishOpsStatus 만은 env 기반으로 초기화한다(ADC + DB URL). 그 둘이 없으면
-      #   상태 발행을 «조용히» 포기해 관제탑이 영영 안 켜진다(2026-09-04 실측: 문서 빈 채).
-      #   → 이미 놓은 sa.json 을 ADC 로 가리키고 DB URL 을 준다. 본업엔 영향 없다.
+      # ★관제탑(/hub) 상태도 같은 ADC로 Firestore v4/ops/pipeline에 쓴다.
       - name: 연동지도 전 구간 (정제시트 → 판매 4탭 → 천이 → ERP)
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sa.json
-          NEXT_PUBLIC_FIREBASE_DATABASE_URL: https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app
         run: npx tsx scripts/hourly-sync.mts --apply

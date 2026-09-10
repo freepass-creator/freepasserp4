@@ -125,7 +125,7 @@ if (!leaks.length) console.log('   없습니다.');
 
 /**
  * ★★**걸린 자리는 «걸어가서» 본다.** 직접 import 만 보면 한 칸만 건너뛴 얽힘을
- *   「풀렸다」고 말한다 — 실측 2026-09-08, `store.ts → rtdb-adapter → contract-dedupe` 를
+ *   「풀렸다」고 말한다 — 실측 2026-09-08, `store.ts → FirestoreAdapter → contract-dedupe` 를
  *   직접 import 가 없다는 이유로 풀렸다고 찍었다. 안 풀렸는데 초록불이 뜨는 게 제일 나쁘다.
  */
 const pathTo = (from: string, to: string): string[] | null => {

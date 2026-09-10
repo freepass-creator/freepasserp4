@@ -15,14 +15,14 @@
  * 실행: GOOGLE_APPLICATION_CREDENTIALS=tmp/firebase-auth/sa.json \
  *   npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/ingest-supplier-to-firestore.mts --code=RP004 [--apply]
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { listSheetTabs, readSheetGrid } from '../lib/server/google-sheets';
-import { HUB_CODE_SHEET_ID } from '../lib/domain/legacy-sheets';
+import { HUB_CODE_SHEET_ID, isLegacySheetId } from '../lib/domain/legacy-sheets';
 import { isOurNonInventoryTab } from '../lib/domain/supplier-template-sheet';
 import { companyAlias } from '../lib/domain/identity';
-import { pickSupplierSource, hubSourceMap } from '../lib/domain/supplier-source';
+import { pickSupplierSource, hubSourceMap, hubNameMap, myStockTabs } from '../lib/domain/supplier-source';
 import { snapToMaster, makerGroup } from '../lib/domain/vehicle-master-match';
 import type { MasterEntry } from '../lib/domain/vehicle-master-types';
 import type { EntityRecord } from '../lib/intake/entities';
@@ -34,12 +34,26 @@ import { snapColor } from '../lib/domain/color-master';
 import { MIRROR_SOURCES } from '../lib/domain/mirror-sources';
 import { sheetIdFromUrl } from '../lib/domain/supplier-sheet-read';
 import { FUEL_EV, rawSeats, atomViolations, type MasterIndex } from '../lib/domain/atom-invariants';
+import { cleanTrim } from '../lib/domain/clean-trim';
+import { resolveStatus } from '../lib/domain/atom-status';
+import { isOpenInventoryAtom } from '../lib/domain/inventory-contract';
+import { mergeRawPhotoEvidence, photoAtomFields } from '../lib/domain/photo-atom';
 
 const APPLY = process.argv.includes('--apply');
 const CODE = (process.argv.find((a) => a.startsWith('--code='))?.split('=')[1] || 'RP004').trim();
 const S = (v: unknown) => String(v ?? '').trim();
 const N = (v: unknown) => S(v).toLowerCase().replace(/\s+/g, '');
 const won = (v: unknown) => { const n = Number(S(v).replace(/[^0-9.]/g, '')); return Number.isFinite(n) && n > 0 ? Math.round(n) : 0; };
+/** 손오공 구독 대여료 = «천원단위»(재고시트 손오공-재고시트.mjs 「라운드천」과 동일 규칙). */
+const 라운드천 = (v: number) => Math.round(v / 1000) * 1000;
+/**
+ * ★**시트 오류 토큰은 값이 아니다** — `#REF!` · `#N/A` · `#VALUE!` …
+ *   ⚠ 실측 2026-09-08 — 빌린카 08주6722 의 상품구분이 **「#REF!」** 였다. 시트에서 수식이 깨진 칸을
+ *   그대로 실은 것이다. 그 차는 상품찾기에서 구분이 「#REF!」인 채로 섰다.
+ *   ★오류 토큰은 «모른다»다 — 빈칸으로 둔다. 빈칸은 문지기가 잡지만, 「#REF!」는 값처럼 보여 안 잡힌다.
+ */
+const SHEET_ERR = /^#(REF|VALUE|N\/A|NAME|DIV\/0|NUM|ERROR|GETTING_DATA)[!?]?$/i;
+const clean = (v: unknown) => { const s = S(v); return SHEET_ERR.test(s) ? '' : s; };
 type Price = Record<string, { rent: number; deposit: number }>;
 const PERIOD_ALIAS: [string, string[]][] = [['1', ['1개월', '월렌트', '월세']], ['6', ['6개월']], ['12', ['12개월']], ['18', ['18개월']], ['24', ['24개월']], ['36', ['36개월']], ['48', ['48개월']], ['60', ['60개월']]];
 
@@ -54,7 +68,18 @@ const SON_CODE = 'RP012';
 async function srcConfig(): Promise<{ code: string; name: string; kind: Kind; from?: string; shared?: string[] }> {
   if (CODE === SON_CODE || CODE === 'SONOKONG' || CODE === '손오공') return { code: SON_CODE, name: '손오공', kind: 'sonokong' };
   const m = MIRROR_SOURCES.find((x) => x.code === CODE);
-  if (m) return { code: m.code, name: m.name, kind: m.kind as Kind, from: m.from };
+  if (m) {
+    /**
+     * ⚠ 2026-09-08(코덱스가 잡았다) — 정제시트로 연동한 곳(`MIRROR_SOURCES`)은 **폐기 검사 «앞»에서
+     *   그냥 돌아가고 있었다.** 웰릭스를 24일 망가뜨린 것이 바로 「폐기된 주소를 조용히 읽는 일」인데,
+     *   이 길만 그 문을 안 지났다. 표에 적힌 주소도 언젠가 폐기될 수 있다 — 같은 문을 지나게 한다.
+     */
+    if (m.from && isLegacySheetId(m.from)) {
+      throw new Error(`${CODE}: MIRROR_SOURCES 의 원천(${m.from})이 «폐기된 시트»다.`
+        + `\n  죽은 시트를 읽으면 차명·상태가 통째로 틀어진다. lib/domain/mirror-sources 의 그 줄을 고쳐라.`);
+    }
+    return { code: m.code, name: m.name, kind: m.kind as Kind, from: m.from };
+  }
   /**
    * 나머지 공급사 = **문패(공급사시트정리)가 정본**. `partner.sheet_url` 은 늦는 사본이라 마지막 수단이다.
    * ⚠ 2026-09-08 — 이 자리가 `partner.sheet_url` 만 봤고, 그 값이 **폐기된 옛 시트**여서
@@ -68,7 +93,9 @@ async function srcConfig(): Promise<{ code: string; name: string; kind: Kind; fr
   console.log(`  원천 주소 ← ${pick.from} · ${pick.id}`);
   /** ★한 시트를 «여러 회사»가 나눠 쓰는가 — 그러면 탭으로 갈라 읽어야 한다(아래 readRows). */
   const shared = [...hub].filter(([, id]) => id === pick.id).map(([c]) => c);
-  return { code: CODE, name: S(p?.name) || CODE, kind: 'sheet', from: pick.id, shared };
+  /** ★이름도 문패가 정본이다 — 재고 탭을 회사별로 가를 때 「경진렌트카」·「경진카」처럼 정확해야 한다. */
+  const hubName = hubNameMap([hubRows.header, ...hubRows.rows]).get(CODE.toUpperCase());
+  return { code: CODE, name: S(hubName) || S(p?.name) || CODE, kind: 'sheet', from: pick.id, shared };
 }
 const src = await srcConfig();
 const PROV = src.code;   // Firestore 태깅·pin 조회는 공급사 정식 코드로(손오공=RP012)
@@ -143,28 +170,13 @@ const yearOf = (firstReg: string) => {
 //   ⚠ 세부모델 «이름»(일렉트리파이드)으로는 판단 안 한다 — 이름 오매핑 위험(2026-09-05). FUEL_EV·rawSeats 도 SSOT.
 const evEngineCc = (fuel: string, cc: string): string => (FUEL_EV.test(fuel) ? '' : cc);
 
-// 상태 디테일 — mirror-to-firestore 와 «같은» 분류(한 값에 안 뭉침). status·status_kind·status_reason·listable.
-const AVAIL = new Set(['즉시출고', '출고가능']);
-function statusDetail(rawStatus: string, locked?: unknown) {
-  const raw = S(rawStatus);
-  let cur = canonSheetVehicleStatus(raw) || '차량검수';
-  if (/계약중/.test(raw)) cur = '계약중';
-  else if (/점검|검수|정비/.test(raw)) cur = '차량검수';
-  let kind = '불가', reason = '';
-  if (cur === '즉시출고' || cur === '출고가능') kind = '가용';
-  else if (cur === '출고협의') { kind = '협의'; reason = '공급사협의'; }
-  else if (cur === '상품화중') { kind = '준비'; reason = '상품화중'; }
-  else if (cur === '차량검수') { kind = '준비'; reason = '검수대기'; }
-  else if (cur === '계약중') { kind = '선점'; reason = locked ? '계약선점' : '공급사표기'; }
-  else if (cur === '출고불가') { kind = '불가'; reason = (AVAIL.has(raw) || raw === '출고협의') ? '시트이탈' : (raw ? '공급사불가' : '정보없음'); }
-  /**
-   * ★★**상태는 «한 벌»이다** — `vehicle_status` 가 정본이고 나머지는 거기서 파생된다.
-   *   ⚠ 2026-09-08 실측: 직접수집이 `status` 만 쓰고 `vehicle_status` 를 안 써서, 한 차가
-   *   `status=출고가능` · `vehicle_status=출고불가` 로 **두 값을 동시에** 들고 있었다(108대).
-   *   판매시트·문지기는 `vehicle_status`, ERP 일부는 `status` 를 읽어 «판 차가 목록에 다시 서는» 길이 열렸다.
-   *   규칙 SSOT = `docs/원자-내려보내기-로직.md` §1.
-   */
-  return { vehicle_status: cur, status: cur, status_kind: kind, status_reason: reason, listable: kind !== '불가', status_label_raw: raw };
+// 상태 디테일 — 판정은 «한 곳»(lib/domain/atom-status resolveStatus)에서만. 여기선 원천 raw 를 canon 해 base 로 넘긴다.
+//   ★상태는 «한 벌»(vehicle_status 정본, 나머지 파생) — 두 값을 다르게 들면 판 차가 목록에 다시 선다. 규칙·주석 = atom-status.ts.
+function statusDetail(rawStatus: string, locked?: unknown, lockedBase?: unknown) {
+  // ★계약이 있으면(정산원장) base = «우리가 아는 현 상태(pin)» — 공급사 canon 이 아니다(계약이 이긴다).
+  //   그래야 계약완료(출고불가)는 숨고, 계약중은 선점으로 남는다. 계약 없으면 공급사 원천대로.
+  const base = S(locked) ? S(lockedBase) : canonSheetVehicleStatus(S(rawStatus));
+  return resolveStatus({ base, raw: rawStatus, locked });
 }
 
 // ── 원본 열 자동 해석 (MIRROR_ALIAS) ───────────────────────────────────────
@@ -192,7 +204,7 @@ function sheetPrice(get: (i: number) => string, ci: { dep: number; periods: Reco
 /**
  * ★**보증금이 «말»로 적힌 것을 잃지 않는다** (사장님 2026-09-08 「보증금 잘 챙기고」).
  *
- * ⚠ 실측 2026-09-08 — 아이카 96대 중 **51대**가 시트에 보증금 빈칸이었다. 그런데 원천에는
+ * ⚠ 실측 2026-09-08 — 아이카 96대 중 **50대**가 시트에 보증금 빈칸이었다. 그런데 원천에는
  *   장기보증 칸에 **「무보증」**이라 «적혀» 있었다. `won('무보증') = 0` 이라 숫자로만 실었더니
  *   시트에서 빈칸이 됐고, 빈칸은 **「없다」가 아니라 「모른다」로 읽힌다** — 영업자가 물어봐야 한다.
  *   ⇒ 숫자가 아닌 보증금은 **그 말을 그대로** 싣는다. 오토플러스 규칙문구와 같은 결이다.
@@ -209,11 +221,16 @@ const depositNote = (raw: string) => {
 };
 
 // ── 원천 리더 — 종류마다 «우리필드 키 행(Row)»을 낸다. 원자화는 하나로 공유한다. ──────
-type Row = { car: string; status: string; kind: string; maker: string; model: string; vname: string; trim: string; fuel: string; ext: string; int: string; km: string; opt: string; firstReg: string; cc: string; klass: string; price: Price; depNote: string; tab: string; row: string };
-const blank: Omit<Row, 'car' | 'tab' | 'row'> = { status: '', kind: '', maker: '', model: '', vname: '', trim: '', fuel: '', ext: '', int: '', km: '', opt: '', firstReg: '', cc: '', klass: '', price: {}, depNote: '' };
+type Row = { car: string; link?: string; imageUrls?: unknown; photoCollectedAt?: unknown; status: string; kind: string; maker: string; model: string; vname: string; trim: string; fuel: string; ext: string; int: string; km: string; opt: string; firstReg: string; cc: string; klass: string; price: Price; depNote: string; tab: string; row: string };
+const blank: Omit<Row, 'car' | 'tab' | 'row'> = { status: '', kind: '', maker: '', model: '', vname: '', trim: '', fuel: '', ext: '', int: '', km: '', opt: '', firstReg: '', cc: '', klass: '', price: {}, depNote: '', imageUrls: [], photoCollectedAt: 0 };
 
 // 번호판 꼴만 차로 본다 — 헤더 밑 제목·프로모 배너·빈 행이 «차»로 새는 걸 막는다(오토플러스 실측).
 const isPlate = (s: string) => /\d{2,3}\s*[가-힣]\s*\d{4}/.test(S(s));
+/**
+ * 손오공 「픽업재고」 탭의 차번 → 티카 상품링크. 리더가 채우고, 쓰기 단계도 본다.
+ * ⚠ 덤프(API)에 없는데 시트에는 있는 차가 있다(실측 5대). 리더 안에서만 쓰면 그 차들은 링크를 못 받는다.
+ */
+const 픽업링크 = new Map<string, string>();
 async function readRows(): Promise<Row[]> {
   const out: Row[] = [];
   const seen = new Set<string>();
@@ -242,17 +259,45 @@ async function readRows(): Promise<Row[]> {
     return out;
   }
   if (src.kind === 'sonokong') {
-    const dump = JSON.parse(readFileSync('sonokong/lib/wonja/손오공차량.json', 'utf8')) as { 차량?: Record<string, unknown>[] };
+    /**
+     * ★★**「차번링크」(티카 상품링크)도 «원자»가 갖고 온다** — 사장님 2026-09-09
+     *   「네가 **시트까지 원자가 갖고 왔다고 가정하고 그 갖고 온 원자에서 다 주는** 거잖아」.
+     *
+     * ⚠ 실측 2026-09-09 — 이 링크는 API 덤프에 없고 손오공 「프리패스 재고」 시트의 «픽업재고» 탭에만 있어서,
+     *   **발행기가 발행할 때마다 그 시트를 다시 읽고** 있었다. 발행기가 원천을 읽으면
+     *   ㉠ 시트가 잠깐 안 읽히는 회차엔 229대 링크가 통째로 빈칸이 되고(로그는 성공),
+     *   ㉡ 원자만 보는 곳(ERP·화이트라벨)은 그 링크를 «영영 모른다».
+     *   ⇒ 당길 때 같이 당겨 원자에 박는다. 발행기는 원자만 본다.
+     */
+    try {
+      const SONO = '1WIFn5ObK_nCVGLTjj6rO96i6vxub1QzJmiVW0BpJLcA';   // 손오공 프리패스 재고
+      const tabs = await listSheetTabs(SONO);
+      const pk = tabs.find((t) => /픽업/.test(t));
+      if (pk) {
+        const g = await readSheetGrid(SONO, pk);
+        const hd = g.header.map(N); const ci = hd.indexOf(N('차량번호')), li = hd.indexOf(N('차번링크'));
+        if (ci >= 0 && li >= 0) for (const r of g.rows) { const c = N(r[ci]), l = S(r[li]); if (c && /^https?:/i.test(l)) 픽업링크.set(c, l); }
+      }
+      console.log(`  픽업 차번링크 ${픽업링크.size}개 (손오공 재고시트 「${pk || '픽업 탭 없음'}」)`);
+    } catch (e) { console.warn(`  ▲ 픽업 차번링크 못 읽음 — ${(e as Error).message.slice(0, 60)} (아는 링크는 merge 가 지킨다)`); }
+    const dump = JSON.parse(readFileSync('sonokong/lib/wonja/손오공차량.json', 'utf8')) as { 갱신?: unknown; 차량?: Record<string, unknown>[] };
     const cars = dump.차량 || [];
+    const dumpCollectedAt = Date.parse(S(dump.갱신).replace(' ', 'T') + '+09:00');
     console.log(`  원본 손오공 API 덤프 — ${cars.length}대`);
     for (const c of cars) {
       const car = S(c.차번); if (!car) continue;
       const status = c.계약중 ? '계약중' : (S(c.계약가능) === 'Y' ? '출고가능' : '출고협의');
-      // 요금 = 저신용월납. RETURN=반납형(개월키) · BUYOUT=인수형(개월_인수형). deposit=(개월/12)×rent(현행 규칙).
+      // 요금 = 저신용월납. RETURN=반납형(개월키) · BUYOUT=인수형(개월_인수형).
+      // ★★대여료는 «천원단위»로 맞춘다 — 사장님 「원단위 절사해 놨다」(2026-09-10). API 덤프는 원문(…479원)이라
+      //   재고시트(`손오공-재고시트.mjs` 라운드천)를 안 거치면 1의 자리까지 들어온다. 인제스트가 덤프를
+      //   직접 읽으므로 여기서 «같은 규칙»(round/1000×1000)을 건다. 보증금은 라운드된 대여료로 재계산돼 정합.
+      // ★보증금 = 대여료 × 연수, «최대 3개월»(사장님 「손오공 규칙」 2026-08-28). 5년도 3개월치만 받는다.
+      //   min(개월/12, 3) 로 캡 — 48·60개월이 4·5개월치로 부풀던 것을 막는다.
+      const dep3 = (p: string, r: number) => Math.round(Math.min(Number(p) / 12, 3) * r);
       const price: Price = {};
       const low = (c.저신용월납 || {}) as { SUBSCRIBE_RETURN?: Record<string, number>; SUBSCRIBE_BUYOUT?: Record<string, number> };
-      for (const [p, rent] of Object.entries(low.SUBSCRIBE_RETURN || {})) { const r = won(rent); if (r > 0) price[p] = { rent: r, deposit: Math.round((Number(p) / 12) * r) }; }
-      for (const [p, rent] of Object.entries(low.SUBSCRIBE_BUYOUT || {})) { const r = won(rent); if (r > 0) price[`${p}_인수형`] = { rent: r, deposit: Math.round((Number(p) / 12) * r) }; }
+      for (const [p, rent] of Object.entries(low.SUBSCRIBE_RETURN || {})) { const r = 라운드천(won(rent)); if (r > 0) price[p] = { rent: r, deposit: dep3(p, r) }; }
+      for (const [p, rent] of Object.entries(low.SUBSCRIBE_BUYOUT || {})) { const r = 라운드천(won(rent)); if (r > 0) price[`${p}_인수형`] = { rent: r, deposit: dep3(p, r) }; }
       /**
        * ★★**손오공 상품구분은 «버킷»이 말해 준다** — 원천이 진작 주고 있었는데 안 읽었다.
        * ```
@@ -266,7 +311,19 @@ async function readRows(): Promise<Row[]> {
        */
       const 버킷 = S(c.버킷);
       const kind = 버킷 === 'TCAR_EXTERNAL' ? '픽업구독' : (버킷 === 'SON_NO_KONG' ? '오공구독' : (c.중고 ? '중고구독' : ''));
-      push({ car, status, kind, maker: S(c.제조사), model: S(c.모델), vname: S(c.차명) || S(c.세부), fuel: S(c.연료), ext: S(c.외장), int: S(c.내장), km: c.주행거리 == null ? '' : String(c.주행거리), opt: S(c.옵션), firstReg: S(c.최초등록) || S(c.연식), cc: c.배기량 == null ? '' : String(c.배기량), klass: '', price, tab: '손오공API', row: S(c.id) });
+      /**
+       * ★★**옵션 = 제조사 «선택»옵션만이다** — 사장님 2026-09-10 「옵션은 제조사선택옵션만 옵션이야」.
+       *
+       *   원 구매자가 트림 위에 «따로 고른» 것(선루프·드라이브와이즈 패키지 등)만 옵션이다.
+       *   ⇒ 필드 = 「유료옵션」(`tcarPaidOptions`). 티카는 중고차라 추가구매가 안 돼 대부분 null
+       *     (237대 중 69대만) — 나머지 빈칸은 «선택옵션 없이 기본트림으로 산 차»라 **정상**이다.
+       *
+       * ★옵션 = «선택옵션(유료옵션=제조사선택옵션)»만. 티카는 상세 완전수집이면 대부분 온다(198/238).
+       *   ⚠ `options`(장착사양=앱 「기본옵션」)는 «안 담는다** — 사장님 2026-09-10 「기본옵션은 우린 안 쓸 거야」.
+       * ⚠ 손오공(SON_NO_KONG)은 유료옵션도 비어 온다 — 그럼 빈 값(원천이 「선택옵션 없음」을 준 것).
+       */
+      const 선택옵션 = S(c.유료옵션);
+      push({ car, link: 픽업링크.get(N(car)) || '', imageUrls: c.사진들, photoCollectedAt: c.상세시각 || dumpCollectedAt, status, kind, maker: S(c.제조사), model: S(c.모델), vname: S(c.차명) || S(c.세부), fuel: S(c.연료), ext: S(c.외장), int: S(c.내장), km: c.주행거리 == null ? '' : String(c.주행거리), opt: 선택옵션, firstReg: S(c.최초등록) || S(c.연식), cc: c.배기량 == null ? '' : String(c.배기량), klass: '', price, tab: '손오공API', row: S(c.id) });
     }
     return out;
   }
@@ -297,16 +354,31 @@ async function readRows(): Promise<Row[]> {
    *     남의 차를 우리 것으로 적느니 그 회차를 거르는 게 낫다.
    */
   if ((src.shared?.length || 0) > 1) {
-    const 나 = companyAlias(src.name) || S(src.name);
-    const 내탭 = tabs.filter((t) => 나 && N(t).includes(N(나)));
+    const 나 = S(src.name);
+    const 내탭 = myStockTabs(tabs, 나);
+    /**
+     * ★★**탭이 둘이라고 회사가 둘인 게 아니다** (사장님 2026-09-08 「스카이랑 스타가 같은 계열이라서 …
+     *   공급사도 탭 2개로 관리하나?? 잘봐봐」 — 보니 **아니었다**).
+     *   우리가 관계사마다 재고 탭을 둘 만들어 줬는데, 실제로 둘 다 쓰는 곳은 «경진» 하나뿐이다:
+     * ```
+     *   스타·스카이   회사정보 「(주) 스타스카이」 · 사업자번호 하나 · 정산 탭도 하나
+     *                 스타재고 25줄 · 스카이재고 0줄     → 한 회사, 탭 하나만 쓴다
+     *   경진          경진카재고 3 · 경진렌트재고 3      → 진짜 둘 다 쓴다
+     *   빌린카·엘씨   빌린카재고 48 · 엘씨재고 0         → 재고는 한 탭, 정산은 둘로 갈려 있다
+     * ```
+     * ★그래도 **읽는 규칙은 하나로 단순하게** — «내 이름이 든 탭»만 읽는다.
+     *   내 탭이 비었으면 그건 «내 재고가 없다»는 뜻이지, 남의 탭을 읽을 이유가 아니다.
+     *   (한 계열을 한 덩이로 보여 주는 것은 발행 쪽 몫이다 — `build-channel-supplier-sheet` 의 FAMILY.)
+     */
     if (!내탭.length) {
       console.error(`\n✗ ${PROV}(${src.name}): 이 시트는 ${src.shared!.join('·')} 가 나눠 쓴다.`);
       console.error(`  그런데 「${나}」 이름이 든 탭이 없다 — 탭 ${tabs.join(' · ')}`);
       console.error(`  전부 읽으면 남의 차를 우리 코드로 적게 된다(정산이 어긋난다). 아무것도 안 읽고 멈춘다.`);
       process.exit(1);
+    } else {
+      console.log(`  ★시트를 ${src.shared!.length}곳이 나눠 쓴다 — 「${나}」 탭만 읽는다: ${내탭.join(' · ')}`);
+      tabs = 내탭;
     }
-    console.log(`  ★시트를 ${src.shared!.length}곳이 나눠 쓴다 — 「${나}」 탭만 읽는다: ${내탭.join(' · ')}`);
-    tabs = 내탭;
   }
   for (const tab of tabs) {
     const grid = await readSheetGrid(SHEET, tab);
@@ -319,21 +391,22 @@ async function readRows(): Promise<Row[]> {
     for (const r of allRows.slice(hi + 1)) {
       rowNo += 1;
       const car = S(r[ci.car]); if (!car) continue;
-      const model = ci.model >= 0 ? S(r[ci.model]) : '';
-      const trim = ci.trim >= 0 ? S(r[ci.trim]) : '';
-      const maker0 = ci.maker >= 0 ? S(r[ci.maker]) : '';
+      const model = ci.model >= 0 ? clean(r[ci.model]) : '';
+      const trim = ci.trim >= 0 ? clean(r[ci.trim]) : '';
+      const maker0 = ci.maker >= 0 ? clean(r[ci.maker]) : '';
       // ★공급사 원문 차명 — 「어떤 형태로든지」 준 것을 다 훑는다(사장님 2026-09-05):
       //   원본 차명 열 → (없으면) 모델+트림 합성 → (그것도 없으면) 제조사+모델+트림. 빈 채로 굳지 않게.
       // ⚠★**제조사 한 마디만 남으면 차명이 아니다 — 비운다.**
       //   실측 2026-09-08: 웰릭스가 옆 시트의 「차명(트림)」 열을 못 읽어 vname이 「기아」가 됐고,
       //   매칭기가 그걸 보고 K8을 **모닝**으로, 카니발을 **스포티지**로 붙였다.
       //   「모른다」는 빈 칸으로 남기는 게 맞다 — 그래야 「원문없음」으로 잡혀 검수 목록에 오른다.
-      const rawVname = ci.vname >= 0 ? S(r[ci.vname]) : '';
+      const rawVname = ci.vname >= 0 ? clean(r[ci.vname]) : '';
       const composed = rawVname || composeVehicleName(model, trim) || [maker0, model, trim].filter(Boolean).join(' ');
       const vname = N(composed) === N(maker0) ? '' : composed;
       const price = sheetPrice((i) => S(r[i]), ci);
       const depNote = depositNote(ci.dep >= 0 ? S(r[ci.dep]) : '');
-      push({ car, status: S(r[ci.status]), kind: ci.kind >= 0 ? S(r[ci.kind]) : '', maker: maker0, model, vname, trim, fuel: ci.fuel >= 0 ? S(r[ci.fuel]) : '', ext: ci.ext >= 0 ? S(r[ci.ext]) : '', int: ci.int >= 0 ? S(r[ci.int]) : '', km: ci.km >= 0 ? S(r[ci.km]) : '', opt: ci.opt >= 0 ? S(r[ci.opt]) : '', firstReg: ci.firstReg >= 0 ? S(r[ci.firstReg]) : '', cc: ci.cc >= 0 ? S(r[ci.cc]) : '', klass: ci.klass >= 0 ? S(r[ci.klass]) : '', price, depNote, tab, row: String(rowNo) });
+      /** ★칸마다 «시트 오류 토큰»을 걷는다(`clean`) — 「#REF!」가 값처럼 실려 상품구분이 된 적이 있다. */
+      push({ car, status: clean(r[ci.status]), kind: ci.kind >= 0 ? clean(r[ci.kind]) : '', maker: maker0, model, vname, trim, fuel: ci.fuel >= 0 ? clean(r[ci.fuel]) : '', ext: ci.ext >= 0 ? clean(r[ci.ext]) : '', int: ci.int >= 0 ? clean(r[ci.int]) : '', km: ci.km >= 0 ? clean(r[ci.km]) : '', opt: ci.opt >= 0 ? clean(r[ci.opt]) : '', firstReg: ci.firstReg >= 0 ? clean(r[ci.firstReg]) : '', cc: ci.cc >= 0 ? clean(r[ci.cc]) : '', klass: ci.klass >= 0 ? clean(r[ci.klass]) : '', price, depNote, tab, row: String(rowNo) });
     }
   }
   return out;
@@ -351,11 +424,16 @@ async function readRows(): Promise<Row[]> {
  *   (규칙 SSOT = `docs/원자-내려보내기-로직.md` §1)
  * ★단 하나 예외 = `engine_cc` — 전기·수소차는 배기량이 «없는 것»이 맞다(evEngineCc 가 일부러 비운다).
  */
-const CLEARABLE = new Set(['engine_cc']);
+/**
+ * ⚠ 2026-09-08(적대 검토가 잡았다) — 예외를 `engine_cc` «이름»에 걸어 두었더니, 전기차가 아닌 차도
+ *   원천에 배기량 열이 없으면 빈 값으로 아는 값을 덮었다(실측 6대 — 스타 가솔린 K3·그랜저 등).
+ *   ⇒ 예외는 **전기·수소차일 때만**. 그때만 「배기량이 없는 것」이 사실이다.
+ */
 const strip = (doc: Record<string, unknown>) => {
+  const ev = FUEL_EV.test(S(doc.fuel_type));
   const out: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(doc)) {
-    if (v === '' && !CLEARABLE.has(k)) continue;   // 빈 문자열 = 「모른다」 → 안 쓴다
+    if (v === '' && !(k === 'engine_cc' && ev)) continue;   // 빈 문자열 = 「모른다」 → 안 쓴다
     if (v === undefined || v === null) continue;
     out[k] = v;
   }
@@ -382,9 +460,10 @@ function atomize(row: Row, pinned: Map<string, Record<string, unknown>>): Atom {
     const canon = snap ? validCanon(snap.maker, snap.model, snap.sub_model) : null;
     const conf = snap?.confidence || 'none';
     confirmed = !!canon && conf === 'high';
+    // ★트림 후보는 snap(마스터 매칭) 또는 원문 트림 — 아래에서 cleanTrim 이 «마스터 복사 or 공란»으로 확정한다.
     identity = canon
-      ? { maker: canon.maker, model: canon.model, sub_model: canon.sub_model, trim_name: S(snap?.trim_name) || row.trim, origin: S(snap?.origin) }
-      : { maker: row.maker, model: row.model, sub_model: '', trim_name: row.trim, origin: '' };
+      ? { maker: canon.maker, model: canon.model, sub_model: canon.sub_model, trim_name: S(snap?.trim_name) || S(row.trim), origin: S(snap?.origin) }
+      : { maker: row.maker, model: row.model, sub_model: '', trim_name: S(row.trim), origin: '' };
     // ★세대 판별 — 원문의 「N세대」·섀시코드가 답, 없으면 최초등록으로 신형.
     if (canon) identity.sub_model = resolveGen(identity.maker, identity.model, identity.sub_model, row.firstReg, N(vname));
     state = confirmed ? 'new-high' : 'new-review';
@@ -394,17 +473,43 @@ function atomize(row: Row, pinned: Map<string, Record<string, unknown>>): Atom {
       engine_cc: row.cc, vehicle_class: row.klass, first_registration_date: row.firstReg,
     };
   }
+  // ★세부트림 = 마스터에서 «복사» — 마스터에 없으면 공란(검수대기). 지어내지 않는다(사장님 2026-09-09 「마스터에 있는 내용으로만 · 분명하게 복사」).
+  //   원자의 트림은 오직 둘 — 마스터 트림 복사, 또는 공란. 공란인 차는 clean-atom-trims 정규화기 뒤 경고 리포트가 뽑는다.
+  identity.trim_name = cleanTrim(identity.trim_name, identity.maker, identity.model, identity.sub_model, trimsFor(identity.maker, identity.model, identity.sub_model));
+  const rawEvidence = mergeRawPhotoEvidence(pin?.원문, row.imageUrls);
+  rawEvidence.차명 = vname;
+  if (row.opt) rawEvidence.옵션 = row.opt;
   const atom: Atom = {
     car_number: car,
     maker: identity.maker, model: identity.model, sub_model: identity.sub_model, trim_name: identity.trim_name, origin: identity.origin, ...spec, engine_cc: evEngineCc(S(spec.fuel_type), S(spec.engine_cc)),
     product_type: canonProductType(row.kind),
-    ...statusDetail(row.status, pin?.locked_by_contract), mileage: row.km, options: row.opt,
+    /**
+     * ★★**원천이 상태를 «안 준» 것은 「모른다」다 — 아는 상태를 덮지 않는다.**
+     *
+     * ⚠⚠ 2026-09-08 실측(적대 검토가 잡았다) — `canonSheetVehicleStatus('')` 는 **「출고협의」**를 돌려준다
+     *   (`sheet-import.ts:159` — 상태 칸이 없는 시트를 함부로 출고가능으로 보지 않으려는 뜻).
+     *   그런데 그 값은 «빈 문자열이 아니라서» `strip` 을 통과해 merge 로 나가고, `listable=true` 라
+     *   **이미 「출고불가」로 내려 둔 차를 되살린다.** 공급사가 상태 칸을 한 번 비우면 판 차가 목록에 다시 선다.
+     *   ⇒ 원천 상태가 비었고 «이미 아는 차»면 상태 칸을 **아예 안 쓴다**(merge 가 옛 값을 지킨다).
+     *   ★처음 보는 차는 그대로 「출고협의」 — 모르는 차를 출고가능으로 세우지 않는다는 뜻은 살린다.
+     */
+    ...(S(row.status) || !pin ? statusDetail(row.status, pin?.locked_by_contract, pin?.vehicle_status) : null),
+    mileage: row.km, options: row.opt,
     ...(rawSeats(vname) ? { seats: rawSeats(vname) } : null),   // 원문에 인승 있으면만
     ...(Object.keys(row.price).length ? { price: row.price } : null),
     ...(row.depNote ? { deposit_note: row.depNote } : null),   // 「무보증」처럼 «말»로 적힌 보증금 — 빈칸으로 두지 않는다
+    ...(S(row.link) ? { tica_link: S(row.link) } : null),   // 픽업구독 「차번링크」 — 원천이 줄 때만(빈 값으로 아는 링크를 덮지 않는다)
+    ...photoAtomFields(row.imageUrls, row.photoCollectedAt, src.kind === 'sonokong' ? 'https://sokrc.com' : ''),
     _pin_state: state,
-    원문: { 차명: vname, ...(row.opt ? { 옵션: row.opt } : null) },
+    원문: rawEvidence,
+    /**
+     * ★★**코드만 박지 말고 «이름»을 같이 박는다** (사장님 2026-09-08 「이제 절대 코드명으로 공급사 취급 안 할 거야」).
+     *   ⚠ 실측 2026-09-08 — 여기가 코드만 써서, 직접수집으로 «새로 들어온» 차 20대가 시트에
+     *   「RP012」·「RP006」으로 섰다. 이름은 옛 미러가 얹어 주던 것이라, 미러가 안 도는 차는 이름이 없다.
+     *   ★이름 정본은 **문패**다(`src.name` = 문패 「공급사명」). 못 찾으면 «비운다» — 코드로 때우지 않는다.
+     */
     provider_company_code: PROV, partner_code: PROV,
+    ...(S(src.name) && S(src.name) !== PROV ? { provider_name: S(src.name) } : null),
     source: src.kind, source_schema: PROV, sheet_source_tab: row.tab, sheet_source_row: row.row,
   };
   // ★불변식 게이트 — block 위반이 있으면 «확정될 수 없다»(검수대기). 모순이 확정된 채 존재하는 게 구조적으로 불가능.
@@ -439,6 +544,8 @@ for (const a of now) byPin[S(a._pin_state)] = (byPin[S(a._pin_state)] || 0) + 1;
 console.log(`  정체 출처: 박은 것 그대로 ${byPin.pinned || 0} · 새 차 자동확정 ${byPin['new-high'] || 0} · 새 차 검수필요 ${byPin['new-review'] || 0}`);
 console.log(`  세부모델 ${pctOf(has('sub_model'))} · 세부트림 ${pctOf(has('trim_name'))} · 제조사 ${pctOf(has('maker'))} · 연식 ${pctOf(has('year'))} · 연료 ${pctOf(has('fuel_type'))}`);
 console.log(`  외장색 ${pctOf(has('ext_color'))} · 내장색 ${pctOf(has('int_color'))} · 배기량 ${pctOf(has('engine_cc'))} · 상태 ${pctOf(has('status'))} · 주행 ${pctOf(has('mileage'))}`);
+const photoCounts = now.map((a) => Array.isArray(a.image_urls) ? a.image_urls.length : 0);
+console.log(`  실제사진 ${photoCounts.filter(Boolean).length}/${now.length}대 · 전체 ${photoCounts.reduce((sum, count) => sum + count, 0)}장 · 10장 초과 ${photoCounts.filter((count) => count > 10).length}대 · 최대 ${Math.max(0, ...photoCounts)}장`);
 
 // 대조 (아는 차 = 우리 것과 같아야)
 const IDF = ['maker', 'model', 'sub_model', 'trim_name', 'ext_color', 'int_color', 'year', 'fuel_type'] as const;
@@ -464,8 +571,23 @@ console.log(`  대조: 아는 차 불변일치 ${both ? Math.round((idSame / bot
 console.log(`  요금 일치: ${priceBoth ? Math.round((priceSame / priceBoth) * 100) : 0}% (${priceSame}/${priceBoth}, 양쪽에 요금 있는 차)`);
 
 const VARIABLE = process.argv.includes('--variable');
+/**
+ * ★**`--status-only` — 차량상태만 본다** (사장님 2026-09-08 「30분 단위는 차량상태만 확인하자」).
+ *   30분마다 도는 회차의 몫이다. 주행·요금은 그렇게 자주 안 바뀌는데 매번 읽으면 한도만 먹는다.
+ *   ⇒ 상태 칸만 쓰고, 주행·요금은 «안 건드린다»(2시간 회차가 맡는다).
+ */
+const STATUS_ONLY = process.argv.includes('--status-only');
 const docId = (car: string) => car.replace(/\s/g, '').replace(/[/#.$[\]]/g, '_');
-const VAR_FIELDS = ['status', 'status_kind', 'status_reason', 'listable', 'status_label_raw', 'mileage', 'price'] as const;
+/**
+ * ★**변동 폴링이 만지는 칸** — 「자주 바뀌는 것」만.
+ *   ⚠ 2026-09-08 — 여기에 `vehicle_status` 가 빠져 있었다. 그래서 변동만 돌린 차는 `status` 만 바뀌고
+ *   `vehicle_status` 는 옛 값에 머물러 **상태가 두 벌**이 됐다(시트·손님 면은 `vehicle_status` 를 읽는다).
+ */
+/** ★`tica_link` 도 «변동»이다 — 손오공이 차를 넣고 빼면 링크도 따라 바뀐다(발행기가 시트를 다시 읽지 않게 원자에 둔다). */
+const VAR_FIELDS_ALL = ['vehicle_status', 'status', 'status_kind', 'status_reason', 'listable', 'status_label_raw', 'mileage', 'price', 'tica_link', 'image_urls', 'photo_collected_at', 'photo_source_hash'] as const;
+/** 상태 칸만 — `--status-only` 일 때. 주행·요금은 빼고 «안 건드린다». */
+const VAR_FIELDS_STATUS = ['vehicle_status', 'status', 'status_kind', 'status_reason', 'listable', 'status_label_raw'] as const;
+const VAR_FIELDS: readonly string[] = STATUS_ONLY ? VAR_FIELDS_STATUS : VAR_FIELDS_ALL;
 
 // ── 검증(--verify) — 원자를 «차종마스터 ↔ 원문»과 대조. 제대로 당겼나 한 번 본다. ──
 if (process.argv.includes('--verify')) {
@@ -517,54 +639,201 @@ if (!APPLY) { console.log(`\n미리보기 — Firestore 안 씀. 쓰려면 --app
 //   사장님 「한 번 정확히 가져오면 그 다음은 상태값만 읽어 바뀐 거 체크. 제일 바뀌는 게 차량상태.」
 if (VARIABLE) {
   const items = now.filter((a) => cur.has(a.car_number)); // 아는 차만(새 차는 --apply 몫)
-  let changed = 0, sChg = 0, mChg = 0, pChg = 0;
+  let changed = 0, sChg = 0, mChg = 0, pChg = 0, lChg = 0, photoChg = 0, oChg = 0;
   for (let i = 0; i < items.length; i += 400) {
     const batch = fs.batch(); let any = false;
     for (const a of items.slice(i, i + 400)) {
       const c = cur.get(a.car_number)!;
       const jsonSorted = (o: unknown) => JSON.stringify(o ?? {}, (_k, v) => (v && typeof v === 'object' && !Array.isArray(v)) ? Object.fromEntries(Object.entries(v as Record<string, unknown>).sort()) : v);
-      const sMoved = S(a.status) !== S(c.status) || a.listable !== c.listable || S(a.status_kind) !== S(c.status_kind);
-      const mMoved = S(a.mileage) !== S(c.mileage);
-      const pMoved = Object.keys(a.price).length > 0 && jsonSorted(a.price) !== jsonSorted(c.price);
-      if (!sMoved && !mMoved && !pMoved) continue;
+      /** ⚠ 상태는 `vehicle_status` 가 정본 — 그것도 같이 견줘야 한 벌로 따라간다. */
+      const sMoved = S(a.vehicle_status) !== S(c.vehicle_status) || S(a.status) !== S(c.status)
+        || a.listable !== c.listable || S(a.status_kind) !== S(c.status_kind);
+      const mMoved = !STATUS_ONLY && S(a.mileage) !== S(c.mileage);
+      /** ⚠ 요금 없는 차가 있다 — `Object.keys(undefined)` 로 회차가 통째로 죽는다(웰릭스와 같은 꼴). */
+      const ap = (a.price && typeof a.price === 'object' ? a.price : {}) as Record<string, unknown>;
+      const pMoved = !STATUS_ONLY && Object.keys(ap).length > 0 && jsonSorted(ap) !== jsonSorted(c.price);
+      /**
+       * ★**「바뀌었나」 판정에 «링크»도 넣는다.**
+       *   ⚠ 실측 2026-09-09 — `tica_link` 를 쓸 필드 목록에만 넣고 이 판정에 안 넣었더니,
+       *   상태·주행·요금이 그대로인 차는 여기서 `continue` 되어 **링크가 한 대도 안 박혔다**(0/228).
+       *   쓸 목록과 견줄 목록이 갈리면 「넣었는데 안 들어간다」가 된다.
+       */
+      const lMoved = !STATUS_ONLY && S(a.tica_link) !== '' && S(a.tica_link) !== S(c.tica_link);
+      const photoMoved = !STATUS_ONLY && Array.isArray(a.image_urls) && a.image_urls.length > 0
+        && jsonSorted(a.image_urls) !== jsonSorted(c.image_urls);
+      /**
+       * ★★**옵션은 «비우는 것»도 반영한다 — 다른 칸과 규칙이 다르다.**
+       *
+       * ⚠⚠ 실측 2026-09-10 — 「옵션 칸에는 유료옵션만」으로 규칙을 고쳐도, 이미 박힌
+       *   «표준사양 45줄»이 안 지워진다. 다른 칸은 「빈 값은 «모른다»라 안 덮는다」가 맞지만
+       *   여기서는 **원천이 「선택옵션 없음」이라고 말한 것**이라 «안다»에 가깝다.
+       *   안 지우면 원천을 고쳐도 시트는 옛 쓰레기를 계속 보여 준다.
+       * ★그래서 옵션은 **원천 값 그대로 갈아 끼운다**(빈 값이면 빈 값으로 — 표준사양은 안 싣는다).
+       *   ⚠ 이 예외는 «원천이 그 칸을 확실히 주는 곳»에서만 뜻이 있다. 지금은 손오공 덤프가 그렇다 —
+       *     옵션·유료옵션이 «별도 필드»로 늘 오고, 없으면 빈 문자열로 온다(모름이 아니라 없음).
+       */
+      const 옵션갈이 = !STATUS_ONLY && src.kind === 'sonokong';
+      /** ★견주는 자리에 «원문.옵션»도 넣는다 — 시트가 그 칸을 읽으므로 그게 안 맞으면 고친 티가 안 난다. */
+      const 옛원문옵션 = S(((c as Record<string, unknown>).원문 as Record<string, unknown> | undefined)?.옵션);
+      const oMoved = 옵션갈이 && (S(a.options) !== S(c.options) || 옛원문옵션 !== S(a.options));
+      if (!sMoved && !mMoved && !pMoved && !lMoved && !photoMoved && !oMoved) continue;
       const upd: Record<string, unknown> = { _var_polled_at: Date.now() };
-      for (const f of VAR_FIELDS) if (a[f] !== undefined) upd[f] = a[f];
-      batch.set(fs.collection('products').doc(docId(a.car_number)), upd, { merge: true });
-      changed++; if (sMoved) sChg++; if (mMoved) mChg++; if (pMoved) pChg++; any = true;
+      for (const f of VAR_FIELDS) if (a[f] !== undefined && a[f] !== '') upd[f] = a[f];
+      if (oMoved) { upd.options = S(a.options); }
+      /**
+       * ⚠⚠ **시트가 읽는 칸은 `options` 가 아니라 «원문.옵션»이다**(`sales-atom-row` 「옵션(원문)」).
+       *   실측 2026-09-10 — `options` 만 갈았더니 원자는 비었는데 **시트는 옛 45줄을 그대로 찍었다.**
+       *   고친 티가 안 나는 것이 제일 나쁘다 — 「고쳤다」와 「보인다」는 다르다.
+       * ★`원문` 은 맵이라 merge 로는 키를 «못 지운다» — 통째로 갈아 끼운다(`update`).
+       *   ⚠ 「차명」을 같이 날리지 않게 기존 맵을 이어받고 「옵션」 키만 새로 정한다.
+       */
+      const 원문갈이 = (oMoved || photoMoved) ? (() => {
+        const m: Record<string, unknown> = { ...((c as Record<string, unknown>).원문 as Record<string, unknown> || {}) };
+        if (oMoved) {
+          delete m.옵션;
+          if (S(a.options)) m.옵션 = S(a.options);
+        }
+        return mergeRawPhotoEvidence(m, photoMoved ? ((a.원문 as Record<string, unknown> | undefined)?.사진 as unknown[]) || a.image_urls : []);
+      })() : null;
+      const ref = fs.collection('products').doc(docId(a.car_number));
+      batch.set(ref, upd, { merge: true });
+      /** ★요금은 갈아 끼운다 — merge 는 맵 키를 못 지워 «지금 안 파는 기간»이 남는다(위 전체 반영과 같은 규칙). */
+      if (!STATUS_ONLY && Object.keys(ap).length) batch.update(ref, { price: ap });
+      if (원문갈이) batch.update(ref, { 원문: 원문갈이 });
+      changed++; if (sMoved) sChg++; if (mMoved) mChg++; if (pMoved) pChg++; if (lMoved) lChg++; if (photoMoved) photoChg++; if (oMoved) oChg++; any = true;
     }
     if (any) await batch.commit();
   }
-  console.log(`\n변동 폴링 완료 — ${PROV} 아는 차 ${items.length} 중 바뀐 ${changed} 씀 (상태 ${sChg} · 주행 ${mChg} · 요금 ${pChg}). 불변 안 건드림.`);
-  process.exit(0);
+  console.log(`\n변동 폴링 완료 — ${PROV} 아는 차 ${items.length} 중 바뀐 ${changed} 씀 (상태 ${sChg} · 주행 ${mChg} · 요금 ${pChg} · T카링크 ${lChg} · 사진목록 ${photoChg} · 옵션 ${oChg}). 불변 안 건드림.`);
+
+  /**
+   * ★★**덤프에 없는데 시트에는 있는 차의 링크도 챙긴다.**
+   *   ⚠ 실측 2026-09-09 — 손오공 API 덤프(308대)와 「픽업재고」 시트(314줄)가 딱 맞지 않는다.
+   *   덤프 안 차만 링크를 받으면 **5대가 링크를 잃는다** — 예전엔 발행기가 시트를 직접 읽어 갖고 있던 값이라,
+   *   원자로 옮기면서 «있던 것을 잃는» 꼴이 된다. 옮기는 일이 잃는 일이 되면 안 된다.
+   *   ⇒ 아는 우리 차(`cur`)면 시트가 준 링크를 그대로 박는다. 새 차를 만들지는 «않는다».
+   */
+  if (!STATUS_ONLY && 픽업링크.size) {
+    const 더 = [...cur.values()].filter((c) => {
+      const l = 픽업링크.get(N(c.car_number));
+      return !!l && S(c.tica_link) !== l;
+    });
+    for (let i = 0; i < 더.length; i += 400) {
+      const b = fs.batch();
+      for (const c of 더.slice(i, i + 400)) b.set(fs.collection('products').doc(docId(c.car_number)), { tica_link: 픽업링크.get(N(c.car_number)), _var_polled_at: Date.now() }, { merge: true });
+      await b.commit();
+    }
+    if (더.length) console.log(`  링크만 채운 차 ${더.length} (덤프에 없지만 픽업재고 시트에 있는 차 포함)`);
+  }
+
+  /**
+   * ★★**없는 차는 «등록»이다 — 자동으로 밀어 넣지 않는다.**
+   *
+   * > 사장님 2026-09-08 「우리는 **상태값만 바꾸고** 없는 거 추가는 **등록하는 개념**으로 가는 거지.
+   * >  나중에 **등록을 손으로 할 수 있어야** 하는 거고」
+   *
+   * 자동 회차가 하는 일은 **아는 차의 상태를 따라가는 것**뿐이다. 원천에 새 차번이 뜨면 그건
+   * 「고칠 것」이 아니라 «들일 것»이다 — 값이 제대로 왔는지, 우리가 팔 차가 맞는지 사람이 본다.
+   * ⚠ 자동으로 들이면 원천의 실수(시험 줄·남의 차·오타 차번)가 그대로 상품이 된다.
+   *   실제로 오플 배너 줄이 «차»가 되어 채널 시트까지 나갔던 것이 그런 꼴이다.
+   *
+   * ⇒ 여기서는 **적어만 둔다**(`tmp/등록대기.json`). 들이는 것은 사람의 한 수다:
+   * ```
+   *   npx tsx … scripts/ingest-supplier-to-firestore.mts --code=RP004 --apply     ← 원천에 있는 새 차를 전부 등록
+   *   npx tsx … scripts/register-car.mts 109호1234 [--code=RP004]                 ← 한 대만 손으로 등록
+   * ```
+   */
+  const 새차 = now.filter((a) => !cur.has(a.car_number));
+  const WAIT = 'tmp/등록대기.json';
+  let 대기: Record<string, unknown[]> = {};
+  try { 대기 = JSON.parse(readFileSync(WAIT, 'utf8')) as Record<string, unknown[]>; } catch { /* 첫 회차 */ }
+  대기[PROV] = 새차.map((a) => ({
+    차번: S(a.car_number), 이름: `${S(a.maker)} ${S(a.model)} ${S(a.sub_model)}`.trim(),
+    상태: S(a.vehicle_status), 구분: S(a.product_type),
+    원문: S((a['원문'] as { 차명?: string } | undefined)?.차명),
+    본때: new Date(Date.now() + 9 * 36e5).toISOString().slice(0, 16).replace('T', ' '),
+  }));
+  mkdirSync('tmp', { recursive: true });
+  writeFileSync(WAIT, JSON.stringify(대기, null, 1), 'utf8');
+  if (새차.length) {
+    console.log(`\n▲ 원천에 «새 차» ${새차.length}대 — 자동으로 안 들인다(등록은 사람의 한 수).`);
+    for (const a of 새차.slice(0, 8)) console.log(`   ${S(a.car_number).padEnd(11)} ${S(a.maker)} ${S(a.model)} ${S(a.sub_model)}  「${S((a['원문'] as { 차명?: string } | undefined)?.차명).slice(0, 30)}」`);
+    console.log(`   들이려면 — --apply(전부) 또는 scripts/register-car.mts <차번>(한 대)`);
+  }
+  /**
+   * ⚠⚠ **여기서 끝내지 않는다** — 아래 「사라진 차 내리기」까지 가야 한다.
+   *   2026-09-08 실측(코덱스가 잡았다) — 여기 `process.exit(0)` 이 있어서, 자동 회차를 `--variable` 로
+   *   돌리게 바꾼 순간 **내림이 아예 안 돌았다.** 방금 켠 장치를 도로 끈 셈이었다.
+   *   ★변동 모드가 «안 해야 하는 것»은 «새 차 들이기»와 «불변 덮어쓰기»뿐이다. 내림은 상태 일이라 해야 한다.
+   */
 }
 
 // ── 전체 반영(불변+상태) = «한 번 정확히» + (--retire 일 때만) 사라진 차 listable=false ──
 // ⚠ 사라진-차 마킹은 오탐이 곧 «차가 사라져 보임»이라 별도 플래그(--retire)로만. 안전판도 함께:
 //   수집분이 우리 것의 절반도 안 되면(원천 읽기 실패 의심) 마킹하지 않는다.
 const RETIRE = process.argv.includes('--retire');
-const safeToRetire = RETIRE && (cur.size === 0 || now.length >= cur.size * 0.5);
+/**
+ * ★**안전판은 «지금 세워 둔 차»와 견준다** — 한 번이라도 본 차 «전부»가 아니다.
+ *   ⚠ 실측 2026-09-08 — 손오공은 원천 291대인데 우리 원자가 630대(대부분 이미 출고불가로 쌓인 옛 차)라,
+ *   「절반도 못 읽었다」로 판정돼 **내리기가 영원히 안 걸렸다.** 그 사이 원천에 없는 차 9대가
+ *   「출고가능」으로 서 있었다. 잣대가 너무 세면 안전판이 아니라 «자물쇠»가 된다.
+ *   ⇒ 견줄 대상 = `listable === true` 인 차(=지금 목록에 세운 것). 291 vs 354 → 통과, 630 vs 291 → 막힘.
+ * ★뜻은 그대로다 — 「우리가 «보여 주고 있던» 것의 절반도 못 읽었으면 원천 읽기를 의심한다」.
+ */
+const 세운차 = [...cur.values()].filter(isOpenInventoryAtom).length;
+const safeToRetire = RETIRE && (세운차 === 0 || now.length >= 세운차 * 0.5);
 let wrote = 0, retired = 0;
-for (let i = 0; i < now.length; i += 400) {
+/** ★불변까지 덮는 «전체 반영»은 `--apply` 전용이다 — 변동 모드는 위에서 상태만 쓰고 여기를 건너뛴다. */
+if (!VARIABLE) for (let i = 0; i < now.length; i += 400) {
   const batch = fs.batch();
   for (const a of now.slice(i, i + 400)) {
     const { _pin_state, ...doc } = a; void _pin_state;
-    batch.set(fs.collection('products').doc(docId(a.car_number)), { ...strip(doc), _direct_ingest_at: Date.now() }, { merge: true });
+    const ref = fs.collection('products').doc(docId(a.car_number));
+    batch.set(ref, { ...strip(doc), _direct_ingest_at: Date.now() }, { merge: true });
+    /**
+     * ★★**요금은 «갈아 끼운다» — 합치지 않는다.**
+     *   ⚠ 2026-09-08(적대 검토가 잡았다) — `price` 는 맵이라 `merge:true` 가 **기존 기간 키와 합친다.**
+     *   원천에서 없어진 기간(60개월을 뺐다든지)이 **영원히 안 지워져**, 시트 60개월 칸에 «지금 안 파는 값»이 선다.
+     *   ⇒ 원천이 요금을 준 차만, `update` 로 맵을 통째 대체한다(같은 배치라 set 뒤에 온다).
+     *   ⚠ 요금이 «아예 없는» 차는 안 건드린다 — 못 읽은 것과 없어진 것을 구별할 수 없기 때문이다.
+     */
+    if (a.price && typeof a.price === 'object' && Object.keys(a.price as object).length) batch.update(ref, { price: a.price });
     wrote++;
   }
   await batch.commit();
 }
 if (safeToRetire && gone.length) {
   // ★계약중(락 걸린) 차는 «안» 내린다 — 원천에서 잠깐 빠져도 진행 중인 거래를 숨기면 안 된다.
-  const locked = gone.filter((car) => { const c = cur.get(car) || {}; return S(c.status) === '계약중' || S(c.status_kind) === '선점' || S(c.locked_by_contract) || S(c.vehicle_status) === '계약중'; });
+  /**
+   * ★★**「팔 수 있다」던 차만 내린다.** 원천에 없다는 것이 «사라졌다»의 증거가 되려면,
+   *   원천이 그 상태의 차를 «보여 주기는 했어야» 한다.
+   *   ⚠ 실측 2026-09-08 — 손오공 API 는 `계약가능=Y` 인 차만 준다(291대 전부). 그러니 협의·준비·검수 중인
+   *   차가 목록에 없는 것은 «빠진 것»이 아니라 **원래 안 보여 주는 것**이다. 그걸 내리면 멀쩡한 차를 숨긴다.
+   *   ⇒ 지금 「출고가능·즉시출고」인 차만 내린다. 계약중(락)·출고협의·상품화중·차량검수는 그대로 둔다.
+   * ★내리는 쪽이 조심스러워야 한다 — **팔 수 있는 차를 숨기는 것**이 여기서 가장 나쁜 결과다.
+   */
+  const 지킴 = (c: Record<string, unknown>) => {
+    const st = S(c.vehicle_status) || S(c.status);
+    return st !== '출고가능' && st !== '즉시출고';
+  };
+  const locked = gone.filter((car) => 지킴(cur.get(car) || {}) || !!S((cur.get(car) || {}).locked_by_contract));
   const toRetire = gone.filter((car) => !locked.includes(car));
   for (let i = 0; i < toRetire.length; i += 400) {
     const batch = fs.batch();
-    for (const car of toRetire.slice(i, i + 400)) { batch.set(fs.collection('products').doc(docId(car)), { listable: false, status_reason: '원천 이탈(직접수집)', _direct_ingest_at: Date.now() }, { merge: true }); retired++; }
+    /**
+     * ★**내릴 때는 «상태»도 같이 바꾼다** — `listable` 만 내리면 `vehicle_status` 는 「출고가능」인 채라
+     *   읽는 곳마다 다른 말을 한다(상태 두 벌). 규격은 「기계는 줄을 지우지 않는다 — 안 파는 차는
+     *   상태만 출고불가」(`ai-touch-rules`)다. 원천이 더 이상 주지 않는 차는 «출고불가»가 맞다.
+     *   ⚠ 계약중(락)은 위에서 이미 뺐다 — 진행 중인 거래를 숨기지 않는다.
+     */
+    for (const car of toRetire.slice(i, i + 400)) { batch.set(fs.collection('products').doc(docId(car)), { listable: false, vehicle_status: '출고불가', status: '출고불가', status_kind: '불가', status_reason: '원천 이탈(직접수집)', _direct_ingest_at: Date.now() }, { merge: true }); retired++; }
     await batch.commit();
   }
-  if (locked.length) console.log(`  · 사라진 차 중 계약중(락) ${locked.length}건은 안 내림(거래 진행중).`);
+  if (locked.length) console.log(`  · 사라진 차 중 ${locked.length}건은 안 내림 — 계약중(락)이거나 「출고가능」이 아니던 차(원천이 원래 안 보여 주는 상태).`);
 } else if (gone.length) {
-  console.log(`  · 사라진 차 ${gone.length}건 마킹 안 함 — ${RETIRE ? `안전판(수집 ${now.length} < 우리 것 ${cur.size}의 절반, 원천 읽기 의심)` : '--retire 없음(오탐 방지, 기본 끔)'}.`);
+  console.log(`  · 사라진 차 ${gone.length}건 마킹 안 함 — ${RETIRE ? `안전판(수집 ${now.length} < 세워 둔 ${세운차}의 절반, 원천 읽기 의심)` : '--retire 없음(오탐 방지, 기본 끔)'}.`);
 }
-console.log(`\n반영 완료 — ${PROV} 직접 원자 ${wrote}건 merge(불변+상태) · 사라진 차 listable=false ${retired}건. 요금은 별도(가격블록).`);
+console.log(VARIABLE
+  ? `\n변동 반영 완료 — ${PROV} · 사라진 차 listable=false ${retired}건. 불변은 안 건드림.`
+  : `\n반영 완료 — ${PROV} 직접 원자 ${wrote}건 merge(불변+상태) · 사라진 차 listable=false ${retired}건. 요금은 별도(가격블록).`);
 process.exit(0);

@@ -64,6 +64,8 @@ const GROUPS: { title: string; items: { href?: string; label: string; icon: Luci
   // ② 관리자 — 일이 이어지는 차례대로(계약을 보내고 → 정산하고 → 사람·회사를 관리한다).
   { title: '', items: [
     { href: '/esign', label: NAV_LABEL.esign, icon: NAV_ICON.esign, roles: ['admin'] },
+    // 정산 콕핏 — 달을 한 화면에서 보고 폰으로 접수한다. 원장(아래)보다 «먼저» 여는 곳이라 위에 둔다.
+    { href: '/settlement/board', label: NAV_LABEL.board, icon: NAV_ICON.board, roles: ['admin'] },
     { href: '/settlement/ledger', label: NAV_LABEL.ledger, icon: NAV_ICON.ledger, roles: ['admin'] },
     { href: '/members?tab=partner', label: NAV_LABEL.partners, icon: Users, roles: ['admin'] },
     { href: '/members?tab=user', label: NAV_LABEL.members, icon: Users, roles: ['admin'] },

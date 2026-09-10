@@ -9,9 +9,9 @@ import {
   planProductDuplicateDryRun,
   productDuplicateDryRunTsv,
 } from '@/lib/domain/product-duplicate-dry-run';
-import { firebaseAdminDatabase } from '@/lib/server/firebase-admin';
-import { splitProductPrivate } from '@/lib/firebase/rtdb-products';
-import { mergeV3V4Records } from '@/lib/firebase/rtdb-records';
+import { firebaseAdminStore } from '@/lib/server/firebase-admin';
+import { splitProductPrivate } from '@/lib/firebase/product-private';
+import { mergeV3V4Records } from '@/lib/firebase/legacy-records';
 
 function mergeNodes(v3: unknown, v4: unknown): EntityRecord[] {
   const rows = new Map<string, EntityRecord>();
@@ -50,31 +50,16 @@ export async function auditProductDuplicateReferences(): Promise<{
   tsv: string;
   dryRunTsv: string;
 }> {
-  const db = firebaseAdminDatabase();
-  const [
-    productsV4,
-    contractsV3,
-    contractsV4,
-    roomsV3,
-    roomsV4,
-    quotesV3,
-    quotesV4,
-    productPrivateV4,
-    partnersV3,
-    partnersV4,
-  ] = await Promise.all([
-    db.ref('v4/products').get(),
+  const db = firebaseAdminStore();
+  const [productsSnap, contractsSnap, roomsSnap, quotesSnap, productPrivateSnap, partnersSnap] = await Promise.all([
+    db.ref('products').get(),
     db.ref('contracts').get(),
-    db.ref('v4/contracts').get(),
     db.ref('rooms').get(),
-    db.ref('v4/rooms').get(),
-    db.ref('quotes').get(),
-    db.ref('v4/quotes').get(),
-    db.ref('v4/products_private').get(),
+    db.ref('quote').get(),
+    db.ref('products_private').get(),
     db.ref('partners').get(),
-    db.ref('v4/partners').get(),
   ]);
-  const rawProducts = mergeV3V4Records('product', {}, productsV4.val());
+  const rawProducts = mergeV3V4Records('product', {}, productsSnap.val());
   const legacyPrivate = new Map<string, EntityRecord>();
   const products = rawProducts.map((product) => {
     const split = splitProductPrivate(product);
@@ -82,17 +67,17 @@ export async function auditProductDuplicateReferences(): Promise<{
     if (split.privateRecord && key) legacyPrivate.set(key, split.privateRecord);
     return split.publicRecord;
   });
-  const contracts = mergeNodes(contractsV3.val(), contractsV4.val());
-  const rooms = mergeNodes(roomsV3.val(), roomsV4.val());
-  const quotes = mergeNodes(quotesV3.val(), quotesV4.val());
+  const contracts = mergeNodes({}, contractsSnap.val());
+  const rooms = mergeNodes({}, roomsSnap.val());
+  const quotes = mergeNodes({}, quotesSnap.val());
   const productPrivateByKey = new Map(legacyPrivate);
-  for (const row of mergeNodes({}, productPrivateV4.val())) {
+  for (const row of mergeNodes({}, productPrivateSnap.val())) {
     const key = String(row.product_code || row._key || '');
     if (!key) continue;
     productPrivateByKey.set(key, { ...(productPrivateByKey.get(key) || {}), ...row, _key: key, product_code: key });
   }
   const productPrivate = [...productPrivateByKey.values()];
-  const partners = mergeNodes(partnersV3.val(), partnersV4.val());
+  const partners = mergeNodes({}, partnersSnap.val());
   const providerCodes = partners
     .map((row) => String(row.partner_code || row._key || '').trim())
     .filter(Boolean);

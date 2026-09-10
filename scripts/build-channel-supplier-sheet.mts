@@ -17,11 +17,17 @@
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { initializeApp, cert } from 'firebase-admin/app';
-import { getDatabase } from 'firebase-admin/database';
-import { SALES_PUBLISHED_TAB_PREFIXES } from '../lib/domain/sales-published-tabs';
+import { getFirestore } from 'firebase-admin/firestore';
 import { companyAlias } from '../lib/domain/identity';
+import { channelCompanyOf } from '../lib/domain/channel-company';
+import { isPlate } from '../lib/domain/plate-registry';
+import { hasInventoryPublicationViolations, inventoryCountSnapshot, isOpenInventoryAtom } from '../lib/domain/inventory-contract';
+import { captureSalesPublishSnapshot, readSalesPublishSnapshot, salesPublishMark } from '../lib/server/sales-publish-snapshot';
+import { loadSalesRowContext, makeCell, tabOf, TAB_ORDER, compareSalesRows } from '../lib/domain/sales-atom-row';
 import { buildSalesFormatRequests, columnWidths, isMoneyColumn } from '../lib/domain/sales-sheet-format';
+import { HAHUHO_PRODUCT_SHEET_ID } from '../lib/domain/legacy-sheets';
 import { ensureNoticeTab } from '../lib/server/channel-sheet-tabs';
+import { channelColumnName, salesPublishedColumns } from '../lib/domain/sales-published-tab-columns';
 import nextEnv from '@next/env';
 
 nextEnv.loadEnvConfig(process.cwd());
@@ -29,6 +35,8 @@ const S = (v: unknown) => String(v ?? '').trim();
 const APPLY = process.argv.includes('--apply');
 const arg = (k: string) => (process.argv.find((a) => a.startsWith(`--${k}=`)) || '').split('=')[1] || '';
 const channel = S(arg('채널')) || '하허호';
+const snapshotPath = arg('snapshot');
+if (APPLY && !snapshotPath) throw new Error('채널시트 발행은 --snapshot=<회차별 고정 스냅샷>이 필요하다. 먼저 capture:sales-publish를 실행하라.');
 /**
  * ★문서 이름 = 「[F코드 사용중] 프리패스x<채널> 전용 상품시트」 (사장님 2026-09-08).
  *   F코드 정본은 `lib/server/channel-sheet-tabs` 의 `CHANNEL_F_CODE`(영업채널 = F80번대)와
@@ -37,12 +45,12 @@ const channel = S(arg('채널')) || '하허호';
  */
 const CHANNEL_PRODUCT_F: Record<string, string> = { 하허호: 'F86' };
 const DOC_NAME = `[${CHANNEL_PRODUCT_F[channel] || 'F8?'} 사용중] 프리패스x${channel} 전용 상품시트`;
-const SHEET = S(process.env.INVENTORY_EXPORT_SHEET_ID);
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 initializeApp({
   credential: cert({ projectId: sa.project_id, clientEmail: sa.client_email, privateKey: sa.private_key.replace(/\\n/g, '\n') }),
-  databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app',
 });
+const firestore = getFirestore();
+const publishSnapshot = snapshotPath ? readSalesPublishSnapshot(snapshotPath) : await captureSalesPublishSnapshot(firestore);
 const jwt = new JWT({
   email: sa.client_email, key: sa.private_key, subject: 'pyh@teamjpk.com',
   scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive'],
@@ -65,70 +73,88 @@ const api = async (u: string, init?: RequestInit): Promise<any> => {
 };
 
 /**
- * 공급사 코드 → 회사 이름.
- * ★정본은 **문패 「공급사시트정리」**(공급사명 | 공급사코드 | 시트주소) — 발행기 ⑥ 이 주소를 읽는 그 표다.
- *   RTDB `v4/partners` 는 이관 중이라 비어 있을 수 있어(실측 2026-09-08 여섯 곳이 코드로 남았다) 문패를 먼저 본다.
+ * ★★**줄은 «원자»에서 만든다 — 판매시트를 다시 읽지 않는다.**
+ *
+ * > 사장님 2026-09-09 「당겨오는 거는 **원자 쪽에서** 당겨오는 거고 …
+ * >  네가 **시트까지 원자가 갖고 왔다고 가정하고 그 갖고 온 원자에서 다 주는** 거잖아」
+ *
+ * ⚠⚠ 실측 2026-09-09 — 여기가 F01 의 네 탭을 `values/'탭'!A1:CZ3000` 으로 **통째로 다시 읽어**
+ *   줄을 만들고 있었다. 원자 → F01 시트 → F86 시트로 다리가 하나 더 있었던 것이다. 그래서
+ *   ㉠ F01 발행이 실패한 회차엔 **옛 시트를 베끼고**(그런데 로그는 성공으로 찍힌다),
+ *   ㉡ F01 이 잘못 실은 값을 그대로 물려받고,
+ *   ㉢ 열값·정렬 규칙이 **두 벌**로 적혀 있어 한쪽만 고치면 갈렸다(공급사명이 실제로 갈렸다).
+ *
+ * ⇒ 원자에서 만든다. 줄 만드는 법·문맥·차례는 전부 `lib/domain/sales-atom-row` 한 벌이다.
+ * ★**시트에서 읽는 것은 «머리글 한 줄»뿐**이다 — 열 이름은 여전히 판매시트가 정한다
+ *   (사장님 「이미 정답이 있는데」). 값은 원자가 준다.
  */
-const INDEX_SHEET = '1TVeVXyJJRx0SzD2vxqy3eEjSojmMIWXSu7AdsKmpfmY';
-const nameOf = new Map<string, string>();
-try {
-  const iv = await api(`https://sheets.googleapis.com/v4/spreadsheets/${INDEX_SHEET}/values/A1:Z200`);
-  for (const r of (iv.values || []) as any[][]) {
-    const cells = (r || []).map(S);
-    const code = cells.find((c) => /^(RP|PT)[-_]?\d+/i.test(c));
-    const nm = cells.find((c) => c && c !== code && !/^https?:/.test(c));
-    if (code && nm) nameOf.set(code, companyAlias(nm) || nm);
-  }
-  console.log(`  문패에서 공급사 이름 ${nameOf.size}개 읽음`);
-} catch (e) { console.warn('  문패 못 읽음:', (e as Error).message); }
-const partners = (await getDatabase().ref('v4/partners').get()).val() as Record<string, any> || {};
-for (const p of Object.values(partners)) {
-  if (!p || typeof p !== 'object') continue;
-  const code = S(p.provider_company_code) || S(p.partner_code);
-  const nm = S(p.partner_name) || S(p.company_name) || S(p.name);
-  if (code && nm && !nameOf.has(code)) nameOf.set(code, companyAlias(nm) || nm);
-}
+const rowCtx = await loadSalesRowContext({
+  policies: publishSnapshot.policies,
+  partners: publishSnapshot.partners,
+  companyAlias,
+});
+const cell = makeCell(rowCtx);
+const nameOf = rowCtx.nameByProvider;
+console.log(`  공급사 이름 ${nameOf.size}개 · 전용계좌 ${rowCtx.acctByProvider.size}개 (공용 문맥)`);
+
 /**
- * ★**같은 식구는 한 탭으로 모은다** (사장님 2026-09-08 「경진렌트 경진카는 같은 식구니까 한 탭으로」 ·
+ * ★★**같은 식구는 한 탭으로 모은다** (사장님 2026-09-08 「경진렌트 경진카는 같은 식구니까 한 탭으로」 ·
  *   「한 줄에도 어차피 회사명 들어가니까」).
  *   한 문서를 나눠 쓰는 관계사다 — 정책 탭도 2026-08-21 에 「운영정책」 한 장으로 합쳤다.
  *   ⇒ 탭은 식구 이름 하나로 모으고, 어느 법인인지는 줄의 「공급사」 칸이 말한다.
- * ⚠ 여기 없는 짝(빌린카↔엘씨 · 스타↔스카이)도 관계사지만, 합칠지는 사장님이 정한다 — 임의로 묶지 않는다.
+ * ★★**스타·스카이 = 「스타스카이」 한 회사**(사장님 2026-09-08 「스카이랑 스타가 같은 계열이라서」).
+ *   실측으로도 그렇다 — 그 시트 「회사정보」 탭의 상호가 **「(주) 스타스카이」** 하나고, 사업자등록번호도
+ *   하나(206-86-09184)이며, 정산 탭도 회사별로 안 갈려 있다. 「스카이재고」 탭은 **빈 껍데기**(0줄)다.
+ *   ⇒ 탭이 둘이라고 회사가 둘인 게 아니다. 이름도 상호 그대로 「스타스카이」로 세운다.
+ * ⚠ 빌린카↔엘씨는 아직 안 묶는다 — 재고는 빌린카 탭 하나만 쓰지만 **정산 탭이 둘로 갈려 있다**
+ *   (「26년08월 정산 · 빌린카」 · 「26년08월 정산 · 엘씨렌트」). 돈이 갈리는 곳은 사장님이 정한다.
  */
-const FAMILY: Record<string, string> = { 경진카: '경진', 경진렌트카: '경진', 경진렌트: '경진' };
-const companyOf = (v: string) => {
-  const s = S(v);
-  const named = /^(RP|PT)[-_]?\d+/i.test(s) ? (nameOf.get(s) || s) : s;   // 코드면 이름으로
-  const one = companyAlias(named) || named;                               // 표기 통일(SA → 에스에이 등)
-  return FAMILY[one] || one;                                              // 식구는 한 이름으로
-};
+const companyOf = (v: string) => channelCompanyOf(v, nameOf);
 
-// ── 판매 4탭 읽기 ────────────────────────────────────────────
-const meta = await api(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET}?fields=sheets.properties.title`);
-const titles: string[] = (meta.sheets || []).map((s: any) => S(s.properties?.title));
-const COLUMNS: string[] = [];
 /**
- * ★**같은 값인데 이름이 둘인 요금 칸을 한 벌로 모은다.**
- *   픽업구독 탭만 「반납형보증금 / 인수형보증금」을 쓰고, 상품리스트·손오공구독은 「보증금 반납형 / 보증금 인수형」이다
+ * ★**열 = 판매시트 «그대로»** — 한 칸도 빼지 않는다(「데이터 완벽하게」). 탭마다 열이 달라 «합집합»으로 세운다.
+ * ⚠ 픽업구독 탭만 「반납형보증금 / 인수형보증금」을 쓰고, 상품리스트·손오공구독은 「보증금 반납형 / 보증금 인수형」이다
  *   (2026-09-04 픽업 탭 지시). 한 회사(손오공)를 한 탭에 모으면 그 둘이 **두 벌로 선다** — 실측 요금 칸 18개.
  *   ⇒ 판매시트 다수 표기로 통일한다. 값은 그대로, 이름만 한 벌.
  */
-const FEE_ALIAS: Record<string, string> = { 반납형보증금: '보증금 반납형', 인수형보증금: '보증금 인수형' };
-type Row = { company: string; kind: string; cells: Record<string, string> };
+const COLUMNS: string[] = [];
+const headOf: Record<string, string[]> = {};
+for (const prefix of TAB_ORDER) {
+  headOf[prefix] = salesPublishedColumns(prefix);
+  for (const h of headOf[prefix]) { const n = channelColumnName(h); if (n && !COLUMNS.includes(n)) COLUMNS.push(n); }
+}
+
+type Row = { company: string; kind: string; atom: any; cells: Record<string, string> };
 const rowsAll: Row[] = [];
-for (const prefix of SALES_PUBLISHED_TAB_PREFIXES) {
-  const t = titles.find((x) => x.startsWith(prefix)); if (!t) continue;
-  const v = await api(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET}/values/${encodeURIComponent(`'${t}'!A1:CZ3000`)}`);
-  const grid: string[][] = (v.values || []).map((r: any[]) => r.map(S));
-  const hdr = grid[0] || [];
-  for (const h of hdr) { const n = FEE_ALIAS[S(h)] || S(h); if (n && !COLUMNS.includes(n)) COLUMNS.push(n); }
-  for (const r of grid.slice(1)) {
-    if (!r.some((c) => c)) continue;
-    const cells: Record<string, string> = {};
-    hdr.forEach((h, i) => { if (S(h)) cells[FEE_ALIAS[S(h)] || S(h)] = S(r[i]); });
-    rowsAll.push({ company: companyOf(cells['공급사'] || ''), kind: prefix, cells });
+{
+  const docs = publishSnapshot.products as any[];
+  const inventory = inventoryCountSnapshot(docs);
+  const listable = docs.filter(isOpenInventoryAtom);
+  if (hasInventoryPublicationViolations(inventory)) {
+    console.error(`  ⛔ 재고 계약 위반 — listable ${inventory.listableDrift} · status_kind ${inventory.statusKindDrift} · 원천 식별자 ${inventory.sourceIdentityViolations} · 삭제표식 ${inventory.deletedMarkerViolations} · 차량번호 ${inventory.blankPlateViolations}/${inventory.invalidPlateViolations}/${inventory.duplicatePlateViolations}`);
+    process.exit(1);
   }
-  console.log(`  읽음 ${t} — ${Math.max(0, grid.length - 1)}줄`);
+  const invalidCars = listable.filter((v) => !isPlate(S(v.car_number)));
+  if (invalidCars.length) {
+    for (const v of invalidCars.slice(0, 10)) console.error(`  ⛔ 차번 아님: ${S(v.car_number)}`);
+    console.error('  채널시트를 건드리기 전에 중단한다.');
+    process.exit(1);
+  }
+  const 탭수: Record<string, number> = {};
+  for (const v of listable) {
+    const kind = tabOf(v);
+    const HEAD = headOf[kind]; if (!HEAD) continue;
+    /**
+     * ★★**차번이 아니면 싣지 않는다** — F01 과 «같은 가드»(사장님 2026-09-08 「차량번호 없으면 당기면 안 되지」).
+     *   오플 원본 시트의 배너 줄이 «차»가 되어 실린 적이 있다(「★★★ … 수수료 150만원 … ★★★」).
+     */
+    const car = S(v.car_number);
+    const cells: Record<string, string> = {};
+    for (const h of HEAD) cells[channelColumnName(h)] = cell(h, v);
+    rowsAll.push({ company: companyOf(cells['공급사'] || ''), kind, atom: v, cells });
+    탭수[kind] = (탭수[kind] || 0) + 1;
+  }
+  console.log(`  원자에서 만든 줄 ${rowsAll.length} — ${TAB_ORDER.map((t) => `${t} ${탭수[t] || 0}`).join(' · ')}`);
 }
 
 /**
@@ -137,11 +163,27 @@ for (const prefix of SALES_PUBLISHED_TAB_PREFIXES) {
  */
 const OUT_COLS = [...COLUMNS];
 const by = new Map<string, Row[]>();
-for (const x of rowsAll) { const k = x.company || '(공급사 없음)'; const l = by.get(k) || []; l.push(x); by.set(k, l); }
 /**
- * ★**줄 차례 = 판매시트와 «같은 규칙»** — 매뉴얼 `docs/영업자시트-매뉴얼.md` 「기본 정렬」.
- *   ① 신차 → ② 인기순(계약 실적) → ③ 상품 많은 순 → ④ 모델명 → ⑤ 싼 대여료 → ⑥ 차번.
- *   시트마다 정렬이 다르면 같은 재고가 두 차례로 보인다 — 그게 「왜 또 바뀌었냐」의 자리다.
+ * ★★**공급사를 모르는 차는 채널에 안 내보낸다.**
+ *   ⚠ 2026-09-08(적대 검토가 잡았다) — F01 은 이름을 못 찾으면 「공급사」 칸을 **일부러 비운다**
+ *   (코드로 때우지 않는다는 규칙). 그 빈칸을 여기서 「(공급사 없음)」 탭으로 묶어 내보내고 있었다 —
+ *   영업채널이 «공급사 모르는 차 목록»을 받는 꼴이다. 지운 그 탭을 이번 회차가 다시 만들던 자리다.
+ *   ⇒ 빼고, 몇 대인지 알린다. 고칠 곳은 **문패의 공급사명**이지 이 시트가 아니다.
+ */
+const 이름없음: Row[] = [];
+for (const x of rowsAll) {
+  if (!x.company) { 이름없음.push(x); continue; }
+  const l = by.get(x.company) || []; l.push(x); by.set(x.company, l);
+}
+if (이름없음.length) console.log(`  ⚠ 공급사 이름을 모르는 차 ${이름없음.length}대 — 채널에 안 내보낸다(문패 「공급사명」을 채워라): ${이름없음.slice(0, 6).map((x) => S(x.cells['차량번호'])).join(' · ')}`);
+if (APPLY && 이름없음.length) {
+  console.error('  ⛔ 공급사명이 없는 차를 누락한 채 운영 채널시트를 덮지 않는다.');
+  process.exit(1);
+}
+/**
+ * ★**줄 차례 = 판매시트와 «같은 규칙»** — 이제 «같은 함수»(`compareSalesRows`)를 쓴다.
+ *   ⚠ 예전엔 같은 규칙이 여기 따로 적혀 있었고, 시트 «칸»(글자)으로 견주느라 F01(원자로 견줌)과
+ *     미묘하게 달랐다. 시트마다 차례가 다르면 같은 재고가 두 차례로 보인다 — 「왜 또 바뀌었냐」의 자리다.
  */
 const modelSold = new Map<string, number>();
 try {
@@ -149,32 +191,14 @@ try {
   for (const [m, n] of Object.entries(j.순위 || {})) modelSold.set(S(m), Number(n) || 0);
   console.log(`  인기순(계약 실적) ${modelSold.size}가지 로드`);
 } catch { console.warn('  인기순 파일 없음 — 인기 축은 건너뛴다'); }
-const modelCount = new Map<string, number>();
-for (const r of rowsAll) { const m = S(r.cells['모델']); if (m) modelCount.set(m, (modelCount.get(m) || 0) + 1); }
-const RENT_RE = /개월/;   // 최저가는 «기간 요금»만 본다(보증금은 값이 아니라 담보다)
-const cheapOf = (c: Record<string, string>) => {
-  const ns = COLUMNS.filter((x) => RENT_RE.test(x)).map((x) => Number(S(c[x]).replace(/[^\d]/g, ''))).filter((n) => Number.isFinite(n) && n > 0);
-  return ns.length ? Math.min(...ns) : Number.MAX_SAFE_INTEGER;
-};
 /**
- * ★줄 차례 = 판매시트와 «같은 규칙». 매뉴얼 `docs/영업자시트-매뉴얼.md` 「기본 정렬」.
- *   ① 신차 먼저 ② 모델별로 묶기(인기 → 상품 많은 순 → 모델명)
- *   ③ 묶음 안 — 신차는 싼 대여료, 중고는 «최신 연식 먼저» 그다음 값 ④ 차번
+ * ⚠⚠ **보조축(재고 대수)은 «F01 전체»로 센다 — 회사별로 세지 않는다.**
+ *   F01 은 탭 전체에서 모델을 세는데 여기서 회사 안에서만 세면 같은 모델의 차례가 시트마다 달라진다.
  */
-const YEAR = (v: string) => { const n = Number(S(v).replace(/[^0-9]/g, '').slice(0, 4)); return !n ? 0 : n < 100 ? 2000 + n : n; };
-for (const list of by.values()) {
-  list.sort((a, b) => {
-    const isNew = (x: Row) => (/신차/.test(S(x.cells['구분'])) ? 0 : 1);
-    const sold = (x: Row) => -(modelSold.get(S(x.cells['모델'])) || 0);
-    const pop = (x: Row) => -(modelCount.get(S(x.cells['모델'])) || 0);
-    const 묶음 = isNew(a) - isNew(b) || sold(a) - sold(b) || pop(a) - pop(b)
-      || S(a.cells['모델']).localeCompare(S(b.cells['모델']), 'ko');
-    if (묶음) return 묶음;
-    const 안 = isNew(a) === 0 ? 0 : (YEAR(b.cells['연식']) - YEAR(a.cells['연식']));
-    return 안 || cheapOf(a.cells) - cheapOf(b.cells)
-      || S(a.cells['차량번호']).localeCompare(S(b.cells['차량번호']));
-  });
-}
+const modelCount = new Map<string, number>();
+for (const r of rowsAll) { const m = S(r.atom.model); if (m) modelCount.set(m, (modelCount.get(m) || 0) + 1); }
+const cmp = compareSalesRows(modelSold, modelCount);
+for (const list of by.values()) list.sort((a, b) => cmp(a.atom, b.atom));
 const order = [...by.entries()].sort((a, b) => b[1].length - a[1].length);
 console.log(`\n■ ${DOC_NAME} — 회사 ${order.length}곳 · 총 ${rowsAll.length}대 · 열 ${OUT_COLS.length}`);
 for (const [k, list] of order) {
@@ -184,10 +208,22 @@ for (const [k, list] of order) {
 }
 if (!APPLY) { console.log('\n※ dry-run — --apply 로 만든다.\n'); process.exit(0); }
 
-// ── 채널 문서 (있으면 그것을 쓴다 — 돌릴 때마다 새 문서가 생기면 안 된다) ──
-const q = encodeURIComponent(`name = '${DOC_NAME}' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`);
-const found = await api(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)`);
-let id = (found.files || [])[0]?.id || '';
+// 준비 시간이 길었어도 실제 운영 시트를 건드리기 직전에 신선도와 해시를 다시 확인한다.
+readSalesPublishSnapshot(snapshotPath);
+
+// ── 채널 문서. 운영 중인 하허호 F86은 이름이 아니라 불변 ID로 고정한다. ──
+const fixedId = channel === '하허호' ? HAHUHO_PRODUCT_SHEET_ID : '';
+let id = fixedId;
+if (id) {
+  const fixedMeta = await api(`https://sheets.googleapis.com/v4/spreadsheets/${id}?fields=properties.title`);
+  if (S(fixedMeta?.properties?.title) !== DOC_NAME) {
+    throw new Error(`F86 불변 ID의 문서명이 다르다: ${S(fixedMeta?.properties?.title)} (${id})`);
+  }
+} else {
+  const q = encodeURIComponent(`name = '${DOC_NAME}' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`);
+  const found = await api(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)`);
+  id = (found.files || [])[0]?.id || '';
+}
 if (!id) {
   const made = await api('https://sheets.googleapis.com/v4/spreadsheets', {
     method: 'POST', body: JSON.stringify({ properties: { title: DOC_NAME, locale: 'ko_KR', timeZone: 'Asia/Seoul' } }),
@@ -210,10 +246,11 @@ if (!id) {
 }
 const cur = await api(`https://sheets.googleapis.com/v4/spreadsheets/${id}?fields=sheets.properties(sheetId,title)`);
 const have: [string, any][] = (cur.sheets || []).map((s: any) => [S(s.properties.title), s.properties]);
-const stamp = new Date(Date.now() + 9 * 36e5).toISOString();
-const mark = `${stamp.slice(5, 10).replace('-', '.')} ${stamp.slice(11, 16)}`;
+const mark = salesPublishMark(publishSnapshot);
 
 const reqs: any[] = [];
+/** ★차번 셀 링크 요청 — 값 쓰기 «뒤»에 따로 보낸다(먼저 보내면 값 쓰기가 지운다). */
+const 링크요청: any[] = [];
 const puts: { range: string; values: string[][] }[] = [];
 /** 이번 회차에 실제로 채운 탭 — 여기 없는 회사 탭은 묵은 것이라 지운다(아래). */
 const 쓴탭 = new Set<number>();
@@ -222,7 +259,7 @@ for (const [company, list] of order) {
   /**
    * ★탭 이름 = 「회사 N대」 (사장님 2026-09-08 「그냥 손오공 몇 대만 탭으로 남겨줘」).
    *   판매시트는 탭 이름에 시각을 박지만(발행 시각이 곧 신선도라서), 채널이 보는 이 문서는
-   *   **회사와 대수**만 알면 된다. 갱신 시각은 「이 시트는」 안내로 따로 알린다.
+   *   회사·같은 스냅샷의 시각·대수를 함께 보여 준다.
    */
   /**
    * ★★**F01(판매시트)을 그대로 회사별로만 쪼갠다** (사장님 2026-09-08 「F01을 토대로 그냥 회사별로만
@@ -238,7 +275,7 @@ for (const [company, list] of order) {
   const 앞 = COLUMNS.indexOf('차명(원문)');
   /** ★F01 의 열 차례를 «그대로» 지킨다 — 다시 정렬하지 않는다(그러다 12·24 인수형이 끝으로 밀렸었다). */
   const cols = COLUMNS.filter((c, i) => (요금칸(c) ? 쓴다(c) : true));
-  const title = `${company} ${list.length}대`;
+  const title = `${company} ${mark} · ${list.length}대`;
   const old = have.find(([t]) => t.startsWith(`${company} `));
   let gid: number;
   if (old) {
@@ -261,9 +298,15 @@ for (const [company, list] of order) {
    */
   /** 본문 — 열너비를 재고 차번 셀 링크를 거는 데 쓴다(서식보다 «먼저» 있어야 한다). */
   const body = list.map((x) => cols.map((c) => S(x.cells[c])));
+  /**
+   * ★★**차번 셀 링크는 «값을 쓴 뒤»에 건다** — 아래 `링크요청` 으로 따로 받아 둔다.
+   *   ⚠⚠ 실측 2026-09-09 — 여기서 링크까지 `reqs` 에 담아 «먼저» 보내고 값을 나중에 썼더니,
+   *   그 값 쓰기가 차번 셀을 덮으면서 링크가 같이 죽었다 — **703대 중 링크가 «한 대도» 없었다.**
+   *   서식(색·글꼴)은 멀쩡해서 눈으로는 안 띈다. 채널이 차번을 눌러도 사진이 안 열리는 채로 나갔다.
+   */
   reqs.push(...buildSalesFormatRequests({
     gid, columns: cols, headerAt: 0, widths: columnWidths(cols, body),
-    columnCountNow: cols.length, tabTitle: title, body,
+    columnCountNow: cols.length, tabTitle: title, body, linkOut: 링크요청,
   }) as any[]);
   /**
    * ★**탭 색은 회사마다 다르게** (사장님 2026-09-08 「각 회사별 탭 다르게 해주고」).
@@ -292,7 +335,14 @@ for (const [company, list] of order) {
  */
 {
   const 지킴 = /공지|안내|이 시트|시트 지도/;
-  const 버릴 = have.filter(([t, p]) => !지킴.test(t) && !쓴탭.has(Number(p.sheetId)));
+  /**
+   * ⚠⚠ **읽은 게 없으면 아무것도 지우지 않는다** (2026-09-08 적대 검토가 잡았다).
+   *   F01 탭 이름이 안 걸리거나 그 시트가 비어 있으면 `order` 가 빈다 → `쓴탭` 도 빈다 →
+   *   **공지사항만 빼고 회사 탭을 전부 지우고** 값은 하나도 안 쓴다. 채널이 재고 0을 본다.
+   *   ★지우는 일은 «채운 회차»만의 몫이다 — 못 읽은 회차는 옛 표를 그대로 두는 게 낫다.
+   */
+  const 버릴 = 쓴탭.size === 0 ? [] : have.filter(([t, p]) => !지킴.test(t) && !쓴탭.has(Number(p.sheetId)));
+  if (!쓴탭.size) console.log('   ⚠ 이번 회차에 채운 탭이 없다 — 묵은 탭 정리를 «건너뛴다»(못 읽은 회차일 수 있다).');
   if (버릴.length) {
     console.log(`   ○ 묵은 탭 ${버릴.length}장 지움 — ${버릴.map(([t]) => t).join(' · ')}`);
     for (const [, p] of 버릴) reqs.push({ deleteSheet: { sheetId: Number(p.sheetId) } });
@@ -320,7 +370,16 @@ for (let i = 0; i < puts.length; i += 40) {
     body: JSON.stringify({ valueInputOption: 'RAW', data: puts.slice(i, i + 40).map((p) => ({ range: p.range, values: p.values })) }),
   });
 }
-console.log(`   ○ 구글 두드림 — 읽기 ${셈.읽기} · 쓰기 ${셈.쓰기} · 재시도 ${셈.재시도} · 서식요청 ${reqs.length} · ${Math.round((Date.now() - 셈.시작) / 1000)}초`);
+/**
+ * ★★**마지막 — 차번 셀 링크.** 값 쓰기가 끝난 «뒤»여야 한다.
+ *   매뉴얼 「사진링크는 맨 끝」의 «끝»은 요청 배열의 끝이 아니라 **쓰기 차례의 끝**이다.
+ *   (F01 은 값을 먼저 쓰고 서식을 나중에 하므로 그 길에선 저절로 맞는다.)
+ */
+for (let i = 0; i < 링크요청.length; i += 300) {
+  await api(`https://sheets.googleapis.com/v4/spreadsheets/${id}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests: 링크요청.slice(i, i + 300) }) });
+}
+console.log(`   ○ 구글 두드림 — 읽기 ${셈.읽기} · 쓰기 ${셈.쓰기} · 재시도 ${셈.재시도} · 서식요청 ${reqs.length} · 차번링크 ${링크요청.length} · ${Math.round((Date.now() - 셈.시작) / 1000)}초`);
 console.log(`\n✓ 반영 완료 — 탭 ${order.length}장 · ${rowsAll.length}대 · 열 ${OUT_COLS.length}`);
 console.log(`   https://docs.google.com/spreadsheets/d/${id}/edit`);
+console.log(`   스냅샷 ${publishSnapshot.snapshotId} · ${publishSnapshot.capturedAt}`);
 process.exit(0);

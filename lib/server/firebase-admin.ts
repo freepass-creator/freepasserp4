@@ -2,8 +2,7 @@ import 'server-only';
 
 import { applicationDefault, cert, getApps, initializeApp, type App, type Credential, type ServiceAccount } from 'firebase-admin/app';
 import { getAuth, type DecodedIdToken } from 'firebase-admin/auth';
-import { getDatabase, type Database } from 'firebase-admin/database';
-import { getFirestore } from 'firebase-admin/firestore';
+import type { AdminRef } from './firestore-path-store';
 
 const APP_NAME = 'freepass-server';
 
@@ -17,6 +16,10 @@ function serviceAccount(): ServiceAccount {
   };
   if (!parsed.project_id || !parsed.client_email || !parsed.private_key) {
     throw new Error('FIREBASE_SERVICE_ACCOUNT_JSON 형식이 올바르지 않습니다.');
+  }
+  const configuredProjectId = configuredFirebaseProjectId();
+  if (configuredProjectId && parsed.project_id !== configuredProjectId) {
+    throw new Error(`Firebase 프로젝트 불일치: client=${configuredProjectId}, service=${parsed.project_id}`);
   }
   return {
     projectId: parsed.project_id,
@@ -35,7 +38,7 @@ function serverCredential(): Credential {
 }
 
 function demoEmulatorProjectId(): string {
-  if (!process.env.FIREBASE_AUTH_EMULATOR_HOST || !process.env.FIREBASE_DATABASE_EMULATOR_HOST) return '';
+  if (!process.env.FIREBASE_AUTH_EMULATOR_HOST || !process.env.FIRESTORE_EMULATOR_HOST) return '';
   const projectId = String(process.env.GCLOUD_PROJECT || process.env.GOOGLE_CLOUD_PROJECT || '').trim();
   return projectId.startsWith('demo-') ? projectId : '';
 }
@@ -55,30 +58,22 @@ function configuredFirebaseProjectId(): string {
 export function firebaseAdminApp(): App {
   const existing = getApps().find((app) => app.name === APP_NAME);
   if (existing) return existing;
-  const databaseURL = String(process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL || '').trim();
-  if (!databaseURL) throw new Error('NEXT_PUBLIC_FIREBASE_DATABASE_URL 미설정');
   // 두 emulator host와 demo-* project가 모두 명시된 격리 검증에서만 자격증명 없이 초기화한다.
   // 운영 환경이 우연히 한 변수만 가진 경우에는 아래 서비스계정 검증으로 fail-closed한다.
   const emulatorProjectId = demoEmulatorProjectId();
-  if (emulatorProjectId) return initializeApp({ projectId: emulatorProjectId, databaseURL }, APP_NAME);
+  if (emulatorProjectId) return initializeApp({ projectId: emulatorProjectId }, APP_NAME);
   const projectId = configuredFirebaseProjectId();
   return initializeApp({
     credential: serverCredential(),
-    databaseURL,
     ...(projectId ? { projectId } : {}),
   }, APP_NAME);
 }
 
-export function firebaseAdminDatabase(): Database {
-  // ★RTDB 폐기 단일 스왑점(사장님 2026-09-05 「다 지워라 · 시트가 정본」): env=firestore 면 «같은 .ref() 인터페이스»의
-  //   Firestore 심을 반환한다 → db.ref('v4/*') 를 직접 파는 24개 라우트+파이프라인이 코드 변경 없이 Firestore 로 간다.
-  //   운영 기본은 rtdb 라 플립 전까지 완전 무변경. 루트 트랜잭션(inventory) 2곳만 별도 처리.
-  if (String(process.env.NEXT_PUBLIC_DATA_BACKEND || '').trim() === 'firestore') {
-    // 순환 import 회피 위해 지연 로드. 심은 .ref() 시그니처가 RTDB Database 와 동일(구조적 호환).
-    const { firestoreAdminRef } = require('./firestore-ref-shim') as typeof import('./firestore-ref-shim');
-    return firestoreAdminRef() as unknown as Database;
-  }
-  return getDatabase(firebaseAdminApp());
+export function firebaseAdminStore(): AdminRef {
+  // Firestore is the only operational data backend. The lazy import avoids the
+  // firebaseAdminApp -> Firestore path adapter initialization cycle.
+  const { firestorePathStore } = require('./firestore-path-store') as typeof import('./firestore-path-store');
+  return firestorePathStore();
 }
 
 export type ActiveBearer = {
@@ -121,32 +116,10 @@ type GateProfile = {
 } | null;
 
 /**
- * 인증 게이트의 사용자 프로필 읽기 — RTDB 폐기 준비(2026-09-04).
- *
- * 기본은 지금과 동일하게 RTDB `users/{uid}` 를 읽는다(운영 무변경). `AUTH_GATE_FROM_FIRESTORE=1`
- * 일 때만 Firestore `user` 컬렉션(그림자복사 · 문서 `{회사}__{uid}` · `_key`=uid)을 «먼저» 읽고,
- * 없거나 실패하면 RTDB 로 폴백한다. 게이트는 하나라도 어긋나면 전 화면이 닫히는 자리라, 스위치는
- * 폴백을 항상 켠 채 단계로 넘긴다. 완전 이관·검증 뒤에만 RTDB 읽기를 걷는다.
+ * 인증 게이트의 사용자 프로필은 Firestore `user/{uid}`에서만 읽는다.
  */
-async function readGateProfile(app: App, uid: string): Promise<GateProfile> {
-  if (String(process.env.AUTH_GATE_FROM_FIRESTORE || '') === '1') {
-    try {
-      const snap = await getFirestore(app).collection('user').where('_key', '==', uid).limit(1).get();
-      const data = snap.docs[0]?.data() as Record<string, unknown> | undefined;
-      if (data && data.role) {
-        return {
-          role: String(data.role || ''),
-          status: String(data.status || ''),
-          is_active: (data.is_active as boolean | string | undefined),
-          company_code: String(data.company_code || ''),
-          agent_channel_code: String(data.agent_channel_code || ''),
-        };
-      }
-    } catch {
-      // Firestore 조회 실패는 삼키고 RTDB 로 폴백한다(게이트를 닫지 않는다).
-    }
-  }
-  const snapshot = await getDatabase(app).ref(`users/${uid}`).get();
+async function readGateProfile(_app: App, uid: string): Promise<GateProfile> {
+  const snapshot = await firebaseAdminStore().ref(`users/${uid}`).get();
   return snapshot.val() as GateProfile;
 }
 

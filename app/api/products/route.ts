@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { firebaseAdminDatabase, verifyActiveBearer } from '@/lib/server/firebase-admin';
+import { firebaseAdminStore, verifyActiveBearer } from '@/lib/server/firebase-admin';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,7 +13,7 @@ export async function GET(request: Request) {
   try {
     const actor = await verifyActiveBearer(request);
     if (!actor) return NextResponse.json({ error: '인증이 필요합니다.' }, { status: 401 });
-    const value = (await firebaseAdminDatabase().ref('v4/products').get()).val() || {};
+    const value = (await firebaseAdminStore().ref('v4/products').get()).val() || {};
     return NextResponse.json(value, {
       headers: { 'Cache-Control': 'private, no-store, max-age=0' },
     });

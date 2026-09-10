@@ -29,16 +29,15 @@ import nextEnv from '@next/env';
 import { mkdirSync, writeFileSync } from 'node:fs';
 
 nextEnv.loadEnvConfig(process.cwd());
-process.env.NEXT_PUBLIC_DATA_BACKEND = 'rtdb';
 
-const [{ firebaseAdminDatabase }, { readProducts, readPartners }, photos] = await Promise.all([
+const [{ firebaseAdminStore }, { readProducts, readPartners }, photos] = await Promise.all([
   import('../lib/server/firebase-admin'),
   import('../lib/server/sheet-daily-sync'),
   import('../lib/domain/product-photos'),
 ]);
 
 const S = (v: unknown) => String(v ?? '').trim();
-const db = firebaseAdminDatabase();
+const db = firebaseAdminStore();
 const companyId = S(process.env.SHEET_SYNC_COMPANY_ID || 'freepass');
 const [partners, products] = await Promise.all([readPartners(db, companyId), readProducts(db, companyId)]);
 

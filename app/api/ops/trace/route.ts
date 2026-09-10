@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { firebaseAdminDatabase, verifyAdminBearer } from '@/lib/server/firebase-admin';
+import { firebaseAdminStore, verifyAdminBearer } from '@/lib/server/firebase-admin';
 
 /**
  * 정밀타격 — 차 한 대가 **어디서 왔는지** 짚고, **그 줄로 바로 가는 링크**까지 준다.
@@ -51,7 +51,7 @@ export async function GET(request: Request): Promise<Response> {
   if (!q) return NextResponse.json({ error: '차번을 넣어 주세요.' }, { status: 400 });
 
   try {
-    const db = firebaseAdminDatabase();
+    const db = firebaseAdminStore();
     const snap = await db.ref('v4/products').get();
     const all = (snap.val() || {}) as Record<string, Rec>;
 

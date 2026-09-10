@@ -1,7 +1,10 @@
 /**
  * 입고일자 = 그 차량번호가 우리 쪽에 처음 올라온 날(사장님 2026-08-19 「입고일자를 차량번호 처음 쓴 날짜로 반영」). 기본 dry-run, --apply 로 반영. --who=손오공 한 곳만.
  *   근거 셋 중 가장 이른 날:
- *     A. ERP(v4/products) 그 차량번호의 가장 이른 createdAt (옛 ERP 이관분은 4~7월)
+ *     A. 원자(Firestore `products`)의 `erp_first_seen_date` — 그 차번을 우리 쪽에서 «처음 본 날»
+ *        ⚠ 2026-09-10 까지 이 값을 **RTDB `v4/products`의 createdAt** 에서 매번 읽었다. 그건 대조가 아니라
+ *          «역사»라 한 번 옮겨 담으면 끝난다 — `scripts/capture-erp-first-seen.mts`(실측 1,393대).
+ *          그래서 이 스크립트는 이제 **RTDB 를 열지 않는다**(사장님 「RTDB 를 왜 못 지우는지」).
  *     B. 이 시트 버전기록에서 그 차량번호가 처음 보인 날(하루 단위: 날짜별 마지막 버전의 재고 탭 CSV)
  *     C. 지금 칸에 적힌 날짜(있으면)
  *   셋 다 없으면 안 쓴다(지어내지 않음). 날짜 아닌 글자(이안카 「재고확인」)는 날짜로 덮는다.
@@ -9,7 +12,7 @@
 import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
-import { getDatabase } from 'firebase-admin/database';
+import { getFirestore } from 'firebase-admin/firestore';
 import { SHEET_NAME_MATCH, isOurNonInventoryTab, supplierSheetLabel } from '../lib/domain/supplier-template-sheet';
 type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim(); const P = (v: unknown) => S(v).replace(/\s/g, ''); const norm = (v: unknown) => S(v).replace(/\s+/g, '');
@@ -24,12 +27,17 @@ const colA1 = (i: number) => { let t = '', n = i + 1; while (n > 0) { const r = 
 const kstDate = (iso: string) => new Date(new Date(iso).getTime() + 9 * 3600e3).toISOString().slice(0, 10);
 const asDate = (v: string): string => { const s = S(v); let m = /^(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})/.exec(s); if (m) return `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`; m = /^(\d{2})[.\-/](\d{1,2})[.\-/](\d{1,2})$/.exec(s); if (m) return `20${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`; return ''; };
 
-// A. ERP createdAt
-if (!getApps().length) initializeApp({ credential: cert(sa), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' });
-const prods = ((await getDatabase().ref('v4/products').get()).val() || {}) as Record<string, Rec>;
+// A. «처음 본 날» — 원자(Firestore)에서 읽는다. RTDB 를 안 연다.
+if (!getApps().length) initializeApp({ credential: cert(sa) });
 const erpFirst = new Map<string, string>();
-for (const p of Object.values(prods)) { const plate = P(p.car_number || p.car_number_snapshot || ''); if (!plate) continue; const c = p.createdAt ?? p.created_at; if (!c) continue; const ms = typeof c === 'number' ? c : Date.parse(String(c)); if (!Number.isFinite(ms)) continue; const d = kstDate(new Date(ms).toISOString()); const prev = erpFirst.get(plate); if (!prev || d < prev) erpFirst.set(plate, d); }
-console.log(`A. ERP createdAt 있는 차량번호 ${erpFirst.size}`);
+for (const d of (await getFirestore().collection('products').get()).docs) {
+  const v = d.data() as Rec;
+  const plate = P(v.car_number); const day = S(v.erp_first_seen_date);
+  if (!plate || !day) continue;
+  const prev = erpFirst.get(plate);
+  if (!prev || day < prev) erpFirst.set(plate, day);
+}
+console.log(`A. 원자에 «처음 본 날»이 있는 차량번호 ${erpFirst.size}`);
 
 // CSV parse (따옴표 포함)
 const parseCsv = (text: string): string[][] => { const rows: string[][] = []; let row: string[] = []; let cell = ''; let q = false; for (let i = 0; i < text.length; i++) { const ch = text[i]; if (q) { if (ch === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; } else cell += ch; } else if (ch === '"') q = true; else if (ch === ',') { row.push(cell); cell = ''; } else if (ch === '\n') { row.push(cell); rows.push(row); row = []; cell = ''; } else if (ch === '\r') { /* skip */ } else cell += ch; } if (cell || row.length) { row.push(cell); rows.push(row); } return rows; };

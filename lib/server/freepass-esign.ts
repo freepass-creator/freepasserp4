@@ -2,10 +2,10 @@ import 'server-only';
 import { applyPolicyDefaults } from '@/lib/domain/policy-defaults';
 
 import { createHash, randomBytes } from 'node:crypto';
-import type { Database } from 'firebase-admin/database';
+import type { AdminRef as Database } from './firestore-path-store';
 import { getStorage } from 'firebase-admin/storage';
 import type { ActiveBearer } from '@/lib/server/firebase-admin';
-import { firebaseAdminApp, firebaseAdminDatabase } from '@/lib/server/firebase-admin';
+import { firebaseAdminApp, firebaseAdminStore } from '@/lib/server/firebase-admin';
 import {
   AGREEMENT_CONFIRM_LABEL,
   buildConsentGroups,
@@ -455,42 +455,37 @@ function partnerFromNodes(legacyValue: unknown, overlayValue: unknown, providerC
 }
 
 export async function loadFreepassEsignBundle(contractCode: string) {
-  const db = firebaseAdminDatabase();
-  const [legacyContract, overlayContract] = await Promise.all([
-    db.ref(`contracts/${contractCode}`).get().catch(() => null),
-    db.ref(`v4/contracts/${contractCode}`).get().catch(() => null),
-  ]);
-  const contract = mergeFreepassContract(legacyContract?.val(), overlayContract?.val());
+  const db = firebaseAdminStore();
+  const contractSnap = await db.ref(`v4/contracts/${contractCode}`).get().catch(() => null);
+  const contract = mergeFreepassContract(null, contractSnap?.val());
   if (!contract) return null;
 
   const policyCode = S(contract.policy_code);
   const productCode = S(contract.product_code);
   const providerCode = S(contract.provider_company_code);
-  const [legacyPolicy, overlayPolicy, legacyProduct, overlayProduct, legacyPartners, overlayPartners] = await Promise.all([
-    policyCode ? db.ref(`policies/${policyCode}`).get().catch(() => null) : Promise.resolve(null),
+  const [policySnap, productSnap, partnersSnap] = await Promise.all([
     policyCode ? db.ref(`v4/policies/${policyCode}`).get().catch(() => null) : Promise.resolve(null),
-    productCode ? db.ref(`products/${productCode}`).get().catch(() => null) : Promise.resolve(null),
     productCode ? db.ref(`v4/products/${productCode}`).get().catch(() => null) : Promise.resolve(null),
-    db.ref('partners').get().catch(() => null),
     db.ref('v4/partners').get().catch(() => null),
   ]);
 
   // 공급사에게 안 묻는 공통 조건(지연손해금·보관료·통지기한·청구 기준·정비점·자차 처리 제외 …)은
   // 프리패스 표준값으로 채워 계약서에 빈칸이 나가지 않게 한다. 회사 보험형의 보험사명은
   // 체결일 사실이므로 기본 안내문이 아니라 실제 명칭을 별도로 확인한다. 이미 있는 값은 덮지 않는다.
-  const v4Product = recordFromNode(overlayProduct?.val());
-  const storedPolicy = mergeRecord(legacyPolicy?.val(), overlayPolicy?.val());
+  const v4Product = recordFromNode(productSnap?.val());
+  const storedPolicy = recordFromNode(policySnap?.val());
   return {
     db,
     /** v4-only 계약은 서버가 만든 direct seal 없이는 발행하지 않는다. */
-    legacyContractExists: !!legacyContract?.exists(),
+    // Firestore에는 이관 때 합쳐진 정본만 존재하므로 과거 namespace 여부를 추정하지 않는다.
+    legacyContractExists: false,
     contract,
     policy: storedPolicy ? (applyPolicyDefaults(storedPolicy).next as EsignRecord) : storedPolicy,
-    product: mergeRecord(legacyProduct?.val(), overlayProduct?.val()),
+    product: v4Product,
     // 신규 직접계약의 차량 정본은 v4/products뿐이다. v3 상품은 재고 기준으로 다시
     // 끌어오지 않는다(상품 bridge 영구 제외).
     v4Product: v4Product ? { ...v4Product, _key: productCode, product_code: productCode } : null,
-    partner: partnerFromNodes(legacyPartners?.val(), overlayPartners?.val(), providerCode),
+    partner: partnerFromNodes(null, partnersSnap?.val(), providerCode),
   };
 }
 
@@ -507,24 +502,22 @@ export async function loadFreepassDirectSource(productCode: string, policyCode: 
   policy: EsignRecord | null;
   partner: EsignRecord | null;
 }> {
-  const db = firebaseAdminDatabase();
+  const db = firebaseAdminStore();
   const productKey = S(productCode);
   const policyKey = S(policyCode);
-  const [overlayProduct, legacyPolicy, overlayPolicy, legacyPartners, overlayPartners] = await Promise.all([
+  const [overlayProduct, overlayPolicy, overlayPartners] = await Promise.all([
     productKey ? db.ref(`v4/products/${productKey}`).get().catch(() => null) : Promise.resolve(null),
-    policyKey ? db.ref(`policies/${policyKey}`).get().catch(() => null) : Promise.resolve(null),
     policyKey ? db.ref(`v4/policies/${policyKey}`).get().catch(() => null) : Promise.resolve(null),
-    db.ref('partners').get().catch(() => null),
     db.ref('v4/partners').get().catch(() => null),
   ]);
   // 상품은 v4/products가 독자 정본이다. v3 fallback은 삭제·차량상태·상품구분을
   // 과거 값으로 되살릴 수 있어 직접계약 서버 생성에는 절대 사용하지 않는다.
   const v4Product = recordFromNode(overlayProduct?.val());
   const product: EsignRecord | null = v4Product ? { ...v4Product, _key: productKey, product_code: productKey } : null;
-  const storedPolicy = mergeRecord(legacyPolicy?.val(), overlayPolicy?.val());
+  const storedPolicy = recordFromNode(overlayPolicy?.val());
   const policy = storedPolicy ? applyPolicyDefaults(storedPolicy).next as EsignRecord : null;
   const partner = partnerFromNodes(
-    legacyPartners?.val(),
+    null,
     overlayPartners?.val(),
     S(product?.provider_company_code),
   );
@@ -540,20 +533,18 @@ export async function loadFreepassManualOfferSource(providerCode: string, policy
   policy: EsignRecord | null;
   partner: EsignRecord | null;
 }> {
-  const db = firebaseAdminDatabase();
+  const db = firebaseAdminStore();
   const providerKey = S(providerCode);
   const policyKey = S(policyCode);
-  const [legacyPolicy, overlayPolicy, legacyPartners, overlayPartners] = await Promise.all([
-    policyKey ? db.ref(`policies/${policyKey}`).get().catch(() => null) : Promise.resolve(null),
+  const [overlayPolicy, overlayPartners] = await Promise.all([
     policyKey ? db.ref(`v4/policies/${policyKey}`).get().catch(() => null) : Promise.resolve(null),
-    db.ref('partners').get().catch(() => null),
     db.ref('v4/partners').get().catch(() => null),
   ]);
-  const storedPolicy = mergeRecord(legacyPolicy?.val(), overlayPolicy?.val());
+  const storedPolicy = recordFromNode(overlayPolicy?.val());
   return {
     db,
     policy: storedPolicy ? applyPolicyDefaults(storedPolicy).next as EsignRecord : null,
-    partner: partnerFromNodes(legacyPartners?.val(), overlayPartners?.val(), providerKey),
+    partner: partnerFromNodes(null, overlayPartners?.val(), providerKey),
   };
 }
 
@@ -747,7 +738,7 @@ export async function appendFreepassEsignEvent(
   type: string,
   details: EsignRecord = {},
 ): Promise<void> {
-  await firebaseAdminDatabase().ref('v4').update(freepassEsignEventUpdates(contractCode, type, details));
+  await firebaseAdminStore().ref('v4').update(freepassEsignEventUpdates(contractCode, type, details));
 }
 
 /** v4 루트 다중경로 갱신에 계약 상태와 같은 트랜잭션으로 합칠 수 있는 감사이력 조각. */
@@ -791,7 +782,7 @@ export function canonicalFreepassSignUrl(value: unknown): string {
 export async function loadFreepassSessionByToken(token: string): Promise<{ hash: string; session: EsignRecord } | null> {
   if (!/^fps_[A-Za-z0-9_-]{30,100}$/.test(token)) return null;
   const hash = hashFreepassSignToken(token);
-  const snap = await firebaseAdminDatabase().ref(`v4/esign_sessions/${hash}`).get().catch(() => null);
+  const snap = await firebaseAdminStore().ref(`v4/esign_sessions/${hash}`).get().catch(() => null);
   const session = recordFromNode(snap?.val());
   return session ? { hash, session } : null;
 }

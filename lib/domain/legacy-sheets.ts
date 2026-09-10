@@ -27,6 +27,8 @@ export type LegacySheet = {
 export const HUB_CODE_SHEET_ID = '1TVeVXyJJRx0SzD2vxqy3eEjSojmMIWXSu7AdsKmpfmY';   // 문패 「공급사시트정리」(코드가 읽는다)
 export const HUB_HUMAN_SHEET_ID = '1cRn_XbuJXQMlVCATtDN4EpQy-KVEi65tCwcvCxdFk8w';  // 허브 「프리패스 공급사시트 정리」(사람이 본다 · ERP sheet_url 동기)
 export const SALES_SHEET_ID = '1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs';      // 판매시트 「프리패스 상품리스트」
+/** 하허호 영업채널 전용 상품시트 F86. 이름 검색 대신 이 불변 ID로 발행·검사한다. */
+export const HAHUHO_PRODUCT_SHEET_ID = '1hQtshpWKL4L0zSR3H3UQ36atICtHv9Ka7dQh7d7K5Vg';
 export const MASTER_SHEET_ID = '1T_RrErmGoj_yG9S1u7n--2NDolTOw8wA8ROQjPWuAlg';     // 원천대장 「ERP4 차종마스터 원천대장」(상품마스터 · mf- 차종코드)
 /** 엔카 중고차 시세 원자 시트(M/SM/T/U). 정제칸 이름 사전이 아니다 — 이름은 vehicle-master.json. */
 export const ENCAR_MASTER_SHEET_ID = '1oMB9eoNnQFxUyRK4CSxYh_hKrtCf7s_79xLs-GYwXCE';

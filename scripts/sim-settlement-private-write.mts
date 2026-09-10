@@ -1,4 +1,4 @@
-import { splitSettlementPrivate } from '../lib/firebase/rtdb-settlements';
+import { splitSettlementPrivate } from '../lib/firebase/settlement-private';
 
 const split = splitSettlementPrivate({
   _key: 'ST_C-1', settlement_code: 'ST_C-1', contract_code: 'C-1',

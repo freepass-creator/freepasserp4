@@ -6,6 +6,7 @@
  *   · 외부 호스트(Drive/lh3/Firebase Storage 등)는 /api/img 프록시로 감싸 CORS·referrer 우회.
  */
 import { type EntityRecord } from '@/lib/intake/entities';
+import { isDirectPhotoUrl, isServerPhotoSource } from '@/lib/domain/photo-projection';
 
 /**
  * 서버가 «풀어야» 사진이 되는 주소 — 폴더·상세페이지. 여기 없으면 `<img src=…>` 로 날것이 박힌다.
@@ -14,7 +15,6 @@ import { type EntityRecord } from '@/lib/intake/entities';
  *   여기 없어서 「그림 주소」로 취급됐고, 브라우저에서 **4대가 깨져 보였다**.
  *   (`/api/extract-photos` 가 그 페이지를 긁어 23장을 준다 — 같은 날 화이트리스트에 추가.)
  */
-const NEEDS_SERVER_RE = /drive\.google\.com\/(drive\/folders\/|drive\/u\/\d+\/folders\/)|moderentcar\.co\.kr|autoplus\.co\.kr|ironrentcar\.com|tinyurl\.com|bit\.ly/;
 /**
  * 프록시로 보낼 외부 이미지 호스트 — **서버 화이트리스트(lib/net/proxy-hosts.ts)와 같은 집합**이어야 한다.
  *
@@ -80,13 +80,14 @@ export function collectImages(value: any): string[] {
 export function productImages(p: EntityRecord): string[] {
   if (!p) return [];
   return collectImages([p.image_urls, p.images, p.photos, p.photo, p.image_url, p.doc_images])
-    .filter((u) => !NEEDS_SERVER_RE.test(u));
+    .filter(isDirectPhotoUrl)
+    .filter((u) => !isServerPhotoSource(u));
 }
 
 /** photo_link 중 바로 <img>에 박을 외부 URL(스크래핑 대상 제외). */
 export function productExternalImages(p: EntityRecord): string[] {
   return String((p?.photo_link as string) || '').split(/\s*[\n,]\s*/).map((u) => u.trim())
-    .filter((u) => /^(https?:|data:)/.test(u)).filter((u) => !NEEDS_SERVER_RE.test(u));
+    .filter(isDirectPhotoUrl).filter((u) => !isServerPhotoSource(u));
 }
 
 /** 갤러리용 전체 사진(프록시 적용). */
@@ -103,7 +104,7 @@ export function firstProductImage(p: EntityRecord): string {
 /** 서버해석 필요한 사진 소스(드라이브 폴더·스크래핑 대상) — photo_link 중 NEEDS_SERVER 인 것. */
 export function scrapableSources(p: EntityRecord): string[] {
   return String((p?.photo_link as string) || '').split(/\s*[\n,]\s*/).map((u) => u.trim())
-    .filter((u) => u && NEEDS_SERVER_RE.test(u));
+    .filter((u) => u && isServerPhotoSource(u));
 }
 
 // 폴더→이미지 해석 결과 캐시(카드 다수·재렌더 dedup). 세션 한정.

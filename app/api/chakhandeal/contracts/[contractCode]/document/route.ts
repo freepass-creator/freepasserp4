@@ -1,6 +1,6 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { NextResponse } from 'next/server';
-import { firebaseAdminDatabase, verifyActiveBearer } from '@/lib/server/firebase-admin';
+import { firebaseAdminStore, verifyActiveBearer } from '@/lib/server/firebase-admin';
 import { fetchChakhandealContractPdf, getChakhandealConfig } from '@/lib/server/chakhandeal-esign';
 
 export const dynamic = 'force-dynamic';
@@ -33,7 +33,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ cont
     return json({ error: '계약번호가 올바르지 않습니다.' }, 400);
   }
 
-  const db = firebaseAdminDatabase();
+  const db = firebaseAdminStore();
   const [overlaySnap, legacySnap] = await Promise.all([
     db.ref(`v4/contracts/${contractCode}`).get(),
     db.ref(`contracts/${contractCode}`).get(),

@@ -35,7 +35,7 @@
  *   npx tsx scripts/build-plate-registry.mts --apply    실제로 쌓는다
  */
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
-import { getDatabase } from 'firebase-admin/database';
+import { getDatabase } from './lib/firestore-path-store.mts';
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { SALES_SHEET_ID } from '../lib/domain/legacy-sheets';
@@ -54,7 +54,7 @@ const today = (() => {
 
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 if (!getApps().length) {
-  initializeApp({ credential: cert(sa), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' });
+  initializeApp({ credential: cert(sa) });
 }
 const db = getDatabase();
 const jwt = new JWT({ email: sa.client_email, key: sa.private_key, subject: 'pyh@teamjpk.com', scopes: ['https://www.googleapis.com/auth/spreadsheets'] });

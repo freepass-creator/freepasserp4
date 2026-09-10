@@ -5,6 +5,7 @@ import {
   uploadDriveBackup,
   type DriveBackupKind,
 } from '@/lib/server/drive-backup';
+import { verifyActiveBearer } from '@/lib/server/firebase-admin';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -13,30 +14,8 @@ const MAX_BYTES = 10 * 1024 * 1024;
 const ALLOWED_KINDS = new Set<DriveBackupKind>(['product', 'contract']);
 
 async function verifyFirebaseUser(req: NextRequest): Promise<{ uid: string } | null> {
-  const token = req.headers.get('authorization')?.match(/^Bearer\s+(.+)$/i)?.[1];
-  const apiKey = process.env.NEXT_PUBLIC_FIREBASE_API_KEY;
-  if (!token || !apiKey) return null;
-  const response = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(apiKey)}`, {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ idToken: token }),
-    cache: 'no-store',
-  });
-  if (!response.ok) return null;
-  const result = await response.json().catch(() => ({})) as { users?: Array<{ localId?: string; email?: string }> };
-  const user = result.users?.[0];
-  if (!user?.localId || !user.email) return null;
-
-  const dbUrl = String(process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL || '').replace(/\/$/, '');
-  if (dbUrl) {
-    const profileResponse = await fetch(`${dbUrl}/users/${encodeURIComponent(user.localId)}.json?auth=${encodeURIComponent(token)}`, {
-      cache: 'no-store',
-    });
-    if (!profileResponse.ok) return null;
-    const profile = await profileResponse.json().catch(() => null) as { status?: string } | null;
-    if (!profile || profile.status === 'pending') return null;
-  }
-  return { uid: user.localId };
+  const user = await verifyActiveBearer(req);
+  return user ? { uid: user.uid } : null;
 }
 
 export async function GET() {

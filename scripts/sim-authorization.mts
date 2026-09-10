@@ -10,7 +10,7 @@ import {
   organizationRole,
 } from '../lib/domain/authorization';
 import { mapRole, setSession, type Session } from '../lib/auth-session';
-import { mergeSettlementPrivate, splitSettlementPrivate } from '../lib/firebase/rtdb-settlements';
+import { mergeSettlementPrivate, splitSettlementPrivate } from '../lib/firebase/settlement-private';
 import fs from 'node:fs';
 import path from 'node:path';
 

@@ -124,10 +124,12 @@ function startFirestore(entry: FinderDataEntry) {
       if (!entry.partners) void loadFinderPartners(entry);
     },
     (err) => {
-      // ㉡ 핸들 완전 해제(다음 재구독이 다시 시도할 수 있게) · ㉢ RTDB 단발 폴백(빈 화면 방지).
       if (entries.get(entry.key) !== entry) return;
+      // ㉡ 핸들을 «호출해» 완전 해제 — 반환된 정리함수를 안 부르고 undefined 로만 두면 구독 콜백(subs/errSubs)이 남아
+      //    재구독 때 «옛 콜백»이 중복으로 산다(Codex 2026-09-09 반례). fsUnsub 를 «호출»해 콜백까지 뗀다.
+      entry.fsUnsub?.();
       entry.fsUnsub = undefined;
-      console.warn('[finder] Firestore 실패 → RTDB 폴백:', err);
+      console.warn('[finder] Firestore 구독 실패 → 일반 Firestore 조회:', err);
       void loadProducts(entry);
     },
   );
@@ -157,7 +159,7 @@ export function discardOtherFinderData(sessionUid?: string, sessionScope?: strin
 export function subscribeFinderData(params: FinderDataParams, listener: () => void) {
   const entry = getEntry(params);
   entry.listeners.add(listener);
-  // ★실 인증 UID 복원 뒤에만 시작한다 — RTDB·Firestore 경로 공통(㉠). AuthProvider 의 화면 보호용 ready
+  // ★실 인증 UID 복원 뒤에만 시작한다 — Firestore 경로(㉠). AuthProvider 의 화면 보호용 ready
   //   타이머(최대 6초)는 Firebase 사용자 복원보다 먼저 끝날 수 있어, 인증 전 요청/구독은 규칙에 막힌다.
   const firebaseUserReady = !!params.sessionUid
     && getAuthClient()?.currentUser?.uid === params.sessionUid;

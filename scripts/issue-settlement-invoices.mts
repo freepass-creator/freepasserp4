@@ -23,7 +23,8 @@
  *   npx tsx scripts/issue-settlement-invoices.mts 2026-08 --only=영업채널
  */
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
-import { getDatabase } from 'firebase-admin/database';
+import { getDatabase } from './lib/firestore-path-store.mts';
+import { getFirestore } from 'firebase-admin/firestore';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { normalizeRecord, type SettlementRecord } from '../lib/domain/settlement-record';
@@ -47,9 +48,10 @@ const D = (v: unknown) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(S(v)); ret
 
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 if (!getApps().length) {
-  initializeApp({ credential: cert(sa), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' });
+  initializeApp({ credential: cert(sa) });
 }
 const db = getDatabase();
+const fsdb = getFirestore();
 
 /** 저장 기록 → 규칙이 먹는 줄. */
 const asRow = (r: SettlementRecord): SettlementRow => ({
@@ -115,7 +117,7 @@ const partyOf = (alias: string): InvoiceParty => {
   }
 }
 
-const rows = Object.values((await db.ref('v4/settlement_rows').get()).val() || {}).map((r) => normalizeRecord(r as SettlementRecord));
+const rows = (await fsdb.collection('settlement_rows').get()).docs.map((d) => d.data()).map((r) => normalizeRecord(r as SettlementRecord));
 // ★박힌 달은 닫혀 있다 — 계산으로 늦게 들어오는 줄이 확정된 달을 흔들면 종이가 시트와 갈린다.
 const locked = lockedMonthsOf(rows.map(asRow));
 const live = rows.filter((r) => !r.cancelled && billingMonthIn(asRow(r), locked) === MONTH);
@@ -128,7 +130,7 @@ const live = rows.filter((r) => !r.cancelled && billingMonthIn(asRow(r), locked)
  *   그래서 축마다 금액이 다르다(supplierAmt / agentAmt).
  */
 type Claw = { plate?: string; supplier?: string; channel?: string; supplierAmt?: number; agentAmt?: number; reason?: string; at?: string; month?: string };
-const claws = (Object.values((await db.ref('v4/settlement_clawbacks').get().catch(() => null))?.val() || {}) as Claw[])
+const claws = ((await fsdb.collection('settlement_clawbacks').get()).docs.map((d) => d.data()) as Claw[])
   .filter((c) => S(c.month) === MONTH);
 const backsFor = (axis: '공급사' | '영업채널', party: string) => claws
   .filter((c) => (axis === '공급사' ? S(c.supplier) : S(c.channel)) === party)

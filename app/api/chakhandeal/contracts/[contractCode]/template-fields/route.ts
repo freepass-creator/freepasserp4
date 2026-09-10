@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { firebaseAdminDatabase, verifyActiveBearer } from '@/lib/server/firebase-admin';
+import { firebaseAdminStore, verifyActiveBearer } from '@/lib/server/firebase-admin';
 import { canSendChakhandealContract } from '@/lib/domain/chakhandeal-esign';
 import {
   buildTemplateFieldsFromRecords,
@@ -38,7 +38,7 @@ function partnerFromNodes(legacyValue: unknown, overlayValue: unknown, providerC
 }
 
 async function loadContractBundle(contractCode: string) {
-  const db = firebaseAdminDatabase();
+  const db = firebaseAdminStore();
   const [legacySnap, overlaySnap] = await Promise.all([
     db.ref(`contracts/${contractCode}`).get(),
     db.ref(`v4/contracts/${contractCode}`).get(),
