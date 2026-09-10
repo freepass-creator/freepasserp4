@@ -10,7 +10,7 @@ import { firebaseAdminApp } from './firebase-admin';
  *   로직을 안 건드리고 «저장소만» 바꿔야 계약 사고가 안 난다. 그래서 get/set/update/remove/push/transaction/child
  *   시그니처를 RTDB 와 동일하게 맞춘 심을 두고, 라우트는 `const db = …` 한 줄만 firestorePathStore() 로 바꾼다.
  *
- * 경로 규칙 = 데이터 이관(scripts/migrate-rtdb-to-firestore-full.mts)과 «동일»:
+ * 경로 규칙 = 데이터 이관(scripts/migrate-firestore-project.mts)과 «동일»:
  *   v4/{node}/{k1}[/{k2..}]  →  컬렉션 map(node) · 문서 k1 · (k2.. = 문서 안 중첩 필드경로)
  *   예) v4/contracts/CT-1              → doc('contract','CT-1')
  *       v4/esign_private/CT-1/HASH     → doc('esign_private','CT-1') 의 필드 'HASH'

@@ -156,8 +156,8 @@ service cloud.firestore {
       allow delete: if false;
     }
     match /{col}/{id} {
-      allow read: if signedIn() && myCompany(resource.data) && (col == 'room' || col == 'message' || col == 'quote');
-      allow create, update: if signedIn() && myCompany(request.resource.data) && (col == 'room' || col == 'message' || col == 'quote');
+      allow read: if signedIn() && myCompany(resource.data) && (col == 'rooms' || col == 'messages' || col == 'quote');
+      allow create, update: if signedIn() && myCompany(request.resource.data) && (col == 'rooms' || col == 'messages' || col == 'quote');
       allow delete: if false;
     }
   }

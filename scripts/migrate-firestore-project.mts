@@ -21,6 +21,7 @@ import { atomViolations, type AtomView, type MasterIndex } from '../lib/domain/a
 const PHASES = {
   atoms: [
     'product_list_atom', 'products', 'vehicle_trim_master', 'new_car_trim',
+    'products_private', 'vehicle_claims',
     'policy', 'spec', 'plate_registry', 'sheet_conflict_resolutions',
   ],
   identity: ['partner', 'partners_private', 'user', 'users_private'],
@@ -31,7 +32,7 @@ const PHASES = {
     'admin_settlements', 'settlements_provider_private',
     'settlements_admin_private', 'settlements_agent_private',
     'esign_sessions', 'esign_private', 'esign_events', 'esign_verifications',
-    'esign_issue_claims',
+    'esign_issue_claims', 'esign_manual_offers',
   ],
 } as const;
 

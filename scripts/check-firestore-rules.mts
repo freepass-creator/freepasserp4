@@ -26,6 +26,8 @@ await env.withSecurityRulesDisabled(async (ctx) => {
   await setDoc(doc(db, 'partner/RP004__PT1'), { companyId: 'RP004', partner_name: '제일오토' });
   await setDoc(doc(db, 'customer/PT-0000__C1'), { companyId: 'PT-0000', created_by: 'uidA', customer_name: '손님A' });
   await setDoc(doc(db, 'customer/PT-0000__C2'), { companyId: 'PT-0000', created_by: 'uidB', customer_name: '손님B' });
+  await setDoc(doc(db, 'rooms/RP004__R1'), { companyId: 'RP004', _key: 'R1', title: '공급사 방' });
+  await setDoc(doc(db, 'messages/RP004__M1'), { companyId: 'RP004', _key: 'M1', room_code: 'R1', text: '메시지' });
   await setDoc(doc(db, 'contract_sign/sign_public_1'), { status: 'sent', contract_code: 'CT-1', sign_status: '발송', agent_uid: 'uidA', expires_at: Date.now() + 60_000 });
   await setDoc(doc(db, 'contract_sign/sign_revoked'), { status: 'sent', contract_code: 'CT-R', agent_uid: 'uidA', revoked_at: Date.now(), expires_at: Date.now() + 60_000 });
   await setDoc(doc(db, 'contract_sign/sign_expired'), { status: 'sent', contract_code: 'CT-E', agent_uid: 'uidA', expires_at: Date.now() - 60_000 });
@@ -102,6 +104,12 @@ await check('영업자A 자기손님(created_by=uidA) 읽기', 'ok', getDoc(doc(
 await check('영업자A 남의손님(uidB) 차단', 'deny', getDoc(doc(A, 'customer/PT-0000__C2')));
 await check('영업자A list(created_by=uidA) 허용', 'ok', getDocs(query(collection(A, 'customer'), where('created_by', '==', 'uidA'))));
 await check('영업자A list(무제약 손님) 거부', 'deny', getDocs(query(collection(A, 'customer'))));
+
+// === 이관된 채팅 컬렉션 — 물리 이름은 rooms/messages(복수형) ===
+await check('공급사 자기 rooms 읽기', 'ok', getDoc(doc(P, 'rooms/RP004__R1')));
+await check('공급사 자기 messages 읽기', 'ok', getDoc(doc(P, 'messages/RP004__M1')));
+await check('비로그인 rooms 읽기 차단', 'deny', getDoc(doc(AN, 'rooms/RP004__R1')));
+await check('폐기 단수 room 쓰기 차단', 'deny', setDoc(doc(P, 'room/RP004__R2'), { companyId: 'RP004', _key: 'R2' }));
 
 // === Firestore 단일 백엔드 전환 경로 ===
 await check('본인 프로필 이름 수정', 'ok', setDoc(doc(A, 'user/uidA'), { name: 'A2' }, { merge: true }));

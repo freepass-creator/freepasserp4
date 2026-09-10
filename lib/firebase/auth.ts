@@ -1,7 +1,7 @@
 /**
  * Firebase Auth — Freepass ERP5 프로젝트. v3 src/firebase/auth.js 이식.
  *   · 이메일/비번 로그인 + 가입(사업자번호→회사·역할 자동) + 재설정.
- *   · onAuthStateChanged → users/{uid} 프로필 로드 → auth-session 에 v4 3역할로 투영.
+ *   · onAuthStateChanged → user/{uid} 프로필 로드 → auth-session 에 ERP5 3역할로 투영.
  */
 import {
   onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword,
@@ -39,7 +39,7 @@ const mergeRecord = async (collectionName: string, id: string, value: Record<str
   await setDoc(doc(db, collectionName, id), value, { merge: true });
 };
 
-/** 관리자 신원 조작(승인·역할재배정·채널백필) 감사기록 — store를 안 거치는 top-level users 쓰기라 별도 기록.
+/** 관리자 신원 조작(승인·역할재배정·채널백필) 감사기록 — store를 안 거치는 user 쓰기라 별도 기록.
  *  best-effort(감사 실패가 원 작업을 막지 않음). audit_logs 규칙: actor_uid === auth.uid(=현재 관리자). */
 async function writeIdentityAudit(uid: string, action: string, before: Record<string, unknown> | null, after: Record<string, unknown> | null, summary: string): Promise<void> {
   try {
@@ -288,11 +288,11 @@ export async function writeUserProfile(user: User, info: {
 }
 
 /**
- * 관리자 가입 승인/해제 — 게이트가 읽는 "최상위" users/{uid} 에 직접 기록(v4 오버레이 아님). 관리자만(규칙 + 화면 게이트).
+ * 관리자 가입 승인/해제 — 게이트가 읽는 Firestore user/{uid}에 직접 기록. 관리자만(규칙 + 화면 게이트).
  *  승인 = 신원 확정: 사업자번호를 partners 로 "재매칭"(사용자 self 필드가 아니라 권한 소스)해 company_code·agent_channel_code 세팅.
  *  개인(SP999) 영업자 채널 = user_code(공유 SP999 금지).
  */
-/** 내 프로필 조회 — 설정 프로필 편집용(최상위 users/{uid}). */
+/** 내 프로필 조회 — 설정 프로필 편집용(Firestore user/{uid}). */
 export async function loadMyProfile(): Promise<Record<string, unknown> | null> {
   const auth = getAuthClient();
   const uid = auth?.currentUser?.uid;

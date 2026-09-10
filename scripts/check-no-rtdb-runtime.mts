@@ -39,9 +39,7 @@ function checkRetiredScripts(dir: string) {
     const path = join(dir, name);
     const st = statSync(path);
     if (st.isDirectory()) checkRetiredScripts(path);
-    else if (EXT.has(extname(path))
-      && !path.endsWith('check-no-rtdb-runtime.mts')
-      && !path.endsWith('check-release.mts')) {
+    else if (EXT.has(extname(path)) && !path.endsWith('check-no-rtdb-runtime.mts')) {
       const source = readFileSync(path, 'utf8');
       const hasDirectConnection = /firebase(?:-admin)?\/database|(?:NEXT_PUBLIC_)?FIREBASE_DATABASE_URL|FIREBASE_DATABASE_EMULATOR_HOST|default-rtdb|\.json\?ns=|firebasedatabase\.app|firebaseio\.com/i.test(source);
       const hasLegacyFactory = /\bgetDatabase\s*\(/.test(source) && !/firestore-path-store/.test(source);

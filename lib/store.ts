@@ -77,6 +77,8 @@ function naturalKey(entityKey: string, rec: EntityRecord): string {
   return '';
 }
 
+const firestoreCollectionName = (entityKey: string) => ({ room: 'rooms', message: 'messages', product: 'products' } as Record<string, string>)[entityKey] || entityKey;
+
 // ── 로컬 어댑터 (dev) ──
 class LocalAdapter implements StoreAdapter {
   backend = 'local(localStorage)';
@@ -184,7 +186,7 @@ class FirestoreAdapter implements StoreAdapter {
   async save(entityKey: string, companyId: string, records: EntityRecord[]): Promise<SaveResult> {
     const { getFirestore, collection, query, where, getDocs, doc, setDoc } = await import('firebase/firestore');
     const db = getFirestore(getFirebaseApp()!);
-    const col = collection(db, entityKey === 'product' ? 'products' : entityKey);   // 상품은 products 컬렉션
+    const col = collection(db, firestoreCollectionName(entityKey));   // 상품은 products 컬렉션
     // dedup: 같은 회사·자연키 존재 확인
     const snap = await withTimeout(getDocs(query(col, where('companyId', '==', companyId))));
     const seen = new Set<string>();
@@ -222,7 +224,7 @@ class FirestoreAdapter implements StoreAdapter {
         const snap = await withTimeout(getDocs(collection(db, 'products')));
         return snap.docs.map((d) => { const x = d.data() as Record<string, unknown>; return { ...x, _key: String(x.product_code || x.car_number || d.id), companyId: String(x.provider_company_code || '') } as EntityRecord; }).filter((r) => !r.deletedAt);
       }
-      const col = collection(db, entityKey);
+      const col = collection(db, firestoreCollectionName(entityKey));
       // ★역할 격리 엔티티(계약·정산)는 «규칙과 같은 제약»으로 쿼리해야 Firestore 가 거부하지 않는다(규칙=필터가 아니라 검증).
       //   공급사=provider_company_code · 영업자=agent_code(=user_code) · 관리자=companyId(또는 전체). getSession 이 격리키를 안다.
       const ROLE_ISOLATED = entityKey === 'contract' || entityKey === 'settlement';
@@ -248,7 +250,7 @@ class FirestoreAdapter implements StoreAdapter {
   private async findRoleIsolated(entityKey: string, key: string): Promise<{ id: string; data: EntityRecord } | null> {
     const { getFirestore, collection, query, where, getDocs } = await import('firebase/firestore');
     const db = getFirestore(getFirebaseApp()!);
-    const col = collection(db, entityKey);
+    const col = collection(db, firestoreCollectionName(entityKey));
     const s = getSession();
     let q;
     if (s && s.role === 'agent' && s.user_code) q = query(col, where('_key', '==', key), where('agent_code', '==', s.user_code));
@@ -272,7 +274,7 @@ class FirestoreAdapter implements StoreAdapter {
         const byId = await withTimeout(getDoc(doc(db, 'products', key)));
         return byId.exists() ? shape(byId.data() as Record<string, unknown>, byId.id) : null;
       }
-      const snap = await withTimeout(getDoc(doc(db, entityKey, `${companyId}__${key}`)));
+      const snap = await withTimeout(getDoc(doc(db, firestoreCollectionName(entityKey), `${companyId}__${key}`)));
       return snap.exists() ? (snap.data() as EntityRecord) : null;
     } catch (e) { console.warn(`Firestore get(${entityKey}) 대기 실패(DB·규칙 확인):`, (e as Error).message); return null; }
   }
@@ -286,7 +288,7 @@ class FirestoreAdapter implements StoreAdapter {
     const { getFirestore, doc, setDoc } = await import('firebase/firestore');
     const db = getFirestore(getFirebaseApp()!);
     // 역할 격리 엔티티는 «실제 문서 id»(공급사코드 프리픽스)로 써야 한다 — 세션 회사로 만든 id 로 쓰면 엉뚱한 새 문서가 생긴다.
-    let col = entityKey, docId = `${companyId}__${key}`;
+    let col = firestoreCollectionName(entityKey), docId = `${companyId}__${key}`;
     let before: EntityRecord | null;
     if (entityKey === 'contract' || entityKey === 'settlement') {
       const hit = await this.findRoleIsolated(entityKey, key);
@@ -310,7 +312,7 @@ class FirestoreAdapter implements StoreAdapter {
     const isProduct = entityKey === 'product';   // 상품은 products 컬렉션·자연키(미러와 같은 문서)
     let n = 0, batch = writeBatch(db), inB = 0;
     for (const { key, patch } of patches) {
-      const col = isProduct ? 'products' : entityKey;
+      const col = firestoreCollectionName(entityKey);
       const docId = isProduct ? await this.productWriteId(db, key) : `${companyId}__${key}`;
       batch.set(doc(db, col, docId), { ...patch, updatedAt: now }, { merge: true });
       n++; if (++inB >= 400) { await batch.commit(); batch = writeBatch(db); inB = 0; }
@@ -357,7 +359,7 @@ class FirestoreAdapter implements StoreAdapter {
       return snap.docs.map((d) => { const x = d.data() as Record<string, unknown>; return { ...x, _key: String(x.product_code || x.car_number || d.id), companyId: String(x.provider_company_code || '') } as EntityRecord; })
         .filter((r) => r.deletedAt && (!companyId || String(r.companyId) === companyId));
     }
-    const snap = await getDocs(query(collection(db, entityKey), where('companyId', '==', companyId)));
+    const snap = await getDocs(query(collection(db, firestoreCollectionName(entityKey)), where('companyId', '==', companyId)));
     return snap.docs.map((d) => d.data() as EntityRecord).filter((r) => r.deletedAt);
   }
   async restore(entityKey: string, companyId: string, key: string): Promise<void> {
