@@ -31,6 +31,7 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { Worker } from 'node:worker_threads';
 
+const S = (value: unknown) => String(value ?? '').trim();
 const APPLY = process.argv.includes('--apply');
 /**
  * ★★**회차는 세 단이다** (사장님 2026-09-08)
