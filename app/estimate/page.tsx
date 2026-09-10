@@ -421,8 +421,15 @@ function EstimatePageInner() {
    *     손님이 「차량가 × 인수율」을 두드리면 안 맞는다(2026-09-09).
    *   ⚠ 할인율만큼 감면도 같이 줄인다 — 할인된 차의 감면은 그 값 기준이다.
    */
-  const taxCredit = isNew && listPrice > 0
-    ? Math.round((picked.saleTaxCredit ?? 0) * (price / listPrice)) : 0;
+  /* ★★**감면은 옵션에도 붙는다** — 제조사 공식 구성기가 그렇게 계산한다
+     (GV70 전동화 추천 구성: 공식 78,600,000 · 차값에만 붙이면 78,750,000 = **15만 높다**).
+     ⚠ 전기는 «비례»(가격의 4.81~4.94% · 실데이터 77줄) · 하이브리드는 «정액»(1,001,000 · 35줄).
+       그래서 갈래를 나눈다 — 비례면 `price`(옵션·할인 다 들어간 값)에 곱하고,
+       정액이면 할인율만큼만 줄인다. */
+  const taxCredit = !isNew || listPrice <= 0 ? 0
+    : picked.fuel === 'ev'
+      ? Math.round(price * (picked.saleTaxRate ?? 0))
+      : Math.round((picked.saleTaxCredit ?? 0) * (price / listPrice));
   /** 돈이 도는 값 — 보증금·선납·인수·원가가 다 이 위에 선다.
    *  ⚠⚠ **화면과 견적서가 «같은 값»을 써야 한다.** 2026-09-09 에 견적서만 여기로 옮기고
    *    화면 카드(선납·만기인수·손익)를 `price` 로 남겨, 한 견적에서 인수가가 **239만** 갈렸다

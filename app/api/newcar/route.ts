@@ -88,6 +88,32 @@ function genesisBasis(subModel: string): string {
   } catch { return ''; }
 }
 
+/**
+ * ★★★제네시스 한 줄의 «전 / 후»를 조합지도와 맞대 바로잡는다.
+ *
+ * ⚠⚠ 2026-09-10 개발센터 4-AI 관문 · Codex 5회차 — **제조사 공식 구성기와 대조해 잡았다.**
+ *   GV70 전동화: 제네시스 공식이 **세제전 79,740,000 · 세제후 75,800,000** 인데,
+ *   우리 Firestore 는 `priceBefore = 75,800,000`(= «후» 값)을 싣고 있었다.
+ *   그 위에 «전» 기준 옵션값을 그대로 더해 **추천 구성이 15만원 높게** 나갔다
+ *   (78,750,000 vs 공식 78,600,000).
+ *
+ * ★조합지도는 «전» 값을 갖고 있다(`min = 79,740,000` · 코덱스 PDF 독립검증 확정).
+ *   ⇒ **조합지도 값이 더 크면 그것이 「전」이고, 실린 값이 「후」다.** 두 값을 짝지어 낸다.
+ * ⚠ 같거나 작으면 손대지 않는다 — 지어내지 않는다.
+ */
+function genesisPrices(subModel: string, before: number, after: number):
+Record<string, unknown> {
+  const basis = genesisBasis(subModel);
+  try {
+    const m = genesisConfig(process.cwd()).get(modelKey(subModel));
+    const cfgPrice = m ? basisOf(m as Parameters<typeof basisOf>[0]).price : 0;
+    if (cfgPrice > 0 && before > 0 && cfgPrice > before) {
+      return { priceBefore: cfgPrice, priceAfter: before, priceBasis: '세제혜택 전' };
+    }
+  } catch { /* 못 읽으면 손대지 않는다 */ }
+  return { ...(after > 0 && after < before ? {} : {}), ...(basis ? { priceBasis: basis } : {}) };
+}
+
 export async function GET(request: Request): Promise<Response> {
   const url = new URL(request.url);
   const maker = S(url.searchParams.get('maker'));
@@ -108,7 +134,7 @@ export async function GET(request: Request): Promise<Response> {
            제네시스 EV(전 = 후 = 84,790,000)가 손님 문서에 **「세제혜택 전」이라 찍혔다** —
            정본은 「후」다(2026-09-10 개발센터 4-AI 관문 · Codex 발견 2).
            ⚠ 제네시스는 `priceAfter` 가 «복사»라 전=후다. 그 값의 «뜻»은 조합지도가 안다. */
-        ...(S(v.maker) === '제네시스' ? { priceBasis: genesisBasis(S(v.sub_model)) } : {}),
+        ...(S(v.maker) === '제네시스' ? genesisPrices(S(v.sub_model), Number(v.priceBefore || 0), Number(v.priceAfter || 0)) : {}),
         options: Array.isArray(v.options) ? v.options : [],
         /* ★★제조사 «실제» 색상 — 사장님 2026-09-08 「신차마스터에는 **제조사 색상 그대로** 해야지」
              「**중고마스터 색상과 신차마스터 색상은 각각 존재**해야 함」.

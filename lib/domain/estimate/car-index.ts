@@ -89,6 +89,27 @@ export const trimSaleTaxCredit = (t: { priceBefore?: number; priceAfter?: number
   const before = Number(t?.priceBefore) || 0; const after = Number(t?.priceAfter) || 0;
   return before > 0 && after > 0 && before > after ? before - after : 0;
 };
+/**
+ * ★★**감면이 «비례»인가 «정액»인가** — 제조사가 그렇게 계산한다.
+ *
+ * ⚠⚠ 2026-09-10 개발센터 4-AI 관문 · Codex 5회차가 **제네시스 공식 구성기와 대조해** 잡았다.
+ *   GV70 전동화 추천 구성 — 공식 **78,600,000원**. 우리는 **78,750,000원**(+15만).
+ *   까닭: 감면을 «차값에만» 붙이고 **옵션에는 안 붙였다.**
+ *     차값에만  79,740,000 + 2,950,000 − 3,940,000 = 78,750,000   ← 15만 높다
+ *     비례로    (79,740,000 + 2,950,000) × (1 − 4.941%) = 78,604,239 ≈ 공식
+ *
+ * ★실데이터가 갈래를 말해 준다(2026-09-09 회귀):
+ *     **전기** 77줄 — 가격의 4.81~4.94%(**비례**·절편 0)
+ *     **하이브리드** 35줄 — **정액 1,001,000**(코나부터 그랜저까지 같은 값)
+ *   ⇒ 전기는 옵션까지 «비례»로, 하이브리드는 «정액»으로 둔다.
+ * ⚠ 그 밖의 연료는 감면이 0 이라 갈래가 필요 없다.
+ */
+export const trimSaleTaxRate = (t: { priceBefore?: number; priceAfter?: number } | null | undefined): number => {
+  const before = Number(t?.priceBefore) || 0;
+  const credit = trimSaleTaxCredit(t);
+  return before > 0 && credit > 0 ? credit / before : 0;
+};
+
 
 export type PickedCar = {
   source: 'used' | 'new';
@@ -105,6 +126,8 @@ export type PickedCar = {
   priceBasis?: string;
   /** ★판매가격 세제감면(개소세·교육세) — 제조사 「전−후」. **원가에서만** 뺀다. 손님 표시가는 「전」 그대로. */
   saleTaxCredit?: number;
+  /** ★그 감면의 «비율» — 전기차는 옵션까지 비례로 붙는다(제조사 공식 구성기 대조). */
+  saleTaxRate?: number;
   /** 신차 — 고른 옵션과 조합규칙(있으면). */
   options?: { name: string; price: number }[];
   rules?: string[];
@@ -356,6 +379,7 @@ export function pickNew(m: NewModel, t: NewTrim, chosen: { name: string; price: 
     price: trimPrice(t) + optSum,
     priceBasis: trimBasis(t),
     saleTaxCredit: trimSaleTaxCredit(t),
+    saleTaxRate: trimSaleTaxRate(t),
     options: chosen,
     rules: t.rules,
     newTrim: t,

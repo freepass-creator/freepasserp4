@@ -33,7 +33,7 @@ const pickFn = (x: unknown, depth = 3): unknown => {
   return d === undefined ? x : pickFn(d, depth - 1);
 };
 const QuotePreview = pickFn(QuotePreviewMod) as Parameters<typeof createElement>[0];
-import { trimPrice, trimBasis, trimSaleTaxCredit } from '../lib/domain/estimate/car-index';
+import { trimPrice, trimBasis, trimSaleTaxCredit, trimSaleTaxRate } from '../lib/domain/estimate/car-index';
 import { splitAxis } from '../lib/domain/estimate/newcar-normalize';
 import { optionList, optionSum, isEnabled, toggleOption, type OptionSpec } from '../lib/domain/estimate/option-rules';
 
@@ -1646,7 +1646,7 @@ must(impliedOf({ htrac: { name: 'HTRAC' } }, '전기 롱레인지 2WD', 'Prestig
 
 /* 24-3. ★제네시스 기준 이름은 «정상 경로»에도 붙는다 (Codex 2)
      폴백에만 붙여 두면 Firestore 가 살아 있을 때 G80-EV 가 손님 문서에 「세제혜택 전」으로 찍힌다. */
-must(code('app/api/newcar/route.ts').includes('genesisBasis(S(v.sub_model))'),
+must(code('app/api/newcar/route.ts').includes('genesisPrices(S(v.sub_model)'),
   '정상 경로에서 제네시스 «가격 기준»을 안 붙입니다 — 「후」를 「전」이라 인쇄합니다',
   'app/api/newcar/route.ts');
 
@@ -1846,6 +1846,58 @@ must(/availableForEngine\(om,/.test(code('lib/domain/estimate/genesis-lineup.ts'
 must((availableForEngine({ a: { name: '컴포트' } }, [], '가솔린 3.5 터보') ?? []).length === 0,
   '빈 목록을 되살립니다 — 「고를 것이 없다」가 「전부 열기」가 됩니다',
   'lib/domain/estimate/genesis-included.ts availableForEngine');
+
+/* ══ 29. ★★★**제조사 공식 숫자가 정답지다** ══════════════════════════════════
+     사장님 2026-09-09 「그냥 **온라인에서 확인될 수 있는 거. 제조사 꺼 기준**으로 해」.
+
+     ⚠⚠ 2026-09-10 개발센터 4-AI 관문 · Codex 5회차가 **제네시스 공식 구성기와 대조해** 잡았다.
+       GV70 전동화 추천 구성 — 공식 **78,600,000원**. 우리는 **78,750,000원**(+15만).
+       까닭이 둘이었다:
+         ① Firestore 가 `priceBefore` 에 **「후」 값**(75,800,000)을 싣고 있었다.
+            공식은 세제전 79,740,000 · 세제후 75,800,000 이고, 조합지도는 «전» 값을 갖고 있었다.
+         ② 감면을 **차값에만** 붙이고 **옵션에는 안 붙였다.** 제조사는 옵션까지 비례로 붙인다.
+     ⇒ 아래 숫자는 전부 **제조사가 인쇄한 값**이다. 우리가 지어낸 것이 하나도 없다. */
+{
+  const 전 = 79740000; const 후 = 75800000; const 옵션 = 2950000; const 공식 = 78600000;
+
+  /* 29-1. 조합지도가 «전» 값을 갖고 있는가 — 그래야 실린 「후」와 짝지어 바로잡을 수 있다. */
+  const gv70ev = basisOf({ model: 'GV70-EV', base: 전, minMax: { min: 전, variants: {} } });
+  must(gv70ev.price === 전,
+    `조합지도의 GV70 전동화 값이 공식 세제전과 다릅니다 — ${gv70ev.price.toLocaleString('ko-KR')} vs ${전.toLocaleString('ko-KR')}`,
+    'data/new-car/genesis-config-fs.json');
+
+  /* 29-2. 피드가 두 값을 «짝지어» 내는가 — 조합지도 값이 더 크면 그것이 「전」, 실린 값이 「후」다. */
+  must(code('app/api/newcar/route.ts').includes('cfgPrice > before'),
+    '피드가 「후」 값을 「전」 자리에 그대로 내보냅니다 — 그 위에 「전」 기준 옵션값을 더해 15만이 높아집니다',
+    'app/api/newcar/route.ts genesisPrices');
+
+  /* 29-3. ★★**감면이 옵션에도 붙는가** — 붙이면 공식과 맞고, 안 붙이면 15만이 높다. */
+  const rate = (전 - 후) / 전;
+  const 비례 = Math.round((전 + 옵션) * (1 - rate));
+  const 차값만 = 전 + 옵션 - (전 - 후);
+  must(Math.abs(비례 - 공식) < 10000,
+    `감면을 옵션까지 비례로 붙이면 공식과 달라집니다 — ${비례.toLocaleString('ko-KR')} vs 공식 ${공식.toLocaleString('ko-KR')}`,
+    'app/estimate/page.tsx taxCredit');
+  must(차값만 - 공식 === 150000,
+    '기준 반례가 흔들렸습니다 — 차값에만 붙이면 공식보다 15만이 높아야 합니다',
+    'scripts/check-estimate-logic.mts');
+
+  /* 29-4. 화면이 «비례»로 세는가 — 전기는 비율, 하이브리드는 정액. */
+  const pg = code('app/estimate/page.tsx').replace(/\s+/g, '');
+  must(pg.includes("picked.fuel==='ev'") && pg.includes('picked.saleTaxRate'),
+    '전기차 감면을 옵션에 비례로 안 붙입니다 — 제조사 계산과 어긋납니다',
+    'app/estimate/page.tsx taxCredit');
+  must(pg.includes('picked.saleTaxCredit??0)*(price/listPrice)'),
+    '하이브리드 감면을 «정액»으로 안 둡니다 — 실데이터 35줄이 1,001,000 으로 같습니다',
+    'app/estimate/page.tsx taxCredit');
+
+  /* 29-5. 비율이 «제조사가 준 두 값»에서 나오는가 — 우리가 법정 요율을 지어내지 않는다. */
+  const r = trimSaleTaxRate({ priceBefore: 전, priceAfter: 후 });
+  must(Math.abs(r - rate) < 1e-9,
+    `감면 비율을 제조사 값에서 안 뽑습니다 — ${r}`, 'lib/domain/estimate/car-index.ts trimSaleTaxRate');
+  must(trimSaleTaxRate({ priceBefore: 전, priceAfter: 전 }) === 0,
+    '감면이 없는 줄에서 비율을 «지어냅니다»', 'lib/domain/estimate/car-index.ts trimSaleTaxRate');
+}
 
 if (fails.length) {
   console.error(`\n✗ 견적 로직이 정본과 다릅니다 — ${fails.length}건\n`);
