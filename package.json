@@ -31,6 +31,7 @@
     "check:atoms": "tsx scripts/check-atoms.mts",
     "check:publish-atom": "tsx scripts/check-publishers-read-atoms.mts",
     "check:cycle-no-rtdb-write": "tsx scripts/check-cycle-no-rtdb-write.mts",
+    "check:rtdb-cutover": "tsx scripts/check-rtdb-cutover.mts",
     "check:sales-publish-context": "tsx scripts/check-sales-publish-context.mts",
     "count:inventory": "tsx scripts/count-real-inventory.mts",
     "check:inventory-contract": "tsx scripts/sim-inventory-contract.mts",
