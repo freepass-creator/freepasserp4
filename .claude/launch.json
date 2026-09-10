@@ -4,8 +4,37 @@
     {
       "name": "freepasserp4",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
       "port": 4004
+    },
+    {
+      "name": "fpm",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "--max-old-space-size=8192",
+        "C:/dev/fp-freepass/node_modules/next/dist/bin/next",
+        "dev",
+        "C:/dev/fp-freepass",
+        "-p",
+        "4088"
+      ],
+      "port": 4088
+    },
+    {
+      "name": "rec",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "--max-old-space-size=8192",
+        "C:/dev/fp-shop-pr/node_modules/next/dist/bin/next",
+        "dev",
+        "C:/dev/_wt-recheck",
+        "-p",
+        "4023"
+      ],
+      "port": 4023
     }
   ]
 }
