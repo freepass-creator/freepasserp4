@@ -635,6 +635,86 @@
       "how": "이름",
       "_label": "기아 | K9 | 가솔린 3.3 터보 | 베스트 셀렉션 Ⅱ"
     },
+    "genesis_g80__가솔린_2.5_터보_2WD__스탠다드": {
+      "manufacturer_id": "genesis",
+      "model_id": "g80",
+      "variant_id": "g80_2_5t",
+      "trim_id": "standard",
+      "how": "이름",
+      "_label": "제네시스 | G80 | 가솔린 2.5 터보 · 2WD | 스탠다드"
+    },
+    "genesis_g80__가솔린_2.5_터보_AWD__스탠다드": {
+      "manufacturer_id": "genesis",
+      "model_id": "g80",
+      "variant_id": "g80_2_5t",
+      "trim_id": "standard",
+      "how": "이름",
+      "_label": "제네시스 | G80 | 가솔린 2.5 터보 · AWD | 스탠다드"
+    },
+    "genesis_g90__가솔린_3.5_터보_2WD_후륜___스탠다드": {
+      "manufacturer_id": "genesis",
+      "model_id": "g90",
+      "variant_id": "g90_standard",
+      "trim_id": "standard",
+      "how": "꼬리뗌2",
+      "_label": "제네시스 | G90 | 가솔린 3.5 터보 · 2WD(후륜) | 스탠다드"
+    },
+    "genesis_g90__가솔린_3.5_터보_AWD__스탠다드": {
+      "manufacturer_id": "genesis",
+      "model_id": "g90",
+      "variant_id": "g90_standard",
+      "trim_id": "standard",
+      "how": "꼬리뗌2",
+      "_label": "제네시스 | G90 | 가솔린 3.5 터보 · AWD | 스탠다드"
+    },
+    "genesis_gv70__가솔린_2.5_터보_2WD_후륜___스탠다드": {
+      "manufacturer_id": "genesis",
+      "model_id": "gv70",
+      "variant_id": "gasoline_2_5t",
+      "trim_id": "standard",
+      "how": "꼬리뗌2",
+      "_label": "제네시스 | GV70 | 가솔린 2.5 터보 · 2WD(후륜) | 스탠다드"
+    },
+    "genesis_gv70__가솔린_2.5_터보_AWD_오토_터레인_모드_포함___스탠다드": {
+      "manufacturer_id": "genesis",
+      "model_id": "gv70",
+      "variant_id": "gasoline_2_5t",
+      "trim_id": "standard",
+      "how": "꼬리뗌2",
+      "_label": "제네시스 | GV70 | 가솔린 2.5 터보 · AWD(오토 터레인 모드 포함) | 스탠다드"
+    },
+    "genesis_gv80__가솔린_2.5_터보_2WD_후륜___스탠다드": {
+      "manufacturer_id": "genesis",
+      "model_id": "gv80",
+      "variant_id": "gasoline_2_5t",
+      "trim_id": "standard",
+      "how": "꼬리뗌2",
+      "_label": "제네시스 | GV80 | 가솔린 2.5 터보 · 2WD(후륜) | 스탠다드"
+    },
+    "genesis_gv80__가솔린_2.5_터보_AWD__스탠다드": {
+      "manufacturer_id": "genesis",
+      "model_id": "gv80",
+      "variant_id": "gasoline_2_5t",
+      "trim_id": "standard",
+      "how": "꼬리뗌2",
+      "_label": "제네시스 | GV80 | 가솔린 2.5 터보 · AWD | 스탠다드"
+    },
+    "genesis_gv80__가솔린_3.5_터보_2WD_후륜___스탠다드": {
+      "manufacturer_id": "genesis",
+      "model_id": "gv80",
+      "variant_id": "gasoline_3_5t",
+      "trim_id": "standard",
+      "how": "꼬리뗌2",
+      "_label": "제네시스 | GV80 | 가솔린 3.5 터보 · 2WD(후륜) | 스탠다드"
+    },
+    "genesis_gv80__가솔린_3.5_터보_AWD__스탠다드": {
+      "manufacturer_id": "genesis",
+      "model_id": "gv80",
+      "variant_id": "gasoline_3_5t",
+      "trim_id": "standard",
+      "how": "꼬리뗌2",
+      "_label": "제네시스 | GV80 | 가솔린 3.5 터보 · AWD | 스탠다드"
+    },
     "GNJS4RAT4": {
       "manufacturer_id": "hyundai",
       "model_id": "grandeur",
@@ -1739,23 +1819,13 @@
     "renault_필랑트_iconic  ·  르노 | 필랑트 |  | iconic",
     "renault_필랑트_esprit Alpine  ·  르노 | 필랑트 |  | esprit Alpine",
     "genesis_g70  ·  제네시스 | G70 | 가솔린 | ",
-    "genesis_g80  ·  제네시스 | G80 | 가솔린 2.5 터보 | 2WD",
-    "genesis_g80  ·  제네시스 | G80 | 가솔린 2.5 터보 | AWD",
-    "genesis_g80  ·  제네시스 | G80 | 가솔린 3.5 터보 | 2WD",
-    "genesis_g80  ·  제네시스 | G80 | 가솔린 3.5 터보 | AWD",
+    "genesis_g80__가솔린_3.5_터보_2WD__스탠다드  ·  제네시스 | G80 | 가솔린 3.5 터보 · 2WD | 스탠다드",
+    "genesis_g80__가솔린_3.5_터보_AWD__스탠다드  ·  제네시스 | G80 | 가솔린 3.5 터보 · AWD | 스탠다드",
     "genesis_g80-ev  ·  제네시스 | G80-EV | 전기 | ",
-    "genesis_g90  ·  제네시스 | G90 | 가솔린 3.5 터보 | 2WD(후륜)",
-    "genesis_g90  ·  제네시스 | G90 | 가솔린 3.5 터보 | AWD",
     "genesis_gv60  ·  제네시스 | GV60 | 전기 | ",
-    "genesis_gv70  ·  제네시스 | GV70 | 가솔린 2.5 터보 | 2WD(후륜)",
-    "genesis_gv70  ·  제네시스 | GV70 | 가솔린 2.5 터보 | AWD(오토 터레인 모드 포함)",
     "genesis_gv70-ev  ·  제네시스 | GV70-EV | 전기 | ",
-    "genesis_gv80  ·  제네시스 | GV80 | 가솔린 2.5 터보 | 2WD(후륜)",
-    "genesis_gv80  ·  제네시스 | GV80 | 가솔린 2.5 터보 | AWD",
-    "genesis_gv80  ·  제네시스 | GV80 | 가솔린 3.5 터보 | 2WD(후륜)",
-    "genesis_gv80  ·  제네시스 | GV80 | 가솔린 3.5 터보 | AWD",
-    "genesis_gv80  ·  제네시스 | GV80 | 가솔린 2.5 터보 | 블랙",
-    "genesis_gv80  ·  제네시스 | GV80 | 가솔린 3.5 터보 | 블랙",
+    "genesis_gv80__가솔린_2.5_터보__블랙  ·  제네시스 | GV80 | 가솔린 2.5 터보 | 블랙",
+    "genesis_gv80__가솔린_3.5_터보__블랙  ·  제네시스 | GV80 | 가솔린 3.5 터보 | 블랙",
     "HEJJ5HDT2  ·  현대 | 넥쏘 | 수소 · 2WD | 모던",
     "HEJJ5HAT2  ·  현대 | 넥쏘 | 수소 · 2WD | 익스클루시브",
     "HEJJ5HCT2  ·  현대 | 넥쏘 | 수소 · 2WD | 프레스티지",
@@ -2266,103 +2336,21 @@
         ]
       },
       {
-        "key": "genesis_g80",
-        "label": "제네시스 | G80 | 가솔린 2.5 터보 | 2WD",
-        "near": [
-          "스탠다드(standard)",
-          "Black(black)"
-        ]
-      },
-      {
-        "key": "genesis_g80",
-        "label": "제네시스 | G80 | 가솔린 2.5 터보 | AWD",
-        "near": [
-          "스탠다드(standard)",
-          "Black(black)"
-        ]
-      },
-      {
-        "key": "genesis_g80",
-        "label": "제네시스 | G80 | 가솔린 3.5 터보 | 2WD",
+        "key": "genesis_g80__가솔린_3.5_터보_2WD__스탠다드",
+        "label": "제네시스 | G80 | 가솔린 3.5 터보 · 2WD | 스탠다드",
         "near": [
           "Black(black)"
         ]
       },
       {
-        "key": "genesis_g80",
-        "label": "제네시스 | G80 | 가솔린 3.5 터보 | AWD",
+        "key": "genesis_g80__가솔린_3.5_터보_AWD__스탠다드",
+        "label": "제네시스 | G80 | 가솔린 3.5 터보 · AWD | 스탠다드",
         "near": [
           "Black(black)"
         ]
       },
       {
-        "key": "genesis_g90",
-        "label": "제네시스 | G90 | 가솔린 3.5 터보 | 2WD(후륜)",
-        "near": [
-          "스탠다드 (5인승, 2WD 기본)(standard)",
-          "Long Wheel Base (5인승 기본)(lwb)",
-          "Black (5인승 기본)(black)",
-          "LWB Black (5인승 기본)(lwb_black)"
-        ]
-      },
-      {
-        "key": "genesis_g90",
-        "label": "제네시스 | G90 | 가솔린 3.5 터보 | AWD",
-        "near": [
-          "스탠다드 (5인승, 2WD 기본)(standard)",
-          "Long Wheel Base (5인승 기본)(lwb)",
-          "Black (5인승 기본)(black)",
-          "LWB Black (5인승 기본)(lwb_black)"
-        ]
-      },
-      {
-        "key": "genesis_gv70",
-        "label": "제네시스 | GV70 | 가솔린 2.5 터보 | 2WD(후륜)",
-        "near": [
-          "스탠다드 (2WD 기본)(standard)"
-        ]
-      },
-      {
-        "key": "genesis_gv70",
-        "label": "제네시스 | GV70 | 가솔린 2.5 터보 | AWD(오토 터레인 모드 포함)",
-        "near": [
-          "스탠다드 (2WD 기본)(standard)"
-        ]
-      },
-      {
-        "key": "genesis_gv80",
-        "label": "제네시스 | GV80 | 가솔린 2.5 터보 | 2WD(후륜)",
-        "near": [
-          "스탠다드 (2WD 기본)(standard)",
-          "Black(black)"
-        ]
-      },
-      {
-        "key": "genesis_gv80",
-        "label": "제네시스 | GV80 | 가솔린 2.5 터보 | AWD",
-        "near": [
-          "스탠다드 (2WD 기본)(standard)",
-          "Black(black)"
-        ]
-      },
-      {
-        "key": "genesis_gv80",
-        "label": "제네시스 | GV80 | 가솔린 3.5 터보 | 2WD(후륜)",
-        "near": [
-          "스탠다드 (2WD 기본)(standard)",
-          "Black(black)"
-        ]
-      },
-      {
-        "key": "genesis_gv80",
-        "label": "제네시스 | GV80 | 가솔린 3.5 터보 | AWD",
-        "near": [
-          "스탠다드 (2WD 기본)(standard)",
-          "Black(black)"
-        ]
-      },
-      {
-        "key": "genesis_gv80",
+        "key": "genesis_gv80__가솔린_2.5_터보__블랙",
         "label": "제네시스 | GV80 | 가솔린 2.5 터보 | 블랙",
         "near": [
           "스탠다드 (2WD 기본)(standard)",
@@ -2370,7 +2358,7 @@
         ]
       },
       {
-        "key": "genesis_gv80",
+        "key": "genesis_gv80__가솔린_3.5_터보__블랙",
         "label": "제네시스 | GV80 | 가솔린 3.5 터보 | 블랙",
         "near": [
           "스탠다드 (2WD 기본)(standard)",

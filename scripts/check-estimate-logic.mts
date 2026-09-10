@@ -13,7 +13,7 @@
  * 바꾸려면: 사장님께 여쭙고 → 문서를 고치고 → 이 검사를 고친다. 그 차례를 지킨다.
  * ⚠ 이 검사를 «먼저» 고쳐 통과시키는 것은 규격을 지운 것과 같다.
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { splitNote, readRule, rulesFrom, priceOf } from '../lib/domain/estimate/option-note';
 import { impliedOf } from '../lib/domain/estimate/implied-options';
 import { modelKey, basisOf, expandGenesis } from '../lib/domain/estimate/genesis-lineup';
@@ -714,7 +714,8 @@ const { expandGenesis, fillBlankFuel, lineupOf, genesisConfig } =
   must(!!g80, '제네시스 정본(genesis-config-fs.json)에서 G80 을 못 찾습니다',
     'data/new-car/genesis-config-fs.json');
   const rows = g80 ? lineupOf(g80, '가솔린') ?? [] : [];
-  const f = (fuel: string, trim: string) => rows.find((r) => r.fuel === fuel && r.trim === trim)?.price ?? 0;
+  /* ★구동은 이제 «파워트레인» 축에 있다(§37) — 트림 칸이 아니라 연료 라벨에서 찾는다. */
+  const f = (fuel: string, drive: string) => rows.find((r) => r.fuel === `${fuel} · ${drive}`)?.price ?? 0;
   must(rows.length === 4, `G80 라인업이 넷이 아닙니다(${rows.length}) — 엔진 2 × 구동 2`,
     'lib/domain/estimate/genesis-lineup.ts');
   must(f('가솔린 2.5 터보', '2WD') === 60_630_000 && f('가솔린 3.5 터보', '2WD') === 67_230_000,
@@ -1358,18 +1359,20 @@ for (const f of ['scripts/backfill-newcar-names.mts', 'scripts/ingest-newcar-opt
     maker: '제네시스', sub_model: 'G80', fuel: '가솔린', priceBefore: 0, priceAfter: 0,
     optionsMaster: om, availableOptions: Object.keys(om),
   } as never]) as Record<string, unknown>[];
-  const find = (fuelRe: RegExp, trim: string) =>
-    rows.find((r) => fuelRe.test(String(r.fuel)) && String(r.trim) === trim);
+  /* ★구동은 «파워트레인» 축이다(§37) — 엔진·구동 둘 다 연료 라벨에서 찾는다.
+     ⚠ 이 검사가 지키는 것은 «라벨»이 아니라 **돈**이다(ECS 110만 · AWD 300만 이중청구). 같은 줄을 계속 잡는다. */
+  const find = (fuelRe: RegExp, driveRe: RegExp) =>
+    rows.find((r) => fuelRe.test(String(r.fuel)) && driveRe.test(String(r.fuel)));
 
   /* 재현 A — G80 3.5T 는 ECS 가 기본이다(`choices[3.5T].note` 「ECS·19인치 콘티 기본」). */
-  const a = find(/3\.5/, 'AWD');
+  const a = find(/3\.5/, /AWD/);
   const aIm = (a?.impliedOptions ?? []) as string[];
   must(!!a && Number(a.priceBefore) === 70030000 && aIm.includes('ecs') && aIm.includes('awd'),
     `G80 3.5T·AWD 가 기본 포함을 «또 팝니다» — ${Number(a?.priceBefore || 0).toLocaleString('ko-KR')}원 / implied=[${aIm.join(',')}]. `
     + 'ECS 를 고르면 110만이 더 붙습니다',
     'lib/domain/estimate/genesis-lineup.ts expandGenesis');
   /* ⚠ 2.5T 에서는 ECS 가 «진짜 유료 옵션»이다 — 넘겨 짚어 지우면 유료 옵션이 사라진다. */
-  const b25 = find(/2\.5/, '2WD');
+  const b25 = find(/2\.5/, /2WD/);
   must(!((b25?.impliedOptions ?? []) as string[]).includes('ecs'),
     'G80 2.5T 에서 ECS 를 「이미 샀다」고 지웁니다 — 거기서는 진짜 유료 옵션(110만)입니다',
     'lib/domain/estimate/genesis-lineup.ts expandGenesis');
@@ -2281,6 +2284,77 @@ must((availableForEngine({ a: { name: '컴포트' } }, [], '가솔린 3.5 터보
     must(/hasTrim/.test(code('lib/domain/estimate/genesis-lineup.ts')),
       '트림을 맞춘 줄에서도 짐작(availableForEngine)이 원본 `available_options` 를 덮고 있습니다',
       'lib/domain/estimate/genesis-lineup.ts');
+  }
+}
+
+/* ══ 36. ★★★**만든 표를 «쓰는가»** ═══════════════════════════════════════════
+     ⚠⚠ 이 세션에서 두 번째다. §28 은 `availableForEngine` 을 «만들고 안 불러» 아무것도
+       안 고치고 있었다. 이번엔 `welrix-id-map.json` 218줄이 **Firestore 에 실리는 자리**
+       (`--apply`)에서 `rowId` 를 안 넘겨, 표가 화면까지 **한 번도 닿지 않았다**.
+     그 사이 팰리세이드 **7인승** 줄이 **9인승 옵션판**으로 팔렸다 —
+       7인승에만 있는 「2열 다이내믹 바디케어 시트 80만」은 못 팔고,
+       프리뷰 ECS 는 123만(9인승)으로, HTRAC 은 228만(9인승)으로 팔았다(실측 15줄).
+     ★검사는 «문자열»이 아니라 «동작»으로 한다 — 같은 줄을 표 있이/없이 두 번 불러 갈리는지 본다. */
+{
+  const ing = code('scripts/ingest-newcar-options.mts');
+  must(/packFor\(S\(v\.maker\), S\(v\.sub_model\), S\(v\.fuel\), S\(v\.trim\), S\(d\.id\)\)/.test(ing),
+    'Firestore 에 옵션판을 실을 때 `rowId` 를 안 넘깁니다 — welrix-id-map 이 화면까지 못 닿습니다',
+    'scripts/ingest-newcar-options.mts (--apply)');
+
+  /* 표가 실제로 «다른 답»을 내는지 — 표를 봐야만 갈리는 줄이 하나도 없으면 표는 장식이다. */
+  try {
+    const feedPath = 'tmp/feed.json';
+    if (!existsSync(feedPath)) {
+      console.log('  ⚠ §36 동작검사 건너뜀 — tmp/feed.json 이 없습니다(피드 스냅샷).');
+    } else {
+      const rows = (JSON.parse(readFileSync(feedPath, 'utf8')) as { trims?: Record<string, string>[] }).trims ?? [];
+      const { packFor } = await import('./ingest-newcar-options.mts') as {
+        packFor: (a: string, b: string, c: string, d: string, e?: string) => unknown };
+      let diff = 0;
+      for (const r of rows) {
+        const a = packFor(S(r.maker), S(r.sub_model), S(r.fuel), S(r.trim));
+        const b = packFor(S(r.maker), S(r.sub_model), S(r.fuel), S(r.trim), S(r.id));
+        if (JSON.stringify(a) !== JSON.stringify(b)) diff++;
+      }
+      must(diff > 0,
+        '표(welrix-id-map)를 봐도 안 봐도 옵션판이 똑같습니다 — 표가 장식이 됐거나 열쇠가 안 맞습니다',
+        'data/new-car/welrix-id-map.json');
+    }
+  } catch (e) {
+    must(false, `§36 동작검사가 못 돌았습니다 — ${(e as Error).message}`, 'scripts/check-estimate-logic.mts');
+  }
+}
+
+/* ══ 37. ★★**제네시스도 구동은 «파워트레인» 축이다** ═════════════════════════
+     사장님 2026-09-11 「팰리세이드 인승 이거 파워트레인에서 구분 찍고 가야지」와 같은 처방.
+     트림 칸에 「2WD/AWD」를 앉혀 두면 원본 트림(「스탠다드·Black」)과 **영영 안 맞아**
+     제네시스 15줄이 전부 트림 미매칭이었다 — 원본 규칙이 하나도 안 붙는다.
+     ⚠ 펴 놓은 줄이 원본 한 줄의 `id` 를 나눠 쓰면 **블랙이 스탠다드의 옵션판**을 물려받는다. */
+{
+  /* ⚠ 열쇠(`id`)를 «안 준» 줄로 재면 열쇠 검사가 통째로 빈 검사가 된다 — 돌연변이로 확인(2026-09-11).
+     ★열쇠는 지어내지 않고 **실제 피드**에서 딴다(펴면서 붙인 꼬리 `__…` 를 떼면 원본 문서 열쇠다). */
+  const feedId = (() => {
+    try {
+      const t = (JSON.parse(readFileSync('tmp/feed.json', 'utf8')) as { trims?: Record<string, string>[] }).trims ?? [];
+      const g = t.find((r) => S(r.maker) === '제네시스' && S(r.sub_model) === 'GV80' && S(r.id));
+      return g ? S(g.id).split('__')[0] : '';
+    } catch { return ''; }
+  })();
+  const rows = expandGenesis([{ maker: '제네시스', sub_model: 'GV80', fuel: '가솔린', priceAfter: 71_400_000,
+    ...(feedId ? { id: feedId } : {}) } as never]) as (Record<string, unknown>)[];
+  must(!!feedId, '§37 이 열쇠를 못 땄습니다 — tmp/feed.json 에 제네시스 GV80 줄이 없습니다(피드 스냅샷)',
+    'tmp/feed.json');
+  if (rows.length >= 2) {
+    must(!rows.some((r) => /^\s*(2WD|AWD|4WD)/.test(S(r.trim))),
+      `제네시스 트림 칸에 구동이 앉아 있습니다 — [${rows.map((r) => S(r.trim)).join(', ')}]. 구동은 파워트레인 축입니다`,
+      'lib/domain/estimate/genesis-lineup.ts rowsOf');
+    must(rows.filter((r) => /AWD|2WD/.test(S(r.fuel))).length > 0,
+      '구동이 파워트레인 라벨에서 사라졌습니다 — 값이 다른 줄을 손님이 구별할 수 없습니다',
+      'lib/domain/estimate/genesis-lineup.ts rowsOf');
+    const ids = rows.map((r) => S(r.id)).filter(Boolean);
+    must(ids.length === 0 || new Set(ids).size === ids.length,
+      `펴 놓은 제네시스 줄이 열쇠를 나눠 씁니다 — ${ids.length}줄에 열쇠 ${new Set(ids).size}개. 옵션판이 섞입니다`,
+      'lib/domain/estimate/genesis-lineup.ts expandGenesis');
   }
 }
 

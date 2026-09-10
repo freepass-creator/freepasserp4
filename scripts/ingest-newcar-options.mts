@@ -258,7 +258,13 @@ async function main() {
   let batch = fs.batch(); let n = 0;
   for (const d of snap.docs) {
     const v = d.data();
-    const p = packFor(S(v.maker), S(v.sub_model), S(v.fuel), S(v.trim));
+    /* ★★**표를 «쓰는» 자리다.** 여기서 `rowId` 를 안 넘기면 `data/new-car/welrix-id-map.json`
+       218줄이 **화면까지 한 번도 닿지 않는다** — 만들고 안 부르는 것이다(2026-09-11 실측).
+       ⚠ 그동안 팰리세이드 **7인승** 줄이 **9인승 옵션판**으로 팔리고 있었다:
+         · 부속 63만(9인승) ↔ 70만(7인승) · 프리뷰 ECS 123만 ↔ 130만 · HTRAC 228만 ↔ 240만
+         · 7인승에만 있는 「2열 다이내믹 바디케어 시트 80만」은 **아예 못 팔았다**
+       ⇒ 사장님 「파워트레인에서 구분 찍고 가야지」로 축을 갈라 놓고도, 정작 쓰는 자리를 안 고쳤던 것. */
+    const p = packFor(S(v.maker), S(v.sub_model), S(v.fuel), S(v.trim), S(d.id));
     if (!p) continue;
     batch.set(d.ref, { ...p, optionAt: new Date().toISOString().slice(0, 10) }, { merge: true });
     wrote++; n++;

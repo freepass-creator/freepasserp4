@@ -65,6 +65,8 @@ export function basisOf(m: { model?: string; fuel?: string; base?: number; minMa
 }
 
 export type LineupRow = {
+  /** 구동 — 파워트레인 라벨에 실리지만, 「(2WD)/(AWD)」로 갈리는 옵션을 맞대려면 따로도 쥐고 있어야 한다. */
+  drive?: string;
   fuel: string; trim: string; price: number;
   /** ★그 구성에 «이미 들어 있다»고 정본이 말한 이름 조각들(Codex #4). 부르는 쪽이 사전과 맞댄다. */
   included?: string[];
@@ -115,14 +117,20 @@ function rowsOf(base: number, groups: Group[] | undefined, trimPrefix: string, r
   const out: LineupRow[] = [];
   for (const e of eList) {
     for (const d of dList) {
-      const trim = [trimPrefix, label(d)].filter(Boolean).join(' · ');
+      /* ★★**구동은 «파워트레인» 축이다 — 트림 칸이 아니다.**
+         사장님 2026-09-11 「팰리세이드 인승 이거 파워트레인에서 구분 찍고 가야지」와 같은 처방.
+         트림 칸에 「2WD」를 앉혀 두면 원본 트림(「스탠다드·Black」)과 **영영 안 맞아**
+         제네시스 팩 15개가 전부 트림 미매칭이었다 — 원본 규칙이 하나도 안 붙는다. */
+      const trim = trimPrefix || '스탠다드';
+      const driveLabel = label(d);
       /* 라벨은 «한 규격»으로 — 정본이 「가솔린 2.5T」라 적어도 마스터 전체는 「가솔린 2.5 터보」다.
          갈리면 파워트레인 칸에 같은 엔진이 두 이름으로 선다. */
       /* ★★그 줄에 «이미 들어 있는» 것을 같이 싣는다 — 안 실으면 기본 포함을 또 판다
          (G80 3.5T 의 ECS 110만 · GV80 블랙의 AWD 300만 · Codex #4). */
       /* ★그 줄의 «분류»를 같이 넘긴다 — 라인업 이름(블랙·표준)과 트림이 분류다. */
-      const included = lineup ? includedNames(lineup, label(e) || rowFuel, conditionals, `${trimPrefix} ${trim}`) : [];
-      out.push({ fuel: canonFuel(label(e) || rowFuel), trim: trim || '기본',
+      const included = lineup ? includedNames(lineup, label(e) || rowFuel, conditionals, `${trimPrefix} ${driveLabel}`) : [];
+      out.push({ fuel: [canonFuel(label(e) || rowFuel), driveLabel].filter(Boolean).join(' · '), trim,
+        ...(driveLabel ? { drive: driveLabel } : {}),
         price: base + addWon(e) + addWon(d), ...(included.length ? { included } : {}) });
     }
   }
@@ -209,7 +217,7 @@ export function expandGenesis<T extends { maker?: string; sub_model?: string; fu
         const names = Object.fromEntries(Object.entries(om).map(([id, o]) => [id, S(o.name)]));
         /* ★그 줄의 «구동»을 같이 넘긴다 — 「드라이빙어시Ⅱ(2WD)/(AWD)」처럼 구동이 갈리는 항목을
            구동 모르고 고르면 AWD 줄에 2WD 항목이 붙어 진짜 필요한 270만을 다시 판다. */
-        const rowDrive = `${r.trim} ${(r.included ?? []).join(' ')}`;
+        const rowDrive = `${r.trim} ${S(r.drive)} ${(r.included ?? []).join(' ')}`;
         const byName = (r.included ?? []).map((p) => matchIncluded(p, names, rowDrive)).filter(Boolean) as string[];
         implied = [...new Set([...impliedOf(om, r.fuel, `${r.trim} ${r.fuel}`), ...byName])];
       }
@@ -227,8 +235,16 @@ export function expandGenesis<T extends { maker?: string; sub_model?: string; fu
       const avail = om && !hasTrim
         ? availableForEngine(om, (t as { availableOptions?: string[] }).availableOptions, r.fuel)
         : (t as { availableOptions?: string[] }).availableOptions;
+      /* ★★**펴 놓은 줄마다 제 «열쇠»를 준다.**
+         `{...t}` 는 원본 한 줄의 `id` 를 그대로 복사한다 — 그래서 GV80 여섯 줄이 `genesis_gv80`
+         **하나**를 나눠 썼다. `id` 는 옵션판을 찾는 열쇠(`packFor(..., rowId)`)라,
+         겹치면 **블랙이 스탠다드의 옵션판**을 물려받는다(2026-09-11 실측 — 14줄이 열쇠 4개).
+         ⚠ 지금은 표가 넷 다 「스탠다드」로 붙어 있어 티가 안 났다. 트림이 붙기 시작하면 돈에 닿는다. */
+      const rowId = [S((t as { id?: string }).id), r.fuel, r.trim]
+        .filter(Boolean).join('__').replace(/[\s·()]+/g, '_');
       out.push({
-        ...t, fuel: r.fuel, trim: r.trim, priceBefore: r.price, priceAfter: r.price,
+        ...t, ...(S((t as { id?: string }).id) ? { id: rowId } : {}),
+        fuel: r.fuel, trim: r.trim, priceBefore: r.price, priceAfter: r.price,
         ...(implied ? { impliedOptions: implied } : {}),
         ...(avail ? { availableOptions: avail } : {}),
         lineupSource: 'genesis-config-fs',
