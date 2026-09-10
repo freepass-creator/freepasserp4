@@ -113,6 +113,28 @@ export async function GET(req: Request) {
     });
   }
 
+  /**
+   * ★★★**접수 줄 하나를 통째로** — 사장님 2026-09-10 「구현해야 할 게 더 있을 건데 항목이」
+   *
+   *   시트(F04 접수)는 54칸이다. 목록에는 스물넷만 세웠다 — 더 세우면 목록이 아니라 시트가 된다.
+   *   나머지는 «줄을 눌렀을 때» 여기서 통째로 준다. 차 한 대를 물으면 통째로 주는 것(?plate=)과 같은 수법이다.
+   *
+   * ⚠ **수금·지급 실행은 여기서도 뺀다** — 통장을 봐야 아는 것이라 화면에 띄우면 거짓말이 된다.
+   * ⚠ 내부 표시(_로 시작하는 것)와 원천 자취는 담당자가 볼 것이 아니라 뺀다.
+   */
+  const lineQ = S(url.searchParams.get('line'));
+  if (lineQ) {
+    const hit = await fs.collection('settlement_rows').doc(lineQ).get();
+    if (!hit.exists) return NextResponse.json({ id: lineQ, found: false });
+    const v = hit.data() as Row;
+    const SKIP_LINE = /^_|^collected|^paid/;
+    /** ★이름표는 «원자 규격»이 준다 — 여기서 우리말을 다시 적으면 규격과 갈린다. */
+    const spec = Object.entries(v)
+      .filter(([k, x]) => !SKIP_LINE.test(k) && S(x) !== '' && x !== false)
+      .map(([k, x]) => ({ key: k, label: atomField(k)?.label || k, value: S(x) }));
+    return NextResponse.json({ id: lineQ, found: true, spec });
+  }
+
   const all = (await fs.collection('settlement_rows').get()).docs.map((d) => ({ id: d.id, ...d.data() })) as (Row & { id: string })[];
   const claws = (await fs.collection('settlement_clawbacks').get()).docs.map((d) => d.data() as Row);
 

@@ -41,7 +41,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from '@/components/Toaster';
 import { deliveryTransitionPatch, intakeTermMonths, localSettlementDay, sameSettlementCar } from '@/lib/domain/settlement-intake';
-import type { BoardApi, Board, Car, CarLite, Line } from './SettlementBoard';
+import type { BoardApi, Board, Car, CarLite, Line, LineSpec } from './SettlementBoard';
 import './classic.css';
 
 const S = (v: unknown) => String(v ?? '').trim();
@@ -146,7 +146,15 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
   /** 고른 차 · 오른쪽 칸의 얼굴 — 보기 ↔ 접수. 자리는 그대로, 얼굴만 바뀐다. */
   const [picked, setPicked] = useState<CarLite | null>(null);
   const [car, setCar] = useState<Car | null>(null);
-  const [mode, setMode] = useState<'보기' | '접수'>('보기');
+  const [mode, setMode] = useState<'보기' | '접수' | '줄'>('보기');
+  /**
+   * ★★**접수 줄을 누르면 오른쪽이 «그 줄»로 바뀐다** — 사장님 2026-09-10 「구현해야 할 게 더 있을 건데 항목이」
+   *   시트는 54칸인데 목록에는 스물넷만 세웠다. 더 세우면 목록이 아니라 시트가 된다 —
+   *   나머지는 «누르면» 여기 통째로 뜬다. 차를 누르면 차가 통째로 뜨는 것과 같은 수법이다.
+   *   ★자리는 안 옮긴다 — 오른쪽 칸의 «얼굴»만 셋째로 바뀔 뿐이다.
+   */
+  const [pickedLine, setPickedLine] = useState<Line | null>(null);
+  const [lineSpec, setLineSpec] = useState<LineSpec[] | null>(null);
   const [more, setMore] = useState(false);
   /**
    * ★재고에 «없는» 것도 접수한다 — 사장님 「직접 차량번호로 접수할 수도 있어야 하고,
@@ -288,6 +296,14 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
     const got = await api.car(c.plate);
     if (request !== carRequest.current) return;
     if (got && sameSettlementCar(c.plate, got.plate)) setCar(got);
+  };
+
+  /** 접수 줄을 누르면 그 줄을 통째로 받아 온다. 못 받으면 목록에 있는 만큼만 보여 준다. */
+  const pickLine = async (r: Line) => {
+    setPickedLine(r); setLineSpec(null); setMode('줄'); setPicked(null); setCar(null); setDirect('');
+    if (!api.line) return;
+    const got = await api.line(r.id);
+    if (got) setLineSpec(got);
   };
 
   /** 상세 → 접수. 같은 칸이 얼굴만 바꾼다. 지난번 채널·영업자가 들어와 있다. */
@@ -591,7 +607,13 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
                       const st = stateOf(r);
                       const mine = (r.claim || 0) - (r.pay || 0);
                       return (
-                        <tr key={r.id} className={`cl-row-${st.key}${r.id === justId ? ' on' : ''}${r.cancelled ? ' cl-row-x' : ''}`}>
+                        <tr key={r.id}
+                          className={`cl-row-${st.key}${r.id === justId || pickedLine?.id === r.id ? ' on' : ''}${r.cancelled ? ' cl-row-x' : ''}`}
+                          onClick={(e) => {
+                            /** ⚠ 체크칸을 누른 것은 «줄을 연» 것이 아니다 — 체크만 하고 만다. */
+                            if ((e.target as HTMLElement).closest('input')) return;
+                            void pickLine(r);
+                          }}>
                           <td className={`cl-st ${st.key === 'todo' ? 'warn' : st.key === 'gone' ? 'ok' : ''}`}>{st.label}</td>
                           <td className="cl-num">{d4(r.receivedAt)}</td>
                           <td><b>{r.plate || '(차번없음)'}</b></td>
@@ -637,7 +659,7 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
 
             {/* ── 오른쪽 — 상세 ↔ 접수. 자리는 그대로, 얼굴만 바뀐다 ── */}
             <aside className="cl-side">
-              {!picked && !direct && (
+              {!picked && !direct && mode !== '줄' && (
                 <>
                   <div className="cl-tree-head">상세</div>
                   <div className="cl-empty-note">
@@ -653,6 +675,33 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
                       직접 접수하기 — 차 없이도
                     </button>
                   </div>
+                </>
+              )}
+
+              {mode === '줄' && pickedLine && (
+                <>
+                  <div className="cl-tree-head">
+                    접수 줄 — 시트에 적힌 그대로
+                    <button type="button" className="cl-btn cl-back"
+                      onClick={() => { setPickedLine(null); setLineSpec(null); setMode('보기'); }}>← 닫기</button>
+                  </div>
+                  <div className="cl-pick">
+                    <div className="cl-pick-t">{pickedLine.plate || '(차번없음)'}</div>
+                    <div className="cl-pick-s">{pickedLine.customer} · {pickedLine.model}</div>
+                    <div className="cl-pick-r">
+                      <span>{pickedLine.supplier}</span><span>{pickedLine.channel}</span>
+                      <span className={`cl-st ${stateOf(pickedLine).key === 'todo' ? 'warn' : ''}`}>{stateOf(pickedLine).label}</span>
+                    </div>
+                  </div>
+                  <div className="cl-dh">시트 칸 {lineSpec ? lineSpec.length : '…'}개</div>
+                  <table className="cl-spec">
+                    <tbody>
+                      {(lineSpec || []).map((f) => (
+                        <tr key={f.key}><th title={f.key}>{f.label}</th><td>{f.value}</td></tr>
+                      ))}
+                      {!lineSpec && <tr><td className="cl-note">불러오는 중…</td></tr>}
+                    </tbody>
+                  </table>
                 </>
               )}
 

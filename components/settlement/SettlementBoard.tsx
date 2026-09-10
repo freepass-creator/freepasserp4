@@ -43,6 +43,9 @@ export type Car = {
   spec?: Record<string, string>;
 };
 /** 재고 한 대 — «고르는 데 필요한 것»만. 요금표는 고른 뒤에 따로 묻는다. */
+/** 접수 줄의 밭 하나 — 이름표는 «원자 규격»이 준 것을 그대로 나른다. */
+export type LineSpec = { key: string; label: string; value: string };
+
 export type CarLite = {
   plate: string; name: string; trim: string; maker: string; supplier: string; product: string; year: string; status: string;
   fuel: string; cls: string; km: number; seats: number; color: string;
@@ -82,6 +85,8 @@ export type BoardApi = {
   car: (plate: string) => Promise<Car | null>;
   /** 인증을 기다려야 하나 — 미리보기는 아니다. */
   ready: boolean;
+  /** 접수 줄 하나를 «통째로» — 목록에 못 실은 시트 나머지 칸이 여기 온다. */
+  line?: (id: string) => Promise<LineSpec[] | null>;
 };
 
 export default function SettlementBoard({ api, preview = false }: { api: BoardApi; preview?: boolean }) {
