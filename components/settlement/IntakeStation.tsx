@@ -585,7 +585,6 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
                 <button key={k} type="button" className={`cl-btn${direct === k ? ' cl-btn-p' : ''}`} onClick={() => openDirect(k)}>{k}</button>
               ))}
               <span className="cl-sp" />
-              <span className="cl-note">{board.cars.length} → <b>{hits.length}대</b></span>
             </div>
           </div>
 
@@ -593,6 +592,19 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
             {/* ── 왼쪽 — 위 상품 목록, 아래 접수 목록 ───────────── */}
             <main className="cl-main">
               <div className="cl-grid cl-cars">
+                {/**
+                  * ★★**판에는 «이름표»가 있다** — 사장님 2026-09-10
+                  *   「근데 상품리스트는 왜 패널헤더가 없지?? 거기에 댓수랑 이런 거 규격 맞춰야 하는데」
+                  *   접수 목록·상세에는 `cl-crumb` 가 있는데 상품 목록만 없었다.
+                  *   ★건수는 «그 판이» 말한다 — 조건 줄 구석에 두면 무엇을 센 숫자인지 흐려진다.
+                  */}
+                <div className="cl-crumb">
+                  상품 목록 <b>{hits.length}대</b>
+                  <span className="cl-note">재고 {board.cars.length}대 중</span>
+                  {hits.length >= 400 && <span className="cl-st warn">· 400대까지만 보입니다 — 조건을 좁히세요</span>}
+                  <span className="cl-sp" />
+                  <span className="cl-note">줄을 누르면 오른쪽에 상세가 뜹니다</span>
+                </div>
                 <table>
                   <thead>
                     <tr>
