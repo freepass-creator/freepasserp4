@@ -815,15 +815,31 @@ function normHost(raw: string | null | undefined): string {
  */
 export function resolveWhitelabel(host?: string | null, wlKey?: string | null): Whitelabel {
   const h = normHost(host);
-  if (h) {
-    const byHost = WHITELABELS.find((w) => w.hosts.some((x) => normHost(x) === h));
-    if (byHost) return byHost;
-  }
+  const byHost = h ? WHITELABELS.find((w) => w.hosts.some((x) => normHost(x) === h)) : undefined;
+  /*
+   * ★★★**호스트가 «라벨 있는» 업체면 호스트가 이긴다. «라벨 없는 얼굴»이면 꼬리표가 이긴다.**
+   *
+   * ⚠⚠ 2026-09-10 사고 — 얼굴 교체로 `freepasserp.com` 을 `plain` 의 `hosts` 에 넣자,
+   *   그 도메인 «안»의 업체 주소가 **전부 노브랜드로 덮였다.** `/uniauto` 를 열면
+   *   유니오토 간판이 아니라 「장기렌터카 영업지원 플랫폼」이 떴다 — 미들웨어가 `?wl=uniplan` 을
+   *   붙여 줬는데 **호스트가 먼저 이겨서** 그 꼬리표가 버려진 것이다.
+   *   사장님 「화이트라벨 채널 만들어 놓은 거 **왜 다 같은 규격으로 됐냐**」 · 「**간판은 각각 맞게**」.
+   *
+   * ⇒ 「호스트가 정본」은 **남의 도메인**을 지키는 규칙이다 — `uniautofreepass.com` 에서
+   *   `?wl=eancar` 를 붙여도 이안카가 뜨면 안 된다. 그 규칙은 그대로 둔다.
+   *   그런데 `plain` 은 «기본 얼굴»이고 그 도메인은 **여러 업체 주소를 품는 집**이다.
+   *   거기서는 꼬리표(=미들웨어가 `sitePath` 로 붙인 업체)가 이겨야 한다.
+   * ★손님이 주소에서 꼬리표를 지우면? 호스트로 떨어져 **라벨 없는 얼굴**이 된다 —
+   *   남의 간판이 아니라 우리 기본 얼굴이라 안전하다(2026-09-06 에 막았던 그 사고가 안 난다).
+   */
+  if (byHost && hasBrand(byHost)) return byHost;
   const k = String(wlKey || '').trim().toLowerCase();
   if (k) {
     const byKey = WHITELABELS.find((w) => w.key === k);
     if (byKey) return byKey;
   }
+  /* 꼬리표가 없거나 표에 없으면 호스트로 떨어진다 — 라벨 없는 얼굴이 여기서 받는다. */
+  if (byHost) return byHost;
   return FREEPASS;
 }
 
