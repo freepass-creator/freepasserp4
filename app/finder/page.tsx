@@ -40,6 +40,7 @@ import { FinderToolbar } from '@/features/finder/FinderToolbar';
 import { FinderQuickFilters, FinderDetailButton } from '@/features/finder/FinderQuickFilters';
 import { FinderResults } from '@/features/finder/FinderResults';
 import { AgentWorkflowGuide } from '@/components/AgentWorkflowGuide';
+import { updatedLabelKo, useShopHeadStatus } from '@/lib/shop/head-status';
 
 /** 홈 모바일 툴 — 필터 시트만. */
 type HomeTool = 'filter';
@@ -65,6 +66,7 @@ function isFinderView(value: unknown): value is FinderView {
 }
 
 export default function Finder() {
+  const inventoryStatus = useShopHeadStatus();
   const [qInput, setQInput] = useState(''); // 검색창 즉시 반영
   const [q, setQ] = useState(''); // 디바운스된 검색(필터)
   const [periods, setPeriods] = useState<Set<number>>(new Set()); // 운영개월 복수선택(빈=전체)
@@ -415,6 +417,7 @@ export default function Finder() {
           total={headerCount}
           found={sheetOnly ? undefined : foundCount}
           searching={sheetOnly ? false : searching}
+          updatedLabel={inventoryStatus.updatedMs ? updatedLabelKo(inventoryStatus.updatedMs) : undefined}
         />
         {sheetOnly ? (
           <span style={{
@@ -429,7 +432,7 @@ export default function Finder() {
     ),
     /* 모바일 검색 = 상단 돋보기 하나(당근 구성). 누르면 「검색·조건」 시트가 열린다 — 목록 위 검색줄은 없앴다. */
     search: { onOpen: openSearchSheet, active: !!qInput.trim() || filterBadge > 0, label: '검색·조건' },
-  }, [foundCount, headerCount, searching, sheetOnly, openSearchSheet, qInput, filterBadge]);
+  }, [foundCount, headerCount, searching, sheetOnly, openSearchSheet, qInput, filterBadge, inventoryStatus.updatedMs]);
   // 더보기 = 지금 보고 있는 목록 기준(엑셀=헤더필터·정렬 반영분). 100개 미만이면 버튼 없음.
   const activeList = renderView === 'excel' ? excelRows : list;
   const shown = useMemo(() => activeList.slice(0, limit), [activeList, limit]);
