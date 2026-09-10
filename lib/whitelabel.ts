@@ -815,15 +815,29 @@ function normHost(raw: string | null | undefined): string {
  */
 export function resolveWhitelabel(host?: string | null, wlKey?: string | null): Whitelabel {
   const h = normHost(host);
+  const k = String(wlKey || '').trim().toLowerCase();
+  const byKey = k ? WHITELABELS.find((w) => w.key === k) : undefined;
   if (h) {
     const byHost = WHITELABELS.find((w) => w.hosts.some((x) => normHost(x) === h));
-    if (byHost) return byHost;
+    /*
+     * ★★**호스트가 정본이다 — 딱 한 가지만 빼고.**
+     *
+     * ⚠⚠ 2026-09-10 사고. 「프리패스erp.com 얼굴 교체」(#228)로 `freepasserp.com` 이
+     *   **라벨 없는 얼굴(`plain`)의 호스트**가 됐다. 그러자 호스트가 먼저 걸려서
+     *   `?wl=` 을 아예 안 보게 됐고, **채널 넷이 통째로 사라졌다** —
+     *   `/freepass` · `/haheoho` · `/eancar` · `/uniauto` 가 전부 노브랜드로 떨어졌다.
+     *   사장님 「**화이트라벨 만들어 둔 거 다 어디 갔냐**」. 지운 게 아니라 «길이 막힌» 것이다.
+     *   ★그 넷은 도메인이 아직 없어서 **`sitePath` 로 산다**(미들웨어가 `/shop?wl=<키>` 로 다시 쓴다).
+     *     즉 그 `?wl=` 은 손님이 붙인 게 아니라 **우리가 붙인 것**이다.
+     *
+     * ⇒ **우리 «라벨 없는» 얼굴 위에서만 `?wl=` 이 이긴다.**
+     *   ★채널 «제» 도메인(uniauto.freepasserp.com 등)에서는 그대로 호스트가 이긴다 —
+     *     손님이 주소에 `?wl=` 을 붙여 남의 간판을 씌우지 못한다(그게 이 규칙이 생긴 이유다).
+     *   ★`plain` 은 우리 대문이라 거기서 «채널을 지목하는 것»은 정상 동선이다(미리보기·sitePath).
+     */
+    if (byHost && !(byHost.plain && byKey)) return byHost;
   }
-  const k = String(wlKey || '').trim().toLowerCase();
-  if (k) {
-    const byKey = WHITELABELS.find((w) => w.key === k);
-    if (byKey) return byKey;
-  }
+  if (byKey) return byKey;
   return FREEPASS;
 }
 
