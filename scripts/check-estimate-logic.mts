@@ -2152,6 +2152,26 @@ must((availableForEngine({ a: { name: '컴포트' } }, [], '가솔린 3.5 터보
     '원래 연료말을 안 줍니다 — 꾸민 이름으로 세제 갈래를 가르면 틀립니다',
     'app/api/newcar/route.ts');
 
+  /* ★★**화면 파워트레인 칸에 실제로 갈래가 뜨는가.**
+     화면은 `newModel.fuels`(피드 `?group=model`)를 그대로 그린다 — 그 목록이 곧 그 칸이다.
+     ⚠ 여기서는 «피드를 부르지 않고» 팩에서 같은 값을 세어 본다(제조사에 요청이 안 나간다).
+     ⚠ 예전에는 이 칸에 「가솔린 2.5」가 여덟 번 겹쳐 떴다 — 고를 수가 없었다. */
+  try {
+    const packs = JSON.parse(read('data/new-car/option-packs.json')) as { sub_model?: string; fuel?: string }[];
+    const pal = (Array.isArray(packs) ? packs : []).filter((p) => S(p.sub_model).includes('팰리세이드'));
+    if (pal.length) {
+      const 칸 = [...new Set(pal.map((p) => S(p.fuel)))];
+      const 겹침 = 칸.length !== new Set(칸).size;
+      must(칸.length >= 4 && !겹침,
+        `파워트레인 칸이 안 갈립니다 — ${칸.length}갈래 [${칸.slice(0, 3).join(' / ')}]. `
+        + '같은 이름이 여러 번 뜨면 손님이 고를 수 없습니다',
+        'app/api/newcar/route.ts powertrainLabel');
+      must(칸.every((x) => /인승/.test(x)),
+        `파워트레인 칸에 인승이 안 적힙니다 — [${칸.find((x) => !/인승/.test(x)) ?? ''}]`,
+        'app/api/newcar/route.ts powertrainLabel');
+    }
+  } catch { /* 산출물 없으면 §32 가 잡는다 */ }
+
   /* ★팩이 인승별로 «따로» 붙었는가 — 붙었으면 9인승과 7인승의 옵션 수가 다르다. */
   try {
     const raw = JSON.parse(read('data/new-car/option-packs.json')) as
