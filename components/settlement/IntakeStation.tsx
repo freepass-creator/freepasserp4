@@ -41,6 +41,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from '@/components/Toaster';
 import { deliveryTransitionPatch, intakeTermMonths, localSettlementDay, sameSettlementCar } from '@/lib/domain/settlement-intake';
+/** ★상품구분 7캐논은 여기가 정본이다 — 화면이 목록을 다시 적으면 재고와 갈린다. */
+import { PRODUCT_TYPES } from '@/lib/intake/entities';
 import type { BoardApi, Board, Car, CarLite, Line, LineSpec } from './SettlementBoard';
 import './classic.css';
 
@@ -169,6 +171,18 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
    *   ⇒ 단추가 아니라 접수 칸의 한 줄로 둔다. 원자 밭 = `intakeKind`.
    */
   const KINDS = ['영업수수료', '인센티브', '업무지원비'] as const;
+  /**
+   * ★★**상품 구분은 «두 어휘»가 만난다** — 2026-09-10 실측으로 드러났다.
+   *     재고(products)  7캐논: 신차렌트·중고렌트·신차구독·중고구독·오플구독·픽업구독·오공구독
+   *     정산원장(F04)   거래 형태: 선출고·선발주·신차발주·매칭출고·장기렌트·구독 …
+   *   둘은 «다른 것»을 말한다 — 하나는 상품 종류, 하나는 우리가 어떻게 판 것인가다.
+   *   ⚠ 그래서 억지로 한쪽으로 옮기지 않는다. 옮기면 정산원장과 말이 안 맞는다.
+   *   ⇒ 고를 수 있는 것은 둘을 «합쳐» 세우고, 그래도 모르는 값이 오면 그 값을 그대로 한 칸 더 세운다.
+   */
+  const PRODUCT_PICKS: string[] = [
+    '선출고', '선발주', '신차발주', '매칭출고', '장기렌트', '구독',
+    ...PRODUCT_TYPES,
+  ].filter((x, i, a) => a.indexOf(x) === i);
   /**
    * ★메뉴 아이콘 — 원본 규격대로 «얇은 홑색 글리프»다(erp-classic/classic.css 머리글:
    *   「그림 파일도, 아이콘 글꼴도 쓰지 않는다. 그 시절 화면이 그랬다」).
@@ -714,7 +728,16 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
               title="끌어서 좌우 크기 조절 · 두 번 누르면 기본값" role="separator" aria-orientation="vertical"><i /></div>
 
             {/* ── 오른쪽 — 상세 ↔ 접수. 자리는 그대로, 얼굴만 바뀐다 ── */}
+            {/**
+              * ★★**오른쪽 칸은 «몸 + 붙박이 실행바»다** — 사장님 2026-09-10
+              *   「상세 페이지 하단바를 고정으로 해서 접수하기·돌아가기 이런 거 만들어 줘.
+              *    **우에 상세로 필요 없고**」
+              *   ⚠ 앞서 실행 단추가 «몸 안에» 있어서 제원을 내려 보면 같이 밀려 나갔다.
+              *     누를 것이 화면 밖으로 나가면 그건 없는 단추다.
+              *   ⇒ 몸만 구르고 바는 붙박이로 선다. 되돌아가는 길도 머리가 아니라 «여기»에 둔다.
+              */}
             <aside className="cl-side">
+              <div className="cl-side-body">
               {!picked && !direct && mode !== '줄' && (
                 <>
                   <div className="cl-tree-head">상세</div>
@@ -722,25 +745,12 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
                     왼쪽 목록에서 차를 고르면<br />조건과 기간별 요금이 여기 뜹니다.
                     <br /><br />재고에 없는 차도 접수합니다 — 아래 단추로 차량번호부터 손으로 적으세요.
                   </div>
-                  {/**
-                    * ★**차가 없어도 접수한다** — 사장님 2026-09-10.
-                    *   조건 줄 구석의 «＋» 하나로는 못 찾는다. 빈 상세 자리는 어차피 놀고 있으니 여기 세운다.
-                    */}
-                  <div className="cl-side-go">
-                    <button type="button" className="cl-btn cl-btn-p cl-go" onClick={() => openDirect('직접 접수')}>
-                      직접 접수하기 — 차 없이도
-                    </button>
-                  </div>
                 </>
               )}
 
               {mode === '줄' && pickedLine && (
                 <>
-                  <div className="cl-tree-head">
-                    접수 줄 — 시트에 적힌 그대로
-                    <button type="button" className="cl-btn cl-back"
-                      onClick={() => { setPickedLine(null); setLineSpec(null); setMode('보기'); }}>← 닫기</button>
-                  </div>
+                  <div className="cl-tree-head">접수 줄 — 시트에 적힌 그대로</div>
                   <div className="cl-pick">
                     <div className="cl-pick-t">{pickedLine.plate || '(차번없음)'}</div>
                     <div className="cl-pick-s">{pickedLine.customer} · {pickedLine.model}</div>
@@ -818,21 +828,12 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
                     </tbody>
                   </table>
 
-                  <div className="cl-side-go">
-                    <button type="button" className="cl-btn cl-btn-p cl-go" onClick={toIntake}>접수하기</button>
-                  </div>
                 </>
               )}
 
               {(mode === '접수' && (picked || direct)) && (
                 <>
-                  <div className="cl-tree-head">
-                    접수
-                    <button type="button" className="cl-btn cl-back"
-                      onClick={() => { if (direct) { setDirect(''); setMode('보기'); } else setMode('보기'); }}>
-                      ← 상세로
-                    </button>
-                  </div>
+                  <div className="cl-tree-head">접수</div>
                   <div className="cl-ipt">
                     {/**
                       * ★갈래가 «맨 위»에 선다 — 무슨 돈인지가 정해져야 아래 칸이 무슨 뜻인지 정해진다.
@@ -843,12 +844,19 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
                         {KINDS.map((k) => <option key={k}>{k}</option>)}
                       </select></div>
                     {picked && (
-                      <div className="cl-pick" style={{ margin: '-8px -10px 8px' }}>
+                      <div className="cl-pick cl-pick-in">
                         <div className="cl-pick-t">{picked.plate}</div>
                         <div className="cl-pick-s">{picked.name} {picked.trim} · {f.term || picked.term}개월 · {won(Number(f.rent) || picked.rent)}</div>
                       </div>
                     )}
-                    {direct === '직접 접수' && (
+                    {/**
+                      * ★★**접수 칸은 «늘 같다»** — 사장님 2026-09-10 「직접접수랑 차량 누르고 계약접수랑 동일해야지」.
+                      *   차를 골라 들어왔으면 이 칸들이 «채워져» 있고, 직접 접수면 비어 있을 뿐이다.
+                      *   ⚠ 앞서 차량 칸을 «직접 접수일 때만» 세웠더니, 차를 고른 사람은 공급사·상품이
+                      *     틀려도 고칠 길이 없었다. 들어온 길이 달라도 하는 일은 같다.
+                      *   ★지원금·업무지원비(갈래)일 때만 차량 칸을 접는다 — 그건 차가 «없는» 것이 정상이다.
+                      */}
+                    {!isAid && (
                       <>
                         <div className="cl-fr"><label className="cl-must">※ 차량번호</label>
                           <input value={f.plate} onChange={(e) => set('plate', e.target.value)} placeholder="00가0000"
@@ -860,7 +868,13 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
                         <div className="cl-fr"><label>상품 구분</label>
                           <select value={f.product} onChange={(e) => set('product', e.target.value)}>
                             <option value="">고르세요</option>
-                            {['선출고', '선발주', '신차발주', '매칭출고', '장기렌트', '구독', '오플구독', '오공구독'].map((p) => <option key={p}>{p}</option>)}
+                            {PRODUCT_PICKS.map((p) => <option key={p}>{p}</option>)}
+                            {/**
+                              * ⚠★**목록에 없는 값이 와도 «지워지지 않게»** — 이게 없으면 담당자가 아무것도
+                              *   안 건드려도 상품구분이 조용히 빈칸이 된다(실측 2026-09-10: 재고 「중고렌트」가
+                              *   목록에 없어 그랬다). 모르는 값은 «있는 그대로» 한 칸 더 세운다.
+                              */}
+                            {S(f.product) && !PRODUCT_PICKS.includes(f.product) && <option>{f.product}</option>}
                           </select></div>
                       </>
                     )}
@@ -917,12 +931,42 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
                     <div className="cl-note" style={{ margin: '7px 0 8px' }}>
                       청구월을 미리 적어 두면 «적힌 값»이 이깁니다 — 실적은 인도완료를 켤 때 넘어갑니다.
                     </div>
-                    <button type="button" className="cl-btn cl-btn-p cl-go" disabled={busy || !ready} onClick={() => void submit()}>
-                      {busy ? '남기는 중…' : ready ? '접수' : isAid ? '무엇에 대한 것인지 적으세요' : !S(f.plate) ? '차량번호를 적으세요' : '영업채널을 적으세요'}
-                    </button>
                   </div>
                 </>
               )}
+              </div>
+
+              {/**
+                * ★★**붙박이 실행바** — 무엇을 보고 있든 «지금 할 일»과 «되돌아가는 길»이 늘 같은 자리에 있다.
+                *   ★되돌아가는 것은 왼쪽 «좁게», 하는 일은 오른쪽 «넓게» — 전자계약 하단독과 같은 결이다
+                *     (CLAUDE.md: 비주요=고정폭 · 주요=나머지 전부). 손이 가는 자리가 화면마다 같아야 한다.
+                */}
+              <div className="cl-side-go">
+                {!picked && !direct && mode !== '줄' && (
+                  <button type="button" className="cl-btn cl-btn-p cl-go" onClick={() => openDirect('직접 접수')}>
+                    직접 접수하기 — 차 없이도
+                  </button>
+                )}
+
+                {mode === '줄' && pickedLine && (
+                  <button type="button" className="cl-btn cl-go"
+                    onClick={() => { setPickedLine(null); setLineSpec(null); setMode('보기'); }}>목록으로</button>
+                )}
+
+                {picked && mode === '보기' && (
+                  <button type="button" className="cl-btn cl-btn-p cl-go" onClick={toIntake}>접수하기</button>
+                )}
+
+                {(mode === '접수' && (picked || direct)) && (
+                  <>
+                    <button type="button" className="cl-btn cl-prev"
+                      onClick={() => { if (direct) { setDirect(''); setMode('보기'); } else setMode('보기'); }}>돌아가기</button>
+                    <button type="button" className="cl-btn cl-btn-p cl-go" disabled={busy || !ready} onClick={() => void submit()}>
+                      {busy ? '남기는 중…' : ready ? '접수' : isAid ? '무엇에 대한 것인지 적으세요' : !S(f.plate) ? '차량번호를 적으세요' : '영업채널을 적으세요'}
+                    </button>
+                  </>
+                )}
+              </div>
             </aside>
           </div>
         </>

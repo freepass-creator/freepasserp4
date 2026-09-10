@@ -1501,8 +1501,29 @@
    ★사장님 2026-09-10 「3개 분할인 거지. 상품 목록, 그 밑에 접수 목록, 우측에 상세 화면.
      상세 화면에서 접수하기 누르면 접수 화면으로 바뀌는 거지」
    ══════════════════════════════════════════════════════════════════ */
-.cl .cl-side-go { margin-top: auto; padding: var(--사이큼); border-top: 1px solid var(--줄선); background: var(--띠); }
-.cl .cl-side-go .cl-go { width: 100%; height: 28px; font-size: 12px; font-weight: 700; }
+/**
+ * ★★**오른쪽 칸 = «구르는 몸» + «붙박이 실행바»** — 사장님 2026-09-10
+ *   「상세 페이지 하단바를 고정으로 해서 접수하기·돌아가기 이런 거 만들어 줘. 우에 상세로 필요 없고」
+ *
+ *   ⚠ 앞서 실행 단추가 «몸 안에» 있었다. 제원을 내려 보면 단추가 같이 밀려 화면 밖으로 나갔다 —
+ *     누를 것이 화면 밖에 있으면 그건 없는 단추다.
+ *   ⇒ 몸(`cl-side-body`)만 구르고 바는 아래에 붙박이로 선다. 되돌아가는 길도 머리가 아니라 여기에 둔다.
+ */
+.cl .cl-side-body { flex: 1 1 auto; min-height: 0; overflow: auto; }
+.cl .cl-side-go {
+  flex: 0 0 auto; display: flex; gap: var(--사이);
+  padding: var(--사이); border-top: 1px solid var(--선); background: var(--띠);
+}
+/**
+ * ★되돌아가는 것은 왼쪽 «좁게», 하는 일은 오른쪽 «넓게» — 전자계약 하단독과 같은 결이다
+ *   (CLAUDE.md: 비주요 = 고정폭 92 · 주요 = 나머지 전부). 손이 가는 자리가 화면마다 같아야 한다.
+ */
+.cl .cl-side-go .cl-prev { flex: 0 0 92px; }
+.cl .cl-side-go .cl-go { flex: 1 1 auto; }
+
+/** 접수 칸 머리의 «고른 차» 띠 — 칸 여백을 지우고 판 끝까지 붙인다. */
+.cl .cl-pick-in { margin: -8px calc(var(--사이큼) * -1) 8px; }
+.cl .cl-side-go .cl-go { height: 28px; font-size: 12px; font-weight: 700; }
 .cl .cl-tree-head { display: flex; align-items: center; gap: 8px; }
 /**
  * ★★원본에서 메뉴바는 «장식»이라 `cursor: default` 다 — 우리 것은 «누른다».
@@ -1628,7 +1649,6 @@
 .cl .cl-ipt label i { font-style: normal; font-weight: 400; color: var(--흐림2); font-size: 10px; margin-left: 3px; }
 
 /** 빈 상세 자리의 «직접 접수» — 아래에 붙여 늘 같은 자리에 선다. */
-.cl .cl-side-go .cl-go + .cl-go { margin-top: var(--사이); }
 
 /**
  * ⓘ **여기서 걷어낸 것** — 2026-09-10
