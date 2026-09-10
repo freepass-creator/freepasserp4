@@ -25,6 +25,12 @@ const 쓰기 = process.argv.includes('--쓰기');
 const 씻 = (x) => String(x ?? '').replace(/\s/g, '');
 const 라운드천 = (v) => (v == null ? '' : Math.round(Number(v) / 1000) * 1000);
 const 날 = (s) => (s ? String(s).slice(0, 10) : '');
+const 사진주소 = (value) => {
+  const raw = String(value ?? '').trim();
+  if (/^https?:\/\//i.test(raw)) return raw;
+  if (raw.startsWith('/')) return new URL(raw, 'https://sokrc.com').toString();
+  return '';
+};
 
 // SON 세부모델 정제 — 배기량·연료·구동 노이즈를 걷어낸다(그건 배기량/구동방식 칸으로). 세대코드(CN7·4세대)는 남긴다.
 function 세부모델정제(s) {
@@ -180,7 +186,7 @@ function 행빌드(header, 기존, c, 분류) {
   if (pi >= 0) {
     const cur = String(row[pi] ?? '');
     const 우리드라이브사진 = /drive\.google\.com\/drive\/folders\/[\w-]{15,}/i.test(cur);
-    const 사진들 = (Array.isArray(c.사진들) ? c.사진들 : []).map((u) => String(u).trim()).filter((u) => /^https?:\/\//.test(u));
+    const 사진들 = (Array.isArray(c.사진들) ? c.사진들 : []).map(사진주소).filter(Boolean);
     const 이미지 = 사진들.join(', ');
     const 쓸모없음 = !cur.trim() || cur.includes('\n') || /tcar\.lotterentacar\.net\/cr\//.test(cur);
     if (우리드라이브사진) { /* 우리 보관본은 API 링크로 되돌리지 않는다 */ }

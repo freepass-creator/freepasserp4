@@ -499,7 +499,7 @@ function atomize(row: Row, pinned: Map<string, Record<string, unknown>>): Atom {
     ...(Object.keys(row.price).length ? { price: row.price } : null),
     ...(row.depNote ? { deposit_note: row.depNote } : null),   // 「무보증」처럼 «말»로 적힌 보증금 — 빈칸으로 두지 않는다
     ...(S(row.link) ? { tica_link: S(row.link) } : null),   // 픽업구독 「차번링크」 — 원천이 줄 때만(빈 값으로 아는 링크를 덮지 않는다)
-    ...photoAtomFields(row.imageUrls, row.photoCollectedAt),
+    ...photoAtomFields(row.imageUrls, row.photoCollectedAt, src.kind === 'sonokong' ? 'https://sokrc.com' : ''),
     _pin_state: state,
     원문: rawEvidence,
     /**

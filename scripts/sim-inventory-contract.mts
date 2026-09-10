@@ -90,6 +90,7 @@ const photoAtom = photoAtomFields([...allSourcePhotos, allSourcePhotos[0], 'not-
 assert.deepEqual(photoAtom.image_urls, allSourcePhotos, '사진 원자는 10장으로 자르지 않고 원천 순서대로 전부 보존한다');
 assert.equal(photoAtom.photo_collected_at, 1789008257806);
 assert.match(String(photoAtom.photo_source_hash), /^[a-f0-9]{64}$/);
+assert.deepEqual(photoAtomFields(['/api/file/preview?file_name=car.jpg'], 1789008257806, 'https://sokrc.com').image_urls, ['https://sokrc.com/api/file/preview?file_name=car.jpg']);
 const oldRawPhotos = ['https://img.example.test/old/1.jpg'];
 assert.deepEqual(mergeRawPhotoEvidence({ 차명: '원문차명', 사진: oldRawPhotos }, []), { 차명: '원문차명', 사진: oldRawPhotos });
 assert.deepEqual(mergeRawPhotoEvidence({ 차명: '원문차명', 사진: oldRawPhotos }, allSourcePhotos).사진, allSourcePhotos);
