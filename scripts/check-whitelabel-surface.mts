@@ -50,6 +50,37 @@ must(undocumented.length === 0, '모든 칸이 문서에 있다',
     ? `문서에 없는 칸: ${undocumented.join(', ')}\n      → ${DOC} §2 표에 한 줄 적는다. 「안 적으면 어떻게 되는지」까지 적어야 그게 그 칸의 공통값이다.`
     : `${fields.length}칸 전부 §2 표에 있다`);
 
+/*
+ * ── ①′ 문서에만 남은 «유령 칸» 이 있나 ──────────────────────────────────
+ *
+ * ⚠⚠ 2026-09-10 코덱스 검토 — 이 검사는 「코드 → 문서」만 봤다. 그래서 코드에서 사라진
+ *   `stampToday` 가 **문서에는 칸으로 남아** 있었다. 다음 사람은 없는 손잡이를 찾다가
+ *   「그럼 내가 만들지」로 간다 — 원자 사전에서 겪은 그 일과 같은 꼴이다.
+ * ⇒ **양쪽으로 본다.** 문서 §2 표의 칸 이름이 실제 타입에 있는지도 센다.
+ * ★§2 표만 본다 — 다른 절에는 설명하느라 옛 이름이 나올 수 있고, 그건 이력이지 «칸»이 아니다.
+ */
+const tableStart = doc.indexOf('| 묶음 | 칸 | 무엇 | 안 적으면 |');
+const tableEnd = doc.indexOf('★**칸이 늘면', tableStart < 0 ? 0 : tableStart);
+if (tableStart < 0 || tableEnd < tableStart) {
+  fail('§2 표를 찾았다', '문서에서 「| 묶음 | 칸 | 무엇 | 안 적으면 |」 표를 못 찾았습니다 — 제목이 바뀌었으면 이 검사도 고칩니다');
+} else {
+  const rows = doc.slice(tableStart, tableEnd).split('\n').filter((l) => l.startsWith('|'));
+  /*
+   * ⚠ **«칸» 열만 읽는다** — 설명 칸에는 값이 나온다(짜임 `split`·`lockup`, 색 `tone`, 그림 `mark`).
+   *   줄 전체에서 백틱을 긁었더니 그 넷을 «유령 칸» 이라 했다(2026-09-10 실측). 값은 칸이 아니다.
+   * ★표는 `| 묶음 | 칸 | 무엇 | 안 적으면 |` 이라 «둘째» 칸이다.
+   */
+  const named = [...new Set(rows
+    .map((l) => l.split('|')[2] ?? '')
+    .flatMap((cell) => [...cell.matchAll(/`([a-zA-Z][a-zA-Z0-9]*)`/g)].map((m) => m[1])))];
+  const ghosts = named.filter((n) => !fields.includes(n));
+  must(ghosts.length === 0, '문서에 «유령 칸» 이 없다',
+    ghosts.length
+      ? `타입에 없는데 표에 있는 칸: ${ghosts.join(', ')}
+      → 코드에서 걷혔으면 표에서도 빼세요(없는 손잡이를 찾다가 새로 만들게 됩니다)`
+      : `${named.length}칸 전부 타입에 있다`);
+}
+
 /* ── ② 필터 두 축의 «집 기본» ───────────────────────────────────────── */
 must(doc.includes(`**아홉**`) && DEFAULT_QUICK.length === 9, '빠른필터 기본 수',
   `코드 ${DEFAULT_QUICK.length}개 · 문서 「아홉」`);
