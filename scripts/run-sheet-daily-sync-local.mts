@@ -25,6 +25,9 @@ for (const file of ['.env.local', '.env.development.local']) {
 }
 
 const APPLY = process.argv.includes('--apply');
+const sheetArg = (process.argv.find((value) => value.startsWith('--sheet=')) || '').slice(8);
+if (APPLY && !sheetArg) throw new Error('ERP 실제 반영은 --sheet=<수집 스테이징 시트>를 반드시 지정해야 한다. 운영 F01을 다시 원천으로 읽지 않는다.');
+if (sheetArg) process.env.SALES_INVENTORY_SHEET_ID = sheetArg;
 const { runDailySheetSync } = await import('../lib/server/sheet-daily-sync');
 const res = await runDailySheetSync({ dryRun: !APPLY }) as unknown as Record<string, unknown>;
 const counts = (res.counts || {}) as Record<string, number>;

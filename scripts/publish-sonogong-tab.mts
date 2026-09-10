@@ -29,6 +29,8 @@ const arg = (k: string, d = '') => (process.argv.find((a) => a.startsWith(`--${k
 const APPLY = process.argv.includes('--apply');
 /** 판매시트(영업자용). */
 const SHEET = arg('sheet', '1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs');
+const PRODUCTION_F01 = '1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs';
+if (APPLY && SHEET === PRODUCTION_F01) throw new Error('구형 요금 발행기는 운영 F01을 쓸 수 없다. --sheet=<수집 스테이징 시트>를 지정하라.');
 const TAB = arg('tab', '손오공구독');
 const NATIVE = (NATIVE_MONEY_BLOCK as Record<string, { src: string; srcTab: string; block: string[]; lead?: NativeLeadColumn } | undefined>)[TAB];
 /** 블록 앞에 두는 파생 칸(오플 「보증금」 = 산출 규칙 글자). */

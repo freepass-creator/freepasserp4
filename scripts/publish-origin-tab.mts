@@ -75,6 +75,8 @@ const norm = (v: unknown) => S(v).replace(/\s+/g, '');
 const APPLY = process.argv.includes('--apply');
 const arg = (k: string, d = '') => (process.argv.find((a) => a.startsWith(`--${k}=`)) || '').slice(k.length + 3) || d;
 const SHEET = arg('sheet', '1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs');
+const PRODUCTION_F01 = '1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs';
+if (APPLY && SHEET === PRODUCTION_F01) throw new Error('구형 원천 발행기는 운영 F01을 쓸 수 없다. --sheet=<수집 스테이징 시트>를 지정하라.');
 /**
  * 탭 이름. **기본값을 바꾸지 마라** — 아래 377행이 «이름으로» 기존 탭을 찾는다.
  * ⚠ 이름이 어긋나면 못 찾고 **새 탭을 하나 더 만든다.** 그러면 영업자 문서에

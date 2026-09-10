@@ -27,7 +27,8 @@
  *   발행 가드(공급사 하나가 0대로 줄면 멈춤)에 걸리면 사람이 확인 후 `--force-shrink` 로 다시.
  */
 import { spawnSync } from 'node:child_process';
-import { writeFileSync } from 'node:fs';
+import { closeSync, existsSync, mkdirSync, openSync, readdirSync, renameSync, rmSync, statSync, utimesSync, writeFileSync } from 'node:fs';
+import { Worker } from 'node:worker_threads';
 
 const APPLY = process.argv.includes('--apply');
 const WITH_MIRROR = process.argv.includes('--with-mirror');
@@ -45,8 +46,56 @@ const run = (label: string, args: string[], pick: RegExp): { ok: boolean; lines:
   return { ok: r.status === 0, lines, picked };
 };
 const A = APPLY ? ['--apply'] : [];
+const SALES_INGEST_STAGING_SHEET = String(process.env.SALES_INGEST_STAGING_SHEET_ID || '1J7dcGCTI0hiHBSdbHx0SqKJKrBg57xkgsX-I8qyfv3c').trim();
+const STAGE = [`--sheet=${SALES_INGEST_STAGING_SHEET}`];
 const report: string[] = [`일일 반영 ${APPLY ? '반영' : '미리보기'} ${kst()} KST`];
-const stop = (why: string) => { report.push(`✗ 중단: ${why}`); console.log(`\n⛔ 중단 — ${why}`); writeFileSync('tmp/run-daily-report.txt', report.join('\n')); process.exit(1); };
+const LOCKDIR = 'tmp/hourly-sync.lock';
+const DAILY_RUN_ID = `daily-${process.pid}-${started}-${Math.random().toString(36).slice(2, 8)}`;
+const DAILY_OWNER = `${LOCKDIR}/owner-${DAILY_RUN_ID}`;
+const HEARTBEAT_STALE_MS = 5 * 60_000;
+let dailyLockOwned = false;
+let lockHeartbeat: Worker | undefined;
+const releaseLock = () => {
+  if (!dailyLockOwned || !existsSync(DAILY_OWNER)) return;
+  dailyLockOwned = false;
+  lockHeartbeat?.terminate().catch(() => {});
+  rmSync(LOCKDIR, { recursive: true, force: true });
+};
+const acquireLock = () => {
+  if (!APPLY) return true;
+  mkdirSync('tmp', { recursive: true });
+  const claim = () => { try { mkdirSync(LOCKDIR); return true; } catch { return false; } };
+  if (!claim()) {
+    let quietMs = 0;
+    try {
+      const owners = readdirSync(LOCKDIR).filter((file) => file.startsWith('owner-'));
+      quietMs = owners.length ? Date.now() - Math.max(...owners.map((file) => statSync(`${LOCKDIR}/${file}`).mtimeMs)) : Infinity;
+    } catch { quietMs = Infinity; }
+    if (quietMs < HEARTBEAT_STALE_MS) return false;
+    const stale = `${LOCKDIR}.claim-${DAILY_RUN_ID}`;
+    try { renameSync(LOCKDIR, stale); } catch { return false; }
+    rmSync(stale, { recursive: true, force: true });
+    if (!claim()) return false;
+  }
+  try {
+    closeSync(openSync(DAILY_OWNER, 'wx'));
+    writeFileSync(`${LOCKDIR}/info.json`, JSON.stringify({ runId: DAILY_RUN_ID, pid: process.pid, startedAt: kst() }));
+    dailyLockOwned = true;
+    lockHeartbeat = new Worker(`
+      const { workerData } = require('node:worker_threads');
+      const { utimesSync } = require('node:fs');
+      setInterval(() => { try { const now = new Date(); utimesSync(workerData.owner, now, now); } catch {} }, 30000);
+    `, { eval: true, workerData: { owner: DAILY_OWNER } });
+    lockHeartbeat.unref();
+    return true;
+  } catch {
+    rmSync(LOCKDIR, { recursive: true, force: true });
+    return false;
+  }
+};
+process.on('exit', releaseLock);
+const stop = (why: string) => { report.push(`✗ 중단: ${why}`); console.log(`\n⛔ 중단 — ${why}`); writeFileSync('tmp/run-daily-report.txt', report.join('\n')); releaseLock(); process.exit(1); };
+if (!acquireLock()) stop('다른 시간별·일일 발행이 실행 중이다 — 서로 다른 스냅샷을 섞어 쓰지 않는다');
 
 // Google 시트를 하나라도 쓰기 전에 관리대장 링크를 검사한다. 폐기 문서를 가리키면 중앙 판매시트부터 쓰지 않는다.
 /**
@@ -77,21 +126,21 @@ if (rs.ok && APPLY && rs.picked.some((l) => /✓ 결정 [1-9]/.test(l))) {
   if (!f2.ok) stop('새 결정 반영 후 정제칸 채움 실패');
 }
 
-const p1 = run('④ 상품리스트 발행', ['scripts/publish-origin-tab.mts', ...A, ...(FORCE ? ['--force-shrink'] : [])], /우리 시트 |출고불가 .*안 싣는다|금액 빠진|「-」|정본\(|반영 완료|못 읽은|Error|중단|force-shrink/);
+const p1 = run('④ 수집 스테이징 상품리스트', ['scripts/publish-origin-tab.mts', ...STAGE, ...A, ...(FORCE ? ['--force-shrink'] : [])], /우리 시트 |출고불가 .*안 싣는다|금액 빠진|「-」|정본\(|반영 완료|못 읽은|Error|중단|force-shrink/);
 report.push(`④ 상품리스트 ${p1.ok ? '✓' : '✗'} ${p1.picked.find((l) => /반영 완료|우리 시트 /.test(l)) || ''}`);
 if (!p1.ok) stop('상품리스트 발행 실패(가드에 걸렸으면 확인 후 --force-shrink)');
 // ★탭 4개(2026-08-27 픽업구독 추가): 상품리스트 · 손오공구독 · 픽업구독 · 오플구독. 같은 발행기로 갈래 탭을 찍고 원본 요금 블록을 덧붙인다.
-const p2 = run('④ 손오공구독 발행', ['scripts/publish-origin-tab.mts', '--only=RP012:구독', '--tab=손오공구독', '--at=1', ...A, ...(FORCE ? ['--force-shrink'] : [])], /우리 시트 |반영 완료|Error|중단/);
+const p2 = run('④ 스테이징 손오공구독', ['scripts/publish-origin-tab.mts', ...STAGE, '--only=RP012:구독', '--tab=손오공구독', '--at=1', ...A, ...(FORCE ? ['--force-shrink'] : [])], /우리 시트 |반영 완료|Error|중단/);
 report.push(`④ 손오공구독 ${p2.ok ? '✓' : '✗'} ${p2.picked.find((l) => /반영 완료|우리 시트 /.test(l)) || ''}`); if (!p2.ok) stop('손오공구독 탭 발행 실패');
-const p2b = run('④ 손오공구독 + 인수형 블록', ['scripts/publish-sonogong-tab.mts', ...A], /실을 차|사진링크|반영 완료|Error/);
+const p2b = run('④ 스테이징 손오공 인수형', ['scripts/publish-sonogong-tab.mts', ...STAGE, ...A], /실을 차|사진링크|반영 완료|Error/);
 report.push(`④ 인수형 블록 ${p2b.ok ? '✓' : '✗'} ${p2b.picked.find((l) => /반영 완료|실을 차/.test(l)) || ''}`); if (!p2b.ok) stop('손오공구독 인수형 블록 실패');
-const p2c = run('④ 픽업구독 발행', ['scripts/publish-origin-tab.mts', '--only=RP012:픽업', '--tab=픽업구독', '--at=2', ...A, ...(FORCE ? ['--force-shrink'] : [])], /우리 시트 |반영 완료|Error|중단/);
+const p2c = run('④ 스테이징 픽업구독', ['scripts/publish-origin-tab.mts', ...STAGE, '--only=RP012:픽업', '--tab=픽업구독', '--at=2', ...A, ...(FORCE ? ['--force-shrink'] : [])], /우리 시트 |반영 완료|Error|중단/);
 report.push(`④ 픽업구독 ${p2c.ok ? '✓' : '✗'} ${p2c.picked.find((l) => /반영 완료|우리 시트 /.test(l)) || ''}`); if (!p2c.ok) stop('픽업구독 탭 발행 실패');
-const p2d = run('④ 픽업구독 + 인수형 블록', ['scripts/publish-sonogong-tab.mts', '--tab=픽업구독', ...A], /실을 차|사진링크|반영 완료|Error/);
+const p2d = run('④ 스테이징 픽업 인수형', ['scripts/publish-sonogong-tab.mts', ...STAGE, '--tab=픽업구독', ...A], /실을 차|사진링크|반영 완료|Error/);
 report.push(`④ 픽업 블록 ${p2d.ok ? '✓' : '✗'} ${p2d.picked.find((l) => /반영 완료|실을 차/.test(l)) || ''}`); if (!p2d.ok) stop('픽업구독 인수형 블록 실패');
-const p3 = run('④ 오플구독 발행', ['scripts/publish-origin-tab.mts', '--only=RP023', '--tab=오플구독', '--at=3', ...A, ...(FORCE ? ['--force-shrink'] : [])], /우리 시트 |반영 완료|Error|중단/);
+const p3 = run('④ 스테이징 오플구독', ['scripts/publish-origin-tab.mts', ...STAGE, '--only=RP023', '--tab=오플구독', '--at=3', ...A, ...(FORCE ? ['--force-shrink'] : [])], /우리 시트 |반영 완료|Error|중단/);
 report.push(`④ 오플구독 ${p3.ok ? '✓' : '✗'} ${p3.picked.find((l) => /반영 완료|우리 시트 /.test(l)) || ''}`); if (!p3.ok) stop('오플구독 탭 발행 실패');
-const p3b = run('④ 오플구독 + 오플 요금 블록', ['scripts/publish-sonogong-tab.mts', '--tab=오플구독', ...A], /실을 차|사진링크|반영 완료|Error/);
+const p3b = run('④ 스테이징 오플 요금', ['scripts/publish-sonogong-tab.mts', ...STAGE, '--tab=오플구독', ...A], /실을 차|사진링크|반영 완료|Error/);
 report.push(`④ 오플 블록 ${p3b.ok ? '✓' : '✗'} ${p3b.picked.find((l) => /반영 완료|실을 차/.test(l)) || ''}`); if (!p3b.ok) stop('오플구독 요금 블록 실패');
 // ④ 공급사 시트 「상품시트」 탭 — 폐지(2026-08-21 탭 규격 통일). 위 ⓪ 자리 주석 참고.
 // ★④″ 영업채널 카드시트(사장님 2026-08-21 — 「상품시트 업데이트될때 같이 하게끔 · 상품시트로 분류해서」).
@@ -100,17 +149,12 @@ report.push(`④ 오플 블록 ${p3b.ok ? '✓' : '✗'} ${p3b.picked.find((l) =
 const p5 = run('④″ 영업채널 카드시트', ['scripts/publish-channel-cards.mts', ...A], /대 \(출고불가|반영 완료|대여료가 한 칸도|Error|못 찾|⚠/);
 report.push(`④″ 영업채널 ${p5.ok ? '✓' : '✗'} ${p5.picked.find((l) => /반영 완료/.test(l)) || ''}`);
 if (!p5.ok) stop('영업채널 카드시트 발행 실패');
-if (APPLY) {
-  const destinationAudit = run('④‴ 상품시트·천이 되읽기', ['scripts/audit-pipeline-destinations.mts'], /공급사 상품시트 대조|천이컴퍼니 대조|거래처 관리대장|★|⛔/);
-  report.push(`④‴ 출력 되읽기 ${destinationAudit.ok ? '✓' : '✗'}`);
-  if (!destinationAudit.ok) stop('상품시트·천이시트가 원본과 다름');
-}
 
 console.log('\n■ ⑤ 상품마스터 — 사용하지 않음(ERP 직접 원본은 판매시트 3탭)');
 report.push('⑤ 상품마스터 사용 안 함');
 
 if (APPLY) {
-  const a1 = run('⑥ 돈 대조(공급사 시트 ↔ 판매시트)', ['scripts/audit-sheet-vs-sales.mts'], /어긋난 칸|판매리스트에만|공급사시트에만/);
+  const a1 = run('⑥ 돈 대조(공급사 시트 ↔ 수집 스테이징)', ['scripts/audit-sheet-vs-sales.mts', `--sales=${SALES_INGEST_STAGING_SHEET}`], /어긋난 칸|판매리스트에만|공급사시트에만/);
   report.push(`⑥ 돈 대조 ${a1.ok ? '✓' : '✗'} ${a1.picked.find((l) => /어긋난 칸/.test(l)) || ''}`);
   if (!a1.ok) stop('공급사 시트 ↔ 판매시트 돈 대조 실패');
   const a2 = run('⑥ 정제칸 대조', ['scripts/audit-vehicle-refine.mts'], /전수 대조|어긋난 줄/);
@@ -123,7 +167,27 @@ if (APPLY) {
   if (!a5.ok) stop('트림 근거 대조 실패');
   report.push(`⑥ 빈 칸 ${a3.ok ? '✓' : '✗'} ${a3.picked[0] || ''}`);
   if (!a3.ok) stop('재고 필수값 빈 칸 감사 실패');
-} else report.push('⑥ 검수는 --apply 뒤에 돈다');
+  const erp = run('⑦ 스테이징 → ERP 원자화', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/run-sheet-daily-sync-local.mts', ...STAGE, '--apply'], /반영|원본 |✗/);
+  if (!erp.ok) stop('스테이징 → ERP 원자화 실패');
+  const mirror = run('⑧ ERP → Firestore 원자', ['scripts/mirror-to-firestore.mts', '--apply'], /미러 완료|중단|✗/);
+  if (!mirror.ok) stop('Firestore 원자 미러 실패');
+  const heal = run('⑨ 원자 상태 한 벌', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/heal-atom-status.mts', '--apply'], /한 벌로 아물렀다|이미 한 벌|▲/);
+  if (!heal.ok) stop('원자 상태 복구 실패');
+  const provenance = run('⑨½ 원자 출처 표식', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/heal-atom-provenance.mts', '--apply'], /출처 표식|공급사 식별 불가|Error/);
+  if (!provenance.ok) stop('원자 출처 표식 복구 실패');
+  const snapshot = `tmp/sales-publish-snapshots/daily-${process.pid}-${Date.now()}.json`;
+  const cap = run('⑩ 판매 원자 스냅샷', ['scripts/capture-sales-publish-snapshot.mts', `--out=${snapshot}`], /판매 스냅샷|Error/);
+  if (!cap.ok) stop('판매 원자 스냅샷 실패');
+  const f01 = run('⑪ F01 원자 발행', ['scripts/make-sample-sheet-google.mts', '--main', `--snapshot=${snapshot}`], /본시트 반영 완료|Error|중단/);
+  if (!f01.ok) stop('F01 원자 발행 실패');
+  const f86 = run('⑫ F86 원자 발행', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/build-channel-supplier-sheet.mts', '--apply', `--snapshot=${snapshot}`], /반영 완료|Error|중단/);
+  if (!f86.ok) stop('F86 원자 발행 실패');
+  const audit = run('⑬ F01·F86 원자 대조', ['--require', './scripts/lib/server-only-shim.cjs', 'scripts/audit-sheet-vs-atom.mts', `--snapshot=${snapshot}`], /원자대로 박혔다|안 박혔다|Error/);
+  if (!audit.ok) stop('F01·F86 원자 대조 실패');
+  const destinationAudit = run('⑭ 천이 출력 되읽기', ['scripts/audit-pipeline-destinations.mts'], /천이컴퍼니 대조|거래처 관리대장|★|⛔/);
+  if (!destinationAudit.ok) stop('천이 출력이 원본과 다름');
+} else report.push('⑥ 검수와 원자 발행은 --apply 뒤에 돈다');
 report.push(`끝 — ${Math.round((Date.now() - started) / 1000)}초`);
 writeFileSync('tmp/run-daily-report.txt', report.join('\n'));
 console.log(`\n${report.join('\n')}\n  보고 tmp/run-daily-report.txt`);
+releaseLock();

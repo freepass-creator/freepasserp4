@@ -46,6 +46,7 @@ import { hubSourceMap } from '../lib/domain/supplier-source';
 import { isOurNonInventoryTab } from '../lib/domain/supplier-template-sheet';
 import { canonSheetVehicleStatus } from '../lib/domain/sheet-import';
 import { MIRROR_SOURCES } from '../lib/domain/mirror-sources';
+import { isOpenInventoryAtom } from '../lib/domain/inventory-contract';
 import nextEnv from '@next/env';
 
 nextEnv.loadEnvConfig(process.cwd());
@@ -202,11 +203,11 @@ const derive = (st: string) => {
   else if (st === '출고협의') kind = '협의';
   else if (st === '상품화중' || st === '차량검수') kind = '준비';
   else if (st === '계약중') kind = '선점';
-  return { vehicle_status: st, status: st, status_kind: kind, listable: kind !== '불가' };
+  return { vehicle_status: st, status: st, status_kind: kind, listable: isOpenInventoryAtom({ vehicle_status: st }) };
 };
 const docs = (await fs.collection('products').get()).docs;
 /** ★**세운 차** = 목록에 서는 차. 커버리지는 이 수를 분모로 잰다 — 창고에 처박힌 차까지 세면 늘 낮게 나온다. */
-const 세운차 = docs.filter((d) => (d.data() as { listable?: unknown }).listable === true).length;
+const 세운차 = docs.filter((d) => isOpenInventoryAtom(d.data())).length;
 let 챙김 = 0, 못본차 = 0, 원천에없음 = 0;
 const 없는곳 = new Map<string, number>();
 const 바뀜: { ref: FirebaseFirestore.DocumentReference; car: string; from: string; to: string }[] = [];
@@ -225,14 +226,14 @@ for (const d of docs) {
      *   훑기가 원천이 말해 준 차를 **전부** 챙긴 것이고 나머지는 원천에서 «사라진» 차다.
      *   전자는 훑기를 고칠 일이고, 후자는 **내릴** 일이다(2시간 회차 `--retire`) — 손이 다르다.
      */
-    if (v.listable === true) {
+    if (isOpenInventoryAtom(v)) {
       const c = S(v.provider_company_code);
       if (건너뜀.includes(c) || 못읽음.some((x) => x.code === c)) 못본차++;
       else { 원천에없음++; 없는곳.set(c, (없는곳.get(c) || 0) + 1); }
     }
     continue;
   }
-  if (v.listable === true) 챙김++;
+  if (isOpenInventoryAtom(v)) 챙김++;
   const now = S(v.vehicle_status) || S(v.status);
   if (now === hit.canon) { 같음++; continue; }
   /**

@@ -42,7 +42,10 @@ const derive = (st: string) => {
 };
 
 const docs = (await fs.collection('products').get()).docs;
-const 채움: { ref: FirebaseFirestore.DocumentReference; car: string; to: string; why: string }[] = [];
+const 채움: { ref: FirebaseFirestore.DocumentReference; car: string; to: string; why: string; patch: Record<string, unknown> }[] = [];
+const 담기 = (ref: FirebaseFirestore.DocumentReference, car: string, to: string, why: string, patch: Record<string, unknown> = derive(to)) => {
+  채움.push({ ref, car, to, why, patch });
+};
 const 손안댐: string[] = [];
 for (const d of docs) {
   const v = d.data() as any;
@@ -53,15 +56,35 @@ for (const d of docs) {
   //   완료(어느 한쪽이 출고불가)면 숨기고, 아니면 계약중(선점). ⚠ 취소는 정산이 락을 «푼다» — 그때 locked 가 비어 아래 원천흐름으로.
   if (S(v.locked_by_contract)) {
     const desired = (a === '출고불가' || b === '출고불가') ? '출고불가' : '계약중';
-    if (a !== desired || b !== desired) 채움.push({ ref: d.ref, car, to: desired, why: `정산원장 계약(${a || '∅'} ↔ ${b || '∅'})` });
+    const expected = derive(desired);
+    if (a !== desired || b !== desired || v.listable !== expected.listable || S(v.status_kind) !== expected.status_kind) {
+      담기(d.ref, car, desired, `정산원장 계약(${a || '∅'} ↔ ${b || '∅'})`, expected);
+    }
     continue;
   }
-  if (a === b && a) continue;
-  if (!a && !b) continue;                                   // 둘 다 없다 — 원천이 채울 몫
-  if (!a || !b) { 채움.push({ ref: d.ref, car, to: a || b, why: '한쪽만 있음' }); continue; }
+  if (a === b && a) {
+    const expected = derive(b);
+    if (v.listable !== expected.listable || S(v.status_kind) !== expected.status_kind) 담기(d.ref, car, b, '파생값 어긋남', expected);
+    continue;
+  }
+  if (!a && !b) {
+    // 빈 상태도 현재 재고다. 상태는 지어내지 않고 파생 캐시만 맞춘다.
+    const expected = derive('');
+    if (v.listable !== true || S(v.status_kind) !== expected.status_kind) 담기(d.ref, car, '', '빈 상태의 파생값 어긋남', { listable: true, status_kind: expected.status_kind });
+    continue;
+  }
+  if (!a || !b) { 담기(d.ref, car, a || b, '한쪽만 있음'); continue; }
   const 잠금 = Math.min(세기(a), 세기(b));
-  if (잠금 === LOCK.length) { 손안댐.push(`${car}  ${a} ↔ ${b}`); continue; }   // 잠금 없는 불일치 — 원천이 답
-  채움.push({ ref: d.ref, car, to: LOCK[잠금], why: `잠금 우선(${a} ↔ ${b})` });
+  if (잠금 === LOCK.length) {
+    // 두 상태 원문은 판단하지 않는다. 다만 재고 정본인 vehicle_status에서 파생되는 캐시는 확정할 수 있다.
+    const expected = derive(b);
+    if (v.listable !== expected.listable || S(v.status_kind) !== expected.status_kind) {
+      담기(d.ref, car, b, `잠금 없는 불일치의 파생값만 복구(${a} ↔ ${b})`, { listable: expected.listable, status_kind: expected.status_kind });
+    }
+    손안댐.push(`${car}  ${a} ↔ ${b}`);
+    continue;
+  }   // 잠금 없는 상태값 불일치 — 원천이 답
+  담기(d.ref, car, LOCK[잠금], `잠금 우선(${a} ↔ ${b})`);
 }
 
 console.log(`\n원자 ${docs.length} · 아물릴 것 ${채움.length} · 손 안 대고 알릴 것 ${손안댐.length}\n`);
@@ -73,7 +96,7 @@ if (!APPLY) { console.log(`\n미리보기 — 쓰려면 --apply\n`); process.exi
 let n = 0;
 for (let i = 0; i < 채움.length; i += 400) {
   const batch = fs.batch();
-  for (const x of 채움.slice(i, i + 400)) { batch.set(x.ref, { ...derive(x.to), _status_healed_at: Date.now() }, { merge: true }); n++; }
+  for (const x of 채움.slice(i, i + 400)) { batch.set(x.ref, { ...x.patch, _status_healed_at: Date.now() }, { merge: true }); n++; }
   await batch.commit();
 }
 console.log(`\n✓ ${n}대 상태를 한 벌로 아물렀다.\n`);
