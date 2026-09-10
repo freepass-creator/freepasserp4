@@ -365,11 +365,24 @@ BI · 브랜드   착한거래 · 렌터카매니저 · freepasserp.com(프리�
 
 | | 값 | 어디서 오나 |
 |---|---|---|
-| 주소 | **`freepassmobility.com`** · **`www.`** 둘 다 · `freepasserp.com/freepass`(`sitePath`) | 2026-09-07 「여기에 붙이자 우리거는」 · 09-08 「www 여기도 그냥 다 바꿔주고」 |
+| 주소 | **`freepassmobility.com`** · **`www.`** 둘 다 · `freepasserp.com/freepass`(`sitePath`) | 2026-09-07 「여기에 붙이자 우리거는」 · 09-08 「www 여기도 그냥 다 바꿔주고」 · **09-10 「모빌리티.com 에 간판 단 거를 매칭」** |
 | 회사 소개 | **`freepasshomepage.vercel.app`** — 웹 머리띠 오른쪽 「**회사 소개** ↗」 | 꼭지·www 둘 다 매물이라 소개는 제 주소로 물러났다(임시) |
-| 이름 | **프리패스모빌리티** | `CORP.koMain+koSub` — 「주식회사」는 푸터의 법적 표기 몫 |
-| 간판 워드마크 | **국문 CI** — 프리패스600 + 모빌리티300 · 사이 **0.048em** | `CORP.koMain/koSub` · `kind: 'lockup-ko'` |
-| 동반 표기 | **✕ freepassmobility** — 영문 CI, 아주 연하게 | 우리 가게에도 **붙인다**(아래) · `CoBrandFreepass` |
+| 이름 | **`freepasserp.com`**(서비스 BI) | `CORP.erp` — 법인명은 푸터의 법적 표기 몫 |
+| 간판 워드마크 | **BI 락업** — `freepass`600 + `erp.com`300 · **두 색**(본색+보조) | `CORP.erpMain/erpSub` · `ERP_COLOR` · `kind: 'lockup'` |
+| 동반 표기 | **✕ freepassmobility** — 법인 영문 CI, 아주 연하게 | 우리 가게에도 **붙인다**(아래) · `CoBrandFreepass` |
+
+⚠⚠ **이름·워드마크 두 줄이 2026-09-09 에 바뀌었다** — 사장님 「프리패스 거 **freepasserp.com 으로
+  브랜드로고 바꿔주라** 지금 한글로 프리패스모빌리티 되어 있는데」. 이 표에 옛 값(국문 CI)이
+  남아 있어 **확정 문서가 화면과 다른 말**을 하고 있었다(2026-09-10 고침).
+  ★덤으로 동반 표기가 제 뜻을 되찾았다 — 예전엔 「프리패스모빌리티 ✕ freepassmobility」로
+    **같은 이름이 두 번** 섰다. 이제 「freepasserp.com ✕ freepassmobility」 = **BI ✕ 법인**이다.
+  ★그 자리를 비우지 않는 이유 = 영업채널에게 보여 주는 **견본**이다(사장님 09-07
+    「우리거에도 붙여야지 남들한테 보여줄 거야 **여기에 당신들 브랜드 들어가는 자리라고**」).
+
+★★**우리 얼굴은 «둘»이다**(2026-09-10) — `freepasserp.com` = 라벨 없는 얼굴 ·
+  `freepassmobility.com` = 이 간판 단 가게. 9/9~9/10 사이엔 모빌리티닷컴을 라벨 없는 얼굴이
+  «예행장»으로 빌려 썼고, 얼굴 교체가 끝나 돌려받았다. 자세한 것은
+  `docs/영업자홈피-채널-매뉴얼.md` §2-8-2 — **규칙도 같이 넓혔다**(`plain` → `self`).
 | 마크 | **없다 — 워드마크만** | 법인 CI 에 심볼이 없다. 없는 것을 그려 넣는 게 「CI 를 지어내는」 일이다 |
 | 브랜드색 | **`#1B2A4A`**(법인 본색) | `CORP_COLOR.main` — hex 를 여기 베끼지 않는다 |
 | 대표번호 · 사업자 표기 | 02-6956-8835 · 상호/대표/등록번호/주소 | 전부 `lib/domain/corporate-ci.ts` |

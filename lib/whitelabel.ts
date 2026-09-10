@@ -295,8 +295,20 @@ export const WHITELABELS: Whitelabel[] = [
      *   호스트」를 가게로 만든다 — Vercel 미리보기 주소까지 포함된다. 호스트로 적으면 **딱 이 도메인만**
      *   갈리고, 미리보기 주소는 로그인 현관으로 남아 우리가 옛 얼굴을 확인할 수 있다.
      */
-    hosts: [CORP.web, `www.${CORP.web}`, 'freepasserp.com', 'www.freepasserp.com'],
-    /** 2026-09-08 실측 — 꼭지·www 둘 다 이 프로젝트를 가리킨다. */
+    /*
+     * ★★**예행이 끝났다 — 모빌리티닷컴을 «놓아준다»**(사장님 2026-09-10 「이제 프리패스모빌리티.com 에
+     *   **freepasserp.com 이라는 간판 단 거를 매칭**시켜 주면 됨」).
+     *
+     * ★여기 넷이 다 적혀 있었다(모빌리티닷컴 꼭지·www + ERP 꼭지·www). 모빌리티닷컴은 «예행장»이라
+     *   라벨 없는 얼굴을 거기서 다듬었고, 다 되면 ERP 로 옮기기로 했다. 그 옮기기가 끝났다 —
+     *   `freepasserp.com` 의 첫 화면이 이미 이 얼굴이다(#228).
+     * ⇒ 예행장을 계속 쥐고 있을 이유가 없다. 모빌리티닷컴은 **간판 단 우리 가게**가 받는다
+     *   (아래 `freepassmobility` 줄의 `hosts`). 라벨 없는 얼굴은 **제 집(ERP 도메인)만** 쥔다.
+     * ⚠ 두 줄이 같은 호스트를 적으면 표 순서가 임자를 정한다 — 그건 규격이 아니라 사고다.
+     *   호스트는 **한 줄에만** 적는다.
+     */
+    hosts: ['freepasserp.com', 'www.freepasserp.com'],
+    /** 2026-09-10 실측 — 꼭지·www 둘 다 이 프로젝트를 가리킨다. */
     domainReady: true,
     /*
      * ★★★**정해졌다 — 「장기렌터카 영업지원 플랫폼」이 «ERP» 의 말이다.**
@@ -485,9 +497,23 @@ export const WHITELABELS: Whitelabel[] = [
      *   사장님 「**freepasserp.com/freepass 는 우리 브랜드 달아주고** · 모빌리티.com 은
      *   **erp.com 변경해 갈 거 미리 해 보는 거야**」.
      * ⇒ 간판 단 우리 가게는 `sitePath: '/freepass'` 로 «남는다». 링크도 그 주소다.
-     * ★도메인갈이 때 이 표에서 옮기는 것은 **라벨 없는 얼굴의 `hosts`** 뿐이다(아래 줄).
      */
-    hosts: [],
+    /*
+     * ★★★**도메인을 되받았다 — 모빌리티닷컴이 이 간판을 단다**(사장님 2026-09-10
+     *   「이제 프리패스모빌리티.com 에 **freepasserp.com 이라는 간판 단 거를 매칭**시켜 주면 됨」).
+     *
+     * ★하루 전엔 이 줄이 비어 있었다. 모빌리티닷컴을 «라벨 없는 얼굴»이 예행장으로 빌려 썼기 때문이다
+     *   (위 `plain` 줄). 예행이 끝나 ERP 도메인의 얼굴이 바뀌었으니(#228) 빌린 것을 돌려받는다.
+     * ★그래서 지금 우리 얼굴이 **둘**이고, 둘 다 우리 것이다 —
+     *   `freepasserp.com` = 라벨 없는 얼굴 · `freepassmobility.com` = 간판 단 가게(BI ✕ 법인).
+     * ★`sitePath: '/freepass'` 는 **그대로 산다** — 이미 손님에게 나간 링크다(위 `sitePath` 머리말).
+     *   이제 그 채널로 가는 길이 둘이다(꼭지 도메인 · 대문 아래 주소). 둘 다 같은 간판이 선다.
+     * ⚠ Vercel 에서 이 도메인을 옮기거나 떼면 **여기도 반드시 고친다** — 도메인과 이 표는 «한 짝»이다
+     *   (2026-09-08 실측 — 안 고친 몇 분 동안 손님이 업무동 로그인을 봤다).
+     */
+    hosts: [CORP.web, `www.${CORP.web}`],
+    /** 2026-09-10 실측 — 꼭지·www 둘 다 이 프로젝트를 가리킨다(빌려주기 전부터 붙어 있었다). */
+    domainReady: true,
     /**
      * 손님에게 보이는 이름 — **`freepasserp.com`**(서비스 BI). 탭 제목·OG·앱 이름이 이걸 쓴다.
      *
@@ -830,12 +856,21 @@ export function resolveWhitelabel(host?: string | null, wlKey?: string | null): 
      *   ★그 넷은 도메인이 아직 없어서 **`sitePath` 로 산다**(미들웨어가 `/shop?wl=<키>` 로 다시 쓴다).
      *     즉 그 `?wl=` 은 손님이 붙인 게 아니라 **우리가 붙인 것**이다.
      *
-     * ⇒ **우리 «라벨 없는» 얼굴 위에서만 `?wl=` 이 이긴다.**
+     * ⇒ **«우리» 도메인 위에서만 `?wl=` 이 이긴다**(`self`).
      *   ★채널 «제» 도메인(uniauto.freepasserp.com 등)에서는 그대로 호스트가 이긴다 —
      *     손님이 주소에 `?wl=` 을 붙여 남의 간판을 씌우지 못한다(그게 이 규칙이 생긴 이유다).
-     *   ★`plain` 은 우리 대문이라 거기서 «채널을 지목하는 것»은 정상 동선이다(미리보기·sitePath).
+     *   ★우리 대문에서 «채널을 지목하는 것»은 정상 동선이다(미리보기·sitePath).
+     *
+     * ⚠⚠ **여기 `plain` 이었다 — `self` 로 넓힌다**(2026-09-10). 사장님이 모빌리티닷컴에
+     *   간판 단 가게를 매칭하라 하셨고, 그러면 **우리 얼굴이 둘**이 된다:
+     *   `freepasserp.com`(라벨 없음 · `plain`) · `freepassmobility.com`(간판 · `plain` 아님).
+     *   ★`plain` 으로 재면 새로 받은 그 도메인에서 **방금 고친 사고가 그대로 되살아난다** —
+     *     `freepassmobility.com/uniauto` 가 우리 간판으로 떠서 채널이 또 삼켜진다.
+     *   ⇒ 가르는 것은 「라벨이 없느냐」가 아니라 **「우리 것이냐」**다. `self` 가 바로 그 뜻이고
+     *     (그 필드 머리말), 협력채널(uniauto·haheoho·eancar)에는 안 붙어 있어 호스트가 그대로 이긴다.
+     *   ★기계가 지킨다 — `check:guest` 가 **`self` 호스트 전부**에서 채널 넷을 다시 잰다.
      */
-    if (byHost && !(byHost.plain && byKey)) return byHost;
+    if (byHost && !(byHost.self && byKey)) return byHost;
   }
   if (byKey) return byKey;
   return FREEPASS;
