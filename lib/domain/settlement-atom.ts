@@ -183,6 +183,21 @@ export const SETTLEMENT_FIELDS: AtomField[] = [
  *                     원장에 칸은 있으나 정산이 안 쓴다. 쓰게 되면 그때 이 표에 적는다
  * ```
  */
+/**
+ * ★★★**원자가 시작하는 달** — 사장님 2026-09-10 「ssot 명확하게 해서 정산할 수 있어야 해」
+ *
+ *   2026-08 부터가 원자다. **그 앞은 시트가 기록이다**(docs/정산시트-매뉴얼.md §「원자 경계」).
+ *   ⚠ 여태 이 경계가 «문서에만» 있었다. 그래서 검사마다 각자 판단했고,
+ *     원장↔원자 대조기가 2026-01~07 을 통째로 «사고»로 불렀다(실측 2026-09-10: 37건).
+ *     지난 달이 원자에 없는 것은 사고가 아니라 **정한 것**이다.
+ *   ★거짓 경보가 한 번 뜨면 그 검사는 그날로 안 믿게 된다. 그래서 경계를 코드에 못 박는다.
+ *
+ * ⚠ 이 값을 앞으로 당기지 마라 — 지난 달을 원자에 밀어 넣으면 이미 나간 확정본이 흔들린다.
+ */
+export const ATOM_FROM_MONTH = '2026-08';
+/** 그 달이 원자가 맡는 구간인가. `2026-07` 은 false, `2026-08` 부터 true. */
+export const isAtomMonth = (m: unknown): boolean => String(m ?? '').trim() >= ATOM_FROM_MONTH;
+
 export const ATOM_NOT_KEPT = ['phone', 'age', 'agentPhone', 'clawback', 'clawbackAmount', 'clawbackAt',
   'clawbackReason', 'contractNo', 'settleTerms', 'paidRounds', 'paperBy', 'paperFee', 'region', 'upsell'] as const;
 
