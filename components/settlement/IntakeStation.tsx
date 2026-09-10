@@ -496,6 +496,76 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
     const d = typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y), 'ko');
     return sortAsc ? d : -d;
   });
+  /**
+   * ★★**실적 — 정산이 «끝난 것»** (사장님 「정산을 해서 실적으로 만들고 분납 완납 모니터링」)
+   *   그 달 청구월이 박힌 줄이 실적이다. 접수 목록(청구월 없는 것)과 갈린다.
+   */
+  const 실적 = board.rows.filter((r) => S(r.billMonth) === board.month && !r.cancelled);
+  /**
+   * ★**분납인가** — 비율(settleRatio)이 1 보다 작으면 이번 달에 «일부»만 청구한 것이다.
+   *   넘길 달(carryMonth)이 있으면 남은 회차가 그 달에 간다.
+   *   ⚠ 회차 번호를 따로 담는 밭은 없다 — 비율에서 «몇 분의 몇»을 읽는다(1/0.5 = 2회 중 1회).
+   */
+  const 회차of = (r: Line) => {
+    const ratio = Number(r.ratio) || 1;
+    const 분납 = ratio > 0 && ratio < 1;
+    if (!분납) return { 분납: false, 말: '완납' };
+    const 총 = Math.round(1 / ratio);
+    return { 분납: true, 말: `${총}회 중` };
+  };
+  const 분납 = 실적.filter((r) => 회차of(r).분납);
+  const 완납 = 실적.filter((r) => !회차of(r).분납);
+
+  /**
+   * ★★**청구 — 공급사별로 묶는다.** 정산액에서 환수를 빼고 공급가액·부가세·합계를 낸다.
+   *   ⚠ 숫자는 화면이 «새로» 세지 않는다 — 서버가 준 것(board.suppliers)을 쓰고,
+   *     환수만 그 달 것에서 갈라 붙인다. 화면이 다시 셈하면 그 순간 정본이 둘이 된다.
+   */
+  const 청구줄 = board.suppliers.map((sp) => {
+    const 그곳 = 실적.filter((r) => S(r.supplier) === sp.name);
+    const 정산 = 그곳.reduce((a, r) => a + (r.claim || 0), 0);
+    /** 환수는 별도 컬렉션이라 board.sum 에 합계로만 온다 — 공급사별 몫은 아직 서버가 안 준다. */
+    const 환수 = 0;
+    const 공급가 = sp.won;
+    const 부가세 = Math.round(공급가 * 0.1);
+    return {
+      name: sp.name, n: sp.n, 정산, 환수, 공급가, 부가세, 합계: 공급가 + 부가세,
+      issued: sp.issued,
+      사유: 그곳.map((r) => S(r.carryNote) || S(r.note)).filter(Boolean).slice(0, 1).join('') || '',
+    };
+  }).filter((x) => x.n > 0 || x.공급가);
+
+  /**
+   * ★트리는 탭마다 다시 적지 않는다 — 한 번 짜서 어느 탭에서든 같은 것이 선다.
+   *   원본 규격(빠른 단추 + 갈래별 화면). 어느 탭에서든 «어디로 갈지»가 보여야 한다.
+   */
+  const 트리자리 = (
+            <nav className="cl-tree">
+              <div className="cl-tree-head">프리패스 정산</div>
+              <div className="cl-quick">
+                {빠른.map((q) => (
+                  <button key={q.code} type="button" className={`cl-qbtn${tab === q.tab ? ' on' : ''}`}
+                    onClick={() => setTab(q.tab)} title={q.code}>
+                    <span className="cl-qi">{q.icon}</span>{q.name}
+                  </button>
+                ))}
+              </div>
+              {트리.map((g) => (
+                <div key={g.code}>
+                  <div className="cl-tree-g">{g.g}<span className="cl-sp" /><span className="cl-tcode">{g.code}</span></div>
+                  {g.items.map((it) => (
+                    <div key={it.code}
+                      className={`cl-tree-s${it.tab && tab === it.tab ? ' on' : ''}${it.tab ? '' : ' off'}`}
+                      onClick={() => { if (it.tab) setTab(it.tab); }}
+                      title={it.tab ? it.code : '준비 중'}>
+                      {it.name}<span className="cl-sp" /><span className="cl-tcode">{it.code}</span>
+                    </div>
+                  ))}
+                </div>
+              ))}
+            </nav>
+  );
+
   const fuels = pickList(board.cars, 'fuel');
   const clss = pickList(board.cars, 'cls');
   const prods = pickList(board.cars, 'product');
@@ -564,17 +634,214 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
 
       {tab !== '접수' ? (
         <div className="cl-body">
+          {/** 왼쪽 트리는 어느 탭에서든 선다 — 「어디로 갈지」가 늘 보여야 한다. */}
+          {트리자리}
+
           <main className="cl-main">
-            <div className="cl-grid">
-              <div className="cl-crumb">{tab}</div>
-              <div className="cl-note" style={{ padding: 16 }}>
-                «{tab}» 은 아직 안 만들었습니다 — 접수부터 끝내고 옵니다(설계서 §7).
-                <div style={{ marginTop: 10 }}>
-                  <button type="button" className="cl-btn" onClick={() => setTab('접수')}>← 홈으로</button>
+            {/**
+              * ★★**실적 — 분납·완납 모니터링** (사장님 2026-09-10)
+              *   정산원장 F04 의 「분납실적·완납실적」 두 탭이 여기 하나로 온다.
+              *   ★분납은 «몇 회 중 몇 회»가 보여야 한다 — 비율(settleRatio)이 그 답이다.
+              *     0.5 면 반만 청구한 것이고, 남은 몫은 넘길 달(carryMonth)에 간다.
+              *   ⚠ 수금·지급 «실행»은 안 띄운다 — 통장을 봐야 아는 것이라 화면에서 켜면 거짓말이 된다.
+              */}
+            {tab === '실적' && (
+              <div className="cl-grid">
+                <div className="cl-crumb">
+                  실적 <b>{실적.length}</b>건
+                  <span className="cl-note">{board.month} 청구월</span>
+                  <span className="cl-sp" />
+                  <span className="cl-note">분납 {분납.length} · 완납 {완납.length}</span>
                 </div>
+                <table>
+                  <thead>
+                    <tr>
+                      <th style={{ width: 62 }}>납입</th>
+                      <th style={{ width: 84 }}>차량번호</th>
+                      <th style={{ width: 64 }}>고객</th>
+                      <th style={{ width: 120 }}>모델명</th>
+                      <th style={{ width: 84 }}>공급사</th>
+                      <th style={{ width: 76 }}>영업채널</th>
+                      <th style={{ width: 64 }}>영업담당</th>
+                      <th className="cl-num" style={{ width: 38 }}>개월</th>
+                      <th className="cl-num" style={{ width: 62 }}>청구월</th>
+                      <th className="cl-num" style={{ width: 54 }}>회차</th>
+                      <th className="cl-num" style={{ width: 78 }}>청구액<i>원</i></th>
+                      <th className="cl-num" style={{ width: 78 }}>지급액<i>원</i></th>
+                      <th className="cl-num" style={{ width: 78 }}>우리 몫<i>원</i></th>
+                      <th className="cl-num" style={{ width: 62 }}>넘길 달</th>
+                      <th style={{ width: 150 }}>비고</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {실적.map((r) => {
+                      const 몫 = (r.claim || 0) - (r.pay || 0);
+                      const 회 = 회차of(r);
+                      return (
+                        <tr key={r.id} onClick={() => void pickLine(r)}
+                          className={pickedLine?.id === r.id ? 'on' : ''}>
+                          <td className={회.분납 ? 'cl-st warn' : 'cl-st ok'}>{회.분납 ? '분납' : '완납'}</td>
+                          <td><b>{r.plate || '(차번없음)'}</b></td>
+                          <td>{r.customer}</td>
+                          <td>{r.model}</td>
+                          <td>{r.supplier}</td>
+                          <td>{r.channel}</td>
+                          <td>{r.agent}</td>
+                          <td className="cl-num">{r.term || ''}</td>
+                          <td className="cl-num">{r.billMonth}</td>
+                          <td className="cl-num">{회.말}</td>
+                          <td className="cl-num">{r.claim ? won(r.claim) : ''}</td>
+                          <td className="cl-num">{r.pay ? won(r.pay) : ''}</td>
+                          <td className={`cl-num${몫 < 0 ? ' cl-st bad' : ''}`}><b>{몫 ? won(몫) : ''}</b></td>
+                          <td className="cl-num">{S(r.carryMonth) || ''}</td>
+                          <td title={r.note}>{r.carryNote || r.note}</td>
+                        </tr>
+                      );
+                    })}
+                    {!실적.length && <tr><td colSpan={15} className="cl-note">이 달 실적이 없습니다</td></tr>}
+                  </tbody>
+                  {실적.length > 0 && (
+                    <tfoot><tr className="cl-sum">
+                      <td colSpan={10}>합계 {실적.length}건 (분납 {분납.length} · 완납 {완납.length})</td>
+                      <td className="cl-num">{won(실적.reduce((a, r) => a + (r.claim || 0), 0))}</td>
+                      <td className="cl-num">{won(실적.reduce((a, r) => a + (r.pay || 0), 0))}</td>
+                      <td className="cl-num"><b>{won(실적.reduce((a, r) => a + ((r.claim || 0) - (r.pay || 0)), 0))}</b></td>
+                      <td colSpan={2} />
+                    </tr></tfoot>
+                  )}
+                </table>
               </div>
-            </div>
+            )}
+
+            {/**
+              * ★★**청구 — 그 달 «누구에게 얼마»** (사장님 「청구해야 할 거를 청구한다」)
+              *   공급사별로 묶어 정산액·환수·공급가액·부가세·합계를 낸다. 계산서가 나갔는지도 한눈에.
+              *   ★환수는 «마이너스 한 줄»로 같이 선다 — 사장님 「후에 환수나 이런 이슈가 발생했을 때
+              *     보완할 수 있어야 한다」. 무엇이 얼마나 깎였는지 보이지 않으면 보완할 수가 없다.
+              */}
+            {tab === '청구' && (
+              <div className="cl-grid">
+                <div className="cl-crumb">
+                  청구 — {board.month}
+                  <span className="cl-note">공급사 {board.suppliers.length}곳</span>
+                  <span className="cl-sp" />
+                  <span className="cl-note">발행 {board.suppliers.filter((x) => x.issued).length} / {board.suppliers.length}</span>
+                </div>
+                <table>
+                  <thead>
+                    <tr>
+                      <th style={{ width: 130 }}>공급사</th>
+                      <th className="cl-num" style={{ width: 48 }}>건</th>
+                      <th className="cl-num" style={{ width: 96 }}>정산액<i>원</i></th>
+                      <th className="cl-num" style={{ width: 96 }}>환수<i>원</i></th>
+                      <th className="cl-num" style={{ width: 104 }}>공급가액<i>원</i></th>
+                      <th className="cl-num" style={{ width: 96 }}>부가세<i>원</i></th>
+                      <th className="cl-num" style={{ width: 110 }}>합계<i>원</i></th>
+                      <th className="cl-mid" style={{ width: 66 }}>계산서</th>
+                      <th style={{ width: 180 }}>가감 사유</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {청구줄.map((x) => (
+                      <tr key={x.name}>
+                        <td><b>{x.name}</b></td>
+                        <td className="cl-num">{x.n}</td>
+                        <td className="cl-num">{won(x.정산)}</td>
+                        <td className={`cl-num${x.환수 ? ' cl-st bad' : ''}`}>{x.환수 ? `-${won(x.환수)}` : ''}</td>
+                        <td className="cl-num"><b>{won(x.공급가)}</b></td>
+                        <td className="cl-num">{won(x.부가세)}</td>
+                        <td className="cl-num"><b>{won(x.합계)}</b></td>
+                        <td className="cl-mid">{x.issued ? <span className="cl-st ok">발행</span> : <span className="cl-st warn">아직</span>}</td>
+                        <td className="cl-note">{x.사유}</td>
+                      </tr>
+                    ))}
+                    {!청구줄.length && <tr><td colSpan={9} className="cl-note">이 달 청구할 것이 없습니다</td></tr>}
+                  </tbody>
+                  {청구줄.length > 0 && (
+                    <tfoot><tr className="cl-sum">
+                      <td>합계</td>
+                      <td className="cl-num">{청구줄.reduce((a, x) => a + x.n, 0)}</td>
+                      <td className="cl-num">{won(청구줄.reduce((a, x) => a + x.정산, 0))}</td>
+                      <td className="cl-num">{won(청구줄.reduce((a, x) => a + x.환수, 0))}</td>
+                      <td className="cl-num"><b>{won(청구줄.reduce((a, x) => a + x.공급가, 0))}</b></td>
+                      <td className="cl-num">{won(청구줄.reduce((a, x) => a + x.부가세, 0))}</td>
+                      <td className="cl-num"><b>{won(청구줄.reduce((a, x) => a + x.합계, 0))}</b></td>
+                      <td colSpan={2} />
+                    </tr></tfoot>
+                  )}
+                </table>
+
+                {/**
+                  * ★**넘길 것** — 이번 달에 안 끊고 다음 달로 미는 몫.
+                  *   손오공 잔여·선지급·환수처럼 «달을 건너는» 것이 여기 선다.
+                  *   보이지 않으면 다음 달에 또 잊는다.
+                  */}
+                {board.carry.length > 0 && (
+                  <>
+                    <div className="cl-crumb" style={{ marginTop: 6 }}>
+                      넘길 것 <b>{board.carry.length}</b>건
+                      <span className="cl-note">다음 달 청구·지급에 얹힌다</span>
+                    </div>
+                    <table>
+                      <thead><tr>
+                        <th style={{ width: 84 }}>차량번호</th>
+                        <th style={{ width: 64 }}>고객</th>
+                        <th style={{ width: 100 }}>공급사</th>
+                        <th className="cl-num" style={{ width: 62 }}>넘길 달</th>
+                        <th className="cl-num" style={{ width: 90 }}>청구<i>원</i></th>
+                        <th className="cl-num" style={{ width: 90 }}>지급<i>원</i></th>
+                        <th className="cl-num" style={{ width: 90 }}>미리 받은<i>원</i></th>
+                        <th>사유</th>
+                      </tr></thead>
+                      <tbody>
+                        {board.carry.map((c) => (
+                          <tr key={c.id}>
+                            <td><b>{c.plate}</b></td>
+                            <td>{c.customer}</td>
+                            <td>{c.supplier}</td>
+                            <td className="cl-num">{c.to}</td>
+                            <td className="cl-num">{c.claim ? won(c.claim) : ''}</td>
+                            <td className="cl-num">{c.pay ? won(c.pay) : ''}</td>
+                            <td className="cl-num">{c.prepaid ? won(c.prepaid) : ''}</td>
+                            <td className="cl-note">{c.note}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </>
+                )}
+              </div>
+            )}
           </main>
+
+          {/** 오른쪽 — 고른 줄을 통째로. 실적에서 줄을 누르면 여기 뜬다. */}
+          <aside className="cl-side">
+            <div className="cl-side-body">
+              {mode === '줄' && pickedLine ? (
+                <>
+                  <div className="cl-crumb">접수 줄 — 시트에 적힌 그대로</div>
+                  <div className="cl-pick">
+                    <div className="cl-pick-t">{pickedLine.plate || '(차번없음)'}</div>
+                    <div className="cl-pick-s">{pickedLine.customer} · {pickedLine.model}</div>
+                  </div>
+                  <table className="cl-spec"><tbody>
+                    {(lineSpec || []).map((f2) => (
+                      <tr key={f2.key}><th title={f2.key}>{f2.label}</th><td>{f2.value}</td></tr>
+                    ))}
+                    {!lineSpec && <tr><td className="cl-note">불러오는 중…</td></tr>}
+                  </tbody></table>
+                </>
+              ) : (
+                <>
+                  <div className="cl-crumb">상세</div>
+                  <div className="cl-empty-note">줄을 누르면 그 줄이 통째로 여기 뜹니다.</div>
+                </>
+              )}
+            </div>
+            <div className="cl-side-go">
+              <button type="button" className="cl-btn cl-go" onClick={() => setTab('접수')}>← 홈으로</button>
+            </div>
+          </aside>
         </div>
       ) : (
         <>
@@ -660,34 +927,7 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
           </div>
 
           <div className="cl-body" style={waitH ? ({ ['--아래높이' as string]: `${waitH}px` } as React.CSSProperties) : undefined}>
-            {/**
-              * ★왼쪽 업무 트리 — 원본 규격(빠른 단추 + 갈래별 화면).
-              *   ⚠ 접수 탭에서만 세우지 않는다. 어느 탭에서든 «어디로 갈지»가 보여야 한다.
-              */}
-            <nav className="cl-tree">
-              <div className="cl-tree-head">프리패스 정산</div>
-              <div className="cl-quick">
-                {빠른.map((q) => (
-                  <button key={q.code} type="button" className={`cl-qbtn${tab === q.tab ? ' on' : ''}`}
-                    onClick={() => setTab(q.tab)} title={q.code}>
-                    <span className="cl-qi">{q.icon}</span>{q.name}
-                  </button>
-                ))}
-              </div>
-              {트리.map((g) => (
-                <div key={g.code}>
-                  <div className="cl-tree-g">{g.g}<span className="cl-sp" /><span className="cl-tcode">{g.code}</span></div>
-                  {g.items.map((it) => (
-                    <div key={it.code}
-                      className={`cl-tree-s${it.tab && tab === it.tab ? ' on' : ''}${it.tab ? '' : ' off'}`}
-                      onClick={() => { if (it.tab) setTab(it.tab); }}
-                      title={it.tab ? it.code : '준비 중'}>
-                      {it.name}<span className="cl-sp" /><span className="cl-tcode">{it.code}</span>
-                    </div>
-                  ))}
-                </div>
-              ))}
-            </nav>
+            {트리자리}
 
             {/* ── 왼쪽 — 위 상품 목록, 아래 접수 목록 ───────────── */}
             <main className="cl-main">

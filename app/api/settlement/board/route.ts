@@ -190,6 +190,8 @@ export async function GET(req: Request) {
     /** ★접수 시트의 «체크 둘» — 담당자가 접수 뒤에 켠다. 계약서는 «썼나», 인도완료는 «나갔나». */
     paper: r.paper === true, delivered: r.delivered === true,
     carryClaim: N(r.carryClaim), carryPay: N(r.carryPay), prepaid: N(r.prepaid),
+    /** ★넘길 달 — 분납의 «남은 회차»가 어느 달에 가는지. 실적 화면이 이걸로 모니터한다. */
+    carryMonth: S(r.carryMonth),
     /**
      * ★★**접수 시트가 보이는 만큼 화면도 보인다** — 사장님 2026-09-10
      *   「접수목록 거기 더 짱짱하게 구현해줘봐 **시트 보고**」·「구현해야 할 게 더 있을 건데 항목이」

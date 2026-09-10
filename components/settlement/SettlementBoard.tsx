@@ -35,6 +35,8 @@ export type Line = {
   invoiceIssued: boolean; invoiceAt: string; note: string; carryNote: string;
   /** 접수 시트가 보여 주는 나머지 — 보증금 · 취소 · 청구서 나감 · 접수 갈래. */
   deposit?: number; cancelled?: boolean; billed?: boolean; billedAt?: string; intakeKind?: string;
+  /** 넘길 달 — 분납이면 남은 회차가 이 달로 간다. */
+  carryMonth?: string;
 };
 export type Party = { name: string; n: number; won: number; issued: boolean };
 export type Carry = { id: string; plate: string; customer: string; supplier: string; month: string; to: string; claim: number; pay: number; prepaid: number; note: string };
