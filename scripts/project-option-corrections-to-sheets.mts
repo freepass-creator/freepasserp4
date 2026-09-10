@@ -7,11 +7,19 @@ import { getFirestore } from 'firebase-admin/firestore';
 type Rec = Record<string, unknown>;
 const APPLY = process.argv.includes('--apply');
 const S = (v: unknown) => String(v ?? '').trim();
-const PLATES = [
+const FIXED_PLATES = [
   '154어1404', '264도8211', '387누8807', '349더2317',
   '35서5793', '169루1079', '390버9300', '241마8124', '317누8253', '176서2754', '282나2079',
   '146오7914', '07어4389', '133라1401', '138모8017', '192머7372', '25구1926', '311저1956',
 ];
+const SOURCE_MODE = process.argv.includes('--tcar-description');
+const sourceRows = SOURCE_MODE
+  ? ((JSON.parse(readFileSync('sonokong/lib/wonja/손오공차량.json', 'utf8')) as { 차량?: Rec[] }).차량 || [])
+  : [];
+const PLATES = SOURCE_MODE
+  ? sourceRows.filter((row) => S(row.유료옵션출처) === 'carDescription:추가옵션' && S(row.유료옵션)).map((row) => S(row.차번))
+  : FIXED_PLATES;
+if (!PLATES.length || new Set(PLATES).size !== PLATES.length) throw new Error(`대상 차번 비정상: ${PLATES.length}`);
 const BOOKS = [
   { code: 'F01', id: '1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs' },
   { code: 'F86', id: '1hQtshpWKL4L0zSR3H3UQ36atICtHv9Ka7dQh7d7K5Vg' },
@@ -46,11 +54,25 @@ const cells: Cell[] = [];
 
 for (const book of BOOKS) {
   const meta = await api(`https://sheets.googleapis.com/v4/spreadsheets/${book.id}?fields=sheets.properties.title`);
-  const tabs = (meta.sheets || []).map((x: any) => S(x.properties?.title)).filter(Boolean);
-  for (const tab of tabs) {
-    if (book.code === 'F01' && !['상품리스트', '손오공구독', '픽업구독', '오플구독', '자체렌트'].some((p) => tab.startsWith(p))) continue;
-    const got = await api(`https://sheets.googleapis.com/v4/spreadsheets/${book.id}/values/${encodeURIComponent(`${qtab(tab)}!A1:BZ3000`)}?valueRenderOption=UNFORMATTED_VALUE`);
-    const rows = (got.values || []) as unknown[][];
+  const tabs = (meta.sheets || []).map((x: any) => S(x.properties?.title)).filter(Boolean)
+    .filter((tab: string) => book.code !== 'F01' || ['상품리스트', '손오공구독', '픽업구독', '오플구독', '자체렌트'].some((p) => tab.startsWith(p)));
+  const got = await api(`https://sheets.googleapis.com/v4/spreadsheets/${book.id}/values:batchGetByDataFilter`, {
+    method: 'POST',
+    body: JSON.stringify({
+      valueRenderOption: 'UNFORMATTED_VALUE',
+      dataFilters: tabs.map((tab: string) => ({ a1Range: `${qtab(tab)}!A1:BZ3000` })),
+    }),
+  });
+  const valueRanges = got.valueRanges || [];
+  if (valueRanges.length !== tabs.length) throw new Error(`${book.code} 탭 일괄조회 수 불일치: ${valueRanges.length}/${tabs.length}`);
+  for (const item of valueRanges) {
+    const returnedRange = S(item?.valueRange?.range);
+    const rawTab = returnedRange.slice(0, returnedRange.lastIndexOf('!'));
+    const tab = rawTab.startsWith("'") && rawTab.endsWith("'")
+      ? rawTab.slice(1, -1).replace(/''/g, "'")
+      : rawTab;
+    if (!tabs.includes(tab)) throw new Error(`${book.code} 예상하지 않은 탭 응답: ${tab}`);
+    const rows = (item?.valueRange?.values || []) as unknown[][];
     const headerAt = rows.slice(0, 5).findIndex((r) => r.map(S).includes('차량번호') && r.map(S).some((h) => h === '옵션' || h === '옵션(원문)'));
     if (headerAt < 0) continue;
     const head = rows[headerAt].map(S);
@@ -84,9 +106,18 @@ for (const book of BOOKS) {
   const data = writes.filter((c) => c.id === book.id).map((c) => ({ range: c.range, values: [[c.after]] }));
   if (data.length) await api(`https://sheets.googleapis.com/v4/spreadsheets/${book.id}/values:batchUpdate`, { method: 'POST', body: JSON.stringify({ valueInputOption: 'RAW', data }) });
 }
-for (const c of writes) {
-  const got = await api(`https://sheets.googleapis.com/v4/spreadsheets/${c.id}/values/${encodeURIComponent(c.range)}?valueRenderOption=UNFORMATTED_VALUE`);
-  const actual = S(got.values?.[0]?.[0]);
-  if (actual !== c.after) throw new Error(`시트 재검증 실패 ${c.book} ${c.range}: ${actual}`);
-  console.log(`✓ ${c.book} ${c.range} ${c.plate} 재검증`);
+for (const book of BOOKS) {
+  const selected = writes.filter((c) => c.id === book.id);
+  if (!selected.length) continue;
+  const url = new URL(`https://sheets.googleapis.com/v4/spreadsheets/${book.id}/values:batchGet`);
+  url.searchParams.set('valueRenderOption', 'UNFORMATTED_VALUE');
+  for (const c of selected) url.searchParams.append('ranges', c.range);
+  const got = await api(url.toString());
+  const values = got.valueRanges || [];
+  if (values.length !== selected.length) throw new Error(`${book.code} 재검증 범위 수 불일치: ${values.length}/${selected.length}`);
+  selected.forEach((c, index) => {
+    const actual = S(values[index]?.values?.[0]?.[0]);
+    if (actual !== c.after) throw new Error(`시트 재검증 실패 ${c.book} ${c.range}: ${actual}`);
+    console.log(`✓ ${c.book} ${c.range} ${c.plate} 재검증`);
+  });
 }
