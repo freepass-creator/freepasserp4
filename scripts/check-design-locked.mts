@@ -948,7 +948,23 @@ must(/wl\.tel/.test(read('app/q/[code]/ShopDetailView.tsx')),
   must(/facets\[k\.axis\]\.some\(\(o\) => o\.key === k\.key && o\.base > 0\)/.test(shopView),
     '빠른조건 칩이 «지금 건수»로 사라집니다 — 조건을 누를 때마다 칩 줄이 같이 쭈그러듭니다.',
     'app/(shop)/shop/ShopView.tsx · docs/DESIGN_CONFIRMED_SHOP.md §11');
-}
+
+
+  /*
+   * ★★**업무동 조건칸도 같은 규칙이다**(사장님 2026-09-10 「필터 했을 때 **0인 필터를 없애
+   *   버리니까 필터가 막 이렇게 올라갔다 내려갔다** 하잖아 … 그냥 **그 필터가 옆에다가 0이라고**
+   *   해줘야지」). 손님 동만 고치면 같은 회사 화면에서 필터가 «다른 물건»이 된다.
+   * ⚠ 실측 2026-09-10 — 상품찾기에서 「연료=전기」 하나만 걸어도 **공급사 축이 16 → 5** 로
+   *   줄었다(열한 줄이 사라졌다). 그래서 방금 누르려던 칩이 다른 자리로 가 버린다.
+   */
+  const finder = read('lib/domain/product-filters.ts');
+  must(/presentFilterOptions\(facetPool\(products, state, models, clear\), products\)/.test(finder),
+    '업무동 조건칸이 다시 «좁힌 모수»로 명단을 만듭니다 — 조건을 누를 때마다 칩이 사라져 줄이 뜁니다.',
+    'lib/domain/product-filters.ts · docs/DESIGN_CONFIRMED_SHOP.md §12');
+  must(/const base = aggregateDyn\(products\);/.test(finder)
+    && /\(base\[d\.key\] \|\| \[\]\)\.map\(\(\[k\]\) => \[k, live\.get\(k\) \|\| 0\]\)/.test(finder),
+    '업무동 제조사·색상·연식 칩이 다시 «지금 건수»로 만들어집니다 — 줄이 사라지고 차례가 뒤집힙니다.',
+    'lib/domain/product-filters.ts · docs/DESIGN_CONFIRMED_SHOP.md §12');}
 
 if (fails.length) {
   console.error(`\n✗ 확정 디자인이 바뀌었습니다 — ${fails.length}건\n`);
