@@ -42,6 +42,8 @@ const CODE = (process.argv.find((a) => a.startsWith('--code='))?.split('=')[1] |
 const S = (v: unknown) => String(v ?? '').trim();
 const N = (v: unknown) => S(v).toLowerCase().replace(/\s+/g, '');
 const won = (v: unknown) => { const n = Number(S(v).replace(/[^0-9.]/g, '')); return Number.isFinite(n) && n > 0 ? Math.round(n) : 0; };
+/** 손오공 구독 대여료 = «천원단위»(재고시트 손오공-재고시트.mjs 「라운드천」과 동일 규칙). */
+const 라운드천 = (v: number) => Math.round(v / 1000) * 1000;
 /**
  * ★**시트 오류 토큰은 값이 아니다** — `#REF!` · `#N/A` · `#VALUE!` …
  *   ⚠ 실측 2026-09-08 — 빌린카 08주6722 의 상품구분이 **「#REF!」** 였다. 시트에서 수식이 깨진 칸을
@@ -217,7 +219,7 @@ const depositNote = (raw: string) => {
 };
 
 // ── 원천 리더 — 종류마다 «우리필드 키 행(Row)»을 낸다. 원자화는 하나로 공유한다. ──────
-type Row = { car: string; link?: string; std?: string; status: string; kind: string; maker: string; model: string; vname: string; trim: string; fuel: string; ext: string; int: string; km: string; opt: string; firstReg: string; cc: string; klass: string; price: Price; depNote: string; tab: string; row: string };
+type Row = { car: string; link?: string; status: string; kind: string; maker: string; model: string; vname: string; trim: string; fuel: string; ext: string; int: string; km: string; opt: string; firstReg: string; cc: string; klass: string; price: Price; depNote: string; tab: string; row: string };
 const blank: Omit<Row, 'car' | 'tab' | 'row'> = { status: '', kind: '', maker: '', model: '', vname: '', trim: '', fuel: '', ext: '', int: '', km: '', opt: '', firstReg: '', cc: '', klass: '', price: {}, depNote: '' };
 
 // 번호판 꼴만 차로 본다 — 헤더 밑 제목·프로모 배너·빈 행이 «차»로 새는 걸 막는다(오토플러스 실측).
@@ -283,13 +285,16 @@ async function readRows(): Promise<Row[]> {
       const car = S(c.차번); if (!car) continue;
       const status = c.계약중 ? '계약중' : (S(c.계약가능) === 'Y' ? '출고가능' : '출고협의');
       // 요금 = 저신용월납. RETURN=반납형(개월키) · BUYOUT=인수형(개월_인수형).
+      // ★★대여료는 «천원단위»로 맞춘다 — 사장님 「원단위 절사해 놨다」(2026-09-10). API 덤프는 원문(…479원)이라
+      //   재고시트(`손오공-재고시트.mjs` 라운드천)를 안 거치면 1의 자리까지 들어온다. 인제스트가 덤프를
+      //   직접 읽으므로 여기서 «같은 규칙»(round/1000×1000)을 건다. 보증금은 라운드된 대여료로 재계산돼 정합.
       // ★보증금 = 대여료 × 연수, «최대 3개월»(사장님 「손오공 규칙」 2026-08-28). 5년도 3개월치만 받는다.
       //   min(개월/12, 3) 로 캡 — 48·60개월이 4·5개월치로 부풀던 것을 막는다.
       const dep3 = (p: string, r: number) => Math.round(Math.min(Number(p) / 12, 3) * r);
       const price: Price = {};
       const low = (c.저신용월납 || {}) as { SUBSCRIBE_RETURN?: Record<string, number>; SUBSCRIBE_BUYOUT?: Record<string, number> };
-      for (const [p, rent] of Object.entries(low.SUBSCRIBE_RETURN || {})) { const r = won(rent); if (r > 0) price[p] = { rent: r, deposit: dep3(p, r) }; }
-      for (const [p, rent] of Object.entries(low.SUBSCRIBE_BUYOUT || {})) { const r = won(rent); if (r > 0) price[`${p}_인수형`] = { rent: r, deposit: dep3(p, r) }; }
+      for (const [p, rent] of Object.entries(low.SUBSCRIBE_RETURN || {})) { const r = 라운드천(won(rent)); if (r > 0) price[p] = { rent: r, deposit: dep3(p, r) }; }
+      for (const [p, rent] of Object.entries(low.SUBSCRIBE_BUYOUT || {})) { const r = 라운드천(won(rent)); if (r > 0) price[`${p}_인수형`] = { rent: r, deposit: dep3(p, r) }; }
       /**
        * ★★**손오공 상품구분은 «버킷»이 말해 준다** — 원천이 진작 주고 있었는데 안 읽었다.
        * ```
@@ -304,31 +309,19 @@ async function readRows(): Promise<Row[]> {
       const 버킷 = S(c.버킷);
       const kind = 버킷 === 'TCAR_EXTERNAL' ? '픽업구독' : (버킷 === 'SON_NO_KONG' ? '오공구독' : (c.중고 ? '중고구독' : ''));
       /**
-       * ★★**「옵션」과 「유료옵션」은 «다른 것»이다 — 옵션 칸에는 «유료옵션»만 싣는다.**
+       * ★★**옵션 = 제조사 «선택»옵션만이다** — 사장님 2026-09-10 「옵션은 제조사선택옵션만 옵션이야」.
        *
-       * > 사장님 2026-09-10 「지금 옵션이 손오공거 왜 다 이상한거를 찍냐」 ·
-       * >  「**옵션을 갖고 오는 곳이 잘못돼 있어**」
+       *   원 구매자가 트림 위에 «따로 고른» 것(선루프·드라이브와이즈 패키지 등)만 옵션이다.
+       *   ⇒ 필드 = 「유료옵션」(`tcarPaidOptions`). 티카는 중고차라 추가구매가 안 돼 대부분 null
+       *     (237대 중 69대만) — 나머지 빈칸은 «선택옵션 없이 기본트림으로 산 차»라 **정상**이다.
        *
-       * ⚠⚠ 실측 2026-09-10 — 티카에서 온 차(`TCAR_EXTERNAL`)의 「옵션」 필드는 **선택옵션이 아니라
-       *   그 트림의 «표준 사양 전체 목록»**이다. 한 대에 평균 45개, 최대 63개가 들어온다:
-       * ```
-       *   MP3, 경사로밀림방지(HAS), 공기청정기, … 동승석, 사이드, 커튼, 무릎보호, …
-       *                                          ↑ 이건 «에어백 자리» 이름이다. 홀로 서면 말이 안 된다.
-       * ```
-       *   다른 공급사는 전부 «선택옵션»만 준다 — 실측 평균 2~3개(아이카 2 · 이안카 1 · 아이언 3).
-       *   손오공만 45개라 시트가 그 한 칸으로 뒤덮인다. 그게 「다 이상한 거를 찍는다」의 정체다.
-       * ★**진짜 선택옵션은 「유료옵션」 필드**다 — 「선루프」·「AWD」·「헤드업디스플레이」·「드라이브와이즈」.
-       *   다른 공급사가 주는 것과 같은 결이다.
-       *
-       * ⚠ 2026-09-09 에 둘을 «합쳤다»(「옵션 다 빠진거 아냐」에 답한 것). 빠진 것을 채우려다
-       *   표준사양까지 같이 실어 더 길어졌다. 빠진 쪽 답은 «합치기»가 아니라 **유료옵션을 읽는 것**이었다.
-       *
-       * ★**표준사양을 버리지는 않는다** — `standard_equipment` 로 원자에만 둔다(시트엔 안 나간다).
-       *   원자는 온전하게, 시트는 규격대로.
+       * ⚠ **`options`(장착사양) 배열은 «옵션이 아니다».** 그건 그 트림에 «기본 장착된» 전 사양이다 —
+       *   264도8252(그랜저 캘리그래피)의 헤드업·통풍·전동시트도 그 «트림 기본»이지 따로 고른 옵션이 아니다.
+       *   (2026-09-10 에 이걸 «옵션»으로 착각해 배열에서 추리려다 정정받음. options 는 안 읽는다.)
+       * ⚠ 손오공(SON_NO_KONG)은 유료옵션도 비어 온다 — 그럼 빈 값(원천이 「선택옵션 없음」을 준 것).
        */
       const 선택옵션 = S(c.유료옵션);
-      const 표준사양 = S(c.옵션);
-      push({ car, link: 픽업링크.get(N(car)) || '', std: 표준사양, status, kind, maker: S(c.제조사), model: S(c.모델), vname: S(c.차명) || S(c.세부), fuel: S(c.연료), ext: S(c.외장), int: S(c.내장), km: c.주행거리 == null ? '' : String(c.주행거리), opt: 선택옵션, firstReg: S(c.최초등록) || S(c.연식), cc: c.배기량 == null ? '' : String(c.배기량), klass: '', price, tab: '손오공API', row: S(c.id) });
+      push({ car, link: 픽업링크.get(N(car)) || '', status, kind, maker: S(c.제조사), model: S(c.모델), vname: S(c.차명) || S(c.세부), fuel: S(c.연료), ext: S(c.외장), int: S(c.내장), km: c.주행거리 == null ? '' : String(c.주행거리), opt: 선택옵션, firstReg: S(c.최초등록) || S(c.연식), cc: c.배기량 == null ? '' : String(c.배기량), klass: '', price, tab: '손오공API', row: S(c.id) });
     }
     return out;
   }
@@ -497,7 +490,6 @@ function atomize(row: Row, pinned: Map<string, Record<string, unknown>>): Atom {
      */
     ...(S(row.status) || !pin ? statusDetail(row.status, pin?.locked_by_contract, pin?.vehicle_status) : null),
     mileage: row.km, options: row.opt,
-    ...(S(row.std) ? { standard_equipment: S(row.std) } : null),   // 트림 표준사양 — 원자에만 둔다(선택옵션이 아니다)
     ...(rawSeats(vname) ? { seats: rawSeats(vname) } : null),   // 원문에 인승 있으면만
     ...(Object.keys(row.price).length ? { price: row.price } : null),
     ...(row.depNote ? { deposit_note: row.depNote } : null),   // 「무보증」처럼 «말»로 적힌 보증금 — 빈칸으로 두지 않는다
@@ -666,18 +658,18 @@ if (VARIABLE) {
        *   «표준사양 45줄»이 안 지워진다. 다른 칸은 「빈 값은 «모른다»라 안 덮는다」가 맞지만
        *   여기서는 **원천이 「선택옵션 없음」이라고 말한 것**이라 «안다»에 가깝다.
        *   안 지우면 원천을 고쳐도 시트는 옛 쓰레기를 계속 보여 준다.
-       * ★그래서 옵션·표준사양은 **원천 값 그대로 갈아 끼운다**(빈 값이면 빈 값으로).
+       * ★그래서 옵션은 **원천 값 그대로 갈아 끼운다**(빈 값이면 빈 값으로 — 표준사양은 안 싣는다).
        *   ⚠ 이 예외는 «원천이 그 칸을 확실히 주는 곳»에서만 뜻이 있다. 지금은 손오공 덤프가 그렇다 —
        *     옵션·유료옵션이 «별도 필드»로 늘 오고, 없으면 빈 문자열로 온다(모름이 아니라 없음).
        */
       const 옵션갈이 = !STATUS_ONLY && src.kind === 'sonokong';
       /** ★견주는 자리에 «원문.옵션»도 넣는다 — 시트가 그 칸을 읽으므로 그게 안 맞으면 고친 티가 안 난다. */
       const 옛원문옵션 = S(((c as Record<string, unknown>).원문 as Record<string, unknown> | undefined)?.옵션);
-      const oMoved = 옵션갈이 && (S(a.options) !== S(c.options) || S(a.standard_equipment) !== S(c.standard_equipment) || 옛원문옵션 !== S(a.options));
+      const oMoved = 옵션갈이 && (S(a.options) !== S(c.options) || 옛원문옵션 !== S(a.options));
       if (!sMoved && !mMoved && !pMoved && !lMoved && !oMoved) continue;
       const upd: Record<string, unknown> = { _var_polled_at: Date.now() };
       for (const f of VAR_FIELDS) if (a[f] !== undefined && a[f] !== '') upd[f] = a[f];
-      if (oMoved) { upd.options = S(a.options); upd.standard_equipment = S(a.standard_equipment); }
+      if (oMoved) { upd.options = S(a.options); }
       /**
        * ⚠⚠ **시트가 읽는 칸은 `options` 가 아니라 «원문.옵션»이다**(`sales-atom-row` 「옵션(원문)」).
        *   실측 2026-09-10 — `options` 만 갈았더니 원자는 비었는데 **시트는 옛 45줄을 그대로 찍었다.**
