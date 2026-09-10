@@ -217,7 +217,7 @@ const depositNote = (raw: string) => {
 };
 
 // ── 원천 리더 — 종류마다 «우리필드 키 행(Row)»을 낸다. 원자화는 하나로 공유한다. ──────
-type Row = { car: string; link?: string; status: string; kind: string; maker: string; model: string; vname: string; trim: string; fuel: string; ext: string; int: string; km: string; opt: string; firstReg: string; cc: string; klass: string; price: Price; depNote: string; tab: string; row: string };
+type Row = { car: string; link?: string; std?: string; status: string; kind: string; maker: string; model: string; vname: string; trim: string; fuel: string; ext: string; int: string; km: string; opt: string; firstReg: string; cc: string; klass: string; price: Price; depNote: string; tab: string; row: string };
 const blank: Omit<Row, 'car' | 'tab' | 'row'> = { status: '', kind: '', maker: '', model: '', vname: '', trim: '', fuel: '', ext: '', int: '', km: '', opt: '', firstReg: '', cc: '', klass: '', price: {}, depNote: '' };
 
 // 번호판 꼴만 차로 본다 — 헤더 밑 제목·프로모 배너·빈 행이 «차»로 새는 걸 막는다(오토플러스 실측).
@@ -303,9 +303,32 @@ async function readRows(): Promise<Row[]> {
        */
       const 버킷 = S(c.버킷);
       const kind = 버킷 === 'TCAR_EXTERNAL' ? '픽업구독' : (버킷 === 'SON_NO_KONG' ? '오공구독' : (c.중고 ? '중고구독' : ''));
-      // ★옵션 = 기본옵션 + «유료옵션» 둘 다 땡긴다(사장님 2026-09-09 「옵션 다 빠진거 아냐」). 덤프에 유료옵션이 별도 필드로 있는데 안 읽고 있었다.
-      const 옵션 = [S(c.옵션), S(c.유료옵션)].filter(Boolean).join(', ');
-      push({ car, link: 픽업링크.get(N(car)) || '', status, kind, maker: S(c.제조사), model: S(c.모델), vname: S(c.차명) || S(c.세부), fuel: S(c.연료), ext: S(c.외장), int: S(c.내장), km: c.주행거리 == null ? '' : String(c.주행거리), opt: 옵션, firstReg: S(c.최초등록) || S(c.연식), cc: c.배기량 == null ? '' : String(c.배기량), klass: '', price, tab: '손오공API', row: S(c.id) });
+      /**
+       * ★★**「옵션」과 「유료옵션」은 «다른 것»이다 — 옵션 칸에는 «유료옵션»만 싣는다.**
+       *
+       * > 사장님 2026-09-10 「지금 옵션이 손오공거 왜 다 이상한거를 찍냐」 ·
+       * >  「**옵션을 갖고 오는 곳이 잘못돼 있어**」
+       *
+       * ⚠⚠ 실측 2026-09-10 — 티카에서 온 차(`TCAR_EXTERNAL`)의 「옵션」 필드는 **선택옵션이 아니라
+       *   그 트림의 «표준 사양 전체 목록»**이다. 한 대에 평균 45개, 최대 63개가 들어온다:
+       * ```
+       *   MP3, 경사로밀림방지(HAS), 공기청정기, … 동승석, 사이드, 커튼, 무릎보호, …
+       *                                          ↑ 이건 «에어백 자리» 이름이다. 홀로 서면 말이 안 된다.
+       * ```
+       *   다른 공급사는 전부 «선택옵션»만 준다 — 실측 평균 2~3개(아이카 2 · 이안카 1 · 아이언 3).
+       *   손오공만 45개라 시트가 그 한 칸으로 뒤덮인다. 그게 「다 이상한 거를 찍는다」의 정체다.
+       * ★**진짜 선택옵션은 「유료옵션」 필드**다 — 「선루프」·「AWD」·「헤드업디스플레이」·「드라이브와이즈」.
+       *   다른 공급사가 주는 것과 같은 결이다.
+       *
+       * ⚠ 2026-09-09 에 둘을 «합쳤다»(「옵션 다 빠진거 아냐」에 답한 것). 빠진 것을 채우려다
+       *   표준사양까지 같이 실어 더 길어졌다. 빠진 쪽 답은 «합치기»가 아니라 **유료옵션을 읽는 것**이었다.
+       *
+       * ★**표준사양을 버리지는 않는다** — `standard_equipment` 로 원자에만 둔다(시트엔 안 나간다).
+       *   원자는 온전하게, 시트는 규격대로.
+       */
+      const 선택옵션 = S(c.유료옵션);
+      const 표준사양 = S(c.옵션);
+      push({ car, link: 픽업링크.get(N(car)) || '', std: 표준사양, status, kind, maker: S(c.제조사), model: S(c.모델), vname: S(c.차명) || S(c.세부), fuel: S(c.연료), ext: S(c.외장), int: S(c.내장), km: c.주행거리 == null ? '' : String(c.주행거리), opt: 선택옵션, firstReg: S(c.최초등록) || S(c.연식), cc: c.배기량 == null ? '' : String(c.배기량), klass: '', price, tab: '손오공API', row: S(c.id) });
     }
     return out;
   }
@@ -474,6 +497,7 @@ function atomize(row: Row, pinned: Map<string, Record<string, unknown>>): Atom {
      */
     ...(S(row.status) || !pin ? statusDetail(row.status, pin?.locked_by_contract, pin?.vehicle_status) : null),
     mileage: row.km, options: row.opt,
+    ...(S(row.std) ? { standard_equipment: S(row.std) } : null),   // 트림 표준사양 — 원자에만 둔다(선택옵션이 아니다)
     ...(rawSeats(vname) ? { seats: rawSeats(vname) } : null),   // 원문에 인승 있으면만
     ...(Object.keys(row.price).length ? { price: row.price } : null),
     ...(row.depNote ? { deposit_note: row.depNote } : null),   // 「무보증」처럼 «말»로 적힌 보증금 — 빈칸으로 두지 않는다
@@ -615,7 +639,7 @@ if (!APPLY) { console.log(`\n미리보기 — Firestore 안 씀. 쓰려면 --app
 //   사장님 「한 번 정확히 가져오면 그 다음은 상태값만 읽어 바뀐 거 체크. 제일 바뀌는 게 차량상태.」
 if (VARIABLE) {
   const items = now.filter((a) => cur.has(a.car_number)); // 아는 차만(새 차는 --apply 몫)
-  let changed = 0, sChg = 0, mChg = 0, pChg = 0, lChg = 0;
+  let changed = 0, sChg = 0, mChg = 0, pChg = 0, lChg = 0, oChg = 0;
   for (let i = 0; i < items.length; i += 400) {
     const batch = fs.batch(); let any = false;
     for (const a of items.slice(i, i + 400)) {
@@ -635,18 +659,48 @@ if (VARIABLE) {
        *   쓸 목록과 견줄 목록이 갈리면 「넣었는데 안 들어간다」가 된다.
        */
       const lMoved = !STATUS_ONLY && S(a.tica_link) !== '' && S(a.tica_link) !== S(c.tica_link);
-      if (!sMoved && !mMoved && !pMoved && !lMoved) continue;
+      /**
+       * ★★**옵션은 «비우는 것»도 반영한다 — 다른 칸과 규칙이 다르다.**
+       *
+       * ⚠⚠ 실측 2026-09-10 — 「옵션 칸에는 유료옵션만」으로 규칙을 고쳐도, 이미 박힌
+       *   «표준사양 45줄»이 안 지워진다. 다른 칸은 「빈 값은 «모른다»라 안 덮는다」가 맞지만
+       *   여기서는 **원천이 「선택옵션 없음」이라고 말한 것**이라 «안다»에 가깝다.
+       *   안 지우면 원천을 고쳐도 시트는 옛 쓰레기를 계속 보여 준다.
+       * ★그래서 옵션·표준사양은 **원천 값 그대로 갈아 끼운다**(빈 값이면 빈 값으로).
+       *   ⚠ 이 예외는 «원천이 그 칸을 확실히 주는 곳»에서만 뜻이 있다. 지금은 손오공 덤프가 그렇다 —
+       *     옵션·유료옵션이 «별도 필드»로 늘 오고, 없으면 빈 문자열로 온다(모름이 아니라 없음).
+       */
+      const 옵션갈이 = !STATUS_ONLY && src.kind === 'sonokong';
+      /** ★견주는 자리에 «원문.옵션»도 넣는다 — 시트가 그 칸을 읽으므로 그게 안 맞으면 고친 티가 안 난다. */
+      const 옛원문옵션 = S(((c as Record<string, unknown>).원문 as Record<string, unknown> | undefined)?.옵션);
+      const oMoved = 옵션갈이 && (S(a.options) !== S(c.options) || S(a.standard_equipment) !== S(c.standard_equipment) || 옛원문옵션 !== S(a.options));
+      if (!sMoved && !mMoved && !pMoved && !lMoved && !oMoved) continue;
       const upd: Record<string, unknown> = { _var_polled_at: Date.now() };
       for (const f of VAR_FIELDS) if (a[f] !== undefined && a[f] !== '') upd[f] = a[f];
+      if (oMoved) { upd.options = S(a.options); upd.standard_equipment = S(a.standard_equipment); }
+      /**
+       * ⚠⚠ **시트가 읽는 칸은 `options` 가 아니라 «원문.옵션»이다**(`sales-atom-row` 「옵션(원문)」).
+       *   실측 2026-09-10 — `options` 만 갈았더니 원자는 비었는데 **시트는 옛 45줄을 그대로 찍었다.**
+       *   고친 티가 안 나는 것이 제일 나쁘다 — 「고쳤다」와 「보인다」는 다르다.
+       * ★`원문` 은 맵이라 merge 로는 키를 «못 지운다» — 통째로 갈아 끼운다(`update`).
+       *   ⚠ 「차명」을 같이 날리지 않게 기존 맵을 이어받고 「옵션」 키만 새로 정한다.
+       */
+      const 원문갈이 = oMoved ? (() => {
+        const m: Record<string, unknown> = { ...((c as Record<string, unknown>).원문 as Record<string, unknown> || {}) };
+        delete m.옵션;
+        if (S(a.options)) m.옵션 = S(a.options);
+        return m;
+      })() : null;
       const ref = fs.collection('products').doc(docId(a.car_number));
       batch.set(ref, upd, { merge: true });
       /** ★요금은 갈아 끼운다 — merge 는 맵 키를 못 지워 «지금 안 파는 기간»이 남는다(위 전체 반영과 같은 규칙). */
       if (!STATUS_ONLY && Object.keys(ap).length) batch.update(ref, { price: ap });
-      changed++; if (sMoved) sChg++; if (mMoved) mChg++; if (pMoved) pChg++; if (lMoved) lChg++; any = true;
+      if (원문갈이) batch.update(ref, { 원문: 원문갈이 });
+      changed++; if (sMoved) sChg++; if (mMoved) mChg++; if (pMoved) pChg++; if (lMoved) lChg++; if (oMoved) oChg++; any = true;
     }
     if (any) await batch.commit();
   }
-  console.log(`\n변동 폴링 완료 — ${PROV} 아는 차 ${items.length} 중 바뀐 ${changed} 씀 (상태 ${sChg} · 주행 ${mChg} · 요금 ${pChg} · 링크 ${lChg}). 불변 안 건드림.`);
+  console.log(`\n변동 폴링 완료 — ${PROV} 아는 차 ${items.length} 중 바뀐 ${changed} 씀 (상태 ${sChg} · 주행 ${mChg} · 요금 ${pChg} · 링크 ${lChg} · 옵션 ${oChg}). 불변 안 건드림.`);
 
   /**
    * ★★**덤프에 없는데 시트에는 있는 차의 링크도 챙긴다.**
