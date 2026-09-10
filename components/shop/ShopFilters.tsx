@@ -372,7 +372,7 @@ function CheckRow({ label, count, on, onClick, tight, logo }: {
          *   400 → 700 은 두 단을 뛰는 것이라 글자가 «퉁퉁해» 보이고, 그 줄만 화면에서 튄다.
          *   600 이면 「켜졌다」는 확실히 읽히면서 줄의 폭도 거의 안 흔들린다.
          */
-        color: on ? C.ink : C.sub, fontWeight: on ? 600 : 400,
+        color: on ? C.ink : count ? C.sub : C.faint, fontWeight: on ? 600 : 400,
       }}>
       {/*
         ★네모는 폰 20 · 웹 18. 촌스러움을 만드는 건 «크기»가 아니라 셋이었다 —
@@ -421,7 +421,17 @@ function CheckRow({ label, count, on, onClick, tight, logo }: {
           flex: tight ? '0 1 auto' : 1, minWidth: 0,
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         }}>{label}</span>
-        <span style={{ fontSize: mobile ? SHOP.fs.sub : SHOP.fs.cap, color: C.faint, fontVariantNumeric: 'tabular-nums', flex: '0 0 auto' }}>
+        {/*
+          ★★**0 은 «없어지지» 않고 0 이라고 선다**(사장님 2026-09-10 「그냥 기존 필터에서
+            **숫자가 0으로 바뀌면** 되잖아 **이게 쭈구러 든다**고」).
+          ★그래서 «옅게»만 한다 — 줄을 지우지도, 못 누르게 막지도 않는다. 지금 조건에서 0 일 뿐
+            조건을 풀면 있는 값이라, 눌러서 «갈아타는» 길을 막으면 손님이 되돌아 나가야 한다.
+        */}
+        <span style={{
+          fontSize: mobile ? SHOP.fs.sub : SHOP.fs.cap,
+          color: count ? C.faint : C.line2,
+          fontVariantNumeric: 'tabular-nums', flex: '0 0 auto',
+        }}>
           {count}
         </span>
       </span>

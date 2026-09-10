@@ -307,7 +307,7 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
    */
   const quick = useMemo(
     () => quickAll.filter((k) => query.sel[k.axis].includes(k.key)
-      || facets[k.axis].some((o) => o.key === k.key && o.count > 0)),
+      || facets[k.axis].some((o) => o.key === k.key && o.base > 0)),
     [quickAll, facets, query.sel],
   );
   const tokens = useMemo(
@@ -457,13 +457,19 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
             {/*
               ★**고치는 문은 줄 «맨 앞»이다.** 이 줄은 한 줄로 흐르는(가로 스크롤) 줄이라
                 끝에 두면 밀어야 보인다 — 아홉 칸을 밀어야 닿는 단추는 없는 단추다.
-              ★손님도 누른다 — 그래서 연필을 달아 «조건 칩»과 갈랐다(같은 얼굴이면 조건인 줄 안다).
+              ★★**글자를 떼고 «연필»만 둔다**(사장님 2026-09-10 「조건 고치기 저거 맨 앞에
+                **그냥 아이콘으로**? **갖다 대면 설명 보이게** 해주면 안 되나」).
+                맞다 — 첫 자리는 손님이 «조건»을 읽는 자리다. 거기 우리 말이 네 글자 서 있으면
+                손님은 그것부터 읽고, 정작 첫 조건은 두 번째로 밀린다.
+              ★설명은 **갖다 댔을 때만** 뜬다(`hint`) — 브라우저 말풍선이라 이 줄에서 안 잘린다
+                (직접 그리면 `overflow-y: hidden` 인 가로 줄이라 위아래로 잘린다).
+              ★`chip` 치수 — 칩과 같은 높이다. `md`(36) 를 세우면 이 줄만 굵어진다.
             */}
-            <ShopPill title="이 줄에 세울 조건을 고칩니다" onClick={() => setQuickOpen(true)}>
-              <span style={{ display: 'inline-flex', alignItems: 'center', gap: SHOP.sp.tight }}>
-                <Pencil size={13} aria-hidden />조건 고치기
-              </span>
-            </ShopPill>
+            <ShopIconBtn size="chip" label="조건 고치기"
+              hint="이 줄에 세울 조건을 고칩니다 — 고친 줄은 이 가게를 보는 모든 분에게 같이 보입니다"
+              onClick={() => setQuickOpen(true)}>
+              <Pencil size={mobile ? 16 : 14} aria-hidden />
+            </ShopIconBtn>
             {quick.map((k) => (
               <ShopPill key={`${k.axis}:${k.key}`} on={query.sel[k.axis].includes(k.key)}
                 onClick={() => onToggle(k.axis, k.key)}>{k.label || soloLabel(k.key) || k.key}</ShopPill>

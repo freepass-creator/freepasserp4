@@ -260,7 +260,23 @@ const sortValue = (p: EntityRecord, sort: ShopSort): number => {
   return sort === 'desc' ? -rent : rent;
 };
 
-export type ShopOption = { key: string; label: string; count: number };
+export type ShopOption = {
+  key: string;
+  label: string;
+  /** **지금 조건에서** 몇 대인가 — 교차 집계(제 축은 빼고 센다). 0 이 될 수 있다. */
+  count: number;
+  /**
+   * **조건을 다 풀면** 몇 대인가 — 그 채널 재고 전체 기준.
+   *
+   * ★★**줄이 «있나 없나»는 이 값이 정한다**(사장님 2026-09-10 「필터는 **연동형 필터 아니고**
+   *   그냥 누른다고 해서 **다 없어지면 안 되는데**」 · 「그냥 기존 필터에서 **숫자가 0으로 바뀌면**
+   *   되잖아 **이게 쭈구러 든다**고」). 예전에는 `count === 0` 이면 줄을 뺐는데, 그러면 손님이
+   *   조건 하나를 누를 때마다 **조건칸이 통째로 쪼그라들어** 방금 보던 줄이 사라진다.
+   * ⇒ 줄은 **재고에 있으면 선다**(`base > 0`). 조건에 안 걸리면 **숫자만 0** 이 된다.
+   * ★차례도 이 값으로 매긴다 — 지금 건수로 매기면 누를 때마다 줄이 위아래로 뛴다.
+   */
+  base: number;
+};
 export type ShopFacets = Record<ShopAxis, ShopOption[]>;
 
 export type ShopResult = {
@@ -279,7 +295,15 @@ export type ShopResult = {
  *   말해야 한다. 전체 716대 기준으로 세면 「디젤 120」이라 써 놓고 눌렀을 때 3대가 나온다 —
  *   마켓에서 손님이 제일 빨리 등 돌리는 거짓말이다.
  *   반대로 «자기 축»은 빼고 세야 이미 켠 값 옆의 다른 값도 숫자가 살아 있다(안 그러면 전부 0).
- * ★건수 0 인 값은 **안 보여준다.** 눌러도 아무것도 없는 조건을 세워 두지 않는다.
+ * ★★★**줄은 «재고에 있으면» 선다 — 조건에 안 걸리면 숫자만 0 이 된다**(2026-09-10).
+ *   사장님 「필터는 **연동형 필터 아니고** 그냥 누른다고 해서 **다 없어지면 안 되는데**」 ·
+ *   「그냥 기존 필터에서 **숫자가 0으로 바뀌면** 되잖아 **이게 쭈구러 든다**고」.
+ *   ⚠ 전에는 건수 0 을 뺐다. 그래서 손님이 「SUV」 하나를 누르면 제조사 열둘이 셋으로 줄고
+ *     차급 줄이 절반 사라져, **방금 보던 자리가 없어졌다.** 조건칸은 «지도»라 모양이 흔들리면
+ *     손님이 제 위치를 잃는다.
+ *   ⇒ **명단과 차례는 «재고 전체»(`base`)가 정하고, 숫자만 «지금 조건»(`count`)이 정한다.**
+ *     그래서 무엇을 눌러도 줄 수와 순서가 안 바뀐다 — 숫자만 오르내린다.
+ * ★재고에 아예 없는 값은 여전히 안 선다(`base === 0`) — 그건 「지금 0」이 아니라 「원래 없다」다.
  */
 export function runShopQuery(rows: EntityRecord[] | null, query: ShopQuery): ShopResult {
   const pool = (rows || []).filter(isListableProduct);
@@ -288,22 +312,36 @@ export function runShopQuery(rows: EntityRecord[] | null, query: ShopQuery): Sho
 
   const baseFor = (axis: ShopAxis) => searched.filter((p) => passes(p, sel, axis));
 
+  /*
+   * ★**두 벌을 센다.**
+   *   ㉠ `pool` — 조건도 검색도 «안 탄» 재고 전체. **명단·차례**를 여기서 만든다(줄이 안 사라진다).
+   *   ㉡ `baseFor(axis)` — 지금 조건(제 축은 뺀다)+검색. **숫자**를 여기서 만든다.
+   * ⚠ 명단까지 ㉡ 로 만들면 조건을 걸 때마다 조건칸이 쪼그라든다 — 그게 「쭈구러 든다」다.
+   */
   const freeTally = (axis: ShopAxis, of: (p: EntityRecord) => string): ShopOption[] => {
-    const m = new Map<string, number>();
-    for (const p of baseFor(axis)) { const v = of(p); if (v) m.set(v, (m.get(v) || 0) + 1); }
-    return [...m.entries()].map(([key, count]) => ({ key, label: key, count }));
+    const uni = new Map<string, number>();
+    for (const p of pool) { const v = of(p); if (v) uni.set(v, (uni.get(v) || 0) + 1); }
+    const live = new Map<string, number>();
+    for (const p of baseFor(axis)) { const v = of(p); if (v) live.set(v, (live.get(v) || 0) + 1); }
+    return [...uni.entries()].map(([key, base]) => ({ key, label: key, count: live.get(key) || 0, base }));
   };
   /** 값 목록이 정해진 축 — 순서를 재고 대수가 아니라 «손님이 말하는 순서»로 고정한다. */
   const fixedTally = (axis: ShopAxis, order: readonly string[]): ShopOption[] => {
-    const base = baseFor(axis);
-    return order.map((k) => ({ key: k, label: k, count: base.filter((p) => axisMatch[axis](p, k)).length }))
-      .filter((o) => o.count > 0);
+    const live = baseFor(axis);
+    return order.map((k) => ({
+      key: k, label: k,
+      count: live.filter((p) => axisMatch[axis](p, k)).length,
+      base: pool.filter((p) => axisMatch[axis](p, k)).length,
+    })).filter((o) => o.base > 0);
   };
   const bandTally = (axis: ShopAxis, bands: Band[]): ShopOption[] => {
-    const base = baseFor(axis);
+    const live = baseFor(axis);
     /* ★손님 동은 «축 밑» 이름(`shop`)을 쓴다 — 화살표(`↓`·`↑`)는 우리끼리 쓰는 기호다. */
-    return bands.map((b) => ({ key: b.k, label: b.shop || b.label, count: base.filter((p) => axisMatch[axis](p, b.k)).length }))
-      .filter((o) => o.count > 0);
+    return bands.map((b) => ({
+      key: b.k, label: b.shop || b.label,
+      count: live.filter((p) => axisMatch[axis](p, b.k)).length,
+      base: pool.filter((p) => axisMatch[axis](p, b.k)).length,
+    })).filter((o) => o.base > 0);
   };
 
   const facets: ShopFacets = {
@@ -316,7 +354,7 @@ export function runShopQuery(rows: EntityRecord[] | null, query: ShopQuery): Sho
      *   자르면 새 갈래가 생겼을 때 조용히 사라진다.
      */
     ptype: freeTally('ptype', (p) => canonProductType(p.product_type))
-      .sort((a, b) => b.count - a.count || a.key.localeCompare(b.key, 'ko')),
+      .sort((a, b) => b.base - a.base || a.key.localeCompare(b.key, 'ko')),
     /*
      * ★기간은 **짧은 것부터** 세운다 — 대수 순으로 세우면 48·36·24·60·12 처럼 뒤죽박죽이 되어
      *   「기간」이라는 축으로 안 읽힌다. 숫자에는 손님이 이미 아는 순서가 있다.
@@ -325,7 +363,7 @@ export function runShopQuery(rows: EntityRecord[] | null, query: ShopQuery): Sho
      *   그 축을 넣은 이유의 절반이 「단기를 찾을 길이 없다」였는데 정작 6개월을 빼먹은 것이다.
      * ⇒ **데이터가 가진 기간을 그대로 세운다.** 원천이 새 기간을 주면 저절로 선다.
      */
-    term: fixedTally('term', [...new Set(baseFor('term')
+    term: fixedTally('term', [...new Set(pool
       .flatMap((p) => priceList(p).filter((x) => isOperatedPeriod(x.m)).map((x) => x.m)))]
       .sort((a, b) => a - b).map(TERM_LABEL)),
     /*
@@ -334,15 +372,15 @@ export function runShopQuery(rows: EntityRecord[] | null, query: ShopQuery): Sho
      * ★열둘까지 — 제조사와 같은 규칙이다(스물을 세우면 그게 벽이다).
      */
     vclass: freeTally('vclass', (p) => String(p.vehicle_class || '').trim())
-      .sort((a, b) => b.count - a.count || a.key.localeCompare(b.key, 'ko')).slice(0, 12),
+      .sort((a, b) => b.base - a.base || a.key.localeCompare(b.key, 'ko')).slice(0, 12),
     credit: fixedTally('credit', CREDITS),
     perk: fixedTally('perk', CATALOG_PERKS),
     // 제조사는 대수 많은 순 열둘까지 — 스물을 세우면 그게 벽이다.
     maker: freeTally('maker', (p) => makerDisplay(p.maker))
-      .sort((a, b) => b.count - a.count || a.key.localeCompare(b.key, 'ko')).slice(0, 12),
+      .sort((a, b) => b.base - a.base || a.key.localeCompare(b.key, 'ko')).slice(0, 12),
     year: freeTally('year', (p) => yearFullDisplay(p.year)).sort((a, b) => b.key.localeCompare(a.key, 'ko')),
     fuel: freeTally('fuel', (p) => fuelDisplay(p.fuel_type) || String(p.fuel_type || '').trim())
-      .sort((a, b) => b.count - a.count),
+      .sort((a, b) => b.base - a.base),
     rent: bandTally('rent', RENT_BANDS),
     dep: bandTally('dep', DEP_BANDS),
     mile: bandTally('mile', MILE_BANDS),
