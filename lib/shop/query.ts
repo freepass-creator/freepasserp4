@@ -404,23 +404,47 @@ export function runShopQuery(rows: EntityRecord[] | null, query: ShopQuery): Sho
   const photoRank = (p: EntityRecord) => (firstProductImage(p) ? 0 : 1);
 
   /*
+   * ★★★**잣대는 «줄마다 한 번»만 잰다 — 비교마다 재지 않는다**(사장님 2026-09-10
+   *   「뭔가 **필터를 잡는데 버벅이는데** 그것도 해결해봐」).
+   *
+   *   `sort` 의 비교 함수는 n log n 번 불린다(694대면 만 몇 천 번). 그 안에서 `photoRank`(사진을
+   *   풀어 본다)와 `sortValue`(요금표를 푼다)를 부르면, **같은 차의 사진과 값을 수십 번 다시 푼다.**
+   *   ⚠ 실측 2026-09-10 — 694대·조건 없음에서 `runShopQuery` 가 **292ms** 였다.
+   *     그런데 집계(facets)는 다 합쳐 **22ms** 뿐이었다. 나머지 270ms 가 여기였다.
+   *     조건을 걸수록 빨라지던 것도 이것 때문이다(목록이 짧아지니 비교가 준다).
+   *   ⇒ 줄마다 한 번 재서 숫자로 들고, 비교는 **숫자끼리만** 한다. 694번이면 끝난다.
+   * ★차례를 정하는 규칙은 **하나도 안 바뀐다** — 재는 시점만 앞으로 당긴 것이다.
+   */
+  type Ranked = { p: EntityRecord; photo: number; v: number; tie: number; same: string };
+  const rankRows = (list: EntityRecord[], sort: ShopSort, withSame: boolean): Ranked[] =>
+    list.map((p) => ({
+      p,
+      photo: photoRank(p),
+      v: sortValue(p, sort),
+      /* 인기순은 같은 값이 무더기라 2차 잣대(싼 것부터)가 필요하다 — 그것도 미리 잰다. */
+      tie: sort === 'popular' || sort === 'many' ? sortValue(p, 'asc') : 0,
+      same: withSame ? sameCarKey(p) : '',
+    }));
+
+  /*
    * ★「같은 차 많은순」만 **한 대를 봐서는 못 정하는** 값이다 — 목록 전체를 세어야 순위가 나온다.
    *   그래서 `sortValue`(한 대짜리 잣대)에 못 넣고 여기서 «센 뒤에» 정렬한다.
    * ★세는 모수는 «조건을 통과한 목록»이다. 전체 재고로 세면 「기아가 원래 많으니까」로 줄이 서서
    *   조건을 걸어도 순서가 안 변한다 — 손님이 방금 좁힌 것을 안 반영하는 꼴이다.
    */
   if (query.sort === 'many') {
+    const ranked = rankRows(kept, 'many', true);
     const tally = new Map<string, number>();
-    for (const p of kept) tally.set(sameCarKey(p), (tally.get(sameCarKey(p)) || 0) + 1);
+    for (const r of ranked) tally.set(r.same, (tally.get(r.same) || 0) + 1);
     return {
-      list: [...kept].sort((a, b) => {
+      list: ranked.sort((a, b) => {
         // ★사진 먼저 — 어느 정렬이든 이 잣대가 앞선다(위 `photoRank`).
-        const ph = photoRank(a) - photoRank(b);
+        const ph = a.photo - b.photo;
         if (ph) return ph;
-        const d = (tally.get(sameCarKey(b)) || 0) - (tally.get(sameCarKey(a)) || 0);
+        const d = (tally.get(b.same) || 0) - (tally.get(a.same) || 0);
         // 같은 대수면 싼 것부터 — 순서가 안 흔들려야 새로고침해도 같은 화면이다.
-        return d || (sortValue(a, 'asc') - sortValue(b, 'asc'));
-      }),
+        return d || (a.tie - b.tie);
+      }).map((r) => r.p),
       total: pool.length,
       facets,
     };
@@ -431,11 +455,11 @@ export function runShopQuery(rows: EntityRecord[] | null, query: ShopQuery): Sho
    *   원천이 준 순서 그대로 서서, 새로고침할 때마다 첫 화면이 달라 보인다.
    *   ⇒ 같은 순위면 싼 것부터. 그러면 목록이 늘 같은 얼굴이다.
    */
-  const list = kept.sort((a, b) =>
+  const list = rankRows(kept, query.sort, false).sort((a, b) =>
     // ★사진 먼저 — 어느 정렬이든 이 잣대가 앞선다(위 `photoRank`).
-    (photoRank(a) - photoRank(b))
-    || (sortValue(a, query.sort) - sortValue(b, query.sort))
-    || (query.sort === 'popular' ? sortValue(a, 'asc') - sortValue(b, 'asc') : 0));
+    (a.photo - b.photo)
+    || (a.v - b.v)
+    || (a.tie - b.tie)).map((r) => r.p);
   return { list, total: pool.length, facets };
 }
 
