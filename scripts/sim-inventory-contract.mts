@@ -9,6 +9,7 @@ import { captureSalesPublishSnapshot, readSalesPublishSnapshot, salesPublishMark
 import { channelColumnName, salesPublishedColumns } from '../lib/domain/sales-published-tab-columns';
 import { erpPhotoSource, isPickupPhotoAtom, isServerPhotoSource, photoProjectionViolations, photoProjectionWarnings, sheetPlateLink } from '../lib/domain/photo-projection';
 import { productExternalImages, scrapableSources } from '../lib/domain/product-photos';
+import { mergeRawPhotoEvidence, photoAtomFields } from '../lib/domain/photo-atom';
 
 const rows = [
   { car_number: '테스트1', vehicle_status: '출고가능', status_kind: '가용', listable: true, provider_company_code: 'P1', source: 'sheet' },
@@ -84,6 +85,14 @@ assert.deepEqual(scrapableSources({ photo_link: 'https://moderentcar.co.kr/car/1
 assert.equal(isServerPhotoSource('https://example.com/detail?next=autoplus.co.kr'), false);
 assert.equal(isServerPhotoSource('https://bit.ly/not-resolved'), false);
 assert.equal(isServerPhotoSource('https://tinyurl.com/not-resolved'), false);
+const allSourcePhotos = Array.from({ length: 23 }, (_, index) => `https://img.example.test/car/${index + 1}.jpg`);
+const photoAtom = photoAtomFields([...allSourcePhotos, allSourcePhotos[0], 'not-a-url'], 1789008257806);
+assert.deepEqual(photoAtom.image_urls, allSourcePhotos, '사진 원자는 10장으로 자르지 않고 원천 순서대로 전부 보존한다');
+assert.equal(photoAtom.photo_collected_at, 1789008257806);
+assert.match(String(photoAtom.photo_source_hash), /^[a-f0-9]{64}$/);
+const oldRawPhotos = ['https://img.example.test/old/1.jpg'];
+assert.deepEqual(mergeRawPhotoEvidence({ 차명: '원문차명', 사진: oldRawPhotos }, []), { 차명: '원문차명', 사진: oldRawPhotos });
+assert.deepEqual(mergeRawPhotoEvidence({ 차명: '원문차명', 사진: oldRawPhotos }, allSourcePhotos).사진, allSourcePhotos);
 
 const channelPublisher = readFileSync('scripts/build-channel-supplier-sheet.mts', 'utf8');
 const photoLinkChecker = readFileSync('scripts/check-plate-photo-link.mts', 'utf8');
@@ -107,6 +116,7 @@ for (const file of [
 assert.match(readFileSync('scripts/audit-photo-projection.mts', 'utf8'), /photoProjectionViolations/);
 
 const hourly = readFileSync('scripts/hourly-sync.mts', 'utf8');
+const supplierIngest = readFileSync('scripts/ingest-supplier-to-firestore.mts', 'utf8');
 const hourlyStringNormalizer = hourly.indexOf('const S =');
 const hourlyFirstStringNormalizerUse = hourly.search(/[^A-Za-z0-9_$]S\(/);
 assert.ok(
@@ -127,6 +137,10 @@ assert.match(hourly, /heal-atom-provenance\.mts'.*'--apply'/);
 assert.match(hourly, /audit-pipeline-destinations\.mts/);
 assert.match(hourly, /check-plate-photo-link\.mts/);
 assert.match(hourly, /audit-photo-projection\.mts'.*--snapshot=/);
+assert.doesNotMatch(hourly, /손오공-구독사진-드라이브\.mjs/);
+assert.doesNotMatch(readFileSync('sonokong/scripts/손오공-재고시트.mjs', 'utf8'), /사진들[^\n]*slice\(0,\s*10\)/);
+assert.match(supplierIngest, /const photoMoved = !STATUS_ONLY/);
+assert.doesNotMatch(supplierIngest.match(/const VAR_FIELDS_STATUS[^\n]+/)?.[0] || '', /image_urls|photo_collected_at|photo_source_hash|tica_link/);
 assert.match(hourly, /publish-origin-tab\.mts'.*\.\.\.STAGE/);
 const daily = readFileSync('scripts/run-daily.mts', 'utf8');
 assert.match(daily, /publish-origin-tab\.mts'.*\.\.\.STAGE/);
