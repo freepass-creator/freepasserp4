@@ -735,7 +735,7 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
               <div className="cl-side-body">
               {!picked && !direct && mode !== '줄' && (
                 <>
-                  <div className="cl-tree-head">상세</div>
+                  <div className="cl-crumb">상세</div>
                   <div className="cl-empty-note">
                     왼쪽 목록에서 차를 고르면<br />조건과 기간별 요금이 여기 뜹니다.
                     <br /><br />재고에 없는 차도 접수합니다 — 아래 단추로 차량번호부터 손으로 적으세요.
@@ -745,7 +745,7 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
 
               {mode === '줄' && pickedLine && (
                 <>
-                  <div className="cl-tree-head">접수 줄 — 시트에 적힌 그대로</div>
+                  <div className="cl-crumb">접수 줄 — 시트에 적힌 그대로</div>
                   <div className="cl-pick">
                     <div className="cl-pick-t">{pickedLine.plate || '(차번없음)'}</div>
                     <div className="cl-pick-s">{pickedLine.customer} · {pickedLine.model}</div>
@@ -768,7 +768,7 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
 
               {picked && mode === '보기' && (
                 <>
-                  <div className="cl-tree-head">상세 — 손님에게 읽어 주는 자리</div>
+                  <div className="cl-crumb">상세 — 손님에게 읽어 주는 자리</div>
 
                   {/**
                     * ★★**사진** — 손님 상세페이지와 같은 것을 쓴다(사장님 「우리 상세 페이지를 활용해 봐」).
@@ -828,7 +828,7 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
 
               {(mode === '접수' && (picked || direct)) && (
                 <>
-                  <div className="cl-tree-head">접수</div>
+                  <div className="cl-crumb">접수</div>
                   <div className="cl-ipt">
                     {/**
                       * ★갈래가 «맨 위»에 선다 — 무슨 돈인지가 정해져야 아래 칸이 무슨 뜻인지 정해진다.

@@ -135,6 +135,7 @@
     "settlement:taborder": "tsx scripts/order-settlement-tabs.mts",
     "build:estimate-cars": "tsx scripts/generate-estimate-car-index.mts",
     "check:engine": "tsx scripts/check-settlement-engine.mts",
+    "check:skin": "tsx scripts/check-classic-tokens.mts",
     "check:ssot": "tsx scripts/check-settlement-ssot.mts",
     "check:chain": "tsx scripts/check-settlement-chain.mts",
     "check:settlement-workstation": "tsx scripts/check-settlement-workstation.mts",
