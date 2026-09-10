@@ -919,6 +919,27 @@ must(/wl\.tel/.test(read('app/q/[code]/ShopDetailView.tsx')),
     'app/layout.tsx — 뒤여야 같은 세기일 때 손님 동 규칙이 이깁니다');
 }
 
+/*
+ * **빠른조건은 «있는 필터»만 올린다** — 사장님 2026-09-10 「퀵필터가 **진짜로 있는 필터**가
+ * 들어가야 하는데」 · 「**있는 필터를 잠시 옮겨놓은 느낌**이어야 하잖아」 · 「**있는 필터만** 갖다 놓겠음」.
+ *
+ * ★지키는 방법이 «두 겹»이라 두 겹을 다 잠근다.
+ *   ㉠ **고르는 화면**(`ShopQuickEditor`)은 조건칸과 «같은 집계»(`facets`)에서 목록을 만들고
+ *      건수 0 을 뺀다 — 손으로 적는 칸이 없어야 「없는 조건」이 애초에 안 들어온다.
+ *   ㉡ **그리는 화면**(`ShopView`)도 건수 0 이면 칩을 안 세운다 — 저장해 둔 뒤 재고가 빠질 수 있다.
+ * ⚠ 어느 한 겹이라도 풀리면 손님이 눌러 0건이 뜨는 칩이 첫 줄에 선다. 그건 「없어 보이는」 화면의
+ *   가장 빠른 길이다. 되돌리려면 먼저 여쭙는다.
+ */
+{
+  const editor = read('components/shop/ShopQuickEditor.tsx');
+  must(/facets\[axis\]\.filter\(\(o\) => o\.count > 0/.test(editor),
+    '빠른조건을 «있는 값»이 아닌 데서 고르게 됐습니다 — 고르는 목록은 조건칸과 같은 집계(facets)에서 옵니다.',
+    'components/shop/ShopQuickEditor.tsx · docs/DESIGN_CONFIRMED_SHOP.md §빠른조건');
+  must(/facets\[k\.axis\]\.some\(\(o\) => o\.key === k\.key && o\.count > 0\)/.test(shopView),
+    '빠른조건 칩이 «건수 0» 인데도 서게 됐습니다 — 눌러도 0건인 칩이 첫 줄에 섭니다.',
+    'app/(shop)/shop/ShopView.tsx · docs/DESIGN_CONFIRMED_SHOP.md §빠른조건');
+}
+
 if (fails.length) {
   console.error(`\n✗ 확정 디자인이 바뀌었습니다 — ${fails.length}건\n`);
   for (const f of fails) console.error(`   · ${f}\n`);

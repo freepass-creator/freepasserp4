@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { headers } from 'next/headers';
 import { ShopView } from './ShopView';
 import { coBrandName, hasBrand, resolveGuestWhitelabel, ogImage, OG_SIZE } from '@/lib/whitelabel';
+import { readShopQuick } from '@/lib/server/shop-quick-store';
 
 /**
  * 가게의 **서버 껍데기**. 화면은 `ShopView`(클라이언트)가 그린다.
@@ -57,5 +58,12 @@ export default async function ShopPage({ searchParams }: Params) {
   const sp = await searchParams;
   // 호스트가 정본이고 `?wl=` 은 도메인 붙이기 «전» 미리보기용 — 상세(`/q`)와 같은 규칙이다.
   const wl = resolveGuestWhitelabel((await headers()).get('host'), one(sp.wl));
-  return <ShopView wl={wl} />;
+  /*
+   * ★★**화면에서 고친 빠른조건은 «서버»가 실어 보낸다**(사장님 2026-09-10 「퀵필터를 수정할 수
+   *   있게 해주면 좋겠어」). 클라이언트에서 뒤늦게 받아 오면 **칩 줄이 한 번 그려진 뒤 바뀐다** —
+   *   손님 눈에는 화면이 흔들리는 것이고, 머리띠를 서버로 옮긴 이유(위 머리말 ①)와 같은 함정이다.
+   * ★고친 적 없는 채널은 `null` 이라 **채널 표의 기본판**이 그대로 선다 — 한 픽셀도 안 바뀐다.
+   */
+  const quick = await readShopQuick(wl.key);
+  return <ShopView wl={quick ? { ...wl, quick } : wl} />;
 }

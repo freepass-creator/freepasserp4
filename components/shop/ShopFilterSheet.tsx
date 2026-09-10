@@ -85,7 +85,7 @@ export function ShopFilterSheet({ sel, preview, onApply, onClose, axes: only }: 
       onClick={onClose}>
       <div onClick={(e) => e.stopPropagation()}
         style={{
-          background: C.bg, borderTopLeftRadius: 18, borderTopRightRadius: 18,
+          background: C.bg, borderTopLeftRadius: SHOP.sheetR, borderTopRightRadius: SHOP.sheetR,
           // 시트가 화면을 다 덮으면 뒤 목록이 안 보여 «어디로 돌아가는지»를 잃는다. 위를 조금 남긴다.
           height: '82vh', display: 'flex', flexDirection: 'column', overflow: 'hidden',
         }}>

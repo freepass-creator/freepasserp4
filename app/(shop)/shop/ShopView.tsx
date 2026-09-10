@@ -1,9 +1,13 @@
 'use client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Search, SlidersHorizontal } from 'lucide-react';
+import { Pencil, Search, SlidersHorizontal } from 'lucide-react';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { C } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
+import { useSession, useAuthReady } from '@/lib/auth-context';
+import { getAuthClient } from '@/lib/firebase/client';
+import { ShopQuickEditor } from '@/components/shop/ShopQuickEditor';
+import { toast } from '@/components/Toaster';
 import { updatedLabelKo, useShopHeadStatus } from '@/lib/shop/head-status';
 import { WhitelabelFrame } from '@/components/WhitelabelFrame';
 import { FREEPASS, hasBrand, type Whitelabel } from '@/lib/whitelabel';
@@ -19,7 +23,7 @@ import { resolveAttr } from '@/lib/shop/attribution';
 import {
   AXIS_LABEL, DEFAULT_QUICK, SHOP_SORTS, activeTokens, clearAxis, emptyQuery, queryCount,
   readQuery, runShopQuery, soloLabel, toggleAxis, writeQuery,
-  type ShopAxis, type ShopQuery, type ShopSort as ShopSortKey,
+  type ShopAxis, type ShopQuery, type ShopQuickChip, type ShopSort as ShopSortKey,
 } from '@/lib/shop/query';
 
 /**
@@ -76,7 +80,32 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
    * ★자리는 채널 표 한 곳이다(`lib/whitelabel.ts`) — 「줄 하나 = 채널 하나」 규칙 그대로,
    *   필터도 그 줄 안에서 끝난다. 화면 코드는 채널이 늘어도 안 갈린다.
    */
-  const quickAll = wl.quick ?? DEFAULT_QUICK;
+  /*
+   * ★★**빠른조건은 «고쳐질 수 있다»**(사장님 2026-09-10 「퀵필터를 수정할 수 있게 해주면
+   *   좋겠어」). 서버가 실어 준 것(`wl.quick`)으로 시작하고, 담당자가 저장하면 그 자리에서 바뀐다 —
+   *   새로고침을 시키지 않는다(고친 결과를 «지금» 봐야 다음 한 칸을 고를 수 있다).
+   */
+  const [quickEdit, setQuickEdit] = useState<ShopQuickChip[] | null>(null);
+  const [quickSaving, setQuickSaving] = useState(false);
+  const [quickOpen, setQuickOpen] = useState(false);
+  const quickAll = quickEdit ?? wl.quick ?? DEFAULT_QUICK;
+  /*
+   * ★★**고치는 단추는 «영업자·직원»에게만 보인다**(사장님 2026-09-10 「영업자·직원이 채널별로」).
+   *   손님은 이 화면에 로그인하지 않는다 — 그래서 대개 `session` 이 아예 없고, 단추도 없다.
+   * ★영업자는 **제 가게만**이다 — 그 가게가 «누구 것인가»(`wl.ownerCompanyCode`)와 그 사람이
+   *   «어느 회사 사람인가»(`company_code`)를 맞대 본다. 문(`/api/shop/quick`)이 같은 값으로
+   *   다시 막으므로, 여기 판정은 «단추를 그릴지»만 정한다(숨기는 것은 막는 것이 아니다 — 집 규격).
+   * ⚠ 인증이 아직 안 붙었으면(`ready === false`) 안 그린다 — 잠깐 떴다 사라지는 단추는
+   *   손님 화면에 «관리자 단추가 번쩍»이는 꼴이 된다.
+   */
+  const session = useSession();
+  const authReady = useAuthReady();
+  const canEditQuick = !!session && authReady && (
+    session.role === 'admin'
+    || (session.role === 'agent'
+      && !!String(wl.ownerCompanyCode || '').trim()
+      && String(wl.ownerCompanyCode).trim() === String(session.company_code || '').trim())
+  );
   /* 이 줄에 «단추가 있는» 조건 — 뒤에 토큰으로 또 세우지 않는다(아래 칩 줄 머리말). */
   const quickKeys = useMemo(() => new Set(quickAll.map((k) => `${k.axis}:${k.key}`)), [quickAll]);
   const mobile = useIsMobile();
@@ -243,6 +272,33 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
   /* 조건이 바뀌면 첫 장으로 — 3장까지 펼쳐 본 뒤 조건을 좁혔는데 여전히 3장이면 뭐가 준 건지 모른다. */
   useEffect(() => { setLimit(PAGE); }, [query]);
 
+  /**
+   * 고친 칩을 문에 적는다. **답으로 온 것을 그대로 화면에 쓴다** — 내가 보낸 것을 쓰면
+   * 문이 걸러 낸 것(모르는 축 등)이 화면에만 남아 새로고침 때 사라진다.
+   */
+  const saveQuick = useCallback(async (next: ShopQuickChip[]) => {
+    setQuickSaving(true);
+    try {
+      const user = getAuthClient()?.currentUser;
+      const token = user ? await user.getIdToken() : '';
+      const res = await fetch('/api/shop/quick', {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ wl: wl.key, quick: next }),
+      });
+      const body = await res.json().catch(() => ({}));
+      /* 실패는 «집 알림»으로 말한다 — `window.alert` 은 화면을 멈춰 세우고, 이 동의 얼굴도 아니다. */
+      if (!res.ok) { toast(String(body?.error || '못 고쳤습니다'), 'error'); return; }
+      setQuickEdit(Array.isArray(body?.quick) ? (body.quick as ShopQuickChip[]) : next);
+      setQuickOpen(false);
+      toast('빠른조건을 고쳤습니다', 'ok');
+    } catch {
+      toast('못 고쳤습니다 — 잠시 뒤 다시 해 보세요', 'error');
+    } finally {
+      setQuickSaving(false);
+    }
+  }, [wl.key]);
+
   const { list, total, facets } = useMemo(() => runShopQuery(rows, query), [rows, query]);
 
   /*
@@ -404,6 +460,18 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
               첫 칩이 화면 끝에 붙는다(2026-09-04 실측 x=0). 세로 여백만 만진다. */}
           {/* 칩 줄 위아래 = «덩어리의 경계»(cozy 12) — 검색칸·목록과 갈라 준다. */}
           <div className="fp-shop-rail" style={{ paddingBlock: SHOP.sp.cozy }}>
+            {/*
+              ★**고치는 문은 줄 «맨 앞»이다.** 이 줄은 한 줄로 흐르는(가로 스크롤) 줄이라
+                끝에 두면 밀어야 보인다 — 아홉 칸을 밀어야 닿는 단추는 없는 단추다.
+              ★손님에게는 «없는 칸»이라 첫 자리를 뺏기는 것이 아니다(위 `canEditQuick`).
+            */}
+            {canEditQuick ? (
+              <ShopPill title="이 채널의 빠른조건을 고칩니다" onClick={() => setQuickOpen(true)}>
+                <span style={{ display: 'inline-flex', alignItems: 'center', gap: SHOP.sp.tight }}>
+                  <Pencil size={13} aria-hidden />빠른조건
+                </span>
+              </ShopPill>
+            ) : null}
             {quick.map((k) => (
               <ShopPill key={`${k.axis}:${k.key}`} on={query.sel[k.axis].includes(k.key)}
                 onClick={() => onToggle(k.axis, k.key)}>{k.label || soloLabel(k.key) || k.key}</ShopPill>
@@ -645,6 +713,19 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
           </div>
         </div>
       </main>
+
+      {/*
+        빠른조건 고치는 창 — **웹·폰 같은 창**이다(집 규칙 ③ 「양쪽에 한 번에」).
+        고르는 목록은 조건칸과 «같은 집계»(`facets`)에서 나온다 — 그래서 «지금 있는 값»만 뜬다.
+      */}
+      {quickOpen ? (
+        <ShopQuickEditor
+          facets={facets}
+          value={quickAll}
+          saving={quickSaving}
+          onSave={saveQuick}
+          onClose={() => setQuickOpen(false)} />
+      ) : null}
 
       {mobile && sheet ? (
         <ShopFilterSheet
