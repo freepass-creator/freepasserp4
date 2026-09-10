@@ -7,11 +7,15 @@
  */
 import { readFileSync } from 'node:fs';
 import { initializeApp, cert } from 'firebase-admin/app';
-import { getDatabase } from 'firebase-admin/database';
 import { getFirestore } from 'firebase-admin/firestore';
 import { JWT } from 'google-auth-library';
 import { buildSalesFormatRequests, columnWidths } from '../lib/domain/sales-sheet-format';
 import { companyAlias } from '../lib/domain/identity';
+import {
+  INVENTORY_PUBLICATION_COLLECTION,
+  INVENTORY_PUBLICATION_DOCUMENT,
+  type InventoryPublication,
+} from '../lib/inventory-publication';
 
 const S = (v: unknown) => String(v ?? '').trim();
 const SRC_SHEET = '1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs';   // 기존 판매시트 = 본시트(영업자가 보는 곳). 헤더를 여기서 읽는다.
@@ -35,8 +39,10 @@ const api = async (url: string, init?: RequestInit): Promise<any> => {
 };
 
 // ── 데이터 ──
-const db = getDatabase();
-const policies = (await db.ref('v4/policies').get()).val() as Record<string, any> || {};
+const firestore = getFirestore();
+const policies: Record<string, any> = {};
+for (const d of (await firestore.collection('policy').get()).docs) policies[d.id] = d.data();
+if (!Object.keys(policies).length) throw new Error('정책 원자 0건 — Firestore policy 컬렉션/권한 확인');
 // 코드 정규화 — 접미사 앞자리 0 차이 흡수(RP031_S1 ↔ RP031_S01). 사장님 2026-09-03 실측 123대.
 const normCode = (c: unknown) => S(c).toLowerCase().replace(/_([a-z]+)0*(\d+)/g, '_$1$2');
 const polByCode = new Map<string, any>();     // policy_code 필드
@@ -57,7 +63,7 @@ for (const [prov, arr] of provPolicies) if (arr.length === 1) provSingle.set(pro
 // ★「프리패스 공통 렌트」를 정책 2개+ 공급사에 씌우지 «않는다»(사장님 2026-09-03 「공통정책으로 다 채운 건 안 됨」).
 //   실제로 맞는 것만: 코드(정확·퍼지) + 정책이 «진짜 하나뿐인 공급사」. 나머지는 빈칸 — 내일 구형 시트로 실제 정책 채움.
 const policyOf = (v: any) => polByCode.get(S(v.policy_code)) || polByKey.get(S(v.policy_code)) || polByNorm.get(normCode(v.policy_code)) || provSingle.get(S(v.provider_company_code)) || {};
-const docs = (await getFirestore().collection('products').get()).docs.map((d) => d.data());
+const docs = (await firestore.collection('products').get()).docs.map((d) => d.data());
 const listable = docs.filter((v) => v.listable === true);
 
 // ★전용계좌·공급사명 = 공급사(파트너) 정보(사장님 2026-09-03·09-04 「계좌·공급사명도 원자화된 거 갖고 와야지」).
@@ -65,7 +71,9 @@ const listable = docs.filter((v) => v.listable === true);
 const acctByProvider = new Map<string, string>();
 const nameByProvider = new Map<string, string>();
 {
-  const partners = (await db.ref('v4/partners').get()).val() as Record<string, any> || {};
+  const partners: Record<string, any> = {};
+  for (const d of (await firestore.collection('partner').get()).docs) partners[d.id] = d.data();
+  if (!Object.keys(partners).length) throw new Error('공급사 원자 0건 — 계좌·공급사명이 통째로 빈다');
   for (const p of Object.values(partners)) {
     if (!p || typeof p !== 'object') continue;
     const code = S((p as any).partner_code) || S((p as any).provider_company_code);
@@ -108,6 +116,8 @@ const tabOf = (v: any): string => {
 const TAB_ORDER = ['상품리스트', '손오공구독', '픽업구독', '오플구독'];
 const groups: Record<string, any[]> = {};
 for (const v of listable) { const t = tabOf(v); (groups[t] = groups[t] || []).push(v); }
+const groupedTotal = TAB_ORDER.reduce((sum, tab) => sum + (groups[tab]?.length || 0), 0);
+if (groupedTotal !== listable.length) throw new Error(`발행 그룹 누락: ${groupedTotal}/${listable.length}`);
 
 // ── 기존 판매시트에서 각 탭 헤더를 읽는다(열 100% 동일) ──
 const srcMeta = await api(`https://sheets.googleapis.com/v4/spreadsheets/${SRC_SHEET}?fields=sheets.properties(title)`);
@@ -204,8 +214,8 @@ const cell = (col: string, v: any): string => {
   const direct: Record<string, string> = {
     '배차상태': S(v.status), '구분': S(v.product_type), '차량번호': S(v.car_number),
     '제조사': S(v.maker), '모델': S(v.model), '세부모델': S(v.sub_model),
-    // 세부트림 — snap 이 「기본형」을 버려 비지만, 원문에 기본형이면 그대로 표기(사장님 2026-09-03).
-    '세부트림': S(v.trim_name) || (/기본\s*형|\b기본\b/.test(S(v['원문']?.['차명'])) ? '기본형' : ''),
+    // 세부트림은 검증된 원자만 복사한다. 원문 문자열에서 「기본형」 등을 추정하지 않는다.
+    '세부트림': S(v.trim_name),
     '외장': S(v.ext_color), '내장': S(v.int_color), '연식': S(v.year), 'Km': S(v.mileage),
     '연료': S(v.fuel_type), '배기량': S(v.engine_cc), '차종구분': S(v.vehicle_class),
     '차명(원문)': S(v['원문']?.['차명']), '옵션(원문)': cleanOpt(S(v['원문']?.['옵션'])),
@@ -232,11 +242,15 @@ const cell = (col: string, v: any): string => {
 };
 
 // ── 고정 시트 제자리 갱신 · 탭 이름 = 「base 업데이트시각 · N대」(기존 판매시트처럼) ──
-const kstNow = (() => { const d = new Date(Date.now() + 9 * 3600e3); const p = (n: number) => String(n).padStart(2, '0'); return `${p(d.getUTCMonth() + 1)}.${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`; })();
+const publicationMs = Date.now();
+const kstNow = (() => { const d = new Date(publicationMs + 9 * 3600e3); const p = (n: number) => String(n).padStart(2, '0'); return `${p(d.getUTCMonth() + 1)}.${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`; })();
 const titleOf = (base: string) => `${base} ${kstNow} · ${(groups[base] || []).length}대`;
 
 let sheetId = SAMPLE_SHEET_ID, fresh = false;
-const meta = SAMPLE_SHEET_ID.startsWith('1FZ8placeholder') ? null : await api(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?fields=sheets.properties(sheetId,title)`).catch(() => null);
+// 본시트 메타 조회 실패를 "새 시트 없음"으로 취급하면 재고 전체가 든 공개 시트를 새로 만들 수 있다.
+// 새 샘플 생성은 명시적인 placeholder일 때만 허용하고, 고정 시트 조회 실패는 그대로 중단한다.
+const createSample = !TO_MAIN && SAMPLE_SHEET_ID.startsWith('1FZ8placeholder');
+const meta = createSample ? null : await api(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?fields=sheets.properties(sheetId,title)`);
 const gidByBase: Record<string, number> = {};
 if (!meta) {
   const created = await api('https://sheets.googleapis.com/v4/spreadsheets', { method: 'POST', body: JSON.stringify({ properties: { title: '프리패스 — 상품리스트(영업자용)' }, sheets: TAB_ORDER.map((t, i) => ({ properties: { sheetId: i, title: titleOf(t) } })) }) });
@@ -277,7 +291,36 @@ for (const t of TAB_ORDER) {
 }
 for (let i = 0; i < fmt.length; i += 200) await api(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests: fmt.slice(i, i + 200) }) });
 
-const total = TAB_ORDER.reduce((a, t) => a + (groups[t]?.length || 0), 0);
+const total = groupedTotal;
+// 성공 기록을 올리기 전에 실제 시트를 다시 읽어 차량번호 집합까지 확인한다.
+for (const t of TAB_ORDER) {
+  const title = titleOf(t);
+  const reread = await api(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values/${encodeURIComponent(`'${title.replace(/'/g, "''")}'!A:BZ`)}?majorDimension=ROWS&valueRenderOption=UNFORMATTED_VALUE`);
+  const rows = (reread.values || []) as unknown[][];
+  const header = (rows[0] || []).map(S);
+  const plateIndex = header.indexOf('차량번호');
+  if (plateIndex < 0) throw new Error(`반영 후 재조회 실패: ${t} 차량번호 열 없음`);
+  const got = rows.slice(1).map((row) => S(row[plateIndex])).filter(Boolean).sort();
+  const want = (groups[t] || []).map((v) => S(v.car_number)).filter(Boolean).sort();
+  if (got.length !== want.length || got.some((plate, i) => plate !== want[i])) {
+    throw new Error(`반영 후 재조회 실패: ${t} 차량번호 집합 불일치 ${got.length}/${want.length}`);
+  }
+}
+
+if (TO_MAIN) {
+  const publication: InventoryPublication = {
+    schema_version: 'inventory_publication_v1',
+    publishedAt: new Date(publicationMs).toISOString(),
+    publishedMs: publicationMs,
+    source: 'firestore/products',
+    sheetId,
+    productCount: docs.length,
+    listableCount: listable.length,
+    publishedRowCount: total,
+    tabCounts: Object.fromEntries(TAB_ORDER.map((t) => [t, (groups[t] || []).length])),
+  };
+  await firestore.collection(INVENTORY_PUBLICATION_COLLECTION).doc(INVENTORY_PUBLICATION_DOCUMENT).set(publication);
+}
 console.log(`\n★ ${TO_MAIN ? '본시트 반영 완료' : (fresh ? '새로 만든' : '제자리 갱신')} 상품시트(${total}대 · 기존시트 동일열):\nhttps://docs.google.com/spreadsheets/d/${sheetId}/edit`);
 if (fresh) console.log(`\n※ 이 ID 를 SAMPLE_SHEET_ID 에 박으면 고정: ${sheetId}`);
 process.exit(0);
