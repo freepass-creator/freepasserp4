@@ -50,6 +50,49 @@ const won = (n: number) => Math.round(n || 0).toLocaleString('ko-KR');
 const man = (n: number) => (n ? Math.round(n / 10000).toLocaleString('ko-KR') : '');
 /** 만km 단위 — 3.2 = 3만 2천 km. 단위는 머리줄이 말한다. */
 const km = (n: number) => (n ? (n / 10000).toFixed(1) : '');
+/** 날짜는 «월-일»만 — 목록에서 해까지 읽을 일이 없다. 자리를 반으로 줄인다. */
+const d4 = (v: string) => (S(v).length >= 10 ? S(v).slice(5) : S(v));
+
+/**
+ * ★★**접수 목록의 칸 — 시트를 보고 짰다** (사장님 2026-09-10 「접수목록 더 짱짱하게, 시트 보고」).
+ *
+ * 정산원장 F04 「접수」 탭은 54칸이다. 그 중 «접수 담당자가 목록에서 보고 켜는» 것만 여기 온다.
+ * 차례는 시트의 뜻 묶음을 따른다 —
+ *   ① 어디까지 왔나(상태)  ② 언제·무엇(접수일·차번·고객·모델·공급사·상품)
+ *   ③ 누가 팔았나(채널·담당)  ④ 계약 조건(개월·렌탈료·보증금·납입)
+ *   ⑤ 진행 체크(계약서·인도·인도일)  ⑥ 돈(청구월·청구·지급·우리몫)  ⑦ 끝(청구서·계산서·갈래·비고)
+ *
+ * ⚠ **수금·지급 실행은 여기 없다** — 통장을 봐야 아는 것이라 화면에 띄우면 거짓말이 된다
+ *   (사장님 「수금은 별도로 관리할게」). 시트에 칸이 있어도 안 가져온다.
+ * ⚠ 환수는 별도 컬렉션(settlement_clawbacks)이라 이 목록의 줄과 1:1 이 아니다 — 청구 탭에서 다룬다.
+ */
+type IntakeCol = { key: string; label: string; w: number; unit?: string; num?: boolean; mid?: boolean; title?: string };
+const INTAKE_COLS: IntakeCol[] = [
+  { key: 'state', label: '상태', w: 78, title: '접수만 → 인도 대기 → 청구월 필요 → 인도완료' },
+  { key: 'receivedAt', label: '접수일', w: 58, num: true },
+  { key: 'plate', label: '차량번호', w: 82 },
+  { key: 'customer', label: '고객', w: 62 },
+  { key: 'model', label: '모델명', w: 118 },
+  { key: 'supplier', label: '공급사', w: 76 },
+  { key: 'product', label: '상품', w: 62 },
+  { key: 'channel', label: '영업채널', w: 70 },
+  { key: 'agent', label: '영업담당', w: 62 },
+  { key: 'term', label: '개월', w: 38, num: true },
+  { key: 'rent', label: '렌탈료', w: 66, unit: '원', num: true },
+  { key: 'deposit', label: '보증금', w: 58, unit: '만', num: true },
+  { key: 'payKind', label: '납입', w: 56 },
+  { key: 'paper', label: '계약서', w: 46, mid: true },
+  { key: 'delivered', label: '인도', w: 38, mid: true },
+  { key: 'deliveredAt', label: '인도일', w: 58, num: true },
+  { key: 'billMonth', label: '청구월', w: 62, num: true },
+  { key: 'claim', label: '청구액', w: 74, unit: '원', num: true },
+  { key: 'pay', label: '지급액', w: 74, unit: '원', num: true },
+  { key: 'mine', label: '우리 몫', w: 74, unit: '원', num: true, title: '청구 − 지급' },
+  { key: 'billed', label: '청구서', w: 46, mid: true, title: '청구서를 보냈나 — 우리가 정하는 것이라 여기서 켠다' },
+  { key: 'invoiceIssued', label: '계산서', w: 46, mid: true, title: '세금계산서 발행 여부(홈택스에서 거둔 값)' },
+  { key: 'intakeKind', label: '갈래', w: 62, title: '영업수수료가 기본 — 다른 것만 보인다' },
+  { key: 'note', label: '비고', w: 160 },
+];
 
 /** 접수 줄이 지나는 네 자리 — 시트의 체크 둘과 청구월이 말해 준다. */
 function stateOf(r: Line) {
@@ -133,6 +176,19 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
   const [last, setLast] = useState({ channel: '', agent: '' });
   const [busy, setBusy] = useState(false);
   const [justId, setJustId] = useState('');
+  /**
+   * ★**머리줄을 눌러 줄을 세운다** — 원본에 이미 `.cl-grid th.sortable` 이 있다(값은 안 고쳤다).
+   *   기본은 «접수일 내림차순» — 방금 넣은 것이 맨 위에 오는 게 담당자가 바라는 차례다.
+   */
+  const [sortKey, setSortKey] = useState<string>('receivedAt');
+  const [sortAsc, setSortAsc] = useState(false);
+  const flipSort = (k: string) => {
+    if (k === sortKey) { setSortAsc(!sortAsc); return; }
+    setSortKey(k);
+    /** 글자 칸은 «가나다순»이 자연스럽고, 날짜·돈은 «큰 것부터»가 자연스럽다. */
+    const c = INTAKE_COLS.find((x) => x.key === k);
+    setSortAsc(!(c?.num || k === 'state'));
+  };
   /** ★사진은 «눌러서 크게» — 사장님 2026-09-10 「사진만 예외로 누르면 크게 보이게 해 주자」. */
   const [zoom, setZoom] = useState(false);
   /** 먼저 누른 차의 늦은 응답이 지금 고른 차를 덮지 못하게 하는 요청 순번. */
@@ -284,9 +340,15 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
     } finally { setBusy(false); }
   };
 
-  const flip = async (r: Line, key: 'paper' | 'delivered', on: boolean) => {
+  const flip = async (r: Line, key: 'paper' | 'delivered' | 'billed', on: boolean) => {
     if (!api.edit) { toast('미리보기라 바뀌지 않습니다'); return; }
-    const patch = key === 'delivered' ? deliveryTransitionPatch(on, r, today) : { paper: on };
+    /**
+     * ★「청구서 나감」은 날짜를 같이 박는다 — «언젠가 보냈다»만 남기면 나중에 못 찾는다.
+     *   끄는 쪽으로는 날짜도 같이 지운다 — 안 보냈는데 날짜만 남으면 거짓말이 된다.
+     */
+    const patch = key === 'delivered' ? deliveryTransitionPatch(on, r, today)
+      : key === 'billed' ? { billed: on, billedAt: on ? today : '' }
+      : { paper: on };
     const res = await api.edit(r.id, patch);
     if (!res.ok) { toast(res.error || '못 바꿨습니다'); return; }
     await load();
@@ -296,6 +358,21 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
   if (!board) return <div className="cl"><div className="cl-menubar"><span className="cl-logo">FREEPASS ERP</span></div></div>;
 
   const todo = board.intake.filter((r) => stateOf(r).key === 'todo').length;
+  /** ★상태 차례는 «일이 남은 순»이다 — 할 일이 위로 온다. 가나다순이면 뜻이 없다. */
+  const 상태차례: Record<string, number> = { todo: 0, paper: 1, new: 2, gone: 3 };
+  const sortedIntake = [...board.intake].sort((a, b) => {
+    const 값 = (r: Line): string | number => {
+      if (sortKey === 'state') return 상태차례[stateOf(r).key] ?? 9;
+      if (sortKey === 'mine') return (r.claim || 0) - (r.pay || 0);
+      const v = (r as unknown as Record<string, unknown>)[sortKey];
+      if (typeof v === 'boolean') return v ? 1 : 0;
+      if (typeof v === 'number') return v;
+      return S(v);
+    };
+    const x = 값(a); const y = 값(b);
+    const d = typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y), 'ko');
+    return sortAsc ? d : -d;
+  });
   const fuels = pickList(board.cars, 'fuel');
   const clss = pickList(board.cars, 'cls');
   const prods = pickList(board.cars, 'product');
@@ -492,49 +569,66 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
 
               <div className="cl-grid cl-wait">
                 <div className="cl-crumb">
-                  접수 목록 {board.intake.length}건
+                  접수 목록 {sortedIntake.length}건
                   {todo > 0 && <span className="cl-st warn"> · ★청구월 박아야 할 것 {todo}건</span>}
+                  <span className="cl-sp" />
+                  <span className="cl-note">머리줄을 누르면 그 칸으로 줄을 세웁니다</span>
                 </div>
                 <table>
                   <thead>
                     <tr>
-                      <th style={{ width: 94 }}>차량번호</th>
-                      <th style={{ width: 80 }}>고객</th>
-                      <th style={{ width: 134 }}>차종</th>
-                      <th style={{ width: 100 }}>공급사</th>
-                      <th style={{ width: 88 }}>영업채널</th>
-                      <th className="cl-num" style={{ width: 84 }}>접수일</th>
-                      <th className="cl-num" style={{ width: 66 }}>청구월</th>
-                      <th className="cl-mid" style={{ width: 50 }}>계약서</th>
-                      <th className="cl-mid" style={{ width: 60 }}>인도완료</th>
-                      <th style={{ width: 88 }}>상태</th>
+                      {INTAKE_COLS.map((c) => (
+                        <th key={c.key} className={`${c.num ? 'cl-num' : ''}${c.mid ? ' cl-mid' : ''} sortable${sortKey === c.key ? ' on' : ''}`}
+                          style={{ width: c.w }} onClick={() => flipSort(c.key)} title={c.title || c.label}>
+                          {c.label}{c.unit ? <i>{c.unit}</i> : null}
+                          {sortKey === c.key ? <span className="cl-sorti">{sortAsc ? '▲' : '▼'}</span> : null}
+                        </th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody>
-                    {board.intake.map((r) => {
+                    {sortedIntake.map((r) => {
                       const st = stateOf(r);
+                      const mine = (r.claim || 0) - (r.pay || 0);
                       return (
-                        <tr key={r.id} className={`cl-row-${st.key}${r.id === justId ? ' on' : ''}`}>
+                        <tr key={r.id} className={`cl-row-${st.key}${r.id === justId ? ' on' : ''}${r.cancelled ? ' cl-row-x' : ''}`}>
+                          <td className={`cl-st ${st.key === 'todo' ? 'warn' : st.key === 'gone' ? 'ok' : ''}`}>{st.label}</td>
+                          <td className="cl-num">{d4(r.receivedAt)}</td>
                           <td><b>{r.plate || '(차번없음)'}</b></td>
                           <td>{r.customer}</td>
                           <td>{r.model}</td>
                           <td>{r.supplier}</td>
+                          <td>{r.product}</td>
                           <td>{r.channel}</td>
-                          <td className="cl-num">{r.receivedAt}</td>
-                          {/** 아직 안 박힌 달은 «칸을 비우지» 않는다 — 빈 칸은 「없다」인지 「모른다」인지 말하지 않는다. */}
-                          <td className={`cl-num${S(r.billMonth) ? '' : ' cl-st warn'}`}>{S(r.billMonth) || '—'}</td>
+                          <td>{r.agent}</td>
+                          <td className="cl-num">{r.term || ''}</td>
+                          <td className="cl-num">{r.rent ? won(r.rent) : ''}</td>
+                          <td className="cl-num">{man(r.deposit || 0)}</td>
+                          <td>{r.payKind}</td>
                           <td className="cl-mid">
                             <input type="checkbox" checked={!!r.paper} onChange={(e) => void flip(r, 'paper', e.target.checked)} />
                           </td>
                           <td className="cl-mid">
                             <input type="checkbox" checked={!!r.delivered} onChange={(e) => void flip(r, 'delivered', e.target.checked)} />
                           </td>
-                          <td className={`cl-st ${st.key === 'todo' ? 'warn' : st.key === 'gone' ? 'ok' : ''}`}>{st.label}</td>
+                          <td className="cl-num">{d4(r.deliveredAt)}</td>
+                          {/** 아직 안 박힌 달은 «칸을 비우지» 않는다 — 빈 칸은 「없다」인지 「모른다」인지 말하지 않는다. */}
+                          <td className={`cl-num${S(r.billMonth) ? '' : ' cl-st warn'}`}>{S(r.billMonth) || '—'}</td>
+                          <td className="cl-num">{r.claim ? won(r.claim) : ''}</td>
+                          <td className="cl-num">{r.pay ? won(r.pay) : ''}</td>
+                          {/** ★우리 몫 = 청구 − 지급. 화면이 «세는» 게 아니라 서버가 준 둘을 뺀 것뿐이다. */}
+                          <td className={`cl-num${mine < 0 ? ' cl-st bad' : ''}`}><b>{mine ? won(mine) : ''}</b></td>
+                          <td className="cl-mid">
+                            <input type="checkbox" checked={!!r.billed} onChange={(e) => void flip(r, 'billed', e.target.checked)} />
+                          </td>
+                          <td className="cl-mid">{r.invoiceIssued ? <span className="cl-st ok" title={r.invoiceAt}>발행</span> : ''}</td>
+                          <td>{r.intakeKind !== '영업수수료' ? <span className="cl-st warn">{r.intakeKind}</span> : ''}</td>
+                          <td title={r.note}>{r.note}</td>
                         </tr>
                       );
                     })}
-                    {board.intake.length === 0 && (
-                      <tr><td colSpan={10} className="cl-note">접수된 줄이 없습니다</td></tr>
+                    {sortedIntake.length === 0 && (
+                      <tr><td colSpan={INTAKE_COLS.length} className="cl-note">접수된 줄이 없습니다</td></tr>
                     )}
                   </tbody>
                 </table>

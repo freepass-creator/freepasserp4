@@ -28,6 +28,8 @@ export type Line = {
   product: string; billMonth: string; receivedAt: string; deliveredAt: string;
   claim: number; pay: number; stage: string; claimStage: string; payStage: string;
   invoiceIssued: boolean; invoiceAt: string; note: string; carryNote: string;
+  /** 접수 시트가 보여 주는 나머지 — 보증금 · 취소 · 청구서 나감 · 접수 갈래. */
+  deposit?: number; cancelled?: boolean; billed?: boolean; billedAt?: string; intakeKind?: string;
 };
 export type Party = { name: string; n: number; won: number; issued: boolean };
 export type Carry = { id: string; plate: string; customer: string; supplier: string; month: string; to: string; claim: number; pay: number; prepaid: number; note: string };

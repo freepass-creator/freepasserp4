@@ -168,6 +168,16 @@ export async function GET(req: Request) {
     /** ★접수 시트의 «체크 둘» — 담당자가 접수 뒤에 켠다. 계약서는 «썼나», 인도완료는 «나갔나». */
     paper: r.paper === true, delivered: r.delivered === true,
     carryClaim: N(r.carryClaim), carryPay: N(r.carryPay), prepaid: N(r.prepaid),
+    /**
+     * ★★**접수 시트가 보이는 만큼 화면도 보인다** — 사장님 2026-09-10
+     *   「접수목록 거기 더 짱짱하게 구현해줘봐 **시트 보고**」·「구현해야 할 게 더 있을 건데 항목이」
+     *   시트(F04 접수 탭)는 54칸이다. 그 중 «접수 담당자가 보고 켜는» 것을 여기 싣는다.
+     *   ⚠ 수금·지급 실행(collected·paid)은 **안 싣는다** — 통장을 봐야 아는 것이라
+     *     화면에 띄우면 거짓말이 된다(사장님 「수금은 별도로 관리할게」).
+     */
+    deposit: N(r.deposit), cancelled: r.cancelled === true,
+    billed: r.billed === true, billedAt: S(r.billedAt),
+    intakeKind: S(r.intakeKind) || '영업수수료',
   });
 
   /**
@@ -272,6 +282,8 @@ export async function GET(req: Request) {
  */
 const CAN_WRITE = new Set([
   'plate', 'customer', 'supplier', 'channel', 'agent', 'product', 'term', 'rent', 'deposit', 'price',
+  /** ★「청구서 나감」은 «우리가» 보내는 것이라 화면에서 켠다 — 통장을 봐야 아는 수금·지급과 다르다. */
+  'billed', 'billedAt',
   'payKind', 'model', 'receivedAt', 'deliveredAt', 'billMonth',
   'claimWritten', 'payWritten', 'claimIncentive', 'payIncentive',
   'settleTarget', 'settleRatio', 'settleExclude', 'billHold', 'settleNote', 'note',
