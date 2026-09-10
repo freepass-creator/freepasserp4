@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { inventoryCountSnapshot, isOpenInventoryAtom } from '../lib/domain/inventory-contract';
@@ -170,7 +170,7 @@ for (const file of ['scripts/publish-origin-tab.mts', 'scripts/publish-sonogong-
 }
 const captureSource = readFileSync('scripts/capture-sales-publish-snapshot.mts', 'utf8');
 assert.match(captureSource, /flag: 'wx'/);
-assert.doesNotMatch(readFileSync('scripts/mirror-to-firestore.mts', 'utf8'), /검수상태 === '원문없음'\) doc\.listable = false/);
+assert.equal(existsSync('scripts/mirror-to-firestore.mts'), false, '폐기한 RTDB 미러 스크립트가 다시 생기면 안 된다');
 assert.match(readFileSync('scripts/heal-atom-status.mts', 'utf8'), /파생값 어긋남/);
 const auditSource = readFileSync('scripts/audit-sheet-vs-atom.mts', 'utf8');
 assert.match(auditSource, /const EQ = \(a: unknown, b: unknown\) => S\(a\) === S\(b\)/);

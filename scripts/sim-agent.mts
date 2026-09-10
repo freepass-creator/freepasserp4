@@ -112,7 +112,7 @@ const dump = (secs: ReturnType<typeof detailSections>) => JSON.stringify(secs);
 check('1.7 손님 상세에 원가·파트너메모 없음', !/vehicle_price|partner_memo|원가/.test(dump(custSecs)));
 check('1.7a 주행거리 원단위 표시', kmDisplay(326) === '326km' && kmDisplay('12,450km') === '12,450km');
 {
-  const { mergeProductPrivate, splitProductPrivate, stripProductCost } = await import('../lib/firebase/rtdb-products');
+  const { mergeProductPrivate, splitProductPrivate, stripProductCost } = await import('../lib/firebase/product-private');
   const privateFixture = {
     ...sample,
     vehicle_price: 25000000,

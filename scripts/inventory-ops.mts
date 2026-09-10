@@ -14,7 +14,7 @@
  *   ... --refresh    캐시 무시하고 새로 받는다
  */
 import { snapshot, mergeNodes, liveProducts, type Rec } from './lib/db-snapshot.mts';
-import { dedupeProductsByVehicle } from '../lib/firebase/rtdb-products';
+import { dedupeProductsByVehicle } from '../lib/firebase/product-private';
 import { isOfferableProduct, vehicleIdentity } from '../lib/domain/product';
 import type { EntityRecord } from '../lib/intake/entities';
 

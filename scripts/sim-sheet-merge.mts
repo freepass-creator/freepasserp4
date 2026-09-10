@@ -44,7 +44,7 @@ import {
 import { applySheetConflictResolutions } from '../lib/domain/sheet-conflict-resolution';
 import { createPlateAllocator } from '../lib/domain/pending-plate';
 import { productPatchPreconditionMatches } from '../lib/domain/product-write-guard';
-import { splitProductPrivate } from '../lib/firebase/rtdb-products';
+import { splitProductPrivate } from '../lib/firebase/product-private';
 
 type Case = { name: string; ok: boolean; detail?: unknown };
 const cases: Case[] = [];

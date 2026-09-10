@@ -11,21 +11,15 @@
  *
  * ⇒ `settlement_rows` · `settlement_clawbacks` 를 **RTDB 로 만지면 exit 1**.
  *
- * 예외는 둘뿐이다 — 그 둘은 「RTDB 와 맞대 보는 것」이 일 자체다.
- *   · `check-settlement-parity`      두 곳이 같은지 재는 자
- *   · `sync-settlement-to-firestore` 옛 것을 옮기는 삽
- * 이관이 끝나면 그 둘도 지운다.
+ * 이관이 끝났으므로 예외는 없다.
  */
 import { readFileSync, globSync } from 'node:fs';
 
 const S = (v: unknown) => String(v ?? '').trim();
-/** ★예외 — 여기 이름을 «늘리지» 마라. 늘리는 순간 빗장이 아니다. */
-const EXEMPT = ['scripts/check-settlement-parity.mts', 'scripts/sync-settlement-to-firestore.mts'];
 const NODES = ['settlement_rows', 'settlement_clawbacks'];
 
 const files = globSync(['scripts/**/*.mts', 'scripts/**/*.ts', 'lib/**/*.ts', 'lib/**/*.tsx', 'app/**/*.ts', 'app/**/*.tsx'])
-  .map((f) => f.replace(/\\/g, '/'))
-  .filter((f) => !EXEMPT.includes(f));
+  .map((f) => f.replace(/\\/g, '/'));
 
 console.log('\n■ 정산이 RTDB 를 보나 — 보면 안 된다\n');
 const bad: string[] = [];
@@ -53,4 +47,4 @@ if (bad.length) {
   process.exit(1);
 }
 console.log(`   ✓ ${files.length}개 파일 어디에서도 RTDB 로 정산을 만지지 않습니다.`);
-console.log(`   ※ 예외 ${EXEMPT.length}개(대조기·이관 삽)는 이관이 끝나면 지웁니다.\n`);
+console.log('   ✓ 예외 0개 — Firestore 단일 경로입니다.\n');

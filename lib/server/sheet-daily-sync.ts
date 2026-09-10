@@ -8,7 +8,7 @@ import {
   type ProductMasterProviderPlan,
 } from '@/lib/domain/sheet-daily-sync';
 import { productPatchPreconditionMatches } from '@/lib/domain/product-write-guard';
-import { mergeProductPrivate, splitProductPrivate } from '@/lib/firebase/rtdb-products';
+import { mergeProductPrivate, splitProductPrivate } from '@/lib/firebase/product-private';
 import { toV4Record } from '@/lib/firebase/legacy-records';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { firebaseAdminStore } from '@/lib/server/firebase-admin';

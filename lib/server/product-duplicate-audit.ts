@@ -10,7 +10,7 @@ import {
   productDuplicateDryRunTsv,
 } from '@/lib/domain/product-duplicate-dry-run';
 import { firebaseAdminStore } from '@/lib/server/firebase-admin';
-import { splitProductPrivate } from '@/lib/firebase/rtdb-products';
+import { splitProductPrivate } from '@/lib/firebase/product-private';
 import { mergeV3V4Records } from '@/lib/firebase/legacy-records';
 
 function mergeNodes(v3: unknown, v4: unknown): EntityRecord[] {

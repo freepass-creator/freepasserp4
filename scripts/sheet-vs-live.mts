@@ -13,7 +13,7 @@
  *   ... --refresh   DB 캐시 갱신
  */
 import { snapshot, mergeNodes, liveProducts, type Rec } from './lib/db-snapshot.mts';
-import { dedupeProductsByVehicle } from '../lib/firebase/rtdb-products';
+import { dedupeProductsByVehicle } from '../lib/firebase/product-private';
 import { isOfferableProduct } from '../lib/domain/product';
 import { canonSheetVehicleStatus } from '../lib/domain/sheet-import';
 import { resolveAdapter } from '../lib/domain/sheet-adapters';

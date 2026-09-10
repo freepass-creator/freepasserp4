@@ -3,7 +3,7 @@ import 'server-only';
 import type { AdminRef as Database } from './firestore-path-store';
 import { planSheetLiveStatusSync, type SheetLiveStatusPlan } from '@/lib/domain/sheet-live-status';
 import { productPatchPreconditionMatches } from '@/lib/domain/product-write-guard';
-import { splitProductPrivate } from '@/lib/firebase/rtdb-products';
+import { splitProductPrivate } from '@/lib/firebase/product-private';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { firebaseAdminStore } from '@/lib/server/firebase-admin';
 import { fetchProductMasterSheet } from '@/lib/server/product-master-sheet';

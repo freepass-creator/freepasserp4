@@ -1,5 +1,5 @@
 import type { EntityRecord } from '@/lib/intake/entities';
-import { stripProductCost } from '@/lib/firebase/rtdb-products';
+import { stripProductCost } from '@/lib/firebase/product-private';
 
 export type ProductBridgeActor = {
   role: 'agent' | 'provider' | 'admin';

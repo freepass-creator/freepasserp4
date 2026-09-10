@@ -23,8 +23,6 @@ function walk(dir: string) {
 for (const root of ROOTS) walk(root);
 
 const failures: string[] = [];
-const isHardDisabled = (source: string) => /^\s*throw new Error\(['"]RTDB_REMOVED:/m.test(source)
-  || /(?:from\s+|import\s+|import\s*\(\s*)['"][^'"]*disabled-rtdb\.mts['"]/.test(source);
 for (const file of files) {
   const text = readFileSync(file, 'utf8');
   const lines = text.split(/\r?\n/);
@@ -41,13 +39,14 @@ function checkRetiredScripts(dir: string) {
     const path = join(dir, name);
     const st = statSync(path);
     if (st.isDirectory()) checkRetiredScripts(path);
-    else if (EXT.has(extname(path)) && !path.endsWith('check-no-rtdb-runtime.mts')) {
+    else if (EXT.has(extname(path))
+      && !path.endsWith('check-no-rtdb-runtime.mts')
+      && !path.endsWith('check-release.mts')) {
       const source = readFileSync(path, 'utf8');
       const hasDirectConnection = /firebase(?:-admin)?\/database|(?:NEXT_PUBLIC_)?FIREBASE_DATABASE_URL|FIREBASE_DATABASE_EMULATOR_HOST|default-rtdb|\.json\?ns=|firebasedatabase\.app|firebaseio\.com/i.test(source);
       const hasLegacyFactory = /\bgetDatabase\s*\(/.test(source) && !/firestore-path-store/.test(source);
       const hasConnection = hasDirectConnection || hasLegacyFactory;
-      const hardDisabled = isHardDisabled(source);
-      if (hasConnection && !hardDisabled) retiredScripts.push(relative('.', path));
+      if (hasConnection) retiredScripts.push(relative('.', path));
     }
   }
 }
@@ -94,10 +93,6 @@ while (queue.length) {
   visited.add(target);
   try {
     const source = readFileSync(target, 'utf8');
-    if (isHardDisabled(source)) {
-      failures.push(`${caller} ACTIVE_GRAPH_DISABLED_TARGET ${target}`);
-      continue;
-    }
     for (const child of runtimeScriptTargets(source)) queue.push({ target: child, caller: target });
     for (const npmName of npmScriptTargets(source)) {
       const command = packageJson.scripts?.[npmName];
@@ -115,4 +110,4 @@ if (failures.length) {
   for (const row of failures) console.error(`  ${row}`);
   process.exit(1);
 }
-console.log(`PASS — runtime RTDB connection 0 (${files.length} app files); legacy RTDB scripts are hard-disabled`);
+console.log(`PASS — runtime RTDB connection 0 (${files.length} app files); executable RTDB scripts 0`);
