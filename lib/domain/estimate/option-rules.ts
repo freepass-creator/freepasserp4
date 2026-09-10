@@ -17,7 +17,11 @@
  *   지금처럼 평면 목록으로 둔다. 규칙이 없다고 못 고르게 만들지 않는다.
  */
 
-export type OptionDef = { name: string; sub?: string; price: number; requires?: string[] };
+export type OptionDef = {
+  name: string; sub?: string; price: number; requires?: string[];
+  /** ★트림별 선행 — 원본 `requires_in_trim`. 같은 옵션이라도 트림마다 선행이 다르다. */
+  requiresInTrim?: Record<string, string[]>;
+};
 export type ExclusiveGroup = { id: string; label: string; members: string[] };
 
 export type OptionSpec = {
@@ -27,6 +31,8 @@ export type OptionSpec = {
   availableOptions?: string[];
   /** 「이미 산 엔진」 — 값에 이미 들어 있어 다시 팔지 않는 것. 선행 조건으로는 «충족»으로 본다. */
   impliedOptions?: string[];
+  /** ★그 줄의 «트림 열쇠» — `requiresInTrim` 을 고를 때 쓴다(원본이 트림별로 선행을 달리 둔다). */
+  trimKey?: string;
 };
 
 /** 조합 규칙이 있는가 — 없으면 화면은 평면 목록으로 그린다. */
@@ -56,7 +62,12 @@ export const groupOf = (s: OptionSpec, id: string): ExclusiveGroup | null =>
 /** 선행으로 요구되는 것들 — 「이미 산 엔진」은 요구에서 뺀다(이미 갖고 있다). */
 export function requiresOf(s: OptionSpec, id: string): string[] {
   const implied = new Set(s.impliedOptions ?? []);
-  return (s.optionsMaster?.[id]?.requires ?? []).filter((r) => !implied.has(r));
+  const o = s.optionsMaster?.[id];
+  /* ★★**트림별 선행**도 같이 본다(원본 `mobile/StepVehicle.vue:103` 그대로).
+     같은 옵션이라도 트림마다 선행이 다르다 — 캐스퍼 「17" 휠」은 `smart` 트림에서만
+     「액티브 터보Ⅰ」을 요구한다. 원본에 42개가 있는데 여태 «하나도» 안 읽고 있었다. */
+  const byTrim = s.trimKey ? (o?.requiresInTrim?.[s.trimKey] ?? []) : [];
+  return [...new Set([...(o?.requires ?? []), ...byTrim])].filter((r) => !implied.has(r));
 }
 
 /**

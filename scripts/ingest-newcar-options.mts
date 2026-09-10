@@ -103,6 +103,23 @@ export function packFor(maker: string, subModel: string, fuel: string, trim: str
             price: Math.round((Number(o.price) || 0) * 10000),   // 만원 → 원
             // 이미 산 엔진을 요구하던 선행은 «충족»이므로 지운다(HTRAC 이 3.5 를 요구하는 꼴).
             ...(o.requires?.length ? { requires: o.requires.filter((r) => !implied.includes(r)) } : {}),
+            /* ★★★**트림별 선행**(`requires_in_trim`) — 원본에 **42개**가 있는데 **하나도 안 옮기고** 있었다.
+               원본 `mobile/StepVehicle.vue:103` 이 이렇게 쓴다:
+                 `opt.requires_in_trim?.[trim]` 이 있으면 그것들이 다 켜져야 고를 수 있다.
+               같은 옵션이라도 **트림마다 선행이 다르다** — 캐스퍼 「17" 휠」은 `smart` 트림에서만
+               「액티브 터보Ⅰ」을 요구한다. 이걸 안 옮기면 그 트림에서 **못 고를 것을 팔게** 된다.
+               ⚠⚠ 사장님 2026-09-10 「예전에 다 만들어놨던 거란 말이야. 배타그룹까지 다 해놨던 거잖아」 —
+                 맞다. 나는 규칙을 «옮기지» 않고 옵션 «이름»에서 다시 만들고 있었다.
+               ⚠ 이미 산 것은 선행에서 뺀다(`requires` 와 같은 규칙). */
+            ...(o.requires_in_trim && Object.keys(o.requires_in_trim).length
+              ? {
+                requiresInTrim: Object.fromEntries(
+                  Object.entries(o.requires_in_trim)
+                    .map(([tk, arr]) => [tk, (arr ?? []).filter((r) => !implied.includes(r))])
+                    .filter(([, arr]) => (arr as string[]).length),
+                ),
+              }
+              : {}),
           };
         }
         // 트림이 맞으면 그 트림의 목록, 아니면 그 세부모델 트림들의 합집합(있는 것을 다 보여 준다).

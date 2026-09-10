@@ -1979,6 +1979,41 @@ must((availableForEngine({ a: { name: '컴포트' } }, [], '가솔린 3.5 터보
   }
 }
 
+/* ══ 31. ★★★**원본에 있는 규칙을 «옮긴다»** — 이름에서 다시 만들지 않는다 ═══════
+     ★★사장님 2026-09-10 「예전에 **다 만들어놨던 거**란 말이야. **배타그룹까지 다 해놨던 거잖아.**
+       네가 학습해 가지고 근데 그거를 왜 못 해」
+
+     ⚠⚠ 맞는 말씀이었다. 나는 다섯 회차 동안 옵션 «이름»에서 규칙을 **다시 만들고** 있었다
+       (「2.5T -」·「3.5T 전용」 같은 글자를 읽어 배제를 «유추»). 원본에는 그것이 **데이터로** 있다.
+     실측 — 원본 `public/vehicle-db.js` 의 `requires_in_trim` **42개** → 우리 팩 **0줄**.
+       인제스터가 타입에만 적어 두고 **한 번도 안 읽었다.**
+     ⇒ 원본 `mobile/StepVehicle.vue:103` 그대로 옮긴다:
+       「그 트림에서는 이것들이 다 켜져야 고를 수 있다.」 */
+{
+  /* 원본 실제 데이터 — 캐스퍼 「17" 알로이 휠」은 `smart` 트림에서만 「액티브 터보Ⅰ」을 요구한다. */
+  const om = {
+    w17: { name: '17" 알로이 휠 & 타이어', price: 550000, requiresInTrim: { smart: ['active_turbo_1'] } },
+    active_turbo_1: { name: '액티브 터보 Ⅰ', price: 900000 },
+  };
+  const at = (trimKey?: string): OptionSpec => ({ optionsMaster: om, availableOptions: Object.keys(om), trimKey });
+  must(requiresOf(at('smart'), 'w17').includes('active_turbo_1'),
+    '트림별 선행(`requiresInTrim`)을 안 읽습니다 — 원본에 42개가 있는데 하나도 안 옮겼습니다',
+    'lib/domain/estimate/option-rules.ts requiresOf');
+  must(!isEnabled(at('smart'), 'w17', new Set())
+    && isEnabled(at('smart'), 'w17', new Set(['active_turbo_1'])),
+    '그 트림에서 «못 고를 것»을 팝니다 — 원본은 선행이 켜져야 열어 줍니다',
+    'lib/domain/estimate/option-rules.ts isEnabled');
+  /* ⚠ 다른 트림에서는 선행이 «없다» — 없는 선행을 지어내면 팔 물건이 막힌다. */
+  must(isEnabled(at('essential'), 'w17', new Set()) && isEnabled(at(undefined), 'w17', new Set()),
+    '트림별 선행을 «다른 트림에도» 적용합니다 — 팔 수 있는 것이 막힙니다',
+    'lib/domain/estimate/option-rules.ts requiresOf');
+
+  /* ★인제스터가 그 필드를 «싣는가» — 안 실으면 위 검사는 헛것이다. */
+  must(/requiresInTrim:/.test(code('scripts/ingest-newcar-options.mts')),
+    '인제스터가 원본의 `requires_in_trim` 을 안 싣습니다 — 규칙이 원자에 안 들어옵니다',
+    'scripts/ingest-newcar-options.mts');
+}
+
 if (fails.length) {
   console.error(`\n✗ 견적 로직이 정본과 다릅니다 — ${fails.length}건\n`);
   for (const f of fails) console.error(`  · ${f}\n`);
