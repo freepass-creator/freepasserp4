@@ -37,3 +37,23 @@ export function tcarPaidOptionsFromDescription(value) {
   }
   return [...new Set(options)];
 }
+
+/** T카 상세 HTML의 모바일·PC 공통 jsonData에서 화면이 쓰는 선택옵션 원문을 읽는다. */
+export function tcarPaidOptionsFromHtml(value) {
+  const html = String(value ?? '');
+  const match = html.match(/<input[^>]+id="jsonData"[^>]+value="([\s\S]*?)"[^>]*>/i);
+  if (!match) return null;
+  const decoded = match[1]
+    .replace(/&quot;/g, '"')
+    .replace(/&amp;/g, '&')
+    .replace(/&#x27;|&#39;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&nbsp;/g, ' ');
+  let data;
+  try { data = JSON.parse(decoded); } catch { return null; }
+  if (!Array.isArray(data?.paidOptList)) return null;
+  const raw = data.paidOptList;
+  const names = raw.map((item) => String(item?.PAID_OPT_NM ?? '').trim()).filter(Boolean);
+  return { names, raw };
+}

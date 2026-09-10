@@ -22,6 +22,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { tcarPaidOptionsFromHtml } from './tcar-options.mjs';
 
 const 루트 = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const 토큰경로 = path.join(루트, 'lib', 'wonja', '.손오공토큰.json');
@@ -122,7 +123,9 @@ export async function lotteSpec(url) {
   let r;
   try { r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } }); } catch { return null; }
   if (!r.ok) return null;
-  const h = (await r.text()).replace(/&quot;/g, '"').replace(/\\u002[fF]/g, '/');
+  const sourceHtml = await r.text();
+  const pagePaidOptions = tcarPaidOptionsFromHtml(sourceHtml);
+  const h = sourceHtml.replace(/&quot;/g, '"').replace(/\\u002[fF]/g, '/');
   const pick = (f) => { const m = h.match(new RegExp('"' + f + '"\\s*:\\s*"([^"]*)"')); return m && m[1] ? m[1].trim() : null; };
   const num = (f) => { const m = h.match(new RegExp('"' + f + '"\\s*:\\s*"?([0-9]+)')); return m ? m[1] : null; };
   const o = {
@@ -132,6 +135,7 @@ export async function lotteSpec(url) {
     인승: num('seatCount'), 배기량: num('displacement'),
     모델: pick('modelgroup'), 등급: pick('grade'), 세부트림: pick('subgrade'),
     풀네임: pick('carTitleName'),
+    __paidOptList: pagePaidOptions?.raw ?? null,
   };
   return Object.values(o).some(Boolean) ? o : null;
 }

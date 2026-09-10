@@ -12,12 +12,17 @@ const FIXED_PLATES = [
   '35서5793', '169루1079', '390버9300', '241마8124', '317누8253', '176서2754', '282나2079',
   '146오7914', '07어4389', '133라1401', '138모8017', '192머7372', '25구1926', '311저1956',
 ];
-const SOURCE_MODE = process.argv.includes('--tcar-description');
+const TCAR_DESCRIPTION_MODE = process.argv.includes('--tcar-description');
+const TCAR_DIRECT_MODE = process.argv.includes('--tcar-direct');
+if (TCAR_DESCRIPTION_MODE && TCAR_DIRECT_MODE) throw new Error('T카 원천 모드는 하나만 선택');
+const SOURCE_MODE = TCAR_DESCRIPTION_MODE || TCAR_DIRECT_MODE;
 const sourceRows = SOURCE_MODE
   ? ((JSON.parse(readFileSync('sonokong/lib/wonja/손오공차량.json', 'utf8')) as { 차량?: Rec[] }).차량 || [])
   : [];
 const PLATES = SOURCE_MODE
-  ? sourceRows.filter((row) => S(row.유료옵션출처) === 'carDescription:추가옵션' && S(row.유료옵션)).map((row) => S(row.차번))
+  ? sourceRows.filter((row) => TCAR_DIRECT_MODE
+    ? S(row.유료옵션출처) === 'tcar:jsonData.paidOptList' && Array.isArray(row.유료옵션원문)
+    : S(row.유료옵션출처) === 'carDescription:추가옵션' && S(row.유료옵션)).map((row) => S(row.차번))
   : FIXED_PLATES;
 if (!PLATES.length || new Set(PLATES).size !== PLATES.length) throw new Error(`대상 차번 비정상: ${PLATES.length}`);
 const BOOKS = [
@@ -86,7 +91,7 @@ for (const book of BOOKS) {
   }
 }
 
-for (const c of cells) console.log(`${c.book} ${c.range} ${c.plate}: ${c.before || '(빈칸)'} → ${c.after || '(빈칸)'}`);
+for (const c of cells.filter((cell) => cell.before !== cell.after)) console.log(`${c.book} ${c.range} ${c.plate}: ${c.before || '(빈칸)'} → ${c.after || '(빈칸)'}`);
 for (const plate of PLATES) {
   const hits = cells.filter((c) => c.plate === plate);
   console.log(`${plate}: 시트 위치 ${hits.length}곳 (${hits.map((x) => `${x.book}/${x.tab}`).join(', ') || '없음'})`);
