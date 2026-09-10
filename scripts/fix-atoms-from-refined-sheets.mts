@@ -1,5 +1,7 @@
 /**
- * 외부 정제시트(차종마스터 정제본) → v4/products «한 번 원자화» 교정.
+ * 외부 정제시트(차종마스터 정제본) → **원자(Firestore `products`)** «한 번 원자화» 교정.
+ *   ⚠ 2026-09-10 까지 `v4/products`(RTDB)에 썼다 — 회차에 남은 «마지막» RTDB 쓰기였다. 그래서
+ *     여기서 고친 값이 SSOT 에 안 닿아 「기본형」 규칙이 이틀 동안 헛돌았다. 지금은 Firestore 에 바로 쓴다.
  *   사장님 2026-09-04 「외부시트/홈피를 차종마스터 기반 직접 원자화해두고 상태값만 반영하는 로직」 확인.
  *   색·주행·세부트림은 write-once 라 옛 시딩이 잘못/비어 있으면 정제시트가 맞아도 원자가 안 고쳐진다.
  *   정제시트의 «세부트림·외장색상·주행거리»(모두 차종마스터 정제칸)를 읽어, 원자가 비었거나 명백히 틀린 것만 채운다.
@@ -24,12 +26,10 @@ const jwt = new JWT({ email: sa.client_email, key: sa.private_key, scopes: ['htt
 const api = async (u: string) => { const t = (await jwt.getAccessToken()).token; const r = await fetch(u, { headers: { Authorization: `Bearer ${t}` } }); return JSON.parse(await r.text()); };
 
 /**
- * ⚠⚠⚠ **이 스크립트는 RTDB(`v4/products`)에 쓴다 — 원자 SSOT(Firestore `products`)가 아니다.**
- *   맨 아래가 「다음 미러가 Firestore 로 전파」인데, 그 전파가 끊기면 «고쳤는데 안 보인다».
- *   실측 2026-09-10 — 세부트림 규칙이 여기 있는데도 원자엔 **「기본형」인 차가 한 대도 없었고**
- *   빈 트림이 121대였다. 여기서 「교정 0」이라 나와도 원자는 비어 있을 수 있다(보는 곳이 다르다).
- * ⇒ **원자에 바로 쓰는 길**을 따로 세웠다 — `scripts/heal-atom-trim.mts`(규칙 = `lib/domain/trim-pick`).
- *   아래 피커는 RTDB 쪽 몫으로 남겨 둔다. 고칠 때 «둘 다» 보라 — 규칙이 갈리면 답이 갈린다.
+ * ⚠ **트림 규칙이 두 벌이다 — 고칠 때 «둘 다» 보라.**
+ *   여기 `pickTrim` 과 `lib/domain/trim-pick` 이 같은 일을 한다(후자는 `scripts/heal-atom-trim.mts` 가 쓴다).
+ *   실측 2026-09-10 — 둘의 트림 풀이 조금 다르다. 여기는 `variants[].trims` 만 보고,
+ *   `trim-pick` 은 위쪽 `trims` 까지 본다. 갈리면 답이 갈린다 — 합칠 때 그 차이부터 재라.
  */
 // ── 트림 피커(모든 공급사) — 세부모델의 마스터 trims[] 를 원문과 정규화 대조해 세부트림을 뽑는다.
 //   사장님 2026-09-04 「원문에 세부트림 있으면 한 번 원자화하면 되지」. 마스터 trims 에서만 고르므로 지어내지 않는다.
