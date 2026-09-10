@@ -15,7 +15,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
-import { getDatabase } from './lib/disabled-rtdb.mts';
+import { getDatabase } from './lib/firestore-path-store.mts';
 import { getFirestore } from 'firebase-admin/firestore';
 import { FEE_RULES, feeKindOf, feeRuleFor } from '../lib/domain/settlement-fee-table';
 import { settleTargetOf } from '../lib/domain/settlement-stage';
@@ -26,7 +26,7 @@ const N = (v: unknown) => { const n = Number(S(v).replace(/[,\s원₩]/g, '')); 
 const won = (n: number) => Math.round(n).toLocaleString('ko-KR');
 
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
-if (!getApps().length) initializeApp({ credential: cert(sa), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' });
+if (!getApps().length) initializeApp({ credential: cert(sa) });
 const db = getDatabase();
 const fsdb = getFirestore();
 

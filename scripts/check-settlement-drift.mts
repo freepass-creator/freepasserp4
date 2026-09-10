@@ -17,7 +17,7 @@
  *   npx tsx scripts/check-settlement-drift.mts
  */
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
-import { getDatabase } from './lib/disabled-rtdb.mts';
+import { getDatabase } from './lib/firestore-path-store.mts';
 import { getFirestore } from 'firebase-admin/firestore';
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
@@ -41,7 +41,7 @@ const ymd = (v: unknown): string => {
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 if (!getApps().length) {
 const fsdb = getFirestore();
-  initializeApp({ credential: cert(sa), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' });
+  initializeApp({ credential: cert(sa) });
 }
 const jwt = new JWT({ email: sa.client_email, key: sa.private_key, subject: 'pyh@teamjpk.com', scopes: ['https://www.googleapis.com/auth/spreadsheets'] });
 

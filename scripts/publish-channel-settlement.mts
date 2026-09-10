@@ -25,7 +25,7 @@
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
-import { getDatabase } from './lib/disabled-rtdb.mts';
+import { getDatabase } from './lib/firestore-path-store.mts';
 import { getFirestore } from 'firebase-admin/firestore';
 import { CORP } from '../lib/domain/corporate-ci';
 import { payDate, payDayOf, PAY_DAY_BY_SUPPLIER } from '../lib/domain/settlement-cycle';
@@ -67,7 +67,7 @@ const SPLIT_SUPPLIERS = Object.keys(PAY_DAY_BY_SUPPLIER);
 type Keep = [boolean, boolean, number | '', string];
 
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
-if (!getApps().length) initializeApp({ credential: cert(sa), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' });
+if (!getApps().length) initializeApp({ credential: cert(sa) });
 const db = getDatabase();
 /**
  * ★★★**정산 줄은 «파이어스토어»가 정본이다** — 사장님 2026-09-09

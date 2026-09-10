@@ -28,7 +28,7 @@
  *   npx tsx scripts/build-settlement-tabs.mts
  *   npx tsx scripts/build-settlement-tabs.mts --apply
  */
-import { readFileSync, writeFileSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { SETTLEMENT_LEDGER_ID as LEDGER } from '../lib/domain/settlement-ledger';
 
@@ -641,6 +641,7 @@ if (pay.length) {
   if (pay.length > 10) console.log(`     … 외 ${pay.length - 10}줄`);
 }
 
+mkdirSync('tmp', { recursive: true });
 writeFileSync('tmp/settlement-tabs.json', JSON.stringify({ cur: cur.length, cancel: cancel.length, pay: pay.length, done: done.length, filled, cleared }, null, 2));
 if (!APPLY) { console.log('\n※ dry-run — 아무것도 안 썼다.\n'); process.exit(0); }
 

@@ -25,7 +25,7 @@
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
-import { getDatabase } from './lib/disabled-rtdb.mts';
+import { getDatabase } from './lib/firestore-path-store.mts';
 import { getFirestore } from 'firebase-admin/firestore';
 import { SETTLEMENT_LEDGER_ID as LEDGER } from '../lib/domain/settlement-ledger';
 import { feeKindOf, feeRuleFor } from '../lib/domain/settlement-fee-table';
@@ -62,7 +62,7 @@ const roundsOf = (k: string) => { const m = /(\d)\s*회/.exec(S(k)); const n = m
 const COLLECTED: Record<string, string[]> = { '2026-08': ['우리캐피탈'] };
 
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
-if (!getApps().length) initializeApp({ credential: cert(sa), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' });
+if (!getApps().length) initializeApp({ credential: cert(sa) });
 const db = getDatabase();
 const fsdb = getFirestore();
 const jwt = new JWT({ email: sa.client_email, key: sa.private_key, subject: 'pyh@teamjpk.com', scopes: ['https://www.googleapis.com/auth/spreadsheets'] });

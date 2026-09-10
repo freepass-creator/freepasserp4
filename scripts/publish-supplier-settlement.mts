@@ -29,7 +29,7 @@
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
-import { getDatabase } from './lib/disabled-rtdb.mts';
+import { getDatabase } from './lib/firestore-path-store.mts';
 import { getFirestore } from 'firebase-admin/firestore';
 import { CORP } from '../lib/domain/corporate-ci';
 import { dueDate } from '../lib/domain/settlement-cycle';
@@ -62,7 +62,7 @@ const key = (v: unknown) => S(v).toLowerCase().replace(/[\s()·\-_.]/g, '')
   .replace(/(주식회사|㈜|렌터카|렌트카|모빌리티)/g, '');
 
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
-if (!getApps().length) initializeApp({ credential: cert(sa), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' });
+if (!getApps().length) initializeApp({ credential: cert(sa) });
 const db = getDatabase();
 /**
  * ★★★**정산 줄은 «파이어스토어»에서 읽는다** — 사장님 2026-09-09

@@ -21,7 +21,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
-import { getDatabase } from './lib/disabled-rtdb.mts';
+import { getDatabase } from './lib/firestore-path-store.mts';
 import { getFirestore } from 'firebase-admin/firestore';
 
 const S = (v: unknown) => String(v ?? '').trim();
@@ -30,7 +30,7 @@ const won = (n: number) => Math.round(n).toLocaleString('ko-KR');
 const MONTH = S(process.argv.find((a) => /^\d{4}-\d{2}$/.test(a)));
 
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
-if (!getApps().length) initializeApp({ credential: cert(sa), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' });
+if (!getApps().length) initializeApp({ credential: cert(sa) });
 const db = getDatabase();
 const fsdb = getFirestore();
 

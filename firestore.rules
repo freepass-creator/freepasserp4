@@ -1,20 +1,26 @@
 rules_version = '2';
 // [초안] 회사·역할 격리 — 프리패스erp v1~v3 반복된 최대 약점(Rules 미배포, 클라이언트 필터 의존) 해소용.
-// 배포 전 필수: Firebase Auth 커스텀클레임(role, company, agent_code, provider_company_code) 세팅 + 에뮬레이터 테스트.
+// 권한 SSOT: user/{uid} 운영 프로필. Auth 커스텀클레임과 이중 관리하지 않는다.
 // 원칙: 로그인+같은 회사만 read. 하드삭제 전면 금지(소프트삭제 _deleted만). 정산 금액은 관리자만. 감사로그 append-only.
 service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() { return request.auth != null; }
-    function claim(k) { return request.auth.token[k]; }
-    function myCompany(doc) { return doc.companyId == claim('company'); }
-    function isAdmin() { return signedIn() && claim('role') == 'admin'; }
-    function isProvider() { return signedIn() && (claim('role') == 'provider' || claim('role') == 'provider_admin'); }
+    function me() { return get(/databases/$(database)/documents/user/$(request.auth.uid)).data; }
+    function hasProfile() { return signedIn() && exists(/databases/$(database)/documents/user/$(request.auth.uid)); }
+    function active() { return hasProfile()
+      && me().status != 'pending' && me().status != 'deleted' && me().status != 'rejected'
+      && me().is_active != '아니오' && me().is_active != false; }
+    function role() { return me().role; }
+    function myCompany(doc) { return active() && doc.companyId == me().company_code; }
+    function isAdmin() { return active() && role() == 'admin'; }
+    function isProvider() { return active() && (role() == 'provider' || role() == 'provider_admin'); }
+    function isAgent() { return active() && (role() == 'agent' || role() == 'agent_admin' || role() == 'agent_manager'); }
 
     // 매물 — 관리자 전체, 공급사는 자기 회사 매물만 write
     match /product/{id} {
       allow read: if signedIn() && myCompany(resource.data);
       allow create, update: if isAdmin()
-        || (signedIn() && myCompany(request.resource.data) && claim('role') == 'provider' && request.resource.data.provider_company_code == claim('provider_company_code'));
+        || (isProvider() && myCompany(request.resource.data) && request.resource.data.provider_company_code == me().company_code);
       allow delete: if false;
     }
     // 파인더 카탈로그(차번별 원자) — 파는 차 목록은 마켓이라 로그인 전원 read.
@@ -24,11 +30,11 @@ service cloud.firestore {
       allow read: if signedIn();
       allow create: if isAdmin()
         || (isProvider()
-          && request.resource.data.provider_company_code == claim('provider_company_code'));
+          && request.resource.data.provider_company_code == me().company_code);
       allow update: if isAdmin()
         || (isProvider()
-          && resource.data.provider_company_code == claim('provider_company_code')
-          && request.resource.data.provider_company_code == claim('provider_company_code'));
+          && resource.data.provider_company_code == me().company_code
+          && request.resource.data.provider_company_code == me().company_code);
       allow delete: if false;
     }
     // 계약 — 관리자 전체 · 공급사=자기 공급사코드 · 영업자=자기 계약(agent_code=user_code).
@@ -36,18 +42,18 @@ service cloud.firestore {
     //     격리는 provider_company_code / agent_code 로 «직접». (실측: 계약 agent_code = user_code)
     match /contract/{id} {
       allow read: if signedIn() && (isAdmin()
-        || (claim('role') == 'provider' && resource.data.provider_company_code == claim('provider_company_code'))
-        || (claim('role') == 'agent' && resource.data.agent_code == claim('agent_code')));
+        || (isProvider() && resource.data.provider_company_code == me().company_code)
+        || (isAgent() && resource.data.agent_code == me().user_code));
       allow create, update: if signedIn() && (isAdmin()
-        || (claim('role') == 'agent' && request.resource.data.agent_code == claim('agent_code'))
-        || (claim('role') == 'provider' && request.resource.data.provider_company_code == claim('provider_company_code')));
+        || (isAgent() && request.resource.data.agent_code == me().user_code)
+        || (isProvider() && request.resource.data.provider_company_code == me().company_code));
       allow delete: if false;
     }
     // 정산 — read 는 자기 공급사/자기 계약 · 금액 변경(create/update)은 관리자만(공급사 임의 상향 방지).
     match /settlement/{id} {
       allow read: if signedIn() && (isAdmin()
-        || (claim('role') == 'provider' && resource.data.provider_company_code == claim('provider_company_code'))
-        || (claim('role') == 'agent' && resource.data.agent_code == claim('agent_code')));
+        || (isProvider() && resource.data.provider_company_code == me().company_code)
+        || (isAgent() && resource.data.agent_code == me().user_code));
       allow create, update: if isAdmin();
       allow delete: if false;
     }
@@ -109,11 +115,30 @@ service cloud.firestore {
     // 공개 링크는 192-bit 토큰 문서의 단건 get만 허용한다. 익명 제출은
     // 발송→검토대기 전이와 서명 입력 필드만 바꿀 수 있다.
     match /contract_sign/{token} {
-      allow get: if true;
+      allow get: if (resource.data.status == 'sent'
+          && (!('revoked_at' in resource.data) || resource.data.revoked_at == null)
+          && (!('sign_revoked_at' in resource.data) || resource.data.sign_revoked_at == null)
+          && (!('expires_at' in resource.data) || resource.data.expires_at == null || resource.data.expires_at > request.time.toMillis()))
+        || isAdmin()
+        || (isAgent() && (resource.data.agent_uid == request.auth.uid
+          || ((role() == 'agent_admin' || role() == 'agent_manager')
+            && resource.data.agent_channel_code == me().agent_channel_code)));
       allow list: if false;
-      allow create, update: if signedIn();
+      allow create: if isAdmin()
+        || (isAgent() && request.resource.data.agent_uid == request.auth.uid);
+      allow update: if isAdmin()
+        || (isAgent()
+          && request.resource.data.agent_uid == resource.data.agent_uid
+          && (resource.data.agent_uid == request.auth.uid
+            || ((role() == 'agent_admin' || role() == 'agent_manager')
+              && resource.data.agent_channel_code == me().agent_channel_code)));
       allow update: if resource.data.status == 'sent'
+        && (!('revoked_at' in resource.data) || resource.data.revoked_at == null)
+        && (!('sign_revoked_at' in resource.data) || resource.data.sign_revoked_at == null)
+        && (!('expires_at' in resource.data) || resource.data.expires_at == null || resource.data.expires_at > request.time.toMillis())
         && request.resource.data.status == 'pending_review'
+        && request.resource.data.sign_consents == 'rental_terms,privacy,credit,gps,cms'
+        && request.resource.data.sign_consent_version == 'v1'
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'customer_name', 'customer_phone', 'customer_id', 'customer_address',
           'driver_license_no', 'emergency_name', 'emergency_phone',

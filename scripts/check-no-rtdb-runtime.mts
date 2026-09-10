@@ -43,7 +43,9 @@ function checkRetiredScripts(dir: string) {
     if (st.isDirectory()) checkRetiredScripts(path);
     else if (EXT.has(extname(path)) && !path.endsWith('check-no-rtdb-runtime.mts')) {
       const source = readFileSync(path, 'utf8');
-      const hasConnection = /firebase(?:-admin)?\/database|(?:NEXT_PUBLIC_)?FIREBASE_DATABASE_URL|FIREBASE_DATABASE_EMULATOR_HOST|default-rtdb|\.json\?ns=|firebasedatabase\.app|firebaseio\.com|\bgetDatabase\s*\(/i.test(source);
+      const hasDirectConnection = /firebase(?:-admin)?\/database|(?:NEXT_PUBLIC_)?FIREBASE_DATABASE_URL|FIREBASE_DATABASE_EMULATOR_HOST|default-rtdb|\.json\?ns=|firebasedatabase\.app|firebaseio\.com/i.test(source);
+      const hasLegacyFactory = /\bgetDatabase\s*\(/.test(source) && !/firestore-path-store/.test(source);
+      const hasConnection = hasDirectConnection || hasLegacyFactory;
       const hardDisabled = isHardDisabled(source);
       if (hasConnection && !hardDisabled) retiredScripts.push(relative('.', path));
     }
@@ -54,9 +56,16 @@ for (const file of retiredScripts) failures.push(`${file} SCRIPT_NOT_RETIRED RTD
 
 const scriptTargets = (source: string) => [...source.matchAll(/\b(scripts\/[\w./-]+\.(?:mts|mjs|cjs))\b/g)]
   .map((match) => match[1]);
-const runtimeScriptTargets = (source: string) => source.split(/\r?\n/)
-  .filter((line) => /\b(?:run|spawn|spawnSync|execFile|execFileSync|execSync|runTsx)\s*\(/.test(line))
-  .flatMap(scriptTargets);
+// 오케스트레이터는 실행할 파일을 steps의 cmd 배열에 적고 spawnSync는 뒤에서 간접 호출한다.
+// 단순 문서·검사 목록의 파일명은 실행 간선이 아니므로 cmd 배열과 직접 실행 호출만 따라간다.
+const runtimeScriptTargets = (source: string) => [
+  ...[...source.matchAll(/\bcmd\s*:\s*\[([^\]]+)\]/g)].flatMap((match) => scriptTargets(match[1])),
+  ...[...source.matchAll(/\bfile\s*:\s*['"](scripts\/[\w./-]+\.(?:mts|mjs|cjs))['"]/g)].map((match) => match[1]),
+  ...[...source.matchAll(/\b(?:run|spawn|spawnSync|execFile|execFileSync|execSync|runTsx)\s*\(([\s\S]{0,500}?)\)/g)]
+    .flatMap((match) => scriptTargets(match[1])),
+];
+const npmScriptTargets = (source: string) => [...source.matchAll(/['"]npm(?:\.cmd)?['"]\s*,\s*['"]run['"]\s*,\s*['"]([^'"]+)['"]/g)]
+  .map((match) => match[1]);
 const activeRoots: Array<{ target: string; caller: string }> = [];
 for (const driver of ['scripts/hourly-sync.mts', 'scripts/run-daily.mts']) {
   activeRoots.push({ target: driver, caller: 'release-pipeline' });
@@ -90,6 +99,14 @@ while (queue.length) {
       continue;
     }
     for (const child of runtimeScriptTargets(source)) queue.push({ target: child, caller: target });
+    for (const npmName of npmScriptTargets(source)) {
+      const command = packageJson.scripts?.[npmName];
+      if (!command) {
+        failures.push(`${target} ACTIVE_GRAPH_MISSING_NPM_SCRIPT ${npmName}`);
+        continue;
+      }
+      for (const child of scriptTargets(command)) queue.push({ target: child, caller: `package.json#${npmName}` });
+    }
   } catch { /* 대상 존재 여부는 해당 파이프라인/명령 검사가 담당 */ }
 }
 

@@ -16,7 +16,7 @@
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
-import { getDatabase } from './lib/disabled-rtdb.mts';
+import { getDatabase } from './lib/firestore-path-store.mts';
 import { getFirestore } from 'firebase-admin/firestore';
 import { billingMonthIn, lockedMonthsOf, settleTargetOf, type SettlementRow } from '../lib/domain/settlement-stage';
 import { claimOf, payOf } from '../lib/domain/settlement-money';
@@ -32,7 +32,7 @@ const MONTH = S(process.argv.find((a) => /^\d{4}-\d{2}$/.test(a))) || '2026-08';
 const key = (v: unknown) => S(v).toLowerCase().replace(/[\s()·\-_.]/g, '').replace(/(주식회사|㈜|렌터카|렌트카|무심사|모빌리티)/g, '');
 
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
-if (!getApps().length) initializeApp({ credential: cert(sa), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' });
+if (!getApps().length) initializeApp({ credential: cert(sa) });
 const db = getDatabase();
 const fsdb = getFirestore();
 const jwt = new JWT({ email: sa.client_email, key: sa.private_key, subject: 'pyh@teamjpk.com',

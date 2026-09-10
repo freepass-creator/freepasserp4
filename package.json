@@ -16,6 +16,7 @@
     "check:firestore-path-store": "firebase emulators:exec --only firestore --project demo-freepass-path-store \"npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/check-firestore-path-store.mts\"",
     "settlement:sheet": "tsx scripts/run-settlement-sheet.mts",
     "settlement:sheet:apply": "tsx scripts/run-settlement-sheet.mts --apply",
+    "settlement:import": "tsx scripts/import-settlement-from-sheet.mts",
     "settlement:atoms": "tsx scripts/check-settlement-atoms.mts",
     "settlement:pdf": "node scripts/invoice-pdf.mjs",
     "settlement:fit": "node scripts/check-invoice-overflow.mjs",
