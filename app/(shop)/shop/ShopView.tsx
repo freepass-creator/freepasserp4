@@ -536,6 +536,21 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
               */}
               <div style={{ height: HEAD_H, display: 'flex', alignItems: 'center' }}>
                 <ShopCount value={rows === null ? '—' : String(total)} />
+                {/*
+                  ★★**재고 갱신 시각은 «전체차량 대수» 줄 오른쪽 끝이다**
+                    (사장님 2026-09-09 「이거 업데이트 위치 찾았다 — **전체차량 대수 우측정렬로
+                    오면 된다**」 · 2026-09-10 「이거 전체차량 대수 우측정렬로 붙기로 했는데??」).
+
+                  ⚠⚠ 전에는 **목록 기둥 머리**(정렬 고르개 왼쪽)에 있었다. 폰에서는 그 줄에
+                    「전체차량 N대」가 같이 서서 맞아 보였는데, **웹에서는 그 줄에 건수가 없다** —
+                    건수는 왼쪽 기둥 머리에 있고 그 줄은 안내 글("왼쪽에서 조건을 골라…")이다.
+                    그래서 웹에서만 스탬프가 «건수와 다른 기둥»에 서 있었다.
+                  ⇒ 웹은 여기(건수 줄), 폰은 목록 줄 — **둘 다 「건수 오른쪽」이라는 한 규칙**이다.
+                  ★건수와 «같이 움직인다» — 조건칸을 접으면 둘 다 사라진다. 갱신 시각은
+                    「이 숫자가 언제 것인가」라, 숫자 없이 혼자 남으면 무엇의 시각인지 모른다.
+                */}
+                <div style={{ flex: 1 }} />
+                {head.updatedMs ? <ShopUpdatedStamp label={updatedLabelKo(head.updatedMs)} /> : null}
               </div>
               <div style={{
                 border: `1px solid ${C.line2}`, borderRadius: SHOP.r.card,
@@ -577,12 +592,13 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
               )}
               <div style={{ flex: 1 }} />
               {/*
-                ★★**재고 갱신 시각은 여기다**(사장님 2026-09-09 「이거 업데이트 위치 찾았다 —
-                  **전체차량 대수 우측정렬로 오면 된다**」). 머리띠 오른쪽은 «지금»(날짜·시각·날씨)이
-                  주인이고, 갱신 시각은 «이 목록이 언제 것인가»라 건수 줄 옆이 제자리다.
-                ★정렬 고르개 «왼쪽»에 붙어 우측 무리를 이룬다 — 맨 오른쪽은 손이 가는 것(정렬)이 갖는다.
+                ★★**갱신 시각은 «건수 오른쪽»이다** — 그런데 «건수가 어느 줄에 있느냐»가 폰과 웹이 다르다.
+                  폰은 이 줄에 건수(`ShopCount`)가 서므로 여기가 그 자리이고,
+                  **웹은 건수가 왼쪽 기둥 머리에 있으므로 거기다**(위 조건칸 머리).
+                ⚠ 이 갈림을 안 두면 웹에서 스탬프가 «건수와 다른 기둥»에 홀로 선다 — 2026-09-10 까지 그랬다.
+                ★맨 오른쪽은 손이 가는 것(정렬)이 갖는다. 스탬프는 그 왼쪽이다.
               */}
-              {head.updatedMs ? <ShopUpdatedStamp label={updatedLabelKo(head.updatedMs)} /> : null}
+              {mobile && head.updatedMs ? <ShopUpdatedStamp label={updatedLabelKo(head.updatedMs)} /> : null}
               <ShopSort value={query.sort} options={SHOP_SORTS}
                 onChange={(v) => setQuery((q) => ({ ...q, sort: v as ShopSortKey }))} />
             </div>
