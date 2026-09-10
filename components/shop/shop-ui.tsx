@@ -282,15 +282,32 @@ export function ShopTextBtn({ onClick, children, tone = 'mute' }: {
  * `count` 를 주면 아이콘 위에 **작은 숫자 표식**이 붙는다(걸린 조건 수). 0 이면 안 그린다 —
  * 0 을 보여 주는 것은 「없다」를 굳이 말하는 꼴이다.
  */
-export function ShopIconBtn({ onClick, label, tone = 'mute', count, children }: {
+export function ShopIconBtn({ onClick, label, tone = 'mute', count, children, size = 'md', hint }: {
   onClick: () => void; label: string; tone?: 'mute' | 'ink'; count?: number; children: ReactNode;
+  /**
+   * **치수는 «부르는 쪽»이 정한다** — 원자 안에 박지 않는다(집 규격 · `NavBack` 과 같은 이유).
+   * `md` = 제 줄에 홀로 서는 글리프(36/40) · `chip` = **칩 줄에 끼어 서는** 글리프(26/32).
+   * ⚠ 칩 줄에 `md` 를 세우면 줄 높이가 칩(26)이 아니라 글리프(36)로 커져 **줄 전체가 굵어진다.**
+   */
+  size?: 'md' | 'chip';
+  /**
+   * **갖다 대면 뜨는 설명**(사장님 2026-09-10 「갖다 대면 설명 보이게 해주면 안 되나」).
+   * ★브라우저가 그리는 말풍선을 쓴다 — 우리가 그리면 **칩 줄에서 잘린다**(그 줄은
+   *   `overflow-y: hidden` 인 가로 스크롤 줄이라, 위아래로 뜨는 것은 잘려 안 보인다).
+   * ★줄바꿈(`
+`)이 그대로 먹는다 — 두 줄까지가 읽힌다.
+   * ⚠ 폰에는 «갖다 댐»이 없다 — 그래서 설명을 여기에만 두지 않는다(누르면 창이 제 이름을 말한다).
+   */
+  hint?: string;
 }) {
   const mobile = useIsMobile();
-  const size = mobile ? SHOP.icon.mobile : SHOP.icon.web;
+  const box = size === 'chip'
+    ? (mobile ? SHOP.pill.mobile : SHOP.pill.web)
+    : (mobile ? SHOP.icon.mobile : SHOP.icon.web);
   return (
-    <button type="button" onClick={onClick} aria-label={label} className="fp-shop-press"
+    <button type="button" onClick={onClick} aria-label={label} title={hint || label} className="fp-shop-press"
       style={{
-        ...bare, position: 'relative', width: size, height: size,
+        ...bare, position: 'relative', width: box, height: box,
         borderRadius: SHOP.r.ctrl, color: count ? C.brand : tone === 'ink' ? C.ink : C.mute,
       }}>
       {children}

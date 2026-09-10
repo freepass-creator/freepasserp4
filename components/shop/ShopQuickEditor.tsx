@@ -43,9 +43,14 @@ export function ShopQuickEditor({ facets, value, onSave, onClose, saving }: {
   const id = (c: { axis: ShopAxis; key: string }) => `${c.axis}:${c.key}`;
   const on = useMemo(() => new Set(picked.map(id)), [picked]);
 
-  /** 그 값이 지금 몇 대인가 — 집계에서 그대로 읽는다(여기서 세지 않는다). */
+  /**
+    * 그 값이 **재고에 몇 대인가** — 집계에서 그대로 읽는다(여기서 세지 않는다).
+    * ★`count`(지금 조건에서 몇 대)가 아니라 `base`(조건을 다 풀면 몇 대)다 —
+    *   여기는 «가게의 첫 줄»을 짜는 자리라, 지금 손님이 무엇을 걸어 뒀는지와 무관해야 한다.
+    *   조건을 걸어 둔 채 창을 열었다고 「지금 없음」이 되면 **고를 수 있는 것이 조건마다 달라진다.**
+    */
   const countOf = (axis: ShopAxis, key: string) =>
-    facets[axis].find((o) => o.key === key)?.count ?? 0;
+    facets[axis].find((o) => o.key === key)?.base ?? 0;
   /** 화면에 뜰 이름 — 집계가 이미 손님 말로 만들어 둔 이름(`label`)을 쓴다. */
   const labelOf = (axis: ShopAxis, key: string) =>
     facets[axis].find((o) => o.key === key)?.label || key;
@@ -154,7 +159,7 @@ export function ShopQuickEditor({ facets, value, onSave, onClose, saving }: {
             여기서 올립니다 — <strong style={{ color: C.mute }}>지금 재고에 있는 조건만</strong> 나옵니다
           </div>
           {SHOP_AXES.map((axis) => {
-            const opts = facets[axis].filter((o) => o.count > 0 && !on.has(`${axis}:${o.key}`));
+            const opts = facets[axis].filter((o) => o.base > 0 && !on.has(`${axis}:${o.key}`));
             if (!opts.length) return null;   // 값이 없는 축은 아예 안 그린다(빈 제목을 세우지 않는다)
             return (
               <div key={axis} style={{ marginTop: SHOP.sp.cozy }}>

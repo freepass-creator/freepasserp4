@@ -920,24 +920,34 @@ must(/wl\.tel/.test(read('app/q/[code]/ShopDetailView.tsx')),
 }
 
 /*
- * **빠른조건은 «있는 필터»만 올린다** — 사장님 2026-09-10 「퀵필터가 **진짜로 있는 필터**가
- * 들어가야 하는데」 · 「**있는 필터를 잠시 옮겨놓은 느낌**이어야 하잖아」 · 「**있는 필터만** 갖다 놓겠음」.
+ * **조건칸은 «쭈구러들지» 않는다 — 줄은 그대로, 숫자만 0 이 된다** (2026-09-10 확정)
  *
- * ★지키는 방법이 «두 겹»이라 두 겹을 다 잠근다.
- *   ㉠ **고르는 화면**(`ShopQuickEditor`)은 조건칸과 «같은 집계»(`facets`)에서 목록을 만들고
- *      건수 0 을 뺀다 — 손으로 적는 칸이 없어야 「없는 조건」이 애초에 안 들어온다.
- *   ㉡ **그리는 화면**(`ShopView`)도 건수 0 이면 칩을 안 세운다 — 저장해 둔 뒤 재고가 빠질 수 있다.
- * ⚠ 어느 한 겹이라도 풀리면 손님이 눌러 0건이 뜨는 칩이 첫 줄에 선다. 그건 「없어 보이는」 화면의
- *   가장 빠른 길이다. 되돌리려면 먼저 여쭙는다.
+ * 사장님 「필터는 **연동형 필터 아니고** 그냥 누른다고 해서 **다 없어지면 안 되는데**」 ·
+ * 「그냥 기존 필터에서 **숫자가 0으로 바뀌면** 되잖아 **이게 쭈구러 든다**고」.
+ *
+ * ★명단·차례는 **재고 전체**(`base`)가 정하고, 숫자만 **지금 조건**(`count`)이 정한다.
+ *   ⚠ 전에는 `count === 0` 이면 줄을 뺐다 — 손님이 「SUV」 하나만 눌러도 제조사 열둘이 셋으로
+ *     줄고 차급 줄이 절반 사라졌다. 조건칸은 «지도»라 모양이 흔들리면 제 위치를 잃는다.
+ * ★그래서 **빠른조건 칩도 `base` 로 판정한다** — 「지금 0대」로 칩을 걷으면 조건을 누를 때마다
+ *   칩 줄까지 같이 쭈그러든다(같은 사고가 두 군데에서 난다).
+ * ⚠ 재고에 «아예 없는» 값은 여전히 안 선다(`base > 0`) — 그건 「지금 0」이 아니라 「원래 없다」다.
+ *   그 두 겹이 사장님 2026-09-10 「**있는 필터만** 갖다 놓겠음」을 지킨다.
  */
 {
   const editor = read('components/shop/ShopQuickEditor.tsx');
-  must(/facets\[axis\]\.filter\(\(o\) => o\.count > 0/.test(editor),
+  const query = read('lib/shop/query.ts');
+  must(/\.filter\(\(o\) => o\.base > 0\)/.test(query) && !/\.filter\(\(o\) => o\.count > 0\)/.test(query),
+    '조건칸이 다시 «쭈구러듭니다» — 건수 0 인 줄을 빼면, 조건 하나 누를 때마다 보던 줄이 사라집니다.',
+    'lib/shop/query.ts · docs/DESIGN_CONFIRMED_SHOP.md §12');
+  must(/count: live\.get\(key\) \|\| 0, base/.test(query),
+    '조건칸 숫자가 «지금 조건»을 안 봅니다 — 줄은 그대로 두되 숫자는 교차 집계여야 합니다.',
+    'lib/shop/query.ts · docs/DESIGN_CONFIRMED_SHOP.md §12');
+  must(/facets\[axis\]\.filter\(\(o\) => o\.base > 0/.test(editor),
     '빠른조건을 «있는 값»이 아닌 데서 고르게 됐습니다 — 고르는 목록은 조건칸과 같은 집계(facets)에서 옵니다.',
-    'components/shop/ShopQuickEditor.tsx · docs/DESIGN_CONFIRMED_SHOP.md §빠른조건');
-  must(/facets\[k\.axis\]\.some\(\(o\) => o\.key === k\.key && o\.count > 0\)/.test(shopView),
-    '빠른조건 칩이 «건수 0» 인데도 서게 됐습니다 — 눌러도 0건인 칩이 첫 줄에 섭니다.',
-    'app/(shop)/shop/ShopView.tsx · docs/DESIGN_CONFIRMED_SHOP.md §빠른조건');
+    'components/shop/ShopQuickEditor.tsx · docs/DESIGN_CONFIRMED_SHOP.md §11');
+  must(/facets\[k\.axis\]\.some\(\(o\) => o\.key === k\.key && o\.base > 0\)/.test(shopView),
+    '빠른조건 칩이 «지금 건수»로 사라집니다 — 조건을 누를 때마다 칩 줄이 같이 쭈그러듭니다.',
+    'app/(shop)/shop/ShopView.tsx · docs/DESIGN_CONFIRMED_SHOP.md §11');
 }
 
 if (fails.length) {
