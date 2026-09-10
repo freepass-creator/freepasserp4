@@ -76,8 +76,17 @@ export const SETTLEMENT_FIELDS: AtomField[] = [
   // ── 날 ───────────────────────────────────────────────
   { key: 'receivedAt', label: '접수일', group: '날', type: 'string', from: '접수일', empty: '', note: 'YYYY-MM-DD' },
   { key: 'deliveredAt', label: '인도일', group: '날', type: 'string', from: '인도일', empty: '' },
-  { key: 'delivered', label: '인도됨', group: '날', type: 'boolean', from: null, empty: false, note: '인도일이 있으면 참' },
-  { key: 'paper', label: '계약 완료', group: '날', type: 'boolean', from: '인도완료', empty: false },
+  /**
+   * ★★**접수 시트의 «체크 둘»이 여기로 온다** — 담당자가 접수 뒤에 켜는 것이 이 둘이다.
+   *   사장님 2026-09-09 「접수한 애들 인도완료 이런 거 체크해야 하는데 … 거기 박스랑 이런 것들 있는데,
+   *   그거 그대로 가져오자고 한 건데」
+   *
+   * ⚠ 2026-09-09 까지 **이름과 원천이 어긋나 있었다** — 시트는 「계약서」·「인도완료」 두 칸인데
+   *   원자는 「인도완료」를 `paper`(계약 완료)로 받고 있었다. 둘은 다른 일이다:
+   *   계약서는 «썼나», 인도완료는 «차가 나갔나». 나가야 청구월이 박힌다.
+   */
+  { key: 'paper', label: '계약서', group: '날', type: 'boolean', from: '계약서', empty: false, note: '계약서를 썼나' },
+  { key: 'delivered', label: '인도완료', group: '날', type: 'boolean', from: '인도완료', empty: false, note: '차가 나갔나 — 나가야 청구월이 박힌다' },
   { key: 'cancelled', label: '취소', group: '날', type: 'boolean', from: '취소', empty: false },
   { key: 'billMonth', label: '청구월', group: '날', type: 'string', from: '청구년/청구월', empty: '', note: '★이 줄이 «어느 달»에 서는가. 비면 어느 달에도 안 선다' },
 
@@ -89,6 +98,14 @@ export const SETTLEMENT_FIELDS: AtomField[] = [
   { key: 'settledAlready', label: '정산 완료', group: '정산 축', type: 'boolean', from: '계약번호(메모)', empty: false },
   { key: 'vatIncluded', label: '부가세 포함', group: '정산 축', type: 'boolean', from: '계약번호(메모)', empty: false, note: '적힌 금액이 VAT 포함 — 낼 때 나눈다' },
   { key: 'settleNote', label: '산정 조건', group: '정산 축', type: 'string', from: '계약번호(메모)', empty: '', note: '축으로 옮긴 말을 «말로도» 남긴다' },
+  /**
+   * ★**접수 갈래** — 사장님 2026-09-10 「접수할 때 **영업수수료 · 인센티브** 이런 식으로 표현해 주면 돼.
+   *   **기본 영업수수료가 기본 세팅**이고」. 앞서 조건 줄에 「지원금」 단추를 따로 뒀는데,
+   *   사장님: 「지원금은 필요 없지 — **직접 접수로 눌러서 지원금 형태로 주면 되니까**」.
+   *   ⇒ 단추를 없애고 접수 칸의 «갈래» 한 칸으로 모았다. 빈 값은 「영업수수료」다.
+   * ⚠ 지난 줄에는 이 밭이 없다 — 비어 있으면 «영업수수료»로 읽는다(빈 값이 곧 기본이라 이관이 필요 없다).
+   */
+  { key: 'intakeKind', label: '접수 갈래', group: '정산 축', type: 'string', from: null, empty: '영업수수료', note: '영업수수료 · 인센티브 · 업무지원비' },
 
   // ── 상태 ─────────────────────────────────────────────
   { key: 'stage', label: '지금 어디', group: '상태', type: 'string', from: null, empty: '접수', note: '두 축을 모은 한 낱말 — 물으면 이걸 답한다' },
