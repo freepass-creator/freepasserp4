@@ -65,8 +65,9 @@ export type GenLineupLike = {
  * @param l      라인업(또는 모델 본체)
  * @param engine 그 줄이 고른 엔진 라벨(「가솔린 3.5T」)
  * @param conditionals 모델 `options.conditionals` 문자열(있으면)
+ * @param variant 그 줄의 «분류»(라인업 이름 + 트림) — 「스포츠 3.5T 기본포함」 같은 단서를 가릴 때 쓴다
  */
-export function includedNames(l: GenLineupLike, engine: string, conditionals?: string): string[] {
+export function includedNames(l: GenLineupLike, engine: string, conditionals?: string, variant = ''): string[] {
   const out: string[] = [];
   const bc = S(l.baseConfig);
   if (bc) {
@@ -88,10 +89,19 @@ export function includedNames(l: GenLineupLike, engine: string, conditionals?: s
       if (S(c.note)) out.push(...piecesOf(S(c.note)));
     }
   }
-  /* 모델 conditionals — 「뱅올=스포츠 3.5T 기본포함(중복금지)」 꼴. 엔진이 언급된 마디만 본다. */
+  /* 모델 conditionals — 「뱅올=스포츠 3.5T 기본포함(중복금지)」 꼴.
+     ⚠⚠ **「스포츠」를 버리면 안 된다.** 그 단서를 흘려 3.5T «전부»에 적용했더니,
+       일반 G80 3.5T 에서 **뱅앤올룹슨 1,900,000원이 목록·토글·합계에서 사라졌다**
+       (2026-09-10 개발센터 4-AI 관문 · 독립 Claude A · 실데이터 재현).
+       기본 포함이 아닌 것을 「이미 샀다」고 접으면 **팔 물건이 없어진다.**
+     ⇒ 마디에 «분류»(스포츠·블랙·라운지·표준)가 적혀 있으면 그 줄이 **그 분류일 때만** 본다. */
+  const CLASS = /(스포츠|블랙|라운지|표준|기본)/g;
   for (const clause of S(conditionals).split('·')) {
     if (!/기본\s*포함/.test(clause)) continue;
     if (!engineTokens(engine).some((t) => clause.includes(t))) continue;
+    const head = clause.split('=')[1] ?? clause;
+    const classes = [...head.matchAll(CLASS)].map((m) => m[1]).filter((c) => c !== '기본');
+    if (classes.length && !classes.some((c) => S(variant).includes(c))) continue;
     const name = /^\s*([^=]+)=/.exec(clause)?.[1];
     if (name) out.push(S(name));
   }

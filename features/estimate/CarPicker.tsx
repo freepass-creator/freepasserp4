@@ -128,17 +128,14 @@ export default function CarPicker({ open, mode, onClose, onPick, inline, options
   const fuels = useMemo(() => (model ? [...new Set(model.trims.map((t) => t.fuel))] : []), [model]);
   const trimRows = useMemo(() => (model ? model.trims.filter((t) => !fuel || t.fuel === fuel) : []), [model, fuel]);
 
-  // 옵션 — price 0 은 「기본 포함」이라 고르는 대상이 아니다(피드 규격).
-  const optionRows = useMemo(() => (nTrim?.options ?? []).filter((o) => o && o.name), [nTrim]);
   /**
-   * 기아는 가격표 PDF 를 «좌표»로 읽어 옵션 «이름»이 조각으로 온다(「옵션3」). **가격은 정확하다**
-   * (docs/신차마스터-피드.md). 이름이 조각인 채로 두면 영업자가 무엇을 고르는지 모른 채 값만 올린다 —
-   * 그러면 고르지 않는다. ⇒ 조각이 섞이면 화면이 «그렇다고 말한다». 숨기지도, 지어내지도 않는다.
+   * ★★**이 시트는 «차»만 고른다.** 옵션은 왼쪽 별도 칸(`#sec-options`)이 `option-rules` 의
+   *   빗장 셋을 거쳐 고른다. 여기서 셈만 남겨 두면 다음 사람이 그 목록을 다시 켠다 —
+   *   그리고 그 목록은 빗장을 하나도 안 거친다(2026-09-10 독립 Claude B).
+   * ⇒ 고른 옵션은 **빈 목록**이고, 차량가는 트림값 그대로다. 옵션값은 «밖»에서 더해진다.
    */
-  const optNamesPartial = useMemo(() => optionRows.some((o) => /^옵션\s*\d+$/.test(o.name.trim())), [optionRows]);
-  const chosen = useMemo(() => optionRows.filter((o) => Number(o.price) > 0 && opts[o.name]), [optionRows, opts]);
-  const optSum = chosen.reduce((n, o) => n + (Number(o.price) || 0), 0);
-  const newTotal = nTrim ? trimPrice(nTrim) + optSum : 0;
+  const chosen: { name: string; price: number }[] = [];
+  const newTotal = nTrim ? trimPrice(nTrim) : 0;
 
   if (!open) return null;
 
@@ -283,45 +280,13 @@ export default function CarPicker({ open, mode, onClose, onPick, inline, options
               </div>
 
               {/* ★옵션을 «밖»에서 고를 때는 이 칸이 통째로 없다 — 두 군데서 고르면 어느 값이 이겼는지 모른다. */}
-              {nTrim && !optionsOutside ? (
-                <div className="card">
-                  <div className="step"><span className="no">3</span>옵션<span className="veh dim">{optionRows.length ? `${optionRows.length}개` : '미수집'}</span></div>
-                  {optionRows.length ? optionRows.map((o) => {
-                    const base = !(Number(o.price) > 0);
-                    const on = !base && !!opts[o.name];
-                    return (
-                      <button key={o.name} type="button" className={`oprow${on ? ' on' : ''}${base ? ' base' : ''}`}
-                        onClick={() => { if (!base) setOpts((s) => ({ ...s, [o.name]: !s[o.name] })); }}>
-                        <span className="bx"><IconCheck /></span>
-                        <span className="on2">{o.name}</span>
-                        <span className="ov">{base ? '기본' : `+${man(o.price)}원`}</span>
-                      </button>
-                    );
-                  }) : (
-                    <div style={{ fontSize: 12, color: 'var(--ink-4)', lineHeight: 1.7 }}>
-                      이 트림의 옵션은 <b>아직 안 들어왔습니다</b>. 「옵션이 없다」가 아니라 「아직 못 받았다」입니다 —
-                      제조사 가격표에서 연료가 안 잡힌 트림은 틀린 옵션을 붙이지 않으려고 비워 둡니다.
-                    </div>
-                  )}
-                  {optNamesPartial ? (
-                    <div className="prules">
-                      <b>옵션 이름이 일부만 들어왔습니다</b> — 제조사 가격표를 좌표로 읽어 이름이 조각난 것이고,
-                      <b> 가격은 정확합니다</b>. 이름이 필요하면 제조사 가격표를 함께 보세요.
-                    </div>
-                  ) : null}
-                  {nTrim.rules?.length ? (
-                    <div className="prules">
-                      <b>조합규칙</b> — {nTrim.rules.slice(0, 4).join(' · ')}
-                      {nTrim.rules.length > 4 ? ` 외 ${nTrim.rules.length - 4}건` : ''}
-                      <br />※ 아직 <b>글</b>로만 있습니다. 규칙이 원자로 정의되면 여기서 «고를 수 없게» 막습니다.
-                    </div>
-                  ) : null}
-                  <div className="psum">
-                    차량가 <b>{won(newTotal)}</b>
-                    {optSum ? <> · 기본 {man(trimPrice(nTrim))} + 옵션 {man(optSum)}</> : null}
-                  </div>
-                </div>
-              ) : null}
+              {/* ★★**옵션은 여기서 안 고른다** — 2026-09-08 확정대로 왼쪽 «별도 칸»(`#sec-options`)에서 고른다.
+                  ⚠⚠ 예전에는 이 자리에 «평면» 옵션 목록이 있었다. 그 목록은 `option-rules` 의 빗장 셋
+                    (이미 산 것 · 안 파는 것 · 규칙 위반)을 **하나도 안 거쳐고**, 유료 색상이 섞이면
+                    `colorAdd` 와 **두 번** 더해졌다(2026-09-10 개발센터 4-AI 관문 · 독립 Claude B —
+                    K8 시그니처 파노라마 선루프 한 장이 218만).
+                    `optionsOutside` 로 «꺼» 두었을 뿐이라, 누가 그 깃발 없이 부르면 돈이 다시 산다.
+                  ⇒ 끄지 말고 **걷어낸다.** 두 군데서 고르면 어느 값이 이겼는지 모른다. */}
             </>
           ) : null}
         </div>

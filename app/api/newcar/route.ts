@@ -19,8 +19,10 @@ function localTrimsFallback(): any[] {
       const b = basisOf(m as Parameters<typeof basisOf>[0]);
       out.push({ maker: '제네시스', sub_model: String(m.model || ''), carType: String(m.model || ''), fuel: String(m.fuel || ''),
         trim: '기본',
-        priceBefore: b.basis === '세제혜택 전' ? b.price : 0,
-        priceAfter: b.basis === '세제혜택 전' ? 0 : b.price,
+        /* 「후」로 확인된 것만 `priceAfter` 로 보낸다. 「기준 미확인」은 «전으로 단정하지 않고»
+           값을 `priceBefore` 에 두되 `priceBasis` 로 **모른다고 말한다**. */
+        priceBefore: b.basis === '세제혜택 후' ? 0 : b.price,
+        priceAfter: b.basis === '세제혜택 후' ? b.price : 0,
         priceBasis: b.basis, options: [], _fallback: true });
     }
   } catch { /* skip */ }

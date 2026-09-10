@@ -73,8 +73,10 @@ export const trimPrice = (t: { priceBefore?: number; priceAfter?: number } | nul
   Number(t?.priceBefore) || Number(t?.priceAfter) || 0;
 
 /** 그 값이 «어느 기준»인가 — 손님 견적서가 이 말을 적는다. */
-export const trimBasis = (t: { priceBefore?: number; priceAfter?: number } | null | undefined): string =>
-  Number(t?.priceBefore) ? '세제혜택 전' : (Number(t?.priceAfter) ? '세제혜택 후' : '');
+export const trimBasis = (t: { priceBefore?: number; priceAfter?: number; priceBasis?: string } | null | undefined): string =>
+  /* ★피드가 «말해 준» 기준이 있으면 그것이 이긴다 — 「기준 미확인」을 우리가 「전/후」로
+     뭉개면 «모른다»가 «안다»로 바뀐다(2026-09-10 · 독립 Claude D). */
+  String(t?.priceBasis ?? '').trim() || (Number(t?.priceBefore) ? '세제혜택 전' : (Number(t?.priceAfter) ? '세제혜택 후' : ''));
 
 /**
  * ★★**판매가격 세제감면**(개별소비세·교육세) = 제조사가 준 「전 − 후」.

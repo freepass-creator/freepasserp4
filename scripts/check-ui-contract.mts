@@ -98,8 +98,11 @@ const RAW_ALLOW = new Map<string, Allow>([
     reason: '폰 견적 마법사 — 머리 견적서 · 상품 두 줄 · 발 이전/다음(원본 MobileApp 짜임)',
   }],
   ['features/estimate/CarPicker.tsx', {
-    counts: { button: 12, input: 1, select: 0 },
-    reason: '견적 차 고르기 시트 — 중고(차종마스터)·신차(신차마스터) 두 갈래를 한 시트에서',
+    counts: { button: 11, input: 1, select: 0 },
+    reason: '견적 차 고르기 시트 — 중고(차종마스터)·신차(신차마스터) 두 갈래를 한 시트에서. '
+      + '★2026-09-10 에 12 → 11 로 «낮췄다» — 시트 안 «평면 옵션 목록»을 걷어낸 자리다. '
+      + '그 목록은 option-rules 의 빗장 셋을 하나도 안 거쳤고 유료 색상이 colorAdd 와 두 번 더해졌다. '
+      + '옵션은 왼쪽 별도 칸(#sec-options)에서만 고른다(2026-09-08 확정).',
   }],
   ['app/estimate/cost/page.tsx', {
     counts: { button: 3, input: 2, select: 0 },

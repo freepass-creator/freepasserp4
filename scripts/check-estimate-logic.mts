@@ -17,7 +17,8 @@ import { readFileSync } from 'node:fs';
 import { splitNote, readRule, rulesFrom, priceOf } from '../lib/domain/estimate/option-note';
 import { impliedOf } from '../lib/domain/estimate/implied-options';
 import { modelKey, basisOf, expandGenesis } from '../lib/domain/estimate/genesis-lineup';
-import { matchIncluded } from '../lib/domain/estimate/genesis-included';
+import { matchIncluded, includedNames } from '../lib/domain/estimate/genesis-included';
+import { computeTerm } from '../lib/domain/estimate/calc.js';
 import { trimPrice, trimBasis, trimSaleTaxCredit } from '../lib/domain/estimate/car-index';
 import { splitAxis } from '../lib/domain/estimate/newcar-normalize';
 import { optionList, optionSum, isEnabled, toggleOption, type OptionSpec } from '../lib/domain/estimate/option-rules';
@@ -1242,9 +1243,23 @@ for (const f of ['scripts/backfill-newcar-names.mts', 'scripts/ingest-newcar-opt
     minMax: { min: 84790000, minConfig: '세제혜택 후 최저(스탠다드 2WD/단일AWD, 개소세5%)',
       variants: { 'AWD 세제후': 84790000, '세제전': 89080000 } } };
   const b1 = basisOf(g80ev);
-  must(b1.price === 89080000 && b1.basis === '세제혜택 전',
-    `「세제전」이 «적혀 있는데» 안 씁니다 — ${b1.price.toLocaleString('ko-KR')}원 / ${b1.basis}`,
+  /* ⚠⚠ **여기 적혀 있던 기대값이 «틀렸다».** 「세제전」이라 적힌 변형을 아무거나 집어
+     그 값으로 갈아 끼우라고 해 놨는데, 그러면 **다른 구성의 값**이 기본 트림에 선다 —
+     GV60 은 {「스탠2WD 세제후」64,900,000 · 「스탠**AWD** 세제전」72,080,000} 이라
+     기본 트림이 **718만원 비싼 AWD 값**이 됐다(2026-09-10 · 독립 Claude E).
+     ⇒ 값은 언제나 `min`(그 모델의 기본 구성)이고, 우리가 하는 일은 «이름을 바로 붙이는 것»뿐이다. */
+  must(b1.price === 84790000 && b1.basis === '세제혜택 후',
+    `기본 구성의 값·이름이 아닙니다 — ${b1.price.toLocaleString('ko-KR')}원 / ${b1.basis}`,
     'lib/domain/estimate/genesis-lineup.ts basisOf');
+  /* ★다른 구성의 값을 «끌어오지» 않는다 — GV60 실데이터. */
+  const gv60 = basisOf({ model: 'GV60', base: 64900000, minMax: { min: 64900000,
+    variants: { '스탠2WD 세제후': 64900000, '스탠AWD 세제전': 72080000, '퍼포먼스AWD 세제전': 76680000 } } });
+  must(gv60.price === 64900000 && gv60.basis === '세제혜택 후',
+    `다른 구성(AWD)의 값을 기본 트림에 세웁니다 — ${gv60.price.toLocaleString('ko-KR')}원 / ${gv60.basis}. 718만원 비쌉니다`,
+    'lib/domain/estimate/genesis-lineup.ts basisOf');
+  /* ★값과 이름이 «같은 구성»일 때만 「전」이라 한다. */
+  must(basisOf({ model: 'X', base: 100, minMax: { min: 100, variants: { '세제전': 100, '세제후': 90 } } }).basis === '세제혜택 전',
+    '같은 값에 「세제전」이 적혀 있는데 안 씁니다', 'lib/domain/estimate/genesis-lineup.ts basisOf');
 
   /* 「전」이 없고 「후」라고 적혀 있으면 — 값은 쓰되 «후»라고 말한다. 지어내지 않는다. */
   const onlyAfter = { model: 'X-EV', base: 1000, minMax: { min: 1000, minConfig: '세제후 최저', variants: {} } };
@@ -1471,6 +1486,71 @@ must(impliedOf({ htrac: { name: 'HTRAC' } }, '전기 롱레인지 2WD', 'Prestig
   must(optionSum(선행, new Set(['b'])) === 0 && optionSum(선행, new Set(['a', 'b'])) === 300,
     '선행을 안 갖춘 옵션이 합계에 듭니다 — 있을 수 없는 차의 값이 나갑니다',
     'lib/domain/estimate/option-rules.ts optionSum');
+}
+
+/* ══ 22. ★★★**엔진을 «돌려서» 잰다** — 되찾은 돈에 검사가 없었다 ═══════════════
+     ⚠ §19 는 「netPrice 줄에 saleTaxCredit 가 있나」를 «문자열»로만 봤고,
+       `car-index.ts` 가 그 값을 실어 보내는지는 **어느 게이트도 안 봤다**
+       (2026-09-10 개발센터 4-AI 관문 · 독립 Claude C). 340만원이 게이트 없이 매달려 있었다.
+     ⇒ 진짜 트림으로 `computeTerm` 을 두 번 돌려 **금액이 실제로 달라지는지** 본다. */
+{
+  const base = {
+    channel: 'rent', type: 'return', price: 83290000, cc: 0, fuel: 'ev',
+    accident: 'none', mileage: 0, year: 2026, nowYear: 2026, credit: '중신용',
+    depositPct: 10, prepayPct: 0, evSubsidy: 0, group: 'B', residualRates: null,
+  };
+  const run = (c: number) =>
+    computeTerm(48, { ...base, saleTaxCredit: c } as never, { idx: 48 } as never) as Record<string, number>;
+  const 없이 = run(0); const 있게 = run(4120000);
+  const diff = Math.round(없이.payVat) - Math.round(있게.payVat);
+  must(diff > 0,
+    `판매가격 세제감면이 대여료에 «안 먹습니다» — 월납 차이 ${diff.toLocaleString('ko-KR')}원. `
+    + '전기·하이브리드 견적이 그만큼 비쌉니다',
+    'lib/domain/estimate/calc.js saleTaxCredit');
+  /* ★취득가·보증금·잔가가 «다 같이» 내려가야 한다 — 한 군데만 내려가면 기준이 또 갈린다. */
+  must(있게.costEx < 없이.costEx && 있게.deposit < 없이.deposit && 있게.residualAmt < 없이.residualAmt,
+    '감면이 취득가에만 먹고 보증금·잔가에는 안 먹습니다 — 한 견적 안에서 기준이 갈립니다',
+    'lib/domain/estimate/calc.js netPrice');
+  /* ⚠ **딱 «한 번»만 빠지는가.** 감면액만큼(VAT 제외) 취득원가가 내려가야 한다 —
+     더 내려가면 어딘가에서 또 빼는 것이고, 덜 내려가면 안 먹는 것이다.
+     ⚠ 업금액(markup)이 가격구간을 넘나들면 더 움직일 수 있어 «최소»로 잰다. */
+  const dropped = Math.round(없이.costEx) - Math.round(있게.costEx);
+  const expect = Math.round(4120000 / 1.1);
+  must(dropped >= expect - 2,
+    `감면이 취득원가에 덜 먹습니다 — ${dropped.toLocaleString('ko-KR')}원 내려감(적어도 ${expect.toLocaleString('ko-KR')}원)`,
+    'lib/domain/estimate/calc.js costEx');
+  must(dropped <= expect + 2 + Math.abs(Math.round(없이.priceTotal) - Math.round(있게.priceTotal) - 4120000),
+    `감면이 «두 번» 빠집니다 — ${dropped.toLocaleString('ko-KR')}원 내려감(들어야 할 값 ${expect.toLocaleString('ko-KR')}원)`,
+    'lib/domain/estimate/calc.js costEx');
+
+  /* ★★고른 차가 그 값을 «싣고» 오는가 — 엔진이 받을 길이 없으면 위 검사는 헛것이다. */
+  must(trimSaleTaxCredit({ priceBefore: 83290000, priceAfter: 79170000 }) === 4120000
+    && code('lib/domain/estimate/car-index.ts').includes('saleTaxCredit: trimSaleTaxCredit(t)'),
+    '고른 차가 판매가격 세제감면을 안 싣습니다 — 화면이 엔진에 넘길 값이 없습니다',
+    'lib/domain/estimate/car-index.ts pickNew');
+}
+
+/* ══ 23. 「모른다」를 「안다」로 뭉개지 않는다 (독립 Claude D·E) ═══════════════════ */
+{
+  /* 23-1. 피드가 「기준 미확인」이라 말하면 그대로 전한다 — 우리가 「전/후」로 단정하지 않는다. */
+  must(trimBasis({ priceBefore: 79740000, priceAfter: 0, priceBasis: '기준 미확인' }) === '기준 미확인',
+    '피드가 「기준 미확인」이라 했는데 「전」이라 단정합니다 — 손님 문서에 틀린 말이 찍힙니다',
+    'lib/domain/estimate/car-index.ts trimBasis');
+  must(trimBasis({ priceBefore: 83290000, priceAfter: 79170000 }) === '세제혜택 전',
+    '기준을 말 안 해 주는 줄에서 못 짚습니다', 'lib/domain/estimate/car-index.ts trimBasis');
+
+  /* 23-2. ★정본이 「스포츠 3.5T 기본포함」이라 적으면 **스포츠일 때만**이다.
+     그 단서를 흘려 3.5T 전부에 적용했더니 일반 G80 3.5T 에서 뱅앤올룹슨 190만이 «사라졌다». */
+  const g80 = JSON.parse(read('data/new-car/genesis-config-fs.json')) as { models?: Record<string, unknown>[] };
+  const m = ((g80.models ?? (g80 as unknown as Record<string, unknown>[])) as Record<string, unknown>[])
+    .find((x) => x.model === 'G80') as Parameters<typeof includedNames>[0] & { options?: { conditionals?: string } };
+  const cond = m?.options?.conditionals;
+  must(!includedNames(m, '가솔린 3.5T', cond, '').includes('뱅올'),
+    '일반 3.5T 에서 「뱅앤올룹슨」을 「이미 샀다」고 지웁니다 — 190만원짜리 유료 옵션이 사라집니다',
+    'lib/domain/estimate/genesis-included.ts includedNames');
+  must(includedNames(m, '가솔린 3.5T', cond, '스포츠').includes('뱅올'),
+    '스포츠 3.5T 에서는 「뱅앤올룹슨」이 기본인데 또 팝니다',
+    'lib/domain/estimate/genesis-included.ts includedNames');
 }
 
 if (fails.length) {

@@ -48,9 +48,13 @@ export type GenesisBasis = { price: number; basis: '세제혜택 전' | '세제�
 export function basisOf(m: { model?: string; fuel?: string; base?: number; minMax?: { min?: number; minConfig?: string; variants?: Record<string, unknown> } }): GenesisBasis {
   const mm = m.minMax ?? {};
   const vs = (mm.variants ?? {}) as Record<string, unknown>;
-  const before = Object.entries(vs).find(([k]) => /세제전/.test(k));
-  if (before && Number(before[1]) > 0) return { price: Number(before[1]), basis: '세제혜택 전' };
+  /* ⚠⚠ **다른 «구성»의 값을 끌어오지 않는다.** 예전에는 「세제전」이라 적힌 변형을 아무거나 집었는데,
+     GV60 variants 는 {「스탠2WD 세제후」64,900,000 · 「스탠**AWD** 세제전」72,080,000} 이라
+     기본 트림이 **718만원 비싼 AWD 값**으로 섰다(2026-09-10 · 독립 Claude E).
+     ⇒ 값은 언제나 `min`(그 모델의 «기본 구성»)이다. 우리가 하는 일은 **이름을 바로 붙이는 것**뿐이다. */
   const price = Number(mm.min ?? m.base ?? 0) || 0;
+  const beforeSame = Object.entries(vs).find(([k, v]) => /세제전/.test(k) && Number(v) === price);
+  if (beforeSame) return { price, basis: '세제혜택 전' };
   const said = `${S(mm.minConfig)} ${Object.keys(vs).join(' ')}`;
   if (/세제후|세제혜택\s*후/.test(said)) return { price, basis: '세제혜택 후' };
   /* ★표시가 없으면 피드 정본의 규칙을 따른다 — 「모든 가격 = 개별소비세 5% 기준」.
@@ -116,7 +120,8 @@ function rowsOf(base: number, groups: Group[] | undefined, trimPrefix: string, r
          갈리면 파워트레인 칸에 같은 엔진이 두 이름으로 선다. */
       /* ★★그 줄에 «이미 들어 있는» 것을 같이 싣는다 — 안 실으면 기본 포함을 또 판다
          (G80 3.5T 의 ECS 110만 · GV80 블랙의 AWD 300만 · Codex #4). */
-      const included = lineup ? includedNames(lineup, label(e) || rowFuel, conditionals) : [];
+      /* ★그 줄의 «분류»를 같이 넘긴다 — 라인업 이름(블랙·표준)과 트림이 분류다. */
+      const included = lineup ? includedNames(lineup, label(e) || rowFuel, conditionals, `${trimPrefix} ${trim}`) : [];
       out.push({ fuel: canonFuel(label(e) || rowFuel), trim: trim || '기본',
         price: base + addWon(e) + addWon(d), ...(included.length ? { included } : {}) });
     }
