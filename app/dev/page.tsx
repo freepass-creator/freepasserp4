@@ -493,7 +493,9 @@ export default function DevTools() {
       render: () => (
         <FormCard title="바로가기">
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-            <Btn href="/settlement/board" size="sm" variant="ghost">정산 콕핏</Btn>
+            {/* ★직원이 «온종일 열어 두는» 화면이 먼저 선다 — 콕핏은 폰용이다. */}
+            <Btn href="/settlement/intake" size="sm" variant="ghost">정산 접수(워크스테이션)</Btn>
+            <Btn href="/settlement/board" size="sm" variant="ghost">정산 콕핏(폰)</Btn>
             <Btn href="/inventory" size="sm" variant="ghost">{NAV_LABEL.inventory}</Btn>
             <Btn href="/audit" size="sm" variant="ghost">감사로그</Btn>
             <Btn href="/data-check" size="sm" variant="ghost">데이터점검</Btn>
