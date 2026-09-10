@@ -75,25 +75,51 @@ const S = (v: unknown) => String(v ?? '').trim();
  *   `<colgroup>` 이 폭의 정본이고(fixed 표에서 이것이 이긴다), 같은 배열로 판에 세로선을 그린다.
  */
 const 자 = (ws: number[]) => {
+  /**
+   * ⚠★★**마지막 칸은 폭을 «안» 준다** — 4-AI 적대 검증 2026-09-10에서 잡힌 치명 결함.
+   *   `.cl-grid table { width: 100% }` 이라 판이 표보다 넓으면 `table-layout: fixed` 가
+   *   **남는 폭을 모든 칸에 비례로 나눠 준다.** 그런데 세로선은 «절대 px»이라 제자리에 남는다.
+   *   ⇒ 1920 모니터에서 상품 목록 마지막 선이 **459px 왼쪽**에 그려졌다 —
+   *     선이 판 왼쪽 3분의 1에 뭉치고 오른쪽은 텅 빈다. 1280 노트북에서만 우연히 맞았다.
+   *   ★고치는 법은 원본이 이미 적어 뒀다(이 파일 위 「fixed 로 두면 … 남는 자리는 «폭 0(자동)»인
+   *     한 칸이 다 가져간다. 화면마다 그 칸을 하나씩 뒀다」).
+   *     ⇒ **마지막 칸만 자동**으로 두면 앞의 모든 칸 경계가 px 로 굳고, 세로선이 언제나 맞는다.
+   */
   const 폭 = ws.reduce((a, b) => a + b, 0);
   let x = 0, prev = 0;
   const 토막: string[] = [];
   for (const w of ws.slice(0, -1)) {
     x += w;
-    토막.push(`transparent ${prev}px ${x - 1}px`, `var(--칸선) ${x - 1}px ${x}px`);
+    /**
+     * ★선은 «칸 경계를 한가운데 두고» 앉는다 — `border-collapse: collapse` 의 1px 칸선이
+     *   실제로는 `[x−0.5, x+0.5]` 에 그려지기 때문이다(실측). 앞서 `[x−1, x)` 로 그려
+     *   표와 그림이 만나는 이음매에 **반 픽셀** 어긋남이 남았다.
+     */
+    토막.push(`transparent ${prev}px ${x - 0.5}px`, `var(--칸선) ${x - 0.5}px ${x + 0.5}px`);
     prev = x;
   }
   토막.push(`transparent ${prev}px 100%`);
   return {
-    cols: <colgroup>{ws.map((w, i) => <col key={i} style={{ width: w }} />)}</colgroup>,
+    cols: (
+      <colgroup>
+        {ws.map((w, i) => <col key={i} style={i === ws.length - 1 ? undefined : { width: w }} />)}
+      </colgroup>
+    ),
     /** 판이 이 둘을 읽어 빈 자리를 그린다 — `classic.css` 의 `.cl-grid::after`. */
     style: { '--표폭': `${폭}px`, '--세로자': `linear-gradient(to right, ${토막.join(',')})` } as React.CSSProperties,
   };
 };
 
 /** 칸 자 — 표마다 하나씩. 머리줄 `<th>` 에 폭을 적지 않는다(둘이 갈린다). */
-const 자_상품 = 자([58, 84, 76, 78, 44, 62, 62, 54, 36, 38, 66, 56, 38, 74, 58]);
+const 자_상품 = 자([58, 84, 76, 76, 44, 62, 62, 54, 36, 38, 66, 56, 38, 74, 58]);
+/**
+ * ⓘ **이것만 «함수»인 까닭** — `INTAKE_COLS` 가 이 줄보다 «아래»에 선언돼 있어서다.
+ *   상수로 바꾸면 TDZ `ReferenceError` 로 모듈이 통째로 안 뜬다.
+ *   ★값은 갈리지 않는다 — 자·머리줄이 둘 다 `INTAKE_COLS` 한 곳에서 읽는다.
+ */
 const 자_접수 = () => 자(INTAKE_COLS.map((c) => c.w));
+const 자_청구 = 자([130, 48, 96, 96, 104, 96, 110, 66, 180]);
+const 자_넘길 = 자([84, 64, 100, 62, 78, 78, 90, 180]);
 const 자_실적 = 자([62, 84, 64, 120, 84, 76, 64, 38, 62, 54, 78, 78, 78, 62, 150]);
 
 const man = (n: number) => (n ? Math.round(n / 10000).toLocaleString('ko-KR') : '');
@@ -882,20 +908,20 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
                   <thead>
                     <tr>
                       <th>납입</th>
-                      <th style={{ width: 84 }}>차량번호</th>
-                      <th style={{ width: 64 }}>고객</th>
-                      <th style={{ width: 120 }}>모델명</th>
-                      <th style={{ width: 84 }}>공급사</th>
-                      <th style={{ width: 76 }}>영업채널</th>
-                      <th style={{ width: 64 }}>영업담당</th>
-                      <th className="cl-num" style={{ width: 38 }}>개월</th>
-                      <th className="cl-num" style={{ width: 62 }}>청구월</th>
-                      <th className="cl-num" style={{ width: 54 }}>회차</th>
-                      <th className="cl-num" style={{ width: 78 }}>청구액(만)</th>
-                      <th className="cl-num" style={{ width: 78 }}>지급액(만)</th>
-                      <th className="cl-num" style={{ width: 78 }}>우리 몫(만)</th>
-                      <th className="cl-num" style={{ width: 62 }}>넘길 달</th>
-                      <th style={{ width: 150 }}>비고</th>
+                      <th>차량번호</th>
+                      <th>고객</th>
+                      <th>모델명</th>
+                      <th>공급사</th>
+                      <th>영업채널</th>
+                      <th>영업담당</th>
+                      <th className="cl-num">개월</th>
+                      <th className="cl-num">청구월</th>
+                      <th className="cl-num">회차</th>
+                      <th className="cl-num">청구액(만)</th>
+                      <th className="cl-num">지급액(만)</th>
+                      <th className="cl-num">우리 몫(만)</th>
+                      <th className="cl-num">넘길 달</th>
+                      <th>비고</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -945,7 +971,7 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
               *     보완할 수 있어야 한다」. 무엇이 얼마나 깎였는지 보이지 않으면 보완할 수가 없다.
               */}
             {tab === '청구' && (
-              <div className="cl-grid">
+              <div className="cl-grid" style={자_청구.style}>
                 <div className="cl-crumb">
                   청구 — {board.month}
                   <span className="cl-note">공급사 {board.suppliers.length}곳</span>
@@ -953,17 +979,18 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
                   <span className="cl-note">발행 {board.suppliers.filter((x) => x.issued).length} / {board.suppliers.length}</span>
                 </div>
                 <table>
+                  {자_청구.cols}
                   <thead>
                     <tr>
-                      <th style={{ width: 130 }}>공급사</th>
-                      <th className="cl-num" style={{ width: 48 }}>건</th>
-                      <th className="cl-num" style={{ width: 96 }}>정산액(만)</th>
-                      <th className="cl-num" style={{ width: 96 }}>환수(만)</th>
-                      <th className="cl-num" style={{ width: 104 }}>공급가액(만)</th>
-                      <th className="cl-num" style={{ width: 96 }}>부가세(만)</th>
-                      <th className="cl-num" style={{ width: 110 }}>합계(만)</th>
-                      <th className="cl-mid" style={{ width: 66 }}>계산서</th>
-                      <th style={{ width: 180 }}>가감 사유</th>
+                      <th>공급사</th>
+                      <th className="cl-num">건</th>
+                      <th className="cl-num">정산액(만)</th>
+                      <th className="cl-num">환수(만)</th>
+                      <th className="cl-num">공급가액(만)</th>
+                      <th className="cl-num">부가세(만)</th>
+                      <th className="cl-num">합계(만)</th>
+                      <th className="cl-mid">계산서</th>
+                      <th>가감 사유</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1001,21 +1028,30 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
                   *   손오공 잔여·선지급·환수처럼 «달을 건너는» 것이 여기 선다.
                   *   보이지 않으면 다음 달에 또 잊는다.
                   */}
-                {board.carry.length > 0 && (
-                  <>
-                    <div className="cl-crumb" style={{ marginTop: 6 }}>
+              </div>
+            )}
+            {/**
+              * ★★**넘길 것은 «자기 판»에 선다** — 4-AI 적대 검증 2026-09-10.
+              *   앞서 청구 표와 «한 판»을 썼다. 판 하나에 세로자(`--세로자`)는 하나뿐인데
+              *   두 표는 칸도 폭도 다르다 — 그래서 빈 자리의 세로선이 한쪽만 맞았다.
+              *   ★판 하나 = 표 하나 = 자 하나. 그 셋이 어긋나면 세로선은 반드시 틀어진다.
+              */}
+            {tab === '청구' && board.carry.length > 0 && (
+                  <div className="cl-grid" style={자_넘길.style}>
+                    <div className="cl-crumb">
                       넘길 것 <b>{board.carry.length}</b>건
                       <span className="cl-note">다음 달 청구·지급에 얹힌다</span>
                     </div>
                     <table>
+                      {자_넘길.cols}
                       <thead><tr>
-                        <th style={{ width: 84 }}>차량번호</th>
-                        <th style={{ width: 64 }}>고객</th>
-                        <th style={{ width: 100 }}>공급사</th>
-                        <th className="cl-num" style={{ width: 62 }}>넘길 달</th>
-                        <th className="cl-num" style={{ width: 90 }}>청구(만)</th>
-                        <th className="cl-num" style={{ width: 90 }}>지급(만)</th>
-                        <th className="cl-num" style={{ width: 90 }}>미리 받은(만)</th>
+                        <th>차량번호</th>
+                        <th>고객</th>
+                        <th>공급사</th>
+                        <th className="cl-num">넘길 달</th>
+                        <th className="cl-num">청구(만)</th>
+                        <th className="cl-num">지급(만)</th>
+                        <th className="cl-num">미리 받은(만)</th>
                         <th>사유</th>
                       </tr></thead>
                       <tbody>
@@ -1033,9 +1069,7 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
                         ))}
                       </tbody>
                     </table>
-                  </>
-                )}
-              </div>
+                  </div>
             )}
           </main>
 
@@ -1182,21 +1216,21 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
                         * 앞서 이름 없는 «점» 칸을 세웠더니 머리줄이 비어 표가 어정쩡해졌다.
                         * 고전 ERP 표는 «머리 없는 칸»을 두지 않는다 — 칸이 있으면 이름이 있다.
                         */}
-                      <th style={{ width: 58 }}>상태</th>
-                      <th style={{ width: 84 }}>차량번호</th>
-                      <th style={{ width: 76 }}>차종</th>
-                      <th style={{ width: 76 }}>트림</th>
-                      <th className="cl-num" style={{ width: 44 }}>연식</th>
-                      <th className="cl-num" style={{ width: 62 }}>주행(만km)</th>
-                      <th style={{ width: 62 }}>연료</th>
-                      <th style={{ width: 54 }}>차급</th>
-                      <th className="cl-num" style={{ width: 36 }}>인승</th>
-                      <th style={{ width: 38 }}>색</th>
-                      <th style={{ width: 66 }}>공급사</th>
-                      <th style={{ width: 56 }}>상품</th>
-                      <th className="cl-num" style={{ width: 38 }}>개월</th>
-                      <th className="cl-num" style={{ width: 74 }}>월대여료(만)</th>
-                      <th className="cl-num" style={{ width: 58 }}>보증금(만)</th>
+                      <th>상태</th>
+                      <th>차량번호</th>
+                      <th>차종</th>
+                      <th>트림</th>
+                      <th className="cl-num">연식</th>
+                      <th className="cl-num">주행(만km)</th>
+                      <th>연료</th>
+                      <th>차급</th>
+                      <th className="cl-num">인승</th>
+                      <th>색</th>
+                      <th>공급사</th>
+                      <th>상품</th>
+                      <th className="cl-num">개월</th>
+                      <th className="cl-num">월대여료(만)</th>
+                      <th className="cl-num">보증금(만)</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -1242,7 +1276,7 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
                     <tr>
                       {INTAKE_COLS.map((c) => (
                         <th key={c.key} className={`${c.num ? 'cl-num' : ''}${c.mid ? ' cl-mid' : ''} sortable${sortKey === c.key ? ' on' : ''}`}
-                          style={{ width: c.w }} onClick={() => flipSort(c.key)} title={c.title || c.label}>
+                          onClick={() => flipSort(c.key)} title={c.title || c.label}>
                           {c.label}{c.unit ? <i>{c.unit}</i> : null}
                           {sortKey === c.key ? <span className="cl-sort">{sortAsc ? '▲' : '▼'}</span> : null}
                         </th>
