@@ -1507,7 +1507,24 @@
 .cl .cl-side-go { margin-top: auto; padding: var(--사이큼); border-top: 1px solid var(--줄선); background: var(--띠); }
 .cl .cl-side-go .cl-go { width: 100%; height: 28px; font-size: 12px; font-weight: 700; }
 .cl .cl-tree-head { display: flex; align-items: center; gap: 8px; }
-.cl .cl-menu.on { background: rgba(255, 255, 255, .22); font-weight: 700; }
+/**
+ * ★★원본에서 메뉴바는 «장식»이라 `cursor: default` 다 — 우리 것은 «누른다».
+ *   누를 것을 안 눌리게 그려 두면 사람이 못 찾는다(되돌아가기 단추로 한 번 겪었다).
+ *   고른 것은 «눌린 채»로 있는다 — 지금 어디인지를 색이 아니라 «깊이»로 말한다.
+ */
+.cl .cl-menu { cursor: pointer; }
+.cl .cl-menu.on { background: rgba(255, 255, 255, .22); box-shadow: var(--눌림); font-weight: 700; }
+
+/** 오른쪽 끝 — 「가는 길(실적·청구)」과 「지금 상태(재고 건수)」를 선 하나로 가른다. */
+.cl .cl-msep {
+  width: 1px; align-self: stretch; margin: 5px 6px;
+  background: rgba(255, 255, 255, .18);
+}
+/**
+ * 미리보기 표식 — 남색 띠 위 글자라 밝아야 읽힌다.
+ * ★색은 공용 규격의 «어두운 바탕 글자»(app/규격.css --어둠글)를 그대로 쓴다 — 새로 짓지 않는다.
+ */
+.cl .cl-preview { padding: 3px 9px; color: #8fd3ff; font-size: 11px; }
 
 /* ══ 상세 — 사진 · 제원 전부. 가로를 넓혔다 ════════════════════════════
    ★사장님 2026-09-10 「정보는 현재 있는 원자들 다 때려넣을 수 있어야 되지」

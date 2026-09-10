@@ -75,7 +75,7 @@ const SPEC_LABEL: Record<string, string> = {
   photo_link: '사진', reborncar_product_id: '원천 상품ID',
 };
 
-const pickList = (cars: CarLite[], key: 'fuel' | 'cls' | 'product' | 'supplier' | 'color') => {
+const pickList = (cars: CarLite[], key: 'fuel' | 'cls' | 'product' | 'supplier' | 'color' | 'maker') => {
   const m = new Map<string, number>();
   for (const c of cars) { const v = S(c[key]); if (v) m.set(v, (m.get(v) || 0) + 1); }
   return [...m].sort((a, b) => b[1] - a[1]).map(([v, n]) => ({ v, n }));
@@ -95,6 +95,7 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
   const [maxDep, setMaxDep] = useState('');
   const [minYear, setMinYear] = useState('');
   const [maxKm, setMaxKm] = useState('');
+  const [maker, setMaker] = useState('');
   const [color, setColor] = useState('');
   const [perk, setPerk] = useState('');
   const [onlyOk, setOnlyOk] = useState(true);
@@ -152,6 +153,7 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
       if (cls && c.cls !== cls) return false;
       if (prod && c.product !== prod) return false;
       if (sup && c.supplier !== sup) return false;
+      if (maker && c.maker !== maker) return false;
       if (color && c.color !== color) return false;
       /** ★우대조건 — 셈은 서버가 정본(`hasPerk`)으로 해 뒀다. 화면은 «고르기»만 한다. */
       if (perk && !(c.perks || []).includes(perk)) return false;
@@ -164,7 +166,7 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
       if (t && !`${c.plate}${c.name}${c.trim}${c.supplier}${c.product}${c.cls}${c.fuel}${c.color}`.replace(/\s/g, '').includes(t)) return false;
       return true;
     }).sort((a, b) => (a.rent || 9e9) - (b.rent || 9e9)).slice(0, 400);
-  }, [board, q, fuel, cls, prod, sup, maxRent, maxDep, minYear, maxKm, color, perk, onlyOk]);
+  }, [board, q, fuel, cls, prod, sup, maxRent, maxDep, minYear, maxKm, maker, color, perk, onlyOk]);
 
   /** 줄을 누르면 오른쪽에 상세가 뜬다. 요금표는 그때 따로 묻는다. */
   const pick = async (c: CarLite) => {
@@ -244,6 +246,7 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
   const sups = pickList(board.cars, 'supplier');
   /** ★연식·색상·우대는 «있는 것만» 세운다 — 0건짜리를 고르게 두면 빈 목록이 나온다. */
   const years = [...new Set(board.cars.map((c) => Number(c.year)).filter((y) => y > 2000))].sort((a, b) => b - a);
+  const makers = pickList(board.cars, 'maker');
   const colors = pickList(board.cars, 'color');
   const perkCnt = new Map<string, number>();
   for (const c of board.cars) for (const pk of c.perks || []) perkCnt.set(pk, (perkCnt.get(pk) || 0) + 1);
@@ -257,10 +260,15 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
     <div className="cl">
       <div className="cl-menubar">
         <span className="cl-logo">FREEPASS ERP</span>
-        {(['접수', '실적', '청구'] as const).map((t) => (
-          <span key={t} className={`cl-menu${tab === t ? ' on' : ''}`} onClick={() => setTab(t)}>{t}</span>
+        {/** ★접수 = 이 화면의 «집»이다. 그래서 이름이 «홈»이고 왼쪽 첫 자리에 선다. */}
+        <span className={`cl-menu${tab === '접수' ? ' on' : ''}`} onClick={() => setTab('접수')}>홈</span>
+        {preview && <span className="cl-preview">미리보기 — 지어낸 값</span>}
+        <span className="cl-sp" />
+        {/** 오른쪽 끝 = «다른 데로 가는 길». 왼쪽의 «여기가 어디냐»와 갈라 둔다. */}
+        {(['실적', '청구'] as const).map((x) => (
+          <span key={x} className={`cl-menu${tab === x ? ' on' : ''}`} onClick={() => setTab(x)}>{x}</span>
         ))}
-        {preview && <span className="cl-menu" style={{ color: '#ffd28a' }}>미리보기 — 지어낸 값</span>}
+        <span className="cl-msep" />
         <span className="cl-user">
           재고 {board.cars.length}대 · 접수대기 {board.intake.length}건{todo ? ` · 할 일 ${todo}` : ''}
         </span>
@@ -273,6 +281,9 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
               <div className="cl-crumb">{tab}</div>
               <div className="cl-note" style={{ padding: 16 }}>
                 «{tab}» 은 아직 안 만들었습니다 — 접수부터 끝내고 옵니다(설계서 §7).
+                <div style={{ marginTop: 10 }}>
+                  <button type="button" className="cl-btn" onClick={() => setTab('접수')}>← 홈으로</button>
+                </div>
               </div>
             </div>
           </main>
@@ -290,29 +301,11 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
               <input className="cl-find" type="text" value={q} autoFocus
                 placeholder="차번 · 차종 · 트림 · 색으로 찾기"
                 onChange={(e) => setQ(e.target.value)} />
-              <select value={fuel} onChange={(e) => setFuel(e.target.value)}>
-                <option value="">연료 전체</option>
-                {fuels.map((x) => <option key={x.v} value={x.v}>{x.v} ({x.n})</option>)}
-              </select>
-              <select value={cls} onChange={(e) => setCls(e.target.value)}>
-                <option value="">차급 전체</option>
-                {clss.map((x) => <option key={x.v} value={x.v}>{x.v} ({x.n})</option>)}
-              </select>
-              <select value={prod} onChange={(e) => setProd(e.target.value)}>
-                <option value="">상품 전체</option>
-                {prods.map((x) => <option key={x.v} value={x.v}>{x.v} ({x.n})</option>)}
-              </select>
-              <select value={sup} onChange={(e) => setSup(e.target.value)}>
-                <option value="">공급사 전체</option>
-                {sups.map((x) => <option key={x.v} value={x.v}>{x.v} ({x.n})</option>)}
-              </select>
               {/**
-                * ★★**많이 찾는 것은 «사다리»로** — 사장님 2026-09-10
-                *   「차종구분 대여료 보증금 연식 주행거리 색상 우대(무보증·21세·경력무관) …
-                *    이런 식으로 많이 찾는 거 드랍다운으로 빠르게 찾을 수 있게끔」
-                *   ⚠ 앞서 대여료를 «손으로 치는 칸»으로 뒀다. 전화하며 0 을 하나 더 치거나 덜 치면
-                *     엉뚱한 목록을 손님에게 읽어 주게 된다. 사다리는 그 실수를 원천에서 없앤다.
-                *   ★끊는 자리는 «손님이 묻는 단위»다 — 「50만 이하 있어요?」 「2만km 안 넘는 거로」
+                * ★★**차례는 «손님이 묻는 차례»다** — 사장님 2026-09-10
+                *   「자주 쓰는 거부터 앞으로 둬야지 — 대여료 보증금 제조사 차종구분 색상 연식 주행거리 연료 우대」
+                *   앞서 나는 «데이터가 있는 차례»로 세웠다. 그건 우리 사정이지 손님 사정이 아니다.
+                *   ⚠ 여기 차례를 바꿀 때는 «왜 그 자리인지»가 있어야 한다 — 통화 중에 눈이 외운 자리다.
                 */}
               <select value={maxRent} onChange={(e) => setMaxRent(e.target.value)}>
                 <option value="">대여료 전체</option>
@@ -327,6 +320,18 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
                   <option key={v} value={v}>{`${v / 10000}만 이하`}</option>
                 ))}
               </select>
+              <select value={maker} onChange={(e) => setMaker(e.target.value)}>
+                <option value="">제조사 전체</option>
+                {makers.map((x) => <option key={x.v} value={x.v}>{x.v} ({x.n})</option>)}
+              </select>
+              <select value={cls} onChange={(e) => setCls(e.target.value)}>
+                <option value="">차종구분 전체</option>
+                {clss.map((x) => <option key={x.v} value={x.v}>{x.v} ({x.n})</option>)}
+              </select>
+              <select value={color} onChange={(e) => setColor(e.target.value)}>
+                <option value="">색상 전체</option>
+                {colors.map((x) => <option key={x.v} value={x.v}>{x.v} ({x.n})</option>)}
+              </select>
               <select value={minYear} onChange={(e) => setMinYear(e.target.value)}>
                 <option value="">연식 전체</option>
                 {years.map((y) => <option key={y} value={y}>{y}년 이상</option>)}
@@ -337,19 +342,28 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
                   <option key={v} value={v}>{`${v / 10000}만km 이하`}</option>
                 ))}
               </select>
-              <select value={color} onChange={(e) => setColor(e.target.value)}>
-                <option value="">색상 전체</option>
-                {colors.map((x) => <option key={x.v} value={x.v}>{x.v} ({x.n})</option>)}
+              <select value={fuel} onChange={(e) => setFuel(e.target.value)}>
+                <option value="">연료 전체</option>
+                {fuels.map((x) => <option key={x.v} value={x.v}>{x.v} ({x.n})</option>)}
               </select>
               <select value={perk} onChange={(e) => setPerk(e.target.value)}>
                 <option value="">우대 전체</option>
                 {perkList.map((x) => <option key={x.v} value={x.v}>{x.v} ({x.n})</option>)}
               </select>
+              {/** 상품·공급사는 «우리 사정»이라 뒤에 둔다 — 손님이 묻는 말이 아니다. */}
+              <select value={prod} onChange={(e) => setProd(e.target.value)}>
+                <option value="">상품 전체</option>
+                {prods.map((x) => <option key={x.v} value={x.v}>{x.v} ({x.n})</option>)}
+              </select>
+              <select value={sup} onChange={(e) => setSup(e.target.value)}>
+                <option value="">공급사 전체</option>
+                {sups.map((x) => <option key={x.v} value={x.v}>{x.v} ({x.n})</option>)}
+              </select>
               <label className="cl-chk">
                 <input type="checkbox" checked={onlyOk} onChange={(e) => setOnlyOk(e.target.checked)} /> 출고가능만
               </label>
               <button type="button" className="cl-btn"
-                onClick={() => { setQ(''); setFuel(''); setCls(''); setProd(''); setSup(''); setMaxRent(''); setMaxDep(''); setMinYear(''); setMaxKm(''); setColor(''); setPerk(''); setOnlyOk(true); }}>조건 지우기</button>
+                onClick={() => { setQ(''); setFuel(''); setCls(''); setProd(''); setSup(''); setMaxRent(''); setMaxDep(''); setMinYear(''); setMaxKm(''); setMaker(''); setColor(''); setPerk(''); setOnlyOk(true); }}>조건 지우기</button>
               {DIRECT.map((k) => (
                 <button key={k} type="button" className={`cl-btn${direct === k ? ' cl-btn-p' : ''}`} onClick={() => openDirect(k)}>{k}</button>
               ))}

@@ -221,6 +221,9 @@ export async function GET(req: Request) {
         plate: S(v.car_number),
         name: [S(v.maker), S(v.model), S(v.sub_model)].filter((x, i, a) => x && a.indexOf(x) === i).join(' '),
         trim: S(v.trim_name),
+        /** ★제조사는 따로 내보낸다 — 이름(「현대 아반뗰」)에서 첫 낱말을 떼어 쓰면
+         *   「제네시스 G80」·「포르쉐 911」 같은 두 낱말짜리에서 틀린다. 원자를 그대로 실는다. */
+        maker: S(v.maker),
         supplier: S(v.provider_name), product: S(v.product_type), year: S(v.year), status: S(v.vehicle_status),
         fuel: S(v.fuel_type), cls: S(v.vehicle_class), km: N(v.mileage), seats: N(v.seats), color: S(v.ext_color),
         rent: best?.rent || 0, deposit: best?.deposit || 0, term: best?.term || '',

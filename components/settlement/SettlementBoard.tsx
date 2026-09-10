@@ -42,7 +42,7 @@ export type Car = {
 };
 /** 재고 한 대 — «고르는 데 필요한 것»만. 요금표는 고른 뒤에 따로 묻는다. */
 export type CarLite = {
-  plate: string; name: string; trim: string; supplier: string; product: string; year: string; status: string;
+  plate: string; name: string; trim: string; maker: string; supplier: string; product: string; year: string; status: string;
   fuel: string; cls: string; km: number; seats: number; color: string;
   /** 대표 요금 — «제일 싼 기간». 손님이 먼저 묻는 것이다. */
   rent: number; deposit: number; term: string;
