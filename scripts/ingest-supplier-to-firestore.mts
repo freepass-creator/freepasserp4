@@ -219,7 +219,7 @@ const depositNote = (raw: string) => {
 };
 
 // ── 원천 리더 — 종류마다 «우리필드 키 행(Row)»을 낸다. 원자화는 하나로 공유한다. ──────
-type Row = { car: string; link?: string; status: string; kind: string; maker: string; model: string; vname: string; trim: string; fuel: string; ext: string; int: string; km: string; opt: string; firstReg: string; cc: string; klass: string; price: Price; depNote: string; tab: string; row: string };
+type Row = { car: string; link?: string; base?: string; status: string; kind: string; maker: string; model: string; vname: string; trim: string; fuel: string; ext: string; int: string; km: string; opt: string; firstReg: string; cc: string; klass: string; price: Price; depNote: string; tab: string; row: string };
 const blank: Omit<Row, 'car' | 'tab' | 'row'> = { status: '', kind: '', maker: '', model: '', vname: '', trim: '', fuel: '', ext: '', int: '', km: '', opt: '', firstReg: '', cc: '', klass: '', price: {}, depNote: '' };
 
 // 번호판 꼴만 차로 본다 — 헤더 밑 제목·프로모 배너·빈 행이 «차»로 새는 걸 막는다(오토플러스 실측).
@@ -315,13 +315,14 @@ async function readRows(): Promise<Row[]> {
        *   ⇒ 필드 = 「유료옵션」(`tcarPaidOptions`). 티카는 중고차라 추가구매가 안 돼 대부분 null
        *     (237대 중 69대만) — 나머지 빈칸은 «선택옵션 없이 기본트림으로 산 차»라 **정상**이다.
        *
-       * ⚠ **`options`(장착사양) 배열은 «옵션이 아니다».** 그건 그 트림에 «기본 장착된» 전 사양이다 —
-       *   264도8252(그랜저 캘리그래피)의 헤드업·통풍·전동시트도 그 «트림 기본»이지 따로 고른 옵션이 아니다.
-       *   (2026-09-10 에 이걸 «옵션»으로 착각해 배열에서 추리려다 정정받음. options 는 안 읽는다.)
-       * ⚠ 손오공(SON_NO_KONG)은 유료옵션도 비어 온다 — 그럼 빈 값(원천이 「선택옵션 없음」을 준 것).
+       * ★**`options`(장착사양) 배열 = «기본옵션»** — 웹·모바일 앱이 「기본옵션」으로 보여 주는 그것.
+       *   전 티카에 있다(238/238). 264도8252의 헤드업·통풍·전동시트가 여기 있다. 선택옵션이 아니라 기본옵션이다.
+       *   ⇒ «둘 다» 담는다: 옵션칸(`options`/원문.옵션)=선택옵션(유료옵션) · 별도 `기본옵션` 필드=options 배열.
+       *   (2026-09-10 사장님 「티카 옵션 다 있다 — 웹·모바일에 다 있는데」. 앞서 기본옵션을 버렸다가 정정.)
+       * ⚠ 손오공(SON_NO_KONG)은 둘 다 비어 온다 — 그럼 빈 값(원천이 「옵션 없음」을 준 것).
        */
       const 선택옵션 = S(c.유료옵션);
-      push({ car, link: 픽업링크.get(N(car)) || '', status, kind, maker: S(c.제조사), model: S(c.모델), vname: S(c.차명) || S(c.세부), fuel: S(c.연료), ext: S(c.외장), int: S(c.내장), km: c.주행거리 == null ? '' : String(c.주행거리), opt: 선택옵션, firstReg: S(c.최초등록) || S(c.연식), cc: c.배기량 == null ? '' : String(c.배기량), klass: '', price, tab: '손오공API', row: S(c.id) });
+      push({ car, link: 픽업링크.get(N(car)) || '', base: S(c.옵션), status, kind, maker: S(c.제조사), model: S(c.모델), vname: S(c.차명) || S(c.세부), fuel: S(c.연료), ext: S(c.외장), int: S(c.내장), km: c.주행거리 == null ? '' : String(c.주행거리), opt: 선택옵션, firstReg: S(c.최초등록) || S(c.연식), cc: c.배기량 == null ? '' : String(c.배기량), klass: '', price, tab: '손오공API', row: S(c.id) });
     }
     return out;
   }
@@ -494,6 +495,7 @@ function atomize(row: Row, pinned: Map<string, Record<string, unknown>>): Atom {
     ...(Object.keys(row.price).length ? { price: row.price } : null),
     ...(row.depNote ? { deposit_note: row.depNote } : null),   // 「무보증」처럼 «말»로 적힌 보증금 — 빈칸으로 두지 않는다
     ...(S(row.link) ? { tica_link: S(row.link) } : null),   // 픽업구독 「차번링크」 — 원천이 줄 때만(빈 값으로 아는 링크를 덮지 않는다)
+    ...(S(row.base) ? { 기본옵션: S(row.base) } : null),   // 앱 「기본옵션」(options 배열=트림 장착사양). 선택옵션과 «별도» — 전 티카에 있다
     _pin_state: state,
     원문: { 차명: vname, ...(row.opt ? { 옵션: row.opt } : null) },
     /**
@@ -665,11 +667,11 @@ if (VARIABLE) {
       const 옵션갈이 = !STATUS_ONLY && src.kind === 'sonokong';
       /** ★견주는 자리에 «원문.옵션»도 넣는다 — 시트가 그 칸을 읽으므로 그게 안 맞으면 고친 티가 안 난다. */
       const 옛원문옵션 = S(((c as Record<string, unknown>).원문 as Record<string, unknown> | undefined)?.옵션);
-      const oMoved = 옵션갈이 && (S(a.options) !== S(c.options) || 옛원문옵션 !== S(a.options));
+      const oMoved = 옵션갈이 && (S(a.options) !== S(c.options) || 옛원문옵션 !== S(a.options) || S(a.기본옵션) !== S(c.기본옵션));
       if (!sMoved && !mMoved && !pMoved && !lMoved && !oMoved) continue;
       const upd: Record<string, unknown> = { _var_polled_at: Date.now() };
       for (const f of VAR_FIELDS) if (a[f] !== undefined && a[f] !== '') upd[f] = a[f];
-      if (oMoved) { upd.options = S(a.options); }
+      if (oMoved) { upd.options = S(a.options); upd.기본옵션 = S(a.기본옵션); }
       /**
        * ⚠⚠ **시트가 읽는 칸은 `options` 가 아니라 «원문.옵션»이다**(`sales-atom-row` 「옵션(원문)」).
        *   실측 2026-09-10 — `options` 만 갈았더니 원자는 비었는데 **시트는 옛 45줄을 그대로 찍었다.**
