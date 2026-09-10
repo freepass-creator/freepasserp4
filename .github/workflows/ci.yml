@@ -35,6 +35,9 @@ jobs:
       - name: 상품찾기 격자 — 행 수 = 자식 수
         run: npm run check:finder-rows
 
+      - name: Sync contract guards
+        run: npm run check:sync
+
       - name: Sim — 시트 병합(soft-merge·락 보호)
         run: npx tsx scripts/sim-sheet-merge.mts
 
