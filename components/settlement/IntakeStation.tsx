@@ -926,9 +926,13 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
               </label>
               <button type="button" className="cl-btn"
                 onClick={() => { setQ(''); setFuel(''); setCls(''); setProd(''); setSup(''); setMaxRent(''); setMaxDep(''); setMinYear(''); setMaxKm(''); setMaker(''); setColor(''); setPerk(''); setOnlyOk(true); }}>조건 지우기</button>
-              {DIRECT.map((k) => (
-                <button key={k} type="button" className={`cl-btn${direct === k ? ' cl-btn-p' : ''}`} onClick={() => openDirect(k)}>{k}</button>
-              ))}
+              {/**
+                * ⓘ **「직접 접수」 단추를 여기서 걷었다** — 사장님 2026-09-10 「신규는 직접접수랑 중복인데」
+                *   도구 모음의 「＋ 신규」가 같은 일을 한다.
+                *   ★원본에서 «신규»는 도구 모음의 몫이고 조건 줄에는 «조건»만 선다 —
+                *     행동이 섞이면 어느 줄이 무슨 일을 하는지 흐려진다.
+                *   차 없이 접수하는 길은 둘 남는다: 도구 모음 「＋ 신규」 · 빈 상세의 큰 단추.
+                */}
               <span className="cl-sp" />
             </div>
           </div>
