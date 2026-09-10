@@ -108,7 +108,6 @@ export function buildProductListRow(product: Record<string, unknown>, refs: Atom
   // ★원문은 구조화 객체 {차명, 옵션}(487/500) — 통째로 읽으면 [object Object]. 하위 필드를 뽑는다(문자열이면 그대로).
   const wm = product.원문 as unknown;
   const 차명원문 = wm && typeof wm === 'object' ? S((wm as Record<string, unknown>).차명) : S(wm);
-  const 옵션원문 = wm && typeof wm === 'object' ? S((wm as Record<string, unknown>).옵션) : '';
   const row: Record<string, string> = {};
   for (const c of SALES_COLUMNS) row[c] = '';   // ★69칸 전부 내보낸다 — 채운 칸/빈 칸이 한눈에 보이게(사장님 「빠진거 많음」)
   Object.assign(row, {
@@ -127,7 +126,7 @@ export function buildProductListRow(product: Record<string, unknown>, refs: Atom
     '배터리용량': S(product.battery_capacity), '최초등록': S(product.first_registration_date),
     '사진': S(product.photo_link),
     // ③선택옵션 · 원문
-    '차명(원문)': 차명원문, '옵션(원문)': 옵션원문 || S(product.options),
+    '차명(원문)': 차명원문, '옵션(원문)': S(product.options),
     // ④요금 — 대여료·보증금은 원자 `price` 객체에 «있다»(기간_주행 → {rent,deposit}). 한글 단위로.
     ...rentCells(product.price),
     // 소비자가격 = 차량 판매가(대여료 아님). 원자에 별도 필드 없으면 빈칸(대여료 price 객체를 쓰면 안 됨).

@@ -15,7 +15,7 @@
  * ── 필드 매핑(reborncar → 우리 오플구독 원자) ─────────────────────────────────────────
  *  carNumber→차번 · bmname→제조사 · boname→모델 · gradename→세부트림 · carYear→연식 · releaseDate(epoch)→최초등록 ·
  *  carNavi→Km · carFuel→연료 · carColor→외장 · displace→배기량 · seaterInfo→인승 · ideNumber→VIN · mainImage→사진 ·
- *  rentPriceObjs→대여료(rentMonth 별 rentPrice2=2만km·rentPrice3=3만km·originPriceN=정가) · carOption.codeNm→옵션.
+ *  rentPriceObjs→대여료(rentMonth 별 rentPrice2=2만km·rentPrice3=3만km·originPriceN=정가) · carOption.codeNm→표준사양.
  *  정책은 reborncar 약관이 «전 상품 동일»: 대인 무제한·대물/자손 1억·세금·보험 포함·보증금(국산 2개월·수입 3~6개월)·
  *  약정초과 1km당 100원·중도해지 잔여 30%.
  *
@@ -88,6 +88,7 @@ function mapCar(detail: Record<string, unknown>, options: Array<Record<string, u
       if (p.rentPrice3) price[`${m}_30000`] = { rent: p.rentPrice3, origin: p.originPrice3 || undefined };
     }
   } catch { /* 대여료 없음 */ }
+  const standardEquipment = options.map((o) => S(o.codeNm)).filter(Boolean).join(', ');
   return {
     car_number: S(detail.carNumber),
     reborncar_product_id: S(detail.productId),
@@ -106,7 +107,10 @@ function mapCar(detail: Record<string, unknown>, options: Array<Record<string, u
     vin: S(detail.ideNumber),
     photo_link: S(detail.mainImage),
     price,
-    options: options.map((o) => S(o.codeNm)).filter(Boolean).join(', '),
+    // Reborn carOption은 유료 선택패키지가 아니라 에어백·시트·카메라까지 포함한 표준장비 목록이다.
+    // 판매용 options에 넣지 않고 표준사양으로만 보존한다.
+    standard_equipment: standardEquipment,
+    원문: { reborncar_carOption: standardEquipment },
     product_type: '오플구독',
     provider_name: '오토플러스',
   };
@@ -153,11 +157,11 @@ console.log(`\n── 대조 ──`);
 console.log(`reborncar ${cars.length} · 우리 오플 ${oplOurs.length}`);
 console.log(`차번 매칭 ${matched.length} · reborncar에만(우리 재고에 없음) ${onlyReborn.length}: ${onlyReborn.slice(0, 12).map((c) => S(c.car_number)).join(', ')}`);
 // 매칭된 것 중 우리 원자의 빈칸을 reborncar 가 채울 수 있는 것
-const fillable = { seats: 0, options: 0, ext_color: 0, mileage: 0, price: 0, vin: 0 };
+const fillable = { seats: 0, standard_equipment: 0, ext_color: 0, mileage: 0, price: 0, vin: 0 };
 for (const c of matched) {
   const o = ours.get(S(c.car_number))!.x;
   if (!S(o.seats) && S(c.seats)) fillable.seats++;
-  if (!S(o.options) && S(c.options)) fillable.options++;
+  if (!S(o.standard_equipment) && S(c.standard_equipment)) fillable.standard_equipment++;
   if (!S(o.ext_color) && S(c.ext_color)) fillable.ext_color++;
   if (!S(o.mileage) && S(c.mileage)) fillable.mileage++;
   if (!Object.keys((o.price as object) || {}).length && Object.keys(c.price as object).length) fillable.price++;
@@ -178,7 +182,10 @@ for (const c of matched) {
   for (const k of ['seats', 'ext_color', 'mileage', 'vin', 'fuel_type', 'first_registration_date', 'photo_link']) {
     if (!S(x[k]) && S(c[k])) patch[k] = c[k];
   }
-  if (!S(x.options) && S(c.options)) patch.options = c.options;
+  if (!S(x.standard_equipment) && S(c.standard_equipment)) patch.standard_equipment = c.standard_equipment;
+  if (S(c.standard_equipment)) {
+    patch.원문 = { ...((x.원문 && typeof x.원문 === 'object') ? x.원문 as Record<string, unknown> : {}), reborncar_carOption: c.standard_equipment };
+  }
   if (!Object.keys((x.price as object) || {}).length && Object.keys(c.price as object).length) patch.price = c.price;
   patch.reborncar_product_id = c.reborncar_product_id;
   if (Object.keys(patch).length) { batch.set(db.collection('products').doc(id), patch, { merge: true }); inB++; filled++; }

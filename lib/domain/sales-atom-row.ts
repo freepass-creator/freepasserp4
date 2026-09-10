@@ -231,7 +231,7 @@ export const makeCell = (ctx: SalesRowContext) => (col: string, v: any): string 
     '세부트림': S(v.trim_name),
     '외장': S(v.ext_color), '내장': S(v.int_color), '연식': S(v.year), 'Km': S(v.mileage),
     '연료': S(v.fuel_type), '배기량': S(v.engine_cc), '차종구분': S(v.vehicle_class),
-    '차명(원문)': S(v['원문']?.['차명']), '옵션(원문)': cleanOpt(S(v['원문']?.['옵션'])),
+    '차명(원문)': S(v['원문']?.['차명']), '옵션(원문)': cleanOpt(S(v.options)),
     '원산지': S(v.origin), '구동': S(v.drive_type), '인승': S(v.seats), '배터리용량': S(v.battery_capacity),
     '최초등록': S(v.first_registration_date), '차고지': S(v.location), '사진': S(v.photo_link),
     '정책UID': S(v.policy_code),

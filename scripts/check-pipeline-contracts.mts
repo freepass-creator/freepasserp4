@@ -3,6 +3,9 @@ import assert from 'node:assert/strict';
 import { parsePublishedSalesMapping, SALES_RETIRED_COLUMNS } from '../lib/domain/sales-sheet-mapping';
 import { publishedSalesColumns } from '../lib/domain/sales-published-tabs';
 import { buildSupplierPreviewValues, compareSheetMatrices, supplierSalesLabel } from '../lib/domain/supplier-preview-parity';
+import { makeCell, type SalesRowContext } from '../lib/domain/sales-atom-row';
+import { buildProductListRow } from '../lib/domain/product-list-atom';
+import { splitSourceOption } from '../lib/domain/source-option-semantics';
 
 const mapping = parsePublishedSalesMapping([
   ['@매핑', '판매시트 열', '후보'],
@@ -56,6 +59,26 @@ for (const col of ['세부모델', '세부트림', '차종구분']) {
 assert.equal(mapping.aliases['차명(원문)']?.[0], '차명(세부모델+트림)');
 assert.equal(mapping.aliases['옵션(원문)']?.[0], '옵션');
 assert.equal(mapping.aliases['옵션'], undefined);
+
+// 판매시트의 레거시 열 이름은 「옵션(원문)」이지만 값은 원자의 정제 선택옵션만 내보낸다.
+// 공급사 원문.옵션에는 기본사양이 보존될 수 있으므로 그것을 다시 노출하면 안 된다.
+const optionCell = makeCell({
+  policyOf: () => ({}),
+  nameByProvider: new Map(),
+  acctByProvider: new Map(),
+  unnamedProviders: new Map(),
+} satisfies SalesRowContext);
+assert.equal(optionCell('옵션(원문)', { options: '드라이브와이즈', 원문: { 옵션: '에어백, ABS, 열선시트' } }), '드라이브와이즈');
+assert.equal(optionCell('옵션(원문)', { options: '', 원문: { 옵션: '에어백, ABS, 열선시트' } }), '');
+const materialized = buildProductListRow(
+  { car_number: '12가3456', options: '드라이브와이즈', 원문: { 옵션: '에어백, ABS, 열선시트' } },
+  { policyByCode: new Map(), byProvider: new Map() },
+);
+assert.equal(materialized['옵션(원문)'], '드라이브와이즈');
+const broadEquipment = ['운전석 에어백', '브레이크 잠김 방지장치 (ABS)', '운전석 열선시트', ...Array.from({ length: 37 }, (_, i) => `기본장비${i + 1}`)].join(', ');
+assert.deepEqual(splitSourceOption('RP023', broadEquipment), { options: '', standardEquipment: broadEquipment });
+assert.deepEqual(splitSourceOption('RP023', '드라이브와이즈, 파노라마선루프'), { options: '드라이브와이즈, 파노라마선루프', standardEquipment: '' });
+assert.deepEqual(splitSourceOption('RP012', broadEquipment), { options: broadEquipment, standardEquipment: '' });
 
 assert.throws(() => parsePublishedSalesMapping([
   ['@매핑', '', ''], ['', '차량번호', '차량번호'], ['', '차량번호', '차번'], ['', '공급사', '공급사'], ['@매핑끝', '', ''],

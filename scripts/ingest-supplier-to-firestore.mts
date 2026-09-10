@@ -36,6 +36,7 @@ import { sheetIdFromUrl } from '../lib/domain/supplier-sheet-read';
 import { FUEL_EV, rawSeats, atomViolations, type MasterIndex } from '../lib/domain/atom-invariants';
 import { cleanTrim } from '../lib/domain/clean-trim';
 import { resolveStatus } from '../lib/domain/atom-status';
+import { splitSourceOption } from '../lib/domain/source-option-semantics';
 
 const APPLY = process.argv.includes('--apply');
 const CODE = (process.argv.find((a) => a.startsWith('--code='))?.split('=')[1] || 'RP004').trim();
@@ -217,7 +218,7 @@ const depositNote = (raw: string) => {
 };
 
 // ── 원천 리더 — 종류마다 «우리필드 키 행(Row)»을 낸다. 원자화는 하나로 공유한다. ──────
-type Row = { car: string; link?: string; std?: string; status: string; kind: string; maker: string; model: string; vname: string; trim: string; fuel: string; ext: string; int: string; km: string; opt: string; firstReg: string; cc: string; klass: string; price: Price; depNote: string; tab: string; row: string };
+type Row = { car: string; link?: string; std?: string; rawOpt?: string; status: string; kind: string; maker: string; model: string; vname: string; trim: string; fuel: string; ext: string; int: string; km: string; opt: string; firstReg: string; cc: string; klass: string; price: Price; depNote: string; tab: string; row: string };
 const blank: Omit<Row, 'car' | 'tab' | 'row'> = { status: '', kind: '', maker: '', model: '', vname: '', trim: '', fuel: '', ext: '', int: '', km: '', opt: '', firstReg: '', cc: '', klass: '', price: {}, depNote: '' };
 
 // 번호판 꼴만 차로 본다 — 헤더 밑 제목·프로모 배너·빈 행이 «차»로 새는 걸 막는다(오토플러스 실측).
@@ -227,6 +228,8 @@ const isPlate = (s: string) => /\d{2,3}\s*[가-힣]\s*\d{4}/.test(S(s));
  * ⚠ 덤프(API)에 없는데 시트에는 있는 차가 있다(실측 5대). 리더 안에서만 쓰면 그 차들은 링크를 못 받는다.
  */
 const 픽업링크 = new Map<string, string>();
+/** 읽기 전용 옵션 감사에서 실제로 선택된 원천 탭·열을 그대로 보고한다. */
+const 옵션원천 = new Set<string>();
 async function readRows(): Promise<Row[]> {
   const out: Row[] = [];
   const seen = new Set<string>();
@@ -247,6 +250,7 @@ async function readRows(): Promise<Row[]> {
     const got = await rowsFromIronCatalog();
     console.log(`  원본 ironrentcar.com — 목록 ${got.listings} · 활성 ${got.active} · 판매완료 ${got.sold} · 상세실패 ${got.errors}`);
     const g = (m: Map<string, string>, col: string) => S(m.get(N(col)));
+    옵션원천.add('ironrentcar.com 상세:옵션');
     for (const [plate, m] of got.rows) {
       const dep = won(g(m, '장기보증')); const price: Price = {};
       for (const [pk, cands] of PERIOD_ALIAS) { for (const c of cands) { const rent = won(g(m, c)); if (rent > 0) { price[pk] = { rent, deposit: dep }; break; } } }
@@ -276,6 +280,8 @@ async function readRows(): Promise<Row[]> {
       }
       console.log(`  픽업 차번링크 ${픽업링크.size}개 (손오공 재고시트 「${pk || '픽업 탭 없음'}」)`);
     } catch (e) { console.warn(`  ▲ 픽업 차번링크 못 읽음 — ${(e as Error).message.slice(0, 60)} (아는 링크는 merge 가 지킨다)`); }
+    옵션원천.add('손오공 API 덤프:유료옵션 (선택옵션)');
+    옵션원천.add('손오공 API 덤프:옵션 (표준사양→standard_equipment)');
     const dump = JSON.parse(readFileSync('sonokong/lib/wonja/손오공차량.json', 'utf8')) as { 차량?: Record<string, unknown>[] };
     const cars = dump.차량 || [];
     console.log(`  원본 손오공 API 덤프 — ${cars.length}대`);
@@ -392,6 +398,7 @@ async function readRows(): Promise<Row[]> {
     for (let k = 0; k < Math.min(allRows.length, 8); k++) { const c = resolveCols(allRows[k]); if (c.car >= 0 && c.status >= 0) { hi = k; break; } }
     if (hi < 0) continue;
     const ci = resolveCols(allRows[hi]);
+    if (ci.opt >= 0) 옵션원천.add(`${tab}:${S(allRows[hi][ci.opt])}`);
     let rowNo = hi + 1;
     for (const r of allRows.slice(hi + 1)) {
       rowNo += 1;
@@ -411,7 +418,9 @@ async function readRows(): Promise<Row[]> {
       const price = sheetPrice((i) => S(r[i]), ci);
       const depNote = depositNote(ci.dep >= 0 ? S(r[ci.dep]) : '');
       /** ★칸마다 «시트 오류 토큰»을 걷는다(`clean`) — 「#REF!」가 값처럼 실려 상품구분이 된 적이 있다. */
-      push({ car, status: clean(r[ci.status]), kind: ci.kind >= 0 ? clean(r[ci.kind]) : '', maker: maker0, model, vname, trim, fuel: ci.fuel >= 0 ? clean(r[ci.fuel]) : '', ext: ci.ext >= 0 ? clean(r[ci.ext]) : '', int: ci.int >= 0 ? clean(r[ci.int]) : '', km: ci.km >= 0 ? clean(r[ci.km]) : '', opt: ci.opt >= 0 ? clean(r[ci.opt]) : '', firstReg: ci.firstReg >= 0 ? clean(r[ci.firstReg]) : '', cc: ci.cc >= 0 ? clean(r[ci.cc]) : '', klass: ci.klass >= 0 ? clean(r[ci.klass]) : '', price, depNote, tab, row: String(rowNo) });
+      const rawOpt = ci.opt >= 0 ? clean(r[ci.opt]) : '';
+      const semantic = splitSourceOption(PROV, rawOpt);
+      push({ car, status: clean(r[ci.status]), kind: ci.kind >= 0 ? clean(r[ci.kind]) : '', maker: maker0, model, vname, trim, fuel: ci.fuel >= 0 ? clean(r[ci.fuel]) : '', ext: ci.ext >= 0 ? clean(r[ci.ext]) : '', int: ci.int >= 0 ? clean(r[ci.int]) : '', km: ci.km >= 0 ? clean(r[ci.km]) : '', opt: semantic.options, std: semantic.standardEquipment, rawOpt, firstReg: ci.firstReg >= 0 ? clean(r[ci.firstReg]) : '', cc: ci.cc >= 0 ? clean(r[ci.cc]) : '', klass: ci.klass >= 0 ? clean(r[ci.klass]) : '', price, depNote, tab, row: String(rowNo) });
     }
   }
   return out;
@@ -503,7 +512,11 @@ function atomize(row: Row, pinned: Map<string, Record<string, unknown>>): Atom {
     ...(row.depNote ? { deposit_note: row.depNote } : null),   // 「무보증」처럼 «말»로 적힌 보증금 — 빈칸으로 두지 않는다
     ...(S(row.link) ? { tica_link: S(row.link) } : null),   // 픽업구독 「차번링크」 — 원천이 줄 때만(빈 값으로 아는 링크를 덮지 않는다)
     _pin_state: state,
-    원문: { 차명: vname, ...(row.opt ? { 옵션: row.opt } : null) },
+    // 손오공은 원천의 「옵션」(표준사양)과 「유료옵션」(선택옵션)을 둘 다 원문 이름 그대로 보존한다.
+    // 나머지 공급사는 원천 「옵션」 자체가 선택옵션이므로 기존 원문 구조를 유지한다.
+    원문: src.kind === 'sonokong'
+      ? { 차명: vname, ...(S(row.std) ? { 옵션: S(row.std) } : null), ...(S(row.opt) ? { 유료옵션: S(row.opt) } : null) }
+      : { 차명: vname, ...(S(row.rawOpt ?? row.opt) ? { 옵션: S(row.rawOpt ?? row.opt) } : null) },
     /**
      * ★★**코드만 박지 말고 «이름»을 같이 박는다** (사장님 2026-09-08 「이제 절대 코드명으로 공급사 취급 안 할 거야」).
      *   ⚠ 실측 2026-09-08 — 여기가 코드만 써서, 직접수집으로 «새로 들어온» 차 20대가 시트에
@@ -546,6 +559,21 @@ for (const a of now) byPin[S(a._pin_state)] = (byPin[S(a._pin_state)] || 0) + 1;
 console.log(`  정체 출처: 박은 것 그대로 ${byPin.pinned || 0} · 새 차 자동확정 ${byPin['new-high'] || 0} · 새 차 검수필요 ${byPin['new-review'] || 0}`);
 console.log(`  세부모델 ${pctOf(has('sub_model'))} · 세부트림 ${pctOf(has('trim_name'))} · 제조사 ${pctOf(has('maker'))} · 연식 ${pctOf(has('year'))} · 연료 ${pctOf(has('fuel_type'))}`);
 console.log(`  외장색 ${pctOf(has('ext_color'))} · 내장색 ${pctOf(has('int_color'))} · 배기량 ${pctOf(has('engine_cc'))} · 상태 ${pctOf(has('status'))} · 주행 ${pctOf(has('mileage'))}`);
+
+// 옵션 원천→원자 대조. 읽기 전용이며 빈 원천은 일반 시트에서 기존 값을 지우는 근거로 세지 않는다.
+{
+  const matched = now.filter((a) => cur.has(a.car_number));
+  const same = matched.filter((a) => N(a.options) === N(cur.get(a.car_number)?.options));
+  const sourceHas = matched.filter((a) => S(a.options));
+  const sourceHasAtomBlank = sourceHas.filter((a) => !S(cur.get(a.car_number)?.options));
+  const sourceHasDifferent = sourceHas.filter((a) => S(cur.get(a.car_number)?.options) && N(a.options) !== N(cur.get(a.car_number)?.options));
+  const sourceBlankAtomHas = matched.filter((a) => !S(a.options) && S(cur.get(a.car_number)?.options));
+  console.log(`  옵션 원천: ${[...옵션원천].join(' · ') || '(옵션 열 없음)'}`);
+  console.log(`  옵션 대조: 원천·원자 일치 ${same.length}/${matched.length} · 원천값 ${sourceHas.length} · 원천있음/원자빈칸 ${sourceHasAtomBlank.length} · 값다름 ${sourceHasDifferent.length} · 원천빈칸/원자값 ${sourceBlankAtomHas.length}`);
+  for (const a of [...sourceHasAtomBlank, ...sourceHasDifferent].slice(0, 8)) {
+    console.log(`    옵션차이 ${a.car_number} 원천「${S(a.options).slice(0, 90)}」 원자「${S(cur.get(a.car_number)?.options).slice(0, 90)}」`);
+  }
+}
 
 // 대조 (아는 차 = 우리 것과 같아야)
 const IDF = ['maker', 'model', 'sub_model', 'trim_name', 'ext_color', 'int_color', 'year', 'fuel_type'] as const;
@@ -670,27 +698,23 @@ if (VARIABLE) {
        *   ⚠ 이 예외는 «원천이 그 칸을 확실히 주는 곳»에서만 뜻이 있다. 지금은 손오공 덤프가 그렇다 —
        *     옵션·유료옵션이 «별도 필드»로 늘 오고, 없으면 빈 문자열로 온다(모름이 아니라 없음).
        */
-      const 옵션갈이 = !STATUS_ONLY && src.kind === 'sonokong';
-      /** ★견주는 자리에 «원문.옵션»도 넣는다 — 시트가 그 칸을 읽으므로 그게 안 맞으면 고친 티가 안 난다. */
-      const 옛원문옵션 = S(((c as Record<string, unknown>).원문 as Record<string, unknown> | undefined)?.옵션);
-      const oMoved = 옵션갈이 && (S(a.options) !== S(c.options) || S(a.standard_equipment) !== S(c.standard_equipment) || 옛원문옵션 !== S(a.options));
+      const 옵션갈이 = !STATUS_ONLY && (src.kind === 'sonokong'
+        || (PROV === 'RP023' && !!S(a.standard_equipment) && !S(a.options))
+        || (!!S(a.options) && S(a.options) !== S(c.options)));
+      const 옛원문 = ((c as Record<string, unknown>).원문 as Record<string, unknown> | undefined) || {};
+      const 새원문 = ((a as Record<string, unknown>).원문 as Record<string, unknown> | undefined) || {};
+      const oMoved = 옵션갈이 && (S(a.options) !== S(c.options)
+        || S(a.standard_equipment) !== S(c.standard_equipment)
+        || S(옛원문.옵션) !== S(새원문.옵션)
+        || S(옛원문.유료옵션) !== S(새원문.유료옵션));
       if (!sMoved && !mMoved && !pMoved && !lMoved && !oMoved) continue;
       const upd: Record<string, unknown> = { _var_polled_at: Date.now() };
       for (const f of VAR_FIELDS) if (a[f] !== undefined && a[f] !== '') upd[f] = a[f];
       if (oMoved) { upd.options = S(a.options); upd.standard_equipment = S(a.standard_equipment); }
-      /**
-       * ⚠⚠ **시트가 읽는 칸은 `options` 가 아니라 «원문.옵션»이다**(`sales-atom-row` 「옵션(원문)」).
-       *   실측 2026-09-10 — `options` 만 갈았더니 원자는 비었는데 **시트는 옛 45줄을 그대로 찍었다.**
-       *   고친 티가 안 나는 것이 제일 나쁘다 — 「고쳤다」와 「보인다」는 다르다.
-       * ★`원문` 은 맵이라 merge 로는 키를 «못 지운다» — 통째로 갈아 끼운다(`update`).
-       *   ⚠ 「차명」을 같이 날리지 않게 기존 맵을 이어받고 「옵션」 키만 새로 정한다.
-       */
-      const 원문갈이 = oMoved ? (() => {
-        const m: Record<string, unknown> = { ...((c as Record<string, unknown>).원문 as Record<string, unknown> || {}) };
-        delete m.옵션;
-        if (S(a.options)) m.옵션 = S(a.options);
-        return m;
-      })() : null;
+      /** 원문은 정제값으로 바꾸지 않는다. 손오공 원천의 두 필드를 이름 그대로 통째로 갱신한다. */
+      const 원문갈이 = oMoved ? { ...옛원문, ...새원문 } : null;
+      if (원문갈이 && !S(새원문.옵션)) delete 원문갈이.옵션;
+      if (원문갈이 && !S(새원문.유료옵션)) delete 원문갈이.유료옵션;
       const ref = fs.collection('products').doc(docId(a.car_number));
       batch.set(ref, upd, { merge: true });
       /** ★요금은 갈아 끼운다 — merge 는 맵 키를 못 지워 «지금 안 파는 기간»이 남는다(위 전체 반영과 같은 규칙). */
@@ -786,6 +810,20 @@ if (!VARIABLE) for (let i = 0; i < now.length; i += 400) {
     const { _pin_state, ...doc } = a; void _pin_state;
     const ref = fs.collection('products').doc(docId(a.car_number));
     batch.set(ref, { ...strip(doc), _direct_ingest_at: Date.now() }, { merge: true });
+    /** 손오공 두 옵션 필드는 빈 문자열도 «없음»이라는 원천값이다. strip/merge가 옛 값을 남기지 않게 통째로 확정한다. */
+    if (src.kind === 'sonokong') {
+      batch.update(ref, {
+        options: S(a.options),
+        standard_equipment: S(a.standard_equipment),
+        원문: (a as Record<string, unknown>).원문 || {},
+      });
+    } else if (PROV === 'RP023' && S(a.standard_equipment) && !S(a.options)) {
+      batch.update(ref, {
+        options: '',
+        standard_equipment: S(a.standard_equipment),
+        원문: (a as Record<string, unknown>).원문 || {},
+      });
+    }
     /**
      * ★★**요금은 «갈아 끼운다» — 합치지 않는다.**
      *   ⚠ 2026-09-08(적대 검토가 잡았다) — `price` 는 맵이라 `merge:true` 가 **기존 기간 키와 합친다.**
