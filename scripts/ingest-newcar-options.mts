@@ -42,7 +42,7 @@ const db = ((ctx.window as Record<string, unknown>).VEHICLE_DB ?? ctx.VEHICLE_DB
   manufacturers: { manufacturer_name: string; models: { model_name: string; variants: Variant[] }[] }[];
 };
 
-type Opt = { name?: string; sub?: string; price?: number; requires?: string[]; requires_in_trim?: Record<string, string[]> };
+type Opt = { name?: string; sub?: string; price?: number; requires?: string[]; requires_in_trim?: Record<string, string[]>; trim_prices?: Record<string, number> };
 type Variant = {
   variant_name?: string;
   options_master?: Record<string, Opt>;
@@ -96,13 +96,48 @@ export function packFor(maker: string, subModel: string, fuel: string, trim: str
         const implied = Object.entries(om)
           .filter(([id, o]) => impliedByFuel(id, o, fuel) || impliedByTrim(id, o, trim))
           .map(([id]) => id);
+        /* ⚠ 트림 열쇠를 «먼저» 구한다 — 옵션값이 그 열쇠에 달려 있다. */
+        /* ★★**꼬리를 떼고 맞댄다** — 우리 트림은 「X-Line**(2WD)**」·「프레스티지**(전자식4WD)**」·
+           「트렌디**(1인승 밴)**」처럼 구동·인승 꼬리가 붙어 있는데, 원본 트림은 「X-Line」이다.
+           ⚠⚠ 꼬리 때문에 **282줄 중 118줄이 트림을 못 맞대** 기본값·합집합으로 떨어졌다.
+             그래서 쏘렌토 X-Line**(2WD)** 이 컴포트 패키지를 **109만**(진짜 60만)에 팔고 있었다
+             — **49만 과대**(2026-09-10 개발센터 4-AI 원본 대조).
+           ⚠ 먼저 «그대로» 맞대고, 없을 때만 꼬리를 뗀다 — 꼬리가 «진짜 다른 트림»일 수도 있다. */
+        /* ★★**트림을 못 맞대면 규칙이 통째로 안 온다** — 282줄 중 **118줄(42%)**이 그랬다.
+           까닭이 둘이었다(2026-09-10 개발센터 4-AI 원본 대조):
+             ① **이름 갈래가 다르다** — 우리 `Modern` ↔ 원본 「모던」.
+                원본은 `trim_id`(`modern`)를 갖고 있으니 **영문은 그걸로 맞댄다.**
+             ② **꼬리가 붙어 있다** — 「X-Line**(2WD)**」·「트렌디**(1인승 밴)**」.
+                ⚠ 예전 판은 `N()` 이 괄호를 «먼저» 지워 꼬리 제거가 아예 안 먹었다.
+                  그래서 쏘렌토 X-Line(2WD)이 컴포트 패키지를 **109만**(진짜 60만)에 팔았다.
+           ⚠ 순서를 지킨다 — 그대로 → trim_id → 꼬리 뗀 것. 갈리면 **안 붙인다.** */
+        const bare = (x: string) => N(S(x).replace(/\([^)]*\)\s*$/, ''));
+        const trims0 = v.trims ?? [];
+        const tid = (t: { trim_id?: string }) => N((t as { trim_id?: string }).trim_id);
+        const tHit0 = trims0.find((t) => N(t.name) === N(trim))
+          ?? trims0.find((t) => tid(t) === N(trim))
+          ?? trims0.find((t) => N(t.name) === bare(trim) || tid(t) === bare(trim))
+          ?? (() => {
+            const hits = trims0.filter((t) => bare(t.name) === bare(trim) || bare(tid(t)) === bare(trim));
+            return hits.length === 1 ? hits[0] : undefined;   // 갈리면 안 붙인다
+          })();
+        const trimKey = S((tHit0 as { trim_id?: string } | undefined)?.trim_id);
         const optionsMaster: OptionPack['optionsMaster'] = {};
         for (const [id, o] of Object.entries(om)) {
           if (implied.includes(id)) continue;
           optionsMaster[id] = {
             name: S(o.name) || id,
             ...(o.sub ? { sub: S(o.sub) } : {}),
-            price: Math.round((Number(o.price) || 0) * 10000),   // 만원 → 원
+            /* ★★★**옵션값은 «트림마다 다르다»** — 원본 `trim_prices` 와 `getOptionPrice`(index.html:1096):
+                 「그 트림에 따로 값이 있으면 그 값, 없으면 기본값」.
+               ⚠⚠ 여태 기본값만 썼다. 실측 차이:
+                 쏘렌토 컴포트  109만 ↔ X-Line **60만**  (**49만 과대**)
+                 투싼 HTRAC   198만 ↔ 전 트림 **223만** (**25만 과소**)
+                 K9 VIP컬렉션 366만 ↔ **307만**
+               ⇒ 이 팩은 «한 트림»의 것이므로, 그 트림 값으로 **확정해서** 싣는다. */
+            price: Math.round((Number(
+              (trimKey && o.trim_prices && trimKey in o.trim_prices) ? o.trim_prices[trimKey] : o.price,
+            ) || 0) * 10000),   // 만원 → 원
             // 이미 산 엔진을 요구하던 선행은 «충족»이므로 지운다(HTRAC 이 3.5 를 요구하는 꼴).
             ...(o.requires?.length ? { requires: o.requires.filter((r) => !implied.includes(r)) } : {}),
             /* ★★★**트림별 선행**(`requires_in_trim`) — 원본에 **42개**가 있는데 **하나도 안 옮기고** 있었다.
@@ -125,11 +160,7 @@ export function packFor(maker: string, subModel: string, fuel: string, trim: str
           };
         }
         // 트림이 맞으면 그 트림의 목록, 아니면 그 세부모델 트림들의 합집합(있는 것을 다 보여 준다).
-        const tHit = (v.trims ?? []).find((t) => N(t.name) === N(trim));
-        /* ★★**원본의 트림 «열쇠»는 이름이 아니라 `trim_id` 다**(「스마트」가 아니라 `smart`).
-           `requires_in_trim: { smart: [...] }` 이 그 열쇠로 걸려 있어, 안 실으면 트림별 선행을
-           **영영 못 찾는다** — 규칙을 옮겨 놓고도 아무 일이 안 난다(2026-09-10). */
-        const trimKey = S((tHit as { trim_id?: string } | undefined)?.trim_id);
+        const tHit = tHit0;
         const avail = tHit?.available_options
           ?? [...new Set((v.trims ?? []).flatMap((t) => t.available_options ?? []))];
 

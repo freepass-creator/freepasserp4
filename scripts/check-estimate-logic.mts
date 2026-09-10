@@ -2022,6 +2022,51 @@ must((availableForEngine({ a: { name: '컴포트' } }, [], '가솔린 3.5 터보
   }
 }
 
+/* ══ 32. ★★★**원본 팩이 «제대로 붙었는가»** — 트림을 못 맞대면 규칙이 통째로 안 온다 ══
+     ⚠⚠ 2026-09-10 개발센터 4-AI **원본 대조**(사장님 「예전에 다 만들어놨던 거잖아」).
+       282줄 중 **118줄(42%)**이 트림을 못 맞대 기본값·합집합으로 떨어져 있었다:
+         ① 이름 갈래가 다름 — 우리 `Modern` ↔ 원본 「모던」(원본은 `trim_id: modern` 을 갖고 있다)
+         ② 꼬리가 붙음 — 「X-Line**(2WD)**」. 게다가 `N()` 이 괄호를 먼저 지워 꼬리 제거가 안 먹었다
+       ⇒ 쏘렌토 X-Line 이 컴포트 패키지를 **109만**(진짜 **60만**)에 팔았다 — **49만 과대.** */
+{
+  type Pack = { sub_model?: string; trim?: string; trimKey?: string;
+    optionsMaster?: Record<string, { name?: string; price?: number }> };
+  let packs: Pack[] = [];
+  try {
+    const raw = JSON.parse(read('data/new-car/option-packs.json')) as Pack[] | { packs?: Pack[]; rows?: Pack[] };
+    packs = Array.isArray(raw) ? raw : (raw.packs ?? raw.rows ?? []);
+  } catch { packs = []; }
+  if (!packs.length) {
+    console.log('  ⚠ §32 건너뜀 — option-packs.json 이 없습니다(인제스터 산출물).');
+  } else {
+    /* 32-1. ★트림을 맞댄 줄이 얼마나 되나 — 42% 가 못 맞대던 것을 다시 겪지 않는다. */
+    const hit = packs.filter((p) => S(p.trimKey)).length;
+    const pct = Math.round((hit / packs.length) * 100);
+    must(pct >= 75,
+      `트림을 못 맞댄 줄이 많습니다 — ${hit}/${packs.length}(${pct}%). `
+      + '못 맞대면 옵션값·트림별 선행이 통째로 안 옵니다',
+      'scripts/ingest-newcar-options.mts');
+
+    /* 32-2. ★★**트림별 옵션값**(원본 `trim_prices` · `getOptionPrice`) — 같은 옵션이 트림마다 다르다. */
+    const xline = packs.filter((p) => p.sub_model === '쏘렌토' && S(p.trim).startsWith('X-Line'));
+    for (const p of xline) {
+      const cf = Object.values(p.optionsMaster ?? {}).find((o) => S(o.name).includes('컴포트'));
+      if (!cf) continue;
+      must(Number(cf.price) === 600000,
+        `쏘렌토 ${S(p.trim)} 의 「${S(cf.name)}」 값이 트림값이 아닙니다 — `
+        + `${(Number(cf.price) || 0).toLocaleString('ko-KR')}원(진짜 600,000원 · 49만 과대)`,
+        'scripts/ingest-newcar-options.mts trim_prices');
+    }
+
+    /* 32-3. ★트림별 선행(`requires_in_trim`)이 실제로 실렸나 — 원본에 42개가 있다. */
+    const rit = packs.filter((p) => Object.values(p.optionsMaster ?? {})
+      .some((o) => (o as { requiresInTrim?: unknown }).requiresInTrim)).length;
+    must(rit > 0,
+      '트림별 선행이 팩에 하나도 없습니다 — 인제스터를 다시 돌리세요(산출물이 묵으면 규칙이 안 옵니다)',
+      'data/new-car/option-packs.json');
+  }
+}
+
 if (fails.length) {
   console.error(`\n✗ 견적 로직이 정본과 다릅니다 — ${fails.length}건\n`);
   for (const f of fails) console.error(`  · ${f}\n`);
