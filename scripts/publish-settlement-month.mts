@@ -25,7 +25,7 @@
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
-import { getDatabase } from 'firebase-admin/database';
+import { getDatabase } from './lib/disabled-rtdb.mts';
 import { getFirestore } from 'firebase-admin/firestore';
 import { SETTLEMENT_LEDGER_ID as LEDGER } from '../lib/domain/settlement-ledger';
 import { feeKindOf, feeRuleFor } from '../lib/domain/settlement-fee-table';

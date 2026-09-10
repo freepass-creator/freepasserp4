@@ -12,7 +12,7 @@
  *
  *   NEXT_PUBLIC_FIREBASE_DATABASE_URL=... GOOGLE_APPLICATION_CREDENTIALS=tmp/firebase-auth/sa.json  *     npx tsx scripts/check-intake-roundtrip.mts
  */
-import { getDatabase } from 'firebase-admin/database';
+import { getDatabase } from './lib/disabled-rtdb.mts';
 import { getFirestore } from 'firebase-admin/firestore';
 import { firebaseAdminApp } from '../lib/server/firebase-admin';
 import { appendIntake, listRows } from '../lib/server/settlement-erp-store';

@@ -10,7 +10,7 @@
  */
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { initializeApp, cert, applicationDefault } from 'firebase-admin/app';
-import { getDatabase } from 'firebase-admin/database';
+import { getDatabase } from './lib/disabled-rtdb.mts';
 
 const DB_URL = 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app';
 

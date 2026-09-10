@@ -1,3 +1,4 @@
+throw new Error('RTDB_REMOVED: 폐기된 RTDB 경로를 사용하는 스크립트입니다.');
 /**
  * **한 공급사의 재고 정본을 우리 시트로 넘긴다.** 기본 dry-run, 실제 반영은 `--apply`.
  *

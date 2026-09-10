@@ -1,3 +1,4 @@
+throw new Error('RTDB_REMOVED: 폐기된 RTDB 경로를 사용하는 스크립트입니다.');
 /**
  * **차량 사진을 구글드라이브 「프리패스픽스」에 공급사별로 채운다.** 기본 dry-run, 반영은 `--apply`.
  *

@@ -27,7 +27,7 @@
  *   ... --collisions --priced-only --apply                                  ← 오픈 직전 최소 조치
  */
 import { initializeApp, cert } from 'firebase-admin/app';
-import { getDatabase } from 'firebase-admin/database';
+import { getDatabase } from './lib/disabled-rtdb.mts';
 import { readFileSync, writeFileSync } from 'node:fs';
 
 const DB = 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app';

@@ -61,7 +61,57 @@ service cloud.firestore {
     //   ★쓰기는 관리자만(가입·승인은 서버 API 가 admin SDK 로 — 규칙 우회).
     match /user/{id} {
       allow read: if isAdmin() || (signedIn() && request.auth.uid == id);
-      allow create, update: if isAdmin();
+      allow create: if isAdmin() || (signedIn()
+        && request.auth.uid == id
+        && request.resource.data.uid == id
+        && request.resource.data.role == 'agent'
+        && request.resource.data.status == 'active'
+        && request.resource.data.keys().hasOnly([
+          'uid', 'name', 'phone', 'company_name', 'business_no', 'user_code',
+          'requested_type', 'status', 'role', 'created_at', 'email',
+          'terms_agreed_at', 'privacy_agreed_at', 'legal_version'
+        ]));
+      allow update: if isAdmin() || (signedIn()
+        && request.auth.uid == id
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'name', 'phone', 'company_name', 'terms_agreed_at',
+          'privacy_agreed_at', 'legal_version'
+        ]));
+      allow delete: if false;
+    }
+    match /users_private/{id} {
+      allow read: if isAdmin() || (signedIn() && request.auth.uid == id);
+      allow create: if isAdmin() || (signedIn()
+        && request.auth.uid == id
+        && request.resource.data.keys().hasOnly(['email']));
+      allow update: if isAdmin() || (signedIn()
+        && request.auth.uid == id
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['email']));
+      allow delete: if false;
+    }
+    match /partners_private/{id} {
+      allow read, create, update: if isAdmin();
+      allow delete: if false;
+    }
+    match /_client_errors/{id} {
+      allow create: if signedIn();
+      allow read: if isAdmin();
+      allow update, delete: if false;
+    }
+    // 공개 링크는 192-bit 토큰 문서의 단건 get만 허용한다. 익명 제출은
+    // 발송→검토대기 전이와 서명 입력 필드만 바꿀 수 있다.
+    match /contract_sign/{token} {
+      allow get: if true;
+      allow list: if false;
+      allow create, update: if signedIn();
+      allow update: if resource.data.status == 'sent'
+        && request.resource.data.status == 'pending_review'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'customer_name', 'customer_phone', 'customer_id', 'customer_address',
+          'driver_license_no', 'emergency_name', 'emergency_phone',
+          'sign_signature', 'sign_consents', 'sign_consent_version',
+          'sign_status', 'sign_signed_at', 'status', 'updated_at', 'sign_token'
+        ]);
       allow delete: if false;
     }
     // 방·메시지·견적·고객 — 로그인 + 같은 회사면 write(거래 참여자)

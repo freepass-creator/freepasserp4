@@ -1,3 +1,4 @@
+throw new Error('RTDB_REMOVED: 폐기된 RTDB 경로를 사용하는 스크립트입니다.');
 /**
  * 공급사 정책 연결 — 「없으면 없다」로.
  *

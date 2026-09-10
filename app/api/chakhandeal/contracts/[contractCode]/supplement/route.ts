@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { projectChakhandealStatus } from '@/lib/domain/chakhandeal-esign-sync';
-import { firebaseAdminDatabase, verifyActiveBearer } from '@/lib/server/firebase-admin';
+import { firebaseAdminStore, verifyActiveBearer } from '@/lib/server/firebase-admin';
 import {
   getChakhandealConfig,
   getChakhandealContractStatus,
@@ -50,7 +50,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ con
   }
   if (!items.length) return json({ error: '다시 받을 단계를 골라 주세요.' }, 400);
 
-  const db = firebaseAdminDatabase();
+  const db = firebaseAdminStore();
   const [overlaySnap, legacySnap] = await Promise.all([
     db.ref(`v4/contracts/${contractCode}`).get(),
     db.ref(`contracts/${contractCode}`).get(),

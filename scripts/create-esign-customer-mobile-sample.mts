@@ -10,7 +10,7 @@ import {
   makeFreepassSignToken,
   type EsignRecord,
 } from '@/lib/server/freepass-esign';
-import { firebaseAdminDatabase } from '@/lib/server/firebase-admin';
+import { firebaseAdminStore } from '@/lib/server/firebase-admin';
 
 const S = (value: unknown) => String(value ?? '').trim();
 const apply = process.argv.includes('--apply');
@@ -107,7 +107,7 @@ console.log(`${base}/sign/${token}`);
 console.log(`만료: ${new Date(expiresAt).toLocaleString('ko-KR')}`);
 if (!apply) process.exit(0);
 
-const db = firebaseAdminDatabase();
+const db = firebaseAdminStore();
 const existing = await db.ref(`v4/contracts/${contractCode}`).get();
 if (existing.exists()) throw new Error(`같은 시각의 점검 계약이 이미 있습니다: ${contractCode}`);
 await db.ref('v4').update({

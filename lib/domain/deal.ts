@@ -605,9 +605,9 @@ export async function freezeContractTerm(
   const m = Number(period) || 0;
   if (m <= 0) throw new Error('약정 동결: 대여기간을 선택해 주세요.');
   const store = getStore();
-  // 운영 RTDB에서는 기간만 따로 동결할 수 없다. 손님 정보와 약정확인을 함께 받는
+  // 운영 Firestore에서는 기간만 따로 동결할 수 없다. 손님 정보와 약정확인을 함께 받는
   // ContractPanel의 약정작성완료 서버 전이만 정산 기준 seal을 만들 수 있다.
-  if (store.backend.startsWith('rtdb')) {
+  if (store.backend.startsWith('firestore')) {
     throw new Error('운영 계약은 기간만 동결할 수 없습니다. 손님 정보까지 입력한 약정작성완료로 진행해 주세요.');
   }
   const pr = priceAt(product, m);

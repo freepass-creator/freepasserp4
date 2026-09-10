@@ -57,7 +57,7 @@ async function idTokenFor(uid: string): Promise<string> {
 
 async function db() {
   const { initializeApp, cert, getApps, getApp } = await import('firebase-admin/app');
-  const { getDatabase } = await import('firebase-admin/database');
+  const { getDatabase } = await import('../lib/disabled-rtdb.mts');
   const sa = JSON.parse(readFileSync(SA_PATH, 'utf8'));
   const app = getApps().length ? getApp() : initializeApp({ credential: cert(sa), databaseURL: DATABASE_URL });
   return getDatabase(app);

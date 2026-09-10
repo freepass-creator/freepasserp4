@@ -18,7 +18,7 @@
  */
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
-import { getDatabase } from 'firebase-admin/database';
+import { getDatabase } from './lib/disabled-rtdb.mts';
 import { getFirestore } from 'firebase-admin/firestore';
 import { readFileSync } from 'node:fs';
 const S = (v: unknown) => String(v ?? '').trim();

@@ -1,3 +1,4 @@
+throw new Error('RTDB_REMOVED: 폐기된 RTDB 경로를 사용하는 스크립트입니다.');
 /**
  * **매물에 잘못 저장된 `origin`·`_deposit_origin_trusted` 를 걷어낸다.** 기본 dry-run, 반영은 `--apply`.
  *

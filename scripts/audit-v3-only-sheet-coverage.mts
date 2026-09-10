@@ -9,7 +9,7 @@ import { readFileSync } from 'node:fs';
 import { execFile } from 'node:child_process';
 import { dirname, join } from 'node:path';
 import { initializeApp, applicationDefault, cert } from 'firebase-admin/app';
-import { getDatabase } from 'firebase-admin/database';
+import { getDatabase } from './lib/disabled-rtdb.mts';
 import { allowedHost } from '../lib/net/proxy-hosts';
 import { resolveGoogleSheetCsvUrl } from '../lib/domain/sheet-url';
 import { parseDelimited } from '../lib/domain/sheet-import';
@@ -21,7 +21,7 @@ import {
 } from '../lib/domain/sheet-sync-all';
 import { planDailySheetSync } from '../lib/domain/sheet-daily-sync';
 import { buildSheetConflictReportRows } from '../lib/domain/sheet-conflict-report';
-import { toV4Record } from '../lib/firebase/rtdb-records';
+import { toV4Record } from '../lib/firebase/legacy-records';
 import { splitProductPrivate } from '../lib/firebase/rtdb-products';
 import { collectProductBridgeReferences, selectLegacyProductsForBridge } from '../lib/domain/product-bridge';
 import { priceList } from '../lib/domain/product';

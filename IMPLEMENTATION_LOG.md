@@ -1018,7 +1018,7 @@ CLI 스모크(임시 1행 스냅샷, 실행 후 삭제):
 
 ### 분리한 모듈
 
-- `lib/firebase/rtdb-records.ts`
+- `lib/firebase/legacy-records.ts`
   - v3 첨부파일 정규화
   - 엔티티별 v3→v4 레코드 변환
   - 외부 입력 타입은 `unknown` 기반 경계로 제한

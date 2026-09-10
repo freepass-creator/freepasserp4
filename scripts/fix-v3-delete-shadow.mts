@@ -1,3 +1,4 @@
+throw new Error('RTDB_REMOVED: 폐기된 RTDB 경로를 사용하는 스크립트입니다.');
 /**
  * **v3 의 삭제 표시가 v4 를 덮는 것**을 푼다. 기본 dry-run, 반영은 `--apply`.
  *

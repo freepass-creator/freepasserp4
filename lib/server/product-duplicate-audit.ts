@@ -9,9 +9,9 @@ import {
   planProductDuplicateDryRun,
   productDuplicateDryRunTsv,
 } from '@/lib/domain/product-duplicate-dry-run';
-import { firebaseAdminDatabase } from '@/lib/server/firebase-admin';
+import { firebaseAdminStore } from '@/lib/server/firebase-admin';
 import { splitProductPrivate } from '@/lib/firebase/rtdb-products';
-import { mergeV3V4Records } from '@/lib/firebase/rtdb-records';
+import { mergeV3V4Records } from '@/lib/firebase/legacy-records';
 
 function mergeNodes(v3: unknown, v4: unknown): EntityRecord[] {
   const rows = new Map<string, EntityRecord>();
@@ -50,7 +50,7 @@ export async function auditProductDuplicateReferences(): Promise<{
   tsv: string;
   dryRunTsv: string;
 }> {
-  const db = firebaseAdminDatabase();
+  const db = firebaseAdminStore();
   const [
     productsV4,
     contractsV3,

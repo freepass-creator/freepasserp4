@@ -10,7 +10,6 @@
  */
 import { readFileSync } from 'node:fs';
 
-process.env.NEXT_PUBLIC_DATA_BACKEND = 'rtdb';
 // .env.local — 웹(dev 서버)이 쓰는 값과 같은 환경으로 돌린다(로컬 기준으로 맞추려면 같은 설정이어야 한다).
 const NEWLINE = new RegExp('\r?\n');
 const ENV_LINE = new RegExp('^\s*([A-Z0-9_]+)\s*=\s*(.*)$');

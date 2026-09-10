@@ -1,3 +1,4 @@
+throw new Error('RTDB_REMOVED: 폐기된 RTDB 경로를 사용하는 스크립트입니다.');
 /**
  * **사진 폴더를 링크로 볼 수 있게 공유한다.** 기본 dry-run, 반영은 `--apply`.
  *

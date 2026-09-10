@@ -73,10 +73,10 @@ async function main() {
   // 모듈러 서브패스로 받는다. `import('firebase-admin')` 은 ESM 에서 CJS 네임스페이스라
   //  admin.credential 이 undefined 가 된다(실제 값은 .default 밑에 들어간다).
   let appMod: typeof import('firebase-admin/app');
-  let dbMod: typeof import('firebase-admin/database');
+  let dbMod: typeof import('./lib/disabled-rtdb.mts');
   try {
     appMod = await import('firebase-admin/app');
-    dbMod = await import('firebase-admin/database');
+    dbMod = await import('./lib/disabled-rtdb.mts');
   } catch {
     console.error('firebase-admin 이 없다. `npm i -D firebase-admin` 후 다시 실행할 것.');
     process.exit(1);

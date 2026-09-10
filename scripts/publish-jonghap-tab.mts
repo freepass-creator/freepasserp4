@@ -1,3 +1,4 @@
+throw new Error('RTDB_REMOVED: 폐기된 RTDB 경로를 사용하는 스크립트입니다.');
 /**
  * **「상품리스트」 탭**을 영업자 시트에 찍는다. 기본 dry-run, 실제 쓰기는 `--apply`.
  *

@@ -13,7 +13,7 @@
  *   npx tsx scripts/audit-v3-dependency.mts
  */
 import { initializeApp, cert } from 'firebase-admin/app';
-import { getDatabase } from 'firebase-admin/database';
+import { getDatabase } from './lib/disabled-rtdb.mts';
 import { readFileSync } from 'node:fs';
 import { dedupeProductsByVehicle } from '../lib/firebase/rtdb-products';
 import { isOfferableProduct } from '../lib/domain/product';

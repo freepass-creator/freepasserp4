@@ -9,7 +9,6 @@ import { ENTITIES, type EntityRecord } from './intake/entities';
 import { currentActor } from './session';
 import { getSession } from './auth-session';   // 역할 격리 쿼리(계약·정산)용 — 세션의 격리키(user_code/company_code)
 import { getFirebaseApp, firebaseReady } from './firebase/client';
-import { RtdbAdapter } from './firebase/rtdb-adapter';
 import { COMPANIES, ALL_COMPANIES } from './companies';
 import { buildAuditEntry, buildMasterSnapBulkEntry } from './domain/audit';
 import {
@@ -733,15 +732,8 @@ class DispatchStore implements StoreAdapter {
 }
 
 export function getStore(): StoreAdapter {
-  // 데이터 백엔드 opt-in(NEXT_PUBLIC_DATA_BACKEND). 기본 Local(seed).
-  //   · rtdb  = v3 라이브 읽기 + 쓰기 v4/ 오버레이. Firebase 준비되면 세션 여부와 무관(시드 잔재 방지).
-  //   · firestore = v4 전용 Firestore.
-  // 공개면(/q·/catalog·/sign) 플래그는 Auth 게이트·공개 서명 슬롯용(isPublicAccess) — 스토어 선택과 분리.
-  const backend = process.env.NEXT_PUBLIC_DATA_BACKEND;
-  let base: StoreAdapter;
-  const rtdbOk = backend === 'rtdb' && firebaseReady();
-  if (rtdbOk) base = new RtdbAdapter();
-  else if (backend === 'firestore' && firebaseReady()) base = new FirestoreAdapter();
-  else base = new LocalAdapter();
+  // Firestore is the sole operational backend. Local storage is only used
+  // when Firebase itself is not configured (tests and local previews).
+  const base: StoreAdapter = firebaseReady() ? new FirestoreAdapter() : new LocalAdapter();
   return new DispatchStore(base);
 }

@@ -12,8 +12,7 @@
  * ⚠ 같은 이름이 여럿이면 화면에서 구분되게 채널을 붙여 보여 준다 — 코드는 안 보인다(사람이 못 읽는다).
  */
 import { NextResponse } from 'next/server';
-import { getDatabase } from 'firebase-admin/database';
-import { firebaseAdminApp, verifyActiveBearer, firebaseAdminDatabase } from '@/lib/server/firebase-admin';
+import { firebaseAdminApp, verifyActiveBearer, firebaseAdminStore } from '@/lib/server/firebase-admin';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -27,7 +26,7 @@ export async function GET(req: Request) {
   if (!who) return NextResponse.json({ ok: false, reason: '로그인이 필요합니다.' }, { status: 401 });
   if (who.role !== 'admin') return NextResponse.json({ ok: false, reason: '관리자만 볼 수 있습니다.' }, { status: 403 });
 
-  const snap = await firebaseAdminDatabase().ref('users').get().catch(() => null);
+  const snap = await firebaseAdminStore().ref('users').get().catch(() => null);
   const users = (snap?.val() || {}) as Record<string, U>;
 
   const live = Object.values(users).filter((u) => {

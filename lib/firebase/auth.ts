@@ -7,8 +7,8 @@ import {
   onAuthStateChanged, signInWithEmailAndPassword, createUserWithEmailAndPassword,
   signOut, sendPasswordResetEmail, setPersistence, browserLocalPersistence, type User,
 } from 'firebase/auth';
-import { ref, get, set, update } from 'firebase/database';
-import { getAuthClient, getRtdb, firebaseReady } from './client';
+import { collection, doc, getDoc, getDocs, getFirestore, setDoc } from 'firebase/firestore';
+import { getAuthClient, getFirebaseApp, firebaseReady } from './client';
 import { readUserProfile, readPartnersMap } from './client-profile';
 import { setSession, getSession, mapRole, clearLegacyGuestState } from '../auth-session';
 import { buildAuditEntry } from '@/lib/domain/audit';
@@ -23,14 +23,28 @@ import { LEGAL_VERSION } from '@/lib/legal';
 import { selfServeActivationDecision } from '@/lib/domain/self-serve-activation';
 import { newId } from '@/lib/domain/ids';
 
+const clientFirestore = () => {
+  const app = getFirebaseApp();
+  return app ? getFirestore(app) : null;
+};
+const readRecord = async (collectionName: string, id: string): Promise<Record<string, unknown> | null> => {
+  const db = clientFirestore();
+  if (!db || !id) return null;
+  const snap = await getDoc(doc(db, collectionName, id));
+  return snap.exists() ? snap.data() as Record<string, unknown> : null;
+};
+const mergeRecord = async (collectionName: string, id: string, value: Record<string, unknown>): Promise<void> => {
+  const db = clientFirestore();
+  if (!db) throw new Error('Firestore가 설정되지 않았습니다');
+  await setDoc(doc(db, collectionName, id), value, { merge: true });
+};
+
 /** 관리자 신원 조작(승인·역할재배정·채널백필) 감사기록 — store를 안 거치는 top-level users 쓰기라 별도 기록.
  *  best-effort(감사 실패가 원 작업을 막지 않음). audit_logs 규칙: actor_uid === auth.uid(=현재 관리자). */
 async function writeIdentityAudit(uid: string, action: string, before: Record<string, unknown> | null, after: Record<string, unknown> | null, summary: string): Promise<void> {
-  const db = getRtdb();
-  if (!db) return;
   try {
     const entry = buildAuditEntry('user', getCompanyId(), uid, action, (before as EntityRecord | null), (after as EntityRecord | null), currentActor(), { summary });
-    if (entry) await update(ref(db, `v4/audit_logs/${String(entry._key)}`), entry as Record<string, unknown>);
+    if (entry) await mergeRecord('audit_logs', String(entry._key), entry as Record<string, unknown>);
   } catch { /* best-effort */ }
 }
 import { writeUserPrivate } from '../domain/private-fields';
@@ -82,7 +96,7 @@ async function activateLegacySelfSignup(
       console.warn('[auth] 기존 가입자 자동 활성화 거절:', response.status);
       return profile;
     }
-    return (await readUserProfile(user.uid)) || profile;   // 단일 플래그: firestore면 user/{uid}, 아니면 RTDB
+    return (await readUserProfile(user.uid)) || profile;
   } catch (error) {
     console.warn('[auth] 기존 가입자 자동 활성화 실패:', (error as Error)?.message || error);
     return profile;
@@ -190,20 +204,7 @@ export async function resetPassword(email: string): Promise<void> {
  *  (공유 'SP999' 채널 금지: 규칙 게시 시 개인끼리 방/계약/정산 교차열람).
  *  회원관리에서 만든 파트너는 v4 오버레이에 있으므로 v3∪v4 를 본다. */
 async function readPartnersForMatch(): Promise<Record<string, Record<string, unknown>>> {
-  // 단일 플래그: firestore 면 partner 컬렉션(이미 병합됨). 아니면 기존 v3∪v4 병합.
-  if (String(process.env.NEXT_PUBLIC_DATA_BACKEND || '').trim() === 'firestore') return readPartnersMap();
-  const db = getRtdb();
-  if (!db) return {};
-  const [live, overlay] = await Promise.all([
-    get(ref(db, 'partners')).then((snap) => (snap.val() || {}) as Record<string, Record<string, unknown>>).catch(() => ({})),
-    get(ref(db, 'v4/partners')).then((snap) => (snap.val() || {}) as Record<string, Record<string, unknown>>).catch(() => ({})),
-  ]);
-  const merged: Record<string, Record<string, unknown>> = { ...live };
-  for (const [key, row] of Object.entries(overlay)) {
-    if (!row || typeof row !== 'object') continue;
-    merged[key] = { ...(merged[key] || {}), ...row };
-  }
-  return merged;
+  return readPartnersMap();
 }
 
 async function resolveIdentity(bizNo: string): Promise<{ role: string; company_code: string; agent_channel_code: string; matched_partner_code: string | null }> {
@@ -228,11 +229,7 @@ async function resolveIdentity(bizNo: string): Promise<{ role: string; company_c
 }
 
 async function writeApprovedUser(uid: string, patch: Record<string, unknown>): Promise<void> {
-  const db = getRtdb();
-  if (!db) return;
-  await update(ref(db, `users/${uid}`), patch);
-  // 회원관리 목록은 v3∪v4 병합이라 오버레이에 옛 pending/빈 소속이 있으면 승인이 안 보임.
-  await update(ref(db, `v4/users/${uid}`), patch);
+  await mergeRecord('user', uid, patch);
   patchListCache('user', getCompanyId(), uid, { ...patch, _key: uid, uid });
 }
 
@@ -253,7 +250,7 @@ export async function writeUserProfile(user: User, info: {
   /** 가입 필수 동의(약관·개인정보). 없으면 개인정보 수집 근거가 없다(QA AUTH-7). */
   consent?: { terms: boolean; privacy: boolean; version: string };
 }): Promise<void> {
-  const db = getRtdb(); if (!db) throw new Error('DB가 설정되지 않았습니다');
+  if (!clientFirestore()) throw new Error('Firestore가 설정되지 않았습니다');
   const bizNo = normalizeBusinessRegistrationNumber(info.business_no);
   let step = '초기화'; // 실패 단계 표기(가입 오류 위치 추적)
   try {
@@ -283,7 +280,7 @@ export async function writeUserProfile(user: User, info: {
       ...(info.consent?.privacy ? { privacy_agreed_at: Date.now() } : {}),
       ...(info.consent ? { legal_version: String(info.consent.version || '') } : {}),
     };
-    await set(ref(db, `users/${uid}`), rec);
+    await mergeRecord('user', uid, rec);
   } catch (e) {
     console.error(`[writeUserProfile] 실패 단계=[${step}]`, e);
     throw new Error(`[${step}] ${(e as Error)?.message || String(e)}`);
@@ -297,23 +294,23 @@ export async function writeUserProfile(user: User, info: {
  */
 /** 내 프로필 조회 — 설정 프로필 편집용(최상위 users/{uid}). */
 export async function loadMyProfile(): Promise<Record<string, unknown> | null> {
-  const db = getRtdb(); const auth = getAuthClient();
+  const auth = getAuthClient();
   const uid = auth?.currentUser?.uid;
-  if (!db || !uid) return null;
-  return ((await get(ref(db, `users/${uid}`))).val() as Record<string, unknown> | null) || null;
+  if (!uid) return null;
+  return readRecord('user', uid);
 }
 
 /** 내 프로필 수정 — 이름·연락처 등 "자기 필드"만. 역할·회사코드 등 신원은 건드리지 않음(규칙상 관리자 전용). 세션 즉시 반영. */
 export async function updateMyProfile(fields: { name?: string; phone?: string; company_name?: string }): Promise<void> {
-  const db = getRtdb(); const auth = getAuthClient();
+  const auth = getAuthClient();
   const uid = auth?.currentUser?.uid;
-  if (!db || !uid) throw new Error('로그인이 필요합니다');
+  if (!uid) throw new Error('로그인이 필요합니다');
   const patch: Record<string, unknown> = {};
   if (fields.name != null) patch.name = String(fields.name);
   if (fields.phone != null) patch.phone = String(fields.phone);
   if (fields.company_name != null) patch.company_name = String(fields.company_name);
   if (!Object.keys(patch).length) return;
-  await update(ref(db, `users/${uid}`), patch);
+  await mergeRecord('user', uid, patch);
   const s = getSession(); // 상단바·설정에 이름 즉시 반영
   if (s && (patch.name != null || patch.phone != null)) {
     setSession({ ...s, ...(patch.name != null ? { name: String(patch.name) } : {}), ...(patch.phone != null ? { phone: String(patch.phone) } : {}) });
@@ -322,16 +319,16 @@ export async function updateMyProfile(fields: { name?: string; phone?: string; c
 
 /** 현재 버전 약관·개인정보 처리방침 재동의 증적을 본인 프로필에 기록한다. */
 export async function recordCurrentLegalConsent(): Promise<void> {
-  const db = getRtdb(); const auth = getAuthClient();
+  const auth = getAuthClient();
   const uid = auth?.currentUser?.uid;
-  if (!db || !uid) throw new Error('로그인이 필요합니다.');
+  if (!uid) throw new Error('로그인이 필요합니다.');
   const agreedAt = Date.now();
   const consent = {
     terms_agreed_at: agreedAt,
     privacy_agreed_at: agreedAt,
     legal_version: LEGAL_VERSION,
   };
-  await update(ref(db, `users/${uid}`), consent);
+  await mergeRecord('user', uid, consent);
   const s = getSession();
   if (s?.uid === uid) setSession({ ...s, ...consent });
 }
@@ -358,8 +355,7 @@ export async function adminUpdateUserIdentity(
     is_active?: string;
   },
 ): Promise<void> {
-  const db = getRtdb();
-  if (!db) return; // 로컬/데모: 최상위 users 없음 → 스킵(정상)
+  if (!clientFirestore()) return;
   if (!uid) throw new Error('uid 없음');
   const patch: Record<string, unknown> = {};
   if (fields.role != null) patch.role = String(fields.role);
@@ -375,8 +371,8 @@ export async function adminUpdateUserIdentity(
   if (fields.is_team_manager != null) patch.is_team_manager = String(fields.is_team_manager);
   if (fields.is_active != null) patch.is_active = String(fields.is_active);
   if (!Object.keys(patch).length) return;
-  const before = (await get(ref(db, `users/${uid}`))).val() as Record<string, unknown> | null;
-  await update(ref(db, `users/${uid}`), patch);
+  const before = await readRecord('user', uid);
+  await mergeRecord('user', uid, patch);
   await writeIdentityAudit(uid, 'update', before, { ...(before || {}), ...patch }, '회원 신원·운영 프로필 수정');
 }
 
@@ -414,7 +410,7 @@ export type ApproveUserResult = {
  *  opts.rematch=true 면 신원이 있어도 강제 재파생(파트너 디렉토리 갱신 후 명시적 재매칭용 이스케이프 해치).
  */
 export async function approveUser(uid: string, active = true, opts?: { rematch?: boolean }): Promise<ApproveUserResult> {
-  const db = getRtdb(); if (!db) throw new Error('DB가 설정되지 않았습니다');
+  if (!clientFirestore()) throw new Error('Firestore가 설정되지 않았습니다');
   if (!uid) throw new Error('uid 없음');
   if (!active) {
     const patch = { status: 'pending' };
@@ -422,7 +418,7 @@ export async function approveUser(uid: string, active = true, opts?: { rematch?:
     await writeIdentityAudit(uid, 'approve', null, patch, '가입 승인취소(대기로 되돌림)');
     return { status: 'pending', matched: false };
   }
-  const u = (await get(ref(db, `users/${uid}`))).val() as Record<string, unknown> | null;
+  const u = await readRecord('user', uid);
   const existingCompany = String((u && u.company_code) || '').trim();
   const hasRealAffiliation = !!existingCompany && existingCompany !== PERSONAL_AGENT_COMPANY;
   let patch: Record<string, unknown>;
@@ -478,9 +474,11 @@ export async function approveUser(uid: string, active = true, opts?: { rematch?:
 export async function backfillPersonalAgentChannels(opts?: { dryRun?: boolean }): Promise<{
   scanned: number; updated: { uid: string; from: string; to: string }[]; skipped: number;
 }> {
-  const db = getRtdb(); if (!db) throw new Error('DB가 설정되지 않았습니다');
+  const db = clientFirestore(); if (!db) throw new Error('Firestore가 설정되지 않았습니다');
   const dry = !!opts?.dryRun;
-  const snap = (await get(ref(db, 'users'))).val() as Record<string, Record<string, unknown>> | null;
+  const snapDocs = await getDocs(collection(db, 'user'));
+  const snap: Record<string, Record<string, unknown>> = {};
+  snapDocs.forEach((row) => { snap[row.id] = row.data() as Record<string, unknown>; });
   const updated: { uid: string; from: string; to: string }[] = [];
   let scanned = 0; let skipped = 0;
   if (!snap) return { scanned: 0, updated, skipped: 0 };
@@ -496,7 +494,7 @@ export async function backfillPersonalAgentChannels(opts?: { dryRun?: boolean })
     const to = String(u.user_code || uid).trim();
     if (!to || to === ch) { skipped++; continue; }
     updated.push({ uid, from: ch || '(empty)', to });
-    if (!dry) { await update(ref(db, `users/${uid}`), { agent_channel_code: to }); await writeIdentityAudit(uid, 'update', { agent_channel_code: ch }, { agent_channel_code: to }, `개인채널 백필 ${ch || '(빈)'}→${to}`); }
+    if (!dry) { await mergeRecord('user', uid, { agent_channel_code: to }); await writeIdentityAudit(uid, 'update', { agent_channel_code: ch }, { agent_channel_code: to }, `개인채널 백필 ${ch || '(빈)'}→${to}`); }
   }
   return { scanned, updated, skipped };
 }

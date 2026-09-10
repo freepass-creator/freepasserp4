@@ -1,7 +1,7 @@
 import 'server-only';
 
-import { firebaseAdminDatabase } from '@/lib/server/firebase-admin';
-import { toV4Record } from '@/lib/firebase/rtdb-records';
+import { firebaseAdminStore } from '@/lib/server/firebase-admin';
+import { toV4Record } from '@/lib/firebase/legacy-records';
 import type { EntityRecord } from '@/lib/intake/entities';
 
 /**
@@ -149,7 +149,7 @@ const isDead = (record: Record<string, unknown>): boolean => (
  * 브라우저와 같은 집합이 된다.
  */
 export async function readSheetReconcileState(companyId: string): Promise<SheetReconcileStatePayload> {
-  const snapshot = await firebaseAdminDatabase().ref('v4/products').get();
+  const snapshot = await firebaseAdminStore().ref('v4/products').get();
   const raw = (snapshot.val() || {}) as Record<string, Record<string, unknown>>;
 
   const active: EntityRecord[] = [];

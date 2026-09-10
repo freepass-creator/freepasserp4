@@ -1,3 +1,4 @@
+throw new Error('RTDB_REMOVED: legacy Realtime Database rule probe is permanently disabled');
 /**
  * 1단계 봉합 규칙 검증 — 실제 에뮬레이터 REST로 200/401 확인.
  *

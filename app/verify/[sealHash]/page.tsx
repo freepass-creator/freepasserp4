@@ -1,4 +1,4 @@
-import { firebaseAdminDatabase } from '@/lib/server/firebase-admin';
+import { firebaseAdminStore } from '@/lib/server/firebase-admin';
 import { VerifyView } from './VerifyView';
 
 export const dynamic = 'force-dynamic';
@@ -9,7 +9,7 @@ export default async function VerifyPage({ params }: { params: Promise<{ sealHas
   let row: Record<string, unknown> | null = null;
   if (valid) {
     try {
-      row = (await firebaseAdminDatabase().ref(`v4/esign_verifications/${sealHash}`).get()).val() as Record<string, unknown> | null;
+      row = (await firebaseAdminStore().ref(`v4/esign_verifications/${sealHash}`).get()).val() as Record<string, unknown> | null;
     } catch {
       row = null;
     }

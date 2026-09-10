@@ -18,7 +18,6 @@
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 
-process.env.NEXT_PUBLIC_DATA_BACKEND = 'rtdb';
 
 const APPLY = process.argv.includes('--apply');
 const CODE = (process.argv.find((a) => a.startsWith('--code=')) || '').slice('--code='.length).trim();
@@ -43,7 +42,7 @@ async function main() {
   if (!CODE) { console.log('--code=<공급사코드> 필요'); return; }
 
   const { initializeApp, cert } = await import('firebase-admin/app');
-  const { getDatabase } = await import('firebase-admin/database');
+  const { getDatabase } = await import('./lib/disabled-rtdb.mts');
   const sa = process.env.FIREBASE_SERVICE_ACCOUNT_JSON
     ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON)
     : JSON.parse(readFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS || 'tmp/firebase-auth/sa.json', 'utf8'));

@@ -1,3 +1,4 @@
+throw new Error('RTDB_REMOVED: 폐기된 RTDB 경로를 사용하는 스크립트입니다.');
 /**
  * 영업자·공급사 제한 오픈 전 정적/환경 게이트.
  * 비밀값은 출력하지 않고 이름의 존재 여부만 검사하며 외부 write를 하지 않는다.
@@ -50,14 +51,13 @@ const hasActiveAssignedUserGate = (rule: string): boolean => (
 for (const name of [
   'NEXT_PUBLIC_FIREBASE_API_KEY',
   'NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN',
-  'NEXT_PUBLIC_FIREBASE_DATABASE_URL',
   'NEXT_PUBLIC_FIREBASE_PROJECT_ID',
   'NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET',
   'NEXT_PUBLIC_FIREBASE_APP_ID',
 ]) {
   check(present(name), `환경변수 ${name}`);
 }
-check(String(envValue('NEXT_PUBLIC_DATA_BACKEND') || '').trim() === 'rtdb', '운영 데이터 백엔드 RTDB');
+check(!String(envValue('NEXT_PUBLIC_DATA_BACKEND') || '').trim(), '폐기된 데이터 백엔드 선택 변수 제거');
 
 for (const [name, label] of [
   ['NEXT_PUBLIC_OPERATOR_COMPANY', '상호'],

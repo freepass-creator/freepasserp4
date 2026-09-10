@@ -18,7 +18,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
-import { getDatabase } from 'firebase-admin/database';
+import { getDatabase } from './lib/disabled-rtdb.mts';
 import { snapToMaster, type MasterEntry } from '../lib/domain/vehicle-master-match';
 import { isListableProduct } from '../lib/domain/product';
 import {

@@ -11,7 +11,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { initializeApp, cert } from 'firebase-admin/app';
-import { getDatabase } from 'firebase-admin/database';
+import { getDatabase } from './lib/disabled-rtdb.mts';
 import { getFirestore } from 'firebase-admin/firestore';
 import { snapToMaster, makerGroup } from '../lib/domain/vehicle-master-match';
 import { cleanTrim } from '../lib/domain/clean-trim';

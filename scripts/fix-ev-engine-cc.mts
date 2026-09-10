@@ -1,3 +1,4 @@
+throw new Error('RTDB_REMOVED: 폐기된 RTDB 경로를 사용하는 스크립트입니다.');
 /**
  * **전기·수소차에 붙은 배기량을 지운다.** 기본 dry-run, 반영은 `--apply`.
  *

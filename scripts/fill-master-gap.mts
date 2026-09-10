@@ -1,3 +1,4 @@
+throw new Error('RTDB_REMOVED: 폐기된 RTDB 경로를 사용하는 스크립트입니다.');
 /**
  * **차종마스터에 빠진 파워트레인·트림을 채운다.** 기본 dry-run, 반영은 `--apply`.
  *

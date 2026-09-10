@@ -9,7 +9,7 @@
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
-import { getDatabase } from 'firebase-admin/database';
+import { getDatabase } from './lib/disabled-rtdb.mts';
 import { snapToMaster, applySnap, type MasterEntry } from '../lib/domain/vehicle-master-match';
 import { choicesOf } from '../lib/domain/vehicle-defaults';
 import { isListableProduct } from '../lib/domain/product';

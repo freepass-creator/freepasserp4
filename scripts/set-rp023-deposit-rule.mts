@@ -3,7 +3,7 @@
  * 기본은 dry-run. --apply일 때만 현재값 공란/동일을 CAS 확인하고 v4에 쓴다.
  */
 import { initializeApp, applicationDefault, cert } from 'firebase-admin/app';
-import { getDatabase } from 'firebase-admin/database';
+import { getDatabase } from './lib/disabled-rtdb.mts';
 
 type Rec = Record<string, any>;
 const APPLY = process.argv.includes('--apply');

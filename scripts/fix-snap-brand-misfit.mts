@@ -128,7 +128,7 @@ type Kind = 'ok_enrich' | 'brand_swap' | 'wrong_model' | 'weak_raw';
 async function main() {
   const apply = process.argv.includes('--apply');
   const { initializeApp, cert, getApps } = await import('firebase-admin/app');
-  const { getDatabase } = await import('firebase-admin/database');
+  const { getDatabase } = await import('./lib/disabled-rtdb.mts');
   if (!getApps().length) {
     const sa = JSON.parse(readFileSync(process.env.GOOGLE_APPLICATION_CREDENTIALS || 'tmp/firebase-auth/sa.json', 'utf8'));
     initializeApp({ credential: cert(sa), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' });

@@ -132,7 +132,7 @@ const RAW_START = 40;
 
 /**
  * 정책 조인 — 연령·보험·심사는 전부 `policies` 에 있고 매물엔 `policy_code` 만 있다.
- * 앱은 어댑터가 읽으면서 `_policy` 를 붙이지만(`lib/firebase/rtdb-records.ts` toV4Record),
+ * 앱은 어댑터가 읽으면서 `_policy` 를 붙이지만(`lib/firebase/legacy-records.ts` toV4Record),
  * RTDB 를 raw 로 읽는 서버·CLI 는 직접 붙여야 한다. 안 붙이면 심사·연령·보험이 통째로 빈다.
  */
 export function attachPolicy(p: EntityRecord, policies: Record<string, EntityRecord>): EntityRecord {

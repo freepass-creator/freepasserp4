@@ -1,6 +1,6 @@
 import 'server-only';
 
-import type { Database } from 'firebase-admin/database';
+import type { AdminRef as Database } from './firestore-path-store';
 import type { EntityRecord } from '@/lib/intake/entities';
 import type { ActiveBearer } from '@/lib/server/firebase-admin';
 import { isContractCancelled } from '@/lib/domain/contract';
@@ -352,10 +352,7 @@ async function finalizeSettlementSeal(
   const sealRef = db.ref(`v4/contract_settlement_seals/${contractCode}`);
   let conflict = false;
   const result = await sealRef.transaction((raw) => {
-    // Admin SDK transaction도 빈 로컬 캐시에서는 원격 preparing record가 있어도
-    // 먼저 null callback을 줄 수 있다. 여기서 conflict로 abort하면 정상 재시도가
-    // 영구히 막힌다. null proposal은 원격 snapshot을 받은 뒤 다시 평가된다.
-    if (raw == null) return null;
+    if (raw == null) return undefined;
     const current = parseSeal(raw, contractCode);
     if (!current || !sameCoreSeal(current, expected)) {
       conflict = true;
@@ -403,16 +400,10 @@ export async function freezeContractSettlementTerms(input: {
   }
 
   const contractRef = input.db.ref(`v4/contracts/${contractCode}`);
-  const [initialContractSnap, legacyContractSnap, existingSeal] = await Promise.all([
+  const [initialContractSnap, existingSeal] = await Promise.all([
     contractRef.get(),
-    // v3 원장은 금전/당사자 SSOT다. 부분 v4 overlay에 현재 요율을 붙이면 issuer가
-    // legacy 원장과 다시 대조할 때 drift가 생긴다. 별도 관리자 복구 전에는 fail-closed.
-    input.db.ref(`contracts/${contractCode}`).get(),
     readContractSettlementSeal(input.db, contractCode),
   ]);
-  if (legacyContractSnap.exists()) {
-    throw new ContractSettlementSealError('기존 원장 계약은 서버 정산 기준을 자동 확정할 수 없습니다. 관리자 검토 절차로 처리해 주세요.');
-  }
   const initialContract = usableGenericContract(initialContractSnap.val(), contractCode);
   const initialAgent = await canonicalAgentParty(input.db, initialContract);
   if (!canCompleteGenericAgreement(input.actor, initialAgent)) {
@@ -445,10 +436,7 @@ export async function freezeContractSettlementTerms(input: {
 
     let agreementConflict = '';
     const agreementWrite = await contractRef.transaction((raw) => {
-      // RTDB transaction은 로컬 캐시가 비어 있으면 실제 서버값이 있어도 먼저 null로
-      // callback을 부른다. null을 undefined로 abort하면 원격값을 다시 받지 못한다.
-      // null 삭제 proposal은 원격값이 있으면 재시도되고, 실제로 없어도 계약을 만들지 않는다.
-      if (raw == null) return null;
+      if (raw == null) return undefined;
       let current: EntityRecord;
       try { current = usableGenericContract(raw, contractCode); }
       catch (error) {

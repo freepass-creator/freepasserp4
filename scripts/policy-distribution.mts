@@ -1,9 +1,8 @@
 // v4/policies 표준화 후보 필드의 공급사별 분포 — 통일할 것 찾기. 읽기만.
 import { readFileSync } from 'node:fs';
-process.env.NEXT_PUBLIC_DATA_BACKEND = 'rtdb';
 for (const f of ['.env.local']) { try { for (const l of readFileSync(f,'utf8').split(/\r?\n/)) { const m=/^\s*([A-Z0-9_]+)\s*=\s*(.*)$/.exec(l); if(!m)continue; const v=m[2].replace(/^["']|["']$/g,''); if(v&&!process.env[m[1]])process.env[m[1]]=v; } } catch {} }
-const { firebaseAdminDatabase } = await import('../lib/server/firebase-admin');
-const pols: Record<string, any> = (await firebaseAdminDatabase().ref('v4/policies').get()).val() || {};
+const { firebaseAdminStore } = await import('../lib/server/firebase-admin');
+const pols: Record<string, any> = (await firebaseAdminStore().ref('v4/policies').get()).val() || {};
 const list = Object.values(pols);
 const S = (v: unknown) => String(v ?? '').trim();
 console.log(`v4/policies ${list.length}개 · 공통정책 ${list.filter(p=>p.is_freepass_common_policy).length}개\n`);

@@ -1,3 +1,4 @@
+throw new Error('RTDB_REMOVED: 폐기된 RTDB 경로를 사용하는 스크립트입니다.');
 /**
  * 우리가 제공한 공급사 시트를 **표준양식 탭으로 옮긴다.** 기본 dry-run, 반영은 --apply.
  *

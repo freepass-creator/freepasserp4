@@ -18,6 +18,7 @@ await env.withSecurityRulesDisabled(async (ctx) => {
   await setDoc(doc(db, 'partner/RP004__PT1'), { companyId: 'RP004', partner_name: '제일오토' });
   await setDoc(doc(db, 'customer/PT-0000__C1'), { companyId: 'PT-0000', created_by: 'uidA', customer_name: '손님A' });
   await setDoc(doc(db, 'customer/PT-0000__C2'), { companyId: 'PT-0000', created_by: 'uidB', customer_name: '손님B' });
+  await setDoc(doc(db, 'contract_sign/sign_public_1'), { status: 'sent', contract_code: 'CT-1', sign_status: '발송' });
 });
 
 const results: string[] = [];
@@ -28,6 +29,7 @@ const check = async (name: string, kind: 'ok' | 'deny', p: Promise<unknown>) => 
 
 // 영업자 A (agent_code=U0045) — 자기 계약 O · 남의 계약 X
 const A = env.authenticatedContext('uidA', { role: 'agent', agent_code: 'U0045', company: 'SP999' }).firestore();
+const NEW = env.authenticatedContext('uidNew', { role: 'agent', agent_code: 'uidNew', company: 'SP999' }).firestore();
 await check('영업자A 자기계약(U0045) 읽기', 'ok', getDoc(doc(A, 'contract/RP004__A1')));
 await check('영업자A 남의계약(U0018) 차단', 'deny', getDoc(doc(A, 'contract/RP005__B1')));
 await check('영업자A 자기정산 읽기', 'ok', getDoc(doc(A, 'settlement/RP004__S1')));
@@ -72,6 +74,32 @@ await check('영업자A 자기손님(created_by=uidA) 읽기', 'ok', getDoc(doc(
 await check('영업자A 남의손님(uidB) 차단', 'deny', getDoc(doc(A, 'customer/PT-0000__C2')));
 await check('영업자A list(created_by=uidA) 허용', 'ok', getDocs(query(collection(A, 'customer'), where('created_by', '==', 'uidA'))));
 await check('영업자A list(무제약 손님) 거부', 'deny', getDocs(query(collection(A, 'customer'))));
+
+// === Firestore 단일 백엔드 전환 경로 ===
+await check('본인 가입 프로필 생성', 'ok', setDoc(doc(A, 'user/uidA'), {
+  uid: 'uidA', name: 'A', phone: '', company_name: '', business_no: '', user_code: 'U0045',
+  requested_type: '', status: 'active', role: 'agent', created_at: 1,
+}));
+await check('가입자가 관리자 역할로 생성 차단', 'deny', setDoc(doc(NEW, 'user/uidNew'), {
+  uid: 'uidNew', status: 'active', role: 'admin', created_at: 1,
+}));
+await check('본인 프로필 이름 수정', 'ok', setDoc(doc(A, 'user/uidA'), { name: 'A2' }, { merge: true }));
+await check('본인 프로필 역할 변경 차단', 'deny', setDoc(doc(A, 'user/uidA'), { role: 'admin' }, { merge: true }));
+await check('본인 private 이메일 생성', 'ok', setDoc(doc(A, 'users_private/uidA'), { email: 'a@example.test' }));
+await check('본인 private 임의 필드 차단', 'deny', setDoc(doc(A, 'users_private/uidA'), { fee_rate: 1 }, { merge: true }));
+await check('비로그인 공개서명 단건 읽기', 'ok', getDoc(doc(AN, 'contract_sign/sign_public_1')));
+await check('비로그인 공개서명 목록 차단', 'deny', getDocs(collection(AN, 'contract_sign')));
+await check('비로그인 공개서명 제출 허용', 'ok', setDoc(doc(AN, 'contract_sign/sign_public_1'), {
+  status: 'pending_review', sign_status: '검토대기', sign_signature: 'data:image/png;base64,x',
+  sign_consents: 'rental_terms,privacy,credit,gps,cms', sign_consent_version: 'v1', sign_signed_at: 2,
+  updated_at: 2, sign_token: 'sign_public_1',
+}, { merge: true }));
+await check('비로그인 공개서명 계약코드 변조 차단', 'deny', setDoc(doc(AN, 'contract_sign/sign_public_1'), {
+  contract_code: 'CT-HACK',
+}, { merge: true }));
+await check('비로그인 공개서명 신규 생성 차단', 'deny', setDoc(doc(AN, 'contract_sign/sign_public_2'), {
+  status: 'sent', contract_code: 'CT-2',
+}));
 
 console.log('\n=== Firestore 규칙 격리 테스트 ===');
 for (const r of results) console.log(r);

@@ -184,10 +184,10 @@ const check = (axis: string, ok: boolean, detail: string) => { results.push({ ax
 async function liveCheck() {
   // 모듈러 서브패스 — `import('firebase-admin')` 은 ESM 에서 CJS 네임스페이스라 credential 이 undefined 다.
   let appMod: typeof import('firebase-admin/app');
-  let dbMod: typeof import('firebase-admin/database');
+  let dbMod: typeof import('./lib/disabled-rtdb.mts');
   try {
     appMod = await import('firebase-admin/app');
-    dbMod = await import('firebase-admin/database');
+    dbMod = await import('./lib/disabled-rtdb.mts');
   } catch { check('G 라이브', false, 'firebase-admin 없음'); return; }
   const dbUrl = process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL || process.env.FIREBASE_DATABASE_URL;
   if (!dbUrl) { check('G 라이브', false, 'DB URL 없음'); return; }

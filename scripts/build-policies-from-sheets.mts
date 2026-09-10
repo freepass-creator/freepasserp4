@@ -1,3 +1,4 @@
+throw new Error('RTDB_REMOVED: 폐기된 RTDB 경로를 사용하는 스크립트입니다.');
 /**
  * **공급사 시트의 조건 열 → 정책**을 만들고 매물에 붙인다. 기본 dry-run, 반영은 `--apply`.
  *

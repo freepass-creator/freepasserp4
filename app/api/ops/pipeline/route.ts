@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { verifyAdminBearer } from '@/lib/server/firebase-admin';
-import { firestoreAdminRef } from '@/lib/server/firestore-ref-shim';
+import { firestorePathStore } from '@/lib/server/firestore-path-store';
 import { OPS_PIPELINE_PATH, type OpsPipelineStatus } from '@/lib/ops-status';
 
 /**
@@ -31,7 +31,7 @@ export async function GET(request: Request): Promise<Response> {
      *   경로 이름은 그대로 두고 심이 컬렉션으로 옮긴다 — `v4/system_status/...` → `system_status` 문서.
      *   여기는 **읽기 전용 상태판**이라 되돌리기도 한 줄이다.
      */
-    const snap = await firestoreAdminRef().ref(OPS_PIPELINE_PATH).get();
+    const snap = await firestorePathStore().ref(OPS_PIPELINE_PATH).get();
     const value = snap.val();
     // 아직 한 번도 안 올라왔으면 «없음»을 분명히 준다 — 빈 객체를 주면 화면이 0 으로 그린다.
     const status: OpsPipelineStatus | null = value && typeof value === 'object' ? value : null;

@@ -1,3 +1,4 @@
+throw new Error('RTDB_REMOVED: 폐기된 RTDB 경로를 사용하는 스크립트입니다.');
 /**
  * **테스트 계약 한 건**을 만든다. 기본 dry-run, 실제 쓰기는 --apply.
  *

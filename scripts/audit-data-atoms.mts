@@ -11,9 +11,9 @@
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { applicationDefault, cert, initializeApp } from 'firebase-admin/app';
-import { getDatabase } from 'firebase-admin/database';
+import { getDatabase } from './lib/disabled-rtdb.mts';
 import { ENTITIES, type EntityRecord } from '../lib/intake/entities';
-import { toV4Record } from '../lib/firebase/rtdb-records';
+import { toV4Record } from '../lib/firebase/legacy-records';
 
 type Rec = Record<string, unknown>;
 

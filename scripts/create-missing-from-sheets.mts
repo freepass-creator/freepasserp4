@@ -1,3 +1,4 @@
+throw new Error('RTDB_REMOVED: 폐기된 RTDB 경로를 사용하는 스크립트입니다.');
 /**
  * **공급사 시트에 있는데 ERP 에 없는 차를 만들어 넣는다.** 기본 dry-run, 반영은 `--apply`.
  *

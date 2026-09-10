@@ -1,3 +1,4 @@
+throw new Error('RTDB_REMOVED: 폐기된 RTDB 경로를 사용하는 스크립트입니다.');
 /**
  * **차종·트림을 공급사 시트에서 다시 잡는다.** 기본 dry-run, 반영은 `--apply`.
  *

@@ -1,12 +1,11 @@
 // 연주행 규칙 적용: 손오공(RP012)·웰릭스(RP013)=연 20,000km, 그 외=연 30,000km(프리패스 기본·표준표기).
 // 사장님 2026-08-28 「렌트 기본 3만km · 손오공/웰릭스는 렌트·구독 다 2만km」. 드라이런 기본, --apply 로 반영.
 import { readFileSync, mkdirSync, writeFileSync } from 'node:fs';
-process.env.NEXT_PUBLIC_DATA_BACKEND = 'rtdb';
 for (const f of ['.env.local']) { try { for (const l of readFileSync(f,'utf8').split(/\r?\n/)) { const m=/^\s*([A-Z0-9_]+)\s*=\s*(.*)$/.exec(l); if(!m)continue; const v=m[2].replace(/^["']|["']$/g,''); if(v&&!process.env[m[1]])process.env[m[1]]=v; } } catch {} }
 const APPLY = process.argv.includes('--apply');
 const S = (v: unknown) => String(v ?? '').trim();
-const { firebaseAdminDatabase } = await import('../lib/server/firebase-admin');
-const db = firebaseAdminDatabase();
+const { firebaseAdminStore } = await import('../lib/server/firebase-admin');
+const db = firebaseAdminStore();
 const EXC = new Set(['RP012', 'RP013']);      // 손오공·웰릭스 = 2만 예외
 const V20 = '연 20,000km', V30 = '연 30,000km';
 const kmOf = (s: string) => /3\s*만|30,?000/.test(s) ? 30 : /2\.5|25,?000/.test(s) ? 25 : /2\s*만|20,?000/.test(s) ? 20 : 0;

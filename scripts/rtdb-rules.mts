@@ -1,3 +1,4 @@
+throw new Error('RTDB_REMOVED: 폐기된 RTDB 경로를 사용하는 스크립트입니다.');
 /**
  * RTDB 규칙 받기/올리기 — 서비스계정 토큰으로 `.settings/rules.json` 을 직접 다룬다.
  *

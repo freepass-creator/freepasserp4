@@ -1,3 +1,4 @@
+throw new Error('RTDB_REMOVED: 폐기된 RTDB 경로를 사용하는 스크립트입니다.');
 /**
  * **보증금을 규칙으로 받는 공급사의 빈 보증금 칸에 그 규칙을 적어 넣는다.** 기본 dry-run, 반영은 `--apply`.
  *

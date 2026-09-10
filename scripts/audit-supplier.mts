@@ -9,7 +9,7 @@
  *   npx tsx scripts/audit-supplier.mts --list        공급사 목록만
  */
 import { initializeApp, cert } from 'firebase-admin/app';
-import { getDatabase } from 'firebase-admin/database';
+import { getDatabase } from './lib/disabled-rtdb.mts';
 import { readFileSync } from 'node:fs';
 import { importSheetTable, parseMappingProfile, parseMappingHeaderSignature } from '../lib/domain/sheet-import';
 import { resolveAdapter } from '../lib/domain/sheet-adapters';

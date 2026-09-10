@@ -63,7 +63,7 @@ const tab = tabs.map((t) => t.title).join(' + ');
 console.log(`판매시트 「${tab}」 차량번호 ${sheet.size}대`);
 
 const { initializeApp, cert, getApps } = await import('firebase-admin/app');
-const { getDatabase } = await import('firebase-admin/database');
+const { getDatabase } = await import('./lib/disabled-rtdb.mts');
 if (!getApps().length) initializeApp({ credential: cert(sa), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' });
 const db = getDatabase();
 const v4 = ((await db.ref('v4/products').get()).val() || {}) as Record<string, Rec>;

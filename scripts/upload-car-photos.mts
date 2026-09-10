@@ -1,3 +1,4 @@
+throw new Error('RTDB_REMOVED: 폐기된 RTDB 경로를 사용하는 스크립트입니다.');
 /**
  * **카톡으로 받은 차량 사진을 `freepasspics/<공급사>/<차번 차명>/` 에 올린다.** 기본 dry-run, 반영은 `--apply`.
  *

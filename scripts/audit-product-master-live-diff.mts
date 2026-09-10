@@ -10,7 +10,7 @@ import { createHash } from 'node:crypto';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { cert, deleteApp, initializeApp } from 'firebase-admin/app';
-import { getDatabase } from 'firebase-admin/database';
+import { getDatabase } from './lib/disabled-rtdb.mts';
 import { JWT } from 'google-auth-library';
 import type { EntityRecord } from '../lib/intake/entities';
 import {
@@ -32,7 +32,7 @@ import {
 import type { SheetConflictResolution } from '../lib/domain/sheet-conflict-resolution';
 import type { VehicleTrimMasterArtifact } from '../lib/domain/vehicle-trim-master';
 import { mergeProductPrivate, splitProductPrivate } from '../lib/firebase/rtdb-products';
-import { toV4Record } from '../lib/firebase/rtdb-records';
+import { toV4Record } from '../lib/firebase/legacy-records';
 import {
   PRODUCT_PATCH_GUARD_FIELDS,
   productPatchPreconditionMatches,

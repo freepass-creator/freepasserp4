@@ -13,7 +13,7 @@ const S = (v: unknown) => String(v ?? '').trim();
 
 async function main() {
   const { initializeApp, cert, getApps } = await import('firebase-admin/app');
-  const { getDatabase } = await import('firebase-admin/database');
+  const { getDatabase } = await import('./lib/disabled-rtdb.mts');
   if (!getApps().length) {
     const sa = JSON.parse(readFileSync('tmp/firebase-auth/sa.json', 'utf8'));
     initializeApp({ credential: cert(sa), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' });

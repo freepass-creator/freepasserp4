@@ -8,7 +8,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { initializeApp, cert } from 'firebase-admin/app';
-import { getDatabase } from 'firebase-admin/database';
+import { getDatabase } from './lib/disabled-rtdb.mts';
 import { JWT } from 'google-auth-library';
 import { MIRROR_SOURCES } from '../lib/domain/mirror-sources';
 

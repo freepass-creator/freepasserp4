@@ -87,10 +87,10 @@ export async function createSettlement(contract: EntityRecord): Promise<string> 
   const code = settlementStorageKeyForContract(contract.contract_code);
   const canonicalCode = settlementIdForContract(contract.contract_code);
   if (!code || !canonicalCode) throw new Error('정산 생성: 계약코드 없음');
-  // 운영 RTDB에서는 금액·요율을 브라우저에서 만들거나 쓰지 않는다. 서버가 같은 계약의
-  // v3/v4 기준정보를 다시 읽어 한 번만 계산·기록한다. 서버 장애에서 직접 저장으로 폴백하면
+  // 운영 Firestore에서는 금액·요율을 브라우저에서 만들거나 쓰지 않는다. 서버가 같은 계약의
+  // 기준정보를 다시 읽어 한 번만 계산·기록한다. 서버 장애에서 직접 저장으로 폴백하면
   // 권한 규칙을 우회한 위조 경로가 되므로 fail-closed 한다.
-  if (store.backend.startsWith('rtdb')) {
+  if (store.backend.startsWith('firestore')) {
     const { issueSettlementFromClient } = await import('@/lib/firebase/settlement-client');
     return issueSettlementFromClient(String(contract.contract_code));
   }

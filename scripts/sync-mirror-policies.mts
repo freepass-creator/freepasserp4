@@ -16,6 +16,8 @@
  */
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
+import { cert, getApps, initializeApp } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
 import { SHEET_GRID_FIELDS, readSupplierSheet } from '../lib/domain/supplier-sheet-read';
 import { hasPolicyColumns, policyFieldsFrom, policySameKey, policyTabRowFrom, POLICY_SAME_KEYS, wonOf } from '../lib/domain/supplier-row-policy';
 import { policySheetHeader } from '../lib/domain/policy-sheet-layout';
@@ -29,7 +31,6 @@ const arg = (k: string, d = '') => (process.argv.find((a) => a.startsWith(`--${k
 const APPLY = process.argv.includes('--apply');
 const FROM = arg('from'); const TO = arg('to'); const CODE = arg('code');
 if (!FROM || !TO || !CODE) throw new Error('--from=<원본ID> --to=<정제시트ID> --code=RP0xx 가 필요하다');
-const DB = 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app';
 
 /**
  * 원본 재고표에 없는, 공급사가 확정해 준 계약 자격 조건.
@@ -43,7 +44,16 @@ const REQUIRED_POLICY_FIELDS: Record<string, Rec> = {
 
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 const jwt = new JWT({ email: sa.client_email, key: sa.private_key, scopes: ['https://www.googleapis.com/auth/spreadsheets'], subject: 'pyh@teamjpk.com' });
-const dbT = (await new JWT({ email: sa.client_email, key: sa.private_key, scopes: ['https://www.googleapis.com/auth/firebase.database', 'https://www.googleapis.com/auth/userinfo.email'] }).getAccessToken()).token;
+const firebaseAppName = 'sync-mirror-policies-firestore';
+const firebaseApp = getApps().find((item) => item.name === firebaseAppName) || initializeApp({
+  credential: cert({
+    projectId: sa.project_id,
+    clientEmail: sa.client_email,
+    privateKey: String(sa.private_key || '').replace(/\\n/g, '\n'),
+  }),
+  projectId: sa.project_id,
+}, firebaseAppName);
+const firestore = getFirestore(firebaseApp);
 const call = async (u: string, init?: RequestInit): Promise<Rec> => {
   for (let n = 0; ; n++) {
     const tok = (await jwt.getAccessToken()).token;
@@ -86,15 +96,14 @@ for (const t of read.tabs) {
 console.log(`■ ${CODE} 정책 미러 ${APPLY ? '반영' : '미리보기'} — 원본 ${read.tabs.length}탭(조건 칸 있는 탭 ${tabsWithPolicy}) · 조건 읽은 차 ${rowsSeen} · 정책 ${groups.size}벌`);
 if (!groups.size) { console.log('  조건 칸이 없다 — 할 일 없음(「(프리패스 기본)」 적용)'); process.exit(0); }
 
-// ── ② ERP 에 같은 조건의 정책이 있으면 그 코드를 쓴다
+// ── ② Firestore ERP에 같은 조건의 정책이 있으면 그 코드를 쓴다
 const existing: { code: string; rec: Rec }[] = [];
-for (const path of ['policies', 'v4/policies']) {
-  const all = JSON.parse(await (await fetch(`${DB}/${path}.json?access_token=${dbT}`)).text()) || {};
-  for (const [k, v] of Object.entries<Rec>(all)) {
-    if (!v || typeof v !== 'object' || v._deleted === true || v.deletedAt) continue;
-    if (S(v.provider_company_code) !== CODE) continue;
-    existing.push({ code: S(v.policy_code) || k, rec: v });
-  }
+const policySnapshot = await firestore.collection('policy').get();
+for (const document of policySnapshot.docs) {
+  const v = document.data() as Rec;
+  if (!v || v._deleted === true || v.deletedAt) continue;
+  if (S(v.provider_company_code) !== CODE) continue;
+  existing.push({ code: S(v.policy_code) || document.id, rec: v });
 }
 const sameAsExisting = (fields: Rec): string => {
   for (const { code, rec } of existing) {
