@@ -744,7 +744,19 @@ line.push(chk.picked.find((l) => /안 뜨는 차/.test(l))?.replace('■ ', '') 
 /* ★⑨ 의 exit 2 는 「갈림을 찾았다」가 아니라 **「감사를 온전히 못 했다」**(globalErrors·unknownRows)다.
    신호로 넘기면 «못 본 것»을 «본 것»으로 적게 된다 — 코덱스 3차 지적. 실패로 둔다. */
 /** ★⑨ 상태 갈림 신호 = «1일 단» — 네 층을 훑어 무거운데, 층 사이 갈림은 하루에 한 번 보면 된다. */
-const drift = (skip('⑨ RTDB 상태 갈림 감사 제거'), { ok: true, picked: ['Firestore 단일 원자'] as string[] });
+/**
+ * ★★**되살렸다 — 「원자가 하나」가 「층이 하나」는 아니다.**
+ *
+ * ⚠ RTDB 컷오버 때 이 자리가 「⑨ RTDB 상태 갈림 감사 제거」로 «하드코딩 통과»가 됐다.
+ *   근거는 「Firestore 단일 원자」였는데 그건 절반만 맞다 — ERP 층이 한 집이 된 것뿐이고,
+ *   이 감사가 보던 **원본 → 정제시트 → 판매시트** 세 층은 그대로 있다. 층 사이 갈림은 여전히 난다.
+ *   실측 2026-09-10(Firestore 판) — 상태가 다른 차 **102대**(정제→판매 89 · 원본→정제 18).
+ *   감사를 껐으면 그 102대를 아무도 안 보고 지나갔다.
+ * ⇒ `audit-status-drift` 는 이미 Firestore 판으로 고쳐져 있다(RTDB 참조 0). 다시 부른다.
+ */
+const drift = 하루단
+  ? run('⑨ 상태 갈림 신호', ['scripts/audit-status-drift.mts'], /상태가 다른 차|★/)
+  : (skip('⑨ 상태 갈림 신호'), { ok: true, picked: [] as string[] });
 // 미확인(동일 차번 상태 충돌 등)은 감사가 읽어 낸 유의미한 신호다. 이때 exit=2가
 // 나도 요약을 버리고 «0»이나 단순 실패로 적지 않는다. 요약 자체가 없을 때만 실패다.
 const driftSummary = drift.picked.find((l) => /상태가 다른 차/.test(l))?.replace('■ ', '');

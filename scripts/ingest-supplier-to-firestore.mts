@@ -33,7 +33,7 @@ import { composeVehicleName, MIRROR_ALIAS } from '../lib/domain/mirror-sheet-map
 import { snapColor } from '../lib/domain/color-master';
 import { MIRROR_SOURCES } from '../lib/domain/mirror-sources';
 import { sheetIdFromUrl } from '../lib/domain/supplier-sheet-read';
-import { FUEL_EV, rawSeats, atomViolations, type MasterIndex } from '../lib/domain/atom-invariants';
+import { FUEL_EV, rawSeats, atomViolations, type MasterIndex, type AtomView } from '../lib/domain/atom-invariants';
 import { cleanTrim } from '../lib/domain/clean-trim';
 import { resolveStatus } from '../lib/domain/atom-status';
 import { isOpenInventoryAtom } from '../lib/domain/inventory-contract';
@@ -513,7 +513,9 @@ function atomize(row: Row, pinned: Map<string, Record<string, unknown>>): Atom {
     source: src.kind, source_schema: PROV, sheet_source_tab: row.tab, sheet_source_row: row.row,
   };
   // ★불변식 게이트 — block 위반이 있으면 «확정될 수 없다»(검수대기). 모순이 확정된 채 존재하는 게 구조적으로 불가능.
-  const vio = atomViolations(atom, IDX);
+  /** ⚠ `Atom` 은 «무슨 칸이든» 담는 자루(`Record<string, unknown>`)라 `AtomView` 와 겹치는 칸이 없다고 나온다.
+   *   `lib/domain/atom-health` 도 같은 자리에서 `as AtomView` 로 좁힌다 — 같은 방식을 쓴다. */
+  const vio = atomViolations(atom as unknown as AtomView, IDX);
   const blocks = vio.filter((x) => x.severity === 'block');
   const ok = confirmed && blocks.length === 0;
   atom.확정 = ok;
@@ -720,7 +722,7 @@ if (VARIABLE) {
     });
     for (let i = 0; i < 더.length; i += 400) {
       const b = fs.batch();
-      for (const c of 더.slice(i, i + 400)) b.set(fs.collection('products').doc(docId(c.car_number)), { tica_link: 픽업링크.get(N(c.car_number)), _var_polled_at: Date.now() }, { merge: true });
+      for (const c of 더.slice(i, i + 400)) b.set(fs.collection('products').doc(docId(S(c.car_number))), { tica_link: S(픽업링크.get(N(c.car_number))), _var_polled_at: Date.now() }, { merge: true });
       await b.commit();
     }
     if (더.length) console.log(`  링크만 채운 차 ${더.length} (덤프에 없지만 픽업재고 시트에 있는 차 포함)`);

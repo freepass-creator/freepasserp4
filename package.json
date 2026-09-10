@@ -10,6 +10,7 @@
     "build": "node --max-old-space-size=8192 ./node_modules/next/dist/bin/next build",
     "start": "next start -p 4004",
     "typecheck": "tsc --noEmit",
+    "check:types-cycle": "tsc --noEmit -p tsconfig.cycle.json",
     "check:no-rtdb-runtime": "tsx scripts/check-no-rtdb-runtime.mts",
     "check:release": "tsx scripts/check-app-release.mts && npm run typecheck && npm run check:no-rtdb-runtime && npm run check:nortdb && npm run check:sync && npm run check:publish-atom && npm run check:firestore-path-store && npm run check:rules",
     "check:b2b-release": "npm run check:release",

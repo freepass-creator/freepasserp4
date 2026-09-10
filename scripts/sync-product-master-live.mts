@@ -245,7 +245,10 @@ for (const [code, p] of [...byCode].sort()) {
       const raw = sourceRaw.get(plate);
       const rawInfo = raw
         ? productMasterSourceRowInfo({ tab: raw.tab, headers: raw.headers, row: raw.row })
-        : S(product._raw_vehicle?.source_text || product.model || '');
+        /** ⚠ `_raw_vehicle` 은 원천마다 모양이 달라 타입이 `{}` 다 — 칸을 꺼내려면 한 번 좁혀야 한다.
+         *   실측 2026-09-11 — 회차가 부르는 스크립트 중 «유일한» 타입오류가 여기였다.
+         *   값이 없으면 모델명으로 떨어지는 뜻은 그대로 둔다(지어내지 않는다). */
+        : S((product._raw_vehicle as { source_text?: unknown } | undefined)?.source_text || product.model || '');
       const supplierName = raw
         ? productMasterSupplierVehicleName(rawInfo)
         : S(product.model || product.sub_model || '');

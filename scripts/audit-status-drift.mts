@@ -1,4 +1,3 @@
-throw new Error('RTDB_REMOVED: 폐기된 RTDB 경로를 사용하는 스크립트입니다.');
 /**
  * 상태가 어디서 갈렸나 — 원본 → 정제시트 → 판매시트 → ERP 4층 대조. 읽기 전용.
  *
@@ -23,7 +22,7 @@ throw new Error('RTDB_REMOVED: 폐기된 RTDB 경로를 사용하는 스크립�
  *   npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/audit-status-drift.mts
  *   npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/audit-status-drift.mts --plate=147부1954
  */
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
@@ -545,6 +544,8 @@ if (globalErrors.length) {
   for (const error of globalErrors.slice(0, 20)) console.log('   ? ' + error.slice(0, 220));
 }
 
+/** ★기록 폴더가 없을 수도 있다 — 새로 받은 저장소·CI 가 그렇다. 없으면 만든다(작업본에서 실제로 죽었다). */
+mkdirSync('tmp', { recursive: true });
 writeFileSync('tmp/status-drift.json', JSON.stringify({
   generated_at: new Date().toISOString(),
   scope: sources.map((item) => ({ code: item.source.code, name: item.source.name, kind: item.source.kind })),
