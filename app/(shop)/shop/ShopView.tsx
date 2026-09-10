@@ -4,7 +4,6 @@ import { Pencil, Search, SlidersHorizontal } from 'lucide-react';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { C } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
-import { useSession, useAuthReady } from '@/lib/auth-context';
 import { getAuthClient } from '@/lib/firebase/client';
 import { ShopQuickEditor } from '@/components/shop/ShopQuickEditor';
 import { toast } from '@/components/Toaster';
@@ -90,22 +89,13 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
   const [quickOpen, setQuickOpen] = useState(false);
   const quickAll = quickEdit ?? wl.quick ?? DEFAULT_QUICK;
   /*
-   * ★★**고치는 단추는 «영업자·직원»에게만 보인다**(사장님 2026-09-10 「영업자·직원이 채널별로」).
-   *   손님은 이 화면에 로그인하지 않는다 — 그래서 대개 `session` 이 아예 없고, 단추도 없다.
-   * ★영업자는 **제 가게만**이다 — 그 가게가 «누구 것인가»(`wl.ownerCompanyCode`)와 그 사람이
-   *   «어느 회사 사람인가»(`company_code`)를 맞대 본다. 문(`/api/shop/quick`)이 같은 값으로
-   *   다시 막으므로, 여기 판정은 «단추를 그릴지»만 정한다(숨기는 것은 막는 것이 아니다 — 집 규격).
-   * ⚠ 인증이 아직 안 붙었으면(`ready === false`) 안 그린다 — 잠깐 떴다 사라지는 단추는
-   *   손님 화면에 «관리자 단추가 번쩍»이는 꼴이 된다.
+   * ★★★**고치는 단추는 «누구에게나» 보인다 — 손님에게도.**
+   *   사장님 2026-09-10 「그냥 **누구나 할 수 있게 오픈**할 거야. 어차피 **우리 거 팔아주는
+   *   입장**이니까 **누구라도 할 수 있게**」 · 「**손님도 할 수 있게 다~ 모든 사람이**」.
+   *   ⇒ 로그인도, 역할도, 채널 소속도 안 본다. 그래서 여기 «판정»이 없다.
+   * ⚠ 처음엔 영업자·관리자만 → 로그인한 사람 전부 → 전부로 두 번 물렸다. 되돌리려면 먼저 여쭙는다.
+   * ⚠ 문(`/api/shop/quick`)도 같이 열려 있다 — 화면만 열고 문을 잠그면 「눌러도 안 된다」가 된다.
    */
-  const session = useSession();
-  const authReady = useAuthReady();
-  const canEditQuick = !!session && authReady && (
-    session.role === 'admin'
-    || (session.role === 'agent'
-      && !!String(wl.ownerCompanyCode || '').trim()
-      && String(wl.ownerCompanyCode).trim() === String(session.company_code || '').trim())
-  );
   /* 이 줄에 «단추가 있는» 조건 — 뒤에 토큰으로 또 세우지 않는다(아래 칩 줄 머리말). */
   const quickKeys = useMemo(() => new Set(quickAll.map((k) => `${k.axis}:${k.key}`)), [quickAll]);
   const mobile = useIsMobile();
@@ -279,6 +269,10 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
   const saveQuick = useCallback(async (next: ShopQuickChip[]) => {
     setQuickSaving(true);
     try {
+      /*
+       * ★토큰은 **막으려고가 아니라 «누가 고쳤나»를 남기려고** 싣는다 — 없으면 손님으로 남는다.
+       *   손님 화면이라 대개 없다(사장님 2026-09-05 「손님 로그인 하는 게 없거든」).
+       */
       const user = getAuthClient()?.currentUser;
       const token = user ? await user.getIdToken() : '';
       const res = await fetch('/api/shop/quick', {
@@ -463,15 +457,13 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
             {/*
               ★**고치는 문은 줄 «맨 앞»이다.** 이 줄은 한 줄로 흐르는(가로 스크롤) 줄이라
                 끝에 두면 밀어야 보인다 — 아홉 칸을 밀어야 닿는 단추는 없는 단추다.
-              ★손님에게는 «없는 칸»이라 첫 자리를 뺏기는 것이 아니다(위 `canEditQuick`).
+              ★손님도 누른다 — 그래서 연필을 달아 «조건 칩»과 갈랐다(같은 얼굴이면 조건인 줄 안다).
             */}
-            {canEditQuick ? (
-              <ShopPill title="이 채널의 빠른조건을 고칩니다" onClick={() => setQuickOpen(true)}>
-                <span style={{ display: 'inline-flex', alignItems: 'center', gap: SHOP.sp.tight }}>
-                  <Pencil size={13} aria-hidden />빠른조건
-                </span>
-              </ShopPill>
-            ) : null}
+            <ShopPill title="이 줄에 세울 조건을 고칩니다" onClick={() => setQuickOpen(true)}>
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: SHOP.sp.tight }}>
+                <Pencil size={13} aria-hidden />조건 고치기
+              </span>
+            </ShopPill>
             {quick.map((k) => (
               <ShopPill key={`${k.axis}:${k.key}`} on={query.sel[k.axis].includes(k.key)}
                 onClick={() => onToggle(k.axis, k.key)}>{k.label || soloLabel(k.key) || k.key}</ShopPill>
