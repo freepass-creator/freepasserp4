@@ -22,6 +22,14 @@ const rtdb = getDatabase();
 const jwt = new JWT({ email: sa.client_email, key: sa.private_key, scopes: ['https://www.googleapis.com/auth/spreadsheets'], subject: 'pyh@teamjpk.com' });
 const api = async (u: string) => { const t = (await jwt.getAccessToken()).token; const r = await fetch(u, { headers: { Authorization: `Bearer ${t}` } }); return JSON.parse(await r.text()); };
 
+/**
+ * ⚠⚠⚠ **이 스크립트는 RTDB(`v4/products`)에 쓴다 — 원자 SSOT(Firestore `products`)가 아니다.**
+ *   맨 아래가 「다음 미러가 Firestore 로 전파」인데, 그 전파가 끊기면 «고쳤는데 안 보인다».
+ *   실측 2026-09-10 — 세부트림 규칙이 여기 있는데도 원자엔 **「기본형」인 차가 한 대도 없었고**
+ *   빈 트림이 121대였다. 여기서 「교정 0」이라 나와도 원자는 비어 있을 수 있다(보는 곳이 다르다).
+ * ⇒ **원자에 바로 쓰는 길**을 따로 세웠다 — `scripts/heal-atom-trim.mts`(규칙 = `lib/domain/trim-pick`).
+ *   아래 피커는 RTDB 쪽 몫으로 남겨 둔다. 고칠 때 «둘 다» 보라 — 규칙이 갈리면 답이 갈린다.
+ */
 // ── 트림 피커(모든 공급사) — 세부모델의 마스터 trims[] 를 원문과 정규화 대조해 세부트림을 뽑는다.
 //   사장님 2026-09-04 「원문에 세부트림 있으면 한 번 원자화하면 되지」. 마스터 trims 에서만 고르므로 지어내지 않는다.
 const master = JSON.parse(readFileSync('public/data/vehicle-master.json', 'utf8'));
