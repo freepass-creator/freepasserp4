@@ -15,6 +15,7 @@
  *      주행밴드
  */
 import type { EntityRecord } from '@/lib/intake/entities';
+import { standingFixed } from '@/lib/domain/facet-standing';
 import { PRODUCT_TYPES, FUEL_TYPES, PROMO_BADGES_ACTIVE } from '@/lib/intake/entities';
 import {
   fuelDisplay,
@@ -306,17 +307,22 @@ export function presentFilterOptions(products: EntityRecord[], universe?: Entity
     rentCnt, depCnt, mileCnt, ptypeCnt, creditCnt, fuelCnt, perkCnt, promoCnt, monthMap, hasVehicle,
   } = rawTally(products);
 
-  /* ★「선다/안 선다」는 base 가, 「몇 대」는 지금 모수가 답한다(위 머리말). */
-  const stands = (get: (c: Tally) => Map<string, number> | number[], key: string | number, live: number): boolean => {
-    if (!baseCnt) return live > 0;
-    const b = get(baseCnt);
-    return (Array.isArray(b) ? (b[key as number] ?? 0) : (b.get(String(key)) ?? 0)) > 0;
+  /*
+   * ★★**줄이 서는 규칙은 «집 정본»이 정한다**(`lib/domain/facet-standing`) — 손님 동과 같은 것을 쓴다.
+   *   사장님 2026-09-10 「**공통으로 쓰는 것들은 한 군데서 고치면 다 동일하게 고쳐져야지**」.
+   *   여기 남는 것은 «갈리는 것»뿐이다 — 어떤 축이 있고, 값 이름을 뭐라 부르는가.
+   * ★`base` 가 없으면(첫 화면·조건 없음) 지금 모수가 곧 전체다 — 그때는 둘이 같은 Map 이다.
+   */
+  const bandChips = (pick: (c: Tally) => number[], bands: Band[], counts: number[]): PresentChip[] => {
+    const keys = bands.map((b) => b.k);
+    const name = new Map(bands.map((b) => [b.k, b.label]));
+    const asMap = (arr: number[]) => new Map(keys.map((k, i) => [k, arr[i] ?? 0]));
+    return standingFixed(keys, asMap(baseCnt ? pick(baseCnt) : counts), asMap(counts))
+      .map((o) => ({ key: o.key, label: name.get(o.key) || o.key, count: o.count }));
   };
-  const bandChips = (pickCnt: (c: Tally) => number[], bands: Band[], counts: number[]): PresentChip[] =>
-    bands.map((b, i) => ({ key: b.k, label: b.label, count: counts[i] }))
-      .filter((_, i) => stands(pickCnt, i, counts[i]));
   const mapKeys = (pick: (c: Tally) => Map<string, number>, all: readonly string[], cnt: Map<string, number>) =>
-    all.filter((v) => stands(pick, v, cnt.get(v) || 0)).map((v) => ({ key: v, label: v, count: cnt.get(v) || 0 }));
+    standingFixed(all, baseCnt ? pick(baseCnt) : cnt, cnt)
+      .map((o) => ({ key: o.key, label: o.key, count: o.count }));
 
   const monthKeys = baseCnt ? baseCnt.monthMap.keys() : monthMap.keys();
   return {
@@ -327,8 +333,8 @@ export function presentFilterOptions(products: EntityRecord[], universe?: Entity
     // 상품구분 캐논은 canonProductType. 재고에 있으면 서고, 지금 0 이면 0 이라고 쓴다.
     ptype: [
       ...mapKeys((c) => c.ptypeCnt, PTYPES, ptypeCnt),
-      ...(stands((c) => c.ptypeCnt, ACQUISITION_PTYPE, ptypeCnt.get(ACQUISITION_PTYPE) || 0)
-        ? [{ key: ACQUISITION_PTYPE, label: ACQUISITION_PTYPE_LABEL, count: ptypeCnt.get(ACQUISITION_PTYPE) || 0 }] : []),
+      ...mapKeys((c) => c.ptypeCnt, [ACQUISITION_PTYPE], ptypeCnt)
+        .map((o) => ({ ...o, label: ACQUISITION_PTYPE_LABEL })),
     ],
     credit: mapKeys((c) => c.creditCnt, CREDITS, creditCnt),
     fuel: mapKeys((c) => c.fuelCnt, FUELS, fuelCnt),
@@ -555,7 +561,15 @@ export function aggregateDynFaceted(
   const out: Record<string, [string, number][]> = {};
   for (const d of DYN_ALL) {
     const live = new Map(aggregateDyn(facetPool(products, state, models, { dynKey: d.key }), d.key)[d.key] || []);
-    out[d.key] = (base[d.key] || []).map(([k]) => [k, live.get(k) || 0]);
+    /*
+     * ★차례는 `aggregateDyn` 이 이미 base 로 매겨 놨다(연식은 최신순·나머지는 대수순).
+     *   여기서는 «그 차례대로 숫자만» 갈아 끼운다 — 규칙은 `facet-standing` 과 같은 말이다.
+     */
+    out[d.key] = standingFixed(
+      (base[d.key] || []).map(([k]) => k),
+      new Map(base[d.key] || []),
+      live,
+    ).map((o) => [o.key, o.count]);
   }
   return out;
 }
