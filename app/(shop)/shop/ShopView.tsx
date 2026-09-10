@@ -2,7 +2,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Pencil, Search, SlidersHorizontal } from 'lucide-react';
 import type { EntityRecord } from '@/lib/intake/entities';
-import { C } from '@/components/ui';
+import { C, SH } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { getAuthClient } from '@/lib/firebase/client';
 import { ShopQuickEditor } from '@/components/shop/ShopQuickEditor';
@@ -673,8 +673,14 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
                 <div style={{ flex: 1 }} />
                 {head.updatedMs ? <ShopUpdatedStamp label={updatedLabelKo(head.updatedMs)} /> : null}
               </div>
+              {/*
+                ★**조건칸 판도 카드와 «같은 높이»에 뜬다**(사장님 2026-09-10 「밋밋함을 없애는 입체감」).
+                  카드에 그림자를 주면서 이 판만 선으로 남으면, 같은 바닥 위에 카드는 뜨고 조건칸은
+                  붙어 있는 꼴이 된다 — 한 화면에 층이 둘로 갈린다.
+                ★같은 토큰(`SH.cardRest`)이다. 새 값을 만들지 않는다.
+              */}
               <div style={{
-                border: `1px solid ${C.line2}`, borderRadius: SHOP.r.card,
+                border: `1px solid ${C.line2}`, borderRadius: SHOP.r.card, boxShadow: SH.cardRest,
                 padding: `${SHOP.sp.tight}px ${SHOP.sp.edge}px`,
               }}>
                 {filters}

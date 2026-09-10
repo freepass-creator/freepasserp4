@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { C, FW, ICON, PILL_R, R_CARD } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
+import { haptic } from '@/lib/haptics';
 
 /**
  * 가게(손님 동) 원자 — **업무동 콕핏 원자를 쓰지 않는다.**
@@ -225,6 +226,13 @@ const bare: CSSProperties = {
  * ⚠ 이 규칙은 칩만의 것이 아니다 — 정렬 고르개·「차량 더 보기」·공유·하단독 「이전」까지
  *   **가게의 «비주요» 누름은 전부 회색 면**이다. 하나만 테두리로 남으면 그것만 촌스러워 보인다.
  */
+/*
+ * ★★**손끝에도 답한다**(사장님 2026-09-10 「입체감·타격감 … 햅틱」).
+ *   조건을 «켜고 끄는» 누름이라 `select` 다 — 그냥 이동(`nav`)보다 한 단 또렷하다.
+ * ★**원자에 넣는다.** 페이지마다 부르면 어떤 칩은 울고 어떤 칩은 안 우는 날이 온다.
+ * ⚠ iOS 는 `navigator.vibrate` 를 아예 구현하지 않아 조용하다(안드로이드에서만 울린다).
+ *   설정에서 끄면(`fp4_haptic`) 원자가 알아서 no-op 이라 부르는 쪽이 볼 것이 없다.
+ */
 export function ShopPill({ on, onClick, children, title, mark }: {
   on?: boolean; onClick: () => void; children: ReactNode; title?: string;
   /**
@@ -238,7 +246,8 @@ export function ShopPill({ on, onClick, children, title, mark }: {
 }) {
   const mobile = useIsMobile();
   return (
-    <button type="button" onClick={onClick} title={title} aria-pressed={!!on} data-chip={mark} className="fp-shop-press fp-shop-fill"
+    <button type="button" onClick={() => { haptic.select(); onClick(); }}
+      title={title} aria-pressed={!!on} data-chip={mark} className="fp-shop-press fp-shop-fill"
       style={{
         ...bare,
         /*
@@ -277,7 +286,7 @@ export function ShopTextBtn({ onClick, children, tone = 'mute' }: {
   onClick: () => void; children: ReactNode; tone?: 'mute' | 'faint';
 }) {
   return (
-    <button type="button" onClick={onClick} className="fp-shop-press"
+    <button type="button" onClick={() => { haptic.tap(); onClick(); }} className="fp-shop-press"
       style={{ ...bare, fontSize: SHOP.fs.cap, color: tone === 'faint' ? C.faint : C.mute }}>
       {children}
     </button>
@@ -313,7 +322,7 @@ export function ShopIconBtn({ onClick, label, tone = 'mute', count, children, si
     ? (mobile ? SHOP.pill.mobile : SHOP.pill.web)
     : (mobile ? SHOP.icon.mobile : SHOP.icon.web);
   return (
-    <button type="button" onClick={onClick} aria-label={label} title={hint || label} className="fp-shop-press"
+    <button type="button" onClick={() => { haptic.tap(); onClick(); }} aria-label={label} title={hint || label} className="fp-shop-press"
       style={{
         ...bare, position: 'relative', width: box, height: box,
         borderRadius: SHOP.r.ctrl, color: count ? C.brand : tone === 'ink' ? C.ink : C.mute,
@@ -478,10 +487,10 @@ export function ShopDockAction({ tone = 'brand', href, onClick, label, children 
   /* 누를 수 없는 칸(전화번호가 없을 때의 안내)은 «단추처럼» 보이지 않아야 한다 — 눌러도 아무 일이 없다. */
   if (tone === 'dim') return <div style={face} aria-label={label}>{children}</div>;
   if (href) return (
-    <Link href={href} onClick={onClick} aria-label={label} className="fp-shop-press" style={face}>{children}</Link>
+    <Link href={href} onClick={() => { haptic.nav(); onClick?.(); }} aria-label={label} className="fp-shop-press" style={face}>{children}</Link>
   );
   return (
-    <button type="button" onClick={onClick} aria-label={label} className="fp-shop-press"
+    <button type="button" onClick={() => { haptic.tap(); onClick?.(); }} aria-label={label} className="fp-shop-press"
       style={{ ...bare, ...face }}>{children}</button>
   );
 }
@@ -625,7 +634,7 @@ export function ShopSort({ value, onChange, options }: {
   return (
     /* 초점 상자를 이 화면 말투로 바꾸는 자리 — `.fp-shop-sort` (globals.css). */
     <div className="fp-shop-sort" style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
-      <select value={value} onChange={(e) => onChange(e.target.value)} aria-label="정렬"
+      <select value={value} onChange={(e) => { haptic.select(); onChange(e.target.value); }} aria-label="정렬"
         style={{
           appearance: 'none', WebkitAppearance: 'none',
           /*
