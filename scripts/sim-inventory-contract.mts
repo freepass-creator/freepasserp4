@@ -107,9 +107,15 @@ for (const file of [
 assert.match(readFileSync('scripts/audit-photo-projection.mts', 'utf8'), /photoProjectionViolations/);
 
 const hourly = readFileSync('scripts/hourly-sync.mts', 'utf8');
+const hourlyStringNormalizer = hourly.indexOf('const S =');
+const hourlyFirstStringNormalizerUse = hourly.search(/[^A-Za-z0-9_$]S\(/);
 assert.ok(
-  hourly.indexOf('const S =') < hourly.indexOf('const SALES_INGEST_STAGING_SHEET'),
-  '시간별 동기화는 환경값 정규화 함수 S를 사용하기 전에 선언해야 한다',
+  hourlyStringNormalizer >= 0,
+  '시간별 동기화의 환경값 정규화 함수 S 선언을 찾지 못했다',
+);
+assert.ok(
+  hourlyFirstStringNormalizerUse >= 0 && hourlyStringNormalizer < hourlyFirstStringNormalizerUse,
+  '시간별 동기화는 환경값 정규화 함수 S를 처음 사용하기 전에 선언해야 한다',
 );
 assert.match(hourly, /sales-publish-snapshots\/\$\{RUN_ID\}\.json/);
 assert.match(hourly, /if \(!pub\.ok\) stop/);
