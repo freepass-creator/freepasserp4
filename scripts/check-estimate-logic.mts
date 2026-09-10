@@ -42,6 +42,19 @@ const read = (f: string) => readFileSync(new URL(`../${f}`, import.meta.url), 'u
  *  검사기가 파일 전체 문자열로 판정하면 **주석에만 있어도 초록**이 된다(재현됨). */
 const code = (f: string) => read(f).replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 const S = (v: unknown) => String(v ?? '').trim();
+/**
+ * ★★옵션 팩 파일을 «한 곳»에서 읽는다.
+ * ⚠⚠ 이 파일은 `{ updated, count, packs: [...] }` 꼴인데, 검사 두 곳이 **배열로만** 읽어
+ *   `[]` 로 떨어졌다 — 그러면 그 검사가 **조용히 건너뛴다**(초록인데 아무것도 안 잰 것).
+ *   2026-09-11 에 내 확인 스크립트가 「팩 0줄」이라 찍어서 들켰다.
+ * ⇒ 모양을 다 받아 주고, **비었으면 «비었다고 말한다».**
+ */
+const readPacks = <T>(): T[] => {
+  try {
+    const raw = JSON.parse(read('data/new-car/option-packs.json')) as T[] | { packs?: T[]; rows?: T[] };
+    return Array.isArray(raw) ? raw : (raw.packs ?? raw.rows ?? []);
+  } catch { return []; }
+};
 const fails: string[] = [];
 const must = (ok: boolean, what: string, where: string) => { if (!ok) fails.push(`${what}\n      → ${where}`); };
 
@@ -2157,8 +2170,7 @@ must((availableForEngine({ a: { name: '컴포트' } }, [], '가솔린 3.5 터보
      ⚠ 여기서는 «피드를 부르지 않고» 팩에서 같은 값을 세어 본다(제조사에 요청이 안 나간다).
      ⚠ 예전에는 이 칸에 「가솔린 2.5」가 여덟 번 겹쳐 떴다 — 고를 수가 없었다. */
   try {
-    const packs = JSON.parse(read('data/new-car/option-packs.json')) as { sub_model?: string; fuel?: string }[];
-    const pal = (Array.isArray(packs) ? packs : []).filter((p) => S(p.sub_model).includes('팰리세이드'));
+    const pal = readPacks<{ sub_model?: string; fuel?: string }>().filter((p) => S(p.sub_model).includes('팰리세이드'));
     if (pal.length) {
       const 칸 = [...new Set(pal.map((p) => S(p.fuel)))];
       const 겹침 = 칸.length !== new Set(칸).size;
@@ -2177,8 +2189,7 @@ must((availableForEngine({ a: { name: '컴포트' } }, [], '가솔린 3.5 터보
     const raw = JSON.parse(read('data/new-car/option-packs.json')) as
       { sub_model?: string; fuel?: string; trim?: string; optionsMaster?: Record<string, unknown> }[]
       | { packs?: unknown[] };
-    const packs = (Array.isArray(raw) ? raw : []) as
-      { sub_model?: string; fuel?: string; trim?: string; optionsMaster?: Record<string, unknown> }[];
+    const packs = readPacks<{ sub_model?: string; fuel?: string; trim?: string; optionsMaster?: Record<string, unknown> }>();
     const pal = packs.filter((p) => S(p.sub_model).includes('팰리세이드') && S(p.trim) === '익스클루시브');
     const seats = new Set(pal.map((p) => /(\d{1,2}인승)/.exec(S(p.fuel))?.[1] ?? ''));
     if (pal.length) {

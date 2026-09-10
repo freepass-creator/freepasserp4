@@ -68,7 +68,7 @@ const disp = (t: string) => /([1-6]\.[0-9])/.exec(S(t))?.[1] ?? '';
  * ⚠ 갈래를 안 나누면 「원본에 없는 것」과 「이름만 다른 것」이 한 무더기가 되어,
  *   **있는 규칙도 못 옮긴 채 「267줄 실패」로 뭉개진다.**
  */
-export type Why = { why: '모델없음' | '연료없음' | '트림이름'; near: string[] };
+export type Why = { why: '모델없음' | '연료없음' | '트림없음' | '이름다름'; near: string[] };
 
 export function whyNot(makers: Maker[], row: Row): Why {
   const mk = makers.find((m) => N(m.manufacturer_name) === N(row.maker));
@@ -92,9 +92,23 @@ export function whyNot(makers: Maker[], row: Row): Why {
     return !(d1 && d2 && d1 !== d2);
   });
   if (!fit.length) return { why: '연료없음', near: vs.map(({ v }) => S(v.variant_name)).slice(0, 4) };
-  /* variant 는 있다 — 그 안의 트림 이름을 보여 준다. 사람이 짝지으면 끝난다. */
-  const names = [...new Set(fit.flatMap(({ v }) => (v.trims ?? []).map((t) => S(t.name) + '(' + S(t.trim_id) + ')')))];
-  return { why: '트림이름', near: names.slice(0, 8) };
+  /* variant 는 있다. 이제 둘로 갈린다:
+       `이름다름`  비슷한 이름이 «있다» → **사람이 짝지으면 끝난다**
+       `트림없음`  비슷한 것이 하나도 없다 → **원본에 그 트림이 아예 없다**(옮길 것이 없다)
+     ⚠ 둘을 한 무더기로 두면 「사람이 할 일」이 부풀어 보인다 — 실제로 할 일만 남긴다. */
+  const trims = fit.flatMap(({ v }) => (v.trims ?? []));
+  const mineN = bare(row.trim);
+  const 닮음 = (t: Trim) => {
+    const a = bare(t.name); const b = N(t.trim_id);
+    if (!a && !b) return false;
+    return a === mineN || b === mineN
+      || (mineN.length >= 2 && (a.includes(mineN) || mineN.includes(a)))
+      || (mineN.length >= 2 && b && (b.includes(mineN) || mineN.includes(b)));
+  };
+  const near = [...new Set(trims.map((t) => S(t.name) + '(' + S(t.trim_id) + ')'))];
+  return trims.some(닮음)
+    ? { why: '이름다름', near: near.slice(0, 8) }
+    : { why: '트림없음', near: near.slice(0, 8) };
 }
 /**
  * 우리 한 줄에 맞는 원본 ID 넷. **확실할 때만** 답한다.
@@ -142,7 +156,10 @@ export function findIds(makers: Maker[], row: Row): Hit | null {
       if (mine.van !== a.van) return false;              // 밴↔승용은 다른 차다
       return !(mine.seat && a.seat && mine.seat !== a.seat);
     })
-    : cands0;
+    /* ★★**밴 표시가 «없으면» 승용이다.** 원본은 「가솔린 1.0 (승용)」·「(밴 1인승)」·「(밴 2인승)」
+       셋으로 두는데, 우리 승용 줄에는 아무 표시가 없어 셋 다 걸려 «갈린다»고 버려졌다
+       (레이·모닝 등 · 2026-09-11). ⇒ 표시가 없으면 **밴이 아닌 것**만 본다. */
+    : cands0.filter(({ v }) => !axis(S(v.variant_name)).van);
   const cands = narrowed.length ? narrowed : cands0;
 
   /* 트림 — 이름 → trim_id → 꼬리 뗀 것. 갈리면 안 고른다. */

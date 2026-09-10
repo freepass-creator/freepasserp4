@@ -51,6 +51,14 @@
       "how": "꼬리뗌",
       "_label": "기아 | 레이 | 가솔린 1.0 | 프레스티지(1인승 밴)"
     },
+    "kia_ray_가솔린1.0_트렌디": {
+      "manufacturer_id": "kia",
+      "model_id": "ray",
+      "variant_id": "gasoline_1_0",
+      "trim_id": "trendy",
+      "how": "이름",
+      "_label": "기아 | 레이 | 가솔린 1.0 | 트렌디"
+    },
     "kia_ray_가솔린1.0_프레스티지2인승밴": {
       "manufacturer_id": "kia",
       "model_id": "ray",
@@ -58,6 +66,14 @@
       "trim_id": "prestige",
       "how": "꼬리뗌",
       "_label": "기아 | 레이 | 가솔린 1.0 | 프레스티지(2인승 밴)"
+    },
+    "kia_ray_가솔린1.0_프레스티지": {
+      "manufacturer_id": "kia",
+      "model_id": "ray",
+      "variant_id": "gasoline_1_0",
+      "trim_id": "prestige",
+      "how": "이름",
+      "_label": "기아 | 레이 | 가솔린 1.0 | 프레스티지"
     },
     "kia_ray_가솔린1.0_시그니처": {
       "manufacturer_id": "kia",
@@ -83,6 +99,14 @@
       "how": "꼬리뗌",
       "_label": "기아 | 모닝 | 가솔린 1.0 | 트렌디(밴)"
     },
+    "kia_morning_가솔린1.0_트렌디": {
+      "manufacturer_id": "kia",
+      "model_id": "morning",
+      "variant_id": "gasoline_1_0",
+      "trim_id": "trendy",
+      "how": "이름",
+      "_label": "기아 | 모닝 | 가솔린 1.0 | 트렌디"
+    },
     "kia_morning_가솔린1.0_프레스티지밴": {
       "manufacturer_id": "kia",
       "model_id": "morning",
@@ -90,6 +114,14 @@
       "trim_id": "prestige",
       "how": "꼬리뗌",
       "_label": "기아 | 모닝 | 가솔린 1.0 | 프레스티지(밴)"
+    },
+    "kia_morning_가솔린1.0_프레스티지": {
+      "manufacturer_id": "kia",
+      "model_id": "morning",
+      "variant_id": "gasoline_1_0",
+      "trim_id": "prestige",
+      "how": "이름",
+      "_label": "기아 | 모닝 | 가솔린 1.0 | 프레스티지"
     },
     "kia_morning_가솔린1.0_시그니처": {
       "manufacturer_id": "kia",
@@ -1638,12 +1670,8 @@
   },
   "proposed": [],
   "unmatched": [
-    "kia_ray_가솔린1.0_트렌디  ·  기아 | 레이 | 가솔린 1.0 | 트렌디",
     "kia_ray_가솔린1.0_프레스티지스페셜1인승밴  ·  기아 | 레이 | 가솔린 1.0 | 프레스티지 스페셜(1인승 밴)",
     "kia_ray_가솔린1.0_프레스티지스페셜2인승밴  ·  기아 | 레이 | 가솔린 1.0 | 프레스티지 스페셜(2인승 밴)",
-    "kia_ray_가솔린1.0_프레스티지  ·  기아 | 레이 | 가솔린 1.0 | 프레스티지",
-    "kia_morning_가솔린1.0_트렌디  ·  기아 | 모닝 | 가솔린 1.0 | 트렌디",
-    "kia_morning_가솔린1.0_프레스티지  ·  기아 | 모닝 | 가솔린 1.0 | 프레스티지",
     "kia_sportage_가솔린1.6터보_블랙에디션  ·  기아 | 스포티지 | 가솔린 1.6 터보 | 블랙 에디션",
     "kia_sportage_가솔린1.6터보_시그니처xline  ·  기아 | 스포티지 | 가솔린 1.6 터보 | 시그니처 X-Line",
     "kia_sportage_lpg2.0_시그니처xline  ·  기아 | 스포티지 | LPG 2.0 | 시그니처 X-Line",
@@ -1883,18 +1911,7 @@
     "FXJJ7ZEA2  ·  현대 | 팰리세이드 | 하이브리드 2.5 · 7인승 · 4WD | 하이루프"
   ],
   "unmatchedDetail": {
-    "트림이름": [
-      {
-        "key": "kia_ray_가솔린1.0_트렌디",
-        "label": "기아 | 레이 | 가솔린 1.0 | 트렌디",
-        "near": [
-          "트렌디(trendy)",
-          "프레스티지(prestige)",
-          "시그니처(signature)",
-          "X-Line(x_line)",
-          "스페셜(special)"
-        ]
-      },
+    "이름다름": [
       {
         "key": "kia_ray_가솔린1.0_프레스티지스페셜1인승밴",
         "label": "기아 | 레이 | 가솔린 1.0 | 프레스티지 스페셜(1인승 밴)",
@@ -1918,47 +1935,6 @@
         ]
       },
       {
-        "key": "kia_ray_가솔린1.0_프레스티지",
-        "label": "기아 | 레이 | 가솔린 1.0 | 프레스티지",
-        "near": [
-          "트렌디(trendy)",
-          "프레스티지(prestige)",
-          "시그니처(signature)",
-          "X-Line(x_line)",
-          "스페셜(special)"
-        ]
-      },
-      {
-        "key": "kia_morning_가솔린1.0_트렌디",
-        "label": "기아 | 모닝 | 가솔린 1.0 | 트렌디",
-        "near": [
-          "트렌디(trendy)",
-          "프레스티지(prestige)",
-          "시그니처(signature)",
-          "GT-Line(gt_line)"
-        ]
-      },
-      {
-        "key": "kia_morning_가솔린1.0_프레스티지",
-        "label": "기아 | 모닝 | 가솔린 1.0 | 프레스티지",
-        "near": [
-          "트렌디(trendy)",
-          "프레스티지(prestige)",
-          "시그니처(signature)",
-          "GT-Line(gt_line)"
-        ]
-      },
-      {
-        "key": "kia_sportage_가솔린1.6터보_블랙에디션",
-        "label": "기아 | 스포티지 | 가솔린 1.6 터보 | 블랙 에디션",
-        "near": [
-          "프레스티지(prestige)",
-          "노블레스(noblesse)",
-          "시그니처(signature)",
-          "X-Line(x_line)"
-        ]
-      },
-      {
         "key": "kia_sportage_가솔린1.6터보_시그니처xline",
         "label": "기아 | 스포티지 | 가솔린 1.6 터보 | 시그니처 X-Line",
         "near": [
@@ -1971,16 +1947,6 @@
       {
         "key": "kia_sportage_lpg2.0_시그니처xline",
         "label": "기아 | 스포티지 | LPG 2.0 | 시그니처 X-Line",
-        "near": [
-          "프레스티지(prestige)",
-          "노블레스(noblesse)",
-          "시그니처(signature)",
-          "X-Line(x_line)"
-        ]
-      },
-      {
-        "key": "kia_sportage_하이브리드터보_블랙에디션",
-        "label": "기아 | 스포티지 | 하이브리드 터보 | 블랙 에디션",
         "near": [
           "프레스티지(prestige)",
           "노블레스(noblesse)",
@@ -2029,16 +1995,6 @@
         ]
       },
       {
-        "key": "kia_sorento_가솔린2.5터보_블랙에디션",
-        "label": "기아 | 쏘렌토 | 가솔린 2.5 터보 | 블랙 에디션",
-        "near": [
-          "프레스티지(prestige)",
-          "노블레스(noblesse)",
-          "시그니처(signature)",
-          "X-Line(x_line)"
-        ]
-      },
-      {
         "key": "kia_sorento_하이브리드터보_노블레스전자식4wd",
         "label": "기아 | 쏘렌토 | 하이브리드 터보 | 노블레스(전자식4WD)",
         "near": [
@@ -2069,16 +2025,6 @@
         ]
       },
       {
-        "key": "kia_sorento_하이브리드터보_블랙에디션2wd",
-        "label": "기아 | 쏘렌토 | 하이브리드 터보 | 블랙 에디션(2WD)",
-        "near": [
-          "프레스티지(prestige)",
-          "노블레스(noblesse)",
-          "시그니처(signature)",
-          "X-Line(x_line)"
-        ]
-      },
-      {
         "key": "kia_sorento_하이브리드터보_시그니처전자식4wd",
         "label": "기아 | 쏘렌토 | 하이브리드 터보 | 시그니처(전자식4WD)",
         "near": [
@@ -2091,16 +2037,6 @@
       {
         "key": "kia_sorento_하이브리드터보_xline전자식4wd",
         "label": "기아 | 쏘렌토 | 하이브리드 터보 | X-Line(전자식4WD)",
-        "near": [
-          "프레스티지(prestige)",
-          "노블레스(noblesse)",
-          "시그니처(signature)",
-          "X-Line(x_line)"
-        ]
-      },
-      {
-        "key": "kia_sorento_하이브리드터보_블랙에디션전자식4wd",
-        "label": "기아 | 쏘렌토 | 하이브리드 터보 | 블랙 에디션(전자식4WD)",
         "near": [
           "프레스티지(prestige)",
           "노블레스(noblesse)",
@@ -2164,17 +2100,6 @@
         ]
       },
       {
-        "key": "kia_carnival_가솔린3.5_블랙에디션9인",
-        "label": "기아 | 카니발 | 가솔린 3.5 | 블랙 에디션(9인)",
-        "near": [
-          "프레스티지(prestige)",
-          "노블레스(noblesse)",
-          "시그니처(signature)",
-          "X-Line(x_line)",
-          "아웃도어(outdoor)"
-        ]
-      },
-      {
         "key": "kia_carnival_가솔린3.5_시그니처7인",
         "label": "기아 | 카니발 | 가솔린 3.5 | 시그니처(7인)",
         "near": [
@@ -2188,17 +2113,6 @@
       {
         "key": "kia_carnival_가솔린3.5_xline7인",
         "label": "기아 | 카니발 | 가솔린 3.5 | X-Line(7인)",
-        "near": [
-          "프레스티지(prestige)",
-          "노블레스(noblesse)",
-          "시그니처(signature)",
-          "X-Line(x_line)",
-          "아웃도어(outdoor)"
-        ]
-      },
-      {
-        "key": "kia_carnival_가솔린3.5_블랙에디션7인",
-        "label": "기아 | 카니발 | 가솔린 3.5 | 블랙 에디션(7인)",
         "near": [
           "프레스티지(prestige)",
           "노블레스(noblesse)",
@@ -2231,6 +2145,116 @@
         "near": [
           "프레스티지(prestige)",
           "노블레스(noblesse)"
+        ]
+      },
+      {
+        "key": "SXJJ5TMD4",
+        "label": "현대 | 코나 | 가솔린 1.6 터보 · 2WD | N Line Inspiration",
+        "near": [
+          "모던(modern)",
+          "H-Pick(hpick)",
+          "프리미엄(premium)",
+          "인스퍼레이션(inspiration)",
+          "블랙 익스테리어(black_exterior)",
+          "N 라인(n_line)"
+        ]
+      },
+      {
+        "key": "SXJJ5TME4",
+        "label": "현대 | 코나 | 가솔린 1.6 터보 · 4WD | N Line Inspiration",
+        "near": [
+          "모던(modern)",
+          "H-Pick(hpick)",
+          "프리미엄(premium)",
+          "인스퍼레이션(inspiration)",
+          "블랙 익스테리어(black_exterior)",
+          "N 라인(n_line)"
+        ]
+      },
+      {
+        "key": "SXJJ5ZMD4",
+        "label": "현대 | 코나 | 하이브리드 · 2WD | N Line Inspiration",
+        "near": [
+          "모던(modern)",
+          "H-Pick(hpick)",
+          "프리미엄(premium)",
+          "인스퍼레이션(inspiration)",
+          "블랙 익스테리어(black_exterior)",
+          "N 라인(n_line)"
+        ]
+      }
+    ],
+    "트림없음": [
+      {
+        "key": "kia_sportage_가솔린1.6터보_블랙에디션",
+        "label": "기아 | 스포티지 | 가솔린 1.6 터보 | 블랙 에디션",
+        "near": [
+          "프레스티지(prestige)",
+          "노블레스(noblesse)",
+          "시그니처(signature)",
+          "X-Line(x_line)"
+        ]
+      },
+      {
+        "key": "kia_sportage_하이브리드터보_블랙에디션",
+        "label": "기아 | 스포티지 | 하이브리드 터보 | 블랙 에디션",
+        "near": [
+          "프레스티지(prestige)",
+          "노블레스(noblesse)",
+          "시그니처(signature)",
+          "X-Line(x_line)"
+        ]
+      },
+      {
+        "key": "kia_sorento_가솔린2.5터보_블랙에디션",
+        "label": "기아 | 쏘렌토 | 가솔린 2.5 터보 | 블랙 에디션",
+        "near": [
+          "프레스티지(prestige)",
+          "노블레스(noblesse)",
+          "시그니처(signature)",
+          "X-Line(x_line)"
+        ]
+      },
+      {
+        "key": "kia_sorento_하이브리드터보_블랙에디션2wd",
+        "label": "기아 | 쏘렌토 | 하이브리드 터보 | 블랙 에디션(2WD)",
+        "near": [
+          "프레스티지(prestige)",
+          "노블레스(noblesse)",
+          "시그니처(signature)",
+          "X-Line(x_line)"
+        ]
+      },
+      {
+        "key": "kia_sorento_하이브리드터보_블랙에디션전자식4wd",
+        "label": "기아 | 쏘렌토 | 하이브리드 터보 | 블랙 에디션(전자식4WD)",
+        "near": [
+          "프레스티지(prestige)",
+          "노블레스(noblesse)",
+          "시그니처(signature)",
+          "X-Line(x_line)"
+        ]
+      },
+      {
+        "key": "kia_carnival_가솔린3.5_블랙에디션9인",
+        "label": "기아 | 카니발 | 가솔린 3.5 | 블랙 에디션(9인)",
+        "near": [
+          "프레스티지(prestige)",
+          "노블레스(noblesse)",
+          "시그니처(signature)",
+          "X-Line(x_line)",
+          "아웃도어(outdoor)"
+        ]
+      },
+      {
+        "key": "kia_carnival_가솔린3.5_블랙에디션7인",
+        "label": "기아 | 카니발 | 가솔린 3.5 | 블랙 에디션(7인)",
+        "near": [
+          "프레스티지(prestige)",
+          "노블레스(noblesse)",
+          "시그니처(signature)",
+          "X-Line(x_line)",
+          "아웃도어(outdoor)"
         ]
       },
       {
@@ -2380,42 +2404,6 @@
           "모던 라이트(modern_lite)",
           "모던(modern)",
           "인스퍼레이션(inspiration)",
-          "N 라인(n_line)"
-        ]
-      },
-      {
-        "key": "SXJJ5TMD4",
-        "label": "현대 | 코나 | 가솔린 1.6 터보 · 2WD | N Line Inspiration",
-        "near": [
-          "모던(modern)",
-          "H-Pick(hpick)",
-          "프리미엄(premium)",
-          "인스퍼레이션(inspiration)",
-          "블랙 익스테리어(black_exterior)",
-          "N 라인(n_line)"
-        ]
-      },
-      {
-        "key": "SXJJ5TME4",
-        "label": "현대 | 코나 | 가솔린 1.6 터보 · 4WD | N Line Inspiration",
-        "near": [
-          "모던(modern)",
-          "H-Pick(hpick)",
-          "프리미엄(premium)",
-          "인스퍼레이션(inspiration)",
-          "블랙 익스테리어(black_exterior)",
-          "N 라인(n_line)"
-        ]
-      },
-      {
-        "key": "SXJJ5ZMD4",
-        "label": "현대 | 코나 | 하이브리드 · 2WD | N Line Inspiration",
-        "near": [
-          "모던(modern)",
-          "H-Pick(hpick)",
-          "프리미엄(premium)",
-          "인스퍼레이션(inspiration)",
-          "블랙 익스테리어(black_exterior)",
           "N 라인(n_line)"
         ]
       },
