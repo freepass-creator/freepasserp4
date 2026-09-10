@@ -193,6 +193,14 @@ class FirestoreAdapter implements StoreAdapter {
     for (const rec of records) {
       const key = naturalKey(entityKey, rec);
       if (key && seen.has(key)) { duplicates++; continue; }
+      // products 원자는 기존 문서 대부분이 companyId 없이 provider_company_code만 가진다.
+      // companyId 쿼리만으로 중복을 판단하면 기존 원자를 신규로 오인하고 setDoc 전체교체할 수 있으므로
+      // product_code/문서 id 기준으로 한 번 더 확인한다.
+      if (entityKey === 'product' && key && await this.get('product', companyId, String(key))) {
+        duplicates++;
+        seen.add(key);
+        continue;
+      }
       // ★상품은 미러와 같은 문서에 써야 갈라지지 않는다 — productWriteId 로 «미러가 쓴 실제 문서 id»(차번) 해석.
       const id = entityKey === 'product' && key ? await this.productWriteId(db, String(key))
         : (key ? `${companyId}__${key}` : `${companyId}__${Date.now()}_${Math.random().toString(36).slice(2, 7)}`);

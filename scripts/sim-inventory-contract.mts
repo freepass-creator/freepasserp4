@@ -118,6 +118,11 @@ assert.match(readFileSync('scripts/audit-photo-projection.mts', 'utf8'), /photoP
 
 const hourly = readFileSync('scripts/hourly-sync.mts', 'utf8');
 const supplierIngest = readFileSync('scripts/ingest-supplier-to-firestore.mts', 'utf8');
+const inventoryEditor = readFileSync('features/inventory/useInventoryEditorLifecycle.ts', 'utf8');
+const storeSource = readFileSync('lib/store.ts', 'utf8');
+assert.match(inventoryEditor, /if \(previous\)[\s\S]*update\('product'[\s\S]*else[\s\S]*save\('product'/);
+assert.doesNotMatch(inventoryEditor, /save\('product'[\s\S]{0,200}update\('product'/);
+assert.match(storeSource, /entityKey === 'product' && key && await this\.get\('product'/);
 const hourlyStringNormalizer = hourly.indexOf('const S =');
 const hourlyFirstStringNormalizerUse = hourly.search(/[^A-Za-z0-9_$]S\(/);
 assert.ok(

@@ -38,6 +38,7 @@ await check('영업자A 자기정산 읽기', 'ok', getDoc(doc(A, 'settlement/RP
 
 // 공급사 RP004 — 자기 공급사 계약 O · 남의 공급사 X
 const P = env.authenticatedContext('uidP', { role: 'provider', provider_company_code: 'RP004', company: 'RP004' }).firestore();
+const PA = env.authenticatedContext('uidPA', { role: 'provider_admin', provider_company_code: 'RP004', company: 'RP004' }).firestore();
 await check('공급사RP004 자기계약 읽기', 'ok', getDoc(doc(P, 'contract/RP004__A1')));
 await check('공급사RP004 남의공급사(RP005) 차단', 'deny', getDoc(doc(P, 'contract/RP005__B1')));
 
@@ -59,6 +60,7 @@ await check('공급사 자기 상품 생성', 'ok', setDoc(doc(P, 'products/RP00
   companyId: 'RP004', provider_company_code: 'RP004', product_code: 'CAR3', car_number: '33가3333',
 }));
 await check('공급사 자기 상품 수정', 'ok', setDoc(doc(P, 'products/RP004__CAR1'), { car_number: '11가1112' }, { merge: true }));
+await check('공급사관리자 자기 상품 수정', 'ok', setDoc(doc(PA, 'products/RP004__CAR1'), { car_number: '11가1113' }, { merge: true }));
 await check('공급사 남의 상품 수정 차단', 'deny', setDoc(doc(P, 'products/RP005__CAR2'), { car_number: '22가9999' }, { merge: true }));
 await check('공급사 코드 갈아타기 차단', 'deny', setDoc(doc(P, 'products/RP004__CAR1'), { provider_company_code: 'RP005' }, { merge: true }));
 await check('공급사 상품 하드삭제 차단', 'deny', deleteDoc(doc(P, 'products/RP004__CAR1')));
