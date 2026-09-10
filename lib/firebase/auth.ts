@@ -1,5 +1,5 @@
 /**
- * Firebase Auth — freepasserp3 프로젝트 공유(회원 그대로). v3 src/firebase/auth.js 이식.
+ * Firebase Auth — Freepass ERP5 프로젝트. v3 src/firebase/auth.js 이식.
  *   · 이메일/비번 로그인 + 가입(사업자번호→회사·역할 자동) + 재설정.
  *   · onAuthStateChanged → users/{uid} 프로필 로드 → auth-session 에 v4 3역할로 투영.
  */

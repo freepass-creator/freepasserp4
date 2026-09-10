@@ -8,7 +8,7 @@
  *   ③ 되살린 차는 다시 목록에 뜬다
  *
  * ②가 이 테스트의 핵심이다. `store.save` 의 dedup 이 소프트삭제 키를 포함하는 건
- * 자연키 재저장으로 아무 매물이나 부활하는 걸 막으려는 의도였다(rtdb-adapter:622).
+ * 자연키 재저장으로 아무 매물이나 부활하는 걸 막으려는 의도였다(FirestoreAdapter:622).
  * 그 가드를 깨지 않았다는 걸 여기서 증명해야 한다.
  *
  *   npx tsx scripts/sim-sheet-revive.mts

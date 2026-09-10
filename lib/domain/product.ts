@@ -968,7 +968,7 @@ export function detailSections(p: EntityRecord, audience: Audience = 'agent'): D
    * 상담에서 자주 묻는 값이다(사장님 2026-08-20 「차량정보에 차량가격을 빼먹었네」).
    *
    * ⚠ **값이 오는 역할에만 줄을 세운다.** `vehicle_price` 는 RTDB `products_private` 로 갈라져 있고
-   *   `rtdb-adapter.readProductPrivate` 가 admin·provider 에게만 읽어 병합한다 — 영업사원 브라우저엔
+   *   `FirestoreAdapter.readProductPrivate` 가 admin·provider 에게만 읽어 병합한다 — 영업사원 브라우저엔
    *   애초에 안 온다. 그런데도 줄을 세우면 «우리도 모르는 값»처럼 「—」가 찍혀 영업자가 손님에게
    *   잘못 말한다. 손님 화면은 화이트리스트(`public-catalog`)에서 빠져 있어 어차피 값이 없다.
    *   → 영업사원·손님에게도 보이려면 노출 결정 + 규칙·리더 변경이 필요하다(표시 문제가 아니다).

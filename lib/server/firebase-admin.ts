@@ -17,6 +17,10 @@ function serviceAccount(): ServiceAccount {
   if (!parsed.project_id || !parsed.client_email || !parsed.private_key) {
     throw new Error('FIREBASE_SERVICE_ACCOUNT_JSON 형식이 올바르지 않습니다.');
   }
+  const configuredProjectId = configuredFirebaseProjectId();
+  if (configuredProjectId && parsed.project_id !== configuredProjectId) {
+    throw new Error(`Firebase 프로젝트 불일치: client=${configuredProjectId}, service=${parsed.project_id}`);
+  }
   return {
     projectId: parsed.project_id,
     clientEmail: parsed.client_email,

@@ -7,7 +7,10 @@
  *   DEST_FIREBASE_SERVICE_ACCOUNT=<path to destination service-account json>
  *
  * Usage:
- *   npx tsx scripts/migrate-firestore-project.mts --phase=atoms [--apply]
+ *   npx tsx scripts/migrate-firestore-project.mts --phase=atoms [--apply|--resume|--verify|--refresh-existing]
+ *
+ * If an apply stops between batches, --resume verifies every existing document
+ * before creating only the missing documents. It never overwrites a mismatch.
  */
 import { readFileSync } from 'node:fs';
 import { cert, deleteApp, initializeApp } from 'firebase-admin/app';
@@ -35,7 +38,8 @@ const PHASES = {
 const APPLY = process.argv.includes('--apply');
 const VERIFY = process.argv.includes('--verify');
 const REFRESH = process.argv.includes('--refresh-existing');
-if ([APPLY, VERIFY, REFRESH].filter(Boolean).length > 1) throw new Error('--apply, --verify, --refresh-existing은 함께 쓸 수 없습니다.');
+const RESUME = process.argv.includes('--resume');
+if ([APPLY, VERIFY, REFRESH, RESUME].filter(Boolean).length > 1) throw new Error('--apply, --resume, --verify, --refresh-existing은 함께 쓸 수 없습니다.');
 const phaseArg = process.argv.find((arg) => arg.startsWith('--phase='))?.slice('--phase='.length) || '';
 if (!(phaseArg in PHASES)) throw new Error(`--phase=${Object.keys(PHASES).join('|')} 중 하나가 필요합니다.`);
 const collections = PHASES[phaseArg as keyof typeof PHASES];
@@ -94,7 +98,7 @@ for (const collectionName of collections) {
     collectionName === 'vehicle_trim_master' ? Promise.resolve(null) : source.collection(collectionName).get(),
     dest.collection(collectionName).get(),
   ]);
-  if (!destSnap.empty && !VERIFY && !REFRESH) throw new Error(`${collectionName}: 목적지가 비어 있지 않습니다 (${destSnap.size}건). 덮어쓰기를 중단합니다.`);
+  if (!destSnap.empty && !VERIFY && !REFRESH && !RESUME) throw new Error(`${collectionName}: 목적지가 비어 있지 않습니다 (${destSnap.size}건). 덮어쓰기를 중단합니다.`);
   const sourceDocs = sourceSnap
     ? sourceSnap.docs.map((document) => ({ id: document.id, data: document.data() }))
     : trimRows.map((row) => ({ id: S(row.trim_row_key), data: row }));
@@ -119,6 +123,31 @@ for (const collectionName of collections) {
   });
   console.log(`${collectionName}: source=${sourceDocs.length} destination=${destSnap.size}`);
   total += sourceDocs.length;
+  if (RESUME) {
+    const stable = (value: any): any => {
+      if (Array.isArray(value)) return value.map(stable);
+      if (!value || typeof value !== 'object') return value;
+      if (value.constructor?.name === 'Timestamp') return { _timestamp: [value.seconds, value.nanoseconds] };
+      if (value.constructor?.name === 'GeoPoint') return { _geopoint: [value.latitude, value.longitude] };
+      if (value.constructor?.name === 'DocumentReference') return { _reference: value.path };
+      if (Buffer.isBuffer(value)) return { _bytes: value.toString('base64') };
+      return Object.fromEntries(Object.keys(value).sort().map((key) => [key, stable(value[key])]));
+    };
+    const expectedById = new Map(preparedDocs.map((document) => [document.id, JSON.stringify(stable(document.data))]));
+    const mismatches = destSnap.docs.filter((document) => expectedById.get(document.id) !== JSON.stringify(stable(document.data())));
+    if (mismatches.length) throw new Error(`${collectionName}: 기존 문서 불일치 ${mismatches.slice(0, 20).map((document) => document.id).join(',')}`);
+    const existingIds = new Set(destSnap.docs.map((document) => document.id));
+    const missing = preparedDocs.filter((document) => !existingIds.has(document.id));
+    for (let offset = 0; offset < missing.length; offset += 300) {
+      const batch = dest.batch();
+      for (const document of missing.slice(offset, offset + 300)) {
+        batch.create(dest.collection(collectionName).doc(document.id), document.data);
+      }
+      await batch.commit();
+    }
+    console.log(`${collectionName}: resumed=${missing.length}`);
+    continue;
+  }
   if (REFRESH) {
     const stable = (value: any): any => {
       if (Array.isArray(value)) return value.map(stable);
@@ -181,6 +210,6 @@ for (const collectionName of collections) {
   }
 }
 
-console.log(`${VERIFY ? 'VERIFIED' : REFRESH ? 'REFRESHED' : APPLY ? 'APPLIED' : 'DRY_RUN'} phase=${phaseArg} collections=${collections.length} documents=${total} held=${held} failures=${verifyFailures}`);
+console.log(`${VERIFY ? 'VERIFIED' : REFRESH ? 'REFRESHED' : RESUME ? 'RESUMED' : APPLY ? 'APPLIED' : 'DRY_RUN'} phase=${phaseArg} collections=${collections.length} documents=${total} held=${held} failures=${verifyFailures}`);
 await Promise.all([deleteApp(sourceApp), deleteApp(destApp)]);
 if (verifyFailures) process.exit(1);

@@ -3,7 +3,7 @@ rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
     // ── V3 호환 경로 ─────────────────────────────────────────────────
-    // freepasserp3와 같은 Firebase 프로젝트·버킷을 사용하므로 기존 경로를 제거하면 안 된다.
+    // ERP5 Storage를 별도로 개설할 때만 배포한다. 기존 경로 계약은 과거 파일 조회 호환용이다.
     match /product-images/{productId}/{fileName} {
       allow read: if true;
       allow create, update: if request.auth != null

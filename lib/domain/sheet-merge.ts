@@ -608,7 +608,7 @@ export async function commitSheetProducts(companyId: string, products: EntityRec
   }
   // ── 톰스톤 해제 — 시트에 살아 있는 차는 되살린다.
   //
-  //  `store.save` 는 dedup 집합에 **소프트삭제 키까지** 넣는다(rtdb-adapter:622).
+  //  `store.save` 는 dedup 집합에 **소프트삭제 키까지** 넣는다(FirestoreAdapter:622).
   //  자연키 재저장으로 아무 삭제 매물이나 부활하는 걸 막으려는 의도이고 그건 맞다.
   //  그런데 그 때문에 «시트에 멀쩡히 있는 차»가 예전 일괄정리의 톰스톤에 걸려
   //  영영 안 올라온다 — 실측(2026-08-05): 아이카 6대 · (2026-08-07): 아이카 21대.
