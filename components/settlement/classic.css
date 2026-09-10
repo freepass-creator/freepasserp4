@@ -87,6 +87,10 @@
   --바탕: #dfe3e8;
   --판: #fff;
   --머리: #4a6fa5;
+  /** ★원본이 뒤에 낸 토큰 둘을 우리가 안 가져왔었다(2026-09-10 규칙 대조로 드러남). 값은 원본 그대로. */
+  --머리밝: #5a80b8;
+  /** 고른 줄의 왼쪽 막대 — 공용 규격(app/규격.css:74)이 토큰으로 뽑아 뒀는데 우리는 손으로 적고 있었다. */
+  --고름막대: inset 3px 0 0 var(--고름표);
   /** ★★선은 «한 가지» 가 아니다 — 2026-09-06
    *
    *  ★세로선과 가로선은 «같은 세기면 안 된다».
@@ -311,7 +315,18 @@
 /* ★아이콘 자리 — 도구모음(.cl-tbi)과 «같은» 셈법이다. 넷의 글자가 세로로 맞아야 한다 */
 .cl-qi { display: inline-block; width: var(--아이콘); text-align: center; font-size: 13px; line-height: 1; color: var(--흐린); }
 .cl-qbtn.on .cl-qi { color: rgba(255,255,255,.85); }
-.cl-qbtn:hover:not(.off) { background: #f1f5fa; }
+/**
+ * ★★**고른 것에 손을 얹어도 «고른 채»로 있는다** — 원본 값 그대로(erp-classic/classic.css:267-268).
+ *
+ *   ⚠ 우리는 `:hover:not(.off)` 만 갖고 있었다 — 고른 항목(.on)도 hover 에 걸려
+ *     **남색 바탕이 흰색으로 바뀌고, 글자는 흰색이라 «흰 바탕에 흰 글자»가 됐다.**
+ *     사장님 2026-09-10 「야 사이드메뉴에 선택하고 갖다 대면 저렇게 하얗게 되냐」.
+ *   ★원본 주석이 이미 답을 적어 뒀다 — 「고른 상태를 잃지 않으면서 «지금 여기»를 말한다.
+ *     색을 갈아치우지 않는다」·「**순서에 기대면 규칙 하나 옮길 때 도로 깨진다**」.
+ *     우리가 딱 그 꼴이었다 — 순서로 버티다가 규칙을 덧대며 깨졌다.
+ */
+.cl-qbtn:hover:not(.off):not(.on) { background: #f1f5fa; }
+.cl-qbtn.on:hover { background: var(--머리밝); }
 /* ★고른 것은 나무의 고른 항목과 «같은 결» 이다 — 어디 있는지가 한 가지 방식으로 보인다 */
 .cl-qbtn.on { background: var(--머리); color: #fff; box-shadow: var(--눌림); }
 .cl-qbtn.off { color: #a8aeb6; cursor: default; }
@@ -337,7 +352,9 @@
 .cl-tree-g .cl-tcode { font-size: 9px; color: #8d96a1; letter-spacing: .5px; }
 /* 항목은 «판» 위에 얹힌다 — 갈래보다 밝게 */
 .cl-tree-s { background: var(--판); }
-.cl-tree-g:hover, .cl-tree-s:hover { background: #f1f5fa; }
+/** ★나무의 고른 항목도 같은 결 — 고른 채로 «조금 밝아질» 뿐이다(원본 296-297). */
+.cl-tree-g:hover:not(.on), .cl-tree-s:hover:not(.on) { background: #f1f5fa; }
+.cl-tree-s.on:hover { background: var(--머리밝); }
 .cl-tree-g.on { background: #e8eef7; }
 .cl-tw { display: inline-block; width: 12px; color: var(--흐린); }
 .cl-tree-s { padding-left: 26px; }
@@ -628,7 +645,7 @@
 .cl-grid tbody tr.on td { border-color: var(--고름칸선); }
 /** ★「이 줄이다」 를 «자리» 로 말한다 — 왼쪽 막대 3px.
  *  box-shadow 라 자리를 «안 밀어낸다». border 를 굵히면 표가 통째로 흔들린다. */
-.cl-grid tbody tr.on td:first-child { box-shadow: inset 3px 0 0 var(--고름표); }
+.cl-grid tbody tr.on td:first-child { box-shadow: var(--고름막대); }
 .cl-grid .c { text-align: center; }
 .cl-grid .r { text-align: right; }
 /** ★★숫자 글꼴은 «한 곳» 에서 정한다 — 2026-09-05

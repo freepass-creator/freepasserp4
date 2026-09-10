@@ -149,6 +149,23 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
   const [color, setColor] = useState('');
   const [perk, setPerk] = useState('');
   const [onlyOk, setOnlyOk] = useState(true);
+  /**
+   * ★★**실적·청구에서도 찾고 거른다** — 사장님 2026-09-10
+   *   「실적이랑 청구 가면 검색이 사라지니까 확 뭐가 바뀌는 거 같은데.
+   *    **검색창은 살아 있어야지** 거기서 검색할 수도 있는데.
+   *    **필터값도 거기에 맞춰서 바뀌는 거고.** 왜 검색이랑 필터를 없애냐 거기서도 써야지」
+   *
+   *   ⚠ 앞서 조건 줄을 «접수 탭 안»에만 뒀다. 탭을 옮기면 줄이 통째로 사라져
+   *     화면이 «다른 프로그램»처럼 확 바뀌었다.
+   *   ⇒ 조건 줄은 늘 선다. 다만 **축은 탭마다 다르다** — 접수는 «차 조건», 실적·청구는 «거래 조건».
+   *     같은 자리에 다른 축이 서는 것이지, 있다 없다 하는 것이 아니다.
+   */
+  const [q2, setQ2] = useState('');
+  const [sup2, setSup2] = useState('');
+  const [ch2, setCh2] = useState('');
+  const [pay2, setPay2] = useState('');
+  const [iss2, setIss2] = useState('');
+  const 조건지움2 = () => { setQ2(''); setSup2(''); setCh2(''); setPay2(''); setIss2(''); };
 
   /** 고른 차 · 오른쪽 칸의 얼굴 — 보기 ↔ 접수. 자리는 그대로, 얼굴만 바뀐다. */
   const [picked, setPicked] = useState<CarLite | null>(null);
@@ -404,6 +421,31 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
     if (got) setLineSpec(got);
   };
 
+  /**
+   * ★차번을 치거나 고르면 — 재고에 있으면 그 차 정보를 채운다.
+   *   ⚠ 사람이 이미 적어 둔 칸은 «덮지 않는다» — 고쳐 놓은 것을 지우면 그게 사고다.
+   *     비어 있는 칸만 채운다.
+   */
+  const 차번바뀜 = (v: string) => {
+    const 값 = S(v);
+    set('plate', 값);
+    /** ⚠ 이 도우미는 «데이터가 오기 전»에도 만들어진다 — board 가 없으면 채울 것도 없다. */
+    const 찾 = board?.cars.find((c) => c.plate.replace(/\s/g, '') === 값.replace(/\s/g, ''));
+    if (!찾) return;
+    setF((o) => ({
+      ...o,
+      model: S(o.model) || [찾.name, 찾.trim].filter(Boolean).join(' '),
+      supplier: S(o.supplier) || 찾.supplier,
+      product: S(o.product) || 찾.product,
+      term: S(o.term) || 찾.term,
+      rent: S(o.rent) || String(찾.rent || ''),
+      deposit: S(o.deposit) || String(찾.deposit || ''),
+    }));
+    /** 오른쪽 상세도 그 차로 — 「이 차가 맞나」를 눈으로 확인하게. */
+    setPicked(찾);
+    void api.car(찾.plate).then((got) => { if (got) setCar(got); });
+  };
+
   /** 상세 → 접수. 같은 칸이 얼굴만 바꾼다. 지난번 채널·영업자가 들어와 있다. */
   const toIntake = () => {
     if (!picked) return;
@@ -513,8 +555,18 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
     const 총 = Math.round(1 / ratio);
     return { 분납: true, 말: `${총}회 중` };
   };
-  const 분납 = 실적.filter((r) => 회차of(r).분납);
-  const 완납 = 실적.filter((r) => !회차of(r).분납);
+  /** ★조건에 걸린 것만 — 축은 «거래»다(공급사·채널·납입·글자). */
+  const 실적본 = 실적.filter((r) => {
+    if (sup2 && S(r.supplier) !== sup2) return false;
+    if (ch2 && S(r.channel) !== ch2) return false;
+    if (pay2 === '분납' && !회차of(r).분납) return false;
+    if (pay2 === '완납' && 회차of(r).분납) return false;
+    const t2 = S(q2).replace(/\s/g, '');
+    if (t2 && !`${r.plate}${r.customer}${r.model}${r.supplier}${r.channel}${r.agent}`.replace(/\s/g, '').includes(t2)) return false;
+    return true;
+  });
+  const 분납 = 실적본.filter((r) => 회차of(r).분납);
+  const 완납 = 실적본.filter((r) => !회차of(r).분납);
 
   /**
    * ★★**청구 — 공급사별로 묶는다.** 정산액에서 환수를 빼고 공급가액·부가세·합계를 낸다.
@@ -533,7 +585,15 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
       issued: sp.issued,
       사유: 그곳.map((r) => S(r.carryNote) || S(r.note)).filter(Boolean).slice(0, 1).join('') || '',
     };
-  }).filter((x) => x.n > 0 || x.공급가);
+  }).filter((x) => x.n > 0 || x.공급가)
+    .filter((x) => {
+      if (sup2 && x.name !== sup2) return false;
+      if (iss2 === '발행' && !x.issued) return false;
+      if (iss2 === '아직' && x.issued) return false;
+      const t2 = S(q2).replace(/\s/g, '');
+      if (t2 && !x.name.replace(/\s/g, '').includes(t2)) return false;
+      return true;
+    });
 
   /**
    * ★트리는 탭마다 다시 적지 않는다 — 한 번 짜서 어느 탭에서든 같은 것이 선다.
@@ -639,6 +699,49 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
         </div>
       </div>
 
+      {/**
+        * ★★**조건 줄은 «늘» 선다** — 사장님 2026-09-10
+        *   「실적이랑 청구 가면 검색이 사라지니까 확 뭐가 바뀌는 거 같은데.
+        *    검색창은 살아 있어야지 … 필터값도 거기에 맞춰서 바뀌는 거고」
+        *   ⇒ 자리는 그대로, **축만 갈아 끼운다.** 접수는 «차 조건», 실적·청구는 «거래 조건».
+        *     있다 없다 하면 화면이 «다른 프로그램»처럼 바뀐다.
+        */}
+      {tab !== '접수' && (
+        <div className="cl-filter cl-cond">
+          <div className="cl-frow">
+            <input className="cl-find" type="text" value={q2} placeholder={tab === '실적' ? '차번 · 고객 · 모델 · 공급사 · 채널 · 영업자' : '공급사로 찾기'}
+              onChange={(e) => setQ2(e.target.value)} />
+            <select value={sup2} onChange={(e) => setSup2(e.target.value)}>
+              <option value="">공급사 전체</option>
+              {[...new Set(실적.map((r) => S(r.supplier)).filter(Boolean))].sort().map((v) => <option key={v}>{v}</option>)}
+            </select>
+            {tab === '실적' && (
+              <>
+                <select value={ch2} onChange={(e) => setCh2(e.target.value)}>
+                  <option value="">영업채널 전체</option>
+                  {[...new Set(실적.map((r) => S(r.channel)).filter(Boolean))].sort().map((v) => <option key={v}>{v}</option>)}
+                </select>
+                <select value={pay2} onChange={(e) => setPay2(e.target.value)}>
+                  <option value="">납입 전체</option>
+                  <option value="분납">분납</option>
+                  <option value="완납">완납</option>
+                </select>
+              </>
+            )}
+            {tab === '청구' && (
+              <select value={iss2} onChange={(e) => setIss2(e.target.value)}>
+                <option value="">계산서 전체</option>
+                <option value="아직">아직 안 나감</option>
+                <option value="발행">발행 완료</option>
+              </select>
+            )}
+            <button type="button" className="cl-btn" onClick={조건지움2}>조건 지우기</button>
+            <span className="cl-sp" />
+            <span className="cl-note">{board.month}</span>
+          </div>
+        </div>
+      )}
+
       {tab !== '접수' ? (
         <div className="cl-body">
           {/** 왼쪽 트리는 어느 탭에서든 선다 — 「어디로 갈지」가 늘 보여야 한다. */}
@@ -655,7 +758,7 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
             {tab === '실적' && (
               <div className="cl-grid">
                 <div className="cl-crumb">
-                  실적 <b>{실적.length}</b>건
+                  실적 <b>{실적본.length}</b>건
                   <span className="cl-note">{board.month} 청구월</span>
                   <span className="cl-sp" />
                   <span className="cl-note">분납 {분납.length} · 완납 {완납.length}</span>
@@ -681,7 +784,7 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
                     </tr>
                   </thead>
                   <tbody>
-                    {실적.map((r) => {
+                    {실적본.map((r) => {
                       const 몫 = (r.claim || 0) - (r.pay || 0);
                       const 회 = 회차of(r);
                       return (
@@ -705,14 +808,14 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
                         </tr>
                       );
                     })}
-                    {!실적.length && <tr><td colSpan={15} className="cl-note">이 달 실적이 없습니다</td></tr>}
+                    {!실적본.length && <tr><td colSpan={15} className="cl-note">이 달 실적이 없습니다</td></tr>}
                   </tbody>
-                  {실적.length > 0 && (
+                  {실적본.length > 0 && (
                     <tfoot><tr className="cl-sum">
-                      <td colSpan={10}>합계 {실적.length}건 (분납 {분납.length} · 완납 {완납.length})</td>
-                      <td className="cl-num">{won(실적.reduce((a, r) => a + (r.claim || 0), 0))}</td>
-                      <td className="cl-num">{won(실적.reduce((a, r) => a + (r.pay || 0), 0))}</td>
-                      <td className="cl-num"><b>{won(실적.reduce((a, r) => a + ((r.claim || 0) - (r.pay || 0)), 0))}</b></td>
+                      <td colSpan={10}>합계 {실적본.length}건 (분납 {분납.length} · 완납 {완납.length})</td>
+                      <td className="cl-num">{won(실적본.reduce((a, r) => a + (r.claim || 0), 0))}</td>
+                      <td className="cl-num">{won(실적본.reduce((a, r) => a + (r.pay || 0), 0))}</td>
+                      <td className="cl-num"><b>{won(실적본.reduce((a, r) => a + ((r.claim || 0) - (r.pay || 0)), 0))}</b></td>
                       <td colSpan={2} />
                     </tr></tfoot>
                   )}
@@ -1250,7 +1353,18 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
                     {!isAid && (
                       <>
                         <div className="cl-fr"><label className="cl-must">※ 차량번호</label>
-                          <input value={f.plate} onChange={(e) => set('plate', e.target.value)} placeholder="00가0000"
+                          {/**
+                            * ★★**차번을 치면 재고가 «타닥» 뜨고, 고르면 정보가 따라온다** — 사장님 2026-09-10
+                            *   「신규 접수해도 차 번호를 검색할 때 미리 입력되어 있는 거 맞춰서 타탁 나오는 거 있잖아
+                            *    그거로 해 줘야지. 신규해서 접수해도 **기존 차 누르면 정보 따라오게**」
+                            *
+                            *   ⚠ 앞서 직접 접수는 차번·모델·공급사·상품을 «전부 손으로» 치게 했다.
+                            *     재고에 있는 차인데도 그랬다 — 있는 것을 다시 치게 하는 것은 일이 아니라 낭비다.
+                            *   ⇒ 재고 차번을 datalist 로 붙이고, 값이 «재고에 있는 차»가 되면 그 자리에서 채운다.
+                            *   ★재고에 «없는» 차번이면 아무것도 안 채운다 — 그건 손으로 적는 것이 맞다.
+                            */}
+                          <input value={f.plate} list="cl-plate" placeholder="00가0000 — 치면 재고에서 찾습니다"
+                            onChange={(e) => 차번바뀜(e.target.value)}
                             className={S(f.plate) ? '' : 'cl-need'} /></div>
                         <div className="cl-fr"><label>모델명</label>
                           <input value={f.model} onChange={(e) => set('model', e.target.value)} /></div>
@@ -1389,6 +1503,10 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
         </div>
       )}
 
+      {/** ★재고 차번 — 직접 접수에서도 «있는 차»를 골라 쓸 수 있게. */}
+      <datalist id="cl-plate">{board.cars.slice(0, 1200).map((c) => (
+        <option key={c.plate} value={c.plate}>{c.name} {c.trim} · {c.supplier}</option>
+      ))}</datalist>
       <datalist id="cl-sup">{board.suggest.suppliers.map((v) => <option key={v} value={v} />)}</datalist>
       <datalist id="cl-ch">{board.suggest.channels.map((v) => <option key={v} value={v} />)}</datalist>
       <datalist id="cl-ag">{board.suggest.agents.map((v) => <option key={v} value={v} />)}</datalist>
