@@ -62,6 +62,40 @@ const S = (v: unknown) => String(v ?? '').trim();
  *   ⇒ 돈은 전부 만원. 「52 · 100 · 1,225」 — 세 자리를 안 넘어 한눈에 견줘진다.
  *   ★단위는 «칸 이름»에 괄호로 한 번만 적는다 — 값에 붙이면 자릿수가 세로로 안 맞는다.
  */
+/**
+ * ★★★**빈 자리에도 «칸»이 있다** — 사장님 2026-09-10
+ *   「**세로선은 내용이 없어도 있어야** 일체감 느끼지」 · 「**단단한 느낌**이 나야 하는데 **고무줄 느낌**」
+ *
+ * ⚠ **먼저 틀린 길** — 표 안에 빈 줄을 넣고 표를 늘렸다. 표에서 행 높이는 «최소»로만 쳐서
+ *   늘어난 높이가 모든 행에 비례로 나뉘고, 실적 표 한 줄이 200px 씩 벌어졌다. 그게 「고무줄」이다.
+ * ⇒ **표는 안 늘린다.** 남은 자리는 판(`.cl-grid::after`)이 «그림»으로 채운다.
+ *   가로선은 되풀이 무늬가, **세로선은 이 «자»가** 그린다.
+ *
+ * ★★**칸 폭 하나에서 «머리줄»과 «세로선»이 같이 나온다** — 둘이 갈리면 반 칸씩 어긋난다.
+ *   `<colgroup>` 이 폭의 정본이고(fixed 표에서 이것이 이긴다), 같은 배열로 판에 세로선을 그린다.
+ */
+const 자 = (ws: number[]) => {
+  const 폭 = ws.reduce((a, b) => a + b, 0);
+  let x = 0, prev = 0;
+  const 토막: string[] = [];
+  for (const w of ws.slice(0, -1)) {
+    x += w;
+    토막.push(`transparent ${prev}px ${x - 1}px`, `var(--칸선) ${x - 1}px ${x}px`);
+    prev = x;
+  }
+  토막.push(`transparent ${prev}px 100%`);
+  return {
+    cols: <colgroup>{ws.map((w, i) => <col key={i} style={{ width: w }} />)}</colgroup>,
+    /** 판이 이 둘을 읽어 빈 자리를 그린다 — `classic.css` 의 `.cl-grid::after`. */
+    style: { '--표폭': `${폭}px`, '--세로자': `linear-gradient(to right, ${토막.join(',')})` } as React.CSSProperties,
+  };
+};
+
+/** 칸 자 — 표마다 하나씩. 머리줄 `<th>` 에 폭을 적지 않는다(둘이 갈린다). */
+const 자_상품 = 자([58, 84, 76, 78, 44, 62, 62, 54, 36, 38, 66, 56, 38, 74, 58]);
+const 자_접수 = () => 자(INTAKE_COLS.map((c) => c.w));
+const 자_실적 = 자([62, 84, 64, 120, 84, 76, 64, 38, 62, 54, 78, 78, 78, 62, 150]);
+
 const man = (n: number) => (n ? Math.round(n / 10000).toLocaleString('ko-KR') : '');
 /**
  * ★★**접수 칸의 돈도 «만원»이다** — 사장님 2026-09-10 「월대여료랑 보증금은 만원 단위로 하면 되고」
@@ -719,11 +753,11 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
           *   원본에서 메뉴바는 «프로그램 메뉴»(장식에 가깝다)고, 화면 이동은 트리의 몫이다.
           *   ⇒ 메뉴바에는 «이 프로그램이 무엇인가»(로고)와 «지금 상태»(재고·날씨·시각)만 남는다.
           */}
-        {preview && <span className="cl-preview">미리보기 — 지어낸 값</span>}
+        {preview && <span className="cl-preview">미리보기</span>}
         <span className="cl-sp" />
         {/** ★오른쪽 끝 = «상태». 통상 ERP 가 서버·사람·시각을 두는 자리다. */}
         <span className="cl-user">
-          재고 {board.cars.length}대 · 대기 {board.intake.length}건{todo ? ` · 할 일 ${todo}` : ''}
+          재고 {board.cars.length}대 · 대기 {board.intake.length}건
         </span>
         <span className="cl-msep" />
         <span className="cl-user" style={{ marginLeft: 0 }}>
@@ -836,7 +870,7 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
               *   ⚠ 수금·지급 «실행»은 안 띄운다 — 통장을 봐야 아는 것이라 화면에서 켜면 거짓말이 된다.
               */}
             {tab === '실적' && (
-              <div className="cl-grid">
+              <div className="cl-grid" style={자_실적.style}>
                 <div className="cl-crumb">
                   실적 <b>{실적본.length}</b>건
                   <span className="cl-note">{board.month} 청구월</span>
@@ -844,9 +878,10 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
                   <span className="cl-note">분납 {분납.length} · 완납 {완납.length}</span>
                 </div>
                 <table>
+                  {자_실적.cols}
                   <thead>
                     <tr>
-                      <th style={{ width: 62 }}>납입</th>
+                      <th>납입</th>
                       <th style={{ width: 84 }}>차량번호</th>
                       <th style={{ width: 64 }}>고객</th>
                       <th style={{ width: 120 }}>모델명</th>
@@ -1009,7 +1044,7 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
             <div className="cl-side-body">
               {mode === '줄' && pickedLine ? (
                 <>
-                  <div className="cl-crumb">접수 줄 — 시트에 적힌 그대로</div>
+                  <div className="cl-crumb">접수 줄</div>
                   <div className="cl-pick">
                     <div className="cl-pick-t">{pickedLine.plate || '(차번없음)'}</div>
                     <div className="cl-pick-s">{pickedLine.customer} · {pickedLine.model}</div>
@@ -1024,7 +1059,7 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
               ) : (
                 <>
                   <div className="cl-crumb">상세</div>
-                  <div className="cl-empty-note">줄을 누르면 그 줄이 통째로 여기 뜹니다.</div>
+                  <div className="cl-empty-note">줄을 고르세요.</div>
                 </>
               )}
             </div>
@@ -1125,7 +1160,7 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
 
             {/* ── 왼쪽 — 위 상품 목록, 아래 접수 목록 ───────────── */}
             <main className="cl-main">
-              <div className="cl-grid cl-cars">
+              <div className="cl-grid cl-cars" style={자_상품.style}>
                 {/**
                   * ★★**판에는 «이름표»가 있다** — 사장님 2026-09-10
                   *   「근데 상품리스트는 왜 패널헤더가 없지?? 거기에 댓수랑 이런 거 규격 맞춰야 하는데」
@@ -1137,9 +1172,9 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
                   <span className="cl-note">재고 {board.cars.length}대 중</span>
                   {hits.length >= 400 && <span className="cl-st warn">· 400대까지만 보입니다 — 조건을 좁히세요</span>}
                   <span className="cl-sp" />
-                  <span className="cl-note">줄을 누르면 오른쪽에 상세가 뜹니다</span>
                 </div>
                 <table>
+                  {자_상품.cols}
                   <thead>
                     <tr>
                       {/**
@@ -1195,14 +1230,14 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
               {/** ★가로 가름바 — 위(상품)와 아래(접수)의 몫을 담당자가 정한다. 두 번 누르면 기본값. */}
               <div className="cl-gutter cl-gutter-h" onPointerDown={끌기} onDoubleClick={되돌리기}
                 title="끌어서 위아래 크기 조절 · 두 번 누르면 기본값" role="separator" aria-orientation="horizontal"><i /></div>
-              <div className="cl-grid cl-wait">
+              <div className="cl-grid cl-wait" style={자_접수().style}>
                 <div className="cl-crumb">
                   접수 목록 {sortedIntake.length}건
-                  {todo > 0 && <span className="cl-st warn"> · ★청구월 박아야 할 것 {todo}건</span>}
+                  {todo > 0 && <span className="cl-st warn"> · 청구월 없음 {todo}</span>}
                   <span className="cl-sp" />
-                  <span className="cl-note">머리줄을 누르면 그 칸으로 줄을 세웁니다</span>
                 </div>
                 <table>
+                  {자_접수().cols}
                   <thead>
                     <tr>
                       {INTAKE_COLS.map((c) => (
@@ -1285,7 +1320,7 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
                   *   ★이름표를 «돈이 오는 쪽»으로 적는다 — 「청구액·지급액」은 장부 말이고,
                   *     전화하며 보는 사람에게 필요한 것은 「받을 돈·줄 돈」이다.
                   */}
-                접수 <b>{sortedIntake.length}</b>건{todo ? <span className="cl-st warn"> · 할 일 {todo}</span> : null}
+                접수 <b>{sortedIntake.length}</b>건
                 <span className="cl-vsep" />
                 받을 돈 <b className="cl-in">{man(접수합.claim) || 0}</b>만
                 <span className="cl-tilde">·</span>줄 돈 <b className="cl-out">{man(접수합.pay) || 0}</b>만
@@ -1316,7 +1351,7 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
 
               {mode === '줄' && pickedLine && (
                 <>
-                  <div className="cl-crumb">접수 줄 — 시트에 적힌 그대로</div>
+                  <div className="cl-crumb">접수 줄</div>
                   <div className="cl-pick">
                     <div className="cl-pick-t">{pickedLine.plate || '(차번없음)'}</div>
                     <div className="cl-pick-s">{pickedLine.customer} · {pickedLine.model}</div>
@@ -1339,7 +1374,7 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
 
               {picked && mode === '보기' && (
                 <>
-                  <div className="cl-crumb">상세 — 손님에게 읽어 주는 자리</div>
+                  <div className="cl-crumb">상세정보</div>
 
                   {/**
                     * ★★**사진** — 손님 상세페이지와 같은 것을 쓴다(사장님 「우리 상세 페이지를 활용해 봐」).
@@ -1363,7 +1398,7 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
                     </div>
                   </div>
 
-                  <div className="cl-dh" style={{ padding: '8px 10px 4px' }}>기간별 요금 — 누르면 고릅니다</div>
+                  <div className="cl-dh" style={{ padding: '8px 10px 4px' }}>기간별 요금</div>
                   <table className="cl-mini cl-fee">
                     <thead><tr><th>기간(개월)</th><th>월 대여료(만)</th><th>보증금(만)</th></tr></thead>
                     <tbody>
@@ -1390,7 +1425,7 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
                     *   담당자가 손님에게 답할 수 있는 것은 다 여기 있어야 한다 —
                     *   VIN·배터리·구동·내장색·옵션·최초등록일까지. 「그건 모르겠는데요」가 없게.
                     */}
-                  <div className="cl-dh" style={{ padding: '10px 10px 4px' }}>제원 — 원자에 있는 그대로</div>
+                  <div className="cl-dh" style={{ padding: '10px 10px 4px' }}>제원</div>
                   <table className="cl-spec">
                     <tbody>
                       {Object.entries(car?.spec || {}).map(([k, v]) => (
@@ -1526,9 +1561,7 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
                       {more ? '− 자세히 접기' : '+ 요금 · 비고'}
                     </button>
 
-                    <div className="cl-note" style={{ margin: '7px 0 8px' }}>
-                      청구월을 미리 적어 두면 «적힌 값»이 이깁니다 — 실적은 인도완료를 켤 때 넘어갑니다.
-                    </div>
+
                   </div>
                 </>
               )}
@@ -1542,7 +1575,7 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
               <div className="cl-side-go">
                 {!picked && !direct && mode !== '줄' && (
                   <button type="button" className="cl-btn cl-btn-p cl-go" onClick={() => openDirect('직접 접수')}>
-                    직접 접수하기 — 차 없이도
+                    직접 접수하기
                   </button>
                 )}
 
@@ -1585,7 +1618,12 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
         <span>재고 {board.cars.length}대</span>
         <span>찾은 것 {hits.length}대</span>
         <span className="cl-sp" style={{ flex: 1 }} />
-        <span>접수 목록 {board.intake.length}건{todo ? ` · 할 일 ${todo}건` : ''}</span>
+        {/**
+          * ⓘ **할 일 수는 «접수 목록 판 머리»에서만 센다** — 사장님 2026-09-10 「중복되는 거 다 없애 주고」
+          *   앞서 넷(메뉴바·판 머리·합계 바·여기)이 같은 수를 말했다. 넷이 말하면 어느 것도 안 읽힌다.
+          *   ★그 일이 «일어나는 자리»에 붙인다 — 청구월을 박는 곳은 접수 목록이다.
+          */}
+        <span>접수 목록 {board.intake.length}건</span>
       </div>
 
       {/** ★사진만 크게. 아무 데나 누르면 닫힌다 — 이 화면에서 «덮는 것»은 이것뿐이다. */}
