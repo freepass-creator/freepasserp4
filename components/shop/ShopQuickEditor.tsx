@@ -7,7 +7,14 @@ import { SHOP, ShopDock, ShopDockAction, ShopIconBtn, ShopPill, ShopTextBtn } fr
 import { AXIS_LABEL, SHOP_AXES, type ShopAxis, type ShopFacets, type ShopQuickChip } from '@/lib/shop/query';
 
 /**
- * **빠른조건을 «고르는» 화면 — 영업자·직원만 연다.**
+ * **빠른조건을 «고르는» 화면 — 누구나 연다.**
+ *
+ * ★★★사장님 2026-09-10 「그냥 **누구나 할 수 있게 오픈**할 거야. 어차피 **우리 거 팔아주는
+ *   입장**이니까 **누구라도 할 수 있게**」 · 「**손님도 할 수 있게 다~ 모든 사람이**」.
+ *   ⇒ 로그인도 역할도 안 본다. 그래서 이 창에 「권한이 없습니다」가 없다.
+ *
+ * ⚠⚠ **고친 것은 «그 채널에 들어오는 다음 사람»에게도 보인다.** 내 화면만 바뀌는 것이 아니라
+ *   가게의 첫 줄이 바뀐다 — 그래서 창이 「지금 줄에 있는 조건」이라고 말한다(「내 조건」이 아니다).
  *
  * ★★사장님 2026-09-10 「**있는 필터를 잠시 옮겨놓은 느낌**이어야 하잖아」 ·
  *   「그래서 퀵필터를 **수정할 수 있게** 해주면 좋겠어」 · 「**있는 필터만** 갖다 놓겠음」.
@@ -89,6 +96,15 @@ export function ShopQuickEditor({ facets, value, onSave, onClose, saving }: {
         </div>
 
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto', padding: SHOP.sp.edge }}>
+          {/*
+            ★**«같이 보는 줄»이라고 먼저 말한다.** 누구나 고칠 수 있게 열어 둔 자리라(머리말),
+              고치는 사람이 「내 화면만 바뀐다」고 오해하면 남의 가게 첫 줄을 무심코 바꾼다.
+              막는 대신 **말해 준다** — 문을 연 채로 할 수 있는 일은 이것이다.
+          */}
+          <div style={{ fontSize: SHOP.fs.cap, color: C.mute, marginBottom: SHOP.sp.cozy, lineHeight: 1.7 }}>
+            이 줄은 <strong style={{ color: C.ink }}>이 가게를 보는 모든 분</strong>에게 같이 보입니다.
+          </div>
+
           {/* ── 위: 지금 줄에 올라와 있는 것 ── */}
           <div style={{ fontSize: SHOP.fs.cap, color: C.faint, marginBottom: SHOP.sp.snug }}>
             지금 줄에 있는 조건 · {picked.length}개
