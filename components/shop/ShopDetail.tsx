@@ -202,7 +202,20 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
       <ColorMark name={p.int_color} label="내부" fontSize={SHOP.fs.cap} />
     </div>
   );
-  const colorRow: FactRow[] = (!mobile && colorText) ? [['색상', colorText, colorNode]] : [];
+  /*
+   * ★★★**색상은 웹·폰 «둘 다» 격자의 첫 칸이다**(사장님 2026-09-10 「여기 보면 **2 2 2 이렇게
+   *   맞추자**」 — 폰 제원 격자가 두 칸씩 나란히 떨어져야 한다는 말씀).
+   *
+   * ⚠ 폰에서만 색상을 격자 «위»로 빼 두었다. 그 결과 격자에 드는 값이 **일곱(홀수)**이 되어
+   *   「주행거리」가 **혼자 한 줄**을 쓰고 있었다(스크린샷). 두 칸 격자에서 홀수는 반드시 짝이 뜬다.
+   * ⇒ 색상을 격자에 되돌리면 **여덟**이 되어 폰이 2·2·2·2 로 딱 떨어진다.
+   *   색상 | 차급 · 연식 | 주행거리 · 배기량 | 연료 · 구동방식 | 승차정원.
+   * ★웹도 같은 값이다 — 「폰만 다르게」가 하나 줄었다(사장님 2026-09-09 「별도 규격이라고
+   *   이야기하는 거 아니면 일단 다 공통」).
+   * ⚠ 전에 폰에서 뺐던 이유는 「견본 둘이 반 칸에 눌린다」였다. 실제로는 `colorNode` 가
+   *   접히는 줄이라 좁으면 «외부/내부»가 두 줄로 앉는다 — 칸이 조금 높아질 뿐 안 깨진다.
+   */
+  const colorRow: FactRow[] = colorText ? [['색상', colorText, colorNode]] : [];
   const specs: FactRow[] = grouped(
     [
       ...colorRow,
@@ -975,13 +988,11 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
              *     「소닉실버」·「어비스블랙펄」은 글자로는 무슨 색인지 모른다.
              *     색 코드 정본은 `lib/domain/color-chips` — 못 알아보는 이름은 이름만 나간다.
              */}
-            {/* 웹에서는 이 블록이 안 선다 — 색상이 격자의 첫 칸으로 들어간다(위 `colorRow`). */}
-            {colorText && mobile ? (
-              <div aria-label="색상" style={{ marginBottom: specs.length ? 28 : 0 }}>
-                <div style={{ marginBottom: SHOP.sp.tight, fontSize: SHOP.fs.cap, color: C.faint }}>색상</div>
-                <div style={{ fontSize: SHOP.fs.body, fontWeight: 700, color: C.ink }}>{colorNode}</div>
-              </div>
-            ) : null}
+            {/*
+              ⚠ **여기 있던 «폰 전용 색상 줄»을 걷었다**(2026-09-10). 색상이 이제 웹·폰 둘 다
+                격자의 첫 칸이다(위 `colorRow`) — 폰 격자가 홀수(일곱)라 「주행거리」가 혼자
+                한 줄을 쓰던 것을 여덟으로 맞춰 2·2·2·2 로 떨어뜨렸다.
+            */}
 
             {/* 격자 = 「이 차가 어떤 상태인가」. 웹은 무리가 «띠»로 옆에 붙고 폰은 두 칸으로 쌓는다. */}
             {specs.length ? <Facts rows={specs} cols={mobile ? 2 : 4} mobile={mobile} /> : null}
