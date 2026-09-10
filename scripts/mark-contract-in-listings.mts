@@ -33,7 +33,7 @@ import {
 import { SHEET_NAME_MATCH, supplierSheetLabel, isOurNonInventoryTab } from '../lib/domain/supplier-template-sheet';
 import { SALES_SHEET_ID } from '../lib/domain/legacy-sheets';
 import { initializeApp, cert } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 
 const APPLY = process.argv.includes('--apply');
 const S = (v: unknown) => String(v ?? '').trim();
@@ -250,11 +250,25 @@ let 원자칸 = 0, 원자안덮음 = 0;
   const 센말 = (v: string) => (v === '출고불가' ? 2 : v === '계약중' ? 1 : 0);
   const snap = await fsdb.collection('products').get();
   const picks: { ref: FirebaseFirestore.DocumentReference; to: string }[] = [];
+  /**
+   * ★★**계약중으로 세울 때 «계약잠금»(`locked_by_contract`)도 같이 쓴다** (Codex 4-AI 2026-09-10).
+   *   ⚠ 실측 — 계약중 원자 «전부»가 잠금 0이라, `resolveStatus`(atom-status.ts:44)의 계약우선이 죽어 있었다.
+   *   그래서 직접수집(ingest-supplier)이 계약원장의 「계약중」을 공급사 상태로 되덮어, 판 차가 다시 서고
+   *   대수가 712↔707↔709 로 흔들렸다. 잠금을 쓰면 직접수집이 pin.locked_by_contract 를 읽어(ingest:490) «못 덮는다».
+   *   잠금값 = «정산원장»(마커). syncVehicleLock 은 Firestore products 에 안 쓰므로(실측 0) 충돌 없다.
+   *   ★해제 — 원장에서 «빠진»(계약취소) 차의 «정산원장» 잠금은 아래에서 지운다(안 지우면 영영 계약중).
+   */
+  const 해제: FirebaseFirestore.DocumentReference[] = [];
   for (const d of snap.docs) {
     const v = d.data() as Record<string, unknown>;
-    const to = want.get(key(v.car_number)); if (!to) continue;
+    const to = want.get(key(v.car_number));
+    if (!to) {
+      // 원장 밖인데 «정산원장» 잠금이 남아 있으면 = 계약이 풀린 것 → 잠금 해제(syncVehicleLock 잠금은 안 건드린다)
+      if (S(v.locked_by_contract) === '정산원장') 해제.push(d.ref);
+      continue;
+    }
     const now = S(v.vehicle_status) || S(v.status);
-    if (now === to) continue;
+    if (now === to && S(v.locked_by_contract) === '정산원장') continue;   // 상태·잠금 이미 맞음
     if (센말(now) > 센말(to)) { 원자안덮음++; continue; }   // 더 센 말이 이미 있다 — 안 덮는다
     picks.push({ ref: d.ref, to });
   }
@@ -266,12 +280,19 @@ let 원자칸 = 0, 원자안덮음 = 0;
         status_kind: e.to === '출고불가' ? '불가' : '선점',
         listable: e.to !== '출고불가',
         status_reason: '정산원장',
+        locked_by_contract: '정산원장',   // ★계약잠금 — 직접수집이 못 덮게
         _ledger_status_at: Date.now(),
       }, { merge: true });
       원자칸++;
     }
     await batch.commit();
   }
+  for (let i = 0; i < 해제.length; i += 400) {
+    const batch = fsdb.batch();
+    for (const ref of 해제.slice(i, i + 400)) batch.update(ref, { locked_by_contract: FieldValue.delete(), _ledger_unlocked_at: Date.now() });
+    await batch.commit();
+  }
+  if (해제.length) console.log(`   계약 풀린 ${해제.length}대의 정산원장 잠금 해제.`);
 }
-console.log(`   원자 ${원자칸}대에 같은 상태를 세웠다${원자안덮음 ? ` · 더 센 말이 있어 안 덮은 차 ${원자안덮음}` : ''}.`);
+console.log(`   원자 ${원자칸}대에 같은 상태·계약잠금을 세웠다${원자안덮음 ? ` · 더 센 말이 있어 안 덮은 차 ${원자안덮음}` : ''}.`);
 console.log(`\n■ 끝 — 공급사 ${supplierData.reduce((n, x) => n + x.data.length, 0)}칸 · 상품리스트 ${salesData.length}칸을 세웠다.\n`);
