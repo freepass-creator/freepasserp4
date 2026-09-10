@@ -83,14 +83,34 @@ export type OptionPack = {
 };
 
 /** 우리 한 줄(maker·sub_model·fuel·trim)에 붙일 옵션 꾸러미. 못 붙으면 `null`. */
-export function packFor(maker: string, subModel: string, fuel: string, trim: string): OptionPack | null {
+/**
+ * ★★★**ID 대응표가 있으면 그대로 쓴다** — 이름 짐작을 코드에서 걷어낸다.
+ *   `data/new-car/welrix-id-map.json` 은 줄 id → 원본 ID 넷(`model_id`·`variant_id`·`trim_id`).
+ *   ⚠ 표에 없는 줄은 **예전처럼 이름으로** 찾는다(있는 것을 없앤 게 아니라 «먼저 보는 것»을 바꾼다).
+ *   ⚠ 표는 `scripts/build-welrix-id-map.mts` 가 만든다. 사람이 고친 줄(`_pinned`)은 안 덮는다.
+ */
+type IdHit = { model_id?: string; variant_id?: string; trim_id?: string };
+const idMap: Record<string, IdHit> = (() => {
+  try {
+    const j = JSON.parse(readFileSync('data/new-car/welrix-id-map.json', 'utf8')) as { map?: Record<string, IdHit> };
+    return j.map ?? {};
+  } catch { return {}; }
+})();
+
+export function packFor(maker: string, subModel: string, fuel: string, trim: string, rowId?: string): OptionPack | null {
+  const pin = rowId ? idMap[rowId] : undefined;
   for (const m of db.manufacturers) {
     if (m.manufacturer_name !== maker) continue;
     for (const md of m.models ?? []) {
-      const a = N(subModel); const b = N(md.model_name);
-      if (!a.includes(b) && !b.includes(a)) continue;
+      /* 표가 가리키면 그 모델만 본다. 없으면 예전처럼 이름 포함관계로 훑는다. */
+      if (pin?.model_id) { if (S((md as { model_id?: string }).model_id) !== pin.model_id) continue; }
+      else {
+        const a = N(subModel); const b = N(md.model_name);
+        if (!a.includes(b) && !b.includes(a)) continue;
+      }
       for (const v of md.variants ?? []) {
-        if (!fuelMatches(S(v.variant_name), fuel)) continue;
+        if (pin?.variant_id) { if (S((v as { variant_id?: string }).variant_id) !== pin.variant_id) continue; }
+        else if (!fuelMatches(S(v.variant_name), fuel)) continue;
         const om = v.options_master ?? {};
         if (!Object.keys(om).length) continue;
 
@@ -117,7 +137,8 @@ export function packFor(maker: string, subModel: string, fuel: string, trim: str
         const bare = (x: string) => N(S(x).replace(/\([^)]*\)\s*$/, ''));
         const trims0 = v.trims ?? [];
         const tid = (t: { trim_id?: string }) => N((t as { trim_id?: string }).trim_id);
-        const tHit0 = trims0.find((t) => N(t.name) === N(trim))
+        const tHit0 = (pin?.trim_id ? trims0.find((t) => S((t as { trim_id?: string }).trim_id) === pin.trim_id) : undefined)
+          ?? trims0.find((t) => N(t.name) === N(trim))
           ?? trims0.find((t) => tid(t) === N(trim))
           ?? trims0.find((t) => N(t.name) === bare(trim) || tid(t) === bare(trim))
           ?? (() => {
@@ -202,7 +223,7 @@ async function main() {
   let hit = 0; const sample: string[] = [];
   const packs: { row: Record<string, string>; pack: OptionPack }[] = [];
   for (const r of rows) {
-    const p = packFor(S(r.maker), S(r.sub_model), S(r.fuel), S(r.trim));
+    const p = packFor(S(r.maker), S(r.sub_model), S(r.fuel), S(r.trim), S(r.id));
     if (!p) continue;
     hit++; packs.push({ row: r, pack: p });
     if (sample.length < 6) {

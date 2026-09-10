@@ -2093,6 +2093,46 @@ must((availableForEngine({ a: { name: '컴포트' } }, [], '가솔린 3.5 터보
   }
 }
 
+/* ══ 33. ★★★**원본 ID 로 맞춘다** — 이름 짐작을 «파일»로 옮긴다 (원본 대조 ①번) ═══
+     ★★사장님 2026-09-10 「그래 ①번부터 해라」.
+
+     ⚠ 우리는 원본을 «이름»으로 찾고 있었다 — 세부모델은 이름 포함관계, 트림은 「Modern ↔ 모던」.
+       그 빈자리를 메우려고 내가 **별칭표·엔진 정규식·산문 파싱**을 지어냈다.
+       원본에는 `manufacturer_id`·`model_id`·`variant_id`·`trim_id` 가 **다 있다**(3·25·83·253).
+     ⇒ `data/new-car/welrix-id-map.json` 에 대응표를 **파일로 박고**, 인제스터가 그것을 먼저 본다.
+       ⚠ 표에 없는 줄은 예전처럼 이름으로 찾는다 — 있는 것을 없앤 게 아니라 «먼저 보는 것»을 바꿨다.
+       ⚠ 표는 **짐작을 없애지 않는다.** 짐작을 한 곳에 모아 «사람이 고칠 수 있게» 할 뿐이다
+         (`_pinned: true` 를 달면 재생성이 안 덮는다). */
+{
+  /* 33-1. ★줄마다 «제 id» 가 있어야 한다 — 네 칸(제조사·세부모델·연료·트림)은 유일하지 않다.
+     실측: 447줄이 298개로 뭉갰다(스타리아 Modern 이 9인승·11인승 세 줄인데 하나가 됐다). */
+  must(code('app/api/newcar/route.ts').includes('id: S(d.id),'),
+    '피드가 줄마다 제 id 를 안 줍니다 — 네 칸으로는 줄이 겹쳐 엉뚱한 줄에 옵션이 붙습니다',
+    'app/api/newcar/route.ts');
+
+  /* 33-2. ★인제스터가 표를 «먼저» 본다. */
+  const ing = code('scripts/ingest-newcar-options.mts');
+  must(ing.includes('welrix-id-map.json') && /pin\?\.(model_id|variant_id|trim_id)/.test(ing),
+    '인제스터가 ID 대응표를 안 봅니다 — 이름 짐작으로 되돌아갑니다',
+    'scripts/ingest-newcar-options.mts packFor');
+
+  /* 33-3. ★표가 «확실한 것만» 담는가 — 못 맞춘 것을 지어내 채우면 남의 차 규칙이 붙는다. */
+  try {
+    const j = JSON.parse(read('data/new-car/welrix-id-map.json')) as
+      { map?: Record<string, { model_id?: string; variant_id?: string; trim_id?: string }>; unmatched?: string[] };
+    const m = j.map ?? {};
+    const bad = Object.entries(m).filter(([, v]) => !S(v.model_id) || !S(v.variant_id) || !S(v.trim_id));
+    must(bad.length === 0,
+      `대응표에 «반쪽짜리» 줄이 ${bad.length}개 있습니다 — ID 넷이 다 있어야 합니다`,
+      'data/new-car/welrix-id-map.json');
+    must(Array.isArray(j.unmatched),
+      '못 맞춘 줄을 안 남깁니다 — 지어내 채운 것과 구별할 수 없습니다',
+      'data/new-car/welrix-id-map.json');
+  } catch {
+    console.log('  ⚠ §33-3 건너뜀 — welrix-id-map.json 이 없습니다(`npx tsx scripts/build-welrix-id-map.mts --write`).');
+  }
+}
+
 if (fails.length) {
   console.error(`\n✗ 견적 로직이 정본과 다릅니다 — ${fails.length}건\n`);
   for (const f of fails) console.error(`  · ${f}\n`);

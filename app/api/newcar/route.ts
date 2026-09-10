@@ -128,6 +128,11 @@ export async function GET(request: Request): Promise<Response> {
     let trims = snap.docs.map((d) => {
       const v = d.data();
       return {
+        /* ★★★**줄마다 제 id 를 준다.** 없으면 「제조사·세부모델·연료·트림」 네 칸으로 줄을 가리켜야 하는데,
+           그 네 칸은 **유일하지 않다** — 447줄이 298개로 뭉갠다(스타리아 Modern 이 9인승·11인승
+           세 줄인데 하나로 취급됐다 · 2026-09-10 실측). 그래서 원본 대응표도, 옵션 붙이기도
+           **엉뚱한 줄에 걸렸다.** id 는 Firestore 문서 열쇠(= 제조사 판매모델코드)다. */
+        id: S(d.id),
         maker: S(v.maker), sub_model: S(v.sub_model), carType: S(v.carType), fuel: S(v.fuel),
         trim: S(v.trim), priceBefore: Number(v.priceBefore || 0), priceAfter: Number(v.priceAfter || 0),
         /* ★★**기준 이름은 정상 경로에도 붙여야 한다.** 폴백에만 붙였더니 Firestore 가 살아 있을 때
