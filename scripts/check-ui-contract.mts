@@ -208,7 +208,13 @@ function walk(dir: string, out: string[]) {
     const path = join(dir, entry.name);
     if (entry.isDirectory()) {
       if (!['node_modules', '.next', 'data'].includes(entry.name)) walk(path, out);
-    } else if (/\.tsx$/.test(entry.name)) {
+    /*
+     * ⚠⚠ **`.ts` 도 훑는다**(2026-09-10 코덱스 재검증). 전에는 `.tsx` 만 봤다 —
+     *   그런데 `createElement('button')` 은 **JSX 를 안 쓰려고** 쓰는 것이라 오히려 `.ts` 에 있기 쉽다.
+     *   코덱스가 같은 탐침을 `.ts`·`.tsx` 둘 다에 넣었고, `.ts` 쪽만 그냥 통과했다.
+     * ★JSX 가 없는 파일은 어차피 걸릴 것이 없어 값이 안 변한다 — 넓혀도 잃는 게 없다.
+     */
+    } else if (/\.tsx?$/.test(entry.name)) {
       out.push(path);
     }
   }
