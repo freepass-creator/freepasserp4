@@ -33,6 +33,7 @@
     "check:sales-publish-context": "tsx scripts/check-sales-publish-context.mts",
     "count:inventory": "tsx scripts/count-real-inventory.mts",
     "check:inventory-contract": "tsx scripts/sim-inventory-contract.mts",
+    "audit:photo-projection": "tsx scripts/audit-photo-projection.mts",
     "capture:sales-publish": "tsx scripts/capture-sales-publish-snapshot.mts",
     "check:invariants": "tsx scripts/check-atom-invariants.mts",
     "check:no-client-sheet-live-status": "tsx scripts/check-no-client-sheet-live-status.mts",

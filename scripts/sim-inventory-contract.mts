@@ -7,6 +7,8 @@ import { isStockedProduct } from '../lib/domain/product';
 import type { EntityRecord } from '../lib/intake/entities';
 import { captureSalesPublishSnapshot, readSalesPublishSnapshot, salesPublishMark } from '../lib/server/sales-publish-snapshot';
 import { channelColumnName, salesPublishedColumns } from '../lib/domain/sales-published-tab-columns';
+import { erpPhotoSource, isPickupPhotoAtom, isServerPhotoSource, photoProjectionViolations, sheetPlateLink } from '../lib/domain/photo-projection';
+import { productExternalImages, scrapableSources } from '../lib/domain/product-photos';
 
 const rows = [
   { car_number: '테스트1', vehicle_status: '출고가능', status_kind: '가용', listable: true, provider_company_code: 'P1', source: 'sheet' },
@@ -49,6 +51,47 @@ for (const tab of ['상품리스트', '손오공구독', '픽업구독', '오플
 }
 assert.equal(channelColumnName('반납형보증금'), '보증금 반납형');
 
+const pickupPhoto = {
+  provider_company_code: 'RP012', product_type: '픽업구독', sheet_source_tab: '픽업재고',
+  photo_link: 'https://img-mycarsave.lotterentacar.net/car/first.jpg',
+  tica_link: 'https://www.lotterentacar.net/tcar/detail/123',
+};
+assert.equal(isPickupPhotoAtom(pickupPhoto), true);
+assert.equal(erpPhotoSource(pickupPhoto), pickupPhoto.photo_link, 'ERP는 실제 사진 원천만 받는다');
+assert.equal(sheetPlateLink(pickupPhoto), pickupPhoto.tica_link, '픽업 시트는 T카 상세페이지로 간다');
+assert.deepEqual(photoProjectionViolations(pickupPhoto), []);
+const normalPhoto = {
+  product_type: '중고렌트', sheet_source_tab: '상품리스트',
+  photo_link: 'https://drive.google.com/drive/folders/folder-id',
+  tica_link: 'https://www.lotterentacar.net/tcar/stale',
+};
+assert.equal(isPickupPhotoAtom(normalPhoto), false);
+assert.equal(erpPhotoSource(normalPhoto), normalPhoto.photo_link);
+assert.equal(sheetPlateLink(normalPhoto), normalPhoto.photo_link, '일반 시트는 검증된 사진 링크로 간다');
+assert.deepEqual(photoProjectionViolations(normalPhoto), []);
+assert.deepEqual(photoProjectionViolations({ provider_company_code: 'RP012', product_type: '픽업구독', photo_link: pickupPhoto.photo_link }), ['픽업구독 T카 링크 누락']);
+assert.deepEqual(photoProjectionViolations({ provider_company_code: 'RP012', product_type: '픽업구독', tica_link: normalPhoto.photo_link }), ['픽업구독 시트 링크가 T카가 아님']);
+assert.equal(isPickupPhotoAtom({ provider_company_code: 'OTHER', product_type: '픽업구독' }), false);
+assert.deepEqual(photoProjectionViolations({ product_type: '중고렌트', photo_link: 'https://autoplus.co.kr/car/1' }), []);
+assert.deepEqual(photoProjectionViolations({ product_type: '중고렌트', photo_link: '주소아님' }), ['일반 재고 시트 링크 형식 오류', 'ERP에서 사진으로 해석할 수 없는 원천']);
+assert.deepEqual(photoProjectionViolations({ product_type: '중고렌트', photo_link: 'https://example.com/detail/1' }), ['ERP에서 사진으로 해석할 수 없는 원천']);
+assert.deepEqual(photoProjectionViolations({ product_type: '중고렌트', image_urls: ['https://example.com/detail/1'] }), ['ERP 직접 사진 필드가 이미지 주소가 아님']);
+assert.equal(productExternalImages({ photo_link: 'https://www.googleapis.com/drive/v3/files/abc' } as EntityRecord).length, 0);
+assert.deepEqual(productExternalImages({ photo_link: 'https://example.com/detail/1' } as EntityRecord), []);
+assert.deepEqual(productExternalImages({ photo_link: 'https://cdn.autoplus.co.kr/car/1.jpg' } as EntityRecord), ['https://cdn.autoplus.co.kr/car/1.jpg']);
+assert.deepEqual(scrapableSources({ photo_link: 'https://moderentcar.co.kr/car/1' } as EntityRecord), ['https://moderentcar.co.kr/car/1']);
+assert.equal(isServerPhotoSource('https://example.com/detail?next=autoplus.co.kr'), false);
+assert.equal(isServerPhotoSource('https://bit.ly/not-resolved'), false);
+assert.equal(isServerPhotoSource('https://tinyurl.com/not-resolved'), false);
+
+const channelPublisher = readFileSync('scripts/build-channel-supplier-sheet.mts', 'utf8');
+const photoLinkChecker = readFileSync('scripts/check-plate-photo-link.mts', 'utf8');
+const sheetAtomAuditor = readFileSync('scripts/audit-sheet-vs-atom.mts', 'utf8');
+assert.match(channelPublisher, /HAHUHO_PRODUCT_SHEET_ID/);
+assert.match(photoLinkChecker, /HAHUHO_PRODUCT_SHEET_ID/);
+assert.match(sheetAtomAuditor, /HAHUHO_PRODUCT_SHEET_ID/);
+assert.doesNotMatch(photoLinkChecker, /files\s*\|\|\s*\[\]\)\[0\]/);
+
 for (const file of [
   'scripts/make-sample-sheet-google.mts',
   'scripts/build-channel-supplier-sheet.mts',
@@ -60,6 +103,7 @@ for (const file of [
   assert.match(source, /isOpenInventoryAtom/);
   assert.doesNotMatch(source, /filter\(\(v\) => v\.listable === true\)/);
 }
+assert.match(readFileSync('scripts/audit-photo-projection.mts', 'utf8'), /photoProjectionViolations/);
 
 const hourly = readFileSync('scripts/hourly-sync.mts', 'utf8');
 assert.match(hourly, /sales-publish-snapshots\/\$\{RUN_ID\}\.json/);
@@ -70,6 +114,8 @@ assert.match(hourly, /if \(!erp\.ok\) stop/);
 assert.match(hourly, /if \(!mir\.ok\) stop/);
 assert.match(hourly, /heal-atom-provenance\.mts'.*'--apply'/);
 assert.match(hourly, /audit-pipeline-destinations\.mts/);
+assert.match(hourly, /check-plate-photo-link\.mts/);
+assert.match(hourly, /audit-photo-projection\.mts'.*--snapshot=/);
 assert.match(hourly, /publish-origin-tab\.mts'.*\.\.\.STAGE/);
 const daily = readFileSync('scripts/run-daily.mts', 'utf8');
 assert.match(daily, /publish-origin-tab\.mts'.*\.\.\.STAGE/);
@@ -79,6 +125,8 @@ assert.match(daily, /HEARTBEAT_STALE_MS/);
 assert.match(daily, /renameSync\(LOCKDIR, stale\)/);
 assert.match(daily, /heal-atom-provenance\.mts'.*'--apply'/);
 assert.match(daily, /audit-pipeline-destinations\.mts/);
+assert.match(daily, /check-plate-photo-link\.mts/);
+assert.match(daily, /audit-photo-projection\.mts'.*--snapshot=/);
 for (const workflow of ['.github/workflows/sheet-sync.yml', '.github/workflows/sales-erp-hourly.yml']) {
   assert.match(readFileSync(workflow, 'utf8'), /group: freepass-sales-publish/);
 }

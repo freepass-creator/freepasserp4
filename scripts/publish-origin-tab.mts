@@ -1009,7 +1009,7 @@ await api(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET}/values/${encod
 // ⚠ 여기서 따로 걸지 마라 — 여기 있던 코드는 「사진」 칸이 아니라 «원본 차번 셀 링크»만 봐서
 //    갈래 탭은 되고 상품리스트만 0대로 남았다(사장님 2026-08-24 「사진링크를 좀 동일하게 처리해줘야지」).
 {
-  const pi = COLUMNS.indexOf('사진');
+  const pi = COLUMNS.indexOf('차번링크');
   const linked = pi < 0 ? 0 : rows.filter((r) => S(r[pi]).startsWith('http')).length;
   console.log(`  차량번호에 사진링크 ${linked}대 · 링크 없는 차 ${rows.length - linked}대는 글자만`);
 }

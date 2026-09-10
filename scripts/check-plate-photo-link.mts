@@ -11,7 +11,7 @@
  *   «원본 차번 셀 링크»만 보고 있었다. 원본에 링크가 없으니 늘 0대였다.
  *   지금은 서식층 `buildSalesFormatRequests` 맨 끝 한 곳만 건다.
  *
- * ★★**규격 = 「차번링크」 칸이 차 있으면 그것, 없으면 「사진」 칸 «첫 장»**
+ * ★★**규격 = 「차번링크」 칸 하나**
  *   (정본 `lib/domain/sales-sheet-format.ts` 맨 끝 · 픽업 예외는 사장님 2026-08-28
  *    「픽업(T카)은 사진이 아니라 티카 상세페이지로 간다」).
  *
@@ -29,7 +29,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
-import { SALES_SHEET_ID } from '../lib/domain/legacy-sheets';
+import { HAHUHO_PRODUCT_SHEET_ID, SALES_SHEET_ID } from '../lib/domain/legacy-sheets';
 import { pickPublishedSalesTabs } from '../lib/domain/sales-published-tabs';
 
 const S = (v: unknown) => String(v ?? '').trim();
@@ -74,19 +74,21 @@ async function 재다(sheetId: string, title: string, wide: boolean): Promise<nu
   const hi = rd.findIndex((r: any) => (r?.values || []).some((c: any) => tx(c) === '차량번호'));
   if (hi < 0) { console.log(`  ✗ ${title} — 「차량번호」 머리글을 못 찾았다`); return 1; }
   const head = (rd[hi]?.values || []).map(tx);
-  const ip = head.indexOf('차량번호'), ic = head.indexOf('사진'), il = head.indexOf('차번링크');
-  if (ip < 0 || (ic < 0 && il < 0)) { console.log(`  ✗ ${title} — 「사진/차번링크」 칸이 없다`); return 1; }
+  const ip = head.indexOf('차량번호'), il = head.indexOf('차번링크');
+  if (ip < 0 || il < 0) { console.log(`  ✗ ${title} — 「차량번호/차번링크」 칸이 없다`); return 1; }
 
   let rows = 0, 걸림 = 0, 티카 = 0; const off: string[] = [];
   for (let r = hi + 1; r < rd.length; r++) {
     const vs = rd[r]?.values || [];
     const plate = tx(vs[ip]); if (!plate) continue;
     rows++;
-    const dl = il >= 0 ? 첫장(tx(vs[il])) : '';
-    const ph = ic >= 0 ? 첫장(tx(vs[ic])) : '';
-    const 규격 = 주소인가(dl) ? dl : (주소인가(ph) ? ph : '');
+    const dl = 첫장(tx(vs[il]));
+    const 규격 = 주소인가(dl) ? dl : '';
     const l = lk(vs[ip]);
-    if (규격) { 걸림++; if (주소인가(dl)) 티카++; }
+    if (규격) {
+      걸림++;
+      try { if (/(^|\.)lotterentacar\.net$/i.test(new URL(규격).hostname)) 티카++; } catch { /* 위에서 주소 형식 검사 */ }
+    }
     if (규격 && l !== 규격) off.push(`${plate} ${l ? '값≠링크' : '링크가 «빠졌다»'}`);
     if (!규격 && l) off.push(`${plate} 규격엔 없는데 링크가 «남았다»`);
   }
@@ -106,12 +108,12 @@ for (const t of pickPublishedSalesTabs(titles)) bad += await 재다(SALES_SHEET_
 console.log('\n■ 채널시트 F86(하허호)');
 {
   const NAME = '[F86 사용중] 프리패스x하허호 전용 상품시트';
-  const q = encodeURIComponent(`name = '${NAME}' and mimeType='application/vnd.google-apps.spreadsheet' and trashed=false`);
-  const found = await get(`https://www.googleapis.com/drive/v3/files?q=${q}&fields=files(id,name)`);
-  const cid = S((found.files || [])[0]?.id);
-  if (!cid) console.log(`  ○ 문서를 못 찾았다(${NAME}) — 건너뛴다`);
-  else {
-    const cmeta = await get(`${SH}/${cid}?fields=sheets.properties(title,hidden)`);
+  const cid = HAHUHO_PRODUCT_SHEET_ID;
+  const cmeta = await get(`${SH}/${cid}?fields=properties.title,sheets.properties(title,hidden)`);
+  if (S(cmeta?.properties?.title) !== NAME) {
+    bad++;
+    console.log(`  ✗ F86 불변 ID의 문서명이 다르다: ${S(cmeta?.properties?.title)} (${cid})`);
+  } else {
     const ctabs = (cmeta.sheets || []).filter((s: any) => !s.properties.hidden)
       .map((s: any) => S(s.properties.title)).filter((t: string) => !/공지사항/.test(t));
     for (const title of ctabs) bad += await 재다(cid, title, true);
