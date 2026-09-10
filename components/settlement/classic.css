@@ -562,7 +562,6 @@
 /* ★행간을 뿌리에 한 번 — 표는 제 규칙이 덮는다 */
 .cl { line-height: var(--행간); }
 
-
 /** ★★줄 높이를 미는 진범은 «체크박스» 였다 — 2026-09-08 실측
  *  첫 칸의 input 이 브라우저 기본 여백(3~4px)을 달고 있어, 글자 줄보다 커진다.
  *  표의 칸은 «줄 높이를 같이» 쓰므로, 그 한 칸이 줄 전체를 31.5px 로 밀어 올렸다.
@@ -1400,14 +1399,10 @@
  */
 
 /** 가운데 — 차량 표가 남는 높이를 다 쓴다. 접수 대기는 아래에 «낮게» 붙는다. */
-.cl .cl-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0; }
-.cl .cl-grid.cl-cars { flex: 1 1 auto; min-height: 0; overflow: auto; }
-.cl .cl-grid.cl-wait { flex: 0 0 auto; max-height: 34%; overflow: auto; border-top: 2px solid var(--선); }
-.cl .cl-grid.cl-wait .cl-crumb { position: sticky; top: 0; z-index: 2; }
 
 /** 오른쪽 — 고른 차 → 요금 → 접수. 폭을 고정해 표가 흔들리지 않게. */
 .cl .cl-side {
-  flex: 0 0 300px; display: flex; flex-direction: column; min-height: 0; overflow: auto;
+  flex: 0 0 var(--곁폭, 400px); display: flex; flex-direction: column; min-height: 0; overflow: auto;
   background: var(--판); border-left: 1px solid var(--선); box-shadow: var(--왼그늘, none);
 }
 .cl .cl-pick { padding: 6px var(--사이큼); border-bottom: 1px solid var(--줄선); background: var(--띠); }
@@ -1474,8 +1469,9 @@
  *   상품 목록이 주인공이라 자리를 뺏으면 안 된다. 넘치는 것은 그 안에서 굴린다.
  *   줄 높이 22 × 5 + 머리줄 + 크럼 = 약 170px.
  */
-.cl .cl-grid.cl-wait { flex: 0 0 auto; height: calc(var(--줄높이) * 6); overflow: auto; border-top: 2px solid var(--선); }
-.cl .cl-grid.cl-wait .cl-crumb { position: sticky; top: 0; z-index: 2; }
+.cl .cl-grid.cl-wait { flex: 0 0 auto; height: var(--아래높이, calc(var(--줄높이) * 6)); overflow: auto; border-top: 2px solid var(--선); }
+/** 머리는 위에도 왼쪽에도 붙어 있는다 — 칸이 스물네라 가로로도 굴러서다. */
+.cl .cl-grid.cl-wait .cl-crumb { position: sticky; top: 0; left: 0; z-index: 2; }
 /** 숫자 칸 — 자릿수를 맞춰 세로로 견준다. */
 .cl .cl-num { text-align: right; font-family: var(--font-hangeul), Consolas, GulimChe, 굴림체, monospace; }
 
@@ -1493,7 +1489,6 @@
 .cl .cl-back { margin-left: auto; padding: 0 8px; font-size: 11px; }
 
 /** 머리줄에 단추가 서므로 머리도 그 키에 맞춘다 — 24 단추 + 아래위 3 = 30(줄높이). */
-.cl .cl-tree-head { display: flex; align-items: center; gap: var(--사이); }
 .cl .cl-more {
   width: 100%; margin: 4px 0 0; padding: 3px; border: 1px dashed var(--선); background: none;
   font-size: 11px; color: var(--흐린); cursor: pointer;
@@ -1551,7 +1546,9 @@
      「사진만 예외로 누르면 크게 보이게 해 주자」
      「상세 페이지는 가로로 조금 더 넓어도 됨」
    ══════════════════════════════════════════════════════════════════ */
-.cl .cl-side { flex: 0 0 380px; }
+/** ⓘ 폭은 위에서 한 번만 정한다(`--곁폭`) — 여기 «또» 적어 둔 380 이 그것을 덮어
+ *   가름바를 끌어도 칸이 안 변했다(실측 2026-09-10: --곁폭 523 인데 flex-basis 380).
+ *   ★같은 규격을 두 곳에 적으면 무엇이 이길지 사람이 못 읽는다 — 오늘만 이 병이 세 번째다. */
 
 /** 사진 — 손님 상세와 같은 4:3. 누르면 크게. */
 .cl .cl-photo { position: relative; border-bottom: 1px solid var(--줄선); cursor: zoom-in; background: var(--어둠); }
@@ -1570,7 +1567,9 @@
 /** 제원 — 원자에 있는 그대로. 표라서 눈이 줄을 따라간다. */
 .cl .cl-spec { width: 100%; border-collapse: collapse; font-size: 11px; }
 .cl .cl-spec th, .cl .cl-spec td {
-  border-bottom: 1px solid var(--칸선); padding: 3px 10px; text-align: left; vertical-align: top;
+  border-bottom: 1px solid var(--칸선); text-align: left; vertical-align: top;
+  /** 줄이 촘촘해야 «많은 정보»가 한눈에 들어온다. */
+  padding: 2px 10px; line-height: 1.55;
 }
 .cl .cl-spec th { width: 96px; color: var(--흐린); font-weight: 400; background: var(--띠); }
 .cl .cl-spec td { font-family: var(--font-hangeul), Consolas, GulimChe, 굴림체, monospace; word-break: break-all; }
@@ -1598,10 +1597,10 @@
  */
 
 /** 오른쪽 칸 — 왼쪽 표와 갈리는 선에 그늘을 준다(고전 ERP 의 그 «판이 얹힌» 느낌). */
-.cl .cl-side { box-shadow: var(--왼빛), -1px 0 0 var(--선); }
+/** ⓘ 왼쪽 빛·선은 위 `.cl-side` 규칙에 합쳤다. */
 .cl .cl-side-go { box-shadow: var(--윗빛); }
 /** 상세 제원 표 — 줄이 촘촘해야 «많은 정보»가 한눈에 들어온다. */
-.cl .cl-spec th, .cl .cl-spec td { padding: 2px 10px; line-height: 1.55; }
+/** ⓘ 여백·줄간은 위 `.cl-spec th, td` 규칙에 합쳤다 — 두 곳에 적히면 어느 쪽이 이길지 못 읽는다. */
 
 /**
  * ★★**초점은 «오목 위에» 얹는다** — 원본 `.cl-filter input:focus` 와 한 글자도 다르지 않게.
@@ -1652,5 +1651,35 @@
 .cl .cl-grid tbody tr.cl-row-x td { color: var(--흐림2); text-decoration: line-through; }
 
 /** 접수 목록은 칸이 스물넷이라 «가로로도» 구른다 — 표가 제 안에서 구르지, 페이지가 밀리지 않는다. */
-.cl .cl-grid.cl-wait { overflow: auto; }
-.cl .cl-grid.cl-wait .cl-crumb { position: sticky; left: 0; }
+
+/**
+ * ★★**가름바 — 끌어서 칸 몫을 바꾼다** (사장님 2026-09-10 「사이에 바를 각각 공간 조정할 수 있게 하자」)
+ *
+ *   고전 ERP 에서 가름바는 «있는 것이 정상»이다 — 사람마다, 날마다 보는 것이 달라서다.
+ *   차를 훑는 날은 위를 크게, 접수를 정리하는 날은 아래를 크게 쓴다.
+ *
+ * ★결은 새로 짓지 않는다 — 바탕은 `--바탕`, 선은 `--선`, 잡이는 `--흐림2`.
+ *   ★두께는 6 — 원본 눈금(사이 6)이다. 4 면 못 잡고 8 이면 칸을 먹는다.
+ * ★잡이(가운데 점 세 개)가 «여기를 잡으라»고 말한다. 표시가 없으면 아무도 못 찾는다.
+ * ★끌 때는 «눌린다» — 원본 단추가 눌리는 것과 같은 결(--눌림)이라 손맛이 이어진다.
+ */
+.cl .cl-gutter {
+  flex: 0 0 6px; position: relative; background: var(--바탕);
+  display: flex; align-items: center; justify-content: center;
+  /** ⚠ 끌 때 글자가 «잡혀» 파랗게 되면 안 된다 — 끄는 게 아니라 고르는 것이 된다. */
+  user-select: none; touch-action: none;
+}
+.cl .cl-gutter:hover { background: var(--스침); }
+.cl .cl-gutter:active { box-shadow: var(--눌림); }
+.cl .cl-gutter > i { display: block; background: var(--흐림2); border-radius: 1px; opacity: .55; }
+.cl .cl-gutter:hover > i { opacity: 1; background: var(--머리); }
+
+/** 세로 가름바 — 좌우를 가른다. 양옆에 원본과 같은 1px 선을 둔다. */
+.cl .cl-gutter-v { cursor: col-resize; box-shadow: inset 1px 0 0 var(--선), inset -1px 0 0 var(--선); }
+.cl .cl-gutter-v > i { width: 2px; height: 26px; }
+
+/** 가로 가름바 — 위아래를 가른다. 왼쪽 판 안에 있으므로 위아래로 선을 둔다. */
+.cl .cl-gutter-h { flex: 0 0 6px; cursor: row-resize; box-shadow: inset 0 1px 0 var(--선), inset 0 -1px 0 var(--선); }
+.cl .cl-gutter-h > i { width: 26px; height: 2px; }
+
+/** ★가름바가 사이에 서므로 왼쪽 판의 «칸 사이 여백»은 없앤다 — 여백과 바가 겹치면 두 번 갈린 것처럼 보인다. */
