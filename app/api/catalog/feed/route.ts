@@ -48,8 +48,8 @@ export async function GET(request: Request) {
      */
     const db = firestorePathStore();
     const [productSnap, policySnap] = await Promise.all([
-      db.ref('v4/products').get(),
-      db.ref('policies').get(),
+      db.ref('products').get(),
+      db.ref('policy').get(),
     ]);
     const policyByCode = new Map<string, Rec>();
     for (const [k, v] of Object.entries((policySnap.val() || {}) as Record<string, Rec>)) {
@@ -72,7 +72,7 @@ export async function GET(request: Request) {
     //   → 코드는 child 키까지 보고, 이름은 세 필드를 다 훑는다. 안 그러면 브랜드가 조용히 빈다.
     let brand = '';
     if (providerCode) {
-      const partnerSnap = await db.ref('partners').get();
+      const partnerSnap = await db.ref('partner').get();
       const hit = Object.entries((partnerSnap.val() || {}) as Record<string, Rec>)
         .map(([k, v]) => ({ ...(v || {}), _id: k } as Rec)).find((x) => x && (
           S(x._id) === providerCode || S(x.partner_code) === providerCode || S(x.company_code) === providerCode
@@ -83,7 +83,7 @@ export async function GET(request: Request) {
 
     let agent = null;
     if (share) {
-      const userSnap = await db.ref('users').get();
+      const userSnap = await db.ref('user').get();
       const rows = Object.entries((userSnap.val() || {}) as Record<string, Rec>)
         .map(([k, v]) => ({ ...(v || {}), _key: S(v?._key) || k, uid: S(v?.uid) || k })) as EntityRecord[];
       agent = sanitizeAgentForGuest(matchAgentByShareCode(rows, share) as Rec | null);

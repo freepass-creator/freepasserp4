@@ -73,6 +73,10 @@ class Snap {
   forEach(cb: (c: Snap) => void) { if (this._val && typeof this._val === 'object') for (const [k, v] of Object.entries(this._val)) cb(new Snap(v, k)); }
 }
 
+// RTDB 시절의 `node`와 `v4/node`를 함께 읽던 호출부가 남아 있어도, 같은 Firestore
+// 문서/컬렉션을 동시에 두 번 과금하지 않는다. 완료 뒤 즉시 비워 다음 요청은 최신값을 읽는다.
+const inflightReads = new WeakMap<Firestore, Map<string, Promise<Snap>>>();
+
 function dig(obj: any, field: string[]) { let cur = obj; for (const f of field) { if (cur == null) return undefined; cur = cur[f]; } return cur; }
 /** 필드경로 → «중첩 객체». Firestore set(merge)는 «점 든 키»를 문자 그대로 저장한다(중첩 아님) — dig 읽기와 어긋난다.
  *  그래서 { snapshot: { status: v } } 로 만들어 set-merge 하면 깊은 병합으로 중첩 저장돼 dig 와 대칭이 된다. */
@@ -93,6 +97,21 @@ class RefShim {
   private docRef() { return resolvedDocRef(this.fs, this.p); }
 
   async get(): Promise<Snap> {
+    const readKey = `${this.p.col}/${this.p.docId || '*'}${this.p.field.length ? `/${this.p.field.join('/')}` : ''}`;
+    let reads = inflightReads.get(this.fs);
+    if (!reads) { reads = new Map(); inflightReads.set(this.fs, reads); }
+    const existing = reads.get(readKey);
+    if (existing) return existing;
+    const work = this.readFirestore();
+    reads.set(readKey, work);
+    try {
+      return await work;
+    } finally {
+      if (reads.get(readKey) === work) reads.delete(readKey);
+    }
+  }
+
+  private async readFirestore(): Promise<Snap> {
     const guard = <T,>(work: Promise<T>) => Promise.race([
       work,
       new Promise<never>((_, reject) => setTimeout(() => reject(new Error('firestore-timeout')), FS_TIMEOUT_MS)),

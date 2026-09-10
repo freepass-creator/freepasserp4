@@ -25,7 +25,12 @@ const PHASES = {
     'policy', 'spec', 'plate_registry', 'sheet_conflict_resolutions',
   ],
   identity: ['partner', 'partners_private', 'user', 'users_private'],
-  operations: ['quote', 'ops', 'inventory_sync_runs', 'inventory_sync_control', 'settlement_issuance', 'sheet_sync_exclusions'],
+  operations: [
+    'quote', 'ops', 'inventory_sync_runs', 'inventory_sync_control',
+    'settlement_issuance', 'settlement_confirmations',
+    'sheet_edits', 'sheet_published', 'sheet_sync_exclusions', 'sheet_conflict_decisions',
+    'esign_contract_seals',
+  ],
   business: [
     'rooms', 'messages',
     'customer', 'contract', 'contract_sign', 'settlement', 'settlement_rows',
