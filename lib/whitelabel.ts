@@ -898,6 +898,30 @@ export const WHITELABELS: Whitelabel[] = [
     /* 영업채널이라 재고 전체를 판다 — providerCode 를 비워 둔다. */
     /* 빠른조건·축은 안 적는다 = 집 기본. 그 채널 재고를 보고 화면에서 고친다. */
   },
+  {
+    key: 'siauto',
+    sitePath: '/siauto',
+    /* 도메인을 사면 여기 적고 domainReady 를 켠다 — 그전까지 주소는 sitePath 다. */
+    hosts: [],
+    name: 'SI오토',
+    /*
+     * 홈페이지 머리 그림에서 따 왔다(「SI 에스아이 · auto financial service · 빌려탈CAR」).
+     * ⚠ 원본(246×90)에는 오른쪽 위에 **사이트 머리 장식인 붉은 띠**가 붙어 있었다 — 로고가 아니다.
+     *   글자도 빨간색이라 «열로 자르면» 「CAR」가 잘린다. 그래서 **가장자리에 닿은 붉은 덩어리만**
+     *   골라 지웠다(글자는 가장자리에 안 닿아 안 번진다) → 바탕까지 투명 · 227×62.
+     */
+    logo: { src: '/brand/siauto-mark.png', alt: 'SI오토 빌려탈CAR', role: 'lockup' },
+    wordmark: { main: 'SI오토', sub: '' },
+    brandColor: '#E60012',
+    tel: '1644-9457',
+    bizLines: [
+      '에스아이오토 · 빌려탈CAR',
+      '경기도 시흥시 서울대학로278번길 21, 새롬프라자2 609호',
+      '고객상담 1644-9457',
+    ],
+    /* 영업채널이라 재고 전체를 판다 — providerCode 를 비워 둔다. */
+    /* 빠른조건·축은 안 적는다 = 집 기본. 그 채널 재고를 보고 화면에서 고친다. */
+  },
 ];
 
 /**
