@@ -2342,8 +2342,14 @@ must((availableForEngine({ a: { name: '컴포트' } }, [], '가솔린 3.5 터보
   })();
   const rows = expandGenesis([{ maker: '제네시스', sub_model: 'GV80', fuel: '가솔린', priceAfter: 71_400_000,
     ...(feedId ? { id: feedId } : {}) } as never]) as (Record<string, unknown>)[];
-  must(!!feedId, '§37 이 열쇠를 못 땄습니다 — tmp/feed.json 에 제네시스 GV80 줄이 없습니다(피드 스냅샷)',
-    'tmp/feed.json');
+  /* ⚠ tmp/ 는 git 에 안 실린다 — CI 에는 스냅샷이 없으니 §36 처럼 «건너뜀»으로 말한다.
+     스냅샷이 «있는데» GV80 이 없을 때만 실패다(2026-09-11 CI 에서만 빨갛던 것). */
+  if (!existsSync('tmp/feed.json')) {
+    console.log('  ⚠ §37 열쇠검사 건너뜀 — tmp/feed.json 이 없습니다(피드 스냅샷).');
+  } else {
+    must(!!feedId, '§37 이 열쇠를 못 땄습니다 — tmp/feed.json 에 제네시스 GV80 줄이 없습니다(피드 스냅샷)',
+      'tmp/feed.json');
+  }
   if (rows.length >= 2) {
     must(!rows.some((r) => /^\s*(2WD|AWD|4WD)/.test(S(r.trim))),
       `제네시스 트림 칸에 구동이 앉아 있습니다 — [${rows.map((r) => S(r.trim)).join(', ')}]. 구동은 파워트레인 축입니다`,
@@ -2416,9 +2422,14 @@ must((availableForEngine({ a: { name: '컴포트' } }, [], '가솔린 3.5 터보
   /* ★「(1.6T 가솔린 / HEV)」 — sub 가 HEV 를 명시하므로 HEV 줄에서 살아있어야 한다.
      ⚠ 배기량이 1.6 이면 우연히 통과해 가리지 못한다(돌연변이로 확인) — 2.0 으로 재야 갈린다. */
   const b = probe('HTRAC', '하이브리드 2.0');
-  must(a || b,
-    '§39 가 재을 것을 못 찾았습니다 — 실측해서 검사를 고치십시오(붙박이로 대신하지 마십시오)',
-    'data/new-car/option-packs.json');
+  /* ⚠ option-packs.json 은 인제스터 산출물이라 git 에 안 실린다(.gitignore) — §30·§32 와 같이 건너뛴다. */
+  if (packs.length === 0) {
+    console.log('  ⚠ §39 건너뜀 — option-packs.json 이 없습니다(인제스터 산출물).');
+  } else {
+    must(a || b,
+      '§39 가 재을 것을 못 찾았습니다 — 실측해서 검사를 고치십시오(붙박이로 대신하지 마십시오)',
+      'data/new-car/option-packs.json');
+  }
 }
 
 if (fails.length) {
