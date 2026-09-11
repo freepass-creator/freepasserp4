@@ -138,7 +138,7 @@ const TAIL_ID = '__tail';
  */
 export type ShopFilterTail = { label: string; icon: LucideIcon; body: ReactNode };
 
-export function ShopFilters({ facets, sel, onToggle, onClearAxis, mobile: forceMobile, axes: only, tail }: {
+export function ShopFilters({ facets, sel, onToggle, onClearAxis, mobile: forceMobile, axes: only, tail, openInit }: {
   facets: ShopFacets;
   sel: ShopSel;
   onToggle: (axis: ShopAxis, key: string) => void;
@@ -152,12 +152,18 @@ export function ShopFilters({ facets, sel, onToggle, onClearAxis, mobile: forceM
   axes?: readonly ShopAxis[];
   /** 맨 아래 구역(위 `ShopFilterTail`) — 안 주면 축만 선다. */
   tail?: ShopFilterTail;
+  /**
+   * 처음에 어느 축을 펴 두나 — 안 주면 집 기본(`OPEN_BY_DEFAULT`).
+   * ★빠른조건 설정 칸이 이 원자를 «한 번 더» 쓸 때, 칩 줄에 올라가 있는 축만 펴려고 둔다.
+   */
+  openInit?: (axis: ShopAxis) => boolean;
 }) {
+  const openByDefault = (a: ShopAxis) => (openInit ? openInit(a) : OPEN_BY_DEFAULT.includes(a));
   const isMobile = useIsMobile();
   const mobile = forceMobile ?? isMobile;
   const axes = (only ?? SHOP_AXES).filter((a) => facets[a].length);
   const [open, setOpen] = useState<Record<string, boolean>>(
-    () => Object.fromEntries(axes.map((a) => [a, OPEN_BY_DEFAULT.includes(a)])),
+    () => Object.fromEntries(axes.map((a) => [a, openByDefault(a)])),
   );
 
   return (
@@ -176,7 +182,7 @@ export function ShopFilters({ facets, sel, onToggle, onClearAxis, mobile: forceM
         const axis = id === TAIL_ID ? null : (id as ShopAxis);
         const last = ai === all.length - 1;
         const on = axis ? sel[axis] : [];
-        const isOpen = open[id] ?? (axis ? OPEN_BY_DEFAULT.includes(axis) : false);
+        const isOpen = open[id] ?? (axis ? openByDefault(axis) : false);
         const AxisIcon = axis ? axisIconFor(axis) : tail!.icon;
         const title = axis ? AXIS_LABEL[axis] : tail!.label;
         return (
