@@ -1,5 +1,6 @@
 'use client';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
+import type { LucideIcon } from 'lucide-react';
 import { Check, ChevronDown } from 'lucide-react';
 import { C } from '@/components/ui';
 import { haptic } from '@/lib/haptics';
@@ -124,8 +125,20 @@ const HEAD_COUNT = 5;
 const ALL_SHOWN: ShopAxis[] = ['term'];
 /** 「더보기」 한 번에 더 여는 수 — 처음 보여 주는 수와 같다(리듬이 갈리면 단추가 딴 물건이 된다). */
 const MORE_STEP = 5;
+/** 맨 아래 구역의 자리 이름 — 축 이름과 안 겹치는 글자면 된다(접힘 상태 표의 열쇠로만 쓴다). */
+const TAIL_ID = '__tail';
 
-export function ShopFilters({ facets, sel, onToggle, onClearAxis, mobile: forceMobile, axes: only }: {
+/**
+ * **조건칸 «맨 아래» 구역 하나** — 축이 아니지만 축과 «같은 모양»으로 접혀 선다.
+ *
+ * ★사장님 2026-09-11 「퀵필터 조정하는 거 **설정페이지 맨 하단 섹션 하나** 주고 거기서 **펼쳐서** 넣게」.
+ * ★머리 짜임(그림·제목·화살표·누름 영역)을 축과 **같은 줄**로 그린다 — 따로 짜면 이 구역만
+ *   높이·간격이 갈려 «딴 물건»으로 보인다. 그래서 축 목록 끝에 한 칸 «더 얹는» 식이다.
+ * ★처음엔 접혀 있다 — 손님이 조건을 고르러 온 기둥이라, 고치는 칸이 펼쳐져 있으면 그게 먼저 읽힌다.
+ */
+export type ShopFilterTail = { label: string; icon: LucideIcon; body: ReactNode };
+
+export function ShopFilters({ facets, sel, onToggle, onClearAxis, mobile: forceMobile, axes: only, tail }: {
   facets: ShopFacets;
   sel: ShopSel;
   onToggle: (axis: ShopAxis, key: string) => void;
@@ -137,6 +150,8 @@ export function ShopFilters({ facets, sel, onToggle, onClearAxis, mobile: forceM
    * ⚠ 값이 하나도 없는 축은 원래도 안 뜬다 — 이건 «값이 있어도 안 세우는» 칸이다.
    */
   axes?: readonly ShopAxis[];
+  /** 맨 아래 구역(위 `ShopFilterTail`) — 안 주면 축만 선다. */
+  tail?: ShopFilterTail;
 }) {
   const isMobile = useIsMobile();
   const mobile = forceMobile ?? isMobile;
@@ -156,11 +171,14 @@ export function ShopFilters({ facets, sel, onToggle, onClearAxis, mobile: forceM
           기둥 꼭대기의 것은 «무엇을» 지우는지가 화면에서 멀었다.
       */}
 
-      {axes.map((axis, ai) => {
-        const last = ai === axes.length - 1;
-        const on = sel[axis];
-        const isOpen = open[axis] ?? OPEN_BY_DEFAULT.includes(axis);
-        const AxisIcon = axisIconFor(axis);
+      {/* 축 + (있으면) 맨 아래 구역 — 한 줄로 이어 그린다(위 `ShopFilterTail` 머리말). */}
+      {[...axes, ...(tail ? [TAIL_ID] : [])].map((id, ai, all) => {
+        const axis = id === TAIL_ID ? null : (id as ShopAxis);
+        const last = ai === all.length - 1;
+        const on = axis ? sel[axis] : [];
+        const isOpen = open[id] ?? (axis ? OPEN_BY_DEFAULT.includes(axis) : false);
+        const AxisIcon = axis ? axisIconFor(axis) : tail!.icon;
+        const title = axis ? AXIS_LABEL[axis] : tail!.label;
         return (
           /*
            * 축과 축 사이는 **여백만**으로 가른다(사장님 2026-09-05 구분선 최소화).
@@ -174,7 +192,7 @@ export function ShopFilters({ facets, sel, onToggle, onClearAxis, mobile: forceM
            * ★제목 줄에 상하 여백을 줘서 **누를 자리를 키운다**(엔카 축 제목 줄이 48px 쯤 된다).
            *   글자만 있으면 어디를 눌러야 열리는지 손이 못 찾는다.
            */
-          <section key={axis} style={{
+          <section key={id} style={{
             /*
              * ★★**축 사이에 옅은 선**(시안 A — 엔카·KB·케이카가 다 쓴다).
              * ⚠ 2026-09-05 에 「구분선 최소화」로 선을 다 걷었는데, 그때 그은 자리는 **제목 «아래»**라
@@ -203,7 +221,7 @@ export function ShopFilters({ facets, sel, onToggle, onClearAxis, mobile: forceM
               display: 'flex', alignItems: 'center', gap: SHOP.sp.snug, width: '100%',
               marginBottom: isOpen ? SHOP.sp.tight : 0,
             }}>
-            <button type="button" onClick={() => setOpen((o) => ({ ...o, [axis]: !isOpen }))}
+            <button type="button" onClick={() => setOpen((o) => ({ ...o, [id]: !isOpen }))}
               aria-expanded={isOpen} className="fp-shop-press"
               style={{
                 display: 'flex', alignItems: 'center', gap: SHOP.sp.snug,
@@ -229,17 +247,17 @@ export function ShopFilters({ facets, sel, onToggle, onClearAxis, mobile: forceM
                 fontSize: SHOP.fs.h2, fontWeight: 700, color: C.ink, minWidth: 0,
                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
               }}>
-                {AXIS_LABEL[axis]}
+                {title}
               </span>
             </button>
 
             {/* 걸린 것이 있을 때만 — 없는 축에 「해제」가 서 있으면 그건 안내가 아니라 소음이다. */}
-            {on.length ? (
+            {axis && on.length ? (
               <ShopTextBtn tone="faint" onClick={() => onClearAxis(axis)}>해제</ShopTextBtn>
             ) : null}
 
-            <button type="button" onClick={() => setOpen((o) => ({ ...o, [axis]: !isOpen }))}
-              aria-expanded={isOpen} aria-label={`${AXIS_LABEL[axis]} ${isOpen ? '접기' : '펼치기'}`}
+            <button type="button" onClick={() => setOpen((o) => ({ ...o, [id]: !isOpen }))}
+              aria-expanded={isOpen} aria-label={`${title} ${isOpen ? '접기' : '펼치기'}`}
               className="fp-shop-press"
               style={{
                 /* 남는 폭을 다 먹는다 — 오른쪽 빈 자리를 눌러도 접힌다(줄 전체가 단추라는 느낌 유지). */
@@ -262,10 +280,10 @@ export function ShopFilters({ facets, sel, onToggle, onClearAxis, mobile: forceM
             </button>
             </div>
 
-            {isOpen ? (
+            {isOpen ? (axis ? (
               <ShopAxisOptions axis={axis} options={facets[axis]} selected={on}
                 onToggle={onToggle} mobile={mobile} />
-            ) : null}
+            ) : tail!.body) : null}
           </section>
         );
       })}
