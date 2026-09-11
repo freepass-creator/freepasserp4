@@ -86,7 +86,6 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
    */
   const [quickEdit, setQuickEdit] = useState<ShopQuickChip[] | null>(null);
   const [quickSaving, setQuickSaving] = useState(false);
-  const [quickOpen, setQuickOpen] = useState(false);
   const quickAll = quickEdit ?? wl.quick ?? DEFAULT_QUICK;
   /*
    * ★★★**고치는 단추는 «누구에게나» 보인다 — 손님에게도.**
@@ -284,7 +283,6 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
       /* 실패는 «집 알림»으로 말한다 — `window.alert` 은 화면을 멈춰 세우고, 이 동의 얼굴도 아니다. */
       if (!res.ok) { toast(String(body?.error || '못 고쳤습니다'), 'error'); return; }
       setQuickEdit(Array.isArray(body?.quick) ? (body.quick as ShopQuickChip[]) : next);
-      setQuickOpen(false);
       toast('빠른조건을 고쳤습니다', 'ok');
     } catch {
       toast('못 고쳤습니다 — 잠시 뒤 다시 해 보세요', 'error');
@@ -394,8 +392,24 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
     return { facets: r.facets, count: r.list.length };
   }, [rows, query]);
 
+  /*
+   * ★★**빠른조건 고치는 칸 = 조건칸 «맨 아래 구역»**(사장님 2026-09-11 「설정페이지 맨 하단 섹션 하나
+   *   주고 거기서 펼쳐서 넣게」). 웹 기둥과 폰 시트가 **이 한 벌**을 같이 받는다 — 두 곳에서 따로 만들면
+   *   웹에서 고친 줄과 폰에서 고친 줄이 다른 모양이 된다.
+   * ★`key` = 저장된 줄 — 저장이 끝나 줄이 바뀌면 칸이 새 줄로 다시 선다(고르던 초안이 옛 줄에 남지 않게).
+   */
+  const quickTail = {
+    label: '빠른조건 설정',
+    icon: Settings2,
+    body: (
+      <ShopQuickEditor key={quickAll.map((k) => `${k.axis}:${k.key}`).join('|')}
+        facets={facets} value={quickAll} saving={quickSaving} onSave={saveQuick} />
+    ),
+  };
+
   const filters = (
-    <ShopFilters facets={facets} sel={query.sel} onToggle={onToggle} onClearAxis={onClearAxis} axes={wl.axes} />
+    <ShopFilters facets={facets} sel={query.sel} onToggle={onToggle} onClearAxis={onClearAxis} axes={wl.axes}
+      tail={quickTail} />
   );
 
   return (
@@ -488,27 +502,11 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
           {/* 칩 줄 위아래 = «덩어리의 경계»(cozy 12) — 검색칸·목록과 갈라 준다. */}
           <div ref={railRef} className="fp-shop-rail" style={{ paddingBlock: SHOP.sp.cozy }}>
             {/*
-              ★**고치는 문은 줄 «맨 앞»이다.** 이 줄은 한 줄로 흐르는(가로 스크롤) 줄이라
-                끝에 두면 밀어야 보인다 — 아홉 칸을 밀어야 닿는 단추는 없는 단추다.
-              ★★**글자를 떼고 글리프만 둔다**(사장님 2026-09-10 「조건 고치기 저거 맨 앞에
-                **그냥 아이콘으로**? **갖다 대면 설명 보이게** 해주면 안 되나」).
-                맞다 — 첫 자리는 손님이 «조건»을 읽는 자리다. 거기 우리 말이 네 글자 서 있으면
-                손님은 그것부터 읽고, 정작 첫 조건은 두 번째로 밀린다.
-              ★★**글리프는 «설정 눈금»(`Settings2`)이다**(사장님 2026-09-10 「어찌 됐든 뭔가
-                **퀵필터 칩을 설정한다**는 거니까」). 후보 열한 개를 실제 칩 줄 치수로 늘어놓고 골랐다.
-                ⚠ 처음엔 **연필**이었는데 혼자 「글을 쓴다」고 말해서, 조건을 고르는 줄에서 그것만
-                  성격이 달랐다(사장님 「저 연필은 아닌 거 같은데 너무」).
-                ⚠ 오른쪽 머리띠의 「조건」(`SlidersHorizontal`)과 **사촌지간이라 일부러 자리를 재 봤다** —
-                  그건 폰 머리띠 «오른쪽 끝»이고 이건 칩 줄 «왼쪽 끝»이라 한 화면에서 안 붙는다.
-              ★설명은 **갖다 댔을 때만** 뜬다(`hint`) — 브라우저 말풍선이라 이 줄에서 안 잘린다
-                (직접 그리면 `overflow-y: hidden` 인 가로 줄이라 위아래로 잘린다).
-              ★`chip` 치수 — 칩과 같은 높이다. `md`(36) 를 세우면 이 줄만 굵어진다.
+              ⚠⚠ **여기 칩 줄 맨 앞에 「설정 눈금」 단추가 있었다. 뺐다**(사장님 2026-09-11
+                「퀵필터 조정하는 거 **설정페이지 맨 하단 섹션 하나** 주고 거기서 **펼쳐서** 넣게 해주자」).
+              ★고치는 문은 이제 **조건칸 맨 아래 구역**이다(웹 왼쪽 기둥 · 폰 상세 조건 시트 — `quickTail`).
+                칩 줄은 손님이 «조건»을 읽는 줄이라 첫 자리부터 조건이 선다.
             */}
-            <ShopIconBtn size="chip" label="조건 고치기"
-              hint="이 줄에 세울 조건을 고칩니다 — 고친 줄은 이 가게를 보는 모든 분에게 같이 보입니다"
-              onClick={() => setQuickOpen(true)}>
-              <Settings2 size={mobile ? 16 : 14} aria-hidden />
-            </ShopIconBtn>
             {quick.map((k) => (
               <ShopPill key={`${k.axis}:${k.key}`} mark={`${k.axis}:${k.key}`} on={query.sel[k.axis].includes(k.key)}
                 onClick={() => onToggle(k.axis, k.key)}>{k.label || soloLabel(k.key) || k.key}</ShopPill>
@@ -766,22 +764,11 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
         </div>
       </main>
 
-      {/*
-        빠른조건 고치는 창 — **웹·폰 같은 창**이다(집 규칙 ③ 「양쪽에 한 번에」).
-        고르는 목록은 조건칸과 «같은 집계»(`facets`)에서 나온다 — 그래서 «지금 있는 값»만 뜬다.
-      */}
-      {quickOpen ? (
-        <ShopQuickEditor
-          facets={facets}
-          value={quickAll}
-          saving={quickSaving}
-          onSave={saveQuick}
-          onClose={() => setQuickOpen(false)} />
-      ) : null}
 
       {mobile && sheet ? (
         <ShopFilterSheet
           axes={wl.axes}
+          tail={quickTail}
           sel={query.sel}
           /*
            * 시트는 «초안»으로 고른다 — 축 목록과 바닥 버튼 숫자가 **같은 값**에서 나와야 하므로
