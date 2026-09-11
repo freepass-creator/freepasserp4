@@ -26505,12 +26505,12 @@
       ],
       "market_class": "신차",
       "newcar_priced": true,
+      "base_default": true,
       "trims": [
         "기본형",
-        "Black",
         "블랙"
       ],
-      "_basic_trim_healed_at": 1789086623433
+      "_basic_trim_healed_at": 1789089375872
     },
     {
       "id": "mf-007.md-005.sm-jx1",
@@ -26603,14 +26603,12 @@
       ],
       "market_class": "신차",
       "newcar_priced": true,
+      "base_default": true,
       "trims": [
         "기본형",
-        "가솔린 2.5 터보",
-        "가솔린 3.5 터보",
-        "기본",
         "블랙"
       ],
-      "_basic_trim_healed_at": 1789086623433
+      "_basic_trim_healed_at": 1789089375799
     },
     {
       "id": "mf-007.md-005.sm-jx1c",
@@ -26773,7 +26771,8 @@
       "trims": [
         "기본형"
       ],
-      "_basic_trim_healed_at": 1789086623433
+      "base_default": true,
+      "_basic_trim_healed_at": 1789089375631
     },
     {
       "id": "mf-007.md-007.sm-gv60",
