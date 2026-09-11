@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { startTransition, useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import { Search, Settings2, SlidersHorizontal } from 'lucide-react';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { C, SH } from '@/components/ui';
@@ -291,7 +291,16 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
     }
   }, [wl.key]);
 
-  const { list, total, facets } = useMemo(() => runShopQuery(rows, query), [rows, query]);
+  /*
+   * ★★**누른 칩은 «바로» 켜지고, 목록은 «뒤따라» 바뀐다**(사장님 2026-09-11 「좀 빠릿빠릿하게」).
+   *   칩·체크의 켜짐은 `query`(지금 누른 값)를 보고, 목록·건수·조건칸 숫자는 `liveQuery`(한 박자 뒤)를 본다.
+   *   React 가 목록 계산·그리기를 **끊을 수 있는 일**로 돌리므로, 손가락이 떨어진 순간 칩이 먼저 답한다.
+   * ⚠ 실측 2026-09-11(폰 성능) — 칩 누름의 대부분이 카드 60장을 떼고 붙이는 DOM 일이었다. 그 일이 끝나야
+   *   칩 색이 바뀌어 「눌렸나?」 하는 틈이 생겼다. 계산은 이미 빨라서(시험 7ms) 남은 건 «순서»의 문제다.
+   * ★연달아 누르면 앞의 목록 그리기는 버리고 마지막 조건만 그린다 — 누를수록 밀리지 않는다.
+   */
+  const liveQuery = useDeferredValue(query);
+  const { list, total, facets } = useMemo(() => runShopQuery(rows, liveQuery), [rows, liveQuery]);
 
   /*
    * ★★**한 대도 없는 빠른 조건은 세우지 않는다.**
@@ -345,7 +354,34 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
     /* 왼쪽에 여백(edge 16)을 남겨 둔다 — 칸에 딱 붙으면 「밀린 줄」로 안 읽힌다. */
     if (el) rail.scrollLeft = Math.max(0, el.offsetLeft - SHOP.sp.edge);
   }, [rows, quick, query.sel]);
-  const shown = list.slice(0, limit);
+  /*
+   * ★★**조건을 바꾸면 «눈에 보이는 몇 장»부터 그리고, 나머지는 다음 틈에 채운다**
+   *   (사장님 2026-09-11 「좀 **빠릿빠릿하게** 움직일 수 있게 해야 함 뭔가 느린 거 같은데」).
+   *
+   * ⚠ 실측 2026-09-11 운영 · 폰 성능(CPU 4배 느리게) — 칩 한 번에 **60장**을 통째로 새로 그렸다.
+   *   폰 화면에 보이는 것은 두 장인데 스무 화면 분량의 카드를 한 번에 만들어, 칩이 눌린 게
+   *   보이기까지 0.3~0.7초가 걸렸다(DOM 만들기 · 그림 주소 달기가 대부분).
+   * ⇒ 한 장에 담는 수(60)는 **그대로다** — 「차량 더 보기」 박자도 그대로다. 바뀌는 것은 «그리는 순서»뿐:
+   *   ㉠ 먼저 앞 몇 장만 그려 칩·건수·첫 카드가 바로 답하고
+   *   ㉡ 다음 프레임에 나머지를 **끊을 수 있는 일**(`startTransition`)로 채운다 — 그 사이 또 누르면
+   *   React 가 채우던 것을 버리고 새 조건부터 한다(누를수록 쌓여 밀리지 않는다).
+   * ⚠ **첫 화면·되돌아오기에는 안 쓴다** — 상세에서 돌아와 «보던 자리»로 스크롤할 때 카드가 다
+   *   그려져 있어야 갈 자리가 있다(위 `spot`). 그래서 매물이 도착한 뒤의 «조건 바꾸기»에만 건다.
+   */
+  const firstPaint = mobile ? 6 : 12;
+  const [paint, setPaint] = useState<{ list: EntityRecord[]; n: number; ready: boolean } | null>(null);
+  if (paint === null || paint.list !== list) {
+    setPaint({ list, n: paint?.ready ? firstPaint : Infinity, ready: rows !== null });
+  }
+  const painted = paint && paint.list === list ? paint.n : Infinity;
+  useEffect(() => {
+    if (!paint || paint.n === Infinity) return;
+    const id = requestAnimationFrame(() => startTransition(() => {
+      setPaint((cur) => (cur && cur.list === paint.list ? { ...cur, n: Infinity } : cur));
+    }));
+    return () => cancelAnimationFrame(id);
+  }, [paint]);
+  const shown = list.slice(0, Math.min(limit, painted));
   /** 지금 조건으로 남은 수 — 폰 머리가 드는 값. 조건을 넷 걸어 3대면 3이라고 말해야 한다. */
   const shownText = rows === null ? '—' : String(list.length);
   /** 검색어든 축이든 하나라도 걸렸나 — 걸렸으면 「전체차량」이 아니라 「조건에 맞는 차량」이다. */
@@ -393,10 +429,10 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
      *   사장님 「좀 빠릿빠릿하게」). 초안은 `sel` 을 그대로 받아 시작하므로(같은 참조) 여기서 알아챈다.
      *   ⚠ 전에는 여는 순간 680대를 처음부터 한 번 더 셌다 — 폰 성능 실측으로 여는 데 0.5~1초가 걸렸다.
      */
-    if (s === query.sel) return { facets, count: list.length };
+    if (s === liveQuery.sel) return { facets, count: list.length };
     const r = runShopQuery(rows, { ...query, sel: s });
     return { facets: r.facets, count: r.list.length };
-  }, [rows, query, facets, list]);
+  }, [rows, query, liveQuery, facets, list]);
 
   /*
    * ★★**빠른조건 고치는 칸 = 웹 조건칸 «맨 아래 구역»**(사장님 2026-09-11 「설정페이지 맨 하단 섹션 하나
@@ -764,7 +800,8 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
                     <ShopCard key={String(p.product_code)} p={p} href={href(p)} rank={i} />
                   ))}
                 </Grid>
-                <ShopMore shown={shown.length} total={list.length} onMore={() => setLimit((n) => n + PAGE)} />
+                {/* 「몇 장 보는 중」은 그리는 순서와 무관하게 «한 장에 담은 수»로 말한다(숫자가 깜빡이지 않게). */}
+                <ShopMore shown={Math.min(limit, list.length)} total={list.length} onMore={() => setLimit((n) => n + PAGE)} />
               </>
             )}
           </div>
