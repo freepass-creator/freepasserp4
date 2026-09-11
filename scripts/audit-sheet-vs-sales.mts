@@ -71,7 +71,7 @@ const SHEETS = 'https://sheets.googleapis.com/v4/spreadsheets';
 
 // ── ① 판매리스트 읽기 ────────────────────────────────────────────────────────
 const salesMeta = await api(`${SHEETS}/${SALES}?fields=sheets.properties(title,hidden)`);
-// ★발행된 표 = 상품리스트 · 손오공구독 · 오플구독 세 탭의 합(2026-08-19).
+// ★발행된 표 = 상품리스트 · 손오공상품 · 오플구독 세 탭의 합(2026-08-19).
 const publishedTabs = pickPublishedSalesTabs(((salesMeta.sheets || []) as Rec[]).filter((s) => !s.properties.hidden).map((s) => S(s.properties.title)));
 if (!publishedTabs.some((t) => t.prefix === '상품리스트')) throw new Error('판매리스트 탭을 못 찾음');
 const salesTab = publishedTabs.map((t) => t.title).join(' + ');
@@ -88,7 +88,7 @@ for (const tab of publishedTabs) {
     if (!pl || sales.has(pl)) continue;
     const rec: Record<string, string> = {};
     for (const name of Object.keys(MONEY)) {
-      // 갈래 탭(손오공구독·오플구독)은 표준 칸 이름 대신 공급사 기간별 대여료가 서 있다 — 별칭으로 되찾는다.
+      // 갈래 탭(손오공상품·오플구독)은 표준 칸 이름 대신 공급사 기간별 대여료가 서 있다 — 별칭으로 되찾는다.
       const i = standardMoneyIndex(tab.prefix, shdr, name);
       if (i >= 0) rec[name] = money(r[i]);
     }

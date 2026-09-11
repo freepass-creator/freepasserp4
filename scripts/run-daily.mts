@@ -18,7 +18,7 @@
  *   ①″ 정제칸 원문 재정렬
  *   ② 정제칸 채움(21곳, 차량번호 정본 대조) ← 차종마스터가 사전
  *   ③ 못 정한 차 결정(resolve) → 새 결정이 있으면 ② 한 번 더
- *   ④ 상품시트 발행(상품리스트 → 손오공구독(+인수형 블록) → 오플구독(+오플 요금 블록) — 탭 3개, 2026-08-19)
+ *   ④ 상품시트 발행(상품리스트 → 손오공상품(+인수형 블록) → 오플구독(+오플 요금 블록) — 탭 3개, 2026-08-19)
  *      ※ 공급사 시트 「상품시트」 탭은 2026-08-21 폐지(탭 규격 통일)
  *   ④″ 천이시트(영업채널 카드시트) 발행 — 2026-08-21
  *   ⑤ 상품마스터 — 사용하지 않음(ERP 직접 원본은 판매시트 3탭)
@@ -129,11 +129,11 @@ if (rs.ok && APPLY && rs.picked.some((l) => /✓ 결정 [1-9]/.test(l))) {
 const p1 = run('④ 수집 스테이징 상품리스트', ['scripts/publish-origin-tab.mts', ...STAGE, ...A, ...(FORCE ? ['--force-shrink'] : [])], /우리 시트 |출고불가 .*안 싣는다|금액 빠진|「-」|정본\(|반영 완료|못 읽은|Error|중단|force-shrink/);
 report.push(`④ 상품리스트 ${p1.ok ? '✓' : '✗'} ${p1.picked.find((l) => /반영 완료|우리 시트 /.test(l)) || ''}`);
 if (!p1.ok) stop('상품리스트 발행 실패(가드에 걸렸으면 확인 후 --force-shrink)');
-// ★탭 4개(2026-08-27 픽업구독 추가): 상품리스트 · 손오공구독 · 픽업구독 · 오플구독. 같은 발행기로 갈래 탭을 찍고 원본 요금 블록을 덧붙인다.
-const p2 = run('④ 스테이징 손오공구독', ['scripts/publish-origin-tab.mts', ...STAGE, '--only=RP012:구독', '--tab=손오공구독', '--at=1', ...A, ...(FORCE ? ['--force-shrink'] : [])], /우리 시트 |반영 완료|Error|중단/);
-report.push(`④ 손오공구독 ${p2.ok ? '✓' : '✗'} ${p2.picked.find((l) => /반영 완료|우리 시트 /.test(l)) || ''}`); if (!p2.ok) stop('손오공구독 탭 발행 실패');
+// ★탭 4개(2026-08-27 픽업구독 추가): 상품리스트 · 손오공상품 · 픽업구독 · 오플구독. 같은 발행기로 갈래 탭을 찍고 원본 요금 블록을 덧붙인다.
+const p2 = run('④ 스테이징 손오공상품', ['scripts/publish-origin-tab.mts', ...STAGE, '--only=RP012:구독', '--tab=손오공상품', '--at=1', ...A, ...(FORCE ? ['--force-shrink'] : [])], /우리 시트 |반영 완료|Error|중단/);
+report.push(`④ 손오공상품 ${p2.ok ? '✓' : '✗'} ${p2.picked.find((l) => /반영 완료|우리 시트 /.test(l)) || ''}`); if (!p2.ok) stop('손오공상품 탭 발행 실패');
 const p2b = run('④ 스테이징 손오공 인수형', ['scripts/publish-sonogong-tab.mts', ...STAGE, ...A], /실을 차|사진링크|반영 완료|Error/);
-report.push(`④ 인수형 블록 ${p2b.ok ? '✓' : '✗'} ${p2b.picked.find((l) => /반영 완료|실을 차/.test(l)) || ''}`); if (!p2b.ok) stop('손오공구독 인수형 블록 실패');
+report.push(`④ 인수형 블록 ${p2b.ok ? '✓' : '✗'} ${p2b.picked.find((l) => /반영 완료|실을 차/.test(l)) || ''}`); if (!p2b.ok) stop('손오공상품 인수형 블록 실패');
 const p2c = run('④ 스테이징 픽업구독', ['scripts/publish-origin-tab.mts', ...STAGE, '--only=RP012:픽업', '--tab=픽업구독', '--at=2', ...A, ...(FORCE ? ['--force-shrink'] : [])], /우리 시트 |반영 완료|Error|중단/);
 report.push(`④ 픽업구독 ${p2c.ok ? '✓' : '✗'} ${p2c.picked.find((l) => /반영 완료|우리 시트 /.test(l)) || ''}`); if (!p2c.ok) stop('픽업구독 탭 발행 실패');
 const p2d = run('④ 스테이징 픽업 인수형', ['scripts/publish-sonogong-tab.mts', ...STAGE, '--tab=픽업구독', ...A], /실을 차|사진링크|반영 완료|Error/);

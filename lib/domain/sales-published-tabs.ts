@@ -1,9 +1,9 @@
 /**
- * **판매시트에서 «발행된 표»로 치는 탭들** — 상품리스트 · 손오공구독 · 픽업구독 · 오플구독.
+ * **판매시트에서 «발행된 표»로 치는 탭들** — 상품리스트 · 손오공상품 · 픽업구독 · 오플구독.
  * (사장님 2026-08-19 「탭 3개로 회귀」 → 2026-08-28 손오공 픽업이 붙어 **4탭**. 개수를 손으로 박지 말고 이 배열을 쓴다)
  *
  * ★세 탭은 같은 발행기(publish-origin-tab, --only 로 갈래만 다름)가 같은 열·같은 정본 차명으로 찍는다.
- *   손오공구독·오플구독은 우리 공통 대여료 블록(단기보증·1개월·12개월·장기보증·24~60개월) 대신 **그 공급사의 기간별 대여료**를 그 자리에 둔다
+ *   손오공상품·오플구독은 우리 공통 대여료 블록(단기보증·1개월·12개월·장기보증·24~60개월) 대신 **그 공급사의 기간별 대여료**를 그 자리에 둔다
  *   (사장님 2026-08-19 — 「우리 공통 기간별 대여료는 없애도 되고, 손오공이랑 오플은 그들의 기간별 대여료를 해 주면 됨 · 손오공 반납형은 보증금(연수×대여료)이랑
  *   기간별 대여료만 · 오플은 12개월 3만Km 이렇게」, publish-sonogong-tab).
  *   그래서 «판매시트에 실린 차 = 네 탭의 합»이고, 상품마스터 맞춤(⑤′)·돈 대조·ERP 대조가 표준 칸(12·24·36개월…)을 찾을 땐 아래 별칭으로 되찾는다.
@@ -13,7 +13,7 @@
 import { isImportBrand } from './vehicle-origin';
 
 /** 보이는 탭 막대 왼쪽부터 이 차례. 발행기가 `--at` 없이 찍어도 이 자리를 지킨다. */
-export const SALES_PUBLISHED_TAB_PREFIXES = ['상품리스트', '손오공구독', '픽업구독', '오플구독'] as const;
+export const SALES_PUBLISHED_TAB_PREFIXES = ['상품리스트', '손오공상품', '픽업구독', '오플구독'] as const;
 export type SalesPublishedPrefix = (typeof SALES_PUBLISHED_TAB_PREFIXES)[number];
 
 export function salesPublishedTabIndex(prefix: string): number {
@@ -37,7 +37,7 @@ export const STANDARD_MONEY_COLUMNS = ['단기보증', '1개월', '12개월', '�
 /** 갈래 탭에 두는 공급사 원본 요금 블록(원본 시트 머리글 그대로) — publish-sonogong-tab 기본값. */
 export type NativeLeadColumn = { name: string; valueOf: (row: Record<string, string>) => string };
 export const NATIVE_MONEY_BLOCK: Record<Exclude<SalesPublishedPrefix, '상품리스트'>, { src: string; srcTab: string; block: string[]; lead?: NativeLeadColumn }> = {
-  손오공구독: {
+  손오공상품: {
     src: '1WIFn5ObK_nCVGLTjj6rO96i6vxub1QzJmiVW0BpJLcA', srcTab: '구독재고',
     // 반납형: 보증금(글자 「연수×대여료」)+기간별 대여료 · 인수형: 보증금+36/48/60(12·24 인수형은 안 판다 — 값이 생기면 여기 늘린다)
     block: ['보증금 반납형', '12개월 반납형', '24개월 반납형', '36개월 반납형', '48개월 반납형', '60개월 반납형', '보증금 인수형', '36개월 인수형', '48개월 인수형', '60개월 인수형'],
@@ -76,13 +76,13 @@ const normHead = (h: unknown) => String(h ?? '').replace(/\s+/g, '').replace(/km
 
 /**
  * 갈래 탭에서 표준 칸을 되찾는 별칭 — 상품마스터 맞춤(⑤′)·돈 대조·ERP 대조가 쓴다.
- * 손오공구독: 12~60개월 ← N개월 반납형 · 장기보증 ← 보증금 반납형(글자면 계산값 유지 규칙은 ⑤′ 그대로).
+ * 손오공상품: 12~60개월 ← N개월 반납형 · 장기보증 ← 보증금 반납형(글자면 계산값 유지 규칙은 ⑤′ 그대로).
  * 오플구독: 12개월 ← 12개월 3만km · 24개월 ← 24개월 2만km · 36개월 ← 36개월 2만km (상품리스트 @매핑 별칭과 같은 구간).
  * 단기보증·1개월은 두 갈래 다 없다(그 기간을 안 판다).
  */
 export const SALES_TAB_MONEY_ALIASES: Record<SalesPublishedPrefix, Partial<Record<(typeof STANDARD_MONEY_COLUMNS)[number], string[]>>> = {
   상품리스트: {},
-  손오공구독: {
+  손오공상품: {
     장기보증: ['보증금 반납형'],
     '12개월': ['12개월 반납형'], '24개월': ['24개월 반납형'], '36개월': ['36개월 반납형'], '48개월': ['48개월 반납형'], '60개월': ['60개월 반납형'],
   },
@@ -114,7 +114,7 @@ export function publishedSalesColumns(prefix: SalesPublishedPrefix, baseColumns:
   const labels = native.block.map(nativeMoneyLabel);
   const norm = (value: unknown) => String(value ?? '').trim().replace(/\s+/g, '').replace(/km$/i, '').replace(/[()（）]/g, '');
   const nativeNames = [...native.block, ...labels, ...(native.lead ? [native.lead.name] : [])];
-  // 갈래 탭(손오공구독·픽업구독·오플구독)엔 그 공급사가 안 쓰는 빈 칸을 빼둔다 — 상품리스트에만 남긴다(사장님 2026-08-27 「6개월 어정쩡하게 붙은 거 날려줘」).
+  // 갈래 탭(손오공상품·픽업구독·오플구독)엔 그 공급사가 안 쓰는 빈 칸을 빼둔다 — 상품리스트에만 남긴다(사장님 2026-08-27 「6개월 어정쩡하게 붙은 거 날려줘」).
   const 갈래제외 = ['6개월'];
   const removed = (header: string) =>
     nativeNames.some((name) => norm(name) === norm(header))

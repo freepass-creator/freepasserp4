@@ -33,7 +33,7 @@ const LIST = process.argv.includes('--list');
 const SALES = arg('sales', '1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs');
 const INDEX_SHEET = arg('index', '1TVeVXyJJRx0SzD2vxqy3eEjSojmMIWXSu7AdsKmpfmY');
 /** 판매시트에서 «차를 담는» 탭들. 상품리스트 말고도 별도 탭이 있다. */
-const STOCK_TABS = /^(상품리스트|손오공구독|오플구독|오플프로모션)/;
+const STOCK_TABS = /^(상품리스트|손오공상품|오플구독|오플프로모션)/;
 
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 const gT = (await new JWT({ email: sa.client_email, key: sa.private_key,

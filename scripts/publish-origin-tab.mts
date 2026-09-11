@@ -85,10 +85,10 @@ if (APPLY && SHEET === PRODUCTION_F01) throw new Error('구형 원천 발행기�
  */
 const TAB = arg('tab', '상품리스트');
 /**
- * ★`--only=공급사코드[:탭글자]` — 그 공급사(그 탭)만 실어 **별도 탭**을 찍는다(사장님 2026-08-19 「상품리스트 · 손오공구독(반납/인수) · 오플구독 탭 3개로 회귀」).
+ * ★`--only=공급사코드[:탭글자]` — 그 공급사(그 탭)만 실어 **별도 탭**을 찍는다(사장님 2026-08-19 「상품리스트 · 손오공상품(반납/인수) · 오플구독 탭 3개로 회귀」).
  *   같은 발행기·같은 정본 차명·같은 열이라 상품리스트와 규격이 갈리지 않는다. @제외는 무시한다(그 공급사를 실으려는 것이니까).
- *   예) --only=RP012:구독 --tab=손오공구독 · --only=RP023 --tab=오플구독 (그 뒤 publish-sonogong-tab 이 원본 요금 블록을 덧붙인다)
- * ★탭 자리 — 상품리스트 0 · 손오공구독 1 · 오플구독 2 (`salesPublishedTabIndex`). `--at=N` 은 덮어쓸 때만.
+ *   예) --only=RP012:구독 --tab=손오공상품 · --only=RP023 --tab=오플구독 (그 뒤 publish-sonogong-tab 이 원본 요금 블록을 덧붙인다)
+ * ★탭 자리 — 상품리스트 0 · 손오공상품 1 · 오플구독 2 (`salesPublishedTabIndex`). `--at=N` 은 덮어쓸 때만.
  */
 const ONLY = (() => { const v = arg('only'); if (!v) return null; const [code, tab = ''] = v.split(':'); return { code: code.trim(), tab: tab.trim() }; })();
 const AT = process.argv.some((a) => a.startsWith('--at=')) ? (Number(arg('at')) || 0) : salesPublishedTabIndex(TAB);

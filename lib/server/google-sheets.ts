@@ -352,7 +352,7 @@ export async function readSheetGrid(spreadsheetId: string, tabTitle: string): Pr
   };
 }
 
-/** 스프레드시트의 보이는 탭 이름들 — 화면 하단 탭(상품리스트·손오공구독·오플구독)을 만든다. */
+/** 스프레드시트의 보이는 탭 이름들 — 화면 하단 탭(상품리스트·손오공상품·오플구독)을 만든다. */
 export async function listSheetTabs(spreadsheetId: string): Promise<string[]> {
   const body = await call(`/${spreadsheetId}?fields=sheets.properties(title,hidden)`);
   const sheets = (body.sheets as { properties?: { title?: string; hidden?: boolean } }[] | undefined) || [];

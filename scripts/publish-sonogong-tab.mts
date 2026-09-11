@@ -1,20 +1,20 @@
 /**
- * **별도 탭(손오공구독 · 오플구독)에 «원본 요금 블록»을 덧붙인다.** 기본 dry-run, 반영은 `--apply`.
+ * **별도 탭(손오공상품 · 오플구독)에 «원본 요금 블록»을 덧붙인다.** 기본 dry-run, 반영은 `--apply`.
  *
- * ★사장님 2026-08-19 — 「복구하자, 판매시트 탭 3개로 회귀: 상품리스트 · 손오공구독(반납형이랑 인수형 붙여서) · 오플구독(정제된 거로)」
- *   · 줄은 `publish-origin-tab --only=RP012:구독 --tab=손오공구독`(또는 `--only=RP023 --tab=오플구독`)이 **상품리스트와 같은 발행기·같은 정본 차명·같은 열**로 먼저 찍는다.
+ * ★사장님 2026-08-19 — 「복구하자, 판매시트 탭 3개로 회귀: 상품리스트 · 손오공상품(반납형이랑 인수형 붙여서) · 오플구독(정제된 거로)」
+ *   · 줄은 `publish-origin-tab --only=RP012:구독 --tab=손오공상품`(또는 `--only=RP023 --tab=오플구독`)이 **상품리스트와 같은 발행기·같은 정본 차명·같은 열**로 먼저 찍는다.
  *   · 이 스크립트는 그 탭을 읽어 **우리 공통 대여료 블록(단기보증·1개월·12개월·장기보증·24~60개월)을 걷어 내고 그 자리에** 공급사 시트의 기간별 대여료를 둔다
  *     (사장님 2026-08-19 — 「우리 공통 기간별 대여료는 없애도 되고, 손오공이랑 오플은 그들의 기간별 대여료를 해 주면 됨」):
- *       손오공구독: 보증금 반납형(글자 「연수×대여료」 = 보증금) · 12~60개월 반납형 · 보증금 인수형 · 36/48/60개월 인수형 (제공시트 「구독재고」) → 반납형+인수형 한 탭
+ *       손오공상품: 보증금 반납형(글자 「연수×대여료」 = 보증금) · 12~60개월 반납형 · 보증금 인수형 · 36/48/60개월 인수형 (제공시트 「구독재고」) → 반납형+인수형 한 탭
  *       오플구독:   12개월 2만km · 12개월 3만km · 18개월 … 36개월 3만km (오플 정제시트 「재고」, 머리글 「12개월3만」→「12개월 3만km」로 보임)      → 「12개월 3만Km 이렇게」
  *     기본값·표시 이름·별칭은 `lib/domain/sales-published-tabs.ts`(NATIVE_MONEY_BLOCK · nativeMoneyLabel · SALES_TAB_MONEY_ALIASES) 한 곳에.
  *     `--keep-standard` 를 주면 공통 블록을 남기고 뒤에 덧붙인다(옛 방식).
  *   · 값은 공급사 글자 그대로(숫자 없는 칸 「-」). 차명·정책·색은 origin-tab 이 찍은 그대로 — 여기서 다시 판단하지 않는다(2026-08-18 「스포티지 NQ5」 사고).
- *   · 두 번 돌려도 블록이 두 벌 안 된다(있으면 걷어 내고 다시 붙임). 탭 이름(「손오공구독 MM.DD HH:MM · N대」)은 origin-tab 이 준 그대로 둔다.
+ *   · 두 번 돌려도 블록이 두 벌 안 된다(있으면 걷어 내고 다시 붙임). 탭 이름(「손오공상품 MM.DD HH:MM · N대」)은 origin-tab 이 준 그대로 둔다.
  * ★상품리스트에는 이 두 갈래가 @제외로 빠져 있다(SALES_EXCLUDE) — 같은 차가 두 탭에 서면 사고.
  * ★옛 「손오공인수형구독」 탭(2026-08-18 하루짜리)은 지운다.
  *
- *   npx tsx scripts/publish-sonogong-tab.mts [--apply]                 # 손오공구독(기본)
+ *   npx tsx scripts/publish-sonogong-tab.mts [--apply]                 # 손오공상품(기본)
  *   npx tsx scripts/publish-sonogong-tab.mts --tab=오플구독 [--apply]   # 오플구독(src·srcTab·block 은 NATIVE_MONEY_BLOCK 기본값)
  */
 import { readFileSync } from 'node:fs';
@@ -32,7 +32,7 @@ const APPLY = process.argv.includes('--apply');
 const SHEET = arg('sheet', '1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs');
 const PRODUCTION_F01 = '1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs';
 if (APPLY && SHEET === PRODUCTION_F01) throw new Error('구형 요금 발행기는 운영 F01을 쓸 수 없다. --sheet=<수집 스테이징 시트>를 지정하라.');
-const TAB = arg('tab', '손오공구독');
+const TAB = arg('tab', '손오공상품');
 const NATIVE = (NATIVE_MONEY_BLOCK as Record<string, { src: string; srcTab: string; block: string[]; lead?: NativeLeadColumn } | undefined>)[TAB];
 /** 블록 앞에 두는 파생 칸(오플 「보증금」 = 산출 규칙 글자). */
 const LEAD = NATIVE?.lead;
@@ -49,7 +49,7 @@ const AFTER = arg('after', '60개월');
 const LABEL = BLOCK.map(nativeMoneyLabel);
 const normHead = (h: unknown) => S(h).replace(/\s+/g, '').replace(/km$/i, '').replace(/[()（）]/g, '');
 /** 지울 옛 탭 접두. */
-const LEGACY_TABS = arg('legacy', TAB === '손오공구독' ? '손오공인수형구독' : '').split(',').map(S).filter(Boolean);
+const LEGACY_TABS = arg('legacy', TAB === '손오공상품' ? '손오공인수형구독' : '').split(',').map(S).filter(Boolean);
 /** 원본 시트에서 머리글이 다르게 적힌 경우의 별칭(정규식). */
 const ALIASES: Record<string, RegExp> = {
   '보증금 인수형': /^(장기보증|보증금)\s*인수형$/, '보증금 반납형': /^(장기보증|보증금)\s*반납형$/,
@@ -87,7 +87,7 @@ if (spi < 0) throw new Error(`「${tabTitle}」 머리행에 차량번호가 없
 // 이미 붙어 있던 블록(원본 이름·표시 이름 둘 다)과 — 기본 모드면 — 우리 공통 대여료 블록을 걷어 낸다(재실행 멱등)
 const isBlockCol = (h: string) => BLOCK.some((b) => normHead(b) === normHead(h)) || LABEL.some((b) => normHead(b) === normHead(h)) || (!!LEAD && normHead(LEAD.name) === normHead(h));
 const isStdCol = (h: string) => (STANDARD_MONEY_COLUMNS as readonly string[]).some((c) => normHead(c) === normHead(h));
-// 갈래 탭(손오공구독·픽업구독·오플구독)에선 그 공급사가 안 쓰는 빈 칸을 뺀다 — 상품리스트엔 남긴다(사장님 2026-08-27 「6개월 어정쩡한 거 날려줘」).
+// 갈래 탭(손오공상품·픽업구독·오플구독)에선 그 공급사가 안 쓰는 빈 칸을 뺀다 — 상품리스트엔 남긴다(사장님 2026-08-27 「6개월 어정쩡한 거 날려줘」).
 const 갈래빈칸 = ['6개월'];
 const removed = (h: string) => isBlockCol(h) || (!KEEP_STANDARD && isStdCol(h)) || 갈래빈칸.some((c) => normHead(c) === normHead(h));
 const firstRemoved = shdr0.findIndex(removed);

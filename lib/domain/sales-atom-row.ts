@@ -107,11 +107,11 @@ export async function loadSalesRowContext(deps: SalesRowDeps): Promise<SalesRowC
 export const tabOf = (v: any): string => {
   const prov = S(v.provider_company_code), pt = S(v.product_type);
   if (isPickupPhotoAtom(v)) return '픽업구독';
-  if (prov === 'RP012' && pt.includes('구독')) return '손오공구독';
+  if (prov === 'RP012' && pt.includes('구독')) return '손오공상품';
   if (prov === 'RP023') return '오플구독';
   return '상품리스트';
 };
-export const TAB_ORDER = ['상품리스트', '손오공구독', '픽업구독', '오플구독'] as const;
+export const TAB_ORDER = ['상품리스트', '손오공상품', '픽업구독', '오플구독'] as const;
 
 // ★옵션 정리(사장님 2026-09-04) — 「-」·「.」처럼 텍스트/영문/숫자가 없으면 선택옵션 없음(빈칸).
 const cleanOpt = (s: string): string => /[가-힣A-Za-z0-9]/.test(S(s)) ? S(s) : '';

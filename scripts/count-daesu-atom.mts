@@ -24,11 +24,11 @@ const fs = getFirestore();
 const tabOf = (v: Record<string, unknown>): string => {
   const prov = S(v.provider_company_code), pt = S(v.product_type);
   if (prov === 'RP012' && pt === '픽업구독') return '픽업구독';
-  if (prov === 'RP012' && pt.includes('구독')) return '손오공구독';
+  if (prov === 'RP012' && pt.includes('구독')) return '손오공상품';
   if (prov === 'RP023') return '오플구독';
   return '상품리스트';
 };
-const TABS = ['상품리스트', '손오공구독', '픽업구독', '오플구독'];
+const TABS = ['상품리스트', '손오공상품', '픽업구독', '오플구독'];
 
 const snap = await fs.collection('products').get();
 const bucket: Record<string, { listable: number; 계약중: number }> = {};

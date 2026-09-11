@@ -46,7 +46,7 @@ assert.equal(inventoryCountSnapshot([
 ]).duplicatePlateViolations, 1);
 assert.equal(inventoryCountSnapshot([{ car_number: '차량번호아님1', vehicle_status: '출고불가', listable: false }]).invalidPlateViolations, 1);
 assert.equal(salesPublishedColumns('상품리스트').length, 69);
-for (const tab of ['상품리스트', '손오공구독', '픽업구독', '오플구독']) {
+for (const tab of ['상품리스트', '손오공상품', '픽업구독', '오플구독']) {
   assert.ok(salesPublishedColumns(tab).includes('옵션(원문)'));
   assert.ok(salesPublishedColumns(tab).includes('세부모델'));
 }

@@ -144,7 +144,7 @@ export function importAutoplusTables(opts: AutoplusTablesImportOptions): Autoplu
   const tabResponses = new Map<string, string>();
   assertDistinctSheetTable(tabResponses, opts.mainRaw, `본탭 gid ${opts.mainGid || AUTOPLUS_GID_MAIN}`);
   /**
-   * ★프로모션 탭은 이제 없을 수 있다 — 판매시트 기본 세팅이 탭 3개(상품리스트·손오공구독·오플구독)로 굳었다(사장님 2026-08-19).
+   * ★프로모션 탭은 이제 없을 수 있다 — 판매시트 기본 세팅이 탭 3개(상품리스트·손오공상품·오플구독)로 굳었다(사장님 2026-08-19).
    *   호출 쪽이 같은 탭을 두 번 넘기면(프로모션 자리에 오플구독) «프로모션 없음»으로 읽는다. 서로 다른 탭이면 예전처럼 둘을 합친다.
    */
   const promoSameAsMain = !opts.promoRaw.length
