@@ -58,6 +58,19 @@ export function ShopDetailView({ wl, initial }: {
     try {
       const q = new URLSearchParams({ code: key });
       if (a) q.set('a', a);
+      /*
+       * ★★★**폴백도 «같은 채널»로 묻는다 — 이 줄이 울타리의 넷째 문이다.**
+       *
+       * ⚠⚠ 2026-09-10 개발센터 4AI 검수가 잡고 2026-09-12 운영에서 다시 재현한 구멍이다.
+       *   서버(SSR·메타)는 공급사 울타리를 쳐서 **남의 차를 안 준다**. 그래서 `initial` 이 비고,
+       *   바로 그때 이 폴백이 돌았는데 **채널을 안 실었다.** 문 저쪽은 호스트로 채널을 푸는데
+       *   경로형 채널(`www.freepasserp.com/q/…?wl=eancar`)의 호스트는 우리 도메인이라 «울타리 없음»이 된다.
+       *   ⇒ 실측(2026-09-12 운영) — 이안카 간판과 상담번호 1899-9199 아래 **오토플러스 차(05수4035)**가
+       *     그대로 떴다. 서버는 막았는데 브라우저가 도로 열어젖힌 셈이다.
+       * ★`wl.key` 를 쓴다 — 주소의 `?wl=` 이 아니라 **서버가 이미 판정한 채널**이다.
+       *   도메인이 붙은 채널이면 호스트가 정본이라 같은 값이고, 경로형이면 이 값만이 정본이다.
+       */
+      if (wl.key) q.set('wl', wl.key);
       const res = await fetch(`/api/catalog/quote?${q}`, { cache: 'no-store' });
       const body = await res.json().catch(() => ({})) as { product?: EntityRecord; agent?: EntityRecord | null };
       setP(res.ok && body.product ? body.product : null);

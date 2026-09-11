@@ -70,6 +70,38 @@ if (!feed.includes('guestProviderFence')) {
   hits.push('  app/api/catalog/feed/route.ts\n    guestProviderFence 가 없습니다 — 손님이 준 ?p= 를 그대로 믿고 있습니다\n    → 호스트(+?wl=)로 채널을 풀고 그 채널의 providerCode 를 강제하세요');
 }
 
+/* ── ③′ 브라우저가 다시 묻는 자리도 «채널»을 싣는가 ────────────────────────
+ *
+ * ★★★2026-09-12 운영 재현 — 이 검사가 통과하는데도 구멍이 살아 있었다.
+ *   `/q/RP023_05수4035?wl=eancar` 에서 서버(SSR·메타)는 울타리대로 «안 줬고», 바로 그때 도는
+ *   화면 폴백이 **채널을 안 실어** 물었다. 문 저쪽은 호스트로 채널을 푸는데, 경로형 채널의
+ *   호스트는 우리 도메인이라 «울타리 없음»이 된다 ⇒ **이안카 간판·상담번호 아래 오토플러스 차**가 떴다.
+ * ⚠ 위 ①은 «서버가 부르는 자리»(loadGuestQuote)만 센다. 브라우저가 부르는 자리는 못 본다 —
+ *   그래서 서버만 막고 끝난 줄 알았다. 문을 넷이라 적어 놓고 **다섯째 문**을 못 세고 있었다.
+ * ★규칙은 하나다 — 손님 공개 API 를 «브라우저에서» 부르는 파일은 그 요청에 채널(`wl`)을 싣는다.
+ */
+/*
+ * ⚠⚠ **처음엔 «파일 안에 wl 글자가 있나»로 셌다. 가짜 초록이었다**(2026-09-12 자기시험에서 잡음).
+ *   `ShopDetailView` 에는 「목록으로」 링크를 만드는 `q.set('wl', wlPreview)` 가 «이미» 있어서,
+ *   정작 고쳐야 할 폴백 호출에서 채널을 빼도 검사가 **초록이었다.**
+ *   개발센터 사고 원장의 `INC-FALSE-GREEN`(하루에 거짓 초록 6건)과 같은 종류다.
+ * ⇒ **부르는 자리마다** 본다 — `fetch(`…?${q}`)` 의 그 «질의 변수»가 앞쪽에서 `wl` 을 실었는지.
+ */
+const GUEST_CALL = /fetch\(`\/api\/catalog\/(?:quote|feed)\?\$\{(\w+)\}/g;
+for (const f of [...walk('app'), ...walk('components')]) {
+  const src = readFileSync(join(ROOT, f), 'utf8');
+  if (!src.includes("'use client'") && !src.includes('"use client"')) continue;
+  for (const m of src.matchAll(GUEST_CALL)) {
+    const at = m.index ?? 0;
+    /* 그 질의를 만든 자리 — 같은 함수 안이다. 넉넉히 앞 2,000자만 본다(파일 전체를 보면 또 가짜 초록이 된다). */
+    const before = src.slice(Math.max(0, at - 2000), at);
+    const loaded = new RegExp(`${m[1]}\\.set\\((['"])wl\\1`).test(before);
+    if (loaded) continue;
+    const line = src.slice(0, at).split('\n').length;
+    hits.push(`  ${f}:${line}\n    브라우저가 손님 API 를 부르면서 «채널»을 안 싣습니다 — 경로형 채널에서 울타리가 통째로 풀립니다\n    → 이 질의에 ${m[1]}.set('wl', wl.key) 를 더하세요(서버가 판정한 채널이 정본입니다)`);
+  }
+}
+
 /* ── ③ 판정 규칙이 표 한 곳에 있는가 ─────────────────────────────────── */
 const table = readFileSync(join(ROOT, 'lib/whitelabel.ts'), 'utf8');
 for (const fn of ['channelSellsProduct', 'guestProviderFence']) {
@@ -91,4 +123,5 @@ if (hits.length) {
 }
 console.log('  ✓ 상세를 여는 자리가 모두 공급사를 넘긴다(본문 · 메타 · API)');
 console.log('  ✓ 목록 API 가 서버에서 채널을 판정한다');
+console.log('  ✓ 브라우저가 다시 묻는 자리도 채널을 싣는다(상세 폴백·목록)');
 console.log('  ✓ 판정 규칙이 표 한 곳에 있고, 울타리가 «정제 전»에 선다\n');

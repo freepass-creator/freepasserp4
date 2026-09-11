@@ -44,6 +44,9 @@ export default function Catalog() {
       const q2 = new URLSearchParams();
       if (provider) q2.set('p', provider);
       if (a) q2.set('a', a);
+      /* ★채널 미리보기로 들어왔으면 그 채널로 묻는다 — 서버 울타리가 «채널»로 판정한다(check:fence). */
+      const wlParam = params.get('wl') || '';
+      if (wlParam) q2.set('wl', wlParam);
       const res = await fetch(`/api/catalog/feed?${q2}`, { cache: 'no-store' });
       const body = await res.json().catch(() => ({})) as { products?: EntityRecord[]; brand?: string };
       setRows(res.ok && body.products ? body.products : []);

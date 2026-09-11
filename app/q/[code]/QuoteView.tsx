@@ -39,6 +39,8 @@ export function QuoteView({ wl = FREEPASS }: { wl?: Whitelabel }) {
     try {
       const q = new URLSearchParams({ code: key });
       if (a) q.set('a', a);
+      /* ★채널을 같이 묻는다 — 서버가 판정한 채널(`wl.key`)이 정본이다(`ShopDetailView` 의 그 구멍과 같은 문). */
+      if (wl.key) q.set('wl', wl.key);
       const res = await fetch(`/api/catalog/quote?${q}`, { cache: 'no-store' });
       const body = await res.json().catch(() => ({})) as { product?: EntityRecord; agent?: EntityRecord | null };
       setP(res.ok && body.product ? body.product : null);

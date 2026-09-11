@@ -155,6 +155,13 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
       const only = String(wl.providerCode || '').trim() || String(params.get('p') || '').trim();
       if (only) p.set('p', only);
       if (a) p.set('a', a);
+      /*
+       * ★**목록 문에도 채널을 싣는다** — 서버가 `?p=` 를 믿지 않고 «채널»로 울타리를 치기 때문이다
+       *   (`guestProviderFence`). 안 실으면 경로형 채널에서 서버가 호스트만 보고 「울타리 없음」으로 읽는다.
+       *   지금은 우리가 보내는 `p` 가 그 채널 코드라 결과가 같지만, **판정 근거를 손님이 고칠 수 있는
+       *   값(`p`)에 기대지 않는다** — 상세에서 그 기댐이 실제 구멍이었다(2026-09-12 운영 재현).
+       */
+      if (wl.key) p.set('wl', wl.key);
       const res = await fetch(`/api/catalog/feed?${p}`, { cache: 'no-store' });
       const body = await res.json().catch(() => ({})) as {
         products?: EntityRecord[]; agent?: { name?: string; phone?: string } | null;
