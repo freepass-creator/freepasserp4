@@ -41,6 +41,7 @@ import { mergeRawPhotoEvidence, photoAtomFields } from '../lib/domain/photo-atom
 
 const APPLY = process.argv.includes('--apply');
 const CODE = (process.argv.find((a) => a.startsWith('--code='))?.split('=')[1] || 'RP004').trim();
+const BACKFILL_RAW = process.argv.includes('--backfill-raw');   // 원문.전체만 «아는 차»에 merge — 정제값 안 건드림(사장님 2026-09-11)
 const S = (v: unknown) => String(v ?? '').trim();
 const N = (v: unknown) => S(v).toLowerCase().replace(/\s+/g, '');
 const won = (v: unknown) => { const n = Number(S(v).replace(/[^0-9.]/g, '')); return Number.isFinite(n) && n > 0 ? Math.round(n) : 0; };
@@ -588,6 +589,23 @@ const VARIABLE = process.argv.includes('--variable');
  */
 const STATUS_ONLY = process.argv.includes('--status-only');
 const docId = (car: string) => car.replace(/\s/g, '').replace(/[/#.$[\]]/g, '_');
+
+// ── 원문 backfill — «원문.전체»만 아는 차에 merge(정제값·상태 안 건드림). 사장님 2026-09-11 「추천대로, 지금거부터」 ──
+if (BACKFILL_RAW) {
+  let batch = fs.batch(), n = 0, w = 0, skip = 0;
+  for (const a of now) {
+    const wm = a['원문'] as Record<string, unknown> | undefined;
+    const 전체 = wm?.['전체'] as Record<string, unknown> | undefined;
+    if (!전체 || !Object.keys(전체).length) { skip++; continue; }
+    if (!cur.has(a.car_number)) { skip++; continue; }         // 아는 차만 — 새 차 생성·등록은 --apply 몫
+    batch.set(fs.collection('products').doc(docId(a.car_number)), { 원문: wm, _원문_backfill_at: Date.now() }, { merge: true });
+    w++; n++;
+    if (n >= 400) { await batch.commit(); batch = fs.batch(); n = 0; }
+  }
+  if (n) await batch.commit();
+  console.log(`■ 원문 backfill(${PROV}) — 원문.전체 merge ${w}대 · 건너뜀 ${skip}(원문없음/미등록차)`);
+  process.exit(0);
+}
 /**
  * ★**변동 폴링이 만지는 칸** — 「자주 바뀌는 것」만.
  *   ⚠ 2026-09-08 — 여기에 `vehicle_status` 가 빠져 있었다. 그래서 변동만 돌린 차는 `status` 만 바뀌고
