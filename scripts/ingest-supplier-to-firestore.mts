@@ -228,7 +228,7 @@ const depositNote = (raw: string) => {
 };
 
 // ── 원천 리더 — 종류마다 «우리필드 키 행(Row)»을 낸다. 원자화는 하나로 공유한다. ──────
-type Row = { car: string; link?: string; imageUrls?: unknown; photoCollectedAt?: unknown; status: string; kind: string; maker: string; model: string; vname: string; trim: string; fuel: string; ext: string; int: string; km: string; opt: string; firstReg: string; cc: string; klass: string; price: Price; depNote: string; tab: string; row: string };
+type Row = { car: string; link?: string; imageUrls?: unknown; photoCollectedAt?: unknown; status: string; kind: string; maker: string; model: string; vname: string; trim: string; fuel: string; ext: string; int: string; km: string; opt: string; firstReg: string; cc: string; klass: string; price: Price; depNote: string; tab: string; row: string; raw?: Record<string, unknown> };
 const blank: Omit<Row, 'car' | 'tab' | 'row'> = { status: '', kind: '', maker: '', model: '', vname: '', trim: '', fuel: '', ext: '', int: '', km: '', opt: '', firstReg: '', cc: '', klass: '', price: {}, depNote: '', imageUrls: [], photoCollectedAt: 0 };
 
 // 번호판 꼴만 차로 본다 — 헤더 밑 제목·프로모 배너·빈 행이 «차»로 새는 걸 막는다(오토플러스 실측).
@@ -261,7 +261,7 @@ async function readRows(): Promise<Row[]> {
     for (const [plate, m] of got.rows) {
       const dep = won(g(m, '장기보증')); const price: Price = {};
       for (const [pk, cands] of PERIOD_ALIAS) { for (const c of cands) { const rent = won(g(m, c)); if (rent > 0) { price[pk] = { rent, deposit: dep }; break; } } }
-      push({ car: g(m, '차량번호') || plate, status: g(m, '상태'), kind: g(m, '분류'), maker: g(m, '제조사'), model: g(m, '모델명'), vname: g(m, '차명(세부모델+트림)'), fuel: g(m, '연료'), ext: g(m, '외부색상'), int: g(m, '내부색상'), km: g(m, '주행거리'), opt: g(m, '옵션'), firstReg: g(m, '최초등록일') || g(m, '연식'), cc: g(m, '배기량'), klass: g(m, '분류'), price, tab: 'ironrentcar.com', row: plate });
+      push({ car: g(m, '차량번호') || plate, status: g(m, '상태'), kind: g(m, '분류'), maker: g(m, '제조사'), model: g(m, '모델명'), vname: g(m, '차명(세부모델+트림)'), fuel: g(m, '연료'), ext: g(m, '외부색상'), int: g(m, '내부색상'), km: g(m, '주행거리'), opt: g(m, '옵션'), firstReg: g(m, '최초등록일') || g(m, '연식'), cc: g(m, '배기량'), klass: g(m, '분류'), price, tab: 'ironrentcar.com', row: plate, raw: Object.fromEntries(m) });
     }
     return out;
   }
@@ -330,7 +330,7 @@ async function readRows(): Promise<Row[]> {
        * ⚠ 손오공(SON_NO_KONG)은 유료옵션도 비어 온다 — 그럼 빈 값(원천이 「선택옵션 없음」을 준 것).
        */
       const 선택옵션 = S(c.유료옵션);
-      push({ car, link: 픽업링크.get(N(car)) || '', imageUrls: c.사진들, photoCollectedAt: c.상세시각 || dumpCollectedAt, status, kind, maker: S(c.제조사), model: S(c.모델), vname: S(c.차명) || S(c.세부), fuel: S(c.연료), ext: S(c.외장), int: S(c.내장), km: c.주행거리 == null ? '' : String(c.주행거리), opt: 선택옵션, firstReg: S(c.최초등록) || S(c.연식), cc: c.배기량 == null ? '' : String(c.배기량), klass: '', price, tab: '손오공API', row: S(c.id) });
+      push({ car, link: 픽업링크.get(N(car)) || '', imageUrls: c.사진들, photoCollectedAt: c.상세시각 || dumpCollectedAt, status, kind, maker: S(c.제조사), model: S(c.모델), vname: S(c.차명) || S(c.세부), fuel: S(c.연료), ext: S(c.외장), int: S(c.내장), km: c.주행거리 == null ? '' : String(c.주행거리), opt: 선택옵션, firstReg: S(c.최초등록) || S(c.연식), cc: c.배기량 == null ? '' : String(c.배기량), klass: '', price, tab: '손오공API', row: S(c.id), raw: c as Record<string, unknown> });
     }
     return out;
   }
@@ -413,7 +413,7 @@ async function readRows(): Promise<Row[]> {
       const price = sheetPrice((i) => S(r[i]), ci);
       const depNote = depositNote(ci.dep >= 0 ? S(r[ci.dep]) : '');
       /** ★칸마다 «시트 오류 토큰»을 걷는다(`clean`) — 「#REF!」가 값처럼 실려 상품구분이 된 적이 있다. */
-      push({ car, status: clean(r[ci.status]), kind: ci.kind >= 0 ? clean(r[ci.kind]) : '', maker: maker0, model, vname, trim, fuel: ci.fuel >= 0 ? clean(r[ci.fuel]) : '', ext: ci.ext >= 0 ? clean(r[ci.ext]) : '', int: ci.int >= 0 ? clean(r[ci.int]) : '', km: ci.km >= 0 ? clean(r[ci.km]) : '', opt: ci.opt >= 0 ? clean(r[ci.opt]) : '', firstReg: ci.firstReg >= 0 ? clean(r[ci.firstReg]) : '', cc: ci.cc >= 0 ? clean(r[ci.cc]) : '', klass: ci.klass >= 0 ? clean(r[ci.klass]) : '', price, depNote, tab, row: String(rowNo) });
+      push({ car, status: clean(r[ci.status]), kind: ci.kind >= 0 ? clean(r[ci.kind]) : '', maker: maker0, model, vname, trim, fuel: ci.fuel >= 0 ? clean(r[ci.fuel]) : '', ext: ci.ext >= 0 ? clean(r[ci.ext]) : '', int: ci.int >= 0 ? clean(r[ci.int]) : '', km: ci.km >= 0 ? clean(r[ci.km]) : '', opt: ci.opt >= 0 ? clean(r[ci.opt]) : '', firstReg: ci.firstReg >= 0 ? clean(r[ci.firstReg]) : '', cc: ci.cc >= 0 ? clean(r[ci.cc]) : '', klass: ci.klass >= 0 ? clean(r[ci.klass]) : '', price, depNote, tab, row: String(rowNo), raw: Object.fromEntries(grid.header.map((h, i) => [S(h), S(r[i])]).filter(([k]) => k)) });
     }
   }
   return out;
@@ -484,6 +484,9 @@ function atomize(row: Row, pinned: Map<string, Record<string, unknown>>): Atom {
   //   원자의 트림은 오직 둘 — 마스터 트림 복사, 또는 공란. 공란인 차는 clean-atom-trims 정규화기 뒤 경고 리포트가 뽑는다.
   identity.trim_name = cleanTrim(identity.trim_name, identity.maker, identity.model, identity.sub_model, trimsFor(identity.maker, identity.model, identity.sub_model), baseTrimFor(identity.maker, identity.model, identity.sub_model));
   const rawEvidence = mergeRawPhotoEvidence(pin?.원문, row.imageUrls);
+  // ★렌트사 원문 «통째»를 원자에 박는다 (사장님 2026-09-11) — 정제값과 별도로, 원천 그대로.
+  //   원문.차명·원문.옵션은 정제기(cleanTrim·사진투영)가 쓰는 표준 키라 그대로 두고, 전체행은 원문.전체.
+  if (row.raw && Object.keys(row.raw).length) rawEvidence.전체 = row.raw;
   rawEvidence.차명 = vname;
   if (row.opt) rawEvidence.옵션 = row.opt;
   const atom: Atom = {

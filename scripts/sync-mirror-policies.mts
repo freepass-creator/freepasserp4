@@ -62,7 +62,7 @@ const colA1 = (i: number) => { let s = '', n = i + 1; while (n > 0) { const r = 
 // ── ① 원본 줄 → 정책 필드(줄마다), 같은 조건끼리 접기
 const grid = await call(`${SH}/${FROM}?includeGridData=true&fields=${encodeURIComponent(SHEET_GRID_FIELDS)}`);
 const read = readSupplierSheet(grid as never, { partner_code: CODE } as EntityRecord);
-type Group = { key: string; fields: Rec; tab: Record<string, string>; plates: string[]; sampleTab: string };
+type Group = { key: string; fields: Rec; tab: Record<string, string>; plates: string[]; sampleTab: string; 원문?: Record<string, string> };
 const groups = new Map<string, Group>();
 const plateOrder: string[] = [];
 let rowsSeen = 0, tabsWithPolicy = 0;
@@ -81,7 +81,9 @@ for (const t of read.tabs) {
     rowsSeen++;
     plateOrder.push(plate);
     const key = policySameKey(fields);
-    if (!groups.has(key)) groups.set(key, { key, fields, tab: policyTabRowFrom(fields), plates: [], sampleTab: t.title });
+    // ★렌트사 원문 통째(대표 조건 행) — 정제값과 별도로 원천 그대로 보관(사장님 2026-09-11).
+    const 원문 = Object.fromEntries(hdr.map((h, i) => [S(h), S(r[i])]).filter(([k, v]) => k && v));
+    if (!groups.has(key)) groups.set(key, { key, fields, tab: policyTabRowFrom(fields), plates: [], sampleTab: t.title, 원문 });
     groups.get(key)!.plates.push(plate);
   }
 }
@@ -167,5 +169,17 @@ if (!APPLY) { console.log('※ dry-run. 반영은 --apply'); process.exit(0); }
 await call(`${SH}/${TO}/values/${encodeURIComponent(`'${POLICY_TAB}'!A2:${colA1(Math.max(hdr.length, 1) - 1)}${Math.max(prow.length + assigned.length + 5, 60)}`)}:clear`, { method: 'POST', body: '{}' });
 await call(`${SH}/${TO}/values/${encodeURIComponent(`'${POLICY_TAB}'!A2`)}?valueInputOption=RAW`, { method: 'PUT', body: JSON.stringify({ values: [...keep, ...newRows] }) });
 if (cellWrites.length) await call(`${SH}/${TO}/values:batchUpdate`, { method: 'POST', body: JSON.stringify({ valueInputOption: 'RAW', data: cellWrites }) });
+// ── ⑤ 정책 원자에 «원문 통째» 박기 (정제값은 그대로, 원천을 별도로) — 사장님 2026-09-11
+{
+  const pbatch = firestore.batch();
+  let pn = 0;
+  for (const { code, g } of assigned) {
+    if (!g.원문 || !Object.keys(g.원문).length) continue;
+    pbatch.set(firestore.collection('policy').doc(code), { 원문: g.원문, provider_company_code: CODE, _원문_source: FROM, _원문_at: Date.now() }, { merge: true });
+    pn++;
+  }
+  if (pn) await pbatch.commit();
+  console.log(`  ✓ 정책 원자 원문 ${pn}벌 박음(원천 그대로 · 정제값 불변)`);
+}
 console.log(`  ✓ 「${POLICY_TAB}」 탭 ${keep.length + newRows.length}줄(기존 유지 ${keep.length} + ${CODE} ${newRows.length}) · 재고 정책코드 ${setN}줄`);
 console.log(`  → 이어서: npx tsx scripts/normalize-policy-values.mts --sheet=${TO} --apply`);

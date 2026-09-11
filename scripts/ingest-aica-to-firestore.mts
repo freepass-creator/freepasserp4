@@ -128,7 +128,8 @@ async function ingest(pinned: Map<string, Record<string, unknown>>): Promise<Ato
         // 원자화 메타 + 정밀타격(어디서 왔나)
         확정: confirmed, 검수상태: confirmed ? '확정' : (identity.sub_model ? '검수대기' : (vname ? '매칭실패' : '원문없음')),
         _pin_state: state,
-        원문: { 차명: vname, ...(S(r[ci.opt]) ? { 옵션: S(r[ci.opt]) } : null) },
+        // ★렌트사 원문 통째(사장님 2026-09-11) — 정제값과 별도로 원천 그대로. 차명·옵션은 정제기 표준 키.
+        원문: { 전체: Object.fromEntries(grid.header.map((h, i) => [S(h), S(r[i])]).filter(([k]) => k)), 차명: vname, ...(S(r[ci.opt]) ? { 옵션: S(r[ci.opt]) } : null) },
         provider_company_code: CODE, partner_code: CODE,
         source: 'sheet', source_schema: CODE, sheet_source_tab: tab, sheet_source_row: String(rowNo),
       });
