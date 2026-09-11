@@ -20,7 +20,7 @@ export type CarIndex = { v: number; source: string; data_as_of: string | null; c
 /** 신차 피드 — 모델 하나와 그 트림들. */
 /** 제조사 색상 한 줄 — 이름·코드·값(외장만 값이 붙는다)·고를 수 있나. */
 export type NewColor = { name: string; code?: string; price?: number; ok?: string };
-export type NewTrim = { maker: string; sub_model: string; carType?: string; fuel: string; trim: string; priceBefore: number; priceAfter: number; options?: { name: string; price: number }[]; rules?: string[]; basePrices?: { label: string; price: number }[];
+export type NewTrim = { maker: string; sub_model: string; carType?: string; fuel: string; trim: string; trimKey?: string; priceBefore: number; priceAfter: number; options?: { name: string; price: number }[]; rules?: string[]; basePrices?: { label: string; price: number }[];
   /**
    * ★제조사 «실제» 색상 — 사장님 2026-09-08 「신차마스터에는 **제조사 색상 그대로** 해야지」.
    *   「어비스 블랙 펄」·「클라우드 펄(+30만)」처럼 이름과 값이 제조사 것이다.
@@ -43,6 +43,74 @@ export type NewTrim = { maker: string; sub_model: string; carType?: string; fuel
 export type NewModel = { maker: string; sub_model: string; fuels: string[]; trimCount: number; trims: NewTrim[] };
 
 /** 견적 STEP 1 이 받는 «고른 차 한 대». 중고·신차가 같은 모양으로 온다. */
+/**
+ * ★★★**차량가 «표시» 기준 = `priceBefore` (개별소비세 5% · 제조사 표시가 = 세제혜택 «전»).**
+ *   사장님 2026-09-09 「견적만 제대로 나오게 해 **기준만 있으면** 됩니다」.
+ *
+ * ⚠⚠ **처음에 댄 근거는 틀렸다.** 「후를 쓰면 취득세 감면을 두 번 뺀다」고 적었는데,
+ *   2026-09-09 개발센터 4-AI 관문에서 **실데이터로 반증됐다**:
+ *     · 기아·현대 공식 가격표가 둘 다 「세제혜택 전/후 **판매가격**」이라 인쇄한다.
+ *       판매«가격»에 취득세(등록 단계 세금)가 들어갈 수 없다.
+ *     · 회귀 실측 — 전기 77줄 감면 216만~436만 = 가격의 **4.81~4.94%(비례·절편 0)**,
+ *       하이브리드 35줄 = **정액 1,001,000**(코나부터 그랜저까지 같은 값).
+ *       취득세 감면(한도 140만)이 섞였다면 하이브리드가 140만보다 작을 수 없다.
+ *   ⇒ 「이중차감」이 아니라 **「미차감」**이었다. 우리는 감면을 «어디서도» 빼지 않았다.
+ *
+ * ★그래서 갈랐다 — **표시는 「전」 하나로, 원가에서만 감면을 뺀다.**
+ *   ① 손님이 보는 차량가·옵션·선납·인수 = 「전」 한 기준(제조사 표시가와 같다)
+ *   ② 원가 = 표시 − `saleTaxCredit`(제조사가 준 「전 − 후」) — `calc.js` netPrice 에서 뺀다
+ *   ③ 취득세 감면(`acqTaxCredit` 140만)은 **겹치지 않는 별개**라 그대로 둔다
+ *
+ * ★「전」으로 «표시»하는 근거는 여전히 셋이다:
+ *   ① 옵션값이 「전」 기준(제조사 공식 가격표)이라, 차값만 「후」면 한 견적서에서 기준이 섞인다.
+ *   ② `priceAfter` 의 «출처»가 제조사마다 다르다 — 기아·현대는 제조사 인쇄값이지만
+ *      **제네시스·르노는 `priceAfter = priceBefore` 로 «복사»만 되어 있다**
+ *      (`apply-genesis.mjs:17` · `write-renault-filante.mts:24`). 「후」로 통일하면
+ *      제네시스 전기차만 감면을 통째로 못 받는다. 「전」은 넷 다 뜻이 하나다.
+ *   ③ 피드 정본 — 「모든 가격 = 개별소비세 5% 기준 … 감면은 **받는 쪽에서 적용**」.
+ */
+export const trimPrice = (t: { priceBefore?: number; priceAfter?: number } | null | undefined): number =>
+  Number(t?.priceBefore) || Number(t?.priceAfter) || 0;
+
+/** 그 값이 «어느 기준»인가 — 손님 견적서가 이 말을 적는다. */
+export const trimBasis = (t: { priceBefore?: number; priceAfter?: number; priceBasis?: string } | null | undefined): string =>
+  /* ★피드가 «말해 준» 기준이 있으면 그것이 이긴다 — 「기준 미확인」을 우리가 「전/후」로
+     뭉개면 «모른다»가 «안다»로 바뀐다(2026-09-10 · 독립 Claude D). */
+  String(t?.priceBasis ?? '').trim() || (Number(t?.priceBefore) ? '세제혜택 전' : (Number(t?.priceAfter) ? '세제혜택 후' : ''));
+
+/**
+ * ★★**판매가격 세제감면**(개별소비세·교육세) = 제조사가 준 「전 − 후」.
+ *   손님에게 보이는 차량가는 「전」(한 기준)으로 두고, **원가에서만** 이 값을 뺀다.
+ *   ⇒ 화면의 기준은 하나로 유지되면서, 원가는 실제 매입가를 따른다.
+ * ⚠ 짐작하지 않는다 — 법정 한도를 우리가 계산하지 않고 제조사가 인쇄한 두 값의 차를 쓴다.
+ * ⚠ 「후」가 「전」과 같거나(제네시스·르노는 후=전으로 실린다) 크면 **0** 이다. 지어내지 않는다.
+ */
+export const trimSaleTaxCredit = (t: { priceBefore?: number; priceAfter?: number } | null | undefined): number => {
+  const before = Number(t?.priceBefore) || 0; const after = Number(t?.priceAfter) || 0;
+  return before > 0 && after > 0 && before > after ? before - after : 0;
+};
+/**
+ * ★★**감면이 «비례»인가 «정액»인가** — 제조사가 그렇게 계산한다.
+ *
+ * ⚠⚠ 2026-09-10 개발센터 4-AI 관문 · Codex 5회차가 **제네시스 공식 구성기와 대조해** 잡았다.
+ *   GV70 전동화 추천 구성 — 공식 **78,600,000원**. 우리는 **78,750,000원**(+15만).
+ *   까닭: 감면을 «차값에만» 붙이고 **옵션에는 안 붙였다.**
+ *     차값에만  79,740,000 + 2,950,000 − 3,940,000 = 78,750,000   ← 15만 높다
+ *     비례로    (79,740,000 + 2,950,000) × (1 − 4.941%) = 78,604,239 ≈ 공식
+ *
+ * ★실데이터가 갈래를 말해 준다(2026-09-09 회귀):
+ *     **전기** 77줄 — 가격의 4.81~4.94%(**비례**·절편 0)
+ *     **하이브리드** 35줄 — **정액 1,001,000**(코나부터 그랜저까지 같은 값)
+ *   ⇒ 전기는 옵션까지 «비례»로, 하이브리드는 «정액»으로 둔다.
+ * ⚠ 그 밖의 연료는 감면이 0 이라 갈래가 필요 없다.
+ */
+export const trimSaleTaxRate = (t: { priceBefore?: number; priceAfter?: number } | null | undefined): number => {
+  const before = Number(t?.priceBefore) || 0;
+  const credit = trimSaleTaxCredit(t);
+  return before > 0 && credit > 0 ? credit / before : 0;
+};
+
+
 export type PickedCar = {
   source: 'used' | 'new';
   /** 화면 첫 줄 — 「현대 그랜저 GN11 · 캘리그래피」 */
@@ -54,6 +122,12 @@ export type PickedCar = {
   fuel: EngineFuel; cc: number | null;
   /** 신차만 자동으로 찬다(공표가 + 고른 옵션). 중고 시세는 마스터에 없어 사람이 넣는다. */
   price?: number;
+  /** ★그 값이 «어느 기준»인가 — 신차는 「세제혜택 전」(개소세 5%)이 정본. 비면 「후」로 물러선 줄이다. */
+  priceBasis?: string;
+  /** ★판매가격 세제감면(개소세·교육세) — 제조사 「전−후」. **원가에서만** 뺀다. 손님 표시가는 「전」 그대로. */
+  saleTaxCredit?: number;
+  /** ★그 감면의 «비율» — 전기차는 옵션까지 비례로 붙는다(제조사 공식 구성기 대조). */
+  saleTaxRate?: number;
   /** 신차 — 고른 옵션과 조합규칙(있으면). */
   options?: { name: string; price: number }[];
   rules?: string[];
@@ -226,7 +300,7 @@ export function guessMarketPrice(models: NewModel[] | null, maker: string, model
     trims = byBoth.length ? byBoth : (byFuel.length ? byFuel : trims);
   }
   // 남은 것이 여럿이면 **가운데 값** — 최저트림은 너무 싸고 최고트림은 너무 비싸다.
-  const prices = trims.map((t) => Number(t.priceAfter) || Number(t.priceBefore) || 0)
+  const prices = trims.map(trimPrice)
     .filter((n) => n > 0).sort((a, b) => a - b);
   if (!prices.length) return 0;
   const mid = prices[Math.floor(prices.length / 2)];
@@ -301,7 +375,11 @@ export function pickNew(m: NewModel, t: NewTrim, chosen: { name: string; price: 
     // ★잔가 델타는 «모델» 이름으로 되짚는다 — 한글 이름이 있어야 표(residual-delta)와 맞는다.
     maker: m.maker, model: label, subModel: label, trim: t.trim, powertrain: t.fuel,
     fuel: engineFuel(t.fuel), cc,   // 없으면 null → 화면이 배기량을 묻는다(위 `guessCc` 주석)
-    price: (Number(t.priceAfter) || Number(t.priceBefore) || 0) + optSum,
+    /* ★값은 «문»으로만 꺼낸다 — 기준 설명은 `trimPrice` 에 있다. */
+    price: trimPrice(t) + optSum,
+    priceBasis: trimBasis(t),
+    saleTaxCredit: trimSaleTaxCredit(t),
+    saleTaxRate: trimSaleTaxRate(t),
     options: chosen,
     rules: t.rules,
     newTrim: t,

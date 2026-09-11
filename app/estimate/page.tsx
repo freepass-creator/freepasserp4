@@ -362,6 +362,9 @@ function EstimatePageInner() {
     optionExcludes: picked.newTrim?.optionExcludes,
     availableOptions: picked.newTrim?.availableOptions,
     impliedOptions: picked.newTrim?.impliedOptions,
+    /* ★★**트림 열쇠를 «넘겨야»** 트림별 선행이 선다. 규칙만 옮기고 여기를 빼먹으면
+       옮긴 것이 아무 일도 안 한다 — 이 세션에서 그 실수를 세 번 했다(2026-09-10). */
+    trimKey: picked.newTrim?.trimKey,
   }), [picked]);
   const ruled = hasRules(optSpec);
   /** 규칙판에서 고른 것들 — 이름이 아니라 «옵션 id» 다. */
@@ -414,6 +417,34 @@ function EstimatePageInner() {
   /* ★신차 차량가 = «트림값 + 고른 옵션». 옵션을 밖에서 고르므로 더하는 일은 화면 몫이다. */
   const listPrice = isNew ? (picked.price ?? 0) + optSum + colorAdd : usedPrice;
   const price = Math.round(listPrice * (1 - disc / 100));
+  /**
+   * ★★**판매가격 세제감면**(개소세·교육세) — 제조사가 준 「세제혜택 전 − 후」.
+   *   손님 표시가(`price`)는 「전」 그대로 두고, **돈이 도는 값**은 감면 후(`netPrice`)로 잇는다.
+   *   ⚠ 안 이으면 또 갈린다 — 보증금은 엔진이 감면 후로 세는데 선납·인수는 표시가로 세어,
+   *     손님이 「차량가 × 인수율」을 두드리면 안 맞는다(2026-09-09).
+   *   ⚠ 할인율만큼 감면도 같이 줄인다 — 할인된 차의 감면은 그 값 기준이다.
+   */
+  /* ★★**감면은 옵션에도 붙는다** — 제조사 공식 구성기가 그렇게 계산한다
+     (GV70 전동화 추천 구성: 공식 78,600,000 · 차값에만 붙이면 78,750,000 = **15만 높다**).
+     ⚠ 전기는 «비례»(가격의 4.81~4.94% · 실데이터 77줄) · 하이브리드는 «정액»(1,001,000 · 35줄).
+       그래서 갈래를 나눈다 — 비례면 `price`(옵션·할인 다 들어간 값)에 곱하고,
+       정액이면 할인율만큼만 줄인다. */
+  const taxCredit = !isNew || listPrice <= 0 ? 0
+    : picked.fuel === 'ev'
+      ? Math.round(price * (picked.saleTaxRate ?? 0))
+      : Math.round((picked.saleTaxCredit ?? 0) * (price / listPrice));
+  /** 돈이 도는 값 — 보증금·선납·인수·원가가 다 이 위에 선다.
+   *  ⚠⚠ **화면과 견적서가 «같은 값»을 써야 한다.** 2026-09-09 에 견적서만 여기로 옮기고
+   *    화면 카드(선납·만기인수·손익)를 `price` 로 남겨, 한 견적에서 인수가가 **239만** 갈렸다
+   *    (EV9 48개월 · 개발센터 4-AI 관문 Codex 발견 1·2). 세 자리를 한꺼번에 옮긴다. */
+  /* ⚠⚠ **엔진이 딛는 값과 «똑같아야» 한다.** `calc.js` 의 netPrice 는
+       `price − 전기차보조금 − 판매가격세제감면` 이고, 보증금이 그 위에서 나온다.
+       화면이 보조금을 안 빼면 보증금만 엔진 기준, 선납·인수는 화면 기준이 되어 또 갈린다
+       (2026-09-10 개발센터 4-AI 관문 · Codex 발견 1 — 선납금이 412,000원 어긋나 월납이 9,000원 낮았다). */
+  /* ★★**보조금은 «우리» 돈이라 손님 기준에서 빼지 않는다**(사장님 2026-09-10).
+     원가 쪽은 엔진이 `evSubsidy` 로 따로 빼고 있다(`calc.js` netPrice) — 여기 손대지 않는다.
+     ⚠ 되돌리려면 아래 줄에 `- evSub` 를 더하면 된다(그러면 EV 만기인수가 348만 내려간다). */
+  const netPrice = Math.max(0, price - taxCredit);
   const age = isNew ? 0 : Math.max(0, nowYear - (usedYear || nowYear));
   const cc = picked.cc ?? (manualCc || null);
   const needCc = !picked.cc;
@@ -463,12 +494,18 @@ function EstimatePageInner() {
       form: {
         price, cc, fuel: picked.fuel, accident: 'none',
         mileage: isNew ? 0 : usedMileage, year: isNew ? nowYear : usedYear, credit,
+        /* ★판매가격 세제감면(개소세·교육세) — 손님 표시가는 「세제혜택 전」 그대로 두고
+           **원가에서만** 뺀다. 할인율만큼 감면도 같이 줄인다(할인된 차의 감면은 그 값 기준이다). */
+        saleTaxCredit: taxCredit,
+        /* 선납금은 화면이 보여 준 그 값으로 — 엔진이 다시 세지 않는다. */
+        netPrice,
       },
       conditions: { depositPct: d, prepayPct: p },
       residual: null, residualDefault, credit, defaultGroup: 'B', nowYear,
     });
     return { ...safeComputeTerm(t, input, { idx: t }), term: t };
-  }, [ch, type, price, isNew, credit, fee, residPct, nowYear, cost, cc, picked.fuel, usedMileage, usedYear, acq]);
+  }, [ch, type, price, listPrice, isNew, credit, fee, residPct, nowYear, cost, cc,
+    picked.fuel, picked.saleTaxCredit, usedMileage, usedYear, acq]);
 
   /**
    * ★다섯 해가 «각자 제 조건»으로 선다 — 이 한 벌이 화면의 전부다.
@@ -503,7 +540,14 @@ function EstimatePageInner() {
     carName: picked.maker && picked.name.startsWith(`${picked.maker} `)
       ? picked.name.slice(picked.maker.length + 1) : picked.name,
     carSub: [picked.powertrain, picked.trim].filter(Boolean).join(' · '),
-    price: listPrice,
+    /* ★★**견적서 안에서 기준이 하나여야 한다**(사장님 2026-09-09 「견적만 제대로 나오게 해 기준만
+       있으면 됩니다」). 예전에는 차량가만 «할인 전»(listPrice)이고 선납·인수는 «할인 후»(price)라,
+       손님이 「차량가 × 인수율」을 손으로 계산하면 우리 숫자와 안 맞았다. 둘 다 «할인 후»로 맞춘다 —
+       실제로 그 값에 차를 드리는 것이므로 손님 쪽 기준도 그것이다. */
+    price,
+    priceBasis: picked.priceBasis,
+    saleTaxCredit: taxCredit,
+    netPrice,
     channel: CHANNELS.find((c) => c.v === ch)!.label,
     endType: TYPES.find((t) => t.v === type)!.label,
     credit,
@@ -516,18 +560,32 @@ function EstimatePageInner() {
       return {
         term: x.term,
         pay: Math.round(c?.payVat || 0),
-        depositPct: x.dep, deposit: Math.round(c?.deposit || 0),
-        prepayPct: x.pre, prepay: Math.round(price * x.pre / 100),
-        buyoutPct: buyoutPct[x.term], buyout: Math.round(price * buyoutPct[x.term] / 100),
+        /* ★★보증금은 «%»가 아니라 «월납 배수»로 정해질 수 있다(`resolveDeposit` · 기준기간 월납 × 배수).
+           그때는 세 기간이 다 같은 금액이 되고, 「10%」라는 딱지는 **손님에게 거짓말**이 된다
+           (EV9 실측: 적용가 7,917만인데 「보증금 10% · 525만」 — 실제로는 6.6% · 2026-09-09 화면에서 발견).
+           ⇒ 딱지는 «금액에서 되짚어» 붙인다. 화면 입력값을 그대로 인쇄하지 않는다. */
+        depositPct: netPrice > 0
+          ? Math.round((Math.round(c?.deposit || 0) / netPrice) * 1000) / 10 : x.dep,
+        deposit: Math.round(c?.deposit || 0),
+        prepayPct: x.pre, prepay: Math.round(netPrice * x.pre / 100),
+        buyoutPct: buyoutPct[x.term], buyout: Math.round(netPrice * buyoutPct[x.term] / 100),
       };
     }),
-  }), [custName, staffName, staffTel, picked, listPrice, ch, type, credit, colorExt, colorInt, optChosen, scen, lines, price, buyoutPct]);
+    /* ⚠ `optIds`·`ruled`·`optSpec` 이 빠져 있었다 — 규칙판에서 옵션을 갈아도 견적서가
+       «지난 옵션»을 실었다(2026-09-09 검수). 화면과 문서가 갈리면 문서가 이긴다(손님이 그걸 본다). */
+  }), [custName, staffName, staffTel, picked, ch, type, credit, colorExt, colorInt,
+    ruled, optIds, optSpec, optChosen, scen, lines, price, taxCredit, netPrice, buyoutPct]);
 
-  const prepayAmt = Math.round(price * pre / 100);
-  const vehTag = listPrice ? `${man(listPrice)}원` : '차를 고르세요';
+  const prepayAmt = Math.round(netPrice * pre / 100);
+  /* ★차량가는 «세 자리»에 뜬다 — 폰 고정요약 · 웹 딱지 · 손님 견적서. 셋이 같은 값이어야 한다
+     (사장님 2026-09-09 「기준만 있으면 됩니다」). 그래서 다 «할인 후»(price)로 맞춘다. */
+  const vehTag = price ? `${man(price)}원` : '차를 고르세요';
   const vMeta = isNew
     ? [picked.meta, (ruled ? optIds.size : optChosen.length) ? `옵션 ${ruled ? optIds.size : optChosen.length}개 +${man(optSum)}` : null,
-      listPrice ? `차량가 ${man(listPrice)}` : null].filter(Boolean).join(' · ')
+      /* ⚠ 여기만 «할인 전»(listPrice)이라, 매입할인을 넣으면 폰 고정요약 한 카드에
+         「차량가 8,329만」과 딱지 「7,496만」이 나란히 떴다(2026-09-10 독립 Claude 발견 3).
+         주석은 「다 할인 후로 맞춘다」고 적어 놓고 한 줄이 빠져 있었다 — 주석은 증거가 아니다. */
+      price ? `차량가 ${man(price)}` : null].filter(Boolean).join(' · ')
     : [picked.meta, `시세 ${man(usedPrice)}`, `${usedYear}년`, `${usedMileage.toLocaleString('ko-KR')}km`,
       ACQ.find((a) => a.v === acq)!.label].filter(Boolean).join(' · ');
 
@@ -745,7 +803,7 @@ function EstimatePageInner() {
     <div className="qgrid">
       {scen.map((sc, i) => {
         const c = lines[i];
-        const v = pnl(c, Math.round(price * sc.pre / 100));
+        const v = pnl(c, Math.round(netPrice * sc.pre / 100));
         const cogs = v.rev - v.opProfit;
         const isOpen = openTerm === sc.term;
         return (
@@ -779,7 +837,7 @@ function EstimatePageInner() {
             </div>
 
             <div className="term-card__row"><span>보증금</span><b>{man(c.deposit || 0)}</b></div>
-            <div className="term-card__row"><span>선납금</span><b>{man(Math.round(price * sc.pre / 100))}</b></div>
+            <div className="term-card__row"><span>선납금</span><b>{man(Math.round(netPrice * sc.pre / 100))}</b></div>
             {/* ★★잔가 둘 — 사장님 2026-09-08 「그 **해당 기간에 잔가를 직접 넣을 수 있게끔**」
                    「잔가는 내부에서 **견적용 잔가와 손님 인수용 잔가가 2개**가 있음」
                 · 견적 잔가 = **대여료를 만드는** 값(낮출수록 월납이 올라간다)
@@ -804,7 +862,7 @@ function EstimatePageInner() {
             </div>
             <div className="term-card__row">
               <span>만기인수</span>
-              <b>{priceKnown ? man(Math.round(price * buyoutPct[sc.term] / 100)) : '—'}</b>
+              <b>{priceKnown ? man(Math.round(netPrice * buyoutPct[sc.term] / 100)) : '—'}</b>
             </div>
 
             {/* 수익·원가 — 이 칸의 «장부» 세 줄. 뺄셈이 눈으로 맞는다(매출 − 원가 = 영업이익). */}
@@ -871,11 +929,11 @@ function EstimatePageInner() {
       .filter((c) => c && c.payVat)
       .sort((a, b) => (a!.payVat || 0) - (b!.payVat || 0))[0];
     return {
-      carName: picked.name, carMeta: vMeta, price: listPrice,
+      carName: picked.name, carMeta: vMeta, price,
       monthly: priceKnown ? Math.round(cheapest?.payVat || 0) : 0,
       term: cheapest?.term ?? 0,
     };
-  }, [scen, lines, picked, vMeta, listPrice, priceKnown]);
+  }, [scen, lines, picked, vMeta, price, priceKnown]);
 
   if (mobile) {
     return (
@@ -1039,7 +1097,7 @@ function EstimatePageInner() {
       {/* 왼쪽은 이제 캐스케이드다. 이 시트는 **이름을 알 때 한 번에 가는 길**(폰 하단 「검색」 탭)로만 뜬다 —
           왼쪽에 박아 두면 그게 굵어진다(사장님 2026-09-08 「저렇게 굵을 필요 없고」).
           ⚠ 웹에서는 부르는 자리가 없다 — 하단바가 없기 때문이다. 왼쪽 넷으로 고른다. */}
-      <CarPicker open={pickerOpen} optionsOutside mode={cond} onClose={() => setPickerOpen(false)}
+      <CarPicker open={pickerOpen} mode={cond} onClose={() => setPickerOpen(false)}
         onPick={(c) => { setPicked(c); if (c.source === 'new') { setUsedMileage(0); setUsedYear(nowYear); } }} />
 
     </div>

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { basisOf, genesisConfig, modelKey } from '@/lib/domain/estimate/genesis-lineup';
 import { getFirestore } from 'firebase-admin/firestore';
 import { firebaseAdminApp } from '@/lib/server/firebase-admin';
 import { readFileSync } from 'node:fs';
@@ -12,19 +13,28 @@ function localTrimsFallback(): any[] {
   try {
     const gen = JSON.parse(readFileSync(join(process.cwd(), 'data/new-car/genesis-config-fs.json'), 'utf8'));
     for (const m of gen.models || []) {
-      const mm = m.minMax || {};
-      const min = mm.min ?? m.base;
+      /* ⚠⚠ 예전 주석은 「제네시스 min 은 세제혜택 «전»이다」였다. **틀렸다.**
+         정본이 G80-EV 를 「세제혜택 «후» 최저」라 적어 두었는데 그걸 「전」이라 이름 붙여 내보냈다
+         (2026-09-09 개발센터 4-AI 관문 · Codex). 주석은 증거가 아니다 — 데이터가 말하게 한다. */
+      const b = basisOf(m as Parameters<typeof basisOf>[0]);
       out.push({ maker: '제네시스', sub_model: String(m.model || ''), carType: String(m.model || ''), fuel: String(m.fuel || ''),
-        trim: '기본', priceBefore: Number(min || 0), priceAfter: Number(min || 0), options: [], _fallback: true });
+        trim: '기본',
+        /* 「후」로 확인된 것만 `priceAfter` 로 보낸다. 「기준 미확인」은 «전으로 단정하지 않고»
+           값을 `priceBefore` 에 두되 `priceBasis` 로 **모른다고 말한다**. */
+        priceBefore: b.basis === '세제혜택 후' ? 0 : b.price,
+        priceAfter: b.basis === '세제혜택 후' ? b.price : 0,
+        priceBasis: b.basis, options: [], _fallback: true });
     }
   } catch { /* skip */ }
   try {
     const hk = JSON.parse(readFileSync(join(process.cwd(), 'data/new-car/hk-config.json'), 'utf8'));
     for (const m of hk.models || []) {
       for (const t of m.trimLadder || []) {
+        /* ⚠ `hk-config` 의 trimLadder 는 **세제혜택 «후»** 값만 있다(`_meta` 가 그렇게 적어 둔다).
+           그것을 `priceBefore` 에도 적으면 「전」을 지어내는 것이다 — 「모른다」로 둔다(0). */
         out.push({ maker: String(m.maker || ''), sub_model: String(m.sub_model || ''), carType: String(m.sub_model || ''),
-          fuel: String(t.fuel || ''), trim: String(t.trim || ''), priceBefore: Number(t.priceAfter || 0), priceAfter: Number(t.priceAfter || 0),
-          options: [], _fallback: true });
+          fuel: String(t.fuel || ''), trim: String(t.trim || ''), priceBefore: 0, priceAfter: Number(t.priceAfter || 0),
+          priceBasis: '세제혜택 후', options: [], _fallback: true });
       }
     }
   } catch { /* skip */ }
@@ -66,6 +76,62 @@ export function OPTIONS() {
 
 const MAKERS = ['현대', '기아', '제네시스', '르노'];
 
+/**
+ * 제네시스 한 줄의 «가격 기준» — 조합지도(`genesis-config-fs.json`)가 말해 준다.
+ * ⚠ 못 찾으면 «비운다». 「전」이라 단정하지 않는다 — 모르는 것을 안다고 하면 손님 문서가 거짓말한다.
+ */
+function genesisBasis(subModel: string): string {
+  try {
+    const cfg = genesisConfig(process.cwd());
+    const m = cfg.get(modelKey(subModel));
+    return m ? basisOf(m as Parameters<typeof basisOf>[0]).basis : '';
+  } catch { return ''; }
+}
+
+/**
+ * ★★★제네시스 한 줄의 «전 / 후»를 조합지도와 맞대 바로잡는다.
+ *
+ * ⚠⚠ 2026-09-10 개발센터 4-AI 관문 · Codex 5회차 — **제조사 공식 구성기와 대조해 잡았다.**
+ *   GV70 전동화: 제네시스 공식이 **세제전 79,740,000 · 세제후 75,800,000** 인데,
+ *   우리 Firestore 는 `priceBefore = 75,800,000`(= «후» 값)을 싣고 있었다.
+ *   그 위에 «전» 기준 옵션값을 그대로 더해 **추천 구성이 15만원 높게** 나갔다
+ *   (78,750,000 vs 공식 78,600,000).
+ *
+ * ★조합지도는 «전» 값을 갖고 있다(`min = 79,740,000` · 코덱스 PDF 독립검증 확정).
+ *   ⇒ **조합지도 값이 더 크면 그것이 「전」이고, 실린 값이 「후」다.** 두 값을 짝지어 낸다.
+ * ⚠ 같거나 작으면 손대지 않는다 — 지어내지 않는다.
+ */
+function genesisPrices(subModel: string, before: number, after: number):
+Record<string, unknown> {
+  const basis = genesisBasis(subModel);
+  try {
+    const m = genesisConfig(process.cwd()).get(modelKey(subModel));
+    const cfgPrice = m ? basisOf(m as Parameters<typeof basisOf>[0]).price : 0;
+    if (cfgPrice > 0 && before > 0 && cfgPrice > before) {
+      return { priceBefore: cfgPrice, priceAfter: before, priceBasis: '세제혜택 전' };
+    }
+  } catch { /* 못 읽으면 손대지 않는다 */ }
+  return { ...(after > 0 && after < before ? {} : {}), ...(basis ? { priceBasis: basis } : {}) };
+}
+
+/**
+ * ★★★**파워트레인 이름에 «인승·구동»을 얹는다** — 원본이 그렇게 둔다(「가솔린 2.5 터보 **9인승**」).
+ *
+ * ⚠⚠ 사장님 2026-09-11 「팰리세이드 인승 이거 **파워트레인에서 구분** 찍고 가야지」.
+ *   맞다. 우리는 인승을 `body`(「7인승」)에, 구동을 `sourceName`(「… 4WD …」)에 갖고 있으면서
+ *   **피드에서 통째로 버리고** 있었다. 그래서:
+ *     · 화면 파워트레인 칸에 「가솔린 2.5」가 **여덟 번** 겹쳐 뜨고
+ *     · 팰리세이드 익스클루시브가 우리 4줄 ↔ 원본 2개로 «갈려» 원본 규칙이 하나도 안 붙었다
+ *     · 값이 다른 줄(7인승 4,610만 · 9인승 4,478만)을 손님이 구별할 수 없었다
+ * ⇒ 「가솔린 2.5 · 7인승 · 4WD」처럼 **한 줄에 다 적는다.** 고르는 축이 곧 값을 가르는 축이다.
+ * ⚠ 없는 것은 안 적는다 — 인승이 하나뿐인 차에 「5인승」을 붙이면 되레 시끄럽다.
+ */
+function powertrainLabel(fuel: string, body: string, sourceName: string): string {
+  const seat = /(\d{1,2}\s*인승)/.exec(S(body))?.[1]?.replace(/\s+/g, '') ?? '';
+  const drive = /(2WD|4WD|AWD|HTRAC)/i.exec(S(sourceName))?.[1] ?? '';
+  return [S(fuel), seat, drive].filter(Boolean).join(' · ');
+}
+
 export async function GET(request: Request): Promise<Response> {
   const url = new URL(request.url);
   const maker = S(url.searchParams.get('maker'));
@@ -80,8 +146,21 @@ export async function GET(request: Request): Promise<Response> {
     let trims = snap.docs.map((d) => {
       const v = d.data();
       return {
-        maker: S(v.maker), sub_model: S(v.sub_model), carType: S(v.carType), fuel: S(v.fuel),
+        /* ★★★**줄마다 제 id 를 준다.** 없으면 「제조사·세부모델·연료·트림」 네 칸으로 줄을 가리켜야 하는데,
+           그 네 칸은 **유일하지 않다** — 447줄이 298개로 뭉갠다(스타리아 Modern 이 9인승·11인승
+           세 줄인데 하나로 취급됐다 · 2026-09-10 실측). 그래서 원본 대응표도, 옵션 붙이기도
+           **엉뚱한 줄에 걸렸다.** id 는 Firestore 문서 열쇠(= 제조사 판매모델코드)다. */
+        id: S(d.id),
+        maker: S(v.maker), sub_model: S(v.sub_model), carType: S(v.carType),
+        fuel: powertrainLabel(S(v.fuel), S(v.body), S(v.sourceName)),
+        /* 원래 연료말도 같이 준다 — 규칙 맞대기·세제 갈래는 이것으로 본다(꾸민 이름이 아니라). */
+        fuelRaw: S(v.fuel),
         trim: S(v.trim), priceBefore: Number(v.priceBefore || 0), priceAfter: Number(v.priceAfter || 0),
+        /* ★★**기준 이름은 정상 경로에도 붙여야 한다.** 폴백에만 붙였더니 Firestore 가 살아 있을 때
+           제네시스 EV(전 = 후 = 84,790,000)가 손님 문서에 **「세제혜택 전」이라 찍혔다** —
+           정본은 「후」다(2026-09-10 개발센터 4-AI 관문 · Codex 발견 2).
+           ⚠ 제네시스는 `priceAfter` 가 «복사»라 전=후다. 그 값의 «뜻»은 조합지도가 안다. */
+        ...(S(v.maker) === '제네시스' ? genesisPrices(S(v.sub_model), Number(v.priceBefore || 0), Number(v.priceAfter || 0)) : {}),
         options: Array.isArray(v.options) ? v.options : [],
         /* ★★제조사 «실제» 색상 — 사장님 2026-09-08 「신차마스터에는 **제조사 색상 그대로** 해야지」
              「**중고마스터 색상과 신차마스터 색상은 각각 존재**해야 함」.
@@ -96,8 +175,16 @@ export async function GET(request: Request): Promise<Response> {
         ...(v.optionsMaster && Object.keys(v.optionsMaster).length ? { optionsMaster: v.optionsMaster } : {}),
         ...(Array.isArray(v.exclusiveGroups) && v.exclusiveGroups.length ? { exclusiveGroups: v.exclusiveGroups } : {}),
         ...(v.optionExcludes && Object.keys(v.optionExcludes).length ? { optionExcludes: v.optionExcludes } : {}),
-        ...(Array.isArray(v.availableOptions) && v.availableOptions.length ? { availableOptions: v.availableOptions } : {}),
-        ...(Array.isArray(v.impliedOptions) && v.impliedOptions.length ? { impliedOptions: v.impliedOptions } : {}),
+        /* ★★★**빈 배열을 «버리지» 않는다.** 「빈 배열 = 고를 것이 없다」와 「칸이 없다 = 못 받았다」는
+           다른 말인데, `&& .length` 가 빈 배열을 통째로 떨궈 소비자가 「못 받았다」로 읽었다.
+           그러면 `optionList` 가 폴백으로 **옵션 «전부»를 연다** — 그 트림에 없는 것을 판다.
+           ⚠⚠ 2026-09-09 개발센터 4-AI 관문에서 **Codex 가 잡았다**(EMPTY_AVAIL 재현).
+             나는 «만드는 쪽»(크롤러)과 «쓰는 쪽»(option-rules)을 다 막아 놓고
+             **그 사이 파이프**를 안 막아, 방어가 통째로 무력화돼 있었다. */
+        ...(Array.isArray(v.availableOptions) ? { availableOptions: v.availableOptions } : {}),
+        ...(Array.isArray(v.impliedOptions) ? { impliedOptions: v.impliedOptions } : {}),
+        /* ★트림 열쇠 — `requiresInTrim` 을 고르는 데 쓴다. 안 보내면 트림별 선행이 안 선다. */
+        ...(S(v.trimKey) ? { trimKey: S(v.trimKey) } : {}),
       };
     });
     // ★Firestore 가 비면(배포 키 문제 등) 로컬 config 로 폴백 — 견적기가 빈값 안 받게

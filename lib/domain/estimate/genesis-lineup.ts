@@ -27,7 +27,50 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { canonFuel } from '@/lib/domain/estimate/newcar-normalize';
 
-export type LineupRow = { fuel: string; trim: string; price: number };
+/**
+ * ★★★**제네시스 `base` 의 «기준»은 모델마다 다르다.** 정본이 그렇게 적혀 있다.
+ *   `genesis-config-fs.json` 실측(2026-09-09):
+ *     G80-EV  minConfig 「**세제혜택 후** 최저(…개소세5%)」 · variants{「세제전」: 89,080,000}
+ *     GV60    variants{「스탠2WD **세제후**」: 64,900,000, 「스탠AWD **세제전**」: 72,080,000}
+ *     GV70-EV variants 없음 — **기준 미확인**
+ *     내연(G70·G80·G90·GV70·GV80) — 「세제전」 표시 없음. 피드 정본의 「모든 가격 = 개소세 5%」를 따른다.
+ *
+ * ⚠⚠ 2026-09-09 개발센터 4-AI 관문에서 **Codex 가 잡았다.** 피드 폴백이 이 `base` 를
+ *   무조건 `priceBefore` 에 넣고 **「세제혜택 전」이라고 이름 붙이고** 있었다 —
+ *   G80-EV 는 84,790,000(후)을 「전」이라 말했다. **금액의 기준 자체를 잘못 설명한 것**이다.
+ *   코드 주석까지 「제네시스 min 은 세제혜택 전이다」라고 반대로 적혀 있었다. 주석은 증거가 아니다.
+ *
+ * ⇒ 「전」이 있으면 그것을 쓰고, 없으면 **「후」라고 말한다.** 모르면 「미확인」이라고 말한다.
+ *   지어내지 않는다.
+ */
+export type GenesisBasis = { price: number; basis: '세제혜택 전' | '세제혜택 후' | '기준 미확인' };
+
+export function basisOf(m: { model?: string; fuel?: string; base?: number; minMax?: { min?: number; minConfig?: string; variants?: Record<string, unknown> } }): GenesisBasis {
+  const mm = m.minMax ?? {};
+  const vs = (mm.variants ?? {}) as Record<string, unknown>;
+  /* ⚠⚠ **다른 «구성»의 값을 끌어오지 않는다.** 예전에는 「세제전」이라 적힌 변형을 아무거나 집었는데,
+     GV60 variants 는 {「스탠2WD 세제후」64,900,000 · 「스탠**AWD** 세제전」72,080,000} 이라
+     기본 트림이 **718만원 비싼 AWD 값**으로 섰다(2026-09-10 · 독립 Claude E).
+     ⇒ 값은 언제나 `min`(그 모델의 «기본 구성»)이다. 우리가 하는 일은 **이름을 바로 붙이는 것**뿐이다. */
+  const price = Number(mm.min ?? m.base ?? 0) || 0;
+  const beforeSame = Object.entries(vs).find(([k, v]) => /세제전/.test(k) && Number(v) === price);
+  if (beforeSame) return { price, basis: '세제혜택 전' };
+  const said = `${S(mm.minConfig)} ${Object.keys(vs).join(' ')}`;
+  if (/세제후|세제혜택\s*후/.test(said)) return { price, basis: '세제혜택 후' };
+  /* ★표시가 없으면 피드 정본의 규칙을 따른다 — 「모든 가격 = 개별소비세 5% 기준」.
+     ⚠ 다만 **전기 모델은 예외**다. 형제 EV(G80-EV·GV60)가 「세제후」로 적혀 있어,
+       표시가 없는 EV(GV70-EV)를 「전」이라 단정하면 **또 지어내는 것**이다. 「미확인」으로 둔다. */
+  const isEv = /-EV$|일렉트리파이드|electrified/i.test(S(m.model)) || /전기/.test(S(m.fuel));
+  return { price, basis: isEv ? '기준 미확인' : '세제혜택 전' };
+}
+
+export type LineupRow = {
+  /** 구동 — 파워트레인 라벨에 실리지만, 「(2WD)/(AWD)」로 갈리는 옵션을 맞대려면 따로도 쥐고 있어야 한다. */
+  drive?: string;
+  fuel: string; trim: string; price: number;
+  /** ★그 구성에 «이미 들어 있다»고 정본이 말한 이름 조각들(Codex #4). 부르는 쪽이 사전과 맞댄다. */
+  included?: string[];
+};
 
 type Choice = { label?: string; name?: string; add?: number; addWon?: number; default?: boolean };
 type Group = { group?: string; choices?: Choice[]; options?: Choice[] };
@@ -39,9 +82,19 @@ type GenModel = {
   lineups?: Record<string, Lineup>;
 };
 
+import { impliedOf } from './implied-options';
+import { includedNames, matchIncluded, availableForEngine, type GenLineupLike } from './genesis-included';
+
 const S = (v: unknown) => String(v ?? '').trim();
-/** 「G80-EV」·「GV80 Coupe」가 「G80」·「GV80」에 잘못 붙지 않게 — 글자·숫자만 남겨 «통째로» 맞춘다. */
-export const modelKey = (s: unknown) => S(s).toLowerCase().replace(/[^a-z0-9]/g, '');
+/**
+ * 모델 이름을 «통째로» 맞추기 위한 키.
+ * ⚠⚠ 예전 판은 `[^a-z0-9]` 를 다 지워 **한글이 통째로 사라졌다**(2026-09-09 검수) —
+ *   「GV80 쿠페」→`gv80`, 「일렉트리파이드 GV70」→`gv70` 이 되어 **다른 차가 같은 차**가 됐다.
+ *   그러면 `masterFuel` 이 「일렉트리파이드 GV70」의 «전기»를 가솔린 GV70 에 물려 주고,
+ *   **가솔린 차에 전기차 보조금·취득세 감면이 붙는다.**
+ * ⇒ 한글도 남긴다. 지우는 것은 «띄어쓰기·붙임표» 같은 구분자뿐이다.
+ */
+export const modelKey = (s: unknown) => S(s).toLowerCase().replace(/[\s\-_()·.]/g, '');
 
 /** 이 이름이 «엔진»인가 — 연료말 **과** 배기량이 둘 다 있어야 엔진으로 본다(오염 방어). */
 const FUEL_WORD = /가솔린|디젤|전기|하이브리드|LPG|LPi|수소/i;
@@ -54,7 +107,8 @@ const choicesOf = (g?: Group) => (g?.choices ?? g?.options ?? []).filter((c) => 
 const findGroup = (gs: Group[] | undefined, re: RegExp) => (gs ?? []).find((g) => re.test(S(g.group)));
 
 /** 한 라인업(또는 모델 본체)을 엔진 × 구동으로 편다. */
-function rowsOf(base: number, groups: Group[] | undefined, trimPrefix: string, rowFuel: string): LineupRow[] {
+function rowsOf(base: number, groups: Group[] | undefined, trimPrefix: string, rowFuel: string,
+  lineup?: GenLineupLike, conditionals?: string): LineupRow[] {
   if (!(base > 0)) return [];
   const engines = choicesOf(findGroup(groups, /엔진|모터/)).filter((c) => looksLikeEngine(label(c)));
   const drives = choicesOf(findGroup(groups, /구동/));
@@ -63,10 +117,21 @@ function rowsOf(base: number, groups: Group[] | undefined, trimPrefix: string, r
   const out: LineupRow[] = [];
   for (const e of eList) {
     for (const d of dList) {
-      const trim = [trimPrefix, label(d)].filter(Boolean).join(' · ');
+      /* ★★**구동은 «파워트레인» 축이다 — 트림 칸이 아니다.**
+         사장님 2026-09-11 「팰리세이드 인승 이거 파워트레인에서 구분 찍고 가야지」와 같은 처방.
+         트림 칸에 「2WD」를 앉혀 두면 원본 트림(「스탠다드·Black」)과 **영영 안 맞아**
+         제네시스 팩 15개가 전부 트림 미매칭이었다 — 원본 규칙이 하나도 안 붙는다. */
+      const trim = trimPrefix || '스탠다드';
+      const driveLabel = label(d);
       /* 라벨은 «한 규격»으로 — 정본이 「가솔린 2.5T」라 적어도 마스터 전체는 「가솔린 2.5 터보」다.
          갈리면 파워트레인 칸에 같은 엔진이 두 이름으로 선다. */
-      out.push({ fuel: canonFuel(label(e) || rowFuel), trim: trim || '기본', price: base + addWon(e) + addWon(d) });
+      /* ★★그 줄에 «이미 들어 있는» 것을 같이 싣는다 — 안 실으면 기본 포함을 또 판다
+         (G80 3.5T 의 ECS 110만 · GV80 블랙의 AWD 300만 · Codex #4). */
+      /* ★그 줄의 «분류»를 같이 넘긴다 — 라인업 이름(블랙·표준)과 트림이 분류다. */
+      const included = lineup ? includedNames(lineup, label(e) || rowFuel, conditionals, `${trimPrefix} ${driveLabel}`) : [];
+      out.push({ fuel: [canonFuel(label(e) || rowFuel), driveLabel].filter(Boolean).join(' · '), trim,
+        ...(driveLabel ? { drive: driveLabel } : {}),
+        price: base + addWon(e) + addWon(d), ...(included.length ? { included } : {}) });
     }
   }
   return out;
@@ -76,10 +141,13 @@ function rowsOf(base: number, groups: Group[] | undefined, trimPrefix: string, r
 export function lineupOf(m: GenModel, rowFuel: string): LineupRow[] | null {
   const out: LineupRow[] = [];
   // 라인업(표준·블랙 …)이 따로 있으면 그 이름이 트림 앞자리가 된다 — GV80 이 그렇다.
+  const cond = S((m as { options?: { conditionals?: string } }).options?.conditionals);
   for (const [name, l] of Object.entries(m.lineups ?? {})) {
-    out.push(...rowsOf(Number(l.base) || 0, l.exclusiveGroups, name === '표준' ? '' : name, rowFuel));
+    out.push(...rowsOf(Number(l.base) || 0, l.exclusiveGroups, name === '표준' ? '' : name, rowFuel,
+      l as GenLineupLike, cond));
   }
-  if (!out.length) out.push(...rowsOf(Number(m.base) || 0, m.exclusiveGroups, '', rowFuel));
+  if (!out.length) out.push(...rowsOf(Number(m.base) || 0, m.exclusiveGroups, '', rowFuel,
+    m as GenLineupLike, cond));
   return out.length >= 2 ? out : null;
 }
 
@@ -135,7 +203,52 @@ export function expandGenesis<T extends { maker?: string; sub_model?: string; fu
     const rows = m ? lineupOf(m, baseFuel) : null;
     if (!rows || rows.length < 2) { out.push(baseFuel !== S(t.fuel) ? ({ ...t, fuel: baseFuel } as T) : t); continue; }
     for (const r of rows) {
-      out.push({ ...t, fuel: r.fuel, trim: r.trim, priceBefore: r.price, priceAfter: r.price, lineupSource: 'genesis-config-fs' } as T);
+      /* ⚠⚠ **펴 놓은 줄마다 「이미 산 것」을 다시 센다.** `{...t}` 는 원본 한 줄의
+         `impliedOptions` 를 그대로 복사한다 — 그건 «펴기 전» 연료·트림으로 잰 값이라,
+         G80 「3.5 터보 · AWD · 7,003만」 줄이 엔진 660만 + AWD 280만을 **또 받는다**
+         (2026-09-09 검수). 값이 엔진×구동으로 이미 오른 줄이므로 여기서 다시 잰다. */
+      const om = (t as { optionsMaster?: Record<string, { name?: string; sub?: string }> }).optionsMaster;
+      /* ★★★**펴 놓은 줄마다 「이미 산 것」을 «다시» 센다.**
+         ㉠ 이름으로 재는 것(엔진·구동) + ㉡ **정본이 「기본포함」이라 적어 둔 것**.
+         ㉡ 이 없으면 GV80 블랙에서 AWD 300만, G80 3.5T 에서 ECS 110만을 또 판다(Codex #4).
+         ⚠ 못 맞대면 «지우지 않는다» — 넘겨 짚으면 유료 옵션이 사라진다(Codex #7 의 교훈). */
+      let implied: string[] | undefined;
+      if (om) {
+        const names = Object.fromEntries(Object.entries(om).map(([id, o]) => [id, S(o.name)]));
+        /* ★그 줄의 «구동»을 같이 넘긴다 — 「드라이빙어시Ⅱ(2WD)/(AWD)」처럼 구동이 갈리는 항목을
+           구동 모르고 고르면 AWD 줄에 2WD 항목이 붙어 진짜 필요한 270만을 다시 판다. */
+        const rowDrive = `${r.trim} ${S(r.drive)} ${(r.included ?? []).join(' ')}`;
+        const byName = (r.included ?? []).map((p) => matchIncluded(p, names, rowDrive)).filter(Boolean) as string[];
+        implied = [...new Set([...impliedOf(om, r.fuel, `${r.trim} ${r.fuel}`), ...byName])];
+      }
+      /* ★★그 엔진에서 «파는 것»을 다시 잰다 — `{...t}` 가 나르는 목록은 «펴기 전» 것이라
+         3.5T 줄이 2.5T 전용을 팔고 3.5T 전용은 못 판다(Codex 3 · 독립 Claude 1). */
+      /* ⚠⚠ **원본이 이미 답을 갖고 있으면 짐작하지 않는다.**
+         트림을 맞춘 줄(`trimKey` 있음)의 `availableOptions` 는 원본 `available_options` 그대로다 —
+         그것이 정답이다. 내 엔진 표기 읽기는 **거꾸로 읽는 자리가 있었다**:
+           K9 「프리뷰 전자제어 서스펜션 990,000 · sub「(3.3T **기본**, 3.8 베스트셀렉션Ⅰ만 옵션)」」
+             → 「3.3T 기본」은 «3.3T 에선 안 판다»는 뜻인데, 나는 「3.3T 전용」으로 읽어
+               3.3T 에서 **열고** 3.8 에서 **닫았다**. 둘 다 반대다(3.8 에선 진짜 유료 99만).
+         ⇒ 트림을 맞춘 줄은 원본 목록을 **그대로** 쓴다. 못 맞춘 줄(합집합 폴백)에서만 짐작한다.
+         (2026-09-11 사장님 「예전에 다 만들어놨던 거잖아」 — 옮긴 것이 지어낸 것보다 낫다) */
+      const hasTrim = !!S((t as { trimKey?: string }).trimKey);
+      const avail = om && !hasTrim
+        ? availableForEngine(om, (t as { availableOptions?: string[] }).availableOptions, r.fuel)
+        : (t as { availableOptions?: string[] }).availableOptions;
+      /* ★★**펴 놓은 줄마다 제 «열쇠»를 준다.**
+         `{...t}` 는 원본 한 줄의 `id` 를 그대로 복사한다 — 그래서 GV80 여섯 줄이 `genesis_gv80`
+         **하나**를 나눠 썼다. `id` 는 옵션판을 찾는 열쇠(`packFor(..., rowId)`)라,
+         겹치면 **블랙이 스탠다드의 옵션판**을 물려받는다(2026-09-11 실측 — 14줄이 열쇠 4개).
+         ⚠ 지금은 표가 넷 다 「스탠다드」로 붙어 있어 티가 안 났다. 트림이 붙기 시작하면 돈에 닿는다. */
+      const rowId = [S((t as { id?: string }).id), r.fuel, r.trim]
+        .filter(Boolean).join('__').replace(/[\s·()]+/g, '_');
+      out.push({
+        ...t, ...(S((t as { id?: string }).id) ? { id: rowId } : {}),
+        fuel: r.fuel, trim: r.trim, priceBefore: r.price, priceAfter: r.price,
+        ...(implied ? { impliedOptions: implied } : {}),
+        ...(avail ? { availableOptions: avail } : {}),
+        lineupSource: 'genesis-config-fs',
+      } as T);
     }
   }
   return out;

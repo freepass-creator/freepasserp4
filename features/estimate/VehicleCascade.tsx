@@ -24,6 +24,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   loadCarIndex, loadNewModels, pickUsed, pickNew, guessCc, koModel,
   type CarIndex, type CarEntry, type NewModel, type NewTrim, type PickedCar,
+  trimPrice,
 } from '@/lib/domain/estimate/car-index';
 
 /** 폰 마법사가 «한 번에 한 걸음»만 그릴 때 쓰는 걸음 이름 — 원본 `VEHICLE_SUB_STEPS` 와 같다. */
@@ -222,8 +223,9 @@ export default function VehicleCascade({ mode, picked, onPick, wizard }: Props) 
       return newTrims.map((t, i) => ({
         v: `${i}|${t.trim}`,
         label: t.trim || '기본',
-        sub: (Number(t.priceAfter) || Number(t.priceBefore) || 0) > 0
-          ? `${Math.round((Number(t.priceAfter) || Number(t.priceBefore)) / 10000).toLocaleString('ko-KR')}만` : undefined,
+        /* ★고를 때 보이는 값과 견적서 값이 «같아야» 한다 — 문(`trimPrice`)으로만 꺼낸다.
+           예전에는 여기만 「후」라 손님이 7,917만을 고르고 견적서엔 8,329만이 찍혔다(EV9 · 412만). */
+        sub: trimPrice(t) > 0 ? `${Math.round(trimPrice(t) / 10000).toLocaleString('ko-KR')}만` : undefined,
       }));
     }
     if (!usedCar) return [];

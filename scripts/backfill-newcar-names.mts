@@ -86,7 +86,8 @@ async function main() {
   // ① 연료 라벨 규격화 — 전 제조사(이름만 다시 적는다).
   const snap = await fs.collection('new_car_trim').get();
   let fuelFixed = 0; let modelFixed = 0;
-  const batch1 = fs.batch();
+  let batch1 = fs.batch(); let n1 = 0;
+  const flush1 = async () => { if (n1) { await batch1.commit(); batch1 = fs.batch(); n1 = 0; } };
   for (const d of snap.docs) {
     const v = d.data();
     const patch: Record<string, unknown> = {};
@@ -99,9 +100,11 @@ async function main() {
     if (Object.keys(patch).length) {
       patch._prevNames = { fuel: S(v.fuel), sub_model: S(v.sub_model), at: new Date().toISOString().slice(0, 10) };
       batch1.set(d.ref, patch, { merge: true });
+      n1++;
+      if (n1 >= 400) await flush1();   // ⚠ Firestore 배치 상한 500
     }
   }
-  await batch1.commit();
+  await flush1();
   console.log(`연료 라벨 ${fuelFixed}줄 · 기아 모델명 ${modelFixed}줄 규격화`);
 
   // ② 기아 트림을 공식으로 갈아 끼운다 — 옛 기아 문서를 지우고 새로 쓴다.
@@ -124,8 +127,30 @@ async function main() {
     if (s?.size === 1) { r.fuel = [...s][0]; filled++; }
   }
   if (filled) console.log(`연료 못 읽은 줄 ${filled}개를 기존 문서에서 채웠다`);
-  const batch2 = fs.batch();
-  for (const d of kiaSnap.docs) batch2.delete(d.ref);
+  /**
+   * ⚠⚠⚠ **옛 문서를 통째로 물려준다.** 2026-09-09 검수에서 잡혔다 —
+   *   예전 판은 `merge:false` 로 «다시 적은 필드만» 남겨서, 옵션 조합 규칙
+   *   (`optionsMaster`·`exclusiveGroups`·`optionExcludes`·`availableOptions`·`impliedOptions`·
+   *    `accessories`·`optionSource`·`basePrices`·`rules`)이 **통째로 사라졌다.**
+   *   그리고 옵션 크롤러들은 「이미 실린 규칙은 안 덮는다」라 다음 실행 때 공식 HTML 로 다시 채워지는데,
+   *   **공식에는 배타·선행이 없다.** 규칙이 조용히 증발하고 「고를 수 없는 조합」이 다시 열린다.
+   *   ⇒ 남길 것을 고르지 말고 **버릴 것만 적는다.** 그게 안전한 쪽이다.
+   */
+  const DROP = new Set(['maker', 'sub_model', 'carType', 'fuel', 'trim', 'priceBefore', 'priceAfter',
+    'source', 'crawledAt', '_prevNames']);
+  const carry = (v: FirebaseFirestore.DocumentData | undefined) =>
+    Object.fromEntries(Object.entries(v ?? {}).filter(([k]) => !DROP.has(k)));
+
+  /* ⚠ Firestore 배치 상한은 500 «쓰기»다 — delete 와 set 이 합산된다.
+     예전 판은 한 배치에 다 담아 모델이 늘면 어느 날 통째로 실패했다(검수). 나눠 커밋한다. */
+  const writes: (() => void)[] = [];
+  let batch2 = fs.batch(); let n2 = 0;
+  const flush = async () => { if (n2) { await batch2.commit(); batch2 = fs.batch(); n2 = 0; } };
+  const put = async (fn: (b: FirebaseFirestore.WriteBatch) => void) => {
+    fn(batch2); n2++; if (n2 >= 400) await flush();
+  };
+  void writes;
+  for (const d of kiaSnap.docs) await put((b) => b.delete(d.ref));
   for (const r of rows) {
     const id = `kia_${r.slug}_${N(r.fuel) || 'na'}_${N(r.trim)}`.slice(0, 180);
     // 색상·옵션은 옛 문서에서 살려 온다 — 이름만 고치는 일이지 데이터를 버리는 일이 아니다.
@@ -141,17 +166,18 @@ async function main() {
     const old = sameModel.find((v) => N(v.trim) === N(r.trim))
       ?? sameModel.find((v) => N(v.trim).endsWith(N(r.trim)) && N(r.trim).length >= 4);
     const colorSrc = old ?? sameModel.find((v) => (v.extColors ?? []).length);
-    batch2.set(fs.collection('new_car_trim').doc(id), {
+    await put((b) => b.set(fs.collection('new_car_trim').doc(id), {
+      // ★옛 문서의 «이름 말고 전부»를 그대로 물려준다(옵션 규칙·색상·기타).
+      ...carry(old),
+      ...(colorSrc?.extColors ? { extColors: colorSrc.extColors } : {}),
+      ...(colorSrc?.intColors ? { intColors: colorSrc.intColors } : {}),
       maker: '기아', sub_model: r.sub_model, carType: r.sub_model,
       fuel: r.fuel, trim: r.trim,
       priceBefore: r.priceBefore, priceAfter: r.priceAfter,
-      ...(old?.options ? { options: old.options } : {}),
-      ...(colorSrc?.extColors ? { extColors: colorSrc.extColors } : {}),
-      ...(colorSrc?.intColors ? { intColors: colorSrc.intColors } : {}),
       source: 'kia.com/price', crawledAt: new Date().toISOString().slice(0, 10),
-    }, { merge: false });
+    }, { merge: false }));
   }
-  await batch2.commit();
+  await flush();
   console.log(`기아 트림 ${kiaSnap.size}줄 → 공식 ${rows.length}줄로 갈아 끼움`);
 }
 

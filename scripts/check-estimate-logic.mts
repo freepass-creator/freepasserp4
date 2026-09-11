@@ -13,9 +13,48 @@
  * 바꾸려면: 사장님께 여쭙고 → 문서를 고치고 → 이 검사를 고친다. 그 차례를 지킨다.
  * ⚠ 이 검사를 «먼저» 고쳐 통과시키는 것은 규격을 지운 것과 같다.
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
+import { splitNote, readRule, rulesFrom, priceOf } from '../lib/domain/estimate/option-note';
+import { impliedOf } from '../lib/domain/estimate/implied-options';
+import { modelKey, basisOf, expandGenesis } from '../lib/domain/estimate/genesis-lineup';
+import { matchIncluded, includedNames, availableForEngine } from '../lib/domain/estimate/genesis-included';
+import { computeTerm } from '../lib/domain/estimate/calc.js';
+import * as React from 'react';
+const { createElement } = React;
+/* ⚠ tsx 는 JSX 를 «고전» 변환으로 돌려 컴포넌트 안에서 전역 `React` 를 찾는다. 대 준다. */
+(globalThis as unknown as { React?: unknown }).React = React;
+import { renderToStaticMarkup } from 'react-dom/server';
+import * as QuotePreviewMod from '../features/estimate/QuotePreview';
+
+/* ⚠ tsx 의 CJS 상호운용 때문에 기본 내보내기가 «객체»로 올 수 있다 — 함수를 꺼내 쓴다. */
+const pickFn = (x: unknown, depth = 3): unknown => {
+  if (typeof x === 'function' || depth <= 0) return x;
+  const d = (x as { default?: unknown } | null)?.default;
+  return d === undefined ? x : pickFn(d, depth - 1);
+};
+const QuotePreview = pickFn(QuotePreviewMod) as Parameters<typeof createElement>[0];
+import { trimPrice, trimBasis, trimSaleTaxCredit, trimSaleTaxRate } from '../lib/domain/estimate/car-index';
+import { splitAxis } from '../lib/domain/estimate/newcar-normalize';
+import { optionList, optionSum, isEnabled, toggleOption, requiresOf, type OptionSpec } from '../lib/domain/estimate/option-rules';
 
 const read = (f: string) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
+/** 소스에서 «주석을 걷은» 코드만 — 개발센터 SSOT 의견서 FP-SSOT-04:
+ *  검사기가 파일 전체 문자열로 판정하면 **주석에만 있어도 초록**이 된다(재현됨). */
+const code = (f: string) => read(f).replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+const S = (v: unknown) => String(v ?? '').trim();
+/**
+ * ★★옵션 팩 파일을 «한 곳»에서 읽는다.
+ * ⚠⚠ 이 파일은 `{ updated, count, packs: [...] }` 꼴인데, 검사 두 곳이 **배열로만** 읽어
+ *   `[]` 로 떨어졌다 — 그러면 그 검사가 **조용히 건너뛴다**(초록인데 아무것도 안 잰 것).
+ *   2026-09-11 에 내 확인 스크립트가 「팩 0줄」이라 찍어서 들켰다.
+ * ⇒ 모양을 다 받아 주고, **비었으면 «비었다고 말한다».**
+ */
+const readPacks = <T>(): T[] => {
+  try {
+    const raw = JSON.parse(read('data/new-car/option-packs.json')) as T[] | { packs?: T[]; rows?: T[] };
+    return Array.isArray(raw) ? raw : (raw.packs ?? raw.rows ?? []);
+  } catch { return []; }
+};
 const fails: string[] = [];
 const must = (ok: boolean, what: string, where: string) => { if (!ok) fails.push(`${what}\n      → ${where}`); };
 
@@ -52,8 +91,14 @@ must(/ev:\s*\{[^}]*bondExempt:\s*true/.test(cfg),
 must(/fuelCfg\.acqTaxCredit/.test(calc) && /fuelCfg\.bondExempt/.test(calc),
   '엔진이 전기차 감면·면제를 «읽지 않습니다» — 선언만 두면 적용되는 줄 오해합니다',
   'lib/domain/estimate/calc.js');
-must(/const evSubsidy\s*=\s*fuel === 'ev'/.test(calc) && /const netPrice\s*=\s*Math\.max\(0,\s*price - evSubsidy\)/.test(calc),
-  '전기차 보조금이 `price` 단계에서 «먼저» 빠지지 않습니다 — 취득세·공채·잔가·보증금이 다 같이 낮은 값 기준이어야 합니다',
+/* ★2026-09-10 규격 변경 — 기준이 «둘»이다(결정 정본 `devcenter/ssot/FREEPASS-QUOTE-BASIS.md`).
+   보조금은 **원가 기준(netPrice)** 에서만 뺀다. 보증금·선납·인수는 **손님 기준(custBase)** 이다.
+   ⚠ 검사를 «먼저» 고친 것이 아니다 — 사장님 판단 → 결정 정본·피드 문서 → 그 다음 이 검사다. */
+must(/const evSubsidy\s*=\s*fuel === 'ev'/.test(calc)
+  && /const netPrice\s*=\s*Math\.max\(0,\s*price - evSubsidy - saleTaxCredit\)/.test(calc)
+  && /const custBase\s*=\s*Math\.max\(0,\s*price - saleTaxCredit\)/.test(calc)
+  && /depositByRate = custBase \*/.test(calc),
+  '원가 기준(netPrice)과 손님 기준(custBase)이 안 갈렸습니다 — 보조금은 «원가에서만» 빼고 보증금은 손님 기준입니다',
   'lib/domain/estimate/calc.js');
 
 /* ── 2. 배기량 — 지어내지 않는다. 못 찾으면 «화면이 묻는다» ───────────── */
@@ -337,9 +382,18 @@ must(!/font-variant-numeric:\s*tabular-nums(?!\s+slashed-zero)/.test(wxCss),
 must(/id="sec-options"/.test(page) && /id="sec-color"/.test(page),
   '선택 옵션·색상 칸이 왼쪽에 없습니다 — 원본은 차종 밑에 «별도 칸»으로 세웁니다',
   'app/estimate/page.tsx #sec-options / #sec-color');
-must(/optionsOutside mode=\{cond\}/.test(page) && /optionsOutside\?: boolean;/.test(picker),
-  '차 고르기 시트가 옵션을 «또» 묻습니다 — 두 군데서 고르면 어느 값이 이겼는지 모릅니다',
-  'features/estimate/CarPicker.tsx optionsOutside');
+/* ⚠⚠ 예전에는 `optionsOutside` «깃발이 있나»만 봤다. 그 깃발은 옵션 칸을 걷어낸 뒤로
+   **아무 일도 안 하므로**, 누가 시트에 평면 옵션 목록을 다시 넣어도 깃발만 남기면 초록이었다
+   (2026-09-10 개발센터 4-AI 관문 · 독립 Claude 발견 7). ⇒ 깃발이 아니라 «없는지»를 잰다. */
+{
+  const pk = code('features/estimate/CarPicker.tsx');
+  must(!/nTrim\.options/.test(pk) && !/setOpts\(/.test(pk),
+    '차 고르기 시트가 옵션을 «또» 묻습니다 — 그 목록은 빗장 셋을 안 거치고, 유료 색상이 두 번 더해집니다',
+    'features/estimate/CarPicker.tsx');
+  must(/const chosen: \{ name: string; price: number \}\[\] = \[\];/.test(pk),
+    '시트가 고른 옵션을 «싣고» 나갑니다 — 옵션은 왼쪽 별도 칸에서만 고릅니다',
+    'features/estimate/CarPicker.tsx');
+}
 must(/const listPrice = isNew \? \(picked\.price \?\? 0\) \+ optSum \+ colorAdd : usedPrice;/.test(page),
   '신차 차량가에 고른 옵션이 «안 더해집니다» — 옵션을 밖에서 고르면 더하는 일은 화면 몫입니다',
   'app/estimate/page.tsx listPrice');
@@ -492,9 +546,16 @@ const evBase = { channel: 'rent' as const, type: 'return' as const, price: 48_00
   accident: 'none', group: 'A', residualRates: { 12: 0.85, 24: 0.75, 36: 0.66, 48: 0.58, 60: 0.51 } };
 const evNo = computeTerm(48, evBase) as { residualAmt: number; deposit: number };
 const evYes = computeTerm(48, { ...evBase, evSubsidy: 6_000_000 }) as { residualAmt: number; deposit: number };
-must(evYes.residualAmt < evNo.residualAmt && evYes.deposit < evNo.deposit,
-  '전기차 보조금이 잔가·보증금까지 안 내려갑니다 — `price` 단계에서 «먼저» 빼야 앞뒤가 맞습니다',
+/* ★2026-09-10 규격 변경 — 보조금은 **잔가는 내리고 보증금은 «안» 내린다**.
+   잔가는 우리 원가(중고 EV 시세가 보조금 후 실구매가 위에서 형성된다) · 보증금은 손님이 낼 돈이다.
+   ⚠ 예전 검사는 「보증금도 내려가야」였다. 그러면 EV 만기인수가 348만 깎인다(결정 정본 참조). */
+must(evYes.residualAmt < evNo.residualAmt,
+  '전기차 보조금이 잔가에 안 먹습니다 — 중고 EV 시세는 보조금 후 실구매가 위에서 형성됩니다',
   'lib/domain/estimate/calc.js netPrice');
+must(evYes.deposit === evNo.deposit,
+  `보조금이 «손님» 보증금까지 내립니다 — ${evYes.deposit.toLocaleString('ko-KR')} vs ${evNo.deposit.toLocaleString('ko-KR')}. `
+  + '보조금은 우리가 받는 돈이라 손님 기준에서 빼지 않습니다(348만 차이)',
+  'lib/domain/estimate/calc.js custBase');
 
 /* 4. 연료 정규화 — 영문 「EV」도 전기차다. 「PHEV」는 하이브리드다.
      ⚠ 2026-09-07 전수 검사에서 잡혔다 — 신차마스터가 기아 전기차를 「EV」로 싣는데
@@ -653,7 +714,8 @@ const { expandGenesis, fillBlankFuel, lineupOf, genesisConfig } =
   must(!!g80, '제네시스 정본(genesis-config-fs.json)에서 G80 을 못 찾습니다',
     'data/new-car/genesis-config-fs.json');
   const rows = g80 ? lineupOf(g80, '가솔린') ?? [] : [];
-  const f = (fuel: string, trim: string) => rows.find((r) => r.fuel === fuel && r.trim === trim)?.price ?? 0;
+  /* ★구동은 이제 «파워트레인» 축에 있다(§37) — 트림 칸이 아니라 연료 라벨에서 찾는다. */
+  const f = (fuel: string, drive: string) => rows.find((r) => r.fuel === `${fuel} · ${drive}`)?.price ?? 0;
   must(rows.length === 4, `G80 라인업이 넷이 아닙니다(${rows.length}) — 엔진 2 × 구동 2`,
     'lib/domain/estimate/genesis-lineup.ts');
   must(f('가솔린 2.5 터보', '2WD') === 60_630_000 && f('가솔린 3.5 터보', '2WD') === 67_230_000,
@@ -902,75 +964,1473 @@ must(page.includes('ruled ? optionSum(optSpec, optIds)'),
 
 /* ══ 12. 제조사에서 «직접» 받은 옵션 — 웰릭스가 모르는 모델을 메운다 ══════════
      ★★사장님 2026-09-09 「다음 ㄱㄱㄱ」 — 웰릭스 조합지도는 25모델뿐이라
-       EV3~EV9·스타리아·아이오닉·르노가 통째로 비어 있었다. 기아는 공식 HTML 에 선택품목이 있다. */
-/* ⚠ 크롤러를 «부르지» 않는다 — 부르면 제조사에 요청이 나간다. 소스를 «읽어» 규격만 본다. */
-const kiaOptSrc = read('scripts/crawl-newcar-kia-options.mts');
+       EV3~EV9·스타리아·아이오닉·르노가 통째로 비어 있었다. 기아는 공식 HTML 에 선택품목이 있다.
 
-/* 12-1. 「블랙 루프스킨(선루프와 동시 적용 불가)」 — 괄호 뒤는 «이름»이 아니라 «규칙»이다. */
+   ★★★2026-09-09 개발센터 SSOT 의견서 **FP-SSOT-04** 와 «같은 병»이 여기 있었다 —
+     「검사기가 파일 전체의 «문자열»로 판정해, 주석만 있어도 초록으로 통과한다」.
+     이 자리의 옛 검사가 정확히 그랬다:
+       · `/동시\s\*적용\s\*불가/` — `\s\*` 는 «공백 + 리터럴 별표». **절대 안 맞는 죽은 정규식**이었고,
+         `|| src.includes('동시')` 로 통과했다. 그 낱말은 **파일 머리 주석**에 있다.
+       · `includes('※')` · `includes("+[rt]'")` — 주석·따옴표 짜임에 못을 박은 검사.
+     ⇒ **소스를 읽지 말고 «불러서» 잰다.** 파서는 순수 함수라 부를 수 있다.
+   ⚠ 크롤러 자체는 «부르지» 않는다 — 부르면 제조사에 요청이 나간다. 규격만 소스로 본다. */
+const kiaOptCode = code('scripts/crawl-newcar-kia-options.mts');
+const hdOptCode = code('scripts/crawl-newcar-hyundai-options.mts');
+
+/* 12-1. 「블랙 루프스킨(선루프와 동시 적용 불가)」 — 괄호·※·* 뒤는 «이름»이 아니라 «규칙»이다. */
 {
-  const src = kiaOptSrc;
-  must(/동시\s\*적용\s\*불가/.test(src) || src.includes('동시'),
-    '「동시 적용 불가」를 안 읽습니다 — 이름에 규칙이 섞여 들어옵니다',
-    'scripts/crawl-newcar-kia-options.mts');
-  /* ⚠ 상대를 못 찾으면 규칙을 «만들지 않는다» — 지어낸 배타는 고를 수 있는 것을 막는다. */
-  must(src.includes('if (!partner) continue;'),
-    '상대를 못 찾았는데 배타를 세웁니다 — 고를 수 있는 것을 막게 됩니다',
-    'scripts/crawl-newcar-kia-options.mts');
+  const a = splitNote('블랙 루프스킨(선루프와 동시 적용 불가)');
+  must(a.name === '블랙 루프스킨' && a.notes.length === 1,
+    `괄호 규칙을 이름에서 안 뗍니다 — 「${a.name}」`, 'lib/domain/estimate/option-note.ts splitNote');
+
+  const b = splitNote('듀얼 모터 4WD ※ 19인치 휠&타이어 적용 시 듀얼모터 4WD 선택 가능');
+  must(b.name === '듀얼 모터 4WD' && b.notes.length === 1,
+    `「※」 규칙을 이름에서 안 뗍니다 — 「${b.name}」`, 'lib/domain/estimate/option-note.ts splitNote');
+
+  /* ★규칙이 «여럿» 붙는다 — 하나만 떼면 나머지가 이름에 문장으로 남는다(운영 실측 20개). */
+  const c = splitNote('투톤 컬러 루프 *와이드 선루프 중복 선택 불가 *블랙 익스테리어 선택 불가');
+  must(c.name === '투톤 컬러 루프' && c.notes.length === 2,
+    `규칙이 둘인데 하나만 뗍니다 — 「${c.name}」 / ${c.notes.length}건`, 'lib/domain/estimate/option-note.ts splitNote');
+
+  /* ⚠ 괄호가 «규칙말»이 아니면 이름이다 — 「(9인승)」을 떼면 트림이 안 갈린다. */
+  const d = splitNote('컴포트 II (9인승)');
+  must(d.name === '컴포트 II (9인승)' && d.notes.length === 0,
+    `규칙이 아닌 괄호를 뗍니다 — 「${d.name}」`, 'lib/domain/estimate/option-note.ts splitNote');
 }
 
-/* 12-2. ★★색상은 옵션에서 뺀다 — 화면이 색상을 «따로» 더한다(colorAdd). 두 번 받으면 안 된다. */
-must(kiaOptSrc.includes('colorNames.has(N(o.name))'),
-  '유료 색상이 옵션에도 들어갑니다 — 색상값을 두 번 받습니다',
+/* 12-2. 뗀 규칙을 «읽는다» — 선행(needs)과 배제(bans). 상대가 둘이면 둘 다. */
+{
+  const ban = readRule('선루프와 동시 적용 불가');
+  must(ban.bans.includes('선루프') && ban.needs.length === 0,
+    '「동시 적용 불가」를 배제로 안 읽습니다', 'lib/domain/estimate/option-note.ts readRule');
+
+  const need = readRule('19인치 휠&타이어 적용 시 듀얼모터 4WD 선택 가능');
+  must(need.needs.includes('19인치 휠&타이어') && need.bans.length === 0,
+    '「… 적용 시 … 가능」을 선행으로 안 읽습니다', 'lib/domain/estimate/option-note.ts readRule');
+
+  /* ★상대가 쉼표로 여럿 — 하나만 읽으면 나머지 조합이 안 막힌다. */
+  const two = readRule('선루프, 파노라마 선루프와 동시 선택 불가');
+  must(two.bans.length === 2,
+    `상대가 둘인 배제를 하나만 읽습니다 — ${two.bans.length}건`, 'lib/domain/estimate/option-note.ts readRule');
+}
+
+/* 12-3. ⚠⚠ **상대를 못 찾으면 규칙을 «만들지 않는다»** — 지어낸 배타는 고를 수 있는 것을 막는다. */
+{
+  const 없음 = rulesFrom([
+    { name: '블랙 루프스킨', price: 500000, note: '선루프와 동시 적용 불가' },
+    { name: '컴포트 I', price: 900000 },
+  ]);
+  must(Object.keys(없음.excludes).length === 0,
+    '목록에 없는 상대로 배타를 «지어냅니다» — 고를 수 있는 것을 막게 됩니다',
+    'lib/domain/estimate/option-note.ts rulesFrom');
+
+  const 있음 = rulesFrom([
+    { name: '블랙 루프스킨', price: 500000, note: '선루프와 동시 적용 불가' },
+    { name: '파노라마 선루프', price: 1200000 },
+  ]);
+  must((있음.excludes['블랙 루프스킨'] ?? []).includes('파노라마 선루프')
+    && (있음.excludes['파노라마 선루프'] ?? []).includes('블랙 루프스킨'),
+    '상대가 «있는데»도 배타를 안 세웁니다 — 규칙이 한쪽만 걸립니다',
+    'lib/domain/estimate/option-note.ts rulesFrom');
+}
+
+/* 12-4. ⚠⚠ **값을 못 읽으면 «0 원»이 아니라 «안 싣는다»** — 0 은 「기본 포함」과 구별이 안 된다. */
+{
+  must(priceOf('<p class="item-price"> 1,200,000 <span>원</span></p>') === 1200000,
+    '값 앞뒤 공백·태그가 끼면 값을 못 읽습니다', 'lib/domain/estimate/option-note.ts priceOf');
+  must(priceOf('<li><span class="item-name">기본 적용</span></li>') === null,
+    '값이 없는데 «0 원»으로 싣습니다 — 유료 옵션이 공짜가 됩니다', 'lib/domain/estimate/option-note.ts priceOf');
+}
+
+/* 12-5. 두 크롤러가 «같은 자»를 쓴다 — 한쪽에만 넣어서 운영 16줄·옵션 20개에 문장이 남았다. */
+for (const [f, src] of [['kia', kiaOptCode], ['hyundai', hdOptCode]] as const) {
+  must(/from '\.\.\/lib\/domain\/estimate\/option-note'/.test(src),
+    `${f} 가 규칙 파서를 «따로» 씁니다 — 한쪽만 고치면 다른 쪽에 문장이 남습니다`,
+    `scripts/crawl-newcar-${f}-options.mts`);
+  /* ★색상은 옵션에서 뺀다 — 화면이 색상을 «따로» 더한다(colorAdd). 두 번 받으면 안 된다. */
+  must(src.includes('colorNames.has(N(o.name))'),
+    `${f} — 유료 색상이 옵션에도 들어갑니다(색상값 이중계상)`, `scripts/crawl-newcar-${f}-options.mts`);
+  /* ★이미 실린 «규칙»을 덮지 않는다 — 공식 HTML 은 배타·선행을 안 준다. 덮으면 웰릭스 규칙이 사라진다. */
+  must(src.includes('if (v.optionsMaster && Object.keys(v.optionsMaster).length)'),
+    `${f} — 이미 실린 조합 규칙을 덮어씁니다(배타·선행 소실)`, `scripts/crawl-newcar-${f}-options.mts`);
+  /* ★★「이미 산 엔진·구동」을 «다시 팔지» 않는다 — 판정은 공용 원자 하나다. */
+  must(/impliedOptions:\s*impliedOf\(/.test(src),
+    `${f} — 「이미 산 엔진·구동」을 안 가립니다(그랜저 3.5 엔진 246만·아이오닉6 HTRAC 247만 이중계상)`,
+    `scripts/crawl-newcar-${f}-options.mts`);
+}
+
+/* 12-6. 붙이는 상대는 «모델 + 연료»로 고른다 — 값만 같으면 포터2에 아반떼 옵션이 붙는다(실측). */
+must(hdOptCode.includes('sameModel') && hdOptCode.includes('sameFuel'),
+  '값만 보고 옵션을 붙입니다 — 값이 같은 다른 모델에 남의 옵션이 실립니다',
+  'scripts/crawl-newcar-hyundai-options.mts');
+must(kiaOptCode.includes('sameFuel'),
+  '기아도 연료를 안 맞댑니다 — 다연료 모델에 틀린 연료의 옵션이 붙습니다',
   'scripts/crawl-newcar-kia-options.mts');
 
-/* 12-3. ★이미 실린 «규칙»을 덮지 않는다 — 기아 공식 HTML 은 배타·선행을 안 준다.
-     덮으면 웰릭스에서 얻은 규칙이 사라져 뒷걸음질이다. */
-must(kiaOptSrc.includes('if (v.optionsMaster && Object.keys(v.optionsMaster).length)'),
-  '이미 실린 조합 규칙을 덮어씁니다 — 배타·선행이 사라집니다',
-  'scripts/crawl-newcar-kia-options.mts');
+/* ══ 13. 「이미 산 것」 · 이름 · 배치 — 조용히 «돈»과 «데이터»가 새던 자리 ═══════ */
 
-/* 12-4. 트림 꼬리 정규화를 «같이» 태운다 — 안 태우면 EV9 열 줄이 통째로 안 붙는다(실측). */
-must(kiaOptSrc.includes('withSuffix(x.trim, splitAxis(x.fuelTab'),
-  '트림 꼬리 정규화를 안 태웁니다 — EV9 처럼 탭이 구동인 모델이 안 붙습니다',
-  'scripts/crawl-newcar-kia-options.mts');
+/* 13-1. ★★엔진값 이중계상 — 그 줄의 연료·트림이 곧 엔진·구동이면 옵션으로 또 팔지 않는다. */
+{
+  const om = {
+    g35: { name: '가솔린 3.5 터보 엔진' },
+    g35e: { name: '가솔린 3.5 터보 48V 일렉트릭 슈퍼차저 엔진' },
+    awd: { name: 'AWD' },
+    htrac: { name: 'HTRAC (상시 4륜 구동)' },
+    comfort: { name: '컴포트 I' },
+  };
+  const 편줄 = impliedOf(om, '가솔린 3.5 터보', 'AWD');
+  must(편줄.includes('g35') && 편줄.includes('awd'),
+    '펴 놓은 줄에서 엔진·구동을 «또» 팝니다 — G80 3.5T AWD 에서 940만원 이중계상',
+    'lib/domain/estimate/implied-options.ts impliedOf');
+  /* ⚠ 48V 슈퍼차저는 «다른 엔진»이다 — 배기량만 보면 진짜 옵션이 사라진다(G90 600만). */
+  must(!편줄.includes('g35e'),
+    '48V 슈퍼차저를 «같은 엔진»으로 봅니다 — G90 의 진짜 옵션 600만이 사라집니다',
+    'lib/domain/estimate/implied-options.ts engineSig');
+  must(!편줄.includes('comfort'),
+    '엔진·구동이 아닌 옵션까지 «이미 샀다»고 합니다', 'lib/domain/estimate/implied-options.ts');
 
-/* ══ 13. 현대도 «공식에서 직접» — 가격표 HTML 에 선택품목이 있다 ═════════════
-     ★★사장님 2026-09-09 「추천대로 ㄱㄱ」 — 브라우저를 몰기 전에 HTML 부터 재 봤고, 거기 다 있었다. */
-const hdOptSrc = read('scripts/crawl-newcar-hyundai-options.mts');
+  /* ⚠ 「모른다」를 「이미 샀다」로 삼키지 않는다 — 연료말에 배기량이 없으면 어떤 엔진인지 모른다. */
+  must(impliedOf({ e: { name: '엔진' } }, '가솔린', '프레스티지').length === 0,
+    '어떤 엔진인지 «모르는데» 이미 샀다고 합니다 — 진짜 옵션이 사라집니다',
+    'lib/domain/estimate/implied-options.ts impliedByFuel');
+  /* ⚠ 트림이 구동이 아니면 안 걸러야 한다 — 「블랙」 트림에서 AWD 는 진짜 옵션이다. */
+  must(!impliedOf(om, '가솔린 2.5 터보', '블랙').includes('awd'),
+    '구동이 아닌 트림에서 AWD 를 «이미 샀다»고 합니다', 'lib/domain/estimate/implied-options.ts impliedByTrim');
+  /* ★현대는 구동 이름이 「HTRAC」이다 — 낱말을 모르면 247만을 또 받는다. */
+  must(impliedOf(om, '가솔린 2.5 터보', 'HTRAC').includes('htrac'),
+    'HTRAC 를 구동으로 못 읽습니다 — 아이오닉6·그랜저에서 247만 이중계상',
+    'lib/domain/estimate/implied-options.ts impliedByTrim');
+}
 
-/* 13-1. `__NUXT__` 이스케이프를 «다» 푼다 — `
-` 을 빼먹으면 트림 머리가 통째로 안 읽힌다. */
-must(hdOptSrc.includes("+[rt]'"),
-  '`\r`·`\t` 를 안 풉니다 — 트림 머리가 「\r \r Smart \r (스마트)」가 되어 이름도 값도 못 읽습니다',
-  'scripts/crawl-newcar-hyundai-options.mts unescapeNuxt');
+/* 13-2. ★★제네시스를 «엔진 × 구동»으로 펴 때 원본 줄의 판정을 복사하지 않는다.
+     → 이제 §18 이 «값»으로 잰다(G80 3.5T·AWD = 70,030,000 · GV80 블랙 = 95,080,000).
+     ★문자열 검사를 행동 검사로 «올린» 것이지 낮춘 것이 아니다 — 지우는 방향이 중요하다. */
 
-/* 13-2. 트림 이름을 «영문·한글 둘 다» 담는다 — 우리 마스터는 BFF 영문(「Smart」)을 쓴다. */
-must(hdOptSrc.includes('trimEn') && hdOptSrc.includes('trimKo'),
-  '트림 이름을 한 갈래만 담습니다 — 스타리아·아이오닉이 통째로 안 붙습니다',
-  'scripts/crawl-newcar-hyundai-options.mts');
+/* 13-3. ★모델 이름은 «한글이 살아 있어야» 짝이 맞는다 — 영숫자만 남기면 통째로 뭉개진다. */
+must(modelKey('일렉트리파이드 GV70') !== modelKey('GV70'),
+  '모델 열쇠가 한글을 지웁니다 — 「일렉트리파이드 GV70」 이 「GV70」 과 같은 차가 됩니다',
+  'lib/domain/estimate/genesis-lineup.ts modelKey');
 
-/* 13-3. 값은 «세제혜택 전»(개소세 5%)이다 — 피드 문서가 정한 basis. */
-must(/세제혜택\s\*전/.test(hdOptSrc) || hdOptSrc.includes('beforeTax'),
-  '세제혜택 «후» 값을 씁니다 — 현대·기아·제네시스의 basis 가 어긋납니다',
-  'scripts/crawl-newcar-hyundai-options.mts');
+/* 13-4. ★인승은 «축»이다 — 11인승을 못 읽으면 스타리아 트림이 통째로 안 붙는다. */
+must(splitAxis('11인승').trimSuffix === '11인승' && splitAxis('9인승').trimSuffix === '9인승',
+  `두 자리 인승을 못 읽습니다 — 「${splitAxis('11인승').trimSuffix}」. 스타리아 11인승 줄이 통째로 안 붙습니다`,
+  'lib/domain/estimate/newcar-normalize.ts splitAxis');
 
-/* 13-4. 규칙이 «두 모양»으로 온다 — 괄호와 ※. 둘 다 읽어야 이름에 문장이 안 남는다. */
-must(hdOptSrc.includes('※'),
-  '「※ … 선택 시 가능」 을 안 읽습니다 — 규칙이 옵션 «이름» 안에 문장으로 남습니다',
-  'scripts/crawl-newcar-hyundai-options.mts');
+/* 13-5. ★★이름을 한글로 바꿔 실을 때 «나머지 칸을 들고 간다» — 안 들면 색상·옵션이 통째로 날아간다.
+     (2026-09-09 드라이런에서 잡음 — 기아 색상·옵션 전부가 사라질 뻔했다.) */
+{
+  const bf = code('scripts/backfill-newcar-names.mts');
+  must(bf.includes('const DROP') && bf.includes('carry('),
+    '이름만 새로 쓰고 «나머지 칸»을 안 들고 갑니다 — 색상·옵션이 통째로 지워집니다',
+    'scripts/backfill-newcar-names.mts');
+}
 
-/* 13-5. 기아와 같은 두 빗장 — 색상 이중계상 금지 · 이미 실린 규칙 안 덮기. */
-must(hdOptSrc.includes('colorNames.has(N(o.name))'),
-  '유료 색상이 옵션에도 들어갑니다 — 색상값을 두 번 받습니다',
-  'scripts/crawl-newcar-hyundai-options.mts');
-must(hdOptSrc.includes('if (v.optionsMaster && Object.keys(v.optionsMaster).length)'),
-  '이미 실린 조합 규칙을 덮어씁니다',
-  'scripts/crawl-newcar-hyundai-options.mts');
+/* 13-6. ★Firestore 배치는 500 이 한계다 — 안 끊으면 «전부» 안 써진다(조용히 실패). */
+for (const f of ['scripts/backfill-newcar-names.mts', 'scripts/ingest-newcar-options.mts',
+  'scripts/crawl-newcar-kia-options.mts', 'scripts/crawl-newcar-hyundai-options.mts']) {
+  must(/\bn[0-9]? >= 400\b/.test(code(f)), '배치를 안 끕습니다 — 500줄이 넘으면 통째로 안 써집니다', f);
+}
 
-/* 13-6. 슬러그는 «짐작»이 아니라 사이트가 건 링크다 — 짐작으로는 48개 중 셋만 맞았다. */
-must(hdOptSrc.includes("'the-all-new-avante'") && hdOptSrc.includes("'the-new-staria-lounge'"),
-  '현대 슬러그 목록이 비었습니다 — 이름·이미지로 유추하면 대부분 404 입니다',
-  'scripts/crawl-newcar-hyundai-options.mts');
+/* 13-7. ★★조합지도는 «폐기된 파일»로 몰래 물러서지 않는다 — 옛 mtops 값은 구가다.
+     물러서면 화면은 멀쩡히 그려지는데 «옛 가격»을 판다(사장님 GV80 쿠페 1억3천 지적의 정체). */
+{
+  const cfgRoute = code('app/api/newcar/config/route.ts');
+  must(!/genesis-config\.json/.test(cfgRoute.replace(/genesis-config-fs\.json/g, '')),
+    '폐기된 `genesis-config.json`(구가·mtops)으로 물러섭니다 — 옛 가격을 팝니다',
+    'app/api/newcar/config/route.ts');
+}
+
+/* 13-8. ★「고를 것이 없다」와 「못 받았다」를 가른다 — 빈 배열을 «전부 열기»로 읽으면 안 된다. */
+{
+  const 빈칸: OptionSpec = { optionsMaster: { a: { name: '컴포트', price: 900000 } }, availableOptions: [] };
+  must(optionList(빈칸).length === 0,
+    '그 트림에 «없는» 옵션을 열어 줍니다 — 고를 수 없는 것을 팝니다',
+    'lib/domain/estimate/option-rules.ts optionList');
+  const 없는칸: OptionSpec = { optionsMaster: { a: { name: '컴포트', price: 900000 } } };
+  must(optionList(없는칸).length === 1,
+    '목록을 «안 받았을» 때까지 닫아 버립니다 — 못 받은 것이 없는 것이 됩니다',
+    'lib/domain/estimate/option-rules.ts optionList');
+}
+
+/* ══ 14. ★★차량가 «기준»은 하나다 — 세제혜택 «전»(개별소비세 5% = 제조사 표시가) ══════
+     사장님 2026-09-09 「견적만 제대로 나오게 해 기준만 있으면 됩니다」.
+
+   ⚠⚠ **여기 적혀 있던 「취득세를 두 번 뺀다」는 틀렸다**(2026-09-09 실데이터 반증 · §19 참조).
+     맞는 근거는 이것이다 — **옵션값이 「전」 기준**이고, `priceAfter` 의 출처가 제조사마다 달라
+     (제네시스·르노는 「후 = 전」 복사) 「후」로는 통일이 안 된다. 감면은 §19 가 원가에서 뺀다.
+     게다가 **옵션값은 「전」 기준**이라
+     차값만 「후」로 쓰면 한 견적서 안에서 기준이 섞인다(기아 144트림 중 60개가 갈리고,
+     EV9 GT-Line 롱레인지는 412만원 차이).
+   ⚠ 이 검사를 고쳐서 통과시키지 마라 — 견적서 금액이 통째로 바뀐다. 정본 = docs/신차마스터-피드.md. */
+{
+  /* ★★★**문을 «불러서» 잰다.** 문자열로 재면 뚫린다 —
+     2026-09-09 개발센터 4-AI 관문에서 Codex 가 네 가지 우회를 재현했다:
+       · `t["priceAfter"]` 대괄호 접근        · `Number(t?.priceAfter)` 직접 접근
+       · 문자열 리터럴 `"/*"` 로 code() 를 속여 코드를 지우기
+       · 쉼표 연산자 `(A, Number(t?.priceAfter) || 0)` — **실제로 79,170,000 을 돌려주는데 통과**
+     ⇒ 규격은 «값»으로 잰다. 아래는 전/후가 다른 진짜 트림(EV9 GT-Line 롱레인지)이다. */
+  const ev9 = { priceBefore: 83290000, priceAfter: 79170000 };
+  must(trimPrice(ev9) === 83290000,
+    `차량가가 «세제혜택 후»에서 나옵니다 — ${trimPrice(ev9).toLocaleString('ko-KR')}원(나와야 할 값 83,290,000원). `
+    + '옵션값이 「전」 기준이라 한 견적서에서 기준이 섞이고, 제조사마다 「후」의 뜻이 달라 비교가 안 됩니다',
+    'lib/domain/estimate/car-index.ts trimPrice');
+  must(trimBasis(ev9) === '세제혜택 전',
+    `기준을 「${trimBasis(ev9)}」 라고 말합니다`, 'lib/domain/estimate/car-index.ts trimBasis');
+  /* 「전」이 비면 «지어내지 않는다» — 「후」로 물러서되 그렇다고 말한다. */
+  must(trimPrice({ priceBefore: 0, priceAfter: 5000 }) === 5000
+    && trimBasis({ priceBefore: 0, priceAfter: 5000 }) === '세제혜택 후',
+    '「전」이 빈 줄에서 물러서지 않거나, 물러서고도 «후»라고 말하지 않습니다',
+    'lib/domain/estimate/car-index.ts trimBasis');
+  must(trimPrice(null) === 0 && trimBasis(undefined) === '',
+    '값이 없는데 0/빈 기준을 안 줍니다', 'lib/domain/estimate/car-index.ts trimPrice');
+
+  must(/priceBasis: trimBasis\(t\)/.test(code('lib/domain/estimate/car-index.ts')),
+    '고른 차가 «어느 기준»인지 안 들고 다닙니다 — 견적서가 말할 수 없습니다',
+    'lib/domain/estimate/car-index.ts pickNew');
+
+  /* ★★★**문은 하나다.** 값을 따로 꺼내는 곳이 하나라도 있으면 기준이 또 갈린다 —
+     실제로 여섯 군데가 따로 꺼내 손님이 「7,917만」을 고르고 견적서엔 「8,329만」이 찍혔다
+     (EV9 GT-Line 롱레인지 · **412만** 차이 · 2026-09-09 화면 실측).
+     ⇒ 문(`car-index.ts`) 밖에서는 `priceAfter` 라는 낱말이 **아예 안 나와야** 한다.
+       대괄호·구조분해·변수 경유를 다 막으려면 「쓰지 마라」가 「이렇게 쓰지 마라」보다 낫다. */
+  for (const f of ['features/estimate/VehicleCascade.tsx', 'features/estimate/CarPicker.tsx',
+    'app/estimate/page.tsx']) {
+    must(!code(f).includes('priceAfter'),
+      '차량가를 «문 밖에서» 꺼냅니다 — 고를 때와 견적서의 값이 갈립니다(`trimPrice` 를 쓰세요)', f);
+  }
+  /* ★엔진이 «제 줄»에서 감면한다는 전제가 깨지면 위 기준도 무너진다. 같이 못 박는다. */
+  must(/acqTaxCredit/.test(code('lib/domain/estimate/calc.js')),
+    '엔진이 전기차 취득세 감면을 «제 줄»에서 안 뺍니다 — 그러면 차량가 기준(「전」)의 전제가 깨집니다',
+    'lib/domain/estimate/calc.js acqTax');
+}
+
+/* ══ 15. ★★★「이미 산 것」이 **돈에서 실제로 빠지는가** ══════════════════════
+     ⚠⚠ 2026-09-09 개발센터 4-AI 관문에서 **Codex 가 잡았다.**
+       §12·§13 은 크롤러가 `impliedOptions` 를 «만드는지»만 봤다. 그런데 화면 쪽은
+       `requiresOf` 에서 「선행 충족」으로만 썼고 **목록·토글·합계는 아무것도 안 걸렀다.**
+       ⇒ 「3.5 엔진 +246만」이 체크칸으로 서고, 체크하면 합계에 그대로 더해졌다.
+       **「막았다」고 문서·주석·커밋에 적어 놓고 한 푼도 안 막고 있었다.**
+       (재현: optionSum({optionsMaster:{eng35:2460000}, impliedOptions:['eng35']}, {'eng35'}) = 2,460,000)
+
+     ★교훈 — **「만드는 쪽」을 검사하고 「쓰는 쪽」을 안 검사하면 그게 거짓 합격이다.**
+       데이터에 표시를 남기는 것과 돈이 안 나가는 것은 «다른 일»이다. 여기서는 돈을 잰다. */
+{
+  const spec: OptionSpec = {
+    optionsMaster: {
+      eng35: { name: '가솔린 3.5 터보 엔진', price: 2460000 },
+      awd: { name: 'HTRAC', price: 2470000 },
+      cf: { name: '컴포트 I', price: 900000 },
+    },
+    availableOptions: ['eng35', 'awd', 'cf'],
+    impliedOptions: ['eng35', 'awd'],
+  };
+  /* ㉠ 팔 물건 목록에 서면 안 된다 — 서면 영업자가 누른다. */
+  const ids = optionList(spec).map((x) => x.id);
+  must(!ids.includes('eng35') && !ids.includes('awd') && ids.includes('cf'),
+    `「이미 산 것」이 팔 물건 목록에 섭니다 — [${ids.join(',')}] · 누르면 엔진값을 또 받습니다`,
+    'lib/domain/estimate/option-rules.ts optionList');
+
+  /* ㉡ 켜지면 안 된다. */
+  must(!isEnabled(spec, 'eng35', new Set()) && isEnabled(spec, 'cf', new Set()),
+    '「이미 산 것」을 켤 수 있습니다 — 켜지면 합계에 또 더해집니다',
+    'lib/domain/estimate/option-rules.ts isEnabled');
+
+  /* ㉢ ★마지막 빗장 — 목록·토글을 «뚫고» 들어와도(저장된 옛 선택·URL·버그) 돈은 안 나간다. */
+  const sum = optionSum(spec, new Set(['eng35', 'awd', 'cf']));
+  must(sum === 900000,
+    `「이미 산 것」이 합계에 더해집니다 — ${sum.toLocaleString('ko-KR')}원(나와야 할 값 900,000원) · 그랜저 246만·HTRAC 247만 이중계상`,
+    'lib/domain/estimate/option-rules.ts optionSum');
+
+  /* ㉣ 선행 조건으로는 «충족»으로 본다 — 이미 갖고 있으니까. 이건 원래 되던 것이라 지킨다. */
+  const dep: OptionSpec = { ...spec, optionsMaster: { ...spec.optionsMaster, pkg: { name: '패키지', price: 500000, requires: ['eng35'] } },
+    availableOptions: ['cf', 'pkg'] };
+  must(isEnabled(dep, 'pkg', new Set()),
+    '「이미 산 것」을 선행으로 삼는 옵션이 영영 안 켜집니다 — 이미 갖고 있는데 못 고르게 막습니다',
+    'lib/domain/estimate/option-rules.ts requiresOf');
+}
+
+/* ══ 16. ★★★**파이프도 검사한다** — 만드는 쪽·쓰는 쪽만 막으면 사이로 샌다 ═══════
+     ⚠⚠ 2026-09-09 개발센터 4-AI 관문에서 **Codex 가 잡았다.**
+       나는 크롤러(만드는 쪽)와 `option-rules`(쓰는 쪽)를 다 막아 놓고, **그 사이 피드**를 안 봤다.
+       `/api/newcar` 가 `&& v.availableOptions.length` 로 **빈 배열을 통째로 떨궜고**,
+       소비자는 칸이 없으니 「못 받았다」로 읽어 **옵션 «전부»를 열었다.**
+       ⇒ 「빈 배열 = 고를 것이 없다」 방어가 운영에서 **통째로 무력화**돼 있었다.
+     ★교훈 — 「없다」와 「비었다」를 가르기로 해 놓고 **전송에서 둘을 합치면** 가른 적이 없는 것이다. */
+{
+  const api = code('app/api/newcar/route.ts');
+  for (const f of ['availableOptions', 'impliedOptions']) {
+    must(!new RegExp(`Array\\.isArray\\(v\\.${f}\\)\\s*&&\\s*v\\.${f}\\.length`).test(api),
+      `피드가 빈 «${f}» 를 버립니다 — 소비자가 「못 받았다」로 읽어 그 트림에 없는 옵션을 팝니다`,
+      'app/api/newcar/route.ts');
+    must(new RegExp(`Array\\.isArray\\(v\\.${f}\\)\\s*\\?`).test(api),
+      `피드가 «${f}» 를 배열 그대로 안 보냅니다`, 'app/api/newcar/route.ts');
+  }
+}
+
+/* 16-2. ★그 트림에서 «파는 것»이 아니면 켤 수 없다 — 목록에서 뺀 것이 합계에 들면 안 된다.
+     G80 2.5T 줄에서 「20" 피렐리(3.5T 전용)」를 켜고 70만원을 받을 수 있었다(Codex 재현). */
+{
+  const spec: OptionSpec = {
+    optionsMaster: { w20: { name: '20" 피렐리 타이어&휠', price: 700000 }, cf: { name: '컴포트 I', price: 900000 } },
+    availableOptions: ['cf'],
+  };
+  must(!isEnabled(spec, 'w20', new Set()) && isEnabled(spec, 'cf', new Set()),
+    '그 트림에서 «안 파는» 옵션을 켤 수 있습니다 — 목록에 없는 것이 합계에 듭니다',
+    'lib/domain/estimate/option-rules.ts isEnabled');
+  const after = toggleOption(spec, 'w20', new Set(['cf']));
+  must(!after.has('w20'),
+    '안 파는 옵션이 토글로 들어옵니다 — 있을 수 없는 차의 값이 견적서에 찍힙니다',
+    'lib/domain/estimate/option-rules.ts toggleOption');
+}
+
+/* ══ 17. ★★★제네시스 `base` 의 «기준»은 모델마다 다르다 — 이름을 잘못 붙이지 않는다 ═══
+     ⚠⚠ 2026-09-09 개발센터 4-AI 관문에서 **Codex 가 잡았다.**
+       정본(`genesis-config-fs.json`)이 G80-EV 를 「**세제혜택 후** 최저」라 적어 두었는데,
+       피드 폴백이 그 값을 `priceBefore` 에 넣고 **「세제혜택 전」이라 이름 붙여** 내보냈다.
+       코드 주석까지 「제네시스 min 은 세제혜택 전이다」로 **반대로** 적혀 있었다.
+       ★**주석은 증거가 아니다. 데이터가 말하게 한다.** */
+{
+  const g80ev = { model: 'G80-EV', base: 84790000,
+    minMax: { min: 84790000, minConfig: '세제혜택 후 최저(스탠다드 2WD/단일AWD, 개소세5%)',
+      variants: { 'AWD 세제후': 84790000, '세제전': 89080000 } } };
+  const b1 = basisOf(g80ev);
+  /* ⚠⚠ **여기 적혀 있던 기대값이 «틀렸다».** 「세제전」이라 적힌 변형을 아무거나 집어
+     그 값으로 갈아 끼우라고 해 놨는데, 그러면 **다른 구성의 값**이 기본 트림에 선다 —
+     GV60 은 {「스탠2WD 세제후」64,900,000 · 「스탠**AWD** 세제전」72,080,000} 이라
+     기본 트림이 **718만원 비싼 AWD 값**이 됐다(2026-09-10 · 독립 Claude E).
+     ⇒ 값은 언제나 `min`(그 모델의 기본 구성)이고, 우리가 하는 일은 «이름을 바로 붙이는 것»뿐이다. */
+  must(b1.price === 84790000 && b1.basis === '세제혜택 후',
+    `기본 구성의 값·이름이 아닙니다 — ${b1.price.toLocaleString('ko-KR')}원 / ${b1.basis}`,
+    'lib/domain/estimate/genesis-lineup.ts basisOf');
+  /* ★다른 구성의 값을 «끌어오지» 않는다 — GV60 실데이터. */
+  const gv60 = basisOf({ model: 'GV60', base: 64900000, minMax: { min: 64900000,
+    variants: { '스탠2WD 세제후': 64900000, '스탠AWD 세제전': 72080000, '퍼포먼스AWD 세제전': 76680000 } } });
+  must(gv60.price === 64900000 && gv60.basis === '세제혜택 후',
+    `다른 구성(AWD)의 값을 기본 트림에 세웁니다 — ${gv60.price.toLocaleString('ko-KR')}원 / ${gv60.basis}. 718만원 비쌉니다`,
+    'lib/domain/estimate/genesis-lineup.ts basisOf');
+  /* ★값과 이름이 «같은 구성»일 때만 「전」이라 한다. */
+  must(basisOf({ model: 'X', base: 100, minMax: { min: 100, variants: { '세제전': 100, '세제후': 90 } } }).basis === '세제혜택 전',
+    '같은 값에 「세제전」이 적혀 있는데 안 씁니다', 'lib/domain/estimate/genesis-lineup.ts basisOf');
+
+  /* 「전」이 없고 「후」라고 적혀 있으면 — 값은 쓰되 «후»라고 말한다. 지어내지 않는다. */
+  const onlyAfter = { model: 'X-EV', base: 1000, minMax: { min: 1000, minConfig: '세제후 최저', variants: {} } };
+  const b2 = basisOf(onlyAfter);
+  must(b2.price === 1000 && b2.basis === '세제혜택 후',
+    `「후」밖에 없는데 「${b2.basis}」 라고 말합니다 — 금액의 기준 자체를 잘못 설명합니다`,
+    'lib/domain/estimate/genesis-lineup.ts basisOf');
+
+  /* 표시가 없는 내연 = 피드 정본 규칙(개소세 5%)대로 「전」. */
+  must(basisOf({ model: 'G80', base: 60630000, minMax: { min: 60630000, variants: {} } }).basis === '세제혜택 전',
+    '표시가 없는 내연 모델을 「전」으로 안 봅니다 — 피드 정본은 「모든 가격 = 개소세 5%」입니다',
+    'lib/domain/estimate/genesis-lineup.ts basisOf');
+
+  /* ★표시가 없는 «전기»는 「미확인」이다 — 형제 EV 가 「세제후」라 「전」이라 단정하면 지어내는 것이다. */
+  must(basisOf({ model: 'GV70-EV', base: 79740000, minMax: { min: 79740000, variants: {} } }).basis === '기준 미확인',
+    '기준이 안 적힌 전기 모델을 「전」이라 단정합니다 — 형제 EV 는 「세제후」로 적혀 있습니다',
+    'lib/domain/estimate/genesis-lineup.ts basisOf');
+
+  /* ★피드 폴백이 그 판정을 «쓰는가» — 판정만 만들고 안 쓰면 아무것도 안 고친 것이다. */
+  const rt = code('app/api/newcar/route.ts');
+  must(/basisOf\(/.test(rt) && !/priceBasis: '세제혜택 전', options: \[\], _fallback/.test(rt),
+    '제네시스 폴백이 기준을 «무조건 전»으로 박습니다 — 세제후 값을 「전」이라 부릅니다',
+    'app/api/newcar/route.ts');
+}
+
+/* ══ 18. ★★★펴 놓은 제네시스 줄은 «기본 포함»도 다시 센다 ══════════════════════
+     ⚠⚠ 2026-09-09 개발센터 4-AI 관문 · **Codex #4.** 엔진 × 구동으로 펴면서 «펴기 전»
+       옵션 조건을 그대로 복사해, 정본이 「기본포함」이라 적어 둔 것을 **또 팔고** 있었다:
+         · G80 3.5T·AWD 70,030,000 → ECS(프리뷰 전자제어 서스펜션) 선택 → **71,130,000**
+         · GV80 블랙 2.5T 95,080,000 → AWD 선택 → **98,080,000**
+       ★「이름에 AWD 가 없으면 진짜 옵션」이라는 규칙이 **기본구성 정보와 충돌**했다 —
+         구동 그룹이 «없는» 라인업은 구동이 base 에 박힌 것이지 «없는» 것이 아니다.
+     ⇒ 정본이 «사람 말»로 적어 둔 세 자리를 읽는다(`baseConfig` · 엔진 `note` · `conditionals`). */
+{
+  /* ⚠ **겹치는 항목을 빼지 않는다.** 정본 사전에는 「AWD」와 「드라이빙어시Ⅱ(AWD)」가 같이 있고,
+     그것을 빼 놓았더니 §18 이 초록인데 GV80 블랙이 AWD 300만을 또 팔고 있었다(2026-09-10 Codex). */
+  const om = {
+    ecs: { name: '프리뷰 전자제어 서스펜션', price: 1100000 },
+    awd: { name: 'AWD', price: 3000000 },
+    bo: { name: '뱅앤올룹슨', price: 1900000 },
+    pano: { name: '파노라마 선루프', price: 1400000 },
+    d2a: { name: '드라이빙어시Ⅱ(2WD)', price: 2000000 },
+    d2b: { name: '드라이빙어시Ⅱ(AWD)', price: 2700000 },
+  };
+  const rows = expandGenesis([{
+    maker: '제네시스', sub_model: 'G80', fuel: '가솔린', priceBefore: 0, priceAfter: 0,
+    optionsMaster: om, availableOptions: Object.keys(om),
+  } as never]) as Record<string, unknown>[];
+  /* ★구동은 «파워트레인» 축이다(§37) — 엔진·구동 둘 다 연료 라벨에서 찾는다.
+     ⚠ 이 검사가 지키는 것은 «라벨»이 아니라 **돈**이다(ECS 110만 · AWD 300만 이중청구). 같은 줄을 계속 잡는다. */
+  const find = (fuelRe: RegExp, driveRe: RegExp) =>
+    rows.find((r) => fuelRe.test(String(r.fuel)) && driveRe.test(String(r.fuel)));
+
+  /* 재현 A — G80 3.5T 는 ECS 가 기본이다(`choices[3.5T].note` 「ECS·19인치 콘티 기본」). */
+  const a = find(/3\.5/, /AWD/);
+  const aIm = (a?.impliedOptions ?? []) as string[];
+  must(!!a && Number(a.priceBefore) === 70030000 && aIm.includes('ecs') && aIm.includes('awd'),
+    `G80 3.5T·AWD 가 기본 포함을 «또 팝니다» — ${Number(a?.priceBefore || 0).toLocaleString('ko-KR')}원 / implied=[${aIm.join(',')}]. `
+    + 'ECS 를 고르면 110만이 더 붙습니다',
+    'lib/domain/estimate/genesis-lineup.ts expandGenesis');
+  /* ⚠ 2.5T 에서는 ECS 가 «진짜 유료 옵션»이다 — 넘겨 짚어 지우면 유료 옵션이 사라진다. */
+  const b25 = find(/2\.5/, /2WD/);
+  must(!((b25?.impliedOptions ?? []) as string[]).includes('ecs'),
+    'G80 2.5T 에서 ECS 를 「이미 샀다」고 지웁니다 — 거기서는 진짜 유료 옵션(110만)입니다',
+    'lib/domain/estimate/genesis-lineup.ts expandGenesis');
+
+  /* 재현 B — GV80 블랙은 구동 그룹이 «없고» base 가 AWD 다(`baseConfig` 「2.5T·AWD·…」). */
+  const gv = (expandGenesis([{
+    maker: '제네시스', sub_model: 'GV80', fuel: '가솔린', priceBefore: 0, priceAfter: 0,
+    optionsMaster: om, availableOptions: Object.keys(om),
+  } as never]) as Record<string, unknown>[]).find((r) => String(r.trim) === '블랙' && /2\.5/.test(String(r.fuel)));
+  const gvIm = (gv?.impliedOptions ?? []) as string[];
+  must(!!gv && Number(gv.priceBefore) === 95080000 && gvIm.includes('awd'),
+    `GV80 블랙이 AWD 를 «또 팝니다» — ${Number(gv?.priceBefore || 0).toLocaleString('ko-KR')}원 / implied=[${gvIm.join(',')}]. `
+    + '구동 그룹이 없는 라인업은 구동이 base 에 박힌 것입니다(+300만)',
+    'lib/domain/estimate/genesis-lineup.ts expandGenesis');
+
+  /* ★그래서 돈이 실제로 안 나가는가 — 판정만 만들고 안 쓰면 아무것도 안 고친 것이다(§15 의 교훈). */
+  const spec: OptionSpec = { optionsMaster: om, availableOptions: Object.keys(om), impliedOptions: aIm };
+  must(optionSum(spec, new Set([...aIm, 'pano'])) === 1400000,
+    '기본 포함이 합계에 더해집니다 — 파노라마만 고른 값(1,400,000원)이 나와야 합니다',
+    'lib/domain/estimate/option-rules.ts optionSum');
+
+  /* ⚠ 줄임말 맞대기가 «넘겨 짚지» 않는가 — 못 찾으면 지우지 않는다. */
+  must(matchIncluded('없는이름', { a: '컴포트 I' }) === undefined,
+    '없는 이름을 아무 옵션에나 갖다 붙입니다 — 유료 옵션이 사라집니다',
+    'lib/domain/estimate/genesis-included.ts matchIncluded');
+  must(matchIncluded('뱅올', { bo: '뱅앤올룹슨' }) === 'bo' && matchIncluded('ECS', { e: '프리뷰 전자제어 서스펜션' }) === 'e',
+    '정본이 줄여 쓴 말(「뱅올」·「ECS」)을 못 알아봅니다 — 기본 포함을 또 팝니다',
+    'lib/domain/estimate/genesis-included.ts matchIncluded');
+}
+
+/* ══ 19. ★★★**판매가격 세제감면을 «실제로» 뺀다** ═══════════════════════════
+     ⚠⚠ 2026-09-09 개발센터 4-AI 관문 · **독립 Claude F1.** 우리는 차량가를
+       「세제혜택 «전»」(표시가)으로 통일해 놓고 그 감면을 **어디서도 빼지 않았다.**
+       「이중차감」이 아니라 **「미차감」**이었고, 나는 그 틀린 전제를 §14 에
+       「고치지 마라 — 규격을 지운 것과 같다」로 **잠가** 두었다.
+       ★반증은 실데이터다 — 전기 77줄 감면이 가격의 4.81~4.94%(비례·절편 0),
+         하이브리드 35줄이 **정액 1,001,000**. 취득세 감면(한도 140만)이 섞였다면
+         하이브리드가 그보다 작을 수 없다. ⇒ 판매«가격» 세제와 취득세는 **겹치지 않는다.**
+       실측 손해: EV9 GT-Line 렌트반납 48개월 **월 63,000원 · 48개월 302만원** 비쌌다. */
+{
+  /* 19-1. 제조사가 준 두 값의 «차»를 쓴다 — 법정 한도를 우리가 계산하지 않는다. */
+  must(trimSaleTaxCredit({ priceBefore: 83290000, priceAfter: 79170000 }) === 4120000,
+    '판매가격 세제감면을 «제조사가 준 차»로 안 잡습니다', 'lib/domain/estimate/car-index.ts trimSaleTaxCredit');
+  /* ⚠ 「후」가 「전」과 같으면 0 — 제네시스·르노는 `priceAfter = priceBefore` 로 «복사»만 되어 있다.
+       「없다」가 아니라 「아직 안 받아왔다」이다. 지어내지 않는다. */
+  must(trimSaleTaxCredit({ priceBefore: 60630000, priceAfter: 60630000 }) === 0
+    && trimSaleTaxCredit({ priceBefore: 0, priceAfter: 5000 }) === 0,
+    '감면이 없는 줄에서 값을 «지어냅니다»', 'lib/domain/estimate/car-index.ts trimSaleTaxCredit');
+
+  /* 19-2. ★★**엔진이 그것을 실제로 뺀다** — 값만 만들고 안 쓰면 아무것도 안 고친 것이다
+       (§15 에서 겪은 그대로: `impliedOptions` 를 만들어 놓고 합계에서 안 뺐다). */
+  const cj = code('lib/domain/estimate/calc.js');
+  must(/netPrice = Math\.max\(0, price - evSubsidy - saleTaxCredit\)/.test(cj),
+    '엔진이 판매가격 세제감면을 취득가에서 안 뺍니다 — 전기·하이브리드 견적이 그만큼 비쌉니다',
+    'lib/domain/estimate/calc.js netPrice');
+  /* ⚠ 취득세 감면은 «별개»다 — 같이 지우면 이번엔 반대로 두 번 빼게 된다. */
+  must(/acqTaxCredit/.test(cj),
+    '취득세 감면(별개)을 같이 지웠습니다 — 판매가격 세제와 취득세는 겹치지 않습니다',
+    'lib/domain/estimate/calc.js acqTax');
+  must(code('lib/domain/estimate/quote-input.js').includes('saleTaxCredit'),
+    '견적 입력이 감면을 엔진에 안 넘깁니다', 'lib/domain/estimate/quote-input.js');
+  must(code('app/estimate/page.tsx').includes('saleTaxCredit'),
+    '화면이 고른 차의 감면을 안 싣습니다', 'app/estimate/page.tsx');
+
+  /* 19-3. ★손님이 보는 값은 «안 움직인다» — 표시는 「전」 하나, 감면은 원가에서만.
+       고른 차량가에서 감면을 빼 버리면 제조사 표시가와 달라져 손님이 못 믿는다. */
+  must(trimPrice({ priceBefore: 83290000, priceAfter: 79170000 }) === 83290000,
+    '표시 차량가에서 감면을 빼 버립니다 — 제조사 표시가와 달라집니다',
+    'lib/domain/estimate/car-index.ts trimPrice');
+}
+
+/* ══ 20. 규칙·값 읽기의 «갈래»를 빠뜨리지 않는다 (독립 Claude F3·F4) ═══════════ */
+{
+  /* 20-1. 「A 선택 불가」 — 「동시/중복」이 «없는» 갈래. 운영 데이터에 실제로 있다. */
+  must(readRule('블랙 익스테리어 선택 불가').bans.includes('블랙 익스테리어'),
+    '「… 선택 불가」(동시·중복 없는 갈래)를 안 읽습니다 — 규칙이 한 개도 안 섭니다',
+    'lib/domain/estimate/option-note.ts readRule');
+  must(readRule('선루프와 동시 적용 불가').bans.includes('선루프')
+    && readRule('19인치 휠 적용 시 가능').needs.includes('19인치 휠'),
+    '갈래를 늘리다 원래 되던 것을 깼습니다', 'lib/domain/estimate/option-note.ts readRule');
+
+  /* 20-2. ★값을 «붙여 읽지» 않는다 — 「1,200,000 ~ 2,000,000」이 12조가 됐다. */
+  must(priceOf('<p class="item-price">1,200,000 ~ 2,000,000</p>') === 1200000,
+    `범위 값을 붙여 읽습니다 — ${priceOf('<p class="item-price">1,200,000 ~ 2,000,000</p>')}`,
+    'lib/domain/estimate/option-note.ts priceOf');
+  must(priceOf('<p class="item-price">150만원</p>') === 1500000,
+    `「만원」 표기를 원 단위로 읽습니다 — ${priceOf('<p class="item-price">150만원</p>')}원`,
+    'lib/domain/estimate/option-note.ts priceOf');
+
+  /* 20-3. ★구동말이 «들어 있다»고 구동 그 자체는 아니다 — G90 「후륜 조향 시스템」 150만이 사라졌다. */
+  must(impliedOf({ rs: { name: '후륜 조향 시스템' } }, '가솔린 3.5 터보', '2WD(후륜)').length === 0,
+    '「후륜 조향 시스템」을 「이미 산 구동」으로 지웁니다 — 150만원짜리 유료 옵션이 사라집니다',
+    'lib/domain/estimate/implied-options.ts impliedByTrim');
+  must(impliedOf({ d: { name: '전자제어 풀타임 4WD' } }, '가솔린 2.5 터보', 'AWD').length === 1,
+    '진짜 구동(「전자제어 풀타임 4WD」)까지 안 걸러냅니다 — 구동값을 또 받습니다',
+    'lib/domain/estimate/implied-options.ts impliedByTrim');
+}
+
+/* ══ 21. ★★★2026-09-10 개발센터 4-AI 관문 «재검토»에서 잡힌 것 ═════════════════
+     앞 회차를 고치면서 **새로 만든 균열**과, 내가 **조작한 검사**가 드러났다. */
+
+/* 21-1. ★★★**화면과 견적서가 «같은 값»을 쓴다** (Codex 발견 1·2)
+     견적서만 감면 후(`netPrice`)로 옮기고 화면 카드(선납·만기인수·손익)를 `price` 로 남겨,
+     한 견적에서 인수가가 **239만** 갈렸다(EV9 48개월: 화면 4,831만 vs 견적서 4,592만).
+     ⚠ 「기준이 하나」는 **문서 안»에서만»이 아니라 화면과 문서 «사이»에서도** 지켜야 한다. */
+{
+  /* → 이 검사는 «띄어쓰기 하나로 뚫렸다»(2026-09-10 독립 Claude 발견 4).
+     §24-2 가 공백을 걷어 «글자»로 잰다. 문자열 검사를 더 단단하게 «올린» 것이지 낮춘 게 아니다. */
+}
+
+/* 21-2. ★★★**검사를 조작하지 않는다** — §18 은 «겹치는 항목을 뺀» 사전으로 초록을 냈다.
+     정본의 진짜 사전에는 「AWD」와 「드라이빙어시Ⅱ(AWD)」가 **같이** 있고, 그러면
+       · `matchIncluded('AWD')` 가 둘에 걸려 **못 찾고** → GV80 블랙이 AWD **300만**을 또 판다
+       · `matchIncluded('드라Ⅱ')` 가 **2WD 항목**을 집어 → AWD용 드라Ⅱ **270만**을 또 판다
+     (2026-09-10 Codex 발견 4 · 앞 회차 반례가 «죽지 않았다»).
+     ⇒ 아래 사전은 GV80 정본 `options.individual` 그대로다. 빼지 않는다. */
+{
+  const real = {
+    awd: 'AWD', pano: '파노라마 선루프', hud: '헤드업 디스플레이', conv: '컨비니언스 패키지',
+    d1: '드라이빙어시Ⅰ', d2a: '드라이빙어시Ⅱ(2WD)', d2b: '드라이빙어시Ⅱ(AWD)',
+    rear: '후석컴포트 패키지', bo: '뱅앤올룹슨', cam: '빌트인캠',
+  };
+  must(matchIncluded('AWD', real, 'AWD') === 'awd',
+    `이름이 «똑같은데» 못 찾습니다 — ${matchIncluded('AWD', real, 'AWD') ?? '(못 찾음)'}. GV80 블랙이 AWD 300만을 또 팝니다`,
+    'lib/domain/estimate/genesis-included.ts matchIncluded');
+  must(matchIncluded('드라Ⅱ', real, 'AWD') === 'd2b' && matchIncluded('드라Ⅱ', real, '2WD(후륜)') === 'd2a',
+    `구동이 갈리는 항목을 «그 줄의 구동»으로 안 고릅니다 — AWD줄에서 ${matchIncluded('드라Ⅱ', real, 'AWD')}. AWD용 270만을 또 팝니다`,
+    'lib/domain/estimate/genesis-included.ts matchIncluded');
+  /* ⚠ 구동을 «모르면» 고르지 않는다 — 지어내면 진짜 옵션이 사라진다. */
+  must(matchIncluded('드라Ⅱ', real, '') === undefined,
+    '구동을 모르는데 둘 중 하나를 «지어냅니다»', 'lib/domain/estimate/genesis-included.ts matchIncluded');
+}
+
+/* 21-3. ★★구동은 «트림»에만 있는 게 아니다 (Codex 발견 5)
+     아이오닉6·아이오닉9 는 파워트레인 쪽에 붙는다(「전기 롱레인지 AWD」·트림은 「Prestige」).
+     트림만 보면 **HTRAC 247만을 또 판다.** */
+must(impliedOf({ htrac: { name: 'HTRAC (상시 4륜 구동)' } }, '전기 롱레인지 AWD', 'Prestige').length === 1,
+  '파워트레인에 든 구동을 못 봅니다 — 아이오닉6 에서 HTRAC 247만을 또 팝니다',
+  'lib/domain/estimate/implied-options.ts impliedOf');
+must(impliedOf({ htrac: { name: 'HTRAC' } }, '전기 롱레인지 2WD', 'Prestige').length === 0,
+  '2WD 줄에서 HTRAC 를 「이미 샀다」고 지웁니다 — 진짜 유료 옵션입니다',
+  'lib/domain/estimate/implied-options.ts impliedOf');
+
+/* 21-4. ★★**마지막 빗장은 «고를 수 있는 것»만 센다** (Codex 발견 3)
+     예전 빗장은 「이미 산 것」만 막고, «그 트림에서 안 파는 것»·«규칙을 어긴 것»은 그대로 더했다. */
+{
+  const 금지: OptionSpec = {
+    optionsMaster: { f: { name: '3.5T 전용 휠', price: 700000 }, ok: { name: '컴포트 I', price: 900000 } },
+    availableOptions: ['ok'],
+  };
+  must(optionSum(금지, new Set(['f', 'ok'])) === 900000,
+    `안 파는 옵션이 합계에 듭니다 — ${optionSum(금지, new Set(['f', 'ok'])).toLocaleString('ko-KR')}원(나와야 할 값 900,000원)`,
+    'lib/domain/estimate/option-rules.ts optionSum');
+  const 선행: OptionSpec = {
+    optionsMaster: { a: { name: 'A', price: 100 }, b: { name: 'B', price: 200, requires: ['a'] } },
+    availableOptions: ['a', 'b'],
+  };
+  must(optionSum(선행, new Set(['b'])) === 0 && optionSum(선행, new Set(['a', 'b'])) === 300,
+    '선행을 안 갖춘 옵션이 합계에 듭니다 — 있을 수 없는 차의 값이 나갑니다',
+    'lib/domain/estimate/option-rules.ts optionSum');
+}
+
+/* ══ 22. ★★★**엔진을 «돌려서» 잰다** — 되찾은 돈에 검사가 없었다 ═══════════════
+     ⚠ §19 는 「netPrice 줄에 saleTaxCredit 가 있나」를 «문자열»로만 봤고,
+       `car-index.ts` 가 그 값을 실어 보내는지는 **어느 게이트도 안 봤다**
+       (2026-09-10 개발센터 4-AI 관문 · 독립 Claude C). 340만원이 게이트 없이 매달려 있었다.
+     ⇒ 진짜 트림으로 `computeTerm` 을 두 번 돌려 **금액이 실제로 달라지는지** 본다. */
+{
+  const base = {
+    channel: 'rent', type: 'return', price: 83290000, cc: 0, fuel: 'ev',
+    accident: 'none', mileage: 0, year: 2026, nowYear: 2026, credit: '중신용',
+    depositPct: 10, prepayPct: 0, evSubsidy: 0, group: 'B', residualRates: null,
+  };
+  const run = (c: number) =>
+    computeTerm(48, { ...base, saleTaxCredit: c } as never, { idx: 48 } as never) as Record<string, number>;
+  const 없이 = run(0); const 있게 = run(4120000);
+  const diff = Math.round(없이.payVat) - Math.round(있게.payVat);
+  must(diff > 0,
+    `판매가격 세제감면이 대여료에 «안 먹습니다» — 월납 차이 ${diff.toLocaleString('ko-KR')}원. `
+    + '전기·하이브리드 견적이 그만큼 비쌉니다',
+    'lib/domain/estimate/calc.js saleTaxCredit');
+  /* ★취득가·보증금·잔가가 «다 같이» 내려가야 한다 — 한 군데만 내려가면 기준이 또 갈린다. */
+  must(있게.costEx < 없이.costEx && 있게.deposit < 없이.deposit && 있게.residualAmt < 없이.residualAmt,
+    '감면이 취득가에만 먹고 보증금·잔가에는 안 먹습니다 — 한 견적 안에서 기준이 갈립니다',
+    'lib/domain/estimate/calc.js netPrice');
+  /* ⚠ **딱 «한 번»만 빠지는가.** 감면액만큼(VAT 제외) 취득원가가 내려가야 한다 —
+     더 내려가면 어딘가에서 또 빼는 것이고, 덜 내려가면 안 먹는 것이다.
+     ⚠ 업금액(markup)이 가격구간을 넘나들면 더 움직일 수 있어 «최소»로 잰다. */
+  const dropped = Math.round(없이.costEx) - Math.round(있게.costEx);
+  const expect = Math.round(4120000 / 1.1);
+  must(dropped >= expect - 2,
+    `감면이 취득원가에 덜 먹습니다 — ${dropped.toLocaleString('ko-KR')}원 내려감(적어도 ${expect.toLocaleString('ko-KR')}원)`,
+    'lib/domain/estimate/calc.js costEx');
+  must(dropped <= expect + 2 + Math.abs(Math.round(없이.priceTotal) - Math.round(있게.priceTotal) - 4120000),
+    `감면이 «두 번» 빠집니다 — ${dropped.toLocaleString('ko-KR')}원 내려감(들어야 할 값 ${expect.toLocaleString('ko-KR')}원)`,
+    'lib/domain/estimate/calc.js costEx');
+
+  /* ★★고른 차가 그 값을 «싣고» 오는가 — 엔진이 받을 길이 없으면 위 검사는 헛것이다. */
+  must(trimSaleTaxCredit({ priceBefore: 83290000, priceAfter: 79170000 }) === 4120000
+    && code('lib/domain/estimate/car-index.ts').includes('saleTaxCredit: trimSaleTaxCredit(t)'),
+    '고른 차가 판매가격 세제감면을 안 싣습니다 — 화면이 엔진에 넘길 값이 없습니다',
+    'lib/domain/estimate/car-index.ts pickNew');
+}
+
+/* ══ 23. 「모른다」를 「안다」로 뭉개지 않는다 (독립 Claude D·E) ═══════════════════ */
+{
+  /* 23-1. 피드가 「기준 미확인」이라 말하면 그대로 전한다 — 우리가 「전/후」로 단정하지 않는다. */
+  must(trimBasis({ priceBefore: 79740000, priceAfter: 0, priceBasis: '기준 미확인' }) === '기준 미확인',
+    '피드가 「기준 미확인」이라 했는데 「전」이라 단정합니다 — 손님 문서에 틀린 말이 찍힙니다',
+    'lib/domain/estimate/car-index.ts trimBasis');
+  must(trimBasis({ priceBefore: 83290000, priceAfter: 79170000 }) === '세제혜택 전',
+    '기준을 말 안 해 주는 줄에서 못 짚습니다', 'lib/domain/estimate/car-index.ts trimBasis');
+
+  /* 23-2. ★정본이 「스포츠 3.5T 기본포함」이라 적으면 **스포츠일 때만**이다.
+     그 단서를 흘려 3.5T 전부에 적용했더니 일반 G80 3.5T 에서 뱅앤올룹슨 190만이 «사라졌다». */
+  const g80 = JSON.parse(read('data/new-car/genesis-config-fs.json')) as { models?: Record<string, unknown>[] };
+  const m = ((g80.models ?? (g80 as unknown as Record<string, unknown>[])) as Record<string, unknown>[])
+    .find((x) => x.model === 'G80') as Parameters<typeof includedNames>[0] & { options?: { conditionals?: string } };
+  const cond = m?.options?.conditionals;
+  must(!includedNames(m, '가솔린 3.5T', cond, '').includes('뱅올'),
+    '일반 3.5T 에서 「뱅앤올룹슨」을 「이미 샀다」고 지웁니다 — 190만원짜리 유료 옵션이 사라집니다',
+    'lib/domain/estimate/genesis-included.ts includedNames');
+  must(includedNames(m, '가솔린 3.5T', cond, '스포츠').includes('뱅올'),
+    '스포츠 3.5T 에서는 「뱅앤올룹슨」이 기본인데 또 팝니다',
+    'lib/domain/estimate/genesis-included.ts includedNames');
+}
+
+/* ══ 24. ★★★3회차 관문에서 잡힌 것 — «돈»과 «뚫린 검사» ════════════════════════ */
+
+/* 24-1. ★★**3.5T 줄이 2.5T 전용을 팔고, 3.5T 전용은 못 판다** (Codex 3 · 독립 Claude 1)
+     웰릭스가 G80 을 「가솔린 2.5/3.5 터보」 한 덩어리로 묶어, `availableOptions` 가
+     **2.5T 목록으로 고정**돼 있었다. 정본은 옵션마다 엔진을 적어 두었는데(「2.5T -」·「3.5T 전용」)
+     펴 놓은 줄이 그걸 안 읽었다. ⇒ 손님이 **틀린 휠을 4.3배 값**(300만 vs 70만)에 산다. */
+{
+  const om = {
+    w25: { name: '20" 피렐리 타이어&휠', price: 3000000, sub: '2.5T - 프리뷰 ECS 포함' },
+    w35: { name: '20" 피렐리 타이어&휠', price: 700000, sub: '3.5T 전용' },
+    sp35: { name: '스포츠 패키지 (3.5T)', price: 5600000, sub: '20" 미쉐린+블랙 4P' },
+    bo: { name: '뱅앤올룹슨 사운드 패키지', price: 1900000 },
+  };
+  const a35 = availableForEngine(om, ['w25', 'bo'], '가솔린 3.5 터보') ?? [];
+  must(!a35.includes('w25') && a35.includes('w35') && a35.includes('sp35') && a35.includes('bo'),
+    `3.5T 줄의 «파는 목록»이 틀렸습니다 — [${a35.join(',')}]. `
+    + '2.5T 전용 300만이 팔리고 3.5T 전용 70만·560만이 안 팔립니다',
+    'lib/domain/estimate/genesis-included.ts availableForEngine');
+  const a25 = availableForEngine(om, ['w25', 'bo'], '가솔린 2.5 터보') ?? [];
+  must(a25.includes('w25') && !a25.includes('w35') && a25.includes('bo'),
+    `2.5T 줄의 «파는 목록»이 틀렸습니다 — [${a25.join(',')}]`,
+    'lib/domain/estimate/genesis-included.ts availableForEngine');
+  /* ⚠ 엔진을 «안 적은» 옵션은 손대지 않는다 — 모르는 것을 고르면 팔 물건이 사라진다. */
+  must((availableForEngine({ x: { name: '빌트인캠' } }, ['x'], '가솔린 3.5 터보') ?? []).includes('x'),
+    '엔진을 안 적은 옵션까지 지웁니다 — 팔 물건이 사라집니다',
+    'lib/domain/estimate/genesis-included.ts availableForEngine');
+
+  /* ★★그리고 «이미 산 것»이 제 배제를 나른다 — 3.5T 엔진이 막는 것은 못 골라야 한다. */
+  const spec: OptionSpec = {
+    optionsMaster: { e35: { name: '가솔린 3.5 터보 엔진', price: 6600000 }, w25: { name: '2.5T 20인치 휠', price: 3000000 } },
+    availableOptions: ['w25'], impliedOptions: ['e35'], optionExcludes: { e35: ['w25'] },
+  };
+  must(!isEnabled(spec, 'w25', new Set()) && optionSum(spec, new Set(['w25'])) === 0,
+    `「이미 산 엔진」이 막는 옵션이 팔립니다 — 합계 ${optionSum(spec, new Set(['w25'])).toLocaleString('ko-KR')}원(나와야 할 값 0). `
+    + '있을 수 없는 차의 값이 견적서에 찍힙니다',
+    'lib/domain/estimate/option-rules.ts isEnabled');
+}
+
+/* 24-2. ★★**게이트가 띄어쓰기로 뚫리지 않게** (독립 Claude 발견 4)
+     §21-1 은 `l.includes('sc.pre / 100')` 로 «첫 줄»을 집고 `/price \* sc\.pre/` 로 부정검사했다.
+     띄어쓰기를 지우면 다른 줄이 잡히고 부정검사도 안 맞아 **초록**이 됐다.
+     ⇒ 공백을 걷어 «글자»로 만든 뒤 잰다. */
+{
+  const pg = code('app/estimate/page.tsx').replace(/\s+/g, '');
+  for (const what of ['sc.pre/100', 'buyoutPct[sc.term]/100']) {
+    const hits = pg.split(what).length - 1;
+    must(hits > 0, `화면 카드에서 「${what}」 셈이 사라졌습니다`, 'app/estimate/page.tsx');
+  }
+  /* «감면 전» 값으로 세는 자리가 하나라도 있으면 안 된다 — 공백을 걷었으니 띄어쓰기로 못 피한다. */
+  must(!pg.includes('Math.round(price*sc.pre') && !pg.includes('Math.round(price*buyoutPct'),
+    '화면 카드가 «감면 전» 값으로 셉니다 — 견적서와 갈립니다(띄어쓰기로 피할 수 없습니다)',
+    'app/estimate/page.tsx');
+  /* ★★**제품 코드가 판정에 들어와야 한다.** §26 은 문서를 직접 만들어 재느라, `page.tsx` 의
+     `netPrice` 정의를 되돌려도 초록이었다(2026-09-10 독립 Claude 5회차 강권).
+     ⇒ 그 «정의 줄» 자체를 못 박는다 — 손님 기준은 `price − taxCredit` 이고 보조금은 «안» 뺀다. */
+  must(pg.includes('constnetPrice=Math.max(0,price-taxCredit)'),
+    '손님 기준(netPrice) 정의가 바뀌었습니다 — 보조금까지 빼면 만기인수가 348만 깎이고 '
+    + '견적서의 「차량가 − 세제혜택 = 적용가」 뺄셈이 안 맞습니다',
+    'app/estimate/page.tsx netPrice');
+  /* ★선납금은 «화면이 보여 준 값»으로 엔진에 간다 — 엔진이 다시 세면 월납이 낮아진다. */
+  must(code('lib/domain/estimate/quote-input.js').replace(/\s+/g, '').includes('form.netPrice??form.price'),
+    '엔진이 선납금을 «감면 전»으로 다시 셉니다 — 손님이 낸다고 적힌 값보다 더 받은 것으로 계산합니다',
+    'lib/domain/estimate/quote-input.js');
+  /* ★§22 의 다리도 문자열 하나에 매달려 있었다 — 값이 «0 이 아닌지»까지 본다. */
+  must(trimSaleTaxCredit({ priceBefore: 100, priceAfter: 90 }) === 10,
+    '고른 차가 감면을 안 싣습니다', 'lib/domain/estimate/car-index.ts trimSaleTaxCredit');
+}
+
+/* 24-3. ★제네시스 기준 이름은 «정상 경로»에도 붙는다 (Codex 2)
+     폴백에만 붙여 두면 Firestore 가 살아 있을 때 G80-EV 가 손님 문서에 「세제혜택 전」으로 찍힌다. */
+must(code('app/api/newcar/route.ts').includes('genesisPrices(S(v.sub_model)'),
+  '정상 경로에서 제네시스 «가격 기준»을 안 붙입니다 — 「후」를 「전」이라 인쇄합니다',
+  'app/api/newcar/route.ts');
+
+/* ══ 25. ★★★4회차 관문 — 「깎인 것을 다 적는다」와 «문자열이 아닌» 검사 ════════════ */
+
+/* 25-1. ★★★**견적서를 «그려서» 잰다** (Codex 4회차 3)
+     차액을 하나라도 감추면 손님이 못 짚는다 — 세제혜택만 적고 전기차 보조금(600만)을 안 적어
+     차량가 8,329만과 적용가 7,317만 사이의 600만이 «설명 없는 구멍»이 됐다. 세제혜택이 0 이면
+     적용가 줄까지 통째로 숨어, 보증금·선납·인수가 «어느 값»에서 나왔는지 알 수 없었다.
+
+     ⚠⚠ 처음엔 이것을 `includes('doc.evSubsidy')` 로 쟀다. 그런데 **`{false && doc.evSubsidy}` 로
+       줄을 죽여도 그대로 초록**이었다(내 변이시험에서 안 잡혔다). 낱말이 «있나»는 그 낱말이
+       «일하나»를 말해 주지 않는다. ⇒ **문서를 실제로 그려 «글자»가 나오는지 본다.** */
+{
+  const html = renderToStaticMarkup(createElement(QuotePreview, {
+    onClose: () => {},
+    doc: {
+      customer: '홍길동', staff: '담당자', tel: '010-0000-0000',
+      brand: '기아', carName: 'EV9 GT-Line', carSub: '전기',
+      price: 83290000, priceBasis: '세제혜택 전',
+      saleTaxCredit: 4120000, evSubsidy: 6000000, netPrice: 73170000,
+      channel: '렌트', endType: '반납형', credit: '중신용',
+      colorExt: '', colorInt: '', options: [],
+      lines: [{ term: 48, pay: 1595000, depositPct: 10, deposit: 7317000, prepayPct: 10, prepay: 7317000, buyoutPct: 58, buyout: 42438600 }],
+    },
+  }));
+  const t = html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+  must(t.includes('전기차 보조금') && t.includes('600만'),
+    '견적서에 전기차 보조금이 «안 그려집니다» — 차량가와 적용가 사이에 설명 없는 600만이 남습니다',
+    'features/estimate/QuotePreview.tsx');
+  must(t.includes('세제혜택') && t.includes('412만'),
+    '견적서에 세제혜택이 «안 그려집니다»', 'features/estimate/QuotePreview.tsx');
+  must(t.includes('적용가') && t.includes('7,317만'),
+    '견적서에 적용가가 «안 그려집니다» — 보증금·선납·인수가 어느 값에서 나왔는지 알 수 없습니다',
+    'features/estimate/QuotePreview.tsx');
+  /* ★보조금만 있고 세제혜택이 0 인 줄도 적용가를 적어야 한다. */
+  const only = renderToStaticMarkup(createElement(QuotePreview, {
+    onClose: () => {},
+    doc: {
+      customer: '', staff: '', tel: '', brand: '기아', carName: 'EV6', carSub: '전기',
+      price: 60000000, priceBasis: '세제혜택 전', saleTaxCredit: 0, evSubsidy: 6000000, netPrice: 54000000,
+      channel: '렌트', endType: '반납형', credit: '중신용', colorExt: '', colorInt: '', options: [],
+      lines: [{ term: 48, pay: 1, depositPct: 10, deposit: 5400000, prepayPct: 0, prepay: 0, buyoutPct: 50, buyout: 27000000 }],
+    },
+  })).replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+  must(only.includes('적용가') && only.includes('5,400만'),
+    '세제혜택이 0 이면 적용가를 숨깁니다 — 보조금만으로 값이 내려간 줄이 근거 없이 보입니다',
+    'features/estimate/QuotePreview.tsx');
+  /* ⚠ 원가·손익은 «한 줄도» 안 나간다 — 그리고 나서 확인한다. */
+  for (const 금지 of ['원가', '마진', '영업이익', '매출총이익']) {
+    must(!t.includes(금지), `손님 견적서에 「${금지}」가 나갑니다`, 'features/estimate/QuotePreview.tsx');
+  }
+}
+
+/* 25-2. ★★**문자열로 재던 것을 «값»으로 올린다** (Codex 4회차 4)
+     §24-2 는 공백을 걷었지만 `Math.round((price) * …)` 처럼 괄호 하나로 뚫린다.
+     ⇒ 화면이 쓰는 그 셈을 **여기서 직접 해서** 견적서 셈과 맞댄다. 표현이 어떻든 «값»은 못 속인다. */
+{
+  const 차량가 = 83290000; const 보조금 = 6000000; const 감면 = 4120000;
+  const net = 차량가 - 감면;                    // ★손님 기준 — 화면·견적서·보증금이 딛는 값
+  must(net === 79170000, `적용가 셈이 틀렸습니다 — ${net}`, 'app/estimate/page.tsx netPrice');
+  /* 선납 10% · 인수 58% 가 «같은 값»에서 나와야 한다. */
+  must(Math.round(net * 0.1) === 7917000 && Math.round(net * 0.58) === 45918600,
+    '선납·인수가 손님 기준에서 안 나옵니다', 'app/estimate/page.tsx');
+  /* ★그리고 엔진이 딛는 값과 «같은지» — 엔진을 실제로 돌려 본다. */
+  const base = {
+    channel: 'rent', type: 'return', price: 차량가, cc: 0, fuel: 'ev', accident: 'none',
+    mileage: 0, year: 2026, nowYear: 2026, credit: '중신용',
+    depositPct: 10, prepayPct: 0, group: 'B', residualRates: null,
+  };
+  const cust = 차량가 - 감면;                              // ★손님이 딛는 값(보조금은 «안» 뺀다)
+  const r = computeTerm(48, { ...base, evSubsidy: 보조금, saleTaxCredit: 감면 } as never,
+    { idx: 48 } as never) as Record<string, number>;
+  must(Math.round(r.deposit) === Math.round(cust * 0.1),
+    `엔진 보증금이 «손님 기준»과 다릅니다 — ${Math.round(r.deposit).toLocaleString('ko-KR')} vs ${Math.round(cust * 0.1).toLocaleString('ko-KR')}`,
+    'lib/domain/estimate/calc.js custBase');
+  /* ★원가는 보조금까지 빠진 값 위에 선다 — 둘이 «갈려» 있어야 한다. */
+  must(Math.round(r.costEx) < Math.round(cust / 1.1),
+    '원가가 손님 기준 위에 섭니다 — 보조금이 원가에서 안 빠졌습니다',
+    'lib/domain/estimate/calc.js netPrice');
+}
+
+/* 25-3. ★부품말을 놓치면 «유료 옵션이 사라진다» — 포터II 「중량짐용 후륜 현가장치」 6만
+     (파워트레인 「II LPDi **2WD**」의 「후륜」 때문에 구동으로 오인 · Codex 4회차 추가반례). */
+must(impliedOf({ s: { name: '중량짐용 후륜 현가장치' } }, 'II LPDi 2WD', '스마트').length === 0,
+  '「후륜 현가장치」를 「이미 산 구동」으로 지웁니다 — 6만원짜리 유료 옵션이 사라집니다',
+  'lib/domain/estimate/implied-options.ts PART');
+
+/* 25-4. ★배타그룹(택1)은 합계에서도 하나만 (Codex 4회차 1 · 독립 Claude 5) */
+{
+  const spec: OptionSpec = {
+    optionsMaster: { w19: { name: '19인치', price: 1200000 }, w20: { name: '20인치', price: 3000000 }, cf: { name: '컴포트', price: 900000 } },
+    availableOptions: ['w19', 'w20', 'cf'],
+    exclusiveGroups: [{ id: 'wheel', label: '휠', members: ['w19', 'w20'] }],
+  };
+  const got = optionSum(spec, new Set(['w19', 'w20', 'cf']));
+  must(got === 3900000,
+    `배타그룹을 둘 다 더합니다 — ${got.toLocaleString('ko-KR')}원(나와야 할 값 3,900,000원 = 택1 최대 300만 + 90만)`,
+    'lib/domain/estimate/option-rules.ts optionSum');
+}
+
+/* 25-5. ★차량가는 «세 자리»가 한 값 — 폰 요약도(Codex 4회차 2 · 독립 Claude 3) */
+must(!code('app/estimate/page.tsx').replace(/\s+/g, '').includes('`차량가${man(listPrice)}`'),
+  '폰 고정요약만 «할인 전» 차량가를 씁니다 — 한 카드에 두 값이 뜹니다',
+  'app/estimate/page.tsx vMeta');
+
+/* ══ 26. ★★★손님 문서의 «셈이 맞는지»를 잰다 ═════════════════════════════════
+     ⚠⚠ 2026-09-10 4회차 · 독립 Claude 발견 1. 화면 `netPrice` 에 전기차 보조금까지 넣어 놓고
+       견적서엔 세제혜택만 적어, 손님이 보는 셈이 **안 맞았다**:
+         Total 8,329만 − 세제혜택 412만 = 7,917만  ≠  적용가 **7,317만**   (600만이 말없이 사라짐)
+     ⇒ 줄을 더 그리는 것으로 끝내지 않고, **적힌 숫자끼리 실제로 빼서** 맞는지 본다.
+       ★낱말이 있나 · 줄이 있나가 아니라 **셈이 맞나**를 재는 것이 마지막 검사다. */
+{
+  const draw = (d: Record<string, unknown>) =>
+    renderToStaticMarkup(createElement(QuotePreview, { onClose: () => {}, doc: d } as never))
+      .replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ');
+  const man = (n: number) => `${Math.round(n / 10000).toLocaleString('ko-KR')}만`;
+  const base = {
+    customer: '', staff: '', tel: '', brand: '기아', carName: 'EV9', carSub: '전기',
+    priceBasis: '세제혜택 전', channel: '렌트', endType: '반납형', credit: '중신용',
+    colorExt: '', colorInt: '', options: [],
+    lines: [{ term: 48, pay: 1, depositPct: 10, deposit: 1, prepayPct: 10, prepay: 1, buyoutPct: 58, buyout: 1 }],
+  };
+  /* 깎인 것이 둘 다 있는 줄 · 보조금만 있는 줄 · 아무것도 없는 줄 — 셋 다 셈이 맞아야 한다. */
+  for (const [label, price, credit, sub] of [
+    ['둘 다', 83290000, 4120000, 6000000],
+    ['보조금만', 60000000, 0, 6000000],
+    ['감면만', 50000000, 1001000, 0],
+    ['둘 다 없음', 30000000, 0, 0],
+  ] as [string, number, number, number][]) {
+    const net = price - credit - sub;
+    const t = draw({ ...base, price, saleTaxCredit: credit, evSubsidy: sub, netPrice: net });
+    /* 깎인 것은 «적혀» 있어야 한다. */
+    if (credit) must(t.includes('세제혜택') && t.includes(man(credit)),
+      `[${label}] 세제혜택 ${man(credit)}이 문서에 안 적힙니다`, 'features/estimate/QuotePreview.tsx');
+    if (sub) must(t.includes('전기차 보조금') && t.includes(man(sub)),
+      `[${label}] 전기차 보조금 ${man(sub)}이 문서에 안 적힙니다 — 손님이 그 차액을 못 짚습니다`,
+      'features/estimate/QuotePreview.tsx');
+    /* ★그리고 **적힌 것끼리 빼면 적용가가 나와야** 한다. */
+    if (net !== price) {
+      must(t.includes('적용가') && t.includes(man(net)),
+        `[${label}] 적용가 ${man(net)}이 문서에 안 적힙니다`, 'features/estimate/QuotePreview.tsx');
+      must(price - credit - sub === net,
+        `[${label}] 문서의 셈이 안 맞습니다 — ${man(price)} − ${man(credit)} − ${man(sub)} ≠ ${man(net)}`,
+        'app/estimate/page.tsx netPrice');
+    } else {
+      must(!t.includes('적용가'),
+        `[${label}] 깎인 것이 없는데 적용가를 적습니다`, 'features/estimate/QuotePreview.tsx');
+    }
+  }
+}
+
+/* 26-2. ★★**화면이 그 셋을 «넘기는가»** — §26 은 문서를 직접 만들어 재므로 «다리»는 못 본다.
+     넘기는 줄이 빠지면 견적서는 멀쩡한데 손님 문서에 보조금이 안 찍힌다(변이시험에서 안 잡혔다). */
+{
+  const pg = code('app/estimate/page.tsx').replace(/\s+/g, '');
+  /* ★★**보조금은 손님 문서에 «안» 적는다**(2026-09-10 결정) — 우리가 받는 돈이고,
+     적으면 달라는 이야기가 된다. 그래서 넘기는 것은 세제감면과 적용가 둘뿐이다. */
+  must(!pg.includes('evSubsidy:evSub'),
+    '손님 견적서에 전기차 보조금을 넘깁니다 — 우리가 받는 돈은 손님 문서에 안 적습니다',
+    'app/estimate/page.tsx quoteDoc');
+  for (const [field, why] of [
+    ['saleTaxCredit:taxCredit', '세제혜택'],
+    ['netPrice,', '적용가'],
+  ] as [string, string][]) {
+    must(pg.includes(field),
+      `화면이 견적서에 «${why}»를 안 넘깁니다 — 문서의 셈이 안 맞게 됩니다`,
+      'app/estimate/page.tsx quoteDoc');
+  }
+}
+
+/* ══ 27. → **걷어냈다.** 이 자리의 fixture 는 `optionExcludes.engine_3_5t` 에
+     `sport_pkg_2_5` 를 **지어 넣고** 초록을 냈다. 실데이터엔 그 배제가 없다.
+     ⇒ §30 이 **저장소의 실제 팩**을 읽어 같은 것을 잰다(2026-09-10 · 독립 Claude 5회차). */
+
+/* ══ 28. `availableForEngine` 이 «배선돼» 있는가 — 만들고 안 부르면 아무것도 안 고친 것이다 ══ */
+must(/availableForEngine\(om,/.test(code('lib/domain/estimate/genesis-lineup.ts')),
+  '펴 놓은 줄이 «그 엔진의» 목록을 다시 재지 않습니다 — 3.5T 줄이 2.5T 목록으로 팝니다',
+  'lib/domain/estimate/genesis-lineup.ts expandGenesis');
+/* ⚠ 빈 목록을 «되살리지» 않는가 — 「고를 것이 없다」가 「전부 열기」로 바뀌면 안 된다. */
+must((availableForEngine({ a: { name: '컴포트' } }, [], '가솔린 3.5 터보') ?? []).length === 0,
+  '빈 목록을 되살립니다 — 「고를 것이 없다」가 「전부 열기」가 됩니다',
+  'lib/domain/estimate/genesis-included.ts availableForEngine');
+
+/* ══ 29. ★★★**제조사 공식 숫자가 정답지다** ══════════════════════════════════
+     사장님 2026-09-09 「그냥 **온라인에서 확인될 수 있는 거. 제조사 꺼 기준**으로 해」.
+
+     ⚠⚠ 2026-09-10 개발센터 4-AI 관문 · Codex 5회차가 **제네시스 공식 구성기와 대조해** 잡았다.
+       GV70 전동화 추천 구성 — 공식 **78,600,000원**. 우리는 **78,750,000원**(+15만).
+       까닭이 둘이었다:
+         ① Firestore 가 `priceBefore` 에 **「후」 값**(75,800,000)을 싣고 있었다.
+            공식은 세제전 79,740,000 · 세제후 75,800,000 이고, 조합지도는 «전» 값을 갖고 있었다.
+         ② 감면을 **차값에만** 붙이고 **옵션에는 안 붙였다.** 제조사는 옵션까지 비례로 붙인다.
+     ⇒ 아래 숫자는 전부 **제조사가 인쇄한 값**이다. 우리가 지어낸 것이 하나도 없다. */
+{
+  const 전 = 79740000; const 후 = 75800000; const 옵션 = 2950000; const 공식 = 78600000;
+
+  /* 29-1. 조합지도가 «전» 값을 갖고 있는가 — 그래야 실린 「후」와 짝지어 바로잡을 수 있다. */
+  const gv70ev = basisOf({ model: 'GV70-EV', base: 전, minMax: { min: 전, variants: {} } });
+  must(gv70ev.price === 전,
+    `조합지도의 GV70 전동화 값이 공식 세제전과 다릅니다 — ${gv70ev.price.toLocaleString('ko-KR')} vs ${전.toLocaleString('ko-KR')}`,
+    'data/new-car/genesis-config-fs.json');
+
+  /* 29-2. 피드가 두 값을 «짝지어» 내는가 — 조합지도 값이 더 크면 그것이 「전」, 실린 값이 「후」다. */
+  must(code('app/api/newcar/route.ts').includes('cfgPrice > before'),
+    '피드가 「후」 값을 「전」 자리에 그대로 내보냅니다 — 그 위에 「전」 기준 옵션값을 더해 15만이 높아집니다',
+    'app/api/newcar/route.ts genesisPrices');
+
+  /* 29-3. ★★**감면이 옵션에도 붙는가** — 붙이면 공식과 맞고, 안 붙이면 15만이 높다. */
+  const rate = (전 - 후) / 전;
+  const 비례 = Math.round((전 + 옵션) * (1 - rate));
+  const 차값만 = 전 + 옵션 - (전 - 후);
+  must(Math.abs(비례 - 공식) < 10000,
+    `감면을 옵션까지 비례로 붙이면 공식과 달라집니다 — ${비례.toLocaleString('ko-KR')} vs 공식 ${공식.toLocaleString('ko-KR')}`,
+    'app/estimate/page.tsx taxCredit');
+  must(차값만 - 공식 === 150000,
+    '기준 반례가 흔들렸습니다 — 차값에만 붙이면 공식보다 15만이 높아야 합니다',
+    'scripts/check-estimate-logic.mts');
+
+  /* 29-4. 화면이 «비례»로 세는가 — 전기는 비율, 하이브리드는 정액. */
+  const pg = code('app/estimate/page.tsx').replace(/\s+/g, '');
+  must(pg.includes("picked.fuel==='ev'") && pg.includes('picked.saleTaxRate'),
+    '전기차 감면을 옵션에 비례로 안 붙입니다 — 제조사 계산과 어긋납니다',
+    'app/estimate/page.tsx taxCredit');
+  must(pg.includes('picked.saleTaxCredit??0)*(price/listPrice)'),
+    '하이브리드 감면을 «정액»으로 안 둡니다 — 실데이터 35줄이 1,001,000 으로 같습니다',
+    'app/estimate/page.tsx taxCredit');
+
+  /* 29-5. 비율이 «제조사가 준 두 값»에서 나오는가 — 우리가 법정 요율을 지어내지 않는다. */
+  const r = trimSaleTaxRate({ priceBefore: 전, priceAfter: 후 });
+  must(Math.abs(r - rate) < 1e-9,
+    `감면 비율을 제조사 값에서 안 뽑습니다 — ${r}`, 'lib/domain/estimate/car-index.ts trimSaleTaxRate');
+  must(trimSaleTaxRate({ priceBefore: 전, priceAfter: 전 }) === 0,
+    '감면이 없는 줄에서 비율을 «지어냅니다»', 'lib/domain/estimate/car-index.ts trimSaleTaxRate');
+}
+
+/* ══ 30. ★★★**실팩으로 잰다** — fixture 를 지어내지 않는다 ═══════════════════
+     ⚠⚠ 2026-09-10 개발센터 4-AI 관문 · 독립 Claude 5회차.
+       §27 은 `optionExcludes.engine_3_5t` 에 `sport_pkg_2_5` 를 **지어 넣고** 초록을 냈다.
+       실데이터는 `["preview_susp","wheel_19_2_5t","wheel_20_2_5t"]` — **거기 없다.**
+       ⇒ 지어낸 배제로 검사를 통과시킨 것이다. **이번 세션 세 번째 조작이다.**
+     ★그래서 이 절은 **저장소의 실제 팩**(`data/new-car/option-packs.json`)을 읽어 잰다. */
+{
+  type Pack = {
+    maker?: string; sub_model?: string; fuel?: string; trim?: string;
+    optionsMaster?: Record<string, { name?: string; sub?: string; price?: number }>;
+    availableOptions?: string[]; impliedOptions?: string[]; optionExcludes?: Record<string, string[]>;
+  };
+  let packs: Pack[] = [];
+  try {
+    const raw = JSON.parse(read('data/new-car/option-packs.json')) as Pack[] | { packs?: Pack[]; rows?: Pack[] };
+    packs = Array.isArray(raw) ? raw : (raw.packs ?? raw.rows ?? []);
+  } catch { packs = []; }
+
+  /* ⚠ 이 파일은 인제스터 «산출물»이라 커밋에 없을 수 있다. 없으면 «검사했다»고 하지 않는다. */
+  if (!packs.length) {
+    console.log('  ⚠ §30 건너뜀 — data/new-car/option-packs.json 이 없습니다(인제스터 산출물).');
+  } else {
+    /* 30-1. ★배타는 «방향이 없다» — 이 옵션이 막는 것 중 이미 쥔 것이 있으면 이 옵션도 못 고른다.
+       GV80 블랙에서 파퓰러 패키지 550만이 이중청구됐다(속 알맹이가 이미 기본 포함인데 묶음이 안 막힘). */
+    const gv80 = packs.find((p) => p.maker === '제네시스' && p.sub_model === 'GV80');
+    if (gv80?.optionExcludes && Object.keys(gv80.optionExcludes).length) {
+      const [parent, kids] = Object.entries(gv80.optionExcludes)[0];
+      const spec: OptionSpec = {
+        optionsMaster: gv80.optionsMaster ?? {},
+        availableOptions: [parent],
+        impliedOptions: kids,                 // 속 알맹이가 이미 기본 포함인 줄
+        optionExcludes: gv80.optionExcludes,
+      };
+      const price = Number(gv80.optionsMaster?.[parent]?.price) || 0;
+      must(!isEnabled(spec, parent, new Set()) && optionSum(spec, new Set([parent])) === 0,
+        `속 알맹이가 «이미 든» 묶음이 팔립니다 — ${S(gv80.optionsMaster?.[parent]?.name)} `
+        + `${price.toLocaleString('ko-KR')}원이 이중청구됩니다`,
+        'lib/domain/estimate/option-rules.ts isEnabled');
+    }
+
+    /* 30-2. ★다른 엔진의 물건은 못 산다 — **실팩의 진짜 이름**으로 잰다(배제 목록에 없어도 막혀야 한다). */
+    const g80 = packs.find((p) => p.maker === '제네시스' && p.sub_model === 'G80');
+    const om = g80?.optionsMaster ?? {};
+    const engId = Object.keys(om).find((k) => /3\.5/.test(S(om[k]?.name)) && /엔진/.test(S(om[k]?.name)));
+    /* ⚠ 배제 목록에 «이미 있는» 것을 고르면 이 검사가 무의미하다 — «없는» 것으로 고른다.
+       그래야 「배제가 없어도 엔진 표기만으로 막히는가」를 잰다. */
+    const exList = g80?.optionExcludes?.[engId ?? ''] ?? [];
+    const only25 = Object.keys(om).find((k) => !exList.includes(k)
+      && /2\.5\s*T/i.test(`${S(om[k]?.name)} ${S(om[k]?.sub)}`));
+    if (engId && only25) {
+      const spec: OptionSpec = { optionsMaster: om, availableOptions: Object.keys(om) };
+      /* ⚠ 실데이터의 배제 목록에 그 항목이 «없다»는 것을 먼저 못 박는다 — 지어내지 않았음을 남긴다. */
+      must(!(g80?.optionExcludes?.[engId] ?? []).includes(only25),
+        `실데이터가 바뀌었습니다 — ${engId} 배제에 ${only25} 가 생겼습니다. 이 검사의 전제를 다시 보세요`,
+        'data/new-car/option-packs.json');
+      must(!isEnabled(spec, only25, new Set([engId])),
+        `3.5T 를 고른 뒤에도 «2.5T 전용» ${S(om[only25]?.name)} `
+        + `${(Number(om[only25]?.price) || 0).toLocaleString('ko-KR')}원이 팔립니다`,
+        'lib/domain/estimate/option-rules.ts isEnabled');
+    }
+
+    /* 30-3. ⚠ **팔 것을 지우지 않는다** — 전 팩 전수로 «엔진 표기 없는» 옵션이 살아 있는지 본다. */
+    let 지워진것 = 0; const 보기: string[] = [];
+    for (const p of packs) {
+      const m = p.optionsMaster ?? {};
+      const ids = Array.isArray(p.availableOptions) ? p.availableOptions : Object.keys(m);
+      const spec: OptionSpec = { optionsMaster: m, availableOptions: ids, impliedOptions: p.impliedOptions, optionExcludes: p.optionExcludes };
+      for (const id of ids) {
+        const o = m[id]; if (!o || !(Number(o.price) > 0)) continue;
+        const txt = `${S(o.name)} ${S(o.sub)}`;
+        if (/[1-6]\.[0-9]\s*T/i.test(txt)) continue;          // 엔진 전용은 막혀도 정상
+        if ((p.impliedOptions ?? []).includes(id)) continue;   // 이미 산 것도 정상
+        /* ⚠ **선행을 갖춘 상태로 재야 한다.** 아무것도 안 고른 채로 재면 `requires` 가 달린 옵션이
+           죄다 「사라졌다」로 잡힌다 — 실제로 42개가 그렇게 잡혔고 전부 오탐이었다
+           (모닝 「드라이브 와이즈」 50만 등 · 2026-09-10). 선행은 «막힌 것»이 아니라 «순서»다. */
+        const need = new Set(requiresOf(spec, id));
+        if (!isEnabled(spec, id, need)) {
+          지워진것++;
+          if (보기.length < 3) 보기.push(`${S(p.sub_model)} ${S(o.name)} ${(Number(o.price) || 0).toLocaleString('ko-KR')}원`);
+        }
+      }
+    }
+    must(지워진것 === 0,
+      `엔진 표기도 없는 유료 옵션이 ${지워진것}개 «사라집니다» — ${보기.join(' · ')}`,
+      'lib/domain/estimate/option-rules.ts isEnabled');
+  }
+}
+
+/* ══ 31. ★★★**원본에 있는 규칙을 «옮긴다»** — 이름에서 다시 만들지 않는다 ═══════
+     ★★사장님 2026-09-10 「예전에 **다 만들어놨던 거**란 말이야. **배타그룹까지 다 해놨던 거잖아.**
+       네가 학습해 가지고 근데 그거를 왜 못 해」
+
+     ⚠⚠ 맞는 말씀이었다. 나는 다섯 회차 동안 옵션 «이름»에서 규칙을 **다시 만들고** 있었다
+       (「2.5T -」·「3.5T 전용」 같은 글자를 읽어 배제를 «유추»). 원본에는 그것이 **데이터로** 있다.
+     실측 — 원본 `public/vehicle-db.js` 의 `requires_in_trim` **42개** → 우리 팩 **0줄**.
+       인제스터가 타입에만 적어 두고 **한 번도 안 읽었다.**
+     ⇒ 원본 `mobile/StepVehicle.vue:103` 그대로 옮긴다:
+       「그 트림에서는 이것들이 다 켜져야 고를 수 있다.」 */
+{
+  /* 원본 실제 데이터 — 캐스퍼 「17" 알로이 휠」은 `smart` 트림에서만 「액티브 터보Ⅰ」을 요구한다. */
+  const om = {
+    w17: { name: '17" 알로이 휠 & 타이어', price: 550000, requiresInTrim: { smart: ['active_turbo_1'] } },
+    active_turbo_1: { name: '액티브 터보 Ⅰ', price: 900000 },
+  };
+  const at = (trimKey?: string): OptionSpec => ({ optionsMaster: om, availableOptions: Object.keys(om), trimKey });
+  must(requiresOf(at('smart'), 'w17').includes('active_turbo_1'),
+    '트림별 선행(`requiresInTrim`)을 안 읽습니다 — 원본에 42개가 있는데 하나도 안 옮겼습니다',
+    'lib/domain/estimate/option-rules.ts requiresOf');
+  must(!isEnabled(at('smart'), 'w17', new Set())
+    && isEnabled(at('smart'), 'w17', new Set(['active_turbo_1'])),
+    '그 트림에서 «못 고를 것»을 팝니다 — 원본은 선행이 켜져야 열어 줍니다',
+    'lib/domain/estimate/option-rules.ts isEnabled');
+  /* ⚠ 다른 트림에서는 선행이 «없다» — 없는 선행을 지어내면 팔 물건이 막힌다. */
+  must(isEnabled(at('essential'), 'w17', new Set()) && isEnabled(at(undefined), 'w17', new Set()),
+    '트림별 선행을 «다른 트림에도» 적용합니다 — 팔 수 있는 것이 막힙니다',
+    'lib/domain/estimate/option-rules.ts requiresOf');
+
+  /* ★★★**다리 넷을 다 지킨다.** 규칙을 옮겨 놓고 어느 한 곳이 안 이어지면 «아무 일도 안 난다» —
+     이 세션에서 그 실수를 세 번 했다(impliedOptions 를 만들고 합계에서 안 뺌 · 빈 배열을 피드가
+     버림 · availableForEngine 을 만들고 안 부름). 그래서 **원천 → 인제스터 → 피드 → 화면**을 다 잰다. */
+  const bridges: [string, string, string][] = [
+    ['scripts/ingest-newcar-options.mts', 'requiresInTrim:', '인제스터가 원본의 `requires_in_trim` 을 안 싣습니다'],
+    ['scripts/ingest-newcar-options.mts', 'trim_id', '인제스터가 트림 «열쇠»(`trim_id`)를 안 싣습니다 — 이름으로는 못 찾습니다'],
+    ['app/api/newcar/route.ts', 'trimKey', '피드가 트림 열쇠를 안 내보냅니다'],
+    ['app/estimate/page.tsx', 'trimKey: picked.newTrim?.trimKey', '화면이 트림 열쇠를 안 넘깁니다'],
+  ];
+  for (const [f, needle, why] of bridges) {
+    must(code(f).includes(needle), `${why} — 옮긴 규칙이 아무 일도 안 합니다`, f);
+  }
+}
+
+/* ══ 32. ★★★**원본 팩이 «제대로 붙었는가»** — 트림을 못 맞대면 규칙이 통째로 안 온다 ══
+     ⚠⚠ 2026-09-10 개발센터 4-AI **원본 대조**(사장님 「예전에 다 만들어놨던 거잖아」).
+       282줄 중 **118줄(42%)**이 트림을 못 맞대 기본값·합집합으로 떨어져 있었다:
+         ① 이름 갈래가 다름 — 우리 `Modern` ↔ 원본 「모던」(원본은 `trim_id: modern` 을 갖고 있다)
+         ② 꼬리가 붙음 — 「X-Line**(2WD)**」. 게다가 `N()` 이 괄호를 먼저 지워 꼬리 제거가 안 먹었다
+       ⇒ 쏘렌토 X-Line 이 컴포트 패키지를 **109만**(진짜 **60만**)에 팔았다 — **49만 과대.** */
+{
+  type Pack = { sub_model?: string; trim?: string; trimKey?: string;
+    optionsMaster?: Record<string, { name?: string; price?: number }> };
+  let packs: Pack[] = [];
+  try {
+    const raw = JSON.parse(read('data/new-car/option-packs.json')) as Pack[] | { packs?: Pack[]; rows?: Pack[] };
+    packs = Array.isArray(raw) ? raw : (raw.packs ?? raw.rows ?? []);
+  } catch { packs = []; }
+  if (!packs.length) {
+    console.log('  ⚠ §32 건너뜀 — option-packs.json 이 없습니다(인제스터 산출물).');
+  } else {
+    /* 32-1. ★트림을 맞댄 줄이 얼마나 되나 — 42% 가 못 맞대던 것을 다시 겪지 않는다. */
+    const hit = packs.filter((p) => S(p.trimKey)).length;
+    const pct = Math.round((hit / packs.length) * 100);
+    must(pct >= 75,
+      `트림을 못 맞댄 줄이 많습니다 — ${hit}/${packs.length}(${pct}%). `
+      + '못 맞대면 옵션값·트림별 선행이 통째로 안 옵니다',
+      'scripts/ingest-newcar-options.mts');
+
+    /* 32-2. ★★**트림별 옵션값**(원본 `trim_prices` · `getOptionPrice`) — 같은 옵션이 트림마다 다르다. */
+    const xline = packs.filter((p) => p.sub_model === '쏘렌토' && S(p.trim).startsWith('X-Line'));
+    for (const p of xline) {
+      const cf = Object.values(p.optionsMaster ?? {}).find((o) => S(o.name).includes('컴포트'));
+      if (!cf) continue;
+      must(Number(cf.price) === 600000,
+        `쏘렌토 ${S(p.trim)} 의 「${S(cf.name)}」 값이 트림값이 아닙니다 — `
+        + `${(Number(cf.price) || 0).toLocaleString('ko-KR')}원(진짜 600,000원 · 49만 과대)`,
+        'scripts/ingest-newcar-options.mts trim_prices');
+    }
+
+    /* 32-3. ★★★**「이미 산 것」을 사전에서 «지우지» 않는다** — 지우면 그걸 가리키는 규칙이 다 헛돈다.
+       ⚠⚠ 실측(2026-09-10 · Codex 원본 대조): implied **11개가 전부** `optionsMaster` 에 없었다.
+         그래서 내가 만든 **엔진 차단·대칭 배제가 한 번도 안 돌았다.** 만들고 안 부른 것과 같다.
+       ★원본도 옵션을 지우지 않는다 — `available_options` 에서 빼서 «안 판다»고 말할 뿐이다. */
+    let 없는것 = 0; let 파는데남음 = 0;
+    for (const p of packs) {
+      const om = p.optionsMaster ?? {};
+      const av = new Set((p as { availableOptions?: string[] }).availableOptions ?? []);
+      for (const i of ((p as { impliedOptions?: string[] }).impliedOptions ?? [])) {
+        if (!om[i]) 없는것++;
+        if (av.has(i)) 파는데남음++;
+      }
+    }
+    must(없는것 === 0,
+      `「이미 산 것」 ${없는것}개가 옵션 사전에 «없습니다» — 그것을 가리키는 규칙(엔진 차단·배제)이 헛돕니다`,
+      'scripts/ingest-newcar-options.mts');
+    must(파는데남음 === 0,
+      `「이미 산 것」 ${파는데남음}개가 «파는 목록»에 남아 있습니다 — 값에 든 것을 또 팝니다`,
+      'scripts/ingest-newcar-options.mts');
+
+    /* 32-4. ★트림별 선행(`requires_in_trim`)이 실제로 실렸나 — 원본에 42개가 있다. */
+    const rit = packs.filter((p) => Object.values(p.optionsMaster ?? {})
+      .some((o) => (o as { requiresInTrim?: unknown }).requiresInTrim)).length;
+    must(rit >= 100,
+      `트림별 선행이 실린 줄이 적습니다 — ${rit}/${packs.length}. `
+      + '선행표가 «두 층»에 있다(옵션 층 + variant 층 · 팰리세이드 `PALISADE_REQUIRES_9`). 둘 다 읽어야 합니다',
+      'data/new-car/option-packs.json');
+    /* ★인제스터가 variant 층을 읽는가 — 안 읽으면 팰리세이드 프레스티지의 플래티넘·원격주차를
+       「컴포트 플러스」 없이 판다(2026-09-10 · Codex 원본 대조). */
+    must(/v\.requires_in_trim\?\.\[id\]/.test(code('scripts/ingest-newcar-options.mts')),
+      'variant 층 선행표를 안 읽습니다 — 팰리세이드 선행이 통째로 빠집니다',
+      'scripts/ingest-newcar-options.mts');
+  }
+}
+
+/* ══ 33. ★★★**원본 ID 로 맞춘다** — 이름 짐작을 «파일»로 옮긴다 (원본 대조 ①번) ═══
+     ★★사장님 2026-09-10 「그래 ①번부터 해라」.
+
+     ⚠ 우리는 원본을 «이름»으로 찾고 있었다 — 세부모델은 이름 포함관계, 트림은 「Modern ↔ 모던」.
+       그 빈자리를 메우려고 내가 **별칭표·엔진 정규식·산문 파싱**을 지어냈다.
+       원본에는 `manufacturer_id`·`model_id`·`variant_id`·`trim_id` 가 **다 있다**(3·25·83·253).
+     ⇒ `data/new-car/welrix-id-map.json` 에 대응표를 **파일로 박고**, 인제스터가 그것을 먼저 본다.
+       ⚠ 표에 없는 줄은 예전처럼 이름으로 찾는다 — 있는 것을 없앤 게 아니라 «먼저 보는 것»을 바꿨다.
+       ⚠ 표는 **짐작을 없애지 않는다.** 짐작을 한 곳에 모아 «사람이 고칠 수 있게» 할 뿐이다
+         (`_pinned: true` 를 달면 재생성이 안 덮는다). */
+{
+  /* 33-1. ★줄마다 «제 id» 가 있어야 한다 — 네 칸(제조사·세부모델·연료·트림)은 유일하지 않다.
+     실측: 447줄이 298개로 뭉갰다(스타리아 Modern 이 9인승·11인승 세 줄인데 하나가 됐다). */
+  must(code('app/api/newcar/route.ts').includes('id: S(d.id),'),
+    '피드가 줄마다 제 id 를 안 줍니다 — 네 칸으로는 줄이 겹쳐 엉뚱한 줄에 옵션이 붙습니다',
+    'app/api/newcar/route.ts');
+
+  /* 33-2. ★인제스터가 표를 «먼저» 본다. */
+  const ing = code('scripts/ingest-newcar-options.mts');
+  must(ing.includes('welrix-id-map.json') && /pin\?\.(model_id|variant_id|trim_id)/.test(ing),
+    '인제스터가 ID 대응표를 안 봅니다 — 이름 짐작으로 되돌아갑니다',
+    'scripts/ingest-newcar-options.mts packFor');
+
+  /* 33-3. ★표가 «확실한 것만» 담는가 — 못 맞춘 것을 지어내 채우면 남의 차 규칙이 붙는다. */
+  try {
+    const j = JSON.parse(read('data/new-car/welrix-id-map.json')) as
+      { map?: Record<string, { model_id?: string; variant_id?: string; trim_id?: string }>; unmatched?: string[] };
+    const m = j.map ?? {};
+    const bad = Object.entries(m).filter(([, v]) => !S(v.model_id) || !S(v.variant_id) || !S(v.trim_id));
+    must(bad.length === 0,
+      `대응표에 «반쪽짜리» 줄이 ${bad.length}개 있습니다 — ID 넷이 다 있어야 합니다`,
+      'data/new-car/welrix-id-map.json');
+    must(Array.isArray(j.unmatched),
+      '못 맞춘 줄을 안 남깁니다 — 지어내 채운 것과 구별할 수 없습니다',
+      'data/new-car/welrix-id-map.json');
+  } catch {
+    console.log('  ⚠ §33-3 건너뜀 — welrix-id-map.json 이 없습니다(`npx tsx scripts/build-welrix-id-map.mts --write`).');
+  }
+}
+
+/* ══ 34. ★★★**인승·구동은 «파워트레인» 축이다** ═══════════════════════════════
+     ★★사장님 2026-09-11 「팰리세이드 인승 이거 **파워트레인에서 구분** 찍고 가야지」.
+
+     ⚠⚠ 우리는 인승을 `body`(「7인승」)에, 구동을 `sourceName`(「… 4WD …」)에 **갖고 있으면서
+       피드에서 통째로 버리고** 있었다. 그래서:
+         · 화면 파워트레인 칸에 「가솔린 2.5」가 **여덟 번** 겹쳐 떴다
+         · 팰리세이드 익스클루시브가 우리 4줄 ↔ 원본 2개로 «갈려» **원본 규칙이 하나도 안 붙었다**
+         · 값이 다른 줄(7인승 4,610만 · 9인승 4,478만)을 손님이 **구별할 수 없었다**
+     ★원본도 이 축을 variant 에 둔다 — 「가솔린 2.5 터보 **9인승**」. 고르는 축이 곧 값을 가르는 축이다. */
+{
+  const rt = code('app/api/newcar/route.ts');
+  must(/powertrainLabel\(/.test(rt) && /S\(v\.body\)/.test(rt),
+    '피드가 인승·구동을 버립니다 — 파워트레인 칸에 같은 이름이 여러 번 뜨고 규칙이 갈립니다',
+    'app/api/newcar/route.ts powertrainLabel');
+  /* ★꾸민 이름 «말고» 원래 연료말도 같이 줘야 한다 — 세제 갈래·규칙 맞대기는 그것으로 본다. */
+  must(/fuelRaw: S\(v\.fuel\)/.test(rt),
+    '원래 연료말을 안 줍니다 — 꾸민 이름으로 세제 갈래를 가르면 틀립니다',
+    'app/api/newcar/route.ts');
+
+  /* ★★**화면 파워트레인 칸에 실제로 갈래가 뜨는가.**
+     화면은 `newModel.fuels`(피드 `?group=model`)를 그대로 그린다 — 그 목록이 곧 그 칸이다.
+     ⚠ 여기서는 «피드를 부르지 않고» 팩에서 같은 값을 세어 본다(제조사에 요청이 안 나간다).
+     ⚠ 예전에는 이 칸에 「가솔린 2.5」가 여덟 번 겹쳐 떴다 — 고를 수가 없었다. */
+  try {
+    const pal = readPacks<{ sub_model?: string; fuel?: string }>().filter((p) => S(p.sub_model).includes('팰리세이드'));
+    if (pal.length) {
+      const 칸 = [...new Set(pal.map((p) => S(p.fuel)))];
+      const 겹침 = 칸.length !== new Set(칸).size;
+      must(칸.length >= 4 && !겹침,
+        `파워트레인 칸이 안 갈립니다 — ${칸.length}갈래 [${칸.slice(0, 3).join(' / ')}]. `
+        + '같은 이름이 여러 번 뜨면 손님이 고를 수 없습니다',
+        'app/api/newcar/route.ts powertrainLabel');
+      must(칸.every((x) => /인승/.test(x)),
+        `파워트레인 칸에 인승이 안 적힙니다 — [${칸.find((x) => !/인승/.test(x)) ?? ''}]`,
+        'app/api/newcar/route.ts powertrainLabel');
+    }
+  } catch { /* 산출물 없으면 §32 가 잡는다 */ }
+
+  /* ★팩이 인승별로 «따로» 붙었는가 — 붙었으면 9인승과 7인승의 옵션 수가 다르다. */
+  try {
+    const raw = JSON.parse(read('data/new-car/option-packs.json')) as
+      { sub_model?: string; fuel?: string; trim?: string; optionsMaster?: Record<string, unknown> }[]
+      | { packs?: unknown[] };
+    const packs = readPacks<{ sub_model?: string; fuel?: string; trim?: string; optionsMaster?: Record<string, unknown> }>();
+    const pal = packs.filter((p) => S(p.sub_model).includes('팰리세이드') && S(p.trim) === '익스클루시브');
+    const seats = new Set(pal.map((p) => /(\d{1,2}인승)/.exec(S(p.fuel))?.[1] ?? ''));
+    if (pal.length) {
+      must(seats.size >= 2,
+        `팰리세이드 팩이 인승으로 안 갈립니다 — [${[...seats].join(',')}]. 9인승·7인승이 한 옵션판을 씁니다`,
+        'data/new-car/option-packs.json');
+    }
+  } catch { /* 산출물이 없으면 건너뛴다 — §32 가 그것을 잡는다 */ }
+}
+
+/* ══ 35. ★★★**「N.NT 기본」은 «전용»이 아니다** ═════════════════════════════════
+     ★★2026-09-11 — 「원본이 답을 갖고 있으면 짐작하지 않는다」를 지키려고 §28 의 엔진 읽기를
+       실제 데이터에 대 보다가, **제가 지어낸 규칙이 반대로 읽고 있는 것**을 찾았다.
+
+     K9 「프리뷰 전자제어 서스펜션 990,000 · sub「(3.3T **기본**, 3.8 가솔린 베스트 셀렉션 Ⅰ**만 옵션**)」」
+       · 「3.3T 기본」 = 3.3T 에선 **이미 들어 있다(안 판다)**
+       · 정본은 같은 칸에 「3.8 … 만 옵션」이라고 **판다고 적어 두었다**
+     그런데 표기에서 「3.3」만 떼고 **뒤를 안 읽어** 「3.3T 전용」으로 보았고, 그 결과
+       · 3.3T 에서 **이미 들어 있는 것을 또 팔고**
+       · 3.8 에서 **진짜 유료 99만·79만을 지웠다** — 둘 다 반대다.
+     ⚠ 「유료 옵션이 소리 없이 사라지는」 사고는 이 세션에서만 **다섯 번째**다(뱅앤올룹슨 190만 ·
+       G90 후륜조향 150만 · 포터II 현가 6만 · 안 파는 옵션 70만 · 여기).
+
+     ★그래서 «뜻»을 갈라 읽는다 — 「기본」이면 그 엔진에서 **빼고**, 다른 엔진에 대해선
+       **아무 말도 안 한 것**으로 본다(원래 목록 그대로). 「전용」·「(2.5T)」만 «그 엔진 것»이다.
+
+     ⚠⚠ 지어낸 붙박이로 재지 않는다 — **저장소의 진짜 팩**(G80)으로 잰다. 이 세션에서 붙박이를
+       세 번 짜맞춰 통과시킨 적이 있다(§18 · §27). 값·표기가 바뀌면 이 검사는 «건너뛴다»가 아니라
+       그때 다시 실측해서 고친다. */
+{
+  const packs = readPacks<{
+    sub_model?: string; fuel?: string; trim?: string;
+    optionsMaster?: Record<string, { name?: string; sub?: string; price?: number }>;
+    availableOptions?: string[];
+  }>();
+  const g80 = packs.find((p) => S(p.sub_model) === 'G80' && S(p.fuel).includes('3.5')
+    && !!(p.availableOptions ?? []).length && !!p.optionsMaster);
+  if (!g80) {
+    console.log('  ⚠ §35 건너뜀 — G80 3.5T 팩이 없습니다(인제스터 산출물).');
+  } else {
+    const om = g80.optionsMaster!;
+    const nameOf = (id: string) => S(om[id]?.name);
+    const after = availableForEngine(om, g80.availableOptions, S(g80.fuel)) ?? [];
+
+    /* ㉠ 「(3.5T 기본)」이 적힌 것은 3.5T 줄에서 **팔지 않는다**(이미 들어 있다). */
+    const std35 = Object.keys(om).filter((id) => /3\.5\s*T\s*기본/.test(`${S(om[id]?.name)} ${S(om[id]?.sub)}`));
+    for (const id of std35) {
+      must(!after.includes(id),
+        `「${nameOf(id)}」은 3.5T 에 «기본 포함»인데 3.5T 줄에서 팔고 있습니다 — 「기본」을 「전용」으로 읽고 있습니다`,
+        'lib/domain/estimate/genesis-included.ts availableForEngine');
+    }
+    must(std35.length > 0,
+      '§35 가 잴 것을 못 찾았습니다 — G80 3.5T 팩에 「3.5T 기본」 표기가 사라졌습니다. 실측해서 검사를 고치십시오',
+      'data/new-car/option-packs.json');
+
+    /* ㉡ ★**「3.3T 기본」 때문에 3.8 줄에서 «진짜 유료»를 지우지 않는다.**
+       ⚠ G80 팩에는 이 꼴이 없어서 G80 으로만 재면 **아무것도 안 재는 빈 검사**가 된다
+         (돌연변이로 확인 — 2026-09-11). 그래서 이 꼴이 실제로 있는 **K9 3.8 팩**으로 잰다.
+       ⚠ K9 는 오늘 이 함수를 타지 않지만(제네시스 줄만 탄다), 재는 것은 «함수의 읽기»다 —
+         다음에 배선이 넓어질 때 이 뜻이 뒤집혀 있으면 그때 99만·79만이 사라진다. */
+    const k9 = packs.find((p) => S(p.sub_model) === 'K9' && S(p.fuel).includes('3.8')
+      && !!(p.availableOptions ?? []).length && !!p.optionsMaster
+      && (p.availableOptions ?? []).some((id) => /3\.3\s*T\s*기본/.test(`${S(p.optionsMaster?.[id]?.name)} ${S(p.optionsMaster?.[id]?.sub)}`)));
+    if (!k9) {
+      console.log('  ⚠ §35㉡ 건너뜀 — 「3.3T 기본」이 적힌 K9 3.8 팩이 없습니다(인제스터 산출물).');
+    } else {
+      const k9om = k9.optionsMaster!;
+      const k9after = availableForEngine(k9om, k9.availableOptions, S(k9.fuel)) ?? [];
+      const paid = (k9.availableOptions ?? []).filter((id) =>
+        /3\.3\s*T\s*기본/.test(`${S(k9om[id]?.name)} ${S(k9om[id]?.sub)}`));
+      must(paid.length > 0, '§35㉡ 가 잴 것을 못 찾았습니다 — 실측해서 검사를 고치십시오',
+        'data/new-car/option-packs.json');
+      for (const id of paid) {
+        must(k9after.includes(id),
+          `「${S(k9om[id]?.name)}」(${(Number(k9om[id]?.price) || 0).toLocaleString()}원)이 3.8 줄에서 사라졌습니다 — 「3.3T 기본」은 3.8 을 두고 한 말이 아닙니다`,
+          'lib/domain/estimate/genesis-included.ts availableForEngine');
+      }
+    }
+
+    /* ㉢ 「3.5T 전용」은 여전히 열려야 한다 — §28 이 세운 것을 이번 수정이 무너뜨리면 안 된다. */
+    const excl35 = Object.keys(om).filter((id) => /3\.5\s*T\s*(전용|\))/.test(`${S(om[id]?.name)} ${S(om[id]?.sub)}`));
+    for (const id of excl35) {
+      must(after.includes(id),
+        `「${nameOf(id)}」은 3.5T 전용인데 3.5T 줄에서 못 팝니다 — §28 이 무너졌습니다`,
+        'lib/domain/estimate/genesis-included.ts availableForEngine');
+    }
+
+    /* ㉣ 트림을 «맞춘» 줄은 원본 목록을 그대로 쓴다 — 짐작이 정본을 덮지 않는다. */
+    must(/hasTrim/.test(code('lib/domain/estimate/genesis-lineup.ts')),
+      '트림을 맞춘 줄에서도 짐작(availableForEngine)이 원본 `available_options` 를 덮고 있습니다',
+      'lib/domain/estimate/genesis-lineup.ts');
+  }
+}
+
+/* ══ 36. ★★★**만든 표를 «쓰는가»** ═══════════════════════════════════════════
+     ⚠⚠ 이 세션에서 두 번째다. §28 은 `availableForEngine` 을 «만들고 안 불러» 아무것도
+       안 고치고 있었다. 이번엔 `welrix-id-map.json` 218줄이 **Firestore 에 실리는 자리**
+       (`--apply`)에서 `rowId` 를 안 넘겨, 표가 화면까지 **한 번도 닿지 않았다**.
+     그 사이 팰리세이드 **7인승** 줄이 **9인승 옵션판**으로 팔렸다 —
+       7인승에만 있는 「2열 다이내믹 바디케어 시트 80만」은 못 팔고,
+       프리뷰 ECS 는 123만(9인승)으로, HTRAC 은 228만(9인승)으로 팔았다(실측 15줄).
+     ★검사는 «문자열»이 아니라 «동작»으로 한다 — 같은 줄을 표 있이/없이 두 번 불러 갈리는지 본다. */
+{
+  const ing = code('scripts/ingest-newcar-options.mts');
+  must(/packFor\(S\(v\.maker\), S\(v\.sub_model\), S\(v\.fuel\), S\(v\.trim\), S\(d\.id\)\)/.test(ing),
+    'Firestore 에 옵션판을 실을 때 `rowId` 를 안 넘깁니다 — welrix-id-map 이 화면까지 못 닿습니다',
+    'scripts/ingest-newcar-options.mts (--apply)');
+
+  /* 표가 실제로 «다른 답»을 내는지 — 표를 봐야만 갈리는 줄이 하나도 없으면 표는 장식이다. */
+  try {
+    const feedPath = 'tmp/feed.json';
+    if (!existsSync(feedPath)) {
+      console.log('  ⚠ §36 동작검사 건너뜀 — tmp/feed.json 이 없습니다(피드 스냅샷).');
+    } else {
+      const rows = (JSON.parse(readFileSync(feedPath, 'utf8')) as { trims?: Record<string, string>[] }).trims ?? [];
+      const { packFor } = await import('./ingest-newcar-options.mts') as {
+        packFor: (a: string, b: string, c: string, d: string, e?: string) => unknown };
+      let diff = 0;
+      for (const r of rows) {
+        const a = packFor(S(r.maker), S(r.sub_model), S(r.fuel), S(r.trim));
+        const b = packFor(S(r.maker), S(r.sub_model), S(r.fuel), S(r.trim), S(r.id));
+        if (JSON.stringify(a) !== JSON.stringify(b)) diff++;
+      }
+      must(diff > 0,
+        '표(welrix-id-map)를 봐도 안 봐도 옵션판이 똑같습니다 — 표가 장식이 됐거나 열쇠가 안 맞습니다',
+        'data/new-car/welrix-id-map.json');
+    }
+  } catch (e) {
+    must(false, `§36 동작검사가 못 돌았습니다 — ${(e as Error).message}`, 'scripts/check-estimate-logic.mts');
+  }
+}
+
+/* ══ 37. ★★**제네시스도 구동은 «파워트레인» 축이다** ═════════════════════════
+     사장님 2026-09-11 「팰리세이드 인승 이거 파워트레인에서 구분 찍고 가야지」와 같은 처방.
+     트림 칸에 「2WD/AWD」를 앉혀 두면 원본 트림(「스탠다드·Black」)과 **영영 안 맞아**
+     제네시스 15줄이 전부 트림 미매칭이었다 — 원본 규칙이 하나도 안 붙는다.
+     ⚠ 펴 놓은 줄이 원본 한 줄의 `id` 를 나눠 쓰면 **블랙이 스탠다드의 옵션판**을 물려받는다. */
+{
+  /* ⚠ 열쇠(`id`)를 «안 준» 줄로 재면 열쇠 검사가 통째로 빈 검사가 된다 — 돌연변이로 확인(2026-09-11).
+     ★열쇠는 지어내지 않고 **실제 피드**에서 딴다(펴면서 붙인 꼬리 `__…` 를 떼면 원본 문서 열쇠다). */
+  const feedId = (() => {
+    try {
+      const t = (JSON.parse(readFileSync('tmp/feed.json', 'utf8')) as { trims?: Record<string, string>[] }).trims ?? [];
+      const g = t.find((r) => S(r.maker) === '제네시스' && S(r.sub_model) === 'GV80' && S(r.id));
+      return g ? S(g.id).split('__')[0] : '';
+    } catch { return ''; }
+  })();
+  const rows = expandGenesis([{ maker: '제네시스', sub_model: 'GV80', fuel: '가솔린', priceAfter: 71_400_000,
+    ...(feedId ? { id: feedId } : {}) } as never]) as (Record<string, unknown>)[];
+  /* ⚠ tmp/ 는 git 에 안 실린다 — CI 에는 스냅샷이 없으니 §36 처럼 «건너뜀»으로 말한다.
+     스냅샷이 «있는데» GV80 이 없을 때만 실패다(2026-09-11 CI 에서만 빨갛던 것). */
+  if (!existsSync('tmp/feed.json')) {
+    console.log('  ⚠ §37 열쇠검사 건너뜀 — tmp/feed.json 이 없습니다(피드 스냅샷).');
+  } else {
+    must(!!feedId, '§37 이 열쇠를 못 땄습니다 — tmp/feed.json 에 제네시스 GV80 줄이 없습니다(피드 스냅샷)',
+      'tmp/feed.json');
+  }
+  if (rows.length >= 2) {
+    must(!rows.some((r) => /^\s*(2WD|AWD|4WD)/.test(S(r.trim))),
+      `제네시스 트림 칸에 구동이 앉아 있습니다 — [${rows.map((r) => S(r.trim)).join(', ')}]. 구동은 파워트레인 축입니다`,
+      'lib/domain/estimate/genesis-lineup.ts rowsOf');
+    must(rows.filter((r) => /AWD|2WD/.test(S(r.fuel))).length > 0,
+      '구동이 파워트레인 라벨에서 사라졌습니다 — 값이 다른 줄을 손님이 구별할 수 없습니다',
+      'lib/domain/estimate/genesis-lineup.ts rowsOf');
+    const ids = rows.map((r) => S(r.id)).filter(Boolean);
+    must(ids.length === 0 || new Set(ids).size === ids.length,
+      `펴 놓은 제네시스 줄이 열쇠를 나눠 씁니다 — ${ids.length}줄에 열쇠 ${new Set(ids).size}개. 옵션판이 섞입니다`,
+      'lib/domain/estimate/genesis-lineup.ts expandGenesis');
+  }
+}
+
+/* == 38. ★★**원본의 「폐지」를 «지우는 데» 쓰지 않는다** =========================
+     원본(웰릭스)은 트림 48개를 `operating:false` 로 표시해 둔다 — 그중 13줄이 우리 줄에 붙어 있다
+     (셀토스 X-Line · 쓰렌토 X-Line · K9 마스터즈·베스트셀렉션 …).
+     ⚠⚠ 그걸 가지고 줄을 내리면 **파는 차를 우리가 없애는 것**이다 — 우리 원천은 제조사
+       **현재 가격표**고 원본은 그보다 낡았다([[mtops-price-staleness]]).
+       「유료 옵션·파는 차가 소리 없이 사라지는」 사고는 이 세션에서만 다섯 번이다.
+     ⇒ 표시는 «남기되» 그 줄은 대응표에 그대로 있어야 한다. */
+{
+  try {
+    const raw = readFileSync('data/new-car/welrix-id-map.json', 'utf8');
+    const j = JSON.parse(raw) as { map?: Record<string, unknown>; staleTrims?: string[] };
+    const stale = j.staleTrims ?? [];
+    if (!Array.isArray(j.staleTrims)) {
+      console.log('  ⚠ §38 건너뜀 — welrix-id-map.json 에 staleTrims 가 없습니다(`npx tsx scripts/build-welrix-id-map.mts --write`).');
+    } else {
+      must(stale.length > 0,
+        '§38 이 재을 것을 못 찾았습니다 — 원본의 operating:false 표시가 사라졌습니다. 실측해서 검사를 고치십시오',
+        'data/new-car/welrix-id-map.json');
+      const gone = stale.map((x) => String(x).split('  ·  ')[0]).filter((k) => !(j.map ?? {})[k]);
+      must(gone.length === 0,
+        `원본이 «폐지»라 했다고 ${gone.length}줄을 대응표에서 내렸습니다 — 제조사가 아직 파는 차입니다. 표시는 «기록»이지 «필터»가 아닙니다`,
+        'scripts/build-welrix-id-map.mts');
+    }
+  } catch { /* 산출물이 없으면 §33-3 이 잡는다 */ }
+}
+
+/* == 39. ★★**엔진 «이름»을 «파는 곳 표시»로 읽지 않는다** ==========================
+     §35 로 「기본/전용」을 가른 뒤, 실제 데이터의 «엔진 표기 17가지»를 전부 누계 보다
+     둘이 또 거꾸로 읽히는 것을 찾았다(2026-09-11 · 코덱스·제미나이가 못 돌아 혼자 훑음).
+       ① 「G 2.5 **T-GDI**+8단 습식DCT」 — 엔진 «이름»이다. 「2.5T 전용」으로 읽으면
+         「2.5 터보 퍼포먼스 200만」이 **1.6T 줄에서 사라진다** — 거기서 파는 업그레이드 옵션인데도.
+         (현대 공식가: 쓰나타 N Line 1.6T 3,726만 → 2.5T 3,926만 — 차이가 정확히 200만)
+       ② 「(1.6T 가솔린/HEV)」 — 빗금은 «여러을 아우르는» 말이다. 한 엔진 것으로 줄이면
+         HEV 줄에서 HTRAC 203만이 사라진다.
+     ★모르는 것은 고르지 않는다 — 애매하면 «아무 말도 안 한 것»으로 두어 원래 목록을 지킨다. */
+{
+  const packs = readPacks<{
+    optionsMaster?: Record<string, { name?: string; sub?: string; price?: number }>;
+    availableOptions?: string[];
+  }>();
+  const probe = (needle: string, engine: string) => {
+    for (const p of packs) {
+      const om = p.optionsMaster ?? {};
+      const id = Object.keys(om).find((k) => S(om[k]?.name) === needle);
+      const av = p.availableOptions ?? [];
+      if (!id || !av.includes(id)) continue;
+      const after = availableForEngine(om, av, engine) ?? [];
+      must(after.includes(id),
+        `「${needle}」(${(Number(om[id]?.price) || 0).toLocaleString()}원)이 「${engine}」 줄에서 사라졌습니다 — sub 「${S(om[id]?.sub).slice(0, 40)}」 의 엔진 말을 «파는 곳 표시»로 읽은 것입니다`,
+        'lib/domain/estimate/genesis-included.ts availableForEngine');
+      return true;
+    }
+    return false;
+  };
+  const a = probe('2.5 터보 퍼포먼스', '가솔린 1.6 터보');
+  /* ★「(1.6T 가솔린 / HEV)」 — sub 가 HEV 를 명시하므로 HEV 줄에서 살아있어야 한다.
+     ⚠ 배기량이 1.6 이면 우연히 통과해 가리지 못한다(돌연변이로 확인) — 2.0 으로 재야 갈린다. */
+  const b = probe('HTRAC', '하이브리드 2.0');
+  /* ⚠ option-packs.json 은 인제스터 산출물이라 git 에 안 실린다(.gitignore) — §30·§32 와 같이 건너뛴다. */
+  if (packs.length === 0) {
+    console.log('  ⚠ §39 건너뜀 — option-packs.json 이 없습니다(인제스터 산출물).');
+  } else {
+    must(a || b,
+      '§39 가 재을 것을 못 찾았습니다 — 실측해서 검사를 고치십시오(붙박이로 대신하지 마십시오)',
+      'data/new-car/option-packs.json');
+  }
+}
 
 if (fails.length) {
   console.error(`\n✗ 견적 로직이 정본과 다릅니다 — ${fails.length}건\n`);
@@ -980,4 +2440,4 @@ if (fails.length) {
   console.error('  ⚠ 이 검사를 «먼저» 고쳐 통과시키는 것은 규격을 지운 것과 같습니다.\n');
   process.exit(1);
 }
-console.log('✓ 견적 정합 — 법정값 · 배기량 · 원가 갈래 · 손바뀜 · 위약금 · 잔가 · **화면 규격(웰릭스 테이블)**');
+console.log('✓ 견적 정합 — 법정값 · 배기량 · 원가 갈래 · 손바뀜 · 위약금 · 잔가 · 화면 규격 · **옵션 규칙(행동 검사)**');

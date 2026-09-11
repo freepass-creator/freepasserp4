@@ -26,6 +26,8 @@
  */
 import { writeFileSync, mkdirSync, readFileSync } from 'node:fs';
 import { koFromAliases, splitAxis, withSuffix } from '../lib/domain/estimate/newcar-normalize';
+import { priceOf, rulesFrom, splitNote } from '../lib/domain/estimate/option-note';
+import { impliedOf } from '../lib/domain/estimate/implied-options';
 
 const APPLY = process.argv.includes('--apply');
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0 Safari/537.36';
@@ -45,36 +47,29 @@ export type KiaOpt = { name: string; price: number; note?: string };
 export type KiaTrimOpts = {
   slug: string; fuelTab: string; trim: string;
   options: KiaOpt[]; accessories: KiaOpt[];
-  /** 「A 와 동시 적용 불가」에서 세운 배타 — 상대를 실제로 찾았을 때만 담는다. */
+  /** 이름에서 읽은 규칙 — 상대를 실제로 찾았을 때만 담는다. */
+  requires: Record<string, string[]>;
   excludes: Record<string, string[]>;
 };
 
-/** 한 묶음(아코디언) 안의 항목들. 이름과 값이 같은 `<li>` 안에 있다. */
+/**
+ * 한 묶음(아코디언) 안의 항목들 — 이름과 값이 같은 `<li>` 안에 있다.
+ * ★규칙 떼기·값 읽기는 **현대와 같은 자**(`lib/domain/estimate/option-note.ts`)를 쓴다.
+ *   ⚠ 예전에는 기아만 «괄호»를 읽고 `※`·`*` 를 안 읽어, 운영 16줄에 규칙 문장이 이름에 남았다
+ *     (「듀얼 모터 4WD ※ 19인치 … 선택 가능」). 두 크롤러가 자를 달리 쓰면 이런 일이 또 난다.
+ * ⚠⚠ **값을 못 읽으면 그 줄을 버린다** — 0 원으로 실으면 «공짜 옵션»이 된다(코덱스 검수).
+ */
 function itemsOf(block: string): KiaOpt[] {
   const out: KiaOpt[] = [];
   for (const m of block.matchAll(/<li>([\s\S]*?)<\/li>/g)) {
     const li = m[1];
-    const price = Number((/<p[^>]*class="[^"]*item-price[^"]*"[^>]*>([\d,]+)</.exec(li)?.[1] ?? '').replace(/[^\d]/g, '')) || 0;
+    const won = priceOf(li);
+    if (won === null) continue;                       // 값을 못 읽었다 — 안 싣는다
     const raw = text(li.replace(/<p[^>]*class="[^"]*item-price[^"]*"[\s\S]*?<\/p>/g, ''));
     if (!raw) continue;
-    // 「블랙 루프스킨(선루프와 동시 적용 불가)」 — 괄호 뒤는 «규칙»이지 이름이 아니다.
-    const m2 = /^(.*?)\s*\(([^()]*(?:불가|필수|선택 시)[^()]*)\)\s*$/.exec(raw);
-    out.push(m2 ? { name: m2[1].trim(), price, note: m2[2].trim() } : { name: raw, price });
-  }
-  return out;
-}
-
-/** 「선루프와 동시 적용 불가」 → 그 상대를 이 트림의 옵션 목록에서 찾는다. 못 찾으면 안 세운다. */
-function excludesFrom(opts: KiaOpt[]): Record<string, string[]> {
-  const out: Record<string, string[]> = {};
-  for (const o of opts) {
-    if (!o.note || !/동시\s*적용\s*불가/.test(o.note)) continue;
-    const who = o.note.replace(/와?\s*동시\s*적용\s*불가.*/, '').trim();
-    if (!who) continue;
-    const partner = opts.find((x) => x !== o && (N(x.name).includes(N(who)) || N(who).includes(N(x.name))));
-    if (!partner) continue;   // 상대를 못 찾으면 규칙을 «만들지 않는다»
-    (out[o.name] ??= []).push(partner.name);
-    (out[partner.name] ??= []).push(o.name);
+    const { name, notes } = splitNote(raw);
+    if (!name) continue;
+    out.push({ name, price: won, ...(notes.length ? { note: notes.join(' / ') } : {}) });
   }
   return out;
 }
@@ -113,7 +108,7 @@ export async function crawlModel(slug: string): Promise<KiaTrimOpts[]> {
         if (/액세서리|용품/.test(title)) accessories = accessories.concat(items);
         else options = options.concat(items);
       }
-      out.push({ slug, fuelTab, trim, options, accessories, excludes: excludesFrom(options) });
+      out.push({ slug, fuelTab, trim, options, accessories, ...rulesFrom(options) });
     }
   }
   const nOpt = out.reduce((n, x) => n + x.options.length, 0);
@@ -161,8 +156,16 @@ for (const d of snap.docs) {
      ①단계와 «같은 정규화»를 태워야 맞는다 — 안 그러면 EV9 열 줄이 통째로 안 붙는다(실측). */
   const trimOf = (x: KiaTrimOpts) =>
     withSuffix(x.trim, splitAxis(x.fuelTab, /^ev\d/i.test(x.slug)).trimSuffix);
-  const pick = all.find((x) => N(koFromAliases(aliases, x.slug)) === N(v.sub_model) && N(trimOf(x)) === N(v.trim))
-    ?? all.find((x) => N(koFromAliases(aliases, x.slug)) === N(v.sub_model) && N(x.trim) === N(v.trim))
+  /**
+   * ⚠⚠ **연료까지 봐야 한다.** 모델·트림만 맞대면 K8 노블레스의 「프리미엄」이
+   *   하이브리드 69만 / 가솔린 109만인데 «첫 것»이 붙어 40만원이 어긋난다(2026-09-09 코덱스 검수).
+   *   탭이 연료가 아닌 축(EV9 2WD/4WD·카니발 좌석)이면 연료가 비므로 그때만 연료를 안 본다.
+   */
+  const fuelOf = (x: KiaTrimOpts) => splitAxis(x.fuelTab, /^ev\d/i.test(x.slug)).fuel;
+  const sameModel = (x: KiaTrimOpts) => N(koFromAliases(aliases, x.slug)) === N(v.sub_model);
+  const sameFuel = (x: KiaTrimOpts) => { const f = fuelOf(x); return !f || N(f) === N(v.fuel); };
+  const pick = all.find((x) => sameModel(x) && sameFuel(x) && N(trimOf(x)) === N(v.trim))
+    ?? all.find((x) => sameModel(x) && sameFuel(x) && N(x.trim) === N(v.trim))
     ?? null;
   if (!pick || !pick.options.length) { skipped++; continue; }
   /**
@@ -177,9 +180,14 @@ for (const d of snap.docs) {
   const colorNames = new Set([...(v.extColors ?? []), ...(v.intColors ?? [])].map((c: { name?: string }) => N(c?.name)));
   const opts = pick.options.filter((o) => !colorNames.has(N(o.name)));
 
-  const optionsMaster: Record<string, { name: string; price: number; sub?: string }> = {};
+  const optionsMaster: Record<string, { name: string; price: number; sub?: string; requires?: string[] }> = {};
   for (const [i, o] of opts.entries()) optionsMaster[`kia_${i}`] = { name: o.name, price: o.price, ...(o.note ? { sub: o.note } : {}) };
   const idOf = (name: string) => Object.entries(optionsMaster).find(([, x]) => N(x.name) === N(name))?.[0];
+  for (const [a2, bs] of Object.entries(pick.requires ?? {})) {
+    const ia = idOf(a2); if (!ia) continue;
+    const ids = bs.map(idOf).filter(Boolean) as string[];
+    if (ids.length) optionsMaster[ia].requires = ids;
+  }
   const optionExcludes: Record<string, string[]> = {};
   for (const [a, bs] of Object.entries(pick.excludes)) {
     const ia = idOf(a); if (!ia) continue;
@@ -189,7 +197,7 @@ for (const d of snap.docs) {
   batch.set(d.ref, {
     optionsMaster, optionExcludes, exclusiveGroups: [],
     availableOptions: Object.keys(optionsMaster),
-    impliedOptions: [],
+    impliedOptions: impliedOf(optionsMaster, S(v.fuel), S(v.trim)),
     accessories: pick.accessories,
     optionSource: 'kia.com/price · 선택품목',
     optionAt: new Date().toISOString().slice(0, 10),

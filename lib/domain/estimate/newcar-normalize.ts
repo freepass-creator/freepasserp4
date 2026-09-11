@@ -60,7 +60,9 @@ export function splitAxis(label: string, evHint = false): { fuel: string; trimSu
    * ⚠ 이미 트림 이름에 들어 있으면 부르는 쪽이 안 붙인다(`withSuffix` 가 겹침을 막는다).
    */
   const bits: string[] = [];
-  for (const m of raw.matchAll(/(\d인승?|2WD|4WD|AWD|전자식\s*4WD|하이루프|밴)/gi)) bits.push(S(m[1]).replace(/\s+/g, ''));
+  /* ⚠ 숫자를 «다» 잡는다 — `\d인승` 은 「11인승」에서 「1인승」만 떼어 좌석 수를 바꿔 버린다
+     (2026-09-09 코덱스 검수에서 잡혔다. 카니발·스타리아에 11인승이 실제로 있다). */
+  for (const m of raw.matchAll(/(\d{1,2}인승?|전자식\s*4WD|2WD|4WD|AWD|하이루프|밴)/gi)) bits.push(S(m[1]).replace(/\s+/g, ''));
   // 「1인승 밴」처럼 둘이 붙어 오면 통째로 한 꼬리다.
   const trimSuffix = [...new Set(bits)].join(' ');
   return { fuel, trimSuffix };
