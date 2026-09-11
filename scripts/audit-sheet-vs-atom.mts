@@ -28,7 +28,7 @@ import nextEnv from '@next/env';
 import { readSalesPublishSnapshot, salesPublishMark } from '../lib/server/sales-publish-snapshot';
 import { companyAlias } from '../lib/domain/identity';
 import { channelCompanyOf } from '../lib/domain/channel-company';
-import { compareSalesRows, loadSalesRowContext, makeCell, tabOf } from '../lib/domain/sales-atom-row';
+import { compareSalesRows, loadSalesRowContext, makeCell, MISSING, tabOf } from '../lib/domain/sales-atom-row';
 import { channelColumnName, salesPublishedColumns } from '../lib/domain/sales-published-tab-columns';
 import { HAHUHO_PRODUCT_SHEET_ID, SALES_SHEET_ID } from '../lib/domain/legacy-sheets';
 import { googleSheetsServiceAccount } from '../lib/server/google-service-account';
@@ -168,7 +168,8 @@ for (const r of f01) {
     '옵션(원문)': /[가-힣A-Za-z0-9]/.test(rawOption) ? rawOption : '',
   };
   for (const [column, expected] of Object.entries(core)) {
-    const actual = S(r.cells[column]);
+    // 「미입력」은 «시트 표시 마커»다 — 원자 직접값(빈 값)과 대조할 땐 빈 값으로 본다(가짜 드리프트 방지).
+    const actual = S(r.cells[column]) === MISSING ? '' : S(r.cells[column]);
     if (actual === expected) continue;
     const entry = 핵심투영어긋남.get(column) || { n: 0, 표본: [] };
     entry.n++; if (entry.표본.length < 3) entry.표본.push(`${r.car} 시트「${actual || '—'}」↔ 원자 직접값「${expected || '—'}」`);

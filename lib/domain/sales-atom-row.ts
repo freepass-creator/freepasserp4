@@ -116,6 +116,9 @@ export const TAB_ORDER = ['상품리스트', '손오공구독', '픽업구독', 
 
 // ★옵션 정리(사장님 2026-09-04) — 「-」·「.」처럼 텍스트/영문/숫자가 없으면 선택옵션 없음(빈칸).
 const cleanOpt = (s: string): string => /[가-힣A-Za-z0-9]/.test(S(s)) ? S(s) : '';
+/** ★빈 세부트림/옵션의 «시트 표시» 마커 — 원천/마스터에 없어 공란인 것을 「미입력」으로 보여 준다(사장님 2026-09-11).
+ *  원자엔 안 들어간다(표시 전용). 시트↔원자 대조는 이 값을 «빈 값»으로 취급해야 한다(가짜 드리프트 방지). */
+export const MISSING = '미입력';
 
 // ── 열 이름 → 값 ──
 const money = (v: unknown) => { const n = Number(String(v).replace(/[,\s]/g, '')); return n ? n.toLocaleString() : (v == null || v === '' ? '' : S(v)); };
@@ -228,11 +231,13 @@ export const makeCell = (ctx: SalesRowContext) => (col: string, v: any): string 
      */
     '배차상태': S(v.vehicle_status) || S(v.status), '구분': S(v.product_type), '차량번호': S(v.car_number),
     '제조사': S(v.maker), '모델': S(v.model), '세부모델': S(v.sub_model),
-    // 세부트림 — 정제 원자만 쓴다. 원문은 별도 칸에 보존하고 발행기가 값을 지어내지 않는다.
-    '세부트림': S(v.trim_name),
+    // 세부트림 — 정제 원자만 쓴다(원자엔 지어내지 않는다). 빈 값은 «시트 표시»에서만 「미입력」으로
+    //   보여 준다 — 원천/마스터에 없어 공란인 것을 담당자가 «버그»로 오해하지 않게(사장님 2026-09-11).
+    //   ★원자는 그대로 빈 값 — 「미입력」은 표시 마커라 검색·필터·마스터대조엔 안 들어간다.
+    '세부트림': S(v.trim_name) || MISSING,
     '외장': S(v.ext_color), '내장': S(v.int_color), '연식': S(v.year), 'Km': S(v.mileage),
     '연료': S(v.fuel_type), '배기량': S(v.engine_cc), '차종구분': S(v.vehicle_class),
-    '차명(원문)': S(v['원문']?.['차명']), '옵션(원문)': cleanOpt(S(v['원문']?.['옵션'])),
+    '차명(원문)': S(v['원문']?.['차명']), '옵션(원문)': cleanOpt(S(v['원문']?.['옵션'])) || MISSING,
     '원산지': S(v.origin), '구동': S(v.drive_type), '인승': S(v.seats), '배터리용량': S(v.battery_capacity),
     // 「사진」은 ERP 사진 해석용 원천, 「차번링크」는 Google Sheet 이동용 주소다.
     '최초등록': S(v.first_registration_date), '차고지': S(v.location), '사진': erpPhotoSource(v),
