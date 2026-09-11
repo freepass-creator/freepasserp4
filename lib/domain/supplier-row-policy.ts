@@ -88,22 +88,25 @@ export function policyFieldsFrom(hdr: string[], row: string[]): Rec {
   const age = ageLowering(at(/^21세/), at(/^23세/));
   const out: Rec = {};
   const put = (k: string, v: unknown) => { if (v !== '' && v !== 0 && v != null) out[k] = v; };
+  // 금액은 «숫자로 담지 않는다» — 원자·시트가 그대로 보여주므로 정본 표기(formatWon)로 정제해 담는다
+  //   (사장님 2026-09-11 「공급사가 0을 쭉 써도 우리는 50만원·1억5천만원식으로」). 0/못읽음은 빈칸.
+  const won = (x: unknown) => { const n = wonOf(x); return n ? formatWon(n) : ''; };
   put('injury_compensation_limit', limitLabel(injury.limit));
-  put('injury_deductible', injury.deductible);
+  put('injury_deductible', injury.deductible ? formatWon(injury.deductible) : '');
   put('property_compensation_limit', limitLabel(property.limit));
-  put('property_deductible', property.deductible);
+  put('property_deductible', property.deductible ? formatWon(property.deductible) : '');
   put('self_body_accident', limitLabel(self.limit));
-  put('self_body_deductible', self.deductible);
+  put('self_body_deductible', self.deductible ? formatWon(self.deductible) : '');
   // 무보험 「없음」은 «가입 안 함»이라는 실제 정보다 — 한도만 읽는 limitLabel 이 떨어뜨리므로 따로 살린다.
   const uninsuredRaw = at(/^무보험/);
   put('uninsured_damage', limitLabel(uninsuredRaw) || (/^(없음|x|-)$/i.test(uninsuredRaw.replace(/\s/g, '')) ? '없음' : ''));
-  if (ownRange.length === 2) { put('own_damage_min_deductible', wonOf(ownRange[0])); put('own_damage_max_deductible', wonOf(ownRange[1])); }
-  else if (own) { put('own_damage_min_deductible', wonOf(own)); put('own_damage_max_deductible', wonOf(own)); }
-  if (ownBase) put('own_damage_compensation', /시세/.test(ownBase) ? '시세 기준' : /차량/.test(ownBase) ? '차량가 기준' : '');
+  if (ownRange.length === 2) { put('own_damage_min_deductible', won(ownRange[0])); put('own_damage_max_deductible', won(ownRange[1])); }
+  else if (own) { put('own_damage_min_deductible', won(own)); put('own_damage_max_deductible', won(own)); }
+  if (ownBase) put('own_damage_compensation', /시세/.test(ownBase) ? '시세 기준' : /차량/.test(ownBase) ? '차량가액' : '');
   put('annual_mileage', mileageLabel(at(/^연주행|^약정주행/)));
-  put('mileage_upcharge_per_10000km', wonOf(at(/^1만\+|^1만km/)));
+  put('mileage_upcharge_per_10000km', won(at(/^1만\+|^1만km/)));
   put('driver_age_lowering', age.level);
-  put('age_lowering_cost', age.cost);
+  put('age_lowering_cost', age.cost ? formatWon(age.cost) : '');
   put('deposit_installment', yesNo(at(/^분납/), '가능', '불가'));
   put('maintenance_service', yesNo(at(/^정비/), '제공', '미제공'));   // 사장님 2026-08-20 표기(정규화기가 「연N회오일」까지 읽는다)
   put('personal_driver_scope', at(/^운전자범위|^운전범위/));

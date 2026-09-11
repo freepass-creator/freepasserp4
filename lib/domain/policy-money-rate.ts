@@ -9,6 +9,8 @@
  * ★옛 값도 읽는다 — 정책관리에 숫자로 들어 있던 것(100000 = 10만원 · 0.3 = 30%).
  *   어느 쪽인지는 필드가 말한다: `legacy: 'won'`(연령 하향·추가운전·승계) / `legacy: 'rate'`(위약금).
  */
+import { formatWon } from './policy-value-spec';
+
 export type MoneyOrRate =
   | { kind: 'won'; won: number }
   | { kind: 'rate'; rate: number }        // 0.1 = 10%
@@ -90,27 +92,14 @@ export function moneyOrRateWon(value: unknown, baseWon: number | null | undefine
   return null;
 }
 
-/** 만 단위 수(1..9999)를 한글 천/백/십 자릿수로 — 5000→「5천」·1500→「1천5백」·3000→「3천」·500→「5백」. */
-function koreanManDigits(n: number): string {
-  const cheon = Math.floor(n / 1000), r1 = n % 1000;
-  const baek = Math.floor(r1 / 100), r2 = r1 % 100;
-  const sip = Math.floor(r2 / 10), il = r2 % 10;
-  return `${cheon ? `${cheon}천` : ''}${baek ? `${baek}백` : ''}${sip ? `${sip}십` : ''}${il || ''}`;
-}
-
 /**
- * 금액 한글 표기 정본 (사장님 2026-09-11):
- *   1천만원 «미만» = 아라비아 만 수 + 만원 — 「50만원」·「100만원」(1백만원 아님)·「500만원」.
- *   1천만원 «이상» = 한글 억/천/백만 — 「1천만원」·「1천5백만원」·「5천만원」·「1억원」·「1억5천만원」.
+ * 금액 한글 표기 정본 — 규칙 «한 곳»은 `formatWon`(policy-value-spec, 사장님 2026-08-18 확정):
+ *   1천만원 «미만» = 아라비아 만 수(「50만원」·「100만원」·「500만원」) · 1천만원 «이상» = 한글 억/천/백만(「1천만원」·「1천5백만원」·「5천만원」·「1억원」·「1억5천만원」).
  *   원문이 「500000」이든 「150000000」이든(공급사가 0을 쭉 써도) 우리 표현은 이 규칙 하나로 정제한다.
+ *   ★규칙을 두 곳에 적지 않는다 — 계약서·견적(여기)과 시트·원자 정제(formatWon)가 같은 함수를 쓴다.
  */
 export function wonLabel(won: number): string {
-  if (!Number.isFinite(won) || won < 10_000 || won % 10_000 !== 0) return `${Math.round(won).toLocaleString()}원`;
-  const man = won / 10_000;                                    // 총 만 수
-  if (man < 1000) return `${man}만원`;                         // <1천만 → 아라비아 숫자
-  const eok = Math.floor(man / 10_000);
-  const manRem = man % 10_000;                                 // 억 나머지(만 단위)
-  return `${eok ? `${eok}억` : ''}${manRem ? `${koreanManDigits(manRem)}만` : ''}원`;
+  return formatWon(won);
 }
 
 /**
