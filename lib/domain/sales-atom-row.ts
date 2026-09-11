@@ -18,7 +18,6 @@
  */
 import { readFileSync } from 'node:fs';
 import { erpPhotoSource, isPickupPhotoAtom, sheetPlateLink } from './photo-projection';
-import { autoplusDepositRuleText } from './sales-published-tabs';
 import { isDepositColumn } from './sales-sheet-format';
 import { groupPoliciesByProvider, autoPolicyCode } from './supplier-policy-link';
 
@@ -282,7 +281,8 @@ export const makeCell = (ctx: SalesRowContext) => (col: string, v: any): string 
    *   ⚠ ⑯ 이 그 정본을 안 쓰고 금액을 찾다 못 찾아 **0/84 로 비워 두고 있었다**(실측 2026-09-08).
    *     숫자를 지어 넣으면 그게 곧 «우리가 만든 오류»다 — 기간마다 다른 값을 한 칸에 못 담는다.
    */
-  if (col === '보증금' && S(v.provider_company_code) === 'RP023') return autoplusDepositRuleText(S(v.maker));
+  // 오토플러스·손오공 보증금은 «원자 deposit_note»가 정본(사장님 2026-09-11 — 렌더서 계산 안 한다).
+  //   빈 보증금 칸이면 아래 ⑯이 deposit_note를 싣는다(line ~295). ⇒ 렌더 특수분기 제거.
   if (/보증|개월|반납형|인수형|만km|장기보증/.test(col)) {
     const cell = priceCell(v.price, col);
     /**

@@ -35,7 +35,7 @@ import { MIRROR_SOURCES } from '../lib/domain/mirror-sources';
 import { sheetIdFromUrl } from '../lib/domain/supplier-sheet-read';
 import { FUEL_EV, rawSeats, atomViolations, type MasterIndex } from '../lib/domain/atom-invariants';
 import { cleanTrim } from '../lib/domain/clean-trim';
-import { sonokongDepositRuleText } from '../lib/domain/sales-published-tabs';
+import { sonokongDepositRuleText, autoplusDepositRuleText } from '../lib/domain/sales-published-tabs';
 import { resolveStatus } from '../lib/domain/atom-status';
 import { isOpenInventoryAtom } from '../lib/domain/inventory-contract';
 import { mergeRawPhotoEvidence, photoAtomFields } from '../lib/domain/photo-atom';
@@ -415,7 +415,10 @@ async function readRows(): Promise<Row[]> {
       const composed = rawVname || composeVehicleName(model, trim) || [maker0, model, trim].filter(Boolean).join(' ');
       const vname = N(composed) === N(maker0) ? '' : composed;
       const price = sheetPrice((i) => S(r[i]), ci);
-      const depNote = depositNote(ci.dep >= 0 ? S(r[ci.dep]) : '');
+      // ★오토플러스 보증금 = «계산 안 하고» 원자 규칙글자(deposit_note)로 «나간다»(사장님 2026-09-11 「손오공·오플 반영 · 나가는건 정해놓은 보증금으로」).
+      //   홈페이지 공시조건(국산 월대여료×2 / 수입 12개월×3·18↑×6)을 maker로 가른다. price.deposit는 0(칸은 규칙글자가 채운다).
+      if (CODE === 'RP023') for (const k of Object.keys(price)) price[k].deposit = 0;
+      const depNote = CODE === 'RP023' ? autoplusDepositRuleText(maker0) : depositNote(ci.dep >= 0 ? S(r[ci.dep]) : '');
       /** ★칸마다 «시트 오류 토큰»을 걷는다(`clean`) — 「#REF!」가 값처럼 실려 상품구분이 된 적이 있다. */
       push({ car, status: clean(r[ci.status]), kind: ci.kind >= 0 ? clean(r[ci.kind]) : '', maker: maker0, model, vname, trim, fuel: ci.fuel >= 0 ? clean(r[ci.fuel]) : '', ext: ci.ext >= 0 ? clean(r[ci.ext]) : '', int: ci.int >= 0 ? clean(r[ci.int]) : '', km: ci.km >= 0 ? clean(r[ci.km]) : '', opt: ci.opt >= 0 ? clean(r[ci.opt]) : '', firstReg: ci.firstReg >= 0 ? clean(r[ci.firstReg]) : '', cc: ci.cc >= 0 ? clean(r[ci.cc]) : '', klass: ci.klass >= 0 ? clean(r[ci.klass]) : '', price, depNote, tab, row: String(rowNo), raw: Object.fromEntries(grid.header.map((h, i) => [S(h), S(r[i])]).filter(([k]) => k)) });
     }
