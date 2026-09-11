@@ -25,7 +25,7 @@ import { SALES_PUBLISHED_TAB_PREFIXES } from '../lib/domain/sales-published-tabs
 import { isDepositColumn, isMoneyColumn } from '../lib/domain/sales-sheet-format';
 import { inventoryCountSnapshot, isOpenInventoryAtom, isUnavailableInventoryAtom } from '../lib/domain/inventory-contract';
 import nextEnv from '@next/env';
-import { readSalesPublishSnapshot, salesPublishMark } from '../lib/server/sales-publish-snapshot';
+import { readSalesPublishSnapshot, salesPublishTabMark } from '../lib/server/sales-publish-snapshot';
 import { companyAlias } from '../lib/domain/identity';
 import { channelCompanyOf } from '../lib/domain/channel-company';
 import { compareSalesRows, loadSalesRowContext, makeCell, MISSING, tabOf } from '../lib/domain/sales-atom-row';
@@ -78,7 +78,7 @@ const atomList: any[] = [];
 const snapshotPath = arg('snapshot');
 if (!snapshotPath) throw new Error('F01·F86 감사에는 --snapshot=<이번 회차 고정 스냅샷>이 반드시 필요하다.');
 const publishSnapshot = readSalesPublishSnapshot(snapshotPath);
-const expectedMark = salesPublishMark(publishSnapshot);
+const expectedMark = salesPublishTabMark(publishSnapshot);
 const staleTimestampTabs: string[] = [];
 for (const v of publishSnapshot.products as any[]) { atomList.push(v); atoms.set(K(v.car_number) || S(v._key), v); }
 /**

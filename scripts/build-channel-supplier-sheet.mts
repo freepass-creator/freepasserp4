@@ -21,7 +21,7 @@ import { companyAlias } from '../lib/domain/identity';
 import { channelCompanyOf } from '../lib/domain/channel-company';
 import { isPlate } from '../lib/domain/plate-registry';
 import { hasInventoryPublicationViolations, inventoryCountSnapshot, isOpenInventoryAtom } from '../lib/domain/inventory-contract';
-import { captureSalesPublishSnapshot, readSalesPublishSnapshot, salesPublishMark } from '../lib/server/sales-publish-snapshot';
+import { captureSalesPublishSnapshot, readSalesPublishSnapshot, salesPublishTabMark } from '../lib/server/sales-publish-snapshot';
 import { loadSalesRowContext, makeCell, tabOf, TAB_ORDER, compareSalesRows } from '../lib/domain/sales-atom-row';
 import { buildSalesFormatRequests, columnWidths, isMoneyColumn } from '../lib/domain/sales-sheet-format';
 import { HAHUHO_PRODUCT_SHEET_ID } from '../lib/domain/legacy-sheets';
@@ -244,7 +244,7 @@ if (!id) {
 }
 const cur = await api(`https://sheets.googleapis.com/v4/spreadsheets/${id}?fields=sheets.properties(sheetId,title)`);
 const have: [string, any][] = (cur.sheets || []).map((s: any) => [S(s.properties.title), s.properties]);
-const mark = salesPublishMark(publishSnapshot);
+const mark = salesPublishTabMark(publishSnapshot);
 
 const reqs: any[] = [];
 /** ★차번 셀 링크 요청 — 값 쓰기 «뒤»에 따로 보낸다(먼저 보내면 값 쓰기가 지운다). */
