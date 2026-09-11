@@ -864,12 +864,13 @@ export const WHITELABELS: Whitelabel[] = [
     hosts: [],
     name: 'KR오토플랜',
     /*
-     * 홈페이지에서 따 와 «여백을 잘라» 넣은 조합형(마크+글자) — 427×168.
+     * 홈페이지 «머리»에 실제로 쓰는 간판(717×348)을 여백 잘라 넣었다 — 622×230 · 투명.
+     * ⚠ 처음엔 파비콘(512×512)을 썼다. 사이트 머리 로고와 스우시 색부터 달랐다(파비콘은 밝은 파랑).
      * ★`nameBand` 를 안 준다 = 이 그림 하나가 간판 전부다(이름을 또 안 쓴다).
      */
     logo: { src: '/brand/krautoplan-mark.png', alt: 'KR오토플랜', role: 'lockup' },
     wordmark: { main: 'KR오토플랜', sub: '' },
-    brandColor: '#182B41',
+    brandColor: '#17273F',
     tel: '1811-7570',
     bizLines: [
       '(주)케이알오토플랜 · 대표 김병준 · 사업자등록번호 627-33-01651',
