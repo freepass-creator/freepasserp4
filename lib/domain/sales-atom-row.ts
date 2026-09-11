@@ -18,7 +18,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { erpPhotoSource, isPickupPhotoAtom, sheetPlateLink } from './photo-projection';
-import { autoplusDepositRuleText } from './sales-published-tabs';
+import { autoplusDepositRuleText, sonokongDepositRuleText } from './sales-published-tabs';
 import { isDepositColumn } from './sales-sheet-format';
 import { groupPoliciesByProvider, autoPolicyCode } from './supplier-policy-link';
 
@@ -283,6 +283,11 @@ export const makeCell = (ctx: SalesRowContext) => (col: string, v: any): string 
    *     숫자를 지어 넣으면 그게 곧 «우리가 만든 오류»다 — 기간마다 다른 값을 한 칸에 못 담는다.
    */
   if (col === '보증금' && S(v.provider_company_code) === 'RP023') return autoplusDepositRuleText(S(v.maker));
+  /**
+   * ★손오공 보증금도 «금액이 아니라 계산식»(사장님 2026-09-11 「계산해놓지 말고 계산식을 보증금 칸에」).
+   *   반납형·인수형 다 기간마다 다르므로(1년당 1개월분·최대 3개월) 한 숫자로 못 박는다 — 오플처럼 규칙 글자.
+   */
+  if (S(v.provider_company_code) === 'RP012' && isDepositColumn(col)) return sonokongDepositRuleText();
   if (/보증|개월|반납형|인수형|만km|장기보증/.test(col)) {
     const cell = priceCell(v.price, col);
     /**

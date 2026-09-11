@@ -61,6 +61,11 @@ export function autoplusDepositRuleText(maker: string): string {
   return isImportBrand(String(maker ?? '')) ? '수입: 12개월 대여료×3 · 18개월↑ ×6' : '국산: 월 대여료×2';
 }
 
+/** 손오공 보증금 산출 규칙(사장님 2026-09-11 「계산해놓지 말고 계산식을 보증금 칸에」). 기간마다 다르므로 한 숫자로 못 박는다 — 규칙만 글자로. */
+export function sonokongDepositRuleText(): string {
+  return '월 대여료 × 약정연수 (최대 3개월)';
+}
+
 /** 원본 머리글 → 영업자 표에 보이는 이름(사장님 「12개월 3만Km 이렇게」). 그 밖은 그대로. */
 export const nativeMoneyLabel = (h: string): string => {
   const m = /^(\d+)개월\s*(\d)만\s*(km)?$/i.exec(String(h ?? '').trim());
