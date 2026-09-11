@@ -879,6 +879,25 @@ export const WHITELABELS: Whitelabel[] = [
     /* 영업채널이라 재고 전체를 판다 — providerCode 를 비워 둔다. */
     /* 빠른조건·축은 안 적는다 = 집 기본. 그 채널 재고를 보고 화면에서 고친다. */
   },
+  {
+    key: 'carping',
+    sitePath: '/carping',
+    /* 도메인을 사면 여기 적고 domainReady 를 켠다 — 그전까지 주소는 sitePath 다. */
+    hosts: [],
+    name: '카핑',
+    /* 홈페이지에서 따 와 여백을 잘라 넣은 조합형(장바구니 마크+CARPING+「신차·장기렌트·리스 카핑」) — 1084×289. */
+    logo: { src: '/brand/carping-mark.png', alt: '카핑', role: 'lockup' },
+    wordmark: { main: '카핑', sub: '' },
+    brandColor: '#3877E2',
+    tel: '1661-1822',
+    bizLines: [
+      '주식회사 카핑 · 사업자등록번호 165-88-01681',
+      '경기도 부천시 원미구 부일로205번길 46, 2층 203호',
+      '고객상담 1661-1822',
+    ],
+    /* 영업채널이라 재고 전체를 판다 — providerCode 를 비워 둔다. */
+    /* 빠른조건·축은 안 적는다 = 집 기본. 그 채널 재고를 보고 화면에서 고친다. */
+  },
 ];
 
 /**
