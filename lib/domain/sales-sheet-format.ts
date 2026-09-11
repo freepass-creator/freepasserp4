@@ -323,6 +323,22 @@ export function buildSalesFormatRequests(input: FormatInput): Record<string, unk
   align(columns.filter((c) => isMoneyColumn(c) && !RIGHT_COLUMNS.includes(c)), 'RIGHT');   // 갈래 탭의 새 금액 칸도 우측
   align(CENTER_COLUMNS, 'CENTER');
 
+  // ★「미입력」은 «옅은 회색»으로만 — 원천/마스터에 없어 공란인 것을 표시하되 «값처럼」 도드라지지 않게(사장님 2026-09-11).
+  for (const name of ['세부트림', '옵션(원문)']) {
+    const i = idx(name);
+    if (i < 0) continue;
+    out.push({ addConditionalFormatRule: {
+      index: 0,
+      rule: {
+        ranges: [{ sheetId: gid, startRowIndex: H + 1, startColumnIndex: i, endColumnIndex: i + 1 }],
+        booleanRule: {
+          condition: { type: 'TEXT_EQ', values: [{ userEnteredValue: '미입력' }] },
+          format: { textFormat: { foregroundColor: rgb('AAAAAA') } },
+        },
+      },
+    } });
+  }
+
   // 기간 블록 — 칸 배경. 머리행까지 같이 칠해야 어느 열이 그 블록인지 위에서부터 보인다.
   columns.forEach((name, i) => {
     const bg = colBgFor(name);
