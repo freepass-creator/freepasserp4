@@ -26,6 +26,7 @@
     "check:design": "tsx scripts/check-design-locked.mts",
     "check:speed": "tsx scripts/check-shop-speed.mts",
     "channel:new": "tsx scripts/new-channel.mts",
+    "channel:ci": "tsx scripts/channel-ci.mts",
     "check:brand": "tsx scripts/check-brand-mark.mts",
     "check:guest": "tsx scripts/check-guest-default.mts",
     "check:guest-fields": "tsx scripts/check-guest-fields.mts",
