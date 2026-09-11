@@ -857,6 +857,28 @@ export const WHITELABELS: Whitelabel[] = [
       body: '신용회생·신용불량과 무관하게 만 21세 이상이면 이용하실 수 있습니다.',
     },
   },
+  {
+    key: 'krautoplan',
+    sitePath: '/krautoplan',
+    /* 도메인을 사면 여기 적고 domainReady 를 켠다 — 그전까지 주소는 sitePath 다. */
+    hosts: [],
+    name: 'KR오토플랜',
+    /*
+     * 홈페이지에서 따 와 «여백을 잘라» 넣은 조합형(마크+글자) — 427×168.
+     * ★`nameBand` 를 안 준다 = 이 그림 하나가 간판 전부다(이름을 또 안 쓴다).
+     */
+    logo: { src: '/brand/krautoplan-mark.png', alt: 'KR오토플랜', role: 'lockup' },
+    wordmark: { main: 'KR오토플랜', sub: '' },
+    brandColor: '#182B41',
+    tel: '1811-7570',
+    bizLines: [
+      '(주)케이알오토플랜 · 대표 김병준 · 사업자등록번호 627-33-01651',
+      '서울특별시 금천구 가산디지털2로 101, A1904',
+      '고객상담 1811-7570',
+    ],
+    /* 영업채널이라 재고 전체를 판다 — providerCode 를 비워 둔다. */
+    /* 빠른조건·축은 안 적는다 = 집 기본. 그 채널 재고를 보고 화면에서 고친다. */
+  },
 ];
 
 /**
