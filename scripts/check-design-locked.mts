@@ -959,16 +959,21 @@ must(/wl\.tel/.test(read('app/q/[code]/ShopDetailView.tsx')),
     '빠른조건을 «있는 값»이 아닌 데서 고르게 됐습니다 — 고르는 목록은 조건칸과 같은 집계에서 옵니다.',
     'components/shop/ShopQuickEditor.tsx · docs/DESIGN_CONFIRMED_SHOP.md §11');
   /*
-   * ㉤ 고치는 문 = 조건칸 «맨 아래 구역» — 웹 기둥·폰 시트가 «같은 한 벌»을 받는다(2026-09-11).
-   *   사장님 「퀵필터 조정하는 거 **설정페이지 맨 하단 섹션 하나** 주고 거기서 **펼쳐서** 넣게」.
-   *   한쪽만 받으면 웹에서 고칠 수 있는데 폰에서는 못 고치는 날이 온다 — 그래서 둘을 같이 본다.
+   * ㉤ 고치는 문 = **웹 조건칸 «맨 아래 구역»** · 칸 안은 **조건칸과 같은 체크 줄**(2026-09-11).
+   *   사장님 「퀵필터 조정하는 거 **설정페이지 맨 하단 섹션 하나** 주고 거기서 **펼쳐서** 넣게」 ·
+   *   「엥 필터는 **저렇게 나오면 안 되는데**??」(알약으로 쏟아 놓은 것) · 「**모바일 필터는 기존 게 맞는 거야**」.
    */
-  must((shopView.match(/tail=\{quickTail\}/g) || []).length >= 2
+  must(/tail=\{quickTail\}/.test(shopView)
       && /<ShopQuickEditor[\s\S]{0,200}value=\{quickAll\}/.test(shopView)
-      && /tail\?: ShopFilterTail/.test(read('components/shop/ShopFilters.tsx'))
-      && /tail\?: ShopFilterTail/.test(read('components/shop/ShopFilterSheet.tsx')),
-    '빠른조건 고치는 칸이 조건칸 맨 아래(웹 기둥 + 폰 시트 둘 다)에 없습니다.',
+      && /tail\?: ShopFilterTail/.test(read('components/shop/ShopFilters.tsx')),
+    '빠른조건 고치는 칸이 웹 조건칸 맨 아래에 없습니다.',
     'app/(shop)/shop/ShopView.tsx · docs/DESIGN_CONFIRMED_SHOP.md §13');
+  must(/<ShopFilters /.test(editor) && !/<ShopPill/.test(editor),
+    '빠른조건 칸이 조건칸과 다른 모양(알약 등)으로 값을 늘어놓습니다 — 같은 체크 줄 원자를 씁니다.',
+    'components/shop/ShopQuickEditor.tsx · docs/DESIGN_CONFIRMED_SHOP.md §13');
+  must(!/ShopQuickEditor|\btail[=?:]/.test(read('components/shop/ShopFilterSheet.tsx')),
+    '폰 상세 조건 시트에 빠른조건 칸이 들어갔습니다 — 폰 시트는 기존 그대로입니다.',
+    'components/shop/ShopFilterSheet.tsx · docs/DESIGN_CONFIRMED_SHOP.md §13');
   must(!/role="dialog"/.test(editor) && !/setQuickOpen/.test(shopView),
     '빠른조건 고치기가 다시 «창»으로 떴습니다 — 조건칸 맨 아래 구역에서 펼쳐 고칩니다.',
     'components/shop/ShopQuickEditor.tsx · docs/DESIGN_CONFIRMED_SHOP.md §13');
