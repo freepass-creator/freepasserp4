@@ -36,13 +36,24 @@
 **① `.fp-finder-main` 행 수 ≠ 자식 수** — 이 한 줄로 **세 번** 사고 났다(08-31 · 09-01 · 09-04).
    조건 줄을 툴바 안팎으로 옮기는 커밋은 `app/globals.css` 의 `grid-template-rows` 를 **같이** 고쳐야 한다.
    고치기 전에 `app/finder/page.tsx` 의 `<section className="fp-finder-main">` **직계 자식을 센다.**
-   지금은 **둘**(FinderToolbar · .fp-finder-pane).
+   지금은 **둘**(FinderToolbar · .fp-finder-pane) — 퀵필터는 툴바 «안»에 있다.
+   ★★**눈으로 세지 마라 — `npm run check:finder-rows`.** 마크업·CSS 행·CSS 주석 **셋을 다** 센다.
+     (2026-09-09 에 실제로 CSS «주석»만 「셋」이라 적혀 있었다. 그걸 믿고 고쳤으면 또 사고였다.)
+   ⚠ 작업트리 말고 **배포되는 가지**를 센다 — `npm run check:finder-rows -- --deployed`.
 
 **② 인증보다 먼저 뜬 구독** — `NEXT_PUBLIC_FINDER_FROM_FIRESTORE=1` 이 운영에 켜지자, 로그인 복원 전에
    Firestore `products` 를 구독했다가 규칙에 막히고, 실패한 핸들을 쥔 채 재구독도 RTDB 폴백도 안 했다.
    `rows=null` 이 굳어 본문은 스켈레톤인데 머리는 예전에 센 「742대」를 보여줬다 — **숫자는 맞는데 화면은 빈** 꼴.
-   ⇒ 2026-09-04 운영에서 그 플래그를 **뺐다**(코드 기본값 OFF = 운영 무변경). 다시 켜기 전에 셋을 먼저 고친다:
-   ㉠ 실제 UID 복원 뒤에만 구독 시작 ㉡ 실패 시 핸들 완전 해제 후 인증 완료 시 재시도 ㉢ 그래도 실패면 RTDB 단발 폴백.
+   ⇒ 2026-09-04 에 그 플래그를 **뺐다**. 그리고 **2026-09-08 에 다시 켰다 — 지금 기본값은 «켬»이다**
+   (`finderFromFirestoreEnabled()` = `!== '0'`). 끄려면 `NEXT_PUBLIC_FINDER_FROM_FIRESTORE=0`.
+   ★**끄기 전에 알아야 할 것** — 켠 이유는 「넷이 한 곳을 본다」다(사장님 「같은 데를 보고 같은 곳에서
+     뿌려야 함」). 파인더만 RTDB 를 파서 양쪽에 다 있는 674대의 값이 갈렸다(주행 286 · 세부모델 245 · **상태 149**).
+     되돌리면 그 갈림이 돌아온다.
+   ★**09-04 에 껐던 이유 셋은 이미 다 고쳐져 있다**(2026-09-09 코드 실측):
+   ㉠ 실 UID 복원 뒤에만 구독(`firebaseUserReady`) ㉡ 실패 시 핸들 완전 해제(`releaseOnError`)
+   ㉢ 그래도 실패면 RTDB 단발 폴백(`startFirestore` 의 onError).
+   ⚠ 이 문단은 2026-09-09 까지 「기본값 OFF · 셋을 먼저 고쳐라」로 남아 있었다 — **코드와 정반대**였다.
+     규격이 낡으면 「고쳐 놓은 것을 도로 끄는」 손이 나온다.
 
 ★**「742대」가 보인다고 목록이 보이는 게 아니다.** 머리 숫자와 본문은 서로 다른 길로 온다.
   배포 뒤 확인은 **카드가 그려지는지**를 본다 — 숫자·로그·게이트로 대신하지 않는다.
@@ -133,6 +144,19 @@ ERP 가 「출고불가」라 한 414대 중 시트가 「팔 수 있다」고 �
 ⚠ 간판 크기는 «그림»이 아니라 **그림 안의 «글자»**에 맞춘다 — 심볼이 세로를 다 쓰는 간판을
   그림째로 맞추면 글자가 절반 크기로 앉는다(하허호 10.6px ↔ 유니오토 16.7px).
 
+## ★★채널(화이트라벨) 일이면 먼저 읽어라 — `docs/화이트라벨-공통과-개별.md`
+채널이 바꿀 수 있는 것은 **표(`lib/whitelabel.ts`)에 «칸»이 있는 것뿐**이다. 칸이 없으면 그건 «표준판»(공통)이고,
+칸을 적으면 그 칸만 «맞춤판»이 된다 — **채널이 통째로 갈리지 않고 칸마다 갈린다.**
+사장님 2026-09-09 「커스터마이징 하는 부분을 골라보자. 공통 영역과 커스터마이징 할 거」 ·
+「**화이트라벨 공통규격은 써 줘야 함. 여기서만 달리 하면 안 되고**」.
+★**필터가 제일 중요하다** — 빠른필터(`quick`)·세부필터(`axes`) 둘 다 채널이 정할 수 있다(배선 실측 완료).
+  지금은 **이안카의 빠른필터 하나만 맞춤판**이고 나머지는 전부 표준판이다(사장님 「아직까지는 공통으로 갈 거긴 한데」).
+★그 문서 §6 이 **「이건 쉽다 · 이건 어렵다」** 표다 — 렌트사가 물으면 그 자리에서 답한다.
+  ⚠ 「검색필터에 뭐 넣어달라」가 늘 쉬운 게 아니다: **있는 축에서 고르면 몇 분, 없는 축을 세우면 며칠**이다
+  (그건 화면 일이 아니라 **재고 데이터** 일 — 빈칸이면 필터가 거짓말을 한다).
+**기계 검사 = `npm run check:whitelabel`** — 표에 칸이 늘었는데 문서에 안 적히면, 또는 손님 화면이
+채널 이름으로 갈라서면 exit 1. 현황(누가 무엇을 맞춤판으로 쓰나)도 같이 찍는다.
+
 ## ★★화면·페이지 일이면 먼저 읽어라 — `docs/건물도면.md`
 이 ERP 는 층(라우트) 37개 · 동(棟) 6개(업무·로비·손님·별관·신관·기계실)다. **같은 동이면 문·창문이 같아야 한다.**
 어느 층이 어느 규격을 따르는지, 로비·옥상처럼 **달라도 되는 곳은 왜 다른지**가 그 도면에 있다.
@@ -220,6 +244,19 @@ F03으로 이름을 만들지 않는다. 자동화 = `docs/자동동기-매뉴�
   56 이면 빈 높이가 남아 머리가 목록에서 떨어져 «붕» 뜬다(사장님 2026-08-30 「붕 떠 보이게 하면 안 돼」).
   터치 대상이 아니라 40 규격에 묶일 이유도 없다. 하단 홈바·독은 56 그대로.
 
+## ★사전에 적힌 이름은 «실재하는 export» 여야 한다 — `npm run check:ui`
+
+사장님 2026-09-09 개발센터 견학에서 잡았다. 사전이 적은 이름 94개를 실제 export 와 대조하니
+**`CardKind` 는 코드에 아예 없었다** — CLAUDE.md 두 줄과 주석 하나에 «이름»만 남아 있었다
+(`IMPLEMENTATION_LOG` 1462행 「`CardKind`, `CardRailBadges` 이동」 — 하나는 살고 하나는 사라졌는데 사전만 안 고쳤다).
+`CreateListRow` 는 `list-rows.tsx` 안의 **로컬 함수**라 import 조차 안 됐다.
+
+★★**없는 원자를 「쓰라」고 적어 두면 그게 손롤의 원인이 된다.** 다음 사람은 그 이름을 찾다가
+  못 찾고, 「그럼 내가 만들지」로 간다 — 사전이 막으려던 바로 그 일이다.
+★그래서 검사가 잡는다: 이 사전의 이름이 실제 export 를 가리키는지, 그리고 **레거시로 적은 이름은
+  반대로 «없는지»**(되살아나면 그것도 드리프트다).
+⚠ `export default` 도 export 다(`TopBar`) — named 만 찾으면 멀쩡한 것을 없다고 한다.
+
 ## 원자 사전 — 이걸 써라 (`@/components/ui`, `@/components/product-card-atoms`)
 | 용도 | 원자 | raw 금지 |
 |---|---|---|
@@ -227,32 +264,39 @@ F03으로 이름을 만들지 않는다. 자동화 = `docs/자동동기-매뉴�
 | 버튼 | `Btn`(solid/ghost/danger·sm/md·href)·`IconBtn`·`IconSeg` | `<button>` |
 | 입력 | `Input`(full)·`SearchInput`(돋보기·X·full)·`Select`(full)·`WorkFields`/`WorkTable`/`WorkRow`(업무 표)·`WorkInput`/`WorkSelect`/`WorkTextarea`(표 안 칸)·`FormGrid`(스키마폼 내부)·`fmtPhone` | `<input>/<select>` · 페이지에서 `FormGrid`/`FormReadList` 직접 분기 · 표 줄을 CSS grid로 손짜기 |
 | 탭·필터 | `PillTabs`·`FilterChips`(단일+count)·`ToggleChips`(다중)·`FilterGroup`(접이식축+해제) | 탭/필터 `<button>` 群 |
-| 목록 | `FeedListRow` + `list-rows`(정본=`/esign`) · 등록 `CreateListRow` · 더보기 `ListMoreBar` · 단순 행 `ListRow` | 손 목록행 |
+| 목록 | `FeedListRow` + `list-rows`(정본=`/esign`) · 등록 `InventoryCreateRow`/`ContractCreateRow` · 더보기 `ListMoreBar` · 단순 행 `ListRow` | 손 목록행 |
 | 상태·라벨 | `Badge`·`CompanyBadge`·`CountPill` · 톤맵(`productTypeStyle`·`CREDIT_TONE`·`VEHICLE_STATUS_TONE`·`SETTLEMENT_STATUS_TONE`·`ACTOR_TONE`) (`badges.tsx`) | 로컬 색맵 |
 | 로딩·빈·알림 | `Loading`·`CenterNote`·`Message` · `toast`/`Toaster` | "불러오는 중" 손롤 |
 | 껍데기 | `Page`·`MobilePageShell`(모바일 4단 SSOT)·`WorkPage`·`BottomNav`·`TopBar`·`PaneHead`·`PaneBody`·`SectionLabel` | 손 레이아웃 |
 | 상세·폼 | `Section`·`DetailGrid`·`FormCard` | |
-| 카드 슬롯 | `CardThumb`·`CardTitle`·`CardKind`·`CardRailBadges`·`CardSpecs`·`CardBenefits`/`CardPerkLine`·`CardEvents`·`OptionChips`·`Plate`·`badges()`/`badgeSpecs`·`FavHeart` | 카드 표기 손롤 |
+| 카드 슬롯 | `CardThumb`·`CardTitle`·`CardRailBadges`·`CardSpecs`·`CardBenefits`/`CardPerkLine`·`CardEvents`·`OptionChips`·`Plate`·`badges()`/`badgeSpecs`·`FavHeart` | 카드 표기 손롤 |
 | 가격 슬롯 | `PricePeekRoot`·`PriceAmounts`·`PeriodChips`·`PriceHero` | 요금 손롤 |
 | 카드 복합 | `ProductRowCard`(상세 4×2 SSOT)·`ProductCard`(간단 세로 파생) | 페이지에서 슬롯 재조립 |
 
-**준비만 되고 아직 안 쓰는 원자 (2026-07-21 실측 사용처 0):**
-`DataTable` · `ObjCard`/`Cards`/`Metric` · `KV`/`DetailRow`/`DetailEmpty`/`Dash` · `Sec`/`HiddenSecs` ·
-`Modal`/`Drawer`/`EmptyState`/`ListBox`/`DetailShell`/`VSplit`/`Panel` ·
+**쓰이기 시작한 원자 (2026-09-09 실측 — import 하는 곳이 있다):**
+`Modal`(5곳) · `DetailRow`(3곳) · `DetailShell`(1) · `VSplit`(1). **이건 이제 선례가 있다** — 위 표대로 쓰면 된다.
+
+**아직 안 쓰는 원자 (2026-09-09 실측 사용처 0):**
+`DataTable` · `ObjCard`/`Cards`/`Metric` · `KV`/`DetailEmpty`/`Dash` · `Sec`/`HiddenSecs` ·
+`Drawer`/`EmptyState`/`ListBox`/`Panel` ·
 `Status`/`StatusTag`/`RiskTag`/`SevTag` + `STATUS_TONE`/`RISK_TONE`/`PERK_TONE` · `PriceFare`/`PriceMini`/`OptionsInline`/`CardFacts`
+⚠ 이 목록은 **2026-07-21 값이 두 달 묵어 있었다** — 그 사이 넷이 쓰이기 시작했는데 문서는 「사용처 0」이라 적고 있었다.
+  「선례가 없다」는 말은 **재고 나서** 하는 말이다.
 
 **지우지 않는다**(모바일 분기·토큰까지 규격대로 짜여 있어 다시 만드는 비용이 더 크고, 미사용 export는 빌드에서 트리셰이킹됨).
 다만 **"이게 확립된 패턴"이라고 오해하지 말 것** — 선례가 없으므로, 쓰려면 먼저 실제 화면에 맞는지 확인하고 필요하면 원자를 고쳐 쓴다.
 새로 쓰기 시작하면 위 표로 옮길 것.
 
-**레거시(쓰지 말 것 → 대체):** `Identity`→`CardTitle` · `SpecLine`→`CardSpecs` · `PriceHeadline`→`PriceHero` · `PriceRows`/`PricePeers`→`PriceFare` · `CardMarks`/`CardPerks`→`CardBenefits`.
-**사전 밖(기능 셸):** `InterestRail`·`ChatThread`·`ContractPanel` 등은 원자 아님 — 페이지/도메인 조립.
+**레거시 — «이미 다 지워졌다». 옛 코드에서 만나면 이걸로 읽어라(되살리지 말 것):**
+`Identity`→`CardTitle` · `SpecLine`→`CardSpecs` · `PriceHeadline`→`PriceHero` · `PriceRows`/`PricePeers`→`PriceFare` · `CardMarks`/`CardPerks`→`CardBenefits`.
+★일곱 다 `origin/main` 에 export 가 없다(2026-09-09 실측). 이 줄은 «쓰지 마라»가 아니라 **«옛 이름 사전»**이다.
+**사전 밖(기능 셸):** `InterestPanel`(`components/InterestRail`)·`ChatThread`·`ContractPanel` 등은 원자 아님 — 페이지/도메인 조립.
 
 ### 필터 ↔ 카드 축 (product-filters SSOT)
 | 축 | 티어 | 카드 원자 |
 |---|---|---|
 | 기간·월대여·보증 | CORE | `PriceHero` / `PriceAmounts`+`PeriodChips` |
-| 상품구분 | CORE | `CardKind` / rail `pt` (`productTypeStyle`) |
+| 상품구분 | CORE | rail `pt` (`CardRailBadges` · `productTypeStyle`) |
 | 출고상태 | CORE | rail `st` (`CardRailBadges`) |
 | 심사 | CORE | rail/thumb `cd` |
 | 연료 | CORE | `CardSpecs` |
@@ -344,11 +388,60 @@ F03으로 이름을 만들지 않는다. 자동화 = `docs/자동동기-매뉴�
 - **차량 락** — 계약금 입금(확인) 선점 = `계약중`(목록 노출·마크) · 계약완료 = `출고불가`(목록 숨김). 문의·서류만으로는 잠그지 않는다(여러 영업 병행, 입금 선점이 이김).
   락 주인은 `product.locked_by_contract`. 락 쓰기는 `syncVehicleLock` 한 곳(매 체크마다 재계산 — 분기를 늘리면 해제 누락이 생긴다). 삭제보호는 `blockingContractFor`(락보다 넓음).
 - 식별코드 = `lib/domain/ids.ts`(`usr_/sup_/veh_/pol_/chn_`).
-- **v3 = 라이브 읽기 / v4 = `v4/` 오버레이 쓰기** (`lib/firebase/rtdb-adapter.ts`). 읽기 = v3 라이브 ∪ v4 오버레이 필드단위 병합, 쓰기는 전부 `v4/{node}/{key}` — **v3 구데이터 write 금지**.
-  ※ 초기 설계였던 "v4=Firestore 독립 새집 + 일괄 ETL 이관"은 폐기됨(브리지로 대체). `lib/migrate/v3.ts` 도 함께 삭제(2026-07-21).
+- ★★★**갈 곳은 Firestore 다. 그런데 «아직 다 안 갔다» — 그 둘을 섞어 읽지 마라.**
+  > 사장님 2026-09-09 「**알티디비는 안 쓸 거야 폐기했음**」 · 「**파이어스토어가 맞음. 거기로 갈 거야**」
+
+  **서버에는 문이 «하나»다** — `lib/server/firebase-admin.ts` 의 `firebaseAdminDatabase()`.
+  `NEXT_PUBLIC_DATA_BACKEND=firestore` 면 **같은 `.ref()` 얼굴의 Firestore 심**을 돌려준다.
+  그 문으로 들어간 **35 파일**(AST 실호출 기준)은 «대체로» 코드 없이 넘어간다.
+
+  ⚠⚠⚠ **「한 줄 플립이면 끝」이 아니다 — 지금 플립하면 «터지는» 자리가 있다.**
+    심은 **문서 경로 아닌 `transaction()` 을 거부한다**(`firestore-ref-shim` 「transaction 은 문서 경로여야 함」).
+    그런데 컬렉션·루트 경로로 부르는 곳이 **4 파일 6 자리** 있다(2026-09-09 실측):
+    ```
+    app/api/inventory/ironrentcar/apply/route.ts:229      ref('v4').transaction
+    app/api/inventory/ironrentcar/rollback/route.ts:170·239  ref('v4').transaction
+    lib/server/sheet-daily-sync.ts:320·439                 ref('v4/products').transaction
+    lib/server/sheet-live-status.ts:101                    ref('v4/products').transaction
+    ```
+    ★코덱스가 심을 **실제로 실행해** 재현했다(2026-09-09 독립검증) — 추론이 아니다.
+    ⇒ **플립 전에 이 여섯을 문서 단위로 쪼개거나 다른 잠금으로 바꾼다.** 스왑점 주석은 이걸
+      「루트 트랜잭션 2곳」이라 적고 있었는데 **실제로는 넷·여섯**이다.
+
+  ⚠⚠ **빚은 그 문을 «건너뛴» 것들이다** — 플립해도 안 넘어간다.
+    2026-09-09 실측(AST · import 기준) — **스왑점을 건너뛰고 RTDB 를 직접 여는 파일 **24개**가 남았다.**
+    (`lib/server` 9 · `lib/firebase` 7 · `app/api` 3 · 그 외 5 — 정산·시트·auth 계열)
+    ⚠ 정적 `import` 만 세면 23인데, **동적 `import()`·`require()` 까지 세서 24** 다
+      (코덱스 2차 검증이 `lib/login-helpers.ts:14` 를 잡았다). 재노출·별칭 경로는 아직 못 본다.
+    ★**`npm run check:store` 가 센다** — 늘면 exit 1, 줄면 `-- --tighten` 으로 기준을 같이 내린다.
+    ★새 코드는 **`getStore()` 또는 `firebaseAdminDatabase()`** 로 붙인다. 그래야 플립에 같이 딸려 온다.
+    ⚠ 문 셋(`firebase-admin` · `firestore-ref-shim` · `rtdb-adapter`)은 RTDB 를 여는 게 제 일이라 안 센다.
+
+  ⚠⚠⚠ **`/api/version` 의 `store:"firestore"` 를 «앱 전체가 Firestore»로 읽지 마라.**
+    그건 `firestore-ref-shim` **제 상태**다. 심은 Firestore 가 «비어도» RTDB 로 내려가는데
+    그 폴백은 차단 표시를 안 남긴다 — **RTDB 로 읽고도 `firestore` 라고 말할 수 있다.**
+    (2026-09-09 코덱스 독립검증. 대수가 이상하면 여기«부터» 보되, 여기«까지»만 보지 마라.)
+
+  ★**손님 화면은 이미 Firestore 를 판다** — `firestore-ref-shim` 을 직접 import 하는 **10 파일**
+    (정적 import 기준 · 그중 `/api/version` 은 데이터가 아니라 `storeHealth` 만 가져온다).
+    ⚠ 2026-09-08 에 그 화면이 **폐기된 RTDB 를 읽고 있었다** — 화면 703 vs 원장 709인데
+      차번으로 맞대니 56대는 원장에만 · 50대는 화면에만 있었다.
+      **「숫자가 비슷하다」가 「같은 원장」이라는 뜻이 아니다.**
+
+  ※ v3/v4 브리지(`lib/firebase/rtdb-adapter.ts`)는 **폐기 대상**이다. 읽기 = v3 라이브 ∪ v4 오버레이
+    필드단위 병합 · 쓰기는 `v4/{node}/{key}` — **v3 구데이터 write 금지**.
+    초기 설계였던 "v4=Firestore 독립 새집 + 일괄 ETL 이관"은 폐기(브리지로 대체) · `lib/migrate/v3.ts` 삭제(2026-07-21).
+  ⚠ **플립·삭제 전에 맞출 것** — Firestore 1,438 vs RTDB 1,365, **73건**이 아직 안 맞는다(미대조 · 파이프라인 세션 몫).
+  ★★★**운영은 아직 `rtdb` 다 — 확정했다**(2026-09-09).
+    `/diag` 는 로그인이 걸려 있지만 `NEXT_PUBLIC_*` 는 **빌드 때 번들에 박힌다** — 배포된 청크에서
+    `label:"DATA_BACKEND",children:String("rtdb")` 를 그대로 읽었다. 로그인 없이 재는 법이다.
+    ⇒ **`getStore()` 도 `firebaseAdminDatabase()` 도 지금은 RTDB 를 판다.**
+      운영에서 Firestore 를 보는 것은 **심을 직접 import 한 10 파일(손님 화면)뿐**이다.
+      그래서 `/api/version` 이 `firestore` 라고 말하는 것이고, 그건 **앱 전체 얘기가 아니다.**
+    ⚠ 값을 바꾸는 것은 Vercel env 이므로 **코드 배포와 별개다** — 바꾸면 위 여섯 자리가 먼저 터진다.
 
 ## 레인
-- 이 저장소는 두 AI 도구 동시 작업. **v3 데이터 연동/브리지 = 다른 도구 담당**. UI·원자·페이지·규격 = 이 규격 따름. 같은 파일 동시편집 시 .next 청크 desync 주의(백지=stale 서버, `.next` 삭제 후 재기동).
+- 이 저장소는 여러 AI 도구 동시 작업. **v3→Firestore 이관·브리지 = 파이프라인 세션 담당**(위 「원장은 Firestore」). UI·원자·페이지·규격 = 이 규격 따름. 같은 파일 동시편집 시 .next 청크 desync 주의(백지=stale 서버, `.next` 삭제 후 재기동).
 
 ## 금지 (드리프트 원흉)
 손롤(원자 안 쓰고 raw 컨트롤) · 로컬 색맵 · 하드코딩 hex/height · 모바일 미분기(웹치수 그대로) · 페이지별 별도규격 · 확정 기능 임의변경.

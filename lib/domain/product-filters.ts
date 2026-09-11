@@ -15,6 +15,7 @@
  *      주행밴드
  */
 import type { EntityRecord } from '@/lib/intake/entities';
+import { standingFixed } from '@/lib/domain/facet-standing';
 import { PRODUCT_TYPES, FUEL_TYPES, PROMO_BADGES_ACTIVE } from '@/lib/intake/entities';
 import {
   fuelDisplay,
@@ -209,21 +210,15 @@ export function excelMonths(products: EntityRecord[]): number[] {
   return PERIODS.filter((m) => s.has(m));
 }
 
-export type PresentChip = { key: string; label: string; count: number };
-
-/** 매물에 값이 있는 필터 옵션만 — 빈 축·빈 칩은 사이드바에서 숨김. */
-export function presentFilterOptions(products: EntityRecord[]): {
-  months: PresentChip[];
-  rent: PresentChip[];
-  dep: PresentChip[];
-  mile: PresentChip[];
-  ptype: PresentChip[];
-  credit: PresentChip[];
-  fuel: PresentChip[];
-  perks: PresentChip[];
-  promo: PresentChip[];
+/** 칩 하나하나의 «셈» — 한 번 훑어 밴드·갈래·혜택을 동시에 센다(모수마다 이걸 부른다). */
+type Tally = {
+  rentCnt: number[]; depCnt: number[]; mileCnt: number[];
+  ptypeCnt: Map<string, number>; creditCnt: Map<string, number>; fuelCnt: Map<string, number>;
+  perkCnt: Map<string, number>; promoCnt: Map<string, number>; monthMap: Map<number, number>;
   hasVehicle: boolean;
-} {
+};
+
+function rawTally(products: EntityRecord[]): Tally {
   // 상품목록 모수 = 출고불가·유효 대여료 없음 제외(계약중+가격 있음은 포함·마크 노출).
   const listed = products.filter(isStockedProduct);
   // 단일패스 — 매물당 priceList 1회 + 밴드·enum·혜택 카운터 동시 누적(구 countBand×N 반복스캔 제거).
@@ -270,23 +265,81 @@ export function presentFilterOptions(products: EntityRecord[]): {
     if (!hasVehicle && String(p.maker || '').trim() !== '') hasVehicle = true;
   }
 
-  const bandChips = (bands: Band[], counts: number[]): PresentChip[] =>
-    bands.map((b, i) => ({ key: b.k, label: b.label, count: counts[i] })).filter((o) => o.count > 0);
+  return { rentCnt, depCnt, mileCnt, ptypeCnt, creditCnt, fuelCnt, perkCnt, promoCnt, monthMap, hasVehicle };
+}
 
+export type PresentChip = { key: string; label: string; count: number };
+
+/**
+ * 사이드바 칩 — **명단은 «재고 전체», 숫자는 «지금 조건»**.
+ *
+ * ★★★사장님 2026-09-10 「필터 했을 때 **0인 필터를 없애 버리니까 필터가 막 이렇게
+ *   올라갔다 내려갔다** 하잖아. 그러니까 있는 필터에서 뭘 잡았을 때 그게 없으면 그 필터 값을
+ *   없애는 게 아니라 그냥 **그 필터가 옆에다가 0이라고** 해줘야지」.
+ *
+ * ⚠ 전에는 건수 0 인 칩을 **줄째 뺐다.** 그래서 조건 하나를 누를 때마다 칩이 사라지고 축이
+ *   접혀, 사이드바 전체가 위아래로 뛰었다 — 방금 누르려던 칩이 다른 자리로 가 버린다.
+ * ⇒ `universe`(조건을 다 푼 모수)가 **무엇이 서는지·어느 차례로 서는지**를 정하고,
+ *   `products`(지금 조건 모수)는 **숫자만** 정한다. 그래서 숫자만 오르내리고 줄은 안 움직인다.
+ * ★재고에 **아예 없는** 값은 여전히 안 선다 — universe 에서 0 이면 그건 「지금 0」이 아니라
+ *   「원래 없다」다.
+ * ★손님 동도 같은 규칙이다(`lib/shop/query.ts` 의 `base`/`count` · `docs/DESIGN_CONFIRMED_SHOP.md` §12).
+ *   두 동이 다르게 굴면 같은 회사 화면에서 필터가 다른 물건이 된다.
+ */
+export function presentFilterOptions(products: EntityRecord[], universe?: EntityRecord[]): {
+  months: PresentChip[];
+  rent: PresentChip[];
+  dep: PresentChip[];
+  mile: PresentChip[];
+  ptype: PresentChip[];
+  credit: PresentChip[];
+  fuel: PresentChip[];
+  perks: PresentChip[];
+  promo: PresentChip[];
+  hasVehicle: boolean;
+} {
+  /*
+   * 명단·차례를 정하는 «전체» 모수. 안 주면 지금 모수가 곧 전체다(첫 화면·조건 없음).
+   * ⚠ 여기서 값을 다시 «세지» 않는다 — 위 머리말대로 「무엇이 서는가」만 여기서 온다.
+   */
+  const baseCnt = universe && universe !== products ? rawTally(universe) : null;
+  const {
+    rentCnt, depCnt, mileCnt, ptypeCnt, creditCnt, fuelCnt, perkCnt, promoCnt, monthMap, hasVehicle,
+  } = rawTally(products);
+
+  /*
+   * ★★**줄이 서는 규칙은 «집 정본»이 정한다**(`lib/domain/facet-standing`) — 손님 동과 같은 것을 쓴다.
+   *   사장님 2026-09-10 「**공통으로 쓰는 것들은 한 군데서 고치면 다 동일하게 고쳐져야지**」.
+   *   여기 남는 것은 «갈리는 것»뿐이다 — 어떤 축이 있고, 값 이름을 뭐라 부르는가.
+   * ★`base` 가 없으면(첫 화면·조건 없음) 지금 모수가 곧 전체다 — 그때는 둘이 같은 Map 이다.
+   */
+  const bandChips = (pick: (c: Tally) => number[], bands: Band[], counts: number[]): PresentChip[] => {
+    const keys = bands.map((b) => b.k);
+    const name = new Map(bands.map((b) => [b.k, b.label]));
+    const asMap = (arr: number[]) => new Map(keys.map((k, i) => [k, arr[i] ?? 0]));
+    return standingFixed(keys, asMap(baseCnt ? pick(baseCnt) : counts), asMap(counts))
+      .map((o) => ({ key: o.key, label: name.get(o.key) || o.key, count: o.count }));
+  };
+  const mapKeys = (pick: (c: Tally) => Map<string, number>, all: readonly string[], cnt: Map<string, number>) =>
+    standingFixed(all, baseCnt ? pick(baseCnt) : cnt, cnt)
+      .map((o) => ({ key: o.key, label: o.key, count: o.count }));
+
+  const monthKeys = baseCnt ? baseCnt.monthMap.keys() : monthMap.keys();
   return {
-    months: sortFilterMonths(monthMap.keys()).map((m) => ({ key: String(m), label: `${m}개월`, count: monthMap.get(m)! })),
-    rent: bandChips(RENT_BANDS, rentCnt),
-    dep: bandChips(DEP_BANDS, depCnt),
-    mile: bandChips(MILE_BANDS, mileCnt),
-    // 상품구분도 모수에 있는 것만(연쇄 필터 — 빈 칩 숨김). 캐논은 canonProductType.
+    months: sortFilterMonths(monthKeys).map((m) => ({ key: String(m), label: `${m}개월`, count: monthMap.get(m) || 0 })),
+    rent: bandChips((c) => c.rentCnt, RENT_BANDS, rentCnt),
+    dep: bandChips((c) => c.depCnt, DEP_BANDS, depCnt),
+    mile: bandChips((c) => c.mileCnt, MILE_BANDS, mileCnt),
+    // 상품구분 캐논은 canonProductType. 재고에 있으면 서고, 지금 0 이면 0 이라고 쓴다.
     ptype: [
-      ...PTYPES.filter((t) => (ptypeCnt.get(t) || 0) > 0).map((t) => ({ key: t, label: t, count: ptypeCnt.get(t)! })),
-      ...((ptypeCnt.get(ACQUISITION_PTYPE) || 0) > 0 ? [{ key: ACQUISITION_PTYPE, label: ACQUISITION_PTYPE_LABEL, count: ptypeCnt.get(ACQUISITION_PTYPE)! }] : []),
+      ...mapKeys((c) => c.ptypeCnt, PTYPES, ptypeCnt),
+      ...mapKeys((c) => c.ptypeCnt, [ACQUISITION_PTYPE], ptypeCnt)
+        .map((o) => ({ ...o, label: ACQUISITION_PTYPE_LABEL })),
     ],
-    credit: CREDITS.filter((v) => (creditCnt.get(v) || 0) > 0).map((v) => ({ key: v, label: v, count: creditCnt.get(v)! })),
-    fuel: FUELS.filter((v) => (fuelCnt.get(v) || 0) > 0).map((v) => ({ key: v, label: v, count: fuelCnt.get(v)! })),
-    perks: PERKS.map((pk) => ({ key: pk, label: pk, count: perkCnt.get(pk) || 0 })).filter((o) => o.count > 0),
-    promo: PROMOS.filter((t) => (promoCnt.get(t) || 0) > 0).map((t) => ({ key: t, label: t, count: promoCnt.get(t)! })),
+    credit: mapKeys((c) => c.creditCnt, CREDITS, creditCnt),
+    fuel: mapKeys((c) => c.fuelCnt, FUELS, fuelCnt),
+    perks: mapKeys((c) => c.perkCnt, PERKS, perkCnt),
+    promo: mapKeys((c) => c.promoCnt, PROMOS, promoCnt),
     hasVehicle,
   };
 }
@@ -357,10 +410,19 @@ export function aggregateVehicleCascade(products: EntityRecord[], filter: Vehicl
   return { makers, models, subs, variants, trims };
 }
 
-export function aggregateDyn(products: EntityRecord[]): Record<string, [string, number][]> {
+export function aggregateDyn(
+  products: EntityRecord[],
+  /**
+   * 한 축만 셀 때 그 키 — **교차 집계에서 쓴다.**
+   * ⚠ 안 주면 축 여덟을 다 센다. 교차 집계는 «축마다» 이 함수를 부르므로, 안 주면
+   *   여덟 축을 세는 일을 여덟 번(=64번) 한다 — 그게 곧 「필터가 버벅인다」다.
+   */
+  only?: string,
+): Record<string, [string, number][]> {
   const listed = products.filter(isStockedProduct);
   const out: Record<string, [string, number][]> = {};
   for (const d of DYN_ALL) {
+    if (only && d.key !== only) continue;
     const m = new Map<string, number>();
     for (const p of listed) { const v = d.get(p); if (v) m.set(v, (m.get(v) || 0) + 1); }
     // 연식 = "24년" 표기라 Number()가 NaN → 수량순처럼 깨짐. parseYear로 최신→과거.
@@ -455,14 +517,17 @@ export function facetPool(
   return products.filter((p) => matchPopularModel(p, modelSet) && matchProduct(p, narrowed));
 }
 
-/** 사이드바 칩 — 축마다 자기 선택을 제외한 모수로 집계. */
+/**
+ * 사이드바 칩 — 축마다 «자기 선택을 뺀» 모수로 세되, **명단은 재고 전체가 정한다**.
+ * ★그래서 조건을 눌러도 칩이 사라지지 않고 숫자만 0 으로 바뀐다(`presentFilterOptions` 머리말).
+ */
 export function presentFilterOptionsFaceted(
   products: EntityRecord[],
   state: FState,
   models: Set<string>,
 ): ReturnType<typeof presentFilterOptions> {
   const pick = (clear: Parameters<typeof facetPool>[3]) =>
-    presentFilterOptions(facetPool(products, state, models, clear));
+    presentFilterOptions(facetPool(products, state, models, clear), products);
   return {
     months: pick({ periods: true }).months,
     rent: pick({ rent: true }).rent,
@@ -477,15 +542,34 @@ export function presentFilterOptionsFaceted(
   };
 }
 
-/** 동적·공급사 칩 — 키마다 자기 선택을 제외한 모수. */
+/**
+ * 동적·공급사 칩(제조사·모델·연식·색상·공급사…) — 키마다 «자기 선택을 뺀» 모수로 센다.
+ *
+ * ★★**명단과 차례는 «재고 전체»가 정한다**(사장님 2026-09-10 「0인 필터를 없애 버리니까
+ *   필터가 막 올라갔다 내려갔다 하잖아」). 여기가 제일 크게 흔들리던 자리다 —
+ *   제조사가 열둘에서 셋으로 줄고, 남은 것도 대수 순으로 다시 서서 줄이 통째로 뒤집혔다.
+ * ⇒ 「무엇이 어느 차례로 서는가」는 조건과 무관하게 고정하고, **숫자만** 지금 조건으로 센다.
+ *   조건에 안 걸리면 그 줄은 «0» 이 된다(사라지지 않는다).
+ */
 export function aggregateDynFaceted(
   products: EntityRecord[],
   state: FState,
   models: Set<string>,
 ): Record<string, [string, number][]> {
+  /* 명단·차례 — 조건을 다 푼 모수에서 한 번만 만든다(축마다 다시 만들면 그게 곧 흔들림이다). */
+  const base = aggregateDyn(products);
   const out: Record<string, [string, number][]> = {};
   for (const d of DYN_ALL) {
-    out[d.key] = aggregateDyn(facetPool(products, state, models, { dynKey: d.key }))[d.key] || [];
+    const live = new Map(aggregateDyn(facetPool(products, state, models, { dynKey: d.key }), d.key)[d.key] || []);
+    /*
+     * ★차례는 `aggregateDyn` 이 이미 base 로 매겨 놨다(연식은 최신순·나머지는 대수순).
+     *   여기서는 «그 차례대로 숫자만» 갈아 끼운다 — 규칙은 `facet-standing` 과 같은 말이다.
+     */
+    out[d.key] = standingFixed(
+      (base[d.key] || []).map(([k]) => k),
+      new Map(base[d.key] || []),
+      live,
+    ).map((o) => [o.key, o.count]);
   }
   return out;
 }

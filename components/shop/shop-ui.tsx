@@ -5,11 +5,13 @@ import Link from 'next/link';
 import NextImage from 'next/image';
 import {
   Banknote, Calendar, Car, CarFront, Check, ChevronDown, Coins, Factory, FileText, Fuel, Gauge,
+  RefreshCw,
   Gift, IdCard, PiggyBank, Search, SearchCheck, ShieldCheck, UserRound, Wallet, X, Zap,
   type LucideIcon,
 } from 'lucide-react';
 import { C, FW, ICON, PILL_R, R_CARD } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
+import { haptic } from '@/lib/haptics';
 
 /**
  * 가게(손님 동) 원자 — **업무동 콕핏 원자를 쓰지 않는다.**
@@ -84,6 +86,13 @@ export const SHOP = {
    * ★역할이 모양으로 읽힌다 — 담는 것 > 누르는 것 > 표시 순으로 둥글기가 줄어든다.
    */
   r: { chip: 8, ctrl: 10, box: R_CARD, card: 12, pill: PILL_R },
+  /*
+   * ★**창의 모서리(18)** — 위 사다리 넷 «밖»이다. 사다리는 «담는 것·누르는 것·표시»의 규칙이고
+   *   (`docs/DESIGN_CONFIRMED_SHOP.md` §브랜드), 바닥에서 올라오는 창은 그 셋 중 어느 것도 아니다.
+   * ★그래도 한 곳에 둔다 — 시트가 둘이 되면서(조건·빠른조건) «같은 창인데 모서리가 다른» 일이
+   *   생길 자리다. 숫자를 두 파일에 각각 적으면 그게 곧 드리프트다.
+   */
+  sheetR: 18,
   /**
    * 글자 — 업무동 FS 는 18에서 끝나지만 손님 화면은 그 위가 필요하다.
    *
@@ -217,12 +226,28 @@ const bare: CSSProperties = {
  * ⚠ 이 규칙은 칩만의 것이 아니다 — 정렬 고르개·「차량 더 보기」·공유·하단독 「이전」까지
  *   **가게의 «비주요» 누름은 전부 회색 면**이다. 하나만 테두리로 남으면 그것만 촌스러워 보인다.
  */
-export function ShopPill({ on, onClick, children, title }: {
+/*
+ * ★★**손끝에도 답한다**(사장님 2026-09-10 「입체감·타격감 … 햅틱」).
+ *   조건을 «켜고 끄는» 누름이라 `select` 다 — 그냥 이동(`nav`)보다 한 단 또렷하다.
+ * ★**원자에 넣는다.** 페이지마다 부르면 어떤 칩은 울고 어떤 칩은 안 우는 날이 온다.
+ * ⚠ iOS 는 `navigator.vibrate` 를 아예 구현하지 않아 조용하다(안드로이드에서만 울린다).
+ *   설정에서 끄면(`fp4_haptic`) 원자가 알아서 no-op 이라 부르는 쪽이 볼 것이 없다.
+ */
+export function ShopPill({ on, onClick, children, title, mark }: {
   on?: boolean; onClick: () => void; children: ReactNode; title?: string;
+  /**
+   * **이 칩이 무엇인가** — 부르는 쪽이 나중에 «찾아낼» 수 있게 붙이는 표식(`data-chip`).
+   *
+   * ★쓰는 데는 하나다 — 공유 링크로 들어와 조건이 이미 걸려 있을 때, **켜진 칩이 줄 밖에 있으면
+   *   보이지 않는다.** 그때 줄을 그 칩까지 밀어 두려면 「어느 것이 그 칩인가」를 알아야 한다.
+   * ⚠ 화면에는 아무 영향이 없다 — 안 주면 속성이 아예 안 붙는다.
+   */
+  mark?: string;
 }) {
   const mobile = useIsMobile();
   return (
-    <button type="button" onClick={onClick} title={title} aria-pressed={!!on} className="fp-shop-press fp-shop-fill"
+    <button type="button" onClick={() => { haptic.select(); onClick(); }}
+      title={title} aria-pressed={!!on} data-chip={mark} className="fp-shop-press fp-shop-fill"
       style={{
         ...bare,
         /*
@@ -261,7 +286,7 @@ export function ShopTextBtn({ onClick, children, tone = 'mute' }: {
   onClick: () => void; children: ReactNode; tone?: 'mute' | 'faint';
 }) {
   return (
-    <button type="button" onClick={onClick} className="fp-shop-press"
+    <button type="button" onClick={() => { haptic.tap(); onClick(); }} className="fp-shop-press"
       style={{ ...bare, fontSize: SHOP.fs.cap, color: tone === 'faint' ? C.faint : C.mute }}>
       {children}
     </button>
@@ -274,15 +299,32 @@ export function ShopTextBtn({ onClick, children, tone = 'mute' }: {
  * `count` 를 주면 아이콘 위에 **작은 숫자 표식**이 붙는다(걸린 조건 수). 0 이면 안 그린다 —
  * 0 을 보여 주는 것은 「없다」를 굳이 말하는 꼴이다.
  */
-export function ShopIconBtn({ onClick, label, tone = 'mute', count, children }: {
+export function ShopIconBtn({ onClick, label, tone = 'mute', count, children, size = 'md', hint }: {
   onClick: () => void; label: string; tone?: 'mute' | 'ink'; count?: number; children: ReactNode;
+  /**
+   * **치수는 «부르는 쪽»이 정한다** — 원자 안에 박지 않는다(집 규격 · `NavBack` 과 같은 이유).
+   * `md` = 제 줄에 홀로 서는 글리프(36/40) · `chip` = **칩 줄에 끼어 서는** 글리프(26/32).
+   * ⚠ 칩 줄에 `md` 를 세우면 줄 높이가 칩(26)이 아니라 글리프(36)로 커져 **줄 전체가 굵어진다.**
+   */
+  size?: 'md' | 'chip';
+  /**
+   * **갖다 대면 뜨는 설명**(사장님 2026-09-10 「갖다 대면 설명 보이게 해주면 안 되나」).
+   * ★브라우저가 그리는 말풍선을 쓴다 — 우리가 그리면 **칩 줄에서 잘린다**(그 줄은
+   *   `overflow-y: hidden` 인 가로 스크롤 줄이라, 위아래로 뜨는 것은 잘려 안 보인다).
+   * ★줄바꿈(`
+`)이 그대로 먹는다 — 두 줄까지가 읽힌다.
+   * ⚠ 폰에는 «갖다 댐»이 없다 — 그래서 설명을 여기에만 두지 않는다(누르면 창이 제 이름을 말한다).
+   */
+  hint?: string;
 }) {
   const mobile = useIsMobile();
-  const size = mobile ? SHOP.icon.mobile : SHOP.icon.web;
+  const box = size === 'chip'
+    ? (mobile ? SHOP.pill.mobile : SHOP.pill.web)
+    : (mobile ? SHOP.icon.mobile : SHOP.icon.web);
   return (
-    <button type="button" onClick={onClick} aria-label={label} className="fp-shop-press"
+    <button type="button" onClick={() => { haptic.tap(); onClick(); }} aria-label={label} title={hint || label} className="fp-shop-press"
       style={{
-        ...bare, position: 'relative', width: size, height: size,
+        ...bare, position: 'relative', width: box, height: box,
         borderRadius: SHOP.r.ctrl, color: count ? C.brand : tone === 'ink' ? C.ink : C.mute,
       }}>
       {children}
@@ -445,10 +487,10 @@ export function ShopDockAction({ tone = 'brand', href, onClick, label, children 
   /* 누를 수 없는 칸(전화번호가 없을 때의 안내)은 «단추처럼» 보이지 않아야 한다 — 눌러도 아무 일이 없다. */
   if (tone === 'dim') return <div style={face} aria-label={label}>{children}</div>;
   if (href) return (
-    <Link href={href} onClick={onClick} aria-label={label} className="fp-shop-press" style={face}>{children}</Link>
+    <Link href={href} onClick={() => { haptic.nav(); onClick?.(); }} aria-label={label} className="fp-shop-press" style={face}>{children}</Link>
   );
   return (
-    <button type="button" onClick={onClick} aria-label={label} className="fp-shop-press"
+    <button type="button" onClick={() => { haptic.tap(); onClick?.(); }} aria-label={label} className="fp-shop-press"
       style={{ ...bare, ...face }}>{children}</button>
   );
 }
@@ -592,7 +634,7 @@ export function ShopSort({ value, onChange, options }: {
   return (
     /* 초점 상자를 이 화면 말투로 바꾸는 자리 — `.fp-shop-sort` (globals.css). */
     <div className="fp-shop-sort" style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
-      <select value={value} onChange={(e) => onChange(e.target.value)} aria-label="정렬"
+      <select value={value} onChange={(e) => { haptic.select(); onChange(e.target.value); }} aria-label="정렬"
         style={{
           appearance: 'none', WebkitAppearance: 'none',
           /*
@@ -617,6 +659,18 @@ export function ShopSort({ value, onChange, options }: {
           borderRadius: SHOP.r.ctrl, border: 'none', background: 'transparent',
           fontFamily: 'inherit', fontSize: SHOP.fs.sub,
           color: C.ink, fontWeight: FW.head, cursor: 'pointer',
+          /*
+           * ★★**글자를 오른쪽에 붙인다**(사장님 2026-09-10 「인기순 > 이렇게 된 거 …
+           *   **텍스트 정렬을 우측 정렬로** 하면 좋겠네. 그래야 딱 붙어서 우측에 있으니까」).
+           *
+           * ⚠ 네이티브 `<select>` 는 **제일 «긴» 항목 폭으로 잡힌다** — 고른 값이 아니라.
+           *   그래서 「인기순」(셋)을 고르면 「같은 차 많은순」(일곱) 폭이 그대로 남고,
+           *   글자가 왼쪽에 붙어 **글자와 꺾쇠 사이가 뻥 뜬다.** 고를 때마다 그 틈이 달라져
+           *   오른쪽 끝이 들쭉날쭉해 보인다.
+           * ⇒ 글자를 오른쪽으로 몬다. 길든 짧든 **꺾쇠 바로 왼쪽에서 끝난다** — 오른쪽 끝이 한 줄로 선다.
+           * ★폭은 그대로 둔다(줄이면 고를 때마다 줄이 흔들린다). 옮기는 것은 «글자»뿐이다.
+           */
+          textAlign: 'right',
         }}>
         {options.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
       </select>
@@ -634,6 +688,36 @@ export function ShopSort({ value, onChange, options }: {
  *   **폰은 이게 유일한 건수**라 손님이 「조건을 더 걸어야 하나 풀어야 하나」를 판단할 근거가 화면에 없었다.
  * ★말도 같이 바꾼다 — 조건이 걸린 채 「전체차량 3대」라고 하면 그건 재고가 3대라는 뜻이 된다.
  */
+/**
+ * **재고를 마지막으로 갱신한 시각** — 「⟳ 9. 4. 21:38」.
+ *
+ * 사장님 2026-09-09 「이거 업데이트 위치 찾았다 — **전체차량 대수 우측정렬로 오면 된다**」
+ * · 「그냥 **날짜 시간만** 쓰면 될 거 같아 **아이콘으로**」.
+ *
+ * ★★**왜 머리띠에서 내려왔나** — 머리띠 오른쪽은 «지금»(날짜·시각·날씨)이 주인이다.
+ *   갱신 시각은 «이 목록이 언제 것인가»라, 목록의 건수 줄 옆이 제자리다.
+ * ★**말을 아이콘이 대신한다** — 「update」라는 글자를 지우고 ⟳ 하나로 뜻을 세운다
+ *   (집 규칙 「박스 뱃지 쓰지 말고 아이콘 텍스트로, 모든 곳에서」 2026-08-28·08-30).
+ * ★톤은 «보조»다(`faint`). 이 줄의 주인공은 건수와 정렬이다.
+ * ⚠ 값이 없으면 **아무것도 안 그린다** — 「-」 나 오늘 날짜로 채우면 그건 거짓말이다.
+ */
+export function ShopUpdatedStamp({ label }: { label: string }) {
+  if (!label) return null;
+  return (
+    <span
+      title={`재고 갱신 ${label}`}
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: SHOP.sp.tight,
+        fontSize: SHOP.fs.cap, color: C.faint, whiteSpace: 'nowrap',
+        fontVariantNumeric: 'tabular-nums',
+      }}
+    >
+      <RefreshCw size={ICON.sm} aria-hidden />
+      {label}
+    </span>
+  );
+}
+
 export function ShopCount({ value, filtered }: { value: string; filtered?: boolean }) {
   const mobile = useIsMobile();
   return (

@@ -39,14 +39,64 @@ const must = (cond: boolean, label: string, why: string) => {
   console.log(`  ✗ ${label.padEnd(34)}${why}`);
 };
 
+/*
+ * ── ★★sitePath 채널이 «대문 도메인»에 삼켜지지 않는가 ──────────────────
+ *
+ * ⚠⚠ 2026-09-10 사고. 「프리패스erp.com 얼굴 교체」로 `freepasserp.com` 이 라벨 없는 얼굴의
+ *   호스트가 되자, 호스트가 먼저 걸려 `?wl=` 을 아예 안 보게 됐다.
+ *   그 순간 도메인이 «없는» 채널 넷이 통째로 사라졌다 — `/freepass` `/haheoho` `/eancar` `/uniauto`
+ *   가 전부 노브랜드로 떨어졌다. 사장님 「화이트라벨 만들어 둔 거 다 어디 갔냐」.
+ * ★그 넷은 `sitePath` 로 산다 — 미들웨어가 `/shop?wl=<키>` 로 다시 쓴다.
+ *   즉 그 `?wl=` 은 손님이 붙인 게 아니라 **우리가 붙인 것**이라 이겨야 한다.
+ * ⚠ 다만 «채널 제 도메인»에서는 호스트가 이겨야 한다 — 안 그러면 손님이 주소에 `?wl=` 을 붙여
+ *   남의 간판을 씌운다. 그래서 둘 다 잰다.
+ */
+/*
+ * ★★**«우리» 도메인 «전부»에서 잰다 — 한 곳만 재면 다음 도메인에서 또 삼켜진다**(2026-09-10).
+ *   ⚠ 여기 `'freepasserp.com'` 이 손으로 박혀 있었다. 같은 날 사장님이 모빌리티닷컴에
+ *     간판 단 가게를 매칭하라 하셔서 **우리 얼굴이 둘**이 됐는데, 이 검사는 여전히 한 곳만 봤다 —
+ *     새로 받은 도메인에서 채널 넷이 삼켜져도 **초록불이 떴을** 것이다.
+ *   ⇒ 표에서 «우리 것»(`self`)의 호스트를 전부 긁어 곱한다. 우리 도메인이 늘어도 검사가 따라온다.
+ */
+const ourHosts = WHITELABELS.filter((w) => w.self).flatMap((w) => w.hosts);
+if (!ourHosts.length) {
+  must(false, '우리 도메인이 표에 있다',
+    '`self` 채널에 호스트가 하나도 없습니다 — 그러면 이 검사가 아무것도 재지 못합니다.');
+}
+for (const w of WHITELABELS) {
+  if (!w.sitePath) continue;
+  const bad = ourHosts.filter((h) => resolveGuestWhitelabel(h, w.key).key !== w.key);
+  must(bad.length === 0, `sitePath 채널이 산다 · ${w.sitePath}`,
+    bad.length === 0
+      ? `${w.key} — 우리 도메인 ${ourHosts.length}곳 전부에서 제 간판이 선다`
+      : `${bad.join(' · ')} 에서 ?wl=${w.key} 가 «${resolveGuestWhitelabel(bad[0], w.key).key}» 로 떨어집니다 — 그 채널이 사라진 것입니다`);
+}
+{
+  /* ★협력채널 도메인에서는 호스트가 이긴다 — 재는 대상은 «우리 것이 아닌» 줄이다(`self`). */
+  const owner = WHITELABELS.find((w) => w.hosts.length && !w.self);
+  if (owner) {
+    const other = WHITELABELS.find((w) => w.key !== owner.key && !w.plain);
+    const got = resolveGuestWhitelabel(owner.hosts[0], other?.key ?? null);
+    must(got.key === owner.key, '채널 도메인에서는 호스트가 이긴다',
+      got.key === owner.key
+        ? `${owner.hosts[0]} 에 ?wl=${other?.key} 를 붙여도 ${owner.key} 그대로`
+        : `${owner.hosts[0]} 에서 ?wl= 로 «${got.key}» 간판을 씌울 수 있습니다`);
+  }
+}
 console.log('\n손님 동 기본 간판 — 갈아쳐도 업무동은 그대로인가\n');
 
 /* ── ① 스위치가 «실재하는» 채널을 가리키나 ─────────────────────────────── */
 const dflt = WHITELABELS.find((w) => w.key === GUEST_FALLBACK_KEY);
 must(!!dflt, '기본 채널이 표에 있다',
   `GUEST_FALLBACK_KEY='${GUEST_FALLBACK_KEY}' 인데 그런 채널이 없습니다 — 손님이 노브랜드 화면을 봅니다.`);
-must(!!dflt && hasBrand(dflt), '기본 채널이 간판을 갖는다',
-  '이름도 워드마크도 없는 채널을 기본으로 두면 «주인 없는 화면»이 나갑니다.');
+/*
+ * ★★**기본은 «라벨 없음»이어도 된다**(2026-09-10 얼굴 교체). 예전 규칙은 「간판을 가져야 한다」였는데,
+ *   그건 기본이 남의 채널(유니오토)이던 때의 말이다. 지금 기본은 `plain` — 라벨이 «없는 것»이
+ *   프리패스erp.com 의 정체다. 그래서 묻는 것을 바꾼다: **가게 껍데기를 세우는가.**
+ * ⚠ 노브랜드 기본값(`FREEPASS`)이 기본 채널로 들어오는 것은 여전히 막는다 — 그건 껍데기조차 없다.
+ */
+must(!!dflt && hasShopFrame(dflt), '기본 채널이 «가게»다',
+  '껍데기조차 없는 값을 기본으로 두면 손님이 머리띠도 푸터도 없는 화면을 봅니다.');
 if (dflt) ok('지금 기본 간판', `${dflt.name} (${dflt.key})`);
 
 /* ── ② 업무동은 «어떤 스위치 값에서도» 노브랜드다 ───────────────────────── */
@@ -64,8 +114,9 @@ must(!hasBrand(FREEPASS), '노브랜드 기본값이 비어 있다',
 
 /* ── ③ 손님 동은 «반드시» 간판을 얻는다 ─────────────────────────────────── */
 for (const h of ['www.freepasserp.com', 'freepasserp.com']) {
-  must(hasBrand(resolveGuestWhitelabel(h)), `손님 동 간판 · ${h}`,
-    '손님 화면이 노브랜드로 떨어지면 주인 없는 화면이 나갑니다.');
+  /* ★라벨은 없어도 «가게»여야 한다 — 머리띠·푸터가 서야 손님이 길을 잃지 않는다. */
+  must(hasShopFrame(resolveGuestWhitelabel(h)), `손님 동 가게 · ${h}`,
+    '손님 화면이 껍데기 없이 떨어지면 머리띠도 푸터도 없는 화면이 나갑니다.');
 }
 
 /* ── ④ 업무동 셋이 «손님 판정»을 쓰지 않는다 ────────────────────────────── */
@@ -139,8 +190,16 @@ must(!hasShopFrame(FREEPASS), '업무동 기본값에는 껍데기가 없다',
 console.log(`\n  ── 진화 스위치 ② · HOME_IS_SHOP = ${HOME_IS_SHOP}`);
 must(homeIsShop('uniautofreepass.com'), '채널 도메인 첫 화면 = 가게',
   '채널 도메인은 스위치와 무관하게 가게여야 합니다(2026-09-05 확정).');
-must(homeIsShop('www.freepasserp.com') === HOME_IS_SHOP, '우리 도메인은 스위치가 정한다',
-  '우리 도메인의 첫 화면 판정이 스위치를 안 따릅니다 — 켜도 안 바뀌거나 꺼도 바뀝니다.');
+/*
+ * ★★**호스트가 스위치보다 «먼저»다**(2026-09-10). ERP 도메인을 `plain` 의 `hosts` 에 적어
+ *   얼굴을 교체했으므로, 그 도메인은 스위치와 «무관하게» 가게다.
+ *   ⇒ 스위치는 이제 「표에 «없는» 호스트」만 정한다. 그것으로 검사를 바꾼다.
+ * ★그래서 Vercel 미리보기 주소는 여전히 로그인 현관이다 — 옛 얼굴을 확인할 길이 남는다.
+ */
+must(homeIsShop('freepasserp.com'), 'ERP 도메인 첫 화면 = 가게',
+  '얼굴을 교체했는데 첫 화면이 가게가 아닙니다 — plain 의 hosts 를 확인하세요.');
+must(homeIsShop('some-preview.vercel.app') === HOME_IS_SHOP, '표에 없는 호스트는 스위치가 정한다',
+  '표에 없는 호스트가 스위치와 다르게 굴면, 미리보기 주소에서 옛 얼굴을 확인할 수 없습니다.');
 
 /*
  * ★★**로그인 길은 스위치와 무관하다.** 이게 막히면 켠 순간 아무도 업무 화면에 못 들어온다.

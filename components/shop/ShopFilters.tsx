@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { Check, ChevronDown } from 'lucide-react';
 import { C } from '@/components/ui';
+import { haptic } from '@/lib/haptics';
 import { SHOP, ShopTextBtn, axisIconFor } from '@/components/shop/shop-ui';
 import { makerLogoSrc } from '@/lib/domain/maker-logo';
 import { useIsMobile } from '@/lib/use-mobile';
@@ -79,7 +80,9 @@ const COLUMNS: Partial<Record<ShopAxis, 1 | 2>> = {
  * ⚠ 차급(`vclass`)은 «접어» 둔다 — 차종(승용·SUV·승합·화물)이 이미 굵은 갈래를 잡아 주고,
  *   차급은 그 안에서 더 좁히는 축이라 처음부터 열어 두면 왼쪽 기둥이 길어지기만 한다.
  */
-const OPEN_BY_DEFAULT: ShopAxis[] = ['vc', 'maker', 'term', 'rent', 'dep'];
+/* ★상품구분은 «차종 바로 밑»이라 접어 두면 위아래가 열린 사이에 낀 한 줄이 된다.
+   갈래가 예닐곱뿐이라 펴 두어도 기둥이 길어지지 않는다(제조사·연식과 다르다). */
+const OPEN_BY_DEFAULT: ShopAxis[] = ['vc', 'ptype', 'maker', 'term', 'rent', 'dep'];
 /**
  * 긴 목록을 «한 번에 몇 개씩» 여는가 — **다섯**(사장님 2026-09-07 「웹 필터는 **5개씩 보고
  * 더보기 5개씩** 하는 거로, **5개 이하면 남은 거만큼만** 보게 하고」).
@@ -186,15 +189,29 @@ export function ShopFilters({ facets, sel, onToggle, onClearAxis, mobile: forceM
             {/*
               제목 줄 전체가 «접었다 폈다» 하는 단추다 — 화살표만 누르게 하면 손님이 그걸 못 찾는다.
               오른쪽에는 ㉠ 고른 수(접혀 있어도 몇 개 걸렸는지 보인다) ㉡ 화살표.
+
+              ★★**「해제」는 «제목 옆»이다**(사장님 2026-09-10 「해제 버튼이 **아래에 나오면 안 되고
+                그 필터 제목 옆에** 나와야지」). 값 목록 «밑»에 두면 축마다 목록 길이가 달라
+                해제가 매번 다른 높이에 서고, 열두 값짜리 축에서는 **스크롤을 내려야 보인다.**
+                제목 줄은 늘 같은 자리라 「이 축을 되돌린다」가 한 곳에서 끝난다.
+              ⚠ 그래서 머리를 «두 조각»으로 나눴다 — 단추 안에 단추를 넣을 수 없기 때문이다
+                (`<button>` 안의 `<button>` 은 HTML 이 금지한다. 눌러도 어느 쪽이 먹을지 안 정해진다).
+                왼쪽 조각(그림+제목)과 오른쪽 조각(개수+화살표)이 **둘 다 같은 접기**를 하고,
+                그 사이에 해제가 낀다 — 손님에게는 여전히 «줄 전체가 눌리는» 한 줄이다.
             */}
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: SHOP.sp.snug, width: '100%',
+              marginBottom: isOpen ? SHOP.sp.tight : 0,
+            }}>
             <button type="button" onClick={() => setOpen((o) => ({ ...o, [axis]: !isOpen }))}
               aria-expanded={isOpen} className="fp-shop-press"
               style={{
-                display: 'flex', alignItems: 'center', gap: SHOP.sp.snug, width: '100%',
+                display: 'flex', alignItems: 'center', gap: SHOP.sp.snug,
+                /* 제목은 «제 폭»만 먹는다 — 그래야 해제가 글자 바로 옆에 붙는다. */
+                flex: '0 1 auto', minWidth: 0,
                 padding: mobile ? '12px 0' : '11px 0', minHeight: mobile ? SHOP.tap.mobile : undefined,
                 border: 'none', background: 'transparent', cursor: 'pointer',
                 fontFamily: 'inherit', textAlign: 'left',
-                marginBottom: isOpen ? SHOP.sp.tight : 0,
               }}>
               {/*
                 ★**축 제목 앞의 그림**(`axisIconFor`) — 아홉 축이 글자만이면 기둥이 목차처럼 읽힌다
@@ -208,9 +225,30 @@ export function ShopFilters({ facets, sel, onToggle, onClearAxis, mobile: forceM
               {AxisIcon ? (
                 <AxisIcon size={16} aria-hidden style={{ flex: '0 0 auto', color: C.mute }} />
               ) : null}
-              <span style={{ fontSize: SHOP.fs.h2, fontWeight: 700, color: C.ink, flex: 1, minWidth: 0 }}>
+              <span style={{
+                fontSize: SHOP.fs.h2, fontWeight: 700, color: C.ink, minWidth: 0,
+                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+              }}>
                 {AXIS_LABEL[axis]}
               </span>
+            </button>
+
+            {/* 걸린 것이 있을 때만 — 없는 축에 「해제」가 서 있으면 그건 안내가 아니라 소음이다. */}
+            {on.length ? (
+              <ShopTextBtn tone="faint" onClick={() => onClearAxis(axis)}>해제</ShopTextBtn>
+            ) : null}
+
+            <button type="button" onClick={() => setOpen((o) => ({ ...o, [axis]: !isOpen }))}
+              aria-expanded={isOpen} aria-label={`${AXIS_LABEL[axis]} ${isOpen ? '접기' : '펼치기'}`}
+              className="fp-shop-press"
+              style={{
+                /* 남는 폭을 다 먹는다 — 오른쪽 빈 자리를 눌러도 접힌다(줄 전체가 단추라는 느낌 유지). */
+                display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: SHOP.sp.snug,
+                flex: 1, minWidth: 0,
+                padding: mobile ? '12px 0' : '11px 0', minHeight: mobile ? SHOP.tap.mobile : undefined,
+                border: 'none', background: 'transparent', cursor: 'pointer',
+                fontFamily: 'inherit',
+              }}>
               {on.length ? (
                 <span style={{
                   fontSize: SHOP.fs.cap, fontWeight: 700, color: C.brand,
@@ -222,17 +260,11 @@ export function ShopFilters({ facets, sel, onToggle, onClearAxis, mobile: forceM
                 transform: isOpen ? 'rotate(180deg)' : 'none', transition: 'transform .12s ease',
               }} />
             </button>
+            </div>
 
             {isOpen ? (
-              <>
-                <ShopAxisOptions axis={axis} options={facets[axis]} selected={on}
-                  onToggle={onToggle} mobile={mobile} />
-                {on.length ? (
-                  <div style={{ marginTop: SHOP.sp.snug }}>
-                    <ShopTextBtn tone="faint" onClick={() => onClearAxis(axis)}>해제</ShopTextBtn>
-                  </div>
-                ) : null}
-              </>
+              <ShopAxisOptions axis={axis} options={facets[axis]} selected={on}
+                onToggle={onToggle} mobile={mobile} />
             ) : null}
           </section>
         );
@@ -349,7 +381,7 @@ function CheckRow({ label, count, on, onClick, tight, logo }: {
 }) {
   const mobile = useIsMobile();
   return (
-    <button type="button" onClick={onClick} aria-pressed={on} className="fp-shop-press fp-shop-check"
+    <button type="button" onClick={() => { haptic.select(); onClick(); }} aria-pressed={on} className="fp-shop-press fp-shop-check"
       style={{
         display: 'flex', alignItems: 'center', gap: mobile ? SHOP.sp.cozy : SHOP.sp.snug,
         /*
@@ -370,7 +402,7 @@ function CheckRow({ label, count, on, onClick, tight, logo }: {
          *   400 → 700 은 두 단을 뛰는 것이라 글자가 «퉁퉁해» 보이고, 그 줄만 화면에서 튄다.
          *   600 이면 「켜졌다」는 확실히 읽히면서 줄의 폭도 거의 안 흔들린다.
          */
-        color: on ? C.ink : C.sub, fontWeight: on ? 600 : 400,
+        color: on ? C.ink : count ? C.sub : C.faint, fontWeight: on ? 600 : 400,
       }}>
       {/*
         ★네모는 폰 20 · 웹 18. 촌스러움을 만드는 건 «크기»가 아니라 셋이었다 —
@@ -419,7 +451,17 @@ function CheckRow({ label, count, on, onClick, tight, logo }: {
           flex: tight ? '0 1 auto' : 1, minWidth: 0,
           overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
         }}>{label}</span>
-        <span style={{ fontSize: mobile ? SHOP.fs.sub : SHOP.fs.cap, color: C.faint, fontVariantNumeric: 'tabular-nums', flex: '0 0 auto' }}>
+        {/*
+          ★★**0 은 «없어지지» 않고 0 이라고 선다**(사장님 2026-09-10 「그냥 기존 필터에서
+            **숫자가 0으로 바뀌면** 되잖아 **이게 쭈구러 든다**고」).
+          ★그래서 «옅게»만 한다 — 줄을 지우지도, 못 누르게 막지도 않는다. 지금 조건에서 0 일 뿐
+            조건을 풀면 있는 값이라, 눌러서 «갈아타는» 길을 막으면 손님이 되돌아 나가야 한다.
+        */}
+        <span style={{
+          fontSize: mobile ? SHOP.fs.sub : SHOP.fs.cap,
+          color: count ? C.faint : C.line2,
+          fontVariantNumeric: 'tabular-nums', flex: '0 0 auto',
+        }}>
           {count}
         </span>
       </span>

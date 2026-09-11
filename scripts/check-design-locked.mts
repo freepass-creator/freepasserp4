@@ -919,6 +919,65 @@ must(/wl\.tel/.test(read('app/q/[code]/ShopDetailView.tsx')),
     'app/layout.tsx — 뒤여야 같은 세기일 때 손님 동 규칙이 이깁니다');
 }
 
+/*
+ * **조건칸은 «쭈구러들지» 않는다 — 줄은 그대로, 숫자만 0** (2026-09-10 확정 · §12)
+ *
+ * 사장님 「필터는 **연동형 필터 아니고** 그냥 누른다고 해서 **다 없어지면 안 되는데**」 ·
+ * 「그냥 기존 필터에서 **숫자가 0으로 바뀌면** 되잖아 **이게 쭈구러 든다**고」 ·
+ * 「**공통으로 쓰는 것들은 한 군데서 고치면 다 동일하게 고쳐져야지.** 좀 이상하다는 생각이 드는데?」
+ *
+ * ★★★**그래서 이 검사는 «규칙이 한 곳에 있는가»를 본다.**
+ *   ⚠ 처음엔 손님 동·업무동 «두 파일»에 같은 규칙이 손으로 적혀 있었고, 이 검사도 두 군데를
+ *     각각 노려봤다. 그래서 2026-09-10 에 손님 동만 고치고 업무동을 하루 남겨 뒀다 —
+ *     **검사가 두 개면 한쪽만 통과시키는 일도 두 개**다.
+ *   ⇒ 규칙은 `lib/domain/facet-standing.ts` 하나이고, 두 동은 **그걸 부르기만** 한다.
+ *     여기서는 ㉠ 정본이 살아 있나 ㉡ 두 동이 정말 그걸 부르나 ㉢ 손으로 다시 짜지 않았나를 본다.
+ */
+{
+  const standing = read('lib/domain/facet-standing.ts');
+  const finder = read('lib/domain/product-filters.ts');
+  const editor = read('components/shop/ShopQuickEditor.tsx');
+
+  // ㉠ 정본 — 줄은 base 가 세우고(0 이면 안 선다), 차례도 base 가 매긴다.
+  must(/\.filter\(\(o\) => o\.base > 0\)/.test(standing) && /b\.base - a\.base/.test(standing),
+    '조건칸 정본이 «지금 건수»로 줄을 세웁니다 — 조건 하나 누를 때마다 보던 줄이 사라집니다.',
+    'lib/domain/facet-standing.ts · docs/DESIGN_CONFIRMED_SHOP.md §12');
+
+  // ㉡ 두 동이 그 정본을 «부른다»
+  for (const [file, src] of [['lib/shop/query.ts', shopQuery], ['lib/domain/product-filters.ts', finder]] as const) {
+    must(/from '@\/lib\/domain\/facet-standing'/.test(src) && /standingFixed|standingRanked/.test(src),
+      `${file} 이 조건칸 정본(facet-standing)을 안 씁니다 — 규칙이 다시 두 벌이 됩니다.`,
+      'docs/DESIGN_CONFIRMED_SHOP.md §12');
+    // ㉢ 손으로 다시 짜지 않았나 — 건수 0 을 줄째 빼는 옛 버릇.
+    must(!/\.filter\(\(o\) => o\.count > 0\)/.test(src),
+      `${file} 에서 건수 0 인 줄을 다시 뺍니다 — 「0이라고 쓴다」가 규격입니다.`,
+      'docs/DESIGN_CONFIRMED_SHOP.md §12');
+  }
+
+  // ㉣ 빠른조건 칩도 같은 잣대다 — 「지금 0대」로 걷으면 칩 줄까지 같이 쭈그러든다.
+  must(/facets\[axis\]\.filter\(\(o\) => o\.base > 0/.test(editor),
+    '빠른조건을 «있는 값»이 아닌 데서 고르게 됐습니다 — 고르는 목록은 조건칸과 같은 집계에서 옵니다.',
+    'components/shop/ShopQuickEditor.tsx · docs/DESIGN_CONFIRMED_SHOP.md §11');
+  must(/facets\[k\.axis\]\.some\(\(o\) => o\.key === k\.key && o\.base > 0\)/.test(shopView),
+    '빠른조건 칩이 «지금 건수»로 사라집니다 — 조건을 누를 때마다 칩 줄이 같이 쭈그러듭니다.',
+    'app/(shop)/shop/ShopView.tsx · docs/DESIGN_CONFIRMED_SHOP.md §11');
+
+
+  /*
+   * ★★★**한 조건 = 한 자리 — 웹도 폰도.**
+   *   사장님 2026-09-10 「웹 버전과 모바일 버전 **필터 누르는 방식이 다르다니까.**
+   *   **퀵필터에 있는 거는 누르면 «자리»가 눌리는 거지 새로운 게 나오는 게 아니잖아**」.
+   *
+   * ⚠ 2026-09-08 에 웹만 고치고 **폰을 두 해 동안 남겨 뒀다.** 폰에서 「SUV」를 누르면
+   *   칩이 켜지는 동시에 **밑에 줄이 하나 새로 생겨** 목록이 밀렸다 — 한 조건이 한 화면에 두 번.
+   * ⇒ 두 곳 다 「칩이 있는 조건은 토큰을 안 만든다」를 걸어 둔다. 하나만 통과시킬 수 없게
+   *   **한 검사에서 둘을 같이** 본다(검사가 둘이면 한쪽만 고치는 일도 둘이다).
+   */
+  const tokenGuards = shopView.match(/tokens\.filter\(\(t\) => !quickKeys\.has\(/g) || [];
+  must(tokenGuards.length >= 2,
+    `퀵필터 칩과 «같은 조건»이 토큰으로 또 섭니다 — 누르면 자리가 눌려야지 새 줄이 생기면 안 됩니다(지금 ${tokenGuards.length}곳만 걸림 · 웹·폰 둘 다여야 합니다).`,
+    'app/(shop)/shop/ShopView.tsx · docs/DESIGN_CONFIRMED_SHOP.md §15');}
+
 if (fails.length) {
   console.error(`\n✗ 확정 디자인이 바뀌었습니다 — ${fails.length}건\n`);
   for (const f of fails) console.error(`   · ${f}\n`);

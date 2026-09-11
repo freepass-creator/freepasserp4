@@ -6,6 +6,7 @@ import { isListableProduct } from '@/lib/domain/product';
 import { matchAgentByShareCode } from '@/lib/domain/product-share';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { companyAlias } from '@/lib/domain/identity';
+import { guestProviderFence, resolveGuestWhitelabel } from '@/lib/whitelabel';
 
 export const dynamic = 'force-dynamic';
 type Rec = Record<string, any>;
@@ -24,7 +25,20 @@ const dead = (p: Rec) => p?._deleted === true || !!p?.deletedAt || S(p?.status) 
  */
 export async function GET(request: Request) {
   const url = new URL(request.url);
-  const providerCode = S(url.searchParams.get('p'));
+  /*
+   * ★★**공급사 울타리는 «서버»가 정한다 — 손님이 준 `?p=` 를 믿지 않는다.**
+   *
+   * ⚠⚠ 2026-09-10 코덱스 검토에서 운영 재현 —
+   *   `/api/catalog/feed?p=RP023&wl=eancar` 가 **오토플러스 71대**를 이안카 채널로 내려 줬다.
+   *   이 줄이 `?p=` 를 그대로 믿고 있었기 때문이다. 이안카에 「이안카 차만」이라 약속해 놓고
+   *   주소 한 줄로 남의 재고가 서던 자리다.
+   * ⇒ 호스트(+ 미리보기 `?wl=`)로 채널을 풀고, 그 채널이 제 코드를 가졌으면 **그것이 이긴다**
+   *   (`guestProviderFence` — 판정은 표 한 곳에 있다).
+   * ★코드가 없는 채널에서만 `?p=` 가 산다 — 그 채널은 이미 재고 전체를 파는 곳이라
+   *   거기서 `?p=` 는 울타리가 아니라 «추림»이다.
+   */
+  const wl = resolveGuestWhitelabel(request.headers.get('host'), url.searchParams.get('wl'));
+  const providerCode = guestProviderFence(wl, url.searchParams.get('p'));
   const share = S(url.searchParams.get('a'));
 
   try {

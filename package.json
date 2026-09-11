@@ -24,6 +24,9 @@
     "check:tokens": "tsx scripts/check-tokens.mts",
     "check:ui": "tsx scripts/check-ui-contract.mts",
     "check:design": "tsx scripts/check-design-locked.mts",
+    "check:speed": "tsx scripts/check-shop-speed.mts",
+    "channel:new": "tsx scripts/new-channel.mts",
+    "channel:ci": "tsx scripts/channel-ci.mts",
     "check:brand": "tsx scripts/check-brand-mark.mts",
     "check:guest": "tsx scripts/check-guest-default.mts",
     "check:guest-fields": "tsx scripts/check-guest-fields.mts",
@@ -33,6 +36,7 @@
     "check:order": "tsx scripts/check-order.mts",
     "check:deployed": "tsx scripts/check-deployed.mts --fetch",
     "check:finder-rows": "tsx scripts/check-finder-rows.mts",
+    "check:photo-ledger": "tsx scripts/check-photo-ledger.mts",
     "check:atoms": "tsx scripts/check-atoms.mts",
     "check:no-client-sheet-live-status": "tsx scripts/check-no-client-sheet-live-status.mts",
     "check:template-drift": "tsx scripts/check-template-drift.mts",
@@ -114,7 +118,11 @@
     "newcar:after-tax": "tsx scripts/crawl-newcar-after-tax.mts",
     "newcar:options:kia": "tsx scripts/crawl-newcar-kia-options.mts",
     "newcar:options:hyundai": "tsx scripts/crawl-newcar-hyundai-options.mts",
-    "newcar:options:welrix": "tsx scripts/ingest-newcar-options.mts"
+    "newcar:options:welrix": "tsx scripts/ingest-newcar-options.mts",
+    "check:whitelabel": "tsx scripts/check-whitelabel-surface.mts",
+    "check:store": "tsx scripts/check-store-canon.mts",
+    "check:options": "tsx scripts/check-options-parse.mts",
+    "check:fence": "tsx scripts/check-guest-fence.mts"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",

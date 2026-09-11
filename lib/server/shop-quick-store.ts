@@ -1,0 +1,112 @@
+import { firestoreAdminRef } from '@/lib/server/firestore-ref-shim';
+import type { ShopQuickChip } from '@/lib/shop/query';
+import { SHOP_AXES } from '@/lib/shop/query';
+
+/**
+ * **채널의 빠른조건 — 화면에서 고친 것**(원장 보관).
+ *
+ * ★★사장님 2026-09-10 「퀵필터가 **진짜로 있는 필터**가 들어가야 하는데」 ·
+ *   「**있는 필터를 잠시 옮겨놓은 느낌**이어야 하잖아」 · 「그래서 퀵필터를 **수정할 수 있게**
+ *   해주면 좋겠어」 · 「**있는 필터만** 갖다 놓겠음」 · 「**손님도 할 수 있게 다~ 모든 사람이**」.
+ *
+ * ★★**왜 원장인가 — 채널 표(`lib/whitelabel.ts`)는 «코드»라 배포를 해야 바뀐다.**
+ *   칩 하나 옮기려고 배포를 기다릴 수는 없다.
+ *   ⇒ 코드의 `wl.quick` 은 **그 채널의 기본판**으로 두고, 화면에서 고친 것은 여기 얹는다.
+ *   적은 적 없는 채널은 예전 그대로다 — **아무것도 안 바뀐다.**
+ *
+ * ★★★**쓰는 주체는 «서버»다 — 관리자 권한으로 쓴다.**
+ *   ⚠ 처음엔 `getStore()` 로 썼다가 저장이 통째로 실패했다(실측 `permission_denied`).
+ *     `lib/store` 는 **브라우저 SDK** 라 로그인한 사람의 권한으로 규칙을 통과하는데,
+ *     이 문은 **로그인 없이도 고칠 수 있어야** 해서(사장님 「모든 사람이」) 통과할 권한이 없다.
+ *   ⇒ 서버가 제 권한으로 쓴다. 막는 일은 규칙이 아니라 **문(`app/api/shop/quick`)이** 한다.
+ *
+ * ★★**원장은 «가게가 읽는 곳»과 같아야 한다 — 파이어스토어**(2026-09-10).
+ *   사장님 「이제 **파이어스토어 ERP 로 갈 거**라서 그쪽에서 여기다가 꽂을 건데」.
+ *   손님 동은 이미 목록(`/api/catalog/feed`)도 상세(`/api/catalog/quote`)도 **파이어스토어**를
+ *   읽는다. 이 칸만 RTDB 에 있으면 **새 ERP 가 가게의 첫 줄을 못 본다** — 꽂을 자리가 갈린다.
+ *   ⇒ 같은 심(`firestoreAdminRef`)을 쓴다. 경로는 그대로라 부르는 쪽은 안 바뀐다.
+ *   ⚠ 옮길 때 **두 곳 다 비어 있었다**(실측 2026-09-10 — 아직 아무 채널도 안 고쳤다).
+ *     그래서 옮기는 값이 없다. 나중에 RTDB 쪽에 줄이 생겨 있으면 그건 «옛 배포가 쓴 것»이니
+ *     한 줄 옮겨 오면 된다(`v4/shop_quick/<채널>`).
+ *
+ * ★★**「있는 필터만」은 여기서 못 지킨다 — 화면이 지킨다.**
+ *   재고에 그 값이 몇 대인지는 «지금 목록»을 세어야 아는 값(교차 집계)이라 서버가 미리 못 정한다.
+ *   ⇒ 고르는 화면이 «지금 있는 값»만 내놓고(`facets`), 그리는 쪽도 건수 0 이면 안 그린다
+ *     (`ShopView` 의 `quick` — 두 겹으로 막는다). 여기는 «무엇을 골랐나»만 적어 둔다.
+ *   ⚠ 그래서 오래 지난 뒤 재고가 빠지면 저장된 칩이 조용히 사라진다 — **그게 맞는 동작이다.**
+ *     0대짜리 칩을 세워 두는 것보다 낫고, 재고가 돌아오면 저절로 다시 뜬다.
+ */
+
+/** 채널 하나가 줄 하나다(`<노드>/<채널 key>` → 파이어스토어 `shop_quick` 컬렉션의 문서 하나). */
+export const QUICK_NODE = 'v4/shop_quick';
+
+const db = () => firestoreAdminRef();
+
+export type ShopQuickRecord = {
+  /** 고른 칩 — **적은 순서가 곧 화면 순서**다(채널 표의 `quick` 과 같은 규칙). */
+  quick: ShopQuickChip[];
+  /** 누가 언제 고쳤나 — 빗장을 푼 대신 **기록으로 답한다**. 손님이면 `guest`. */
+  updated_by?: string;
+  updated_at?: number;
+};
+
+/** 축 이름이 우리 축인지 — 원장에 아무 글자나 들어와도 화면이 안 깨지게 여기서 거른다. */
+const isAxis = (v: unknown): v is ShopQuickChip['axis'] =>
+  (SHOP_AXES as readonly string[]).includes(String(v ?? ''));
+
+/**
+ * 원장 값 → 화면이 쓰는 꼴. **믿지 않고 걸러서** 준다.
+ * ★라벨은 «있으면» 쓴다(「승합·카니발」처럼 구간 이름을 손님 말로 바꾼 것). 없으면 화면이 축에서 만든다.
+ */
+export function sanitizeQuick(raw: unknown): ShopQuickChip[] {
+  if (!Array.isArray(raw)) return [];
+  const seen = new Set<string>();
+  const out: ShopQuickChip[] = [];
+  for (const item of raw) {
+    const o = (item || {}) as Record<string, unknown>;
+    const axis = o.axis;
+    const key = String(o.key ?? '').trim();
+    if (!isAxis(axis) || !key) continue;
+    const id = `${axis}:${key}`;
+    if (seen.has(id)) continue;          // 같은 조건을 두 번 세우지 않는다
+    seen.add(id);
+    const label = String(o.label ?? '').trim();
+    out.push(label ? { axis, key, label } : { axis, key });
+  }
+  return out.slice(0, 20);               // 줄 하나에 스물이면 이미 «빠른» 조건이 아니다
+}
+
+/** 그 채널이 화면에서 고쳐 둔 칩 — 고친 적 없으면 `null`(그때는 채널 표의 기본판을 쓴다). */
+export async function readShopQuick(wlKey: string): Promise<ShopQuickChip[] | null> {
+  const key = String(wlKey || '').trim();
+  if (!key) return null;
+  try {
+    const snap = await db().ref(`${QUICK_NODE}/${key}`).get();
+    if (!snap.exists()) return null;
+    /*
+     * ⚠ **빈 배열도 «고친 것»이다.** 칩을 다 뺀 채널은 칩 줄이 없어야 하는데,
+     *   여기서 `null` 로 답하면 기본판이 되살아나 「지웠는데 또 생긴다」가 된다.
+     * ⚠ 줄 «자체»가 있으면 고친 것으로 본다 — 빈 배열이 저장 과정에서 사라져도(RTDB 는 지운다)
+     *   판정이 안 흔들린다.
+     */
+    return sanitizeQuick((snap.val() as ShopQuickRecord | null)?.quick);
+  } catch {
+    /* 원장이 잠깐 안 열려도 화면은 떠야 한다 — 그때는 채널 표의 기본판으로 간다. */
+    return null;
+  }
+}
+
+/** 화면에서 고친 칩을 적어 둔다. */
+export async function writeShopQuick(
+  wlKey: string, quick: ShopQuickChip[], who: string,
+): Promise<ShopQuickChip[]> {
+  const key = String(wlKey || '').trim();
+  if (!key) throw new Error('채널이 없습니다');
+  const clean = sanitizeQuick(quick);
+  await db().ref(`${QUICK_NODE}/${key}`).set({
+    quick: clean,
+    updated_by: String(who || 'guest').trim() || 'guest',
+    updated_at: Date.now(),
+  } satisfies ShopQuickRecord);
+  return clean;
+}

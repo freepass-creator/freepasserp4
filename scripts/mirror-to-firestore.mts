@@ -47,7 +47,13 @@ const snapOf = (v: Record<string, any>) => {
 
 // 변동·렌더 필드. ★vehicle_price·vin·account_number 는 «담지 않는다»(공급사 원가·차대번호·계좌 = private).
 const VARIABLE = ['vehicle_status', 'status_label_raw', 'price', 'mileage', 'policy_code'];
-const CARRY = ['product_code', 'product_type', 'provider_company_code', 'partner_code', 'photo_link', 'location', 'options', 'usage'];
+/*
+ * ★★`photo_cache` 를 2026-09-10 에 더했다 — **사진링크는 날랐는데 «풀어 둔 사진»은 안 날랐다.**
+ *   그래서 RTDB 에 218대 분량이 쌓이는 동안 파이어스토어(손님이 읽는 원장)는 **0건**이었고,
+ *   손님 화면은 그 사진을 한 장도 못 쓰고 볼 때마다 폴더를 다시 긁었다.
+ *   ⚠ 여기 빠진 필드는 «없는 필드»가 된다 — 담는 목록을 늘릴 때 손님 화면부터 떠올릴 것.
+ */
+const CARRY = ['product_code', 'product_type', 'provider_company_code', 'partner_code', 'photo_link', 'photo_cache', 'location', 'options', 'usage'];
 // 요금표 안의 private 항목(수수료·커미션) — 손님·영업자에 노출 금지. 공개 문서엔 deposit·rent 만.
 const PRIVATE_PRICE_FIELDS = new Set(['fee', 'commission', 'fee_memo']);
 function publicPrice(price: unknown): unknown {

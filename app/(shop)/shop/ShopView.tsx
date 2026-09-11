@@ -1,14 +1,18 @@
 'use client';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Search, SlidersHorizontal } from 'lucide-react';
+import { Search, Settings2, SlidersHorizontal } from 'lucide-react';
 import type { EntityRecord } from '@/lib/intake/entities';
-import { C } from '@/components/ui';
+import { C, SH } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
+import { getAuthClient } from '@/lib/firebase/client';
+import { ShopQuickEditor } from '@/components/shop/ShopQuickEditor';
+import { toast } from '@/components/Toaster';
+import { updatedLabelKo, useShopHeadStatus } from '@/lib/shop/head-status';
 import { WhitelabelFrame } from '@/components/WhitelabelFrame';
 import { FREEPASS, hasBrand, type Whitelabel } from '@/lib/whitelabel';
 import {
   SHOP, ShopCount, ShopEmpty, ShopIconBtn, ShopMore, ShopPill,
-  ShopRevealSearch, ShopSearch, ShopSort, ShopTextBtn, ShopTokens,
+  ShopRevealSearch, ShopSearch, ShopSort, ShopTextBtn, ShopTokens, ShopUpdatedStamp,
 } from '@/components/shop/shop-ui';
 import { ShopFilters } from '@/components/shop/ShopFilters';
 import { ShopFilterSheet } from '@/components/shop/ShopFilterSheet';
@@ -18,7 +22,7 @@ import { resolveAttr } from '@/lib/shop/attribution';
 import {
   AXIS_LABEL, DEFAULT_QUICK, SHOP_SORTS, activeTokens, clearAxis, emptyQuery, queryCount,
   readQuery, runShopQuery, soloLabel, toggleAxis, writeQuery,
-  type ShopAxis, type ShopQuery, type ShopSort as ShopSortKey,
+  type ShopAxis, type ShopQuery, type ShopQuickChip, type ShopSort as ShopSortKey,
 } from '@/lib/shop/query';
 
 /**
@@ -75,10 +79,28 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
    * ★자리는 채널 표 한 곳이다(`lib/whitelabel.ts`) — 「줄 하나 = 채널 하나」 규칙 그대로,
    *   필터도 그 줄 안에서 끝난다. 화면 코드는 채널이 늘어도 안 갈린다.
    */
-  const quickAll = wl.quick ?? DEFAULT_QUICK;
+  /*
+   * ★★**빠른조건은 «고쳐질 수 있다»**(사장님 2026-09-10 「퀵필터를 수정할 수 있게 해주면
+   *   좋겠어」). 서버가 실어 준 것(`wl.quick`)으로 시작하고, 담당자가 저장하면 그 자리에서 바뀐다 —
+   *   새로고침을 시키지 않는다(고친 결과를 «지금» 봐야 다음 한 칸을 고를 수 있다).
+   */
+  const [quickEdit, setQuickEdit] = useState<ShopQuickChip[] | null>(null);
+  const [quickSaving, setQuickSaving] = useState(false);
+  const [quickOpen, setQuickOpen] = useState(false);
+  const quickAll = quickEdit ?? wl.quick ?? DEFAULT_QUICK;
+  /*
+   * ★★★**고치는 단추는 «누구에게나» 보인다 — 손님에게도.**
+   *   사장님 2026-09-10 「그냥 **누구나 할 수 있게 오픈**할 거야. 어차피 **우리 거 팔아주는
+   *   입장**이니까 **누구라도 할 수 있게**」 · 「**손님도 할 수 있게 다~ 모든 사람이**」.
+   *   ⇒ 로그인도, 역할도, 채널 소속도 안 본다. 그래서 여기 «판정»이 없다.
+   * ⚠ 처음엔 영업자·관리자만 → 로그인한 사람 전부 → 전부로 두 번 물렸다. 되돌리려면 먼저 여쭙는다.
+   * ⚠ 문(`/api/shop/quick`)도 같이 열려 있다 — 화면만 열고 문을 잠그면 「눌러도 안 된다」가 된다.
+   */
   /* 이 줄에 «단추가 있는» 조건 — 뒤에 토큰으로 또 세우지 않는다(아래 칩 줄 머리말). */
   const quickKeys = useMemo(() => new Set(quickAll.map((k) => `${k.axis}:${k.key}`)), [quickAll]);
   const mobile = useIsMobile();
+  /* ★재고 갱신 시각 — 건수 줄 오른쪽에 선다(`ShopUpdatedStamp`). 곁다리라 없으면 안 그린다. */
+  const head = useShopHeadStatus();
   const [rows, setRows] = useState<EntityRecord[] | null>(null);
   const [agent, setAgent] = useState<{ name?: string; phone?: string } | null>(null);
   const [attr, setAttr] = useState('');
@@ -240,6 +262,37 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
   /* 조건이 바뀌면 첫 장으로 — 3장까지 펼쳐 본 뒤 조건을 좁혔는데 여전히 3장이면 뭐가 준 건지 모른다. */
   useEffect(() => { setLimit(PAGE); }, [query]);
 
+  /**
+   * 고친 칩을 문에 적는다. **답으로 온 것을 그대로 화면에 쓴다** — 내가 보낸 것을 쓰면
+   * 문이 걸러 낸 것(모르는 축 등)이 화면에만 남아 새로고침 때 사라진다.
+   */
+  const saveQuick = useCallback(async (next: ShopQuickChip[]) => {
+    setQuickSaving(true);
+    try {
+      /*
+       * ★토큰은 **막으려고가 아니라 «누가 고쳤나»를 남기려고** 싣는다 — 없으면 손님으로 남는다.
+       *   손님 화면이라 대개 없다(사장님 2026-09-05 「손님 로그인 하는 게 없거든」).
+       */
+      const user = getAuthClient()?.currentUser;
+      const token = user ? await user.getIdToken() : '';
+      const res = await fetch('/api/shop/quick', {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) },
+        body: JSON.stringify({ wl: wl.key, quick: next }),
+      });
+      const body = await res.json().catch(() => ({}));
+      /* 실패는 «집 알림»으로 말한다 — `window.alert` 은 화면을 멈춰 세우고, 이 동의 얼굴도 아니다. */
+      if (!res.ok) { toast(String(body?.error || '못 고쳤습니다'), 'error'); return; }
+      setQuickEdit(Array.isArray(body?.quick) ? (body.quick as ShopQuickChip[]) : next);
+      setQuickOpen(false);
+      toast('빠른조건을 고쳤습니다', 'ok');
+    } catch {
+      toast('못 고쳤습니다 — 잠시 뒤 다시 해 보세요', 'error');
+    } finally {
+      setQuickSaving(false);
+    }
+  }, [wl.key]);
+
   const { list, total, facets } = useMemo(() => runShopQuery(rows, query), [rows, query]);
 
   /*
@@ -253,14 +306,47 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
    * ⚠ **이미 켠 칩은 남긴다** — 걸어 둔 조건이 사라지면 그게 「숨은 필터」다(조건칸과 같은 규칙).
    */
   const quick = useMemo(
-    () => quickAll.filter((k) => query.sel[k.axis].includes(k.key)
-      || facets[k.axis].some((o) => o.key === k.key && o.count > 0)),
-    [quickAll, facets, query.sel],
+    /*
+     * ★★**아직 안 받았을 때는 «다 세운다»**(2026-09-10).
+     *   매물이 오기 전에는 집계가 통째로 비어 있어, 이 거르개가 **칩을 거의 다 지운다.**
+     *   그래서 첫 화면이 「연필 + 켠 칩 하나」로 쪼그라들었다가 데이터가 오면 아홉으로 «펴졌다» —
+     *   여는 순간 줄이 늘어나며 목록이 아래로 밀렸다. 사장님이 싫어하신 그 들썩임이다.
+     *   ⇒ 받기 전에는 표에 적힌 대로 다 세워 둔다. 어차피 받고 나면 «있는 것»만 남는다.
+     */
+    () => (rows === null ? quickAll : quickAll.filter((k) => query.sel[k.axis].includes(k.key)
+      || facets[k.axis].some((o) => o.key === k.key && o.base > 0))),
+    [rows, quickAll, facets, query.sel],
   );
   const tokens = useMemo(
     () => activeTokens(query, facets).map((t) => ({ ...t, axisLabel: AXIS_LABEL[t.axis] })),
     [query, facets],
   );
+
+  /*
+   * ★★**공유 링크로 들어오면 «켜진 칩»이 보이는 자리에 있어야 한다**(2026-09-10 실측).
+   *
+   *   `?vc=SUV` 를 물고 들어오면 조건은 걸려 있는데, 칩 줄은 맨 왼쪽에서 시작한다.
+   *   SUV 칩이 줄 오른쪽 «밖»이라 화면에는 「검색 228대」만 보이고 **무엇이 걸렸는지 안 보인다.**
+   *   직접 누른 사람은 손가락 밑이라 알지만, 링크를 받은 손님은 모른다.
+   *   ⇒ **처음 한 번만** 줄을 그 칩까지 밀어 둔다.
+   *
+   * ⚠ **누를 때마다 미는 것이 아니다.** 조건을 만질 때마다 줄이 저 혼자 움직이면 그게 §12·§14 에서
+   *   걷어낸 그 들썩임이다. 그래서 `aimed` 로 «첫 한 번»만 하고 다시는 안 한다.
+   * ⚠ 줄 «안»의 `scrollLeft` 만 만진다 — `scrollIntoView` 는 페이지까지 끌어내린다.
+   * ⚠ 부드럽게(smooth) 굴리지 않는다 — 갤러리에서 세 번 당했다(다시 그리면 애니메이션이 끊긴다).
+   */
+  const railRef = useRef<HTMLDivElement>(null);
+  const aimed = useRef(false);
+  useEffect(() => {
+    if (aimed.current || rows === null) return;
+    aimed.current = true;
+    const hit = quick.find((k) => query.sel[k.axis].includes(k.key));
+    const rail = railRef.current;
+    if (!hit || !rail) return;
+    const el = rail.querySelector<HTMLElement>(`[data-chip="${hit.axis}:${hit.key}"]`);
+    /* 왼쪽에 여백(edge 16)을 남겨 둔다 — 칸에 딱 붙으면 「밀린 줄」로 안 읽힌다. */
+    if (el) rail.scrollLeft = Math.max(0, el.offsetLeft - SHOP.sp.edge);
+  }, [rows, quick, query.sel]);
   const shown = list.slice(0, limit);
   /** 지금 조건으로 남은 수 — 폰 머리가 드는 값. 조건을 넷 걸어 3대면 3이라고 말해야 한다. */
   const shownText = rows === null ? '—' : String(list.length);
@@ -400,9 +486,31 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
           {/* ⚠ `padding` 단축속성을 쓰지 않는다 — CSS 의 `padding-inline: 16` 을 0 으로 덮어써
               첫 칩이 화면 끝에 붙는다(2026-09-04 실측 x=0). 세로 여백만 만진다. */}
           {/* 칩 줄 위아래 = «덩어리의 경계»(cozy 12) — 검색칸·목록과 갈라 준다. */}
-          <div className="fp-shop-rail" style={{ paddingBlock: SHOP.sp.cozy }}>
+          <div ref={railRef} className="fp-shop-rail" style={{ paddingBlock: SHOP.sp.cozy }}>
+            {/*
+              ★**고치는 문은 줄 «맨 앞»이다.** 이 줄은 한 줄로 흐르는(가로 스크롤) 줄이라
+                끝에 두면 밀어야 보인다 — 아홉 칸을 밀어야 닿는 단추는 없는 단추다.
+              ★★**글자를 떼고 글리프만 둔다**(사장님 2026-09-10 「조건 고치기 저거 맨 앞에
+                **그냥 아이콘으로**? **갖다 대면 설명 보이게** 해주면 안 되나」).
+                맞다 — 첫 자리는 손님이 «조건»을 읽는 자리다. 거기 우리 말이 네 글자 서 있으면
+                손님은 그것부터 읽고, 정작 첫 조건은 두 번째로 밀린다.
+              ★★**글리프는 «설정 눈금»(`Settings2`)이다**(사장님 2026-09-10 「어찌 됐든 뭔가
+                **퀵필터 칩을 설정한다**는 거니까」). 후보 열한 개를 실제 칩 줄 치수로 늘어놓고 골랐다.
+                ⚠ 처음엔 **연필**이었는데 혼자 「글을 쓴다」고 말해서, 조건을 고르는 줄에서 그것만
+                  성격이 달랐다(사장님 「저 연필은 아닌 거 같은데 너무」).
+                ⚠ 오른쪽 머리띠의 「조건」(`SlidersHorizontal`)과 **사촌지간이라 일부러 자리를 재 봤다** —
+                  그건 폰 머리띠 «오른쪽 끝»이고 이건 칩 줄 «왼쪽 끝»이라 한 화면에서 안 붙는다.
+              ★설명은 **갖다 댔을 때만** 뜬다(`hint`) — 브라우저 말풍선이라 이 줄에서 안 잘린다
+                (직접 그리면 `overflow-y: hidden` 인 가로 줄이라 위아래로 잘린다).
+              ★`chip` 치수 — 칩과 같은 높이다. `md`(36) 를 세우면 이 줄만 굵어진다.
+            */}
+            <ShopIconBtn size="chip" label="조건 고치기"
+              hint="이 줄에 세울 조건을 고칩니다 — 고친 줄은 이 가게를 보는 모든 분에게 같이 보입니다"
+              onClick={() => setQuickOpen(true)}>
+              <Settings2 size={mobile ? 16 : 14} aria-hidden />
+            </ShopIconBtn>
             {quick.map((k) => (
-              <ShopPill key={`${k.axis}:${k.key}`} on={query.sel[k.axis].includes(k.key)}
+              <ShopPill key={`${k.axis}:${k.key}`} mark={`${k.axis}:${k.key}`} on={query.sel[k.axis].includes(k.key)}
                 onClick={() => onToggle(k.axis, k.key)}>{k.label || soloLabel(k.key) || k.key}</ShopPill>
             ))}
             {/*
@@ -427,6 +535,28 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
             ) : null}
           </div>
         </div>
+
+        {/*
+          ★★★**폰은 «칩 줄 바로 아랫줄»이다 — 웹의 «바로 뒤»와 같은 자리다** (2026-09-10 확정).
+            사장님 「저 칩이 원래 있던 거라면 그 **퀵필터에 먼저 붙고**, 퀵필터를 아예 해놓은 거라면
+            그 **퀵필터 밑에 붙기로 했잖아. 웹이랑 똑같이** 하기로 했는데 …
+            **웹은 바로 뒤에서 이어서** 나오고 **모바일은 그 아랫줄에서 바로 이어서** 나오고」.
+
+          ⇒ 규칙 하나, 자리 둘. **칩으로 켤 수 있는 것은 칩이 켜져서 말하고**, 칩이 없는 것
+            (제조사·연식·차급…)만 이어 붙는다 — 웹은 «같은 줄 뒤», 폰은 «바로 아랫줄».
+            폰이 아랫줄인 이유는 칩 줄이 가로로 흐르는 줄이라 뒤에 붙이면 밀어야 보이기 때문이다.
+
+          ⚠ **여기 있던 것이 「건수 밑」이었다**(2026-09-06). 그때는 「몇 대인지」가 「무엇을
+            걸었는지」보다 먼저 읽혀야 한다고 봤는데, 그러면 **칩과 토큰이 건수를 사이에 두고
+            갈라져** 「퀵필터 밑에 붙는다」가 아니게 된다. 사장님 판단대로 칩 줄에 도로 붙인다.
+          ⚠ 붙박이(`.fp-shop-stick`) «안»에는 안 넣는다 — 조건을 걸 때마다 머리띠 높이가 변해
+            그 밑이 통째로 움직인다. 붙박이 «바로 밖»이 곧 아랫줄이다.
+        */}
+        {mobile ? (
+          <ShopTokens tokens={tokens.filter((t) => !quickKeys.has(`${t.axis}:${t.key}`))}
+            onRemove={(axis, key) => onToggle(axis as ShopAxis, key)}
+            onClear={list.length ? onClearAll : undefined} />
+        ) : null}
 
         {/*
           ★★**걸린 조건은 「전체차량」 «바로 밑 줄»에 — 두 기둥을 가로질러 통째로 선다**
@@ -533,9 +663,30 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
               */}
               <div style={{ height: HEAD_H, display: 'flex', alignItems: 'center' }}>
                 <ShopCount value={rows === null ? '—' : String(total)} />
+                {/*
+                  ★★**재고 갱신 시각은 «전체차량 대수» 줄 오른쪽 끝이다**
+                    (사장님 2026-09-09 「이거 업데이트 위치 찾았다 — **전체차량 대수 우측정렬로
+                    오면 된다**」 · 2026-09-10 「이거 전체차량 대수 우측정렬로 붙기로 했는데??」).
+
+                  ⚠⚠ 전에는 **목록 기둥 머리**(정렬 고르개 왼쪽)에 있었다. 폰에서는 그 줄에
+                    「전체차량 N대」가 같이 서서 맞아 보였는데, **웹에서는 그 줄에 건수가 없다** —
+                    건수는 왼쪽 기둥 머리에 있고 그 줄은 안내 글("왼쪽에서 조건을 골라…")이다.
+                    그래서 웹에서만 스탬프가 «건수와 다른 기둥»에 서 있었다.
+                  ⇒ 웹은 여기(건수 줄), 폰은 목록 줄 — **둘 다 「건수 오른쪽」이라는 한 규칙**이다.
+                  ★건수와 «같이 움직인다» — 조건칸을 접으면 둘 다 사라진다. 갱신 시각은
+                    「이 숫자가 언제 것인가」라, 숫자 없이 혼자 남으면 무엇의 시각인지 모른다.
+                */}
+                <div style={{ flex: 1 }} />
+                {head.updatedMs ? <ShopUpdatedStamp label={updatedLabelKo(head.updatedMs)} /> : null}
               </div>
+              {/*
+                ★**조건칸 판도 카드와 «같은 높이»에 뜬다**(사장님 2026-09-10 「밋밋함을 없애는 입체감」).
+                  카드에 그림자를 주면서 이 판만 선으로 남으면, 같은 바닥 위에 카드는 뜨고 조건칸은
+                  붙어 있는 꼴이 된다 — 한 화면에 층이 둘로 갈린다.
+                ★같은 토큰(`SH.cardRest`)이다. 새 값을 만들지 않는다.
+              */}
               <div style={{
-                border: `1px solid ${C.line2}`, borderRadius: SHOP.r.card,
+                border: `1px solid ${C.line2}`, borderRadius: SHOP.r.card, boxShadow: SH.cardRest,
                 padding: `${SHOP.sp.tight}px ${SHOP.sp.edge}px`,
               }}>
                 {filters}
@@ -572,24 +723,26 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
                   {rows === null ? '불러오는 중입니다' : '왼쪽에서 조건을 골라 좁혀 보세요'}
                 </span>
               )}
+              {/*
+                ★★**폰은 «대수 바로 뒤»다**(사장님 2026-09-10 「모바일은 **전체 대수 뒤에**
+                  업데이트 시간 적어놓자」). 여백으로 밀어 오른쪽 끝에 두면 정렬 고르개와 붙어
+                  «고르는 것» 무리로 읽힌다 — 갱신 시각은 고르는 게 아니라 **그 숫자의 꼬리표**다.
+                ⚠ 그래서 여백(`flex:1`)보다 **앞**에 둔다. 웹은 기둥이 달라 아래가 아니라
+                  조건칸 머리에서 우측정렬로 붙는다(같은 규칙, 다른 줄).
+              */}
+              {mobile && head.updatedMs ? <ShopUpdatedStamp label={updatedLabelKo(head.updatedMs)} /> : null}
               <div style={{ flex: 1 }} />
+              {/*
+                ★★**갱신 시각은 «건수 오른쪽»이다** — 그런데 «건수가 어느 줄에 있느냐»가 폰과 웹이 다르다.
+                  폰은 이 줄에 건수(`ShopCount`)가 서므로 여기가 그 자리이고,
+                  **웹은 건수가 왼쪽 기둥 머리에 있으므로 거기다**(위 조건칸 머리).
+                ⚠ 이 갈림을 안 두면 웹에서 스탬프가 «건수와 다른 기둥»에 홀로 선다 — 2026-09-10 까지 그랬다.
+                ★맨 오른쪽은 손이 가는 것(정렬)이 갖는다. 스탬프는 그 왼쪽이다.
+              */}
               <ShopSort value={query.sort} options={SHOP_SORTS}
                 onChange={(v) => setQuery((q) => ({ ...q, sort: v as ShopSortKey }))} />
             </div>
 
-            {/*
-              ★폰도 **건수 «바로 밑 줄»**이다 — 웹과 같은 규칙이다(사장님 2026-09-06 「전체차량
-                그 밑에 라인으로」). 웹은 두 기둥을 가로지르는 줄이고 폰은 어깨 밑 줄일 뿐,
-                「건수 밑에 걸린 조건」이라는 짜임은 **양쪽이 같다.**
-              ⚠ 전에는 이 줄이 어깨 «위»(칩 줄 바로 밑)에 있었다 — 건수보다 먼저 나와
-                「몇 대인지」보다 「무엇을 걸었는지」가 앞서 읽혔다.
-              ★조건이 없으면 이 줄은 **아예 없다**(원자가 `null`) — 첫 화면에서 상품이 밀리지 않는다.
-            */}
-            {mobile ? (
-              <ShopTokens tokens={tokens}
-                onRemove={(axis, key) => onToggle(axis as ShopAxis, key)}
-                onClear={list.length ? onClearAll : undefined} />
-            ) : null}
 
             {rows === null ? (
               <Grid mobile={mobile}>
@@ -612,6 +765,19 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
           </div>
         </div>
       </main>
+
+      {/*
+        빠른조건 고치는 창 — **웹·폰 같은 창**이다(집 규칙 ③ 「양쪽에 한 번에」).
+        고르는 목록은 조건칸과 «같은 집계»(`facets`)에서 나온다 — 그래서 «지금 있는 값»만 뜬다.
+      */}
+      {quickOpen ? (
+        <ShopQuickEditor
+          facets={facets}
+          value={quickAll}
+          saving={quickSaving}
+          onSave={saveQuick}
+          onClose={() => setQuickOpen(false)} />
+      ) : null}
 
       {mobile && sheet ? (
         <ShopFilterSheet

@@ -28,7 +28,17 @@ const read = (f: string) => readFileSync(new URL(f, root));
 
 /** 채널 표(`lib/whitelabel.ts`)가 실제로 «화면에 거는» 마크만 검사한다 — 안 쓰는 예비 파일은 뺀다. */
 function markPaths(): string[] {
-  const src = readFileSync(new URL('lib/whitelabel.ts', root), 'utf8');
+  /*
+   * ⚠⚠ **주석을 먼저 걷는다**(2026-09-10). 전에는 파일을 날것으로 훑어서, 머리말에
+   *   「그림을 받으면 이렇게 답니다 — logo: { src: '/brand/…-mark.png' }」라고 **적어 둔 예시**까지
+   *   «화면에 건 마크»로 셌다. 그래서 아직 그림을 못 받은 채널(차슝)이 **없는 파일 때문에 빨간불**이었다.
+   *   왜 그런지 적어 둔 자리가 벌을 받으면, 다음 사람은 설명을 지우는 쪽을 배운다
+   *   (사선 0·상품찾기 격자 검사에서 같은 것을 배웠다).
+   * ★진짜 `logo:` 코드는 그대로 걸린다 — 걷는 것은 주석뿐이다.
+   */
+  const src = readFileSync(new URL('lib/whitelabel.ts', root), 'utf8')
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/(^|[^:])\/\/[^\n]*/g, '$1');
   const found = new Set<string>();
   for (const m of src.matchAll(/logo:\s*\{[^}]*?src:\s*'([^']+)'/g)) found.add(m[1]);
   return [...found];

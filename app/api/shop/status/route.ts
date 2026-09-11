@@ -54,15 +54,69 @@ function weatherText(code: number): string {
   return '';
 }
 
+/** 재고를 채우는 «날마다 도는» 연동이 회차를 닫는 자리(`lib/server/sheet-daily-sync`). */
+const DAILY_SYNC_PATH = 'v4/system_status/sheet_daily_sync';
+
+/** 한국 시각으로 「9. 11. 03:22」 — 화면이 쓰는 꼴 그대로. */
+function stampKo(ms: number): string {
+  const d = new Date(ms + 9 * 3_600_000);
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`;
+}
+
+/**
+ * **재고를 마지막으로 갱신한 시각 — «성공한 회차»만 센다.**
+ *
+ * ★★사장님 2026-09-10 「마지막 연동일이 **9월 4일**로 나오는데 저거 실제 연동일로 바꿔야 되거든?
+ *   저 연동일이 모든 데 뿌려진 건데 **왜 저거만 9월 4일**로 나오냐는 거야」.
+ *
+ * ⚠⚠ **엉뚱한 기록을 읽고 있었다.** 실측 2026-09-11:
+ * ```
+ *   v4/system_status/sheet_daily_sync   09-11 03:22   completed   ← 재고를 «실제로» 채우는 연동
+ *   v4/system_status/sheet_live_status  09-06 11:56   failed
+ *   v4/ops/pipeline                     09-04 21:38   ok:false    ← 가게가 읽던 것
+ * ```
+ *   `ops/pipeline` 은 **손으로 돌리는 시간별 파이프라인**이라 9/4 이후 안 돌았고, 그마저
+ *   실패로 끝나 있었다. 그런데 날마다 도는 시트 연동은 **오늘 새벽에도 정상으로 끝났다.**
+ *   ⇒ 손님은 「재고가 엿새 묵었다」고 읽었지만 실제 재고는 그날 것이었다.
+ *
+ * ★그래서 **둘을 다 보고 «성공한 것 중 가장 최근»을 준다.** 어느 쪽이 돌든 시각이 살아 있고,
+ *   나중에 파이프라인이 하나 더 늘어도 이 목록에 한 줄만 보태면 된다.
+ * ⚠ **실패한 회차는 안 센다.** 「마지막 연동일」은 「마지막으로 «시도»한 날」이 아니라
+ *   「재고가 «언제 것»인가」다 — 실패한 회차를 세면 그 답이 거짓이 된다.
+ * ⚠ 하나도 성공한 게 없으면 `null` — 오늘 날짜로 대신 채우지 않는다(위 머리말).
+ *
+ * ## ★★파이어스토어 «한 곳»만 읽는다 — RTDB 는 안 쓴다
+ *
+ *   사장님 2026-09-10 「그냥 **RTDB 는 아예 안 쓴다**고 이제 좀 제발 좀」.
+ *
+ * ⚠ 한때 여기서 두 원장을 다 읽었다. 연동이 RTDB 에만 적고 파이어스토어 사본이 9/5 에 멈춰 있어
+ *   화면이 엿새 묵은 날짜를 보여 줬기 때문이다. **그건 읽는 쪽에서 때울 일이 아니었다** —
+ *   ⇒ **적는 쪽**(`lib/server/sheet-daily-sync` 의 `writeRun`)이 파이어스토어에도 남기도록 고쳤다.
+ * ★그래서 여기는 한 곳만 본다. **원장이 하나면 「어느 게 맞나」를 물을 일이 없다.**
+ */
 async function loadUpdated(): Promise<{ ms: number; at: string } | null> {
-  try {
-    const snap = await firestoreAdminRef().ref(OPS_PIPELINE_PATH).get();
-    const v = snap.val() as OpsPipelineStatus | null;
-    if (!v || typeof v !== 'object') return null;
-    const ms = Number(v.updatedMs);
-    if (!Number.isFinite(ms) || ms <= 0) return null;
-    return { ms, at: String(v.updatedAt || '') };
-  } catch { return null; }
+  const pick = async (path: string, read: (v: Record<string, unknown>) => number): Promise<number> => {
+    try {
+      const v = (await firestoreAdminRef().ref(path).get()).val() as Record<string, unknown> | null;
+      if (!v || typeof v !== 'object') return 0;
+      const ms = read(v);
+      return Number.isFinite(ms) && ms > 0 ? ms : 0;
+    } catch { return 0; }
+  };
+
+  const [daily, ops] = await Promise.all([
+    pick(DAILY_SYNC_PATH, (v) => (String(v.status) === 'completed' ? Number(v.finished_at) : 0)),
+    pick(OPS_PIPELINE_PATH, (v) => {
+      const s = v as unknown as OpsPipelineStatus;
+      /* `ok === false` 는 «실패로 끝난 회차»다. 아직 도는 중(`running`)이면 아직 갱신이 아니다. */
+      return s.ok === false || s.running ? 0 : Number(s.updatedMs);
+    }),
+  ]);
+
+  const ms = Math.max(daily, ops);
+  if (!ms) return null;
+  return { ms, at: stampKo(ms) };
 }
 
 async function loadWeather(): Promise<{ temp: number; text: string } | null> {

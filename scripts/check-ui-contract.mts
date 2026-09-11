@@ -16,7 +16,12 @@ const RAW = new Set(['button', 'input', 'select', 'textarea']);
 
 type Allow = { reason: string; counts?: Partial<Record<string, number>>; all?: boolean };
 
-const RAW_ALLOW = new Map<string, Allow>([
+/*
+ * ⚠⚠ **같은 파일 키를 두 번 적으면 «뒤엣것»이 이긴다**(2026-09-10 코덱스 검토 — 그냥 통과했다).
+ *   `Map` 은 조용히 덮어써서, 좁게 적어 둔 예외가 넓은 것으로 바뀌어도 아무도 모른다.
+ *   그래서 아래 목록을 «짝 배열»로 두고 **중복을 먼저 센다**(맨 밑 RAW_ALLOW_DUP 검사).
+ */
+const RAW_ALLOW_PAIRS: [string, Allow][] = [
   ['app/global-error.tsx', { all: true, reason: '루트 레이아웃·globals.css까지 실패한 독립 최종 방어선' }],
   /* app/login/page.tsx 는 2026-08-30 에 공용 원자로 갈아 raw 0 이 됐다(도면 §4 1순위).
      원자 높이(32/40)와 충돌해 예외였던 자리인데, CTRL 에 lg(44/48)를 더해 해소했다.
@@ -129,8 +134,16 @@ const RAW_ALLOW = new Map<string, Allow>([
       + '·공유. 나머지는 shop-ui 원자',
   }],
   ['components/shop/ShopFilters.tsx', {
-    counts: { button: 2 },
-    reason: '조건칸 — 축 접기 머리·줄 전체가 누름 영역인 체크 줄(줄 자체가 컨트롤이라 원자로 못 감싼다)',
+    counts: { button: 3 },
+    /*
+     * 2 → 3 (2026-09-10) — **축 머리가 «두 조각»이 됐다.**
+     * 사장님 「해제 버튼이 아래에 나오면 안 되고 그 **필터 제목 옆에** 나와야지」.
+     * 제목 옆에 세우려면 「제목」과 「개수+화살표」 사이에 해제가 끼어야 하는데,
+     * `<button>` 안에 `<button>` 을 넣는 것은 HTML 이 금지한다(눌러도 어느 쪽이 먹을지 안 정해진다).
+     * ⇒ 머리를 왼(그림+제목)·오른(개수+화살표) 두 조각으로 갈랐다. **둘 다 같은 접기**를 하므로
+     *   손님에게는 여전히 「줄 전체가 눌리는」 한 줄이다. 해제 자체는 `ShopTextBtn` 원자다.
+     */
+    reason: '조건칸 — 축 접기 머리 «둘»(사이에 해제가 낀다)·줄 전체가 누름 영역인 체크 줄(줄 자체가 컨트롤이라 원자로 못 감싼다)',
   }],
   ['components/shop/ShopFilterSheet.tsx', {
     counts: { button: 1 },
@@ -164,7 +177,16 @@ const RAW_ALLOW = new Map<string, Allow>([
    * 개수를 2로 못 박아 새 raw 컨트롤은 계속 걸리게 둔다. 갚을 빚: components/ui/ContextMenu SSOT 로 옮긴다.
    */
   ['features/finder/SheetView.tsx', { counts: { button: 2 }, reason: '한 클래스로 <a>·<span>과 같은 모양이어야 하는 우클릭 메뉴 항목' }],
-]);
+];
+
+/*
+ * ★★**중복 키를 먼저 잡는다** — `Map` 으로 만들면 뒤엣것이 조용히 이겨서,
+ *   좁게 적어 둔 예외가 넓은 것으로 바뀌어도 아무도 모른다(코덱스가 그렇게 넘었다).
+ */
+const RAW_ALLOW_DUP = RAW_ALLOW_PAIRS
+  .map(([k]) => k)
+  .filter((k, i, all) => all.indexOf(k) !== i);
+const RAW_ALLOW = new Map<string, Allow>(RAW_ALLOW_PAIRS);
 
 // 기능상 native 요소가 필요한 명시 예외: 파일 선택기와 이미지 갤러리의 행/셀 버튼.
 RAW_ALLOW.set('components/ChatThread.tsx', { counts: { button: 3, input: 1, textarea: 1 }, reason: '첨부 파일 선택기·갤러리 행/셀 버튼·채팅 입력기' });
@@ -197,7 +219,13 @@ function walk(dir: string, out: string[]) {
     const path = join(dir, entry.name);
     if (entry.isDirectory()) {
       if (!['node_modules', '.next', 'data'].includes(entry.name)) walk(path, out);
-    } else if (/\.tsx$/.test(entry.name)) {
+    /*
+     * ⚠⚠ **`.ts` 도 훑는다**(2026-09-10 코덱스 재검증). 전에는 `.tsx` 만 봤다 —
+     *   그런데 `createElement('button')` 은 **JSX 를 안 쓰려고** 쓰는 것이라 오히려 `.ts` 에 있기 쉽다.
+     *   코덱스가 같은 탐침을 `.ts`·`.tsx` 둘 다에 넣었고, `.ts` 쪽만 그냥 통과했다.
+     * ★JSX 가 없는 파일은 어차피 걸릴 것이 없어 값이 안 변한다 — 넓혀도 잃는 게 없다.
+     */
+    } else if (/\.tsx?$/.test(entry.name)) {
       out.push(path);
     }
   }
@@ -232,6 +260,21 @@ for (const path of files) {
   if (!file.startsWith('components/ui/')) {
     const counts: Record<string, number> = {};
     const visit = (node: ts.Node) => {
+      /*
+       * ⚠ **JSX 만 보면 놓친다**(2026-09-10 코덱스 검토) — `createElement('button')` 은
+       *   JSX 가 아니라 «호출»이라 그냥 넘어갔다. 화면에 서는 것은 똑같은 raw 단추다.
+       * ★`React.createElement` 든 그냥 `createElement` 든 첫 인자가 태그 글자면 센다.
+       */
+      if (ts.isCallExpression(node)) {
+        const callee = node.expression.getText(sourceFile);
+        if (callee === 'createElement' || callee.endsWith('.createElement')) {
+          const first = node.arguments[0];
+          if (first && ts.isStringLiteral(first)) {
+            const tag = first.getText(sourceFile).slice(1, -1);
+            if (RAW.has(tag)) counts[tag] = (counts[tag] || 0) + 1;
+          }
+        }
+      }
       if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
         const tag = node.tagName.getText(sourceFile);
         if (RAW.has(tag)) counts[tag] = (counts[tag] || 0) + 1;
@@ -304,6 +347,70 @@ if (!esignCenterSource.includes('const store = getStore()')
   hits.push('components/EsignSendCenter.tsx: 계약 목록 데이터 직접 조립 유지');
 }
 
+/*
+ * ── 원자 사전이 «실재하는 부품»을 가리키는가 ────────────────────────────────
+ *
+ * 사장님 2026-09-09 개발센터 견학에서 잡혔다. `CLAUDE.md` 원자 사전이 적은 이름 94개를
+ * 실제 export 와 대조하니 **`CardKind` 는 코드에 아예 없었다** — 사전 두 줄과 주석 하나에
+ * 이름만 남아 있었고(리팩터 때 사라졌는데 사전만 안 고쳤다), `CreateListRow` 는 로컬 함수라
+ * import 조차 안 됐다.
+ *
+ * ★★**없는 원자를 「쓰라」고 적어 두면 그게 손롤의 원인이 된다.** 다음 사람은 그 이름을
+ *   찾다가 못 찾고 「그럼 내가 만들지」로 간다 — 사전이 막으려던 바로 그 일이다.
+ * ★레거시로 적은 이름은 **반대로 «없어야»** 한다. 되살아나면 그것도 드리프트다.
+ * ⚠ `export default` 도 export 다(`TopBar`). named 만 찾으면 멀쩡한 것을 없다고 한다 —
+ *   견학에서 실제로 그럴 뻔했다.
+ * ⚠ 소괄호가 붙은 것(`badges()`)은 «부르는 법»을 적은 것이라 이름만 떼서 본다.
+ */
+for (const k of RAW_ALLOW_DUP) {
+  hits.push(`raw 예외 목록: ${k} 가 두 번 적혀 있습니다 — 뒤엣것이 조용히 이겨 예외가 넓어집니다
+    → 한 줄로 합치세요`);
+}
+
+const claudeMd = readFileSync(join(ROOT, 'CLAUDE.md'), 'utf8');
+const dictStart = claudeMd.indexOf('## 원자 사전 — 이걸 써라');
+const dictEnd = claudeMd.indexOf('### 필터 ↔ 카드 축');
+if (dictStart < 0 || dictEnd < dictStart) {
+  hits.push('CLAUDE.md: 원자 사전 구간을 못 찾았다 — 제목이 바뀌었으면 이 검사도 같이 고친다');
+} else {
+  const dict = claudeMd.slice(dictStart, dictEnd);
+  const legacyLine = dict.split('\n').find((l) => l.startsWith('`Identity`→')) ?? '';
+  const nameOf = (s: string) => [...s.matchAll(/`([A-Z][A-Za-z0-9]{2,})(?:\(\))?`/g)].map((m) => m[1]);
+  /* ⚠ 레거시 줄은 `옛것`→`대체` 꼴이다 — **화살표 «왼쪽»만** 레거시다.
+     오른쪽은 지금 쓰는 원자라, 같이 세면 「CardTitle 이 되살아났다」 같은 헛소리가 나온다(실제로 났다). */
+  const legacy = new Set(legacyLine.split('·').flatMap((chunk) => nameOf(chunk.split('→')[0])));
+  const wanted = [...new Set(nameOf(dict))].filter((n) => !legacy.has(n));
+
+  /* 실제 export 를 «한 번만» 훑어 모은다 — 이름마다 파일을 다시 여는 것은 낭비다. */
+  const exported = new Set<string>();
+  const scanExports = (dir: string) => {
+    for (const e of readdirSync(join(ROOT, dir), { withFileTypes: true })) {
+      const rel = `${dir}/${e.name}`;
+      if (e.isDirectory()) { if (e.name !== 'node_modules') scanExports(rel); continue; }
+      if (!/\.tsx?$/.test(e.name)) continue;
+      const src = readFileSync(join(ROOT, rel), 'utf8');
+      for (const m of src.matchAll(/export\s+(?:default\s+)?(?:async\s+)?(?:function|const|class|type|interface)\s+([A-Za-z][A-Za-z0-9]*)/g)) exported.add(m[1]);
+      for (const m of src.matchAll(/export\s*\{([^}]*)\}/g)) {
+        for (const part of m[1].split(',')) {
+          const name = part.split(/\bas\b/).pop()?.trim();
+          if (name) exported.add(name);
+        }
+      }
+    }
+  };
+  for (const r of ['app', 'components', 'lib', 'features']) scanExports(r);
+
+  /* 대조군 — 이 둘이 안 잡히면 «재는 쪽»이 틀린 것이다(견학에서 94개 전부 없다고 나온 적이 있다). */
+  for (const control of ['PriceHero', 'TopBar']) {
+    if (!exported.has(control)) hits.push(`검사기 고장: 대조군 ${control} 를 못 찾았다 — 사전이 아니라 이 검사를 고쳐라`);
+  }
+  for (const n of wanted) {
+    if (!exported.has(n)) hits.push(`CLAUDE.md 원자 사전: ${n} 은 export 가 없다 — 사전에서 걷거나 실제 이름으로 고친다`);
+  }
+  for (const n of legacy) {
+    if (exported.has(n)) hits.push(`CLAUDE.md 레거시 목록: ${n} 이 되살아났다 — 대체 원자를 쓰거나 목록에서 뺀다`);
+  }
+}
 if (hits.length) {
   console.error(`✗ UI 계약 드리프트 ${hits.length}건\n\n${hits.map((hit) => `  ${hit}`).join('\n')}`);
   process.exit(1);

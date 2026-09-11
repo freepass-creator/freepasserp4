@@ -18,11 +18,15 @@
 import type { EntityRecord } from '@/lib/intake/entities';
 import { cheapest, creditDisplay, isListableProduct, isOperatedPeriod, priceList } from '@/lib/domain/product';
 import { matchProductQuery } from '@/lib/domain/search';
+import {
+  standingFixed, standingRanked, tallyBy, tallyMatch,
+} from '@/lib/domain/facet-standing';
 import { firstProductImage } from '@/lib/domain/product-photos';
 import {
   RENT_BANDS, DEP_BANDS, MILE_BANDS, CREDITS, CATALOG_PERKS, hasPerk, popularRank, type Band,
 } from '@/lib/domain/product-filters';
 import { fuelDisplay, makerDisplay, yearFullDisplay } from '@/lib/domain/vehicle-master-format';
+import { canonProductType } from '@/lib/domain/product';
 import { CUSTOMER_VEHICLE_CLASSES, customerVehicleClass } from '@/lib/domain/catalog-facets';
 
 /** 고를 수 있는 축. 값은 주소 파라미터 이름이기도 하다 — 짧고 안 바뀌는 이름으로 둔다. */
@@ -34,12 +38,12 @@ import { CUSTOMER_VEHICLE_CLASSES, customerVehicleClass } from '@/lib/domain/cat
  *   뒤에 두면 「50만원대」를 고른 뒤에야 「어느 기간의 50만원인지」를 묻는 꼴이 된다.
  * ⚠ 새 축을 «끼워 넣을» 때 나머지 순서는 건드리지 않는다 — 손님은 자리로 기억한다.
  */
-export const SHOP_AXES = ['vc', 'vclass', 'maker', 'term', 'rent', 'dep', 'credit', 'year', 'mile', 'fuel', 'perk'] as const;
+export const SHOP_AXES = ['vc', 'ptype', 'vclass', 'maker', 'term', 'rent', 'dep', 'credit', 'year', 'mile', 'fuel', 'perk'] as const;
 export type ShopAxis = (typeof SHOP_AXES)[number];
 
 /** 축 이름 — 조건칸 제목이자 「적용한 조건」 토큰의 앞머리. 한 곳에서만 적는다. */
 export const AXIS_LABEL: Record<ShopAxis, string> = {
-  vc: '차종', vclass: '차급', term: '계약기간', maker: '제조사', rent: '월 대여료', dep: '보증금',
+  vc: '차종', ptype: '상품구분', vclass: '차급', term: '계약기간', maker: '제조사', rent: '월 대여료', dep: '보증금',
   credit: '심사', year: '연식', mile: '주행거리', fuel: '연료', perk: '혜택',
 };
 
@@ -191,6 +195,19 @@ const bandOf = (bands: Band[], key: string) => bands.find((b) => b.k === key);
 const axisMatch: Record<ShopAxis, (p: EntityRecord, key: string) => boolean> = {
   vc: (p, k) => customerVehicleClass(p) === k,
   /*
+   * ★★**상품구분** — 「신차렌트냐 중고렌트냐 구독이냐」. 사장님 2026-09-09
+   *   「차종구분 밑에 **상품구분도 넣어주라** … 신차렌트 중고렌트 오공구독 오플구독 중고구독 이런 식으로」.
+   * ★★**값을 «정본»에서 안 가져오고 재고에서 «센다».** 이유가 있다 —
+   *   정본(`PRODUCT_TYPES`, 다섯)이 지금 재고를 못 따라간다. 2026-09-09 실측 710대:
+   *   중고렌트 266 · 픽업구독 221 · **오플구독 72** · 신차렌트 68 · **오공구독 60** · 중고구독 22.
+   *   **오공·오플구독은 정본에 없고 신차구독은 재고에 없다.** 정본으로 칸을 박으면 손님 화면에서
+   *   132대(19%)가 통째로 안 걸리고, 있지도 않은 「신차구독」이 서 있게 된다.
+   * ⇒ `canonProductType` 으로 **표기 변형만 접고**(재렌트→중고렌트) 값은 데이터가 정한다.
+   *   원천이 새 갈래를 주면 저절로 선다. 정본은 정본대로 고쳐야 하지만, 그건 **원자 일**이지
+   *   손님 화면이 기다릴 일이 아니다.
+   */
+  ptype: (p, k) => canonProductType(p.product_type) === k,
+  /*
    * ★**차급** — 「준대형 세단」·「중형 SUV」 처럼 손님이 실제로 말하는 단위다.
    *   위 `vc`(승용·SUV·승합·화물)는 **네 갈래**라 빠른 조건 칩에는 맞지만, 「경차」나 「대형 세단」을
    *   찾는 손님에게는 너무 굵다. 실측 19종이 고르게 갈린다(준대형 세단 27% · 중형 SUV 13% …).
@@ -246,7 +263,23 @@ const sortValue = (p: EntityRecord, sort: ShopSort): number => {
   return sort === 'desc' ? -rent : rent;
 };
 
-export type ShopOption = { key: string; label: string; count: number };
+export type ShopOption = {
+  key: string;
+  label: string;
+  /** **지금 조건에서** 몇 대인가 — 교차 집계(제 축은 빼고 센다). 0 이 될 수 있다. */
+  count: number;
+  /**
+   * **조건을 다 풀면** 몇 대인가 — 그 채널 재고 전체 기준.
+   *
+   * ★★**줄이 «있나 없나»는 이 값이 정한다**(사장님 2026-09-10 「필터는 **연동형 필터 아니고**
+   *   그냥 누른다고 해서 **다 없어지면 안 되는데**」 · 「그냥 기존 필터에서 **숫자가 0으로 바뀌면**
+   *   되잖아 **이게 쭈구러 든다**고」). 예전에는 `count === 0` 이면 줄을 뺐는데, 그러면 손님이
+   *   조건 하나를 누를 때마다 **조건칸이 통째로 쪼그라들어** 방금 보던 줄이 사라진다.
+   * ⇒ 줄은 **재고에 있으면 선다**(`base > 0`). 조건에 안 걸리면 **숫자만 0** 이 된다.
+   * ★차례도 이 값으로 매긴다 — 지금 건수로 매기면 누를 때마다 줄이 위아래로 뛴다.
+   */
+  base: number;
+};
 export type ShopFacets = Record<ShopAxis, ShopOption[]>;
 
 export type ShopResult = {
@@ -265,7 +298,15 @@ export type ShopResult = {
  *   말해야 한다. 전체 716대 기준으로 세면 「디젤 120」이라 써 놓고 눌렀을 때 3대가 나온다 —
  *   마켓에서 손님이 제일 빨리 등 돌리는 거짓말이다.
  *   반대로 «자기 축»은 빼고 세야 이미 켠 값 옆의 다른 값도 숫자가 살아 있다(안 그러면 전부 0).
- * ★건수 0 인 값은 **안 보여준다.** 눌러도 아무것도 없는 조건을 세워 두지 않는다.
+ * ★★★**줄은 «재고에 있으면» 선다 — 조건에 안 걸리면 숫자만 0 이 된다**(2026-09-10).
+ *   사장님 「필터는 **연동형 필터 아니고** 그냥 누른다고 해서 **다 없어지면 안 되는데**」 ·
+ *   「그냥 기존 필터에서 **숫자가 0으로 바뀌면** 되잖아 **이게 쭈구러 든다**고」.
+ *   ⚠ 전에는 건수 0 을 뺐다. 그래서 손님이 「SUV」 하나를 누르면 제조사 열둘이 셋으로 줄고
+ *     차급 줄이 절반 사라져, **방금 보던 자리가 없어졌다.** 조건칸은 «지도»라 모양이 흔들리면
+ *     손님이 제 위치를 잃는다.
+ *   ⇒ **명단과 차례는 «재고 전체»(`base`)가 정하고, 숫자만 «지금 조건»(`count`)이 정한다.**
+ *     그래서 무엇을 눌러도 줄 수와 순서가 안 바뀐다 — 숫자만 오르내린다.
+ * ★재고에 아예 없는 값은 여전히 안 선다(`base === 0`) — 그건 「지금 0」이 아니라 「원래 없다」다.
  */
 export function runShopQuery(rows: EntityRecord[] | null, query: ShopQuery): ShopResult {
   const pool = (rows || []).filter(isListableProduct);
@@ -274,26 +315,48 @@ export function runShopQuery(rows: EntityRecord[] | null, query: ShopQuery): Sho
 
   const baseFor = (axis: ShopAxis) => searched.filter((p) => passes(p, sel, axis));
 
-  const freeTally = (axis: ShopAxis, of: (p: EntityRecord) => string): ShopOption[] => {
-    const m = new Map<string, number>();
-    for (const p of baseFor(axis)) { const v = of(p); if (v) m.set(v, (m.get(v) || 0) + 1); }
-    return [...m.entries()].map(([key, count]) => ({ key, label: key, count }));
-  };
+  /*
+   * ★**두 벌을 센다.**
+   *   ㉠ `pool` — 조건도 검색도 «안 탄» 재고 전체. **명단·차례**를 여기서 만든다(줄이 안 사라진다).
+   *   ㉡ `baseFor(axis)` — 지금 조건(제 축은 뺀다)+검색. **숫자**를 여기서 만든다.
+   * ⚠ 명단까지 ㉡ 로 만들면 조건을 걸 때마다 조건칸이 쪼그라든다 — 그게 「쭈구러 든다」다.
+   */
+  /*
+   * ★★**줄이 서는 규칙은 «집 정본»이 정한다**(`lib/domain/facet-standing`).
+   *   사장님 2026-09-10 「**공통으로 쓰는 것들은 한 군데서 고치면 다 동일하게 고쳐져야지**」 —
+   *   같은 규칙이 여기와 업무동에 손으로 두 번 적혀 있어, 한쪽만 고치고 하루를 흘렸다.
+   * ★여기 남는 것은 «갈려야 하는 것»뿐이다 — **무엇을 세는가**(`of`·`axisMatch`)와
+   *   **손님 말 이름**(`label`). 규칙(0 을 남긴다·차례는 base 가 정한다)은 저기 있다.
+   */
+  const freeTally = (axis: ShopAxis, of: (p: EntityRecord) => string, opts?: Parameters<typeof standingRanked>[2]): ShopOption[] =>
+    standingRanked(tallyBy(pool, of), tallyBy(baseFor(axis), of), opts)
+      .map((o) => ({ ...o, label: o.key }));
   /** 값 목록이 정해진 축 — 순서를 재고 대수가 아니라 «손님이 말하는 순서»로 고정한다. */
-  const fixedTally = (axis: ShopAxis, order: readonly string[]): ShopOption[] => {
-    const base = baseFor(axis);
-    return order.map((k) => ({ key: k, label: k, count: base.filter((p) => axisMatch[axis](p, k)).length }))
-      .filter((o) => o.count > 0);
-  };
+  const fixedTally = (axis: ShopAxis, order: readonly string[]): ShopOption[] =>
+    standingFixed(order,
+      tallyMatch(pool, order, (p, k) => axisMatch[axis](p, k)),
+      tallyMatch(baseFor(axis), order, (p, k) => axisMatch[axis](p, k)))
+      .map((o) => ({ ...o, label: o.key }));
   const bandTally = (axis: ShopAxis, bands: Band[]): ShopOption[] => {
-    const base = baseFor(axis);
+    const keys = bands.map((b) => b.k);
     /* ★손님 동은 «축 밑» 이름(`shop`)을 쓴다 — 화살표(`↓`·`↑`)는 우리끼리 쓰는 기호다. */
-    return bands.map((b) => ({ key: b.k, label: b.shop || b.label, count: base.filter((p) => axisMatch[axis](p, b.k)).length }))
-      .filter((o) => o.count > 0);
+    const name = new Map(bands.map((b) => [b.k, b.shop || b.label]));
+    return standingFixed(keys,
+      tallyMatch(pool, keys, (p, k) => axisMatch[axis](p, k)),
+      tallyMatch(baseFor(axis), keys, (p, k) => axisMatch[axis](p, k)))
+      .map((o) => ({ ...o, label: name.get(o.key) || o.key }));
   };
 
   const facets: ShopFacets = {
     vc: fixedTally('vc', CUSTOMER_VEHICLE_CLASSES),
+    /*
+     * ★**상품구분은 «물량 많은 순»**(사장님 2026-09-09 「물량 많은 거부터겠지 당연히 순서는」).
+     *   차급·제조사와 같은 규칙이다. 0대인 갈래는 `freeTally` 가 알아서 뺀다 —
+     *   그래서 정본에만 있고 재고에 없는 「신차구독」은 안 선다.
+     * ⚠ 열둘로 자르지 않는다 — 제조사(수십)와 달리 갈래가 예닐곱이라 잘릴 일이 없고,
+     *   자르면 새 갈래가 생겼을 때 조용히 사라진다.
+     */
+    ptype: freeTally('ptype', (p) => canonProductType(p.product_type)),
     /*
      * ★기간은 **짧은 것부터** 세운다 — 대수 순으로 세우면 48·36·24·60·12 처럼 뒤죽박죽이 되어
      *   「기간」이라는 축으로 안 읽힌다. 숫자에는 손님이 이미 아는 순서가 있다.
@@ -302,7 +365,7 @@ export function runShopQuery(rows: EntityRecord[] | null, query: ShopQuery): Sho
      *   그 축을 넣은 이유의 절반이 「단기를 찾을 길이 없다」였는데 정작 6개월을 빼먹은 것이다.
      * ⇒ **데이터가 가진 기간을 그대로 세운다.** 원천이 새 기간을 주면 저절로 선다.
      */
-    term: fixedTally('term', [...new Set(baseFor('term')
+    term: fixedTally('term', [...new Set(pool
       .flatMap((p) => priceList(p).filter((x) => isOperatedPeriod(x.m)).map((x) => x.m)))]
       .sort((a, b) => a - b).map(TERM_LABEL)),
     /*
@@ -310,16 +373,14 @@ export function runShopQuery(rows: EntityRecord[] | null, query: ShopQuery): Sho
      *   맨 위에 선다 — 손님이 열에 세 번 고를 것을 맨 밑에 두는 셈이다.
      * ★열둘까지 — 제조사와 같은 규칙이다(스물을 세우면 그게 벽이다).
      */
-    vclass: freeTally('vclass', (p) => String(p.vehicle_class || '').trim())
-      .sort((a, b) => b.count - a.count || a.key.localeCompare(b.key, 'ko')).slice(0, 12),
+    vclass: freeTally('vclass', (p) => String(p.vehicle_class || '').trim(), { limit: 12 }),
     credit: fixedTally('credit', CREDITS),
     perk: fixedTally('perk', CATALOG_PERKS),
     // 제조사는 대수 많은 순 열둘까지 — 스물을 세우면 그게 벽이다.
-    maker: freeTally('maker', (p) => makerDisplay(p.maker))
-      .sort((a, b) => b.count - a.count || a.key.localeCompare(b.key, 'ko')).slice(0, 12),
-    year: freeTally('year', (p) => yearFullDisplay(p.year)).sort((a, b) => b.key.localeCompare(a.key, 'ko')),
-    fuel: freeTally('fuel', (p) => fuelDisplay(p.fuel_type) || String(p.fuel_type || '').trim())
-      .sort((a, b) => b.count - a.count),
+    maker: freeTally('maker', (p) => makerDisplay(p.maker), { limit: 12 }),
+    /* ★연식은 «값 자체»에 순서가 있다 — 대수 순으로 세우면 2019 가 2024 위에 선다. */
+    year: freeTally('year', (p) => yearFullDisplay(p.year), { order: (a, b) => b.localeCompare(a, 'ko') }),
+    fuel: freeTally('fuel', (p) => fuelDisplay(p.fuel_type) || String(p.fuel_type || '').trim(), { tie: () => 0 }),
     rent: bandTally('rent', RENT_BANDS),
     dep: bandTally('dep', DEP_BANDS),
     mile: bandTally('mile', MILE_BANDS),
@@ -343,23 +404,47 @@ export function runShopQuery(rows: EntityRecord[] | null, query: ShopQuery): Sho
   const photoRank = (p: EntityRecord) => (firstProductImage(p) ? 0 : 1);
 
   /*
+   * ★★★**잣대는 «줄마다 한 번»만 잰다 — 비교마다 재지 않는다**(사장님 2026-09-10
+   *   「뭔가 **필터를 잡는데 버벅이는데** 그것도 해결해봐」).
+   *
+   *   `sort` 의 비교 함수는 n log n 번 불린다(694대면 만 몇 천 번). 그 안에서 `photoRank`(사진을
+   *   풀어 본다)와 `sortValue`(요금표를 푼다)를 부르면, **같은 차의 사진과 값을 수십 번 다시 푼다.**
+   *   ⚠ 실측 2026-09-10 — 694대·조건 없음에서 `runShopQuery` 가 **292ms** 였다.
+   *     그런데 집계(facets)는 다 합쳐 **22ms** 뿐이었다. 나머지 270ms 가 여기였다.
+   *     조건을 걸수록 빨라지던 것도 이것 때문이다(목록이 짧아지니 비교가 준다).
+   *   ⇒ 줄마다 한 번 재서 숫자로 들고, 비교는 **숫자끼리만** 한다. 694번이면 끝난다.
+   * ★차례를 정하는 규칙은 **하나도 안 바뀐다** — 재는 시점만 앞으로 당긴 것이다.
+   */
+  type Ranked = { p: EntityRecord; photo: number; v: number; tie: number; same: string };
+  const rankRows = (list: EntityRecord[], sort: ShopSort, withSame: boolean): Ranked[] =>
+    list.map((p) => ({
+      p,
+      photo: photoRank(p),
+      v: sortValue(p, sort),
+      /* 인기순은 같은 값이 무더기라 2차 잣대(싼 것부터)가 필요하다 — 그것도 미리 잰다. */
+      tie: sort === 'popular' || sort === 'many' ? sortValue(p, 'asc') : 0,
+      same: withSame ? sameCarKey(p) : '',
+    }));
+
+  /*
    * ★「같은 차 많은순」만 **한 대를 봐서는 못 정하는** 값이다 — 목록 전체를 세어야 순위가 나온다.
    *   그래서 `sortValue`(한 대짜리 잣대)에 못 넣고 여기서 «센 뒤에» 정렬한다.
    * ★세는 모수는 «조건을 통과한 목록»이다. 전체 재고로 세면 「기아가 원래 많으니까」로 줄이 서서
    *   조건을 걸어도 순서가 안 변한다 — 손님이 방금 좁힌 것을 안 반영하는 꼴이다.
    */
   if (query.sort === 'many') {
+    const ranked = rankRows(kept, 'many', true);
     const tally = new Map<string, number>();
-    for (const p of kept) tally.set(sameCarKey(p), (tally.get(sameCarKey(p)) || 0) + 1);
+    for (const r of ranked) tally.set(r.same, (tally.get(r.same) || 0) + 1);
     return {
-      list: [...kept].sort((a, b) => {
+      list: ranked.sort((a, b) => {
         // ★사진 먼저 — 어느 정렬이든 이 잣대가 앞선다(위 `photoRank`).
-        const ph = photoRank(a) - photoRank(b);
+        const ph = a.photo - b.photo;
         if (ph) return ph;
-        const d = (tally.get(sameCarKey(b)) || 0) - (tally.get(sameCarKey(a)) || 0);
+        const d = (tally.get(b.same) || 0) - (tally.get(a.same) || 0);
         // 같은 대수면 싼 것부터 — 순서가 안 흔들려야 새로고침해도 같은 화면이다.
-        return d || (sortValue(a, 'asc') - sortValue(b, 'asc'));
-      }),
+        return d || (a.tie - b.tie);
+      }).map((r) => r.p),
       total: pool.length,
       facets,
     };
@@ -370,11 +455,11 @@ export function runShopQuery(rows: EntityRecord[] | null, query: ShopQuery): Sho
    *   원천이 준 순서 그대로 서서, 새로고침할 때마다 첫 화면이 달라 보인다.
    *   ⇒ 같은 순위면 싼 것부터. 그러면 목록이 늘 같은 얼굴이다.
    */
-  const list = kept.sort((a, b) =>
+  const list = rankRows(kept, query.sort, false).sort((a, b) =>
     // ★사진 먼저 — 어느 정렬이든 이 잣대가 앞선다(위 `photoRank`).
-    (photoRank(a) - photoRank(b))
-    || (sortValue(a, query.sort) - sortValue(b, query.sort))
-    || (query.sort === 'popular' ? sortValue(a, 'asc') - sortValue(b, 'asc') : 0));
+    (a.photo - b.photo)
+    || (a.v - b.v)
+    || (a.tie - b.tie)).map((r) => r.p);
   return { list, total: pool.length, facets };
 }
 

@@ -694,6 +694,27 @@ line.push([
 ].join(' · '));
 }
 
+/**
+ * ⑦″ **링크 사진을 미리 풀어 둔다 — 손님 카드가 «기다리지 않게»**(2026-09-10).
+ *
+ * 왜 회차에 넣나. 우리 사진의 절반은 이미지 주소가 아니라 «드라이브 폴더 링크»다. 미리 안 풀어 두면
+ * **손님이 볼 때마다** 서버가 폴더를 긁는다 — 한 건 1.4초 · 손님이 바뀔 때마다 처음부터. 그동안
+ * 카드는 회색 판이라 손님은 「사진 없는 차」로 보고 지나간다.
+ * 손으로만 돌리는 스크립트로 두었더니 **2026-09-05 뒤로 한 번도 안 돌았고**, 그 사이 들어온 차는
+ * 전부 매번 긁혔다. 회차에 넣어야 «새로 들어온 차도 다음 시간이면 사진이 있다».
+ *
+ * ★긁는 길은 **운영 API 를 그대로 쓴다** — `https://freepasserp.com/api/extract-photos`.
+ *   화면이 부르는 그 문이라 규칙이 갈릴 수 없고, 개발 서버가 떠 있어야 할 이유도 없다
+ *   (회차는 서버 없이 도는 자리다). 다른 데를 가리키려면 `PHOTO_CACHE_BASE`.
+ * ★쓰기는 **두 원장에 같이** 한다(RTDB · 파이어스토어) — `scripts/cache-photo-urls.mts` 머리말 참고.
+ *   ⚠ 한쪽만 쓰면 손님 화면에는 «없는 사진»이 된다. 실제로 218대가 그랬다.
+ * ★실패해도 회차를 멈추지 않는다 — 사진은 «있으면 빠른 것»이지 재고의 정본이 아니다.
+ *   외부(드라이브)를 두드리는 일이라 남의 사정으로 얼마든지 실패하고, 다음 회차가 다시 한다.
+ */
+const photoBase = process.env.PHOTO_CACHE_BASE || 'https://freepasserp.com';
+const pc = run('⑦″ 사진 미리 풀기', ['scripts/cache-photo-urls.mts', '--base', photoBase, ...A], /할 일 |성공 \d+|장수 —|Error/);
+line.push(pc.ok ? (pc.picked.find((l) => /성공 \d+/.test(l))?.trim() || '사진캐시 ok') : '사진캐시 실패');
+
 // ⑧ 대조 — 판매시트 ↔ ERP 가 실제로 같은지 매 시간 확인해 기록에 남긴다(규칙 정본 lib/domain/sheet-erp-parity.ts).
 const chk = run('⑧ 시트↔ERP 대조', ['scripts/audit-sheet-erp-parity.mts'], /판매시트 |안 뜨는 차|없는 차/, 'npx', true);
 line.push(chk.picked.find((l) => /안 뜨는 차/.test(l))?.replace('■ ', '') || '대조 ok');

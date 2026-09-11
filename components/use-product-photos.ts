@@ -1,7 +1,7 @@
 ﻿'use client';
 import { useEffect, useState } from 'react';
 import { type EntityRecord } from '@/lib/intake/entities';
-import { productPhotos, scrapableSources, resolveServerPhotos } from '@/lib/domain/product-photos';
+import { photoDedupKey, productPhotos, scrapableSources, resolveServerPhotos } from '@/lib/domain/product-photos';
 
 // 상품 사진 = 직접 이미지(image_urls 등) 즉시 + 드라이브 폴더(photo_link)는 서버해석 async 로 뒤이어 채움.
 //  v3 동일 방식(image_urls 우선, 없으면 /api/extract-photos 스크래핑). 카드·상세 공용.
@@ -50,9 +50,22 @@ export function useProductPhotoState(
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [code, link, size, enabled]);
-  // 직접 업로드 + 링크해석 합쳐서 표시(dedup).
+  /*
+   * 직접 업로드 + 링크해석 합쳐서 표시(dedup).
+   *
+   * ⚠⚠ **글자 그대로 견주면 안 된다**(2026-09-10 운영 실측). 미리 풀어 둔 사진은 `sz=w640` 으로
+   *   저장돼 오고, 그 자리에서 다시 푼 것은 `sz=w1280` 이다 — **같은 드라이브 파일인데 글자가 달라**
+   *   한 장이 두 장으로 세어졌다. 109호3438 은 실제 51장인데 화면이 **「1 / 91」** 이었고,
+   *   손님은 같은 사진을 두 번 넘겼다. 합치는 자는 `photoDedupKey` 하나뿐이다.
+   * ★먼저 온 것을 남긴다 — 저장본이 앞이라 카드가 **기다리지 않고** 그려진다.
+   */
   const seen = new Set<string>();
-  const photos = [...immediate, ...extra].filter((u) => { if (seen.has(u)) return false; seen.add(u); return true; });
+  const photos = [...immediate, ...extra].filter((u) => {
+    const k = photoDedupKey(u);
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
   return { photos, pending: resolving && photos.length === 0 };
 }
 

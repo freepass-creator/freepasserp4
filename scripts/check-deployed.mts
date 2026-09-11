@@ -68,10 +68,57 @@ try {
       }
       if (screenCommits.length > 25) console.log(`  … 외 ${screenCommits.length - 25}개`);
     } else {
-      console.log('\n✅ 운영에 안 올라간 화면 커밋 없음 — 화면은 배포와 일치');
+      console.log('\n✅ 운영에 안 올라간 화면 커밋 없음');
     }
   }
-  process.exit(screenCommits.length === 0 ? 0 : 1);
+
+  /*
+   * ★★★**«머지했다»와 «올라갔다»는 다른 말이다** (2026-09-10 사고).
+   *
+   *   이 검사는 여태 「git 에 있나」만 봤다. 커밋이 main 에 있으면 초록불을 줬는데, 실제로는
+   *   **Vercel 빌드가 두 번 연속 실패해 운영이 네 시간 동안 옛 화면**이었다. 나는 「배포 완료」라고
+   *   보고했고, 사장님은 고쳤다는 화면을 못 보고 계셨다 — CLAUDE.md 맨 위의 그 사고
+   *   (「힘들게 수정해 놓으면 또 바뀌고」)와 **정확히 같은 꼴**이다. 원인은 환경변수 하나가
+   *   지워진 것이었는데, **아무 검사도 그걸 안 보고 있었다.**
+   *
+   * ⇒ **운영이 «지금 무슨 커밋을 서빙하는지» 직접 묻는다**(`/api/version` 의 `sha`).
+   *   git 이 아니라 «살아 있는 서버»에 묻는 것이라, 빌드가 실패했으면 여기서 드러난다.
+   * ★못 물어봐도(망 없음·CI 안) **실패로 세지 않는다** — 이 검사의 본래 일은 git 대조다.
+   *   운영 확인은 «있으면 좋은 한 겹»이고, 없다고 커밋을 막을 이유는 없다.
+   */
+  let liveMismatch = false;
+  if (!asJson && !process.env.CI) {
+    const site = process.env.FP_LIVE_URL || 'https://www.freepasserp.com';
+    try {
+      const head = git('rev-parse', base).slice(0, 7);
+      const res = await fetch(`${site}/api/version`, { cache: 'no-store' });
+      const body = await res.json() as { sha?: string };
+      const live = String(body.sha || '').slice(0, 7);
+      if (!live) {
+        console.log('   (운영이 커밋을 안 알려 준다 — 건너뜀)');
+      } else if (live === head) {
+        console.log(`   운영도 같은 커밋을 서빙한다 — ${live} ✅`);
+      } else {
+        liveMismatch = true;
+        console.error('\n✗ 머지는 됐는데 **운영에 안 올라갔다** — 배포가 실패했을 수 있다.');
+        console.error(`   ${base} = ${head}  ·  운영 = ${live}`);
+        console.error('   ⚠ 「머지했다」는 「올라갔다」가 아니다. 배포 상태를 본다:');
+        console.error('     npx vercel ls freepasserp4 | grep -i production');
+        console.error('     실패했으면  npx vercel inspect <주소> --logs  로 이유를 본다.');
+        console.error('     (2026-09-10 에는 환경변수 NEXT_PUBLIC_FIREBASE_DATABASE_URL 이 지워져 있었다.)');
+      }
+    } catch {
+      /* 망이 없거나 운영이 잠깐 안 열려도 커밋을 막지 않는다(위 머리말). */
+      console.log('   (운영에 못 물어봤다 — 건너뜀)');
+    }
+  }
+
+  /*
+   * ⚠ `process.exit` 이 아니라 «종료코드만» 세운다 — 방금 연 http 연결이 아직 정리 중인데
+   *   즉시 죽이면 윈도우 node 가 `UV_HANDLE_CLOSING` 어설션을 뱉는다(껍데기만 시끄럽고
+   *   뜻은 없는 소리라, 다음 사람이 이걸 «검사가 깨졌다»로 읽는다).
+   */
+  process.exitCode = screenCommits.length === 0 && !liveMismatch ? 0 : 1;
 } catch (e) {
   console.error('check:deployed 실패 —', (e as Error).message);
   process.exit(2);
