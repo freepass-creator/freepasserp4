@@ -11,25 +11,17 @@
 import { readFileSync } from 'node:fs';
 import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
-import { parseMoneyOrRate } from '../lib/domain/policy-money-rate';
+import { parseMoneyOrRate, wonLabel } from '../lib/domain/policy-money-rate';
 const APPLY = process.argv.includes('--apply');
 const S = (v: unknown) => String(v ?? '').trim();
 
-function wonKR(won: number): string {
-  if (won <= 0) return '';
-  if (won % 10000 !== 0) return `${won.toLocaleString()}원`;
-  const eok = Math.floor(won / 1e8);
-  const manRest = (won % 1e8) / 1e4;                       // 만 단위 나머지
-  const manPart = manRest === 0 ? '' : (manRest % 1000 === 0 ? `${manRest / 1000}천만` : `${manRest}만`);
-  return eok > 0 ? `${eok}억${manPart}원` : `${manPart}원`;
-}
-// 값을 캐논으로. 순수금액이면 wonKR, 「월/1인당」 접두는 보존, 특수문구는 표준화, 그 외 유지.
+// 값을 캐논으로. 순수금액이면 wonLabel(정본 포매터·1천만 미만 숫자/이상 한글), 「월/1인당」 접두 보존, 특수문구 표준화, 그 외 유지.
 function canon(raw: string, zeroText: string): string {
   const t = S(raw); if (!t) return t;
   if (/^차량가\s*기준$/.test(t)) return '차량가액';
   const pre = t.match(/^(월|1인당|월\s*1인당)\s+/); const body = pre ? t.slice(pre[0].length) : t;
   const p = parseMoneyOrRate(body);
-  if (p.kind === 'won') { if (p.won === 0) return zeroText; const k = wonKR(p.won); return pre ? `${pre[1]} ${k}` : k; }
+  if (p.kind === 'won') { if (p.won === 0) return zeroText; const k = wonLabel(p.won); return pre ? `${pre[1]} ${k}` : k; }
   if (p.kind === 'none') return zeroText;                 // 0원·0%·없음·무료
   return t;                                                // rate·개월분·무한·차량가액·서술형 등 유지
 }

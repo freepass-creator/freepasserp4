@@ -90,14 +90,27 @@ export function moneyOrRateWon(value: unknown, baseWon: number | null | undefine
   return null;
 }
 
+/** 만 단위 수(1..9999)를 한글 천/백/십 자릿수로 — 5000→「5천」·1500→「1천5백」·3000→「3천」·500→「5백」. */
+function koreanManDigits(n: number): string {
+  const cheon = Math.floor(n / 1000), r1 = n % 1000;
+  const baek = Math.floor(r1 / 100), r2 = r1 % 100;
+  const sip = Math.floor(r2 / 10), il = r2 % 10;
+  return `${cheon ? `${cheon}천` : ''}${baek ? `${baek}백` : ''}${sip ? `${sip}십` : ''}${il || ''}`;
+}
+
+/**
+ * 금액 한글 표기 정본 (사장님 2026-09-11):
+ *   1천만원 «미만» = 아라비아 만 수 + 만원 — 「50만원」·「100만원」(1백만원 아님)·「500만원」.
+ *   1천만원 «이상» = 한글 억/천/백만 — 「1천만원」·「1천5백만원」·「5천만원」·「1억원」·「1억5천만원」.
+ *   원문이 「500000」이든 「150000000」이든(공급사가 0을 쭉 써도) 우리 표현은 이 규칙 하나로 정제한다.
+ */
 export function wonLabel(won: number): string {
-  if (won >= 1e8 && won % 10_000 === 0) {
-    const eok = Math.floor(won / 1e8);
-    const rest = won - eok * 1e8;
-    return rest ? `${eok}억 ${(rest / 10_000).toLocaleString()}만원` : `${eok}억원`;
-  }
-  if (won >= 10_000 && won % 10_000 === 0) return `${(won / 10_000).toLocaleString()}만원`;
-  return `${won.toLocaleString()}원`;
+  if (!Number.isFinite(won) || won < 10_000 || won % 10_000 !== 0) return `${Math.round(won).toLocaleString()}원`;
+  const man = won / 10_000;                                    // 총 만 수
+  if (man < 1000) return `${man}만원`;                         // <1천만 → 아라비아 숫자
+  const eok = Math.floor(man / 10_000);
+  const manRem = man % 10_000;                                 // 억 나머지(만 단위)
+  return `${eok ? `${eok}억` : ''}${manRem ? `${koreanManDigits(manRem)}만` : ''}원`;
 }
 
 /**
