@@ -49,6 +49,7 @@ import { cachedCost, fetchSharedCost } from '@/lib/domain/estimate/cost-client';
 import { safeComputeTerm } from '@/lib/domain/estimate/safe-calc.js';
 import { createQuoteInput } from '@/lib/domain/estimate/quote-input.js';
 import { usedResidPct, newcarResidPct } from '@/lib/domain/estimate/residual-lookup.js';
+import { monthlyRates, residualSchedule } from '@/lib/domain/estimate/residual-schedule';
 import { useIsMobile } from '@/lib/use-mobile';
 
 /** 목업 `TERMS/PCTS/CREDIT` 그대로. */
@@ -264,6 +265,12 @@ function EstimatePageInner() {
    */
   const [residOverride, setResidOverride] = useState<Record<number, number>>({});
   const [buyoutOverride, setBuyoutOverride] = useState<Record<number, number>>({});
+  /**
+   * ★★중고는 잔가를 **금액(원)**으로 적는다 — 사장님 2026-09-11 「구매가격과 1~5년 잔존가격을 알면 되는 거야」.
+   *   율(%)은 거기서 «되짚어» 보여 줄 뿐이다. 신차는 아직 율 칸 그대로(「일단 중고차 기준으로」).
+   */
+  const [residAmtOverride, setResidAmtOverride] = useState<Record<number, number>>({});
+  const [buyoutAmtOverride, setBuyoutAmtOverride] = useState<Record<number, number>>({});
   /** 손님·담당자 — 원본 `CustomerStaffForm`. 견적서에 찍혀 나갈 이름이라 견적 화면이 묻는다. */
   const [custName, setCustName] = useState('');
   const [staffName, setStaffName] = useState('');
@@ -463,21 +470,41 @@ function EstimatePageInner() {
     }
     return out;
   }, [isNew, age, delta]);
-  /** 견적용 — 엔진이 이 값으로 대여료를 만든다. */
+  /**
+   * ★잔존가의 «밑값» — 엔진이 잔가율을 곱하는 바로 그 값(`calc.js` netPrice: 차량가 − 세제감면 − 전기차 보조금).
+   *   금액을 율로 바꿀 때 이걸로 나눠야 **적은 금액이 그대로** 잔가가 된다.
+   *   (화면 `netPrice` 는 손님 기준이라 보조금을 안 뺀다 — 둘은 전기차에서만 갈린다.)
+   */
+  const residBase = Math.max(0, netPrice - (picked.fuel === 'ev' ? Math.max(0, cost.evSubsidy || 0) : 0));
+  /** 중고 — 적은 금액(원). 안 적은 해는 곡선(표준+델타)이 낸 율 × 밑값이라 **지금까지와 같은 값**이다. */
+  const residAmt = useMemo(() => {
+    const out: Record<number, number> = {};
+    for (const t of TERMS) out[t] = residAmtOverride[t] ?? residBase * autoResid[t] / 100;
+    return out;
+  }, [residAmtOverride, residBase, autoResid]);
+  /** 견적용 — 엔진이 이 값으로 대여료를 만든다. 중고는 금액에서 되짚은 율이다. */
   const residPct = useMemo(() => {
     const out: Record<number, number> = {};
-    for (const t of TERMS) out[t] = residOverride[t] ?? autoResid[t];
+    for (const t of TERMS) {
+      out[t] = isNew || !(residBase > 0) ? (residOverride[t] ?? autoResid[t]) : residAmt[t] / residBase * 100;
+    }
     return out;
-  }, [autoResid, residOverride]);
+  }, [isNew, autoResid, residOverride, residAmt, residBase]);
   /**
    * 인수용 — 손님이 만기에 사 가는 값. 기본은 견적용과 같다(지금까지의 동작 그대로).
    * ⚠ 이 값은 **대여료에 안 들어간다.** 올려도 월납은 안 움직인다 — 만기에 받는 돈만 달라진다.
+   * 중고는 금액으로 적고(`buyoutAmtOverride`), 손님 기준(`netPrice`)으로 되짚는다.
    */
   const buyoutPct = useMemo(() => {
     const out: Record<number, number> = {};
-    for (const t of TERMS) out[t] = buyoutOverride[t] ?? residPct[t];
+    for (const t of TERMS) {
+      const amt = isNew ? undefined : buyoutAmtOverride[t];
+      out[t] = amt != null && netPrice > 0 ? amt / netPrice * 100 : (isNew ? buyoutOverride[t] : undefined) ?? residPct[t];
+    }
     return out;
-  }, [buyoutOverride, residPct]);
+  }, [isNew, buyoutOverride, buyoutAmtOverride, netPrice, residPct]);
+  /* 차·갈래가 바뀌면 적어 둔 «금액»은 버린다 — 율과 달리 금액은 다른 차에 옮겨 가면 뜻이 없다. */
+  useEffect(() => { setResidAmtOverride({}); setBuyoutAmtOverride({}); }, [picked, isNew]);
 
   const mk = useCallback((t: number, d: number, p: number): Card => {
     // 신차는 «출고가»라 업금액을 안 얹는다(중고는 매입가에 얹는다) — `configFrom` 이 갈래로 고른다.
@@ -485,8 +512,14 @@ function EstimatePageInner() {
     const base = configFrom(cost, { newCar: isNew, path: acq, credit });
     // 수수료 칩은 영업자가 «건별»로 고른다 — 원가 설정의 기본값을 이 견적에서만 덮는다.
     const adminCfg = { ...base, setting: { ...base.setting, salesFeeRate: { rent: fee / 100, sub: fee / 100 } } };
-    const raw: Record<number, number> = {};
-    for (const t of TERMS) raw[t] = residPct[t] / 100;
+    /* ★★잔가는 «다섯 점»이 아니라 **1~60개월 전부**를 넘긴다 — 사장님 2026-09-11 「1년 6개월도 잔존가를
+         알 수 있어야」. 구매가격(0개월)과 1~5년 금액 사이를 달마다 곧게 이어 율로 바꾼다.
+         해 끝(12·24…)에서는 적은 값 그대로라 다섯 칸의 대여료는 안 바뀐다. */
+    const anchors: Record<number, number> = {};
+    for (const t of TERMS) anchors[t] = residBase * residPct[t] / 100;
+    const raw: Record<number, number> = residBase > 0
+      ? monthlyRates(residualSchedule(residBase, anchors), residBase)
+      : Object.fromEntries(TERMS.map((t) => [t, residPct[t] / 100]));
     // 「잔가로 조정」 — 원가 설정의 가감(±%p)을 곡선 전체에 얹는다(사장님 2026-09-06).
     const residualDefault = adjustResidual(raw, cost.residualAdjustPct);
     const input = createQuoteInput({
@@ -504,7 +537,7 @@ function EstimatePageInner() {
       residual: null, residualDefault, credit, defaultGroup: 'B', nowYear,
     });
     return { ...safeComputeTerm(t, input, { idx: t }), term: t };
-  }, [ch, type, price, listPrice, isNew, credit, fee, residPct, nowYear, cost, cc,
+  }, [ch, type, price, listPrice, isNew, credit, fee, residPct, residBase, nowYear, cost, cc,
     picked.fuel, picked.saleTaxCredit, usedMileage, usedYear, acq]);
 
   /**
@@ -568,7 +601,8 @@ function EstimatePageInner() {
           ? Math.round((Math.round(c?.deposit || 0) / netPrice) * 1000) / 10 : x.dep,
         deposit: Math.round(c?.deposit || 0),
         prepayPct: x.pre, prepay: Math.round(netPrice * x.pre / 100),
-        buyoutPct: buyoutPct[x.term], buyout: Math.round(netPrice * buyoutPct[x.term] / 100),
+        /* 중고는 금액으로 적어 율이 소수가 된다 — 딱지는 반올림, 금액은 적은 그대로. */
+        buyoutPct: Math.round(buyoutPct[x.term]), buyout: Math.round(netPrice * buyoutPct[x.term] / 100),
       };
     }),
     /* ⚠ `optIds`·`ruled`·`optSpec` 이 빠져 있었다 — 규칙판에서 옵션을 갈아도 견적서가
@@ -845,18 +879,26 @@ function EstimatePageInner() {
                 ⚠ 둘을 한 값으로 묶으면 「손님에게 싸게 넘기려고 잔가를 올렸더니 대여료가 같이
                   싸지는」 사고가 난다. 그래서 나눠 둔다. */}
             <div className="term-card__cond resid2">
+              {/* ★중고는 **금액(만원)**으로 적는다(사장님 2026-09-11) — 율은 머리에 작게 되짚어 보여 준다.
+                     신차는 아직 율 칸 그대로다. */}
               <label title="우리가 「얼마에 팔릴까」로 잡는 값 — 이 값이 대여료를 만듭니다">
-                <span>견적 잔가</span>
+                <span>견적 잔가{!isNew && residBase > 0 ? <em className="resid-pct">{Math.round(residPct[sc.term])}%</em> : null}</span>
                 <span className="pct-cell">
-                  <input type="text" inputMode="numeric" maxLength={3} value={residPct[sc.term]}
-                    onChange={(e) => setResidOverride((o) => ({ ...o, [sc.term]: Math.min(98, digits(e.target.value)) }))} />%
+                  <input type="text" inputMode="numeric" maxLength={isNew ? 3 : 7}
+                    value={isNew ? residPct[sc.term] : fmtNum(residAmt[sc.term] / 10000)}
+                    onChange={(e) => (isNew
+                      ? setResidOverride((o) => ({ ...o, [sc.term]: Math.min(98, digits(e.target.value)) }))
+                      : setResidAmtOverride((o) => ({ ...o, [sc.term]: digits(e.target.value) * 10000 })))} />{isNew ? '%' : '만'}
                 </span>
               </label>
               <label title="만기에 손님이 사 가는 값 — 대여료에는 들어가지 않습니다">
-                <span>인수 잔가</span>
+                <span>인수 잔가{!isNew && netPrice > 0 ? <em className="resid-pct">{Math.round(buyoutPct[sc.term])}%</em> : null}</span>
                 <span className="pct-cell">
-                  <input type="text" inputMode="numeric" maxLength={3} value={buyoutPct[sc.term]}
-                    onChange={(e) => setBuyoutOverride((o) => ({ ...o, [sc.term]: Math.min(98, digits(e.target.value)) }))} />%
+                  <input type="text" inputMode="numeric" maxLength={isNew ? 3 : 7}
+                    value={isNew ? buyoutPct[sc.term] : fmtNum(netPrice * buyoutPct[sc.term] / 100 / 10000)}
+                    onChange={(e) => (isNew
+                      ? setBuyoutOverride((o) => ({ ...o, [sc.term]: Math.min(98, digits(e.target.value)) }))
+                      : setBuyoutAmtOverride((o) => ({ ...o, [sc.term]: digits(e.target.value) * 10000 })))} />{isNew ? '%' : '만'}
                 </span>
               </label>
             </div>
