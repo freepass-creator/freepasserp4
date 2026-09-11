@@ -337,32 +337,7 @@ async function readRows(): Promise<Row[]> {
       const 선택옵션 = S(c.유료옵션);
       push({ car, link: 픽업링크.get(N(car)) || '', imageUrls: c.사진들, photoCollectedAt: c.상세시각 || dumpCollectedAt, status, kind, maker: S(c.제조사), model: S(c.모델), vname: S(c.차명) || S(c.세부), fuel: S(c.연료), ext: S(c.외장), int: S(c.내장), km: c.주행거리 == null ? '' : String(c.주행거리), opt: 선택옵션, firstReg: S(c.최초등록) || S(c.연식), cc: c.배기량 == null ? '' : String(c.배기량), klass: '', price, depNote: sonokongDepositRuleText(), tab: '손오공API', row: S(c.id), raw: c as Record<string, unknown> });
     }
-    // ★손오공 렌터카(렌트재고 탭) — API 덤프엔 없다(구독만). 시트에서 당겨 온다(사장님 2026-09-11 「렌터카 안 올라와있나」).
-    try {
-      const SONO_S = '1WIFn5ObK_nCVGLTjj6rO96i6vxub1QzJmiVW0BpJLcA';
-      const g = await readSheetGrid(SONO_S, '렌트재고');
-      const allRows = [g.header, ...g.rows];
-      let hi = -1;
-      for (let k = 0; k < Math.min(allRows.length, 8); k++) { const cc = resolveCols(allRows[k]); if (cc.car >= 0 && cc.status >= 0) { hi = k; break; } }
-      if (hi >= 0) {
-        const ci = resolveCols(allRows[hi]);
-        let n = 0, rowNo = hi + 1;
-        for (const r of allRows.slice(hi + 1)) {
-          rowNo += 1;
-          const car = S(r[ci.car]); if (!car) continue;
-          const model = ci.model >= 0 ? clean(r[ci.model]) : '';
-          const trim = ci.trim >= 0 ? clean(r[ci.trim]) : '';
-          const maker0 = ci.maker >= 0 ? clean(r[ci.maker]) : '';
-          const rawVname = ci.vname >= 0 ? clean(r[ci.vname]) : '';
-          const composed = rawVname || composeVehicleName(model, trim) || [maker0, model, trim].filter(Boolean).join(' ');
-          const vname = N(composed) === N(maker0) ? '' : composed;
-          const price = sheetPrice((i) => S(r[i]), ci);
-          push({ car, status: clean(r[ci.status]), kind: (ci.kind >= 0 ? clean(r[ci.kind]) : '') || '중고렌트', maker: maker0, model, vname, trim, fuel: ci.fuel >= 0 ? clean(r[ci.fuel]) : '', ext: ci.ext >= 0 ? clean(r[ci.ext]) : '', int: ci.int >= 0 ? clean(r[ci.int]) : '', km: ci.km >= 0 ? clean(r[ci.km]) : '', opt: ci.opt >= 0 ? clean(r[ci.opt]) : '', firstReg: ci.firstReg >= 0 ? clean(r[ci.firstReg]) : '', cc: ci.cc >= 0 ? clean(r[ci.cc]) : '', klass: ci.klass >= 0 ? clean(r[ci.klass]) : '', price, depNote: depositNote(ci.dep >= 0 ? S(r[ci.dep]) : ''), tab: '렌트재고', row: String(rowNo), raw: Object.fromEntries(g.header.map((h, i) => [S(h), S(r[i])]).filter(([k]) => k)) });
-          n++;
-        }
-        console.log(`  손오공 렌트재고 — ${n}줄 읽음(중고렌트)`);
-      }
-    } catch (e) { console.warn(`  ▲ 손오공 렌트재고 못 읽음 — ${(e as Error).message.slice(0, 60)}`); }
+    // ★손오공은 «API 덤프만» 본다(사장님 2026-09-11 「손오공은 erp만」). 렌터카(중고렌트)도 덤프의 c.중고 차에서 나온다 — 시트를 읽지 않는다.
     return out;
   }
   // 시트형 — 탭·머리행 자동탐지 후 MIRROR_ALIAS 로 열 해석.
