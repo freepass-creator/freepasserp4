@@ -1,7 +1,7 @@
 ﻿'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { type EntityRecord } from '@/lib/intake/entities';
-import { photoDedupKey, productPhotos, scrapableSources, resolveServerPhotos } from '@/lib/domain/product-photos';
+import { photoDedupKey, productPhotosShared, scrapableSources, resolveServerPhotos } from '@/lib/domain/product-photos';
 
 // 상품 사진 = 직접 이미지(image_urls 등) 즉시 + 드라이브 폴더(photo_link)는 서버해석 async 로 뒤이어 채움.
 //  v3 동일 방식(image_urls 우선, 없으면 /api/extract-photos 스크래핑). 카드·상세 공용.
@@ -29,7 +29,8 @@ export function useProductPhotoState(
    */
   enabled = true,
 ): { photos: string[]; pending: boolean } {
-  const immediate = productPhotos(p);
+  /* 같은 차면 같은 배열(캐시 원본) — 아래 합치기가 «바뀌었을 때만» 다시 돈다(2026-09-11 빠릿). */
+  const immediate = productPhotosShared(p);
   const [extra, setExtra] = useState<string[]>([]);
   const [resolving, setResolving] = useState(false);
   const code = String(p?.product_code ?? p?._key ?? '');
@@ -59,13 +60,15 @@ export function useProductPhotoState(
    *   손님은 같은 사진을 두 번 넘겼다. 합치는 자는 `photoDedupKey` 하나뿐이다.
    * ★먼저 온 것을 남긴다 — 저장본이 앞이라 카드가 **기다리지 않고** 그려진다.
    */
-  const seen = new Set<string>();
-  const photos = [...immediate, ...extra].filter((u) => {
-    const k = photoDedupKey(u);
-    if (seen.has(k)) return false;
-    seen.add(k);
-    return true;
-  });
+  const photos = useMemo(() => {
+    const seen = new Set<string>();
+    return [...immediate, ...extra].filter((u) => {
+      const k = photoDedupKey(u);
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+  }, [immediate, extra]);
   return { photos, pending: resolving && photos.length === 0 };
 }
 

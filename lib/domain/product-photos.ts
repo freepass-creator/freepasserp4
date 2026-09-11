@@ -53,7 +53,20 @@ export function toProxiedImage(url: string): string {
  *   운영 실측(109호3438): 실제 51장인데 화면이 **「1 / 91」**. 손님은 같은 사진을 두 번 넘긴다.
  *   합치는 자가 하나여야 그런 일이 없다.
  */
-export function photoDedupKey(url: string): string { return dedupKey(url); }
+export function photoDedupKey(url: string): string {
+  /*
+   * ★같은 주소는 «한 번만» 뜯는다(2026-09-11 사장님 「좀 빠릿빠릿하게」). 카드마다 사진 수십 장을
+   *   합칠 때 이 자를 부르는데, 안에서 `new URL()` 을 한다 — 목록이 바뀔 때마다 같은 주소를 또 뜯었다.
+   * ⚠ 주소는 끝없이 늘 수 있으니 상한을 둔다(넘으면 통째로 비우고 다시 쌓는다 — 틀린 값이 남지는 않는다).
+   */
+  const hit = dedupKeyCache.get(url);
+  if (hit !== undefined) return hit;
+  if (dedupKeyCache.size > 8000) dedupKeyCache.clear();
+  const k = dedupKey(url);
+  dedupKeyCache.set(url, k);
+  return k;
+}
+const dedupKeyCache = new Map<string, string>();
 
 function dedupKey(url: string): string {
   try {
@@ -99,7 +112,7 @@ export function collectImages(value: any): string[] {
  *   ⚠ 배열을 «제자리에서» 고치면(push) 못 알아챈다 — 이 저장소의 편집은 새 배열로 갈아 끼운다.
  * ★`WeakMap` 이라 차가 목록에서 빠지면 캐시도 같이 사라진다(메모리를 붙잡지 않는다).
  */
-type PhotoMemo = { src: unknown[]; images: string[]; first?: string };
+type PhotoMemo = { src: unknown[]; images: string[]; first?: string; photos?: string[] };
 const photoMemo = new WeakMap<object, PhotoMemo>();
 const photoSrc = (p: EntityRecord): unknown[] =>
   [p.image_urls, p.images, p.photos, p.photo, p.image_url, p.doc_images, p.photo_link];
@@ -128,8 +141,22 @@ export function productExternalImages(p: EntityRecord): string[] {
 
 /** 갤러리용 전체 사진(프록시 적용). */
 export function productPhotos(p: EntityRecord): string[] {
-  return [...productImages(p), ...productExternalImages(p)].map(toProxiedImage);
+  return productPhotosShared(p).slice();
 }
+
+/**
+ * `productPhotos` 의 **캐시 원본** — 고치지 말고 읽기만 하는 쪽(`use-product-photos`)이 쓴다.
+ * ★같은 차면 **같은 배열**을 준다 — 카드가 「사진이 바뀌었나」를 참조로 알아채 헛그리기를 안 한다.
+ * ⚠ 2026-09-11 실측 — 목록이 바뀔 때마다 새로 뜬 카드가 제 사진 «전부»를 프록시 주소로 다시 만들었다
+ *   (한 장마다 `new URL()`). 첫 장 하나 보이려고 수십 장을 뜯은 셈이다.
+ */
+export function productPhotosShared(p: EntityRecord): readonly string[] {
+  if (!p) return EMPTY;
+  const m = memoFor(p);
+  if (!m.photos) m.photos = [...m.images, ...productExternalImages(p)].map(toProxiedImage);
+  return m.photos;
+}
+const EMPTY: readonly string[] = Object.freeze([]);
 
 /** 목록 썸네일용 첫 사진(프록시). */
 export function firstProductImage(p: EntityRecord): string {
