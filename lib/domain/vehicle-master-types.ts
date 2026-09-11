@@ -51,6 +51,12 @@ export type MasterEntry = {
   title?: string;
   variants: MasterVariant[];
   trims?: string[];
+  /**
+   * «엣지 아니면 기본형» 모델 표식(사장님 2026-09-11 · G80 RG3 = 기본형·블랙뿐, 블랙 아니면 기본형).
+   * true 면 cleanTrim 이 트림 목록에 «기본형»이 있을 때, 매칭 안 된 원문(런칭·스포츠패키지·공란 등)을 «기본형»으로 복사한다.
+   * ⚠ 진짜 엣지 트림이 여럿인 모델엔 켜지 않는다(GV80 런칭·GV70 스포츠가 기본형에 먹힌다).
+   */
+  base_default?: boolean;
 };
 
 /** 원문에 없어 마스터 선택지로 힌트 채운 원자(미리보기용). 저장 스펙 값은 아님. */

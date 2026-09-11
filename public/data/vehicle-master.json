@@ -26047,12 +26047,12 @@
       ],
       "market_class": "신차",
       "newcar_priced": true,
+      "base_default": true,
       "trims": [
         "기본형",
-        "런칭",
         "블랙"
       ],
-      "_basic_trim_healed_at": 1789086623433
+      "_basic_trim_healed_at": 1789087753891
     },
     {
       "id": "mf-007.md-003.sm-ik",

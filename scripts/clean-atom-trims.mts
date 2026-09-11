@@ -25,6 +25,9 @@ const MASTER = ((Array.isArray(masterRaw) ? masterRaw : (masterRaw as { entries?
 const TRIMS = new Map<string, string[]>();
 for (const e of MASTER) { if (!e.trims?.length) continue; for (const a of makerGroup(N(e.maker))) TRIMS.set(`${a}|${N(e.model)}|${N(e.sub_model)}`, e.trims); }
 const trimsFor = (mk: unknown, mo: unknown, sm: unknown) => { for (const a of makerGroup(N(mk))) { const t = TRIMS.get(`${a}|${N(mo)}|${N(sm)}`); if (t) return t; } return [] as string[]; };
+const BASEDEF = new Set<string>();
+for (const e of MASTER) { if (e.base_default) for (const a of makerGroup(N(e.maker))) BASEDEF.add(`${a}|${N(e.model)}|${N(e.sub_model)}`); }
+const baseTrimFor = (mk: unknown, mo: unknown, sm: unknown) => { for (const a of makerGroup(N(mk))) { if (BASEDEF.has(`${a}|${N(mo)}|${N(sm)}`)) return '기본형'; } return ''; };
 
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 initializeApp({ credential: cert({ projectId: sa.project_id, clientEmail: sa.client_email, privateKey: S(sa.private_key).replace(/\\n/g, '\n') }) });
@@ -49,7 +52,7 @@ let 교정 = 0, 쓰레기 = 0;
 for (const { id, d } of docs) {
   const t = S(d.trim_name); if (!t) continue;
   const trims = trimsFor(d.maker, d.model, d.sub_model);
-  const to = cleanTrim(t, d.maker, d.model, d.sub_model, trims);   // 복사(정본철자) or 공란
+  const to = cleanTrim(t, d.maker, d.model, d.sub_model, trims, baseTrimFor(d.maker, d.model, d.sub_model));   // 복사(정본철자) · base-default면 기본형 · or 공란
   if (to === t) { kept.push(t); continue; }                        // 이미 정본
   고칠것.push({ id, to });
   if (to) 교정++;                                                   // 마스터 트림으로 철자교정(복사)

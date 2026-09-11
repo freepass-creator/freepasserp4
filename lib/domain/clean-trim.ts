@@ -25,13 +25,21 @@ export function isTrimContaminated(trim: unknown): boolean {
  * 세부트림을 마스터에서 «복사»한다 — 지어내지 않는다.
  * @param trim   원문/원자에 붙은 현재 트림(오염됐을 수 있음)
  * @param masterTrims  그 세부모델의 마스터 트림 목록(없거나 못 맞으면 공란 반환)
- * @returns  마스터 트림(정본 철자) 또는 «공란»(마스터가 못 덮음 → 검수대기+경고). 절대 지어낸 값 아님.
+ * @param baseTrim  «엣지 아니면 기본형» 모델의 기본 트림(예 G80 RG3 = 「기본형」). 비면 규칙 꺼짐.
+ *   ★사장님 2026-09-11: G80 RG3 는 실제 트림이 「기본형·블랙」뿐 — «블랙이 아니면 다 기본형».
+ *   이런 모델은 마스터에 `base_default:true` 로 표시하고, 부르는 쪽이 baseTrim=「기본형」을 넘긴다.
+ *   그러면 매칭 안 된 원문(런칭·스포츠패키지·18인치·공란)은 «기본형»으로 «복사»된다 — 여전히 마스터에 있는 값이라 지어내기 아님.
+ *   ⚠ 아무 모델에나 켜지 않는다 — GV80 런칭·GV70 스포츠처럼 «진짜 엣지 트림»이 있는 모델은 base_default 를 켜면 안 된다(엣지가 기본형에 먹힌다).
+ * @returns  마스터 트림(정본 철자) · base-default 모델이면 baseTrim · 아니면 «공란»(검수대기+경고). 지어낸 값 아님.
  */
-export function cleanTrim(trim: unknown, _maker: unknown, _model: unknown, _subModel: unknown, masterTrims: string[] = []): string {
+export function cleanTrim(trim: unknown, _maker: unknown, _model: unknown, _subModel: unknown, masterTrims: string[] = [], baseTrim = ''): string {
   const t = S(trim);
-  if (!t) return '';
   const trims = masterTrims.map(S).filter(Boolean);
-  if (!trims.length) return '';   // 마스터가 트림을 안 갖고 있으면(세부등급 없음) 공란이 정답.
+  const base = S(baseTrim);
+  const baseOn = !!base && trims.some((mt) => N(mt) === N(base));   // baseTrim 이 실제 마스터에 있어야 켜진다
+
+  if (!t) return baseOn ? base : '';   // 원문 트림이 아예 없어도 base-default 모델이면 기본형(맨 「G80」 같은 차).
+  if (!trims.length) return '';        // 마스터가 트림을 안 갖고 있으면(세부등급 없음) 공란이 정답.
 
   // ① 정확 일치 → 마스터의 «정본 철자»로 복사(Black → 블랙 같은 표기차 흡수).
   const exact = trims.find((mt) => N(mt) === N(t));
@@ -42,6 +50,9 @@ export function cleanTrim(trim: unknown, _maker: unknown, _model: unknown, _subM
   //   «반대 의미»를 오배정했다. 마스터 값이 문자열에 든다는 사실이 그 차의 트림임을 «입증하지 못한다».
   //   ⇒ 정확히 같을 때만 복사. 아니면 공란(검수대기). 이게 사장님 「마스터에 있는 내용으로만 · 지어내지 마」.
 
-  // ② 마스터가 이 트림을 «정확히» 덮지 못한다 → «공란»(검수대기). 추측·부분일치 없음.
+  // ② base-default 모델(마스터가 «엣지 아니면 기본형»이라 선언) → 매칭 안 된 것은 기본형.
+  if (baseOn) return base;
+
+  // ③ 마스터가 이 트림을 «정확히» 덮지 못한다 → «공란»(검수대기). 추측·부분일치 없음.
   return '';
 }

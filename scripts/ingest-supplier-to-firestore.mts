@@ -125,6 +125,13 @@ const trimsFor = (maker: unknown, model: unknown, sub: unknown) => {
   for (const a of makerGroup(N(maker))) { const t = TRIMS.get(`${a}|${N(model)}|${N(sub)}`); if (t) return t; }
   return [];
 };
+// «엣지 아니면 기본형» 모델(base_default) — 매칭 안 된 원문을 「기본형」으로 복사(cleanTrim baseTrim).
+const BASEDEF = new Set<string>();
+for (const e of MASTER) { if (e.base_default) for (const a of makerGroup(N(e.maker))) BASEDEF.add(`${a}|${N(e.model)}|${N(e.sub_model)}`); }
+const baseTrimFor = (maker: unknown, model: unknown, sub: unknown) => {
+  for (const a of makerGroup(N(maker))) { if (BASEDEF.has(`${a}|${N(model)}|${N(sub)}`)) return '기본형'; }
+  return '';
+};
 // 불변식 게이트에 넘길 마스터 인덱스 — 원자화가 «이 규칙»으로 확정 여부를 정한다.
 const IDX: MasterIndex = { validSub: (mk, mo, sm) => !!validCanon(mk, mo, sm), trimsOf: trimsFor };
 
@@ -475,7 +482,7 @@ function atomize(row: Row, pinned: Map<string, Record<string, unknown>>): Atom {
   }
   // ★세부트림 = 마스터에서 «복사» — 마스터에 없으면 공란(검수대기). 지어내지 않는다(사장님 2026-09-09 「마스터에 있는 내용으로만 · 분명하게 복사」).
   //   원자의 트림은 오직 둘 — 마스터 트림 복사, 또는 공란. 공란인 차는 clean-atom-trims 정규화기 뒤 경고 리포트가 뽑는다.
-  identity.trim_name = cleanTrim(identity.trim_name, identity.maker, identity.model, identity.sub_model, trimsFor(identity.maker, identity.model, identity.sub_model));
+  identity.trim_name = cleanTrim(identity.trim_name, identity.maker, identity.model, identity.sub_model, trimsFor(identity.maker, identity.model, identity.sub_model), baseTrimFor(identity.maker, identity.model, identity.sub_model));
   const rawEvidence = mergeRawPhotoEvidence(pin?.원문, row.imageUrls);
   rawEvidence.차명 = vname;
   if (row.opt) rawEvidence.옵션 = row.opt;
