@@ -89,7 +89,8 @@ if (fail.length) {
   process.exit(1);
 }
 
-const q = (s: string) => `'${s.replace(/'/g, "\'")}'`;
+/* 작은따옴표를 «JSON 문자열»로 감싸 넣는다 — 손으로 이스케이프하면 셸이 역슬래시를 먹는다(실제로 먹었다). */
+const q = (s: string) => `'${s.split("'").join(String.fromCharCode(92) + "'")}'`;
 const row = [
   '  {',
   `    key: ${q(key)},`,
@@ -139,5 +140,6 @@ console.log(`   미리보기  https://www.freepasserp.com/shop?wl=${key}`);
 console.log('\n  남은 것');
 console.log('   1. 간판 그림(CI) 을 받으면 `logo` 줄을 켠다 — 여백 잘라 넣는 규격은 DESIGN_CONFIRMED_SHOP §CI');
 console.log('   2. 통신판매업신고 번호가 오면 bizLines 에 채운다');
-console.log('   3. npm run check:design && npm run build 로 확인하고 PR');
+console.log('   3. ★npm run make:og && npm run check:brand — 간판 투명·여백 0 · 카톡 미리보기(안 돌리면 CI 가 막는다)');
+console.log('   4. npm run check:design && npm run build 로 확인하고 PR');
 console.log('   ★빠른조건은 화면에서 고친다 — 코드를 다시 안 고쳐도 된다\n');
