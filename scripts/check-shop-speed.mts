@@ -143,6 +143,25 @@ for (const [name, q] of cases) {
   if (!okMs) fails.push(`${name} — ${ms.toFixed(0)}ms (뒷문 ${BUDGET_MS}ms)`);
 }
 
+/*
+ * ㉢ **«다시» 누를 때 사진 주소를 새로 뜯나** — 2026-09-11 사장님 「좀 빠릿빠릿하게 … 뭔가 느린 거 같은데」.
+ *   ⚠ 운영 실측(폰 성능) — 칩 한 번 누름에 CPU 첫째가 `new URL()` 이었다. 「사진 있는 차 먼저」가
+ *     680대의 사진을 누를 때마다 전부 다시 풀고, 한 장마다 URL 을 뜯었다. 위 ㉠(칸을 몇 번 여나)은
+ *     칸을 «한 번» 열고 그 안에서 열여섯 장을 뜯는 것을 못 본다 — 그래서 뜯는 횟수를 따로 센다.
+ *   ★위에서 이미 여러 번 돈 뒤라 이건 «다시 누름»이다. 차가 그대로면 **0 에 가까워야** 한다.
+ */
+{
+  const RealURL = globalThis.URL;
+  let parsed = 0;
+  globalThis.URL = class extends RealURL {
+    constructor(...a: ConstructorParameters<typeof URL>) { parsed++; super(...a); }
+  } as typeof URL;
+  try { runShopQuery(rows, toggleAxis(emptyQuery(), 'fuel', '전기')); } finally { globalThis.URL = RealURL; }
+  const per = parsed / ROWS;
+  console.log(`   ${per <= 0.05 ? '·' : '✗'} 다시 누름     사진 주소 뜯기 줄당 ${per.toFixed(2)}번`);
+  if (per > 0.05) fails.push(`다시 누름 — 사진 주소를 줄당 ${per.toFixed(1)}번 새로 뜯었다 (차가 그대로면 0 이어야 한다 · product-photos 캐시)`);
+}
+
 if (fails.length) {
   console.error(`\n✗ 조건칸이 굼뜹니다 — ${fails.length}건\n`);
   for (const f of fails) console.error(`   · ${f}`);

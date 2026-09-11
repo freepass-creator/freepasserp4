@@ -45,7 +45,18 @@ export const MOBILE_BP = 760;
 const breakpointListeners = new Map<number, Set<() => void>>();
 let viewportListening = false;
 
+/**
+ * ★★**화면 폭은 «바뀔 때만» 다시 잰다**(사장님 2026-09-11 「좀 빠릿빠릿하게」).
+ * ⚠ 실측 2026-09-11 운영 · 폰 성능 — `useIsMobile` 은 칩·체크 줄·카드마다 불리고, React 는 렌더마다
+ *   `getSnapshot` 을 부른다. 그 안에서 `window.innerWidth` 를 읽으면 **방금 바뀐 DOM 의 배치를 브라우저가
+ *   그 자리에서 다시 계산**한다(강제 리플로). 한 번 누름에 이 함수 자기 시간만 205ms 였다.
+ * ⇒ 구독 중(= 폭 바뀜 이벤트를 듣는 중)에는 잰 값을 들고 있고, **resize·회전 때만** 비운다.
+ *   아무도 안 듣고 있으면 예전처럼 그때그때 잰다(바뀐 걸 알 길이 없으므로).
+ */
+let widthCache: number | null = null;
+
 function notifyViewportSubscribers() {
+  widthCache = null;
   for (const listeners of breakpointListeners.values()) {
     for (const listener of listeners) listener();
   }
@@ -61,6 +72,7 @@ function startViewportListener() {
 function stopViewportListenerIfIdle() {
   if (!viewportListening || breakpointListeners.size > 0 || typeof window === 'undefined') return;
   viewportListening = false;
+  widthCache = null;
   window.removeEventListener('resize', notifyViewportSubscribers);
   window.removeEventListener('orientationchange', notifyViewportSubscribers);
 }
@@ -86,7 +98,9 @@ function readWidthMobile(bp = MOBILE_BP): boolean {
   if (typeof window === 'undefined') return false;
   // data-fp-m is a first-paint SSR/boot hint only. After mount, the live
   // viewport is the source of truth so resize and orientation changes work.
-  return window.innerWidth < bp;
+  if (!viewportListening) return window.innerWidth < bp;
+  if (widthCache == null) widthCache = window.innerWidth;
+  return widthCache < bp;
 }
 
 /**

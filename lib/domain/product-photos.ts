@@ -86,11 +86,38 @@ export function collectImages(value: any): string[] {
   return out;
 }
 
+/**
+ * ★★**한 차의 사진 목록은 «한 번만» 푼다**(사장님 2026-09-11 「좀 빠릿빠릿하게 움직일 수 있게 해야 함
+ *   뭔가 느린 거 같은데」).
+ *
+ * ⚠ 실측 2026-09-11 운영 · 폰 성능(CPU 4배 느리게) — 손님 목록에서 칩 하나 누를 때 **CPU 의 첫째가
+ *   이 파일**이었다. 목록을 줄 세우는 잣대 「사진 있는 차 먼저」가 **680대 전부**의 사진을 매번 다시 풀고,
+ *   푸는 김에 **사진 한 장마다 `new URL()`** 로 중복 열쇠를 만든다. 티카 차는 사진이 수십 장이라
+ *   누를 때마다 URL 을 **수만 번** 새로 뜯었다(`dedupKey` 337ms + `URL` 145ms · 한 번 누름에).
+ * ⇒ 차(객체)마다 결과를 들고 있다가, **사진 칸이 그대로면** 그대로 돌려준다.
+ * ★「그대로」는 **칸의 참조**로 본다 — 사진 칸을 새 값으로 갈아 끼우면(편집 화면이 하는 방식) 다시 푼다.
+ *   ⚠ 배열을 «제자리에서» 고치면(push) 못 알아챈다 — 이 저장소의 편집은 새 배열로 갈아 끼운다.
+ * ★`WeakMap` 이라 차가 목록에서 빠지면 캐시도 같이 사라진다(메모리를 붙잡지 않는다).
+ */
+type PhotoMemo = { src: unknown[]; images: string[]; first?: string };
+const photoMemo = new WeakMap<object, PhotoMemo>();
+const photoSrc = (p: EntityRecord): unknown[] =>
+  [p.image_urls, p.images, p.photos, p.photo, p.image_url, p.doc_images, p.photo_link];
+function memoFor(p: EntityRecord): PhotoMemo {
+  const src = photoSrc(p);
+  const hit = photoMemo.get(p);
+  if (hit && hit.src.length === src.length && hit.src.every((v, i) => v === src[i])) return hit;
+  const images = collectImages(src.slice(0, 6)).filter((u) => !NEEDS_SERVER_RE.test(u));
+  const next: PhotoMemo = { src, images };
+  photoMemo.set(p, next);
+  return next;
+}
+
 /** 업로드 이미지(image_urls/images/photos/image_url). 스크래핑 대상 URL은 제외(extract-photos 전용). */
 export function productImages(p: EntityRecord): string[] {
   if (!p) return [];
-  return collectImages([p.image_urls, p.images, p.photos, p.photo, p.image_url, p.doc_images])
-    .filter((u) => !NEEDS_SERVER_RE.test(u));
+  /* 돌려주는 배열을 부르는 쪽이 고쳐도 캐시가 안 더러워지게 «사본»을 준다(얕은 복사는 싸다). */
+  return memoFor(p).images.slice();
 }
 
 /** photo_link 중 바로 <img>에 박을 외부 URL(스크래핑 대상 제외). */
@@ -106,8 +133,13 @@ export function productPhotos(p: EntityRecord): string[] {
 
 /** 목록 썸네일용 첫 사진(프록시). */
 export function firstProductImage(p: EntityRecord): string {
-  const raw = productImages(p)[0] || productExternalImages(p)[0] || '';
-  return raw ? toProxiedImage(raw) : '';
+  if (!p) return '';
+  const m = memoFor(p);
+  if (m.first === undefined) {
+    const raw = m.images[0] || productExternalImages(p)[0] || '';
+    m.first = raw ? toProxiedImage(raw) : '';
+  }
+  return m.first;
 }
 
 /** 서버해석 필요한 사진 소스(드라이브 폴더·스크래핑 대상) — photo_link 중 NEEDS_SERVER 인 것. */

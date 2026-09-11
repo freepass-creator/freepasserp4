@@ -388,9 +388,15 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
    *   새 함수를 받아 `useMemo` 가 헛돈다.
    */
   const sheetPreview = useCallback((s: ShopQuery['sel']) => {
+    /*
+     * ★**시트를 막 연 순간은 «지금 화면과 같은 조건»이다 — 이미 센 것을 그대로 쓴다**(2026-09-11
+     *   사장님 「좀 빠릿빠릿하게」). 초안은 `sel` 을 그대로 받아 시작하므로(같은 참조) 여기서 알아챈다.
+     *   ⚠ 전에는 여는 순간 680대를 처음부터 한 번 더 셌다 — 폰 성능 실측으로 여는 데 0.5~1초가 걸렸다.
+     */
+    if (s === query.sel) return { facets, count: list.length };
     const r = runShopQuery(rows, { ...query, sel: s });
     return { facets: r.facets, count: r.list.length };
-  }, [rows, query]);
+  }, [rows, query, facets, list]);
 
   /*
    * ★★**빠른조건 고치는 칸 = 웹 조건칸 «맨 아래 구역»**(사장님 2026-09-11 「설정페이지 맨 하단 섹션 하나
