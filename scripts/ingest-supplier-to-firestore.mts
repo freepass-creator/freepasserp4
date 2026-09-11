@@ -35,6 +35,7 @@ import { MIRROR_SOURCES } from '../lib/domain/mirror-sources';
 import { sheetIdFromUrl } from '../lib/domain/supplier-sheet-read';
 import { FUEL_EV, rawSeats, atomViolations, type MasterIndex } from '../lib/domain/atom-invariants';
 import { cleanTrim } from '../lib/domain/clean-trim';
+import { sonokongDepositRuleText } from '../lib/domain/sales-published-tabs';
 import { resolveStatus } from '../lib/domain/atom-status';
 import { isOpenInventoryAtom } from '../lib/domain/inventory-contract';
 import { mergeRawPhotoEvidence, photoAtomFields } from '../lib/domain/photo-atom';
@@ -301,11 +302,13 @@ async function readRows(): Promise<Row[]> {
       //   직접 읽으므로 여기서 «같은 규칙»(round/1000×1000)을 건다. 보증금은 라운드된 대여료로 재계산돼 정합.
       // ★보증금 = 대여료 × 연수, «최대 3개월»(사장님 「손오공 규칙」 2026-08-28). 5년도 3개월치만 받는다.
       //   min(개월/12, 3) 로 캡 — 48·60개월이 4·5개월치로 부풀던 것을 막는다.
-      const dep3 = (p: string, r: number) => Math.round(Math.min(Number(p) / 12, 3) * r);
+      // ★보증금은 «계산해서 숫자로 박지 않는다» — 원자에 규칙 글자(deposit_note)로 미리 담고, 시트·화면·ERP가 읽는다
+      //   (사장님 2026-09-11 「계산해놓지 말고 계산식을 보증금 칸에 · 원자에 원문과 함께 미리 박아두라」).
+      //   기간마다 다르므로(1년당 1개월분·최대 3개월) 한 숫자로 못 담는다. 대여료만 기간별로 싣고 보증금은 0(칸은 규칙글자가 채운다).
       const price: Price = {};
       const low = (c.저신용월납 || {}) as { SUBSCRIBE_RETURN?: Record<string, number>; SUBSCRIBE_BUYOUT?: Record<string, number> };
-      for (const [p, rent] of Object.entries(low.SUBSCRIBE_RETURN || {})) { const r = 라운드천(won(rent)); if (r > 0) price[p] = { rent: r, deposit: dep3(p, r) }; }
-      for (const [p, rent] of Object.entries(low.SUBSCRIBE_BUYOUT || {})) { const r = 라운드천(won(rent)); if (r > 0) price[`${p}_인수형`] = { rent: r, deposit: dep3(p, r) }; }
+      for (const [p, rent] of Object.entries(low.SUBSCRIBE_RETURN || {})) { const r = 라운드천(won(rent)); if (r > 0) price[p] = { rent: r, deposit: 0 }; }
+      for (const [p, rent] of Object.entries(low.SUBSCRIBE_BUYOUT || {})) { const r = 라운드천(won(rent)); if (r > 0) price[`${p}_인수형`] = { rent: r, deposit: 0 }; }
       /**
        * ★★**손오공 상품구분은 «버킷»이 말해 준다** — 원천이 진작 주고 있었는데 안 읽었다.
        * ```
@@ -331,7 +334,7 @@ async function readRows(): Promise<Row[]> {
        * ⚠ 손오공(SON_NO_KONG)은 유료옵션도 비어 온다 — 그럼 빈 값(원천이 「선택옵션 없음」을 준 것).
        */
       const 선택옵션 = S(c.유료옵션);
-      push({ car, link: 픽업링크.get(N(car)) || '', imageUrls: c.사진들, photoCollectedAt: c.상세시각 || dumpCollectedAt, status, kind, maker: S(c.제조사), model: S(c.모델), vname: S(c.차명) || S(c.세부), fuel: S(c.연료), ext: S(c.외장), int: S(c.내장), km: c.주행거리 == null ? '' : String(c.주행거리), opt: 선택옵션, firstReg: S(c.최초등록) || S(c.연식), cc: c.배기량 == null ? '' : String(c.배기량), klass: '', price, tab: '손오공API', row: S(c.id), raw: c as Record<string, unknown> });
+      push({ car, link: 픽업링크.get(N(car)) || '', imageUrls: c.사진들, photoCollectedAt: c.상세시각 || dumpCollectedAt, status, kind, maker: S(c.제조사), model: S(c.모델), vname: S(c.차명) || S(c.세부), fuel: S(c.연료), ext: S(c.외장), int: S(c.내장), km: c.주행거리 == null ? '' : String(c.주행거리), opt: 선택옵션, firstReg: S(c.최초등록) || S(c.연식), cc: c.배기량 == null ? '' : String(c.배기량), klass: '', price, depNote: sonokongDepositRuleText(), tab: '손오공API', row: S(c.id), raw: c as Record<string, unknown> });
     }
     return out;
   }

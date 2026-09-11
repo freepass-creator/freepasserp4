@@ -104,7 +104,8 @@ const headerCache: Record<string, string[]> = Object.fromEntries(TAB_ORDER.map((
 
 
 // ── 고정 시트 제자리 갱신 · 탭 이름 = 「base 업데이트시각 · N대」(기존 판매시트처럼) ──
-const kstNow = salesPublishMark(publishSnapshot);
+// ★탭 이름엔 스냅샷ID를 안 붙인다(사장님 2026-09-11 「탭이름…」) — 사람이 보는 탭에 «시각 · N대」만. ID는 발행 로그·헤더에.
+const kstNow = salesPublishMark(publishSnapshot).split(' · ')[0];
 for (const list of Object.values(groups)) for (const v of (list as any[])) {
   const m = S((v as any).model); if (m) modelCount.set(m, (modelCount.get(m) || 0) + 1);
 }
