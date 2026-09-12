@@ -1,0 +1,17 @@
+{
+  "name": "freepasserp4",
+  "install": "npm ci",
+  "ports": [
+    {
+      "name": "next-dev",
+      "port": 4004
+    }
+  ],
+  "terminals": [
+    {
+      "name": "dev",
+      "command": "npm run dev",
+      "description": "Next.js dev server on http://localhost:4004. With no Firebase env vars set, lib/store.ts falls back to the LocalAdapter (localStorage) + lib/seed.ts sample data, so the app runs end-to-end without secrets."
+    }
+  ]
+}
