@@ -6,6 +6,8 @@
  */
 import { snapToMaster, applySnap, fuelDisplay, fuelEmbeddedCc, type MasterEntry } from '@/lib/domain/vehicle-master-match';
 import { applyColors } from '@/lib/domain/color-master';
+import { atomViolations, type AtomView } from '@/lib/domain/atom-invariants';
+import { buildMasterIndex } from '@/lib/domain/atom-health';
 import { canonDriveType, type EntityRecord } from '@/lib/intake/entities';
 import { normalizeProductOptionsText, isExactRealPlate, normalizeWonPair } from '@/lib/domain/product';
 import { pendingSignature, previewPlateAllocator, type PlateAllocator } from '@/lib/domain/pending-plate';
@@ -1243,23 +1245,33 @@ export function importSheetTable(table: string[][], opts: {
 /**
  * 입고 직전 — 마스터 틀에 확정된 것(high·중) vs 검수 필요(검토·미매칭) 표시.
  * 공급사 기본정보는 모두 저장하되, 확정만 규격 경로·검수는 _needs_master_review.
+ *
+ * ★불변식 게이트(2026-09-12 사장님 「트림이나 하위 모델을 벗어난 거를 절대 선택할 수 없다」) —
+ *   snap confidence만으로는 «세부모델은 맞는데 트림이 그 세부모델 밖»인 모순을 못 거른다.
+ *   `master`를 넘기면 `atomViolations`(SSOT, atom-invariants.ts)로 한 번 더 걸러 block 위반이
+ *   있으면 confidence가 high여도 확정시키지 않는다 — ingest·audit·check가 전부 같은 함수를 쓴다.
+ *   `master`가 없으면(호출부가 아직 못 넘겼거나 마스터 자체가 비었으면) 이 추가 게이트는 건너뛰고
+ *   예전처럼 confidence만 본다 — «마스터는 선택이다»(optionalMaster) 원칙과 같은 폴백.
  */
-export function prepareMasterIngress(products: EntityRecord[]): {
+export function prepareMasterIngress(products: EntityRecord[], master?: MasterEntry[] | null): {
   products: EntityRecord[];
   confirmed: number;
   review: number;
 } {
+  const idx = master && master.length ? buildMasterIndex(master) : null;
   let confirmed = 0;
   let review = 0;
   const out = products.map((p) => {
     const c = String(p._snap_confidence || '');
-    const ok = !!p._snapped && (c === 'high' || c === 'medium');
+    const snapOk = !!p._snapped && (c === 'high' || c === 'medium');
+    const blocks = idx ? atomViolations(p as AtomView, idx).filter((v) => v.severity === 'block') : [];
+    const ok = snapOk && !blocks.length;
     if (ok) {
       confirmed++;
-      return { ...p, _needs_master_review: false };
+      return { ...p, _needs_master_review: false, _invariant_block: '' };
     }
     review++;
-    return { ...p, _needs_master_review: true };
+    return { ...p, _needs_master_review: true, _invariant_block: blocks.map((v) => v.code).join(' ') };
   });
   return { products: out, confirmed, review };
 }

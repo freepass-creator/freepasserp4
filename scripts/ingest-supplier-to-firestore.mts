@@ -263,7 +263,19 @@ function atomize(row: Row, pinned: Map<string, Record<string, unknown>>): Atom {
       ? { maker: canon.maker, model: canon.model, sub_model: canon.sub_model, trim_name: S(snap?.trim_name) || row.trim, origin: S(snap?.origin) }
       : { maker: row.maker, model: row.model, sub_model: '', trim_name: row.trim, origin: '' };
     // ★세대 판별 — 원문의 「N세대」·섀시코드가 답, 없으면 최초등록으로 신형.
-    if (canon) identity.sub_model = resolveGen(identity.maker, identity.model, identity.sub_model, row.firstReg, N(vname));
+    //   ⚠ trim_name 은 «옮기기 전» sub_model 기준으로 이미 골라졌다(위 snap?.trim_name).
+    //   세대가 실제로 옮겨지면 그 트림은 새 세대 것이 아닐 수 있다 — 새 세대 트림풀에
+    //   없으면 비운다(«확실하지 않으면 비워라» 규칙. 억지로 남의 세대 트림을 붙이지 않는다).
+    if (canon) {
+      const resolvedSub = resolveGen(identity.maker, identity.model, identity.sub_model, row.firstReg, N(vname));
+      if (resolvedSub !== identity.sub_model) {
+        const newTrims = trimsFor(identity.maker, identity.model, resolvedSub);
+        if (identity.trim_name && newTrims.length && !newTrims.some((t) => N(t) === N(identity.trim_name))) {
+          identity.trim_name = '';
+        }
+        identity.sub_model = resolvedSub;
+      }
+    }
     state = confirmed ? 'new-high' : 'new-review';
     spec = {
       ext_color: snapColor(row.ext, 'ext'), int_color: snapColor(row.int, 'int'),
