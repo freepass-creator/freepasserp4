@@ -1,5 +1,6 @@
 import type { EntityRecord } from '@/lib/intake/entities';
 import type { GuardedProductPatch } from '@/lib/domain/product-write-guard';
+import type { MasterEntry } from '@/lib/domain/vehicle-master-match';
 import { isExactRealPlate } from '@/lib/domain/product';
 import { prepareMasterIngress } from '@/lib/domain/sheet-import';
 import {
@@ -113,6 +114,7 @@ export function planDailySheetSync(input: {
   partners: EntityRecord[];
   contracts?: EntityRecord[];
   resolutions?: SheetConflictResolution[];
+  master?: MasterEntry[];
   now?: number;
 }): DailySheetSyncPlan {
   const counts = emptyCounts();
@@ -191,7 +193,7 @@ export function planDailySheetSync(input: {
   // 판정하면 현재 셀을 옛 마스터 기준으로 왜곡한다.
   const ingress = input.fetched.sourceKind === 'sales_inventory'
     ? { products: preparedRows, confirmed: preparedRows.length, review: 0 }
-    : prepareMasterIngress(preparedRows);
+    : prepareMasterIngress(preparedRows, input.master);
   counts.confirmed = ingress.confirmed;
   counts.review = ingress.review;
   const upsert = planProductUpsert(ingress.products, input.existing);
@@ -332,6 +334,7 @@ export function planProductMasterProviderBatches(input: {
   partners: EntityRecord[];
   contracts?: EntityRecord[];
   resolutions?: SheetConflictResolution[];
+  master?: MasterEntry[];
   now?: number;
 }): ProductMasterProviderPlan[] {
   // ★정본은 «규격화된 판매 표»다 — 상품마스터(옛 경로)와 영업자 상품리스트(2026-08-20 사장님 「영업자가 보는 거랑 ERP 랑 바로 연동」) 둘 다 여기로 온다.
@@ -374,6 +377,7 @@ export function planProductMasterProviderBatches(input: {
       partners: input.partners,
       contracts: input.contracts,
       resolutions: input.resolutions,
+      master: input.master,
       now: input.now,
     });
     const crossProviderCount = crossProviderConflicts.get(line.code) || 0;
