@@ -2432,6 +2432,49 @@ must((availableForEngine({ a: { name: '컴포트' } }, [], '가솔린 3.5 터보
   }
 }
 
+/* == 40. ★★**잔존가 = 구매가격 + 1~5년 금액 · 그 사이는 달마다** (정본 §3-4-1) ==============
+     사장님 2026-09-11 「구매가격과 1~5년 잔존가격을 알면 되는 거야」 · 「그 월별에도 잔가가 쫙 스프레드」 ·
+     「1년 6개월도 잔존가를 알 수 있어야」. 문자열이 아니라 **엔진을 돌려** 잰다. */
+{
+  const { residualSchedule, residualAt, monthlyRates } = await import('../lib/domain/estimate/residual-schedule');
+  const buy = 30_000_000;
+  const amt = { 12: 25_000_000, 24: 22_000_000, 36: 19_000_000, 48: 16_000_000, 60: 13_000_000 };
+  const sch = residualSchedule(buy, amt);
+  must(sch.length === 61 && sch[0] === buy && sch[12] === amt[12] && sch[60] === amt[60],
+    '잔존가 일정표의 끝점이 적은 값과 다릅니다 — 0개월은 구매가격, 해 끝은 적은 금액 그대로여야 합니다',
+    'lib/domain/estimate/residual-schedule.ts residualSchedule');
+  must(Math.abs(sch[18] - (amt[12] + amt[24]) / 2) < 1 && Math.abs(sch[6] - (buy + amt[12]) / 2) < 1,
+    `1년 6개월 잔존가가 1년·2년 사이 가운데가 아닙니다(${Math.round(sch[18]).toLocaleString()}원) — 한 해 안은 달마다 고르게 나눕니다`,
+    'lib/domain/estimate/residual-schedule.ts');
+  must(residualAt(sch, 72) === Math.max(0, amt[60] - 3_000_000) && residualAt(sch, 400) === 0,
+    '60개월 뒤 잔존가가 마지막 해 기울기로 안 늘거나 0 밑으로 내려갑니다',
+    'lib/domain/estimate/residual-schedule.ts residualAt');
+
+  /* 엔진이 18개월 약정에 «그 달»의 잔가를 쓰는가 — 다섯 점만 넘기면 18개월은 A/B/C 표로 샌다. */
+  const base = { channel: 'rent', type: 'return', price: buy, cc: 1999, fuel: 'gasoline', accident: 'none',
+    group: 'B', residualAgeBaked: true, vatBase: 'excluded' };
+  const r18 = computeTerm(18, { ...base, residualRates: monthlyRates(sch, buy) }) as { residualAmt: number };
+  const want18 = (amt[12] + amt[24]) / 2 / 1.1;   // VAT 제외 밑값 위에서 선다
+  must(Math.abs(r18.residualAmt - want18) < 10,
+    `18개월 약정 잔가가 일정표 값이 아닙니다(${Math.round(r18.residualAmt).toLocaleString()} vs ${Math.round(want18).toLocaleString()}) — 1~60개월 율을 다 넘겨야 합니다`,
+    'app/estimate/page.tsx raw · residual-schedule.ts monthlyRates');
+
+  /* 화면 — 중고는 금액 칸, 율을 곡선에서 가져온 기본값은 «예전 그대로», 밑값은 엔진의 것. */
+  const pg = code('app/estimate/page.tsx').replace(/\s+/g, '');
+  must(pg.includes('setResidAmtOverride') && pg.includes('setBuyoutAmtOverride'),
+    '중고 잔가를 금액으로 못 적습니다 — 정본은 「구매가격 + 1~5년 잔존가격(금액)」입니다',
+    'app/estimate/page.tsx');
+  must(pg.includes('monthlyRates(residualSchedule(residBase,anchors),residBase)'),
+    '엔진에 1~60개월 잔가를 안 넘깁니다 — 1년 6개월 잔존가를 모릅니다',
+    'app/estimate/page.tsx raw');
+  must(pg.includes("constresidBase=Math.max(0,netPrice-(picked.fuel==='ev'?Math.max(0,cost.evSubsidy||0):0))"),
+    '잔존가 밑값이 엔진이 곱하는 값과 다릅니다 — 전기차에서 적은 금액이 그대로 안 섭니다',
+    'app/estimate/page.tsx residBase');
+  must(pg.includes('residAmtOverride[t]??residBase*autoResid[t]/100'),
+    '안 적은 해의 기본 잔존가가 곡선(표준+델타)에서 안 옵니다 — 손 안 댄 견적의 대여료가 바뀝니다',
+    'app/estimate/page.tsx residAmt');
+}
+
 if (fails.length) {
   console.error(`\n✗ 견적 로직이 정본과 다릅니다 — ${fails.length}건\n`);
   for (const f of fails) console.error(`  · ${f}\n`);
