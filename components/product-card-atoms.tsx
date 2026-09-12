@@ -203,9 +203,21 @@ export function CardThumb({ p, audience = 'agent', fill, w, h, heart = false, ma
 
   return (
     <div ref={viewRef} style={box}>
+      {/*
+        ★★**크기를 줄여 받는다**(사장님 2026-09-09 「기존 페이지도 … **엄청 느리잖아 사진 때문에.
+          현재 거처럼 빠르게 해줄 수 있나?**」). 가게(`ShopPhoto`)가 쓰는 그 방법 그대로다 —
+          화면 폭에 맞는 크기만 내려받고 AVIF/WebP 로 바꿔 받는다.
+        ⚠ 여태 **원본을 그대로 받아 CSS 로만 줄여** 그렸다. 목록은 카드가 수십 장이라 그 차이가
+          그대로 «느림»이 된다(가게에서 같은 사고를 이미 겪었다 — 1.4MB 원본을 330px 칸에).
+        ★부모(`box`)가 `position:relative` + 크기·비율을 이미 쥐고 있어 `fill` 이 안전하다.
+        ★`sizes` — 폰은 반폭(썸네일 68px 짜리도 여기 걸리지만 더 작은 쪽으로만 고른다),
+          웹은 카드 폭 언저리. 빠뜨리면 Next 가 제일 큰 것을 보낸다.
+      */}
       <ProductPhotoImage
         src={photo}
         alt=""
+        optimize
+        sizes={fill ? '(max-width: 760px) 50vw, 260px' : '(max-width: 760px) 96px, 200px'}
         loading="lazy"
         decoding="async"
         compactPlaceholder
