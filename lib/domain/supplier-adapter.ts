@@ -22,6 +22,26 @@ export type FieldProvenance = Record<
 >;
 
 /**
+ * 월 대여료에서 보증금을 산출하는 공급사 정책 원자.
+ * 숫자 보증금과 달리 "어떻게 계산하는가" 자체를 SSOT에 보존한다.
+ */
+export type DepositPolicy =
+  | {
+      code: 'SONOGONG_RENT_X_YEARS_MAX3';
+      kind: 'YEAR_MULTIPLE_CAPPED';
+      label: string;
+      monthsPerYear: 12;
+      maxMultiplier: 3;
+    }
+  | {
+      code: 'AUTOPLUS_DOMESTIC_X2' | 'AUTOPLUS_IMPORT_12_X3_18P_X6';
+      kind: 'TERM_MULTIPLIER';
+      label: string;
+      defaultMultiplier?: number;
+      multiplierByTerm?: Readonly<Record<number, number>>;
+    };
+
+/**
  * 공급사가 기간 외에 연주행거리까지 가격축으로 쓰는 경우를 위한 원자.
  * 예: 오토플러스 `12개월2만`과 `12개월3만`은 같은 12개월 가격이 아니다.
  * 어댑터는 둘 중 하나를 임의로 고르지 않고 각각 보존한다.
@@ -50,6 +70,8 @@ export type FreepassAtom = {
   displacement?: number;
   shortDeposit?: number;
   longDeposit?: number;
+  /** 고정 숫자가 아니라 기간/월대여료에 따라 계산되는 보증금 정책. */
+  depositPolicy?: DepositPolicy;
   /** 기간 하나만으로 의미가 완전한 표준 대여료. */
   rent: Partial<Record<RentTerm, number>>;
   /** 기간+연주행거리 등 추가 가격축이 있는 대여료. */
