@@ -2,7 +2,16 @@ import assert from 'node:assert/strict';
 import { autoplusAdapter } from '../lib/adapters/autoplus';
 import { iankaAdapter } from '../lib/adapters/ianka';
 import { ironAdapter } from '../lib/adapters/iron';
+import { sonogongAdapter } from '../lib/adapters/sonogong';
 import { getSupplierAdapter, hasSupplierAdapter } from '../lib/adapters';
+import { getSupplierSourceSpec } from '../lib/adapters/source-registry';
+import {
+  calculateDepositFromMonthlyRent,
+  depositMultiplierForTerm,
+  resolveAutoplusDepositPolicy,
+  SONOGONG_DEPOSIT_POLICY,
+} from '../lib/domain/deposit-policy';
+import { autoplusDepositRuleText, NATIVE_MONEY_BLOCK } from '../lib/domain/sales-published-tabs';
 import { evaluateEligibility } from '../lib/domain/product-eligibility';
 
 const ianka5709 = {
@@ -76,11 +85,45 @@ assert.equal(evaluateEligibility(iron2330.atom, 'F01').eligible, true);
 assert.equal(hasSupplierAdapter('IRON'), true);
 assert.equal(getSupplierAdapter('iron').adapterName, 'IronAdapter');
 
+// 손오공 보증금은 숫자 칸이 아니라 "월 대여료 × 연수 (최대 ×3)"라는 계산 규칙 자체가 SSOT다.
+const sonogong4099 = sonogongAdapter.adapt({
+  차량번호: '119더4099',
+  판매상태: '출고가능',
+  제조사: '기아',
+  모델: '카니발',
+  '보증금 반납형': '연수×대여료(최대 ×3)',
+  '12개월 반납형': '1,028,000',
+  '24개월 반납형': '814,000',
+  '36개월 반납형': '722,000',
+  '48개월 반납형': '680,000',
+  '60개월 반납형': '650,000',
+}, {
+  spreadsheetId: '1WIFn5ObK_nCVGLTjj6rO96i6vxub1QzJmiVW0BpJLcA',
+  tab: '재고',
+  row: 2,
+});
+assert.equal(sonogong4099.atom.depositPolicy?.code, 'SONOGONG_RENT_X_YEARS_MAX3');
+assert.equal(sonogong4099.atom.depositPolicy?.label, '월 대여료 × 연수 (최대 ×3)');
+assert.equal(sonogong4099.atom.longDeposit, undefined, '계산식 문구를 고정 숫자 보증금으로 오인하면 안 된다');
+assert.equal(depositMultiplierForTerm(SONOGONG_DEPOSIT_POLICY, 12), 1);
+assert.equal(depositMultiplierForTerm(SONOGONG_DEPOSIT_POLICY, 24), 2);
+assert.equal(depositMultiplierForTerm(SONOGONG_DEPOSIT_POLICY, 36), 3);
+assert.equal(depositMultiplierForTerm(SONOGONG_DEPOSIT_POLICY, 48), 3);
+assert.equal(depositMultiplierForTerm(SONOGONG_DEPOSIT_POLICY, 60), 3);
+assert.equal(calculateDepositFromMonthlyRent(SONOGONG_DEPOSIT_POLICY, 12, 1_028_000), 1_028_000);
+assert.equal(calculateDepositFromMonthlyRent(SONOGONG_DEPOSIT_POLICY, 24, 814_000), 1_628_000);
+assert.equal(calculateDepositFromMonthlyRent(SONOGONG_DEPOSIT_POLICY, 36, 722_000), 2_166_000);
+assert.equal(calculateDepositFromMonthlyRent(SONOGONG_DEPOSIT_POLICY, 60, 650_000), 1_950_000);
+assert.equal(NATIVE_MONEY_BLOCK.손오공구독.lead?.valueOf({}), '월 대여료 × 연수 (최대 ×3)');
+assert.equal(hasSupplierAdapter('SONOGONG'), true);
+assert.equal(getSupplierAdapter('sonogong').adapterName, 'SonogongAdapter');
+assert.equal(getSupplierSourceSpec('RP012').code, 'SONOGONG');
+
 // 오토플러스는 같은 12개월이라도 연 2만/3만 km가 서로 다른 가격 원자다.
-// 임의로 하나를 standard rent[12]에 넣으면 의미가 훼손되므로 variant로 그대로 보존한다.
+// 보증금 규칙도 발행기에서 즉석 생성하지 않고 atom.depositPolicy가 소유한다.
 const autoplus0103 = autoplusAdapter.adapt({
   차량번호: '11오0103',
-  상태: '출고가능',
+  판매상태: '출고가능',
   분류: '중고렌트',
   제조사: '기아',
   모델명: '니로',
@@ -100,6 +143,7 @@ const autoplus0103 = autoplusAdapter.adapt({
   tab: '재고',
   row: 5,
 });
+assert.equal(autoplus0103.atom.status, '출고가능', '실 F53 판매상태 머리글을 읽어야 한다');
 assert.equal(autoplus0103.atom.rent[12], undefined, '12개월2만/3만 중 하나를 12개월 표준가로 추정하지 않는다');
 assert.equal(autoplus0103.atom.rentVariants?.length, 8);
 assert.deepEqual(autoplus0103.atom.rentVariants?.find((v) => v.sourceHeader === '12개월2만'), {
@@ -114,9 +158,35 @@ assert.deepEqual(autoplus0103.atom.rentVariants?.find((v) => v.sourceHeader === 
   amount: 750_000,
   sourceHeader: '18개월3만',
 });
+assert.equal(autoplus0103.atom.depositPolicy?.code, 'AUTOPLUS_DOMESTIC_X2');
+assert.equal(autoplus0103.atom.depositPolicy?.label, '국산: 월 대여료×2');
+assert.equal(autoplusDepositRuleText('기아'), autoplus0103.atom.depositPolicy?.label, '발행기와 atom이 같은 resolver를 써야 한다');
+const domesticPolicy = resolveAutoplusDepositPolicy('기아');
+assert.ok(domesticPolicy);
+assert.equal(depositMultiplierForTerm(domesticPolicy, 12), 2);
+assert.equal(depositMultiplierForTerm(domesticPolicy, 36), 2);
 assert.equal(evaluateEligibility(autoplus0103.atom, 'F01').eligible, true, '변형 가격도 판매 가능한 대여료다');
 assert.equal(hasSupplierAdapter('AUTOPLUS'), true);
 assert.equal(getSupplierAdapter('autoplus').adapterName, 'AutoplusAdapter');
+
+const autoplusImport = autoplusAdapter.adapt({
+  차량번호: '123가7777',
+  판매상태: '출고가능',
+  제조사: 'BMW',
+  모델명: '520i',
+  '12개월2만': '1,000,000',
+  '18개월2만': '950,000',
+});
+assert.equal(autoplusImport.atom.depositPolicy?.code, 'AUTOPLUS_IMPORT_12_X3_18P_X6');
+assert.equal(autoplusImport.atom.depositPolicy?.label, '수입: 12개월 대여료×3 · 18개월↑ ×6');
+const importPolicy = resolveAutoplusDepositPolicy('BMW');
+assert.ok(importPolicy);
+assert.equal(depositMultiplierForTerm(importPolicy, 12), 3);
+assert.equal(depositMultiplierForTerm(importPolicy, 18), 6);
+assert.equal(depositMultiplierForTerm(importPolicy, 36), 6);
+assert.equal(autoplusDepositRuleText('BMW'), autoplusImport.atom.depositPolicy?.label);
+assert.equal(resolveAutoplusDepositPolicy(''), undefined, '제조사가 없는데 국산 규칙을 추정하면 안 된다');
+assert.equal(autoplusDepositRuleText(''), '');
 
 const noRent = iankaAdapter.adapt({
   차량번호: '123가4567',
