@@ -1,0 +1,43 @@
+name: ERP5 차종마스터 1회 게시
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/erp5-vehicle-master-once.yml'
+
+jobs:
+  publish:
+    if: ${{ github.event.head_commit.message == 'ops(erp5): run vehicle master publish once' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Encar 차종 참조본 체크아웃
+        uses: actions/checkout@v4
+        with:
+          repository: freepass-creator/vehicle-master
+          path: tmp/vehicle-master
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: ERP5 차종 SSOT 회귀검사
+        run: npm run sim:erp5-vehicle-master-ssot
+      - name: 원천 읽기 자격증명 준비
+        env:
+          SA: ${{ secrets.GOOGLE_SA_JSON }}
+        run: |
+          test -n "$SA" || { echo '::error::GOOGLE_SA_JSON 시크릿이 없습니다.'; exit 1; }
+          mkdir -p tmp/firebase-auth
+          printf '%s' "$SA" > tmp/firebase-auth/sa.json
+      - name: ERP5 Firestore 차종마스터 게시·활성화
+        env:
+          ERP5_FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.ERP5_FIREBASE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          test -n "$ERP5_FIREBASE_SERVICE_ACCOUNT_JSON" || { echo '::error::ERP5_FIREBASE_SERVICE_ACCOUNT_JSON 시크릿이 없습니다.'; exit 1; }
+          npx tsx scripts/publish-vehicle-master-to-erp5-firestore.mts \
+            --version=genesis-master-20260914-0147 \
+            --encar=tmp/vehicle-master/dist/vehicle-master.flat.json \
+            --apply --activate
