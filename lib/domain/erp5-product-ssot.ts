@@ -68,7 +68,7 @@ const PRIVATE_KEY = /^(?:customer(?:_.*)?|client(?:_.*)?|consult(?:ation)?(?:_.*
 const EMAIL_VALUE = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i;
 const KOREAN_PHONE_VALUE = /(?:^|\D)(?:\+?82[- .]?)?(?:0?1[016789]|0[2-6][1-5]?)[- .]?\d{3,4}[- .]?\d{4}(?:\D|$)/;
 const RESIDENT_ID_VALUE = /(?:^|\D)\d{6}[- ]?[1-4]\d{6}(?:\D|$)/;
-const SENSITIVE_URL_PARAM = /(?:^|_)(?:phone|mobile|tel|telephone|contact|email|name|birth|birthday|resident|rrn|address|account|고객|이름|성명|전화|휴대폰|연락처|이메일|생년|주민|주소|계좌)(?:_|$)/i;
+const SENSITIVE_URL_PARAM = /^(?:(?:(?:customer|client|renter|driver|representative|employee|user)_)?(?:phone(?:_(?:number|no))?|mobile(?:_(?:number|no))?|tel|telephone|contact(?:_(?:number|no))?|email(?:_address)?|birth(?:day|_date)?|resident(?:_(?:id|number|no))?|rrn|address)|(?:customer|client|renter|driver|representative|employee|user)_name|bank_account(?:_(?:number|no))?|account_(?:number|no)|고객(?:명|_이름|_전화|_연락처|_이메일)?|성명|전화(?:번호)?|휴대폰|연락처|이메일|생년월일|주민(?:등록번호)?|주소|계좌(?:번호)?)$/i;
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
@@ -77,6 +77,11 @@ const isPlainObject = (value: unknown): value is Record<string, unknown> => {
 };
 
 const hasPrivateKey = (key: string) => PRIVATE_KEY.test(key.trim());
+const normalizeUrlParamKey = (key: string) => key
+  .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
+  .replace(/[^A-Za-z0-9가-힣]+/g, '_')
+  .replace(/^_+|_+$/g, '')
+  .toLowerCase();
 
 function assertPublicPhotoLink(value: string, path: string): void {
   const links = value.split(/\s*[\n,]\s*/).map((link) => link.trim()).filter(Boolean);
@@ -97,12 +102,11 @@ function assertPublicPhotoLink(value: string, path: string): void {
     let decodedHash = url.hash;
     try { decodedPath = decodeURIComponent(decodedPath); } catch { /* 원문으로 검사 */ }
     try { decodedHash = decodeURIComponent(decodedHash); } catch { /* 원문으로 검사 */ }
-    if (url.username || url.password || EMAIL_VALUE.test(decodedPath) || EMAIL_VALUE.test(decodedHash)
-      || KOREAN_PHONE_VALUE.test(decodedHash) || RESIDENT_ID_VALUE.test(decodedHash)) {
+    if (url.username || url.password || EMAIL_VALUE.test(decodedPath) || EMAIL_VALUE.test(decodedHash)) {
       throw new Error(`개인정보로 보이는 값이 공개 상품 필드에 있습니다: ${path}`);
     }
     for (const [key, parameter] of url.searchParams) {
-      if ((SENSITIVE_URL_PARAM.test(key) && parameter) || EMAIL_VALUE.test(parameter) || RESIDENT_ID_VALUE.test(parameter)) {
+      if ((SENSITIVE_URL_PARAM.test(normalizeUrlParamKey(key)) && parameter) || EMAIL_VALUE.test(parameter)) {
         throw new Error(`개인정보로 보이는 값이 공개 상품 필드에 있습니다: ${path}`);
       }
     }
