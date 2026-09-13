@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import { iankaAdapter } from '../lib/adapters/ianka';
+import { ironAdapter } from '../lib/adapters/iron';
+import { getSupplierAdapter, hasSupplierAdapter } from '../lib/adapters';
 import { evaluateEligibility } from '../lib/domain/product-eligibility';
 
 const ianka5709 = {
@@ -38,6 +40,40 @@ assert.equal(got.atom.provenance.shortDeposit.sourceHeader, '단기보증');
 assert.equal(got.atom.provenance.longDeposit.sourceHeader, '장기보증');
 assert.equal(evaluateEligibility(got.atom, 'ATOM').eligible, true);
 assert.equal(evaluateEligibility(got.atom, 'F01').eligible, true);
+
+// 아이언 실제 '재고' 스키마 회귀 fixture.
+// 원본에는 6개월 열이 없으므로 어댑터가 다른 기간값을 6개월로 추정하면 안 된다.
+const iron2330 = ironAdapter.adapt({
+  차량번호: '151호2330',
+  상태: '즉시출고',
+  분류: '신차렌트',
+  제조사: '현대',
+  모델명: '싼타페',
+  '차명(세부모델+트림)': '싼타페 하이브리드 2WD H-PICK 5인승',
+  연료: '하이브리드',
+  배기량: '1,600',
+  장기보증: '4,000,000',
+  '36개월': '980,000',
+  '48개월': '900,000',
+  '60개월': '850,000',
+  '72개월': '750,000',
+}, {
+  spreadsheetId: '1Xm7Nl6yK7DcPQPF6w2OI_0-sphWHFVt2u6IKrYT8S4U',
+  tab: '재고',
+  row: 12,
+});
+assert.equal(iron2330.atom.plateNumber, '151호2330');
+assert.equal(iron2330.atom.status, '즉시출고');
+assert.equal(iron2330.atom.longDeposit, 4_000_000);
+assert.equal(iron2330.atom.rent[6], undefined, '원본에 없는 6개월은 생성하지 않는다');
+assert.equal(iron2330.atom.rent[24], undefined, '원본에 없는 24개월은 생성하지 않는다');
+assert.equal(iron2330.atom.rent[36], 980_000);
+assert.equal(iron2330.atom.rent[48], 900_000);
+assert.equal(iron2330.atom.rent[60], 850_000);
+assert.equal(iron2330.atom.rent[12], undefined);
+assert.equal(evaluateEligibility(iron2330.atom, 'F01').eligible, true);
+assert.equal(hasSupplierAdapter('IRON'), true);
+assert.equal(getSupplierAdapter('iron').adapterName, 'IronAdapter');
 
 const noRent = iankaAdapter.adapt({
   차량번호: '123가4567',
