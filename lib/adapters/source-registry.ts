@@ -50,7 +50,8 @@ export const SUPPLIER_SOURCES: readonly SupplierSourceSpec[] = Object.freeze([
     partnerCode: 'RP012',
     name: '손오공',
     spreadsheetId: '1WIFn5ObK_nCVGLTjj6rO96i6vxub1QzJmiVW0BpJLcA',
-    tab: '재고',
+    // 반납형 기간별 가격과 규칙형 보증금의 원천. 렌트재고·픽업재고와 섞지 않는다.
+    tab: '구독재고',
     financeOwner: 'SOURCE',
     pricingMode: 'STANDARD_TERMS',
   },
