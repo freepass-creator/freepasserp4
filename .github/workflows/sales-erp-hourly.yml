@@ -10,6 +10,7 @@ on:
     branches: [main]
     paths:
       - 'scripts/cloud-hourly-sync.mts'
+      - 'scripts/run-hourly-with-ssot-gate.mts'
       - 'scripts/ssot-prepublish-gate.mts'
       - '.github/workflows/sales-erp-hourly.yml'
   workflow_dispatch:
