@@ -135,9 +135,41 @@ if (written.size !== built.entries.length) {
   throw new Error(`ERP5 차종마스터 검증 실패: expected=${built.entries.length}, actual=${written.size}`);
 }
 
+// 사용자가 반복 확인하는 제네시스 축은 Firestore에 실제 쓰인 값을 다시 읽어 원문/정규값 손실을 막는다.
+const genesisTargetModels = new Set(['더 뉴 G70', '더 뉴 G70 슈팅브레이크', 'GV70', '일렉트리파이드 GV70']);
+const genesisTargets = built.entries.filter((entry) => entry.maker === '제네시스' && genesisTargetModels.has(entry.model));
+const genesisReadback: Array<{ model: string; subModel: string; trim: string; sourceModel: string; sourceSubModel: string; sourceTrim: string }> = [];
+for (const entry of genesisTargets) {
+  const snapshot = await versionRef.collection('entries').doc(entry.id).get();
+  if (!snapshot.exists) throw new Error(`ERP5 제네시스 read-back 누락: ${entry.id}`);
+  const data = snapshot.data() as Record<string, any>;
+  const sourceNames = data.evidence?.googleSheet?.sourceNames || {};
+  if (data.model !== entry.model || data.subModel !== entry.subModel || data.trim !== entry.trim) {
+    throw new Error(`ERP5 제네시스 read-back 정규값 불일치: ${entry.id}`);
+  }
+  if (sourceNames.model !== entry.evidence.googleSheet.sourceNames.model
+    || sourceNames.subModel !== entry.evidence.googleSheet.sourceNames.subModel
+    || sourceNames.trim !== entry.evidence.googleSheet.sourceNames.trim) {
+    throw new Error(`ERP5 제네시스 read-back 원문값 불일치: ${entry.id}`);
+  }
+  genesisReadback.push({
+    model: String(data.model || ''),
+    subModel: String(data.subModel || ''),
+    trim: String(data.trim || ''),
+    sourceModel: String(sourceNames.model || ''),
+    sourceSubModel: String(sourceNames.subModel || ''),
+    sourceTrim: String(sourceNames.trim || ''),
+  });
+}
+console.log(JSON.stringify({
+  genesisReadbackCount: genesisReadback.length,
+  genesisReadback: genesisReadback.slice(0, 30),
+}, null, 2));
+
 await versionRef.set({
   status: ACTIVATE ? 'active' : (built.blockers.length ? 'draft' : 'validated'),
   actualCount: written.size,
+  genesisReadbackCount: genesisReadback.length,
   validatedAt: FieldValue.serverTimestamp(),
 }, { merge: true });
 
