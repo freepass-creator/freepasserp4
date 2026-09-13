@@ -12,7 +12,7 @@ import {
   type SupplierAdapter,
 } from '../domain/supplier-adapter';
 
-const VERSION = '1.0.0';
+const VERSION = '1.1.0';
 
 function pick(raw: RawSupplierRow, ...headers: string[]): { header: string; value: unknown } {
   for (const header of headers) {
@@ -31,10 +31,12 @@ export class IronAdapter implements SupplierAdapter {
     const provenance: FieldProvenance = {};
     const issues: AdapterResult['issues'] = [];
 
+    // 어댑터는 공급사 소유 원천칸만 읽는다.
+    // 같은 탭의 제조사(정제)·모델 등 프리패스 정제칸은 REFINE 단계 소유라 여기서 역수입하지 않는다.
     const plate = pick(raw, '차량번호', '차번');
     const vin = pick(raw, '차대번호', 'VIN');
-    const maker = pick(raw, '제조사', '제조사(정제)');
-    const model = pick(raw, '모델명', '모델');
+    const maker = pick(raw, '제조사');
+    const model = pick(raw, '모델명');
     const rawName = pick(raw, '차명(세부모델+트림)', '차명');
     const status = pick(raw, '상태', '출고현황');
     const productType = pick(raw, '분류', '상품구분', '구분');
