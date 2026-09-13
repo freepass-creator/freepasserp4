@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { getSupplierAdapter } from '../lib/adapters';
+import { SUPPLIER_SOURCES } from '../lib/adapters/source-registry';
 import type { FreepassAtom, RawSupplierRow } from '../lib/domain/supplier-adapter';
 
 const S = (v: unknown) => String(v ?? '').trim();
@@ -13,29 +14,15 @@ const arg = (name: string, fallback = '') => {
 const DUMP = arg('dump', 'tmp/prepublish-main.json');
 const SA_PATH = S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json';
 
-type SourceSpec = {
-  code: string;
-  name: string;
-  spreadsheetId: string;
-  tab: string;
-};
-
-// 운영 게이트에 올린 공급사만 SOURCE→ADAPTER→ATOM 보존 검사를 통과해야 한다.
-// 공급사 추가는 ① 전용 adapter 등록 ② 이 목록에 원천 위치 등록 ③ fixture 추가 순서로 한다.
-const SOURCES: SourceSpec[] = [
-  {
-    code: 'IANKA',
-    name: '이안카',
-    spreadsheetId: arg('ianka-sheet', '1fJuFSdaW559niD0ow7vVC3qcgjy8KRb8Cr3U8Of01vs'),
-    tab: arg('ianka-tab', '이안카'),
-  },
-  {
-    code: 'IRON',
-    name: '아이언',
-    spreadsheetId: arg('iron-sheet', '1Xm7Nl6yK7DcPQPF6w2OI_0-sphWHFVt2u6IKrYT8S4U'),
-    tab: arg('iron-tab', '재고'),
-  },
-];
+// 테스트/비상 점검 때만 CLI로 원천 위치를 덮을 수 있다. 운영 기본값은 source-registry.ts가 정본이다.
+const SOURCES = SUPPLIER_SOURCES.map((spec) => {
+  const key = spec.code.toLowerCase();
+  return {
+    ...spec,
+    spreadsheetId: arg(`${key}-sheet`, spec.spreadsheetId),
+    tab: arg(`${key}-tab`, spec.tab),
+  };
+});
 
 type DumpShape = {
   columns?: string[];
