@@ -28,10 +28,14 @@ export function hasVehicleMeaning(atom: FreepassAtom): boolean {
 }
 
 export function hasSellableRent(atom: FreepassAtom): boolean {
-  return RENT_TERMS.some((term) => {
+  const standard = RENT_TERMS.some((term) => {
     const v = atom.rent[term];
     return typeof v === 'number' && Number.isFinite(v) && v > 0;
   });
+  if (standard) return true;
+
+  // 기간 외에 연주행거리 같은 가격축이 있는 공급사는 표준 rent 한 칸으로 눌러 담지 않는다.
+  return Boolean(atom.rentVariants?.some((v) => Number.isFinite(v.amount) && v.amount > 0));
 }
 
 export function isExplicitlySellableStatus(status: unknown): boolean {
@@ -71,7 +75,7 @@ export function evaluateEligibility(
 
 export const ELIGIBILITY_CONTRACT = Object.freeze({
   atom: '식별 가능한 실제 원천 차량은 보존한다.',
-  f01: '식별 가능 + 차량 의미 있음 + 명시적 판매가능 상태 + 판매 가능한 기간요금 1개 이상 + 공급사/채널 사용중',
+  f01: '식별 가능 + 차량 의미 있음 + 명시적 판매가능 상태 + 판매 가능한 표준/변형 기간요금 1개 이상 + 공급사/채널 사용중',
   erp: 'F01과 동일한 판매 가능성 계약을 사용한다. 공급사별 해석은 어댑터 앞단에서 끝낸다.',
   sellableStatuses: ['출고가능', '즉시출고', '출고협의', '배차가능', '판매중', '재고'],
   rentTerms: RENT_TERMS,
