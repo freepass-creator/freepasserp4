@@ -13,16 +13,27 @@ const arg = (name: string, fallback = '') => {
 
 const DUMP = arg('dump', 'tmp/prepublish-main.json');
 const SA_PATH = S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json';
+const ONLY = new Set(
+  arg('only')
+    .split(',')
+    .map((v) => S(v).toUpperCase())
+    .filter(Boolean),
+);
 
 // 테스트/비상 점검 때만 CLI로 원천 위치를 덮을 수 있다. 운영 기본값은 source-registry.ts가 정본이다.
-const SOURCES = SUPPLIER_SOURCES.map((spec) => {
-  const key = spec.code.toLowerCase();
-  return {
-    ...spec,
-    spreadsheetId: arg(`${key}-sheet`, spec.spreadsheetId),
-    tab: arg(`${key}-tab`, spec.tab),
-  };
-});
+// --only=IANKA,IRON 처럼 쓰면 해당 발행 탭의 실제 소유 공급사만 대조한다.
+// F01은 상품리스트/오플구독 등 탭별 발행 대상이 다르므로, 서로 다른 탭을 한 dump에 억지로 찾지 않는다.
+const SOURCES = SUPPLIER_SOURCES
+  .filter((spec) => !ONLY.size || ONLY.has(spec.code.toUpperCase()) || ONLY.has(spec.partnerCode.toUpperCase()))
+  .map((spec) => {
+    const key = spec.code.toLowerCase();
+    return {
+      ...spec,
+      spreadsheetId: arg(`${key}-sheet`, spec.spreadsheetId),
+      tab: arg(`${key}-tab`, spec.tab),
+    };
+  });
+if (!SOURCES.length) throw new Error(`SSOT gate: --only=${arg('only')} 에 해당하는 공급사가 없습니다.`);
 
 type DumpShape = {
   columns?: string[];
