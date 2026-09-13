@@ -77,6 +77,22 @@ test('허용 필드 안의 이메일·전화번호·주민번호는 게시를 �
   assert.throws(() => exportProductForErp5({ car_number: '12가3456', options: { 메모: '900101-1234567' } }), /개인정보/);
 });
 
+test('ERP4 내부 사진 캐시는 제외하고 원본 사진 링크만 보존한다', () => {
+  const photoLink = 'https://drive.google.com/drive/folders/public-catalog-source';
+  const { data, ignoredFields } = exportProductForErp5({
+    car_number: '12가3456',
+    photo_link: photoLink,
+    photo_cache: {
+      src: photoLink,
+      urls: ['https://cache.example.test/private/010-1234-5678.jpg'],
+      cachedAt: '2026-09-13T00:00:00.000Z',
+    },
+  });
+  assert.equal(data.photo_link, photoLink);
+  assert.equal(data.photo_cache, undefined);
+  assert.ok(ignoredFields.includes('photo_cache'));
+});
+
 test('차번 없는 레코드는 게시를 막는다', () => {
   assert.throws(() => exportProductForErp5({ maker: '현대' }), /car_number/);
 });

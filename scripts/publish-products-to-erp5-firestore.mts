@@ -5,6 +5,7 @@
  * 기존 ERP4 컬렉션은 삭제하거나 수정하지 않는다.
  */
 import { readFileSync } from 'node:fs';
+import { isDeepStrictEqual } from 'node:util';
 import { cert, initializeApp, type ServiceAccount } from 'firebase-admin/app';
 import { FieldValue, getFirestore } from 'firebase-admin/firestore';
 import { JWT } from 'google-auth-library';
@@ -263,6 +264,34 @@ const written = await versionRef.collection('products').select().get();
 if (written.size !== items.length) {
   await versionRef.set({ status: 'invalid', actualCount: written.size }, { merge: true });
   throw new Error(`ERP5 검증 실패: expected=${items.length}, actual=${written.size}`);
+}
+
+const readbackSamples = new Map<string, (typeof items)[number]>();
+for (const item of items) {
+  const pricing = item.data.adapter_pricing as Record<string, unknown> | undefined;
+  const sourceCode = S(pricing?.sourceCode).toUpperCase();
+  if (sourceCode && !readbackSamples.has(sourceCode)) readbackSamples.set(sourceCode, item);
+}
+for (const [sourceCode, expected] of readbackSamples) {
+  const snapshot = await versionRef.collection('products').doc(expected.id).get();
+  const actual = snapshot.data();
+  if (!actual || !isDeepStrictEqual(actual.adapter_pricing, expected.data.adapter_pricing)
+    || !isDeepStrictEqual(actual.offer_terms, expected.data.offer_terms)) {
+    await versionRef.set({ status: 'invalid', readbackFailure: sourceCode }, { merge: true });
+    throw new Error(`ERP5 어댑터 의미값 읽기 검증 실패: ${sourceCode}`);
+  }
+  if (Object.prototype.hasOwnProperty.call(actual, 'photo_cache')) {
+    await versionRef.set({ status: 'invalid', readbackFailure: `${sourceCode}:photo_cache` }, { merge: true });
+    throw new Error(`ERP5 공개 경계 검증 실패: ${sourceCode} 상품에 photo_cache가 저장되었습니다.`);
+  }
+  const pricing = actual.adapter_pricing as Record<string, unknown>;
+  const policy = pricing.depositPolicy as Record<string, unknown> | null;
+  console.log(JSON.stringify({
+    readback: sourceCode,
+    depositPolicyCode: policy?.code || null,
+    rentVariantCount: Array.isArray(pricing.rentVariants) ? pricing.rentVariants.length : 0,
+    photoCacheExcluded: true,
+  }));
 }
 
 await versionRef.set({
