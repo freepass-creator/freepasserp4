@@ -1,5 +1,6 @@
 import type { SupplierAdapter } from '../domain/supplier-adapter';
 import { iankaAdapter } from './ianka';
+import { ironAdapter } from './iron';
 
 /**
  * 운영용 공급사 어댑터 레지스트리.
@@ -9,6 +10,7 @@ import { iankaAdapter } from './ianka';
  */
 const REGISTRY = new Map<string, SupplierAdapter>([
   [iankaAdapter.sourceCode, iankaAdapter],
+  [ironAdapter.sourceCode, ironAdapter],
 ]);
 
 function normalizeSourceCode(value: string): string {
@@ -33,3 +35,4 @@ export function listSupplierAdapters(): SupplierAdapter[] {
 }
 
 export { iankaAdapter } from './ianka';
+export { ironAdapter } from './iron';
