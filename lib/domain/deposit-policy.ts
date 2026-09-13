@@ -27,9 +27,11 @@ const AUTOPLUS_IMPORT_POLICY: DepositPolicy = Object.freeze({
   multiplierByTerm: Object.freeze({ 12: 3, 18: 6, 24: 6, 36: 6, 48: 6, 60: 6 }),
 });
 
-/** 오토플러스는 제조사 원산지에 따라 보증금 규칙이 갈린다. */
-export function resolveAutoplusDepositPolicy(maker: string): DepositPolicy {
-  return isImportBrand(String(maker ?? '')) ? AUTOPLUS_IMPORT_POLICY : AUTOPLUS_DOMESTIC_POLICY;
+/** 제조사가 없으면 국산이라고 추정하지 않는다. */
+export function resolveAutoplusDepositPolicy(maker: string): DepositPolicy | undefined {
+  const normalized = String(maker ?? '').trim();
+  if (!normalized) return undefined;
+  return isImportBrand(normalized) ? AUTOPLUS_IMPORT_POLICY : AUTOPLUS_DOMESTIC_POLICY;
 }
 
 /** 기간별 월대여료에 곱할 보증금 배수. 알 수 없는 기간은 undefined로 둔다. */
