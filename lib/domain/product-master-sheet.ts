@@ -5,6 +5,7 @@
  * 공급사·상태·정책·가격을 맡는다. 공급사 원문은 AI가 차량번호별 최초 1회만 매칭하며
  * 확정된 차종코드·차명·옵션을 매일 다시 추정하지 않는다.
  */
+import { calculateDepositFromMonthlyRent, SONOGONG_DEPOSIT_POLICY } from './deposit-policy';
 
 /**
  * ★코드 규격(50열) 상품마스터 탭 — ERP 일일 동기·발행기·상품마스터 갱신기가 읽는 «기계 표».
@@ -85,13 +86,13 @@ export const PRODUCT_MASTER_COLUMNS = [
   ...PRODUCT_MASTER_SUPPLIER_NAME_COLUMNS,
 ] as const;
 
-/** 손오공 구독: 기간별 월대여료 × 약정연수. */
+/** 손오공 구독: 기간별 월대여료 × 약정연수, 최대 3개월치. */
 export function sonogongSubscriptionDeposit(rent: unknown, months: unknown): number {
   const monthlyRent = Number(rent);
   const termMonths = Number(months);
   if (!Number.isFinite(monthlyRent) || monthlyRent <= 0) return 0;
   if (!Number.isFinite(termMonths) || termMonths < 12 || termMonths % 12 !== 0) return 0;
-  return monthlyRent * (termMonths / 12);
+  return calculateDepositFromMonthlyRent(SONOGONG_DEPOSIT_POLICY, termMonths, monthlyRent) ?? 0;
 }
 
 /**

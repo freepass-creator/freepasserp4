@@ -24,6 +24,7 @@
  *   조건 칸(소득증빙·만21세·면허·카드결제·보증금)과 머리띠 문구 = 그 공급사 시트 「운영정책」 탭에서 뽑는다.
  *          정책이 바뀌면 다음 발행에 저절로 따라간다. 코드에 박은 것은 OVERRIDE 뿐이다.
  */
+import { calculateDepositFromMonthlyRent, SONOGONG_DEPOSIT_POLICY } from './deposit-policy';
 
 export type Rec = Record<string, any>;
 
@@ -109,12 +110,13 @@ export function cheapestRent(get: (n: string) => unknown): Money | null {
   if (y1 > 0) return { label: '1년', won: y1, deposit: man(get('단기보증')) || man(get('장기보증')) || '-' };
   return null;
 }
-/** 구독 반납형 — 12~60개월 반납형 중 최저가. 보증금 = 연수 × 대여료(손오공 규칙: 시트 보증금 칸 글자가 「연수×대여료」). */
+/** 구독 반납형 — 12~60개월 반납형 중 최저가. 보증금 = 연수 × 대여료, 최대 3개월치. */
 export function cheapestSubReturn(get: (n: string) => unknown): Money | null {
   const c = TERMS.map(([m, label, yr]) => ({ label, yr, won: numOf(get(`${m}개월 반납형`)) })).filter((x) => x.won > 0);
   if (!c.length) return null;
   const best = c.reduce((a, b) => (b.won < a.won ? b : a));
-  return { label: best.label, won: best.won, deposit: String(Math.round((best.yr * best.won) / 10000)) };
+  const deposit = calculateDepositFromMonthlyRent(SONOGONG_DEPOSIT_POLICY, best.yr * 12, best.won) ?? 0;
+  return { label: best.label, won: best.won, deposit: String(Math.round(deposit / 10000)) };
 }
 export const PRICERS = { 렌트: cheapestRent, 구독반납형: cheapestSubReturn } as const;
 export type PricerName = keyof typeof PRICERS;
