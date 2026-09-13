@@ -30,6 +30,7 @@ import { snapColor } from '../lib/domain/color-master';
 import { MIRROR_SOURCES } from '../lib/domain/mirror-sources';
 import { sheetIdFromUrl } from '../lib/domain/supplier-sheet-read';
 import { FUEL_EV, rawSeats, atomViolations, type MasterIndex } from '../lib/domain/atom-invariants';
+import { calculateDepositFromMonthlyRent, SONOGONG_DEPOSIT_POLICY } from '../lib/domain/deposit-policy';
 
 const APPLY = process.argv.includes('--apply');
 const CODE = (process.argv.find((a) => a.startsWith('--code='))?.split('=')[1] || 'RP004').trim();
@@ -203,11 +204,12 @@ async function readRows(): Promise<Row[]> {
     for (const c of cars) {
       const car = S(c.차번); if (!car) continue;
       const status = c.계약중 ? '계약중' : (S(c.계약가능) === 'Y' ? '출고가능' : '출고협의');
-      // 요금 = 저신용월납. RETURN=반납형(개월키) · BUYOUT=인수형(개월_인수형). deposit=(개월/12)×rent(현행 규칙).
+      // 요금 = 저신용월납. RETURN=반납형(개월키) · BUYOUT=인수형(개월_인수형).
+      // 손오공 보증금은 계약연수×대여료이되 최대 3개월치다.
       const price: Price = {};
       const low = (c.저신용월납 || {}) as { SUBSCRIBE_RETURN?: Record<string, number>; SUBSCRIBE_BUYOUT?: Record<string, number> };
-      for (const [p, rent] of Object.entries(low.SUBSCRIBE_RETURN || {})) { const r = won(rent); if (r > 0) price[p] = { rent: r, deposit: Math.round((Number(p) / 12) * r) }; }
-      for (const [p, rent] of Object.entries(low.SUBSCRIBE_BUYOUT || {})) { const r = won(rent); if (r > 0) price[`${p}_인수형`] = { rent: r, deposit: Math.round((Number(p) / 12) * r) }; }
+      for (const [p, rent] of Object.entries(low.SUBSCRIBE_RETURN || {})) { const r = won(rent); if (r > 0) price[p] = { rent: r, deposit: calculateDepositFromMonthlyRent(SONOGONG_DEPOSIT_POLICY, Number(p), r) ?? 0 }; }
+      for (const [p, rent] of Object.entries(low.SUBSCRIBE_BUYOUT || {})) { const r = won(rent); if (r > 0) price[`${p}_인수형`] = { rent: r, deposit: calculateDepositFromMonthlyRent(SONOGONG_DEPOSIT_POLICY, Number(p), r) ?? 0 }; }
       push({ car, status, kind: c.중고 ? '중고구독' : '', maker: S(c.제조사), model: S(c.모델), vname: S(c.차명) || S(c.세부), fuel: S(c.연료), ext: S(c.외장), int: S(c.내장), km: c.주행거리 == null ? '' : String(c.주행거리), opt: S(c.옵션), firstReg: S(c.최초등록) || S(c.연식), cc: c.배기량 == null ? '' : String(c.배기량), klass: '', price, tab: '손오공API', row: S(c.id) });
     }
     return out;

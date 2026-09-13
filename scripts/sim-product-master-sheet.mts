@@ -34,10 +34,10 @@ check('각 기간은 대여료 바로 옆에 보증금이 온다', PRODUCT_MASTE
 check('후행 가격블록도 대여료 바로 옆에 보증금이 온다', PRODUCT_MASTER_VARIANT_PRICE_COLUMNS.every((column, index) => (
   index % 2 === 1 || PRODUCT_MASTER_VARIANT_PRICE_COLUMNS[index + 1] === column.replace('대여료', '보증금')
 )));
-check('손오공 인수형 36·48·60개월 보증금은 각각 3·4·5개월치',
+check('손오공 인수형 36·48·60개월 보증금은 모두 최대 3개월치',
   sonogongSubscriptionDeposit(1_000_000, 36) === 3_000_000
-  && sonogongSubscriptionDeposit(1_000_000, 48) === 4_000_000
-  && sonogongSubscriptionDeposit(1_000_000, 60) === 5_000_000);
+  && sonogongSubscriptionDeposit(1_000_000, 48) === 3_000_000
+  && sonogongSubscriptionDeposit(1_000_000, 60) === 3_000_000);
 check('오토플러스 보증금은 국산×2·수입 12개월×3·18개월 이상×6',
   autoplusDeposit({ rent: 1_000_000, months: 12, origin: '국산' }) === 2_000_000
   && autoplusDeposit({ rent: 1_000_000, months: 12, origin: '수입' }) === 3_000_000
@@ -45,9 +45,11 @@ check('오토플러스 보증금은 국산×2·수입 12개월×3·18개월 이�
 check('관리자 첫 화면은 공급사 입력 차명과 차종마스터 적용값을 바로 대조한다',
   PRODUCT_MASTER_COLUMNS.slice(0, 6).join(',')
     === '차량번호,공급사명,공급사 입력 차명,차종마스터 적용값,검증상태,검수사유');
-check('정책·차종·공급사 코드는 표 맨 뒤 관리영역에 있다',
-  PRODUCT_MASTER_COLUMNS.slice(-6).join(',')
-    === '정책코드,차종코드,공급사코드,최종갱신,원천,공급사 원문보존');
+check('정책·차종·공급사 코드는 공급사 표시명 앞 관리영역에 있다', (() => {
+  const start = PRODUCT_MASTER_COLUMNS.indexOf('정책코드');
+  return PRODUCT_MASTER_COLUMNS.slice(start, start + 6).join(',')
+    === '정책코드,차종코드,공급사코드,최종갱신,원천,공급사 원문보존';
+})());
 check('차명은 모델명·파워트레인·세부트림만 한 칸', productMasterVehicleName({
   maker: '테슬라', model: 'Model Y', subModel: 'Model Y', powertrain: '전기', trim: 'RWD',
 }) === 'Model Y · 전기 · RWD');

@@ -1,0 +1,95 @@
+name: ERP5 Firestore 상품·차종 SSOT 게시
+
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: 'ERP5에 검증 버전 쓰기'
+        type: boolean
+        default: false
+      activate_products:
+        description: '상품 검증 성공 후 활성 버전 교체'
+        type: boolean
+        default: false
+      activate_vehicle_master:
+        description: '차종 검증 성공 후 활성 버전 교체(blocker 0 필수)'
+        type: boolean
+        default: false
+      deploy_rules:
+        description: 'ERP5 상품조회 전용 Firestore 규칙 배포'
+        type: boolean
+        default: false
+      version:
+        description: '버전 ID (비우면 실행시각)'
+        type: string
+        required: false
+
+concurrency:
+  group: erp5-firestore-ssot-publish
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Encar 차종 참조본 체크아웃
+        uses: actions/checkout@v4
+        with:
+          repository: freepass-creator/vehicle-master
+          path: tmp/vehicle-master
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: 공개 경계 회귀검사
+        run: |
+          npm run sim:erp5-product-ssot
+          npm run sim:erp5-vehicle-master-ssot
+          npx tsx scripts/test-ssot-adapters.mts
+          npx tsx scripts/sim-product-master-sheet.mts
+          npx tsx scripts/sim-deposit-cap.mts
+      - name: ERP4 자격증명 준비
+        env:
+          SA: ${{ secrets.GOOGLE_SA_JSON }}
+        run: |
+          test -n "$SA" || { echo '::error::GOOGLE_SA_JSON 시크릿이 없습니다.'; exit 1; }
+          mkdir -p tmp/firebase-auth
+          printf '%s' "$SA" > tmp/firebase-auth/sa.json
+      - name: ERP5 상품조회 전용 규칙 배포
+        if: ${{ inputs.deploy_rules }}
+        env:
+          SA: ${{ secrets.ERP5_FIREBASE_SERVICE_ACCOUNT_JSON }}
+        run: |
+          test -n "$SA" || { echo '::error::ERP5_FIREBASE_SERVICE_ACCOUNT_JSON 시크릿이 없습니다.'; exit 1; }
+          printf '%s' "$SA" > tmp/firebase-auth/erp5-sa.json
+          GOOGLE_APPLICATION_CREDENTIALS="$PWD/tmp/firebase-auth/erp5-sa.json" \
+            npx --yes firebase-tools deploy --project erp5-3e2fc --config firebase.erp5.json --only firestore:rules --non-interactive
+      - name: ERP4 상품 → ERP5 버전 게시
+        env:
+          ERP5_FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.ERP5_FIREBASE_SERVICE_ACCOUNT_JSON }}
+        shell: bash
+        run: |
+          VERSION="${{ inputs.version }}"
+          if [ -z "$VERSION" ]; then VERSION="run-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"; fi
+          ARGS=("--version=$VERSION")
+          if [ "${{ inputs.apply }}" = "true" ]; then ARGS+=("--apply"); fi
+          if [ "${{ inputs.activate_products }}" = "true" ]; then ARGS+=("--activate"); fi
+          if [ "${{ inputs.apply }}" = "true" ] && [ -z "$ERP5_FIREBASE_SERVICE_ACCOUNT_JSON" ]; then
+            echo '::error::ERP5_FIREBASE_SERVICE_ACCOUNT_JSON 시크릿이 없습니다.'
+            exit 1
+          fi
+          npx tsx scripts/publish-products-to-erp5-firestore.mts "${ARGS[@]}"
+      - name: Google Sheet + Encar → ERP5 차종마스터 버전 게시
+        env:
+          ERP5_FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.ERP5_FIREBASE_SERVICE_ACCOUNT_JSON }}
+        shell: bash
+        run: |
+          VERSION="${{ inputs.version }}"
+          if [ -z "$VERSION" ]; then VERSION="run-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"; fi
+          ARGS=("--version=$VERSION" "--encar=tmp/vehicle-master/dist/vehicle-master.flat.json")
+          if [ "${{ inputs.apply }}" = "true" ]; then ARGS+=("--apply"); fi
+          if [ "${{ inputs.activate_vehicle_master }}" = "true" ]; then ARGS+=("--activate"); fi
+          npx tsx scripts/publish-vehicle-master-to-erp5-firestore.mts "${ARGS[@]}"
