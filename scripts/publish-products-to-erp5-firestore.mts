@@ -242,22 +242,35 @@ await versionRef.set({
 });
 
 const CHUNK_SIZE = 400;
-for (let offset = 0; offset < items.length; offset += CHUNK_SIZE) {
-  const batch = db.batch();
-  for (const item of items.slice(offset, offset + CHUNK_SIZE)) {
-    batch.create(versionRef.collection('products').doc(item.id), {
-      ...item.data,
-      _erp5: {
-        schemaVersion: 1,
-        sourceSystem: 'freepasserp4.firestore.products',
-        sourceDocumentId: item.id,
-        versionId: VERSION_ID,
-        copiedAt: FieldValue.serverTimestamp(),
-      },
-    });
+try {
+  for (let offset = 0; offset < items.length; offset += CHUNK_SIZE) {
+    const batch = db.batch();
+    for (const item of items.slice(offset, offset + CHUNK_SIZE)) {
+      batch.create(versionRef.collection('products').doc(item.id), {
+        ...item.data,
+        _erp5: {
+          schemaVersion: 1,
+          sourceSystem: 'freepasserp4.firestore.products',
+          sourceDocumentId: item.id,
+          versionId: VERSION_ID,
+          copiedAt: FieldValue.serverTimestamp(),
+        },
+      });
+    }
+    await batch.commit();
+    console.log(`WRITE ${Math.min(offset + CHUNK_SIZE, items.length)}/${items.length}`);
   }
-  await batch.commit();
-  console.log(`WRITE ${Math.min(offset + CHUNK_SIZE, items.length)}/${items.length}`);
+} catch (error) {
+  try {
+    await versionRef.set({
+      status: 'invalid',
+      failureCode: 'FIRESTORE_WRITE_FAILED',
+      failedAt: FieldValue.serverTimestamp(),
+    }, { merge: true });
+  } catch {
+    console.error('ERP5 실패 버전을 invalid로 표시하지 못했습니다.');
+  }
+  throw error;
 }
 
 const written = await versionRef.collection('products').select().get();

@@ -76,6 +76,20 @@ const isPlainObject = (value: unknown): value is Record<string, unknown> => {
   return prototype === Object.prototype || prototype === null;
 };
 
+function withoutUndefined(value: unknown): unknown {
+  if (value === undefined) return undefined;
+  if (Array.isArray(value)) {
+    return value.map(withoutUndefined).filter((item) => item !== undefined);
+  }
+  if (!isPlainObject(value)) return value;
+  const result: Record<string, unknown> = {};
+  for (const [key, nested] of Object.entries(value)) {
+    const copied = withoutUndefined(nested);
+    if (copied !== undefined) result[key] = copied;
+  }
+  return result;
+}
+
 const hasPrivateKey = (key: string) => PRIVATE_KEY.test(key.trim());
 const normalizeUrlParamKey = (key: string) => key
   .replace(/([a-z0-9])([A-Z])/g, '$1_$2')
@@ -145,7 +159,9 @@ function copyPublicValue(value: unknown, path: string): unknown {
     return value;
   }
   if (Array.isArray(value)) {
-    return value.map((item, index) => copyPublicValue(item, `${path}[${index}]`));
+    return value
+      .map((item, index) => copyPublicValue(item, `${path}[${index}]`))
+      .filter((item) => item !== undefined);
   }
   // Firestore Timestamp/GeoPoint 같은 SDK 값은 내부 필드를 펼치지 않고 그대로 운반한다.
   if (!isPlainObject(value)) return value;
@@ -160,7 +176,7 @@ function copyPublicValue(value: unknown, path: string): unknown {
 }
 
 function adapterPricing(atom: FreepassAtom): Record<string, unknown> {
-  return {
+  return withoutUndefined({
     sourceCode: atom.source.supplierCode,
     sourceName: atom.source.supplierName || '',
     adapter: atom.source.adapter,
@@ -170,7 +186,7 @@ function adapterPricing(atom: FreepassAtom): Record<string, unknown> {
     depositPolicy: atom.depositPolicy ?? null,
     rent: atom.rent,
     rentVariants: atom.rentVariants || [],
-  };
+  }) as Record<string, unknown>;
 }
 
 export function exportProductForErp5(source: Record<string, unknown>, atom?: FreepassAtom): ProductExportResult {
