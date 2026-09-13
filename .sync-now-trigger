@@ -1,3 +1,4 @@
-triggered_at=2026-09-13T17:58:30+09:00
+trigger=chatgpt-manual-apply
+nonce=20260913-ssot-gated-01
 scope=google-sheets,f86,erp
 mode=skip-sonokong-local-source
