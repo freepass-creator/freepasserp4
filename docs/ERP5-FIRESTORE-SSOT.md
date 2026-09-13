@@ -1,16 +1,16 @@
 # ERP5 Firestore SSOT 복원·연결
 
-ERP4는 계속 운영하고, ERP5에는 상품과 차종마스터만 단방향으로 게시한다. 계약·상담·사용자·정산 데이터는 이 경로로 보내지 않는다.
+ERP4는 계속 운영한다. ERP5는 별도 Firebase 프로젝트가 아니라 **ERP4가 쓰는 같은 Firebase 프로젝트 안의 버전 컬렉션**으로 상품과 차종마스터만 단방향 게시한다. 계약·상담·사용자·정산 데이터는 이 경로로 보내지 않는다.
 
 ## 데이터 흐름
 
 1. 공급사 원천을 전용 어댑터로 읽어 가격축을 보존한다.
 2. ERP4 Firestore `products`의 현재 상품 원자를 공개 필드 allowlist로 복사한다.
 3. Google Sheet `차종마스터`의 채택명과 Encar 참조본을 대조한다.
-4. ERP5 Firestore에 새 버전을 만든다.
+4. 같은 Firestore의 ERP5 전용 버전 경로에 새 버전을 만든다.
 5. 쓰기 수량과 blocker를 검증한 뒤 활성 포인터만 교체한다.
 
-ERP4 원본과 ERP5의 기존 컬렉션은 삭제하거나 덮어쓰지 않는다.
+ERP4 원본 컬렉션은 삭제하거나 덮어쓰지 않는다. 프로젝트는 하나지만 원본 경로와 ERP5 버전 경로는 분리한다.
 
 ## Firestore 경로
 
@@ -39,18 +39,19 @@ ERP4 원본과 ERP5의 기존 컬렉션은 삭제하거나 덮어쓰지 않는�
 
 ## ERP5 접근 규칙
 
-`firestore.erp5.rules`는 ERP4 규칙과 분리되어 있다. 역할 클레임은 `admin`, `agent`, `whitelabel` 세 값만 허용한다.
+`firestore.rules` 하나가 ERP4 운영 경계와 ERP5 SSOT 읽기 경계를 함께 가진다. 역할 클레임은 `admin`, `agent`, `whitelabel` 세 값만 허용한다.
 
 - 클라이언트 쓰기는 모든 경로에서 금지한다.
 - 관리자는 검증 버전과 활성 버전을 읽을 수 있다.
 - 영업자와 화이트라벨은 `ssotState/*`가 가리키는 활성 버전만 읽을 수 있다.
-- 그 밖의 컬렉션은 읽기와 쓰기를 모두 거부한다.
+- 기존 ERP4 컬렉션의 접근 규칙은 그대로 유지한다.
 
-대상 자격증명이 준비된 뒤 ERP5 프로젝트에만 다음 규칙을 배포한다.
+규칙 배포는 기존 ERP4 규칙까지 함께 갱신하므로 수동 검증과 승인 후에만 실행한다. 배포 대상 프로젝트 ID도 공용 자격증명에서 읽는다.
 
 ```bash
-GOOGLE_APPLICATION_CREDENTIALS=tmp/firebase-auth/erp5-sa.json \
-  npx firebase-tools deploy --project erp5-3e2fc --config firebase.erp5.json --only firestore:rules
+PROJECT_ID="$(node -e "const a=require('./tmp/firebase-auth/sa.json'); process.stdout.write(a.project_id)")"
+GOOGLE_APPLICATION_CREDENTIALS=tmp/firebase-auth/sa.json \
+  npx firebase-tools deploy --project "$PROJECT_ID" --config firebase.json --only firestore:rules
 ```
 
 ## 실행
@@ -59,12 +60,11 @@ GitHub Actions의 `ERP5 Firestore 상품·차종 SSOT 게시`를 수동 실행�
 
 필수 Repository secrets:
 
-- `GOOGLE_SA_JSON`: 현재 ERP4 Firestore 및 Google Sheets 읽기용
-- `ERP5_FIREBASE_SERVICE_ACCOUNT_JSON`: 대상 ERP5 프로젝트 쓰기용
+- `GOOGLE_SA_JSON`: 공용 Firebase 읽기·ERP5 버전 경로 쓰기 및 Google Sheets 읽기용
 
-대상 프로젝트 기본값은 `erp5-3e2fc`이며, 자격증명의 `project_id`가 다르면 즉시 중단한다.
+별도 ERP5 서비스계정이나 대상 프로젝트 ID는 사용하지 않는다. 자격증명의 `project_id`가 읽기와 쓰기의 단일 대상이다. 필요하면 `ERP_FIREBASE_PROJECT_ID` 또는 기존 `ERP4_FIREBASE_PROJECT_ID`로 기대 프로젝트를 고정하고, 자격증명이 다르면 즉시 중단한다.
 
-첫 실행은 `apply=false`로 검사한다. 대상 규칙이 없으면 `deploy_rules=true`로 전용 규칙을 먼저 배포한다. 이후 `apply=true`로 검증 버전만 저장하고, 결과를 확인한 뒤 상품과 차종마스터 활성화를 각각 켠다. 차종마스터는 blocker가 한 건이라도 있으면 활성화할 수 없다.
+첫 실행은 `apply=false`로 검사한다. 이후 `apply=true`로 검증 버전만 저장하고, 결과를 확인한 뒤 상품과 차종마스터 활성화를 각각 켠다. 규칙 배포는 이 발행 워크플로에 넣지 않는다. ERP5 SSOT 클라이언트 읽기가 필요할 때만 기존 ERP4 규칙까지 실데이터로 검증·승인한 뒤 위의 Firebase CLI 명령을 별도로 실행한다. 차종마스터는 blocker가 한 건이라도 있으면 활성화할 수 없다.
 
 로컬 명령:
 

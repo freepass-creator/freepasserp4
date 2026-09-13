@@ -8,6 +8,21 @@ service cloud.firestore {
     function claim(k) { return request.auth.token[k]; }
     function myCompany(doc) { return doc.companyId == claim('company'); }
     function isAdmin() { return signedIn() && claim('role') == 'admin'; }
+    function isCatalogueReader() {
+      return signedIn() && (
+        claim('role') == 'admin'
+        || claim('role') == 'agent'
+        || claim('role') == 'whitelabel'
+      );
+    }
+    function isActiveProductVersion(versionId) {
+      return exists(/databases/$(database)/documents/ssotState/products)
+        && get(/databases/$(database)/documents/ssotState/products).data.activeVersionId == versionId;
+    }
+    function isActiveVehicleVersion(versionId) {
+      return exists(/databases/$(database)/documents/ssotState/vehicleMaster)
+        && get(/databases/$(database)/documents/ssotState/vehicleMaster).data.activeVersionId == versionId;
+    }
 
     // 매물 — 관리자 전체, 공급사는 자기 회사 매물만 write
     match /product/{id} {
@@ -22,6 +37,30 @@ service cloud.firestore {
     match /products/{id} {
       allow read: if signedIn();
       allow write: if false;
+    }
+    // ERP5 상품조회 SSOT — 같은 Firebase 안에서 버전 경로만 분리한다.
+    // 클라이언트 쓰기는 금지하고, 영업자·화이트라벨은 활성 버전만 읽는다.
+    match /ssotState/{name} {
+      allow read: if isCatalogueReader() && (name == 'products' || name == 'vehicleMaster');
+      allow write: if false;
+    }
+    match /productMasterVersions/{versionId} {
+      allow read: if isAdmin() || (isCatalogueReader() && isActiveProductVersion(versionId));
+      allow write: if false;
+
+      match /products/{productId} {
+        allow read: if isAdmin() || (isCatalogueReader() && isActiveProductVersion(versionId));
+        allow write: if false;
+      }
+    }
+    match /vehicleMasterVersions/{versionId} {
+      allow read: if isAdmin() || (isCatalogueReader() && isActiveVehicleVersion(versionId));
+      allow write: if false;
+
+      match /entries/{entryId} {
+        allow read: if isAdmin() || (isCatalogueReader() && isActiveVehicleVersion(versionId));
+        allow write: if false;
+      }
     }
     // 계약 — 관리자 전체, 영업자=자기 계약, 공급사=자기 매물 계약(응답)
     match /contract/{id} {
