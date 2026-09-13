@@ -7,7 +7,10 @@ on:
       - 'lib/adapters/**'
       - 'lib/domain/supplier-adapter.ts'
       - 'lib/domain/product-eligibility.ts'
+      - 'lib/domain/f03-canonical-projection.ts'
       - 'scripts/test-ssot-adapters.mts'
+      - 'scripts/test-f03-canonical-projection.mts'
+      - 'scripts/repair-f03-ssot-projection.mts'
       - 'scripts/ssot-prepublish-gate.mts'
       - 'scripts/run-hourly-with-ssot-gate.mts'
       - 'scripts/cloud-hourly-sync.mts'
@@ -18,7 +21,10 @@ on:
       - 'lib/adapters/**'
       - 'lib/domain/supplier-adapter.ts'
       - 'lib/domain/product-eligibility.ts'
+      - 'lib/domain/f03-canonical-projection.ts'
       - 'scripts/test-ssot-adapters.mts'
+      - 'scripts/test-f03-canonical-projection.mts'
+      - 'scripts/repair-f03-ssot-projection.mts'
       - 'scripts/ssot-prepublish-gate.mts'
       - 'scripts/run-hourly-with-ssot-gate.mts'
       - 'scripts/cloud-hourly-sync.mts'
@@ -42,5 +48,7 @@ jobs:
       - run: npm ci
       - name: 공급사 어댑터 + 노출기준 회귀검사
         run: npx tsx scripts/test-ssot-adapters.mts
+      - name: F03 차종마스터 투영 회귀검사
+        run: npx tsx scripts/test-f03-canonical-projection.mts
       - name: TypeScript 계약 검사
         run: npm run typecheck
