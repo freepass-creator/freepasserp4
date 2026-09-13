@@ -1,0 +1,31 @@
+name: One-time full production sync
+
+on:
+  push:
+    paths:
+      - '.sync-now-trigger'
+
+concurrency:
+  group: sales-erp-hourly
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - name: Prepare credentials
+        env:
+          SA: ${{ secrets.GOOGLE_SA_JSON }}
+        run: |
+          test -n "$SA" || { echo '::error::GOOGLE_SA_JSON secret is missing.'; exit 1; }
+          mkdir -p tmp/firebase-auth
+          printf '%s' "$SA" > tmp/firebase-auth/sa.json
+      - name: Run canonical full sync
+        run: npx tsx scripts/hourly-sync.mts --apply
