@@ -14,11 +14,13 @@ const sheetRows = [
   { ...parsed[1], maker: '기아', model: 'K5', subModel: 'K5 DL3', trim: '노블레스' },
   { ...parsed[2], maker: '제네시스', model: 'G80', subModel: 'G80 RG3', trim: '스포츠' },
   { ...parsed[3], maker: '제네시스', model: 'GV70', subModel: 'GV70', trim: '' },
+  { ...parsed[4], maker: '제네시스', model: '더 뉴 G70 슈팅브레이크', subModel: '더 뉴 G70 슈팅브레이크', trim: '스포츠 패키지' },
 ];
 const encarRows: EncarReferenceRow[] = [
   { id: 'encar-g80', manufacturer: '제네시스', model: 'G80', sub_model: 'G80 (RG3)', trim: '기본', fuel: '가솔린', displacement_l: 2.5 },
   { id: 'encar-k5', manufacturer: '기아', model: 'K5', sub_model: 'K5 3세대', gen_code: 'DL3', trim: '노블레스', fuel: '가솔린' },
   { id: 'encar-gv70', manufacturer: '제네시스', model: 'GV70', sub_model: 'GV70', trim: '기본', fuel: '가솔린' },
+  { id: 'encar-g70-shooting', manufacturer: '제네시스', model: '더 뉴 G70 슈팅브레이크', sub_model: '더 뉴 G70 슈팅브레이크', trim: '스포츠 패키지', fuel: '가솔린', drivetrain: 'AWD' },
 ];
 const built = buildVehicleMaster({ sheetRows, encarRows });
 assert.equal(built.blockers.length, 0);
@@ -33,9 +35,17 @@ assert.equal(Object.hasOwn(built.entries[0], 'fuel'), false, '연료는 5단계 
 assert.equal(built.entries[3].subModel, '기본형', '모델과 같은 세부모델은 F03 발행 규칙상 기본형이어야 함');
 assert.equal(built.entries[3].evidence.googleSheet.sourceNames.subModel, 'GV70', 'Google Sheet 원문명은 근거로 보존해야 함');
 assert.equal(built.entries[3].evidence.googleSheet.canonicalProjectionApplied, true);
+assert.equal(built.entries[4].model, '더 뉴 G70 슈팅브레이크', 'G70 슈팅브레이크를 GV70으로 합치면 안 됨');
+assert.equal(built.entries[4].subModel, '기본형', 'G70 슈팅브레이크도 모델=세부모델이면 기본형으로 발행해야 함');
+assert.equal(built.entries[4].trim, '스포츠 패키지', '확인된 세부트림은 손실 없이 보존해야 함');
+assert.equal(built.entries[4].evidence.googleSheet.sourceNames.model, '더 뉴 G70 슈팅브레이크');
+assert.equal(built.entries[4].evidence.googleSheet.sourceNames.subModel, '더 뉴 G70 슈팅브레이크');
+assert.equal(built.entries[4].evidence.googleSheet.sourceNames.trim, '스포츠 패키지');
+assert.notEqual(built.entries[4].id, built.entries[3].id, 'G70 슈팅브레이크와 GV70은 서로 다른 SSOT 원자여야 함');
 console.log('PASS Google Sheet 채택명 + Encar 괄호/기아 세대명 대조');
 console.log('PASS 빈 트림은 ERP5 투영에서 기본형');
 console.log('PASS 모델=세부모델은 발행명만 기본형, Sheet 원문은 근거로 보존');
+console.log('PASS G70 슈팅브레이크와 GV70은 별도 원자이며 확인된 세부트림/원문을 보존');
 console.log('PASS 연료·배기량·구동·인승·배터리는 계층 밖 facts');
 
 const bad = buildVehicleMaster({
@@ -47,4 +57,4 @@ assert.ok(!bad.blockers.some((value) => value.includes('괄호 표기')));
 assert.ok(bad.blockers.some((value) => value.includes('FL 표기')));
 assert.ok(bad.blockers.some((value) => value.includes('needs-review')));
 console.log('PASS 괄호는 F03 표기로 투영하고 FL·근거 없는 행은 활성화 blocker');
-console.log('ERP5 VEHICLE MASTER SSOT 4/4 PASS');
+console.log('ERP5 VEHICLE MASTER SSOT 5/5 PASS');
