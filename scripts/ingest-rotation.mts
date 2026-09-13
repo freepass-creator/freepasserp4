@@ -1,0 +1,81 @@
+/**
+ * **원천 → 원자 직접수집을 «돌아가며» 자동으로 돌린다.** 기본 미리보기 · 반영은 `--apply`.
+ *
+ * ⚠⚠ 2026-09-08 — 직접수집(`ingest-supplier-to-firestore`)이 **매시간 회차에 아예 없었다.**
+ *   사람이 손으로 돌릴 때만 원자가 갱신됐다. 그래서
+ *   · 웰릭스가 **폐기된 시트**를 24일 읽는 동안 아무도 몰랐고(K8이 「모닝」으로 실렸다),
+ *   · 마음카 3대가 몇 주째 「요금 없는 차」로 서 있었다.
+ *   원자가 낡으면 **그 아래가 전부 낡는다** — 상품리스트·하허호·ERP·손님 면이 한꺼번에.
+ *
+ * ★**왜 «돌아가며»인가** — 구글 시트 읽기는 «분당» 한도가 있다. 스무 곳을 한 회차에 다 읽으면
+ *   429 로 죽고, 죽으면 **한 곳도 갱신이 안 된다**. 그래서 매 회차 **가장 오래된 몇 곳만** 읽는다.
+ *   한 시간에 셋이면 스무 곳이 일곱 시간 안에 한 바퀴 돈다 — 하루에 세 바퀴다.
+ *
+ * ★**실패는 알리되 멈추지 않는다.** 한 공급사가 못 읽힌다고 나머지를 굶기지 않는다.
+ *   ⚠ 다만 **얼마나 묵었는지**는 반드시 찍는다 — 24일을 몰랐던 것은 「본 적이 없어서」다.
+ *
+ *   npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/ingest-rotation.mts [--apply] [--n=3]
+ */
+import { readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { initializeApp, cert } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
+import nextEnv from '@next/env';
+
+nextEnv.loadEnvConfig(process.cwd());
+const S = (v: unknown) => String(v ?? '').trim();
+const APPLY = process.argv.includes('--apply');
+const N = Number(process.argv.find((a) => a.startsWith('--n='))?.split('=')[1] || 3);
+if (!S(process.env.GOOGLE_APPLICATION_CREDENTIALS)) process.env.GOOGLE_APPLICATION_CREDENTIALS = 'tmp/firebase-auth/sa.json';
+const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS), 'utf8'));
+initializeApp({ credential: cert({ projectId: sa.project_id, clientEmail: sa.client_email, privateKey: S(sa.private_key).replace(/\\n/g, '\n') }) });
+
+/**
+ * ★수집 «대상»은 원자가 말해 준다 — 지금 우리 차가 있는 공급사.
+ *   명단을 따로 두면 새 공급사가 들어와도 아무도 안 고쳐서 조용히 빠진다(실측으로 여러 번 겪었다).
+ */
+const docs = (await getFirestore().collection('products').get()).docs.map((d) => d.data() as any);
+type Row = { code: string; name: string; n: number; last: number };
+const by = new Map<string, Row>();
+for (const v of docs) {
+  const code = S(v.provider_company_code); if (!code) continue;
+  const r = by.get(code) || { code, name: S(v.provider_name) || code, n: 0, last: 0 };
+  r.n++; if (S(v.provider_name)) r.name = S(v.provider_name);
+  r.last = Math.max(r.last, Number(v._direct_ingest_at) || 0);
+  by.set(code, r);
+}
+const 시간 = (t: number) => (t ? Math.round((Date.now() - t) / 36e5) : 9999);
+const all = [...by.values()].sort((a, b) => 시간(b.last) - 시간(a.last) || b.n - a.n);
+
+console.log(`\n■ 원자 갱신 나이 — 공급사 ${all.length}곳`);
+for (const r of all) {
+  const h = 시간(r.last);
+  const 표 = h >= 9999 ? '★한 번도 없음' : (h >= 48 ? `★${Math.round(h / 24)}일` : `${h}시간`);
+  console.log(`  ${r.code.padEnd(8)} ${r.name.slice(0, 10).padEnd(11)} ${String(r.n).padStart(4)}대   ${표}`);
+}
+/** ⚠ 이틀 넘게 안 본 곳은 «낡은 것»이 아니라 «못 보고 있는 것»일 수 있다 — 웰릭스가 그랬다. */
+const 묵음 = all.filter((r) => 시간(r.last) >= 48);
+if (묵음.length) console.log(`\n  ▲ 이틀 넘게 원자를 못 채운 공급사 ${묵음.length}곳 — ${묵음.map((r) => `${r.name}(${시간(r.last) >= 9999 ? '없음' : `${Math.round(시간(r.last) / 24)}일`})`).join(' · ')}`);
+
+const 이번차례 = all.slice(0, Math.max(1, N));
+console.log(`\n■ 이번 회차 ${이번차례.length}곳 — ${이번차례.map((r) => r.name).join(' · ')}`);
+if (!APPLY) { console.log('\n미리보기 — 실제로 당기려면 --apply\n'); process.exit(0); }
+
+const 성공: string[] = [], 실패: string[] = [];
+for (const r of 이번차례) {
+  const out = spawnSync('npx', ['tsx', '--require', './scripts/lib/server-only-shim.cjs', 'scripts/ingest-supplier-to-firestore.mts', `--code=${r.code}`, '--apply'], {
+    encoding: 'utf8', shell: process.platform === 'win32', env: process.env,
+  });
+  const txt = `${out.stdout || ''}${out.stderr || ''}`;
+  const done = /반영 완료/.test(txt);
+  const 왜 = /요금이 한 대도/.test(txt) ? '요금 열을 못 읽음(두 줄 머리글 — 정제시트 길로 들어온다)'
+    : /폐기된 시트/.test(txt) ? '원천이 폐기 주소 — 문패를 고쳐라'
+    : /RESOURCE_EXHAUSTED|429/.test(txt) ? '구글 요청한도(다음 회차에 다시)'
+    : /PERMISSION_DENIED|403/.test(txt) ? '권한 — 어느 신분으로 읽는지부터 보라'
+    : (txt.match(/Error: ([^\n]{0,80})/)?.[1] || '까닭 모름');
+  if (done) { 성공.push(`${r.name} ${(txt.match(/직접 원자 (\d+)건/) || [])[1] || '?'}건`); console.log(`  ✔ ${r.name} — ${성공[성공.length - 1]}`); }
+  else { 실패.push(`${r.name}: ${왜}`); console.log(`  ✗ ${r.name} — ${왜}`); }
+}
+console.log(`\n✓ 돌아가며 수집 — 성공 ${성공.length} · 실패 ${실패.length}`);
+for (const x of 실패) console.log(`  ▲ ${x}`);
+process.exit(0);

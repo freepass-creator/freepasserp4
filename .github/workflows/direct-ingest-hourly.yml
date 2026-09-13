@@ -1,0 +1,76 @@
+name: 직접수집(원천→Firestore) 시간별
+
+# 사장님 2026-09-04 「나머지 자동화 가자.」 공급사 원천을 직접 읽어 Firestore 원자로.
+#   정제시트를 안 거친다. 차번으로 박은 불변은 지키고, 새 차·상태만 갱신.
+#   ★이게 「확정되면 안 바뀐다」의 손발이다 — 차번 pin 으로 재판정을 건너뛴다.
+#     규격 = docs/원자-내려보내기-로직.md §1 「칸마다 주인은 하나다」.
+#
+# ⚠⚠ **2026-09-12 에 main 으로 옮기며 `schedule` 을 끈 채로 뒀다. 켜는 것은 사장님 결정이다.**
+#
+#   이 워크플로는 `ingest-all-suppliers.mts` 를 부르고, 그 안에서 공급사마다 **`--apply` 를 붙인다**
+#   — 즉 **켜는 순간 매시간 운영 데이터(Firestore products)에 쓴다.** 옮겨심기가 그 스위치를
+#   같이 올리면 「보시기 전에 운영이 바뀌는」 일이 된다(CLAUDE.md — 「운영에 올릴 때는
+#   «보시기 전에» 바꾸지 않는다」). 그래서 **능력만 옮기고 스위치는 남겨 둔다.**
+#   (`sales-erp-hourly.yml` 도 같은 이유로 cron 이 빠져 있다 — main 의 기존 방식이다.)
+#
+#   ★★켜기 전에 확인할 것 셋 — 안 보고 켜면 원자가 두 군데서 써진다.
+#     ㉠ **⑭ 미러와 부딪히지 않는가.** `scripts/mirror-to-firestore.mts` 는 RTDB→Firestore 로
+#        흐르고, 그 「유효보존」은 **기존 확정을 안 본다**(재판정한다). 직접수집이 박은 불변을
+#        미러가 덮을 수 있다 — 원자 문서 §8 의 「⑭ 미러가 돌면 직접수집을 덮는다」가 그것이다.
+#     ㉡ **오케스트레이터가 둘이 되지 않는가.** 지금 시간별 파이프라인은 **사무실 PC 작업
+#        스케줄러**(`scripts/hourly-sync.cmd`)가 돌린다. GHA cron 을 켜면 두 대가 같은 원자를 쓴다.
+#     ㉢ **문지기를 먼저 태운다.** `scripts/check-atom-intake.mts` — 차가 아닌 줄·우리 몫 유출·
+#        대수 급감을 «멈춘다». 검사 없이 매시간 쓰면 사고가 조용히 쌓인다.
+#
+#   켤 때 = 아래 `schedule` 두 줄의 주석만 벗긴다(평일 KST 09:00~18:00 = UTC 00~09).
+#   그때까지는 `workflow_dispatch` 로 **손으로** 부른다 — 그건 사람이 결과를 보고 있을 때다.
+#
+# ⚠ 옛 파이프라인(sales-erp-hourly 의 미러 ⑭)과 «독립»이다 — 그걸 안 건드린다.
+#   둘 다 products 를 쓰지만 값은 같은 원천이라 어긋나지 않는다(컷오버는 사장님 확인 후 별도).
+
+on:
+  # schedule:
+  #   # 평일 KST 09:00~18:00 매시(= UTC 00~09). 공급사가 낮에 고치므로.
+  #   - cron: '0 0-9 * * 1-5'
+  workflow_dispatch:
+    inputs:
+      only:
+        description: '특정 공급사만 (쉼표, 예: RP004,RP031). 비우면 전부'
+        required: false
+        default: ''
+
+concurrency:
+  group: direct-ingest
+  cancel-in-progress: false
+
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22', cache: 'npm' }
+      - run: npm ci
+      - name: 자격증명 준비
+        # ★흐름형(`{ }`) 안에 ${{ }} 를 맨몸으로 두면 YAML 이 못 읽어 런이 «시작도 못 한다».
+        #   옮겨 올 때 이 줄이 그 꼴이었다 — 그 가지에는 `check:workflows` 게이트가 없어서
+        #   살아남았다. 같은 한 줄로 sales-erp-hourly 가 첫 커밋부터 한 번도 안 돌았다(2026-09-08).
+        env:
+          SA: ${{ secrets.GOOGLE_SA_JSON }}
+        run: |
+          test -n "$SA" || { echo '::error::GOOGLE_SA_JSON 시크릿이 없습니다.'; exit 1; }
+          mkdir -p tmp/firebase-auth
+          printf '%s' "$SA" > tmp/firebase-auth/sa.json
+      # 손오공(RP012)은 API 덤프를 읽으므로 먼저 라이브로 갱신한다(계정 파일 없으면 스스로 건너뜀 = 커밋본 사용).
+      - name: 손오공 재고 갱신(best-effort)
+        continue-on-error: true
+        run: node sonokong/scripts/손오공.mjs --조용 || echo '손오공 갱신 건너뜀'
+      - name: 전 공급사 직접수집 → Firestore
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sa.json
+          NEXT_PUBLIC_FIREBASE_DATABASE_URL: https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app
+        run: npx tsx scripts/ingest-all-suppliers.mts ${{ inputs.only && format('--only={0}', inputs.only) || '' }}
+      - name: 자격증명 지우기
+        if: always()
+        run: rm -rf tmp/firebase-auth

@@ -1,0 +1,9 @@
+{
+  "indexes": [
+    { "collectionGroup": "contract", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "_key", "order": "ASCENDING" }, { "fieldPath": "agent_code", "order": "ASCENDING" }] },
+    { "collectionGroup": "contract", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "_key", "order": "ASCENDING" }, { "fieldPath": "provider_company_code", "order": "ASCENDING" }] },
+    { "collectionGroup": "settlement", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "_key", "order": "ASCENDING" }, { "fieldPath": "agent_code", "order": "ASCENDING" }] },
+    { "collectionGroup": "settlement", "queryScope": "COLLECTION", "fields": [{ "fieldPath": "_key", "order": "ASCENDING" }, { "fieldPath": "provider_company_code", "order": "ASCENDING" }] }
+  ],
+  "fieldOverrides": []
+}
