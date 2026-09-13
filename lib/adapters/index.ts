@@ -1,4 +1,5 @@
 import type { SupplierAdapter } from '../domain/supplier-adapter';
+import { autoplusAdapter } from './autoplus';
 import { iankaAdapter } from './ianka';
 import { ironAdapter } from './iron';
 
@@ -11,6 +12,7 @@ import { ironAdapter } from './iron';
 const REGISTRY = new Map<string, SupplierAdapter>([
   [iankaAdapter.sourceCode, iankaAdapter],
   [ironAdapter.sourceCode, ironAdapter],
+  [autoplusAdapter.sourceCode, autoplusAdapter],
 ]);
 
 function normalizeSourceCode(value: string): string {
@@ -34,5 +36,6 @@ export function listSupplierAdapters(): SupplierAdapter[] {
   return [...REGISTRY.values()];
 }
 
+export { autoplusAdapter } from './autoplus';
 export { iankaAdapter } from './ianka';
 export { ironAdapter } from './iron';
