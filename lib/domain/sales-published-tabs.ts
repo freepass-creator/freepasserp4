@@ -10,7 +10,7 @@
  *   상품리스트 한 탭만 읽으면 오플 88·손오공 구독 43대가 «없는 차»로 보인다(2026-08-18 저녁 하루는 한 탭이었다).
  * ★탭 이름은 「접두 MM.DD HH:MM · N대」. 접두마다 한 장만 산다(발행기가 같은 접두 탭을 갈아 끼움).
  */
-import { isImportBrand } from './vehicle-origin';
+import { resolveAutoplusDepositPolicy, SONOGONG_DEPOSIT_POLICY } from './deposit-policy';
 
 /** 보이는 탭 막대 왼쪽부터 이 차례. 발행기가 `--at` 없이 찍어도 이 자리를 지킨다. */
 export const SALES_PUBLISHED_TAB_PREFIXES = ['상품리스트', '손오공구독', '픽업구독', '오플구독'] as const;
@@ -39,8 +39,9 @@ export type NativeLeadColumn = { name: string; valueOf: (row: Record<string, str
 export const NATIVE_MONEY_BLOCK: Record<Exclude<SalesPublishedPrefix, '상품리스트'>, { src: string; srcTab: string; block: string[]; lead?: NativeLeadColumn }> = {
   손오공구독: {
     src: '1WIFn5ObK_nCVGLTjj6rO96i6vxub1QzJmiVW0BpJLcA', srcTab: '구독재고',
-    // 반납형: 보증금(글자 「연수×대여료」)+기간별 대여료 · 인수형: 보증금+36/48/60(12·24 인수형은 안 판다 — 값이 생기면 여기 늘린다)
-    block: ['보증금 반납형', '12개월 반납형', '24개월 반납형', '36개월 반납형', '48개월 반납형', '60개월 반납형', '보증금 인수형', '36개월 인수형', '48개월 인수형', '60개월 인수형'],
+    // 보증금은 원본 글자를 복사하지 않고 SSOT 정책 원자에서 발행한다.
+    block: ['12개월 반납형', '24개월 반납형', '36개월 반납형', '48개월 반납형', '60개월 반납형', '보증금 인수형', '36개월 인수형', '48개월 인수형', '60개월 인수형'],
+    lead: { name: '보증금 반납형', valueOf: () => SONOGONG_DEPOSIT_POLICY.label },
   },
   픽업구독: {
     // T카(TCAR_EXTERNAL) — 손오공 재고시트 「픽업재고」. 인수형도 반납형과 같은 12~60 전 기간(사장님 2026-08-27 「인수형도 반납형이랑 같아」 — T카는 상세 estimates에 인수형 12·24가 있다).
@@ -49,16 +50,16 @@ export const NATIVE_MONEY_BLOCK: Record<Exclude<SalesPublishedPrefix, '상품리
   },
   오플구독: {
     src: '1Tvd5IioF5y_yu3L1BQMRP4J1R8hcZHwkgl3vl-TsgY0', srcTab: '재고',
-    // 오플 정제시트 장기보증은 100대 전부 빈칸(2026-08-19 실측). 사장님 「오플에는 보증금 칸이 없는데 그 보증금 칸에 대여료 산출방식을 코멘트로 달아 줘야지」
-    //   → 「보증금」 칸을 앞에 두고 값은 산출 규칙 글자(국산/수입에 따라), 머리글 메모(SALES_NOTES.보증금)에 오플 공지사항 보증금표를 적는다. 숫자를 계산해 넣지 않는다.
+    // 오플 정제시트 장기보증은 비어 있어 보증금 숫자를 임의 계산해 저장하지 않는다.
+    // 발행용 규칙 글자도 이제 SSOT depositPolicy와 같은 resolver를 사용한다.
     block: ['12개월2만', '12개월3만', '18개월2만', '18개월3만', '24개월2만', '24개월3만', '36개월2만', '36개월3만'],
     lead: { name: '보증금', valueOf: (row) => autoplusDepositRuleText(row['제조사'] || row['제조사(정제)'] || '') },
   },
 };
 
-/** 오토플러스 보증금 산출 규칙(오플 공지사항 보증금표 — 국산 ×2 · 수입 12개월 ×3 / 18개월↑ ×6). 금액을 계산하지 않고 규칙만 글자로 둔다. */
+/** 오토플러스 보증금 표시도 어댑터와 동일한 SSOT 규칙 resolver를 쓴다. */
 export function autoplusDepositRuleText(maker: string): string {
-  return isImportBrand(String(maker ?? '')) ? '수입: 12개월 대여료×3 · 18개월↑ ×6' : '국산: 월 대여료×2';
+  return resolveAutoplusDepositPolicy(String(maker ?? ''))?.label ?? '';
 }
 
 /** 원본 머리글 → 영업자 표에 보이는 이름(사장님 「12개월 3만Km 이렇게」). 그 밖은 그대로. */
@@ -71,7 +72,7 @@ const normHead = (h: unknown) => String(h ?? '').replace(/\s+/g, '').replace(/km
 
 /**
  * 갈래 탭에서 표준 칸을 되찾는 별칭 — 상품마스터 맞춤(⑤′)·돈 대조·ERP 대조가 쓴다.
- * 손오공구독: 12~60개월 ← N개월 반납형 · 장기보증 ← 보증금 반납형(글자면 계산값 유지 규칙은 ⑤′ 그대로).
+ * 손오공구독: 12~60개월 ← N개월 반납형 · 장기보증 ← 보증금 반납형.
  * 오플구독: 12개월 ← 12개월 3만km · 24개월 ← 24개월 2만km · 36개월 ← 36개월 2만km (상품리스트 @매핑 별칭과 같은 구간).
  * 단기보증·1개월은 두 갈래 다 없다(그 기간을 안 판다).
  */
