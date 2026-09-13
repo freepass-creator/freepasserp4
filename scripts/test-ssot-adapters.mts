@@ -99,7 +99,7 @@ const sonogong4099 = sonogongAdapter.adapt({
   '60개월 반납형': '650,000',
 }, {
   spreadsheetId: '1WIFn5ObK_nCVGLTjj6rO96i6vxub1QzJmiVW0BpJLcA',
-  tab: '재고',
+  tab: '구독재고',
   row: 2,
 });
 assert.equal(sonogong4099.atom.depositPolicy?.code, 'SONOGONG_RENT_X_YEARS_MAX3');
@@ -118,6 +118,7 @@ assert.equal(NATIVE_MONEY_BLOCK.손오공구독.lead?.valueOf({}), '월 대여�
 assert.equal(hasSupplierAdapter('SONOGONG'), true);
 assert.equal(getSupplierAdapter('sonogong').adapterName, 'SonogongAdapter');
 assert.equal(getSupplierSourceSpec('RP012').code, 'SONOGONG');
+assert.equal(getSupplierSourceSpec('RP012').tab, '구독재고');
 
 // 오토플러스는 같은 12개월이라도 연 2만/3만 km가 서로 다른 가격 원자다.
 // 보증금 규칙도 발행기에서 즉석 생성하지 않고 atom.depositPolicy가 소유한다.
