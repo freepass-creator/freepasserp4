@@ -28,4 +28,4 @@ jobs:
           mkdir -p tmp/firebase-auth
           printf '%s' "$SA" > tmp/firebase-auth/sa.json
       - name: Run canonical full sync
-        run: npx tsx scripts/hourly-sync.mts --apply
+        run: npx tsx scripts/hourly-sync.mts --apply --손오공없이
