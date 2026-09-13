@@ -94,12 +94,16 @@ test('ERP4 내부 사진 캐시는 제외하고 원본 사진 링크만 보존�
 });
 
 test('사진 URL의 차량 식별 숫자는 보존하고 개인정보 매개변수는 차단한다', () => {
-  const photoLink = 'https://autoplus.co.kr/vehicle/02-123-4567?carSeq=010-1234-5678';
+  const photoLink = 'https://autoplus.co.kr/vehicle/02-123-4567?carSeq=010-1234-5678&snapshot=900101-1234567';
   const { data } = exportProductForErp5({ car_number: '12가3456', photo_link: photoLink });
   assert.equal(data.photo_link, photoLink);
   assert.throws(() => exportProductForErp5({
     car_number: '12가3456',
     photo_link: 'https://images.example.test/car.jpg?phone=010-1234-5678',
+  }), /개인정보/);
+  assert.throws(() => exportProductForErp5({
+    car_number: '12가3456',
+    photo_link: 'https://images.example.test/car.jpg?customerName=홍길동',
   }), /개인정보/);
   assert.throws(() => exportProductForErp5({
     car_number: '12가3456',
