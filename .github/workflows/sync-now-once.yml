@@ -7,7 +7,9 @@ on:
 
 concurrency:
   group: sales-erp-hourly
-  cancel-in-progress: false
+  # 수동 APPLY를 요청했을 때 오래 걸리는 push DRY-RUN은 중단하고 실제 반영을 우선한다.
+  # 같은 그룹의 이전 pending APPLY도 새 요청으로 교체되므로 중복 쓰기가 생기지 않는다.
+  cancel-in-progress: true
 
 jobs:
   sync:
