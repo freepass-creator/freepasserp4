@@ -37,7 +37,7 @@ jobs:
           test -n "$SA" || { echo '::error::GOOGLE_SA_JSON 시크릿이 없습니다.'; exit 1; }
           mkdir -p tmp/firebase-auth
           printf '%s' "$SA" > tmp/firebase-auth/sa.json
-      - name: ERP5 Firestore 차종마스터 게시·활성화
+      - name: 공용 Firebase에 ERP5 차종마스터 게시·활성화
         run: |
           VERSION="same-firebase-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           npx tsx scripts/publish-vehicle-master-to-erp5-firestore.mts \

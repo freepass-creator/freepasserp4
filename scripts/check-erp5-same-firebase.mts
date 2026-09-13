@@ -43,6 +43,9 @@ if (!productPublisher.includes('const PROJECT_ID = sourceAccount.project_id!')) 
 if (!vehiclePublisher.includes('const PROJECT_ID = googleAccount.project_id!')) {
   failures.push('차종 발행기가 공용 자격증명의 project_id를 단일 대상으로 쓰지 않음');
 }
+if (vehiclePublisher.includes('subject:') && vehiclePublisher.includes('spreadsheets.readonly')) {
+  failures.push('차종 발행기의 Workspace 위임 범위가 승인되지 않은 spreadsheets.readonly임');
+}
 if (!oneTimeWorkflow.includes('secrets.GOOGLE_SA_JSON')) {
   failures.push('1회 발행 워크플로가 기존 GOOGLE_SA_JSON을 쓰지 않음');
 }
