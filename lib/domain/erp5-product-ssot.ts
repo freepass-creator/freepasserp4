@@ -68,6 +68,7 @@ const PRIVATE_KEY = /^(?:customer(?:_.*)?|client(?:_.*)?|consult(?:ation)?(?:_.*
 const EMAIL_VALUE = /\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b/i;
 const KOREAN_PHONE_VALUE = /(?:^|\D)(?:\+?82[- .]?)?(?:0?1[016789]|0[2-6][1-5]?)[- .]?\d{3,4}[- .]?\d{4}(?:\D|$)/;
 const RESIDENT_ID_VALUE = /(?:^|\D)\d{6}[- ]?[1-4]\d{6}(?:\D|$)/;
+const SENSITIVE_URL_PARAM = /(?:^|_)(?:phone|mobile|tel|telephone|contact|email|name|birth|birthday|resident|rrn|address|account|고객|이름|성명|전화|휴대폰|연락처|이메일|생년|주민|주소|계좌)(?:_|$)/i;
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> => {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
@@ -76,6 +77,37 @@ const isPlainObject = (value: unknown): value is Record<string, unknown> => {
 };
 
 const hasPrivateKey = (key: string) => PRIVATE_KEY.test(key.trim());
+
+function assertPublicPhotoLink(value: string, path: string): void {
+  const links = value.split(/\s*[\n,]\s*/).map((link) => link.trim()).filter(Boolean);
+  for (const link of links) {
+    let url: URL;
+    try {
+      url = new URL(link);
+    } catch {
+      if (EMAIL_VALUE.test(link) || KOREAN_PHONE_VALUE.test(link) || RESIDENT_ID_VALUE.test(link)) {
+        throw new Error(`개인정보로 보이는 값이 공개 상품 필드에 있습니다: ${path}`);
+      }
+      continue;
+    }
+    if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+      throw new Error(`공개 상품 사진 링크 프로토콜이 올바르지 않습니다: ${path}`);
+    }
+    let decodedPath = url.pathname;
+    let decodedHash = url.hash;
+    try { decodedPath = decodeURIComponent(decodedPath); } catch { /* 원문으로 검사 */ }
+    try { decodedHash = decodeURIComponent(decodedHash); } catch { /* 원문으로 검사 */ }
+    if (url.username || url.password || EMAIL_VALUE.test(decodedPath) || EMAIL_VALUE.test(decodedHash)
+      || KOREAN_PHONE_VALUE.test(decodedHash) || RESIDENT_ID_VALUE.test(decodedHash)) {
+      throw new Error(`개인정보로 보이는 값이 공개 상품 필드에 있습니다: ${path}`);
+    }
+    for (const [key, parameter] of url.searchParams) {
+      if ((SENSITIVE_URL_PARAM.test(key) && parameter) || EMAIL_VALUE.test(parameter) || RESIDENT_ID_VALUE.test(parameter)) {
+        throw new Error(`개인정보로 보이는 값이 공개 상품 필드에 있습니다: ${path}`);
+      }
+    }
+  }
+}
 
 function offerTerms(source: Record<string, unknown>, atom?: FreepassAtom): Record<string, unknown> | null {
   const code = String(source.provider_company_code || source.partner_code || '').trim().toUpperCase();
@@ -99,6 +131,10 @@ function offerTerms(source: Record<string, unknown>, atom?: FreepassAtom): Recor
 function copyPublicValue(value: unknown, path: string): unknown {
   if (value === undefined) return undefined;
   if (typeof value === 'string') {
+    if (path === 'photo_link') {
+      assertPublicPhotoLink(value, path);
+      return value;
+    }
     if (EMAIL_VALUE.test(value) || KOREAN_PHONE_VALUE.test(value) || RESIDENT_ID_VALUE.test(value)) {
       throw new Error(`개인정보로 보이는 값이 공개 상품 필드에 있습니다: ${path}`);
     }
