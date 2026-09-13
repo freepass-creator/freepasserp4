@@ -50,7 +50,6 @@ const PUBLIC_PRODUCT_FIELDS = new Set([
   'provider_company_code',
   'partner_code',
   'photo_link',
-  'photo_cache',
   'location',
   'options',
   'usage',
