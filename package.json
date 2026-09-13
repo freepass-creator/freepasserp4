@@ -33,6 +33,7 @@
     "check:building": "tsx scripts/check-building.mts",
     "check:branches": "tsx scripts/check-branches.mts",
     "check:workflows": "tsx scripts/check-workflows.mts",
+    "check:erp5-firebase": "tsx scripts/check-erp5-same-firebase.mts",
     "check:order": "tsx scripts/check-order.mts",
     "check:deployed": "tsx scripts/check-deployed.mts --fetch",
     "check:finder-rows": "tsx scripts/check-finder-rows.mts",

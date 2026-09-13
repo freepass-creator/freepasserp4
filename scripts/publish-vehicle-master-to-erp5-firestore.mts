@@ -1,5 +1,5 @@
 /**
- * Google Sheet 차종마스터 + Encar 참조본 -> ERP5 Firestore versioned vehicle SSOT.
+ * Google Sheet 차종마스터 + Encar 참조본 -> ERP4와 같은 Firebase의 ERP5 versioned vehicle SSOT.
  * 기본 dry-run. --apply는 검증본 저장, --apply --activate는 blocker 0일 때만 포인터 교체.
  */
 import { readFileSync } from 'node:fs';
@@ -14,7 +14,7 @@ const ACTIVATE = process.argv.includes('--activate');
 const arg = (name: string) => process.argv.find((value) => value.startsWith(`--${name}=`))?.slice(name.length + 3) || '';
 const VERSION_ID = arg('version') || new Date().toISOString().replace(/[-:.]/g, '');
 const ENCAR_PATH = arg('encar') || process.env.ERP5_ENCAR_REFERENCE_PATH || 'tmp/vehicle-master/dist/vehicle-master.flat.json';
-const TARGET_PROJECT_ID = process.env.ERP5_FIREBASE_PROJECT_ID || 'erp5-3e2fc';
+const EXPECTED_PROJECT_ID = process.env.ERP_FIREBASE_PROJECT_ID || process.env.ERP4_FIREBASE_PROJECT_ID || '';
 const VERSIONS_COLLECTION = 'vehicleMasterVersions';
 const POINTER_PATH = 'ssotState/vehicleMaster';
 if (!/^[A-Za-z0-9._-]{1,120}$/.test(VERSION_ID)) throw new Error(`version ID 형식이 올바르지 않습니다: ${VERSION_ID}`);
@@ -34,12 +34,16 @@ const readFileAccount = (paths: (string | undefined)[], label: string): ServiceA
 
 if (ACTIVATE && !APPLY) throw new Error('--activate는 --apply와 함께 사용해야 합니다.');
 const googleAccount = process.env.ERP4_FIREBASE_SERVICE_ACCOUNT_JSON
-  ? parseAccount(process.env.ERP4_FIREBASE_SERVICE_ACCOUNT_JSON, 'Google Sheet')
+  ? parseAccount(process.env.ERP4_FIREBASE_SERVICE_ACCOUNT_JSON, 'ERP4·ERP5 공용 Firebase')
   : readFileAccount([
       process.env.ERP4_GOOGLE_APPLICATION_CREDENTIALS,
       process.env.GOOGLE_APPLICATION_CREDENTIALS,
       'tmp/firebase-auth/sa.json',
-    ], 'Google Sheet');
+    ], 'ERP4·ERP5 공용 Firebase');
+const PROJECT_ID = googleAccount.project_id!;
+if (EXPECTED_PROJECT_ID && PROJECT_ID !== EXPECTED_PROJECT_ID) {
+  throw new Error(`ERP4·ERP5 공용 Firebase 프로젝트 불일치: expected=${EXPECTED_PROJECT_ID}, credential=${PROJECT_ID}`);
+}
 
 const jwt = new JWT({
   email: googleAccount.client_email,
@@ -65,7 +69,8 @@ console.log(JSON.stringify({
   mode: APPLY ? (ACTIVATE ? 'apply-and-activate' : 'apply-draft') : 'dry-run',
   googleSheet: `${ENCAR_MASTER_SHEET_ID}/${ENCAR_MASTER_TAB}`,
   encarReference: { path: ENCAR_PATH, version: reference.version || 'unknown', rows: reference.rows.length },
-  target: `${TARGET_PROJECT_ID}/firestore/${VERSIONS_COLLECTION}/${VERSION_ID}/entries`,
+  firebaseProject: PROJECT_ID,
+  target: `${PROJECT_ID}/firestore/${VERSIONS_COLLECTION}/${VERSION_ID}/entries`,
   versionId: VERSION_ID,
   entryCount: built.entries.length,
   stats: built.stats,
@@ -77,27 +82,16 @@ if (ACTIVATE && built.blockers.length) {
   throw new Error(`차종마스터 blocker ${built.blockers.length}건: 활성화하지 않습니다.`);
 }
 if (!APPLY) {
-  console.log('DRY-RUN 완료: Google Sheet, ERP4, ERP5에는 쓰지 않았습니다.');
+  console.log('DRY-RUN 완료: Google Sheet와 공용 Firebase에는 쓰지 않았습니다.');
   process.exit(0);
 }
 
-const targetInline = process.env.ERP5_FIREBASE_SERVICE_ACCOUNT_JSON;
-const targetAccount = targetInline
-  ? parseAccount(targetInline, 'ERP5 대상')
-  : readFileAccount([process.env.ERP5_GOOGLE_APPLICATION_CREDENTIALS], 'ERP5 대상');
-if (targetAccount.project_id !== TARGET_PROJECT_ID) {
-  throw new Error(`ERP5 대상 프로젝트 불일치: expected=${TARGET_PROJECT_ID}, credential=${targetAccount.project_id}`);
-}
-if (targetAccount.project_id === googleAccount.project_id) {
-  throw new Error('Google Sheet/ERP4 원본 프로젝트와 ERP5 대상 프로젝트가 같을 수 없습니다.');
-}
-
-const targetApp = initializeApp({
-  credential: cert(targetAccount as ServiceAccount),
-  projectId: TARGET_PROJECT_ID,
-}, `erp5-vehicle-master-${Date.now()}`);
-const targetDb = getFirestore(targetApp);
-const versionRef = targetDb.collection(VERSIONS_COLLECTION).doc(VERSION_ID);
+const firebaseApp = initializeApp({
+  credential: cert(googleAccount as ServiceAccount),
+  projectId: PROJECT_ID,
+}, `erp4-erp5-vehicle-master-${Date.now()}`);
+const db = getFirestore(firebaseApp);
+const versionRef = db.collection(VERSIONS_COLLECTION).doc(VERSION_ID);
 if ((await versionRef.get()).exists) throw new Error(`이미 존재하는 ERP5 차종마스터 버전입니다: ${VERSION_ID}`);
 
 await versionRef.set({
@@ -116,7 +110,7 @@ await versionRef.set({
 
 const CHUNK_SIZE = 400;
 for (let offset = 0; offset < built.entries.length; offset += CHUNK_SIZE) {
-  const batch = targetDb.batch();
+  const batch = db.batch();
   for (const entry of built.entries.slice(offset, offset + CHUNK_SIZE)) {
     batch.create(versionRef.collection('entries').doc(entry.id), {
       ...entry,
@@ -174,7 +168,7 @@ await versionRef.set({
 }, { merge: true });
 
 if (ACTIVATE) {
-  await targetDb.doc(POINTER_PATH).set({
+  await db.doc(POINTER_PATH).set({
     activeVersionId: VERSION_ID,
     entryCount: written.size,
     schemaVersion: 1,

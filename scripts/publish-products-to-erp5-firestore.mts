@@ -1,8 +1,8 @@
 /**
- * ERP4 Firestore products -> ERP5 Firestore versioned product SSOT.
+ * ERP4 Firestore products -> 같은 Firebase의 ERP5 versioned product SSOT.
  *
  * 기본은 dry-run. 실제 쓰기는 --apply, 활성 포인터 교체는 --apply --activate가 필요하다.
- * 기존 ERP4/ERP5 컬렉션은 삭제하거나 수정하지 않는다.
+ * 기존 ERP4 컬렉션은 삭제하거나 수정하지 않는다.
  */
 import { readFileSync } from 'node:fs';
 import { cert, initializeApp, type ServiceAccount } from 'firebase-admin/app';
@@ -18,8 +18,7 @@ const ACTIVATE = process.argv.includes('--activate');
 const SKIP_ADAPTERS = process.argv.includes('--skip-adapters');
 const versionArg = process.argv.find((arg) => arg.startsWith('--version='));
 const VERSION_ID = versionArg?.slice('--version='.length) || new Date().toISOString().replace(/[-:.]/g, '');
-const SOURCE_PROJECT_ID = process.env.ERP4_FIREBASE_PROJECT_ID || 'freepasserp3';
-const TARGET_PROJECT_ID = process.env.ERP5_FIREBASE_PROJECT_ID || 'erp5-3e2fc';
+const EXPECTED_PROJECT_ID = process.env.ERP_FIREBASE_PROJECT_ID || process.env.ERP4_FIREBASE_PROJECT_ID || '';
 const SOURCE_COLLECTION = process.env.ERP4_PRODUCT_COLLECTION || 'products';
 const VERSIONS_COLLECTION = 'productMasterVersions';
 const POINTER_PATH = 'ssotState/products';
@@ -145,28 +144,23 @@ async function loadAdapterAtoms(account: ServiceAccountJson): Promise<{
 }
 
 if (ACTIVATE && !APPLY) throw new Error('--activate는 --apply와 함께 사용해야 합니다.');
-if (SOURCE_PROJECT_ID === TARGET_PROJECT_ID) throw new Error('ERP4 원본과 ERP5 대상 프로젝트가 같을 수 없습니다.');
 
 const sourceAccount = readServiceAccount({
-  label: 'ERP4 원본',
+  label: 'ERP4·ERP5 공용 Firebase',
   jsonEnv: 'ERP4_FIREBASE_SERVICE_ACCOUNT_JSON',
   pathEnvs: ['ERP4_GOOGLE_APPLICATION_CREDENTIALS', 'GOOGLE_APPLICATION_CREDENTIALS'],
   fallbackPath: 'tmp/firebase-auth/sa.json',
   required: true,
 })!;
-assertProject(sourceAccount, SOURCE_PROJECT_ID, 'ERP4 원본');
+const PROJECT_ID = sourceAccount.project_id!;
+if (EXPECTED_PROJECT_ID) assertProject(sourceAccount, EXPECTED_PROJECT_ID, 'ERP4·ERP5 공용 Firebase');
 
-const targetAccount = readServiceAccount({
-  label: 'ERP5 대상',
-  jsonEnv: 'ERP5_FIREBASE_SERVICE_ACCOUNT_JSON',
-  pathEnvs: ['ERP5_GOOGLE_APPLICATION_CREDENTIALS'],
-  required: APPLY,
-});
-if (targetAccount) assertProject(targetAccount, TARGET_PROJECT_ID, 'ERP5 대상');
-
-const sourceApp = initializeApp({ credential: cert(sourceAccount as ServiceAccount) }, `erp4-source-${Date.now()}`);
-const sourceDb = getFirestore(sourceApp);
-const sourceSnapshot = await sourceDb.collection(SOURCE_COLLECTION).get();
+const firebaseApp = initializeApp({
+  credential: cert(sourceAccount as ServiceAccount),
+  projectId: PROJECT_ID,
+}, `erp4-erp5-ssot-${Date.now()}`);
+const db = getFirestore(firebaseApp);
+const sourceSnapshot = await db.collection(SOURCE_COLLECTION).get();
 const adapterSnapshot = SKIP_ADAPTERS
   ? { byProviderAndPlate: new Map<string, FreepassAtom>(), stats: {} as Record<string, number> }
   : await loadAdapterAtoms(sourceAccount);
@@ -203,8 +197,9 @@ if (uniqueIds.size !== items.length) throw new Error('ERP4 products 문서 ID가
 
 console.log(JSON.stringify({
   mode: APPLY ? (ACTIVATE ? 'apply-and-activate' : 'apply-draft') : 'dry-run',
-  source: `${SOURCE_PROJECT_ID}/firestore/${SOURCE_COLLECTION}`,
-  target: `${TARGET_PROJECT_ID}/firestore/${VERSIONS_COLLECTION}/${VERSION_ID}/products`,
+  firebaseProject: PROJECT_ID,
+  source: `${PROJECT_ID}/firestore/${SOURCE_COLLECTION}`,
+  target: `${PROJECT_ID}/firestore/${VERSIONS_COLLECTION}/${VERSION_ID}/products`,
   versionId: VERSION_ID,
   productCount: items.length,
   adapters: {
@@ -222,24 +217,18 @@ if (ACTIVATE && adapterCoverageBlockers.length) {
 }
 
 if (!APPLY) {
-  console.log('DRY-RUN 완료: ERP4와 ERP5에는 쓰지 않았습니다.');
+  console.log('DRY-RUN 완료: Google Sheet와 공용 Firebase에는 쓰지 않았습니다.');
   process.exit(0);
 }
-if (!targetAccount) throw new Error('ERP5 대상 서비스 계정이 없습니다.');
 
-const targetApp = initializeApp({
-  credential: cert(targetAccount as ServiceAccount),
-  projectId: TARGET_PROJECT_ID,
-}, `erp5-target-${Date.now()}`);
-const targetDb = getFirestore(targetApp);
-const versionRef = targetDb.collection(VERSIONS_COLLECTION).doc(VERSION_ID);
+const versionRef = db.collection(VERSIONS_COLLECTION).doc(VERSION_ID);
 const existing = await versionRef.get();
 if (existing.exists) throw new Error(`이미 존재하는 ERP5 상품 버전입니다: ${VERSION_ID}`);
 
 await versionRef.set({
   schemaVersion: 1,
   status: 'writing',
-  sourceProjectId: SOURCE_PROJECT_ID,
+  sourceProjectId: PROJECT_ID,
   sourceCollection: SOURCE_COLLECTION,
   expectedCount: items.length,
   adapterCoverage: {
@@ -253,7 +242,7 @@ await versionRef.set({
 
 const CHUNK_SIZE = 400;
 for (let offset = 0; offset < items.length; offset += CHUNK_SIZE) {
-  const batch = targetDb.batch();
+  const batch = db.batch();
   for (const item of items.slice(offset, offset + CHUNK_SIZE)) {
     batch.create(versionRef.collection('products').doc(item.id), {
       ...item.data,
@@ -283,7 +272,7 @@ await versionRef.set({
 }, { merge: true });
 
 if (ACTIVATE) {
-  await targetDb.doc(POINTER_PATH).set({
+  await db.doc(POINTER_PATH).set({
     activeVersionId: VERSION_ID,
     productCount: written.size,
     schemaVersion: 1,
