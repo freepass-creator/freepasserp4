@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { autoplusAdapter } from '../lib/adapters/autoplus';
 import { iankaAdapter } from '../lib/adapters/ianka';
 import { ironAdapter } from '../lib/adapters/iron';
 import { getSupplierAdapter, hasSupplierAdapter } from '../lib/adapters';
@@ -74,6 +75,48 @@ assert.equal(iron2330.atom.rent[12], undefined);
 assert.equal(evaluateEligibility(iron2330.atom, 'F01').eligible, true);
 assert.equal(hasSupplierAdapter('IRON'), true);
 assert.equal(getSupplierAdapter('iron').adapterName, 'IronAdapter');
+
+// 오토플러스는 같은 12개월이라도 연 2만/3만 km가 서로 다른 가격 원자다.
+// 임의로 하나를 standard rent[12]에 넣으면 의미가 훼손되므로 variant로 그대로 보존한다.
+const autoplus0103 = autoplusAdapter.adapt({
+  차량번호: '11오0103',
+  상태: '출고가능',
+  분류: '중고렌트',
+  제조사: '기아',
+  모델명: '니로',
+  '차명(세부모델+트림)': '디 올뉴니로EV 에어',
+  연료: '전기',
+  주행거리: '23,866',
+  '12개월2만': '770,000',
+  '12개월3만': '800,000',
+  '18개월2만': '730,000',
+  '18개월3만': '750,000',
+  '24개월2만': '690,000',
+  '24개월3만': '730,000',
+  '36개월2만': '690,000',
+  '36개월3만': '730,000',
+}, {
+  spreadsheetId: '1Tvd5IioF5y_yu3L1BQMRP4J1R8hcZHwkgl3vl-TsgY0',
+  tab: '재고',
+  row: 5,
+});
+assert.equal(autoplus0103.atom.rent[12], undefined, '12개월2만/3만 중 하나를 12개월 표준가로 추정하지 않는다');
+assert.equal(autoplus0103.atom.rentVariants?.length, 8);
+assert.deepEqual(autoplus0103.atom.rentVariants?.find((v) => v.sourceHeader === '12개월2만'), {
+  termMonths: 12,
+  annualKm: 20_000,
+  amount: 770_000,
+  sourceHeader: '12개월2만',
+});
+assert.deepEqual(autoplus0103.atom.rentVariants?.find((v) => v.sourceHeader === '18개월3만'), {
+  termMonths: 18,
+  annualKm: 30_000,
+  amount: 750_000,
+  sourceHeader: '18개월3만',
+});
+assert.equal(evaluateEligibility(autoplus0103.atom, 'F01').eligible, true, '변형 가격도 판매 가능한 대여료다');
+assert.equal(hasSupplierAdapter('AUTOPLUS'), true);
+assert.equal(getSupplierAdapter('autoplus').adapterName, 'AutoplusAdapter');
 
 const noRent = iankaAdapter.adapt({
   차량번호: '123가4567',
