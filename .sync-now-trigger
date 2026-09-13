@@ -1,4 +1,5 @@
 trigger=chatgpt-manual-apply
-nonce=20260913-ssot-gated-01
+nonce=20260913-ssot-gated-02
 scope=google-sheets,f86,erp
 mode=skip-sonokong-local-source
+fix=f01-tab-owned-ssot-gates
