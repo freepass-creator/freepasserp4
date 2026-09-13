@@ -1,0 +1,38 @@
+name: SSOT adapter contract
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'lib/adapters/**'
+      - 'lib/domain/supplier-adapter.ts'
+      - 'lib/domain/product-eligibility.ts'
+      - 'scripts/test-ssot-adapters.mts'
+      - '.github/workflows/ssot-contract.yml'
+  pull_request:
+    paths:
+      - 'lib/adapters/**'
+      - 'lib/domain/supplier-adapter.ts'
+      - 'lib/domain/product-eligibility.ts'
+      - 'scripts/test-ssot-adapters.mts'
+      - '.github/workflows/ssot-contract.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: 공급사 어댑터 + 노출기준 회귀검사
+        run: npx tsx scripts/test-ssot-adapters.mts
+      - name: TypeScript 계약 검사
+        run: npm run typecheck
