@@ -12,8 +12,9 @@ import {
   type RentVariant,
   type SupplierAdapter,
 } from '../domain/supplier-adapter';
+import { resolveAutoplusDepositPolicy } from '../domain/deposit-policy';
 
-const VERSION = '1.0.0';
+const VERSION = '1.1.0';
 
 function pick(raw: RawSupplierRow, ...headers: string[]): { header: string; value: unknown } {
   for (const header of headers) {
@@ -50,12 +51,13 @@ export class AutoplusAdapter implements SupplierAdapter {
     const subModel = pick(raw, '세부모델');
     const trim = pick(raw, '세부트림');
     const rawName = pick(raw, '차명(세부모델+트림)', '차명(정제)', '차명');
-    const status = pick(raw, '상태', '출고현황');
+    const status = pick(raw, '판매상태', '상태', '출고현황');
     const productType = pick(raw, '분류', '상품구분', '구분');
-    const year = pick(raw, '연식', '최초등록일');
+    const year = pick(raw, '연식', '차량연식', '최초등록일');
     const km = pick(raw, '주행거리', 'Km', 'KM');
     const fuel = pick(raw, '연료', '연료(정제)');
     const displacement = pick(raw, '배기량', '배기량(정제)');
+    const depositPolicy = resolveAutoplusDepositPolicy(text(maker.value));
 
     const rentVariants: RentVariant[] = [];
     for (const spec of VARIANT_HEADERS) {
@@ -101,6 +103,7 @@ export class AutoplusAdapter implements SupplierAdapter {
       displacement: explicitNumber(displacement.value),
       shortDeposit: explicitMoney(raw['단기보증']),
       longDeposit: explicitMoney(raw['장기보증']),
+      depositPolicy,
 
       // 오토플러스는 기간+연주행거리 조합이 가격의 일부다.
       // 12개월2만과 12개월3만 중 하나를 임의로 standard rent[12]에 넣지 않는다.
@@ -131,12 +134,24 @@ export class AutoplusAdapter implements SupplierAdapter {
     ] as const) {
       withProvenance(provenance, field, header, raw[header], '숫자 외 문자 제거 후 금액 변환');
     }
+    if (depositPolicy) {
+      withProvenance(
+        provenance,
+        'depositPolicy',
+        maker.header,
+        maker.value,
+        `SSOT 보증금 규칙 선택: ${depositPolicy.label}`,
+      );
+    }
 
     if (!atom.plateNumber && !atom.vin) {
       issues.push({ level: 'error', code: 'NO_IDENTITY', message: '차량번호와 차대번호가 모두 없습니다.' });
     }
     if (!atom.model && !atom.rawName) {
       issues.push({ level: 'warning', code: 'NO_MODEL', message: '모델/차명이 없어 판매 노출 대상이 될 수 없습니다.', field: 'model' });
+    }
+    if (!depositPolicy) {
+      issues.push({ level: 'warning', code: 'NO_DEPOSIT_POLICY', message: '제조사가 없어 오토플러스 보증금 규칙을 결정할 수 없습니다.', field: 'depositPolicy' });
     }
     const hasAnyRent = Object.values(atom.rent).some((v) => typeof v === 'number' && v > 0)
       || rentVariants.some((v) => v.amount > 0);
