@@ -10,6 +10,7 @@ const FILES = [
   '.github/workflows/publish-erp5-ssot.yml',
   '.github/workflows/erp5-vehicle-master-once.yml',
   'docs/ERP5-FIRESTORE-SSOT.md',
+  '.github/workflows/erp5-products-once.yml',
 ];
 const FORBIDDEN = [
   'ERP5_FIREBASE_SERVICE_ACCOUNT_JSON',
@@ -35,6 +36,7 @@ for (const obsolete of ['firebase.erp5.json', 'firestore.erp5.rules']) {
 const productPublisher = readFileSync(FILES[0], 'utf8');
 const vehiclePublisher = readFileSync(FILES[1], 'utf8');
 const oneTimeWorkflow = readFileSync(FILES[3], 'utf8');
+const productOneTimeWorkflow = readFileSync(FILES[5], 'utf8');
 const rules = readFileSync('firestore.rules', 'utf8');
 
 if (!productPublisher.includes('const PROJECT_ID = sourceAccount.project_id!')) {
@@ -48,6 +50,9 @@ if (vehiclePublisher.includes('subject:') && vehiclePublisher.includes('spreadsh
 }
 if (!oneTimeWorkflow.includes('secrets.GOOGLE_SA_JSON')) {
   failures.push('1회 발행 워크플로가 기존 GOOGLE_SA_JSON을 쓰지 않음');
+}
+if (!productOneTimeWorkflow.includes('secrets.GOOGLE_SA_JSON')) {
+  failures.push('상품 1회 발행 워크플로가 기존 GOOGLE_SA_JSON을 쓰지 않음');
 }
 for (const path of ['match /ssotState/{name}', 'match /productMasterVersions/{versionId}', 'match /vehicleMasterVersions/{versionId}']) {
   if (!rules.includes(path)) failures.push(`공용 firestore.rules에 ${path} 경계가 없음`);

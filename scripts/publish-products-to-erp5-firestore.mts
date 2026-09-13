@@ -266,7 +266,7 @@ if (written.size !== items.length) {
 }
 
 await versionRef.set({
-  status: ACTIVATE ? 'active' : 'validated',
+  status: ACTIVATE ? 'active' : (adapterCoverageBlockers.length ? 'draft' : 'validated'),
   actualCount: written.size,
   validatedAt: FieldValue.serverTimestamp(),
 }, { merge: true });
