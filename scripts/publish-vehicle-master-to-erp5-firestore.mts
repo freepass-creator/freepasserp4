@@ -49,7 +49,9 @@ const jwt = new JWT({
   email: googleAccount.client_email,
   key: googleAccount.private_key,
   subject: process.env.GOOGLE_WORKSPACE_SUBJECT || 'pyh@teamjpk.com',
-  scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
+  // 이 서비스계정의 Workspace 도메인 위임에는 spreadsheets 범위가 승인되어 있다.
+  // 발행기는 GET만 호출하며 Google Sheet에는 쓰지 않는다.
+  scopes: ['https://www.googleapis.com/auth/spreadsheets'],
 });
 const sheetApi = async (url: string): Promise<Record<string, unknown>> => {
   const token = (await jwt.getAccessToken()).token;

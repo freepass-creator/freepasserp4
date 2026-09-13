@@ -64,6 +64,8 @@ GitHub Actions의 `ERP5 Firestore 상품·차종 SSOT 게시`를 수동 실행�
 
 별도 ERP5 서비스계정이나 대상 프로젝트 ID는 사용하지 않는다. 자격증명의 `project_id`가 읽기와 쓰기의 단일 대상이다. 필요하면 `ERP_FIREBASE_PROJECT_ID` 또는 기존 `ERP4_FIREBASE_PROJECT_ID`로 기대 프로젝트를 고정하고, 자격증명이 다르면 즉시 중단한다.
 
+차종마스터 Google Sheet는 같은 서비스계정의 Workspace 도메인 위임으로 읽는다. 조직에 승인된 `spreadsheets` 범위를 사용하지만 발행기 코드는 조회 API만 호출하고 시트 쓰기는 수행하지 않는다.
+
 첫 실행은 `apply=false`로 검사한다. 이후 `apply=true`로 검증 버전만 저장하고, 결과를 확인한 뒤 상품과 차종마스터 활성화를 각각 켠다. 규칙 배포는 이 발행 워크플로에 넣지 않는다. ERP5 SSOT 클라이언트 읽기가 필요할 때만 기존 ERP4 규칙까지 실데이터로 검증·승인한 뒤 위의 Firebase CLI 명령을 별도로 실행한다. 차종마스터는 blocker가 한 건이라도 있으면 활성화할 수 없다.
 
 로컬 명령:
