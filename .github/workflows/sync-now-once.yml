@@ -12,7 +12,7 @@ concurrency:
 jobs:
   sync:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 55
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -27,5 +27,7 @@ jobs:
           test -n "$SA" || { echo '::error::GOOGLE_SA_JSON secret is missing.'; exit 1; }
           mkdir -p tmp/firebase-auth
           printf '%s' "$SA" > tmp/firebase-auth/sa.json
-      - name: Run canonical full sync
-        run: npx tsx scripts/hourly-sync.mts --apply --손오공없이
+      - name: SSOT adapter contract test
+        run: npx tsx scripts/test-ssot-adapters.mts
+      - name: Run guarded production sync
+        run: npx tsx scripts/run-hourly-with-ssot-gate.mts --apply --손오공없이
