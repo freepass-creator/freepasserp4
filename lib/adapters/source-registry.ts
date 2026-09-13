@@ -45,6 +45,15 @@ export const SUPPLIER_SOURCES: readonly SupplierSourceSpec[] = Object.freeze([
     financeOwner: 'SOURCE',
     pricingMode: 'TERM_MILEAGE_VARIANTS',
   },
+  {
+    code: 'SONOGONG',
+    partnerCode: 'RP012',
+    name: '손오공',
+    spreadsheetId: '1WIFn5ObK_nCVGLTjj6rO96i6vxub1QzJmiVW0BpJLcA',
+    tab: '재고',
+    financeOwner: 'SOURCE',
+    pricingMode: 'STANDARD_TERMS',
+  },
 ]);
 
 export function getSupplierSourceSpec(sourceCode: string): SupplierSourceSpec {
