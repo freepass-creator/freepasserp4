@@ -6,6 +6,12 @@ name: 판매·천이·ERP 시간별 동기
 on:
   schedule:
     - cron: '0 0-9 * * 1-5'
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/cloud-hourly-sync.mts'
+      - 'scripts/ssot-prepublish-gate.mts'
+      - '.github/workflows/sales-erp-hourly.yml'
   workflow_dispatch:
     inputs:
       apply:
