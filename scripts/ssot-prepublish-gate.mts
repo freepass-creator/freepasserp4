@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { getSupplierAdapter } from '../lib/adapters';
-import { SUPPLIER_SOURCES } from '../lib/adapters/source-registry';
+import { SUPPLIER_SOURCES, type SupplierSourceSpec } from '../lib/adapters/source-registry';
 import type { FreepassAtom, RawSupplierRow } from '../lib/domain/supplier-adapter';
 
 const S = (v: unknown) => String(v ?? '').trim();
@@ -51,13 +51,18 @@ async function sheetsValues(spreadsheetId: string, tab: string): Promise<string[
   return body.values || [];
 }
 
-function findHeaderRow(values: string[][]): number {
+function findHeaderRow(values: string[][], pricingMode: SupplierSourceSpec['pricingMode']): number {
   for (let i = 0; i < Math.min(values.length, 40); i++) {
     const h = values[i].map(S);
     const identity = h.includes('차량번호') || h.includes('차번');
-    const moneyHeaders = ['단기보증', '1개월', '6개월', '12개월', '장기보증', '24개월', '36개월', '48개월', '60개월'];
-    const moneyCount = moneyHeaders.filter((c) => h.includes(c)).length;
-    if (identity && moneyCount >= 4) return i;
+    if (!identity) continue;
+
+    const standardHeaders = ['단기보증', '1개월', '6개월', '12개월', '장기보증', '24개월', '36개월', '48개월', '60개월'];
+    const standardCount = standardHeaders.filter((c) => h.includes(c)).length;
+    if (pricingMode === 'STANDARD_TERMS' && standardCount >= 4) return i;
+
+    const variantCount = h.filter((c) => /^\d+개월\s*\d+만$/.test(c)).length;
+    if (pricingMode === 'TERM_MILEAGE_VARIANTS' && variantCount >= 2) return i;
   }
   return -1;
 }
@@ -77,6 +82,19 @@ function money(v: unknown): number | undefined {
   return Number.isFinite(n) && n > 0 ? n : undefined;
 }
 
+function extraFees(v: unknown): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const part of S(v).split('|')) {
+    if (!part) continue;
+    const colon = part.lastIndexOf(':');
+    if (colon < 1) continue;
+    const name = S(part.slice(0, colon));
+    const amount = money(part.slice(colon + 1));
+    if (name && amount !== undefined) out.set(name, amount);
+  }
+  return out;
+}
+
 const finance: Array<[string, (atom: FreepassAtom) => number | undefined]> = [
   ['단기보증', (a) => a.shortDeposit],
   ['1개월', (a) => a.rent[1]],
@@ -91,17 +109,19 @@ const finance: Array<[string, (atom: FreepassAtom) => number | undefined]> = [
 
 let totalChecked = 0;
 let totalMatched = 0;
+let totalCompared = 0;
 const allMismatches: string[] = [];
 
 for (const spec of SOURCES) {
   const adapter = getSupplierAdapter(spec.code);
   const values = await sheetsValues(spec.spreadsheetId, spec.tab);
-  const headerAt = findHeaderRow(values);
-  if (headerAt < 0) throw new Error(`SSOT gate: ${spec.name} 원천에서 차량번호+금융 헤더 행을 찾지 못했습니다.`);
+  const headerAt = findHeaderRow(values, spec.pricingMode);
+  if (headerAt < 0) throw new Error(`SSOT gate: ${spec.name} 원천에서 차량번호+가격 헤더 행을 찾지 못했습니다.`);
   const headers = values[headerAt].map(S);
 
   let checked = 0;
   let matched = 0;
+  let compared = 0;
   const missingFromPublish: string[] = [];
   const mismatches: string[] = [];
 
@@ -127,29 +147,45 @@ for (const spec of SOURCES) {
     }
     matched++;
 
+    // 기간 하나만으로 의미가 완전한 금융 필드.
     for (const [column, fromAtom] of finance) {
       const expected = fromAtom(atom);
       // ATOM에 없는 값은 REFINE/정책 단계에서 합법적으로 채울 수 있다.
-      // 하지만 원천에 명시된 금융값은 downstream이 절대 다른 의미/값으로 바꾸면 안 된다.
+      // 하지만 원천에 명시된 값은 downstream이 다른 의미/값으로 바꾸면 안 된다.
       if (expected === undefined) continue;
+      compared++;
       const actual = money(out[column]);
       if (expected !== actual) {
         mismatches.push(`${plate} ${column}: SOURCE/ATOM=${expected} PUBLISH=${actual ?? '-'}`);
+      }
+    }
+
+    // 기간+연주행거리 가격축은 F01 '그 밖 요금'에 원본 헤더 이름 그대로 보존되어야 한다.
+    if (atom.rentVariants?.length) {
+      const extras = extraFees(out['그 밖 요금']);
+      for (const variant of atom.rentVariants) {
+        compared++;
+        const actual = extras.get(variant.sourceHeader);
+        if (actual !== variant.amount) {
+          mismatches.push(`${plate} ${variant.sourceHeader}: SOURCE/ATOM=${variant.amount} PUBLISH_EXTRA=${actual ?? '-'}`);
+        }
       }
     }
   }
 
   if (!checked) throw new Error(`SSOT gate: ${spec.name} 원천에서 차량을 한 대도 읽지 못했습니다.`);
   if (!matched) throw new Error(`SSOT gate: ${spec.name} 원천 차량이 발행 예정표와 한 대도 매칭되지 않았습니다. 공급사 식별/탭을 확인해야 합니다.`);
+  if (!compared) throw new Error(`SSOT gate: ${spec.name} 는 발행 대상이 있지만 SOURCE→ATOM→F01 가격 비교 필드가 0개입니다.`);
 
   totalChecked += checked;
   totalMatched += matched;
+  totalCompared += compared;
   allMismatches.push(...mismatches.map((v) => `${spec.name} ${v}`));
 
   if (mismatches.length) {
-    console.error(`✗ ${spec.name}: 원천 금융값과 발행 예정값 ${mismatches.length}칸 불일치`);
+    console.error(`✗ ${spec.name}: 원천 가격과 발행 예정값 ${mismatches.length}칸 불일치`);
   } else {
-    console.log(`✓ ${spec.name}: 원천 ${checked}대 중 발행 대상 ${matched}대 — 명시 금융값 보존`);
+    console.log(`✓ ${spec.name}: 원천 ${checked}대 중 발행 대상 ${matched}대 · 가격 원자 ${compared}칸 보존`);
   }
   if (missingFromPublish.length) {
     console.log(`  참고: ${spec.name} 원천에는 있으나 판매 예정표에는 없는 차량 ${missingFromPublish.length}대(출고불가/미판매 가능)`);
@@ -157,11 +193,11 @@ for (const spec of SOURCES) {
 }
 
 if (allMismatches.length) {
-  console.error(`\n✗ SSOT PREPUBLISH BLOCK — 원천에 명시된 금융 원자와 발행 예정값이 ${allMismatches.length}칸 다릅니다.`);
-  allMismatches.slice(0, 60).forEach((v) => console.error(`  ${v}`));
-  if (allMismatches.length > 60) console.error(`  … 모두 ${allMismatches.length}칸`);
+  console.error(`\n✗ SSOT PREPUBLISH BLOCK — 원천에 명시된 가격 원자와 발행 예정값이 ${allMismatches.length}칸 다릅니다.`);
+  allMismatches.slice(0, 80).forEach((v) => console.error(`  ${v}`));
+  if (allMismatches.length > 80) console.error(`  … 모두 ${allMismatches.length}칸`);
   console.error('  실제 F01/ERP 반영을 중단합니다. SOURCE에 명시된 값 → ADAPTER → ATOM 보존이 우선입니다.');
   process.exit(1);
 }
 
-console.log(`\n✓ SSOT PREPUBLISH PASS — ${SOURCES.length}개 공급사, 원천 ${totalChecked}대 / 발행 대상 ${totalMatched}대 명시 금융 원자 일치`);
+console.log(`\n✓ SSOT PREPUBLISH PASS — ${SOURCES.length}개 공급사, 원천 ${totalChecked}대 / 발행 대상 ${totalMatched}대 / 가격 ${totalCompared}칸 일치`);
