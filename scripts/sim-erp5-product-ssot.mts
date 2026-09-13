@@ -52,6 +52,23 @@ test('전용 어댑터의 가격축을 ERP5 공개 원자에 붙인다', () => {
   });
 });
 
+test('어댑터의 빈 기간값은 버리고 실제 숫자와 보증금 규격만 보존한다', () => {
+  const { data } = exportProductForErp5({ car_number: '12가3456', provider_company_code: 'RP023' }, {
+    source: { supplierCode: 'AUTOPLUS', supplierName: '오토플러스', adapter: 'AutoplusAdapter', adapterVersion: '1.0.0' },
+    plateNumber: '12가3456',
+    rent: { 1: undefined, 12: 770_000 },
+    depositPolicy: resolveAutoplusDepositPolicy('현대'),
+    rentVariants: [{ termMonths: 12, annualKm: undefined, amount: 770_000, sourceHeader: '12개월' }],
+    provenance: {},
+  });
+  assert.deepEqual(data.adapter_pricing, {
+    sourceCode: 'AUTOPLUS', sourceName: '오토플러스', adapter: 'AutoplusAdapter', adapterVersion: '1.0.0',
+    shortDeposit: null, longDeposit: null, depositPolicy: resolveAutoplusDepositPolicy('현대'),
+    rent: { 12: 770_000 },
+    rentVariants: [{ termMonths: 12, amount: 770_000, sourceHeader: '12개월' }],
+  });
+});
+
 test('제조사가 없는 오토플러스 상품은 국산 보증금 규칙을 추정하지 않는다', () => {
   const { data } = exportProductForErp5({ car_number: '12가3456', provider_company_code: 'RP023' });
   assert.deepEqual(data.offer_terms, { priceAxes: ['termMonths', 'annualKm'] });
