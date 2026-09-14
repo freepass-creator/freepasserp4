@@ -70,6 +70,12 @@ jobs:
           GOOGLE_SHEETS_SUBJECT: pyh@teamjpk.com
         shell: bash
         run: |
+          if [ "${{ inputs.register_new }}" = "true" ]; then
+            [ "${{ inputs.apply }}" = "true" ] || { echo '::error::신규 등록은 apply=true가 필요합니다.'; exit 1; }
+            [ "${{ inputs.status_only }}" = "false" ] || { echo '::error::신규 등록은 status_only=false가 필요합니다.'; exit 1; }
+            [ -n "${{ inputs.only }}" ] || { echo '::error::신규 등록은 공급사 1곳을 지정해야 합니다.'; exit 1; }
+            [[ "${{ inputs.only }}" != *,* ]] || { echo '::error::신규 등록은 한 번에 공급사 1곳만 허용합니다.'; exit 1; }
+          fi
           ARGS=()
           if [ -n "${{ inputs.only }}" ]; then ARGS+=("--only=${{ inputs.only }}"); fi
           if [ "${{ inputs.status_only }}" = "true" ]; then ARGS+=(--status-only); fi
