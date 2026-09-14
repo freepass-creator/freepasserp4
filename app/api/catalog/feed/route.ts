@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { firestoreAdminRef } from '@/lib/server/firestore-ref-shim';
-import { guestSource } from '@/lib/server/guest-source';
+import { readWhitelabelCatalogFromErp5 } from '@/lib/server/whitelabel-erp5-catalog';
 import { sanitizeAgentForGuest, sanitizeProductForGuest } from '@/lib/domain/public-catalog';
 import { isListableProduct } from '@/lib/domain/product';
 import { matchAgentByShareCode } from '@/lib/domain/product-share';
@@ -61,17 +60,14 @@ export async function GET(request: Request) {
      *   그동안 차는 나와야 한다.
      * ★읽는 순서·컬렉션 이름은 그대로다(products · policy · partner · user).
      */
-    const db = firestoreAdminRef();
-    /* ★재고·정책은 «공용 캐시»에서 받는다(`guest-source`) — 60초. 상세·미리보기와 같은 것을 본다. */
-    const src = await guestSource();
-    const productSnap = { val: () => src.products };
+    const src = await readWhitelabelCatalogFromErp5();
     const policyByCode = new Map<string, Rec>();
     for (const [k, v] of Object.entries(src.policies)) {
       if (v && typeof v === 'object') policyByCode.set(S(v.policy_code) || k, v);
     }
 
     const products: EntityRecord[] = [];
-    for (const [docKey, p] of Object.entries((productSnap.val() || {}) as Record<string, Rec>)) {
+    for (const [docKey, p] of Object.entries(src.products)) {
       const key = S(p?._key) || S(p?.product_code) || docKey;
       if (!p || typeof p !== 'object' || dead(p)) continue;
       if (providerCode && S(p.provider_company_code) !== providerCode && S(p.partner_code) !== providerCode) continue;
@@ -86,8 +82,7 @@ export async function GET(request: Request) {
     //   → 코드는 child 키까지 보고, 이름은 세 필드를 다 훑는다. 안 그러면 브랜드가 조용히 빈다.
     let brand = '';
     if (providerCode) {
-      const partnerSnap = await db.ref('partners').get();
-      const hit = Object.entries((partnerSnap.val() || {}) as Record<string, Rec>)
+      const hit = Object.entries(src.partners)
         .map(([k, v]) => ({ ...(v || {}), _id: k } as Rec)).find((x) => x && (
           S(x._id) === providerCode || S(x.partner_code) === providerCode || S(x.company_code) === providerCode
         ));
@@ -97,8 +92,7 @@ export async function GET(request: Request) {
 
     let agent = null;
     if (share) {
-      const userSnap = await db.ref('users').get();
-      const rows = Object.entries((userSnap.val() || {}) as Record<string, Rec>)
+      const rows = Object.entries(src.users)
         .map(([k, v]) => ({ ...(v || {}), _key: S(v?._key) || k, uid: S(v?.uid) || k })) as EntityRecord[];
       agent = sanitizeAgentForGuest(matchAgentByShareCode(rows, share) as Rec | null);
     }
