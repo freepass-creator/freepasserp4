@@ -93,10 +93,29 @@ export const FREEPASS: Whitelabel = {
 };
 
 /**
+ * 공통 공개 화이트라벨. 유니오토 같은 개별 영업채널이 아니라 freepasserp.com 루트에서
+ * 쓰는 플랫폼 간판이다. 호스트에 자동 연결하지 않아 내부 ERP·로그인 화면까지 물들이지 않는다.
+ */
+export const PLATFORM_WHITELABEL: Whitelabel = {
+  key: 'platform',
+  hosts: [],
+  name: 'freepasserp.com',
+  wordmark: { main: 'freepass', sub: 'erp.com' },
+  brandColor: '#14263F',
+  tel: '',
+  bizLines: [],
+  notice: {
+    title: '장기렌터카 영업지원 플랫폼',
+    body: '조건과 월 대여료를 비교하고, 원하는 차량을 편하게 찾아보세요.',
+  },
+};
+
+/**
  * 브랜드 표 — 새 영업채널에 사이트를 내주는 일 = **여기 줄 하나 더하기**.
  * 화면 코드는 손대지 않는다. 손대게 되면 그 순간 채널마다 화면이 갈라진다.
  */
 export const WHITELABELS: Whitelabel[] = [
+  PLATFORM_WHITELABEL,
   {
     key: 'uniplan',
     /** ERP 도메인 안의 임시 주소. 도메인이 붙으면 이 줄을 지운다(위 `previewPath` 머리말). */

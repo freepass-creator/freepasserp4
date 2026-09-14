@@ -47,15 +47,16 @@ export function middleware(request: NextRequest) {
   }
 
   /*
-   * 일반 도메인 첫 방문도 손님용 기본 공개 카탈로그로 연다. 직원 로그인은 `/login`에만
+   * 일반 도메인 첫 방문도 공통 화이트라벨 공개 카탈로그로 연다. 직원 로그인은 `/login`에만
    * 남긴다. 앱 서버의 `/` page를 거치지 않아 폐기된 레거시 DB 초기화로 인한 시간 초과도 피한다.
    * 채널 도메인은 위의 `/shop` rewrite가 먼저 처리하며, 전자서명 전용 도메인은 아래 전용 분기가
    * 처리한다.
    */
   if (request.nextUrl.pathname === '/' && host !== PUBLIC_SIGN_HOST) {
     const target = request.nextUrl.clone();
-    target.pathname = '/catalog';
-    // 주소는 기본 도메인 루트에 남긴다. 유니오토 채널 표시도 붙이지 않는다.
+    target.pathname = '/shop';
+    // 주소는 기본 도메인 루트에 남긴다. 유니오토가 아닌 공통 플랫폼 화이트라벨을 쓴다.
+    target.searchParams.set('wl', 'platform');
     const headers = new Headers(request.headers);
     headers.set(PUBLIC_CATALOG_HEADER, '1');
     return NextResponse.rewrite(target, { request: { headers } });
