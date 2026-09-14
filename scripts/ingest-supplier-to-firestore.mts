@@ -19,10 +19,8 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { listSheetTabs, readSheetGrid } from '../lib/server/google-sheets';
-import { HUB_CODE_SHEET_ID, isLegacySheetId } from '../lib/domain/legacy-sheets';
 import { isOurNonInventoryTab } from '../lib/domain/supplier-template-sheet';
-import { companyAlias } from '../lib/domain/identity';
-import { pickSupplierSource, hubSourceMap, hubNameMap, myStockTabs } from '../lib/domain/supplier-source';
+import { myStockTabs } from '../lib/domain/supplier-source';
 import { snapToMaster, makerGroup } from '../lib/domain/vehicle-master-match';
 import type { MasterEntry } from '../lib/domain/vehicle-master-types';
 import type { EntityRecord } from '../lib/intake/entities';
@@ -31,8 +29,7 @@ import { canonSheetVehicleStatus } from '../lib/domain/sheet-import';
 import { canonProductType } from '../lib/domain/product';
 import { composeVehicleName, MIRROR_ALIAS } from '../lib/domain/mirror-sheet-mapping';
 import { snapColor } from '../lib/domain/color-master';
-import { MIRROR_SOURCES } from '../lib/domain/mirror-sources';
-import { sheetIdFromUrl } from '../lib/domain/supplier-sheet-read';
+import { getInventorySource } from '../lib/domain/inventory-source-registry';
 import { FUEL_EV, rawSeats, atomViolations, type MasterIndex } from '../lib/domain/atom-invariants';
 import { cleanTrim } from '../lib/domain/clean-trim';
 import { resolveStatus } from '../lib/domain/atom-status';
@@ -57,47 +54,27 @@ const clean = (v: unknown) => { const s = S(v); return SHEET_ERR.test(s) ? '' : 
 type Price = Record<string, { rent: number; deposit: number }>;
 const PERIOD_ALIAS: [string, string[]][] = [['1', ['1개월', '월렌트', '월세']], ['6', ['6개월']], ['12', ['12개월']], ['18', ['18개월']], ['24', ['24개월']], ['36', ['36개월']], ['48', ['48개월']], ['60', ['60개월']]];
 
-// Firestore 먼저 — 원천 레지스트리(partner.sheet_url)와 원자를 여기서 읽는다.
+// Firestore는 원자 저장소다. 원천 주소는 inventory-source-registry만 사용한다.
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 initializeApp({ credential: cert({ projectId: sa.project_id, clientEmail: sa.client_email, privateKey: S(sa.private_key).replace(/\\n/g, '\n') }) });
 const fs = getFirestore();
 
 // 원천 종류 셋 — 시트(공급사 구글시트) · 홈피(ironrentcar.com) · 손오공(API 덤프 JSON).
 type Kind = 'sheet' | 'iron' | 'sonokong';
-const SON_CODE = 'RP012';
-async function srcConfig(): Promise<{ code: string; name: string; kind: Kind; from?: string; shared?: string[] }> {
-  if (CODE === SON_CODE || CODE === 'SONOKONG' || CODE === '손오공') return { code: SON_CODE, name: '손오공', kind: 'sonokong' };
-  const m = MIRROR_SOURCES.find((x) => x.code === CODE);
-  if (m) {
-    /**
-     * ⚠ 2026-09-08(코덱스가 잡았다) — 정제시트로 연동한 곳(`MIRROR_SOURCES`)은 **폐기 검사 «앞»에서
-     *   그냥 돌아가고 있었다.** 웰릭스를 24일 망가뜨린 것이 바로 「폐기된 주소를 조용히 읽는 일」인데,
-     *   이 길만 그 문을 안 지났다. 표에 적힌 주소도 언젠가 폐기될 수 있다 — 같은 문을 지나게 한다.
-     */
-    if (m.from && isLegacySheetId(m.from)) {
-      throw new Error(`${CODE}: MIRROR_SOURCES 의 원천(${m.from})이 «폐기된 시트»다.`
-        + `\n  죽은 시트를 읽으면 차명·상태가 통째로 틀어진다. lib/domain/mirror-sources 의 그 줄을 고쳐라.`);
-    }
-    return { code: m.code, name: m.name, kind: m.kind as Kind, from: m.from };
-  }
-  /**
-   * 나머지 공급사 = **문패(공급사시트정리)가 정본**. `partner.sheet_url` 은 늦는 사본이라 마지막 수단이다.
-   * ⚠ 2026-09-08 — 이 자리가 `partner.sheet_url` 만 봤고, 그 값이 **폐기된 옛 시트**여서
-   *   웰릭스가 24일 동안 죽은 시트를 읽었다(K8 이 「모닝」으로 들어왔다). 규칙 SSOT = `lib/domain/supplier-source`.
-   */
-  const snap = await fs.collection('partner').where('partner_code', '==', CODE).limit(1).get();
-  const p = snap.docs[0]?.data() as { name?: string; sheet_url?: string } | undefined;
-  const hubRows = (await readSheetGrid(HUB_CODE_SHEET_ID, (await listSheetTabs(HUB_CODE_SHEET_ID))[0]));
-  const hub = hubSourceMap([hubRows.header, ...hubRows.rows]);
-  const pick = pickSupplierSource(CODE, hub, p?.sheet_url);
-  console.log(`  원천 주소 ← ${pick.from} · ${pick.id}`);
-  /** ★한 시트를 «여러 회사»가 나눠 쓰는가 — 그러면 탭으로 갈라 읽어야 한다(아래 readRows). */
-  const shared = [...hub].filter(([, id]) => id === pick.id).map(([c]) => c);
-  /** ★이름도 문패가 정본이다 — 재고 탭을 회사별로 가를 때 「경진렌트카」·「경진카」처럼 정확해야 한다. */
-  const hubName = hubNameMap([hubRows.header, ...hubRows.rows]).get(CODE.toUpperCase());
-  return { code: CODE, name: S(hubName) || S(p?.name) || CODE, kind: 'sheet', from: pick.id, shared };
+function srcConfig(): { code: string; name: string; kind: Kind; from?: string; shared?: string[]; sourceUrl: string } {
+  const source = getInventorySource(CODE);
+  if (source.partnerCode === 'RP023') throw new Error('RP023 오토플러스는 scripts/ingest-reborncar-to-firestore.mts 전용 홈페이지 수집기를 사용해야 합니다.');
+  const kind: Kind = source.kind === 'google_sheet' ? 'sheet' : source.kind === 'erp_api' ? 'sonokong' : 'iron';
+  return {
+    code: source.partnerCode,
+    name: source.name,
+    kind,
+    from: source.spreadsheetId,
+    shared: source.sharedWith?.length ? [source.partnerCode, ...source.sharedWith] : undefined,
+    sourceUrl: source.sourceUrl,
+  };
 }
-const src = await srcConfig();
+const src = srcConfig();
 const PROV = src.code;   // Firestore 태깅·pin 조회는 공급사 정식 코드로(손오공=RP012)
 const SHEET = src.from || '';
 
@@ -280,7 +257,8 @@ async function readRows(): Promise<Row[]> {
       }
       console.log(`  픽업 차번링크 ${픽업링크.size}개 (손오공 재고시트 「${pk || '픽업 탭 없음'}」)`);
     } catch (e) { console.warn(`  ▲ 픽업 차번링크 못 읽음 — ${(e as Error).message.slice(0, 60)} (아는 링크는 merge 가 지킨다)`); }
-    const dump = JSON.parse(readFileSync('sonokong/lib/wonja/손오공차량.json', 'utf8')) as { 갱신?: unknown; 차량?: Record<string, unknown>[] };
+    const dumpPath = S(process.env.SONOGONG_RAW_DUMP_PATH) || 'sonokong/lib/wonja/손오공차량.json';
+    const dump = JSON.parse(readFileSync(dumpPath, 'utf8')) as { 갱신?: unknown; 차량?: Record<string, unknown>[] };
     const cars = dump.차량 || [];
     const dumpCollectedAt = Date.parse(S(dump.갱신).replace(' ', 'T') + '+09:00');
     console.log(`  원본 손오공 API 덤프 — ${cars.length}대`);
@@ -510,7 +488,7 @@ function atomize(row: Row, pinned: Map<string, Record<string, unknown>>): Atom {
      */
     provider_company_code: PROV, partner_code: PROV,
     ...(S(src.name) && S(src.name) !== PROV ? { provider_name: S(src.name) } : null),
-    source: src.kind, source_schema: PROV, sheet_source_tab: row.tab, sheet_source_row: row.row,
+    source: src.kind, source_schema: PROV, source_url: src.sourceUrl, sheet_source_tab: row.tab, sheet_source_row: row.row,
   };
   // ★불변식 게이트 — block 위반이 있으면 «확정될 수 없다»(검수대기). 모순이 확정된 채 존재하는 게 구조적으로 불가능.
   const vio = atomViolations(atom, IDX);
@@ -617,18 +595,20 @@ if (process.argv.includes('--verify')) {
 }
 
 /**
- * ★★**요금을 «한 대도» 못 읽었으면 쓰지 않는다.**
+ * ★★**판매 가능한 차의 요금을 «한 대도» 못 읽었으면 쓰지 않는다.**
  *
  * ⚠ 2026-09-08 실측 — 오토플러스 원본의 요금 머리글은 **두 줄**이다(윗줄 「12개월」·아랫줄 「2만km」).
  *   범용 해석기는 한 줄만 보므로 요금 열을 하나도 못 찾고, 그런데도 차 71대를 «요금 없이» 써 넣었다.
  *   그 8대가 시트에서 대여료 빈칸으로 섰다 — **요금 없는 차는 영업자가 못 파는 차**다.
- *   ⇒ 차는 있는데 요금이 0대면 그건 «무보증 상품»이 아니라 **열을 못 읽은 것**이다. 멈춘다.
+ *   ⇒ 판매 가능한 차는 있는데 요금이 0대면 그건 «무보증 상품»이 아니라 **열을 못 읽은 것**이다. 멈춘다.
+ *   원천의 전 차량이 이미 출고불가라면 요금 빈칸은 정상일 수 있으므로 상태 동기화를 막지 않는다.
  *   (오토플러스처럼 두 줄 머리글인 곳은 정제시트를 거쳐 들어온다 — 그 길이 이미 있다.)
  */
 {
   const 요금있는차 = now.filter((a) => a.price && typeof a.price === 'object' && Object.keys(a.price as object).length).length;
-  if (now.length >= 3 && 요금있는차 === 0) {
-    console.error(`\n✗ ${PROV}: 차 ${now.length}대를 읽었는데 **요금이 한 대도 없다** — 요금 열을 못 읽은 것이다.`);
+  const 판매가능차 = now.filter((a) => a.listable === true).length;
+  if (판매가능차 > 0 && 요금있는차 === 0) {
+    console.error(`\n✗ ${PROV}: 판매 가능 차 ${판매가능차}대를 읽었는데 **요금이 한 대도 없다** — 요금 열을 못 읽은 것이다.`);
     console.error(`  원천 머리글이 두 줄이거나 열 이름이 별칭에 없다. 쓰지 않고 멈춘다(요금 없는 차는 못 판다).`);
     process.exit(1);
   }

@@ -22,7 +22,7 @@
  *   npx tsx scripts/ingest-reborncar-to-firestore.mts            # dry-run: 전수 당겨 tmp 저장 + 우리 원자와 대조 리포트
  *   npx tsx scripts/ingest-reborncar-to-firestore.mts --apply    # Firestore products(오플) 빈칸 보완 + reborncar-only 신규 표시
  */
-import { readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 
@@ -75,7 +75,8 @@ function makeCaller(ctx: { cookie: string; token: string; csrf: string }) {
 }
 
 // ── 매핑: reborncar 상세+옵션 → 우리 오플 원자 필드 ────────────
-function mapCar(detail: Record<string, unknown>, options: Array<Record<string, unknown>>): Record<string, unknown> {
+function mapCar(detail: Record<string, unknown>, optionResponse: Record<string, unknown>): Record<string, unknown> {
+  const options = Array.isArray(optionResponse.data) ? optionResponse.data as Array<Record<string, unknown>> : [];
   const rel = Number(detail.releaseDate);
   const firstReg = Number.isFinite(rel) && rel > 0 ? new Date(rel).toISOString().slice(0, 10) : '';
   // 대여료: rentPriceObjs (JSON string) → { "<개월>_2만": rent, "<개월>_3만": rent } (특가=rentPriceN, 정가=originPriceN)
@@ -109,6 +110,9 @@ function mapCar(detail: Record<string, unknown>, options: Array<Record<string, u
     options: options.map((o) => S(o.codeNm)).filter(Boolean).join(', '),
     product_type: '오플구독',
     provider_name: '오토플러스',
+    source_url: BASE,
+    source_external_id: S(detail.productId),
+    _source_raw: { detail, optionResponse },
   };
 }
 
@@ -126,7 +130,7 @@ for (let i = 0; i < ids.length; i++) {
     const d = await call('getRentCarDetail.rb', { productId }, url);
     if (d?.__err || !d?.data) { fail++; await sleep(150); continue; }
     const o = await call('carOption.rb', { productId }, url);
-    cars.push(mapCar(d.data, Array.isArray(o?.data) ? o.data : []));
+    cars.push(mapCar(d.data, o && typeof o === 'object' ? o : {}));
   } catch (e) { fail++; }
   if ((i + 1) % 10 === 0) process.stdout.write(`.${i + 1}`);
   await sleep(150);
@@ -156,6 +160,7 @@ console.log(`\n  당김 완료 — ${cars.length}대 성공 · ${fail}대 실패
     console.log(`     원천 필드를 보라: carOption.rb 가 «그 차의» 옵션을 주는 깃발이 따로 있는지.`);
   }
 }
+mkdirSync('tmp', { recursive: true });
 writeFileSync('tmp/reborncar-cars.json', JSON.stringify(cars, null, 2), 'utf8');
 console.log('  → tmp/reborncar-cars.json');
 
@@ -167,15 +172,17 @@ const ours = new Map<string, { id: string; x: Record<string, unknown> }>();
 for (const dcmt of (await db.collection('products').get()).docs) {
   const x = dcmt.data() as Record<string, unknown>;
   const isOpl = S(x.product_type).includes('오플') || /오토플러스|autoplus/i.test(S(x.provider_name));
-  if (isOpl || S(x.car_number)) ours.set(S(x.car_number), { id: dcmt.id, x });
+  if (isOpl && S(x.car_number)) ours.set(S(x.car_number), { id: dcmt.id, x });
 }
 const rbNums = new Set(cars.map((c) => S(c.car_number)));
 const oplOurs = [...ours.values()].filter((o) => S(o.x.product_type).includes('오플'));
 const onlyReborn = cars.filter((c) => !ours.has(S(c.car_number)));
 const matched = cars.filter((c) => ours.has(S(c.car_number)));
+const unavailable = [...ours.values()].filter(({ x }) => !rbNums.has(S(x.car_number)) && x.listable === true);
 console.log(`\n── 대조 ──`);
 console.log(`reborncar ${cars.length} · 우리 오플 ${oplOurs.length}`);
 console.log(`차번 매칭 ${matched.length} · reborncar에만(우리 재고에 없음) ${onlyReborn.length}: ${onlyReborn.slice(0, 12).map((c) => S(c.car_number)).join(', ')}`);
+console.log(`우리 원자에는 판매중이나 홈페이지에서 사라진 차 ${unavailable.length}대 → 출고불가 후보(삭제 안 함)`);
 // 매칭된 것 중 우리 원자의 빈칸을 reborncar 가 채울 수 있는 것
 const fillable = { seats: 0, options: 0, ext_color: 0, mileage: 0, price: 0, vin: 0 };
 for (const c of matched) {
@@ -190,10 +197,13 @@ for (const c of matched) {
 console.log('매칭 차 중 reborncar 로 «채울 수 있는» 빈칸:', JSON.stringify(fillable));
 
 if (!APPLY) {
-  console.log('\n미리보기(dry-run). 반영 = --apply: 매칭 차의 빈칸 보완 + reborncar-only 신규 표시.');
+  console.log('\n미리보기(dry-run). 반영 = --apply: 현재 게시 차 갱신 + 사라진 기존 차 출고불가 + 신규 등록대기.');
   process.exit(0);
 }
-// ── --apply: 매칭 차 빈칸만 보완(덮어쓰기 아님 — 있는 값은 존중) ──
+if (fail > 0) {
+  throw new Error(`리본카 상세조회 ${fail}건 실패 — 불완전한 목록으로 기존 차량을 출고불가 처리할 수 없어 전체 반영을 중단합니다.`);
+}
+// ── --apply: 현재 게시 차 갱신 + 홈페이지에서 사라진 기존 차 출고불가(원자 삭제 금지) ──
 let filled = 0;
 let batch = db.batch(), inB = 0;
 for (const c of matched) {
@@ -207,11 +217,39 @@ for (const c of matched) {
   if (S(x.options) && !S(c.options) && S(x.options).split(/\s*,\s*/).filter(Boolean).length >= 10) patch.options = '';
   if (!Object.keys((x.price as object) || {}).length && Object.keys(c.price as object).length) patch.price = c.price;
   patch.reborncar_product_id = c.reborncar_product_id;
+  patch.source = 'website';
+  patch.source_url = BASE;
+  patch.source_external_id = c.source_external_id;
+  patch.vehicle_status = '출고가능';
+  patch.status = '출고가능';
+  patch.status_kind = '가능';
+  patch.status_reason = '리본카 홈페이지 현재 게시';
+  patch.listable = true;
+  patch.원문 = {
+    ...((x.원문 && typeof x.원문 === 'object' ? x.원문 : {}) as Record<string, unknown>),
+    전체: c._source_raw,
+  };
   if (Object.keys(patch).length) { batch.set(db.collection('products').doc(id), patch, { merge: true }); inB++; filled++; }
   if (inB >= 300) { await batch.commit(); batch = db.batch(); inB = 0; }
 }
 if (inB > 0) await batch.commit();
-console.log(`\n■ --apply — 매칭 오플 ${filled}대 빈칸 보완(merge, 기존값 존중).`);
+let retired = 0;
+for (let i = 0; i < unavailable.length; i += 400) {
+  const retireBatch = db.batch();
+  for (const { id } of unavailable.slice(i, i + 400)) {
+    retireBatch.set(db.collection('products').doc(id), {
+      listable: false,
+      vehicle_status: '출고불가',
+      status: '출고불가',
+      status_kind: '불가',
+      status_reason: '리본카 홈페이지 원천 이탈',
+      _direct_ingest_at: Date.now(),
+    }, { merge: true });
+    retired++;
+  }
+  await retireBatch.commit();
+}
+console.log(`\n■ --apply — 현재 게시 오플 ${filled}대 갱신 · 원천 이탈 ${retired}대 출고불가(원자 유지).`);
 console.log(`  reborncar-only ${onlyReborn.length}대는 «신규 매물» — 새 원자 생성은 정체성/차종마스터 매칭이 필요해 연동 세션과 함께.`);
 console.log('  이어서: npx tsx scripts/materialize-product-list-atom.mts (상품리스트용 원자 재생성)');
 process.exit(0);

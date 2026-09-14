@@ -1,20 +1,20 @@
-name: 직접수집(원천→Firestore) 시간별
+name: 직접수집(원천→Firestore) 수동 검증·반영
 
 # 사장님 2026-09-04 「나머지 자동화 가자.」 공급사 원천을 직접 읽어 Firestore 원자로.
 #   정제시트를 안 거친다. 차번으로 박은 불변은 지키고, 새 차·상태만 갱신.
-# ⚠ 옛 파이프라인(sales-erp-hourly 의 미러 ⑭)과 «독립»이다 — 그걸 안 건드린다.
-#   둘 다 products 를 쓰지만 값은 같은 원천이라 어긋나지 않는다(컷오버는 사장님 확인 후 별도).
+# 옛 writer와 동시에 활성화하지 않는다. 컷오버 전에는 apply=false로 원천 대조만 수행한다.
 
 on:
-  schedule:
-    # 평일 KST 09:00~18:00 매시(= UTC 00~09). 공급사가 낮에 고치므로.
-    - cron: '0 0-9 * * 1-5'
   workflow_dispatch:
     inputs:
       only:
         description: '특정 공급사만 (쉼표, 예: RP004,RP031). 비우면 전부'
         required: false
         default: ''
+      apply:
+        description: 'Firestore에 변동·출고불가 반영'
+        type: boolean
+        default: false
 
 concurrency:
   group: direct-ingest
@@ -29,21 +29,34 @@ jobs:
       - uses: actions/setup-node@v4
         with: { node-version: '22', cache: 'npm' }
       - run: npm ci
+      - name: 원천 계약 검사
+        run: npm run check:inventory-sources
       - name: 자격증명 준비
-        env: { SA: ${{ secrets.GOOGLE_SA_JSON }} }
+        env:
+          FIREBASE_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          SHEETS_SA: ${{ secrets.GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON }}
+          SONOGONG: ${{ secrets.SONOGONG_ACCOUNT_JSON }}
         run: |
-          test -n "$SA" || { echo '::error::GOOGLE_SA_JSON 시크릿이 없습니다.'; exit 1; }
-          mkdir -p tmp/firebase-auth
-          printf '%s' "$SA" > tmp/firebase-auth/sa.json
-      # 손오공(RP012)은 API 덤프를 읽으므로 먼저 라이브로 갱신한다(계정 파일 없으면 스스로 건너뜀 = 커밋본 사용).
-      - name: 손오공 재고 갱신(best-effort)
-        continue-on-error: true
-        run: node sonokong/scripts/손오공.mjs --조용 || echo '손오공 갱신 건너뜀'
+          test -n "$FIREBASE_SA" || { echo '::error::FIREBASE_SERVICE_ACCOUNT_JSON 누락'; exit 1; }
+          test -n "$SHEETS_SA" || { echo '::error::GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON 누락'; exit 1; }
+          test -n "$SONOGONG" || { echo '::error::SONOGONG_ACCOUNT_JSON 누락'; exit 1; }
+          mkdir -p tmp/firebase-auth sonokong/lib/wonja
+          printf '%s' "$FIREBASE_SA" > tmp/firebase-auth/firebase.json
+          printf '%s' "$SHEETS_SA" > tmp/firebase-auth/sheets.json
+          printf '%s' "$SONOGONG" > sonokong/lib/wonja/.손오공계정.json
+      - name: 손오공 ERP 원문 갱신
+        run: node sonokong/scripts/손오공.mjs --조용
       - name: 전 공급사 직접수집 → Firestore
         env:
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sa.json
-          NEXT_PUBLIC_FIREBASE_DATABASE_URL: https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app
-        run: npx tsx scripts/ingest-all-suppliers.mts ${{ inputs.only && format('--only={0}', inputs.only) || '' }}
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/firebase.json
+          GOOGLE_SHEETS_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sheets.json
+          GOOGLE_SHEETS_SUBJECT: pyh@teamjpk.com
+        shell: bash
+        run: |
+          ARGS=()
+          if [ -n "${{ inputs.only }}" ]; then ARGS+=("--only=${{ inputs.only }}"); fi
+          if [ "${{ inputs.apply }}" = "true" ]; then ARGS+=(--apply --variable --retire); fi
+          npx tsx scripts/ingest-all-suppliers.mts "${ARGS[@]}"
       - name: 자격증명 지우기
         if: always()
-        run: rm -rf tmp/firebase-auth
+        run: rm -rf tmp/firebase-auth sonokong/lib/wonja/.손오공계정.json sonokong/lib/wonja/.손오공토큰.json
