@@ -29,7 +29,7 @@ const APPLY = process.argv.includes('--apply');
 const ACTIVATE = process.argv.includes('--activate');
 const arg = (name: string) => process.argv.find((v) => v.startsWith(`--${name}=`))?.slice(name.length + 3) || '';
 const VERSION_ID = arg('version') || new Date().toISOString().replace(/[-:.]/g, '');
-const TARGET_PROJECT_ID = process.env.ERP5_FIREBASE_PROJECT_ID || 'erp5-3e2fc';
+const TARGET_PROJECT_ID = process.env.ERP5_FIREBASE_PROJECT_ID || 'freepasserp5';
 const VEHICLE_MASTER_VERSION_ID = arg('vehicle-version') || process.env.ERP5_VEHICLE_MASTER_VERSION_ID || '';
 const PRODUCT_MASTER_SHEET_ID = process.env.PRODUCT_MASTER_SHEET_ID || DEFAULT_PRODUCT_MASTER_SHEET_ID;
 const VERSIONS_COLLECTION = 'productMasterVersions';
@@ -272,21 +272,35 @@ const items: Erp5ProductComposition[] = sourceSnapshot.items.map(({ spec, atom, 
 if (new Set(items.map((item) => item.id)).size !== items.length) throw new Error('ERP5 상품 문서 ID 중복');
 const googleOnly = [...masterSnapshot.byProviderAndPlate.keys()].filter((key) => !consumedGoogleKeys.has(key));
 const sourceOnlyCount = items.filter((item) => item.blockingReasons.includes('GOOGLE_MASTER_MISSING')).length;
+const activeItems = items.filter((item) => item.blockingReasons.length === 0);
+const quarantinedItems = items.filter((item) => item.blockingReasons.length > 0);
 const blockers = [
   ...(!VEHICLE_MASTER_VERSION_ID ? ['VERSION:VEHICLE_MASTER_VERSION_NOT_PINNED'] : []),
   ...sourceSnapshot.blockers,
-  ...items.flatMap((item) => item.blockingReasons.map((reason) => `${item.id}:${reason}`)),
-  ...googleOnly.map((key) => `${key}:GOOGLE_ONLY_WITHOUT_SUPPLIER_SOURCE`),
 ];
 const verificationStates = items.reduce<Record<string, number>>((acc, item) => {
   acc[item.verificationState] = (acc[item.verificationState] || 0) + 1;
   return acc;
 }, {});
-const listableCount = items.filter((item) => item.data.listable === true).length;
-const storedRows = items.map((item) => ({
+const listableCount = activeItems.filter((item) => item.data.listable === true).length;
+const storedRows = activeItems.map((item) => ({
   id: item.id,
   data: {
     ...item.data,
+    _erp5: {
+      schemaVersion: 2,
+      sourceSystem: 'supplier-adapters+google-product-master',
+      sourceKey: item.id,
+      versionId: VERSION_ID,
+      vehicleMasterVersionId: VEHICLE_MASTER_VERSION_ID,
+    },
+  },
+}));
+const quarantinedRows = quarantinedItems.map((item) => ({
+  id: item.id,
+  data: {
+    ...item.data,
+    quarantineReasons: item.blockingReasons,
     _erp5: {
       schemaVersion: 2,
       sourceSystem: 'supplier-adapters+google-product-master',
@@ -309,7 +323,9 @@ console.log(JSON.stringify({
   versionId: VERSION_ID,
   vehicleMasterVersionId: VEHICLE_MASTER_VERSION_ID || null,
   contentHash,
-  productCount: items.length,
+  productCount: activeItems.length,
+  sourceProductCount: items.length,
+  quarantineCount: quarantinedItems.length,
   listableCount,
   verificationStates,
   matchedGoogleRows: consumedGoogleKeys.size,
@@ -341,7 +357,9 @@ await versionRef.set({
   sourceSystem: 'supplier-adapters+google-product-master',
   vehicleMasterVersionId: VEHICLE_MASTER_VERSION_ID || null,
   contentHash,
-  expectedCount: items.length,
+  expectedCount: storedRows.length,
+  sourceProductCount: items.length,
+  quarantineCount: quarantinedItems.length,
   listableCount,
   blockerCount: blockers.length,
   blockerSample: blockers.slice(0, 100),
@@ -355,7 +373,7 @@ await versionRef.set({
 });
 
 try {
-  for (let offset = 0; offset < items.length; offset += 400) {
+  for (let offset = 0; offset < storedRows.length; offset += 400) {
     const batch = targetDb.batch();
     for (const item of storedRows.slice(offset, offset + 400)) {
       batch.create(versionRef.collection('products').doc(item.id), {
@@ -364,7 +382,17 @@ try {
       });
     }
     await batch.commit();
-    console.log(`WRITE ${Math.min(offset + 400, items.length)}/${items.length}`);
+    console.log(`WRITE ${Math.min(offset + 400, storedRows.length)}/${storedRows.length}`);
+  }
+  for (let offset = 0; offset < quarantinedRows.length; offset += 400) {
+    const batch = targetDb.batch();
+    for (const item of quarantinedRows.slice(offset, offset + 400)) {
+      batch.create(versionRef.collection('quarantine').doc(item.id), {
+        ...item.data,
+        _erp5: { ...(item.data._erp5 as Record<string, unknown>), copiedAt: FieldValue.serverTimestamp() },
+      });
+    }
+    await batch.commit();
   }
   for (let offset = 0; offset < blockers.length; offset += 400) {
     const batch = targetDb.batch();
@@ -379,9 +407,14 @@ try {
 }
 
 const written = await versionRef.collection('products').get();
-if (written.size !== items.length) {
+const quarantinedWritten = await versionRef.collection('quarantine').get();
+if (written.size !== storedRows.length) {
   await versionRef.set({ status: 'invalid', actualCount: written.size }, { merge: true });
-  throw new Error(`ERP5 상품 수량 검증 실패: expected=${items.length}, actual=${written.size}`);
+  throw new Error(`ERP5 상품 수량 검증 실패: expected=${storedRows.length}, actual=${written.size}`);
+}
+if (quarantinedWritten.size !== quarantinedRows.length) {
+  await versionRef.set({ status: 'invalid', actualQuarantineCount: quarantinedWritten.size }, { merge: true });
+  throw new Error(`ERP5 상품 격리 수량 검증 실패: expected=${quarantinedRows.length}, actual=${quarantinedWritten.size}`);
 }
 const readbackHash = ssotContentHash(written.docs.map((document) => ({
   id: document.id,
@@ -392,7 +425,7 @@ if (readbackHash !== contentHash) {
   throw new Error(`ERP5 상품 전체 내용 해시 검증 실패: expected=${contentHash}, actual=${readbackHash}`);
 }
 const samples = new Map<string, Erp5ProductComposition>();
-for (const item of items) {
+for (const item of activeItems) {
   const pricing = item.data.adapter_pricing as Record<string, unknown> | undefined;
   const code = S(pricing?.sourceCode).toUpperCase();
   if (code && !samples.has(code)) samples.set(code, item);
@@ -410,5 +443,5 @@ for (const [sourceCode, expected] of samples) {
   }
 }
 
-await versionRef.set({ status: blockers.length ? 'draft' : 'validated', actualCount: written.size, readbackHash, validatedAt: FieldValue.serverTimestamp() }, { merge: true });
+await versionRef.set({ status: blockers.length ? 'draft' : 'validated', actualCount: written.size, actualQuarantineCount: quarantinedWritten.size, readbackHash, validatedAt: FieldValue.serverTimestamp() }, { merge: true });
 console.log(`ERP5 상품 SSOT 검증본 저장 완료: ${VERSION_ID} (${written.size}대)`);
