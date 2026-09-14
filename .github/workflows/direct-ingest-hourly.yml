@@ -33,22 +33,21 @@ jobs:
         run: npm run check:inventory-sources
       - name: 자격증명 준비
         env:
-          FIREBASE_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
-          SHEETS_SA: ${{ secrets.GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON }}
+          ERP5_FIREBASE_SA: ${{ secrets.ERP5_FIREBASE_SERVICE_ACCOUNT_JSON }}
+          SHEETS_SA: ${{ secrets.GOOGLE_SA_JSON }}
           SONOGONG: ${{ secrets.SONOGONG_ACCOUNT_JSON }}
         run: |
-          test -n "$FIREBASE_SA" || { echo '::error::FIREBASE_SERVICE_ACCOUNT_JSON 누락'; exit 1; }
-          test -n "$SHEETS_SA" || { echo '::error::GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON 누락'; exit 1; }
+          test -n "$ERP5_FIREBASE_SA" || { echo '::error::ERP5_FIREBASE_SERVICE_ACCOUNT_JSON 누락'; exit 1; }
+          test -n "$SHEETS_SA" || { echo '::error::GOOGLE_SA_JSON 누락'; exit 1; }
           test -n "$SONOGONG" || { echo '::error::SONOGONG_ACCOUNT_JSON 누락'; exit 1; }
           mkdir -p tmp/firebase-auth sonokong/lib/wonja
-          printf '%s' "$FIREBASE_SA" > tmp/firebase-auth/firebase.json
           printf '%s' "$SHEETS_SA" > tmp/firebase-auth/sheets.json
           printf '%s' "$SONOGONG" > sonokong/lib/wonja/.손오공계정.json
       - name: 손오공 ERP 원문 갱신
         run: node sonokong/scripts/손오공.mjs --조용
       - name: 전 공급사 직접수집 → Firestore
         env:
-          GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/firebase.json
+          ERP5_FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.ERP5_FIREBASE_SERVICE_ACCOUNT_JSON }}
           GOOGLE_SHEETS_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sheets.json
           GOOGLE_SHEETS_SUBJECT: pyh@teamjpk.com
         shell: bash

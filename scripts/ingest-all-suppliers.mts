@@ -6,7 +6,7 @@
  *   - 기본은 미리보기, --apply일 때만 쓴다. 한 곳이 실패(503 등)해도 다음으로 간다.
  *   - 옛 writer와 동시에 켜지지 않도록 자동 schedule은 두지 않는다. 컷오버 전에는 dry-run으로 검증한다.
  *
- * 실행: GOOGLE_APPLICATION_CREDENTIALS=tmp/firebase-auth/sa.json npx tsx scripts/ingest-all-suppliers.mts
+ * 실행: ERP5_FIREBASE_APPLICATION_CREDENTIALS=tmp/firebase-auth/erp5.json npx tsx scripts/ingest-all-suppliers.mts
  *   --only=RP004,RP031  특정 공급사만 · --variable  변동만(가벼운 회차)
  */
 import { spawnSync } from 'node:child_process';

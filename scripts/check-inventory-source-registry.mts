@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { INVENTORY_SOURCES, getInventorySource, inventorySourceLocationCount, matchesSharedSourceTab } from '../lib/domain/inventory-source-registry';
 import { sheetsServiceAccountEmail } from '../lib/server/google-sheets';
+import { readErp5InventoryServiceAccount } from '../lib/server/erp5-inventory-service-account';
 
 assert.equal(INVENTORY_SOURCES.length, 24, '현재 연동 공급사 코드는 24개여야 한다');
 assert.equal(inventorySourceLocationCount(), 21, '공유 시트를 합친 1차 원천 위치는 21곳이어야 한다');
@@ -35,6 +36,17 @@ try {
   else process.env.GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON = beforeSheets;
   if (beforeFirebase === undefined) delete process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
   else process.env.FIREBASE_SERVICE_ACCOUNT_JSON = beforeFirebase;
+}
+
+const beforeErp5 = process.env.ERP5_FIREBASE_SERVICE_ACCOUNT_JSON;
+try {
+  process.env.ERP5_FIREBASE_SERVICE_ACCOUNT_JSON = JSON.stringify({ project_id: 'freepasserp3', client_email: 'wrong@example.invalid', private_key: 'wrong' });
+  assert.throws(() => readErp5InventoryServiceAccount(), /필수: freepasserp5/, 'ERP3 자격증명을 원천 writer가 받아들이면 안 된다');
+  process.env.ERP5_FIREBASE_SERVICE_ACCOUNT_JSON = JSON.stringify({ project_id: 'freepasserp5', client_email: 'erp5@example.invalid', private_key: 'key' });
+  assert.equal(readErp5InventoryServiceAccount().project_id, 'freepasserp5');
+} finally {
+  if (beforeErp5 === undefined) delete process.env.ERP5_FIREBASE_SERVICE_ACCOUNT_JSON;
+  else process.env.ERP5_FIREBASE_SERVICE_ACCOUNT_JSON = beforeErp5;
 }
 
 console.log(`inventory source registry: providers=${INVENTORY_SOURCES.length} locations=${inventorySourceLocationCount()} PASS`);

@@ -25,6 +25,7 @@
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
+import { readErp5InventoryServiceAccount } from '../lib/server/erp5-inventory-service-account';
 
 const APPLY = process.argv.includes('--apply');
 const BASE = 'https://www.reborncar.co.kr';
@@ -165,7 +166,7 @@ writeFileSync('tmp/reborncar-cars.json', JSON.stringify(cars, null, 2), 'utf8');
 console.log('  → tmp/reborncar-cars.json');
 
 // ── 대조: 우리 Firestore 오플 원자와 차번으로 맞대 ───────────
-const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
+const sa = readErp5InventoryServiceAccount();
 initializeApp({ credential: cert({ projectId: sa.project_id, clientEmail: sa.client_email, privateKey: sa.private_key.replace(/\\n/g, '\n') }) });
 const db = getFirestore();
 const ours = new Map<string, { id: string; x: Record<string, unknown> }>();
