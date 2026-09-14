@@ -15,7 +15,7 @@ const ACTIVATE = process.argv.includes('--activate');
 const arg = (name: string) => process.argv.find((value) => value.startsWith(`--${name}=`))?.slice(name.length + 3) || '';
 const VERSION_ID = arg('version') || new Date().toISOString().replace(/[-:.]/g, '');
 const ENCAR_PATH = arg('encar') || process.env.ERP5_ENCAR_REFERENCE_PATH || 'tmp/vehicle-master/dist/vehicle-master.flat.json';
-const TARGET_PROJECT_ID = process.env.ERP5_FIREBASE_PROJECT_ID || 'erp5-3e2fc';
+const TARGET_PROJECT_ID = process.env.ERP5_FIREBASE_PROJECT_ID || 'freepasserp5';
 const VERSIONS_COLLECTION = 'vehicleMasterVersions';
 if (!/^[A-Za-z0-9._-]{1,120}$/.test(VERSION_ID)) throw new Error(`version ID 형식이 올바르지 않습니다: ${VERSION_ID}`);
 
@@ -67,6 +67,10 @@ const storedRows = built.entries.map((entry) => ({
   id: entry.id,
   data: { ...entry, schemaVersion: 1, versionId: VERSION_ID },
 }));
+const quarantinedRows = built.quarantined.map((entry) => ({
+  id: entry.id,
+  data: { ...entry, schemaVersion: 1, versionId: VERSION_ID, quarantineReason: entry.verification },
+}));
 const contentHash = ssotContentHash(storedRows);
 
 console.log(JSON.stringify({
@@ -77,6 +81,8 @@ console.log(JSON.stringify({
   versionId: VERSION_ID,
   contentHash,
   entryCount: built.entries.length,
+  sourceRowCount: sheetRows.length,
+  quarantineCount: built.quarantined.length,
   stats: built.stats,
   blockerCount: built.blockers.length,
   blockerSample: built.blockers.slice(0, 20),
@@ -113,6 +119,8 @@ await versionRef.set({
   sourceSystem: 'google-vehicle-master+encar-reference',
   contentHash,
   expectedCount: built.entries.length,
+  sourceRowCount: sheetRows.length,
+  quarantineCount: built.quarantined.length,
   blockerCount: built.blockers.length,
   blockerSample: built.blockers.slice(0, 100),
   stats: built.stats,
@@ -136,6 +144,16 @@ try {
     await batch.commit();
     console.log(`WRITE ${Math.min(offset + CHUNK_SIZE, storedRows.length)}/${storedRows.length}`);
   }
+  for (let offset = 0; offset < quarantinedRows.length; offset += CHUNK_SIZE) {
+    const batch = targetDb.batch();
+    for (const entry of quarantinedRows.slice(offset, offset + CHUNK_SIZE)) {
+      batch.create(versionRef.collection('quarantine').doc(entry.id), {
+        ...entry.data,
+        copiedAt: FieldValue.serverTimestamp(),
+      });
+    }
+    await batch.commit();
+  }
   for (let offset = 0; offset < built.blockers.length; offset += CHUNK_SIZE) {
     const batch = targetDb.batch();
     built.blockers.slice(offset, offset + CHUNK_SIZE).forEach((reason, index) => {
@@ -149,9 +167,14 @@ try {
 }
 
 const written = await versionRef.collection('entries').get();
+const quarantinedWritten = await versionRef.collection('quarantine').get();
 if (written.size !== built.entries.length) {
   await versionRef.set({ status: 'invalid', actualCount: written.size }, { merge: true });
   throw new Error(`ERP5 차종마스터 검증 실패: expected=${built.entries.length}, actual=${written.size}`);
+}
+if (quarantinedWritten.size !== built.quarantined.length) {
+  await versionRef.set({ status: 'invalid', actualQuarantineCount: quarantinedWritten.size }, { merge: true });
+  throw new Error(`ERP5 차종마스터 격리 수량 실패: expected=${built.quarantined.length}, actual=${quarantinedWritten.size}`);
 }
 const readbackHash = ssotContentHash(written.docs.map((document) => ({
   id: document.id,
@@ -196,6 +219,7 @@ console.log(JSON.stringify({
 await versionRef.set({
   status: built.blockers.length ? 'draft' : 'validated',
   actualCount: written.size,
+  actualQuarantineCount: quarantinedWritten.size,
   readbackHash,
   genesisReadbackCount: genesisReadback.length,
   validatedAt: FieldValue.serverTimestamp(),
