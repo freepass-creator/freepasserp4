@@ -1,0 +1,46 @@
+name: ERP5 검증 release 활성화
+
+on:
+  workflow_dispatch:
+    inputs:
+      product_version:
+        description: '검증 완료 상품 version ID'
+        required: true
+        type: string
+      vehicle_version:
+        description: '검증 완료 차종 version ID'
+        required: true
+        type: string
+      release_id:
+        description: 'release ID'
+        required: true
+        type: string
+
+concurrency:
+  group: erp5-firestore-ssot-publish
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    environment: erp5-production
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: 동일 검증본 전체 해시 확인 후 상품·차종 동시 활성화
+        env:
+          ERP5_FIREBASE_WRITER_SERVICE_ACCOUNT_JSON: ${{ secrets.ERP5_FIREBASE_WRITER_SERVICE_ACCOUNT_JSON }}
+          INPUT_PRODUCT_VERSION: ${{ inputs.product_version }}
+          INPUT_VEHICLE_VERSION: ${{ inputs.vehicle_version }}
+          INPUT_RELEASE_ID: ${{ inputs.release_id }}
+        run: |
+          test -n "$ERP5_FIREBASE_WRITER_SERVICE_ACCOUNT_JSON" || { echo '::error::ERP5 writer 시크릿이 없습니다.'; exit 1; }
+          node --import tsx scripts/promote-erp5-release.mts \
+            --products="$INPUT_PRODUCT_VERSION" \
+            --vehicle="$INPUT_VEHICLE_VERSION" \
+            --release="$INPUT_RELEASE_ID"

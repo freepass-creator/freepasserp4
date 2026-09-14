@@ -1,0 +1,77 @@
+rules_version = '2';
+
+// ERP5는 개인정보·계약·상담을 저장하지 않는 상품·차종 조회 전용 Firestore다.
+// 발행은 Admin SDK만 수행하며 클라이언트 쓰기는 전면 금지한다.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return signedIn() && request.auth.token.role == 'admin';
+    }
+
+    function isCatalogueReader() {
+      return signedIn() && (
+        request.auth.token.role == 'admin'
+        || request.auth.token.role == 'agent'
+        || request.auth.token.role == 'whitelabel'
+      );
+    }
+
+    function isActiveProductVersion(versionId) {
+      return exists(/databases/$(database)/documents/ssotState/products)
+        && get(/databases/$(database)/documents/ssotState/products).data.activeVersionId == versionId;
+    }
+
+    function isActiveVehicleVersion(versionId) {
+      return exists(/databases/$(database)/documents/ssotState/vehicleMaster)
+        && get(/databases/$(database)/documents/ssotState/vehicleMaster).data.activeVersionId == versionId;
+    }
+
+    match /ssotState/{name} {
+      allow read: if isCatalogueReader() && (name == 'products' || name == 'vehicleMaster');
+      allow write: if false;
+    }
+
+    match /ssotReleases/{releaseId} {
+      allow read: if isCatalogueReader() && resource.data.status == 'active';
+      allow write: if false;
+    }
+
+    match /productMasterVersions/{versionId} {
+      allow read: if isAdmin() || (isCatalogueReader() && isActiveProductVersion(versionId));
+      allow write: if false;
+
+      match /products/{productId} {
+        allow read: if isAdmin() || (isCatalogueReader() && isActiveProductVersion(versionId));
+        allow write: if false;
+      }
+
+      match /blockers/{blockerId} {
+        allow read: if isAdmin();
+        allow write: if false;
+      }
+    }
+
+    match /vehicleMasterVersions/{versionId} {
+      allow read: if isAdmin() || (isCatalogueReader() && isActiveVehicleVersion(versionId));
+      allow write: if false;
+
+      match /entries/{entryId} {
+        allow read: if isAdmin() || (isCatalogueReader() && isActiveVehicleVersion(versionId));
+        allow write: if false;
+      }
+
+      match /blockers/{blockerId} {
+        allow read: if isAdmin();
+        allow write: if false;
+      }
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

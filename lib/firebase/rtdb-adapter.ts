@@ -375,8 +375,9 @@ export class RtdbAdapter implements StoreAdapter {
         if (!response.ok) throw new Error(`상품 직접 조회 HTTP ${response.status}`);
         val = (await response.json()) || {};
       } catch (error) {
-        console.warn('RTDB 상품 직접 조회 실패(SDK 폴백):', (error as Error).message);
-        val = (await get(ref(this.db(), path))).val() || {};
+        // ERP3 상품은 ERP5의 대체 원천이 아니다. 오류를 드러내고 상위 재시도 경계로 넘긴다.
+        console.warn('ERP5 상품 직접 조회 실패(ERP3 폴백 없음):', (error as Error).message);
+        throw error;
       }
     } else {
       val = (await get(ref(this.db(), path))).val() || {};
@@ -482,12 +483,9 @@ export class RtdbAdapter implements StoreAdapter {
       }
       // 매물엔 공급사 한글이름(provider_name) 부착 — 상세·목록 SSOT(파인더와 동일). 코드만 보이던 문제 해결.
       if (entity === 'product') {
-        const privateMap = await this.readProductPrivate(strict);
-        const mergedProducts = result.map((product) => mergeProductPrivate(
-          product,
-          privateMap.get(String(product.product_code || product._key)),
-        ));
-        return withProviderNames(mergedProducts, await partnersP!);
+        // ERP5는 판매용 공개 원자만 공급한다. ERP3 products_private를 다시 합치면
+        // 독립 SSOT 경계가 무너지므로 읽기 목록에는 붙이지 않는다.
+        return withProviderNames(result, await partnersP!);
       }
       return result;
     } catch (e) {

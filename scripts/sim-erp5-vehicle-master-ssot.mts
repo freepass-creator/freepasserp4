@@ -1,10 +1,14 @@
 /** ERP5 차종마스터 병합·활성화 경계 회귀검사. 외부 접속/쓰기 없음. */
 import assert from 'node:assert/strict';
-import { buildVehicleMaster, parseVehicleMasterSheet, type EncarReferenceRow } from '../lib/domain/erp5-vehicle-master-ssot';
+import { buildVehicleMaster, parseVehicleMasterSheet, requiredVehicleMasterBlockers, type EncarReferenceRow } from '../lib/domain/erp5-vehicle-master-ssot';
 
-const headers = ['원산지', '제조사', '모델', '세부모델', '세부트림', '생산시작', '생산종료', '커서 엔카대조'];
+const headers = [
+  '원산지', '제조사', '모델', '세부모델', '세부트림', '생산시작', '생산종료',
+  '모델행키', '세부모델행키', '세부트림행키', '원자ID', '커서 엔카대조', '종합판정',
+];
 const filler = Array.from({ length: 50 }, (_, index) => [
-  '국산', '제네시스', `모델${index}`, `세부${index}`, '기본형', '2020-01', '현재', '맞음 · 확인',
+  '국산', '제네시스', `모델${index}`, `세부${index}`, '기본형', '2020-01', '현재',
+  `m-${index}`, `s-${index}`, `t-${index}`, `a-${index}`, '맞음 · 확인', '확정 · 엔카 일치(원자)',
 ]);
 const parsed = parseVehicleMasterSheet([headers, ...filler]);
 assert.equal(parsed.length, 50);
@@ -42,11 +46,20 @@ assert.equal(built.entries[4].evidence.googleSheet.sourceNames.model, '더 뉴 G
 assert.equal(built.entries[4].evidence.googleSheet.sourceNames.subModel, '더 뉴 G70 슈팅브레이크');
 assert.equal(built.entries[4].evidence.googleSheet.sourceNames.trim, '스포츠 패키지');
 assert.notEqual(built.entries[4].id, built.entries[3].id, 'G70 슈팅브레이크와 GV70은 서로 다른 SSOT 원자여야 함');
+assert.deepEqual(requiredVehicleMasterBlockers(built.entries), [], 'G80 RG3 기본형 필수 원자 존재');
 console.log('PASS Google Sheet 채택명 + Encar 괄호/기아 세대명 대조');
 console.log('PASS 빈 트림은 ERP5 투영에서 기본형');
 console.log('PASS 모델=세부모델은 발행명만 기본형, Sheet 원문은 근거로 보존');
 console.log('PASS G70 슈팅브레이크와 GV70은 별도 원자이며 확인된 세부트림/원문을 보존');
 console.log('PASS 연료·배기량·구동·인승·배터리는 계층 밖 facts');
+
+const keyMissing = buildVehicleMaster({
+  sheetRows: [{ ...sheetRows[0], rowNumber: 98, modelKey: '', subModelKey: '', trimKey: '', atomKey: '' }],
+  encarRows,
+});
+assert.ok(keyMissing.blockers.some((value) => value.includes('차종 계층키 누락')));
+assert.equal(requiredVehicleMasterBlockers(built.entries.filter((entry) => entry.trim !== '기본형')).length, 1);
+console.log('PASS 계층키 누락과 G80 RG3 기본형 필수 원자 누락은 활성화 blocker');
 
 const bad = buildVehicleMaster({
   sheetRows: [{ ...sheetRows[0], rowNumber: 99, subModel: 'G80 (RG3) FL', reviews: {} }],
@@ -57,4 +70,16 @@ assert.ok(!bad.blockers.some((value) => value.includes('괄호 표기')));
 assert.ok(bad.blockers.some((value) => value.includes('FL 표기')));
 assert.ok(bad.blockers.some((value) => value.includes('needs-review')));
 console.log('PASS 괄호는 F03 표기로 투영하고 FL·근거 없는 행은 활성화 blocker');
-console.log('ERP5 VEHICLE MASTER SSOT 5/5 PASS');
+
+const finalDecision = buildVehicleMaster({
+  sheetRows: [{
+    ...sheetRows[1],
+    rowNumber: 101,
+    reviews: { '커서 엔카대조': '맞음', 'Gemini 엔카대조': '못정함', 종합판정: '확정 · 엔카 일치(원자)' },
+  }],
+  encarRows,
+});
+assert.equal(finalDecision.entries[0].verification, 'exact-reference');
+assert.equal(finalDecision.blockers.length, 0, 'Google 종합판정 확정을 과거 개별 검토 충돌로 뒤집으면 안 됨');
+console.log('PASS Google 종합판정 확정은 과거 개별 대조값보다 우선');
+console.log('ERP5 VEHICLE MASTER SSOT 8/8 PASS');

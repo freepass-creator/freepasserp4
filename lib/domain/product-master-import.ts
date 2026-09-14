@@ -143,6 +143,7 @@ function trimIdentity(
     )
     : null;
   const identity: EntityRecord = {
+    origin: record.origin,
     maker: named?.maker || record.maker,
     model: named?.model || record.model,
     sub_model: named?.sub_model || record.sub_model,
@@ -157,6 +158,15 @@ function trimIdentity(
     gen_year_start: record.model_year_start || record.production_start || undefined,
     gen_year_end: record.model_year_end || record.production_end || undefined,
     _product_master_name_adopted: Boolean(named?.adopted),
+    // ERP5 차종마스터 FK는 화면 표시용 model(아래에서 공급사 모델명으로 바뀔 수 있음)이
+    // 아니라 차종코드가 가리킨 확정 행의 identity로만 만든다.
+    _vehicle_master_identity: {
+      origin: record.origin,
+      maker: named?.maker || record.maker,
+      model: named?.model || record.model,
+      subModel: named?.sub_model || record.sub_model,
+      trim: named?.trim || record.trim || '기본형',
+    },
   };
   identity.vehicle_class = classifyVehicleClass(identity);
   return identity;

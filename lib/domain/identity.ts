@@ -229,7 +229,9 @@ export function withProviderNames(products: EntityRecord[], partners: EntityReco
     const fromMap = code ? (map[code] || PROVIDER_NAME_FALLBACKS[code]) : '';
     const existing = String(p.provider_name || p.provider_company_name || '').trim();
     const full = (code && fullByCode[code]) || (existing && existing !== code ? existing : '') || '';
-    const raw = fromMap || (existing && existing !== code ? existing : '') || code;
+    // 상품 자체의 확정 표시값이 있으면 파트너 보조목록보다 우선한다.
+    // ERP5 원자가 ERP3 partner 데이터로 다시 변형되는 것을 막는다.
+    const raw = (existing && existing !== code ? existing : '') || fromMap || code;
     const name = companyAlias(raw);
     const fullOut = full && full !== name ? full : '';
     if (String(p.provider_name || '') === name && String(p.provider_name_full || '') === fullOut) return p;

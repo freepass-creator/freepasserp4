@@ -28,16 +28,20 @@ jobs:
           npx tsx scripts/sim-product-master-sheet.mts
           npx tsx scripts/sim-deposit-cap.mts
           npm run check:erp5-firebase
-      - name: 공용 Firebase·원천 읽기 자격증명 준비
+      - name: Google 원천 읽기 자격증명 준비
         env:
           SA: ${{ secrets.GOOGLE_SA_JSON }}
         run: |
           test -n "$SA" || { echo '::error::GOOGLE_SA_JSON 시크릿이 없습니다.'; exit 1; }
           mkdir -p tmp/firebase-auth
           printf '%s' "$SA" > tmp/firebase-auth/sa.json
-      - name: 공용 Firebase에 ERP5 상품 검증본 게시 (빈 원자 제거·읽기검증)
+      - name: 독립 ERP5에 상품 대조 검증본 게시
+        env:
+          ERP5_FIREBASE_WRITER_SERVICE_ACCOUNT_JSON: ${{ secrets.ERP5_FIREBASE_WRITER_SERVICE_ACCOUNT_JSON }}
+          ERP5_VEHICLE_MASTER_VERSION_ID: ${{ vars.ERP5_VEHICLE_MASTER_VERSION_ID }}
         run: |
-          VERSION="same-firebase-products-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          test -n "$ERP5_FIREBASE_WRITER_SERVICE_ACCOUNT_JSON" || { echo '::error::ERP5 writer 시크릿이 없습니다.'; exit 1; }
+          VERSION="source-crosscheck-products-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           npx tsx scripts/publish-products-to-erp5-firestore.mts \
             --version="$VERSION" \
             --apply

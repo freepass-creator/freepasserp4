@@ -70,6 +70,13 @@ export type VehicleMasterEntry = {
   verification: 'exact-reference' | 'reviewed-encar' | 'conflict' | 'needs-review';
 };
 
+/** 절체 전에 실제 원장에 존재해야 한다고 확정한 대표 원자. 누락을 막되 이름을 추정 생성하지 않는다. */
+export function requiredVehicleMasterBlockers(entries: VehicleMasterEntry[]): string[] {
+  const hasG80Rg3Base = entries.some((entry) => entry.maker === '제네시스'
+    && entry.model === 'G80' && entry.subModel === 'G80 RG3' && entry.trim === '기본형');
+  return hasG80Rg3Base ? [] : ['REQUIRED_SENTINEL_MISSING:제네시스:G80:G80 RG3:기본형'];
+}
+
 const S = (value: unknown) => String(value ?? '').trim();
 
 const makerForMatch = (value: unknown): string => {
@@ -120,8 +127,16 @@ const subModelKey = (parts: { maker: unknown; model: unknown; subModel: unknown 
   textForMatch(parts.subModel),
 ].join('|');
 
-function stableEntryId(row: Pick<VehicleSheetRow, 'origin' | 'maker' | 'model' | 'subModel' | 'trim'>): string {
-  const canonical = [row.origin, row.maker, row.model, row.subModel, row.trim || '기본형'].join('|');
+export function erp5VehicleMasterEntryId(
+  row: Pick<VehicleSheetRow, 'origin' | 'maker' | 'model' | 'subModel' | 'trim'>,
+): string {
+  const names = normalizeF03CanonicalRow({
+    maker: row.maker,
+    model: row.model,
+    subModel: row.subModel,
+    trim: row.trim || '기본형',
+  });
+  const canonical = [row.origin, names.maker, names.model, names.subModel, names.trim].join('|');
   return `vm_${createHash('sha256').update(canonical).digest('hex').slice(0, 24)}`;
 }
 
@@ -159,7 +174,7 @@ export function parseVehicleMasterSheet(grid: unknown[][]): VehicleSheetRow[] {
   }
   const reviewIndexes = headers
     .map((header, column) => ({ header, column }))
-    .filter(({ header }) => /검토|대조/.test(header));
+    .filter(({ header }) => /검토|대조|판정/.test(header));
 
   const parsed = rows.slice(headerAt + 1).map((row, offset): VehicleSheetRow => {
     const reviews: Record<string, string> = {};
@@ -262,6 +277,7 @@ export function buildVehicleMaster(input: {
 
     const structural: string[] = [];
     if (!row.origin || !canonical.maker || !canonical.model || !canonical.subModel) structural.push('필수 계층값 누락');
+    if (!row.modelKey || !row.subModelKey || !row.trimKey || !row.atomKey) structural.push('차종 계층키 누락');
     if (/\bFL\b|F\/L|페이스리프트/i.test(`${canonical.subModel} ${canonical.trim}`)) structural.push('FL 표기');
     if (canonical.maker === '기아' && /\d+\s*세대/.test(canonical.subModel)) structural.push('기아 세대명 미변환');
     if (structural.length) blockers.push(`${row.rowNumber}행 ${canonical.maker} ${canonical.subModel}: ${structural.join(', ')}`);
@@ -275,10 +291,16 @@ export function buildVehicleMaster(input: {
     const negativeReviews = Object.entries(row.reviews)
       .filter(([column, value]) => /엔카대조/.test(column) && /^틀림|^못정함/.test(value))
       .map(([column]) => column);
-    const conflict = positiveReviews.length > 0 && negativeReviews.length > 0;
+    const overallDecision = Object.entries(row.reviews)
+      .find(([column]) => column.replace(/\s+/g, '') === '종합판정')?.[1] || '';
+    const overallConfirmed = /^확정/.test(overallDecision);
+    const overallNeedsReview = /^(?:검수|충돌|못정함)/.test(overallDecision);
+    const conflict = !overallDecision && positiveReviews.length > 0 && negativeReviews.length > 0;
 
     let verification: VehicleMasterEntry['verification'];
-    if (conflict) verification = 'conflict';
+    if (overallConfirmed) verification = exactReferences.length > 0 ? 'exact-reference' : 'reviewed-encar';
+    else if (overallNeedsReview) verification = 'needs-review';
+    else if (conflict) verification = 'conflict';
     else if (exactReferences.length > 0 && negativeReviews.length === 0) verification = 'exact-reference';
     else if (positiveReviews.length > 0) verification = 'reviewed-encar';
     else verification = 'needs-review';
@@ -297,7 +319,7 @@ export function buildVehicleMaster(input: {
     const factReferences = exactReferences;
     const evidenceReferences = exactReferences.length ? exactReferences : subReferences;
     entries.push({
-      id: stableEntryId({ origin: row.origin, ...canonical }),
+      id: erp5VehicleMasterEntryId({ origin: row.origin, ...canonical }),
       origin: row.origin,
       maker: canonical.maker,
       model: canonical.model,

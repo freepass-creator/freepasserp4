@@ -1,30 +1,14 @@
 'use client';
 /**
- * 파인더 상품을 «Firestore products」에서 읽는다 — RTDB 대역폭 컷(비용 절감 3단계).
+ * 파인더 상품을 ERP5 활성 상품 버전에서 읽는다.
  *
- * onSnapshot 로 처음 한 번 전량 읽고, 이후엔 «바뀐 문서만」 과금된다(상태·요금 변경분).
- * RTDB 는 노드 전체를 매번 스트리밍해 비쌌다(월 30만원). Firestore 문서단위 구독 = 거의 0원.
- *
- * ★★**기본이 «켬»이다**(2026-09-08). 사장님 「**같은 데를 보고 같은 곳에서 뿌려야 함**」 —
- *   상품리스트 F01 · 하허호 F86 · 손님 면(`firestore-ref-shim`)은 이미 Firestore 원자를 읽는데
- *   파인더만 RTDB 를 팠다. 그래서 양쪽에 다 있는 차 **674대**의 값이 갈렸고
- *   (주행 286 · 세부모델 245 · **상태 149**), 이런 꼴이 됐다:
- * ```
- *   102우8512   시트 출고불가 ↔ ERP 출고가능    판 차가 화면에 다시 선다
- *   101부8761   시트 출고가능 ↔ ERP 출고불가    팔 수 있는 차가 ERP 에서만 숨는다
- * ```
- *   ⇒ 넷이 «한 곳»을 본다. 되돌리려면 `NEXT_PUBLIC_FINDER_FROM_FIRESTORE=0`.
- *
- * ⚠ 2026-09-04 에 이 길을 끈 이유 셋은 **이미 다 고쳐져 있다** — 끄기 전에 그것부터 확인하라:
- *   ㉠ 실 UID 복원 뒤에만 구독(`finder-data-store.subscribeFinderData` 의 `firebaseUserReady`)
- *   ㉡ 실패 시 핸들 완전 해제(`releaseOnError`)
- *   ㉢ 그래도 실패면 RTDB 단발 폴백(`finder-data-store.startFirestore` 의 onError)
- *
- * ★가시성·원가 규칙은 RtdbAdapter.listForFinder 와 «똑같은 함수」로 재적용(드리프트 금지).
- *   문서키가 차번이라 차번중복은 구조적으로 0 — dedupe 는 RTDB 병렬성 유지용으로만 태운다.
+ * ERP3 Auth 토큰은 ERP4 API 인증에만 쓰고 서버가 별도 ERP5 Firebase에서 읽어 투영한다.
+ * ERP5 절체 여부는 서버의 `ERP5_PRODUCT_READ_ENABLED`가 결정한다. 브라우저 경로는
+ * 기존 UI 호환을 위해 유지하며 `NEXT_PUBLIC_FINDER_FROM_FIRESTORE=0`일 때만 사용하지 않는다.
+ * 가시성·원가 규칙은 기존 파인더와 같은 함수로 재적용한다.
  */
 import type { EntityRecord } from '@/lib/intake/entities';
-import { getFirebaseApp } from './client';
+import { getAuthClient } from './client';
 import { isExcludedProduct, dedupeProductsByVehicle, canSeeProductCost, stripProductCost } from './rtdb-products';
 
 export function finderFromFirestoreEnabled(): boolean {
@@ -32,7 +16,7 @@ export function finderFromFirestoreEnabled(): boolean {
   return process.env.NEXT_PUBLIC_FINDER_FROM_FIRESTORE !== '0';
 }
 
-/** Firestore 원자 문서 → 파인더 행. RTDB 병렬 = `_key`는 product_code(없으면 차번). */
+/** ERP4 API 상품 문서 → 파인더 행. `_key`는 product_code(없으면 차번). */
 function toRow(d: Record<string, unknown>): EntityRecord {
   return {
     ...d,
@@ -53,10 +37,7 @@ let starting = false;
 const subs = new Set<(rows: EntityRecord[]) => void>();
 const errSubs = new Set<(err: unknown) => void>();
 
-/**
- * ㉡ 실패 시 «핸들을 완전히 해제»한다 — 안 놓으면 unsub 가 truthy 라 ensureSnapshot 이 재시도를 못 한다
- *   (파인더가 빈 채로 굳던 원인, CLAUDE.md 2026-09-04). 해제 후 에러 구독자에게 알려 ㉢ RTDB 폴백을 태운다.
- */
+/** 실패 시 polling 핸들을 완전히 해제하고 상위 재시도 경계에 알린다. */
 function releaseOnError(err: unknown) {
   if (unsub) { try { unsub(); } catch { /* */ } unsub = null; }
   cache = null; starting = false;
@@ -66,25 +47,45 @@ function releaseOnError(err: unknown) {
 async function ensureSnapshot() {
   if (unsub || starting) return;
   starting = true;
+  let cancelled = false;
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  unsub = () => {
+    cancelled = true;
+    if (timer) clearTimeout(timer);
+    timer = null;
+  };
   try {
-    const { getFirestore, collection, onSnapshot } = await import('firebase/firestore');
-    const db = getFirestore(getFirebaseApp()!);
-    unsub = onSnapshot(
-      collection(db, 'products'),
-      (snap) => { cache = snap.docs.map((x) => toRow(x.data() as Record<string, unknown>)); for (const s of [...subs]) s(cache); },
-      (err) => { console.warn('[finder/firestore] onSnapshot 실패:', err); releaseOnError(err); },
-    );
+    const poll = async () => {
+      try {
+        const auth = getAuthClient()?.currentUser;
+        if (!auth) throw new Error('ERP5 상품 조회 인증 없음');
+        const token = await auth.getIdToken();
+        const response = await fetch('/api/products', {
+          cache: 'no-store',
+          headers: { Authorization: `Bearer ${token}`, 'Cache-Control': 'no-cache' },
+        });
+        if (!response.ok) throw new Error(`ERP5 상품 조회 HTTP ${response.status}`);
+        const value = await response.json() as Record<string, Record<string, unknown>>;
+        cache = Object.values(value || {}).map(toRow);
+        for (const subscriber of [...subs]) subscriber(cache);
+      } catch (error) {
+        console.warn('[finder/erp5] 활성 상품 조회 실패:', error);
+        if (!cache) { releaseOnError(error); return; }
+      }
+      if (!cancelled) timer = setTimeout(() => { void poll(); }, 30_000);
+    };
+    await poll();
   } catch (e) {
-    console.warn('[finder/firestore] 구독 시작 실패:', (e as Error).message);
+    console.warn('[finder/erp5] 조회 시작 실패:', (e as Error).message);
     releaseOnError(e);
   } finally {
-    if (unsub) starting = false;   // 정상 구독됐을 때만 여기서 해제(releaseOnError 가 이미 처리했으면 건드리지 않는다)
+    starting = false;
   }
 }
 
 /**
- * 파인더 상품 구독. 콜백은 스냅샷마다 «가공 전 원자행」을 받는다(공급사명·원가 마스킹은 호출부에서).
- * onError = 구독/스냅샷 실패 알림(호출부가 핸들 해제 + RTDB 폴백에 쓴다). 마지막 구독자가 빠지면 onSnapshot 을 닫아 유휴 과금 제거.
+ * ERP3 Firestore를 직접 열지 않고 인증 API를 통해 ERP5 활성 버전을 30초마다 갱신한다.
+ * 마지막 구독자가 빠지면 polling을 닫는다.
  */
 export function subscribeFirestoreProducts(onRows: (rows: EntityRecord[]) => void, onError?: (err: unknown) => void): () => void {
   subs.add(onRows);
