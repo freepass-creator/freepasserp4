@@ -4,7 +4,7 @@ import { cert, getApps, initializeApp, type App, type ServiceAccount } from 'fir
 import { getFirestore, type Firestore } from 'firebase-admin/firestore';
 
 const APP_NAME = 'freepass-erp5-catalog';
-const TARGET_PROJECT_ID = process.env.ERP5_FIREBASE_PROJECT_ID || 'erp5-3e2fc';
+const TARGET_PROJECT_ID = process.env.ERP5_FIREBASE_PROJECT_ID || 'freepasserp5';
 
 export type Erp5CutoverState = 'precutover' | 'complete' | 'rollback-approved';
 
