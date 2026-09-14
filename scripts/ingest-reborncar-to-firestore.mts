@@ -123,20 +123,27 @@ console.log(`■ reborncar 렌트/구독 전수 ${ids.length}대 (sitemap-ext)`)
 
 const cars: Array<Record<string, unknown>> = [];
 let fail = 0;
+const failures: Array<{ productId: string; reason: string }> = [];
 for (let i = 0; i < ids.length; i++) {
   const { productId, url } = ids[i];
   try {
     const ctx = await bootstrap(url);                       // 상품별 토큰/세션
     const call = makeCaller(ctx);
     const d = await call('getRentCarDetail.rb', { productId }, url);
-    if (d?.__err || !d?.data) { fail++; await sleep(150); continue; }
+    if (d?.__err || !d?.data) {
+      const code = S(d?.header?.resultCode || d?.resultCode || d?.__status);
+      const message = S(d?.header?.resultMessage || d?.message || d?.msg || d?.__err).slice(0, 100);
+      failures.push({ productId, reason: [code, message].filter(Boolean).join(':') || 'detail-data-empty' });
+      fail++; await sleep(150); continue;
+    }
     const o = await call('carOption.rb', { productId }, url);
     cars.push(mapCar(d.data, o && typeof o === 'object' ? o : {}));
-  } catch (e) { fail++; }
+  } catch (e) { failures.push({ productId, reason: S(e instanceof Error ? e.message : e).slice(0, 100) }); fail++; }
   if ((i + 1) % 10 === 0) process.stdout.write(`.${i + 1}`);
   await sleep(150);
 }
 console.log(`\n  당김 완료 — ${cars.length}대 성공 · ${fail}대 실패`);
+for (const failure of failures) console.log(`  ✗ ${failure.productId} — ${failure.reason}`);
 
 /**
  * ★★**«모든 차가 같은 옵션»이면 그건 그 차의 옵션이 아니라 «카탈로그»다 — 안 싣는다.**
