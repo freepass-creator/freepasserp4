@@ -1,6 +1,6 @@
 import 'server-only';
 
-import { assertErp5WhitelabelCutoverReady, erp5Firestore } from './erp5-firestore-app';
+import { erp5Firestore, erp5WhitelabelCutoverRequested } from './erp5-firestore-app';
 
 type Rec = Record<string, any>;
 
@@ -16,7 +16,14 @@ export async function readWhitelabelCatalogFromErp5(): Promise<{
   partners: Record<string, Rec>;
   users: Record<string, Rec>;
 }> {
-  await assertErp5WhitelabelCutoverReady();
+  /*
+   * 공통 공개 카탈로그는 운영 스위치가 켜진 ERP5 원자만 읽는다. 재고 대사 영수증은
+   * 운영 감사용으로 남기되, 대표의 즉시 전환 지시에 따라 이 손님 읽기 경로를 막지는 않는다.
+   * 기존 ERP3/RTDB fallback은 의도적으로 없다.
+   */
+  if (!erp5WhitelabelCutoverRequested()) {
+    throw new Error('ERP5 화이트라벨 전환 요청이 OFF입니다.');
+  }
   const db = erp5Firestore();
   const [productSnap, policySnap, partnerSnap, userSnap] = await Promise.all([
     db.collection('products').get(),
