@@ -1,5 +1,6 @@
 import { BRAND, BRAND_DESCRIPTION, BRAND_TAGLINE } from '@/lib/brand';
-import { hasBrand, resolveGuestWhitelabel, resolveWhitelabel } from '@/lib/whitelabel';
+import { hasBrand, hasShopFrame, internalWhitelabelVars, resolveGuestWhitelabel, resolveWhitelabel } from '@/lib/whitelabel';
+import { InternalWhitelabelProvider } from '@/lib/internal-whitelabel-context';
 import './globals.css';
 /*
  * ★★**손님 동 스타일시트는 «따로»다**(2026-09-08). 업무동 규칙을 고치다 손님 목록이 통째로
@@ -149,6 +150,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   // SSR 모바일이면 pending도 같이 — 부트 스크립트가 같은 클래스를 붙여 hydration mismatch 방지.
   // 쿠키 없이 폭만 모바일인 경우엔 스크립트만 추가 → suppressHydrationWarning.
   const htmlClass = ssrMobile ? 'fp-pending-m' : undefined;
+  const hostWhitelabel = resolveWhitelabel(hdrs.get('host'));
+  // 공개면은 WhitelabelFrame이 맡고, 업무 웹·앱은 기존 골격 위에 chrome만 얹는다.
+  const internalWhiteLabel = hdrs.get('x-fp-guest') !== '1' && hasShopFrame(hostWhitelabel);
+  const internalChrome = { enabled: internalWhiteLabel, headline: internalWhiteLabel ? (hostWhitelabel.headline || '') : '' };
 
   return (
     <html lang="ko" data-fp-m={dataFpM} className={htmlClass} suppressHydrationWarning>
@@ -203,12 +208,13 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         />
         )}
         <MobileBpProvider ssrMobile={ssrMobile}>
+          <InternalWhitelabelProvider value={internalChrome}>
           <AuthProvider>
             <AppBarProvider>
               <TabBarProvider>
                 <MobileBoot />
                 <ClientErrorReporter />
-                <div className="fp-shell">
+                <div className={`fp-shell${internalWhiteLabel ? ' fp-internal-wl' : ''}`} style={internalWhiteLabel ? internalWhitelabelVars(hostWhitelabel) : undefined}>
                   <TopBar />
                   <main className="fp-main-pad">{children}</main>
                   <AppTabBar />
@@ -219,6 +225,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               </TabBarProvider>
             </AppBarProvider>
           </AuthProvider>
+          </InternalWhitelabelProvider>
         </MobileBpProvider>
       </body>
     </html>
