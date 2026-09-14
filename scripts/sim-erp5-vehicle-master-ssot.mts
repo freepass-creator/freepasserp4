@@ -36,6 +36,7 @@ const encarRows: EncarReferenceRow[] = [
 ];
 const built = buildVehicleMaster({ sheetRows, encarRows });
 assert.equal(built.blockers.length, 0);
+assert.equal(built.quarantined.length, 0);
 assert.equal(built.entries[0].trim, '기본형');
 assert.equal(built.entries[0].evidence.googleSheet.trimDefaulted, true);
 assert.equal(built.entries[0].evidence.encar.status, 'exact');
@@ -77,11 +78,11 @@ const bad = buildVehicleMaster({
   sheetRows: [{ ...sheetRows[0], rowNumber: 99, subModel: 'G80 (RG3) FL', reviews: {} }],
   encarRows,
 });
-assert.equal(bad.entries[0].subModel, 'G80 RG3 FL');
+assert.equal(bad.quarantined[0].subModel, 'G80 RG3 FL');
 assert.ok(!bad.blockers.some((value) => value.includes('괄호 표기')));
 assert.ok(bad.blockers.some((value) => value.includes('FL 표기')));
-assert.ok(bad.blockers.some((value) => value.includes('needs-review')));
-console.log('PASS 괄호는 F03 표기로 투영하고 FL·근거 없는 행은 활성화 blocker');
+assert.equal(bad.quarantined[0].verification, 'needs-review');
+console.log('PASS 괄호는 F03 표기로 투영하고 FL·근거 없는 행은 격리');
 
 const finalDecision = buildVehicleMaster({
   sheetRows: [{
