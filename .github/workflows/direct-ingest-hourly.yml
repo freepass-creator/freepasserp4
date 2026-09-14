@@ -19,6 +19,10 @@ on:
         description: '배차상태 6개 필드만 반영(불변·요금·옵션·사진 미변경)'
         type: boolean
         default: true
+      register_new:
+        description: '현재 원천의 신규 차량을 검수된 원자로 등록(수동 실행 전용)'
+        type: boolean
+        default: false
 
 concurrency:
   group: direct-ingest
@@ -69,7 +73,13 @@ jobs:
           ARGS=()
           if [ -n "${{ inputs.only }}" ]; then ARGS+=("--only=${{ inputs.only }}"); fi
           if [ "${{ inputs.status_only }}" = "true" ]; then ARGS+=(--status-only); fi
-          if [ "${{ inputs.apply }}" = "true" ]; then ARGS+=(--apply --variable --retire); fi
+          if [ "${{ inputs.apply }}" = "true" ]; then
+            if [ "${{ inputs.register_new }}" = "true" ]; then
+              ARGS+=(--apply)
+            else
+              ARGS+=(--apply --variable --retire)
+            fi
+          fi
           npx tsx scripts/ingest-all-suppliers.mts "${ARGS[@]}"
       - name: ERP5 판매 원자 스냅샷 검수
         if: ${{ inputs.apply }}
