@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server';
 import { firestoreAdminRef } from '@/lib/server/firestore-ref-shim';
+import { erp5WhitelabelCutoverRequested } from '@/lib/server/erp5-firestore-app';
+import { readWhitelabelCatalogFromErp5 } from '@/lib/server/whitelabel-erp5-catalog';
 import { sanitizeAgentForGuest, sanitizeProductForGuest } from '@/lib/domain/public-catalog';
 import { isListableProduct } from '@/lib/domain/product';
 import { matchAgentByShareCode } from '@/lib/domain/product-share';
@@ -46,18 +48,24 @@ export async function GET(request: Request) {
      *   그동안 차는 나와야 한다.
      * ★읽는 순서·컬렉션 이름은 그대로다(products · policy · partner · user).
      */
-    const db = firestoreAdminRef();
-    const [productSnap, policySnap] = await Promise.all([
-      db.ref('v4/products').get(),
-      db.ref('policies').get(),
+    // 공통 공개 카탈로그와 개별 채널은 같은 ERP5 Firestore 원자를 소비한다.
+    // 전환 영수증이 READY가 아니면 구 경로로 조용히 되돌아가지 않고, 스위치 자체를 켜지 않는다.
+    const useErp5 = erp5WhitelabelCutoverRequested();
+    const erp5 = useErp5 ? await readWhitelabelCatalogFromErp5() : null;
+    const db = erp5 ? null : firestoreAdminRef();
+    const [legacyProducts, legacyPolicies] = erp5 ? [null, null] : await Promise.all([
+      db!.ref('v4/products').get(),
+      db!.ref('policies').get(),
     ]);
+    const productPool = erp5 ? erp5.products : (legacyProducts!.val() || {}) as Record<string, Rec>;
+    const policyPool = erp5 ? erp5.policies : (legacyPolicies!.val() || {}) as Record<string, Rec>;
     const policyByCode = new Map<string, Rec>();
-    for (const [k, v] of Object.entries((policySnap.val() || {}) as Record<string, Rec>)) {
+    for (const [k, v] of Object.entries(policyPool)) {
       if (v && typeof v === 'object') policyByCode.set(S(v.policy_code) || k, v);
     }
 
     const products: EntityRecord[] = [];
-    for (const [docKey, p] of Object.entries((productSnap.val() || {}) as Record<string, Rec>)) {
+    for (const [docKey, p] of Object.entries(productPool)) {
       const key = S(p?._key) || S(p?.product_code) || docKey;
       if (!p || typeof p !== 'object' || dead(p)) continue;
       if (providerCode && S(p.provider_company_code) !== providerCode && S(p.partner_code) !== providerCode) continue;
@@ -72,8 +80,10 @@ export async function GET(request: Request) {
     //   → 코드는 child 키까지 보고, 이름은 세 필드를 다 훑는다. 안 그러면 브랜드가 조용히 빈다.
     let brand = '';
     if (providerCode) {
-      const partnerSnap = await db.ref('partners').get();
-      const hit = Object.entries((partnerSnap.val() || {}) as Record<string, Rec>)
+      const partnerPool = erp5
+        ? erp5.partners
+        : ((await db!.ref('partners').get()).val() || {}) as Record<string, Rec>;
+      const hit = Object.entries(partnerPool)
         .map(([k, v]) => ({ ...(v || {}), _id: k } as Rec)).find((x) => x && (
           S(x._id) === providerCode || S(x.partner_code) === providerCode || S(x.company_code) === providerCode
         ));
@@ -83,8 +93,10 @@ export async function GET(request: Request) {
 
     let agent = null;
     if (share) {
-      const userSnap = await db.ref('users').get();
-      const rows = Object.entries((userSnap.val() || {}) as Record<string, Rec>)
+      const userPool = erp5
+        ? erp5.users
+        : ((await db!.ref('users').get()).val() || {}) as Record<string, Rec>;
+      const rows = Object.entries(userPool)
         .map(([k, v]) => ({ ...(v || {}), _key: S(v?._key) || k, uid: S(v?.uid) || k })) as EntityRecord[];
       agent = sanitizeAgentForGuest(matchAgentByShareCode(rows, share) as Rec | null);
     }
