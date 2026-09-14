@@ -39,7 +39,9 @@ const runOne = (code: string): { ok: boolean; line: string } => {
       return { ok: true, line: line.trim() };
     }
     if (attempt < 2 && RATE.test(out)) { console.log(`  ${code} ⏳ 한도/일시오류 — 20초 쉬고 재시도`); Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 20_000); continue; }
-    return { ok: false, line: (out.split(/\r?\n/).filter(Boolean).pop() || 'Error').slice(0, 160) };
+    const lines = out.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+    const diagnostic = [...lines].reverse().find((line) => /(?:Error:|PERMISSION_DENIED|UNAUTHENTICATED|credential|permission|denied|ENOENT|EACCES)/i.test(line));
+    return { ok: false, line: (diagnostic || lines.at(-1) || 'Error').slice(0, 300) };
   }
   return { ok: false, line: 'Error' };
 };
