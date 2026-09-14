@@ -3,7 +3,6 @@ import { firebaseAdminDatabase, verifyActiveBearer } from '@/lib/server/firebase
 import { canSendChakhandealContract } from '@/lib/domain/chakhandeal-esign';
 import { findContractKind } from '@/lib/domain/esign-contract-kind';
 import { canIssueContract, type PolicyField } from '@/lib/domain/policy-tier';
-import { applyPolicyDefaults } from '@/lib/domain/policy-defaults';
 import {
   findTemplate,
   isEsignTemplateAllowed,
@@ -138,7 +137,9 @@ export async function POST(request: Request) {
   const policySnap = policyCode ? await db.ref(`v4/policies/${policyCode}`).get() : null;
   const storedPolicy = (policySnap?.val() as Record<string, unknown> | null)
     ?? (policyCode ? ((await db.ref(`policies/${policyCode}`).get()).val() as Record<string, unknown> | null) : null);
-  const policy = applyPolicyDefaults(storedPolicy || {}).next;
+  // 계약 조건은 저장된 정책 원장값만 사용한다. 없는 값을 코드 기본값으로 발행하면
+  // 화면·계약 조건이 갈리고 손님에게 존재하지 않는 보험 조건을 약속하게 된다.
+  const policy = storedPolicy || {};
   const gate = canIssueContract(policy, partner);
   if (!gate.ok) {
     return json({

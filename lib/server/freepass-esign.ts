@@ -1,5 +1,4 @@
 import 'server-only';
-import { applyPolicyDefaults } from '@/lib/domain/policy-defaults';
 
 import { createHash, randomBytes } from 'node:crypto';
 import type { Database } from 'firebase-admin/database';
@@ -485,7 +484,9 @@ export async function loadFreepassEsignBundle(contractCode: string) {
     /** v4-only 계약은 서버가 만든 direct seal 없이는 발행하지 않는다. */
     legacyContractExists: !!legacyContract?.exists(),
     contract,
-    policy: storedPolicy ? (applyPolicyDefaults(storedPolicy).next as EsignRecord) : storedPolicy,
+    // 읽는 시점에는 빈 정책값을 기본팩으로 보충하지 않는다. 발행 게이트가 원장값의
+    // 누락을 HOLD로 처리하며, 실제 계약에는 이 원장 스냅샷만 봉인한다.
+    policy: storedPolicy as EsignRecord | null,
     product: mergeRecord(legacyProduct?.val(), overlayProduct?.val()),
     // 신규 직접계약의 차량 정본은 v4/products뿐이다. v3 상품은 재고 기준으로 다시
     // 끌어오지 않는다(상품 bridge 영구 제외).
@@ -522,7 +523,7 @@ export async function loadFreepassDirectSource(productCode: string, policyCode: 
   const v4Product = recordFromNode(overlayProduct?.val());
   const product: EsignRecord | null = v4Product ? { ...v4Product, _key: productKey, product_code: productKey } : null;
   const storedPolicy = mergeRecord(legacyPolicy?.val(), overlayPolicy?.val());
-  const policy = storedPolicy ? applyPolicyDefaults(storedPolicy).next as EsignRecord : null;
+  const policy = storedPolicy as EsignRecord | null;
   const partner = partnerFromNodes(
     legacyPartners?.val(),
     overlayPartners?.val(),
@@ -552,7 +553,7 @@ export async function loadFreepassManualOfferSource(providerCode: string, policy
   const storedPolicy = mergeRecord(legacyPolicy?.val(), overlayPolicy?.val());
   return {
     db,
-    policy: storedPolicy ? applyPolicyDefaults(storedPolicy).next as EsignRecord : null,
+    policy: storedPolicy as EsignRecord | null,
     partner: partnerFromNodes(legacyPartners?.val(), overlayPartners?.val(), providerKey),
   };
 }

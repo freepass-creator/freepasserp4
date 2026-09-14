@@ -70,7 +70,7 @@ export async function GET(request: Request) {
       // 목록에 실을 수 있는 것만 — 판정은 앱과 같은 SSOT 를 쓴다.
       if (!isListableProduct(merged)) continue;
       const policy = resolvePolicy(p);
-      products.push(sanitizeProductForGuest(key, p, policy.policy, { applyDefaults: policy.applyDefaults }));
+      products.push(sanitizeProductForGuest(key, p, policy.policy));
     }
 
     // 화이트라벨 — 공급사를 지정했을 때만 그 회사 이름을 준다(전체 파트너 목록은 내보내지 않는다).

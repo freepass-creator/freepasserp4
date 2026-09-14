@@ -138,7 +138,7 @@ async function loadGuestQuoteUncached(segment: string, shareFromQuery: string, o
   }
 
   return {
-    product: sanitizeProductForGuest(key, product as Rec, policy.policy, { applyDefaults: policy.applyDefaults }),
+    product: sanitizeProductForGuest(key, product as Rec, policy.policy),
     agent,
   };
 }

@@ -31,6 +31,7 @@
     "check:guest": "tsx scripts/check-guest-default.mts",
     "check:guest-fields": "tsx scripts/check-guest-fields.mts",
     "sim:public-policy": "tsx --require ./scripts/lib/server-only-shim.cjs scripts/sim-public-policy-resolver.mts",
+    "sim:policy-value-ssot": "tsx scripts/sim-policy-value-ssot.mts",
     "check:building": "tsx scripts/check-building.mts",
     "check:branches": "tsx scripts/check-branches.mts",
     "check:workflows": "tsx scripts/check-workflows.mts",
