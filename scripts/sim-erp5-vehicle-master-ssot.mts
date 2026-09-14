@@ -1,6 +1,6 @@
 /** ERP5 차종마스터 병합·활성화 경계 회귀검사. 외부 접속/쓰기 없음. */
 import assert from 'node:assert/strict';
-import { buildVehicleMaster, parseVehicleMasterSheet, requiredVehicleMasterBlockers, type EncarReferenceRow } from '../lib/domain/erp5-vehicle-master-ssot';
+import { buildVehicleMaster, erp5VehicleHierarchyKeys, parseVehicleMasterSheet, requiredVehicleMasterBlockers, type EncarReferenceRow } from '../lib/domain/erp5-vehicle-master-ssot';
 
 const headers = [
   '원산지', '제조사', '모델', '세부모델', '세부트림', '생산시작', '생산종료',
@@ -12,6 +12,13 @@ const filler = Array.from({ length: 50 }, (_, index) => [
 ]);
 const parsed = parseVehicleMasterSheet([headers, ...filler]);
 assert.equal(parsed.length, 50);
+for (const row of parsed) {
+  const keys = erp5VehicleHierarchyKeys(row);
+  row.modelKey = keys.modelKey;
+  row.subModelKey = keys.subModelKey;
+  row.trimKey = keys.trimKey;
+  row.atomKey = keys.atomKey;
+}
 
 const sheetRows = [
   { ...parsed[0], maker: '제네시스', model: 'G80', subModel: 'G80 RG3', trim: '' },
@@ -20,6 +27,7 @@ const sheetRows = [
   { ...parsed[3], maker: '제네시스', model: 'GV70', subModel: 'GV70', trim: '' },
   { ...parsed[4], maker: '제네시스', model: '더 뉴 G70 슈팅브레이크', subModel: '더 뉴 G70 슈팅브레이크', trim: '스포츠 패키지' },
 ];
+for (const row of sheetRows) Object.assign(row, erp5VehicleHierarchyKeys(row));
 const encarRows: EncarReferenceRow[] = [
   { id: 'encar-g80', manufacturer: '제네시스', model: 'G80', sub_model: 'G80 (RG3)', trim: '기본', fuel: '가솔린', displacement_l: 2.5 },
   { id: 'encar-k5', manufacturer: '기아', model: 'K5', sub_model: 'K5 3세대', gen_code: 'DL3', trim: '노블레스', fuel: '가솔린' },
@@ -58,6 +66,10 @@ const keyMissing = buildVehicleMaster({
   encarRows,
 });
 assert.ok(keyMissing.blockers.some((value) => value.includes('차종 계층키 누락')));
+const keyMismatch = buildVehicleMaster({
+  sheetRows: [{ ...sheetRows[0], rowNumber: 97, atomKey: 'vm_wrong' }], encarRows,
+});
+assert.ok(keyMismatch.blockers.some((value) => value.includes('차종 계층키 불일치')));
 assert.equal(requiredVehicleMasterBlockers(built.entries.filter((entry) => entry.trim !== '기본형')).length, 1);
 console.log('PASS 계층키 누락과 G80 RG3 기본형 필수 원자 누락은 활성화 blocker');
 

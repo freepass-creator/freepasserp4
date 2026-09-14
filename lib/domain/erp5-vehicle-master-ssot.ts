@@ -130,14 +130,29 @@ const subModelKey = (parts: { maker: unknown; model: unknown; subModel: unknown 
 export function erp5VehicleMasterEntryId(
   row: Pick<VehicleSheetRow, 'origin' | 'maker' | 'model' | 'subModel' | 'trim'>,
 ): string {
+  return erp5VehicleHierarchyKeys(row).atomKey;
+}
+
+/** Google 원장의 4단계 키 계약. 표시명이 같아도 계층 경로가 다르면 다른 키가 된다. */
+export function erp5VehicleHierarchyKeys(
+  row: Pick<VehicleSheetRow, 'origin' | 'maker' | 'model' | 'subModel' | 'trim'>,
+): Pick<VehicleSheetRow, 'modelKey' | 'subModelKey' | 'trimKey' | 'atomKey'> {
   const names = normalizeF03CanonicalRow({
     maker: row.maker,
     model: row.model,
     subModel: row.subModel,
     trim: row.trim || '기본형',
   });
-  const canonical = [row.origin, names.maker, names.model, names.subModel, names.trim].join('|');
-  return `vm_${createHash('sha256').update(canonical).digest('hex').slice(0, 24)}`;
+  const modelPath = [row.origin, names.maker, names.model].join('|');
+  const subModelPath = [modelPath, names.subModel].join('|');
+  const trimPath = [subModelPath, names.trim].join('|');
+  const hash = (value: string) => createHash('sha256').update(value).digest('hex').slice(0, 24);
+  return {
+    modelKey: `vmm_${hash(modelPath)}`,
+    subModelKey: `vms_${hash(subModelPath)}`,
+    trimKey: `vmt_${hash(trimPath)}`,
+    atomKey: `vm_${hash(trimPath)}`,
+  };
 }
 
 function headerIndex(headers: string[], ...candidates: string[]): number {
@@ -277,7 +292,13 @@ export function buildVehicleMaster(input: {
 
     const structural: string[] = [];
     if (!row.origin || !canonical.maker || !canonical.model || !canonical.subModel) structural.push('필수 계층값 누락');
-    if (!row.modelKey || !row.subModelKey || !row.trimKey || !row.atomKey) structural.push('차종 계층키 누락');
+    const expectedKeys = erp5VehicleHierarchyKeys({ origin: row.origin, ...canonical });
+    if (!row.modelKey || !row.subModelKey || !row.trimKey || !row.atomKey) {
+      structural.push('차종 계층키 누락');
+    } else if (row.modelKey !== expectedKeys.modelKey || row.subModelKey !== expectedKeys.subModelKey
+      || row.trimKey !== expectedKeys.trimKey || row.atomKey !== expectedKeys.atomKey) {
+      structural.push('차종 계층키 불일치');
+    }
     if (/\bFL\b|F\/L|페이스리프트/i.test(`${canonical.subModel} ${canonical.trim}`)) structural.push('FL 표기');
     if (canonical.maker === '기아' && /\d+\s*세대/.test(canonical.subModel)) structural.push('기아 세대명 미변환');
     if (structural.length) blockers.push(`${row.rowNumber}행 ${canonical.maker} ${canonical.subModel}: ${structural.join(', ')}`);
