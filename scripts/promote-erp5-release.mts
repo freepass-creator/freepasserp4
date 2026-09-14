@@ -7,7 +7,7 @@ const arg = (name: string) => process.argv.find((value) => value.startsWith(`--$
 const productVersion = arg('products');
 const vehicleVersion = arg('vehicle');
 const releaseId = arg('release') || `release-${new Date().toISOString().replace(/[-:.]/g, '')}`;
-const projectId = process.env.ERP5_FIREBASE_PROJECT_ID || 'erp5-3e2fc';
+const projectId = process.env.ERP5_FIREBASE_PROJECT_ID || 'freepasserp5';
 for (const [label, value] of [['products', productVersion], ['vehicle', vehicleVersion], ['release', releaseId]]) {
   if (!/^[A-Za-z0-9._-]{1,120}$/.test(value)) throw new Error(`${label} ID 형식 오류`);
 }
