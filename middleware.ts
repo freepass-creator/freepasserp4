@@ -42,6 +42,18 @@ export function middleware(request: NextRequest) {
   }
 
   /*
+   * 일반 ERP 도메인의 첫 진입은 로그인으로 즉시 보낸다. 이 경로를 앱 서버의 `/` page까지
+   * 흘리면 공통 번들 초기화가 폐기된 레거시 DB 연결을 건드릴 여지가 있어, 단순 리다이렉트가
+   * 함수 시간 초과로 바뀔 수 있다. 채널 도메인은 위의 상품목록 rewrite가 먼저 처리하며,
+   * 전자서명 전용 도메인은 아래 전용 분기가 처리한다.
+   */
+  if (request.nextUrl.pathname === '/' && host !== PUBLIC_SIGN_HOST) {
+    const target = request.nextUrl.clone();
+    target.pathname = '/login';
+    return NextResponse.redirect(target, 307);
+  }
+
+  /*
    * ★★**손님 동 표시** — 루트 레이아웃이 「지금이 손님 화면인가」를 알아야 한다(2026-09-06).
    *
    * 사장님 「프리패스 erp 점 컴에서 원래 상세 페이지가 조회되거나 그러면 안 되는데」.
