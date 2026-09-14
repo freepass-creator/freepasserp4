@@ -51,16 +51,11 @@ export async function GET(request: Request) {
      * ⚠ 문서 id 는 «차번»이고 RTDB 키는 「공급사_차번」이었다 — 그래서 키는 `_key || product_code || id`
      *   차례로 잡는다. 이미 나간 공유 링크(`/q/RP012_122두8108`)는 `product_code` 로 계속 열린다.
      */
-    /*
-     * ⚠⚠ 2026-09-05 운영 사고. 파이어스토어를 «직접» 부르게 고쳤더니 배포한 서버에서
-     *   `16 UNAUTHENTICATED` 로 503 이 나고 **차가 한 대도 안 보였다**(로컬은 멀쩡했다).
-     *   서버 자격증명이 파이어스토어까지 못 미치는 환경이 있다는 뜻이다.
-     * ⇒ 심(`firestore-ref-shim`)을 쓴다 — **파이어스토어를 먼저 보고, 못 읽으면 RTDB 로 떨어진다.**
-     *   손님 화면에서 제일 나쁜 것은 「옛 데이터」가 아니라 **빈 화면**이다. 원인은 따로 잡되
-     *   그동안 차는 나와야 한다.
-     * ★읽는 순서·컬렉션 이름은 그대로다(products · policy · partner · user).
-     */
-    const src = await readWhitelabelCatalogFromErp5();
+    // 기본 공통 목록은 재고·정책만 필요하다. 채널/영업자 링크일 때만 추가 원자를 읽는다.
+    const src = await readWhitelabelCatalogFromErp5({
+      includePartners: !!providerCode,
+      includeUsers: !!share,
+    });
     const policyByCode = new Map<string, Rec>();
     for (const [k, v] of Object.entries(src.policies)) {
       if (v && typeof v === 'object') policyByCode.set(S(v.policy_code) || k, v);
