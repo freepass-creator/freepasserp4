@@ -10,11 +10,12 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { 버킷, pullAll, view, viewAgent, lotteSpec, mapPool, 남은시간h } from '../lib/sonokong.mjs';
-import { sonokongSelectedOptionsFromDescription } from '../lib/option-normalizer.mjs';
+import { tcarPaidOptionNames } from '../lib/option-normalizer.mjs';
 
 const 루트 = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const 출력 = path.join(루트, 'lib', 'wonja', '손오공차량.json');
 const 조용 = process.argv.includes('--조용');
+const 캐시규격 = 'tcar-paid-options-only-v1';
 const N = (n) => (n == null ? '' : Number(n).toLocaleString('ko-KR'));
 const 날 = (s) => (s ? String(s).slice(0, 10) : '');
 
@@ -43,16 +44,7 @@ function 월납뽑기(estimates) {
 
 function 정규화(r, d, 버킷값) {
   const opts = (d?.options || []).filter((o) => o.isApplied).map((o) => o.optionName);
-  // 유상옵션 이름만 — 괄호 안 금액은 뺀다(사장님 2026-08-27). 이름에 「(600,000)」류가 섞여도 제거.
-  const 금액괄호 = /\s*\(\s*[\d,]+\s*원?\s*\)\s*/g;
-  const 유료 = (d?.tcarPaidOptions || [])
-    .map((o) => String(o?.name ?? '').replace(금액괄호, ' ').replace(/\s+/g, ' ').trim())
-    .filter(Boolean);
-  // SON_NO_KONG은 별도 옵션 배열 대신 carDescription 둘째 줄 이후에 선택옵션을 싣는다.
-  // 설명 원문은 아래 `설명` 필드에 그대로 보존한다.
-  const 손오공설명옵션 = 버킷값 === 'SON_NO_KONG'
-    ? sonokongSelectedOptionsFromDescription(d?.carDescription)
-    : '';
+  const 유료 = tcarPaidOptionNames(d?.tcarPaidOptions);
   return {
     버킷: 버킷값,                     // SON_NO_KONG | TCAR_EXTERNAL
     id: r.id, hashId: r.hashId,
@@ -74,8 +66,9 @@ function 정규화(r, d, 버킷값) {
     계약가능: r.contractAvailable,
     계약중: r.hasActiveContract === true,
     옵션: opts.join(', '),
-    유료옵션: 유료.join(', ') || 손오공설명옵션,
-    유료옵션출처: 유료.length ? 'tcarPaidOptions' : (손오공설명옵션 ? 'carDescription[2+]' : null),
+    유료옵션: 유료,
+    유료옵션출처: Array.isArray(d?.tcarPaidOptions) ? 'tcarPaidOptions' : null,
+    유료옵션원문: d?.tcarPaidOptions ?? null,
     설명: d?.carDescription ?? null,
     사진들: (d?.images || []).sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)).map((im) => im.imageUrl).filter(Boolean),
     상세url: /^https?:\/\//.test(String(d?.carSourceUrl || '')) ? d.carSourceUrl : null, // T카=롯데 상세페이지(전 사진), SON=없음
@@ -96,7 +89,10 @@ async function main() {
   const 신선 = 20 * 3600e3;
   const 지금 = Date.now();
   const 캐시 = new Map();
-  try { const prev = JSON.parse(fs.readFileSync(출력, 'utf8')); for (const c of prev.차량 || []) if (c.id != null) 캐시.set(c.id, c); } catch {}
+  try {
+    const prev = JSON.parse(fs.readFileSync(출력, 'utf8'));
+    if (prev.규격 === 캐시규격) for (const c of prev.차량 || []) if (c.id != null) 캐시.set(c.id, c);
+  } catch {}
   for (const [탭, cs] of Object.entries(버킷)) {
     const { total, rows } = await pullAll(cs);
     const 값 = rows[0]?.carSource || cs;
@@ -135,6 +131,7 @@ async function main() {
   const out = {
     갱신: new Date(Date.now() + 9 * 36e5).toISOString().slice(0, 19).replace('T', ' '),
     출처: 'sokrc.com /api/product/homepage/{list,view}',
+    규격: 캐시규격,
     집계: { ...집계, 계: 차량.length },
     차량,
   };

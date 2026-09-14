@@ -1,20 +1,16 @@
 /**
- * 손오공 소유 차량의 carDescription 규격:
- * 첫 줄은 차종·파워트레인·트림, 둘째 줄 이후는 출고 선택옵션이다.
- * 원문 전체는 별도로 보존하고 여기서는 판매/필터용 선택옵션만 만든다.
+ * 선택옵션 SSOT는 티카 상세 응답의 tcarPaidOptions뿐이다.
+ * options[]는 기본장비이고 carDescription은 설명문이므로 여기로 들어오지 않는다.
+ * 표시값에서는 괄호로 반복된 금액만 제거하고, 원문 배열은 별도로 보존한다.
  */
-export function sonokongSelectedOptionsFromDescription(description) {
-  const lines = String(description ?? '')
-    .replace(/\r\n?/g, '\n')
-    .split('\n')
-    .map((line) => line.trim())
-    .filter(Boolean);
-  if (lines.length < 2) return '';
-
-  return lines
-    .slice(1)
-    .join(', ')
-    .replace(/^(?:기본형|프리미엄\s*옵션)\s*[-:：]\s*/i, '')
-    .replace(/\s+/g, ' ')
-    .trim();
+export function tcarPaidOptionNames(value) {
+  if (!Array.isArray(value)) return '';
+  const amountInParens = /\s*\(\s*[\d,]+\s*원?\s*\)\s*/g;
+  return value
+    .map((option) => String(option?.name ?? option?.PAID_OPT_NM ?? '')
+      .replace(amountInParens, ' ')
+      .replace(/\s+/g, ' ')
+      .trim())
+    .filter(Boolean)
+    .join(', ');
 }

@@ -198,8 +198,8 @@ const depositNote = (raw: string) => {
 };
 
 // ── 원천 리더 — 종류마다 «우리필드 키 행(Row)»을 낸다. 원자화는 하나로 공유한다. ──────
-type Row = { car: string; link?: string; imageUrls?: unknown; photoCollectedAt?: unknown; rawDescription?: string; optionSource?: string; status: string; kind: string; maker: string; model: string; vname: string; trim: string; fuel: string; ext: string; int: string; km: string; opt: string; firstReg: string; cc: string; klass: string; price: Price; depNote: string; tab: string; row: string };
-const blank: Omit<Row, 'car' | 'tab' | 'row'> = { status: '', kind: '', maker: '', model: '', vname: '', trim: '', fuel: '', ext: '', int: '', km: '', opt: '', rawDescription: '', optionSource: '', firstReg: '', cc: '', klass: '', price: {}, depNote: '', imageUrls: [], photoCollectedAt: 0 };
+type Row = { car: string; link?: string; imageUrls?: unknown; photoCollectedAt?: unknown; rawDescription?: string; rawPaidOptions?: unknown; optionSource?: string; status: string; kind: string; maker: string; model: string; vname: string; trim: string; fuel: string; ext: string; int: string; km: string; opt: string; firstReg: string; cc: string; klass: string; price: Price; depNote: string; tab: string; row: string };
+const blank: Omit<Row, 'car' | 'tab' | 'row'> = { status: '', kind: '', maker: '', model: '', vname: '', trim: '', fuel: '', ext: '', int: '', km: '', opt: '', rawDescription: '', rawPaidOptions: null, optionSource: '', firstReg: '', cc: '', klass: '', price: {}, depNote: '', imageUrls: [], photoCollectedAt: 0 };
 
 // 번호판 꼴만 차로 본다 — 헤더 밑 제목·프로모 배너·빈 행이 «차»로 새는 걸 막는다(오토플러스 실측).
 const isPlate = (s: string) => /\d{2,3}\s*[가-힣]\s*\d{4}/.test(S(s));
@@ -293,16 +293,14 @@ async function readRows(): Promise<Row[]> {
        * ★★**옵션 = 제조사 «선택»옵션만이다** — 사장님 2026-09-10 「옵션은 제조사선택옵션만 옵션이야」.
        *
        *   원 구매자가 트림 위에 «따로 고른» 것(선루프·드라이브와이즈 패키지 등)만 옵션이다.
-       *   ⇒ 필드 = 「유료옵션」(`tcarPaidOptions`). 티카는 중고차라 추가구매가 안 돼 대부분 null
-       *     (237대 중 69대만) — 나머지 빈칸은 «선택옵션 없이 기본트림으로 산 차»라 **정상**이다.
+       *   ⇒ 필드 = 「유료옵션」(`tcarPaidOptions`). 값이 있는 차량만 이름을 정제해 싣고 원문 배열도 보존한다.
        *
-       * ★옵션 = «선택옵션(유료옵션=제조사선택옵션)»만. 티카는 상세 완전수집이면 대부분 온다(198/238).
+       * ★옵션 = «선택옵션(유료옵션=제조사선택옵션)»만.
        *   ⚠ `options`(장착사양=앱 「기본옵션」)는 «안 담는다** — 사장님 2026-09-10 「기본옵션은 우린 안 쓸 거야」.
-       * 손오공(SON_NO_KONG)은 별도 배열 대신 carDescription 둘째 줄 이후에 선택옵션을 준다.
-       * 덤프 어댑터가 이를 `유료옵션`으로 규격화하며 설명 원문과 출처도 함께 보존한다.
+       * 손오공 설명문은 옵션 근거가 아니다. TCAR_EXTERNAL 상세의 `tcarPaidOptions`만 사용한다.
        */
       const 선택옵션 = S(c.유료옵션);
-      push({ car, link: 픽업링크.get(N(car)) || '', imageUrls: c.사진들, photoCollectedAt: c.상세시각 || dumpCollectedAt, rawDescription: S(c.설명), optionSource: S(c.유료옵션출처), status, kind, maker: S(c.제조사), model: S(c.모델), vname: S(c.차명) || S(c.세부), fuel: S(c.연료), ext: S(c.외장), int: S(c.내장), km: c.주행거리 == null ? '' : String(c.주행거리), opt: 선택옵션, firstReg: S(c.최초등록) || S(c.연식), cc: c.배기량 == null ? '' : String(c.배기량), klass: '', price, tab: '손오공API', row: S(c.id) });
+      push({ car, link: 픽업링크.get(N(car)) || '', imageUrls: c.사진들, photoCollectedAt: c.상세시각 || dumpCollectedAt, rawDescription: S(c.설명), rawPaidOptions: c.유료옵션원문, optionSource: S(c.유료옵션출처), status, kind, maker: S(c.제조사), model: S(c.모델), vname: S(c.차명) || S(c.세부), fuel: S(c.연료), ext: S(c.외장), int: S(c.내장), km: c.주행거리 == null ? '' : String(c.주행거리), opt: 선택옵션, firstReg: S(c.최초등록) || S(c.연식), cc: c.배기량 == null ? '' : String(c.배기량), klass: '', price, tab: '손오공API', row: S(c.id) });
     }
     return out;
   }
@@ -460,6 +458,7 @@ function atomize(row: Row, pinned: Map<string, Record<string, unknown>>): Atom {
   if (row.opt) rawEvidence.옵션 = row.opt;
   if (row.rawDescription) rawEvidence.차량설명 = row.rawDescription;
   if (row.optionSource) rawEvidence.옵션출처 = row.optionSource;
+  if (Array.isArray(row.rawPaidOptions)) rawEvidence.티카유료옵션 = row.rawPaidOptions;
   const atom: Atom = {
     car_number: car,
     maker: identity.maker, model: identity.model, sub_model: identity.sub_model, trim_name: identity.trim_name, origin: identity.origin, ...spec, engine_cc: evEngineCc(S(spec.fuel_type), S(spec.engine_cc)),
@@ -665,6 +664,7 @@ if (VARIABLE) {
       const rawMoved = 옵션갈이 && (
         S(새원문.차량설명) !== S(옛원문.차량설명)
         || S(새원문.옵션출처) !== S(옛원문.옵션출처)
+        || jsonSorted(새원문.티카유료옵션) !== jsonSorted(옛원문.티카유료옵션)
       );
       if (!sMoved && !mMoved && !pMoved && !lMoved && !photoMoved && !oMoved && !rawMoved) continue;
       const upd: Record<string, unknown> = { _var_polled_at: Date.now() };
@@ -686,6 +686,7 @@ if (VARIABLE) {
         if (rawMoved) {
           if (S(새원문.차량설명)) m.차량설명 = S(새원문.차량설명); else delete m.차량설명;
           if (S(새원문.옵션출처)) m.옵션출처 = S(새원문.옵션출처); else delete m.옵션출처;
+          if (Array.isArray(새원문.티카유료옵션)) m.티카유료옵션 = 새원문.티카유료옵션; else delete m.티카유료옵션;
         }
         return mergeRawPhotoEvidence(m, photoMoved ? ((a.원문 as Record<string, unknown> | undefined)?.사진 as unknown[]) || a.image_urls : []);
       })() : null;
