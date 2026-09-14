@@ -4,6 +4,8 @@ import { providedSheetAdapter } from '../lib/adapters/provided';
 import { getSupplierSourceSpec, isIankaOriginalSheet } from '../lib/adapters/source-registry';
 import { composeProductFromAtom, exportProductForErp5 } from '../lib/domain/erp5-product-ssot';
 import { resolveAutoplusDepositPolicy, SONOGONG_DEPOSIT_POLICY } from '../lib/domain/deposit-policy';
+import { depositKind, noDeposit, shopDepositCellText, shopDepositPhrase } from '../lib/domain/product';
+import { policyForGuestProduct, sanitizeProductForGuest } from '../lib/domain/public-catalog';
 
 let passed = 0;
 const test = (name: string, fn: () => void) => {
@@ -170,6 +172,7 @@ test('제공시트 원자는 ERP4 products를 복사하지 않고 조합한다',
   assert.equal((composed.data.source_evidence as { spreadsheetId: string }).spreadsheetId, spec.spreadsheetId);
   assert.equal(composed.listable, true);
   assert.equal(composed.data.vin, undefined);
+  assert.deepEqual(composed.data.price, { '12': { rent: 800_000 } }, '12개월은 단기보증이 비면 보증금 키를 안 붙인다');
 });
 
 test('이안카 조합 원천은 정제시트이지 외부 원본이 아니다', () => {
@@ -186,6 +189,86 @@ test('이안카 조합 원천은 정제시트이지 외부 원본이 아니다',
   const composed = composeProductFromAtom(spec, adapted.atom);
   assert.equal((composed.data.source_evidence as { spreadsheetId: string }).spreadsheetId, spec.spreadsheetId);
   assert.equal((composed.data.source_evidence as { supplierCode: string }).supplierCode, 'IANKA');
+});
+
+test('빈 보증금은 0이 아니고, 무보증은 0이며, 정책코드와 G80 기본형을 싣는다', () => {
+  const spec = getSupplierSourceSpec('RP004');
+  const emptyDep = providedSheetAdapter.adapt({
+    차량번호: '104호9572',
+    상태: '출고협의',
+    분류: '중고렌트',
+    '제조사(정제)': '제네시스',
+    모델: 'G80',
+    세부모델: 'G80 RG3',
+    세부트림: '런칭',
+    '48개월': '1,350,000',
+    정책코드: 'POL-0047',
+  }, { supplierCode: spec.code, supplierName: spec.name, spreadsheetId: spec.spreadsheetId, tab: spec.tab });
+  assert.equal(emptyDep.atom.longDeposit, undefined);
+  assert.equal(emptyDep.atom.policyCode, 'POL-0047');
+  const composed = composeProductFromAtom(spec, emptyDep.atom);
+  assert.equal(composed.data.trim_name, '기본형');
+  assert.equal(composed.data.policy_code, 'POL-0047');
+  assert.deepEqual(composed.data.price, { '48': { rent: 1_350_000 } });
+  assert.equal(Object.prototype.hasOwnProperty.call((composed.data.price as object as Record<string, object>)['48'], 'deposit'), false);
+
+  const zeroDep = providedSheetAdapter.adapt({
+    차량번호: '104호9572',
+    상태: '출고가능',
+    분류: '중고렌트',
+    '제조사(정제)': '제네시스',
+    모델: 'G80',
+    세부모델: 'G80 RG3',
+    세부트림: '기본형',
+    '48개월': '1,350,000',
+    장기보증: '무보증',
+  });
+  assert.equal(zeroDep.atom.longDeposit, 0);
+  assert.deepEqual(composeProductFromAtom(spec, zeroDep.atom).data.price, { '48': { rent: 1_350_000, deposit: 0 } });
+});
+
+test('손오공 렌트 빈 정책코드는 규칙이 채운다', () => {
+  const spec = getSupplierSourceSpec('SONOGONG_RENT');
+  const adapted = providedSheetAdapter.adapt({
+    차량번호: '12가9999',
+    상태: '출고가능',
+    분류: '중고렌트',
+    모델: '아반떼',
+    '36개월': '700,000',
+  });
+  const composed = composeProductFromAtom(spec, adapted.atom);
+  assert.equal(composed.data.policy_code, 'POL-0046');
+});
+
+test('손님 카탈로그는 빈 보증금을 0으로 접지 않고 화이트라벨과 같은 원자를 쓴다', () => {
+  const zero = sanitizeProductForGuest('veh_zero', {
+    product_code: 'veh_zero',
+    car_number: '12가3456',
+    price: { 36: { rent: 650_000, deposit: 0 } },
+  });
+  assert.equal((zero.price as Record<string, { deposit?: number }>)['36'].deposit, 0);
+  const missing = sanitizeProductForGuest('veh_missing', {
+    product_code: 'veh_missing',
+    car_number: '104호9572',
+    price: { 48: { rent: 1_350_000 } },
+  });
+  assert.equal((missing.price as Record<string, { rent: number }>)['48'].rent, 1_350_000);
+  assert.equal(Object.prototype.hasOwnProperty.call((missing.price as object as Record<string, object>)['48'], 'deposit'), false);
+  assert.equal(depositKind(undefined), 'missing');
+  assert.equal(depositKind(0), 'zero');
+  assert.equal(shopDepositPhrase(undefined, String), '미입력');
+  assert.equal(shopDepositPhrase(0, String), '보증금 없음');
+  assert.equal(shopDepositCellText(0, String), '없음');
+  assert.equal(noDeposit({ price: { 48: { rent: 1_350_000 } } } as never), false);
+  assert.equal(noDeposit({ price: { 48: { rent: 1_350_000, deposit: 0 } } } as never), true);
+  assert.equal(policyForGuestProduct(
+    { policy_code: '', provider_company_code: 'RP012', product_type: '중고렌트' },
+    { 'POL-0046': { policy_code: 'POL-0046', policy_name: '손오공 렌트' } },
+  ), null, '화면에서 빈 정책코드를 규칙으로 채우지 않는다');
+  assert.equal(policyForGuestProduct(
+    { policy_code: 'POL-0047', provider_company_code: 'RP004', product_type: '중고렌트' },
+    { 'fp-pol-0047': { policy_code: 'POL-0047', policy_name: '프리패스 공통 렌트', insurance_included: '포함' } },
+  )?.policy_name, '프리패스 공통 렌트', '키와 코드가 달라도 적힌 정책코드를 찾는다');
 });
 
 console.log(`ERP5 PRODUCT SSOT ${passed}/${passed} PASS`);

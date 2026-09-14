@@ -18,7 +18,7 @@ import { useProductPhotos } from '@/components/use-product-photos';
 import { haptic } from '@/lib/haptics';
 import { getAuthClient } from '@/lib/firebase/client';
 import { useSession, useAuthReady } from '@/lib/auth-context';
-import { canonProductType, creditDisplay, CREDIT_UNSET, parseProductOptions, priceList } from '@/lib/domain/product';
+import { canonProductType, creditDisplay, CREDIT_UNSET, depositKind, parseProductOptions, priceList, shopDepositCellText, shopDepositPhrase } from '@/lib/domain/product';
 import { PERKS, hasPerk } from '@/lib/domain/product-filters';
 import { displacementL } from '@/components/product-card-identity';
 import { vehicleNameOf } from '@/lib/domain/vehicle-name';
@@ -726,10 +726,10 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
             <div style={{ fontSize: SHOP.fs.body, color: C.sub, fontVariantNumeric: 'tabular-nums' }}>
               {/* 목록 카드와 같은 규칙 — 「보증금 없음」에만 색을 준다. */}
               <span style={{
-                color: plan.deposit > 0 ? C.sub : C.ok,
-                fontWeight: plan.deposit > 0 ? 400 : 700,
+                color: depositKind(plan.deposit) === 'amount' ? C.sub : depositKind(plan.deposit) === 'zero' ? C.ok : C.faint,
+                fontWeight: depositKind(plan.deposit) === 'zero' ? 700 : 400,
               }}>
-                {plan.deposit > 0 ? `보증금 ${wonKo(plan.deposit)}` : '보증금 없음'}
+                {shopDepositPhrase(plan.deposit, wonKo)}
               </span> · {plan.m}개월 약정
             </div>
           </div>
@@ -859,7 +859,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
                     <td style={{
                       padding: '12px 8px', textAlign: 'right', whiteSpace: 'nowrap',
                       fontSize: rateFs, color: C.mute,
-                    }}>{x.deposit > 0 ? wonKo(x.deposit) : '없음'}</td>
+                    }}>{shopDepositCellText(x.deposit, wonKo)}</td>
                     {/* ★계약조건 — 정책 단위 값이라 줄마다 같다(위 `rateConds` 머리말). 돈이 아니므로 한 단 조용하게. */}
                     {rateConds.map((c) => (
                       <td key={c.h} style={{

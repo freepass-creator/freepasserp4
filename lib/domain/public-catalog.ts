@@ -74,16 +74,21 @@ const PUBLIC_PRODUCT_FIELDS = [
   'insurance_included', 'annual_mileage',
 ] as const;
 
-/** 기간별 대여료 — 값이 있는 기간만. 음수·0은 버린다(0원 견적 방지). */
-function publicPrice(price: unknown): Record<string, { rent: number; deposit: number }> {
-  const out: Record<string, { rent: number; deposit: number }> = {};
+/** 기간별 대여료 — 값이 있는 기간만. 음수·0 대여료는 버린다. 빈 보증금은 키를 생략한다(0원과 갈림). */
+function publicPrice(price: unknown): Record<string, { rent: number; deposit?: number }> {
+  const out: Record<string, { rent: number; deposit?: number }> = {};
   if (!price || typeof price !== 'object') return out;
   for (const [key, v] of Object.entries(price as Rec)) {
     const month = Number(String(key).split('_')[0]);
     if (!Number.isFinite(month) || month < 1 || month > 60) continue;
     const rent = N((v as Rec)?.rent);
     if (rent <= 0) continue;
-    out[key] = { rent, deposit: N((v as Rec)?.deposit) };
+    const row: { rent: number; deposit?: number } = { rent };
+    const depositRaw = (v as Rec)?.deposit;
+    if (depositRaw !== null && depositRaw !== undefined && depositRaw !== '') {
+      row.deposit = N(depositRaw);
+    }
+    out[key] = row;
   }
   return out;
 }
@@ -116,6 +121,22 @@ export function publicPolicy(policy: Rec | null | undefined): Rec | null {
     out[k] = v;
   }
   return Object.keys(out).length ? out : null;
+}
+
+/**
+ * 매물에 **이미 적힌** 정책코드로 풀에서 찾는다. 화면에서 규칙을 돌리지 않는다.
+ * 빈칸 채우기는 입고(어댑터·compose)에서 한 번만.
+ */
+export function policyForGuestProduct(product: Rec, policies: Record<string, Rec>): Rec | null {
+  const code = S(product.policy_code);
+  if (!code) return null;
+  const direct = policies[code];
+  if (direct && typeof direct === 'object') return direct;
+  for (const [k, v] of Object.entries(policies)) {
+    if (!v || typeof v !== 'object') continue;
+    if (S(v.policy_code) === code || S(v._key) === code || S(k) === code) return v;
+  }
+  return null;
 }
 
 /** 매물 하나를 손님용으로 정제한다. 목록에 없는 필드는 «그냥 빠진다» — 기본값을 지어내지 않는다. */

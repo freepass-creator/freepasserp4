@@ -6,7 +6,7 @@ import { type EntityRecord } from '@/lib/intake/entities';
 import { STEPS, contractStage, isContractCancelled, isContractCompleted, isDone, isRejected, needsContractFinalization, hasTermFrozen } from '@/lib/domain/contract';
 import { applyStepCheck, cancelContract, finalizeContractIfReady } from '@/lib/domain/settlement-engine';
 import { actor, createContractRequest, ensureRoom, freezeContractTerm, getRole, roleSlotLabel, type Role } from '@/lib/domain/deal';
-import { cheapest, priceAt, priceList } from '@/lib/domain/product';
+import { cheapest, erpDepositPhrase, priceAt, priceList } from '@/lib/domain/product';
 import { Btn, ButtonLabel, IconBtn, Badge, C, NUM, ICON, Input, fmtPhone, actorColor, DetailRow, ListGroup, Loading, Message, ToggleChips, FW, FS, won } from '@/components/ui';
 import { ContractMemos } from '@/components/ContractMemos';
 import { confirmDialog, toast } from '@/components/Toaster';
@@ -277,7 +277,7 @@ export function ContractPanel({ product, roomId, linkedCode, agentCode, onChange
                         ) : null}
                         {pickedPrice ? (
                           <span style={{ fontSize: FS.sub, color: C.mute, fontVariantNumeric: 'tabular-nums' }}>
-                            {picked}개월 · 월 {won(pickedPrice.rent)} · {pickedPrice.deposit > 0 ? `보증 ${won(pickedPrice.deposit)}` : '무보증'}
+                            {picked}개월 · 월 {won(pickedPrice.rent)} · {erpDepositPhrase(pickedPrice.deposit, won)}
                             {frozen ? ' (확정)' : ''}
                           </span>
                         ) : (

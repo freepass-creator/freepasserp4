@@ -1,20 +1,20 @@
 'use client';
 
 import type { EntityRecord } from '@/lib/intake/entities';
-import { cheapest, priceAt, priceList } from '@/lib/domain/product';
+import { cheapest, priceAt, priceList, erpDepositPhrase } from '@/lib/domain/product';
 import { man } from '@/lib/format';
 import { C, R, NUM, FW, FS } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
 
-export function PriceMini({ m, rent, deposit = 0, on = false }: {
+export function PriceMini({ m, rent, deposit, on = false }: {
   m: number;
   rent: number;
-  deposit?: number;
+  deposit?: number | null;
   on?: boolean;
   compact?: boolean;
 }) {
   const mobile = useIsMobile();
-  const tip = `${m}개월 · 월 ${man(rent)} · ${deposit > 0 ? `보증 ${man(deposit)}` : '무보증'}`;
+  const tip = `${m}개월 · 월 ${man(rent)} · ${erpDepositPhrase(deposit, man)}`;
   return (
     <div
       title={tip}
@@ -37,14 +37,14 @@ export function PriceMini({ m, rent, deposit = 0, on = false }: {
         {man(rent)}
       </span>
       <span style={{ fontSize: FS.micro, fontFamily: NUM, fontVariantNumeric: 'tabular-nums', fontWeight: FW.strong, color: C.faint, lineHeight: 1.1 }}>
-        보증 {deposit > 0 ? man(deposit) : '없음'}
+        {erpDepositPhrase(deposit, man)}
       </span>
     </div>
   );
 }
 
 function PriceFareCards({ all, focusMonth }: {
-  all: { m: number; rent: number; deposit: number }[];
+  all: { m: number; rent: number; deposit: number | null }[];
   focusMonth: number;
 }) {
   return (

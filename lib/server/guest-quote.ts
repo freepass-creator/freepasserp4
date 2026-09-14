@@ -3,7 +3,7 @@ import 'server-only';
 import { firestoreAdminRef } from '@/lib/server/firestore-ref-shim';
 import { channelSellsProduct } from '@/lib/whitelabel';
 import { guestSource } from '@/lib/server/guest-source';
-import { sanitizeAgentForGuest, sanitizeProductForGuest } from '@/lib/domain/public-catalog';
+import { sanitizeAgentForGuest, sanitizeProductForGuest, policyForGuestProduct } from '@/lib/domain/public-catalog';
 import { isOfferableProduct } from '@/lib/domain/product';
 import { codeCandidates, matchAgentByShareCode, shareToken, splitShareSegment } from '@/lib/domain/product-share';
 import type { EntityRecord } from '@/lib/intake/entities';
@@ -121,18 +121,9 @@ async function loadGuestQuoteUncached(segment: string, shareFromQuery: string, o
   if (!isOfferableProduct(merged)) return null;
 
   /**
-   * 정책은 v3 ∪ v4 를 함께 본다.
-   * erp3 절연은 **재고(products)에만** 적용된다 — 회원·정책·계약 이력은 승계한다.
-   * 실측 2026-08-08: 정책 54건 중 v3 53 · v4 26 — v4 만 읽으면 대부분 매물이 보험·연령·심사를 잃는다.
+   * 정책은 매물에 적힌 policy_code 로만 붙인다. 화면에서 규칙을 돌리지 않는다.
    */
-  const policyCode = S((product as Rec).policy_code);
-  let policy: Rec | null = null;
-  if (policyCode) {
-    const pool = (await guestSource()).policies;   /* 캐시라 공짜다 */
-    policy = Object.entries(pool)
-      .map(([k, v]) => ({ ...(v || {}), _key: k } as Rec))
-      .find((x) => S(x.policy_code) === policyCode || S(x._key) === policyCode) || null;
-  }
+  const policy = policyForGuestProduct(product as Rec, (await guestSource()).policies as Record<string, Rec>);
 
   let agent: Rec | null = null;
   const shares = codeCandidates(share, 'usr');

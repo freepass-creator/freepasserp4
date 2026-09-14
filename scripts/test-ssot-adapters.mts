@@ -19,6 +19,7 @@ import {
 } from '../lib/domain/deposit-policy';
 import { autoplusDepositRuleText, NATIVE_MONEY_BLOCK } from '../lib/domain/sales-published-tabs';
 import { evaluateEligibility } from '../lib/domain/product-eligibility';
+import { canonSalesTrim } from '../lib/domain/vehicle-master-options';
 
 const ianka5709 = {
   차량번호: '133호5709',
@@ -308,5 +309,13 @@ assert.equal(SUPPLIER_SOURCES.filter((spec) => spec.adapter === 'provided').leng
 assert.equal(SUPPLIER_SOURCES.filter((spec) => spec.adapter === 'autoplus').length, 1);
 assert.equal(SUPPLIER_SOURCES.filter((spec) => spec.adapter === 'sonogong').length, 1);
 assert.equal(hasSupplierAdapter('RP015'), false, '폐기된 경진렌트카는 원천이 아니다');
+
+assert.equal(canonSalesTrim('제네시스', 'G80', 'G80 RG3', '런칭'), '기본형');
+assert.equal(canonSalesTrim('제네시스', 'G80', 'G80 RG3', ''), '기본형');
+assert.equal(canonSalesTrim('제네시스', 'G80', 'G80 RG3', 'Black'), 'Black');
+assert.equal(wellixRow.atom.policyCode, undefined);
+const withPolicy = providedSheetAdapter.adapt({ ...ianka5709, 정책코드: 'POL-0020', 장기보증: '무보증' });
+assert.equal(withPolicy.atom.policyCode, 'POL-0020');
+assert.equal(withPolicy.atom.longDeposit, 0);
 
 console.log('SSOT adapter/eligibility regression tests: OK');

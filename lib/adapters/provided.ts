@@ -1,7 +1,9 @@
 import {
   compactPlate,
+  explicitDeposit,
   explicitMoney,
   explicitNumber,
+  policyCodeFromRow,
   text,
   withProvenance,
   type AdapterResult,
@@ -130,8 +132,9 @@ export class ProvidedSheetAdapter implements SupplierAdapter {
       km: explicitNumber(km.value),
       fuel: text(fuel.value) || undefined,
       displacement: explicitNumber(displacement.value),
-      shortDeposit: explicitMoney(raw['단기보증']),
-      longDeposit: explicitMoney(raw['장기보증']),
+      shortDeposit: explicitDeposit(raw['단기보증']),
+      longDeposit: explicitDeposit(raw['장기보증']),
+      policyCode: policyCodeFromRow(raw, provenance),
       rent,
       ...(rentVariants.length ? { rentVariants } : {}),
       provenance,
@@ -145,8 +148,8 @@ export class ProvidedSheetAdapter implements SupplierAdapter {
     for (const [field, src, transform] of provenancePairs) {
       withProvenance(provenance, field, src.header, src.value, transform);
     }
-    withProvenance(provenance, 'shortDeposit', '단기보증', raw['단기보증'], '숫자 외 문자 제거 후 금액 변환');
-    withProvenance(provenance, 'longDeposit', '장기보증', raw['장기보증'], '숫자 외 문자 제거 후 금액 변환');
+    withProvenance(provenance, 'shortDeposit', '단기보증', raw['단기보증'], '빈칸=미입력 · 무보증/0=0원');
+    withProvenance(provenance, 'longDeposit', '장기보증', raw['장기보증'], '빈칸=미입력 · 무보증/0=0원');
 
     if (!atom.plateNumber && !atom.vin) {
       issues.push({ level: 'error', code: 'NO_IDENTITY', message: '차량번호와 차대번호가 모두 없습니다.' });

@@ -4,7 +4,7 @@ import { useEffect, useState, type MouseEvent } from 'react';
 import { Star, History, StarOff, Trash2, X, MessageCircle } from 'lucide-react';
 import { C, R, Btn, ButtonLabel, IconBtn, NUM, ctrlH, ctrlFs, FW, FS, ICON, CenterNote } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
-import { vehicleName, cheapest, isStockedProduct } from '@/lib/domain/product';
+import { vehicleName, cheapest, isStockedProduct, erpDepositPhrase } from '@/lib/domain/product';
 import {
   listRecent, listFavs, clearRecent, clearFavs, removeRecent, removeFav, subscribeInterest,
   type InterestSnap,
@@ -142,7 +142,7 @@ export function InterestSummaryCard({ live, snap, tab }: {
   const focus = live
     ? cheapest(live)
     : (snap.month > 0 && snap.rent > 0
-      ? { m: snap.month, rent: snap.rent, deposit: snap.deposit || 0 }
+      ? { m: snap.month, rent: snap.rent, deposit: snap.deposit }
       : null);
   const href = `/m/${encodeURIComponent(live ? String(live.product_code) : snap.code)}`;
   const removeLabel = tab === 'recent' ? '최근에서 제거' : '관심 해제';
@@ -188,13 +188,7 @@ export function InterestSummaryCard({ live, snap, tab }: {
               {' · '}
               <span style={{ fontFamily: NUM, fontVariantNumeric: 'tabular-nums', fontWeight: FW.head, color: C.brand }}>{man(focus.rent)}</span>
               {' · '}
-              {focus.deposit > 0 ? (
-                <span style={{ color: C.mute }}>
-                  보증 <span style={{ fontFamily: NUM, fontVariantNumeric: 'tabular-nums', fontWeight: FW.strong }}>{man(focus.deposit)}</span>
-                </span>
-              ) : (
-                <span style={{ color: C.faint }}>무보증</span>
-              )}
+              <span style={{ color: C.mute }}>{erpDepositPhrase(focus.deposit, man)}</span>
             </>
           ) : (
             <span style={{ color: C.faint }}>{live ? '가격문의' : '재고없음'}</span>

@@ -1,7 +1,7 @@
 'use client';
 import { useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react';
 import { type EntityRecord } from '@/lib/intake/entities';
-import { cheapest, pricePlanList, type PricePlan } from '@/lib/domain/product';
+import { cheapest, pricePlanList, erpDepositPhrase, type PricePlan } from '@/lib/domain/product';
 import { won, C, R, FW, FS, DetailTable, DT, type DetailTone } from '@/components/ui';
 import { sectionIcon } from '@/components/section-icons';
 import { useIsMobile } from '@/lib/use-mobile';
@@ -79,7 +79,7 @@ export function ProductPriceTable({ p, title = '대여료조건', hint, tone }: 
         {/* 조건이 없으면 «없다»가 아니라 «안 정해졌다» — 하이픈으로 자리만 지킨다. */}
         <td style={{ ...DT.td, color: pr.condition ? C.ink : C.faint }}>{pr.condition || '—'}</td>
         <td style={{ ...DT.tdR, fontSize: FS.title, fontWeight: on ? FW.head : FW.title, color: C.brand }}>{won(pr.rent)}</td>
-        <td style={DT.tdR}>{pr.deposit > 0 ? won(pr.deposit) : '무보증'}</td>
+        <td style={DT.tdR}>{erpDepositPhrase(pr.deposit, won, false)}</td>
       </tr>
     );
   };

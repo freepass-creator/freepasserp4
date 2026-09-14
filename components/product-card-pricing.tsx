@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useState, useRef, useEffect, type CSSProperties, type ReactNode } from 'react';
 import { type EntityRecord } from '@/lib/intake/entities';
-import { priceList, cheapest, priceAt } from '@/lib/domain/product';
+import { priceList, cheapest, priceAt, erpDepositPhrase } from '@/lib/domain/product';
 import { man } from '@/lib/format';
 import { C, R, NUM, FW, FS } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
@@ -109,7 +109,7 @@ export function PriceRentDep({ align = 'end' }: { align?: 'start' | 'end' }) {
         fontVariantNumeric: 'tabular-nums',
         color: peeking ? C.mute : C.faint, transition: 'color 0.12s ease',
       }}>
-        {focus.deposit > 0 ? `보증 ${man(focus.deposit)}` : '무보증'}
+        {erpDepositPhrase(focus.deposit, man)}
       </span>
     </div>
   );
@@ -157,7 +157,7 @@ export function PriceAmounts({ align = 'start' }: {
         fontVariantNumeric: 'tabular-nums',
         transition: 'color 0.12s ease',
       }}>
-        {focus.deposit > 0 ? `보증 ${man(focus.deposit)}` : '무보증'}
+        {erpDepositPhrase(focus.deposit, man)}
       </span>
     </div>
   );
@@ -188,7 +188,7 @@ export function PeriodRange() {
   const tip = (m: number) => {
     const pr = all.find((x) => x.m === m);
     if (!pr) return `${m}개월`;
-    return `${pr.m}개월 · 월 ${man(pr.rent)} · ${pr.deposit > 0 ? `보증 ${man(pr.deposit)}` : '무보증'}`;
+    return `${pr.m}개월 · 월 ${man(pr.rent)} · ${erpDepositPhrase(pr.deposit, man)}`;
   };
   // 색·칩 없이 연한 텍스트 — 계약가능 기간범위(언제~언제)만 표시.
   const txt = { fontSize: FS.cap, fontWeight: FW.meta, color: C.faint, lineHeight: 1, flex: '0 0 auto' } as const;
@@ -231,7 +231,7 @@ export function PeriodChips({ align = 'start', clamp, after }: {
             key={pr.m}
             data-period-chip
             onMouseEnter={() => { if (!mobile) setPeekM(pr.m); }}
-            title={`${pr.m}개월 · 월 ${man(pr.rent)} · ${pr.deposit > 0 ? `보증 ${man(pr.deposit)}` : '무보증'}`}
+            title={`${pr.m}개월 · 월 ${man(pr.rent)} · ${erpDepositPhrase(pr.deposit, man)}`}
             style={{ ...periodChipStyle(on), cursor: mobile ? undefined : 'pointer' }}
           >{pr.m}개월</span>
         );

@@ -5,8 +5,10 @@
  * 개인정보·계약·정산·공급사 수수료 필드는 경계에서 제거한다.
  */
 import type { AdapterIssue, FreepassAtom } from './supplier-adapter';
-import { resolveAutoplusDepositPolicy } from './deposit-policy';
+import { calculateDepositFromMonthlyRent, resolveAutoplusDepositPolicy } from './deposit-policy';
 import { evaluateEligibility } from './product-eligibility';
+import { resolvePolicyCode } from './supplier-policy-rules';
+import { canonSalesTrim } from './vehicle-master-options';
 
 export type ExportedProduct = Record<string, unknown>;
 
@@ -191,6 +193,43 @@ function adapterPricing(atom: FreepassAtom): Record<string, unknown> {
   }) as Record<string, unknown>;
 }
 
+function annualKmLabel(annualKm?: number): string {
+  if (!annualKm || annualKm <= 0) return '';
+  const man = annualKm / 10_000;
+  if (!Number.isInteger(man) || man <= 0) return '';
+  return `${man}만`;
+}
+
+function depositForTerm(atom: FreepassAtom, months: number, rent: number): number | undefined {
+  const listed = months >= 24 ? atom.longDeposit : atom.shortDeposit;
+  if (listed !== undefined) return listed;
+  if (atom.depositPolicy) return calculateDepositFromMonthlyRent(atom.depositPolicy, months, rent);
+  return undefined;
+}
+
+function priceEntry(rent: number, deposit: number | undefined): { rent: number; deposit?: number } {
+  return deposit === undefined ? { rent } : { rent, deposit };
+}
+
+/** 어댑터 원자를 손님·화이트라벨이 읽는 `price` 맵으로 만든다. 빈 보증금 칸은 키를 생략한다(0이 아님). */
+function pricesFromAtom(atom: FreepassAtom): Record<string, { rent: number; deposit?: number }> | undefined {
+  const price: Record<string, { rent: number; deposit?: number }> = {};
+  for (const [term, amount] of Object.entries(atom.rent)) {
+    if (typeof amount !== 'number' || amount <= 0) continue;
+    const months = Number(term);
+    if (!Number.isFinite(months) || months <= 0) continue;
+    price[String(months)] = priceEntry(amount, depositForTerm(atom, months, amount));
+  }
+  for (const variant of atom.rentVariants || []) {
+    if (!(variant.amount > 0) || !(variant.termMonths > 0)) continue;
+    const mile = annualKmLabel(variant.annualKm);
+    const key = mile ? `${variant.termMonths}_${mile}` : String(variant.termMonths);
+    if (!mile && price[key]) continue;
+    price[key] = priceEntry(variant.amount, depositForTerm(atom, variant.termMonths, variant.amount));
+  }
+  return Object.keys(price).length ? price : undefined;
+}
+
 export type ProductSourceSpec = {
   code: string;
   partnerCode: string;
@@ -222,6 +261,12 @@ export function composeProductFromAtom(
     if (issue.level === 'error') listingReasons.push(`ADAPTER_ERROR:${issue.code}`);
   }
   const uniqueReasons = [...new Set(listingReasons)];
+  const policyCode = resolvePolicyCode({
+    policy_code: atom.policyCode,
+    provider_company_code: spec.partnerCode,
+    product_type: atom.productType,
+  });
+  const price = pricesFromAtom(atom);
   const candidate: Record<string, unknown> = {
     car_number: plate,
     product_code: erp5ProductDocumentId(spec, plate),
@@ -231,7 +276,7 @@ export function composeProductFromAtom(
     maker: atom.maker,
     model: atom.model,
     sub_model: atom.subModel,
-    trim_name: atom.trim,
+    trim_name: canonSalesTrim(atom.maker || '', atom.model || '', atom.subModel || '', atom.trim || ''),
     supplier_vehicle_name: atom.rawName,
     year: atom.year,
     mileage: atom.km,
@@ -243,6 +288,8 @@ export function composeProductFromAtom(
     status: atom.status,
     listable: uniqueReasons.length === 0,
     listing_reasons: uniqueReasons,
+    ...(policyCode ? { policy_code: policyCode } : {}),
+    ...(price ? { price } : {}),
     adapter_issues: adapterIssues.map((issue) => ({
       level: issue.level,
       code: issue.code,

@@ -25,7 +25,7 @@ function buildCols(data: EntityRecord[]): Col[] {
   const toMan = (n: number) => (n ? Math.round(n / 10000) : 0);
   const priceCols: Col[] = months.flatMap((m): Col[] => [
     [`${m}개월 대여료(만)`, (p) => { const e = priceList(p).find((x) => x.m === m); return e ? toMan(e.rent) : ''; }],
-    [`${m}개월 보증금(만)`, (p) => { const e = priceList(p).find((x) => x.m === m); return e ? toMan(e.deposit) : ''; }],
+    [`${m}개월 보증금(만)`, (p) => { const e = priceList(p).find((x) => x.m === m); return e && e.deposit != null ? toMan(e.deposit) : ''; }],
   ]);
   return [
     // 상태·구분

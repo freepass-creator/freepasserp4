@@ -247,7 +247,7 @@ export function contractRentForAge(
   driverAge: number,
 ): { rent: number; deposit: number; ageSurcharge: number } | null {
   const price = exactContractPrice(product, months);
-  if (!price) return null;
+  if (!price || price.deposit == null) return null;
   const option = contractDriverAgeOptions(policy).find((row) => row.age === driverAge);
   const ageSurcharge = option?.surcharge || 0;
   return { rent: price.rent + ageSurcharge, deposit: price.deposit, ageSurcharge };
@@ -266,7 +266,7 @@ export function contractRentForTerms(
     ? priceVariants(product).find((row) => row.key === mileage.priceVariantKey)
     : null;
   const base = variant || priceList(product).find((price) => price.m === months);
-  if (!base) return null;
+  if (!base || base.deposit == null) return null;
   const ageOption = contractDriverAgeOptions(policy, base.rent + mileage.mileageSurcharge).find((row) => row.age === driverAge);
   const ageSurcharge = ageOption?.surcharge || 0;
   return {

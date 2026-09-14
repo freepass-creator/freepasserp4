@@ -131,7 +131,47 @@ export function vehicleIdentity(p: { car_number?: unknown; vin?: unknown }): str
 
 const num = (v: unknown): number => { const n = Number(v); return isNaN(n) ? 0 : n; };
 
-export type Price = { m: number; rent: number; deposit: number; fee: number };
+/** 보증금 칸이 원천에 없는가. 0·무보증은 「있다」. */
+export function isDepositUnset(raw: unknown): boolean {
+  return raw === null || raw === undefined || raw === '';
+}
+
+export type DepositKind = 'missing' | 'zero' | 'amount';
+
+/** 빈칸=미입력 · 0/무보증=0원 · 양수=금액. 화면이 0을 미입력으로 읽지 않게 가른다. */
+export function depositKind(raw: unknown): DepositKind {
+  if (isDepositUnset(raw)) return 'missing';
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 0) return 'missing';
+  if (n === 0) return 'zero';
+  return 'amount';
+}
+
+/** 업무동(파인더·표) — 확정 0은 무보증, 빈칸은 미입력. */
+export function erpDepositPhrase(raw: unknown, amount: (n: number) => string, withPrefix = true): string {
+  const kind = depositKind(raw);
+  if (kind === 'missing') return '미입력';
+  if (kind === 'zero') return '무보증';
+  return withPrefix ? `보증 ${amount(Number(raw))}` : amount(Number(raw));
+}
+
+/** 손님 화이트라벨 — 확정 카피(DESIGN_CONFIRMED_SHOP). 빈칸은 미입력. */
+export function shopDepositPhrase(raw: unknown, amount: (n: number) => string): string {
+  const kind = depositKind(raw);
+  if (kind === 'missing') return '미입력';
+  if (kind === 'zero') return '보증금 없음';
+  return `보증금 ${amount(Number(raw))}`;
+}
+
+/** 손님 요금표 칸 — 「없음」과 「미입력」을 가른다. */
+export function shopDepositCellText(raw: unknown, amount: (n: number) => string): string {
+  const kind = depositKind(raw);
+  if (kind === 'missing') return '미입력';
+  if (kind === 'zero') return '없음';
+  return amount(Number(raw));
+}
+
+export type Price = { m: number; rent: number; deposit: number | null; fee: number };
 /** 원본 price 키를 보존한 가격. `24_3만`처럼 같은 개월의 주행거리별 가격을 표시할 때 쓴다. */
 export type PriceVariant = Price & { key: string; mileage: string };
 export type MileageUpcharge = { m: number; amount: number };
@@ -158,8 +198,13 @@ export function policyOf(p: EntityRecord): Policy { return (p._policy || {}) as 
  *  · 대여가 원(≥10만)인데 보증만 만원 정수(1~9999) → 보증 ×10000
  *  · 대여·보증 둘 다 만원 정수처럼 보이면 둘 다 ×10000
  */
-export function normalizeWonPair(rentRaw: unknown, depositRaw: unknown): { rent: number; deposit: number } {
+export function normalizeWonPair(rentRaw: unknown, depositRaw: unknown): { rent: number; deposit: number | null } {
   let rent = Math.round(num(rentRaw));
+  if (isDepositUnset(depositRaw)) {
+    if (rent > 0 && rent < 10_000) rent *= 10_000;
+    while (rent >= 100_000_000) rent = Math.round(rent / 10_000);
+    return { rent, deposit: null };
+  }
   let deposit = Math.round(num(depositRaw));
   if (rent > 0 && rent < 10_000) {
     rent *= 10_000;
@@ -369,7 +414,7 @@ export type PricePlan = {
   /** 이 요금의 조건 — 「연 3만km」·「만기인수」처럼 **기간마다 다른 것**만. 없으면 빈 문자열. */
   condition: string;
   rent: number;
-  deposit: number;
+  deposit: number | null;
   /** 표준(반납형)인가 — 최저가 표시는 표준만 대상으로 한다. */
   standard: boolean;
   /**
@@ -438,12 +483,12 @@ export function pricePlanList(p: EntityRecord): PricePlan[] {
   return out;
 }
 
-const mileageCache = new WeakMap<object, { m: number; mileage: string; rent: number; deposit: number }[]>();
-export function mileagePriceList(p: EntityRecord): { m: number; mileage: string; rent: number; deposit: number }[] {
+const mileageCache = new WeakMap<object, { m: number; mileage: string; rent: number; deposit: number | null }[]>();
+export function mileagePriceList(p: EntityRecord): { m: number; mileage: string; rent: number; deposit: number | null }[] {
   const cached = mileageCache.get(p as object);
   if (cached) return cached;
   const price = (p.price || {}) as Record<string, { rent?: number; deposit?: number }>;
-  const out: { m: number; mileage: string; rent: number; deposit: number }[] = [];
+  const out: { m: number; mileage: string; rent: number; deposit: number | null }[] = [];
   for (const [k, v] of Object.entries(price)) {
     const hit = /^(\d+)_([1-9]\d*만)$/.exec(k);
     if (!hit) continue;
@@ -498,7 +543,7 @@ export function creditDisplay(p: EntityRecord): string {
 /** 무보증(보증금 0 상품) — 저신용 손님의 핵심 진입장벽 해소. 영업자 셀링포인트. */
 export function noDeposit(p: EntityRecord): boolean {
   if (p.deposit_free === true || String(p.deposit_free) === '예') return true; // 명시 무보증 플래그
-  // 모든 유료기간의 보증금이 0일 때만 무보증(부분입력 오탐 방지 — 한 기간만 빈칸→0이어도 무보증 표기되던 버그).
+  // 모든 유료기간의 보증금이 **명시 0**일 때만 무보증. 빈칸(null)을 0으로 접지 않는다.
   const priced = priceList(p).filter((x) => x.rent > 0);
   return priced.length > 0 && priced.every((x) => x.deposit === 0);
 }
@@ -511,9 +556,13 @@ export function rentForSort(p: EntityRecord, focusMonth?: number): number {
   return cheapestRent(p);
 }
 export function depositForSort(p: EntityRecord, focusMonth?: number): number {
-  if (focusMonth && focusMonth > 0) { const e = priceAt(p, focusMonth); return e ? e.deposit : Infinity; }
+  if (focusMonth && focusMonth > 0) {
+    const e = priceAt(p, focusMonth);
+    return e && e.deposit != null ? e.deposit : Infinity;
+  }
   const l = priceList(p);
-  return l.length ? Math.min(...l.map((x) => x.deposit)) : Infinity;
+  const deposits = l.map((x) => x.deposit).filter((d): d is number => d != null);
+  return deposits.length ? Math.min(...deposits) : Infinity;
 }
 /** 최저 운전가능 연령 — 정책 기본연령/연령하향 중 최소. 21 가능 = 젊은 손님 셀링포인트(딱지). */
 const twoDigit = (s: unknown): number => { const m = String(s ?? '').match(/(\d{2})/); return m ? Number(m[1]) : 0; };

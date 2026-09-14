@@ -1,7 +1,9 @@
 import {
   compactPlate,
+  explicitDeposit,
   explicitMoney,
   explicitNumber,
+  policyCodeFromRow,
   text,
   withProvenance,
   type AdapterResult,
@@ -68,10 +70,11 @@ export class SonogongAdapter implements SupplierAdapter {
       km: explicitNumber(km.value),
       fuel: text(fuel.value) || undefined,
       displacement: explicitNumber(displacement.value),
-      shortDeposit: explicitMoney(raw['금액보증금']),
+      shortDeposit: explicitDeposit(raw['금액보증금']),
       // 손오공 장기보증은 고정 숫자가 아니라 기간별 월대여료에 대한 계산 규칙이다.
       longDeposit: undefined,
       depositPolicy: SONOGONG_DEPOSIT_POLICY,
+      policyCode: policyCodeFromRow(raw, provenance),
       rent: {
         12: explicitMoney(raw['12개월 반납형'] ?? raw['12개월']),
         24: explicitMoney(raw['24개월 반납형'] ?? raw['24개월']),

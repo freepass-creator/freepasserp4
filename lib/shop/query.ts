@@ -222,7 +222,7 @@ const axisMatch: Record<ShopAxis, (p: EntityRecord, key: string) => boolean> = {
   credit: (p, k) => creditDisplay(p) === k,
   perk: (p, k) => hasPerk(p, k),
   rent: (p, k) => { const b = bandOf(RENT_BANDS, k); return !!b && priceList(p).some((x) => x.rent > b.lo && x.rent <= b.hi); },
-  dep: (p, k) => { const b = bandOf(DEP_BANDS, k); return !!b && priceList(p).some((x) => x.deposit > b.lo && x.deposit <= b.hi); },
+  dep: (p, k) => { const b = bandOf(DEP_BANDS, k); return !!b && priceList(p).some((x) => x.deposit != null && x.deposit > b.lo && x.deposit <= b.hi); },
   /*
    * ⚠⚠ **값이 없는 차를 구간에 넣지 않는다**(2026-09-05 실측 사고).
    *   `MILE_BANDS` 의 첫 칸이 `lo: -1` 이라, 주행거리가 `0`(= 모른다)인 차가 전부 「1만km↓」에 들어갔다.

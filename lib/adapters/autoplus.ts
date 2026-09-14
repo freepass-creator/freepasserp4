@@ -1,7 +1,9 @@
 import {
   compactPlate,
+  explicitDeposit,
   explicitMoney,
   explicitNumber,
+  policyCodeFromRow,
   text,
   withProvenance,
   type AdapterResult,
@@ -101,8 +103,9 @@ export class AutoplusAdapter implements SupplierAdapter {
       km: explicitNumber(km.value),
       fuel: text(fuel.value) || undefined,
       displacement: explicitNumber(displacement.value),
-      shortDeposit: explicitMoney(raw['단기보증']),
-      longDeposit: explicitMoney(raw['장기보증']),
+      shortDeposit: explicitDeposit(raw['단기보증']),
+      longDeposit: explicitDeposit(raw['장기보증']),
+      policyCode: policyCodeFromRow(raw, provenance),
       depositPolicy,
 
       // 오토플러스는 기간+연주행거리 조합이 가격의 일부다.

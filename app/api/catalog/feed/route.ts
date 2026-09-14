@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { firestoreAdminRef } from '@/lib/server/firestore-ref-shim';
 import { guestSource } from '@/lib/server/guest-source';
-import { sanitizeAgentForGuest, sanitizeProductForGuest } from '@/lib/domain/public-catalog';
+import { sanitizeAgentForGuest, sanitizeProductForGuest, policyForGuestProduct } from '@/lib/domain/public-catalog';
 import { isListableProduct } from '@/lib/domain/product';
 import { matchAgentByShareCode } from '@/lib/domain/product-share';
 import type { EntityRecord } from '@/lib/intake/entities';
@@ -65,10 +65,6 @@ export async function GET(request: Request) {
     /* ★재고·정책은 «공용 캐시»에서 받는다(`guest-source`) — 60초. 상세·미리보기와 같은 것을 본다. */
     const src = await guestSource();
     const productSnap = { val: () => src.products };
-    const policyByCode = new Map<string, Rec>();
-    for (const [k, v] of Object.entries(src.policies)) {
-      if (v && typeof v === 'object') policyByCode.set(S(v.policy_code) || k, v);
-    }
 
     const products: EntityRecord[] = [];
     for (const [docKey, p] of Object.entries((productSnap.val() || {}) as Record<string, Rec>)) {
@@ -78,7 +74,7 @@ export async function GET(request: Request) {
       const merged = { ...p, _key: key, product_code: S(p.product_code) || key } as EntityRecord;
       // 목록에 실을 수 있는 것만 — 판정은 앱과 같은 SSOT 를 쓴다.
       if (!isListableProduct(merged)) continue;
-      products.push(sanitizeProductForGuest(key, p, policyByCode.get(S(p.policy_code))));
+      products.push(sanitizeProductForGuest(key, p, policyForGuestProduct(p, src.policies as Record<string, Rec>)));
     }
 
     // 화이트라벨 — 공급사를 지정했을 때만 그 회사 이름을 준다(전체 파트너 목록은 내보내지 않는다).
