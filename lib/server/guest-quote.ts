@@ -3,6 +3,7 @@ import 'server-only';
 import { channelSellsProduct } from '@/lib/whitelabel';
 import { readWhitelabelCatalogFromErp5 } from '@/lib/server/whitelabel-erp5-catalog';
 import { sanitizeAgentForGuest, sanitizeProductForGuest } from '@/lib/domain/public-catalog';
+import { createPublicPolicyResolver } from '@/lib/server/public-policy-resolver';
 import { isOfferableProduct } from '@/lib/domain/product';
 import { codeCandidates, matchAgentByShareCode, shareToken, splitShareSegment } from '@/lib/domain/product-share';
 import type { EntityRecord } from '@/lib/intake/entities';
@@ -120,19 +121,10 @@ async function loadGuestQuoteUncached(segment: string, shareFromQuery: string, o
   // 판매 가능 여부는 서버가 판정한다 — 만료·출고불가 매물이 링크로 계속 열리면 안 된다.
   if (!isOfferableProduct(merged)) return null;
 
-  /**
-   * 정책은 v3 ∪ v4 를 함께 본다.
-   * erp3 절연은 **재고(products)에만** 적용된다 — 회원·정책·계약 이력은 승계한다.
-   * 실측 2026-08-08: 정책 54건 중 v3 53 · v4 26 — v4 만 읽으면 대부분 매물이 보험·연령·심사를 잃는다.
-   */
-  const policyCode = S((product as Rec).policy_code);
-  let policy: Rec | null = null;
-  if (policyCode) {
-    const pool = src.policies;
-    policy = Object.entries(pool)
-      .map(([k, v]) => ({ ...(v || {}), _key: k } as Rec))
-      .find((x) => S(x.policy_code) === policyCode || S(x._key) === policyCode) || null;
-  }
+  const resolvePolicy = createPublicPolicyResolver(
+    Object.values(src.policies).filter((v): v is Rec => !!v && typeof v === 'object'),
+  );
+  const policy = resolvePolicy(product);
 
   let agent: Rec | null = null;
   const shares = codeCandidates(share, 'usr');
@@ -145,5 +137,8 @@ async function loadGuestQuoteUncached(segment: string, shareFromQuery: string, o
     }
   }
 
-  return { product: sanitizeProductForGuest(key, product as Rec, policy), agent };
+  return {
+    product: sanitizeProductForGuest(key, product as Rec, policy.policy, { applyDefaults: policy.applyDefaults }),
+    agent,
+  };
 }

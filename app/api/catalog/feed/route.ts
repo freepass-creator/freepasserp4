@@ -6,6 +6,7 @@ import { matchAgentByShareCode } from '@/lib/domain/product-share';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { companyAlias } from '@/lib/domain/identity';
 import { guestProviderFence, resolveGuestWhitelabel } from '@/lib/whitelabel';
+import { createPublicPolicyResolver } from '@/lib/server/public-policy-resolver';
 
 export const dynamic = 'force-dynamic';
 type Rec = Record<string, any>;
@@ -56,10 +57,9 @@ export async function GET(request: Request) {
       includePartners: !!providerCode,
       includeUsers: !!share,
     });
-    const policyByCode = new Map<string, Rec>();
-    for (const [k, v] of Object.entries(src.policies)) {
-      if (v && typeof v === 'object') policyByCode.set(S(v.policy_code) || k, v);
-    }
+    const resolvePolicy = createPublicPolicyResolver(
+      Object.values(src.policies).filter((v): v is Rec => !!v && typeof v === 'object'),
+    );
 
     const products: EntityRecord[] = [];
     for (const [docKey, p] of Object.entries(src.products)) {
@@ -69,7 +69,8 @@ export async function GET(request: Request) {
       const merged = { ...p, _key: key, product_code: S(p.product_code) || key } as EntityRecord;
       // 목록에 실을 수 있는 것만 — 판정은 앱과 같은 SSOT 를 쓴다.
       if (!isListableProduct(merged)) continue;
-      products.push(sanitizeProductForGuest(key, p, policyByCode.get(S(p.policy_code))));
+      const policy = resolvePolicy(p);
+      products.push(sanitizeProductForGuest(key, p, policy.policy, { applyDefaults: policy.applyDefaults }));
     }
 
     // 화이트라벨 — 공급사를 지정했을 때만 그 회사 이름을 준다(전체 파트너 목록은 내보내지 않는다).
