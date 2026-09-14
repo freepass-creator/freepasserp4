@@ -100,14 +100,14 @@ function publicImages(p: Rec): string[] {
   return [...new Set(urls)];
 }
 
-export function publicPolicy(policy: Rec | null | undefined): Rec | null {
+export function publicPolicy(policy: Rec | null | undefined, options: { applyDefaults?: boolean } = {}): Rec | null {
   /**
    * 정책이 **붙어 있을 때만** 빈 항목을 프리패스 표준으로 보충한다.
    * 아예 안 붙은 매물은 «모르는 것»이라 지어내지 않는다(사장님 2026-08-28 「없으면 없다」).
    * 손님 화면에 지어낸 조건이 서면 그게 곧 약속이 된다 — 위 rtdb-records 의 같은 판단.
    */
   const effective = (policy && Object.keys(policy).length
-    ? applyPolicyDefaults(policy).next
+    ? (options.applyDefaults === false ? policy : applyPolicyDefaults(policy).next)
     : {}) as Rec;
   const out: Rec = {};
   for (const k of PUBLIC_POLICY_FIELDS) {
@@ -119,7 +119,12 @@ export function publicPolicy(policy: Rec | null | undefined): Rec | null {
 }
 
 /** 매물 하나를 손님용으로 정제한다. 목록에 없는 필드는 «그냥 빠진다» — 기본값을 지어내지 않는다. */
-export function sanitizeProductForGuest(key: string, p: Rec, policy?: Rec | null): EntityRecord {
+export function sanitizeProductForGuest(
+  key: string,
+  p: Rec,
+  policy?: Rec | null,
+  options: { applyDefaults?: boolean } = {},
+): EntityRecord {
   const out: Rec = { _key: key, product_code: S(p.product_code) || key };
   for (const f of PUBLIC_PRODUCT_FIELDS) {
     const v = p[f];
@@ -154,7 +159,7 @@ export function sanitizeProductForGuest(key: string, p: Rec, policy?: Rec | null
     : (cached.length && S(cache.src) === S(scrapableSources(p as EntityRecord)[0]) ? cached : []);
   if (shown.length) { out.image_urls = shown; out.image_url = shown[0]; }
   if (S(p.photo_link)) out.photo_link = S(p.photo_link);
-  const pol = publicPolicy(policy);
+  const pol = publicPolicy(policy, options);
   if (pol) out._policy = pol;
   return out as EntityRecord;
 }

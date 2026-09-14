@@ -30,6 +30,7 @@
     "check:brand": "tsx scripts/check-brand-mark.mts",
     "check:guest": "tsx scripts/check-guest-default.mts",
     "check:guest-fields": "tsx scripts/check-guest-fields.mts",
+    "sim:public-policy": "tsx --require ./scripts/lib/server-only-shim.cjs scripts/sim-public-policy-resolver.mts",
     "check:building": "tsx scripts/check-building.mts",
     "check:branches": "tsx scripts/check-branches.mts",
     "check:workflows": "tsx scripts/check-workflows.mts",

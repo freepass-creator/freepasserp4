@@ -43,7 +43,14 @@ export function buildAtomRefs(
   providerNames?: Map<string, string>,
 ): AtomRefs {
   const policyByCode = new Map<string, Record<string, unknown>>();
-  for (const p of policies) { const c = S(p.policy_code) || S(p._key); if (c) policyByCode.set(c, p); }
+  for (const p of policies) {
+    /*
+     * Firestore 문서 ID와 업무 정책코드는 서로 다를 수 있다.
+     * 둘 다 같은 원자를 가리키는 실제 식별자이므로 둘 다 인덱싱한다.
+     * 어느 쪽도 새 별칭을 추측하거나 값을 만들지 않는다.
+     */
+    for (const c of new Set([S(p.policy_code), S(p._key)])) if (c) policyByCode.set(c, p);
+  }
   return { policyByCode, byProvider: groupPoliciesByProvider(policies), providerNames };
 }
 
