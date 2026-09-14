@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { firestoreAdminRef } from '@/lib/server/firestore-ref-shim';
-import { OPS_PIPELINE_PATH, type OpsPipelineStatus } from '@/lib/ops-status';
+import { erp5Firestore, erp5WhitelabelCutoverRequested } from '@/lib/server/erp5-firestore-app';
 
 /**
  * **가게 머리띠가 쓰는 «지금» 두 가지 — 재고를 언제 갱신했나 · 오늘 날씨.**
@@ -54,9 +53,6 @@ function weatherText(code: number): string {
   return '';
 }
 
-/** 재고를 채우는 «날마다 도는» 연동이 회차를 닫는 자리(`lib/server/sheet-daily-sync`). */
-const DAILY_SYNC_PATH = 'v4/system_status/sheet_daily_sync';
-
 /** 한국 시각으로 「9. 11. 03:22」 — 화면이 쓰는 꼴 그대로. */
 function stampKo(ms: number): string {
   const d = new Date(ms + 9 * 3_600_000);
@@ -96,27 +92,16 @@ function stampKo(ms: number): string {
  * ★그래서 여기는 한 곳만 본다. **원장이 하나면 「어느 게 맞나」를 물을 일이 없다.**
  */
 async function loadUpdated(): Promise<{ ms: number; at: string } | null> {
-  const pick = async (path: string, read: (v: Record<string, unknown>) => number): Promise<number> => {
-    try {
-      const v = (await firestoreAdminRef().ref(path).get()).val() as Record<string, unknown> | null;
-      if (!v || typeof v !== 'object') return 0;
-      const ms = read(v);
-      return Number.isFinite(ms) && ms > 0 ? ms : 0;
-    } catch { return 0; }
-  };
-
-  const [daily, ops] = await Promise.all([
-    pick(DAILY_SYNC_PATH, (v) => (String(v.status) === 'completed' ? Number(v.finished_at) : 0)),
-    pick(OPS_PIPELINE_PATH, (v) => {
-      const s = v as unknown as OpsPipelineStatus;
-      /* `ok === false` 는 «실패로 끝난 회차»다. 아직 도는 중(`running`)이면 아직 갱신이 아니다. */
-      return s.ok === false || s.running ? 0 : Number(s.updatedMs);
-    }),
-  ]);
-
-  const ms = Math.max(daily, ops);
-  if (!ms) return null;
-  return { ms, at: stampKo(ms) };
+  try {
+    if (!erp5WhitelabelCutoverRequested()) return null;
+    const snap = await erp5Firestore().collection('ops').doc('erp4_whitelabel_cutover').get();
+    const receipt = snap.data() as Record<string, unknown> | undefined;
+    const raw = receipt?.updatedAt ?? receipt?.syncedAt ?? receipt?.approvedAt;
+    const ms = raw && typeof raw === 'object' && 'toMillis' in raw && typeof (raw as { toMillis?: unknown }).toMillis === 'function'
+      ? Number((raw as { toMillis: () => number }).toMillis())
+      : typeof raw === 'string' ? Date.parse(raw) : Number(raw);
+    return Number.isFinite(ms) && ms > 0 ? { ms, at: stampKo(ms) } : null;
+  } catch { return null; }
 }
 
 async function loadWeather(): Promise<{ temp: number; text: string } | null> {
