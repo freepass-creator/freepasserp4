@@ -22,10 +22,19 @@ concurrency:
 
 jobs:
   ingest:
+    permissions:
+      contents: read
+      id-token: write
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
+      - name: freepasserp5 OIDC 인증
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/110304297079/locations/global/workloadIdentityPools/github-actions/providers/freepasserp4
+          service_account: github-inventory-writer@freepasserp5.iam.gserviceaccount.com
+          create_credentials_file: true
       - uses: actions/setup-node@v4
         with: { node-version: '22', cache: 'npm' }
       - run: npm ci
@@ -33,11 +42,9 @@ jobs:
         run: npm run check:inventory-sources
       - name: 자격증명 준비
         env:
-          ERP5_FIREBASE_SA: ${{ secrets.ERP5_FIREBASE_SERVICE_ACCOUNT_JSON }}
           SHEETS_SA: ${{ secrets.GOOGLE_SA_JSON }}
           SONOGONG: ${{ secrets.SONOGONG_ACCOUNT_JSON }}
         run: |
-          test -n "$ERP5_FIREBASE_SA" || { echo '::error::ERP5_FIREBASE_SERVICE_ACCOUNT_JSON 누락'; exit 1; }
           test -n "$SHEETS_SA" || { echo '::error::GOOGLE_SA_JSON 누락'; exit 1; }
           test -n "$SONOGONG" || { echo '::error::SONOGONG_ACCOUNT_JSON 누락'; exit 1; }
           mkdir -p tmp/firebase-auth sonokong/lib/wonja
@@ -47,7 +54,8 @@ jobs:
         run: node sonokong/scripts/손오공.mjs --조용
       - name: 전 공급사 직접수집 → Firestore
         env:
-          ERP5_FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.ERP5_FIREBASE_SERVICE_ACCOUNT_JSON }}
+          ERP5_FIREBASE_USE_ADC: 'true'
+          GOOGLE_CLOUD_PROJECT: freepasserp5
           GOOGLE_SHEETS_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sheets.json
           GOOGLE_SHEETS_SUBJECT: pyh@teamjpk.com
         shell: bash

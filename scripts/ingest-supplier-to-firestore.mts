@@ -16,7 +16,7 @@
  *   npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/ingest-supplier-to-firestore.mts --code=RP004 [--apply]
  */
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
-import { initializeApp, cert } from 'firebase-admin/app';
+import { initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { listSheetTabs, readSheetGrid } from '../lib/server/google-sheets';
 import { isOurNonInventoryTab } from '../lib/domain/supplier-template-sheet';
@@ -35,7 +35,7 @@ import { cleanTrim } from '../lib/domain/clean-trim';
 import { resolveStatus } from '../lib/domain/atom-status';
 import { isOpenInventoryAtom } from '../lib/domain/inventory-contract';
 import { mergeRawPhotoEvidence, photoAtomFields } from '../lib/domain/photo-atom';
-import { readErp5InventoryServiceAccount } from '../lib/server/erp5-inventory-service-account';
+import { erp5InventoryAppOptions } from '../lib/server/erp5-inventory-service-account';
 
 const APPLY = process.argv.includes('--apply');
 const CODE = (process.argv.find((a) => a.startsWith('--code='))?.split('=')[1] || 'RP004').trim();
@@ -56,8 +56,7 @@ type Price = Record<string, { rent: number; deposit: number }>;
 const PERIOD_ALIAS: [string, string[]][] = [['1', ['1개월', '월렌트', '월세']], ['6', ['6개월']], ['12', ['12개월']], ['18', ['18개월']], ['24', ['24개월']], ['36', ['36개월']], ['48', ['48개월']], ['60', ['60개월']]];
 
 // Firestore는 원자 저장소다. 원천 주소는 inventory-source-registry만 사용한다.
-const sa = readErp5InventoryServiceAccount();
-initializeApp({ credential: cert({ projectId: sa.project_id, clientEmail: sa.client_email, privateKey: S(sa.private_key).replace(/\\n/g, '\n') }) });
+initializeApp(erp5InventoryAppOptions());
 const fs = getFirestore();
 
 // 원천 종류 셋 — 시트(공급사 구글시트) · 홈피(ironrentcar.com) · 손오공(API 덤프 JSON).

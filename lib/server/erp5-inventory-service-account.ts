@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { applicationDefault, cert, type AppOptions } from 'firebase-admin/app';
 
 export const ERP5_INVENTORY_PROJECT_ID = 'freepasserp5';
 
@@ -21,4 +22,21 @@ export function readErp5InventoryServiceAccount(): Erp5ServiceAccount {
   }
   if (!value.client_email || !value.private_key) throw new Error('ERP5 서비스계정 JSON 형식 오류');
   return value as Erp5ServiceAccount;
+}
+
+/** GitHub OIDC는 ADC를 쓰고, 로컬 검증은 ERP5 전용 서비스계정만 허용한다. */
+export function erp5InventoryAppOptions(): AppOptions {
+  if (String(process.env.ERP5_FIREBASE_USE_ADC || '').toLowerCase() === 'true') {
+    const projectId = String(process.env.GOOGLE_CLOUD_PROJECT || '').trim();
+    const credentials = String(process.env.GOOGLE_APPLICATION_CREDENTIALS || '').trim();
+    if (projectId !== ERP5_INVENTORY_PROJECT_ID || !credentials) {
+      throw new Error('ERP5 OIDC 경계 오류: GOOGLE_CLOUD_PROJECT=freepasserp5와 ADC 자격증명 파일이 필요합니다.');
+    }
+    return { projectId: ERP5_INVENTORY_PROJECT_ID, credential: applicationDefault() };
+  }
+  const sa = readErp5InventoryServiceAccount();
+  return {
+    projectId: ERP5_INVENTORY_PROJECT_ID,
+    credential: cert({ projectId: sa.project_id, clientEmail: sa.client_email, privateKey: sa.private_key.replace(/\\n/g, '\n') }),
+  };
 }
