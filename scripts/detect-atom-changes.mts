@@ -20,7 +20,7 @@ const priceFlat = (price: any): Record<string, number> => {
 };
 const docs = (await getFirestore().collection('products').get()).docs.map((d) => d.data());
 const now: Record<string, { st: string; price: Record<string, number> }> = {};
-for (const v of docs) { const car = S(v.car_number); if (car) now[car] = { st: S(v.vehicle_status) || '차량검수', price: priceFlat(v.price) }; }
+for (const v of docs) { const car = S(v.car_number); if (car) now[car] = { st: S(v.vehicle_status) || '상품화중', price: priceFlat(v.price) }; }
 
 if (!existsSync(SNAP)) {
   if (SAVE) writeFileSync(SNAP, JSON.stringify(now), 'utf8');

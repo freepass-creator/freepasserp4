@@ -2,6 +2,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { resolveStatus } from '../lib/domain/atom-status';
 import { canonSheetVehicleStatus } from '../lib/domain/sheet-import';
+import { VEHICLE_STATES } from '../lib/intake/entities';
+
+assert.deepEqual([...VEHICLE_STATES], ['즉시출고', '출고가능', '상품화중', '출고협의', '계약중', '출고불가']);
 
 const fromSource = (raw: string) => resolveStatus({ base: canonSheetVehicleStatus(raw), raw });
 
@@ -23,6 +26,8 @@ for (const raw of ['출고가능', '출고가능(정비중)', '판매중', '할�
 
 assert.equal(fromSource('배차대기').vehicle_status, '출고협의');
 assert.equal(fromSource('').vehicle_status, '출고협의');
+assert.equal(resolveStatus({ base: '', raw: '' }).vehicle_status, '상품화중');
+assert.equal(resolveStatus({ base: '차량검수', raw: '차량검수' }).vehicle_status, '상품화중');
 
 const locked = resolveStatus({ base: '출고가능', raw: '출고가능', locked: 'contract-1' });
 assert.equal(locked.vehicle_status, '계약중');
