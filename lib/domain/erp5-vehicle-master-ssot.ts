@@ -91,6 +91,9 @@ const makerForMatch = (value: unknown): string => {
     르노삼성: '르노코리아',
     한국gm: '쉐보레',
     gm대우: '쉐보레',
+    '쉐보레(gm대우)': '쉐보레',
+    도요타: '토요타',
+    토요타: '토요타',
   };
   return aliases[folded] || folded;
 };
@@ -242,7 +245,7 @@ function factsFromReferences(references: EncarReferenceRow[]): Record<string, un
 export function buildVehicleMaster(input: {
   sheetRows: VehicleSheetRow[];
   encarRows: EncarReferenceRow[];
-}): { entries: VehicleMasterEntry[]; blockers: string[]; stats: Record<string, number> } {
+}): { entries: VehicleMasterEntry[]; quarantined: VehicleMasterEntry[]; blockers: string[]; stats: Record<string, number> } {
   const exactIndex = new Map<string, EncarReferenceRow[]>();
   const subIndex = new Map<string, EncarReferenceRow[]>();
   for (const row of input.encarRows.filter((candidate) => !S(candidate.source) || /encar/i.test(S(candidate.source)))) {
@@ -259,6 +262,7 @@ export function buildVehicleMaster(input: {
   }
 
   const entries: VehicleMasterEntry[] = [];
+  const quarantined: VehicleMasterEntry[] = [];
   const blockers: string[] = [];
   const seen = new Map<string, number>();
   const stats: Record<string, number> = {
@@ -332,14 +336,10 @@ export function buildVehicleMaster(input: {
     else stats.needsReview += 1;
     if (!row.trim) stats.trimDefaulted += 1;
     if (canonicalProjectionApplied) stats.canonicalProjected += 1;
-    if (verification === 'conflict' || verification === 'needs-review') {
-      blockers.push(`${row.rowNumber}행 ${canonical.maker} ${canonical.subModel} / ${canonical.trim}: ${verification}`);
-    }
-
     // 세부모델만 같고 트림이 다른 참조값으로 제원을 추정하지 않는다.
     const factReferences = exactReferences;
     const evidenceReferences = exactReferences.length ? exactReferences : subReferences;
-    entries.push({
+    const entry: VehicleMasterEntry = {
       id: erp5VehicleMasterEntryId({ origin: row.origin, ...canonical }),
       origin: row.origin,
       maker: canonical.maker,
@@ -371,8 +371,13 @@ export function buildVehicleMaster(input: {
         },
       },
       verification,
-    });
+    };
+    // 검수 대기 원자는 버리지 않고 격리 보존한다. 활성 entries에는 검증된 원자만 둔다.
+    if (structural.length || verification === 'conflict' || verification === 'needs-review') quarantined.push(entry);
+    else entries.push(entry);
   }
 
-  return { entries, blockers, stats };
+  stats.quarantined = quarantined.length;
+  stats.active = entries.length;
+  return { entries, quarantined, blockers, stats };
 }
