@@ -10,6 +10,9 @@ const GUEST_HEADER = 'x-fp-guest';
  */
 const isShopHome = (host: string, pathname: string) =>
   pathname === '/' && hasBrand(resolveWhitelabel(host));
+/** 기본 ERP 도메인의 공개 카탈로그는 유니오토 임시 채널이 아니라 플랫폼 본체다. */
+const isDefaultPlatformCatalog = (host: string, pathname: string) =>
+  (host === 'freepasserp.com' || host === 'www.freepasserp.com') && pathname === '/catalog';
 const LEGACY_SIGN_ORIGIN = 'https://chakhandeal.vercel.app';
 const FREEPASS_TOKEN = /^fps_[A-Za-z0-9_-]+$/;
 const LEGACY_TOKEN = /^[A-Za-z0-9_-]{22}$/;
@@ -64,7 +67,7 @@ export function middleware(request: NextRequest) {
    * 레이아웃은 라우트를 모르므로(호스트만 본다) 여기서 한 줄 붙여 준다.
    * ⚠ 업무동에는 안 붙인다 — 콕핏은 우리 화면이라 예전 그대로여야 한다.
    */
-  if (isGuestPath(request.nextUrl.pathname)) {
+  if (isGuestPath(request.nextUrl.pathname) && !isDefaultPlatformCatalog(host, request.nextUrl.pathname)) {
     const headers = new Headers(request.headers);
     headers.set(GUEST_HEADER, '1');
     return NextResponse.next({ request: { headers } });
