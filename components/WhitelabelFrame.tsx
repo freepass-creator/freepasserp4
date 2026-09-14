@@ -3,7 +3,8 @@ import { useState, type ReactNode } from 'react';
 import { Phone, X } from 'lucide-react';
 import { Btn, C, FS, FW, ICON, R_CARD, SH } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
-import { hasBrand, whitelabelVars, type Whitelabel } from '@/lib/whitelabel';
+import { nowLabelKo, todayLabelKo, useNowKst, useShopHeadStatus } from '@/lib/shop/head-status';
+import { hasShopFrame, whitelabelVars, type Whitelabel } from '@/lib/whitelabel';
 
 /**
  * 화이트라벨 껍데기 — 손님 카탈로그를 «그 회사 사이트»로 보이게 하는 머리띠·안내 블록·푸터.
@@ -57,7 +58,9 @@ export function WhitelabelFrame({
   children: ReactNode;
 }) {
   const mobile = useIsMobile();
-  if (!hasBrand(wl)) return <>{children}</>;
+  const head = useShopHeadStatus();
+  const now = useNowKst();
+  if (!hasShopFrame(wl)) return <>{children}</>;
 
   const who = String(agentName || '').trim();
   const phone = String(agentPhone || '').trim() || wl.tel;
@@ -112,7 +115,12 @@ export function WhitelabelFrame({
              * ★글자는 **먹색**이다. 로고가 검정이라 「UNI」만 브랜드색으로 칠하면 로고와 색이 갈린다
              *   (전에는 파랑이었다). 브랜드색은 «누르는 것»에만 쓴다.
              */
-            <div style={{ display: 'flex', alignItems: 'center', gap: mobile ? 8 : 12, whiteSpace: 'nowrap' }}>
+            wl.plain ? (
+              <a href="/" aria-label={`${wl.headline || '가게'} 첫 화면으로`} style={{
+                fontSize: mobile ? 13 : 18, fontWeight: FW.title, letterSpacing: '-0.02em',
+                color: C.ink, whiteSpace: 'nowrap', textDecoration: 'none',
+              }}>{wl.headline}</a>
+            ) : <div style={{ display: 'flex', alignItems: 'center', gap: mobile ? 8 : 12, whiteSpace: 'nowrap' }}>
               {wl.logo ? (
                 // eslint-disable-next-line @next/next/no-img-element -- 채널마다 다른 마크라 정적 최적화 대상이 아니다.
                 <img src={wl.logo.src} alt={wl.logo.alt}
@@ -131,6 +139,15 @@ export function WhitelabelFrame({
           <div style={{ flex: 1 }} />
           {/* 폰 머리띠 오른쪽 — 상세의 관심·공유(위 `headerActions` 참고). 목록에서는 비어 있다. */}
           {mobile ? headerActions : null}
+          {!mobile ? (
+            <span style={{
+              fontSize: FS.sub, fontWeight: FW.head, color: C.ink, whiteSpace: 'nowrap',
+              fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em',
+            }}>
+              {now ? nowLabelKo(now) : todayLabelKo()}
+              {head.weather ? ` · ${head.weather.text} ${head.weather.temp}°` : ''}
+            </span>
+          ) : null}
           {phone && !mobile ? (
             <>
               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>

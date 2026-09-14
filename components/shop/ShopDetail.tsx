@@ -4,11 +4,11 @@ import type { ReactNode } from 'react';
 import Link from 'next/link';
 import {
   ArrowLeft, Car, Check, ChevronLeft, ChevronRight, CircleCheck, Coins, FileText, Plus, Tag,
-  IdCard, ImageOff, Info, Phone, Share2, ShieldCheck,
+  IdCard, ImageOff, Info, Phone, Share2, ShieldCheck, X,
   type LucideIcon,
 } from 'lucide-react';
 import type { EntityRecord } from '@/lib/intake/entities';
-import { C, ColorMark, FW, FS, ICON, NUM } from '@/components/ui';
+import { C, ColorMark, FW, FS, ICON, NUM, SCRIM } from '@/components/ui';
 import { PerkMarks, SHOP, StateChip, type ShopMark } from '@/components/shop/shop-ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { useProductPhotos } from '@/components/use-product-photos';
@@ -1597,7 +1597,9 @@ function Gallery({ p, mobile }: { p: EntityRecord; mobile?: boolean }) {
   const photos = useProductPhotos(p, 1280);
   const railRef = useRef<HTMLDivElement>(null);
   const [i, setI] = useState(0);
+  const [allOpen, setAllOpen] = useState(false);
   const n = photos.length;
+  const title = vehicleNameOf({ kind: 'product', product: p }, { tier: 'base', fallback: 'none' }) || '차량';
 
   /** 어느 장을 보고 있나 — 스크롤 위치를 폭으로 나눈다. 스크롤이 정본이라 손·화살표가 안 갈린다. */
   const onScroll = () => {
@@ -1639,6 +1641,7 @@ function Gallery({ p, mobile }: { p: EntityRecord; mobile?: boolean }) {
     }}>
       {n ? (
         <div ref={railRef} onScroll={onScroll} className="fp-shop-gallery"
+          onClick={() => setAllOpen(true)}
           style={{ width: '100%', height: '100%' }}>
           {photos.map((src, k) => (
             // eslint-disable-next-line @next/next/no-img-element -- 원본은 외부 도메인(프록시 경유)이라 next/image 최적화 대상이 아니다.
@@ -1690,44 +1693,104 @@ function Gallery({ p, mobile }: { p: EntityRecord; mobile?: boolean }) {
    * ★폰에는 안 그린다 — 밀어서 넘기는 게 이미 제일 빠르고, 좁은 화면에 썸네일을 넣으면
    *   정작 사진이 작아진다.
    */
+  const thumbSlots = 10;
+  const shownThumbs = photos.slice(0, thumbSlots);
+  const more = n - shownThumbs.length;
   const thumbs = !mobile && n > 1 ? (
     <div style={{
       flex: '0 0 auto', width: 200,
       display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, alignContent: 'start',
     }}>
-      {photos.slice(0, 8).map((src, k) => (
-        <button key={src} type="button" onClick={() => goTo(k)} className="fp-shop-press"
-          aria-label={`${k + 1}번째 사진 보기`} aria-pressed={k === i}
+      {shownThumbs.map((src, k) => {
+        const isDoor = more > 0 && k === thumbSlots - 1;
+        return <button key={src} type="button" onClick={() => (isDoor ? setAllOpen(true) : goTo(k))} className="fp-shop-press"
+          aria-label={isDoor ? `사진 ${n}장 모두 보기` : `${k + 1}번째 사진 보기`} aria-pressed={isDoor ? undefined : k === i}
           style={{
             position: 'relative', padding: 0, aspectRatio: '4 / 3', overflow: 'hidden',
             borderRadius: 8, cursor: 'pointer', background: C.placeholder,
             /* 보고 있는 장만 테두리로 표시한다 — 색을 칠하면 사진 위에 색이 얹혀 지저분하다. */
-            border: k === i ? `2px solid ${C.brand}` : `1px solid ${C.line2}`,
+            border: !isDoor && k === i ? `2px solid ${C.brand}` : `1px solid ${C.line2}`,
           }}>
           {/* eslint-disable-next-line @next/next/no-img-element -- 원본은 외부 도메인(프록시 경유)이다. */}
           <img src={src} alt="" decoding="async" loading="lazy"
             style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-          {/* 여덟째 칸에 남은 장 수 — 「더 있다」를 숫자로 말한다. */}
-          {k === 7 && n > 8 ? (
+          {/* 열한 장부터 열째 칸은 엔카식 전체보기 문이다. */}
+          {isDoor ? (
             <span style={{
-              position: 'absolute', inset: 0, display: 'flex',
+              position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', gap: 4,
               alignItems: 'center', justifyContent: 'center',
               background: 'rgba(0,0,0,.5)', color: '#fff',
               fontSize: SHOP.fs.sub, fontWeight: 700,
-            }}>+{n - 8}</span>
+            }}><span>+{more}</span><span style={{ fontSize: SHOP.fs.cap }}>모두 보기</span></span>
           ) : null}
-        </button>
-      ))}
+        </button>;
+      })}
     </div>
   ) : null;
 
-  if (!thumbs) return stage;
+  const all = allOpen ? <PhotoAll photos={photos} at={i} title={title} mobile={mobile}
+    onPick={goTo} onClose={() => setAllOpen(false)} /> : null;
+  if (!thumbs) return <>{stage}{all}</>;
   return (
-    <div style={{ display: 'flex', gap: 12, alignItems: 'stretch' }}>
-      {stage}
-      {thumbs}
-    </div>
+    <><div style={{ display: 'flex', gap: 12, alignItems: 'stretch' }}>{stage}{thumbs}</div>{all}</>
   );
+}
+
+function PhotoAll({ photos, at, title, mobile, onPick, onClose }: {
+  photos: string[]; at: number; title: string; mobile?: boolean;
+  onPick: (index: number) => void; onClose: () => void;
+}) {
+  const [current, setCurrent] = useState(at);
+  const columnRef = useRef<HTMLDivElement>(null);
+  const close = () => { onPick(current); onClose(); };
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') close(); };
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    window.addEventListener('keydown', onKey);
+    return () => { document.body.style.overflow = previous; window.removeEventListener('keydown', onKey); };
+  });
+
+  useEffect(() => {
+    const item = columnRef.current?.children[at] as HTMLElement | undefined;
+    if (item) columnRef.current?.scrollTo({ top: item.offsetTop });
+  }, [at]);
+
+  return <div role="dialog" aria-modal="true" aria-label={`${title} 사진 ${photos.length}장`}
+    onClick={close} style={{ position: 'fixed', inset: 0, zIndex: 60, background: SCRIM.black,
+      display: 'flex', flexDirection: 'column' }}>
+    <header style={{ display: 'grid', gridTemplateColumns: '40px 1fr 40px', alignItems: 'center', padding: 12 }}>
+      <button type="button" onClick={close} aria-label="닫기" className="fp-shop-press"
+        style={{ width: 40, height: 40, border: 'none', background: 'transparent', color: '#fff' }}><X size={ICON.lg} /></button>
+      <span style={{ textAlign: 'center', color: '#fff', fontSize: SHOP.fs.sub, fontWeight: FW.title,
+        overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{title}</span><span />
+    </header>
+    <div onClick={(event) => event.stopPropagation()} style={{ flex: 1, minHeight: 0, display: 'flex', gap: mobile ? 0 : 12,
+      padding: mobile ? 0 : '0 16px 16px' }}>
+      <div ref={columnRef} onScroll={() => {
+        const element = columnRef.current;
+        if (!element) return;
+        const midpoint = element.scrollTop + element.clientHeight / 2;
+        const next = [...element.children].reduce((picked, child, index) =>
+          (child as HTMLElement).offsetTop <= midpoint ? index : picked, 0);
+        setCurrent(next);
+      }} style={{ flex: 1, minWidth: 0, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 8, padding: '0 12px 24px' }}>
+        {photos.map((src, index) => <img key={src} src={src} alt={`${title} ${index + 1}번째 사진`}
+          loading={index === 0 ? 'eager' : 'lazy'} style={{ width: '100%', aspectRatio: '4 / 3', objectFit: 'contain', background: '#111', borderRadius: 8 }} />)}
+      </div>
+      {!mobile ? <div style={{ width: 288, overflowY: 'auto', display: 'grid', gridTemplateColumns: 'repeat(2, 132px)',
+        gridAutoRows: '99px', gap: 8, alignContent: 'start' }}>
+        {photos.map((src, index) => <button key={src} type="button" onClick={() => {
+          setCurrent(index); const item = columnRef.current?.children[index] as HTMLElement | undefined;
+          item?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+        }} aria-label={`${index + 1}번째 사진으로`} aria-pressed={current === index} style={{ padding: 0, overflow: 'hidden', border: 'none',
+          borderRadius: 8, background: '#111', boxShadow: current === index ? `inset 0 0 0 2px ${C.brand}` : 'none' }}>
+          <img src={src} alt="" loading="lazy" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        </button>)}
+      </div> : null}
+    </div>
+  </div>;
 }
 
 function GalleryArrow({ side, onClick }: { side: 'left' | 'right'; onClick: () => void }) {

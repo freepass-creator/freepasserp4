@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { hasBrand, isGuestPath, resolveWhitelabel } from '@/lib/whitelabel';
+import { homeIsShop, isGuestPath } from '@/lib/whitelabel';
 
 const PUBLIC_SIGN_HOST = 'sign.freepasserp.com';
 /** 손님 동 표시 — 레이아웃이 읽는다(아래 머리말). `lib/whitelabel` 와 이름을 맞춘다. */
@@ -10,11 +10,7 @@ const PUBLIC_CATALOG_HEADER = 'x-fp-public-catalog';
  * 채널 도메인의 첫 화면인가 — 표(`lib/whitelabel`)를 그대로 본다.
  * ★채널이 늘어도 이 파일은 안 고친다. 표에 줄이 하나 늘 뿐이다.
  */
-const isShopHome = (host: string, pathname: string) =>
-  pathname === '/' && hasBrand(resolveWhitelabel(host));
-/** 기본 ERP 도메인의 공개 카탈로그는 유니오토 임시 채널이 아니라 플랫폼 본체다. */
-const isDefaultPlatformCatalog = (host: string, pathname: string) =>
-  (host === 'freepasserp.com' || host === 'www.freepasserp.com') && pathname === '/catalog';
+const isShopHome = (host: string, pathname: string) => pathname === '/' && homeIsShop(host);
 const LEGACY_SIGN_ORIGIN = 'https://chakhandeal.vercel.app';
 const FREEPASS_TOKEN = /^fps_[A-Za-z0-9_-]+$/;
 const LEGACY_TOKEN = /^[A-Za-z0-9_-]{22}$/;
@@ -43,29 +39,10 @@ export function middleware(request: NextRequest) {
   if (isShopHome(host, request.nextUrl.pathname)) {
     const target = request.nextUrl.clone();
     target.pathname = '/shop';
-    return NextResponse.rewrite(target);
-  }
-
-  /*
-   * 일반 도메인 첫 방문도 공통 화이트라벨 공개 카탈로그로 연다. 직원 로그인은 `/login`에만
-   * 남긴다. 앱 서버의 `/` page를 거치지 않아 폐기된 레거시 DB 초기화로 인한 시간 초과도 피한다.
-   * 채널 도메인은 위의 `/shop` rewrite가 먼저 처리하며, 전자서명 전용 도메인은 아래 전용 분기가
-   * 처리한다.
-   */
-  if (request.nextUrl.pathname === '/' && host !== PUBLIC_SIGN_HOST) {
-    const target = request.nextUrl.clone();
-    target.pathname = '/shop';
-    // 주소는 기본 도메인 루트에 남긴다. 유니오토가 아닌 공통 플랫폼 화이트라벨을 쓴다.
-    target.searchParams.set('wl', 'platform');
     const headers = new Headers(request.headers);
+    headers.set(GUEST_HEADER, '1');
     headers.set(PUBLIC_CATALOG_HEADER, '1');
     return NextResponse.rewrite(target, { request: { headers } });
-  }
-
-  if (isDefaultPlatformCatalog(host, request.nextUrl.pathname)) {
-    const headers = new Headers(request.headers);
-    headers.set(PUBLIC_CATALOG_HEADER, '1');
-    return NextResponse.next({ request: { headers } });
   }
 
   /*
@@ -77,7 +54,7 @@ export function middleware(request: NextRequest) {
    * 레이아웃은 라우트를 모르므로(호스트만 본다) 여기서 한 줄 붙여 준다.
    * ⚠ 업무동에는 안 붙인다 — 콕핏은 우리 화면이라 예전 그대로여야 한다.
    */
-  if (isGuestPath(request.nextUrl.pathname) && !isDefaultPlatformCatalog(host, request.nextUrl.pathname)) {
+  if (isGuestPath(request.nextUrl.pathname)) {
     const headers = new Headers(request.headers);
     headers.set(GUEST_HEADER, '1');
     return NextResponse.next({ request: { headers } });

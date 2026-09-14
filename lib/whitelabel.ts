@@ -21,6 +21,7 @@
  * ⚠ 브랜드명·사업자 표기는 **법적 표기**다. 모르는 값을 지어 넣지 말고 `[대괄호]` 로 비워 둔다 —
  *   비어 있으면 화면에 그대로 보이므로 누가 봐도 「아직 안 채웠다」가 된다.
  */
+import { BRAND_TAGLINE } from '@/lib/brand';
 
 export type Whitelabel = {
   /** 내부 키 — 로그·미리보기(`?wl=`)에 쓴다. */
@@ -38,6 +39,10 @@ export type Whitelabel = {
    * ★호스트 판정(`resolveWhitelabel`)에는 안 쓴다 — 도메인이 붙는 순간 코드 배포 없이 브랜드가 떠야 한다.
    */
   domainReady?: boolean;
+  /** 회사 라벨 없이 가게의 공통 틀만 쓰는 기본 공개 얼굴. */
+  plain?: boolean;
+  /** 라벨이 없는 기본 공개 얼굴의 설명 문구. */
+  headline?: string;
   /**
    * **ERP 도메인 «안»에서 이 채널이 임시로 서 있는 주소** — 도메인이 붙기 전까지만.
    *
@@ -93,29 +98,22 @@ export const FREEPASS: Whitelabel = {
 };
 
 /**
- * 공통 공개 화이트라벨. 유니오토 같은 개별 영업채널이 아니라 freepasserp.com 루트에서
- * 쓰는 플랫폼 간판이다. 호스트에 자동 연결하지 않아 내부 ERP·로그인 화면까지 물들이지 않는다.
- */
-export const PLATFORM_WHITELABEL: Whitelabel = {
-  key: 'platform',
-  hosts: [],
-  name: 'freepasserp.com',
-  wordmark: { main: 'freepass', sub: 'erp.com' },
-  brandColor: '#14263F',
-  tel: '',
-  bizLines: [],
-  notice: {
-    title: '장기렌터카 영업지원 플랫폼',
-    body: '조건과 월 대여료를 비교하고, 원하는 차량을 편하게 찾아보세요.',
-  },
-};
-
-/**
  * 브랜드 표 — 새 영업채널에 사이트를 내주는 일 = **여기 줄 하나 더하기**.
  * 화면 코드는 손대지 않는다. 손대게 되면 그 순간 채널마다 화면이 갈라진다.
  */
 export const WHITELABELS: Whitelabel[] = [
-  PLATFORM_WHITELABEL,
+  {
+    key: 'plain',
+    plain: true,
+    hosts: ['freepasserp.com', 'www.freepasserp.com'],
+    domainReady: true,
+    headline: BRAND_TAGLINE,
+    name: '',
+    wordmark: { main: '', sub: '' },
+    brandColor: '',
+    tel: '',
+    bizLines: [],
+  },
   {
     key: 'uniplan',
     /** ERP 도메인 안의 임시 주소. 도메인이 붙으면 이 줄을 지운다(위 `previewPath` 머리말). */
@@ -224,7 +222,7 @@ export function isGuestPath(pathname: string): boolean {
 }
 
 /** 손님 동이 노브랜드로 떨어졌을 때 입는 **임시 채널**. 도메인이 붙으면 안 쓰인다. */
-export const GUEST_FALLBACK_KEY = 'uniplan';
+export const GUEST_FALLBACK_KEY = 'plain';
 
 /**
  * **손님 동 브랜드 판정** — 호스트 → `?wl=` → **임시 채널**.
@@ -242,7 +240,7 @@ export const GUEST_FALLBACK_KEY = 'uniplan';
  */
 export function resolveGuestWhitelabel(host?: string | null, wlKey?: string | null): Whitelabel {
   const wl = resolveWhitelabel(host, wlKey);
-  if (hasBrand(wl)) return wl;
+  if (hasShopFrame(wl)) return wl;
   return WHITELABELS.find((w) => w.key === GUEST_FALLBACK_KEY) || wl;
 }
 
@@ -251,14 +249,24 @@ export function hasBrand(wl: Whitelabel): boolean {
   return !!wl.name || !!wl.wordmark.main;
 }
 
+export function hasShopFrame(wl: Whitelabel): boolean {
+  return hasBrand(wl) || !!wl.plain;
+}
+
+export function homeIsShop(host?: string | null): boolean {
+  return hasShopFrame(resolveWhitelabel(host));
+}
+
 /**
  * `.fp-wl` 스코프에 얹을 토큰 뒤집기.
  * ★원자에 색을 칠하지 않는다 — `--brand`/`--text-link` 만 바꾸면 `C.brand`·`C.accent` 를 쓰는
  *   원자가 전부 따라온다(globals.css `.fp-topbar .fp-onbar` 와 같은 짜임).
  */
 export function whitelabelVars(wl: Whitelabel): Record<string, string> {
-  if (!wl.brandColor) return {};
+  const ground: Record<string, string> = hasShopFrame(wl) ? { '--bg-page': '#ffffff' } : {};
+  if (!wl.brandColor) return ground;
   return {
+    ...ground,
     '--brand': wl.brandColor,
     '--brand-h': wl.brandColor,
     '--text-link': wl.brandColor,
