@@ -6,11 +6,17 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { readFileSync } from 'node:fs';
 import { captureSalesPublishSnapshot } from '../lib/server/sales-publish-snapshot';
 import { hasInventoryPublicationViolations } from '../lib/domain/inventory-contract';
+import { erp5InventoryAppOptions } from '../lib/server/erp5-inventory-service-account';
 
 const S = (v: unknown) => String(v ?? '').trim();
 const arg = (name: string) => (process.argv.find((value) => value.startsWith(`--${name}=`)) || '').slice(name.length + 3);
-const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
-initializeApp({ credential: cert({ projectId: sa.project_id, clientEmail: sa.client_email, privateKey: S(sa.private_key).replace(/\\n/g, '\n') }) });
+const ERP5 = process.argv.includes('--erp5');
+if (ERP5) {
+  initializeApp(erp5InventoryAppOptions());
+} else {
+  const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
+  initializeApp({ credential: cert({ projectId: sa.project_id, clientEmail: sa.client_email, privateKey: S(sa.private_key).replace(/\\n/g, '\n') }) });
+}
 
 const snapshot = await captureSalesPublishSnapshot(getFirestore());
 const output = arg('out') || `tmp/sales-publish-snapshots/${snapshot.snapshotId}.json`;

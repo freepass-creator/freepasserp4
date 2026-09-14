@@ -45,5 +45,10 @@ assert.match(orchestrator, /VARIABLE \|\| STATUS_ONLY/);
 const reborn = readFileSync(new URL('./ingest-reborncar-to-firestore.mts', import.meta.url), 'utf8');
 assert.match(reborn, /!S\(x\.locked_by_contract\)/);
 assert.match(reborn, /S\(x\.locked_by_contract\) \? x\.vehicle_status : '출고가능'/);
+const workflow = readFileSync(new URL('../.github/workflows/direct-ingest-hourly.yml', import.meta.url), 'utf8');
+assert.match(workflow, /capture-sales-publish-snapshot\.mts --erp5/);
+assert.match(workflow, /make-sample-sheet-google\.mts --main --snapshot=tmp\/erp5-sales-publish\.json/);
+const publisher = readFileSync(new URL('./make-sample-sheet-google.mts', import.meta.url), 'utf8');
+assert.ok(publisher.indexOf('GOOGLE_SHEETS_APPLICATION_CREDENTIALS') < publisher.indexOf('GOOGLE_APPLICATION_CREDENTIALS'));
 
 console.log('PASS: 배차상태 원문 → 정규 상태 한 벌 · 계약잠금 우선순위');

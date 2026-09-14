@@ -25,7 +25,7 @@ const SRC_SHEET = '1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs';   // 기존 �
 const TO_MAIN = process.argv.includes('--main');
 const SAMPLE_SHEET_ID = TO_MAIN ? SRC_SHEET : S(process.env.SAMPLE_SHEET_ID);
 if (!TO_MAIN && !SAMPLE_SHEET_ID) throw new Error('샘플 발행은 SAMPLE_SHEET_ID를 명시해야 한다. 수집 스테이징 시트를 기본값으로 함께 쓰지 않는다.');
-const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
+const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_SHEETS_APPLICATION_CREDENTIALS) || S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 initializeApp({ credential: cert({ projectId: sa.project_id, clientEmail: sa.client_email, privateKey: sa.private_key.replace(/\\n/g, '\n') }) });
 const jwt = new JWT({ email: sa.client_email, key: sa.private_key, scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive'], subject: 'pyh@teamjpk.com' });
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));

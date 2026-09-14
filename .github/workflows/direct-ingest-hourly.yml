@@ -69,6 +69,17 @@ jobs:
           if [ "${{ inputs.status_only }}" = "true" ]; then ARGS+=(--status-only); fi
           if [ "${{ inputs.apply }}" = "true" ]; then ARGS+=(--apply --variable --retire); fi
           npx tsx scripts/ingest-all-suppliers.mts "${ARGS[@]}"
+      - name: ERP5 판매 원자 스냅샷 검수
+        if: ${{ inputs.apply }}
+        env:
+          ERP5_FIREBASE_USE_ADC: 'true'
+          GOOGLE_CLOUD_PROJECT: freepasserp5
+        run: npx tsx scripts/capture-sales-publish-snapshot.mts --erp5 --out=tmp/erp5-sales-publish.json
+      - name: 판매시트 4탭 게시
+        if: ${{ inputs.apply }}
+        env:
+          GOOGLE_SHEETS_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sheets.json
+        run: npx tsx scripts/make-sample-sheet-google.mts --main --snapshot=tmp/erp5-sales-publish.json
       - name: 자격증명 지우기
         if: always()
         run: rm -rf tmp/firebase-auth sonokong/lib/wonja/.손오공계정.json sonokong/lib/wonja/.손오공토큰.json
