@@ -5,7 +5,6 @@
  *   ★ 저장은 여기 말고 master-ingress.commitSupplierProducts (입고 SSOT).
  */
 import { snapToMaster, applySnap, fuelDisplay, fuelEmbeddedCc, type MasterEntry } from '@/lib/domain/vehicle-master-match';
-import { canonSalesTrim } from '@/lib/domain/vehicle-master-options';
 import { applyColors } from '@/lib/domain/color-master';
 import { canonDriveType, type EntityRecord } from '@/lib/intake/entities';
 import { normalizeProductOptionsText, isExactRealPlate, normalizeWonPair } from '@/lib/domain/product';
@@ -1147,12 +1146,6 @@ export function importSheetTable(table: string[][], opts: {
     for (const [field, value] of Object.entries(fromSheet)) {
       if (value) (rec as EntityRecord)[field] = value;
     }
-    rec.trim_name = canonSalesTrim(
-      String(rec.maker ?? ''),
-      String(rec.model ?? ''),
-      String(rec.sub_model ?? ''),
-      String(rec.trim_name ?? ''),
-    );
     /**
      * ★**파워트레인은 스냅이 지어내지 않는다**(사장님 2026-08-22 「정제칸 쓰기로 했는데 왜 아직도 파워트레인이 나오지 ·
      *   예전 거 아예 다 삭제해, 파워트레인 없고 · 정제시트만 바라보는 거야」).

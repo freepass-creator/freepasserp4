@@ -7,8 +7,6 @@
 import type { AdapterIssue, FreepassAtom } from './supplier-adapter';
 import { calculateDepositFromMonthlyRent, resolveAutoplusDepositPolicy } from './deposit-policy';
 import { evaluateEligibility } from './product-eligibility';
-import { resolvePolicyCode } from './supplier-policy-rules';
-import { canonSalesTrim } from './vehicle-master-options';
 
 export type ExportedProduct = Record<string, unknown>;
 
@@ -249,7 +247,7 @@ export function erp5ProductDocumentId(spec: ProductSourceSpec, plate: string): s
   return `${spec.code}__${compact}`;
 }
 
-/** 제공시트·정제시트 원자를 ERP5 공개 상품으로 조합한다. ERP4 products를 복사하지 않는다. */
+/** 어댑터 원자를 공개 상품 칸에 배치한다. ERP4 products를 복사하지 않고, 트림·정책·보증금을 여기서 바꾸지 않는다. */
 export function composeProductFromAtom(
   spec: ProductSourceSpec,
   atom: FreepassAtom,
@@ -261,11 +259,6 @@ export function composeProductFromAtom(
     if (issue.level === 'error') listingReasons.push(`ADAPTER_ERROR:${issue.code}`);
   }
   const uniqueReasons = [...new Set(listingReasons)];
-  const policyCode = resolvePolicyCode({
-    policy_code: atom.policyCode,
-    provider_company_code: spec.partnerCode,
-    product_type: atom.productType,
-  });
   const price = pricesFromAtom(atom);
   const candidate: Record<string, unknown> = {
     car_number: plate,
@@ -276,7 +269,7 @@ export function composeProductFromAtom(
     maker: atom.maker,
     model: atom.model,
     sub_model: atom.subModel,
-    trim_name: canonSalesTrim(atom.maker || '', atom.model || '', atom.subModel || '', atom.trim || ''),
+    trim_name: atom.trim,
     supplier_vehicle_name: atom.rawName,
     year: atom.year,
     mileage: atom.km,
@@ -288,7 +281,7 @@ export function composeProductFromAtom(
     status: atom.status,
     listable: uniqueReasons.length === 0,
     listing_reasons: uniqueReasons,
-    ...(policyCode ? { policy_code: policyCode } : {}),
+    ...(atom.policyCode ? { policy_code: atom.policyCode } : {}),
     ...(price ? { price } : {}),
     adapter_issues: adapterIssues.map((issue) => ({
       level: issue.level,

@@ -191,7 +191,7 @@ test('이안카 조합 원천은 정제시트이지 외부 원본이 아니다',
   assert.equal((composed.data.source_evidence as { supplierCode: string }).supplierCode, 'IANKA');
 });
 
-test('빈 보증금은 0이 아니고, 무보증은 0이며, 정책코드와 G80 기본형을 싣는다', () => {
+test('어댑터는 시트 원자를 변환하지 않고 배치한다', () => {
   const spec = getSupplierSourceSpec('RP004');
   const emptyDep = providedSheetAdapter.adapt({
     차량번호: '104호9572',
@@ -205,9 +205,10 @@ test('빈 보증금은 0이 아니고, 무보증은 0이며, 정책코드와 G80
     정책코드: 'POL-0047',
   }, { supplierCode: spec.code, supplierName: spec.name, spreadsheetId: spec.spreadsheetId, tab: spec.tab });
   assert.equal(emptyDep.atom.longDeposit, undefined);
+  assert.equal(emptyDep.atom.trim, '런칭');
   assert.equal(emptyDep.atom.policyCode, 'POL-0047');
   const composed = composeProductFromAtom(spec, emptyDep.atom);
-  assert.equal(composed.data.trim_name, '기본형');
+  assert.equal(composed.data.trim_name, '런칭', '시트 세부트림을 기본형으로 바꾸지 않는다');
   assert.equal(composed.data.policy_code, 'POL-0047');
   assert.deepEqual(composed.data.price, { '48': { rent: 1_350_000 } });
   assert.equal(Object.prototype.hasOwnProperty.call((composed.data.price as object as Record<string, object>)['48'], 'deposit'), false);
@@ -223,11 +224,14 @@ test('빈 보증금은 0이 아니고, 무보증은 0이며, 정책코드와 G80
     '48개월': '1,350,000',
     장기보증: '무보증',
   });
+  assert.equal(zeroDep.atom.trim, '기본형');
   assert.equal(zeroDep.atom.longDeposit, 0);
-  assert.deepEqual(composeProductFromAtom(spec, zeroDep.atom).data.price, { '48': { rent: 1_350_000, deposit: 0 } });
+  const placed = composeProductFromAtom(spec, zeroDep.atom);
+  assert.equal(placed.data.trim_name, '기본형');
+  assert.deepEqual(placed.data.price, { '48': { rent: 1_350_000, deposit: 0 } });
 });
 
-test('손오공 렌트 빈 정책코드는 규칙이 채운다', () => {
+test('시트에 없는 정책코드는 규칙으로 채우지 않는다', () => {
   const spec = getSupplierSourceSpec('SONOGONG_RENT');
   const adapted = providedSheetAdapter.adapt({
     차량번호: '12가9999',
@@ -237,7 +241,7 @@ test('손오공 렌트 빈 정책코드는 규칙이 채운다', () => {
     '36개월': '700,000',
   });
   const composed = composeProductFromAtom(spec, adapted.atom);
-  assert.equal(composed.data.policy_code, 'POL-0046');
+  assert.equal(composed.data.policy_code, undefined);
 });
 
 test('손님 카탈로그는 빈 보증금을 0으로 접지 않고 화이트라벨과 같은 원자를 쓴다', () => {

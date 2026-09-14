@@ -124,8 +124,8 @@ export function publicPolicy(policy: Rec | null | undefined): Rec | null {
 }
 
 /**
- * 매물에 **이미 적힌** 정책코드로 풀에서 찾는다. 화면에서 규칙을 돌리지 않는다.
- * 빈칸 채우기는 입고(어댑터·compose)에서 한 번만.
+ * 매물에 **이미 적힌** 정책코드로 풀에서 찾는다.
+ * 시트 원자를 화면에서 규칙으로 바꾸지 않는다.
  */
 export function policyForGuestProduct(product: Rec, policies: Record<string, Rec>): Rec | null {
   const code = S(product.policy_code);
