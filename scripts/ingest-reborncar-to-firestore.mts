@@ -198,7 +198,8 @@ console.log('매칭 차 중 reborncar 로 «채울 수 있는» 빈칸:', JSON.s
 
 if (!APPLY) {
   console.log('\n미리보기(dry-run). 반영 = --apply: 현재 게시 차 갱신 + 사라진 기존 차 출고불가 + 신규 등록대기.');
-  process.exit(0);
+  if (fail > 0) console.error(`  ✗ 리본카 상세조회 ${fail}건 실패 — 전수 원천 검증 미통과.`);
+  process.exit(fail > 0 ? 1 : 0);
 }
 if (fail > 0) {
   throw new Error(`리본카 상세조회 ${fail}건 실패 — 불완전한 목록으로 기존 차량을 출고불가 처리할 수 없어 전체 반영을 중단합니다.`);

@@ -27,10 +27,10 @@ if (ONLY.length) targets = targets.filter((c) => ONLY.includes(c));
 console.log(`■ 직접수집 오케스트레이터 ${APPLY ? '반영' : '미리보기'} — 공급사 ${targets.length}곳${VARIABLE ? ' (변동만)' : ''}: ${targets.join(' · ')}\n`);
 
 const RATE = /\b429\b|\b50[0234]\b|rate.?limit|quota|UNAVAILABLE|ECONNRESET|socket hang up/i;
-const runOne = (code: string): { ok: boolean; line: string } => {
+const runOne = (code: string, apply: boolean): { ok: boolean; line: string } => {
   const args = code === 'RP023'
-    ? [TSX_CLI, '--require', SHIM, REBORN, ...(APPLY ? ['--apply'] : [])]
-    : [TSX_CLI, '--require', SHIM, INGEST, `--code=${code}`, ...(APPLY ? ['--apply'] : []), ...(VARIABLE ? ['--variable'] : []), ...(RETIRE ? ['--retire'] : [])];
+    ? [TSX_CLI, '--require', SHIM, REBORN, ...(apply ? ['--apply'] : [])]
+    : [TSX_CLI, '--require', SHIM, INGEST, `--code=${code}`, ...(apply ? ['--apply'] : []), ...(apply && VARIABLE ? ['--variable'] : []), ...(apply && RETIRE ? ['--retire'] : [])];
   for (let attempt = 1; attempt <= 2; attempt++) {
     const r = spawnSync(process.execPath, args, { encoding: 'utf8', env: process.env, maxBuffer: 64 * 1024 * 1024, timeout: 10 * 60_000 });
     const out = `${r.stdout || ''}\n${r.stderr || ''}`;
@@ -46,11 +46,24 @@ const runOne = (code: string): { ok: boolean; line: string } => {
   return { ok: false, line: 'Error' };
 };
 
-let ok = 0, fail = 0;
-for (const code of targets) {
-  const r = runOne(code);
-  console.log(`${r.ok ? '✓' : '✗'} ${code.padEnd(8)} ${r.line}`);
-  if (r.ok) ok++; else fail++;
+const runPhase = (apply: boolean, label: string): number => {
+  let ok = 0, fail = 0;
+  console.log(`\n── ${label} ──`);
+  for (const code of targets) {
+    const r = runOne(code, apply);
+    console.log(`${r.ok ? '✓' : '✗'} ${code.padEnd(8)} ${r.line}`);
+    if (r.ok) ok++; else fail++;
+  }
+  console.log(`■ ${label} 끝 — 성공 ${ok} · 실패 ${fail} / ${targets.length}`);
+  return fail;
+};
+
+if (APPLY) {
+  const preflightFailures = runPhase(false, '사전검사(쓰기 0건)');
+  if (preflightFailures > 0) {
+    console.error('■ 반영 중단 — 모든 원천이 사전검사를 통과해야 Firestore 쓰기를 시작합니다.');
+    process.exit(1);
+  }
 }
-console.log(`\n■ 끝 — 성공 ${ok} · 실패 ${fail} / ${targets.length}`);
-process.exit(fail > 0 ? 1 : 0);
+const failures = runPhase(APPLY, APPLY ? '반영' : '미리보기');
+process.exit(failures > 0 ? 1 : 0);
