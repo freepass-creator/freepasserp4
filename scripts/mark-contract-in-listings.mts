@@ -224,10 +224,10 @@ if (missing.length) console.log(`\n  · 공급사 시트에서 못 찾은 차 ${
 
 const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
 writeFileSync(`tmp/mark-contract-${stamp}.json`, JSON.stringify({ edits, held, missing }, null, 2));
-if (!APPLY) { console.log('\n※ dry-run — 아무것도 안 썼다. 반영은 --apply\n'); process.exit(0); }
-
-for (const { id, data } of supplierData) await api(`${SH}/${id}/values:batchUpdate`, { method: 'POST', body: JSON.stringify({ valueInputOption: 'RAW', data }) });
-if (salesData.length) await api(`${SH}/${SALES_SHEET_ID}/values:batchUpdate`, { method: 'POST', body: JSON.stringify({ valueInputOption: 'RAW', data: salesData }) });
+if (APPLY) {
+  for (const { id, data } of supplierData) await api(`${SH}/${id}/values:batchUpdate`, { method: 'POST', body: JSON.stringify({ valueInputOption: 'RAW', data }) });
+  if (salesData.length) await api(`${SH}/${SALES_SHEET_ID}/values:batchUpdate`, { method: 'POST', body: JSON.stringify({ valueInputOption: 'RAW', data: salesData }) });
+}
 
 /**
  * ★★**원자에도 세운다 — 이제 원자가 정본이다.**
@@ -274,27 +274,30 @@ let 원자칸 = 0, 원자안덮음 = 0;
     if (센말(now) > 센말(to)) { 원자안덮음++; continue; }   // 더 센 말이 이미 있다 — 안 덮는다
     picks.push({ ref: d.ref, to });
   }
-  for (let i = 0; i < picks.length; i += 400) {
-    const batch = fsdb.batch();
-    for (const e of picks.slice(i, i + 400)) {
-      batch.set(e.ref, {
-        vehicle_status: e.to, status: e.to,
-        status_kind: e.to === '출고불가' ? '불가' : '선점',
-        listable: e.to !== '출고불가',
-        status_reason: '정산원장',
-        locked_by_contract: '정산원장',   // ★계약잠금 — 직접수집이 못 덮게
-        _ledger_status_at: Date.now(),
-      }, { merge: true });
-      원자칸++;
+  원자칸 = picks.length;
+  if (APPLY) {
+    for (let i = 0; i < picks.length; i += 400) {
+      const batch = fsdb.batch();
+      for (const e of picks.slice(i, i + 400)) {
+        batch.set(e.ref, {
+          vehicle_status: e.to, status: e.to,
+          status_kind: e.to === '출고불가' ? '불가' : '선점',
+          listable: e.to !== '출고불가',
+          status_reason: '정산원장',
+          locked_by_contract: '정산원장',   // ★계약잠금 — 직접수집이 못 덮게
+          _ledger_status_at: Date.now(),
+        }, { merge: true });
+      }
+      await batch.commit();
     }
-    await batch.commit();
+    for (let i = 0; i < 해제.length; i += 400) {
+      const batch = fsdb.batch();
+      for (const ref of 해제.slice(i, i + 400)) batch.update(ref, { locked_by_contract: FieldValue.delete(), _ledger_unlocked_at: Date.now() });
+      await batch.commit();
+    }
   }
-  for (let i = 0; i < 해제.length; i += 400) {
-    const batch = fsdb.batch();
-    for (const ref of 해제.slice(i, i + 400)) batch.update(ref, { locked_by_contract: FieldValue.delete(), _ledger_unlocked_at: Date.now() });
-    await batch.commit();
-  }
-  if (해제.length) console.log(`   계약 풀린 ${해제.length}대의 정산원장 잠금 해제.`);
+  if (해제.length) console.log(`   계약 풀린 ${해제.length}대의 정산원장 잠금 ${APPLY ? '해제' : '해제 예정'}.`);
 }
-console.log(`   원자 ${원자칸}대에 같은 상태·계약잠금을 세웠다${원자안덮음 ? ` · 더 센 말이 있어 안 덮은 차 ${원자안덮음}` : ''}.`);
+console.log(`   원자 ${원자칸}대에 같은 상태·계약잠금을 ${APPLY ? '세웠다' : '세울 예정'}${원자안덮음 ? ` · 더 센 말이 있어 안 덮은 차 ${원자안덮음}` : ''}.`);
+if (!APPLY) console.log('\n※ dry-run — 아무것도 안 썼다. 반영은 --apply');
 console.log(`\n■ 끝 — 공급사 ${supplierData.reduce((n, x) => n + x.data.length, 0)}칸 · 상품리스트 ${salesData.length}칸을 세웠다.\n`);
