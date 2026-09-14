@@ -30,7 +30,7 @@ const publishers = [
   'scripts/publish-vehicle-master-to-erp5-firestore.mts',
 ];
 for (const path of publishers) {
-  requireText(path, "process.env.ERP5_FIREBASE_PROJECT_ID || 'erp5-3e2fc'", 'ERP5 대상 프로젝트 기본값 없음');
+  requireText(path, "process.env.ERP5_FIREBASE_PROJECT_ID || 'freepasserp5'", 'ERP5 대상 프로젝트 기본값 없음');
   requireText(path, 'ERP5_FIREBASE_WRITER_SERVICE_ACCOUNT_JSON', 'ERP5 전용 writer 자격증명 없음');
   requireText(path, 'targetAccount.project_id !== TARGET_PROJECT_ID', 'ERP5 credential/project 일치 검사 없음');
   requireText(path, 'targetAccount.project_id === googleAccount.project_id', 'Google 조회/ERP5 대상 동일 프로젝트 차단 없음');
@@ -51,7 +51,7 @@ for (const path of ['match /ssotState/{name}', 'match /productMasterVersions/{ve
   if (!rules.includes(path)) failures.push(`firestore.erp5.rules: ${path} 경계 없음`);
 }
 requireText('firebase.erp5.json', 'firestore.erp5.rules', 'ERP5 규칙 config가 독립 규칙을 가리키지 않음');
-for (const token of ['--config firebase.erp5.json', '--project erp5-3e2fc', '--only firestore:rules']) {
+for (const token of ['--config firebase.erp5.json', '--project freepasserp5', '--only firestore:rules']) {
   requireText('docs/ERP5-FIRESTORE-SSOT.md', token, 'ERP3 기본 프로젝트를 피하는 ERP5 Rules 명시 배포 절차 없음');
 }
 
