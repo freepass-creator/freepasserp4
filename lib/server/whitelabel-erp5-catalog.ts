@@ -3,6 +3,22 @@ import 'server-only';
 import { erp5Firestore, erp5WhitelabelCutoverRequested } from './erp5-firestore-app';
 
 type Rec = Record<string, any>;
+const READ_TIMEOUT_MS = 5_000;
+
+/** 공개 화면은 데이터 원본이 늦어도 서버리스 시간 초과까지 기다리지 않는다. */
+async function readWithin<T>(work: Promise<T>, label: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      work,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error(`ERP5 Firestore ${label} 읽기 시간 초과`)), READ_TIMEOUT_MS);
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
 
 /**
  * 화이트라벨 공개 카탈로그 전용 ERP5 reader.
@@ -26,10 +42,10 @@ export async function readWhitelabelCatalogFromErp5(): Promise<{
   }
   const db = erp5Firestore();
   const [productSnap, policySnap, partnerSnap, userSnap] = await Promise.all([
-    db.collection('products').get(),
-    db.collection('policy').get(),
-    db.collection('partner').get(),
-    db.collection('user').get(),
+    readWithin(db.collection('products').get(), 'products'),
+    readWithin(db.collection('policy').get(), 'policy'),
+    readWithin(db.collection('partner').get(), 'partner'),
+    readWithin(db.collection('user').get(), 'user'),
   ]);
   const asMap = (snapshot: { docs: Array<{ id: string; data: () => Rec }> }) => Object.fromEntries(
     snapshot.docs.map((document) => {

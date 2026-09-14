@@ -103,7 +103,7 @@ export default function Catalog() {
         <span style={{ fontSize: FS.sub, color: C.mute }}>{list.length}대</span>
       </div>
 
-      {list.length === 0 ? <CenterNote>조건에 맞는 차량이 없습니다.</CenterNote> : (
+      {list.length === 0 ? <CenterNote>현재 표시할 상품이 없습니다.</CenterNote> : (
         <>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: 12 }}>
             {shown.map((p) => <ProductCard key={String(p.product_code)} p={p} audience="customer" href={href(p)} />)}
