@@ -10,7 +10,7 @@ import { createSignToken } from '@/lib/domain/sign';
 import { hasTermFrozen } from '@/lib/domain/contract';
 import { vehicleNameOf } from '@/lib/domain/vehicle-name';
 import { businessRegistrationNumberOf } from '@/lib/domain/business-identity';
-import { applyPolicyDefaults } from '@/lib/domain/policy-defaults';
+import { resolveExplicitContractPolicy } from '@/lib/domain/policy-resolution';
 import { canonProductType } from '@/lib/domain/product';
 import { handoverStartOf, rentalPeriodEnd, rentalPeriodText } from '@/lib/domain/rental-period';
 
@@ -75,9 +75,12 @@ export async function buildContractPayload(contractCode: string): Promise<{
 
   const polCode = String(product?.policy_code || contract.policy_code || '');
   const policies = polCode ? await store.list('policy', co) : [];
-  const pol = applyPolicyDefaults(
-    (policies.find((t) => String(t.policy_code || t._key) === polCode) || {}) as EntityRecord,
-  ).next as EntityRecord;
+  const policyResolution = resolveExplicitContractPolicy(policies as EntityRecord[], polCode);
+  if (!policyResolution.policy) {
+    throw new Error(`정책 원장을 확인할 수 없어 계약 발행을 보류합니다 (${policyResolution.status})`);
+  }
+  // 계약에도 Firestore 정책 원장에 저장된 값만 봉인한다. 빈 값을 코드 기본값으로 만들지 않는다.
+  const pol = policyResolution.policy as EntityRecord;
 
   const provCode = String(product?.provider_company_code || product?.partner_code || contract.provider_company_code || '');
   const partners = provCode ? await store.list('partner', co) : [];
