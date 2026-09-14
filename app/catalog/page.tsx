@@ -85,7 +85,7 @@ export default function Catalog() {
   if (rows === null) return <ProductCardSkeleton count={6} />;
 
   return (
-    <main style={{ maxWidth: 1000, margin: '0 auto', padding: '18px 16px 28px' }}>
+    <main style={{ width: '100%', maxWidth: 1000, boxSizing: 'border-box', margin: '0 auto', padding: '18px 16px 28px' }}>
       {/* 화이트라벨 — ?p= 로 공급사를 지정하면 그 회사 이름이 머리글이 된다. */}
       <div style={{ fontSize: FS.sub, color: C.mute, letterSpacing: '0.04em' }}>{brand || '차량 렌탈'}</div>
       <h1 style={{ fontSize: FS.page, fontWeight: FW.title, letterSpacing: '-0.02em', margin: '4px 0 12px' }}>조건별 차량 찾기</h1>
