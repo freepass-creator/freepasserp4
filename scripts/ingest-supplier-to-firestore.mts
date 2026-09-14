@@ -198,8 +198,8 @@ const depositNote = (raw: string) => {
 };
 
 // ── 원천 리더 — 종류마다 «우리필드 키 행(Row)»을 낸다. 원자화는 하나로 공유한다. ──────
-type Row = { car: string; link?: string; imageUrls?: unknown; photoCollectedAt?: unknown; rawDescription?: string; rawPaidOptions?: unknown; optionSource?: string; status: string; kind: string; maker: string; model: string; vname: string; trim: string; fuel: string; ext: string; int: string; km: string; opt: string; firstReg: string; cc: string; klass: string; price: Price; depNote: string; tab: string; row: string };
-const blank: Omit<Row, 'car' | 'tab' | 'row'> = { status: '', kind: '', maker: '', model: '', vname: '', trim: '', fuel: '', ext: '', int: '', km: '', opt: '', rawDescription: '', rawPaidOptions: null, optionSource: '', firstReg: '', cc: '', klass: '', price: {}, depNote: '', imageUrls: [], photoCollectedAt: 0 };
+type Row = { car: string; link?: string; rawLink?: string; imageUrls?: unknown; photoCollectedAt?: unknown; rawDescription?: string; rawPaidOptions?: unknown; rawMirroredPaidOptions?: unknown; rawOptionEvidence?: unknown; optionSource?: string; status: string; kind: string; maker: string; model: string; vname: string; trim: string; fuel: string; ext: string; int: string; km: string; opt: string; firstReg: string; cc: string; klass: string; price: Price; depNote: string; tab: string; row: string };
+const blank: Omit<Row, 'car' | 'tab' | 'row'> = { status: '', kind: '', maker: '', model: '', vname: '', trim: '', fuel: '', ext: '', int: '', km: '', opt: '', rawDescription: '', rawPaidOptions: null, rawMirroredPaidOptions: null, rawOptionEvidence: null, optionSource: '', firstReg: '', cc: '', klass: '', price: {}, depNote: '', imageUrls: [], photoCollectedAt: 0 };
 
 // 번호판 꼴만 차로 본다 — 헤더 밑 제목·프로모 배너·빈 행이 «차»로 새는 걸 막는다(오토플러스 실측).
 const isPlate = (s: string) => /\d{2,3}\s*[가-힣]\s*\d{4}/.test(S(s));
@@ -300,7 +300,8 @@ async function readRows(): Promise<Row[]> {
        * 손오공 설명문은 옵션 근거가 아니다. TCAR_EXTERNAL 상세의 `tcarPaidOptions`만 사용한다.
        */
       const 선택옵션 = S(c.유료옵션);
-      push({ car, link: 픽업링크.get(N(car)) || '', imageUrls: c.사진들, photoCollectedAt: c.상세시각 || dumpCollectedAt, rawDescription: S(c.설명), rawPaidOptions: c.유료옵션원문, optionSource: S(c.유료옵션출처), status, kind, maker: S(c.제조사), model: S(c.모델), vname: S(c.차명) || S(c.세부), fuel: S(c.연료), ext: S(c.외장), int: S(c.내장), km: c.주행거리 == null ? '' : String(c.주행거리), opt: 선택옵션, firstReg: S(c.최초등록) || S(c.연식), cc: c.배기량 == null ? '' : String(c.배기량), klass: '', price, tab: '손오공API', row: S(c.id) });
+      const 상세링크 = /^https?:\/\/.*(?:lotte|tcar|mycarsave)/i.test(S(c.상세url)) ? S(c.상세url) : '';
+      push({ car, link: 상세링크, rawLink: S(c.상세url원문), imageUrls: c.사진들, photoCollectedAt: c.상세시각 || dumpCollectedAt, rawDescription: S(c.설명), rawPaidOptions: c.유료옵션원문, rawMirroredPaidOptions: c.손오공유료옵션원문, rawOptionEvidence: c.유료옵션근거, optionSource: S(c.유료옵션출처), status, kind, maker: S(c.제조사), model: S(c.모델), vname: S(c.차명) || S(c.세부), fuel: S(c.연료), ext: S(c.외장), int: S(c.내장), km: c.주행거리 == null ? '' : String(c.주행거리), opt: 선택옵션, firstReg: S(c.최초등록) || S(c.연식), cc: c.배기량 == null ? '' : String(c.배기량), klass: '', price, tab: '손오공API', row: S(c.id) });
     }
     return out;
   }
@@ -454,11 +455,23 @@ function atomize(row: Row, pinned: Map<string, Record<string, unknown>>): Atom {
   //   원자의 트림은 오직 둘 — 마스터 트림 복사, 또는 공란. 공란인 차는 clean-atom-trims 정규화기 뒤 경고 리포트가 뽑는다.
   identity.trim_name = cleanTrim(identity.trim_name, identity.maker, identity.model, identity.sub_model, trimsFor(identity.maker, identity.model, identity.sub_model));
   const rawEvidence = mergeRawPhotoEvidence(pin?.원문, row.imageUrls);
+  // 손오공 옵션 증거는 매 회차 현재 티카 대조 결과로 갈아 끼운다. 과거 값은 아래 격리 단계가 보존한다.
+  if (src.kind === 'sonokong') {
+    delete rawEvidence.옵션;
+    delete rawEvidence.옵션출처;
+    delete rawEvidence.티카유료옵션;
+    delete rawEvidence.손오공티카유료옵션;
+    delete rawEvidence.옵션근거;
+    delete rawEvidence.티카링크원문;
+  }
   rawEvidence.차명 = vname;
   if (row.opt) rawEvidence.옵션 = row.opt;
   if (row.rawDescription) rawEvidence.차량설명 = row.rawDescription;
   if (row.optionSource) rawEvidence.옵션출처 = row.optionSource;
   if (Array.isArray(row.rawPaidOptions)) rawEvidence.티카유료옵션 = row.rawPaidOptions;
+  if (Array.isArray(row.rawMirroredPaidOptions)) rawEvidence.손오공티카유료옵션 = row.rawMirroredPaidOptions;
+  if (row.rawOptionEvidence && typeof row.rawOptionEvidence === 'object') rawEvidence.옵션근거 = row.rawOptionEvidence;
+  if (row.rawLink) rawEvidence.티카링크원문 = row.rawLink;
   const atom: Atom = {
     car_number: car,
     maker: identity.maker, model: identity.model, sub_model: identity.sub_model, trim_name: identity.trim_name, origin: identity.origin, ...spec, engine_cc: evEngineCc(S(spec.fuel_type), S(spec.engine_cc)),
@@ -475,6 +488,10 @@ function atomize(row: Row, pinned: Map<string, Record<string, unknown>>): Atom {
      */
     ...(S(row.status) || !pin ? statusDetail(row.status, pin?.locked_by_contract, pin?.vehicle_status) : null),
     mileage: row.km, options: row.opt,
+    ...(src.kind === 'sonokong' ? {
+      option_evidence_status: row.optionSource === 'tcarPaidOptions' ? 'PASS' : 'HOLD',
+      option_evidence_reason: row.optionSource === 'tcarPaidOptions' ? '' : '동일 차량번호의 티카 유료옵션 원문 미확인',
+    } : null),
     ...(rawSeats(vname) ? { seats: rawSeats(vname) } : null),   // 원문에 인승 있으면만
     ...(Object.keys(row.price).length ? { price: row.price } : null),
     ...(row.depNote ? { deposit_note: row.depNote } : null),   // 「무보증」처럼 «말»로 적힌 보증금 — 빈칸으로 두지 않는다
@@ -641,7 +658,8 @@ if (VARIABLE) {
        *   상태·주행·요금이 그대로인 차는 여기서 `continue` 되어 **링크가 한 대도 안 박혔다**(0/228).
        *   쓸 목록과 견줄 목록이 갈리면 「넣었는데 안 들어간다」가 된다.
        */
-      const lMoved = !STATUS_ONLY && S(a.tica_link) !== '' && S(a.tica_link) !== S(c.tica_link);
+      const lMoved = !STATUS_ONLY && S(a.tica_link) !== S(c.tica_link)
+        && (src.kind === 'sonokong' || S(a.tica_link) !== '');
       const photoMoved = !STATUS_ONLY && Array.isArray(a.image_urls) && a.image_urls.length > 0
         && jsonSorted(a.image_urls) !== jsonSorted(c.image_urls);
       /**
@@ -665,11 +683,19 @@ if (VARIABLE) {
         S(새원문.차량설명) !== S(옛원문.차량설명)
         || S(새원문.옵션출처) !== S(옛원문.옵션출처)
         || jsonSorted(새원문.티카유료옵션) !== jsonSorted(옛원문.티카유료옵션)
+        || jsonSorted(새원문.손오공티카유료옵션) !== jsonSorted(옛원문.손오공티카유료옵션)
+        || jsonSorted(새원문.옵션근거) !== jsonSorted(옛원문.옵션근거)
+        || S(새원문.티카링크원문) !== S(옛원문.티카링크원문)
       );
       if (!sMoved && !mMoved && !pMoved && !lMoved && !photoMoved && !oMoved && !rawMoved) continue;
       const upd: Record<string, unknown> = { _var_polled_at: Date.now() };
       for (const f of VAR_FIELDS) if (a[f] !== undefined && a[f] !== '') upd[f] = a[f];
+      if (lMoved && src.kind === 'sonokong') upd.tica_link = S(a.tica_link);
       if (oMoved) { upd.options = S(a.options); }
+      if (옵션갈이 && (oMoved || rawMoved)) {
+        upd.option_evidence_status = S(새원문.옵션출처) === 'tcarPaidOptions' ? 'PASS' : 'HOLD';
+        upd.option_evidence_reason = S(새원문.옵션출처) === 'tcarPaidOptions' ? '' : '동일 차량번호의 티카 유료옵션 원문 미확인';
+      }
       /**
        * ⚠⚠ **시트가 읽는 칸은 `options` 가 아니라 «원문.옵션»이다**(`sales-atom-row` 「옵션(원문)」).
        *   실측 2026-09-10 — `options` 만 갈았더니 원자는 비었는데 **시트는 옛 45줄을 그대로 찍었다.**
@@ -687,6 +713,9 @@ if (VARIABLE) {
           if (S(새원문.차량설명)) m.차량설명 = S(새원문.차량설명); else delete m.차량설명;
           if (S(새원문.옵션출처)) m.옵션출처 = S(새원문.옵션출처); else delete m.옵션출처;
           if (Array.isArray(새원문.티카유료옵션)) m.티카유료옵션 = 새원문.티카유료옵션; else delete m.티카유료옵션;
+          if (Array.isArray(새원문.손오공티카유료옵션)) m.손오공티카유료옵션 = 새원문.손오공티카유료옵션; else delete m.손오공티카유료옵션;
+          if (새원문.옵션근거 && typeof 새원문.옵션근거 === 'object') m.옵션근거 = 새원문.옵션근거; else delete m.옵션근거;
+          if (S(새원문.티카링크원문)) m.티카링크원문 = S(새원문.티카링크원문); else delete m.티카링크원문;
         }
         return mergeRawPhotoEvidence(m, photoMoved ? ((a.원문 as Record<string, unknown> | undefined)?.사진 as unknown[]) || a.image_urls : []);
       })() : null;
@@ -710,6 +739,7 @@ if (VARIABLE) {
    */
   if (!STATUS_ONLY && 픽업링크.size) {
     const 더 = [...cur.values()].filter((c) => {
+      if (ingestedCars.has(S(c.car_number))) return false;
       const l = 픽업링크.get(N(c.car_number));
       return !!l && S(c.tica_link) !== l;
     });

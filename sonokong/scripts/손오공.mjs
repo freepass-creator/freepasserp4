@@ -9,13 +9,13 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { 버킷, pullAll, view, viewAgent, lotteSpec, mapPool, 남은시간h } from '../lib/sonokong.mjs';
-import { tcarPaidOptionNames } from '../lib/option-normalizer.mjs';
+import { 버킷, pullAll, view, viewAgent, lotteSpec, findTcarSaleByPlate, mapPool, 남은시간h } from '../lib/sonokong.mjs';
+import { normalizePlate, tcarPaidOptionNames } from '../lib/option-normalizer.mjs';
 
 const 루트 = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const 출력 = path.join(루트, 'lib', 'wonja', '손오공차량.json');
 const 조용 = process.argv.includes('--조용');
-const 캐시규격 = 'tcar-paid-options-only-v1';
+const 캐시규격 = 'tcar-direct-paid-options-v2';
 const N = (n) => (n == null ? '' : Number(n).toLocaleString('ko-KR'));
 const 날 = (s) => (s ? String(s).slice(0, 10) : '');
 
@@ -44,7 +44,14 @@ function 월납뽑기(estimates) {
 
 function 정규화(r, d, 버킷값) {
   const opts = (d?.options || []).filter((o) => o.isApplied).map((o) => o.optionName);
-  const 유료 = tcarPaidOptionNames(d?.tcarPaidOptions);
+  const 티카직접원문 = d?.__lotte?.__paidOptList;
+  const 티카직접확인 = Array.isArray(티카직접원문);
+  // 표시값은 번호판까지 대조한 티카 상세 원문만. 손오공의 미러 필드는 원문으로만 보존한다.
+  const 원문유료옵션 = 티카직접확인 ? 티카직접원문 : null;
+  const 유료 = tcarPaidOptionNames(원문유료옵션);
+  const 정제 = d?.__lotte
+    ? Object.fromEntries(Object.entries(d.__lotte).filter(([key]) => !key.startsWith('__')))
+    : null;
   return {
     버킷: 버킷값,                     // SON_NO_KONG | TCAR_EXTERNAL
     id: r.id, hashId: r.hashId,
@@ -67,12 +74,26 @@ function 정규화(r, d, 버킷값) {
     계약중: r.hasActiveContract === true,
     옵션: opts.join(', '),
     유료옵션: 유료,
-    유료옵션출처: Array.isArray(d?.tcarPaidOptions) ? 'tcarPaidOptions' : null,
-    유료옵션원문: d?.tcarPaidOptions ?? null,
+    유료옵션출처: 티카직접확인 ? 'tcarPaidOptions' : null,
+    유료옵션원문: 원문유료옵션 ?? null,
+    손오공유료옵션원문: d?.tcarPaidOptions ?? null,
+    유료옵션근거: 티카직접확인 ? {
+      원천: 'tcar:jsonData.paidOptList',
+      매칭: d?.__tcarMatchType || '원천상세URL',
+      티카url: d?.__tcarOptionUrl || d?.carSourceUrl || null,
+      티카차번: d?.__lotte?.__plateNumber || null,
+      티카carId: d?.__lotte?.__carId || null,
+    } : ((Array.isArray(d?.tcarPaidOptions) || d?.__sourceUrlRaw) ? {
+      원천: Array.isArray(d?.tcarPaidOptions) ? 'sokrc:tcarPaidOptions' : null,
+      상태: 'HOLD',
+      사유: '동일 차량번호의 현재 티카 상세 원문 미확인',
+      티카링크원문: d?.__sourceUrlRaw || null,
+    } : null),
     설명: d?.carDescription ?? null,
     사진들: (d?.images || []).sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)).map((im) => im.imageUrl).filter(Boolean),
-    상세url: /^https?:\/\//.test(String(d?.carSourceUrl || '')) ? d.carSourceUrl : null, // T카=롯데 상세페이지(전 사진), SON=없음
-    정제: d?.__lotte || null, // T카 롯데 정제값(차종·내장·구동·인승·변속·세부트림 등). SON은 null(차종마스터 팀 담당)
+    상세url: /^https?:\/\//.test(String(d?.carSourceUrl || '')) ? d.carSourceUrl : null, // 번호판까지 검증된 티카 상세만
+    상세url원문: /^https?:\/\//.test(String(d?.__sourceUrlRaw || '')) ? d.__sourceUrlRaw : null,
+    정제, // T카 롯데 정제값(차종·내장·구동·인승·변속·세부트림 등)
     썸네일: r.thumbnail || null,
     월납: r.monthlyPrice || null,
     저신용월납: (() => { const e = 월납뽑기(d?.estimates); return (e.SUBSCRIBE_RETURN || e.SUBSCRIBE_BUYOUT) ? e : (r.lowCreditMonthlyPrices || null); })(), // 상세 estimates 우선(인수형 12·24 포함), 없으면 목록
@@ -102,9 +123,31 @@ async function main() {
       if (!풀 && c && c.상세시각 && (지금 - c.상세시각) < 신선) return { cached: c };
       const d = await view(r.id).catch(() => null);
       const a = await viewAgent(r.id).catch(() => null); // carSourceUrl(원본 상세페이지)
-      const url = a?.carSourceUrl;
-      if (d && url) d.carSourceUrl = url;
-      if (d && /lotterentacar/.test(String(url || ''))) d.__lotte = await lotteSpec(url).catch(() => null); // T카 정제값
+      const sourceUrlRaw = /lotterentacar/.test(String(a?.carSourceUrl || '')) ? a.carSourceUrl : null;
+      let url = sourceUrlRaw;
+      let spec = url ? await lotteSpec(url).catch(() => null) : null;
+      let matchType = '원천상세URL';
+      // URL은 carId만 같다고 믿지 않는다. 상세 원문의 번호판이 현재 손오공 차량번호와 같아야 한다.
+      if (!spec || normalizePlate(spec.__plateNumber) !== normalizePlate(r.carNumber)) {
+        const match = await findTcarSaleByPlate(r.carNumber).catch(() => null);
+        if (match) {
+          url = match.url;
+          spec = await lotteSpec(url).catch(() => null);
+          matchType = '차량번호';
+        } else {
+          url = null;
+          spec = null;
+        }
+      }
+      // 재검색 결과도 번호판이 정확히 같을 때만 옵션·링크를 채택한다.
+      if (spec && normalizePlate(spec.__plateNumber) !== normalizePlate(r.carNumber)) { url = null; spec = null; }
+      if (d) d.__sourceUrlRaw = sourceUrlRaw;
+      if (d && url && spec) {
+        d.carSourceUrl = url;
+        d.__lotte = spec; // T카 정제값 + jsonData.paidOptList 원문
+        d.__tcarOptionUrl = url;
+        d.__tcarMatchType = matchType;
+      }
       return { d };
     }, 8);
     let 신규 = 0, 재사용 = 0;
@@ -140,13 +183,14 @@ async function main() {
   if (!조용) {
     console.log(`\n✅ 총 ${차량.length}대 → ${출력}`);
     console.log(`   토큰 남은 약 ${남은시간h().toFixed(1)}h`);
-    const 옵션있음 = 차량.filter((c) => c.옵션).length;
+    const 기본옵션있음 = 차량.filter((c) => c.옵션).length;
+    const 유료옵션있음 = 차량.filter((c) => c.유료옵션).length;
     const 사진있음 = 차량.filter((c) => c.사진들?.length).length;
     const 가격있음 = 차량.filter((c) => c.차량가격).length;
-    console.log(`   옵션 ${옵션있음} · 사진 ${사진있음} · 차량가격 ${가격있음}`);
+    console.log(`   기본옵션(미사용) ${기본옵션있음} · 티카 유료옵션 ${유료옵션있음} · 사진 ${사진있음} · 차량가격 ${가격있음}`);
     console.log('\n   샘플:');
     for (const c of 차량.slice(0, 2)) {
-      console.log(`   - ${c.차번} ${c.차명} | ${N(c.차량가격)}원 | 사진 ${c.사진들?.length || 0}장 | 옵션 ${c.옵션 ? c.옵션.slice(0, 40) + '…' : '없음'}`);
+      console.log(`   - ${c.차번} ${c.차명} | ${N(c.차량가격)}원 | 사진 ${c.사진들?.length || 0}장 | 유료옵션 ${c.유료옵션 ? c.유료옵션.slice(0, 40) + '…' : '없음/미확인'}`);
     }
   }
 }

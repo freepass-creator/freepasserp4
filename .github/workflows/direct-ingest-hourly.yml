@@ -56,6 +56,8 @@ jobs:
           printf '%s' "$SONOGONG" > sonokong/lib/wonja/.손오공계정.json
       - name: 손오공 ERP 원문 갱신
         run: node sonokong/scripts/손오공.mjs --조용
+      - name: 티카 유료옵션 번호판·원문 감사
+        run: npm run audit:sonokong-tcar-options
       - name: 전 공급사 직접수집 → Firestore
         env:
           ERP5_FIREBASE_USE_ADC: 'true'

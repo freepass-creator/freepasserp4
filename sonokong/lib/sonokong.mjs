@@ -22,10 +22,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { normalizePlate, tcarDetailFromHtml, uniqueTcarSaleMatch } from './option-normalizer.mjs';
 
 const 루트 = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-export const 토큰경로 = path.join(루트, 'lib', 'wonja', '.손오공토큰.json');
-export const 계정경로 = path.join(루트, 'lib', 'wonja', '.손오공계정.json');
+export const 토큰경로 = String(process.env.SONOGONG_TOKEN_PATH || '').trim() || path.join(루트, 'lib', 'wonja', '.손오공토큰.json');
+export const 계정경로 = String(process.env.SONOGONG_CREDENTIALS_PATH || '').trim() || path.join(루트, 'lib', 'wonja', '.손오공계정.json');
 export const API = 'https://sokrc.com/api';
 
 // 화면 탭 → list 쿼리 carSource 값
@@ -122,7 +123,9 @@ export async function lotteSpec(url) {
   let r;
   try { r = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } }); } catch { return null; }
   if (!r.ok) return null;
-  const h = (await r.text()).replace(/&quot;/g, '"').replace(/\\u002[fF]/g, '/');
+  const sourceHtml = await r.text();
+  const detail = tcarDetailFromHtml(sourceHtml);
+  const h = sourceHtml.replace(/&quot;/g, '"').replace(/\\u002[fF]/g, '/');
   const pick = (f) => { const m = h.match(new RegExp('"' + f + '"\\s*:\\s*"([^"]*)"')); return m && m[1] ? m[1].trim() : null; };
   const num = (f) => { const m = h.match(new RegExp('"' + f + '"\\s*:\\s*"?([0-9]+)')); return m ? m[1] : null; };
   const o = {
@@ -132,8 +135,47 @@ export async function lotteSpec(url) {
     인승: num('seatCount'), 배기량: num('displacement'),
     모델: pick('modelgroup'), 등급: pick('grade'), 세부트림: pick('subgrade'),
     풀네임: pick('carTitleName'),
+    __paidOptList: Array.isArray(detail?.paidOptList) ? detail.paidOptList : null,
+    __plateNumber: String(detail?.carData?.plateNumber ?? detail?.car?.plateNumber ?? detail?.plateNumber ?? pick('plateNumber') ?? '').trim() || null,
+    __carId: String(detail?.carData?.carId ?? detail?.car?.carId ?? detail?.carId ?? pick('carId') ?? '').trim() || null,
   };
   return Object.values(o).some(Boolean) ? o : null;
+}
+
+/**
+ * 티카 공개 판매목록에서 번호판이 정확히 같은 차량의 상세 URL을 찾는다.
+ * 검색 결과가 없거나 중복이면 추정하지 않는다. 공개 GET만 사용한다.
+ */
+export async function findTcarSaleByPlate(plate) {
+  const wanted = normalizePlate(plate);
+  if (!wanted) return null;
+  const q = new URLSearchParams({
+    country: '', perPageNum: '15', page: '1', orderType: '', carType: '', categoryGroup: '[""]',
+    minYear: '', maxYear: '', minMileage: '', maxMileage: '', minPrice: '', maxPrice: '',
+    minInstPrice: '', maxInstPrice: '', minRentPrice: '', maxRentPrice: '', minSalePrice: '', maxSalePrice: '',
+    instPriceMonth: '', rentPriceMonth: '', color: '', inColor: '', fuel: '', checkedCenterCodes: '',
+    option: '', carNumber: wanted, keyword: '', themeId: '', themeType: '', themeSaleType: '', brandCert: '',
+    retailShopId: '', dealerRegKey: '', sellAdminKey: '', cert: '', manage: '', promotion: '',
+    separatePromotion: 'true', reqDirect: '', consult: '', rentBuy: '', rentMonth: '', targetCd: '',
+    tagList: '', sTagList: '', saleTySale: 'true', shuffleKey: String(Date.now()), consultAvailable: '',
+    isDoubleDiscount: '', isSimpleRepair: '', isFreeShipping: '', isFuelSupport: '',
+  });
+  let r;
+  try {
+    r = await fetch('https://tcar.lotterentacar.net/cr/search/ajax/list?' + q, {
+      headers: { 'User-Agent': 'Mozilla/5.0', Referer: 'https://tcar.lotterentacar.net/cr/search/list' },
+    });
+  } catch { return null; }
+  if (!r.ok) return null;
+  const json = await r.json().catch(() => null);
+  const match = uniqueTcarSaleMatch(json, wanted);
+  if (!match) return null;
+  const carId = String(match.carId);
+  return {
+    carId,
+    plateNumber: String(match.plateNumber),
+    url: `https://tcar.lotterentacar.net/cr/search/view?carId=${encodeURIComponent(carId)}&saleTySale=true`,
+  };
 }
 
 /** 동시성 제한 map (기본 8). fetch 폭주·차단 방지. */
