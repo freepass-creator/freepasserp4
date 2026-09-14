@@ -198,8 +198,8 @@ const depositNote = (raw: string) => {
 };
 
 // ── 원천 리더 — 종류마다 «우리필드 키 행(Row)»을 낸다. 원자화는 하나로 공유한다. ──────
-type Row = { car: string; link?: string; imageUrls?: unknown; photoCollectedAt?: unknown; status: string; kind: string; maker: string; model: string; vname: string; trim: string; fuel: string; ext: string; int: string; km: string; opt: string; firstReg: string; cc: string; klass: string; price: Price; depNote: string; tab: string; row: string };
-const blank: Omit<Row, 'car' | 'tab' | 'row'> = { status: '', kind: '', maker: '', model: '', vname: '', trim: '', fuel: '', ext: '', int: '', km: '', opt: '', firstReg: '', cc: '', klass: '', price: {}, depNote: '', imageUrls: [], photoCollectedAt: 0 };
+type Row = { car: string; link?: string; imageUrls?: unknown; photoCollectedAt?: unknown; rawDescription?: string; optionSource?: string; status: string; kind: string; maker: string; model: string; vname: string; trim: string; fuel: string; ext: string; int: string; km: string; opt: string; firstReg: string; cc: string; klass: string; price: Price; depNote: string; tab: string; row: string };
+const blank: Omit<Row, 'car' | 'tab' | 'row'> = { status: '', kind: '', maker: '', model: '', vname: '', trim: '', fuel: '', ext: '', int: '', km: '', opt: '', rawDescription: '', optionSource: '', firstReg: '', cc: '', klass: '', price: {}, depNote: '', imageUrls: [], photoCollectedAt: 0 };
 
 // 번호판 꼴만 차로 본다 — 헤더 밑 제목·프로모 배너·빈 행이 «차»로 새는 걸 막는다(오토플러스 실측).
 const isPlate = (s: string) => /\d{2,3}\s*[가-힣]\s*\d{4}/.test(S(s));
@@ -298,10 +298,11 @@ async function readRows(): Promise<Row[]> {
        *
        * ★옵션 = «선택옵션(유료옵션=제조사선택옵션)»만. 티카는 상세 완전수집이면 대부분 온다(198/238).
        *   ⚠ `options`(장착사양=앱 「기본옵션」)는 «안 담는다** — 사장님 2026-09-10 「기본옵션은 우린 안 쓸 거야」.
-       * ⚠ 손오공(SON_NO_KONG)은 유료옵션도 비어 온다 — 그럼 빈 값(원천이 「선택옵션 없음」을 준 것).
+       * 손오공(SON_NO_KONG)은 별도 배열 대신 carDescription 둘째 줄 이후에 선택옵션을 준다.
+       * 덤프 어댑터가 이를 `유료옵션`으로 규격화하며 설명 원문과 출처도 함께 보존한다.
        */
       const 선택옵션 = S(c.유료옵션);
-      push({ car, link: 픽업링크.get(N(car)) || '', imageUrls: c.사진들, photoCollectedAt: c.상세시각 || dumpCollectedAt, status, kind, maker: S(c.제조사), model: S(c.모델), vname: S(c.차명) || S(c.세부), fuel: S(c.연료), ext: S(c.외장), int: S(c.내장), km: c.주행거리 == null ? '' : String(c.주행거리), opt: 선택옵션, firstReg: S(c.최초등록) || S(c.연식), cc: c.배기량 == null ? '' : String(c.배기량), klass: '', price, tab: '손오공API', row: S(c.id) });
+      push({ car, link: 픽업링크.get(N(car)) || '', imageUrls: c.사진들, photoCollectedAt: c.상세시각 || dumpCollectedAt, rawDescription: S(c.설명), optionSource: S(c.유료옵션출처), status, kind, maker: S(c.제조사), model: S(c.모델), vname: S(c.차명) || S(c.세부), fuel: S(c.연료), ext: S(c.외장), int: S(c.내장), km: c.주행거리 == null ? '' : String(c.주행거리), opt: 선택옵션, firstReg: S(c.최초등록) || S(c.연식), cc: c.배기량 == null ? '' : String(c.배기량), klass: '', price, tab: '손오공API', row: S(c.id) });
     }
     return out;
   }
@@ -457,6 +458,8 @@ function atomize(row: Row, pinned: Map<string, Record<string, unknown>>): Atom {
   const rawEvidence = mergeRawPhotoEvidence(pin?.원문, row.imageUrls);
   rawEvidence.차명 = vname;
   if (row.opt) rawEvidence.옵션 = row.opt;
+  if (row.rawDescription) rawEvidence.차량설명 = row.rawDescription;
+  if (row.optionSource) rawEvidence.옵션출처 = row.optionSource;
   const atom: Atom = {
     car_number: car,
     maker: identity.maker, model: identity.model, sub_model: identity.sub_model, trim_name: identity.trim_name, origin: identity.origin, ...spec, engine_cc: evEngineCc(S(spec.fuel_type), S(spec.engine_cc)),
@@ -657,7 +660,13 @@ if (VARIABLE) {
       /** ★견주는 자리에 «원문.옵션»도 넣는다 — 시트가 그 칸을 읽으므로 그게 안 맞으면 고친 티가 안 난다. */
       const 옛원문옵션 = S(((c as Record<string, unknown>).원문 as Record<string, unknown> | undefined)?.옵션);
       const oMoved = 옵션갈이 && (S(a.options) !== S(c.options) || 옛원문옵션 !== S(a.options));
-      if (!sMoved && !mMoved && !pMoved && !lMoved && !photoMoved && !oMoved) continue;
+      const 새원문 = ((a as Record<string, unknown>).원문 as Record<string, unknown> | undefined) || {};
+      const 옛원문 = ((c as Record<string, unknown>).원문 as Record<string, unknown> | undefined) || {};
+      const rawMoved = 옵션갈이 && (
+        S(새원문.차량설명) !== S(옛원문.차량설명)
+        || S(새원문.옵션출처) !== S(옛원문.옵션출처)
+      );
+      if (!sMoved && !mMoved && !pMoved && !lMoved && !photoMoved && !oMoved && !rawMoved) continue;
       const upd: Record<string, unknown> = { _var_polled_at: Date.now() };
       for (const f of VAR_FIELDS) if (a[f] !== undefined && a[f] !== '') upd[f] = a[f];
       if (oMoved) { upd.options = S(a.options); }
@@ -668,11 +677,15 @@ if (VARIABLE) {
        * ★`원문` 은 맵이라 merge 로는 키를 «못 지운다» — 통째로 갈아 끼운다(`update`).
        *   ⚠ 「차명」을 같이 날리지 않게 기존 맵을 이어받고 「옵션」 키만 새로 정한다.
        */
-      const 원문갈이 = (oMoved || photoMoved) ? (() => {
+      const 원문갈이 = (oMoved || rawMoved || photoMoved) ? (() => {
         const m: Record<string, unknown> = { ...((c as Record<string, unknown>).원문 as Record<string, unknown> || {}) };
         if (oMoved) {
           delete m.옵션;
           if (S(a.options)) m.옵션 = S(a.options);
+        }
+        if (rawMoved) {
+          if (S(새원문.차량설명)) m.차량설명 = S(새원문.차량설명); else delete m.차량설명;
+          if (S(새원문.옵션출처)) m.옵션출처 = S(새원문.옵션출처); else delete m.옵션출처;
         }
         return mergeRawPhotoEvidence(m, photoMoved ? ((a.원문 as Record<string, unknown> | undefined)?.사진 as unknown[]) || a.image_urls : []);
       })() : null;

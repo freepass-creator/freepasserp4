@@ -43,7 +43,7 @@ jobs:
         with: { node-version: '22', cache: 'npm' }
       - run: npm ci
       - name: 원천 계약 검사
-        run: npm run check:inventory-sources
+        run: npm run check:inventory-sources && npm run check:sonokong-options
       - name: 자격증명 준비
         env:
           SHEETS_SA: ${{ secrets.GOOGLE_SA_JSON }}
