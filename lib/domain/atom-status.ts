@@ -32,7 +32,7 @@ export type StatusBundle = {
 /**
  * 상태 한 벌을 판정한다.
  * @param base   현재 정본 상태(mirror=vehicle_status · ingest=canonSheetVehicleStatus(raw) · heal=골라낸 상태). 비면 「차량검수」.
- * @param raw    원천 표기(status_label_raw). 「계약중」·「점검」 override 와 「출고불가」 이유 판정에 쓴다.
+ * @param raw    원천 표기(status_label_raw). 원문 보존과 「출고불가」 이유 판정에만 쓴다.
  * @param locked 계약잠금(locked_by_contract). 계약중일 때 «계약선점 vs 공급사표기»를 가른다.
  */
 export function resolveStatus(input: { base?: unknown; raw?: unknown; locked?: unknown }): StatusBundle {
@@ -54,11 +54,10 @@ export function resolveStatus(input: { base?: unknown; raw?: unknown; locked?: u
     };
   }
 
-  // 계약이 없는 차 — 공급사 원천대로.
-  let cur = S(input.base) || '차량검수';
-  // 원천이 계약중/점검을 말하면 그게 이긴다(출고불가로 접힌 것을 되살리지 않되, 계약중·검수는 살린다 — 사장님 2026-09-04).
-  if (/계약중/.test(raw)) cur = '계약중';
-  else if (/점검|검수|정비/.test(raw)) cur = '차량검수';
+  // 계약이 없는 차 — 호출자가 canonSheetVehicleStatus로 확정한 base를 그대로 쓴다.
+  // raw를 다시 해석하면 공급사 「계약중」(=출고불가)이 내부 계약중으로 되살아나거나,
+  // 「출고가능(정비중)」이 차량검수로 뒤집힌다. 원문은 증거이며 두 번째 판정기가 아니다.
+  const cur = S(input.base) || '차량검수';
   const kind = expectedInventoryStatusKind({ vehicle_status: cur });
   let reason = '';
   if (cur === '출고협의') reason = '공급사협의';

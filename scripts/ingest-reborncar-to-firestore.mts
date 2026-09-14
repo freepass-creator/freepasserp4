@@ -26,8 +26,10 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { erp5InventoryAppOptions } from '../lib/server/erp5-inventory-service-account';
+import { resolveStatus } from '../lib/domain/atom-status';
 
 const APPLY = process.argv.includes('--apply');
+const STATUS_ONLY = process.argv.includes('--status-only');
 const CRAWL_ONLY = process.argv.includes('--crawl-only');
 const BASE = 'https://www.reborncar.co.kr';
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36';
@@ -193,7 +195,8 @@ const rbNums = new Set(cars.map((c) => S(c.car_number)));
 const oplOurs = [...ours.values()].filter((o) => S(o.x.product_type).includes('오플'));
 const onlyReborn = cars.filter((c) => !ours.has(S(c.car_number)));
 const matched = cars.filter((c) => ours.has(S(c.car_number)));
-const unavailable = [...ours.values()].filter(({ x }) => !rbNums.has(S(x.car_number)) && x.listable === true);
+const unavailable = [...ours.values()].filter(({ x }) =>
+  !rbNums.has(S(x.car_number)) && x.listable === true && !S(x.locked_by_contract));
 console.log(`\n── 대조 ──`);
 console.log(`reborncar ${cars.length} · 우리 오플 ${oplOurs.length}`);
 console.log(`차번 매칭 ${matched.length} · reborncar에만(우리 재고에 없음) ${onlyReborn.length}: ${onlyReborn.slice(0, 12).map((c) => S(c.car_number)).join(', ')}`);
@@ -225,26 +228,29 @@ let batch = db.batch(), inB = 0;
 for (const c of matched) {
   const { id, x } = ours.get(S(c.car_number))!;
   const patch: Record<string, unknown> = {};
-  for (const k of ['seats', 'ext_color', 'mileage', 'vin', 'fuel_type', 'first_registration_date', 'photo_link']) {
+  if (!STATUS_ONLY) for (const k of ['seats', 'ext_color', 'mileage', 'vin', 'fuel_type', 'first_registration_date', 'photo_link']) {
     if (!S(x[k]) && S(c[k])) patch[k] = c[k];
   }
-  if (!S(x.options) && S(c.options)) patch.options = c.options;
+  if (!STATUS_ONLY && !S(x.options) && S(c.options)) patch.options = c.options;
   /** ★이미 원자에 박힌 «카탈로그»는 걷어낸다 — 빈칸 보완만으로는 옛 쓰레기가 안 지워진다(실측 14대). */
-  if (S(x.options) && !S(c.options) && S(x.options).split(/\s*,\s*/).filter(Boolean).length >= 10) patch.options = '';
-  if (!Object.keys((x.price as object) || {}).length && Object.keys(c.price as object).length) patch.price = c.price;
-  patch.reborncar_product_id = c.reborncar_product_id;
-  patch.source = 'website';
-  patch.source_url = BASE;
-  patch.source_external_id = c.source_external_id;
-  patch.vehicle_status = '출고가능';
-  patch.status = '출고가능';
-  patch.status_kind = '가능';
-  patch.status_reason = '리본카 홈페이지 현재 게시';
-  patch.listable = true;
-  patch.원문 = {
-    ...((x.원문 && typeof x.원문 === 'object' ? x.원문 : {}) as Record<string, unknown>),
-    전체: c._source_raw,
-  };
+  if (!STATUS_ONLY && S(x.options) && !S(c.options) && S(x.options).split(/\s*,\s*/).filter(Boolean).length >= 10) patch.options = '';
+  if (!STATUS_ONLY && !Object.keys((x.price as object) || {}).length && Object.keys(c.price as object).length) patch.price = c.price;
+  if (!STATUS_ONLY) {
+    patch.reborncar_product_id = c.reborncar_product_id;
+    patch.source = 'website';
+    patch.source_url = BASE;
+    patch.source_external_id = c.source_external_id;
+    patch.원문 = {
+      ...((x.원문 && typeof x.원문 === 'object' ? x.원문 : {}) as Record<string, unknown>),
+      전체: c._source_raw,
+    };
+  }
+  Object.assign(patch, resolveStatus({
+    base: S(x.locked_by_contract) ? x.vehicle_status : '출고가능',
+    raw: '리본카 홈페이지 현재 게시',
+    locked: x.locked_by_contract,
+  }));
+  patch._direct_ingest_at = Date.now();
   if (Object.keys(patch).length) { batch.set(db.collection('products').doc(id), patch, { merge: true }); inB++; filled++; }
   if (inB >= 300) { await batch.commit(); batch = db.batch(); inB = 0; }
 }

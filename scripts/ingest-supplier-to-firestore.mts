@@ -607,7 +607,7 @@ if (process.argv.includes('--verify')) {
 {
   const 요금있는차 = now.filter((a) => a.price && typeof a.price === 'object' && Object.keys(a.price as object).length).length;
   const 판매가능차 = now.filter((a) => a.listable === true).length;
-  if (판매가능차 > 0 && 요금있는차 === 0) {
+  if (!STATUS_ONLY && 판매가능차 > 0 && 요금있는차 === 0) {
     console.error(`\n✗ ${PROV}: 판매 가능 차 ${판매가능차}대를 읽었는데 **요금이 한 대도 없다** — 요금 열을 못 읽은 것이다.`);
     console.error(`  원천 머리글이 두 줄이거나 열 이름이 별칭에 없다. 쓰지 않고 멈춘다(요금 없는 차는 못 판다).`);
     process.exit(1);
@@ -627,7 +627,8 @@ if (VARIABLE) {
       const jsonSorted = (o: unknown) => JSON.stringify(o ?? {}, (_k, v) => (v && typeof v === 'object' && !Array.isArray(v)) ? Object.fromEntries(Object.entries(v as Record<string, unknown>).sort()) : v);
       /** ⚠ 상태는 `vehicle_status` 가 정본 — 그것도 같이 견줘야 한 벌로 따라간다. */
       const sMoved = S(a.vehicle_status) !== S(c.vehicle_status) || S(a.status) !== S(c.status)
-        || a.listable !== c.listable || S(a.status_kind) !== S(c.status_kind);
+        || a.listable !== c.listable || S(a.status_kind) !== S(c.status_kind)
+        || S(a.status_reason) !== S(c.status_reason) || S(a.status_label_raw) !== S(c.status_label_raw);
       const mMoved = !STATUS_ONLY && S(a.mileage) !== S(c.mileage);
       /** ⚠ 요금 없는 차가 있다 — `Object.keys(undefined)` 로 회차가 통째로 죽는다(웰릭스와 같은 꼴). */
       const ap = (a.price && typeof a.price === 'object' ? a.price : {}) as Record<string, unknown>;

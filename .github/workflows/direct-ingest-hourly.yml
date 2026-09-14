@@ -15,6 +15,10 @@ on:
         description: 'Firestore에 변동·출고불가 반영'
         type: boolean
         default: false
+      status_only:
+        description: '배차상태 6개 필드만 반영(불변·요금·옵션·사진 미변경)'
+        type: boolean
+        default: true
 
 concurrency:
   group: direct-ingest
@@ -62,6 +66,7 @@ jobs:
         run: |
           ARGS=()
           if [ -n "${{ inputs.only }}" ]; then ARGS+=("--only=${{ inputs.only }}"); fi
+          if [ "${{ inputs.status_only }}" = "true" ]; then ARGS+=(--status-only); fi
           if [ "${{ inputs.apply }}" = "true" ]; then ARGS+=(--apply --variable --retire); fi
           npx tsx scripts/ingest-all-suppliers.mts "${ARGS[@]}"
       - name: 자격증명 지우기

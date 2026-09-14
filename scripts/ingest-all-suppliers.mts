@@ -19,18 +19,19 @@ const INGEST = fileURLToPath(new URL('./ingest-supplier-to-firestore.mts', impor
 const REBORN = fileURLToPath(new URL('./ingest-reborncar-to-firestore.mts', import.meta.url));
 const ONLY = (process.argv.find((a) => a.startsWith('--only='))?.split('=')[1] || '').split(',').map((s) => s.trim()).filter(Boolean);
 const VARIABLE = process.argv.includes('--variable');
+const STATUS_ONLY = process.argv.includes('--status-only');
 const APPLY = process.argv.includes('--apply');
 const RETIRE = process.argv.includes('--retire');
 
 let targets = INVENTORY_SOURCES.map((source) => source.partnerCode);
 if (ONLY.length) targets = targets.filter((c) => ONLY.includes(c));
-console.log(`■ 직접수집 오케스트레이터 ${APPLY ? '반영' : '미리보기'} — 공급사 ${targets.length}곳${VARIABLE ? ' (변동만)' : ''}: ${targets.join(' · ')}\n`);
+console.log(`■ 직접수집 오케스트레이터 ${APPLY ? '반영' : '미리보기'} — 공급사 ${targets.length}곳${STATUS_ONLY ? ' (배차상태만)' : VARIABLE ? ' (변동만)' : ''}: ${targets.join(' · ')}\n`);
 
 const RATE = /\b429\b|\b50[0234]\b|rate.?limit|quota|UNAVAILABLE|ECONNRESET|socket hang up/i;
 const runOne = (code: string, apply: boolean): { ok: boolean; line: string } => {
   const args = code === 'RP023'
-    ? [TSX_CLI, '--require', SHIM, REBORN, ...(apply ? ['--apply'] : [])]
-    : [TSX_CLI, '--require', SHIM, INGEST, `--code=${code}`, ...(apply ? ['--apply'] : []), ...(apply && VARIABLE ? ['--variable'] : []), ...(apply && RETIRE ? ['--retire'] : [])];
+    ? [TSX_CLI, '--require', SHIM, REBORN, ...(apply ? ['--apply'] : []), ...(STATUS_ONLY ? ['--status-only'] : [])]
+    : [TSX_CLI, '--require', SHIM, INGEST, `--code=${code}`, ...(apply ? ['--apply'] : []), ...(apply && (VARIABLE || STATUS_ONLY) ? ['--variable'] : []), ...(STATUS_ONLY ? ['--status-only'] : []), ...(apply && RETIRE ? ['--retire'] : [])];
   for (let attempt = 1; attempt <= 2; attempt++) {
     const r = spawnSync(process.execPath, args, { encoding: 'utf8', env: process.env, maxBuffer: 64 * 1024 * 1024, timeout: 10 * 60_000 });
     const out = `${r.stdout || ''}\n${r.stderr || ''}`;
