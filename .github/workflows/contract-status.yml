@@ -25,7 +25,8 @@ on:
         default: false
 
 concurrency:
-  group: sheet-sync
+  # ERP5 원자와 판매시트를 함께 쓰는 직접수집 회차와 직렬화한다.
+  group: erp5-inventory-publish
   cancel-in-progress: false
 
 jobs:

@@ -1,0 +1,92 @@
+name: ERP5 SSOT 원천 최신화(매시간)
+
+# 원천은 계속 바뀌고, 차량 원문 이력은 보존한다.
+# 검증된 기존 원자의 가변값과 상태만 자동 갱신하며 새 차번은 후보로 보고한다.
+# 한 회차가 읽은 ERP5 스냅샷 하나로 판매시트를 발행한다.
+on:
+  schedule:
+    # 월~토 KST 09:05~19:05
+    - cron: '5 0-10 * * 1-6'
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: '실제로 ERP5와 판매시트에 반영'
+        type: boolean
+        default: false
+
+concurrency:
+  group: erp5-inventory-publish
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    permissions:
+      contents: read
+      id-token: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - name: 검증된 ERP5 SSOT 엔진 고정
+        uses: actions/checkout@v4
+        with:
+          ref: f69040e75e7023417fed54a54ab9f3209c92a653
+      - name: freepasserp5 OIDC 인증
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/110304297079/locations/global/workloadIdentityPools/github-actions/providers/freepasserp4
+          service_account: github-inventory-writer@freepasserp5.iam.gserviceaccount.com
+          create_credentials_file: true
+      - uses: actions/setup-node@v4
+        with: { node-version: '22', cache: 'npm' }
+      - run: npm ci
+      - name: 원천 계약 검사
+        run: npm run check:inventory-sources && npm run check:sonokong-options
+      - name: 원천 자격증명 준비
+        env:
+          SHEETS_SA: ${{ secrets.GOOGLE_SA_JSON }}
+          SONOGONG: ${{ secrets.SONOGONG_ACCOUNT_JSON }}
+        run: |
+          test -n "$SHEETS_SA" || { echo '::error::GOOGLE_SA_JSON 누락'; exit 1; }
+          test -n "$SONOGONG" || { echo '::error::SONOGONG_ACCOUNT_JSON 누락'; exit 1; }
+          mkdir -p tmp/firebase-auth sonokong/lib/wonja
+          printf '%s' "$SHEETS_SA" > tmp/firebase-auth/sheets.json
+          printf '%s' "$SONOGONG" > sonokong/lib/wonja/.손오공계정.json
+      - name: 현재 원천 재수집
+        run: node sonokong/scripts/손오공.mjs --조용
+      - name: 티카 유료옵션 차량번호·원문 감사
+        run: npm run audit:sonokong-tcar-options
+      - name: 원천에서 ERP5 현재 원자 계산
+        env:
+          ERP5_FIREBASE_USE_ADC: 'true'
+          GOOGLE_CLOUD_PROJECT: freepasserp5
+          GOOGLE_SHEETS_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sheets.json
+          GOOGLE_SHEETS_SUBJECT: pyh@teamjpk.com
+        shell: bash
+        run: |
+          ARGS=()
+          if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ inputs.apply }}" = "true" ]; then
+            ARGS+=(--apply --variable --retire)
+          fi
+          npx tsx scripts/ingest-all-suppliers.mts "${ARGS[@]}"
+      - name: ERP5 발행 스냅샷 고정
+        if: github.event_name == 'schedule' || inputs.apply
+        env:
+          ERP5_FIREBASE_USE_ADC: 'true'
+          GOOGLE_CLOUD_PROJECT: freepasserp5
+        run: npx tsx scripts/capture-sales-publish-snapshot.mts --erp5 --out=tmp/erp5-sales-publish.json
+      - name: 동일 스냅샷으로 판매시트 게시
+        if: github.event_name == 'schedule' || inputs.apply
+        env:
+          GOOGLE_SHEETS_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sheets.json
+        run: npx tsx scripts/make-sample-sheet-google.mts --main --snapshot=tmp/erp5-sales-publish.json
+      - name: 회차 증거 보존
+        if: github.event_name == 'schedule' || inputs.apply
+        uses: actions/upload-artifact@v4
+        with:
+          name: erp5-ssot-snapshot-${{ github.run_id }}
+          path: tmp/erp5-sales-publish.json
+          if-no-files-found: error
+          retention-days: 30
+      - name: 자격증명 삭제
+        if: always()
+        run: rm -rf tmp/firebase-auth sonokong/lib/wonja/.손오공계정.json sonokong/lib/wonja/.손오공토큰.json
