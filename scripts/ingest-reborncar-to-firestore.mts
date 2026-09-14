@@ -28,6 +28,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { erp5InventoryAppOptions } from '../lib/server/erp5-inventory-service-account';
 
 const APPLY = process.argv.includes('--apply');
+const CRAWL_ONLY = process.argv.includes('--crawl-only');
 const BASE = 'https://www.reborncar.co.kr';
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36';
 const S = (v: unknown) => String(v ?? '').trim();
@@ -35,14 +36,14 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 // ── ① 부트스트랩 (상품별) ────────────────────────────────────
 //   ★RB_TOKEN 은 «페이지별» 이다 — 그 상품 상세 HTML 을 GET 해야 그 상품용 토큰/세션이 선다(실측: 남의 토큰=1010).
-async function bootstrap(pageUrl: string): Promise<{ cookie: string; token: string; csrf: string }> {
+async function bootstrap(pageUrl: string): Promise<{ cookie: string; token: string; csrf: string; placeholder: boolean }> {
   const res = await fetch(pageUrl, { headers: { 'User-Agent': UA } });
   const cookie = ((res.headers as any).getSetCookie?.() || []).map((c: string) => c.split(';')[0]).join('; ');
   const html = await res.text();
   const token = (html.match(/RB_TOKEN\s*=\s*"([^"]+)"/) || [])[1] || '';
   const csrf = (html.match(/name="_csrf"\s+value="([^"]+)"/) || [])[1] || '';
   if (!token || !csrf) throw new Error('부트스트랩 실패 — RB_TOKEN/_csrf 를 HTML 에서 못 찾음(페이지 구조 변경?)');
-  return { cookie, token, csrf };
+  return { cookie, token, csrf, placeholder: /\{제조사\}\s*\{세부모델\}/.test(html) };
 }
 
 // ── ② 전수 productId (사이트맵) ──────────────────────────────
@@ -124,6 +125,7 @@ console.log(`■ reborncar 렌트/구독 전수 ${ids.length}대 (sitemap-ext)`)
 const cars: Array<Record<string, unknown>> = [];
 let fail = 0;
 const failures: Array<{ productId: string; reason: string }> = [];
+const staleSitemapIds: string[] = [];
 for (let i = 0; i < ids.length; i++) {
   const { productId, url } = ids[i];
   try {
@@ -133,6 +135,10 @@ for (let i = 0; i < ids.length; i++) {
     if (d?.__err || !d?.data) {
       const code = S(d?.header?.resultCode || d?.resultCode || d?.__status);
       const message = S(d?.header?.resultMessage || d?.message || d?.msg || d?.__err).slice(0, 100);
+      if (ctx.placeholder && code === '1400' && /bad request/i.test(message)) {
+        staleSitemapIds.push(productId);
+        await sleep(150); continue;
+      }
       failures.push({ productId, reason: [code, message].filter(Boolean).join(':') || 'detail-data-empty' });
       fail++; await sleep(150); continue;
     }
@@ -143,6 +149,7 @@ for (let i = 0; i < ids.length; i++) {
   await sleep(150);
 }
 console.log(`\n  당김 완료 — ${cars.length}대 성공 · ${fail}대 실패`);
+if (staleSitemapIds.length) console.log(`  사이트맵 폐기 주소 ${staleSitemapIds.length}건 제외 — ${staleSitemapIds.join(', ')}`);
 for (const failure of failures) console.log(`  ✗ ${failure.productId} — ${failure.reason}`);
 
 /**
@@ -171,6 +178,7 @@ for (const failure of failures) console.log(`  ✗ ${failure.productId} — ${fa
 mkdirSync('tmp', { recursive: true });
 writeFileSync('tmp/reborncar-cars.json', JSON.stringify(cars, null, 2), 'utf8');
 console.log('  → tmp/reborncar-cars.json');
+if (CRAWL_ONLY) process.exit(fail > 0 ? 1 : 0);
 
 // ── 대조: 우리 Firestore 오플 원자와 차번으로 맞대 ───────────
 initializeApp(erp5InventoryAppOptions());
