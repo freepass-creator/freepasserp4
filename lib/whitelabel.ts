@@ -1211,3 +1211,14 @@ export function whitelabelVars(wl: Whitelabel): Record<string, string> {
     '--brand-soft': `color-mix(in srgb, ${wl.brandColor} 6%, white)`,
   };
 }
+
+/** 공개 카탈로그 면·스크롤 규격을 섞지 않는 업무 ERP chrome 전용 토큰. */
+export function internalWhitelabelVars(wl: Whitelabel): Record<string, string> {
+  if (!hasShopFrame(wl) || !wl.brandColor) return {};
+  return {
+    '--brand': wl.brandColor,
+    '--brand-h': wl.brandColor,
+    '--text-link': wl.brandColor,
+    '--fp-bar-navy': wl.brandColor,
+  };
+}

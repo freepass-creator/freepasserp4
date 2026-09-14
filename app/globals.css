@@ -1148,6 +1148,29 @@ html[data-fp-filter="0"] .fp-finder > .fp-sidebar { display: none; }
   --border-strong: rgba(255, 255, 255, 0.36);
 }
 
+/* 업무 웹·모바일도 같은 white-label 표식을 쓴다. 공개 Frame을 재사용하지 않아
+   로그인·권한·탭·safe-area 계산은 기존 그대로다. */
+.fp-internal-wl .fp-internal-wl__headline {
+  display: block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: 0;
+}
+.fp-internal-wl .fp-internal-wl__location {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 
 /* 조건 드롭다운 줄이 툴바 «안»에 들어왔다 — 좁아지면 잘리지 말고 가로로 굴린다.
    팝오버가 잘리면 안 되므로 세로는 visible 로 둔다(모바일 퀵필터 줄과 같은 처리). */
