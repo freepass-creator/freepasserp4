@@ -1,11 +1,12 @@
 /**
- * ERP4 Firestore 상품 원자를 ERP5 상품 SSOT로 내보낼 때의 공개 필드 계약.
+ * 공급사 원천 원자를 ERP5 상품 SSOT로 내보낼 때의 공개 필드 계약.
  *
- * 이 모듈은 값을 정규화하지 않는다. 기존 상품 원장의 값을 그대로 복사하되,
+ * 생성 원천은 제공시트·정제시트 어댑터 원자다. ERP4 Firestore `products`를 복사하지 않는다.
  * 개인정보·계약·정산·공급사 수수료 필드는 경계에서 제거한다.
  */
-import type { FreepassAtom } from './supplier-adapter';
+import type { AdapterIssue, FreepassAtom } from './supplier-adapter';
 import { resolveAutoplusDepositPolicy } from './deposit-policy';
+import { evaluateEligibility } from './product-eligibility';
 
 export type ExportedProduct = Record<string, unknown>;
 
@@ -58,6 +59,10 @@ const PUBLIC_PRODUCT_FIELDS = new Set([
   'source_updated_at',
   'rent_variants',
   'rentVariants',
+  'provider_name',
+  'listing_reasons',
+  'adapter_issues',
+  'source_evidence',
 ]);
 
 const PRIVATE_PRICE_KEY = /(?:fee|commission|margin|cost|수수료|커미션|마진|원가|공급가)/i;
@@ -184,6 +189,86 @@ function adapterPricing(atom: FreepassAtom): Record<string, unknown> {
     rent: atom.rent,
     rentVariants: atom.rentVariants || [],
   }) as Record<string, unknown>;
+}
+
+export type ProductSourceSpec = {
+  code: string;
+  partnerCode: string;
+  name: string;
+  spreadsheetId: string;
+  tab: string;
+};
+
+export type ComposedErp5Product = ProductExportResult & {
+  id: string;
+  listable: boolean;
+  listingReasons: string[];
+};
+
+export function erp5ProductDocumentId(spec: ProductSourceSpec, plate: string): string {
+  const compact = String(plate || '').replace(/\s+/g, '');
+  return `${spec.code}__${compact}`;
+}
+
+/** 제공시트·정제시트 원자를 ERP5 공개 상품으로 조합한다. ERP4 products를 복사하지 않는다. */
+export function composeProductFromAtom(
+  spec: ProductSourceSpec,
+  atom: FreepassAtom,
+  adapterIssues: AdapterIssue[] = [],
+): ComposedErp5Product {
+  const plate = String(atom.plateNumber || '').replace(/\s+/g, '');
+  const listingReasons = evaluateEligibility(atom, 'F01').reasons;
+  for (const issue of adapterIssues) {
+    if (issue.level === 'error') listingReasons.push(`ADAPTER_ERROR:${issue.code}`);
+  }
+  const uniqueReasons = [...new Set(listingReasons)];
+  const candidate: Record<string, unknown> = {
+    car_number: plate,
+    product_code: erp5ProductDocumentId(spec, plate),
+    provider_company_code: spec.partnerCode,
+    partner_code: spec.partnerCode,
+    provider_name: spec.name,
+    maker: atom.maker,
+    model: atom.model,
+    sub_model: atom.subModel,
+    trim_name: atom.trim,
+    supplier_vehicle_name: atom.rawName,
+    year: atom.year,
+    mileage: atom.km,
+    fuel_type: atom.fuel,
+    engine_cc: atom.displacement,
+    product_type: atom.productType,
+    status_label_raw: atom.status,
+    vehicle_status: atom.status,
+    status: atom.status,
+    listable: uniqueReasons.length === 0,
+    listing_reasons: uniqueReasons,
+    adapter_issues: adapterIssues.map((issue) => ({
+      level: issue.level,
+      code: issue.code,
+      message: issue.message,
+      ...(issue.field ? { field: issue.field } : {}),
+    })),
+    source_evidence: {
+      supplierCode: spec.code,
+      partnerCode: spec.partnerCode,
+      supplierName: spec.name,
+      spreadsheetId: spec.spreadsheetId,
+      tab: spec.tab,
+      row: atom.source.row ?? null,
+      adapter: atom.source.adapter,
+      adapterVersion: atom.source.adapterVersion,
+      provenance: atom.provenance,
+    },
+  };
+  const exported = exportProductForErp5(candidate, atom);
+  return {
+    id: erp5ProductDocumentId(spec, plate),
+    data: exported.data,
+    ignoredFields: exported.ignoredFields,
+    listable: uniqueReasons.length === 0,
+    listingReasons: uniqueReasons,
+  };
 }
 
 export function exportProductForErp5(source: Record<string, unknown>, atom?: FreepassAtom): ProductExportResult {

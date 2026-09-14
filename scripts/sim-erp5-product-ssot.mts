@@ -1,6 +1,8 @@
 /** ERP5 상품 공개 경계 회귀검사. Firebase 접속/쓰기 없음. */
 import assert from 'node:assert/strict';
-import { exportProductForErp5 } from '../lib/domain/erp5-product-ssot';
+import { providedSheetAdapter } from '../lib/adapters/provided';
+import { getSupplierSourceSpec, isIankaOriginalSheet } from '../lib/adapters/source-registry';
+import { composeProductFromAtom, exportProductForErp5 } from '../lib/domain/erp5-product-ssot';
 import { resolveAutoplusDepositPolicy, SONOGONG_DEPOSIT_POLICY } from '../lib/domain/deposit-policy';
 
 let passed = 0;
@@ -139,6 +141,51 @@ test('사진 URL의 차량 식별 숫자는 보존하고 개인정보 매개변�
 
 test('차번 없는 레코드는 게시를 막는다', () => {
   assert.throws(() => exportProductForErp5({ maker: '현대' }), /car_number/);
+});
+
+test('제공시트 원자는 ERP4 products를 복사하지 않고 조합한다', () => {
+  const spec = getSupplierSourceSpec('RP013');
+  const adapted = providedSheetAdapter.adapt({
+    차량번호: '12가3456',
+    상태: '출고가능',
+    분류: '중고렌트',
+    '제조사(정제)': '현대',
+    모델: '아반떼',
+    세부모델: '더 뉴 아반떼 CN7',
+    세부트림: '인스퍼레이션',
+    '차명(세부모델+트림)': '더 뉴 아반떼 CN7 1.6 가솔린 인스퍼레이션',
+    '12개월': '800,000',
+    장기보증: '2,000,000',
+  }, { supplierCode: spec.code, supplierName: spec.name, spreadsheetId: spec.spreadsheetId, tab: spec.tab, row: 4 });
+  const composed = composeProductFromAtom(spec, adapted.atom, adapted.issues);
+  assert.equal(composed.id, 'WELLIX__12가3456');
+  assert.equal(composed.data.car_number, '12가3456');
+  assert.equal(composed.data.provider_company_code, 'RP013');
+  assert.equal(composed.data.maker, '현대');
+  assert.equal(composed.data.model, '아반떼');
+  assert.equal(composed.data.sub_model, '더 뉴 아반떼 CN7');
+  assert.equal(composed.data.supplier_vehicle_name, '더 뉴 아반떼 CN7 1.6 가솔린 인스퍼레이션');
+  assert.equal((composed.data.adapter_pricing as { adapter: string }).adapter, 'ProvidedSheetAdapter');
+  assert.equal((composed.data.source_evidence as { tab: string; spreadsheetId: string }).tab, '재고');
+  assert.equal((composed.data.source_evidence as { spreadsheetId: string }).spreadsheetId, spec.spreadsheetId);
+  assert.equal(composed.listable, true);
+  assert.equal(composed.data.vin, undefined);
+});
+
+test('이안카 조합 원천은 정제시트이지 외부 원본이 아니다', () => {
+  const spec = getSupplierSourceSpec('RP031');
+  assert.equal(spec.spreadsheetId, '1r1EP4oMP9V2iV-G5Q3nNNBHW7ttLMNycipFkfccHvOA');
+  assert.equal(spec.tab, '재고');
+  assert.equal(isIankaOriginalSheet(spec.spreadsheetId), false);
+  const adapted = providedSheetAdapter.adapt({
+    차량번호: '133호5709',
+    상태: '출고가능',
+    모델: '카니발',
+    '12개월': '1,110,000',
+  });
+  const composed = composeProductFromAtom(spec, adapted.atom);
+  assert.equal((composed.data.source_evidence as { spreadsheetId: string }).spreadsheetId, spec.spreadsheetId);
+  assert.equal((composed.data.source_evidence as { supplierCode: string }).supplierCode, 'IANKA');
 });
 
 console.log(`ERP5 PRODUCT SSOT ${passed}/${passed} PASS`);
