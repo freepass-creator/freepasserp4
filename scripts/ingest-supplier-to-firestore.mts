@@ -722,6 +722,50 @@ if (VARIABLE) {
   }
 
   /**
+   * ★RP012 옵션 출처 문지기 — 티카 유료옵션 원문만 판매/ERP 옵션으로 인정한다.
+   * 과거 기본장비(options[])·설명문·출처 미확정 값은 화면 필드에서 비우되 원문.옵션격리에 보존한다.
+   * 현재 덤프에 있는 차는 이번 원자를 우선해 판단해야, 방금 tcarPaidOptions를 받은 차를 옛 문서 기준으로
+   * 다시 격리하는 순서 역전이 생기지 않는다.
+   */
+  if (!STATUS_ONLY && src.kind === 'sonokong') {
+    const nowByCar = new Map(now.map((a) => [S(a.car_number), a]));
+    const unsupported = [...cur.values()].filter((c) => {
+      const live = nowByCar.get(S(c.car_number));
+      const effective = live || c;
+      const raw = ((effective as Record<string, unknown>).원문 as Record<string, unknown> | undefined) || {};
+      const oldRaw = ((c as Record<string, unknown>).원문 as Record<string, unknown> | undefined) || {};
+      return S(raw.옵션출처) !== 'tcarPaidOptions'
+        && (!!S((c as Record<string, unknown>).options) || !!S(oldRaw.옵션) || !!S(oldRaw.옵션출처));
+    });
+    for (let i = 0; i < unsupported.length; i += 400) {
+      const b = fs.batch();
+      for (const c of unsupported.slice(i, i + 400)) {
+        const oldRaw = ((c as Record<string, unknown>).원문 as Record<string, unknown> | undefined) || {};
+        const preserved = { ...oldRaw };
+        if (!preserved.옵션격리) preserved.옵션격리 = {
+          옵션원문: S(oldRaw.옵션),
+          정제옵션: S((c as Record<string, unknown>).options),
+          이전출처: S(oldRaw.옵션출처),
+          사유: '티카 tcarPaidOptions 원문 미확인',
+          격리시각: new Date().toISOString(),
+        };
+        delete preserved.옵션;
+        delete preserved.옵션출처;
+        delete preserved.티카유료옵션;
+        b.update(fs.collection('products').doc(docId(S(c.car_number))), {
+          options: '',
+          원문: preserved,
+          option_evidence_status: 'HOLD',
+          option_evidence_reason: '티카 tcarPaidOptions 원문 미확인',
+          _var_polled_at: Date.now(),
+        });
+      }
+      await b.commit();
+    }
+    if (unsupported.length) console.log(`  RP012 옵션 격리 ${unsupported.length}건 — 티카 tcarPaidOptions 근거 없는 표시값 제거·원문 보존`);
+  }
+
+  /**
    * ★★**없는 차는 «등록»이다 — 자동으로 밀어 넣지 않는다.**
    *
    * > 사장님 2026-09-08 「우리는 **상태값만 바꾸고** 없는 거 추가는 **등록하는 개념**으로 가는 거지.
