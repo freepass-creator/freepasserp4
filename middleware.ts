@@ -42,15 +42,17 @@ export function middleware(request: NextRequest) {
   }
 
   /*
-   * 일반 도메인 첫 방문도 손님용 기본 화이트라벨 상품목록으로 연다. 직원 로그인은 `/login`에만
+   * 일반 도메인 첫 방문도 손님용 기본 공개 카탈로그로 연다. 직원 로그인은 `/login`에만
    * 남긴다. 앱 서버의 `/` page를 거치지 않아 폐기된 레거시 DB 초기화로 인한 시간 초과도 피한다.
    * 채널 도메인은 위의 `/shop` rewrite가 먼저 처리하며, 전자서명 전용 도메인은 아래 전용 분기가
    * 처리한다.
    */
   if (request.nextUrl.pathname === '/' && host !== PUBLIC_SIGN_HOST) {
     const target = request.nextUrl.clone();
-    target.pathname = '/shop';
-    return NextResponse.rewrite(target);
+    target.pathname = '/catalog';
+    const headers = new Headers(request.headers);
+    headers.set(GUEST_HEADER, '1');
+    return NextResponse.rewrite(target, { request: { headers } });
   }
 
   /*
