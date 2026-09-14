@@ -50,7 +50,9 @@ export function isPublicPath(pathname: string | null | undefined): boolean {
    *   여기서 `/` 를 공개로 안 열면 손님이 첫 화면에서 로그인으로 튕긴다 — 그 손님은 거기서 끝이다.
    * ⚠ 우리 도메인(freepasserp.com)의 `/` 는 예전 그대로 로그인이다. 채널 호스트일 때만 연다.
    */
-  if (pathname === '/' && isBrandedHost()) return true;
+  // 기본 도메인 루트도 내부적으로 공개 카탈로그를 렌더링한다. 채널 호스트와 달리
+  // 브랜드만 노브랜드 플랫폼값으로 유지할 뿐, 손님 접근 자체는 동일하게 허용한다.
+  if (pathname === '/') return true;
   if (PUBLIC_EXACT.some((p) => pathname === p || pathname.startsWith(p + '/'))) return true;
   return PUBLIC_PATH_PREFIXES.some((p) => pathname === p.slice(0, -1) || pathname.startsWith(p));
 }

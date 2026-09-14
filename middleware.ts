@@ -53,9 +53,8 @@ export function middleware(request: NextRequest) {
   if (request.nextUrl.pathname === '/' && host !== PUBLIC_SIGN_HOST) {
     const target = request.nextUrl.clone();
     target.pathname = '/catalog';
-    // 기본 도메인은 유니오토 채널이 아니다. 주소까지 공개 카탈로그로 이동시켜
-    // 클라이언트 공개 경로 판정과 노브랜드 메타데이터를 모두 같은 기준으로 맞춘다.
-    return NextResponse.redirect(target, 307);
+    // 주소는 기본 도메인 루트에 남긴다. 유니오토 채널 표시도 붙이지 않는다.
+    return NextResponse.rewrite(target);
   }
 
   /*
