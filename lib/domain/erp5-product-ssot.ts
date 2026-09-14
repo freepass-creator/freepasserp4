@@ -5,7 +5,7 @@
  * 개인정보·계약·정산·공급사 수수료 필드는 경계에서 제거한다.
  */
 import type { FreepassAtom } from './supplier-adapter';
-import { resolveAutoplusDepositPolicy, SONOGONG_DEPOSIT_POLICY } from './deposit-policy';
+import { resolveAutoplusDepositPolicy } from './deposit-policy';
 
 export type ExportedProduct = Record<string, unknown>;
 
@@ -15,7 +15,6 @@ export type ProductExportResult = {
 };
 
 const AUTOPLUS_CODES = new Set(['RP023', 'AUTOPLUS']);
-const SONOGONG_CODES = new Set(['RP012', 'SONOGONG']);
 
 const PUBLIC_PRODUCT_FIELDS = new Set([
   'car_number',
@@ -128,19 +127,17 @@ function assertPublicPhotoLink(value: string, path: string): void {
 }
 
 function offerTerms(source: Record<string, unknown>, atom?: FreepassAtom): Record<string, unknown> | null {
+  if (atom?.depositPolicy) {
+    const priceAxes = atom.rentVariants?.length ? ['termMonths', 'annualKm'] : ['termMonths'];
+    return { priceAxes, depositPolicy: atom.depositPolicy };
+  }
   const code = String(source.provider_company_code || source.partner_code || '').trim().toUpperCase();
   if (AUTOPLUS_CODES.has(code)) {
     // 제조사가 없으면 국산으로 추정하지 않는다. 어댑터와 같은 SSOT resolver만 쓴다.
-    const depositPolicy = atom?.depositPolicy ?? resolveAutoplusDepositPolicy(String(source.maker ?? ''));
+    const depositPolicy = resolveAutoplusDepositPolicy(String(source.maker ?? ''));
     return {
       priceAxes: ['termMonths', 'annualKm'],
       ...(depositPolicy ? { depositPolicy } : {}),
-    };
-  }
-  if (SONOGONG_CODES.has(code)) {
-    return {
-      priceAxes: ['termMonths'],
-      depositPolicy: atom?.depositPolicy ?? SONOGONG_DEPOSIT_POLICY,
     };
   }
   return null;

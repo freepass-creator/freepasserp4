@@ -2,9 +2,15 @@ import assert from 'node:assert/strict';
 import { autoplusAdapter } from '../lib/adapters/autoplus';
 import { iankaAdapter } from '../lib/adapters/ianka';
 import { ironAdapter } from '../lib/adapters/iron';
+import { providedSheetAdapter } from '../lib/adapters/provided';
 import { sonogongAdapter } from '../lib/adapters/sonogong';
 import { getSupplierAdapter, hasSupplierAdapter } from '../lib/adapters';
-import { getSupplierSourceSpec } from '../lib/adapters/source-registry';
+import {
+  SUPPLIER_SOURCES,
+  getSupplierSourceSpec,
+  isIankaOriginalSheet,
+  listSupplierSourceSpecs,
+} from '../lib/adapters/source-registry';
 import {
   calculateDepositFromMonthlyRent,
   depositMultiplierForTerm,
@@ -83,7 +89,9 @@ assert.equal(iron2330.atom.rent[60], 850_000);
 assert.equal(iron2330.atom.rent[12], undefined);
 assert.equal(evaluateEligibility(iron2330.atom, 'F01').eligible, true);
 assert.equal(hasSupplierAdapter('IRON'), true);
-assert.equal(getSupplierAdapter('iron').adapterName, 'IronAdapter');
+assert.equal(getSupplierAdapter('iron').adapterName, 'ProvidedSheetAdapter');
+assert.equal(getSupplierSourceSpec('RP006').kind, 'refined');
+assert.equal(getSupplierSourceSpec('RP006').adapter, 'provided');
 
 // 손오공 보증금은 숫자 칸이 아니라 "월 대여료 × 연수 (최대 ×3)"라는 계산 규칙 자체가 SSOT다.
 const sonogong4099 = sonogongAdapter.adapt({
@@ -119,6 +127,8 @@ assert.equal(hasSupplierAdapter('SONOGONG'), true);
 assert.equal(getSupplierAdapter('sonogong').adapterName, 'SonogongAdapter');
 assert.equal(getSupplierSourceSpec('RP012').code, 'SONOGONG');
 assert.equal(getSupplierSourceSpec('RP012').tab, '구독재고');
+assert.equal(listSupplierSourceSpecs('RP012').map((v) => v.code).join(','), 'SONOGONG,SONOGONG_RENT');
+assert.equal(getSupplierAdapter('SONOGONG_RENT').adapterName, 'ProvidedSheetAdapter');
 
 // 오토플러스는 같은 12개월이라도 연 2만/3만 km가 서로 다른 가격 원자다.
 // 보증금 규칙도 발행기에서 즉석 생성하지 않고 atom.depositPolicy가 소유한다.
@@ -220,5 +230,83 @@ const unavailable = iankaAdapter.adapt({
 });
 assert.equal(evaluateEligibility(unavailable.atom, 'F01').eligible, false);
 assert.ok(evaluateEligibility(unavailable.atom, 'F01').reasons.includes('STATUS_NOT_EXPLICITLY_SELLABLE'));
+
+const wellixRow = providedSheetAdapter.adapt({
+  차량번호: '12가3456',
+  상태: '출고가능',
+  분류: '중고렌트',
+  제조사: '현대',
+  '제조사(정제)': '현대',
+  모델: '아반떼',
+  세부모델: '더 뉴 아반떼 CN7',
+  세부트림: '인스퍼레이션',
+  '차명(세부모델+트림)': '더 뉴 아반떼 CN7 1.6 가솔린 인스퍼레이션',
+  연료: '가솔린',
+  '연료(정제)': '가솔린',
+  단기보증: '500,000',
+  '1개월': '900,000',
+  '12개월': '800,000',
+  장기보증: '2,000,000',
+  '36개월': '700,000',
+  '72개월': '600,000',
+}, {
+  supplierCode: 'WELLIX',
+  supplierName: '웰릭스',
+  spreadsheetId: getSupplierSourceSpec('RP013').spreadsheetId,
+  tab: '재고',
+  row: 4,
+});
+assert.equal(wellixRow.atom.source.adapter, 'ProvidedSheetAdapter');
+assert.equal(wellixRow.atom.rawName, '더 뉴 아반떼 CN7 1.6 가솔린 인스퍼레이션');
+assert.equal(wellixRow.atom.maker, '현대');
+assert.equal(wellixRow.atom.model, '아반떼');
+assert.equal(wellixRow.atom.subModel, '더 뉴 아반떼 CN7');
+assert.equal(wellixRow.atom.trim, '인스퍼레이션');
+assert.equal(wellixRow.atom.rent[1], 900_000);
+assert.equal(wellixRow.atom.rent[6], undefined, '원본에 없는 6개월은 생성하지 않는다');
+assert.equal(wellixRow.atom.rent[12], 800_000);
+assert.equal(wellixRow.atom.rent[36], 700_000);
+assert.deepEqual(wellixRow.atom.rentVariants, [{
+  termMonths: 72,
+  amount: 600_000,
+  sourceHeader: '72개월',
+}]);
+assert.equal(wellixRow.atom.provenance.maker.sourceHeader, '제조사(정제)');
+assert.equal(wellixRow.atom.provenance.rawName.sourceHeader, '차명(세부모델+트림)');
+assert.equal(hasSupplierAdapter('RP013'), true);
+assert.equal(getSupplierAdapter('RP016').adapterName, 'ProvidedSheetAdapter');
+assert.equal(getSupplierAdapter('RP004').adapterName, 'ProvidedSheetAdapter');
+assert.equal(getSupplierAdapter('IANKA').adapterName, 'ProvidedSheetAdapter');
+
+const iankaFromProvided = providedSheetAdapter.adapt(ianka5709);
+assert.equal(iankaFromProvided.atom.rent[1], 1_170_000);
+assert.equal(iankaFromProvided.atom.rent[6], 1_140_000, '헤더가 있으면 6개월도 읽는다');
+assert.equal(iankaFromProvided.atom.status, '출고가능');
+
+const ironFromProvided = providedSheetAdapter.adapt({
+  차량번호: '151호2330',
+  상태: '즉시출고',
+  분류: '신차렌트',
+  제조사: '현대',
+  모델명: '싼타페',
+  '차명(세부모델+트림)': '싼타페 하이브리드 2WD H-PICK 5인승',
+  장기보증: '4,000,000',
+  '36개월': '980,000',
+  '72개월': '750,000',
+});
+assert.equal(ironFromProvided.atom.model, '싼타페');
+assert.equal(ironFromProvided.atom.rent[6], undefined);
+assert.equal(ironFromProvided.atom.rent[36], 980_000);
+assert.equal(ironFromProvided.atom.rentVariants?.[0]?.termMonths, 72);
+
+assert.equal(getSupplierSourceSpec('RP031').spreadsheetId, '1r1EP4oMP9V2iV-G5Q3nNNBHW7ttLMNycipFkfccHvOA');
+assert.equal(getSupplierSourceSpec('RP031').tab, '재고');
+assert.equal(isIankaOriginalSheet(getSupplierSourceSpec('RP031').spreadsheetId), false);
+assert.equal(SUPPLIER_SOURCES.some((spec) => isIankaOriginalSheet(spec.spreadsheetId)), false);
+assert.equal(getSupplierSourceSpec('RP004').code, 'AICAR');
+assert.equal(SUPPLIER_SOURCES.filter((spec) => spec.adapter === 'provided').length >= 18, true);
+assert.equal(SUPPLIER_SOURCES.filter((spec) => spec.adapter === 'autoplus').length, 1);
+assert.equal(SUPPLIER_SOURCES.filter((spec) => spec.adapter === 'sonogong').length, 1);
+assert.equal(hasSupplierAdapter('RP015'), false, '폐기된 경진렌트카는 원천이 아니다');
 
 console.log('SSOT adapter/eligibility regression tests: OK');

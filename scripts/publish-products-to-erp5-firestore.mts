@@ -9,8 +9,8 @@ import { isDeepStrictEqual } from 'node:util';
 import { cert, initializeApp, type ServiceAccount } from 'firebase-admin/app';
 import { FieldValue, getFirestore } from 'firebase-admin/firestore';
 import { JWT } from 'google-auth-library';
-import { getSupplierAdapter } from '../lib/adapters';
-import { SUPPLIER_SOURCES, type SupplierSourceSpec } from '../lib/adapters/source-registry';
+import { adapterForSpec } from '../lib/adapters';
+import { SUPPLIER_SOURCES, findSourceHeaderRow, listSupplierSourceSpecs } from '../lib/adapters/source-registry';
 import { exportProductForErp5 } from '../lib/domain/erp5-product-ssot';
 import type { FreepassAtom, RawSupplierRow } from '../lib/domain/supplier-adapter';
 
@@ -81,17 +81,6 @@ function assertProject(account: ServiceAccountJson, expected: string, label: str
 const S = (value: unknown) => String(value ?? '').trim();
 const compactPlate = (value: unknown) => S(value).replace(/\s+/g, '');
 
-function findHeaderRow(values: string[][], pricingMode: SupplierSourceSpec['pricingMode']): number {
-  for (let index = 0; index < Math.min(values.length, 40); index += 1) {
-    const headers = values[index].map(S);
-    if (!headers.includes('차량번호') && !headers.includes('차번')) continue;
-    const standard = headers.filter((header) => /^(?:단기보증|장기보증|금액보증금|\d+개월(?:\s*반납형)?)$/.test(header)).length;
-    if (pricingMode === 'STANDARD_TERMS' && standard >= 4) return index;
-    if (pricingMode === 'TERM_MILEAGE_VARIANTS' && headers.filter((header) => /^\d+개월\s*\d+만$/.test(header)).length >= 2) return index;
-  }
-  return -1;
-}
-
 function rowObject(headers: string[], row: string[]): RawSupplierRow {
   const object: RawSupplierRow = {};
   headers.forEach((header, index) => { if (header) object[header] = row[index] ?? ''; });
@@ -118,10 +107,10 @@ async function loadAdapterAtoms(account: ServiceAccountJson): Promise<{
     });
     if (!response.ok) throw new Error(`${spec.name} 원천 시트 읽기 실패: ${response.status} ${await response.text()}`);
     const values = ((await response.json()) as { values?: string[][] }).values || [];
-    const headerAt = findHeaderRow(values, spec.pricingMode);
+    const headerAt = findSourceHeaderRow(values, spec.pricingMode);
     if (headerAt < 0) throw new Error(`${spec.name} 원천에서 차량번호+가격 머리글을 찾지 못했습니다.`);
     const headers = values[headerAt].map(S);
-    const adapter = getSupplierAdapter(spec.code);
+    const adapter = adapterForSpec(spec);
     let count = 0;
     for (let rowIndex = headerAt + 1; rowIndex < values.length; rowIndex += 1) {
       const result = adapter.adapt(rowObject(headers, values[rowIndex]), {
@@ -133,7 +122,7 @@ async function loadAdapterAtoms(account: ServiceAccountJson): Promise<{
       });
       const plate = compactPlate(result.atom.plateNumber);
       if (!plate) continue;
-      const key = `${spec.partnerCode}|${plate}`;
+      const key = `${spec.code}|${plate}`;
       if (byProviderAndPlate.has(key)) throw new Error(`${spec.name} 원천 차량번호 중복: ${plate}`);
       byProviderAndPlate.set(key, result.atom);
       count += 1;
@@ -169,22 +158,19 @@ const adapterSnapshot = SKIP_ADAPTERS
 const ignoredFieldCounts = new Map<string, number>();
 let productsWithAdapterPricing = 0;
 const adapterCoverageBlockers: string[] = [];
-const sourceSpecByCode = new Map<string, SupplierSourceSpec>();
-for (const spec of SUPPLIER_SOURCES) {
-  sourceSpecByCode.set(spec.code.toUpperCase(), spec);
-  sourceSpecByCode.set(spec.partnerCode.toUpperCase(), spec);
-}
 const items = sourceSnapshot.docs.map((document) => {
   const source = document.data();
   const providerCode = S(source.provider_company_code || source.partner_code).toUpperCase();
   const plate = compactPlate(source.car_number);
-  const sourceSpec = sourceSpecByCode.get(providerCode);
-  const atom = sourceSpec
-    ? adapterSnapshot.byProviderAndPlate.get(`${sourceSpec.partnerCode}|${plate}`)
-    : undefined;
+  const sourceSpecs = listSupplierSourceSpecs(providerCode);
+  let atom: FreepassAtom | undefined;
+  for (const spec of sourceSpecs) {
+    atom = adapterSnapshot.byProviderAndPlate.get(`${spec.code}|${plate}`);
+    if (atom) break;
+  }
   if (atom) productsWithAdapterPricing += 1;
-  else if (!SKIP_ADAPTERS && sourceSpec && source.listable !== false) {
-    adapterCoverageBlockers.push(`${sourceSpec.name}:${plate || document.id}`);
+  else if (!SKIP_ADAPTERS && sourceSpecs.length && source.listable !== false) {
+    adapterCoverageBlockers.push(`${sourceSpecs[0].name}:${plate || document.id}`);
   }
   const exported = exportProductForErp5(source, atom);
   for (const field of exported.ignoredFields) {

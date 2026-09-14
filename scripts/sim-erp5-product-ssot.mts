@@ -28,8 +28,17 @@ test('상품 필드 값과 보증금 규격을 바꾸지 않는다', () => {
   });
 });
 
-test('손오공은 기간축과 3개월 상한 정책 원자를 내보낸다', () => {
-  const { data } = exportProductForErp5({ car_number: '12가3456', provider_company_code: 'RP012' });
+test('손오공 구독 규칙은 atom.depositPolicy가 있을 때만 내보낸다', () => {
+  const withoutAtom = exportProductForErp5({ car_number: '12가3456', provider_company_code: 'RP012' });
+  assert.equal(withoutAtom.data.offer_terms, undefined, '렌트 재고에 구독 보증금 규칙을 추정하면 안 된다');
+
+  const { data } = exportProductForErp5({ car_number: '12가3456', provider_company_code: 'RP012' }, {
+    source: { supplierCode: 'SONOGONG', supplierName: '손오공', adapter: 'SonogongAdapter', adapterVersion: '1.0.0' },
+    plateNumber: '12가3456',
+    rent: { 12: 1_028_000 },
+    depositPolicy: SONOGONG_DEPOSIT_POLICY,
+    provenance: {},
+  });
   assert.deepEqual(data.offer_terms, {
     priceAxes: ['termMonths'],
     depositPolicy: SONOGONG_DEPOSIT_POLICY,

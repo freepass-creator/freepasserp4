@@ -14,6 +14,9 @@ import {
 
 const VERSION = '1.1.0';
 
+// 운영 원천은 아이언 정제시트 「재고」+ ProvidedSheetAdapter.
+// 이 클래스는 예전 전용 어댑터 fixture 회귀용으로만 남긴다.
+
 function pick(raw: RawSupplierRow, ...headers: string[]): { header: string; value: unknown } {
   for (const header of headers) {
     const value = raw[header];
