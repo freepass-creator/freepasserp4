@@ -126,7 +126,6 @@ export function MobileBoot() {
     const actual = window.innerWidth < MOBILE_BP;
     try {
       document.documentElement.dataset.fpM = actual ? '1' : '0';
-      document.cookie = `fp_m=${actual ? '1' : '0'};path=/;max-age=31536000;SameSite=Lax`;
     } catch { /* */ }
     const clear = () => document.documentElement.classList.remove('fp-pending-m');
     // 훅=실폭 일치(=교정 렌더 커밋 완료) 확인 후, 한 프레임 더 그린 뒤 해제.

@@ -2,7 +2,7 @@ import { BRAND, BRAND_DESCRIPTION, BRAND_TAGLINE } from '@/lib/brand';
 import { hasBrand, resolveGuestWhitelabel, resolveWhitelabel } from '@/lib/whitelabel';
 import './globals.css';
 import type { Metadata, Viewport } from 'next';
-import { cookies, headers } from 'next/headers';
+import { headers } from 'next/headers';
 import { AppBarProvider } from '@/lib/appbar';
 import { AuthProvider } from '@/lib/auth-context';
 import { TabBarProvider } from '@/lib/tabbar';
@@ -104,15 +104,14 @@ const ICONS = {
 };
 
 /**
- * 페인트 전 — 쿠키·폭 확정 + 테마(FOUC 방지).
+ * 페인트 전 — 실제 폭 + 테마(FOUC 방지).
  * 모바일이면 무조건 pending(웹 격자 깜빡임 차단). MobileBoot가 폭=훅 일치 후 해제.
  */
-const BP_BOOT = `(function(){try{var ssr=document.documentElement.getAttribute('data-fp-m');var m=window.innerWidth<760;var v=m?'1':'0';document.documentElement.dataset.fpM=v;document.cookie='fp_m='+v+';path=/;max-age=31536000;SameSite=Lax';if(m||((ssr==='0'||ssr==='1')&&v!==ssr))document.documentElement.classList.add('fp-pending-m');var th=localStorage.getItem('fp4_theme')||'light';var dark=th==='dark'||(th==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.dataset.theme=dark?'dark':'light';var ff=localStorage.getItem('fp4_finder_filter');if(ff==='0')document.documentElement.dataset.fpFilter='0';}catch(e){}})();`;
+const BP_BOOT = `(function(){try{var ssr=document.documentElement.getAttribute('data-fp-m');var m=window.innerWidth<760;document.documentElement.dataset.fpM=m?'1':'0';if(m||((ssr==='0'||ssr==='1')&&(m?'1':'0')!==ssr))document.documentElement.classList.add('fp-pending-m');var th=localStorage.getItem('fp4_theme')||'light';var dark=th==='dark'||(th==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);document.documentElement.dataset.theme=dark?'dark':'light';var ff=localStorage.getItem('fp4_finder_filter');if(ff==='0')document.documentElement.dataset.fpFilter='0';}catch(e){}})();`;
 
-function resolveSsrMobile(tip: string | undefined, chMobile: string | null): boolean | null {
-  if (tip === '1') return true;
-  if (tip === '0') return false;
-  // 쿠키 없을 때 Client Hint (Accept-CH)
+function resolveSsrMobile(chMobile: string | null): boolean | null {
+  // User-Agent Client Hint only. fp_m is deliberately not read: a desktop tab
+  // must never inherit a stale mobile preview/device cookie and reflow twice.
   if (chMobile === '?1') return true;
   if (chMobile === '?0') return false;
   return null;
@@ -120,10 +119,8 @@ function resolveSsrMobile(tip: string | undefined, chMobile: string | null): boo
 
 // 톱바 + 전폭 콘텐츠 + 역할별 모바일 하단 탭(tabbar.tsx가 SSOT).
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  const jar = await cookies();
   const hdrs = await headers();
-  const tip = jar.get('fp_m')?.value;
-  const ssrMobile = resolveSsrMobile(tip, hdrs.get('sec-ch-ua-mobile'));
+  const ssrMobile = resolveSsrMobile(hdrs.get('sec-ch-ua-mobile'));
   const dataFpM = ssrMobile == null ? undefined : ssrMobile ? '1' : '0';
   // SSR 모바일이면 pending도 같이 — 부트 스크립트가 같은 클래스를 붙여 hydration mismatch 방지.
   // 쿠키 없이 폭만 모바일인 경우엔 스크립트만 추가 → suppressHydrationWarning.
@@ -193,8 +190,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
                   <AppTabBar />
                 </div>
                 <Toaster />
-                {/* 배포 자동 반영 — 살아 있는 탭이 새 배포를 감지해 스스로 새로고침(입력 중엔 미룸). */}
-                <VersionWatcher />
+                {/* 공개 카탈로그는 배포 때 강제 새로고침하지 않는다. 영업 공유 중인 웹 화면이
+                    반복 reflow/reload 되지 않도록 다음 방문에서만 새 배포를 받는다. */}
+                {hdrs.get('x-fp-public-catalog') === '1' ? null : <VersionWatcher />}
               </TabBarProvider>
             </AppBarProvider>
           </AuthProvider>

@@ -4,6 +4,8 @@ import { hasBrand, isGuestPath, resolveWhitelabel } from '@/lib/whitelabel';
 const PUBLIC_SIGN_HOST = 'sign.freepasserp.com';
 /** 손님 동 표시 — 레이아웃이 읽는다(아래 머리말). `lib/whitelabel` 와 이름을 맞춘다. */
 const GUEST_HEADER = 'x-fp-guest';
+/** 공개 카탈로그는 배포 감지 새로고침을 하지 않는다. */
+const PUBLIC_CATALOG_HEADER = 'x-fp-public-catalog';
 /**
  * 채널 도메인의 첫 화면인가 — 표(`lib/whitelabel`)를 그대로 본다.
  * ★채널이 늘어도 이 파일은 안 고친다. 표에 줄이 하나 늘 뿐이다.
@@ -54,7 +56,15 @@ export function middleware(request: NextRequest) {
     const target = request.nextUrl.clone();
     target.pathname = '/catalog';
     // 주소는 기본 도메인 루트에 남긴다. 유니오토 채널 표시도 붙이지 않는다.
-    return NextResponse.rewrite(target);
+    const headers = new Headers(request.headers);
+    headers.set(PUBLIC_CATALOG_HEADER, '1');
+    return NextResponse.rewrite(target, { request: { headers } });
+  }
+
+  if (isDefaultPlatformCatalog(host, request.nextUrl.pathname)) {
+    const headers = new Headers(request.headers);
+    headers.set(PUBLIC_CATALOG_HEADER, '1');
+    return NextResponse.next({ request: { headers } });
   }
 
   /*
