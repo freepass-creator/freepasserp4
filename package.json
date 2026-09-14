@@ -86,6 +86,8 @@
     "audit:axes": "tsx scripts/audit-axis-coverage.mts",
     "cache:photos": "tsx --require ./scripts/lib/server-only-shim.cjs scripts/cache-photo-urls.mts",
     "audit:policy-rules": "tsx --require ./scripts/lib/server-only-shim.cjs scripts/audit-policy-rules.mts",
+    "check:policy-filter-atom": "tsx scripts/sim-policy-filter-atom.mts",
+    "check:policy-source-snapshot": "tsx scripts/sim-policy-source-snapshot.mts",
     "check:encar-spec-fill": "tsx scripts/check-encar-spec-fill.mts",
     "encar:learn": "tsx scripts/learn-encar.mts",
     "policy:sheet-audit": "tsx scripts/audit-policy-sheet-vs-erp.mts",

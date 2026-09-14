@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { INVENTORY_SOURCES, getInventorySource, inventorySourceLocationCount, matchesSharedSourceTab } from '../lib/domain/inventory-source-registry';
+import { INVENTORY_SOURCES, getInventorySource, getPolicySource, inventorySourceLocationCount, matchesSharedSourceTab, policySourceLocationCount } from '../lib/domain/inventory-source-registry';
 import { sheetsServiceAccountEmail } from '../lib/server/google-sheets';
 import { readErp5InventoryServiceAccount } from '../lib/server/erp5-inventory-service-account';
 
@@ -13,6 +13,12 @@ assert.equal(getInventorySource('RP004').spreadsheetId, '1LqWVs2o1-wpPqFiYkOjcQl
 assert.equal(getInventorySource('RP031').spreadsheetId, '1fJuFSdaW559niD0ow7vVC3qcgjy8KRb8Cr3U8Of01vs');
 assert.equal(INVENTORY_SOURCES.filter((source) => source.kind === 'google_sheet').length, 21);
 assert.equal(new Set(INVENTORY_SOURCES.filter((source) => source.kind === 'google_sheet').map((source) => source.spreadsheetId)).size, 18);
+assert.equal(policySourceLocationCount(), 21, '공유 시트를 합친 정책 원천 위치는 21곳이어야 한다');
+assert.equal(getPolicySource('RP004').spreadsheetId, '1-2ptJgwzPBVgDWMkyedjtVxcSXrNtepEQM0YgAVpYtI');
+assert.equal(getPolicySource('RP006').spreadsheetId, '1Xm7Nl6yK7DcPQPF6w2OI_0-sphWHFVt2u6IKrYT8S4U');
+assert.equal(getPolicySource('RP012').spreadsheetId, '1WIFn5ObK_nCVGLTjj6rO96i6vxub1QzJmiVW0BpJLcA');
+assert.equal(getPolicySource('RP023').spreadsheetId, '1Tvd5IioF5y_yu3L1BQMRP4J1R8hcZHwkgl3vl-TsgY0');
+assert.equal(getPolicySource('RP031').spreadsheetId, '1r1EP4oMP9V2iV-G5Q3nNNBHW7ttLMNycipFkfccHvOA');
 assert.equal(matchesSharedSourceTab('경진렌트카', '경진렌트카 재고'), true);
 assert.equal(matchesSharedSourceTab('경진렌트카', '경진카 재고'), false);
 assert.equal(matchesSharedSourceTab('스카이렌트카', '스타 재고'), false);
@@ -49,4 +55,4 @@ try {
   else process.env.ERP5_FIREBASE_SERVICE_ACCOUNT_JSON = beforeErp5;
 }
 
-console.log(`inventory source registry: providers=${INVENTORY_SOURCES.length} locations=${inventorySourceLocationCount()} PASS`);
+console.log(`inventory source registry: providers=${INVENTORY_SOURCES.length} inventory_locations=${inventorySourceLocationCount()} policy_locations=${policySourceLocationCount()} PASS`);

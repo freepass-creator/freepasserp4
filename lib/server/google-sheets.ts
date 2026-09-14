@@ -336,6 +336,62 @@ export async function writeSheetTable(input: WriteSheetTableInput): Promise<{ ro
 /** 시트 한 탭의 값 격자 — 화면에 «시트 그대로» 그리기 위한 읽기. */
 export type SheetGrid = { tab: string; header: string[]; rows: string[][]; readAt: string };
 
+export type SheetSourceCell = {
+  user_entered: string | number | boolean | null;
+  effective: string | number | boolean | null;
+  formatted: string;
+};
+export type SheetSourceGrid = {
+  spreadsheet_id: string;
+  tab: string;
+  sheet_id: number;
+  range: string;
+  rows: SheetSourceCell[][];
+  read_at: string;
+};
+
+function extendedValue(value: unknown): string | number | boolean | null {
+  const item = (value || {}) as Record<string, unknown>;
+  if ('stringValue' in item) return String(item.stringValue);
+  if ('numberValue' in item) return Number(item.numberValue);
+  if ('boolValue' in item) return Boolean(item.boolValue);
+  if ('formulaValue' in item) return String(item.formulaValue);
+  if ('errorValue' in item) return JSON.stringify(item.errorValue);
+  return null;
+}
+
+/** 원문 증거용 읽기: 사용자가 입력한 값, 계산된 값, 화면 표시값을 함께 보존한다. */
+export async function readSheetSourceGrid(spreadsheetId: string, tabTitle: string, maxRows = 200, maxColumns = 72): Promise<SheetSourceGrid> {
+  if (maxRows < 1 || maxRows > 500 || maxColumns < 1 || maxColumns > 18278) throw new Error('원문 범위가 허용 한도를 벗어났습니다.');
+  const letters = (n: number): string => {
+    let out = '';
+    for (let value = n; value > 0; value = Math.floor((value - 1) / 26)) out = String.fromCharCode(65 + ((value - 1) % 26)) + out;
+    return out;
+  };
+  const range = `'${tabTitle.replace(/'/g, "''")}'!A1:${letters(maxColumns)}${maxRows}`;
+  const body = await call(`/${spreadsheetId}?ranges=${encodeURIComponent(range)}&includeGridData=true&fields=sheets(properties(sheetId,title),data(rowData(values(userEnteredValue,effectiveValue,formattedValue))))`);
+  const sheet = ((body.sheets || []) as Rec[]).find((item) => String((item.properties as Rec | undefined)?.title || '') === tabTitle);
+  if (!sheet) throw new Error(`정책 원문 탭을 찾지 못했습니다: ${spreadsheetId} / ${tabTitle}`);
+  const data = ((sheet.data || []) as Rec[])[0] || {};
+  const rowData = (data.rowData || []) as Rec[];
+  const rows = rowData.map((row) => ((row.values || []) as Rec[]).map((cell): SheetSourceCell => ({
+    user_entered: extendedValue(cell.userEnteredValue),
+    effective: extendedValue(cell.effectiveValue),
+    formatted: String(cell.formattedValue ?? ''),
+  })));
+  // 정책코드/정책명은 앞 세 칸에 있다. 데이터 검증이 만든 아래쪽 FALSE 행은 원문 정책이 아니다.
+  let last = rows.length - 1;
+  while (last > 0 && !rows[last].slice(0, 3).some((cell) => cell.formatted || cell.effective !== null || cell.user_entered !== null)) last--;
+  return {
+    spreadsheet_id: spreadsheetId,
+    tab: tabTitle,
+    sheet_id: Number((sheet.properties as Rec | undefined)?.sheetId || 0),
+    range,
+    rows: rows.slice(0, last + 1),
+    read_at: new Date().toISOString(),
+  };
+}
+
 /**
  * **판매시트를 서버가 읽어 온다** — 사장님 2026-08-20
  * 「앞으로 상품시트 공유 안 하고 로그인해야만 저 시트가 보이게끔」.

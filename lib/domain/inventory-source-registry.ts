@@ -13,6 +13,13 @@ export type InventorySourceSpec = {
   hold?: readonly string[];
 };
 
+export type PolicySourceSpec = {
+  partnerCode: string;
+  spreadsheetId: string;
+  sourceUrl: string;
+  tabTitle: '운영정책';
+};
+
 const sheet = (id: string) => `https://docs.google.com/spreadsheets/d/${id}/edit`;
 
 /**
@@ -60,6 +67,25 @@ export function getInventorySource(partnerCode: string): InventorySourceSpec {
 
 export function inventorySourceLocationCount(): number {
   return new Set(INVENTORY_SOURCES.map((source) => source.sourceUrl)).size;
+}
+
+/**
+ * 정책 원문 위치. 공급사가 직접 쓰는 프리패스 제공시트의 「운영정책」 탭이 정본이다.
+ * 외부 원본 시트를 재고 정본으로 쓰는 아이카·이안카와 홈페이지/API 공급사는
+ * projection 시트가 정책 입력 원천이다. 재고 원천과 정책 원천을 같은 주소라고 추정하지 않는다.
+ */
+export function getPolicySource(partnerCode: string): PolicySourceSpec {
+  const source = getInventorySource(partnerCode);
+  const spreadsheetId = source.kind === 'google_sheet' && source.channels.includes('policy')
+    && source.spreadsheetId && !source.projection
+    ? source.spreadsheetId
+    : source.projection?.spreadsheetId;
+  if (!spreadsheetId) throw new Error(`SSOT: 정책 원천 위치가 등록되지 않았습니다: ${source.partnerCode}`);
+  return { partnerCode: source.partnerCode, spreadsheetId, sourceUrl: sheet(spreadsheetId), tabTitle: '운영정책' };
+}
+
+export function policySourceLocationCount(): number {
+  return new Set(INVENTORY_SOURCES.map((source) => getPolicySource(source.partnerCode).spreadsheetId)).size;
 }
 
 export function matchesSharedSourceTab(sourceName: string, tabName: string): boolean {
