@@ -94,7 +94,8 @@ const when = (r: string[], iy: number, im: number, ir: number) => {
   return ym * 100000 + (Number.isFinite(rv) && rv > 0 ? rv : 0);
 };
 
-const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
+const sheetsCredentialPath = S(process.env.GOOGLE_SHEETS_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json';
+const sa = JSON.parse(readFileSync(sheetsCredentialPath, 'utf8'));
 const jwt = new JWT({ email: sa.client_email, key: sa.private_key, subject: 'pyh@teamjpk.com', scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive'] });
 const SH = 'https://sheets.googleapis.com/v4/spreadsheets';
 const api = async (u: string, init?: RequestInit): Promise<any> => {

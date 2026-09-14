@@ -64,6 +64,7 @@ jobs:
         env:
           ERP5_FIREBASE_USE_ADC: 'true'
           GOOGLE_CLOUD_PROJECT: freepasserp5
+          GOOGLE_SHEETS_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sa.json
         run: |
           npx tsx scripts/mark-contract-in-listings.mts ${{ (github.event_name == 'schedule' || inputs.apply) && '--apply' || '' }}
 
