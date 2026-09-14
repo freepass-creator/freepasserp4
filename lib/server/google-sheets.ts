@@ -6,8 +6,8 @@
  * `check:b2b-release` 가 이미 한 번 물어본 적 있는 지점이라(Firebase Admin/jose/jwks 버전),
  * 여기서는 node:crypto 로 JWT 를 직접 서명해 의존성을 0으로 둔다.
  *
- * 자격증명은 firebase-admin.ts 와 «같은» 것을 쓴다(FIREBASE_SERVICE_ACCOUNT_JSON).
- * 따라서 운영에서 새로 설정할 환경변수가 없다 — 런시트 2단계에 이미 들어 있는 그 값이다.
+ * Google Sheets 전용 자격증명을 Firebase Admin 자격증명보다 먼저 사용한다.
+ * 두 시스템의 계정·권한 경계를 섞으면 일부 시트만 조용히 빠질 수 있다.
  *
  * ⚠ 대상 스프레드시트는 서비스계정 이메일에 «편집자»로 공유돼 있어야 한다.
  *   공유 전에는 읽기만 200 이고 쓰기는 403 PERMISSION_DENIED 가 난다(실측 확인).
@@ -29,12 +29,15 @@ const BAND_BG = { red: 0.97, green: 0.976, blue: 0.98 };
 type Rec = Record<string, unknown>;
 
 function serviceAccountJson(): { client_email: string; private_key: string } {
-  const raw = String(process.env.FIREBASE_SERVICE_ACCOUNT_JSON || '').trim();
+  const raw = String(process.env.GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON || '').trim();
   const text = raw || (() => {
-    // 로컬 스크립트는 파일 기반 자격증명을 쓴다(firebase-admin.ts 와 같은 규칙).
-    const path = String(process.env.GOOGLE_APPLICATION_CREDENTIALS || '').trim();
-    if (!path) throw new Error('FIREBASE_SERVICE_ACCOUNT_JSON 또는 GOOGLE_APPLICATION_CREDENTIALS 미설정');
-    return readFileSync(path, 'utf8');
+    const path = String(process.env.GOOGLE_SHEETS_APPLICATION_CREDENTIALS || '').trim();
+    if (path) return readFileSync(path, 'utf8');
+    const firebaseRaw = String(process.env.FIREBASE_SERVICE_ACCOUNT_JSON || '').trim();
+    if (firebaseRaw) return firebaseRaw;
+    const fallback = String(process.env.GOOGLE_APPLICATION_CREDENTIALS || '').trim();
+    if (!fallback) throw new Error('GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON 또는 GOOGLE_SHEETS_APPLICATION_CREDENTIALS 미설정');
+    return readFileSync(fallback, 'utf8');
   })();
   const p = JSON.parse(text) as { client_email?: string; private_key?: string };
   if (!p.client_email || !p.private_key) throw new Error('서비스계정 JSON 형식이 올바르지 않습니다.');

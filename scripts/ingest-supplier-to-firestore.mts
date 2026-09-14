@@ -27,8 +27,9 @@ import { canonSheetVehicleStatus } from '../lib/domain/sheet-import';
 import { canonProductType } from '../lib/domain/product';
 import { composeVehicleName, MIRROR_ALIAS } from '../lib/domain/mirror-sheet-mapping';
 import { snapColor } from '../lib/domain/color-master';
-import { MIRROR_SOURCES } from '../lib/domain/mirror-sources';
-import { sheetIdFromUrl } from '../lib/domain/supplier-sheet-read';
+import { getInventorySource, matchesSharedSourceTab } from '../lib/domain/inventory-source-registry';
+import { createInventorySourceSnapshot } from '../lib/domain/inventory-source-snapshot';
+import { isContractLocked, sourceExitPatch, sourceSnapshotSafeToRetire } from '../lib/domain/inventory-retirement';
 import { FUEL_EV, rawSeats, atomViolations, type MasterIndex } from '../lib/domain/atom-invariants';
 import { calculateDepositFromMonthlyRent, SONOGONG_DEPOSIT_POLICY } from '../lib/domain/deposit-policy';
 
@@ -40,26 +41,23 @@ const won = (v: unknown) => { const n = Number(S(v).replace(/[^0-9.]/g, '')); re
 type Price = Record<string, { rent: number; deposit: number }>;
 const PERIOD_ALIAS: [string, string[]][] = [['1', ['1개월', '월렌트', '월세']], ['6', ['6개월']], ['12', ['12개월']], ['18', ['18개월']], ['24', ['24개월']], ['36', ['36개월']], ['48', ['48개월']], ['60', ['60개월']]];
 
-// Firestore 먼저 — 원천 레지스트리(partner.sheet_url)와 원자를 여기서 읽는다.
+// Firestore는 원자 저장소다. 원천 위치는 코드 레지스트리만 사용한다.
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 initializeApp({ credential: cert({ projectId: sa.project_id, clientEmail: sa.client_email, privateKey: S(sa.private_key).replace(/\\n/g, '\n') }) });
 const fs = getFirestore();
 
 // 원천 종류 셋 — 시트(공급사 구글시트) · 홈피(ironrentcar.com) · 손오공(API 덤프 JSON).
-type Kind = 'sheet' | 'iron' | 'sonokong';
-const SON_CODE = 'RP012';
-async function srcConfig(): Promise<{ code: string; name: string; kind: Kind; from?: string }> {
-  if (CODE === SON_CODE || CODE === 'SONOKONG' || CODE === '손오공') return { code: SON_CODE, name: '손오공', kind: 'sonokong' };
-  const m = MIRROR_SOURCES.find((x) => x.code === CODE);
-  if (m) return { code: m.code, name: m.name, kind: m.kind as Kind, from: m.from };
-  // 나머지 공급사 = v4/partners(→ Firestore partner 그림자)에 등록된 sheet_url 을 원천으로.
-  const snap = await fs.collection('partner').where('partner_code', '==', CODE).limit(1).get();
-  const p = snap.docs[0]?.data() as { name?: string; sheet_url?: string } | undefined;
-  const id = sheetIdFromUrl(p?.sheet_url);
-  if (id) return { code: CODE, name: S(p?.name) || CODE, kind: 'sheet', from: id };
-  throw new Error(`${CODE}: MIRROR_SOURCES·손오공·partner.sheet_url 어디에도 원천이 없다 — 수동/일회성 공급사`);
+type Kind = 'sheet' | 'iron' | 'autoplus' | 'sonokong';
+function srcConfig(): { code: string; name: string; kind: Kind; from?: string; sharedWith?: readonly string[]; sourceUrl: string } {
+  const canonical = getInventorySource(CODE);
+  const kind: Kind = canonical.kind === 'google_sheet'
+    ? 'sheet'
+    : canonical.kind === 'erp_api'
+      ? 'sonokong'
+      : canonical.adapterId === 'autoplus-reborn' ? 'autoplus' : 'iron';
+  return { code: canonical.partnerCode, name: canonical.name, kind, from: canonical.spreadsheetId, sharedWith: canonical.sharedWith, sourceUrl: canonical.sourceUrl };
 }
-const src = await srcConfig();
+const src = srcConfig();
 const PROV = src.code;   // Firestore 태깅·pin 조회는 공급사 정식 코드로(손오공=RP012)
 const SHEET = src.from || '';
 
@@ -173,11 +171,12 @@ function sheetPrice(get: (i: number) => string, ci: { dep: number; periods: Reco
 }
 
 // ── 원천 리더 — 종류마다 «우리필드 키 행(Row)»을 낸다. 원자화는 하나로 공유한다. ──────
-type Row = { car: string; status: string; kind: string; maker: string; model: string; vname: string; trim: string; fuel: string; ext: string; int: string; km: string; opt: string; firstReg: string; cc: string; klass: string; price: Price; tab: string; row: string };
+type Row = { car: string; status: string; kind: string; maker: string; model: string; vname: string; trim: string; fuel: string; ext: string; int: string; km: string; opt: string; firstReg: string; cc: string; klass: string; price: Price; tab: string; row: string; raw?: Record<string, unknown>; sourceUrl?: string };
 const blank: Omit<Row, 'car' | 'tab' | 'row'> = { status: '', kind: '', maker: '', model: '', vname: '', trim: '', fuel: '', ext: '', int: '', km: '', opt: '', firstReg: '', cc: '', klass: '', price: {} };
 
 // 번호판 꼴만 차로 본다 — 헤더 밑 제목·프로모 배너·빈 행이 «차»로 새는 걸 막는다(오토플러스 실측).
 const isPlate = (s: string) => /\d{2,3}\s*[가-힣]\s*\d{4}/.test(S(s));
+let sourceReadComplete = true;
 async function readRows(): Promise<Row[]> {
   const out: Row[] = [];
   const seen = new Set<string>();
@@ -188,17 +187,30 @@ async function readRows(): Promise<Row[]> {
   if (src.kind === 'iron') {
     const { rowsFromIronCatalog } = await import('../lib/domain/mirror-iron-source');
     const got = await rowsFromIronCatalog();
+    sourceReadComplete = got.errors === 0;
     console.log(`  원본 ironrentcar.com — 목록 ${got.listings} · 활성 ${got.active} · 판매완료 ${got.sold} · 상세실패 ${got.errors}`);
     const g = (m: Map<string, string>, col: string) => S(m.get(N(col)));
     for (const [plate, m] of got.rows) {
       const dep = won(g(m, '장기보증')); const price: Price = {};
       for (const [pk, cands] of PERIOD_ALIAS) { for (const c of cands) { const rent = won(g(m, c)); if (rent > 0) { price[pk] = { rent, deposit: dep }; break; } } }
-      push({ car: g(m, '차량번호') || plate, status: g(m, '상태'), kind: g(m, '분류'), maker: g(m, '제조사'), model: g(m, '모델명'), vname: g(m, '차명(세부모델+트림)'), fuel: g(m, '연료'), ext: g(m, '외부색상'), int: g(m, '내부색상'), km: g(m, '주행거리'), opt: g(m, '옵션'), firstReg: g(m, '최초등록일') || g(m, '연식'), cc: g(m, '배기량'), klass: g(m, '분류'), price, tab: 'ironrentcar.com', row: plate });
+      push({ car: g(m, '차량번호') || plate, status: g(m, '상태'), kind: g(m, '분류'), maker: g(m, '제조사'), model: g(m, '모델명'), vname: g(m, '차명(세부모델+트림)'), fuel: g(m, '연료'), ext: g(m, '외부색상'), int: g(m, '내부색상'), km: g(m, '주행거리'), opt: g(m, '옵션'), firstReg: g(m, '최초등록일') || g(m, '연식'), cc: g(m, '배기량'), klass: g(m, '분류'), price, tab: 'ironrentcar.com', row: plate, raw: Object.fromEntries(m), sourceUrl: src.sourceUrl });
     }
     return out;
   }
+  if (src.kind === 'autoplus') {
+    const { rowsFromRebornCatalog } = await import('../lib/server/reborncar-source');
+    const got = await rowsFromRebornCatalog();
+    sourceReadComplete = got.errors.length === 0;
+    console.log(`  원본 reborncar.co.kr — 목록 ${got.listed} · 성공 ${got.rows.length} · 상세실패 ${got.errors.length}`);
+    for (const error of got.errors.slice(0, 5)) console.log(`    ! ${error}`);
+    for (const row of got.rows) push({ ...row, tab: 'reborncar.co.kr', row: row.externalId });
+    return out;
+  }
   if (src.kind === 'sonokong') {
-    const dump = JSON.parse(readFileSync('sonokong/lib/wonja/손오공차량.json', 'utf8')) as { 차량?: Record<string, unknown>[] };
+    const dumpPath = S(process.env.SONOGONG_RAW_DUMP_PATH) || 'sonokong/lib/wonja/손오공차량.json';
+    const dump = JSON.parse(readFileSync(dumpPath, 'utf8')) as { 차량?: Record<string, unknown>[]; 집계?: Record<string, { total?: number; fetched?: number } | number> };
+    const buckets = Object.values(dump.집계 || {}).filter((value): value is { total?: number; fetched?: number } => Boolean(value && typeof value === 'object'));
+    sourceReadComplete = buckets.length > 0 && buckets.every((bucket) => Number(bucket.total) === Number(bucket.fetched));
     const cars = dump.차량 || [];
     console.log(`  원본 손오공 API 덤프 — ${cars.length}대`);
     for (const c of cars) {
@@ -210,12 +222,16 @@ async function readRows(): Promise<Row[]> {
       const low = (c.저신용월납 || {}) as { SUBSCRIBE_RETURN?: Record<string, number>; SUBSCRIBE_BUYOUT?: Record<string, number> };
       for (const [p, rent] of Object.entries(low.SUBSCRIBE_RETURN || {})) { const r = won(rent); if (r > 0) price[p] = { rent: r, deposit: calculateDepositFromMonthlyRent(SONOGONG_DEPOSIT_POLICY, Number(p), r) ?? 0 }; }
       for (const [p, rent] of Object.entries(low.SUBSCRIBE_BUYOUT || {})) { const r = won(rent); if (r > 0) price[`${p}_인수형`] = { rent: r, deposit: calculateDepositFromMonthlyRent(SONOGONG_DEPOSIT_POLICY, Number(p), r) ?? 0 }; }
-      push({ car, status, kind: c.중고 ? '중고구독' : '', maker: S(c.제조사), model: S(c.모델), vname: S(c.차명) || S(c.세부), fuel: S(c.연료), ext: S(c.외장), int: S(c.내장), km: c.주행거리 == null ? '' : String(c.주행거리), opt: S(c.옵션), firstReg: S(c.최초등록) || S(c.연식), cc: c.배기량 == null ? '' : String(c.배기량), klass: '', price, tab: '손오공API', row: S(c.id) });
+      push({ car, status, kind: c.중고 ? '중고구독' : '', maker: S(c.제조사), model: S(c.모델), vname: S(c.차명) || S(c.세부), fuel: S(c.연료), ext: S(c.외장), int: S(c.내장), km: c.주행거리 == null ? '' : String(c.주행거리), opt: [S(c.옵션), S(c.유료옵션)].filter(Boolean).join(', '), firstReg: S(c.최초등록) || S(c.연식), cc: c.배기량 == null ? '' : String(c.배기량), klass: '', price, tab: '손오공API', row: S(c.id), raw: c, sourceUrl: src.sourceUrl });
     }
     return out;
   }
   // 시트형 — 탭·머리행 자동탐지 후 MIRROR_ALIAS 로 열 해석.
-  const tabs = await listSheetTabs(SHEET);
+  let tabs = await listSheetTabs(SHEET);
+  if (src.sharedWith?.length) {
+    tabs = tabs.filter((tab) => matchesSharedSourceTab(src.name, tab));
+    if (!tabs.length) throw new Error(`${PROV}: 공유 시트에서 ${src.name} 전용 재고 탭을 찾지 못했습니다.`);
+  }
   for (const tab of tabs) {
     const grid = await readSheetGrid(SHEET, tab);
     const allRows = [grid.header, ...grid.rows];
@@ -235,7 +251,8 @@ async function readRows(): Promise<Row[]> {
       const rawVname = ci.vname >= 0 ? S(r[ci.vname]) : '';
       const vname = rawVname || composeVehicleName(model, trim) || [maker0, model, trim].filter(Boolean).join(' ');
       const price = sheetPrice((i) => S(r[i]), ci);
-      push({ car, status: S(r[ci.status]), kind: ci.kind >= 0 ? S(r[ci.kind]) : '', maker: maker0, model, vname, trim, fuel: ci.fuel >= 0 ? S(r[ci.fuel]) : '', ext: ci.ext >= 0 ? S(r[ci.ext]) : '', int: ci.int >= 0 ? S(r[ci.int]) : '', km: ci.km >= 0 ? S(r[ci.km]) : '', opt: ci.opt >= 0 ? S(r[ci.opt]) : '', firstReg: ci.firstReg >= 0 ? S(r[ci.firstReg]) : '', cc: ci.cc >= 0 ? S(r[ci.cc]) : '', klass: ci.klass >= 0 ? S(r[ci.klass]) : '', price, tab, row: String(rowNo) });
+      const raw = Object.fromEntries(allRows[hi].map((header, index) => [S(header) || `__col_${index + 1}`, r[index] ?? '']));
+      push({ car, status: S(r[ci.status]), kind: ci.kind >= 0 ? S(r[ci.kind]) : '', maker: maker0, model, vname, trim, fuel: ci.fuel >= 0 ? S(r[ci.fuel]) : '', ext: ci.ext >= 0 ? S(r[ci.ext]) : '', int: ci.int >= 0 ? S(r[ci.int]) : '', km: ci.km >= 0 ? S(r[ci.km]) : '', opt: ci.opt >= 0 ? S(r[ci.opt]) : '', firstReg: ci.firstReg >= 0 ? S(r[ci.firstReg]) : '', cc: ci.cc >= 0 ? S(r[ci.cc]) : '', klass: ci.klass >= 0 ? S(r[ci.klass]) : '', price, tab, row: String(rowNo), raw, sourceUrl: src.sourceUrl });
     }
   }
   return out;
@@ -273,6 +290,11 @@ function atomize(row: Row, pinned: Map<string, Record<string, unknown>>): Atom {
       engine_cc: row.cc, vehicle_class: row.klass, first_registration_date: row.firstReg,
     };
   }
+  const sourceSnapshot = createInventorySourceSnapshot({
+    partnerCode: PROV, carNumber: car, sourceUrl: row.sourceUrl || src.sourceUrl,
+    sourceLocation: row.tab, sourceRecordId: row.row, raw: row.raw || {},
+  });
+  const { raw_payload: _rawPayload, ...sourceSnapshotRef } = sourceSnapshot; void _rawPayload;
   const atom: Atom = {
     car_number: car,
     maker: identity.maker, model: identity.model, sub_model: identity.sub_model, trim_name: identity.trim_name, origin: identity.origin, ...spec, engine_cc: evEngineCc(S(spec.fuel_type), S(spec.engine_cc)),
@@ -281,9 +303,11 @@ function atomize(row: Row, pinned: Map<string, Record<string, unknown>>): Atom {
     ...(rawSeats(vname) ? { seats: rawSeats(vname) } : null),   // 원문에 인승 있으면만
     ...(Object.keys(row.price).length ? { price: row.price } : null),
     _pin_state: state,
-    원문: { 차명: vname, ...(row.opt ? { 옵션: row.opt } : null) },
+    원문: { 차명: vname, ...(row.opt ? { 옵션: row.opt } : null), 전체: row.raw || {} },
+    source_snapshot: sourceSnapshotRef,
+    _source_snapshot_record: sourceSnapshot,
     provider_company_code: PROV, partner_code: PROV,
-    source: src.kind, source_schema: PROV, sheet_source_tab: row.tab, sheet_source_row: row.row,
+    source: src.kind, source_schema: PROV, source_url: row.sourceUrl || src.sourceUrl, sheet_source_tab: row.tab, sheet_source_row: row.row,
   };
   // ★불변식 게이트 — block 위반이 있으면 «확정될 수 없다»(검수대기). 모순이 확정된 채 존재하는 게 구조적으로 불가능.
   const vio = atomViolations(atom, IDX);
@@ -308,6 +332,7 @@ const cur = new Map<string, Record<string, unknown>>();
 }
 
 const now = await ingest(cur);
+if (!now.length && cur.size) throw new Error(`${PROV}: 현행 원자 ${cur.size}대가 있는데 원천 수집이 0대입니다. 헤더/권한/원천 상태를 확인할 때까지 HOLD합니다.`);
 console.log(`\n■ ${PROV}(${src.name}) 원천 직접 수집 — ${now.length}대 (정제시트 안 거침 · 우리 것 ${cur.size}대 참조)`);
 const n = now.length || 1;
 const pctOf = (x: number) => `${x}/${now.length} (${Math.round((x / n) * 100)}%)`;
@@ -327,7 +352,7 @@ const jsonP = (o: unknown) => JSON.stringify(o ?? {}, (_k, v) => (v && typeof v 
 for (const a of now) {
   const c = cur.get(a.car_number); if (!c) continue; both++;
   if (IDF.every((f) => N(a[f]) === N(c[f]))) idSame++;
-  if (Object.keys(a.price).length && c.price) { priceBoth++; if (jsonP(a.price) === jsonP(c.price)) priceSame++; }
+  if (Object.keys((a.price as Record<string, unknown> | undefined) || {}).length && c.price) { priceBoth++; if (jsonP(a.price) === jsonP(c.price)) priceSame++; }
 }
 const gone = [...cur.keys()].filter((k) => !ingestedCars.has(k)); // 우리 것엔 있는데 원천에서 사라진 차
 const fresh = now.filter((a) => !cur.has(a.car_number)).length; // 원천엔 있는데 우리 것에 없던 새 차
@@ -335,8 +360,35 @@ console.log(`  대조: 아는 차 불변일치 ${both ? Math.round((idSame / bot
 console.log(`  요금 일치: ${priceBoth ? Math.round((priceSame / priceBoth) * 100) : 0}% (${priceSame}/${priceBoth}, 양쪽에 요금 있는 차)`);
 
 const VARIABLE = process.argv.includes('--variable');
+const RETIRE = process.argv.includes('--retire');
 const docId = (car: string) => car.replace(/\s/g, '').replace(/[/#.$[\]]/g, '_');
 const VAR_FIELDS = ['status', 'status_kind', 'status_reason', 'listable', 'status_label_raw', 'mileage', 'price'] as const;
+
+async function retireGoneCars(): Promise<number> {
+  if (!RETIRE || !gone.length) return 0;
+  if (!sourceReadComplete) {
+    console.log(`  · 사라진 차 ${gone.length}건 마킹 안 함 — 원천 상세 읽기가 일부 실패해 스냅샷이 불완전함.`);
+    return 0;
+  }
+  const currentlyListable = [...cur.values()].filter((value) => value.listable === true).length;
+  if (!sourceSnapshotSafeToRetire(now.length, currentlyListable)) {
+    console.log(`  · 사라진 차 ${gone.length}건 마킹 안 함 — 안전판(수집 ${now.length} < 출고가능 ${currentlyListable}의 절반, 원천 읽기 의심).`);
+    return 0;
+  }
+  const locked = gone.filter((car) => isContractLocked(cur.get(car) || {}));
+  const targets = gone.filter((car) => !locked.includes(car));
+  let retired = 0;
+  for (let i = 0; i < targets.length; i += 400) {
+    const batch = fs.batch();
+    for (const car of targets.slice(i, i + 400)) {
+      batch.set(fs.collection('products').doc(docId(car)), sourceExitPatch(Date.now()), { merge: true });
+      retired++;
+    }
+    await batch.commit();
+  }
+  if (locked.length) console.log(`  · 사라진 차 중 계약중(락) ${locked.length}건은 계약 상태를 유지함.`);
+  return retired;
+}
 
 // ── 검증(--verify) — 원자를 «차종마스터 ↔ 원문»과 대조. 제대로 당겼나 한 번 본다. ──
 if (process.argv.includes('--verify')) {
@@ -370,55 +422,68 @@ if (!APPLY) { console.log(`\n미리보기 — Firestore 안 씀. 쓰려면 --app
 // ── 변동 폴링(--variable) — 아는 차의 상태·주행만 delta. 불변은 «절대» 안 건드린다. ──
 //   사장님 「한 번 정확히 가져오면 그 다음은 상태값만 읽어 바뀐 거 체크. 제일 바뀌는 게 차량상태.」
 if (VARIABLE) {
-  const items = now.filter((a) => cur.has(a.car_number)); // 아는 차만(새 차는 --apply 몫)
-  let changed = 0, sChg = 0, mChg = 0, pChg = 0;
-  for (let i = 0; i < items.length; i += 400) {
+  const items = now.filter((a) => cur.has(a.car_number));
+  const newItems = now.filter((a) => !cur.has(a.car_number));
+  let changed = 0, sChg = 0, mChg = 0, pChg = 0, newWrote = 0;
+  for (let i = 0; i < items.length; i += 200) {
     const batch = fs.batch(); let any = false;
-    for (const a of items.slice(i, i + 400)) {
+    for (const a of items.slice(i, i + 200)) {
       const c = cur.get(a.car_number)!;
       const jsonSorted = (o: unknown) => JSON.stringify(o ?? {}, (_k, v) => (v && typeof v === 'object' && !Array.isArray(v)) ? Object.fromEntries(Object.entries(v as Record<string, unknown>).sort()) : v);
       const sMoved = S(a.status) !== S(c.status) || a.listable !== c.listable || S(a.status_kind) !== S(c.status_kind);
       const mMoved = S(a.mileage) !== S(c.mileage);
-      const pMoved = Object.keys(a.price).length > 0 && jsonSorted(a.price) !== jsonSorted(c.price);
-      if (!sMoved && !mMoved && !pMoved) continue;
+      const pMoved = Object.keys((a.price as Record<string, unknown> | undefined) || {}).length > 0 && jsonSorted(a.price) !== jsonSorted(c.price);
+      const snapshot = a._source_snapshot_record as { snapshot_id: string; source_revision: string };
+      const currentSnapshot = c.source_snapshot as { source_revision?: string } | undefined;
+      const rawMoved = snapshot.source_revision !== S(currentSnapshot?.source_revision);
+      if (!sMoved && !mMoved && !pMoved && !rawMoved) continue;
       const upd: Record<string, unknown> = { _var_polled_at: Date.now() };
       for (const f of VAR_FIELDS) if (a[f] !== undefined) upd[f] = a[f];
+      if (rawMoved) {
+        upd.원문 = a.원문;
+        upd.source_snapshot = a.source_snapshot;
+        upd.source_url = a.source_url;
+        upd.sheet_source_tab = a.sheet_source_tab;
+        upd.sheet_source_row = a.sheet_source_row;
+        batch.set(fs.collection('inventorySourceSnapshots').doc(snapshot.snapshot_id), a._source_snapshot_record as Record<string, unknown>, { merge: false });
+      }
       batch.set(fs.collection('products').doc(docId(a.car_number)), upd, { merge: true });
       changed++; if (sMoved) sChg++; if (mMoved) mChg++; if (pMoved) pChg++; any = true;
     }
     if (any) await batch.commit();
   }
-  console.log(`\n변동 폴링 완료 — ${PROV} 아는 차 ${items.length} 중 바뀐 ${changed} 씀 (상태 ${sChg} · 주행 ${mChg} · 요금 ${pChg}). 불변 안 건드림.`);
+  for (let i = 0; i < newItems.length; i += 200) {
+    const batch = fs.batch();
+    for (const a of newItems.slice(i, i + 200)) {
+      const { _pin_state, _source_snapshot_record, ...doc } = a; void _pin_state;
+      batch.set(fs.collection('products').doc(docId(a.car_number)), { ...doc, _direct_ingest_at: Date.now() }, { merge: true });
+      const snapshot = _source_snapshot_record as { snapshot_id: string };
+      batch.set(fs.collection('inventorySourceSnapshots').doc(snapshot.snapshot_id), _source_snapshot_record as Record<string, unknown>, { merge: false });
+      newWrote++;
+    }
+    await batch.commit();
+  }
+  const retired = await retireGoneCars();
+  console.log(`\n변동 폴링 완료 — ${PROV} 아는 차 ${items.length} 중 바뀐 ${changed} 씀 (상태 ${sChg} · 주행 ${mChg} · 요금 ${pChg}) · 새 원자 ${newWrote} · 원천 이탈 출고불가 ${retired}.`);
   process.exit(0);
 }
 
 // ── 전체 반영(불변+상태) = «한 번 정확히» + (--retire 일 때만) 사라진 차 listable=false ──
 // ⚠ 사라진-차 마킹은 오탐이 곧 «차가 사라져 보임»이라 별도 플래그(--retire)로만. 안전판도 함께:
 //   수집분이 우리 것의 절반도 안 되면(원천 읽기 실패 의심) 마킹하지 않는다.
-const RETIRE = process.argv.includes('--retire');
-const safeToRetire = RETIRE && (cur.size === 0 || now.length >= cur.size * 0.5);
-let wrote = 0, retired = 0;
-for (let i = 0; i < now.length; i += 400) {
+let wrote = 0;
+for (let i = 0; i < now.length; i += 200) {
   const batch = fs.batch();
-  for (const a of now.slice(i, i + 400)) {
-    const { _pin_state, ...doc } = a; void _pin_state;
+  for (const a of now.slice(i, i + 200)) {
+    const { _pin_state, _source_snapshot_record, ...doc } = a; void _pin_state;
     batch.set(fs.collection('products').doc(docId(a.car_number)), { ...doc, _direct_ingest_at: Date.now() }, { merge: true });
+    const snapshot = _source_snapshot_record as { snapshot_id: string };
+    batch.set(fs.collection('inventorySourceSnapshots').doc(snapshot.snapshot_id), _source_snapshot_record as Record<string, unknown>, { merge: false });
     wrote++;
   }
   await batch.commit();
 }
-if (safeToRetire && gone.length) {
-  // ★계약중(락 걸린) 차는 «안» 내린다 — 원천에서 잠깐 빠져도 진행 중인 거래를 숨기면 안 된다.
-  const locked = gone.filter((car) => { const c = cur.get(car) || {}; return S(c.status) === '계약중' || S(c.status_kind) === '선점' || S(c.locked_by_contract) || S(c.vehicle_status) === '계약중'; });
-  const toRetire = gone.filter((car) => !locked.includes(car));
-  for (let i = 0; i < toRetire.length; i += 400) {
-    const batch = fs.batch();
-    for (const car of toRetire.slice(i, i + 400)) { batch.set(fs.collection('products').doc(docId(car)), { listable: false, status_reason: '원천 이탈(직접수집)', _direct_ingest_at: Date.now() }, { merge: true }); retired++; }
-    await batch.commit();
-  }
-  if (locked.length) console.log(`  · 사라진 차 중 계약중(락) ${locked.length}건은 안 내림(거래 진행중).`);
-} else if (gone.length) {
-  console.log(`  · 사라진 차 ${gone.length}건 마킹 안 함 — ${RETIRE ? `안전판(수집 ${now.length} < 우리 것 ${cur.size}의 절반, 원천 읽기 의심)` : '--retire 없음(오탐 방지, 기본 끔)'}.`);
-}
+const retired = await retireGoneCars();
+if (!RETIRE && gone.length) console.log(`  · 사라진 차 ${gone.length}건 마킹 안 함 — --retire 없음.`);
 console.log(`\n반영 완료 — ${PROV} 직접 원자 ${wrote}건 merge(불변+상태) · 사라진 차 listable=false ${retired}건. 요금은 별도(가격블록).`);
 process.exit(0);

@@ -20,7 +20,7 @@ const ONLY = new Set(
     .filter(Boolean),
 );
 
-// 테스트/비상 점검 때만 CLI로 원천 위치를 덮을 수 있다. 운영 기본값은 source-registry.ts가 정본이다.
+// 테스트/비상 점검 때만 어댑터 입력 시트를 덮을 수 있다. 실제 원천 위치 정본은 inventory-source-registry.ts다.
 // --only=IANKA,IRON 처럼 쓰면 해당 발행 탭의 실제 소유 공급사만 대조한다.
 // F01은 상품리스트/오플구독 등 탭별 발행 대상이 다르므로, 서로 다른 탭을 한 dump에 억지로 찾지 않는다.
 const SOURCES = SUPPLIER_SOURCES
@@ -127,7 +127,7 @@ for (const spec of SOURCES) {
   const adapter = getSupplierAdapter(spec.code);
   const values = await sheetsValues(spec.spreadsheetId, spec.tab);
   const headerAt = findHeaderRow(values, spec.pricingMode);
-  if (headerAt < 0) throw new Error(`SSOT gate: ${spec.name} 원천에서 차량번호+가격 헤더 행을 찾지 못했습니다.`);
+  if (headerAt < 0) throw new Error(`SSOT gate: ${spec.name} 어댑터 입력에서 차량번호+가격 헤더 행을 찾지 못했습니다.`);
   const headers = values[headerAt].map(S);
 
   let checked = 0;

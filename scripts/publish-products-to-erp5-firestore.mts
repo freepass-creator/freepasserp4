@@ -109,17 +109,17 @@ async function loadAdapterAtoms(account: ServiceAccountJson): Promise<{
     key: account.private_key,
     scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'],
   }).getAccessToken()).token;
-  if (!token) throw new Error('공급사 원천 Google Sheets 토큰을 발급하지 못했습니다.');
+  if (!token) throw new Error('공급사 어댑터 입력 Google Sheets 토큰을 발급하지 못했습니다.');
 
   for (const spec of SUPPLIER_SOURCES) {
     const range = encodeURIComponent(`'${spec.tab.replace(/'/g, "''")}'`);
     const response = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spec.spreadsheetId}/values/${range}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
-    if (!response.ok) throw new Error(`${spec.name} 원천 시트 읽기 실패: ${response.status} ${await response.text()}`);
+    if (!response.ok) throw new Error(`${spec.name} 어댑터 입력 시트 읽기 실패: ${response.status} ${await response.text()}`);
     const values = ((await response.json()) as { values?: string[][] }).values || [];
     const headerAt = findHeaderRow(values, spec.pricingMode);
-    if (headerAt < 0) throw new Error(`${spec.name} 원천에서 차량번호+가격 머리글을 찾지 못했습니다.`);
+    if (headerAt < 0) throw new Error(`${spec.name} 어댑터 입력에서 차량번호+가격 머리글을 찾지 못했습니다.`);
     const headers = values[headerAt].map(S);
     const adapter = getSupplierAdapter(spec.code);
     let count = 0;
@@ -134,11 +134,11 @@ async function loadAdapterAtoms(account: ServiceAccountJson): Promise<{
       const plate = compactPlate(result.atom.plateNumber);
       if (!plate) continue;
       const key = `${spec.partnerCode}|${plate}`;
-      if (byProviderAndPlate.has(key)) throw new Error(`${spec.name} 원천 차량번호 중복: ${plate}`);
+      if (byProviderAndPlate.has(key)) throw new Error(`${spec.name} 어댑터 입력 차량번호 중복: ${plate}`);
       byProviderAndPlate.set(key, result.atom);
       count += 1;
     }
-    if (!count) throw new Error(`${spec.name} 원천에서 상품을 한 대도 읽지 못했습니다.`);
+    if (!count) throw new Error(`${spec.name} 어댑터 입력에서 상품을 한 대도 읽지 못했습니다.`);
     stats[spec.code] = count;
   }
   return { byProviderAndPlate, stats };
