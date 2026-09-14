@@ -19,6 +19,7 @@ import { getCompanyId } from '@/lib/tenant';
 import { VERSION, BUILD } from '@/lib/brand';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { companyAlias } from '@/lib/domain/identity';
+import { useInternalWhitelabel } from '@/lib/internal-whitelabel-context';
 
 // 상단바 = 상태창(어디·몇 건). 웹 메뉴=좌측 · 모바일 메뉴=우측.
 // 웹 우측 = 오늘·소속·이름·직책. 주탭 아이콘·워딩 = NAV_ICON / NAV_LABEL SSOT.
@@ -362,6 +363,7 @@ export default function TopBar() {
    * 판정은 `lib/tabbar` `showsMobileMenu` 한 곳. 웹 전체메뉴는 그대로다(영업자도 쓴다).
    */
   const topSession = useSession();
+  const internalWhiteLabel = useInternalWhitelabel();
   const topRole: Role = topSession?.role === 'admin' || topSession?.role === 'provider' || topSession?.role === 'agent'
     ? topSession.role : getRole();
   const path = usePathname();
@@ -443,7 +445,8 @@ export default function TopBar() {
             onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onStatusTap(); } }}
             style={{
               minWidth: 0, flex: 1,
-              display: 'flex', alignItems: 'center',
+              display: 'flex', alignItems: internalWhiteLabel.enabled ? 'flex-start' : 'center',
+              flexDirection: internalWhiteLabel.enabled ? 'column' : 'row', justifyContent: 'center', gap: 0,
               height: mobile ? ctrlH(true) : undefined,
               cursor: 'pointer',
               WebkitTapHighlightColor: 'transparent',
@@ -453,7 +456,10 @@ export default function TopBar() {
                 letterSpacing: '-0.01em',
               } : {}),
             }}
-          >{status}</div>
+          >
+            {internalWhiteLabel.enabled && internalWhiteLabel.headline ? <span className="fp-internal-wl__headline">{internalWhiteLabel.headline}</span> : null}
+            <span className="fp-internal-wl__location">{status}</span>
+          </div>
         </div>
         {/* 페이지별 우측 액션 — erp3 m-topbar-actions. 웹·모바일 공통(메뉴 왼쪽). */}
         {actions != null && (
