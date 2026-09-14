@@ -3,14 +3,14 @@
 ERP5 Rules는 기본 `.firebaserc`를 사용하지 않는다. 사람 승인 뒤 대상 프로젝트와 전용 config를 모두 명시해서만 배포한다.
 
 ```bash
-firebase deploy --config firebase.erp5.json --project erp5-3e2fc --only firestore:rules
+firebase deploy --config firebase.erp5.json --project freepasserp5 --only firestore:rules
 ```
 
 ## 이름과 경계
 
 - **ERP4**: 현재 운영 플랫폼 이름이다.
 - **ERP3**: 기존 Firebase 프로젝트다. 로그인·채팅·계약 등 유지 운영 데이터만 당분간 남긴다.
-- **ERP5**: 상품·차종 원자를 공급하는 독립 Firebase 프로젝트(`erp5-3e2fc`)다.
+- **ERP5**: 상품·차종 원자를 공급하는 독립 Firebase 프로젝트(`freepasserp5`)다.
 
 ERP5 상품은 ERP3/ERP4 `products`를 복사해 만들지 않는다. 공급사 원천 Google Sheets가 상품 행·가격·상태의 주인이고, Google 상품마스터가 같은 `공급사코드 + 차량번호`의 차종·검증 참조다. 차종마스터는 Google Sheet 채택값과 Encar 참조본을 대조해 만든다.
 
@@ -44,10 +44,10 @@ ERP5에는 상태를 한 칸으로 뭉개지 않고 다음 네 값을 함께 보
 | 대조 결과 | 원자 저장 | `listable` | 버전 활성화 |
 |---|---:|---:|---:|
 | 공급사와 Google 상태 일치, Google 차종 확정 | 예 | 판매요건 충족 시 예 | 허용 |
-| 상태 충돌 | 예 | 아니오 | 차단 |
-| 공급사 상태 공란 | 예 | 아니오 | 차단 |
-| Google 행/확정 차종 누락 | 예 | 아니오 | 차단 |
-| Google에만 있고 공급사 원천에 없음 | 상품 원자 생성 안 함 | 아니오 | 차단 |
+| 상태 충돌 | 격리 보존 | 아니오 | 활성 상품에서는 제외 |
+| 공급사 상태 공란 | 격리 보존 | 아니오 | 활성 상품에서는 제외 |
+| Google 행/확정 차종 누락 | 격리 보존 | 아니오 | 활성 상품에서는 제외 |
+| Google에만 있고 공급사 원천에 없음 | 상품 원자 생성 안 함 | 아니오 | 활성 상품에서는 제외 |
 | 양쪽 모두 명시적 출고불가 | 예 | 아니오 | 허용 |
 
 공란 상태를 `출고협의`로 추정하지 않는다. 불일치는 `verification_state`, `verification_reasons`, `listing_reasons`로 남긴다.
@@ -66,7 +66,7 @@ ERP5에는 상태를 한 칸으로 뭉개지 않고 다음 네 값을 함께 보
 - 세부트림 공란은 ERP5 발행명에서만 `기본형`으로 투영한다.
 - 모델과 세부모델이 같으면 발행 세부모델만 `기본형`으로 투영하고 Google 원문은 남긴다.
 - `G80 RG3` 기본형, 손오공, 오토플러스 보증금 규칙은 회귀검사에 포함한다.
-- FL 표기, 기아 세대명 미변환, Encar 근거 부족, 검토 충돌은 활성화 blocker다.
+- FL 표기·기아 세대명 미변환 같은 구조 오류는 활성화 blocker다. Encar 근거 부족·검토 충돌 원자는 `quarantine`에 보존하고 활성 `entries`에서는 제외한다.
 - 차종마스터 명칭·키·매핑 내용은 이 발행 경로에서 수정하지 않는다.
 
 ## Firestore 경로
@@ -75,9 +75,11 @@ ERP5에는 상태를 한 칸으로 뭉개지 않고 다음 네 값을 함께 보
 |---|---|
 | 상품 버전 | `productMasterVersions/{versionId}` |
 | 상품 문서 | `productMasterVersions/{versionId}/products/{partnerCode_plate}` |
+| 상품 검수 격리 | `productMasterVersions/{versionId}/quarantine/{partnerCode_plate}` |
 | 활성 상품 포인터 | `ssotState/products` |
 | 차종 버전 | `vehicleMasterVersions/{versionId}` |
 | 차종 문서 | `vehicleMasterVersions/{versionId}/entries/{stableId}` |
+| 차종 검수 격리 | `vehicleMasterVersions/{versionId}/quarantine/{stableId}` |
 | 활성 차종 포인터 | `ssotState/vehicleMaster` |
 | 상품·차종 결합 release | `ssotReleases/{releaseId}` |
 
@@ -88,9 +90,9 @@ ERP5에는 상태를 한 칸으로 뭉개지 않고 다음 네 값을 함께 보
 ## 자격증명
 
 - `GOOGLE_SA_JSON`: 공급사·상품마스터·차종마스터 Sheets 조회 전용
-- `ERP5_FIREBASE_WRITER_SERVICE_ACCOUNT_JSON`: `erp5-3e2fc` draft 쓰기·release 승격 전용
+- `ERP5_FIREBASE_WRITER_SERVICE_ACCOUNT_JSON`: `freepasserp5` draft 쓰기·release 승격 전용
 - `ERP5_FIREBASE_READER_SERVICE_ACCOUNT_JSON`: ERP4 런타임의 ERP5 읽기 전용
-- `ERP5_FIREBASE_PROJECT_ID`: 선택값, 기본 `erp5-3e2fc`
+- `ERP5_FIREBASE_PROJECT_ID`: 선택값, 기본 `freepasserp5`
 - `ERP5_CUTOVER_STATE`: `precutover`(기본 유지), `complete`(ERP5), `rollback-approved`(명시 승인 롤백)
 
 Google 조회 자격증명과 ERP5 writer의 `project_id`가 같으면 발행을 중단한다. ERP5 writer와 reader는 분리한다. 서비스계정은 코드로 만들거나 추정할 수 없고 Firebase에서 발급한 실제 계정이어야 한다.
@@ -102,7 +104,7 @@ ERP5 초안 저장과 ERP4 상품 절체는 분리한다. Google 상품마스터
 다음 조건을 모두 충족한 뒤 ERP4 서버에 `ERP5_CUTOVER_STATE=complete`를 설정한다. 절체 후 ERP3로 되돌릴 때는 일반 boolean을 끄지 말고 별도 승인 후에만 `rollback-approved`를 사용한다.
 
 1. ERP5 서비스계정이 배포 환경에 설치되어 있다.
-2. 상품·차종 draft가 실제 `erp5-3e2fc`에 저장되었다.
+2. 상품·차종 draft가 실제 `freepasserp5`에 저장되었다.
 3. 원천·Google·Encar 대조 blocker가 0이고 차종 계층키가 모두 존재한다.
 4. 두 draft의 전체 SHA-256 read-back이 일치한다.
 5. 동일 draft를 `promote-erp5-release.mts`로 승격했다.
@@ -138,8 +140,11 @@ node --import tsx scripts/promote-erp5-release.mts \
 
 - Google 차종마스터 1,668행과 Encar 참조 6,350행을 대조했다.
 - 기존 검증기는 53건을 막았고, 그중 카니발 13행은 Google 최종 `종합판정=확정`을 읽지 않던 코드 오류였다. 최종 판정을 우선하도록 수정했다.
-- 현재 Google 차종마스터에는 계층키 열이 없어 `modelKey/subModelKey/trimKey/atomKey`가 공란이다. 값을 임의 생성하지 않고 활성화 blocker로 처리한다.
-- 라이브 Google 값에는 `G80 RG3 / 기본형`이 없고 `G80 RG3 / 블랙`만 있다. 테스트의 기본형은 실데이터 증거가 아니므로 Google 최종 반영 전에는 RG3 기본형을 확정으로 주장하지 않는다.
+- Google 차종마스터 1,668행에 `modelKey/subModelKey/trimKey/atomKey`가 모두 채워졌고 공란·중복은 0건이다.
+- `G80 RG3 / 기본형`은 Google 710행의 확정 원자로 반영되었고 원자 ID는 `vm_5ff115ef6e690f4c86df0fd8`이다.
+- 최종 검수 대기는 셀토스 SP2 1행과 토요타 RAV4 5·6세대 5행, 합계 6행이다. 삭제하지 않고 ERP5 `quarantine`에 보존하며 활성 차종 원자에서는 제외한다.
+- Google `상품마스터_구버전`은 ERP5 규격 52열로 확장했고, 손오공 구독 102대와 오토플러스 177대의 최신 원천 대여료·보증금 규칙 계산을 반영했다.
+- `freepasserp5` Firestore API와 ERP5 전용 Rules는 2026-09-14에 배포했다. 상품·차종 draft 및 활성 release는 별도 발행·검증 단계다.
 - 독립 ERP5 쓰기 성공 기록은 아직 없다. 과거 성공한 상품 1,538대·차종 1,668행 draft는 `freepasserp3`에 작성된 구 설계 결과이며 ERP5 활성본이 아니다.
 
 ERP3에 과거 잘못 작성된 `productMasterVersions`/`vehicleMasterVersions` draft는 ERP5 활성 포인터가 아니며 이 경로에서 읽지 않는다. 삭제는 별도 승인 전까지 하지 않는다.
