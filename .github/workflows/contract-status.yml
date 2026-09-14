@@ -30,10 +30,19 @@ concurrency:
 
 jobs:
   mark:
+    permissions:
+      contents: read
+      id-token: write
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+      - name: freepasserp5 OIDC 인증
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/110304297079/locations/global/workloadIdentityPools/github-actions/providers/freepasserp4
+          service_account: github-inventory-writer@freepasserp5.iam.gserviceaccount.com
+          create_credentials_file: true
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
@@ -52,6 +61,10 @@ jobs:
           printf '%s' "$SA" > tmp/firebase-auth/sa.json
 
       - name: 계약중 표기
+        env:
+          ERP5_FIREBASE_USE_ADC: 'true'
+          GOOGLE_CLOUD_PROJECT: freepasserp5
+          GOOGLE_SHEETS_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sa.json
         run: |
           npx tsx scripts/mark-contract-in-listings.mts ${{ (github.event_name == 'schedule' || inputs.apply) && '--apply' || '' }}
 
