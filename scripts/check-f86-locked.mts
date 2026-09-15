@@ -104,13 +104,23 @@ must(retroCellValue('36개월', '1,050,000') === 1050000 && retroCellValue('최�
 /* ── ⓪ F86 만 · 발행기·감사기가 같은 표 ─────────────────────────── */
 const build = read('scripts/build-channel-supplier-sheet.mts');
 const audit = read('scripts/audit-sheet-vs-atom.mts');
+/** ★2026-09-16 「하허호 시트는 제일 중요하게」 — 칸·줄·값·차례는 계획 한 벌(`buildF86Plan`)에서만 · F86 감사기도 같은 계획. */
+const planSrc = read('lib/server/channel-f86-plan.ts');
+const auditF86 = read('scripts/audit-f86-vs-atom.mts');
 must(/const RETRO = channel === '하허호'/.test(build), '레트로 분기가 «하허호 한 곳»에서만 켜지지 않습니다 — 다른 채널 시트로 번집니다.', `scripts/build-channel-supplier-sheet.mts · RETRO — ${MANUAL} 0`);
-must(/양식어긋남/.test(build) && /retroTabLayout\(company\)/.test(build) && /retroTabRank/.test(build),
-  '발행기가 «굳힌 표»(탭 차례·요금 칸)를 안 쓰거나 표 밖 데이터에서 안 멈춥니다.', `scripts/build-channel-supplier-sheet.mts · 굳힌 양식 문지기 — ${MANUAL} 5`);
+must(/양식어긋남/.test(planSrc) && /retroTabLayout\(company\)/.test(planSrc) && /retroTabRank/.test(planSrc) && /plan\.layoutViolations/.test(build),
+  '발행 계획이 «굳힌 표»(탭 차례·요금 칸)를 안 쓰거나 발행기가 표 밖 데이터에서 안 멈춥니다.', `lib/server/channel-f86-plan.ts · build-channel-supplier-sheet.mts 굳힌 양식 문지기 — ${MANUAL} 5`);
+must(build.includes('buildF86Plan') && auditF86.includes('buildF86Plan'),
+  '발행기와 F86 감사기가 같은 계획(buildF86Plan)을 안 씁니다 — 한쪽만 바뀌면 감사가 거짓말합니다.', `build-channel-supplier-sheet.mts · audit-f86-vs-atom.mts — ${MANUAL} 6`);
+for (const f of ['scripts/backup-f86.mts', 'scripts/restore-f86-from-backup.mts']) {
+  let ok = true; try { read(f); } catch { ok = false; }
+  must(ok, `${f} 가 없습니다 — 운영 F86 되돌리기 준비가 사라졌습니다.`, `${f} — ${MANUAL} 6`);
+}
+must(/--max-age-min/.test(auditF86), 'F86 감사기에 신선도(--max-age-min) 검사가 없습니다.', `scripts/audit-f86-vs-atom.mts — ${MANUAL} 6`);
 must(/retroTabLayout\(company\)/.test(audit) && /탭 차례가 굳힌 표와 다르다/.test(audit),
   '감사기가 «굳힌 표»로 머리글·탭 차례를 안 봅니다.', `scripts/audit-sheet-vs-atom.mts — ${MANUAL} 5`);
 for (const name of ['retroTabLayout', 'retroHasLongFee', 'RETRO_SUMMARY_TAB']) {
-  must(build.includes(name) && audit.includes(name), `발행기·감사기가 같은 «${name}» 를 안 씁니다 — 한쪽만 바뀌면 감사가 거짓말합니다.`, `build-channel-supplier-sheet.mts · audit-sheet-vs-atom.mts — ${MANUAL}`);
+  must(planSrc.includes(name) && audit.includes(name), `발행기·감사기가 같은 «${name}» 를 안 씁니다 — 한쪽만 바뀌면 감사가 거짓말합니다.`, `build-channel-supplier-sheet.mts · audit-sheet-vs-atom.mts — ${MANUAL}`);
 }
 must(/if \(RETRO\) \{\s*const lock = spawnSync\([^)]*check-f86-locked\.mts/.test(build) && /lock\.status !== 0/.test(build),
   '발행기가 --apply 전에 이 잠금을 안 돌립니다 — 어긋난 규격으로 운영 F86 을 덮을 수 있습니다.', `scripts/build-channel-supplier-sheet.mts · F86 확정 규격 잠금 — ${MANUAL}`);
@@ -120,7 +130,7 @@ must(!read('lib/domain/sales-sheet-format.ts').includes('channel-retro-skin'), '
 
 /* ── 매뉴얼 절 ───────────────────────────────────────────────── */
 const man = read('docs/영업자시트-매뉴얼.md');
-for (const phrase of ['«완전 커스텀 레트로» 규격 (2026-09-16 픽스)', 'npm run check:f86', '단기보증·1개월·6개월·12개월', '손오공·오토플러스를 뺀 렌트사 차 한 장', 'retroHasLongFee', '맑은 고딕 9pt', '기간이 같은 옛 칸 색', '회사 탭도 그대로 같이 둔다', '굳힌 양식', '빈 값 표기 = F01 과 같다']) {
+for (const phrase of ['«완전 커스텀 레트로» 규격 (2026-09-16 픽스)', 'npm run check:f86', '단기보증·1개월·6개월·12개월', '손오공·오토플러스를 뺀 렌트사 차 한 장', 'retroHasLongFee', '맑은 고딕 9pt', '기간이 같은 옛 칸 색', '회사 탭도 그대로 같이 둔다', '굳힌 양식', '빈 값 표기 = F01 과 같다', '지키는 장치']) {
   must(man.includes(phrase), `매뉴얼 F86 절에서 「${phrase}」가 사라졌습니다.`, MANUAL);
 }
 

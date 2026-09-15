@@ -105,7 +105,8 @@ assert.doesNotMatch(photoLinkChecker, /files\s*\|\|\s*\[\]\)\[0\]/);
 
 for (const file of [
   'scripts/make-sample-sheet-google.mts',
-  'scripts/build-channel-supplier-sheet.mts',
+  // F86 발행기의 «실을 차» 판정은 발행 계획 한 벌로 옮겼다(2026-09-16 · 발행기·F86 감사기가 같이 쓴다).
+  'lib/server/channel-f86-plan.ts',
   'scripts/check-sales-publish-context.mts',
   'scripts/audit-sheet-vs-atom.mts',
   'scripts/materialize-product-list-atom.mts',
