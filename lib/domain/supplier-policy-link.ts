@@ -20,6 +20,18 @@ const dead = (r: Rec) => r?._deleted === true || S(r?.status) === 'deleted';
 
 export interface PolicyLite { policy_code: string; provider_company_code: string; policy_name: string; product_types?: string[]; }
 
+export type PolicyReferenceResolution = {
+  code: string;
+  sourceCode: string;
+  state: 'valid' | 'normalized' | 'inferred' | 'missing';
+};
+
+/** RP031_S1 ↔ RP031_S01, P1 ↔ P01처럼 숫자 앞의 0만 다른 과거 코드를 같은 코드로 비교한다. */
+export function normalizedPolicyCode(value: unknown): string {
+  // 숫자 부분 앞의 0+를 제거한다. 예: P01 → p1, FOO_S0012 → foo_s12
+  return S(value).toLowerCase().replace(/([a-z_]*)0+([1-9]\d*)$/i, '$1$2');
+}
+
 /**
  * 상품구분/정책명 → «렌트 or 구독» 버킷 (사장님 2026-09-08 「렌트와 구독 나눠서 번호판으로 정책 매칭하면 되고」).
  *   구독(픽업구독·중고구독·오플구독·오공구독·신차구독) vs 렌트(신차렌트·중고렌트·재렌트). 못 정하면 ''.
@@ -68,6 +80,37 @@ export function autoPolicyCode(product: Rec, byProvider: Map<string, PolicyLite[
   const byType = cands.filter((c) => (c.product_types && c.product_types.includes(type)) || (type && c.policy_name.includes(type)));
   if (byType.length === 1) return byType[0].policy_code;
   return '';                                                          // 모호 → 사람이 재고관리에서 정한다
+}
+
+function inferredPolicyCode(product: Rec, candidates: PolicyLite[]): string {
+  if (candidates.length === 1) return candidates[0].policy_code;
+  const bucket = rentSubBucket(product.product_type);
+  if (bucket) {
+    const matches = candidates.filter((candidate) => rentSubBucket(`${(candidate.product_types || []).join(' ')} ${candidate.policy_name}`) === bucket);
+    if (matches.length === 1) return matches[0].policy_code;
+  }
+  return '';
+}
+
+/**
+ * 상품의 정책 참조를 현재 policy 정본과 대조한다.
+ * 잘못된 과거 코드를 다른 회사 정책으로 억지 연결하지 않으며, 확정할 수 없으면 빈 값으로 돌려
+ * 소비처가 `미입력`으로 보여 줄 수 있게 한다. sourceCode는 원문 보존용이다.
+ */
+export function reconcilePolicyReference(product: Rec, byProvider: Map<string, PolicyLite[]>): PolicyReferenceResolution {
+  const sourceCode = S(product.policy_code);
+  const provider = S(product.provider_company_code) || S(product.partner_code);
+  const candidates = byProvider.get(provider) || [];
+  if (sourceCode) {
+    const exact = candidates.find((candidate) => candidate.policy_code === sourceCode);
+    if (exact) return { code: exact.policy_code, sourceCode, state: 'valid' };
+    const normalized = candidates.filter((candidate) => normalizedPolicyCode(candidate.policy_code) === normalizedPolicyCode(sourceCode));
+    if (normalized.length === 1) return { code: normalized[0].policy_code, sourceCode, state: 'normalized' };
+    if (normalized.length > 1) return { code: '', sourceCode, state: 'missing' };
+  }
+  const inferred = inferredPolicyCode({ ...product, policy_code: '' }, candidates);
+  if (inferred) return { code: inferred, sourceCode, state: 'inferred' };
+  return { code: '', sourceCode, state: 'missing' };
 }
 
 /** products × policies → 빈칸 매물에 붙일 {car_number/id → policy_code}. 이미 적힌 것·못 정한 것은 뺀다. */

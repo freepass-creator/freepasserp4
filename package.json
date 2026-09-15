@@ -98,6 +98,8 @@
     "policy:sheet-apply": "tsx scripts/audit-policy-sheet-vs-erp.mts --apply",
     "policy:sheet-overwrite": "tsx scripts/audit-policy-sheet-vs-erp.mts --apply --overwrite",
     "policy:todo": "tsx scripts/report-policy-todo.mts",
+    "sim:policy-reference": "tsx scripts/sim-policy-reference-reconcile.mts",
+    "policy:reconcile": "tsx scripts/reconcile-product-policy-references.mts --erp5",
     "check:crosscheck": "tsx scripts/check-crosscheck.mts",
     "check:pipeline": "tsx scripts/check-pipeline-contracts.mts",
     "sim:sales-pending-identity": "tsx scripts/sim-sales-pending-identity.mts",
