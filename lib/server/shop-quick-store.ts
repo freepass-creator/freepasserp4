@@ -1,4 +1,5 @@
-import { firestoreAdminRef } from '@/lib/server/firestore-ref-shim';
+import { getFirestore } from 'firebase-admin/firestore';
+import { firebaseAdminApp } from '@/lib/server/firebase-admin';
 import type { ShopQuickChip } from '@/lib/shop/query';
 import { SHOP_AXES } from '@/lib/shop/query';
 
@@ -40,7 +41,17 @@ import { SHOP_AXES } from '@/lib/shop/query';
 /** 채널 하나가 줄 하나다(`<노드>/<채널 key>` → 파이어스토어 `shop_quick` 컬렉션의 문서 하나). */
 export const QUICK_NODE = 'v4/shop_quick';
 
-const db = () => firestoreAdminRef();
+/** RTDB-compat 심을 거치지 않는다. `/shop` 첫 화면은 Firestore 원장만 읽는다. */
+const quickDoc = (key: string) => getFirestore(firebaseAdminApp()).collection('shop_quick').doc(key);
+const QUICK_READ_TIMEOUT_MS = 3_000;
+
+/** 빠른조건은 장식 정보다. 원장 장애가 손님 화면 전체를 멈추게 하지 않는다. */
+function readQuickDoc(key: string) {
+  return Promise.race([
+    quickDoc(key).get(),
+    new Promise<never>((_, reject) => setTimeout(() => reject(new Error('shop quick read timeout')), QUICK_READ_TIMEOUT_MS)),
+  ]);
+}
 
 export type ShopQuickRecord = {
   /** 고른 칩 — **적은 순서가 곧 화면 순서**다(채널 표의 `quick` 과 같은 규칙). */
@@ -81,15 +92,15 @@ export async function readShopQuick(wlKey: string): Promise<ShopQuickChip[] | nu
   const key = String(wlKey || '').trim();
   if (!key) return null;
   try {
-    const snap = await db().ref(`${QUICK_NODE}/${key}`).get();
-    if (!snap.exists()) return null;
+    const snap = await readQuickDoc(key);
+    if (!snap.exists) return null;
     /*
      * ⚠ **빈 배열도 «고친 것»이다.** 칩을 다 뺀 채널은 칩 줄이 없어야 하는데,
      *   여기서 `null` 로 답하면 기본판이 되살아나 「지웠는데 또 생긴다」가 된다.
      * ⚠ 줄 «자체»가 있으면 고친 것으로 본다 — 빈 배열이 저장 과정에서 사라져도(RTDB 는 지운다)
      *   판정이 안 흔들린다.
      */
-    return sanitizeQuick((snap.val() as ShopQuickRecord | null)?.quick);
+    return sanitizeQuick((snap.data() as ShopQuickRecord | undefined)?.quick);
   } catch {
     /* 원장이 잠깐 안 열려도 화면은 떠야 한다 — 그때는 채널 표의 기본판으로 간다. */
     return null;
@@ -103,7 +114,7 @@ export async function writeShopQuick(
   const key = String(wlKey || '').trim();
   if (!key) throw new Error('채널이 없습니다');
   const clean = sanitizeQuick(quick);
-  await db().ref(`${QUICK_NODE}/${key}`).set({
+  await quickDoc(key).set({
     quick: clean,
     updated_by: String(who || 'guest').trim() || 'guest',
     updated_at: Date.now(),
