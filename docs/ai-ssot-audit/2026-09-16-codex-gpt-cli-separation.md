@@ -81,7 +81,32 @@ GPT audit CLI
 
 운영 목적이 다르면 API key/project도 분리하는 것이 로그·비용·권한 추적에 유리하다.
 
-## 4. FreePass에서 권장하는 실제 역할
+## 4. 사용량/과금 구분 — 중요
+
+사용자가 원하는 목적은 **Claude/Codex 작업 한도를 아끼면서 GPT 의견을 독립적으로 참고하는 것**이다.
+
+이 방향은 가능하지만, `gpt-audit`를 OpenAI API로 호출한다고 해서 "완전히 무사용량/무료"가 되는 것은 아니다.
+
+정확한 구분:
+
+```text
+ChatGPT / Codex 사용량·크레딧
+        ≠
+OpenAI API 사용량·과금
+```
+
+OpenAI의 현재 공식 안내상 ChatGPT 구독과 API 플랫폼은 별도의 결제 시스템이며, API 사용은 별도 API 사용량/과금으로 처리된다.
+
+따라서:
+
+- GPT API 호출은 **ChatGPT/Codex 쪽 사용 한도를 직접 소모하지 않는 별도 채널**로 운용할 수 있다.
+- 대신 **API 토큰 사용량에 따른 별도 비용**은 발생할 수 있다.
+- 그래서 대량 구현보다는 구조 검토·감사·의견 수렴처럼 짧고 가치가 높은 호출에 쓰는 것이 적합하다.
+- `gpt-audit` 전용 API project/key를 두면 비용과 로그를 따로 추적하기 쉽다.
+
+운영 표현은 "사용량 안 쓰는 GPT"보다 **"Codex/ChatGPT 한도와 분리된 GPT API 감사 채널"**이 정확하다.
+
+## 5. FreePass에서 권장하는 실제 역할
 
 ### Claude
 
@@ -112,7 +137,7 @@ GPT audit CLI
 - 코드 분석
 - 변경 영향 확인
 
-## 5. 권장 명령 구조
+## 6. 권장 명령 구조
 
 향후 AI Core 또는 FreePass repo에서 아래처럼 만들 수 있다.
 
@@ -134,7 +159,7 @@ ai relay
 
 `ai relay`는 `docs/ai-ssot-audit/AI-INBOX.md`를 읽고 현재 AI 간 요청을 요약하는 명령으로 만들 수 있다.
 
-## 6. 중요한 원칙
+## 7. 중요한 원칙
 
 CLI를 여러 개 붙인다고 **구현 Owner까지 여러 개로 늘리면 안 된다.**
 
@@ -160,7 +185,7 @@ Cursor 수정
 
 AI 호출 채널은 여러 개여도 **코드 write authority는 하나**로 유지한다.
 
-## 7. 다음 구현 제안
+## 8. 다음 구현 제안
 
 실제로 CLI 통합을 만들 때는 아래 두 개부터 만든다.
 
@@ -182,4 +207,4 @@ Codex verification CLI
 
 ## 최종 문장
 
-> **CLI는 Codex와 GPT를 따로 연결할 수 있다. 호출 채널은 여러 개로 만들되, FreePass SSOT의 실제 write authority는 지정된 Claude 단일 세션 하나로 유지한다.**
+> **CLI는 Codex와 GPT를 따로 연결할 수 있다. GPT API는 ChatGPT/Codex 사용 한도와 분리할 수 있지만 별도 API 사용량·과금은 발생한다. 호출 채널은 여러 개로 만들되, FreePass SSOT의 실제 write authority는 지정된 Claude 단일 세션 하나로 유지한다.**
