@@ -229,3 +229,61 @@ Claude / Codex / Cursor / ChatGPT가 이 영역을 작업할 때:
 - `MIRROR_SOURCES`가 존재한다는 이유만으로 canonical source로 인정하지 않는다.
 - production pin과 main을 구분해서 읽는다.
 - 수정 후 이 로그에 새 날짜 항목으로 검수 결과를 추가한다.
+
+---
+
+## 2026-09-16(3) — Claude: 사장님 요청 "시트/ERP 반영 실측" — SSOT live gate가 RP023(오토플러스)에서 3커밋 연속 실패 중
+
+### 배경
+
+사장님 지시: "시트랑 ERP에 내용 다 맞게 반영되어 있는지 체크하는 것도 상당히 중요, SSOT가 잘 뿌려지고 있는지·잘 갖고 오고 있는지." 이 세션은 Firebase/Firestore 자격증명·네트워크가 없어 값을 직접 못 읽으므로, **GitHub Actions 실행 로그**로 실측했다.
+
+### A. 충돌(신규) — `.github/workflows/ssot-live-gate.yml`이 최근 3커밋 연속 실패, 오토플러스 0건 매칭
+
+`SSOT live source gate` workflow(`lib/adapters/**`, `supplier-adapter.ts`, `ssot-prepublish-gate.mts` 등 변경 시 자동 실행)의 최근 실행 3건이 전부 `conclusion: failure`다.
+
+- run #19 (2026-09-15 07:39 UTC, `Merge pull request #293` — "RTDB 완전 제거") — **실패**
+- run #18 (2026-09-13 17:56 UTC) — 실패
+- run #17 (2026-09-13 11:30 UTC) — 실패
+
+최신 run #19(`34942849733`) job 로그 원문(발췌):
+
+```
+✗ 이안카: 원천 가격과 발행 예정값 4칸 불일치
+✓ 아이언: 원천 52대 중 발행 대상 22대 · 가격 원자 70칸 보존
+Error: SSOT gate: 오토플러스 원천 차량이 발행 예정표와 한 대도 매칭되지 않았습니다. 공급사 식별/탭을 확인해야 합니다.
+    at scripts/ssot-prepublish-gate.mts:188
+```
+
+같은 실행의 `publish-origin-tab.mts --dump` 단계도 이렇게 경고했다:
+
+```
+⚠ 규격화시트가 낡았다 4곳 — 원본과 어긋난 값을 영업자가 보고 있다
+   아이카(RP004) — 6일째 동기화 안 됨
+   아이언(RP006) — 5일째 동기화 안 됨
+   오토플러스(RP023) — 6일째 동기화 안 됨
+   이안카(RP031) — 5일째 동기화 안 됨
+```
+
+### B. 원인 추정 — 이미 알려진 D 충돌(RP023 원천 이중정의)의 실제 증상으로 보임
+
+이 로그의 실패는 새 우연이 아니라, 이 로그 위쪽(2026-09-15 항목 D)에 이미 적힌 충돌의 **실제 관측 증거**로 보인다:
+
+> 충돌 D: `lib/domain/mirror-sources.ts`의 RP023이 옛 Google Sheet(`1TJBG4PABg...`)를 아직 `from`으로 갖고 있는데, canonical registry(`inventory-source-registry.ts`)는 RP023 원천을 RebornCar로 규정한다.
+
+`ssot-prepublish-gate.mts`는 원천(현재 코드 기준 RebornCar일 가능성)과 발행 예정표(레거시 `publish-origin-tab.mts` 경로 — `MIRROR_SOURCES`/옛 시트 계열일 가능성)를 비교하는데, 두 쪽이 서로 다른 원천을 보고 있어 **0건 매칭**이 나는 것으로 추정된다. 단, `publish-origin-tab.mts`가 실제로 어떤 원천을 읽는지는 이번 세션에서 코드까지 확인하지 못했다 — 추정이며 확인 필요(HOLD).
+
+### C. 참고 — 이 게이트는 push 시 path-trigger이지 항상 도는 CI가 아님
+
+`ssot-live-gate.yml`은 `lib/adapters/**` 등 특정 경로가 바뀐 push에서만 돈다(`workflow_dispatch`도 가능). 매 커밋마다 도는 필수 체크가 아니라서, **다음에 그 경로가 바뀔 때까지 이 실패가 그대로 잠들어 있을 수 있다.**
+
+### D. 판정
+
+- **판정: 충돌(미해결) — 재현 로그 있음.** 오토플러스(RP023) 발행 예정표 매칭 실패 + 4개 공급사 정제시트 5~6일째 미동기화.
+- 이 세션은 Codex처럼 대량 구현/수정을 하지 않는다(`freepasserp4/AGENTS.md` 역할 분담). **원인 확정과 수정은 Codex/Cursor 오더로 넘긴다.**
+- 즉시 필요한 것: `ssot-prepublish-gate.mts`/`publish-origin-tab.mts`가 실제로 어느 원천(RebornCar vs 옛 시트)을 읽는지 코드 확인 → RP023 불일치 원인 확정 → 정제시트 4곳 재동기화(`npx tsx scripts/sync-mirror-sheet.mts --code=... --apply`, 로그가 이미 제시한 명령).
+
+### AI에게 주는 즉시 지시
+
+- `ssot-live-gate.yml`은 상시 도는 CI가 아니므로, 이 파일들을 건드릴 때는 **먼저 최근 실행 결과부터 확인**한다(`gh run list` 등) — 초록인 줄 알고 넘어가면 안 된다.
+- RP023 매칭 실패를 고칠 때는 `MIRROR_SOURCES`와 `inventory-source-registry.ts` 중 어느 쪽이 최신 결정(RebornCar)을 반영했는지부터 맞춘다 — 둘 다 손대지 않고 한쪽만 급하게 고치면 또 다른 소비자가 깨진다.
