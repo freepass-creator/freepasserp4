@@ -1,7 +1,5 @@
 import { NextResponse } from 'next/server';
-import { getFirestore } from 'firebase-admin/firestore';
-import { firebaseAdminApp } from '@/lib/server/firebase-admin';
-import { findGuestPolicy, guestSource } from '@/lib/server/guest-source';
+import { readWhitelabelCatalogFromErp5 } from '@/lib/server/whitelabel-erp5-catalog';
 import { sanitizeAgentForGuest, sanitizeProductForGuest } from '@/lib/domain/public-catalog';
 import { isListableProduct } from '@/lib/domain/product';
 import { matchAgentByShareCode } from '@/lib/domain/product-share';
@@ -58,19 +56,19 @@ export async function GET(request: Request) {
      * Firestore 장애는 오래된 RTDB 자료로 숨기지 않고 503으로 드러낸다. 그래야 웹과
      * 모바일이 서로 다른 원장을 보고 다른 재고를 표시하는 일이 없다.
      */
-    const db = getFirestore(firebaseAdminApp());
-    /* ★재고·정책은 «공용 캐시»에서 받는다(`guest-source`) — 60초. 상세·미리보기와 같은 것을 본다. */
-    const src = await guestSource();
-    const productSnap = { val: () => src.products };
+    /* 공개 목록은 ERP5 Firestore 검증 발행본만 읽는다. 실패 시 다른 원장으로 우회하지 않는다. */
+    const src = await readWhitelabelCatalogFromErp5({ includePartners: !!providerCode, includeUsers: !!share });
+    const policies = Object.entries(src.policies).map(([policyKey, value]) => ({ ...(value || {}), _key: policyKey } as Rec));
     const products: EntityRecord[] = [];
-    for (const [docKey, p] of Object.entries((productSnap.val() || {}) as Record<string, Rec>)) {
+    for (const [docKey, p] of Object.entries(src.products)) {
       const key = S(p?._key) || S(p?.product_code) || docKey;
       if (!p || typeof p !== 'object' || dead(p)) continue;
       if (providerCode && S(p.provider_company_code) !== providerCode && S(p.partner_code) !== providerCode) continue;
       const merged = { ...p, _key: key, product_code: S(p.product_code) || key } as EntityRecord;
       // 목록에 실을 수 있는 것만 — 판정은 앱과 같은 SSOT 를 쓴다.
       if (!isListableProduct(merged)) continue;
-      products.push(sanitizeProductForGuest(key, p, findGuestPolicy(src.policies, p.policy_code)));
+      const policy = policies.find((value) => S(value.policy_code) === S(p.policy_code) || S(value._key) === S(p.policy_code)) || null;
+      products.push(sanitizeProductForGuest(key, p, policy));
     }
 
     // 화이트라벨 — 공급사를 지정했을 때만 그 회사 이름을 준다(전체 파트너 목록은 내보내지 않는다).
@@ -78,9 +76,8 @@ export async function GET(request: Request) {
     //   → 코드는 child 키까지 보고, 이름은 세 필드를 다 훑는다. 안 그러면 브랜드가 조용히 빈다.
     let brand = '';
     if (providerCode) {
-      const partnerSnap = await db.collection('partner').get();
-      const hit = partnerSnap.docs
-        .map((doc) => ({ ...(doc.data() || {}), _id: doc.id } as Rec)).find((x) => x && (
+      const hit = Object.entries(src.partners)
+        .map(([id, value]) => ({ ...(value || {}), _id: id } as Rec)).find((x) => x && (
           S(x._id) === providerCode || S(x.partner_code) === providerCode || S(x.company_code) === providerCode
         ));
       // 손님이 보는 이름에 법인격을 붙이지 않는다 — 표기 SSOT 는 companyAlias.
@@ -89,12 +86,8 @@ export async function GET(request: Request) {
 
     let agent = null;
     if (share) {
-      const userSnap = await db.collection('user').get();
-      const rows = userSnap.docs
-        .map((doc) => {
-          const value = doc.data() as Rec;
-          return { ...value, _key: S(value?._key) || doc.id, uid: S(value?.uid) || doc.id };
-        }) as EntityRecord[];
+      const rows = Object.entries(src.users)
+        .map(([id, value]) => ({ ...(value || {}), _key: S(value?._key) || id, uid: S(value?.uid) || id })) as EntityRecord[];
       agent = sanitizeAgentForGuest(matchAgentByShareCode(rows, share) as Rec | null);
     }
 

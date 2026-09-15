@@ -1,9 +1,7 @@
 import { cache } from 'react';
 import 'server-only';
-import { getFirestore } from 'firebase-admin/firestore';
-import { firebaseAdminApp } from '@/lib/server/firebase-admin';
 import { channelSellsProduct } from '@/lib/whitelabel';
-import { findGuestPolicy, guestSource } from '@/lib/server/guest-source';
+import { readWhitelabelCatalogFromErp5 } from '@/lib/server/whitelabel-erp5-catalog';
 import { sanitizeAgentForGuest, sanitizeProductForGuest } from '@/lib/domain/public-catalog';
 import { isOfferableProduct } from '@/lib/domain/product';
 import { codeCandidates, matchAgentByShareCode, shareToken, splitShareSegment } from '@/lib/domain/product-share';
@@ -23,6 +21,7 @@ const S = (v: unknown) => String(v ?? '').trim();
 const dead = (p: Rec) => p?._deleted === true || !!p?.deletedAt || S(p?.status) === 'deleted';
 
 export type GuestQuote = { product: EntityRecord; agent: Rec | null };
+const readGuestCatalog = cache(readWhitelabelCatalogFromErp5);
 
 /** 한 조각으로 상품 찾기 — RTDB 키 · product_code · 짧은 토큰(shareToken) 순. */
 function findProduct(all: Record<string, Rec>, raw: string): { key: string; product: Rec } | null {
@@ -56,7 +55,7 @@ export async function resolveProduct(segment: string): Promise<{ key: string; pr
   const seg = S(segment);
   if (!seg) return null;
   /* ★재고는 «공용 캐시»에서 받는다(`guest-source`) — 목록·상세·미리보기가 같은 것을 본다. */
-  const src = await guestSource();
+  const src = await readGuestCatalog();
   const all: Record<string, Rec> = {};
   for (const [docKey, v] of Object.entries(src.products)) {
     if (v && typeof v === 'object') all[S(v._key) || S(v.product_code) || docKey] = v;
@@ -102,7 +101,7 @@ async function loadGuestQuoteUncached(segment: string, shareFromQuery: string, o
   const hit = await resolveProduct(seg);
   if (!hit) return null;
   if (hit.share && !share) share = hit.share;
-  const db = getFirestore(firebaseAdminApp());
+  const src = await readWhitelabelCatalogFromErp5({ includeUsers: true });
   const { key, product } = hit;
   if (!product || dead(product)) return null;
   /*
@@ -127,17 +126,15 @@ async function loadGuestQuoteUncached(segment: string, shareFromQuery: string, o
   const policyCode = S((product as Rec).policy_code);
   let policy: Rec | null = null;
   if (policyCode) {
-    policy = findGuestPolicy((await guestSource()).policies, policyCode);   /* 캐시라 공짜다 */
+    policy = Object.entries(src.policies).map(([policyKey, value]) => ({ ...(value || {}), _key: policyKey } as Rec))
+      .find((value) => S(value.policy_code) === policyCode || S(value._key) === policyCode) || null;
   }
 
   let agent: Rec | null = null;
   const shares = codeCandidates(share, 'usr');
   if (shares.length) {
-    const rows = (await db.collection('user').get()).docs
-      .map((doc) => {
-        const value = doc.data() as Rec;
-        return { ...value, _key: S(value?._key) || doc.id, uid: S(value?.uid) || doc.id };
-      }) as EntityRecord[];
+    const rows = Object.entries(src.users)
+      .map(([id, value]) => ({ ...(value || {}), _key: S(value?._key) || id, uid: S(value?.uid) || id })) as EntityRecord[];
     for (const s of shares) {
       const found = matchAgentByShareCode(rows, s) as Rec | null;
       if (found) { agent = sanitizeAgentForGuest(found); break; }
