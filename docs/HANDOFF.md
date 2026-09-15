@@ -18,13 +18,16 @@ CLI 연결 여부와 무관하게 이 저장소를 여는 누구나 여기부터
 
 **워크트리가 50개 이상 흩어져 있다** — `C:\dev\freepasserp4-*`, `.wt-*`, `_wt-*`, `worktrees\*`, `fp-*`, `C:\tmp\*`, Codex 전용 worktree 등. `git worktree list`로 전수 확인 가능. `aiops/docs/저장소지도.md`가 이미 이 문제를 알고 "C:/dev/_worktrees/<repo>/<작업번호>로 모은다"는 재배치안을 세워뒀으나 미실행.
 
-**살릴 가치 있어 보이는 미병합 브랜치**(에이전트 조사, main과의 정확한 3-way diff는 미실행 — 검증 필요):
-- `fix/sonokong-rent-plate-classification` — ERP5 publication-gate 계열 중 가장 최신 tip으로 보임(638파일)
-- `codex/rtdb-cutover-current` — RTDB 폐기(사용자 확정 정책) 관련 가장 최신·완전해 보임(828파일)
-- `codex/restore-canonical-whitelabel` — 작고 집중된 수정(415줄)
-- `feat/settlement-firestore-cockpit` — 독립적인 정산 코크핏 기능
+**정정(2026-09-16, 3-way diff 실행 완료)**: 처음엔 `fix/sonokong-rent-plate-classification`이 ERP5 publication-gate 계열의 최신 흡수 지점이라고 가정했으나 틀렸다 — 그 브랜치는 main과 완전히 갈라져 있다(main에 없는 커밋 482개, sonokong에 없는 커밋 402개). **main 기준으로 다시 비교해야 진짜 결론이 나온다.**
 
-**안전하게 버려도 될 것으로 보이는 브랜치**: photo 파이프라인 구버전 2개, RTDB 초기 부분조치 2개, 배포 스냅샷용 detached-HEAD worktree들.
+**실제로 main에 안 흡수된 것으로 보이는 작업 3개**(각 2~3커밋, main에 실제로 있는지 확인 필요 — 검토 전 병합 금지):
+- `codex/freepass-inventory-contract` — 사진/시트링크 분리, `lib/domain/inventory-contract.ts` 신규(재고계약 스냅샷 통합)
+- `codex/freepass-option-source-audit` — TCar 유료옵션 소싱/파싱 수정
+- `codex/freepass-source-snapshot-engine` — `lib/server/source-snapshot.ts` 신규(공급사 소스 스냅샷 캡처)
+
+**이미 main에 흡수됐거나 사소해서 버려도 되는 것**: `codex/erp5-publication-gate-current`(순수 subset), `codex/erp5-publication-gate`(main에 이미 있음), `codex/contract-status-erp5-main`/`codex/freepass-freshness-audit`/`codex/source-registry-v2`(main 대비 진짜 미흡수분은 1~3커밋뿐, 이미 main에 있음), `codex/source-registry-current`(문서만).
+
+**안전하게 버려도 될 것으로 보이는 브랜치**: photo 파이프라인 구버전 2개, RTDB 초기 부분조치 2개, 배포 스냅샷용 detached-HEAD worktree들. `codex/rtdb-cutover-current`·`codex/restore-canonical-whitelabel`·`feat/settlement-firestore-cockpit`은 아직 main 기준 재검증 안 함.
 
 ## Blocker
 
@@ -32,7 +35,7 @@ CLI 연결 여부와 무관하게 이 저장소를 여는 누구나 여기부터
 
 ## 다음 한 작업
 
-`fix/sonokong-rent-plate-classification`을 main과 3-way diff 대조해서 나머지 후보 브랜치들이 실제로 그 안에 흡수됐는지 확인 — 그래야 안전하게 정리할 수 있다.
+`codex/freepass-inventory-contract`·`codex/freepass-option-source-audit`·`codex/freepass-source-snapshot-engine`의 실제 변경 내용이 main에 있는지(동등 기능이 다른 커밋으로 들어갔는지) 확인 — 없으면 이 3개가 진짜 유실 위험이 있는 작업이다.
 
 ## 마지막 실제 검증
 
