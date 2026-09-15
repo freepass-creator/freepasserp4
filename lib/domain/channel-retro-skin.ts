@@ -6,7 +6,7 @@
  * ★원본 = 문서 1BcHvwidHrdJADPUH0M3C5abaxst04fDnfxm7R9FgLDg(freepassmobility@gmail.com) 「종합」 탭, 2026-09-15 API 로 실측.
  *   맑은 고딕 9pt 기울임 · 굵은 칸 없음 · 전부 가운데 · 줄 21px · 여백 2/3 · 기간 머리 색 · 칸별 글자색 · 분납·연령 노란 바탕.
  *
- * ⚠ **칸 구성·이름·값은 안 건드린다** — 그건 F01 이 정한다(매뉴얼 F86 규칙 1). 칸 «자리»만 옛 차례로 옮긴다(`retroColumnOrder`, 규칙 2 의 2026-09-15 바뀜).
+ * ★칸(이름·차례·내용)도 옛 「종합」 43칸이다 — 아래 `RETRO_LAYOUT`. 값은 erp5 원자에서 F01 과 같은 칸 만들기로.
  * ⚠ **공용 서식기(`sales-sheet-format`)는 안 고친다** — F01 모양이 같이 바뀐다. 그 서식 요청 «뒤»에 덮어 쓴다.
  * ⚠ 값별 색(구분·배차상태·제조사·연료·색상)은 살린다 — 옛 시트에 없던 «뜻»이라. 굵기만 옛 시트처럼 뺀다.
  */
@@ -15,33 +15,64 @@ import { isMoneyColumn } from './sales-sheet-format';
 type Req = Record<string, any>;
 
 /**
- * ★★**칸 차례도 옛 「종합」을 따른다** — 사장님 2026-09-15 「이건 새로운 구현이라고 보면 돼, 과거 형태에 맞추는 거로」.
- *   ⚠ 규칙 1·2(「F86 열 차례 = F01」)를 이 날 바꿨다 — 발행기와 감사기(`audit-sheet-vs-atom`)가 «이 함수 하나»로 차례를 정한다.
- * ★이름은 «우리 칸 이름»을 쓴다 — 값 대조(F01 ↔ F86)가 이름으로 맞춰 보기 때문이다. 옛 이름은 옆 주석.
- * ★「@요금」 자리에 그 회사가 쓰는 요금 칸이 F01 차례대로 들어간다(대여료 구간은 «우리 기존 그대로»).
- * ★옛 시트에 없던 우리 칸(모델·연식·원산지·카드결제·중도해지…)은 뒤에 F01 차례로 붙는다 — 빼면 채널이 보던 정보가 사라진다.
- *   옛 시트에만 있던 「차량상태·입고일자·정책코드」는 원자에 값이 없거나 내부 코드라 안 만든다.
+ * ★★★**칸도 «옛 「종합」 그대로» — 이름·차례·내용 43칸** — 사장님 2026-09-15
+ *   「이건 새로운 구현이라고 보면 돼, 과거 형태에 맞추는 거로」 · 「순서를 똑같이, 내용도 똑같이, 원자만 erp5 거 사용」.
+ *   ⚠ 매뉴얼 F86 규칙 1·2(「F86 칸 = F01」)를 이 날 바꿨다 — 발행기·감사기(`audit-sheet-vs-atom`)가 «이 표 하나»를 쓴다.
+ * ★각 칸의 «값»은 erp5 원자에서 — F01 과 같은 칸 만들기(`makeCell`)를 거친 값을 옛 이름 자리에 옮긴다.
+ *   옛 칸이 담던 것을 실측(2026-09-15 · 252줄)해 맞는 원자 칸에 잇는다:
+ *     차종분류 = 모델명(K5·그랜저) → 「모델」 · 트림 = 공급사 차명 원문(「셀토스 1.6 가솔린 트렌디 2WD」) → 「차명(원문)」
+ *     옵션 → 「옵션(원문)」 · 21세·23세(추가요금) → 「21세+」·「23세+」 · 공급사코드·정책코드 → 원자 provider_company_code·policy_code
+ * ★「@요금」 = 그 회사가 쓰는 요금 칸(F01 차례) — 대여료 구간은 «우리 기존 그대로»(같은 날 지시).
+ * ⚠ 차량상태·입고일자는 **원자에 그 값이 없다** — 빈 칸으로 둔다(옛 시트는 「정상」·섞인 메모였다. 지어내지 않는다).
+ * ⚠ 사진·차번링크는 «숨긴 채» 맨 뒤에 둔다 — 차번 셀 사진 링크의 재료다(`check-plate-photo-link`).
  */
-export const RETRO_COLUMN_ORDER = [
-  '배차상태', '구분', '차량번호', '모델' /* 차종분류 — 옛 시트는 이 칸에 «모델명»(K5·그랜저·카니발)을 담았다. 차급 칸이 아니다(사장님 2026-09-15 「차종구분이 왜 있지, 원래 그거 없었는데」) */, '세부모델', '연료', '외장', '내장', 'Km',
-  '@요금',
-  '세부트림' /* 트림 */, '옵션(원문)' /* 옵션 */, '최초등록', '소비자가격', '제조사', '배기량', '차고지', '운전자범위', '연주행',
-  '분납', '21세+' /* 21세 */, '23세+' /* 23세 */, '1만+', '대인', '대물', '자차', '자손', '무보험', '정비', '전용계좌', '비고',
-  '공급사' /* 공급사코드 */,
-] as const;
+type RetroSource = { kind: 'col'; name: string } | { kind: 'fee' } | { kind: 'atom'; field: string } | { kind: 'blank' };
+export type RetroColumn = { head: string; src: { kind: 'col'; name: string } | { kind: 'atom'; field: string } | { kind: 'blank' } };
+const col = (name: string): RetroSource => ({ kind: 'col', name });
+const same = (...names: string[]) => names.map((n) => ({ head: n, src: col(n) }));
+export const RETRO_LAYOUT: { head: string; src: RetroSource }[] = [
+  { head: '차량상태', src: { kind: 'blank' } },
+  ...same('배차상태'),
+  { head: '입고일자', src: { kind: 'blank' } },
+  ...same('구분', '차량번호'),
+  { head: '차종분류', src: col('모델') },
+  ...same('세부모델', '연료', '외장', '내장', 'Km'),
+  { head: '@요금', src: { kind: 'fee' } },
+  { head: '트림', src: col('차명(원문)') },
+  { head: '옵션', src: col('옵션(원문)') },
+  ...same('최초등록', '소비자가격', '제조사', '배기량', '차고지', '운전자범위', '연주행', '분납'),
+  { head: '21세', src: col('21세+') },
+  { head: '23세', src: col('23세+') },
+  ...same('1만+', '대인', '대물', '자차', '자손', '무보험', '정비', '전용계좌', '비고'),
+  { head: '공급사코드', src: { kind: 'atom', field: 'provider_company_code' } },
+  { head: '정책코드', src: { kind: 'atom', field: 'policy_code' } },
+  ...same('사진', '차번링크'),
+];
 
 const 요금칸 = (c: string) => isMoneyColumn(c) && !/가격/.test(c);
 
-/** 한 탭의 칸(F01 차례) → 옛 「종합」 차례. 칸을 더하거나 빼지 않는다 — 자리만 바꾼다. */
-export function retroColumnOrder(cols: readonly string[]): string[] {
-  const out: string[] = [];
-  for (const k of RETRO_COLUMN_ORDER) {
-    if (k === '@요금') { for (const c of cols) if (요금칸(c) && !out.includes(c)) out.push(c); continue; }
-    if (cols.includes(k) && !out.includes(k)) out.push(k);
+/** 한 탭이 쓰는 F01 칸(요금은 그 회사가 쓰는 것만) → 옛 「종합」 칸 목록. */
+export function retroLayout(cols: readonly string[]): RetroColumn[] {
+  const out: RetroColumn[] = [];
+  for (const e of RETRO_LAYOUT) {
+    if (e.src.kind === 'fee') { for (const c of cols) if (요금칸(c)) out.push({ head: c, src: { kind: 'col', name: c } }); continue; }
+    if (e.src.kind === 'col' && !cols.includes(e.src.name)) {
+      if (e.head === '사진' || e.head === '차번링크') continue;
+      out.push({ head: e.head, src: { kind: 'blank' } });
+      continue;
+    }
+    out.push(e as RetroColumn);
   }
-  for (const c of cols) if (!out.includes(c)) out.push(c);
   return out;
 }
+/** 옛 머리글 → F01 칸 이름(감사기가 값을 맞춰 볼 때). 모르는 머리글은 그대로. */
+export const retroHeadToColumn = (head: string): string => {
+  const e = RETRO_LAYOUT.find((x) => x.head === head && x.src.kind === 'col');
+  return e && e.src.kind === 'col' ? e.src.name : head;
+};
+/** 이 F01 칸이 F86 에 «실리는가» — 안 실리는 칸은 감사기가 「누락」으로 세지 않는다. */
+export const retroUsesColumn = (name: string): boolean =>
+  요금칸(name) || RETRO_LAYOUT.some((x) => x.src.kind === 'col' && x.src.name === name);
 
 export const RETRO_FONT = 'Malgun Gothic';
 export const RETRO_SIZE = 9;
@@ -64,11 +95,11 @@ const BODY_INK: Record<string, string> = {
 const BODY_BG: Record<string, string> = { 분납: 'FFFF00', '21세': 'FFFF00', '23세': 'FFFF00', '21세+': 'FFFF00', '23세+': 'FFFF00', '1만+': 'FFFF00' };
 /** 열 폭 — 옛 시트 칸 이름이 같은 것만. 나머지(우리만 있는 칸)는 원래 폭을 둔다. */
 const WIDTH: Record<string, number> = {
-  차량상태: 143, 배차상태: 143, 입고일자: 75, 구분: 55, 차량번호: 75, 차종분류: 75, 모델: 75, 세부모델: 228, 연료: 107,
+  차량상태: 143, 배차상태: 143, 입고일자: 75, 구분: 55, 차량번호: 75, 차종분류: 75, 세부모델: 228, 연료: 107,
   외장: 132, 내장: 85, Km: 49, 단기보증: 75, '1개월': 63, '6개월': 58, '12개월': 65, 장기보증: 115,
   '24개월': 85, '36개월': 85, '48개월': 103, '60개월': 116, 트림: 342, 옵션: 857, 최초등록: 75, 소비자가격: 87,
   제조사: 63, 배기량: 63, 차고지: 132, 운전자범위: 101, 연주행: 63, 분납: 51, '21세': 53, '23세': 53, '1만+': 55,
-  대인: 51, 대물: 51, 자차: 84, 자손: 62, 무보험: 63, 정비: 70, 전용계좌: 273, 비고: 51,
+  대인: 51, 대물: 51, 자차: 84, 자손: 62, 무보험: 63, 정비: 70, 전용계좌: 273, 비고: 51, 공급사코드: 66, 정책코드: 66,
 };
 
 const rgb = (h: string) => ({

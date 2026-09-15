@@ -31,7 +31,7 @@ import { channelCompanyOf } from '../lib/domain/channel-company';
 import { compareSalesRows, loadSalesRowContext, makeCell, MISSING, tabOf } from '../lib/domain/sales-atom-row';
 import { channelColumnName, salesPublishedColumns } from '../lib/domain/sales-published-tab-columns';
 import { HAHUHO_PRODUCT_SHEET_ID, SALES_SHEET_ID } from '../lib/domain/legacy-sheets';
-import { retroColumnOrder } from '../lib/domain/channel-retro-skin';
+import { retroLayout, retroHeadToColumn, retroUsesColumn } from '../lib/domain/channel-retro-skin';
 import { googleSheetsServiceAccount } from '../lib/server/google-service-account';
 
 nextEnv.loadEnvConfig(process.cwd());
@@ -233,12 +233,12 @@ let f86줄 = 0;
   const expectedHeaders = new Map<string, string[]>();
   for (const company of expectedCompanies.keys()) {
     const companyRows = f01.filter((row) => channelCompanyOf(row.cells['공급사'], rowCtx.nameByProvider) === company);
-    /** ★F86 칸 «자리»는 옛 「종합」 차례다(2026-09-15 새 구현) — 발행기와 «같은 함수»로 기대값을 만든다. 구성은 그대로. */
-    expectedHeaders.set(company, retroColumnOrder(channelColumns.filter((column) => {
+    /** ★F86 은 옛 「종합」 43칸이다(2026-09-15 새 구현) — 발행기와 «같은 표»(`retroLayout`)로 기대 머리글을 만든다. */
+    expectedHeaders.set(company, retroLayout(channelColumns.filter((column) => {
       const optionalFee = isMoneyColumn(column) && !/가격/.test(column);
       if (!optionalFee) return true;
       return companyRows.some((row) => Object.entries(row.cells).some(([raw, value]) => channelColumnName(raw) === column && S(value) && S(value) !== '-'));
-    })));
+    })).map((c) => c.head));
   }
   if (expectedMark) {
     for (const title of titles) if (!expectedTitles.has(title)) f86TabShapeViolations.push(`예상 밖 탭: ${title}`);
@@ -261,7 +261,8 @@ let f86줄 = 0;
       f86줄++;
       f86Counts.set(car, (f86Counts.get(car) || 0) + 1);
       const cells: Record<string, string> = {};
-      hdr.forEach((h, i) => { if (S(h)) cells[S(h)] = S(r[i]); });
+      /** 옛 머리글(차종분류·트림·21세…)을 F01 칸 이름으로 되돌려 값을 맞춰 본다. */
+      hdr.forEach((h, i) => { if (S(h)) cells[retroHeadToColumn(S(h))] = S(r[i]); });
       f86.set(car, { company, cells });
     }
   }
@@ -287,6 +288,8 @@ for (const r of f01) {
   for (const [rawCol, v] of Object.entries(r.cells)) {
     const col = channelColumnName(rawCol);
     if (!(col in b)) {
+      /** 옛 「종합」에 없던 F01 칸(연식·원산지·심사조건…)은 F86 에 안 싣는다 — 누락이 아니다. */
+      if (!retroUsesColumn(col)) continue;
       // F86은 회사 전체가 안 쓰는 빈 요금 열만 생략할 수 있다. 값이 있거나 비요금 열이면 누락이다.
       if (!isMoneyColumn(col) || S(v)) {
         const e = F86값차이.get(`누락:${col}`) || { n: 0, 표본: [] };

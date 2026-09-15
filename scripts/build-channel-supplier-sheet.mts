@@ -26,7 +26,7 @@ import { loadSalesRowContext, makeCell, tabOf, TAB_ORDER, compareSalesRows } fro
 import { buildSalesFormatRequests, columnWidths, isMoneyColumn } from '../lib/domain/sales-sheet-format';
 import { HAHUHO_PRODUCT_SHEET_ID } from '../lib/domain/legacy-sheets';
 import { ensureNoticeTab } from '../lib/server/channel-sheet-tabs';
-import { applyRetroSkin, retroColumnOrder } from '../lib/domain/channel-retro-skin';
+import { applyRetroSkin, retroLayout } from '../lib/domain/channel-retro-skin';
 import { channelColumnName, salesPublishedColumns } from '../lib/domain/sales-published-tab-columns';
 import { firebaseAdminApp } from '../lib/server/firebase-admin';
 import { googleSheetsServiceAccount } from '../lib/server/google-service-account';
@@ -287,8 +287,12 @@ for (const [company, list] of order) {
   const 앞 = COLUMNS.indexOf('차명(원문)');
   /** ★F01 의 열 차례를 «그대로» 지킨다 — 다시 정렬하지 않는다(그러다 12·24 인수형이 끝으로 밀렸었다). */
   const 쓸칸 = COLUMNS.filter((c, i) => (요금칸(c) ? 쓴다(c) : true));
-  /** ★하허호는 칸 «자리»만 옛 「종합」 차례로(2026-09-15 새 구현) — 칸 구성은 위 그대로. 차례 정본 = `retroColumnOrder`(감사기와 같은 함수). */
-  const cols = RETRO ? retroColumnOrder(쓸칸) : 쓸칸;
+  /**
+   * ★★**하허호는 옛 「종합」 43칸**(이름·차례·내용 · 2026-09-15 「순서를 똑같이, 내용도 똑같이, 원자만 erp5」).
+   *   칸 표 정본 = `retroLayout`(감사기와 같은 표). 값은 원자에서 만든 F01 칸(`x.cells`)과 원자 필드에서 옮긴다.
+   */
+  const 레트로 = RETRO ? retroLayout(쓸칸) : null;
+  const cols = 레트로 ? 레트로.map((c) => c.head) : 쓸칸;
   const title = `${company} ${mark} · ${list.length}대`;
   const old = have.find(([t]) => t.startsWith(`${company} `));
   let gid: number;
@@ -311,7 +315,9 @@ for (const [company, list] of order) {
    *   ⇒ 영업자가 판매시트를 보다 이 시트를 봐도 «같은 문서»로 읽힌다.
    */
   /** 본문 — 열너비를 재고 차번 셀 링크를 거는 데 쓴다(서식보다 «먼저» 있어야 한다). */
-  const body = list.map((x) => cols.map((c) => S(x.cells[c])));
+  const body = 레트로
+    ? list.map((x) => 레트로.map((c) => (c.src.kind === 'col' ? S(x.cells[c.src.name]) : c.src.kind === 'atom' ? S(x.atom?.[c.src.field]) : '')))
+    : list.map((x) => cols.map((c) => S(x.cells[c])));
   /**
    * ★★**차번 셀 링크는 «값을 쓴 뒤»에 건다** — 아래 `링크요청` 으로 따로 받아 둔다.
    *   ⚠⚠ 실측 2026-09-09 — 여기서 링크까지 `reqs` 에 담아 «먼저» 보내고 값을 나중에 썼더니,
