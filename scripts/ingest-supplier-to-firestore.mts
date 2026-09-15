@@ -36,6 +36,7 @@ import { resolveStatus } from '../lib/domain/atom-status';
 import { isOpenInventoryAtom } from '../lib/domain/inventory-contract';
 import { mergeRawPhotoEvidence, photoAtomFields } from '../lib/domain/photo-atom';
 import { erp5InventoryAppOptions } from '../lib/server/erp5-inventory-service-account';
+import { sonokongProductKind } from '../lib/domain/sonokong-product-kind';
 
 const APPLY = process.argv.includes('--apply');
 const CODE = (process.argv.find((a) => a.startsWith('--code='))?.split('=')[1] || 'RP004').trim();
@@ -276,19 +277,10 @@ async function readRows(): Promise<Row[]> {
       const low = (c.저신용월납 || {}) as { SUBSCRIBE_RETURN?: Record<string, number>; SUBSCRIBE_BUYOUT?: Record<string, number> };
       for (const [p, rent] of Object.entries(low.SUBSCRIBE_RETURN || {})) { const r = 라운드천(won(rent)); if (r > 0) price[p] = { rent: r, deposit: dep3(p, r) }; }
       for (const [p, rent] of Object.entries(low.SUBSCRIBE_BUYOUT || {})) { const r = 라운드천(won(rent)); if (r > 0) price[`${p}_인수형`] = { rent: r, deposit: dep3(p, r) }; }
-      /**
-       * ★★**손오공 상품구분은 «버킷»이 말해 준다** — 원천이 진작 주고 있었는데 안 읽었다.
-       * ```
-       *   TCAR_EXTERNAL  227대  →  픽업구독   (티카에서 온 차)
-       *   SON_NO_KONG     64대  →  오공구독   (손오공 제 물건)
-       * ```
-       * ⚠ 2026-09-08 실측 — 여기서 「중고면 중고구독, 아니면 «빈칸»」으로 읽고 있었다. 그 빈칸이
-       *   merge 로 나가 **이미 알던 픽업구독·오공구독을 246대나 지웠다**(상품구분 빈 차 4 → 312).
-       *   탭 가르기가 이 칸을 보므로, 비면 그 차가 통째로 상품리스트로 흘러가 시트 넉 장이 뒤섞인다.
-       * ★「오공구독」은 7캐논에 이미 있다 — 손오공 제 물건을 「중고구독」이라 부르던 옛 표기를 여기서 끝낸다.
-       */
-      const 버킷 = S(c.버킷);
-      const kind = 버킷 === 'TCAR_EXTERNAL' ? '픽업구독' : (버킷 === 'SON_NO_KONG' ? '오공구독' : (c.중고 ? '중고구독' : ''));
+      // ★★손오공 상품구분 = SSOT 함수 한 곳(lib/domain/sonokong-product-kind.ts)만 본다 — 여기 분기를 새로 두지 않는다.
+      //   버킷만으로 못 가른다: SON_NO_KONG 안에도 렌트(번호판 하/허/호)가 섞여 있다(실측 2026-09-15).
+      //   원천의 `중고` 플래그는 렌트 여부와 무관 — 번호판으로 가른다. 「중고구독」표기는 쓰지 않는다.
+      const kind = sonokongProductKind(c);
       /**
        * ★★**옵션 = 제조사 «선택»옵션만이다** — 사장님 2026-09-10 「옵션은 제조사선택옵션만 옵션이야」.
        *
