@@ -72,6 +72,9 @@ jobs:
       - name: 워크플로가 «읽히는가»
         run: npm run check:workflows
 
+      - name: 예약 지도 — 도는 예약이 모두 지도에 있는가
+        run: npm run check:schedules
+
       - name: ERP4·ERP5가 같은 Firebase를 쓰는가
         run: npm run check:erp5-firebase
 
