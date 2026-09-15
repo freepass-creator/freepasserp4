@@ -24,13 +24,14 @@ jobs:
       contents: read
       id-token: write
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 45
     steps:
       - name: 검증된 ERP5 SSOT 엔진 고정
         uses: actions/checkout@v4
         with:
           # 원천·판매시트·공개 카탈로그 대사를 같은 검증 엔진 커밋으로 고정한다.
-          ref: eafbd88e43b1b4e5bacab858a2e0c65845956e5f
+          # ★2026-09-16 통합 엔진 — gate 엔진(eafbd88e) 위에 하허호 F86·운영 쓰기 문지기·손오공 오공구독 배정을 올린 커밋(claude/f86-on-gate).
+          ref: aa80a1cd260a020ff866390c240b345268712cd8
       - name: freepasserp5 OIDC 인증
         uses: google-github-actions/auth@v2
         with:
@@ -92,6 +93,23 @@ jobs:
         env:
           GOOGLE_SHEETS_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sheets.json
         run: npx tsx scripts/make-sample-sheet-google.mts --main --snapshot=tmp/erp5-sales-publish.json
+      # ★사장님 2026-09-16 「한 워크플로가 F01·F86 둘 다」 — 같은 스냅샷으로 하허호 F86 을 이어서 발행하고, 원자·F01·F86 을 칸 단위로 대조한다.
+      #   운영 F01·F86 쓰기는 이 워크플로 이름으로만 열린다(lib/server/production-sheet-write-gate.ts · docs/예약작업-지도.md).
+      - name: 동일 스냅샷으로 하허호 F86 게시
+        if: github.event_name == 'schedule' || inputs.apply
+        env:
+          GOOGLE_SHEETS_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sheets.json
+        run: npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/build-channel-supplier-sheet.mts --채널=하허호 --apply --snapshot=tmp/erp5-sales-publish.json
+      - name: 원자 ↔ F01 ↔ F86 칸 단위 대조
+        if: github.event_name == 'schedule' || inputs.apply
+        env:
+          GOOGLE_SHEETS_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sheets.json
+        run: npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/audit-sheet-vs-atom.mts --snapshot=tmp/erp5-sales-publish.json
+      - name: 차번 셀 사진 링크 대조
+        if: github.event_name == 'schedule' || inputs.apply
+        env:
+          GOOGLE_SHEETS_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sheets.json
+        run: npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/check-plate-photo-link.mts
       - name: 회차 증거 보존
         if: github.event_name == 'schedule' || inputs.apply
         uses: actions/upload-artifact@v4
