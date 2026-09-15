@@ -23,6 +23,7 @@
     "check:fonts": "tsx scripts/check-fonts.mts",
     "check:tokens": "tsx scripts/check-tokens.mts",
     "check:ui": "tsx scripts/check-ui-contract.mts",
+    "check:whitelabel-publication": "tsx scripts/sim-whitelabel-publication-gate.mts",
     "check:design": "tsx scripts/check-design-locked.mts",
     "check:building": "tsx scripts/check-building.mts",
     "check:order": "tsx scripts/check-order.mts",
