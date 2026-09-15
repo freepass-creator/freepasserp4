@@ -5,6 +5,39 @@
 >  상태마스터(팔렸는지 현상태) — 이 값들이 **SSOT에서 모여서 한 곳으로 들어오고 한 곳에서 나가야 함.**」
 > 「**SSOT를 명확하게 만들고 거기에 있는 거로만 구현한다.**」
 
+## ★★전체 그림 한 장 (사장님 2026-09-15 확정 다이어그램)
+
+```
+                       [SOURCE REGISTRY]
+                       │
+        ┌──────────────┼──────────────┐
+        ▼              ▼              ▼
+ Google Sheets      Website         ERP API
+ 21 suppliers       Iron/Auto+      Sonogong
+        └──────────────┼──────────────┘
+                       ▼
+              Parser / Normalizer
+                       ▼
+                 freepasserp5
+                  CANONICAL
+                       ▼
+                fixed snapshot
+        ┌──────────────┼─────────────┐
+        ▼              ▼             ▼
+      ERP4          판매시트       공개사이트
+```
+
+**칸별 코드 대응(양방향 없음 — 한 방향으로만 수집되고 뿌려진다):**
+| 칸 | 코드 |
+|---|---|
+| Google Sheets 21곳(아이카·이안카 포함) | `lib/domain/mirror-sources.ts`(4곳: 아이카·이안카=`kind:'sheet'`) + 그 외 17곳=문패(`HUB_CODE_SHEET_ID`) 경유 `srcConfig()` |
+| Website(아이언·오토플러스) | 아이언=`lib/domain/mirror-iron-source.ts`(ironrentcar.com) · 오토플러스=`scripts/ingest-reborncar-to-firestore.mts`(reborncar.co.kr — **이미 있다**, 새로 안 만든다) |
+| ERP API(손오공) | 손오공 API 덤프 + `lib/domain/sonokong-product-kind.ts`(상품구분=번호판 하·허·호) |
+| Parser/Normalizer | `scripts/ingest-supplier-to-firestore.mts`(범용) · 위 손오공/리본카 전용 인제스터 |
+| freepasserp5 CANONICAL | Firestore `products` 컬렉션(원자) — SSOT는 여기 하나 |
+| fixed snapshot | `scripts/capture-sales-publish-snapshot.mts` — 발행 회차마다 한 번 찍어 그 스냅샷으로 아래 셋을 만든다(스냅샷 사이에 원자가 바뀌어도 그 회차 발행물은 안 흔들린다) |
+| ERP4 / 판매시트 / 공개사이트 | 같은 스냅샷에서 갈라지는 세 소비처. `make-sample-sheet-google.mts`(F01=판매시트) · `build-channel-supplier-sheet.mts`(F86=채널) · ERP4(앱 읽기) · 공개사이트(손님면) — **전부 스냅샷/원자를 읽기만 한다. 거꾸로 원자나 원천에 쓰지 않는다.**
+
 ## 0. 왜 이 문서가 필요한가 — 정본은 정해졌는데 «전파가 수동»이라 갈라졌다
 
 차종마스터 정본은 이미 **Firestore `vehicle_master`** 로 확정돼 있다(사장님 2026-09-08, `export-master-firestore-to-json.mts`).
