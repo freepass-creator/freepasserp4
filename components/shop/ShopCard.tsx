@@ -14,7 +14,7 @@ import { PERKS, hasPerk } from '@/lib/domain/product-filters';
 import { vehicleNameOf } from '@/lib/domain/vehicle-name';
 import { displacementL } from '@/components/product-card-identity';
 import { yearFullDisplay, fuelDisplay } from '@/lib/domain/vehicle-master-format';
-import { isEvFuel, kmDisplay, kmValue, manShort, wonKo } from '@/lib/format';
+import { isEvFuel, kmDisplay, kmValue, manShort, wonKo, depositLine } from '@/lib/format';
 
 /**
  * 가게 카드 — 손님이 이 화면에서 «고르는 단위».
@@ -70,6 +70,8 @@ export const ShopCard = memo(function ShopCard({ p, href, rank = 99 }: {
 }) {
   const mobile = useIsMobile();
   const price = cheapest(p);
+  /** 보증금 — 금액이 없고 규칙 글자(`deposit_note`)만 있는 상품이 있다(`depositLine` 머리말). */
+  const dep = price ? depositLine(price.deposit, (p as Record<string, unknown>).deposit_note, manShort) : null;
   /*
    * ② 줄 — 세부모델 · 세부트림. **연식을 앞에 붙이지 않는다**(사장님 2026-09-04 — 연식은 아래
    * ③ 줄로 갔다). 「2026 현대 베뉴 QX1 프리미엄」처럼 앞에 숫자가 서면 그게 트림 숫자와 섞여
@@ -176,7 +178,7 @@ export const ShopCard = memo(function ShopCard({ p, href, rank = 99 }: {
      * ⚠ 「무보증」은 **바로 윗줄이 이미 「보증금 없음」이라고 말한** 차에서 뺀다(2026-09-05 검토).
      *   같은 카드에서 같은 사실을 두 번 하면 자리를 낭비하고, 손님은 「둘이 다른 건가」를 생각한다.
      */
-    ...PERKS.filter((k) => hasPerk(p, k) && !(k === '무보증' && price && price.deposit === 0))
+    ...PERKS.filter((k) => hasPerk(p, k) && !(k === '무보증' && dep && dep.none))
       .map((k) => ({ text: k as string, icon: markIconFor(k) })),
     ...(sameDay ? [{ text: '당일출고', icon: markIconFor('당일출고'), good: true }] : []),
   ];
@@ -323,10 +325,10 @@ export const ShopCard = memo(function ShopCard({ p, href, rank = 99 }: {
               <span style={{
                 fontSize: SHOP.fs.sub, flex: '0 0 auto', whiteSpace: 'nowrap',
                 fontVariantNumeric: 'tabular-nums',
-                color: price.deposit > 0 ? C.mute : C.ok,
-                fontWeight: price.deposit > 0 ? 400 : 700,
+                color: dep && dep.none ? C.ok : C.mute,
+                fontWeight: dep && dep.none ? 700 : 400,
               }}>
-                {price.deposit > 0 ? `보증금 ${manShort(price.deposit)}` : '보증금 없음'}
+                {dep ? dep.text : ''}
               </span>
             </div>
           ) : null}
