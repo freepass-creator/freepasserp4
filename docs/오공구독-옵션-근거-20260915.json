@@ -1,0 +1,1056 @@
+{
+  "at": "2026-09-15T02:02:14.292Z",
+  "readbackAt": "2026-09-15T02:03:02.298Z",
+  "rows": [
+    {
+      "sourceId": 11003,
+      "plate": "119더4099",
+      "bucket": "SON_NO_KONG",
+      "homepagePlate": "119더4099",
+      "agentPlate": "119더4099",
+      "changedPlate": null,
+      "sourceUrl": "SOKUC:119더4099",
+      "note": "",
+      "description": "",
+      "category": "NO_OPTION_EVIDENCE",
+      "documents": [
+        {
+          "id": "119더4099",
+          "options": "",
+          "source": null
+        }
+      ],
+      "noteMatchesFirestore": null,
+      "identityStatus": "MATCH"
+    },
+    {
+      "sourceId": 10333,
+      "plate": "253무8638",
+      "bucket": "SON_NO_KONG",
+      "homepagePlate": "253무8638",
+      "agentPlate": "253무8638",
+      "changedPlate": null,
+      "sourceUrl": "SOKUC:253무8638",
+      "note": "",
+      "description": "",
+      "category": "NO_OPTION_EVIDENCE",
+      "documents": [
+        {
+          "id": "253무8638",
+          "options": "",
+          "source": null
+        }
+      ],
+      "noteMatchesFirestore": null,
+      "identityStatus": "MATCH"
+    },
+    {
+      "sourceId": 10332,
+      "plate": "838루4803",
+      "bucket": "SON_NO_KONG",
+      "homepagePlate": "838루4803",
+      "agentPlate": "838루4803",
+      "changedPlate": null,
+      "sourceUrl": "SOKUC:838루4803",
+      "note": "",
+      "description": "",
+      "category": "NO_OPTION_EVIDENCE",
+      "documents": [
+        {
+          "id": "838루4803",
+          "options": "",
+          "source": null
+        }
+      ],
+      "noteMatchesFirestore": null,
+      "identityStatus": "MATCH"
+    },
+    {
+      "sourceId": 10267,
+      "plate": "375어8072",
+      "bucket": "SON_NO_KONG",
+      "homepagePlate": "375어8072",
+      "agentPlate": "375어8072",
+      "changedPlate": null,
+      "sourceUrl": "SOKUC:375어8072",
+      "note": "",
+      "description": "",
+      "category": "NO_OPTION_EVIDENCE",
+      "documents": [
+        {
+          "id": "375어8072",
+          "options": "",
+          "source": null
+        }
+      ],
+      "noteMatchesFirestore": null,
+      "identityStatus": "MATCH"
+    },
+    {
+      "sourceId": 10265,
+      "plate": "46소4383",
+      "bucket": "SON_NO_KONG",
+      "homepagePlate": "46소4383",
+      "agentPlate": "46소4383",
+      "changedPlate": "",
+      "sourceUrl": "SOKUC:46소4383",
+      "note": "",
+      "description": "",
+      "category": "NO_OPTION_EVIDENCE",
+      "documents": [
+        {
+          "id": "46소4383",
+          "options": "",
+          "source": null
+        }
+      ],
+      "noteMatchesFirestore": null,
+      "identityStatus": "MATCH"
+    },
+    {
+      "sourceId": 10264,
+      "plate": "68로3249",
+      "bucket": "SON_NO_KONG",
+      "homepagePlate": "68로3249",
+      "agentPlate": "68로3249",
+      "changedPlate": "",
+      "sourceUrl": "SOKUC:68로3249",
+      "note": "",
+      "description": "",
+      "category": "NO_OPTION_EVIDENCE",
+      "documents": [
+        {
+          "id": "68로3249",
+          "options": "",
+          "source": null
+        }
+      ],
+      "noteMatchesFirestore": null,
+      "identityStatus": "MATCH"
+    },
+    {
+      "sourceId": 10262,
+      "plate": "68로3312",
+      "bucket": "SON_NO_KONG",
+      "homepagePlate": "68로3312",
+      "agentPlate": "68로3312",
+      "changedPlate": "",
+      "sourceUrl": "SOKUC:68로3312",
+      "note": "",
+      "description": "",
+      "category": "NO_OPTION_EVIDENCE",
+      "documents": [
+        {
+          "id": "68로3312",
+          "options": "",
+          "source": null
+        }
+      ],
+      "noteMatchesFirestore": null,
+      "identityStatus": "MATCH"
+    },
+    {
+      "sourceId": 10261,
+      "plate": "68로3345",
+      "bucket": "SON_NO_KONG",
+      "homepagePlate": "68로3345",
+      "agentPlate": "68로3345",
+      "changedPlate": "",
+      "sourceUrl": "SOKUC:68로3345",
+      "note": "",
+      "description": "",
+      "category": "NO_OPTION_EVIDENCE",
+      "documents": [
+        {
+          "id": "68로3345",
+          "options": "",
+          "source": null
+        }
+      ],
+      "noteMatchesFirestore": null,
+      "identityStatus": "MATCH"
+    },
+    {
+      "sourceId": 10260,
+      "plate": "46소3926",
+      "bucket": "SON_NO_KONG",
+      "homepagePlate": "46소3926",
+      "agentPlate": "46소3926",
+      "changedPlate": "",
+      "sourceUrl": "SOKUC:46소3926",
+      "note": "",
+      "description": "",
+      "category": "NO_OPTION_EVIDENCE",
+      "documents": [
+        {
+          "id": "46소3926",
+          "options": "",
+          "source": null
+        }
+      ],
+      "noteMatchesFirestore": null,
+      "identityStatus": "MATCH"
+    },
+    {
+      "sourceId": 10259,
+      "plate": "46소3967",
+      "bucket": "SON_NO_KONG",
+      "homepagePlate": "46소3967",
+      "agentPlate": "46소3967",
+      "changedPlate": "",
+      "sourceUrl": "SOKUC:46소3967",
+      "note": "",
+      "description": "",
+      "category": "NO_OPTION_EVIDENCE",
+      "documents": [
+        {
+          "id": "46소3967",
+          "options": "",
+          "source": null
+        }
+      ],
+      "noteMatchesFirestore": null,
+      "identityStatus": "MATCH"
+    },
+    {
+      "sourceId": 10258,
+      "plate": "68로3299",
+      "bucket": "SON_NO_KONG",
+      "homepagePlate": "68로3299",
+      "agentPlate": "68로3299",
+      "changedPlate": null,
+      "sourceUrl": "SOKUC:68로3299",
+      "note": "",
+      "description": "",
+      "category": "NO_OPTION_EVIDENCE",
+      "documents": [
+        {
+          "id": "68로3299",
+          "options": "",
+          "source": null
+        }
+      ],
+      "noteMatchesFirestore": null,
+      "identityStatus": "MATCH"
+    },
+    {
+      "sourceId": 10257,
+      "plate": "179라3706",
+      "bucket": "SON_NO_KONG",
+      "homepagePlate": "179라3706",
+      "agentPlate": "179라3706",
+      "changedPlate": null,
+      "sourceUrl": "SOKUC:179라3706",
+      "note": "",
+      "description": "",
+      "category": "NO_OPTION_EVIDENCE",
+      "documents": [
+        {
+          "id": "179라3706",
+          "options": "",
+          "source": null
+        }
+      ],
+      "noteMatchesFirestore": null,
+      "identityStatus": "MATCH"
+    },
+    {
+      "sourceId": 10254,
+      "plate": "40주5434",
+      "bucket": "SON_NO_KONG",
+      "homepagePlate": "40주5434",
+      "agentPlate": "40주5434",
+      "changedPlate": "",
+      "sourceUrl": "SOKUC:40주5434",
+      "note": "",
+      "description": "",
+      "category": "NO_OPTION_EVIDENCE",
+      "documents": [
+        {
+          "id": "40주5434",
+          "options": "",
+          "source": null
+        }
+      ],
+      "noteMatchesFirestore": null,
+      "identityStatus": "MATCH"
+    },
+    {
+      "sourceId": 10253,
+      "plate": "47조3386",
+      "bucket": "SON_NO_KONG",
+      "homepagePlate": "47조3386",
+      "agentPlate": "47조3386",
+      "changedPlate": "",
+      "sourceUrl": "SOKUC:47조3386",
+      "note": "",
+      "description": "",
+      "category": "NO_OPTION_EVIDENCE",
+      "documents": [
+        {
+          "id": "47조3386",
+          "options": "",
+          "source": null
+        }
+      ],
+      "noteMatchesFirestore": null,
+      "identityStatus": "MATCH"
+    },
+    {
+      "sourceId": 7636,
+      "plate": "308너3403",
+      "bucket": "SON_NO_KONG",
+      "homepagePlate": "308너3403",
+      "agentPlate": "308너3403",
+      "changedPlate": null,
+      "sourceUrl": "EXCEL_HISTORY:308너3403",
+      "note": "스노우 화이트 펄, 프리미엄, 모니터링 팩, KRELL 프리미엄 사운드, 파노라마 선루프, 빌트인 캠",
+      "description": "스포티지 1.6 HEV 시그니처 그래비티 2WD A/T\n기본형-모니터링",
+      "category": "SOURCE_NOTE",
+      "documents": [
+        {
+          "id": "308너3403",
+          "options": "스노우 화이트 펄, 프리미엄, 모니터링 팩, KRELL 프리미엄 사운드, 파노라마 선루프, 빌트인 캠",
+          "source": "sonokongCarOptionNote"
+        }
+      ],
+      "noteMatchesFirestore": true,
+      "identityStatus": "MATCH"
+    },
+    {
+      "sourceId": 7634,
+      "plate": "190거4278",
+      "bucket": "SON_NO_KONG",
+      "homepagePlate": "190거4278",
+      "agentPlate": "190거4278",
+      "changedPlate": null,
+      "sourceUrl": "EXCEL_HISTORY:190거4278",
+      "note": "하이패스 시스템+ECM 룸미러, 선루프, 인포테인먼트 내비 II, 통합디스플레이, 플래티넘 플러스, 17인치 알로이 휠&타이어I, 스마트센스I, 익스테리어 디자인II, 컴포트I, 컴포트II",
+      "description": "아반떼CN7 런칭 자가용 가솔린 1.6 4도어 A/T 모던\n하이패스 시스템(ECM룸미러), 인포테인먼트 내비2",
+      "category": "SOURCE_NOTE",
+      "documents": [
+        {
+          "id": "190거4278",
+          "options": "하이패스 시스템+ECM 룸미러, 선루프, 인포테인먼트 내비 II, 통합디스플레이, 플래티넘 플러스, 17인치 알로이 휠&타이어I, 스마트센스I, 익스테리어 디자인II, 컴포트I, 컴포트II",
+          "source": "sonokongCarOptionNote"
+        }
+      ],
+      "noteMatchesFirestore": true,
+      "identityStatus": "MATCH"
+    },
+    {
+      "sourceId": 7631,
+      "plate": "175부9051",
+      "bucket": "SON_NO_KONG",
+      "homepagePlate": "175부9051",
+      "agentPlate": "175부9051",
+      "changedPlate": null,
+      "sourceUrl": "EXCEL_HISTORY:175부9051",
+      "note": "선루프, 현대 스마트센스Ⅰ, 멀티미디어 내비 플러스, 디자인 플러스, 17인치 알로이 휠 패키지, 컴포트, 스토리지",
+      "description": "캐스퍼 런칭 기본 가솔린 1.0 모던\n컴포트, 멀티미디어 내비 플러스, 현대 스마트센스1",
+      "category": "SOURCE_NOTE",
+      "documents": [
+        {
+          "id": "175부9051",
+          "options": "선루프, 현대 스마트센스Ⅰ, 멀티미디어 내비 플러스, 디자인 플러스, 17인치 알로이 휠 패키지, 컴포트, 스토리지",
+          "source": "sonokongCarOptionNote"
+        }
+      ],
+      "noteMatchesFirestore": true,
+      "identityStatus": "MATCH"
+    },
+    {
+      "sourceId": 7630,
+      "plate": "156두1484",
+      "bucket": "SON_NO_KONG",
+      "homepagePlate": "156두1484",
+      "agentPlate": "156두1484",
+      "changedPlate": null,
+      "sourceUrl": "EXCEL_HISTORY:156두1484",
+      "note": "스노우 화이트 펄, 프리미엄, 모니터링 팩, KRELL 프리미엄 사운드, 파노라마 선루프, 빌트인 캠",
+      "description": "스포티지 2.0 디젤 시그니처 그래비티 2WD A/T\n프리미엄 옵션-빌트인 캠, 모니터링, 프리미엄",
+      "category": "SOURCE_NOTE",
+      "documents": [
+        {
+          "id": "156두1484",
+          "options": "스노우 화이트 펄, 프리미엄, 모니터링 팩, KRELL 프리미엄 사운드, 파노라마 선루프, 빌트인 캠",
+          "source": "sonokongCarOptionNote"
+        }
+      ],
+      "noteMatchesFirestore": true,
+      "identityStatus": "MATCH"
+    },
+    {
+      "sourceId": 7629,
+      "plate": "144어9683",
+      "bucket": "SON_NO_KONG",
+      "homepagePlate": "144어9683",
+      "agentPlate": "144어9683",
+      "changedPlate": null,
+      "sourceUrl": "EXCEL_HISTORY:144어9683",
+      "note": "빌트인 캠(보조배터리 포함), 파노라마 선루프, 플래티넘4",
+      "description": "투싼NX4 23MY 디젤 2.0 4WD A/T 인스퍼레이션\n빌트인 캠, 파노라마 선루프",
+      "category": "SOURCE_NOTE",
+      "documents": [
+        {
+          "id": "144어9683",
+          "options": "빌트인 캠(보조배터리 포함), 파노라마 선루프, 플래티넘4",
+          "source": "sonokongCarOptionNote"
+        }
+      ],
+      "noteMatchesFirestore": true,
+      "identityStatus": "MATCH"
+    },
+    {
+      "sourceId": 7628,
+      "plate": "47가1703",
+      "bucket": "SON_NO_KONG",
+      "homepagePlate": "47가1703",
+      "agentPlate": "47가1703",
+      "changedPlate": "",
+      "sourceUrl": "EXCEL_HISTORY:47가1703",
+      "note": "현대 스마트센스Ⅰ, 밴 패키지, 하이패스, 선루프, 컨비니언스 플러스, 컴포터, 익스테이러 디자인, 파킹 어시스트,. 실내 컬러 패키지",
+      "description": "",
+      "category": "SOURCE_NOTE",
+      "documents": [
+        {
+          "id": "47가1703",
+          "options": "현대 스마트센스Ⅰ, 밴 패키지, 하이패스, 선루프, 컨비니언스 플러스, 컴포터, 익스테이러 디자인, 파킹 어시스트,. 실내 컬러 패키지",
+          "source": "sonokongCarOptionNote"
+        }
+      ],
+      "noteMatchesFirestore": true,
+      "identityStatus": "MATCH"
+    },
+    {
+      "sourceId": 7625,
+      "plate": "317무5737",
+      "bucket": "SON_NO_KONG",
+      "homepagePlate": "317무5737",
+      "agentPlate": "317무5737",
+      "changedPlate": null,
+      "sourceUrl": "EXCEL_HISTORY:317무5737",
+      "note": "스마트 커넥트&KRELL 프리미엄 사운드, 프리미엄팩, 스노우 화이트 펄",
+      "description": "카니발 하이리무진 9인승 가솔린 3.5 시그니처 A/T 22MY\n기본형-프리미엄 팩, 스마트 커넥트+KRELL+RSPA",
+      "category": "SOURCE_NOTE",
+      "documents": [
+        {
+          "id": "317무5737",
+          "options": "스마트 커넥트&KRELL 프리미엄 사운드, 프리미엄팩, 스노우 화이트 펄",
+          "source": "sonokongCarOptionNote"
+        }
+      ],
+      "noteMatchesFirestore": true,
+      "identityStatus": "MATCH"
+    },
+    {
+      "sourceId": 7624,
+      "plate": "375어8059",
+      "bucket": "SON_NO_KONG",
+      "homepagePlate": "375어8059",
+      "agentPlate": "375어8059",
+      "changedPlate": null,
+      "sourceUrl": "EXCEL_HISTORY:375어8059",
+      "note": "파노라마 선루프, 헤드업 디스플레이, 빌트인 캠(보조배터리 포함)",
+      "description": "그랜저IG 21MY 자가용 하이브리드 르브랑 A/T\n파노라마 선루프",
+      "category": "SOURCE_NOTE",
+      "documents": [
+        {
+          "id": "375어8059",
+          "options": "파노라마 선루프, 헤드업 디스플레이, 빌트인 캠(보조배터리 포함)",
+          "source": "sonokongCarOptionNote"
+        }
+      ],
+      "noteMatchesFirestore": true,
+      "identityStatus": "MATCH"
+    },
+    {
+      "sourceId": 7623,
+      "plate": "375어8058",
+      "bucket": "SON_NO_KONG",
+      "homepagePlate": "375어8058",
+      "agentPlate": "375어8058",
+      "changedPlate": null,
+      "sourceUrl": "EXCEL_HISTORY:375어8058",
+      "note": "스노우 화이트 펄, 스마트 파워슬라이딩 도어, 스타일, 컴포트, 드라이브와이즈, 12.3인치내비게이션, 모니터링팩",
+      "description": "카니발 자가용 9인승 디젤 2.2 프레스티지 A/T 3 강화 OBD\n기본형-컴포트, 드라이브 와이즈, 파워슬라이딩 도어, 스타일, 내비게이션",
+      "category": "SOURCE_NOTE",
+      "documents": [
+        {
+          "id": "375어8058",
+          "options": "스노우 화이트 펄, 스마트 파워슬라이딩 도어, 스타일, 컴포트, 드라이브와이즈, 12.3인치내비게이션, 모니터링팩",
+          "source": "sonokongCarOptionNote"
+        }
+      ],
+      "noteMatchesFirestore": true,
+      "identityStatus": "MATCH"
+    },
+    {
+      "sourceId": 7621,
+      "plate": "159무8252",
+      "bucket": "SON_NO_KONG",
+      "homepagePlate": "159무8252",
+      "agentPlate": "159무8252",
+      "changedPlate": null,
+      "sourceUrl": "EXCEL_HISTORY:159무8252",
+      "note": "드라이브 와이즈, 스타일, 컴포트, 모니터링 팩, 스마트 커넥트, KRELL 프리미엄 사운드, 듀얼 선루프",
+      "description": "카니발 자가용 9인승 디젤 2.2 노블레스 A/T\n기본형-듀얼 선루프, 모니터링팩, 스타일, 내비게이션",
+      "category": "SOURCE_NOTE",
+      "documents": [
+        {
+          "id": "159무8252",
+          "options": "드라이브 와이즈, 스타일, 컴포트, 모니터링 팩, 스마트 커넥트, KRELL 프리미엄 사운드, 듀얼 선루프",
+          "source": "sonokongCarOptionNote"
+        }
+      ],
+      "noteMatchesFirestore": true,
+      "identityStatus": "MATCH"
+    },
+    {
+      "sourceId": 7302,
+      "plate": "281노9792",
+      "bucket": "SON_NO_KONG",
+      "homepagePlate": "281노9792",
+      "agentPlate": "281노9792",
+      "changedPlate": "",
+      "sourceUrl": "SOKUC:281노9792",
+      "note": "",
+      "description": "",
+      "category": "NO_OPTION_EVIDENCE",
+      "documents": [
+        {
+          "id": "281노9792",
+          "options": "",
+          "source": null
+        }
+      ],
+      "noteMatchesFirestore": null,
+      "identityStatus": "MATCH"
+    },
+    {
+      "sourceId": 7301,
+      "plate": "116가3396",
+      "bucket": "SON_NO_KONG",
+      "homepagePlate": "116가3396",
+      "agentPlate": "116가3396",
+      "changedPlate": "",
+      "sourceUrl": "SOKUC:116가3396",
+      "note": "",
+      "description": "",
+      "category": "NO_OPTION_EVIDENCE",
+      "documents": [
+        {
+          "id": "116가3396",
+          "options": "",
+          "source": null
+        }
+      ],
+      "noteMatchesFirestore": null,
+      "identityStatus": "MATCH"
+    },
+    {
+      "sourceId": 6965,
+      "plate": "170구8289",
+      "bucket": "SON_NO_KONG",
+      "homepagePlate": "170구8289",
+      "agentPlate": "170구8289",
+      "changedPlate": null,
+      "sourceUrl": null,
+      "note": "",
+      "description": "토레스 1.5 GDI 터보 2WD T7\n딥 컨트롤 패키지",
+      "category": "DESCRIPTION_CANDIDATE",
+      "documents": [
+        {
+          "id": "170구8289",
+          "options": "",
+          "source": null
+        }
+      ],
+      "noteMatchesFirestore": null,
+      "identityStatus": "MATCH"
+    },
+    {
+      "sourceId": 3547,
+      "plate": "340무7399",
+      "bucket": "SON_NO_KONG",
+      "homepagePlate": "340무7399",
+      "agentPlate": "340무7399",
+      "changedPlate": null,
+      "sourceUrl": null,
+      "note": "",
+      "description": "스포티지 1.6T 가솔린 시그니처 그래비티 2WD DCT\n기본형-모니터링, 선루프",
+      "category": "DESCRIPTION_CANDIDATE",
+      "documents": [
+        {
+          "id": "340무7399",
+          "options": "",
+          "source": null
+        }
+      ],
+      "noteMatchesFirestore": null,
+      "identityStatus": "MATCH"
+    },
+    {
+      "sourceId": 3546,
+      "plate": "368머5714",
+      "bucket": "SON_NO_KONG",
+      "homepagePlate": "368머5714",
+      "agentPlate": "368머5714",
+      "changedPlate": null,
+      "sourceUrl": null,
+      "note": "",
+      "description": "팰리세이드 LX2 F/L 가솔린 3.8 2WD 7인승 프레스티지 컴포트퀼팅나파",
+      "category": "DESCRIPTION_AMBIGUOUS",
+      "documents": [
+        {
+          "id": "368머5714",
+          "options": "",
+          "source": null
+        }
+      ],
+      "noteMatchesFirestore": null,
+      "identityStatus": "MATCH"
+    },
+    {
+      "sourceId": 3545,
+      "plate": "316라1593",
+      "bucket": "SON_NO_KONG",
+      "homepagePlate": "316라1593",
+      "agentPlate": "316라1593",
+      "changedPlate": null,
+      "sourceUrl": null,
+      "note": "",
+      "description": "G80 RG3 런칭 가솔린 2.5T AWD 19인치B 기본\n컨비니언스 패키지, 드라이빙 어시스턴스 패키지2, ECS, 렉시콘 사운드 시스템, 파퓰러 패키지",
+      "category": "DESCRIPTION_CANDIDATE",
+      "documents": [
+        {
+          "id": "316라1593",
+          "options": "",
+          "source": null
+        }
+      ],
+      "noteMatchesFirestore": null,
+      "identityStatus": "MATCH"
+    },
+    {
+      "sourceId": 3458,
+      "plate": "340무7348",
+      "bucket": "SON_NO_KONG",
+      "homepagePlate": "340무7348",
+      "agentPlate": "340무7348",
+      "changedPlate": null,
+      "sourceUrl": null,
+      "note": "",
+      "description": "아반떼CN7 렁칭 자가용 가솔린 1.6터보(N라인) 4도어 DCT 인스퍼레이션\n컴포트2(뒷좌석 편의), 선루프",
+      "category": "DESCRIPTION_CANDIDATE",
+      "documents": [
+        {
+          "id": "340무7348",
+          "options": "",
+          "source": null
+        }
+      ],
+      "noteMatchesFirestore": null,
+      "identityStatus": "MATCH"
+    },
+    {
+      "sourceId": 10386,
+      "plate": "140하9992",
+      "bucket": "SON_NO_KONG",
+      "homepagePlate": "140하9992",
+      "agentPlate": "140하9992",
+      "changedPlate": null,
+      "sourceUrl": "SOKUC:140하9992",
+      "note": "",
+      "description": "",
+      "category": "NO_OPTION_EVIDENCE",
+      "documents": [
+        {
+          "id": "140하9992",
+          "options": "",
+          "source": null
+        }
+      ],
+      "noteMatchesFirestore": null,
+      "identityStatus": "MATCH"
+    },
+    {
+      "sourceId": 10383,
+      "plate": "226호4538",
+      "bucket": "SON_NO_KONG",
+      "homepagePlate": "226호4538",
+      "agentPlate": "226호4538",
+      "changedPlate": null,
+      "sourceUrl": "SOKUC:226호4538",
+      "note": "",
+      "description": "",
+      "category": "NO_OPTION_EVIDENCE",
+      "documents": [
+        {
+          "id": "226호4538",
+          "options": "",
+          "source": null
+        }
+      ],
+      "noteMatchesFirestore": null,
+      "identityStatus": "MATCH"
+    },
+    {
+      "sourceId": 10382,
+      "plate": "227하1721",
+      "bucket": "SON_NO_KONG",
+      "homepagePlate": "227하1721",
+      "agentPlate": "227하1721",
+      "changedPlate": null,
+      "sourceUrl": "SOKUC:227하1721",
+      "note": "",
+      "description": "",
+      "category": "NO_OPTION_EVIDENCE",
+      "documents": [
+        {
+          "id": "227하1721",
+          "options": "",
+          "source": null
+        }
+      ],
+      "noteMatchesFirestore": null,
+      "identityStatus": "MATCH"
+    },
+    {
+      "sourceId": 10374,
+      "plate": "68로3197",
+      "bucket": "SON_NO_KONG",
+      "homepagePlate": "68로3197",
+      "agentPlate": "29하6230",
+      "changedPlate": "68로3197",
+      "sourceUrl": "SOKUC:29하6230",
+      "note": "",
+      "description": "",
+      "category": "NO_OPTION_EVIDENCE",
+      "documents": [
+        {
+          "id": "68로3197",
+          "options": "",
+          "source": null
+        }
+      ],
+      "noteMatchesFirestore": null,
+      "identityStatus": "IDENTITY_HOLD"
+    },
+    {
+      "sourceId": 10373,
+      "plate": "149하8411",
+      "bucket": "SON_NO_KONG",
+      "homepagePlate": "149하8411",
+      "agentPlate": "149하8411",
+      "changedPlate": null,
+      "sourceUrl": "SOKUC:149하8411",
+      "note": "",
+      "description": "",
+      "category": "NO_OPTION_EVIDENCE",
+      "documents": [
+        {
+          "id": "149하8411",
+          "options": "",
+          "source": null
+        }
+      ],
+      "noteMatchesFirestore": null,
+      "identityStatus": "MATCH"
+    },
+    {
+      "sourceId": 10369,
+      "plate": "68로3356",
+      "bucket": "SON_NO_KONG",
+      "homepagePlate": "68로3356",
+      "agentPlate": "34하3458",
+      "changedPlate": "68로3356",
+      "sourceUrl": "SOKUC:34하3458",
+      "note": "",
+      "description": "",
+      "category": "NO_OPTION_EVIDENCE",
+      "documents": [
+        {
+          "id": "68로3356",
+          "options": "",
+          "source": null
+        }
+      ],
+      "noteMatchesFirestore": null,
+      "identityStatus": "IDENTITY_HOLD"
+    },
+    {
+      "sourceId": 10367,
+      "plate": "68로3386",
+      "bucket": "SON_NO_KONG",
+      "homepagePlate": "68로3386",
+      "agentPlate": "34하4449",
+      "changedPlate": "68로3386",
+      "sourceUrl": "SOKUC:34하4449",
+      "note": "",
+      "description": "",
+      "category": "NO_OPTION_EVIDENCE",
+      "documents": [
+        {
+          "id": "68로3386",
+          "options": "",
+          "source": null
+        }
+      ],
+      "noteMatchesFirestore": null,
+      "identityStatus": "IDENTITY_HOLD"
+    },
+    {
+      "sourceId": 10366,
+      "plate": "108주7295",
+      "bucket": "SON_NO_KONG",
+      "homepagePlate": "108주7295",
+      "agentPlate": "170허8455",
+      "changedPlate": "108주7295",
+      "sourceUrl": "SOKUC:170허8455",
+      "note": "",
+      "description": "",
+      "category": "NO_OPTION_EVIDENCE",
+      "documents": [
+        {
+          "id": "108주7295",
+          "options": "",
+          "source": null
+        }
+      ],
+      "noteMatchesFirestore": null,
+      "identityStatus": "IDENTITY_HOLD"
+    },
+    {
+      "sourceId": 10363,
+      "plate": "156하3402",
+      "bucket": "SON_NO_KONG",
+      "homepagePlate": "156하3402",
+      "agentPlate": "156하3402",
+      "changedPlate": null,
+      "sourceUrl": "SOKUC:156하3402",
+      "note": "",
+      "description": "",
+      "category": "NO_OPTION_EVIDENCE",
+      "documents": [
+        {
+          "id": "156하3402",
+          "options": "",
+          "source": null
+        }
+      ],
+      "noteMatchesFirestore": null,
+      "identityStatus": "MATCH"
+    },
+    {
+      "sourceId": 7313,
+      "plate": "379더4725",
+      "bucket": "SON_NO_KONG",
+      "homepagePlate": "379더4725",
+      "agentPlate": "156호1454",
+      "changedPlate": "379더4725",
+      "sourceUrl": "SOKUC:156호1454",
+      "note": "",
+      "description": "",
+      "category": "NO_OPTION_EVIDENCE",
+      "documents": [
+        {
+          "id": "379더4725",
+          "options": "",
+          "source": null
+        }
+      ],
+      "noteMatchesFirestore": null,
+      "identityStatus": "IDENTITY_HOLD"
+    },
+    {
+      "sourceId": 7304,
+      "plate": "215보9793",
+      "bucket": "SON_NO_KONG",
+      "homepagePlate": "215보9793",
+      "agentPlate": "215보9793",
+      "changedPlate": null,
+      "sourceUrl": "SOKUC:215보9793",
+      "note": "",
+      "description": "",
+      "category": "NO_OPTION_EVIDENCE",
+      "documents": [
+        {
+          "id": "215보9793",
+          "options": "",
+          "source": null
+        }
+      ],
+      "noteMatchesFirestore": null,
+      "identityStatus": "MATCH"
+    },
+    {
+      "sourceId": 7295,
+      "plate": "365보1425",
+      "bucket": "SON_NO_KONG",
+      "homepagePlate": "365보1425",
+      "agentPlate": "140하9744",
+      "changedPlate": "365보1425",
+      "sourceUrl": "SOKUC:140하9744",
+      "note": "",
+      "description": "",
+      "category": "NO_OPTION_EVIDENCE",
+      "documents": [
+        {
+          "id": "365보1425",
+          "options": "",
+          "source": null
+        }
+      ],
+      "noteMatchesFirestore": null,
+      "identityStatus": "IDENTITY_HOLD"
+    },
+    {
+      "sourceId": 7289,
+      "plate": "379더4775",
+      "bucket": "SON_NO_KONG",
+      "homepagePlate": "379더4775",
+      "agentPlate": "190하4875",
+      "changedPlate": "379더4775",
+      "sourceUrl": "SOKUC:190하4875",
+      "note": "",
+      "description": "",
+      "category": "NO_OPTION_EVIDENCE",
+      "documents": [
+        {
+          "id": "379더4775",
+          "options": "",
+          "source": null
+        }
+      ],
+      "noteMatchesFirestore": null,
+      "identityStatus": "IDENTITY_HOLD"
+    },
+    {
+      "sourceId": 11055,
+      "plate": "68로3235",
+      "bucket": "SON_NO_KONG",
+      "homepagePlate": "68로3235",
+      "agentPlate": "68로3235",
+      "changedPlate": null,
+      "sourceUrl": "SOKUC:68로3235",
+      "note": "",
+      "description": "",
+      "category": "NO_OPTION_EVIDENCE",
+      "documents": [
+        {
+          "id": "68로3235",
+          "options": "",
+          "source": null
+        }
+      ],
+      "noteMatchesFirestore": null,
+      "identityStatus": "MATCH"
+    },
+    {
+      "sourceId": 10266,
+      "plate": "68로3199",
+      "bucket": "SON_NO_KONG",
+      "homepagePlate": "68로3199",
+      "agentPlate": "68로3199",
+      "changedPlate": null,
+      "sourceUrl": "SOKUC:68로3199",
+      "note": "",
+      "description": "",
+      "category": "NO_OPTION_EVIDENCE",
+      "documents": [
+        {
+          "id": "68로3199",
+          "options": "",
+          "source": null
+        }
+      ],
+      "noteMatchesFirestore": null,
+      "identityStatus": "MATCH"
+    },
+    {
+      "sourceId": 10263,
+      "plate": "68로3201",
+      "bucket": "SON_NO_KONG",
+      "homepagePlate": "68로3201",
+      "agentPlate": "68로3201",
+      "changedPlate": null,
+      "sourceUrl": "SOKUC:68로3201",
+      "note": "",
+      "description": "",
+      "category": "NO_OPTION_EVIDENCE",
+      "documents": [
+        {
+          "id": "68로3201",
+          "options": "",
+          "source": null
+        }
+      ],
+      "noteMatchesFirestore": null,
+      "identityStatus": "MATCH"
+    },
+    {
+      "sourceId": 10255,
+      "plate": "206러8828",
+      "bucket": "SON_NO_KONG",
+      "homepagePlate": "206러8828",
+      "agentPlate": "206러8828",
+      "changedPlate": null,
+      "sourceUrl": "SOKUC:206러8828",
+      "note": "",
+      "description": "",
+      "category": "NO_OPTION_EVIDENCE",
+      "documents": [
+        {
+          "id": "206러8828",
+          "options": "",
+          "source": null
+        }
+      ],
+      "noteMatchesFirestore": null,
+      "identityStatus": "MATCH"
+    },
+    {
+      "sourceId": 10353,
+      "plate": "191허1613",
+      "bucket": "SON_NO_KONG",
+      "homepagePlate": "191허1613",
+      "agentPlate": "191허1613",
+      "changedPlate": null,
+      "sourceUrl": "SOKUC:191허1613",
+      "note": "",
+      "description": "",
+      "category": "NO_OPTION_EVIDENCE",
+      "documents": [
+        {
+          "id": "191허1613",
+          "options": "",
+          "source": null
+        }
+      ],
+      "noteMatchesFirestore": null,
+      "identityStatus": "MATCH"
+    },
+    {
+      "sourceId": 10351,
+      "plate": "192허9169",
+      "bucket": "SON_NO_KONG",
+      "homepagePlate": "192허9169",
+      "agentPlate": "192허9169",
+      "changedPlate": null,
+      "sourceUrl": "SOKUC:192허9169",
+      "note": "",
+      "description": "",
+      "category": "NO_OPTION_EVIDENCE",
+      "documents": [
+        {
+          "id": "192허9169",
+          "options": "",
+          "source": null
+        }
+      ],
+      "noteMatchesFirestore": null,
+      "identityStatus": "MATCH"
+    }
+  ]
+}
