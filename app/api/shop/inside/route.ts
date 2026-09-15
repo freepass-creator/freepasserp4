@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { resolveProduct } from '@/lib/server/guest-quote';
-import { firestoreAdminRef } from '@/lib/server/firestore-ref-shim';
+import { firestorePathStore } from '@/lib/server/firestore-path-store';
 import { providerNameMap } from '@/lib/domain/identity';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { verifyActiveBearer } from '@/lib/server/firebase-admin';
@@ -66,7 +66,7 @@ export async function GET(request: Request) {
    * 코드(`RP021`)만 있다. 그대로 내면 영업자가 「RP021이 어디였지」를 또 찾아야 한다.
    * ★코드 → 이름 규칙은 `providerNameMap` 한 곳이다 — 화면마다 이름을 새로 짓지 않는다.
    */
-  const db = firestoreAdminRef();
+  const db = firestorePathStore();
   const partners = Object.entries(((await db.ref('v4/partners').get()).val() || {}) as Record<string, Rec>)
     .map(([k, v]) => ({ ...(v || {}), _key: k })) as EntityRecord[];
   const providerName = S(p.provider_name) || providerNameMap(partners)[providerCode] || '';

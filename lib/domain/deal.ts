@@ -16,7 +16,9 @@ import { vehicleNameOf } from '@/lib/domain/vehicle-name';
 import { CONSULT_LABEL } from '@/features/chat/room-display';
 import { displayNumber, newId, stableId } from '@/lib/domain/ids';
 
-export type Role = 'agent' | 'provider' | 'admin';
+/** ★역할 셋은 공용(`lib/domain/roles`)이다 — 여기서 다시 내보내기만 한다(2026-09-08 갈랐다). */
+export type { Role } from '@/lib/domain/roles';
+import type { Role } from '@/lib/domain/roles';
 // v4 3역할 라벨 = 원본 5역할 라벨(entities.ROLE_LABEL_RAW SSOT)에서 파생. 값 복붙 금지.
 export const ROLE_LABEL: Record<Role, string> = {
   agent: ROLE_LABEL_RAW.agent, provider: ROLE_LABEL_RAW.provider, admin: ROLE_LABEL_RAW.admin,
@@ -603,9 +605,9 @@ export async function freezeContractTerm(
   const m = Number(period) || 0;
   if (m <= 0) throw new Error('약정 동결: 대여기간을 선택해 주세요.');
   const store = getStore();
-  // 운영 RTDB에서는 기간만 따로 동결할 수 없다. 손님 정보와 약정확인을 함께 받는
+  // 운영 Firestore에서는 기간만 따로 동결할 수 없다. 손님 정보와 약정확인을 함께 받는
   // ContractPanel의 약정작성완료 서버 전이만 정산 기준 seal을 만들 수 있다.
-  if (store.backend.startsWith('rtdb')) {
+  if (store.backend.startsWith('firestore')) {
     throw new Error('운영 계약은 기간만 동결할 수 없습니다. 손님 정보까지 입력한 약정작성완료로 진행해 주세요.');
   }
   const pr = priceAt(product, m);

@@ -5,7 +5,7 @@ import {
   loadFreepassSessionByToken,
   type EsignRecord,
 } from '@/lib/server/freepass-esign';
-import { firebaseAdminDatabase } from '@/lib/server/firebase-admin';
+import { firebaseAdminStore } from '@/lib/server/firebase-admin';
 import {
   buildFrozenFreepassHtml,
   readStoredFreepassPdf,
@@ -174,7 +174,7 @@ export async function GET(
     }
   }
 
-  const submission = (await firebaseAdminDatabase()
+  const submission = (await firebaseAdminStore()
     .ref(`v4/esign_private/${contractCode}/${hash}`).get()
     .catch(() => null))?.val() as EsignRecord | null;
   if (!submission) return json({ error: '완료 계약서 사본을 찾을 수 없습니다.' }, 404);

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { NextResponse } from 'next/server';
-import { firebaseAdminDatabase, verifyAdminBearer } from '@/lib/server/firebase-admin';
+import { firebaseAdminStore, verifyAdminBearer } from '@/lib/server/firebase-admin';
 import {
   affectedProductsHaveContractLock,
   affectedProductsMatch,
@@ -70,7 +70,7 @@ export async function GET(request: Request): Promise<Response> {
   if (!admin) return NextResponse.json({ error: 'forbidden' }, { status: 403, headers });
 
   try {
-    const db = firebaseAdminDatabase();
+    const db = firebaseAdminStore();
     const controlSnapshot = await db.ref('v4/inventory_sync_control/ironrentcar').get();
     const control = controlSnapshot.val() as Record<string, unknown> | null;
     const latestRunId = String(control?.latest_applied_run_id || '').trim();
@@ -124,7 +124,7 @@ export async function POST(request: Request): Promise<Response> {
     return NextResponse.json({ error: 'explicit rollback confirmation required' }, { status: 400, headers });
   }
 
-  const db = firebaseAdminDatabase();
+  const db = firebaseAdminStore();
   let snapshots;
   try {
     snapshots = await Promise.all([

@@ -1,6 +1,6 @@
 import 'server-only';
 
-import type { Database } from 'firebase-admin/database';
+import type { AdminRef as Database } from './firestore-path-store';
 import {
   planDailySheetSync,
   planProductMasterProviderBatches,
@@ -8,11 +8,10 @@ import {
   type ProductMasterProviderPlan,
 } from '@/lib/domain/sheet-daily-sync';
 import { productPatchPreconditionMatches } from '@/lib/domain/product-write-guard';
-import { mergeProductPrivate, splitProductPrivate } from '@/lib/firebase/rtdb-products';
-import { toV4Record } from '@/lib/firebase/rtdb-records';
+import { mergeProductPrivate, splitProductPrivate } from '@/lib/firebase/product-private';
+import { toV4Record } from '@/lib/firebase/legacy-records';
 import type { EntityRecord } from '@/lib/intake/entities';
-import { firebaseAdminDatabase } from '@/lib/server/firebase-admin';
-import { firestoreAdminRef } from '@/lib/server/firestore-ref-shim';
+import { firebaseAdminStore } from '@/lib/server/firebase-admin';
 import type { SheetConflictResolution } from '@/lib/domain/sheet-conflict-resolution';
 import { fetchSalesInventorySheet } from '@/lib/server/sales-inventory-sheet';
 import { isolateProductMasterBlockedProviders } from '@/lib/domain/product-master-import';
@@ -157,24 +156,9 @@ function normalizedRows(
     .map(([key, row]) => toV4Record(entity, key, row, companyId));
 }
 
-function mergeRows(v3: EntityRecord[], v4: EntityRecord[]): EntityRecord[] {
-  const rows = new Map<string, EntityRecord>();
-  for (const row of v3) rows.set(String(row._key), row);
-  for (const row of v4) {
-    const key = String(row._key);
-    const merged: EntityRecord = { ...(rows.get(key) || {}) };
-    for (const [field, value] of Object.entries(row)) if (value !== undefined) merged[field] = value;
-    rows.set(key, merged);
-  }
-  return [...rows.values()];
-}
-
 export async function readPartners(db: Database, companyId: string): Promise<EntityRecord[]> {
-  const [v3, v4] = await Promise.all([db.ref('partners').get(), db.ref('v4/partners').get()]);
-  return mergeRows(
-    normalizedRows('partner', v3.val(), companyId),
-    normalizedRows('partner', v4.val(), companyId),
-  );
+  const snapshot = await db.ref('v4/partners').get();
+  return normalizedRows('partner', snapshot.val(), companyId);
 }
 
 export async function readProducts(db: Database, companyId: string): Promise<{
@@ -201,11 +185,8 @@ export async function readProducts(db: Database, companyId: string): Promise<{
 }
 
 export async function readContracts(db: Database, companyId: string): Promise<EntityRecord[]> {
-  const [v3, v4] = await Promise.all([db.ref('contracts').get(), db.ref('v4/contracts').get()]);
-  return mergeRows(
-    normalizedRows('contract', v3.val(), companyId),
-    normalizedRows('contract', v4.val(), companyId),
-  );
+  const snapshot = await db.ref('v4/contracts').get();
+  return normalizedRows('contract', snapshot.val(), companyId);
 }
 
 export async function readResolutions(db: Database): Promise<SheetConflictResolution[]> {
@@ -276,7 +257,7 @@ export async function rollbackDailySheetSyncBackup(opts: {
       blockReason: '잘못된 원본 실행 ID',
     };
   }
-  const db = firebaseAdminDatabase();
+  const db = firebaseAdminStore();
   const backupPath = `v4/sheet_sync_backups/${sourceRunId}`;
   const [backupSnap, productsSnap] = await Promise.all([
     db.ref(backupPath).get(),
@@ -409,23 +390,6 @@ async function writeRun(
     'system_status/sheet_daily_sync': result,
     'system_locks/sheet_daily_sync': { run_id: runId, status, finished_at: at, expires_at: at },
   });
-
-  /*
-   * ★★**회차 기록은 «화면이 읽는 곳»에도 남긴다 — 파이어스토어.**
-   *   사장님 2026-09-10 「그냥 **RTDB 는 아예 안 쓴다**고」 · 「이제 파이어스토어 ERP 로 갈 거라서」.
-   *
-   *   손님 화면의 「마지막 연동일」은 이 한 줄을 읽는다. 그런데 이 함수는 RTDB 에만 적었고,
-   *   파이어스토어 사본은 **2026-09-05 에 멈춰** 있어서 화면이 엿새 묵은 날짜를 보여 줬다.
-   *   ⇒ 여기서 **직접** 적는다. 사본이 따라오기를 기다리지 않는다.
-   *
-   * ⚠ **이 줄이 실패해도 동기는 계속 간다.** 회차 기록은 «곁다리»고, 재고를 채우는 일이 본체다 —
-   *   기록을 못 남겼다고 그날 동기를 통째로 엎으면 그게 훨씬 큰 사고다.
-   * ⚠ 본체(상품·계약·락)를 여기서 옮기지 않는다. 그건 이관 세션의 일이고, 이 함수가 할 일은
-   *   「내가 언제 끝났나」를 화면이 읽는 자리에 남기는 것뿐이다.
-   */
-  try {
-    await firestoreAdminRef().ref('v4/system_status/sheet_daily_sync').set(result);
-  } catch { /* 곁다리다 — 동기를 멈추지 않는다 */ }
 }
 
 async function applyProductPlan(
@@ -605,7 +569,7 @@ function plannedProviderResult(item: ProductMasterProviderPlan): DailySheetSyncP
 export async function runDailySheetSync(opts: { dryRun?: boolean; providerCodes?: string[] } = {}): Promise<DailySheetSyncResult> {
   const runId = newId('run');
   const companyId = String(process.env.SHEET_SYNC_COMPANY_ID || 'freepass').trim();
-  const db = firebaseAdminDatabase();
+  const db = firebaseAdminStore();
   let backupId: string | undefined;
   // dry-run은 계획 계산만 한다. 락·상태·실행이력도 운영 데이터 쓰기이므로 만들지 않는다.
   if (!opts.dryRun) await acquireLease(db, runId, Date.now());

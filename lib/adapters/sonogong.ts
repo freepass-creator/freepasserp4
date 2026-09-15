@@ -12,6 +12,7 @@ import {
   type SupplierAdapter,
 } from '../domain/supplier-adapter';
 import { SONOGONG_DEPOSIT_POLICY } from '../domain/deposit-policy';
+import { isRentPlate } from '../domain/sonokong-product-kind';
 
 const VERSION = '1.0.0';
 
@@ -59,7 +60,20 @@ export class SonogongAdapter implements SupplierAdapter {
       plateNumber: compactPlate(plate.value) || undefined,
       vin: text(vin.value).replace(/\s+/g, '') || undefined,
       status: text(status.value) || undefined,
-      productType: text(productType.value) || undefined,
+      /**
+       * ★렌트 여부는 원문 「구분」 칸을 그대로 믿지 않고 번호판(하·허·호)으로 검증·보정한다
+       * (실측 2026-09-15, lib/domain/sonokong-product-kind.ts). 렌트번호판인데 원문이 렌트로
+       * 안 적었거나 그 반대면 issues 에 남기고 번호판을 우선한다 — 원천 표기 오류가 그대로
+       * 상품구분에 새는 것을 막는다.
+       */
+      productType: (() => {
+        const raw = text(productType.value);
+        const plateIsRent = isRentPlate(compactPlate(plate.value));
+        const rawSaysRent = /렌트/.test(raw);
+        if (plateIsRent && !rawSaysRent) return '중고렌트';
+        if (!plateIsRent && rawSaysRent) return raw; // 렌트 아닌 번호판이라도 원천이 명시했으면 존중, issue 로만 남김
+        return raw || undefined;
+      })(),
       maker: text(maker.value) || undefined,
       model: text(model.value) || undefined,
       trim: text(trim.value) || undefined,
@@ -107,6 +121,18 @@ export class SonogongAdapter implements SupplierAdapter {
 
     if (!atom.plateNumber && !atom.vin) {
       issues.push({ level: 'error', code: 'NO_IDENTITY', message: '차량번호와 차대번호가 모두 없습니다.' });
+    }
+    {
+      const plateIsRent = isRentPlate(atom.plateNumber);
+      const rawSaysRent = /렌트/.test(text(productType.value));
+      if (plateIsRent !== rawSaysRent) {
+        issues.push({
+          level: 'warning',
+          code: 'RENT_PLATE_MISMATCH',
+          message: `번호판(${atom.plateNumber || '?'})이 ${plateIsRent ? '렌트(하·허·호)인데' : '렌트가 아닌데'} 원문 구분은 「${text(productType.value) || '(빈칸)'}」입니다 — 번호판을 우선했습니다.`,
+          field: 'productType',
+        });
+      }
     }
     if (!atom.model && !atom.rawName) {
       issues.push({ level: 'warning', code: 'NO_MODEL', message: '모델/차명이 없어 판매 노출 대상이 될 수 없습니다.', field: 'model' });

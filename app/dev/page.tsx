@@ -17,7 +17,7 @@ import {
 } from '@/components/ui';
 import { MasterFitSummary } from '@/components/MasterFitSummary';
 import { WorkPage, type WorkPane } from '@/components/WorkPage';
-import { RefreshCw, Car, ArrowLeftRight, ShieldCheck, Stethoscope, Link2, type LucideIcon } from 'lucide-react';
+import { RefreshCw, Car, Stethoscope, Link2, type LucideIcon } from 'lucide-react';
 import type { BadgeTone } from '@/components/ui';
 import { NAV_LABEL } from '@/lib/tabbar';
 import dynamic from 'next/dynamic';
@@ -28,21 +28,8 @@ const SheetSync = dynamic(() => import('@/components/SheetSync').then((m) => m.S
   loading: () => <Loading />,
 });
 
-async function saveMigrationBackup(kind: 'products' | 'settlements', backup: unknown): Promise<string> {
-  const response = await fetch('/api/dev/migration-backup', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ kind, backup }),
-  });
-  const result = await response.json() as { ok?: boolean; path?: string; sha256?: string; error?: string };
-  if (!response.ok || !result.ok || !result.path || !result.sha256) {
-    throw new Error(result.error || '마이그레이션 백업 저장에 실패했습니다.');
-  }
-  return `${result.path} · SHA-256 ${result.sha256}`;
-}
-
 /** 재고관리 등에서 `/dev?tool=` 로 바로 열 수 있는 도구 키. */
-const DEV_TOOL_KEYS = new Set(['sync', 'master', 'migrate', 'private', 'check', 'links']);
+const DEV_TOOL_KEYS = new Set(['sync', 'master', 'check', 'links']);
 
 export default function DevTools() {
   const co = getCompanyId();
@@ -51,13 +38,7 @@ export default function DevTools() {
   const [master, setMaster] = useState<MasterEntry[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [log, setLog] = useState('');
-  const [migBusy, setMigBusy] = useState(false);
-  const [migLog, setMigLog] = useState('');
-  const [privateMigLog, setPrivateMigLog] = useState('');
-  const [memberPrivateLog, setMemberPrivateLog] = useState('');
   const [channelBackfillLog, setChannelBackfillLog] = useState('');
-  const [settlementMigLog, setSettlementMigLog] = useState('');
-  const [diagLog, setDiagLog] = useState('');
   // /dev?tool=sync 등 — 재고관리 진입 버튼이 바로 이 도구를 연다.
   const [sel, setSel] = useState<string | null>(() => {
     if (typeof window === 'undefined') return null;
@@ -145,163 +126,15 @@ export default function DevTools() {
     } finally { setBusy(false); }
   };
 
-  // v3 라이브 매물 → v4 오버레이 1회 복사(소스 전환 준비). dryRun=미리보기(쓰기 없음).
-  const runMigrate = async (dryRun: boolean) => {
-    if (migBusy) return;
-    setMigBusy(true); setMigLog('');
-    try {
-      const { migrateV3ProductsToV4 } = await import('@/lib/firebase/migrate-products');
-      const r = await migrateV3ProductsToV4(dryRun);
-      const head = dryRun ? '[미리보기] ' : '[복사 완료] ';
-      const msg = `${head}v3 ${r.v3Total} · v4(전) ${r.v4Before} → ${dryRun ? '복사예정' : '복사'} ${r.copied}`
-        + ` · 이미있음 ${r.skippedExists} · 건너뜀 ${r.skippedUnsafe} · v4(후) ${r.v4After}`;
-      setMigLog(msg);
-      toast(msg, r.copied || dryRun ? 'ok' : 'info');
-      if (!dryRun) await reload();
-    } catch (e) {
-      const msg = '마이그레이션 오류: ' + String((e as Error).message || e);
-      setMigLog(msg); toast(msg, 'error');
-    } finally { setMigBusy(false); }
-  };
-
-  // 매물 중복 진단 — v3∪v4 병합 후 무엇이 몇 개 합쳐지는지 실데이터로 확인(쓰기 없음).
-  const runDiag = async () => {
-    if (migBusy) return;
-    setMigBusy(true); setDiagLog('');
-    try {
-      const { diagnoseProductDedup } = await import('@/lib/firebase/migrate-products');
-      const d = await diagnoseProductDedup();
-      const ph = d.placeholderValues.map((x) => `  ${x.value} ×${x.count}`).join('\n');
-      const dp = d.dupIdentities.map((x) => `  ${x.id} ×${x.count}`).join('\n');
-      const st = d.statusCounts.map((x) => `  ${x.status} ${x.count}`).join('\n');
-      const pv = d.providerCounts.map((x) => `  ${x.code} ${x.name || '?'} ${x.count}`).join('\n');
-      const msg =
-        `v3 ${d.v3} · v4 ${d.v4} · 병합 ${d.merged}\n`
-        + `활성 유일대수: v3만 ${d.v3ActiveUnique} · v4만 ${d.v4ActiveUnique} · 합집합 ${d.uniqueByNewIdentity}\n`
-        + `교집합 밖: v4에만(v3없음) ${d.v4NotInV3} · v3에만(v4없음) ${d.v3NotInV4}\n`
-        + `분류: 실번호판 ${d.realPlateRows} · VIN만 ${d.vinOnlyRows} · placeholder ${d.placeholderRows} · 공백 ${d.blankRows}\n`
-        + `dedup(재고): 새(신원) ${d.uniqueByNewIdentity}  vs  옛(원문차번) ${d.uniqueByRawCarNumber}\n`
-        + `erp3정합: 재고 ${d.uniqueByNewIdentity} − status삭제 ${d.statusDeleted} = ${d.erp3Inventory}대 (노후빼면 ${d.erp3InvExOld})\n`
-        + `층위: 재고 ${d.uniqueByNewIdentity} − 카슝 ${d.kashung} − 출고불가 ${d.hiddenFromCatalog} = 카탈로그 ${d.finderVisible} (노후 ${d.tooOld} 포함)\n`
-        + (st ? `상태별:\n${st}\n` : '')
-        + (pv ? `공급사별:\n${pv}\n` : '')
-        + (ph ? `placeholder 값(오합침 원인):\n${ph}\n` : '')
-        + (dp ? `실신원 중복(v3/v4 더블) TOP:\n${dp}` : '');
-      setDiagLog(msg);
-      toast('중복 진단 완료', 'ok');
-    } catch (e) {
-      const msg = '진단 오류: ' + String((e as Error).message || e);
-      setDiagLog(msg); toast(msg, 'error');
-    } finally { setMigBusy(false); }
-  };
-
-  const runPrivateMigration = async (dryRun: boolean) => {
-    if (migBusy) return;
-    if (!dryRun && !await confirmDialog({
-      title: '민감 매물 필드 이동',
-      message: '원가·VIN·내부 수수료를 products_private로 복사한 뒤 v3/v4 공개 노드에서 제거합니다.\n동일 스냅샷은 로컬 tmp/migration-backups에 자동 저장됩니다. dry-run 결과를 확인했나요?',
-      danger: true,
-      okLabel: '민감 필드 이동 실행',
-    })) return;
-    setMigBusy(true);
-    setPrivateMigLog('');
-    try {
-      const { migrateProductsPrivate } = await import('@/lib/firebase/migrate-products-private');
-      const result = await migrateProductsPrivate(dryRun, {
-        beforeApply: async (backup) => {
-          const saved = await saveMigrationBackup('products', backup);
-          setPrivateMigLog(`[백업 완료] ${saved}`);
-        },
-        onProgress: (completed, total) => {
-          setPrivateMigLog(`[이동 중] ${completed}/${total}배치 완료`);
-        },
-      });
-      const message = `${dryRun ? '[미리보기]' : '[이동 완료]'} 검사 ${result.scannedProducts}대`
-        + ` · 민감필드 상품 ${result.productsWithPrivate}`
-        + ` · private 쓰기 ${result.privateWrites}`
-        + ` · public 삭제 ${result.publicDeletes}`
-        + ` · 안전제외 ${result.skippedUnsafe}`
-        + ` · 계획경로/배치 ${result.plannedPaths}/${result.plannedBatches}`
-        + ` · 적용경로 ${result.appliedPaths}`;
-      setPrivateMigLog(message);
-      toast(message, 'ok');
-      if (!dryRun) await reload();
-    } catch (error) {
-      const message = '민감 필드 이동 오류: ' + String((error as Error).message || error);
-      setPrivateMigLog(message);
-      toast(message, 'error');
-    } finally {
-      setMigBusy(false);
-    }
-  };
-
-  const runSettlementMigration = async (dryRun: boolean) => {
-    if (migBusy) return;
-    if (!dryRun && !await confirmDialog({
-      title: '정산 금액 private 이동',
-      message: 'R1·R2·순수익을 역할별 private 노드로 복사한 뒤 공개 정산에서 제거합니다.\n동일 스냅샷은 로컬 tmp/migration-backups에 자동 저장됩니다. dry-run 결과를 확인했나요?',
-      danger: true,
-      okLabel: '정산 금액 이동 실행',
-    })) return;
-    setMigBusy(true); setSettlementMigLog('');
-    try {
-      const { migrateSettlementsPrivate } = await import('@/lib/firebase/migrate-settlements-private');
-      const result = await migrateSettlementsPrivate(dryRun, {
-        beforeApply: async (backup) => {
-          const saved = await saveMigrationBackup('settlements', backup);
-          setSettlementMigLog(`[백업 완료] ${saved}`);
-        },
-      });
-      const message = `${dryRun ? '[미리보기]' : '[이동 완료]'} 검사 ${result.scanned}건`
-        + ` · 금액 정산 ${result.withFinance}`
-        + ` · R1/R2/admin 쓰기 ${result.providerWrites}/${result.agentWrites}/${result.adminWrites}`
-        + ` · public 삭제 ${result.publicDeletes}`
-        + ` · 안전제외 ${result.skippedUnsafe}`
-        + ` · 계획경로/배치 ${result.plannedPaths}/${result.plannedBatches}`
-        + ` · 적용경로 ${result.appliedPaths}`;
-      setSettlementMigLog(message); toast(message, 'ok');
-    } catch (error) {
-      const message = '정산 금액 이동 오류: ' + String((error as Error).message || error);
-      setSettlementMigLog(message); toast(message, 'error');
-    } finally { setMigBusy(false); }
-  };
-
-  const runMemberPrivateMigration = async (dryRun: boolean) => {
-    if (migBusy) return;
-    if (!dryRun && !await confirmDialog({
-      title: '민감정보 이관',
-      message: '민감정보를 private 노드로 이관하고 본노드에서 제거합니다.\n규칙(database.rules.json)이 먼저 게시되어 있어야 합니다. 진행할까요?',
-      danger: true,
-      okLabel: '이관 실행',
-    })) return;
-    setMigBusy(true);
-    setMemberPrivateLog('');
-    try {
-      const { migrateSensitiveToPrivate } = await import('@/lib/firebase/migrate-private');
-      const result = await migrateSensitiveToPrivate({ dryRun });
-      const message = `${dryRun ? '미리보기' : '실행 완료'} · 공급사 ${result.partners.moved}/${result.partners.scanned}(fee_rate) · 회원 ${result.users.moved}/${result.users.scanned}(email)`
-        + (result.errors.length ? ` · 오류 ${result.errors.length}` : '');
-      setMemberPrivateLog(message);
-      toast(message, result.errors.length ? 'error' : (dryRun ? 'info' : 'ok'));
-      if (result.errors.length) console.warn('[migratePrivate] errors', result.errors);
-    } catch (error) {
-      const message = '회원·파트너 민감정보 이관 오류: ' + String((error as Error).message || error);
-      setMemberPrivateLog(message);
-      toast(message, 'error');
-    } finally {
-      setMigBusy(false);
-    }
-  };
-
   const runChannelBackfill = async (dryRun: boolean) => {
-    if (migBusy) return;
+    if (busy) return;
     if (!dryRun && !await confirmDialog({
       title: '개인채널 백필',
       message: '대상 회원의 영업채널 값을 일괄 변경합니다. 먼저 미리보기 결과를 확인했나요?',
       danger: true,
       okLabel: '백필 실행',
     })) return;
-    setMigBusy(true);
+    setBusy(true);
     setChannelBackfillLog('');
     try {
       const { backfillPersonalAgentChannels } = await import('@/lib/firebase/auth');
@@ -317,7 +150,7 @@ export default function DevTools() {
       setChannelBackfillLog(message);
       toast(message, 'error');
     } finally {
-      setMigBusy(false);
+      setBusy(false);
     }
   };
 
@@ -395,67 +228,6 @@ export default function DevTools() {
       ),
     },
     {
-      key: 'migrate',
-      label: 'v3 → v4 이관',
-      hint: '중복 진단 · 복사 미리보기 (읽기 전용)',
-      icon: ArrowLeftRight,
-      tone: 'amber' as const,
-      render: () => (
-        <FormCard
-          title="v3 매물 → v4 복사 (소스 전환 준비)"
-          hint="운영 전수감사에서 child key 공통이 1개뿐이고 차량번호 중복·계약·채팅 참조가 확인됐습니다. 직접 복사는 중복 재고와 참조 단절 위험 때문에 잠겨 있으며, 여기서는 읽기 전용 진단만 제공합니다."
-        >
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-            <Btn variant="ghost" onClick={runDiag} disabled={migBusy}>중복 진단(쓰기 없음)</Btn>
-            <Btn variant="ghost" onClick={() => runMigrate(true)} disabled={migBusy}>미리보기(복사 안 함)</Btn>
-          </div>
-          {diagLog ? <CopyBlock text={diagLog} label="진단 복사" /> : null}
-          {migLog ? <CopyBlock text={migLog} label="미리보기 복사" /> : null}
-        </FormCard>
-      ),
-    },
-    {
-      key: 'private',
-      label: '민감 필드 분리',
-      hint: '원가·VIN·정산 금액을 private 노드로',
-      icon: ShieldCheck,
-      tone: 'red' as const,
-      render: () => (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-          <Message variant="warning">원가·VIN·기간별 내부 수수료를 v4/products_private에 보존한 뒤 v3/v4 공개 상품에서 제거합니다. 먼저 미리보기로 대상과 삭제 경로 수를 확인하세요.</Message>
-          <FormCard title="민감 매물 필드 → private 이동">
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <Btn variant="ghost" onClick={() => runPrivateMigration(true)} disabled={migBusy}>민감 필드 미리보기</Btn>
-              <Btn variant="danger" onClick={() => runPrivateMigration(false)} disabled={migBusy}>
-                {migBusy ? '처리 중…' : 'private 이동 실행'}
-              </Btn>
-            </div>
-            {privateMigLog ? <CopyBlock text={privateMigLog} label="로그 복사" /> : null}
-          </FormCard>
-          <Message variant="warning">공급사 청구(R1), 영업 지급(R2), 관리자 순수익을 각 private 노드에 보존한 뒤 공개 정산에서 제거합니다. 실제 실행 전 미리보기와 RTDB 백업이 필요합니다.</Message>
-          <FormCard title="정산 금액 → 역할별 private 이동">
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <Btn variant="ghost" onClick={() => runSettlementMigration(true)} disabled={migBusy}>정산 이동 미리보기</Btn>
-              <Btn variant="danger" onClick={() => runSettlementMigration(false)} disabled={migBusy}>
-                {migBusy ? '처리 중…' : '정산 private 이동 실행'}
-              </Btn>
-            </div>
-            {settlementMigLog ? <CopyBlock text={settlementMigLog} label="로그 복사" /> : null}
-          </FormCard>
-          <Message variant="warning">회원 email과 공급사 fee_rate를 users_private / partners_private에 보존한 뒤 본노드에서 제거합니다. 규칙 게시 전에 실행하면 오류로 남고 본노드 값은 유지됩니다.</Message>
-          <FormCard title="회원 email · 공급사 수수료율 → private 이동">
-            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <Btn variant="ghost" onClick={() => runMemberPrivateMigration(true)} disabled={migBusy}>회원·파트너 미리보기</Btn>
-              <Btn variant="danger" onClick={() => runMemberPrivateMigration(false)} disabled={migBusy}>
-                {migBusy ? '처리 중…' : '이관 실행'}
-              </Btn>
-            </div>
-            {memberPrivateLog ? <CopyBlock text={memberPrivateLog} label="로그 복사" /> : null}
-          </FormCard>
-        </div>
-      ),
-    },
-    {
       key: 'check',
       label: '데이터 점검',
       hint: `자동감지 ${issues.length}종 · 표시 ${issueHits}건`,
@@ -468,9 +240,9 @@ export default function DevTools() {
           </FormCard>
           <FormCard title="개인채널 백필" hint="SP999·빈 채널 개인 영업자를 user_code 채널로 고유화합니다. 실행 전 미리보기로 대상을 확인하세요.">
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-              <Btn variant="ghost" onClick={() => runChannelBackfill(true)} disabled={migBusy}>개인채널 백필 미리보기</Btn>
-              <Btn variant="danger" onClick={() => runChannelBackfill(false)} disabled={migBusy}>
-                {migBusy ? '처리 중…' : '백필 실행'}
+              <Btn variant="ghost" onClick={() => runChannelBackfill(true)} disabled={busy}>개인채널 백필 미리보기</Btn>
+              <Btn variant="danger" onClick={() => runChannelBackfill(false)} disabled={busy}>
+                {busy ? '처리 중…' : '백필 실행'}
               </Btn>
             </div>
             {channelBackfillLog ? <CopyBlock text={channelBackfillLog} label="로그 복사" /> : null}
@@ -487,6 +259,9 @@ export default function DevTools() {
       render: () => (
         <FormCard title="바로가기">
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+            {/* ★직원이 «온종일 열어 두는» 화면이 먼저 선다 — 콕핏은 폰용이다. */}
+            <Btn href="/settlement/intake" size="sm" variant="ghost">정산 접수(워크스테이션)</Btn>
+            <Btn href="/settlement/board" size="sm" variant="ghost">정산 콕핏(폰)</Btn>
             <Btn href="/inventory" size="sm" variant="ghost">{NAV_LABEL.inventory}</Btn>
             <Btn href="/audit" size="sm" variant="ghost">감사로그</Btn>
             <Btn href="/data-check" size="sm" variant="ghost">데이터점검</Btn>

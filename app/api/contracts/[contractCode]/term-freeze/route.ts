@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { firebaseAdminDatabase, verifyActiveBearer } from '@/lib/server/firebase-admin';
+import { firebaseAdminStore, verifyActiveBearer } from '@/lib/server/firebase-admin';
 import { ContractSettlementSealError, freezeContractSettlementTerms } from '@/lib/server/contract-settlement-seal';
 import { validContractCode } from '@/lib/server/freepass-esign';
 
@@ -32,7 +32,7 @@ export async function POST(request: Request, context: { params: Promise<{ contra
 
   try {
     const result = await freezeContractSettlementTerms({
-      db: firebaseAdminDatabase(), actor, contractCode, rentMonth,
+      db: firebaseAdminStore(), actor, contractCode, rentMonth,
       customerName: typeof body.customerName === 'string' ? body.customerName : '',
       customerPhone: typeof body.customerPhone === 'string' ? body.customerPhone : '',
       completeAgreement: body.completeAgreement === true,

@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { NextResponse } from 'next/server';
-import { firebaseAdminDatabase, verifyAdminBearer } from '@/lib/server/firebase-admin';
+import { firebaseAdminStore, verifyAdminBearer } from '@/lib/server/firebase-admin';
 import { fetchIronRentcarCatalog } from '@/lib/server/ironrentcar-source';
 import { planIronRentcarReconcile } from '@/lib/domain/ironrentcar-reconcile';
 import { applyIronRentcarPublicOverlay } from '@/lib/domain/ironrentcar-apply';
@@ -16,7 +16,7 @@ import {
   syncStateDigest,
   type IronRentcarSyncRun,
 } from '@/lib/domain/ironrentcar-rollback';
-import { mergeV3V4Records } from '@/lib/firebase/rtdb-records';
+import { mergeV3V4Records } from '@/lib/firebase/legacy-records';
 import { newId } from '@/lib/domain/ids';
 
 export const runtime = 'nodejs';
@@ -59,7 +59,7 @@ export async function POST(request: Request): Promise<Response> {
     return NextResponse.json({ error: 'explicit confirmation required' }, { status: 400, headers });
   }
 
-  const db = firebaseAdminDatabase();
+  const db = firebaseAdminStore();
   const owner = `${admin.uid}:${randomUUID()}`;
   const lockRef = db.ref('v4/system_locks/ironrentcar_sync');
   const acquired = await lockRef.transaction((current) => {
