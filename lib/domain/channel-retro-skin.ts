@@ -27,11 +27,13 @@ type Req = Record<string, any>;
  * ⚠ 차량상태·입고일자는 **원자에 그 값이 없다** — 빈 칸으로 둔다(옛 시트는 「정상」·섞인 메모였다. 지어내지 않는다).
  * ⚠ 사진·차번링크는 «숨긴 채» 맨 뒤에 둔다 — 차번 셀 사진 링크의 재료다(`check-plate-photo-link`).
  */
-type RetroSource = { kind: 'col'; name: string } | { kind: 'fee' } | { kind: 'atom'; field: string } | { kind: 'blank' };
-export type RetroColumn = { head: string; src: { kind: 'col'; name: string } | { kind: 'atom'; field: string } | { kind: 'blank' } };
+type RetroSource = { kind: 'col'; name: string } | { kind: 'fee' } | { kind: 'atom'; field: string } | { kind: 'company' } | { kind: 'blank' };
+export type RetroColumn = { head: string; src: { kind: 'col'; name: string } | { kind: 'atom'; field: string } | { kind: 'company' } | { kind: 'blank' } };
 const col = (name: string): RetroSource => ({ kind: 'col', name });
 const same = (...names: string[]) => names.map((n) => ({ head: n, src: col(n) }));
 export const RETRO_LAYOUT: { head: string; src: RetroSource }[] = [
+  /** ★맨 앞 = 공급사명(코드 아님) — 사장님 2026-09-15 「레트로시트에 맨앞에 공급사명, 코드 말고 공급사명」. 값 = 탭 이름과 같은 채널 회사명. */
+  { head: '공급사명', src: { kind: 'company' } },
   { head: '차량상태', src: { kind: 'blank' } },
   ...same('배차상태'),
   { head: '입고일자', src: { kind: 'blank' } },

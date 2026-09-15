@@ -324,7 +324,7 @@ for (const [company, list] of order) {
    */
   /** 본문 — 열너비를 재고 차번 셀 링크를 거는 데 쓴다(서식보다 «먼저» 있어야 한다). */
   const body = 레트로
-    ? list.map((x) => 레트로.map((c) => (c.src.kind === 'col' ? S(x.cells[c.src.name]) : c.src.kind === 'atom' ? S(x.atom?.[c.src.field]) : '')))
+    ? list.map((x) => 레트로.map((c) => (c.src.kind === 'col' ? S(x.cells[c.src.name]) : c.src.kind === 'atom' ? S(x.atom?.[c.src.field]) : c.src.kind === 'company' ? S(x.company) : '')))
     : list.map((x) => cols.map((c) => S(x.cells[c])));
   /**
    * ★★**차번 셀 링크는 «값을 쓴 뒤»에 건다** — 아래 `링크요청` 으로 따로 받아 둔다.
