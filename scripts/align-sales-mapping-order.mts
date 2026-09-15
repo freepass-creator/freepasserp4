@@ -12,9 +12,11 @@
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { SALES_SHEET_ID } from '../lib/domain/legacy-sheets';
+import { assertProductionSheetWrite } from '../lib/server/production-sheet-write-gate';
 import { SALES_COLUMN_ORDER } from '../lib/domain/sales-column-order';
 
 const APPLY = process.argv.includes('--apply');
+if (APPLY) assertProductionSheetWrite('F01', 'align-sales-mapping-order --apply');
 const S = (v: unknown) => String(v ?? '').trim();
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 const jwt = new JWT({ email: sa.client_email, key: sa.private_key, scopes: ['https://www.googleapis.com/auth/spreadsheets'], subject: 'pyh@teamjpk.com' });

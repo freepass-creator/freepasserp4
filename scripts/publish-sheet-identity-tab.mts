@@ -15,6 +15,7 @@ import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { MIRROR_SOURCES } from '../lib/domain/mirror-sources';
 import { HUB_CODE_SHEET_ID, LEGACY_SHEETS, SALES_SHEET_ID } from '../lib/domain/legacy-sheets';
+import { assertProductionSheetWrite } from '../lib/server/production-sheet-write-gate';
 import { CORE_BOOKS, buildSheetIdentityRows, type SheetIdentityInput } from '../lib/domain/sheet-identity';
 import { SHEET_IDENTITY_TAB, SHEET_NAME_MATCH, isVehicleTab, supplierSheetLabel } from '../lib/domain/supplier-template-sheet';
 import { FONT_DEFAULT, SIZE } from '../lib/domain/sales-sheet-format';
@@ -22,6 +23,7 @@ import { FONT_DEFAULT, SIZE } from '../lib/domain/sales-sheet-format';
 type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim();
 const APPLY = process.argv.includes('--apply');
+{ const one = (process.argv.find((a) => a.startsWith('--sheet=')) || '').slice(8); if (APPLY && (!one || one === SALES_SHEET_ID)) assertProductionSheetWrite('F01', 'publish-sheet-identity-tab --apply'); }
 const arg = (k: string, d = '') => (process.argv.find((a) => a.startsWith(`--${k}=`)) || '').slice(k.length + 3) || d;
 const ONE = arg('sheet');
 const sleep = (ms: number) => new Promise((ok) => setTimeout(ok, ms));

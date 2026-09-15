@@ -28,6 +28,7 @@ import { captureSalesPublishSnapshot, readSalesPublishSnapshot, salesPublishTabM
 import { loadSalesRowContext, makeCell, tabOf, TAB_ORDER, compareSalesRows } from '../lib/domain/sales-atom-row';
 import { buildSalesFormatRequests, columnWidths, isMoneyColumn } from '../lib/domain/sales-sheet-format';
 import { HAHUHO_PRODUCT_SHEET_ID } from '../lib/domain/legacy-sheets';
+import { assertProductionSheetWrite } from '../lib/server/production-sheet-write-gate';
 import { ensureNoticeTab } from '../lib/server/channel-sheet-tabs';
 import { applyRetroSkin, inRetroSummary, RETRO_SHORT, RETRO_SUMMARY_TAB, retroCellValue, retroHasLongFee, retroHasValue, retroTabColorRequest, retroTabLayout, retroTabRank } from '../lib/domain/channel-retro-skin';
 import { channelColumnName, salesPublishedColumns } from '../lib/domain/sales-published-tab-columns';
@@ -276,6 +277,8 @@ readSalesPublishSnapshot(snapshotPath);
 
 // ── 채널 문서. 운영 중인 하허호 F86은 이름이 아니라 불변 ID로 고정한다. ──
 if (미리보기 && 미리보기 === HAHUHO_PRODUCT_SHEET_ID) throw new Error('--시트 는 미리보기 사본용이다 — 운영 F86 은 --시트 없이 부른다');
+/** ★운영 F86 은 통합 워크플로만 쓴다(`production-sheet-write-gate` · 사장님 2026-09-16). 미리보기 사본은 막지 않는다. */
+if (!미리보기 && channel === '하허호') assertProductionSheetWrite('F86', 'build-channel-supplier-sheet --apply');
 const fixedId = 미리보기 || (channel === '하허호' ? HAHUHO_PRODUCT_SHEET_ID : '');
 let id = fixedId;
 if (미리보기) {

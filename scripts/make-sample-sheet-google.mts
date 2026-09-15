@@ -17,6 +17,7 @@ import { isPlate } from '../lib/domain/plate-registry';
 import { hasInventoryPublicationViolations, inventoryCountSnapshot, isOpenInventoryAtom } from '../lib/domain/inventory-contract';
 import { captureSalesPublishSnapshot, readSalesPublishSnapshot, salesPublishMark } from '../lib/server/sales-publish-snapshot';
 import { salesPublishedColumns } from '../lib/domain/sales-published-tab-columns';
+import { assertProductionSheetWrite } from '../lib/server/production-sheet-write-gate';
 
 const S = (v: unknown) => String(v ?? '').trim();
 const arg = (name: string) => (process.argv.find((value) => value.startsWith(`--${name}=`)) || '').slice(name.length + 3);
@@ -24,6 +25,8 @@ const SRC_SHEET = '1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs';   // 기존 �
 // ★--main = «본시트»(영업자가 보는 판매시트)에 직접 발행. 기본은 샘플(실수로 운영을 덮지 않게).
 //   본시트에 쓸 때도 4개 상품탭만 rename·clear·재작성한다(AI 인계·차종사전 등 참조탭은 안 건드린다).
 const TO_MAIN = process.argv.includes('--main');
+/** ★운영 F01 은 통합 워크플로만 쓴다(`production-sheet-write-gate` · 사장님 2026-09-16). 샘플 사본은 막지 않는다. */
+if (TO_MAIN) assertProductionSheetWrite('F01', 'make-sample-sheet-google --main');
 const SAMPLE_SHEET_ID = TO_MAIN ? SRC_SHEET : S(process.env.SAMPLE_SHEET_ID);
 if (!TO_MAIN && !SAMPLE_SHEET_ID) throw new Error('샘플 발행은 SAMPLE_SHEET_ID를 명시해야 한다. 수집 스테이징 시트를 기본값으로 함께 쓰지 않는다.');
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_SHEETS_APPLICATION_CREDENTIALS) || S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));

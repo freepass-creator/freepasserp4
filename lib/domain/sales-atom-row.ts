@@ -109,7 +109,12 @@ export async function loadSalesRowContext(deps: SalesRowDeps): Promise<SalesRowC
 export const tabOf = (v: any): string => {
   const prov = S(v.provider_company_code), pt = S(v.product_type);
   if (isPickupPhotoAtom(v)) return '픽업구독';
-  if (prov === 'RP012' && pt.includes('구독')) return '오공구독';
+  /**
+   * ★손오공(RP012)은 픽업이 아니면 «전부» 오공구독 탭 — 반납형·인수형 칸으로 싣는다.
+   *   사장님 2026-09-16 「그냥 반납형 칸을 같이 써, F01에도 손오공 중고렌트는」 — 손오공API 중고렌트 7대가
+   *   상품구분에 「구독」이 없어 상품리스트(공통 대여료 칸)로 샜다. 가격 구조(12~60·인수형·보증금 규칙)는 오공구독과 같다.
+   */
+  if (prov === 'RP012') return '오공구독';
   if (prov === 'RP023') return '오플구독';
   return '상품리스트';
 };

@@ -24,7 +24,7 @@ const fs = getFirestore();
 const tabOf = (v: Record<string, unknown>): string => {
   const prov = S(v.provider_company_code), pt = S(v.product_type);
   if (prov === 'RP012' && pt === '픽업구독') return '픽업구독';
-  if (prov === 'RP012' && pt.includes('구독')) return '오공구독';
+  if (prov === 'RP012') return '오공구독';   // 중고렌트 포함 — sales-atom-row tabOf 와 같게(2026-09-16)
   if (prov === 'RP023') return '오플구독';
   return '상품리스트';
 };
