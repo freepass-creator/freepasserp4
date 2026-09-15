@@ -13,9 +13,8 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { inventoryPlate } from '../lib/domain/sheet-inventory-identity';
 
 nextEnv.loadEnvConfig(process.cwd());
-process.env.NEXT_PUBLIC_DATA_BACKEND = 'rtdb';
 
-const [{ firebaseAdminDatabase }, { fetchSalesInventorySheet }, { readProducts, readPartners }] = await Promise.all([
+const [{ firebaseAdminStore }, { fetchSalesInventorySheet }, { readProducts, readPartners }] = await Promise.all([
   import('../lib/server/firebase-admin'),
   import('../lib/server/sales-inventory-sheet'),
   import('../lib/server/sheet-daily-sync'),
@@ -25,7 +24,7 @@ const S = (v: unknown) => String(v ?? '').trim();
 const mask = (p: string) => (p.length <= 4 ? '****' : `${p.slice(0, -4)}****`);
 const companyId = S(process.env.SHEET_SYNC_COMPANY_ID || 'freepass');
 
-const db = firebaseAdminDatabase();
+const db = firebaseAdminStore();
 const partners = await readPartners(db, companyId);
 const [products, sales] = await Promise.all([
   readProducts(db, companyId),

@@ -40,6 +40,7 @@ export const NAV_ICON = {
   inventory: Box,
   settlement: FileText,
   ledger: Banknote,
+  board: Banknote,
   settings: Settings,
   interest: Star,
   estimate: Calculator,
@@ -76,6 +77,13 @@ export const NAV_LABEL = {
   // 내가본상품 = 이 기기의 관심(찜)·최근 본 상품 모음(product-interest) — 모바일 하단탭 입구(사장님 2026-08-22)
   interest: '내가본상품',
   policy: '정책관리',
+  /**
+   * 정산(/settlement/board) — **관리자가 시트 안 열고 보고 남기는 곳**(사장님 2026-09-09
+   * 「이제 관리자한테 시트 기준으로 하지 말고 쉽게 남기게끔」·「핸드폰에서 간단하게 접수하고」).
+   * ⚠ 「정산원장」(/settlement/ledger)과 축이 다르다 — 저기는 «50칸 표를 손으로 채우는 곳»,
+   *   여기는 «달을 한 화면에서 보고 폰으로 접수하는 곳»이다.
+   */
+  board: '정산',
   // 계약서관리(/esign) = 계약서를 만들어 손님에게 보내고 서명을 추적하는 곳. /contract(계약진행)와 축이 다르다 —
   //   저기는 «내 계약이 어디까지 왔나», 여기는 «계약서를 보낸다/손님이 서명했나»(2026-08-08 결정).
   //   2026-08-19 사장님: 메뉴는 관리자 쪽(관리 그룹 맨 위, 파트너사관리 위)으로. 계약진행은 목록+진행상황 화면(원래 /contract).

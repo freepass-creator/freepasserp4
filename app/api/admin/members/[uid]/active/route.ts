@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAuth } from 'firebase-admin/auth';
-import { firebaseAdminApp, firebaseAdminDatabase, verifyAdminBearer } from '@/lib/server/firebase-admin';
+import { firebaseAdminApp, firebaseAdminStore, verifyAdminBearer } from '@/lib/server/firebase-admin';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -38,7 +38,7 @@ export async function POST(
 
   const active = body.active;
   const auth = getAuth(firebaseAdminApp());
-  const profileRef = firebaseAdminDatabase().ref(`users/${uid}`);
+  const profileRef = firebaseAdminStore().ref(`users/${uid}`);
   const patch = {
     is_active: active ? '예' : '아니오',
     account_state_updated_at: Date.now(),

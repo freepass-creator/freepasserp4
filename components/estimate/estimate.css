@@ -13,8 +13,17 @@
  *     (`:root`→`.est-root` · `body`→`.est-root` · `*`→`.est-root *` · `html{color-scheme}` 은 뺐다).
  *   ⚠ 목업을 고치면 여기도 같이 고친다. 갈리면 「목업과 다른 화면」이 된다.
  *
- * ★웹(넓은 화면)은 목업의 `.phone{max-width:440px;margin:0 auto}` 가 그대로 가운데로 모은다 —
- *   따로 데스크톱 레이아웃을 짓지 않는다(원본도 데스크톱은 별도 미완성 App.vue 로 보냈다).
+ * ★★웹은 **두 기둥**이다 — 사장님 2026-09-06 「웹 전용 화면은 없네, 견적기가」.
+ *   2026-09-06 까지는 목업의 `.phone{max-width:440px}` 가 웹에서도 그대로라, 1920 화면에서
+ *   가운데 440 짜리 기둥 하나만 서고 좌우가 텅 비었다. 조건을 바꾸면 결과(STEP 5)가
+ *   화면 밖에 있어 «스크롤을 내려야» 보였다 — 콕핏이 아니라 폰을 크게 띄운 것이었다.
+ *   ⇒ 900px 이상에서 **좌=입력(STEP 1~4) · 우=결과(원가기준 + STEP 5, 붙박이)** 로 선다.
+ *
+ *   ⚠ **폰 화면은 한 픽셀도 안 바뀐다.** 마크업의 감싸개(`.col.main`/`.col.side`)가
+ *     기본값이 `display:contents` 라 폰에서는 «없는 셈»이고, 넓은 화면에서만 기둥이 된다.
+ *     목업이 정본이라는 규칙을 깨지 않으려고 이렇게 했다 — 목업은 폰 화면의 정본이다.
+ *   ⚠ 칠하는 주체는 **CSS**다(JS `useIsMobile` 아님). 첫 방문엔 쿠키가 없어 SSR 이
+ *     데스크톱으로 잡히는 사고가 이 저장소에 이미 있었다(CLAUDE.md 상단바 항목).
  */
 /* ★본문 글꼴 = **Pretendard**(사장님 2026-09-06 「폰트는 프리텐더드로 할 거고, 영에 사선 있는 거로 —
    숫자가 명확하게 보이니까」). 가변 폰트 · 동적 서브셋이라 필요한 글리프만 내려온다.
@@ -150,3 +159,33 @@
 
 /* 문지기 화면의 나가는 문 — 견적을 못 보는 사람을 상품찾기로 돌려보낸다(`features/estimate/EstimateGate`). */
 .est-root .gate-go{display:grid;place-items:center;height:40px;margin-top:14px;border-radius:3px;background:var(--accent);color:var(--on);font-weight:700;font-size:13px;text-decoration:none}
+
+
+/* ══ 웹(≥900) 두 기둥 — 좌 입력 · 우 결과 ══════════════════════════════
+   ★폰에서는 감싸개가 «없는 셈»이다. 이 한 줄이 그걸 만든다. */
+.est-root .col{display:contents}
+
+@media (min-width:900px){
+  .est-root .phone{
+    max-width:1080px;
+    display:flex;flex-wrap:wrap;align-items:flex-start;
+    /* ⚠ `align-content` 를 안 잡으면 `.phone{min-height:100vh}` 의 남는 높이가 «줄 사이»로
+       흩어져 머리와 카드가 110px 떨어진다(2026-09-06 실측). 위에서부터 쌓게 못 박는다. */
+    align-content:flex-start;
+    column-gap:16px;
+    padding-left:16px;padding-right:16px;
+  }
+  /* 머리와 바닥은 한 줄을 통째로 쓴다. */
+  .est-root .phone > .hd,
+  .est-root .phone > .foot{flex:1 0 100%}
+  /* 감싸개가 여기서 «기둥»이 된다. */
+  .est-root .phone > .col{display:block;min-width:0}
+  .est-root .phone > .col.main{flex:1 1 0}
+  /* 결과 기둥은 **붙박이**다 — 조건을 바꾸면 값이 눈앞에서 움직여야 한다. */
+  .est-root .phone > .col.side{flex:0 0 400px;position:sticky;top:14px}
+  /* 기둥 안 첫 카드는 위 여백을 지운다(머리 바로 밑에 나란히 서야 한다). */
+  .est-root .phone > .col > .card:first-child,
+  .est-root .phone > .col > .basis:first-child{margin-top:12px}
+  /* 폰에서 손가락으로 누르던 칩·세그가 웹에서는 줄바꿈 없이 한 줄에 들어간다. */
+  .est-root .prods{max-height:none}
+}

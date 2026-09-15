@@ -4,7 +4,7 @@ import type {
   SheetDecisionApplicationRow,
 } from '@/lib/domain/sheet-decision-application-plan';
 import { changedPatch, softMergeProduct, stripSheetPrivatePatchFields } from '@/lib/domain/sheet-merge';
-import { splitProductPrivate } from '@/lib/firebase/rtdb-products';
+import { splitProductPrivate } from '@/lib/firebase/product-private';
 import { PRODUCT_PATCH_GUARD_FIELDS } from '@/lib/domain/product-write-guard';
 
 export type SheetDecisionPatchMode = 'update' | 'create_if_absent';

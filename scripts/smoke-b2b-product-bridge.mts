@@ -2,7 +2,7 @@
  * 배포 후 실계정 상품 브리지 smoke.
  * 토큰은 커맨드라인이 아니라 환경변수로만 받고, 토큰·상품키·원가 값은 출력하지 않는다.
  */
-import { stripProductCost, splitProductPrivate } from '../lib/firebase/rtdb-products';
+import { stripProductCost, splitProductPrivate } from '../lib/firebase/product-private';
 import type { EntityRecord } from '../lib/intake/entities';
 
 type BridgePayload = {

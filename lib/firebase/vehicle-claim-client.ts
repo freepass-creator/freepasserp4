@@ -13,7 +13,7 @@ type TransitionResult = {
 };
 
 export function atomicVehicleClaimsEnabled(backend: string): boolean {
-  return backend.startsWith('rtdb') && process.env.NEXT_PUBLIC_ATOMIC_VEHICLE_CLAIMS === 'true';
+  return backend.startsWith('firestore') && process.env.NEXT_PUBLIC_ATOMIC_VEHICLE_CLAIMS === 'true';
 }
 
 async function callVehicleClaim(body: Record<string, unknown>): Promise<TransitionResult | null> {

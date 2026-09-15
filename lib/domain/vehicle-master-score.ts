@@ -113,6 +113,10 @@ export function selectMasterEntry(
   const evHint = /전기|일렉트릭|일렉트리파이드|electrified|\bev\b/i.test(signalBlob.toLowerCase());
   const bodyPattern = /쿠페|카브리올레|컨버터블|coupe|cabriolet|convertible/i;
   const productIsCoupe = bodyPattern.test(signalBlob);
+  // ★슈팅브레이크(왜건 차체) — 세단과 «다른 세부모델»이다(G70·CLS 등). 원문이 슈팅브레이크면 그 서브를,
+  //   아니면(세단 포함) 슈팅브레이크가 «아닌» 서브를 고른다. 없으면 세단↔슈팅브레이크가 뒤집힌다(109호3461·362거3081).
+  const shootingBrakePattern = /슈팅\s*브레이크|슈브|shooting\s*brake/i;
+  const productIsSB = shootingBrakePattern.test(signalBlob);
   const catalog = String(product.catalog_id || '').trim().toUpperCase();
 
   const scored = lockedEntries.map((entry) => {
@@ -182,6 +186,7 @@ export function selectMasterEntry(
       score -= 6;
     }
     if (productIsCoupe !== bodyPattern.test(`${entry.sub_model || ''} ${entry.title || ''}`)) score -= 6;
+    if (productIsSB !== shootingBrakePattern.test(`${entry.sub_model || ''} ${entry.title || ''}`)) score -= 6;
 
     // FL·디 엣지·부분변경은 같은 세대코드의 구형 줄에 붙이면 안 된다.
     {

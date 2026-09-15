@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { firestoreAdminRef } from '@/lib/server/firestore-ref-shim';
+import { firestorePathStore } from '@/lib/server/firestore-path-store';
 import { sanitizeAgentForGuest, sanitizeProductForGuest } from '@/lib/domain/public-catalog';
 import { isListableProduct } from '@/lib/domain/product';
 import { matchAgentByShareCode } from '@/lib/domain/product-share';
@@ -41,15 +41,15 @@ export async function GET(request: Request) {
      * ⚠⚠ 2026-09-05 운영 사고. 파이어스토어를 «직접» 부르게 고쳤더니 배포한 서버에서
      *   `16 UNAUTHENTICATED` 로 503 이 나고 **차가 한 대도 안 보였다**(로컬은 멀쩡했다).
      *   서버 자격증명이 파이어스토어까지 못 미치는 환경이 있다는 뜻이다.
-     * ⇒ 심(`firestore-ref-shim`)을 쓴다 — **파이어스토어를 먼저 보고, 못 읽으면 RTDB 로 떨어진다.**
+     * ⇒ 심(`firestore-path-store`)을 쓴다 — Firestore 읽기에 실패하면 503으로 닫는다.
      *   손님 화면에서 제일 나쁜 것은 「옛 데이터」가 아니라 **빈 화면**이다. 원인은 따로 잡되
      *   그동안 차는 나와야 한다.
      * ★읽는 순서·컬렉션 이름은 그대로다(products · policy · partner · user).
      */
-    const db = firestoreAdminRef();
+    const db = firestorePathStore();
     const [productSnap, policySnap] = await Promise.all([
-      db.ref('v4/products').get(),
-      db.ref('policies').get(),
+      db.ref('products').get(),
+      db.ref('policy').get(),
     ]);
     const policyByCode = new Map<string, Rec>();
     for (const [k, v] of Object.entries((policySnap.val() || {}) as Record<string, Rec>)) {
@@ -72,7 +72,7 @@ export async function GET(request: Request) {
     //   → 코드는 child 키까지 보고, 이름은 세 필드를 다 훑는다. 안 그러면 브랜드가 조용히 빈다.
     let brand = '';
     if (providerCode) {
-      const partnerSnap = await db.ref('partners').get();
+      const partnerSnap = await db.ref('partner').get();
       const hit = Object.entries((partnerSnap.val() || {}) as Record<string, Rec>)
         .map(([k, v]) => ({ ...(v || {}), _id: k } as Rec)).find((x) => x && (
           S(x._id) === providerCode || S(x.partner_code) === providerCode || S(x.company_code) === providerCode
@@ -83,7 +83,7 @@ export async function GET(request: Request) {
 
     let agent = null;
     if (share) {
-      const userSnap = await db.ref('users').get();
+      const userSnap = await db.ref('user').get();
       const rows = Object.entries((userSnap.val() || {}) as Record<string, Rec>)
         .map(([k, v]) => ({ ...(v || {}), _key: S(v?._key) || k, uid: S(v?.uid) || k })) as EntityRecord[];
       agent = sanitizeAgentForGuest(matchAgentByShareCode(rows, share) as Rec | null);

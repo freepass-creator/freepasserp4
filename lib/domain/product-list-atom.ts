@@ -51,8 +51,8 @@ export function parseWon(input: unknown): number | null {
 }
 const num = (x: string) => Number(String(x).replace(/,/g, '')) || 0;
 
-import { canonProductType } from './product';
 import { SALES_COLUMNS } from './sales-sheet-mapping';
+import { resolveAtom, type AtomRefs } from './atom-projection';
 
 /** policy 원자 → 상품리스트 정책 칸. legacy 결합칸(「한도 / 면책」)을 그대로, 단일 돈칸은 한글 단위. */
 function policyCells(p: Record<string, unknown> | undefined): Record<string, string> {
@@ -96,13 +96,13 @@ function rentCells(price: unknown): Record<string, string> {
   return out;
 }
 
-/** 상품리스트에 «보여지는» 원자 구성 — raw product(+policy 조인) → 69칸. 돈은 한글 단위로 통일. */
-export function buildProductListRow(product: Record<string, unknown>, policyByCode?: Map<string, Record<string, unknown>>, providerNames?: Map<string, string>, overridesByCode?: Map<string, Record<string, string>>): Record<string, string> {
+/** 상품리스트에 «보여지는» 원자 구성 — raw product → 69칸. 돈은 한글 단위로 통일.
+ *  ★정책·회사명·상품구분 조인은 «한 곳»(resolveAtom, atom-projection)에서 온다 — 시트·샘·카드가 갈리지 않게(사장님 2026-09-08). */
+export function buildProductListRow(product: Record<string, unknown>, refs: AtomRefs, overridesByCode?: Map<string, Record<string, string>>): Record<string, string> {
   const S = (v: unknown) => String(v ?? '').trim();
-  const pol = policyByCode?.get(S(product.policy_code));
-  // ★공급사 = «회사명»(짧은 이름). 코드(RP012)는 보조일 뿐 — 원자엔 회사명을 붙인다(사장님 2026-09-08 「회사코드 안 쓴다·회사명 만들어 붙인다」).
+  const R = resolveAtom(product, refs);   // ★정책·회사명·상품구분·요금을 붙이는 «유일한 곳»
+  const pol = R.policy ?? undefined;
   const provCode = S(product.provider_company_code) || S(product.partner_code);
-  const provName = S(product.provider_name) || providerNames?.get(provCode) || provCode;
   // ★할증·연령 = supplier-policy-overrides(사장님 확인값 = 최우선). 공급사별. 원천지도 §5.
   const ov = overridesByCode?.get(provCode) || {};
   // ★원문은 구조화 객체 {차명, 옵션}(487/500) — 통째로 읽으면 [object Object]. 하위 필드를 뽑는다(문자열이면 그대로).
@@ -114,10 +114,10 @@ export function buildProductListRow(product: Record<string, unknown>, policyByCo
   Object.assign(row, {
     // ⑥상태(바뀌는 값) — 원자 그대로
     '배차상태': S(product.vehicle_status),
-    '구분': canonProductType(product.product_type),
+    '구분': R.productType,
     // ①식별
     '차량번호': S(product.car_number),
-    '공급사': provName,   // 회사명(짧은 이름). 코드는 보조.
+    '공급사': R.company,   // 회사명(짧은 이름). 코드는 보조.
     // ②차량(제원)
     '제조사': S(product.maker), '모델': S(product.model), '세부모델': S(product.sub_model), '세부트림': S(product.trim_name),
     '외장': S(product.ext_color), '내장': S(product.int_color),

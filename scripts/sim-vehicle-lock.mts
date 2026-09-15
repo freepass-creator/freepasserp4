@@ -18,7 +18,6 @@ const ls = {
 class CE extends Event { detail: unknown; constructor(t: string, i?: { detail?: unknown }) { super(t); this.detail = i?.detail; } }
 (globalThis as unknown as { CustomEvent: typeof CE }).CustomEvent = CE;
 
-process.env.NEXT_PUBLIC_DATA_BACKEND = ''; // LocalAdapter 강제
 
 const { getStore } = await import('../lib/store');
 const { getCompanyId } = await import('../lib/tenant');

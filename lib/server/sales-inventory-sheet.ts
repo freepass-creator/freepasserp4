@@ -36,7 +36,7 @@ export async function fetchSalesInventorySheet(input: {
     ? `영업자 상품리스트 탭 없음(gid ${pinnedGid})`
     : `영업자 상품리스트 탭 없음(${prefix}*)`);
   if (main.hidden) throw new Error(`숨김 영업자 상품리스트는 연동할 수 없습니다(${main.title})`);
-  // ★판매시트 기본 세팅은 탭 3개다(상품리스트·손오공구독·오플구독).
+  // ★판매시트 기본 세팅은 탭 3개다(상품리스트·손오공상품·오플구독).
   //   폐기된 「오플프로모션」 탭을 이름 검색으로 다시 포함하면 12개월 2만km 같은 옛 가격이
   //   살아나므로, 오플구독 한 탭만 정본으로 읽는다.
   const required = [
@@ -63,7 +63,7 @@ export async function fetchSalesInventorySheet(input: {
     [main.gid, sonogong.gid, pickup.gid, autoplusMain.gid],
   );
   const canonicalOptions = {
-    // 상품리스트·손오공구독·픽업구독의 필터/행 숨김은 영업자의 조회 상태일 뿐 삭제 지시가 아니다.
+    // 상품리스트·손오공상품·픽업구독의 필터/행 숨김은 영업자의 조회 상태일 뿐 삭제 지시가 아니다.
     includeHiddenByFilter: true,
     includeHiddenByUser: true,
   };

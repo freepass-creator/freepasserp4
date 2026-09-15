@@ -35,6 +35,17 @@ jobs:
       - name: 상품찾기 격자 — 행 수 = 자식 수
         run: npm run check:finder-rows
 
+      - name: Sync contract guards
+        run: npm run check:sync
+
+      - name: RTDB removal and Firestore release gates
+        run: |
+          npm run check:no-rtdb-runtime
+          npm run check:nortdb
+          npm run check:publish-atom
+          npm run check:firestore-path-store
+          npm run check:rules
+
       - name: Sim — 시트 병합(soft-merge·락 보호)
         run: npx tsx scripts/sim-sheet-merge.mts
 
@@ -54,6 +65,5 @@ jobs:
         env:
           NEXT_PUBLIC_FIREBASE_API_KEY: ci-placeholder
           NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ci.invalid
-          NEXT_PUBLIC_FIREBASE_DATABASE_URL: https://ci-placeholder-default-rtdb.firebaseio.com
           NEXT_PUBLIC_FIREBASE_PROJECT_ID: ci-placeholder
           NEXT_PUBLIC_FIREBASE_APP_ID: 1:000000000000:web:ci

@@ -670,15 +670,16 @@
           ]
         }
       ],
+      "market_class": "중고",
+      "newcar_priced": false,
       "trims": [
+        "르블랑",
         "아너스",
         "익스클루시브",
         "캘리그래피",
         "프리미엄",
         "프리미엄 플러스"
-      ],
-      "market_class": "중고",
-      "newcar_priced": false
+      ]
     },
     {
       "id": "mf-001.md-004.sm-hg",
@@ -979,16 +980,18 @@
           ]
         }
       ],
+      "market_class": "중고",
+      "newcar_priced": false,
       "trims": [
-        "(세부등급 없음)",
+        "기본형",
         "LPI 모던",
+        "르블랑",
         "모던",
         "셀러브리티",
         "스페셜",
         "프리미엄"
       ],
-      "market_class": "중고",
-      "newcar_priced": false
+      "_basic_trim_healed_at": 1789086623432
     },
     {
       "id": "mf-001.md-004.sm-l",
@@ -1039,12 +1042,13 @@
           ]
         }
       ],
+      "market_class": "중고",
+      "newcar_priced": false,
       "trims": [
         "V6",
-        "기본"
-      ],
-      "market_class": "중고",
-      "newcar_priced": false
+        "기본",
+        "프리미엄"
+      ]
     },
     {
       "id": "mf-001.md-004.sm-lx",
@@ -1435,11 +1439,12 @@
           ]
         }
       ],
-      "trims": [
-        "기본형"
-      ],
       "market_class": "중고",
-      "newcar_priced": false
+      "newcar_priced": false,
+      "trims": [
+        "기본형",
+        "프리미엄"
+      ]
     },
     {
       "id": "mf-001.md-005.sm-그레이스",
@@ -1655,8 +1660,9 @@
           ]
         }
       ],
+      "market_class": "중고",
+      "newcar_priced": false,
       "trims": [
-        "(세부등급 없음)",
         "기본형",
         "노블팩",
         "디럭스",
@@ -1671,8 +1677,7 @@
         "프리미어",
         "프리미엄"
       ],
-      "market_class": "중고",
-      "newcar_priced": false
+      "_basic_trim_healed_at": 1789086623432
     },
     {
       "id": "mf-001.md-012.sm-베르나",
@@ -2393,6 +2398,8 @@
           ]
         }
       ],
+      "market_class": "중고",
+      "newcar_priced": false,
       "trims": [
         "CVX 디럭스 (CVX Deluxe)",
         "CVX 럭셔리 (CVX Luxury)",
@@ -2405,10 +2412,9 @@
         "스마트",
         "스마트 스페셜",
         "어린이보호차",
-        "캠핑카"
-      ],
-      "market_class": "중고",
-      "newcar_priced": false
+        "캠핑카",
+        "프리미엄"
+      ]
     },
     {
       "id": "mf-001.md-016.sm-스텔라",
@@ -2700,15 +2706,16 @@
           ]
         }
       ],
+      "market_class": "중고",
+      "newcar_priced": false,
       "trims": [
-        "(세부등급 없음)",
+        "기본형",
         "모던 (e-VGT)",
         "스마트 (e-VGT)",
         "스페셜",
         "프리미엄 (e-VGT)"
       ],
-      "market_class": "중고",
-      "newcar_priced": false
+      "_basic_trim_healed_at": 1789086623432
     },
     {
       "id": "mf-001.md-017.sm-mx5",
@@ -3170,16 +3177,17 @@
           ]
         }
       ],
+      "market_class": "신차",
+      "newcar_priced": true,
       "trims": [
         "N Line",
         "S",
+        "비즈니스",
+        "스마트",
         "익스클루시브",
         "인스퍼레이션",
-        "프리미엄",
-        "비즈니스"
-      ],
-      "market_class": "신차",
-      "newcar_priced": true
+        "프리미엄"
+      ]
     },
     {
       "id": "mf-001.md-018.sm-dn8__쏘나타-디-엣지-하이브리드-dn8",
@@ -3313,8 +3321,10 @@
           ]
         }
       ],
+      "market_class": "중고",
+      "newcar_priced": false,
       "trims": [
-        "(세부등급 없음)",
+        "기본형",
         "모던",
         "밀레니얼",
         "스마트",
@@ -3327,8 +3337,7 @@
         "프리미엄 플러스",
         "익스클루시브"
       ],
-      "market_class": "중고",
-      "newcar_priced": false
+      "_basic_trim_healed_at": 1789086623432
     },
     {
       "id": "mf-001.md-018.sm-ef",
@@ -3382,14 +3391,14 @@
           ]
         }
       ],
-      "trims": [
-        "(세부등급 없음)",
-        "VXL",
-        "고급형",
-        "기본형"
-      ],
       "market_class": "중고",
-      "newcar_priced": false
+      "newcar_priced": false,
+      "trims": [
+        "기본형",
+        "VXL",
+        "고급형"
+      ],
+      "_basic_trim_healed_at": 1789086623432
     },
     {
       "id": "mf-001.md-018.sm-ef__ef-쏘나타",
@@ -3526,8 +3535,10 @@
           ]
         }
       ],
+      "market_class": "중고",
+      "newcar_priced": false,
       "trims": [
-        "(세부등급 없음)",
+        "기본형",
         "LPI 모던",
         "LPI 스타일",
         "LPI 프리미엄",
@@ -3542,8 +3553,7 @@
         "프리미엄",
         "프리미엄 스페셜"
       ],
-      "market_class": "중고",
-      "newcar_priced": false
+      "_basic_trim_healed_at": 1789086623432
     },
     {
       "id": "mf-001.md-018.sm-lf__lf-쏘나타",
@@ -3654,8 +3664,10 @@
           ]
         }
       ],
+      "market_class": "중고",
+      "newcar_priced": false,
       "trims": [
-        "(세부등급 없음)",
+        "기본형",
         "LPI 모던",
         "LPI 스마트",
         "LPI 프리미엄",
@@ -3669,8 +3681,7 @@
         "프리미엄",
         "프리미엄 스페셜"
       ],
-      "market_class": "중고",
-      "newcar_priced": false
+      "_basic_trim_healed_at": 1789086623432
     },
     {
       "id": "mf-001.md-018.sm-nf",
@@ -4105,8 +4116,10 @@
           "trims": []
         }
       ],
+      "market_class": "중고",
+      "newcar_priced": false,
       "trims": [
-        "(세부등급 없음)",
+        "기본형",
         "CVVL 그랜드",
         "CVVL 럭셔리",
         "CVVL 탑",
@@ -4127,8 +4140,7 @@
         "와인스페셜",
         "최고급형"
       ],
-      "market_class": "중고",
-      "newcar_priced": false
+      "_basic_trim_healed_at": 1789086623433
     },
     {
       "id": "mf-001.md-019.sm-ad",
@@ -4270,8 +4282,10 @@
           "trims": []
         }
       ],
+      "market_class": "중고",
+      "newcar_priced": false,
       "trims": [
-        "(세부등급 없음)",
+        "기본형",
         "GDI 밸류플러스",
         "GDI 스타일",
         "GDI 프리미엄",
@@ -4280,8 +4294,7 @@
         "스페셜",
         "익스트림 셀렉션"
       ],
-      "market_class": "중고",
-      "newcar_priced": false
+      "_basic_trim_healed_at": 1789086623433
     },
     {
       "id": "mf-001.md-019.sm-cn7",
@@ -4452,14 +4465,15 @@
           ]
         }
       ],
+      "market_class": "중고",
+      "newcar_priced": false,
       "trims": [
         "N",
         "모던",
         "스마트",
+        "스타일",
         "인스퍼레이션"
-      ],
-      "market_class": "중고",
-      "newcar_priced": false
+      ]
     },
     {
       "id": "mf-001.md-019.sm-cn8",
@@ -4507,13 +4521,14 @@
           ]
         }
       ],
+      "market_class": "신차",
+      "newcar_priced": true,
       "trims": [
         "모던",
-        "프리미엄",
-        "인스퍼레이션"
-      ],
-      "market_class": "신차",
-      "newcar_priced": true
+        "스마트",
+        "인스퍼레이션",
+        "프리미엄"
+      ]
     },
     {
       "id": "mf-001.md-019.sm-hd",
@@ -4667,12 +4682,13 @@
           ]
         }
       ],
+      "market_class": "중고",
+      "newcar_priced": false,
       "trims": [
         "GLS",
+        "스마트",
         "인스퍼레이션"
-      ],
-      "market_class": "중고",
-      "newcar_priced": false
+      ]
     },
     {
       "id": "mf-001.md-019.sm-jk",
@@ -4887,12 +4903,13 @@
           ]
         }
       ],
+      "market_class": "중고",
+      "newcar_priced": false,
       "trims": [
         "고급형",
-        "기본형"
-      ],
-      "market_class": "중고",
-      "newcar_priced": false
+        "기본형",
+        "스마트"
+      ]
     },
     {
       "id": "mf-001.md-020.sm-아토스",
@@ -5220,8 +5237,10 @@
           "default": true
         }
       ],
+      "market_class": "중고",
+      "newcar_priced": false,
       "trims": [
-        "(세부등급 없음)",
+        "기본형",
         "GDI 탑",
         "GDI 프리미어",
         "GDI 프리미엄",
@@ -5242,8 +5261,7 @@
         "위트 VGT 프리미어",
         "위트 VVT 프리미어"
       ],
-      "market_class": "중고",
-      "newcar_priced": false
+      "_basic_trim_healed_at": 1789086623433
     },
     {
       "id": "mf-001.md-023.sm-엑셀",
@@ -6173,15 +6191,16 @@
           ]
         }
       ],
+      "market_class": "중고",
+      "newcar_priced": false,
       "trims": [
         "N Line 인스퍼레이션",
         "모던",
+        "스마트",
         "어드벤처",
         "인스퍼레이션",
         "프리미엄"
-      ],
-      "market_class": "중고",
-      "newcar_priced": false
+      ]
     },
     {
       "id": "mf-001.md-032.sm-tl",
@@ -6621,13 +6640,14 @@
           "default": true
         }
       ],
+      "market_class": "중고",
+      "newcar_priced": false,
       "trims": [
-        "(세부등급 없음)",
+        "기본형",
         "N",
         "코어"
       ],
-      "market_class": "중고",
-      "newcar_priced": false
+      "_basic_trim_healed_at": 1789086623433
     },
     {
       "id": "mf-001.md-049.sm-더-뉴-i40",
@@ -7268,13 +7288,14 @@
           ]
         }
       ],
+      "market_class": "중고",
+      "newcar_priced": false,
       "trims": [
-        "(세부등급 없음)",
+        "기본형",
         "Q",
         "플러스"
       ],
-      "market_class": "중고",
-      "newcar_priced": false
+      "_basic_trim_healed_at": 1789086623433
     },
     {
       "id": "mf-001.md-055.sm-os",
@@ -8539,11 +8560,12 @@
           "default": true
         }
       ],
-      "trims": [
-        "투어러"
-      ],
       "market_class": "신차",
-      "newcar_priced": true
+      "newcar_priced": true,
+      "trims": [
+        "모던",
+        "투어러"
+      ]
     },
     {
       "id": "mf-001.md-061.sm-ne",
@@ -9313,14 +9335,15 @@
           ]
         }
       ],
+      "market_class": "중고",
+      "newcar_priced": false,
       "trims": [
         "노블레스",
+        "스탠다드",
         "시그니처",
         "트렌디",
         "프레스티지"
-      ],
-      "market_class": "중고",
-      "newcar_priced": false
+      ]
     },
     {
       "id": "mf-002.md-001.sm-jf",
@@ -9406,8 +9429,10 @@
           ]
         }
       ],
+      "market_class": "중고",
+      "newcar_priced": false,
       "trims": [
-        "(세부등급 없음)",
+        "기본형",
         "노블레스",
         "노블레스 스페셜",
         "디럭스",
@@ -9417,8 +9442,7 @@
         "인텔리전트",
         "프레스티지"
       ],
-      "market_class": "중고",
-      "newcar_priced": false
+      "_basic_trim_healed_at": 1789086623433
     },
     {
       "id": "mf-002.md-001.sm-jf__k5-jf",
@@ -9522,8 +9546,10 @@
           ]
         }
       ],
+      "market_class": "중고",
+      "newcar_priced": false,
       "trims": [
-        "(세부등급 없음)",
+        "기본형",
         "GT",
         "GT Line",
         "노블레스",
@@ -9536,8 +9562,7 @@
         "시그니처",
         "프레스티지"
       ],
-      "market_class": "중고",
-      "newcar_priced": false
+      "_basic_trim_healed_at": 1789086623433
     },
     {
       "id": "mf-002.md-001.sm-tf",
@@ -10080,6 +10105,8 @@
           ]
         }
       ],
+      "market_class": "중고",
+      "newcar_priced": false,
       "trims": [
         "GDI X 에디션",
         "GDI 노블레스",
@@ -10092,10 +10119,9 @@
         "노블레스",
         "스탠다드",
         "시그니처",
+        "트렌디",
         "프레스티지"
-      ],
-      "market_class": "중고",
-      "newcar_priced": false
+      ]
     },
     {
       "id": "mf-002.md-002.sm-yg__new-k7-yg",
@@ -10201,8 +10227,10 @@
           ]
         }
       ],
+      "market_class": "중고",
+      "newcar_priced": false,
       "trims": [
-        "(세부등급 없음)",
+        "기본형",
         "GDI 노블레스",
         "GDI 리미티드",
         "GDI 리미티드 에디션",
@@ -10216,14 +10244,14 @@
         "노블레스",
         "노블레스 스페셜",
         "디럭스",
+        "럭셔리",
         "리미티드",
         "리미티드 에디션",
         "스페셜",
         "월드컵 에디션",
         "프레스티지"
       ],
-      "market_class": "중고",
-      "newcar_priced": false
+      "_basic_trim_healed_at": 1789086623433
     },
     {
       "id": "mf-002.md-003.sm-x-trek",
@@ -10565,16 +10593,18 @@
           "default": true
         }
       ],
+      "market_class": "중고",
+      "newcar_priced": false,
       "trims": [
-        "(세부등급 없음)",
+        "기본형",
         "마이너스",
         "베스트 셀렉션",
+        "스탠다드",
         "스페셜",
         "엣지-UP",
         "프레스티지"
       ],
-      "market_class": "중고",
-      "newcar_priced": false
+      "_basic_trim_healed_at": 1789086623433
     },
     {
       "id": "mf-002.md-013.sm-ja__모닝-어반-ja__van",
@@ -10602,16 +10632,17 @@
           "default": true
         }
       ],
+      "market_class": "중고",
+      "newcar_priced": false,
       "trims": [
-        "(세부등급 없음)",
+        "기본형",
         "마이너스",
         "베스트 셀렉션",
         "스페셜",
         "엣지-UP",
         "프레스티지"
       ],
-      "market_class": "중고",
-      "newcar_priced": false
+      "_basic_trim_healed_at": 1789086623433
     },
     {
       "id": "mf-002.md-013.sm-ja__new-모닝-ja",
@@ -11234,15 +11265,16 @@
           "trims": []
         }
       ],
+      "market_class": "중고",
+      "newcar_priced": false,
       "trims": [
-        "(세부등급 없음)",
+        "기본형",
         "고급형",
         "바이퓨얼",
         "보레고",
         "최고급형"
       ],
-      "market_class": "중고",
-      "newcar_priced": false
+      "_basic_trim_healed_at": 1789086623433
     },
     {
       "id": "mf-002.md-015.sm-hm__new-모하비-hm",
@@ -11960,8 +11992,10 @@
           ]
         }
       ],
+      "market_class": "중고",
+      "newcar_priced": false,
       "trims": [
-        "(세부등급 없음)",
+        "기본형",
         "노블레스",
         "스타일 에디션",
         "스페셜",
@@ -11969,8 +12003,7 @@
         "프레스티지",
         "플러스"
       ],
-      "market_class": "중고",
-      "newcar_priced": false
+      "_basic_trim_healed_at": 1789086623433
     },
     {
       "id": "mf-002.md-025.sm-sl",
@@ -12949,14 +12982,15 @@
           ]
         }
       ],
+      "market_class": "중고",
+      "newcar_priced": false,
       "trims": [
-        "(세부등급 없음)",
+        "기본형",
         "노블레스",
         "스페셜",
         "프레스티지"
       ],
-      "market_class": "중고",
-      "newcar_priced": false
+      "_basic_trim_healed_at": 1789086623433
     },
     {
       "id": "mf-002.md-028.sm-쏘울-ev",
@@ -13733,18 +13767,18 @@
           ]
         }
       ],
+      "market_class": "중고",
+      "newcar_priced": false,
       "trims": [
-        "(세부등급 없음)",
+        "기본형",
         "R 스페셜",
         "고급형",
         "그랜드 카니발 President",
         "그랜드 팩",
-        "기본형",
         "최고급형",
         "프리미엄"
       ],
-      "market_class": "중고",
-      "newcar_priced": false
+      "_basic_trim_healed_at": 1789086623433
     },
     {
       "id": "mf-002.md-036.sm-vq__그랜드-카니발-vq",
@@ -13799,16 +13833,16 @@
           "trims": []
         }
       ],
+      "market_class": "중고",
+      "newcar_priced": false,
       "trims": [
-        "(세부등급 없음)",
+        "기본형",
         "고급형",
         "그랜드 팩",
-        "기본형",
         "최고급형",
         "프레지던트"
       ],
-      "market_class": "중고",
-      "newcar_priced": false
+      "_basic_trim_healed_at": 1789086623433
     },
     {
       "id": "mf-002.md-036.sm-vq__new-카니발-vq",
@@ -15172,8 +15206,10 @@
           ]
         }
       ],
+      "market_class": "중고",
+      "newcar_priced": false,
       "trims": [
-        "(세부등급 없음)",
+        "기본형",
         "고급형",
         "럭셔리",
         "럭셔리 스페셜",
@@ -15185,8 +15221,7 @@
         "프레스티지 (LPI)",
         "프레스티지 스페셜"
       ],
-      "market_class": "중고",
-      "newcar_priced": false
+      "_basic_trim_healed_at": 1789086623433
     },
     {
       "id": "mf-002.md-058.sm-tam__new-레이-tam__van",
@@ -15218,8 +15253,10 @@
           "default": true
         }
       ],
+      "market_class": "중고",
+      "newcar_priced": false,
       "trims": [
-        "(세부등급 없음)",
+        "기본형",
         "고급형",
         "럭셔리",
         "럭셔리 스페셜",
@@ -15231,8 +15268,7 @@
         "프레스티지 (LPI)",
         "프레스티지 스페셜"
       ],
-      "market_class": "중고",
-      "newcar_priced": false
+      "_basic_trim_healed_at": 1789086623433
     },
     {
       "id": "mf-002.md-058.sm-tam__van",
@@ -15416,17 +15452,17 @@
           ]
         }
       ],
+      "market_class": "중고",
+      "newcar_priced": false,
       "trims": [
-        "(세부등급 없음)",
+        "기본형",
         "GDI R-VIP",
         "GDI VIP",
         "GDI 이그제큐티브",
         "GDI 프레지던트",
-        "기본형",
         "스페셜"
       ],
-      "market_class": "중고",
-      "newcar_priced": false
+      "_basic_trim_healed_at": 1789086623433
     },
     {
       "id": "mf-002.md-059.sm-rj",
@@ -15600,8 +15636,10 @@
           ]
         }
       ],
+      "market_class": "중고",
+      "newcar_priced": false,
       "trims": [
-        "(세부등급 없음)",
+        "기본형",
         "그랜드 마스터즈",
         "그랜드 플래티넘",
         "마스터즈",
@@ -15614,8 +15652,7 @@
         "플래티넘 II",
         "플래티넘 III"
       ],
-      "market_class": "중고",
-      "newcar_priced": false
+      "_basic_trim_healed_at": 1789086623433
     },
     {
       "id": "mf-002.md-060.sm-bd",
@@ -15879,8 +15916,10 @@
           ]
         }
       ],
+      "market_class": "중고",
+      "newcar_priced": false,
       "trims": [
-        "(세부등급 없음)",
+        "기본형",
         "A 타입",
         "C 타입",
         "E 타입",
@@ -15889,8 +15928,7 @@
         "스타일",
         "스페셜"
       ],
-      "market_class": "중고",
-      "newcar_priced": false
+      "_basic_trim_healed_at": 1789086623433
     },
     {
       "id": "mf-002.md-060.sm-yk",
@@ -16885,18 +16923,19 @@
           "trims": []
         }
       ],
+      "market_class": "신차",
+      "newcar_priced": true,
       "trims": [
         "노블레스",
         "노블레스 라이트",
+        "베스트 셀렉션",
+        "스탠다드",
         "시그니처",
         "시그니처 스페셜",
-        "프레스티지",
-        "플래티넘",
         "트렌디",
-        "스탠다드"
-      ],
-      "market_class": "신차",
-      "newcar_priced": true
+        "프레스티지",
+        "플래티넘"
+      ]
     },
     {
       "id": "mf-002.md-066.sm-cv1",
@@ -17827,14 +17866,15 @@
           ]
         }
       ],
+      "market_class": "중고",
+      "newcar_priced": false,
       "trims": [
-        "(세부등급 없음)",
+        "기본형",
         "고급형",
         "스타",
         "일반형"
       ],
-      "market_class": "중고",
-      "newcar_priced": false
+      "_basic_trim_healed_at": 1789086623433
     },
     {
       "id": "mf-003.md-013.sm-마티즈-클래식",
@@ -17922,14 +17962,15 @@
           ]
         }
       ],
+      "market_class": "중고",
+      "newcar_priced": false,
       "trims": [
-        "(세부등급 없음)",
+        "기본형",
         "SE",
         "SX",
         "고급형"
       ],
-      "market_class": "중고",
-      "newcar_priced": false
+      "_basic_trim_healed_at": 1789086623433
     },
     {
       "id": "mf-003.md-014.sm-매그너스",
@@ -18722,14 +18763,15 @@
           ]
         }
       ],
+      "market_class": "중고",
+      "newcar_priced": false,
       "trims": [
-        "(세부등급 없음)",
+        "기본형",
         "LS",
         "LT 디럭스팩",
         "LTZ"
       ],
-      "market_class": "중고",
-      "newcar_priced": false
+      "_basic_trim_healed_at": 1789086623433
     },
     {
       "id": "mf-003.md-041.sm-j300",
@@ -19319,14 +19361,15 @@
           ]
         }
       ],
+      "market_class": "중고",
+      "newcar_priced": false,
       "trims": [
-        "(세부등급 없음)",
+        "기본형",
         "LT",
         "베이직",
         "프리미어"
       ],
-      "market_class": "중고",
-      "newcar_priced": false
+      "_basic_trim_healed_at": 1789086623433
     },
     {
       "id": "mf-003.md-043.sm-m400__더-넥스트-스파크-m400",
@@ -19370,16 +19413,17 @@
           ]
         }
       ],
+      "market_class": "중고",
+      "newcar_priced": false,
       "trims": [
-        "(세부등급 없음)",
+        "기본형",
         "LTZ",
         "에코 LTZ",
         "패션",
         "퍼펙트 블랙 (Perfect Black)",
         "플러스"
       ],
-      "market_class": "중고",
-      "newcar_priced": false
+      "_basic_trim_healed_at": 1789086623433
     },
     {
       "id": "mf-003.md-044.sm-더-뉴-카마로",
@@ -19709,8 +19753,10 @@
           ]
         }
       ],
+      "market_class": "중고",
+      "newcar_priced": false,
       "trims": [
-        "(세부등급 없음)",
+        "기본형",
         "디럭스",
         "스페셜",
         "퍼펙트 블랙",
@@ -19718,8 +19764,7 @@
         "프리미어(Premier)",
         "프리미엄"
       ],
-      "market_class": "중고",
-      "newcar_priced": false
+      "_basic_trim_healed_at": 1789086623433
     },
     {
       "id": "mf-003.md-046.sm-v400__new-말리부-v400",
@@ -19775,8 +19820,10 @@
           ]
         }
       ],
+      "market_class": "중고",
+      "newcar_priced": false,
       "trims": [
-        "(세부등급 없음)",
+        "기본형",
         "LTZ",
         "LTZ 프리미엄 세이프티",
         "디럭스",
@@ -19784,8 +19831,7 @@
         "프리미엄",
         "프리미엄 세이프티"
       ],
-      "market_class": "중고",
-      "newcar_priced": false
+      "_basic_trim_healed_at": 1789086623433
     },
     {
       "id": "mf-003.md-047.sm-콜벳",
@@ -19843,13 +19889,14 @@
           ]
         }
       ],
+      "market_class": "신차",
+      "newcar_priced": false,
       "trims": [
-        "(세부등급 없음)",
+        "기본형",
         "플러스",
         "RS"
       ],
-      "market_class": "신차",
-      "newcar_priced": false
+      "_basic_trim_healed_at": 1789086623433
     },
     {
       "id": "mf-003.md-048.sm-u200",
@@ -19900,8 +19947,10 @@
           ]
         }
       ],
+      "market_class": "중고",
+      "newcar_priced": false,
       "trims": [
-        "(세부등급 없음)",
+        "기본형",
         "LT 코어",
         "LTZ",
         "디럭스",
@@ -19909,8 +19958,7 @@
         "퍼펙트 블랙",
         "프리미어"
       ],
-      "market_class": "중고",
-      "newcar_priced": false
+      "_basic_trim_healed_at": 1789086623433
     },
     {
       "id": "mf-003.md-048.sm-u200__트랙스-u200",
@@ -20204,13 +20252,14 @@
           ]
         }
       ],
+      "market_class": "중고",
+      "newcar_priced": false,
       "trims": [
-        "(세부등급 없음)",
+        "기본형",
         "LS",
         "익스클루시브"
       ],
-      "market_class": "중고",
-      "newcar_priced": false
+      "_basic_trim_healed_at": 1789086623433
     },
     {
       "id": "mf-003.md-053.sm-리얼-뉴-콜로라도",
@@ -20318,14 +20367,15 @@
           "default": true
         }
       ],
+      "market_class": "중고",
+      "newcar_priced": false,
       "trims": [
-        "(세부등급 없음)",
+        "기본형",
         "사이드 레일",
         "스포츠 바",
         "익스트림"
       ],
-      "market_class": "중고",
-      "newcar_priced": false
+      "_basic_trim_healed_at": 1789086623433
     },
     {
       "id": "mf-003.md-054.sm-트래버스",
@@ -21234,11 +21284,12 @@
           ]
         }
       ],
-      "trims": [
-        "(세부등급 없음)"
-      ],
       "market_class": "중고",
-      "newcar_priced": false
+      "newcar_priced": false,
+      "trims": [
+        "기본형"
+      ],
+      "_basic_trim_healed_at": 1789086623433
     },
     {
       "id": "mf-004.md-004.sm-로디우스",
@@ -21337,12 +21388,13 @@
           "default": true
         }
       ],
+      "market_class": "중고",
+      "newcar_priced": false,
       "trims": [
-        "(세부등급 없음)",
+        "기본형",
         "320LX"
       ],
-      "market_class": "중고",
-      "newcar_priced": false
+      "_basic_trim_healed_at": 1789086623433
     },
     {
       "id": "mf-004.md-005.sm-뉴무쏘-밴",
@@ -22222,13 +22274,13 @@
           ]
         }
       ],
+      "market_class": "중고",
+      "newcar_priced": false,
       "trims": [
-        "(세부등급 없음)",
         "기본형",
         "하이테크"
       ],
-      "market_class": "중고",
-      "newcar_priced": false
+      "_basic_trim_healed_at": 1789086623433
     },
     {
       "id": "mf-004.md-010.sm-카이런",
@@ -22559,8 +22611,10 @@
           ]
         }
       ],
+      "market_class": "중고",
+      "newcar_priced": false,
       "trims": [
-        "(세부등급 없음)",
+        "기본형",
         "GT",
         "KX",
         "LT",
@@ -22574,8 +22628,7 @@
         "하이 루프",
         "하이 리무진"
       ],
-      "market_class": "중고",
-      "newcar_priced": false
+      "_basic_trim_healed_at": 1789086623433
     },
     {
       "id": "mf-004.md-011.sm-코란도-훼미리",
@@ -22654,8 +22707,10 @@
           ]
         }
       ],
+      "market_class": "중고",
+      "newcar_priced": false,
       "trims": [
-        "(세부등급 없음)",
+        "기본형",
         "DX",
         "KX",
         "고급형",
@@ -22663,8 +22718,7 @@
         "익스트림 스포츠",
         "최고급형"
       ],
-      "market_class": "중고",
-      "newcar_priced": false
+      "_basic_trim_healed_at": 1789086623433
     },
     {
       "id": "mf-004.md-011.sm-c200__코란도-c-c200",
@@ -22710,8 +22764,9 @@
           ]
         }
       ],
+      "market_class": "중고",
+      "newcar_priced": false,
       "trims": [
-        "(세부등급 없음)",
         "기본형",
         "럭셔리",
         "리미티드",
@@ -22719,8 +22774,7 @@
         "컴포트",
         "파크"
       ],
-      "market_class": "중고",
-      "newcar_priced": false
+      "_basic_trim_healed_at": 1789086623433
     },
     {
       "id": "mf-004.md-011.sm-c200__new-코란도-c-c200",
@@ -22797,8 +22851,10 @@
           ]
         }
       ],
+      "market_class": "중고",
+      "newcar_priced": false,
       "trims": [
-        "(세부등급 없음)",
+        "기본형",
         "DX",
         "고급형",
         "스페셜",
@@ -22806,8 +22862,7 @@
         "익스트림",
         "최고급형"
       ],
-      "market_class": "중고",
-      "newcar_priced": false
+      "_basic_trim_healed_at": 1789086623433
     },
     {
       "id": "mf-004.md-011.sm-c300",
@@ -22884,8 +22939,10 @@
           ]
         }
       ],
+      "market_class": "신차",
+      "newcar_priced": false,
       "trims": [
-        "(세부등급 없음)",
+        "기본형",
         "C3+",
         "C7",
         "R+",
@@ -22895,8 +22952,7 @@
         "프라임",
         "플러스"
       ],
-      "market_class": "신차",
-      "newcar_priced": false
+      "_basic_trim_healed_at": 1789086623433
     },
     {
       "id": "mf-004.md-011.sm-e100",
@@ -23146,8 +23202,10 @@
           ]
         }
       ],
+      "market_class": "중고",
+      "newcar_priced": false,
       "trims": [
-        "(세부등급 없음)",
+        "기본형",
         "LX",
         "TX",
         "VX",
@@ -23156,8 +23214,7 @@
         "엣지 에디션",
         "최고급형"
       ],
-      "market_class": "중고",
-      "newcar_priced": false
+      "_basic_trim_healed_at": 1789086623433
     },
     {
       "id": "mf-004.md-012.sm-x100l",
@@ -24674,14 +24731,15 @@
           ]
         }
       ],
+      "market_class": "중고",
+      "newcar_priced": false,
       "trims": [
-        "(세부등급 없음)",
+        "기본형",
         "LE",
         "RE 파노라믹",
         "시그니처"
       ],
-      "market_class": "중고",
-      "newcar_priced": false
+      "_basic_trim_healed_at": 1789086623433
     },
     {
       "id": "mf-005.md-009.sm-j87__qm3-j87",
@@ -24969,12 +25027,15 @@
           ]
         }
       ],
+      "market_class": "신차",
+      "newcar_priced": false,
       "trims": [
         "GDe LE",
         "GDe LE 시그니처",
         "GDe RE",
         "GDe RE 시그니처",
         "GDe 프리미에르 (Premiere)",
+        "LE",
         "LPe LE",
         "LPe LE 시그니처",
         "LPe RE",
@@ -24982,9 +25043,7 @@
         "LPe 프리미에르 (Premiere)",
         "dCi RE",
         "dCi RE 시그니처"
-      ],
-      "market_class": "신차",
-      "newcar_priced": false
+      ]
     },
     {
       "id": "mf-005.md-011.sm-hzg__qm6-hzg",
@@ -25405,6 +25464,8 @@
           "default": true
         }
       ],
+      "market_class": "신차",
+      "newcar_priced": false,
       "trims": [
         "E-TECH 아이코닉",
         "E-TECH 아이코닉 디자인 패키지",
@@ -25412,10 +25473,10 @@
         "GTe 아이코닉",
         "GTe 에볼루션",
         "GTe 테크노",
-        "TCe 아이코닉"
-      ],
-      "market_class": "신차",
-      "newcar_priced": false
+        "TCe 아이코닉",
+        "아이코닉",
+        "아이코닉 컬러패키지"
+      ]
     },
     {
       "id": "mf-005.md-019.sm-그랑-콜레오스",
@@ -25735,14 +25796,15 @@
           ]
         }
       ],
+      "market_class": "중고",
+      "newcar_priced": false,
       "trims": [
         "3.3T 수출형",
         "럭셔리(Luxury)",
+        "프레스티지",
         "프레스티지(Prestige)",
         "프리미엄 럭셔리(Premium Luxury)"
-      ],
-      "market_class": "중고",
-      "newcar_priced": false
+      ]
     },
     {
       "id": "mf-007.md-002.sm-dh",
@@ -25983,12 +26045,14 @@
           ]
         }
       ],
-      "trims": [
-        "(세부등급 없음)",
-        "런칭"
-      ],
       "market_class": "신차",
-      "newcar_priced": true
+      "newcar_priced": true,
+      "base_default": true,
+      "trims": [
+        "기본형",
+        "블랙"
+      ],
+      "_basic_trim_healed_at": 1789087753891
     },
     {
       "id": "mf-007.md-003.sm-ik",
@@ -26051,11 +26115,12 @@
           ]
         }
       ],
-      "trims": [
-        "(세부등급 없음)"
-      ],
       "market_class": "신차",
-      "newcar_priced": true
+      "newcar_priced": true,
+      "trims": [
+        "기본형"
+      ],
+      "_basic_trim_healed_at": 1789086623433
     },
     {
       "id": "mf-007.md-003.sm-ik__g70-ik",
@@ -26276,11 +26341,12 @@
           ]
         }
       ],
-      "trims": [
-        "(세부등급 없음)"
-      ],
       "market_class": "신차",
-      "newcar_priced": true
+      "newcar_priced": true,
+      "trims": [
+        "기본형"
+      ],
+      "_basic_trim_healed_at": 1789086623433
     },
     {
       "id": "mf-007.md-004.sm-hi",
@@ -26437,12 +26503,14 @@
           "default": true
         }
       ],
+      "market_class": "신차",
+      "newcar_priced": true,
+      "base_default": true,
       "trims": [
-        "(세부등급 없음)",
+        "기본형",
         "블랙"
       ],
-      "market_class": "신차",
-      "newcar_priced": true
+      "_basic_trim_healed_at": 1789089375872
     },
     {
       "id": "mf-007.md-005.sm-jx1",
@@ -26533,14 +26601,14 @@
           "trims": []
         }
       ],
-      "trims": [
-        "(세부등급 없음)",
-        "가솔린 2.5 터보",
-        "가솔린 3.5 터보",
-        "기본"
-      ],
       "market_class": "신차",
-      "newcar_priced": true
+      "newcar_priced": true,
+      "base_default": true,
+      "trims": [
+        "기본형",
+        "블랙"
+      ],
+      "_basic_trim_healed_at": 1789089375799
     },
     {
       "id": "mf-007.md-005.sm-jx1c",
@@ -26581,12 +26649,13 @@
           ]
         }
       ],
+      "market_class": "신차",
+      "newcar_priced": true,
       "trims": [
-        "(세부등급 없음)",
+        "기본형",
         "블랙"
       ],
-      "market_class": "신차",
-      "newcar_priced": true
+      "_basic_trim_healed_at": 1789086623433
     },
     {
       "id": "mf-007.md-006.sm-jk1",
@@ -26697,11 +26766,13 @@
           ]
         }
       ],
-      "trims": [
-        "(세부등급 없음)"
-      ],
       "market_class": "신차",
-      "newcar_priced": true
+      "newcar_priced": true,
+      "trims": [
+        "기본형"
+      ],
+      "base_default": true,
+      "_basic_trim_healed_at": 1789089375631
     },
     {
       "id": "mf-007.md-007.sm-gv60",
@@ -26739,11 +26810,12 @@
           ]
         }
       ],
-      "trims": [
-        "(세부등급 없음)"
-      ],
       "market_class": "신차",
-      "newcar_priced": true
+      "newcar_priced": true,
+      "trims": [
+        "기본형"
+      ],
+      "_basic_trim_healed_at": 1789086623433
     },
     {
       "id": "mf-011.md-001.sm-8y",
@@ -31129,12 +31201,15 @@
           ]
         }
       ],
+      "market_class": "중고",
+      "newcar_priced": false,
       "trims": [
         "520d M 스포츠",
         "520d M 스포츠 스페셜 에디션",
         "520d M 스포츠 플러스",
         "520d 럭셔리 스페셜 에디션",
         "520d 럭셔리 플러스",
+        "520i",
         "520i M 스포츠",
         "520i 럭셔리",
         "523d M 스포츠",
@@ -31148,9 +31223,7 @@
         "530i 럭셔리 플러스",
         "540i M 스포츠 플러스",
         "M550d"
-      ],
-      "market_class": "중고",
-      "newcar_priced": false
+      ]
     },
     {
       "id": "mf-012.md-003.sm-g60",
@@ -41339,11 +41412,10 @@
           ]
         }
       ],
-      "trims": [
-        "(세대코드이므로 트림에서 삭제 — 1세대 차대 코드)"
-      ],
       "market_class": "중고",
-      "newcar_priced": false
+      "newcar_priced": false,
+      "trims": [],
+      "_basic_trim_healed_at": 1789086623433
     },
     {
       "id": "mf-014.md-002.sm-5n__티구안-5n",
@@ -41381,11 +41453,10 @@
           ]
         }
       ],
-      "trims": [
-        "(세대코드이므로 트림에서 삭제 — 1세대 차대 코드)"
-      ],
       "market_class": "중고",
-      "newcar_priced": false
+      "newcar_priced": false,
+      "trims": [],
+      "_basic_trim_healed_at": 1789086623433
     },
     {
       "id": "mf-014.md-002.sm-ad-bw2",
@@ -42351,13 +42422,14 @@
           ]
         }
       ],
+      "market_class": "신차",
+      "newcar_priced": false,
       "trims": [
         "GTI",
+        "Prestige",
         "TDI 프레스티지",
         "TDI 프리미엄"
-      ],
-      "market_class": "신차",
-      "newcar_priced": false
+      ]
     },
     {
       "id": "mf-014.md-008.sm-벤토",
@@ -43655,12 +43727,12 @@
           ]
         }
       ],
+      "market_class": "중고",
+      "newcar_priced": false,
       "trims": [
-        "(세대코드이므로 트림에서 제거 - gen_code로 이동)",
         "플래티넘 에디션"
       ],
-      "market_class": "중고",
-      "newcar_priced": false
+      "_basic_trim_healed_at": 1789086623433
     },
     {
       "id": "mf-015.md-004.sm-971",
@@ -50214,9 +50286,10 @@
           ]
         }
       ],
+      "market_class": "중고",
+      "newcar_priced": false,
       "trims": [
         "BlueHDi GT Line",
-        "BlueHDi GT line",
         "BlueHDi 악티브",
         "BlueHDi 알뤼르",
         "BlueHDi 알뤼르 GC",
@@ -50228,8 +50301,7 @@
         "e-HDi 펠린 L",
         "e-HDi 펠린 S"
       ],
-      "market_class": "중고",
-      "newcar_priced": false
+      "_basic_trim_healed_at": 1789086623433
     },
     {
       "id": "mf-021.md-024.sm-2008-2세대",
@@ -64037,11 +64109,12 @@
           ]
         }
       ],
-      "trims": [
-        "스포츠"
-      ],
       "market_class": "신차",
-      "newcar_priced": false
+      "newcar_priced": false,
+      "trims": [
+        "SPORT",
+        "스포츠"
+      ]
     },
     {
       "id": "mf-043.md-021.sm-ct4",
@@ -73341,15 +73414,16 @@
           ]
         }
       ],
+      "market_class": "신차",
+      "newcar_priced": false,
       "trims": [
+        "Long Range",
         "RWD",
         "롱 레인지",
         "스탠다드 레인지 플러스 RWD",
         "퍼포먼스",
         "프리미엄 롱레인지 RWD"
-      ],
-      "market_class": "신차",
-      "newcar_priced": false
+      ]
     },
     {
       "id": "mf-087.md-004.sm-모델-y",
@@ -73422,7 +73496,10 @@
           ]
         }
       ],
+      "market_class": "신차",
+      "newcar_priced": false,
       "trims": [
+        "Premium",
         "RWD",
         "롱 레인지",
         "롱 레인지 런치 시리즈(Launch Series)",
@@ -73430,9 +73507,7 @@
         "스탠다드 레인지 후륜구동(RWD)",
         "프리미엄 롱 레인지 AWD",
         "프리미엄 후륜구동(RWD)"
-      ],
-      "market_class": "신차",
-      "newcar_priced": false
+      ]
     },
     {
       "id": "mf-087.md-005.sm-사이버트럭",

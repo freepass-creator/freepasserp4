@@ -24,7 +24,10 @@
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
-import { getDatabase } from 'firebase-admin/database';
+import { getDatabase } from './lib/firestore-path-store.mts';
+import { getFirestore } from 'firebase-admin/firestore';
+import { shapeAtom } from '../lib/domain/settlement-atom';
+import { PARTNER_CI } from '../lib/domain/partner-ci';
 
 const APPLY = process.argv.includes('--apply');
 const SRC = '10gsCRpRZZVI9WGZK0b1JeGeti9mQFt4ojWXHqPCW-Ls';
@@ -39,13 +42,21 @@ if (!MONTH) {
   process.exit(1);
 }
 let TAB = '';
-const ROWS_NODE = 'v4/settlement_rows';
-const CLAW_NODE = 'v4/settlement_clawbacks';
+const ROWS_NODE = 'settlement_rows';
+const CLAW_NODE = 'settlement_clawbacks';
 
 const S = (v: unknown) => String(v ?? '').trim();
 const N = (v: unknown) => { const n = Number(S(v).replace(/[,\s원₩]/g, '')); return Number.isFinite(n) ? n : 0; };
 const won = (n: number) => Math.round(n).toLocaleString('ko-KR');
+/** 시트 체크칸 — TRUE·true·O·Y·1 을 다 참으로 본다. */
+const TRUE = (v: unknown) => /^(TRUE|true|O|o|Y|y|1|예)$/.test(S(v));
 const flat = (s: string) => s.replace(/[\s\n()]/g, '');
+/** 달 더하기 — 「2026-08」 + 1 = 「2026-09」. */
+const ymAdd = (m: string, n: number) => {
+  const [y, mm] = m.split('-').map(Number);
+  const d = new Date(Date.UTC(y, mm - 1 + n, 1));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+};
 const SERIAL0 = Date.UTC(1899, 11, 30);
 const ymd = (v: unknown): string => {
   const n = Number(S(v));
@@ -107,13 +118,19 @@ type Atom = {
   settleRatio: number; billHold: boolean; settleExclude: boolean; settledAlready: boolean;
   vatIncluded: boolean; settleTerms: string; settleNote: string;
   billed: boolean; collected: boolean;
+  /**
+   * ★★**다음 달에 «해야 할 말»** — 계산서 수정·가감처럼 이번 달에 못 끝내고 넘기는 것.
+   *   사장님 2026-09-08 「이거 다음 달에 계산서 수정 메모 남겨야겠다」.
+   *   머릿속에 두면 다음 달에 잊는다. 줄에 붙여 두면 그 달 정산을 열 때 같이 따라온다.
+   */
+  carryNote: string; carryMonth: string;
   note: string; sourceRow: number; sourceTab: string; billMonth: string;
   /** 사다리 «밖»에서 따로 붙는 수수료 — 무보증 수수료 등. 청구·지급에 더해진다. */
   claimIncentive: number; payIncentive: number;
 };
 
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
-if (!getApps().length) initializeApp({ credential: cert(sa), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' });
+if (!getApps().length) initializeApp({ credential: cert(sa) });
 const db = getDatabase();
 const jwt = new JWT({ email: sa.client_email, key: sa.private_key, subject: 'pyh@teamjpk.com', scopes: ['https://www.googleapis.com/auth/spreadsheets'] });
 const tok = async () => (await jwt.getAccessToken()).token;
@@ -213,6 +230,7 @@ const col = (name: string, alt?: string, must = true) => {
 };
 const C = {
   memo: col('계약번호', '비고'), state: col('상태 표기', '인도완료'), sup: col('업체명', '공급사'),
+  paperBox: col('계약서', undefined, false), deliveredBox: col('인도완료', undefined, false),
   recv: col('접수일'), deliv: col('인도일'),
   rentKind: col('렌트구분'), product: col('상품구분'), plate: col('차량번호'), model: col('모델명'),
   cust: col('고객명'), age: col('연령', undefined, false),
@@ -235,6 +253,8 @@ const C = {
   /** 원장에만 있는 칸 — 취소·환수는 체크로 온다. */
   cancel: col('취소', undefined, false), claw: col('환수', undefined, false),
   clawWhy: col('환수사유', undefined, false), clawAmt: col('환수금액', undefined, false),
+  /** ★「가감사유」 = 다음 달로 넘기는 말(계산서 수정·가감). 원장에만 있는 칸이라 없어도 넘어간다. */
+  carryWhy: col('가감사유', undefined, false),
 };
 /**
  * ★★**「추가 인센티브」 두 칸** — 무보증 수수료 등이 여기 붙는다(사장님 2026-09-04 「무보증 수수료」).
@@ -302,7 +322,14 @@ for (let i = hi + 1; i < all.length; i++) {
     claimIncentive: INC.claim >= 0 ? Math.round(N(x[INC.claim])) : 0,
     payIncentive: INC.pay >= 0 ? Math.round(N(x[INC.pay])) : 0,
     receivedAt: ymd(x[C.recv]), deliveredAt: ymd(x[C.deliv]),
-    delivered: !!ymd(x[C.deliv]), paper: st === '계약 완료', cancelled: false,
+    /**
+     * ★**체크는 «시트가 켠 것»을 그대로 받는다** — 우리가 셈해서 만들지 않는다.
+     *   ⚠ 인도일이 있으면 인도된 것이지만, 체크가 있으면 그 체크가 이긴다(사람이 켠 것이다).
+     *   ⚠ 2026-09-09 까지 `paper` 가 「인도완료」를 받고 있었다 — 계약서와 인도는 다른 일이다.
+     */
+    delivered: C.deliveredBox >= 0 ? TRUE(x[C.deliveredBox]) : !!ymd(x[C.deliv]),
+    paper: C.paperBox >= 0 ? TRUE(x[C.paperBox]) : st === '계약 완료',
+    cancelled: false,
     settleTarget: (ax.settleTarget as Atom['settleTarget']) || '양쪽',
     settleRatio: ax.settleRatio ?? 1, billHold: ax.billHold ?? false, settleExclude: ax.settleExclude ?? false,
     settledAlready: ax.settledAlready ?? false, vatIncluded: ax.vatIncluded ?? false,
@@ -312,6 +339,9 @@ for (let i = hi + 1; i < all.length; i++) {
      */
     settleTerms: '', settleNote: ax.settleNote || (AXIS[memo] ? memo : ''),
     billed: false, collected: false,
+    /** ★원장 「가감사유」에 적힌 말을 다음 달로 나른다 — 그 칸이 곧 「다음 달에 할 말」이다. */
+    carryNote: C.carryWhy >= 0 ? S(x[C.carryWhy]) : '',
+    carryMonth: (C.carryWhy >= 0 && S(x[C.carryWhy])) ? ymAdd(MONTH, 1) : '',
     note: AXIS[memo] ? '' : memo, sourceRow: i + 1, sourceTab: TAB,
     /**
      * ★★★**청구년·청구월이 박혀 있으면 그 달이다 — 인도를 기다리지 않는다.**
@@ -351,7 +381,7 @@ for (let i = hi + 1; i < all.length; i++) {
 }
 
 // ── 기존 원자와 열쇠 맞추기 (차번|접수일 → stl_ 코드) ─────
-const have = ((await db.ref(ROWS_NODE).get().catch(() => null))?.val() || {}) as Record<string, { plate?: string; receivedAt?: string; code?: string; payWritten?: number; claimWritten?: number; channel?: string; customer?: string; billMonth?: string; fromSheet?: string }>;
+const have = Object.fromEntries((await getFirestore().collection(ROWS_NODE).get()).docs.map((d) => [d.id, d.data()])) as Record<string, { plate?: string; receivedAt?: string; code?: string; payWritten?: number; claimWritten?: number; channel?: string; customer?: string; billMonth?: string; fromSheet?: string }>;
 /**
  * ★★**차번 없는 줄의 열쇠에 «줄 번호»를 쓰지 않는다.**
  *   「업무지원비」처럼 차가 없는 정산이 있다(사장님 2026-09-01 「차량번호 없이 주는것도 있고」).
@@ -468,14 +498,58 @@ if (stale.length) {
 if (!APPLY) { console.log('\n※ dry-run — 아무것도 안 썼다. --apply 로 올린다.\n'); process.exit(0); }
 
 const patch: Record<string, unknown> = {};
-for (const a of atoms) patch[`${ROWS_NODE}/${a.code}`] = { ...a, updatedAt: Date.now(), fromSheet: TAB };
-for (const c of claws) patch[`${CLAW_NODE}/${S(c.plate).replace(/[.$#[\]/\s]/g, '_')}_${MONTH}`] = c;
-for (const [k] of stale) patch[`${ROWS_NODE}/${k}`] = null;  // ★묵은 줄은 걷는다
-await db.ref().update(patch);
-console.log(`\n   ✓ ${Object.keys(patch).length}개 올림 — 원자 ${atoms.length} · 환수 ${claws.length}`);
+/**
+ * ★★★**규격을 «거쳐서만» 쓴다** — `shapeAtom` 이 모든 밭을 갖추고 표 밖의 것은 버린다.
+ *   사장님 2026-09-08 「각 항목을 항목별로 … 어떤 거를 담아 갈 건지 뽑아내서 파이어스토어에 담아내야지」.
+ *   실측 2026-09-08 — 규격 없이 쌓았더니 461줄에 밭이 72개인데 줄마다 달랐다.
+ *   ⇒ 이 한 줄이 「모든 줄이 모든 밭을 갖는다」를 지킨다. 규격은 lib/domain/settlement-atom.ts.
+ * ⚠ `createdAt` 은 «있던 것»을 지킨다 — 새로 서는 줄만 지금을 적는다.
+ */
+/**
+ * ★★**이름 옆에 «코드»를 같이 싣는다** — 이름은 바뀌지만 코드는 안 바뀐다.
+ *   「손오공」이 「손오공렌터카」가 되어도 `RP012` 는 그대로다.
+ *   ⚠ 못 찾으면 «빈 값»이다 — 지어내지 않는다. 명단(PARTNER_CI)에 없는 상대라는 뜻이고, 그게 사실이다.
+ */
+/** ⚠ 위쪽 `codeOf`(줄 열쇠 → 원자 코드 Map)와 «다른 것»이다. 이름이 겹쳐 esbuild 가 멎었다(2026-09-09). */
+const partnerCodeOf = (name: string) => S(PARTNER_CI.find((c) => S(c.alias) === S(name))?.code);
+const shaped = atoms.map((a) => shapeAtom({
+  supplierCode: partnerCodeOf(a.supplier), channelCode: partnerCodeOf(a.channel),
+  ...a, updatedAt: Date.now(), fromSheet: TAB,
+  createdAt: N(have[a.code]?.createdAt) || Date.now(),
+}));
+/**
+ * ★★★**파이어스토어 «한 곳»에만 쓴다** — 사장님 2026-09-09
+ *   「rtdb 는 이제 아예 안 쓴다고」·「왜 자꾸 알티디비가 슬렁슬렁 나오냐 그냥 꺼 버려」.
+ *
+ * ⚠ 전에는 두 곳에 같이 썼다(이중 쓰기). 그 사이에 «읽는 곳»이 갈려
+ *   원자를 고쳐도 정산서만 옛 값으로 남는 사고가 났다(우리캐피탈 9,841,650 ≠ 9,457,525).
+ * ★파이어스토어는 **줄이 곧 문서**라 한 줄을 고치는 일이 다른 줄에 닿지 않는다 —
+ *   RTDB 처럼 노드를 통째로 갈아 끼우다 남의 달을 지우는 사고(2026-09-08 하허호 8월)가 구조적으로 안 난다.
+ */
+const fs = getFirestore();
+const ROWS_COL = 'settlement_rows';
+const CLAW_COL = 'settlement_clawbacks';
+{
+  const clawId = (c: Record<string, unknown>) => `${S(c.plate).replace(/[.$#[\]/\s]/g, '_')}_${MONTH}`;
+  const writes: [string, string, Record<string, unknown> | null][] = [
+    ...shaped.map((a) => [ROWS_COL, S(a.code), a] as [string, string, Record<string, unknown>]),
+    ...claws.map((c) => [CLAW_COL, clawId(c), c] as [string, string, Record<string, unknown>]),
+    ...stale.map(([k]) => [ROWS_COL, k, null] as [string, string, null]),
+  ];
+  /** ★한 묶음에 500개까지다 — 넘으면 나눠 보낸다. */
+  for (let i = 0; i < writes.length; i += 400) {
+    const b = fs.batch();
+    for (const [col, id, data] of writes.slice(i, i + 400)) {
+      const ref = fs.collection(col).doc(id);
+      if (data === null) b.delete(ref); else b.set(ref, data);
+    }
+    await b.commit();
+  }
+  console.log(`   ✓ 파이어스토어에도 ${writes.length}개 박았다 — ${ROWS_COL} · ${CLAW_COL}`);
+}
 
 // ── 되읽어 대조 ──
-const back = ((await db.ref(ROWS_NODE).get()).val() || {}) as Record<string, Record<string, unknown>>;
+const back = Object.fromEntries((await fs.collection(ROWS_COL).get()).docs.map((d) => [d.id, d.data()])) as Record<string, Record<string, unknown>>;
 const bad: string[] = [];
 for (const a of atoms) {
   const g = back[a.code];
@@ -483,6 +557,19 @@ for (const a of atoms) {
   if (N(g.payWritten) !== a.payWritten) bad.push(`${a.plate} 지급 — 넣은 ${won(a.payWritten)} · 읽은 ${won(N(g.payWritten))}`);
   if (N(g.claimWritten) !== a.claimWritten) bad.push(`${a.plate} 청구 — 넣은 ${won(a.claimWritten)} · 읽은 ${won(N(g.claimWritten))}`);
 }
+/**
+ * ★★★**두 곳을 «다» 되읽어 맞댄다 — 하나만 보면 갈린 줄 모른다.**
+ *   사장님 2026-09-08 「절대 안 틀리게」.
+ *   이중 쓰기의 값은 «둘이 같다»는 데 있지 «둘 다 썼다»에 있지 않다.
+ *   한쪽만 성공한 채 지나가면, 읽기를 옮기는 날 조용히 틀린 숫자로 갈아탄다.
+ */
+for (const a of atoms) {
+  const d = await fs.collection(ROWS_COL).doc(a.code).get();
+  if (!d.exists) { bad.push(`${a.plate} — 파이어스토어에 안 올라갔다`); continue; }
+  const g = d.data() as Record<string, unknown>;
+  if (N(g.payWritten) !== a.payWritten) bad.push(`${a.plate} 지급(FS) — 넣은 ${won(a.payWritten)} · 읽은 ${won(N(g.payWritten))}`);
+  if (N(g.claimWritten) !== a.claimWritten) bad.push(`${a.plate} 청구(FS) — 넣은 ${won(a.claimWritten)} · 읽은 ${won(N(g.claimWritten))}`);
+}
 if (bad.length) { console.log(`\n   ✕ 되읽기 어긋남 ${bad.length}건`); for (const b of bad.slice(0, 10)) console.log(`      ${b}`); process.exit(1); }
-console.log('   ✓ 되읽어 대조 — 넣은 값 그대로다.\n');
+console.log('   ✓ 되읽어 대조 — RTDB·파이어스토어 «둘 다» 넣은 값 그대로다.\n');
 process.exit(0);

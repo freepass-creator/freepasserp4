@@ -102,17 +102,17 @@ export const PARTNER_CI: readonly PartnerCi[] = [
      * ⚠ 홈페이지가 automgt.co.kr 로 적혀 있었는데 2026-08-27 에 주소가 안 풀렸다.
      *   sokrc.com 이 실제로 열린다 — 우리가 API 로 붙는 그 주소다.
      */
-    alias: '손오공', legal: '주식회사 손오공렌터카', bizNo: '882-87-00650', ceo: '차현일',
-    addr: '서울특별시 강서구 양천로53길 30, 서서울모터리움 1205호', tel: '', web: 'sokrc.com',
+    alias: '손오공', legal: '주식회사 손오공렌터카', bizNo: '882-87-00650', ceo: '조규진',
+    addr: '서울특별시 강서구 양천로53길 30, 1205호(가양동, 서서울모터리움)', tel: '', web: 'sokrc.com', mail: 'autorent@hometax.go.kr',
     code: 'RP012', src: 'erp+web',
     // ★우리(1004호)와 같은 건물 1205호다. 주소를 헷갈리지 말 것.
     rentAccount: '신한 100-032-471576 (주)손오공렌터카',
     payAccount: '',
   },
   {
-    alias: '오토플러스', legal: '오토플러스 주식회사', bizNo: '105-86-06429', ceo: '이윤석',
-    addr: '서울특별시 영등포구 선유동2로 57, 이레빌딩 신관 11층', tel: '1544-2277',
-    web: 'autoplus.co.kr', code: 'RP023', src: 'web',
+    alias: '오토플러스', legal: '오토플러스(주)', bizNo: '105-86-06429', ceo: '이윤석',
+    addr: '서울특별시 영등포구 선유동2로 57,11층(양평동4가,이레빌딩신관)', tel: '1544-2277',
+    web: 'autoplus.co.kr', mail: 'chosc0225@autoplus.co.kr', code: 'RP023', src: 'web',
     // ★autoplus.co.kr 은 스크립트 렌더라 푸터를 못 읽었다. 직영 플랫폼 「리본카」(reborncar.co.kr)
     //   푸터에서 확보했다(2026-08-26). 통신판매업 2020-서울영등포-1338.
     conflict: '★ERP 등록값이 999-99-99999(가짜)다 — 위 번호로 고쳐야 한다. 거래 112건으로 가장 큰 공급사다',
@@ -121,49 +121,49 @@ export const PARTNER_CI: readonly PartnerCi[] = [
   },
   {
     alias: '웰릭스', legal: '웰릭스모빌리티 주식회사', bizNo: '379-88-01956', ceo: '이창영',
-    addr: '경기도 김포시 고촌읍 아라육로152번길 45, 에이동 229호', tel: '1544-3871',
+    addr: '경기도 김포시 고촌읍 아라육로152번길 45, 에이동 229호(국민차매매단지 공항점)', tel: '1544-3871',
     web: 'welrixmobility.com', code: 'RP013', src: 'erp+web',
     /**
      * ★웰릭스가 직접 알려 준 «정산 담당자» 주소 둘 — 2026-09-07 대표님 전달.
      *   「gjw9839@welrixrental.co.kr · dhlee2@welrixrental.co.kr 위 메일 두 곳으로 정산서 발송 요청드립니다」
      *   ⚠ 도메인이 홈페이지(welrixmobility.com)와 다르다(welrixrental.co.kr) — 받은 그대로 적는다.
      */
-    mail: 'gjw9839@welrixrental.co.kr,dhlee2@welrixrental.co.kr',
+    mail: 'shyu@welrixrental.co.kr',
     conflict: '대표 — ERP 이창호 / 홈페이지 이창영(홈페이지를 따랐다). 같은 사업자번호가 JPK모빌리티(차두준)로도 나온다',
     rentAccount: '신한 140-013-750928 웰릭스모빌리티(주)',
     payAccount: '',
   },
   {
-    alias: '아이언', legal: '주식회사 아이언렌트카', bizNo: '715-88-00129', ceo: '김기문',
-    addr: '', tel: '', web: '', code: 'RP006', src: 'erp',
+    alias: '아이언', legal: '(주)아이언렌트카', bizNo: '715-88-00129', ceo: '김기문',
+    addr: '서울특별시 강남구 봉은사로114길 38, 204호(삼성동, 경인빌딩)', tel: '', web: '', mail: 'kimoon7777@naver.com', code: 'RP006', src: 'erp',
     rentAccount: '',
     payAccount: '',
   },
   {
     alias: '아이카', legal: '주식회사 아이카', bizNo: '503-88-01369', ceo: '김영혁',
-    addr: '경기도 수원시 권선구 수인로 43-2', tel: '1661-3922', web: 'icar.or.kr',
+    addr: '경기도 수원시 권선구 수인로 43-2(서둔동)', tel: '1661-3922', web: 'icar.or.kr', mail: 'sky_belly@naver.com',
     code: 'RP004', src: 'erp+web',
     // 통신판매업 2020-수원권선-0121 · cs sky_belly@naver.com (홈페이지 푸터, 2026-08-26)
     rentAccount: '',
     payAccount: '',
   },
   {
-    alias: '우리캐피탈', legal: '우리캐피탈렌터카 주식회사', bizNo: '142-81-15688', ceo: '손삼호',
-    addr: '경기도 용인시 처인구 중부대로 1123', tel: '', web: 'wooricap-rentacar.com',
+    alias: '우리캐피탈', legal: '우리캐피탈렌터카 주식회사', bizNo: '142-81-15688', ceo: '손심호',
+    addr: '경기도 용인시 처인구 중부대로 1123(삼가동)', tel: '', web: 'wooricap-rentacar.com', mail: 'sonsimho@hanmail.net',
     code: 'RP020', src: 'erp+web',
     rentAccount: '국민 274101-04-182593 우리캐피탈렌터카(주)',
     payAccount: '',
   },
   {
-    alias: '스위치', legal: '주식회사 스위치플랜', bizNo: '158-81-03213', ceo: '박영현',
-    addr: '', tel: '', web: '', code: 'RP014', src: 'erp',
+    alias: '스위치', legal: '스위치플랜 주식회사', bizNo: '158-81-03213', ceo: '박영현',
+    addr: '경기도 연천군 전곡읍 은전로 97', tel: '', web: '', mail: 'jpkmbt0@naver.com', code: 'RP014', src: 'erp',
     rentAccount: '신한 140-014-386616 스위치플랜 주식회사',
     payAccount: '',
   },
   {
-    alias: '스타스카이', legal: '주식회사 스타스카이', bizNo: '206-86-03184', ceo: '조기배',
-    addr: '서울특별시 성동구 아차산로7길 36, 303-2호(성수동2가)', tel: '',
-    web: 'sratskyrent.wixsite.com/starskyrentcar', code: 'RP005', src: 'erp+web',
+    alias: '스타스카이', legal: '(주)스타스카이', bizNo: '206-86-09184', ceo: '조기배',
+    addr: '서울특별시 성동구 아차산로7길 36,303-2호(성수동2가)', tel: '',
+    web: 'sratskyrent.wixsite.com/starskyrentcar', mail: 'starskyrent@nate.com', code: 'RP005', src: 'erp+web',
     conflict: '★사업자번호가 한 자리 어긋난다 — ERP 206-86-0**3**184 / 웹 206-86-0**9**184. '
       + '게다가 ERP 에 「스타」(RP018)가 206-86-09184 로 «따로» 등록돼 있다. '
       + '둘이 같은 회사인지, 한쪽이 오타인지 확인해야 한다(대표가 둘 다 조기배)',
@@ -203,8 +203,8 @@ export const PARTNER_CI: readonly PartnerCi[] = [
     payAccount: '',
   },
   {
-    alias: '리더스', legal: '주식회사 리더스렌터카', bizNo: '215-87-46138', ceo: '김종철',
-    addr: '', tel: '', web: '', code: 'RP008', src: 'erp',
+    alias: '리더스', legal: '주식회사 리더스렌트카', bizNo: '215-87-46138', ceo: '김중철',
+    addr: '서울특별시 광진구 구의강변로 106, 101동 2층 208호(구의동, 구의동삼성쉐르빌)', tel: '', web: '', mail: 'ldsrent@naver.com', code: 'RP008', src: 'erp',
     rentAccount: '국민 337101-04-215464 리더스렌트카',
     payAccount: '',
   },
@@ -215,8 +215,8 @@ export const PARTNER_CI: readonly PartnerCi[] = [
     payAccount: '',
   },
   {
-    alias: '렌트존', legal: '주식회사 렌트존', bizNo: '113-86-54067', ceo: '엄은정',
-    addr: '', tel: '', web: '', code: 'PT-0001', src: 'erp',
+    alias: '렌트존', legal: '(주)렌트존', bizNo: '113-86-54067', ceo: '엄은정',
+    addr: '', tel: '', web: '', mail: 'rem1123@hometax.go.kr', code: 'PT-0001', src: 'erp',
     rentAccount: '우리 1005-001-948600 (주)렌트존',
     payAccount: '',
   },

@@ -1,0 +1,62 @@
+name: 최신화 30분 회차(가벼운 쪽)
+
+# > 사장님 2026-09-08 「30분마다 돌아서 최신화를 항상 유지했으면 좋겠는데」
+#
+# ⚠ 매시 회차(sales-erp-hourly)는 실측 48분이 걸린다 — 그대로 30분마다 돌리면 저희끼리 겹친다.
+#   그래서 「자주 바뀌는 것」만 떼어 이 회차로 돌린다. 실측 92초.
+#
+# ★concurrency 를 매시 회차와 «같은 이름»으로 묶는다 — 둘이 같은 판매 4탭을 쓰기 때문이다.
+#   겹치면 한쪽이 쓰는 중에 다른 쪽이 덮는다. 늦는 것이 겹치는 것보다 낫다.
+#   cancel-in-progress: false = 취소하지 않고 «줄을 선다».
+
+# ⚠⚠ **cron 을 켜지 않는다** — 오케스트레이터는 «하나»다.
+#   2026-09-08 실측 — 이 파이프라인은 **이 집 PC 의 작업 스케줄러**(「프리패스-자동동기」 · 매시)가 돌린다.
+#   같은 까닭으로 `sales-erp-hourly.yml` 도 cron 을 뺐다. 여기서 켜면 **두 대가 같은 시트를 쓴다.**
+#   ⇒ 클라우드로 «옮길» 때 되살린다. 순서는 ㉠ GOOGLE_SA_JSON 시크릿 확인 ㉡ 로컬 스케줄러 정지
+#     ㉢ 아래 schedule 복구(되살릴 값: `cron: '0,30 0-10 * * 1-5'` = 평일 KST 09:00~19:00 매시 00·30분).
+#   ★그 전에 켜면 겹친다 — 늦는 것이 겹치는 것보다 낫다.
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: '실제로 반영'
+        type: boolean
+        default: false
+
+concurrency:
+  group: sales-erp-hourly
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22', cache: 'npm' }
+      - run: npm ci
+      - name: 자격증명 준비
+        env: { SA: ${{ secrets.GOOGLE_SA_JSON }} }
+        run: |
+          test -n "$SA" || { echo '::error::GOOGLE_SA_JSON 시크릿이 없습니다.'; exit 1; }
+          mkdir -p tmp/firebase-auth
+          printf '%s' "$SA" > tmp/firebase-auth/sa.json
+      - name: 최신화
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: tmp/firebase-auth/sa.json
+          INVENTORY_EXPORT_SHEET_ID: ${{ secrets.INVENTORY_EXPORT_SHEET_ID }}
+        # ★schedule 은 늘 반영한다. 손으로 돌릴 때만 미리보기를 고를 수 있다.
+        run: |
+          if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ inputs.apply }}" = "true" ]; then
+            npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/refresh-sync.mts --apply
+          else
+            npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/refresh-sync.mts
+          fi
+      - name: 회차 기록 남기기
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: refresh-sync-${{ github.run_id }}
+          path: tmp/refresh-sync-last.txt
+          if-no-files-found: ignore

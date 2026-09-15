@@ -107,6 +107,16 @@ else ok.push('exact self-check 0 fails');
   else if (r.gen_code !== 'RG3') issues.push(`G80: gen ${r.gen_code}`);
   else ok.push(`G80 RG3 ICE (${r.confidence})`);
 }
+// ── 차체 판별: 세단↔슈팅브레이크, 일반↔쿠페가 뒤바뀌면 안 된다(2026-09-10 109호3461·234라9162) ──
+{
+  const sb = (raw: string) => (snapToMaster({ maker: '제네시스', model: 'G70', vehicle_name: raw, cert_car_name: raw, sub_model: '', trim_name: '' } as any, master) as any)?.sub_model || '';
+  const sedan = sb('G70 F/L 2023 세단 가솔린 2.5T 2WD 파퓰러패키지');
+  const shoot = sb('제네시스 더 뉴G70 가솔린 2.0T 2WD 슈팅브레이크 프리미엄');
+  if (/슈팅|슈브/.test(sedan)) issues.push(`G70 세단이 슈팅브레이크로: ${sedan}`); else ok.push('G70 세단→세단');
+  if (!/슈팅/.test(shoot)) issues.push(`G70 슈팅브레이크가 세단으로: ${shoot}`); else ok.push('G70 슈팅브레이크→슈팅브레이크');
+  const gv80 = (snapToMaster({ maker: '제네시스', model: 'GV80', vehicle_name: '뉴 GV80 2.5 가솔린 AWD 기본형', cert_car_name: '뉴 GV80 2.5 가솔린 AWD 기본형', sub_model: '', trim_name: '' } as any, master) as any)?.sub_model || '';
+  if (/쿠페/.test(gv80)) issues.push(`GV80 일반이 쿠페로: ${gv80}`); else ok.push('GV80 일반→쿠페아님');
+}
 {
   const r = snapToMaster(
     { maker: '현대', model: '그랜저', year: 2023, catalog_id: '', variant: '', trim_name: '', sub_model: '' } as any,

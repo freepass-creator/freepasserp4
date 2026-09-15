@@ -21,7 +21,7 @@ on:
 
 concurrency:
   # ⚠ 두 번이 겹쳐 돌면 같은 탭을 서로 덮는다. 앞엣것이 끝날 때까지 기다린다.
-  group: sheet-sync
+  group: freepass-sales-publish
   cancel-in-progress: false
 
 jobs:

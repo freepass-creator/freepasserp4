@@ -1,9 +1,9 @@
 /**
- * **판매시트에서 «발행된 표»로 치는 탭들** — 상품리스트 · 손오공구독 · 픽업구독 · 오플구독.
+ * **판매시트에서 «발행된 표»로 치는 탭들** — 상품리스트 · 손오공상품 · 픽업구독 · 오플구독.
  * (사장님 2026-08-19 「탭 3개로 회귀」 → 2026-08-28 손오공 픽업이 붙어 **4탭**. 개수를 손으로 박지 말고 이 배열을 쓴다)
  *
  * ★세 탭은 같은 발행기(publish-origin-tab, --only 로 갈래만 다름)가 같은 열·같은 정본 차명으로 찍는다.
- *   손오공구독·오플구독은 우리 공통 대여료 블록(단기보증·1개월·12개월·장기보증·24~60개월) 대신 **그 공급사의 기간별 대여료**를 그 자리에 둔다
+ *   손오공상품·오플구독은 우리 공통 대여료 블록(단기보증·1개월·12개월·장기보증·24~60개월) 대신 **그 공급사의 기간별 대여료**를 그 자리에 둔다
  *   (사장님 2026-08-19 — 「우리 공통 기간별 대여료는 없애도 되고, 손오공이랑 오플은 그들의 기간별 대여료를 해 주면 됨 · 손오공 반납형은 보증금(연수×대여료)이랑
  *   기간별 대여료만 · 오플은 12개월 3만Km 이렇게」, publish-sonogong-tab).
  *   그래서 «판매시트에 실린 차 = 네 탭의 합»이고, 상품마스터 맞춤(⑤′)·돈 대조·ERP 대조가 표준 칸(12·24·36개월…)을 찾을 땐 아래 별칭으로 되찾는다.
@@ -11,9 +11,12 @@
  * ★탭 이름은 「접두 MM.DD HH:MM · N대」. 접두마다 한 장만 산다(발행기가 같은 접두 탭을 갈아 끼움).
  */
 import { isImportBrand } from './vehicle-origin';
+import { isPickupPhotoAtom, type PhotoAtom } from './photo-projection';
+
+const S = (v: unknown) => String(v ?? '').trim();
 
 /** 보이는 탭 막대 왼쪽부터 이 차례. 발행기가 `--at` 없이 찍어도 이 자리를 지킨다. */
-export const SALES_PUBLISHED_TAB_PREFIXES = ['상품리스트', '손오공구독', '픽업구독', '오플구독'] as const;
+export const SALES_PUBLISHED_TAB_PREFIXES = ['상품리스트', '손오공상품', '픽업구독', '오플구독'] as const;
 export type SalesPublishedPrefix = (typeof SALES_PUBLISHED_TAB_PREFIXES)[number];
 
 export function salesPublishedTabIndex(prefix: string): number {
@@ -31,13 +34,75 @@ export function pickPublishedSalesTabs(titles: string[]): { prefix: SalesPublish
   return out;
 }
 
+/**
+ * ★★**탭 배정 = 이 표 «한 곳»에서만 정한다 — «그때그때 판단»하지 않는다.**
+ *
+ * 사장님 2026-09-15 「이미 ssot에 분류가 되어있어서 어디에 들어가야하는지 탭위치도 분류해놓고
+ * 그게 거기로 들어가게 해주자」 — 손오공 중고렌트 29대가 「손오공상품」 탭이 아니라 「상품리스트」로
+ * 샜던 것을 고치며 나온 지시. 원인은 `tabOf`(sales-atom-row.ts)에 `provider==='RP012' &&
+ * product_type.includes('구독')`가 박혀 있어 구독이 아닌 상품구분(중고렌트)은 조건을 못 넘은 것 —
+ * 그리고 `count-daesu-atom.mts`가 이 판정을 «손으로 복제»해 두고 있어 같은 버그가 따로 박혀 있었다.
+ *
+ * 그래서 «공급사가 이제까지 몇 대 쓰나»로 그때그때 판단하지 않고, **전체 공급사를 여기 표에
+ * 미리 다 적어 둔다**(`PROVIDER_SALES_TAB`). 새 공급사가 생기면 이 표에 한 줄을 추가해야 하고,
+ * 안 적으면 `unassignedProviderCodes()`가 잡는다(조용히 「상품리스트」로 새지 않는다 — 그게 바로
+ * 이번 사고였다). `tabOf`(F01·F86 공통 발행) · `count-daesu-atom`(대수 단일 카운터) · 그 밖의
+ * 모든 소비자가 `assignSalesTab()` 하나만 부른다.
+ */
+export type TabAssignmentAtom = PhotoAtom & { provider_company_code?: unknown };
+
+/**
+ * 공급사코드 → 판매 탭. **전체 공급사를 다 적는다** — 값을 「상품리스트」로 적더라도 그게
+ * 「지금은 별도 탭이 없다」는 명시적 결정이지, 표에서 빠뜨려 떨어진 기본값이 아니게 한다.
+ * (전체 원자 실측 2026-09-15 — Firestore products.provider_company_code 20종.)
+ */
+export const PROVIDER_SALES_TAB: Record<string, SalesPublishedPrefix> = {
+  RP012: '손오공상품', // 주식회사 손오공렌터카 — 픽업(T카)은 사진 경로로 먼저 갈린다
+  RP023: '오플구독',   // 오토플러스 주식회사
+  RP031: '상품리스트', // (주)이안카
+  RP004: '상품리스트', // 주식회사 아이카
+  RP021: '상품리스트', // 빌린카
+  RP020: '상품리스트', // 우리캐피탈렌터카
+  RP006: '상품리스트', // (주)아이언렌트카
+  RP010: '상품리스트', // KH
+  'PT-0023': '상품리스트', // 주식회사 에스에이렌터카
+  RP018: '상품리스트', // 스타(스카이)
+  RP030: '상품리스트', // 주식회사 제이앤제이렌트카
+  RP013: '상품리스트', // 웰릭스모빌리티
+  RP032: '상품리스트', // 에코렌트카
+  RP008: '상품리스트', // 리더스렌터카
+  RP034: '상품리스트', // 마음카
+  RP016: '상품리스트', // 경진카 주식회사
+  RP015: '상품리스트', // 경진렌트카
+  RP017: '상품리스트', // 센트로
+  'PT-0001': '상품리스트', // (주)렌트존
+  RP022: '상품리스트', // 퍼시픽
+};
+
+/** 원자 하나가 실릴 판매 탭. 픽업(사진 경로)이 먼저 갈리고, 그다음은 `PROVIDER_SALES_TAB` «표만» 본다. */
+export function assignSalesTab(v: TabAssignmentAtom): SalesPublishedPrefix {
+  if (isPickupPhotoAtom(v)) return '픽업구독';
+  const prov = S(v.provider_company_code);
+  return PROVIDER_SALES_TAB[prov] ?? '상품리스트';
+}
+
+/** 표에 없는 공급사코드 — 새 공급사가 조용히 「상품리스트」로 fallback 되는 걸 막는 감사용. */
+export function unassignedProviderCodes(providerCodes: Iterable<unknown>): string[] {
+  const out = new Set<string>();
+  for (const raw of providerCodes) {
+    const prov = S(raw);
+    if (prov && !(prov in PROVIDER_SALES_TAB)) out.add(prov);
+  }
+  return [...out].sort();
+}
+
 /** 우리 공통 대여료 블록(상품리스트 표준 칸). 갈래 탭에서는 이 자리에 공급사 기간별 대여료가 선다. */
 export const STANDARD_MONEY_COLUMNS = ['단기보증', '1개월', '12개월', '장기보증', '24개월', '36개월', '48개월', '60개월'] as const;
 
 /** 갈래 탭에 두는 공급사 원본 요금 블록(원본 시트 머리글 그대로) — publish-sonogong-tab 기본값. */
 export type NativeLeadColumn = { name: string; valueOf: (row: Record<string, string>) => string };
 export const NATIVE_MONEY_BLOCK: Record<Exclude<SalesPublishedPrefix, '상품리스트'>, { src: string; srcTab: string; block: string[]; lead?: NativeLeadColumn }> = {
-  손오공구독: {
+  손오공상품: {
     src: '1WIFn5ObK_nCVGLTjj6rO96i6vxub1QzJmiVW0BpJLcA', srcTab: '구독재고',
     // 반납형: 보증금(글자 「연수×대여료」)+기간별 대여료 · 인수형: 보증금+36/48/60(12·24 인수형은 안 판다 — 값이 생기면 여기 늘린다)
     block: ['보증금 반납형', '12개월 반납형', '24개월 반납형', '36개월 반납형', '48개월 반납형', '60개월 반납형', '보증금 인수형', '36개월 인수형', '48개월 인수형', '60개월 인수형'],
@@ -61,6 +126,11 @@ export function autoplusDepositRuleText(maker: string): string {
   return isImportBrand(String(maker ?? '')) ? '수입: 12개월 대여료×3 · 18개월↑ ×6' : '국산: 월 대여료×2';
 }
 
+/** 손오공 보증금 산출 규칙(사장님 2026-09-11 「계산해놓지 말고 계산식을 보증금 칸에」). 기간마다 다르므로 한 숫자로 못 박는다 — 규칙만 글자로. */
+export function sonokongDepositRuleText(): string {
+  return '월 대여료 × 약정연수 (최대 3개월)';
+}
+
 /** 원본 머리글 → 영업자 표에 보이는 이름(사장님 「12개월 3만Km 이렇게」). 그 밖은 그대로. */
 export const nativeMoneyLabel = (h: string): string => {
   const m = /^(\d+)개월\s*(\d)만\s*(km)?$/i.exec(String(h ?? '').trim());
@@ -71,13 +141,13 @@ const normHead = (h: unknown) => String(h ?? '').replace(/\s+/g, '').replace(/km
 
 /**
  * 갈래 탭에서 표준 칸을 되찾는 별칭 — 상품마스터 맞춤(⑤′)·돈 대조·ERP 대조가 쓴다.
- * 손오공구독: 12~60개월 ← N개월 반납형 · 장기보증 ← 보증금 반납형(글자면 계산값 유지 규칙은 ⑤′ 그대로).
+ * 손오공상품: 12~60개월 ← N개월 반납형 · 장기보증 ← 보증금 반납형(글자면 계산값 유지 규칙은 ⑤′ 그대로).
  * 오플구독: 12개월 ← 12개월 3만km · 24개월 ← 24개월 2만km · 36개월 ← 36개월 2만km (상품리스트 @매핑 별칭과 같은 구간).
  * 단기보증·1개월은 두 갈래 다 없다(그 기간을 안 판다).
  */
 export const SALES_TAB_MONEY_ALIASES: Record<SalesPublishedPrefix, Partial<Record<(typeof STANDARD_MONEY_COLUMNS)[number], string[]>>> = {
   상품리스트: {},
-  손오공구독: {
+  손오공상품: {
     장기보증: ['보증금 반납형'],
     '12개월': ['12개월 반납형'], '24개월': ['24개월 반납형'], '36개월': ['36개월 반납형'], '48개월': ['48개월 반납형'], '60개월': ['60개월 반납형'],
   },
@@ -109,7 +179,7 @@ export function publishedSalesColumns(prefix: SalesPublishedPrefix, baseColumns:
   const labels = native.block.map(nativeMoneyLabel);
   const norm = (value: unknown) => String(value ?? '').trim().replace(/\s+/g, '').replace(/km$/i, '').replace(/[()（）]/g, '');
   const nativeNames = [...native.block, ...labels, ...(native.lead ? [native.lead.name] : [])];
-  // 갈래 탭(손오공구독·픽업구독·오플구독)엔 그 공급사가 안 쓰는 빈 칸을 빼둔다 — 상품리스트에만 남긴다(사장님 2026-08-27 「6개월 어정쩡하게 붙은 거 날려줘」).
+  // 갈래 탭(손오공상품·픽업구독·오플구독)엔 그 공급사가 안 쓰는 빈 칸을 빼둔다 — 상품리스트에만 남긴다(사장님 2026-08-27 「6개월 어정쩡하게 붙은 거 날려줘」).
   const 갈래제외 = ['6개월'];
   const removed = (header: string) =>
     nativeNames.some((name) => norm(name) === norm(header))

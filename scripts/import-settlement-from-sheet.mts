@@ -38,7 +38,8 @@
  *   npx tsx scripts/import-settlement-from-sheet.mts --apply --overwrite   다른 칸도 시트 값으로
  */
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
-import { getDatabase } from 'firebase-admin/database';
+import { getDatabase } from './lib/firestore-path-store.mts';
+import { getFirestore } from 'firebase-admin/firestore';
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { SETTLEMENT_LEDGER_ID as LEDGER } from '../lib/domain/settlement-ledger';
@@ -46,7 +47,7 @@ import { recordFromSheet, normalizeRecord, type SettlementRecord } from '../lib/
 
 const APPLY = process.argv.includes('--apply');
 const OVERWRITE = process.argv.includes('--overwrite');
-const NODE = 'v4/settlement_rows';
+const NODE = 'settlement_rows';
 const EVENTS = 'v4/settlement_events';
 const TABS = ['접수', '취소', '분납실적', '완납실적'];
 const S = (v: unknown) => String(v ?? '').trim();
@@ -57,7 +58,7 @@ const SKIP = new Set(['code', 'createdAt', 'updatedAt', 'fromSheet']);
 
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 if (!getApps().length) {
-  initializeApp({ credential: cert(sa), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' });
+  initializeApp({ credential: cert(sa) });
 }
 const db = getDatabase();
 const jwt = new JWT({ email: sa.client_email, key: sa.private_key, subject: 'pyh@teamjpk.com', scopes: ['https://www.googleapis.com/auth/spreadsheets'] });

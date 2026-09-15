@@ -24,6 +24,7 @@ import { JWT } from 'google-auth-library';
 import { pickPublishedSalesTabs, standardMoneyIndex } from '../lib/domain/sales-published-tabs';
 import { DEFAULT_PRODUCT_MASTER_SHEET_ID, PRODUCT_MASTER_TAB } from '../lib/domain/product-master-sheet';
 import { isExactRealPlate } from '../lib/domain/product';
+import { googleSheetsServiceAccount } from '../lib/server/google-service-account';
 
 type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim();
@@ -41,7 +42,7 @@ const isNoDeposit = (v: unknown) => NO_DEPOSIT.test(S(v).replace(/[\s,]/g, ''));
 const colA1 = (i: number) => { let t = '', n = i + 1; while (n > 0) { const r = (n - 1) % 26; t = String.fromCharCode(65 + r) + t; n = Math.floor((n - 1) / 26); } return t; };
 const SHORT = ['1', '12'] as const; const LONG = ['24', '36', '48', '60'] as const;
 
-const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
+const sa = googleSheetsServiceAccount('tmp/firebase-auth/sa.json');
 const jwt = new JWT({ email: sa.client_email, key: sa.private_key, scopes: ['https://www.googleapis.com/auth/spreadsheets'], subject: 'pyh@teamjpk.com' });
 const call = async (u: string, init?: RequestInit): Promise<Rec> => {
   for (let n = 0; ; n++) {
@@ -57,7 +58,7 @@ const SH = 'https://sheets.googleapis.com/v4/spreadsheets';
 
 // ── 발행된 상품리스트(최신 탭)
 const meta = await call(`${SH}/${SALES}?fields=sheets.properties(title,hidden)`);
-// ★발행된 표 = 상품리스트 · 손오공구독 · 오플구독 세 탭의 합(2026-08-19 탭 3개로 회귀) — 한 탭만 읽으면 오플·손오공 구독이 «없는 차»가 된다.
+// ★발행된 표 = 상품리스트 · 손오공상품 · 오플구독 세 탭의 합(2026-08-19 탭 3개로 회귀) — 한 탭만 읽으면 오플·손오공 구독이 «없는 차»가 된다.
 const publishedTabs = pickPublishedSalesTabs(((meta.sheets || []) as Rec[]).filter((s) => !s.properties?.hidden).map((s) => S(s.properties?.title)));
 if (!publishedTabs.some((t) => t.prefix === '상품리스트')) throw new Error('발행된 「상품리스트」 탭이 없다');
 const salesTitle = publishedTabs.map((t) => t.title).join(' + ');
@@ -67,7 +68,7 @@ const need = ['차량번호', '배차상태', '단기보증', '1개월', '12개�
 for (const tab of publishedTabs) {
 const sv = await call(`${SH}/${SALES}/values/${encodeURIComponent(`'${tab.title.replace(/'/g, "''")}'!A1:CZ2000`)}`) as { values?: string[][] };
 const srows = ((sv.values || []) as string[][]).map((r) => r.map(S)); const sh = srows[0] || [];
-// ★갈래 탭(손오공구독·오플구독)은 우리 공통 대여료 블록 대신 공급사 기간별 대여료가 서 있다 — 표준 칸은 별칭으로 되찾고(12개월←12개월 반납형 / 12개월 3만km …),
+// ★갈래 탭(손오공상품·오플구독)은 우리 공통 대여료 블록 대신 공급사 기간별 대여료가 서 있다 — 표준 칸은 별칭으로 되찾고(12개월←12개월 반납형 / 12개월 3만km …),
 //   별칭도 없는 칸(단기보증·1개월 등 그 공급사가 안 파는 기간)은 -1 → 빈 값으로 읽어 「-」와 같이 다룬다.
 const sat = (n: string) => standardMoneyIndex(tab.prefix, sh, n);
 for (const n of need) if (sat(n) < 0 && (tab.prefix === '상품리스트' || n === '차량번호' || n === '배차상태')) throw new Error(`「${tab.title}」 머리행에 「${n}」 없음`);

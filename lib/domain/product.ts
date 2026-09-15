@@ -13,6 +13,7 @@ import { moneyOrRateText, moneyOrRatePercent, wonLabel } from '@/lib/domain/poli
  *   `esign-required-documents`(거래 채)를 부르면 위약금율·계약종류까지 따라온다(2026-09-08 갈랐다).
  */
 import { policyEsignRequiredDocuments } from '@/lib/domain/required-documents';
+import { hasDeletedInventoryMarker, isOpenInventoryAtom, isUnavailableInventoryAtom } from '@/lib/domain/inventory-contract';
 export { PROMO_BADGES, PROMO_BADGES_ACTIVE, PROMO_BADGES_PLANNED, MAX_PROMO_BADGES } from '@/lib/intake/entities';
 
 /**
@@ -615,7 +616,7 @@ export function normalizeVehicleDisplayStatus(value: unknown): (typeof VEHICLE_D
  */
 export function isHiddenFromCatalog(p: { vehicle_status?: unknown; _deleted?: unknown }): boolean {
   if (p._deleted === true) return true;
-  return String(p.vehicle_status || '').replace(/\s+/g, '') === '출고불가';
+  return isUnavailableInventoryAtom(p);
 }
 
 /**
@@ -673,27 +674,15 @@ export function isListableProduct(p: EntityRecord): boolean {
 }
 
 /**
- * **재고에 있는 차** — 요금은 안 따진다. 영업자 엑셀·재고 대조가 쓰는 기준이다.
+ * **현재 재고** — 등록된 원자에서 출고불가만 뺀다. ERP·영업자 시트·재고 대조가 쓰는 기준이다.
  *
  * `isListableProduct` 와 갈라 두는 이유: 손님 카탈로그에 값 없는 카드를 세우면 안 되지만,
  * **영업자가 보는 표에는 있어야 한다**(사장님 2026-08-12 — 「공급사시트 erp 엑셀이 항상 같아야해」).
- * 요금이 아직 없는 차는 «없는 차»가 아니라 «값을 아직 못 받은 차»다.
+ * 요금·차명·공급사 정보가 덜 찬 원자도 «없는 차»가 아니라 보완할 재고다.
  */
 export function isStockedProduct(p: EntityRecord): boolean {
-  if (isHiddenFromCatalog(p)) return false;
-  /**
-   * ★**차라고 말할 근거**가 있어야 한다 — 누구 차인지(공급사)와 무슨 차인지(차번 또는 차종).
-   *   요금은 안 따진다(값을 아직 못 받은 차도 재고다). 하지만 둘 다 없으면 그건 잔재다.
-   *   실측 2026-08-12: 파워트레인·연료만 있고 나머지가 전부 빈 `EXT_` 레코드 3건이
-   *   영업자 표 맨 위에 빈 줄로 올라왔다 — 영업자가 「시트가 깨졌다」고 본 게 이것이다.
-   *   ⚠ 차번이 없는 것 자체는 이유가 안 된다. 번호미정 신차는 차종·공급사가 있고 팔린다.
-   */
-  const named = String(p.car_number ?? '').trim() || String(p.model ?? '').trim() || String(p.sub_model ?? '').trim();
-  const owned = String(p.provider_company_code ?? '').trim()
-    || String(p.partner_code ?? '').trim()
-    || String(p.provider_name ?? '').trim()
-    || String(p.partner_name ?? '').trim();
-  return !!(named && owned);
+  // 삭제표식은 등록 대수에서는 빼지 않지만, 계약 위반을 고치기 전 실시간 화면에 다시 노출하지 않는다.
+  return !hasDeletedInventoryMarker(p) && isOpenInventoryAtom(p);
 }
 
 export function vehicleTone(s: string): 'green' | 'blue' | 'amber' | 'gray' | 'red' | 'orange' {
@@ -979,7 +968,7 @@ export function detailSections(p: EntityRecord, audience: Audience = 'agent'): D
    * 상담에서 자주 묻는 값이다(사장님 2026-08-20 「차량정보에 차량가격을 빼먹었네」).
    *
    * ⚠ **값이 오는 역할에만 줄을 세운다.** `vehicle_price` 는 RTDB `products_private` 로 갈라져 있고
-   *   `rtdb-adapter.readProductPrivate` 가 admin·provider 에게만 읽어 병합한다 — 영업사원 브라우저엔
+   *   `FirestoreAdapter.readProductPrivate` 가 admin·provider 에게만 읽어 병합한다 — 영업사원 브라우저엔
    *   애초에 안 온다. 그런데도 줄을 세우면 «우리도 모르는 값»처럼 「—」가 찍혀 영업자가 손님에게
    *   잘못 말한다. 손님 화면은 화이트리스트(`public-catalog`)에서 빠져 있어 어차피 값이 없다.
    *   → 영업사원·손님에게도 보이려면 노출 결정 + 규칙·리더 변경이 필요하다(표시 문제가 아니다).

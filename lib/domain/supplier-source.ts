@@ -46,6 +46,52 @@ export function hubSourceMap(rows: string[][]): Map<string, string> {
   return out;
 }
 
+/** 문패 격자 → 공급사코드 → **공급사명**. 재고 탭을 회사별로 가를 때 쓴다(아래 `myStockTabs`). */
+export function hubNameMap(rows: string[][]): Map<string, string> {
+  const out = new Map<string, string>();
+  const N = (v: unknown) => S(v).replace(/\s+/g, '');
+  let ci = -1, ni = -1;
+  for (const r of rows.slice(0, 5)) {
+    const c = r.findIndex((x) => /공급사코드|코드/.test(N(x)));
+    const n = r.findIndex((x) => /공급사명|회사명|이름/.test(N(x)));
+    if (c >= 0 && n >= 0) { ci = c; ni = n; break; }
+  }
+  if (ci < 0 || ni < 0) return out;
+  for (const r of rows) {
+    const code = S(r[ci]); const name = S(r[ni]);
+    if (!code || !name || !/^(RP|PT)/i.test(code)) continue;
+    out.set(code.toUpperCase(), name);
+  }
+  return out;
+}
+
+/**
+ * **한 시트를 여러 회사가 나눠 쓸 때, «내 회사의 재고 탭»만 고른다.**
+ *
+ * ⚠⚠ 2026-09-08 사고 — 수집기가 모든 탭을 읽고 `--code` 하나로 통째 태그해서 경진카 차가 경진렌트 것이 됐다.
+ *   **공급사 코드는 정산이 매달리는 열쇠**라, 남의 차를 우리 회사 것으로 적으면 돈이 어긋난다.
+ *
+ * ★맞대는 법 — 「경진」 같은 «별칭»으로는 못 가른다(경진카재고·경진렌트재고를 «둘 다» 잡는다).
+ *   탭에서 꼬리 「재고」를, 이름에서 「주식회사·(주)」를 걷고 **긴 쪽이 짧은 쪽을 품는가**로 본다.
+ * ```
+ *   경진렌트카 ↔ 「경진렌트재고」 → 경진렌트 ⊂ 경진렌트카   ✔   「경진카재고」 → 경진카 ⊄ 경진렌트카  ✘
+ *   경진카     ↔ 「경진카재고」   → 경진카   ⊂ 경진카       ✔
+ *   스카이렌트카 ↔ 「스카이재고」  → 스카이   ⊂ 스카이렌트카 ✔   「스타재고」  → 스타   ⊄ 스카이렌트카 ✘
+ * ```
+ * ★**내 탭이 비었으면 «내 재고가 없다»는 뜻**이지 남의 탭을 읽을 이유가 아니다.
+ *   (한 계열을 한 덩이로 «보여 주는» 것은 발행 쪽 몫 — `build-channel-supplier-sheet` 의 FAMILY.)
+ */
+export function myStockTabs(tabs: string[], myName: string): string[] {
+  const N = (v: unknown) => S(v).replace(/\s+/g, '').toLowerCase();
+  const 이름 = N(S(myName).replace(/주식회사|\(주\)|㈜/g, ''));
+  if (!이름) return [];
+  return tabs.filter((t) => {
+    const 탭 = N(S(t).replace(/재고$/, ''));
+    if (!탭) return false;
+    return 이름.includes(탭) || 탭.includes(이름);
+  });
+}
+
 export type SourcePick = { id: string; from: '문패' | 'partner.sheet_url'; };
 
 /**

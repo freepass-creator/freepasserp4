@@ -2,7 +2,7 @@
  * **영업채널 카드시트 발행 — 「상품시트」 갈래.** 기본 dry-run, 반영은 `--apply`.
  *
  * ★사장님 2026-08-21 — 「이거도 매뉴얼 만들어서 다른시트랑 동일하게 업데이트 될수 있게끔 / 상품시트 업데이트될때 같이 하게끔」
- *   → run-daily ④″ 단계에서 상품리스트·손오공구독·오플구독을 찍은 뒤 이어서 돈다.
+ *   → run-daily ④″ 단계에서 상품리스트·손오공상품·오플구독을 찍은 뒤 이어서 돈다.
  *
  * 하는 일 — 채널 문서의 탭을 통째로 비우고 다시 찍는다(사람이 고친 것은 남지 않는다).
  *   ① 공급사 제공시트 재고 탭에서 줄을 읽는다(출고불가만 제외 — 판매시트와 같은 기준)
@@ -20,6 +20,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
+import { googleSheetsServiceAccount } from '../lib/server/google-service-account';
 import {
   BANNER_HEIGHT, CARD_EXCLUDE, CARD_ROWS, CHANNELS, COLUMN_WIDTHS, FONT, ROW_HEIGHT, S,
   buildCard, cardMerges, cardPolicy, cell, channelDocTitle, channelIdentityRows, channelManualRows,
@@ -31,7 +32,7 @@ const KEEP_NO_PRICE = process.argv.includes('--keep-no-price');
 const arg = (k: string, d = '') => (process.argv.find((a) => a.startsWith(`--${k}=`)) || '').slice(k.length + 3) || d;
 const ONLY = arg('channel');
 
-const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
+const sa = googleSheetsServiceAccount('tmp/firebase-auth/sa.json');
 const jwt = new JWT({ email: sa.client_email, key: sa.private_key, scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive'], subject: 'pyh@teamjpk.com' });
 const SS = 'https://sheets.googleapis.com/v4/spreadsheets';
 const DRIVE = 'https://www.googleapis.com/drive/v3/files';

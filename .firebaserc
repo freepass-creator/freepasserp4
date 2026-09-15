@@ -1,5 +1,6 @@
 {
   "projects": {
-    "default": "freepasserp3"
+    "default": "freepasserp5",
+    "legacy": "freepasserp3"
   }
 }

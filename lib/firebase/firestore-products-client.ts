@@ -20,7 +20,7 @@
  */
 import type { EntityRecord } from '@/lib/intake/entities';
 import { getFirebaseApp } from './client';
-import { isExcludedProduct, dedupeProductsByVehicle, canSeeProductCost, stripProductCost } from './rtdb-products';
+import { isExcludedProduct, dedupeProductsByVehicle, canSeeProductCost, stripProductCost } from './product-private';
 
 export function finderFromFirestoreEnabled(): boolean {
   /** 기본 켬 — «0» 을 명시했을 때만 옛 RTDB 길로 돌아간다. */

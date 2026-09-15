@@ -16,11 +16,14 @@
  */
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
+import { googleSheetsServiceAccount } from '../lib/server/google-service-account';
+import { getFirestore } from 'firebase-admin/firestore';
 import { SHEET_GRID_FIELDS, readSupplierSheet } from '../lib/domain/supplier-sheet-read';
 import { hasPolicyColumns, policyFieldsFrom, policySameKey, policyTabRowFrom, POLICY_SAME_KEYS, wonOf } from '../lib/domain/supplier-row-policy';
 import { policySheetHeader } from '../lib/domain/policy-sheet-layout';
 import { POLICY_TAB_ALIASES, policyTabTitle } from '../lib/domain/supplier-template-sheet';
 import type { EntityRecord } from '../lib/intake/entities';
+import { firebaseAdminApp } from '../lib/server/firebase-admin';
 
 type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim();
@@ -29,7 +32,6 @@ const arg = (k: string, d = '') => (process.argv.find((a) => a.startsWith(`--${k
 const APPLY = process.argv.includes('--apply');
 const FROM = arg('from'); const TO = arg('to'); const CODE = arg('code');
 if (!FROM || !TO || !CODE) throw new Error('--from=<원본ID> --to=<정제시트ID> --code=RP0xx 가 필요하다');
-const DB = 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app';
 
 /**
  * 원본 재고표에 없는, 공급사가 확정해 준 계약 자격 조건.
@@ -41,9 +43,9 @@ const REQUIRED_POLICY_FIELDS: Record<string, Rec> = {
   RP004: { basic_driver_age: '만 26세 이상', driver_age_lowering: '불가' },
 };
 
-const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
+const sa = googleSheetsServiceAccount('tmp/firebase-auth/sa.json');
 const jwt = new JWT({ email: sa.client_email, key: sa.private_key, scopes: ['https://www.googleapis.com/auth/spreadsheets'], subject: 'pyh@teamjpk.com' });
-const dbT = (await new JWT({ email: sa.client_email, key: sa.private_key, scopes: ['https://www.googleapis.com/auth/firebase.database', 'https://www.googleapis.com/auth/userinfo.email'] }).getAccessToken()).token;
+const firestore = getFirestore(firebaseAdminApp());
 const call = async (u: string, init?: RequestInit): Promise<Rec> => {
   for (let n = 0; ; n++) {
     const tok = (await jwt.getAccessToken()).token;
@@ -60,7 +62,7 @@ const colA1 = (i: number) => { let s = '', n = i + 1; while (n > 0) { const r = 
 // ── ① 원본 줄 → 정책 필드(줄마다), 같은 조건끼리 접기
 const grid = await call(`${SH}/${FROM}?includeGridData=true&fields=${encodeURIComponent(SHEET_GRID_FIELDS)}`);
 const read = readSupplierSheet(grid as never, { partner_code: CODE } as EntityRecord);
-type Group = { key: string; fields: Rec; tab: Record<string, string>; plates: string[]; sampleTab: string };
+type Group = { key: string; fields: Rec; tab: Record<string, string>; plates: string[]; sampleTab: string; 원문?: Record<string, string> };
 const groups = new Map<string, Group>();
 const plateOrder: string[] = [];
 let rowsSeen = 0, tabsWithPolicy = 0;
@@ -79,22 +81,23 @@ for (const t of read.tabs) {
     rowsSeen++;
     plateOrder.push(plate);
     const key = policySameKey(fields);
-    if (!groups.has(key)) groups.set(key, { key, fields, tab: policyTabRowFrom(fields), plates: [], sampleTab: t.title });
+    // ★렌트사 원문 통째(대표 조건 행) — 정제값과 별도로 원천 그대로 보관(사장님 2026-09-11).
+    const 원문 = Object.fromEntries(hdr.map((h, i) => [S(h), S(r[i])]).filter(([k, v]) => k && v));
+    if (!groups.has(key)) groups.set(key, { key, fields, tab: policyTabRowFrom(fields), plates: [], sampleTab: t.title, 원문 });
     groups.get(key)!.plates.push(plate);
   }
 }
 console.log(`■ ${CODE} 정책 미러 ${APPLY ? '반영' : '미리보기'} — 원본 ${read.tabs.length}탭(조건 칸 있는 탭 ${tabsWithPolicy}) · 조건 읽은 차 ${rowsSeen} · 정책 ${groups.size}벌`);
 if (!groups.size) { console.log('  조건 칸이 없다 — 할 일 없음(「(프리패스 기본)」 적용)'); process.exit(0); }
 
-// ── ② ERP 에 같은 조건의 정책이 있으면 그 코드를 쓴다
+// ── ② Firestore ERP에 같은 조건의 정책이 있으면 그 코드를 쓴다
 const existing: { code: string; rec: Rec }[] = [];
-for (const path of ['policies', 'v4/policies']) {
-  const all = JSON.parse(await (await fetch(`${DB}/${path}.json?access_token=${dbT}`)).text()) || {};
-  for (const [k, v] of Object.entries<Rec>(all)) {
-    if (!v || typeof v !== 'object' || v._deleted === true || v.deletedAt) continue;
-    if (S(v.provider_company_code) !== CODE) continue;
-    existing.push({ code: S(v.policy_code) || k, rec: v });
-  }
+const policySnapshot = await firestore.collection('policy').get();
+for (const document of policySnapshot.docs) {
+  const v = document.data() as Rec;
+  if (!v || v._deleted === true || v.deletedAt) continue;
+  if (S(v.provider_company_code) !== CODE) continue;
+  existing.push({ code: S(v.policy_code) || document.id, rec: v });
 }
 const sameAsExisting = (fields: Rec): string => {
   for (const { code, rec } of existing) {
@@ -166,5 +169,17 @@ if (!APPLY) { console.log('※ dry-run. 반영은 --apply'); process.exit(0); }
 await call(`${SH}/${TO}/values/${encodeURIComponent(`'${POLICY_TAB}'!A2:${colA1(Math.max(hdr.length, 1) - 1)}${Math.max(prow.length + assigned.length + 5, 60)}`)}:clear`, { method: 'POST', body: '{}' });
 await call(`${SH}/${TO}/values/${encodeURIComponent(`'${POLICY_TAB}'!A2`)}?valueInputOption=RAW`, { method: 'PUT', body: JSON.stringify({ values: [...keep, ...newRows] }) });
 if (cellWrites.length) await call(`${SH}/${TO}/values:batchUpdate`, { method: 'POST', body: JSON.stringify({ valueInputOption: 'RAW', data: cellWrites }) });
+// ── ⑤ 정책 원자에 «원문 통째» 박기 (정제값은 그대로, 원천을 별도로) — 사장님 2026-09-11
+{
+  const pbatch = firestore.batch();
+  let pn = 0;
+  for (const { code, g } of assigned) {
+    if (!g.원문 || !Object.keys(g.원문).length) continue;
+    pbatch.set(firestore.collection('policy').doc(code), { 원문: g.원문, provider_company_code: CODE, _원문_source: FROM, _원문_at: Date.now() }, { merge: true });
+    pn++;
+  }
+  if (pn) await pbatch.commit();
+  console.log(`  ✓ 정책 원자 원문 ${pn}벌 박음(원천 그대로 · 정제값 불변)`);
+}
 console.log(`  ✓ 「${POLICY_TAB}」 탭 ${keep.length + newRows.length}줄(기존 유지 ${keep.length} + ${CODE} ${newRows.length}) · 재고 정책코드 ${setN}줄`);
 console.log(`  → 이어서: npx tsx scripts/normalize-policy-values.mts --sheet=${TO} --apply`);

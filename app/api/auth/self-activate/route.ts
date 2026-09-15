@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { getAuth } from 'firebase-admin/auth';
-import { firebaseAdminApp, firebaseAdminDatabase } from '@/lib/server/firebase-admin';
+import { firebaseAdminApp, firebaseAdminStore } from '@/lib/server/firebase-admin';
 import { selfServeActivationDecision } from '@/lib/domain/self-serve-activation';
 import { newId } from '@/lib/domain/ids';
 
@@ -45,7 +45,7 @@ export async function POST(request: Request): Promise<Response> {
     );
   }
 
-  const profileRef = firebaseAdminDatabase().ref(`users/${uid}`);
+  const profileRef = firebaseAdminStore().ref(`users/${uid}`);
   let deniedReason = 'not_eligible';
   const issuedUserCode = newId('user');
   try {

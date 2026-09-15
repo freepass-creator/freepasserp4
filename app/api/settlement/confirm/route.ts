@@ -29,8 +29,8 @@
  * ⚠ v4 overlay 에만 쓴다. v3 노드는 건드리지 않는다.
  */
 import { NextResponse } from 'next/server';
-import { getDatabase } from 'firebase-admin/database';
-import { firebaseAdminApp, verifyActiveBearer } from '@/lib/server/firebase-admin';
+import type { AdminRef } from '@/lib/server/firestore-path-store';
+import { firebaseAdminApp, verifyActiveBearer, firebaseAdminStore } from '@/lib/server/firebase-admin';
 import { ledgerError, readLedger, sheetsToken } from '@/lib/server/settlement-ledger-read';
 import { listRows, storeError } from '@/lib/server/settlement-store';
 import { billingMonth } from '@/lib/domain/settlement-stage';
@@ -52,7 +52,7 @@ const S = (v: unknown) => String(v ?? '').trim();
  * ⚠ 전화번호가 없으면 «자기 코드 하나»뿐이다. 없는 것을 같다고 보지 않는다.
  */
 const digits = (v: unknown) => String(v ?? '').replace(/\D/g, '');
-async function siblingCodes(db: ReturnType<typeof getDatabase>, me: { user_code?: string; phone?: string }): Promise<string[]> {
+async function siblingCodes(db: AdminRef, me: { user_code?: string; phone?: string }): Promise<string[]> {
   const mine = S(me.user_code);
   const ph = digits(me.phone);
   if (!ph || ph.length < 9) return mine ? [mine] : [];
@@ -68,7 +68,7 @@ async function siblingCodes(db: ReturnType<typeof getDatabase>, me: { user_code?
 
 /** 이 사람이 원장에서 불리는 이름 — 확인의 주체이자 열쇠. */
 async function whoAmI(who: { uid: string; role: string; companyCode: string }): Promise<{ name: string; role: 'agent' | 'provider' | 'admin'; code: string; codes: string[]; channel: string }> {
-  const db = getDatabase(firebaseAdminApp());
+  const db = firebaseAdminStore();
   if (who.role === 'provider') {
     const code = S(who.companyCode);
     if (!code) return { name: '', role: 'provider', code: '', codes: [], channel: '' };
@@ -150,7 +150,7 @@ async function writeProxy(
     }, { status: 400 });
   }
 
-  const db = getDatabase(firebaseAdminApp());
+  const db = firebaseAdminStore();
   const me = (await db.ref(`users/${bearer.uid}`).get().catch(() => null))?.val() as { name?: string } | null;
   const rec: Confirmation = {
     key: confirmKey(month, hit),
@@ -180,7 +180,7 @@ export async function GET(req: Request) {
   const month = S(new URL(req.url).searchParams.get('month'));
   if (!month) return NextResponse.json({ ok: false, reason: '청구월을 지정해 주세요.' }, { status: 400 });
 
-  const db = getDatabase(firebaseAdminApp());
+  const db = firebaseAdminStore();
   const all = ((await db.ref(NODE).get().catch(() => null))?.val() || {}) as Record<string, Confirmation>;
   const ofMonth = Object.values(all).filter((c) => c.month === month);
 
@@ -244,6 +244,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, reason: '어느 건이 틀렸는지 고르거나 사유를 적어 주세요.' }, { status: 400 });
   }
 
-  await getDatabase(firebaseAdminApp()).ref(`${NODE}/${rec.key}`).set(rec);
+  await firebaseAdminStore().ref(`${NODE}/${rec.key}`).set(rec);
   return NextResponse.json({ ok: true, ...rec });
 }

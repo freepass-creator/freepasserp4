@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { verifyActiveBearer, firebaseAdminDatabase } from '@/lib/server/firebase-admin';
+import { verifyActiveBearer, firebaseAdminStore } from '@/lib/server/firebase-admin';
 import {
   canAccessFreepassEsignContract,
   canManageFreepassEsign,
@@ -46,7 +46,7 @@ type SignedEvidence = { fields: EsignRecord; identity: string; sessionHash: stri
  * 완료본과 같은 방식으로 고객의 비공개 제출값을 발행 스냅샷에 합성한다.
  * 식별값은 이 요청 안에서만 해시로 비교하고 응답·계약 공개 노드에는 남기지 않는다.
  */
-async function signedEvidence(db: ReturnType<typeof firebaseAdminDatabase>, contract: EsignRecord, contractCode: string): Promise<SignedEvidence | null> {
+async function signedEvidence(db: ReturnType<typeof firebaseAdminStore>, contract: EsignRecord, contractCode: string): Promise<SignedEvidence | null> {
   const sessionHash = S(contract.esign_session_hash);
   if (!sessionHash || S(contract.esign_provider) !== 'freepass' || S(contract.sign_status) !== '서명완료') return null;
   const [sessionSnap, privateSnap] = await Promise.all([
@@ -71,7 +71,7 @@ async function availableRows(anchorCode: string, actor: Awaited<ReturnType<typeo
   if (!anchorEvidence || !anchorHandover.start || !anchorHandover.end) return [{ contract: anchor.contract, code: anchorCode, selectable: false, fields: {} }];
   // 신원확인 값이 없던 레거시 완료본은 개별 발급만 허용한다.
   if (!anchorEvidence.identity) return [{ contract: anchor.contract, code: anchorCode, selectable: true, fields: anchorEvidence.fields }];
-  const db = firebaseAdminDatabase();
+  const db = firebaseAdminStore();
   const [legacySnap, overlaySnap] = await Promise.all([
     db.ref('contracts').get().catch(() => null),
     db.ref('v4/contracts').get().catch(() => null),

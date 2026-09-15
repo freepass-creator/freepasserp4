@@ -9,6 +9,8 @@
  * ★옛 값도 읽는다 — 정책관리에 숫자로 들어 있던 것(100000 = 10만원 · 0.3 = 30%).
  *   어느 쪽인지는 필드가 말한다: `legacy: 'won'`(연령 하향·추가운전·승계) / `legacy: 'rate'`(위약금).
  */
+import { formatWon } from './policy-value-spec';
+
 export type MoneyOrRate =
   | { kind: 'won'; won: number }
   | { kind: 'rate'; rate: number }        // 0.1 = 10%
@@ -90,14 +92,14 @@ export function moneyOrRateWon(value: unknown, baseWon: number | null | undefine
   return null;
 }
 
+/**
+ * 금액 한글 표기 정본 — 규칙 «한 곳»은 `formatWon`(policy-value-spec, 사장님 2026-08-18 확정):
+ *   1천만원 «미만» = 아라비아 만 수(「50만원」·「100만원」·「500만원」) · 1천만원 «이상» = 한글 억/천/백만(「1천만원」·「1천5백만원」·「5천만원」·「1억원」·「1억5천만원」).
+ *   원문이 「500000」이든 「150000000」이든(공급사가 0을 쭉 써도) 우리 표현은 이 규칙 하나로 정제한다.
+ *   ★규칙을 두 곳에 적지 않는다 — 계약서·견적(여기)과 시트·원자 정제(formatWon)가 같은 함수를 쓴다.
+ */
 export function wonLabel(won: number): string {
-  if (won >= 1e8 && won % 10_000 === 0) {
-    const eok = Math.floor(won / 1e8);
-    const rest = won - eok * 1e8;
-    return rest ? `${eok}억 ${(rest / 10_000).toLocaleString()}만원` : `${eok}억원`;
-  }
-  if (won >= 10_000 && won % 10_000 === 0) return `${(won / 10_000).toLocaleString()}만원`;
-  return `${won.toLocaleString()}원`;
+  return formatWon(won);
 }
 
 /**

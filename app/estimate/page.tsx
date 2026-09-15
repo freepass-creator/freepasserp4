@@ -264,6 +264,11 @@ function EstimatePageInner() {
           </div>
         </div>
 
+        {/* ★웹에서 두 기둥으로 서기 위한 감싸개 — **폰에서는 없는 셈**이다(`.col{display:contents}`).
+            사장님 2026-09-06 「웹 전용 화면은 없네, 견적기가」. 폰 화면을 한 픽셀도 안 건드리려고
+            감싸개를 CSS 로만 켠다 — 마크업은 폰·웹이 같고, 넓은 화면에서만 두 기둥이 된다. */}
+        <div className="col main">
+
         {/* STEP 1 차량 */}
         <div className="card">
           <div className="step"><span className="no">1</span>차량<span className="veh">{vehTag}</span></div>
@@ -369,6 +374,10 @@ function EstimatePageInner() {
           </div>
         </div>
 
+        </div>{/* .col.main */}
+
+        <div className="col side">
+
         <div className="basis">
           <span className="bi">원가 기준</span>
           <span className="bt">
@@ -417,6 +426,8 @@ function EstimatePageInner() {
           })}
           </div>
         </div>
+
+        </div>{/* .col.side */}
 
         <CarPicker open={pickerOpen} mode={cond} onClose={() => setPickerOpen(false)}
           onPick={(c) => {

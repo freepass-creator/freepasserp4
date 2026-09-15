@@ -19,6 +19,7 @@ import {
   type TrimKeyRegistry,
 } from '../lib/domain/vehicle-trim-key-contract';
 import { MASTER_SHEET_ID, MASTER_TAB } from '../lib/domain/vehicle-master-sheet';
+import { googleSheetsServiceAccount } from '../lib/server/google-service-account';
 
 type Rec = Record<string, any>;
 const S = (value: unknown) => String(value ?? '').trim();
@@ -33,8 +34,7 @@ async function fetchLiveValues(): Promise<string[][]> {
     return Array.isArray(parsed) ? parsed : parsed.values || [];
   }
 
-  const credentialPath = S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json';
-  const serviceAccount = JSON.parse(readFileSync(credentialPath, 'utf8')) as Rec;
+  const serviceAccount = googleSheetsServiceAccount('tmp/firebase-auth/sa.json');
   const subject = S(process.env.GOOGLE_WORKSPACE_SUBJECT) || 'pyh@teamjpk.com';
   let token: string | null | undefined;
   try {

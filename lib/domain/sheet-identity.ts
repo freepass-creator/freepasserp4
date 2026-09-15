@@ -44,7 +44,7 @@ export const STATUS_HELP: Record<SheetStatus, string> = {
 
 const FLOW_OUT_SUPPLIER = (code: string, label: string) => [
   `문패 「공급사시트정리」의 ${code} ${label} 줄이 이 시트를 가리킨다 → 아래 셋이 이 시트를 읽는다`,
-  '① 판매시트 「프리패스 상품리스트」 — 재고 탭 줄이 그대로(출고불가 제외 · 빈 대여료 「-」 · 차명은 정본→정제칸→원문). 탭 4개: 상품리스트 / 손오공 구독재고는 「손오공구독」(보증금 반납형·12~60개월 반납형·보증금 인수형·36/48/60개월 인수형) / 손오공 픽업재고(T카)는 「픽업구독」(손오공구독과 같은 반납형·인수형, 2026-08-27) / 오토플러스는 「오플구독」(12개월 2만km … 36개월 3만km) — 갈래 탭엔 우리 공통 대여료 블록이 없고 그 공급사 기간별 대여료가 선다. 같은 차는 한 탭에만.',
+  '① 판매시트 「프리패스 상품리스트」 — 재고 탭 줄이 그대로(출고불가 제외 · 빈 대여료 「-」 · 차명은 정본→정제칸→원문). 탭 4개: 상품리스트 / 손오공 구독재고는 「손오공상품」(보증금 반납형·12~60개월 반납형·보증금 인수형·36/48/60개월 인수형) / 손오공 픽업재고(T카)는 「픽업구독」(손오공상품과 같은 반납형·인수형, 2026-08-27) / 오토플러스는 「오플구독」(12개월 2만km … 36개월 3만km) — 갈래 탭엔 우리 공통 대여료 블록이 없고 그 공급사 기간별 대여료가 선다. 같은 차는 한 탭에만.',
   '② 원천대장 「상품마스터」 — 상태·정책·기간별 대여료/보증금(차종코드·차명 칸은 안 덮음) → 발행된 상품리스트 값으로 한 번 더 맞춤(⑤′) → ERP(매일 02:00 KST 일일 동기).',
   '③ 검수·채움 — 정제칸 채우기(fill-supplier-ai-columns) · 돈 대조(audit-sheet-vs-sales) · 빈 칸(audit-stock-gaps) · 정제칸 대조(audit-vehicle-refine).',
 ];
@@ -80,7 +80,7 @@ function describe(x: SheetIdentityInput): string {
     case '정제시트': return `[정제] ${x.label || '공급사'}는 자기 시트/홈페이지(원본)를 쓰고, 프리패스가 그걸 우리 규격으로 옮겨 담는 시트. 문패·발행기·상품마스터는 원본이 아니라 이 시트를 읽는다(「상품마스터로 올 때는 어찌됐든 정제시트 통해서」).`;
     case '문패': return '공급사코드 → 「발행기·상품마스터가 읽을 시트 주소」 표. 여기 적힌 주소가 그 공급사 재고의 정본이다(21곳 전부 우리 「프리패스 재고」 시트). 코드가 읽는 표 — 사람이 보는 정리표는 허브.';
     case '허브': return '사람이 보는 공급사 정리표(공급사명·코드·나눠 준 시트·지금 읽는 주소·대수·상태). publish-supplier-hub 가 찍는다. ERP 관리자 화면의 partner.sheet_url 동기(sheet-hub-sync)도 이 표를 읽는다.';
-    case '판매시트': return '영업자가 보는 표 — 탭 4개(「상품리스트」·「손오공구독」·「픽업구독」(T카, 2026-08-27)·「오플구독」). 기계가 문패 21곳 재고를 모아 같은 발행기로 찍는 사본 — 손으로 고치지 않는다(다음 발행에 사라진다). ERP 는 네 탭의 합과 정확히 같아야 한다(⑤′).';
+    case '판매시트': return '영업자가 보는 표 — 탭 4개(「상품리스트」·「손오공상품」·「픽업구독」(T카, 2026-08-27)·「오플구독」). 기계가 문패 21곳 재고를 모아 같은 발행기로 찍는 사본 — 손으로 고치지 않는다(다음 발행에 사라진다). ERP 는 네 탭의 합과 정확히 같아야 한다(⑤′).';
     case '원천대장': return '상품마스터(차량번호→ERP 차종코드 mf-) · 차종마스터 탭(mf- 보관, Gemini) · 규격검토/규격채택 · 시트 지도 · 정제칸 대조 · AI 운영 매뉴얼. 차명·제원 사전은 엔카 차종마스터 시트.';
     case '외부 원본': return `${x.label || '공급사'} 소유 원본. 프리패스는 읽기만 하고(정제시트로 옮김) 여기에 쓰지 않는다.`;
     default: return `${x.legacy?.kind || '옛 시트'} — ${x.legacy?.retiredOn || ''} 부터 프리패스 어디에서도 읽지 않는다(폐기). ${x.legacy?.note || ''}`.trim();
@@ -93,7 +93,7 @@ function composition(x: SheetIdentityInput): [string, string][] {
     case '정제시트': return [[`재고 탭 = 제공시트와 같은 40열 규격${cols}(대여료 블록만 원본 상품 구조를 따를 수 있다 — 오토플러스 12/18/24/36×2만/3만, 아이언 72·84개월 예비). 「정책」 탭 = 원본 줄별 조건을 접어 넣은 정책(정제시트 안내 참고).`, 'lib/domain/supplier-template-sheet.ts · mirror-sheet-mapping']];
     case '문패': return [['첫 탭 표: 공급사명 | 공급사코드 | 시트주소 (한 줄에 한 공급사). 뒤에 「AI 운영 매뉴얼」·「이 시트는」.', 'scripts/publish-origin-tab.mts · sync-product-master-live.mts 가 읽는 표']];
     case '허브': return [['「공급사연동」 규격 표(공급사명·코드·나눠 준 시트·지금 읽는 주소·대수·상태·비고) + AI 운영 매뉴얼 · 이 시트는.', 'scripts/publish-supplier-hub.mts']];
-    case '판매시트': return [['「상품리스트 MM.DD HH:MM · N대」(21곳 − @제외, 열 = [숨김] AI 인계 @매핑이 정본 · 연식과 Km 사이 「차종구분」= 정제칸 차종분류) · 「손오공구독 …」(공통 대여료 블록 자리에 보증금 반납형·12~60개월 반납형·보증금 인수형·36/48/60개월 인수형) · 「오플구독 …」(그 자리에 보증금(산출 규칙 글자, 머리글 메모에 오플 보증금표) · 12개월 2만km … 36개월 3만km) · 탭 색 파랑/보라/초록 · 금액 칸은 우측+굵게, 기간은 배경색 · [숨김] AI 인계(@매핑·@제외) · AI 정제(치환 사전) · AI 운영 매뉴얼 · 이 시트는. 발행된 표 = 세 탭의 합(sales-published-tabs.ts).', 'lib/domain/sales-sheet-mapping.ts · sales-sheet-format.ts · sales-published-tabs.ts']];
+    case '판매시트': return [['「상품리스트 MM.DD HH:MM · N대」(21곳 − @제외, 열 = [숨김] AI 인계 @매핑이 정본 · 연식과 Km 사이 「차종구분」= 정제칸 차종분류) · 「손오공상품 …」(공통 대여료 블록 자리에 보증금 반납형·12~60개월 반납형·보증금 인수형·36/48/60개월 인수형) · 「오플구독 …」(그 자리에 보증금(산출 규칙 글자, 머리글 메모에 오플 보증금표) · 12개월 2만km … 36개월 3만km) · 탭 색 파랑/보라/초록 · 금액 칸은 우측+굵게, 기간은 배경색 · [숨김] AI 인계(@매핑·@제외) · AI 정제(치환 사전) · AI 운영 매뉴얼 · 이 시트는. 발행된 표 = 세 탭의 합(sales-published-tabs.ts).', 'lib/domain/sales-sheet-mapping.ts · sales-sheet-format.ts · sales-published-tabs.ts']];
     case '원천대장': return [['차종마스터(트림 한 줄=차종코드) · 차종마스터_규격검토 → 규격채택 · 상품마스터(50열, 탭 이름·머리행은 코드 상수와 같아야 ERP·갱신기가 돈다) · 상품 차종매칭(조회 뷰) · 시트 지도 · 공급사연동 · 공급사 데이터 매뉴얼 · 정제칸 대조 · AI 운영 매뉴얼.', 'lib/domain/product-master-sheet.ts (PRODUCT_MASTER_COLUMNS)']];
     case '외부 원본': return [['공급사 자기 구조(열·탭 이름이 우리와 다르다). 열 대응표는 정제시트의 「정제시트 안내」 탭.', 'lib/domain/mirror-sheet-mapping.ts']];
     default: return [[`옛 구조 그대로 두었다(값 보존). 첫 탭 「${LEGACY_NOTICE_TAB}」만 덧붙였다.`, '']];
@@ -116,7 +116,7 @@ function reads(x: SheetIdentityInput): [string, string][] {
     }
     case '문패': return [['사람이 적는다(주소 정본). 공급사 시트를 새로 만들거나 바꾸면 여기 줄을 고친다 — 아직 비어 있는 새 시트를 적으면 그 공급사 재고가 통째로 0 이 된다.', 'switch-supplier-sheet.mts · tmp/hub-switch-log.txt(되돌릴 주소)']];
     case '허브': return [['문패 + 드라이브의 「프리패스 재고」 시트 + RTDB partners(대수) 를 읽어 찍는다.', 'npx tsx scripts/publish-supplier-hub.mts --apply']];
-    case '판매시트': return [['문패 21곳 재고 탭(출고불가 제외) · 차명 정본(상품마스터 코드→규격채택 · 3축 결정) → 정제칸 → 원문 · 정책 43열은 각 시트 「정책」 탭 · 열 구성은 [숨김] AI 인계 @매핑 · 갈래 탭의 원본 요금 블록은 손오공 제공시트 「구독재고」/오플 정제시트 「재고」.', 'publish-origin-tab --apply → --only=RP012:구독 --tab=손오공구독 → publish-sonogong-tab → --only=RP023 --tab=오플구독 → publish-sonogong-tab --tab=오플구독']];
+    case '판매시트': return [['문패 21곳 재고 탭(출고불가 제외) · 차명 정본(상품마스터 코드→규격채택 · 3축 결정) → 정제칸 → 원문 · 정책 43열은 각 시트 「정책」 탭 · 열 구성은 [숨김] AI 인계 @매핑 · 갈래 탭의 원본 요금 블록은 손오공 제공시트 「구독재고」/오플 정제시트 「재고」.', 'publish-origin-tab --apply → --only=RP012:구독 --tab=손오공상품 → publish-sonogong-tab → --only=RP023 --tab=오플구독 → publish-sonogong-tab --tab=오플구독']];
     case '원천대장': return [
       ['차종마스터 = Gemini/사람(원장). 상품마스터 = 문패 21곳(상태·정책·돈, sync-product-master-live) + 발행된 상품리스트 값(⑤′ sync-product-master-from-sales) + 결정 파일(차종코드).', 'run-daily ⑤·⑤′'],
     ];

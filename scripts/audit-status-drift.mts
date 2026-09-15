@@ -1,3 +1,4 @@
+throw new Error('RTDB_REMOVED: 폐기된 RTDB 경로를 사용하는 스크립트입니다.');
 /**
  * 상태가 어디서 갈렸나 — 원본 → 정제시트 → 판매시트 → ERP 4층 대조. 읽기 전용.
  *
@@ -9,11 +10,23 @@
  * 보고에 함께 남기되, 원문 표기가 다르다는 이유만으로 갈림으로 세지 않는다.
  * 읽기 실패·탭 실패·중복 상태는 부재로 해석하지 않고 미확인으로 남긴다.
  *
- *   npx tsx scripts/audit-status-drift.mts
- *   npx tsx scripts/audit-status-drift.mts --plate=147부1954
+ * ★★**ERP 층 = Firestore `products` 원자**(2026-09-10 옮김). 그전에는 RTDB `v3 products ∪ v4/products`
+ *   를 병합해 읽었다. RTDB 는 폐기 대상이라 그 읽기 한 곳만 원자로 갈아 끼웠다.
+ * ⚠ **이 감사를 «없애면» 안 된다.** RTDB 를 걷어내면서 「Firestore 단일 원자니 갈릴 데가 없다」며
+ *   ⑨ 를 통째로 지운 판이 있었는데, 그건 절반만 맞다 — 원자가 하나가 됐을 뿐
+ *   **원본 · 정제시트 · 판매시트 세 층은 그대로** 있고, 갈리는 곳도 거기다.
+ *   실측 2026-09-10(Firestore 판 첫 실행) — 갈린 차 **102대** · 검토 5 · 미확인 0.
+ *   그중 **89대가 정제시트 → 판매시트**에서 갈렸다(상태 갈림 53 · 정제에는 있는데 판매에 없음 36).
+ *   원본 → 정제시트 18. **판매시트 → ERP(원자) 갈림은 0**, 계약 잠금 검토 5뿐이었다.
+ *   ⇒ 원자를 하나로 모아 «ERP 경계»는 조용해졌지만 **시트 세 층의 갈림은 그대로 남아 있다.**
+ *
+ *   npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/audit-status-drift.mts
+ *   npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/audit-status-drift.mts --plate=147부1954
  */
 import { readFileSync, writeFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
+import { initializeApp, cert } from 'firebase-admin/app';
+import { getFirestore } from 'firebase-admin/firestore';
 import { fetchIronRentcarCatalog } from '../lib/server/ironrentcar-source';
 import { MIRROR_SOURCES, type MirrorSource } from '../lib/domain/mirror-sources';
 import { canonSheetVehicleStatus } from '../lib/domain/sheet-import';
@@ -22,6 +35,7 @@ import { isOurNonInventoryTab } from '../lib/domain/supplier-template-sheet';
 import { pickPublishedSalesTabs, SALES_PUBLISHED_TAB_PREFIXES } from '../lib/domain/sales-published-tabs';
 import { assessStatusPipeline, type StatusObservation } from '../lib/domain/status-drift';
 import type { EntityRecord } from '../lib/intake/entities';
+import { companyAlias } from '../lib/domain/identity';
 
 type Rec = Record<string, any>;
 type StatusRow = {
@@ -46,7 +60,6 @@ const arg = (key: string) => (process.argv.find((value) => value.startsWith('--'
 const ONE = plateOf(arg('plate'));
 const SALES_SHEET_ID = S(process.env.SALES_INVENTORY_SHEET_ID || process.env.INVENTORY_EXPORT_SHEET_ID)
   || '1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs';
-const DB = 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app';
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const providerKey = (value: unknown) => S(value)
   .toLowerCase()
@@ -71,6 +84,14 @@ function providerIndex(partners: EntityRecord[]) {
     add(code, code);
     add(partner.name, code);
     add(partner.partner_name, code);
+    /**
+     * ★**발행기가 쓰는 표기를 «같은 별칭표»로 받는다** — `companyAlias`(SSOT = `lib/domain/identity`).
+     *   ⚠ 2026-09-08 — 판매시트가 공급사를 한글 이름으로 쓰기 시작하자(`KH` → 「케이에이치」)
+     *   이 대조기가 「공급사 매핑 없음(케이에이치)」로 죽었다. `sales-inventory-sheet` 도 같은 병이었다.
+     *   ★별칭표를 세 곳이 «따로» 들고 있으면, 표기를 바꾸는 순간 안 고친 곳이 조용히 갈라진다.
+     */
+    add(companyAlias(partner.name), code);
+    add(companyAlias(partner.partner_name), code);
   }
   const out = new Map<string, string>();
   for (const [key, codes] of candidates) if (codes.size === 1) out.set(key, [...codes][0]);
@@ -98,11 +119,17 @@ const sheetsJwt = new JWT({
   subject: 'pyh@teamjpk.com',
   scopes: ['https://www.googleapis.com/auth/spreadsheets'],
 });
-const databaseJwt = new JWT({
-  email: serviceAccount.client_email,
-  key: serviceAccount.private_key,
-  scopes: ['https://www.googleapis.com/auth/firebase.database', 'https://www.googleapis.com/auth/userinfo.email'],
-});
+/**
+ * 원자(Firestore) 손잡이 — 여는 방식은 `scripts/heal-atom-trim.mts` 와 같은 한 벌이다.
+ * ⚠ `databaseURL` 을 주지 않는다 — **이 감사는 RTDB 를 열지 않는다.**
+ */
+const firestore = getFirestore(initializeApp({
+  credential: cert({
+    projectId: serviceAccount.project_id,
+    clientEmail: serviceAccount.client_email,
+    privateKey: S(serviceAccount.private_key).replace(/\\n/g, '\n'),
+  }),
+}));
 
 async function getJson(url: string, jwt: JWT): Promise<Rec> {
   for (let attempt = 0; ; attempt++) {
@@ -305,13 +332,17 @@ type ErpLayers = {
   errors: string[];
 };
 
-function mergeNodes(v3: Record<string, Rec>, v4: Record<string, Rec>) {
-  const merged: Record<string, Rec> = {};
-  for (const [key, value] of Object.entries(v3 || {})) merged[key] = { ...value, _key: key };
-  for (const [key, value] of Object.entries(v4 || {})) merged[key] = { ...(merged[key] || {}), ...value, _key: key };
-  return merged;
-}
-
+/**
+ * ERP 층 = **Firestore `products` 원자**(SSOT). 공급사 명단은 같은 곳의 `partner` 컬렉션에서 받는다.
+ *
+ * ★**옛 판(RTDB `products` ∪ `v4/products` 필드병합)을 여기서 걷어냈다** — 원자가 한 곳으로 모였으니
+ *   병합할 두 벌이 없다. 문서 하나 = 차 한 대다(실측 2026-09-10 · 문서 1467 = 차번 1467, 겹침 0).
+ * ★**상태 정본은 `vehicle_status`** — `status` 는 읽기 폴백으로만 둔다(둘이 다르면 `vehicle_status`).
+ *   실측 2026-09-10 — 1467대 전부 `vehicle_status` 가 차 있고, `status` 와 다른 차는 **0대**였다.
+ *   그래도 폴백을 남기는 이유는 «비면 모른다»를 «없다»로 삼키지 않기 위해서다.
+ * ⚠ `partner` 컬렉션은 문서 64개지만 **공급사 코드로는 52** 다(옛 `PT-00xx` 문서가 같은 코드를 함께 가리킨다).
+ *   RTDB 판과 코드 집합이 **완전히 같음**을 대조하고 옮겼다(2026-09-10 · 양쪽만 있는 코드 0).
+ */
 async function readErpLayers(): Promise<ErpLayers> {
   const byCode = new Map<string, Layer>();
   const codesByPlate = new Map<string, Set<string>>();
@@ -319,16 +350,14 @@ async function readErpLayers(): Promise<ErpLayers> {
   const errors: string[] = [];
   let partners: EntityRecord[] = [];
   try {
-    const [products, v4Products, partnerRows, v4PartnerRows] = await Promise.all([
-      getJson(DB + '/products.json', databaseJwt),
-      getJson(DB + '/v4/products.json', databaseJwt),
-      getJson(DB + '/partners.json', databaseJwt),
-      getJson(DB + '/v4/partners.json', databaseJwt),
+    const [productDocs, partnerDocs] = await Promise.all([
+      firestore.collection('products').get(),
+      firestore.collection('partner').get(),
     ]);
-    const mergedPartners = mergeNodes(partnerRows, v4PartnerRows);
-    partners = Object.values(mergedPartners) as EntityRecord[];
-    const mergedProducts = mergeNodes(products, v4Products);
-    for (const product of Object.values(mergedProducts)) {
+    // 문서 id 를 `_key` 로 세운다 — providerIndex 가 `partner_code || _key` 로 코드를 잡는다.
+    partners = partnerDocs.docs.map((doc) => ({ ...(doc.data() as Rec), _key: doc.id })) as EntityRecord[];
+    for (const doc of productDocs.docs) {
+      const product = doc.data() as Rec;
       if (!product || product._deleted === true || product.deletedAt || S(product.status) === 'deleted') continue;
       const plate = plateOf(product.car_number || product.car_number_snapshot);
       if (!plate) continue;
@@ -336,21 +365,31 @@ async function readErpLayers(): Promise<ErpLayers> {
       if (!code) {
         // 다른 공급사의 고아 레코드 때문에 네 미러 공급사 감사 전체를 실패로 만들지 않는다.
         // 단, 대조 중인 동일 차번이면 sameCodeLayer에서 미확인으로 막는다.
+        // (실측 2026-09-10 — 원자에는 코드 없는 문서 0대. 그래도 규칙은 남긴다.)
         unassignedPlates.add(plate);
         continue;
       }
       const codes = codesByPlate.get(plate) || new Set<string>();
       codes.add(code);
       codesByPlate.set(plate, codes);
-      const raw = S(product.vehicle_status);
+      const raw = S(product.vehicle_status) || S(product.status);
       addRow(layerFor(byCode, code, 'ERP ' + code), plate, {
         raw,
         canonical: raw === '계약중' ? '계약중' : canonSheetVehicleStatus(raw),
-        location: S(product._key || product.product_code),
-        updatedAt: S(product.updatedAt || product.updated_at),
+        location: S(product.product_code) || doc.id,
+        updatedAt: S(product.updated_at || product.updatedAt),
         locked: !!S(product.locked_by_contract) || raw === '계약중',
-        provenance: [S(product.updatedBy), S(product.updatedAt), S(product.sheet_status_owner), S(product.sheet_block_reason)]
-          .filter(Boolean).join(' · '),
+        /**
+         * ★**있는 칸만 싣는다 — 지어내지 않는다.** RTDB 판이 쓰던 `updatedBy`·`sheet_status_owner`·
+         *   `sheet_block_reason` 은 원자에 **한 문서도 없다**(실측 2026-09-10 · 1467문서 중 0).
+         *   대신 원자가 실제로 가진 「왜 이 상태인가」 칸을 싣는다 —
+         *   `status_reason` 1441 · `status_label_raw`(원천 표기) 1439 · `updated_at` 143.
+         */
+        provenance: [
+          S(product.updated_at || product.updatedAt),
+          S(product.status_reason),
+          S(product.status_label_raw),
+        ].filter(Boolean).join(' · '),
       });
     }
   } catch (error) {

@@ -1,7 +1,7 @@
 import type { EntityRecord } from '@/lib/intake/entities';
 import type { IronRentcarReconcilePlan } from '@/lib/domain/ironrentcar-reconcile';
 import { productPatchPreconditionMatches } from '@/lib/domain/product-write-guard';
-import { splitProductPrivate } from '@/lib/firebase/rtdb-products';
+import { splitProductPrivate } from '@/lib/firebase/product-private';
 
 export type IronRentcarOverlayApplyResult = {
   ok: boolean;

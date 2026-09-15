@@ -108,7 +108,7 @@ export const ROUTE_WING: Record<string, Wing | '공용'> = {
  * ```
  *   이제 손님 매물 화면은 위약금율·지연이자·계약종류(`esign-contract-kind`)를 안 끈다.
  *
- * ⚠ **아직 안 푼 것** — `lib/store.ts` → `rtdb-adapter` → `contract-dedupe`.
+ * ⚠ **아직 안 푼 것** — `lib/store.ts` → `FirestoreAdapter` → `contract-dedupe`.
  *   저장소 어댑터가 계약을 안다. 찾기가 제 저장소를 갖게 될 때 같이 본다.
  */
 export const SEAMS_SOLVED = [
@@ -120,7 +120,7 @@ export const SEAMS_SOLVED = [
 
 /** 아직 안 푼 것 — 재서 줄여 나간다. */
 export const SEAMS = [
-  { from: 'lib/store.ts', to: 'lib/domain/contract-dedupe.ts', why: '저장소 어댑터(rtdb-adapter)가 계약 중복제거를 안다', how: '찾기가 제 저장소를 갖게 될 때 같이 본다' },
+  { from: 'lib/store.ts', to: 'lib/domain/contract-dedupe.ts', why: '저장소 어댑터(FirestoreAdapter)가 계약 중복제거를 안다', how: '찾기가 제 저장소를 갖게 될 때 같이 본다' },
 ] as const;
 
 /** `app/` 아래 폴더 이름에서 채를 읽는다. 모르면 `null` — 그건 도면에 없는 층이다. */

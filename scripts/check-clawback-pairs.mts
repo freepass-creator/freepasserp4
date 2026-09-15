@@ -21,7 +21,8 @@
  */
 import { readFileSync } from 'node:fs';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
-import { getDatabase } from 'firebase-admin/database';
+import { getDatabase } from './lib/firestore-path-store.mts';
+import { getFirestore } from 'firebase-admin/firestore';
 
 const S = (v: unknown) => String(v ?? '').trim();
 const N = (v: unknown) => { const n = Number(S(v).replace(/[,\s원]/g, '')); return Number.isFinite(n) ? n : 0; };
@@ -29,12 +30,13 @@ const won = (n: number) => Math.round(n).toLocaleString('ko-KR');
 const MONTH = S(process.argv.find((a) => /^\d{4}-\d{2}$/.test(a)));
 
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
-if (!getApps().length) initializeApp({ credential: cert(sa), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' });
+if (!getApps().length) initializeApp({ credential: cert(sa) });
 const db = getDatabase();
+const fsdb = getFirestore();
 
 type Row = Record<string, unknown>;
-const claws = Object.entries((await db.ref('v4/settlement_clawbacks').get()).val() || {}) as [string, Row][];
-const rows = Object.values((await db.ref('v4/settlement_rows').get()).val() || {}) as Row[];
+const claws = (await fsdb.collection('settlement_clawbacks').get()).docs.map((d) => [d.id, d.data()]) as [string, Row][];
+const rows = (await fsdb.collection('settlement_rows').get()).docs.map((d) => d.data()) as Row[];
 const byPlate = new Map(rows.filter((r) => S(r.plate)).map((r) => [S(r.plate).replace(/\s/g, ''), r]));
 
 const mine = claws.filter(([, c]) => !MONTH || S(c.month) === MONTH);

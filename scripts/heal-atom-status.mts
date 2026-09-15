@@ -21,6 +21,7 @@ import { readFileSync } from 'node:fs';
 import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import nextEnv from '@next/env';
+import { resolveStatus } from '../lib/domain/atom-status';
 
 nextEnv.loadEnvConfig(process.cwd());
 const S = (v: unknown) => String(v ?? '').trim();
@@ -33,30 +34,57 @@ const fs = getFirestore();
 /** 잠그는 순서 — 앞일수록 세다. 여기 없는 값끼리 다르면 손대지 않는다. */
 const LOCK = ['출고불가', '계약중'];
 const 세기 = (v: string) => { const i = LOCK.indexOf(v); return i < 0 ? LOCK.length : i; };
-/** `vehicle_status` 에서 파생되는 것들 — 따로 적는 값이 아니다. */
-const AVAIL = new Set(['즉시출고', '출고가능']);
+/** `vehicle_status` 에서 파생되는 것들 — 판정은 «한 곳»(atom-status resolveStatus). 여기선 상태만 넘긴다.
+ *  ★status_label_raw·status_reason 은 «안 덮는다» — 원천 표기를 지우지 않으려고 골라 쓴다(merge). */
 const derive = (st: string) => {
-  let kind = '불가';
-  if (AVAIL.has(st)) kind = '가용';
-  else if (st === '출고협의') kind = '협의';
-  else if (st === '상품화중' || st === '차량검수') kind = '준비';
-  else if (st === '계약중') kind = '선점';
-  return { status: st, vehicle_status: st, status_kind: kind, listable: kind !== '불가' };
+  const b = resolveStatus({ base: st });
+  return { status: b.status, vehicle_status: b.vehicle_status, status_kind: b.status_kind, listable: b.listable };
 };
 
 const docs = (await fs.collection('products').get()).docs;
-const 채움: { ref: FirebaseFirestore.DocumentReference; car: string; to: string; why: string }[] = [];
+const 채움: { ref: FirebaseFirestore.DocumentReference; car: string; to: string; why: string; patch: Record<string, unknown> }[] = [];
+const 담기 = (ref: FirebaseFirestore.DocumentReference, car: string, to: string, why: string, patch: Record<string, unknown> = derive(to)) => {
+  채움.push({ ref, car, to, why, patch });
+};
 const 손안댐: string[] = [];
 for (const d of docs) {
   const v = d.data() as any;
   const a = S(v.status), b = S(v.vehicle_status);
-  if (a === b && a) continue;
   const car = S(v.car_number) || d.id;
-  if (!a && !b) continue;                                   // 둘 다 없다 — 원천이 채울 몫
-  if (!a || !b) { 채움.push({ ref: d.ref, car, to: a || b, why: '한쪽만 있음' }); continue; }
+  // ★★정산원장에 계약이 올라간 차(locked)는 «맨 먼저 확인» — 상태가 계약상태여야 한다(사장님 2026-09-09).
+  //   status·vehicle_status 가 둘 다 «가용»으로 clobber 됐어도(레이스·옛 버그) 여기서 잡는다 = heal 이 판 차를 되살리지 않는다.
+  //   완료(어느 한쪽이 출고불가)면 숨기고, 아니면 계약중(선점). ⚠ 취소는 정산이 락을 «푼다» — 그때 locked 가 비어 아래 원천흐름으로.
+  if (S(v.locked_by_contract)) {
+    const desired = (a === '출고불가' || b === '출고불가') ? '출고불가' : '계약중';
+    const expected = derive(desired);
+    if (a !== desired || b !== desired || v.listable !== expected.listable || S(v.status_kind) !== expected.status_kind) {
+      담기(d.ref, car, desired, `정산원장 계약(${a || '∅'} ↔ ${b || '∅'})`, expected);
+    }
+    continue;
+  }
+  if (a === b && a) {
+    const expected = derive(b);
+    if (v.listable !== expected.listable || S(v.status_kind) !== expected.status_kind) 담기(d.ref, car, b, '파생값 어긋남', expected);
+    continue;
+  }
+  if (!a && !b) {
+    // 빈 상태도 현재 재고다. 상태는 지어내지 않고 파생 캐시만 맞춘다.
+    const expected = derive('');
+    if (v.listable !== true || S(v.status_kind) !== expected.status_kind) 담기(d.ref, car, '', '빈 상태의 파생값 어긋남', { listable: true, status_kind: expected.status_kind });
+    continue;
+  }
+  if (!a || !b) { 담기(d.ref, car, a || b, '한쪽만 있음'); continue; }
   const 잠금 = Math.min(세기(a), 세기(b));
-  if (잠금 === LOCK.length) { 손안댐.push(`${car}  ${a} ↔ ${b}`); continue; }   // 잠금 없는 불일치 — 원천이 답
-  채움.push({ ref: d.ref, car, to: LOCK[잠금], why: `잠금 우선(${a} ↔ ${b})` });
+  if (잠금 === LOCK.length) {
+    // 두 상태 원문은 판단하지 않는다. 다만 재고 정본인 vehicle_status에서 파생되는 캐시는 확정할 수 있다.
+    const expected = derive(b);
+    if (v.listable !== expected.listable || S(v.status_kind) !== expected.status_kind) {
+      담기(d.ref, car, b, `잠금 없는 불일치의 파생값만 복구(${a} ↔ ${b})`, { listable: expected.listable, status_kind: expected.status_kind });
+    }
+    손안댐.push(`${car}  ${a} ↔ ${b}`);
+    continue;
+  }   // 잠금 없는 상태값 불일치 — 원천이 답
+  담기(d.ref, car, LOCK[잠금], `잠금 우선(${a} ↔ ${b})`);
 }
 
 console.log(`\n원자 ${docs.length} · 아물릴 것 ${채움.length} · 손 안 대고 알릴 것 ${손안댐.length}\n`);
@@ -68,7 +96,7 @@ if (!APPLY) { console.log(`\n미리보기 — 쓰려면 --apply\n`); process.exi
 let n = 0;
 for (let i = 0; i < 채움.length; i += 400) {
   const batch = fs.batch();
-  for (const x of 채움.slice(i, i + 400)) { batch.set(x.ref, { ...derive(x.to), _status_healed_at: Date.now() }, { merge: true }); n++; }
+  for (const x of 채움.slice(i, i + 400)) { batch.set(x.ref, { ...x.patch, _status_healed_at: Date.now() }, { merge: true }); n++; }
   await batch.commit();
 }
 console.log(`\n✓ ${n}대 상태를 한 벌로 아물렀다.\n`);

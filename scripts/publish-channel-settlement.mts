@@ -25,7 +25,8 @@
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { initializeApp, cert, getApps } from 'firebase-admin/app';
-import { getDatabase } from 'firebase-admin/database';
+import { getDatabase } from './lib/firestore-path-store.mts';
+import { getFirestore } from 'firebase-admin/firestore';
 import { CORP } from '../lib/domain/corporate-ci';
 import { payDate, payDayOf, PAY_DAY_BY_SUPPLIER } from '../lib/domain/settlement-cycle';
 import { settleTargetOf, billingMonthIn, lockedMonthsOf, type SettlementRow } from '../lib/domain/settlement-stage';
@@ -66,8 +67,15 @@ const SPLIT_SUPPLIERS = Object.keys(PAY_DAY_BY_SUPPLIER);
 type Keep = [boolean, boolean, number | '', string];
 
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
-if (!getApps().length) initializeApp({ credential: cert(sa), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' });
+if (!getApps().length) initializeApp({ credential: cert(sa) });
 const db = getDatabase();
+/**
+ * ★★★**정산 줄은 «파이어스토어»가 정본이다** — 사장님 2026-09-09
+ *   「파이어스토어에 원자 명확하게 맞추고 **이제 그거로 관리할거야**」.
+ * ⚠ 공급사 발행기가 RTDB 를 읽는 바람에 원자를 고쳐도 정산서만 옛 값으로 남은 적이 있다
+ *   (우리캐피탈 9,841,650 ≠ 9,457,525). 채널 축도 같은 곳을 봐야 두 종이가 어긋나지 않는다.
+ */
+const fsdb = getFirestore();
 const jwt = new JWT({ email: sa.client_email, key: sa.private_key, subject: 'pyh@teamjpk.com',
   scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive'] });
 const tok = async () => (await jwt.getAccessToken()).token;
@@ -91,7 +99,7 @@ type Row = Record<string, unknown>;
  */
 const D = (v: unknown) => { const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(S(v)); return m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : null; };
 const asRow = (r: Row) => ({ ...r, receivedAt: D(r.receivedAt), deliveredAt: D(r.deliveredAt) } as unknown as SettlementRow);
-const allRows = Object.values((await db.ref('v4/settlement_rows').get()).val() || {}) as Row[];
+const allRows = (await fsdb.collection('settlement_rows').get()).docs.map((d) => d.data()) as Row[];
 const locked = lockedMonthsOf(allRows.map(asRow));
 /**
  * ★★★**아직 안 끝난 달은 «예정»으로 미리 채운다.**
@@ -129,7 +137,7 @@ const isSoon = (r: Row) => FORECAST && billingMonthIn(asRow(r), locked) !== MONT
  * ★★**환수를 «빠뜨리면» 종이와 안 맞는다** — 실측 2026-09-03 하허호가 585,600 어긋났다.
  *   지급 쪽 환수 금액은 `agentAmt` 다(공급사 쪽은 `supplierAmt`). 축을 헷갈리면 남의 돈을 뺀다.
  */
-const claws = (Object.values((await db.ref('v4/settlement_clawbacks').get()).val() || {}) as Row[])
+const claws = ((await fsdb.collection('settlement_clawbacks').get()).docs.map((d) => d.data()) as Row[])
   .filter((c) => S(c.month) === MONTH);
 
 /**
@@ -278,6 +286,8 @@ type Job = { ch: string; tab: string; lines: Line[]; backs: Back[]; net: number;
 /** 지급일이 다른 공급사인가 — 맨 아래로 내리는 기준이자 줄마다 찍는 날의 기준. */
 const isLate = (sup: string) => SPLIT_SUPPLIERS.some((s) => key(sup).includes(key(s)));
 const jobs: Job[] = [];
+/** ★붙이지 못한 곳 — 하나라도 있으면 끝에서 «멈춘다». 「✓ 붙였습니다」가 거짓말이 되면 안 된다. */
+const failed: string[] = [];
 for (const ch of chans) {
   if (ONLY && !ch.includes(ONLY)) continue;
   /** ★예정 달에는 금액 0 인 줄도 싣는다 — 「이 건이 옵니다」가 알려 줄 값이다. */
@@ -424,7 +434,20 @@ async function book(ch: string): Promise<string> {
 for (const j of jobs) {
   const bookId = await book(j.ch);
   const tab = j.tab;
-  const meta = await (await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${bookId}?fields=sheets.properties`, { headers: { Authorization: `Bearer ${await tok()}` } })).json() as {
+  /**
+   * ★★★**탭 목록 읽기에 재시도를 붙인다.** 여기서 429 를 맞으면 `sheets` 가 비어 오고,
+   *   그러면 «그 탭이 없다»고 오해해 새로 만들려다 그것도 실패한다 —
+   *   실측 2026-09-08 다섯 채널이 한꺼번에 「탭을 못 만들었습니다」로 떨어졌다.
+   */
+  const meta = await (async () => {
+    for (let t = 0; t < 6; t++) {
+      const r = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${bookId}?fields=sheets.properties`, { headers: { Authorization: `Bearer ${await tok()}` } });
+      if (r.ok) return r.json();
+      if (r.status === 429 || r.status >= 500) { console.log(`   · ${j.ch} 탭 목록 ${r.status} — 20초 쉬었다 다시 (${t + 1}/6)`); await new Promise((z) => setTimeout(z, 20_000)); continue; }
+      break;
+    }
+    return {};
+  })() as {
     sheets?: { properties: { sheetId: number; title: string } }[] };
   const all = meta.sheets || [];
   /**
@@ -473,7 +496,7 @@ for (const j of jobs) {
       ] }),
     });
   }
-  if (id === undefined) { console.log(`   x ${j.ch} — 탭을 못 만들었습니다`); continue; }
+  if (id === undefined) { console.log(`   x ${j.ch} — 탭을 못 만들었습니다`); failed.push(j.ch); continue; }
   /**
    * ★**갈라 놨던 탭은 걷는다** — 이제 한 탭이다. 「26년08월 지급 · 오토플러스」가 남아 있으면
    *   같은 달이 두 벌이 되어 어느 쪽이 맞는지 아무도 모른다. 우리가 오늘 만든 탭만 지운다.
@@ -875,5 +898,15 @@ for (const [ch, id] of bookOf) console.log(`   ${ch.padEnd(12)} https://docs.goo
  *   여기서 부르면 손이 안 간다. 지금 정산하는 달은 탭 색을 진하게 준다.
  */
 for (const id of [...new Set([...bookOf.values()])]) await layoutMonthTabs(tok, id, CLOSED);
+/**
+ * ★★★**못 붙인 곳이 있으면 «성공이라 말하지 않는다».**
+ *   실측 2026-09-08 — 다섯 채널이 다 실패했는데 「✓ 5개 탭을 붙였습니다」가 찍혔다.
+ *   그대로 넘어가면 시트는 옛 판인데 우리는 새 숫자를 말하게 된다.
+ */
+if (failed.length) {
+  console.log(`\n  ✕ ${failed.length}곳에 못 붙였습니다 — ${failed.join(' · ')}`);
+  console.log('  잠시 뒤 다시 돌려 주세요(분당 한도일 수 있습니다).\n');
+  process.exit(1);
+}
 console.log(`\n   ✓ ${jobs.length}개 탭을 붙였습니다. 달 탭은 «최근이 왼쪽» · ${monthKo(CLOSED)}은 진한 색.\n`);
 process.exit(0);

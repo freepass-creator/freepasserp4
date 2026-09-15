@@ -28,7 +28,7 @@ const SALES = arg('sheet', '1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs');
 const INDEX_SHEET = arg('index', '1TVeVXyJJRx0SzD2vxqy3eEjSojmMIWXSu7AdsKmpfmY');
 const DOC_NAME = arg('name', '프리패스 재고');
 /** 재고 탭으로 볼 이름 — 나머지(AI 정제·AI 인계)는 차를 담는 표가 아니다. */
-const STOCK_TABS = /^(상품리스트|손오공구독|오플구독|오플프로모션)/;
+const STOCK_TABS = /^(상품리스트|손오공상품|오플구독|오플프로모션)/;
 const RENT_COLUMNS = ['1개월', '12개월', '24개월', '36개월', '48개월', '60개월'];
 /** 며칠 지나면 «낡았다»고 볼까. 공급사는 거의 매일 손본다. */
 const STALE_DAYS = 1.5;

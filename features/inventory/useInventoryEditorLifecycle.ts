@@ -179,8 +179,11 @@ export function useInventoryEditorLifecycle({
             }
           : editableRecord;
       try {
-        await getStore().save('product', companyId, [patch]);
-        await getStore().update('product', companyId, String(form.product_code), patch);
+        if (previous) {
+          await getStore().update('product', companyId, String(form.product_code), patch);
+        } else {
+          await getStore().save('product', companyId, [patch]);
+        }
       } catch (error) {
         toast(`저장 실패: ${String((error as Error)?.message || error)}`, 'error');
         return;

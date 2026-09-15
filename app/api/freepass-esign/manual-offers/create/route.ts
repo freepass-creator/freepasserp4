@@ -10,7 +10,7 @@ import {
   canonicalFreepassDirectManualTerms,
   canonicalFreepassDirectManualTermsDraft,
 } from '@/lib/domain/freepass-direct-manual-terms';
-import { firebaseAdminDatabase, verifyActiveBearer } from '@/lib/server/firebase-admin';
+import { firebaseAdminStore, verifyActiveBearer } from '@/lib/server/firebase-admin';
 import {
   canManageFreepassEsign,
   freepassDirectSealMatchesContract,
@@ -91,7 +91,7 @@ export async function POST(request: Request) {
     const vehicleName = productCode ? '' : text(body.vehicleName, '차종', 160);
     const modelYear = productCode ? '' : S(body.modelYear);
     const fuel = productCode ? '' : S(body.fuel);
-    const db = firebaseAdminDatabase();
+    const db = firebaseAdminStore();
     const offersSnap = await db.ref('v4/esign_manual_offers').get();
     const rows = offersSnap.val() && typeof offersSnap.val() === 'object' ? offersSnap.val() as Record<string, unknown> : {};
     // 오퍼 ID는 직원에게 노출하지 않는다. 선택한 문서 양식과 현재 계정 범위로 정확히 하나일

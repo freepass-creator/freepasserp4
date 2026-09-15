@@ -132,6 +132,30 @@ for (let i = 0; i < ids.length; i++) {
   await sleep(150);
 }
 console.log(`\n  당김 완료 — ${cars.length}대 성공 · ${fail}대 실패`);
+
+/**
+ * ★★**«모든 차가 같은 옵션»이면 그건 그 차의 옵션이 아니라 «카탈로그»다 — 안 싣는다.**
+ *
+ * > 사장님 2026-09-10 「지금 옵션이 손오공거 왜 다 이상한거를 찍냐」 ·
+ * >  「**옵션을 갖고 오는 곳이 잘못돼 있어**」 — 손오공에서 잡은 그 병이 오플에도 있었다.
+ *
+ * ⚠⚠ 실측 2026-09-10 — `carOption.rb` 가 «그 차에 달린 옵션»이 아니라 **고를 수 있는 옵션 목록 전부**를
+ *   돌려준다. 당긴 68대의 옵션 문자열이 **한 가지**였다(75개짜리 「블랙박스, 하이패스, 전동접이식…」).
+ *   그게 원자로 새어 들어가 오플 14대가 시트에 75개짜리 옵션을 달고 서 있었다.
+ * ★**한 가지인지로 가른다** — 필드 이름이나 깃발에 기대지 않는다. 원천이 이름을 바꿔도 이 판정은 산다.
+ *   ⚠ 진짜로 온 차들이 우연히 같을 수는 있어도 «절반 넘게» 같을 수는 없다. 그러면 카탈로그다.
+ * ⇒ 그런 문자열은 통째로 비운다. 무엇을 비웠는지 찍어 사람이 원천 필드를 보러 갈 수 있게 한다.
+ */
+{
+  const 셈 = new Map<string, number>();
+  for (const c of cars) { const o = S(c.options); if (o) 셈.set(o, (셈.get(o) || 0) + 1); }
+  const [흔한, n] = [...셈].sort((a, b) => b[1] - a[1])[0] || ['', 0];
+  if (흔한 && n > cars.length * 0.5) {
+    for (const c of cars) if (S(c.options) === 흔한) c.options = '';
+    console.log(`  ⚠ 옵션 ${n}대가 «같은 문자열»이었다 — 카탈로그로 보고 비웠다(${흔한.split(',').length}개짜리).`);
+    console.log(`     원천 필드를 보라: carOption.rb 가 «그 차의» 옵션을 주는 깃발이 따로 있는지.`);
+  }
+}
 writeFileSync('tmp/reborncar-cars.json', JSON.stringify(cars, null, 2), 'utf8');
 console.log('  → tmp/reborncar-cars.json');
 
@@ -179,6 +203,8 @@ for (const c of matched) {
     if (!S(x[k]) && S(c[k])) patch[k] = c[k];
   }
   if (!S(x.options) && S(c.options)) patch.options = c.options;
+  /** ★이미 원자에 박힌 «카탈로그»는 걷어낸다 — 빈칸 보완만으로는 옛 쓰레기가 안 지워진다(실측 14대). */
+  if (S(x.options) && !S(c.options) && S(x.options).split(/\s*,\s*/).filter(Boolean).length >= 10) patch.options = '';
   if (!Object.keys((x.price as object) || {}).length && Object.keys(c.price as object).length) patch.price = c.price;
   patch.reborncar_product_id = c.reborncar_product_id;
   if (Object.keys(patch).length) { batch.set(db.collection('products').doc(id), patch, { merge: true }); inB++; filled++; }

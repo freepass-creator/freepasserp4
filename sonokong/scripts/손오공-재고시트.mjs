@@ -25,6 +25,12 @@ const 쓰기 = process.argv.includes('--쓰기');
 const 씻 = (x) => String(x ?? '').replace(/\s/g, '');
 const 라운드천 = (v) => (v == null ? '' : Math.round(Number(v) / 1000) * 1000);
 const 날 = (s) => (s ? String(s).slice(0, 10) : '');
+const 사진주소 = (value) => {
+  const raw = String(value ?? '').trim();
+  if (/^https?:\/\//i.test(raw)) return raw;
+  if (raw.startsWith('/')) return new URL(raw, 'https://sokrc.com').toString();
+  return '';
+};
 
 // SON 세부모델 정제 — 배기량·연료·구동 노이즈를 걷어낸다(그건 배기량/구동방식 칸으로). 세대코드(CN7·4세대)는 남긴다.
 function 세부모델정제(s) {
@@ -174,13 +180,13 @@ function 행빌드(header, 기존, c, 분류) {
   //   예전엔 T카에 상세페이지(tcar.lotterentacar.net/cr/search/view = HTML 158KB)를 최우선으로 넣어
   //   픽업 사진 337대가 전부 깨졌다(사장님 「사진 갖고오는 게 ERP에서 안 됨」 2026-08-28).
   //   상세페이지 말고 «사진들 전부»(콤마)로 넣는다 — ERP 갤러리가 콤마/줄바꿈으로 쪼개 여러 장을 보여준다
-  //   (사장님 「1장만 뜨네」 2026-08-28). 롯데 서버가 리사이즈 파라미터를 무시해 원본 2.3MB라, 모바일 부담으로 10장까지만.
+  //   (사장님 「1장만 뜨네」 2026-08-28). 원천 사진 전체를 보존하며 임의 장수 제한을 두지 않는다.
   //   차번 셀 하이퍼링크는 발행기가 «첫 장»만 건다(sales-sheet-format). 기존 단일 링크(드라이브 등)는 보존.
   const pi = header.indexOf('사진링크');
   if (pi >= 0) {
     const cur = String(row[pi] ?? '');
     const 우리드라이브사진 = /drive\.google\.com\/drive\/folders\/[\w-]{15,}/i.test(cur);
-    const 사진들 = (Array.isArray(c.사진들) ? c.사진들 : []).map((u) => String(u).trim()).filter((u) => /^https?:\/\//.test(u)).slice(0, 10);
+    const 사진들 = (Array.isArray(c.사진들) ? c.사진들 : []).map(사진주소).filter(Boolean);
     const 이미지 = 사진들.join(', ');
     const 쓸모없음 = !cur.trim() || cur.includes('\n') || /tcar\.lotterentacar\.net\/cr\//.test(cur);
     if (우리드라이브사진) { /* 우리 보관본은 API 링크로 되돌리지 않는다 */ }

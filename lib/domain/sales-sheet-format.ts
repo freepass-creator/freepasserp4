@@ -146,8 +146,8 @@ export function colBgFor(name: string): string | undefined {
   return undefined;
 }
 
-/** 탭 색 — 상품리스트와 갈래 탭(손오공구독·오플구독)이 한눈에 갈리게(사장님 2026-08-19 「탭 색깔 약간 다르게」). */
-export const SALES_TAB_COLORS: Record<string, string> = { 상품리스트: '4A86E8', 손오공구독: '8E7CC3', 오플구독: '6AA84F' };
+/** 탭 색 — 상품리스트와 갈래 탭(손오공상품·오플구독)이 한눈에 갈리게(사장님 2026-08-19 「탭 색깔 약간 다르게」). */
+export const SALES_TAB_COLORS: Record<string, string> = { 상품리스트: '4A86E8', 손오공상품: '8E7CC3', 오플구독: '6AA84F' };
 export const salesTabColorFor = (tabTitle: string): string | undefined => {
   const t = String(tabTitle ?? '').trim();
   const key = Object.keys(SALES_TAB_COLORS).find((k) => t.startsWith(k));
@@ -236,7 +236,7 @@ export type FormatInput = {
   /** 지울 옛 조건부서식 개수. */
   conditionalFormatCount?: number;
   widths: number[];
-  /** 탭 이름(색을 정하는 데 쓴다 — 상품리스트/손오공구독/오플구독). */
+  /** 탭 이름(색을 정하는 데 쓴다 — 상품리스트/손오공상품/오플구독). */
   tabTitle?: string;
   /** 머리글 메모 추가분(SALES_NOTES 에 없는 칸 — 갈래 탭 원본 요금 칸 등). */
   extraNotes?: Record<string, string>;
@@ -245,6 +245,18 @@ export type FormatInput = {
    * 안 주면 링크를 안 건다 — 값은 그대로다.
    */
   body?: string[][];
+  /**
+   * ★★**링크를 «따로» 받아 간다** — 값을 «나중에» 쓰는 발행기용.
+   *
+   * ⚠⚠ 실측 2026-09-09 — 채널시트(F86)는 서식을 먼저 보내고 `values:batchUpdate` 를 나중에 했다.
+   *   그 값 쓰기가 차번 셀의 `userEnteredValue` 를 덮으면서 **글자 run 에 얹힌 링크가 같이 죽었다** —
+   *   하허호 시트 **703대 중 차번 링크가 «한 대도» 없었다**(맞음 0). 서식은 멀쩡해서 눈에 안 띈다.
+   *   매뉴얼이 「맨 끝이어야 한다」고 경고한 그 자리인데, 「맨 끝」이 «요청 배열의 끝»이지
+   *   «쓰기 차례의 끝»이 아니었던 것이다.
+   * ⇒ 링크 요청을 여기 담아 주면 본체에서 빼고, 발행기가 **값을 쓴 뒤** 따로 보낸다.
+   *   값을 먼저 쓰는 발행기(F01)는 이 옵션 없이 그대로 쓴다 — 지금 잘 돌고 있는 길을 안 건드린다.
+   */
+  linkOut?: Record<string, unknown>[];
 };
 
 /**
@@ -310,6 +322,22 @@ export function buildSalesFormatRequests(input: FormatInput): Record<string, unk
   align(RIGHT_COLUMNS, 'RIGHT');
   align(columns.filter((c) => isMoneyColumn(c) && !RIGHT_COLUMNS.includes(c)), 'RIGHT');   // 갈래 탭의 새 금액 칸도 우측
   align(CENTER_COLUMNS, 'CENTER');
+
+  // ★「미입력」은 «옅은 회색»으로만 — 원천/마스터에 없어 공란인 것을 표시하되 «값처럼」 도드라지지 않게(사장님 2026-09-11).
+  for (const name of ['세부트림', '옵션(원문)']) {
+    const i = idx(name);
+    if (i < 0) continue;
+    out.push({ addConditionalFormatRule: {
+      index: 0,
+      rule: {
+        ranges: [{ sheetId: gid, startRowIndex: H + 1, startColumnIndex: i, endColumnIndex: i + 1 }],
+        booleanRule: {
+          condition: { type: 'TEXT_EQ', values: [{ userEnteredValue: '미입력' }] },
+          format: { textFormat: { foregroundColor: rgb('AAAAAA') } },
+        },
+      },
+    } });
+  }
 
   // 기간 블록 — 칸 배경. 머리행까지 같이 칠해야 어느 열이 그 블록인지 위에서부터 보인다.
   columns.forEach((name, i) => {
@@ -430,7 +458,7 @@ export function buildSalesFormatRequests(input: FormatInput): Record<string, unk
       cell: { note }, fields: 'note',
     } });
   }
-  // 탭 색 — 상품리스트/손오공구독/오플구독이 한눈에 갈리게.
+  // 탭 색 — 상품리스트/손오공상품/오플구독이 한눈에 갈리게.
   const tabColor = input.tabTitle ? salesTabColorFor(input.tabTitle) : undefined;
   if (tabColor) out.push({ updateSheetProperties: { properties: { sheetId: gid, tabColor: rgb(tabColor) }, fields: 'tabColor' } });
 
@@ -481,15 +509,15 @@ export function buildSalesFormatRequests(input: FormatInput): Record<string, unk
    * ★**픽업(T카)은 사진이 아니라 «티카 상세페이지»로 간다** (사장님 2026-08-28 · `aiops/docs/supplier-sheet-spec` §6-0
    *   「상품리스트·픽업구독에서 픽업차의 「차량번호」 셀을 누르면 티카 상세페이지로」).
    *   손오공이 티카를 연동한 물건이라 **원본 페이지에 사진·제원·조건이 다 있다.** 사진 한 장보다 그쪽이 낫다.
-   * ★고르는 차례 — 「차번링크」 칸에 주소가 있으면 그것, 없으면 예전처럼 「사진」 첫 장.
-   *   ⇒ 픽업만 「차번링크」가 차 있으므로 **다른 탭은 지금 그대로 굴러간다**(폴백이 곧 옛 규칙이다).
-   * ⚠ 여기서도 «판단하지 않는다» — 칸에 있는 주소를 그대로 건다.
-   */
+   * ★주소 선택은 `photo-projection.sheetPlateLink` 한 곳에서 이미 끝난다.
+   *   「사진」은 ERP 사진 해석용 원천이고, 「차번링크」는 Google Sheet 이동용 주소다.
+   *   둘 사이에서 폴백하면 공급사별 규칙이 섞이므로 여기서는 「차번링크」만 사용한다.
+  */
   const ipl = idx('차량번호');
-  const iph = idx('사진');
   const idl = idx('차번링크');
-  if (ipl >= 0 && (iph >= 0 || idl >= 0) && input.body) {
-    out.push({ repeatCell: {
+  if (ipl >= 0 && idl >= 0 && input.body) {
+    /** ★옛 링크 걷어내기도 링크와 «같은 묶음»에 둔다 — 갈라 두면 걷어내기만 먼저 가서 헛일이 된다. */
+    (input.linkOut || out).push({ repeatCell: {
       range: { sheetId: gid, startRowIndex: H + 1, startColumnIndex: ipl, endColumnIndex: ipl + 1 },
       cell: { userEnteredFormat: { textFormat: {} } },
       fields: 'userEnteredFormat.textFormat.link',
@@ -497,11 +525,10 @@ export function buildSalesFormatRequests(input: FormatInput): Record<string, unk
     input.body.forEach((r, i) => {
       // 「사진」 칸이 여러 장(콤마·줄바꿈)이면 차번 셀 링크는 «첫 장»만 건다 — 전체를 href로 넣으면 깨진 링크가 된다.
       const first = (v: unknown) => String(v ?? '').split(/\s*[\n,]\s*/)[0].trim();
-      const detail = idl >= 0 ? first(r[idl]) : '';
-      const uri = /^https?:\/\//i.test(detail) ? detail : (iph >= 0 ? first(r[iph]) : '');
+      const uri = first(r[idl]);
       const plate = String(r[ipl] ?? '').trim();
       if (!plate || !/^https?:\/\//i.test(uri)) return;
-      out.push({ updateCells: {
+      (input.linkOut || out).push({ updateCells: {
         range: {
           sheetId: gid, startRowIndex: H + 1 + i, endRowIndex: H + 2 + i,
           startColumnIndex: ipl, endColumnIndex: ipl + 1,

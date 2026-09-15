@@ -6,9 +6,8 @@ import { applySheetConflictResolutions } from '../lib/domain/sheet-conflict-reso
 import { buildPriceChangesValue } from '../lib/domain/sheet-conflict-report';
 
 nextEnv.loadEnvConfig(process.cwd());
-process.env.NEXT_PUBLIC_DATA_BACKEND = 'rtdb';
 
-const [{ firebaseAdminDatabase }, { fetchSalesInventorySheet }, {
+const [{ firebaseAdminStore }, { fetchSalesInventorySheet }, {
   readContracts,
   readPartners,
   readProducts,
@@ -21,7 +20,7 @@ const [{ firebaseAdminDatabase }, { fetchSalesInventorySheet }, {
 
 const S = (value: unknown) => String(value ?? '').trim();
 const companyId = S(process.env.SHEET_SYNC_COMPANY_ID || 'freepass');
-const db = firebaseAdminDatabase();
+const db = firebaseAdminStore();
 const [partners, erpState, contracts, resolutions] = await Promise.all([
   readPartners(db, companyId),
   readProducts(db, companyId),

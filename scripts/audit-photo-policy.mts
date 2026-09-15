@@ -29,16 +29,15 @@ import nextEnv from '@next/env';
 import { mkdirSync, writeFileSync } from 'node:fs';
 
 nextEnv.loadEnvConfig(process.cwd());
-process.env.NEXT_PUBLIC_DATA_BACKEND = 'rtdb';
 
-const [{ firebaseAdminDatabase }, { readProducts, readPartners }, photos] = await Promise.all([
+const [{ firebaseAdminStore }, { readProducts, readPartners }, photos] = await Promise.all([
   import('../lib/server/firebase-admin'),
   import('../lib/server/sheet-daily-sync'),
   import('../lib/domain/product-photos'),
 ]);
 
 const S = (v: unknown) => String(v ?? '').trim();
-const db = firebaseAdminDatabase();
+const db = firebaseAdminStore();
 const companyId = S(process.env.SHEET_SYNC_COMPANY_ID || 'freepass');
 const [partners, products] = await Promise.all([readPartners(db, companyId), readProducts(db, companyId)]);
 
@@ -71,7 +70,7 @@ const srcOf = (url: string): Src => {
 /**
  * ★픽업인가 — **소스탭으로 가른다.** 공급사 코드로는 못 가른다.
  *   `sales-block.ts:28` 「RP012 이면서 탭 이름에 「픽업」 → 픽업구독」.
- *   RP012 하나가 손오공구독·픽업구독 둘을 함께 대므로(2026-08-27 합침), 코드만 보면 331대를
+ *   RP012 하나가 손오공상품·픽업구독 둘을 함께 대므로(2026-08-27 합침), 코드만 보면 331대를
  *   통째로 「티카 써도 되는 차」로 봐 버린다. 그러면 위반이 0으로 보인다.
  */
 const isPickup = (p: Record<string, unknown>): boolean =>

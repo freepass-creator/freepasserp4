@@ -16,11 +16,12 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { SALES_SHEET_ID } from '../lib/domain/legacy-sheets';
 import { pickPublishedSalesTabs } from '../lib/domain/sales-published-tabs';
+import { googleSheetsServiceAccount } from '../lib/server/google-service-account';
 
 type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim();
 const norm = (v: unknown) => S(v).replace(/\s+/g, '');
-const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
+const sa = googleSheetsServiceAccount('tmp/firebase-auth/sa.json');
 const jwt = new JWT({ email: sa.client_email, key: sa.private_key, subject: 'pyh@teamjpk.com', scopes: ['https://www.googleapis.com/auth/spreadsheets'] });
 const sleep = (ms: number) => new Promise((ok) => setTimeout(ok, ms));
 const call = async (u: string): Promise<Rec> => {

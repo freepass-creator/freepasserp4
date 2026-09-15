@@ -25,8 +25,7 @@
  * ⚠ RTDB 는 `undefined`·빈 배열을 조용히 버린다. 읽을 때 `normalizeRecord` 를 꼭 거친다 —
  *   안 거치면 `false`·`0` 이 사라져 판정이 갈린다(2026-08-26 `disputed` 로 한 번 당했다).
  */
-import { getDatabase } from 'firebase-admin/database';
-import { firebaseAdminApp } from '@/lib/server/firebase-admin';
+import { firebaseAdminStore } from '@/lib/server/firebase-admin';
 import { newId } from '@/lib/domain/ids';
 import {
   dayOf, normalizeRecord, type SettlementRecord,
@@ -39,9 +38,9 @@ const N = (v: unknown) => { const n = Number(S(v).replace(/[,\s원]/g, '')); ret
 const ON = (v: unknown) => v === true || /^(TRUE|true|참|Y|예|1)$/i.test(S(v));
 
 /** 정산 줄이 사는 곳. */
-export const ROWS_NODE = 'v4/settlement_rows';
+export const ROWS_NODE = 'settlement_rows';
 
-const db = () => getDatabase(firebaseAdminApp());
+const db = () => firebaseAdminStore();
 
 /**
  * 글자 날짜(`YYYY-MM-DD`)를 `Date` 로. **그 자리 날짜 그대로** 만든다.

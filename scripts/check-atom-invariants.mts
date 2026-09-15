@@ -7,26 +7,36 @@ import { readFileSync } from 'node:fs';
 import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { makerGroup } from '../lib/domain/vehicle-master-match';
-import type { MasterEntry } from '../lib/domain/vehicle-master-types';
 import { atomViolations, type MasterIndex, type AtomView } from '../lib/domain/atom-invariants';
 
 const S = (v: unknown) => String(v ?? '').trim();
 const N = (v: unknown) => S(v).toLowerCase().replace(/\s+/g, '');
 
 // 마스터 인덱스 — 순수 불변식에 넘길 조회.
-const masterRaw = JSON.parse(readFileSync('public/data/vehicle-master.json', 'utf8')) as unknown;
-const MASTER = ((Array.isArray(masterRaw) ? masterRaw : (masterRaw as { entries?: MasterEntry[] }).entries) || []) as MasterEntry[];
+type TrimMasterRow = { maker?: string; model?: string; sub_model?: string; trim?: string; management_status?: string; usage_tier?: string };
+const masterRaw = JSON.parse(readFileSync('public/data/vehicle-trim-master.json', 'utf8')) as { records?: TrimMasterRow[] };
+const MASTER = (masterRaw.records || []).filter((row) => row.management_status === '확정' && row.usage_tier !== 'blocked');
 const SUB = new Set<string>(); const TRIMS = new Map<string, string[]>();
 for (const e of MASTER) {
   const mo = N(e.model), sm = N(e.sub_model); if (!mo || !sm) continue;
-  for (const a of makerGroup(N(e.maker))) { SUB.add(`${a}|${mo}|${sm}`); if (e.trims?.length) TRIMS.set(`${a}|${mo}|${sm}`, e.trims); }
+  for (const a of makerGroup(N(e.maker))) {
+    const key = `${a}|${mo}|${sm}`;
+    SUB.add(key);
+    if (S(e.trim)) TRIMS.set(key, [...new Set([...(TRIMS.get(key) || []), S(e.trim)])]);
+  }
 }
 const idx: MasterIndex = {
   validSub: (mk, mo, sm) => { for (const a of makerGroup(N(mk))) if (SUB.has(`${a}|${N(mo)}|${N(sm)}`)) return true; return false; },
   trimsOf: (mk, mo, sm) => { for (const a of makerGroup(N(mk))) { const t = TRIMS.get(`${a}|${N(mo)}|${N(sm)}`); if (t) return t; } return []; },
 };
 
-const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
+const sa = process.env.FIREBASE_SERVICE_ACCOUNT_JSON
+  ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON)
+  : JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
+const configuredProjectId = S(process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID);
+if (configuredProjectId && sa.project_id !== configuredProjectId) {
+  throw new Error(`Firebase 프로젝트 불일치: client=${configuredProjectId}, service=${sa.project_id || ''}`);
+}
 initializeApp({ credential: cert({ projectId: sa.project_id, clientEmail: sa.client_email, privateKey: S(sa.private_key).replace(/\\n/g, '\n') }) });
 const fs = getFirestore();
 const snap = await fs.collection('products').get();

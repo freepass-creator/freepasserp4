@@ -40,6 +40,7 @@ import { POLICY_TAB_ALIASES } from '../lib/domain/supplier-template-sheet';
 import { classifyVehicleClass, composeRefinedVehicleName } from '../lib/domain/vehicle-class';
 import { vehicleClassDisplay } from '../lib/domain/vehicle-class-catalog';
 import { substFromAiRefineRows } from '../lib/domain/ai-refine-guard';
+import { googleSheetsServiceAccount } from '../lib/server/google-service-account';
 /** 정책 탭 값 — 「운영정책」 먼저, 없으면 옛 「정책」(사장님 2026-08-19 탭 개명 · 아직 안 바꾼 시트 호환). */
 /**
  * 정책 탭을 읽는다. 이름이 「운영정책」·「정책」이 아닐 수 있다 —
@@ -75,6 +76,8 @@ const norm = (v: unknown) => S(v).replace(/\s+/g, '');
 const APPLY = process.argv.includes('--apply');
 const arg = (k: string, d = '') => (process.argv.find((a) => a.startsWith(`--${k}=`)) || '').slice(k.length + 3) || d;
 const SHEET = arg('sheet', '1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs');
+const PRODUCTION_F01 = '1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs';
+if (APPLY && SHEET === PRODUCTION_F01) throw new Error('구형 원천 발행기는 운영 F01을 쓸 수 없다. --sheet=<수집 스테이징 시트>를 지정하라.');
 /**
  * 탭 이름. **기본값을 바꾸지 마라** — 아래 377행이 «이름으로» 기존 탭을 찾는다.
  * ⚠ 이름이 어긋나면 못 찾고 **새 탭을 하나 더 만든다.** 그러면 영업자 문서에
@@ -82,15 +85,14 @@ const SHEET = arg('sheet', '1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs');
  */
 const TAB = arg('tab', '상품리스트');
 /**
- * ★`--only=공급사코드[:탭글자]` — 그 공급사(그 탭)만 실어 **별도 탭**을 찍는다(사장님 2026-08-19 「상품리스트 · 손오공구독(반납/인수) · 오플구독 탭 3개로 회귀」).
+ * ★`--only=공급사코드[:탭글자]` — 그 공급사(그 탭)만 실어 **별도 탭**을 찍는다(사장님 2026-08-19 「상품리스트 · 손오공상품(반납/인수) · 오플구독 탭 3개로 회귀」).
  *   같은 발행기·같은 정본 차명·같은 열이라 상품리스트와 규격이 갈리지 않는다. @제외는 무시한다(그 공급사를 실으려는 것이니까).
- *   예) --only=RP012:구독 --tab=손오공구독 · --only=RP023 --tab=오플구독 (그 뒤 publish-sonogong-tab 이 원본 요금 블록을 덧붙인다)
- * ★탭 자리 — 상품리스트 0 · 손오공구독 1 · 오플구독 2 (`salesPublishedTabIndex`). `--at=N` 은 덮어쓸 때만.
+ *   예) --only=RP012:구독 --tab=손오공상품 · --only=RP023 --tab=오플구독 (그 뒤 publish-sonogong-tab 이 원본 요금 블록을 덧붙인다)
+ * ★탭 자리 — 상품리스트 0 · 손오공상품 1 · 오플구독 2 (`salesPublishedTabIndex`). `--at=N` 은 덮어쓸 때만.
  */
 const ONLY = (() => { const v = arg('only'); if (!v) return null; const [code, tab = ''] = v.split(':'); return { code: code.trim(), tab: tab.trim() }; })();
 const AT = process.argv.some((a) => a.startsWith('--at=')) ? (Number(arg('at')) || 0) : salesPublishedTabIndex(TAB);
 const inScope = (code: string, tabTitle: string) => !ONLY || (ONLY.code === code && (!ONLY.tab || S(tabTitle).includes(ONLY.tab)));
-const DB = 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app';
 /** 「공급사시트정리」 — 공급사명 | 공급사코드 | 시트주소. 주소의 정본이다. */
 const INDEX_SHEET = arg('index', '1TVeVXyJJRx0SzD2vxqy3eEjSojmMIWXSu7AdsKmpfmY');
 
@@ -127,7 +129,7 @@ let COLUMNS: string[] = SALES_COLUMNS;
 /** 실제로 쓸 매핑. 아래에서 판매시트 「AI 인계」 @매핑 표를 읽어 채운다. */
 let ALIAS: Record<string, string[]> = SALES_ALIAS;
 
-const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
+const sa = googleSheetsServiceAccount('tmp/firebase-auth/sa.json');
 // drive 는 「○○ 프리패스 재고」 시트를 **이름으로 찾는 데만**(files.list) 쓴다 — fill-supplier-ai-columns 와 같은 위임 스코프.
 const gT = (await new JWT({ email: sa.client_email, key: sa.private_key,
   scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive'], subject: 'pyh@teamjpk.com' }).getAccessToken()).token;
@@ -1007,7 +1009,7 @@ await api(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET}/values/${encod
 // ⚠ 여기서 따로 걸지 마라 — 여기 있던 코드는 「사진」 칸이 아니라 «원본 차번 셀 링크»만 봐서
 //    갈래 탭은 되고 상품리스트만 0대로 남았다(사장님 2026-08-24 「사진링크를 좀 동일하게 처리해줘야지」).
 {
-  const pi = COLUMNS.indexOf('사진');
+  const pi = COLUMNS.indexOf('차번링크');
   const linked = pi < 0 ? 0 : rows.filter((r) => S(r[pi]).startsWith('http')).length;
   console.log(`  차량번호에 사진링크 ${linked}대 · 링크 없는 차 ${rows.length - linked}대는 글자만`);
 }

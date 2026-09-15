@@ -31,6 +31,7 @@ import {
 } from '../lib/domain/product-master-live-sync';
 import type { EntityRecord } from '../lib/intake/entities';
 import type { MasterEntry } from '../lib/domain/vehicle-master-types';
+import { googleSheetsServiceAccount } from '../lib/server/google-service-account';
 
 type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim();
@@ -63,7 +64,7 @@ function manualBlockedProviderCodes(manualTable: string[][]): Set<string> {
   return blocked;
 }
 
-const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8')) as Rec;
+const sa = googleSheetsServiceAccount('tmp/firebase-auth/sa.json');
 const auth = new JWT({
   email: S(sa.client_email), key: S(sa.private_key),
   scopes: ['https://www.googleapis.com/auth/spreadsheets'], subject: 'pyh@teamjpk.com',

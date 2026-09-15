@@ -41,7 +41,7 @@ const ROWS: Row[] = [
   ['', '', ''],
 
   ['2. 탭 구성', '상품리스트', '전 공급사 재고. 공급사 시트에서 직행으로 옮긴다.'],
-  ['', '손오공구독', '손오공 구독. 상품리스트와 같은 규격 + 인수형 요금.'],
+  ['', '손오공상품', '손오공 구독. 상품리스트와 같은 규격 + 인수형 요금.'],
   ['', '오플구독', '오토플러스 구독 재고. 완성된 정제칸을 판매 규격으로 발행하고 2만/3만km 요금 블록을 붙인다.'],
   ['', 'AI 인계', '이 문서. 숨김.'],
   ['', '⚠ 금지', '같은 표를 두 벌 만들지 마라. 신버전·구버전을 나란히 뒀다가 한쪽만 갱신돼 영업자가 옛 값을 봤다(오플 유령 48개월).'],
@@ -50,7 +50,7 @@ const ROWS: Row[] = [
   ['3. 어떻게 만들어지나', '★한 줄 요약', '공급사시트를 판매시트로 그대로 옮긴다. ERP를 거치지 않는다. 아래 @매핑 표가 «어느 칸을 어디로» 옮길지 정한다.'],
   ['', '매핑을 고치려면', '이 탭의 @매핑 줄을 고치면 된다. 코드를 안 고쳐도 발행기가 그대로 따른다.'],
   ['', '상품리스트', 'npx tsx scripts/publish-origin-tab.mts --apply'],
-  ['', '손오공구독', 'npx tsx scripts/publish-origin-tab.mts --only=RP012:구독 --tab=손오공구독 --at=1 --apply → npx tsx scripts/publish-sonogong-tab.mts --apply'],
+  ['', '손오공상품', 'npx tsx scripts/publish-origin-tab.mts --only=RP012:구독 --tab=손오공상품 --at=1 --apply → npx tsx scripts/publish-sonogong-tab.mts --apply'],
   ['', '⚠ 옛 손오공 발행기', 'publish-jonghap-tab --sonogong 은 쓰지 마라. ERP를 거쳐 돈이 사라진다 — 실측 2026-08-14: 제공시트 45대·보증금 24대인데 그 길로는 23대·보증금 0대로 나갔다.'],
   ['', '오플구독', 'npx tsx scripts/publish-origin-tab.mts --only=RP023 --tab=오플구독 --at=2 --apply → npx tsx scripts/publish-sonogong-tab.mts --tab=오플구독 --apply'],
   ['', '주소의 정본', '문패 시트 「공급사시트정리」 1TVeVXyJJRx0SzD2vxqy3eEjSojmMIWXSu7AdsKmpfmY (공급사명 | 코드 | 시트주소)'],
@@ -61,7 +61,7 @@ const ROWS: Row[] = [
   ['4. 절대 규칙', '① 돈은 해석 안 함', '대여료·보증금·상태는 공급사가 쓴 글자를 그 자리에 옮길 뿐이다. 규칙으로 계산하지 마라.'],
   ['', '왜', '2026-08-12 하루에 난 오류가 전부 «우리가 옮기다 생긴 것»이었다 — 오플 요금 92대 자리밀림 · 유령 48개월 72대 · 아이카 1개월 60대 실종. 공급사 시트에는 맞게 적혀 있었다.'],
   ['', '② 지어내지 않음', '시트에 없는 칸은 비운다. 빈 칸이 틀린 값보다 낫다.'],
-  ['', '③ 두 벌 금지', '같은 차가 두 탭에 서면 사고다. 오플·손오공구독은 상품리스트에서 뺀다.'],
+  ['', '③ 두 벌 금지', '같은 차가 두 탭에 서면 사고다. 오플·손오공상품은 상품리스트에서 뺀다.'],
   ['', '④ 매번 센다', '발행 때마다 차량번호·대여료·보증금이 몇 대 찼는지 찍는다. 갑자기 줄면 그날 발행을 멈추고 봐라.'],
   ['', '', ''],
 
@@ -160,7 +160,7 @@ const ROWS: Row[] = [
   ['', '', ''],
 
   ['10. 고칠 곳', '상품리스트 발행', 'scripts/publish-origin-tab.mts'],
-  ['', '손오공구독·요금 블록', 'scripts/publish-origin-tab.mts · scripts/publish-sonogong-tab.mts'],
+  ['', '손오공상품·요금 블록', 'scripts/publish-origin-tab.mts · scripts/publish-sonogong-tab.mts'],
   ['', '오플구독·요금 블록', 'scripts/publish-origin-tab.mts · scripts/publish-sonogong-tab.mts'],
   ['', '마스터 감사', 'scripts/audit-master-gap.mts · scripts/fill-master-gap.mts'],
   ['', '표기 사전', 'lib/domain/master-alias.ts · scripts/seed-master-aliases.mts'],

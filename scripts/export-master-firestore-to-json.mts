@@ -9,7 +9,7 @@
  *
  *   npx tsx scripts/export-master-firestore-to-json.mts
  */
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync, renameSync } from 'node:fs';
 import { join } from 'node:path';
 import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
@@ -25,8 +25,14 @@ const entries = docs
   .map((d) => { const x = { ...(d.data() as Record<string, unknown>) }; delete x._built_at; return x; })
   .sort((a, b) => S(a.id).localeCompare(S(b.id)));
 
-// 원형 = { entries: [...] } · 2-space (carmaster route·mirror 가 raw.entries 로 읽음).
+// ★비었으면 «쓰지 않는다» — Firestore 읽기가 반쪽이면 멀쩡한 사본을 빈 파일로 덮어 파이프라인 전체를 죽인다.
+if (!entries.length) { console.error('✗ Firestore vehicle_master 가 0개 — 사본을 덮지 않는다(파이프라인 보호). 중단.'); process.exit(1); }
+
+// ★원자적 교체 — 임시파일에 다 쓰고 rename(같은 볼륨이라 원자적). 중간 크래시가 나도 «반쪽 JSON»이 남지 않는다.
+//   회차 중 어느 소비처가 읽는 순간에도 «옛 완본 or 새 완본»만 본다(회차 버전 일관).
 const out = join(process.cwd(), 'public/data/vehicle-master.json');
-writeFileSync(out, JSON.stringify({ entries }, null, 2), 'utf8');
-console.log(`■ Firestore vehicle_master ${entries.length}개 → ${out}`);
+const tmp = `${out}.tmp`;
+writeFileSync(tmp, JSON.stringify({ entries }, null, 2), 'utf8');
+renameSync(tmp, out);
+console.log(`■ Firestore vehicle_master ${entries.length}개 → ${out} (원자적 교체)`);
 console.log('  정본 = Firestore. 파일은 Firestore 에서 재생성된 사본이다. RTDB 는 폐기됨.');
