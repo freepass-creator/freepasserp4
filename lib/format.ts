@@ -188,3 +188,20 @@ export function todayKst(now: Date = new Date()): string {
 export function todayKo(now: Date = new Date()): string {
   return now.toLocaleDateString('ko-KR', { ...KST, year: 'numeric', month: 'numeric', day: 'numeric' });
 }
+
+/**
+ * **보증금 한 줄** — 손님 화면(목록 카드·상세·공유 미리보기)이 같은 규칙으로 말한다.
+ *
+ * ★2026-09-16 실측 — 보증금이 «숫자 0 + 규칙 글자»인 상품(오토플러스 「국산: 월 대여료×2」 ·
+ *   손오공 구독 「월 대여료 × 약정연수(최대 3개월)」)에서 화면이 「보증금 없음」이라고 말하고 있었다.
+ *   시트·하허호 시트는 규칙 글자로 나가는데 손님 화면만 «없다»고 한 것이다 — 그건 곧 약속이 된다.
+ * ⇒ 금액이 있으면 금액 · 0인데 규칙 글자가 있으면 그 글자 · 둘 다 없으면 「보증금 없음」.
+ *   「무보증」이라고 적힌 규칙은 말 그대로 없는 것이라 「보증금 없음」으로 둔다(색·굵기도 그대로).
+ */
+export function depositLine(deposit: unknown, note: unknown, money: (n: unknown) => string): { text: string; none: boolean } {
+  const amount = Number(deposit) || 0;
+  const rule = String(note ?? '').trim();
+  if (amount > 0) return { text: `보증금 ${money(amount)}`, none: false };
+  if (rule && !/무보증/.test(rule)) return { text: `보증금 ${rule}`, none: false };
+  return { text: '보증금 없음', none: true };
+}

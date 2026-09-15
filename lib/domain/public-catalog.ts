@@ -72,6 +72,13 @@ const PUBLIC_PRODUCT_FIELDS = [
   'options', 'product_type', 'vehicle_status', 'accident_history',
   'cert_car_name', 'location', 'note',
   'insurance_included', 'annual_mileage',
+  /*
+   * ★`deposit_note` — 보증금이 «금액»이 아니라 «규칙 글자»인 상품이 있다(오토플러스 「국산: 월 대여료×2」,
+   *   손오공 구독 「월 대여료 × 약정연수(최대 3개월)」). 이 값이 안 내려와서 손님 화면이 보증금 0을
+   *   「보증금 없음」이라고 말했다(실측 2026-09-16 · 오토플러스 47대 · 손오공 15대). 시트는 규칙 글자로 나온다.
+   *   ⚠ 손님이 봐도 되는 조건 글자다 — 원가·수수료와 성격이 다르다.
+   */
+  'deposit_note',
 ] as const;
 
 /** 기간별 대여료 — 값이 있는 기간만. 음수·0은 버린다(0원 견적 방지). */

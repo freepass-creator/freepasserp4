@@ -23,7 +23,7 @@ import { PERKS, hasPerk } from '@/lib/domain/product-filters';
 import { displacementL } from '@/components/product-card-identity';
 import { vehicleNameOf } from '@/lib/domain/vehicle-name';
 import { yearFullDisplay, fuelDisplay, makerDisplay } from '@/lib/domain/vehicle-master-format';
-import { isEvFuel, kmDisplay, kmValue, wonKo } from '@/lib/format';
+import { isEvFuel, kmDisplay, kmValue, wonKo, depositLine } from '@/lib/format';
 
 /**
  * 가게 상세 — 손님이 «이 차로 할까»를 정하는 화면.
@@ -117,6 +117,8 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
   );
   const [planIdx, setPlanIdx] = useState(0);
   const plan = plans[planIdx];
+  /** 보증금 — 금액이 없고 규칙 글자만 있는 상품(`depositLine` 머리말). */
+  const dep = plan ? depositLine(plan.deposit, (p as Record<string, unknown>).deposit_note, wonKo) : null;
   /** 표에 세울 순서 — 기간 오름차순. 위 큰 숫자는 최저가로 시작하지만 표의 축은 «기간»이다. */
   const byMonth = useMemo(() => [...plans].sort((a, b) => a.m - b.m), [plans]);
   /** 제일 싼 줄의 «기간». `plans` 가 요금 오름차순이라 첫 줄이 최저가다. */
@@ -726,10 +728,10 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
             <div style={{ fontSize: SHOP.fs.body, color: C.sub, fontVariantNumeric: 'tabular-nums' }}>
               {/* 목록 카드와 같은 규칙 — 「보증금 없음」에만 색을 준다. */}
               <span style={{
-                color: plan.deposit > 0 ? C.sub : C.ok,
-                fontWeight: plan.deposit > 0 ? 400 : 700,
+                color: dep && dep.none ? C.ok : C.sub,
+                fontWeight: dep && dep.none ? 700 : 400,
               }}>
-                {plan.deposit > 0 ? `보증금 ${wonKo(plan.deposit)}` : '보증금 없음'}
+                {dep ? dep.text : ''}
               </span> · {plan.m}개월 약정
             </div>
           </div>
