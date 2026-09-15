@@ -37,6 +37,7 @@ import { FUEL_EV, rawSeats, atomViolations, type MasterIndex } from '../lib/doma
 import { cleanTrim } from '../lib/domain/clean-trim';
 import { sonokongDepositRuleText, autoplusDepositRuleText } from '../lib/domain/sales-published-tabs';
 import { sonokongProductKind } from '../lib/domain/sonokong-product-kind';
+import { cleanSheetErrorToken, isBlankOrSheetError } from '../lib/domain/sheet-error-tokens';
 import { resolveStatus } from '../lib/domain/atom-status';
 import { isOpenInventoryAtom } from '../lib/domain/inventory-contract';
 import { mergeRawPhotoEvidence, photoAtomFields } from '../lib/domain/photo-atom';
@@ -55,8 +56,7 @@ const 라운드천 = (v: number) => Math.round(v / 1000) * 1000;
  *   그대로 실은 것이다. 그 차는 상품찾기에서 구분이 「#REF!」인 채로 섰다.
  *   ★오류 토큰은 «모른다»다 — 빈칸으로 둔다. 빈칸은 문지기가 잡지만, 「#REF!」는 값처럼 보여 안 잡힌다.
  */
-const SHEET_ERR = /^#(REF|VALUE|N\/A|NAME|DIV\/0|NUM|ERROR|GETTING_DATA)[!?]?$/i;
-const clean = (v: unknown) => { const s = S(v); return SHEET_ERR.test(s) ? '' : s; };
+const clean = cleanSheetErrorToken;
 type Price = Record<string, { rent: number; deposit: number }>;
 const PERIOD_ALIAS: [string, string[]][] = [['1', ['1개월', '월렌트', '월세']], ['6', ['6개월']], ['12', ['12개월']], ['18', ['18개월']], ['24', ['24개월']], ['36', ['36개월']], ['48', ['48개월']], ['60', ['60개월']]];
 

@@ -8,6 +8,7 @@ import { fuelDisplay, fuelEmbeddedCc, yearDisplay, makerDisplay } from '@/lib/do
 import { kmDisplay, ymdDisplay } from '@/lib/format';
 import { vehicleNameOf } from '@/lib/domain/vehicle-name';
 import { moneyOrRateText, moneyOrRatePercent, wonLabel } from '@/lib/domain/policy-money-rate';
+import { isSheetErrorToken } from '@/lib/domain/sheet-error-tokens';
 /**
  * ★**«읽기» 쪽만 부른다** — 카드에 「무슨 서류 필요해요?」 한 줄을 적으려는 것뿐이다.
  *   `esign-required-documents`(거래 채)를 부르면 위약금율·계약종류까지 따라온다(2026-09-08 갈랐다).
@@ -44,7 +45,7 @@ export function canonProductType(raw: unknown): string {
   const s = String(raw || '').replace(/\s+/g, '');
   if (!s) return '';
   // 시트 오류토큰(#REF!·#N/A…)이 원천에서 새어들면 «빈칸»으로 — 시트·ERP에 «#REF!» 가 뜨지 않게(2026-09-08 실측 08주6722).
-  if (/^#(REF!|N\/A|VALUE!|DIV\/0!|NAME\?|NULL!|NUM!)$/i.test(s)) return '';
+  if (isSheetErrorToken(s)) return '';
   if (PRODUCT_TYPE_LEGACY[s]) return PRODUCT_TYPE_LEGACY[s];
   if ((PRODUCT_TYPES as readonly string[]).includes(s)) return s;
   if (s.includes('신차') && s.includes('구독')) return '신차구독';

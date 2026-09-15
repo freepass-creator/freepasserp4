@@ -18,6 +18,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { excludeMirrorSheets } from '../lib/domain/mirror-sources';
 import { SHEET_NAME_MATCH, isDividerColumn, isOurNonInventoryTab, supplierSheetLabel } from '../lib/domain/supplier-template-sheet';
+import { isBlankOrSheetError } from '../lib/domain/sheet-error-tokens';
 
 type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim();
@@ -74,7 +75,7 @@ for (const t of targets) {
     const gaps: string[] = [];
     for (const name of WATCH) {
       const ci = at.get(norm(name)); if (ci === undefined) continue;
-      const n = body.filter((x) => !S(x.r[ci])).length;
+      const n = body.filter((x) => isBlankOrSheetError(x.r[ci])).length;
       if (n) { gaps.push(`${name} ${n}`); totals.set(name, (totals.get(name) || 0) + n); }
     }
     const noMoney = body.filter((x) => periodCols.every((i) => !S(x.r[i])) && !/출고불가/.test(S(x.r[at.get('상태') ?? -1]))).length;
@@ -86,18 +87,18 @@ for (const t of targets) {
     if (FILL) {
       for (const [dst, src] of FROM_AI) {
         const di = at.get(norm(dst)); const si = at.get(norm(src)); if (di === undefined || si === undefined) continue;
-        for (const x of body) if (!S(x.r[di]) && S(x.r[si])) put(di, x.rowNo, S(x.r[si]), `${dst}←${src}`);
+        for (const x of body) if (isBlankOrSheetError(x.r[di]) && !isBlankOrSheetError(x.r[si])) put(di, x.rowNo, S(x.r[si]), `${dst}←${src}`);
       }
       const yi = at.get('연식'); const ri = at.get('최초등록일');
-      if (yi !== undefined && ri !== undefined) for (const x of body) { const m = /^(20\d\d|19\d\d)/.exec(S(x.r[ri])); if (!S(x.r[yi]) && m) put(yi, x.rowNo, m[1], '연식←최초등록 연도'); }
-      const si = at.get('상태'); if (si !== undefined) for (const x of body) if (!S(x.r[si])) put(si, x.rowNo, '출고협의', '상태←출고협의(빈칸 규칙)');
+      if (yi !== undefined && ri !== undefined) for (const x of body) { const m = /^(20\d\d|19\d\d)/.exec(S(x.r[ri])); if (isBlankOrSheetError(x.r[yi]) && m) put(yi, x.rowNo, m[1], '연식←최초등록 연도'); }
+      const si = at.get('상태'); if (si !== undefined) for (const x of body) if (isBlankOrSheetError(x.r[si])) put(si, x.rowNo, '출고협의', '상태←출고협의(빈칸 규칙)');
       const ti = at.get('분류');
       if (ti !== undefined) {
         const have = [...new Set(body.map((x) => S(x.r[ti])).filter(Boolean))];
         const one = /구독/.test(title) ? '중고구독' : (have.length === 1 ? have[0] : '');
-        for (const x of body) if (!S(x.r[ti])) { if (one) put(ti, x.rowNo, one, `분류←${/구독/.test(title) ? '구독탭' : '탭 단일값'}`); }
-        const left = body.filter((x) => !S(x.r[ti])).length - (one ? body.filter((x) => !S(x.r[ti])).length : 0);
-        if (!one && body.some((x) => !S(x.r[ti]))) gaps.push(`분류 못 채움(탭에 값이 ${have.join('/')} 섞임)`);
+        for (const x of body) if (isBlankOrSheetError(x.r[ti])) { if (one) put(ti, x.rowNo, one, `분류←${/구독/.test(title) ? '구독탭' : '탭 단일값'}`); }
+        const left = body.filter((x) => isBlankOrSheetError(x.r[ti])).length - (one ? body.filter((x) => isBlankOrSheetError(x.r[ti])).length : 0);
+        if (!one && body.some((x) => isBlankOrSheetError(x.r[ti]))) gaps.push(`분류 못 채움(탭에 값이 ${have.join('/')} 섞임)`);
         void left;
       }
     }
