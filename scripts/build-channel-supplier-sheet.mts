@@ -86,7 +86,7 @@ console.log(`  원자에서 만든 줄 ${plan.rowsAll.length} — ${plan.kindSum
 /** ★공급사를 모르는 차는 채널에 안 내보낸다 — 고칠 곳은 문패의 공급사명이지 이 시트가 아니다. */
 if (plan.unnamed.length) console.log(`  ⚠ 공급사 이름을 모르는 차 ${plan.unnamed.length}대 — 채널에 안 내보낸다(문패 「공급사명」을 채워라): ${plan.unnamed.slice(0, 6).map((x) => S(x.cells['차량번호'])).join(' · ')}`);
 if (APPLY && plan.unnamed.length) { console.error('  ⛔ 공급사명이 없는 차를 누락한 채 운영 채널시트를 덮지 않는다.'); process.exit(1); }
-if (RETRO && plan.shortOnly.length) console.log(`   ○ 단기 요금만 있는 차 ${plan.shortOnly.length}대 — 하허호에 안 싣는다: ${plan.shortOnly.slice(0, 6).map((x) => `${S(x.cells['차량번호'])}(${x.company})`).join(' · ')}`);
+if (RETRO && plan.shortOnly.length) console.log(`   ○ 장기 요금 없는 차 ${plan.shortOnly.length}대 — 싣되 요금 칸은 빈 채(F01 과 대수를 맞춘다): ${plan.shortOnly.slice(0, 6).map((x) => `${S(x.cells['차량번호'])}(${x.company})`).join(' · ')}`);
 console.log(`\n■ ${DOC_NAME} — 회사 ${plan.order.length}곳 · 총 ${plan.rowsAll.length}대 · 열 ${plan.columns.length}`);
 for (const t of plan.tabs) console.log(`   ${String(t.rows.length).padStart(4)}  ${t.company.padEnd(10)} 칸 ${t.cols.length}`);
 /** ★★하허호 «굳힌 양식» 문지기 — 표 밖 회사·표 밖 요금 칸에 값이 오면 멈춘다(판정은 계획의 layoutViolations). */

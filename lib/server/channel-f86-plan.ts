@@ -6,7 +6,7 @@
  *   SSOT(원자 스냅샷) 하나 → 이 계획 하나 → ① 발행기(`build-channel-supplier-sheet`)가 시트에 쓰고
  *   ② 감사기(`audit-f86-vs-atom`)가 시트를 «칸 단위»로 대조한다. 칸·줄·값·차례를 두 곳에 손으로 적지 않는다.
  *
- * 계획이 정하는 것: 실을 차(공급사명 없는 차·장기 요금 없는 차 뺌) · 회사 탭 · 「종합」 탭 · 탭 차례(굳힌 표) ·
+ * 계획이 정하는 것: 실을 차(공급사명 없는 차만 뺌 · 장기 요금 없는 차는 요금 칸만 빈 채로 싣는다) ·회사 탭 · 「종합」 탭 · 탭 차례(굳힌 표) ·
  *   줄 차례(판매시트와 같은 `compareSalesRows`) · 칸(굳힌 표 `retroTabLayout`) · 칸 값(원자 → `makeCell` → 레트로 숫자·날짜).
  * 계획이 «안» 정하는 것: 서식·색·폭(`channel-retro-skin`) · 시트 문서 id · 쓰기.
  */
@@ -107,13 +107,18 @@ export async function buildF86Plan(p: {
   }
   const kindSummary = TAB_ORDER.map((t) => `${t} ${kindCount[t] || 0}`).join(' · ');
 
-  /** 공급사를 모르는 차는 채널에 안 내보낸다 · 하허호는 장기 요금이 하나도 없는 차도 안 싣는다(`RETRO_SHORT`). */
+  /**
+   * 공급사를 모르는 차는 채널에 안 내보낸다.
+   * ★장기 요금이 없는 차(24개월 이후 대여료 없음)도 «싣는다» — 요금 칸만 빈 채로(사장님 2026-09-16
+   *   「24개월 이후로 대여료가 없으면 그냥 거기는 대여료 없이 그냥 두자, 그래야 총 상품 숫자를 맞출 수 있다」).
+   *   ⚠ 9/15~16 「안 싣는다」 규칙은 폐기 — `shortOnly` 는 몇 대가 요금 빈 채인지 «알림»에만 쓴다.
+   */
   const by = new Map<string, F86Row[]>();
   const unnamed: F86Row[] = [];
   const shortOnly: F86Row[] = [];
   for (const x of rowsAll) {
     if (!x.company) { unnamed.push(x); continue; }
-    if (retro && !retroHasLongFee((c) => x.cells[c], Object.keys(x.cells))) { shortOnly.push(x); continue; }
+    if (retro && !retroHasLongFee((c) => x.cells[c], Object.keys(x.cells))) shortOnly.push(x);
     const l = by.get(x.company) || []; l.push(x); by.set(x.company, l);
   }
 
