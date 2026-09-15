@@ -45,6 +45,7 @@
     "check:inventory-sources": "tsx scripts/check-inventory-source-registry.mts",
     "check:sonokong-options": "node sonokong/scripts/test-option-normalizer.mjs",
     "audit:sonokong-tcar-options": "node sonokong/scripts/audit-tcar-paid-options.mjs",
+    "audit:missing-display": "tsx scripts/audit-missing-display.mts",
     "check:b2b-release": "tsx scripts/check-b2b-release.mts",
     "smoke:b2b-roles": "tsx scripts/smoke-b2b-role-matrix.mts",
     "audit:ironrentcar": "tsx scripts/audit-ironrentcar-source.mts",

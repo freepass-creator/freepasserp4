@@ -6,6 +6,7 @@ import {
   C, R, FW, FS, EXCEL_OPT_BOX_H, EXCEL_OPT_CHIP_H, EXCEL_OPT_ROW_GAP, EXCEL_BADGE_GAP_X,
 } from '@/components/ui';
 import { parseProductOptions } from '@/lib/domain/product';
+import { atomDisplayResult } from '@/lib/domain/missing-value-display';
 
 /**
  * 안전망 상한 — **개수로 자르는 값이 아니다.**
@@ -26,7 +27,8 @@ export function OptionChips({ p, clamp, lines = 1, expand }: {
   lines?: 1 | 2;
   expand?: boolean;
 }) {
-  const options = productOptions(p);
+  const rawDisplay = atomDisplayResult('options', p.options, p);
+  const options = rawDisplay.state === 'value' ? productOptions(p) : [];
   const rowRef = useRef<HTMLDivElement>(null);
   /** 측정용 유령 줄 — 항상 전량을 자연폭으로 그린다. 보이는 줄에서 재면 개수가 줄었다 늘었다 진동한다. */
   const ghostRef = useRef<HTMLDivElement>(null);
@@ -73,17 +75,12 @@ export function OptionChips({ p, clamp, lines = 1, expand }: {
   }, [options.join('\0'), clamp, wrap2, expand]);
 
   if (!options.length) {
-    /*
-     * 빈 값 문구 — 「옵션미입력」은 우리끼리 쓰는 말이라 화면에 그대로 나가면 딱딱하다
-     * (사장님 2026-08-20 「옵션 없으면 없다고 해주고 · 잘 정제해서」).
-     * 두 경우를 구분하지 않는다: 옵션이 «정말 없는 차»와 «공급사가 아직 안 적은 차»를 우리는 알 수 없다.
-     * 그래서 둘 다 담는 한 문장으로 쓴다 — 손님 앞에서 읽어도 어색하지 않은 말이어야 한다.
-     */
+    const empty = rawDisplay.state === 'value' ? atomDisplayResult('options', '', p) : rawDisplay;
     return (
       <div style={{
         fontSize: FS.cap, color: C.faint, lineHeight: 1.45,
         minWidth: 0, width: '100%',
-      }}>선택옵션이 없거나 아직 등록되지 않았습니다</div>
+      }} data-empty-state={empty.state}>{empty.text}</div>
     );
   }
   if (expand) {

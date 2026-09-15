@@ -1,5 +1,7 @@
 /** 공급사 상품시트·천이시트 파이프라인의 순수 규칙 회귀검사. Google/ERP는 읽거나 쓰지 않는다. */
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { atomDisplayResult, atomDisplayText, isAtomDisplayPlaceholder } from '../lib/domain/missing-value-display';
 import { parsePublishedSalesMapping, SALES_RETIRED_COLUMNS } from '../lib/domain/sales-sheet-mapping';
 import { publishedSalesColumns } from '../lib/domain/sales-published-tabs';
 import { buildSupplierPreviewValues, compareSheetMatrices, supplierSalesLabel } from '../lib/domain/supplier-preview-parity';
@@ -55,6 +57,27 @@ for (const col of ['세부모델', '세부트림', '차종구분']) {
 // 원문 두 칸은 **공급사 원문 열**을 집는다(정제칸이 아니라) — 정제 조합을 여기 넣으면 2중 보관이 아니라 같은 값 두 번이 된다.
 assert.equal(mapping.aliases['차명(원문)']?.[0], '차명(세부모델+트림)');
 assert.equal(mapping.aliases['옵션(원문)']?.[0], '옵션');
+
+// 표시 문구는 원자에 저장하지 않고 소비처에서만 만든다.
+assert.deepEqual(atomDisplayResult('옵션(원문)', '', { option_evidence_status: 'PASS' }), { state: 'missing', text: '미입력' });
+assert.deepEqual(atomDisplayResult('옵션(원문)', '', { option_explicit_none: true }), { state: 'none', text: '없음' });
+assert.deepEqual(atomDisplayResult('옵션(원문)', '', { option_evidence_status: 'HOLD' }), { state: 'missing', text: '미입력' });
+assert.equal(atomDisplayText('옵션(원문)', '선루프', { option_evidence_status: 'PASS' }), '선루프');
+assert.equal(atomDisplayText('옵션(원문)', '없음', {}), '없음');
+assert.equal(atomDisplayText('세부트림', '', {}), '미입력');
+assert.equal(atomDisplayText('배기량', '', { fuel_type: '전기' }), '해당없음');
+assert.equal(atomDisplayText('배터리용량', '', { fuel_type: '가솔린' }), '해당없음');
+assert.equal(atomDisplayText('배터리용량', '', { fuel_type: '플러그인 하이브리드' }), '미입력');
+assert.equal(atomDisplayText('mileage', 0, {}), '0');
+assert.equal(isAtomDisplayPlaceholder('options', '없음'), false);
+assert.equal(isAtomDisplayPlaceholder('자차', '없음'), false);
+assert.equal(isAtomDisplayPlaceholder('engine_cc', '해당없음'), true);
+
+const salesRowSource = readFileSync('lib/domain/sales-atom-row.ts', 'utf8');
+const optionUiSource = readFileSync('components/product-card-options.tsx', 'utf8');
+assert.match(salesRowSource, /atomDisplayText\(col, direct\[col\], v\)/);
+assert.match(salesRowSource, /원문'\]\?\.\['옵션'\]\) \|\| S\(v\.options\)/);
+assert.match(optionUiSource, /atomDisplayResult\('options', p\.options, p\)/);
 assert.equal(mapping.aliases['옵션'], undefined);
 
 assert.throws(() => parsePublishedSalesMapping([

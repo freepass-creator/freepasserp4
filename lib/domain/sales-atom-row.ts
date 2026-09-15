@@ -21,6 +21,7 @@ import { erpPhotoSource, isPickupPhotoAtom, sheetPlateLink } from './photo-proje
 import { autoplusDepositRuleText } from './sales-published-tabs';
 import { isDepositColumn } from './sales-sheet-format';
 import { groupPoliciesByProvider, autoPolicyCode } from './supplier-policy-link';
+import { atomDisplayText } from './missing-value-display';
 
 const S = (v: unknown) => String(v ?? '').trim();
 
@@ -232,7 +233,7 @@ export const makeCell = (ctx: SalesRowContext) => (col: string, v: any): string 
     '세부트림': S(v.trim_name),
     '외장': S(v.ext_color), '내장': S(v.int_color), '연식': S(v.year), 'Km': S(v.mileage),
     '연료': S(v.fuel_type), '배기량': S(v.engine_cc), '차종구분': S(v.vehicle_class),
-    '차명(원문)': S(v['원문']?.['차명']), '옵션(원문)': cleanOpt(S(v['원문']?.['옵션'])),
+    '차명(원문)': S(v['원문']?.['차명']), '옵션(원문)': cleanOpt(S(v['원문']?.['옵션']) || S(v.options)),
     '원산지': S(v.origin), '구동': S(v.drive_type), '인승': S(v.seats), '배터리용량': S(v.battery_capacity),
     // 「사진」은 ERP 사진 해석용 원천, 「차번링크」는 Google Sheet 이동용 주소다.
     '최초등록': S(v.first_registration_date), '차고지': S(v.location), '사진': erpPhotoSource(v),
@@ -248,7 +249,7 @@ export const makeCell = (ctx: SalesRowContext) => (col: string, v: any): string 
     '중도해지 1년미만': S(pol.penalty_condition), '중도해지 1년이상': S(pol.penalty_condition),
     '승계': S(pol.succession_allowed) + (pol.succession_fee ? ` (${money(pol.succession_fee)})` : ''),
   };
-  if (col in direct) return direct[col];
+  if (col in direct) return atomDisplayText(col, direct[col], v);
   /**
    * ★★**「차번링크」도 «원자»가 준다** — 사장님 2026-09-09 「그 갖고 온 원자에서 다 주는 거잖아」.
    *   ⚠ 예전엔 발행할 때마다 손오공 재고시트의 「픽업재고」 탭을 다시 읽었다. 발행기가 원천을 읽으면
@@ -267,7 +268,7 @@ export const makeCell = (ctx: SalesRowContext) => (col: string, v: any): string 
     const code = S(v.provider_company_code);
     const nm = ctx.nameByProvider.get(code);
     if (!nm && code) ctx.unnamedProviders.set(code, (ctx.unnamedProviders.get(code) || 0) + 1);
-    return nm || '';
+    return atomDisplayText('공급사', nm || '', v);
   }
   /**
    * ★★**오플 「보증금」은 «금액이 아니라 말»이다** (사장님 2026-08-19 · 2026-09-08 「그냥 금액으로 넣는 게 아니라
