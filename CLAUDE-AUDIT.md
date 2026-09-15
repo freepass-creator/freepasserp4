@@ -22,6 +22,7 @@ Claude 구현 Owner가 **공급사 원천 / ERP5 / 판매시트 / 정제시트 /
 - 최신 운영결정: `docs/ai-ssot-audit/2026-09-16-sonogong-autoplus-tab-routing.md`
 - 최신 F86 점검: `docs/ai-ssot-audit/2026-09-16-f86-hahuhho-sheet-audit.md`
 - 단일세션 운영 핸드오프: `docs/ai-ssot-audit/2026-09-16-chatgpt-claude-collaboration-handoff.md`
+- **AI 소통 창구(짧은 질문·검토요청)**: `docs/ai-ssot-audit/AI-INBOX.md` — 검증된 판정이 아니라 "이거 봐줘" 수준의 대화는 여기.
 
 규칙:
 

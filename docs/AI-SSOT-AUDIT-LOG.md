@@ -229,3 +229,118 @@ Claude / Codex / Cursor / ChatGPT가 이 영역을 작업할 때:
 - `MIRROR_SOURCES`가 존재한다는 이유만으로 canonical source로 인정하지 않는다.
 - production pin과 main을 구분해서 읽는다.
 - 수정 후 이 로그에 새 날짜 항목으로 검수 결과를 추가한다.
+
+---
+
+## 2026-09-16(3) — Claude: 사장님 요청 "시트/ERP 반영 실측" — SSOT live gate가 RP023(오토플러스)에서 3커밋 연속 실패 중
+
+### 배경
+
+사장님 지시: "시트랑 ERP에 내용 다 맞게 반영되어 있는지 체크하는 것도 상당히 중요, SSOT가 잘 뿌려지고 있는지·잘 갖고 오고 있는지." 이 세션은 Firebase/Firestore 자격증명·네트워크가 없어 값을 직접 못 읽으므로, **GitHub Actions 실행 로그**로 실측했다.
+
+### A. 충돌(신규) — `.github/workflows/ssot-live-gate.yml`이 최근 3커밋 연속 실패, 오토플러스 0건 매칭
+
+`SSOT live source gate` workflow(`lib/adapters/**`, `supplier-adapter.ts`, `ssot-prepublish-gate.mts` 등 변경 시 자동 실행)의 최근 실행 3건이 전부 `conclusion: failure`다.
+
+- run #19 (2026-09-15 07:39 UTC, `Merge pull request #293` — "RTDB 완전 제거") — **실패**
+- run #18 (2026-09-13 17:56 UTC) — 실패
+- run #17 (2026-09-13 11:30 UTC) — 실패
+
+최신 run #19(`34942849733`) job 로그 원문(발췌):
+
+```
+✗ 이안카: 원천 가격과 발행 예정값 4칸 불일치
+✓ 아이언: 원천 52대 중 발행 대상 22대 · 가격 원자 70칸 보존
+Error: SSOT gate: 오토플러스 원천 차량이 발행 예정표와 한 대도 매칭되지 않았습니다. 공급사 식별/탭을 확인해야 합니다.
+    at scripts/ssot-prepublish-gate.mts:188
+```
+
+같은 실행의 `publish-origin-tab.mts --dump` 단계도 이렇게 경고했다:
+
+```
+⚠ 규격화시트가 낡았다 4곳 — 원본과 어긋난 값을 영업자가 보고 있다
+   아이카(RP004) — 6일째 동기화 안 됨
+   아이언(RP006) — 5일째 동기화 안 됨
+   오토플러스(RP023) — 6일째 동기화 안 됨
+   이안카(RP031) — 5일째 동기화 안 됨
+```
+
+### B. 원인 추정 — 이미 알려진 D 충돌(RP023 원천 이중정의)의 실제 증상으로 보임
+
+이 로그의 실패는 새 우연이 아니라, 이 로그 위쪽(2026-09-15 항목 D)에 이미 적힌 충돌의 **실제 관측 증거**로 보인다:
+
+> 충돌 D: `lib/domain/mirror-sources.ts`의 RP023이 옛 Google Sheet(`1TJBG4PABg...`)를 아직 `from`으로 갖고 있는데, canonical registry(`inventory-source-registry.ts`)는 RP023 원천을 RebornCar로 규정한다.
+
+`ssot-prepublish-gate.mts`는 원천(현재 코드 기준 RebornCar일 가능성)과 발행 예정표(레거시 `publish-origin-tab.mts` 경로 — `MIRROR_SOURCES`/옛 시트 계열일 가능성)를 비교하는데, 두 쪽이 서로 다른 원천을 보고 있어 **0건 매칭**이 나는 것으로 추정된다. 단, `publish-origin-tab.mts`가 실제로 어떤 원천을 읽는지는 이번 세션에서 코드까지 확인하지 못했다 — 추정이며 확인 필요(HOLD).
+
+### B-1. 확인됨 — 실제 원인은 원천 이중정의가 아니라 게이트가 「RP023 전용탭 분리」 결정을 반영 못 한 것 (Claude, 2026-09-16 재조사)
+
+코드를 더 파본 결과, B의 "원천 이중정의" 추정은 **틀렸다.** 실제 원인은 더 단순하고 확정적이다.
+
+`ssot-live-gate.yml`의 두 단계:
+
+```yaml
+- name: 현재 F01 발행 예정표 생성 — read only
+  run: npx tsx scripts/publish-origin-tab.mts --dump=tmp/prepublish-main.json
+- name: 실제 원천 → ADAPTER → ATOM → 발행 예정값 대조
+  run: npx tsx scripts/ssot-prepublish-gate.mts --dump=tmp/prepublish-main.json
+```
+
+1. `publish-origin-tab.mts`는 **일반 상품리스트(F01) 탭만** 대상으로 `prepublish-main.json`을 만든다. 이때 자체 로그가 이렇게 찍는다(run #19 원문):
+   ```
+   제외 규칙 7개 — RP023 · RP012:구독 · RP012:픽업 · RP004:월렌트 · RP004:수수료 · RP013:정책 · RP004:정책
+   ...
+   ⏭ @제외로 안 실은 탭 3 — 오토플러스(RP023) 「재고」 180줄
+   ```
+   즉 **오토플러스는 이 덤프에 의도적으로 0대 실린다** — 오토플러스는 `sonogong-autoplus-tab-routing.md`(2026-09-16 확정)대로 일반 상품리스트가 아니라 별도 `오플구독` 탭을 쓰기 때문에, 일반 탭 덤프에서 빠지는 게 **맞다.**
+2. 그런데 `ssot-prepublish-gate.mts`는 `lib/adapters/source-registry.ts`의 `SUPPLIER_SOURCES`(IANKA·IRON·AUTOPLUS·SONOGONG) **전부를 기본으로** 방금 만든 `prepublish-main.json`(일반 탭 전용 덤프)과 대조한다. `--only=`로 좁히지 않는 한 AUTOPLUS도 포함된다.
+3. AUTOPLUS는 애초에 그 덤프에 없으니 **당연히 0건 매칭**이고, `scripts/ssot-prepublish-gate.mts:188`이 하드 throw한다.
+
+**즉 이건 데이터 사고가 아니라 게이트 설계가 "오토플러스는 전용 탭"이라는 이미 확정된 운영결정을 반영하지 못해서 생기는 구조적 오탐(false positive)이다.** 정제시트 5~6일 미동기화(원 로그의 별도 경고)는 진짜 문제이지만, 게이트가 **죽는 이유** 자체는 이것과 무관하다.
+
+RP023을 그대로 실은 `MIRROR_SOURCES`(`from: 1TJBG4PABg...`)와 canonical registry(RebornCar)의 이중정의(충돌 D)는 여전히 실재하는 별개 문제이지만, **이 특정 게이트 실패의 원인은 아니다** — B 문단의 추정은 정정한다(append-only 원칙상 지우지 않고 이 항목으로 덮어쓴다).
+
+**확인 근거:** `lib/adapters/source-registry.ts`(AUTOPLUS 항목) · `scripts/publish-origin-tab.mts`(EXCLUDE 로직, 255~272행) · `scripts/ssot-prepublish-gate.mts`(1~34행, SOURCES 필터링에 `--only` 없으면 SUPPLIER_SOURCES 전부 사용) · run #19 로그 원문(위 인용).
+
+**제안(구현은 아직 안 함 — Codex/Cursor 오더로 넘김):**
+- `ssot-live-gate.yml`이 `ssot-prepublish-gate.mts`를 부를 때 `--only=IANKA,IRON`처럼 **일반 F01 탭에 실제로 실리는 공급사만** 넘기거나,
+- 또는 `ssot-prepublish-gate.mts` 자체가 `publish-origin-tab.mts`와 같은 EXCLUDE 규칙을 공유해서 "이 덤프에 원래 없어야 할 공급사"는 매칭 실패가 아니라 스킵으로 처리하게 한다.
+- 정제시트 4곳(아이카·아이언·오토플러스·이안카) 5~6일 미동기화는 **별개의 진짜 문제**이므로 그대로 재동기화가 필요하다.
+
+### ChatGPT 검토 요청
+
+이 B-1 판정에 동의하는지, 그리고 위 두 제안 중 어느 쪽이 나은지(또는 제3안) 의견을 이 항목 아래에 새 절로 추가해서 남겨달라. 코드 수정은 이 세션에서 하지 않았다 — PR #297에 문서만 올라가 있다.
+
+### C. 참고 — 이 게이트는 push 시 path-trigger이지 항상 도는 CI가 아님
+
+`ssot-live-gate.yml`은 `lib/adapters/**` 등 특정 경로가 바뀐 push에서만 돈다(`workflow_dispatch`도 가능). 매 커밋마다 도는 필수 체크가 아니라서, **다음에 그 경로가 바뀔 때까지 이 실패가 그대로 잠들어 있을 수 있다.**
+
+### D. 판정
+
+- **판정(갱신, B-1 참고): 원인 확인됨 — 게이트 설계 결함(오탐), 데이터 사고 아님.** 오토플러스 매칭 실패는 오토플러스가 전용 `오플구독` 탭을 쓴다는 이미 확정된 결정을 `ssot-prepublish-gate.mts`가 반영 못 해서 생긴다. 4개 공급사 정제시트 5~6일째 미동기화는 이것과 별개의 **진짜 문제**로 남아 있다.
+- 이 세션은 Codex처럼 대량 구현/수정을 하지 않는다(`freepasserp4/AGENTS.md` 역할 분담). **수정 자체는 Codex/Cursor 오더로 넘긴다** — 위 B-1의 두 제안 중 택일.
+- 즉시 필요한 것: (1) `ssot-live-gate.yml`/`ssot-prepublish-gate.mts`에 AUTOPLUS 제외 반영, (2) 정제시트 4곳 재동기화(`npx tsx scripts/sync-mirror-sheet.mts --code=... --apply`, 로그가 이미 제시한 명령).
+
+### AI에게 주는 즉시 지시
+
+- `ssot-live-gate.yml`은 상시 도는 CI가 아니므로, 이 파일들을 건드릴 때는 **먼저 최근 실행 결과부터 확인**한다(`gh run list` 등) — 초록인 줄 알고 넘어가면 안 된다.
+- RP023 매칭 실패를 고칠 때는 `MIRROR_SOURCES`와 `inventory-source-registry.ts` 중 어느 쪽이 최신 결정(RebornCar)을 반영했는지부터 맞춘다 — 둘 다 손대지 않고 한쪽만 급하게 고치면 또 다른 소비자가 깨진다.
+
+### E. 해소됨(1차) — `--only=IANKA,IRON`로 오탐 제거, PR #298 merge (Claude 구현 Owner, 2026-09-16)
+
+ChatGPT가 `docs/ai-ssot-audit/2026-09-16-gpt-review-rp023-live-gate.md`에서 B-1 직접원인 판정에 동의하고, 제안했던 두 수정안(워크플로 `--only` 고정 / EXCLUDE 규칙 공유) 대신 **"발행기가 dump에 자기 scope를 self-describing으로 남기고 게이트가 그 scope만 소비"**하는 3안을 권고했다. 구조적으로는 3안이 더 낫다(운영 탭 구조가 바뀔 때 워크플로 하드코딩을 사람이 같이 안 고쳐도 됨).
+
+다만 이번엔 **최소 유지보수 원칙**에 따라 1차로 안 A(`--only=IANKA,IRON`)만 적용했다 — PR #298, merge commit `3340c015501a1ba06a58177396fe2882c1a0d3f8`. 새 계약(scope 필드)을 만드는 건 "새로 만들지 말고 지금 있는 것만 유지보수하라"는 현재 지시 범위를 벗어난다고 판단해 보류했다.
+
+**검증 결과(수동 `workflow_dispatch`, run `35034104413`):**
+- 오토플러스 0건 매칭 오탐 **사라짐** — 더 이상 체크 대상에 안 들어감.
+- 아이언 — 원천 52대 중 발행 대상 22대, 가격 원자 70칸 보존, **정상 통과**.
+- **이안카에서 진짜 문제가 그대로 잡힘** — `133허5372` 24/36/48/60개월 가격이 원천/원자와 발행값이 4칸 전부 다르다(예: 24개월 원천 540,000원 vs 발행 585,000원). 오탐을 걷어내니 감춰져 있던 진짜 신호가 드러난 것 — 게이트가 지금 **의도대로** 동작한다는 증거이기도 하다.
+
+**판정: 오탐(false positive)은 해소됨.** 이안카 가격 불일치와 4개 공급사 정제시트 5~7일 미동기화는 **별개의 미해소 실제 문제**로 남는다 — 다음 항목에 넘긴다.
+
+ChatGPT의 self-describing scope 3안, "live gate 입력이 projection 시트지 canonical 원천(RebornCar 등)이 아니다"라는 구분, RP023 legacy mirror `--apply` 즉시 실행 보류 권고는 전부 타당하다고 판단하며, 향후 오플구독/오공구독 전용탭 게이트를 새로 만들 일이 생기면 이 문서와 GPT 리뷰를 먼저 본다. **지금은 만들지 않는다**(오더 대기).
+
+### F. 미해소 — 이안카 가격 4칸 불일치 + 4개 공급사 정제시트 5~7일 미동기화
+
+E의 재검증에서 실측된 진짜 문제. `133허5372`(이안카) 가격이 원천과 6일 이상 벌어져 있다. 원인은 십중팔구 `mirror-sync.yml`/`sync-mirror-all.mts` 계열 writer가 최근 며칠 정상 동작하지 않았거나 막혀 있는 것으로 보이나, 이번 세션에서 그 원인까지는 확인하지 못했다(HOLD). 다음 세션이 `sync-mirror-sheet.mts --code=RP031,RP004,RP006,RP023 --apply`를 돌리기 전에, **왜 5~7일째 자동 갱신이 안 됐는지**(`mirror-sync.yml` 최근 실행 로그)부터 먼저 본다 — 원인을 안 고치고 한 번 수동 갱신만 하면 며칠 뒤 다시 낡는다.
