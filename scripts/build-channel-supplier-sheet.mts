@@ -26,6 +26,7 @@ import { loadSalesRowContext, makeCell, tabOf, TAB_ORDER, compareSalesRows } fro
 import { buildSalesFormatRequests, columnWidths, isMoneyColumn } from '../lib/domain/sales-sheet-format';
 import { HAHUHO_PRODUCT_SHEET_ID } from '../lib/domain/legacy-sheets';
 import { ensureNoticeTab } from '../lib/server/channel-sheet-tabs';
+import { applyRetroSkin } from '../lib/domain/channel-retro-skin';
 import { channelColumnName, salesPublishedColumns } from '../lib/domain/sales-published-tab-columns';
 import { firebaseAdminApp } from '../lib/server/firebase-admin';
 import { googleSheetsServiceAccount } from '../lib/server/google-service-account';
@@ -36,6 +37,16 @@ const S = (v: unknown) => String(v ?? '').trim();
 const APPLY = process.argv.includes('--apply');
 const arg = (k: string) => (process.argv.find((a) => a.startsWith(`--${k}=`)) || '').split('=')[1] || '';
 const channel = S(arg('채널')) || '하허호';
+/**
+ * ★**미리보기 사본에 찍기** — `--시트=<사본 문서 id>`. 운영 F86 을 덮기 전에 사람이 눈으로 본다.
+ *   ⚠ 운영 F86 id 를 주면 막는다(그건 --시트 없이 부르는 길이다). 이름 검사도 사본이라 건너뛴다.
+ */
+const 미리보기 = S(arg('시트'));
+/**
+ * ★**하허호는 «레트로 겉»** — 사장님 2026-09-15 「원래 레트로 감성인 그 폰트하고 규격 … 대여료 구간은 우리 기존 그거대로」.
+ *   열·차례·값은 그대로(F01), 글꼴·정렬·색·폭만 옛 「프리패스 공급사 상품리스트」 종합 탭(`lib/domain/channel-retro-skin`).
+ */
+const RETRO = channel === '하허호';
 const snapshotPath = arg('snapshot');
 if (APPLY && !snapshotPath) throw new Error('채널시트 발행은 --snapshot=<회차별 고정 스냅샷>이 필요하다. 먼저 capture:sales-publish를 실행하라.');
 /**
@@ -210,9 +221,12 @@ if (!APPLY) { console.log('\n※ dry-run — --apply 로 만든다.\n'); process
 readSalesPublishSnapshot(snapshotPath);
 
 // ── 채널 문서. 운영 중인 하허호 F86은 이름이 아니라 불변 ID로 고정한다. ──
-const fixedId = channel === '하허호' ? HAHUHO_PRODUCT_SHEET_ID : '';
+if (미리보기 && 미리보기 === HAHUHO_PRODUCT_SHEET_ID) throw new Error('--시트 는 미리보기 사본용이다 — 운영 F86 은 --시트 없이 부른다');
+const fixedId = 미리보기 || (channel === '하허호' ? HAHUHO_PRODUCT_SHEET_ID : '');
 let id = fixedId;
-if (id) {
+if (미리보기) {
+  console.log(`   ○ 미리보기 사본에 찍는다 — ${미리보기}`);
+} else if (id) {
   const fixedMeta = await api(`https://sheets.googleapis.com/v4/spreadsheets/${id}?fields=properties.title`);
   if (S(fixedMeta?.properties?.title) !== DOC_NAME) {
     throw new Error(`F86 불변 ID의 문서명이 다르다: ${S(fixedMeta?.properties?.title)} (${id})`);
@@ -302,10 +316,11 @@ for (const [company, list] of order) {
    *   그 값 쓰기가 차번 셀을 덮으면서 링크가 같이 죽었다 — **703대 중 링크가 «한 대도» 없었다.**
    *   서식(색·글꼴)은 멀쩡해서 눈으로는 안 띈다. 채널이 차번을 눌러도 사진이 안 열리는 채로 나갔다.
    */
-  reqs.push(...buildSalesFormatRequests({
+  const 서식 = buildSalesFormatRequests({
     gid, columns: cols, headerAt: 0, widths: columnWidths(cols, body),
     columnCountNow: cols.length, tabTitle: title, body, linkOut: 링크요청,
-  }) as any[]);
+  }) as any[];
+  reqs.push(...(RETRO ? applyRetroSkin(서식, 링크요청, { gid, columns: cols, headerAt: 0 }) : 서식));
   /**
    * ★**탭 색은 회사마다 다르게** (사장님 2026-09-08 「각 회사별 탭 다르게 해주고」).
    *   차례대로 도는 색표라 회사가 늘어도 안 겹쳐 보인다. 서식(글꼴·값 색)은 위에서 이미 한 벌로 맞췄다.
