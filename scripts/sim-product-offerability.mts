@@ -117,7 +117,7 @@ const source = (relative: string) => readFileSync(new URL(`../${relative}`, impo
 //   공개 목록(카탈로그·관심) = isListableProduct — 유효 대여료 필요
 //   내부 목록(상품찾기)       = isStockedProduct — 가격 전이라도 공급사 재고면 표시
 //   견적(공유링크 /q)         = isOfferableProduct — 유효 대여료 필요
-const catalogSource = source('app/catalog/page.tsx');
+const catalogSource = source('app/catalog/CatalogView.tsx');
 check(
   '공개 카탈로그는 서버와 화면 양쪽에서 판매목록 SSOT 적용',
   catalogSource.includes('isListableProduct')

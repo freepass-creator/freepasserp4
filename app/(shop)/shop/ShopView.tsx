@@ -117,9 +117,15 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
   const [wlKey, setWlKey] = useState('');
   /** 검색줄이 «지금 붙어 있나» — 붙었을 때만 밑에 가는 선이 뜬다(안 붙었는데 선이 있으면 그냥 줄이 하나 더 그어진 것이다). */
   const stickRef = useRef<HTMLDivElement>(null);
+  const feedRequestRef = useRef(0);
+  const hasFeedRowsRef = useRef(false);
 
-  /* 첫 진입 — 주소에서 조건을 복원하고, 담당자·매물을 받아 온다. */
-  useEffect(() => { (async () => {
+  /*
+   * 웹·모바일은 같은 공개 발행 API만 읽는다. 화면 크기에 따라 다른 원본·다른 캐시를
+   * 쓰지 않으며, 열린 화면도 한 시간 동기 뒤 그대로 굳지 않도록 45초마다 같은 목록을 갱신한다.
+   */
+  useEffect(() => {
+    let alive = true;
     const params = new URLSearchParams(window.location.search);
     const restored = readQuery(params);
     setQuery(restored);
@@ -128,16 +134,14 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
     // 누구 손님인가 — 주소 ?a= → 기억해 둔 값 → 로그인한 나. 규칙은 `lib/shop/attribution` 한 곳이다.
     const a = resolveAttr(params);
     setAttr(a);
-    /*
-     * ★★**채널을 상세까지 물고 간다.** 주소에 `?wl=` 이 있으면 그걸 쓰고, 없어도 **지금 채널 화면인데
-     *   호스트가 그 채널 도메인이 아니면**(= `/uniauto` 같은 전용 경로) 채널 키를 붙인다.
-     * ⚠ 이걸 안 하면 목록은 유니오토인데 카드를 누른 순간 **노브랜드 옛 「상품 안내」 화면**이 뜬다
-     *   (2026-09-05 실측 — `/uniauto` 에서 카드를 눌러 확인했다). 손님에겐 「눌렀더니 남의 사이트」다.
-     * ★도메인이 붙으면 호스트가 곧 브랜드라 이 값은 저절로 빈 문자열이 된다 — 주소가 짧아진다.
-     */
+    /* 채널 꼬리표는 최초 주소/호스트로 한 번 정하고, 재고 갱신 때 다시 만지지 않는다. */
     const wlParam = params.get('wl');
     const hostIsChannel = wl.hosts.some((h) => h.toLowerCase() === window.location.hostname.toLowerCase());
-    setWlKey(wlParam || (hasBrand(wl) && !hostIsChannel ? wl.key : ''));
+    const previewKey = wlParam || (hasBrand(wl) && !hostIsChannel ? wl.key : '');
+    setWlKey(previewKey);
+
+    const load = async () => {
+      const requestId = ++feedRequestRef.current;
     try {
       const p = new URLSearchParams();
       /*
@@ -166,10 +170,30 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
       const body = await res.json().catch(() => ({})) as {
         products?: EntityRecord[]; agent?: { name?: string; phone?: string } | null;
       };
-      setRows(res.ok && body.products ? body.products : []);
-      setAgent(body.agent || null);
-    } catch { setRows([]); }
-  })(); }, []);
+      if (!alive || requestId !== feedRequestRef.current) return;
+      if (res.ok && body.products) {
+        hasFeedRowsRef.current = true;
+        setRows(body.products);
+        setAgent(body.agent || null);
+      } else if (!hasFeedRowsRef.current) {
+        setRows([]);
+      }
+    } catch {
+      if (alive && requestId === feedRequestRef.current && !hasFeedRowsRef.current) setRows([]);
+    }
+    };
+    void load();
+    const onVisible = () => { if (document.visibilityState === 'visible') void load(); };
+    const timer = window.setInterval(() => { if (document.visibilityState === 'visible') void load(); }, 45_000);
+    window.addEventListener('focus', onVisible);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+      window.removeEventListener('focus', onVisible);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [wl]);
 
   /*
    * ── 보던 자리로 돌아온다 ────────────────────────────────────────────────

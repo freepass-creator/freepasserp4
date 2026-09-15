@@ -1,8 +1,9 @@
 import { cache } from 'react';
 import 'server-only';
-import { firestoreAdminRef } from '@/lib/server/firestore-ref-shim';
+import { getFirestore } from 'firebase-admin/firestore';
+import { firebaseAdminApp } from '@/lib/server/firebase-admin';
 import { channelSellsProduct } from '@/lib/whitelabel';
-import { guestSource } from '@/lib/server/guest-source';
+import { findGuestPolicy, guestSource } from '@/lib/server/guest-source';
 import { sanitizeAgentForGuest, sanitizeProductForGuest } from '@/lib/domain/public-catalog';
 import { isOfferableProduct } from '@/lib/domain/product';
 import { codeCandidates, matchAgentByShareCode, shareToken, splitShareSegment } from '@/lib/domain/product-share';
@@ -101,7 +102,7 @@ async function loadGuestQuoteUncached(segment: string, shareFromQuery: string, o
   const hit = await resolveProduct(seg);
   if (!hit) return null;
   if (hit.share && !share) share = hit.share;
-  const db = firestoreAdminRef();
+  const db = getFirestore(firebaseAdminApp());
   const { key, product } = hit;
   if (!product || dead(product)) return null;
   /*
@@ -121,24 +122,22 @@ async function loadGuestQuoteUncached(segment: string, shareFromQuery: string, o
   if (!isOfferableProduct(merged)) return null;
 
   /**
-   * 정책은 v3 ∪ v4 를 함께 본다.
-   * erp3 절연은 **재고(products)에만** 적용된다 — 회원·정책·계약 이력은 승계한다.
-   * 실측 2026-08-08: 정책 54건 중 v3 53 · v4 26 — v4 만 읽으면 대부분 매물이 보험·연령·심사를 잃는다.
+   * 정책은 목록과 같은 Firestore `policy` 원장을 본다.
    */
   const policyCode = S((product as Rec).policy_code);
   let policy: Rec | null = null;
   if (policyCode) {
-    const pool = (await guestSource()).policies;   /* 캐시라 공짜다 */
-    policy = Object.entries(pool)
-      .map(([k, v]) => ({ ...(v || {}), _key: k } as Rec))
-      .find((x) => S(x.policy_code) === policyCode || S(x._key) === policyCode) || null;
+    policy = findGuestPolicy((await guestSource()).policies, policyCode);   /* 캐시라 공짜다 */
   }
 
   let agent: Rec | null = null;
   const shares = codeCandidates(share, 'usr');
   if (shares.length) {
-    const rows = Object.entries(((await db.ref('users').get()).val() || {}) as Record<string, Rec>)
-      .map(([k, v]) => ({ ...(v || {}), _key: S(v?._key) || k, uid: S(v?.uid) || k })) as EntityRecord[];
+    const rows = (await db.collection('user').get()).docs
+      .map((doc) => {
+        const value = doc.data() as Rec;
+        return { ...value, _key: S(value?._key) || doc.id, uid: S(value?.uid) || doc.id };
+      }) as EntityRecord[];
     for (const s of shares) {
       const found = matchAgentByShareCode(rows, s) as Rec | null;
       if (found) { agent = sanitizeAgentForGuest(found); break; }

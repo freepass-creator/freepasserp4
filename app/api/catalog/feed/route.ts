@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
-import { firestoreAdminRef } from '@/lib/server/firestore-ref-shim';
-import { guestSource } from '@/lib/server/guest-source';
+import { getFirestore } from 'firebase-admin/firestore';
+import { firebaseAdminApp } from '@/lib/server/firebase-admin';
+import { findGuestPolicy, guestSource } from '@/lib/server/guest-source';
 import { sanitizeAgentForGuest, sanitizeProductForGuest } from '@/lib/domain/public-catalog';
 import { isListableProduct } from '@/lib/domain/product';
 import { matchAgentByShareCode } from '@/lib/domain/product-share';
@@ -53,23 +54,14 @@ export async function GET(request: Request) {
      *   차례로 잡는다. 이미 나간 공유 링크(`/q/RP012_122두8108`)는 `product_code` 로 계속 열린다.
      */
     /*
-     * ⚠⚠ 2026-09-05 운영 사고. 파이어스토어를 «직접» 부르게 고쳤더니 배포한 서버에서
-     *   `16 UNAUTHENTICATED` 로 503 이 나고 **차가 한 대도 안 보였다**(로컬은 멀쩡했다).
-     *   서버 자격증명이 파이어스토어까지 못 미치는 환경이 있다는 뜻이다.
-     * ⇒ 심(`firestore-ref-shim`)을 쓴다 — **파이어스토어를 먼저 보고, 못 읽으면 RTDB 로 떨어진다.**
-     *   손님 화면에서 제일 나쁜 것은 「옛 데이터」가 아니라 **빈 화면**이다. 원인은 따로 잡되
-     *   그동안 차는 나와야 한다.
-     * ★읽는 순서·컬렉션 이름은 그대로다(products · policy · partner · user).
+     * 상품·정책·공급사·영업자는 모두 Firestore 컬렉션에서만 읽는다.
+     * Firestore 장애는 오래된 RTDB 자료로 숨기지 않고 503으로 드러낸다. 그래야 웹과
+     * 모바일이 서로 다른 원장을 보고 다른 재고를 표시하는 일이 없다.
      */
-    const db = firestoreAdminRef();
+    const db = getFirestore(firebaseAdminApp());
     /* ★재고·정책은 «공용 캐시»에서 받는다(`guest-source`) — 60초. 상세·미리보기와 같은 것을 본다. */
     const src = await guestSource();
     const productSnap = { val: () => src.products };
-    const policyByCode = new Map<string, Rec>();
-    for (const [k, v] of Object.entries(src.policies)) {
-      if (v && typeof v === 'object') policyByCode.set(S(v.policy_code) || k, v);
-    }
-
     const products: EntityRecord[] = [];
     for (const [docKey, p] of Object.entries((productSnap.val() || {}) as Record<string, Rec>)) {
       const key = S(p?._key) || S(p?.product_code) || docKey;
@@ -78,7 +70,7 @@ export async function GET(request: Request) {
       const merged = { ...p, _key: key, product_code: S(p.product_code) || key } as EntityRecord;
       // 목록에 실을 수 있는 것만 — 판정은 앱과 같은 SSOT 를 쓴다.
       if (!isListableProduct(merged)) continue;
-      products.push(sanitizeProductForGuest(key, p, policyByCode.get(S(p.policy_code))));
+      products.push(sanitizeProductForGuest(key, p, findGuestPolicy(src.policies, p.policy_code)));
     }
 
     // 화이트라벨 — 공급사를 지정했을 때만 그 회사 이름을 준다(전체 파트너 목록은 내보내지 않는다).
@@ -86,9 +78,9 @@ export async function GET(request: Request) {
     //   → 코드는 child 키까지 보고, 이름은 세 필드를 다 훑는다. 안 그러면 브랜드가 조용히 빈다.
     let brand = '';
     if (providerCode) {
-      const partnerSnap = await db.ref('partners').get();
-      const hit = Object.entries((partnerSnap.val() || {}) as Record<string, Rec>)
-        .map(([k, v]) => ({ ...(v || {}), _id: k } as Rec)).find((x) => x && (
+      const partnerSnap = await db.collection('partner').get();
+      const hit = partnerSnap.docs
+        .map((doc) => ({ ...(doc.data() || {}), _id: doc.id } as Rec)).find((x) => x && (
           S(x._id) === providerCode || S(x.partner_code) === providerCode || S(x.company_code) === providerCode
         ));
       // 손님이 보는 이름에 법인격을 붙이지 않는다 — 표기 SSOT 는 companyAlias.
@@ -97,15 +89,18 @@ export async function GET(request: Request) {
 
     let agent = null;
     if (share) {
-      const userSnap = await db.ref('users').get();
-      const rows = Object.entries((userSnap.val() || {}) as Record<string, Rec>)
-        .map(([k, v]) => ({ ...(v || {}), _key: S(v?._key) || k, uid: S(v?.uid) || k })) as EntityRecord[];
+      const userSnap = await db.collection('user').get();
+      const rows = userSnap.docs
+        .map((doc) => {
+          const value = doc.data() as Rec;
+          return { ...value, _key: S(value?._key) || doc.id, uid: S(value?.uid) || doc.id };
+        }) as EntityRecord[];
       agent = sanitizeAgentForGuest(matchAgentByShareCode(rows, share) as Rec | null);
     }
 
     return NextResponse.json(
       { count: products.length, products, brand, agent },
-      { headers: { 'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=600' } },
+      { headers: { 'Cache-Control': 'no-store' } },
     );
   } catch (error) {
     console.error('[catalog/feed]', error instanceof Error ? error.message : 'unknown');
