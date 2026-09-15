@@ -26,7 +26,7 @@ import { loadSalesRowContext, makeCell, tabOf, TAB_ORDER, compareSalesRows } fro
 import { buildSalesFormatRequests, columnWidths, isMoneyColumn } from '../lib/domain/sales-sheet-format';
 import { HAHUHO_PRODUCT_SHEET_ID } from '../lib/domain/legacy-sheets';
 import { ensureNoticeTab } from '../lib/server/channel-sheet-tabs';
-import { applyRetroSkin, retroCellValue, retroLayout, retroTabColorRequest } from '../lib/domain/channel-retro-skin';
+import { applyRetroSkin, inRetroSummary, RETRO_SUMMARY_TAB, retroCellValue, retroLayout, retroTabColorRequest } from '../lib/domain/channel-retro-skin';
 import { channelColumnName, salesPublishedColumns } from '../lib/domain/sales-published-tab-columns';
 import { firebaseAdminApp } from '../lib/server/firebase-admin';
 import { googleSheetsServiceAccount } from '../lib/server/google-service-account';
@@ -209,6 +209,10 @@ for (const r of rowsAll) { const m = S(r.atom.model); if (m) modelCount.set(m, (
 const cmp = compareSalesRows(modelSold, modelCount);
 for (const list of by.values()) list.sort((a, b) => cmp(a.atom, b.atom));
 const order = [...by.entries()].sort((a, b) => b[1].length - a[1].length);
+/** ★하허호 레트로만 — 「종합」 탭(손오공·오토플러스 뺀 렌트사 규격 차)을 공지사항 바로 뒤에 둔다. `RETRO_SUMMARY_TAB` 머리말. */
+const 종합줄 = RETRO ? rowsAll.filter((x) => inRetroSummary(x.company)).sort((a, b) => cmp(a.atom, b.atom)) : [];
+const 탭들: [string, Row[]][] = RETRO ? [[RETRO_SUMMARY_TAB, 종합줄], ...order] : order;
+if (RETRO) console.log(`   ${String(종합줄.length).padStart(4)}  ${RETRO_SUMMARY_TAB} (손오공·오토플러스 뺀 렌트사 규격)`);
 console.log(`\n■ ${DOC_NAME} — 회사 ${order.length}곳 · 총 ${rowsAll.length}대 · 열 ${OUT_COLS.length}`);
 for (const [k, list] of order) {
   const g = new Map<string, number>(); for (const x of list) g.set(x.kind, (g.get(x.kind) || 0) + 1);
@@ -273,7 +277,7 @@ const puts: { range: string; values: string[][] }[] = [];
 /** 이번 회차에 실제로 채운 탭 — 여기 없는 회사 탭은 묵은 것이라 지운다(아래). */
 const 쓴탭 = new Set<number>();
 let index = 1;   // 0 = 공지사항
-for (const [company, list] of order) {
+for (const [company, list] of 탭들) {
   /**
    * ★탭 이름 = 「회사 N대」 (사장님 2026-09-08 「그냥 손오공 몇 대만 탭으로 남겨줘」).
    *   판매시트는 탭 이름에 시각을 박지만(발행 시각이 곧 신선도라서), 채널이 보는 이 문서는
@@ -414,7 +418,7 @@ for (let i = 0; i < 링크요청.length; i += 300) {
   await api(`https://sheets.googleapis.com/v4/spreadsheets/${id}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests: 링크요청.slice(i, i + 300) }) });
 }
 console.log(`   ○ 구글 두드림 — 읽기 ${셈.읽기} · 쓰기 ${셈.쓰기} · 재시도 ${셈.재시도} · 서식요청 ${reqs.length} · 차번링크 ${링크요청.length} · ${Math.round((Date.now() - 셈.시작) / 1000)}초`);
-console.log(`\n✓ 반영 완료 — 탭 ${order.length}장 · ${rowsAll.length}대 · 열 ${OUT_COLS.length}`);
+console.log(`\n✓ 반영 완료 — 탭 ${탭들.length}장 · ${rowsAll.length}대 · 열 ${OUT_COLS.length}`);
 console.log(`   https://docs.google.com/spreadsheets/d/${id}/edit`);
 console.log(`   스냅샷 ${publishSnapshot.snapshotId} · ${publishSnapshot.capturedAt}`);
 process.exit(0);
