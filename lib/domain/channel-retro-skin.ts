@@ -55,6 +55,16 @@ export const RETRO_LAYOUT: { head: string; src: RetroSource }[] = [
 const 요금칸 = (c: string) => isMoneyColumn(c) && !/가격/.test(c);
 /** 옛 시트의 기간 9칸 — 차례 그대로. */
 export const RETRO_PERIODS = ['단기보증', '1개월', '6개월', '12개월', '장기보증', '24개월', '36개월', '48개월', '60개월'] as const;
+/**
+ * ★★**하허호는 단기 칸을 안 싣는다** — 사장님 2026-09-15 「하허호는 단기칸 빼」 · 12개월까지(옛 시트 단기 묶음 = 단기보증·1·6·12개월).
+ *   ⚠ 이름이 «정확히» 이 넷인 칸만 뺀다 — 「12개월 반납형」·「12개월 2만km」 같은 공급사 고유 요금은 단기 칸이 아니라 남긴다.
+ *   ★장기 요금이 하나도 없는 차(단기 요금만 있는 차)는 F86 에 «안 싣는다»(같은 날 확인 · 대여료가 통째로 빈 줄을 채널에 내보내지 않는다).
+ *     판매시트(F01)에는 그대로 있다. 발행기·감사기가 같은 `retroHasLongFee` 로 거른다.
+ */
+export const RETRO_SHORT: readonly string[] = ['단기보증', '1개월', '6개월', '12개월'];
+export function retroHasLongFee(cellOf: (column: string) => unknown, columns: readonly string[]): boolean {
+  return columns.some((c) => /\d+개월/.test(c) && !RETRO_SHORT.includes(c) && isMoneyColumn(c) && (() => { const v = String(cellOf(c) ?? '').trim(); return !!v && v !== '-'; })());
+}
 
 /**
  * ★**숫자·날짜는 «옛 형식»으로 넣는다** — 옛 시트는 요금·Km·배기량·소비자가격이 숫자(#,##0), 최초등록이 날짜(yy-m-d)였다.
@@ -95,6 +105,7 @@ export function retroLayout(cols: readonly string[], opt: { 모든기간?: boole
     if (e.src.kind === 'fee') {
       /** ★옛 시트는 기간 9칸이 «늘» 있었다(안 쓰면 빈 칸) — 사장님 2026-09-15 확인. 옛 9칸에 없는 요금 칸(반납형·km…)은 그 뒤에 F01 차례로. */
       for (const k of RETRO_PERIODS) {
+        if (RETRO_SHORT.includes(k)) continue;
         if (cols.includes(k)) out.push({ head: k, src: { kind: 'col', name: k } });
         else if (opt.모든기간) out.push({ head: k, src: { kind: 'blank' } });
       }
@@ -117,7 +128,7 @@ export const retroHeadToColumn = (head: string): string => {
 };
 /** 이 F01 칸이 F86 에 «실리는가» — 안 실리는 칸은 감사기가 「누락」으로 세지 않는다. */
 export const retroUsesColumn = (name: string): boolean =>
-  요금칸(name) || RETRO_LAYOUT.some((x) => x.src.kind === 'col' && x.src.name === name);
+  (요금칸(name) && !RETRO_SHORT.includes(name)) || RETRO_LAYOUT.some((x) => x.src.kind === 'col' && x.src.name === name);
 
 /**
  * ★★**「종합」 탭 = 렌트사 규격 차만 한 장에** — 사장님 2026-09-15 「종합탭은 거기에 맞춰서 해보자」

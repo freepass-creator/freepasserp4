@@ -26,7 +26,7 @@ import { loadSalesRowContext, makeCell, tabOf, TAB_ORDER, compareSalesRows } fro
 import { buildSalesFormatRequests, columnWidths, isMoneyColumn } from '../lib/domain/sales-sheet-format';
 import { HAHUHO_PRODUCT_SHEET_ID } from '../lib/domain/legacy-sheets';
 import { ensureNoticeTab } from '../lib/server/channel-sheet-tabs';
-import { applyRetroSkin, inRetroSummary, RETRO_SUMMARY_TAB, retroCellValue, retroLayout, retroTabColorRequest } from '../lib/domain/channel-retro-skin';
+import { applyRetroSkin, inRetroSummary, RETRO_SUMMARY_TAB, retroCellValue, retroHasLongFee, retroLayout, retroTabColorRequest } from '../lib/domain/channel-retro-skin';
 import { channelColumnName, salesPublishedColumns } from '../lib/domain/sales-published-tab-columns';
 import { firebaseAdminApp } from '../lib/server/firebase-admin';
 import { googleSheetsServiceAccount } from '../lib/server/google-service-account';
@@ -180,8 +180,12 @@ const by = new Map<string, Row[]>();
  *   ⇒ 빼고, 몇 대인지 알린다. 고칠 곳은 **문패의 공급사명**이지 이 시트가 아니다.
  */
 const 이름없음: Row[] = [];
+/** ★하허호 — 장기 요금이 하나도 없는 차(단기 요금만)는 싣지 않는다(`RETRO_SHORT` 머리말 · 2026-09-15). */
+const 장기있음 = (x: Row) => retroHasLongFee((c) => x.cells[c], Object.keys(x.cells));
+const 단기만: Row[] = [];
 for (const x of rowsAll) {
   if (!x.company) { 이름없음.push(x); continue; }
+  if (RETRO && !장기있음(x)) { 단기만.push(x); continue; }
   const l = by.get(x.company) || []; l.push(x); by.set(x.company, l);
 }
 if (이름없음.length) console.log(`  ⚠ 공급사 이름을 모르는 차 ${이름없음.length}대 — 채널에 안 내보낸다(문패 「공급사명」을 채워라): ${이름없음.slice(0, 6).map((x) => S(x.cells['차량번호'])).join(' · ')}`);
@@ -210,7 +214,8 @@ const cmp = compareSalesRows(modelSold, modelCount);
 for (const list of by.values()) list.sort((a, b) => cmp(a.atom, b.atom));
 const order = [...by.entries()].sort((a, b) => b[1].length - a[1].length);
 /** ★하허호 레트로만 — 「종합」 탭(손오공·오토플러스 뺀 렌트사 규격 차)을 공지사항 바로 뒤에 둔다. `RETRO_SUMMARY_TAB` 머리말. */
-const 종합줄 = RETRO ? rowsAll.filter((x) => inRetroSummary(x.company)).sort((a, b) => cmp(a.atom, b.atom)) : [];
+const 종합줄 = RETRO ? order.filter(([co]) => inRetroSummary(co)).flatMap(([, l]) => l).sort((a, b) => cmp(a.atom, b.atom)) : [];
+if (RETRO && 단기만.length) console.log(`   ○ 단기 요금만 있는 차 ${단기만.length}대 — 하허호에 안 싣는다: ${단기만.slice(0, 6).map((x) => `${S(x.cells['차량번호'])}(${x.company})`).join(' · ')}`);
 const 탭들: [string, Row[]][] = RETRO ? [[RETRO_SUMMARY_TAB, 종합줄], ...order] : order;
 if (RETRO) console.log(`   ${String(종합줄.length).padStart(4)}  ${RETRO_SUMMARY_TAB} (손오공·오토플러스 뺀 렌트사 규격)`);
 console.log(`\n■ ${DOC_NAME} — 회사 ${order.length}곳 · 총 ${rowsAll.length}대 · 열 ${OUT_COLS.length}`);
@@ -419,7 +424,7 @@ for (let i = 0; i < 링크요청.length; i += 300) {
   await api(`https://sheets.googleapis.com/v4/spreadsheets/${id}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests: 링크요청.slice(i, i + 300) }) });
 }
 console.log(`   ○ 구글 두드림 — 읽기 ${셈.읽기} · 쓰기 ${셈.쓰기} · 재시도 ${셈.재시도} · 서식요청 ${reqs.length} · 차번링크 ${링크요청.length} · ${Math.round((Date.now() - 셈.시작) / 1000)}초`);
-console.log(`\n✓ 반영 완료 — 탭 ${탭들.length}장 · ${rowsAll.length}대 · 열 ${OUT_COLS.length}`);
+console.log(`\n✓ 반영 완료 — 탭 ${탭들.length}장 · ${order.reduce((n, [, l]) => n + l.length, 0)}대 · 열 ${OUT_COLS.length}`);
 console.log(`   https://docs.google.com/spreadsheets/d/${id}/edit`);
 console.log(`   스냅샷 ${publishSnapshot.snapshotId} · ${publishSnapshot.capturedAt}`);
 process.exit(0);

@@ -31,7 +31,7 @@ import { channelCompanyOf } from '../lib/domain/channel-company';
 import { compareSalesRows, loadSalesRowContext, makeCell, MISSING, tabOf } from '../lib/domain/sales-atom-row';
 import { channelColumnName, salesPublishedColumns } from '../lib/domain/sales-published-tab-columns';
 import { HAHUHO_PRODUCT_SHEET_ID, SALES_SHEET_ID } from '../lib/domain/legacy-sheets';
-import { retroLayout, retroHeadToColumn, retroUsesColumn, retroSameValue, inRetroSummary, RETRO_SUMMARY_TAB } from '../lib/domain/channel-retro-skin';
+import { retroLayout, retroHeadToColumn, retroUsesColumn, retroSameValue, inRetroSummary, RETRO_SUMMARY_TAB, retroHasLongFee } from '../lib/domain/channel-retro-skin';
 import { googleSheetsServiceAccount } from '../lib/server/google-service-account';
 
 nextEnv.loadEnvConfig(process.cwd());
@@ -206,6 +206,9 @@ for (const [col, e] of [...어긋난칸].sort((a, b) => b[1].n - a[1].n)) consol
 console.log(`  원자엔 요금이 있는데 시트 대여료가 통째로 빈 줄 ${요금빈줄}`);
 
 // ── ② F01 ↔ F86 ─────────────────────────────────────────────
+/** ★F86 에 실릴 차 = F01 차 중 «장기 요금이 있는» 차(하허호는 단기 칸·단기만 차를 안 싣는다 · 2026-09-15). 발행기와 같은 `retroHasLongFee`. */
+const f86대상차 = new Set(f01.filter((r) => retroHasLongFee((c) => r.cells[c], Object.keys(r.cells))).map((r) => r.car));
+if (f01.length !== f86대상차.size) console.log(`  (하허호) 단기 요금만 있어 F86 에 안 싣는 차 ${f01.length - f86대상차.size}대`);
 type F86Row = { company: string; cells: Record<string, string> };
 const f86 = new Map<string, F86Row>();
 const f86Counts = new Map<string, number>();
@@ -224,6 +227,7 @@ let f86줄 = 0;
   const titles = 모든탭.filter((t) => t !== 종합제목);
   const expectedCompanies = new Map<string, number>();
   for (const row of f01) {
+    if (!f86대상차.has(row.car)) continue;
     const company = channelCompanyOf(row.cells['공급사'], rowCtx.nameByProvider);
     expectedCompanies.set(company, (expectedCompanies.get(company) || 0) + 1);
   }
@@ -235,7 +239,7 @@ let f86줄 = 0;
   }
   const expectedHeaders = new Map<string, string[]>();
   for (const company of expectedCompanies.keys()) {
-    const companyRows = f01.filter((row) => channelCompanyOf(row.cells['공급사'], rowCtx.nameByProvider) === company);
+    const companyRows = f01.filter((row) => f86대상차.has(row.car) && channelCompanyOf(row.cells['공급사'], rowCtx.nameByProvider) === company);
     /** ★F86 은 옛 「종합」 43칸이다(2026-09-15 새 구현) — 발행기와 «같은 표»(`retroLayout`)로 기대 머리글을 만든다. */
     expectedHeaders.set(company, retroLayout(channelColumns.filter((column) => {
       const optionalFee = isMoneyColumn(column) && !/가격/.test(column);
@@ -271,7 +275,7 @@ let f86줄 = 0;
   }
   for (const company of expectedCompanies.keys()) {
     const expected = 실릴차
-      .filter((atom) => channelCompanyOf(expectedCell('공급사', atom), rowCtx.nameByProvider) === company)
+      .filter((atom) => f86대상차.has(K(atom.car_number)) && channelCompanyOf(expectedCell('공급사', atom), rowCtx.nameByProvider) === company)
       .sort(compareRows)
       .map((atom) => K(atom.car_number));
     const actual = f86Order.get(company) || [];
@@ -282,14 +286,14 @@ let f86줄 = 0;
    *   값은 회사 탭에서 이미 F01 과 맞췄으므로, 여기서는 차 목록·차례·머리글·줄마다 공급사명이 회사 탭과 같은지를 본다.
    */
   {
-    const 기대차 = 실릴차.filter((atom) => inRetroSummary(channelCompanyOf(expectedCell('공급사', atom), rowCtx.nameByProvider))).sort(compareRows);
+    const 기대차 = 실릴차.filter((atom) => f86대상차.has(K(atom.car_number)) && inRetroSummary(channelCompanyOf(expectedCell('공급사', atom), rowCtx.nameByProvider))).sort(compareRows);
     const 기대제목 = `${RETRO_SUMMARY_TAB} ${expectedMark} · ${기대차.length}대`;
     if (!종합제목) f86TabShapeViolations.push(`빠진 탭: ${기대제목}`);
     else {
       if (expectedMark && 종합제목 !== 기대제목) f86TabShapeViolations.push(`종합 탭 이름: ${종합제목} ↔ 기대 ${기대제목}`);
       const grid = (await readTabs(F86, [종합제목])).get(종합제목) || [];
       const hdr = grid[0] || [];
-      const 종합F01 = f01.filter((row) => inRetroSummary(channelCompanyOf(row.cells['공급사'], rowCtx.nameByProvider)));
+      const 종합F01 = f01.filter((row) => f86대상차.has(row.car) && inRetroSummary(channelCompanyOf(row.cells['공급사'], rowCtx.nameByProvider)));
       const 기대머리 = retroLayout(channelColumns.filter((column) => {
         const optionalFee = isMoneyColumn(column) && !/가격/.test(column);
         if (!optionalFee) return true;
@@ -310,7 +314,7 @@ let f86줄 = 0;
   }
 }
 const f86Duplicates = [...f86Counts].filter(([, count]) => count > 1);
-const F86빠짐 = f01.filter((r) => !f86.has(r.car));
+const F86빠짐 = f01.filter((r) => f86대상차.has(r.car) && !f86.has(r.car));
 /** 두 출력은 같은 원자를 쓰므로 F01 에 없는 차가 F86 에 서면 묵은 탭이거나 헛것이다. */
 const F86헛것 = [...f86.keys()].filter((c) => !f01Cars.has(c));
 const F86값차이 = new Map<string, { n: number; 표본: string[] }>();
