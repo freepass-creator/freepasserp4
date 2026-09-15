@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { firebaseAdminDatabase, verifyActiveBearer } from '@/lib/server/firebase-admin';
+import { firebaseAdminStore, verifyActiveBearer } from '@/lib/server/firebase-admin';
 import { SettlementIssuanceError } from '@/lib/domain/settlement-issuance';
 import { issueSettlementFromServer } from '@/lib/server/settlement-issuance';
 
@@ -24,7 +24,7 @@ export async function POST(request: Request, context: { params: Promise<{ contra
   }
 
   try {
-    const result = await issueSettlementFromServer(firebaseAdminDatabase(), actor, contractCode);
+    const result = await issueSettlementFromServer(firebaseAdminStore(), actor, contractCode);
     return json({ ok: true, code: result.code, reused: result.reused });
   } catch (error) {
     if (error instanceof SettlementIssuanceError) {

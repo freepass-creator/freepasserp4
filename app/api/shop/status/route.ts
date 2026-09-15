@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { firestoreAdminRef } from '@/lib/server/firestore-ref-shim';
+import { firestorePathStore } from '@/lib/server/firestore-path-store';
 import { OPS_PIPELINE_PATH, type OpsPipelineStatus } from '@/lib/ops-status';
 
 /**
@@ -98,7 +98,7 @@ function stampKo(ms: number): string {
 async function loadUpdated(): Promise<{ ms: number; at: string } | null> {
   const pick = async (path: string, read: (v: Record<string, unknown>) => number): Promise<number> => {
     try {
-      const v = (await firestoreAdminRef().ref(path).get()).val() as Record<string, unknown> | null;
+      const v = (await firestorePathStore().ref(path).get()).val() as Record<string, unknown> | null;
       if (!v || typeof v !== 'object') return 0;
       const ms = read(v);
       return Number.isFinite(ms) && ms > 0 ? ms : 0;

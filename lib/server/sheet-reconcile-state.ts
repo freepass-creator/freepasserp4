@@ -1,7 +1,7 @@
 import 'server-only';
 
-import { firebaseAdminDatabase } from '@/lib/server/firebase-admin';
-import { toV4Record } from '@/lib/firebase/rtdb-records';
+import { firebaseAdminStore } from '@/lib/server/firebase-admin';
+import { toV4Record } from '@/lib/firebase/legacy-records';
 import type { EntityRecord } from '@/lib/intake/entities';
 
 /**
@@ -144,12 +144,12 @@ const isDead = (record: Record<string, unknown>): boolean => (
 /**
  * v4/products 를 읽어 검증용으로 투영한다.
  *
- * product 는 v3 브리지가 영구 차단돼 있다(rtdb-adapter.ts:65-72 — 초기화한 낡은 재고가
+ * product 는 v3 브리지가 영구 차단돼 있다(store.ts:65-72 — 초기화한 낡은 재고가
  * 되살아나는 걸 막으려고 환경변수로도 못 연다). 그래서 서버도 v4 단독으로 읽어야
  * 브라우저와 같은 집합이 된다.
  */
 export async function readSheetReconcileState(companyId: string): Promise<SheetReconcileStatePayload> {
-  const snapshot = await firebaseAdminDatabase().ref('v4/products').get();
+  const snapshot = await firebaseAdminStore().ref('v4/products').get();
   const raw = (snapshot.val() || {}) as Record<string, Record<string, unknown>>;
 
   const active: EntityRecord[] = [];

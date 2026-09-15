@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
-import { firebaseAdminDatabase, verifyAdminBearer } from '@/lib/server/firebase-admin';
+import { firebaseAdminStore, verifyAdminBearer } from '@/lib/server/firebase-admin';
 import { fetchIronRentcarCatalog } from '@/lib/server/ironrentcar-source';
 import { planIronRentcarReconcile } from '@/lib/domain/ironrentcar-reconcile';
-import { mergeV3V4Records } from '@/lib/firebase/rtdb-records';
+import { mergeV3V4Records } from '@/lib/firebase/legacy-records';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -17,7 +17,7 @@ export async function GET(request: Request): Promise<Response> {
   }
   if (!admin) return NextResponse.json({ error: 'forbidden' }, { status: 403 });
   try {
-    const database = firebaseAdminDatabase();
+    const database = firebaseAdminStore();
     const [catalog, v4Snapshot] = await Promise.all([
       fetchIronRentcarCatalog(),
       database.ref('v4/products').get(),

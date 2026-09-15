@@ -1,12 +1,12 @@
 'use client';
 /**
- * 진단 — RTDB 연결·권한·건수를 한 화면에서 확인. 문제 생겼을 때 콘솔 대신 여기를 본다.
+ * 진단 — Firestore 연결·권한·건수를 한 화면에서 확인.
  * 원칙: 아무것도 기다리지 않고 뜬다. 각 노드는 개별 타임아웃 → 하나가 멈춰도 나머지는 결과가 나온다.
  */
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ref, get } from 'firebase/database';
-import { getRtdb, getAuthClient, firebaseReady } from '@/lib/firebase/client';
+import { collection, getDocs, getFirestore } from 'firebase/firestore';
+import { getFirebaseApp, getAuthClient, firebaseReady } from '@/lib/firebase/client';
 import { getSession } from '@/lib/auth-session';
 import { getStore } from '@/lib/store';
 import { getCompanyId } from '@/lib/tenant';
@@ -18,8 +18,7 @@ import { Page, Btn, Input, SectionLabel, CenterNote, Loading, ListRow, WorkTable
 type Probe = { path: string; state: 'ok' | 'denied' | 'timeout' | 'error'; count: number; detail: string; ms: number };
 
 const NODES = [
-  'products', 'v4/products', 'policies', 'partners',
-  'contracts', 'v4/contracts', 'users', 'v4/users', 'rooms',
+  'products', 'policy', 'partner', 'contract', 'user', 'rooms',
 ];
 
 /** 개별 타임아웃 — RTDB get 은 오프라인/차단 시 영영 응답하지 않을 수 있다. */
@@ -50,24 +49,23 @@ export default function Diag() {
     setProbes(null);
     setStoreInfo([]);
 
-    const db = getRtdb();
+    const app = getFirebaseApp();
     const out: Probe[] = [];
-    if (!db) {
-      out.push({ path: '(RTDB)', state: 'error', count: 0, detail: 'getRtdb() = null — Firebase 설정 없음', ms: 0 });
+    if (!app) {
+      out.push({ path: '(Firestore)', state: 'error', count: 0, detail: 'Firebase 설정 없음', ms: 0 });
       setProbes(out); setBusy(false); return;
     }
 
     for (const path of NODES) {
       const t0 = Date.now();
       try {
-        const snap = await withTimeout(get(ref(db, path)), 8000);
+        const snap = await withTimeout(getDocs(collection(getFirestore(app), path)), 8000);
         const ms = Date.now() - t0;
         if (snap && typeof snap === 'object' && '__timeout' in snap) {
           out.push({ path, state: 'timeout', count: 0, detail: '8초 내 응답 없음', ms });
         } else {
-          const val = (snap as { val: () => unknown }).val();
-          const n = val && typeof val === 'object' ? Object.keys(val as object).length : 0;
-          out.push({ path, state: 'ok', count: n, detail: val == null ? '노드 없음(null)' : '', ms });
+          const n = (snap as { size: number }).size;
+          out.push({ path, state: 'ok', count: n, detail: '', ms });
         }
       } catch (e) {
         const msg = String((e as Error)?.message || e);
@@ -156,10 +154,10 @@ export default function Diag() {
   if (allowed !== true) return <Loading />;
 
   return (
-    <Page title="진단" meta="RTDB 연결·권한·건수">
+    <Page title="진단" meta="Firestore 연결·권한·건수">
       <WorkTable title="환경">
         <WorkRow label="firebaseReady">{String(firebaseReady())}</WorkRow>
-        <WorkRow label="DATA_BACKEND">{String(process.env.NEXT_PUBLIC_DATA_BACKEND || '(없음)')}</WorkRow>
+        <WorkRow label="DATA_BACKEND">firestore</WorkRow>
         <WorkRow label="companyId">{co}</WorkRow>
         <WorkRow label="auth.currentUser">{user ? `${user.uid} · ${user.email || ''}${user.isAnonymous ? ' · 익명' : ''}` : '(없음 — 토큰 미복원 또는 비로그인)'}</WorkRow>
         <WorkRow label="session">{sess ? `${sess.role} · ${sess.name} · company=${sess.company_code || '-'}` : '(없음)'}</WorkRow>

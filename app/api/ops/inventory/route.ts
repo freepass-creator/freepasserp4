@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { firebaseAdminDatabase, verifyAdminBearer } from '@/lib/server/firebase-admin';
+import { firebaseAdminStore, verifyAdminBearer } from '@/lib/server/firebase-admin';
 import { sheetCellLink, type OpsInventoryRow } from '@/lib/ops-status';
 import { vehicleNameOf } from '@/lib/domain/vehicle-name';
 import type { EntityRecord } from '@/lib/intake/entities';
@@ -33,7 +33,7 @@ export async function GET(request: Request): Promise<Response> {
   if (!admin) return NextResponse.json({ error: 'forbidden' }, { status: 403 });
 
   try {
-    const db = firebaseAdminDatabase();
+    const db = firebaseAdminStore();
     const [pSnap, v3, v4] = await Promise.all([
       db.ref('v4/products').get(),
       db.ref('partners').get().catch(() => null),

@@ -87,10 +87,10 @@ export async function createSettlement(contract: EntityRecord): Promise<string> 
   const code = settlementStorageKeyForContract(contract.contract_code);
   const canonicalCode = settlementIdForContract(contract.contract_code);
   if (!code || !canonicalCode) throw new Error('정산 생성: 계약코드 없음');
-  // 운영 RTDB에서는 금액·요율을 브라우저에서 만들거나 쓰지 않는다. 서버가 같은 계약의
-  // v3/v4 기준정보를 다시 읽어 한 번만 계산·기록한다. 서버 장애에서 직접 저장으로 폴백하면
+  // 운영 Firestore에서는 금액·요율을 브라우저에서 만들거나 쓰지 않는다. 서버가 같은 계약의
+  // 기준정보를 다시 읽어 한 번만 계산·기록한다. 서버 장애에서 직접 저장으로 폴백하면
   // 권한 규칙을 우회한 위조 경로가 되므로 fail-closed 한다.
-  if (store.backend.startsWith('rtdb')) {
+  if (store.backend.startsWith('firestore')) {
     const { issueSettlementFromClient } = await import('@/lib/firebase/settlement-client');
     return issueSettlementFromClient(String(contract.contract_code));
   }
@@ -268,14 +268,20 @@ async function syncVehicleLock(
     //  계약 락(계약중/출고불가)으로 덮으면 공급사 수기 보류가 무효화·중복판매 → 스킵. (정상 딜은 cur가 출고가능/상품화중/자기락이라 미해당.)
     if (cur === '출고불가' && !owner) return;
     if (cur !== lock.status || owner !== lock.byContract) {
-      await store.update('product', co, productCode, { vehicle_status: lock.status, locked_by_contract: lock.byContract });
+      await store.update('product', co, productCode, {
+        vehicle_status: lock.status, status: lock.status,
+        status_kind: lock.status === '출고불가' ? '불가' : '선점',
+        listable: lock.status !== '출고불가', locked_by_contract: lock.byContract,
+      });
     }
     return;
   }
   const mine = owner === actingContractCode;
   const orphanClaim = !owner && cur === '계약중';
   if ((cur === '계약중' || cur === '출고불가') && (mine || orphanClaim)) {
-    await store.update('product', co, productCode, { vehicle_status: '출고가능', locked_by_contract: '' });
+    await store.update('product', co, productCode, {
+      vehicle_status: '출고가능', status: '출고가능', status_kind: '가용', listable: true, locked_by_contract: '',
+    });
   }
 }
 

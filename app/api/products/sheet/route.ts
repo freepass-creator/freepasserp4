@@ -10,7 +10,7 @@
  * 화면에서만 감추면 응답에는 값이 그대로 실려 개발자도구로 다 보인다.
  */
 import { NextResponse } from 'next/server';
-import { firebaseAdminDatabase, verifyActiveBearer } from '@/lib/server/firebase-admin';
+import { firebaseAdminStore, verifyActiveBearer } from '@/lib/server/firebase-admin';
 import { readSheetGrid, listSheetTabs } from '@/lib/server/google-sheets';
 import { SALES_PUBLISHED_TAB_PREFIXES } from '@/lib/domain/sales-published-tabs';
 import { PRODUCT_SHEET_ID } from '@/lib/product-sheet';
@@ -49,7 +49,7 @@ async function rowDetailHrefs(grid: { header: string[]; rows: string[][] }): Pro
   const providerAt = grid.header.findIndex((header) => /^(공급사|렌트사|제공사|업체명)$/.test(S(header)));
   if (plateAt < 0 || providerAt < 0) return empty();
 
-  const db = firebaseAdminDatabase();
+  const db = firebaseAdminStore();
   const [productsSnap, partnersSnap, partnersV4Snap] = await Promise.all([
     db.ref('v4/products').get(),
     db.ref('partners').get(),

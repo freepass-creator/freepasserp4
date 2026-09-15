@@ -20,9 +20,9 @@
  * ★역할은 **서버가 판정한다.** 클라이언트가 보내온 role 을 믿으면 그건 자물쇠가 아니라 손잡이다.
  */
 import { NextResponse } from 'next/server';
-import { firestoreAdminRef, type AdminRef } from '@/lib/server/firestore-ref-shim';
-import { verifyActiveBearer } from '@/lib/server/firebase-admin';
-import { iso, ledgerUrl, readLedgerAtoms, type LedgerExtra } from '@/lib/server/settlement-ledger-read';
+import type { AdminRef } from '@/lib/server/firestore-path-store';
+import { firebaseAdminApp, verifyActiveBearer, firebaseAdminStore } from '@/lib/server/firebase-admin';
+import { iso, ledgerError, ledgerUrl, readLedger, sheetsToken, type LedgerExtra } from '@/lib/server/settlement-ledger-read';
 import { billingMonth, moneyOf, type SettlementRow } from '@/lib/domain/settlement-stage';
 import { countsOf, publicRowOf, scopeRows, type AdminRow, type Viewer } from '@/lib/domain/settlement-view';
 
@@ -60,7 +60,7 @@ async function siblingCodes(db: AdminRef, me: { user_code?: string; phone?: stri
  *   앞머리로 풀어야 하는데, 그 앞머리가 유일한지 보려면 나머지를 알아야 한다.
  */
 async function viewerOf(who: { uid: string; role: 'agent' | 'provider' | 'admin'; companyCode: string }): Promise<Viewer> {
-  const db = firestoreAdminRef();
+  const db = firebaseAdminStore();
   if (who.role !== 'provider') {
     const u = (await db.ref(`users/${who.uid}`).get().catch(() => null))?.val() as { name?: string; user_code?: string; company_name?: string; phone?: string } | null;
     // ★코드가 있으면 코드가 이긴다 — 원장에 이름만 있으면 동명이인을 못 가른다(사장님 2026-08-26).
@@ -109,6 +109,9 @@ export async function GET(req: Request) {
   const who = await verifyActiveBearer(req).catch(() => null);
   if (!who) return NextResponse.json({ ok: false, reason: '로그인이 필요합니다.' }, { status: 401 });
 
+  const token = await sheetsToken();
+  if (!token) return NextResponse.json({ ok: false, reason: ledgerError() || '원장을 못 읽었습니다.' }, { status: 503 });
+
   const viewer = await viewerOf(who);
   // ⚠ 관리자가 아닌데 이름을 못 찾았다 — 여기서 «전부»로 넘어가면 남의 계약이 보인다. 0줄로 닫는다.
   if (who.role !== 'admin' && !viewer.supplier && !viewer.agent) {
@@ -120,7 +123,7 @@ export async function GET(req: Request) {
     });
   }
 
-  const read = await readLedgerAtoms();
+  const read = await readLedger(token);
   const extraOf = new Map(read.map((x) => [x.row, x.extra] as const));
   const mine = scopeRows(read.map((x) => x.row), viewer);
   const rows = who.role === 'admin'

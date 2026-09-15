@@ -5,7 +5,7 @@ import { findTemplate } from '@/lib/domain/esign-templates';
 import { productMatchesTemplate } from '@/lib/domain/esign-vehicle-selection';
 import { policyUsableBy } from '@/lib/domain/policy-access';
 import { canIssueContract } from '@/lib/domain/policy-tier';
-import { firebaseAdminDatabase, verifyActiveBearer } from '@/lib/server/firebase-admin';
+import { firebaseAdminStore, verifyActiveBearer } from '@/lib/server/firebase-admin';
 import { loadFreepassManualOfferSource } from '@/lib/server/freepass-esign';
 
 export const dynamic = 'force-dynamic';
@@ -30,12 +30,12 @@ async function validateReferences(offer: NonNullable<ReturnType<typeof approvedF
   const gate = canIssueContract(source.policy, source.partner);
   if (!gate.ok) throw new Error(`계약정책 필수값이 없습니다: ${gate.missing.map((field) => field.label).join(' · ')}`);
 }
-export async function GET(request: Request) { try { if (!await admin(request)) return json({ error: '관리자 권한이 필요합니다.' }, 403); const data = (await firebaseAdminDatabase().ref('v4/esign_manual_offers').get()).val() || {}; return json({ ok: true, offers: data }); } catch { return json({ error: '기본 계약조건을 읽지 못했습니다.' }, 503); } }
-export async function POST(request: Request) { try { const actor = await admin(request); if (!actor) return json({ error: '관리자 권한이 필요합니다.' }, 403); const id = newId('esign'); const value = canonical(id, row(await request.json())); const offer = approvedFreepassManualOffer(id, { ...value, status: 'approved' }); if (!offer) throw new Error('기본 계약조건 필수값을 확인해 주세요.'); await validateReferences(offer); const now = Date.now(); await firebaseAdminDatabase().ref(`v4/esign_manual_offers/${id}`).set({ ...value, status: 'draft', created_at: now, created_by: actor.uid, updated_at: now }); return json({ ok: true, id }, 201); } catch (e) { return json({ error: e instanceof Error ? e.message : '기본 계약조건을 만들지 못했습니다.' }, 409); } }
-export async function PATCH(request: Request) { try { const actor = await admin(request); if (!actor) return json({ error: '관리자 권한이 필요합니다.' }, 403); const body = row(await request.json()); const id = S(body.id); const action = S(body.action); if (!/^[A-Za-z0-9_-]{3,100}$/.test(id) || !['approve', 'disable'].includes(action)) throw new Error('변경 요청을 확인해 주세요.'); const ref = firebaseAdminDatabase().ref(`v4/esign_manual_offers/${id}`); const snap = await ref.get(); const current = row(snap.val()); const offer = approvedFreepassManualOffer(id, { ...current, status: 'approved' }); if (!offer) throw new Error('기본 계약조건을 확인할 수 없습니다.'); if (action === 'disable') { if (S(current.status) !== 'approved') throw new Error('승인된 기본조건만 비활성화할 수 있습니다.'); await ref.update({ status: 'disabled', disabled_at: Date.now(), disabled_by: actor.uid }); return json({ ok: true }); }
+export async function GET(request: Request) { try { if (!await admin(request)) return json({ error: '관리자 권한이 필요합니다.' }, 403); const data = (await firebaseAdminStore().ref('v4/esign_manual_offers').get()).val() || {}; return json({ ok: true, offers: data }); } catch { return json({ error: '기본 계약조건을 읽지 못했습니다.' }, 503); } }
+export async function POST(request: Request) { try { const actor = await admin(request); if (!actor) return json({ error: '관리자 권한이 필요합니다.' }, 403); const id = newId('esign'); const value = canonical(id, row(await request.json())); const offer = approvedFreepassManualOffer(id, { ...value, status: 'approved' }); if (!offer) throw new Error('기본 계약조건 필수값을 확인해 주세요.'); await validateReferences(offer); const now = Date.now(); await firebaseAdminStore().ref(`v4/esign_manual_offers/${id}`).set({ ...value, status: 'draft', created_at: now, created_by: actor.uid, updated_at: now }); return json({ ok: true, id }, 201); } catch (e) { return json({ error: e instanceof Error ? e.message : '기본 계약조건을 만들지 못했습니다.' }, 409); } }
+export async function PATCH(request: Request) { try { const actor = await admin(request); if (!actor) return json({ error: '관리자 권한이 필요합니다.' }, 403); const body = row(await request.json()); const id = S(body.id); const action = S(body.action); if (!/^[A-Za-z0-9_-]{3,100}$/.test(id) || !['approve', 'disable'].includes(action)) throw new Error('변경 요청을 확인해 주세요.'); const ref = firebaseAdminStore().ref(`v4/esign_manual_offers/${id}`); const snap = await ref.get(); const current = row(snap.val()); const offer = approvedFreepassManualOffer(id, { ...current, status: 'approved' }); if (!offer) throw new Error('기본 계약조건을 확인할 수 없습니다.'); if (action === 'disable') { if (S(current.status) !== 'approved') throw new Error('승인된 기본조건만 비활성화할 수 있습니다.'); await ref.update({ status: 'disabled', disabled_at: Date.now(), disabled_by: actor.uid }); return json({ ok: true }); }
     if (S(current.status) !== 'draft') throw new Error('draft 기본조건만 승인할 수 있습니다.');
     await validateReferences(offer);
-    const root = firebaseAdminDatabase().ref('v4/esign_manual_offers');
+    const root = firebaseAdminStore().ref('v4/esign_manual_offers');
     const approvedAt = Date.now();
     const claim = await root.transaction((all) => {
       const rows = all && typeof all === 'object' && !Array.isArray(all) ? all as Record<string, unknown> : {};
