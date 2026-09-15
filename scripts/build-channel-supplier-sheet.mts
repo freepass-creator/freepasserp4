@@ -256,8 +256,14 @@ if (!id) {
   const made = await ensureNoticeTab(tok, id);
   console.log(`   ${made ? '+ 「공지사항」 만듦' : '○ 「공지사항」 있음 — 손대지 않음'}`);
 }
-const cur = await api(`https://sheets.googleapis.com/v4/spreadsheets/${id}?fields=sheets.properties(sheetId,title)`);
+const cur = await api(`https://sheets.googleapis.com/v4/spreadsheets/${id}?fields=sheets(properties(sheetId,title),conditionalFormats(ranges(sheetId)))`);
 const have: [string, any][] = (cur.sheets || []).map((s: any) => [S(s.properties.title), s.properties]);
+/**
+ * ★**탭에 쌓인 조건부서식 수** — 서식기는 규칙을 «더하기»만 한다. 지우지 않으면 회차마다 쌓인다.
+ *   ⚠ 실측 2026-09-15 — 운영 F86 손오공 탭 한 장에 조건부서식이 **7,034개** 쌓여 있었다(회차 × 값 규칙).
+ *   색 규칙을 걷어도(레트로) 옛 회차 규칙이 남아 옛 색이 계속 보인다 → 매 회차 먼저 다 걷고 새로 건다.
+ */
+const 규칙수 = new Map<number, number>((cur.sheets || []).map((s: any) => [Number(s.properties.sheetId), (s.conditionalFormats || []).length]));
 const mark = salesPublishTabMark(publishSnapshot);
 
 const reqs: any[] = [];
@@ -307,6 +313,8 @@ for (const [company, list] of order) {
     gid = Number(made.replies[0].addSheet.properties.sheetId);
   }
   reqs.push({ updateCells: { range: { sheetId: gid }, fields: 'userEnteredValue' } });
+  /** 옛 회차 조건부서식을 «먼저» 다 걷는다(위 `규칙수` 머리말). 새로 만든 탭은 0개라 건너뛴다. */
+  for (let k = 0; k < (old ? 규칙수.get(gid) || 0 : 0); k++) reqs.push({ deleteConditionalFormatRule: { sheetId: gid, index: 0 } });
   reqs.push({ updateSheetProperties: { properties: { sheetId: gid, gridProperties: { frozenRowCount: 1, rowCount: list.length + 30, columnCount: cols.length } }, fields: 'gridProperties(frozenRowCount,rowCount,columnCount)' } });
   /**
    * ★★**서식은 판매시트와 «같은 한 벌»이다** (사장님 2026-09-08 「어떤 시트에 나가든지 규격이나 정책 기능 동일해야지」).
@@ -334,7 +342,7 @@ for (const [company, list] of order) {
     gid, columns: cols, headerAt: 0, widths: columnWidths(cols, body),
     columnCountNow: cols.length, tabTitle: title, body, linkOut: 링크요청,
   }) as any[];
-  reqs.push(...(RETRO ? applyRetroSkin(서식, 링크요청, { gid, columns: cols, headerAt: 0 }) : 서식));
+  reqs.push(...(RETRO ? applyRetroSkin(서식, 링크요청, { gid, columns: cols, headerAt: 0, body }) : 서식));
   /**
    * ★**탭 색은 회사마다 다르게** (사장님 2026-09-08 「각 회사별 탭 다르게 해주고」).
    *   차례대로 도는 색표라 회사가 늘어도 안 겹쳐 보인다. 서식(글꼴·값 색)은 위에서 이미 한 벌로 맞췄다.

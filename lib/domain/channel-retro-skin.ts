@@ -4,7 +4,8 @@
  * ★사장님 2026-09-15 「하허호한테 만들어졌던 그 F86 을 원래 레트로 감성인 그 폰트하고 … 동일하게 맞춰주면 돼」
  *   · 「폰트하고 규격 뭐 이런 것만 하고, 대여료 구간은 우리 기존 그거대로 그냥 똑같이」 · 「종합 시트는 안 만들어도 돼」
  * ★원본 = 문서 1BcHvwidHrdJADPUH0M3C5abaxst04fDnfxm7R9FgLDg(freepassmobility@gmail.com) 「종합」 탭, 2026-09-15 API 로 실측.
- *   맑은 고딕 9pt 기울임 · 굵은 칸 없음 · 전부 가운데 · 줄 21px · 여백 2/3 · 기간 머리 색 · 칸별 글자색 · 분납·연령 노란 바탕.
+ *   맑은 고딕 9pt 기울임 · 굵은 칸 없음 · 전부 가운데 · 줄 21px · 여백 2/3 · 기간 머리 색 · 칸별 «한 색» 글자 · 분납·연령 노란 바탕.
+ *   열 폭은 옛 고정값이 아니라 «값에 맞춘» 폭(사장님 「간격은 맞게」).
  *
  * ★칸(이름·차례·내용)도 옛 「종합」 43칸이다 — 아래 `RETRO_LAYOUT`. 값은 erp5 원자에서 F01 과 같은 칸 만들기로.
  * ⚠ **공용 서식기(`sales-sheet-format`)는 안 고친다** — F01 모양이 같이 바뀐다. 그 서식 요청 «뒤»에 덮어 쓴다.
@@ -93,14 +94,21 @@ const BODY_INK: Record<string, string> = {
 };
 /** 몸 칸 바탕 — 분납·연령·주행 추가요금은 노란 바탕(옛 시트). */
 const BODY_BG: Record<string, string> = { 분납: 'FFFF00', '21세': 'FFFF00', '23세': 'FFFF00', '21세+': 'FFFF00', '23세+': 'FFFF00', '1만+': 'FFFF00' };
-/** 열 폭 — 옛 시트 칸 이름이 같은 것만. 나머지(우리만 있는 칸)는 원래 폭을 둔다. */
-const WIDTH: Record<string, number> = {
-  차량상태: 143, 배차상태: 143, 입고일자: 75, 구분: 55, 차량번호: 75, 차종분류: 75, 세부모델: 228, 연료: 107,
-  외장: 132, 내장: 85, Km: 49, 단기보증: 75, '1개월': 63, '6개월': 58, '12개월': 65, 장기보증: 115,
-  '24개월': 85, '36개월': 85, '48개월': 103, '60개월': 116, 트림: 342, 옵션: 857, 최초등록: 75, 소비자가격: 87,
-  제조사: 63, 배기량: 63, 차고지: 132, 운전자범위: 101, 연주행: 63, 분납: 51, '21세': 53, '23세': 53, '1만+': 55,
-  대인: 51, 대물: 51, 자차: 84, 자손: 62, 무보험: 63, 정비: 70, 전용계좌: 273, 비고: 51, 공급사코드: 66, 정책코드: 66,
-};
+
+/**
+ * ★**긴 글 칸만 «값에 맞춰» 넓힌다** — 사장님 2026-09-15 「간격은 맞게」.
+ *   서식기는 트림·옵션을 240 에서 자른다(판매시트 규칙). 실측 미리보기 — 트림 90% 값 ≈ 300px · 옵션 ≈ 360~1,077px 가 필요했다.
+ *   ⇒ 이 두 칸만 «90% 값»으로 재되, 옛 시트 폭(트림 342 · 옵션 857)을 상한으로 둔다(옛 얼굴보다 넓어지지 않게).
+ *   맑은 고딕 9pt 기준 — 한글 1자 ≈ 반각 2칸, 반각 1칸 ≈ 6.3px, 좌우 여백 12px.
+ */
+const LONG_TEXT_MAX: Record<string, number> = { 트림: 342, 옵션: 857 };
+const 반각 = (v: string) => [...String(v ?? '')].reduce((n, ch) => n + (/[ᄀ-ᇿ　-鿿가-힯＀-｠]/.test(ch) ? 2 : 1), 0);
+function fitWidth(name: string, values: string[]): number {
+  const lens = values.map(반각).sort((a, b) => a - b);
+  const p90 = lens.length ? lens[Math.min(lens.length - 1, Math.floor(lens.length * 0.9))] : 0;
+  const px = Math.round(Math.max(p90, 반각(name) + 1) * 6.3 + 12);
+  return Math.max(62, Math.min(LONG_TEXT_MAX[name], px));
+}
 
 const rgb = (h: string) => ({
   red: parseInt(h.slice(0, 2), 16) / 255, green: parseInt(h.slice(2, 4), 16) / 255, blue: parseInt(h.slice(4, 6), 16) / 255,
@@ -110,11 +118,17 @@ const rgb = (h: string) => ({
  * 한 탭의 서식 요청(`buildSalesFormatRequests` 결과) 뒤에 레트로 겉을 덮는다.
  * @param linkReqs 차번 셀 링크 요청(값을 쓴 뒤 따로 보내는 것) — 링크 글자에도 글꼴이 박혀 있어 같이 바꾼다.
  */
-export function applyRetroSkin(reqs: Req[], linkReqs: Req[], p: { gid: number; columns: string[]; headerAt?: number }): Req[] {
+export function applyRetroSkin(reqs: Req[], linkReqs: Req[], p: { gid: number; columns: string[]; headerAt?: number; body?: string[][] }): Req[] {
   const { gid, columns } = p;
   const H = p.headerAt ?? 0;
 
-  // ① 값별 색 조건부서식 — 굵기만 뺀다(옛 시트는 굵은 칸이 없다). 색은 그대로.
+  /**
+   * ① **값별 색 조건부서식은 걷는다** — 사장님 2026-09-15 「폰트랑 색깔 맞춰주고」.
+   *   옛 시트는 칸마다 «한 색»이었다(배차상태 파랑 · 구분 자홍 · 나머지 검정). 값마다 색이 갈리면(계약중 회색·제조사별 색) 옛 얼굴이 아니다.
+   *   ⚠ 계약중 가운데줄(색이 아닌 규칙)만 남긴다 — 「잡힌 차」 표시는 뜻이라 옛 시트에 없어도 지운다고 할 일이 아니다.
+   */
+  const 색규칙 = (r: Req) => !!r?.addConditionalFormatRule?.rule?.booleanRule?.format?.textFormat?.foregroundColor;
+  reqs = reqs.filter((r) => !색규칙(r));
   for (const r of reqs) {
     const tf = r?.addConditionalFormatRule?.rule?.booleanRule?.format?.textFormat;
     if (tf && tf.bold) tf.bold = false;
@@ -157,10 +171,20 @@ export function applyRetroSkin(reqs: Req[], linkReqs: Req[], p: { gid: number; c
     if (BODY_INK[name]) {
       out.push({ repeatCell: { range: { ...col, startRowIndex: H + 1 }, cell: { userEnteredFormat: { textFormat: { foregroundColor: rgb(BODY_INK[name]) } } }, fields: 'userEnteredFormat.textFormat.foregroundColor' } });
     }
-    if (WIDTH[name]) {
-      out.push({ updateDimensionProperties: { range: { sheetId: gid, dimension: 'COLUMNS', startIndex: i, endIndex: i + 1 }, properties: { pixelSize: WIDTH[name] }, fields: 'pixelSize' } });
-    }
+    /**
+     * ⓘ **열 폭은 옛 고정값을 안 쓴다** — 사장님 2026-09-15 「간격은 맞게」.
+     *   옛 폭(옵션 857 · 배차상태 143)은 옛 값에 맞춘 것이라 우리 값에선 칸이 비거나 잘린다.
+     *   폭은 서식기가 «이 탭 값»으로 잰 폭(`columnWidths`)을 그대로 쓴다.
+     */
   });
+  // ④½ 긴 글 칸 폭(트림·옵션) — 위 `fitWidth`
+  if (p.body) {
+    columns.forEach((name, i) => {
+      if (!LONG_TEXT_MAX[name]) return;
+      const px = fitWidth(name, p.body!.map((r) => r[i] || ''));
+      out.push({ updateDimensionProperties: { range: { sheetId: gid, dimension: 'COLUMNS', startIndex: i, endIndex: i + 1 }, properties: { pixelSize: px }, fields: 'pixelSize' } });
+    });
+  }
   // ⑤ 줄 높이
   out.push({ updateDimensionProperties: { range: { sheetId: gid, dimension: 'ROWS', startIndex: 0 }, properties: { pixelSize: RETRO_ROW_PX }, fields: 'pixelSize' } });
   return out;
