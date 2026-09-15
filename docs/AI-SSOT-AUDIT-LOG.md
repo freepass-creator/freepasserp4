@@ -1,0 +1,231 @@
+# AI SSOT 감사 로그 — ChatGPT · Claude · Codex · Cursor 공통
+
+이 문서는 **freepasserp4의 SSOT/파이프라인 정합성 검토 이력을 계속 누적하는 감사 원장**이다.
+
+목적은 단순하다.
+
+- 한 AI가 발견한 구조적 문제를 다른 AI가 다시 처음부터 추측하지 않게 한다.
+- "CI가 초록이니 전체 구조도 맞다" 같은 오판을 막는다.
+- 현재 코드와 운영 워크플로가 실제로 무엇을 쓰고 있는지, **발견 당시 근거 파일까지 함께 남긴다.**
+- 수정 후에도 과거 충돌과 수정 이유를 지우지 않는다.
+
+## 사용 규칙
+
+1. **append-only가 원칙**이다. 과거 판정을 삭제하지 말고, 새 검증 결과를 아래에 추가한다.
+2. 각 항목은 `확인됨 / 충돌 / 보류 / 해소됨` 중 하나로 판정한다.
+3. 반드시 **실제 코드·workflow·Actions 로그**를 근거로 쓴다. 다른 AI의 요약만 재인용하지 않는다.
+4. SSOT 관련 작업을 시작할 때 이 파일의 **가장 최근 항목부터 읽는다.**
+5. 문제가 해결되면 기존 항목을 지우지 말고 새 항목에 `해소됨`으로 남기고, 해결 PR/commit을 적는다.
+6. 이 문서와 코드가 다르면 **코드와 실제 운영 workflow가 우선**이며, 즉시 이 문서를 갱신한다.
+
+---
+
+## 2026-09-15 — 공급사 원천/ERP5 SSOT 재검수
+
+### 배경
+
+공급사 재고 원천을 `freepasserp5` canonical SSOT로 통일하는 작업 후, Claude가 저장소를 보고 여전히 구조가 이상하다고 판단했다. ChatGPT가 다시 저장소 전체의 관련 경로를 빠르게 대조했다.
+
+### A. 확인됨 — canonical inventory source registry 자체는 맞음
+
+**판정: 확인됨**
+
+정본 파일:
+
+- `lib/domain/inventory-source-registry.ts`
+
+현재 24개 공급사 원천을 여기서 고정한다.
+
+특수 원천:
+
+- `RP006 아이언` → `https://www.ironrentcar.com`
+- `RP012 손오공` → `https://sokrc.com/api`
+- `RP023 오토플러스` → `https://www.reborncar.co.kr`
+
+일반 공급사는 등록된 Google Sheet를 원천으로 사용한다.
+
+이 registry의 규칙:
+
+- `partner.sheet_url`은 재고 원천 결정권 없음
+- `MIRROR_SOURCES`는 재고 원천 결정권 없음
+- projection/정제시트는 정책·보관·표시용이지 재고 canonical source가 아님
+
+### B. 확인됨 — main의 옛 direct ingest writer는 fail-closed
+
+**판정: 확인됨**
+
+대상:
+
+- `scripts/ingest-all-suppliers.mts`
+- `scripts/ingest-supplier-to-firestore.mts`
+
+현재 main에서는 두 스크립트 모두 `SSOT HARD GUARD`로 막혀 있다.
+
+즉 `MIRROR_SOURCES`나 `partner.sheet_url`을 다시 추론해서 Firestore에 쓰는 옛 경로는 main에서 직접 실행되지 않는다. 잘못된 원천으로 쓰느니 종료코드 2로 중단하는 구조다.
+
+### C. 확인됨 — 실제 ERP5 production collector는 아직 검증 commit에 pin
+
+**판정: 확인됨 / 이관 미완료**
+
+workflow:
+
+- `.github/workflows/erp5-ssot-refresh.yml`
+
+현재 production은 main collector가 아니라 아래 검증 엔진을 checkout한다.
+
+- `eafbd88e43b1b4e5bacab858a2e0c65845956e5f`
+
+그리고:
+
+- `GOOGLE_CLOUD_PROJECT: freepasserp5`
+- `scripts/ingest-all-suppliers.mts`
+- ERP5 snapshot 고정
+- 공개 카탈로그 대사
+- 동일 snapshot 기반 판매시트 발행
+
+을 수행한다.
+
+**주의:** 이 pin은 현재 안정성을 위한 안전장치다. 검증된 collector를 current main으로 완전히 이식하고 parity를 확인하기 전에는 제거하면 안 된다.
+
+### D. 충돌 — `MIRROR_SOURCES`가 오토플러스 옛 원천을 아직 보유
+
+**판정: 충돌**
+
+파일:
+
+- `lib/domain/mirror-sources.ts`
+
+canonical registry는 RP023 오토플러스 원천을 RebornCar로 규정하지만, `MIRROR_SOURCES`에는 여전히:
+
+- `RP023`
+- `kind: 'sheet'`
+- 옛 Google Sheet ID `1TJBG4PABgly7EtGG6Os5GcY9La7kDR_yex56KHhXe2U`
+
+가 `from`으로 남아 있다.
+
+이 값이 단순한 과거 주석이 아니라 실제 `sync-mirror-all.mts`에서 소비된다는 점이 중요하다.
+
+### E. 충돌 — 30분 mirror writer가 아직 자동 실행
+
+**판정: 충돌**
+
+workflow:
+
+- `.github/workflows/mirror-sync.yml`
+
+이 workflow는 30분마다 자동 실행하며:
+
+- `scripts/sync-mirror-all.mts --apply`
+
+를 호출한다.
+
+`sync-mirror-all.mts`는 `MIRROR_SOURCES`를 기준으로 원본→정제시트 쓰기를 수행한다.
+
+따라서 ERP5 canonical collector와 별개로 **옛 mirror source 체계가 자동 writer로 아직 살아 있다.**
+
+### F. 충돌 — 별도 hourly 판매·ERP writer가 자동 실행
+
+**판정: 충돌 / 우선 정리 대상**
+
+workflow:
+
+- `.github/workflows/sales-erp-hourly.yml`
+
+평일 KST 09:00~18:00 매시간 자동 실행한다.
+
+경로:
+
+```text
+sales-erp-hourly.yml
+  → scripts/cloud-hourly-sync.mts
+  → scripts/run-hourly-with-ssot-gate.mts
+  → scripts/hourly-sync.mts
+```
+
+`hourly-sync.mts` 안에서는 다시:
+
+1. `scripts/sync-mirror-all.mts`로 정제시트 갱신
+2. 판매시트 발행
+3. `scripts/run-sheet-daily-sync-local.mts` 실행
+4. 운영 RTDB ERP 동기
+
+가 수행된다.
+
+즉 현재 실제 저장소에는 두 계열이 함께 존재한다.
+
+```text
+[신규 ERP5 계열]
+공급사 원천 → ERP5 canonical atoms → snapshot → 판매/공개 소비
+
+[구형 시트/RTDB 계열]
+MIRROR_SOURCES → 정제시트 → 판매시트 → 운영 RTDB ERP
+```
+
+**이 상태를 "ERP5만 canonical writer"라고 표현하면 부정확하다.**
+
+### G. 충돌 — 현재 Source Contract CI가 전체 writer topology를 검사하지 않음
+
+**판정: 충돌 / 검사범위 부족**
+
+파일:
+
+- `scripts/check-inventory-source-contract.mts`
+
+현재 검사는 아래는 잘 확인한다.
+
+- 24개 canonical source registry
+- RP006/RP012/RP023 특수 원천
+- 공유 시트 대칭성
+- main direct ingest fail-closed
+- ERP5 production engine pin
+
+하지만 아래는 검사하지 않는다.
+
+- `.github/workflows/mirror-sync.yml` 자동 schedule 존재 여부
+- `.github/workflows/sales-erp-hourly.yml` 자동 schedule 존재 여부
+- `lib/domain/mirror-sources.ts`와 canonical registry의 원천 충돌
+- `scripts/sync-mirror-all.mts`의 실제 쓰기 경로
+- `scripts/hourly-sync.mts` → 운영 RTDB writer 경로
+
+따라서 이 CI가 통과해도 **전체 시스템 SSOT 정합성이 보장되는 것은 아니다.**
+
+### 현재 최종 판정
+
+**ERP5 canonical source 정의: 맞음**
+
+**전체 freepasserp4 writer topology: 아직 단일화되지 않음**
+
+현재는 아래 두 계열이 동시에 살아 있어 구조적 충돌이 남아 있다.
+
+### 다음 우선 작업
+
+1. `mirror-sync.yml` 자동 writer의 역할을 재판정한다.
+   - ERP5 snapshot 소비로 전환할지
+   - 완전 retire할지 결정
+2. `sales-erp-hourly.yml` 자동 writer의 역할을 재판정한다.
+   - ERP5 snapshot 소비자로 전환
+   - 중복 원천 수집/정제 writer 제거
+3. `MIRROR_SOURCES`에서 "재고 원천" 의미를 제거한다.
+   - 필요하면 projection/legacy migration 전용 구조로 명칭 변경
+   - RP023 옛 Google Sheet를 canonical 원천처럼 보이게 하지 않는다.
+4. `check-inventory-source-contract.mts`를 **writer topology 검사**까지 확장한다.
+   - canonical registry 외 원천 writer가 자동 schedule로 살아 있으면 실패
+   - legacy RTDB writer가 자동 활성화돼 있으면 명시적 허용 목록 없이는 실패
+5. 검증된 `eafbd88...` collector와 current main의 parity 검증 후 production pin을 제거한다.
+
+### 관련 변경 이력
+
+- PR #287 — `freepasserp5`를 canonical SSOT로 규정
+- merge commit: `ac085bf49af8861964d7f03eb3b345e725b13f05`
+- PR #289 — canonical inventory source registry + main legacy ingest fail-closed
+- merge commit: `57a386dae818375bc3932cedfa598c80c716f916`
+
+### AI에게 주는 즉시 지시
+
+Claude / Codex / Cursor / ChatGPT가 이 영역을 작업할 때:
+
+- **`inventory-source-registry.ts`만 보고 "끝났다"고 판단하지 말 것.**
+- 반드시 `.github/workflows/*sync*.yml`, `sync-mirror-all.mts`, `hourly-sync.mts`, RTDB write 경로까지 함께 본다.
+- `MIRROR_SOURCES`가 존재한다는 이유만으로 canonical source로 인정하지 않는다.
+- production pin과 main을 구분해서 읽는다.
+- 수정 후 이 로그에 새 날짜 항목으로 검수 결과를 추가한다.
