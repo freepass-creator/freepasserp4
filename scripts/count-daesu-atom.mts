@@ -14,6 +14,7 @@ import { readFileSync } from 'node:fs';
 import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { tabOf, TAB_ORDER as TABS_FROM_ATOM_ROW } from '../lib/domain/sales-atom-row';
+import { unassignedProviderCodes } from '../lib/domain/sales-published-tabs';
 
 const S = (v: unknown) => String(v ?? '').trim();
 const K = (v: unknown) => S(v).replace(/\s/g, '');
@@ -28,15 +29,18 @@ const bucket: Record<string, { listable: number; 계약중: number }> = {};
 for (const t of TABS) bucket[t] = { listable: 0, 계약중: 0 };
 let total = 0, listable = 0, 계약중 = 0;
 const plates = new Set<string>(); let dup = 0;
+const allProviders: unknown[] = [];
 snap.forEach((d) => {
   const v = d.data() as Record<string, unknown>;
   total++;
+  allProviders.push(v.provider_company_code);
   if (v.listable !== true) return;
   listable++;
   const t = tabOf(v); bucket[t] = bucket[t] || { listable: 0, 계약중: 0 }; bucket[t].listable++;
   const k = K(v.car_number); if (k) { if (plates.has(k)) dup++; else plates.add(k); }
   if ((S(v.vehicle_status) || S(v.status)) === '계약중') { 계약중++; bucket[t].계약중++; }
 });
+const unassigned = unassignedProviderCodes(allProviders);
 
 const at = new Date(Date.now() + 9 * 36e5).toISOString().slice(0, 19).replace('T', ' ');
 console.log(`\n■ 대수 단일 카운터 — SSOT(원자) · ${at} (KST)`);
@@ -46,5 +50,10 @@ console.log(`  계약중           ${계약중}`);
 console.log(`  ERP(=화면−계약중)  ${listable - 계약중}`);
 console.log(`  ── 버킷별(make-sample tabOf) ──`);
 for (const t of TABS) console.log(`    ${t.padEnd(6)} 화면 ${String(bucket[t].listable).padStart(4)} (계약중 ${bucket[t].계약중})`);
-console.log(`  ★규칙: ERP + 계약중 = 화면  →  ${listable - 계약중} + ${계약중} = ${listable}\n`);
+console.log(`  ★규칙: ERP + 계약중 = 화면  →  ${listable - 계약중} + ${계약중} = ${listable}`);
+if (unassigned.length) {
+  console.log(`\n  ⚠⚠ PROVIDER_SALES_TAB 표에 없는 공급사코드 ${unassigned.length}개 — 조용히 「상품리스트」로 떨어지는 중: ${unassigned.join(', ')}`);
+  console.log(`     lib/domain/sales-published-tabs.ts 의 PROVIDER_SALES_TAB 에 한 줄씩 추가해라(값이 상품리스트라도 «명시»해야 한다).`);
+}
+console.log('');
 process.exit(0);
