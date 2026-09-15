@@ -33,7 +33,8 @@ export async function GET(request: Request) {
     const found = await loadGuestQuote(raw, S(url.searchParams.get('a')), S(wl.providerCode));
     if (!found) return NextResponse.json({ error: '현재 안내 가능한 상품이 아닙니다.' }, { status: 404 });
     return NextResponse.json(found, {
-      headers: { 'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=600' },
+      // 목록과 같은 ERP5 발행본을 즉시 읽는다. CDN의 오래된 상세 응답은 출고 상태를 되살릴 수 있다.
+      headers: { 'Cache-Control': 'no-store' },
     });
   } catch (error) {
     console.error('[catalog/quote]', error instanceof Error ? error.message : 'unknown');

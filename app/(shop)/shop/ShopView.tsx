@@ -101,6 +101,7 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
   /* ★재고 갱신 시각 — 건수 줄 오른쪽에 선다(`ShopUpdatedStamp`). 곁다리라 없으면 안 그린다. */
   const head = useShopHeadStatus();
   const [rows, setRows] = useState<EntityRecord[] | null>(null);
+  const [feedError, setFeedError] = useState(false);
   const [agent, setAgent] = useState<{ name?: string; phone?: string } | null>(null);
   const [attr, setAttr] = useState('');
   const [query, setQuery] = useState<ShopQuery>(emptyQuery);
@@ -173,13 +174,15 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
       if (!alive || requestId !== feedRequestRef.current) return;
       if (res.ok && body.products) {
         hasFeedRowsRef.current = true;
+        setFeedError(false);
         setRows(body.products);
         setAgent(body.agent || null);
       } else if (!hasFeedRowsRef.current) {
+        setFeedError(true);
         setRows([]);
       }
     } catch {
-      if (alive && requestId === feedRequestRef.current && !hasFeedRowsRef.current) setRows([]);
+      if (alive && requestId === feedRequestRef.current && !hasFeedRowsRef.current) { setFeedError(true); setRows([]); }
     }
     };
     void load();
@@ -820,6 +823,10 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
               <Grid mobile={mobile}>
                 {Array.from({ length: 6 }, (_, i) => <Skeleton key={i} />)}
               </Grid>
+            ) : feedError ? (
+              <div role="alert" style={{ padding: `${SHOP.sp.wide}px ${SHOP.sp.edge}px`, textAlign: 'center', color: C.mute }}>
+                차량 정보를 일시적으로 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.
+              </div>
             ) : list.length === 0 ? (
               // 검색어까지 지운다 — 축만 풀면 검색어로 비운 손님은 여전히 0건이다.
               <ShopEmpty onClear={() => { setTyped(''); setQuery(emptyQuery()); }} />

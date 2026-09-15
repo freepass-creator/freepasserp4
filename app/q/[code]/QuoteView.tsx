@@ -29,6 +29,7 @@ export function QuoteView({ wl = FREEPASS }: { wl?: Whitelabel }) {
   const { code } = useParams<{ code: string }>();
   const key = decodeURIComponent(String(code));
   const [p, setP] = useState<EntityRecord | null | undefined>(undefined);
+  const [loadError, setLoadError] = useState(false);
   const [agent, setAgent] = useState<EntityRecord | null>(null);
 
   useEffect(() => { (async () => {
@@ -43,16 +44,19 @@ export function QuoteView({ wl = FREEPASS }: { wl?: Whitelabel }) {
       if (wl.key) q.set('wl', wl.key);
       const res = await fetch(`/api/catalog/quote?${q}`, { cache: 'no-store' });
       const body = await res.json().catch(() => ({})) as { product?: EntityRecord; agent?: EntityRecord | null };
+      if (res.status >= 500) { setLoadError(true); return; }
+      setLoadError(false);
       setP(res.ok && body.product ? body.product : null);
       setAgent(body.agent || null);
     } catch {
-      setP(null);
+      setLoadError(true);
     }
   })(); /* eslint-disable-next-line */ }, [key]);
 
   useEffect(() => { if (p) document.title = `${vehicleName(p)} · 상품 안내`; }, [p]);
 
   if (p === undefined) return <Loading />;
+  if (loadError) return <CenterNote>상품 정보를 일시적으로 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.</CenterNote>;
   // 판매 가능 여부는 서버가 이미 판정했다(만료·출고불가면 404). 여기서 다시 걸지 않는다.
   if (!p) return <CenterNote>현재 안내 가능한 상품이 아닙니다.</CenterNote>;
 

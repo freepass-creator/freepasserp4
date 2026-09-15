@@ -41,6 +41,7 @@ export function ShopDetailView({ wl, initial }: {
    * ★그래도 `fetch` 는 남긴다 — 서버가 못 넘긴 경우(옛 링크·직접 진입)의 폴백이다.
    */
   const [p, setP] = useState<EntityRecord | null | undefined>(initial?.product ?? undefined);
+  const [loadError, setLoadError] = useState(false);
   const [agent, setAgent] = useState<EntityRecord | null>(initial?.agent ?? null);
   /** 담당 귀속 — 「목록으로」에도 물려 보낸다. 돌아갔을 때 담당자가 바뀌면 그게 곧 퍼널이 끊기는 것이다. */
   const [attr, setAttr] = useState('');
@@ -73,9 +74,11 @@ export function ShopDetailView({ wl, initial }: {
       if (wl.key) q.set('wl', wl.key);
       const res = await fetch(`/api/catalog/quote?${q}`, { cache: 'no-store' });
       const body = await res.json().catch(() => ({})) as { product?: EntityRecord; agent?: EntityRecord | null };
+      if (res.status >= 500) { setLoadError(true); return; }
+      setLoadError(false);
       setP(res.ok && body.product ? body.product : null);
       setAgent(body.agent || null);
-    } catch { setP(null); }
+    } catch { setLoadError(true); }
   })(); }, [key, initial]);
 
   useEffect(() => {
@@ -123,6 +126,11 @@ export function ShopDetailView({ wl, initial }: {
   }
   // 판매 가능 여부는 서버가 이미 판정했다(만료·출고불가면 못 찾는다). 여기서 다시 걸지 않는다.
   if (!p) {
+    if (loadError) return (
+      <WhitelabelFrame wl={wl} agentName={agentName} agentPhone={phone} notice={false} attr={attr} wlPreview={wlPreview}>
+        <CenterNote>상품 정보를 일시적으로 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.</CenterNote>
+      </WhitelabelFrame>
+    );
     /*
      * ⚠ 「담당자에게 문의해 주세요」라고 써 놓고 **번호도 목록도 없었다**(2026-09-05 검토).
      *   문장이 시키는 일을 손님이 할 수가 없으면 그건 안내가 아니라 막다른 길이다.
