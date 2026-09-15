@@ -21,7 +21,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
-import { SALES_PUBLISHED_TAB_PREFIXES } from '../lib/domain/sales-published-tabs';
+import { SALES_PUBLISHED_TAB_PREFIXES, salesTabMatches, canonicalSalesTabName } from '../lib/domain/sales-published-tabs';
 import { isDepositColumn, isMoneyColumn } from '../lib/domain/sales-sheet-format';
 import { inventoryCountSnapshot, isOpenInventoryAtom, isUnavailableInventoryAtom } from '../lib/domain/inventory-contract';
 import nextEnv from '@next/env';
@@ -114,7 +114,7 @@ const f01Order = new Map<string, string[]>();
   const meta = await api(`https://sheets.googleapis.com/v4/spreadsheets/${F01}?fields=sheets.properties.title`);
   const titles: string[] = (meta.sheets || []).map((s: any) => S(s.properties?.title));
   const selected = SALES_PUBLISHED_TAB_PREFIXES.flatMap((prefix) => {
-    const matches = titles.filter((x) => x === prefix || x.startsWith(prefix + ' '));
+    const matches = titles.filter((x) => salesTabMatches(x, prefix));
     if (matches.length !== 1) f01TabShapeViolations.push(`${prefix} ${matches.length}장`);
     return matches.map((title) => ({ prefix, title }));
   });
@@ -122,7 +122,7 @@ const f01Order = new Map<string, string[]>();
     // 모바일 탭은 분까지만 표시한다. 스냅샷 ID·초·대수는 로그/아티팩트에 보존하고,
     // 실제 회차 일치는 아래 658행 전체 값 대조로 확인한다.
     const expectedTitle = `${prefix} ${expectedMark.split(' · ')[0].replace(/:\d{2}$/, '')}`;
-    if (title !== expectedTitle) staleTimestampTabs.push(`F01:${title} (기대: ${expectedTitle})`);
+    if (canonicalSalesTabName(title) !== expectedTitle) staleTimestampTabs.push(`F01:${title} (기대: ${expectedTitle})`);
   }
   const grids = await readTabs(F01, selected.map((x) => x.title));
   for (const { prefix, title } of selected) {

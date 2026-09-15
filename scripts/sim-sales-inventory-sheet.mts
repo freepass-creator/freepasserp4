@@ -144,7 +144,7 @@ assert.throws(() => importSalesInventorySheet({
 const workbook = importSalesInventoryWorkbook({
   main: { title: '상품리스트 08.13 · 2대', gid: '1', rows: table },
   sonogong: {
-    title: '손오공구독 08.13 · 1대', gid: '2', rows: [
+    title: '오공구독 08.13 · 1대', gid: '2', rows: [
       ['배차상태', '구분', '차량번호', '모델', '세부모델', '파워트레인', '세부트림', 'Km', '보증금 반납형', '12개월', '보증금 인수형', '36개월(인수형)', '공급사'],
       ['출고가능', '재구독', '156두1484', '스포티지', '스포티지 NQ5', '디젤 2.0 2WD', '시그니처', '20,500', '연수×대여료', '1,092,000', '3,858,000', '1,286,000', '손오공'],
     ],

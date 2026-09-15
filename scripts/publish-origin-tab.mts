@@ -31,7 +31,7 @@ import { fetchHubPartners } from '../lib/domain/sheet-hub-sync';
 import { buildSalesFormatRequests, columnWidths, rgb, LINK, FONT, SIZE, ITALIC } from '../lib/domain/sales-sheet-format';
 import { productType } from '../lib/domain/sales-sheet-clean';
 import { parsePublishedSalesMapping, SALES_ALIAS, SALES_COLUMNS } from '../lib/domain/sales-sheet-mapping';
-import { salesPublishedTabIndex } from '../lib/domain/sales-published-tabs';
+import { salesPublishedTabIndex, canonicalSalesTabName, salesTabMatches } from '../lib/domain/sales-published-tabs';
 import { HANDOVER_TAB, STALE_DAYS, daysSince, readLog } from '../lib/domain/supplier-handover-log';
 import { isMirrorSheet } from '../lib/domain/mirror-sources';
 import { SHEET_NAME_MATCH, isOurNonInventoryTab, supplierSheetLabel } from '../lib/domain/supplier-template-sheet';
@@ -82,12 +82,12 @@ if (APPLY && SHEET === PRODUCTION_F01) throw new Error('구형 원천 발행기�
  * ⚠ 이름이 어긋나면 못 찾고 **새 탭을 하나 더 만든다.** 그러면 영업자 문서에
  *   「상품리스트」가 둘이 되고, 누가 어느 걸 보는지 알 수 없어진다(실측 2026-08-14 · 두 번째 사고).
  */
-const TAB = arg('tab', '상품리스트');
+const TAB = canonicalSalesTabName(arg('tab', '상품리스트'));
 /**
- * ★`--only=공급사코드[:탭글자]` — 그 공급사(그 탭)만 실어 **별도 탭**을 찍는다(사장님 2026-08-19 「상품리스트 · 손오공구독(반납/인수) · 오플구독 탭 3개로 회귀」).
+ * ★`--only=공급사코드[:탭글자]` — 그 공급사(그 탭)만 실어 **별도 탭**을 찍는다(사장님 2026-08-19 「상품리스트 · 오공구독(반납/인수) · 오플구독 탭 3개로 회귀」).
  *   같은 발행기·같은 정본 차명·같은 열이라 상품리스트와 규격이 갈리지 않는다. @제외는 무시한다(그 공급사를 실으려는 것이니까).
- *   예) --only=RP012:구독 --tab=손오공구독 · --only=RP023 --tab=오플구독 (그 뒤 publish-sonogong-tab 이 원본 요금 블록을 덧붙인다)
- * ★탭 자리 — 상품리스트 0 · 손오공구독 1 · 오플구독 2 (`salesPublishedTabIndex`). `--at=N` 은 덮어쓸 때만.
+ *   예) --only=RP012:구독 --tab=오공구독 · --only=RP023 --tab=오플구독 (그 뒤 publish-sonogong-tab 이 원본 요금 블록을 덧붙인다)
+ * ★탭 자리 — 상품리스트 0 · 오공구독 1 · 오플구독 2 (`salesPublishedTabIndex`). `--at=N` 은 덮어쓸 때만.
  */
 const ONLY = (() => { const v = arg('only'); if (!v) return null; const [code, tab = ''] = v.split(':'); return { code: code.trim(), tab: tab.trim() }; })();
 const AT = process.argv.some((a) => a.startsWith('--at=')) ? (Number(arg('at')) || 0) : salesPublishedTabIndex(TAB);
@@ -836,7 +836,9 @@ const readLastCounts = (): Record<string, number> => {
   try { return JSON.parse(readFileSync(LAST_COUNT_FILE, 'utf8')) as Record<string, number>; } catch { return {}; }
 };
 const meta = await api(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET}?fields=sheets.properties(sheetId,title)`);
-let gid = ((meta.sheets || []) as Rec[]).find((s) => S(s.properties?.title).startsWith(TAB))?.properties?.sheetId as number | undefined;
+const matchingTabs = ((meta.sheets || []) as Rec[]).filter((s) => salesTabMatches(S(s.properties?.title), TAB));
+if (matchingTabs.length > 1) throw new Error(`판매 탭 중복: ${TAB}`);
+let gid = matchingTabs[0]?.properties?.sheetId as number | undefined;
 /**
  * ★**갑자기 확 줄면 멈춘다.** 「매번 센다」는 규칙을 사람 눈이 아니라 코드가 지키게 한다.
  *

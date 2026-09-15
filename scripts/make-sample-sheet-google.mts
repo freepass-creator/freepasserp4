@@ -11,6 +11,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { JWT } from 'google-auth-library';
 import { buildSalesFormatRequests, columnWidths } from '../lib/domain/sales-sheet-format';
 import { makeCell, tabOf, TAB_ORDER, loadSalesRowContext, compareSalesRows } from '../lib/domain/sales-atom-row';
+import { salesTabMatches } from '../lib/domain/sales-published-tabs';
 import { companyAlias } from '../lib/domain/identity';
 import { isPlate } from '../lib/domain/plate-registry';
 import { hasInventoryPublicationViolations, inventoryCountSnapshot, isOpenInventoryAtom } from '../lib/domain/inventory-contract';
@@ -144,7 +145,9 @@ if (!meta) {
   const existing = (meta.sheets || []).map((s: any) => ({ title: S(s.properties.title), gid: s.properties.sheetId }));
   const reqs: any[] = []; let nid = Math.max(0, ...existing.map((e: any) => e.gid)) + 1;
   for (const base of TAB_ORDER) {
-    const found = existing.find((e: any) => e.title === base || e.title.startsWith(base + ' '));
+    const candidates = existing.filter((e: any) => salesTabMatches(e.title, base));
+    if (candidates.length > 1) throw new Error(`판매 탭 중복: ${base}`);
+    const found = candidates[0];
     const nt = titleOf(base);
     const rowCount = 1 + (groups[base]?.length || 0) + 20;   // 밑 여유 20줄만(사장님 2026-09-04) — 쓰기 전에 그리드 맞춤
     if (found) { gidByBase[base] = found.gid; reqs.push({ updateSheetProperties: { properties: { sheetId: found.gid, title: nt, gridProperties: { rowCount } }, fields: 'title,gridProperties.rowCount' } }); }

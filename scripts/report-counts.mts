@@ -1,3 +1,4 @@
+import { pickPublishedSalesTabs } from '../lib/domain/sales-published-tabs';
 /**
  * **대수 한 장 — 어느 숫자가 무엇을 센 것인지 한눈에.** 읽기 전용.
  *
@@ -28,7 +29,6 @@ const SALES = arg('sheet', '1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs');
 const INDEX_SHEET = arg('index', '1TVeVXyJJRx0SzD2vxqy3eEjSojmMIWXSu7AdsKmpfmY');
 const DOC_NAME = arg('name', '프리패스 재고');
 /** 재고 탭으로 볼 이름 — 나머지(AI 정제·AI 인계)는 차를 담는 표가 아니다. */
-const STOCK_TABS = /^(상품리스트|손오공구독|오플구독|오플프로모션)/;
 const RENT_COLUMNS = ['1개월', '12개월', '24개월', '36개월', '48개월', '60개월'];
 /** 며칠 지나면 «낡았다»고 볼까. 공급사는 거의 매일 손본다. */
 const STALE_DAYS = 1.5;
@@ -81,7 +81,7 @@ const isOurs = (who: string) => [...supplierNameKeys(who)].some((k) => oursByNam
 
 /** 판매시트 탭 — 이름이 아니라 «줄»을 센다. */
 const meta = await api(`https://sheets.googleapis.com/v4/spreadsheets/${SALES}?fields=${encodeURIComponent('sheets.properties(title,hidden)')}`);
-const titles = ((meta.sheets || []) as Rec[]).map((s) => S(s.properties?.title)).filter((t) => STOCK_TABS.test(t));
+const titles = pickPublishedSalesTabs(((meta.sheets || []) as Rec[]).map((s) => S(s.properties?.title))).map((s) => s.title);
 
 console.log('\n■ 대수 한 장 — 어느 숫자가 무엇을 센 것인가\n');
 

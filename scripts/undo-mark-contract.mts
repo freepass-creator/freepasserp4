@@ -1,3 +1,4 @@
+import { salesTabMatches } from '../lib/domain/sales-published-tabs';
 /**
  * **`mark-contract-in-listings` 가 세운 상태를 원래 값으로 되돌린다.** 기본 dry-run, 반영은 `--apply`.
  *
@@ -82,8 +83,9 @@ for (const j of jobs.values()) {
    */
   const meta = await api(`${SH}/${j.id}?fields=sheets.properties.title`);
   const head = j.tab.split(/[ ·]/)[0];
-  const live = ((meta.sheets || []) as any[]).map((x) => S(x.properties.title)).find((t) => t === j.tab)
-    || ((meta.sheets || []) as any[]).map((x) => S(x.properties.title)).find((t) => t.startsWith(head));
+  const candidates = ((meta.sheets || []) as any[]).map((x) => S(x.properties.title)).filter((t) => salesTabMatches(t, head));
+  if (candidates.length > 1) throw new Error(`복원 대상 탭 중복: ${head}`);
+  const live = candidates[0];
   if (!live) { console.log(`   ⚠ 「${j.tab}」 탭을 못 찾음 — 건너뜀`); continue; }
   j.tab = live;
   const g = await api(`${SH}/${j.id}/values/${encodeURIComponent(`${a1(j.tab)}!A1:CZ2000`)}`);

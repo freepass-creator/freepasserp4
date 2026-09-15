@@ -146,8 +146,8 @@ export function colBgFor(name: string): string | undefined {
   return undefined;
 }
 
-/** 탭 색 — 상품리스트와 갈래 탭(손오공구독·오플구독)이 한눈에 갈리게(사장님 2026-08-19 「탭 색깔 약간 다르게」). */
-export const SALES_TAB_COLORS: Record<string, string> = { 상품리스트: '4A86E8', 손오공구독: '8E7CC3', 오플구독: '6AA84F' };
+/** 탭 색 — 상품리스트와 갈래 탭(오공구독·오플구독)이 한눈에 갈리게(사장님 2026-08-19 「탭 색깔 약간 다르게」). */
+export const SALES_TAB_COLORS: Record<string, string> = { 상품리스트: '4A86E8', 오공구독: '8E7CC3', 손오공구독: '8E7CC3', 오플구독: '6AA84F' };
 export const salesTabColorFor = (tabTitle: string): string | undefined => {
   const t = String(tabTitle ?? '').trim();
   const key = Object.keys(SALES_TAB_COLORS).find((k) => t.startsWith(k));
@@ -236,7 +236,7 @@ export type FormatInput = {
   /** 지울 옛 조건부서식 개수. */
   conditionalFormatCount?: number;
   widths: number[];
-  /** 탭 이름(색을 정하는 데 쓴다 — 상품리스트/손오공구독/오플구독). */
+  /** 탭 이름(색을 정하는 데 쓴다 — 상품리스트/오공구독/오플구독). */
   tabTitle?: string;
   /** 머리글 메모 추가분(SALES_NOTES 에 없는 칸 — 갈래 탭 원본 요금 칸 등). */
   extraNotes?: Record<string, string>;
@@ -442,7 +442,7 @@ export function buildSalesFormatRequests(input: FormatInput): Record<string, unk
       cell: { note }, fields: 'note',
     } });
   }
-  // 탭 색 — 상품리스트/손오공구독/오플구독이 한눈에 갈리게.
+  // 탭 색 — 상품리스트/오공구독/오플구독이 한눈에 갈리게.
   const tabColor = input.tabTitle ? salesTabColorFor(input.tabTitle) : undefined;
   if (tabColor) out.push({ updateSheetProperties: { properties: { sheetId: gid, tabColor: rgb(tabColor) }, fields: 'tabColor' } });
 

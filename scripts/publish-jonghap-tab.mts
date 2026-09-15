@@ -58,11 +58,11 @@ const SONOGONG_MODE = process.argv.includes('--sonogong');
 /**
  * ⚠⚠ **`--sonogong` 은 더 쓰지 마라.** 이 발행기는 ERP 를 거치는데, 거기서 돈이 사라진다 —
  *   실측 2026-08-14: 제공시트 45대·보증금 24대인데 이 길로는 **23대·보증금 0대**로 나갔다.
- *   손오공구독 탭은 `scripts/publish-sonogong-tab.mts` 가 제공시트에서 바로 찍는다.
+ *   오공구독 탭은 `scripts/publish-sonogong-tab.mts` 가 제공시트에서 바로 찍는다.
  *   그래도 돌리려면 `--force-erp` 를 같이 줘라(무엇을 하는지 알고 있다는 뜻이다).
  */
 if (SONOGONG_MODE && !process.argv.includes('--force-erp')) {
-  console.log('\n  ⛔ 이 길(ERP 경유)로는 손오공구독 보증금이 통째로 빈다.');
+  console.log('\n  ⛔ 이 길(ERP 경유)로는 오공구독 보증금이 통째로 빈다.');
   console.log('     대신 이걸 써라 — npx tsx scripts/publish-sonogong-tab.mts --apply\n');
   process.exit(1);
 }
@@ -593,7 +593,7 @@ const meta = await call(`${api}?fields=sheets(properties(title,sheetId,hidden,gr
   { sheets: { properties: { title: string; sheetId: number; hidden?: boolean; gridProperties?: { columnCount?: number } }; bandedRanges?: { bandedRangeId: number }[]; conditionalFormats?: unknown[] }[] };
 const gidArg = arg('gid');
 // 주소(gid)가 안 바뀌어야 영업자가 즐겨찾기해 둔 링크가 산다. ⚠ 숨긴 탭은 건너뛴다.
-const TAB = SONOGONG_MODE ? '손오공구독' : '상품리스트';
+const TAB = SONOGONG_MODE ? '오공구독' : '상품리스트';
 const found = gidArg
   ? meta.sheets.find((s) => String(s.properties.sheetId) === gidArg)
   : meta.sheets.find((s) => !s.properties.hidden && s.properties.title.startsWith(TAB));

@@ -25,7 +25,7 @@
  *   오플은 정제시트 → 상품리스트로 간다(publish-origin-tab). 이 스크립트는 더 쓰지 않는다 — 돌리면 탭이 두 벌이 된다.
  *   탭 삭제는 `scripts/remove-partner-tabs.mts` 가 했다.
  */
-throw new Error('publish-partner-tabs 는 폐기됐다(2026-08-18) — 오플은 상품리스트에 흡수. 손오공구독은 publish-sonogong-tab.');
+throw new Error('publish-partner-tabs 는 폐기됐다(2026-08-18) — 오플은 상품리스트에 흡수. 오공구독은 publish-sonogong-tab.');
 // eslint-disable-next-line no-unreachable
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
@@ -46,13 +46,13 @@ const DB = 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.a
  */
 const SOURCES = [
   /**
-   * ★탭 이름은 영업자가 부르던 말이다(사장님 2026-08-13 — 「손오공구독 / 오플구독 / 오플프로모션
+   * ★탭 이름은 영업자가 부르던 말이다(사장님 2026-08-13 — 「오공구독 / 오플구독 / 오플프로모션
    *   이렇게」). 오플 재고 탭을 그 시트에서 「오플구독」이라 불렀다 — 원본 탭 이름
    *   (「판매차량리스트」)으로 바꿔 달지 마라.
    * ★`legacy` 는 예전에 우리가 붙였던 이름이다. 이름을 갈면 옛 탭이 지워지지 않고 남아
    *   **두 벌**이 된다 — 그러면 한쪽만 갱신돼 영업자가 옛 값을 본다.
    *
-   * ⚠ **손오공구독은 여기서 찍지 않는다**(사장님 2026-08-13 — 「손오공 구독 시트도 상품리스트
+   * ⚠ **오공구독은 여기서 찍지 않는다**(사장님 2026-08-13 — 「손오공 구독 시트도 상품리스트
    *   시트랑 규격 같게 해야지」). `publish-jonghap-tab.mts --sonogong` 이 상품리스트와 같은
    *   열·같은 글자색으로 만든다. 여기로 되돌리면 규격이 다시 갈린다.
    */

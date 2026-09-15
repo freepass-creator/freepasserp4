@@ -1,3 +1,4 @@
+import { salesTabMatches } from '../lib/domain/sales-published-tabs';
 /**
  * **차량번호 대장을 쌓는다** — 판매시트(상품리스트)에서 차번·차명 세 축·공급사만 긁어 누적한다.
  *
@@ -44,7 +45,7 @@ import { mergeAll, carName, type PlateEntry, type PlateInput } from '../lib/doma
 const APPLY = process.argv.includes('--apply');
 const NODE = 'v4/plate_registry';
 /** ★앞머리로 찾는다 — 탭 이름 뒤에 날짜·대수가 붙는다. */
-const TAB_HEADS = ['상품리스트', '손오공구독', '픽업구독', '오플구독'];
+const TAB_HEADS = ['상품리스트', '오공구독', '픽업구독', '오플구독'];
 
 const S = (v: unknown) => String(v ?? '').trim();
 const today = (() => {
@@ -74,7 +75,9 @@ console.log(`   ${S(meta.properties?.title)}`);
 
 const rows: PlateInput[] = [];
 for (const head of TAB_HEADS) {
-  const tab = meta.sheets.map((s) => S(s.properties.title)).find((t) => t.startsWith(head));
+  const candidates = meta.sheets.map((s) => S(s.properties.title)).filter((t) => salesTabMatches(t, head));
+  if (candidates.length > 1) throw new Error(`판매 탭 중복: ${head}`);
+  const tab = candidates[0];
   if (!tab) { console.log(`   ✕ 「${head}…」 탭을 못 찾았다`); continue; }
 
   // ★격자로 받는다 — 사진 링크가 «셀 서식»에 있어 값만 읽으면 안 보인다.

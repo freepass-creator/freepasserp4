@@ -19,7 +19,7 @@ import {
 
 export const DEFAULT_SALES_INVENTORY_SHEET_ID = '1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs';
 export const DEFAULT_SALES_INVENTORY_TAB_PREFIX = '상품리스트';
-export const SALES_SONOGONG_TAB_PREFIX = '손오공구독';
+export const SALES_SONOGONG_TAB_PREFIX = '오공구독';
 export const SALES_PICKUP_TAB_PREFIX = '픽업구독';
 export const SALES_AUTOPLUS_MAIN_TAB_PREFIX = '오플구독';
 export const SALES_AUTOPLUS_PROMO_TAB_PREFIX = '오플프로모션';
@@ -299,7 +299,7 @@ export function importSalesInventoryWorkbook(input: {
   autoplusMain: SalesInventoryWorkbookTab;
   /** 과거 호출 호환 전용. ERP 판매시트 경로에서는 전달하지 않는다. */
   autoplusPromo?: SalesInventoryWorkbookTab;
-  /** 손오공 픽업(T카) — RP012에 손오공구독과 합쳐 ERP에 반영한다(2026-08-27). */
+  /** 손오공 픽업(T카) — RP012에 오공구독과 합쳐 ERP에 반영한다(2026-08-27). */
   pickup?: SalesInventoryWorkbookTab;
   partners: EntityRecord[];
   /** 하위호환 인자. 판매시트 직접 유입에서는 차종마스터를 읽지 않는다. */
@@ -358,7 +358,7 @@ export function importSalesInventoryWorkbook(input: {
       product.sheet_source_gid = input.sonogong.gid;
       product.sheet_source_tab = input.sonogong.title;
     }
-    // ★손오공 픽업(T카) — 같은 RP012. 손오공구독과 «합쳐» ERP에 함께 반영한다(2026-08-27).
+    // ★손오공 픽업(T카) — 같은 RP012. 오공구독과 «합쳐» ERP에 함께 반영한다(2026-08-27).
     //   구독(SON)·픽업(T카)은 서로 다른 차라 차번이 겹치지 않는다. 요금 블록만 반납형/인수형으로 같은 꼴.
     const pickup = input.pickup
       ? importSheetTable(normalizeSalesRows(input.pickup.rows), { ...rp012Opts })
@@ -387,7 +387,7 @@ export function importSalesInventoryWorkbook(input: {
       invalidCount: sum(result.invalidCount, pickup?.invalidCount),
       issueSamples: [...result.issueSamples, ...(pickup?.issueSamples || [])],
       plateAlloc: rp012Products.some((product) => product.is_pending_plate === true) ? allocator.snapshot() : undefined,
-      message: `✓ ${S(partner.name || partner.partner_name || '손오공')} [손오공구독+픽업구독] — ${sum(result.imported, pickup?.imported)}매물`,
+      message: `✓ ${S(partner.name || partner.partner_name || '손오공')} [오공구독+픽업구독] — ${sum(result.imported, pickup?.imported)}매물`,
       products: rp012Products,
     });
   }

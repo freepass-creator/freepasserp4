@@ -1,3 +1,4 @@
+import { pickPublishedSalesTabs } from '../lib/domain/sales-published-tabs';
 /**
  * **한 대도 안 새는가 — 공급사 시트의 차가 판매시트 어디에 있는지 전수로 짚는다.** 읽기 전용.
  *
@@ -33,7 +34,6 @@ const LIST = process.argv.includes('--list');
 const SALES = arg('sales', '1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs');
 const INDEX_SHEET = arg('index', '1TVeVXyJJRx0SzD2vxqy3eEjSojmMIWXSu7AdsKmpfmY');
 /** 판매시트에서 «차를 담는» 탭들. 상품리스트 말고도 별도 탭이 있다. */
-const STOCK_TABS = /^(상품리스트|손오공구독|오플구독|오플프로모션)/;
 
 const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
 const gT = (await new JWT({ email: sa.client_email, key: sa.private_key,
@@ -54,7 +54,7 @@ const pad = (s: string, n: number) => s + ' '.repeat(Math.max(0, n - [...s].redu
 const inSales = new Map<string, string>();   // 차번 → 실린 탭
 {
   const meta = await api(`https://sheets.googleapis.com/v4/spreadsheets/${SALES}?fields=${encodeURIComponent('sheets.properties(title)')}`);
-  const titles = ((meta.sheets || []) as Rec[]).map((s) => S(s.properties?.title)).filter((t) => STOCK_TABS.test(t));
+  const titles = pickPublishedSalesTabs(((meta.sheets || []) as Rec[]).map((s) => S(s.properties?.title))).map((s) => s.title);
   for (const t of titles) {
     const v = await api(`https://sheets.googleapis.com/v4/spreadsheets/${SALES}/values/${encodeURIComponent(a1Tab(t))}`) as { values?: string[][] };
     const rows = ((v.values || []) as string[][]);
