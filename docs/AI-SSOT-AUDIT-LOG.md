@@ -425,3 +425,112 @@ ChatGPT의 self-describing scope 3안, "live gate 입력이 projection 시트지
 ### F. 미해소 — 이안카 가격 4칸 불일치 + 4개 공급사 정제시트 5~7일 미동기화
 
 E의 재검증에서 실측된 진짜 문제. `133허5372`(이안카) 가격이 원천과 6일 이상 벌어져 있다. 원인은 십중팔구 `mirror-sync.yml`/`sync-mirror-all.mts` 계열 writer가 최근 며칠 정상 동작하지 않았거나 막혀 있는 것으로 보이나, 이번 세션에서 그 원인까지는 확인하지 못했다(HOLD). 다음 세션이 `sync-mirror-sheet.mts --code=RP031,RP004,RP006,RP023 --apply`를 돌리기 전에, **왜 5~7일째 자동 갱신이 안 됐는지**(`mirror-sync.yml` 최근 실행 로그)부터 먼저 본다 — 원인을 안 고치고 한 번 수동 갱신만 하면 며칠 뒤 다시 낡는다.
+
+---
+
+## 2026-09-16(4) — ChatGPT 독립 감사: 통합 F01/F86 머지 반영 + 잔존 writer 재활성화 위험 + 손님 보증금 projection drift
+
+### A. 해소됨/변경됨 — PR #294가 merge되어 production 경로가 실제로 바뀜
+
+**판정: 확인됨 / 과거 요약 갱신 필요**
+
+PR #294가 merge commit `470b6ed2c41b074483e0426a35098b23903635e6`으로 main에 들어왔다.
+
+현재 `.github/workflows/erp5-ssot-refresh.yml`은 더 이상 `eafbd88e...`를 직접 pin하지 않고:
+
+- `ref: fb4872dd9cd18e168b043fad19c22c0f79644c17`
+- 동일 ERP5 snapshot으로 F01 발행
+- 같은 snapshot으로 F86 백업 → 발행 → `audit-f86-vs-atom --max-age-min=120`
+- F01/F86 둘 다 성공하면 원자 ↔ F01 ↔ F86 칸 대조
+
+를 수행한다.
+
+따라서 과거 감사 항목의 `PR #294 미머지`, `production pin=eafbd88e`, `main에는 F86 production 경로 없음`은 **현재 상태가 아니다.** production은 main workflow가 `fb4872dd` 엔진을 checkout하는 방식으로 F01/F86을 한 회차에서 발행한다.
+
+### B. 해소됨 — RETRO_SHORT 9대 제외 규칙은 production 엔진에서 폐기 반영
+
+`fb4872dd` 실제 commit과 `scripts/build-channel-supplier-sheet.mts`를 재확인했다.
+
+현재 production F86 규칙:
+
+- 장기 요금이 없는 차도 **제외하지 않는다**.
+- `shortOnly`는 알림/관측용으로만 센다.
+- 요금 칸은 빈 채로 싣고 **F86 대수 = F01 대수**를 목표로 한다.
+- 공급사명이 없는 차만 운영 발행을 막는다.
+
+즉 `CLAUDE-AUDIT.md`에 남아 있던 `RETRO_SHORT 때문에 9대 의도적 제외/PASS` 요약은 최신 규칙과 반대라서 stale이다.
+
+### C. 확인됨 — RP023 live-gate 오탐은 해소, 실제 IANKA mismatch는 여전히 신호로 남음
+
+main의 `.github/workflows/ssot-live-gate.yml`은 PR #298 merge commit `3340c015501a1ba06a58177396fe2882c1a0d3f8` 이후 `--only=IANKA,IRON`으로 범위를 좁힌다.
+
+수동 run `35034104413` 로그를 다시 확인한 결과:
+
+- AUTOPLUS 0건 false positive는 사라짐.
+- IRON은 원천 52대 / 발행 대상 22대 / 가격 원자 70칸 보존으로 통과.
+- IANKA `133허5372`의 24/36/48/60개월 4칸은 SOURCE/ATOM과 F01 예정값이 계속 다름.
+- 같은 run에서 아이카·아이언·오토플러스·이안카 projection 시트가 6~7일 stale이라고 관측됨.
+
+따라서 **게이트 오탐은 해소됐지만 이안카 가격 불일치/freshness 문제는 미해소**다.
+
+### D. 충돌/보류 — writer 단일화가 GitHub UI의 "꺼짐" 상태에 의존하며 CI가 그 상태를 검증하지 못함
+
+PR #294의 `docs/예약작업-지도.md`는:
+
+- `sales-erp-hourly.yml` = **꺼짐**
+- `mirror-sync.yml` = **꺼짐**
+- `erp5-ssot-refresh.yml` = **켜짐 / 통합 워크플로**
+
+으로 운영 상태를 선언한다.
+
+그러나 current main의 두 옛 workflow 파일에는 cron 자체가 그대로 남아 있다.
+
+- `sales-erp-hourly.yml` → `0 0-9 * * 1-5`
+- `mirror-sync.yml` → `*/30 * * * *`
+
+그리고 `scripts/check-schedule-map.mts`는 **파일 안 cron과 문서 표가 일치하는지만 검사**한다. GitHub Actions의 실제 enable/disable 상태는 읽지 못한다. 즉 파일/CI만으로는 "꺼짐"을 강제하거나 증명하지 못한다.
+
+더 중요한 점:
+
+- 운영 쓰기 문지기 `lib/server/production-sheet-write-gate.ts`는 current main에는 없고 production pin `fb4872dd` 엔진에 있다.
+- `sales-erp-hourly.yml`은 current main을 checkout해서 `cloud-hourly-sync` → `run-hourly-with-ssot-gate` → `hourly-sync`를 실행한다.
+- 그 old path는 `sync-mirror-all.mts`와 `publish-origin-tab.mts`를 다시 호출한다.
+- `mirror-sync.yml`도 current main의 `MIRROR_SOURCES`를 사용하며 RP023 옛 Google Sheet `1TJBG4PABg...`가 아직 `from`으로 남아 있다.
+
+따라서 두 workflow가 GitHub UI에서 정말 disabled인 동안은 active writer 충돌이 아니지만, **누군가 UI에서 재-enable하면 repository CI가 막지 못한 채 legacy writer가 다시 살아날 수 있는 latent conflict**다.
+
+이번 감사에서는 GitHub UI의 실제 enable/disable 상태를 connector로 직접 조회할 수 없어 `docs/예약작업-지도.md`의 기록 이상으로 독립 증명하지 못했다. 코드 삭제/수정은 하지 않는다. Claude 구현 Owner가 다음 작업에서 "disable 상태의 코드화/검증" 또는 legacy schedule 제거 중 어느 쪽이 맞는지 판단해야 한다.
+
+### E. 충돌(현재 main) — Atom의 `deposit_note`가 손님 projection에서 유실되어 "보증금 없음"으로 오표시
+
+현재 main을 직접 확인했다.
+
+- `lib/domain/public-catalog.ts`의 `PUBLIC_PRODUCT_FIELDS`에 `deposit_note`가 없음.
+- `components/shop/ShopCard.tsx`는 `price.deposit === 0`이면 규칙 글자 유무를 보지 않고 `보증금 없음`으로 표시함.
+
+즉 ERP5 Atom에 `deposit_note` 같은 규칙형 보증금 의미가 있어도 guest/public projection에서 잘려 나가고, 숫자 보증금 0만 보고 "없음"으로 의미가 변형된다.
+
+이것은 `SOURCE → ADAPTER → ATOM → PROJECTION → OUTPUT` 계약에서 **Projection 단계의 의미 손실**이다. 원자 자체가 틀린 문제가 아니다.
+
+PR #299(`claude/shop-deposit-rule`, 현재 open)이:
+
+- `deposit_note`를 public whitelist에 추가
+- 카드/상세/공유 미리보기의 표시를 `depositLine()` 한 함수로 통일
+
+하는 수정안을 이미 올려 둔 상태다. PR 설명의 대상 대수(오토플러스 47대·손오공 15대)는 이 감사에서 실데이터로 재집계하지 않았지만, **현재 main의 코드 결함 자체는 독립 확인됨**이다.
+
+### 이번 감사 최종 판정
+
+1. **production F01/F86 통합:** PR #294 merge로 구조적 진전 — 같은 ERP5 snapshot에서 F01/F86을 발행하고 F86 감사/백업까지 포함.
+2. **F86 9대 제외:** 폐기 반영됨 — current production 목표는 F86=F01, 장기요금 없는 차도 싣는다.
+3. **RP023 gate 오탐:** 해소됨.
+4. **IANKA/정제 projection freshness:** 미해소.
+5. **legacy writer:** 지도상 disabled지만, cron 파일은 남아 있고 disable 상태를 CI가 검증하지 않아 재활성화 위험 잔존.
+6. **손님 화면 보증금 의미:** current main에서 projection drift 확인, PR #299 merge 전까지 미해소.
+
+### Claude 구현 Owner에게 넘기는 다음 작업
+
+1. `CLAUDE-AUDIT.md`를 current production 상태(`fb4872dd`, F86=F01, PR #294 merged)로 갱신한다.
+2. old `sales-erp-hourly.yml` / `mirror-sync.yml`의 GitHub UI disable 의존성을 없앨지(파일 schedule 제거/별도 guard/상태 검사) 판단한다. 실제 구현은 Claude 단일 세션만 한다.
+3. IANKA 4칸 mismatch와 4개 projection stale 원인을 legacy mirror를 무작정 재실행하지 말고 canonical source 기준으로 추적한다. RP023은 특히 옛 Google Sheet mirror를 즉시 `--apply`하지 않는다.
+4. PR #299를 검토/머지한 뒤 public catalog에서 규칙형 보증금이 카드·상세·공유까지 같은 의미로 보이는지 재검증한다.
