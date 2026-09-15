@@ -35,7 +35,11 @@ export const INVENTORY_SOURCES: readonly InventorySourceSpec[] = Object.freeze([
   { partnerCode: 'RP008', name: '리더스', kind: 'google_sheet', adapterId: 'generic-sheet', spreadsheetId: '1JSp425v3khurklA_KvaqRDcbCLyA26NTte5cQYiJBXg', sourceUrl: sheet('1JSp425v3khurklA_KvaqRDcbCLyA26NTte5cQYiJBXg'), channels: ['inventory', 'policy'] },
   { partnerCode: 'RP010', name: 'KH', kind: 'google_sheet', adapterId: 'generic-sheet', spreadsheetId: '1LSAyQ36MrUXispVFSm_8l5G-RtsxY1HF6wVUDJ8TFds', sourceUrl: sheet('1LSAyQ36MrUXispVFSm_8l5G-RtsxY1HF6wVUDJ8TFds'), channels: ['inventory', 'policy'] },
   { partnerCode: 'RP011', name: '연카', kind: 'google_sheet', adapterId: 'generic-sheet', spreadsheetId: '1PpWoj3N22GRA2paO_UHDosXSDHWcLfIB4nPuITgAVlw', sourceUrl: sheet('1PpWoj3N22GRA2paO_UHDosXSDHWcLfIB4nPuITgAVlw'), channels: ['inventory', 'policy'] },
-  { partnerCode: 'RP012', name: '손오공', kind: 'erp_api', adapterId: 'sonogong', sourceUrl: 'https://sokrc.com/api', projection: { spreadsheetId: '1WIFn5ObK_nCVGLTjj6rO96i6vxub1QzJmiVW0BpJLcA', tabs: ['구독재고', '픽업재고'] }, channels: ['LOW_SONOKONG', 'LOW_TCAR'], hold: ['일반 렌트재고 ERP API 버킷은 아직 코드에서 확인되지 않음'] },
+  // ★hold 해소(2026-09-15 실측, lib/domain/sonokong-product-kind.ts): API에 「렌트」 전용 버킷은 없다.
+  //   버킷은 TCAR_EXTERNAL·SON_NO_KONG 둘뿐(전수 296건 = 244+52). SON_NO_KONG 안에 렌트(중고렌트)가
+  //   섞여 있고, 렌트 여부는 차량번호(하·허·호 = 한국 렌터카 번호판 글자)로 가른다 — 원천의 `중고`
+  //   플래그는 사용감을 뜻할 뿐 렌트 등록 여부와 무관했다(자세한 경위는 그 파일 주석).
+  { partnerCode: 'RP012', name: '손오공', kind: 'erp_api', adapterId: 'sonogong', sourceUrl: 'https://sokrc.com/api', projection: { spreadsheetId: '1WIFn5ObK_nCVGLTjj6rO96i6vxub1QzJmiVW0BpJLcA', tabs: ['구독재고', '픽업재고'] }, channels: ['LOW_SONOKONG', 'LOW_TCAR'] },
   { partnerCode: 'RP013', name: '웰릭스', kind: 'google_sheet', adapterId: 'generic-sheet', spreadsheetId: '1T9az8BfEpM-QUllo5Sr2VxOcJBy3UvXPAvkuGy4C6hI', sourceUrl: sheet('1T9az8BfEpM-QUllo5Sr2VxOcJBy3UvXPAvkuGy4C6hI'), channels: ['inventory', 'policy'] },
   { partnerCode: 'RP014', name: '스위치플랜', kind: 'google_sheet', adapterId: 'generic-sheet', spreadsheetId: '1I-suagPHvPoBE4dhX5yP1nmPWA6m7tDl74kTtyVfA1c', sourceUrl: sheet('1I-suagPHvPoBE4dhX5yP1nmPWA6m7tDl74kTtyVfA1c'), channels: ['inventory', 'policy'] },
   { partnerCode: 'RP015', name: '경진렌트카', kind: 'google_sheet', adapterId: 'generic-sheet', spreadsheetId: '1j7EHDQ0r2Yp7ho-SzNWW-vK4zUNX_YAqRWernxUI_4M', sourceUrl: sheet('1j7EHDQ0r2Yp7ho-SzNWW-vK4zUNX_YAqRWernxUI_4M'), sharedWith: ['RP016'], channels: ['inventory', 'policy'] },
