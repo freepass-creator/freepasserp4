@@ -29,7 +29,7 @@ jobs:
       - name: 검증된 ERP5 SSOT 엔진 고정
         uses: actions/checkout@v4
         with:
-          ref: e06dfc5e24502bd882cc5f20514ebf9e5a134e6b
+          ref: 51579168fc7a716e7a7b36581fc7a01110ae548f
       - name: freepasserp5 OIDC 인증
         uses: google-github-actions/auth@v2
         with:
