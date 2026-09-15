@@ -26,7 +26,7 @@ import { loadSalesRowContext, makeCell, tabOf, TAB_ORDER, compareSalesRows } fro
 import { buildSalesFormatRequests, columnWidths, isMoneyColumn } from '../lib/domain/sales-sheet-format';
 import { HAHUHO_PRODUCT_SHEET_ID } from '../lib/domain/legacy-sheets';
 import { ensureNoticeTab } from '../lib/server/channel-sheet-tabs';
-import { applyRetroSkin } from '../lib/domain/channel-retro-skin';
+import { applyRetroSkin, retroColumnOrder } from '../lib/domain/channel-retro-skin';
 import { channelColumnName, salesPublishedColumns } from '../lib/domain/sales-published-tab-columns';
 import { firebaseAdminApp } from '../lib/server/firebase-admin';
 import { googleSheetsServiceAccount } from '../lib/server/google-service-account';
@@ -286,7 +286,9 @@ for (const [company, list] of order) {
   const 쓴다 = (c: string) => list.some((x) => { const v = S(x.cells[c]); return !!v && v !== '-'; });
   const 앞 = COLUMNS.indexOf('차명(원문)');
   /** ★F01 의 열 차례를 «그대로» 지킨다 — 다시 정렬하지 않는다(그러다 12·24 인수형이 끝으로 밀렸었다). */
-  const cols = COLUMNS.filter((c, i) => (요금칸(c) ? 쓴다(c) : true));
+  const 쓸칸 = COLUMNS.filter((c, i) => (요금칸(c) ? 쓴다(c) : true));
+  /** ★하허호는 칸 «자리»만 옛 「종합」 차례로(2026-09-15 새 구현) — 칸 구성은 위 그대로. 차례 정본 = `retroColumnOrder`(감사기와 같은 함수). */
+  const cols = RETRO ? retroColumnOrder(쓸칸) : 쓸칸;
   const title = `${company} ${mark} · ${list.length}대`;
   const old = have.find(([t]) => t.startsWith(`${company} `));
   let gid: number;
@@ -316,6 +318,12 @@ for (const [company, list] of order) {
    *   그 값 쓰기가 차번 셀을 덮으면서 링크가 같이 죽었다 — **703대 중 링크가 «한 대도» 없었다.**
    *   서식(색·글꼴)은 멀쩡해서 눈으로는 안 띈다. 채널이 차번을 눌러도 사진이 안 열리는 채로 나갔다.
    */
+  /**
+   * ★**숨김은 «다 편 뒤» 이름으로 다시 접는다** — 실측 2026-09-15.
+   *   서식기는 이름으로 «접기»만 하고 «펴기»는 안 한다. 칸 자리가 바뀌면(레트로 차례) 지난 회차의 숨김이
+   *   «옛 자리»에 남아 엉뚱한 칸(1만+·대인·공급사·모델)이 접히고, 접혀야 할 칸(차고지)이 펴져 있었다.
+   */
+  reqs.push({ updateDimensionProperties: { range: { sheetId: gid, dimension: 'COLUMNS', startIndex: 0, endIndex: cols.length }, properties: { hiddenByUser: false }, fields: 'hiddenByUser' } });
   const 서식 = buildSalesFormatRequests({
     gid, columns: cols, headerAt: 0, widths: columnWidths(cols, body),
     columnCountNow: cols.length, tabTitle: title, body, linkOut: 링크요청,

@@ -10,7 +10,38 @@
  * ⚠ **공용 서식기(`sales-sheet-format`)는 안 고친다** — F01 모양이 같이 바뀐다. 그 서식 요청 «뒤»에 덮어 쓴다.
  * ⚠ 값별 색(구분·배차상태·제조사·연료·색상)은 살린다 — 옛 시트에 없던 «뜻»이라. 굵기만 옛 시트처럼 뺀다.
  */
+import { isMoneyColumn } from './sales-sheet-format';
+
 type Req = Record<string, any>;
+
+/**
+ * ★★**칸 차례도 옛 「종합」을 따른다** — 사장님 2026-09-15 「이건 새로운 구현이라고 보면 돼, 과거 형태에 맞추는 거로」.
+ *   ⚠ 규칙 1·2(「F86 열 차례 = F01」)를 이 날 바꿨다 — 발행기와 감사기(`audit-sheet-vs-atom`)가 «이 함수 하나»로 차례를 정한다.
+ * ★이름은 «우리 칸 이름»을 쓴다 — 값 대조(F01 ↔ F86)가 이름으로 맞춰 보기 때문이다. 옛 이름은 옆 주석.
+ * ★「@요금」 자리에 그 회사가 쓰는 요금 칸이 F01 차례대로 들어간다(대여료 구간은 «우리 기존 그대로»).
+ * ★옛 시트에 없던 우리 칸(모델·연식·원산지·카드결제·중도해지…)은 뒤에 F01 차례로 붙는다 — 빼면 채널이 보던 정보가 사라진다.
+ *   옛 시트에만 있던 「차량상태·입고일자·정책코드」는 원자에 값이 없거나 내부 코드라 안 만든다.
+ */
+export const RETRO_COLUMN_ORDER = [
+  '배차상태', '구분', '차량번호', '차종구분' /* 차종분류 */, '세부모델', '연료', '외장', '내장', 'Km',
+  '@요금',
+  '세부트림' /* 트림 */, '옵션(원문)' /* 옵션 */, '최초등록', '소비자가격', '제조사', '배기량', '차고지', '운전자범위', '연주행',
+  '분납', '21세+' /* 21세 */, '23세+' /* 23세 */, '1만+', '대인', '대물', '자차', '자손', '무보험', '정비', '전용계좌', '비고',
+  '공급사' /* 공급사코드 */,
+] as const;
+
+const 요금칸 = (c: string) => isMoneyColumn(c) && !/가격/.test(c);
+
+/** 한 탭의 칸(F01 차례) → 옛 「종합」 차례. 칸을 더하거나 빼지 않는다 — 자리만 바꾼다. */
+export function retroColumnOrder(cols: readonly string[]): string[] {
+  const out: string[] = [];
+  for (const k of RETRO_COLUMN_ORDER) {
+    if (k === '@요금') { for (const c of cols) if (요금칸(c) && !out.includes(c)) out.push(c); continue; }
+    if (cols.includes(k) && !out.includes(k)) out.push(k);
+  }
+  for (const c of cols) if (!out.includes(c)) out.push(c);
+  return out;
+}
 
 export const RETRO_FONT = 'Malgun Gothic';
 export const RETRO_SIZE = 9;

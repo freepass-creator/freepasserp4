@@ -31,6 +31,7 @@ import { channelCompanyOf } from '../lib/domain/channel-company';
 import { compareSalesRows, loadSalesRowContext, makeCell, MISSING, tabOf } from '../lib/domain/sales-atom-row';
 import { channelColumnName, salesPublishedColumns } from '../lib/domain/sales-published-tab-columns';
 import { HAHUHO_PRODUCT_SHEET_ID, SALES_SHEET_ID } from '../lib/domain/legacy-sheets';
+import { retroColumnOrder } from '../lib/domain/channel-retro-skin';
 import { googleSheetsServiceAccount } from '../lib/server/google-service-account';
 
 nextEnv.loadEnvConfig(process.cwd());
@@ -232,11 +233,12 @@ let f86줄 = 0;
   const expectedHeaders = new Map<string, string[]>();
   for (const company of expectedCompanies.keys()) {
     const companyRows = f01.filter((row) => channelCompanyOf(row.cells['공급사'], rowCtx.nameByProvider) === company);
-    expectedHeaders.set(company, channelColumns.filter((column) => {
+    /** ★F86 칸 «자리»는 옛 「종합」 차례다(2026-09-15 새 구현) — 발행기와 «같은 함수»로 기대값을 만든다. 구성은 그대로. */
+    expectedHeaders.set(company, retroColumnOrder(channelColumns.filter((column) => {
       const optionalFee = isMoneyColumn(column) && !/가격/.test(column);
       if (!optionalFee) return true;
       return companyRows.some((row) => Object.entries(row.cells).some(([raw, value]) => channelColumnName(raw) === column && S(value) && S(value) !== '-'));
-    }));
+    })));
   }
   if (expectedMark) {
     for (const title of titles) if (!expectedTitles.has(title)) f86TabShapeViolations.push(`예상 밖 탭: ${title}`);
