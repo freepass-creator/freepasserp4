@@ -1,87 +1,34 @@
-name: ERP5 Firestore 상품·차종 SSOT 게시
+name: ERP5 SSOT 경계 감사(수동)
 
 on:
   workflow_dispatch:
-    inputs:
-      publish_products:
-        description: '상품 SSOT 게시 경로 실행'
-        type: boolean
-        default: false
-      publish_vehicle_master:
-        description: '차종마스터 SSOT 게시 경로 실행'
-        type: boolean
-        default: true
-      apply:
-        description: 'ERP5에 검증 버전 쓰기'
-        type: boolean
-        default: false
-      activate_products:
-        description: '상품 검증 성공 후 활성 버전 교체'
-        type: boolean
-        default: false
-      activate_vehicle_master:
-        description: '차종 검증 성공 후 활성 버전 교체(blocker 0 필수)'
-        type: boolean
-        default: false
-      version:
-        description: '버전 ID (비우면 실행시각)'
-        type: string
-        required: false
 
 concurrency:
-  group: erp5-firestore-ssot-publish
+  group: erp5-ssot-boundary-audit
   cancel-in-progress: false
 
 jobs:
-  publish:
+  audit:
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - name: Encar 차종 참조본 체크아웃
-        if: ${{ inputs.publish_vehicle_master }}
-        uses: actions/checkout@v4
-        with:
-          repository: freepass-creator/vehicle-master
-          path: tmp/vehicle-master
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: npm
       - run: npm ci
-      - name: 공개 경계 회귀검사
+      - name: ERP5 canonical SSOT 경계 검사
         run: |
+          npm run check:erp5-firebase
           npm run sim:erp5-product-ssot
           npm run sim:erp5-vehicle-master-ssot
           npx tsx scripts/test-ssot-adapters.mts
           npx tsx scripts/sim-product-master-sheet.mts
           npx tsx scripts/sim-deposit-cap.mts
-          npm run check:erp5-firebase
-      - name: 원천 읽기 자격증명 준비
-        if: ${{ inputs.publish_products || inputs.publish_vehicle_master }}
-        env:
-          SA: ${{ secrets.GOOGLE_SA_JSON }}
+      - name: 안내
         run: |
-          test -n "$SA" || { echo '::error::GOOGLE_SA_JSON 시크릿이 없습니다.'; exit 1; }
-          mkdir -p tmp/firebase-auth
-          printf '%s' "$SA" > tmp/firebase-auth/sa.json
-      - name: ERP4 상품 → ERP5 버전 게시
-        if: ${{ inputs.publish_products }}
-        shell: bash
-        run: |
-          VERSION="${{ inputs.version }}"
-          if [ -z "$VERSION" ]; then VERSION="run-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"; fi
-          ARGS=("--version=$VERSION")
-          if [ "${{ inputs.apply }}" = "true" ]; then ARGS+=("--apply"); fi
-          if [ "${{ inputs.activate_products }}" = "true" ]; then ARGS+=("--activate"); fi
-          npx tsx scripts/publish-products-to-erp5-firestore.mts "${ARGS[@]}"
-      - name: Google Sheet + Encar → ERP5 차종마스터 버전 게시
-        if: ${{ inputs.publish_vehicle_master }}
-        shell: bash
-        run: |
-          VERSION="${{ inputs.version }}"
-          if [ -z "$VERSION" ]; then VERSION="run-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"; fi
-          ARGS=("--version=$VERSION" "--encar=tmp/vehicle-master/dist/vehicle-master.flat.json")
-          if [ "${{ inputs.apply }}" = "true" ]; then ARGS+=("--apply"); fi
-          if [ "${{ inputs.activate_vehicle_master }}" = "true" ]; then ARGS+=("--activate"); fi
-          npx tsx scripts/publish-vehicle-master-to-erp5-firestore.mts "${ARGS[@]}"
+          echo 'freepasserp5만 canonical writer다.'
+          echo '이 workflow는 감사 전용이며 Firebase/Google Sheets에 쓰지 않는다.'
