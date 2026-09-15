@@ -57,7 +57,7 @@ console.log(`ERP 사진 출처 · ${[...erpHosts].sort((a, b) => b[1] - a[1]).ma
 console.log(`ERP 사진 방식 · ${[...erpKinds].map(([kind, count]) => `${kind} ${count}`).join(' · ')}`);
 console.log(`시트 링크 출처 · ${[...sheetHosts].sort((a, b) => b[1] - a[1]).map(([host, count]) => `${host} ${count}`).join(' · ')}`);
 if (warnings.length) {
-  console.warn(`⚠ 사진 투영 원천 누락 ${warnings.length}대 · ${warnings.slice(0, 10).map((x) => `${x.plate}(${x.reason})`).join(' · ')}`);
+  console.warn(`⚠ 사진 투영 상세페이지 누락 ${warnings.length}대 · ${warnings.slice(0, 10).map((x) => `${x.plate}(${x.reason})`).join(' · ')}`);
 }
 if (bad.length) {
   console.error(`⛔ 사진 투영 위반 ${bad.length}대 · ${bad.slice(0, 10).map((x) => `${x.plate}(${x.reason})`).join(' · ')}`);
@@ -69,4 +69,4 @@ if (bad.length) {
   for (const [key, count] of [...groups].sort((a, b) => b[1] - a[1])) console.error(`  ${String(count).padStart(3)}대 | ${key}`);
   process.exit(1);
 }
-console.log(`✓ ERP 사진과 Google Sheet 링크가 분리 규칙을 지킨다${warnings.length ? ` · 원천 누락 ${warnings.length}대는 빈 링크로 보존` : ''}`);
+console.log(`✓ ERP 사진과 Google Sheet 링크가 분리 규칙을 지킨다${warnings.length ? ` · 상세페이지 누락 ${warnings.length}대는 캐시된 T카 사진으로 폴백` : ''}`);

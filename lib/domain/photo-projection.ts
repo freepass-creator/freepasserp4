@@ -92,7 +92,10 @@ export function photoProjectionViolations(atom: PhotoAtom): string[] {
   return [...new Set(problems)];
 }
 
-/** 원천이 더 이상 상세페이지를 제공하지 않아도 실제 ERP 사진과 계약중 원자는 보존한다. */
+/** 원천이 더 이상 상세페이지를 제공하지 않아도 실제 ERP 사진과 계약중 원자는 보존한다.
+ *  ★시트 링크는 캐시된 T카 사진(photo_link)으로 폴백해 «비지 않지만»(f6b2b79e), 상세페이지(tica_link)가
+ *    원천에서 사라진 사실은 그대로 보인다 — 폴백이 그 사실을 덮으면 스테일 픽업이 눈에서 사라진다.
+ *    위반이 아니라 «경고»다: 문지기를 멈추지 않고 세기만 한다. */
 export function photoProjectionWarnings(atom: PhotoAtom): string[] {
-  return isPickupPhotoAtom(atom) && !sheetPlateLink(atom) ? ['픽업구독 T카 링크 누락'] : [];
+  return isPickupPhotoAtom(atom) && !firstPhotoLink(atom.tica_link) ? ['픽업구독 T카 링크 누락'] : [];
 }

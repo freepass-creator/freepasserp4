@@ -71,7 +71,11 @@ assert.equal(erpPhotoSource(normalPhoto), normalPhoto.photo_link);
 assert.equal(sheetPlateLink(normalPhoto), normalPhoto.photo_link, '일반 시트는 검증된 사진 링크로 간다');
 assert.deepEqual(photoProjectionViolations(normalPhoto), []);
 assert.deepEqual(photoProjectionViolations({ provider_company_code: 'RP012', product_type: '픽업구독', photo_link: pickupPhoto.photo_link }), []);
+// 상세페이지(tica_link)가 빠진 계약중 스테일 픽업: 시트 링크는 캐시된 T카 사진으로 폴백하되(f6b2b79e),
+// 「상세페이지가 사라졌다」는 사실은 경고로 남는다 — 폴백이 그것을 덮으면 스테일 픽업이 눈에서 사라진다.
+assert.equal(sheetPlateLink({ provider_company_code: 'RP012', product_type: '픽업구독', photo_link: pickupPhoto.photo_link }), pickupPhoto.photo_link, '픽업 시트 링크는 T카 사진으로 폴백한다');
 assert.deepEqual(photoProjectionWarnings({ provider_company_code: 'RP012', product_type: '픽업구독', photo_link: pickupPhoto.photo_link }), ['픽업구독 T카 링크 누락']);
+assert.deepEqual(photoProjectionWarnings(pickupPhoto), [], 'T카 상세페이지가 있으면 경고가 없다');
 assert.deepEqual(photoProjectionViolations({ provider_company_code: 'RP012', product_type: '픽업구독', tica_link: normalPhoto.photo_link }), ['픽업구독 시트 링크가 T카가 아님']);
 assert.equal(isPickupPhotoAtom({ provider_company_code: 'OTHER', product_type: '픽업구독' }), false);
 assert.deepEqual(photoProjectionViolations({ product_type: '중고렌트', photo_link: 'https://autoplus.co.kr/car/1' }), []);
