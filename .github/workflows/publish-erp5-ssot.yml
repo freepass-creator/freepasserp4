@@ -15,14 +15,10 @@ on:
         description: 'ERP5에 검증 버전 쓰기'
         type: boolean
         default: false
-      activate_products:
-        description: '상품 검증 성공 후 활성 버전 교체'
-        type: boolean
-        default: false
-      activate_vehicle_master:
-        description: '차종 검증 성공 후 활성 버전 교체(blocker 0 필수)'
-        type: boolean
-        default: false
+      vehicle_master_version:
+        description: '상품이 참조할 차종마스터 version ID'
+        type: string
+        required: false
       version:
         description: '버전 ID (비우면 실행시각)'
         type: string
@@ -65,23 +61,41 @@ jobs:
           test -n "$SA" || { echo '::error::GOOGLE_SA_JSON 시크릿이 없습니다.'; exit 1; }
           mkdir -p tmp/firebase-auth
           printf '%s' "$SA" > tmp/firebase-auth/sa.json
-      - name: ERP4 상품 → ERP5 버전 게시
-        if: ${{ inputs.publish_products }}
-        shell: bash
-        run: |
-          VERSION="${{ inputs.version }}"
-          if [ -z "$VERSION" ]; then VERSION="run-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"; fi
-          ARGS=("--version=$VERSION")
-          if [ "${{ inputs.apply }}" = "true" ]; then ARGS+=("--apply"); fi
-          if [ "${{ inputs.activate_products }}" = "true" ]; then ARGS+=("--activate"); fi
-          npx tsx scripts/publish-products-to-erp5-firestore.mts "${ARGS[@]}"
       - name: Google Sheet + Encar → ERP5 차종마스터 버전 게시
         if: ${{ inputs.publish_vehicle_master }}
+        env:
+          ERP5_FIREBASE_WRITER_SERVICE_ACCOUNT_JSON: ${{ secrets.ERP5_FIREBASE_WRITER_SERVICE_ACCOUNT_JSON }}
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_APPLY: ${{ inputs.apply }}
         shell: bash
         run: |
-          VERSION="${{ inputs.version }}"
+          VERSION="$INPUT_VERSION"
           if [ -z "$VERSION" ]; then VERSION="run-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"; fi
           ARGS=("--version=$VERSION" "--encar=tmp/vehicle-master/dist/vehicle-master.flat.json")
-          if [ "${{ inputs.apply }}" = "true" ]; then ARGS+=("--apply"); fi
-          if [ "${{ inputs.activate_vehicle_master }}" = "true" ]; then ARGS+=("--activate"); fi
+          if [ "$INPUT_APPLY" = "true" ]; then ARGS+=("--apply"); fi
+          if [ "$INPUT_APPLY" = "true" ] && [ -z "$ERP5_FIREBASE_WRITER_SERVICE_ACCOUNT_JSON" ]; then
+            echo '::error::ERP5 writer 시크릿이 없습니다.'
+            exit 1
+          fi
           npx tsx scripts/publish-vehicle-master-to-erp5-firestore.mts "${ARGS[@]}"
+      - name: 공급사 원천 + Google 상품마스터 → ERP5 상품 버전 게시
+        if: ${{ inputs.publish_products }}
+        env:
+          ERP5_FIREBASE_WRITER_SERVICE_ACCOUNT_JSON: ${{ secrets.ERP5_FIREBASE_WRITER_SERVICE_ACCOUNT_JSON }}
+          INPUT_VERSION: ${{ inputs.version }}
+          INPUT_VEHICLE_VERSION: ${{ inputs.vehicle_master_version }}
+          INPUT_PUBLISH_VEHICLE: ${{ inputs.publish_vehicle_master }}
+          INPUT_APPLY: ${{ inputs.apply }}
+        shell: bash
+        run: |
+          VERSION="$INPUT_VERSION"
+          if [ -z "$VERSION" ]; then VERSION="run-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"; fi
+          VEHICLE_VERSION="$INPUT_VEHICLE_VERSION"
+          if [ -z "$VEHICLE_VERSION" ] && [ "$INPUT_PUBLISH_VEHICLE" = "true" ]; then VEHICLE_VERSION="$VERSION"; fi
+          ARGS=("--version=$VERSION" "--vehicle-version=$VEHICLE_VERSION")
+          if [ "$INPUT_APPLY" = "true" ]; then ARGS+=("--apply"); fi
+          if [ "$INPUT_APPLY" = "true" ] && [ -z "$ERP5_FIREBASE_WRITER_SERVICE_ACCOUNT_JSON" ]; then
+            echo '::error::ERP5 writer 시크릿이 없습니다.'
+            exit 1
+          fi
+          npx tsx scripts/publish-products-to-erp5-firestore.mts "${ARGS[@]}"

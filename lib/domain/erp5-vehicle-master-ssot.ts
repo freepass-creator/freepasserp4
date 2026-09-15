@@ -70,6 +70,13 @@ export type VehicleMasterEntry = {
   verification: 'exact-reference' | 'reviewed-encar' | 'conflict' | 'needs-review';
 };
 
+/** 절체 전에 실제 원장에 존재해야 한다고 확정한 대표 원자. 누락을 막되 이름을 추정 생성하지 않는다. */
+export function requiredVehicleMasterBlockers(entries: VehicleMasterEntry[]): string[] {
+  const hasG80Rg3Base = entries.some((entry) => entry.maker === '제네시스'
+    && entry.model === 'G80' && entry.subModel === 'G80 RG3' && entry.trim === '기본형');
+  return hasG80Rg3Base ? [] : ['REQUIRED_SENTINEL_MISSING:제네시스:G80:G80 RG3:기본형'];
+}
+
 const S = (value: unknown) => String(value ?? '').trim();
 
 const makerForMatch = (value: unknown): string => {
@@ -84,6 +91,9 @@ const makerForMatch = (value: unknown): string => {
     르노삼성: '르노코리아',
     한국gm: '쉐보레',
     gm대우: '쉐보레',
+    '쉐보레(gm대우)': '쉐보레',
+    도요타: '토요타',
+    토요타: '토요타',
   };
   return aliases[folded] || folded;
 };
@@ -120,9 +130,32 @@ const subModelKey = (parts: { maker: unknown; model: unknown; subModel: unknown 
   textForMatch(parts.subModel),
 ].join('|');
 
-function stableEntryId(row: Pick<VehicleSheetRow, 'origin' | 'maker' | 'model' | 'subModel' | 'trim'>): string {
-  const canonical = [row.origin, row.maker, row.model, row.subModel, row.trim || '기본형'].join('|');
-  return `vm_${createHash('sha256').update(canonical).digest('hex').slice(0, 24)}`;
+export function erp5VehicleMasterEntryId(
+  row: Pick<VehicleSheetRow, 'origin' | 'maker' | 'model' | 'subModel' | 'trim'>,
+): string {
+  return erp5VehicleHierarchyKeys(row).atomKey;
+}
+
+/** Google 원장의 4단계 키 계약. 표시명이 같아도 계층 경로가 다르면 다른 키가 된다. */
+export function erp5VehicleHierarchyKeys(
+  row: Pick<VehicleSheetRow, 'origin' | 'maker' | 'model' | 'subModel' | 'trim'>,
+): Pick<VehicleSheetRow, 'modelKey' | 'subModelKey' | 'trimKey' | 'atomKey'> {
+  const names = normalizeF03CanonicalRow({
+    maker: row.maker,
+    model: row.model,
+    subModel: row.subModel,
+    trim: row.trim || '기본형',
+  });
+  const modelPath = [row.origin, names.maker, names.model].join('|');
+  const subModelPath = [modelPath, names.subModel].join('|');
+  const trimPath = [subModelPath, names.trim].join('|');
+  const hash = (value: string) => createHash('sha256').update(value).digest('hex').slice(0, 24);
+  return {
+    modelKey: `vmm_${hash(modelPath)}`,
+    subModelKey: `vms_${hash(subModelPath)}`,
+    trimKey: `vmt_${hash(trimPath)}`,
+    atomKey: `vm_${hash(trimPath)}`,
+  };
 }
 
 function headerIndex(headers: string[], ...candidates: string[]): number {
@@ -159,7 +192,7 @@ export function parseVehicleMasterSheet(grid: unknown[][]): VehicleSheetRow[] {
   }
   const reviewIndexes = headers
     .map((header, column) => ({ header, column }))
-    .filter(({ header }) => /검토|대조/.test(header));
+    .filter(({ header }) => /검토|대조|판정/.test(header));
 
   const parsed = rows.slice(headerAt + 1).map((row, offset): VehicleSheetRow => {
     const reviews: Record<string, string> = {};
@@ -212,7 +245,7 @@ function factsFromReferences(references: EncarReferenceRow[]): Record<string, un
 export function buildVehicleMaster(input: {
   sheetRows: VehicleSheetRow[];
   encarRows: EncarReferenceRow[];
-}): { entries: VehicleMasterEntry[]; blockers: string[]; stats: Record<string, number> } {
+}): { entries: VehicleMasterEntry[]; quarantined: VehicleMasterEntry[]; blockers: string[]; stats: Record<string, number> } {
   const exactIndex = new Map<string, EncarReferenceRow[]>();
   const subIndex = new Map<string, EncarReferenceRow[]>();
   for (const row of input.encarRows.filter((candidate) => !S(candidate.source) || /encar/i.test(S(candidate.source)))) {
@@ -229,6 +262,7 @@ export function buildVehicleMaster(input: {
   }
 
   const entries: VehicleMasterEntry[] = [];
+  const quarantined: VehicleMasterEntry[] = [];
   const blockers: string[] = [];
   const seen = new Map<string, number>();
   const stats: Record<string, number> = {
@@ -262,6 +296,13 @@ export function buildVehicleMaster(input: {
 
     const structural: string[] = [];
     if (!row.origin || !canonical.maker || !canonical.model || !canonical.subModel) structural.push('필수 계층값 누락');
+    const expectedKeys = erp5VehicleHierarchyKeys({ origin: row.origin, ...canonical });
+    if (!row.modelKey || !row.subModelKey || !row.trimKey || !row.atomKey) {
+      structural.push('차종 계층키 누락');
+    } else if (row.modelKey !== expectedKeys.modelKey || row.subModelKey !== expectedKeys.subModelKey
+      || row.trimKey !== expectedKeys.trimKey || row.atomKey !== expectedKeys.atomKey) {
+      structural.push('차종 계층키 불일치');
+    }
     if (/\bFL\b|F\/L|페이스리프트/i.test(`${canonical.subModel} ${canonical.trim}`)) structural.push('FL 표기');
     if (canonical.maker === '기아' && /\d+\s*세대/.test(canonical.subModel)) structural.push('기아 세대명 미변환');
     if (structural.length) blockers.push(`${row.rowNumber}행 ${canonical.maker} ${canonical.subModel}: ${structural.join(', ')}`);
@@ -275,10 +316,16 @@ export function buildVehicleMaster(input: {
     const negativeReviews = Object.entries(row.reviews)
       .filter(([column, value]) => /엔카대조/.test(column) && /^틀림|^못정함/.test(value))
       .map(([column]) => column);
-    const conflict = positiveReviews.length > 0 && negativeReviews.length > 0;
+    const overallDecision = Object.entries(row.reviews)
+      .find(([column]) => column.replace(/\s+/g, '') === '종합판정')?.[1] || '';
+    const overallConfirmed = /^확정/.test(overallDecision);
+    const overallNeedsReview = /^(?:검수|충돌|못정함)/.test(overallDecision);
+    const conflict = !overallDecision && positiveReviews.length > 0 && negativeReviews.length > 0;
 
     let verification: VehicleMasterEntry['verification'];
-    if (conflict) verification = 'conflict';
+    if (overallConfirmed) verification = exactReferences.length > 0 ? 'exact-reference' : 'reviewed-encar';
+    else if (overallNeedsReview) verification = 'needs-review';
+    else if (conflict) verification = 'conflict';
     else if (exactReferences.length > 0 && negativeReviews.length === 0) verification = 'exact-reference';
     else if (positiveReviews.length > 0) verification = 'reviewed-encar';
     else verification = 'needs-review';
@@ -289,15 +336,11 @@ export function buildVehicleMaster(input: {
     else stats.needsReview += 1;
     if (!row.trim) stats.trimDefaulted += 1;
     if (canonicalProjectionApplied) stats.canonicalProjected += 1;
-    if (verification === 'conflict' || verification === 'needs-review') {
-      blockers.push(`${row.rowNumber}행 ${canonical.maker} ${canonical.subModel} / ${canonical.trim}: ${verification}`);
-    }
-
     // 세부모델만 같고 트림이 다른 참조값으로 제원을 추정하지 않는다.
     const factReferences = exactReferences;
     const evidenceReferences = exactReferences.length ? exactReferences : subReferences;
-    entries.push({
-      id: stableEntryId({ origin: row.origin, ...canonical }),
+    const entry: VehicleMasterEntry = {
+      id: erp5VehicleMasterEntryId({ origin: row.origin, ...canonical }),
       origin: row.origin,
       maker: canonical.maker,
       model: canonical.model,
@@ -328,8 +371,13 @@ export function buildVehicleMaster(input: {
         },
       },
       verification,
-    });
+    };
+    // 검수 대기 원자는 버리지 않고 격리 보존한다. 활성 entries에는 검증된 원자만 둔다.
+    if (structural.length || verification === 'conflict' || verification === 'needs-review') quarantined.push(entry);
+    else entries.push(entry);
   }
 
-  return { entries, blockers, stats };
+  stats.quarantined = quarantined.length;
+  stats.active = entries.length;
+  return { entries, quarantined, blockers, stats };
 }

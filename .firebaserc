@@ -1,5 +1,6 @@
 {
   "projects": {
-    "default": "freepasserp3"
+    "default": "freepasserp3",
+    "erp5": "freepasserp5"
   }
 }

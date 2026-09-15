@@ -117,18 +117,22 @@ function startFirestore(entry: FinderDataEntry) {
     (raw) => {
       if (entries.get(entry.key) !== entry) return;
       const shaped = shapeFinderRows(raw);
-      entry.rows = entry.partners ? withProviderNames(shaped, entry.partners) : shaped;
+      // ERP5 원자에 확정된 공급사 표시값을 ERP3 partner로 다시 덮지 않는다.
+      entry.rows = shaped;
       entry.loadedAt = Date.now();
       entry.retryAfter = 0;
       notify(entry);
-      if (!entry.partners) void loadFinderPartners(entry);
     },
     (err) => {
-      // ㉡ 핸들 완전 해제(다음 재구독이 다시 시도할 수 있게) · ㉢ RTDB 단발 폴백(빈 화면 방지).
+      // ERP5 읽기 실패를 ERP3 상품으로 숨기지 않는다. 현재 ERP5 캐시는 유지하고 잠시 뒤 재시도한다.
       if (entries.get(entry.key) !== entry) return;
       entry.fsUnsub = undefined;
-      console.warn('[finder] Firestore 실패 → RTDB 폴백:', err);
-      void loadProducts(entry);
+      entry.retryAfter = Date.now() + RETRY_AFTER_ERROR_MS;
+      console.warn('[finder] ERP5 상품 조회 실패 — ERP3 폴백 없이 재시도:', err);
+      notify(entry);
+      window.setTimeout(() => {
+        if (entries.get(entry.key) === entry && entry.listeners.size && !entry.fsUnsub) startFirestore(entry);
+      }, RETRY_AFTER_ERROR_MS);
     },
   );
 }

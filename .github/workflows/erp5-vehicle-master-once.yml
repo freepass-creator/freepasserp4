@@ -37,9 +37,12 @@ jobs:
           test -n "$SA" || { echo '::error::GOOGLE_SA_JSON 시크릿이 없습니다.'; exit 1; }
           mkdir -p tmp/firebase-auth
           printf '%s' "$SA" > tmp/firebase-auth/sa.json
-      - name: 공용 Firebase에 ERP5 차종마스터 검증본 게시
+      - name: 독립 ERP5에 차종마스터 검증본 게시
+        env:
+          ERP5_FIREBASE_WRITER_SERVICE_ACCOUNT_JSON: ${{ secrets.ERP5_FIREBASE_WRITER_SERVICE_ACCOUNT_JSON }}
         run: |
-          VERSION="same-firebase-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
+          test -n "$ERP5_FIREBASE_WRITER_SERVICE_ACCOUNT_JSON" || { echo '::error::ERP5 writer 시크릿이 없습니다.'; exit 1; }
+          VERSION="google-encar-vehicle-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}"
           npx tsx scripts/publish-vehicle-master-to-erp5-firestore.mts \
             --version="$VERSION" \
             --encar=tmp/vehicle-master/dist/vehicle-master.flat.json \
