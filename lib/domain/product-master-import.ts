@@ -109,7 +109,12 @@ function priceMap(
       return;
     }
     if (rent <= 0) throw new Error(`상품마스터 ${rowNumber}행 대여료 오류(${rentColumn})`);
-    price[key] = normalizeWonPair(rent, deposit);
+    const normalized = normalizeWonPair(rent, deposit);
+    if (normalized.deposit == null) {
+      issues.push(`${rowNumber}행 ${String(rentColumn).replace(' 대여료', '')} 보증금 미입력`);
+      return;
+    }
+    price[key] = { rent: normalized.rent, deposit: normalized.deposit };
   };
 
   for (const months of PRODUCT_MASTER_PERIODS) {

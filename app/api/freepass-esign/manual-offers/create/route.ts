@@ -143,7 +143,7 @@ export async function POST(request: Request) {
     const contractDraft = canonicalFreepassDirectManualTermsDraft(manualTerms);
     if (!manualTerms || !contractDraft) throw new InputError('수기 오퍼 조건을 동결하지 못했습니다.');
     const productPrice = product ? priceList(product as never).find((price) => price.m === rentMonths) : null;
-    if (product && (!productPrice || !Number.isFinite(productPrice.rent) || productPrice.rent <= 0 || !Number.isFinite(productPrice.deposit) || productPrice.deposit < 0)) {
+    if (product && (!productPrice || !Number.isFinite(productPrice.rent) || productPrice.rent <= 0 || productPrice.deposit == null || !Number.isFinite(productPrice.deposit) || productPrice.deposit < 0)) {
       throw new InputError('선택한 기간의 차량 가격표를 확인할 수 없습니다.');
     }
     const productVehicle = product ? contractVehicleSnapshot(product as never) : null;

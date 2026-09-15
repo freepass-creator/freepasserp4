@@ -14,9 +14,12 @@ const FILES = [
 ];
 const FORBIDDEN = [
   'ERP5_FIREBASE_SERVICE_ACCOUNT_JSON',
+  'ERP5_FIREBASE_WRITER_SERVICE_ACCOUNT_JSON',
+  'ERP5_FIREBASE_READER_SERVICE_ACCOUNT_JSON',
   'ERP5_GOOGLE_APPLICATION_CREDENTIALS',
   'ERP5_FIREBASE_PROJECT_ID',
   'erp5-3e2fc',
+  'freepasserp5',
   'firebase.erp5.json',
   'firestore.erp5.rules',
 ];
@@ -41,6 +44,12 @@ const rules = readFileSync('firestore.rules', 'utf8');
 
 if (!productPublisher.includes('const PROJECT_ID = sourceAccount.project_id!')) {
   failures.push('상품 발행기가 공용 자격증명의 project_id를 단일 대상으로 쓰지 않음');
+}
+if (!productPublisher.includes('composeProductFromAtom')) {
+  failures.push('상품 발행기가 공급사 원천 원자 조합을 쓰지 않음');
+}
+if (productPublisher.includes("collection(SOURCE_COLLECTION)") || productPublisher.includes('ERP4_PRODUCT_COLLECTION')) {
+  failures.push('상품 발행기가 ERP4 products 컬렉션을 생성 원천으로 읽음');
 }
 if (!vehiclePublisher.includes('const PROJECT_ID = googleAccount.project_id!')) {
   failures.push('차종 발행기가 공용 자격증명의 project_id를 단일 대상으로 쓰지 않음');

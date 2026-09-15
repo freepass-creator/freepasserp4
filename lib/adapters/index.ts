@@ -1,44 +1,61 @@
 import type { SupplierAdapter } from '../domain/supplier-adapter';
 import { autoplusAdapter } from './autoplus';
-import { iankaAdapter } from './ianka';
-import { ironAdapter } from './iron';
+import { providedSheetAdapter } from './provided';
 import { sonogongAdapter } from './sonogong';
+import {
+  SUPPLIER_SOURCES,
+  findSupplierSourceSpec,
+  type SupplierAdapterId,
+  type SupplierSourceSpec,
+} from './source-registry';
 
 /**
- * 운영용 공급사 어댑터 레지스트리.
+ * 운영용 공급사 어댑터.
  *
- * 공급사별 의미 차이는 반드시 여기 등록된 전용 어댑터 경계를 통과한다.
- * 미등록 공급사는 generic alias 추정으로 조용히 통과시키지 않는다.
+ * ERP4 시트 규칙과 같다: 기본 = 제공시트·정제시트 표준 열(ProvidedSheetAdapter).
+ * 전용은 열이 표준이 아닌 곳만 — 오토플러스 기간×주행, 손오공 구독재고 반납형.
+ * 원천 위치는 source-registry.ts. 미등록 코드는 통과시키지 않는다.
  */
-const REGISTRY = new Map<string, SupplierAdapter>([
-  [iankaAdapter.sourceCode, iankaAdapter],
-  [ironAdapter.sourceCode, ironAdapter],
-  [autoplusAdapter.sourceCode, autoplusAdapter],
-  [sonogongAdapter.sourceCode, sonogongAdapter],
-]);
+const BY_ID: Record<SupplierAdapterId, SupplierAdapter> = {
+  provided: providedSheetAdapter,
+  autoplus: autoplusAdapter,
+  sonogong: sonogongAdapter,
+};
 
 function normalizeSourceCode(value: string): string {
   return String(value || '').trim().toUpperCase();
 }
 
+export function adapterForSpec(spec: SupplierSourceSpec): SupplierAdapter {
+  return BY_ID[spec.adapter];
+}
+
 export function hasSupplierAdapter(sourceCode: string): boolean {
-  return REGISTRY.has(normalizeSourceCode(sourceCode));
+  return !!findSupplierSourceSpec(sourceCode);
 }
 
 export function getSupplierAdapter(sourceCode: string): SupplierAdapter {
-  const code = normalizeSourceCode(sourceCode);
-  const adapter = REGISTRY.get(code);
-  if (!adapter) {
-    throw new Error(`SSOT: 전용 공급사 어댑터가 등록되지 않았습니다: ${code || '(blank)'}`);
+  const spec = findSupplierSourceSpec(sourceCode);
+  if (!spec) {
+    throw new Error(`SSOT: 원천이 등록되지 않았습니다: ${normalizeSourceCode(sourceCode) || '(blank)'}`);
   }
-  return adapter;
+  return adapterForSpec(spec);
 }
 
 export function listSupplierAdapters(): SupplierAdapter[] {
-  return [...REGISTRY.values()];
+  const seen = new Set<SupplierAdapter>();
+  const out: SupplierAdapter[] = [];
+  for (const spec of SUPPLIER_SOURCES) {
+    const adapter = adapterForSpec(spec);
+    if (seen.has(adapter)) continue;
+    seen.add(adapter);
+    out.push(adapter);
+  }
+  return out;
 }
 
 export { autoplusAdapter } from './autoplus';
 export { iankaAdapter } from './ianka';
 export { ironAdapter } from './iron';
+export { providedSheetAdapter } from './provided';
 export { sonogongAdapter } from './sonogong';

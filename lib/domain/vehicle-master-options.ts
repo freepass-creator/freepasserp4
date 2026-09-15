@@ -73,10 +73,10 @@ export function salesTrimPool(maker: string, model: string, subModel: string, po
   return isG80Rg3Line(maker, model, subModel) ? src.filter((t) => t === 'Black') : src;
 }
 
-/** 판매시트·정제칸에 나갈 세부트림 — G80 RG3는 Black만, 나머지는 빈칸. */
+/** 판매시트·정제칸에 나갈 세부트림 — G80 RG3는 Black만 예외, 그 밖은 기본형(빈칸 아님). */
 export function canonSalesTrim(maker: string, model: string, subModel: string, trim: string): string {
   const t = S(trim);
+  if (isG80Rg3Line(maker, model, subModel)) return t === 'Black' ? 'Black' : '기본형';
   if (isNoTrimLabel(t)) return '';
-  if (isG80Rg3Line(maker, model, subModel) && t !== 'Black') return '';
   return t;
 }

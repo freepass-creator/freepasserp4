@@ -1,5 +1,6 @@
 import type { EntityRecord } from '@/lib/intake/entities';
 import { applyPolicyDefaults } from '@/lib/domain/policy-defaults';
+import { policyForGuestProduct } from '@/lib/domain/public-catalog';
 
 export type RtdbRecord = Record<string, unknown>;
 
@@ -68,7 +69,12 @@ export function toV4Record(entity: string, childKey: string, record: RtdbRecord,
   switch (entity) {
     case 'product': {
       const code = String(record.product_code || childKey);
-      const linkedPolicy = record._policy || (record.policy_code && joinMap ? (joinMap[record.policy_code as string] as unknown) : undefined);
+      const storedPolicy = record._policy && typeof record._policy === 'object' && Object.keys(record._policy as object).length
+        ? record._policy
+        : undefined;
+      const linkedPolicy = storedPolicy || (joinMap
+        ? policyForGuestProduct(record as Record<string, unknown>, joinMap as Record<string, Record<string, unknown>>)
+        : null);
       /**
        * ★**정책이 안 붙었으면 채우지 않는다**(사장님 2026-08-28 「없으면 없다 · 미입력이면
        *   미입력이다 · 차라리 대여료만 맞게 보여주는 게 낫지」).

@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
-import { getSupplierAdapter } from '../lib/adapters';
-import { SUPPLIER_SOURCES, type SupplierSourceSpec } from '../lib/adapters/source-registry';
+import { adapterForSpec } from '../lib/adapters';
+import { SUPPLIER_SOURCES, findSourceHeaderRow } from '../lib/adapters/source-registry';
 import type { FreepassAtom, RawSupplierRow } from '../lib/domain/supplier-adapter';
 
 const S = (v: unknown) => String(v ?? '').trim();
@@ -62,22 +62,6 @@ async function sheetsValues(spreadsheetId: string, tab: string): Promise<string[
   return body.values || [];
 }
 
-function findHeaderRow(values: string[][], pricingMode: SupplierSourceSpec['pricingMode']): number {
-  for (let i = 0; i < Math.min(values.length, 40); i++) {
-    const h = values[i].map(S);
-    const identity = h.includes('차량번호') || h.includes('차번');
-    if (!identity) continue;
-
-    const standardHeaders = ['단기보증', '1개월', '6개월', '12개월', '장기보증', '24개월', '36개월', '48개월', '60개월'];
-    const standardCount = standardHeaders.filter((c) => h.includes(c)).length;
-    if (pricingMode === 'STANDARD_TERMS' && standardCount >= 4) return i;
-
-    const variantCount = h.filter((c) => /^\d+개월\s*\d+만$/.test(c)).length;
-    if (pricingMode === 'TERM_MILEAGE_VARIANTS' && variantCount >= 2) return i;
-  }
-  return -1;
-}
-
 function rowObject(headers: string[], row: string[]): RawSupplierRow {
   const out: RawSupplierRow = {};
   headers.forEach((h, i) => { if (h) out[h] = row[i] ?? ''; });
@@ -124,9 +108,9 @@ let totalCompared = 0;
 const allMismatches: string[] = [];
 
 for (const spec of SOURCES) {
-  const adapter = getSupplierAdapter(spec.code);
+  const adapter = adapterForSpec(spec);
   const values = await sheetsValues(spec.spreadsheetId, spec.tab);
-  const headerAt = findHeaderRow(values, spec.pricingMode);
+  const headerAt = findSourceHeaderRow(values, spec.pricingMode);
   if (headerAt < 0) throw new Error(`SSOT gate: ${spec.name} 원천에서 차량번호+가격 헤더 행을 찾지 못했습니다.`);
   const headers = values[headerAt].map(S);
 

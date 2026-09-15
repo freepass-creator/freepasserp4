@@ -2,7 +2,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react';
 import { Link2 } from 'lucide-react';
 import type { EntityRecord } from '@/lib/intake/entities';
-import { acquisitionPriceList, agentContractRows, agentPanelRows, cheapest, priceList, vehicleName, type Audience } from '@/lib/domain/product';
+import { acquisitionPriceList, agentContractRows, agentPanelRows, cheapest, erpDepositPhrase, priceList, vehicleName, type Audience } from '@/lib/domain/product';
 import { actor, getRole } from '@/lib/domain/deal';
 import { guestShareUrl } from '@/lib/domain/product-share';
 import { useProductPhotoState } from '@/components/use-product-photos';
@@ -151,7 +151,7 @@ export function ProductAgentPanel({ p, audience, pinnedShare }: {
   /** 선택된 행 표시 = 왼쪽 네이비 굵은 바. 바탕만으로는 구조 띠와 헷갈린다. */
   const pickBar = (on: boolean): CSSProperties => (on ? { boxShadow: `inset 3px 0 0 ${C.brand}` } : {});
 
-  const priceRow = (kind: string, m: number, rent: number, deposit: number, i: number, best: boolean) => (
+  const priceRow = (kind: string, m: number, rent: number, deposit: number | null, i: number, best: boolean) => (
     <tr key={`${kind}:${m}`} style={invTr(i, best)}>
       <th scope="row" style={{ ...invLabel, ...pickBar(best) }}>
         {m}개월
@@ -159,7 +159,7 @@ export function ProductAgentPanel({ p, audience, pinnedShare }: {
       </th>
       {/* 금액 = 네이비 포인트(색 사다리 3단). 면이 연해진 만큼 «짚는 값»은 네이비가 든다. */}
       <td style={{ ...invTd, fontWeight: FW.head, fontSize: FS.title, color: best ? C.brand : C.ink }}>{won(rent)}</td>
-      <td style={invTd}>{deposit > 0 ? won(deposit) : '무보증'}</td>
+      <td style={invTd}>{erpDepositPhrase(deposit, won, false)}</td>
     </tr>
   );
 

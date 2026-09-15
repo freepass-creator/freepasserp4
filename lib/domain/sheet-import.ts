@@ -615,7 +615,7 @@ export function parsePriceColumns(
   cells: string[],
   rec: EntityRecord,
   depositRule: DepositRule = '',
-): Record<string, { rent: number; deposit: number }> | null {
+): Record<string, { rent: number; deposit?: number }> | null {
   // 보증 컬럼은 **자기 뒤의 기간 컬럼들을 관할한다**(블록 스코프).
   //  실측 레이아웃이 전부 이 모양이다:
   //   아이카/우리캐피탈  단기보증 | 1·6·12개월 | 장기보증 | 24·36·48·60개월
@@ -690,7 +690,7 @@ export function parsePriceColumns(
   if (!cols.length) return null;
   // 수입판정 = 스냅 후 maker + 원본 모델/트림 표기(시트에 제조사칸 없을 때)
   const depMult = brandDepositMultiplier(rec);
-  const price: Record<string, { rent: number; deposit: number }> = {};
+  const price: Record<string, { rent: number; deposit?: number }> = {};
   // 같은 기간이 여러 블록에 있으면 **값이 있는 마지막 블록**을 쓴다.
   //  손오공·웰릭스는 인수형(왼쪽)·반납형(오른쪽) 두 벌인데, 종합시트가 실제로 게시하는 건 반납형이다
   //  (실측 375어8056: 종합 12개월 907,000 = 개별시트 반납형 값). 차마다 한쪽만 채우기도 해서
@@ -699,9 +699,11 @@ export function parsePriceColumns(
   for (const { key, period, idx, dep } of cols) {
     const rent = rentCell(cells[idx]);
     if (!rent) continue;
-    const setPrice = (deposit: number) => {
+    const setPrice = (deposit: number | undefined) => {
       const normalized = normalizeWonPair(rent, deposit);
-      price[key] = { rent: normalized.rent, deposit: normalized.deposit };
+      const row: { rent: number; deposit?: number } = { rent: normalized.rent };
+      if (normalized.deposit !== null) row.deposit = normalized.deposit;
+      price[key] = row;
     };
     const colDep = dep >= 0 ? depositCell(cells[dep]) : 0;
     if (colDep) { setPrice(colDep); continue; }
@@ -713,20 +715,20 @@ export function parsePriceColumns(
      * 요금이 멀쩡한 72대가 통째로 유입에서 빠졌다(imported 0 · noPriceCount 53).
      * ⚠ 「무보증**가능**」처럼 «될 수도 있다»는 말은 0 이 아니다 — 확정 표현만 통과시킨다.
      */
-    if (dep >= 0 && MEANS_NO_DEPOSIT.test(String(cells[dep] ?? '').replace(/\s+/g, ''))) { setPrice(0); continue; }
+    const depRaw = dep >= 0 ? String(cells[dep] ?? '').trim() : '';
+    if (dep >= 0 && MEANS_NO_DEPOSIT.test(depRaw.replace(/\s+/g, ''))) { setPrice(0); continue; }
     // 보증 컬럼 유무와 무관하게 **명시된 공급사 규칙만** 적용한다. 예전에는 보증 헤더가
     // 사라진 모든 generic 시트를 오토플러스식 ×2/×3으로 간주해 허위 보증금을 만들었다.
     const ruled = depositByRule(depositRule, rent, period, depMult);
     if (ruled) { setPrice(ruled); continue; }
     // 보증 컬럼 자체가 없고 규칙도 없으면 fail-closed. 무보증이라고 추정하지 않는다.
     if (!anyDepCol) continue;
-    // 보증 컬럼은 있는데 이 행·이 블록만 비었다.
-    // 규칙도 없으면 **숫자를 만들어내지 않는다.** 같은 기간의 앞 블록에 이미 유효한
-    // 값이 있으면 그것까지 지우면 안 된다("값이 있는 마지막 블록" 규칙).
-    //  deposit:0 은 화면에서 무보증을 뜻하므로(product.ts isDepositFree) 0으로도 쓰면 안 된다.
-    //  예전엔 여기서 rent×배율로 채워 시트에 없는 보증금을 게시했다
-    //  (375어8056: 시트 3,150,000 → 저장 1,814,000). 보증금을 말할 수 없는 기간은 빼고 간다.
-    continue;
+    // 설명문·규칙 문장은 숫자를 만들지 않고 이 블록을 건너뛴다.
+    if (depRaw && !/^(?:-|—|―)$/.test(depRaw)) continue;
+    // 같은 기간의 앞 블록에 이미 값이 있으면 덮지 않는다("값이 있는 마지막 블록").
+    if (price[key]) continue;
+    // 보증 칸이 비었다. 대여료는 싣고 보증금 키는 생략한다(0=무보증과 갈림).
+    setPrice(undefined);
   }
   return Object.keys(price).length ? price : null;
 }
@@ -735,8 +737,8 @@ export function parsePriceColumns(
 export function parseCompactPriceColumns(
   headers: string[],
   cells: string[],
-): Record<string, { rent: number; deposit: number }> | null {
-  const price: Record<string, { rent: number; deposit: number }> = {};
+): Record<string, { rent: number; deposit?: number }> | null {
+  const price: Record<string, { rent: number; deposit?: number }> = {};
   for (const [index, header] of headers.entries()) {
     const match = /^(\d+)개월$/.exec(String(header ?? '').trim().replace(/\s+/g, ''));
     if (!match) continue;
@@ -746,19 +748,19 @@ export function parseCompactPriceColumns(
     if (!parts.length || parts.length > 2) continue;
     const rent = rentCell(parts[0]);
     if (!rent) continue;
-    let deposit = 0;
     if (parts.length === 2) {
       const compact = parts[1].replace(/\s+/g, '');
-      if (!MEANS_NO_DEPOSIT.test(compact)) {
-        deposit = depositCell(parts[1]);
-        if (!deposit) continue;
-      }
+      const deposit = MEANS_NO_DEPOSIT.test(compact) ? 0 : depositCell(parts[1]);
+      if (!MEANS_NO_DEPOSIT.test(compact) && !deposit) continue;
+      const normalized = normalizeWonPair(rent, deposit);
+      const row: { rent: number; deposit?: number } = { rent: normalized.rent };
+      if (normalized.deposit !== null) row.deposit = normalized.deposit;
+      price[match[1]] = row;
     } else {
       // 대여료만 적은 것은 보증금 0의 명시가 아니다. 값을 지어내지 않는다.
-      continue;
+      const normalized = normalizeWonPair(rent, undefined);
+      price[match[1]] = { rent: normalized.rent };
     }
-    const normalized = normalizeWonPair(rent, deposit);
-    price[match[1]] = { rent: normalized.rent, deposit: normalized.deposit };
   }
   /**
    * ★**「그 밖 요금」 — 우리 규격 밖 기간을 ERP 로 들여온다**
@@ -777,8 +779,8 @@ export function parseCompactPriceColumns(
       const key = hit[2] ? `${hit[1]}_${hit[2]}` : hit[1];
       // 이미 규격 열로 들어온 기간은 덮지 않는다 — 규격이 이긴다.
       if (price[key]) continue;
-      const normalized = normalizeWonPair(rent, 0);
-      price[key] = { rent: normalized.rent, deposit: 0 };
+      const normalized = normalizeWonPair(rent, undefined);
+      price[key] = { rent: normalized.rent };
     }
   }
   return Object.keys(price).length ? price : null;

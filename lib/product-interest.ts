@@ -12,7 +12,7 @@ export type InterestSnap = {
   name: string;
   plate: string;
   rent: number; // 0=없음. 원가
-  deposit: number; // 0=무보증/없음
+  deposit: number | null; // null=미입력, 0=무보증
   month: number; // 0=기간 없음. 최저(또는 당시) 개월
   at: number;
 };
@@ -57,13 +57,14 @@ function read(key: string): InterestSnap[] {
 }
 
 /** 구버전 스냅(rent만) 호환. */
-function normalizeSnap(x: InterestSnap): InterestSnap {
+function normalizeSnap(x: Record<string, unknown>): InterestSnap {
+  const deposit = x.deposit;
   return {
     code: String(x.code || ''),
     name: String(x.name || ''),
     plate: String(x.plate || ''),
     rent: Number(x.rent) || 0,
-    deposit: Number(x.deposit) || 0,
+    deposit: deposit === null || deposit === undefined || deposit === '' ? null : Number(deposit),
     month: Number(x.month) || 0,
     at: Number(x.at) || Date.now(),
   };
@@ -94,7 +95,7 @@ export function snapOf(p: EntityRecord): InterestSnap {
     name: vehicleName(p),
     plate: String(p.car_number || ''),
     rent: focus ? focus.rent : 0,
-    deposit: focus ? focus.deposit : 0,
+    deposit: focus ? focus.deposit : null,
     month: focus ? focus.m : 0,
     at: Date.now(),
   };

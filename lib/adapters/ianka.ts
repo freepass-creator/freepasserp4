@@ -1,7 +1,9 @@
 import {
   compactPlate,
+  explicitDeposit,
   explicitMoney,
   explicitNumber,
+  policyCodeFromRow,
   text,
   withProvenance,
   type AdapterResult,
@@ -13,6 +15,9 @@ import {
 } from '../domain/supplier-adapter';
 
 const VERSION = '1.0.0';
+
+// 운영 원천은 이안카 정제시트 「재고」+ ProvidedSheetAdapter.
+// 이 클래스는 외부 원본 열 이름(배차상태·6개월) fixture 회귀용으로만 남긴다.
 
 function pick(raw: RawSupplierRow, ...headers: string[]): { header: string; value: unknown } {
   for (const header of headers) {
@@ -71,8 +76,9 @@ export class IankaAdapter implements SupplierAdapter {
 
       // 금융 필드는 의미가 비슷한 다른 헤더로 절대 추정하지 않는다.
       // 이안카 원본에서 각 기간/보증금의 정확한 헤더만 읽는다.
-      shortDeposit: explicitMoney(raw['단기보증']),
-      longDeposit: explicitMoney(raw['장기보증']),
+      shortDeposit: explicitDeposit(raw['단기보증']),
+      longDeposit: explicitDeposit(raw['장기보증']),
+      policyCode: policyCodeFromRow(raw, provenance),
       rent: {
         1: explicitMoney(raw['1개월']),
         6: explicitMoney(raw['6개월']),

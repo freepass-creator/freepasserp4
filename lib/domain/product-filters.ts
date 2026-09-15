@@ -246,7 +246,7 @@ function rawTally(products: EntityRecord[]): Tally {
     }
     for (let i = 0; i < DEP_BANDS.length; i++) {
       const b = DEP_BANDS[i];
-      if (pl.some((x) => x.deposit > b.lo && x.deposit <= b.hi)) depCnt[i]++;
+      if (pl.some((x) => x.deposit != null && x.deposit > b.lo && x.deposit <= b.hi)) depCnt[i]++;
     }
     const km = Number(p.mileage) || 0;
     for (let i = 0; i < MILE_BANDS.length; i++) {
@@ -584,7 +584,7 @@ export function matchProduct(p: EntityRecord, s: FState): boolean {
     const lines = s.periods.size ? pl.filter((x) => s.periods.has(x.m)) : pl;
     if (!RENT_BANDS.some((b) => s.rent.has(b.k) && lines.some((x) => x.rent > b.lo && x.rent <= b.hi))) return false;
   }
-  if (s.dep.size && !DEP_BANDS.some((b) => s.dep.has(b.k) && pl.some((x) => x.deposit > b.lo && x.deposit <= b.hi))) return false;
+  if (s.dep.size && !DEP_BANDS.some((b) => s.dep.has(b.k) && pl.some((x) => x.deposit != null && x.deposit > b.lo && x.deposit <= b.hi))) return false;
   if (s.periods.size && !pl.some((x) => s.periods.has(x.m))) return false;
   if (s.mile.size) { const km = Number(p.mileage) || 0; if (!MILE_BANDS.some((b) => s.mile.has(b.k) && km > b.lo && km <= b.hi)) return false; }
   if (s.fuel.size && !s.fuel.has(fuelDisplay(p.fuel_type) || String(p.fuel_type))) return false;

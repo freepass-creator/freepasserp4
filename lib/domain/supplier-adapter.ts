@@ -72,6 +72,8 @@ export type FreepassAtom = {
   longDeposit?: number;
   /** 고정 숫자가 아니라 기간/월대여료에 따라 계산되는 보증금 정책. */
   depositPolicy?: DepositPolicy;
+  /** 제공시트·정제시트 「정책코드」. 비면 공급사 규칙이 채운다. */
+  policyCode?: string;
   /** 기간 하나만으로 의미가 완전한 표준 대여료. */
   rent: Partial<Record<RentTerm, number>>;
   /** 기간+연주행거리 등 추가 가격축이 있는 대여료. */
@@ -109,6 +111,29 @@ export function explicitMoney(v: unknown): number | undefined {
   if (!digits) return undefined;
   const n = Number(digits);
   return Number.isFinite(n) && n > 0 ? n : undefined;
+}
+
+/**
+ * 보증금 칸만. 대여료(`explicitMoney`)와 갈린다.
+ *   빈칸·대시 = 미입력(undefined)
+ *   무보증·0·0원·없음 = 0원
+ *   무보증가능·무보증협의 = 미입력(확정이 아님)
+ */
+const MEANS_NO_DEPOSIT = /^(무보증|보증금없음|보증없음|없음|0|0원)$/;
+
+export function explicitDeposit(v: unknown): number | undefined {
+  const raw = text(v);
+  if (!raw || /^(?:-|—|―|x|불가|불가능|미운영|미판매|해당없음|n\/a)$/i.test(raw)) return undefined;
+  const compact = raw.replace(/\s+/g, '');
+  if (MEANS_NO_DEPOSIT.test(compact)) return 0;
+  return explicitMoney(v);
+}
+
+export function policyCodeFromRow(raw: RawSupplierRow, provenance: FieldProvenance): string | undefined {
+  const header = text(raw['정책코드']) ? '정책코드' : text(raw['policy_code']) ? 'policy_code' : '';
+  if (!header) return undefined;
+  withProvenance(provenance, 'policyCode', header, raw[header]);
+  return text(raw[header]) || undefined;
 }
 
 export function explicitNumber(v: unknown): number | undefined {

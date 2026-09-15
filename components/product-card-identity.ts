@@ -118,7 +118,7 @@ export function cardTitle(product: EntityRecord, _mobileNarrow = false): string 
  *   aux(구동·인승)는 뒤에 옅게.
  *
  * ★**확정값만. 없으면 뺀다 — 억지로 안 채운다**(사장님 「어설픈 걸로 억지로 넣으면 안 돼, 확정된 값만」).
- *   빈 슬롯은 구분자째 빠지고(`filter(Boolean)`), 트림 「기본형」은 트림 아님이라 뺀다(`isNoTrimLabel`).
+ *   빈 슬롯은 구분자째 빠지고(`filter(Boolean)`). 「기본형」은 실제 세부트림이라 남긴다.
  *   배기량·배터리 없으면 그 자리 없음. 추론(fuelEmbeddedCc)은 원천이 차명에 적은 값일 때만.
  * ★값은 전부 기존 SSOT·마스터에서 당긴다 — 이름=vehicleNameParts · 배기량=displacementL · 연료=fuelDisplay.
  */
@@ -126,8 +126,8 @@ export function carIdentity(product: EntityRecord): { core: string[]; aux: strin
   const name = vehicleNameParts({ kind: 'product', product }, { tier: 'full' }).main; // 세부모델‖모델(제조사 제외)
   const fuel = fuelDisplay(product.fuel_type);
   const trimRaw = String(product.trim_name ?? '').trim();
-  // 「기본형」은 §3 «트림 없음» 표기(pad) — 소개줄엔 억지로 안 넣는다(사장님 「확정값만」). isNoTrimLabel 케이스도 뺀다.
-  const trim = (isNoTrimLabel(trimRaw) || trimRaw === '기본형') ? '' : trimRaw;
+  // 「없음」 자리표시만 뺀다. 「기본형」은 실제 세부트림이다.
+  const trim = isNoTrimLabel(trimRaw) ? '' : trimRaw;
   const kwh = Number(product.battery_capacity) || 0;
   const isEv = /전기|일렉트릭|\bev\b/i.test(String(product.fuel_type ?? '')) || kwh > 0;
   const core = (isEv

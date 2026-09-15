@@ -505,7 +505,7 @@ export async function freezeContractSettlementTerms(input: {
     throw new ContractSettlementSealError('계약 공급사와 차량 공급사가 일치하지 않습니다.');
   }
   const price = priceList(product).find((entry) => entry.m === rentMonth);
-  if (!price || !Number.isFinite(price.rent) || price.rent <= 0 || !Number.isFinite(price.deposit) || price.deposit < 0) {
+  if (!price || !Number.isFinite(price.rent) || price.rent <= 0 || price.deposit == null || !Number.isFinite(price.deposit) || price.deposit < 0) {
     throw new ContractSettlementSealError('선택한 기간의 차량 가격을 확인하지 못했습니다.');
   }
   const basis = await resolveFreepassSettlementRateBasis({

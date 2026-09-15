@@ -9,7 +9,7 @@ import { useIsMobile } from '@/lib/use-mobile';
 import { useInView } from '@/lib/use-in-view';
 import { useFirstPhoto } from '@/components/use-product-photos';
 import { haptic } from '@/lib/haptics';
-import { canonProductType, cheapest, creditDisplay, CREDIT_UNSET } from '@/lib/domain/product';
+import { canonProductType, cheapest, creditDisplay, CREDIT_UNSET, depositKind, shopDepositPhrase } from '@/lib/domain/product';
 import { PERKS, hasPerk } from '@/lib/domain/product-filters';
 import { vehicleNameOf } from '@/lib/domain/vehicle-name';
 import { displacementL } from '@/components/product-card-identity';
@@ -176,7 +176,7 @@ export const ShopCard = memo(function ShopCard({ p, href, rank = 99 }: {
      * ⚠ 「무보증」은 **바로 윗줄이 이미 「보증금 없음」이라고 말한** 차에서 뺀다(2026-09-05 검토).
      *   같은 카드에서 같은 사실을 두 번 하면 자리를 낭비하고, 손님은 「둘이 다른 건가」를 생각한다.
      */
-    ...PERKS.filter((k) => hasPerk(p, k) && !(k === '무보증' && price && price.deposit === 0))
+    ...PERKS.filter((k) => hasPerk(p, k) && !(k === '무보증' && price && depositKind(price.deposit) === 'zero'))
       .map((k) => ({ text: k as string, icon: markIconFor(k) })),
     ...(sameDay ? [{ text: '당일출고', icon: markIconFor('당일출고'), good: true }] : []),
   ];
@@ -323,10 +323,10 @@ export const ShopCard = memo(function ShopCard({ p, href, rank = 99 }: {
               <span style={{
                 fontSize: SHOP.fs.sub, flex: '0 0 auto', whiteSpace: 'nowrap',
                 fontVariantNumeric: 'tabular-nums',
-                color: price.deposit > 0 ? C.mute : C.ok,
-                fontWeight: price.deposit > 0 ? 400 : 700,
+                color: depositKind(price.deposit) === 'amount' ? C.mute : depositKind(price.deposit) === 'zero' ? C.ok : C.faint,
+                fontWeight: depositKind(price.deposit) === 'zero' ? 700 : 400,
               }}>
-                {price.deposit > 0 ? `보증금 ${manShort(price.deposit)}` : '보증금 없음'}
+                {shopDepositPhrase(price.deposit, manShort)}
               </span>
             </div>
           ) : null}

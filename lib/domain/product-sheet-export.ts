@@ -60,7 +60,7 @@ function dayOf(v: unknown): string {
  * 전부 같으면 그 값, 다르면 «가장 싼 기간»의 보증금을 쓴다(손님이 실제로 고르는 쪽).
  * 규격이 보증금을 한 칸으로 못 박았기 때문에 여기서 하나를 골라야 한다.
  */
-function depositOf(rows: { m: number; rent: number; deposit: number }[]): number | '' {
+function depositOf(rows: { m: number; rent: number; deposit: number | null }[]): number | '' {
   const priced = rows.filter((r) => r.rent > 0);
   if (!priced.length) return '';
   const set = new Set(priced.map((r) => r.deposit));

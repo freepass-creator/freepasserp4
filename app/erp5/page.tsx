@@ -164,7 +164,7 @@ export default function Erp5ProductFinder() {
     const prices = priceList(product).filter((price) => !filters.period || price.m === filters.period);
     if (filters.period && !prices.length) return false;
     if (filters.rent && !prices.some((price) => withinBand(price.rent, bandByKey(RENT_BANDS, filters.rent)))) return false;
-    if (filters.deposit && !prices.some((price) => withinBand(price.deposit, bandByKey(DEP_BANDS, filters.deposit)))) return false;
+    if (filters.deposit && !prices.some((price) => price.deposit != null && withinBand(price.deposit, bandByKey(DEP_BANDS, filters.deposit)))) return false;
     if (filters.mileage && !withinBand(Number(product.mileage) || 0, bandByKey(MILE_BANDS, filters.mileage))) return false;
     if (filters.year) {
       const year = Number(String(product.year || '').match(/\d{4}/)?.[0] || 0);

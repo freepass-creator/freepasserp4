@@ -1,7 +1,9 @@
 import {
   compactPlate,
+  explicitDeposit,
   explicitMoney,
   explicitNumber,
+  policyCodeFromRow,
   text,
   withProvenance,
   type AdapterResult,
@@ -13,6 +15,9 @@ import {
 } from '../domain/supplier-adapter';
 
 const VERSION = '1.1.0';
+
+// 운영 원천은 아이언 정제시트 「재고」+ ProvidedSheetAdapter.
+// 이 클래스는 예전 전용 어댑터 fixture 회귀용으로만 남긴다.
 
 function pick(raw: RawSupplierRow, ...headers: string[]): { header: string; value: unknown } {
   for (const header of headers) {
@@ -69,8 +74,9 @@ export class IronAdapter implements SupplierAdapter {
 
       // 아이언 원본 '재고' 탭의 금융 열은 정확한 같은 이름의 헤더만 읽는다.
       // 원본에 없는 6개월이나 정책 보증금을 어댑터가 추정/생성하지 않는다.
-      shortDeposit: explicitMoney(raw['단기보증']),
-      longDeposit: explicitMoney(raw['장기보증']),
+      shortDeposit: explicitDeposit(raw['단기보증']),
+      longDeposit: explicitDeposit(raw['장기보증']),
+      policyCode: policyCodeFromRow(raw, provenance),
       rent: {
         1: explicitMoney(raw['1개월']),
         6: explicitMoney(raw['6개월']),

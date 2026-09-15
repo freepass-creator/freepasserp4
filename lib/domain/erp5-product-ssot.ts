@@ -1,11 +1,12 @@
 /**
- * ERP4 Firestore 상품 원자를 ERP5 상품 SSOT로 내보낼 때의 공개 필드 계약.
+ * 공급사 원천 원자를 ERP5 상품 SSOT로 내보낼 때의 공개 필드 계약.
  *
- * 이 모듈은 값을 정규화하지 않는다. 기존 상품 원장의 값을 그대로 복사하되,
+ * 생성 원천은 제공시트·정제시트 어댑터 원자다. ERP4 Firestore `products`를 복사하지 않는다.
  * 개인정보·계약·정산·공급사 수수료 필드는 경계에서 제거한다.
  */
-import type { FreepassAtom } from './supplier-adapter';
-import { resolveAutoplusDepositPolicy, SONOGONG_DEPOSIT_POLICY } from './deposit-policy';
+import type { AdapterIssue, FreepassAtom } from './supplier-adapter';
+import { calculateDepositFromMonthlyRent, resolveAutoplusDepositPolicy } from './deposit-policy';
+import { evaluateEligibility } from './product-eligibility';
 
 export type ExportedProduct = Record<string, unknown>;
 
@@ -15,7 +16,6 @@ export type ProductExportResult = {
 };
 
 const AUTOPLUS_CODES = new Set(['RP023', 'AUTOPLUS']);
-const SONOGONG_CODES = new Set(['RP012', 'SONOGONG']);
 
 const PUBLIC_PRODUCT_FIELDS = new Set([
   'car_number',
@@ -59,6 +59,10 @@ const PUBLIC_PRODUCT_FIELDS = new Set([
   'source_updated_at',
   'rent_variants',
   'rentVariants',
+  'provider_name',
+  'listing_reasons',
+  'adapter_issues',
+  'source_evidence',
 ]);
 
 const PRIVATE_PRICE_KEY = /(?:fee|commission|margin|cost|수수료|커미션|마진|원가|공급가)/i;
@@ -128,19 +132,17 @@ function assertPublicPhotoLink(value: string, path: string): void {
 }
 
 function offerTerms(source: Record<string, unknown>, atom?: FreepassAtom): Record<string, unknown> | null {
+  if (atom?.depositPolicy) {
+    const priceAxes = atom.rentVariants?.length ? ['termMonths', 'annualKm'] : ['termMonths'];
+    return { priceAxes, depositPolicy: atom.depositPolicy };
+  }
   const code = String(source.provider_company_code || source.partner_code || '').trim().toUpperCase();
   if (AUTOPLUS_CODES.has(code)) {
     // 제조사가 없으면 국산으로 추정하지 않는다. 어댑터와 같은 SSOT resolver만 쓴다.
-    const depositPolicy = atom?.depositPolicy ?? resolveAutoplusDepositPolicy(String(source.maker ?? ''));
+    const depositPolicy = resolveAutoplusDepositPolicy(String(source.maker ?? ''));
     return {
       priceAxes: ['termMonths', 'annualKm'],
       ...(depositPolicy ? { depositPolicy } : {}),
-    };
-  }
-  if (SONOGONG_CODES.has(code)) {
-    return {
-      priceAxes: ['termMonths'],
-      depositPolicy: atom?.depositPolicy ?? SONOGONG_DEPOSIT_POLICY,
     };
   }
   return null;
@@ -187,6 +189,126 @@ function adapterPricing(atom: FreepassAtom): Record<string, unknown> {
     rent: atom.rent,
     rentVariants: atom.rentVariants || [],
   }) as Record<string, unknown>;
+}
+
+function annualKmLabel(annualKm?: number): string {
+  if (!annualKm || annualKm <= 0) return '';
+  const man = annualKm / 10_000;
+  if (!Number.isInteger(man) || man <= 0) return '';
+  return `${man}만`;
+}
+
+function depositForTerm(atom: FreepassAtom, months: number, rent: number): number | undefined {
+  const listed = months >= 24 ? atom.longDeposit : atom.shortDeposit;
+  if (listed !== undefined) return listed;
+  if (atom.depositPolicy) return calculateDepositFromMonthlyRent(atom.depositPolicy, months, rent);
+  return undefined;
+}
+
+function priceEntry(rent: number, deposit: number | undefined): { rent: number; deposit?: number } {
+  return deposit === undefined ? { rent } : { rent, deposit };
+}
+
+/** 어댑터 원자를 손님·화이트라벨이 읽는 `price` 맵으로 만든다. 빈 보증금 칸은 키를 생략한다(0이 아님). */
+function pricesFromAtom(atom: FreepassAtom): Record<string, { rent: number; deposit?: number }> | undefined {
+  const price: Record<string, { rent: number; deposit?: number }> = {};
+  for (const [term, amount] of Object.entries(atom.rent)) {
+    if (typeof amount !== 'number' || amount <= 0) continue;
+    const months = Number(term);
+    if (!Number.isFinite(months) || months <= 0) continue;
+    price[String(months)] = priceEntry(amount, depositForTerm(atom, months, amount));
+  }
+  for (const variant of atom.rentVariants || []) {
+    if (!(variant.amount > 0) || !(variant.termMonths > 0)) continue;
+    const mile = annualKmLabel(variant.annualKm);
+    const key = mile ? `${variant.termMonths}_${mile}` : String(variant.termMonths);
+    if (!mile && price[key]) continue;
+    price[key] = priceEntry(variant.amount, depositForTerm(atom, variant.termMonths, variant.amount));
+  }
+  return Object.keys(price).length ? price : undefined;
+}
+
+export type ProductSourceSpec = {
+  code: string;
+  partnerCode: string;
+  name: string;
+  spreadsheetId: string;
+  tab: string;
+};
+
+export type ComposedErp5Product = ProductExportResult & {
+  id: string;
+  listable: boolean;
+  listingReasons: string[];
+};
+
+export function erp5ProductDocumentId(spec: ProductSourceSpec, plate: string): string {
+  const compact = String(plate || '').replace(/\s+/g, '');
+  return `${spec.code}__${compact}`;
+}
+
+/** 어댑터 원자를 공개 상품 칸에 배치한다. ERP4 products를 복사하지 않고, 트림·정책·보증금을 여기서 바꾸지 않는다. */
+export function composeProductFromAtom(
+  spec: ProductSourceSpec,
+  atom: FreepassAtom,
+  adapterIssues: AdapterIssue[] = [],
+): ComposedErp5Product {
+  const plate = String(atom.plateNumber || '').replace(/\s+/g, '');
+  const listingReasons = evaluateEligibility(atom, 'F01').reasons;
+  for (const issue of adapterIssues) {
+    if (issue.level === 'error') listingReasons.push(`ADAPTER_ERROR:${issue.code}`);
+  }
+  const uniqueReasons = [...new Set(listingReasons)];
+  const price = pricesFromAtom(atom);
+  const candidate: Record<string, unknown> = {
+    car_number: plate,
+    product_code: erp5ProductDocumentId(spec, plate),
+    provider_company_code: spec.partnerCode,
+    partner_code: spec.partnerCode,
+    provider_name: spec.name,
+    maker: atom.maker,
+    model: atom.model,
+    sub_model: atom.subModel,
+    trim_name: atom.trim,
+    supplier_vehicle_name: atom.rawName,
+    year: atom.year,
+    mileage: atom.km,
+    fuel_type: atom.fuel,
+    engine_cc: atom.displacement,
+    product_type: atom.productType,
+    status_label_raw: atom.status,
+    vehicle_status: atom.status,
+    status: atom.status,
+    listable: uniqueReasons.length === 0,
+    listing_reasons: uniqueReasons,
+    ...(atom.policyCode ? { policy_code: atom.policyCode } : {}),
+    ...(price ? { price } : {}),
+    adapter_issues: adapterIssues.map((issue) => ({
+      level: issue.level,
+      code: issue.code,
+      message: issue.message,
+      ...(issue.field ? { field: issue.field } : {}),
+    })),
+    source_evidence: {
+      supplierCode: spec.code,
+      partnerCode: spec.partnerCode,
+      supplierName: spec.name,
+      spreadsheetId: spec.spreadsheetId,
+      tab: spec.tab,
+      row: atom.source.row ?? null,
+      adapter: atom.source.adapter,
+      adapterVersion: atom.source.adapterVersion,
+      provenance: atom.provenance,
+    },
+  };
+  const exported = exportProductForErp5(candidate, atom);
+  return {
+    id: erp5ProductDocumentId(spec, plate),
+    data: exported.data,
+    ignoredFields: exported.ignoredFields,
+    listable: uniqueReasons.length === 0,
+    listingReasons: uniqueReasons,
+  };
 }
 
 export function exportProductForErp5(source: Record<string, unknown>, atom?: FreepassAtom): ProductExportResult {

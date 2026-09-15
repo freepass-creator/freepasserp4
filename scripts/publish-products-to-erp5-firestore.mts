@@ -1,18 +1,19 @@
 /**
- * ERP4 Firestore products -> 같은 Firebase의 ERP5 versioned product SSOT.
+ * 제공시트·정제시트 원천 원자 -> 같은 Firebase의 ERP5 versioned product SSOT.
  *
  * 기본은 dry-run. 실제 쓰기는 --apply, 활성 포인터 교체는 --apply --activate가 필요하다.
- * 기존 ERP4 컬렉션은 삭제하거나 수정하지 않는다.
+ * ERP4 Firestore `products`는 생성 원천이 아니다. 기존 ERP4 컬렉션은 삭제하거나 수정하지 않는다.
  */
 import { readFileSync } from 'node:fs';
 import { isDeepStrictEqual } from 'node:util';
 import { cert, initializeApp, type ServiceAccount } from 'firebase-admin/app';
 import { FieldValue, getFirestore } from 'firebase-admin/firestore';
 import { JWT } from 'google-auth-library';
-import { getSupplierAdapter } from '../lib/adapters';
-import { SUPPLIER_SOURCES, type SupplierSourceSpec } from '../lib/adapters/source-registry';
-import { exportProductForErp5 } from '../lib/domain/erp5-product-ssot';
-import type { FreepassAtom, RawSupplierRow } from '../lib/domain/supplier-adapter';
+import { adapterForSpec } from '../lib/adapters';
+import { SUPPLIER_SOURCES, findSourceHeaderRow } from '../lib/adapters/source-registry';
+import { composeProductFromAtom } from '../lib/domain/erp5-product-ssot';
+import { hasStableIdentity } from '../lib/domain/product-eligibility';
+import type { AdapterIssue, FreepassAtom, RawSupplierRow } from '../lib/domain/supplier-adapter';
 
 const APPLY = process.argv.includes('--apply');
 const ACTIVATE = process.argv.includes('--activate');
@@ -20,7 +21,6 @@ const SKIP_ADAPTERS = process.argv.includes('--skip-adapters');
 const versionArg = process.argv.find((arg) => arg.startsWith('--version='));
 const VERSION_ID = versionArg?.slice('--version='.length) || new Date().toISOString().replace(/[-:.]/g, '');
 const EXPECTED_PROJECT_ID = process.env.ERP_FIREBASE_PROJECT_ID || process.env.ERP4_FIREBASE_PROJECT_ID || '';
-const SOURCE_COLLECTION = process.env.ERP4_PRODUCT_COLLECTION || 'products';
 const VERSIONS_COLLECTION = 'productMasterVersions';
 const POINTER_PATH = 'ssotState/products';
 if (!/^[A-Za-z0-9._-]{1,120}$/.test(VERSION_ID)) throw new Error(`version ID 형식이 올바르지 않습니다: ${VERSION_ID}`);
@@ -81,17 +81,6 @@ function assertProject(account: ServiceAccountJson, expected: string, label: str
 const S = (value: unknown) => String(value ?? '').trim();
 const compactPlate = (value: unknown) => S(value).replace(/\s+/g, '');
 
-function findHeaderRow(values: string[][], pricingMode: SupplierSourceSpec['pricingMode']): number {
-  for (let index = 0; index < Math.min(values.length, 40); index += 1) {
-    const headers = values[index].map(S);
-    if (!headers.includes('차량번호') && !headers.includes('차번')) continue;
-    const standard = headers.filter((header) => /^(?:단기보증|장기보증|금액보증금|\d+개월(?:\s*반납형)?)$/.test(header)).length;
-    if (pricingMode === 'STANDARD_TERMS' && standard >= 4) return index;
-    if (pricingMode === 'TERM_MILEAGE_VARIANTS' && headers.filter((header) => /^\d+개월\s*\d+만$/.test(header)).length >= 2) return index;
-  }
-  return -1;
-}
-
 function rowObject(headers: string[], row: string[]): RawSupplierRow {
   const object: RawSupplierRow = {};
   headers.forEach((header, index) => { if (header) object[header] = row[index] ?? ''; });
@@ -99,11 +88,12 @@ function rowObject(headers: string[], row: string[]): RawSupplierRow {
 }
 
 async function loadAdapterAtoms(account: ServiceAccountJson): Promise<{
-  byProviderAndPlate: Map<string, FreepassAtom>;
+  rows: Array<{ spec: typeof SUPPLIER_SOURCES[number]; atom: FreepassAtom; issues: AdapterIssue[] }>;
   stats: Record<string, number>;
 }> {
-  const byProviderAndPlate = new Map<string, FreepassAtom>();
+  const rows: Array<{ spec: typeof SUPPLIER_SOURCES[number]; atom: FreepassAtom; issues: AdapterIssue[] }> = [];
   const stats: Record<string, number> = {};
+  const seen = new Set<string>();
   const token = (await new JWT({
     email: account.client_email,
     key: account.private_key,
@@ -118,10 +108,10 @@ async function loadAdapterAtoms(account: ServiceAccountJson): Promise<{
     });
     if (!response.ok) throw new Error(`${spec.name} 원천 시트 읽기 실패: ${response.status} ${await response.text()}`);
     const values = ((await response.json()) as { values?: string[][] }).values || [];
-    const headerAt = findHeaderRow(values, spec.pricingMode);
+    const headerAt = findSourceHeaderRow(values, spec.pricingMode);
     if (headerAt < 0) throw new Error(`${spec.name} 원천에서 차량번호+가격 머리글을 찾지 못했습니다.`);
     const headers = values[headerAt].map(S);
-    const adapter = getSupplierAdapter(spec.code);
+    const adapter = adapterForSpec(spec);
     let count = 0;
     for (let rowIndex = headerAt + 1; rowIndex < values.length; rowIndex += 1) {
       const result = adapter.adapt(rowObject(headers, values[rowIndex]), {
@@ -133,18 +123,21 @@ async function loadAdapterAtoms(account: ServiceAccountJson): Promise<{
       });
       const plate = compactPlate(result.atom.plateNumber);
       if (!plate) continue;
-      const key = `${spec.partnerCode}|${plate}`;
-      if (byProviderAndPlate.has(key)) throw new Error(`${spec.name} 원천 차량번호 중복: ${plate}`);
-      byProviderAndPlate.set(key, result.atom);
+      if (!hasStableIdentity(result.atom)) continue;
+      const key = `${spec.code}|${plate}`;
+      if (seen.has(key)) throw new Error(`${spec.name} 원천 차량번호 중복: ${plate}`);
+      seen.add(key);
+      rows.push({ spec, atom: result.atom, issues: result.issues });
       count += 1;
     }
     if (!count) throw new Error(`${spec.name} 원천에서 상품을 한 대도 읽지 못했습니다.`);
     stats[spec.code] = count;
   }
-  return { byProviderAndPlate, stats };
+  return { rows, stats };
 }
 
 if (ACTIVATE && !APPLY) throw new Error('--activate는 --apply와 함께 사용해야 합니다.');
+if (SKIP_ADAPTERS) throw new Error('상품 SSOT 생성 원천은 공급사 시트 어댑터다. --skip-adapters 로는 게시할 수 없다.');
 
 const sourceAccount = readServiceAccount({
   label: 'ERP4·ERP5 공용 Firebase',
@@ -156,65 +149,40 @@ const sourceAccount = readServiceAccount({
 const PROJECT_ID = sourceAccount.project_id!;
 if (EXPECTED_PROJECT_ID) assertProject(sourceAccount, EXPECTED_PROJECT_ID, 'ERP4·ERP5 공용 Firebase');
 
-const firebaseApp = initializeApp({
-  credential: cert(sourceAccount as ServiceAccount),
-  projectId: PROJECT_ID,
-}, `erp4-erp5-ssot-${Date.now()}`);
-const db = getFirestore(firebaseApp);
-const sourceSnapshot = await db.collection(SOURCE_COLLECTION).get();
-const adapterSnapshot = SKIP_ADAPTERS
-  ? { byProviderAndPlate: new Map<string, FreepassAtom>(), stats: {} as Record<string, number> }
-  : await loadAdapterAtoms(sourceAccount);
-
+const adapterSnapshot = await loadAdapterAtoms(sourceAccount);
 const ignoredFieldCounts = new Map<string, number>();
-let productsWithAdapterPricing = 0;
-const adapterCoverageBlockers: string[] = [];
-const sourceSpecByCode = new Map<string, SupplierSourceSpec>();
-for (const spec of SUPPLIER_SOURCES) {
-  sourceSpecByCode.set(spec.code.toUpperCase(), spec);
-  sourceSpecByCode.set(spec.partnerCode.toUpperCase(), spec);
-}
-const items = sourceSnapshot.docs.map((document) => {
-  const source = document.data();
-  const providerCode = S(source.provider_company_code || source.partner_code).toUpperCase();
-  const plate = compactPlate(source.car_number);
-  const sourceSpec = sourceSpecByCode.get(providerCode);
-  const atom = sourceSpec
-    ? adapterSnapshot.byProviderAndPlate.get(`${sourceSpec.partnerCode}|${plate}`)
-    : undefined;
-  if (atom) productsWithAdapterPricing += 1;
-  else if (!SKIP_ADAPTERS && sourceSpec && source.listable !== false) {
-    adapterCoverageBlockers.push(`${sourceSpec.name}:${plate || document.id}`);
-  }
-  const exported = exportProductForErp5(source, atom);
-  for (const field of exported.ignoredFields) {
+const items = adapterSnapshot.rows.map(({ spec, atom, issues }) => {
+  const composed = composeProductFromAtom(spec, atom, issues);
+  for (const field of composed.ignoredFields) {
     ignoredFieldCounts.set(field, (ignoredFieldCounts.get(field) || 0) + 1);
   }
-  return { id: document.id, data: exported.data };
+  return composed;
 });
+const listableCount = items.filter((item) => item.listable).length;
+const listingBlockers = items.filter((item) => !item.listable).map((item) => `${item.id}:${item.listingReasons.join(',')}`);
 
 const uniqueIds = new Set(items.map((item) => item.id));
-if (uniqueIds.size !== items.length) throw new Error('ERP4 products 문서 ID가 중복되었습니다.');
+if (uniqueIds.size !== items.length) throw new Error('ERP5 상품 문서 ID가 중복되었습니다.');
+if (!items.length) throw new Error('공급사 원천에서 게시할 상품 원자가 없습니다.');
 
 console.log(JSON.stringify({
   mode: APPLY ? (ACTIVATE ? 'apply-and-activate' : 'apply-draft') : 'dry-run',
   firebaseProject: PROJECT_ID,
-  source: `${PROJECT_ID}/firestore/${SOURCE_COLLECTION}`,
+  source: 'supplier-sheets',
   target: `${PROJECT_ID}/firestore/${VERSIONS_COLLECTION}/${VERSION_ID}/products`,
   versionId: VERSION_ID,
   productCount: items.length,
   adapters: {
     sourceRows: adapterSnapshot.stats,
-    productsWithAdapterPricing,
-    coverageBlockers: adapterCoverageBlockers.length,
-    coverageBlockerSample: adapterCoverageBlockers.slice(0, 20),
+    listableCount,
+    listingBlockers: listingBlockers.length,
+    listingBlockerSample: listingBlockers.slice(0, 20),
   },
   ignoredFields: Object.fromEntries([...ignoredFieldCounts.entries()].sort(([a], [b]) => a.localeCompare(b))),
 }, null, 2));
 
-if (ACTIVATE && SKIP_ADAPTERS) throw new Error('--skip-adapters 상태로 상품 SSOT를 활성화할 수 없습니다.');
-if (ACTIVATE && adapterCoverageBlockers.length) {
-  throw new Error(`판매 가능한 등록 공급사 상품 중 어댑터 원천과 안 맞는 차량 ${adapterCoverageBlockers.length}대: 활성화하지 않습니다.`);
+if (ACTIVATE && listingBlockers.length) {
+  throw new Error(`판매 불가 원천 원자 ${listingBlockers.length}대가 있어 활성화하지 않습니다.`);
 }
 
 if (!APPLY) {
@@ -222,6 +190,11 @@ if (!APPLY) {
   process.exit(0);
 }
 
+const firebaseApp = initializeApp({
+  credential: cert(sourceAccount as ServiceAccount),
+  projectId: PROJECT_ID,
+}, `erp4-erp5-ssot-${Date.now()}`);
+const db = getFirestore(firebaseApp);
 const versionRef = db.collection(VERSIONS_COLLECTION).doc(VERSION_ID);
 const existing = await versionRef.get();
 if (existing.exists) throw new Error(`이미 존재하는 ERP5 상품 버전입니다: ${VERSION_ID}`);
@@ -230,13 +203,13 @@ await versionRef.set({
   schemaVersion: 1,
   status: 'writing',
   sourceProjectId: PROJECT_ID,
-  sourceCollection: SOURCE_COLLECTION,
+  source: 'supplier-sheets',
   expectedCount: items.length,
   adapterCoverage: {
     sourceRows: adapterSnapshot.stats,
-    matchedProducts: productsWithAdapterPricing,
-    blockerCount: adapterCoverageBlockers.length,
-    blockerSample: adapterCoverageBlockers.slice(0, 100),
+    listableCount,
+    blockerCount: listingBlockers.length,
+    blockerSample: listingBlockers.slice(0, 100),
   },
   createdAt: FieldValue.serverTimestamp(),
 });
@@ -250,7 +223,7 @@ try {
         ...item.data,
         _erp5: {
           schemaVersion: 1,
-          sourceSystem: 'freepasserp4.firestore.products',
+          sourceSystem: 'freepasserp4.supplier-sheets',
           sourceDocumentId: item.id,
           versionId: VERSION_ID,
           copiedAt: FieldValue.serverTimestamp(),
@@ -308,7 +281,7 @@ for (const [sourceCode, expected] of readbackSamples) {
 }
 
 await versionRef.set({
-  status: ACTIVATE ? 'active' : (adapterCoverageBlockers.length ? 'draft' : 'validated'),
+  status: ACTIVATE ? 'active' : (listingBlockers.length ? 'draft' : 'validated'),
   actualCount: written.size,
   validatedAt: FieldValue.serverTimestamp(),
 }, { merge: true });
@@ -318,7 +291,7 @@ if (ACTIVATE) {
     activeVersionId: VERSION_ID,
     productCount: written.size,
     schemaVersion: 1,
-    sourceSystem: 'freepasserp4.firestore.products',
+    sourceSystem: 'freepasserp4.supplier-sheets',
     activatedAt: FieldValue.serverTimestamp(),
   });
 }
