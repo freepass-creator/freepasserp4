@@ -1,80 +1,98 @@
-# ERP5 Firestore SSOT 복원·연결
+# ERP5 Canonical SSOT
 
-ERP4는 계속 운영한다. ERP5는 별도 Firebase 프로젝트가 아니라 **ERP4가 쓰는 같은 Firebase 프로젝트 안의 버전 컬렉션**으로 상품과 차종마스터만 단방향 게시한다. 계약·상담·사용자·정산 데이터는 이 경로로 보내지 않는다.
+`freepasserp5`는 상품·공급사 조건·가격/대여료·보증금·재고/판매상태·차종마스터 등 ERP5 원자의 **유일한 canonical DB**다. `freepasserp4`는 UI/운영 플랫폼이며 canonical 원자를 소비한다.
 
-## 데이터 흐름
+## 확정 원칙
 
-1. 공급사 원천을 전용 어댑터로 읽어 가격축을 보존한다.
-2. ERP4 Firestore `products`의 현재 상품 원자를 공개 필드 allowlist로 복사한다.
-3. Google Sheet `차종마스터`의 채택명과 Encar 참조본을 대조한다.
-4. 같은 Firestore의 ERP5 전용 버전 경로에 새 버전을 만든다.
-5. 쓰기 수량과 blocker를 검증한 뒤 활성 포인터만 교체한다.
+1. `freepasserp5`만 canonical 원자를 생성·갱신한다.
+2. `freepasserp4` Firestore, 로컬 JSON, 판매시트, 공개 카탈로그는 ERP5의 상위 원천이 아니다.
+3. ERP4 UI에서 canonical 값을 변경해야 하는 기능이 생기면 `ERP4 UI -> ERP5 write API -> freepasserp5` 경로로만 구현한다.
+4. ERP4의 `products` 컬렉션이나 로컬 파일을 ERP5 active pointer로 승격하는 역방향 게시를 production에서 금지한다.
+5. 판매시트·공개 카탈로그·ERP4 화면은 한 회차에 고정된 ERP5 snapshot을 소비한다.
+6. 공급사 원문과 파싱 근거는 보존하되, 파생 산출물을 별도 SSOT로 취급하지 않는다.
 
-ERP4 원본 컬렉션은 삭제하거나 덮어쓰지 않는다. 프로젝트는 하나지만 원본 경로와 ERP5 버전 경로는 분리한다.
+## 운영 데이터 흐름
 
-## Firestore 경로
-
-| 역할 | 경로 |
-|---|---|
-| 상품 버전 | `productMasterVersions/{versionId}` |
-| 상품 문서 | `productMasterVersions/{versionId}/products/{erp4ProductId}` |
-| 활성 상품 포인터 | `ssotState/products` |
-| 차종 버전 | `vehicleMasterVersions/{versionId}` |
-| 차종 문서 | `vehicleMasterVersions/{versionId}/entries/{stableId}` |
-| 활성 차종 포인터 | `ssotState/vehicleMaster` |
-
-소비 앱은 버전 컬렉션을 임의로 고르지 않고 `ssotState/*`의 `activeVersionId`를 먼저 읽는다.
-
-## 보존 규칙
-
-- 상품명·차명·금액은 ERP4 확정값을 바꾸지 않는다.
-- 수수료·커미션·차대번호·계약·상담·고객·전화·이메일·주소·계좌 필드는 내보내지 않는다.
-- 오토플러스는 `termMonths × annualKm` 가격축과 `depositPolicy` 규칙 원자를 보존한다. 제조사가 없으면 국산 규칙을 추정하지 않는다.
-- 손오공은 `termMonths` 가격축과 `SONOGONG_RENT_X_YEARS_MAX3` 정책 원자(월 대여료 × 연수, 최대 ×3)를 보존한다.
-- 차종 계층은 `원산지 → 제조사 → 모델 → 세부모델 → 세부트림`이다.
-- 연료·배기량·구동·인승·배터리는 계층명이 아니라 `facts.variants`에 둔다.
-- 세부트림이 비어 있으면 ERP5 투영에서만 `기본형`으로 채우고, `trimDefaulted: true`를 남긴다.
-- 모델과 세부모델이 같으면 ERP5 발행명만 `기본형`으로 투영하고 Google Sheet 원문은 `evidence.googleSheet.sourceNames`에 남긴다.
-- 괄호는 F03 규칙대로 제거해 발행하고, FL 표기·기아 N세대 미변환·Encar 근거 부족·상충 검토는 활성화 blocker다.
-
-## ERP5 접근 규칙
-
-`firestore.rules` 하나가 ERP4 운영 경계와 ERP5 SSOT 읽기 경계를 함께 가진다. 역할 클레임은 `admin`, `agent`, `whitelabel` 세 값만 허용한다.
-
-- 클라이언트 쓰기는 모든 경로에서 금지한다.
-- 관리자는 검증 버전과 활성 버전을 읽을 수 있다.
-- 영업자와 화이트라벨은 `ssotState/*`가 가리키는 활성 버전만 읽을 수 있다.
-- 기존 ERP4 컬렉션의 접근 규칙은 그대로 유지한다.
-
-규칙 배포는 기존 ERP4 규칙까지 함께 갱신하므로 수동 검증과 승인 후에만 실행한다. 배포 대상 프로젝트 ID도 공용 자격증명에서 읽는다.
-
-```bash
-PROJECT_ID="$(node -e "const a=require('./tmp/firebase-auth/sa.json'); process.stdout.write(a.project_id)")"
-GOOGLE_APPLICATION_CREDENTIALS=tmp/firebase-auth/sa.json \
-  npx firebase-tools deploy --project "$PROJECT_ID" --config firebase.json --only firestore:rules
+```text
+[공급사 원천]
+     |
+     v
+[Parser / Adapter / Normalizer]
+     |
+     v
+[freepasserp5 canonical atoms]
+     |
+     v
+[Versioned / fixed snapshot]
+     |----> freepasserp4 UI/운영
+     |----> 판매 Sheet
+     |----> 고객/화이트라벨 공개 Catalog
+     `----> 기타 소비 API/App
 ```
 
-## 실행
+화살표가 ERP4/판매시트/공개 카탈로그에서 ERP5 canonical 쪽으로 역류하면 안 된다.
 
-GitHub Actions의 `ERP5 Firestore 상품·차종 SSOT 게시`를 수동 실행한다.
+## 현재 production writer
 
-필수 Repository secrets:
+`.github/workflows/erp5-ssot-refresh.yml`이 검증된 ERP5 writer다.
 
-- `GOOGLE_SA_JSON`: 공용 Firebase 읽기·ERP5 버전 경로 쓰기 및 Google Sheets 읽기용
+- GitHub OIDC로 `github-inventory-writer@freepasserp5.iam.gserviceaccount.com`을 사용한다.
+- `GOOGLE_CLOUD_PROJECT=freepasserp5`를 명시한다.
+- `scripts/ingest-all-suppliers.mts`가 공급사 원천을 ERP5 원자로 계산한다.
+- 정책 참조 정합화 후 `scripts/capture-sales-publish-snapshot.mts`로 한 회차 snapshot을 고정한다.
+- 같은 snapshot으로 공개 카탈로그 대사와 판매시트 발행을 수행한다.
 
-별도 ERP5 서비스계정이나 대상 프로젝트 ID는 사용하지 않는다. 자격증명의 `project_id`가 읽기와 쓰기의 단일 대상이다. 필요하면 `ERP_FIREBASE_PROJECT_ID` 또는 기존 `ERP4_FIREBASE_PROJECT_ID`로 기대 프로젝트를 고정하고, 자격증명이 다르면 즉시 중단한다.
+현재 운영 workflow는 검증된 엔진 커밋에 고정되어 있다. 이 고정은 운영 안정성을 위한 임시 안전장치이며, main과의 차이는 별도 검증 후 단계적으로 해소한다. 검증 없이 ref를 main으로 바꾸지 않는다.
 
-차종마스터 Google Sheet는 같은 서비스계정의 Workspace 도메인 위임으로 읽는다. 조직에 승인된 `spreadsheets` 범위를 사용하지만 발행기 코드는 조회 API만 호출하고 시트 쓰기는 수행하지 않는다.
+## ERP4의 역할
 
-첫 실행은 `apply=false`로 검사한다. 이후 `apply=true`로 검증 버전만 저장하고, 결과를 확인한 뒤 상품과 차종마스터 활성화를 각각 켠다. 규칙 배포는 이 발행 워크플로에 넣지 않는다. ERP5 SSOT 클라이언트 읽기가 필요할 때만 기존 ERP4 규칙까지 실데이터로 검증·승인한 뒤 위의 Firebase CLI 명령을 별도로 실행한다. 차종마스터는 blocker가 한 건이라도 있으면 활성화할 수 없다.
+ERP4는 다음만 수행한다.
 
-로컬 명령:
+- ERP5 canonical 원자 조회
+- 영업/운영 UI 제공
+- 접수·계약·운영 등 ERP4 고유 업무 데이터 관리
+- canonical 수정이 필요한 경우 ERP5 전용 write boundary를 호출
 
-```bash
-npm run sim:erp5-product-ssot
-npm run sim:erp5-vehicle-master-ssot
-npm run publish:erp5-products -- --version=review-YYYYMMDD
-npm run publish:erp5-vehicle-master -- --version=review-YYYYMMDD --encar=tmp/vehicle-master/dist/vehicle-master.flat.json
-```
+ERP4 고유 업무 데이터와 ERP5 상품 원자는 논리적으로 분리한다. 계약·상담·사용자·정산 같은 ERP4 업무 데이터를 ERP5 상품 원자에 섞지 않는다.
 
-실제 쓰기에는 `--apply`, 활성 포인터 교체에는 `--apply --activate`를 추가한다.
+## 차종마스터
+
+차종마스터도 ERP5 canonical 소유다.
+
+- Encar/제조사/Google Sheet/기타 참조 데이터는 evidence 또는 입력 근거다.
+- `public/data/vehicle-master.json` 같은 파일은 사람이 독립적으로 관리하는 원천이 되어서는 안 된다.
+- JSON이 필요하면 ERP5 canonical vehicle master에서 생성되는 파생 산출물로 취급한다.
+- 괄호 제거 등 Freepass 표준화 규칙은 canonical 생성 단계에서 적용하고 원문 근거는 evidence로 남긴다.
+
+## 레거시 migration 도구
+
+다음 스크립트는 과거 동일-Firebase 설계에서 만들어진 레거시 migration 도구다.
+
+- `scripts/publish-products-to-erp5-firestore.mts`
+- `scripts/publish-vehicle-master-to-erp5-firestore.mts`
+
+이 스크립트들은 production writer가 아니다. GitHub Actions에서 자동/수동 게시 경로로 호출하지 않는다. 향후 완전 제거 전까지 과거 데이터 분석·migration 참고용으로만 남긴다.
+
+## CI 경계
+
+`npm run check:erp5-firebase`는 파일명 호환성을 위해 기존 이름을 유지하지만 실제 의미는 **ERP5 canonical boundary 검사**다.
+
+검사는 최소 다음을 강제한다.
+
+- production refresh workflow가 `freepasserp5`를 명시하는지
+- OIDC writer가 `freepasserp5` 서비스계정인지
+- ERP4 Firebase 자격증명을 canonical writer로 사용하지 않는지
+- 레거시 workflow가 ERP4 -> ERP5 역방향 writer를 호출하지 않는지
+- 문서가 동일-Firebase 전제를 다시 도입하지 않는지
+
+## 변경 원칙
+
+새로운 상품/가격/보증금/공급사/차종 기능을 만들 때 먼저 다음 질문에 답한다.
+
+1. 이 값의 canonical owner는 어디인가?
+2. writer는 하나인가?
+3. ERP4/시트/JSON이 원천처럼 행동하지 않는가?
+4. 같은 ERP5 snapshot에서 모든 소비면이 파생되는가?
+5. 원문 evidence와 canonical normalized value가 구분되는가?
+
+답이 하나로 정리되지 않으면 SSOT 변경으로 승인하지 않는다.
