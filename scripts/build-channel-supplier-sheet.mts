@@ -15,6 +15,7 @@
  *   npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/build-channel-supplier-sheet.mts --채널=하허호 [--apply]
  */
 import { readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { JWT } from 'google-auth-library';
 import { getFirestore } from 'firebase-admin/firestore';
 import { companyAlias } from '../lib/domain/identity';
@@ -225,6 +226,19 @@ for (const [k, list] of order) {
   console.log(`   ${String(list.length).padStart(4)}  ${k.padEnd(10)} 요금 ${String(fee.length).padStart(2)}칸  ${fee.slice(0, 7).join(' · ')}${fee.length > 7 ? ' …' : ''}`);
 }
 if (!APPLY) { console.log('\n※ dry-run — --apply 로 만든다.\n'); process.exit(0); }
+
+/**
+ * ★★**F86 확정 규격 잠금 — 어긋난 규격으로는 «시트를 안 건드린다»** (사장님 2026-09-16 「이제 픽스해서 규격화해」).
+ *   규격 정본 = `docs/영업자시트-매뉴얼.md` §하허호 F86 «완전 커스텀 레트로» · 검사 = `scripts/check-f86-locked.mts`.
+ *   자동 회차(hourly-sync ⑯¼ · refresh-sync · run-daily ⑫)도 모두 이 발행기를 거치므로 여기 한 곳에서 막으면 다 막힌다.
+ */
+if (RETRO) {
+  const lock = spawnSync('npx', ['tsx', '--require', './scripts/lib/server-only-shim.cjs', 'scripts/check-f86-locked.mts'], { stdio: 'inherit', shell: true });
+  if (lock.status !== 0) {
+    console.error('  ⛔ F86 확정 규격 잠금(check:f86)이 어긋났다 — 채널시트를 건드리지 않고 멈춘다.');
+    process.exit(1);
+  }
+}
 
 // 준비 시간이 길었어도 실제 운영 시트를 건드리기 직전에 신선도와 해시를 다시 확인한다.
 readSalesPublishSnapshot(snapshotPath);
