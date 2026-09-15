@@ -120,6 +120,21 @@ assert.equal(getSupplierAdapter('sonogong').adapterName, 'SonogongAdapter');
 assert.equal(getSupplierSourceSpec('RP012').code, 'SONOGONG');
 assert.equal(getSupplierSourceSpec('RP012').tab, '구독재고');
 
+// 렌트 여부는 원문 「구분」 칸을 그대로 믿지 않고 번호판(하·허·호)으로 검증한다(실측 2026-09-15).
+const sonogongRentPlate = sonogongAdapter.adapt({
+  차량번호: '159허8252', 판매상태: '출고가능', 제조사: '기아', 모델: '카니발', 구분: '오공구독',
+  '12개월 반납형': '1,000,000',
+}, { spreadsheetId: '1WIFn5ObK_nCVGLTjj6rO96i6vxub1QzJmiVW0BpJLcA', tab: '구독재고', row: 3 });
+assert.equal(sonogongRentPlate.atom.productType, '중고렌트', '원문이 오공구독이라 해도 렌트번호판(허)이면 중고렌트로 보정');
+assert.ok(sonogongRentPlate.issues.some((i) => i.code === 'RENT_PLATE_MISMATCH'));
+
+const sonogongNonRentPlate = sonogongAdapter.adapt({
+  차량번호: '68로3197', 판매상태: '출고가능', 제조사: '현대', 모델: '아이오닉5', 구분: '오공구독',
+  '12개월 반납형': '1,000,000',
+}, { spreadsheetId: '1WIFn5ObK_nCVGLTjj6rO96i6vxub1QzJmiVW0BpJLcA', tab: '구독재고', row: 4 });
+assert.equal(sonogongNonRentPlate.atom.productType, '오공구독', '렌트번호판이 아니면 원문 구분을 그대로 존중');
+assert.equal(sonogongNonRentPlate.issues.some((i) => i.code === 'RENT_PLATE_MISMATCH'), false);
+
 // 오토플러스는 같은 12개월이라도 연 2만/3만 km가 서로 다른 가격 원자다.
 // 보증금 규칙도 발행기에서 즉석 생성하지 않고 atom.depositPolicy가 소유한다.
 const autoplus0103 = autoplusAdapter.adapt({
