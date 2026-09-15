@@ -36,8 +36,14 @@ export function normalizePlate(value) {
 }
 
 export function tcarDetailMatchesPlate(detail, plate) {
-  const sourcePlate = detail?.carData?.plateNumber ?? detail?.car?.plateNumber ?? detail?.plateNumber;
+  const sourcePlate = tcarDetailIdentity(detail).plateNumber;
   return !!normalizePlate(plate) && normalizePlate(sourcePlate) === normalizePlate(plate);
+}
+
+/** 현재 차량정보만 사용한다. checkInfo의 검사 당시 번호판/plateNumberOld는 현재 식별자가 아니다. */
+export function tcarDetailIdentity(detail) {
+  const current = detail?.formData?.carInfo ?? detail?.carData ?? detail?.car ?? detail;
+  return { plateNumber: String(current?.plateNumber ?? '').trim(), carId: String(current?.carId ?? '').trim() };
 }
 
 /** 티카 검색 응답은 같은 번호판이 정확히 한 건일 때만 채택한다. */

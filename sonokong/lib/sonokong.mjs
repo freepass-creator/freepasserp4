@@ -22,7 +22,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { normalizePlate, tcarDetailFromHtml, uniqueTcarSaleMatch } from './option-normalizer.mjs';
+import { normalizePlate, tcarDetailFromHtml, tcarDetailIdentity, uniqueTcarSaleMatch } from './option-normalizer.mjs';
 
 const 루트 = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 export const 토큰경로 = String(process.env.SONOGONG_TOKEN_PATH || '').trim() || path.join(루트, 'lib', 'wonja', '.손오공토큰.json');
@@ -125,6 +125,7 @@ export async function lotteSpec(url) {
   if (!r.ok) return null;
   const sourceHtml = await r.text();
   const detail = tcarDetailFromHtml(sourceHtml);
+  const identity = tcarDetailIdentity(detail);
   const h = sourceHtml.replace(/&quot;/g, '"').replace(/\\u002[fF]/g, '/');
   const pick = (f) => { const m = h.match(new RegExp('"' + f + '"\\s*:\\s*"([^"]*)"')); return m && m[1] ? m[1].trim() : null; };
   const num = (f) => { const m = h.match(new RegExp('"' + f + '"\\s*:\\s*"?([0-9]+)')); return m ? m[1] : null; };
@@ -136,8 +137,8 @@ export async function lotteSpec(url) {
     모델: pick('modelgroup'), 등급: pick('grade'), 세부트림: pick('subgrade'),
     풀네임: pick('carTitleName'),
     __paidOptList: Array.isArray(detail?.paidOptList) ? detail.paidOptList : null,
-    __plateNumber: String(detail?.carData?.plateNumber ?? detail?.car?.plateNumber ?? detail?.plateNumber ?? pick('plateNumber') ?? '').trim() || null,
-    __carId: String(detail?.carData?.carId ?? detail?.car?.carId ?? detail?.carId ?? pick('carId') ?? '').trim() || null,
+    __plateNumber: identity.plateNumber || null,
+    __carId: identity.carId || null,
   };
   return Object.values(o).some(Boolean) ? o : null;
 }

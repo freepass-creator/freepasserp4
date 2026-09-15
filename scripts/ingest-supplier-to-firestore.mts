@@ -198,8 +198,8 @@ const depositNote = (raw: string) => {
 };
 
 // ── 원천 리더 — 종류마다 «우리필드 키 행(Row)»을 낸다. 원자화는 하나로 공유한다. ──────
-type Row = { car: string; link?: string; rawLink?: string; imageUrls?: unknown; photoCollectedAt?: unknown; rawDescription?: string; rawPaidOptions?: unknown; rawMirroredPaidOptions?: unknown; rawOptionEvidence?: unknown; optionSource?: string; status: string; kind: string; maker: string; model: string; vname: string; trim: string; fuel: string; ext: string; int: string; km: string; opt: string; firstReg: string; cc: string; klass: string; price: Price; depNote: string; tab: string; row: string };
-const blank: Omit<Row, 'car' | 'tab' | 'row'> = { status: '', kind: '', maker: '', model: '', vname: '', trim: '', fuel: '', ext: '', int: '', km: '', opt: '', rawDescription: '', rawPaidOptions: null, rawMirroredPaidOptions: null, rawOptionEvidence: null, optionSource: '', firstReg: '', cc: '', klass: '', price: {}, depNote: '', imageUrls: [], photoCollectedAt: 0 };
+type Row = { car: string; link?: string; rawLink?: string; imageUrls?: unknown; photoCollectedAt?: unknown; rawDescription?: string; rawPaidOptions?: unknown; rawMirroredPaidOptions?: unknown; rawSonokongOptionNote?: unknown; rawOptionEvidence?: unknown; optionSource?: string; status: string; kind: string; maker: string; model: string; vname: string; trim: string; fuel: string; ext: string; int: string; km: string; opt: string; firstReg: string; cc: string; klass: string; price: Price; depNote: string; tab: string; row: string };
+const blank: Omit<Row, 'car' | 'tab' | 'row'> = { status: '', kind: '', maker: '', model: '', vname: '', trim: '', fuel: '', ext: '', int: '', km: '', opt: '', rawDescription: '', rawPaidOptions: null, rawMirroredPaidOptions: null, rawSonokongOptionNote: null, rawOptionEvidence: null, optionSource: '', firstReg: '', cc: '', klass: '', price: {}, depNote: '', imageUrls: [], photoCollectedAt: 0 };
 
 // 번호판 꼴만 차로 본다 — 헤더 밑 제목·프로모 배너·빈 행이 «차»로 새는 걸 막는다(오토플러스 실측).
 const isPlate = (s: string) => /\d{2,3}\s*[가-힣]\s*\d{4}/.test(S(s));
@@ -293,15 +293,16 @@ async function readRows(): Promise<Row[]> {
        * ★★**옵션 = 제조사 «선택»옵션만이다** — 사장님 2026-09-10 「옵션은 제조사선택옵션만 옵션이야」.
        *
        *   원 구매자가 트림 위에 «따로 고른» 것(선루프·드라이브와이즈 패키지 등)만 옵션이다.
-       *   ⇒ 필드 = 「유료옵션」(`tcarPaidOptions`). 값이 있는 차량만 이름을 정제해 싣고 원문 배열도 보존한다.
+       *   ⇒ 티카 게시차는 `tcarPaidOptions`, 티카에 없는 SON_NO_KONG 보유차는 ERP 화면의
+       *      `carOptionNote`(신차출고옵션)를 쓰고 각각의 원문과 출처를 보존한다.
        *
        * ★옵션 = «선택옵션(유료옵션=제조사선택옵션)»만.
        *   ⚠ `options`(장착사양=앱 「기본옵션」)는 «안 담는다** — 사장님 2026-09-10 「기본옵션은 우린 안 쓸 거야」.
-       * 손오공 설명문은 옵션 근거가 아니다. TCAR_EXTERNAL 상세의 `tcarPaidOptions`만 사용한다.
+       * `options[]` 기본장비와 일반 차량설명은 옵션 근거가 아니다.
        */
       const 선택옵션 = S(c.유료옵션);
       const 상세링크 = /^https?:\/\/.*(?:lotte|tcar|mycarsave)/i.test(S(c.상세url)) ? S(c.상세url) : '';
-      push({ car, link: 상세링크, rawLink: S(c.상세url원문), imageUrls: c.사진들, photoCollectedAt: c.상세시각 || dumpCollectedAt, rawDescription: S(c.설명), rawPaidOptions: c.유료옵션원문, rawMirroredPaidOptions: c.손오공유료옵션원문, rawOptionEvidence: c.유료옵션근거, optionSource: S(c.유료옵션출처), status, kind, maker: S(c.제조사), model: S(c.모델), vname: S(c.차명) || S(c.세부), fuel: S(c.연료), ext: S(c.외장), int: S(c.내장), km: c.주행거리 == null ? '' : String(c.주행거리), opt: 선택옵션, firstReg: S(c.최초등록) || S(c.연식), cc: c.배기량 == null ? '' : String(c.배기량), klass: '', price, tab: '손오공API', row: S(c.id) });
+      push({ car, link: 상세링크, rawLink: S(c.상세url원문), imageUrls: c.사진들, photoCollectedAt: c.상세시각 || dumpCollectedAt, rawDescription: S(c.설명), rawPaidOptions: c.유료옵션원문, rawMirroredPaidOptions: c.손오공유료옵션원문, rawSonokongOptionNote: c.손오공출고옵션원문, rawOptionEvidence: c.유료옵션근거, optionSource: S(c.유료옵션출처), status, kind, maker: S(c.제조사), model: S(c.모델), vname: S(c.차명) || S(c.세부), fuel: S(c.연료), ext: S(c.외장), int: S(c.내장), km: c.주행거리 == null ? '' : String(c.주행거리), opt: 선택옵션, firstReg: S(c.최초등록) || S(c.연식), cc: c.배기량 == null ? '' : String(c.배기량), klass: '', price, tab: '손오공API', row: S(c.id) });
     }
     return out;
   }
@@ -461,6 +462,7 @@ function atomize(row: Row, pinned: Map<string, Record<string, unknown>>): Atom {
     delete rawEvidence.옵션출처;
     delete rawEvidence.티카유료옵션;
     delete rawEvidence.손오공티카유료옵션;
+    delete rawEvidence.손오공출고옵션;
     delete rawEvidence.옵션근거;
     delete rawEvidence.티카링크원문;
   }
@@ -470,6 +472,7 @@ function atomize(row: Row, pinned: Map<string, Record<string, unknown>>): Atom {
   if (row.optionSource) rawEvidence.옵션출처 = row.optionSource;
   if (Array.isArray(row.rawPaidOptions)) rawEvidence.티카유료옵션 = row.rawPaidOptions;
   if (Array.isArray(row.rawMirroredPaidOptions)) rawEvidence.손오공티카유료옵션 = row.rawMirroredPaidOptions;
+  if (S(row.rawSonokongOptionNote)) rawEvidence.손오공출고옵션 = S(row.rawSonokongOptionNote);
   if (row.rawOptionEvidence && typeof row.rawOptionEvidence === 'object') rawEvidence.옵션근거 = row.rawOptionEvidence;
   if (row.rawLink) rawEvidence.티카링크원문 = row.rawLink;
   const atom: Atom = {
@@ -489,8 +492,8 @@ function atomize(row: Row, pinned: Map<string, Record<string, unknown>>): Atom {
     ...(S(row.status) || !pin ? statusDetail(row.status, pin?.locked_by_contract, pin?.vehicle_status) : null),
     mileage: row.km, options: row.opt,
     ...(src.kind === 'sonokong' ? {
-      option_evidence_status: row.optionSource === 'tcarPaidOptions' ? 'PASS' : 'HOLD',
-      option_evidence_reason: row.optionSource === 'tcarPaidOptions' ? '' : '동일 차량번호의 티카 유료옵션 원문 미확인',
+      option_evidence_status: ['tcarPaidOptions', 'sonokongCarOptionNote'].includes(row.optionSource || '') ? 'PASS' : 'HOLD',
+      option_evidence_reason: ['tcarPaidOptions', 'sonokongCarOptionNote'].includes(row.optionSource || '') ? '' : '현재 선택옵션 원문 미확인',
     } : null),
     ...(rawSeats(vname) ? { seats: rawSeats(vname) } : null),   // 원문에 인승 있으면만
     ...(Object.keys(row.price).length ? { price: row.price } : null),
@@ -684,6 +687,7 @@ if (VARIABLE) {
         || S(새원문.옵션출처) !== S(옛원문.옵션출처)
         || jsonSorted(새원문.티카유료옵션) !== jsonSorted(옛원문.티카유료옵션)
         || jsonSorted(새원문.손오공티카유료옵션) !== jsonSorted(옛원문.손오공티카유료옵션)
+        || S(새원문.손오공출고옵션) !== S(옛원문.손오공출고옵션)
         || jsonSorted(새원문.옵션근거) !== jsonSorted(옛원문.옵션근거)
         || S(새원문.티카링크원문) !== S(옛원문.티카링크원문)
       );
@@ -693,8 +697,9 @@ if (VARIABLE) {
       if (lMoved && src.kind === 'sonokong') upd.tica_link = S(a.tica_link);
       if (oMoved) { upd.options = S(a.options); }
       if (옵션갈이 && (oMoved || rawMoved)) {
-        upd.option_evidence_status = S(새원문.옵션출처) === 'tcarPaidOptions' ? 'PASS' : 'HOLD';
-        upd.option_evidence_reason = S(새원문.옵션출처) === 'tcarPaidOptions' ? '' : '동일 차량번호의 티카 유료옵션 원문 미확인';
+        const supported = ['tcarPaidOptions', 'sonokongCarOptionNote'].includes(S(새원문.옵션출처));
+        upd.option_evidence_status = supported ? 'PASS' : 'HOLD';
+        upd.option_evidence_reason = supported ? '' : '현재 선택옵션 원문 미확인';
       }
       /**
        * ⚠⚠ **시트가 읽는 칸은 `options` 가 아니라 «원문.옵션»이다**(`sales-atom-row` 「옵션(원문)」).
@@ -714,6 +719,7 @@ if (VARIABLE) {
           if (S(새원문.옵션출처)) m.옵션출처 = S(새원문.옵션출처); else delete m.옵션출처;
           if (Array.isArray(새원문.티카유료옵션)) m.티카유료옵션 = 새원문.티카유료옵션; else delete m.티카유료옵션;
           if (Array.isArray(새원문.손오공티카유료옵션)) m.손오공티카유료옵션 = 새원문.손오공티카유료옵션; else delete m.손오공티카유료옵션;
+          if (S(새원문.손오공출고옵션)) m.손오공출고옵션 = S(새원문.손오공출고옵션); else delete m.손오공출고옵션;
           if (새원문.옵션근거 && typeof 새원문.옵션근거 === 'object') m.옵션근거 = 새원문.옵션근거; else delete m.옵션근거;
           if (S(새원문.티카링크원문)) m.티카링크원문 = S(새원문.티카링크원문); else delete m.티카링크원문;
         }
@@ -752,7 +758,8 @@ if (VARIABLE) {
   }
 
   /**
-   * ★RP012 옵션 출처 문지기 — 티카 유료옵션 원문만 판매/ERP 옵션으로 인정한다.
+   * ★RP012 옵션 출처 문지기 — 티카 paidOptList 또는 손오공 보유차 ERP의
+   * carOptionNote(화면명 신차출고옵션)만 판매/ERP 옵션으로 인정한다.
    * 과거 기본장비(options[])·설명문·출처 미확정 값은 화면 필드에서 비우되 원문.옵션격리에 보존한다.
    * 현재 덤프에 있는 차는 이번 원자를 우선해 판단해야, 방금 tcarPaidOptions를 받은 차를 옛 문서 기준으로
    * 다시 격리하는 순서 역전이 생기지 않는다.
@@ -764,7 +771,7 @@ if (VARIABLE) {
       const effective = live || c;
       const raw = ((effective as Record<string, unknown>).원문 as Record<string, unknown> | undefined) || {};
       const oldRaw = ((c as Record<string, unknown>).원문 as Record<string, unknown> | undefined) || {};
-      return S(raw.옵션출처) !== 'tcarPaidOptions'
+      return !['tcarPaidOptions', 'sonokongCarOptionNote'].includes(S(raw.옵션출처))
         && (!!S((c as Record<string, unknown>).options) || !!S(oldRaw.옵션) || !!S(oldRaw.옵션출처));
     });
     for (let i = 0; i < unsupported.length; i += 400) {

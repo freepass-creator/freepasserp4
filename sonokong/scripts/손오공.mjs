@@ -15,7 +15,7 @@ import { normalizePlate, tcarPaidOptionNames } from '../lib/option-normalizer.mj
 const 루트 = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const 출력 = path.join(루트, 'lib', 'wonja', '손오공차량.json');
 const 조용 = process.argv.includes('--조용');
-const 캐시규격 = 'tcar-direct-paid-options-v2';
+const 캐시규격 = 'tcar-direct-paid-options-v3-current-identity';
 const N = (n) => (n == null ? '' : Number(n).toLocaleString('ko-KR'));
 const 날 = (s) => (s ? String(s).slice(0, 10) : '');
 
@@ -46,9 +46,15 @@ function 정규화(r, d, 버킷값) {
   const opts = (d?.options || []).filter((o) => o.isApplied).map((o) => o.optionName);
   const 티카직접원문 = d?.__lotte?.__paidOptList;
   const 티카직접확인 = Array.isArray(티카직접원문);
+  const 손오공출고옵션원문 = 버킷값 === 'SON_NO_KONG' && typeof d?.carOptionNote === 'string'
+    ? d.carOptionNote.trim()
+    : '';
   // 표시값은 번호판까지 대조한 티카 상세 원문만. 손오공의 미러 필드는 원문으로만 보존한다.
   const 원문유료옵션 = 티카직접확인 ? 티카직접원문 : null;
-  const 유료 = tcarPaidOptionNames(원문유료옵션);
+  // 손오공 보유차가 티카에 현재 게시되지 않은 경우에만, 손오공 ERP가 화면에서
+  // 「신차출고옵션」으로 표시하는 carOptionNote를 현재 선택옵션 원문으로 사용한다.
+  // 티카 원문이 있으면 차량번호까지 검증된 paidOptList가 항상 우선한다.
+  const 유료 = 티카직접확인 ? tcarPaidOptionNames(원문유료옵션) : 손오공출고옵션원문;
   const 정제 = d?.__lotte
     ? Object.fromEntries(Object.entries(d.__lotte).filter(([key]) => !key.startsWith('__')))
     : null;
@@ -74,8 +80,9 @@ function 정규화(r, d, 버킷값) {
     계약중: r.hasActiveContract === true,
     옵션: opts.join(', '),
     유료옵션: 유료,
-    유료옵션출처: 티카직접확인 ? 'tcarPaidOptions' : null,
+    유료옵션출처: 티카직접확인 ? 'tcarPaidOptions' : (손오공출고옵션원문 ? 'sonokongCarOptionNote' : null),
     유료옵션원문: 원문유료옵션 ?? null,
+    손오공출고옵션원문: 손오공출고옵션원문 || null,
     손오공유료옵션원문: d?.tcarPaidOptions ?? null,
     유료옵션근거: 티카직접확인 ? {
       원천: 'tcar:jsonData.paidOptList',
@@ -83,12 +90,17 @@ function 정규화(r, d, 버킷값) {
       티카url: d?.__tcarOptionUrl || d?.carSourceUrl || null,
       티카차번: d?.__lotte?.__plateNumber || null,
       티카carId: d?.__lotte?.__carId || null,
+    } : (손오공출고옵션원문 ? {
+      원천: 'sokrc:homepageView.carOptionNote',
+      매칭: '손오공ERP상품ID+차량번호',
+      손오공상품id: r.id,
+      손오공차번: r.carNumber,
     } : ((Array.isArray(d?.tcarPaidOptions) || d?.__sourceUrlRaw) ? {
       원천: Array.isArray(d?.tcarPaidOptions) ? 'sokrc:tcarPaidOptions' : null,
       상태: 'HOLD',
       사유: '동일 차량번호의 현재 티카 상세 원문 미확인',
       티카링크원문: d?.__sourceUrlRaw || null,
-    } : null),
+    } : null)),
     설명: d?.carDescription ?? null,
     사진들: (d?.images || []).sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)).map((im) => im.imageUrl).filter(Boolean),
     상세url: /^https?:\/\//.test(String(d?.carSourceUrl || '')) ? d.carSourceUrl : null, // 번호판까지 검증된 티카 상세만

@@ -29,3 +29,10 @@ assert.equal(uniqueTcarSaleMatch({ result: { data: [] } }, '12가3456'), null);
 assert.equal(uniqueTcarSaleMatch({ result: { data: [{ carId: 7, plateNumber: '12가3456' }, { carId: 8, plateNumber: '12가3456' }] } }, '12가3456'), null);
 
 console.log('티카 상세 원문·차량번호 매칭: 9/9 PASS');
+
+// 검사자료가 먼저 나오고 옛 번호판이 달라도 현재 차량정보를 사용한다.
+assert.equal(tcarDetailMatchesPlate({ formData: { checkInfo: { carData: { plateNumber: '99나9999' } }, carInfo: { plateNumber: '12가3456', carId: '7' } } }, '12가3456'), true);
+assert.equal(tcarDetailMatchesPlate({ formData: { checkInfo: { carData: { plateNumber: '12가3456' } }, carInfo: { plateNumber: '99나9999' } } }, '12가3456'), false);
+assert.equal(tcarDetailMatchesPlate({ formData: { checkInfo: { carData: { plateNumber: '12가3456' } } } }, '12가3456'), false);
+assert.equal(tcarDetailMatchesPlate({ formData: { carInfo: { plateNumber: '' } }, carData: { plateNumber: '12가3456' } }, '12가3456'), false);
+console.log('현재 차량정보 우선·검사자료 배제: 4/4 PASS');
