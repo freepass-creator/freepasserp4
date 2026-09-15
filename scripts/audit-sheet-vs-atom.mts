@@ -31,7 +31,7 @@ import { channelCompanyOf } from '../lib/domain/channel-company';
 import { compareSalesRows, loadSalesRowContext, makeCell, MISSING, tabOf } from '../lib/domain/sales-atom-row';
 import { channelColumnName, salesPublishedColumns } from '../lib/domain/sales-published-tab-columns';
 import { HAHUHO_PRODUCT_SHEET_ID, SALES_SHEET_ID } from '../lib/domain/legacy-sheets';
-import { retroLayout, retroHeadToColumn, retroUsesColumn, retroSameValue, inRetroSummary, RETRO_SUMMARY_TAB, retroHasLongFee } from '../lib/domain/channel-retro-skin';
+import { retroHeadToColumn, retroUsesColumn, retroSameValue, inRetroSummary, RETRO_SUMMARY_TAB, retroHasLongFee, retroTabLayout, retroTabRank } from '../lib/domain/channel-retro-skin';
 import { googleSheetsServiceAccount } from '../lib/server/google-service-account';
 
 nextEnv.loadEnvConfig(process.cwd());
@@ -225,6 +225,12 @@ let f86줄 = 0;
   /** 「종합」은 회사 탭이 아니다 — 같은 차가 회사 탭과 두 번 서는 게 정상이라 아래에서 따로 본다. */
   const 종합제목 = 모든탭.find((t) => t.startsWith(`${RETRO_SUMMARY_TAB} `)) || '';
   const titles = 모든탭.filter((t) => t !== 종합제목);
+  /** ★탭 차례 = «굳힌 표»(RETRO_TAB_ORDER) — 대수로 섞이지 않는다(2026-09-16). */
+  {
+    const 실제 = 모든탭.map((t) => t.split(' ')[0]);
+    const 기대 = [...실제].sort((a, b) => retroTabRank(a) - retroTabRank(b));
+    if (JSON.stringify(실제) !== JSON.stringify(기대)) f86TabShapeViolations.push(`탭 차례가 굳힌 표와 다르다: ${실제.join('·')}`);
+  }
   const expectedCompanies = new Map<string, number>();
   for (const row of f01) {
     if (!f86대상차.has(row.car)) continue;
@@ -241,11 +247,9 @@ let f86줄 = 0;
   for (const company of expectedCompanies.keys()) {
     const companyRows = f01.filter((row) => f86대상차.has(row.car) && channelCompanyOf(row.cells['공급사'], rowCtx.nameByProvider) === company);
     /** ★F86 은 옛 「종합」 43칸이다(2026-09-15 새 구현) — 발행기와 «같은 표»(`retroLayout`)로 기대 머리글을 만든다. */
-    expectedHeaders.set(company, retroLayout(channelColumns.filter((column) => {
-      const optionalFee = isMoneyColumn(column) && !/가격/.test(column);
-      if (!optionalFee) return true;
-      return companyRows.some((row) => Object.entries(row.cells).some(([raw, value]) => channelColumnName(raw) === column && S(value) && S(value) !== '-'));
-    })).map((c) => c.head));
+    /** ★2026-09-16 «굳힌 양식» — 기대 머리글도 데이터가 아니라 발행기와 같은 표(`retroTabLayout`)에서. */
+    void companyRows;
+    expectedHeaders.set(company, (retroTabLayout(company) || []).map((c) => c.head));
   }
   if (expectedMark) {
     for (const title of titles) if (!expectedTitles.has(title)) f86TabShapeViolations.push(`예상 밖 탭: ${title}`);
@@ -294,11 +298,8 @@ let f86줄 = 0;
       const grid = (await readTabs(F86, [종합제목])).get(종합제목) || [];
       const hdr = grid[0] || [];
       const 종합F01 = f01.filter((row) => f86대상차.has(row.car) && inRetroSummary(channelCompanyOf(row.cells['공급사'], rowCtx.nameByProvider)));
-      const 기대머리 = retroLayout(channelColumns.filter((column) => {
-        const optionalFee = isMoneyColumn(column) && !/가격/.test(column);
-        if (!optionalFee) return true;
-        return 종합F01.some((row) => Object.entries(row.cells).some(([raw, value]) => channelColumnName(raw) === column && S(value) && S(value) !== '-'));
-      }), { 모든기간: true }).map((c) => c.head);
+      void 종합F01;
+      const 기대머리 = (retroTabLayout(RETRO_SUMMARY_TAB) || []).map((c) => c.head);
       if (JSON.stringify(hdr) !== JSON.stringify(기대머리)) f86HeaderViolations.push(`종합: 실제 ${hdr.length}열 ↔ 기대 ${기대머리.length}열`);
       const ci = hdr.indexOf('차량번호'); const ni = hdr.indexOf('공급사명');
       const 실제 = ci < 0 ? [] : grid.slice(1).map((r) => K(r[ci])).filter(Boolean);

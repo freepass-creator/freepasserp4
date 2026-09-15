@@ -27,7 +27,7 @@ import { loadSalesRowContext, makeCell, tabOf, TAB_ORDER, compareSalesRows } fro
 import { buildSalesFormatRequests, columnWidths, isMoneyColumn } from '../lib/domain/sales-sheet-format';
 import { HAHUHO_PRODUCT_SHEET_ID } from '../lib/domain/legacy-sheets';
 import { ensureNoticeTab } from '../lib/server/channel-sheet-tabs';
-import { applyRetroSkin, inRetroSummary, RETRO_SUMMARY_TAB, retroCellValue, retroHasLongFee, retroLayout, retroTabColorRequest } from '../lib/domain/channel-retro-skin';
+import { applyRetroSkin, inRetroSummary, RETRO_SHORT, RETRO_SUMMARY_TAB, retroCellValue, retroHasLongFee, retroTabColorRequest, retroTabLayout, retroTabRank } from '../lib/domain/channel-retro-skin';
 import { channelColumnName, salesPublishedColumns } from '../lib/domain/sales-published-tab-columns';
 import { firebaseAdminApp } from '../lib/server/firebase-admin';
 import { googleSheetsServiceAccount } from '../lib/server/google-service-account';
@@ -213,7 +213,8 @@ const modelCount = new Map<string, number>();
 for (const r of rowsAll) { const m = S(r.atom.model); if (m) modelCount.set(m, (modelCount.get(m) || 0) + 1); }
 const cmp = compareSalesRows(modelSold, modelCount);
 for (const list of by.values()) list.sort((a, b) => cmp(a.atom, b.atom));
-const order = [...by.entries()].sort((a, b) => b[1].length - a[1].length);
+/** 탭 차례 — 하허호는 «굳힌 표»(RETRO_TAB_ORDER), 그 밖은 상품 많은 순. */
+const order = [...by.entries()].sort((a, b) => (RETRO ? retroTabRank(a[0]) - retroTabRank(b[0]) : 0) || b[1].length - a[1].length);
 /** ★하허호 레트로만 — 「종합」 탭(손오공·오토플러스 뺀 렌트사 규격 차)을 공지사항 바로 뒤에 둔다. `RETRO_SUMMARY_TAB` 머리말. */
 const 종합줄 = RETRO ? order.filter(([co]) => inRetroSummary(co)).flatMap(([, l]) => l).sort((a, b) => cmp(a.atom, b.atom)) : [];
 if (RETRO && 단기만.length) console.log(`   ○ 단기 요금만 있는 차 ${단기만.length}대 — 하허호에 안 싣는다: ${단기만.slice(0, 6).map((x) => `${S(x.cells['차량번호'])}(${x.company})`).join(' · ')}`);
@@ -224,6 +225,29 @@ for (const [k, list] of order) {
   const g = new Map<string, number>(); for (const x of list) g.set(x.kind, (g.get(x.kind) || 0) + 1);
   const fee = COLUMNS.filter((c) => isMoneyColumn(c) && !/가격/.test(c) && list.some((x) => { const v = S(x.cells[c]); return !!v && v !== '-'; }));
   console.log(`   ${String(list.length).padStart(4)}  ${k.padEnd(10)} 요금 ${String(fee.length).padStart(2)}칸  ${fee.slice(0, 7).join(' · ')}${fee.length > 7 ? ' …' : ''}`);
+}
+/**
+ * ★★**하허호 «굳힌 양식» 문지기** (사장님 2026-09-16 「양식을 굳히라고 … 매번 달라지지 말고」).
+ *   표(RETRO_TAB_ORDER·RETRO_TAB_FEES)에 없는 회사, 표에 없는 요금 칸에 «값이 있는» 차가 오면 멈춘다.
+ *   칸을 몰래 늘리면 양식이 흔들리고, 몰래 빼면 그 요금이 채널에 안 보인다 — 둘 다 안 한다. 사람이 여쭙고 표에 넣는다.
+ */
+const 양식어긋남: string[] = [];
+if (RETRO) {
+  for (const [co, list] of order) {
+    const lay = retroTabLayout(co);
+    if (!lay) { 양식어긋남.push(`표에 없는 회사 「${co}」 ${list.length}대 — RETRO_TAB_ORDER·RETRO_TAB_FEES 에 한 줄 넣어야 한다`); continue; }
+    const heads = new Set(lay.map((c) => c.head));
+    const 칸들 = new Set(list.flatMap((x) => Object.keys(x.cells)));
+    for (const c of 칸들) {
+      if (!isMoneyColumn(c) || /가격/.test(c) || RETRO_SHORT.includes(c) || heads.has(c)) continue;
+      const n = list.filter((x) => { const v = S(x.cells[c]); return !!v && v !== '-'; }).length;
+      if (n) 양식어긋남.push(`「${co}」 표에 없는 요금 칸 「${c}」에 값 ${n}대 — RETRO_TAB_FEES 에 넣어야 채널에 보인다`);
+    }
+  }
+  if (양식어긋남.length) {
+    for (const m of 양식어긋남) console.error(`  ⛔ 굳힌 양식 밖 — ${m}`);
+    if (APPLY) { console.error('  ⛔ 하허호 F86 굳힌 양식과 다른 데이터 — 채널시트를 건드리지 않고 멈춘다(lib/domain/channel-retro-skin.ts 표).'); process.exit(1); }
+  } else console.log('   ○ 굳힌 양식 — 탭 차례·요금 칸 표 안에 다 든다');
 }
 if (!APPLY) { console.log('\n※ dry-run — --apply 로 만든다.\n'); process.exit(0); }
 
@@ -321,7 +345,9 @@ for (const [company, list] of 탭들) {
    *   칸 표 정본 = `retroLayout`(감사기와 같은 표). 값은 원자에서 만든 F01 칸(`x.cells`)과 원자 필드에서 옮긴다.
    */
   /** 회사 탭 = 쓰는 요금 칸만 · 「종합」 = 렌트사 규격 9칸 늘(`retroLayout` 머리말). */
-  const 레트로 = RETRO ? retroLayout(쓸칸, { 모든기간: company === RETRO_SUMMARY_TAB }) : null;
+  /** 하허호 = «굳힌 표»의 칸(데이터를 안 본다 · 표 밖이면 위 문지기가 이미 멈췄다). */
+  const 레트로 = RETRO ? retroTabLayout(company) : null;
+  if (RETRO && !레트로) throw new Error(`굳힌 양식 표에 없는 탭: ${company}`);
   const cols = 레트로 ? 레트로.map((c) => c.head) : 쓸칸;
   const title = `${company} ${mark} · ${list.length}대`;
   const old = have.find(([t]) => t.startsWith(`${company} `));

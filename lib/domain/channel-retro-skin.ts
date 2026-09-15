@@ -140,6 +140,69 @@ export const RETRO_SUMMARY_TAB = '종합';
 export const RETRO_SUMMARY_EXCLUDE: readonly string[] = ['손오공', '오토플러스'];
 export const inRetroSummary = (company: string): boolean => !!company && !RETRO_SUMMARY_EXCLUDE.includes(company);
 
+/**
+ * ★★★**«굳힌 양식» — 매 회차 같다** (사장님 2026-09-16 「하허호 시트 양식을 굳히라고 … 또 매번 달라지지 말고」).
+ *   그때까지 세 가지가 «데이터 따라» 회차마다 달라졌다(실측 2026-09-16 운영 F86):
+ *     ① 회사 탭 요금 칸 = 그 회차에 값이 있는 칸 → 한 대만 새 기간을 받아도 칸이 늘고 줄었다
+ *     ② 칸 폭 = 그 회차 값 길이 → 같은 「세부모델」 칸이 75~180, 「옵션」이 62~857 로 탭·회차마다 달랐다
+ *     ③ 탭 차례 = 대수 많은 순 → 차가 오가면 탭 자리가 바뀌었다
+ *   ⇒ 셋 다 «표»로 굳힌다. 표에 없는 회사 · 표에 없는 요금 칸에 값이 오면 발행기가 «멈춘다»
+ *     (칸을 몰래 늘리지도, 요금을 감추지도 않는다) — 사장님께 여쭙고 이 표에 한 줄 넣는다(PROVIDER_SALES_TAB 과 같은 방식).
+ *   표 값 = 2026-09-16 운영 F86 실측 — 요금 칸은 그날 칸 그대로 · 폭은 탭들 중 가장 넓은 값.
+ */
+export const RETRO_TAB_ORDER: readonly string[] = [
+  '종합', '손오공', '이안카', '아이카', '오토플러스', '빌린카', '아이언', '우리캐피탈', '케이에이치',
+  '에스에이', '스타스카이', '제이앤제이', '웰릭스', '에코', '경진', '리더스', '마음카', '센트로', '렌트존',
+];
+export const retroTabRank = (tab: string): number => { const i = RETRO_TAB_ORDER.indexOf(tab); return i < 0 ? 999 : i; };
+const 장기5: readonly string[] = ['장기보증', '24개월', '36개월', '48개월', '60개월'];
+export const RETRO_TAB_FEES: Record<string, readonly string[]> = {
+  종합: 장기5,
+  손오공: ['보증금 반납형', '12개월 반납형', '24개월 반납형', '36개월 반납형', '48개월 반납형', '60개월 반납형', '보증금 인수형', '36개월 인수형', '48개월 인수형', '60개월 인수형', '12개월 인수형', '24개월 인수형'],
+  이안카: 장기5,
+  아이카: ['장기보증', '36개월', '48개월'],
+  오토플러스: ['보증금', '12개월 2만km', '12개월 3만km', '18개월 2만km', '18개월 3만km', '24개월 2만km', '24개월 3만km', '36개월 2만km', '36개월 3만km'],
+  빌린카: 장기5,
+  아이언: ['장기보증', '36개월', '48개월', '60개월'],
+  우리캐피탈: ['장기보증', '36개월', '48개월', '60개월'],
+  케이에이치: 장기5,
+  에스에이: ['장기보증', '24개월', '36개월', '48개월'],
+  스타스카이: 장기5,
+  제이앤제이: 장기5,
+  웰릭스: ['장기보증', '24개월', '36개월', '48개월'],
+  에코: ['장기보증', '24개월', '36개월', '48개월'],
+  경진: ['장기보증', '24개월', '36개월', '48개월'],
+  리더스: ['장기보증', '24개월', '36개월'],
+  마음카: ['24개월', '36개월', '48개월'],
+  센트로: ['장기보증', '48개월'],
+  렌트존: ['장기보증', '48개월', '60개월'],
+};
+/** 탭 하나의 칸 목록 — «굳힌 표»에서만 만든다(데이터를 보지 않는다). 표에 없는 탭이면 null → 발행기가 멈춘다. */
+export function retroTabLayout(tab: string): RetroColumn[] | null {
+  const fees = RETRO_TAB_FEES[tab];
+  if (!fees) return null;
+  const out: RetroColumn[] = [];
+  for (const e of RETRO_LAYOUT) {
+    if (e.src.kind === 'fee') { for (const f of fees) out.push({ head: f, src: { kind: 'col', name: f } }); continue; }
+    out.push(e as RetroColumn);
+  }
+  return out;
+}
+/** 칸 폭(px) — «굳힌 표». 값 길이로 재지 않는다. */
+export const RETRO_WIDTH: Record<string, number> = {
+  공급사명: 82, 배차상태: 75, 구분: 69, 차량번호: 75, 차종분류: 101, 세부모델: 180, 연료: 82, 외장: 62, 내장: 62, Km: 62,
+  장기보증: 75, '24개월': 75, '36개월': 75, '48개월': 75, '60개월': 75, '보증금 반납형': 233, '보증금 인수형': 233, 보증금: 239,
+  트림: 342, 옵션: 857, 최초등록: 95, 소비자가격: 88, 제조사: 82, 배기량: 62, 차고지: 62, 운전자범위: 88, 연주행: 69, 분납: 62,
+  '21세': 82, '23세': 82, '1만+': 88, 대인: 101, 대물: 141, 자차: 154, 자손: 207, 무보험: 95, 정비: 266, 전용계좌: 292, 비고: 62,
+  공급사코드: 88, 정책코드: 101, 사진: 62, 차번링크: 75,
+};
+export function retroWidthOf(name: string): number {
+  if (RETRO_WIDTH[name]) return RETRO_WIDTH[name];
+  if (/km$/i.test(name)) return 101;
+  if (/반납형|인수형/.test(name)) return 108;
+  return 75;
+}
+
 export const RETRO_FONT = 'Malgun Gothic';
 export const RETRO_SIZE = 9;
 export const RETRO_ROW_PX = 21;
@@ -317,14 +380,11 @@ export function applyRetroSkin(reqs: Req[], linkReqs: Req[], p: { gid: number; c
     if (!nf) return;
     out.push({ repeatCell: { range: { sheetId: gid, startRowIndex: H + 1, startColumnIndex: i, endColumnIndex: i + 1 }, cell: { userEnteredFormat: { numberFormat: nf } }, fields: 'userEnteredFormat.numberFormat' } });
   });
-  // ④½ 긴 글 칸 폭(트림·옵션) — 위 `fitWidth`
-  if (p.body) {
-    columns.forEach((name, i) => {
-      if (!LONG_TEXT_MAX[name]) return;
-      const px = fitWidth(name, p.body!.map((r) => r[i] || ''));
-      out.push({ updateDimensionProperties: { range: { sheetId: gid, dimension: 'COLUMNS', startIndex: i, endIndex: i + 1 }, properties: { pixelSize: px }, fields: 'pixelSize' } });
-    });
-  }
+  // ④½ 칸 폭 — «굳힌 표»(RETRO_WIDTH) 그대로, 모든 칸. 값 길이로 재지 않는다(2026-09-16 「매번 달라지지 말고」).
+  //   (옛 `fitWidth`·`LONG_TEXT_MAX` 는 이제 안 쓴다 — 그 값이 회차마다 폭을 흔들었다.)
+  columns.forEach((name, i) => {
+    out.push({ updateDimensionProperties: { range: { sheetId: gid, dimension: 'COLUMNS', startIndex: i, endIndex: i + 1 }, properties: { pixelSize: retroWidthOf(name) }, fields: 'pixelSize' } });
+  });
   // ⑤ 줄 높이
   out.push({ updateDimensionProperties: { range: { sheetId: gid, dimension: 'ROWS', startIndex: 0 }, properties: { pixelSize: RETRO_ROW_PX }, fields: 'pixelSize' } });
   return out;

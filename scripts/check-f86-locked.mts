@@ -13,7 +13,8 @@
 import { readFileSync } from 'node:fs';
 import {
   applyRetroSkin, inRetroSummary, RETRO_FONT, RETRO_LAYOUT, RETRO_ROW_PX, RETRO_SHORT, RETRO_SIZE,
-  RETRO_SUMMARY_EXCLUDE, RETRO_SUMMARY_TAB, retroCellValue, retroHasLongFee, retroLayout, retroTabColorRequest, retroUsesColumn,
+  RETRO_SUMMARY_EXCLUDE, RETRO_SUMMARY_TAB, retroCellValue, retroHasLongFee, retroTabColorRequest, retroUsesColumn,
+  RETRO_TAB_FEES, RETRO_TAB_ORDER, retroTabLayout, retroWidthOf,
 } from '../lib/domain/channel-retro-skin';
 
 const read = (f: string) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
@@ -40,12 +41,29 @@ must(RETRO_LAYOUT[0]?.src.kind === 'company', '맨 앞 「공급사명」이 회
    「하허호는 단기칸 빼」(12개월까지) · 「자기 시트는 자기 고유 대여료만」 · 종합은 렌트사 규격 칸 늘   */
 must(J(RETRO_SHORT) === J(['단기보증', '1개월', '6개월', '12개월']), `단기 칸 넷(단기보증·1개월·6개월·12개월)이 바뀌었습니다: ${J(RETRO_SHORT)}`, `${SKIN} · RETRO_SHORT — ${MANUAL} 3`);
 const feeSlot = (heads: string[]) => heads.slice(heads.indexOf('Km') + 1, heads.indexOf('트림'));
-const 회사탭 = feeSlot(retroLayout(['단기보증', '1개월', '12개월', '36개월', '48개월', '12개월 반납형', '보증금 반납형']).map((c) => c.head));
-must(J(회사탭) === J(['36개월', '48개월', '12개월 반납형', '보증금 반납형']),
-  `회사 탭 요금 칸이 «쓰는 칸만 · 단기 없음 · 고유 요금은 뒤»가 아닙니다: ${회사탭.join('·')}`, `${SKIN} · retroLayout — ${MANUAL} 3`);
-const 종합탭 = feeSlot(retroLayout(['단기보증', '36개월'], { 모든기간: true }).map((c) => c.head));
-must(J(종합탭) === J(['장기보증', '24개월', '36개월', '48개월', '60개월']),
-  `종합 탭 요금 칸이 «장기보증·24~60개월 5칸 늘»이 아닙니다: ${종합탭.join('·')}`, `${SKIN} · retroLayout({모든기간}) — ${MANUAL} 3`);
+/* ── ⑤ 굳힌 양식 — 탭 차례 · 탭별 요금 칸 · 칸 폭 ─────────────────
+   사장님 2026-09-16 「하허호 시트 양식을 굳히라고 … 또 매번 달라지지 말고」 — 데이터 따라 흔들리던 셋을 표로 박았다.   */
+const L5 = ['장기보증', '24개월', '36개월', '48개월', '60개월'];
+const ORDER = ['종합', '손오공', '이안카', '아이카', '오토플러스', '빌린카', '아이언', '우리캐피탈', '케이에이치', '에스에이', '스타스카이', '제이앤제이', '웰릭스', '에코', '경진', '리더스', '마음카', '센트로', '렌트존'];
+const FEES: Record<string, string[]> = {
+  종합: L5,
+  손오공: ['보증금 반납형', '12개월 반납형', '24개월 반납형', '36개월 반납형', '48개월 반납형', '60개월 반납형', '보증금 인수형', '36개월 인수형', '48개월 인수형', '60개월 인수형', '12개월 인수형', '24개월 인수형'],
+  이안카: L5, 아이카: ['장기보증', '36개월', '48개월'],
+  오토플러스: ['보증금', '12개월 2만km', '12개월 3만km', '18개월 2만km', '18개월 3만km', '24개월 2만km', '24개월 3만km', '36개월 2만km', '36개월 3만km'],
+  빌린카: L5, 아이언: ['장기보증', '36개월', '48개월', '60개월'], 우리캐피탈: ['장기보증', '36개월', '48개월', '60개월'], 케이에이치: L5,
+  에스에이: ['장기보증', '24개월', '36개월', '48개월'], 스타스카이: L5, 제이앤제이: L5, 웰릭스: ['장기보증', '24개월', '36개월', '48개월'],
+  에코: ['장기보증', '24개월', '36개월', '48개월'], 경진: ['장기보증', '24개월', '36개월', '48개월'], 리더스: ['장기보증', '24개월', '36개월'],
+  마음카: ['24개월', '36개월', '48개월'], 센트로: ['장기보증', '48개월'], 렌트존: ['장기보증', '48개월', '60개월'],
+};
+must(J(RETRO_TAB_ORDER) === J(ORDER), `굳힌 탭 차례가 바뀌었습니다: ${RETRO_TAB_ORDER.join('·')}`, `${SKIN} · RETRO_TAB_ORDER — ${MANUAL} 5`);
+must(J(Object.keys(RETRO_TAB_FEES).sort()) === J(Object.keys(FEES).sort()) && Object.entries(FEES).every(([k, v]) => J(RETRO_TAB_FEES[k]) === J(v)),
+  '굳힌 탭별 요금 칸 표가 바뀌었습니다.', `${SKIN} · RETRO_TAB_FEES — ${MANUAL} 5`);
+must(RETRO_TAB_ORDER.every((k) => !!RETRO_TAB_FEES[k]) && Object.keys(RETRO_TAB_FEES).every((k) => RETRO_TAB_ORDER.includes(k)), '탭 차례 표와 요금 칸 표의 회사가 서로 다릅니다.', `${SKIN} — ${MANUAL} 5`);
+must(retroTabLayout('표에없는회사') === null, '표에 없는 회사도 칸을 만들어 줍니다 — 멈춰야 합니다.', `${SKIN} · retroTabLayout — ${MANUAL} 5`);
+must(J(feeSlot((retroTabLayout('아이카') || []).map((c) => c.head))) === J(['장기보증', '36개월', '48개월']) && J(feeSlot((retroTabLayout('종합') || []).map((c) => c.head))) === J(L5),
+  '탭 칸이 «굳힌 표»에서 안 나옵니다.', `${SKIN} · retroTabLayout — ${MANUAL} 5`);
+const W: Record<string, number> = { 공급사명: 82, 세부모델: 180, 트림: 342, 옵션: 857, 전용계좌: 292, 장기보증: 75, '36개월': 75, '12개월 반납형': 108, '12개월 2만km': 101, '보증금 반납형': 233, 보증금: 239 };
+must(Object.entries(W).every(([k, v]) => retroWidthOf(k) === v), `굳힌 칸 폭이 바뀌었습니다: ${Object.keys(W).map((k) => `${k} ${retroWidthOf(k)}`).join(' · ')}`, `${SKIN} · RETRO_WIDTH — ${MANUAL} 5`);
 must(!retroUsesColumn('12개월') && retroUsesColumn('36개월'), '감사기가 단기 칸을 «F86 에 실리는 칸»으로 셉니다(누락으로 웁니다).', `${SKIN} · retroUsesColumn — ${MANUAL} 3`);
 const 셀 = (o: Record<string, string>) => retroHasLongFee((c) => o[c], Object.keys(o));
 must(!셀({ '12개월': '600,000' }) && !셀({ '36개월': '-' }) && !셀({}) && 셀({ '36개월': '500,000' }),
@@ -77,6 +95,9 @@ must(bodyInk(0) === '34a853', `구분 글자색이 초록(34A853)이 아닙니�
 must(bodyInk(6) === '0000ff', `배차상태 글자색이 파랑이 아닙니다: ${bodyInk(6)}`, `${SKIN} · BODY_INK — ${MANUAL} 4`);
 must(bodyBg(3) === 'ffff00' && bodyInk(3) === 'ff0000', `분납 칸(노란 바탕 · 빨강 글자)이 바뀌었습니다: ${bodyBg(3)} · ${bodyInk(3)}`, `${SKIN} · BODY_BG — ${MANUAL} 4`);
 must(nf(4) === 'yy-m-d' && nf(5) === '#,##0' && nf(1) === '#,##0', `숫자·날짜 형식(요금·배기량 #,##0 · 최초등록 yy-m-d)이 바뀌었습니다: ${nf(1)} · ${nf(5)} · ${nf(4)}`, `${SKIN} · applyRetroSkin ④¼ — ${MANUAL} 4`);
+const 폭요청 = reqs.filter((r) => r.updateDimensionProperties?.range?.dimension === 'COLUMNS' && r.updateDimensionProperties?.properties?.pixelSize);
+must(cols.every((name, i) => last(폭요청.filter((r) => r.updateDimensionProperties.range.startIndex === i))?.updateDimensionProperties.properties.pixelSize === retroWidthOf(name)),
+  '칸 폭이 «굳힌 표»로 안 박힙니다 — 값 길이로 재면 회차마다 폭이 흔들립니다.', `${SKIN} · applyRetroSkin ④½ — ${MANUAL} 5`);
 must(retroCellValue('36개월', '1,050,000') === 1050000 && retroCellValue('최초등록', '2024-01-01') === 45292 && retroCellValue('단기보증', '무보증') === '무보증' && retroCellValue('최초등록', '22-03') === '22-03',
   '숫자·날짜로 넣는 값 변환(retroCellValue)이 바뀌었습니다.', `${SKIN} · retroCellValue — ${MANUAL} 4`);
 
@@ -84,7 +105,11 @@ must(retroCellValue('36개월', '1,050,000') === 1050000 && retroCellValue('최�
 const build = read('scripts/build-channel-supplier-sheet.mts');
 const audit = read('scripts/audit-sheet-vs-atom.mts');
 must(/const RETRO = channel === '하허호'/.test(build), '레트로 분기가 «하허호 한 곳»에서만 켜지지 않습니다 — 다른 채널 시트로 번집니다.', `scripts/build-channel-supplier-sheet.mts · RETRO — ${MANUAL} 0`);
-for (const name of ['retroLayout', 'retroHasLongFee', 'RETRO_SUMMARY_TAB']) {
+must(/양식어긋남/.test(build) && /retroTabLayout\(company\)/.test(build) && /retroTabRank/.test(build),
+  '발행기가 «굳힌 표»(탭 차례·요금 칸)를 안 쓰거나 표 밖 데이터에서 안 멈춥니다.', `scripts/build-channel-supplier-sheet.mts · 굳힌 양식 문지기 — ${MANUAL} 5`);
+must(/retroTabLayout\(company\)/.test(audit) && /탭 차례가 굳힌 표와 다르다/.test(audit),
+  '감사기가 «굳힌 표»로 머리글·탭 차례를 안 봅니다.', `scripts/audit-sheet-vs-atom.mts — ${MANUAL} 5`);
+for (const name of ['retroTabLayout', 'retroHasLongFee', 'RETRO_SUMMARY_TAB']) {
   must(build.includes(name) && audit.includes(name), `발행기·감사기가 같은 «${name}» 를 안 씁니다 — 한쪽만 바뀌면 감사가 거짓말합니다.`, `build-channel-supplier-sheet.mts · audit-sheet-vs-atom.mts — ${MANUAL}`);
 }
 must(/if \(RETRO\) \{\s*const lock = spawnSync\([^)]*check-f86-locked\.mts/.test(build) && /lock\.status !== 0/.test(build),
@@ -95,7 +120,7 @@ must(!read('lib/domain/sales-sheet-format.ts').includes('channel-retro-skin'), '
 
 /* ── 매뉴얼 절 ───────────────────────────────────────────────── */
 const man = read('docs/영업자시트-매뉴얼.md');
-for (const phrase of ['«완전 커스텀 레트로» 규격 (2026-09-16 픽스)', 'npm run check:f86', '단기보증·1개월·6개월·12개월', '손오공·오토플러스를 뺀 렌트사 차 한 장', 'retroHasLongFee', '맑은 고딕 9pt', '기간이 같은 옛 칸 색', '회사 탭도 그대로 같이 둔다']) {
+for (const phrase of ['«완전 커스텀 레트로» 규격 (2026-09-16 픽스)', 'npm run check:f86', '단기보증·1개월·6개월·12개월', '손오공·오토플러스를 뺀 렌트사 차 한 장', 'retroHasLongFee', '맑은 고딕 9pt', '기간이 같은 옛 칸 색', '회사 탭도 그대로 같이 둔다', '굳힌 양식']) {
   must(man.includes(phrase), `매뉴얼 F86 절에서 「${phrase}」가 사라졌습니다.`, MANUAL);
 }
 
