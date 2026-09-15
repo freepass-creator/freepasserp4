@@ -28,6 +28,7 @@ import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { isPlate } from '../lib/domain/plate-registry';
 import { companyAlias } from '../lib/domain/identity';
+import { isSheetErrorToken } from '../lib/domain/sheet-error-tokens';
 import nextEnv from '@next/env';
 
 nextEnv.loadEnvConfig(process.cwd());
@@ -146,8 +147,7 @@ function writeFileSyncSnap(nowBy: Record<string, number>) {
  *   ★멈춘다 — 오류 글자가 상품구분·상태로 서면 탭 가르기와 목록이 통째로 어긋난다.
  */
 {
-  const ERR = /^#(REF|VALUE|N\/A|NAME|DIV\/0|NUM|ERROR|GETTING_DATA)[!?]?$/i;
-  const bad = docs.filter((v) => Object.values(v).some((x) => typeof x === 'string' && ERR.test(S(x))));
+  const bad = docs.filter((v) => Object.values(v).some((x) => typeof x === 'string' && isSheetErrorToken(x)));
   if (bad.length) 멈춤.push(`시트 오류 토큰(#REF! 등)이 든 원자 ${bad.length}건 — ${bad.slice(0, 4).map((v) => S(v.car_number)).join(' · ')}`);
   console.log(`⑦½ 시트 오류 토큰이 든 차 ${bad.length}`);
 }
