@@ -34,7 +34,7 @@ const same = (...names: string[]) => names.map((n) => ({ head: n, src: col(n) })
 export const RETRO_LAYOUT: { head: string; src: RetroSource }[] = [
   /** ★맨 앞 = 공급사명(코드 아님) — 사장님 2026-09-15 「레트로시트에 맨앞에 공급사명, 코드 말고 공급사명」. 값 = 탭 이름과 같은 채널 회사명. */
   { head: '공급사명', src: { kind: 'company' } },
-  { head: '차량상태', src: { kind: 'blank' } },
+  /* 차량상태 — 사장님 2026-09-15 「차량상태가 배차상태야」. 같은 뜻의 칸이라 늘 비던 차량상태를 빼고 배차상태 하나만 둔다. */
   ...same('배차상태'),
   /* 입고일자 — 사장님 2026-09-15 「입고 일자는 빼도 된다」(원자에 값이 없어 늘 빈 칸이었다). */
   ...same('구분', '차량번호'),
