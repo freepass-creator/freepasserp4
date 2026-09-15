@@ -131,6 +131,23 @@ function fitWidth(name: string, values: string[]): number {
   return Math.max(62, Math.min(LONG_TEXT_MAX[name], px));
 }
 
+/**
+ * ★**탭 색 = 옛 시트 회사 탭 색**(2026-09-15 실측 · 「느낌도 과거 느낌」). 옛 탭 이름을 지금 회사 이름에 댄다.
+ *   옛 시트에 탭 색이 없던 회사·그때 없던 회사(이안카·오토플러스·마음카)는 «색 없음».
+ */
+const RETRO_TAB_COLOR: Record<string, string> = {
+  손오공: '0000FF', 아이카: 'FF0000', 케이에이치: 'B7E1CD', KH: 'B7E1CD', 아이언: 'FF00FF', 퍼시픽: 'E4DCD3',
+  스타스카이: '3D85C6', 스타: '3D85C6', 웰릭스: '0000FF', 경진: 'FFFF00', 센트로: '0000FF', 에이스: '0000FF',
+  우리캐피탈: 'FF00FF', 빌린카: 'B7E1CD', 엘씨렌트: 'B7E1CD', 스위치플랜: '0000FF', 스위치: '0000FF',
+};
+/** 회사 탭 색 요청 — 색이 없던 회사는 탭 색을 «지운다». */
+export function retroTabColorRequest(sheetId: number, company: string): Req {
+  const h = RETRO_TAB_COLOR[company];
+  return h
+    ? { updateSheetProperties: { properties: { sheetId, tabColor: rgb(h) }, fields: 'tabColor' } }
+    : { updateSheetProperties: { properties: { sheetId }, fields: 'tabColor' } };
+}
+
 const rgb = (h: string) => ({
   red: parseInt(h.slice(0, 2), 16) / 255, green: parseInt(h.slice(2, 4), 16) / 255, blue: parseInt(h.slice(4, 6), 16) / 255,
 });
@@ -148,8 +165,11 @@ export function applyRetroSkin(reqs: Req[], linkReqs: Req[], p: { gid: number; c
    *   옛 시트는 칸마다 «한 색»이었다(배차상태 파랑 · 구분 자홍 · 나머지 검정). 값마다 색이 갈리면(계약중 회색·제조사별 색) 옛 얼굴이 아니다.
    *   ⚠ 계약중 가운데줄(색이 아닌 규칙)만 남긴다 — 「잡힌 차」 표시는 뜻이라 옛 시트에 없어도 지운다고 할 일이 아니다.
    */
-  const 색규칙 = (r: Req) => !!r?.addConditionalFormatRule?.rule?.booleanRule?.format?.textFormat?.foregroundColor;
-  reqs = reqs.filter((r) => !색규칙(r));
+  /**
+   * ⚠ 2026-09-15 한 번 더 — 사장님 「딱 과거 거로만, 느낌도 과거 느낌」. 옛 시트 실측: 회사 탭 조건부서식 **0개** · 머리글 메모 **0개**.
+   *   ⇒ 조건부서식은 «전부» 걷는다(계약중 가운데줄 · 미입력 회색 포함). 머리글 메모(작은 삼각형)도 안 단다.
+   */
+  reqs = reqs.filter((r) => !r?.addConditionalFormatRule && !(r?.repeatCell && r.repeatCell.fields === 'note'));
   for (const r of reqs) {
     const tf = r?.addConditionalFormatRule?.rule?.booleanRule?.format?.textFormat;
     if (tf && tf.bold) tf.bold = false;
@@ -172,13 +192,17 @@ export function applyRetroSkin(reqs: Req[], linkReqs: Req[], p: { gid: number; c
     cell: { userEnteredFormat: {
       textFormat: { fontFamily: RETRO_FONT, fontSize: RETRO_SIZE, italic: true, bold: false },
       horizontalAlignment: 'CENTER', verticalAlignment: 'MIDDLE', padding: { top: 2, right: 3, bottom: 2, left: 3 },
+      wrapStrategy: 'OVERFLOW_CELL',
     } },
     fields: [
       'userEnteredFormat.textFormat.fontFamily', 'userEnteredFormat.textFormat.fontSize',
       'userEnteredFormat.textFormat.italic', 'userEnteredFormat.textFormat.bold',
       'userEnteredFormat.horizontalAlignment', 'userEnteredFormat.verticalAlignment', 'userEnteredFormat.padding',
+      'userEnteredFormat.wrapStrategy',
     ].join(','),
   } });
+  // 옛 회차가 달아 둔 머리글 메모를 지운다(옛 시트는 메모가 없다).
+  out.push({ repeatCell: { range: { sheetId: gid, startRowIndex: H, endRowIndex: H + 1 }, cell: {}, fields: 'note' } });
   // ④ 칸별 — 이름이 옛 시트와 같은 칸만.
   columns.forEach((name, i) => {
     const col = { sheetId: gid, startColumnIndex: i, endColumnIndex: i + 1 };
