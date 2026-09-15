@@ -17,9 +17,10 @@
  *   모으는 길이 둘로 갈리면 같은 차가 시트마다 다른 값을 갖는다.
  */
 import { readFileSync } from 'node:fs';
-import { erpPhotoSource, isPickupPhotoAtom, sheetPlateLink } from './photo-projection';
+import { erpPhotoSource, sheetPlateLink } from './photo-projection';
 import { isDepositColumn } from './sales-sheet-format';
 import { groupPoliciesByProvider, autoPolicyCode } from './supplier-policy-link';
+import { assignSalesTab, SALES_PUBLISHED_TAB_PREFIXES } from './sales-published-tabs';
 
 const S = (v: unknown) => String(v ?? '').trim();
 
@@ -103,15 +104,9 @@ export async function loadSalesRowContext(deps: SalesRowDeps): Promise<SalesRowC
 }
 
 
-// 탭 배정 = 발행기 규칙
-export const tabOf = (v: any): string => {
-  const prov = S(v.provider_company_code);
-  if (isPickupPhotoAtom(v)) return '픽업구독';
-  if (prov === 'RP012') return '손오공상품';
-  if (prov === 'RP023') return '오플구독';
-  return '상품리스트';
-};
-export const TAB_ORDER = ['상품리스트', '손오공상품', '픽업구독', '오플구독'] as const;
+// 탭 배정 = `sales-published-tabs.ts` TAB_ASSIGNMENT_RULES «표 하나»를 그대로 쓴다. 여기 분기를 새로 두지 않는다.
+export const tabOf = (v: any): string => assignSalesTab(v);
+export const TAB_ORDER = SALES_PUBLISHED_TAB_PREFIXES;
 
 // ★옵션 정리(사장님 2026-09-04) — 「-」·「.」처럼 텍스트/영문/숫자가 없으면 선택옵션 없음(빈칸).
 const cleanOpt = (s: string): string => /[가-힣A-Za-z0-9]/.test(S(s)) ? S(s) : '';

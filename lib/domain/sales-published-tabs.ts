@@ -11,6 +11,9 @@
  * ★탭 이름은 「접두 MM.DD HH:MM · N대」. 접두마다 한 장만 산다(발행기가 같은 접두 탭을 갈아 끼움).
  */
 import { isImportBrand } from './vehicle-origin';
+import { isPickupPhotoAtom, type PhotoAtom } from './photo-projection';
+
+const S = (v: unknown) => String(v ?? '').trim();
 
 /** 보이는 탭 막대 왼쪽부터 이 차례. 발행기가 `--at` 없이 찍어도 이 자리를 지킨다. */
 export const SALES_PUBLISHED_TAB_PREFIXES = ['상품리스트', '손오공상품', '픽업구독', '오플구독'] as const;
@@ -29,6 +32,40 @@ export function pickPublishedSalesTabs(titles: string[]): { prefix: SalesPublish
     if (title) out.push({ prefix, title });
   }
   return out;
+}
+
+/**
+ * ★★**탭 배정 = 이 표 «한 곳»에서만 정한다.**
+ *
+ * 사장님 2026-09-15 — 손오공 중고렌트 29대가 「손오공상품」 탭이 아니라 「상품리스트」로 샜다.
+ * 원인: `tabOf`(sales-atom-row.ts)에 `provider==='RP012' && product_type.includes('구독')`가 박혀 있어
+ * 구독이 아닌 상품구분(중고렌트)은 조건을 못 넘었다. 그리고 `count-daesu-atom.mts`가 이 판정을
+ * «손으로 복제»해 두고 있어서 같은 버그가 따로 박혀 있었다(둘이 따로 놀아 한쪽만 고치면 다시 어긋남).
+ *
+ * 그래서 배정 규칙은 **여기 표 하나**로만 적는다. 새 공급사·새 탭이 생기면 이 배열에 한 줄만 추가한다 —
+ * `tabOf`(F01·F86 공통 발행) · `count-daesu-atom`(대수 단일 카운터) · 그 밖의 모든 소비자가
+ * `assignSalesTab()` 하나만 부른다. 공급사 조건에 상품구분(product_type) 부분일치를 넣지 않는다 —
+ * 「그 공급사가 쓰는 탭」은 그 공급사 전부이지 상품구분의 부분집합이 아니다(픽업처럼 «정말 갈라야» 하면
+ * 사진 경로 같은 구조적 신호로 가른다 — 상품구분 문자열 포함검사로 가르지 않는다).
+ */
+export type TabAssignmentAtom = PhotoAtom & { provider_company_code?: unknown };
+
+export type TabAssignmentRule = {
+  tab: SalesPublishedPrefix;
+  note: string;
+  test: (v: TabAssignmentAtom) => boolean;
+};
+
+export const TAB_ASSIGNMENT_RULES: TabAssignmentRule[] = [
+  { tab: '픽업구독', note: '손오공 픽업(T카) — 사진 경로로 가른다(상품구분 아님)', test: (v) => isPickupPhotoAtom(v) },
+  { tab: '손오공상품', note: '손오공(RP012) 전부 — 오공구독·중고렌트 둘 다', test: (v) => S(v.provider_company_code) === 'RP012' },
+  { tab: '오플구독', note: '오토플러스(RP023) 전부', test: (v) => S(v.provider_company_code) === 'RP023' },
+];
+
+/** 원자 하나가 실릴 판매 탭. 규칙은 위 `TAB_ASSIGNMENT_RULES` «표만» 본다 — 여기 분기를 늘리지 않는다. */
+export function assignSalesTab(v: TabAssignmentAtom): SalesPublishedPrefix {
+  for (const rule of TAB_ASSIGNMENT_RULES) if (rule.test(v)) return rule.tab;
+  return '상품리스트';
 }
 
 /** 우리 공통 대여료 블록(상품리스트 표준 칸). 갈래 탭에서는 이 자리에 공급사 기간별 대여료가 선다. */

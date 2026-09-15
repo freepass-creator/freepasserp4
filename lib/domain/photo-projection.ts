@@ -1,7 +1,7 @@
 /** 차량 사진 원천은 보존하고, ERP 사진과 Google Sheet 링크를 서로 다른 출력으로 만든다. */
 import { isScrapableHost } from './scrape-photos';
 
-type PhotoAtom = Record<string, unknown>;
+export type PhotoAtom = Record<string, unknown>;
 
 const S = (value: unknown): string => String(value ?? '').trim();
 export const firstPhotoLink = (value: unknown): string => S(value).split(/\s*[\n,]\s*/)[0]?.trim() || '';
