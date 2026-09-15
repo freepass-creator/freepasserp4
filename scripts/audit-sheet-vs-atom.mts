@@ -294,7 +294,7 @@ let f86줄 = 0;
         const optionalFee = isMoneyColumn(column) && !/가격/.test(column);
         if (!optionalFee) return true;
         return 종합F01.some((row) => Object.entries(row.cells).some(([raw, value]) => channelColumnName(raw) === column && S(value) && S(value) !== '-'));
-      })).map((c) => c.head);
+      }), { 모든기간: true }).map((c) => c.head);
       if (JSON.stringify(hdr) !== JSON.stringify(기대머리)) f86HeaderViolations.push(`종합: 실제 ${hdr.length}열 ↔ 기대 ${기대머리.length}열`);
       const ci = hdr.indexOf('차량번호'); const ni = hdr.indexOf('공급사명');
       const 실제 = ci < 0 ? [] : grid.slice(1).map((r) => K(r[ci])).filter(Boolean);

@@ -301,7 +301,8 @@ for (const [company, list] of 탭들) {
    * ★★**하허호는 옛 「종합」 43칸**(이름·차례·내용 · 2026-09-15 「순서를 똑같이, 내용도 똑같이, 원자만 erp5」).
    *   칸 표 정본 = `retroLayout`(감사기와 같은 표). 값은 원자에서 만든 F01 칸(`x.cells`)과 원자 필드에서 옮긴다.
    */
-  const 레트로 = RETRO ? retroLayout(쓸칸) : null;
+  /** 회사 탭 = 쓰는 요금 칸만 · 「종합」 = 렌트사 규격 9칸 늘(`retroLayout` 머리말). */
+  const 레트로 = RETRO ? retroLayout(쓸칸, { 모든기간: company === RETRO_SUMMARY_TAB }) : null;
   const cols = 레트로 ? 레트로.map((c) => c.head) : 쓸칸;
   const title = `${company} ${mark} · ${list.length}대`;
   const old = have.find(([t]) => t.startsWith(`${company} `));

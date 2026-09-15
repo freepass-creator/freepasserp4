@@ -84,12 +84,20 @@ export function retroSameValue(head: string, f01: string, sheet: string): boolea
 }
 
 /** 한 탭이 쓰는 F01 칸(요금은 그 회사가 쓰는 것만) → 옛 「종합」 칸 목록. */
-export function retroLayout(cols: readonly string[]): RetroColumn[] {
+/**
+ * @param opt.모든기간 공통 기간 9칸을 «안 써도» 빈 칸으로 세우는가.
+ *   ★사장님 2026-09-15 「자기 시트는 자기 고유 대여료만, 근데 느낌이 레트로 시트로」 — 회사 탭 = 그 회사가 «쓰는» 요금 칸만(기본).
+ *   「종합」 탭만 렌트사 규격 9칸을 늘 세운다(`모든기간: true`). 색은 어느 쪽이든 레트로(공통 옛 색 · 커스텀 보라).
+ */
+export function retroLayout(cols: readonly string[], opt: { 모든기간?: boolean } = {}): RetroColumn[] {
   const out: RetroColumn[] = [];
   for (const e of RETRO_LAYOUT) {
     if (e.src.kind === 'fee') {
       /** ★옛 시트는 기간 9칸이 «늘» 있었다(안 쓰면 빈 칸) — 사장님 2026-09-15 확인. 옛 9칸에 없는 요금 칸(반납형·km…)은 그 뒤에 F01 차례로. */
-      for (const k of RETRO_PERIODS) out.push(cols.includes(k) ? { head: k, src: { kind: 'col', name: k } } : { head: k, src: { kind: 'blank' } });
+      for (const k of RETRO_PERIODS) {
+        if (cols.includes(k)) out.push({ head: k, src: { kind: 'col', name: k } });
+        else if (opt.모든기간) out.push({ head: k, src: { kind: 'blank' } });
+      }
       for (const c of cols) if (요금칸(c) && !(RETRO_PERIODS as readonly string[]).includes(c)) out.push({ head: c, src: { kind: 'col', name: c } });
       continue;
     }
