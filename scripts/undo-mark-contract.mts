@@ -21,8 +21,10 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { SHEET_NAME_MATCH, supplierSheetLabel } from '../lib/domain/supplier-template-sheet';
 import { SALES_SHEET_ID } from '../lib/domain/legacy-sheets';
+import { assertProductionSheetWrite } from '../lib/server/production-sheet-write-gate';
 
 const APPLY = process.argv.includes('--apply');
+if (APPLY) assertProductionSheetWrite('F01', 'undo-mark-contract --apply');
 const S = (v: unknown) => String(v ?? '').trim();
 const sleep = (ms: number) => new Promise((ok) => setTimeout(ok, ms));
 const colA1 = (i: number) => { let t = '', n = i + 1; while (n > 0) { const r = (n - 1) % 26; t = String.fromCharCode(65 + r) + t; n = Math.floor((n - 1) / 26); } return t; };

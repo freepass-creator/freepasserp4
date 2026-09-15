@@ -32,12 +32,14 @@ import { JWT } from 'google-auth-library';
 import { buildCatalog } from '../lib/domain/vehicle-catalog';
 import { SHEET_NAME_MATCH, isOurNonInventoryTab } from '../lib/domain/supplier-template-sheet';
 import { SALES_SHEET_ID, MASTER_SHEET_ID } from '../lib/domain/legacy-sheets';
+import { assertProductionSheetWrite } from '../lib/server/production-sheet-write-gate';
 import { substFromAiRefineRows } from '../lib/domain/ai-refine-guard';
 
 /** 사람이 손으로 차종을 더하는 자리. 숨은 탭이다 — 영업자 표를 어지럽히지 않는다. */
 const CATALOG_TAB = '차종사전';
 
 const APPLY = process.argv.includes('--apply');
+if (APPLY && process.argv.includes('--write-tab')) assertProductionSheetWrite('F01', 'build-vehicle-catalog --write-tab');
 const S = (v: unknown) => String(v ?? '').trim();
 const sleep = (ms: number) => new Promise((ok) => setTimeout(ok, ms));
 

@@ -32,11 +32,14 @@ import {
 } from '../lib/domain/settlement-ledger';
 import { SHEET_NAME_MATCH, supplierSheetLabel, isOurNonInventoryTab } from '../lib/domain/supplier-template-sheet';
 import { SALES_SHEET_ID } from '../lib/domain/legacy-sheets';
+import { assertProductionSheetWrite } from '../lib/server/production-sheet-write-gate';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { firebaseAdminApp } from '../lib/server/firebase-admin';
 import { googleSheetsServiceAccount } from '../lib/server/google-service-account';
 
 const APPLY = process.argv.includes('--apply');
+/** ★운영 F01 「배차상태」 칸 쓰기 — 통합 규칙(`production-sheet-write-gate`). 「계약중 표기(30분)」 워크플로만 연다. */
+if (APPLY) assertProductionSheetWrite('F01', 'mark-contract-in-listings --apply');
 const S = (v: unknown) => String(v ?? '').trim();
 const key = (v: unknown) => S(v).replace(/\s/g, '');
 const sleep = (ms: number) => new Promise((ok) => setTimeout(ok, ms));
