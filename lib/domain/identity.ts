@@ -4,9 +4,15 @@
  *   · 사람(usr_) 소속 = 영업자→agent_channel_code(chn_) / 공급사직원→company_code(sup_).  소속직원 = 그 org로 역조회.
  *   · 계약/방/공유가 다 이 resolver로 당사자를 해석 → 화면·정산·손님공유가 한 소스.
  */
-import { getStore } from '@/lib/store';
 import { type EntityRecord } from '@/lib/intake/entities';
 import { entityCodeAliases, matchesEntityCode } from '@/lib/domain/code-identity';
+
+// 표시명 같은 순수 함수만 쓰는 서버 배치가 브라우저 Firebase/레거시 백엔드를
+// 함께 초기화하지 않도록, 실제 저장소 조회가 필요한 함수에서만 로드한다.
+async function store() {
+  const { getStore } = await import('@/lib/store');
+  return getStore();
+}
 
 export type Kind = 'user' | 'supplier' | 'channel' | 'product' | 'policy' | 'contract' | 'settlement' | 'customer' | 'unknown';
 export type OrgType = 'supplier' | 'channel' | 'platform';
@@ -47,14 +53,14 @@ export function orgIdOf(u: EntityRecord): string {
 /** 사람 조회 — uid 또는 user_code(동일값 권장). */
 export async function getPerson(co: string, id: string): Promise<EntityRecord | null> {
   if (!id) return null;
-  const users = await getStore().list('user', co);
+  const users = await (await store()).list('user', co);
   return users.find((u) => String(u.uid) === id || matchesEntityCode('user', u, id)) || null;
 }
 
 /** 조직 조회 — sup_/chn_ = partner 레코드. 없으면 코드 그대로 이름 fallback. */
 export async function getOrg(co: string, id: string): Promise<OrgRef | null> {
   const k = kindOf(id);
-  const partners = await getStore().list('partner', co);
+  const partners = await (await store()).list('partner', co);
   const p = partners.find((x) => (
     matchesEntityCode('partner', x, id)
     || String(x.company_code || '') === id
@@ -71,7 +77,7 @@ export async function getOrg(co: string, id: string): Promise<OrgRef | null> {
 /** org 소속 직원 목록(활성 우선). */
 export async function staffOf(co: string, orgId: string): Promise<EntityRecord[]> {
   if (!orgId) return [];
-  const users = await getStore().list('user', co);
+  const users = await (await store()).list('user', co);
   return users.filter((u) => orgIdOf(u) === orgId && u.is_active !== '아니오');
 }
 
