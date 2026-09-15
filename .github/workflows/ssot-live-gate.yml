@@ -45,4 +45,12 @@ jobs:
         run: npx tsx scripts/publish-origin-tab.mts --dump=tmp/prepublish-main.json
 
       - name: 실제 원천 → ADAPTER → ATOM → 발행 예정값 대조
-        run: npx tsx scripts/ssot-prepublish-gate.mts --dump=tmp/prepublish-main.json
+        # ★2026-09-16 — --only=IANKA,IRON. 오토플러스(RP023)·손오공(RP012)은 일반 상품리스트
+        #   덤프(prepublish-main.json)에 애초에 실리지 않는다(각자 「오플구독」·「오공구독/픽업구독」
+        #   전용 탭을 쓰기 때문 — sonogong-autoplus-tab-routing.md 확정, publish-origin-tab.mts의
+        #   EXCLUDE 규칙이 실제로 뺀다). 그래서 이 둘을 SUPPLIER_SOURCES 기본값 그대로 이 덤프와
+        #   대조하면 "0건 매칭"이 나서 매번 하드 실패한다 — 데이터 사고가 아니라 게이트가 틀린 덤프와
+        #   비교한 것이다(docs/AI-SSOT-AUDIT-LOG.md 2026-09-16(3) B-1).
+        #   전용탭 대상 게이트(오플구독/오공구독 덤프 대조)는 아직 없다 — 새로 만들지 않고 이 자리에
+        #   남긴다. 다음에 만들 사람은 이 커밋과 위 감사로그 항목을 먼저 본다.
+        run: npx tsx scripts/ssot-prepublish-gate.mts --dump=tmp/prepublish-main.json --only=IANKA,IRON
