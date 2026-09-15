@@ -5,11 +5,14 @@
  *
  * ★핵심 사상: 규칙을 «감사(사후 청소)»가 아니라 «게이트(확정 조건)»로 둔다.
  *   원자가 아래 불변식을 어기면 «확정(확정=true)»이 «될 수 없다» — 검수대기로 떨어진다.
- *   그래서 «전기차인데 배기량 3500cc»·«가솔린인데 일렉트리파이드»·«마스터에 없는 세부모델» 같은
- *   모순이 «확정된 채로» 존재하는 것이 구조적으로 불가능하다.
+ *   그래서 «전기차인데 배기량 3500cc»·«가솔린인데 일렉트리파이드»·«마스터에 없는 세부모델»·
+ *   «세부모델 밖 트림(다른 세대 트림이 붙음)» 같은 모순이 «확정된 채로» 존재하는 것이 구조적으로 불가능하다.
  *
  * ★한 곳에서만 판정한다. ingest(원자화)·audit(전수검사)·check(게이트)가 «이 함수»를 쓴다.
  *   규칙이 세 곳에 흩어지면 한 곳이 언젠가 달라진다 — 그게 2026-09-05 의 일렉트리파이드 사고였다.
+ *   ★2026-09-12 사장님 「트림이나 하위 모델을 벗어난 거를 절대 선택할 수 없다」 — 그래서 TRIM도
+ *   warn이 아니라 block이다(예전엔 warn이라 세부모델 밖 트림도 확정될 수 있었다). 이 함수를 부르지
+ *   않는 유입 경로가 있으면 이 불변식은 그 경로에서 지켜지지 않는다 — 부르는 쪽까지가 계약이다.
  *
  * 순수 함수(서버·스크립트·게이트 어디서나). 마스터 조회는 호출부가 인덱스로 넘긴다.
  */
@@ -96,8 +99,16 @@ export function atomViolations(a: AtomView, m: MasterIndex): Violation[] {
   if (rl && hasCc(cc) && !evFuel && Math.abs(rl - ccNum(cc) / 1000) > 0.2) v.push({ code: 'CC_RAW', severity: 'warn', msg: `원문 ${rl}L ≠ 배기량 ${cc}cc` });
 
   // 5) 트림 실재 — 세부트림은 그 세부모델 마스터 트림이거나 비어야 한다.
+  //    ★block(2026-09-12 사장님 「트림이나 하위 모델을 벗어난 거를 절대 선택할 수 없다」) —
+  //    예전엔 warn이라 «세부모델 밖 트림»도 확정될 수 있었다. 그 세부모델 실트림이 하나도
+  //    없으면(마스터가 아직 트림을 못 채운 세대) 판단 보류로 warn — 없음 ≠ 틀림.
   const trim = S(a.trim_name);
-  if (trim && sub) { const trims = m.trimsOf(a.maker, a.model, sub); if (trims.length && !trims.some((t) => N(t) === N(trim))) v.push({ code: 'TRIM', severity: 'warn', msg: `트림 「${trim}」이 마스터 트림 밖` }); }
+  if (trim && sub) {
+    const trims = m.trimsOf(a.maker, a.model, sub);
+    const inPool = trims.some((t) => N(t) === N(trim));
+    if (trims.length && !inPool) v.push({ code: 'TRIM', severity: 'block', msg: `트림 「${trim}」이 마스터 트림 밖` });
+    else if (!trims.length) v.push({ code: 'TRIM_NOPOOL', severity: 'warn', msg: `세부모델 「${sub}」의 마스터 트림 목록이 비어 판정 보류` });
+  }
 
   // 6) 인승 — 원문에 있는 것만. 2인은 원문에 밴/2인승 있을 때만.
   const seats = S(a.seats), rs = rawSeats(raw);

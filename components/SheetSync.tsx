@@ -797,7 +797,7 @@ export function SheetSync({ co, onImported, compact = false }: {
   const previewState = useMemo(() => {
     try {
       if (mergedProducts && masterReady) {
-        const { products, confirmed, review } = prepareMasterIngress(mergedProducts);
+        const { products, confirmed, review } = prepareMasterIngress(mergedProducts, master!);
         const snap = { high: 0, medium: 0, low: 0, none: 0 };
         for (const p of mergedProducts) {
           const c = String(p._snap_confidence || '');

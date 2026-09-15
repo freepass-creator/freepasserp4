@@ -76,7 +76,7 @@ export function productsForSheetCommit(
 ): { products: EntityRecord[]; confirmed: number; review: number } {
   const entries = optionalMaster(master);
   const snapped = ensureSnapped(products, entries);
-  return prepareMasterIngress(snapped);
+  return prepareMasterIngress(snapped, entries);
 }
 
 /**
@@ -117,6 +117,6 @@ export function previewSupplierTable(
     profileHeaders: opts.profileHeaders,
     depositRule: opts.depositRule,
   });
-  const { confirmed, review } = prepareMasterIngress(res.products);
+  const { confirmed, review } = prepareMasterIngress(res.products, entries);
   return { ...res, confirmed, review };
 }
