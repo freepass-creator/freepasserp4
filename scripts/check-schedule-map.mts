@@ -56,6 +56,18 @@ for (const phrase of [
   '발행 엔진은 하나',
 ]) if (!map.includes(phrase)) fails.push(`${MAP} 규칙 문장이 사라졌다 — 「${phrase}」`);
 
+/** ★하허호 F86 지키기 — 사장님 2026-09-16 「하허호 시트는 제일 중요하게」. 통합 워크플로에서 이 장치가 빠지면 막는다. */
+{
+  const wf = readFileSync(`${WF}/erp5-ssot-refresh.yml`, 'utf8');
+  for (const [needle, why] of [
+    ['scripts/backup-f86.mts', 'F86 발행 직전 백업'],
+    ['scripts/build-channel-supplier-sheet.mts', 'F86 발행'],
+    ['scripts/audit-f86-vs-atom.mts', 'F86 감사(첫 관문)'],
+    ['--max-age-min=', 'F86 신선도 감시'],
+    ["steps.snapshot.outcome == 'success'", 'F01 이 실패해도 F86 은 나간다'],
+  ] as const) if (!wf.includes(needle)) fails.push(`통합 워크플로에서 「${why}」 가 빠졌다 — ${needle}`);
+}
+
 /** AI 규칙 파일들이 이 지도를 가리키는가. */
 for (const f of ['AGENTS.md', 'CLAUDE.md', '.cursorrules', 'docs/AI_COLLABORATION.md']) {
   if (existsSync(f) && !readFileSync(f, 'utf8').includes('docs/예약작업-지도.md')) fails.push(`${f} 가 예약 지도(docs/예약작업-지도.md)를 안 가리킨다`);
