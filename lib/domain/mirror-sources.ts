@@ -4,8 +4,10 @@
  * ★★★사장님 2026-09-15 확정 — **공급사별 수집 경로는 이게 «전부»다. 이거 아닌 건 다 버린다.**
  * ```
  *   손오공    →  erp(API 덤프)              lib/domain/sonokong-product-kind.ts · ingest-supplier-to-firestore --code=RP012
- *   오토플러스 →  홈페이지(autoplus.co.kr)   ⚠ 아직 스크래퍼 없음 — 지금은 kind=sheet(원본 요금열 깨짐, 2026-09-15
- *                                            dry-run 「요금이 한 대도 없다」로 자동 중단됨). iron 처럼 새로 만들 것.
+ *   오토플러스 →  홈페이지(reborncar.co.kr)  ★이미 있다(2026-09-08 착수) — scripts/ingest-reborncar-to-firestore.mts.
+ *                                            문서 = docs/원자-원천지도.md §② 줄37. MIRROR_SOURCES 의 kind=sheet(구글시트
+ *                                            원본)는 «폐기 대상» — 요금열이 깨져 있다(2026-09-15 dry-run 「요금이 한
+ *                                            대도 없다」로 자동 중단). reborncar 인제스터를 정본 삼아 실행할 것.
  *   아이언    →  홈페이지(ironrentcar.com)  kind='iron' · lib/domain/mirror-iron-source.ts
  *   아이카    →  그들의 시트(원본 그대로)    kind='sheet'
  *   이안카    →  그들의 시트(원본 그대로)    kind='sheet'
