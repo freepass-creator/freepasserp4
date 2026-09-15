@@ -88,7 +88,7 @@ for (const m of targets) {
   console.log(`  ${r.ok ? '✓' : '✗'} ${m.name}(${m.code}) 재고 — ${summary.join(' / ').slice(0, 300) || r.lines.slice(-3).join(' / ')}`);
   if (!r.ok) { failed.push(`${m.name} 재고: ${r.why} — ${r.lines.slice(-4).join(' / ').slice(0, 240)}`); continue; }
   if (!m.policies || m.kind !== 'sheet') continue;
-  const p = run(['scripts/sync-mirror-policies.mts', `--from=${m.from}`, `--to=${m.to}`, `--code=${m.code}`, ...(APPLY ? ['--apply'] : [])]);
+  const p = run(['--require', './scripts/lib/server-only-shim.cjs', 'scripts/sync-mirror-policies.mts', `--from=${m.from}`, `--to=${m.to}`, `--code=${m.code}`, ...(APPLY ? ['--apply'] : [])]);
   const psum = pick(p.lines, /정책 미러|✓ 정책 탭|넣을 줄|Error/);
   console.log(`  ${p.ok ? '✓' : '✗'} ${m.name} 정책 — ${psum.join(' / ').slice(0, 300)}`);
   if (!p.ok) { failed.push(`${m.name} 정책: ${p.why} — ${p.lines.slice(-4).join(' / ').slice(0, 240)}`); continue; }

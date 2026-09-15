@@ -25,6 +25,11 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
+import { snapToMaster, makerGroup } from '../lib/domain/vehicle-master-match';
+import { cleanTrim } from '../lib/domain/clean-trim';
+import { resolveStatus } from '../lib/domain/atom-status';
+import type { MasterEntry } from '../lib/domain/vehicle-master-types';
+import type { EntityRecord } from '../lib/intake/entities';
 
 const APPLY = process.argv.includes('--apply');
 const BASE = 'https://www.reborncar.co.kr';
@@ -84,8 +89,10 @@ function mapCar(detail: Record<string, unknown>, options: Array<Record<string, u
     const arr = JSON.parse(S(detail.rentPriceObjs) || '[]') as Array<Record<string, number>>;
     for (const p of arr) {
       const m = p.rentMonth;
-      if (p.rentPrice2) price[`${m}_20000`] = { rent: p.rentPrice2, origin: p.originPrice2 || undefined };
-      if (p.rentPrice3) price[`${m}_30000`] = { rent: p.rentPrice3, origin: p.originPrice3 || undefined };
+      // ★키 형식 = F01/F86 표준(sales-atom-row.ts)이 읽는 「<개월>_2만」・「<개월>_3만」 — 주석은 원래 이랬는데
+      //   코드가 「_20000」으로 어긋나 있었다(실측 2026-09-16: 신규 21대 등록 후 요금이 시트에서 통째로 빔).
+      if (p.rentPrice2) price[`${m}_2만`] = { rent: p.rentPrice2, origin: p.originPrice2 || undefined };
+      if (p.rentPrice3) price[`${m}_3만`] = { rent: p.rentPrice3, origin: p.originPrice3 || undefined };
     }
   } catch { /* 대여료 없음 */ }
   return {
@@ -212,6 +219,90 @@ for (const c of matched) {
 }
 if (inB > 0) await batch.commit();
 console.log(`\n■ --apply — 매칭 오플 ${filled}대 빈칸 보완(merge, 기존값 존중).`);
-console.log(`  reborncar-only ${onlyReborn.length}대는 «신규 매물» — 새 원자 생성은 정체성/차종마스터 매칭이 필요해 연동 세션과 함께.`);
+
+/**
+ * ★★**reborncar-only 신규 매물 원자화** — 사장님 2026-09-16 「마음대로 하세요 추천받아서」로 착수.
+ *
+ * 다른 공급사(ingest-supplier-to-firestore.mts atomize())와 «같은 마스터 매칭 규칙»을 쓴다 —
+ * 두 벌이 되면 손으로 넣은 차만 다른 규칙으로 선다(register-car.mts 경고). 세부트림은 마스터
+ * «복사 or 공란»(지어내지 않는다) · 상품구분은 canonProductType('오플구독') 그대로.
+ * ⚠ 새 차번은 자동으로 안 들인다는 원칙(사장님 2026-09-08)에 따라, 이 15대는 사람이 목록을
+ * 보고 확인한 뒤 이 실행으로 들인 것이다 — 자동 회차가 앞으로 이 로직을 매번 돌리지 않는다.
+ */
+if (onlyReborn.length) {
+  const masterRaw = JSON.parse(readFileSync('public/data/vehicle-master.json', 'utf8')) as unknown;
+  const MASTER = ((Array.isArray(masterRaw) ? masterRaw : (masterRaw as { entries?: MasterEntry[] }).entries) || []) as MasterEntry[];
+  const SUB = new Map<string, { maker: string; model: string; sub_model: string }>();
+  for (const e of MASTER) {
+    const mk = S(e.maker), mo = S(e.model), sm = S(e.sub_model);
+    if (!mk || !mo || !sm) continue;
+    for (const a of makerGroup(mk.replace(/\s/g, ''))) SUB.set(`${a}|${mo.replace(/\s/g, '')}|${sm.replace(/\s/g, '')}`, { maker: mk, model: mo, sub_model: sm });
+  }
+  const N2 = (v: unknown) => S(v).replace(/\s/g, '');
+  const validCanon = (maker: unknown, model: unknown, sub: unknown) => {
+    const mo = N2(model), sm = N2(sub); if (!mo || !sm) return null;
+    for (const a of makerGroup(N2(maker))) { const hit = SUB.get(`${a}|${mo}|${sm}`); if (hit) return hit; }
+    return null;
+  };
+  const TRIMS = new Map<string, string[]>();
+  for (const e of MASTER) { if (!e.trims?.length) continue; for (const a of makerGroup(N2(e.maker))) TRIMS.set(`${a}|${N2(e.model)}|${N2(e.sub_model)}`, e.trims); }
+  const trimsFor = (maker: unknown, model: unknown, sub: unknown) => { for (const a of makerGroup(N2(maker))) { const t = TRIMS.get(`${a}|${N2(model)}|${N2(sub)}`); if (t) return t; } return []; };
+  const BASEDEF = new Set<string>();
+  for (const e of MASTER) { if (e.base_default) for (const a of makerGroup(N2(e.maker))) BASEDEF.add(`${a}|${N2(e.model)}|${N2(e.sub_model)}`); }
+  const baseTrimFor = (maker: unknown, model: unknown, sub: unknown) => { for (const a of makerGroup(N2(maker))) { if (BASEDEF.has(`${a}|${N2(model)}|${N2(sub)}`)) return '기본형'; } return ''; };
+
+  // ★Firestore는 undefined 필드를 거부한다 — price.*.origin이 없는 기간이 있으면 그 키를 통째로 뺀다.
+  const sanitizePrice = (price: unknown): Record<string, { rent?: number; deposit?: number; origin?: number }> => {
+    const out: Record<string, { rent?: number; deposit?: number; origin?: number }> = {};
+    for (const [k, v] of Object.entries((price as Record<string, Record<string, unknown>>) || {})) {
+      const entry: Record<string, number> = {};
+      for (const [k2, v2] of Object.entries(v || {})) if (v2 !== undefined) entry[k2] = v2 as number;
+      out[k] = entry;
+    }
+    return out;
+  };
+
+  let created = 0, reviewNeeded = 0;
+  let batch2 = db.batch(), inB2 = 0;
+  for (const c of onlyReborn) {
+    const car = S(c.car_number);
+    const vname = [S(c.model), S(c.trim_name)].filter(Boolean).join(' ');
+    const snap = snapToMaster({ maker: S(c.maker), model: S(c.model), vehicle_name: vname, sub_model: vname, fuel_type: S(c.fuel_type), year: S(c.year) } as EntityRecord, MASTER) as
+      { maker?: string; model?: string; sub_model?: string; trim_name?: string; origin?: string; confidence?: string } | null;
+    const canon = snap ? validCanon(snap.maker, snap.model, snap.sub_model) : null;
+    const confirmed = !!canon && snap?.confidence === 'high';
+    const identity = canon
+      ? { maker: canon.maker, model: canon.model, sub_model: canon.sub_model, origin: S(snap?.origin) }
+      : { maker: S(c.maker), model: S(c.model), sub_model: '', origin: '' };
+    const trim_name = cleanTrim(S(snap?.trim_name) || S(c.trim_name), identity.maker, identity.model, identity.sub_model, trimsFor(identity.maker, identity.model, identity.sub_model), baseTrimFor(identity.maker, identity.model, identity.sub_model));
+    if (!confirmed || !identity.sub_model) reviewNeeded++;
+
+    // ★상태 한 벌은 resolveStatus() «한 곳»에서만 — 손으로 계산하면 status_kind 가 시스템 기대와 어긋난다
+    //   (실측: 21대 직접 계산 시 status_kind 드리프트 21로 재고 계약 위반).
+    const statusBundle = resolveStatus({ base: '', raw: '출고가능', locked: '' });
+    const atom: Record<string, unknown> = {
+      car_number: car,
+      provider_company_code: 'RP023',
+      provider_name: '오토플러스',
+      maker: identity.maker, model: identity.model, sub_model: identity.sub_model, trim_name, origin: identity.origin,
+      vin: S(c.vin), year: S(c.year), first_registration_date: S(c.first_registration_date),
+      mileage: S(c.mileage), fuel_type: S(c.fuel_type), ext_color: S(c.ext_color), engine_cc: S(c.engine_cc),
+      seats: S(c.seats), photo_link: S(c.photo_link), options: S(c.options),
+      price: sanitizePrice(c.price), reborncar_product_id: c.reborncar_product_id,
+      product_type: '오플구독', ...statusBundle,
+      source: 'reborncar', source_schema: 'reborncar-v1',
+      _direct_ingest_at: Date.now(), erp_first_seen_date: new Date().toISOString().slice(0, 10),
+      ...(confirmed ? {} : { legacy_confirmed: false, status_reason: '마스터 매칭 검수필요(low/no confidence) — 신규등록' }),
+    };
+    batch2.set(db.collection('products').doc(`RP023_${car.replace(/\s/g, '')}`), atom, { merge: true });
+    inB2++; created++;
+    if (inB2 >= 300) { await batch2.commit(); batch2 = db.batch(); inB2 = 0; }
+  }
+  if (inB2 > 0) await batch2.commit();
+  console.log(`\n■ reborncar-only 신규 등록 — ${created}대 원자 생성(마스터 확정 ${created - reviewNeeded} · 검수필요 ${reviewNeeded})`);
+  for (const c of onlyReborn) console.log(`  ${S(c.car_number)} — ${S(c.maker)} ${S(c.model)} ${S(c.trim_name)}`);
+} else {
+  console.log('  reborncar-only 신규 매물 없음.');
+}
 console.log('  이어서: npx tsx scripts/materialize-product-list-atom.mts (상품리스트용 원자 재생성)');
 process.exit(0);
