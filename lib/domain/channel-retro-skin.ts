@@ -36,7 +36,7 @@ export const RETRO_LAYOUT: { head: string; src: RetroSource }[] = [
   { head: '공급사명', src: { kind: 'company' } },
   { head: '차량상태', src: { kind: 'blank' } },
   ...same('배차상태'),
-  { head: '입고일자', src: { kind: 'blank' } },
+  /* 입고일자 — 사장님 2026-09-15 「입고 일자는 빼도 된다」(원자에 값이 없어 늘 빈 칸이었다). */
   ...same('구분', '차량번호'),
   { head: '차종분류', src: col('모델') },
   ...same('세부모델', '연료', '외장', '내장', 'Km'),
