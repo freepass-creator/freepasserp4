@@ -4,6 +4,7 @@ import { fuelDisplay, makerDisplay, parseYear, yearDisplay } from '@/lib/domain/
 import { excelColFilterMatch } from '@/lib/domain/excel-col-filter';
 import { productOptions } from '@/components/product-card-atoms';
 import { kmDisplay, man } from '@/lib/format';
+import { atomDisplayResult, atomDisplayText } from '@/lib/domain/missing-value-display';
 
 export type ColSort = { field: string; dir: 'asc' | 'desc' } | null;
 
@@ -19,28 +20,34 @@ export function excelMileageDisplay(raw: unknown): string {
 
 export function excelColumnValue(product: EntityRecord, key: string): string {
   if (key === 'credit') return creditDisplay(product);
-  if (key === 'fuel_type') return fuelDisplay(product.fuel_type) || '';
-  if (key === 'maker') return makerDisplay(product.maker) || String(product.maker || '');
-  if (key === 'year') return yearDisplay(product.year);
-  if (key === 'mileage') return excelMileageDisplay(product.mileage);
-  if (key === 'options') return productOptions(product).join(' · ');
+  if (key === 'fuel_type') return fuelDisplay(product.fuel_type) || atomDisplayText(key, '', product);
+  if (key === 'maker') return makerDisplay(product.maker) || atomDisplayText(key, product.maker, product);
+  if (key === 'year') return yearDisplay(product.year) || atomDisplayText(key, '', product);
+  if (key === 'mileage') return excelMileageDisplay(product.mileage) || atomDisplayText(key, '', product);
+  if (key === 'options') {
+    const display = atomDisplayResult(key, product.options, product);
+    return display.state === 'value' ? productOptions(product).join(' · ') : display.text;
+  }
   if (key === 'cond') {
     const signals = excelCondSignals(product);
     return signals.length ? signals.map((signal) => signal.label).join('·') : '조건없음';
   }
-  if (key === 'provider_name') return String(product.provider_name || product.provider_company_code || '').trim();
-  if (key === 'product_type') return canonProductType(product.product_type);
+  if (key === 'provider_name') return atomDisplayText(key, product.provider_name || product.provider_company_code, product);
+  if (key === 'product_type') return canonProductType(product.product_type) || atomDisplayText(key, '', product);
   if (key.startsWith('price:')) {
     const month = Number(key.slice(6));
     const price = priceList(product).find((entry) => entry.m === month);
     return price && price.rent > 0 ? man(price.rent) : '';
   }
   const value = (product as Record<string, unknown>)[key];
-  return value == null ? '' : String(value).trim();
+  return atomDisplayText(key, value, product);
 }
 
 export function excelColumnValues(product: EntityRecord, key: string): string[] {
-  if (key === 'options') return productOptions(product);
+  if (key === 'options') {
+    const display = atomDisplayResult(key, product.options, product);
+    return display.state === 'value' ? productOptions(product) : [display.text];
+  }
   if (key === 'cond') {
     const signals = excelCondSignals(product);
     return signals.length ? signals.map((signal) => signal.label) : ['조건없음'];

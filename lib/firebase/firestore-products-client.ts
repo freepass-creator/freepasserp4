@@ -13,24 +13,19 @@
  *   102우8512   시트 출고불가 ↔ ERP 출고가능    판 차가 화면에 다시 선다
  *   101부8761   시트 출고가능 ↔ ERP 출고불가    팔 수 있는 차가 ERP 에서만 숨는다
  * ```
- *   ⇒ 넷이 «한 곳»을 본다. 되돌리려면 `NEXT_PUBLIC_FINDER_FROM_FIRESTORE=0`.
+ *   ⇒ 넷이 «한 곳»을 본다. 파인더도 Firestore를 고정 사용한다.
  *
  * ⚠ 2026-09-04 에 이 길을 끈 이유 셋은 **이미 다 고쳐져 있다** — 끄기 전에 그것부터 확인하라:
  *   ㉠ 실 UID 복원 뒤에만 구독(`finder-data-store.subscribeFinderData` 의 `firebaseUserReady`)
  *   ㉡ 실패 시 핸들 완전 해제(`releaseOnError`)
- *   ㉢ 그래도 실패면 RTDB 단발 폴백(`finder-data-store.startFirestore` 의 onError)
+ *   ㉢ 실패하면 같은 Firestore를 서버 인증 경로로 단발 재조회(`finder-data-store.startFirestore`)
  *
  * ★가시성·원가 규칙은 RtdbAdapter.listForFinder 와 «똑같은 함수」로 재적용(드리프트 금지).
  *   문서키가 차번이라 차번중복은 구조적으로 0 — dedupe 는 RTDB 병렬성 유지용으로만 태운다.
  */
 import type { EntityRecord } from '@/lib/intake/entities';
-import { getFirebaseApp } from './client';
+import { getAuthClient, getFirebaseApp } from './client';
 import { isExcludedProduct, dedupeProductsByVehicle, canSeeProductCost, stripProductCost } from './rtdb-products';
-
-export function finderFromFirestoreEnabled(): boolean {
-  /** 기본 켬 — «0» 을 명시했을 때만 옛 RTDB 길로 돌아간다. */
-  return process.env.NEXT_PUBLIC_FINDER_FROM_FIRESTORE !== '0';
-}
 
 /** Firestore 원자 문서 → 파인더 행. RTDB 병렬 = `_key`는 product_code(없으면 차번). */
 function toRow(d: Record<string, unknown>): EntityRecord {
@@ -47,19 +42,33 @@ export function shapeFinderRows(rows: EntityRecord[]): EntityRecord[] {
   return shown.map((r) => (canSeeProductCost(r) ? r : stripProductCost(r)));
 }
 
+/** 직접 구독이 막히거나 오래 대기할 때도 같은 Firestore 원장을 서버에서 한 번 읽는다. */
+export async function fetchFirestoreProducts(): Promise<EntityRecord[]> {
+  const user = getAuthClient()?.currentUser;
+  if (!user) throw new Error('Firestore 상품 조회 인증 없음');
+  const response = await fetch('/api/products', {
+    cache: 'no-store',
+    headers: { Authorization: `Bearer ${await user.getIdToken()}`, 'Cache-Control': 'no-cache' },
+  });
+  if (!response.ok) throw new Error(`Firestore 상품 조회 HTTP ${response.status}`);
+  const value = await response.json() as Record<string, Record<string, unknown>>;
+  return Object.entries(value || {}).map(([id, row]) => toRow({ ...row, product_code: row.product_code || id }));
+}
+
 let cache: EntityRecord[] | null = null;
+let cacheFromCache = false;
 let unsub: (() => void) | null = null;
 let starting = false;
-const subs = new Set<(rows: EntityRecord[]) => void>();
+const subs = new Set<(rows: EntityRecord[], meta: { fromCache: boolean }) => void>();
 const errSubs = new Set<(err: unknown) => void>();
 
 /**
  * ㉡ 실패 시 «핸들을 완전히 해제»한다 — 안 놓으면 unsub 가 truthy 라 ensureSnapshot 이 재시도를 못 한다
- *   (파인더가 빈 채로 굳던 원인, CLAUDE.md 2026-09-04). 해제 후 에러 구독자에게 알려 ㉢ RTDB 폴백을 태운다.
+ *   (파인더가 빈 채로 굳던 원인, CLAUDE.md 2026-09-04). 해제 후 에러 구독자에게 알려 Firestore 서버 재조회를 태운다.
  */
 function releaseOnError(err: unknown) {
   if (unsub) { try { unsub(); } catch { /* */ } unsub = null; }
-  cache = null; starting = false;
+  cache = null; cacheFromCache = false; starting = false;
   for (const e of [...errSubs]) { try { e(err); } catch { /* */ } }
 }
 
@@ -71,7 +80,11 @@ async function ensureSnapshot() {
     const db = getFirestore(getFirebaseApp()!);
     unsub = onSnapshot(
       collection(db, 'products'),
-      (snap) => { cache = snap.docs.map((x) => toRow(x.data() as Record<string, unknown>)); for (const s of [...subs]) s(cache); },
+      (snap) => {
+        cache = snap.docs.map((x) => toRow(x.data() as Record<string, unknown>));
+        cacheFromCache = snap.metadata.fromCache;
+        for (const s of [...subs]) s(cache, { fromCache: cacheFromCache });
+      },
       (err) => { console.warn('[finder/firestore] onSnapshot 실패:', err); releaseOnError(err); },
     );
   } catch (e) {
@@ -84,16 +97,16 @@ async function ensureSnapshot() {
 
 /**
  * 파인더 상품 구독. 콜백은 스냅샷마다 «가공 전 원자행」을 받는다(공급사명·원가 마스킹은 호출부에서).
- * onError = 구독/스냅샷 실패 알림(호출부가 핸들 해제 + RTDB 폴백에 쓴다). 마지막 구독자가 빠지면 onSnapshot 을 닫아 유휴 과금 제거.
+ * onError = 구독/스냅샷 실패 알림(호출부가 핸들 해제 + Firestore 서버 재조회에 쓴다). 마지막 구독자가 빠지면 onSnapshot 을 닫아 유휴 과금 제거.
  */
-export function subscribeFirestoreProducts(onRows: (rows: EntityRecord[]) => void, onError?: (err: unknown) => void): () => void {
+export function subscribeFirestoreProducts(onRows: (rows: EntityRecord[], meta: { fromCache: boolean }) => void, onError?: (err: unknown) => void): () => void {
   subs.add(onRows);
   if (onError) errSubs.add(onError);
-  if (cache) onRows(cache);
+  if (cache) onRows(cache, { fromCache: cacheFromCache });
   void ensureSnapshot();
   return () => {
     subs.delete(onRows);
     if (onError) errSubs.delete(onError);
-    if (!subs.size && unsub) { try { unsub(); } catch { /* */ } unsub = null; cache = null; }
+    if (!subs.size && unsub) { try { unsub(); } catch { /* */ } unsub = null; cache = null; cacheFromCache = false; }
   };
 }

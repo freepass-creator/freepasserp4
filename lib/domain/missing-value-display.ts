@@ -18,8 +18,10 @@ const BATTERY_FIELDS = new Set(['battery_capacity', '배터리용량']);
 const REQUIRED_DISPLAY_FIELDS = new Set([
   'vehicle_status', '배차상태', 'product_type', '구분',
   'maker', '제조사', 'model', '모델', 'sub_model', '세부모델',
+  'variant', 'powertrain', '파워트레인',
   'trim_name', '세부트림', 'ext_color', '외장', 'int_color', '내장',
   'year', '연식', 'mileage', 'Km', 'fuel_type', '연료',
+  'engine_cc', '배기량',
   'vehicle_class', '차종구분', 'origin', '원산지', 'drive_type', '구동',
   'seats', '인승', 'supplier_vehicle_name', '차명(원문)',
   'first_registration_date', '최초등록', 'location', '차고지',

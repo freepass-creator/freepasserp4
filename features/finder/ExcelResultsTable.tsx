@@ -24,6 +24,7 @@ import {
 } from './excel-columns';
 import { ExcelFilterPopover } from './ExcelFilterPopover';
 import { isHiddenVehicleAxis } from '@/lib/domain/vehicle-detail-axes';
+import { atomDisplayText } from '@/lib/domain/missing-value-display';
 
 const DASH = <span style={{ color: C.faint }}>—</span>;
 
@@ -155,15 +156,14 @@ export function ExcelResultsTable({
           const st = String(p.vehicle_status || ''); const pt = String(p.product_type || '');
           const opts = productOptions(p);
           const conds = excelCondSignals(p);
-          const clipMax = (v: unknown, n: number) => {
-            const full = String(v || '').trim();
-            if (!full) return DASH;
+          const clipMax = (field: string, v: unknown, n: number) => {
+            const full = atomDisplayText(field, v, p);
             const shown = clipN(full, n);
             return <span title={full !== shown ? full : undefined}>{shown}</span>;
           };
-          const clamp2 = (v: unknown) => {
-            const full = String(v || '').trim();
-            return full ? <span style={cellClamp2} title={full}>{full}</span> : DASH;
+          const clamp2 = (field: string, v: unknown) => {
+            const full = atomDisplayText(field, v, p);
+            return <span style={cellClamp2} title={full}>{full}</span>;
           };
           return (
           <tr
@@ -183,29 +183,29 @@ export function ExcelResultsTable({
             style={{ cursor: 'pointer', background: bg }}
           >
             <td style={{ ...tdXC, ...cellPad, ...colLock(EXCEL_MAX.plate, padX), background: bg, fontFamily: NUM, fontVariantNumeric: 'tabular-nums', fontWeight: FW.strong }} title={String(p.car_number || '') || undefined}>{String(p.car_number || '') || DASH}</td>
-            {show('vehicle_status') && <td style={{ ...tdXC, ...cellPad, ...colLock(EXCEL_W.status) }}>{st ? <Badge tone={vehicleTone(st)} variant={st === '계약중' ? 'solid' : 'line'} pulse={st === '계약중'}>{st}</Badge> : DASH}</td>}
-            {show('product_type') && <td style={{ ...tdXC, ...cellPad, ...colLock(EXCEL_W.ptype) }}>{pt ? (() => { const c = canonProductType(pt) || pt; const s = productTypeStyle(c); return <Badge tone={s.tone} variant={s.variant}>{c}</Badge>; })() : DASH}</td>}
-            {show('maker') && <td style={{ ...tdX, ...cellPad, ...colLockChars(makerChars, true, padX) }}>{clipMax(makerDisplay(p.maker) || p.maker, makerChars)}</td>}
-            {show('model') && <td style={{ ...tdX, ...cellPad, ...colLockChars(makerChars, true, padX) }}>{clipMax(p.model, makerChars)}</td>}
-            {show('sub_model') && <td style={{ ...tdX, ...cellPad, ...colChars(subChars, nameSqueeze, true, padX) }}>{clamp2(p.sub_model)}</td>}
-            {show('trim_name') && <td style={{ ...tdX, ...cellPad, ...colChars(nameChars, nameSqueeze, true, padX) }}>{clamp2(p.trim_name)}</td>}
-            {show('ext_color') && <td style={{ ...tdX, ...cellPad, ...colLockChars(colorChars, true, padX) }}>{clipMax(p.ext_color, colorChars)}</td>}
-            {show('int_color') && <td style={{ ...tdX, ...cellPad, ...colLockChars(colorChars, true, padX) }}>{clipMax(p.int_color, colorChars)}</td>}
-            {show('year') && <td style={{ ...tdXC, ...cellPad, ...colLock(EXCEL_MAX.year, padX), fontVariantNumeric: 'tabular-nums' }}>{yearDisplay(p.year) || DASH}</td>}
-            {show('mileage') && <td style={{ ...tdXR, ...cellPad, ...colLock(EXCEL_MAX.mile, padX), fontVariantNumeric: 'tabular-nums' }}>{excelMileageDisplay(p.mileage) || DASH}</td>}
-            {show('fuel_type') && <td style={{ ...tdX, ...cellPad, ...colLockChars(EXCEL_MAX.fuel, true, padX) }}>{clipMax(p.fuel_type, EXCEL_MAX.fuel)}</td>}
-            {show('engine_cc') && <td style={{ ...tdXR, ...cellPad, ...colLock('9,999cc', padX), fontVariantNumeric: 'tabular-nums' }}>{clipMax(p.engine_cc, 7)}</td>}
-            {show('vehicle_class') && <td style={{ ...tdX, ...cellPad, ...colLockChars(6, true, padX) }}>{clipMax(p.vehicle_class, 6)}</td>}
+            {show('vehicle_status') && <td style={{ ...tdXC, ...cellPad, ...colLock(EXCEL_W.status) }}>{st ? <Badge tone={vehicleTone(st)} variant={st === '계약중' ? 'solid' : 'line'} pulse={st === '계약중'}>{st}</Badge> : atomDisplayText('vehicle_status', '', p)}</td>}
+            {show('product_type') && <td style={{ ...tdXC, ...cellPad, ...colLock(EXCEL_W.ptype) }}>{pt ? (() => { const c = canonProductType(pt) || pt; const s = productTypeStyle(c); return <Badge tone={s.tone} variant={s.variant}>{c}</Badge>; })() : atomDisplayText('product_type', '', p)}</td>}
+            {show('maker') && <td style={{ ...tdX, ...cellPad, ...colLockChars(makerChars, true, padX) }}>{clipMax('maker', makerDisplay(p.maker) || p.maker, makerChars)}</td>}
+            {show('model') && <td style={{ ...tdX, ...cellPad, ...colLockChars(makerChars, true, padX) }}>{clipMax('model', p.model, makerChars)}</td>}
+            {show('sub_model') && <td style={{ ...tdX, ...cellPad, ...colChars(subChars, nameSqueeze, true, padX) }}>{clamp2('sub_model', p.sub_model)}</td>}
+            {show('trim_name') && <td style={{ ...tdX, ...cellPad, ...colChars(nameChars, nameSqueeze, true, padX) }}>{clamp2('trim_name', p.trim_name)}</td>}
+            {show('ext_color') && <td style={{ ...tdX, ...cellPad, ...colLockChars(colorChars, true, padX) }}>{clipMax('ext_color', p.ext_color, colorChars)}</td>}
+            {show('int_color') && <td style={{ ...tdX, ...cellPad, ...colLockChars(colorChars, true, padX) }}>{clipMax('int_color', p.int_color, colorChars)}</td>}
+            {show('year') && <td style={{ ...tdXC, ...cellPad, ...colLock(EXCEL_MAX.year, padX), fontVariantNumeric: 'tabular-nums' }}>{yearDisplay(p.year) || atomDisplayText('year', '', p)}</td>}
+            {show('mileage') && <td style={{ ...tdXR, ...cellPad, ...colLock(EXCEL_MAX.mile, padX), fontVariantNumeric: 'tabular-nums' }}>{excelMileageDisplay(p.mileage) || atomDisplayText('mileage', '', p)}</td>}
+            {show('fuel_type') && <td style={{ ...tdX, ...cellPad, ...colLockChars(EXCEL_MAX.fuel, true, padX) }}>{clipMax('fuel_type', p.fuel_type, EXCEL_MAX.fuel)}</td>}
+            {show('engine_cc') && <td style={{ ...tdXR, ...cellPad, ...colLock('9,999cc', padX), fontVariantNumeric: 'tabular-nums' }}>{clipMax('engine_cc', p.engine_cc, 7)}</td>}
+            {show('vehicle_class') && <td style={{ ...tdX, ...cellPad, ...colLockChars(6, true, padX) }}>{clipMax('vehicle_class', p.vehicle_class, 6)}</td>}
             {show('options') && (
               <td style={{ ...tdX, ...cellPad, ...colOpts(hasOpts, exMode), whiteSpace: 'normal', verticalAlign: 'middle', overflow: 'hidden' }} title={opts.join(' · ') || undefined}>
-                {opts.length ? <OptionChips p={p} lines={2} /> : DASH}
+                <OptionChips p={p} lines={2} />
               </td>
             )}
-            {showProv && <td style={{ ...tdX, ...cellPad, ...colLockChars(EXCEL_MAX.provider, true, padX) }}>{clipMax(p.provider_name || p.provider_company_code, EXCEL_MAX.provider)}</td>}
+            {showProv && <td style={{ ...tdX, ...cellPad, ...colLockChars(EXCEL_MAX.provider, true, padX) }}>{clipMax('provider_name', p.provider_name || p.provider_company_code, EXCEL_MAX.provider)}</td>}
             {showCredit && <td style={{ ...tdXC, ...cellPad, ...colLock(EXCEL_W.credit) }}>{(() => { const c = creditDisplay(p); return c ? <Badge tone={CREDIT_TONE(c)}>{c}</Badge> : DASH; })()}</td>}
             {showCond && (
             <td style={{ ...tdX, ...cellPad, ...colLock(EXCEL_W.cond), whiteSpace: 'normal', overflow: 'hidden' }}>
-              {conds.length ? clamp2(conds.map((c) => c.label).join(' · ')) : (
+              {conds.length ? clamp2('cond', conds.map((c) => c.label).join(' · ')) : (
                 <span style={{ color: C.faint, fontSize: FS.sub }}>조건없음</span>
               )}
             </td>

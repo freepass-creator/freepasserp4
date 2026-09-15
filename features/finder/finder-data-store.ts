@@ -5,7 +5,7 @@ import { getStore, peekList } from '@/lib/store';
 import { seedIfEmpty } from '@/lib/seed';
 import { firebaseReady, getAuthClient } from '@/lib/firebase/client';
 import { withProviderNames } from '@/lib/domain/identity';
-import { finderFromFirestoreEnabled, subscribeFirestoreProducts, shapeFinderRows } from '@/lib/firebase/firestore-products-client';
+import { fetchFirestoreProducts, subscribeFirestoreProducts, shapeFinderRows } from '@/lib/firebase/firestore-products-client';
 
 export type FinderDataParams = {
   companyId: string;
@@ -31,8 +31,8 @@ type FinderDataEntry = {
   key: string; companyId: string; sessionUid?: string; rows: EntityRecord[] | null;
   listeners: Set<() => void>;
   loading: boolean; loadedAt: number; retryAfter: number; requestId: number;
-  /** Firestore 읽기 경로(플래그 ON)일 때 onSnapshot 해지 핸들 + 공급사명 조인용 파트너 캐시. */
-  fsUnsub?: () => void; partners?: EntityRecord[];
+  /** Firestore 읽기 경로(플래그 ON)일 때 onSnapshot 해지 핸들. */
+  fsUnsub?: () => void;
 };
 
 const entries = new Map<string, FinderDataEntry>();
@@ -109,40 +109,60 @@ async function loadProducts(entry: FinderDataEntry) {
 
 /**
  * Firestore 읽기 경로(플래그 ON) — onSnapshot 로 구독해 «바뀐 문서만」 받는다(RTDB 대역폭 컷).
- * 가시성·원가 규칙은 shapeFinderRows(=listForFinder 와 동일 함수)로 재적용, 공급사명은 후속 조인.
+ * 가시성·원가 규칙은 shapeFinderRows(=listForFinder 와 동일 함수)로 재적용한다.
  */
 function startFirestore(entry: FinderDataEntry) {
   if (entry.fsUnsub) return;
-  entry.fsUnsub = subscribeFirestoreProducts(
-    (raw) => {
-      if (entries.get(entry.key) !== entry) return;
-      const shaped = shapeFinderRows(raw);
-      entry.rows = entry.partners ? withProviderNames(shaped, entry.partners) : shaped;
+  const streamId = ++entry.requestId;
+  let received = false;
+  let fallbackStarted = false;
+  const active = () => entries.get(entry.key) === entry && entry.requestId === streamId;
+  const fallback = async (reason: unknown) => {
+    if (fallbackStarted || !active()) return;
+    fallbackStarted = true;
+    console.warn('[finder] Firestore 직접 구독 지연/실패 → Firestore 서버 재조회:', reason);
+    try {
+      const raw = await fetchFirestoreProducts();
+      if (!active() || received) return;
+      entry.rows = shapeFinderRows(raw);
       entry.loadedAt = Date.now();
       entry.retryAfter = 0;
       notify(entry);
-      if (!entry.partners) void loadFinderPartners(entry);
+    } catch (error) {
+      fallbackStarted = false;
+      console.warn('[finder] Firestore 서버 재조회 실패:', error);
+      if (active() && !received) {
+        entry.rows = entry.rows ?? [];
+        entry.retryAfter = Date.now() + RETRY_AFTER_ERROR_MS;
+        notify(entry);
+      }
+    }
+  };
+  const watchdog = window.setTimeout(() => void fallback('initial snapshot timeout'), 3_000);
+  entry.fsUnsub = subscribeFirestoreProducts(
+    (raw, meta) => {
+      if (!active() || meta.fromCache) return;
+      received = true;
+      window.clearTimeout(watchdog);
+      const providerNames = new Map((entry.rows || []).map((row) => [String(row.product_code || row._key || ''), row.provider_name]));
+      const shaped = shapeFinderRows(raw).map((row) => ({
+        ...row,
+        provider_name: row.provider_name || providerNames.get(String(row.product_code || row._key || '')),
+      }));
+      entry.rows = shaped;
+      entry.loadedAt = Date.now();
+      entry.retryAfter = 0;
+      notify(entry);
     },
     (err) => {
-      // ㉡ 핸들 완전 해제(다음 재구독이 다시 시도할 수 있게) · ㉢ RTDB 단발 폴백(빈 화면 방지).
-      if (entries.get(entry.key) !== entry) return;
+      // 실패를 폐기된 RTDB로 숨기지 않고 같은 Firestore의 인증 서버 읽기로 한 번 재시도한다.
+      if (!active()) return;
       entry.fsUnsub = undefined;
-      console.warn('[finder] Firestore 실패 → RTDB 폴백:', err);
-      void loadProducts(entry);
+      received = false;
+      window.clearTimeout(watchdog);
+      void fallback(err);
     },
   );
-}
-
-/** 공급사명 조인용 파트너를 한 번 읽어 캐시(작고 드물게 바뀜). 실패해도 상품 표시는 유지. */
-async function loadFinderPartners(entry: FinderDataEntry) {
-  try {
-    const partners = await getStore().list('partner', entry.companyId);
-    if (entries.get(entry.key) !== entry) return;
-    entry.partners = partners;
-    if (entry.rows) { entry.rows = withProviderNames(entry.rows, partners); notify(entry); }
-  } catch (error) {
-    console.warn('[finder] 공급사명 보정 실패(상품 목록은 유지):', error);
-  }
 }
 
 /** 현재 세션 외의 목록은 메모리에서 즉시 폐기해 역할/사용자 전환 때 재사용하지 않는다. */
@@ -164,7 +184,7 @@ export function subscribeFinderData(params: FinderDataParams, listener: () => vo
   const canLoad = !firebaseReady() || firebaseUserReady;
   // Firestore 읽기 경로(플래그 ON): 실 UID 복원 뒤에만 onSnapshot 한 번 걸고 poll 은 안 탄다.
   //   아직 인증 전이면 «안 건다» — sessionUid 가 실 UID 로 바뀌면 store 키가 바뀌어 재구독되고, 그때 시작한다(㉠).
-  if (finderFromFirestoreEnabled() && firebaseReady()) {
+  if (firebaseReady()) {
     if (canLoad) startFirestore(entry);
     return () => { entry.listeners.delete(listener); };
   }

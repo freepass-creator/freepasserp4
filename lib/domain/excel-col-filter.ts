@@ -9,6 +9,7 @@ import {
 } from '@/lib/domain/product-filters';
 import { fuelDisplay, makerDisplay } from '@/lib/domain/vehicle-master-match';
 import { canonProductType, creditDisplay, priceList } from '@/lib/domain/product';
+import { atomDisplayText, MISSING_VALUE_LABEL } from '@/lib/domain/missing-value-display';
 
 export type PopEntry = { key: string; label: string; count: number };
 
@@ -46,22 +47,30 @@ export function excelPopEntries(field: string, rows: EntityRecord[]): PopEntry[]
     });
   }
   if (field === 'mileage') {
-    return countBands(rows, MILE_BANDS, (p, b) => {
-      const km = Number(p.mileage) || 0;
+    const bands = countBands(rows, MILE_BANDS, (p, b) => {
+      const raw = String(p.mileage ?? '').trim();
+      if (!raw) return false;
+      const km = Number(raw.replace(/,/g, '').replace(/\s*km\s*$/i, ''));
       return km > b.lo && km <= b.hi;
     });
+    const missing = rows.filter((p) => !String(p.mileage ?? '').trim()).length;
+    return missing ? [...bands, { key: MISSING_VALUE_LABEL, label: MISSING_VALUE_LABEL, count: missing }] : bands;
   }
   if (field === 'product_type') {
-    return PTYPES.map((t) => ({
+    const entries = PTYPES.map((t) => ({
       key: t, label: t,
       count: rows.filter((p) => canonProductType(p.product_type) === t).length,
     })).filter((e) => e.count > 0);
+    const missing = rows.filter((p) => !canonProductType(p.product_type)).length;
+    return missing ? [...entries, { key: MISSING_VALUE_LABEL, label: MISSING_VALUE_LABEL, count: missing }] : entries;
   }
   if (field === 'fuel_type') {
-    return FUELS.map((t) => ({
+    const entries = FUELS.map((t) => ({
       key: t, label: t,
       count: rows.filter((p) => (fuelDisplay(p.fuel_type) || String(p.fuel_type || '')) === t).length,
     })).filter((e) => e.count > 0);
+    const missing = rows.filter((p) => !String(p.fuel_type || '').trim()).length;
+    return missing ? [...entries, { key: MISSING_VALUE_LABEL, label: MISSING_VALUE_LABEL, count: missing }] : entries;
   }
   if (field === 'credit') {
     return CREDITS.map((t) => ({
@@ -71,10 +80,10 @@ export function excelPopEntries(field: string, rows: EntityRecord[]): PopEntry[]
   }
   const dyn = DYN.find((d) => d.key === field);
   if (dyn) {
-    return countStrings(rows.map((p) => dyn.get(p)).filter(Boolean));
+    return countStrings(rows.map((p) => atomDisplayText(field, dyn.get(p), p)).filter(Boolean));
   }
   if (field === 'maker') {
-    return countStrings(rows.map((p) => makerDisplay(p.maker) || String(p.maker || '')).filter(Boolean));
+    return countStrings(rows.map((p) => makerDisplay(p.maker) || atomDisplayText(field, p.maker, p)).filter(Boolean));
   }
   return null;
 }
@@ -96,16 +105,18 @@ export function excelColFilterMatch(
     return RENT_BANDS.some((b) => set.has(b.k) && e.rent > b.lo && e.rent <= b.hi);
   }
   if (key === 'mileage') {
-    const km = Number(p.mileage) || 0;
+    const raw = String(p.mileage ?? '').trim();
+    if (!raw) return set.has(MISSING_VALUE_LABEL);
+    const km = Number(raw.replace(/,/g, '').replace(/\s*km\s*$/i, ''));
     return MILE_BANDS.some((b) => set.has(b.k) && km > b.lo && km <= b.hi);
   }
-  if (key === 'product_type') return set.has(canonProductType(p.product_type));
-  if (key === 'fuel_type') return set.has(fuelDisplay(p.fuel_type) || String(p.fuel_type || ''));
+  if (key === 'product_type') return set.has(canonProductType(p.product_type) || atomDisplayText(key, '', p));
+  if (key === 'fuel_type') return set.has(fuelDisplay(p.fuel_type) || atomDisplayText(key, p.fuel_type, p));
   if (key === 'credit') return set.has(creditDisplay(p));
   if (key === 'maker') {
-    return set.has(makerDisplay(p.maker) || String(p.maker || ''));
+    return set.has(makerDisplay(p.maker) || atomDisplayText(key, p.maker, p));
   }
   const dyn = DYN.find((d) => d.key === key);
-  if (dyn) return set.has(dyn.get(p));
+  if (dyn) return set.has(atomDisplayText(key, dyn.get(p), p));
   return null;
 }

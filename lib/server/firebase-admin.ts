@@ -121,33 +121,20 @@ type GateProfile = {
 } | null;
 
 /**
- * 인증 게이트의 사용자 프로필 읽기 — RTDB 폐기 준비(2026-09-04).
- *
- * 기본은 지금과 동일하게 RTDB `users/{uid}` 를 읽는다(운영 무변경). `AUTH_GATE_FROM_FIRESTORE=1`
- * 일 때만 Firestore `user` 컬렉션(그림자복사 · 문서 `{회사}__{uid}` · `_key`=uid)을 «먼저» 읽고,
- * 없거나 실패하면 RTDB 로 폴백한다. 게이트는 하나라도 어긋나면 전 화면이 닫히는 자리라, 스위치는
- * 폴백을 항상 켠 채 단계로 넘긴다. 완전 이관·검증 뒤에만 RTDB 읽기를 걷는다.
+ * 인증 게이트의 사용자 프로필 읽기. Firestore `user` 컬렉션만 정본으로 사용한다.
+ * 문서 ID가 회사 접두어를 포함할 수 있어 `_key`=uid로 찾으며, 누락/장애를 RTDB로 숨기지 않는다.
  */
 async function readGateProfile(app: App, uid: string): Promise<GateProfile> {
-  if (String(process.env.AUTH_GATE_FROM_FIRESTORE || '') === '1') {
-    try {
-      const snap = await getFirestore(app).collection('user').where('_key', '==', uid).limit(1).get();
-      const data = snap.docs[0]?.data() as Record<string, unknown> | undefined;
-      if (data && data.role) {
-        return {
-          role: String(data.role || ''),
-          status: String(data.status || ''),
-          is_active: (data.is_active as boolean | string | undefined),
-          company_code: String(data.company_code || ''),
-          agent_channel_code: String(data.agent_channel_code || ''),
-        };
-      }
-    } catch {
-      // Firestore 조회 실패는 삼키고 RTDB 로 폴백한다(게이트를 닫지 않는다).
-    }
-  }
-  const snapshot = await getDatabase(app).ref(`users/${uid}`).get();
-  return snapshot.val() as GateProfile;
+  const snap = await getFirestore(app).collection('user').where('_key', '==', uid).limit(1).get();
+  const data = snap.docs[0]?.data() as Record<string, unknown> | undefined;
+  if (!data || !data.role) return null;
+  return {
+    role: String(data.role || ''),
+    status: String(data.status || ''),
+    is_active: (data.is_active as boolean | string | undefined),
+    company_code: String(data.company_code || ''),
+    agent_channel_code: String(data.agent_channel_code || ''),
+  };
 }
 
 /**
