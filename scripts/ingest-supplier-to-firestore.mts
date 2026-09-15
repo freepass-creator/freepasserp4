@@ -36,6 +36,7 @@ import { sheetIdFromUrl } from '../lib/domain/supplier-sheet-read';
 import { FUEL_EV, rawSeats, atomViolations, type MasterIndex } from '../lib/domain/atom-invariants';
 import { cleanTrim } from '../lib/domain/clean-trim';
 import { sonokongDepositRuleText, autoplusDepositRuleText } from '../lib/domain/sales-published-tabs';
+import { sonokongProductKind } from '../lib/domain/sonokong-product-kind';
 import { resolveStatus } from '../lib/domain/atom-status';
 import { isOpenInventoryAtom } from '../lib/domain/inventory-contract';
 import { mergeRawPhotoEvidence, photoAtomFields } from '../lib/domain/photo-atom';
@@ -309,20 +310,9 @@ async function readRows(): Promise<Row[]> {
       const low = (c.저신용월납 || {}) as { SUBSCRIBE_RETURN?: Record<string, number>; SUBSCRIBE_BUYOUT?: Record<string, number> };
       for (const [p, rent] of Object.entries(low.SUBSCRIBE_RETURN || {})) { const r = 라운드천(won(rent)); if (r > 0) price[p] = { rent: r, deposit: 0 }; }
       for (const [p, rent] of Object.entries(low.SUBSCRIBE_BUYOUT || {})) { const r = 라운드천(won(rent)); if (r > 0) price[`${p}_인수형`] = { rent: r, deposit: 0 }; }
-      /**
-       * ★★**손오공 상품구분은 «버킷»이 말해 준다** — 원천이 진작 주고 있었는데 안 읽었다.
-       * ```
-       *   TCAR_EXTERNAL  227대  →  픽업구독   (티카에서 온 차)
-       *   SON_NO_KONG     64대  →  오공구독   (손오공 제 물건)
-       * ```
-       * ⚠ 2026-09-08 실측 — 여기서 「중고면 중고구독, 아니면 «빈칸»」으로 읽고 있었다. 그 빈칸이
-       *   merge 로 나가 **이미 알던 픽업구독·오공구독을 246대나 지웠다**(상품구분 빈 차 4 → 312).
-       *   탭 가르기가 이 칸을 보므로, 비면 그 차가 통째로 상품리스트로 흘러가 시트 넉 장이 뒤섞인다.
-       * ★「오공구독」은 7캐논에 이미 있다 — 손오공 제 물건을 「중고구독」이라 부르던 옛 표기를 여기서 끝낸다.
-       */
-      const 버킷 = S(c.버킷);
-      // ★손오공 상품구분 셋뿐 — 픽업구독(TCAR)·오공구독(SON_NO_KONG)·중고렌트(그 밖 중고차). 「중고구독」은 없다(사장님 2026-09-11).
-      const kind = 버킷 === 'TCAR_EXTERNAL' ? '픽업구독' : (버킷 === 'SON_NO_KONG' ? '오공구독' : (c.중고 ? '중고렌트' : ''));
+      // ★★손오공 상품구분 = SSOT 함수 한 곳(lib/domain/sonokong-product-kind.ts)만 본다 — 여기 분기를 새로 두지 않는다.
+      //   버킷만으로 못 가른다: SON_NO_KONG 안에도 중고(렌트)가 섞여 있다(사장님 2026-09-15 「렌트는 중고렌트」).
+      const kind = sonokongProductKind(c);
       /**
        * ★★**옵션 = 제조사 «선택»옵션만이다** — 사장님 2026-09-10 「옵션은 제조사선택옵션만 옵션이야」.
        *
