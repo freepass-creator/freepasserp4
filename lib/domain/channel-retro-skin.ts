@@ -84,6 +84,27 @@ const HEAD_BG: Record<string, string> = {
   단기보증: 'B7E1CD', '1개월': 'A4C2F4', '6개월': '6D9EEB', '12개월': '3C78D8',
   장기보증: 'E6B8AF', '24개월': 'DD7E6B', '36개월': 'CC4125', '48개월': 'A61C00', '60개월': '85200C',
 };
+/** 기간 머리 «글자»색 — 옛 시트 실측: 단기 블록 청록(#46BDC6) · 장기 블록 흰색. 검정으로 두면 짙은 빨강 머리에서 안 읽힌다. */
+const HEAD_INK: Record<string, string> = {
+  단기보증: '46BDC6', '1개월': '46BDC6', '6개월': '46BDC6', '12개월': '46BDC6',
+  장기보증: 'FFFFFF', '24개월': 'FFFFFF', '36개월': 'FFFFFF', '48개월': 'FFFFFF', '60개월': 'FFFFFF',
+};
+/**
+ * ★**옛 시트에 없는 요금 칸도 «옛 색»으로** — 사장님 2026-09-15 「대여료 색깔이나 이런 걸 모두 동일하게」.
+ *   반납형·인수형(손오공) · 2만/3만km(오토플러스) · 18개월 · 보증금 — 기간으로 옛 칸 하나에 대어 그 칸 색을 쓴다.
+ *   몇 개월 = 1 → 1개월 · ~6 → 6개월 · ~12 → 12개월 · ~24 → 24개월(18 포함) · ~36 · ~48 · 그 위 60개월.
+ *   개월이 없는 보증 칸(보증금 반납형·인수형·보증금) = 장기보증(구독·장기 계약의 보증금이라서). 단기보증은 제 이름 그대로.
+ * ⚠ 값·칸 이름은 그대로 — 색만 빌린다.
+ */
+export function retroFeeStyleOf(name: string): string {
+  if (HEAD_BG[name]) return name;
+  const m = /^(\d+)개월/.exec(String(name).trim());
+  if (m) {
+    const mo = Number(m[1]);
+    return mo <= 1 ? '1개월' : mo <= 6 ? '6개월' : mo <= 12 ? '12개월' : mo <= 24 ? '24개월' : mo <= 36 ? '36개월' : mo <= 48 ? '48개월' : '60개월';
+  }
+  return /단기/.test(name) ? '단기보증' : '장기보증';
+}
 /** 몸 칸 글자색 — 옛 시트 칸별. 이름이 같은 칸에만 건다(없는 칸을 만들지 않는다). */
 const BODY_INK: Record<string, string> = {
   차량상태: '0000FF', 배차상태: '0000FF', 입고일자: '1155CC', 차량번호: '1155CC', 구분: 'FF00FF',
@@ -161,9 +182,15 @@ export function applyRetroSkin(reqs: Req[], linkReqs: Req[], p: { gid: number; c
   // ④ 칸별 — 이름이 옛 시트와 같은 칸만.
   columns.forEach((name, i) => {
     const col = { sheetId: gid, startColumnIndex: i, endColumnIndex: i + 1 };
-    if (HEAD_BG[name]) {
-      out.push({ repeatCell: { range: { ...col, startRowIndex: H, endRowIndex: H + 1 }, cell: { userEnteredFormat: { backgroundColor: rgb(HEAD_BG[name]) } }, fields: 'userEnteredFormat.backgroundColor' } });
+    /** 요금 칸이면 옛 칸 하나에 대어 그 색을 쓴다(`retroFeeStyleOf`) — 이름이 옛 시트와 같지 않아도. */
+    const 요금 = 요금칸(name);
+    const 옛 = 요금 ? retroFeeStyleOf(name) : name;
+    if (HEAD_BG[옛]) {
+      out.push({ repeatCell: { range: { ...col, startRowIndex: H, endRowIndex: H + 1 }, cell: { userEnteredFormat: { backgroundColor: rgb(HEAD_BG[옛]), textFormat: { foregroundColor: rgb(HEAD_INK[옛] || '000000') } } }, fields: 'userEnteredFormat.backgroundColor,userEnteredFormat.textFormat.foregroundColor' } });
       out.push({ repeatCell: { range: { ...col, startRowIndex: H + 1 }, cell: { userEnteredFormat: { backgroundColor: rgb('FFFFFF') } }, fields: 'userEnteredFormat.backgroundColor' } });
+    }
+    if (요금 && BODY_INK[옛] && !BODY_INK[name]) {
+      out.push({ repeatCell: { range: { ...col, startRowIndex: H + 1 }, cell: { userEnteredFormat: { textFormat: { foregroundColor: rgb(BODY_INK[옛]) } } }, fields: 'userEnteredFormat.textFormat.foregroundColor' } });
     }
     if (BODY_BG[name]) {
       out.push({ repeatCell: { range: { ...col, startRowIndex: H + 1 }, cell: { userEnteredFormat: { backgroundColor: rgb(BODY_BG[name]) } }, fields: 'userEnteredFormat.backgroundColor' } });
