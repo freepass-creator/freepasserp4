@@ -329,6 +329,22 @@ export function WhitelabelFrame({
             </div>
           ) : null}
         </div>
+        {/*
+          웹·모바일은 같은 「지금」(날짜·시각·날씨)을 쓴다. 폰은 검색·조건 아이콘을
+          머리띠 오른쪽에 유지해야 하므로, 한 줄을 아래에 압축해 배치만 다르게 한다.
+          값의 출처와 갱신 주기는 `useShopHeadStatus` / `useNowKst`로 웹과 완전히 같다.
+        */}
+        {mobile ? (
+          <div style={{
+            display: 'flex', alignItems: 'center', gap: SHOP.sp.tight,
+            padding: '0 12px 8px', color: C.faint,
+            fontSize: SHOP.fs.cap, fontWeight: FW.title,
+            fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', overflow: 'hidden',
+          }}>
+            <span>{now ? nowLabelKo(now) : todayLabelKo()}</span>
+            {head.weather ? <span>{head.weather.text} {head.weather.temp}°</span> : null}
+          </div>
+        ) : null}
       </header>
 
       {notice ? <WhitelabelNotice wl={wl} mobile={mobile} /> : null}
