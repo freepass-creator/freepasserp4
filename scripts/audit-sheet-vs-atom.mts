@@ -31,6 +31,7 @@ import { channelCompanyOf } from '../lib/domain/channel-company';
 import { compareSalesRows, loadSalesRowContext, makeCell, tabOf } from '../lib/domain/sales-atom-row';
 import { channelColumnName, salesPublishedColumns } from '../lib/domain/sales-published-tab-columns';
 import { HAHUHO_PRODUCT_SHEET_ID, SALES_SHEET_ID } from '../lib/domain/legacy-sheets';
+import { atomDisplayText } from '../lib/domain/missing-value-display';
 
 nextEnv.loadEnvConfig(process.cwd());
 const S = (v: unknown) => String(v ?? '').trim();
@@ -118,8 +119,9 @@ const f01Order = new Map<string, string[]>();
     return matches.map((title) => ({ prefix, title }));
   });
   if (expectedMark) for (const { prefix, title } of selected) {
-    const count = 실릴차.filter((v) => tabOf(v) === prefix).length;
-    const expectedTitle = `${prefix} ${expectedMark} · ${count}대`;
+    // 모바일 탭은 분까지만 표시한다. 스냅샷 ID·초·대수는 로그/아티팩트에 보존하고,
+    // 실제 회차 일치는 아래 658행 전체 값 대조로 확인한다.
+    const expectedTitle = `${prefix} ${expectedMark.split(' · ')[0].replace(/:\d{2}$/, '')}`;
     if (title !== expectedTitle) staleTimestampTabs.push(`F01:${title} (기대: ${expectedTitle})`);
   }
   const grids = await readTabs(F01, selected.map((x) => x.title));
@@ -159,7 +161,7 @@ for (const r of f01) {
   const a = atoms.get(r.car); if (!a) continue;
   // 발행 함수와 독립된 직접 계약. makeCell 자체가 잘못 매핑돼도 원자 핵심축·원문 손실을 잡는다.
   const raw = (a['원문'] && typeof a['원문'] === 'object' ? a['원문'] : {}) as Record<string, unknown>;
-  const rawOption = S(raw['옵션']);
+  const rawOption = S(raw['옵션']) || S(a.options);
   const core: Record<string, string> = {
     '모델': S(a.model),
     '세부모델': S(a.sub_model),
@@ -167,7 +169,8 @@ for (const r of f01) {
     '차명(원문)': S(raw['차명']),
     '옵션(원문)': /[가-힣A-Za-z0-9]/.test(rawOption) ? rawOption : '',
   };
-  for (const [column, expected] of Object.entries(core)) {
+  for (const [column, rawExpected] of Object.entries(core)) {
+    const expected = atomDisplayText(column, rawExpected, a);
     const actual = S(r.cells[column]);
     if (actual === expected) continue;
     const entry = 핵심투영어긋남.get(column) || { n: 0, 표본: [] };
