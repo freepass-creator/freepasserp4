@@ -7,11 +7,11 @@
  */
 import { readFileSync } from 'node:fs';
 import { initializeApp, cert } from 'firebase-admin/app';
-import { getDatabase } from 'firebase-admin/database';
 import { getFirestore } from 'firebase-admin/firestore';
 import { JWT } from 'google-auth-library';
 import { buildSalesFormatRequests, columnWidths } from '../lib/domain/sales-sheet-format';
 import { companyAlias } from '../lib/domain/identity';
+import { atomDisplayText } from '../lib/domain/missing-value-display';
 
 const S = (v: unknown) => String(v ?? '').trim();
 const SRC_SHEET = '1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs';   // 기존 판매시트 = 본시트(영업자가 보는 곳). 헤더를 여기서 읽는다.
@@ -20,7 +20,7 @@ const SRC_SHEET = '1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs';   // 기존 �
 const TO_MAIN = process.argv.includes('--main');
 const SAMPLE_SHEET_ID = TO_MAIN ? SRC_SHEET : (S(process.env.SAMPLE_SHEET_ID) || '1J7dcGCTI0hiHBSdbHx0SqKJKrBg57xkgsX-I8qyfv3c');
 const sa = JSON.parse(readFileSync('tmp/firebase-auth/sa.json', 'utf8'));
-initializeApp({ credential: cert({ projectId: sa.project_id, clientEmail: sa.client_email, privateKey: sa.private_key.replace(/\\n/g, '\n') }), databaseURL: 'https://freepasserp3-default-rtdb.asia-southeast1.firebasedatabase.app' });
+initializeApp({ credential: cert({ projectId: sa.project_id, clientEmail: sa.client_email, privateKey: sa.private_key.replace(/\\n/g, '\n') }) });
 const jwt = new JWT({ email: sa.client_email, key: sa.private_key, scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive'], subject: 'pyh@teamjpk.com' });
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const api = async (url: string, init?: RequestInit): Promise<any> => {
@@ -35,8 +35,13 @@ const api = async (url: string, init?: RequestInit): Promise<any> => {
 };
 
 // ── 데이터 ──
-const db = getDatabase();
-const policies = (await db.ref('v4/policies').get()).val() as Record<string, any> || {};
+const firestore = getFirestore();
+const [policySnap, productSnap, partnerSnap] = await Promise.all([
+  firestore.collection('policy').get(),
+  firestore.collection('products').get(),
+  firestore.collection('partner').get(),
+]);
+const policies = Object.fromEntries(policySnap.docs.map((doc) => [doc.id, { _key: doc.id, ...doc.data() }]));
 // 코드 정규화 — 접미사 앞자리 0 차이 흡수(RP031_S1 ↔ RP031_S01). 사장님 2026-09-03 실측 123대.
 const normCode = (c: unknown) => S(c).toLowerCase().replace(/_([a-z]+)0*(\d+)/g, '_$1$2');
 const polByCode = new Map<string, any>();     // policy_code 필드
@@ -57,7 +62,7 @@ for (const [prov, arr] of provPolicies) if (arr.length === 1) provSingle.set(pro
 // ★「프리패스 공통 렌트」를 정책 2개+ 공급사에 씌우지 «않는다»(사장님 2026-09-03 「공통정책으로 다 채운 건 안 됨」).
 //   실제로 맞는 것만: 코드(정확·퍼지) + 정책이 «진짜 하나뿐인 공급사」. 나머지는 빈칸 — 내일 구형 시트로 실제 정책 채움.
 const policyOf = (v: any) => polByCode.get(S(v.policy_code)) || polByKey.get(S(v.policy_code)) || polByNorm.get(normCode(v.policy_code)) || provSingle.get(S(v.provider_company_code)) || {};
-const docs = (await getFirestore().collection('products').get()).docs.map((d) => d.data());
+const docs = productSnap.docs.map((d) => d.data());
 const listable = docs.filter((v) => v.listable === true);
 
 // ★전용계좌·공급사명 = 공급사(파트너) 정보(사장님 2026-09-03·09-04 「계좌·공급사명도 원자화된 거 갖고 와야지」).
@@ -65,7 +70,7 @@ const listable = docs.filter((v) => v.listable === true);
 const acctByProvider = new Map<string, string>();
 const nameByProvider = new Map<string, string>();
 {
-  const partners = (await db.ref('v4/partners').get()).val() as Record<string, any> || {};
+  const partners = Object.fromEntries(partnerSnap.docs.map((doc) => [doc.id, { _key: doc.id, ...doc.data() }]));
   for (const p of Object.values(partners)) {
     if (!p || typeof p !== 'object') continue;
     const code = S((p as any).partner_code) || S((p as any).provider_company_code);
@@ -208,7 +213,7 @@ const cell = (col: string, v: any): string => {
     '세부트림': S(v.trim_name) || (/기본\s*형|\b기본\b/.test(S(v['원문']?.['차명'])) ? '기본형' : ''),
     '외장': S(v.ext_color), '내장': S(v.int_color), '연식': S(v.year), 'Km': S(v.mileage),
     '연료': S(v.fuel_type), '배기량': S(v.engine_cc), '차종구분': S(v.vehicle_class),
-    '차명(원문)': S(v['원문']?.['차명']), '옵션(원문)': cleanOpt(S(v['원문']?.['옵션'])),
+    '차명(원문)': S(v['원문']?.['차명']), '옵션(원문)': cleanOpt(S(v['원문']?.['옵션']) || S(v.options)),
     '원산지': S(v.origin), '구동': S(v.drive_type), '인승': S(v.seats), '배터리용량': S(v.battery_capacity),
     '최초등록': S(v.first_registration_date), '차고지': S(v.location), '사진': S(v.photo_link),
     '정책UID': S(v.policy_code),
@@ -223,10 +228,10 @@ const cell = (col: string, v: any): string => {
     '중도해지 1년미만': S(pol.penalty_condition), '중도해지 1년이상': S(pol.penalty_condition),
     '승계': S(pol.succession_allowed) + (pol.succession_fee ? ` (${money(pol.succession_fee)})` : ''),
   };
-  if (col in direct) return direct[col];
+  if (col in direct) return atomDisplayText(col, direct[col], v);
   if (col === '차번링크') return ticaByCar.get(NKEY(v.car_number)) || '';   // 픽업 = 티카 상품링크
   if (col === '전용계좌') return acctByProvider.get(S(v.provider_company_code)) || '';   // 공급사 계좌
-  if (col === '공급사') return nameByProvider.get(S(v.provider_company_code)) || S(v.provider_company_code);   // 공급사명(원자 파트너)
+  if (col === '공급사') return atomDisplayText('공급사', nameByProvider.get(S(v.provider_company_code)) || '', v);   // 공급사명(원자 파트너)
   if (/보증|개월|반납형|인수형|만km|장기보증/.test(col)) return priceCell(v.price, col);
   return '';   // 소비자가격·그 밖 요금·연주행·탁송비·분납·사고다발 = 원천 없음(빈칸)
 };

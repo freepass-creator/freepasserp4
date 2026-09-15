@@ -23,6 +23,7 @@
     "check:fonts": "tsx scripts/check-fonts.mts",
     "check:tokens": "tsx scripts/check-tokens.mts",
     "check:ui": "tsx scripts/check-ui-contract.mts",
+    "check:missing-display": "tsx scripts/check-missing-display.mts",
     "check:shop-data-parity": "tsx scripts/sim-shop-data-parity.mts",
     "check:design": "tsx scripts/check-design-locked.mts",
     "check:speed": "tsx scripts/check-shop-speed.mts",

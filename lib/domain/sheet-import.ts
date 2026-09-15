@@ -10,6 +10,7 @@ import { canonDriveType, type EntityRecord } from '@/lib/intake/entities';
 import { normalizeProductOptionsText, isExactRealPlate, normalizeWonPair } from '@/lib/domain/product';
 import { pendingSignature, previewPlateAllocator, type PlateAllocator } from '@/lib/domain/pending-plate';
 import { IMPORT_BRANDS, isImportBrand } from '@/lib/domain/vehicle-origin';
+import { isAtomDisplayPlaceholder } from '@/lib/domain/missing-value-display';
 
 export { isImportBrand } from '@/lib/domain/vehicle-origin';
 
@@ -923,7 +924,10 @@ export function importSheetTable(table: string[][], opts: {
     // 실제 오류처럼 보이고 급감 기준선도 부풀어난다.
     if (cells.every((cell) => !String(cell ?? '').trim())) continue;
     const rec: EntityRecord = {};
-    for (const [field, idx] of Object.entries(mapping)) { const v = String(cells[idx] ?? '').trim(); if (v) rec[field] = v; }
+    for (const [field, idx] of Object.entries(mapping)) {
+      const v = String(cells[idx] ?? '').trim();
+      if (v && !(opts.authoritativeRefinedRows && isAtomDisplayPlaceholder(field, v))) rec[field] = v;
+    }
     // 판매시트는 「옵션(원문)」 하나만 쓰며, ERP도 그 글자를 가공 없이 사용한다.
     if (opts.authoritativeRefinedRows && rec.options) rec.supplier_options = rec.options;
     if (!opts.authoritativeRefinedRows && rec.options) rec.options = normalizeProductOptionsText(rec.options);
