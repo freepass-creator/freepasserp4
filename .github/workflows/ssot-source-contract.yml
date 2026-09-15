@@ -1,0 +1,34 @@
+name: SSOT Source Contract
+
+on:
+  pull_request:
+    paths:
+      - 'lib/domain/inventory-source-registry.ts'
+      - 'scripts/ingest-all-suppliers.mts'
+      - 'scripts/ingest-supplier-to-firestore.mts'
+      - 'scripts/check-inventory-source-contract.mts'
+      - '.github/workflows/erp5-ssot-refresh.yml'
+      - '.github/workflows/ssot-source-contract.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'lib/domain/inventory-source-registry.ts'
+      - 'scripts/ingest-all-suppliers.mts'
+      - 'scripts/ingest-supplier-to-firestore.mts'
+      - 'scripts/check-inventory-source-contract.mts'
+      - '.github/workflows/erp5-ssot-refresh.yml'
+      - '.github/workflows/ssot-source-contract.yml'
+
+jobs:
+  source-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Canonical inventory source contract
+        run: npx tsx scripts/check-inventory-source-contract.mts
