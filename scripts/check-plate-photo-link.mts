@@ -16,7 +16,7 @@
  *    「픽업(T카)은 사진이 아니라 티카 상세페이지로 간다」).
  *
  * ⚠⚠ 2026-09-09 — 이 검사가 «사진만» 보고 있었다. 픽업 예외가 생겼는데 검사는 안 따라왔다.
- *   그래서 **픽업구독 224대·손오공구독 26대를 «어긋남»으로 찍었다 — 실제로는 규격대로 맞는 것들이었다.**
+ *   그래서 **픽업구독 224대·손오공상품 26대를 «어긋남»으로 찍었다 — 실제로는 규격대로 맞는 것들이었다.**
  *   ★거짓으로 우는 검사는 사람이 안 믿게 되고, **그 소음이 진짜 경보를 죽인다.**
  *   실제로 그 소음 뒤에 **채널시트(F86) 703대의 링크가 «한 대도» 없는** 사고가 숨어 있었다.
  *
@@ -31,6 +31,7 @@ import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import { HAHUHO_PRODUCT_SHEET_ID, SALES_SHEET_ID } from '../lib/domain/legacy-sheets';
 import { pickPublishedSalesTabs } from '../lib/domain/sales-published-tabs';
+import { googleSheetsServiceAccount } from '../lib/server/google-service-account';
 
 const S = (v: unknown) => String(v ?? '').trim();
 let bad = 0;
@@ -48,7 +49,7 @@ for (const f of PUBLISHERS) {
 }
 if (!bad) console.log('  ✓ 발행기는 링크를 따로 걸지 않는다 — 서식층 한 곳');
 
-const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
+const sa = googleSheetsServiceAccount('tmp/firebase-auth/sa.json');
 const jwt = new JWT({
   email: sa.client_email, key: sa.private_key, subject: 'pyh@teamjpk.com',
   scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive'],

@@ -15,19 +15,22 @@
  *   npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/build-channel-supplier-sheet.mts --채널=하허호 [--apply]
  */
 import { readFileSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { JWT } from 'google-auth-library';
-import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { companyAlias } from '../lib/domain/identity';
 import { channelCompanyOf } from '../lib/domain/channel-company';
 import { isPlate } from '../lib/domain/plate-registry';
 import { hasInventoryPublicationViolations, inventoryCountSnapshot, isOpenInventoryAtom } from '../lib/domain/inventory-contract';
-import { captureSalesPublishSnapshot, readSalesPublishSnapshot, salesPublishMark } from '../lib/server/sales-publish-snapshot';
+import { captureSalesPublishSnapshot, readSalesPublishSnapshot, salesPublishTabMark } from '../lib/server/sales-publish-snapshot';
 import { loadSalesRowContext, makeCell, tabOf, TAB_ORDER, compareSalesRows } from '../lib/domain/sales-atom-row';
 import { buildSalesFormatRequests, columnWidths, isMoneyColumn } from '../lib/domain/sales-sheet-format';
 import { HAHUHO_PRODUCT_SHEET_ID } from '../lib/domain/legacy-sheets';
 import { ensureNoticeTab } from '../lib/server/channel-sheet-tabs';
+import { applyRetroSkin, inRetroSummary, RETRO_SHORT, RETRO_SUMMARY_TAB, retroCellValue, retroHasLongFee, retroHasValue, retroTabColorRequest, retroTabLayout, retroTabRank } from '../lib/domain/channel-retro-skin';
 import { channelColumnName, salesPublishedColumns } from '../lib/domain/sales-published-tab-columns';
+import { firebaseAdminApp } from '../lib/server/firebase-admin';
+import { googleSheetsServiceAccount } from '../lib/server/google-service-account';
 import nextEnv from '@next/env';
 
 nextEnv.loadEnvConfig(process.cwd());
@@ -35,6 +38,16 @@ const S = (v: unknown) => String(v ?? '').trim();
 const APPLY = process.argv.includes('--apply');
 const arg = (k: string) => (process.argv.find((a) => a.startsWith(`--${k}=`)) || '').split('=')[1] || '';
 const channel = S(arg('채널')) || '하허호';
+/**
+ * ★**미리보기 사본에 찍기** — `--시트=<사본 문서 id>`. 운영 F86 을 덮기 전에 사람이 눈으로 본다.
+ *   ⚠ 운영 F86 id 를 주면 막는다(그건 --시트 없이 부르는 길이다). 이름 검사도 사본이라 건너뛴다.
+ */
+const 미리보기 = S(arg('시트'));
+/**
+ * ★**하허호는 «레트로 겉»** — 사장님 2026-09-15 「원래 레트로 감성인 그 폰트하고 규격 … 대여료 구간은 우리 기존 그거대로」.
+ *   열·차례·값은 그대로(F01), 글꼴·정렬·색·폭만 옛 「프리패스 공급사 상품리스트」 종합 탭(`lib/domain/channel-retro-skin`).
+ */
+const RETRO = channel === '하허호';
 const snapshotPath = arg('snapshot');
 if (APPLY && !snapshotPath) throw new Error('채널시트 발행은 --snapshot=<회차별 고정 스냅샷>이 필요하다. 먼저 capture:sales-publish를 실행하라.');
 /**
@@ -45,14 +58,11 @@ if (APPLY && !snapshotPath) throw new Error('채널시트 발행은 --snapshot=<
  */
 const CHANNEL_PRODUCT_F: Record<string, string> = { 하허호: 'F86' };
 const DOC_NAME = `[${CHANNEL_PRODUCT_F[channel] || 'F8?'} 사용중] 프리패스x${channel} 전용 상품시트`;
-const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS) || 'tmp/firebase-auth/sa.json', 'utf8'));
-initializeApp({
-  credential: cert({ projectId: sa.project_id, clientEmail: sa.client_email, privateKey: sa.private_key.replace(/\\n/g, '\n') }),
-});
-const firestore = getFirestore();
+const firestore = getFirestore(firebaseAdminApp());
+const sheetsAccount = googleSheetsServiceAccount('tmp/firebase-auth/sa.json');
 const publishSnapshot = snapshotPath ? readSalesPublishSnapshot(snapshotPath) : await captureSalesPublishSnapshot(firestore);
 const jwt = new JWT({
-  email: sa.client_email, key: sa.private_key, subject: 'pyh@teamjpk.com',
+  email: sheetsAccount.client_email, key: sheetsAccount.private_key, subject: 'pyh@teamjpk.com',
   scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive'],
 });
 /**
@@ -113,7 +123,7 @@ const companyOf = (v: string) => channelCompanyOf(v, nameOf);
 
 /**
  * ★**열 = 판매시트 «그대로»** — 한 칸도 빼지 않는다(「데이터 완벽하게」). 탭마다 열이 달라 «합집합»으로 세운다.
- * ⚠ 픽업구독 탭만 「반납형보증금 / 인수형보증금」을 쓰고, 상품리스트·손오공구독은 「보증금 반납형 / 보증금 인수형」이다
+ * ⚠ 픽업구독 탭만 「반납형보증금 / 인수형보증금」을 쓰고, 상품리스트·손오공상품은 「보증금 반납형 / 보증금 인수형」이다
  *   (2026-09-04 픽업 탭 지시). 한 회사(손오공)를 한 탭에 모으면 그 둘이 **두 벌로 선다** — 실측 요금 칸 18개.
  *   ⇒ 판매시트 다수 표기로 통일한다. 값은 그대로, 이름만 한 벌.
  */
@@ -171,8 +181,12 @@ const by = new Map<string, Row[]>();
  *   ⇒ 빼고, 몇 대인지 알린다. 고칠 곳은 **문패의 공급사명**이지 이 시트가 아니다.
  */
 const 이름없음: Row[] = [];
+/** ★하허호 — 장기 요금이 하나도 없는 차(단기 요금만)는 싣지 않는다(`RETRO_SHORT` 머리말 · 2026-09-15). */
+const 장기있음 = (x: Row) => retroHasLongFee((c) => x.cells[c], Object.keys(x.cells));
+const 단기만: Row[] = [];
 for (const x of rowsAll) {
   if (!x.company) { 이름없음.push(x); continue; }
+  if (RETRO && !장기있음(x)) { 단기만.push(x); continue; }
   const l = by.get(x.company) || []; l.push(x); by.set(x.company, l);
 }
 if (이름없음.length) console.log(`  ⚠ 공급사 이름을 모르는 차 ${이름없음.length}대 — 채널에 안 내보낸다(문패 「공급사명」을 채워라): ${이름없음.slice(0, 6).map((x) => S(x.cells['차량번호'])).join(' · ')}`);
@@ -199,22 +213,67 @@ const modelCount = new Map<string, number>();
 for (const r of rowsAll) { const m = S(r.atom.model); if (m) modelCount.set(m, (modelCount.get(m) || 0) + 1); }
 const cmp = compareSalesRows(modelSold, modelCount);
 for (const list of by.values()) list.sort((a, b) => cmp(a.atom, b.atom));
-const order = [...by.entries()].sort((a, b) => b[1].length - a[1].length);
+/** 탭 차례 — 하허호는 «굳힌 표»(RETRO_TAB_ORDER), 그 밖은 상품 많은 순. */
+const order = [...by.entries()].sort((a, b) => (RETRO ? retroTabRank(a[0]) - retroTabRank(b[0]) : 0) || b[1].length - a[1].length);
+/** ★하허호 레트로만 — 「종합」 탭(손오공·오토플러스 뺀 렌트사 규격 차)을 공지사항 바로 뒤에 둔다. `RETRO_SUMMARY_TAB` 머리말. */
+const 종합줄 = RETRO ? order.filter(([co]) => inRetroSummary(co)).flatMap(([, l]) => l).sort((a, b) => cmp(a.atom, b.atom)) : [];
+if (RETRO && 단기만.length) console.log(`   ○ 단기 요금만 있는 차 ${단기만.length}대 — 하허호에 안 싣는다: ${단기만.slice(0, 6).map((x) => `${S(x.cells['차량번호'])}(${x.company})`).join(' · ')}`);
+const 탭들: [string, Row[]][] = RETRO ? [[RETRO_SUMMARY_TAB, 종합줄], ...order] : order;
+if (RETRO) console.log(`   ${String(종합줄.length).padStart(4)}  ${RETRO_SUMMARY_TAB} (손오공·오토플러스 뺀 렌트사 규격)`);
 console.log(`\n■ ${DOC_NAME} — 회사 ${order.length}곳 · 총 ${rowsAll.length}대 · 열 ${OUT_COLS.length}`);
 for (const [k, list] of order) {
   const g = new Map<string, number>(); for (const x of list) g.set(x.kind, (g.get(x.kind) || 0) + 1);
   const fee = COLUMNS.filter((c) => isMoneyColumn(c) && !/가격/.test(c) && list.some((x) => { const v = S(x.cells[c]); return !!v && v !== '-'; }));
   console.log(`   ${String(list.length).padStart(4)}  ${k.padEnd(10)} 요금 ${String(fee.length).padStart(2)}칸  ${fee.slice(0, 7).join(' · ')}${fee.length > 7 ? ' …' : ''}`);
 }
+/**
+ * ★★**하허호 «굳힌 양식» 문지기** (사장님 2026-09-16 「양식을 굳히라고 … 매번 달라지지 말고」).
+ *   표(RETRO_TAB_ORDER·RETRO_TAB_FEES)에 없는 회사, 표에 없는 요금 칸에 «값이 있는» 차가 오면 멈춘다.
+ *   칸을 몰래 늘리면 양식이 흔들리고, 몰래 빼면 그 요금이 채널에 안 보인다 — 둘 다 안 한다. 사람이 여쭙고 표에 넣는다.
+ */
+const 양식어긋남: string[] = [];
+if (RETRO) {
+  for (const [co, list] of order) {
+    const lay = retroTabLayout(co);
+    if (!lay) { 양식어긋남.push(`표에 없는 회사 「${co}」 ${list.length}대 — RETRO_TAB_ORDER·RETRO_TAB_FEES 에 한 줄 넣어야 한다`); continue; }
+    const heads = new Set(lay.map((c) => c.head));
+    const 칸들 = new Set(list.flatMap((x) => Object.keys(x.cells)));
+    for (const c of 칸들) {
+      if (!isMoneyColumn(c) || /가격/.test(c) || RETRO_SHORT.includes(c) || heads.has(c)) continue;
+      const n = list.filter((x) => retroHasValue(x.cells[c])).length;
+      if (n) 양식어긋남.push(`「${co}」 표에 없는 요금 칸 「${c}」에 값 ${n}대 — RETRO_TAB_FEES 에 넣어야 채널에 보인다`);
+    }
+  }
+  if (양식어긋남.length) {
+    for (const m of 양식어긋남) console.error(`  ⛔ 굳힌 양식 밖 — ${m}`);
+    if (APPLY) { console.error('  ⛔ 하허호 F86 굳힌 양식과 다른 데이터 — 채널시트를 건드리지 않고 멈춘다(lib/domain/channel-retro-skin.ts 표).'); process.exit(1); }
+  } else console.log('   ○ 굳힌 양식 — 탭 차례·요금 칸 표 안에 다 든다');
+}
 if (!APPLY) { console.log('\n※ dry-run — --apply 로 만든다.\n'); process.exit(0); }
+
+/**
+ * ★★**F86 확정 규격 잠금 — 어긋난 규격으로는 «시트를 안 건드린다»** (사장님 2026-09-16 「이제 픽스해서 규격화해」).
+ *   규격 정본 = `docs/영업자시트-매뉴얼.md` §하허호 F86 «완전 커스텀 레트로» · 검사 = `scripts/check-f86-locked.mts`.
+ *   자동 회차(hourly-sync ⑯¼ · refresh-sync · run-daily ⑫)도 모두 이 발행기를 거치므로 여기 한 곳에서 막으면 다 막힌다.
+ */
+if (RETRO) {
+  const lock = spawnSync('npx', ['tsx', '--require', './scripts/lib/server-only-shim.cjs', 'scripts/check-f86-locked.mts'], { stdio: 'inherit', shell: true });
+  if (lock.status !== 0) {
+    console.error('  ⛔ F86 확정 규격 잠금(check:f86)이 어긋났다 — 채널시트를 건드리지 않고 멈춘다.');
+    process.exit(1);
+  }
+}
 
 // 준비 시간이 길었어도 실제 운영 시트를 건드리기 직전에 신선도와 해시를 다시 확인한다.
 readSalesPublishSnapshot(snapshotPath);
 
 // ── 채널 문서. 운영 중인 하허호 F86은 이름이 아니라 불변 ID로 고정한다. ──
-const fixedId = channel === '하허호' ? HAHUHO_PRODUCT_SHEET_ID : '';
+if (미리보기 && 미리보기 === HAHUHO_PRODUCT_SHEET_ID) throw new Error('--시트 는 미리보기 사본용이다 — 운영 F86 은 --시트 없이 부른다');
+const fixedId = 미리보기 || (channel === '하허호' ? HAHUHO_PRODUCT_SHEET_ID : '');
 let id = fixedId;
-if (id) {
+if (미리보기) {
+  console.log(`   ○ 미리보기 사본에 찍는다 — ${미리보기}`);
+} else if (id) {
   const fixedMeta = await api(`https://sheets.googleapis.com/v4/spreadsheets/${id}?fields=properties.title`);
   if (S(fixedMeta?.properties?.title) !== DOC_NAME) {
     throw new Error(`F86 불변 ID의 문서명이 다르다: ${S(fixedMeta?.properties?.title)} (${id})`);
@@ -244,9 +303,15 @@ if (!id) {
   const made = await ensureNoticeTab(tok, id);
   console.log(`   ${made ? '+ 「공지사항」 만듦' : '○ 「공지사항」 있음 — 손대지 않음'}`);
 }
-const cur = await api(`https://sheets.googleapis.com/v4/spreadsheets/${id}?fields=sheets.properties(sheetId,title)`);
+const cur = await api(`https://sheets.googleapis.com/v4/spreadsheets/${id}?fields=sheets(properties(sheetId,title),conditionalFormats(ranges(sheetId)))`);
 const have: [string, any][] = (cur.sheets || []).map((s: any) => [S(s.properties.title), s.properties]);
-const mark = salesPublishMark(publishSnapshot);
+/**
+ * ★**탭에 쌓인 조건부서식 수** — 서식기는 규칙을 «더하기»만 한다. 지우지 않으면 회차마다 쌓인다.
+ *   ⚠ 실측 2026-09-15 — 운영 F86 손오공 탭 한 장에 조건부서식이 **7,034개** 쌓여 있었다(회차 × 값 규칙).
+ *   색 규칙을 걷어도(레트로) 옛 회차 규칙이 남아 옛 색이 계속 보인다 → 매 회차 먼저 다 걷고 새로 건다.
+ */
+const 규칙수 = new Map<number, number>((cur.sheets || []).map((s: any) => [Number(s.properties.sheetId), (s.conditionalFormats || []).length]));
+const mark = salesPublishTabMark(publishSnapshot);
 
 const reqs: any[] = [];
 /** ★차번 셀 링크 요청 — 값 쓰기 «뒤»에 따로 보낸다(먼저 보내면 값 쓰기가 지운다). */
@@ -255,7 +320,7 @@ const puts: { range: string; values: string[][] }[] = [];
 /** 이번 회차에 실제로 채운 탭 — 여기 없는 회사 탭은 묵은 것이라 지운다(아래). */
 const 쓴탭 = new Set<number>();
 let index = 1;   // 0 = 공지사항
-for (const [company, list] of order) {
+for (const [company, list] of 탭들) {
   /**
    * ★탭 이름 = 「회사 N대」 (사장님 2026-09-08 「그냥 손오공 몇 대만 탭으로 남겨줘」).
    *   판매시트는 탭 이름에 시각을 박지만(발행 시각이 곧 신선도라서), 채널이 보는 이 문서는
@@ -274,7 +339,16 @@ for (const [company, list] of order) {
   const 쓴다 = (c: string) => list.some((x) => { const v = S(x.cells[c]); return !!v && v !== '-'; });
   const 앞 = COLUMNS.indexOf('차명(원문)');
   /** ★F01 의 열 차례를 «그대로» 지킨다 — 다시 정렬하지 않는다(그러다 12·24 인수형이 끝으로 밀렸었다). */
-  const cols = COLUMNS.filter((c, i) => (요금칸(c) ? 쓴다(c) : true));
+  const 쓸칸 = COLUMNS.filter((c, i) => (요금칸(c) ? 쓴다(c) : true));
+  /**
+   * ★★**하허호는 옛 「종합」 43칸**(이름·차례·내용 · 2026-09-15 「순서를 똑같이, 내용도 똑같이, 원자만 erp5」).
+   *   칸 표 정본 = `retroLayout`(감사기와 같은 표). 값은 원자에서 만든 F01 칸(`x.cells`)과 원자 필드에서 옮긴다.
+   */
+  /** 회사 탭 = 쓰는 요금 칸만 · 「종합」 = 렌트사 규격 9칸 늘(`retroLayout` 머리말). */
+  /** 하허호 = «굳힌 표»의 칸(데이터를 안 본다 · 표 밖이면 위 문지기가 이미 멈췄다). */
+  const 레트로 = RETRO ? retroTabLayout(company) : null;
+  if (RETRO && !레트로) throw new Error(`굳힌 양식 표에 없는 탭: ${company}`);
+  const cols = 레트로 ? 레트로.map((c) => c.head) : 쓸칸;
   const title = `${company} ${mark} · ${list.length}대`;
   const old = have.find(([t]) => t.startsWith(`${company} `));
   let gid: number;
@@ -289,6 +363,8 @@ for (const [company, list] of order) {
     gid = Number(made.replies[0].addSheet.properties.sheetId);
   }
   reqs.push({ updateCells: { range: { sheetId: gid }, fields: 'userEnteredValue' } });
+  /** 옛 회차 조건부서식을 «먼저» 다 걷는다(위 `규칙수` 머리말). 새로 만든 탭은 0개라 건너뛴다. */
+  for (let k = 0; k < (old ? 규칙수.get(gid) || 0 : 0); k++) reqs.push({ deleteConditionalFormatRule: { sheetId: gid, index: 0 } });
   reqs.push({ updateSheetProperties: { properties: { sheetId: gid, gridProperties: { frozenRowCount: 1, rowCount: list.length + 30, columnCount: cols.length } }, fields: 'gridProperties(frozenRowCount,rowCount,columnCount)' } });
   /**
    * ★★**서식은 판매시트와 «같은 한 벌»이다** (사장님 2026-09-08 「어떤 시트에 나가든지 규격이나 정책 기능 동일해야지」).
@@ -297,17 +373,26 @@ for (const [company, list] of order) {
    *   ⇒ 영업자가 판매시트를 보다 이 시트를 봐도 «같은 문서»로 읽힌다.
    */
   /** 본문 — 열너비를 재고 차번 셀 링크를 거는 데 쓴다(서식보다 «먼저» 있어야 한다). */
-  const body = list.map((x) => cols.map((c) => S(x.cells[c])));
+  const body = 레트로
+    ? list.map((x) => 레트로.map((c) => (c.src.kind === 'col' ? S(x.cells[c.src.name]) : c.src.kind === 'atom' ? S(x.atom?.[c.src.field]) : c.src.kind === 'company' ? S(x.company) : '')))
+    : list.map((x) => cols.map((c) => S(x.cells[c])));
   /**
    * ★★**차번 셀 링크는 «값을 쓴 뒤»에 건다** — 아래 `링크요청` 으로 따로 받아 둔다.
    *   ⚠⚠ 실측 2026-09-09 — 여기서 링크까지 `reqs` 에 담아 «먼저» 보내고 값을 나중에 썼더니,
    *   그 값 쓰기가 차번 셀을 덮으면서 링크가 같이 죽었다 — **703대 중 링크가 «한 대도» 없었다.**
    *   서식(색·글꼴)은 멀쩡해서 눈으로는 안 띈다. 채널이 차번을 눌러도 사진이 안 열리는 채로 나갔다.
    */
-  reqs.push(...buildSalesFormatRequests({
+  /**
+   * ★**숨김은 «다 편 뒤» 이름으로 다시 접는다** — 실측 2026-09-15.
+   *   서식기는 이름으로 «접기»만 하고 «펴기»는 안 한다. 칸 자리가 바뀌면(레트로 차례) 지난 회차의 숨김이
+   *   «옛 자리»에 남아 엉뚱한 칸(1만+·대인·공급사·모델)이 접히고, 접혀야 할 칸(차고지)이 펴져 있었다.
+   */
+  reqs.push({ updateDimensionProperties: { range: { sheetId: gid, dimension: 'COLUMNS', startIndex: 0, endIndex: cols.length }, properties: { hiddenByUser: false }, fields: 'hiddenByUser' } });
+  const 서식 = buildSalesFormatRequests({
     gid, columns: cols, headerAt: 0, widths: columnWidths(cols, body),
     columnCountNow: cols.length, tabTitle: title, body, linkOut: 링크요청,
-  }) as any[]);
+  }) as any[];
+  reqs.push(...(RETRO ? applyRetroSkin(서식, 링크요청, { gid, columns: cols, headerAt: 0, body }) : 서식));
   /**
    * ★**탭 색은 회사마다 다르게** (사장님 2026-09-08 「각 회사별 탭 다르게 해주고」).
    *   차례대로 도는 색표라 회사가 늘어도 안 겹쳐 보인다. 서식(글꼴·값 색)은 위에서 이미 한 벌로 맞췄다.
@@ -318,9 +403,9 @@ for (const [company, list] of order) {
     { red: 0.38, green: 0.24, blue: 0.53 }, { red: 0.13, green: 0.42, blue: 0.47 },
     { red: 0.58, green: 0.30, blue: 0.12 }, { red: 0.30, green: 0.30, blue: 0.30 },
   ];
-  reqs.push({ updateSheetProperties: { properties: { sheetId: gid, tabColor: TAB_HUES[index % TAB_HUES.length] }, fields: 'tabColor' } });
+  reqs.push(RETRO ? retroTabColorRequest(gid, company) : { updateSheetProperties: { properties: { sheetId: gid, tabColor: TAB_HUES[index % TAB_HUES.length] }, fields: 'tabColor' } });
   reqs.push({ setBasicFilter: { filter: { range: { sheetId: gid, startRowIndex: 0, endRowIndex: list.length + 1, startColumnIndex: 0, endColumnIndex: cols.length } } } });
-  puts.push({ range: `'${title}'!A1`, values: [cols, ...body] });
+  puts.push({ range: `'${title}'!A1`, values: [cols, ...(RETRO ? body.map((r) => r.map((v, k) => retroCellValue(cols[k], v))) : body)] as any });
   쓴탭.add(gid);
   index++;
 }
@@ -379,7 +464,7 @@ for (let i = 0; i < 링크요청.length; i += 300) {
   await api(`https://sheets.googleapis.com/v4/spreadsheets/${id}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests: 링크요청.slice(i, i + 300) }) });
 }
 console.log(`   ○ 구글 두드림 — 읽기 ${셈.읽기} · 쓰기 ${셈.쓰기} · 재시도 ${셈.재시도} · 서식요청 ${reqs.length} · 차번링크 ${링크요청.length} · ${Math.round((Date.now() - 셈.시작) / 1000)}초`);
-console.log(`\n✓ 반영 완료 — 탭 ${order.length}장 · ${rowsAll.length}대 · 열 ${OUT_COLS.length}`);
+console.log(`\n✓ 반영 완료 — 탭 ${탭들.length}장 · ${order.reduce((n, [, l]) => n + l.length, 0)}대 · 열 ${OUT_COLS.length}`);
 console.log(`   https://docs.google.com/spreadsheets/d/${id}/edit`);
 console.log(`   스냅샷 ${publishSnapshot.snapshotId} · ${publishSnapshot.capturedAt}`);
 process.exit(0);

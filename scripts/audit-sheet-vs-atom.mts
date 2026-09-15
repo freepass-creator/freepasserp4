@@ -25,13 +25,15 @@ import { SALES_PUBLISHED_TAB_PREFIXES, salesTabMatches, canonicalSalesTabName } 
 import { isDepositColumn, isMoneyColumn } from '../lib/domain/sales-sheet-format';
 import { inventoryCountSnapshot, isOpenInventoryAtom, isUnavailableInventoryAtom } from '../lib/domain/inventory-contract';
 import nextEnv from '@next/env';
-import { readSalesPublishSnapshot, salesPublishMark } from '../lib/server/sales-publish-snapshot';
+import { readSalesPublishSnapshot, salesPublishMark, salesPublishTabMark } from '../lib/server/sales-publish-snapshot';
 import { companyAlias } from '../lib/domain/identity';
 import { channelCompanyOf } from '../lib/domain/channel-company';
 import { compareSalesRows, loadSalesRowContext, makeCell, tabOf } from '../lib/domain/sales-atom-row';
 import { channelColumnName, salesPublishedColumns } from '../lib/domain/sales-published-tab-columns';
 import { HAHUHO_PRODUCT_SHEET_ID, SALES_SHEET_ID } from '../lib/domain/legacy-sheets';
 import { atomDisplayText } from '../lib/domain/missing-value-display';
+import { retroHeadToColumn, retroUsesColumn, retroSameValue, inRetroSummary, RETRO_SUMMARY_TAB, retroHasLongFee, retroHasValue, retroTabLayout, retroTabRank } from '../lib/domain/channel-retro-skin';
+import { googleSheetsServiceAccount } from '../lib/server/google-service-account';
 
 nextEnv.loadEnvConfig(process.cwd());
 const S = (v: unknown) => String(v ?? '').trim();
@@ -39,8 +41,8 @@ const K = (v: unknown) => S(v).replace(/\s/g, '');
 const arg = (name: string) => (process.argv.find((value) => value.startsWith(`--${name}=`)) || '').slice(name.length + 3);
 /** 발행기는 RAW 문자열로 쓰므로 앞뒤 공백 외에는 한 글자도 정규화하지 않고 견준다. */
 const EQ = (a: unknown, b: unknown) => S(a) === S(b);
-if (!S(process.env.GOOGLE_APPLICATION_CREDENTIALS)) process.env.GOOGLE_APPLICATION_CREDENTIALS = 'tmp/firebase-auth/sa.json';
-const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS), 'utf8'));
+/** Sheets 자격증명은 Firebase(ERP5) 자격증명과 분리한다 — GitHub OIDC 에선 GOOGLE_APPLICATION_CREDENTIALS 가 Firebase 용 외부계정 파일이다. */
+const sa = googleSheetsServiceAccount('tmp/firebase-auth/sa.json');
 const jwt = new JWT({
   email: sa.client_email, key: sa.private_key, subject: 'pyh@teamjpk.com',
   scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive'],
@@ -80,6 +82,8 @@ const snapshotPath = arg('snapshot');
 if (!snapshotPath) throw new Error('F01·F86 감사에는 --snapshot=<이번 회차 고정 스냅샷>이 반드시 필요하다.');
 const publishSnapshot = readSalesPublishSnapshot(snapshotPath);
 const expectedMark = salesPublishMark(publishSnapshot);
+/** F86 탭 이름은 시각만(스냅샷 ID 없이) — 발행기 `salesPublishTabMark` 와 같은 문패. F01 은 위 `expectedMark` 규칙 그대로. */
+const f86Mark = salesPublishTabMark(publishSnapshot);
 const staleTimestampTabs: string[] = [];
 for (const v of publishSnapshot.products as any[]) { atomList.push(v); atoms.set(K(v.car_number) || S(v._key), v); }
 /**
@@ -207,6 +211,9 @@ for (const [col, e] of [...어긋난칸].sort((a, b) => b[1].n - a[1].n)) consol
 console.log(`  원자엔 요금이 있는데 시트 대여료가 통째로 빈 줄 ${요금빈줄}`);
 
 // ── ② F01 ↔ F86 ─────────────────────────────────────────────
+/** ★F86 에 실릴 차 = F01 차 중 «장기 요금이 있는» 차(하허호는 단기 칸·장기 요금 없는 차를 안 싣는다 · 2026-09-16). 발행기와 같은 `retroHasLongFee`. */
+const f86대상차 = new Set(f01.filter((r) => retroHasLongFee((c) => r.cells[c], Object.keys(r.cells))).map((r) => r.car));
+if (f01.length !== f86대상차.size) console.log(`  (하허호) 장기 요금이 없어 F86 에 안 싣는 차 ${f01.length - f86대상차.size}대`);
 type F86Row = { company: string; cells: Record<string, string> };
 const f86 = new Map<string, F86Row>();
 const f86Counts = new Map<string, number>();
@@ -219,13 +226,23 @@ const f86Order = new Map<string, string[]>();
 let f86줄 = 0;
 {
   const meta = await api(`https://sheets.googleapis.com/v4/spreadsheets/${F86}?fields=sheets.properties.title`);
-  const titles: string[] = (meta.sheets || []).map((s: any) => S(s.properties?.title)).filter((t: string) => !/공지|안내|이 시트/.test(t));
+  const 모든탭: string[] = (meta.sheets || []).map((s: any) => S(s.properties?.title)).filter((t: string) => !/공지|안내|이 시트/.test(t));
+  /** 「종합」은 회사 탭이 아니다 — 같은 차가 회사 탭과 두 번 서는 게 정상이라 아래에서 따로 본다. */
+  const 종합제목 = 모든탭.find((t) => t.startsWith(`${RETRO_SUMMARY_TAB} `)) || '';
+  const titles = 모든탭.filter((t) => t !== 종합제목);
+  /** ★탭 차례 = «굳힌 표»(RETRO_TAB_ORDER) — 대수로 섞이지 않는다(2026-09-16). */
+  {
+    const 실제 = 모든탭.map((t) => t.split(' ')[0]);
+    const 기대 = [...실제].sort((a, b) => retroTabRank(a) - retroTabRank(b));
+    if (JSON.stringify(실제) !== JSON.stringify(기대)) f86TabShapeViolations.push(`탭 차례가 굳힌 표와 다르다: ${실제.join('·')}`);
+  }
   const expectedCompanies = new Map<string, number>();
   for (const row of f01) {
+    if (!f86대상차.has(row.car)) continue;
     const company = channelCompanyOf(row.cells['공급사'], rowCtx.nameByProvider);
     expectedCompanies.set(company, (expectedCompanies.get(company) || 0) + 1);
   }
-  const expectedTitles = new Map([...expectedCompanies].map(([company, count]) => [`${company} ${expectedMark} · ${count}대`, company]));
+  const expectedTitles = new Map([...expectedCompanies].map(([company, count]) => [`${company} ${f86Mark} · ${count}대`, company]));
   const channelColumns: string[] = [];
   for (const prefix of SALES_PUBLISHED_TAB_PREFIXES) for (const raw of salesPublishedColumns(prefix)) {
     const column = channelColumnName(raw);
@@ -233,12 +250,8 @@ let f86줄 = 0;
   }
   const expectedHeaders = new Map<string, string[]>();
   for (const company of expectedCompanies.keys()) {
-    const companyRows = f01.filter((row) => channelCompanyOf(row.cells['공급사'], rowCtx.nameByProvider) === company);
-    expectedHeaders.set(company, channelColumns.filter((column) => {
-      const optionalFee = isMoneyColumn(column) && !/가격/.test(column);
-      if (!optionalFee) return true;
-      return companyRows.some((row) => Object.entries(row.cells).some(([raw, value]) => channelColumnName(raw) === column && S(value) && S(value) !== '-'));
-    }));
+    /** ★2026-09-16 «굳힌 양식» — 기대 머리글은 데이터가 아니라 발행기와 같은 표(`retroTabLayout`)에서. */
+    expectedHeaders.set(company, (retroTabLayout(company) || []).map((c) => c.head));
   }
   if (expectedMark) {
     for (const title of titles) if (!expectedTitles.has(title)) f86TabShapeViolations.push(`예상 밖 탭: ${title}`);
@@ -261,21 +274,48 @@ let f86줄 = 0;
       f86줄++;
       f86Counts.set(car, (f86Counts.get(car) || 0) + 1);
       const cells: Record<string, string> = {};
-      hdr.forEach((h, i) => { if (S(h)) cells[S(h)] = S(r[i]); });
+      /** 옛 머리글(차종분류·트림·21세…)을 F01 칸 이름으로 되돌려 값을 맞춰 본다. */
+      hdr.forEach((h, i) => { if (S(h)) cells[retroHeadToColumn(S(h))] = S(r[i]); });
       f86.set(car, { company, cells });
     }
   }
   for (const company of expectedCompanies.keys()) {
     const expected = 실릴차
-      .filter((atom) => channelCompanyOf(expectedCell('공급사', atom), rowCtx.nameByProvider) === company)
+      .filter((atom) => f86대상차.has(K(atom.car_number)) && channelCompanyOf(expectedCell('공급사', atom), rowCtx.nameByProvider) === company)
       .sort(compareRows)
       .map((atom) => K(atom.car_number));
     const actual = f86Order.get(company) || [];
     if (JSON.stringify(actual) !== JSON.stringify(expected)) f86OrderViolations.push(`${company}: 실제 ${actual.length}줄 ↔ 기대 ${expected.length}줄`);
   }
+  /**
+   * ★「종합」 탭 — 손오공·오토플러스 뺀 회사 차가 같은 차례·같은 칸으로 섰는가.
+   *   값은 회사 탭에서 이미 F01 과 맞췄으므로, 여기서는 차 목록·차례·머리글·줄마다 공급사명이 회사 탭과 같은지를 본다.
+   */
+  {
+    const 기대차 = 실릴차.filter((atom) => f86대상차.has(K(atom.car_number)) && inRetroSummary(channelCompanyOf(expectedCell('공급사', atom), rowCtx.nameByProvider))).sort(compareRows);
+    const 기대제목 = `${RETRO_SUMMARY_TAB} ${f86Mark} · ${기대차.length}대`;
+    if (!종합제목) f86TabShapeViolations.push(`빠진 탭: ${기대제목}`);
+    else {
+      if (f86Mark && 종합제목 !== 기대제목) f86TabShapeViolations.push(`종합 탭 이름: ${종합제목} ↔ 기대 ${기대제목}`);
+      const grid = (await readTabs(F86, [종합제목])).get(종합제목) || [];
+      const hdr = grid[0] || [];
+      const 기대머리 = (retroTabLayout(RETRO_SUMMARY_TAB) || []).map((c) => c.head);
+      if (JSON.stringify(hdr) !== JSON.stringify(기대머리)) f86HeaderViolations.push(`종합: 실제 ${hdr.length}열 ↔ 기대 ${기대머리.length}열`);
+      const ci = hdr.indexOf('차량번호'); const ni = hdr.indexOf('공급사명');
+      const 실제 = ci < 0 ? [] : grid.slice(1).map((r) => K(r[ci])).filter(Boolean);
+      const 기대 = 기대차.map((atom) => K(atom.car_number));
+      if (JSON.stringify(실제) !== JSON.stringify(기대)) f86OrderViolations.push(`종합: 실제 ${실제.length}줄 ↔ 기대 ${기대.length}줄`);
+      for (const r of ci < 0 ? [] : grid.slice(1)) {
+        const car = K(r[ci]); if (!car) continue;
+        const 회사 = f86.get(car)?.company || '';
+        if (회사 !== S(r[ni])) f86WrongCompany.push(`종합 ${car} 공급사명「${S(r[ni])}」↔ 회사 탭 ${회사 || '없음'}`);
+      }
+      console.log(`  「종합」 ${실제.length}줄 (손오공·오토플러스 뺌) · 기대 ${기대.length}줄`);
+    }
+  }
 }
 const f86Duplicates = [...f86Counts].filter(([, count]) => count > 1);
-const F86빠짐 = f01.filter((r) => !f86.has(r.car));
+const F86빠짐 = f01.filter((r) => f86대상차.has(r.car) && !f86.has(r.car));
 /** 두 출력은 같은 원자를 쓰므로 F01 에 없는 차가 F86 에 서면 묵은 탭이거나 헛것이다. */
 const F86헛것 = [...f86.keys()].filter((c) => !f01Cars.has(c));
 const F86값차이 = new Map<string, { n: number; 표본: string[] }>();
@@ -287,6 +327,10 @@ for (const r of f01) {
   for (const [rawCol, v] of Object.entries(r.cells)) {
     const col = channelColumnName(rawCol);
     if (!(col in b)) {
+      /** 옛 「종합」에 없던 F01 칸(연식·원산지·심사조건…)·단기 칸은 F86 에 안 싣는다 — 누락이 아니다. */
+      if (!retroUsesColumn(col)) continue;
+      /** 요금 칸이 「미입력」·「없음」·「해당없음」뿐이면 값이 없는 것이다(굳힌 표에 없는 칸이어도 누락 아님). */
+      if (isMoneyColumn(col) && !retroHasValue(v)) continue;
       // F86은 회사 전체가 안 쓰는 빈 요금 열만 생략할 수 있다. 값이 있거나 비요금 열이면 누락이다.
       if (!isMoneyColumn(col) || S(v)) {
         const e = F86값차이.get(`누락:${col}`) || { n: 0, 표본: [] };
@@ -295,7 +339,8 @@ for (const r of f01) {
       }
       continue;
     }
-    if (EQ(v, b[col])) continue;
+    /** F86 은 요금·Km·배기량·소비자가격을 숫자로, 최초등록을 날짜로 넣는다 — 모양만 다른 같은 값은 같다고 본다. */
+    if (EQ(v, b[col]) || retroSameValue(col, v, b[col])) continue;
     const e = F86값차이.get(col) || { n: 0, 표본: [] };
     e.n++; if (e.표본.length < 3) e.표본.push(`${r.car} F01「${v || '—'}」↔ F86「${b[col] || '—'}」`);
     F86값차이.set(col, e);

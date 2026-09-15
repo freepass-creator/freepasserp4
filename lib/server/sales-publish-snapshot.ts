@@ -21,9 +21,14 @@ export type SalesPublishSnapshot = {
 
 /** 사람이 보는 시각과 기계가 구분하는 ID를 한 문패에 함께 둔다. */
 export function salesPublishMark(snapshot: Pick<SalesPublishSnapshot, 'capturedAt' | 'snapshotId'>): string {
+  return `${salesPublishTabMark(snapshot)} · ${snapshot.snapshotId}`;
+}
+
+/** 탭 이름용 시각 문패 — 스냅샷ID 없이(사장님 2026-09-11 「탭이름…」). 사람이 보는 탭엔 시각만, ID는 발행 로그·검사(스냅샷 파일)에. */
+export function salesPublishTabMark(snapshot: Pick<SalesPublishSnapshot, 'capturedAt'>): string {
   const d = new Date(new Date(snapshot.capturedAt).getTime() + 9 * 3600e3);
   const p = (n: number) => String(n).padStart(2, '0');
-  return `${p(d.getUTCMonth() + 1)}.${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())} · ${snapshot.snapshotId}`;
+  return `${p(d.getUTCMonth() + 1)}.${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())}`;
 }
 
 const hashPayload = (value: Omit<SalesPublishSnapshot, 'payloadHash'>) => createHash('sha256')
