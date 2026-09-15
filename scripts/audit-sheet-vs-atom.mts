@@ -34,6 +34,7 @@ import { HAHUHO_PRODUCT_SHEET_ID, SALES_SHEET_ID } from '../lib/domain/legacy-sh
 import { atomDisplayText } from '../lib/domain/missing-value-display';
 import { retroHeadToColumn, retroUsesColumn, retroSameValue, inRetroSummary, RETRO_SUMMARY_TAB, retroHasLongFee, retroHasValue, retroTabLayout, retroTabRank } from '../lib/domain/channel-retro-skin';
 import { googleSheetsServiceAccount } from '../lib/server/google-service-account';
+import { compareF86Rows } from '../lib/server/channel-f86-plan';
 
 nextEnv.loadEnvConfig(process.cwd());
 const S = (v: unknown) => String(v ?? '').trim();
@@ -102,6 +103,8 @@ try {
 const modelCount = new Map<string, number>();
 for (const atom of 실릴차) { const model = S(atom.model); if (model) modelCount.set(model, (modelCount.get(model) || 0) + 1); }
 const compareRows = compareSalesRows(modelSold, modelCount);
+/** ★F86 만 «상품구분 → 모델» 차례다(사장님 2026-09-16) — 발행 계획과 같은 함수로 기대 차례를 만든다. */
+const compareF86 = compareF86Rows(modelSold, modelCount, compareRows);
 console.log(`\n등록 원자 ${inventory.registered} · 출고불가 ${inventory.unavailable} · 시트에 실려야 할 현재 재고 ${inventory.open}`);
 console.log(`발행 스냅샷 ${publishSnapshot.snapshotId} · ${publishSnapshot.capturedAt}`);
 console.log(`파생값 드리프트 listable ${inventory.listableDrift} · status_kind ${inventory.statusKindDrift} · 원천 식별자 누락 ${inventory.sourceIdentityViolations} · 삭제표식 ${inventory.deletedMarkerViolations}`);
@@ -288,7 +291,7 @@ let f86줄 = 0;
   for (const company of expectedCompanies.keys()) {
     const expected = 실릴차
       .filter((atom) => f86대상차.has(K(atom.car_number)) && channelCompanyOf(expectedCell('공급사', atom), rowCtx.nameByProvider) === company)
-      .sort(compareRows)
+      .sort(compareF86)
       .map((atom) => K(atom.car_number));
     const actual = f86Order.get(company) || [];
     if (JSON.stringify(actual) !== JSON.stringify(expected)) f86OrderViolations.push(`${company}: 실제 ${actual.length}줄 ↔ 기대 ${expected.length}줄`);
@@ -298,7 +301,7 @@ let f86줄 = 0;
    *   값은 회사 탭에서 이미 F01 과 맞췄으므로, 여기서는 차 목록·차례·머리글·줄마다 공급사명이 회사 탭과 같은지를 본다.
    */
   {
-    const 기대차 = 실릴차.filter((atom) => f86대상차.has(K(atom.car_number)) && inRetroSummary(channelCompanyOf(expectedCell('공급사', atom), rowCtx.nameByProvider))).sort(compareRows);
+    const 기대차 = 실릴차.filter((atom) => f86대상차.has(K(atom.car_number)) && inRetroSummary(channelCompanyOf(expectedCell('공급사', atom), rowCtx.nameByProvider))).sort(compareF86);
     const 기대제목 = `${RETRO_SUMMARY_TAB} ${f86Mark} · ${기대차.length}대`;
     if (!종합제목) f86TabShapeViolations.push(`빠진 탭: ${기대제목}`);
     else {

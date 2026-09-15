@@ -19,9 +19,41 @@ import { isMoneyColumn } from '../domain/sales-sheet-format';
 import { channelColumnName, salesPublishedColumns } from '../domain/sales-published-tab-columns';
 import { inRetroSummary, RETRO_SHORT, RETRO_SUMMARY_TAB, retroCellValue, retroHasLongFee, retroHasValue, retroTabLayout, retroTabRank } from '../domain/channel-retro-skin';
 import { companyAlias } from '../domain/identity';
+import { canonProductType } from '../domain/product';
+import { PRODUCT_TYPES } from '../intake/entities';
 import type { SalesPublishSnapshot } from './sales-publish-snapshot';
 
 const S = (v: unknown) => String(v ?? '').trim();
+
+/**
+ * ★★**하허호 줄 차례 = 상품구분 → 모델** (사장님 2026-09-16 「상품구분 중에 신차가 위에, 그다음에 인기차 이런 식으로
+ *   모델별로 — 상품구분 > 모델 로 정렬해 주시면 됩니다」).
+ *   ⚠ 판매시트 F01 은 그대로다(`compareSalesRows` — 신차 먼저 → 인기 → 모델). F86 만 «상품구분으로 먼저 묶는다».
+ *   ① 상품구분 = 캐논 차례(`PRODUCT_TYPES`: 신차렌트 · 중고렌트 · 신차구독 · 중고구독 · 오플구독 · 픽업구독 · 오공구독)
+ *   ② 같은 상품구분 안 = 모델을 «인기순»으로 묶는다(계약 실적 → 재고 대수 → 이름)
+ *   ③ 같은 모델 안 = 판매시트와 같은 규칙(신차는 값, 중고는 연식 → 값 → 공급사 → 차번)
+ */
+export function compareF86Rows(
+  modelSold: Map<string, number>,
+  modelCount: Map<string, number>,
+  tail: (a: any, b: any) => number,
+) {
+  const canon = PRODUCT_TYPES as readonly string[];
+  const typeRank = (v: any) => {
+    const t = canonProductType(v.product_type) || S(v.product_type);
+    const i = canon.indexOf(t);
+    return i < 0 ? canon.length : i;
+  };
+  const sold = (v: any) => -(modelSold.get(S(v.model)) || 0);
+  const pop = (v: any) => -(modelCount.get(S(v.model)) || 0);
+  return (a: any, b: any): number => (
+    typeRank(a) - typeRank(b)
+    || sold(a) - sold(b)
+    || pop(a) - pop(b)
+    || S(a.model).localeCompare(S(b.model), 'ko')
+    || tail(a, b)
+  );
+}
 
 export type F86Row = { company: string; kind: string; atom: any; cells: Record<string, string> };
 export type F86TabPlan = {
@@ -126,7 +158,9 @@ export async function buildF86Plan(p: {
   const modelSold = p.modelSold ?? loadModelSold();
   const modelCount = new Map<string, number>();
   for (const r of rowsAll) { const m = S(r.atom.model); if (m) modelCount.set(m, (modelCount.get(m) || 0) + 1); }
-  const cmp = compareSalesRows(modelSold, modelCount);
+  /** 하허호는 «상품구분 → 모델» 차례(`compareF86Rows`), 그 밖 채널은 판매시트와 같은 차례. */
+  const base = compareSalesRows(modelSold, modelCount);
+  const cmp = retro ? compareF86Rows(modelSold, modelCount, base) : base;
   for (const list of by.values()) list.sort((a, b) => cmp(a.atom, b.atom));
   /** 탭 차례 — 하허호는 «굳힌 표»(RETRO_TAB_ORDER), 그 밖은 상품 많은 순. */
   const order = [...by.entries()].sort((a, b) => (retro ? retroTabRank(a[0]) - retroTabRank(b[0]) : 0) || b[1].length - a[1].length);
