@@ -51,12 +51,46 @@ export const RETRO_LAYOUT: { head: string; src: RetroSource }[] = [
 ];
 
 const 요금칸 = (c: string) => isMoneyColumn(c) && !/가격/.test(c);
+/** 옛 시트의 기간 9칸 — 차례 그대로. */
+export const RETRO_PERIODS = ['단기보증', '1개월', '6개월', '12개월', '장기보증', '24개월', '36개월', '48개월', '60개월'] as const;
+
+/**
+ * ★**숫자·날짜는 «옛 형식»으로 넣는다** — 옛 시트는 요금·Km·배기량·소비자가격이 숫자(#,##0), 최초등록이 날짜(yy-m-d)였다.
+ *   글자로 넣으면 「1598」·「2026-07-24」처럼 보이고 옛 모양이 안 난다. 숫자 모양이 아닌 값(「무보증」·「불가」·「-」)은 글자 그대로.
+ */
+const 숫자칸 = (h: string) => 요금칸(h) || h === '소비자가격' || h === 'Km' || h === '배기량';
+export function retroCellValue(head: string, v: string): string | number {
+  const t = String(v ?? '').trim();
+  if (!t) return '';
+  if (숫자칸(head) && /^-?[\d,]+(\.\d+)?$/.test(t)) return Number(t.replace(/,/g, ''));
+  if (head === '최초등록') {
+    const m = /^(\d{2}|\d{4})[-./](\d{1,2})[-./](\d{1,2})$/.exec(t);
+    if (m) {
+      const y = m[1].length === 2 ? 2000 + Number(m[1]) : Number(m[1]);
+      return Math.round((Date.UTC(y, Number(m[2]) - 1, Number(m[3])) - Date.UTC(1899, 11, 30)) / 86_400_000);
+    }
+  }
+  return t;
+}
+/** 감사기용 — 시트에서 숫자·날짜로 읽힌 값을 F01 글자와 견줄 수 있게 되돌린다. */
+export function retroSameValue(head: string, f01: string, sheet: string): boolean {
+  const a = String(f01 ?? '').trim(); const b = String(sheet ?? '').trim();
+  if (a === b) return true;
+  if (숫자칸(head) && a.replace(/,/g, '') === b.replace(/,/g, '')) return true;
+  if (head === '최초등록' && /^\d+(\.\d+)?$/.test(b)) return retroCellValue('최초등록', a) === Math.round(Number(b));
+  return false;
+}
 
 /** 한 탭이 쓰는 F01 칸(요금은 그 회사가 쓰는 것만) → 옛 「종합」 칸 목록. */
 export function retroLayout(cols: readonly string[]): RetroColumn[] {
   const out: RetroColumn[] = [];
   for (const e of RETRO_LAYOUT) {
-    if (e.src.kind === 'fee') { for (const c of cols) if (요금칸(c)) out.push({ head: c, src: { kind: 'col', name: c } }); continue; }
+    if (e.src.kind === 'fee') {
+      /** ★옛 시트는 기간 9칸이 «늘» 있었다(안 쓰면 빈 칸) — 사장님 2026-09-15 확인. 옛 9칸에 없는 요금 칸(반납형·km…)은 그 뒤에 F01 차례로. */
+      for (const k of RETRO_PERIODS) out.push(cols.includes(k) ? { head: k, src: { kind: 'col', name: k } } : { head: k, src: { kind: 'blank' } });
+      for (const c of cols) if (요금칸(c) && !(RETRO_PERIODS as readonly string[]).includes(c)) out.push({ head: c, src: { kind: 'col', name: c } });
+      continue;
+    }
     if (e.src.kind === 'col' && !cols.includes(e.src.name)) {
       if (e.head === '사진' || e.head === '차번링크') continue;
       out.push({ head: e.head, src: { kind: 'blank' } });
@@ -107,8 +141,10 @@ export function retroFeeStyleOf(name: string): string {
 }
 /** 몸 칸 글자색 — 옛 시트 칸별. 이름이 같은 칸에만 건다(없는 칸을 만들지 않는다). */
 const BODY_INK: Record<string, string> = {
-  차량상태: '0000FF', 배차상태: '0000FF', 입고일자: '1155CC', 차량번호: '1155CC', 구분: 'FF00FF',
-  단기보증: 'FF0000', '1개월': '46BDC6', '6개월': '5EC1C8', '12개월': '5EC1C8',
+  /* ★2026-09-15 «회사 탭» 기준으로 고침 — F86 은 회사별 탭이라 옛 「종합」이 아니라 옛 회사 탭(손오공·아이언·스타·센트로·아이카 다수)을 따른다:
+       구분 초록(#34A853) · 단기보증·1·6·12개월 청록(#46BDC6). 종합은 구분 자홍·단기보증 빨강이었다. */
+  차량상태: '0000FF', 배차상태: '0000FF', 입고일자: '1155CC', 차량번호: '1155CC', 구분: '34A853',
+  단기보증: '46BDC6', '1개월': '46BDC6', '6개월': '46BDC6', '12개월': '46BDC6',
   장기보증: '0000FF', '24개월': '0000FF', '36개월': '0000FF', '48개월': '0000FF', '60개월': '0000FF',
   차고지: '1F1F1F', 분납: 'FF0000', '21세': 'FF0000', '23세': 'FF0000', '21세+': 'FF0000', '23세+': 'FF0000',
   '1만+': 'FF0000', 전용계좌: 'FF0000', 비고: 'FF0000',
@@ -227,6 +263,12 @@ export function applyRetroSkin(reqs: Req[], linkReqs: Req[], p: { gid: number; c
      *   옛 폭(옵션 857 · 배차상태 143)은 옛 값에 맞춘 것이라 우리 값에선 칸이 비거나 잘린다.
      *   폭은 서식기가 «이 탭 값»으로 잰 폭(`columnWidths`)을 그대로 쓴다.
      */
+  });
+  // ④¼ 숫자·날짜 형식(옛 시트) — 값은 발행기가 `retroCellValue` 로 숫자·날짜로 넣는다.
+  columns.forEach((name, i) => {
+    const nf = name === '최초등록' ? { type: 'DATE', pattern: 'yy-m-d' } : 숫자칸(name) ? { type: 'NUMBER', pattern: '#,##0' } : null;
+    if (!nf) return;
+    out.push({ repeatCell: { range: { sheetId: gid, startRowIndex: H + 1, startColumnIndex: i, endColumnIndex: i + 1 }, cell: { userEnteredFormat: { numberFormat: nf } }, fields: 'userEnteredFormat.numberFormat' } });
   });
   // ④½ 긴 글 칸 폭(트림·옵션) — 위 `fitWidth`
   if (p.body) {

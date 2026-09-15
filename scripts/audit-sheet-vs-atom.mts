@@ -31,7 +31,7 @@ import { channelCompanyOf } from '../lib/domain/channel-company';
 import { compareSalesRows, loadSalesRowContext, makeCell, MISSING, tabOf } from '../lib/domain/sales-atom-row';
 import { channelColumnName, salesPublishedColumns } from '../lib/domain/sales-published-tab-columns';
 import { HAHUHO_PRODUCT_SHEET_ID, SALES_SHEET_ID } from '../lib/domain/legacy-sheets';
-import { retroLayout, retroHeadToColumn, retroUsesColumn } from '../lib/domain/channel-retro-skin';
+import { retroLayout, retroHeadToColumn, retroUsesColumn, retroSameValue } from '../lib/domain/channel-retro-skin';
 import { googleSheetsServiceAccount } from '../lib/server/google-service-account';
 
 nextEnv.loadEnvConfig(process.cwd());
@@ -298,7 +298,8 @@ for (const r of f01) {
       }
       continue;
     }
-    if (EQ(v, b[col])) continue;
+    /** F86 은 요금·Km·배기량·소비자가격을 숫자로, 최초등록을 날짜로 넣는다 — 모양만 다른 같은 값은 같다고 본다. */
+    if (EQ(v, b[col]) || retroSameValue(col, v, b[col])) continue;
     const e = F86값차이.get(col) || { n: 0, 표본: [] };
     e.n++; if (e.표본.length < 3) e.표본.push(`${r.car} F01「${v || '—'}」↔ F86「${b[col] || '—'}」`);
     F86값차이.set(col, e);

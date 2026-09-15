@@ -26,7 +26,7 @@ import { loadSalesRowContext, makeCell, tabOf, TAB_ORDER, compareSalesRows } fro
 import { buildSalesFormatRequests, columnWidths, isMoneyColumn } from '../lib/domain/sales-sheet-format';
 import { HAHUHO_PRODUCT_SHEET_ID } from '../lib/domain/legacy-sheets';
 import { ensureNoticeTab } from '../lib/server/channel-sheet-tabs';
-import { applyRetroSkin, retroLayout, retroTabColorRequest } from '../lib/domain/channel-retro-skin';
+import { applyRetroSkin, retroCellValue, retroLayout, retroTabColorRequest } from '../lib/domain/channel-retro-skin';
 import { channelColumnName, salesPublishedColumns } from '../lib/domain/sales-published-tab-columns';
 import { firebaseAdminApp } from '../lib/server/firebase-admin';
 import { googleSheetsServiceAccount } from '../lib/server/google-service-account';
@@ -355,7 +355,7 @@ for (const [company, list] of order) {
   ];
   reqs.push(RETRO ? retroTabColorRequest(gid, company) : { updateSheetProperties: { properties: { sheetId: gid, tabColor: TAB_HUES[index % TAB_HUES.length] }, fields: 'tabColor' } });
   reqs.push({ setBasicFilter: { filter: { range: { sheetId: gid, startRowIndex: 0, endRowIndex: list.length + 1, startColumnIndex: 0, endColumnIndex: cols.length } } } });
-  puts.push({ range: `'${title}'!A1`, values: [cols, ...body] });
+  puts.push({ range: `'${title}'!A1`, values: [cols, ...(RETRO ? body.map((r) => r.map((v, k) => retroCellValue(cols[k], v))) : body)] as any });
   쓴탭.add(gid);
   index++;
 }
