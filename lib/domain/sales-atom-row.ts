@@ -105,9 +105,9 @@ export async function loadSalesRowContext(deps: SalesRowDeps): Promise<SalesRowC
 
 // 탭 배정 = 발행기 규칙
 export const tabOf = (v: any): string => {
-  const prov = S(v.provider_company_code), pt = S(v.product_type);
+  const prov = S(v.provider_company_code);
   if (isPickupPhotoAtom(v)) return '픽업구독';
-  if (prov === 'RP012' && pt.includes('구독')) return '손오공상품';
+  if (prov === 'RP012') return '손오공상품';
   if (prov === 'RP023') return '오플구독';
   return '상품리스트';
 };
