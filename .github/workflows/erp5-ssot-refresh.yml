@@ -30,7 +30,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           # 원천·판매시트·공개 카탈로그 대사를 같은 검증 엔진 커밋으로 고정한다.
-          ref: 42273463f5b87f6eb61917ce256fc4697103dc26
+          ref: eafbd88e43b1b4e5bacab858a2e0c65845956e5f
       - name: freepasserp5 OIDC 인증
         uses: google-github-actions/auth@v2
         with:
@@ -69,6 +69,12 @@ jobs:
             ARGS+=(--apply --variable --retire)
           fi
           npx tsx scripts/ingest-all-suppliers.mts "${ARGS[@]}"
+      - name: ERP5 정책 참조 정합화
+        if: github.event_name == 'schedule' || inputs.apply
+        env:
+          ERP5_FIREBASE_USE_ADC: 'true'
+          GOOGLE_CLOUD_PROJECT: freepasserp5
+        run: npx tsx scripts/reconcile-product-policy-references.mts --erp5 --apply
       - name: ERP5 발행 스냅샷 고정
         if: github.event_name == 'schedule' || inputs.apply
         env:
