@@ -243,7 +243,7 @@ export const ENTITIES: Record<string, Entity> = {
       { key: 'supplier_options', label: '공급사 옵션(원문)', type: 'text', readOnly: true, note: '공급사가 적은 그대로 · 보기 전용' },
       // ── 마켓플레이스 상태·구분 ──
       { key: 'vehicle_status', label: '상품상태', type: 'select', options: [...VEHICLE_STATES], manual: true },
-      { key: 'product_type', label: '상품구분', type: 'select', options: [...PRODUCT_TYPES], manual: true },
+      { key: 'product_type', label: '상품구분', type: 'select', options: [...PRODUCT_TYPES], manual: true, note: '오공구독: 반납받아 보유 중인 물량 · 픽업구독: 사오는 물량' },
       // ── 관계·정책 ──
       { key: 'provider_company_code', label: '공급사코드', type: 'text', manual: true },
       { key: 'partner_code', label: '영업(파트너)코드', type: 'text', manual: true },
