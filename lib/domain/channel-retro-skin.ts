@@ -139,6 +139,23 @@ export function retroFeeStyleOf(name: string): string {
   }
   return /단기/.test(name) ? '단기보증' : '장기보증';
 }
+/**
+ * ★★**공통 대여료 vs 커스텀 대여료를 «색 계열»로 가른다** — 사장님 2026-09-15 「대여료를 공통과 커스텀을 잘 구분해봐」.
+ *   공통 = 옛 기간 9칸(`RETRO_PERIODS`) — 옛 색 그대로(단기 초록·파랑 / 장기 빨강).
+ *   커스텀 = 그 공급사만 쓰는 요금 칸(손오공 반납형·인수형 · 오토플러스 2만/3만km · 보증금 규칙) — **보라 계열**.
+ *   보라도 옛 구글 팔레트 색이다(옛 손오공 탭 장기보증 몸에 #9900FF 가 섞여 있다) — 레트로 얼굴은 그대로, 계열만 다르다.
+ *   머리 = 기간이 길수록 짙게(공통과 같은 읽는 법) · 보증금(개월 없음)은 가장 옅게 · 몸 글자 = #9900FF.
+ *   ⇒ 위 `retroFeeStyleOf`(옛 칸 색 빌리기)는 이제 커스텀에 안 쓴다.
+ */
+export const isRetroCustomFee = (name: string): boolean => 요금칸(name) && !(RETRO_PERIODS as readonly string[]).includes(name);
+function customFeeHead(name: string): { bg: string; ink: string } {
+  const m = /^(\d+)개월/.exec(String(name).trim());
+  if (!m) return { bg: 'D9D2E9', ink: '674EA7' };
+  const mo = Number(m[1]);
+  return mo <= 12 ? { bg: 'B4A7D6', ink: '351C75' } : mo <= 24 ? { bg: '8E7CC3', ink: 'FFFFFF' } : mo <= 36 ? { bg: '674EA7', ink: 'FFFFFF' } : mo <= 48 ? { bg: '351C75', ink: 'FFFFFF' } : { bg: '20124D', ink: 'FFFFFF' };
+}
+const CUSTOM_BODY_INK = '9900FF';
+
 /** 몸 칸 글자색 — 옛 시트 칸별. 이름이 같은 칸에만 건다(없는 칸을 만들지 않는다). */
 const BODY_INK: Record<string, string> = {
   /* ★2026-09-15 «회사 탭» 기준으로 고침 — F86 은 회사별 탭이라 옛 「종합」이 아니라 옛 회사 탭(손오공·아이언·스타·센트로·아이카 다수)을 따른다:
@@ -244,6 +261,12 @@ export function applyRetroSkin(reqs: Req[], linkReqs: Req[], p: { gid: number; c
     const col = { sheetId: gid, startColumnIndex: i, endColumnIndex: i + 1 };
     /** 요금 칸이면 옛 칸 하나에 대어 그 색을 쓴다(`retroFeeStyleOf`) — 이름이 옛 시트와 같지 않아도. */
     const 요금 = 요금칸(name);
+    if (isRetroCustomFee(name)) {
+      const hd = customFeeHead(name);
+      out.push({ repeatCell: { range: { ...col, startRowIndex: H, endRowIndex: H + 1 }, cell: { userEnteredFormat: { backgroundColor: rgb(hd.bg), textFormat: { foregroundColor: rgb(hd.ink) } } }, fields: 'userEnteredFormat.backgroundColor,userEnteredFormat.textFormat.foregroundColor' } });
+      out.push({ repeatCell: { range: { ...col, startRowIndex: H + 1 }, cell: { userEnteredFormat: { backgroundColor: rgb('FFFFFF'), textFormat: { foregroundColor: rgb(CUSTOM_BODY_INK) } } }, fields: 'userEnteredFormat.backgroundColor,userEnteredFormat.textFormat.foregroundColor' } });
+      return;
+    }
     const 옛 = 요금 ? retroFeeStyleOf(name) : name;
     if (HEAD_BG[옛]) {
       out.push({ repeatCell: { range: { ...col, startRowIndex: H, endRowIndex: H + 1 }, cell: { userEnteredFormat: { backgroundColor: rgb(HEAD_BG[옛]), textFormat: { foregroundColor: rgb(HEAD_INK[옛] || '000000') } } }, fields: 'userEnteredFormat.backgroundColor,userEnteredFormat.textFormat.foregroundColor' } });
