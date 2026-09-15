@@ -17,7 +17,9 @@
 import { readFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { JWT } from 'google-auth-library';
+import { initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
+import { erp5InventoryAppOptions } from '../lib/server/erp5-inventory-service-account';
 import { companyAlias } from '../lib/domain/identity';
 import { channelCompanyOf } from '../lib/domain/channel-company';
 import { isPlate } from '../lib/domain/plate-registry';
@@ -29,7 +31,6 @@ import { HAHUHO_PRODUCT_SHEET_ID } from '../lib/domain/legacy-sheets';
 import { ensureNoticeTab } from '../lib/server/channel-sheet-tabs';
 import { applyRetroSkin, inRetroSummary, RETRO_SHORT, RETRO_SUMMARY_TAB, retroCellValue, retroHasLongFee, retroHasValue, retroTabColorRequest, retroTabLayout, retroTabRank } from '../lib/domain/channel-retro-skin';
 import { channelColumnName, salesPublishedColumns } from '../lib/domain/sales-published-tab-columns';
-import { firebaseAdminApp } from '../lib/server/firebase-admin';
 import { googleSheetsServiceAccount } from '../lib/server/google-service-account';
 import nextEnv from '@next/env';
 
@@ -58,9 +59,15 @@ if (APPLY && !snapshotPath) throw new Error('채널시트 발행은 --snapshot=<
  */
 const CHANNEL_PRODUCT_F: Record<string, string> = { 하허호: 'F86' };
 const DOC_NAME = `[${CHANNEL_PRODUCT_F[channel] || 'F8?'} 사용중] 프리패스x${channel} 전용 상품시트`;
-const firestore = getFirestore(firebaseAdminApp());
 const sheetsAccount = googleSheetsServiceAccount('tmp/firebase-auth/sa.json');
-const publishSnapshot = snapshotPath ? readSalesPublishSnapshot(snapshotPath) : await captureSalesPublishSnapshot(firestore);
+/**
+ * ★Firestore 는 «스냅샷 파일이 없을 때만» 연다 — gate 엔진의 ERP5 문(`erp5InventoryAppOptions`, 발행 스냅샷 캡처와 같은 문).
+ *   ⚠ `firebaseAdminApp()` 은 RTDB 주소(NEXT_PUBLIC_FIREBASE_DATABASE_URL)를 요구한다 — RTDB 는 영구 폐기라 그 길로 가지 않는다.
+ *   발행(--apply)은 늘 --snapshot 이라 DB 를 안 연다.
+ */
+const publishSnapshot = snapshotPath
+  ? readSalesPublishSnapshot(snapshotPath)
+  : await captureSalesPublishSnapshot(getFirestore(initializeApp(erp5InventoryAppOptions())));
 const jwt = new JWT({
   email: sheetsAccount.client_email, key: sheetsAccount.private_key, subject: 'pyh@teamjpk.com',
   scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive'],
