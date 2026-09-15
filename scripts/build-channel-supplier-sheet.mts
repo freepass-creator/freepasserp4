@@ -182,12 +182,16 @@ const by = new Map<string, Row[]>();
  *   ⇒ 빼고, 몇 대인지 알린다. 고칠 곳은 **문패의 공급사명**이지 이 시트가 아니다.
  */
 const 이름없음: Row[] = [];
-/** ★하허호 — 장기 요금이 하나도 없는 차(단기 요금만)는 싣지 않는다(`RETRO_SHORT` 머리말 · 2026-09-15). */
+/**
+ * ★하허호 — 장기 요금이 없는 차(단기 요금만)도 «싣는다», 다만 장기 요금 칸은 빈 채로 둔다
+ * (사장님 2026-09-16 「안싣는다기보다도 그냥 대여료가 없이 두는거로 하자」). 이전엔 통째로 뺐다
+ * (`RETRO_SHORT` 머리말 · 2026-09-15) — 그 규칙은 이제 「안 싣기」가 아니라 「알림만」으로 쓴다.
+ */
 const 장기있음 = (x: Row) => retroHasLongFee((c) => x.cells[c], Object.keys(x.cells));
 const 단기만: Row[] = [];
 for (const x of rowsAll) {
   if (!x.company) { 이름없음.push(x); continue; }
-  if (RETRO && !장기있음(x)) { 단기만.push(x); continue; }
+  if (RETRO && !장기있음(x)) 단기만.push(x);
   const l = by.get(x.company) || []; l.push(x); by.set(x.company, l);
 }
 if (이름없음.length) console.log(`  ⚠ 공급사 이름을 모르는 차 ${이름없음.length}대 — 채널에 안 내보낸다(문패 「공급사명」을 채워라): ${이름없음.slice(0, 6).map((x) => S(x.cells['차량번호'])).join(' · ')}`);
@@ -218,7 +222,7 @@ for (const list of by.values()) list.sort((a, b) => cmp(a.atom, b.atom));
 const order = [...by.entries()].sort((a, b) => (RETRO ? retroTabRank(a[0]) - retroTabRank(b[0]) : 0) || b[1].length - a[1].length);
 /** ★하허호 레트로만 — 「종합」 탭(손오공·오토플러스 뺀 렌트사 규격 차)을 공지사항 바로 뒤에 둔다. `RETRO_SUMMARY_TAB` 머리말. */
 const 종합줄 = RETRO ? order.filter(([co]) => inRetroSummary(co)).flatMap(([, l]) => l).sort((a, b) => cmp(a.atom, b.atom)) : [];
-if (RETRO && 단기만.length) console.log(`   ○ 단기 요금만 있는 차 ${단기만.length}대 — 하허호에 안 싣는다: ${단기만.slice(0, 6).map((x) => `${S(x.cells['차량번호'])}(${x.company})`).join(' · ')}`);
+if (RETRO && 단기만.length) console.log(`   ○ 장기 요금 없는 차 ${단기만.length}대 — 싣되 장기 요금 칸은 빈 채: ${단기만.slice(0, 6).map((x) => `${S(x.cells['차량번호'])}(${x.company})`).join(' · ')}`);
 const 탭들: [string, Row[]][] = RETRO ? [[RETRO_SUMMARY_TAB, 종합줄], ...order] : order;
 if (RETRO) console.log(`   ${String(종합줄.length).padStart(4)}  ${RETRO_SUMMARY_TAB} (손오공·오토플러스 뺀 렌트사 규격)`);
 console.log(`\n■ ${DOC_NAME} — 회사 ${order.length}곳 · 총 ${rowsAll.length}대 · 열 ${OUT_COLS.length}`);

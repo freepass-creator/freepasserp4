@@ -67,7 +67,7 @@ must(Object.entries(W).every(([k, v]) => retroWidthOf(k) === v), `굳힌 칸 폭
 must(!retroUsesColumn('12개월') && retroUsesColumn('36개월'), '감사기가 단기 칸을 «F86 에 실리는 칸»으로 셉니다(누락으로 웁니다).', `${SKIN} · retroUsesColumn — ${MANUAL} 3`);
 const 셀 = (o: Record<string, string>) => retroHasLongFee((c) => o[c], Object.keys(o));
 must(!셀({ '12개월': '600,000' }) && !셀({ '36개월': '-' }) && !셀({}) && 셀({ '36개월': '500,000' }),
-  '「장기 월 요금이 없는 차는 안 싣는다」 판정이 바뀌었습니다(단기만·요금 빈 차 = 안 실음).', `${SKIN} · retroHasLongFee — ${MANUAL} 3`);
+  '「장기 요금 있음/없음」 판정 자체가 바뀌었습니다(2026-09-16부터 이 값은 제외가 아니라 알림에만 씁니다).', `${SKIN} · retroHasLongFee — ${MANUAL} 3`);
 
 /* ── ① 탭 — 종합 ─────────────────────────────────────────────── */
 must(RETRO_SUMMARY_TAB === '종합' && J(RETRO_SUMMARY_EXCLUDE) === J(['손오공', '오토플러스']) && !inRetroSummary('손오공') && inRetroSummary('아이카'),
@@ -130,4 +130,4 @@ if (fails.length) {
   console.error('  바꾸려면: 사장님께 여쭙고 → 매뉴얼 §하허호 F86 → 이 검사 순서로.\n');
   process.exit(1);
 }
-console.log('✓ 하허호 F86 확정 규격 그대로 — 탭(종합·회사) · 칸 36 · 대여료(단기 없음·쓰는 칸만·종합 5칸·장기 요금 없는 차 안 실음) · 레트로 겉 · F86 만');
+console.log('✓ 하허호 F86 확정 규격 그대로 — 탭(종합·회사) · 칸 36 · 대여료(단기 없음·쓰는 칸만·종합 5칸·장기 요금 없는 차도 실음·칸만 빔) · 레트로 겉 · F86 만');

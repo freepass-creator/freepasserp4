@@ -206,9 +206,15 @@ for (const [col, e] of [...어긋난칸].sort((a, b) => b[1].n - a[1].n)) consol
 console.log(`  원자엔 요금이 있는데 시트 대여료가 통째로 빈 줄 ${요금빈줄}`);
 
 // ── ② F01 ↔ F86 ─────────────────────────────────────────────
-/** ★F86 에 실릴 차 = F01 차 중 «장기 요금이 있는» 차(하허호는 단기 칸·단기만 차를 안 싣는다 · 2026-09-15). 발행기와 같은 `retroHasLongFee`. */
-const f86대상차 = new Set(f01.filter((r) => retroHasLongFee((c) => r.cells[c], Object.keys(r.cells))).map((r) => r.car));
-if (f01.length !== f86대상차.size) console.log(`  (하허호) 단기 요금만 있어 F86 에 안 싣는 차 ${f01.length - f86대상차.size}대`);
+/**
+ * ★F86 에 실릴 차 = F01 차 «전부»(2026-09-16 — 장기 요금 없는 차도 싣되 장기 요금 칸만 빈다).
+ * 예전엔 장기 요금 없는 차를 통째로 뺐다(`retroHasLongFee` · 2026-09-15) — 그 규칙은 폐기했다.
+ */
+const f86대상차 = new Set(f01.map((r) => r.car));
+{
+  const 장기없음 = f01.filter((r) => !retroHasLongFee((c) => r.cells[c], Object.keys(r.cells))).length;
+  if (장기없음) console.log(`  (하허호) 장기 요금 없어 요금칸만 빈 채로 싣는 차 ${장기없음}대`);
+}
 type F86Row = { company: string; cells: Record<string, string> };
 const f86 = new Map<string, F86Row>();
 const f86Counts = new Map<string, number>();
