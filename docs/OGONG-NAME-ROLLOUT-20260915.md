@@ -32,4 +32,4 @@ Firestore 이름 조회: tmp/son-options-20260915/ogong-name-db-before.json.
 F01 동일gid330600527을 `오공구독 09.15 10:52`로 변경했다. 숨김안내16셀은 Google 응답16/16, 재조회 값·서식 일치. B/C의 기존 차량번호·상품구분 차이0. 빈 padding은 셀 단위로 비교했다.
 실제 Google Sheets 브라우저에서도 오공구독·픽업구독 탭 및 드라이브 저장됨 표시를 확인했다.
 영수증: tmp/son-options-20260915/name-sheet-receipt.json.
-공개웹은 Vercel dpl_3U72n9HtYuH3U5niGT8PrFJmYty2 빌드 중이며, 실제 새 공개카탈로그/오공 표시 확인은 아직 진행 중이다.
+공개웹 Vercel dpl_3U72n9HtYuH3U5niGT8PrFJmYty2는 11:46 CLI에서 Ready 및 freepasserp.com alias를 확인했다. 그러나 새 브라우저 탭과 11:47 공개 feed 재조회에서는 아직 728대/9.14 02:01/중고구독74가 표시됐다. API Cache-Control=no-store, X-Vercel-Cache=MISS였으며 오공구독6·픽업구독233이었다. 배포 성공을 실제 소비 전환 성공으로 판정하지 않는다. 일반 호스트의 reader 조건을 배포 담당에게 전달했으며 실제 새 공개카탈로그/오공 표시 확인은 진행 중이다.
