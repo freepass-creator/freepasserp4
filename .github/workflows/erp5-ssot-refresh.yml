@@ -24,13 +24,14 @@ jobs:
       contents: read
       id-token: write
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 45
     steps:
       - name: 검증된 ERP5 SSOT 엔진 고정
         uses: actions/checkout@v4
         with:
           # 원천·판매시트·공개 카탈로그 대사를 같은 검증 엔진 커밋으로 고정한다.
-          ref: eafbd88e43b1b4e5bacab858a2e0c65845956e5f
+          # ★2026-09-16 통합 엔진 — gate 엔진(eafbd88e) 위에 하허호 F86(계획 한 벌·감사·백업·되돌리기)·운영 쓰기 문지기·손오공 오공구독 배정을 올린 커밋(claude/f86-on-gate).
+          ref: fb4872dd9cd18e168b043fad19c22c0f79644c17
       - name: freepasserp5 OIDC 인증
         uses: google-github-actions/auth@v2
         with:
@@ -76,6 +77,7 @@ jobs:
           GOOGLE_CLOUD_PROJECT: freepasserp5
         run: npx tsx scripts/reconcile-product-policy-references.mts --erp5 --apply
       - name: ERP5 발행 스냅샷 고정
+        id: snapshot
         if: github.event_name == 'schedule' || inputs.apply
         env:
           ERP5_FIREBASE_USE_ADC: 'true'
@@ -88,12 +90,43 @@ jobs:
           GOOGLE_CLOUD_PROJECT: freepasserp5
         run: npx tsx scripts/verify-whitelabel-publication.mts --snapshot=tmp/erp5-sales-publish.json --write-receipt
       - name: 동일 스냅샷으로 판매시트 게시
+        id: f01
         if: github.event_name == 'schedule' || inputs.apply
         env:
           GOOGLE_SHEETS_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sheets.json
         run: npx tsx scripts/make-sample-sheet-google.mts --main --snapshot=tmp/erp5-sales-publish.json
+      # ★사장님 2026-09-16 「한 워크플로가 F01·F86 둘 다」 · 「하허호 시트는 제일 중요하게」 —
+      #   스냅샷만 제대로 떴으면 F01 이 실패해도 F86 은 백업 → 발행 → 감사(첫 관문)까지 간다.
+      #   운영 F01·F86 쓰기는 이 워크플로 이름으로만 열린다(lib/server/production-sheet-write-gate.ts · docs/예약작업-지도.md).
+      - name: 하허호 F86 발행 직전 백업
+        id: f86_backup
+        if: ${{ always() && steps.snapshot.outcome == 'success' && (github.event_name == 'schedule' || inputs.apply) }}
+        env:
+          GOOGLE_SHEETS_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sheets.json
+        run: npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/backup-f86.mts --label=run-${{ github.run_id }}
+      - name: 동일 스냅샷으로 하허호 F86 게시
+        id: f86
+        if: ${{ always() && steps.snapshot.outcome == 'success' && (github.event_name == 'schedule' || inputs.apply) }}
+        env:
+          GOOGLE_SHEETS_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sheets.json
+        run: npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/build-channel-supplier-sheet.mts --채널=하허호 --apply --snapshot=tmp/erp5-sales-publish.json
+      - name: 하허호 F86 ↔ 원자 칸 대조·신선도(첫 관문)
+        if: ${{ always() && steps.snapshot.outcome == 'success' && (github.event_name == 'schedule' || inputs.apply) }}
+        env:
+          GOOGLE_SHEETS_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sheets.json
+        run: npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/audit-f86-vs-atom.mts --snapshot=tmp/erp5-sales-publish.json --max-age-min=120
+      - name: 원자 ↔ F01 ↔ F86 칸 단위 대조
+        if: ${{ always() && steps.f01.outcome == 'success' && steps.f86.outcome == 'success' }}
+        env:
+          GOOGLE_SHEETS_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sheets.json
+        run: npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/audit-sheet-vs-atom.mts --snapshot=tmp/erp5-sales-publish.json
+      - name: 차번 셀 사진 링크 대조
+        if: ${{ always() && steps.f86.outcome == 'success' }}
+        env:
+          GOOGLE_SHEETS_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sheets.json
+        run: npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/check-plate-photo-link.mts
       - name: 회차 증거 보존
-        if: github.event_name == 'schedule' || inputs.apply
+        if: ${{ always() && steps.snapshot.outcome == 'success' }}
         uses: actions/upload-artifact@v4
         with:
           name: erp5-ssot-snapshot-${{ github.run_id }}
