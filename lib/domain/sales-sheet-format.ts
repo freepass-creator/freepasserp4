@@ -161,8 +161,13 @@ export const salesTabColorFor = (tabTitle: string): string | undefined => {
  */
 // ★구분 색은 배차상태 색(파랑·주황·회색)과 겹치면 안 된다(사장님 2026-08-18 — 「출고협의 주황 옆에 중고구독 주황 — 이렇게 색깔이 비슷하면 안 되지」).
 //   구독은 보라·청록으로 갈랐다. 배차상태는 STATE_INK 그대로.
+// ★실측 2026-09-16 — F01/F86 발행 칸 이름은 «구분»이다(sales-published-tab-columns.ts IDENTITY).
+//   예전 픽업구독 색(옛 자홍 C2185B → 팀 색 정정)은 존재하지 않는 「분류」 칸을 겨눈 죽은 코드였다
+//   (byValue('분류', …) — idx가 못 찾아 늘 조용히 no-op). 진짜 살아있는 표는 이 GUBUN_INK 하나뿐이라
+//   여기로 합친다. 값은 badges.tsx `productTypeStyle['픽업구독'] = 'teal'`(--bdg-teal-fg 라이트 #0F766E)와 같다.
 export const GUBUN_INK: [string, string][] = [
   ['신차렌트', 'FF00FF'], ['중고렌트', '34A853'], ['중고구독', '7B3FE4'], ['신차구독', '0F9D9D'],
+  ['픽업구독', '0F766E'],
 ];
 
 /**
@@ -392,12 +397,6 @@ export function buildSalesFormatRequests(input: FormatInput): Record<string, unk
     }
   };
   byValue('구분', GUBUN_INK);
-  // 손오공 구독과 T카 픽업구독은 같은 공급사여도 서로 다른 매물 갈래다.
-  // 상태 색(green·amber·blue·orange·red)과 겹치지 않게 가른다.
-  // ★픽업구독 색은 임의 hex 를 새로 만들지 않고 이미 쓰는 토큰을 그대로 가져온다 —
-  //   components/ui/badges.tsx `productTypeStyle['픽업구독'] = 'teal'`(하늘/청록 계열) 의 글자색
-  //   `--bdg-teal-fg`(라이트 `#0F766E`)와 같은 값. 이전 자홍(`C2185B`)은 폐기(2026-09-16).
-  byValue('분류', [['중고구독', '7E57C2'], ['픽업구독', '0F766E']]);
   byValue('배차상태', STATE_INK);
   byValue('상태', STATE_INK);
   /**
