@@ -1104,3 +1104,46 @@ run #14가 성공했다는 것은 **현재 builder가 의도한 규칙대로 정
 상세 보강 근거는 `docs/ai-ssot-audit/2026-09-16-chatgpt-run14-production-pass.md`를 함께 본다.
 
 이번 감사에서도 애플리케이션 코드나 비즈니스 로직은 수정하지 않았다.
+
+---
+
+## 2026-09-16 — F01/F86 픽업구독 「구분」 글자색 정정 (Claude, 구현·운영발행 실행)
+
+### 배경
+
+동료 세션이 `lib/domain/category-colors.ts`의 `MASTER_CATEGORY_COLORS['분류']['픽업구독']`이 여전히 `#C2185B`(자홍)로 남아 있다고 보고했다. 실제로는 그 파일에 `'분류'` 키 자체가 없었다 — 지목된 위치가 부정확했다. 사장님이 "실행은 Claude 단일 세션, 임의 hex 생성 금지, F01/F86 canonical map 유지, production publish 후 live 검증" 조건으로 작업을 지시했다.
+
+### 1차 시도 — 죽은 코드를 고침(판정: 오류, 즉시 정정)
+
+`lib/domain/sales-sheet-format.ts`의 `byValue('분류', [['중고구독','7E57C2'],['픽업구독','C2185B']])`을 찾아 픽업구독 값을 `0F766E`(teal, `components/ui/badges.tsx`의 기존 `productTypeStyle['픽업구독']='teal'` → `--bdg-teal-fg` 라이트값과 동일)로 고쳐 커밋(`4a202a44`)하고 운영 발행까지 실행했다.
+
+**그런데 발행 칼럼명 실측 결과 F01/F86엔 「분류」라는 칼럼이 없다** — 실제 발행 칼럼은 「구분」이다(`lib/domain/sales-published-tab-columns.ts` `IDENTITY` 배열). `byValue('분류', …)`는 `idx('분류')`가 항상 -1을 반환해 조용히 no-op하는 죽은 코드였다 — 즉 옛 자홍(`C2185B`)도, 방금 고친 teal도 실제로는 **한 번도 렌더링된 적이 없었다.**
+
+### 2차 — 진짜 활성 표(GUBUN_INK) 수정 (판정: 해소됨)
+
+진짜 살아있는 색 표는 `byValue('구분', GUBUN_INK)` 하나뿐이다. `GUBUN_INK`(같은 파일)엔 `신차렌트·중고렌트·중고구독·신차구독` 넷만 있고 `픽업구독` 항목 자체가 없었다. 여기에 `['픽업구독', '0F766E']`를 추가하고, 죽은 `byValue('분류', …)` 호출은 지웠다. 커밋 `4647c484`.
+
+값 출처: **임의 hex 생성 없음** — `components/ui/badges.tsx:193` `productTypeStyle['픽업구독'] = 'teal'`, 그 teal 톤의 라이트 전경색 `app/globals.css:63` `--bdg-teal-fg: #0f766e`를 그대로 가져왔다.
+
+### Live 검증 (Google Sheets API `effectiveFormat` 직접 조회 — `userEnteredFormat`이 아니라 조건부서식이 실제 반영된 값)
+
+- **F01** — 상품시트(`1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs`) 「픽업구독」 탭 B2 `formattedValue="픽업구독"` → `effectiveFormat.textFormat.foregroundColor = 0F766E` ✓
+- **F86** — 하허호 시트(`1hQtshpWKL4L0zSR3H3UQ36atICtHv9Ka7dQh7d7K5Vg`) 「손오공」 탭 C2 `formattedValue="픽업구독"` → `effectiveFormat.textFormat.foregroundColor = 34A853`(초록, 전 행 공통). **이건 이 값별 색표와 무관하다** — `lib/domain/channel-retro-skin.ts`의 `applyRetroSkin()`이 2026-09-15 사장님 확정("딱 과거 거로만") 규격에 따라 F86 탭에서 값별 조건부서식을 전부 걷어내고 「구분」 칼럼을 회사탭 고정 단색(`BODY_INK.구분 = '34A853'`)으로 칠한다(251·314줄). 그래서 F86엔 픽업구독만의 개별 색이 설계상 없다 — 이번 건과 무관하며 손대지 않았다.
+- F01·F86 둘 다 같은 `buildSalesFormatRequests()`(`sales-sheet-format.ts`)를 거치므로 **canonical 색 표는 하나로 유지**된다 — F86의 결과가 다른 건 그 위에 덮이는 별도 확정 스킨(retro) 때문이지 표가 갈라진 게 아니다.
+- 손오공 특수탭 일관성: 같은 탭 내 다른 행도 전부 같은 초록(탭 전체 단색 규격이므로 값과 무관하게 일관) — 확인됨.
+
+### 운영 발행 기록
+
+- production write gate(`lib/server/production-sheet-write-gate.ts`) 통과: `FREEPASS_MANUAL_PUBLISH_APPROVED` 사장님 승인 경로(로컬 GitHub Actions 워크플로 없음, 긴급 수동발행).
+- 스냅샷 `20260916030617229-11b34cd69b05`(2026-09-16T03:06:17.229Z) 기준으로 F01·F86 재발행.
+- F01: https://docs.google.com/spreadsheets/d/1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs/edit (731대 · 69~72열)
+- F86: https://docs.google.com/spreadsheets/d/1hQtshpWKL4L0zSR3H3UQ36atICtHv9Ka7dQh7d7K5Vg/edit (19탭 · 731대 · 90열)
+- 이 저장소(`origin`)엔 F86을 쓰는 자동 워크플로가 아직 없다(`erp5-ssot-refresh.yml`은 F01만 발행) — workflow run 번호 없음, 로컬 수동 실행 기록만 남긴다.
+
+### 변경 파일
+
+- `lib/domain/sales-sheet-format.ts` (erp5 워크트리 `freepasserp4-rtdb-current`, branch `codex/rtdb-cutover-current`, commit `4a202a44`→`4647c484`)
+
+### 최종 판정
+
+**해소됨.** 픽업구독 「구분」 글자색은 이제 F01·F86 공용 canonical 표(`GUBUN_INK`)에서 나오고, 값은 기존 UI 토큰(teal `#0F766E`)을 그대로 재사용했다. F86 회사탭의 단색 구분색(초록)은 이 건과 무관한 기존 확정 규격이다. ERP5 Atom·canonical source·대여료/상품 의미는 변경하지 않았다.
