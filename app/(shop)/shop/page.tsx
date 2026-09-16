@@ -5,6 +5,10 @@ import { coBrandName, guestProviderFence, hasBrand, resolveGuestWhitelabel, ogIm
 import { readShopQuick } from '@/lib/server/shop-quick-store';
 import { loadGuestListing } from '@/lib/server/guest-listing';
 import { readQuery, runShopQuery, type ShopFacets } from '@/lib/shop/query';
+import type { EntityRecord } from '@/lib/intake/entities';
+
+/** 첫 화면을 덮는 카드 수 — 웹 3열×2줄. 이만큼만 서버가 그린다(아래 머리말). */
+const FIRST_SCREEN = 6;
 
 /**
  * 가게의 **서버 껍데기**. 화면은 `ShopView`(클라이언트)가 그린다.
@@ -86,14 +90,28 @@ export default async function ShopPage({ searchParams }: Params) {
    * ⚠ 실패하면 조용히 넘어간다 — 집계는 «먼저 보여 주려고» 있는 곁다리다. 없으면 예전처럼
    *   브라우저가 받아 그린다. 곁다리가 첫 화면을 막으면 안 된다.
    */
-  let initial: { facets: ShopFacets; total: number } | null = null;
+  let initial: { facets: ShopFacets; total: number; list: EntityRecord[] } | null = null;
   try {
     const { products } = await loadGuestListing({ providerCode: guestProviderFence(wl, one(sp.p)) });
     const q = readQuery(new URLSearchParams(
       Object.entries(sp).flatMap(([k, v]) => (Array.isArray(v) ? v.map((x) => [k, x]) : v == null ? [] : [[k, v]])) as [string, string][],
     ));
-    const { facets, total } = runShopQuery(products, q);
-    initial = { facets, total };
+    const { facets, total, list } = runShopQuery(products, q);
+    /*
+     * ★★★**눈에 보이는 카드까지만 넘긴다 — 사진이 HTML 과 «같이» 출발하게**(사장님 2026-09-16
+     *   「**눈에 보이는 사진은 좀 빠르게** 뜨게 해줄 수 있나? **나머지는 그렇다 쳐도**」).
+     *
+     * ⚠⚠ 실측으로 잡았다 — 사진은 «받는 게» 느린 게 아니었다. 최적화된 그림은 7KB AVIF 에
+     *   캐시에서 0.07초다(원본 1.44MB → 7KB). 그런데 **시작이 6.4초**였다:
+     *   카드가 그려져야 `<img>` 가 생기고, 카드는 목록 응답을 기다린다. 사진은 그 뒤에 줄을 선다.
+     * ⇒ 첫 화면 카드를 **서버가 그려** 보내면, 브라우저가 HTML 을 읽는 순간 그림을 받기 시작한다.
+     *
+     * ★**`FIRST_SCREEN`(6장)만.** 「나머지는 그렇다 쳐도」 하셨다 — 아래로 스크롤해야 보이는 카드는
+     *   지금처럼 목록이 온 뒤에 그린다. 행 하나가 26칸이라 6장이 ~25KB 고, RSC 페이로드에 한 번 더
+     *   붙으니 그 두 배다. 12장을 넘기면 HTML 이 50KB 커져 «HTML 이» 늦는다 — 배보다 배꼽이다.
+     * ★앞 세 장은 `ShopCard` 가 `priority` 를 건다(그 원자의 `rank`) — 브라우저에 「이게 먼저」라고 말한다.
+     */
+    initial = { facets, total, list: list.slice(0, FIRST_SCREEN) };
   } catch { /* 곁다리다 — 브라우저가 받아 그린다 */ }
 
   return <ShopView wl={quick ? { ...wl, quick } : wl} initial={initial} />;
