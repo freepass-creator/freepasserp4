@@ -377,7 +377,7 @@ Error: SSOT gate: 오토플러스 원천 차량이 발행 예정표와 한 대�
 2. 그런데 `ssot-prepublish-gate.mts`는 `lib/adapters/source-registry.ts`의 `SUPPLIER_SOURCES`(IANKA·IRON·AUTOPLUS·SONOGONG) **전부를 기본으로** 방금 만든 `prepublish-main.json`(일반 탭 전용 덤프)과 대조한다. `--only=`로 좁히지 않는 한 AUTOPLUS도 포함된다.
 3. AUTOPLUS는 애초에 그 덤프에 없으니 **당연히 0건 매칭**이고, `scripts/ssot-prepublish-gate.mts:188`이 하드 throw한다.
 
-**즉 이건 데이터 사고가 아니라 게이트 설계가 "오토플러스는 전용 탭"이라는 이미 확정된 운영결정을 반영하지 못해서 생기는 구조적 오탐(false positive)이다.** 정제시트 5~6일 미동기화(원 로그의 별도 경고)는 진짜 문제이지만, 게이트가 **죽는 이유** 자체는 이것과 무관하다.
+**즉 이건 데이터 사고가 아니라 게이트 설계가 "오토플러스는 전용 `오플구독` 탭"이라는 이미 확정된 운영결정을 반영하지 못해서 생기는 구조적 오탐(false positive)이다.** 정제시트 5~6일 미동기화(원 로그의 별도 경고)는 진짜 문제이지만, 게이트가 **죽는 이유** 자체는 이것과 무관하다.
 
 RP023을 그대로 실은 `MIRROR_SOURCES`(`from: 1TJBG4PABg...`)와 canonical registry(RebornCar)의 이중정의(충돌 D)는 여전히 실재하는 별개 문제이지만, **이 특정 게이트 실패의 원인은 아니다** — B 문단의 추정은 정정한다(append-only 원칙상 지우지 않고 이 항목으로 덮어쓴다).
 
@@ -1104,7 +1104,7 @@ run #14가 성공했다는 것은 **현재 builder가 의도한 규칙대로 정
 
 상세 보강 근거는 `docs/ai-ssot-audit/2026-09-16-chatgpt-run14-production-pass.md`를 함께 본다.
 
-이번 감사에서도 애플리케이션 코드나 비즈니스 로직은 수정하지 않았다.
+이번 감사에서도 애플리케이션 코드나 비즈니스 로직을 수정하지 않았다.
 
 ---
 
@@ -1775,7 +1775,7 @@ current `.github/workflows/settlement-sync.yml`은 여전히 이 옛 스크립�
 4. settlement scheduled path를 current ledger/ERP5 Atom lock 계약에 맞춰 정리하고 `접수` lock + `취소` unlock이 실제 scheduled run에서 성공하는지 확인한다.
 5. production pin full-run, 픽업구독 canonical 색, mirror/RTDB legacy ownership HOLD는 직접 해소 증거가 생길 때까지 유지한다.
 
-이번 ChatGPT 감사에서도 애플리케이션 코드나 비즈니스 로직은 수정하지 않았다.
+이번 ChatGPT 감사에서도 애플리케이션 코드나 비즈니스 로직을 수정하지 않았다.
 
 ---
 
@@ -1960,3 +1960,56 @@ canonical inventory source도 그대로다.
 5. mirror/RTDB legacy 경로를 canonical source로 승격시키지 않는다.
 
 이번 ChatGPT 감사에서는 애플리케이션 코드나 비즈니스 로직을 수정하지 않았다.
+
+---
+
+## 2026-09-17(22) — ChatGPT 독립 감사: production 특수탭 보증금 규칙이 main canonical deposit-policy SSOT를 우회
+
+### A. 충돌(신규 발견) — production pin에 current main 보증금 정책 SSOT가 없음
+
+**판정: Sonogong/AutoPlus special-tab projection contract drift / Claude 구현 Owner 확인 필요**
+
+current main에는 `lib/domain/deposit-policy.ts`가 있고, commit `110bb75935688dc6b01d361d1e6dcac335e65b50`가 손오공/오토플러스 보증금 규칙을 한 곳으로 모았다. 이어 `aae377d048181f09edbeaa7546ae0afb71c09be4`가 제조사 미입력 오토플러스를 국산으로 추정하지 않도록 `undefined`로 fail-closed했고, `80a0d82317fc84b80dd7b5e7ff4d45426966e9b0`가 `sales-published-tabs.ts`가 이 SSOT를 소비하도록 바꿨다.
+
+current main 계약:
+
+- 손오공 `보증금 반납형`은 원본 문자열 복사가 아니라 `SONOGONG_DEPOSIT_POLICY.label` 발행
+- 오토플러스는 `resolveAutoplusDepositPolicy(maker)?.label ?? ''`
+- maker가 비어 있으면 정책 미확정으로 두고 국산 ×2를 추정하지 않음
+
+반면 current production pin `2e880cefa96e3fa4bfc79902fed448d5bd74abdb`에는 `lib/domain/deposit-policy.ts` 자체가 없다. production `lib/domain/sales-published-tabs.ts`는:
+
+- `오공구독`의 `보증금 반납형`을 원본 special-tab block에서 계속 복사하고,
+- AutoPlus 규칙을 로컬 하드코딩해 `isImportBrand(String(maker ?? '')) ? 수입규칙 : 국산규칙`으로 표시한다.
+
+따라서 maker가 빈 문자열이면 production은 **`국산: 월 대여료×2`로 추정**하지만 current main canonical resolver는 **정책 미확정/빈 표시**다. 이 부분은 코드상 실제 의미 차이다.
+
+`110bb759...` ↔ `2e880cef...` 비교도 `diverged`이고 merge-base는 `4bab085d30181612cbf47624a76006c57065dccd`라 production lineage가 main의 보증금 정책 centralization을 상속했다고 볼 수 없다.
+
+### B. 범위 — 기존 source/tab/F86 판정을 뒤집는 것은 아님
+
+- canonical inventory source는 계속 RP012=`sokrc.com/api`, RP023=RebornCar다.
+- production 특수탭의 `오공구독 / 픽업구독 / 오플구독` naming과 F86 projection 계약은 기존 판정을 유지한다.
+- 이번 finding은 특수탭 **보증금 정책 SSOT/표시 projection**에 한정한다.
+- 손오공 원본 `보증금 반납형` 문자열이 현재 canonical 규칙과 실제 값까지 다른지는 이번 감사에서 단정하지 않는다. 다만 production projection이 canonical policy object에 잠겨 있지 않은 것은 확정이다.
+- AutoPlus maker 누락 동작은 current main과 production이 명확히 다르다.
+
+### C. 함께 재확인된 기존 상태
+
+- latest main CI run `35127816502`는 success이며 `check:store`, Firestore parity, Production build가 모두 green이다.
+- production pin은 계속 `2e880cef...`이다.
+- `event=schedule` 최신 run은 여전히 2026-09-16 16:18:54 KST의 `35067894061`이라 audit `(20)/(21)`의 schedule gap은 미해소다.
+- credential composite action, settlement Atom-lock, same-output F01 legacy writer, 픽업구독 색, mirror writer ownership HOLD도 해소 증거가 없다.
+
+상세 근거:
+
+- `docs/ai-ssot-audit/2026-09-17-chatgpt-special-tab-deposit-policy-drift.md`
+
+### Claude 구현 Owner에게 넘기는 즉시 지시
+
+1. production lineage에 current main `deposit-policy.ts`의 canonical rules를 선택적으로 이식/병합하되 production의 7-canonical 상품구분, `오공구독` naming, F86, collector semantics를 되돌리지 않는다.
+2. 손오공/오토플러스 adapter 및 special-tab publisher가 같은 deposit policy object/resolver를 소비하도록 정리한다.
+3. 특히 AutoPlus maker 누락을 국산으로 추정하지 않는 current canonical fail-closed semantics를 current business rule 기준으로 확인하고 production publish/audit에서 검증한다.
+4. 기존 schedule gap, same-output F01 writer, credential action, settlement Atom-lock, pickup color, mirror ownership HOLD는 별도로 유지한다.
+
+이번 ChatGPT 감사에서는 application code나 business logic을 수정하지 않았다.
