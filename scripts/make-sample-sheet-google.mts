@@ -272,7 +272,9 @@ await api(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values:batch
 // ★탭을 매번 새로 만들지 않고 «제자리 갱신」하므로(위 주석) 조건부서식을 지우지 않으면 회차마다
 //   쌓인다 — 2026-09-16 실측 「구분」 칸 한 곳에 101개(옛 색 헥스까지 그대로 남아 있었다).
 //   publish-origin-tab.mts(F01 갈래탭)는 이미 이렇게 지우고 다시 쌓는다 — 여기도 같은 꼴로 맞춘다.
-const nowMeta = await api(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?fields=sheets.properties(sheetId,bandedRanges(bandedRangeId),conditionalFormats)`);
+// ⚠ bandedRanges·conditionalFormats는 sheets의 형제 필드다 — properties(...) 안에 넣으면
+//   "Request contains an invalid argument"로 400 이 난다(실측 2026-09-16, F01 발행 전체가 죽었다).
+const nowMeta = await api(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?fields=sheets(properties(sheetId),bandedRanges(bandedRangeId),conditionalFormats)`);
 const metaByGid = new Map<number, any>(((nowMeta.sheets || []) as any[]).map((s) => [Number(s.properties?.sheetId), s]));
 
 const fmt: Record<string, unknown>[] = [];
