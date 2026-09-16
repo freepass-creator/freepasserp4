@@ -881,3 +881,76 @@ legacy 경로도 변화 없음.
 5. legacy writer UI-disable 의존성 문제는 기존 판정을 유지하고 별도 구현 결정을 한다.
 
 이번 ChatGPT 감사에서는 애플리케이션 코드나 비즈니스 로직을 수정하지 않았다. 감사 문서와 Claude 진입점만 갱신한다.
+
+---
+
+## 2026-09-16(8) — ChatGPT 독립 감사 후속: `0c4ec76b...` 운영 재검증 PASS, 구조 drift는 잔존
+
+### A. 해소됨 — PR #310/#311 이후 current production pin의 실제 운영 발행 성공
+
+`2026-09-16(7)` 작성 직후 진행 중이던 run `35043402729`가 종료됐다.
+
+- workflow: `ERP5 SSOT 원천 최신화(매시간)`
+- head: `8078b978e071982e0ebec5bb056518cb5701785c`
+- production checkout ref: `0c4ec76b605c3ac50efcd9483dd2294bd89e22c0`
+- conclusion: **success**
+- 완료 시각: 2026-09-16 01:31:12 UTC
+
+모든 핵심 단계가 success다.
+
+- 원천 계약 검사
+- 현재 원천 재수집
+- ERP5 현재 원자 계산
+- 정책 참조 정합화
+- 발행 snapshot 고정
+- public catalog 발행 대사
+- **F01 판매시트 게시**
+- F86 백업 및 게시
+- F86 ↔ 원자 감사
+- **원자 ↔ F01 ↔ F86 칸 단위 대조**
+- **차번 셀 사진 링크 대조**
+- 회차 증거 보존
+
+따라서 PR #308이 만들었던 F01 API 400 런타임 회귀는 PR #310 수정 + #311 repin 이후 실제 운영 회차에서 **해소됨**으로 판정한다.
+
+### B. 충돌 유지 — runtime PASS와 production lineage/색상 SSOT PASS는 별개
+
+run `35043402729` 성공은 `0c4ec76b...`의 현재 발행 경로가 동작한다는 강한 증거다. 하지만 `(7)-B`의 Git 계보 사실은 바뀌지 않았다.
+
+- `0c4ec76b...`과 `d635f8c8...`은 diverged
+- `0c4ec76b...`은 PR #303의 `category-colors.ts` / `sales-sheet-format.ts` / `supplier-template-sheet.ts` 색상 SSOT 변경을 포함하지 않음
+- production ref의 상품구분 색은 다시 하드코딩된 옛 구조
+
+따라서 현재 판정은 다음처럼 분리한다.
+
+- **데이터/발행 runtime:** PASS
+- **상품구분 색상 SSOT/계보:** 충돌 잔존
+
+Claude 구현 Owner는 성공한 run을 이유로 `(7)-B`를 닫지 않는다. PR #303 + #308 + #310이 모두 한 검증 엔진 계보에 들어가야 구조적 drift가 해소된다.
+
+### C. 충돌 유지 — F86 표시계약은 아직 builder와 불일치
+
+run이 성공하면서 오히려 한 가지가 더 명확해졌다. current builder가 정상적으로 다시 F86을 발행했으므로, 수동 표시 편집은 다음 회차에 builder 규칙으로 덮이는 구조가 실제 운영 중이다.
+
+현재 승인 요구:
+
+- 공지사항 탭 제거
+- 종합만 시간 + 대수
+- 공급사 탭은 시간 없이 이름 + 대수
+- 구분 상품별 명확한 색 구별
+
+current `0c4ec76b...` builder/plan은 여전히:
+
+- `ensureNoticeTab()`으로 공지사항 보장
+- 모든 탭에 `${mark} · N대` 사용
+- 색상 SSOT도 PR #303이 빠진 옛 구조
+
+따라서 이 항목은 **미해소 유지**다. 해결 위치는 F86 projection/builder이며 Atom·가격·기간 로직은 건드리지 않는다.
+
+### 최종 후속 판정
+
+1. `0c4ec76b...` **실제 운영 발행 PASS** — PR #308 런타임 회귀 해소.
+2. **PR #303 색상 SSOT 누락/production lineage drift는 미해소.**
+3. **F86 표시계약 drift는 미해소.**
+4. canonical source/손오공·오토플러스 전용탭 결정에는 신규 회귀 증거 없음.
+5. 예약지도/legacy writer latent risk도 기존 판정 유지.
