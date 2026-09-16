@@ -228,8 +228,14 @@ must(!/심사·재고에 따라/.test(shopDetail),
  *   그 규칙으로 고른 결과가 «차 설명»이 아니라 «남은 것 모음»이라 폐기됐다.
  *   검사를 지운 게 아니라 **새 규격을 지키도록** 바꾼 것이다.
  */
-must(/>제조사 · 세부모델 · 세부트림</.test(shopDetail),
-  '차량 정보에서 「제조사 · 세부모델 · 세부트림」 첫 줄이 사라졌습니다. 이 줄이 「이 차가 무엇인가」의 머리입니다.',
+/*
+ * ⚠ **라벨이 「세부모델 및 트림」으로 바뀌었다**(사장님 2026-09-16 「제조사 세부모델 세부트림
+ *   이거를 **세부모델 및 트림**으로 하고」). 값 줄이 이미 「기아 · 쏘렌토 MQ4 · 트렌디」로
+ *   제조사를 들고 있어서, 라벨에 또 적으면 같은 말이 위아래로 두 번이었다.
+ * ★지키는 것은 **「이 차가 무엇인가」의 머리 줄이 있는가**다 — 그 «글자»가 아니다.
+ */
+must(/>세부모델 및 트림</.test(shopDetail),
+  '차량 정보에서 「세부모델 및 트림」 첫 줄이 사라졌습니다. 이 줄이 「이 차가 무엇인가」의 머리입니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-11');
 /*
  * **색상은 «한 칸»이고 내·외부가 같이 든다 + 색 견본을 단다**(사장님 2026-09-05
@@ -272,7 +278,7 @@ for (const f of ['색상', '연식', '주행거리', '배기량', '연료', '구
 {
   const vi = Math.max(shopDetail.indexOf('<Sec title="차량 정보"'), shopDetail.indexOf('<section aria-label="차량 정보">'));
   const opt = shopDetail.indexOf('aria-label="선택 옵션"');
-  const model = shopDetail.indexOf('제조사 · 세부모델 · 세부트림');
+  const model = shopDetail.indexOf('>세부모델 및 트림<');
   must(vi >= 0 && opt > vi && model > vi && opt > model,
     '선택 옵션이 차량 정보 구역 «안 · 차명 줄 다음»에 없습니다. 옵션은 그 차가 무엇인가의 일부입니다.',
     'docs/DESIGN_CONFIRMED_SHOP.md §1-5');

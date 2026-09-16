@@ -298,9 +298,23 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
    *   접히는 줄이라 좁으면 «외부/내부»가 두 줄로 앉는다 — 칸이 조금 높아질 뿐 안 깨진다.
    */
   const colorRow: FactRow[] = colorText ? [['색상', colorText, colorNode]] : [];
+  /*
+   * ★★★**차량 정보는 «두 그룹»이다**(사장님 2026-09-16 「세부모델 및 트림 / 선택옵션 / 색상
+   *   이렇게 한 그룹이고 그다음에 **제원**이 한 그룹이야… 차량정보는 딱 이렇게 섹션 내에 2그룹으로」).
+   *
+   *   ㉠ **이 차가 무엇인가** — 세부모델 및 트림 · 선택옵션 · 색상
+   *   ㉡ **제원**           — 차급 · 연식 · 주행거리 · 배기량 · 연료 · 구동방식 · 승차정원
+   *
+   * ⚠ 그래서 **색상이 격자에서 빠져 위 그룹으로 올라갔다**. 9/7~9/10 에는 색상이 격자의 첫 칸이었다
+   *   (그때는 「색상 연식 주행거리를 배정」이라는 지시였다). 이제 색상은 «이 차가 무엇인가»에 속한다 —
+   *   사람이 차를 고를 때 트림·옵션·색을 한 호흡으로 본다는 그 판단의 연장이다.
+   * ⚠⚠ **웹 첫 줄이 넷에서 셋이 됐다**(차급·연식·주행거리). 사장님이 2026-09-08 에 「최초등록을
+   *   빼 기타사항으로 보내고 차급을 넣어야겠네. 그럼 4개 4개니까」로 맞춰 두신 자리다.
+   *   ⇒ 빈 칸을 **지어내서 채우지 않는다**(신차가·최초등록은 각각 데이터가 없거나 기타사항으로 보냈다).
+   *     사진으로 보여 드리고 사장님이 정하실 일이다.
+   */
   const specs: FactRow[] = grouped(
     [
-      ...colorRow,
       /*
        * ㉡ **이 차가 어떻게 생겼고 얼마나 탔나** — 색상 · 연식 · 주행거리.
        *
@@ -1098,7 +1112,12 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
              */}
             {modelLine ? (
               <div style={{ marginBottom: SHOP.sp.edge }}>
-                <div style={{ fontSize: SHOP.fs.cap, color: C.faint, marginBottom: 0 }}>제조사 · 세부모델 · 세부트림</div>
+                {/*
+                  ★**라벨은 「세부모델 및 트림」**(사장님 2026-09-16 「제조사 세부모델 세부트림 이거를
+                    **세부모델 및 트림**으로 하고」). 값 줄이 이미 「기아 · 쏘렌토 MQ4 · 트렌디」로
+                    제조사를 들고 있어서, 라벨에 또 적으면 같은 말이 위아래로 두 번이다.
+                */}
+                <div style={{ fontSize: SHOP.fs.cap, color: C.faint, marginBottom: 0 }}>세부모델 및 트림</div>
                 <div style={{
                   fontSize: SHOP.fs.lead, fontWeight: FW.head, color: C.ink,
                   letterSpacing: '-0.02em', wordBreak: 'keep-all', lineHeight: 1.4,
@@ -1168,7 +1187,33 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
                 한 줄을 쓰던 것을 여덟으로 맞춰 2·2·2·2 로 떨어뜨렸다.
             */}
 
-            {/* 격자 = 「이 차가 어떤 상태인가」. 웹은 무리가 «띠»로 옆에 붙고 폰은 두 칸으로 쌓는다. */}
+            {/*
+              ★★**색상은 «이 차가 무엇인가» 그룹의 끝**(사장님 2026-09-16 2그룹 지시 — 위 `specs` 머리말).
+                선택 옵션과 «같은 꼴»로 세운다 — 라벨 위, 값 아래. 그룹 안에서 줄들이 같은 문법이어야
+                한 무리로 읽힌다.
+              ★★색상은 **한 칸**이고 그 안에 내·외부가 같이 든다(사장님 「색상에는 내외부 색상이
+                다 있는 거지」) — 두 칸으로 쪼개면 내장색이 없는 차(32%)는 늘 한 칸이 빈다.
+              ★**색 견본**을 같이 그린다(사장님 「색상 칩 달아주면 되고 — 직관적으로」).
+                「소닉실버」·「어비스블랙펄」은 글자로는 무슨 색인지 모른다.
+                색 코드 정본은 `lib/domain/color-chips` — 못 알아보는 이름은 이름만 나간다.
+            */}
+            {colorText ? (
+              <div aria-label="색상" style={{ marginBottom: SHOP.sp.edge }}>
+                <div style={{ marginBottom: 0, fontSize: SHOP.fs.cap, color: C.faint }}>색상</div>
+                {colorNode}
+              </div>
+            ) : null}
+
+            {/*
+              ★★**여기서 그룹이 갈린다 — 위는 「무엇인가」, 아래는 「제원」**(사장님 2026-09-16
+                「차량정보는 딱 이렇게 섹션 내에 **2그룹**으로」).
+              ★가르는 것은 **라벨 하나**다. 선을 또 그으면 구역 띠(`Sec`)와 선이 둘이 되어
+                한 섹션 안에 머리가 두 번 온다 — 이 화면은 선을 최소로 쓴다.
+            */}
+            {specs.length ? (
+              <div style={{ marginBottom: SHOP.sp.snug, fontSize: SHOP.fs.cap, fontWeight: 600, color: C.mute }}>제원</div>
+            ) : null}
+            {/* 격자 = 제원. 웹은 무리가 «띠»로 옆에 붙고 폰은 두 칸으로 쌓는다. */}
             {specs.length ? <Facts rows={specs} cols={mobile ? 2 : 4} mobile={mobile} /> : null}
           </>
         </Sec>
