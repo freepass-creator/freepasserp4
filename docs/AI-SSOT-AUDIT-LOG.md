@@ -743,3 +743,141 @@ current main 재확인 결과 변화 없음.
 2. `docs/ai-ssot-audit/2026-09-16-chatgpt-claude-collaboration-handoff.md`의 오래된 pin/F86 9대 제외/legacy 상태 설명을 현재 감사 결론과 맞춘다.
 3. legacy projection 시트가 지금도 필요한 운영면이라면 `ssot-live-gate`를 다시 실행해 IANKA/4개 projection freshness의 **현재 상태만** 재확인한다. canonical production은 이미 별도로 PASS다.
 4. old workflow UI disable 의존성/재활성화 위험은 코드화 또는 schedule 제거 중 하나로 구현 판단한다.
+
+---
+
+## 2026-09-16(7) — ChatGPT 독립 감사: production engine 계보 회귀 + F01 발행 회귀/HOLD + F86 표시계약 drift
+
+### A. 충돌 후 긴급 수정 진행 — PR #308이 F01 발행을 실제로 깨뜨림
+
+**판정: 회귀 확인 / 긴급 수정은 merge·repin됐으나 새 pin의 운영 PASS는 아직 HOLD**
+
+실제 운영 run `35042070104`(run #12, head `c8c938bb0ff929ed291a89c7330ef21bf40879ce`)를 확인했다.
+
+- 원천 계약 검사: success
+- 공급사 재수집: success
+- ERP5 원자 계산/반영: success
+- 정책 참조 정합화: success
+- snapshot 고정: success
+- public catalog 대사: success
+- **F01 발행(`동일 스냅샷으로 판매시트 게시`): failure**
+- F86 백업: success
+- F86 발행: success
+- F86 ↔ 원자 첫 관문: success
+- 원자 ↔ F01 ↔ F86 대조: F01 실패로 skipped
+- 차번 셀 사진 링크 대조: failure
+- 전체 workflow conclusion: failure
+
+PR #310(`47b556812dcefbd7e6fe8e1a2fc52bf3427502c0`)의 실제 설명과 diff 기준, 직접 원인은 PR #308에서 F01 기존 조건부서식을 지우기 위해 추가한 Sheets metadata `fields` 마스크가 잘못 중첩돼 Google Sheets API 400(`Request contains an invalid argument`)을 만든 것이다. PR #310은 이를 기존 정상 코드와 같은 sibling fields 문법으로 고쳤다.
+
+이어 PR #311 merge commit `8078b978e071982e0ebec5bb056518cb5701785c`이 production checkout ref를 `0c4ec76b605c3ac50efcd9483dd2294bd89e22c0`으로 재고정했다.
+
+현재 새 pin 검증 run `35043402729`는 이번 감사 시점에 **아직 진행 중**이며 `원천에서 ERP5 현재 원자 계산` 단계까지 진행됐다. 따라서 `0c4ec76b...`을 새로운 운영 PASS pin이라고 아직 선언하지 않는다. 직전 마지막 완전 PASS 증거는 계속 `d635f8c8...` / run `35039845907`이다.
+
+### B. 충돌(중요) — 현재 production pin `0c4ec76b...`은 `d635f8c8...`의 후손이 아니며 PR #303 색상 SSOT를 잃음
+
+**판정: production lineage drift / workflow 주석과 실제 Git 계보 불일치**
+
+`.github/workflows/erp5-ssot-refresh.yml` 주석은 현재 `0c4ec76b...`가 `d635f8c8...`의 색상 SSOT 위에 PR #308, #310을 얹은 것처럼 설명한다. 그러나 실제 commit 비교는 그렇지 않다.
+
+`d635f8c8...` → `0c4ec76b...` 비교:
+
+- status: `diverged`
+- merge base: `3a334ddf6e8acd721883757f7951052bf9188b87`
+- `0c4ec76b...`는 `d635f8c8...` 대비 ahead 3 / behind 1
+
+역방향 비교에서 `d635f8c8...` 쪽의 유일한 독자 변경은 정확히 다음 세 파일이다.
+
+- `lib/domain/category-colors.ts`
+- `lib/domain/sales-sheet-format.ts`
+- `lib/domain/supplier-template-sheet.ts`
+
+이는 PR #303에서 도입한 **분류/구분 색상 단일출처** 변경이다.
+
+실제 production ref `0c4ec76b...`의 파일도 재확인했다.
+
+- `lib/domain/category-colors.ts`에는 current main에 존재하는 `'분류'` 색상표가 없다.
+- `lib/domain/sales-sheet-format.ts`는 다시 `GUBUN_INK`를 직접 하드코딩한다.
+- `분류`에 대해서도 일부 값만 별도 하드코딩하는 옛 방식이 남아 있다.
+
+반면 current main의 `category-colors.ts`에는 `신차렌트/중고렌트/중고구독/신차구독/픽업구독`을 한 표로 모은 `'분류'` SSOT가 존재한다.
+
+따라서 현재 production pin은 **#303을 포함했다고 주석에는 적혀 있지만 실제로는 그 변경을 잃은 가지**다. 데이터/가격 Atom이 틀렸다는 뜻은 아니지만, 상품구분 색 표현의 SSOT가 production에서 다시 갈라졌다.
+
+Claude 구현 Owner는 단순히 `0c4ec76b...`를 PASS 처리하지 말고, **#303 색상 SSOT + #308 조건부서식 누적정리 + #310 fields 수정이 모두 한 계보에 들어간 검증 엔진**을 다시 구성한 뒤 repin/실발행해야 한다.
+
+### C. 충돌(현재 F86 projection) — 승인된 표시 요구가 production builder에 반영되지 않아 수동 수정은 다음 발행에 덮임
+
+**판정: F86 presentation contract drift / upstream Atom 변경 금지**
+
+현재 승인된 F86 표시 요구는 다음과 같다.
+
+- `공지사항` 탭 제거
+- `종합` 탭만 시간 + 대수를 표시
+- 나머지 공급사 탭은 시간 없이 `이안카 000대`처럼 공급사명 + 대수만 표시
+- `구분` 칸은 상품구분별로 서로 확실히 구별되는 색 체계를 적용
+- 데이터/대여료/ERP5 Atom/SSOT 의미는 변경하지 않음
+
+그런데 current production ref `0c4ec76b...`의 실제 코드:
+
+- `scripts/build-channel-supplier-sheet.mts`가 `ensureNoticeTab()`을 호출해 `공지사항` 탭을 보장한다.
+- 탭 인덱스도 `0 = 공지사항`을 전제로 시작한다.
+- stale tab 삭제 로직도 `공지/안내` 탭을 보존한다.
+- `lib/server/channel-f86-plan.ts`는 모든 탭 제목을 `${company} ${mark} · ${N}대`로 만든다. 즉 종합뿐 아니라 공급사별 탭에도 매번 시간이 들어간다.
+- 현 production 서식은 `구분`을 주로 글자색 조건부서식으로 처리하고 있으며, 사용자 승인 표시계약과 일치하는 단일 표현 규칙이 production에 고정돼 있지 않다.
+
+따라서 Google Sheet에서 공지 탭 삭제/탭 이름 단순화/구분색 변경을 직접 해도 **다음 F86 production publish가 현재 builder 규칙대로 다시 되돌릴 수 있다.**
+
+이 수정은 F86이 projection/presentation이라는 구조 계약 안에서 처리해야 한다. `ERP5 Atom`, canonical source, 공급사 가격/기간 의미를 바꾸지 않는다.
+
+### D. 확인됨 — canonical source 및 손오공/오토플러스 전용탭 결정은 이번 변경에서 회귀 증거 없음
+
+current main의 `lib/domain/inventory-source-registry.ts`는 계속:
+
+- RP006 = ironrentcar.com
+- RP012 = Sonogong ERP/API
+- RP023 = RebornCar
+
+를 canonical source로 고정한다.
+
+`2026-09-16-sonogong-autoplus-tab-routing.md`의 확정 결정도 그대로 유효하다.
+
+- 손오공 = 별도 `손오공구독`
+- 오토플러스 = 별도 `오플구독`
+- 고유 기간/요금 축 보존
+- 공통화는 템플릿 표현만
+
+이번 감사에서 이 계약 자체가 뒤집힌 근거는 찾지 못했다.
+
+### E. 충돌 유지 — 예약지도는 이제 실제 pin과 더 멀어졌고 legacy writer latent risk도 그대로
+
+`docs/예약작업-지도.md`는 통합 engine을 아직 `3a334ddf...`로 적는다. 실제 workflow pin은 이제 `0c4ec76b...`이므로 문서 drift는 계속된다.
+
+legacy 경로도 변화 없음.
+
+- `sales-erp-hourly.yml` cron `0 0-9 * * 1-5` 잔존
+- `mirror-sync.yml` cron `*/30 * * * *` 잔존
+- `MIRROR_SOURCES`의 RP023 `from`은 옛 Google Sheet `1TJBG4PABgly7EtGG6Os5GcY9La7kDR_yex56KHhXe2U`
+- canonical RP023은 RebornCar
+
+예약지도상 두 workflow는 꺼짐이지만, repository 자체가 disable 상태를 강제하지 못한다는 latent conflict 판정은 유지한다.
+
+### 이번 감사 최종 판정
+
+1. **직전 완전 검증 production:** `d635f8c8...` / run `35039845907` PASS.
+2. **PR #308 회귀:** 실제 run `35042070104`에서 F01 발행 failure 확인.
+3. **긴급 수정:** PR #310 merge + PR #311 repin으로 current pin `0c4ec76b...`; 새 운영 run `35043402729`는 감사 시점 진행 중이라 HOLD.
+4. **신규 핵심 drift:** `0c4ec76b...`이 `d635f8c8...`과 diverged되어 PR #303 분류색 SSOT를 잃었다. workflow 주석의 계보 설명도 틀림.
+5. **F86 표시계약 drift:** 공지사항 탭/모든 탭 timestamp/구분 색상 방식이 승인된 현재 표시 요구와 불일치하며 수동 편집은 다음 publish에 덮일 수 있음.
+6. **canonical source·손오공/오토플러스 전용탭:** 회귀 증거 없음.
+7. **예약지도/legacy writer latent risk:** 미해소.
+
+### Claude 구현 Owner에게 넘기는 즉시 작업
+
+1. `0c4ec76b...`을 최종 PASS로 보지 말고 run `35043402729` 완료 결과부터 확인한다.
+2. production engine 가지를 재정리해 **PR #303 + #308 + #310**을 모두 포함하는 단일 계보로 만든다. 그 뒤 workflow pin/validated allowlist를 함께 올리고 실제 apply run으로 F01/F86/감사까지 확인한다.
+3. F86 presentation은 승인된 요구대로 builder/plan에서 고친다: 공지사항 탭 제거, 종합만 시간+대수, 공급사 탭은 이름+대수, 구분 색상은 한 SSOT에서 일관되게 적용한다. **Atom/가격/기간 로직은 손대지 않는다.**
+4. `docs/예약작업-지도.md`와 ACTIVE handoff의 stale 상태를 실제 pin/현재 규칙과 맞춘다.
+5. legacy writer UI-disable 의존성 문제는 기존 판정을 유지하고 별도 구현 결정을 한다.
+
+이번 ChatGPT 감사에서는 애플리케이션 코드나 비즈니스 로직을 수정하지 않았다. 감사 문서와 Claude 진입점만 갱신한다.
