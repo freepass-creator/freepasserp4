@@ -98,6 +98,36 @@ jobs:
       - name: 화면이 시트를 직접 읽지 않는가
         run: npm run check:no-client-sheet-live-status
 
+      # ★★2026-09-16 — 출시 게이트 둘도 CI 밖에 있었다. 바로 위 check:store 와 같은 무늬다:
+      #   «CI 에 안 걸린 검사기는 「없는 것」과 같고, 고장나도 아무도 모른다».
+      #   실제로 check:release 는 없는 파일을 읽다 ENOENT 로 죽어 리포트를 «한 줄도» 못 냈고,
+      #   check:b2b-release 는 필수 파일 목록의 한 줄 때문에 내용 검사 11건이 «한 번도 실행된 적이
+      #   없었다». 둘 다 9267a34e 에서 되살렸으니 이제 기계가 보게 둔다.
+      - name: 출시 게이트 — 약관·오류복구·보안 정적 검사
+        run: npm run check:release
+        # 이 게이트의 env 검사는 «운영에 값이 들어 있나»를 본다 — CI 에는 운영 값이 없고 있어서도
+        # 안 된다. 위 Production build 와 같은 관례로 형식만 유효한 placeholder 를 준다.
+        # 그러면 env 검사는 CI 에서 무의미해지지만, 이 파일의 «나머지 정적 검사 20여 건»이 돈다.
+        # 출시 직전에는 실제 운영 값으로 사람이 한 번 더 돌린다 — 그 판정은 CI 가 대신하지 않는다.
+        env:
+          NEXT_PUBLIC_FIREBASE_API_KEY: ci-placeholder
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: ci.invalid
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: ci-placeholder
+          NEXT_PUBLIC_FIREBASE_APP_ID: 1:000000000000:web:ci
+          NEXT_PUBLIC_OPERATOR_COMPANY: ci-placeholder
+          NEXT_PUBLIC_OPERATOR_CEO: ci-placeholder
+          NEXT_PUBLIC_OPERATOR_ADDRESS: ci-placeholder
+          NEXT_PUBLIC_OPERATOR_BIZ_NO: 000-00-00000
+          NEXT_PUBLIC_OPERATOR_EMAIL: ci@ci.invalid
+          NEXT_PUBLIC_OPERATOR_PRIVACY_OFFICER: ci-placeholder
+
+      # ★b2b 쪽은 placeholder 로 «못» 채운다 — 요구하는 값에 Drive refresh token 과 서비스계정
+      #   private key 가 있다. CI 에 그 모양의 가짜값을 심으면 게이트가 거짓 통과를 낸다.
+      #   그래서 --code-only 로 «저장소 안에서 판단 가능한 코드 계약»만 돌린다(실측 PASS 24 · FAIL 0).
+      #   env 20건과 후보 Rules 4건은 SKIP 으로 출력에 남고, 출시 직전 인자 없이 돌릴 때 검사된다.
+      - name: B2B 출시 게이트 — 코드 계약(브리지 폐기·claim·fail-closed)
+        run: npm run check:b2b-release -- --code-only
+
       - name: Sim — 시트 병합(soft-merge·락 보호)
         run: npx tsx scripts/sim-sheet-merge.mts
 
