@@ -18,7 +18,7 @@ import { readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 import {
   SETTLEMENT_LEDGER_ID as ID, SETTLEMENT_CURRENT_TAB, SETTLEMENT_PAST_TAB,
-  LEDGER_CONTRACT_STATES, SETTLEMENT_CONTRACT_STATE,
+  LEDGER_CONTRACT_STATES, SETTLEMENT_CONTRACT_STATE, findLedgerHeader,
 } from '../lib/domain/settlement-ledger';
 
 const APPLY = process.argv.includes('--apply');
@@ -53,31 +53,54 @@ const seen = new Map<string, number>();
 const reqs: Record<string, unknown>[] = [];
 const data: { range: string; values: string[][] }[] = [];
 
+/**
+ * ★**탭이 없으면 죽는다**(2026-09-16). 전에는 `continue` 로 넘겨서, 탭 이름이 틀리면
+ *   「고칠 줄 0」을 찍고 **성공으로 끝났다.** 「0건」과 「못 읽었다」가 구별이 안 됐다.
+ */
+let stateColumns = 0;
 for (const tab of [SETTLEMENT_CURRENT_TAB, SETTLEMENT_PAST_TAB]) {
   const sheetId = gidOf(tab);
-  if (sheetId === undefined) continue;
+  if (sheetId === undefined) {
+    throw new Error(`정산원장에 「${tab}」 탭이 없다 — 있는 탭: ${(meta.sheets || []).map((s: any) => S(s.properties.title)).join(' · ')}`);
+  }
   // ★담긴 값을 읽는다 — 서식된 글자를 읽으면 숫자 칸이 엉킨다(2026-08-25 실측).
-  const v = await api(`${SH}/${ID}/values/${encodeURIComponent(`${a1(tab)}!A1:AL3000`)}?valueRenderOption=UNFORMATTED_VALUE`);
+  const v = await api(`${SH}/${ID}/values/${encodeURIComponent(`${a1(tab)}!A1:BZ3000`)}?valueRenderOption=UNFORMATTED_VALUE`);
   const rows = ((v?.values || []) as string[][]).map((r) => (r || []).map(S));
-  const h = rows[0] || [];
+  // ★머리글은 1행이 아니다 — 탭 설명 줄이 앞에 붙는다.
+  const at = findLedgerHeader(rows);
+  if (at < 0) throw new Error(`「${tab}」 탭에서 머리글(「차량번호」가 있는 줄)을 못 찾았다`);
+  const h = rows[at];
   const iState = h.indexOf('상태');
   const iPlate = h.indexOf('차량번호');
-  if (iState < 0) continue;
-  rows.slice(1).forEach((r, k) => {
+  // ★「상태」 열은 2026-09-01 에 걷어냈다. 없는 것이 «정상»이다 — 죽이지 않고 없다고 말한다.
+  if (iState < 0) { console.log(`  「${tab}」 — 「상태」 열이 없다(2026-09-01 걷어냄). 여기는 할 일이 없다.`); continue; }
+  stateColumns++;
+  rows.slice(at + 1).forEach((r, k) => {
     const cur = S(r[iState]);
     if (!cur) return;
     seen.set(cur, (seen.get(cur) || 0) + 1);
     const to = RENAME[cur];
     if (!to || to === cur) return;
-    const row = k + 2;
+    const row = at + k + 2;
     hits.push({ tab, row, plate: S(r[iPlate]), from: cur, to });
     data.push({ range: `${a1(tab)}!${colA1(iState)}${row}`, values: [[to]] });
   });
   // 상태 칸 드롭다운 — 손으로 적으면 또 갈린다.
   reqs.push({ setDataValidation: {
-    range: { sheetId: Number(sheetId), startRowIndex: 1, endRowIndex: 3000, startColumnIndex: iState, endColumnIndex: iState + 1 },
+    range: { sheetId: Number(sheetId), startRowIndex: at + 1, endRowIndex: 3000, startColumnIndex: iState, endColumnIndex: iState + 1 },
     rule: { condition: { type: 'ONE_OF_LIST', values: LEDGER_CONTRACT_STATES.map((x) => ({ userEnteredValue: x })) }, showCustomUi: true, strict: false },
   } });
+}
+
+/**
+ * ★**할 일이 없으면 «없다»고 말하고 끝낸다** — 「상태」 열은 걷어냈다(443줄 전부 빈칸).
+ *   이 도구는 옛 데이터를 되살릴 때만 쓴다. 자동 스케줄에서 돌 물건이 아니다.
+ */
+if (!stateColumns) {
+  console.log('\n■ 원장 두 탭 어디에도 「상태」 열이 없다 — 2026-09-01 에 걷어냈고, 그 뜻은');
+  console.log('   계약서·인도완료·취소·환수 «체크 넷»으로 옮겨 담았다(docs/정산원장-매뉴얼.md 4장).');
+  console.log('   고칠 것이 없다. 이 도구는 옛 원장을 되살릴 때만 쓴다.\n');
+  process.exit(0);
 }
 
 console.log(`\n■ 정산원장 상태 — ${APPLY ? '반영' : 'dry-run'}\n`);

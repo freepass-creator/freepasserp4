@@ -79,7 +79,24 @@ export const SETTLEMENT_LEDGER_TAB = '정산';
 export const SETTLEMENT_CURRENT_TAB = SETTLEMENT_INTAKE_TAB;
 export const SETTLEMENT_PAST_TAB = SETTLEMENT_DONE_TAB;
 
-/** 원장에서 사람이 적는 네 칸. 이 밖은 손댈 곳이 아니다. */
+/**
+ * ★**머리글은 1행이 아니다** (2026-09-16 에 여기로 올림).
+ *   탭 1행에는 설명 줄이 붙어 있다 — 1행만 머리글로 읽으면 칸을 못 찾고,
+ *   그걸 「없다」로 넘기는 도구는 **조용히 0줄**로 끝난다. 「0건」과 「못 읽었다」가 구별이 안 된다.
+ *   「차량번호」가 있는 줄이 머리글이다 — `lib/server/settlement-ledger-read.ts` 가 쓰는 규칙과 같다.
+ *   ⚠ 규칙을 두 군데 적어 두면 갈린다. 새로 짜는 도구는 **이것을 쓴다**.
+ *   @returns 머리글 줄 번호(0-based). 못 찾으면 −1.
+ */
+export const findLedgerHeader = (rows: string[][]): number =>
+  rows.findIndex((r) => (r || []).some((c) => String(c ?? '').trim() === '차량번호'));
+
+/**
+ * 원장에서 사람이 적는 네 칸. 이 밖은 손댈 곳이 아니다.
+ * ⚠ **「상태」 열은 2026-09-01 에 원장에서 걷어냈다**(443줄 «전부 빈칸» ·
+ *   `docs/정산원장-매뉴얼.md` 4장). 그 뜻은 계약서·인도완료·취소·환수 «체크 넷»으로 옮겨 담았다.
+ *   이 목록은 아직 옛 규격이다 — 고치려면 이 상수를 쓰는 도구(`split-settlement-tabs.mts`)까지
+ *   같이 봐야 해서, 시트↔ERP 방향이 정해진 뒤에 한다. **지금은 「모른다」로 둔다.**
+ */
 export const SETTLEMENT_INPUT_COLUMNS = ['차량번호', '영업채널', '영업담당자', '상태'] as const;
 
 /**

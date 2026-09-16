@@ -69,17 +69,27 @@ type Change = { tab: string; col: number; name: string; from: string; to: string
 const changes: Change[] = [];
 const reqs: Record<string, unknown>[] = [];
 
+/**
+ * ★**탭이 없으면 죽는다**(2026-09-16). 전에는 `continue` 로 넘겨서, 탭 이름이 틀리면
+ *   「서식이 다 맞다」를 찍고 **성공으로 끝났다** — 「0건」과 「못 읽었다」가 구별이 안 됐다.
+ */
 for (const tab of [SETTLEMENT_CURRENT_TAB, SETTLEMENT_PAST_TAB]) {
   const sheetId = gidOf(tab);
-  if (sheetId === undefined) continue;
-  // 머리글 + 2행의 지금 서식을 같이 받는다 — 뭘 바꾸는지 보여 주려면 «전»이 있어야 한다.
-  const doc = await api(`${SH}/${ID}?includeGridData=true&ranges=${encodeURIComponent(`'${tab.replace(/'/g, "''")}'!A1:BZ2`)}&fields=sheets(data(rowData(values(formattedValue,effectiveFormat(numberFormat)))))`);
+  if (sheetId === undefined) {
+    throw new Error(`정산원장에 「${tab}」 탭이 없다 — 있는 탭: ${(meta.sheets || []).map((s: any) => S(s.properties.title)).join(' · ')}`);
+  }
+  // 머리글 + 그 아래 한 줄의 지금 서식을 같이 받는다 — 뭘 바꾸는지 보여 주려면 «전»이 있어야 한다.
+  // ★머리글은 1행이 아니다 — 탭 설명 줄이 앞에 붙는다. 「차량번호」가 있는 줄이 머리글이다.
+  const doc = await api(`${SH}/${ID}?includeGridData=true&ranges=${encodeURIComponent(`'${tab.replace(/'/g, "''")}'!A1:BZ10`)}&fields=sheets(data(rowData(values(formattedValue,effectiveFormat(numberFormat)))))`);
   const rows = doc.sheets[0].data[0].rowData || [];
-  const head = (rows[0]?.values || []).map((c: any) => S(c.formattedValue));
+  const cells = (k: number) => ((rows[k]?.values || []) as any[]).map((c: any) => S(c.formattedValue));
+  const at = (rows as unknown[]).findIndex((_, k: number) => cells(k).includes('차량번호'));
+  if (at < 0) throw new Error(`「${tab}」 탭에서 머리글(「차량번호」가 있는 줄)을 못 찾았다`);
+  const head = cells(at);
   head.forEach((name: string, i: number) => {
     const spec = SPEC[name];
     if (!spec) return;
-    const cur = (rows[1]?.values || [])[i]?.effectiveFormat?.numberFormat;
+    const cur = (rows[at + 1]?.values || [])[i]?.effectiveFormat?.numberFormat;
     const from = cur ? `${cur.type}${cur.pattern ? ' ' + cur.pattern : ''}` : '서식없음';
     const to = `${spec.fmt.type}${spec.fmt.pattern ? ' ' + spec.fmt.pattern : ''}`;
     if (from === to) return;
@@ -88,7 +98,7 @@ for (const tab of [SETTLEMENT_CURRENT_TAB, SETTLEMENT_PAST_TAB]) {
     const fields = ['numberFormat'];
     if (spec.align) { f.horizontalAlignment = spec.align; fields.push('horizontalAlignment'); }
     reqs.push({ repeatCell: {
-      range: { sheetId: Number(sheetId), startRowIndex: 1, startColumnIndex: i, endColumnIndex: i + 1 },
+      range: { sheetId: Number(sheetId), startRowIndex: at + 1, startColumnIndex: i, endColumnIndex: i + 1 },
       cell: { userEnteredFormat: f },
       fields: fields.map((x) => `userEnteredFormat.${x}`).join(','),
     } });

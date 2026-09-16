@@ -53,22 +53,34 @@ jobs:
           printf '%s' "$SA" > tmp/firebase-auth/sa.json
 
       # ① 접수 시트 → 정산원장. 접수일·모델명·공급사·반영·확인을 채운다.
+      #    ⚠ **이 단계는 지금 전부 실패한다**(2026-09-16 실측: 25회 연속). 별도 시트
+      #      「프리패스 당월 계약접수」를 Drive 에서 «이름 완전일치»로 찾는데,
+      #      `open-intake-desk.mts` 가 옛 접수 시트를 지우는 대신 이름에 `[구버전·폐기]` 를
+      #      **붙여서** 막는다 — 이름이 바뀐 순간 완전일치가 깨져 영구히 죽는다.
+      #      고치려면 접수 입구를 F04 「접수」 탭으로 다시 배선해야 하는데,
+      #      정산이 시트에 남는지 ERP(`app/settlement`)로 가는지가 먼저다 — **보류.**
       - name: 접수 시트 반영
         run: |
           npx tsx scripts/sync-intake-to-ledger.mts ${{ (github.event_name == 'schedule' || inputs.apply) && '--apply' || '' }}
 
       # ② 원장에 손으로 적은 줄도 같이 본다 — 팀장이 원장에 바로 적는 날이 있다.
+      #    ⚠ 이 도구가 보는 「정산」 탭은 **정본 탭 목록에 없다**(가르기 전 옛 이름).
+      #      없는 탭을 읽고 「0줄」로 조용히 끝난다 — 같은 이유로 **보류.**
       - name: 원장에서 계약중 세우기
         run: |
           npx tsx scripts/sync-contract-from-ledger.mts ${{ (github.event_name == 'schedule' || inputs.apply) && '--apply' || '' }}
 
-      # ③ 서식·용어는 값이 아니라 «보이는 방식»이라 매번 다시 세워도 안전하다(멱등).
-      #    사람이 손으로 넣은 줄이 옛 서식·옛 말로 들어오는 것을 여기서 바로잡는다.
+      # ③ 서식·용어 다듬기.
+      #    ★**스케줄에서는 쓰지 않는다**(2026-09-16). 이 둘이 손대는 「접수」·「완납실적」은
+      #      **사람이 손으로 편집하는 탭**이고, 이 둘은 그 탭의 «값과 서식»을 덮어쓴다.
+      #      사람 작업을 덮어쓰는 동작이 「매시 자동」이면 안 된다 — 하허호 8월 탭 사고가 그것이었다
+      #      (사람이 고쳐 놓은 것을 기계가 다시 찍어 덮었다 · docs/정산시트-매뉴얼.md).
+      #      그래서 `--apply` 를 **여기에 박아 두지 않는다.** 스케줄이면 dry-run,
+      #      쓰기는 사람이 workflow_dispatch 에서 apply 를 켤 때만 된다.
       - name: 서식·상태 용어 다듬기
-        if: github.event_name == 'schedule' || inputs.apply
         run: |
-          npx tsx scripts/unify-ledger-state.mts --apply
-          npx tsx scripts/format-ledger.mts --apply
+          npx tsx scripts/unify-ledger-state.mts ${{ inputs.apply && '--apply' || '' }}
+          npx tsx scripts/format-ledger.mts ${{ inputs.apply && '--apply' || '' }}
 
       - name: 자격증명 지우기
         if: always()
