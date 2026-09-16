@@ -1,0 +1,23 @@
+name: One-time morning ERP5 SSOT dispatch
+
+on:
+  push:
+    paths:
+      - '.github/workflows/manual-morning-erp5-dispatch.yml'
+
+permissions:
+  contents: read
+  actions: write
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch canonical ERP5 SSOT workflow with apply=true
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh workflow run erp5-ssot-refresh.yml \
+            --repo "${{ github.repository }}" \
+            --ref main \
+            -f apply=true
