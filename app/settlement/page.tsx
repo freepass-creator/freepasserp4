@@ -1,0 +1,490 @@
+'use client';
+
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { getStore } from '@/lib/store';
+import { getCompanyId } from '@/lib/tenant';
+import { seedIfEmpty } from '@/lib/seed';
+import type { EntityRecord } from '@/lib/intake/entities';
+import { isAdminUiAllowed } from '@/lib/auth-gate';
+import { parseSettlementHistory } from '@/lib/domain/settlement-import';
+import { downloadSettlementReport } from '@/lib/excel-export';
+import {
+  Badge, Btn, C, CenterNote, DetailTable, DtRow, DetailShell, FilterChips, FilterGroup,
+  KV_LABEL_W, Loading, NUM, PaneBody, PaneHead, Select, WorkRow, WorkTable,
+  won,
+} from '@/components/ui';
+import { WorkPage, type WorkPane } from '@/components/WorkPage';
+import { SettlementListRow } from '@/components/list-rows';
+import { toast } from '@/components/Toaster';
+import { AdminSettlementSheet } from '@/components/AdminSettlementSheet';
+import { matchHay, matchSettlementQuery } from '@/lib/domain/search';
+import { NAV_LABEL } from '@/lib/tabbar';
+import { Banknote, ChartNoAxesCombined, FileText } from 'lucide-react';
+import { useIsMobile } from '@/lib/use-mobile';
+import { retainVisibleSelection } from '@/features/work-list-display';
+import {
+  SETTLEMENT_DISPLAY_STATUSES,
+  SETTLEMENT_RATE_WARNING,
+  SETTLEMENT_RENT_WARNING,
+  buildSettlementDisplayIndex,
+  compareSettlementDisplayStatus,
+  matchesSettlementDisplayStatus,
+  normalizeSettlementDisplayStatus,
+  settlementListDisplay,
+  settlementNetTone,
+  settlementNeedsAttention,
+  settlementWarning,
+  type SettlementListDisplay,
+} from '@/lib/domain/settlement-display';
+
+type SettlementSort = '' | 'date_desc' | 'customer' | 'amount_desc' | 'status';
+type SettlementGroup = 'provider' | 'channel';
+const SETTLEMENT_SORTS: { value: Exclude<SettlementSort, ''>; label: string }[] = [
+  { value: 'date_desc', label: '계약일 최신순' },
+  { value: 'customer', label: '계약자순' },
+  { value: 'amount_desc', label: '순수익 높은순' },
+  { value: 'status', label: '정산상태순' },
+];
+
+const monthOf = (settlement: EntityRecord) => String(settlement.contract_date || '').slice(0, 7);
+const numberOf = (value: unknown) => Number(value) || 0;
+const netColor = (value: unknown) => C[settlementNetTone(value)];
+const netProfitOf = (list: EntityRecord[]) => list.reduce(
+  (sum, settlement) => normalizeSettlementDisplayStatus(settlement.settlement_status) === '정산완료'
+    ? sum + numberOf(settlement.net_amount)
+    : sum,
+  0,
+);
+const rateLabel = (value: unknown) => {
+  const rate = Number(value);
+  if (!Number.isFinite(rate)) return '—';
+  return `${Math.round(rate * 10000) / 100}%`;
+};
+
+const NUM_CELL = { fontFamily: NUM, fontVariantNumeric: 'tabular-nums' as const };
+
+export default function MonthlySettlement() {
+  const co = getCompanyId();
+  const router = useRouter();
+  const mobile = useIsMobile();
+  const [ok, setOk] = useState<boolean | null>(null);
+  const [rows, setRows] = useState<EntityRecord[]>([]);
+  const [contracts, setContracts] = useState<EntityRecord[]>([]);
+  const [partners, setPartners] = useState<EntityRecord[]>([]);
+  const [users, setUsers] = useState<EntityRecord[]>([]);
+  const [month, setMonth] = useState('');
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [queryInput, setQueryInput] = useState(''); // 검색창 즉시 반영
+  const [query, setQuery] = useState(''); // 디바운스된 검색(정렬·그룹 재계산)
+  const [sort, setSort] = useState<SettlementSort>('date_desc');
+  const [status, setStatus] = useState('all');
+  const [group, setGroup] = useState<SettlementGroup>('provider');
+  const [showVatSheet, setShowVatSheet] = useState(false);
+  const fileRef = useRef<HTMLInputElement | null>(null);
+
+  // 검색 디바운스 — 타이핑마다 정렬·그룹 전량 재계산 방지(파인더 180ms와 동일)
+  useEffect(() => {
+    const t = setTimeout(() => setQuery(queryInput), 180);
+    return () => clearTimeout(t);
+  }, [queryInput]);
+
+  useEffect(() => {
+    (async () => {
+      await seedIfEmpty(co);
+      if (!isAdminUiAllowed()) {
+        router.replace('/contract');
+        return;
+      }
+      const store = getStore();
+      const [all, contractRows, partnerRows, userRows] = await Promise.all([
+        store.list('settlement', co),
+        store.list('contract', co).catch(() => []),
+        store.list('partner', co).catch(() => []),
+        store.list('user', co).catch(() => []),
+      ]);
+      setRows(all);
+      setContracts(contractRows);
+      setPartners(partnerRows);
+      setUsers(userRows);
+      const availableMonths = [...new Set(all.map(monthOf).filter(Boolean))].sort();
+      const wanted = typeof window !== 'undefined'
+        ? new URLSearchParams(window.location.search).get('s')
+        : null;
+      const target = wanted ? all.find((settlement) => (
+        String(settlement._key || settlement.settlement_code) === wanted
+      )) : null;
+      setMonth((target && monthOf(target)) || availableMonths.at(-1) || new Date().toISOString().slice(0, 7));
+      setSelectedKey(target ? String(target._key || target.settlement_code) : null);
+      setOk(true);
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const importXlsx = async (files: FileList | null) => {
+    if (!files?.length) return;
+    try {
+      const XLSX = await import('xlsx');
+      const buffer = await files[0].arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: 'array', cellDates: true });
+      const sheets = workbook.SheetNames.map((name) => ({
+        name,
+        aoa: XLSX.utils.sheet_to_json(workbook.Sheets[name], {
+          header: 1, raw: true, defval: null,
+        }) as unknown[][],
+      }));
+      const { records } = parseSettlementHistory(sheets);
+      if (!records.length) {
+        toast('정산 데이터를 찾지 못했습니다 (계약현황 형식 확인)', 'error');
+        return;
+      }
+      const result = await getStore().save('settlement', co, records);
+      const all = await getStore().list('settlement', co);
+      setRows(all);
+      const availableMonths = [...new Set(all.map(monthOf).filter(Boolean))].sort();
+      setMonth(availableMonths.at(-1) || month);
+      setSelectedKey(null);
+      toast(`정산 이력 ${result.saved}건 반영${result.duplicates ? ` · 기존 ${result.duplicates} 유지` : ''}`, 'ok');
+    } catch (error) {
+      toast(`가져오기 실패: ${String(error)}`, 'error');
+    } finally {
+      if (fileRef.current) fileRef.current.value = '';
+    }
+  };
+
+  const months = useMemo(() => {
+    const values = new Set(rows.map(monthOf).filter(Boolean));
+    values.add(new Date().toISOString().slice(0, 7));
+    return [...values].sort();
+  }, [rows]);
+
+  const displayIndex = useMemo(
+    () => buildSettlementDisplayIndex(contracts, partners, users),
+    [contracts, partners, users],
+  );
+  const displayBySettlement = useMemo(() => new Map<EntityRecord, SettlementListDisplay>(
+    rows.map((settlement) => [settlement, settlementListDisplay(settlement, displayIndex)]),
+  ), [displayIndex, rows]);
+  const displayOf = (settlement: EntityRecord) => (
+    displayBySettlement.get(settlement) || settlementListDisplay(settlement, displayIndex)
+  );
+
+  const monthRows = useMemo(
+    () => rows.filter((settlement) => monthOf(settlement) === month),
+    [rows, month],
+  );
+
+  const shown = useMemo(() => {
+    const filtered = monthRows.filter((settlement) => {
+      const display = displayBySettlement.get(settlement);
+      const displayHaystack = display
+        ? [display.vehicleName, display.customerName, display.providerName, display.agentName, display.channelName].join(' ')
+        : '';
+      return matchesSettlementDisplayStatus(settlement, status)
+        && (matchSettlementQuery(settlement, query) || matchHay(displayHaystack, query));
+    });
+    return [...filtered].sort((left, right) => {
+      if (sort === 'customer') {
+        return String(displayBySettlement.get(left)?.customerName || '').localeCompare(
+          String(displayBySettlement.get(right)?.customerName || ''),
+          'ko',
+        );
+      }
+      if (sort === 'amount_desc') return numberOf(right.net_amount) - numberOf(left.net_amount);
+      if (sort === 'status') {
+        return compareSettlementDisplayStatus(left.settlement_status, right.settlement_status);
+      }
+      if (sort === 'date_desc') {
+        return String(displayBySettlement.get(right)?.contractDate || '').localeCompare(
+          String(displayBySettlement.get(left)?.contractDate || ''),
+        );
+      }
+      return String(left.settlement_code || '').localeCompare(String(right.settlement_code || ''), 'ko');
+    });
+  }, [displayBySettlement, monthRows, query, sort, status]);
+
+  // 검색·상태 필터에서 사라진 행의 상세를 계속 보여주지 않는다.
+  useEffect(() => {
+    if (!selectedKey) return;
+    const visible = shown.map((settlement) => String(settlement._key || settlement.settlement_code));
+    if (retainVisibleSelection(selectedKey, visible) === selectedKey) return;
+    setSelectedKey(null);
+  }, [shown, selectedKey]);
+
+  const selected = selectedKey
+    ? monthRows.find((settlement) => String(settlement._key || settlement.settlement_code) === selectedKey) || null
+    : null;
+  const selectedDisplay = selected ? displayOf(selected) : null;
+  const selectedWarning = selected ? settlementWarning(selected) : null;
+
+  const totals = useMemo(() => ({
+    rent: monthRows.reduce((sum, settlement) => sum + numberOf(settlement.rent_amount), 0),
+    r1: monthRows.reduce((sum, settlement) => sum + numberOf(settlement.fee_amount), 0),
+    r2: monthRows.reduce((sum, settlement) => sum + numberOf(settlement.agent_payout), 0),
+    net: netProfitOf(monthRows),
+    clawback: monthRows.reduce((sum, settlement) => sum + numberOf(settlement.clawback_amount), 0),
+  }), [monthRows]);
+
+  const grouped = useMemo(() => {
+    const field = group === 'provider' ? 'provider_company_code' : 'agent_channel_code';
+    const buckets = new Map<string, EntityRecord[]>();
+    for (const settlement of monthRows) {
+      const display = displayBySettlement.get(settlement);
+      const resolvedName = group === 'provider' ? display?.providerName : display?.channelName;
+      const name = String(resolvedName || settlement[field] || '(미지정)');
+      const bucket = buckets.get(name);
+      if (bucket) bucket.push(settlement);
+      else buckets.set(name, [settlement]);
+    }
+    return [...buckets.entries()].map(([name, list]) => ({
+      name,
+      count: list.length,
+      r1: list.reduce((sum, settlement) => sum + numberOf(settlement.fee_amount), 0),
+      r2: list.reduce((sum, settlement) => sum + numberOf(settlement.agent_payout), 0),
+      net: netProfitOf(list),
+      clawback: list.reduce((sum, settlement) => sum + numberOf(settlement.clawback_amount), 0),
+    })).sort((left, right) => right.net - left.net);
+  }, [displayBySettlement, group, monthRows]);
+
+  if (ok === null) return <Loading />;
+
+  const changeMonth = (nextMonth: string) => {
+    setMonth(nextMonth);
+    setSelectedKey(null);
+    const url = new URL(window.location.href);
+    url.searchParams.delete('s');
+    const queryString = url.searchParams.toString();
+    window.history.replaceState({}, '', `${url.pathname}${queryString ? `?${queryString}` : ''}${url.hash}`);
+  };
+  const selectSettlement = (settlement: EntityRecord) => {
+    const key = String(settlement._key || settlement.settlement_code);
+    setSelectedKey(key);
+    const url = new URL(window.location.href);
+    url.searchParams.set('s', key);
+    window.history.replaceState({}, '', `${url.pathname}?${url.searchParams.toString()}${url.hash}`);
+  };
+  const clearSelection = () => {
+    setSelectedKey(null);
+    const url = new URL(window.location.href);
+    url.searchParams.delete('s');
+    const queryString = url.searchParams.toString();
+    window.history.replaceState({}, '', `${url.pathname}${queryString ? `?${queryString}` : ''}${url.hash}`);
+  };
+  const clearConditions = () => {
+    setQueryInput('');
+    setQuery('');
+    setSort('date_desc');
+    setStatus('all');
+  };
+  const pendingCount = monthRows.filter(settlementNeedsAttention).length;
+
+  const list = shown.length ? shown.map((settlement) => {
+    const key = String(settlement._key || settlement.settlement_code);
+    const display = displayOf(settlement);
+    return (
+      <SettlementListRow
+        key={key}
+        settlement={settlement}
+        display={display}
+        selected={key === selectedKey}
+        onClick={() => selectSettlement(settlement)}
+      />
+    );
+  }) : (
+    <CenterNote>{query || status !== 'all' ? '검색 결과가 없습니다.' : '이 달 정산 내역이 없습니다.'}</CenterNote>
+  );
+
+  const detailPane = (
+    <>
+      {/* 모바일 스왑 = 하단 세그먼트가 이미 「상세」를 표시 → 같은 말 반복하는 헤드 생략(세로 확보). */}
+      {!mobile && <PaneHead title="정산 정보" count={selected ? '조회' : undefined} />}
+      <PaneBody pad>
+        {selected ? (
+          <>
+            <DetailTable title="정산 상태" accent="main" span={2} widths={[KV_LABEL_W, undefined]}>
+              <DtRow i={0} label="처리 상태"><Badge tone={selectedDisplay?.tone || 'red'} variant="solid">{selectedDisplay?.status || normalizeSettlementDisplayStatus(selected.settlement_status)}</Badge></DtRow>
+              <DtRow i={1} label="정산번호" valueStyle={NUM_CELL}>{String(selected.settlement_code || '—')}</DtRow>
+              <DtRow i={2} label="확인 사항">{selectedWarning?.invalidRent ? <Badge tone="red" variant="solid">{SETTLEMENT_RENT_WARNING}</Badge> : selectedWarning?.unresolvedRate ? <Badge tone="amber" variant="solid">{SETTLEMENT_RATE_WARNING}</Badge> : '이상 없음'}</DtRow>
+            </DetailTable>
+            <DetailTable title="정산 정보" accent="main" span={2} widths={[KV_LABEL_W, undefined]}>
+              <DtRow i={0} label="계약번호">{String(selected.contract_code || '')}</DtRow>
+              <DtRow i={1} label="계약일">{selectedDisplay?.contractDate || ''}</DtRow>
+              <DtRow i={2} label="계약자">{selectedDisplay?.customerName || ''}</DtRow>
+              <DtRow i={3} label="차량">{selectedDisplay?.vehicleName || '차량명 미확인'}</DtRow>
+              <DtRow i={4} label="차량번호">{selectedDisplay?.plate || ''}</DtRow>
+              <DtRow i={5} label="공급사">{selectedDisplay?.providerName || String(selected.provider_company_code || '')}</DtRow>
+              <DtRow i={6} label="영업자">{selectedDisplay?.agentName || String(selected.agent_code || '')}</DtRow>
+              <DtRow i={7} label="영업채널">{selectedDisplay?.channelName || String(selected.agent_channel_code || '')}</DtRow>
+            </DetailTable>
+          </>
+        ) : <CenterNote>목록에서 정산 건을 선택하세요.</CenterNote>}
+      </PaneBody>
+    </>
+  );
+
+  const amountPane = (
+    <>
+      {!mobile && <PaneHead title="금액·지급" count={selected ? '계산값' : undefined} />}
+      <PaneBody pad>
+        {selected ? (
+          <>
+            <DetailTable
+              title="금액"
+              hint="공급사청구(R1)=월대여료×공급사율 · 영업지급(R2)=계약 시점 지급율 · 순수익=R1−R2"
+              accent="main"
+              span={2}
+              widths={[KV_LABEL_W, undefined]}
+            >
+              <DtRow i={0} label="월대여료" valueStyle={NUM_CELL}>{won(selected.rent_amount)}</DtRow>
+              <DtRow i={1} label="공급사 청구 R1" valueStyle={NUM_CELL}>{won(selected.fee_amount)}</DtRow>
+              <DtRow i={2} label="영업자 지급 R2" valueStyle={NUM_CELL}>{won(selected.agent_payout)}</DtRow>
+              <DtRow i={3} label="순수익" valueStyle={{ ...NUM_CELL, color: netColor(selected.net_amount) }}>{won(selected.net_amount)}</DtRow>
+              <DtRow i={4} label="환수" valueStyle={NUM_CELL}>{numberOf(selected.clawback_amount) ? won(selected.clawback_amount) : ''}</DtRow>
+              <DtRow i={5} label="공급사율">{rateLabel(selected.fee_rate)}</DtRow>
+              <DtRow i={6} label="정산식">R1 − R2</DtRow>
+            </DetailTable>
+          </>
+        ) : <CenterNote>선택한 정산 건의 청구·지급 금액이 표시됩니다.</CenterNote>}
+      </PaneBody>
+    </>
+  );
+
+  const summaryPane = (
+    <>
+      <PaneHead title={`${month || '월'} 집계`} count={monthRows.length} />
+      <PaneBody pad>
+        <DetailTable title="금액" accent="main" span={2} widths={[KV_LABEL_W, undefined]}>
+          <DtRow i={0} label="공급사 청구 R1" valueStyle={NUM_CELL}>{won(totals.r1)}</DtRow>
+          <DtRow i={1} label="영업자 지급 R2" valueStyle={NUM_CELL}>{won(totals.r2)}</DtRow>
+          <DtRow i={2} label="확정 순수익" valueStyle={{ ...NUM_CELL, color: netColor(totals.net) }}>{won(totals.net)}</DtRow>
+          <DtRow i={3} label="환수" valueStyle={{ ...NUM_CELL, color: totals.clawback ? C.danger : C.mute }}>{won(totals.clawback)}</DtRow>
+        </DetailTable>
+        <WorkTable title="집계 기준">
+          <WorkRow label="구분">
+            <FilterChips value={group} onChange={setGroup} options={[{ key: 'provider', label: '공급사별' }, { key: 'channel', label: '영업채널별' }]} />
+          </WorkRow>
+        </WorkTable>
+        {grouped.length ? (
+        <DetailTable title={group === 'provider' ? '공급사별 집계' : '영업채널별 집계'} accent="sub" span={2} widths={[KV_LABEL_W, undefined]}>
+          {grouped.map((item, i) => (
+            <DtRow key={item.name} i={i} label={item.name} valueStyle={{ ...NUM_CELL, color: netColor(item.net) }}>
+              {`${item.count}건 · ${won(item.net)}`}
+            </DtRow>
+          ))}
+        </DetailTable>
+        ) : <CenterNote>집계할 정산 내역이 없습니다.</CenterNote>}
+      </PaneBody>
+    </>
+  );
+
+  const panes: WorkPane[] = [
+    { key: 'detail', title: '정산 정보', icon: FileText, node: detailPane },
+    { key: 'amount', title: '금액·지급', icon: Banknote, node: amountPane },
+    { key: 'summary', title: '월 집계', icon: ChartNoAxesCombined, node: summaryPane },
+  ];
+
+  const actions = mobile ? undefined : (
+    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+      <Btn size="sm" variant="ghost" onClick={() => fileRef.current?.click()}>가져오기</Btn>
+      <Btn size="sm" variant="ghost" onClick={() => downloadSettlementReport(monthRows, month)} disabled={!monthRows.length}>정산서</Btn>
+      <Btn size="sm" onClick={() => setShowVatSheet(true)}>VAT 정산서</Btn>
+    </div>
+  );
+
+  return (
+    <>
+      <WorkPage
+        title={NAV_LABEL.settlement}
+        statusLabel="정산 확인"
+        statusCount={pendingCount}
+        attentionLabel="월 전체"
+        attentionCount={monthRows.length}
+        listCount={shown.length}
+        list={list}
+        panes={panes}
+        selected={!!selected}
+        onBack={clearSelection}
+        contextTitle={selectedDisplay?.vehicleName}
+        actions={actions}
+        mobileLayout="swap"
+        listTools={{
+          search: { value: queryInput, onChange: setQueryInput, placeholder: '정산·계약·차번·계약자·공급·영업…' },
+          filter: {
+            count: (status === 'all' ? 0 : 1) + (sort && sort !== 'date_desc' ? 1 : 0),
+            title: '정산상태',
+            onClear: () => { setStatus('all'); setSort('date_desc'); },
+            body: (
+              <>
+                <FilterGroup
+                  title="정렬"
+                  count={sort && sort !== 'date_desc' ? 1 : 0}
+                  defaultOpen
+                  first
+                  onClear={() => setSort('date_desc')}
+                >
+                  <FilterChips
+                    value={sort || 'date_desc'}
+                    onChange={(value) => setSort(value)}
+                    options={SETTLEMENT_SORTS.map((option) => ({ key: option.value, label: option.label }))}
+                    clearKey="date_desc"
+                  />
+                </FilterGroup>
+                <FilterGroup title="정산월" count={month ? 1 : 0} defaultOpen>
+                  <Select
+                    value={month}
+                    onChange={changeMonth}
+                    options={months.map((value) => ({ value, label: value }))}
+                    full
+                    style={{ fontFamily: NUM, fontVariantNumeric: 'tabular-nums' }}
+                  />
+                </FilterGroup>
+                <FilterGroup
+                  title="정산상태"
+                  count={status === 'all' ? 0 : 1}
+                  defaultOpen
+                  onClear={() => setStatus('all')}
+                >
+                  <FilterChips
+                    value={status}
+                    onChange={setStatus}
+                    options={[
+                      { key: 'all', label: '전체' },
+                      ...SETTLEMENT_DISPLAY_STATUSES.map((value) => ({ key: value, label: value })),
+                    ]}
+                  />
+                </FilterGroup>
+              </>
+            ),
+          },
+          hints: [
+            month,
+            ...(query.trim() ? [query.trim().length > 12 ? `${query.trim().slice(0, 12)}…` : query.trim()] : []),
+            ...(sort && sort !== 'date_desc' ? [SETTLEMENT_SORTS.find((option) => option.value === sort)?.label || sort] : []),
+            ...(status !== 'all' ? [status] : []),
+          ],
+          onClearHints: clearConditions,
+        }}
+      />
+      {!mobile && (
+        <input
+          ref={fileRef}
+          type="file"
+          accept=".xlsx,.xls"
+          onChange={(event) => { void importXlsx(event.target.files); }}
+          style={{ display: 'none' }}
+        />
+      )}
+      {showVatSheet ? (
+        <DetailShell
+          fixed
+          title={`${month} VAT 정산서`}
+          meta="청구·지급 및 부가세"
+          onBack={() => setShowVatSheet(false)}
+          maxWidth={1120}
+        >
+          <AdminSettlementSheet month={month} />
+        </DetailShell>
+      ) : null}
+    </>
+  );
+}
