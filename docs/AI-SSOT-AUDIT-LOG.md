@@ -1380,3 +1380,55 @@ current `.github/workflows/sales-erp-hourly.yml`은 schedule을 여전히 보유
 5. `mirror-sync.yml`은 현재 fail-closed guard를 유지하고, RTDB/mirror를 canonical source로 되돌리지 않는다.
 
 이번 ChatGPT 감사에서는 애플리케이션 코드나 비즈니스 로직을 수정하지 않았다.
+
+---
+
+## 2026-09-16(14) — ChatGPT 독립 감사 정정: `mirror-sync` fail-closed 판정 오류 + writer topology 위험 재상향
+
+### A. 정정 — `(13)`의 `mirror-sync.yml` fail-closed 설명은 current main과 불일치
+
+**판정: 감사 결론 정정 / writer topology 위험 재상향**
+
+`2026-09-16(13)`은 current `.github/workflows/mirror-sync.yml`의 job에 `vars.MIRROR_SYNC_ENABLED == 'true'` 조건이 있어 repository 차원에서 fail-closed된다고 기록했다. 이번 재감사에서 파일 원문을 직접 다시 확인한 결과 **그 조건은 존재하지 않는다.**
+
+current main `.github/workflows/mirror-sync.yml`의 실제 동작:
+
+- `on.schedule`: `cron: '*/30 * * * *'`
+- `jobs.mirror`에 `MIRROR_SYNC_ENABLED` 또는 동등한 repository-level `if` guard 없음
+- `정제시트 일괄 갱신` step은 schedule 이벤트이면 `scripts/sync-mirror-all.mts --apply`를 실행
+
+따라서 이 workflow가 GitHub Actions UI에서 disabled라면 실행되지 않을 수는 있지만, **repository 코드 자체는 disable을 강제하지 않는다.** UI에서 enable되면 30분 schedule writer가 다시 실제 쓰기를 수행할 수 있는 구조다. `(13)-D`의 mirror-sync 부분과 `(13)` 마지막 지시의 “현재 fail-closed guard를 유지” 문구는 최신 판정이 아니다.
+
+### B. 충돌 유지 — RP023 legacy mirror source는 canonical source와 별개로 계속 살아 있음
+
+current `lib/domain/mirror-sources.ts`의 RP023:
+
+- `kind: 'sheet'`
+- `from: 1TJBG4PABgly7EtGG6Os5GcY9La7kDR_yex56KHhXe2U` (옛 Google Sheet)
+- `to: 1Tvd5IioF5y_yu3L1BQMRP4J1R8hcZHwkgl3vl-TsgY0`
+
+반면 current `lib/domain/inventory-source-registry.ts`의 RP023 canonical source는 계속 **RebornCar**다.
+
+즉 mirror 경로는 projection/legacy 용도로만 취급되어야 하며 canonical inventory source 권한을 가져서는 안 된다. 다만 repository 기준으로 `mirror-sync.yml`은 active-capable scheduled writer이므로, 실제 운영 ownership/enable 상태를 명시적으로 정리하지 않으면 옛 RP023 시트를 기준으로 projection/mirror가 다시 갱신될 수 있다.
+
+### C. `(13)`의 나머지 핵심 판정은 재확인됨
+
+이번 재감사에서 다음은 그대로 유효하다.
+
+- current production pin: `1f923d27bb9b6a8327afe0f7f5aa38eac8d6cd8f`
+- F86 presentation 규칙은 production lineage에 반영됨: 공지사항 미생성/정리, 종합만 시간+대수, 공급사 탭은 회사명+대수
+- current main Source Contract allowlist는 `1f923d27...`을 승인하지 못하며 run `35058214607`이 failure
+- production canonical `MASTER_CATEGORY_COLORS['분류']['픽업구독']`은 여전히 `#C2185B`
+- `sales-erp-hourly.yml`은 실제 schedule dispatch 이력과 최근 credential-path 복구가 있는 active-capable writer
+- canonical source는 RP006=`ironrentcar.com`, RP012=`sokrc.com/api`, RP023=RebornCar
+- 손오공=`손오공구독`, 오토플러스=`오플구독`, 공급사 고유 기간/주행거리/요금 축 보존
+
+최근 main의 애플리케이션/운영 구현 기준 주요 변경은 PR #319 merge `a607a4e26d1be841c530a6b0bd504f65038408f4`까지이며, 그 이후 `c7a2db6...`, `f96aff2...`, `c64f45e...`는 감사 문서 계열이다. 이번 ChatGPT 감사에서도 애플리케이션 코드나 비즈니스 로직은 수정하지 않았다.
+
+### Claude 구현 Owner에게 넘기는 즉시 지시
+
+1. `1f923d27...`을 validated-engine contract와 정합화해 `SSOT Source Contract`를 green으로 만든다.
+2. `sales-erp-hourly.yml` **뿐 아니라 `mirror-sync.yml`도 active-capable scheduled writer로 취급**하고, 실제 ownership/disable 방식을 repository 수준에서 명시적으로 결정한다. UI disable만으로 안전하다고 간주하지 않는다.
+3. RP023 옛 Google Sheet mirror를 canonical source로 승격시키지 않는다. RP023 canonical은 계속 RebornCar다.
+4. 픽업구독 색은 `MASTER_CATEGORY_COLORS['분류']` 단일 SSOT에서만 해결한다.
+5. `1f923d27...` 기준 정규 production scheduled 회차의 F01/F86 전체 감사 성공 여부를 확인한다.
