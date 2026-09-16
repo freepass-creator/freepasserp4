@@ -1,0 +1,163 @@
+/* 프리패스모빌리티 — 라이트 · 브라이트 블루 · 네트워크 (완전 신규, teamjpk 무관) */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#f2f6fe; --panel:#fff; --soft:#eaf1fc; --navy:#0e1f3d;
+  --ink:#0f1c34; --ink2:#54627c; --ink3:#94a0b6; --line:rgba(20,45,90,.09);
+  --blue:#1763d6; --blue2:#3b8df0; --cyan:#19b6e8; --blue-soft:rgba(23,99,214,.08);
+  --sh:0 2px 6px rgba(23,60,130,.05),0 16px 40px -18px rgba(23,60,130,.22);
+  --shh:0 26px 60px -22px rgba(23,60,130,.34);
+  --grad:linear-gradient(120deg,#1763d6,#3b8df0 60%,#19b6e8);
+  --nav-h:64px; --wrap:1200px;
+}
+html{scroll-behavior:smooth;touch-action:pan-y;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+body{background:var(--bg);color:var(--ink);font-family:"Pretendard",sans-serif;line-height:1.5;-webkit-font-smoothing:antialiased;word-break:keep-all;overflow-x:hidden}
+a{color:inherit;text-decoration:none} img,svg,canvas{display:block}
+::selection{background:var(--blue);color:#fff}
+.wrap{max-width:var(--wrap);margin:0 auto;padding:0 28px}
+.ex,.kicker,.eyebrow,.num,.logo,.foot-logo,.step-n,.k{font-family:"Exo 2","Pretendard",sans-serif}
+
+/* 버튼 */
+.btn{display:inline-flex;align-items:center;gap:9px;font-size:15px;font-weight:700;cursor:pointer;border:0;background:none;font-family:inherit;color:var(--ink);position:relative;padding:6px 0}
+.btn svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:transform .25s}
+.btn::after{content:"";position:absolute;left:0;bottom:0;height:2px;width:0;background:currentColor;transition:width .28s cubic-bezier(.2,.7,.2,1)}
+.btn:hover svg{transform:translateX(4px)}
+.btn:hover::after{width:100%}
+.btn-fill{color:var(--blue)}.btn-fill::after{width:100%;opacity:.3}.btn-fill:hover::after{opacity:1}
+.btn-ghost{color:var(--ink2)}
+.btn-link{color:var(--blue)}
+
+/* NAV */
+.nav{position:fixed;top:0;left:0;right:0;z-index:100;padding-top:env(safe-area-inset-top,0px);background:rgba(242,246,254,.8);backdrop-filter:blur(16px) saturate(1.4);transition:box-shadow .25s}
+.nav.scr{box-shadow:0 1px 0 var(--line),0 10px 30px -20px rgba(23,60,130,.5)}
+.nav-in{max-width:var(--wrap);margin:0 auto;padding:13px 28px;display:flex;align-items:center;justify-content:space-between;gap:20px}
+.logo{font-size:22px;letter-spacing:-.3px;line-height:1;white-space:nowrap}
+.logo b{font-weight:800;color:var(--blue)}.logo .lt{font-weight:300;color:var(--ink2)}
+.menu{display:flex;gap:30px}.menu a{font-size:14.5px;font-weight:600;color:var(--ink2)}.menu a:hover{color:var(--ink)}
+.cta{display:inline-flex;align-items:center;gap:7px;font-size:14px;font-weight:700;color:var(--blue);position:relative;padding:6px 0}
+.cta svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:transform .25s}
+.cta::after{content:"";position:absolute;left:0;bottom:0;height:2px;width:0;background:currentColor;transition:width .28s}
+.cta:hover::after{width:100%}.cta:hover svg{transform:translateX(3px)}
+.burger{display:none;flex-direction:column;gap:5px;background:none;border:0;cursor:pointer;padding:8px}
+.burger span{width:22px;height:2px;background:var(--ink);border-radius:2px;transition:.2s}
+.drawer{display:none;flex-direction:column;padding:6px 28px 16px}
+.drawer a{padding:12px 0;font-size:16px;font-weight:600;border-top:1px solid var(--line)}
+
+/* HERO (라이트) */
+.hero{position:relative;overflow:hidden;padding:calc(var(--nav-h) + 70px) 0 90px;
+  background:radial-gradient(60% 60% at 82% 18%,rgba(59,141,240,.14),transparent 60%),
+   radial-gradient(50% 50% at 10% 90%,rgba(25,182,232,.10),transparent 60%),var(--bg)}
+.hero::before{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;opacity:.5;
+  background-image:radial-gradient(rgba(23,99,214,.10) 1px,transparent 1px);background-size:26px 26px;
+  -webkit-mask:radial-gradient(80% 70% at 60% 40%,#000,transparent 75%);mask:radial-gradient(80% 70% at 60% 40%,#000,transparent 75%)}
+.hero-grid{position:relative;z-index:2;display:grid;grid-template-columns:1.02fr .98fr;gap:46px;align-items:center}
+.kicker{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:700;letter-spacing:1.5px;color:var(--blue);background:var(--blue-soft);border-radius:999px;padding:8px 16px;margin-bottom:22px}
+.kicker .dot{width:7px;height:7px;border-radius:50%;background:var(--blue);box-shadow:0 0 0 0 rgba(23,99,214,.5);animation:pulse 1.8s infinite}
+@keyframes pulse{100%{box-shadow:0 0 0 8px rgba(23,99,214,0)}}
+.hero h1{font-size:clamp(38px,5.6vw,66px);font-weight:800;letter-spacing:-2.2px;line-height:1.14}
+.hero h1 em{font-style:normal;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero .lede{font-size:clamp(16px,1.7vw,19px);color:var(--ink2);margin-top:22px;line-height:1.75;max-width:540px}
+.hero .lede b{color:var(--ink);font-weight:700}
+.hero-acts{display:flex;gap:13px;margin-top:34px;flex-wrap:wrap}
+.trust{display:flex;align-items:center;gap:10px;margin-top:26px;font-size:13.5px;color:var(--ink3)}
+.trust b{color:var(--blue);font-weight:800}
+.hero-net{position:relative;aspect-ratio:1/.86}
+.hero-net canvas{position:absolute;inset:0;width:100%;height:100%}
+.hero-net span{position:absolute;font-size:12.5px;font-weight:700;z-index:2}
+.hero-net .tagL{left:0;top:33%;color:var(--ink2)}
+.hero-net .tagR{right:0;top:6%;color:var(--blue)}
+.hero-net .tagC{left:40%;top:50%;transform:translate(-50%,-50px);font-family:"Exo 2";font-weight:800;font-size:14px;color:var(--blue)}
+
+/* SECTIONS */
+.sec{padding:clamp(72px,9vw,118px) 0}
+.alt{background:var(--panel)}
+.eyebrow{font-size:13px;font-weight:700;letter-spacing:2.5px;color:var(--blue);margin-bottom:16px}
+.sec-h{font-size:clamp(28px,4.2vw,48px);font-weight:800;letter-spacing:-1.5px;line-height:1.2}
+.sec-h em{font-style:normal;color:var(--blue)}
+.lead{font-size:17px;color:var(--ink2);line-height:1.8;margin-top:16px;max-width:680px}
+.center{text-align:center}.center .lead{margin-left:auto;margin-right:auto}
+.sec-cta{margin-top:40px}
+
+/* STEPS (어떻게 연결되나) — teamjpk엔 없던 컴포넌트 */
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:54px;position:relative}
+.step{background:var(--panel);border-radius:18px;padding:32px 28px;box-shadow:var(--sh);position:relative}
+.step-n{font-size:14px;font-weight:800;color:#fff;background:var(--grad);width:34px;height:34px;border-radius:10px;display:grid;place-items:center;margin-bottom:18px}
+.step h3{font-size:20px;font-weight:800;margin-bottom:8px}.step p{font-size:14.5px;color:var(--ink2);line-height:1.7}
+.step .arr{position:absolute;right:-21px;top:50%;transform:translateY(-50%);width:30px;height:30px;border-radius:50%;background:#fff;box-shadow:var(--sh);display:grid;place-items:center;color:var(--blue);z-index:3}
+.step:last-child .arr{display:none}
+.step.hi{background:var(--grad);box-shadow:0 18px 40px -16px rgba(23,99,214,.55)}
+.step.hi h3{color:#fff}.step.hi p{color:rgba(255,255,255,.88)}
+.step.hi .step-n{background:#fff;color:var(--blue)}
+.step .arr svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+
+/* STATS */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-top:50px}
+.stat{background:var(--panel);border-radius:16px;padding:30px 24px;box-shadow:var(--sh);text-align:center}
+.num{font-family:"Exo 2";font-size:clamp(32px,4vw,48px);font-weight:800;letter-spacing:-1.5px;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.num i{font-style:normal;font-size:.46em;color:var(--ink3);-webkit-text-fill-color:var(--ink3);margin-left:3px;font-weight:700}
+.lab{font-size:13.5px;color:var(--ink3);margin-top:8px}
+
+/* FEATURE CARDS (영업파트너) */
+.feat{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:50px}
+.feat-4{grid-template-columns:repeat(4,1fr)}
+@media(max-width:1080px){.feat-4{grid-template-columns:repeat(2,1fr)}}
+.fc{background:var(--panel);border-radius:18px;padding:30px;box-shadow:var(--sh);transition:.24s}
+.fc:hover{transform:translateY(-5px);box-shadow:var(--shh)}
+.fc .ic{width:50px;height:50px;border-radius:14px;background:var(--blue-soft);display:grid;place-items:center;color:var(--blue);margin-bottom:18px}
+.fc .ic svg{width:26px;height:26px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.fc h3{font-size:19px;font-weight:800;margin-bottom:8px;letter-spacing:-.3px}.fc p{font-size:14.5px;color:var(--ink2);line-height:1.7}
+
+/* 공급사 (라이트 컴팩트) */
+.supplier{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center;margin-top:30px;background:var(--panel);border-radius:22px;padding:44px;box-shadow:var(--sh)}
+.supplier .btn-link{margin-top:18px}
+.sup-list{list-style:none;display:flex;flex-direction:column;gap:14px}
+.sup-list li{font-size:15.5px;color:var(--ink2);line-height:1.6;padding-left:30px;position:relative}
+.sup-list li::before{content:"✓";position:absolute;left:0;top:0;color:var(--blue);font-weight:800}
+.sup-list li b{color:var(--ink);font-weight:700}
+
+/* 생태계 마키 */
+.mq-mask{overflow:hidden;margin-top:48px;-webkit-mask:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent);mask:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent)}
+.mq{display:flex;width:max-content;animation:mq 28s linear infinite}.mq:hover{animation-play-state:paused}
+@keyframes mq{to{transform:translateX(-50%)}}
+.mcard{margin-right:14px;flex:0 0 auto;display:flex;align-items:center;gap:14px;background:var(--panel);border-radius:14px;padding:18px 26px;box-shadow:var(--sh)}
+.mcard .mn{font-size:18px;font-weight:800}.mcard .mt span{font-size:11px;font-weight:600;color:var(--blue);background:var(--blue-soft);border-radius:6px;padding:4px 9px}
+
+/* CONTACT */
+.contact{display:grid;grid-template-columns:.8fr 1.2fr;gap:50px;margin-top:48px;align-items:start}
+.info div{margin-bottom:24px}.info .k{display:block;font-size:12px;font-weight:700;letter-spacing:1.5px;color:var(--blue)}
+.info .v{display:block;font-size:15.5px;color:var(--ink);margin-top:6px;line-height:1.7}
+.contact>*{min-width:0}
+.form{background:var(--panel);border-radius:20px;padding:32px;box-shadow:var(--sh);display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.field{display:flex;flex-direction:column;gap:8px;min-width:0}.field.full{grid-column:1/-1}
+.field label{font-size:13px;color:var(--ink3);font-weight:600}
+.field input,.field textarea,.field select{width:100%;background:var(--soft);border:0;border-radius:10px;padding:14px 15px;color:var(--ink);font-family:inherit;font-size:15px;transition:.18s}
+.field input:focus,.field textarea:focus,.field select:focus{outline:none;background:#fff;box-shadow:0 0 0 2px var(--blue)}
+.field textarea{min-height:118px;resize:vertical}
+.send{grid-column:1/-1;justify-self:start;margin-top:4px}
+
+/* FOOTER (딥네이비 대비) */
+.foot{background:var(--navy);color:rgba(255,255,255,.55);padding:56px 0 64px;font-size:13.5px;line-height:1.95}
+.foot-logo{font-size:24px;margin-bottom:16px}.foot-logo b{font-weight:800;color:#fff}.foot-logo .lt{font-weight:300;color:rgba(255,255,255,.6)}
+.copy{font-size:12px;margin-top:10px;color:rgba(255,255,255,.4)}
+.foot-info .seg{white-space:nowrap}.foot-info .sep{color:rgba(255,255,255,.35);margin:0 5px}
+section{scroll-margin-top:80px}
+
+/* REVEAL */
+.reveal{opacity:0;transform:translateY(22px);transition:opacity .7s cubic-bezier(.2,.7,.2,1),transform .7s cubic-bezier(.2,.7,.2,1)}
+.reveal.in{opacity:1;transform:none}
+
+/* RESPONSIVE */
+@media(max-width:900px){
+  .menu,.cta{display:none}.burger{display:flex}
+  .nav.open .drawer{display:flex}
+  .nav.open .burger span:first-child{transform:translateY(3.5px) rotate(45deg)}
+  .nav.open .burger span:last-child{transform:translateY(-3.5px) rotate(-45deg)}
+  .hero-grid{grid-template-columns:1fr;gap:36px}
+  .hero-net{max-width:440px;margin:0 auto;width:100%}
+  .steps{grid-template-columns:1fr}.step .arr{display:none}
+  .stats{grid-template-columns:repeat(2,1fr)}
+  .feat{grid-template-columns:1fr}
+  .supplier,.contact,.form{grid-template-columns:1fr}.supplier{padding:30px}
+  .form{background:none;box-shadow:none;border-radius:0;padding:0;gap:14px}
+  .field input,.field textarea,.field select{background:#fff;box-shadow:inset 0 0 0 1px #d4e1f5}
+}
+@media(max-width:440px){.wrap,.nav-in{padding-left:20px;padding-right:20px}.stats{grid-template-columns:1fr 1fr}.hero{padding-top:calc(var(--nav-h) + 40px)}}
