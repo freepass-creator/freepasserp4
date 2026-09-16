@@ -1275,3 +1275,108 @@ head `5e39d7d...` push로 시작된 Actions run `35053821352`(`.github/workflows
 5. Atom·canonical source·가격/기간 의미는 변경하지 않는다.
 
 이번 ChatGPT 감사에서는 애플리케이션 코드나 비즈니스 로직을 수정하지 않았다.
+
+---
+
+## 2026-09-16(13) — ChatGPT 독립 감사: F86 production 반영 진전 + production pin/source-contract drift + writer topology 정정
+
+### A. 해소됨/변경됨 — `(12)`의 “F86 표시 구현은 side branch에만 있음” 판정은 최신 production 기준 stale
+
+**판정: 구현 반영 확인 / 기존 감사 결론 정정 필요**
+
+이번 감사에서 current `main` 구현 상태를 다시 대조했다. 감사 시작 시 확인한 main 구현 HEAD는 `a607a4e26d1be841c530a6b0bd504f65038408f4`(PR #319 merge)이며, `.github/workflows/erp5-ssot-refresh.yml`의 current production checkout ref는:
+
+- `1f923d27bb9b6a8327afe0f7f5aa38eac8d6cd8f`
+
+로 이동했다.
+
+이 production lineage는 F01과 F86을 같은 회차에서 발행/감사하며, `(12)`에서 side branch 구현으로만 보였던 F86 projection 동작도 current production 계보에 들어왔다. 직접 확인한 경로 기준 핵심 동작은 다음과 같다.
+
+- `scripts/build-channel-supplier-sheet.mts` — 묵은 `공지사항`을 제거 대상으로 처리하고 다시 만들지 않음
+- `lib/server/channel-f86-plan.ts` — `종합`을 첫 탭으로 두고 `종합`에만 timestamp+대수, 공급사 탭에는 timestamp 없이 공급사명+대수
+- 장기 요금이 없는 차도 제외하지 않고 요금 칸만 빈 채 싣는 F86=F01 규칙 유지
+- F86 `구분`/`배차상태` 값별 색은 shared sales-format 경로를 통해 적용하도록 production lineage에 반영
+
+중간 production commit `1939018a8edb0f4993d61e12e5e0df4864ca9cb8`은 `check:f86` 통과 후 F01/F86 수동 발행·live 검증(탭 순서·이름, 값별 색, 내장/Km 미입력, 0km 보존)이 commit/CI 이력에 기록되어 있고, 그 뒤 production pin이 `1f923d27...`로 다시 전진했다.
+
+따라서 `(12)-B`의 “current production은 여전히 `308511563...`, F86 수정은 side branch only”는 **현재 상태가 아니다.** 다만 이번 독립 감사에서는 `1f923d27...`로 완료된 정규 scheduled production 회차를 새로 확인하지 못했으므로, current pin 자체의 다음 정상 scheduled publish 증거는 별도 확인 대상으로 남긴다.
+
+### B. 충돌(신규/HOLD) — main의 Source Contract가 현재 production pin 자체를 거부함
+
+**판정: SSOT governance gate drift / 즉시 정합화 필요**
+
+현재 main `scripts/check-inventory-source-contract.mts`의 validated-engine allowlist는 다음 계보까지만 승인한다.
+
+- `404de5...`
+- `627246...`
+- `baaed18...`
+- `308511563d8e8f56dbd94f715469d8ae7ed9171a`
+
+즉 current production workflow가 실제 checkout하는 `1f923d27bb9b6a8327afe0f7f5aa38eac8d6cd8f`가 allowlist에 없다.
+
+이 drift는 실제 current-main Actions에서 재현됐다.
+
+- workflow: `SSOT Source Contract`
+- run: `35058214607`
+- job: `104672754543`
+- conclusion: **failure**
+- 정확한 실패문: `.github/workflows/erp5-ssot-refresh.yml: checkout ref 1f923d27bb9b6a8327afe0f7f5aa38eac8d6cd8f is not an approved validated engine`
+
+따라서 main은 현재 **자기가 선언한 production engine을 자기 SSOT Source Contract로 승인하지 못하는 상태**다.
+
+이 실패가 곧바로 production publish runtime 실패를 뜻하는 것은 아니다. `erp5-ssot-refresh.yml`은 pinned engine을 checkout한 뒤 그 engine의 검사 코드를 실행하므로, 위 실패는 우선 **main repository governance/CI 계약의 drift**로 판정한다. 하지만 SSOT 감사 기준으로는 source-contract gate가 current production pin을 인정하고 다시 green이 되기 전까지 **HOLD**가 맞다.
+
+### C. 충돌 유지 — 픽업구독 canonical 색은 여전히 production SSOT에 반영되지 않음
+
+current production pin `1f923d27...`의 `lib/domain/category-colors.ts`를 직접 확인했다.
+
+- `MASTER_CATEGORY_COLORS['분류']['픽업구독'] = '#C2185B'`
+
+즉 side branch/manual publish에서 검증했던 teal `#0F766E`는 아직 production canonical SSOT가 아니다. `(11)`의 핵심 색상 판정은 이 점에서 **여전히 유효**하다.
+
+Claude 구현 Owner는 이 색을 해결할 때 channel-local `GUBUN_INK`를 다시 하드코딩하지 말고, production의 `MASTER_CATEGORY_COLORS['분류']` 한 곳에서만 결정해야 한다.
+
+### D. writer topology 정정 — `sales-erp-hourly.yml`은 “UI-disabled latent risk”로만 보면 부족함
+
+**판정: active-capable scheduled writer로 취급해 ownership 재확인 필요**
+
+current `.github/workflows/sales-erp-hourly.yml`은 schedule을 여전히 보유하고 있으며, `SALES_ERP_CLOUD_SCHEDULED_SYNC_ENABLED`도 repository variable이 없으면 `true`를 기본값으로 사용한다.
+
+더 중요한 실제 증거가 있다.
+
+- scheduled run `34955061603`이 2026-09-15에 실제로 dispatch됐고 **failure**했다.
+- PR #317 / commit `330ada9569f6b6bcff28d1cead8132b388136ad9`의 commit message는 이 workflow가 매 회차 `손오공 계정 없음`으로 죽고 있었으며, secrets는 존재했지만 `.손오공계정.json` 준비 단계가 이 workflow에만 빠져 있던 것이 원인이라고 명시한다.
+- PR #317은 그 credential preparation을 공통 composite action으로 통합해 이 recurring writer 경로를 복구했다.
+
+따라서 과거 감사의 “GitHub UI에서 꺼져 있는 것으로 기록된 latent risk”만으로는 현재 topology를 충분히 설명하지 못한다. Claude는 `sales-erp-hourly.yml`을 **실제 schedule dispatch 이력이 있고 최근에 실행 blocker까지 수리된 active-capable writer**로 보고, ERP5 canonical/projection ownership과 충돌하지 않도록 명시적으로 경계를 다시 확인해야 한다.
+
+반면 `.github/workflows/mirror-sync.yml`은 current main에서 job 자체가 `vars.MIRROR_SYNC_ENABLED == 'true'` 조건으로 fail-closed되어 있어, 이번 감사에서는 신규 active conflict 증거를 찾지 못했다.
+
+### E. 변화 없음 — canonical source / 손오공·오토플러스 특수탭 / RTDB canonical 제거
+
+이번 재감사에서 다음 계약을 뒤집는 신규 근거는 없었다.
+
+- ERP5 canonical source registry: RP006=`ironrentcar.com`, RP012=`sokrc.com/api`, RP023=RebornCar
+- 손오공/오토플러스 별도 판매탭과 공급사 고유 기간·주행거리·요금 축 보존
+- RTDB를 canonical inventory source로 되돌리는 신규 회귀 없음
+- `MIRROR_SOURCES`의 legacy 정보는 canonical source 권한이 없음
+
+### 최종 판정
+
+1. `(12)`의 **F86 production 미반영** 판정은 해소/변경됨 — current production pin은 `1f923d27...`이며 F86 presentation 구현이 production lineage에 들어왔다.
+2. **신규 HOLD:** main의 `SSOT Source Contract`가 current production pin `1f923d27...`를 승인하지 않아 run `35058214607`이 실패한다.
+3. **픽업구독 canonical 색:** 미해소 — production SSOT는 여전히 `#C2185B`.
+4. **writer topology:** `sales-erp-hourly.yml`은 실제 schedule dispatch 및 최근 credential-path 복구 이력이 있으므로 단순 dormant/UI-disabled로 취급하면 안 된다.
+5. canonical source/특수탭/RTDB canonical 제거에는 신규 회귀 없음.
+
+상세 근거: `docs/ai-ssot-audit/2026-09-16-chatgpt-production-pin-contract-writer-topology.md` (audit evidence commit `c7a2db6d10106cdd23303b1c49a92c15749199a1`).
+
+### Claude 구현 Owner에게 넘기는 즉시 지시
+
+1. current production pin `1f923d27...`을 validated-engine contract에 반영하고 `SSOT Source Contract`를 다시 green으로 만든다.
+2. `1f923d27...` 기준 정규 production scheduled 회차가 F01/F86 발행·감사까지 정상 완료되는지 확인한다.
+3. 픽업구독 색은 `MASTER_CATEGORY_COLORS['분류']` 단일 SSOT에서만 해결한다. side-branch hardcoded 색표를 가져오지 않는다.
+4. `sales-erp-hourly.yml`의 실제 writer ownership/feature flag를 재확인해 ERP5 canonical inventory writer와 중복 권한이 생기지 않도록 한다.
+5. `mirror-sync.yml`은 현재 fail-closed guard를 유지하고, RTDB/mirror를 canonical source로 되돌리지 않는다.
+
+이번 ChatGPT 감사에서는 애플리케이션 코드나 비즈니스 로직을 수정하지 않았다.
