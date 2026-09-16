@@ -16,7 +16,7 @@ FreePass SSOT 관련 **실제 구현·수정 Owner는 지정된 Claude 단일 �
 
 최신 독립 감사 근거:
 
-- `docs/AI-SSOT-AUDIT-LOG.md`의 최신 ChatGPT 항목
+- `docs/AI-SSOT-AUDIT-LOG.md`의 `2026-09-16(16)`
 - `docs/ai-ssot-audit/2026-09-16-chatgpt-2e880cef-source-contract-resolution.md`
 - `docs/ai-ssot-audit/2026-09-16-chatgpt-rtdb-zero-ratchet.md`
 - 직전 완전 production full-run 기준: `docs/ai-ssot-audit/2026-09-16-chatgpt-run14-production-pass.md`
@@ -70,8 +70,8 @@ current main `scripts/check-inventory-source-contract.mts`의 `VALIDATED_ENGINES
 
 실제 current-main checks 증거:
 
-- `source-contract` — run `35067923610`, job `104702374975`, **success**
-- `verify` — run `35067923638`, job `104702374928`, **success**
+- `source-contract` — run `35067923610`, **success**
+- `verify` — run `35067923638`, **success**
 
 따라서 `(13)~(15)`의 “main이 자기 production engine을 승인하지 못한다”는 HOLD는 **해소됨**으로 본다.
 
@@ -82,7 +82,7 @@ current main `scripts/check-inventory-source-contract.mts`의 `VALIDATED_ENGINES
 `2e880cef...`에는 다음이 함께 들어 있다.
 
 - 차량번호: 사진/차번 링크가 있는 줄만 파랑, 링크 없으면 검정
-- 정산원장 `접수` → 원자 `계약중` lock, `취소` → lock 해제
+- 새 `sync-vehicle-lock-from-ledger.mts`: 정산원장 `접수` → 원자 `계약중` lock, `취소` → lock 해제 의도
 - `ingest-supplier-to-firestore.mts`의 “계약중이면 원천에서 사라져도 유지” 예외 제거
   - 계약중 차량도 canonical source에서 이탈하면 출고불가/계약완료 방향으로 반영
 - 상품구분/표시낱말 SSOT 잠금(`check:color-ssot`)
@@ -91,6 +91,18 @@ current main `scripts/check-inventory-source-contract.mts`의 `VALIDATED_ENGINES
 단, Source Contract가 검사하는 fail-closed 가드(`SSOT HARD GUARD`, `inventory-source-registry`, `process.exit(2)`)와 canonical source 주소는 유지된다.
 
 Claude는 이 engine을 단순 “F86 서식 변경 pin”으로 보면 안 된다. **원천 이탈 시 상태 천이 규칙이 바뀐 production engine**이다.
+
+### 중요 충돌 — 새 정산원장 Atom lock 도구는 아직 scheduled orchestration에 연결되지 않음
+
+current main과 production pin `2e880cef...`의 `.github/workflows/settlement-sync.yml`은 여전히:
+
+- `scripts/sync-contract-from-ledger.mts`
+
+를 호출한다. 이 옛 스크립트는 `SETTLEMENT_LEDGER_TAB`을 읽고, current `lib/domain/settlement-ledger.ts`에서 그 호환 상수는 `정산`이다. 반면 current 운영 원장은 `접수`, `취소`, `분납실적`, `완납실적`, `청구` 다섯 탭을 정본으로 두고 `정산`은 옛 도구 호환 이름으로만 남긴다.
+
+새 `scripts/sync-vehicle-lock-from-ledger.mts`는 current `접수`/`취소` 탭에 맞춰 만들어졌지만, 이번 독립 감사에서는 `settlement-sync.yml`이나 `erp5-ssot-refresh.yml`의 **실제 실행 step**으로 연결된 흔적을 찾지 못했다. production workflow에는 해당 기능을 설명하는 주석만 있다.
+
+따라서 **“정산원장 접수→Atom lock / 취소→unlock”을 정규 자동운영에서 이미 동작한다고 간주하면 안 된다.** 구현 Owner가 기존 supplier-sheet mutation 경로와 새 Atom-lock 경로의 ownership을 정리하고 scheduled path를 맞춰야 한다.
 
 ## 4. HOLD — current pin의 정규 production full-run 증거는 별도 확인 필요
 
@@ -127,7 +139,7 @@ production pin `2e880cef...`의 `lib/domain/category-colors.ts`:
 
 `check:color-ssot`은 이 7개가 **한 canonical map에서 빠지지 않는 것**을 잠근다. 그러나 side branch/manual publish에서 검증됐던 teal `#0F766E`가 canonical에 채택됐다는 뜻은 아니다.
 
-코드 주석은 오히려 픽업구독의 기존 자홍색을 유지한다고 명시한다. 따라서 Claude는 최신 대표 결정이 `#C2185B` 유지인지 `#0F766E` 전환인지 확인한 뒤, 바꾼다면 `MASTER_CATEGORY_COLORS['분류']` 한 곳에서만 처리한다. channel-local 색표를 새로 만들지 않는다.
+코드 주석은 오히려 픽업구독의 기존 자홍색을 유지한다고 명시한다. 따라서 변경한다면 `MASTER_CATEGORY_COLORS['분류']` 한 곳에서만 처리한다. channel-local 색표를 새로 만들지 않는다.
 
 ## 6. writer topology — legacy scheduled writer 둘 다 repository 기준 active-capable
 
@@ -189,12 +201,13 @@ production pin `2e880cef...`의 tab routing:
 
 # Claude 구현 Owner의 즉시 우선순위
 
-1. `2e880cef...` 기준 **정규 `erp5-ssot-refresh` full-run**이 F01/F86/cross/photo audit까지 정상 완료됐는지 Actions 증거를 확인한다.
-2. `2e880cef...`의 **계약중 차량 원천 이탈 → 출고불가/계약완료** 변경이 대표가 확정한 업무 규칙과 정확히 맞는지 유지한다. 임의로 옛 “락이면 보존” 예외를 되살리지 않는다.
-3. 픽업구독 색의 최신 대표 결정을 확인한다. 변경 시 `MASTER_CATEGORY_COLORS['분류']` 한 곳에서만 처리하고 `check:color-ssot`를 유지한다.
-4. `sales-erp-hourly.yml`과 `mirror-sync.yml`을 active-capable scheduled writer로 보고 실제 ownership/disable 방식을 repository 수준에서 명시적으로 정리한다. UI disable만으로 안전하다고 간주하지 않는다.
-5. RTDB direct-open baseline 0을 유지한다.
-6. RP023 old Google Sheet mirror를 canonical source로 승격하지 않는다. RP023 canonical은 계속 RebornCar다.
-7. 구현 후 `docs/AI-SSOT-AUDIT-LOG.md`에 `해소됨/잔존`을 append한다.
+1. **정산원장 lock orchestration부터 정합화한다.** `settlement-sync.yml`의 옛 `sync-contract-from-ledger.mts`/`정산` 탭 경로와 새 `sync-vehicle-lock-from-ledger.mts`/`접수·취소` Atom-lock 경로의 ownership을 하나로 정리하고, 실제 scheduled path가 current 원장 계약을 따르게 한다.
+2. 그 뒤 `2e880cef...` 기준 **정규 `erp5-ssot-refresh` full-run**이 F01/F86/cross/photo audit까지 정상 완료됐는지 Actions 증거를 확인한다.
+3. `2e880cef...`의 **계약중 차량 원천 이탈 → 출고불가/계약완료** 변경을 임의로 옛 “락이면 보존” 예외로 되돌리지 않는다. 정산 lock과 source-retirement 규칙의 역할을 구분한다.
+4. 픽업구독 색 변경 시 `MASTER_CATEGORY_COLORS['분류']` 한 곳에서만 처리하고 `check:color-ssot`를 유지한다.
+5. `sales-erp-hourly.yml`과 `mirror-sync.yml`을 active-capable scheduled writer로 보고 실제 ownership/disable 방식을 repository 수준에서 명시적으로 정리한다. UI disable만으로 안전하다고 간주하지 않는다.
+6. RTDB direct-open baseline 0을 유지한다.
+7. RP023 old Google Sheet mirror를 canonical source로 승격하지 않는다. RP023 canonical은 계속 RebornCar다.
+8. 구현 후 `docs/AI-SSOT-AUDIT-LOG.md`에 `해소됨/잔존`을 append한다.
 
 이 entry point는 구현 지시의 요약이다. 세부 근거와 과거 판정은 `docs/AI-SSOT-AUDIT-LOG.md` 최신 항목과 최신 dated audit를 우선한다.
