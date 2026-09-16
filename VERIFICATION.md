@@ -7360,3 +7360,25 @@ Next 개발 서버와 production build가 같은 `.next`를 사용하면 실행 
 - 반영: L(지식검토)은 맞음 1,644·못정함 22·틀림 2, M(엔카대조)은 맞음 1,619·못정함 49이다. 트림 공란 2행(포터 II·봉고)은 `틀림`, 생산기간 `보류` 24행은 날짜 추정 없이 `못정함`으로 기록했다. 엔카 원문이 부족하거나 기아 개발코드 표기와 기존 대조가 충돌한 49행도 `못정함`으로 보류했다.
 - 근거: F03 명명 매뉴얼의 `세부트림 없으면 기본형`, `엔카 원문 근거 없는 추정 금지`, 기아 세대명→개발코드 예외를 적용했다. Gemini CLI는 `공란=틀림, 보류=못정함` 원칙에 동의했다.
 - 재검증: 쓰기 직후 L:M 1,668행을 다시 읽어 합계가 각각 1,668행인지 확인했고, 보류/공란/K8/RAV4 표본의 셀 값과 메모도 재조회했다.
+
+## 2026-09-14 ERP4 화이트라벨 → ERP5 Firestore 연결 경계 (Codex)
+
+- 범위: ERP4 화이트라벨 공개 경로에만 `lib/server/erp5-firestore-app.ts`를 추가했다. 내부 ERP·계약·정산·직원 로그인 소비자는 이 변경에 포함하지 않는다. 프로젝트 ID와 서비스계정 JSON의 `project_id`를 모두 `freepasserp5`로 고정·검증하며, ERP3 자격증명·RTDB·`databaseURL` fallback은 허용하지 않는다.
+- 검증: Firebase CLI로 `freepasserp5` Native Firestore `(default)`/`asia-northeast3`와 웹 앱의 project ID를 재확인했다. `npm run check:erp5-firestore-boundary`, `npm run typecheck`, `git diff --check` 통과. 빈 ERP5 자격증명으로 모듈을 호출해 fail-closed 오류도 확인했다.
+- 독립 검토: Gemini CLI는 새 경계와 정적 게이트에 ERP3/RTDB fallback이 없고 기존 경로가 남으면 HOLD를 낸다는 점을 PASS로 확인했다. Claude CLI는 주간 사용량 제한으로 검토하지 못했다.
+- HOLD: 기존 ERP4 `lib/firebase/client.ts`·`lib/server/firebase-admin.ts`·`lib/server/firestore-ref-shim.ts`는 ERP3/RTDB 소비를 여전히 포함한다. ERP5의 실제 컬렉션·문서 ID·원자 필드·Rules 계약이 검증되지 않았으므로 환경변수 교체·소비 경로 전환·배포는 수행하지 않았다.
+
+## 2026-09-14 ERP4 화이트라벨 ERP5 Firestore 클릭 전환 이중 게이트 (Codex)
+
+- 추가: `ERP5_WHITELABEL_FIRESTORE_ENABLED`(기본 `false`)와 ERP5 Firestore `ops/erp4_whitelabel_cutover` 영수증을 함께 확인하는 `assertErp5WhitelabelCutoverReady()`를 추가했다. 영수증은 `READY`, target=`freepasserp5`, validation run/시각, 상품 inventory 원본=대상·누락 0을 모두 가져야 한다.
+- 검증: `npm run check:erp5-firestore-boundary`, OFF 상태 `npm run check:erp5-firestore-cutover`, `npm run typecheck`, `git diff --check` 통과. 스위치를 true로 강제하고 ERP5 자격증명을 비운 재현도 ERP3 대체 없이 HOLD로 종료했다.
+- 독립 검토: Gemini CLI는 OFF·영수증 없음·대상 불일치·검증 시각 없음·상품 건수 불일치·누락 존재를 모두 fail-closed로 막고 RTDB/ERP3 fallback이 없음을 PASS로 확인했다. Claude CLI는 주간 사용량 제한으로 검토하지 못했다.
+- HOLD: 이 게이트는 아직 기존 ERP4 소비자를 전환하지 않는다. 상품 71건 누락과 이관 제외 컬렉션이 해소되어 원자 담당의 영수증이 준비된 뒤, 소비자 전환 PR과 실사용 흐름 검증·운영 배포 승인을 별도로 거친다.
+
+## 2026-09-14 ERP4 화이트라벨 공개 경로 ERP5 reader 연결 준비 (Codex)
+
+- 범위: 화이트라벨 공개 목록 `/shop`·`/uniauto`, 공개 상세 `/q/[code]`, 그리고 두 공개 API만 바꿨다. 내부 ERP·계약·정산·직원 로그인 reader는 변경하지 않았다.
+- 구현: `ERP5_WHITELABEL_FIRESTORE_ENABLED=true`이고 `ops/erp4_whitelabel_cutover` 영수증이 READY일 때만 `freepasserp5` Firestore의 `products`·`policy`·`partner`·`user` reader를 선택한다. 선택 뒤 읽기/영수증 오류는 route의 503으로 끝나며 ERP3/RTDB로 fallback하지 않는다. 기본 OFF에서는 기존 공개 경로가 유지된다.
+- 검증: `npm run check:erp5-firestore-boundary` PASS(기존 내부 ERP3/RTDB 소비자는 범위 밖 HOLD로 별도 표기), OFF 상태 `npm run check:erp5-firestore-cutover` PASS, `ERP5_WHITELABEL_FIRESTORE_ENABLED=true`+전용 자격증명 없음은 fail-closed HOLD, `npm run typecheck`, `git diff --check` 통과. 실행 중 개발 서버에서 `/uniauto` 200·브랜드 표기 PASS, `/api/catalog/feed?wl=uniplan` 200·694대 응답을 확인했다.
+- 독립 검토: ERP5 대상/SSOT 읽기 감사는 현재 데이터·구성 증거가 부족하므로 HOLD를 냈다. Gemini CLI의 코드 검토는 신뢰 디렉터리 headless 실행 단계에서 응답을 받지 못해 완료로 세지 않았다.
+- HOLD: 실제 ERP5의 컬렉션/필드/문서키와 공개 흐름 대사, 사진·정책·담당자 귀속 브라우저 실증, READY 영수증, 운영 환경변수 설정 및 사용자 배포 승인이 남아 있다. 이 항목 전에는 스위치를 켜거나 배포하지 않는다.

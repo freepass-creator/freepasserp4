@@ -21,7 +21,8 @@ export async function GET(request: Request) {
    *   미리 쪼개면 `PT-0001_181하5327` 처럼 하이픈 품은 상품키가 `PT-0001` 로 잘려 옛 링크가 죽는다(2026-08-22 실측).
    */
   try {
-    const found = await loadGuestQuote(raw, S(url.searchParams.get('a')));
+    // 이 API는 손님 공유 링크 전용이다. ERP5 전환이 켜진 뒤 실패하면 기존 DB로 돌아가지 않는다.
+    const found = await loadGuestQuote(raw, S(url.searchParams.get('a')), { whitelabel: true });
     if (!found) return NextResponse.json({ error: '현재 안내 가능한 상품이 아닙니다.' }, { status: 404 });
     return NextResponse.json(found, {
       headers: { 'Cache-Control': 'public, s-maxage=120, stale-while-revalidate=600' },

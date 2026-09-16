@@ -50,7 +50,7 @@ export async function generateMetadata({ params, searchParams }: Params): Promis
   };
 
   try {
-    const found = await loadGuestQuote(seg, share);
+    const found = await loadGuestQuote(seg, share, { whitelabel: true });
     if (!found) return neutral;
     const { product, agent } = found;
     /**

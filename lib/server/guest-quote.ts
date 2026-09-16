@@ -1,5 +1,7 @@
 import 'server-only';
 import { firestoreAdminRef } from '@/lib/server/firestore-ref-shim';
+import { erp5WhitelabelCutoverRequested } from '@/lib/server/erp5-firestore-app';
+import { readWhitelabelCatalogFromErp5 } from '@/lib/server/whitelabel-erp5-catalog';
 import { sanitizeAgentForGuest, sanitizeProductForGuest } from '@/lib/domain/public-catalog';
 import { isOfferableProduct } from '@/lib/domain/product';
 import { codeCandidates, matchAgentByShareCode, shareToken, splitShareSegment } from '@/lib/domain/product-share';
@@ -44,7 +46,11 @@ function findProduct(all: Record<string, Rec>, raw: string): { key: string; prod
  * ⚠ **통째로 먼저 찾고, 못 찾을 때만 하이픈에서 가른다.** 반대로 하면 `PD-260506-020` 같은
  *   하이픈 품은 상품키 599건(2026-08-22 실측)이 전부 «없는 상품»이 되어 이미 나간 링크가 죽는다.
  */
-export async function loadGuestQuote(segment: string, shareFromQuery: string): Promise<GuestQuote | null> {
+export async function loadGuestQuote(
+  segment: string,
+  shareFromQuery: string,
+  options: { whitelabel?: boolean } = {},
+): Promise<GuestQuote | null> {
   const seg = S(segment);
   if (!seg) return null;
 
@@ -54,11 +60,19 @@ export async function loadGuestQuote(segment: string, shareFromQuery: string): P
    * ⚠ 문서 id 는 «차번»이고 RTDB 키는 「공급사_차번」이었다 — 키는 `_key || product_code || id` 차례로 잡는다.
    *   `findProduct` 가 키 «또는» `product_code` 로 찾으므로 이미 나간 공유 링크가 그대로 열린다.
    */
-  const db = firestoreAdminRef();
-  const snap = await db.ref('v4/products').get();
+  const useErp5 = options.whitelabel === true && erp5WhitelabelCutoverRequested();
+  const erp5 = useErp5 ? await readWhitelabelCatalogFromErp5() : null;
+  const db = erp5 ? null : firestoreAdminRef();
   const all: Record<string, Rec> = {};
-  for (const [docKey, v] of Object.entries((snap.val() || {}) as Record<string, Rec>)) {
-    if (v && typeof v === 'object') all[S(v._key) || S(v.product_code) || docKey] = v;
+  if (erp5) {
+    for (const [docKey, v] of Object.entries(erp5.products)) {
+      if (v && typeof v === 'object') all[S(v._key) || S(v.product_code) || docKey] = v;
+    }
+  } else {
+    const snap = await db!.ref('v4/products').get();
+    for (const [docKey, v] of Object.entries((snap.val() || {}) as Record<string, Rec>)) {
+      if (v && typeof v === 'object') all[S(v._key) || S(v.product_code) || docKey] = v;
+    }
   }
 
   let share = S(shareFromQuery);
@@ -86,7 +100,9 @@ export async function loadGuestQuote(segment: string, shareFromQuery: string): P
   const policyCode = S((product as Rec).policy_code);
   let policy: Rec | null = null;
   if (policyCode) {
-    const pool = ((await db.ref('policies').get()).val() || {}) as Record<string, Rec>;
+    const pool = erp5
+      ? erp5.policies
+      : ((await db!.ref('policies').get()).val() || {}) as Record<string, Rec>;
     policy = Object.entries(pool)
       .map(([k, v]) => ({ ...(v || {}), _key: k } as Rec))
       .find((x) => S(x.policy_code) === policyCode || S(x._key) === policyCode) || null;
@@ -95,7 +111,10 @@ export async function loadGuestQuote(segment: string, shareFromQuery: string): P
   let agent: Rec | null = null;
   const shares = codeCandidates(share, 'usr');
   if (shares.length) {
-    const rows = Object.entries(((await db.ref('users').get()).val() || {}) as Record<string, Rec>)
+    const userPool = erp5
+      ? erp5.users
+      : ((await db!.ref('users').get()).val() || {}) as Record<string, Rec>;
+    const rows = Object.entries(userPool)
       .map(([k, v]) => ({ ...(v || {}), _key: S(v?._key) || k, uid: S(v?.uid) || k })) as EntityRecord[];
     for (const s of shares) {
       const found = matchAgentByShareCode(rows, s) as Rec | null;

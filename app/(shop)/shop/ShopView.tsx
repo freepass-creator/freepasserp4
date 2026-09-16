@@ -117,6 +117,8 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
       const p = new URLSearchParams();
       if (params.get('p')) p.set('p', String(params.get('p')));
       if (a) p.set('a', a);
+      // 공개 화이트라벨 요청임을 API에도 명시한다. 내부/옛 /catalog 요청은 이 값을 보내지 않는다.
+      if (wlKey) p.set('wl', wlKey);
       const res = await fetch(`/api/catalog/feed?${p}`, { cache: 'no-store' });
       const body = await res.json().catch(() => ({})) as {
         products?: EntityRecord[]; agent?: { name?: string; phone?: string } | null;
