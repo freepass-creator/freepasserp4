@@ -42,15 +42,9 @@ jobs:
       - run: npm ci
 
       - name: 자격증명 놓기
-        env:
-          SA: ${{ secrets.GOOGLE_SA_JSON }}
-        run: |
-          if [ -z "$SA" ]; then
-            echo "::error::GOOGLE_SA_JSON 시크릿이 없다. 리포 Settings → Secrets 에 넣어라."
-            exit 1
-          fi
-          mkdir -p tmp/firebase-auth
-          printf '%s' "$SA" > tmp/firebase-auth/sa.json
+        uses: ./.github/actions/prepare-credentials
+        with:
+          google-sa-json: ${{ secrets.GOOGLE_SA_JSON }}
 
       # ① 접수 시트 → 정산원장. 접수일·모델명·공급사·반영·확인을 채운다.
       - name: 접수 시트 반영
@@ -72,4 +66,4 @@ jobs:
 
       - name: 자격증명 지우기
         if: always()
-        run: rm -rf tmp/firebase-auth
+        uses: ./.github/actions/cleanup-credentials

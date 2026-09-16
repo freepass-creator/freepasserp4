@@ -21,14 +21,16 @@ jobs:
       - run: npm ci
 
       - name: Google 읽기 자격증명 준비
-        env:
-          SA: ${{ secrets.GOOGLE_SA_JSON }}
-        run: |
-          test -n "$SA" || { echo '::error::GOOGLE_SA_JSON 시크릿이 없습니다.'; exit 1; }
-          mkdir -p tmp/firebase-auth
-          printf '%s' "$SA" > tmp/firebase-auth/sheets.json
+        uses: ./.github/actions/prepare-credentials
+        with:
+          google-sa-json: ${{ secrets.GOOGLE_SA_JSON }}
+          google-sa-path: tmp/firebase-auth/sheets.json
 
       - name: F01 구분 칸 진단
         env:
           GOOGLE_SHEETS_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sheets.json
         run: npx tsx scripts/diag-f01-type-colors.mts
+
+      - name: 자격증명 삭제
+        if: always()
+        uses: ./.github/actions/cleanup-credentials
