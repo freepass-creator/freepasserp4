@@ -17,6 +17,7 @@ FreePass SSOT의 실제 구현·수정 Owner는 **지정된 Claude 단일 세션
 1. 이 파일
 2. `docs/AI-SSOT-AUDIT-LOG.md`의 **가장 최신 항목**
 3. 최신 dated audit — 현재 핵심은:
+   - `docs/ai-ssot-audit/2026-09-16-chatgpt-schedule-delivery-gap.md`
    - `docs/ai-ssot-audit/2026-09-16-chatgpt-ci-runtime-regressions.md`
    - `docs/ai-ssot-audit/2026-09-16-chatgpt-main-vs-production-f01-contract-drift.md`
    - `docs/ai-ssot-audit/2026-09-16-chatgpt-2e880cef-source-contract-resolution.md`
@@ -33,10 +34,11 @@ FreePass SSOT의 실제 구현·수정 Owner는 **지정된 Claude 단일 세션
 5. production 계약상 RP012 비픽업 구독은 `오공구독`, RP023은 `오플구독`, 픽업은 `픽업구독`으로 분리하고 공급사 고유 기간·주행거리·요금 구조를 보존한다.
 6. 실제 코드 수정은 Claude 단일 구현 세션만 한다. 감사 findings는 실제 코드/Actions를 재확인한 뒤 처리한다.
 7. 과거 감사 판정은 삭제하지 않는다. 해소/정정은 `docs/AI-SSOT-AUDIT-LOG.md`에 새 항목으로 남긴다.
+8. repository에 cron이 있다는 사실과 GitHub Actions에서 **실제로 schedule event가 dispatch되고 있다는 사실을 구분**한다. 우발적 미기동을 writer retirement로 간주하지 않는다.
 
 ---
 
-# 현재 최신 판정 — 2026-09-16 / audit `(19)` 기준
+# 현재 최신 판정 — 2026-09-16 / audit `(20)` 기준
 
 ## 1. production pin
 
@@ -50,13 +52,39 @@ audit `(18)`에서 SSOT/운영 코드 기준으로 관측한 main 기준점은:
 
 - `1769d36cf0cda806f9f1b89561e637e62693b1ad`
 
-그 뒤 실제 application commit은 PR #334의 `b794345499bbcbc467462dfd1e25a46bea42c6d9`이며, 상품사진 첫 화면 SSR/preload UI만 변경했다. 독립 재검토 결과 이 변경은 SSOT source/writer/F01/F86/ERP5 canonical 계약을 건드리지 않는다. 직전 entry point에 적힌 `b7942ed59026041e29e21cbd80ec28b19da32840`은 GitHub에 존재하지 않는 SHA였으므로 audit `(19)`에서 정정했다. 이후 current main `7f942cb59bd0cf77838c31681aae18f1a81bc1a5`까지는 감사 문서 변경뿐이며 audit `(18)`의 실질 SSOT 판정은 그대로 유효하다.
+그 뒤 실제 application commit은 PR #334의 `b794345499bbcbc467462dfd1e25a46bea42c6d9`이며, 상품사진 첫 화면 SSR/preload UI만 변경했다. 독립 재검토 결과 이 변경은 SSOT source/writer/F01/F86/ERP5 canonical 계약을 건드리지 않는다. 이후 main 변경은 이번 감사 시점까지 감사 문서 계열이며 audit `(18)/(19)`의 실질 SSOT 구현 판정은 그대로 유효하다.
 
-latest observed main CI run `35080449988`도 failure이지만, 실패 step은 audit `(18)`과 동일한 required `check:shop-data-parity` checker-contract drift다. 신규 SSOT implementation regression 증거는 아니다.
+latest observed main CI run `35085813150`도 failure이지만, 실패 step은 audit `(18)`과 동일한 required `check:shop-data-parity` checker-contract drift다. 신규 SSOT implementation regression 증거는 아니다.
 
-`2e880cef...`의 collector semantics까지 포함한 **정규 scheduled F01/F86 full-audit 성공은 최신 독립 증거가 생기기 전까지 HOLD**한다.
+`2e880cef...`의 collector semantics까지 포함한 **정규 scheduled F01/F86 full-audit 성공은 HOLD**다. audit `(20)`에서 이 HOLD가 단순 “아직 못 봄”보다 더 강해졌다. 2026-09-16 21:36 KST 기준 GitHub Actions `schedule` event 자체가 16:18:54 KST 이후 한 건도 기록되지 않았다.
 
-## 2. 최우선 SSOT 충돌 — 같은 F01을 production과 legacy main writer가 다른 계약으로 쓸 수 있음
+## 2. 신규 운영 HOLD — 선언된 cron과 실제 schedule dispatch가 약 5시간 이상 갈림
+
+**판정: schedule-delivery/enablement drift / 원인 미확정**
+
+GitHub Actions API의 2026-09-16 전체 `event=schedule` 실행 기록은 4건뿐이었다.
+
+- 10:32:35 KST — 계약중 표기(30분) run `35044497887` — success
+- 12:46:35 KST — ERP5 SSOT 원천 최신화(매시간) run `35053074482` — success
+- 13:41:34 KST — 정산 접수 반영(1시간) run `35056578656` — failure
+- 16:18:54 KST — 계약중 표기(30분) run `35067894061` — failure
+
+그 뒤 21:36 KST까지 `schedule` run은 0건이다. 그러나 repository 원문은 계속 다음 cron을 선언한다.
+
+- `erp5-ssot-refresh.yml`: `5 0-10 * * 1-6`
+- `settlement-sync.yml`: `5 0-9 * * 1-6`
+- `sales-erp-hourly.yml`: `0 0-9 * * 1-5`
+- `mirror-sync.yml`: `*/30 * * * *`
+
+따라서 수요일 기준 17:00~19:05 KST 구간에 여러 schedule event가 기대되지만 실제 Actions 기록에는 없다.
+
+**원인은 아직 확정하지 않는다.** GitHub Actions UI에서 workflow가 disabled된 것인지, scheduler delivery가 지연/누락된 것인지 이 감사 도구 범위에서는 확정하지 못했다. Claude 구현 Owner는 먼저 실제 enable/disable 상태를 확인해야 한다.
+
+상세 근거:
+
+- `docs/ai-ssot-audit/2026-09-16-chatgpt-schedule-delivery-gap.md`
+
+## 3. 최우선 SSOT 충돌 — 같은 F01을 production과 legacy main writer가 다른 계약으로 쓸 수 있음
 
 `docs/AI-SSOT-AUDIT-LOG.md` `(17)` 판정이 계속 최우선이다.
 
@@ -68,16 +96,16 @@ production pin:
 
 current main legacy path:
 
-- `sales-erp-hourly.yml` schedule 존재
+- `sales-erp-hourly.yml` schedule 선언 존재
 - `hourly-sync.mts`가 같은 F01 Google Sheet에 `손오공구독` 계약으로 발행 가능
 - main product-type/color contract는 production보다 오래됨
 - production write gate를 이 legacy writer가 사용하지 않음
 
-따라서 **production F01 sole-writer ownership을 repository 수준에서 먼저 정리**한다. 우연한 workflow failure를 retirement로 간주하지 않는다.
+따라서 **production F01 sole-writer ownership을 repository 수준에서 먼저 정리**한다. audit `(20)`의 schedule 미발생을 이 writer가 안전하게 retire됐다는 증거로 사용하면 안 된다.
 
-## 3. CI 충돌 — required `check:shop-data-parity`가 current implementation을 오탐해 main CI red
+## 4. CI 충돌 — required `check:shop-data-parity`가 current implementation을 오탐해 main CI red
 
-latest observed current CI run `35080449988`에서 required `check:shop-data-parity`가 failure다.
+latest observed current CI run `35085813150`에서 required `check:shop-data-parity`가 failure다.
 
 직접 원인:
 
@@ -91,7 +119,7 @@ latest observed current CI run `35080449988`에서 required `check:shop-data-par
 
 - `docs/ai-ssot-audit/2026-09-16-chatgpt-ci-runtime-regressions.md`
 
-## 4. 운영 회귀 — 공통 credential composite action이 load 단계에서 깨짐
+## 5. 운영 회귀 — 공통 credential composite action이 load 단계에서 깨짐
 
 current `.github/actions/prepare-credentials/action.yml`의 input description에 `` `${{ secrets.GOOGLE_SA_JSON }}` `` 표현이 들어 있다.
 
@@ -105,7 +133,7 @@ current `.github/actions/prepare-credentials/action.yml`의 input description에
 
 또 current `check:workflows`는 이 오류를 잡지 못했다. local composite action metadata도 Actions parser 관점에서 검증하는 coverage가 필요하다.
 
-## 5. 정산 Atom-lock orchestration gap — 실제 scheduled failure로 확인
+## 6. 정산 Atom-lock orchestration gap — 실제 scheduled failure로 확인
 
 current main `.github/workflows/settlement-sync.yml`은 여전히 legacy:
 
@@ -123,7 +151,7 @@ current ledger contract는 `접수`, `취소`, `분납실적`, `완납실적`, `
 
 따라서 `접수 → Atom lock`, `취소 → unlock`이 scheduled operation에서 실제 성공하도록 ownership과 실행 경로를 정리해야 한다.
 
-## 6. 상품구분 색
+## 7. 상품구분 색
 
 production 7-canonical color SSOT 구조/잠금은 유지하되, 픽업구독 canonical 값은 여전히:
 
@@ -131,9 +159,9 @@ production 7-canonical color SSOT 구조/잠금은 유지하되, 픽업구독 ca
 
 이다. 최신 승인 색과의 불일치는 별도 미해소 항목이다. 해결은 `MASTER_CATEGORY_COLORS['분류']` 한 곳에서만 하고 channel-local hardcode를 만들지 않는다.
 
-## 7. writer topology / mirror legacy
+## 8. writer topology / mirror legacy
 
-repository 기준 아래 둘은 계속 write-capable schedule을 가진다.
+repository 기준 아래 둘은 계속 write-capable schedule을 선언한다.
 
 - `.github/workflows/sales-erp-hourly.yml`
 - `.github/workflows/mirror-sync.yml`
@@ -154,13 +182,14 @@ app/lib/components의 RTDB direct-open baseline 0 / `check:store` CI 래칫은 �
 
 # Claude 구현 Owner의 즉시 우선순위
 
-1. **same-output F01 writer 충돌부터 정리**한다. production의 `오공구독`/7-canonical 계약을 current main의 옛 `손오공구독`/5-type 계약으로 되돌리지 않는다.
-2. `check:shop-data-parity`를 현재 cache/helper 구조에서도 ERP5 Firestore 경로를 의미적으로 검증하도록 고쳐 required CI를 다시 green으로 만든다.
-3. `.github/actions/prepare-credentials/action.yml`의 composite-action metadata 오류를 고치고 local composite action 유효성 검사를 CI에 추가한다.
-4. settlement scheduled path를 current ledger + ERP5 Atom lock 계약에 맞춘다. 실제 schedule에서 `접수` lock / `취소` unlock 성공을 확인한다.
-5. `2e880cef...` current semantics 기준 정상 scheduled F01/F86 full-audit 성공을 독립 확인한다.
-6. 픽업구독 색은 canonical map 한 곳에서만 해결하고 정규 publish/live effective format까지 확인한다.
-7. mirror/sales legacy writer ownership은 명시적 repository 수준 결정으로 닫는다. UI disable이나 우발적 runtime failure에 의존하지 않는다.
-8. 구현 후 `docs/AI-SSOT-AUDIT-LOG.md`에 `해소됨/잔존`을 append한다.
+1. **GitHub Actions 실제 workflow enable/disable 상태와 schedule delivery부터 확인**한다. 선언 cron과 실제 schedule events가 16:18 KST 이후 끊긴 이유를 확정하고, intentional disable이면 repository 계약에 반영한다.
+2. production `erp5-ssot-refresh`가 enabled/정상이라면 `2e880cef...` current semantics 기준 다음 scheduled F01/F86 full-audit PASS를 확보한다.
+3. **same-output F01 writer 충돌을 정리**한다. production의 `오공구독`/7-canonical 계약을 current main의 옛 `손오공구독`/5-type 계약으로 되돌리지 않는다.
+4. `check:shop-data-parity`를 현재 cache/helper 구조에서도 ERP5 Firestore 경로를 의미적으로 검증하도록 고쳐 required CI를 다시 green으로 만든다.
+5. `.github/actions/prepare-credentials/action.yml`의 composite-action metadata 오류를 고치고 local composite action 유효성 검사를 CI에 추가한다.
+6. settlement scheduled path를 current ledger + ERP5 Atom lock 계약에 맞춘다. 실제 schedule에서 `접수` lock / `취소` unlock 성공을 확인한다.
+7. 픽업구독 색은 canonical map 한 곳에서만 해결하고 정규 publish/live effective format까지 확인한다.
+8. mirror/sales legacy writer ownership은 명시적 repository 수준 결정으로 닫는다. UI disable이나 우발적 runtime failure에 의존하지 않는다.
+9. 구현 후 `docs/AI-SSOT-AUDIT-LOG.md`에 `해소됨/잔존`을 append한다.
 
 이 entry point는 구현 지시의 요약이다. 세부 근거와 과거 판정은 `docs/AI-SSOT-AUDIT-LOG.md` 최신 항목과 최신 dated audit를 우선한다.
