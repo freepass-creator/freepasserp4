@@ -37,20 +37,33 @@ const num = (v: unknown, lo: number, hi: number, dflt = 0): number => {
 const pick = <T extends string>(v: unknown, allowed: readonly T[], dflt: T): T =>
   (allowed as readonly string[]).includes(String(v)) ? (String(v) as T) : dflt;
 
-/** 회사가 정한 원가 — 없으면 엔진 기본값. **값은 여기서 나가지 않는다.** */
+/**
+ * 회사가 정한 원가 — 없으면 엔진 기본값. **값은 여기서 나가지 않는다.**
+ * ★조건을 바꿀 때마다 부르는 길이라 **한 번 읽어 잠깐 쥔다**(60초). 원가는 사람이 가끔 고치는 값이고,
+ *   매 요청 Firestore 를 읽으면 사장님이 칩 하나 누를 때마다 그 왕복이 붙는다
+ *   (사장님 2026-09-16 「조건 바꾸면 빠릿빠릿 안 바뀌냐」).
+ * ⚠ 60초는 «늦게 반영돼도 되는 만큼»이다 — 원가를 고치면 최대 1분 뒤 견적에 든다.
+ */
+let costCache: { at: number; cost: CostSettings } | null = null;
+const COST_TTL = 60_000;
+
 async function companyCost(): Promise<CostSettings> {
+  if (costCache && Date.now() - costCache.at < COST_TTL) return costCache.cost;
   try {
     const snap = await getFirestore(firebaseAdminApp()).collection(COLL).doc(DOC).get();
     const saved = snap.exists ? (snap.data() as { cost?: Partial<CostSettings> }).cost : null;
-    if (!saved) return COST_DEFAULTS;
     const out = { ...COST_DEFAULTS };
-    for (const k of Object.keys(COST_DEFAULTS) as (keyof CostSettings)[]) {
-      const v = saved[k];
-      if (typeof v === 'number' && Number.isFinite(v)) out[k] = v;
+    if (saved) {
+      for (const k of Object.keys(COST_DEFAULTS) as (keyof CostSettings)[]) {
+        const v = saved[k];
+        if (typeof v === 'number' && Number.isFinite(v)) out[k] = v;
+      }
     }
+    costCache = { at: Date.now(), cost: out };
     return out;
   } catch {
-    // 못 읽으면 기본값으로 센다 — 견적이 아예 안 나오는 것보다 낫다(화면이 「회사 값 아님」을 안다).
+    /* 못 읽으면 기본값으로 센다 — 견적이 아예 안 나오는 것보다 낫다.
+       ⚠ 장애를 «쥐지» 않는다 — 캐시에 안 넣어 다음 요청이 다시 읽어 본다. */
     return COST_DEFAULTS;
   }
 }

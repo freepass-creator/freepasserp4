@@ -22,7 +22,7 @@
  *   그 시세에 사고·주행이 이미 녹아 있어 엔진이 보정을 건너뛴다(`residualAgeBaked`).
  *   웰릭스·손오공에 있다고 우리에도 있어야 하는 게 아니다. 까닭은 로직 정본 §3-4.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import EstimateGate from '@/features/estimate/EstimateGate';
 import '@/components/estimate/welrix.css';
@@ -532,19 +532,44 @@ function EstimatePageInner() {
    *   ⚠ 화면에서 칸만 숨기면 «숨긴 것»이지 «안 준 것»이 아니다 — 원가 설정을 아예 안 받아 온다.
    */
   const [srvLines, setSrvLines] = useState<CustomerLine[] | null>(null);
+  /**
+   * ★**한 번 받은 조건은 다시 안 묻는다** — 신용·기간·렌트/구독을 오가며 견주는 화면이라
+   *   같은 물음이 금방 또 온다. 그때는 왕복 없이 **그 자리에서** 선다
+   *   (사장님 2026-09-16 「조건 바꾸면 빠릿빠릿 안 바뀌냐」).
+   * ⚠ 차를 바꾸거나 시세를 고치면 열쇠가 달라져 저절로 새로 묻는다 — 낡은 값이 남지 않는다.
+   */
+  const srvCache = useRef(new Map<string, CustomerLine[]>());
   useEffect(() => {
     if (canCost) { setSrvLines(null); return; }
     if (!priceKnownFor(isNew, listPrice, usedPrice)) { setSrvLines(null); return; }
+    const key = JSON.stringify(ask);
+    const hit = srvCache.current.get(key);
+    if (hit) { setSrvLines(hit); return; }
     let alive = true;
+    /* 40ms — 글자를 이어 치는 동안만 묶이고, 칩 하나 누른 것은 사실상 «바로» 간다.
+       예전 250ms 는 눈에 띄게 굼떴다(실측 315~389ms → 100ms 로 134ms → 40ms 로 60ms 안팎).
+       ⚠ 지난 요청은 끊는다(`AbortController`) — 늦게 온 답이 새 조건을 덮으면 값이 깜빡인다. */
+    const ac = new AbortController();
     const t = setTimeout(() => {
       fetch('/api/estimate/quote', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(ask),
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(ask), signal: ac.signal,
       })
         .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
-        .then((j: { lines?: CustomerLine[] }) => { if (alive) setSrvLines(Array.isArray(j.lines) ? j.lines : null); })
-        .catch(() => { if (alive) setSrvLines(null); });
-    }, 250);   // 칸을 고치는 동안 매 글자마다 묻지 않는다
-    return () => { alive = false; clearTimeout(t); };
+        .then((j: { lines?: CustomerLine[] }) => {
+          if (!alive) return;
+          const lines = Array.isArray(j.lines) ? j.lines : null;
+          if (lines) {
+            // 오래 열어 두면 열쇠가 쌓인다 — 넉넉히 잡되 한도를 둔다.
+            if (srvCache.current.size > 120) srvCache.current.clear();
+            srvCache.current.set(key, lines);
+          }
+          setSrvLines(lines);
+        })
+        /* 끊은 요청은 «실패»가 아니다 — 값을 지우면 화면이 빈다. */
+        .catch((e) => { if (alive && (e as Error)?.name !== 'AbortError') setSrvLines(null); });
+    }, 40);
+    return () => { alive = false; clearTimeout(t); ac.abort(); };
   }, [canCost, ask, isNew, listPrice, usedPrice]);
 
   /**
