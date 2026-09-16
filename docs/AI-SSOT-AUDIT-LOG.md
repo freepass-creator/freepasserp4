@@ -1587,3 +1587,118 @@ current main 및 production pin `2e880cef...`의 `.github/workflows/settlement-s
 5. `mirror-sync.yml` / `sales-erp-hourly.yml` writer ownership/disable은 별도 미해소 항목으로 유지한다.
 
 이번 ChatGPT 감사에서는 애플리케이션 코드나 비즈니스 로직을 수정하지 않았다.
+
+---
+
+## 2026-09-16(17) — ChatGPT 독립 감사: current main legacy F01 writer가 production 7캐논/`오공구독` 계약과 실제로 갈림
+
+### A. 충돌(신규/구체화) — production pin과 current main의 F01 상품구분·특수탭 계약이 서로 다름
+
+**판정: same-output schema conflict / Claude 구현 Owner가 writer ownership을 우선 정리해야 함**
+
+이번 감사가 읽은 application/code main 기준 HEAD는 `cb06553a08a4a596de51c52fa9d265bb05d1f322`(PR #326)이고, production pin은 계속 `2e880cefa96e3fa4bfc79902fed448d5bd74abdb`다.
+
+production pin `2e880cef...`:
+
+- `lib/domain/sales-published-tabs.ts`의 canonical publish tabs = `상품리스트`, `오공구독`, `픽업구독`, `오플구독`
+- 옛 `손오공구독`은 읽기 호환 alias이고 발행 시 `오공구독`으로 canonicalize
+- `lib/intake/entities.ts`의 `PRODUCT_TYPES` = 7개(`신차렌트`, `중고렌트`, `신차구독`, `중고구독`, `오플구독`, `픽업구독`, `오공구독`)
+- `손오공구독`/`손오공 구독`은 `오공구독` alias
+- `category-colors.ts` + `check:color-ssot`가 7개 product type의 canonical 색 계약을 잠금
+
+current main `cb06553...`:
+
+- `lib/domain/sales-published-tabs.ts`의 publish tabs = `상품리스트`, **`손오공구독`**, `픽업구독`, `오플구독`
+- production pin의 `canonicalSalesTabName()`이 없음
+- `lib/intake/entities.ts`의 `PRODUCT_TYPES`가 5개(`신차렌트`, `중고렌트`, `신차구독`, `중고구독`, `픽업구독`)뿐이고 `오공구독`, `오플구독`이 canonical enum/alias에 없음
+- `lib/domain/category-colors.ts`도 5개 상품구분 색만 가지며 `오공구독`, `오플구독`이 없음
+- main `check:sync`에는 production pin의 `check:color-ssot` 잠금이 없고, `scripts/check-color-ssot.mts`도 current main에는 없음
+
+단, current main `canonProductType()`은 모르는 구독 갈래를 임의로 `중고구독`으로 접지 않고 raw value를 보존한다. 따라서 위 enum 차이만으로 current guest UI가 반드시 오공/오플을 중고구독으로 오표시한다고 단정하지 않는다. 이번 finding은 **writer/projection contract 차이**에 한정한다.
+
+### B. 충돌(운영 영향) — main legacy hourly writer가 production F01과 정확히 같은 Google Sheet를 old contract로 씀
+
+current main `.github/workflows/sales-erp-hourly.yml`은:
+
+- schedule `0 0-9 * * 1-5`
+- schedule이면 `scripts/cloud-hourly-sync.mts --apply`
+
+를 실행한다.
+
+그 아래 current main `scripts/hourly-sync.mts`의 실제 F01 발행 step은:
+
+- `publish-origin-tab.mts`로 `상품리스트`
+- `publish-origin-tab.mts --only=RP012:구독 --tab=손오공구독 --at=1`
+- 픽업구독
+- 오플구독
+
+을 발행한다.
+
+current main `scripts/publish-origin-tab.mts`의 기본 F01 SHEET는:
+
+- `1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs`
+
+production pin `scripts/make-sample-sheet-google.mts --main`의 `SRC_SHEET`도 **정확히 같은 문서**:
+
+- `1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs`
+
+다.
+
+production F01 writer는 `production-sheet-write-gate`를 통과해야 하지만 current main legacy `publish-origin-tab.mts`는 그 gate를 사용하지 않는다.
+
+따라서 `sales-erp-hourly.yml`이 GitHub Actions UI에서 enabled라면 **production writer가 만든 `오공구독`/7캐논 계약의 같은 F01을 current main이 옛 `손오공구독` 계약으로 다시 쓸 수 있다.** 단순 cron 잔존보다 구체적인 탭 중복·구형 탭 재생성·서식/색 계약 drift 위험이다.
+
+이번 감사에서는 UI enable/disable 상태를 독립 확정하지 못했으므로 실제 동시쓰기 사고가 이미 발생했다고 단정하지 않는다. repository 기준 `active-capable same-output writer conflict`로 판정한다.
+
+### C. 정산 lock gap 정정 — 새 tool은 production pin에만 있고 current main에는 없음
+
+`2026-09-16(16)`의 정산 lock gap은 유지하되 위치를 더 정확히 한다.
+
+- `scripts/sync-vehicle-lock-from-ledger.mts`는 production pin `2e880cef...` 계보에 존재
+- **current main에는 해당 파일이 없음**
+- current main `.github/workflows/settlement-sync.yml`은 여전히 옛 `scripts/sync-contract-from-ledger.mts`를 호출
+- `erp5-ssot-refresh.yml`에도 새 Atom-lock tool 실행 step은 없음
+
+따라서 “정산원장 `접수` → Atom lock / `취소` → unlock”은 여전히 정규 scheduled operation으로 연결되지 않은 상태다.
+
+### D. canonical source / mirror 판정은 변화 없음
+
+current main canonical registry:
+
+- RP006 = `ironrentcar.com`
+- RP012 = `sokrc.com/api`
+- RP023 = RebornCar
+
+반면 `MIRROR_SOURCES` RP023은 옛 Google Sheet `1TJBG4PABgly7EtGG6Os5GcY9La7kDR_yex56KHhXe2U`를 계속 `from`으로 갖고, `mirror-sync.yml`은 repository-level fail-closed guard 없이 30분 schedule/`--apply` 경로를 유지한다.
+
+mirror는 projection/legacy일 뿐 canonical inventory source가 아니다.
+
+### E. recent main / CI
+
+- audit가 읽은 app/code main: `cb06553...` (PR #326)
+- 직전 `f4d57258...` main CI run `35073100855`: **success**
+- `cb06553...` CI run `35073829492`: 감사 시점 **in_progress**
+- PR #305/#326은 guest/customer presentation 변경이며 이번 F01 writer contract split을 직접 해소하는 변경은 아님
+
+### 최종 판정
+
+1. **신규 구체적 충돌:** production pin과 current main의 F01 특수탭/상품구분 contract가 다르다.
+2. **운영 영향 있음:** main legacy hourly writer가 production과 같은 F01 spreadsheet에 old `손오공구독` contract로 쓸 수 있다.
+3. **색 SSOT 잠금도 main에는 없음:** production의 7캐논 색 계약을 main legacy writer가 보장하지 못한다.
+4. **정산 Atom-lock orchestration gap 유지:** 새 lock tool은 production pin에만 있고 current main scheduled path에는 미연결.
+5. **canonical source 계약 변화 없음:** RP023 canonical은 RebornCar이며 old Google Sheet는 mirror/legacy다.
+6. **current pin full-run HOLD 유지:** `2e880cef...`의 정규 production full-run 성공을 독립 확정하는 새 Actions 증거는 이번 감사에서 확인하지 못했다.
+
+상세 근거:
+
+- `docs/ai-ssot-audit/2026-09-16-chatgpt-main-vs-production-f01-contract-drift.md`
+
+### Claude 구현 Owner에게 넘기는 즉시 지시
+
+1. `sales-erp-hourly.yml`을 단순히 “남아 있는 옛 workflow”로 보지 말고 **같은 F01을 old schema로 쓰는 writer**로 취급한다.
+2. production F01 sole-writer 원칙을 repository 수준에서 강제한다. 구현 선택지는 legacy schedule 제거 / explicit fail-closed / production write gate 적용 / read-only consumer화 중 하나다.
+3. current main이 앞으로 F01을 쓸 가능성을 남긴다면 `오공구독` + 7 canonical product types + canonical color map/lock을 production pin과 같은 계약으로 맞춘다. legacy writer를 retire한다면 old projection code가 운영에 재진입하지 못하도록 막는다.
+4. **production 정본을 current main의 옛 `손오공구독`/5캐논 계약으로 되돌리지 않는다.**
+5. 정산 lock scheduled orchestration gap과 mirror writer ownership도 기존 미해소 항목으로 유지한다.
+
+이번 ChatGPT 감사에서는 애플리케이션 코드나 비즈니스 로직을 수정하지 않았다.
