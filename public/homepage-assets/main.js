@@ -3,20 +3,6 @@
   "use strict";
   var $ = function (s) { return document.querySelector(s); };
 
-  /* 생태계 마키 */
-  var ECO = [
-    { name: "팀JPK", tag: "렌터카 관리 ERP" },
-    { name: "카벨 (carbell)", tag: "전국 정비 네트워크" },
-    { name: "렌터카 착한거래", tag: "거래안전" }
-  ];
-  (function () {
-    var el = $("#eco-mq"); if (!el) return;
-    var loop = ECO.concat(ECO, ECO, ECO);
-    el.innerHTML = loop.map(function (m) {
-      return '<div class="mcard"><span class="mn">' + m.name + '</span><span class="mt"><span>' + m.tag + '</span></span></div>';
-    }).join("");
-  })();
-
   /* 라이트 네트워크 패널: 공급사(좌) ─ freepass 허브 ─ 영업파트너(우), 블루 빛 흐름 */
   var cv = $("#net");
   if (cv) {
