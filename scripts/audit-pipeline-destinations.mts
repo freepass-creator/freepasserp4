@@ -19,7 +19,7 @@ import { SUPPLIER_PREVIEW_TAB, supplierSheetLabel } from '../lib/domain/supplier
  */
 const SUPPLIER_PREVIEW_RETIRED = true;
 import { parsePublishedSalesMapping } from '../lib/domain/sales-sheet-mapping';
-import { publishedSalesColumns } from '../lib/domain/sales-published-tabs';
+import { salesPublishedColumns } from '../lib/domain/sales-published-tab-columns';
 import {
   buildSupplierPreviewValues,
   compareSheetMatrices,
@@ -82,7 +82,15 @@ async function salesBySupplier(): Promise<{ tabs: string[]; blocks: Map<string, 
     const grid = await values(SALES_SHEET_ID, `'${tab.title.replace(/'/g, "''")}'!A1:CZ2000`);
     assertBelowRowCap(grid, 2000, `판매시트 ${tab.title}`);
     const header = (grid[0] || []).map(S);
-    const expectedHeader = publishedSalesColumns(tab.prefix, baseColumns);
+    /**
+     * ★★**열 계약 정본은 `sales-published-tab-columns` 하나다.**
+     *   ⚠⚠ 실측 2026-09-11 — 이 검사가 옛 정본(`publishedSalesColumns`)을 보다가 **회차를 멈춰 세웠다**:
+     *     「픽업구독 열 규격 불일치 — 첫 차이 15열(반납형보증금 ≠ 보증금 반납형)」
+     *   픽업 탭만 「반납형보증금/인수형보증금」을 쓴다(사장님 2026-09-04). 발행기는 그렇게 쓰는데
+     *   옛 정본은 「보증금 반납형」이라 적혀 있어, **맞게 발행한 시트를 검사가 틀렸다고 한 것**이다.
+     *   ⇒ 정본이 두 벌이면 어느 쪽도 못 믿는다. 발행기·F86·이 검사가 «같은 파일»을 본다.
+     */
+    const expectedHeader = salesPublishedColumns(tab.prefix);
     const firstHeaderDiff = Array.from({ length: Math.max(header.length, expectedHeader.length) }, (_, index) => index)
       .find((index) => header[index] !== expectedHeader[index]);
     if (firstHeaderDiff !== undefined) {
