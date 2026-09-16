@@ -1822,3 +1822,61 @@ latest observed main CI run `35080449988`도 **failure**다. 다만 실패 step�
 - current `2e880cef...` semantics의 정상 scheduled F01/F86 full-audit PASS 확인 HOLD
 
 `CLAUDE-AUDIT.md`는 실제 PR #334 SHA로 정정하고 latest main이 audit 문서 계열임을 명시한다. 이번 감사에서도 애플리케이션 코드나 비즈니스 로직은 수정하지 않았다.
+
+---
+
+## 2026-09-16(20) — ChatGPT 독립 감사: 선언된 cron 대비 GitHub `schedule` event가 16:18 KST 이후 끊김
+
+### A. 충돌(신규/운영) — repository cron과 실제 schedule dispatch가 장시간 불일치
+
+**판정: schedule-delivery/enablement drift / 원인 미확정**
+
+2026-09-16 21:36 KST 기준 GitHub Actions API의 `event=schedule&created=2026-09-16` 실행 기록은 하루 전체에 **4건뿐**이었다.
+
+- 10:32:35 KST — `계약중 표기(30분)` run `35044497887` — success
+- 12:46:35 KST — `ERP5 SSOT 원천 최신화(매시간)` run `35053074482` — success
+- 13:41:34 KST — `정산 접수 반영(1시간)` run `35056578656` — failure
+- 16:18:54 KST — `계약중 표기(30분)` run `35067894061` — failure
+
+추가 API 조회에서도 2026-09-16 17:00 KST 이후 `schedule` run은 0건이었다. 즉 마지막 관측 schedule event 이후 약 5시간 17분 동안 새 scheduled run이 기록되지 않았다.
+
+하지만 current main의 workflow 원문에는 여전히 다음 cron이 선언돼 있다.
+
+- `.github/workflows/erp5-ssot-refresh.yml`: `5 0-10 * * 1-6`
+- `.github/workflows/settlement-sync.yml`: `5 0-9 * * 1-6`
+- `.github/workflows/sales-erp-hourly.yml`: `0 0-9 * * 1-5`
+- `.github/workflows/mirror-sync.yml`: `*/30 * * * *`
+
+수요일 기준 마지막 관측 run 뒤에도 ERP5 refresh 17:05/18:05/19:05 KST, settlement 17:05/18:05 KST, sales 17:00/18:00 KST, mirror 30분 주기의 다수 회차가 repository 선언상 기대된다. 그러나 실제 Actions run 목록에는 없다.
+
+이번 감사 도구 범위에서는 각 workflow의 GitHub Actions UI enabled/disabled 상태나 GitHub scheduler 내부 지연/누락 원인을 직접 확정하지 못했다. 따라서 “workflow가 disabled됐다” 또는 “GitHub scheduler 장애다”라고 단정하지 않는다. 다만 **선언된 cadence대로 scheduled publisher/writer가 계속 실행 중이라는 운영 가정은 현재 실행 기록으로 뒷받침되지 않는다.**
+
+### B. 기존 runtime failure와 구분 — 새 코드는 안 바뀌었지만 scheduled operation의 실행 증거가 끊김
+
+current main의 애플리케이션/SSOT 구현은 audit `(19)` 이후 새로 바뀌지 않았다. latest main CI run `35085813150`의 failure도 audit `(18)/(19)`에서 이미 기록한 `check:shop-data-parity` checker-contract drift와 동일하다.
+
+또 다음 기존 미해소 항목도 그대로다.
+
+- 공통 credential composite action의 `${{ secrets.GOOGLE_SA_JSON }}` metadata 오류
+- settlement의 옛 `sync-contract-from-ledger.mts` / `정산` 탭 scheduled failure
+- production pin `2e880cefa96e3fa4bfc79902fed448d5bd74abdb`
+- production과 current-main legacy writer의 same-output F01 contract conflict
+- 픽업구독 canonical 색 `#C2185B`
+- `mirror-sync.yml`/`sales-erp-hourly.yml`의 write-capable cron 선언
+- RP023 legacy mirror의 옛 Google Sheet `from`
+
+새로운 점은 **그 scheduled workflow들이 실제로 dispatch되고 있다는 증거 자체가 끊겼다**는 것이다. 우발적인 미기동을 writer retirement나 SSOT 단일화로 해석하면 안 된다.
+
+### C. Claude 구현 Owner에게 넘기는 즉시 지시
+
+1. GitHub Actions에서 `erp5-ssot-refresh`, `settlement-sync`, `sales-erp-hourly`, `mirror-sync`, `contract-status` 각각의 실제 enabled/disabled 상태를 먼저 확인한다.
+2. intentional disable이라면 repository cron/예약지도/writer ownership 계약을 그 상태와 맞춰 코드로 증명 가능하게 만든다.
+3. intentional disable이 아니라면 schedule event 미발생 원인을 확인하고, 특히 production `2e880cef...`의 다음 정상 scheduled F01/F86 full-audit run을 확보한다.
+4. schedule 미발생을 이유로 legacy writer ownership 문제를 `해소됨`으로 닫지 않는다.
+5. application code/business logic 수정은 Claude 단일 구현 세션만 수행한다.
+
+상세 근거:
+
+- `docs/ai-ssot-audit/2026-09-16-chatgpt-schedule-delivery-gap.md`
+
+이번 ChatGPT 감사에서는 애플리케이션 코드나 비즈니스 로직을 수정하지 않았다.
