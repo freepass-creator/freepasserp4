@@ -8,6 +8,19 @@ export const MISSING_VALUE_LABEL = '미입력' as const;
 export const EXPLICIT_NONE_LABEL = '없음' as const;
 export const NOT_APPLICABLE_LABEL = '해당없음' as const;
 
+/**
+ * ★**「미입력」·「해당없음」 글자색 — 연한 회색.** 사장님 2026-09-16 「미입력은 좀 색깔이 회색이어야지」·
+ * 「연하게 미입력으로 가야지」. 값이 아니라 «아직 안 채운 칸»이라 검정이면 실제 값처럼 읽힌다.
+ * ⚠ 배차상태 회색(`999999` — 계약중·출고불가)보다 **한 단계 연하게**. 둘이 같으면
+ *   「못 파는 차」와 「값이 없는 칸」이 같은 무게로 보인다.
+ * ★낱말과 «같은 파일»에 둔다 — 색만 딴 곳에 있으면 낱말을 늘릴 때 색이 빠진다
+ *   (사장님 「ssot 규격 통일하고 이거 이제 잠그자」 2026-09-16).
+ * ★「없음」은 옵션의 «업무 값»이라 눕히지 않는다 — 아래 `MISSING_DISPLAY_LABELS` 에 안 넣는다.
+ */
+export const MISSING_INK = 'B7B7B7' as const;
+/** 연한 회색으로 눕히는 «표시 전용» 낱말들 — 시트 조건부서식·화면이 같은 목록을 본다. */
+export const MISSING_DISPLAY_LABELS: readonly string[] = [MISSING_VALUE_LABEL, NOT_APPLICABLE_LABEL];
+
 export type AtomDisplayState = 'value' | 'missing' | 'none' | 'not_applicable';
 
 export type AtomDisplayResult = {

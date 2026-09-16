@@ -34,7 +34,7 @@
 import { SALES_NOTES, SALES_HIDDEN_COLUMNS } from './sales-sheet-mapping';
 import { COLOR_INK } from './color-master';
 import { MASTER_CATEGORY_COLORS } from './category-colors';
-import { MISSING_VALUE_LABEL, NOT_APPLICABLE_LABEL } from './missing-value-display';
+import { MISSING_DISPLAY_LABELS, MISSING_INK } from './missing-value-display';
 
 export const FONT_DEFAULT = 'Roboto';
 export const FONT = FONT_DEFAULT;
@@ -171,19 +171,15 @@ export const GUBUN_INK: [string, string][] = Object.entries(MASTER_CATEGORY_COLO
  * 배차상태 — 값마다 글자색(사장님 2026-08-14 — 「배차 상태 상품구분 이 부분」).
  * 파는 것과 못 파는 것이 색으로 갈려야 한다. 값은 `entities.VEHICLE_STATES`.
  */
+/** ★재수출 — 색 정본은 `missing-value-display.ts`(낱말과 한 몸)다. 여기서 값을 다시 적지 않는다. */
+export { MISSING_INK } from './missing-value-display';
+
 export const STATE_INK: [string, string][] = [
   ['즉시출고', '0000FF'], ['출고가능', '0000FF'],
   ['상품화중', 'FF9900'], ['출고협의', 'FF9900'],
   ['계약중', '999999'], ['출고불가', '999999'],
 ];
 
-/**
- * 「미입력」·「해당없음」 글자색 — **연한 회색**(사장님 2026-09-16 「미입력은 좀 색깔이 회색이어야지」·
- * 「연하게 미입력으로 가야지」). 값이 아니라 «아직 안 채운 칸»이라, 검정이면 실제 값처럼 읽힌다.
- * ⚠ 배차상태 회색(`999999` — 계약중·출고불가)보다 **한 단계 연하게** 둔다. 둘이 같은 회색이면
- *   「못 파는 차」와 「값이 없는 칸」이 같은 무게로 보인다.
- */
-export const MISSING_INK = 'B7B7B7';
 
 /** 자유텍스트라 상한을 더 낮게 묶는 칸. */
 // 원문 두 칸(2026-08-23 「2중 보관」)은 글이 길어 좁게 잡는다 — 넓히면 표가 원문에 먹힌다.
@@ -398,7 +394,7 @@ export function buildSalesFormatRequests(input: FormatInput): Record<string, unk
    *   ⚠ 「없음」(옵션 명시적 없음 = 업무 값)은 회색으로 안 눕힌다 — 「해당없음」(전기차 배기량 등)은
    *     미입력과 같은 «표시 전용»이라 같이 눕힌다.
    */
-  for (const label of [MISSING_VALUE_LABEL, NOT_APPLICABLE_LABEL]) {
+  for (const label of MISSING_DISPLAY_LABELS) {
     out.push({ addConditionalFormatRule: {
       index: 0,
       rule: {
