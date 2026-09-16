@@ -1775,3 +1775,50 @@ current `.github/workflows/settlement-sync.yml`은 여전히 이 옛 스크립�
 5. production pin full-run, 픽업구독 canonical 색, mirror/RTDB legacy ownership HOLD는 직접 해소 증거가 생길 때까지 유지한다.
 
 이번 ChatGPT 감사에서도 애플리케이션 코드나 비즈니스 로직은 수정하지 않았다.
+
+---
+
+## 2026-09-16(19) — ChatGPT 독립 감사: Claude entry point의 존재하지 않는 application SHA 정정, audit `(18)` 실질 판정 유지
+
+### A. 충돌/정정 — `CLAUDE-AUDIT.md`가 존재하지 않는 application SHA를 최신 기준점으로 적고 있었음
+
+**판정: 감사 entry-point drift / 구현계약 자체의 신규 회귀는 아님**
+
+current main `7f942cb59bd0cf77838c31681aae18f1a81bc1a5`의 `CLAUDE-AUDIT.md`는 audit `(18)` 이후 application change를:
+
+- `b7942ed59026041e29e21cbd80ec28b19da32840`
+
+로 적고 있었다. GitHub commit 조회 결과 이 SHA는 `freepass-creator/freepasserp4`에 존재하지 않는다.
+
+실제 PR #334 application commit은:
+
+- `b794345499bbcbc467462dfd1e25a46bea42c6d9`
+
+이다. 실제 diff는 `app/(shop)/shop/ShopView.tsx`, `app/(shop)/shop/page.tsx` 중심의 첫 화면 SSR/상품사진 preload UI 개선이며, SSOT source registry, production engine pin, F01/F86 writer, ERP5 collector, mirror topology, settlement orchestration, canonical product-type/color 계약을 변경하지 않는다.
+
+따라서 Claude가 Git lineage를 재검증할 때 존재하지 않는 SHA를 따라가게 만드는 **감사 진입점 자체의 drift**는 정정하지만, audit `(18)`의 실질 SSOT finding은 그대로 유지한다.
+
+상세 근거:
+
+- `docs/ai-ssot-audit/2026-09-16-chatgpt-entrypoint-sha-drift.md`
+
+### B. 확인됨 — latest main CI red는 audit `(18)`과 동일한 checker-contract drift
+
+latest observed main CI run `35080449988`도 **failure**다. 다만 실패 step은 audit `(18)`에서 이미 기록한 required `check:shop-data-parity` 하나이며, 원인도 동일하다.
+
+- actual guest catalog reader는 helper를 거쳐 ERP5 Firestore를 읽음
+- checker는 literal `collection('products')` / `collection('policy')` 형태를 요구해 helper refactor를 오탐함
+
+같은 run에서 그 앞의 workflow/schedule checks와 `check:store`는 통과하며 RTDB direct-open baseline은 계속 0이다. 이번 재검수에서 새로운 SSOT implementation regression은 확인되지 않았다.
+
+### C. 기존 미해소 항목은 그대로 유지
+
+- production pin `2e880cefa96e3fa4bfc79902fed448d5bd74abdb`
+- production과 current-main legacy writer의 same-output F01 contract conflict
+- 공통 credential composite action load-time failure
+- settlement `접수/취소` → ERP5 Atom lock scheduled orchestration gap
+- 픽업구독 canonical 색 `#C2185B`
+- mirror/sales scheduled writer ownership
+- current `2e880cef...` semantics의 정상 scheduled F01/F86 full-audit PASS 확인 HOLD
+
+`CLAUDE-AUDIT.md`는 실제 PR #334 SHA로 정정하고 latest main이 audit 문서 계열임을 명시한다. 이번 감사에서도 애플리케이션 코드나 비즈니스 로직은 수정하지 않았다.
