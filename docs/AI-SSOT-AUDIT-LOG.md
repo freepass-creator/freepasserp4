@@ -954,3 +954,85 @@ current `0c4ec76b...` builder/plan은 여전히:
 3. **F86 표시계약 drift는 미해소.**
 4. canonical source/손오공·오토플러스 전용탭 결정에는 신규 회귀 증거 없음.
 5. 예약지도/legacy writer latent risk도 기존 판정 유지.
+
+---
+
+## 2026-09-16(9) — ChatGPT 독립 감사: PR #312로 production 계보/상품구분 색 SSOT 복구, 새 pin 실발행은 검증 중
+
+### A. 해소됨 — `(7)/(8)`의 production lineage / PR #303 색상 SSOT 누락이 PR #312로 구조적으로 해소
+
+**판정: 해소됨(코드 계보) / 새 pin 운영 실발행은 아래 B에서 HOLD**
+
+current main HEAD는 PR #312 merge commit `59e45d8d69ae94ea7edb0e77e10fa3640bfe0bec`이다. 현재 `.github/workflows/erp5-ssot-refresh.yml`의 production checkout ref와 `scripts/check-inventory-source-contract.mts`의 validated allowlist는 모두 다음 커밋을 가리킨다.
+
+- `308511563d8e8f56dbd94f715469d8ae7ed9171a`
+
+실제 Git 계보를 다시 확인하면:
+
+- `308511563...` → parent `298120fbaa2a4dd4227fcea5431f3ffbd84c1be6` (PR #308 조건부서식 누적정리)
+- `298120f...` → parent `d635f8c87c3840a6956184b4d20f99dd968b6138` (PR #303 분류/구분 색 SSOT 포함 검증 엔진)
+- `308511563...` 자체는 PR #310의 Sheets metadata fields-mask 400 수정까지 포함
+
+따라서 직전 `0c4ec76b...`에서 갈라졌던 잘못된 계보는 더 이상 current production이 아니다. **PR #303 색상 SSOT + PR #308 조건부서식 정리 + PR #310 fields 수정이 한 계보에 다시 합쳐졌다.** `(7)-B`, `(8)-B의 production lineage/color-SSOT 충돌은 이 범위에서 해소됨으로 갱신한다.
+
+근거: PR #312, merge `59e45d8d...`, production pin `308511563...`, `check-inventory-source-contract.mts` validated allowlist.
+
+### B. 보류 — 새 production pin `308511563...`의 실제 apply 발행은 현재 진행 중
+
+PR #312 merge 직후 workflow_dispatch run `35044774559`(run #14)가 시작됐다.
+
+감사 시점 확인 결과:
+
+- checkout / OIDC / npm ci: success
+- 원천 계약 검사: success
+- 원천 자격증명 준비: success
+- 현재 원천 재수집: success
+- 티카 유료옵션 감사: success
+- `원천에서 ERP5 현재 원자 계산`: **in progress**
+- 이후 snapshot / F01 / F86 / F86↔Atom / Atom↔F01↔F86 / 사진링크 감사: 아직 pending
+
+따라서 `308511563...`을 **운영 PASS라고 아직 선언하지 않는다.** 직전 완전 운영 PASS 증거는 `0c4ec76b...` / run `35043402729`; 이번 새 pin은 계보 정합성은 복구됐지만 실제 F01/F86 운영 회차 완료를 기다려야 한다.
+
+### C. 확인됨 — 배차상태와 상품구분 색은 서로 다른 의미/표를 사용하도록 현재 pin에 분리돼 있음
+
+current production pin `308511563...`의 `lib/domain/sales-sheet-format.ts`를 직접 확인했다.
+
+- 상품구분(`구분`) → `GUBUN_INK = MASTER_CATEGORY_COLORS['분류']`에서 가져와 단일출처 사용
+- 배차상태 → 별도 `STATE_INK`
+  - `즉시출고`, `출고가능` = 파랑
+  - `상품화중`, `출고협의` = 주황
+  - `계약중`, `출고불가` = 회색
+- `channel-retro-skin.ts`도 F86 레트로 스킨에서 **구분·배차상태 값별 색을 살린다**고 명시
+
+따라서 “배차상태와 상품구분을 각각 자기 의미에 맞게 색칠”하는 구조 자체는 현재 production 엔진에 존재한다. 다만 B의 새 pin 실발행이 완료되기 전까지 실제 운영 시트 최종 표시 PASS로는 확정하지 않는다.
+
+### D. 충돌 유지 — F86의 공지사항/탭명 표시계약은 여전히 builder와 불일치
+
+PR #312는 production pin/allowlist만 바꾼 것이며 F86 builder의 표시 규칙은 바꾸지 않았다. `308511563...`의 실제 코드에는 여전히:
+
+- `scripts/build-channel-supplier-sheet.mts` → `ensureNoticeTab()` 호출로 `공지사항` 탭 보장
+- `lib/server/channel-f86-plan.ts` → 공급사 탭도 `회사 + 시각 + 대수` 제목 사용
+
+이 남아 있다. 따라서 승인된 “공지사항 제거 / 종합만 시간+대수 / 공급사 탭은 이름+대수” 계약은 미해소다. 구글시트 직접 편집은 다음 publish에서 다시 덮일 수 있으므로 해결 위치는 F86 projection/builder다. Atom·가격·기간 로직은 건드리지 않는다.
+
+### E. 변화 없음 — canonical source/특수탭은 유지, 예약지도와 legacy writer latent risk는 잔존
+
+재검증 결과:
+
+- canonical registry: RP006=ironrentcar.com, RP012=sokrc.com API, RP023=RebornCar 유지
+- 손오공=`손오공구독`, 오토플러스=`오플구독`, 고유 기간/요금 유지 결정에 신규 회귀 없음
+- `docs/예약작업-지도.md`는 production engine을 아직 `3a334ddf...`로 적어 실제 `308511563...`와 불일치
+- `sales-erp-hourly.yml` cron `0 0-9 * * 1-5`, `mirror-sync.yml` cron `*/30 * * * *`가 repository에 계속 남아 있음
+- `MIRROR_SOURCES` RP023의 옛 Google Sheet `1TJBG4PABgly7EtGG6Os5GcY9La7kDR_yex56KHhXe2U`도 잔존
+
+따라서 예약지도 pin drift와 legacy writer UI-disable 의존성/재활성화 위험은 기존 판정을 유지한다.
+
+### Claude 구현 Owner에게 넘기는 즉시 작업
+
+1. run `35044774559` 완료 뒤 F01/F86/칸 대조/사진링크까지 모두 PASS인지 먼저 확인한다.
+2. PASS면 `308511563...`을 최신 완전검증 production pin으로 확정한다.
+3. F86 표시계약은 builder/plan에서만 수정한다: 공지사항 제거, 종합만 시간+대수, 공급사 탭 이름+대수. 배차상태와 상품구분은 서로 다른 색 규칙을 유지한다.
+4. `docs/예약작업-지도.md`와 ACTIVE handoff를 최신 pin/규칙으로 맞춘다.
+5. legacy writer latent risk는 별도 구현 판단을 유지한다.
+
+이번 감사에서는 애플리케이션 코드나 비즈니스 로직을 수정하지 않았다.
