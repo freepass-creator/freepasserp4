@@ -17,6 +17,7 @@ FreePass SSOT 관련 **실제 구현·수정 Owner는 지정된 Claude 단일 �
 최신 독립 감사 근거:
 
 - `docs/AI-SSOT-AUDIT-LOG.md`의 `2026-09-16(13)`
+- `docs/AI-SSOT-AUDIT-LOG.md`의 `2026-09-16(14)` — mirror writer fail-closed 판정 정정
 - `docs/ai-ssot-audit/2026-09-16-chatgpt-production-pin-contract-writer-topology.md`
 - 직전 완전 PASS 기준: `docs/ai-ssot-audit/2026-09-16-chatgpt-run14-production-pass.md`
 
@@ -30,7 +31,7 @@ FreePass SSOT 관련 **실제 구현·수정 Owner는 지정된 Claude 단일 �
 4. `inventory-source-registry.ts`만 보고 전체 정합성을 판단하지 않는다. workflow, writer topology, mirror/RTDB legacy path까지 같이 본다.
 5. 손오공은 별도 `손오공구독`, 오토플러스는 별도 `오플구독`을 유지하고 공급사 고유 기간·주행거리·요금 구조를 보존한다.
 6. 실제 코드 수정은 Claude 단일 구현 세션만 한다. ChatGPT findings는 근거를 재확인한 뒤 처리한다.
-7. 과거 감사 판정은 삭제하지 않는다. 해소 시 `docs/AI-SSOT-AUDIT-LOG.md`에 새 항목으로 남긴다.
+7. 과거 감사 판정은 삭제하지 않는다. 해소/정정 시 `docs/AI-SSOT-AUDIT-LOG.md`에 새 항목으로 남긴다.
 
 ---
 
@@ -87,7 +88,9 @@ side branch/manual publish에서 보였던 teal `#0F766E`는 production canonica
 - F01/F86이 같은 canonical map을 계속 참조
 - 정규 production 재발행 후 live `effectiveFormat` 검증
 
-## 4. writer topology — `sales-erp-hourly.yml`은 dormant로 가정하면 안 됨
+## 4. writer topology — `sales-erp-hourly.yml`과 `mirror-sync.yml` 모두 repository 기준 active-capable로 취급
+
+### `sales-erp-hourly.yml`
 
 current `.github/workflows/sales-erp-hourly.yml`은 schedule을 보유하고 있으며 `SALES_ERP_CLOUD_SCHEDULED_SYNC_ENABLED`도 repository variable이 없으면 `true`를 기본값으로 사용한다.
 
@@ -98,7 +101,17 @@ current `.github/workflows/sales-erp-hourly.yml`은 schedule을 보유하고 있
 
 따라서 Claude는 이 경로를 **active-capable scheduled writer**로 보고 ERP5 canonical writer/projection ownership과 중복 권한이 없는지 재확인해야 한다.
 
-반면 `.github/workflows/mirror-sync.yml`은 current main에서 `vars.MIRROR_SYNC_ENABLED == 'true'` 조건으로 fail-closed되어 있다. `MIRROR_SOURCES`의 legacy 정보는 canonical source 권한이 없다.
+### `mirror-sync.yml` — 감사 `(13)`의 fail-closed 설명 정정
+
+current `.github/workflows/mirror-sync.yml` 실제 상태:
+
+- schedule: `*/30 * * * *`
+- `jobs.mirror`에 `vars.MIRROR_SYNC_ENABLED == 'true'` 또는 동등한 repository-level fail-closed `if`가 **없음**
+- schedule 이벤트이면 `scripts/sync-mirror-all.mts --apply` 실행
+
+따라서 GitHub Actions UI에서 disabled라면 실행되지 않을 수는 있지만, **repository 코드 자체는 disable을 강제하지 않는다.** UI에서 enable되면 30분 scheduled writer가 다시 실제 쓰기를 수행할 수 있다.
+
+`lib/domain/mirror-sources.ts`의 RP023은 여전히 옛 Google Sheet `1TJBG4PABgly7EtGG6Os5GcY9La7kDR_yex56KHhXe2U`를 `from`으로 가진다. 이 mirror 경로는 projection/legacy 용도일 뿐 canonical inventory source 권한을 가져서는 안 된다.
 
 ## 5. canonical source / 특수 판매탭 / RTDB 판정은 유지
 
@@ -114,7 +127,7 @@ current canonical registry:
 - 오토플러스 = `오플구독` 별도 탭
 - 공급사 고유 기간·주행거리·요금 축 유지
 - 공통화는 표현 템플릿만
-- RTDB를 canonical inventory source로 되돌리는 신규 회귀 없음
+- RTDB/mirror legacy 경로를 canonical inventory source로 되돌리는 신규 회귀 없음
 
 ---
 
@@ -123,8 +136,8 @@ current canonical registry:
 1. `1f923d27...`을 `VALIDATED_ENGINES` 계약과 정합화하고 `SSOT Source Contract`를 green으로 만든다.
 2. `1f923d27...` 기준 정규 scheduled production 회차가 F01/F86 발행·F86↔Atom·Atom↔F01↔F86·사진링크 감사까지 정상 완료되는지 확인한다.
 3. 픽업구독 색은 `MASTER_CATEGORY_COLORS['분류']` 단일 SSOT에서만 해결한다. side-branch hardcoded 색표를 가져오지 않는다.
-4. `sales-erp-hourly.yml`의 writer ownership/feature flag를 재확인해 ERP5 canonical inventory writer와 중복 권한이 생기지 않도록 한다.
-5. `mirror-sync.yml` fail-closed를 유지하고 mirror/RTDB legacy 경로를 canonical source로 승격하지 않는다.
+4. `sales-erp-hourly.yml`과 `mirror-sync.yml`을 모두 active-capable scheduled writer로 보고 실제 writer ownership/disable 방식을 repository 수준에서 명시적으로 정리한다. UI disable만으로 안전하다고 간주하지 않는다.
+5. RP023 옛 Google Sheet mirror를 canonical source로 승격하지 않는다. RP023 canonical은 계속 RebornCar다.
 6. 구현 후 `docs/AI-SSOT-AUDIT-LOG.md`에 `해소됨/잔존`을 append한다.
 
 이 entry point는 구현 지시의 요약이다. 세부 근거와 과거 판정은 `docs/AI-SSOT-AUDIT-LOG.md` 최신 항목을 우선한다.
