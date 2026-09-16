@@ -14,11 +14,16 @@ FreePass SSOT 관련 **실제 구현·수정 Owner는 지정된 Claude 단일 �
 
 위 handoff의 **역할 분리 원칙은 유효**하지만 일부 상태 설명은 오래됐다. 현재 운영 사실은 이 파일과 `docs/AI-SSOT-AUDIT-LOG.md`의 최신 항목을 우선한다.
 
+최신 독립 감사 보강 기록:
+
+- `docs/ai-ssot-audit/2026-09-16-chatgpt-run14-production-pass.md`
+
 ---
 
 ## 작업 전 필독
 
 - `docs/AI-SSOT-AUDIT-LOG.md` — 최신 항목부터 읽기
+- `docs/ai-ssot-audit/2026-09-16-chatgpt-run14-production-pass.md` — run #14 PASS + 최신 상품구분 색 요구 drift
 - `docs/ai-ssot-audit/FREEPASS-SSOT-ARCHITECTURE-CONTRACT.md`
 - `docs/ai-ssot-audit/2026-09-16-sonogong-autoplus-tab-routing.md`
 - `docs/예약작업-지도.md` — current production pin 설명이 stale
@@ -86,7 +91,7 @@ PR #312 merge 직후 workflow_dispatch run:
 
 따라서 이전 문서의 “새 pin 운영 실발행 HOLD”는 더 이상 최신 판정이 아니다. **`308511563...`은 현재 최신 완전검증 production pin**이다.
 
-## 3. F01/F86 상품구분 색 SSOT 공유 구조는 current pin에 존재
+## 3. F01/F86 상품구분 색 SSOT 공유 구조는 존재하지만 `픽업구독` 최신 색 결정은 미반영
 
 `308511563...`의 `lib/domain/sales-sheet-format.ts`는:
 
@@ -97,7 +102,7 @@ PR #312 merge 직후 workflow_dispatch run:
 
 으로 구성되어 있다.
 
-즉 **F01과 F86이 서로 다른 상품구분 색표를 갖는 구조는 현재 production pin에서 해소되어 있고, 같은 canonical map을 참조한다.**
+즉 **F01/F86은 이미 같은 canonical 상품구분 색표를 참조한다.** F01만 별도 색표를 새로 만들면 안 된다.
 
 현재 canonical map(`lib/domain/category-colors.ts`) 값:
 
@@ -107,13 +112,19 @@ PR #312 merge 직후 workflow_dispatch run:
 - 신차구독 `#474D57`
 - 픽업구독 `#C2185B`
 
-배차상태는 별도 의미로 유지한다.
+하지만 최신 승인 요구는:
 
-- `즉시출고`, `출고가능` = 파랑
-- `상품화중`, `출고협의` = 주황
-- `계약중`, `출고불가` = 회색
+- 신차렌트/중고렌트/중고구독 기존 색 유지
+- 신차구독 = 회색 유지
+- **픽업구독 = 손오공에서 이미 쓰는 하늘색/sky-blue 계열 기존 토큰 재사용**
+- 임의 HEX 신규 생성 금지
+- F01/F86/ERP 표현이 같은 canonical map을 공유
 
-참고로 main에서 실행된 `F01 구분 칸 색 진단(읽기전용, 수동)` run `35045707947`도 success였으나, 이번 독립 감사에서는 해당 step의 원문 로그까지 확보하지 않았으므로 **success 상태만으로 실제 렌더링된 각 색 HEX까지 재판정하지 않는다.** 표현 변경이 필요하면 Claude 구현 Owner가 canonical map과 live sheet를 함께 대조한다.
+이다.
+
+따라서 **현재 `픽업구독 #C2185B`는 최신 요구와 충돌한다.** Claude 구현 Owner는 손오공에서 실제 쓰는 기존 sky-blue 토큰을 찾아 정확한 값을 확정한 뒤 `MASTER_CATEGORY_COLORS['분류']` 한 곳만 바꾸고, F01/F86을 재발행해 live sheet의 실제 텍스트 색을 둘 다 확인한다. 배차상태 `STATE_INK`는 건드리지 않는다.
+
+main에서 실행된 `F01 구분 칸 색 진단(읽기전용, 수동)` run `35045707947`은 success였지만, 이번 독립 감사에서는 그 step의 원문 로그까지 확보하지 않았으므로 success 상태만으로 실제 렌더링된 각 HEX를 재판정하지 않는다.
 
 ## 4. F86 표시계약 drift는 여전히 미해소
 
@@ -186,24 +197,24 @@ UI에서 실제 disabled면 active writer 충돌이라고 단정하지 않지만
 
 ## 8. current `main` 최신 변경은 감사/문서 계열이며 production app 회귀 증거 없음
 
-감사 시점 current `main` HEAD:
+감사 시작 시 current `main` HEAD:
 
 - `6dbdd24d412a7ea3974e01ff02025bf31137cf70`
 - message: `chore: temporary placeholder for F86 rule tracing`
 
 이 commit은 `docs/ai-ssot-audit/.tmp-f86-rules-placeholder`만 추가한다. 같은 HEAD의 CI run `35045588568`은 success다.
 
-따라서 run `35044774559` 완료 이후 current main에서 **새 애플리케이션/비즈니스 로직 회귀를 만든 변경은 이번 감사 범위에서 확인되지 않았다.**
+이번 감사자가 추가한 변경도 `CLAUDE-AUDIT.md`와 `docs/ai-ssot-audit/2026-09-16-chatgpt-run14-production-pass.md` 문서뿐이다. 애플리케이션 코드나 비즈니스 로직은 수정하지 않았다.
 
 ---
 
 # Claude 구현 Owner의 즉시 우선순위
 
 1. **`308511563...`을 최신 완전검증 production pin으로 취급한다.** run `35044774559`의 F01/F86/cross-audit/photo-audit가 전부 success다.
-2. **F86 presentation contract 반영:** 공지사항 제거 / 종합만 시간+대수 / 공급사 탭 이름+대수. 배차상태와 상품구분의 독립 색상 규칙은 유지.
-3. 상품구분 색 표현을 변경할 경우 F01/F86을 따로 고치지 말고 `MASTER_CATEGORY_COLORS['분류']` 한 곳을 기준으로 한다. live sheet 재발행/진단까지 검증한다.
+2. **상품구분 색 SSOT 최신화:** 손오공에서 실제 사용하는 sky-blue 토큰을 찾아 `픽업구독`에 재사용. 임의 HEX 금지. F01/F86은 현재처럼 같은 `MASTER_CATEGORY_COLORS['분류']`를 참조하고 재발행 후 둘 다 live 검증.
+3. **F86 presentation contract 반영:** 공지사항 제거 / 종합만 시간+대수 / 공급사 탭 이름+대수. 배차상태와 상품구분의 독립 색상 규칙은 유지.
 4. `docs/예약작업-지도.md`와 stale handoff를 `308511563...` 및 최신 규칙과 맞춘다.
 5. legacy writer UI-disable 의존성은 기존 latent conflict로 유지하고 별도 구현 판단.
-6. 변경 후 `docs/AI-SSOT-AUDIT-LOG.md`에 `해소됨/잔존`을 append.
+6. 구현 후 `docs/AI-SSOT-AUDIT-LOG.md`에 `해소됨/잔존`을 append.
 
-세부 근거는 `docs/AI-SSOT-AUDIT-LOG.md`의 최신 항목을 본다.
+세부 근거는 `docs/AI-SSOT-AUDIT-LOG.md` 최신 항목과 `docs/ai-ssot-audit/2026-09-16-chatgpt-run14-production-pass.md`를 본다.
