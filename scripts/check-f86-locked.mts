@@ -80,7 +80,7 @@ must(hex(retroTabColorRequest(0, '종합')?.updateSheetProperties?.properties?.t
 
 /* ── ④ 겉 — 레트로 ───────────────────────────────────────────── */
 must(RETRO_FONT === 'Malgun Gothic' && RETRO_SIZE === 9 && RETRO_ROW_PX === 21, `글꼴·크기·줄 높이가 바뀌었습니다: ${RETRO_FONT} ${RETRO_SIZE}pt · 줄 ${RETRO_ROW_PX}`, `${SKIN} — ${MANUAL} 4`);
-const cols = ['구분', '36개월', '36개월 반납형', '분납', '최초등록', '배기량', '배차상태'];
+const cols = ['구분', '36개월', '36개월 반납형', '분납', '최초등록', '배기량', '배차상태', '차량번호'];
 const reqs: any[] = applyRetroSkin([{ addConditionalFormatRule: { rule: {} } }, { repeatCell: { fields: 'note' } }], [], { gid: 0, columns: cols, headerAt: 0 });
 must(!reqs.some((r) => r.addConditionalFormatRule), '레트로 입력엔 「구분」 값별 조건부서식이 없는데도 살아남았습니다 — 필터가 열려 있습니다.', `${SKIN} · applyRetroSkin ① — ${MANUAL} 4`);
 {
@@ -111,6 +111,9 @@ must(headBg(2) === 'cc4125' && bodyInk(2) === '0000ff',
   `고유 요금 칸(36개월 반납형)이 «기간이 같은 옛 칸 색»이 아닙니다: 머리 ${headBg(2)} · 글자 ${bodyInk(2)} — 사장님 「컬러 느낌은 동일하게 대여료 구간」`, `${SKIN} · retroFeeStyleOf — ${MANUAL} 4`);
 must(bodyInk(0) === '', `「구분」에 옛 고정색(BODY_INK)이 남아 있습니다: ${bodyInk(0)} — 이제 값별 표(GUBUN_INK)로만 정한다.`, `${SKIN} · BODY_INK — ${MANUAL} 4`);
 must(bodyInk(6) === '', `「배차상태」에 옛 고정색(BODY_INK)이 남아 있습니다: ${bodyInk(6)} — 이제 값별 표(STATE_INK)로만 정한다.`, `${SKIN} · BODY_INK — ${MANUAL} 4`);
+// ★2026-09-16 — 「차량번호」 고정색 금지. 사장님 「링크 잇는애들은 링크색깔 링크없으면 그냥 색깔 검정색이겟지?」
+//   칸 전체를 링크색으로 칠하면 링크 없는 차도 파랗게 보인다. 링크 있는 줄만 그 셀 textFormatRuns 가 파랑으로 덮는다.
+must(bodyInk(7) === '', `「차량번호」에 고정 링크색(BODY_INK)이 남아 있습니다: ${bodyInk(7)} — 링크 있는 줄만 파랑이어야 합니다.`, `${SKIN} · BODY_INK — ${MANUAL} 4`);
 must(bodyBg(3) === 'ffff00' && bodyInk(3) === 'ff0000', `분납 칸(노란 바탕 · 빨강 글자)이 바뀌었습니다: ${bodyBg(3)} · ${bodyInk(3)}`, `${SKIN} · BODY_BG — ${MANUAL} 4`);
 must(nf(4) === 'yy-m-d' && nf(5) === '#,##0' && nf(1) === '#,##0', `숫자·날짜 형식(요금·배기량 #,##0 · 최초등록 yy-m-d)이 바뀌었습니다: ${nf(1)} · ${nf(5)} · ${nf(4)}`, `${SKIN} · applyRetroSkin ④¼ — ${MANUAL} 4`);
 const 폭요청 = reqs.filter((r) => r.updateDimensionProperties?.range?.dimension === 'COLUMNS' && r.updateDimensionProperties?.properties?.pixelSize);
