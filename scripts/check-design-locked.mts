@@ -70,10 +70,20 @@ must(!/<Badge\b/.test(detail),
 must(/specAtoms/.test(identity),
   '차번 옆 원자 차례(연식·주행·연료·배기량·구동)가 한 곳에서 안 정해집니다.',
   'components/product-card-identity.ts specAtoms');
-// 모바일 목록에는 출고상태·상품구분을 세우지 않는다 — 목록 행에서 신호는 웹 분기 하나뿐
-must((rowCard.match(/<CardRailBadges/g) || []).length === 1,
-  '모바일 목록에 출고상태·상품구분이 다시 붙었습니다(상세에만 둡니다).',
-  'components/ProductRowCard.tsx — 웹 분기 1곳만');
+/*
+ * 목록 행의 출고상태·상품구분은 **웹·폰 둘 다** 선다(사장님 2026-09-17 「그냥 웹앱 웹에서 보이는 거랑
+ * 모바일 동일하게 하자고」 · 손님 가게 폰 화면을 가리키며 「표준라벨도 이렇게 나와야 한다고」).
+ * ⚠ 예전 규칙은 「웹 분기 1곳만」이었다 — 폰 목록을 4줄로 좁히려고 신호를 상세로 내렸는데,
+ *   그래서 웹에서는 「출고가능·픽업구독」이 보이는 차가 **폰에서는 아무 표시도 없었다.**
+ *   손님 가게(화이트라벨)는 폰에서도 그 신호를 보여 주고 있어, 같은 회사 화면에서 폰만 정보가 적었다.
+ * ⇒ 웹·폰 둘 다 «있는지»를 본다. 하나라도 빠지면 그때가 드리프트다.
+ */
+must((rowCard.match(/<CardRailBadges/g) || []).length === 2,
+  '목록 카드의 출고상태·상품구분이 한쪽(웹 또는 폰)에서 빠졌습니다 — 둘 다 세웁니다.',
+  'components/ProductRowCard.tsx — 웹·모바일 각 1곳');
+must((rowCard.match(/<OptionChips/g) || []).length === 2,
+  '목록 카드의 옵션칩이 한쪽(웹 또는 폰)에서 빠졌습니다 — 둘 다 세웁니다.',
+  'components/ProductRowCard.tsx — 웹·모바일 각 1곳');
 
 /* ── 3. 상세 ── */
 must(/'픽업구독'/.test(entities),
