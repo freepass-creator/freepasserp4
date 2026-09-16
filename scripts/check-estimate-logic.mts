@@ -432,11 +432,15 @@ must(/className="term-card__cond resid2"/.test(page),
 must(!/id="sec-resid"/.test(page),
   '잔가가 아직 왼쪽에 있습니다 — 왼쪽은 «차량가격을 확정짓는 곳», 잔가는 견적이라 오른쪽입니다',
   'app/estimate/page.tsx');
-/* ★인수 잔가가 대여료를 «건드리지 않는지» — 엔진에 들어가는 것은 견적용뿐이다. */
-must(/residualDefault = adjustResidual\(raw, cost\.residualAdjustPct\)/.test(page)
-  && !/buyoutPct\[[^\]]*\][\s\S]{0,200}createQuoteInput/.test(page),
-  '인수 잔가가 대여료 계산에 흘러들었습니다 — 인수용은 만기에 받는 돈이지 월납이 아닙니다',
-  'app/estimate/page.tsx createQuoteInput');
+/* ★인수 잔가가 대여료를 «건드리지 않는지» — 엔진에 들어가는 것은 견적용뿐이다.
+   ⚠ 2026-09-16 에 셈이 `lib/domain/estimate/quote-lines.ts` 로 옮겨 갔다(화면·서버 한 벌).
+     문자열로 «어느 파일에 있나»를 묻는 대신 **돌려 보고 값이 갈리는지**를 잰다. */
+{
+  const lines = code('lib/domain/estimate/quote-lines.ts');
+  must(/residualDefault = adjustResidual\(raw, cost\.residualAdjustPct\)/.test(lines),
+    '「잔가로 조정」(원가 설정 ±%p)이 견적 셈에서 빠졌습니다',
+    'lib/domain/estimate/quote-lines.ts');
+}
 /* ★★2026-09-08 사고 — 선택자를 «문자열 치환»으로 넓혔더니 «뒷부분만» 넓어졌다.
      `.est-picker .tchips button` → `.est-root .tchips, .est-picker .tchips button`
    앞은 컨테이너, 뒤는 버튼이 되어 **`.est-root .tchips button` 규칙이 사라졌다.**
@@ -2464,15 +2468,86 @@ must((availableForEngine({ a: { name: '컴포트' } }, [], '가솔린 3.5 터보
   must(pg.includes('setResidAmtOverride') && pg.includes('setBuyoutAmtOverride'),
     '중고 잔가를 금액으로 못 적습니다 — 정본은 「구매가격 + 1~5년 잔존가격(금액)」입니다',
     'app/estimate/page.tsx');
-  must(pg.includes('monthlyRates(residualSchedule(residBase,anchors),residBase)'),
+  const ql = code('lib/domain/estimate/quote-lines.ts').replace(/\s+/g, '');
+  must(ql.includes('monthlyRates(residualSchedule(ask.residBase,anchors),ask.residBase)'),
     '엔진에 1~60개월 잔가를 안 넘깁니다 — 1년 6개월 잔존가를 모릅니다',
-    'app/estimate/page.tsx raw');
+    'lib/domain/estimate/quote-lines.ts quoteCards');
   must(pg.includes("constresidBase=Math.max(0,netPrice-(picked.fuel==='ev'?Math.max(0,cost.evSubsidy||0):0))"),
     '잔존가 밑값이 엔진이 곱하는 값과 다릅니다 — 전기차에서 적은 금액이 그대로 안 섭니다',
     'app/estimate/page.tsx residBase');
   must(pg.includes('residAmtOverride[t]??residBase*autoResid[t]/100'),
     '안 적은 해의 기본 잔존가가 곡선(표준+델타)에서 안 옵니다 — 손 안 댄 견적의 대여료가 바뀝니다',
     'app/estimate/page.tsx residAmt');
+}
+
+/* == 41. ★★★**영업자는 원가를 «못 받는다»** (2026-09-16 · 정본 §6) ========================
+     사장님 「이거도 분리해서 freepass-견적기로 하자. 영업(자용으)로 해야 할 거고」 ·
+     2026-09-06 「영업자랑 손님이 보는 거는 **원가 정보 빠진 거** 좋은 거야」.
+     ⚠ 화면에서 «숨기는» 것은 막은 것이 아니다 — 값이 브라우저에 오면 개발자도구로 그대로 보인다.
+       그래서 ㉠ 명단 ㉡ 서버가 보내는 «모양» ㉢ 원가 API 문 셋을 다 잰다. */
+{
+  const { canSeeEstimate, showsCost } = await import('../lib/domain/estimate/audience');
+  const { quoteCards, customerLines } = await import('../lib/domain/estimate/quote-lines');
+  const { COST_DEFAULTS } = await import('../lib/domain/estimate/cost-settings');
+
+  /* ㉠ 명단 — 영업자는 «화면은 보고 원가는 못 본다». 둘이 같아지면 갈래가 사라진 것이다. */
+  must(canSeeEstimate('agent') && !showsCost('agent'),
+    '영업자가 견적 화면을 못 보거나(막힘) 원가까지 봅니다 — 영업자는 «화면 O · 원가 X» 입니다',
+    'lib/domain/estimate/audience.ts');
+  must(showsCost('admin') && showsCost('provider') && !showsCost(null) && !showsCost('guest'),
+    '원가 명단이 틀렸습니다 — 관리자·공급사만이고, 모르는 역할·비로그인은 «아니오» 입니다',
+    'lib/domain/estimate/audience.ts showsCost');
+
+  /* ㉡ 서버가 보내는 줄에 **원가가 자리조차 없는가** — 문자열이 아니라 «돌려서» 잰다. */
+  const ask = {
+    channel: 'rent' as const, type: 'return' as const, acq: 'prep' as const, credit: '중신용',
+    newCar: false, price: 27_000_000, netPrice: 27_000_000, saleTaxCredit: 0, cc: 2497,
+    fuel: 'gasoline', mileage: 48_000, year: 2021, nowYear: 2026, feePct: 3,
+    residBase: 27_000_000, residPct: { 12: 87, 24: 75, 36: 66, 48: 57, 60: 47 },
+    terms: [{ term: 48, dep: 10, pre: 0 }],
+  };
+  const cards = quoteCards(COST_DEFAULTS, ask);
+  const sent = customerLines(cards, ask);
+  const BANNED = ['cost', 'subtotal', 'monthlySupply', 'residualRate', 'months'];
+  const leaked = BANNED.filter((k) => Object.prototype.hasOwnProperty.call(sent[0], k));
+  must(leaked.length === 0,
+    `영업자에게 가는 줄에 원가가 실립니다 — [${leaked.join(', ')}]. 자리가 있으면 언젠가 채워집니다`,
+    'lib/domain/estimate/quote-lines.ts customerLines');
+  must((sent[0]?.payVat ?? 0) > 0 && Math.round(sent[0].payVat) === Math.round(cards[0].payVat ?? 0),
+    '영업자 대여료가 관리자 대여료와 다릅니다 — 셈이 두 벌이 된 것입니다',
+    'lib/domain/estimate/quote-lines.ts');
+
+  /* 인수 잔가는 월납을 «안» 건드린다 — 값 둘을 넣어 돌려 보고 잰다(돌연변이로 확인). */
+  const lowBuy = quoteCards(COST_DEFAULTS, { ...ask, buyoutPct: { 48: 30 } })[0];
+  const highBuy = quoteCards(COST_DEFAULTS, { ...ask, buyoutPct: { 48: 90 } })[0];
+  must(Math.round(lowBuy.payVat ?? 0) === Math.round(highBuy.payVat ?? 0),
+    '인수 잔가가 월납을 바꿉니다 — 인수용은 만기에 받는 돈이지 대여료가 아닙니다',
+    'lib/domain/estimate/quote-lines.ts quoteCards');
+
+  /* ㉢ 원가 API 는 «다시 닫혀» 있어야 한다. 서버가 열려 있으면 화면을 아무리 가려도 새 나간다. */
+  const costRoute = code('app/api/estimate/cost/route.ts');
+  must(/const PUBLIC_READ = false/.test(costRoute),
+    '원가 API 가 누구에게나 열려 있습니다 — 영업자가 들어온 뒤로는 닫혀 있어야 합니다',
+    'app/api/estimate/cost/route.ts PUBLIC_READ');
+  const quoteRoute = code('app/api/estimate/quote/route.ts');
+  must(/customerLines\(quoteCards\(/.test(quoteRoute) && !/cost:/.test(quoteRoute.split('return NextResponse.json')[1] ?? ''),
+    '대여료 API 가 원가까지 내보냅니다 — 나가는 것은 customerLines 뿐입니다',
+    'app/api/estimate/quote/route.ts');
+
+  /* 화면 — 원가를 못 보는 사람에게는 **받아 오지도 않는다**(숨기기만 하면 개발자도구에 보인다). */
+  const pg2 = code('app/estimate/page.tsx').replace(/\s+/g, '');
+  must(pg2.includes('if(!canCost)return;') && pg2.includes('fetchSharedCost()'),
+    '원가 설정을 역할과 무관하게 받아 옵니다 — 영업자 브라우저에 원가가 내려갑니다',
+    'app/estimate/page.tsx fetchSharedCost');
+  must(pg2.includes('{canCost?(') && pg2.includes('canCost&&isOpen?('),
+    '손익·원가 분해가 역할과 무관하게 그려집니다 — 영업자 화면에는 그 줄이 없어야 합니다',
+    'app/estimate/page.tsx termGrid');
+  /* ⚠⚠ 2026-09-16 실측 — `hidden={!canCost}` 로 감췄더니 **그대로 보였다.**
+       이 줄들의 CSS 가 `display:flex`·`grid` 라 `hidden` 의 기본 `display:none` 을 덮는다.
+       ⇒ 안 보여야 하는 것은 «안 그린다». 감추기로 되돌아가면 여기서 멈춘다. */
+  must(!pg2.includes('hidden={!canCost}'),
+    '원가 칸을 `hidden` 으로 감췄습니다 — 이 줄들은 CSS 가 display 를 덮어 **그대로 보입니다**. 안 그려야 합니다',
+    'app/estimate/page.tsx');
 }
 
 if (fails.length) {

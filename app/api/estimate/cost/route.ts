@@ -80,14 +80,18 @@ function clean(raw: unknown): { ok: true; cost: CostSettings } | { ok: false; ba
 const NO_STORE = { 'Cache-Control': 'no-store' };
 
 /**
- * GET — **읽기는 «임시로» 누구나**(사장님 2026-09-08 「일단 모두 공개로 해주고 로그인할지 말지는 나중에」).
+ * GET — **읽기는 관리자·공급사만.**
  *
  * ⚠⚠ 여기서 나가는 값이 곧 **우리 원가**다 — 조달금리·대출비율·수수료·손바뀜 회당비용·잔가 가감.
- *   주소를 아는 사람은 그대로 읽는다. 「나중에」 정하실 때 **여기부터** 닫는 것을 권한다.
- *   ⇒ 닫는 법 : 아래 `PUBLIC_READ` 를 false 로 되돌린다. 명단(`canSeeEstimate`)은 지우지 않았다.
- * ★**쓰기(PUT)는 그대로 관리자만**이다 — 열면 아무나 우리 대여료를 바꿀 수 있다. 그건 안 연다.
+ *
+ * ★★2026-09-08 에 「일단 모두 공개」로 열어 두었다가 **2026-09-16 에 닫았다**
+ *   (사장님 「이거도 분리해서 freepass-견적기로 하자. 영업(자용으)로 해야 할 거고」).
+ *   영업자를 들이는 순간 이 문을 열어 두면 화면에서 원가 칸을 지워도 **주소를 아는 사람은 그대로 읽는다.**
+ *   ⇒ 닫아도 견적은 그대로 나온다 — 원가를 못 보는 사람의 대여료는 `/api/estimate/quote` 가
+ *     서버에서 세서 **값만**(대여료·보증금·선납·만기인수) 보낸다.
+ * ★**쓰기(PUT)는 그대로 관리자만**이다 — 열면 아무나 우리 대여료를 바꿀 수 있다.
  */
-const PUBLIC_READ = true;
+const PUBLIC_READ = false;
 
 export async function GET(request: Request): Promise<Response> {
   let who: Awaited<ReturnType<typeof verifyActiveBearer>> = null;

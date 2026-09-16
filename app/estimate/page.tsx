@@ -44,12 +44,13 @@ import { hasRules, isEnabled, optionList, optionSum, toggleOption, whyBlocked, g
 import { guessMarketPrice, loadCarIndex, loadNewModels, koModel, type PickedCar, type NewModel, type CarIndex } from '@/lib/domain/estimate/car-index';
 import { deltaKeyFor } from '@/lib/domain/estimate/residual-by-name';
 import { expectedTurnovers } from '@/lib/domain/estimate/turnover-cost.js';
-import { adjustResidual, configFrom, type AcqPath } from '@/lib/domain/estimate/cost-settings';
+import { type AcqPath } from '@/lib/domain/estimate/cost-settings';
 import { cachedCost, fetchSharedCost } from '@/lib/domain/estimate/cost-client';
-import { safeComputeTerm } from '@/lib/domain/estimate/safe-calc.js';
-import { createQuoteInput } from '@/lib/domain/estimate/quote-input.js';
+/* ★셈은 «한 곳»이다 — 화면(원가 보는 사람)도, 서버(영업자·손님)도 이 모듈을 부른다. */
+import { quoteCards, type Card, type CustomerLine, type QuoteAsk } from '@/lib/domain/estimate/quote-lines';
+import { showsCost } from '@/lib/domain/estimate/audience';
+import { useSession } from '@/lib/auth-context';
 import { usedResidPct, newcarResidPct } from '@/lib/domain/estimate/residual-lookup.js';
-import { monthlyRates, residualSchedule } from '@/lib/domain/estimate/residual-schedule';
 import { useIsMobile } from '@/lib/use-mobile';
 
 /** 목업 `TERMS/PCTS/CREDIT` 그대로. */
@@ -123,16 +124,14 @@ function fmtTel(tel: string) {
   if (/^1[5-9]/.test(d)) return d.length <= 4 ? d : `${d.slice(0, 4)}-${d.slice(4)}`;
   return d;
 }
+/** 값을 못 짚었으면 견적을 «안 낸다» — 지어낸 숫자보다 빈 칸이 정직하다(2026-09-08). */
+const priceKnownFor = (isNew: boolean, listPrice: number, usedPrice: number) =>
+  (isNew ? listPrice : usedPrice) > 0;
+
 const won = (n: number) => `${Math.round(n || 0).toLocaleString('ko-KR')}원`;
 const man = (n: number) => `${Math.round((n || 0) / 10000).toLocaleString('ko-KR')}만`;
 
-type Card = {
-  term: number; payVat?: number; monthlySupply?: number; months?: number;
-  /** 엔진이 세우는 깃발 — 배기량을 모르면 자동차세가 «조용히 0» 이 된다. 화면이 말해야 한다. */
-  incompleteCc?: boolean;
-  subtotal?: number; deposit?: number; residualRate?: number;
-  cost?: Record<string, number>;
-};
+/* `Card` 는 `lib/domain/estimate/quote-lines` 가 쥔다 — 화면과 서버가 같은 모양을 쓴다. */
 
 /** 손익 분해 — 목업 `prodRows()` 의 줄 구성 그대로. 값은 엔진이 낸 원가에서만 꺼낸다. */
 function pnl(c: Card, prepay: number) {
@@ -251,6 +250,13 @@ function EstimatePageInner() {
    */
   const [cost, setCost] = useState(() => cachedCost());
   const [fee, setFee] = useState(() => cachedCost().salesFeePct);
+  /**
+   * ★★**원가를 보는 사람인가** — 관리자·공급사만 참이다(SSOT = `lib/domain/estimate/audience`).
+   *   거짓이면 원가 설정을 **받아 오지도 않고**, 대여료는 서버가 세서 값만 받는다.
+   *   영업자는 고른 차와 조건, 그리고 대여료·보증금·선납·만기인수만 본다.
+   */
+  const session = useSession();
+  const canCost = showsCost(session?.role);
   const [open, setOpen] = useState<number | null>(48);
   /** 잔가는 «자동(표준+델타)»이 기본이고, 목업 STEP 4 처럼 건별로 덮어쓸 수 있다. */
   /**
@@ -310,11 +316,13 @@ function EstimatePageInner() {
   }, []);
 
   // 회사 값을 받아 덮는다 — 사장님이 정한 원가가 있으면 그것이 이긴다.
+  // ⚠ **원가를 보는 사람만** 받는다. 영업자 브라우저에는 원가가 한 톨도 내려가지 않는다.
   useEffect(() => {
+    if (!canCost) return;
     let alive = true;
     fetchSharedCost().then((r) => { if (alive) { setCost(r.cost); setFee(r.cost.salesFeePct); } }).catch(() => {});
     return () => { alive = false; };
-  }, []);
+  }, [canCost]);
 
   const isNew = cond === 'new';
   // 갈래를 바꾸면 고른 차도 그 갈래의 것으로 돌아간다 — 중고를 고른 채 신차 값이 계산되면 안 된다.
@@ -506,46 +514,52 @@ function EstimatePageInner() {
   /* 차·갈래가 바뀌면 적어 둔 «금액»은 버린다 — 율과 달리 금액은 다른 차에 옮겨 가면 뜻이 없다. */
   useEffect(() => { setResidAmtOverride({}); setBuyoutAmtOverride({}); }, [picked, isNew]);
 
-  const mk = useCallback((t: number, d: number, p: number): Card => {
-    // 신차는 «출고가»라 업금액을 안 얹는다(중고는 매입가에 얹는다) — `configFrom` 이 갈래로 고른다.
-    // 신용 구간(A/B/C)에 따라 금리·대출비율이 갈린다 — 항목은 같고 값만 다르다.
-    const base = configFrom(cost, { newCar: isNew, path: acq, credit });
-    // 수수료 칩은 영업자가 «건별»로 고른다 — 원가 설정의 기본값을 이 견적에서만 덮는다.
-    const adminCfg = { ...base, setting: { ...base.setting, salesFeeRate: { rent: fee / 100, sub: fee / 100 } } };
-    /* ★★잔가는 «다섯 점»이 아니라 **1~60개월 전부**를 넘긴다 — 사장님 2026-09-11 「1년 6개월도 잔존가를
-         알 수 있어야」. 구매가격(0개월)과 1~5년 금액 사이를 달마다 곧게 이어 율로 바꾼다.
-         해 끝(12·24…)에서는 적은 값 그대로라 다섯 칸의 대여료는 안 바뀐다. */
-    const anchors: Record<number, number> = {};
-    for (const t of TERMS) anchors[t] = residBase * residPct[t] / 100;
-    const raw: Record<number, number> = residBase > 0
-      ? monthlyRates(residualSchedule(residBase, anchors), residBase)
-      : Object.fromEntries(TERMS.map((t) => [t, residPct[t] / 100]));
-    // 「잔가로 조정」 — 원가 설정의 가감(±%p)을 곡선 전체에 얹는다(사장님 2026-09-06).
-    const residualDefault = adjustResidual(raw, cost.residualAdjustPct);
-    const input = createQuoteInput({
-      adminCfg, channel: ch, type,
-      form: {
-        price, cc, fuel: picked.fuel, accident: 'none',
-        mileage: isNew ? 0 : usedMileage, year: isNew ? nowYear : usedYear, credit,
-        /* ★판매가격 세제감면(개소세·교육세) — 손님 표시가는 「세제혜택 전」 그대로 두고
-           **원가에서만** 뺀다. 할인율만큼 감면도 같이 줄인다(할인된 차의 감면은 그 값 기준이다). */
-        saleTaxCredit: taxCredit,
-        /* 선납금은 화면이 보여 준 그 값으로 — 엔진이 다시 세지 않는다. */
-        netPrice,
-      },
-      conditions: { depositPct: d, prepayPct: p },
-      residual: null, residualDefault, credit, defaultGroup: 'B', nowYear,
-    });
-    return { ...safeComputeTerm(t, input, { idx: t }), term: t };
-  }, [ch, type, price, listPrice, isNew, credit, fee, residPct, residBase, nowYear, cost, cc,
-    picked.fuel, picked.saleTaxCredit, usedMileage, usedYear, acq]);
+  /** 견적 한 벌을 세우는 데 필요한 것 — 화면이 세든 서버가 세든 **같은 물음**이다. */
+  const ask = useMemo<QuoteAsk>(() => ({
+    channel: ch, type, acq, credit, newCar: isNew,
+    price, netPrice, saleTaxCredit: taxCredit,
+    cc, fuel: picked.fuel,
+    mileage: isNew ? 0 : usedMileage, year: isNew ? nowYear : usedYear, nowYear,
+    feePct: fee,
+    residBase, residPct, buyoutPct,
+    terms: scen.map((x) => ({ term: x.term, dep: x.dep, pre: x.pre })),
+  }), [ch, type, acq, credit, isNew, price, netPrice, taxCredit, cc, picked.fuel,
+    usedMileage, usedYear, nowYear, fee, residBase, residPct, buyoutPct, scen]);
+
+  /**
+   * ★★**원가를 보는 사람만 화면에서 센다.** 영업자·손님은 서버가 세서 값만 받는다
+   *   (사장님 2026-09-16 「영업(자용으)로 해야 할 거고」 · 2026-09-06 「원가 정보 빠진 거」).
+   *   ⚠ 화면에서 칸만 숨기면 «숨긴 것»이지 «안 준 것»이 아니다 — 원가 설정을 아예 안 받아 온다.
+   */
+  const [srvLines, setSrvLines] = useState<CustomerLine[] | null>(null);
+  useEffect(() => {
+    if (canCost) { setSrvLines(null); return; }
+    if (!priceKnownFor(isNew, listPrice, usedPrice)) { setSrvLines(null); return; }
+    let alive = true;
+    const t = setTimeout(() => {
+      fetch('/api/estimate/quote', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(ask),
+      })
+        .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+        .then((j: { lines?: CustomerLine[] }) => { if (alive) setSrvLines(Array.isArray(j.lines) ? j.lines : null); })
+        .catch(() => { if (alive) setSrvLines(null); });
+    }, 250);   // 칸을 고치는 동안 매 글자마다 묻지 않는다
+    return () => { alive = false; clearTimeout(t); };
+  }, [canCost, ask, isNew, listPrice, usedPrice]);
 
   /**
    * ★다섯 해가 «각자 제 조건»으로 선다 — 이 한 벌이 화면의 전부다.
    *   그 전에는 「기본 견적(고정 3장)」과 「손님 발송용(자유 3열)」과 「손익(오른쪽 탭)」 셋이 따로 있었다.
    *   같은 숫자를 세 군데서 세니 어디를 봐야 하는지가 흐려졌다(사장님 2026-09-08 「우측에 따로 놓지 말고」).
+   * ⚠ 원가를 못 보는 사람의 줄에는 **`cost`·`subtotal` 이 없다** — 손익표는 그래서 안 그려진다.
    */
-  const lines = useMemo<Card[]>(() => scen.map((x) => mk(x.term, x.dep, x.pre)), [mk, scen]);
+  const lines = useMemo<Card[]>(() => {
+    if (canCost) return quoteCards(cost, ask);
+    return scen.map((x) => {
+      const s = srvLines?.find((l) => l.term === x.term);
+      return { term: x.term, payVat: s?.payVat, deposit: s?.deposit, incompleteCc: s?.incompleteCc };
+    });
+  }, [canCost, cost, ask, scen, srvLines]);
 
   /**
    * ★★시세를 모르면 **견적을 안 낸다.**
@@ -755,11 +769,14 @@ function EstimatePageInner() {
           </div>
         ) : (
           <>
-            {/* 취득 경로 — 기보유면 등록·탁송·상품화가 원가에서 빠진다. */}
-            <div className="cs-field cs-field--wide">
-              <label>취득</label>
-              <Chips opts={ACQ.map((a) => ({ v: a.v, label: a.label }))} cur={acq} onPick={setAcq} />
-            </div>
+            {/* 취득 경로 — 기보유면 등록·탁송·상품화가 «원가»에서 빠진다. 그래서 원가 보는 사람만 고른다.
+                ⚠ `hidden` 이 아니라 **안 그린다**(이 줄은 CSS 가 `display:grid` 다). */}
+            {canCost ? (
+              <div className="cs-field cs-field--wide">
+                <label>취득</label>
+                <Chips opts={ACQ.map((a) => ({ v: a.v, label: a.label }))} cur={acq} onPick={setAcq} />
+              </div>
+            ) : null}
             {/* ★중고는 «무조건 시세»다(사장님 2026-09-06) — 장부가·최초매입가가 아니다. */}
             {/* ★시세는 «채워 주되 잠그지 않는다» — 사장님 2026-09-08 「평균시세는 틀릴 수 있으니까」.
                 자동으로 채운 값에는 「추정」이 붙고, 손대면 그 표시가 사라진다. */}
@@ -826,11 +843,15 @@ function EstimatePageInner() {
         <span className="pin"><input inputMode="numeric" value={pre}
           onChange={(e) => { const v = Math.max(0, Math.min(100, digits(e.target.value))); setPre(v); setScen((a) => a.map((x) => ({ ...x, pre: v }))); }} /><i>%</i></span>
       </div>
-      <div className="qc-field">
-        <label>수수료</label>
-        <span className="pin"><input inputMode="numeric" value={fee}
-          onChange={(e) => setFee(Math.max(0, Math.min(20, Number(e.target.value.replace(/[^0-9.]/g, '')) || 0)))} /><i>%</i></span>
-      </div>
+      {/* 수수료는 «우리 원가» 칸이다 — 영업자 제 몫을 스스로 올려 대여료를 바꾸면 안 된다.
+          ⚠ `hidden` 이 아니라 **안 그린다**(이 줄도 CSS 가 `display:flex` 다). */}
+      {canCost ? (
+        <div className="qc-field">
+          <label>수수료</label>
+          <span className="pin"><input inputMode="numeric" value={fee}
+            onChange={(e) => setFee(Math.max(0, Math.min(20, Number(e.target.value.replace(/[^0-9.]/g, '')) || 0)))} /><i>%</i></span>
+        </div>
+      ) : null}
     </div>
   );
   const termGrid = (
@@ -878,6 +899,10 @@ function EstimatePageInner() {
                 · 인수 잔가 = 만기에 **손님이 사 가는** 값(월납에는 «안» 들어간다)
                 ⚠ 둘을 한 값으로 묶으면 「손님에게 싸게 넘기려고 잔가를 올렸더니 대여료가 같이
                   싸지는」 사고가 난다. 그래서 나눠 둔다. */}
+            {/* ⚠ 잔가는 **우리 손잡이**다(낮출수록 대여료가 오른다) — 영업자에게는 안 준다.
+                ⚠⚠ `hidden` 으로 감추지 마라 — 이 줄은 CSS 가 `display:flex` 라 **그대로 보인다**
+                  (2026-09-16 실측). 안 보여야 하는 것은 **안 그린다.** */}
+            {canCost ? (
             <div className="term-card__cond resid2">
               {/* ★중고는 **금액(만원)**으로 적는다(사장님 2026-09-11) — 율은 머리에 작게 되짚어 보여 준다.
                      신차는 아직 율 칸 그대로다. */}
@@ -902,24 +927,30 @@ function EstimatePageInner() {
                 </span>
               </label>
             </div>
+            ) : null}
             <div className="term-card__row">
               <span>만기인수</span>
               <b>{priceKnown ? man(Math.round(netPrice * buyoutPct[sc.term] / 100)) : '—'}</b>
             </div>
 
-            {/* 수익·원가 — 이 칸의 «장부» 세 줄. 뺄셈이 눈으로 맞는다(매출 − 원가 = 영업이익). */}
-            <div className="term-card__row bk"><span>매출</span><b>{priceKnown ? man(v.rev) : '—'}</b></div>
-            <div className="term-card__row bk"><span>원가</span><b>{priceKnown ? man(cogs) : '—'}</b></div>
-            <div className={`term-card__row bk profit${priceKnown && v.opProfit < 0 ? ' neg' : ''}`}>
-              <span>영업이익{priceKnown ? <em className="resid-pct">{(v.opPct * 100).toFixed(1)}%</em> : null}</span>
-              <b>{priceKnown ? man(v.opProfit) : '—'}</b>
-            </div>
+            {/* 수익·원가 — 이 칸의 «장부» 세 줄. 뺄셈이 눈으로 맞는다(매출 − 원가 = 영업이익).
+                ★★영업자·손님에게는 **한 줄도 안 그린다** — 값 자체가 브라우저에 없다(서버가 안 보낸다). */}
+            {canCost ? (
+              <>
+                <div className="term-card__row bk"><span>매출</span><b>{priceKnown ? man(v.rev) : '—'}</b></div>
+                <div className="term-card__row bk"><span>원가</span><b>{priceKnown ? man(cogs) : '—'}</b></div>
+                <div className={`term-card__row bk profit${priceKnown && v.opProfit < 0 ? ' neg' : ''}`}>
+                  <span>영업이익{priceKnown ? <em className="resid-pct">{(v.opPct * 100).toFixed(1)}%</em> : null}</span>
+                  <b>{priceKnown ? man(v.opProfit) : '—'}</b>
+                </div>
 
-            <button type="button" className="qopen" onClick={() => setOpenTerm(isOpen ? null : sc.term)}>
-              {isOpen ? '원가 접기' : '원가 펼치기'}
-            </button>
+                <button type="button" className="qopen" onClick={() => setOpenTerm(isOpen ? null : sc.term)}>
+                  {isOpen ? '원가 접기' : '원가 펼치기'}
+                </button>
+              </>
+            ) : null}
 
-            {isOpen ? (
+            {canCost && isOpen ? (
               <div className="qdetail">
                 <div className="term-card__row"><span>차량 감가</span><b>−{man(v.dep)}</b></div>
                 <div className="term-card__row"><span>금융비용</span><b>−{man(v.interest)}</b></div>
@@ -1093,7 +1124,7 @@ function EstimatePageInner() {
              · 보증금·선납은 **칸마다** 잡는다(그게 「설계」다). 위 조건 줄은 다섯 칸을 한꺼번에 바꾼다.
              · 「원가」를 누르면 그 칸 «안»에서 분해가 열린다. 다섯을 한꺼번에 펼쳐 견줄 수도 있다.
              ⚠ 짜임은 원본 `.term-card` 그대로다. 원본은 셋이고 우리는 다섯이라 열 수만 늘렸다. ══ */}
-        <div className="qp-terms__title">기간별 설계 <small>· 칸마다 조건·잔가 · 「원가」를 누르면 분해</small></div>
+        <div className="qp-terms__title">기간별 설계 <small>{canCost ? '· 칸마다 조건·잔가 · 「원가」를 누르면 분해' : '· 칸마다 기간·보증금·선납을 잡는다'}</small></div>
         {termGrid}
 
         {/* ══ 손님·담당자 — **맨 아래**다 ═════════════════════════════════════
@@ -1127,8 +1158,11 @@ function EstimatePageInner() {
           </button>
         </div>
 
+        {/* ⚠ 원가를 못 보는 사람에게 「원가설정」 링크를 주지 않는다 — 눌러도 막히는 문이고,
+               우리 원가 화면이 있다는 것을 굳이 알릴 자리도 아니다. */}
         <div className="footnote">
-          금액은 부가세 포함 월 대여료 · 잔가는 국산 표준곡선 + 차종델타 · 원가는 <Link href="/estimate/cost">원가설정</Link>이 정한 값<br />
+          금액은 부가세 포함 월 대여료 · 잔가는 국산 표준곡선 + 차종델타
+          {canCost ? <> · 원가는 <Link href="/estimate/cost">원가설정</Link>이 정한 값</> : null}<br />
           조달금리·손바뀜·취득세·공채·등록비·자동차세·보험·정비 반영 · 업계 기준선 추정<br />
           실채택 전 엔카·KB차차차 실시세 검산 필요
         </div>

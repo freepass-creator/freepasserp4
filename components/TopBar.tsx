@@ -58,8 +58,10 @@ const GROUPS: { title: string; items: { href?: string; label: string; icon: Luci
          화면은 살려 둔다 — 계약 원자가 거기 걸려 있어 지금 헐면 계약관리·정산이 같이 끊긴다. */
     { href: '/contract', label: NAV_LABEL.contract, icon: NAV_ICON.contract, roles: ['agent', 'provider'], hideAdmin: true },
     { href: '/inventory', label: NAV_LABEL.inventory, icon: NAV_ICON.inventory, roles: ['provider', 'admin'] },
-    // 견적 — 원가·마진이 보인다. 명단 SSOT = lib/domain/estimate/audience(관리자·공급사).
-    { href: '/estimate', label: NAV_LABEL.estimate, icon: NAV_ICON.estimate, roles: ['provider', 'admin'] },
+    /* 견적 — 2026-09-16 부터 **영업자도 든다**(사장님 「영업(자용으)로 해야 할 거고」).
+       영업자 화면에는 원가·마진·잔가가 없다 — 명단 SSOT = lib/domain/estimate/audience
+       (`canSeeEstimate` = 화면 · `showsCost` = 원가). */
+    { href: '/estimate', label: NAV_LABEL.estimate, icon: NAV_ICON.estimate, roles: ['agent', 'provider', 'admin'] },
   ] },
   // ② 관리자 — 일이 이어지는 차례대로(계약을 보내고 → 정산하고 → 사람·회사를 관리한다).
   { title: '', items: [
