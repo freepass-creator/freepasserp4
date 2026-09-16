@@ -27,7 +27,19 @@ CLI 연결 여부와 무관하게 이 저장소를 여는 누구나 여기부터
 
 **정정(2026-09-16, 병합 시도 실제 실행)**: 이 3개를 직접 `git merge origin/main`해보니 **각각 40개 이상 파일 충돌**이 났다 — 공통 조상이 main보다 417커밋 뒤처져 있어 브랜치 자체가 너무 오래됨(낡은 문서·삭제된 파일·78,913줄짜리 옛 JSON 등, 진짜 기능 파일이랑 무관한 충돌 다수). **직접 merge 금지.**
 
-**올바른 경로**: 브랜치 전체를 합치지 말고, 진짜 신규 기능 파일(`lib/domain/inventory-contract.ts`, `lib/domain/photo-projection.ts`, `lib/server/sales-publish-snapshot.ts`, `sonokong/lib/tcar-options.mjs`, `lib/server/source-snapshot.ts`)을 만든 **실제 커밋 2~3개만 골라 현재 main 위에 `git cherry-pick`**한다. 세 브랜치의 신규 기능 파일끼리는 서로 안 겹친다(순서 상관없음). `lib/server/sales-publish-snapshot.ts`는 `freepasserp4-0d` 세션이 별도 브랜치(`claude/f86-on-gate`)에서 한 줄 export만 추가하는 중이라 실제 충돌 위험 낮음(2026-09-16 직접 확인).
+**정정(2026-09-16, 실제 cherry-pick 시도 완료)**: 커밋 전체를 그대로 cherry-pick해도 안 된다 — 각 커밋이 신규 기능 파일 외에 main에서 이미 삭제된 옛 스크립트 15개 이상을 같이 건드려서 modify/delete 충돌이 난다. **파일 단위로 골라내야 한다.** 정확한 커밋 SHA와 명령:
+
+```bash
+git checkout -b feat/cherry-picks main
+git cherry-pick d96d0a0f                    # source-snapshot-engine, 충돌 없이 깨끗하게 적용됨
+git checkout df92c014 -- sonokong/lib/tcar-options.mjs scripts/fix-tcar-description-options.mts
+git checkout 16b565a2 -- sonokong/lib/tcar-options.mjs sonokong/scripts/손오공.mjs   # 손오공.mjs는 수동 병합 필요
+git checkout 18338c6d -- lib/domain/inventory-contract.ts lib/server/sales-publish-snapshot.ts
+git checkout c01944f6 -- lib/domain/photo-projection.ts
+npm ci && npm run typecheck
+```
+
+`sales-publish-snapshot.ts`는 `freepasserp4-0d` 세션이 별도 브랜치(`claude/f86-on-gate`)에서 export 1개만 추가 중이라 실제 충돌 위험 낮음(2026-09-16 직접 확인). typecheck는 격리 워크트리에 node_modules가 없어서 이번 세션에서 실행 못 함 — 사람이 직접 돌려야 한다.
 
 **이미 main에 흡수됐거나 사소해서 버려도 되는 것**: `codex/erp5-publication-gate-current`(순수 subset), `codex/erp5-publication-gate`(main에 이미 있음), `codex/contract-status-erp5-main`/`codex/freepass-freshness-audit`/`codex/source-registry-v2`(main 대비 진짜 미흡수분은 1~3커밋뿐, 이미 main에 있음), `codex/source-registry-current`(문서만).
 
@@ -44,7 +56,7 @@ CLI 연결 여부와 무관하게 이 저장소를 여는 누구나 여기부터
 
 ## 다음 한 작업
 
-3개 브랜치는 전체 병합이 아니라 실제 기능 커밋만 골라 `git cherry-pick`한다(위 "올바른 경로" 참조). hourly-sync 55시간 공백 원인 확인이 더 급함(실운영 손님 화면에 바로 보이는 문제).
+위 cherry-pick 명령 시퀀스를 실제로 실행하고 `npm run typecheck` 확인(담당 세션 배정 필요 — 이번 세션은 준비만 함). hourly-sync 55시간 공백 원인 확인이 더 급함(실운영 손님 화면에 바로 보이는 문제).
 
 ## 마지막 실제 검증
 
