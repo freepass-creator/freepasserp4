@@ -1,0 +1,91 @@
+{
+  "$왜": [
+    "★2026-09-16 — check:store 가 CI 에 걸려 있지 «않았다». 그래서 자가진단이 깨진 채",
+    "exit 1 을 내고 있었는데 아무도 몰랐고, 그 뒤에 「RTDB 직접 여는 파일 24→0 인데 기준이 24」가",
+    "숨어 있었다(23 개를 새로 만들어도 통과하는 상태). 「걸어야 할 검사기가 빠졌다」를 «사람이»",
+    "눈치채야 하는 구조 자체가 구멍이다. 이 정본이 그 판정을 기계에 넘긴다.",
+    "",
+    "★★수동 전용에는 «반드시 이유»를 적는다. 이유 없이 빼는 것이 바로 그 구멍이다.",
+    "★★「모른다」를 「없다」로 바꾸지 않는다 — 통과 여부를 실측 못 한 것은 pending 에 둔다.",
+    "",
+    "검사: npm run check:workflows (scripts/check-workflows.mts ③절). CI 에 걸려 있다.",
+    "package.json 의 check:* · test:* · sim:* 는 하나도 빠짐없이 아래 셋 중 «한 군데»에 있어야 한다."
+  ],
+  "$형식": {
+    "required": "CI 에 반드시 걸려야 한다. workflow 를 안 적으면 ci.yml 의 run: 블록에서 호출돼야 한다.",
+    "manual": "수동 전용. reason 필수 — 외부 접속·자격증명·인자·상태의존 등 «못 거는 까닭».",
+    "pending": "지금은 못 건다. reason 필수 — 실패 중이거나 통과를 실측하지 못했다."
+  },
+  "ci_workflow": ".github/workflows/ci.yml",
+  "required": {
+    "check:fonts": { "why": "폰트 토큰 가드" },
+    "check:tokens": { "why": "디자인 토큰 가드" },
+    "check:finder-rows": { "why": "상품찾기 격자 행 수 = 자식 수" },
+    "check:design": { "why": "확정 디자인 규격" },
+    "check:building": { "why": "건물도면 등록" },
+    "check:ui": { "why": "UI 계약 — 원자·radius" },
+    "check:speed": { "why": "조건칸 비싼 칸 열람 횟수 예산" },
+    "check:brand": { "why": "채널 간판 투명·여백 0·공유 미리보기" },
+    "check:workflows": { "why": "워크플로가 읽히는가 + 자격증명 준비 + 이 정본 대조" },
+    "check:schedules": { "why": "예약 지도" },
+    "check:erp5-firebase": { "why": "ERP4·ERP5 같은 Firebase" },
+    "check:store": { "why": "★RTDB 스왑점 밖 직접 열기. 오늘 빠져 있던 바로 그 자다" },
+    "check:estimate": { "why": "견적·원가 로직 정본" },
+    "test:estimate": { "why": "견적 회귀 엑셀 대조 39건" },
+    "check:no-client-sheet-live-status": { "why": "화면이 시트를 직접 읽지 않는가" },
+    "check:nortdb": { "why": "정산 원자가 RTDB 를 안 본다 — RTDB 영구 폐기 빗장. 읽기 전용·실측 통과" },
+    "check:shop-data-parity": { "why": "웹·모바일이 같은 Firestore 피드를 쓰는가. 외부 접속 없음·실측 통과" },
+    "check:guest": { "why": "손님 동 간판을 갈아쳐도 업무동이 안 물드는가. 읽기 전용·실측 통과" },
+    "check:guest-fields": { "why": "손님 화면이 샘의 공통 칸을 다 싣는가. 읽기 전용·실측 통과" },
+    "check:template-drift": { "why": "공유 부속서식 표류. 읽기 전용·실측 통과" },
+    "check:axes": { "why": "축 레지스트리 ↔ 코드 여섯 곳. 외부 접속 없음·실측 통과" },
+    "check:pipeline": { "why": "판매시트 @매핑·공급사 행렬 규칙. 외부 접속 없음·실측 통과" },
+    "check:manual": { "why": "매뉴얼이 코드와 어긋났는가. sheet-sync.yml 은 예약 동기라 PR 을 못 막는다 — ci.yml 에도 건다" },
+    "check:crosscheck": { "why": "찾은 사람이 자기 건을 검증했는가. 문서만 읽는다·실측 통과" },
+    "check:options": { "why": "선택옵션 파서가 없는 옵션을 만들지 않는가. 읽기 전용·실측 통과" },
+    "check:fence": { "why": "공급사 채널 울타리가 모든 문에 섰는가. 읽기 전용·실측 통과" },
+    "check:whitelabel": { "why": "채널이 바꿀 수 있는 것과 문서의 일치. 읽기 전용·실측 통과" },
+    "check:settlement": {
+      "why": "정산 시트 규격 빗장. ci.yml 옛 주석은 「아직 빨간불이라 안 건다」였으나 2026-09-16 origin/main 에서 실측 exit 0 — 빨간불이 풀렸으므로 건다"
+    },
+    "sim:erp5-product-ssot": {
+      "workflow": ".github/workflows/publish-erp5-ssot.yml",
+      "why": "ERP5 상품 공개 경계 회귀. 발행 워크플로가 발행 직전에 돌린다"
+    },
+    "sim:erp5-vehicle-master-ssot": {
+      "workflow": ".github/workflows/publish-erp5-ssot.yml",
+      "why": "ERP5 차종마스터 경계 회귀. 발행 워크플로가 발행 직전에 돌린다"
+    }
+  },
+  "manual": {
+    "check:encar-spec-fill": {
+      "reason": "기본 원자 경로가 «저장소 밖» 로컬 절대경로다(C:/Users/admin/encar-market-survey/reports/atom_draft_rows.json). --atoms= 로 파일을 주지 않으면 리눅스 CI 에서 ENOENT 로 죽는다. ★2026-09-16 CI 에서 실제로 그렇게 실패했다 — 로컬은 그 파일이 있어 통과했고, 나는 «읽기 전용·외부 접속 없음»으로만 보고 «내 PC 에만 있는 파일»이라는 축을 안 봤다. 같은 무늬를 sales-erp-hourly 의 알림 경로에서도 겪었다(윈도우 절대경로가 리눅스 러너에서 깨짐)"
+    },
+    "check:atoms": {
+      "reason": "서비스 계정 열쇠(tmp/firebase-auth/sa.json)가 있어야 실제로 잰다. 없으면 «건너뛰고 exit 0» 이라 CI 에 걸어도 초록불만 주는 거짓 안심이 된다"
+    },
+    "check:columns": { "reason": "Firebase 서비스 계정 열쇠 필요 — 없으면 ENOENT tmp/firebase-auth/sa.json 로 죽는다" },
+    "check:photo-link": { "reason": "Firebase 서비스 계정 열쇠 필요 — 없으면 ENOENT tmp/firebase-auth/sa.json 로 죽는다" },
+    "check:party-code": { "reason": "Firebase 서비스 계정 열쇠 필요 — 없으면 ENOENT tmp/firebase-auth/sa.json 로 죽는다" },
+    "check:vehicle-trim-master": { "reason": "생성기(--check). Firebase 서비스 계정 열쇠 필요 — 없으면 ENOENT tmp/firebase-auth/sa.json" },
+    "check:deployed": { "reason": "--fetch 로 원격을 당겨 «운영에 없는 화면 커밋»을 센다. 배포 상황판이지 PR 게이트가 아니다" },
+    "check:branches": { "reason": "열린 가지의 충돌·묵음을 재는 상황판. 원격 가지 상태에 따라 매번 답이 바뀌어 PR 을 막는 잣대가 못 된다" },
+    "check:order": { "reason": "오더 문서 경로를 «인자로» 받는다(<오더.md>). 인자 없이는 사용법만 찍고 exit 1" },
+    "check:sync": { "reason": "check:axes + check:pipeline + check:manual 묶음 별칭. 셋이 각각 required 라 CI 에서 또 부르지 않는다" }
+  },
+  "pending": {
+    "check:release": {
+      "reason": "지금 FAIL — 없는 파일 lib/firebase/migrate-products.ts 를 열다 ENOENT 로 죽는다(2026-09-16 origin/main 실측). 검사기를 먼저 고쳐야 걸 수 있다"
+    },
+    "check:b2b-release": {
+      "reason": "지금 FAIL — NO-GO · PASS 12 · FAIL 24(브리지 구성 파일 lib/firebase/rtdb-adapter.ts 등, 2026-09-16 origin/main 실측). RTDB 폐기와 얽혀 있어 판정부터 정리해야 한다"
+    },
+    "sim:vehicle-trim-operational": { "reason": "순수 회귀(외부 접속 없음)로 보이나 이 작업의 실행 허가 밖이라 통과를 실측하지 못했다 — 「없다」가 아니라 「모른다」" },
+    "sim:vehicle-master-seat-axis": { "reason": "순수 회귀로 보이나 통과를 실측하지 못했다 — 실측 후 required 로 올린다" },
+    "sim:vehicle-master-review-adoption": { "reason": "순수 회귀로 보이나 통과를 실측하지 못했다 — 실측 후 required 로 올린다" },
+    "sim:erp5-codes": { "reason": "순수 회귀로 보이나 통과를 실측하지 못했다 — 실측 후 required 로 올린다" },
+    "sim:sales-pending-identity": { "reason": "순수 회귀로 보이나 통과를 실측하지 못했다 — 실측 후 required 로 올린다" },
+    "sim:sales-authoritative": { "reason": "순수 회귀로 보이나 통과를 실측하지 못했다 — 실측 후 required 로 올린다" },
+    "sim:sales-backup": { "reason": "순수 회귀(server-only shim)로 보이나 통과를 실측하지 못했다 — 실측 후 required 로 올린다" }
+  }
+}

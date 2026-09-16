@@ -171,8 +171,108 @@ for (const f of readdirSync(DIR)) {
   }
 }
 
-if (!hits.length && !gaps.length) {
-  console.log(`\n  ✓ 워크플로 ${files}개 — 「돌기 전에 죽는」 문법 없음 · 자격증명 준비 구멍 없음\n`);
+/**
+ * ─────────────────────────────────────────────────────────────────────
+ * ③ 「걸어야 할 검사기가 CI 에 빠져 있다」 — 2026-09-16 사고.
+ *
+ * `check:store` 가 CI 에 걸려 있지 «않았다». 그래서 자가진단이 깨진 채 exit 1 을 내고 있었는데
+ * 아무도 몰랐고, 그 뒤에 「RTDB 직접 여는 파일 24→0 인데 기준은 24 로 방치」가 숨어 있었다 —
+ * 23 개를 새로 만들어도 통과하는 상태였다. **안 걸린 검사기는 «없는 것»과 같다.**
+ * ⇒ 그 판정을 사람 눈에 맡기지 않는다. 정본 = scripts/ci-checker-manifest.json.
+ *
+ * ★여기서도 「부른다」는 `run:` 안에서만 참이다 — 위 runBodies() 를 그대로 쓴다.
+ *   (`on.push.paths` 의 변경 감시 목록을 호출로 세면 안 된다. 실제로 한 번 오인했었다.)
+ */
+const MANIFEST = 'scripts/ci-checker-manifest.json';
+type Entry = { workflow?: string; why?: string; reason?: string };
+type Manifest = {
+  ci_workflow: string;
+  required: Record<string, Entry>;
+  manual: Record<string, Entry>;
+  pending: Record<string, Entry>;
+};
+
+const manifestGaps: string[] = [];
+const manifest = JSON.parse(readFileSync(MANIFEST, 'utf8')) as Manifest;
+const pkgScripts = (JSON.parse(readFileSync('package.json', 'utf8')) as { scripts: Record<string, string> }).scripts;
+const governed = Object.keys(pkgScripts).filter((k) => /^(check|test|sim):/.test(k));
+
+const runsByWorkflow = new Map<string, string>();
+for (const f of readdirSync(DIR)) {
+  if (!/\.ya?ml$/.test(f)) continue;
+  const noComments = readFileSync(`${DIR}/${f}`, 'utf8')
+    .split(/\r?\n/)
+    .filter((l) => !l.trimStart().startsWith('#'));
+  runsByWorkflow.set(`${DIR}/${f}`, runBodies(noComments));
+}
+
+/** `npm run check:guest` 가 `check:guest-fields` 를 먹지 않게 경계를 둔다. */
+function invokes(workflow: string, script: string): boolean {
+  const runs = runsByWorkflow.get(workflow);
+  if (runs === undefined) return false;
+  const esc = script.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`npm run ${esc}(?![\\w:-])`).test(runs);
+}
+
+const sections: Array<['required' | 'manual' | 'pending', Record<string, Entry>]> = [
+  ['required', manifest.required],
+  ['manual', manifest.manual],
+  ['pending', manifest.pending],
+];
+
+// ① 정본에 등재되지 않은 스크립트 — 「빼먹었다」가 바로 오늘의 구멍이다.
+for (const name of governed) {
+  const found = sections.filter(([, m]) => name in m).map(([s]) => s);
+  if (!found.length) {
+    manifestGaps.push(
+      `  ${name}\n      package.json 에 있는데 ${MANIFEST} 에 «없다».\n` +
+        `      required(CI 필수) · manual(수동 전용+이유) · pending(못 거는 이유) 중 한 곳에 등재해라.`,
+    );
+  } else if (found.length > 1) {
+    manifestGaps.push(`  ${name}\n      ${MANIFEST} 의 두 곳(${found.join(', ')})에 겹쳐 있다.`);
+  }
+}
+
+// ② 정본에만 있고 package.json 에 없는 유령 항목
+for (const [section, entries] of sections) {
+  for (const name of Object.keys(entries)) {
+    if (!(name in pkgScripts)) {
+      manifestGaps.push(`  ${name}\n      ${MANIFEST} 의 ${section} 에 있는데 package.json 에 그런 스크립트가 없다.`);
+    }
+  }
+}
+
+// ③ required 가 실제 워크플로의 run: 에서 불리는가
+for (const [name, entry] of Object.entries(manifest.required)) {
+  if (!(name in pkgScripts)) continue;
+  const wf = entry.workflow ?? manifest.ci_workflow;
+  if (!runsByWorkflow.has(wf)) {
+    manifestGaps.push(`  ${name}\n      정본이 가리키는 워크플로 ${wf} 가 없다.`);
+    continue;
+  }
+  if (!invokes(wf, name)) {
+    manifestGaps.push(
+      `  ${name}\n      «필수»인데 ${wf} 의 run: 에서 안 부른다.\n` +
+        `      (2026-09-16 check:store 가 바로 이랬다 — 깨진 채로 아무도 몰랐다)\n` +
+        `      고치기: ${wf} 에 스텝을 더하거나, 못 걸 이유가 있으면 정본의 manual/pending 으로 옮기고 «이유»를 적어라.`,
+    );
+  }
+}
+
+// ④ manual·pending 은 «이유»가 없으면 등재로 인정하지 않는다. 이유 없이 빼는 것이 구멍이다.
+for (const section of ['manual', 'pending'] as const) {
+  for (const [name, entry] of Object.entries(manifest[section])) {
+    if (!entry || !entry.reason || !entry.reason.trim()) {
+      manifestGaps.push(`  ${name}\n      ${section} 에 «reason» 이 없다. 이유 없이 CI 밖에 두지 마라.`);
+    }
+  }
+}
+
+if (!hits.length && !gaps.length && !manifestGaps.length) {
+  console.log(
+    `\n  ✓ 워크플로 ${files}개 — 「돌기 전에 죽는」 문법 없음 · 자격증명 준비 구멍 없음\n` +
+      `  ✓ 검사기 정본 ${governed.length}개 전부 등재 — 필수 ${Object.keys(manifest.required).length}개가 모두 워크플로 run: 에서 불린다\n`,
+  );
   process.exit(0);
 }
 
@@ -188,6 +288,13 @@ if (gaps.length) {
   for (const g of gaps) console.log(g + '\n');
   console.log('  시크릿은 등록돼 있어도 «파일로 써 주는 준비 단계»가 없으면 아무 소용이 없다.');
   console.log('  (2026-09-16: sales-erp-hourly.yml 이 이것 하나로 매 회차 죽었다)\n');
+}
+
+if (manifestGaps.length) {
+  console.log(`\n  ✗ 검사기 정본(${MANIFEST}) 과 어긋난다 — ${manifestGaps.length}건\n`);
+  for (const g of manifestGaps) console.log(g + '\n');
+  console.log('  안 걸린 검사기는 «없는 것»과 같다.');
+  console.log('  (2026-09-16: check:store 가 CI 밖에서 깨진 채 서 있었고, 그 뒤에 RTDB 기준 24 방치가 숨어 있었다)\n');
 }
 
 process.exit(1);
