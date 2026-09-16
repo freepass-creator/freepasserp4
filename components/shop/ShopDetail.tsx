@@ -1213,8 +1213,8 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
             {specs.length ? (
               <div style={{ marginBottom: SHOP.sp.snug, fontSize: SHOP.fs.cap, fontWeight: 600, color: C.mute }}>제원</div>
             ) : null}
-            {/* 격자 = 제원. 웹은 무리가 «띠»로 옆에 붙고 폰은 두 칸으로 쌓는다. */}
-            {specs.length ? <Facts rows={specs} cols={mobile ? 2 : 4} mobile={mobile} /> : null}
+            {/* 제원 = **보조 줄**로 쭉 붙인다(위 `dense` 머리말). 웹·폰 같은 짜임이다. */}
+            {specs.length ? <Facts rows={specs} cols={mobile ? 2 : 4} mobile={mobile} dense /> : null}
           </>
         </Sec>
       ) : null}
@@ -1634,10 +1634,54 @@ function Sec({ title, icon, accent, tag, mobile, children }: {
  * ⇒ **폰 = «쌓기»**. 두 칸 격자에 무리마다 줄을 끊어 쌓는다. 좁은 화면에서는 옆에 붙일 자리가
  *   없으니 띠가 곧 줄이다. 같은 데이터·같은 차례, 짜임만 다르다.
  */
-function Facts({ rows, cols, mobile }: {
+function Facts({ rows, cols, mobile, dense }: {
   rows: FactRow[]; cols: number; mobile?: boolean;
+  /**
+   * **보조 줄로 «쭉 붙여» 쓴다** — 격자가 아니라 흐르는 한 줄(여러 줄로 접힌다).
+   *
+   * ★★★사장님 2026-09-16 「그리고 **위계를 좀 잡자**고 · 아까 전에 **그룹처럼 뒀고**
+   *   **제원은 약간 보조처럼 쭉 붙여서** 쓰면 될 거 같은데」 · 「아까 샘플 사진 준 거 있잖아 ·
+   *   우리도 그런 식으로 **위계를 좀 잡고 디자인을 살짝** 바꾸자는 거여」.
+   *
+   * ★그래서 위계가 둘이 된다 — 위 그룹(세부모델 및 트림·선택옵션·색상)은 «큰 값»,
+   *   제원은 «작고 조용한 값». 손님이 먼저 보는 것과 확인하러 보는 것이 눈에 갈린다.
+   * ★★**덤으로 «빈 칸»이 사라진다.** 격자일 때는 칸 수가 3+4 라 웹 첫 줄 오른쪽이 비었다
+   *   (사장님이 9/8 에 「4개 4개」로 맞춰 두셨던 자리 — 색상이 위로 올라가며 깨졌다).
+   *   흐르는 줄은 칸 수를 안 세므로 채울 값을 «지어낼» 이유가 없다.
+   * ★무리(㉠㉡) 사이는 **얇은 세로선** 하나로 남긴다 — 격자에서는 빈 줄이 그 일을 했다.
+   *   뜻 묶음을 잃으면 일곱 칸이 한 덩어리로 뭉개진다.
+   */
+  dense?: boolean;
 }) {
   if (!rows.length) return null;
+
+  if (dense) {
+    return (
+      <div style={{
+        display: 'flex', flexWrap: 'wrap', alignItems: 'baseline',
+        columnGap: SHOP.sp.edge, rowGap: SHOP.sp.snug,
+      }}>
+        {rows.map((row, i) => (row[0] === GROUP_BREAK ? (
+          /* 무리 경계 — 글자 높이만큼의 얇은 선. 줄이 접히면 저절로 사라져도 무리는 줄바꿈으로 읽힌다. */
+          <span key={`break-${i}`} aria-hidden style={{
+            alignSelf: 'stretch', width: 1, background: C.line2, margin: `${SHOP.sp.tight}px 0`,
+          }} />
+        ) : (
+          <span key={row[0]} style={{
+            /* 라벨-값은 «붙고», 칸-칸은 갈린다 — 안쪽 4(tight) 대 바깥 16(edge)으로 4배 차다. */
+            display: 'inline-flex', alignItems: 'baseline', gap: SHOP.sp.tight, whiteSpace: 'nowrap',
+          }}>
+            <span style={{ fontSize: SHOP.fs.cap, color: C.faint, letterSpacing: '0.01em' }}>{row[0]}</span>
+            <span style={{
+              fontSize: SHOP.fs.sub,
+              fontWeight: row[1] === '미입력' ? 400 : 600,
+              color: row[1] === '미입력' ? C.faint : C.ink,
+            }}>{row[2] ?? row[1]}</span>
+          </span>
+        )))}
+      </div>
+    );
+  }
 
   const cell = (row: FactRow, key: string, minWidth?: number) => {
     const [k, v, node] = row;
