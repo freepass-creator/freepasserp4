@@ -204,11 +204,22 @@ const data = TAB_ORDER.map((t) => {
 });
 await api(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}/values:batchUpdate`, { method: 'POST', body: JSON.stringify({ valueInputOption: 'RAW', data }) });
 
+// ★탭을 매번 새로 만들지 않고 «제자리 갱신」하므로(위 주석) 조건부서식을 지우지 않으면 회차마다
+//   쌓인다 — 2026-09-16 실측 「구분」 칸 한 곳에 101개(옛 색 헥스까지 그대로 남아 있었다).
+//   publish-origin-tab.mts(F01 갈래탭)는 이미 이렇게 지우고 다시 쌓는다 — 여기도 같은 꼴로 맞춘다.
+const nowMeta = await api(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}?fields=sheets.properties(sheetId,bandedRanges(bandedRangeId),conditionalFormats)`);
+const metaByGid = new Map<number, any>(((nowMeta.sheets || []) as any[]).map((s) => [Number(s.properties?.sheetId), s]));
+
 const fmt: Record<string, unknown>[] = [];
 for (const t of TAB_ORDER) {
   const gid = gidByBase[t], HEAD = headerCache[t];
+  const sheetMeta = metaByGid.get(gid) || {};
   fmt.push({ updateSheetProperties: { properties: { sheetId: gid, gridProperties: { frozenRowCount: 1 } }, fields: 'gridProperties.frozenRowCount' } });
-  fmt.push(...buildSalesFormatRequests({ gid, columns: HEAD, widths: columnWidths(HEAD, bodies[t]), tabTitle: t, body: bodies[t] }));
+  fmt.push(...buildSalesFormatRequests({
+    gid, columns: HEAD, widths: columnWidths(HEAD, bodies[t]), tabTitle: t, body: bodies[t],
+    bandedRangeIds: ((sheetMeta.bandedRanges || []) as any[]).map((b) => Number(b.bandedRangeId)),
+    conditionalFormatCount: ((sheetMeta.conditionalFormats || []) as unknown[]).length,
+  }));
 }
 for (let i = 0; i < fmt.length; i += 200) await api(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests: fmt.slice(i, i + 200) }) });
 
