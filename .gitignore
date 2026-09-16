@@ -52,3 +52,11 @@ scripts/.order-base/
 
 # 손오공 자격증명·토큰·원문 덤프 (절대 커밋 금지)
 sonokong/lib/wonja/
+
+# 임시 조사 스크립트 — 세션 중 만들고 버리는 것이다 (2026-09-16, 32개가 작업트리에 쌓여 있었다)
+tmp-*.mjs
+tmp-*.mts
+tmp-pr-body*
+
+# 다중 에이전트 lease/audit 런타임 산출물 — 사람이 만든 파일이 아니다
+/.coordination/
