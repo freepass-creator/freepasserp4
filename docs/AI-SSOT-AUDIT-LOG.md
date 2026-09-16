@@ -1421,7 +1421,7 @@ current `lib/domain/mirror-sources.ts`의 RP023:
 - production canonical `MASTER_CATEGORY_COLORS['분류']['픽업구독']`은 여전히 `#C2185B`
 - `sales-erp-hourly.yml`은 실제 schedule dispatch 이력과 최근 credential-path 복구가 있는 active-capable writer
 - canonical source는 RP006=`ironrentcar.com`, RP012=`sokrc.com/api`, RP023=RebornCar
-- 손오공=`손오공구독`, 오토플러스=`오플구독`, 공급사 고유 기간/주행거리/요금 축 보존
+- 손오공=`손오공구독`, 오토플러스=`오플구독`, 공급사 고유 기간·주행거리·요금 축 보존
 
 최근 main의 애플리케이션/운영 구현 기준 주요 변경은 PR #319 merge `a607a4e26d1be841c530a6b0bd504f65038408f4`까지이며, 그 이후 `c7a2db6...`, `f96aff2...`, `c64f45e...`는 감사 문서 계열이다. 이번 ChatGPT 감사에서도 애플리케이션 코드나 비즈니스 로직은 수정하지 않았다.
 
@@ -1432,3 +1432,68 @@ current `lib/domain/mirror-sources.ts`의 RP023:
 3. RP023 옛 Google Sheet mirror를 canonical source로 승격시키지 않는다. RP023 canonical은 계속 RebornCar다.
 4. 픽업구독 색은 `MASTER_CATEGORY_COLORS['분류']` 단일 SSOT에서만 해결한다.
 5. `1f923d27...` 기준 정규 production scheduled 회차의 F01/F86 전체 감사 성공 여부를 확인한다.
+
+---
+
+## 2026-09-16(15) — ChatGPT 독립 감사: RTDB direct-open 24→0 CI 래칫 해소, writer/source-contract HOLD 유지
+
+### A. 해소됨 — app/lib/components의 RTDB 직접 문 열기가 0으로 내려가고 main CI에 고정됨
+
+**판정: 구현 개선 확인 / RTDB direct-open debt 해소**
+
+current main 구현 기준 핵심 변경은 PR #321 / commit `fa8915319afbd0c61affe01d99895db0e5ef9c8a`다.
+
+- `scripts/check-store-canon.mts`의 self-test가 실제 production 파일이 계속 RTDB를 직접 열고 있어야 성립하던 구조에서 **합성 in-memory 표본 기반**으로 변경됨.
+- 정적/admin import, dynamic import, `require`, re-export, 이어 붙인 specifier는 반드시 잡고, 주석·문자열·Firestore import는 잡지 않는 대조군을 사용함.
+- `app`, `lib`, `components`에서 명시적 swap/adapter gate를 제외한 RTDB 직접 열기 baseline이 **24 → 0**으로 내려감.
+- `.github/workflows/ci.yml`에 `npm run check:store`가 실제 연결되어 새 직접 RTDB 접근이 생기면 generic CI에서 실패하도록 래칫이 걸림.
+
+최신 main `294ecce4eb84109bd2e5244a89dca11fa0446cd7`의 CI run `35062421549`는 **completed / success**다. 따라서 이 검사는 코드에만 존재하는 것이 아니라 현재 main에서 실제 CI-enforced + green 상태다.
+
+상세 근거: `docs/ai-ssot-audit/2026-09-16-chatgpt-rtdb-zero-ratchet.md` (evidence commit `8155cf6e13dd68be0e1341c316c80f1d9f3bf3aa`).
+
+### B. 경계 확인 — RTDB 0은 writer topology 단일화 해소가 아님
+
+PR #321의 `0`은 **app/lib/components가 스왑점을 우회해 RTDB SDK 문을 직접 여는가**를 재는 값이다. scheduled writer 자체의 존재/권한을 없앤 것은 아니다.
+
+current main 재확인:
+
+- `.github/workflows/mirror-sync.yml`: `*/30 * * * *`, repository-level fail-closed guard 없음, schedule이면 `sync-mirror-all.mts --apply`
+- `.github/workflows/sales-erp-hourly.yml`: `0 0-9 * * 1-5`, schedule이면 `cloud-hourly-sync.mts --apply`
+- `lib/domain/mirror-sources.ts` RP023 `from`: 옛 Google Sheet `1TJBG4PABgly7EtGG6Os5GcY9La7kDR_yex56KHhXe2U`
+- canonical `inventory-source-registry.ts` RP023: RebornCar
+
+따라서 `(14)`의 **두 legacy schedule을 active-capable writer로 보고 repository 수준 ownership/disable을 정리해야 한다**는 판정은 그대로다. `RTDB direct-open 0`을 근거로 이 항목을 닫으면 안 된다.
+
+### C. HOLD 유지 — current production pin과 Source Contract allowlist 불일치 그대로
+
+current `.github/workflows/erp5-ssot-refresh.yml` production ref는 계속:
+
+- `1f923d27bb9b6a8327afe0f7f5aa38eac8d6cd8f`
+
+current main `scripts/check-inventory-source-contract.mts`의 `VALIDATED_ENGINES`는 여전히 `308511563...`까지만 포함하고 `1f923d27...`을 포함하지 않는다.
+
+따라서 기존 `SSOT Source Contract` run `35058214607` failure 판정은 해소되지 않았다. 최신 generic CI run `35062421549`가 green인 사실은 이 별도 governance gate failure를 덮어쓰지 않는다.
+
+### D. 보류 유지 — `1f923d27...` 정규 scheduled production PASS 증거는 아직 없음
+
+현재 Actions에서 관측한 최신 scheduled `ERP5 SSOT 원천 최신화(매시간)` success run `35053074482`는 PR #318/#319이 production ref를 `1f923d27...`로 올리기 **전** 회차다. 따라서 current pin의 scheduled 검증 증거로 쓰지 않는다.
+
+이번 감사 시점에는 repin 이후 `1f923d27...`을 실제 checkout해 완료된 새 scheduled ERP5 success를 확인하지 못했다. 이것만으로 schedule 고장/disable을 단정하지는 않지만, 기존 요구인 **current pin 기준 정상 scheduled F01/F86 full-audit 성공 확인**은 계속 pending이다.
+
+### E. 나머지 SSOT 판정 변화 없음
+
+- production canonical `MASTER_CATEGORY_COLORS['분류']['픽업구독']`은 여전히 `#C2185B` — 미해소.
+- F86 production lineage에는 공지사항 제거, 종합 첫 탭/종합만 timestamp, 공급사 탭 timestamp 없음, 장기요금 없는 차 포함, shared formatting path가 들어 있음.
+- canonical registry는 RP006=`ironrentcar.com`, RP012=`sokrc.com/api`, RP023=RebornCar 유지.
+- 손오공=`손오공구독`, 오토플러스=`오플구독`, 손오공 중고렌트는 손오공구독 내부 반납형, 공급사 고유 기간·주행거리·요금 축 보존.
+
+### Claude 구현 Owner에게 넘기는 즉시 지시
+
+1. RTDB direct-open debt는 **해소됨**으로 취급하되 `check:store` baseline 0을 유지한다.
+2. 이를 writer topology 해소로 오인하지 않는다. `mirror-sync.yml`과 `sales-erp-hourly.yml`의 ownership/disable은 별도로 정리한다.
+3. `1f923d27...`을 validated-engine contract와 정합화하고 `SSOT Source Contract`를 green으로 만든다.
+4. current pin 기준 정규 scheduled F01/F86 full-audit 성공 회차를 확인한다.
+5. 픽업구독 색은 `MASTER_CATEGORY_COLORS['분류']` 한 곳에서만 해결하고 정규 publish 뒤 live `effectiveFormat`까지 확인한다.
+
+이번 ChatGPT 감사에서는 애플리케이션 코드나 비즈니스 로직을 수정하지 않았다.
