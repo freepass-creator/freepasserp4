@@ -10,6 +10,7 @@
     "build": "node --max-old-space-size=8192 ./node_modules/next/dist/bin/next build",
     "start": "next start -p 4004",
     "typecheck": "tsc --noEmit",
+    "check:nortdb": "tsx scripts/check-no-rtdb-settlement.mts",
     "settlement:sheet": "tsx scripts/run-settlement-sheet.mts",
     "settlement:sheet:apply": "tsx scripts/run-settlement-sheet.mts --apply",
     "settlement:drift": "tsx scripts/check-settlement-drift.mts",

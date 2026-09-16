@@ -10,7 +10,8 @@
  *
  * ★★**그럼 상대 값을 그냥 정답으로 삼으면 되나 — 아니다.**
  * ```
- * 원장(v4/settlement_rows)   우리 정본. 청구서·정산서가 여기서 나간다
+ * 원장(Firestore `settlement_rows`)   우리 원자. 청구서·정산서가 여기서 나간다
+ *                            ★옛 표기 `v4/settlement_rows`(RTDB)는 이관 «전» 이름이다 — RTDB 는 폐기됐다
  * 채널 시트                  상대가 «보는» 곳이자, 상대가 «틀렸다고 알려 주는» 곳
  * ```
  *   상대가 고친 값을 원장에 자동으로 밀어 넣으면, 시트를 고치는 것만으로 이미 나간 청구서의 근거가
@@ -33,7 +34,7 @@ export type SheetEdit = {
   why?: string;
 };
 
-/** RTDB 열쇠로 쓸 수 있게 다듬는다(`.#$/[]` 는 못 쓴다). */
+/** 문서 id 로 쓸 수 있게 다듬는다(`.#$/[]` 는 못 쓴다 — RTDB 시절 규칙을 그대로 지킨다). */
 export const editId = (channel: string, month: string, key: string, column: string) =>
   `${channel}_${month}_${key}_${column}`.replace(/[.#$/[\]\s]/g, '_');
 
