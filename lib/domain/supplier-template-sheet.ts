@@ -1,5 +1,6 @@
 import { POLICY_VALUE_RULES } from './policy-value-spec';
 import { EXT_COLORS, INT_COLORS } from './color-master';
+import { MASTER_CATEGORY_COLORS } from './category-colors';
 
 import { FUEL_TYPES, PRODUCT_TYPES, VEHICLE_STATES } from '@/lib/intake/entities';
 
@@ -968,17 +969,23 @@ const COLOR_INK: Record<string, [number, number, number]> = {
   크레용: [0.58, 0.42, 0.20],
   기타: [0.35, 0.37, 0.42],
 };
-/** 분류 넷 — 신차/중고를 색으로, 렌트/구독을 진하기로 가른다. */
-// ★분류 색은 상태 색(green·amber·blue·orange·red)과 겹치지 않는다(사장님 2026-08-18 — 「출고협의 옆에 중고구독 — 색깔이 비슷하면 안 되지」).
-//   예전 신차렌트 blue(=출고협의)·중고구독 amber(=상품화중)가 겹쳤다.
-export const TYPE_TONE: Record<string, keyof typeof TONE> = {
-  신차렌트: 'magenta', 중고렌트: 'teal', 중고구독: 'violet', 신차구독: 'gray',
+/** #rrggbb → 0~1 float triple(Sheets API rgbColor 꼴). */
+const hex3 = (hex: string): [number, number, number] => {
+  const h = hex.replace(/^#/, '');
+  return [parseInt(h.slice(0, 2), 16) / 255, parseInt(h.slice(2, 4), 16) / 255, parseInt(h.slice(4, 6), 16) / 255];
 };
+/**
+ * 분류 넷+픽업구독 — 신차/중고를 색으로, 렌트/구독을 진하기로 가른다.
+ * ★단일출처 = `category-colors.ts` `MASTER_CATEGORY_COLORS['분류']`(판매시트 「구분」과 같은 표).
+ *   2026-09-16 전에는 여기·`sales-sheet-format.ts` 두 곳에 헥스가 따로 박혀 서로 달랐다(SSOT 위반) —
+ *   이제 이 상수는 그 표를 그대로 가리킬 뿐 색을 다시 정의하지 않는다.
+ */
+export const TYPE_TONE: Record<string, string> = MASTER_CATEGORY_COLORS['분류'] ?? {};
 /** 분류 칸만 다시 칠할 때(색 규칙 변경) — 조건부서식을 맨 앞(index 0)에 넣어 옛 규칙보다 먼저 맞게 한다. */
 export function buildTypeChipColorRules(gid: number, columns: { name: string }[], rowCount = 500): Rec[] {
   const col = columns.findIndex((c) => String(c.name ?? '').trim() === '분류');
   if (col < 0) return [];
-  return Object.entries(TYPE_TONE).map(([v, tone], i) => inkRuleFor(gid, col, v, TONE[tone].fg, i, rowCount));
+  return Object.entries(TYPE_TONE).map(([v, hex], i) => inkRuleFor(gid, col, v, hex3(hex), i, rowCount));
 }
 
 /**
@@ -1148,15 +1155,15 @@ export function buildChipColors(
     },
   });
   let i = 0;
+  const inkRule = (col: number, value: string, rgb: [number, number, number], index: number) => inkRuleFor(gid, col, value, rgb, index, rowCount);
   const colOf = (name: string) => columns.findIndex((c) => c.name === name);
   const statusCol = colOf('상태');
   if (statusCol >= 0) for (const [v, tone] of Object.entries(STATUS_TONE)) out.push(rule(statusCol, v, tone, i++));
   const typeCol = colOf('분류');
-  if (typeCol >= 0) for (const [v, tone] of Object.entries(TYPE_TONE)) out.push(rule(typeCol, v, tone, i++));
+  if (typeCol >= 0) for (const [v, hex] of Object.entries(TYPE_TONE)) out.push(inkRule(typeCol, v, hex3(hex), i++));
   const fuelCol = colOf('연료');
   if (fuelCol >= 0) for (const [v, tone] of Object.entries(FUEL_TONE)) out.push(rule(fuelCol, v, tone, i++));
   // 색상 두 칸 — 팔레트에 없는 색은 그냥 둔다(억지 색을 지어내지 않는다).
-  const inkRule = (col: number, value: string, rgb: [number, number, number], index: number) => inkRuleFor(gid, col, value, rgb, index, rowCount);
   for (const colName of ['외부색상', '내부색상']) {
     const c = colOf(colName);
     if (c < 0) continue;

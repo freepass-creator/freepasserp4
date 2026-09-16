@@ -160,10 +160,11 @@ export const salesTabColorFor = (tabTitle: string): string | undefined => {
  *   캐논은 `lib/intake/entities.PRODUCT_TYPES` 다. 옛 표기(신차·재렌트·재구독)는 옮길 때 갈아 넣는다.
  */
 // ★구분 색은 배차상태 색(파랑·주황·회색)과 겹치면 안 된다(사장님 2026-08-18 — 「출고협의 주황 옆에 중고구독 주황 — 이렇게 색깔이 비슷하면 안 되지」).
-//   구독은 보라·청록으로 갈랐다. 배차상태는 STATE_INK 그대로.
-export const GUBUN_INK: [string, string][] = [
-  ['신차렌트', 'FF00FF'], ['중고렌트', '34A853'], ['중고구독', '7B3FE4'], ['신차구독', '0F9D9D'],
-];
+//   ★2026-09-16 — 여기 박혀 있던 헥스가 공급사시트 「분류」(TYPE_TONE)와 서로 달랐다(SSOT 위반).
+//   단일출처 = `category-colors.ts` `MASTER_CATEGORY_COLORS['분류']`. 「구분」·「분류」는 칸 이름만
+//   다를 뿐 같은 값이라 표 하나를 같이 쓴다.
+export const GUBUN_INK: [string, string][] = Object.entries(MASTER_CATEGORY_COLORS['분류'] ?? {})
+  .map(([v, hex]) => [v, hex.replace(/^#/, '')] as [string, string]);
 
 /**
  * 배차상태 — 값마다 글자색(사장님 2026-08-14 — 「배차 상태 상품구분 이 부분」).
@@ -376,9 +377,8 @@ export function buildSalesFormatRequests(input: FormatInput): Record<string, unk
     }
   };
   byValue('구분', GUBUN_INK);
-  // 손오공 구독과 T카 픽업구독은 같은 공급사여도 서로 다른 매물 갈래다.
-  // 상태 색(green·amber·blue·orange·red)과 겹치지 않게 보라/자홍으로 가른다.
-  byValue('분류', [['중고구독', '7E57C2'], ['픽업구독', 'C2185B']]);
+  // 손오공 구독과 T카 픽업구독은 같은 공급사여도 서로 다른 매물 갈래다 — GUBUN_INK 와 같은 표.
+  byValue('분류', GUBUN_INK);
   byValue('배차상태', STATE_INK);
   byValue('상태', STATE_INK);
   /**
