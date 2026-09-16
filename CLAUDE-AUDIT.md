@@ -18,6 +18,7 @@ FreePass SSOT 관련 **실제 구현·수정 Owner는 지정된 Claude 단일 �
 
 - `docs/ai-ssot-audit/2026-09-16-chatgpt-run14-production-pass.md`
 - `docs/AI-SSOT-AUDIT-LOG.md`의 `2026-09-16(11)` — #313 side-branch 색상 “해소” 정정
+- `docs/AI-SSOT-AUDIT-LOG.md`의 `2026-09-16(12)` — side branch F86 표시 규칙 구현 진전 / production 미반영·색 SSOT 회귀 위험
 
 ---
 
@@ -66,7 +67,31 @@ PR #313 이후 독립 재감사에서 직전 감사로그의 범위 혼동이 �
 - current main/production의 픽업구독 canonical 색상 변경 = **미반영 / 미해소**
 - 정규 production에서 해소하려면 `MASTER_CATEGORY_COLORS['분류']` 단일 SSOT 구조를 유지한 채 승인된 색을 적용하고 정규 production publish 후 effectiveFormat까지 재검증해야 함
 
-세부 근거: `docs/AI-SSOT-AUDIT-LOG.md` 최신 `2026-09-16(11)` 항목.
+세부 근거: `docs/AI-SSOT-AUDIT-LOG.md`의 `2026-09-16(11)` 항목.
+
+## 0-A. side branch의 F86 표시계약 구현은 진전됐지만 아직 production 해소가 아님
+
+`2026-09-16(11)` 이후 `codex/rtdb-cutover-current`가 `5e39d7d475c971914a64762dc507516ebdf41a54`까지 진행됐다. 이 commit은 F86 builder와 `check-f86-locked.mts`에 다음 표시 규칙을 코드/잠금 검사로 넣었다.
+
+- F86 `공지사항` 미생성 + 기존 공지사항 정리
+- `종합`이 첫 탭이며 종합만 시간(mark)+대수
+- 공급사 탭은 시간 없이 `회사 · N대`
+- 장기요금 없는 차도 제외하지 않고 요금 칸만 빈 채 싣기
+- F86 `구분`/`배차상태` 값별 색은 F01 쪽 format 결과를 살리기
+
+따라서 F86 presentation 자체는 side branch에서 **구현 진전**이 있다. 하지만 current production 해소로 보지 않는다.
+
+- current production checkout ref는 계속 `308511563d8e8f56dbd94f715469d8ae7ed9171a`
+- `main` ↔ `codex/rtdb-cutover-current`는 diverged이며 감사 시점 side branch ahead 525 / behind 451
+- side branch `5e39d7d...`의 `category-colors.ts`에는 `MASTER_CATEGORY_COLORS['분류']`가 없고, `sales-sheet-format.ts`의 `GUBUN_INK`를 직접 하드코딩한다
+- 따라서 “F01과 같은 색”이라는 side branch 규칙은 **그 branch 내부 F01과 같은 색**이라는 뜻이지, current production의 canonical `MASTER_CATEGORY_COLORS['분류']` 구조와 같다는 뜻이 아니다
+- side branch hardcoded `GUBUN_INK`를 통째로 가져오면 PR #303의 상품구분 색 단일 SSOT를 다시 깨뜨릴 수 있다
+
+또한 head `5e39d7d...` push의 Actions run `35053821352`(`refresh-30min.yml`)은 failure이며 jobs 조회 결과 0건이다. 이 증거만으로 F86 코드 자체가 실패 원인이라고 단정하지 않지만 **green branch CI 증거도 없다.**
+
+따라서 Claude 구현 Owner는 `5e39d7d...`에서 **F86 presentation 동작만 current production lineage로 선택적으로 이식**하고, 상품구분 색은 current `MASTER_CATEGORY_COLORS['분류']` 단일 SSOT 구조를 반드시 보존한다. 이후 current lineage의 CI/잠금 검사 + 정규 F01/F86 production publish + live `effectiveFormat` 검증이 끝나야 해소로 닫는다.
+
+세부 근거: `docs/AI-SSOT-AUDIT-LOG.md`의 `2026-09-16(12)` 항목.
 
 ## 1. current production pin은 `308511563...` — PR #312로 계보 drift 구조적 해소
 
@@ -153,7 +178,7 @@ PR #312 merge 직후 workflow_dispatch run:
 
 main에서 실행된 `F01 구분 칸 색 진단(읽기전용, 수동)` run `35045707947`은 success였지만, 독립 감사에서는 그 step의 원문 로그까지 확보하지 않았으므로 success 상태만으로 실제 렌더링된 각 HEX를 재판정하지 않는다.
 
-## 4. F86 표시계약 drift는 여전히 미해소
+## 4. F86 표시계약 drift는 production에서 여전히 미해소
 
 현재 승인된 F86 표시 요구:
 
@@ -163,14 +188,14 @@ main에서 실행된 `F01 구분 칸 색 진단(읽기전용, 수동)` run `3504
 - 배차상태와 상품구분은 **각각 독립된 값별 텍스트 색상 규칙** 유지
 - 데이터/대여료/ERP5 Atom/SSOT 의미 변경 금지
 
-현재 `308511563...` 코드에는 여전히:
+현재 production `308511563...` 코드에는 여전히:
 
 - `scripts/build-channel-supplier-sheet.mts` → `ensureNoticeTab()`으로 공지사항 탭 보장
 - `lib/server/channel-f86-plan.ts` → 공급사 탭도 `회사 + 시각 + 대수` 제목 사용
 
 이 남아 있다.
 
-따라서 Google Sheet를 수동으로 고쳐도 다음 F86 publish가 builder 규칙으로 되돌릴 수 있다.
+side branch `5e39d7d...`에서는 이 표시계약을 구현/잠금한 진전이 확인됐지만, **production pin에는 아직 반영되지 않았다.** 따라서 Google Sheet를 수동으로 고쳐도 current production publish가 기존 builder 규칙으로 되돌릴 수 있다.
 
 ### 구현 원칙
 
@@ -180,7 +205,7 @@ main에서 실행된 `F01 구분 칸 색 진단(읽기전용, 수동)` run `3504
 - ERP5 Atom 변경 금지
 - canonical source 변경 금지
 - 공급사 고유 가격/기간 의미 변경 금지
-- 현재 복구된 `GUBUN_INK` / `STATE_INK` 분리 의미를 훼손하지 않음
+- current production의 `GUBUN_INK` / `STATE_INK` 분리와 `MASTER_CATEGORY_COLORS['분류']` 단일 SSOT 의미를 훼손하지 않음
 
 ## 5. canonical source / 특수 판매탭은 유지
 
@@ -222,26 +247,22 @@ UI에서 실제 disabled면 active writer 충돌이라고 단정하지 않지만
 
 이 문서와 ACTIVE handoff의 오래된 pin/상태 설명은 Claude 구현 Owner가 최신 상태와 맞춰야 한다.
 
-## 8. current `main` 최신 변경은 감사 문서 계열이며 production app 회귀 증거 없음
+## 8. current `main`의 최신 변화는 감사 문서이며 production pin은 변하지 않음
 
-이번 독립 재감사 시작 시 current `main` HEAD:
+이번 감사 직전의 main HEAD는 `805247e07a4f494cb5d89ee6968aaa9b0214ad61`이었다. 이후 독립 감사자가 `docs/AI-SSOT-AUDIT-LOG.md`에 `(12)`를 추가했고 이 `CLAUDE-AUDIT.md`도 최신 요약으로 갱신한다.
 
-- `c147b1362d4aaf86ad9dedbf4ac93fd025cf37d8`
-- message: `docs: F01/F86 픽업구독 구분색 정정 감사로그 기록 (#313)`
-
-이 commit은 `docs/AI-SSOT-AUDIT-LOG.md`만 변경했다. main CI run `35050789201`은 success다. 그러나 이 문서 commit/CI는 side branch `4647c484...`의 색상 코드가 main/production에 병합됐다는 증거가 아니다.
-
-독립 감사에서 추가한 변경은 `docs/AI-SSOT-AUDIT-LOG.md`와 이 `CLAUDE-AUDIT.md` 문서뿐이다. 애플리케이션 코드나 비즈니스 로직은 수정하지 않았다.
+이 변경들은 감사 문서뿐이며 애플리케이션 코드나 비즈니스 로직을 수정하지 않는다. production workflow checkout ref는 계속 `308511563...`이다.
 
 ---
 
 # Claude 구현 Owner의 즉시 우선순위
 
 1. **`308511563...`을 최신 완전검증 production pin으로 취급한다.** run `35044774559`의 F01/F86/cross-audit/photo-audit가 전부 success다.
-2. **#313 side-branch 색상 해소 판정을 production 해소로 보지 않는다.** `codex/rtdb-cutover-current`의 hardcoded `GUBUN_INK`를 그대로 가져오지 말고, current production의 `MASTER_CATEGORY_COLORS['분류']` 단일 SSOT 구조를 보존한 채 승인된 픽업구독 색을 적용한다. 임의 HEX 금지. 정규 production 재발행 후 F01/F86 effectiveFormat까지 검증한다.
-3. **F86 presentation contract 반영:** 공지사항 제거 / 종합만 시간+대수 / 공급사 탭 이름+대수. 배차상태와 상품구분의 독립 색상 규칙은 유지.
-4. `docs/예약작업-지도.md`와 stale handoff를 `308511563...` 및 최신 규칙과 맞춘다.
-5. legacy writer UI-disable 의존성은 기존 latent conflict로 유지하고 별도 구현 판단.
-6. 구현 후 `docs/AI-SSOT-AUDIT-LOG.md`에 `해소됨/잔존`을 append.
+2. **#313 side-branch 색상 해소 판정을 production 해소로 보지 않는다.** current production의 `MASTER_CATEGORY_COLORS['분류']` 단일 SSOT 구조를 보존한 채 승인된 픽업구독 색을 적용한다. 임의 HEX 금지. 정규 production 재발행 후 F01/F86 effectiveFormat까지 검증한다.
+3. **F86 presentation은 `5e39d7d...`의 동작만 선택적으로 이식:** 공지사항 없음 / 종합만 시간+대수 / 공급사 탭 이름+대수 / 구분·배차상태 의미 일치. side branch의 hardcoded `GUBUN_INK` 색 구조는 가져오지 않는다.
+4. current lineage에서 관련 잠금 검사·CI를 green으로 만든 뒤 `erp5-ssot-refresh` 정규 회차로 F01/F86/cross-audit/photo-audit를 다시 통과시키고 live effectiveFormat을 검증한다.
+5. `docs/예약작업-지도.md`와 stale handoff를 `308511563...` 및 최신 규칙과 맞춘다.
+6. legacy writer UI-disable 의존성은 기존 latent conflict로 유지하고 별도 구현 판단.
+7. 구현 후 `docs/AI-SSOT-AUDIT-LOG.md`에 `해소됨/잔존`을 append.
 
 세부 근거는 `docs/AI-SSOT-AUDIT-LOG.md` 최신 항목과 `docs/ai-ssot-audit/2026-09-16-chatgpt-run14-production-pass.md`를 본다.
