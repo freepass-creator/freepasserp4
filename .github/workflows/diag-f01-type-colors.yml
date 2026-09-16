@@ -1,0 +1,34 @@
+name: F01 구분 칸 색 진단(읽기전용, 수동)
+
+# scripts/diag-f01-type-colors.mts 를 실행하는 1회성 진단 버튼.
+# 아무것도 쓰지 않는다 — 조건부서식/실제 값을 읽어서 로그로만 찍는다.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+
+      - name: Google 읽기 자격증명 준비
+        env:
+          SA: ${{ secrets.GOOGLE_SA_JSON }}
+        run: |
+          test -n "$SA" || { echo '::error::GOOGLE_SA_JSON 시크릿이 없습니다.'; exit 1; }
+          mkdir -p tmp/firebase-auth
+          printf '%s' "$SA" > tmp/firebase-auth/sheets.json
+
+      - name: F01 구분 칸 진단
+        env:
+          GOOGLE_SHEETS_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sheets.json
+        run: npx tsx scripts/diag-f01-type-colors.mts
