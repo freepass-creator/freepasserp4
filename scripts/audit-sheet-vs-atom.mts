@@ -34,7 +34,7 @@ import { HAHUHO_PRODUCT_SHEET_ID, SALES_SHEET_ID } from '../lib/domain/legacy-sh
 import { atomDisplayText } from '../lib/domain/missing-value-display';
 import { retroHeadToColumn, retroUsesColumn, retroSameValue, inRetroSummary, RETRO_SUMMARY_TAB, retroHasLongFee, retroHasValue, retroTabLayout, retroTabRank } from '../lib/domain/channel-retro-skin';
 import { googleSheetsServiceAccount } from '../lib/server/google-service-account';
-import { compareF86Rows } from '../lib/server/channel-f86-plan';
+import { compareF86Rows, f86TabTitle } from '../lib/server/channel-f86-plan';
 
 nextEnv.loadEnvConfig(process.cwd());
 const S = (v: unknown) => String(v ?? '').trim();
@@ -251,7 +251,8 @@ let f86줄 = 0;
     const company = channelCompanyOf(row.cells['공급사'], rowCtx.nameByProvider);
     expectedCompanies.set(company, (expectedCompanies.get(company) || 0) + 1);
   }
-  const expectedTitles = new Map([...expectedCompanies].map(([company, count]) => [`${company} ${f86Mark} · ${count}대`, company]));
+  /** ★2026-09-16 — 탭 이름 규칙은 발행기와 «같은 함수»로 짓는다(회사 탭엔 시각을 안 박는다). */
+  const expectedTitles = new Map([...expectedCompanies].map(([company, count]) => [f86TabTitle(company, count, f86Mark, true), company]));
   const channelColumns: string[] = [];
   for (const prefix of SALES_PUBLISHED_TAB_PREFIXES) for (const raw of salesPublishedColumns(prefix)) {
     const column = channelColumnName(raw);
@@ -302,7 +303,7 @@ let f86줄 = 0;
    */
   {
     const 기대차 = 실릴차.filter((atom) => f86대상차.has(K(atom.car_number)) && inRetroSummary(channelCompanyOf(expectedCell('공급사', atom), rowCtx.nameByProvider))).sort(compareF86);
-    const 기대제목 = `${RETRO_SUMMARY_TAB} ${f86Mark} · ${기대차.length}대`;
+    const 기대제목 = f86TabTitle(RETRO_SUMMARY_TAB, 기대차.length, f86Mark, true);
     if (!종합제목) f86TabShapeViolations.push(`빠진 탭: ${기대제목}`);
     else {
       if (f86Mark && 종합제목 !== 기대제목) f86TabShapeViolations.push(`종합 탭 이름: ${종합제목} ↔ 기대 ${기대제목}`);

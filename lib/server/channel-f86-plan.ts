@@ -65,7 +65,7 @@ export type F86TabPlan = {
   body: string[][];
   /** 시트에 넣는 값 — 하허호는 요금·Km·배기량·소비자가격 숫자 · 최초등록 날짜(`retroCellValue`) */
   values: (string | number)[][];
-  /** 탭 이름 「회사 MM.DD HH:MM:SS · N대」 */
+  /** 탭 이름 — `f86TabTitle` (하허호 회사 탭은 시각 없이 「회사 · N대」) */
   title: string;
 };
 export type F86Plan = {
@@ -86,6 +86,19 @@ export type F86Plan = {
   nameByProvider: Map<string, string>;
   acctCount: number;
 };
+
+/**
+ * 탭 이름 — **발행기·감사기가 같은 함수를 쓴다**(두 군데서 따로 지으면 감사가 제 이름을 못 알아본다).
+ *
+ * ★★2026-09-16 (사장님 「원래 규칙은 회사명 또는 시트명 대수인데 시간만 어디에 쓸거냐인거야
+ *   시간은 맨 앞에 탭 하나만 부여해서 수정하는거로하자」) — **하허호는 시각을 「종합」 하나에만** 박는다.
+ *   한동안 모든 탭 이름에 발행 시각을 박아, 재발행할 때마다 19개 탭 이름이 «전부» 바뀌어 보였다.
+ *   같은 회차라 종합 하나만 봐도 시각을 안다. 하허호 밖 채널 시트는 예전대로 전 탭에 시각을 박는다.
+ */
+export function f86TabTitle(company: string, count: number, mark: string, retro: boolean): string {
+  const 시각없이 = retro && company !== RETRO_SUMMARY_TAB;
+  return 시각없이 ? `${company} · ${count}대` : `${company} ${mark} · ${count}대`;
+}
 
 /** 인기순(계약 실적) — 발행기·감사기가 같은 파일을 읽는다. 없으면 인기 축 없이 정렬. */
 export function loadModelSold(path = 'public/data/model-popularity.json'): Map<string, number> {
@@ -204,7 +217,7 @@ export async function buildF86Plan(p: {
       body = list.map((x) => cols.map((c) => S(x.cells[c])));
     }
     const values = retro ? body.map((r) => r.map((v, k) => retroCellValue(cols[k], v))) : body;
-    tabs.push({ company, rows: list, cols, body, values, title: `${company} ${p.mark} · ${list.length}대` });
+    tabs.push({ company, rows: list, cols, body, values, title: f86TabTitle(company, list.length, p.mark, retro) });
   }
 
   return {
