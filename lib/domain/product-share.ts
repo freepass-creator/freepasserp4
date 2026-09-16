@@ -47,9 +47,18 @@ export function shareToken(raw: unknown): string {
  *   상품키 599건이 하이픈을 품고 있어서(`PD-260506-020`) 무조건 가르면 그 링크들이 죽는다(2026-08-22 실측).
  */
 export function guestShareUrl(p: EntityRecord, agentCode: string, origin = typeof location !== 'undefined' ? location.origin : ''): string {
-  const token = shareToken(p.product_code || p._key);
+  return guestShareUrlFromToken(shareToken(p.product_code || p._key), agentCode, origin);
+}
+
+/**
+ * 토큰을 «이미 들고 있을 때» 주소를 짓는다 — 목록 API 가 상품마다 토큰을 미리 계산해 실어 주는 자리
+ *   (정산 워크스테이션의 「공유하기」). 주소 짓는 규칙이 둘이 되지 않게 위 함수도 이것을 부른다.
+ */
+export function guestShareUrlFromToken(token: string, agentCode = '', origin = typeof location !== 'undefined' ? location.origin : ''): string {
+  const t = String(token ?? '').trim();
+  if (!t) return '';
   const agent = String(agentCode ?? '').trim();
-  return `${origin}/q/${encodeURIComponent(agent ? `${token}-${agent}` : token)}`;
+  return `${origin}/q/${encodeURIComponent(agent ? `${t}-${agent}` : t)}`;
 }
 
 /**
