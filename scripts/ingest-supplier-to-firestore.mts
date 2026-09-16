@@ -888,11 +888,24 @@ if (safeToRetire && gone.length) {
    *   ⇒ 지금 「출고가능·즉시출고」인 차만 내린다. 계약중(락)·출고협의·상품화중은 그대로 둔다.
    * ★내리는 쪽이 조심스러워야 한다 — **팔 수 있는 차를 숨기는 것**이 여기서 가장 나쁜 결과다.
    */
+  /**
+   * ★★2026-09-16 — **계약중은 «지키지 않는다».** 사장님 「정산원장에 차량번호가 접수에 들어온다는건
+   *   계약중으로 바뀐다는거지, 그러다가 공급사 원천시트에서 불가가 되거나 삭제되면 출고불가 되는거고
+   *   … 실제 상품에서도 빠질거거든 시트든 홈페이지든」.
+   *   계약중은 «원천이 보여 주던» 차가 계약으로 넘어간 것이다 — 그 차가 원천에서 사라졌다는 건
+   *   **출고가 끝났다**는 뜻이지 「원천이 원래 안 보여 주는 상태」가 아니다. 그래서 출고불가로 넘긴다.
+   *   ⚠ 판정기(`resolveStatus`)는 이미 이렇게 설계돼 있었다 — 락이 있고 현 상태가 출고불가면 「계약완료」.
+   *     여기서 base 를 출고불가로 안 만들어 줘서 그 갈래가 영영 안 열리고 있었다.
+   *   ⚠ 「내린다」 = 줄을 지우는 게 아니라 **상태만 출고불가로 바꾼다**(사장님 확인). 데이터는 그대로 남는다.
+   *   ★출고협의·상품화중·차량검수는 그대로 지킨다 — 손오공 API 는 `계약가능=Y` 인 차만 주므로
+   *     그 상태의 차가 목록에 없는 것은 «빠진 것»이 아니라 원래 안 보여 주는 것이다(아래 실측 주석).
+   */
   const 지킴 = (c: Record<string, unknown>) => {
     const st = S(c.vehicle_status) || S(c.status);
+    if (st === '계약중') return false;
     return st !== '출고가능' && st !== '즉시출고';
   };
-  const locked = gone.filter((car) => 지킴(cur.get(car) || {}) || !!S((cur.get(car) || {}).locked_by_contract));
+  const locked = gone.filter((car) => 지킴(cur.get(car) || {}));
   const toRetire = gone.filter((car) => !locked.includes(car));
   for (let i = 0; i < toRetire.length; i += 400) {
     const batch = fs.batch();
@@ -902,10 +915,22 @@ if (safeToRetire && gone.length) {
      *   상태만 출고불가」(`ai-touch-rules`)다. 원천이 더 이상 주지 않는 차는 «출고불가»가 맞다.
      *   ⚠ 계약중(락)은 위에서 이미 뺐다 — 진행 중인 거래를 숨기지 않는다.
      */
-    for (const car of toRetire.slice(i, i + 400)) { batch.set(fs.collection('products').doc(docId(car)), { listable: false, vehicle_status: '출고불가', status: '출고불가', status_kind: '불가', status_reason: '원천 이탈(직접수집)', _direct_ingest_at: Date.now() }, { merge: true }); retired++; }
+    for (const car of toRetire.slice(i, i + 400)) {
+      /**
+       * ★이유(status_reason)는 «왜 못 파는가»를 적는다 — 판정기(`resolveStatus`)와 같은 말을 써야
+       *   읽는 곳마다 다른 이유가 안 나온다. 계약이 걸려 있던 차가 원천에서 사라진 것은 「계약완료」,
+       *   계약 없이 사라진 것은 「원천 이탈」이다.
+       */
+      const 계약 = !!S((cur.get(car) || {}).locked_by_contract);
+      batch.set(fs.collection('products').doc(docId(car)), {
+        listable: false, vehicle_status: '출고불가', status: '출고불가', status_kind: '불가',
+        status_reason: 계약 ? '계약완료' : '원천 이탈(직접수집)', _direct_ingest_at: Date.now(),
+      }, { merge: true });
+      retired++;
+    }
     await batch.commit();
   }
-  if (locked.length) console.log(`  · 사라진 차 중 ${locked.length}건은 안 내림 — 계약중(락)이거나 「출고가능」이 아니던 차(원천이 원래 안 보여 주는 상태).`);
+  if (locked.length) console.log(`  · 사라진 차 중 ${locked.length}건은 상태 안 바꿈 — 「출고가능·즉시출고·계약중」이 아니던 차(출고협의·상품화중 등 원천이 원래 안 보여 주는 상태).`);
 } else if (gone.length) {
   console.log(`  · 사라진 차 ${gone.length}건 마킹 안 함 — ${RETIRE ? `안전판(수집 ${now.length} < 세워 둔 ${세운차}의 절반, 원천 읽기 의심)` : '--retire 없음(오탐 방지, 기본 끔)'}.`);
 }
