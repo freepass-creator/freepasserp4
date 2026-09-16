@@ -333,10 +333,18 @@ export function applyRetroSkin(reqs: Req[], linkReqs: Req[], p: { gid: number; c
    *   구조(탭·칸 배치)가 달라도 «뜻»은 하나로 읽힌다. 그 밖(제조사·연료·계약중 가운데줄 등)은 여전히 다 걷는다 —
    *   레트로는 글꼴·굵기·정렬 같은 «겉»만 남기고, 색은 이 두 칸만 공용 표를 그대로 쓴다.
    */
+  /**
+   * ★2026-09-16 하나 더 — 사장님 「미입력은 좀 색깔이 회색이어야지」·「연하게 미입력으로 가야지」.
+   *   「미입력」·「해당없음」 연한 회색 규칙도 «표 전체»에 걸리는 조건부서식이라, 칸 예외(위)로는 안 걸린다.
+   *   글자로 알아본다 — 그 두 낱말을 겨눈 규칙이면 살린다(F01 과 같은 회색으로 같이 눕는다).
+   */
   const 값별색유지 = new Set([columns.indexOf('구분'), columns.indexOf('배차상태')].filter((i) => i >= 0));
+  const 표시전용낱말 = new Set<string>([MISSING_VALUE_LABEL, NOT_APPLICABLE_LABEL]);
   reqs = reqs.filter((r) => {
     const cf = r?.addConditionalFormatRule;
     if (cf) {
+      const word = String(cf.rule?.booleanRule?.condition?.values?.[0]?.userEnteredValue ?? '').trim();
+      if (표시전용낱말.has(word)) return true;
       const rng = cf.rule?.ranges?.[0];
       return rng && rng.endColumnIndex === (rng.startColumnIndex ?? -999) + 1 && 값별색유지.has(rng.startColumnIndex);
     }

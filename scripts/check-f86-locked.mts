@@ -16,6 +16,7 @@ import {
   RETRO_SUMMARY_EXCLUDE, RETRO_SUMMARY_TAB, retroCellValue, retroHasLongFee, retroTabColorRequest, retroUsesColumn,
   RETRO_TAB_FEES, RETRO_TAB_ORDER, retroTabLayout, retroWidthOf,
 } from '../lib/domain/channel-retro-skin';
+import { MISSING_INK } from '../lib/domain/sales-sheet-format';
 
 const read = (f: string) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
 const fails: string[] = [];
@@ -87,11 +88,15 @@ must(!reqs.some((r) => r.addConditionalFormatRule), '레트로 입력엔 「구�
   const 구분조건부 = { addConditionalFormatRule: { rule: { ranges: [{ sheetId: 0, startColumnIndex: 0, endColumnIndex: 1 }], booleanRule: { condition: { type: 'TEXT_EQ', values: [{ userEnteredValue: '픽업구독' }] }, format: { textFormat: { foregroundColor: { red: 0, green: 0, blue: 0 } } } } } } };
   const 배차상태조건부 = { addConditionalFormatRule: { rule: { ranges: [{ sheetId: 0, startColumnIndex: 6, endColumnIndex: 7 }], booleanRule: { condition: { type: 'TEXT_EQ', values: [{ userEnteredValue: '출고가능' }] }, format: { textFormat: { foregroundColor: { red: 0, green: 0, blue: 1 } } } } } } };
   const 다른칸조건부 = { addConditionalFormatRule: { rule: { ranges: [{ sheetId: 0, startColumnIndex: 5, endColumnIndex: 6 }], booleanRule: { condition: { type: 'TEXT_EQ', values: [{ userEnteredValue: '가솔린' }] }, format: {} } } } };
-  const r2 = applyRetroSkin([구분조건부, 배차상태조건부, 다른칸조건부], [], { gid: 0, columns: cols, headerAt: 0 });
+  // ★2026-09-16 — 「미입력」·「해당없음」 연한 회색(표 전체 범위)도 예외로 살아야 한다.
+  const 미입력조건부 = { addConditionalFormatRule: { rule: { ranges: [{ sheetId: 0, startColumnIndex: 0, endColumnIndex: 7 }], booleanRule: { condition: { type: 'TEXT_EQ', values: [{ userEnteredValue: '미입력' }] }, format: { textFormat: { foregroundColor: { red: 0.72, green: 0.72, blue: 0.72 } } } } } } };
+  const r2 = applyRetroSkin([구분조건부, 배차상태조건부, 다른칸조건부, 미입력조건부], [], { gid: 0, columns: cols, headerAt: 0 });
   must(r2.some((r) => r.addConditionalFormatRule === 구분조건부.addConditionalFormatRule), '「구분」 값별 조건부서식(GUBUN_INK)이 레트로에서 걷힙니다 — F01·F86 상품 갈래 색이 갈라집니다.', `${SKIN} · applyRetroSkin ① 예외 — ${MANUAL} 4`);
   must(r2.some((r) => r.addConditionalFormatRule === 배차상태조건부.addConditionalFormatRule), '「배차상태」 값별 조건부서식(STATE_INK)이 레트로에서 걷힙니다 — F01·F86 배차상태 색이 갈라집니다.', `${SKIN} · applyRetroSkin ① 예외 — ${MANUAL} 4`);
+  must(r2.some((r) => r.addConditionalFormatRule === 미입력조건부.addConditionalFormatRule), '「미입력」 연한 회색 조건부서식이 레트로에서 걷힙니다 — 사장님 「미입력은 좀 색깔이 회색이어야지」(2026-09-16) 위반.', `${SKIN} · applyRetroSkin ① 예외 — ${MANUAL} 4`);
   must(!r2.some((r) => r.addConditionalFormatRule === 다른칸조건부.addConditionalFormatRule), '「구분」·「배차상태」가 아닌 칸의 조건부서식까지 살아남습니다 — 레트로 「옛 시트 느낌」이 깨집니다.', `${SKIN} · applyRetroSkin ① 예외 — ${MANUAL} 4`);
 }
+must(MISSING_INK === 'B7B7B7', `「미입력」 연한 회색(B7B7B7)이 바뀌었습니다: ${MISSING_INK}`, `lib/domain/sales-sheet-format.ts · MISSING_INK — ${MANUAL} 4`);
 const whole = reqs.find((r) => r.repeatCell && r.repeatCell.range?.startColumnIndex === undefined && r.repeatCell.range?.startRowIndex === undefined)?.repeatCell?.cell?.userEnteredFormat;
 must(!!whole && whole.textFormat?.italic === true && whole.textFormat?.bold === false && whole.horizontalAlignment === 'CENTER' && whole.wrapStrategy === 'OVERFLOW_CELL',
   '탭 전체 겉(기울임 · 굵기 없음 · 가운데 · 넘침)이 바뀌었습니다.', `${SKIN} · applyRetroSkin ③ — ${MANUAL} 4`);

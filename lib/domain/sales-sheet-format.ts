@@ -34,6 +34,7 @@
 import { SALES_NOTES, SALES_HIDDEN_COLUMNS } from './sales-sheet-mapping';
 import { COLOR_INK } from './color-master';
 import { MASTER_CATEGORY_COLORS } from './category-colors';
+import { MISSING_VALUE_LABEL, NOT_APPLICABLE_LABEL } from './missing-value-display';
 
 export const FONT_DEFAULT = 'Roboto';
 export const FONT = FONT_DEFAULT;
@@ -175,6 +176,14 @@ export const STATE_INK: [string, string][] = [
   ['상품화중', 'FF9900'], ['출고협의', 'FF9900'],
   ['계약중', '999999'], ['출고불가', '999999'],
 ];
+
+/**
+ * 「미입력」·「해당없음」 글자색 — **연한 회색**(사장님 2026-09-16 「미입력은 좀 색깔이 회색이어야지」·
+ * 「연하게 미입력으로 가야지」). 값이 아니라 «아직 안 채운 칸»이라, 검정이면 실제 값처럼 읽힌다.
+ * ⚠ 배차상태 회색(`999999` — 계약중·출고불가)보다 **한 단계 연하게** 둔다. 둘이 같은 회색이면
+ *   「못 파는 차」와 「값이 없는 칸」이 같은 무게로 보인다.
+ */
+export const MISSING_INK = 'B7B7B7';
 
 /** 자유텍스트라 상한을 더 낮게 묶는 칸. */
 // 원문 두 칸(2026-08-23 「2중 보관」)은 글이 길어 좁게 잡는다 — 넓히면 표가 원문에 먹힌다.
@@ -381,6 +390,26 @@ export function buildSalesFormatRequests(input: FormatInput): Record<string, unk
   byValue('분류', GUBUN_INK);
   byValue('배차상태', STATE_INK);
   byValue('상태', STATE_INK);
+  /**
+   * ★★**「미입력」은 «연한 회색»이다** — 사장님 2026-09-16 「미입력은 좀 색깔이 회색이어야지」·「연하게
+   *   미입력으로 가야지」. 값이 아니라 «아직 안 채운 칸»이라, 검정으로 서면 실제 값처럼 읽힌다.
+   *   ⇒ 표 전체(머리글 아래 모든 칸)에 한 줄 규칙으로 건다 — 칸마다 따로 걸지 않는다(칸이 늘면 빠진다).
+   *   글자는 `MISSING_VALUE_LABEL` 한 곳에서 가져온다(`missing-value-display.ts` — 하이픈·빈값 판정과 같은 SSOT).
+   *   ⚠ 「없음」(옵션 명시적 없음 = 업무 값)은 회색으로 안 눕힌다 — 「해당없음」(전기차 배기량 등)은
+   *     미입력과 같은 «표시 전용»이라 같이 눕힌다.
+   */
+  for (const label of [MISSING_VALUE_LABEL, NOT_APPLICABLE_LABEL]) {
+    out.push({ addConditionalFormatRule: {
+      index: 0,
+      rule: {
+        ranges: [{ sheetId: gid, startRowIndex: H + 1, startColumnIndex: 0, endColumnIndex: n }],
+        booleanRule: {
+          condition: { type: 'TEXT_EQ', values: [{ userEnteredValue: label }] },
+          format: { textFormat: { foregroundColor: rgb(MISSING_INK), bold: false } },
+        },
+      },
+    } });
+  }
   /**
    * ★계약중 = «잡힌 차»라 행 전체에 가운데줄(strikethrough)을 긋는다(사장님 2026-09-04
    *   「계약중 차량은 그 가운데 사선 긋는거 그거 해줘도 좋을거 같음」). 데이터는 지우지 않고(상태값만 계약중)
