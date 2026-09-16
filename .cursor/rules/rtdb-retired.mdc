@@ -1,0 +1,7 @@
+---
+description: RTDB is retired in this repository
+alwaysApply: true
+---
+
+RTDB is prohibited. Remove legacy references and use Firestore. Never restore RTDB APIs, instances, listeners, triggers, database URLs, adapters, or fallback paths. Missing Firestore parity is HOLD, not permission to use RTDB.
+
