@@ -23,10 +23,17 @@ function envValues(file: string): Record<string, string> {
 const localEnv = envValues(path.join(root, '.env.local'));
 const envValue = (key: string) => String(process.env[key] ?? localEnv[key] ?? '').trim();
 const hasEnv = (key: string) => envValue(key).length > 0;
+// ★NEXT_PUBLIC_FIREBASE_DATABASE_URL 은 이 목록에서 «뺐다». 되살리지 마라.
+//   · RTDB 는 2026-09-14 대표 직접 결정으로 영구 폐기됐다.
+//   · 운영(Vercel)에서는 이미 2026-09-10 에 이 환경변수가 지워져 있었다
+//     (scripts/check-deployed.mts 의 기록).
+//   · app·lib·components 런타임 참조 0 — 마지막 사용처였던 app/api/drive-backup/route.ts 는
+//     이 브랜치(fix/drive-backup-failopen)가 제거했다.
+//   폐기한 변수를 «필수»로 요구하면 출시가 폐기물을 다시 채워 넣어야만 통과한다 — 그래서 뺀다.
+//   아래 나머지 키는 살아 있다(Auth·Storage·Analytics 가 쓴다).
 const firebaseKeys = [
   'NEXT_PUBLIC_FIREBASE_API_KEY',
   'NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN',
-  'NEXT_PUBLIC_FIREBASE_DATABASE_URL',
   'NEXT_PUBLIC_FIREBASE_PROJECT_ID',
   'NEXT_PUBLIC_FIREBASE_APP_ID',
 ];
