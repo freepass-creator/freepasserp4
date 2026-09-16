@@ -1497,3 +1497,93 @@ current main `scripts/check-inventory-source-contract.mts`의 `VALIDATED_ENGINES
 5. 픽업구독 색은 `MASTER_CATEGORY_COLORS['분류']` 한 곳에서만 해결하고 정규 publish 뒤 live `effectiveFormat`까지 확인한다.
 
 이번 ChatGPT 감사에서는 애플리케이션 코드나 비즈니스 로직을 수정하지 않았다.
+
+---
+
+## 2026-09-16(16) — ChatGPT 독립 감사: Source Contract HOLD 해소 + production pin `2e880cef...` + 정산원장 락 자동화 미연결
+
+### A. 해소됨 — production pin / `VALIDATED_ENGINES` 계약 drift가 PR #325로 정합화됨
+
+**판정: 기존 `(13)~(15)` Source Contract HOLD 해소**
+
+current main HEAD는 PR #325 merge commit `c8234f4155f51ab2aae63f411d2531b0c62ceb17`이다. 현재 `.github/workflows/erp5-ssot-refresh.yml`의 production checkout ref는 더 이상 `1f923d27...`이 아니라:
+
+- `2e880cefa96e3fa4bfc79902fed448d5bd74abdb`
+
+이다.
+
+PR #325는 `scripts/check-inventory-source-contract.mts`의 `VALIDATED_ENGINES`에 당일 전진 계보 `1939018a...`, `1f923d27...`, `2e880cef...`를 추가했다. 실제 main Actions도:
+
+- `SSOT Source Contract` run `35067923610` — **success**
+- generic `CI` run `35067923638` — **success**
+
+로 확인된다. 따라서 main이 자기 production pin을 승인하지 못하던 governance HOLD는 **해소됨**이다.
+
+### B. 변경됨/보류 — current production pin은 collector 의미까지 바뀐 `2e880cef...`; 이전 pin의 runtime PASS를 그대로 승계하면 안 됨
+
+`2e880cef...`은 표시규칙만 바꾼 커밋이 아니다. 부모 계보의 `60d1d2dd3ef04f38461454e13175edd54af150e5`에서:
+
+- `scripts/ingest-supplier-to-firestore.mts`가 원천에서 사라진 `계약중` 차량을 더 이상 보호하지 않고 `출고불가`로 retire할 수 있도록 변경됨
+- 락이 있던 차량의 source disappearance는 `status_reason='계약완료'`로 구분됨
+- 새 `scripts/sync-vehicle-lock-from-ledger.mts`가 정산원장 `접수`/`취소`를 읽어 ERP5 Atom의 계약 락을 걸고 푸는 도구로 추가됨
+
+그 위 `2e880cef...`에서는 상품구분 7캐논 색을 단일 표로 채우고 `check:color-ssot`로 소비처 하드코딩을 잠갔다.
+
+따라서 `1f923d27...` 이전 회차의 성공을 현재 collector semantics의 완전 운영 PASS 증거로 재사용하지 않는다. **`2e880cef...` 기준 정규 F01/F86 full-audit 운영 성공은 별도 확인 전까지 보류**다.
+
+### C. 충돌(신규) — “정산원장 접수→Atom 락 / 취소→락 해제” 구현은 존재하지만 현재 scheduled orchestration에 연결되지 않음
+
+**판정: 구현 도구 존재 / 자동 운영 경로 미연결**
+
+current main 및 production pin `2e880cef...`의 `.github/workflows/settlement-sync.yml`은 여전히 `원장에서 계약중 세우기` 단계에서:
+
+- `scripts/sync-contract-from-ledger.mts`
+
+를 호출한다.
+
+그런데 이 옛 스크립트는 `SETTLEMENT_LEDGER_TAB`을 읽고, current `lib/domain/settlement-ledger.ts`에서 그 호환 상수는 여전히:
+
+- `SETTLEMENT_LEDGER_TAB = '정산'`
+
+이다. 같은 파일의 current 운영 계약은 실제 탭을 `접수`, `취소`, `분납실적`, `완납실적`, `청구`로 정의하고, `정산`은 “가르기 전 이름 / 옛 도구 호환”으로만 남긴다.
+
+반면 새 `scripts/sync-vehicle-lock-from-ledger.mts`는 정확히 current `접수`/`취소` 탭을 대상으로 Atom 락을 걸고 푸는 대체 경로지만, 이번 감사에서 `settlement-sync.yml`이나 `erp5-ssot-refresh.yml`의 **실행 step**으로 연결된 흔적은 찾지 못했다. production workflow에는 이 기능을 설명하는 주석만 있고 실제 호출은 없다.
+
+따라서 현재 production pin 설명의 “정산원장 접수→락 / 취소→락 해제”를 **정규 자동운영에서 이미 동작한다고 보면 안 된다.** Claude 구현 Owner가 기존 supplier-sheet mutation 경로와 새 Atom-lock 경로 중 정본을 명확히 하고 scheduled orchestration을 맞춰야 한다.
+
+### D. 개선됨/미해소 병존 — 상품구분 색 SSOT 잠금은 진전, 픽업구독 최신 색 요구는 그대로 미해소
+
+`2e880cef...`은 `MASTER_CATEGORY_COLORS['분류']`가 `PRODUCT_TYPES` 7캐논을 전부 덮도록 하고 `check:color-ssot`를 `check:sync`에 연결했다. 추가된 값:
+
+- 오공구독 `#5B21B6`
+- 오플구독 `#A16207`
+
+등으로, 소비처가 정본에서 파생되는 구조는 강화됐다.
+
+하지만 `픽업구독` 값은 여전히:
+
+- `#C2185B`
+
+이므로 `(11)~(15)`에서 남긴 최신 승인 색과의 불일치 판정은 닫지 않는다. **색 SSOT 구조/잠금 개선과 픽업구독 실제 색 결정은 별개**다.
+
+### E. 변화 없음 — canonical source / 특수탭 / legacy writer topology
+
+재검증 결과:
+
+- canonical registry: RP006=`ironrentcar.com`, RP012=`sokrc.com/api`, RP023=RebornCar
+- 손오공=`손오공구독`, 오토플러스=`오플구독`, 손오공 중고렌트=`손오공구독` 내부 반납형, 공급사 고유 기간·주행거리·요금 축 유지
+- F86은 `종합`만 timestamp+대수, 공급사 탭은 timestamp 없이 회사명+대수, 장기요금 없는 차 포함 규칙 유지
+- `mirror-sync.yml`과 `sales-erp-hourly.yml`의 cron/write-capable 구조는 repository에 잔존
+- `MIRROR_SOURCES` RP023은 옛 Google Sheet `1TJBG4PABgly7EtGG6Os5GcY9La7kDR_yex56KHhXe2U`를 계속 `from`으로 가짐
+
+따라서 RTDB direct-open baseline 0 해소와 별개로 legacy writer ownership/disable 문제는 기존 판정 유지다.
+
+### Claude 구현 Owner에게 넘기는 즉시 지시
+
+1. Source Contract HOLD는 **해소됨**으로 닫는다. current production pin은 `2e880cef...`이다.
+2. `settlement-sync.yml`이 여전히 옛 `sync-contract-from-ledger.mts`/`정산` 탭 경로를 호출하는 문제를 우선 정리한다. 새 `sync-vehicle-lock-from-ledger.mts`를 어디서 정규 실행할지 결정하고 Atom을 정본으로 유지한다.
+3. collector semantics가 바뀐 `2e880cef...` 기준 정규 production F01/F86 full-audit 성공을 새로 확인한다.
+4. 픽업구독 색은 기존처럼 `MASTER_CATEGORY_COLORS['분류']` 한 곳에서만 해결한다. `check:color-ssot` 잠금을 유지한다.
+5. `mirror-sync.yml` / `sales-erp-hourly.yml` writer ownership/disable은 별도 미해소 항목으로 유지한다.
+
+이번 ChatGPT 감사에서는 애플리케이션 코드나 비즈니스 로직을 수정하지 않았다.
