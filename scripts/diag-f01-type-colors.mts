@@ -9,7 +9,9 @@ import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
 const S = (v: unknown) => String(v ?? '').trim();
 const sa = JSON.parse(readFileSync(process.env.GOOGLE_SHEETS_APPLICATION_CREDENTIALS || 'tmp/firebase-auth/sheets.json', 'utf8'));
-const jwt = new JWT({ email: sa.client_email, key: sa.private_key, scopes: ['https://www.googleapis.com/auth/spreadsheets.readonly'], subject: 'pyh@teamjpk.com' });
+// ⚠ 도메인위임 인증서는 승인된 스코프만 통과한다 — .readonly 변형은 별도 승인이 없어
+//   unauthorized_client 로 막힌다(실측 2026-09-16). 다른 스크립트와 같은 전체 스코프를 쓴다.
+const jwt = new JWT({ email: sa.client_email, key: sa.private_key, scopes: ['https://www.googleapis.com/auth/spreadsheets'], subject: 'pyh@teamjpk.com' });
 const call = async (u: string): Promise<Rec> => {
   const tok = (await jwt.getAccessToken()).token;
   const r = await fetch(u, { headers: { Authorization: `Bearer ${tok}` } });
