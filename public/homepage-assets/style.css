@@ -97,21 +97,20 @@ a{color:inherit;text-decoration:none} img,svg,canvas{display:block}
 .center{text-align:center}.center .lead{margin-left:auto;margin-right:auto}
 .sec-cta{margin-top:40px}
 
-/* STEPS (어떻게 연결되나) — teamjpk엔 없던 컴포넌트 */
-.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:54px;position:relative}
-.step{background:var(--panel);border-radius:18px;padding:32px 28px;box-shadow:var(--sh);position:relative}
-.step-n{font-size:14px;font-weight:800;color:#fff;background:var(--grad);width:34px;height:34px;border-radius:10px;display:grid;place-items:center;margin-bottom:18px}
-.step h3{font-size:20px;font-weight:800;margin-bottom:8px}.step p{font-size:14.5px;color:var(--ink2);line-height:1.7}
-.step .arr{position:absolute;right:-21px;top:50%;transform:translateY(-50%);width:30px;height:30px;border-radius:50%;background:#fff;box-shadow:var(--sh);display:grid;place-items:center;color:var(--blue);z-index:3}
-.step:last-child .arr{display:none}
-.step.hi{background:var(--grad);box-shadow:0 18px 40px -16px rgba(23,99,214,.55)}
-.step.hi h3{color:#fff}.step.hi p{color:rgba(255,255,255,.88)}
-.step.hi .step-n{background:#fff;color:var(--blue)}
-.step .arr svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round}
+/* 섹션 헤더 — 좌측 정렬 기본(시안 04 "주요 옵션 구성" 톤) */
+.sec-head{max-width:640px}
+.sec-head .eyebrow{margin-bottom:16px}
+
+/* STEPS (어떻게 연결되나) — 번호 카드, 고르게(시안 04 스타일) */
+.steps{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:46px}
+.step{background:var(--panel);border-radius:var(--r);padding:34px 28px;box-shadow:var(--sh);transition:.24s}
+.step:hover{transform:translateY(-5px);box-shadow:var(--shh)}
+.step-n{font-family:"Exo 2";font-size:15px;font-weight:800;color:var(--blue);letter-spacing:.5px;margin-bottom:22px}
+.step h3{font-size:19px;font-weight:800;margin-bottom:8px;letter-spacing:-.3px}.step p{font-size:14.5px;color:var(--ink2);line-height:1.7}
 
 /* STATS */
 .stats{display:grid;grid-template-columns:repeat(4,1fr);gap:18px;margin-top:50px}
-.stat{background:var(--panel);border-radius:16px;padding:30px 24px;box-shadow:var(--sh);text-align:center}
+.stat{background:var(--panel);border-radius:var(--r);padding:30px 24px;box-shadow:var(--sh);text-align:center}
 .num{font-family:"Exo 2";font-size:clamp(32px,4vw,48px);font-weight:800;letter-spacing:-1.5px;background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
 .num i{font-style:normal;font-size:.46em;color:var(--ink3);-webkit-text-fill-color:var(--ink3);margin-left:3px;font-weight:700}
 .lab{font-size:13.5px;color:var(--ink3);margin-top:8px}
@@ -120,14 +119,14 @@ a{color:inherit;text-decoration:none} img,svg,canvas{display:block}
 .feat{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:50px}
 .feat-4{grid-template-columns:repeat(4,1fr)}
 @media(max-width:1080px){.feat-4{grid-template-columns:repeat(2,1fr)}}
-.fc{background:var(--panel);border-radius:18px;padding:30px;box-shadow:var(--sh);transition:.24s}
+.fc{background:var(--panel);border-radius:var(--r);padding:30px;box-shadow:var(--sh);transition:.24s}
 .fc:hover{transform:translateY(-5px);box-shadow:var(--shh)}
 .fc .ic{width:50px;height:50px;border-radius:14px;background:var(--blue-soft);display:grid;place-items:center;color:var(--blue);margin-bottom:18px}
 .fc .ic svg{width:26px;height:26px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .fc h3{font-size:19px;font-weight:800;margin-bottom:8px;letter-spacing:-.3px}.fc p{font-size:14.5px;color:var(--ink2);line-height:1.7}
 
 /* 공급사 (라이트 컴팩트) */
-.supplier{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center;margin-top:30px;background:var(--panel);border-radius:22px;padding:44px;box-shadow:var(--sh)}
+.supplier{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center;margin-top:30px;background:var(--panel);border-radius:calc(var(--r) + 4px);padding:44px;box-shadow:var(--sh)}
 .supplier .btn-link{margin-top:18px}
 .sup-list{list-style:none;display:flex;flex-direction:column;gap:14px}
 .sup-list li{font-size:15.5px;color:var(--ink2);line-height:1.6;padding-left:30px;position:relative}
@@ -146,7 +145,7 @@ a{color:inherit;text-decoration:none} img,svg,canvas{display:block}
 .info div{margin-bottom:24px}.info .k{display:block;font-size:12px;font-weight:700;letter-spacing:1.5px;color:var(--blue)}
 .info .v{display:block;font-size:15.5px;color:var(--ink);margin-top:6px;line-height:1.7}
 .contact>*{min-width:0}
-.form{background:var(--panel);border-radius:20px;padding:32px;box-shadow:var(--sh);display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.form{background:var(--panel);border-radius:var(--r);padding:32px;box-shadow:var(--sh);display:grid;grid-template-columns:1fr 1fr;gap:16px}
 .field{display:flex;flex-direction:column;gap:8px;min-width:0}.field.full{grid-column:1/-1}
 .field label{font-size:13px;color:var(--ink3);font-weight:600}
 .field input,.field textarea,.field select{width:100%;background:var(--soft);border:0;border-radius:10px;padding:14px 15px;color:var(--ink);font-family:inherit;font-size:15px;transition:.18s}
