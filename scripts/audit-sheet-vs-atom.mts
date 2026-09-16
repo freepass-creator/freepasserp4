@@ -243,7 +243,8 @@ let f86줄 = 0;
     const company = channelCompanyOf(row.cells['공급사'], rowCtx.nameByProvider);
     expectedCompanies.set(company, (expectedCompanies.get(company) || 0) + 1);
   }
-  const expectedTitles = new Map([...expectedCompanies].map(([company, count]) => [`${company} ${expectedMark} · ${count}대`, company]));
+  /** ★2026-09-16 — 회사 탭엔 시각을 안 박는다(발행기와 같은 규칙). 시각은 「종합」 하나에만(아래 300줄). */
+  const expectedTitles = new Map([...expectedCompanies].map(([company, count]) => [`${company} · ${count}대`, company]));
   const channelColumns: string[] = [];
   for (const prefix of SALES_PUBLISHED_TAB_PREFIXES) for (const raw of salesPublishedColumns(prefix)) {
     const column = channelColumnName(raw);

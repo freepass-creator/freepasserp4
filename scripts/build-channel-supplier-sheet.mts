@@ -330,8 +330,11 @@ let index = 1;   // 0 = 공지사항
 for (const [company, list] of 탭들) {
   /**
    * ★탭 이름 = 「회사 N대」 (사장님 2026-09-08 「그냥 손오공 몇 대만 탭으로 남겨줘」).
-   *   판매시트는 탭 이름에 시각을 박지만(발행 시각이 곧 신선도라서), 채널이 보는 이 문서는
-   *   회사·같은 스냅샷의 시각·대수를 함께 보여 준다.
+   * ★★2026-09-16 정정 — 사장님 「원래 규칙은 회사명 또는 시트명 대수인데 시간만 어디에 쓸거냐인거야
+   *   시간은 맨 앞에 탭 하나만 부여해서 수정하는거로하자」. 한동안(2026-09-1x) 모든 탭 이름에
+   *   시각을 박아 재발행할 때마다 19개 탭 이름이 «전부» 바뀌어 보였다(신선도 확인 목적이었지만
+   *   과했다). 이제 시각은 맨 앞 탭(「종합」)에만 붙이고, 그 밖 회사 탭은 「회사 · N대」만 쓴다 —
+   *   같은 발행 회차라 시각은 종합 하나만 봐도 안다.
    */
   /**
    * ★★**F01(판매시트)을 그대로 회사별로만 쪼갠다** (사장님 2026-09-08 「F01을 토대로 그냥 회사별로만
@@ -356,7 +359,7 @@ for (const [company, list] of 탭들) {
   const 레트로 = RETRO ? retroTabLayout(company) : null;
   if (RETRO && !레트로) throw new Error(`굳힌 양식 표에 없는 탭: ${company}`);
   const cols = 레트로 ? 레트로.map((c) => c.head) : 쓸칸;
-  const title = `${company} ${mark} · ${list.length}대`;
+  const title = (RETRO && company !== RETRO_SUMMARY_TAB) ? `${company} · ${list.length}대` : `${company} ${mark} · ${list.length}대`;
   const old = have.find(([t]) => t.startsWith(`${company} `));
   let gid: number;
   if (old) {
