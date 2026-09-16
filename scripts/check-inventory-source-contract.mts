@@ -64,6 +64,7 @@ const VALIDATED_ENGINES = [
   'd635f8c87c3840a6956184b4d20f99dd968b6138',   // + 분류/구분 칩 색 SSOT 통일(PR #303 cherry-pick) — 수집기 미변경
   'a0b5a66c94870ea843a7a9f15daba986954c788e',   // + F01 발행 시 옛 조건부서식 삭제(PR #308 cherry-pick) — 수집기 미변경
   '0c4ec76b605c3ac50efcd9483dd2294bd89e22c0',   // + fields 마스크 400 긴급수정(PR #310 cherry-pick) — 수집기 미변경
+  '308511563d8e8f56dbd94f715469d8ae7ed9171a',   // + (2)+(3)+(4) 재정렬 — (4)가 (2) 없는 가지에서 갈라져 색 SSOT가 빠졌던 것 수정
 ];
 const pinnedEngine = VALIDATED_ENGINES.find((engine) => workflow.includes(`ref: ${engine}`));
 assert(pinnedEngine, '검증 엔진 pin이 제거됐습니다. main collector 이식 완료 전에는 pin을 풀면 안 됩니다(새 엔진은 VALIDATED_ENGINES 에 적는다).');

@@ -39,7 +39,11 @@ jobs:
           # ★2026-09-16(4) — 긴급 수정 PR #310. (3)의 fields 마스크 문법이 잘못돼(bandedRanges·
           #   conditionalFormats를 properties 안에 잘못 중첩) 400으로 F01 발행 전체가 죽었다
           #   (운영 회차 35042070104 실측). publish-origin-tab.mts가 쓰는 올바른 형제-필드 문법으로 고침.
-          ref: 0c4ec76b605c3ac50efcd9483dd2294bd89e22c0
+          # ★2026-09-16(5) — 긴급 재수정. (4)를 claude/f86-on-gate(=(2) 이전 가지)에서 다시 딴
+          #   실수로 (2)의 색 SSOT 수정이 빠져 있었다 — 「구분」 칸이 옛 헥스(FF00FF 등)로 되돌아간 채
+          #   조건부서식만 4개로 깔끔해진 상태였다(실측). claude/f86-on-gate-color-ssot(=(2)) 위에
+          #   (3)+(4)를 다시 cherry-pick해 세 수정을 한 줄로 합쳤다.
+          ref: 308511563d8e8f56dbd94f715469d8ae7ed9171a
       - name: freepasserp5 OIDC 인증
         uses: google-github-actions/auth@v2
         with:
