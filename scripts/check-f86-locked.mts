@@ -78,7 +78,15 @@ must(hex(retroTabColorRequest(0, '종합')?.updateSheetProperties?.properties?.t
 must(RETRO_FONT === 'Malgun Gothic' && RETRO_SIZE === 9 && RETRO_ROW_PX === 21, `글꼴·크기·줄 높이가 바뀌었습니다: ${RETRO_FONT} ${RETRO_SIZE}pt · 줄 ${RETRO_ROW_PX}`, `${SKIN} — ${MANUAL} 4`);
 const cols = ['구분', '36개월', '36개월 반납형', '분납', '최초등록', '배기량', '배차상태'];
 const reqs: any[] = applyRetroSkin([{ addConditionalFormatRule: { rule: {} } }, { repeatCell: { fields: 'note' } }], [], { gid: 0, columns: cols, headerAt: 0 });
-must(!reqs.some((r) => r.addConditionalFormatRule), '조건부서식이 남습니다 — 옛 시트는 0개입니다.', `${SKIN} · applyRetroSkin ① — ${MANUAL} 4`);
+must(!reqs.some((r) => r.addConditionalFormatRule), '레트로 입력엔 「구분」 값별 조건부서식이 없는데도 살아남았습니다 — 필터가 열려 있습니다.', `${SKIN} · applyRetroSkin ① — ${MANUAL} 4`);
+{
+  // ★2026-09-16 — 「구분」 값별 색(GUBUN_INK)은 예외로 살아야 한다(F01과 같은 뜻·같은 색).
+  const 구분조건부 = { addConditionalFormatRule: { rule: { ranges: [{ sheetId: 0, startColumnIndex: 0, endColumnIndex: 1 }], booleanRule: { condition: { type: 'TEXT_EQ', values: [{ userEnteredValue: '픽업구독' }] }, format: { textFormat: { foregroundColor: { red: 0, green: 0, blue: 0 } } } } } } };
+  const 다른칸조건부 = { addConditionalFormatRule: { rule: { ranges: [{ sheetId: 0, startColumnIndex: 5, endColumnIndex: 6 }], booleanRule: { condition: { type: 'TEXT_EQ', values: [{ userEnteredValue: '가솔린' }] }, format: {} } } } };
+  const r2 = applyRetroSkin([구분조건부, 다른칸조건부], [], { gid: 0, columns: cols, headerAt: 0 });
+  must(r2.some((r) => r.addConditionalFormatRule === 구분조건부.addConditionalFormatRule), '「구분」 값별 조건부서식(GUBUN_INK)이 레트로에서 걷힙니다 — F01·F86 상품 갈래 색이 갈라집니다.', `${SKIN} · applyRetroSkin ① 예외 — ${MANUAL} 4`);
+  must(!r2.some((r) => r.addConditionalFormatRule === 다른칸조건부.addConditionalFormatRule), '「구분」이 아닌 칸의 조건부서식까지 살아남습니다 — 레트로 「옛 시트 느낌」이 깨집니다.', `${SKIN} · applyRetroSkin ① 예외 — ${MANUAL} 4`);
+}
 const whole = reqs.find((r) => r.repeatCell && r.repeatCell.range?.startColumnIndex === undefined && r.repeatCell.range?.startRowIndex === undefined)?.repeatCell?.cell?.userEnteredFormat;
 must(!!whole && whole.textFormat?.italic === true && whole.textFormat?.bold === false && whole.horizontalAlignment === 'CENTER' && whole.wrapStrategy === 'OVERFLOW_CELL',
   '탭 전체 겉(기울임 · 굵기 없음 · 가운데 · 넘침)이 바뀌었습니다.', `${SKIN} · applyRetroSkin ③ — ${MANUAL} 4`);
@@ -91,7 +99,7 @@ const nf = (i: number) => last(cellsAt(i, false).filter((f) => f.numberFormat))?
 must(headBg(1) === 'cc4125' && bodyInk(1) === '0000ff', `36개월 칸 색(머리 CC4125 · 글자 파랑)이 바뀌었습니다: 머리 ${headBg(1)} · 글자 ${bodyInk(1)}`, `${SKIN} · HEAD_BG/BODY_INK — ${MANUAL} 4`);
 must(headBg(2) === 'cc4125' && bodyInk(2) === '0000ff',
   `고유 요금 칸(36개월 반납형)이 «기간이 같은 옛 칸 색»이 아닙니다: 머리 ${headBg(2)} · 글자 ${bodyInk(2)} — 사장님 「컬러 느낌은 동일하게 대여료 구간」`, `${SKIN} · retroFeeStyleOf — ${MANUAL} 4`);
-must(bodyInk(0) === '34a853', `구분 글자색이 초록(34A853)이 아닙니다: ${bodyInk(0)}`, `${SKIN} · BODY_INK — ${MANUAL} 4`);
+must(bodyInk(0) === '', `「구분」에 옛 고정색(BODY_INK)이 남아 있습니다: ${bodyInk(0)} — 이제 값별 표(GUBUN_INK)로만 정한다.`, `${SKIN} · BODY_INK — ${MANUAL} 4`);
 must(bodyInk(6) === '0000ff', `배차상태 글자색이 파랑이 아닙니다: ${bodyInk(6)}`, `${SKIN} · BODY_INK — ${MANUAL} 4`);
 must(bodyBg(3) === 'ffff00' && bodyInk(3) === 'ff0000', `분납 칸(노란 바탕 · 빨강 글자)이 바뀌었습니다: ${bodyBg(3)} · ${bodyInk(3)}`, `${SKIN} · BODY_BG — ${MANUAL} 4`);
 must(nf(4) === 'yy-m-d' && nf(5) === '#,##0' && nf(1) === '#,##0', `숫자·날짜 형식(요금·배기량 #,##0 · 최초등록 yy-m-d)이 바뀌었습니다: ${nf(1)} · ${nf(5)} · ${nf(4)}`, `${SKIN} · applyRetroSkin ④¼ — ${MANUAL} 4`);
