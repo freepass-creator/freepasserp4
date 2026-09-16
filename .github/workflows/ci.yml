@@ -98,6 +98,54 @@ jobs:
       - name: 화면이 시트를 직접 읽지 않는가
         run: npm run check:no-client-sheet-live-status
 
+      # ★★2026-09-16 — 「걸어야 할 검사기가 빠졌다」를 «사람이» 눈치채야 하는 구조를 끝낸다.
+      #   정본 = scripts/ci-checker-manifest.json (필수 / 수동 전용+이유 / 못 거는 이유).
+      #   check:workflows ③절이 「필수가 run: 에서 불리는가」와 「등재 누락」을 본다.
+      #   아래 스텝들은 그 정본이 «필수»로 정한 것들 — 전부 읽기 전용이고 origin/main 실측 통과다.
+      - name: RTDB 폐기 빗장 — 정산 원자가 RTDB 를 안 보는가
+        run: npm run check:nortdb
+
+      - name: 웹·모바일이 같은 Firestore 피드를 쓰는가
+        run: npm run check:shop-data-parity
+
+      - name: 손님 동 — 간판을 갈아쳐도 업무동이 안 물드는가
+        run: npm run check:guest
+
+      - name: 손님 화면 — 샘의 공통 칸을 다 싣는가
+        run: npm run check:guest-fields
+
+      - name: 공유 부속서식 표류
+        run: npm run check:template-drift
+
+      - name: 축 레지스트리 ↔ 코드 여섯 곳
+        run: npm run check:axes
+
+      - name: 판매시트 @매핑·공급사 행렬 규칙
+        run: npm run check:pipeline
+
+      - name: 매뉴얼이 코드와 어긋났는가
+        run: npm run check:manual
+
+      - name: 엔카 제원 채움 가드
+        run: npm run check:encar-spec-fill
+
+      - name: 교차 검증 — 찾은 사람이 자기 건을 검증했는가
+        run: npm run check:crosscheck
+
+      - name: 선택옵션 파서가 «없는 옵션»을 만들지 않는가
+        run: npm run check:options
+
+      - name: 공급사 채널 울타리가 모든 문에 섰는가
+        run: npm run check:fence
+
+      - name: 채널이 바꿀 수 있는 것과 문서의 일치
+        run: npm run check:whitelabel
+
+      # ⚠ 위쪽 주석의 「check:settlement 는 아직 빨간불이라 안 건다」는 옛 사정이다.
+      #   2026-09-16 origin/main 실측 exit 0 — 풀렸으므로 건다(정본에도 그 근거를 적었다).
+      - name: 정산 시트 규격 빗장
+        run: npm run check:settlement
+
       - name: Sim — 시트 병합(soft-merge·락 보호)
         run: npx tsx scripts/sim-sheet-merge.mts
 
