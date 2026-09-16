@@ -51,9 +51,16 @@ const PUBLIC_POLICY_FIELDS = [
   'basic_driver_age', 'driver_age_lowering', 'age_lowering_cost', 'driver_age_upper_limit', 'license_period',
   'personal_driver_scope', 'business_driver_scope',
   'additional_driver_allowance_count', 'additional_driver_cost',
+  // 사고 나면 손님이 가장 먼저 묻는 값 — 상세 「정비」가 쓴다(2026-08-20).
   'maintenance_service',
-  // 사고 나면 손님이 가장 먼저 묻는 값 — 상세 「정비 · 대차」가 쓴다(2026-08-20).
-  'replacement_car_policy',
+  /*
+   * ⚠⚠ **`replacement_car_policy`(대차)를 여기서 걷었다**(사장님 2026-09-16 「**다 빼**」).
+   *   실제 값이 거의 「불가」라(집 기본값도 「불가」) 고르는 화면에서 손을 멈추게 하는 말이 됐다.
+   * ★규격에도 맞다 — `policy-tier` 가 이 칸을 `exposure: 'contract'` 로 분류한다(제5조·제20조).
+   *   계약서에 나갈 값이지 카탈로그 값이 아니다.
+   * ★**화면에서 지우는 것만으로는 부족해서 여기서도 걷었다** — 명단에 남기면 그리지 않아도
+   *   응답 JSON 에 실려 나간다. 전자계약·관리자 정책 화면은 이 명단을 안 타므로 거기서는 그대로다.
+   */
   /*
    * ★★★**로그인 뒤에 있던 칸 셋이 여기로 올라왔다**(사장님 2026-09-16 「**로그인을 안 할 거라서**
    *   기타사항에 **영업자가 보는 걸 꽤 넣어줘야** 함」).
