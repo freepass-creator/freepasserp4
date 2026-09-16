@@ -58,49 +58,62 @@ PR #312 merge commit:
 
 따라서 직전 `0c4ec76b...`에서 발생했던 **PR #303 상품구분 색상 SSOT 누락 / diverged production lineage 문제는 current pin에서 구조적으로 해소됨**으로 본다.
 
-## 2. 새 pin 실제 운영 발행은 아직 HOLD
+## 2. `308511563...` 실제 운영 발행까지 완전 PASS 확인
 
 PR #312 merge 직후 workflow_dispatch run:
 
 - run `35044774559` (run #14)
-- head `59e45d8d...`
-- production checkout ref `308511563...`
+- head `59e45d8d69ae94ea7edb0e77e10fa3640bfe0bec`
+- production checkout ref `308511563d8e8f56dbd94f715469d8ae7ed9171a`
+- conclusion: **success**
 
-감사 시점 상태:
+실제 Actions job에서 다음 단계가 모두 success로 끝났다.
 
-- checkout/OIDC/npm ci: success
-- 원천 계약 검사: success
-- 현재 원천 재수집: success
-- 티카 유료옵션 감사: success
-- `원천에서 ERP5 현재 원자 계산`: in progress
-- 이후 snapshot/F01/F86/cross-audit/photo-audit: pending
+- 원천 계약 검사 / 현재 원천 재수집 / 티카 유료옵션 감사
+- ERP5 현재 원자 계산·반영 / 정책 참조 정합화
+- 발행 snapshot 고정 / public catalog 발행 대사
+- **F01 판매시트 게시**
+- **F86 발행 직전 백업 / F86 게시**
+- **F86 ↔ 원자 칸 대조·신선도 감사**
+- **원자 ↔ F01 ↔ F86 칸 단위 대조**
+- **차번 셀 사진 링크 대조**
+- 회차 증거 artifact 보존
 
-따라서 **`308511563...`을 아직 운영 PASS라고 선언하지 않는다.**
+보존 artifact:
 
-직전 완전 운영 PASS 증거:
+- `erp5-ssot-snapshot-35044774559`
+- digest `sha256:4498d645f463cb6ffd50b3a71595b1751590c9b49f0bc5e52ed467e17b570930`
 
-- `0c4ec76b605c3ac50efcd9483dd2294bd89e22c0`
-- run `35043402729` — F01/F86/Atom cross audit 및 사진링크까지 success
+따라서 이전 문서의 “새 pin 운영 실발행 HOLD”는 더 이상 최신 판정이 아니다. **`308511563...`은 현재 최신 완전검증 production pin**이다.
 
-비교 안정 기준점:
+## 3. F01/F86 상품구분 색 SSOT 공유 구조는 current pin에 존재
 
-- `d635f8c87c3840a6956184b4d20f99dd968b6138`
-- run `35039845907`
-- F01 735 = F86 735, F86↔Atom 46,675칸 mismatch 0, Atom↔F01/F01↔F86/photo mismatch 0
+`308511563...`의 `lib/domain/sales-sheet-format.ts`는:
 
-## 3. 배차상태와 상품구분 색 규칙은 서로 독립된 의미로 current pin에 존재
+- `GUBUN_INK = MASTER_CATEGORY_COLORS['분류']`
+- F01의 `구분`에 `GUBUN_INK` 적용
+- F86/공급사 계열의 `분류`에도 같은 `GUBUN_INK` 적용
+- 배차상태는 별도 `STATE_INK`
 
-`308511563...`의 `lib/domain/sales-sheet-format.ts`:
+으로 구성되어 있다.
 
-- 상품구분 `구분` → `GUBUN_INK = MASTER_CATEGORY_COLORS['분류']` 단일출처
-- 배차상태 → 별도 `STATE_INK`
-  - `즉시출고`, `출고가능` = 파랑
-  - `상품화중`, `출고협의` = 주황
-  - `계약중`, `출고불가` = 회색
+즉 **F01과 F86이 서로 다른 상품구분 색표를 갖는 구조는 현재 production pin에서 해소되어 있고, 같은 canonical map을 참조한다.**
 
-`lib/domain/channel-retro-skin.ts`도 F86 레트로 스킨에서 **구분·배차상태 값별 색을 살린다**고 명시한다.
+현재 canonical map(`lib/domain/category-colors.ts`) 값:
 
-즉 “배차상태와 상품구분을 각각 자기 기준에 맞춰 다른 색 체계로 표시”하는 구조는 current production 엔진에 있다. 다만 run `35044774559` 완료 전에는 실제 운영 시트 최종 표시까지 PASS로 확정하지 않는다.
+- 신차렌트 `#B81A8C`
+- 중고렌트 `#0D706B`
+- 중고구독 `#6B3DB3`
+- 신차구독 `#474D57`
+- 픽업구독 `#C2185B`
+
+배차상태는 별도 의미로 유지한다.
+
+- `즉시출고`, `출고가능` = 파랑
+- `상품화중`, `출고협의` = 주황
+- `계약중`, `출고불가` = 회색
+
+참고로 main에서 실행된 `F01 구분 칸 색 진단(읽기전용, 수동)` run `35045707947`도 success였으나, 이번 독립 감사에서는 해당 step의 원문 로그까지 확보하지 않았으므로 **success 상태만으로 실제 렌더링된 각 색 HEX까지 재판정하지 않는다.** 표현 변경이 필요하면 Claude 구현 Owner가 canonical map과 live sheet를 함께 대조한다.
 
 ## 4. F86 표시계약 drift는 여전히 미해소
 
@@ -169,16 +182,27 @@ UI에서 실제 disabled면 active writer 충돌이라고 단정하지 않지만
 
 - engine = `308511563...`
 
-새 pin 운영 검증 완료 후 이 문서와 ACTIVE handoff의 오래된 pin/상태 설명을 함께 맞춘다.
+이 문서와 ACTIVE handoff의 오래된 pin/상태 설명은 Claude 구현 Owner가 최신 상태와 맞춰야 한다.
+
+## 8. current `main` 최신 변경은 감사/문서 계열이며 production app 회귀 증거 없음
+
+감사 시점 current `main` HEAD:
+
+- `6dbdd24d412a7ea3974e01ff02025bf31137cf70`
+- message: `chore: temporary placeholder for F86 rule tracing`
+
+이 commit은 `docs/ai-ssot-audit/.tmp-f86-rules-placeholder`만 추가한다. 같은 HEAD의 CI run `35045588568`은 success다.
+
+따라서 run `35044774559` 완료 이후 current main에서 **새 애플리케이션/비즈니스 로직 회귀를 만든 변경은 이번 감사 범위에서 확인되지 않았다.**
 
 ---
 
 # Claude 구현 Owner의 즉시 우선순위
 
-1. **run `35044774559` 완료 확인:** F01/F86/F86↔Atom/Atom↔F01↔F86/photo audit까지 전부 PASS인지 확인.
-2. PASS면 `308511563...`을 최신 완전검증 production pin으로 확정하고 감사로그에 해소 항목 추가.
-3. **F86 presentation contract 반영:** 공지사항 제거 / 종합만 시간+대수 / 공급사 탭 이름+대수. 배차상태와 상품구분의 독립 색상 규칙은 유지.
-4. `docs/예약작업-지도.md`와 stale handoff를 `308511563...` 및 최신 규칙과 맞춤.
+1. **`308511563...`을 최신 완전검증 production pin으로 취급한다.** run `35044774559`의 F01/F86/cross-audit/photo-audit가 전부 success다.
+2. **F86 presentation contract 반영:** 공지사항 제거 / 종합만 시간+대수 / 공급사 탭 이름+대수. 배차상태와 상품구분의 독립 색상 규칙은 유지.
+3. 상품구분 색 표현을 변경할 경우 F01/F86을 따로 고치지 말고 `MASTER_CATEGORY_COLORS['분류']` 한 곳을 기준으로 한다. live sheet 재발행/진단까지 검증한다.
+4. `docs/예약작업-지도.md`와 stale handoff를 `308511563...` 및 최신 규칙과 맞춘다.
 5. legacy writer UI-disable 의존성은 기존 latent conflict로 유지하고 별도 구현 판단.
 6. 변경 후 `docs/AI-SSOT-AUDIT-LOG.md`에 `해소됨/잔존`을 append.
 
