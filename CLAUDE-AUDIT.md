@@ -17,6 +17,7 @@ FreePass SSOT 관련 **실제 구현·수정 Owner는 지정된 Claude 단일 �
 최신 독립 감사 보강 기록:
 
 - `docs/ai-ssot-audit/2026-09-16-chatgpt-run14-production-pass.md`
+- `docs/AI-SSOT-AUDIT-LOG.md`의 `2026-09-16(11)` — #313 side-branch 색상 “해소” 정정
 
 ---
 
@@ -42,6 +43,30 @@ FreePass SSOT 관련 **실제 구현·수정 Owner는 지정된 Claude 단일 �
 ---
 
 # 현재 최신 판정 — 2026-09-16
+
+## 0. 긴급 정정 — PR #313의 픽업구독 색상 “해소됨”은 current main/production 해소가 아님
+
+PR #313 이후 독립 재감사에서 직전 감사로그의 범위 혼동이 확인됐다.
+
+직전 Claude 구현은 `codex/rtdb-cutover-current` branch의 commit `4647c484d756a594302d1417e405e61a820c23fb`에서 `GUBUN_INK`에 `픽업구독 = 0F766E`를 추가하고 수동 F01/F86 publish를 수행했다. 그러나 이 branch는 current `main` 및 production pin과 **diverged** 상태이며 해당 코드 변경은 main/production에 병합되지 않았다.
+
+현재 main과 production pin `308511563d8e8f56dbd94f715469d8ae7ed9171a`의 실제 구조는 계속 다음과 같다.
+
+- `lib/domain/category-colors.ts`에 `MASTER_CATEGORY_COLORS['분류']`가 존재
+- `픽업구독 = #C2185B`
+- `lib/domain/sales-sheet-format.ts`의 `GUBUN_INK`는 이 canonical map에서 파생
+
+반면 side branch `4647c484...`는 `'분류'` map이 없고 `GUBUN_INK`를 별도 하드코딩한다. 따라서 side branch의 하드코딩 표를 그대로 main에 병합하면 PR #303에서 복구한 **상품구분 색 단일 SSOT 구조를 다시 깨뜨릴 수 있다.**
+
+또한 직전 감사로그의 “origin에는 F86 자동 workflow가 없다 / `erp5-ssot-refresh.yml`은 F01만 발행”이라는 설명도 current main과 반대다. current `.github/workflows/erp5-ssot-refresh.yml`은 production pin을 checkout해 **F01 + F86 백업/발행 + F86↔Atom + Atom↔F01↔F86 + 사진링크 감사까지 한 회차에서 수행**한다.
+
+따라서 현재 정본 판정은:
+
+- side branch/manual publish에서 보인 색상 변화 = **관측된 실험/수동발행 결과**
+- current main/production의 픽업구독 canonical 색상 변경 = **미반영 / 미해소**
+- 정규 production에서 해소하려면 `MASTER_CATEGORY_COLORS['분류']` 단일 SSOT 구조를 유지한 채 승인된 색을 적용하고 정규 production publish 후 effectiveFormat까지 재검증해야 함
+
+세부 근거: `docs/AI-SSOT-AUDIT-LOG.md` 최신 `2026-09-16(11)` 항목.
 
 ## 1. current production pin은 `308511563...` — PR #312로 계보 drift 구조적 해소
 
@@ -122,9 +147,11 @@ PR #312 merge 직후 workflow_dispatch run:
 
 이다.
 
-따라서 **현재 `픽업구독 #C2185B`는 최신 요구와 충돌한다.** Claude 구현 Owner는 손오공에서 실제 쓰는 기존 sky-blue 토큰을 찾아 정확한 값을 확정한 뒤 `MASTER_CATEGORY_COLORS['분류']` 한 곳만 바꾸고, F01/F86을 재발행해 live sheet의 실제 텍스트 색을 둘 다 확인한다. 배차상태 `STATE_INK`는 건드리지 않는다.
+따라서 **현재 `픽업구독 #C2185B`는 최신 요구와 충돌한다.** Claude 구현 Owner는 손오공에서 실제 쓰는 기존 sky-blue 토큰을 찾아 정확한 값을 확정한 뒤 `MASTER_CATEGORY_COLORS['분류']` 한 곳만 바꾸고, F01/F86을 정규 production 경로로 재발행해 live sheet의 실제 텍스트 색을 둘 다 확인한다. 배차상태 `STATE_INK`는 건드리지 않는다.
 
-main에서 실행된 `F01 구분 칸 색 진단(읽기전용, 수동)` run `35045707947`은 success였지만, 이번 독립 감사에서는 그 step의 원문 로그까지 확보하지 않았으므로 success 상태만으로 실제 렌더링된 각 HEX를 재판정하지 않는다.
+`codex/rtdb-cutover-current`의 `0F766E` 수동발행 결과는 참고 증거일 뿐 current production 해소 증거가 아니다. 그 branch의 하드코딩 `GUBUN_INK` 구조를 그대로 가져오지 않는다.
+
+main에서 실행된 `F01 구분 칸 색 진단(읽기전용, 수동)` run `35045707947`은 success였지만, 독립 감사에서는 그 step의 원문 로그까지 확보하지 않았으므로 success 상태만으로 실제 렌더링된 각 HEX를 재판정하지 않는다.
 
 ## 4. F86 표시계약 drift는 여전히 미해소
 
@@ -195,23 +222,23 @@ UI에서 실제 disabled면 active writer 충돌이라고 단정하지 않지만
 
 이 문서와 ACTIVE handoff의 오래된 pin/상태 설명은 Claude 구현 Owner가 최신 상태와 맞춰야 한다.
 
-## 8. current `main` 최신 변경은 감사/문서 계열이며 production app 회귀 증거 없음
+## 8. current `main` 최신 변경은 감사 문서 계열이며 production app 회귀 증거 없음
 
-감사 시작 시 current `main` HEAD:
+이번 독립 재감사 시작 시 current `main` HEAD:
 
-- `6dbdd24d412a7ea3974e01ff02025bf31137cf70`
-- message: `chore: temporary placeholder for F86 rule tracing`
+- `c147b1362d4aaf86ad9dedbf4ac93fd025cf37d8`
+- message: `docs: F01/F86 픽업구독 구분색 정정 감사로그 기록 (#313)`
 
-이 commit은 `docs/ai-ssot-audit/.tmp-f86-rules-placeholder`만 추가한다. 같은 HEAD의 CI run `35045588568`은 success다.
+이 commit은 `docs/AI-SSOT-AUDIT-LOG.md`만 변경했다. main CI run `35050789201`은 success다. 그러나 이 문서 commit/CI는 side branch `4647c484...`의 색상 코드가 main/production에 병합됐다는 증거가 아니다.
 
-이번 감사자가 추가한 변경도 `CLAUDE-AUDIT.md`와 `docs/ai-ssot-audit/2026-09-16-chatgpt-run14-production-pass.md` 문서뿐이다. 애플리케이션 코드나 비즈니스 로직은 수정하지 않았다.
+독립 감사에서 추가한 변경은 `docs/AI-SSOT-AUDIT-LOG.md`와 이 `CLAUDE-AUDIT.md` 문서뿐이다. 애플리케이션 코드나 비즈니스 로직은 수정하지 않았다.
 
 ---
 
 # Claude 구현 Owner의 즉시 우선순위
 
 1. **`308511563...`을 최신 완전검증 production pin으로 취급한다.** run `35044774559`의 F01/F86/cross-audit/photo-audit가 전부 success다.
-2. **상품구분 색 SSOT 최신화:** 손오공에서 실제 사용하는 sky-blue 토큰을 찾아 `픽업구독`에 재사용. 임의 HEX 금지. F01/F86은 현재처럼 같은 `MASTER_CATEGORY_COLORS['분류']`를 참조하고 재발행 후 둘 다 live 검증.
+2. **#313 side-branch 색상 해소 판정을 production 해소로 보지 않는다.** `codex/rtdb-cutover-current`의 hardcoded `GUBUN_INK`를 그대로 가져오지 말고, current production의 `MASTER_CATEGORY_COLORS['분류']` 단일 SSOT 구조를 보존한 채 승인된 픽업구독 색을 적용한다. 임의 HEX 금지. 정규 production 재발행 후 F01/F86 effectiveFormat까지 검증한다.
 3. **F86 presentation contract 반영:** 공지사항 제거 / 종합만 시간+대수 / 공급사 탭 이름+대수. 배차상태와 상품구분의 독립 색상 규칙은 유지.
 4. `docs/예약작업-지도.md`와 stale handoff를 `308511563...` 및 최신 규칙과 맞춘다.
 5. legacy writer UI-disable 의존성은 기존 latent conflict로 유지하고 별도 구현 판단.
