@@ -57,10 +57,9 @@ function* walk(dir: string): Generator<string> {
   }
 }
 
-const direct: string[] = [];
-for (const r of ROOTS) for (const f of walk(r)) {
-  if (GATES.has(f)) continue;
-  const src = ts.createSourceFile(f, readFileSync(join(ROOT, f), 'utf8'), ts.ScriptTarget.Latest, true);
+/** 이 «한 자»가 파일 하나를 보고 「문을 여는가」를 답한다. 실제 파일에도, 합성 표본에도 같이 쓴다. */
+function 문을여는가(이름: string, 글: string): boolean {
+  const src = ts.createSourceFile(이름, 글, ts.ScriptTarget.Latest, true);
   /*
    * ⚠ **최상위 `import` 만 보면 놓친다** — 코덱스 2차 검증(2026-09-09)이
    *   `lib/login-helpers.ts:14` 의 `await import('firebase/database')` 를 잡아냈다.
@@ -100,7 +99,13 @@ for (const r of ROOTS) for (const f of walk(r)) {
     ts.forEachChild(n, visit);
   };
   visit(src);
-  if (opens) direct.push(f);
+  return opens;
+}
+
+const direct: string[] = [];
+for (const r of ROOTS) for (const f of walk(r)) {
+  if (GATES.has(f)) continue;
+  if (문을여는가(f, readFileSync(join(ROOT, f), 'utf8'))) direct.push(f);
 }
 
 console.log('\nRTDB 를 «스왑점 밖»에서 직접 여는 파일\n');
@@ -112,10 +117,35 @@ for (const f of direct) {
 for (const [k, n] of [...by].sort((a, b) => b[1] - a[1])) console.log(`   ${String(n).padStart(4)}  ${k}`);
 console.log(`   ${String(direct.length).padStart(4)}  합계  (문 자신 ${GATES.size}개는 제외)`);
 
-/* 대조군 — 어댑터가 안 잡히면 «재는 쪽»이 틀린 것이다(오늘 세 번 그랬다). */
-const control = 'lib/firebase/auth.ts';
-if (!direct.includes(control) && !GATES.has(control)) {
-  console.error(`\n✗ 검사기 고장 — 대조군 ${control} 가 안 잡힌다. 사전이 아니라 이 자를 고쳐라.`);
+/*
+ * 대조군 — 안 잡히면 «재는 쪽»이 틀린 것이다(그날 세 번 그랬다).
+ *
+ * ★2026-09-16 고침: 전에는 대조군이 **실제 운영 파일**(`lib/firebase/auth.ts`)이었다.
+ *   그 파일이 컷오버로 Firestore 로 옮겨가자 «안 잡히는 것이 맞는» 상태가 됐고,
+ *   자가진단은 「검사기 고장」이라 외치며 exit 1 을 냈다. 검사기는 멀쩡했고 대조군만 죽었다.
+ *   ⚠ 무늬가 이것이다 — **자가진단이 «운영 코드가 계속 더러울 것»에 기대면,
+ *     코드가 깨끗해지는 순간 자가진단이 깨진다.** 게다가 이 자는 CI 에 안 걸려 있어서
+ *     그렇게 깨진 채로 아무도 몰랐다.
+ *   ⇒ 대조군을 **합성 표본**으로 바꾼다. 디스크에 안 쓰고, 운영 코드 상태와 무관하며,
+ *     저장소가 아무리 깨끗해져도 「재는 쪽이 살아 있는가」를 계속 답한다.
+ *   ★새 문(DOORS)을 더하면 여기 표본도 같이 더해라. 표본 없는 문은 안 잡혀도 모른다.
+ */
+const 표본: Array<[string, string, boolean]> = [
+  ['정적 import', "import { getDatabase } from 'firebase/database';", true],
+  ['admin 정적 import', "import { getDatabase } from 'firebase-admin/database';", true],
+  ['동적 import', "const m = await import('firebase/database');", true],
+  ['require', "const m = require('firebase-admin/database');", true],
+  ['재노출', "export { getDatabase } from 'firebase/database';", true],
+  ['이어 붙인 주소', "const m = await import('firebase/' + 'database');", true],
+  ['★주석 안(잡히면 안 된다)', "// import { getDatabase } from 'firebase/database';", false],
+  ['★문자열 안(잡히면 안 된다)', 'const s = `import "firebase/database"`;', false],
+  ['★Firestore(잡히면 안 된다)', "import { getFirestore } from 'firebase/firestore';", false],
+];
+const 틀린표본 = 표본.filter(([, 글, 기대]) => 문을여는가('표본.ts', 글) !== 기대);
+if (틀린표본.length) {
+  console.error(`
+✗ 검사기 고장 — 대조군 ${틀린표본.length}개가 어긋난다. 사전이 아니라 이 자를 고쳐라.`);
+  for (const [이름, , 기대] of 틀린표본) console.error(`   ${이름} — ${기대 ? '잡아야 하는데 안 잡힌다' : '안 잡아야 하는데 잡힌다'}`);
   process.exit(1);
 }
 
