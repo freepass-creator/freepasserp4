@@ -23,7 +23,7 @@ import { PERKS, hasPerk } from '@/lib/domain/product-filters';
 import { displacementL } from '@/components/product-card-identity';
 import { vehicleNameOf } from '@/lib/domain/vehicle-name';
 import { yearFullDisplay, fuelDisplay, makerDisplay } from '@/lib/domain/vehicle-master-format';
-import { isEvFuel, kmDisplay, kmValue, wonKo, depositLine } from '@/lib/format';
+import { isEvFuel, kmDisplay, kmValue, wonKo, depositLine, withUnit } from '@/lib/format';
 
 /**
  * 가게 상세 — 손님이 «이 차로 할까»를 정하는 화면.
@@ -699,10 +699,51 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
      *   그 자리를 지켜 준다. 빈 구역이 하나 줄어든다.
      */
     ['최초등록', regDate(p.first_registration_date)],
+    /*
+     * ★★★**렌트사 — 손님이 실제로 계약하는 상대**(사장님 2026-09-16 「기타사항에 **공급사 하나
+     *   넣어줘 렌트사**」 · 「**로그인을 안 할 거라서** 기타사항에 **영업자가 보는 걸 꽤 넣어줘야** 함」).
+     *
+     * ⚠⚠ 2026-09-06 에는 일부러 숨긴 값이다 — 로그인한 영업자만 보는 맨 아래 칸(`ShopInside`)에
+     *   두고 「채널 이름으로 나가는 판에서 뒤에 누가 있는지 꺼내면 안 된다」고 적었다.
+     *   그 판단의 전제가 **로그인**이었다. 안 하기로 하면 그 칸은 아무도 못 보는 칸이다.
+     * ★여쭙고 받은 답이다(같은 날) — 화이트라벨 페이지에서도 똑같이 드러난다는 것까지 말씀드렸다.
+     * ★**이름만** 쓴다(`provider_name`) — 내부 코드(`RP012` 꼴)는 여전히 안 나간다.
+     * ★말은 「공급사」가 아니라 **「렌트사」**다(사장님이 쓰신 말 · 계약접수 양식의 「렌트사명」과 같다).
+     *   「공급사」는 우리끼리 쓰는 말이라 손님 화면에 안 낸다(집 규칙).
+     */
+    ['렌트사', String((p as Record<string, unknown>).provider_name || '')],
     ['차량 인도', S('delivery_fee')],
     ['이용 지역', S('rental_region')],
     ['정비', S('maintenance_service')],
     ['대차', S('replacement_car_policy')],
+    /*
+     * ★★★**로그인 뒤에 있던 응대용 값들** — 로그인을 안 하기로 해서 여기로 올라왔다(위 머리말).
+     *   손님이 **계약 전에 알아야 하는 것**만 골랐다. 명단 경계는 `PUBLIC_POLICY_FIELDS` 한 곳이고,
+     *   거기 머리말에 «일부러 안 올린 넷»(수수료 환수 · 영업 메모 · 내부 코드 · 원천)이 적혀 있다.
+     * ★차례 = 손님이 묻는 순서다 — 「깨면 얼마」 → 「늦으면」 → 「언제 멈추나」 → 「보증금 언제 오나」
+     *   → 「인수·보관」 → 「나는 될까(심사·결격)」 → 「GPS」.
+     * ★**시동제어**를 숨기지 않는 이유 — 차가 멈추는 조건을 계약 뒤에 알면 그건 분쟁이다.
+     * ★**GPS**를 적는 이유 — 위치가 기록되는 차라면 그건 손님의 개인정보 문제다.
+     */
+    ['중도해지 1년 미만', S('early_termination_rate_under1y')],
+    ['중도해지 1년 이상', S('early_termination_rate_over1y')],
+    /*
+     * ⚠⚠ **「연체료율」은 «일부러» 안 싣는다.** 원천이 `0.12`·`0.24` 로 온다. 이름이 `rate` 라
+     *   단위를 말해 주지 않아 **12%인지 하루 0.12%인지 이 데이터만으로는 모른다**
+     *   (`app/api/shop/inside` 에 2026-09-06 실측으로 적어 둔 그 판단).
+     *   ⇒ 영업자 칸에서는 원문 그대로 둘 수 있었지만(옆에 사람이 있다) 손님 화면은 다르다 —
+     *     「연체료율 0.12」는 읽는 사람이 **틀리게 읽는다.** 「12%」로 고쳐 적으면 지어내는 것이다.
+     *   ★규격(하루인가 연인가)이 정해지면 그날 한 줄 더하면 된다. 그때까지는 안 적는다.
+     */
+    ['연체 회차', withUnit(S('deposit_overdue_rounds'), '회')],
+    ['자동해지', withUnit(S('auto_terminate_overdue_days'), '일')],
+    ['시동제어', withUnit(S('engine_control_overdue_days'), '일')],
+    ['보증금 반환', withUnit(S('deposit_return_days'), '일')],
+    ['인수 통지', withUnit(S('buyout_notice_days'), '일')],
+    ['보관', withUnit(S('impound_keep_days'), '일')],
+    ['신용등급', S('credit_grade')],
+    ['결격 조건', S('disqualification_conditions')],
+    ['GPS', S('gps_installed')],
   ].filter(([, v]) => meaningful(v)) as FactRow[];
 
   const hasPolicy = !!(payRows.length || ownDamageDeductible || otherDeductibles.length || coverage.length || ageRange || useRows.length || etcRows.length || roadside);
