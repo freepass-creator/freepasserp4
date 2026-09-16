@@ -16,6 +16,15 @@ export type AtomDisplayResult = {
 };
 
 const S = (value: unknown): string => String(value ?? '').trim();
+/**
+ * ★하이픈류 단독 값도 «빈칸」이다 — 사장님 2026-09-16 「하이픈도 미입력으로 봐야할거 같은데 ssot부터」.
+ *   공급사 원문이 값 대신 「-」·「—」·「–」·「‑」(반각/전각/장단 하이픈 전부)만 적어 두는 경우가 있다 —
+ *   사람은 「모른다」는 뜻으로 적지만 문자로는 «값 있음»(빈 문자열 아님)이라 지금까지 REQUIRED_DISPLAY_FIELDS
+ *   판정을 피해 하이픈 그대로 시트에 찍혔다. 값 판정 «맨 앞»에서 하이픈류만 있으면 빈칸으로 내린다 —
+ *   이 함수 하나만 고치면 SSOT 정의상 이 판정을 쓰는 모든 소비처(판매시트·ERP 등)에 한 번에 퍼진다.
+ */
+const DASH_ONLY = /^[-‐‑‒–—―−－]+$/;
+const stripDashPlaceholder = (raw: string): string => (DASH_ONLY.test(raw) ? '' : raw);
 
 const OPTION_FIELDS = new Set(['options', '옵션', '옵션(원문)']);
 const ENGINE_FIELDS = new Set(['engine_cc', '배기량']);
@@ -53,7 +62,7 @@ export function atomDisplayResult(
   value: unknown,
   atom: Record<string, unknown> = {},
 ): AtomDisplayResult {
-  const text = S(value);
+  const text = stripDashPlaceholder(S(value));
   if (OPTION_FIELDS.has(field) && /^(?:없음|해당없음|선택옵션없음)$/.test(text.replace(/\s/g, ''))) {
     return { state: 'none', text: EXPLICIT_NONE_LABEL };
   }
