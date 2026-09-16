@@ -43,7 +43,18 @@ jobs:
           #   실수로 (2)의 색 SSOT 수정이 빠져 있었다 — 「구분」 칸이 옛 헥스(FF00FF 등)로 되돌아간 채
           #   조건부서식만 4개로 깔끔해진 상태였다(실측). claude/f86-on-gate-color-ssot(=(2)) 위에
           #   (3)+(4)를 다시 cherry-pick해 세 수정을 한 줄로 합쳤다.
-          ref: 308511563d8e8f56dbd94f715469d8ae7ed9171a
+          # ★2026-09-16(6) — 사장님 「정시 적용도 되고 즉시적용도 되게 해줘야지 그게 다르면 안되지」.
+          #   (5) 위에 오늘 확정한 F86 표시 규격 다섯을 올린 claude/f86-peer-spec-transplant 로 재고정.
+          #   ㉠ 「구분」·「배차상태」 = F01 과 같은 값별 색표(GUBUN_INK·STATE_INK) — F86 회사탭 옛 단색 폐기
+          #   ㉡ F86 공지사항 탭 없음 · 「종합」이 맨 앞(index 0)
+          #   ㉢ 탭 이름 = 「종합」만 시각 + 대수, 회사 탭은 「회사 · N대」(전 탭 시각 박기 폐기)
+          #   ㉣ 장기 요금 없는 차도 싣고 요금 칸만 빈 채(안 싣기 폐기)
+          #   ㉤ 하이픈류 단독 값(-·－·—)도 「미입력」 — atomDisplayResult 한 곳(missing-value-display.ts)
+          #   ⚠ 이 커밋 전까지 정시 회차가 옛 엔진으로 위 다섯을 매시 되돌려, 사장님이 하루 동안
+          #     「고쳤는데 또 돌아왔다」를 반복해 보셨다. 정시=즉시를 맞추는 자리는 «이 ref» 하나다.
+          #   실측: 308511563d 를 조상으로 포함(전진만 · #303·#308·#310 유지) · check:f86 통과 ·
+          #     이 커밋에서 F01·F86 수동 발행해 라이브 검증(탭·색·미입력·0km 구분).
+          ref: 1939018a8edb0f4993d61e12e5e0df4864ca9cb8
       - name: freepasserp5 OIDC 인증
         uses: google-github-actions/auth@v2
         with:
@@ -55,6 +66,11 @@ jobs:
       - run: npm ci
       - name: 원천 계약 검사
         run: npm run check:inventory-sources && npm run check:sonokong-options
+      # ★2026-09-16 — 다른 워크플로는 준비 블록을 .github/actions/prepare-credentials 로 모았다.
+      #   **이 워크플로만 그대로 둔다.** 위 checkout 이 `ref:` 로 옛 커밋을 못 박고 있어서
+      #   워크스페이스에 그 커밋의 파일만 깔린다 — 로컬 합성 액션(`uses: ./.github/actions/...`)은
+      #   워크스페이스에서 찾으므로 그 옛 커밋에 없는 액션은 「action not found」로 런이 죽는다.
+      #   ref 핀을 푸는 날 이 블록도 합성 액션으로 바꾼다.
       - name: 원천 자격증명 준비
         env:
           SHEETS_SA: ${{ secrets.GOOGLE_SA_JSON }}

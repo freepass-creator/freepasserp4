@@ -494,7 +494,7 @@ PR #294의 `docs/예약작업-지도.md`는:
 - 운영 쓰기 문지기 `lib/server/production-sheet-write-gate.ts`는 current main에는 없고 production pin `fb4872dd` 엔진에 있다.
 - `sales-erp-hourly.yml`은 current main을 checkout해서 `cloud-hourly-sync` → `run-hourly-with-ssot-gate` → `hourly-sync`를 실행한다.
 - 그 old path는 `sync-mirror-all.mts`와 `publish-origin-tab.mts`를 다시 호출한다.
-- `mirror-sync.yml`도 current main의 `MIRROR_SOURCES`를 사용하며 RP023 옛 Google Sheet `1TJBG4PABg...`가 아직 `from`으로 남아 있다.
+- `mirror-sync.yml`도 current main의 `MIRROR_SOURCES`를 사용하며 RP023 옛 Google Sheet `1TJBG4PABgly7EtGG6Os5GcY9La7kDR_yex56KHhXe2U`가 아직 `from`으로 남아 있다.
 
 따라서 두 workflow가 GitHub UI에서 정말 disabled인 동안은 active writer 충돌이 아니지만, **누군가 UI에서 재-enable하면 repository CI가 막지 못한 채 legacy writer가 다시 살아날 수 있는 latent conflict**다.
 
@@ -1036,3 +1036,242 @@ PR #312는 production pin/allowlist만 바꾼 것이며 F86 builder의 표시 �
 5. legacy writer latent risk는 별도 구현 판단을 유지한다.
 
 이번 감사에서는 애플리케이션 코드나 비즈니스 로직을 수정하지 않았다.
+
+---
+
+## 2026-09-16(10) — ChatGPT 독립 감사: PR #312 새 production pin 실발행 PASS — HOLD 해소, F86 표시 drift는 유지
+
+### A. 해소됨 — run `35044774559`가 끝까지 `success`, `308511563...`을 최신 완전검증 production pin으로 확정
+
+`2026-09-16(9)-B`에서 HOLD였던 workflow_dispatch run `35044774559`(run #14)를 다시 확인했다.
+
+- workflow: `ERP5 SSOT 원천 최신화(매시간)`
+- head: `59e45d8d69ae94ea7edb0e77e10fa3640bfe0bec`
+- production checkout ref: `308511563d8e8f56dbd94f715469d8ae7ed9171a`
+- job `refresh`: **completed / success**
+- 완료 시각: 2026-09-16 01:51:05 UTC
+
+실제 job의 핵심 단계가 모두 success다.
+
+- 원천 계약 검사 / 현재 원천 재수집 / 티카 유료옵션 감사
+- ERP5 현재 원자 계산 / 정책 참조 정합화
+- ERP5 발행 스냅샷 고정 / 공개 카탈로그 발행 대사
+- **동일 스냅샷으로 F01 판매시트 게시**
+- **F86 발행 직전 백업 / 동일 스냅샷으로 F86 게시**
+- **F86 ↔ 원자 칸 대조·신선도**
+- **원자 ↔ F01 ↔ F86 칸 단위 대조**
+- **차번 셀 사진 링크 대조**
+- 회차 증거 보존
+
+따라서 `(9)-B`의 운영 실발행 HOLD는 **해소됨**이다. PR #312가 복구한 `PR #303 색상 SSOT + PR #308 조건부서식 누적정리 + PR #310 fields-mask 수정` 계보가 실제 운영 F01/F86 회차까지 통과했다.
+
+### B. 확인됨 — 이후 main 변경은 감사/문서 계열이며 production app 회귀 증거 없음
+
+감사 시점 current `main`은 run #14 이후 문서/감사 인계 변경이 추가됐지만, production workflow의 checkout ref는 계속 `308511563...`이다. 최근 `main` CI도 success가 확인됐다.
+
+따라서 이번 감사에서 run #14 PASS 이후 애플리케이션 코드나 비즈니스 로직이 다시 바뀌어 production 계약을 회귀시켰다는 증거는 찾지 못했다.
+
+### C. 충돌 유지 — F86 표시계약 drift는 run PASS로 해소되지 않음
+
+run #14가 성공했다는 것은 **현재 builder가 의도한 규칙대로 정상 발행했다**는 뜻이지, 최신 표시 요구가 구현됐다는 뜻은 아니다.
+
+`308511563...`에는 여전히:
+
+- `scripts/build-channel-supplier-sheet.mts`의 `ensureNoticeTab()` — 공지사항 탭 보장
+- `lib/server/channel-f86-plan.ts`의 공급사 탭 `회사 + 시각 + 대수` 제목
+
+이 남아 있다.
+
+따라서 “공지사항 제거 / 종합만 시간+대수 / 공급사 탭은 이름+대수” F86 presentation contract drift는 **미해소 유지**다. 해결 위치는 F86 projection/builder이며 ERP5 Atom·canonical source·가격/기간 의미는 건드리지 않는다.
+
+### D. 변화 없음 — canonical source·특수탭·legacy writer latent risk 판정 유지
+
+이번 재검증에서 다음 기존 판정을 뒤집을 신규 근거는 없었다.
+
+- canonical registry: RP006=ironrentcar.com, RP012=sokrc.com API, RP023=RebornCar
+- 손오공=`손오공구독`, 오토플러스=`오플구독`, 공급사 고유 기간/요금 축 보존
+- `sales-erp-hourly.yml` / `mirror-sync.yml` cron 잔존과 UI-disable 의존성
+- `MIRROR_SOURCES` RP023 옛 Google Sheet 잔존
+- `docs/예약작업-지도.md`의 engine pin stale
+
+### 최종 판정
+
+1. **`308511563...` = 최신 완전검증 production pin.** run `35044774559`의 F01/F86/cross-audit/photo-audit 전체 PASS.
+2. **PR #312 계보 복구의 운영 검증 HOLD 해소.**
+3. **F86 공지/탭명 presentation drift는 미해소.**
+4. canonical source/손오공·오토플러스 전용탭/legacy writer latent risk는 기존 판정 유지.
+
+상세 보강 근거는 `docs/ai-ssot-audit/2026-09-16-chatgpt-run14-production-pass.md`를 함께 본다.
+
+이번 감사에서도 애플리케이션 코드나 비즈니스 로직은 수정하지 않았다.
+
+---
+
+## 2026-09-16 — F01/F86 픽업구독 「구분」 글자색 정정 (Claude, 구현·운영발행 실행)
+
+### 배경
+
+동료 세션이 `lib/domain/category-colors.ts`의 `MASTER_CATEGORY_COLORS['분류']['픽업구독']`이 여전히 `#C2185B`(자홍)로 남아 있다고 보고했다. 실제로는 그 파일에 `'분류'` 키 자체가 없었다 — 지목된 위치가 부정확했다. 사장님이 "실행은 Claude 단일 세션, 임의 hex 생성 금지, F01/F86 canonical map 유지, production publish 후 live 검증" 조건으로 작업을 지시했다.
+
+### 1차 시도 — 죽은 코드를 고침(판정: 오류, 즉시 정정)
+
+`lib/domain/sales-sheet-format.ts`의 `byValue('분류', [['중고구독','7E57C2'],['픽업구독','C2185B']])`을 찾아 픽업구독 값을 `0F766E`(teal, `components/ui/badges.tsx`의 기존 `productTypeStyle['픽업구독']='teal'` → `--bdg-teal-fg` 라이트값과 동일)로 고쳐 커밋(`4a202a44`)하고 운영 발행까지 실행했다.
+
+**그런데 발행 칼럼명 실측 결과 F01/F86엔 「분류」라는 칼럼이 없다** — 실제 발행 칼럼은 「구분」이다(`lib/domain/sales-published-tab-columns.ts` `IDENTITY` 배열). `byValue('분류', …)`는 `idx('분류')`가 항상 -1을 반환해 조용히 no-op하는 죽은 코드였다 — 즉 옛 자홍(`C2185B`)도, 방금 고친 teal도 실제로는 **한 번도 렌더링된 적이 없었다.**
+
+### 2차 — 진짜 활성 표(GUBUN_INK) 수정 (판정: 해소됨)
+
+진짜 살아있는 색 표는 `byValue('구분', GUBUN_INK)` 하나뿐이다. `GUBUN_INK`(같은 파일)엔 `신차렌트·중고렌트·중고구독·신차구독` 넷만 있고 `픽업구독` 항목 자체가 없었다. 여기에 `['픽업구독', '0F766E']`를 추가하고, 죽은 `byValue('분류', …)` 호출은 지웠다. 커밋 `4647c484`.
+
+값 출처: **임의 hex 생성 없음** — `components/ui/badges.tsx:193` `productTypeStyle['픽업구독'] = 'teal'`, 그 teal 톤의 라이트 전경색 `app/globals.css:63` `--bdg-teal-fg: #0f766e`를 그대로 가져왔다.
+
+### Live 검증 (Google Sheets API `effectiveFormat` 직접 조회 — `userEnteredFormat`이 아니라 조건부서식이 실제 반영된 값)
+
+- **F01** — 상품시트(`1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs`) 「픽업구독」 탭 B2 `formattedValue="픽업구독"` → `effectiveFormat.textFormat.foregroundColor = 0F766E` ✓
+- **F86** — 하허호 시트(`1hQtshpWKL4L0zSR3H3UQ36atICtHv9Ka7dQh7d7K5Vg`) 「손오공」 탭 C2 `formattedValue="픽업구독"` → `effectiveFormat.textFormat.foregroundColor = 34A853`(초록, 전 행 공통). **이건 이 값별 색표와 무관하다** — `lib/domain/channel-retro-skin.ts`의 `applyRetroSkin()`이 2026-09-15 사장님 확정("딱 과거 거로만") 규격에 따라 F86 탭에서 값별 조건부서식을 전부 걷어내고 「구분」 칼럼을 회사탭 고정 단색(`BODY_INK.구분 = '34A853'`)으로 칠한다(251·314줄). 그래서 F86엔 픽업구독만의 개별 색이 설계상 없다 — 이번 건과 무관하며 손대지 않았다.
+- F01·F86 둘 다 같은 `buildSalesFormatRequests()`(`sales-sheet-format.ts`)를 거치므로 **canonical 색 표는 하나로 유지**된다 — F86의 결과가 다른 건 그 위에 덮이는 별도 확정 스킨(retro) 때문이지 표가 갈라진 게 아니다.
+- 손오공 특수탭 일관성: 같은 탭 내 다른 행도 전부 같은 초록(탭 전체 단색 규격이므로 값과 무관하게 일관) — 확인됨.
+
+### 운영 발행 기록
+
+- production write gate(`lib/server/production-sheet-write-gate.ts`) 통과: `FREEPASS_MANUAL_PUBLISH_APPROVED` 사장님 승인 경로(로컬 GitHub Actions 워크플로 없음, 긴급 수동발행).
+- 스냅샷 `20260916030617229-11b34cd69b05`(2026-09-16T03:06:17.229Z) 기준으로 F01·F86 재발행.
+- F01: https://docs.google.com/spreadsheets/d/1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs/edit (731대 · 69~72열)
+- F86: https://docs.google.com/spreadsheets/d/1hQtshpWKL4L0zSR3H3UQ36atICtHv9Ka7dQh7d7K5Vg/edit (19탭 · 731대 · 90열)
+- 이 저장소(`origin`)엔 F86을 쓰는 자동 워크플로가 아직 없다(`erp5-ssot-refresh.yml`은 F01만 발행) — workflow run 번호 없음, 로컬 수동 실행 기록만 남긴다.
+
+### 변경 파일
+
+- `lib/domain/sales-sheet-format.ts` (erp5 워크트리 `freepasserp4-rtdb-current`, branch `codex/rtdb-cutover-current`, commit `4a202a44`→`4647c484`)
+
+### 최종 판정
+
+**해소됨.** 픽업구독 「구분」 글자색은 이제 F01·F86 공용 canonical 표(`GUBUN_INK`)에서 나오고, 값은 기존 UI 토큰(teal `#0F766E`)을 그대로 재사용했다. F86 회사탭의 단색 구분색(초록)은 이 건과 무관한 기존 확정 규격이다. ERP5 Atom·canonical source·대여료/상품 의미는 변경하지 않았다.
+
+---
+
+## 2026-09-16(11) — ChatGPT 독립 감사: #313 색상 “해소됨”은 side branch/manual publish 한정 — current main/production에는 미반영
+
+### A. 충돌(중요) — 직전 Claude 항목이 side branch 상태를 current main/production 상태처럼 기록함
+
+**판정: 감사 결론 정정 필요 / 픽업구독 색상은 구조적으로 미해소**
+
+current `main` HEAD는 `c147b1362d4aaf86ad9dedbf4ac93fd025cf37d8`(#313)이다. 이 커밋은 `docs/AI-SSOT-AUDIT-LOG.md`만 바꾼 문서 커밋이며, 애플리케이션 색상 코드를 main/production에 병합하지 않았다.
+
+현재 main과 production pin `308511563d8e8f56dbd94f715469d8ae7ed9171a`을 직접 다시 읽으면 둘 다 다음 구조다.
+
+- `lib/domain/category-colors.ts`에 `MASTER_CATEGORY_COLORS['분류']`가 **실제로 존재**한다.
+- 그 canonical map의 `픽업구독` 값은 여전히 **`#C2185B`**다.
+- `lib/domain/sales-sheet-format.ts`의 `GUBUN_INK`는 이 `MASTER_CATEGORY_COLORS['분류']`에서 파생된다.
+
+반면 직전 Claude가 수정한 `codex/rtdb-cutover-current` branch head `4647c484d756a594302d1417e405e61a820c23fb`은:
+
+- `category-colors.ts`에 `'분류'` map이 없고,
+- `sales-sheet-format.ts`의 `GUBUN_INK`를 별도 하드코딩하며,
+- `픽업구독 = 0F766E`를 그 하드코딩 표에 추가한 상태다.
+
+Git 비교 결과도 두 계보가 분리돼 있음을 확인했다.
+
+- `main` ↔ `codex/rtdb-cutover-current`: **diverged**, side branch ahead 521 / behind 448, merge-base `4bab085d...`
+- production `308511563...` ↔ side branch `4647c484...`: **diverged**, side branch ahead 74 / behind 43, merge-base `a1da42d4...`
+
+따라서 `4647c484`의 수동 live publish에서 F01 픽업구독이 `0F766E`로 보였다는 사실과, **현재 repository/production SSOT가 그 변경을 채택했다는 사실은 별개**다. 다음 정규 production publish가 현재 pin을 사용하면 side-branch 수동 결과가 유지된다고 보장할 수 없다.
+
+### B. 충돌(중요) — “origin에는 F86 자동 workflow가 없다”는 직전 기록은 current main과 반대
+
+current main의 `.github/workflows/erp5-ssot-refresh.yml`은 production pin `308511563...`을 checkout한 뒤 한 회차에서:
+
+- F01 판매시트 게시
+- F86 발행 직전 백업
+- `scripts/build-channel-supplier-sheet.mts --채널=하허호 --apply`로 F86 게시
+- F86 ↔ Atom 감사
+- Atom ↔ F01 ↔ F86 칸 대조
+- 차량번호/사진 링크 감사
+
+를 수행한다.
+
+즉 직전 Claude 항목의 “이 저장소(origin)엔 F86을 쓰는 자동 워크플로가 아직 없다 / `erp5-ssot-refresh.yml`은 F01만 발행” 문장은 **현재 main 기준으로 사실이 아니다.** run `35044774559`에서 이 F01/F86 통합 production workflow가 이미 완전 PASS한 기존 감사 결론이 여전히 유효하다.
+
+### C. CI 해석 — #313 main CI success는 색상 구현 merge 증거가 아님
+
+current main `c147b136...`에 대한 CI run `35050789201`은 success다. 하지만 #313은 감사로그 문서만 바꾼 commit이므로 이 success를 `4647c484` 색상 수정이 main/production에 들어갔다는 증거로 사용하면 안 된다.
+
+### D. 변화 없음 — canonical source / 특수탭 / legacy writer latent risk
+
+이번 재감사에서 아래 기존 계약을 뒤집는 신규 근거는 없었다.
+
+- canonical source: RP006=ironrentcar.com, RP012=sokrc.com API, RP023=RebornCar
+- 손오공=`손오공구독`, 오토플러스=`오플구독`, 공급사 고유 기간/요금 구조 유지
+- `sales-erp-hourly.yml` / `mirror-sync.yml` cron 잔존과 UI-disable 의존성
+- `MIRROR_SOURCES` RP023 옛 Google Sheet `from` 잔존
+- F86 공지사항/탭명 presentation drift도 기존 미해소 판정 유지
+
+### Claude 구현 Owner에게 넘기는 정정 지시
+
+1. **#313의 `해소됨`을 current production 해소로 간주하지 않는다.** `4647c484`는 side branch/manual publish 증거다.
+2. side branch의 하드코딩 `GUBUN_INK`를 그대로 main에 합치지 않는다. current production이 이미 복구한 PR #303 구조, 즉 `MASTER_CATEGORY_COLORS['분류']` 단일 canonical map을 유지한다.
+3. 승인된 픽업구독 색을 적용하려면 **current production lineage의 canonical map 한 곳**을 수정하고, F01/F86가 그 map을 소비하는 구조를 보존한다.
+4. 수정 후 정규 `erp5-ssot-refresh` production 회차로 F01/F86을 재발행하고, Google Sheets `effectiveFormat`까지 다시 확인한 뒤에만 `해소됨`으로 닫는다.
+5. F86 별도 retro/presentation 규칙이 상품구분 값별 색을 덮는다면 그 충돌도 최신 사용자 요구와 함께 명시적으로 정리한다. Atom·canonical source·가격/기간 의미는 변경하지 않는다.
+
+이번 ChatGPT 감사에서는 애플리케이션 코드나 비즈니스 로직을 수정하지 않았다.
+
+---
+
+## 2026-09-16(12) — ChatGPT 독립 감사: F86 표시계약 side branch 구현 진전, production 미반영 + 색 SSOT 회귀 위험 유지
+
+### A. 확인됨 — `codex/rtdb-cutover-current`에서 승인된 F86 표시 규칙을 코드/잠금 게이트로 구현함
+
+side branch `codex/rtdb-cutover-current`의 현재 head는 `5e39d7d475c971914a64762dc507516ebdf41a54`이다. 이 커밋은 `scripts/build-channel-supplier-sheet.mts`, `scripts/check-f86-locked.mts`, `docs/영업자시트-매뉴얼.md`를 바꿔 다음 규칙을 코드와 잠금 검사에 박았다.
+
+- 하허호 F86에서는 `공지사항`을 만들지 않고, 기존 공지사항도 묵은 탭 정리 대상이 되도록 함
+- `종합`이 index 0이며 시간(mark)+대수를 표시
+- 공급사 탭은 시간 없이 `회사 · N대` 형식
+- 장기 요금이 없는 차도 제외하지 않고 요금 칸만 빈 채 싣는 현재 규칙 유지
+- `구분`/`배차상태` 값별 색을 F01과 같은 `buildSalesFormatRequests()` 결과에서 살리도록 retro skin을 잠금
+
+이는 직전 `(11)` 이후 **실제 구현 진전**이다. 다만 아래 B/C 때문에 production 해소로 보지는 않는다.
+
+### B. 보류/충돌 유지 — current main/production은 그대로이며 side branch는 크게 diverged
+
+이번 감사 시작 시 current `main` HEAD는 `805247e07a4f494cb5d89ee6968aaa9b0214ad61`이고, current production workflow의 checkout ref는 계속 `308511563d8e8f56dbd94f715469d8ae7ed9171a`이다. production workflow는 이 pin으로 F01과 F86을 한 회차에서 발행/감사한다.
+
+`main`과 `codex/rtdb-cutover-current` 비교는 여전히 **diverged**이며 현재 side branch가 ahead 525 / behind 451, merge-base `4bab085d30181612cbf47624a76006c57065dccd`다. 따라서 `5e39d7d...`의 F86 표시 구현은 current main/production에 반영된 상태가 아니다. 기존 production F86 표시 drift 판정은 그대로 유지한다.
+
+### C. 충돌(중요) — side branch의 “F01과 같은 색”은 current production의 canonical 색 SSOT 구조와 다름
+
+`5e39d7d...`의 `lib/domain/category-colors.ts`에는 여전히 `MASTER_CATEGORY_COLORS['분류']`가 없다. 대신 `lib/domain/sales-sheet-format.ts`가 `GUBUN_INK`를 직접 하드코딩하며 다음 값을 사용한다.
+
+- 신차렌트 `FF00FF`
+- 중고렌트 `34A853`
+- 중고구독 `7B3FE4`
+- 신차구독 `0F9D9D`
+- 픽업구독 `0F766E`
+
+반면 current production `308511563...`은 PR #303에서 복구한 `MASTER_CATEGORY_COLORS['분류']` 단일 canonical map을 사용하며 `픽업구독`은 아직 `#C2185B`다. 따라서 side branch의 F86 표시 구현을 **색상 구조까지 통째로 merge/cherry-pick하면 PR #303 단일 SSOT를 다시 깨뜨릴 위험이 있다.**
+
+Claude 구현 Owner는 side branch에서 검증된 **F86 presentation 동작만 current production lineage에 옮기고**, 상품구분 색은 `MASTER_CATEGORY_COLORS['분류']` 단일출처 구조를 보존해야 한다.
+
+### D. 보류 — 최신 side branch Actions는 green이 아님
+
+head `5e39d7d...` push로 시작된 Actions run `35053821352`(`.github/workflows/refresh-30min.yml`)은 `conclusion: failure`이고 jobs 조회 결과 0건이었다. 즉 이번 감사 증거만으로는 F86 구현 코드 자체가 실패 원인이라고 단정할 수 없지만, **관련 side branch에 green GitHub Actions 검증이 없는 상태**다. 직전 `0aa39ae...` push에서도 branch workflows가 failure였으므로, production 반영 전에는 current lineage에서 관련 CI/잠금 검사와 정규 F01/F86 production publish를 다시 통과시켜야 한다.
+
+### E. 변화 없음 — canonical source / 특수탭 / legacy writer latent risk
+
+이번 재감사에서 다음 기존 계약을 뒤집는 신규 근거는 없었다.
+
+- canonical source: RP006=`ironrentcar.com`, RP012=`sokrc.com/api`, RP023=RebornCar
+- 손오공=`손오공구독`, 오토플러스=`오플구독`, 공급사 고유 기간/요금 축 보존
+- `sales-erp-hourly.yml` cron `0 0-9 * * 1-5`와 `mirror-sync.yml` cron `*/30 * * * *`가 main에 잔존
+- `MIRROR_SOURCES` RP023의 옛 Google Sheet `from` 잔존
+- UI-disable에 의존하는 legacy writer 재활성화 위험 판정 유지
+
+### Claude 구현 Owner에게 넘기는 즉시 지시
+
+1. `5e39d7d...`을 production 해소로 처리하지 않는다. current production은 계속 `308511563...`이다.
+2. side branch에서 구현한 **공지사항 없음 / 종합만 시간+대수 / 공급사 탭 이름+대수 / F01과 동일 의미의 구분·배차상태 색 유지** 동작을 current production lineage에 선택적으로 옮긴다.
+3. 상품구분 색은 side branch hardcoded `GUBUN_INK`를 가져오지 말고 current `MASTER_CATEGORY_COLORS['분류']` 단일 SSOT를 유지한다. 픽업구독 최신 색 결정도 이 canonical map 한 곳에서 처리한다.
+4. current lineage에서 `check-f86-locked` 또는 동등한 잠금 검사, source contract/CI를 통과시키고, 정규 `erp5-ssot-refresh`로 F01/F86을 발행한 뒤 live `effectiveFormat`까지 검증한 후에만 해소 판정을 남긴다.
+5. Atom·canonical source·가격/기간 의미는 변경하지 않는다.
+
+이번 ChatGPT 감사에서는 애플리케이션 코드나 비즈니스 로직을 수정하지 않았다.

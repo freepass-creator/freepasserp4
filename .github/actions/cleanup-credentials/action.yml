@@ -1,0 +1,24 @@
+name: 자격증명 삭제
+description: >
+  준비 단계가 놓은 자격증명 파일을 지운다. 반드시 `if: always()` 로 부른다 —
+  앞 단계가 죽어도 키가 러너에(그리고 업로드되는 아티팩트에) 남으면 안 된다.
+  ★composite action 안의 스텝에는 `if: always()` 를 걸 수 없다(합성 액션은
+  호출된 스텝이 «돌 때»만 돈다). 그래서 삭제는 호출부가 `if: always()` 로 부른다.
+
+inputs:
+  paths:
+    description: 지울 경로들(공백 구분). 기본값이 이 저장소의 자격증명 전부다.
+    required: false
+    default: tmp/firebase-auth sonokong/lib/wonja/.손오공계정.json sonokong/lib/wonja/.손오공토큰.json
+
+runs:
+  using: composite
+  steps:
+    - name: 자격증명 파일 삭제
+      shell: bash
+      env:
+        PATHS: ${{ inputs.paths }}
+      run: |
+        # 없는 경로도 조용히 넘어간다 — 준비 전에 죽은 회차에서도 이 단계는 성공해야 한다.
+        rm -rf $PATHS
+        echo "· 자격증명 삭제: $PATHS"

@@ -41,28 +41,25 @@ jobs:
           cache: 'npm'
       - run: npm ci
 
+      # ★2026-09-16 — 여기에 **손오공 계정 준비가 빠져 있었다.**
+      #   cloud-hourly-sync → run-hourly-with-ssot-gate → scripts/hourly-sync.mts 로 내려가는데
+      #   hourly-sync 는 sonokong/lib/wonja/.손오공계정.json 이 없고 `--손오공없이` 도 없으면
+      #   stop('손오공 계정 없음') 한다. 이 경로는 --손오공없이 를 «안» 준다(sync-now-once.yml 과 다르다).
+      #   그래서 매 회차가 「⛔ 중단 — 손오공 계정 없음」으로 죽었다. 시크릿은 처음부터 있었다.
+      #   준비 블록은 .github/actions/prepare-credentials 한 곳에만 둔다 — 복붙을 늘리지 마라.
       - name: 자격증명 준비
-        env:
-          SA: ${{ secrets.GOOGLE_SA_JSON }}
-        run: |
-          test -n "$SA" || { echo '::error::GOOGLE_SA_JSON 시크릿이 없습니다.'; exit 1; }
-          mkdir -p tmp/firebase-auth
-          printf '%s' "$SA" > tmp/firebase-auth/sa.json
+        uses: ./.github/actions/prepare-credentials
+        with:
+          google-sa-json: ${{ secrets.GOOGLE_SA_JSON }}
+          sonogong-account-json: ${{ secrets.SONOGONG_ACCOUNT_JSON }}
+          require-sonogong: 'true'
 
-      # ★2026-09-16 — 이게 없어서 09-14부터 예약 실행이 전부 «⓪ 손오공 계정 없음»으로 죽었다.
-      #   `--손오공없이` 로 우회하면 손오공구독·픽업구독 탭과 ⑩ 천이가 통째로 빠진 채
-      #   ⑦ ERP 만 낡은 값으로 돌고, 코드가 그 회차를 allOk=false 로 두어 어차피 exit 1 이다.
-      #   그러니 우회가 아니라 «계정을 넣는» 것이 맞다. 형식은 {"id":"…","password":"…"}.
-      - name: 손오공 계정 준비
-        env:
-          SONOKONG: ${{ secrets.SONOKONG_ACCOUNT_JSON }}
-        run: |
-          test -n "$SONOKONG" || {
-            echo '::error title=SONOKONG_ACCOUNT_JSON 시크릿이 없습니다::⓪ 손오공 단계가 돌 수 없어 회차 전체가 멈춥니다. {"id","password"} JSON 을 SONOKONG_ACCOUNT_JSON 에 넣으세요.'
-            exit 1
-          }
-          mkdir -p sonokong/lib/wonja
-          printf '%s' "$SONOKONG" > 'sonokong/lib/wonja/.손오공계정.json'
+      # ★2026-09-16 — 여기에 손오공 계정 준비 블록이 따로 있었다(#316). 지웠다.
+      #   이유 둘 — ① 위 prepare-credentials 가 같은 일을 이미 한다. 복붙을 둘로 두면
+      #     한쪽만 고쳐지는 것이 이번 사고의 무늬였다(#317).
+      #   ② 그 블록은 SONOKONG_ACCOUNT_JSON 을 봤는데 저장소에 등록된 이름은
+      #     SONOGONG_ACCOUNT_JSON 이다(2026-09-14 등록). 그대로 두면 시크릿이 있는데도
+      #     「없다」며 매 회차가 죽는다. 브랜치만 보고 새 이름을 제안했던 것이 틀렸다.
 
       - name: SSOT 어댑터 계약 테스트
         run: npx tsx scripts/test-ssot-adapters.mts
@@ -110,3 +107,7 @@ jobs:
             gh label create 자동동기멈춤 --color B60205 --description '시간별 동기 실패 알림' 2>/dev/null || true
             gh issue create --title "$TITLE" --label 자동동기멈춤 --body "$BODY"
           fi
+
+      - name: 자격증명 삭제
+        if: always()
+        uses: ./.github/actions/cleanup-credentials

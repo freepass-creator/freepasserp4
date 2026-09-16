@@ -23,13 +23,14 @@ jobs:
           cache: 'npm'
       - run: npm ci
       - name: Prepare credentials
-        env:
-          SA: ${{ secrets.GOOGLE_SA_JSON }}
-        run: |
-          test -n "$SA" || { echo '::error::GOOGLE_SA_JSON secret is missing.'; exit 1; }
-          mkdir -p tmp/firebase-auth
-          printf '%s' "$SA" > tmp/firebase-auth/sa.json
+        uses: ./.github/actions/prepare-credentials
+        with:
+          google-sa-json: ${{ secrets.GOOGLE_SA_JSON }}
       - name: SSOT adapter contract test
         run: npx tsx scripts/test-ssot-adapters.mts
       - name: Run guarded production sync
         run: npx tsx scripts/run-hourly-with-ssot-gate.mts --apply --손오공없이
+
+      - name: 자격증명 삭제
+        if: always()
+        uses: ./.github/actions/cleanup-credentials

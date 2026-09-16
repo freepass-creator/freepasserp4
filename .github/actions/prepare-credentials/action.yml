@@ -1,0 +1,74 @@
+name: 자격증명 준비
+description: >
+  시크릿을 러너의 파일로 «한 곳에서» 써 준다.
+  ★2026-09-16 사고: 같은 준비 블록이 워크플로 11개에 복붙돼 있었고
+  sales-erp-hourly.yml 만 손오공 계정 준비가 빠져 있었다. 그래서 매 회차가
+  「⛔ 중단 — 손오공 계정 없음」으로 죽었다. 사람 눈으로는 11개를 대조할 수 없다.
+  이 액션이 그 블록의 «정본»이다. 새 준비 블록을 워크플로에 다시 쓰지 마라.
+
+inputs:
+  google-sa-json:
+    description: GOOGLE_SA_JSON 시크릿 값. 호출부에서 `${{ secrets.GOOGLE_SA_JSON }}` 로 넘긴다.
+    required: false
+    default: ''
+  google-sa-path:
+    description: >
+      구글 서비스계정 JSON 을 놓을 경로. 기본 tmp/firebase-auth/sa.json 은
+      scripts/*.mts 가 GOOGLE_APPLICATION_CREDENTIALS 없을 때 쓰는 기본값이다.
+      GOOGLE_SHEETS_APPLICATION_CREDENTIALS 로 따로 가리키는 워크플로는 sheets.json 을 쓴다.
+    required: false
+    default: tmp/firebase-auth/sa.json
+  require-google-sa:
+    description: 'true 면 값이 비었을 때 ::error:: 를 찍고 즉시 멈춘다.'
+    required: false
+    default: 'true'
+  sonogong-account-json:
+    description: SONOGONG_ACCOUNT_JSON 시크릿 값. 손오공 API 를 타는 워크플로만 넘긴다.
+    required: false
+    default: ''
+  require-sonogong:
+    description: >
+      'true' 면 손오공 계정이 반드시 있어야 한다.
+      ★scripts/hourly-sync.mts 는 sonokong/lib/wonja/.손오공계정.json 이 없고
+      `--손오공없이` 도 없으면 stop() 한다. 그 경로를 타는 워크플로는 여기를 true 로 둔다.
+    required: false
+    default: 'false'
+
+runs:
+  using: composite
+  steps:
+    - name: 자격증명 파일 쓰기
+      shell: bash
+      env:
+        SA: ${{ inputs.google-sa-json }}
+        SA_PATH: ${{ inputs.google-sa-path }}
+        REQ_SA: ${{ inputs.require-google-sa }}
+        SONOGONG: ${{ inputs.sonogong-account-json }}
+        REQ_SONOGONG: ${{ inputs.require-sonogong }}
+      run: |
+        set -euo pipefail
+
+        # ── 구글 서비스계정
+        if [ -n "$SA" ]; then
+          mkdir -p "$(dirname "$SA_PATH")"
+          printf '%s' "$SA" > "$SA_PATH"
+          echo "· GOOGLE_SA_JSON → $SA_PATH"
+        elif [ "$REQ_SA" = "true" ]; then
+          # 조용히 넘어가면 나중에 «엉뚱한 곳»에서 죽는다. 이유를 여기서 밝히고 멈춘다.
+          echo "::error::GOOGLE_SA_JSON 시크릿이 비었다. 리포 Settings → Secrets and variables → Actions 에 넣어라."
+          exit 1
+        else
+          echo "· GOOGLE_SA_JSON 없음 — 이 워크플로는 필요로 하지 않는다(require-google-sa=false)"
+        fi
+
+        # ── 손오공 계정
+        if [ -n "$SONOGONG" ]; then
+          mkdir -p sonokong/lib/wonja
+          printf '%s' "$SONOGONG" > sonokong/lib/wonja/.손오공계정.json
+          echo "· SONOGONG_ACCOUNT_JSON → sonokong/lib/wonja/.손오공계정.json"
+        elif [ "$REQ_SONOGONG" = "true" ]; then
+          echo "::error::SONOGONG_ACCOUNT_JSON 시크릿이 비었다. 이 워크플로는 손오공 API 를 탄다 — 준비 없이 돌면 「⛔ 중단 — 손오공 계정 없음」으로 죽는다."
+          exit 1
+        else
+          echo "· SONOGONG_ACCOUNT_JSON 없음 — 이 워크플로는 손오공 API 를 타지 않는다"
+        fi
