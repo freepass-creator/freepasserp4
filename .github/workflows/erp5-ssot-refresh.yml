@@ -34,7 +34,9 @@ jobs:
           # ★2026-09-16(2) — 그 위에 PR #303(분류/구분 칩 색 3곳 하드코딩 → category-colors.ts 단일출처)을
           #   cherry-pick 한 claude/f86-on-gate-color-ssot 커밋으로 재고정. 데이터/판정 로직은 안 건드리고
           #   조건부서식(글자색)만 고쳤다 — 재고 대수·상태 판정에는 영향 없다.
-          ref: d635f8c87c3840a6956184b4d20f99dd968b6138
+          # ★2026-09-16(3) — 그 위에 PR #308(F01 발행이 제자리 갱신이라 옛 조건부서식을 지운 적이
+          #   없어 「구분」 칸 하나에 101개 쌓였던 것 — 새 회차마다 지우고 다시 쌓게 고침)을 cherry-pick.
+          ref: a0b5a66c94870ea843a7a9f15daba986954c788e
       - name: freepasserp5 OIDC 인증
         uses: google-github-actions/auth@v2
         with:
