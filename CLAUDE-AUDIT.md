@@ -46,11 +46,11 @@ current `.github/workflows/erp5-ssot-refresh.yml` production checkout ref:
 
 Source Contract allowlist drift는 PR #325 이후 해소됐고 run `35067923610`이 green이었다.
 
-이 감사에서 애플리케이션/운영 코드 기준으로 관측한 main HEAD는:
+audit `(18)`에서 SSOT/운영 코드 기준으로 관측한 main 기준점은:
 
 - `1769d36cf0cda806f9f1b89561e637e62693b1ad`
 
-그 뒤 ChatGPT가 추가한 것은 감사 문서뿐이다. 애플리케이션/비즈니스 로직은 수정하지 않았다.
+그 뒤 application commit `b7942ed59026041e29e21cbd80ec28b19da32840`이 상품사진 사전 준비 UI만 변경했다. 독립 재검토 결과 이 변경은 SSOT source/writer/F01/F86/ERP5 canonical 계약을 건드리지 않는다. 이후 `876c8868...`까지는 감사 문서 변경뿐이며, audit `(18)`의 SSOT 판정은 그대로 유효하다.
 
 `2e880cef...`의 collector semantics까지 포함한 **정규 scheduled F01/F86 full-audit 성공은 최신 독립 증거가 생기기 전까지 HOLD**한다.
 
