@@ -38,110 +38,88 @@ FreePass SSOT 관련 **실제 구현·수정 Owner는 지정된 Claude 단일 �
 
 # 현재 최신 판정 — 2026-09-16
 
-## 1. current production pin `0c4ec76b...`은 실제 운영 발행 PASS
+## 1. current production pin은 `308511563...` — PR #312로 계보 drift 구조적 해소
 
 현재 `.github/workflows/erp5-ssot-refresh.yml` checkout ref:
 
-- `0c4ec76b605c3ac50efcd9483dd2294bd89e22c0`
+- `308511563d8e8f56dbd94f715469d8ae7ed9171a`
 
-PR #308에서 F01 metadata fields 마스크를 잘못 만들어 run `35042070104`의 F01 발행을 깨뜨렸지만:
+PR #312 merge commit:
 
-- PR #310 merge commit `47b556812dcefbd7e6fe8e1a2fc52bf3427502c0` — fields 마스크 긴급 수정
-- PR #311 merge commit `8078b978e071982e0ebec5bb056518cb5701785c` — production ref를 `0c4ec76b...`로 repin
+- `59e45d8d69ae94ea7edb0e77e10fa3640bfe0bec`
 
-한 뒤 새 운영 검증이 완료됐다.
+실제 계보:
 
-Actions run `35043402729`:
+- `308511563...` → `298120fbaa2a4dd4227fcea5431f3ffbd84c1be6` (PR #308 조건부서식 누적 정리)
+- `298120f...` → `d635f8c87c3840a6956184b4d20f99dd968b6138` (PR #303 분류/구분 색 SSOT 포함)
+- `308511563...`에는 PR #310 Sheets metadata fields-mask 400 수정도 포함
 
-- conclusion: **success**
+`scripts/check-inventory-source-contract.mts`의 `VALIDATED_ENGINES`에도 같은 `308511563...`이 들어 있다.
+
+따라서 직전 `0c4ec76b...`에서 발생했던 **PR #303 상품구분 색상 SSOT 누락 / diverged production lineage 문제는 current pin에서 구조적으로 해소됨**으로 본다.
+
+## 2. 새 pin 실제 운영 발행은 아직 HOLD
+
+PR #312 merge 직후 workflow_dispatch run:
+
+- run `35044774559` (run #14)
+- head `59e45d8d...`
+- production checkout ref `308511563...`
+
+감사 시점 상태:
+
+- checkout/OIDC/npm ci: success
 - 원천 계약 검사: success
-- 공급사 재수집: success
-- ERP5 원자 계산/반영: success
-- 정책 참조 정합화: success
-- snapshot 고정: success
-- public catalog 발행 대사: success
-- F01 발행: **success**
-- F86 백업: success
-- F86 발행: **success**
-- F86 ↔ 원자 감사: success
-- 원자 ↔ F01 ↔ F86 칸 단위 대조: **success**
-- 차번 셀 사진 링크 대조: **success**
-- 회차 증거 보존: success
+- 현재 원천 재수집: success
+- 티카 유료옵션 감사: success
+- `원천에서 ERP5 현재 원자 계산`: in progress
+- 이후 snapshot/F01/F86/cross-audit/photo-audit: pending
 
-따라서 PR #308의 **런타임 F01 발행 회귀 자체는 PR #310/#311 이후 운영 회차에서 해소됨**으로 본다.
+따라서 **`308511563...`을 아직 운영 PASS라고 선언하지 않는다.**
 
-중요: 이것은 `0c4ec76b...`의 **현재 실행 경로가 정상**이라는 뜻이지, 아래의 Git 계보/색상 SSOT drift까지 해소됐다는 뜻은 아니다.
+직전 완전 운영 PASS 증거:
 
-## 2. 긴급 구조 drift — `0c4ec76b...`은 PR #303 색상 SSOT를 잃은 diverged 가지
+- `0c4ec76b605c3ac50efcd9483dd2294bd89e22c0`
+- run `35043402729` — F01/F86/Atom cross audit 및 사진링크까지 success
 
-workflow 주석은 `0c4ec76b...`가 기존 `d635f8c8...` 위에 PR #308/#310을 얹은 것처럼 설명하지만 실제 Git 계보는 다르다.
-
-실제 비교:
-
-- `d635f8c8...` vs `0c4ec76b...` = **diverged**
-- merge base = `3a334ddf6e8acd721883757f7951052bf9188b87`
-- `0c4ec76b...`는 d635 대비 ahead 3 / behind 1
-
-`d635f8c8...`에만 남은 독자 변경 파일:
-
-- `lib/domain/category-colors.ts`
-- `lib/domain/sales-sheet-format.ts`
-- `lib/domain/supplier-template-sheet.ts`
-
-이는 PR #303의 **상품 분류/구분 색상 단일출처** 변경이다.
-
-실제 production ref `0c4ec76b...`:
-
-- `category-colors.ts`에 current main의 `'분류'` SSOT 표가 없음
-- `sales-sheet-format.ts`에 `GUBUN_INK`가 다시 직접 하드코딩됨
-- 일부 `분류` 색도 별도 하드코딩됨
-
-따라서 현재 pin은 **런타임 PASS지만 색상/표현 SSOT 관점에서는 회귀**다.
-
-### Claude 구현 Owner가 해야 할 것
-
-PR #303 + #308 + #310이 모두 포함된 **단일 production 계보**로 재구성한 뒤:
-
-1. workflow pin 갱신
-2. validated engine allowlist 동시 갱신
-3. 실제 apply run
-4. F01/F86/Atom cross audit + photo link audit PASS 확인
-
-까지 해야 한다.
-
-## 3. 직전 안정 기준점 `d635f8c8...`도 보존
-
-비교 기준으로 마지막 완전 PASS였던 이전 pin:
+비교 안정 기준점:
 
 - `d635f8c87c3840a6956184b4d20f99dd968b6138`
-- Actions run `35039845907`
-- F01 735대 = F86 735대
-- F86 ↔ Atom 46,675칸 mismatch 0
-- Atom ↔ F01 mismatch 0
-- F01 ↔ F86 mismatch 0
-- 사진 링크 mismatch 0
+- run `35039845907`
+- F01 735 = F86 735, F86↔Atom 46,675칸 mismatch 0, Atom↔F01/F01↔F86/photo mismatch 0
 
-`0c4` 런타임 회귀는 해소됐지만, #303 포함 여부를 비교할 때 이 pin의 계보를 기준점으로 삼는다.
+## 3. 배차상태와 상품구분 색 규칙은 서로 독립된 의미로 current pin에 존재
 
-## 4. F86 표시계약 drift — 수동 시트 수정만 하면 다음 publish에 되돌아감
+`308511563...`의 `lib/domain/sales-sheet-format.ts`:
+
+- 상품구분 `구분` → `GUBUN_INK = MASTER_CATEGORY_COLORS['분류']` 단일출처
+- 배차상태 → 별도 `STATE_INK`
+  - `즉시출고`, `출고가능` = 파랑
+  - `상품화중`, `출고협의` = 주황
+  - `계약중`, `출고불가` = 회색
+
+`lib/domain/channel-retro-skin.ts`도 F86 레트로 스킨에서 **구분·배차상태 값별 색을 살린다**고 명시한다.
+
+즉 “배차상태와 상품구분을 각각 자기 기준에 맞춰 다른 색 체계로 표시”하는 구조는 current production 엔진에 있다. 다만 run `35044774559` 완료 전에는 실제 운영 시트 최종 표시까지 PASS로 확정하지 않는다.
+
+## 4. F86 표시계약 drift는 여전히 미해소
 
 현재 승인된 F86 표시 요구:
 
 - `공지사항` 탭 제거
-- `종합` 탭만 시간 + 대수 표기
+- `종합`만 시간 + 대수 표기
 - 공급사 탭은 시간 없이 `이안카 000대` 형태
-- `구분` 칸은 상품구분별로 명확히 다른 색 체계 적용
-- 데이터/대여료/ERP5 Atom/SSOT 의미는 변경하지 않음
+- 배차상태와 상품구분은 **각각 독립된 값별 텍스트 색상 규칙** 유지
+- 데이터/대여료/ERP5 Atom/SSOT 의미 변경 금지
 
-그러나 production ref `0c4ec76b...` 코드:
+현재 `308511563...` 코드에는 여전히:
 
-- `scripts/build-channel-supplier-sheet.mts`가 `ensureNoticeTab()`으로 `공지사항`을 다시 만든다.
-- `0 = 공지사항` 전제로 탭 인덱스를 잡는다.
-- stale tab 삭제에서도 `공지/안내`를 보존한다.
-- `lib/server/channel-f86-plan.ts`가 **모든 탭**을 `${company} ${mark} · ${N}대` 형식으로 만든다.
-- 상품구분 색 표현도 현재 production 가지에서 한 SSOT로 통합되지 않았다.
+- `scripts/build-channel-supplier-sheet.mts` → `ensureNoticeTab()`으로 공지사항 탭 보장
+- `lib/server/channel-f86-plan.ts` → 공급사 탭도 `회사 + 시각 + 대수` 제목 사용
 
-따라서 Google Sheet를 수동으로 고쳐도 다음 F86 publish 때 되돌아갈 수 있다.
+이 남아 있다.
+
+따라서 Google Sheet를 수동으로 고쳐도 다음 F86 publish가 builder 규칙으로 되돌릴 수 있다.
 
 ### 구현 원칙
 
@@ -151,19 +129,21 @@ PR #303 + #308 + #310이 모두 포함된 **단일 production 계보**로 재구
 - ERP5 Atom 변경 금지
 - canonical source 변경 금지
 - 공급사 고유 가격/기간 의미 변경 금지
+- 현재 복구된 `GUBUN_INK` / `STATE_INK` 분리 의미를 훼손하지 않음
 
 ## 5. canonical source / 특수 판매탭은 유지
 
 current main canonical registry:
 
 - RP006 아이언 = `ironrentcar.com`
-- RP012 손오공 = ERP/API
+- RP012 손오공 = `sokrc.com/api`
 - RP023 오토플러스 = RebornCar
 
 운영결정:
 
 - 손오공 = `손오공구독` 별도 탭
 - 오토플러스 = `오플구독` 별도 탭
+- 손오공 중고렌트 = `손오공구독` 내부 반납형
 - 공급사 고유 기간·요금 축 유지
 - 공통화는 표현 템플릿만
 
@@ -187,18 +167,18 @@ UI에서 실제 disabled면 active writer 충돌이라고 단정하지 않지만
 
 실제 current workflow:
 
-- engine = `0c4ec76b...`
+- engine = `308511563...`
 
-production engine 계보를 최종 정리한 뒤 그 validated pin과 문서를 함께 맞춘다.
+새 pin 운영 검증 완료 후 이 문서와 ACTIVE handoff의 오래된 pin/상태 설명을 함께 맞춘다.
 
 ---
 
 # Claude 구현 Owner의 즉시 우선순위
 
-1. **production lineage 복구:** PR #303 + #308 + #310을 모두 포함하는 단일 엔진 구성.
-2. 그 엔진으로 repin 후 실제 apply F01/F86 통합 발행 및 모든 감사 PASS 확인.
-3. **F86 presentation contract 반영:** 공지사항 제거 / 종합만 시간+대수 / 공급사 탭 이름+대수 / 상품구분 색상 SSOT.
-4. `docs/예약작업-지도.md`와 stale handoff를 최종 production 사실과 맞춤.
+1. **run `35044774559` 완료 확인:** F01/F86/F86↔Atom/Atom↔F01↔F86/photo audit까지 전부 PASS인지 확인.
+2. PASS면 `308511563...`을 최신 완전검증 production pin으로 확정하고 감사로그에 해소 항목 추가.
+3. **F86 presentation contract 반영:** 공지사항 제거 / 종합만 시간+대수 / 공급사 탭 이름+대수. 배차상태와 상품구분의 독립 색상 규칙은 유지.
+4. `docs/예약작업-지도.md`와 stale handoff를 `308511563...` 및 최신 규칙과 맞춤.
 5. legacy writer UI-disable 의존성은 기존 latent conflict로 유지하고 별도 구현 판단.
 6. 변경 후 `docs/AI-SSOT-AUDIT-LOG.md`에 `해소됨/잔존`을 append.
 
