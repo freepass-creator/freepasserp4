@@ -184,7 +184,7 @@ for (const f of readdirSync(DIR)) {
  *   (`on.push.paths` 의 변경 감시 목록을 호출로 세면 안 된다. 실제로 한 번 오인했었다.)
  */
 const MANIFEST = 'scripts/ci-checker-manifest.json';
-type Entry = { workflow?: string; why?: string; reason?: string };
+type Entry = { workflow?: string; why?: string; reason?: string; known_bad?: unknown; known_bad_pending?: string };
 type Manifest = {
   ci_workflow: string;
   required: Record<string, Entry>;
@@ -265,6 +265,34 @@ for (const section of ['manual', 'pending'] as const) {
     if (!entry || !entry.reason || !entry.reason.trim()) {
       manifestGaps.push(`  ${name}\n      ${section} 에 «reason» 이 없다. 이유 없이 CI 밖에 두지 마라.`);
     }
+  }
+}
+
+/*
+ * ⑤ required 가 known-bad 를 «등재»했는가 — GPT 독립검토 2026-09-16 (b).
+ *
+ * ★④ 가 manual·pending 에 «이유»를 요구하는 것과 같은 자다. ③ 은 「CI 가 부르는가」를 봤고,
+ *   ⑤ 는 「그 검사기가 «잡기는 하는가»를 누가 증명했는가」를 본다.
+ *   둘 다 없으면 그 검사기는 초록불만 주는 거짓 안심일 수 있다 — 2026-09-16 에 그 무늬가 다섯 번 나왔다.
+ *
+ * ⚠ 여기서 재는 것은 **등재 여부**뿐이다. 「표본이 실제로 그 봉쇄를 시험하는가」는
+ *   `npm run check:known-bad` 가 «봉쇄를 하나씩 빼» 재는 몫이다.
+ *   ★그래서 known_bad_pending 은 «통과»가 아니라 «아직 없음을 드러낸 것»이다 —
+ *     숨기지 못하게만 하고, 채우는 것은 사람 몫으로 남긴다. 「모른다」를 「없다」로 바꾸지 않는다.
+ */
+for (const [name, entry] of Object.entries(manifest.required)) {
+  const 있나 = entry.known_bad !== undefined;
+  const 미룸 = typeof entry.known_bad_pending === 'string' && entry.known_bad_pending.trim().length > 0;
+  if (!있나 && !미룸) {
+    manifestGaps.push(
+      `  ${name}\n      required 인데 «known_bad» 도 «known_bad_pending» 도 없다.\n` +
+        `      검사기가 초록인 것은 그것이 무언가를 «잡는다»는 증거가 아니다.\n` +
+        `      고치기: 표본을 붙여 known_bad 를 적거나, 아직이면 known_bad_pending 에 «무엇이 없는지»를 적어라.`,
+    );
+  } else if (있나 && 미룸) {
+    manifestGaps.push(`  ${name}\n      known_bad 와 known_bad_pending 이 «둘 다» 있다. 하나만 둬라.`);
+  } else if (미룸 && entry.known_bad_pending!.trim().length < 10) {
+    manifestGaps.push(`  ${name}\n      known_bad_pending 이 너무 짧다 — «무엇이 없는지»를 적어라. 빈 변명은 등재가 아니다.`);
   }
 }
 

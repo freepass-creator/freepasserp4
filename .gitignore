@@ -49,6 +49,8 @@ __pycache__/
 
 # 오더 가드 시작 도장 (세션 로컬)
 scripts/.order-base/
+# check:known-bad 가 봉쇄를 빼 보려고 잠깐 쓰는 사본. 늘 지우지만, 중간에 죽어도 안 남게 한다.
+scripts/.knownbad-mutant.mts
 
 # 손오공 자격증명·토큰·원문 덤프 (절대 커밋 금지)
 sonokong/lib/wonja/
