@@ -1,8 +1,23 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { WHITELABELS, homeIsShop } from '@/lib/whitelabel';
 import { isGuestPath } from '@/lib/guest-surface';
+import { CORP } from '@/lib/domain/corporate-ci';
 
 const PUBLIC_SIGN_HOST = 'sign.freepasserp.com';
+/**
+ * **`freepassmobility.com` 대문 = 회사 소개 홈페이지**(가게가 아니다).
+ *
+ * ★2026-09-16 사장님 「모빌리티닷컴은 화이트라벨(가게) 말고 원래 홈페이지로 돌리고,
+ *   거기 서비스 바로가기를 누르면 ERP 로 가게 하라」.
+ * ★도메인은 그대로 이 Vercel 프로젝트를 본다(2026-09-10 실측, `lib/whitelabel` `freepassmobility`
+ *   줄) — 그래서 Vercel 도메인 이전 없이 이 미들웨어 한 곳만 고치면 된다.
+ * ⚠ 표(`lib/whitelabel`)의 `freepassmobility` 줄은 **안 건드린다** — `sitePath: '/freepass'`
+ *   로 나간 링크가 여전히 이 표를 읽는다(가게 화면 자체는 살아 있다). 여기서 바꾸는 것은
+ *   «이 호스트의 `/` 가 어디로 가나» 하나뿐이다.
+ */
+const COMPANY_HOME_HOSTS = new Set([CORP.web, `www.${CORP.web}`].map((h) => h.toLowerCase()));
+const isCompanyHomeRoot = (host: string, pathname: string) =>
+  pathname === '/' && COMPANY_HOME_HOSTS.has(host);
 /** 손님 동 표시 — 레이아웃이 읽는다(아래 머리말). `lib/whitelabel` 와 이름을 맞춘다. */
 const GUEST_HEADER = 'x-fp-guest';
 /**
@@ -48,6 +63,12 @@ export function middleware(request: NextRequest) {
    *   똑같이 샜던 그 사고다. 표시를 붙이면 레이아웃이 손님 판정(`resolveGuestWhitelabel`)을 탄다.
    * ★채널 도메인에도 붙는다 — 거기도 손님 화면이라 붙는 편이 정확하다(지금과 결과가 같다).
    */
+  if (isCompanyHomeRoot(host, request.nextUrl.pathname)) {
+    const target = request.nextUrl.clone();
+    target.pathname = '/company-home';
+    return NextResponse.rewrite(target);
+  }
+
   if (isShopHome(host, request.nextUrl.pathname)) {
     const target = request.nextUrl.clone();
     target.pathname = '/shop';
