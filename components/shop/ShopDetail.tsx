@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import {
@@ -148,9 +148,18 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
   /** 보증금 — 금액이 없고 규칙 글자만 있는 상품(`depositLine` 머리말). */
   const dep = plan ? depositLine(plan.deposit, (p as Record<string, unknown>).deposit_note, wonKo) : null;
   /** 표에 세울 순서 — 기간 오름차순. 위 큰 숫자는 최저가로 시작하지만 표의 축은 «기간»이다. */
-  const byMonth = useMemo(() => [...plans].sort((a, b) => a.m - b.m
-    /* 같은 기간이면 **반납형이 위**다 — 기본이 먼저다(업무동 표와 같은 차례). */
-    || Number(a.acquisition) - Number(b.acquisition)
+  /*
+   * ★★**갈래로 «묶고», 그 안에서 기간 오름차순**(사장님 2026-09-16 「반납형 인수형은
+   *   **섹션으로도 약간 분리**해줘」).
+   *
+   * ⚠⚠ 기간을 첫 잣대로 두면 갈래가 **한 줄씩 번갈아** 선다 — 구역 줄이 열 번 나와서
+   *   구역이 아니라 잡음이 된다(2026-09-16 화면에서 잡았다).
+   * ★확정 규격이 지키려는 「길게 하면 싸지는구나」는 **구역 «안에서» 그대로 읽힌다** —
+   *   반납형 12→60 이 한 묶음으로 서고, 인수형도 그렇다. 사다리가 둘로 늘었을 뿐 안 깨졌다.
+   * ★반납형이 위다 — 기본이 먼저다(업무동 표와 같은 차례).
+   */
+  const byMonth = useMemo(() => [...plans].sort((a, b) => Number(a.acquisition) - Number(b.acquisition)
+    || a.m - b.m
     || a.rent - b.rent), [plans]);
   /**
    * 제일 싼 «줄». `plans` 가 요금 오름차순이라 첫 줄이 최저가다.
@@ -848,7 +857,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontVariantNumeric: 'tabular-nums' }}>
             <thead>
               <tr>
-                {['기간', ...(hasBranch ? ['조건'] : []), '월 대여료', '보증금', ...rateConds.map((c) => c.h)].map((h, i) => (
+                {['기간', ...(condVaries ? ['조건'] : []), '월 대여료', '보증금', ...rateConds.map((c) => c.h)].map((h, i) => (
                   /*
                    * ★★기간표는 **보조 설명**이다(사장님 2026-09-05 「기간별 대여료는 보조 설명으로
                    *   대여료 섹션에 그 고유니까 **분위기 해치지 않게** 해주고」).
@@ -864,7 +873,21 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
               </tr>
             </thead>
             <tbody>
-              {byMonth.map((x) => {
+              {byMonth.map((x, rowIdx) => {
+                /*
+                 * ★★★**갈래가 바뀌는 자리에 «구역 줄»을 하나 세운다**(사장님 2026-09-16
+                 *   「반납형 인수형은 **섹션으로도 약간 분리**해줘」).
+                 *
+                 * ★왜 필요한가 — 열 줄이 기간 오름차순으로 서면 36개월 반납형 바로 밑에 36개월
+                 *   인수형이 붙는다. 금액이 다른데 «같은 상품의 다른 줄»로 읽혀서, 손님이 인수형
+                 *   금액을 반납형으로 착각한다. 업무동 표가 이미 같은 이유로 갈래 줄을 세워 뒀다
+                 *   (「손오공 구독은 403대 중 386대가 인수형을 들고 있어, 그 오독이 그대로 견적이 된다」).
+                 * ★**탭으로 감추지 않는다**(사장님 같은 날 「버튼 눌러서 보이는 건 제한적이라
+                 *   **그냥 쭉 늘어 놓는** 건데 **구분을 해달라**고」). 둘을 나란히 놓고 고르게 한다.
+                 * ★위계는 **무채의 세기**로만 준다 — 이 화면은 색이 네이비 하나다(집 색 사다리).
+                 */
+                const prev = rowIdx > 0 ? byMonth[rowIdx - 1] : null;
+                const opensGroup = hasBranch && (!prev || prev.acquisition !== x.acquisition);
                 /*
                  * ⚠⚠ **선택키에 «갈래»가 들어가야 한다**(2026-09-16). 전에는 `x.m === plan.m` 이라
                  *   같은 기간의 반납형·인수형 **두 줄이 같이 켜졌다**. 기간당 줄이 하나일 때는
@@ -873,13 +896,36 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
                  */
                 const on = plan === x;
                 const pick = () => setPlanIdx(plans.indexOf(x));
+                const groupHead = opensGroup ? (
+                  <tr key={`g-${x.acquisition ? 'acq' : 'ret'}`}>
+                    <th colSpan={3 + (condVaries ? 1 : 0) + rateConds.length} scope="colgroup" style={{
+                      padding: `${SHOP.sp.cozy}px 12px ${SHOP.sp.snug}px`, textAlign: 'left',
+                      fontSize: SHOP.fs.cap, fontWeight: 700, color: C.ink, letterSpacing: '-0.01em',
+                      /* 첫 구역은 표 머리 바로 밑이라 선을 얹지 않는다 — 선이 둘이면 머리줄이 두 번 온다. */
+                      borderTop: rowIdx === 0 ? 'none' : `1px solid ${C.line2}`,
+                    }}>
+                      {x.acquisition ? '인수형' : '반납형'}
+                      {/*
+                        ★**인수형은 만기에 «돈이 더 나간다»** — 그걸 안 적으면 손님이 「그냥 가져간다」로
+                          읽는다(사장님 2026-08-28 「보증금 상계 후 10% 추가결제 후 인수」).
+                          업무동 표와 «같은 문구»를 쓴다 — 갈리면 영업자와 손님이 다른 말을 본다.
+                        ⚠ 10% 는 업무동 원자에도 코드에 박혀 있다. 공급사마다 다르면 그때 정책 칸으로 옮긴다.
+                      */}
+                      <span style={{ marginLeft: 6, fontSize: SHOP.fs.tag, fontWeight: 500, color: C.mute }}>
+                        {x.acquisition ? '만기 시 보증금 상계 + 10% 추가결제 후 인수' : '만기 반납'}
+                      </span>
+                    </th>
+                  </tr>
+                ) : null;
                 return (
-                  /*
-                   * ⚠ 줄에 `onClick` «만» 걸어 두면 **마우스로만 고를 수 있는 고르개**가 된다.
-                   *   `<tr>` 은 탭으로 못 가고, 보조기기는 이게 누를 것인 줄도 모른다.
-                   * ⇒ 첫 칸에 진짜 `<button>` 을 넣어 이름·역할·상태(`aria-pressed`)를 지게 한다.
-                   */
-                  <tr key={x.m} onClick={pick}
+                  <Fragment key={`r-${x.m}-${x.acquisition ? 'a' : 'r'}-${x.rent}`}>
+                  {groupHead}
+                  {/*
+                    ⚠ 줄에 `onClick` «만» 걸어 두면 **마우스로만 고를 수 있는 고르개**가 된다.
+                      `<tr>` 은 탭으로 못 가고, 보조기기는 이게 누를 것인 줄도 모른다.
+                    ⇒ 첫 칸에 진짜 `<button>` 을 넣어 이름·역할·상태(`aria-pressed`)를 지게 한다.
+                  */}
+                  <tr onClick={pick}
                     style={{ cursor: 'pointer', background: on ? C.zebra : 'transparent' }}>
                     <td style={{ padding: 0 }}>
                       <button type="button" onClick={pick} aria-pressed={!!on} style={{
@@ -908,12 +954,18 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
                           이미 들고 있어 여기서 또 적지 않는다(같은 말을 두 번 하지 않는다).
                         ★갈래가 «없는» 차는 이 칸 자체를 안 세운다 — 하나뿐인 갈래에 이름표는 군더더기다.
                     */}
-                    {hasBranch ? (
+                    {condVaries ? (
                       <td style={{
                         padding: '12px 8px', textAlign: 'right', whiteSpace: 'nowrap',
                         fontSize: SHOP.fs.sub, fontWeight: on ? 700 : 500,
                         color: on ? C.brand : C.mute,
-                      }}>{[x.acquisition ? '인수형' : '반납형', condVaries ? x.condition : ''].filter(Boolean).join(' · ')}</td>
+                      /*
+                       * ★**구역 줄이 이미 갈래를 말했다** — 여기서 또 「인수형」을 적으면 한 화면에
+                       *   같은 말이 두 번이다(2026-09-16 구역 분리와 함께 걷었다).
+                       *   ⇒ 이 칸은 «줄을 가르는 조건»만 든다(오플처럼 기간마다 주행 약정이 갈릴 때).
+                       *   조건도 없으면 하이픈으로 자리만 지킨다 — 「없다」가 아니라 「안 정해졌다」다.
+                       */
+                      }}>{(condVaries ? x.condition : '') || '—'}</td>
                     ) : null}
                     <td style={{
                       padding: '12px 8px', textAlign: 'right', whiteSpace: 'nowrap',
@@ -931,6 +983,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
                       }}>{c.v}</td>
                     ))}
                   </tr>
+                  </Fragment>
                 );
               })}
             </tbody>
