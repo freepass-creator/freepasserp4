@@ -31,7 +31,10 @@ jobs:
         with:
           # 원천·판매시트·공개 카탈로그 대사를 같은 검증 엔진 커밋으로 고정한다.
           # ★2026-09-16 통합 엔진 — gate 엔진(eafbd88e) 위에 하허호 F86(계획 한 벌·감사·백업·되돌리기)·운영 쓰기 문지기·손오공 오공구독 배정을 올린 커밋(claude/f86-on-gate).
-          ref: 3a334ddf6e8acd721883757f7951052bf9188b87
+          # ★2026-09-16(2) — 그 위에 PR #303(분류/구분 칩 색 3곳 하드코딩 → category-colors.ts 단일출처)을
+          #   cherry-pick 한 claude/f86-on-gate-color-ssot 커밋으로 재고정. 데이터/판정 로직은 안 건드리고
+          #   조건부서식(글자색)만 고쳤다 — 재고 대수·상태 판정에는 영향 없다.
+          ref: d635f8c87c3840a6956184b4d20f99dd968b6138
       - name: freepasserp5 OIDC 인증
         uses: google-github-actions/auth@v2
         with:
