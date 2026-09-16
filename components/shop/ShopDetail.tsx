@@ -18,7 +18,7 @@ import { useProductPhotos } from '@/components/use-product-photos';
 import { haptic } from '@/lib/haptics';
 import { getAuthClient } from '@/lib/firebase/client';
 import { useSession, useAuthReady } from '@/lib/auth-context';
-import { canonProductType, creditDisplay, CREDIT_UNSET, parseProductOptions, priceList } from '@/lib/domain/product';
+import { canonProductType, creditDisplay, CREDIT_UNSET, parseProductOptions, pricePlanList } from '@/lib/domain/product';
 import { PERKS, hasPerk } from '@/lib/domain/product-filters';
 import { displacementL } from '@/components/product-card-identity';
 import { vehicleNameOf } from '@/lib/domain/vehicle-name';
@@ -111,18 +111,48 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
    * 지어낸 셈을 쓰는데, 우리는 공급사가 준 개월별 실제 표가 있다(한 차에 최대 열 단).
    * 싼 기간부터 세운다 — 손님이 카드에서 본 값이 최저가라 그게 먼저 눈에 와야 이어진다.
    */
+  /*
+   * ★★★**`priceList` 에서 `pricePlanList` 로 바꿨다 — 갈래를 잃고 있었다**(2026-09-16).
+   *
+   * ⚠⚠ `priceList` 는 **기간당 한 줄만** 남긴다. 그런데 한 기간에 요금이 둘 이상인 차가 있다 —
+   *   ㉠ **인수형**(`12_인수형`…`60_인수형`) · ㉡ 주행 약정이 갈리는 차(오플 `24_3만` 꼴).
+   *   그래서 손님 상세는 **인수형 다섯 기간을 통째로 안 그리고** 있었다(사장님이 보신 쏘렌토
+   *   349더2331 이 바로 그 차다 — 반납형 5 + 인수형 5 인데 5줄만 떴다).
+   *   업무동 표(`ProductPriceTable`)는 진작 갈라 세우고 있었고 「손오공 구독은 403대 중 386대가
+   *   인수형을 들고 있다」고 적혀 있다. **손님만 못 보고 있었던 것이다.**
+   *
+   * ★집 규칙 위반이기도 하다 — 「차량 스펙·조건·대여료·정책은 상태와 무관하게 무조건 노출」
+   *   (CLAUDE.md). 접는 것은 «상태»뿐이고 대여료는 다 보여야 한다.
+   * ⚠ 최저가 셈·큰 숫자·선택은 그대로다 — `PricePlan` 이 `Price` 를 넓힌 꼴이라 칸이 호환된다.
+   */
   const plans = useMemo(
-    () => priceList(p).filter((x) => x.rent > 0).sort((a, b) => a.rent - b.rent),
+    () => pricePlanList(p).filter((x) => x.rent > 0).sort((a, b) => a.rent - b.rent),
     [p],
   );
+  /** 갈래가 실제로 갈리는 차인가 — 인수형이 있거나, 한 기간에 줄이 둘 이상인 차. */
+  const hasBranch = useMemo(() => plans.some((x) => x.acquisition)
+    || plans.some((x, _i, all) => all.filter((y) => y.m === x.m).length > 1), [plans]);
   const [planIdx, setPlanIdx] = useState(0);
   const plan = plans[planIdx];
   /** 보증금 — 금액이 없고 규칙 글자만 있는 상품(`depositLine` 머리말). */
   const dep = plan ? depositLine(plan.deposit, (p as Record<string, unknown>).deposit_note, wonKo) : null;
   /** 표에 세울 순서 — 기간 오름차순. 위 큰 숫자는 최저가로 시작하지만 표의 축은 «기간»이다. */
-  const byMonth = useMemo(() => [...plans].sort((a, b) => a.m - b.m), [plans]);
-  /** 제일 싼 줄의 «기간». `plans` 가 요금 오름차순이라 첫 줄이 최저가다. */
-  const cheapest = plans.length ? plans[0].m : 0;
+  const byMonth = useMemo(() => [...plans].sort((a, b) => a.m - b.m
+    /* 같은 기간이면 **반납형이 위**다 — 기본이 먼저다(업무동 표와 같은 차례). */
+    || Number(a.acquisition) - Number(b.acquisition)
+    || a.rent - b.rent), [plans]);
+  /**
+   * 제일 싼 «줄». `plans` 가 요금 오름차순이라 첫 줄이 최저가다.
+   *
+   * ⚠⚠ 전에는 **기간**(`plans[0].m`)을 들고 `cheapest === x.m` 으로 맞댔다. 갈래를 되살리자
+   *   같은 기간의 반납형·인수형 **두 줄에 「최저가」 칩이 같이** 붙는다 — 하나는 최저가가 아닌데.
+   * ★**표준(반납형)만 최저가 대상이다** — 업무동 표와 같은 규칙(`cheapPlan`). 인수형은 만기에
+   *   돈이 더 나가므로 「제일 싸다」고 말하면 손님을 오해시킨다.
+   */
+  const cheapestPlan = useMemo(
+    () => plans.filter((x) => x.standard).sort((a, b) => a.rent - b.rent)[0] || null,
+    [plans],
+  );
   /*
    * 보조표 글자 — **폰에서는 한 단 내린다**(2026-09-05 화면에서 잡음).
    * 세 칸(기간·월 대여료·보증금)에 「94만 7,000원」·「183만 3,000원」 같은 긴 값이 들어가는데,
@@ -807,7 +837,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontVariantNumeric: 'tabular-nums' }}>
             <thead>
               <tr>
-                {['기간', '월 대여료', '보증금', ...rateConds.map((c) => c.h)].map((h, i) => (
+                {['기간', ...(hasBranch ? ['조건'] : []), '월 대여료', '보증금', ...rateConds.map((c) => c.h)].map((h, i) => (
                   /*
                    * ★★기간표는 **보조 설명**이다(사장님 2026-09-05 「기간별 대여료는 보조 설명으로
                    *   대여료 섹션에 그 고유니까 **분위기 해치지 않게** 해주고」).
@@ -824,8 +854,14 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
             </thead>
             <tbody>
               {byMonth.map((x) => {
-                const on = plan && x.m === plan.m;
-                const pick = () => setPlanIdx(plans.findIndex((y) => y.m === x.m));
+                /*
+                 * ⚠⚠ **선택키에 «갈래»가 들어가야 한다**(2026-09-16). 전에는 `x.m === plan.m` 이라
+                 *   같은 기간의 반납형·인수형 **두 줄이 같이 켜졌다**. 기간당 줄이 하나일 때는
+                 *   드러나지 않던 버그인데, 갈래를 되살리자 바로 보인다.
+                 * ⇒ 줄의 «신분»으로 맞댄다 — 같은 객체인가.
+                 */
+                const on = plan === x;
+                const pick = () => setPlanIdx(plans.indexOf(x));
                 return (
                   /*
                    * ⚠ 줄에 `onClick` «만» 걸어 두면 **마우스로만 고를 수 있는 고르개**가 된다.
@@ -845,7 +881,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
                         fontSize: rateFs, fontWeight: on ? 700 : 500, color: on ? C.brand : C.ink,
                       }}>
                         {x.m}개월
-                        {cheapest === x.m ? (
+                        {cheapestPlan === x ? (
                           <span style={{
                             flex: '0 0 auto', padding: '2px 6px', borderRadius: SHOP.r.chip,
                             background: C.brandBg, color: C.brand,
@@ -854,6 +890,20 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
                         ) : null}
                       </button>
                     </td>
+                    {/*
+                      ★**갈래 칸** — 「반납형」·「인수형」, 조건이 따로 있으면 이어 붙인다.
+                        ⚠ 이름표는 **명사로**(사장님 2026-08-28 「반말로 만기 시 인수한다????」).
+                        ★인수형은 만기에 **돈이 더 나간다** — 그 설명은 아래 「납부」·「이용 조건」이
+                          이미 들고 있어 여기서 또 적지 않는다(같은 말을 두 번 하지 않는다).
+                        ★갈래가 «없는» 차는 이 칸 자체를 안 세운다 — 하나뿐인 갈래에 이름표는 군더더기다.
+                    */}
+                    {hasBranch ? (
+                      <td style={{
+                        padding: '12px 8px', textAlign: 'right', whiteSpace: 'nowrap',
+                        fontSize: SHOP.fs.sub, fontWeight: on ? 700 : 500,
+                        color: on ? C.brand : C.mute,
+                      }}>{[x.acquisition ? '인수형' : '반납형', x.condition].filter(Boolean).join(' · ')}</td>
+                    ) : null}
                     <td style={{
                       padding: '12px 8px', textAlign: 'right', whiteSpace: 'nowrap',
                       fontSize: rateFs, fontWeight: on ? 800 : 600, color: C.ink,

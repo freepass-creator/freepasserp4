@@ -130,7 +130,15 @@ must(/listHref/.test(shopDetail),
 must(/<table/.test(shopDetail) && /월 대여료/.test(shopDetail) && /byMonth/.test(shopDetail),
   '대여료가 표에서 칩으로 되돌아갔습니다. 다른 기간이 얼마인지 눌러 봐야 알게 됩니다.',
   'components/shop/ShopDetail.tsx 대여료');
-must(/sort\(\(a, b\) => a\.m - b\.m\)/.test(shopDetail),
+/*
+ * ★**첫 잣대는 «기간 오름차순»이다 — 그 뒤에 무엇이 오든 상관없다**(2026-09-16 넓혔다).
+ *   ⚠ 여기 `sort((a, b) => a.m - b.m)` «한 줄 통째»를 맞대고 있었다. 그래서 같은 기간 안에서
+ *     갈래(반납형/인수형) 차례를 더하는 순간, 규격을 지켰는데도 빨간불이 떴다.
+ *   ★지키려는 것은 「길게 하면 싸지는구나」가 읽히는 것 = **기간이 첫 잣대**라는 것뿐이다.
+ *     같은 기간 줄이 둘일 때 어느 갈래가 위인지는 그 규격이 말하는 바가 아니다.
+ *   ⇒ `a.m - b.m` 이 sort 의 «첫 비교»인지만 본다. 뒤따르는 `||` 은 허용한다.
+ */
+must(/sort\(\(a, b\) => a\.m - b\.m(\s|\/\*[\s\S]*?\*\/|\|\||[^)])*\)/.test(shopDetail),
   '대여료 표가 기간 오름차순이 아닙니다. 「길게 하면 싸지는구나」가 안 읽힙니다.',
   'components/shop/ShopDetail.tsx byMonth');
 
