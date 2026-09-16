@@ -78,7 +78,7 @@ export function ShopView({ wl = FREEPASS, initial = null }: {
    * 서버가 미리 낸 **필터 집계와 건수** — 목록이 오기 전 첫 그림에만 쓴다(아래 `facets` 머리말).
    * ⚠ 곁다리다. `null` 이면 예전처럼 브라우저가 받아 그린다 — 없어서 화면이 멈추면 안 된다.
    */
-  initial?: { facets: ShopFacets; total: number } | null;
+  initial?: { facets: ShopFacets; total: number; list: EntityRecord[] } | null;
 }) {
   /*
    * ★★**빠른필터·조건칸 축은 «채널»이 정한다**(사장님 2026-09-08 「그 회사별로 필터값이나
@@ -355,7 +355,13 @@ export function ShopView({ wl = FREEPASS, initial = null }: {
    * ★`total` 도 같이 받는다 — 「전체차량 N대」가 0 으로 한 번 떴다가 바뀌는 것을 막는다.
    */
   const { list, total, facets }: ShopResult = rows === null && initial
-    ? { list: computed.list, total: initial.total, facets: initial.facets }
+    /*
+     * ★**첫 화면 카드도 서버 것을 쓴다**(사장님 2026-09-16 「눈에 보이는 사진은 좀 빠르게」).
+     *   카드가 HTML 에 있어야 `<img>` 가 생기고, 그래야 브라우저가 그림을 **바로** 받기 시작한다.
+     *   실측 — 전에는 사진이 6.4초에 «출발»했다(받는 건 0.07초였다).
+     * ★서버가 주는 것은 «보이는 만큼»(6장)이다 — 나머지는 목록이 오면 이어 그린다.
+     */
+    ? { list: initial.list, total: initial.total, facets: initial.facets }
     : computed;
 
   /*
@@ -847,7 +853,12 @@ export function ShopView({ wl = FREEPASS, initial = null }: {
             </div>
 
 
-            {rows === null ? (
+            {/*
+              ★**서버가 첫 화면 카드를 줬으면 뼈대를 안 그린다**(2026-09-16).
+                뼈대는 «줄 것이 없을 때»의 표시다. 카드가 이미 HTML 에 있는데 뼈대를 그리면
+                그림이 한 번 지워지고 다시 들어온다 — 그게 더 느려 보인다.
+            */}
+            {rows === null && !initial?.list.length ? (
               <Grid mobile={mobile}>
                 {Array.from({ length: 6 }, (_, i) => <Skeleton key={i} />)}
               </Grid>

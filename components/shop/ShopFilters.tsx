@@ -463,6 +463,17 @@ function CheckRow({ label, count, on, onClick, tight, logo }: {
           {logo ? (
             // eslint-disable-next-line @next/next/no-img-element -- 브랜드 마크는 정적 최적화 대상이 아니다(작은 SVG).
             <img src={logo} alt="" aria-hidden
+              /*
+               * ★★**`lazy` 는 «성능» 때문에 붙어 있다 — 지우지 말 것**(2026-09-16 실측).
+               *   ⚠⚠ 맨 `<img>` 는 React 가 SSR 때 **자동으로 `<link rel="preload" as="image">`** 를
+               *     head 에 올린다. 그래서 head 의 preload 11개가 전부 **제조사 로고**였고, 정작
+               *     **눈에 보이는 차 사진에는 preload 가 없었다** — 브라우저에게 「사이드바 장식을
+               *     먼저 받아라」라고 말하던 셈이다(사장님 2026-09-16 「눈에 보이는 사진은 좀 빠르게」).
+               *   ★로고는 조건칸의 «장식»이고 차 사진은 이 화면의 «내용»이다. 순서가 뒤집혀 있었다.
+               *   ⇒ `lazy` 면 React 가 preload 를 안 올린다. 로고는 조건칸 안이라 스크롤 없이 곧
+               *     화면에 들어와 받아지므로 체감 차이가 없다.
+               */
+              loading="lazy" decoding="async"
               onError={(e) => { e.currentTarget.style.visibility = 'hidden'; }}
               /* ★`contain` + 최대치 둘 — 정사각은 높이에, 가로로 긴 것은 폭에 걸린다(제 비율 유지). */
               style={{ maxWidth: MARK_W, maxHeight: MARK_H, objectFit: 'contain' }} />
