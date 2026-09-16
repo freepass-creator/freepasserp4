@@ -36,7 +36,7 @@ FreePass SSOT의 실제 구현·수정 Owner는 **지정된 Claude 단일 세션
 
 ---
 
-# 현재 최신 판정 — 2026-09-16 / audit `(18)` 기준
+# 현재 최신 판정 — 2026-09-16 / audit `(19)` 기준
 
 ## 1. production pin
 
@@ -50,7 +50,9 @@ audit `(18)`에서 SSOT/운영 코드 기준으로 관측한 main 기준점은:
 
 - `1769d36cf0cda806f9f1b89561e637e62693b1ad`
 
-그 뒤 application commit `b7942ed59026041e29e21cbd80ec28b19da32840`이 상품사진 사전 준비 UI만 변경했다. 독립 재검토 결과 이 변경은 SSOT source/writer/F01/F86/ERP5 canonical 계약을 건드리지 않는다. 이후 `876c8868...`까지는 감사 문서 변경뿐이며, audit `(18)`의 SSOT 판정은 그대로 유효하다.
+그 뒤 실제 application commit은 PR #334의 `b794345499bbcbc467462dfd1e25a46bea42c6d9`이며, 상품사진 첫 화면 SSR/preload UI만 변경했다. 독립 재검토 결과 이 변경은 SSOT source/writer/F01/F86/ERP5 canonical 계약을 건드리지 않는다. 직전 entry point에 적힌 `b7942ed59026041e29e21cbd80ec28b19da32840`은 GitHub에 존재하지 않는 SHA였으므로 audit `(19)`에서 정정했다. 이후 current main `7f942cb59bd0cf77838c31681aae18f1a81bc1a5`까지는 감사 문서 변경뿐이며 audit `(18)`의 실질 SSOT 판정은 그대로 유효하다.
+
+latest observed main CI run `35080449988`도 failure이지만, 실패 step은 audit `(18)`과 동일한 required `check:shop-data-parity` checker-contract drift다. 신규 SSOT implementation regression 증거는 아니다.
 
 `2e880cef...`의 collector semantics까지 포함한 **정규 scheduled F01/F86 full-audit 성공은 최신 독립 증거가 생기기 전까지 HOLD**한다.
 
@@ -73,9 +75,9 @@ current main legacy path:
 
 따라서 **production F01 sole-writer ownership을 repository 수준에서 먼저 정리**한다. 우연한 workflow failure를 retirement로 간주하지 않는다.
 
-## 3. 신규 CI 충돌 — required `check:shop-data-parity`가 current implementation을 오탐해 main CI red
+## 3. CI 충돌 — required `check:shop-data-parity`가 current implementation을 오탐해 main CI red
 
-current CI run `35077840002`에서 required `check:shop-data-parity`가 failure다.
+latest observed current CI run `35080449988`에서 required `check:shop-data-parity`가 failure다.
 
 직접 원인:
 
@@ -89,7 +91,7 @@ current CI run `35077840002`에서 required `check:shop-data-parity`가 failure�
 
 - `docs/ai-ssot-audit/2026-09-16-chatgpt-ci-runtime-regressions.md`
 
-## 4. 신규 운영 회귀 — 공통 credential composite action이 load 단계에서 깨짐
+## 4. 운영 회귀 — 공통 credential composite action이 load 단계에서 깨짐
 
 current `.github/actions/prepare-credentials/action.yml`의 input description에 `` `${{ secrets.GOOGLE_SA_JSON }}` `` 표현이 들어 있다.
 
