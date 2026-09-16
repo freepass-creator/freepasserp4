@@ -229,7 +229,10 @@ export const makeCell = (ctx: SalesRowContext) => (col: string, v: any): string 
     //   보여 준다 — 원천/마스터에 없어 공란인 것을 담당자가 «버그»로 오해하지 않게(사장님 2026-09-11).
     //   ★원자는 그대로 빈 값 — 「미입력」은 표시 마커라 검색·필터·마스터대조엔 안 들어간다.
     '세부트림': S(v.trim_name) || MISSING,
-    '외장': S(v.ext_color), '내장': S(v.int_color), '연식': S(v.year), 'Km': S(v.mileage),
+    // ★내장·Km도 세부트림·옵션과 같은 이유로 「미입력」 — 사장님 2026-09-16 「내장이나 주행거리 이 부분은
+    //   미입력이면 미입력 해주는게 좋고」. 공급사가 안 준 값(빈칸)과 «0km»(진짜 0)을 헷갈리지 않게,
+    //   숫자 0 은 그대로 두고 완전히 빈 문자열일 때만 마커를 붙인다.
+    '외장': S(v.ext_color), '내장': S(v.int_color) || MISSING, '연식': S(v.year), 'Km': S(v.mileage) || MISSING,
     '연료': S(v.fuel_type), '배기량': S(v.engine_cc), '차종구분': S(v.vehicle_class),
     '차명(원문)': S(v['원문']?.['차명']), '옵션(원문)': cleanOpt(S(v['원문']?.['옵션'])) || MISSING,
     '원산지': S(v.origin), '구동': S(v.drive_type), '인승': S(v.seats), '배터리용량': S(v.battery_capacity),
