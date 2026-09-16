@@ -27,12 +27,9 @@ jobs:
       - run: npm ci
 
       - name: Google 자격증명 준비
-        env:
-          SA: ${{ secrets.GOOGLE_SA_JSON }}
-        run: |
-          test -n "$SA" || { echo '::error::GOOGLE_SA_JSON 시크릿이 없습니다.'; exit 1; }
-          mkdir -p tmp/firebase-auth
-          printf '%s' "$SA" > tmp/firebase-auth/sa.json
+        uses: ./.github/actions/prepare-credentials
+        with:
+          google-sa-json: ${{ secrets.GOOGLE_SA_JSON }}
 
       - name: 분류 칩 색 재도색
         run: |
@@ -41,3 +38,7 @@ jobs:
           else
             npx tsx scripts/repaint-type-chip-colors.mts
           fi
+
+      - name: 자격증명 삭제
+        if: always()
+        uses: ./.github/actions/cleanup-credentials

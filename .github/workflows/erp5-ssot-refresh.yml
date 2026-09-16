@@ -55,6 +55,11 @@ jobs:
       - run: npm ci
       - name: 원천 계약 검사
         run: npm run check:inventory-sources && npm run check:sonokong-options
+      # ★2026-09-16 — 다른 워크플로는 준비 블록을 .github/actions/prepare-credentials 로 모았다.
+      #   **이 워크플로만 그대로 둔다.** 위 checkout 이 `ref:` 로 옛 커밋을 못 박고 있어서
+      #   워크스페이스에 그 커밋의 파일만 깔린다 — 로컬 합성 액션(`uses: ./.github/actions/...`)은
+      #   워크스페이스에서 찾으므로 그 옛 커밋에 없는 액션은 「action not found」로 런이 죽는다.
+      #   ref 핀을 푸는 날 이 블록도 합성 액션으로 바꾼다.
       - name: 원천 자격증명 준비
         env:
           SHEETS_SA: ${{ secrets.GOOGLE_SA_JSON }}

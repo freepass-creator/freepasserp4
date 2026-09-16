@@ -36,13 +36,18 @@ jobs:
           cache: 'npm'
       - run: npm ci
 
+      # ★2026-09-16 — 여기에 **손오공 계정 준비가 빠져 있었다.**
+      #   cloud-hourly-sync → run-hourly-with-ssot-gate → scripts/hourly-sync.mts 로 내려가는데
+      #   hourly-sync 는 sonokong/lib/wonja/.손오공계정.json 이 없고 `--손오공없이` 도 없으면
+      #   stop('손오공 계정 없음') 한다. 이 경로는 --손오공없이 를 «안» 준다(sync-now-once.yml 과 다르다).
+      #   그래서 매 회차가 「⛔ 중단 — 손오공 계정 없음」으로 죽었다. 시크릿은 처음부터 있었다.
+      #   준비 블록은 .github/actions/prepare-credentials 한 곳에만 둔다 — 복붙을 늘리지 마라.
       - name: 자격증명 준비
-        env:
-          SA: ${{ secrets.GOOGLE_SA_JSON }}
-        run: |
-          test -n "$SA" || { echo '::error::GOOGLE_SA_JSON 시크릿이 없습니다.'; exit 1; }
-          mkdir -p tmp/firebase-auth
-          printf '%s' "$SA" > tmp/firebase-auth/sa.json
+        uses: ./.github/actions/prepare-credentials
+        with:
+          google-sa-json: ${{ secrets.GOOGLE_SA_JSON }}
+          sonogong-account-json: ${{ secrets.SONOGONG_ACCOUNT_JSON }}
+          require-sonogong: 'true'
 
       - name: SSOT 어댑터 계약 테스트
         run: npx tsx scripts/test-ssot-adapters.mts
@@ -55,3 +60,7 @@ jobs:
           else
             npx tsx scripts/cloud-hourly-sync.mts
           fi
+
+      - name: 자격증명 삭제
+        if: always()
+        uses: ./.github/actions/cleanup-credentials
