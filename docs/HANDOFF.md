@@ -66,3 +66,129 @@ npm ci && npm run typecheck
 ## 마지막 실제 검증
 
 없음 — 이번 세션은 이 저장소의 빌드/테스트를 실행하지 않았다(`package.json`에 test 스크립트 자체가 없음, `registry/projects.json` known_blockers 참조).
+
+---
+
+## feat/spring-atom-monitor → main 병합 조사 (2026-09-16, 조사만 · 머지 안 함)
+
+대표 결정 전제: **정산을 erp5로 옮기지 않는다 · 9월 정산은 아직 시트에서 한다 · `SETTLEMENT_STORE` 기본값을 안 바꾼다.**
+⇒ 이 병합은 동작을 바꾸는 게 아니라 만들어 둔 것을 운영 브랜치에 «올려놓는» 것이다. **그 전제가 성립하는지 실제로 재 봤다.**
+
+### 차이 실측
+
+공통 조상 `4bab085d` (2026-09-04). 이후 **main 451커밋 · 브랜치 461커밋**, 3-way diff `612 files / +246,563 / -91,841`.
+461커밋을 «건드린 경로»로 분류(제목 키워드 분류는 이 저장소 문체에선 못 쓴다 — 기타가 286개 나왔다):
+
+| 갈래 | 커밋 |
+|---|---|
+| 재고/SSOT/견적/상점 | 117 |
+| CI·스크립트 | 115 |
+| 정산 | 106 |
+| 문서 | 48 |
+| UI·기타 코드 | 47 |
+| 기타(대부분 `data/new-car/genesis-config*.json`) | 28 |
+
+### 충돌 실측 — `git merge-tree` 로만 쟀고 머지 커밋은 안 만들었다
+
+**충돌 파일 110개.** 갈래별 대표:
+`.github/workflows/{ci,sales-erp-hourly}.yml` · `package.json` · `middleware.ts` · `firestore.rules` · `CLAUDE.md` · `AGENTS.md` ·
+정산 12개(`app/api/settlement/{agents,confirm,invoice,ledger,mine}` · `lib/server/settlement-{store,erp-store,sheet-import}.ts` · `lib/domain/settlement-money.ts` · `scripts/publish-{channel,supplier}-settlement.mts` · `scripts/check-settlement-locked.mts`) ·
+상점/견적 UI 약 20개 · `lib/firebase/*`·`lib/server/*` 약 15개 · `scripts/*` 약 20개.
+브랜치가 base 대비 **170개 파일을 지웠다** — 그중 main이 살려 둔 것이 있는지는 파일별로 봐야 한다(미확인).
+
+### ★동작 변경 위험 판정표
+
+| # | 항목 | 판정 | 근거 |
+|---|---|---|---|
+| 1 | `SETTLEMENT_STORE` 기본값 | **안 바뀐다** | `lib/server/settlement-store.ts:61` 이 main·브랜치 «동일» — `=== 'erp' ? 'erp' : 'sheet'`. 전제 성립. |
+| 2 | `ERP5_WHITELABEL_FIRESTORE_ENABLED` | **안 바뀐다** | 양쪽 다 `=== 'true'` 게이트, 기본 OFF(`.env.example:47` = false). |
+| 3 | `ATOM_FROM_MONTH` | **안 바뀐다** | 브랜치 신규 상수(`lib/domain/settlement-atom.ts:197` = '2026-08'). main에 없던 파일이라 기존 경로를 안 문다. |
+| 4 | **새 cron 이 돈다** | ★**바뀐다** | `.github/workflows/direct-ingest-hourly.yml` 신규 — `cron: '0 0-9 * * 1-5'` **활성**. `scripts/ingest-all-suppliers.mts` 로 **Firestore 에 쓴다.** main 에 올리는 순간 평일 매시 자동 실행된다. |
+| 5 | `refresh-30min.yml` 신규 | **안 바뀐다** | cron 이 «의도적으로 꺼져» 있고 `workflow_dispatch` 뿐. 머리말에 켜지 말라고 적혀 있다. |
+| 6 | **`sales-erp-hourly.yml` 이 «지금 도는 것»을 끈다** | ★★**바뀐다 — 제일 위험** | 두 쪽이 **정반대**다. main(`145dffb8`, **2026-09-13**)은 「GitHub Actions 가 단일 오케스트레이터」로 `cron: '0 0-9 * * 1-5'` 를 **켜고** `cloud-hourly-sync.mts --apply` 를 돌린다. 브랜치(`420b3b1e`/`e1fda409`, **2026-09-08**)는 「이 집 PC 스케줄러가 오케스트레이터」라며 **cron 을 뺐다.** 충돌 해결에서 브랜치 쪽을 고르면 **지금 도는 매시 동기가 조용히 멈춘다.** ⇒ **main 쪽을 취해야 한다.** ★브랜치 쪽 머리말은 이미 «낡았다» — 같은 브랜치가 2026-09-11 에 `scripts/hourly-sync.cmd` 를 「erp3 폐기·발행 안 함」으로 세웠다. 즉 **양쪽 다 로컬 .cmd 는 안 쓴다**는 데 합의돼 있고, 남은 차이는 cron 유무뿐이다. |
+| 7 | `concurrency.group` 이름 바뀜 | **바뀐다(경미)** | 브랜치가 `sales-erp-hourly`·`sheet-sync` → 둘 다 `freepass-sales-publish` 로 묶는다. main 은 옛 이름 유지. 줄서기 대상이 달라진다 — 6번을 main 쪽으로 풀면 함께 정리해야 한다. |
+| 8 | **RTDB 참조** | ★**늘어나는 곳이 있다**(총량은 준다) | 총량은 **main 290 → 머지트리 148** 로 «줄지만», **25개 파일에 새로 생긴다.** 그중 운영 경로: `lib/server/firebase-admin.ts`(브랜치는 `getDatabase` import + `NEXT_PUBLIC_FIREBASE_DATABASE_URL` 없으면 **throw**, main 은 이미 다 걷어냄) · `lib/firebase/auth.ts`(`firebase/database` import, main 에 없음) · `lib/server/firestore-ref-shim.ts`(**읽기 RTDB 폴백**) · `app/api/settlement/{ledger,invoice,confirm,agents,mine}/route.ts`(`getDatabase`) · 워크플로 2개가 `NEXT_PUBLIC_FIREBASE_DATABASE_URL=https://freepasserp3-default-rtdb...` 를 **env 로 박는다**. main 은 `lib/domain/vehicle-master-rtdb.ts`·`lib/firebase/rtdb-{adapter,records}.ts` 를 **이미 삭제**했다. ⇒ **전역 RTDB 영구폐기 지침 위반.** 그대로 올리면 안 된다. |
+| 9 | **RTDB env 누락 → 빌드 실패 재발** | ★**바뀔 수 있다** | 8번의 `firebase-admin.ts` throw 는 위 「담당자 없는 이슈 2」(2026-09-11 Vercel Production `DATABASE_URL` 누락 → 빌드 실패)와 **같은 고장**이다. main 은 그 의존을 걷어내 고쳤는데, 브랜치 쪽을 취하면 되살아난다. |
+| 10 | **CI 가 빨개진다** | ★**바뀐다(실측)** | main 이 CI 에 건 검사를 브랜치 트리에 돌려 봤다 — `check:ui`(UI 계약) **FAIL**, `check:building`(도면) **FAIL**. 같은 검사를 main 트리에 돌리면 **둘 다 PASS**. 즉 **브랜치 코드가 main 의 계약을 깬다.** (main 의 `ShopDetail.tsx`·`ShopFilters.tsx`·`WhitelabelFrame.tsx` 가 이겨야 한다 — 전부 충돌 파일이다.) |
+| 11 | 시트에 쓰는 코드의 동작 | **부분 확인 — 나머지는 모른다** | `scripts/hourly-sync.cmd` 는 **양쪽 다 쓰기 없음**(main=RETIRED, 브랜치=erp3 폐기 중지). 시트 규격 잠금 `check-settlement-locked` 는 브랜치 트리에서 **PASS**. 다만 `scripts/publish-{channel,supplier}-settlement.mts`·`lib/server/settlement-sheet-import.ts`·`scripts/hourly-sync.mts` 가 **충돌**이라 실제 쓰기 내용이 어느 쪽으로 가는지는 **해결 전엔 모른다.** ★추측으로 「안 바뀐다」고 쓰지 않는다. |
+| 12 | 마이그레이션·일회성 스크립트의 자동 실행 | **모른다** | 4번 워크플로가 `ingest-all-suppliers.mts` 를 부르는 것은 확인했다. `scripts/migrate-*`·`apply-*` 가 자동 경로에 붙는지는 **이번에 전수 확인 못 했다.** |
+
+### 검증 실측
+
+- 임시 워크트리(`C:\c\dev\.wt-mergecheck-tmp`, 조사 후 제거)에 **브랜치 끝단** 체크아웃: `npm ci` **exit 0**, `npm run typecheck` **exit 0 · TS 에러 0**.
+- ★**머지 트리는 typecheck 못 한다** — 충돌 110개라 충돌 표식이 박힌 트리밖에 안 나온다. 사람이 해결한 뒤에 돌려야 한다. 「안 돌렸다」가 아니라 **「해결 전엔 못 돈다」**.
+- 외부 접속 없는 `scripts/check-*.mts` 만 골라 돌린 결과(브랜치 트리):
+
+| 검사 | 결과 |
+|---|---|
+| `check-settlement-engine` | **PASS** — 「심장 14장이 저장·세션·시트·화면을 물지 않습니다 — 통째로 떼어낼 수 있습니다」 |
+| `check-settlement-cycle` | PASS |
+| `check-settlement-locked` | PASS — 정산 시트 규격 그대로 |
+| `check-settlement-workstation` | PASS |
+| `check-design-locked` | PASS |
+| `check-pipeline-contracts` | PASS |
+| `check-ui-contract` | **FAIL**(main 에선 PASS) |
+| `check-building` | **FAIL**(main 에선 PASS) |
+| `check-erp5-firestore-cutover` | 실행 불가(자격증명 필요 — 오프라인 분류가 틀렸다) |
+
+시트·Firestore·RTDB 를 무는 검사 39개는 **안 돌렸다.**
+
+### 병합 계획 — **한 번에 밀지 마라. 정산만 뗀다.**
+
+근거: ①충돌 110개 중 정산은 12개뿐이고 나머지 98개는 상점 UI·재고·스크립트라 정산과 무관하다. ②그 98개를 같이 풀면 위 10번(CI 빨간불)·6번(매시 동기 정지)·8번(RTDB 부활)을 **한 커밋에 다 안고** 간다. ③`check-settlement-engine` 이 **엔진 14장이 저장·시트·화면을 안 문다**고 실측으로 말한다 — 떼어낼 수 있다는 증거다.
+
+**정산 관련 변경 파일 65개의 실제 성격:**
+- **신규 31개(main 에 없음 = 충돌 0)** ← 이게 1차로 올릴 것
+- 충돌 12개 ← 2차, 사람이 봐야 함
+- 충돌 없는 수정 22개 ← 3차
+
+**1차(안전): 충돌 0 · 기본 동작 0 변경.** `git checkout feat/spring-atom-monitor -- <파일>` 로 파일 단위로 얹는다.
+
+```
+# ㉠ 셈의 심장 — 순수 모듈, 저장·시트·화면 안 뭄
+lib/domain/settlement/engine.ts
+lib/domain/settlement-atom.ts
+lib/domain/settlement-intake.ts
+lib/domain/settlement-link.ts
+# ㉡ 결정문
+docs/정산-ERP전환-2026-09.md
+# ㉢ 검사기(자동 실행 아님)
+scripts/check-settlement-{atom,chain,complete,engine,parity,ssot,workstation}.mts
+scripts/check-no-rtdb-settlement.mts
+# ㉣ 화면·API — SETTLEMENT_STORE 기본이 sheet 라 직원 경로에 안 걸린다
+app/api/settlement/{statement,board}/route.ts
+app/settlement/{board,board/preview,intake,intake/preview}/page.tsx
+app/settlement/intake/layout.tsx  app/settlement/icon.svg
+components/settlement/{SettlementBoard,IntakeStation,SamplePreview}.tsx
+components/settlement/{board,classic}.css
+# ㉤ 손으로만 돌리는 스크립트
+scripts/{harvest-settlement-state,order-settlement-tabs,set-settlement-carry,settlement-ask,sync-settlement-to-firestore}.mts
+```
+
+★**가능 근거(실측)**: `engine.ts` 는 «배럴»이라 `lib/domain/settlement-{money,stage,fee-table,billstate,timeline,confirm,cycle,invoice,alert,billing-month}` 를 re-export 하는데 **그 10장이 이미 main 에 다 있다.** main 에 없는 건 `settlement-atom.ts` 하나뿐이고 그건 위 ㉠에 들어간다. 그리고 `engine.ts` 안의 RTDB 언급은 **주석과 「금지 import 목록」뿐 — 실코드 없음**(41·165·168행).
+
+⚠ **1차에서 절대 가져오지 말 것**: `lib/server/firebase-admin.ts` · `lib/firebase/auth.ts` · `lib/server/firestore-ref-shim.ts` · `app/api/settlement/{ledger,invoice,confirm,agents,mine}/route.ts` · `.github/workflows/*` — **전부 RTDB 를 되살린다**(8·9번).
+
+**2차(사람이 결정)**: 충돌 12개. 정산 5개 라우트는 **main 의 Firestore 전용 버전 위에 브랜치의 셈만 옮겨 태워야** 한다 — 브랜치 파일을 통째로 덮으면 RTDB 가 따라온다.
+**3차**: 워크플로. 6번은 **main 쪽 채택 고정**. 4번 `direct-ingest-hourly.yml` 은 **cron 을 지우고 `workflow_dispatch` 로만** 올린다(대표 승인 전에 자동으로 Firestore 에 쓰게 두지 않는다).
+**4차**: 상점 UI·재고. 10번 때문에 `check:ui`·`check:building` 을 **먼저 초록으로 만든 뒤** 손댄다.
+
+### 머지 후 스모크 체크리스트
+
+1. `npm ci && npm run typecheck` — 에러 0 인가(브랜치 단독 기준선 = 0).
+2. `npm run check:ui` · `check:building` · `check:design` — **셋 다 초록인가**(지금 브랜치는 앞 둘이 빨갛다).
+3. `lib/server/settlement-store.ts:61` 을 **눈으로** 확인 — `: 'sheet'` 가 그대로인가.
+4. `git grep -nE "firebase/database|getDatabase|databaseURL" -- lib app .github` — **머지 전 main 결과와 개수가 같은가**. 늘었으면 되돌린다.
+5. `.github/workflows/sales-erp-hourly.yml` 에 `cron: '0 0-9 * * 1-5'` 가 **남아 있는가**(사라졌으면 매시 동기가 죽는다).
+6. `gh run list --workflow=sales-erp-hourly.yml` — 머지 다음 정각에 **회차가 실제로 돌았는가**.
+7. `.github/workflows/direct-ingest-hourly.yml` 에 `schedule:` 이 **없는가**(있으면 승인 없이 Firestore 에 쓴다).
+8. 직원 화면: `/settlement` 이 시트 값 그대로 보이는가 — `SETTLEMENT_STORE` 미설정 = sheet.
+9. `npx tsx scripts/check-settlement-locked.mts` — 시트 규격 그대로인가.
+
+### 모르는 것 (「없다」로 바꾸지 마라)
+
+- 브랜치가 지운 170개 파일 중 **main 이 아직 쓰는 것이 있는지** — 전수 확인 못 했다.
+- 충돌 110개 중 **시트에 실제로 쓰는 코드**(`publish-*-settlement.mts` · `settlement-sheet-import.ts` · `hourly-sync.mts`)가 해결 후 어느 쪽 동작이 되는지.
+- `scripts/migrate-*`·`apply-*` 가 자동 실행 경로에 붙는지(12번).
+- **머지 트리의 typecheck 숫자** — 충돌 해결 전에는 못 낸다.
+- 시트·Firestore 를 무는 검사 39개의 결과.
