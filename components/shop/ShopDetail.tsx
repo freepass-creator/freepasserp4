@@ -132,6 +132,17 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
   /** 갈래가 실제로 갈리는 차인가 — 인수형이 있거나, 한 기간에 줄이 둘 이상인 차. */
   const hasBranch = useMemo(() => plans.some((x) => x.acquisition)
     || plans.some((x, _i, all) => all.filter((y) => y.m === x.m).length > 1), [plans]);
+  /*
+   * ★★**조건 글자는 «줄마다 다를 때만» 싣는다**(2026-09-16 화면에서 잡음).
+   *
+   * ⚠ `pricePlanList` 의 `condition` 에는 주행 약정·보험이 들어 있다. 그런데 이 구역 오른쪽에
+   *   이미 「약정 주행」 칸이 서 있고(`rateConds`), 보험은 아래 「보험」 구역이 든다.
+   *   그대로 실으니 **열 줄 전부에 「연 20,000km · 보험 별도」가 반복**되고, 같은 말이 한 화면에
+   *   두 번 섰다 — 집 규칙(「같은 말을 두 번 하지 않는다」)에 걸린다.
+   * ⇒ 값이 **모든 줄에서 같으면** 그건 «상품 단위» 정보라 이 칸의 일이 아니다. 갈래만 남긴다.
+   *   달라지는 차(오플처럼 기간마다 주행 약정이 갈리는 차)에서는 그게 «줄을 가르는» 정보라 싣는다.
+   */
+  const condVaries = useMemo(() => new Set(plans.map((x) => x.condition)).size > 1, [plans]);
   const [planIdx, setPlanIdx] = useState(0);
   const plan = plans[planIdx];
   /** 보증금 — 금액이 없고 규칙 글자만 있는 상품(`depositLine` 머리말). */
@@ -902,7 +913,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
                         padding: '12px 8px', textAlign: 'right', whiteSpace: 'nowrap',
                         fontSize: SHOP.fs.sub, fontWeight: on ? 700 : 500,
                         color: on ? C.brand : C.mute,
-                      }}>{[x.acquisition ? '인수형' : '반납형', x.condition].filter(Boolean).join(' · ')}</td>
+                      }}>{[x.acquisition ? '인수형' : '반납형', condVaries ? x.condition : ''].filter(Boolean).join(' · ')}</td>
                     ) : null}
                     <td style={{
                       padding: '12px 8px', textAlign: 'right', whiteSpace: 'nowrap',
