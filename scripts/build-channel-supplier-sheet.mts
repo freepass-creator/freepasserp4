@@ -220,7 +220,7 @@ const cmp = compareSalesRows(modelSold, modelCount);
 for (const list of by.values()) list.sort((a, b) => cmp(a.atom, b.atom));
 /** 탭 차례 — 하허호는 «굳힌 표»(RETRO_TAB_ORDER), 그 밖은 상품 많은 순. */
 const order = [...by.entries()].sort((a, b) => (RETRO ? retroTabRank(a[0]) - retroTabRank(b[0]) : 0) || b[1].length - a[1].length);
-/** ★하허호 레트로만 — 「종합」 탭(손오공·오토플러스 뺀 렌트사 규격 차)을 공지사항 바로 뒤에 둔다. `RETRO_SUMMARY_TAB` 머리말. */
+/** ★하허호 레트로만 — 「종합」 탭(손오공·오토플러스 뺀 렌트사 규격 차)이 맨 앞(index 0)에 선다(F86 엔 공지사항이 없다). `RETRO_SUMMARY_TAB` 머리말. */
 const 종합줄 = RETRO ? order.filter(([co]) => inRetroSummary(co)).flatMap(([, l]) => l).sort((a, b) => cmp(a.atom, b.atom)) : [];
 if (RETRO && 단기만.length) console.log(`   ○ 장기 요금 없는 차 ${단기만.length}대 — 싣되 장기 요금 칸은 빈 채: ${단기만.slice(0, 6).map((x) => `${S(x.cells['차량번호'])}(${x.company})`).join(' · ')}`);
 const 탭들: [string, Row[]][] = RETRO ? [[RETRO_SUMMARY_TAB, 종합줄], ...order] : order;
@@ -304,8 +304,10 @@ if (!id) {
  * ★**공지사항은 채널 정산시트와 «같은 것»을 세운다** (사장님 2026-09-08 「공지사항 동일하게 박아주고」).
  *   같은 함수(`ensureNoticeTab`)를 부르므로 열·서식·안내 문구가 문서마다 갈리지 않는다.
  * ⚠ 이미 있으면 손대지 않는다 — 적어 둔 공지가 날아간다.
+ * ★★2026-09-16 정정(하허호 F86 만) — 사장님 「그리고 f86은 공지사항 탭 지워주시고」.
+ *   F86 은 «완전 커스텀 레트로»(옛 시트 그대로) 규격이라 공지사항 탭이 없다. 다른 채널은 그대로 만든다.
  */
-{
+if (!RETRO) {
   const tok = async () => (await jwt.getAccessToken()).token;
   const made = await ensureNoticeTab(tok, id);
   console.log(`   ${made ? '+ 「공지사항」 만듦' : '○ 「공지사항」 있음 — 손대지 않음'}`);
@@ -326,7 +328,7 @@ const 링크요청: any[] = [];
 const puts: { range: string; values: string[][] }[] = [];
 /** 이번 회차에 실제로 채운 탭 — 여기 없는 회사 탭은 묵은 것이라 지운다(아래). */
 const 쓴탭 = new Set<number>();
-let index = 1;   // 0 = 공지사항
+let index = RETRO ? 0 : 1;   // 하허호(F86) 는 공지사항이 없다 — 그 밖은 0 = 공지사항
 for (const [company, list] of 탭들) {
   /**
    * ★탭 이름 = 「회사 N대」 (사장님 2026-09-08 「그냥 손오공 몇 대만 탭으로 남겨줘」).
@@ -427,9 +429,10 @@ for (const [company, list] of 탭들) {
  *   옛 회차가 만든 것인데, 지우지 않으니 채널은 **이미 사라진 재고를 계속 보고 있었다.**
  *   시트에 서 있는 차는 「팔 수 있다」는 뜻이라 — 묵은 탭은 «덜 새로운 표»가 아니라 **틀린 표**다.
  * ★공지사항·안내 탭은 남긴다(사람이 적는 것). 우리가 만든 «회사 탭»만 거둔다.
+ * ★★2026-09-16 하허호 F86 만 예외 — 공지사항 탭이 없는 규격이라(위 참조) 남아 있으면 이 회차에 지운다.
  */
 {
-  const 지킴 = /공지|안내|이 시트|시트 지도/;
+  const 지킴 = RETRO ? /안내|이 시트|시트 지도/ : /공지|안내|이 시트|시트 지도/;
   /**
    * ⚠⚠ **읽은 게 없으면 아무것도 지우지 않는다** (2026-09-08 적대 검토가 잡았다).
    *   F01 탭 이름이 안 걸리거나 그 시트가 비어 있으면 `order` 가 빈다 → `쓴탭` 도 빈다 →

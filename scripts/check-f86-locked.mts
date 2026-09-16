@@ -124,13 +124,22 @@ for (const name of ['retroTabLayout', 'retroHasLongFee', 'RETRO_SUMMARY_TAB']) {
 }
 must(/if \(RETRO\) \{\s*const lock = spawnSync\([^)]*check-f86-locked\.mts/.test(build) && /lock\.status !== 0/.test(build),
   '발행기가 --apply 전에 이 잠금을 안 돌립니다 — 어긋난 규격으로 운영 F86 을 덮을 수 있습니다.', `scripts/build-channel-supplier-sheet.mts · F86 확정 규격 잠금 — ${MANUAL}`);
+/* ── ⓪¾ 2026-09-16 확정 — 공지사항 없음 · 탭명(종합만 시각, 회사는 회사·대수) ──────── */
+must(/if \(!RETRO\) \{\s*const tok = /.test(build),
+  'F86(하허호) 발행 때 공지사항 탭을 만듭니다 — 사장님 「f86은 공지사항 탭 지워주시고」(2026-09-16) 규격 위반.', `scripts/build-channel-supplier-sheet.mts · 공지사항 — ${MANUAL} 6`);
+must(/RETRO \? \/안내\|이 시트\|시트 지도\/ : \/공지\|안내\|이 시트\|시트 지도\//.test(build),
+  'F86 묵은 탭 청소가 공지사항을 계속 지켜 줍니다 — 남아 있던 공지사항이 안 지워집니다.', `scripts/build-channel-supplier-sheet.mts · 공지사항 청소 — ${MANUAL} 6`);
+must(/RETRO \? 0 : 1;/.test(build), 'F86 탭 index 가 공지사항 자리(1부터)를 그대로 씁니다 — 종합이 맨 앞(0)이어야 합니다.', `scripts/build-channel-supplier-sheet.mts · index — ${MANUAL} 6`);
+must(/\(RETRO && company !== RETRO_SUMMARY_TAB\) \? `\$\{company\} · \$\{list\.length\}대` : `\$\{company\} \$\{mark\} · \$\{list\.length\}대`/.test(build),
+  'F86 탭 이름 규칙이 바뀌었습니다 — 사장님 「시간은 맨 앞에 탭 하나만」(2026-09-16): 「종합」만 시각을 달고, 회사 탭은 「회사 · N대」만 씁니다.', `scripts/build-channel-supplier-sheet.mts · 탭 이름 — ${MANUAL} 6`);
+must(/`\$\{company\} · \$\{count\}대`/.test(audit), '감사기가 회사 탭 이름에서 시각을 계속 기대합니다 — 발행기와 어긋납니다.', `scripts/audit-sheet-vs-atom.mts · 탭 이름 — ${MANUAL} 6`);
 const pkg = read('package.json');
 must(/"check:sync": "[^"]*npm run check:f86/.test(pkg), '`check:sync`(→ check:release) 에서 check:f86 이 빠졌습니다.', `package.json — ${MANUAL}`);
 must(!read('lib/domain/sales-sheet-format.ts').includes('channel-retro-skin'), '공용 서식기가 레트로 스킨을 끌어 씁니다 — F01 모양이 같이 바뀝니다.', `lib/domain/sales-sheet-format.ts — ${MANUAL} 0`);
 
 /* ── 매뉴얼 절 ───────────────────────────────────────────────── */
 const man = read('docs/영업자시트-매뉴얼.md');
-for (const phrase of ['«완전 커스텀 레트로» 규격 (2026-09-16 픽스)', 'npm run check:f86', '단기보증·1개월·6개월·12개월', '손오공·오토플러스를 뺀 렌트사 차 한 장', 'retroHasLongFee', '맑은 고딕 9pt', '기간이 같은 옛 칸 색', '회사 탭도 그대로 같이 둔다', '굳힌 양식']) {
+for (const phrase of ['«완전 커스텀 레트로» 규격 (2026-09-16 픽스)', 'npm run check:f86', '단기보증·1개월·6개월·12개월', '손오공·오토플러스를 뺀 렌트사 차 한 장', 'retroHasLongFee', '맑은 고딕 9pt', '기간이 같은 옛 칸 색', '회사 탭도 그대로 같이 둔다', '굳힌 양식', 'F86 엔 공지사항 탭이 없다', '시각은 「종합」 하나에만', 'GUBUN_INK', 'STATE_INK']) {
   must(man.includes(phrase), `매뉴얼 F86 절에서 「${phrase}」가 사라졌습니다.`, MANUAL);
 }
 
