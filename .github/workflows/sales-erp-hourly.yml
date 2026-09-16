@@ -24,6 +24,11 @@ concurrency:
   group: sales-erp-hourly
   cancel-in-progress: false
 
+# 실패를 «이슈»로 올리기 위해 필요하다 — 러너에는 메일 도구가 없다(2026-09-16 사고).
+permissions:
+  contents: read
+  issues: write
+
 jobs:
   sync:
     runs-on: ubuntu-latest
@@ -44,6 +49,21 @@ jobs:
           mkdir -p tmp/firebase-auth
           printf '%s' "$SA" > tmp/firebase-auth/sa.json
 
+      # ★2026-09-16 — 이게 없어서 09-14부터 예약 실행이 전부 «⓪ 손오공 계정 없음»으로 죽었다.
+      #   `--손오공없이` 로 우회하면 손오공구독·픽업구독 탭과 ⑩ 천이가 통째로 빠진 채
+      #   ⑦ ERP 만 낡은 값으로 돌고, 코드가 그 회차를 allOk=false 로 두어 어차피 exit 1 이다.
+      #   그러니 우회가 아니라 «계정을 넣는» 것이 맞다. 형식은 {"id":"…","password":"…"}.
+      - name: 손오공 계정 준비
+        env:
+          SONOKONG: ${{ secrets.SONOKONG_ACCOUNT_JSON }}
+        run: |
+          test -n "$SONOKONG" || {
+            echo '::error title=SONOKONG_ACCOUNT_JSON 시크릿이 없습니다::⓪ 손오공 단계가 돌 수 없어 회차 전체가 멈춥니다. {"id","password"} JSON 을 SONOKONG_ACCOUNT_JSON 에 넣으세요.'
+            exit 1
+          }
+          mkdir -p sonokong/lib/wonja
+          printf '%s' "$SONOKONG" > 'sonokong/lib/wonja/.손오공계정.json'
+
       - name: SSOT 어댑터 계약 테스트
         run: npx tsx scripts/test-ssot-adapters.mts
 
@@ -54,4 +74,39 @@ jobs:
             npx tsx scripts/cloud-hourly-sync.mts --apply
           else
             npx tsx scripts/cloud-hourly-sync.mts
+          fi
+
+      # 실패한 회차의 기록을 남긴다 — 로그가 지워져도 무엇이 어디서 멈췄는지 읽을 수 있게.
+      - name: 실패 기록 올리기
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hourly-sync-실패기록-${{ github.run_id }}
+          path: |
+            tmp/hourly-sync-last.txt
+            tmp/hourly-sync-log.txt
+            tmp/자동동기-상태.json
+          if-no-files-found: ignore
+          retention-days: 14
+
+      # ★이번 사고의 핵심 — «실패가 조용히 묻히지 않게».
+      #   메일 도구(C:/dev/mailtool)는 러너에 없다. 그러니 러너에서는 «이슈»가 알림 통로다.
+      #   열려 있는 이슈가 있으면 댓글만 달아 하루에 열 개가 쌓이지 않게 한다.
+      - name: 실패를 이슈로 알린다
+        if: failure() && github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          TITLE='⛔ 판매·천이·ERP 시간별 동기 멈춤'
+          BODY="예약 실행이 실패했습니다. ERP 는 마지막으로 성공한 값에 머뭅니다(공급사 시트를 고쳐도 안 넘어갑니다).
+
+          실행 기록 — $RUN_URL
+          커밋 — ${{ github.sha }}"
+          EXISTING=$(gh issue list --state open --label 자동동기멈춤 --limit 1 --json number --jq '.[0].number')
+          if [ -n "$EXISTING" ]; then
+            gh issue comment "$EXISTING" --body "$BODY"
+          else
+            gh label create 자동동기멈춤 --color B60205 --description '시간별 동기 실패 알림' 2>/dev/null || true
+            gh issue create --title "$TITLE" --label 자동동기멈춤 --body "$BODY"
           fi

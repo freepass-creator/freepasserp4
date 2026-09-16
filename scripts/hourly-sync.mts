@@ -353,12 +353,35 @@ const ALERT_TO = (process.env.FP_ALERT_TO || 'pyh@teamjpk.com,kjs@teamjpk.com,pt
 const ALERT_GAP_MS = 3 * 60 * 60 * 1000;
 type AlertState = { failingSince?: string; lastAlertAt?: number; count?: number };
 const readAlert = (): AlertState => { try { return JSON.parse(readFileSync(ALERT_STATE, 'utf8')) as AlertState; } catch { return {}; } };
+/**
+ * 메일 도구 경로 — 윈도우 로컬 기본값. `FP_MAILTOOL` 로 덮어쓸 수 있다.
+ * ★2026-09-16 — 이 경로가 «윈도우 절대경로로 박혀» 있어서 GitHub Actions(리눅스) 에서는
+ *   `python: can't open file '/home/runner/.../C:/dev/mailtool/send_mail.py'` 로 매번 깨졌다.
+ *   즉 **멈췄다는 사실을 알릴 통로 자체가 막혀** 사흘간 아무도 몰랐다. 메일은 «있으면» 쓰고,
+ *   없으면 그 자리에서 «다른 통로»(GitHub 주석·요약)로 큰 소리를 낸다.
+ */
+const MAILTOOL = process.env.FP_MAILTOOL || 'C:/dev/mailtool/send_mail.py';
+const ON_CI = !!process.env.GITHUB_ACTIONS;
+/** CI 에서는 실패가 «로그 맨 아래 한 줄»로 묻히지 않게 주석·잡요약으로 올린다. */
+const ciAlert = (subject: string, body: string) => {
+  if (!ON_CI) return;
+  console.log(`::error title=${subject.replace(/[\r\n]+/g, ' ')}::${body.split(/\r?\n/).filter(Boolean).slice(0, 3).join(' / ')}`);
+  const summary = process.env.GITHUB_STEP_SUMMARY;
+  if (summary) {
+    try { appendFileSync(summary, `\n## ⛔ ${subject}\n\n\`\`\`\n${body}\n\`\`\`\n`); } catch { /* 요약은 곁다리다 */ }
+  }
+};
 const sendMail = (subject: string, body: string) => {
+  ciAlert(subject, body);
+  if (!existsSync(MAILTOOL)) {
+    console.log(`   ⚠ 알림 메일 건너뜀 — 메일 도구 없음(${MAILTOOL}) · FP_MAILTOOL 로 지정하세요`);
+    return;
+  }
   try {
     const bodyFile = 'tmp/hourly-sync-alert-body.txt';
     writeFileSync(bodyFile, body, 'utf8');
     const to = ALERT_TO.flatMap((addr) => ['--to', addr]);
-    const r = spawnSync('python', ['C:/dev/mailtool/send_mail.py', ...to, '--subject', subject, '--body-file', bodyFile, '--from-name', '프리패스 자동동기'], { encoding: 'utf8', timeout: 120_000 });
+    const r = spawnSync('python', [MAILTOOL, ...to, '--subject', subject, '--body-file', bodyFile, '--from-name', '프리패스 자동동기'], { encoding: 'utf8', timeout: 120_000 });
     if (r.status !== 0) console.log(`   ⚠ 알림 메일 실패 — ${(r.stderr || r.stdout || '').split(/\r?\n/).filter(Boolean).slice(-2).join(' ')}`);
     else console.log(`   ✉ 알림 메일 보냄 → ${ALERT_TO.join(' · ')}`);
   } catch (e) { console.log(`   ⚠ 알림 메일 실패 — ${(e as Error).message.slice(0, 120)}`); }
