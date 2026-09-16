@@ -97,6 +97,21 @@ a{color:inherit;text-decoration:none} img,svg,canvas{display:block}
 .center{text-align:center}.center .lead{margin-left:auto;margin-right:auto}
 .sec-cta{margin-top:40px}
 
+/* 다크 섹션 — 명/암 리듬(시안 06 "운영을 더 스마트하게" 톤) */
+.sec.dark{background:var(--navy);position:relative;overflow:hidden}
+.sec.dark::before{content:"";position:absolute;inset:0;pointer-events:none;background:
+  radial-gradient(55% 70% at 88% 0%,rgba(59,141,240,.22),transparent 60%),
+  radial-gradient(40% 60% at 6% 100%,rgba(25,182,232,.14),transparent 60%)}
+.sec.dark .wrap{position:relative;z-index:1}
+.sec.dark .eyebrow{color:var(--cyan)}
+.sec.dark .sec-h{color:#fff}.sec.dark .sec-h em{color:var(--cyan)}
+.sec.dark .lead{color:rgba(255,255,255,.62)}
+.sec.dark .fc{background:rgba(255,255,255,.05);box-shadow:none;backdrop-filter:blur(6px);box-shadow:inset 0 0 0 1px rgba(255,255,255,.08)}
+.sec.dark .fc:hover{background:rgba(255,255,255,.08);box-shadow:inset 0 0 0 1px rgba(255,255,255,.16)}
+.sec.dark .fc .ic{background:rgba(59,141,240,.18);color:var(--cyan)}
+.sec.dark .fc h3{color:#fff}.sec.dark .fc p{color:rgba(255,255,255,.6)}
+.sec.dark .btn-link{color:var(--cyan)}
+
 /* 섹션 헤더 — 좌측 정렬 기본(시안 04 "주요 옵션 구성" 톤) */
 .sec-head{max-width:640px}
 .sec-head .eyebrow{margin-bottom:16px}
@@ -133,13 +148,6 @@ a{color:inherit;text-decoration:none} img,svg,canvas{display:block}
 .sup-list li::before{content:"✓";position:absolute;left:0;top:0;color:var(--blue);font-weight:800}
 .sup-list li b{color:var(--ink);font-weight:700}
 
-/* 생태계 마키 */
-.mq-mask{overflow:hidden;margin-top:48px;-webkit-mask:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent);mask:linear-gradient(90deg,transparent,#000 6%,#000 94%,transparent)}
-.mq{display:flex;width:max-content;animation:mq 28s linear infinite}.mq:hover{animation-play-state:paused}
-@keyframes mq{to{transform:translateX(-50%)}}
-.mcard{margin-right:14px;flex:0 0 auto;display:flex;align-items:center;gap:14px;background:var(--panel);border-radius:14px;padding:18px 26px;box-shadow:var(--sh)}
-.mcard .mn{font-size:18px;font-weight:800}.mcard .mt span{font-size:11px;font-weight:600;color:var(--blue);background:var(--blue-soft);border-radius:6px;padding:4px 9px}
-
 /* CONTACT */
 .contact{display:grid;grid-template-columns:.8fr 1.2fr;gap:50px;margin-top:48px;align-items:start}
 .info div{margin-bottom:24px}.info .k{display:block;font-size:12px;font-weight:700;letter-spacing:1.5px;color:var(--blue)}
@@ -154,7 +162,7 @@ a{color:inherit;text-decoration:none} img,svg,canvas{display:block}
 .send{grid-column:1/-1;justify-self:start;margin-top:4px}
 
 /* CTA 배너 (푸터 위, 시안 08 기준) */
-.cta-band{background:var(--navy);position:relative;overflow:hidden;padding:clamp(56px,7vw,84px) 0}
+.cta-band{background:var(--navy);position:relative;overflow:hidden;padding:clamp(56px,7vw,84px) 0;border-top:1px solid rgba(255,255,255,.08)}
 .cta-band::before{content:"";position:absolute;inset:0;background:
   radial-gradient(50% 90% at 14% 30%,rgba(59,141,240,.24),transparent 60%),
   radial-gradient(45% 80% at 88% 80%,rgba(25,182,232,.16),transparent 60%)}
