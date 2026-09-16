@@ -49,8 +49,22 @@ for (const [name, text] of [['bulk', bulk], ['single', single]] as const) {
 }
 
 const workflow = readFileSync('.github/workflows/erp5-ssot-refresh.yml', 'utf8');
-const validatedEngine = 'eafbd88e43b1b4e5bacab858a2e0c65845956e5f';
-assert(workflow.includes(`ref: ${validatedEngine}`), '검증 엔진 pin이 제거됐습니다. main collector 이식 완료 전에는 pin을 풀면 안 됩니다.');
+/**
+ * **검증 엔진 pin — 푸는 게 아니라 «목록»으로 넓힌다.**
+ *
+ * 원칙은 그대로다: main collector 이식이 끝나기 전에는 운영 워크플로가 «검증된 엔진»만 가리켜야 한다.
+ * 다만 2026-09-16 사장님 지시로 하허호 F86(레트로 규격·굳힌 양식·감사·백업·정렬)을 그 엔진 «위에» 올렸다.
+ * 올린 커밋은 `eafbd88e` 의 자손이고 수집기(ingest-all-suppliers·ingest-supplier-to-firestore)는 한 줄도
+ * 안 건드렸다 — 아래 43~49행이 그 수집기 가드를 여전히 검사한다.
+ * ⇒ 새 엔진을 쓰려면 **여기에 커밋을 적어 넣는다**(적지 않은 커밋으로는 운영이 안 돈다).
+ */
+const VALIDATED_ENGINES = [
+  'eafbd88e43b1b4e5bacab858a2e0c65845956e5f',   // Codex gate 엔진(원본 검증분)
+  '3a334ddf6e8acd721883757f7951052bf9188b87',   // + 하허호 F86(claude/f86-on-gate · 2026-09-16 · 정렬 상품구분→모델까지)
+];
+const pinnedEngine = VALIDATED_ENGINES.find((engine) => workflow.includes(`ref: ${engine}`));
+assert(pinnedEngine, '검증 엔진 pin이 제거됐습니다. main collector 이식 완료 전에는 pin을 풀면 안 됩니다(새 엔진은 VALIDATED_ENGINES 에 적는다).');
+const validatedEngine = pinnedEngine as string;
 assert(workflow.includes('GOOGLE_CLOUD_PROJECT: freepasserp5'), 'production target은 freepasserp5여야 합니다.');
 assert(workflow.includes('scripts/ingest-all-suppliers.mts'), 'production workflow가 검증된 일괄수집기를 호출하지 않습니다.');
 
