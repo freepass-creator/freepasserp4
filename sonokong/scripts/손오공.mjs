@@ -10,6 +10,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { 버킷, pullAll, view, viewAgent, lotteSpec, mapPool, 남은시간h } from '../lib/sonokong.mjs';
+import { tcarPaidOptionsFromDescription } from '../lib/tcar-options.mjs';
 
 const 루트 = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const 출력 = path.join(루트, 'lib', 'wonja', '손오공차량.json');
@@ -44,9 +45,19 @@ function 정규화(r, d, 버킷값) {
   const opts = (d?.options || []).filter((o) => o.isApplied).map((o) => o.optionName);
   // 유상옵션 이름만 — 괄호 안 금액은 뺀다(사장님 2026-08-27). 이름에 「(600,000)」류가 섞여도 제거.
   const 금액괄호 = /\s*\(\s*[\d,]+\s*원?\s*\)\s*/g;
-  const 유료 = (d?.tcarPaidOptions || [])
+  const 구조유료 = (d?.tcarPaidOptions || [])
     .map((o) => String(o?.name ?? '').replace(금액괄호, ' ').replace(/\s+/g, ' ').trim())
     .filter(Boolean);
+  const 설명유료 = 버킷값 === 'TCAR_EXTERNAL' && 구조유료.length === 0
+    ? tcarPaidOptionsFromDescription(d?.carDescription)
+    : [];
+  const 티카직접원문 = d?.__lotte?.__paidOptList;
+  const 티카직접확인 = 버킷값 === 'TCAR_EXTERNAL' && Array.isArray(티카직접원문);
+  const 티카직접유료 = 티카직접확인
+    ? 티카직접원문.map((o) => String(o?.PAID_OPT_NM ?? '').trim()).filter(Boolean)
+    : [];
+  const 유료 = 티카직접확인 ? 티카직접유료 : 구조유료.length ? 구조유료 : 설명유료;
+  const 정제 = d?.__lotte ? Object.fromEntries(Object.entries(d.__lotte).filter(([key]) => !key.startsWith('__'))) : null;
   return {
     버킷: 버킷값,                     // SON_NO_KONG | TCAR_EXTERNAL
     id: r.id, hashId: r.hashId,
@@ -69,10 +80,13 @@ function 정규화(r, d, 버킷값) {
     계약중: r.hasActiveContract === true,
     옵션: opts.join(', '),
     유료옵션: 유료.join(', '),
+    유료옵션출처: 티카직접확인 ? 'tcar:jsonData.paidOptList' : 구조유료.length ? 'sonokong:tcarPaidOptions' : 설명유료.length ? 'carDescription:추가옵션' : '',
+    유료옵션원문: 티카직접확인 ? 티카직접원문 : d?.tcarPaidOptions ?? null,
+    유료옵션설명후보: 설명유료,
     설명: d?.carDescription ?? null,
     사진들: (d?.images || []).sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0)).map((im) => im.imageUrl).filter(Boolean),
     상세url: /^https?:\/\//.test(String(d?.carSourceUrl || '')) ? d.carSourceUrl : null, // T카=롯데 상세페이지(전 사진), SON=없음
-    정제: d?.__lotte || null, // T카 롯데 정제값(차종·내장·구동·인승·변속·세부트림 등). SON은 null(차종마스터 팀 담당)
+    정제, // T카 롯데 정제값(차종·내장·구동·인승·변속·세부트림 등). SON은 null(차종마스터 팀 담당)
     썸네일: r.thumbnail || null,
     월납: r.monthlyPrice || null,
     저신용월납: (() => { const e = 월납뽑기(d?.estimates); return (e.SUBSCRIBE_RETURN || e.SUBSCRIBE_BUYOUT) ? e : (r.lowCreditMonthlyPrices || null); })(), // 상세 estimates 우선(인수형 12·24 포함), 없으면 목록
@@ -113,6 +127,18 @@ async function main() {
         // 리스트에서 오는 실시간 변동값만 갱신(계약이 실시간이므로)
         rec.노출 = r.webVisibility; rec.계약중 = r.hasActiveContract === true; rec.계약가능 = r.contractAvailable;
         rec.주행거리 = r.mileage == null ? null : Number(r.mileage); rec.차번 = r.carNumber; rec.차명 = r.carName;
+        if (값 === 'TCAR_EXTERNAL' && String(rec.유료옵션 || '').trim() && !rec.유료옵션출처) {
+          rec.유료옵션출처 = 'sonokong:tcarPaidOptions';
+        }
+        if (값 === 'TCAR_EXTERNAL'
+          && rec.유료옵션출처 !== 'tcar:jsonData.paidOptList'
+          && (!String(rec.유료옵션 || '').trim() || rec.유료옵션출처 === 'carDescription:추가옵션')) {
+          const 설명유료 = tcarPaidOptionsFromDescription(rec.설명);
+          if (설명유료.length) {
+            rec.유료옵션 = 설명유료.join(', ');
+            rec.유료옵션출처 = 'carDescription:추가옵션';
+          }
+        }
         차량.push(rec);
       } else {
         if (x?.d) 신규 += 1;
