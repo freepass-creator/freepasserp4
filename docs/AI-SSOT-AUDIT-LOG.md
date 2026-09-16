@@ -397,7 +397,6 @@ RP023을 그대로 실은 `MIRROR_SOURCES`(`from: 1TJBG4PABg...`)와 canonical r
 `ssot-live-gate.yml`은 `lib/adapters/**` 등 특정 경로가 바뀐 push에서만 돈다(`workflow_dispatch`도 가능). 매 커밋마다 도는 필수 체크가 아니라서, **다음에 그 경로가 바뀔 때까지 이 실패가 그대로 잠들어 있을 수 있다.**
 
 ### D. 판정
-
 - **판정(갱신, B-1 참고): 원인 확인됨 — 게이트 설계 결함(오탐), 데이터 사고 아님.** 오토플러스 매칭 실패는 오토플러스가 전용 `오플구독` 탭을 쓴다는 이미 확정된 결정을 `ssot-prepublish-gate.mts`가 반영 못 해서 생긴다. 4개 공급사 정제시트 5~6일째 미동기화는 이것과 별개의 **진짜 문제**로 남아 있다.
 - 이 세션은 Codex처럼 대량 구현/수정을 하지 않는다(`freepasserp4/AGENTS.md` 역할 분담). **수정 자체는 Codex/Cursor 오더로 넘긴다** — 위 B-1의 두 제안 중 택일.
 - 즉시 필요한 것: (1) `ssot-live-gate.yml`/`ssot-prepublish-gate.mts`에 AUTOPLUS 제외 반영, (2) 정제시트 4곳 재동기화(`npx tsx scripts/sync-mirror-sheet.mts --code=... --apply`, 로그가 이미 제시한 명령).
@@ -534,3 +533,116 @@ PR #299(`claude/shop-deposit-rule`, 현재 open)이:
 2. old `sales-erp-hourly.yml` / `mirror-sync.yml`의 GitHub UI disable 의존성을 없앨지(파일 schedule 제거/별도 guard/상태 검사) 판단한다. 실제 구현은 Claude 단일 세션만 한다.
 3. IANKA 4칸 mismatch와 4개 projection stale 원인을 legacy mirror를 무작정 재실행하지 말고 canonical source 기준으로 추적한다. RP023은 특히 옛 Google Sheet mirror를 즉시 `--apply`하지 않는다.
 4. PR #299를 검토/머지한 뒤 public catalog에서 규칙형 보증금이 카드·상세·공유까지 같은 의미로 보이는지 재검증한다.
+
+---
+
+## 2026-09-16(5) — ChatGPT 독립 감사: production engine 재고정 + 보증금 projection 해소 + 예약지도 pin drift
+
+### A. 변경됨 — production engine pin이 `d635f8c8...`로 다시 이동
+
+**판정: 확인됨 / 진입점 갱신 필요**
+
+현재 `origin/main` HEAD는 `81abd90df3bed9590c2bf498461af652488cc92e`(PR #304 merge)다.
+
+현재 `.github/workflows/erp5-ssot-refresh.yml`의 실제 checkout pin은:
+
+- `d635f8c87c3840a6956184b4d20f99dd968b6138`
+
+이다. PR #303의 분류/구분 칩 색 단일출처 변경을 production 엔진 가지에 cherry-pick한 뒤 PR #304가 이 커밋으로 재고정했다. 같은 PR에서 `VALIDATED_ENGINES`에도 새 pin을 추가했다.
+
+PR #304 head `f234b99eff7ae4712a13d300adcebabd33dbd286`에 대해 최근 Actions는:
+
+- `SSOT Source Contract` run `35039651351` — success
+- `CI` run `35039651361` — success
+
+으로 확인했다. merge commit의 Vercel deployment도 success다.
+
+다만 PR #304의 test plan에는 merge 뒤 `workflow_dispatch(apply=true)` 실제 발행 확인이 미체크로 남아 있으므로, **코드/CI pin 정합성 확인과 실제 운영 F01/F86 한 회차 발행 성공은 구분해서 본다.** 이번 감사에서는 새 pin으로 실제 운영 발행이 완료됐다고 단정하지 않는다.
+
+### B. 확인됨 — 새 production pin에서도 F86 핵심 불변조건은 유지
+
+`d635f8c8...`의 실제 파일을 대조했다.
+
+- `scripts/build-channel-supplier-sheet.mts`는 같은 고정 snapshot → `buildF86Plan` 경로를 사용한다.
+- 장기요금이 없는 `shortOnly` 차량도 **싣고 요금 칸만 빈 채**로 둔다(F01과 대수 일치 목표).
+- 운영 F86 쓰기는 `production-sheet-write-gate.ts`를 통과해야 한다.
+- gate 허용은 F86에 대해 `ERP5 SSOT 원천 최신화(매시간)` 한 워크플로뿐이다.
+- 손오공/오토플러스는 별도 판매탭을 유지하고 공급사 고유 기간·주행거리·요금 구조를 보존한다.
+- canonical source는 계속 RP012=ERP API, RP023=RebornCar다.
+
+즉 이번 repin에서 **F86=F01 규칙, 특수 공급사 분리, canonical source 계약의 회귀는 확인되지 않았다.**
+
+### C. 해소됨 — 손님 보증금 projection drift(PR #299)
+
+이전 `(4)-E`의 미해소 판정은 현재 상태가 아니다.
+
+PR #299가 merge commit `64ce8ec8e98697767048e15ba222ccc08a8c2a18`로 main에 들어왔다.
+
+현재 main 코드:
+
+- `lib/domain/public-catalog.ts`의 `PUBLIC_PRODUCT_FIELDS`에 `deposit_note`가 포함됨.
+- `lib/format.ts`에 `depositLine(deposit, note, money)`가 존재하고, 금액 → 규칙 글자 → `보증금 없음` 순으로 의미를 보존함.
+
+따라서 Atom의 규칙형 보증금 의미가 public projection에서 잘려 나가던 직접 원인은 **해소됨**으로 판정한다. PR #299 설명상 카드·상세·공유 미리보기도 같은 helper로 정렬했고 `tsc`, `check:ui`, `check:design`을 통과했다.
+
+### D. 충돌(신규) — `docs/예약작업-지도.md`의 production pin 설명이 실제 workflow보다 뒤처짐
+
+**판정: 문서/workflow drift — Claude 구현 Owner가 정리 필요**
+
+현재 실제 workflow:
+
+- `.github/workflows/erp5-ssot-refresh.yml` → `ref: d635f8c87c3840a6956184b4d20f99dd968b6138`
+
+현재 `docs/예약작업-지도.md` 설명:
+
+- `통합 워크플로 엔진 = 3a334ddf...`
+
+즉 예약지도는 한 단계 전 production pin을 가리킨다. PR #304가 workflow와 검증 allowlist를 올렸지만 예약지도 설명은 같이 올라오지 않았다.
+
+이 문서는 스스로 `예약/자동 writer 지도`를 운영 기준으로 선언하고, engine pin을 바꾸면 같은 흐름에서 지도를 맞추라고 규정한다. 따라서 단순 문구 오타가 아니라 **운영자가 어느 엔진이 production인지 잘못 판단할 수 있는 SSOT 문서 drift**다.
+
+이번 감사자는 구현 Owner가 아니므로 `docs/예약작업-지도.md` 자체는 수정하지 않았다. Claude 단일 구현 세션이 실제 workflow의 `d635f8c8...`와 지도를 맞춰야 한다.
+
+### E. 미해소 — IANKA 가격 4칸 mismatch + projection stale
+
+수동 live-gate run `35034104413`의 실제 로그는 여전히 다음을 보여 준다.
+
+- IANKA `133허5372`
+  - 24개월: SOURCE/ATOM `540000` vs PUBLISH `585000`
+  - 36개월: `525000` vs `569000`
+  - 48개월: `510000` vs `553000`
+  - 60개월: `495000` vs `537000`
+- 같은 run에서 아이카·아이언·오토플러스·이안카 규격화/projection 시트가 6~7일 stale.
+
+`2026-09-16(4)` 이후 current main의 변경은 보증금 표시, F86 engine pin/검증 allowlist, 분류색 단일출처, 수동 색 재도색 workflow 등이며 이 IANKA 가격 mismatch 자체를 해소한 변경은 확인되지 않았다.
+
+따라서 **이 항목은 미해소 유지**다. RP023 stale을 이유로 legacy mirror의 옛 Google Sheet를 곧바로 `--apply`하지 않는다는 기존 지시도 유지한다.
+
+### F. 미해소 — legacy writer 재활성화 위험
+
+변화 없음.
+
+- `sales-erp-hourly.yml`에는 `0 0-9 * * 1-5` cron이 남아 있음.
+- `mirror-sync.yml`에는 `*/30 * * * *` cron이 남아 있음.
+- 예약지도는 둘을 `꺼짐`으로 기록함.
+- `MIRROR_SOURCES` RP023에는 옛 Google Sheet `1TJBG4PABgly7EtGG6Os5GcY9La7kDR_yex56KHhXe2U`가 여전히 `from`으로 남아 있음.
+- production write gate는 현재 main이 아니라 pinned engine 쪽에 존재함.
+
+이번 connector 범위에서는 GitHub Actions UI의 실제 enable/disable 상태를 독립 확인하지 못했으므로 active 충돌이라고 단정하지 않는다. 다만 UI 재활성화 시 legacy writer가 되살아날 **latent conflict** 판정은 그대로다.
+
+### 이번 감사 최종 판정
+
+1. **production pin:** `fb4872dd...` → `d635f8c8...`로 변경됨. current main HEAD는 `81abd90...`.
+2. **F86/특수탭/canonical source 계약:** 새 pin에서 회귀 확인 안 됨.
+3. **손님 보증금 projection drift:** PR #299 merge로 해소됨.
+4. **예약지도:** 실제 pin `d635f8c8...`와 문서 `3a334ddf...`가 불일치 — 신규 문서 drift.
+5. **IANKA 4칸 mismatch / stale projection:** 미해소.
+6. **legacy writer 재활성화 위험:** 미해소.
+
+### Claude 구현 Owner에게 넘기는 다음 작업
+
+1. `CLAUDE-AUDIT.md`를 production pin `d635f8c8...`, PR #299 해소 상태로 갱신한다.
+2. `docs/예약작업-지도.md`의 통합 엔진 설명을 실제 workflow pin `d635f8c8...`와 맞춘다.
+3. 새 pin으로 실제 `erp5-ssot-refresh` 운영 회차가 F01/F86 발행·감사까지 성공했는지 Actions run으로 확인한다.
+4. IANKA `133허5372` 4칸 mismatch와 projection stale 원인은 canonical source 기준으로 계속 추적한다.
+5. old workflow UI disable 의존성/재활성화 위험은 별도 구현 판단으로 유지한다.
