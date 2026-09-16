@@ -20,6 +20,19 @@ function envValues(file: string): Record<string, string> {
   return out;
 }
 
+// ★게이트는 «죽으면» 안 된다.
+//   2026-09-16 실측: 아래 읽기 하나가 ENOENT 로 프로세스를 통째로 죽여서
+//   이 파일의 검사 20여 건이 «한 줄도» 실행되지 않았다(리포트 0줄 + 스택트레이스 exit 1).
+//   빠진 파일은 FAIL 로 «보고»하고 나머지 검사는 계속 돌아야 한다. 죽는 게이트는 장식이다.
+function readGated(file: string, why: string): string {
+  const full = path.join(root, file);
+  if (!fs.existsSync(full)) {
+    failures.push(`${why} 점검 불가 — 파일 없음: ${file}`);
+    return '';
+  }
+  return fs.readFileSync(full, 'utf8');
+}
+
 const localEnv = envValues(path.join(root, '.env.local'));
 const envValue = (key: string) => String(process.env[key] ?? localEnv[key] ?? '').trim();
 const hasEnv = (key: string) => envValue(key).length > 0;
@@ -67,12 +80,12 @@ for (const file of ['app/error.tsx', 'app/global-error.tsx', 'components/ClientE
   if (!fs.existsSync(path.join(root, file))) failures.push(`오류 관측/복구 파일 누락: ${file}`);
 }
 
-const manifest = fs.readFileSync(path.join(root, 'app/manifest.ts'), 'utf8');
+const manifest = readGated('app/manifest.ts', 'PWA manifest');
 if (!manifest.includes("display: 'standalone'")) failures.push('PWA manifest standalone 설정 누락');
 if (!/192x192|512x512/.test(manifest)) warnings.push('스토어/PWA용 192x192·512x512 PNG 아이콘 미확인');
 if (!fs.existsSync(path.join(root, 'public', 'sw.js'))) warnings.push('서비스 워커가 없어 오프라인/업데이트 복구는 웹앱 범위 밖');
 
-const nextConfig = fs.readFileSync(path.join(root, 'next.config.mjs'), 'utf8');
+const nextConfig = readGated('next.config.mjs', '보안 응답 헤더');
 for (const header of ['Strict-Transport-Security', 'X-Content-Type-Options', 'Referrer-Policy', 'Permissions-Policy']) {
   if (!nextConfig.includes(header)) warnings.push(`보안 응답 헤더 미설정: ${header}`);
 }
@@ -80,7 +93,7 @@ for (const header of ['Strict-Transport-Security', 'X-Content-Type-Options', 'Re
 // 완료 계약 취소는 환수액이 R1(private fee_amount)에 의존한다. 영업자에게 R1을 노출하지 않는
 // 현재 분리 구조에서 클라이언트 cancelContract를 그대로 허용하면 0원 환수 또는 계약/차량만
 // 먼저 바뀐 부분완료가 생긴다. 서버 원자처리 또는 엔진의 관리자 전용 가드가 있어야 한다.
-const settlementEngine = fs.readFileSync(path.join(root, 'lib/domain/settlement-engine.ts'), 'utf8');
+const settlementEngine = readGated('lib/domain/settlement-engine.ts', '완료 계약 취소·환수 원자성');
 const completedCancelAdminGuard = /contract_status\s*===\s*['"]계약완료['"][\s\S]{0,240}currentActor\(\)\.role\s*!==\s*['"]admin['"]/.test(settlementEngine);
 const completedCancelServerAtomic = /completed[-_ ]contract[-_ ]cancel|cancelCompletedContractAtomic|serverAtomicCancel/.test(settlementEngine);
 if (!completedCancelAdminGuard && !completedCancelServerAtomic) {
@@ -89,21 +102,44 @@ if (!completedCancelAdminGuard && !completedCancelServerAtomic) {
 
 // 운영 실측에서 v3/v4 child key 공통은 1개뿐이며 차량번호 중복과 계약·채팅 참조가 있다.
 // 예전 child-key 기준 직접 복사를 다시 노출하면 기존 v4 차량까지 대량 중복 생성할 수 있다.
-const productMigration = fs.readFileSync(path.join(root, 'lib/firebase/migrate-products.ts'), 'utf8');
-const devPage = fs.readFileSync(path.join(root, 'app/dev/page.tsx'), 'utf8');
-const directProductCopyLocked = /if\s*\(!dryRun\)\s*\{[\s\S]{0,320}직접 복사는 잠겨 있습니다/.test(productMigration);
-if (!directProductCopyLocked || /runMigrate\(false\)/.test(devPage)) {
-  failures.push('v3→v4 재고 직접 복사 실행 노출 — 자연키·계약·채팅 참조 이관계획 승인 전 write를 잠가야 함');
+// ★lib/firebase/migrate-products.ts 를 «무조건 읽던» 자리다. 그 파일은 2026-09-15 RTDB 컷오버
+//   (381ea02e 「RTDB 완전 제거」)가 «일부러 지웠다» — v3(RTDB)→v4 일회성 이관 모듈이라 RTDB 폐기와
+//   함께 수명이 끝났다. 그런데 이 게이트는 계속 읽으려 해서 ENOENT 로 죽었고, 그래서 아래 Rules
+//   검사 전부가 실행되지 않았다. 검사를 «지우지 않고 뒤집는다»:
+//     · 이관 모듈이 없으면 → 직접 복사 «경로 자체»가 없어야 한다(호출부가 남아 있으면 FAIL).
+//     · 누가 이관 모듈을 되살리면 → 예전 write 잠금 검사가 그대로 다시 걸린다.
+const migrationFile = 'lib/firebase/migrate-products.ts';
+const devPage = readGated('app/dev/page.tsx', 'v3→v4 재고 직접 복사 노출');
+const devPageExposesCopy = /runMigrate\(false\)/.test(devPage) || /migrate-products/.test(devPage);
+if (fs.existsSync(path.join(root, migrationFile))) {
+  const productMigration = fs.readFileSync(path.join(root, migrationFile), 'utf8');
+  const directProductCopyLocked = /if\s*\(!dryRun\)\s*\{[\s\S]{0,320}직접 복사는 잠겨 있습니다/.test(productMigration);
+  if (!directProductCopyLocked || devPageExposesCopy) {
+    failures.push('v3→v4 재고 직접 복사 실행 노출 — 자연키·계약·채팅 참조 이관계획 승인 전 write를 잠가야 함');
+  }
+} else if (devPageExposesCopy) {
+  failures.push(`v3→v4 재고 직접 복사 실행 노출 — ${migrationFile} 는 폐기됐는데 app/dev/page.tsx 가 아직 이관 실행을 부른다`);
 }
 
 const rulesArg = process.argv.find((arg) => arg.startsWith('--rules='));
 const rulesFile = rulesArg ? rulesArg.slice('--rules='.length) : 'database.rules.json';
 const rulesPath = path.isAbsolute(rulesFile) ? rulesFile : path.join(root, rulesFile);
-if (!fs.existsSync(rulesPath)) failures.push(`Rules 후보 파일 없음: ${rulesFile}`);
-const databaseRules = JSON.parse(fs.readFileSync(rulesPath, 'utf8')) as {
-  rules?: Record<string, unknown>;
-};
-const rulesRoot = databaseRules.rules as Record<string, any> | undefined;
+// 파일이 없거나 JSON 이 깨져도 «죽지 않고» FAIL 로 보고한다. 예전에는 없으면 FAIL 을 밀어 넣고
+// 바로 다음 줄에서 같은 파일을 읽어 ENOENT 로 죽었다 — 아래 Rules 검사가 전부 무의미해진다.
+let rulesRoot: Record<string, any> | undefined;
+if (!fs.existsSync(rulesPath)) {
+  failures.push(`Rules 후보 파일 없음: ${rulesFile}`);
+} else {
+  try {
+    const databaseRules = JSON.parse(fs.readFileSync(rulesPath, 'utf8')) as {
+      rules?: Record<string, unknown>;
+    };
+    rulesRoot = databaseRules.rules as Record<string, any> | undefined;
+    if (!rulesRoot) failures.push(`Rules 파일에 rules 루트 없음: ${rulesFile}`);
+  } catch {
+    failures.push(`Rules 파일 JSON 판독 실패: ${rulesFile}`);
+  }
+}
 
 // 앱 어댑터가 v4로만 쓰는 것은 보안 경계가 아니다. 인증 사용자는 SDK/REST로 Rules가
 // 허용한 v3 운영 노드를 직접 쓸 수 있으므로, 전체 노드 write는 출시 전에 닫혀 있어야 한다.
@@ -308,7 +344,7 @@ if (unsafePrivateSettlementCreates.length) {
   failures.push(`v4 settlement private 최초 금액 위조 차단 누락: ${unsafePrivateSettlementCreates.join(', ')}`);
 }
 
-const storageRules = fs.readFileSync(path.join(root, 'storage.rules'), 'utf8');
+const storageRules = readGated('storage.rules', 'Storage Rules');
 if (/match \/contract-files[\s\S]*?allow create, update:[\s\S]*?request\.resource\.size < 20/.test(storageRules)
   && !/match \/contract-files[\s\S]*?request\.resource\.contentType/.test(storageRules)) {
   warnings.push('레거시 contract-files 업로드 규칙에 MIME 형식 제한 없음');
