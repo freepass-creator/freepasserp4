@@ -141,8 +141,12 @@ if (!id) {
   });
   console.log('   ✓ 새로 만들었다 · 회사(teamjpk.com)에만 열었다 — 채널에 주는 것은 사람이 누른다');
 }
-/** ★공지사항은 채널 정산시트와 «같은 것»(`ensureNoticeTab`) · 이미 있으면 손대지 않는다(적어 둔 공지가 날아간다). */
-{
+/**
+ * ★공지사항은 채널 정산시트와 «같은 것»(`ensureNoticeTab`) · 이미 있으면 손대지 않는다(적어 둔 공지가 날아간다).
+ * ★★2026-09-16 (사장님 「그리고 f86은 공지사항 탭 지워주시고」) — **하허호 F86 엔 공지사항 탭이 없다.**
+ *   만들지 않고, 이미 있으면 아래 묵은 탭 정리에서 지운다. 그 밖 채널 시트는 예전대로 만든다.
+ */
+if (!RETRO) {
   const tok = async () => (await jwt.getAccessToken()).token;
   const made = await ensureNoticeTab(tok, id);
   console.log(`   ${made ? '+ 「공지사항」 만듦' : '○ 「공지사항」 있음 — 손대지 않음'}`);
@@ -158,7 +162,8 @@ const 링크요청: any[] = [];
 const puts: { range: string; values: (string | number)[][] }[] = [];
 /** 이번 회차에 실제로 채운 탭 — 여기 없는 회사 탭은 묵은 것이라 지운다(아래). */
 const 쓴탭 = new Set<number>();
-let index = 1;   // 0 = 공지사항
+/** 탭 자리 — 하허호는 「종합」이 맨 앞(공지사항이 없다) · 그 밖 채널은 0 번이 공지사항. */
+let index = RETRO ? 0 : 1;
 for (const tab of plan.tabs) {
   const { company, cols, body, values, title, rows } = tab;
   const old = have.find(([t]) => t.startsWith(`${company} `));
@@ -202,7 +207,8 @@ for (const tab of plan.tabs) {
  *   공지사항·안내 탭은 남긴다. ⚠ 채운 탭이 없으면 아무것도 안 지운다(못 읽은 회차가 회사 탭을 다 지우는 사고 방지).
  */
 {
-  const 지킴 = /공지|안내|이 시트|시트 지도/;
+  /** ★★2026-09-16 — 하허호 F86 만 「공지사항」을 지킴에서 뺀다(사장님 「f86은 공지사항 탭 지워주시고」). 다른 채널 시트는 그대로 남긴다. */
+  const 지킴 = RETRO ? /안내|이 시트|시트 지도/ : /공지|안내|이 시트|시트 지도/;
   const 버릴 = 쓴탭.size === 0 ? [] : have.filter(([t, p]) => !지킴.test(t) && !쓴탭.has(Number(p.sheetId)));
   if (!쓴탭.size) console.log('   ⚠ 이번 회차에 채운 탭이 없다 — 묵은 탭 정리를 «건너뛴다»(못 읽은 회차일 수 있다).');
   if (버릴.length) {
