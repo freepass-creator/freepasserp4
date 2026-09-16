@@ -62,6 +62,7 @@ const VALIDATED_ENGINES = [
   'eafbd88e43b1b4e5bacab858a2e0c65845956e5f',   // Codex gate 엔진(원본 검증분)
   '3a334ddf6e8acd721883757f7951052bf9188b87',   // + 하허호 F86(claude/f86-on-gate · 2026-09-16 · 정렬 상품구분→모델까지)
   'd635f8c87c3840a6956184b4d20f99dd968b6138',   // + 분류/구분 칩 색 SSOT 통일(PR #303 cherry-pick) — 수집기 미변경
+  'a0b5a66c94870ea843a7a9f15daba986954c788e',   // + F01 발행 시 옛 조건부서식 삭제(PR #308 cherry-pick) — 수집기 미변경
 ];
 const pinnedEngine = VALIDATED_ENGINES.find((engine) => workflow.includes(`ref: ${engine}`));
 assert(pinnedEngine, '검증 엔진 pin이 제거됐습니다. main collector 이식 완료 전에는 pin을 풀면 안 됩니다(새 엔진은 VALIDATED_ENGINES 에 적는다).');
