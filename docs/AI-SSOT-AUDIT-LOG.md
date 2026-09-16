@@ -646,3 +646,100 @@ PR #299가 merge commit `64ce8ec8e98697767048e15ba222ccc08a8c2a18`로 main에 �
 3. 새 pin으로 실제 `erp5-ssot-refresh` 운영 회차가 F01/F86 발행·감사까지 성공했는지 Actions run으로 확인한다.
 4. IANKA `133허5372` 4칸 mismatch와 projection stale 원인은 canonical source 기준으로 계속 추적한다.
 5. old workflow UI disable 의존성/재활성화 위험은 별도 구현 판단으로 유지한다.
+
+---
+
+## 2026-09-16(6) — ChatGPT 독립 감사: `d635f8c8...` 실제 운영 발행 성공 + canonical/legacy 신호 분리
+
+### A. 해소됨 — 새 production pin의 실제 `apply=true` 운영 발행이 끝까지 성공
+
+**판정: 해소됨 / 운영 증거 확인**
+
+이전 `(5)-A`에서 보류했던 "새 pin으로 실제 운영 F01/F86 한 회차 발행 성공 여부"가 확인됐다.
+
+GitHub Actions run:
+
+- workflow: `ERP5 SSOT 원천 최신화(매시간)`
+- run: `35039845907` (run #11)
+- event: `workflow_dispatch`
+- conclusion: `success`
+- 실행된 checkout ref: `d635f8c87c3840a6956184b4d20f99dd968b6138`
+- `apply=true`로 실행됨
+
+실행 로그의 핵심 결과:
+
+- 공급사 사전검사: **24/24 성공**
+- 실제 ERP5 반영: **24/24 성공**
+- 정책 참조 정합화: products 1,592 / policies 81 / changes 0 / dangling 0
+- 고정 snapshot: `20260916003428110-083c958cb668`
+  - 등록 1,592
+  - 출고불가 857
+  - 현재 재고 735
+- 공개 카탈로그 대사: expected/actual **727대 동일**, hash 동일, missing/extra/policy/photo mismatch 전부 0
+- F01 발행: **735대**
+  - 상품리스트 381
+  - 오공구독 54
+  - 픽업구독 234
+  - 오플구독 66
+- F86 발행 전 백업 성공
+- F86 발행: **735대 / 19개 탭 / 90열**
+  - 장기요금 없는 9대도 규칙대로 싣고 요금 칸만 비움
+- F86 ↔ 원자 감사: **46,675칸 대조 / 어긋남 0**, 가장 오래된 탭 1분(허용 120분)
+- 원자 ↔ F01: 빠진 차 0 / 내려야 할 차 0 / 값 다른 칸 0 / 파생값 drift 0
+- F01 ↔ F86: 빠진 차 0 / 추가 차 0 / 값 다른 칸 0
+- 차량번호/사진 링크 감사: F01/F86 모두 어긋남 0
+- snapshot artifact 보존 성공
+
+따라서 `d635f8c8...`은 단순 CI/계약검사 통과 수준이 아니라 **실제 canonical source 수집 → ERP5 Atom → 고정 snapshot → public/F01/F86 발행 → 칸 단위 감사까지 한 운영 회차가 성공한 pin**으로 확인한다.
+
+### B. 판정 정리 — IANKA 과거 4칸 mismatch는 현재 production F01 오류로 보지 않는다
+
+이전 live-gate run `35034104413`은 IANKA `133허5372`의 24/36/48/60개월 가격이 `SOURCE/ATOM`과 당시 `publish-origin-tab` 발행 예정값 사이에서 달랐고, 4개 정제/projection 시트의 stale 상태도 잡았다.
+
+하지만 이번 실제 production run `35039845907`은 **동일 canonical snapshot 기준 원자 ↔ F01 값 다른 칸 0**을 확인했다. 따라서 과거 IANKA 4칸 mismatch를 현재 production F01의 미해소 오류라고 계속 표현하는 것은 부정확하다.
+
+정확한 현재 판정:
+
+- **canonical production 경로(ERP5 Atom → snapshot → F01/F86): 정상 확인.**
+- 과거 IANKA mismatch는 `publish-origin-tab`/legacy projection 계열에서 관측된 신호로 재분류한다.
+- 아이카·아이언·오토플러스·이안카 정제/projection 시트가 실제로 지금도 stale인지는 이번 통합 production run이 그 legacy mirror를 갱신하지 않으므로 **별도 재검증 전까지 HOLD**다.
+- 특히 RP023의 legacy mirror `from`은 여전히 옛 Google Sheet이므로, freshness 경고만 보고 무작정 `--apply`하지 않는 기존 지시는 유지한다.
+
+### C. 충돌 유지 — 예약지도 pin drift + ACTIVE 인계문서의 오래된 상태
+
+`docs/예약작업-지도.md`는 아직 통합 엔진을 `3a334ddf...`로 적고 있으나 실제 workflow는 `d635f8c8...`이다. `(5)-D`의 문서/workflow drift는 그대로다.
+
+추가로 이번 감사에서 `docs/ai-ssot-audit/2026-09-16-chatgpt-claude-collaboration-handoff.md`를 다시 읽은 결과, 문서가 `ACTIVE` 상태이면서도 다음 오래된 사실을 그대로 적고 있다.
+
+- production collector pin을 `eafbd88e...`로 설명
+- F86의 9대 `RETRO_SHORT` 제외를 현재 검증 사실처럼 설명
+- `mirror-sync`/`sales-erp-hourly`를 자동 writer 잔존으로 서술
+
+최신 `CLAUDE-AUDIT.md`와 이 감사 로그가 이를 덮어쓰고 있어 실행 현실 판정에는 영향을 주지 않았지만, 이 문서는 "시작할 때 반드시 읽는 순서"에 포함되어 있어 **후속 AI가 오래된 결론을 다시 채택할 위험이 있는 문서 drift**다. 구현 Owner가 예약지도와 함께 현재 상태로 정리하는 편이 안전하다.
+
+### D. 미해소 — legacy writer 재활성화 위험
+
+current main 재확인 결과 변화 없음.
+
+- `.github/workflows/sales-erp-hourly.yml` cron `0 0-9 * * 1-5` 잔존
+- `.github/workflows/mirror-sync.yml` cron `*/30 * * * *` 잔존
+- `lib/domain/mirror-sources.ts`의 RP023 `from`은 옛 Google Sheet `1TJBG4PABgly7EtGG6Os5GcY9La7kDR_yex56KHhXe2U`
+- canonical registry의 RP023은 계속 RebornCar
+
+예약지도에는 legacy workflow가 꺼짐으로 기록되어 있으므로 active 충돌이라고 단정하지 않는다. 다만 저장소 자체로 disable 상태를 강제하지 못하는 latent conflict 판정은 유지한다.
+
+### 이번 감사 최종 판정
+
+1. **새 pin 운영 검증:** 해소 — `d635f8c8...`으로 실제 apply=true 통합 발행/감사 성공.
+2. **현재 canonical production F01/F86:** 735대 동일, 칸 단위 mismatch 0.
+3. **IANKA 4칸 mismatch:** 현재 production 오류가 아니라 legacy projection/live-gate 신호로 재분류. legacy projection freshness 자체는 HOLD.
+4. **예약지도 pin drift:** 미해소.
+5. **ACTIVE 협업 handoff stale:** 신규 문서 drift로 확인.
+6. **legacy writer 재활성화 위험:** 미해소.
+
+### Claude 구현 Owner에게 넘기는 다음 작업
+
+1. `docs/예약작업-지도.md`의 engine pin을 실제 `d635f8c8...`와 맞춘다.
+2. `docs/ai-ssot-audit/2026-09-16-chatgpt-claude-collaboration-handoff.md`의 오래된 pin/F86 9대 제외/legacy 상태 설명을 현재 감사 결론과 맞춘다.
+3. legacy projection 시트가 지금도 필요한 운영면이라면 `ssot-live-gate`를 다시 실행해 IANKA/4개 projection freshness의 **현재 상태만** 재확인한다. canonical production은 이미 별도로 PASS다.
+4. old workflow UI disable 의존성/재활성화 위험은 코드화 또는 schedule 제거 중 하나로 구현 판단한다.
