@@ -718,32 +718,26 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
     ['대차', S('replacement_car_policy')],
     /*
      * ★★★**로그인 뒤에 있던 응대용 값들** — 로그인을 안 하기로 해서 여기로 올라왔다(위 머리말).
-     *   손님이 **계약 전에 알아야 하는 것**만 골랐다. 명단 경계는 `PUBLIC_POLICY_FIELDS` 한 곳이고,
-     *   거기 머리말에 «일부러 안 올린 넷»(수수료 환수 · 영업 메모 · 내부 코드 · 원천)이 적혀 있다.
-     * ★차례 = 손님이 묻는 순서다 — 「깨면 얼마」 → 「늦으면」 → 「언제 멈추나」 → 「보증금 언제 오나」
-     *   → 「인수·보관」 → 「나는 될까(심사·결격)」 → 「GPS」.
-     * ★**시동제어**를 숨기지 않는 이유 — 차가 멈추는 조건을 계약 뒤에 알면 그건 분쟁이다.
-     * ★**GPS**를 적는 이유 — 위치가 기록되는 차라면 그건 손님의 개인정보 문제다.
+     *
+     * ⚠⚠⚠ **이 구역에 «부정적인» 값은 넣지 않는다**(사장님 2026-09-16 「기타사항에 **부정적인
+     *   거는 넣지마**」). 이 화면은 손님이 차를 «고르는» 자리다 — 고르는 손에 벌칙표를 들려 주면
+     *   읽기를 멈춘다. 겁주는 값은 이 구역의 일이 아니다.
+     *
+     *   ⇒ 걷은 것 — 중도해지 위약금(1년 미만·이상) · 연체 회차 · 자동해지 · **시동제어** ·
+     *     보관(압류·보관일) · 결격 조건 · GPS.
+     *   ★남긴 것은 **중립이거나 손님에게 이로운 것**뿐이다 —
+     *     최초등록 · 렌트사 · 차량 인도 · 이용 지역 · 정비 · 보증금 반환(돈이 돌아오는 날) ·
+     *     인수 통지(인수형을 고를 때 알아야 하는 절차) · 신용등급(「무관」이면 그게 좋은 소식이다).
+     *
+     * ★**없앤 게 아니라 «자리»가 아니다.** 걷은 값들은 전자계약 약관에 그대로 있고
+     *   (`lib/domain/esign-agreement-text` — 제23조 약정주행·초과요금, 운전자 범위, 해지 등),
+     *   손님은 서명 «전»에 그 문서를 읽는다. 상담 중에는 영업자가 관리자 화면에서 본다.
+     * ⚠ 되살리려면 여기 줄을 더하고 `PUBLIC_POLICY_FIELDS` 에 그 칸을 같이 넣어야 한다 —
+     *   명단에서 빠지면 값이 화면까지 오지 않는다.
      */
-    ['중도해지 1년 미만', S('early_termination_rate_under1y')],
-    ['중도해지 1년 이상', S('early_termination_rate_over1y')],
-    /*
-     * ⚠⚠ **「연체료율」은 «일부러» 안 싣는다.** 원천이 `0.12`·`0.24` 로 온다. 이름이 `rate` 라
-     *   단위를 말해 주지 않아 **12%인지 하루 0.12%인지 이 데이터만으로는 모른다**
-     *   (`app/api/shop/inside` 에 2026-09-06 실측으로 적어 둔 그 판단).
-     *   ⇒ 영업자 칸에서는 원문 그대로 둘 수 있었지만(옆에 사람이 있다) 손님 화면은 다르다 —
-     *     「연체료율 0.12」는 읽는 사람이 **틀리게 읽는다.** 「12%」로 고쳐 적으면 지어내는 것이다.
-     *   ★규격(하루인가 연인가)이 정해지면 그날 한 줄 더하면 된다. 그때까지는 안 적는다.
-     */
-    ['연체 회차', withUnit(S('deposit_overdue_rounds'), '회')],
-    ['자동해지', withUnit(S('auto_terminate_overdue_days'), '일')],
-    ['시동제어', withUnit(S('engine_control_overdue_days'), '일')],
     ['보증금 반환', withUnit(S('deposit_return_days'), '일')],
     ['인수 통지', withUnit(S('buyout_notice_days'), '일')],
-    ['보관', withUnit(S('impound_keep_days'), '일')],
     ['신용등급', S('credit_grade')],
-    ['결격 조건', S('disqualification_conditions')],
-    ['GPS', S('gps_installed')],
   ].filter(([, v]) => meaningful(v)) as FactRow[];
 
   const hasPolicy = !!(payRows.length || ownDamageDeductible || otherDeductibles.length || coverage.length || ageRange || useRows.length || etcRows.length || roadside);
