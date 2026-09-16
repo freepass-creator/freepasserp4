@@ -36,7 +36,10 @@ jobs:
           #   조건부서식(글자색)만 고쳤다 — 재고 대수·상태 판정에는 영향 없다.
           # ★2026-09-16(3) — 그 위에 PR #308(F01 발행이 제자리 갱신이라 옛 조건부서식을 지운 적이
           #   없어 「구분」 칸 하나에 101개 쌓였던 것 — 새 회차마다 지우고 다시 쌓게 고침)을 cherry-pick.
-          ref: a0b5a66c94870ea843a7a9f15daba986954c788e
+          # ★2026-09-16(4) — 긴급 수정 PR #310. (3)의 fields 마스크 문법이 잘못돼(bandedRanges·
+          #   conditionalFormats를 properties 안에 잘못 중첩) 400으로 F01 발행 전체가 죽었다
+          #   (운영 회차 35042070104 실측). publish-origin-tab.mts가 쓰는 올바른 형제-필드 문법으로 고침.
+          ref: 0c4ec76b605c3ac50efcd9483dd2294bd89e22c0
       - name: freepasserp5 OIDC 인증
         uses: google-github-actions/auth@v2
         with:
