@@ -255,8 +255,11 @@ export const isRetroCustomFee = (name: string): boolean => 요금칸(name) && !(
 /** 몸 칸 글자색 — 옛 시트 칸별. 이름이 같은 칸에만 건다(없는 칸을 만들지 않는다). */
 const BODY_INK: Record<string, string> = {
   /* ★2026-09-15 «회사 탭» 기준으로 고침 — F86 은 회사별 탭이라 옛 「종합」이 아니라 옛 회사 탭(손오공·아이언·스타·센트로·아이카 다수)을 따른다:
-       구분 초록(#34A853) · 단기보증·1·6·12개월 청록(#46BDC6). 종합은 구분 자홍·단기보증 빨강이었다. */
-  차량상태: '0000FF', 배차상태: '0000FF', 입고일자: '1155CC', 차량번호: '1155CC', 구분: '34A853',
+       구분 초록(#34A853) · 단기보증·1·6·12개월 청록(#46BDC6). 종합은 구분 자홍·단기보증 빨강이었다.
+     ★2026-09-16 정정 — 사장님 「구조는 다르지만 상품에 대한 색상이나 텍스트 색깔 이런건 같아야 하는데」.
+       「구분」은 여기서 뺐다 — F01 과 같은 값별 표(`GUBUN_INK`)를 그대로 살린다(아래 applyRetroSkin ①).
+       글꼴·크기·기울임 같은 «레트로 감성»만 유지하고, 상품 갈래 색은 F01/F86 이 하나로 같이 간다. */
+  차량상태: '0000FF', 배차상태: '0000FF', 입고일자: '1155CC', 차량번호: '1155CC',
   단기보증: '46BDC6', '1개월': '46BDC6', '6개월': '46BDC6', '12개월': '46BDC6',
   장기보증: '0000FF', '24개월': '0000FF', '36개월': '0000FF', '48개월': '0000FF', '60개월': '0000FF',
   차고지: '1F1F1F', 분납: 'FF0000', '21세': 'FF0000', '23세': 'FF0000', '21세+': 'FF0000', '23세+': 'FF0000',
@@ -319,7 +322,22 @@ export function applyRetroSkin(reqs: Req[], linkReqs: Req[], p: { gid: number; c
    * ⚠ 2026-09-15 한 번 더 — 사장님 「딱 과거 거로만, 느낌도 과거 느낌」. 옛 시트 실측: 회사 탭 조건부서식 **0개** · 머리글 메모 **0개**.
    *   ⇒ 조건부서식은 «전부» 걷는다(계약중 가운데줄 · 미입력 회색 포함). 머리글 메모(작은 삼각형)도 안 단다.
    */
-  reqs = reqs.filter((r) => !r?.addConditionalFormatRule && !(r?.repeatCell && r.repeatCell.fields === 'note'));
+  /**
+   * ★2026-09-16 정정 — 사장님 「구조는 다르지만 상품에 대한 색상이나 텍스트 색깔 이런건 같아야 하는데」·
+   *   「ㅇㅇ 글꼴이랑 이런거만 레트로 감성 유지하고」. **「구분」 칸의 값별 색(GUBUN_INK)만 예외로 살린다** —
+   *   F01·F86 이 같은 상품 갈래(신차렌트·중고렌트·신차구독·중고구독·픽업구독…)를 항상 같은 색으로 보여줘야
+   *   구조(탭·칸 배치)가 달라도 «뜻»은 하나로 읽힌다. 그 밖(제조사·연료·계약중 표시 등)은 여전히 다 걷는다 —
+   *   레트로는 글꼴·굵기·정렬 같은 «겉»만 남기고, 색은 「구분」 하나만 공용 표를 그대로 쓴다.
+   */
+  const 구분칸 = columns.indexOf('구분');
+  reqs = reqs.filter((r) => {
+    const cf = r?.addConditionalFormatRule;
+    if (cf) {
+      const rng = cf.rule?.ranges?.[0];
+      return 구분칸 >= 0 && rng?.startColumnIndex === 구분칸 && rng?.endColumnIndex === 구분칸 + 1;
+    }
+    return !(r?.repeatCell && r.repeatCell.fields === 'note');
+  });
   for (const r of reqs) {
     const tf = r?.addConditionalFormatRule?.rule?.booleanRule?.format?.textFormat;
     if (tf && tf.bold) tf.bold = false;
