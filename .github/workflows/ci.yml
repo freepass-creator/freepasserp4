@@ -126,8 +126,6 @@ jobs:
       - name: 매뉴얼이 코드와 어긋났는가
         run: npm run check:manual
 
-      - name: 엔카 제원 채움 가드
-        run: npm run check:encar-spec-fill
 
       - name: 교차 검증 — 찾은 사람이 자기 건을 검증했는가
         run: npm run check:crosscheck

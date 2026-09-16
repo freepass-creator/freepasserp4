@@ -41,7 +41,6 @@
     "check:axes": { "why": "축 레지스트리 ↔ 코드 여섯 곳. 외부 접속 없음·실측 통과" },
     "check:pipeline": { "why": "판매시트 @매핑·공급사 행렬 규칙. 외부 접속 없음·실측 통과" },
     "check:manual": { "why": "매뉴얼이 코드와 어긋났는가. sheet-sync.yml 은 예약 동기라 PR 을 못 막는다 — ci.yml 에도 건다" },
-    "check:encar-spec-fill": { "why": "엔카 제원 채움 가드. 원자 JSON 만 읽는다·실측 통과" },
     "check:crosscheck": { "why": "찾은 사람이 자기 건을 검증했는가. 문서만 읽는다·실측 통과" },
     "check:options": { "why": "선택옵션 파서가 없는 옵션을 만들지 않는가. 읽기 전용·실측 통과" },
     "check:fence": { "why": "공급사 채널 울타리가 모든 문에 섰는가. 읽기 전용·실측 통과" },
@@ -59,6 +58,9 @@
     }
   },
   "manual": {
+    "check:encar-spec-fill": {
+      "reason": "기본 원자 경로가 «저장소 밖» 로컬 절대경로다(C:/Users/admin/encar-market-survey/reports/atom_draft_rows.json). --atoms= 로 파일을 주지 않으면 리눅스 CI 에서 ENOENT 로 죽는다. ★2026-09-16 CI 에서 실제로 그렇게 실패했다 — 로컬은 그 파일이 있어 통과했고, 나는 «읽기 전용·외부 접속 없음»으로만 보고 «내 PC 에만 있는 파일»이라는 축을 안 봤다. 같은 무늬를 sales-erp-hourly 의 알림 경로에서도 겪었다(윈도우 절대경로가 리눅스 러너에서 깨짐)"
+    },
     "check:atoms": {
       "reason": "서비스 계정 열쇠(tmp/firebase-auth/sa.json)가 있어야 실제로 잰다. 없으면 «건너뛰고 exit 0» 이라 CI 에 걸어도 초록불만 주는 거짓 안심이 된다"
     },
