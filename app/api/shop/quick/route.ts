@@ -39,7 +39,7 @@ const knownChannel = (key: string) => WHITELABELS.some((w) => w.key === key);
 
 export async function GET(request: Request) {
   const wl = S(new URL(request.url).searchParams.get('wl'));
-  if (!wl) return NextResponse.json({ error: '채널이 없습니다' }, { status: 400 });
+  if (!wl) return NextResponse.json({ error: '페이지를 찾지 못했습니다' }, { status: 400 });
   /*
    * 읽기는 «누구나»다 — 손님 화면이 그리는 값이라 로그인 뒤에 바뀌면 안 된다.
    * (무엇을 파는지는 어차피 화면에 다 보인다. 감출 것은 여기 없다.)
@@ -50,11 +50,11 @@ export async function GET(request: Request) {
 
 export async function PUT(request: Request) {
   let body: { wl?: unknown; quick?: unknown };
-  try { body = await request.json(); } catch { return NextResponse.json({ error: '본문을 못 읽었습니다' }, { status: 400 }); }
+  try { body = await request.json(); } catch { return NextResponse.json({ error: '저장하지 못했습니다' }, { status: 400 }); }
 
   const wl = S(body.wl);
-  if (!wl) return NextResponse.json({ error: '채널이 없습니다' }, { status: 400 });
-  if (!knownChannel(wl)) return NextResponse.json({ error: '없는 채널입니다' }, { status: 404 });
+  if (!wl) return NextResponse.json({ error: '페이지를 찾지 못했습니다' }, { status: 400 });
+  if (!knownChannel(wl)) return NextResponse.json({ error: '페이지를 찾지 못했습니다' }, { status: 404 });
 
   /*
    * ★**막으려고 보는 것이 아니라 «적으려고» 본다.** 토큰이 있으면 누구인지 남기고,

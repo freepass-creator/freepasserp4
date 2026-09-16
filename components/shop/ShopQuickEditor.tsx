@@ -86,12 +86,26 @@ export function ShopQuickEditor({ facets, value, onSave, saving }: {
   return (
     <div>
       {/*
-        ★**«같이 보는 줄»이라고 먼저 말한다.** 누구나 고칠 수 있게 열어 둔 자리라,
+        ★**«같이 보는 자리»라고 먼저 말한다.** 누구나 고칠 수 있게 열어 둔 칸이라,
           고치는 사람이 「내 화면만 바뀐다」고 오해하면 남의 가게 첫 줄을 무심코 바꾼다.
+
+        ★★**「그냥 보조설명이면 되는 거지」**(사장님 2026-09-16). 경고판이 아니다 —
+          굵은 글씨를 걷고 담담한 서술로 내린다. 되돌릴 길(「되돌리기」)이 바로 아래 있으니
+          글자가 겁을 줄 필요가 없다.
+
+        ⚠⚠ **우리끼리 쓰는 말을 손님 화면에 내지 않는다** — 집 규격(`ShopDetail` 정책 문구 ·
+          사장님 2026-09-08 「그리고 **운영은 뭐지??**」). 여기 그 잘못이 둘 있었다:
+          · **칩 줄** — 우리가 그 줄을 부르는 이름이다. 손님은 「칩이 뭔데?」에서 멈춘다 ⇒ 「목록 위」
+          · **줄**   — 「고친 줄은…」·「이 줄로 저장」. 내부 낱말이라 걷었다
+          · **가게**  — 우리가 손님 동을 부르는 «집 비유»다. 화면에 내면 장사하는 데로 읽힌다
+            (사장님 2026-09-16 「**가게라는 표현이 웃기다고 · 우리가 뭐 장사하냐**」) ⇒ 「이 페이지」
+            ★주석·문서의 「가게」는 그대로 둔다 — 그건 우리끼리 쓰는 지도 낱말이고, 화면에 안 나간다
+        ★말투는 상세 정책 문구와 «같은 결»로 맞춘다 —
+          「위 조건은 계약 시 최종 확정됩니다. 자세한 내용은 담당자에게 확인해 주세요.」
+          여기서만 다른 말투를 쓰면 그게 드리프트다.
       */}
       <div style={{ fontSize: SHOP.fs.cap, color: C.mute, lineHeight: 1.7, marginBottom: SHOP.sp.snug }}>
-        체크한 조건이 목록 위 칩 줄에 섭니다 · 지금 {picked.length}개.
-        고친 줄은 <strong style={{ color: C.ink }}>이 가게를 보는 모든 분</strong>에게 같이 보입니다.
+        체크한 조건이 목록 위에 놓입니다. 지금 {picked.length}개, 이 페이지를 보는 모두에게 같이 보입니다.
       </div>
 
       <ShopFilters facets={pickFacets} sel={sel} onToggle={onToggle} onClearAxis={onClearAxis}
@@ -106,8 +120,9 @@ export function ShopQuickEditor({ facets, value, onSave, saving }: {
           <ShopTextBtn onClick={() => setPicked(value)}>되돌리기</ShopTextBtn>
           {/* 높이 = 라벨 없는 단추 사다리(웹 36 · 폰 40) — 기둥 안 한 줄이라 독 높이(44/48)는 무겁다. */}
           <div style={{ flex: 1, height: mobile ? SHOP.icon.mobile : SHOP.icon.web }}>
+            {/* ★「이 줄로 저장」에서 «줄»을 걷었다 — 내부 낱말이다(위 머리말). 단추는 하는 일만 말한다. */}
             <ShopDockAction onClick={() => { if (!saving) onSave(picked); }}>
-              {saving ? '저장하는 중' : '이 줄로 저장'}
+              {saving ? '저장 중' : '저장'}
             </ShopDockAction>
           </div>
         </div>

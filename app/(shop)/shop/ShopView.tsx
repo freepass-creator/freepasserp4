@@ -315,11 +315,12 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
       });
       const body = await res.json().catch(() => ({}));
       /* 실패는 «집 알림»으로 말한다 — `window.alert` 은 화면을 멈춰 세우고, 이 동의 얼굴도 아니다. */
-      if (!res.ok) { toast(String(body?.error || '못 고쳤습니다'), 'error'); return; }
+      if (!res.ok) { toast(String(body?.error || '저장하지 못했습니다'), 'error'); return; }
       setQuickEdit(Array.isArray(body?.quick) ? (body.quick as ShopQuickChip[]) : next);
-      toast('빠른조건을 고쳤습니다', 'ok');
+      /* ★알림은 «단추가 한 말»과 맞춘다 — 단추가 「저장」인데 알림이 「고쳤습니다」면 두 말이 된다. */
+      toast('빠른조건을 저장했습니다', 'ok');
     } catch {
-      toast('못 고쳤습니다 — 잠시 뒤 다시 해 보세요', 'error');
+      toast('저장하지 못했습니다. 잠시 뒤 다시 해 주세요.', 'error');
     } finally {
       setQuickSaving(false);
     }

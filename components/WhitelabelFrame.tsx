@@ -145,6 +145,30 @@ export function WhitelabelFrame({
    *   `180-064-54` 로 망가뜨렸다.** 원천이 이미 사람이 읽을 꼴로 준 값은 손대지 않는다.
    */
   const phoneText = phone.includes('-') ? phone : fmtPhone(phone);
+  /*
+   * ★★★**머리띠 오른쪽 — 딱 이 한 칸만 채널과 «우리»가 다르다**(사장님 2026-09-16
+   *   「**표준라벨은 날짜 시간 날씨**로 하고 · **화이트라벨(영업채널용) 상단 상담 및 문의
+   *   대표번호로** 하고 · **딱 그거만 다르게**」).
+   *
+   *   · 우리 얼굴(`self`) = 표준라벨(freepasserp.com) · 우리 가게 → **날짜·시각·날씨**
+   *   · 영업채널          = 유니오토·하허호·이안카… → **「상담 및 문의 1800-6454」 한 줄**
+   *
+   * ★**가르는 것은 `self` 다 — 「번호가 있나」가 아니다.** 표준라벨도 번호를 «가진다»
+   *   (폰 문의하기가 쓴다 — `plain.tel`). 번호 유무로 갈랐다간, 폰에 문의 단추를 달아 준 순간
+   *   머리띠의 날짜가 사라진다. 실제로 전에 그렇게 엮여 있었다.
+   * ★왜 채널은 날짜를 안 쓰나 — 그 자리에서 손님이 찾는 것은 **거는 번호**다. 날짜·날씨는
+   *   우리가 「재고가 지금 것」임을 말하려고 둔 것이라, 남의 간판에서는 우선순위가 아니다.
+   * ⚠ **이건 「채널마다 다르게」가 아니다** — 두 벌뿐이고, 어느 채널이 어느 벌인지는 표의
+   *   `self` 가 정한다. 채널이 늘어도 화면 코드는 안 고친다.
+   * ⚠ 폰은 이 갈림을 안 탄다 — 폰 머리띠 오른쪽은 검색·조건이 쓰고, 연락처는 **하단독**이
+   *   확정 규격이다(2026-09-07). 폰 둘째 줄의 날짜·날씨는 양쪽 다 그대로 선다.
+   */
+  /*
+   * ⚠ **담당자(`?a=`)가 붙어 오면 우리 얼굴에서도 «사람»이 이긴다.** 그 손님은 특정 영업자가
+   *   보낸 링크로 들어온 사람이라, 날씨보다 「누구에게 말하나」가 먼저다(이 자리의 원래 규칙).
+   *   그때만 표준라벨도 날짜를 양보한다.
+   */
+  const webContact = !mobile && !!phone && (!!who || !wl.self);
   return (
     <div className="fp-wl" style={whitelabelVars(wl) as React.CSSProperties}>
       {/*
@@ -230,7 +254,9 @@ export function WhitelabelFrame({
              *   브랜드인 것처럼**」) — 마크와 글자가 «한 덩어리»고, 그 뒤 «✕ freepass» 만 한 단
              *   떼어 놓는다. 붙은 것은 한 이름으로, 뗀 것은 «동반»으로 읽힌다.
              */
-            <a href={homeHref} aria-label={`${wl.name || wl.headline || '가게'} 첫 화면으로`} style={{
+            /* ★폴백에서 「가게」를 걷었다 — 화면낭독기가 「**가게** 첫 화면으로」라고 읽고 있었다
+               (사장님 2026-09-16 「가게라는 표현이 웃기다고」). 이름도 설명글도 없으면 낱말 없이 읽힌다. */
+            <a href={homeHref} aria-label={[wl.name || wl.headline, '첫 화면으로'].filter(Boolean).join(' ')} style={{
               display: 'flex', alignItems: 'center',
               whiteSpace: 'nowrap', textDecoration: 'none', color: 'inherit',
             }}>
@@ -280,7 +306,7 @@ export function WhitelabelFrame({
             ⚠ **폰에는 안 그린다.** 폰 머리띠 오른쪽은 검색·조건이 쓰는 확정 규격이라 자리가 없다
               (2026-09-05). 이건 「채널마다 다르게」가 아니라 «화면 폭»의 문제다.
           */}
-          {!mobile ? (
+          {!mobile && !webContact ? (
             <span style={{
               fontSize: SHOP.fs.body, fontWeight: FW.head, color: C.ink, whiteSpace: 'nowrap',
               fontVariantNumeric: 'tabular-nums', letterSpacing: '-0.02em',
@@ -310,7 +336,7 @@ export function WhitelabelFrame({
               {wl.homepage.label}
               <SquareArrowOutUpRight size={ICON.sm} aria-hidden style={{ color: C.faint }} />
             </a>
-          ) : phone && !mobile ? (
+          ) : webContact ? (
             /*
              * ★★**웹은 «누르는 것»이 아니다 — 번호를 읽고 손님이 제 전화기로 건다**
              *   (사장님 2026-09-07 「**웹은 누르는 거 아니고** 그냥 고객센터 1800-6454 로 가면 되고」).
@@ -320,7 +346,13 @@ export function WhitelabelFrame({
              *   ⇒ 단추를 걷고 글자만 남긴다. 폰은 반대다 — 거기서 번호는 눌러서 걸리므로
              *     `tel:` 을 걸어 둔다(아래 둘째 줄 · 담당자가 있으면 하단독).
              */
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: SHOP.sp.tight }}>
+            /*
+             * ★★**한 줄이다 — 쌓지 않는다**(사장님 2026-09-16 「**상담 및 문의를 한줄로**」).
+             *   ⚠ 전에는 라벨을 위, 번호를 아래로 쌓아 머리띠가 두 줄 높이를 먹었다. 이 자리가
+             *     대신 든 「날짜·시각·날씨」는 한 줄이었으니, 쌓는 순간 채널 머리띠만 두꺼워진다.
+             *   ★글 바닥선을 맞춘다(`baseline`) — 크기가 다른 두 글자가 한 줄에 서는 자리다.
+             */
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: SHOP.sp.tight, whiteSpace: 'nowrap' }}>
               <span style={{ fontSize: SHOP.fs.cap, color: C.faint }}>{who ? `담당 ${who}` : CONTACT_LABEL}</span>
               {/* ★번호는 «읽는 값»이라 서식을 입힌다 — 01049943330 은 사람이 못 읽는다(집 원자 `fmtPhone`). */}
               <span style={{ fontSize: SHOP.fs.body, fontWeight: FW.title, color: C.ink, fontVariantNumeric: 'tabular-nums' }}>
