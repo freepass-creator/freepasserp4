@@ -397,6 +397,7 @@ RP023을 그대로 실은 `MIRROR_SOURCES`(`from: 1TJBG4PABg...`)와 canonical r
 `ssot-live-gate.yml`은 `lib/adapters/**` 등 특정 경로가 바뀐 push에서만 돈다(`workflow_dispatch`도 가능). 매 커밋마다 도는 필수 체크가 아니라서, **다음에 그 경로가 바뀔 때까지 이 실패가 그대로 잠들어 있을 수 있다.**
 
 ### D. 판정
+
 - **판정(갱신, B-1 참고): 원인 확인됨 — 게이트 설계 결함(오탐), 데이터 사고 아님.** 오토플러스 매칭 실패는 오토플러스가 전용 `오플구독` 탭을 쓴다는 이미 확정된 결정을 `ssot-prepublish-gate.mts`가 반영 못 해서 생긴다. 4개 공급사 정제시트 5~6일째 미동기화는 이것과 별개의 **진짜 문제**로 남아 있다.
 - 이 세션은 Codex처럼 대량 구현/수정을 하지 않는다(`freepasserp4/AGENTS.md` 역할 분담). **수정 자체는 Codex/Cursor 오더로 넘긴다** — 위 B-1의 두 제안 중 택일.
 - 즉시 필요한 것: (1) `ssot-live-gate.yml`/`ssot-prepublish-gate.mts`에 AUTOPLUS 제외 반영, (2) 정제시트 4곳 재동기화(`npx tsx scripts/sync-mirror-sheet.mts --code=... --apply`, 로그가 이미 제시한 명령).
@@ -1878,5 +1879,84 @@ current main의 애플리케이션/SSOT 구현은 audit `(19)` 이후 새로 바
 상세 근거:
 
 - `docs/ai-ssot-audit/2026-09-16-chatgpt-schedule-delivery-gap.md`
+
+이번 ChatGPT 감사에서는 애플리케이션 코드나 비즈니스 로직을 수정하지 않았다.
+
+---
+
+## 2026-09-17(21) — ChatGPT 독립 감사: PR #337로 required parity checker drift 해소, main CI green 복구
+
+### A. 해소됨 — `check:shop-data-parity`가 current helper 구조를 따라가도록 수정됨
+
+**판정: audit `(18)~(20)`의 checker-contract drift 해소**
+
+current application/checker main 기준점은 PR #337 merge commit:
+
+- `7535c581245f89b2da95f910e05fead4d14a24e2`
+
+PR #337은 `scripts/sim-shop-data-parity.mts` 한 파일만 수정했다. 기존 checker가 cache/helper refactor 이전 형태인 `collection('products')`, `collection('policy')`와 feed route 내부 직접 reader 호출을 요구하던 것을 current implementation에 맞춰 다음을 검증하도록 변경했다.
+
+- `collection('products', 'products')`
+- `collection('policies', 'policy')`
+- `app/api/catalog/feed/route.ts`가 `loadGuestListing` 사용
+- `lib/server/guest-listing.ts`가 `readWhitelabelCatalogFromErp5` 사용
+- `includePartners: !!providerCode`, `includeUsers: !!share` 유지
+- feed/listing 양쪽의 `firebaseAdminApp`, `firestore-ref-shim`, `.ref(` 직접 경로 금지 유지
+
+즉 required ratchet을 제거하거나 느슨하게 만든 것이 아니라, helper 아래로 이동한 ERP5 Firestore 읽기 계약을 따라 검사 위치를 이동한 수정이다.
+
+### B. 실제 CI 증거 — main red 해소
+
+PR head `ff02d8f662e84290c949d1b3a3e1a2c388d9dacd`의 `verify` check는 success였다.
+
+merge 뒤 main push CI:
+
+- run `35117788232`
+- head `7535c581245f89b2da95f910e05fead4d14a24e2`
+- conclusion: **success**
+
+job `104867526238`에서 다음 단계가 실제 success다.
+
+- `RTDB 스왑점 밖 직접 열기`
+- `웹·모바일이 같은 Firestore 피드를 쓰는가`
+- `Production build`
+
+따라서 `CLAUDE-AUDIT.md`의 기존 “latest main CI red / parity checker를 고쳐야 함” 요약은 stale였고 이번 감사에서 갱신했다.
+
+상세 근거:
+
+- `docs/ai-ssot-audit/2026-09-17-chatgpt-parity-checker-resolution.md`
+
+### C. schedule-delivery HOLD는 미해소 유지
+
+2026-09-17 00:50 KST 근처에 `event=schedule` 기록을 다시 조회했지만 2026-09-16 실행은 여전히 4건뿐이며 마지막은 16:18:54 KST run `35067894061`이었다. repository cron 선언은 그대로다.
+
+따라서 audit `(20)`의 schedule-delivery/enablement drift는 **미해소 유지**다. workflow disable인지 scheduler delivery 누락/지연인지 원인을 단정하지 않는다.
+
+### D. 나머지 SSOT/운영 HOLD는 변화 없음
+
+PR #337은 checker 파일 하나만 바꿨으므로 다음 기존 판정은 닫지 않는다.
+
+- production pin `2e880cefa96e3fa4bfc79902fed448d5bd74abdb`
+- production과 current-main legacy writer의 same-output F01 contract conflict
+- `.github/actions/prepare-credentials/action.yml`의 composite-action metadata `${{ secrets.GOOGLE_SA_JSON }}` 문제
+- settlement `접수/취소` → ERP5 Atom lock scheduled orchestration gap
+- 픽업구독 canonical 색 `#C2185B`
+- `mirror-sync.yml` / `sales-erp-hourly.yml` write-capable cron 및 RP023 legacy mirror source
+- `2e880cef...` current semantics 기준 정상 scheduled F01/F86 full-audit 확인 HOLD
+
+canonical inventory source도 그대로다.
+
+- RP006 = `ironrentcar.com`
+- RP012 = `sokrc.com/api`
+- RP023 = RebornCar
+
+### Claude 구현 Owner에게 넘기는 즉시 지시
+
+1. `check:shop-data-parity` checker drift는 **해소됨**으로 닫고 현재 ERP5 Firestore 의미 검사를 약화시키지 않는다.
+2. schedule-delivery gap과 same-output F01 writer ownership을 우선 미해소 항목으로 유지한다.
+3. credential composite action과 settlement Atom-lock scheduled orchestration을 실제 Actions 기준으로 고친다.
+4. 픽업구독 색은 production `MASTER_CATEGORY_COLORS['분류']` 한 곳에서만 처리한다.
+5. mirror/RTDB legacy 경로를 canonical source로 승격시키지 않는다.
 
 이번 ChatGPT 감사에서는 애플리케이션 코드나 비즈니스 로직을 수정하지 않았다.
