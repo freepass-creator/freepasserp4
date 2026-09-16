@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { resolveProduct } from '@/lib/server/guest-quote';
 import { firestorePathStore } from '@/lib/server/firestore-path-store';
 import { providerNameMap } from '@/lib/domain/identity';
+import { withUnit } from '@/lib/format';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { verifyActiveBearer } from '@/lib/server/firebase-admin';
 
@@ -90,14 +91,12 @@ export async function GET(request: Request) {
   }
   const rate = (v: unknown) => { const t = S(v); return t && !/^0%?$/.test(t) ? t : ''; };
   /*
-   * ★**단위는 «필드 이름이 말할 때만» 붙인다.** 실측 2026-09-06 — 같은 뜻인데 원천이 제각각이다:
-   *   `deposit_return_days` 는 「30일」인데 `buyout_notice_days` 는 「30」, `impound_keep_days` 도 「30」.
-   *   이름이 `_days` 니 단위는 «날»이 맞다 — 맨 숫자에만 붙인다(이미 붙은 것은 그대로 둔다).
-   * ⚠⚠ **`late_fee_rate`(0.12·0.24)에는 아무것도 안 붙인다.** 이름이 `rate` 라 단위를 말해 주지 않는다 —
-   *   12%인지 하루 0.12%인지 이 데이터만으로는 모른다. **모르는 것을 「%」로 지어내면**
-   *   영업자가 손님에게 틀린 숫자를 말하게 된다. 원문 그대로 두고, 규격이 정해지면 그때 붙인다.
+   * ★★**단위 셈은 `lib/format` 의 `withUnit` 한 곳이다**(2026-09-16 옮겼다).
+   *   여기 안에만 있던 셈인데, 같은 값들이 **손님 기타사항으로 올라가면서**(`ShopDetail`)
+   *   화면 쪽에 같은 셈을 또 적을 판이었다 — 두 곳에 적으면 한쪽만 고쳐져 같은 값이 두 얼굴이 된다.
+   *   판단 근거(왜 `_days` 에만 붙이고 `rate` 에는 안 붙이나)는 그 함수 머리말에 그대로 옮겨 뒀다.
    */
-  const unit = (v: unknown, u: string) => { const t = S(v); return t && /^[0-9]+$/.test(t) ? `${t}${u}` : t; };
+  const unit = withUnit;
 
   const source = S(p.source);
   return NextResponse.json({

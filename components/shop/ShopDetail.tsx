@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import type { ReactNode } from 'react';
 import Link from 'next/link';
 import {
@@ -18,12 +18,12 @@ import { useProductPhotos } from '@/components/use-product-photos';
 import { haptic } from '@/lib/haptics';
 import { getAuthClient } from '@/lib/firebase/client';
 import { useSession, useAuthReady } from '@/lib/auth-context';
-import { canonProductType, creditDisplay, CREDIT_UNSET, parseProductOptions, priceList } from '@/lib/domain/product';
+import { canonProductType, creditDisplay, CREDIT_UNSET, parseProductOptions, pricePlanList } from '@/lib/domain/product';
 import { PERKS, hasPerk } from '@/lib/domain/product-filters';
 import { displacementL } from '@/components/product-card-identity';
 import { vehicleNameOf } from '@/lib/domain/vehicle-name';
 import { yearFullDisplay, fuelDisplay, makerDisplay } from '@/lib/domain/vehicle-master-format';
-import { isEvFuel, kmDisplay, kmValue, wonKo, depositLine } from '@/lib/format';
+import { isEvFuel, kmDisplay, kmValue, wonKo, depositLine, withUnit } from '@/lib/format';
 
 /**
  * 가게 상세 — 손님이 «이 차로 할까»를 정하는 화면.
@@ -111,18 +111,88 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
    * 지어낸 셈을 쓰는데, 우리는 공급사가 준 개월별 실제 표가 있다(한 차에 최대 열 단).
    * 싼 기간부터 세운다 — 손님이 카드에서 본 값이 최저가라 그게 먼저 눈에 와야 이어진다.
    */
+  /*
+   * ★★★**`priceList` 에서 `pricePlanList` 로 바꿨다 — 갈래를 잃고 있었다**(2026-09-16).
+   *
+   * ⚠⚠ `priceList` 는 **기간당 한 줄만** 남긴다. 그런데 한 기간에 요금이 둘 이상인 차가 있다 —
+   *   ㉠ **인수형**(`12_인수형`…`60_인수형`) · ㉡ 주행 약정이 갈리는 차(오플 `24_3만` 꼴).
+   *   그래서 손님 상세는 **인수형 다섯 기간을 통째로 안 그리고** 있었다(사장님이 보신 쏘렌토
+   *   349더2331 이 바로 그 차다 — 반납형 5 + 인수형 5 인데 5줄만 떴다).
+   *   업무동 표(`ProductPriceTable`)는 진작 갈라 세우고 있었고 「손오공 구독은 403대 중 386대가
+   *   인수형을 들고 있다」고 적혀 있다. **손님만 못 보고 있었던 것이다.**
+   *
+   * ★집 규칙 위반이기도 하다 — 「차량 스펙·조건·대여료·정책은 상태와 무관하게 무조건 노출」
+   *   (CLAUDE.md). 접는 것은 «상태»뿐이고 대여료는 다 보여야 한다.
+   * ⚠ 최저가 셈·큰 숫자·선택은 그대로다 — `PricePlan` 이 `Price` 를 넓힌 꼴이라 칸이 호환된다.
+   */
   const plans = useMemo(
-    () => priceList(p).filter((x) => x.rent > 0).sort((a, b) => a.rent - b.rent),
+    () => pricePlanList(p).filter((x) => x.rent > 0).sort((a, b) => a.rent - b.rent),
     [p],
+  );
+  /** 갈래가 실제로 갈리는 차인가 — 인수형이 있거나, 한 기간에 줄이 둘 이상인 차. */
+  const hasBranch = useMemo(() => plans.some((x) => x.acquisition)
+    || plans.some((x, _i, all) => all.filter((y) => y.m === x.m).length > 1), [plans]);
+  /*
+   * ★★**조건 글자는 «줄마다 다를 때만» 싣는다**(2026-09-16 화면에서 잡음).
+   *
+   * ⚠ `pricePlanList` 의 `condition` 에는 주행 약정·보험이 들어 있다. 그런데 이 구역 오른쪽에
+   *   이미 「약정 주행」 칸이 서 있고(`rateConds`), 보험은 아래 「보험」 구역이 든다.
+   *   그대로 실으니 **열 줄 전부에 「연 20,000km · 보험 별도」가 반복**되고, 같은 말이 한 화면에
+   *   두 번 섰다 — 집 규칙(「같은 말을 두 번 하지 않는다」)에 걸린다.
+   * ⇒ 값이 **모든 줄에서 같으면** 그건 «상품 단위» 정보라 이 칸의 일이 아니다. 갈래만 남긴다.
+   *   달라지는 차(오플처럼 기간마다 주행 약정이 갈리는 차)에서는 그게 «줄을 가르는» 정보라 싣는다.
+   */
+  /**
+   * **조건 이름** — 이 줄이 무슨 조건인가. 기본은 「반납형」.
+   *
+   * ★★사장님 2026-09-16 「기간 **조건** 대여료 보증금 분납 연간주행거리 · **만기협의** ·
+   *   이럴 수도 있으니까 **조건을 넣어주고 그 조건별로 묶어** 주면 되잖아」.
+   *   ⇒ 「반납형/인수형」 둘이라고 못 박지 않는다. 원천이 준 이름(`branch`)을 그대로 쓰고,
+   *     묶는 것도 그 값으로 한다. 「만기협의」가 새로 와도 **화면을 안 고친다.**
+   * ★★**기본 이름을 «화면이» 짓지 않는다.** 사장님 2026-09-16 「**보통 다 만기협의**야」 ·
+   *   「손오공은 반납형 인수형이 확실한 거고 **오플은 다 반납형**이고」 —
+   *   렌트는 「만기협의」, 구독은 「반납형」이다. 그 판단은 **상품구분**을 보는 일이라
+   *   도메인(`pricePlanList` 의 `baseBranch`)이 한다. 화면이 「반납형」을 기본값으로 박으면,
+   *   **안 정한 것을 정했다고** 손님에게 말하게 된다.
+   */
+  const condName = (x: { branch: string }) => x.branch;
+  /** 조건이 갈리는 차인가 — 갈리면 묶어서 구분해 준다. */
+  const condVaries = useMemo(
+    () => new Set(plans.map((x) => condName(x))).size > 1, [plans],
   );
   const [planIdx, setPlanIdx] = useState(0);
   const plan = plans[planIdx];
   /** 보증금 — 금액이 없고 규칙 글자만 있는 상품(`depositLine` 머리말). */
   const dep = plan ? depositLine(plan.deposit, (p as Record<string, unknown>).deposit_note, wonKo) : null;
   /** 표에 세울 순서 — 기간 오름차순. 위 큰 숫자는 최저가로 시작하지만 표의 축은 «기간»이다. */
-  const byMonth = useMemo(() => [...plans].sort((a, b) => a.m - b.m), [plans]);
-  /** 제일 싼 줄의 «기간». `plans` 가 요금 오름차순이라 첫 줄이 최저가다. */
-  const cheapest = plans.length ? plans[0].m : 0;
+  /*
+   * ★★**갈래로 «묶고», 그 안에서 기간 오름차순**(사장님 2026-09-16 「반납형 인수형은
+   *   **섹션으로도 약간 분리**해줘」).
+   *
+   * ⚠⚠ 기간을 첫 잣대로 두면 갈래가 **한 줄씩 번갈아** 선다 — 구역 줄이 열 번 나와서
+   *   구역이 아니라 잡음이 된다(2026-09-16 화면에서 잡았다).
+   * ★확정 규격이 지키려는 「길게 하면 싸지는구나」는 **구역 «안에서» 그대로 읽힌다** —
+   *   반납형 12→60 이 한 묶음으로 서고, 인수형도 그렇다. 사다리가 둘로 늘었을 뿐 안 깨졌다.
+   * ★반납형이 위다 — 기본이 먼저다(업무동 표와 같은 차례).
+   */
+  const byMonth = useMemo(() => [...plans].sort((a, b) =>
+    /* 기본(갈래 이름 없음)이 맨 위 — 그게 「그냥 빌리는 것」이다. 그 뒤는 이름 순으로 모인다. */
+    Number(!!a.branch) - Number(!!b.branch)
+    || a.branch.localeCompare(b.branch, 'ko')
+    || a.m - b.m
+    || a.rent - b.rent), [plans]);
+  /**
+   * 제일 싼 «줄». `plans` 가 요금 오름차순이라 첫 줄이 최저가다.
+   *
+   * ⚠⚠ 전에는 **기간**(`plans[0].m`)을 들고 `cheapest === x.m` 으로 맞댔다. 갈래를 되살리자
+   *   같은 기간의 반납형·인수형 **두 줄에 「최저가」 칩이 같이** 붙는다 — 하나는 최저가가 아닌데.
+   * ★**표준(반납형)만 최저가 대상이다** — 업무동 표와 같은 규칙(`cheapPlan`). 인수형은 만기에
+   *   돈이 더 나가므로 「제일 싸다」고 말하면 손님을 오해시킨다.
+   */
+  const cheapestPlan = useMemo(
+    () => plans.filter((x) => x.standard).sort((a, b) => a.rent - b.rent)[0] || null,
+    [plans],
+  );
   /*
    * 보조표 글자 — **폰에서는 한 단 내린다**(2026-09-05 화면에서 잡음).
    * 세 칸(기간·월 대여료·보증금)에 「94만 7,000원」·「183만 3,000원」 같은 긴 값이 들어가는데,
@@ -228,9 +298,23 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
    *   접히는 줄이라 좁으면 «외부/내부»가 두 줄로 앉는다 — 칸이 조금 높아질 뿐 안 깨진다.
    */
   const colorRow: FactRow[] = colorText ? [['색상', colorText, colorNode]] : [];
+  /*
+   * ★★★**차량 정보는 «두 그룹»이다**(사장님 2026-09-16 「세부모델 및 트림 / 선택옵션 / 색상
+   *   이렇게 한 그룹이고 그다음에 **제원**이 한 그룹이야… 차량정보는 딱 이렇게 섹션 내에 2그룹으로」).
+   *
+   *   ㉠ **이 차가 무엇인가** — 세부모델 및 트림 · 선택옵션 · 색상
+   *   ㉡ **제원**           — 차급 · 연식 · 주행거리 · 배기량 · 연료 · 구동방식 · 승차정원
+   *
+   * ⚠ 그래서 **색상이 격자에서 빠져 위 그룹으로 올라갔다**. 9/7~9/10 에는 색상이 격자의 첫 칸이었다
+   *   (그때는 「색상 연식 주행거리를 배정」이라는 지시였다). 이제 색상은 «이 차가 무엇인가»에 속한다 —
+   *   사람이 차를 고를 때 트림·옵션·색을 한 호흡으로 본다는 그 판단의 연장이다.
+   * ⚠⚠ **웹 첫 줄이 넷에서 셋이 됐다**(차급·연식·주행거리). 사장님이 2026-09-08 에 「최초등록을
+   *   빼 기타사항으로 보내고 차급을 넣어야겠네. 그럼 4개 4개니까」로 맞춰 두신 자리다.
+   *   ⇒ 빈 칸을 **지어내서 채우지 않는다**(신차가·최초등록은 각각 데이터가 없거나 기타사항으로 보냈다).
+   *     사진으로 보여 드리고 사장님이 정하실 일이다.
+   */
   const specs: FactRow[] = grouped(
     [
-      ...colorRow,
       /*
        * ㉡ **이 차가 어떻게 생겼고 얼마나 탔나** — 색상 · 연식 · 주행거리.
        *
@@ -494,10 +578,17 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
    *   (지어내지 않는다 — `publicPolicy` 의 그 판단). 그래서 칸 수가 차마다 다르다.
    * ★폰에는 안 넣는다 — 세 칸도 빠듯한 폭이다. 폰은 아래 「이용 조건」이 그 일을 한다.
    */
-  const rateConds: { h: string; v: string }[] = mobile ? [] : ([
+  /*
+   * ★★**「약정 주행」을 여기서 뺐다 — «줄마다» 드는 칸이 됐다**(2026-09-16).
+   *   사장님 칸 구성 「기간 조건 대여료 보증금 분납 **연간주행거리**」. 정책 한 줄로 몰아 두면
+   *   오플처럼 **기간에 따라 주행 약정이 갈리는 차**의 값이 뭉개진다. 값은 `PricePlan.mileage` 가 든다.
+   * ⇒ 여기 남는 것은 정책 단위 값인 **보증금 분납**뿐이다.
+   */
+  const payCols: { h: string; v: string }[] = mobile ? [] : ([
     { h: '보증금 분납', v: S('deposit_installment') },
-    { h: '약정 주행', v: S('annual_mileage') },
   ]).filter((c) => meaningful(c.v));
+  /** 연간주행거리 칸을 세우나 — 값이 있고, 폰이 아닐 때(폰은 폭이 없어 「이용 조건」이 그 일을 한다). */
+  const showMileageCol = !mobile && plans.some((x) => !!x.mileage);
 
   const creditRaw = creditDisplay(p);
   const credit = creditRaw && creditRaw !== CREDIT_UNSET ? creditRaw : '';
@@ -608,10 +699,45 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
      *   그 자리를 지켜 준다. 빈 구역이 하나 줄어든다.
      */
     ['최초등록', regDate(p.first_registration_date)],
+    /*
+     * ★★★**렌트사 — 손님이 실제로 계약하는 상대**(사장님 2026-09-16 「기타사항에 **공급사 하나
+     *   넣어줘 렌트사**」 · 「**로그인을 안 할 거라서** 기타사항에 **영업자가 보는 걸 꽤 넣어줘야** 함」).
+     *
+     * ⚠⚠ 2026-09-06 에는 일부러 숨긴 값이다 — 로그인한 영업자만 보는 맨 아래 칸(`ShopInside`)에
+     *   두고 「채널 이름으로 나가는 판에서 뒤에 누가 있는지 꺼내면 안 된다」고 적었다.
+     *   그 판단의 전제가 **로그인**이었다. 안 하기로 하면 그 칸은 아무도 못 보는 칸이다.
+     * ★여쭙고 받은 답이다(같은 날) — 화이트라벨 페이지에서도 똑같이 드러난다는 것까지 말씀드렸다.
+     * ★**이름만** 쓴다(`provider_name`) — 내부 코드(`RP012` 꼴)는 여전히 안 나간다.
+     * ★말은 「공급사」가 아니라 **「렌트사」**다(사장님이 쓰신 말 · 계약접수 양식의 「렌트사명」과 같다).
+     *   「공급사」는 우리끼리 쓰는 말이라 손님 화면에 안 낸다(집 규칙).
+     */
+    ['렌트사', String((p as Record<string, unknown>).provider_name || '')],
     ['차량 인도', S('delivery_fee')],
     ['이용 지역', S('rental_region')],
     ['정비', S('maintenance_service')],
     ['대차', S('replacement_car_policy')],
+    /*
+     * ★★★**로그인 뒤에 있던 응대용 값들** — 로그인을 안 하기로 해서 여기로 올라왔다(위 머리말).
+     *
+     * ⚠⚠⚠ **이 구역에 «부정적인» 값은 넣지 않는다**(사장님 2026-09-16 「기타사항에 **부정적인
+     *   거는 넣지마**」). 이 화면은 손님이 차를 «고르는» 자리다 — 고르는 손에 벌칙표를 들려 주면
+     *   읽기를 멈춘다. 겁주는 값은 이 구역의 일이 아니다.
+     *
+     *   ⇒ 걷은 것 — 중도해지 위약금(1년 미만·이상) · 연체 회차 · 자동해지 · **시동제어** ·
+     *     보관(압류·보관일) · 결격 조건 · GPS.
+     *   ★남긴 것은 **중립이거나 손님에게 이로운 것**뿐이다 —
+     *     최초등록 · 렌트사 · 차량 인도 · 이용 지역 · 정비 · 보증금 반환(돈이 돌아오는 날) ·
+     *     인수 통지(인수형을 고를 때 알아야 하는 절차) · 신용등급(「무관」이면 그게 좋은 소식이다).
+     *
+     * ★**없앤 게 아니라 «자리»가 아니다.** 걷은 값들은 전자계약 약관에 그대로 있고
+     *   (`lib/domain/esign-agreement-text` — 제23조 약정주행·초과요금, 운전자 범위, 해지 등),
+     *   손님은 서명 «전»에 그 문서를 읽는다. 상담 중에는 영업자가 관리자 화면에서 본다.
+     * ⚠ 되살리려면 여기 줄을 더하고 `PUBLIC_POLICY_FIELDS` 에 그 칸을 같이 넣어야 한다 —
+     *   명단에서 빠지면 값이 화면까지 오지 않는다.
+     */
+    ['보증금 반환', withUnit(S('deposit_return_days'), '일')],
+    ['인수 통지', withUnit(S('buyout_notice_days'), '일')],
+    ['신용등급', S('credit_grade')],
   ].filter(([, v]) => meaningful(v)) as FactRow[];
 
   const hasPolicy = !!(payRows.length || ownDamageDeductible || otherDeductibles.length || coverage.length || ageRange || useRows.length || etcRows.length || roadside);
@@ -798,8 +924,8 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
            *   ★조건 칸이 «없는» 차(정책 미연결)는 예전대로 520 에서 끊는다. 세 칸 표는 여전히
            *     넓히면 안 되고, 그 옆은 「납부」가 채운다.
            */
-          flex: mobile ? undefined : (rateConds.length ? '1 1 100%' : '1 1 360px'),
-          maxWidth: mobile || rateConds.length ? undefined : 520,
+          flex: mobile ? undefined : ((payCols.length || showMileageCol) ? '1 1 100%' : '1 1 360px'),
+          maxWidth: mobile || payCols.length || showMileageCol ? undefined : 520,
         }}>
           <div style={{
             marginBottom: SHOP.sp.snug, fontSize: SHOP.fs.cap, fontWeight: 600, color: C.mute,
@@ -807,7 +933,15 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
           <table style={{ width: '100%', borderCollapse: 'collapse', fontVariantNumeric: 'tabular-nums' }}>
             <thead>
               <tr>
-                {['기간', '월 대여료', '보증금', ...rateConds.map((c) => c.h)].map((h, i) => (
+                {/*
+                  ★★**칸 구성 = 사장님이 적어 주신 그대로**(2026-09-16
+                    「기간 조건 대여료 보증금 분납 연간주행거리」).
+                    「조건」은 **늘 세운다** — 갈래가 하나인 차도 그 하나가 「만기협의」인지
+                    「반납형」인지가 손님이 알아야 하는 값이다. 비워 두면 오히려 묻게 된다.
+                  ★연간주행거리는 «줄마다» 든다 — 오플처럼 기간에 따라 갈리는 차가 있다.
+                    정책 한 줄로 몰아 두면 그 차의 값이 뭉개진다.
+                */}
+                {['기간', '조건', '월 대여료', '보증금', ...payCols.map((c) => c.h), ...(showMileageCol ? ['연간주행거리'] : [])].map((h, i) => (
                   /*
                    * ★★기간표는 **보조 설명**이다(사장님 2026-09-05 「기간별 대여료는 보조 설명으로
                    *   대여료 섹션에 그 고유니까 **분위기 해치지 않게** 해주고」).
@@ -823,16 +957,64 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
               </tr>
             </thead>
             <tbody>
-              {byMonth.map((x) => {
-                const on = plan && x.m === plan.m;
-                const pick = () => setPlanIdx(plans.findIndex((y) => y.m === x.m));
+              {byMonth.map((x, rowIdx) => {
+                /*
+                 * ★★★**갈래가 바뀌는 자리에 «구역 줄»을 하나 세운다**(사장님 2026-09-16
+                 *   「반납형 인수형은 **섹션으로도 약간 분리**해줘」).
+                 *
+                 * ★왜 필요한가 — 열 줄이 기간 오름차순으로 서면 36개월 반납형 바로 밑에 36개월
+                 *   인수형이 붙는다. 금액이 다른데 «같은 상품의 다른 줄»로 읽혀서, 손님이 인수형
+                 *   금액을 반납형으로 착각한다. 업무동 표가 이미 같은 이유로 갈래 줄을 세워 뒀다
+                 *   (「손오공 구독은 403대 중 386대가 인수형을 들고 있어, 그 오독이 그대로 견적이 된다」).
+                 * ★**탭으로 감추지 않는다**(사장님 같은 날 「버튼 눌러서 보이는 건 제한적이라
+                 *   **그냥 쭉 늘어 놓는** 건데 **구분을 해달라**고」). 둘을 나란히 놓고 고르게 한다.
+                 * ★위계는 **무채의 세기**로만 준다 — 이 화면은 색이 네이비 하나다(집 색 사다리).
+                 */
+                const prev = rowIdx > 0 ? byMonth[rowIdx - 1] : null;
+                const opensGroup = condVaries && (!prev || condName(prev) !== condName(x));
+                /*
+                 * ⚠⚠ **선택키에 «갈래»가 들어가야 한다**(2026-09-16). 전에는 `x.m === plan.m` 이라
+                 *   같은 기간의 반납형·인수형 **두 줄이 같이 켜졌다**. 기간당 줄이 하나일 때는
+                 *   드러나지 않던 버그인데, 갈래를 되살리자 바로 보인다.
+                 * ⇒ 줄의 «신분»으로 맞댄다 — 같은 객체인가.
+                 */
+                const on = plan === x;
+                const pick = () => setPlanIdx(plans.indexOf(x));
+                /*
+                 * ★★**구역은 «선»으로만 가른다 — 이름은 조건 칸이 든다**(2026-09-16 화면에서 잡음).
+                 *   ⚠ 구역 줄에 「반납형」이라 적고 조건 칸에도 「반납형」을 적으니 한 묶음에서
+                 *     같은 말이 **여섯 번** 나왔다. 집 규칙(「같은 말을 두 번 하지 않는다」)에 걸린다.
+                 *   ★사장님 2026-09-16 「조건을 넣어주고 **그 조건별로 묶어** 주면 되잖아」 ·
+                 *     「**섹션으로도 «약간»** 분리해줘」 — 이름은 칸에, 분리는 선에.
+                 *   ★기본 묶음(맨 위)에는 선을 안 얹는다 — 표 머리 밑에 선이 둘이면 머리줄이 두 번 온다.
+                 */
+                const groupHead = opensGroup && x.branch ? (
+                  <tr key={`g-${x.branch}`}>
+                    <td colSpan={4 + payCols.length + (showMileageCol ? 1 : 0)} style={{
+                      padding: `${SHOP.sp.cozy}px 12px ${SHOP.sp.snug}px`,
+                      borderTop: `1px solid ${C.line2}`,
+                      fontSize: SHOP.fs.tag, fontWeight: 500, color: C.mute,
+                    }}>
+                      {/*
+                        ★**「인수형」이 무슨 뜻인지 한 번만 적는다** — 만기에 **돈이 더 나간다**
+                          (사장님 2026-08-28 「보증금 상계 후 10% 추가결제 후 인수」).
+                          그 말을 안 하면 손님이 「그냥 가져간다」로 읽고, 만기에 다툼이 된다.
+                        ★업무동 표와 «같은 문구»다 — 갈리면 영업자와 손님이 다른 말을 본다.
+                        ⚠ 10% 는 업무동 원자에도 코드에 박혀 있다. 공급사마다 다르면 그때 정책 칸으로 옮긴다.
+                      */}
+                      {x.branch === '인수형' ? '만기 시 보증금 상계 + 10% 추가결제 후 인수' : null}
+                    </td>
+                  </tr>
+                ) : null;
                 return (
-                  /*
-                   * ⚠ 줄에 `onClick` «만» 걸어 두면 **마우스로만 고를 수 있는 고르개**가 된다.
-                   *   `<tr>` 은 탭으로 못 가고, 보조기기는 이게 누를 것인 줄도 모른다.
-                   * ⇒ 첫 칸에 진짜 `<button>` 을 넣어 이름·역할·상태(`aria-pressed`)를 지게 한다.
-                   */
-                  <tr key={x.m} onClick={pick}
+                  <Fragment key={`r-${x.m}-${x.acquisition ? 'a' : 'r'}-${x.rent}`}>
+                  {groupHead}
+                  {/*
+                    ⚠ 줄에 `onClick` «만» 걸어 두면 **마우스로만 고를 수 있는 고르개**가 된다.
+                      `<tr>` 은 탭으로 못 가고, 보조기기는 이게 누를 것인 줄도 모른다.
+                    ⇒ 첫 칸에 진짜 `<button>` 을 넣어 이름·역할·상태(`aria-pressed`)를 지게 한다.
+                  */}
+                  <tr onClick={pick}
                     style={{ cursor: 'pointer', background: on ? C.zebra : 'transparent' }}>
                     <td style={{ padding: 0 }}>
                       <button type="button" onClick={pick} aria-pressed={!!on} style={{
@@ -845,7 +1027,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
                         fontSize: rateFs, fontWeight: on ? 700 : 500, color: on ? C.brand : C.ink,
                       }}>
                         {x.m}개월
-                        {cheapest === x.m ? (
+                        {cheapestPlan === x ? (
                           <span style={{
                             flex: '0 0 auto', padding: '2px 6px', borderRadius: SHOP.r.chip,
                             background: C.brandBg, color: C.brand,
@@ -854,6 +1036,24 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
                         ) : null}
                       </button>
                     </td>
+                    {/*
+                      ★**갈래 칸** — 「반납형」·「인수형」, 조건이 따로 있으면 이어 붙인다.
+                        ⚠ 이름표는 **명사로**(사장님 2026-08-28 「반말로 만기 시 인수한다????」).
+                        ★인수형은 만기에 **돈이 더 나간다** — 그 설명은 아래 「납부」·「이용 조건」이
+                          이미 들고 있어 여기서 또 적지 않는다(같은 말을 두 번 하지 않는다).
+                        ★갈래가 «없는» 차는 이 칸 자체를 안 세운다 — 하나뿐인 갈래에 이름표는 군더더기다.
+                    */}
+                    {/*
+                      ★**조건 칸은 «늘» 선다**(사장님 2026-09-16 칸 구성 「기간 **조건** 대여료 …」).
+                        갈래가 하나인 차도 그 하나가 「만기협의」인지 「반납형」인지가 손님이 알아야
+                        하는 값이다 — 렌트는 만기협의, 구독은 반납형이다(`baseBranch`).
+                      ★값은 도메인이 준다(`branch`) — 화면이 글자를 짓거나 쪼개지 않는다.
+                    */}
+                    <td style={{
+                      padding: '12px 8px', textAlign: 'right', whiteSpace: 'nowrap',
+                      fontSize: SHOP.fs.sub, fontWeight: on ? 700 : 500,
+                      color: on ? C.brand : C.mute,
+                    }}>{condName(x)}</td>
                     <td style={{
                       padding: '12px 8px', textAlign: 'right', whiteSpace: 'nowrap',
                       fontSize: rateFs, fontWeight: on ? 800 : 600, color: C.ink,
@@ -862,14 +1062,25 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
                       padding: '12px 8px', textAlign: 'right', whiteSpace: 'nowrap',
                       fontSize: rateFs, color: C.mute,
                     }}>{x.deposit > 0 ? wonKo(x.deposit) : '없음'}</td>
-                    {/* ★계약조건 — 정책 단위 값이라 줄마다 같다(위 `rateConds` 머리말). 돈이 아니므로 한 단 조용하게. */}
-                    {rateConds.map((c) => (
+                    {/* ★정책 단위 값(보증금 분납) — 줄마다 같다. 돈이 아니므로 한 단 조용하게. */}
+                    {payCols.map((c) => (
                       <td key={c.h} style={{
                         padding: '12px 8px', textAlign: 'right', whiteSpace: 'nowrap',
                         fontSize: SHOP.fs.sub, color: C.mute,
                       }}>{c.v}</td>
                     ))}
+                    {/*
+                      ★**연간주행거리는 «줄마다»** — 오플처럼 기간에 따라 약정이 갈리는 차가 있다.
+                        값이 없는 줄은 하이픈으로 자리만 지킨다 — 「없다」가 아니라 「모른다」다.
+                    */}
+                    {showMileageCol ? (
+                      <td style={{
+                        padding: '12px 8px', textAlign: 'right', whiteSpace: 'nowrap',
+                        fontSize: SHOP.fs.sub, color: C.mute,
+                      }}>{x.mileage || '—'}</td>
+                    ) : null}
                   </tr>
+                  </Fragment>
                 );
               })}
             </tbody>
@@ -936,7 +1147,12 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
              */}
             {modelLine ? (
               <div style={{ marginBottom: SHOP.sp.edge }}>
-                <div style={{ fontSize: SHOP.fs.cap, color: C.faint, marginBottom: 0 }}>제조사 · 세부모델 · 세부트림</div>
+                {/*
+                  ★**라벨은 「세부모델 및 트림」**(사장님 2026-09-16 「제조사 세부모델 세부트림 이거를
+                    **세부모델 및 트림**으로 하고」). 값 줄이 이미 「기아 · 쏘렌토 MQ4 · 트렌디」로
+                    제조사를 들고 있어서, 라벨에 또 적으면 같은 말이 위아래로 두 번이다.
+                */}
+                <div style={{ fontSize: SHOP.fs.cap, color: C.faint, marginBottom: 0 }}>세부모델 및 트림</div>
                 <div style={{
                   fontSize: SHOP.fs.lead, fontWeight: FW.head, color: C.ink,
                   letterSpacing: '-0.02em', wordBreak: 'keep-all', lineHeight: 1.4,
@@ -1006,8 +1222,34 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
                 한 줄을 쓰던 것을 여덟으로 맞춰 2·2·2·2 로 떨어뜨렸다.
             */}
 
-            {/* 격자 = 「이 차가 어떤 상태인가」. 웹은 무리가 «띠»로 옆에 붙고 폰은 두 칸으로 쌓는다. */}
-            {specs.length ? <Facts rows={specs} cols={mobile ? 2 : 4} mobile={mobile} /> : null}
+            {/*
+              ★★**색상은 «이 차가 무엇인가» 그룹의 끝**(사장님 2026-09-16 2그룹 지시 — 위 `specs` 머리말).
+                선택 옵션과 «같은 꼴»로 세운다 — 라벨 위, 값 아래. 그룹 안에서 줄들이 같은 문법이어야
+                한 무리로 읽힌다.
+              ★★색상은 **한 칸**이고 그 안에 내·외부가 같이 든다(사장님 「색상에는 내외부 색상이
+                다 있는 거지」) — 두 칸으로 쪼개면 내장색이 없는 차(32%)는 늘 한 칸이 빈다.
+              ★**색 견본**을 같이 그린다(사장님 「색상 칩 달아주면 되고 — 직관적으로」).
+                「소닉실버」·「어비스블랙펄」은 글자로는 무슨 색인지 모른다.
+                색 코드 정본은 `lib/domain/color-chips` — 못 알아보는 이름은 이름만 나간다.
+            */}
+            {colorText ? (
+              <div aria-label="색상" style={{ marginBottom: SHOP.sp.edge }}>
+                <div style={{ marginBottom: 0, fontSize: SHOP.fs.cap, color: C.faint }}>색상</div>
+                {colorNode}
+              </div>
+            ) : null}
+
+            {/*
+              ★★**여기서 그룹이 갈린다 — 위는 「무엇인가」, 아래는 「제원」**(사장님 2026-09-16
+                「차량정보는 딱 이렇게 섹션 내에 **2그룹**으로」).
+              ★가르는 것은 **라벨 하나**다. 선을 또 그으면 구역 띠(`Sec`)와 선이 둘이 되어
+                한 섹션 안에 머리가 두 번 온다 — 이 화면은 선을 최소로 쓴다.
+            */}
+            {specs.length ? (
+              <div style={{ marginBottom: SHOP.sp.snug, fontSize: SHOP.fs.cap, fontWeight: 600, color: C.mute }}>제원</div>
+            ) : null}
+            {/* 제원 = **보조 줄**로 쭉 붙인다(위 `dense` 머리말). 웹·폰 같은 짜임이다. */}
+            {specs.length ? <Facts rows={specs} cols={mobile ? 2 : 4} mobile={mobile} dense /> : null}
           </>
         </Sec>
       ) : null}
@@ -1427,10 +1669,54 @@ function Sec({ title, icon, accent, tag, mobile, children }: {
  * ⇒ **폰 = «쌓기»**. 두 칸 격자에 무리마다 줄을 끊어 쌓는다. 좁은 화면에서는 옆에 붙일 자리가
  *   없으니 띠가 곧 줄이다. 같은 데이터·같은 차례, 짜임만 다르다.
  */
-function Facts({ rows, cols, mobile }: {
+function Facts({ rows, cols, mobile, dense }: {
   rows: FactRow[]; cols: number; mobile?: boolean;
+  /**
+   * **보조 줄로 «쭉 붙여» 쓴다** — 격자가 아니라 흐르는 한 줄(여러 줄로 접힌다).
+   *
+   * ★★★사장님 2026-09-16 「그리고 **위계를 좀 잡자**고 · 아까 전에 **그룹처럼 뒀고**
+   *   **제원은 약간 보조처럼 쭉 붙여서** 쓰면 될 거 같은데」 · 「아까 샘플 사진 준 거 있잖아 ·
+   *   우리도 그런 식으로 **위계를 좀 잡고 디자인을 살짝** 바꾸자는 거여」.
+   *
+   * ★그래서 위계가 둘이 된다 — 위 그룹(세부모델 및 트림·선택옵션·색상)은 «큰 값»,
+   *   제원은 «작고 조용한 값». 손님이 먼저 보는 것과 확인하러 보는 것이 눈에 갈린다.
+   * ★★**덤으로 «빈 칸»이 사라진다.** 격자일 때는 칸 수가 3+4 라 웹 첫 줄 오른쪽이 비었다
+   *   (사장님이 9/8 에 「4개 4개」로 맞춰 두셨던 자리 — 색상이 위로 올라가며 깨졌다).
+   *   흐르는 줄은 칸 수를 안 세므로 채울 값을 «지어낼» 이유가 없다.
+   * ★무리(㉠㉡) 사이는 **얇은 세로선** 하나로 남긴다 — 격자에서는 빈 줄이 그 일을 했다.
+   *   뜻 묶음을 잃으면 일곱 칸이 한 덩어리로 뭉개진다.
+   */
+  dense?: boolean;
 }) {
   if (!rows.length) return null;
+
+  if (dense) {
+    return (
+      <div style={{
+        display: 'flex', flexWrap: 'wrap', alignItems: 'baseline',
+        columnGap: SHOP.sp.edge, rowGap: SHOP.sp.snug,
+      }}>
+        {rows.map((row, i) => (row[0] === GROUP_BREAK ? (
+          /* 무리 경계 — 글자 높이만큼의 얇은 선. 줄이 접히면 저절로 사라져도 무리는 줄바꿈으로 읽힌다. */
+          <span key={`break-${i}`} aria-hidden style={{
+            alignSelf: 'stretch', width: 1, background: C.line2, margin: `${SHOP.sp.tight}px 0`,
+          }} />
+        ) : (
+          <span key={row[0]} style={{
+            /* 라벨-값은 «붙고», 칸-칸은 갈린다 — 안쪽 4(tight) 대 바깥 16(edge)으로 4배 차다. */
+            display: 'inline-flex', alignItems: 'baseline', gap: SHOP.sp.tight, whiteSpace: 'nowrap',
+          }}>
+            <span style={{ fontSize: SHOP.fs.cap, color: C.faint, letterSpacing: '0.01em' }}>{row[0]}</span>
+            <span style={{
+              fontSize: SHOP.fs.sub,
+              fontWeight: row[1] === '미입력' ? 400 : 600,
+              color: row[1] === '미입력' ? C.faint : C.ink,
+            }}>{row[2] ?? row[1]}</span>
+          </span>
+        )))}
+      </div>
+    );
+  }
 
   const cell = (row: FactRow, key: string, minWidth?: number) => {
     const [k, v, node] = row;

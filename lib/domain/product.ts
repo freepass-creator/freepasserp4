@@ -373,6 +373,23 @@ export type PricePlan = {
   /** 표준(반납형)인가 — 최저가 표시는 표준만 대상으로 한다. */
   standard: boolean;
   /**
+   * **갈래 이름** — 「인수형」·「만기협의」처럼 «기간 말고» 줄을 가르는 조건. 기본(반납형)은 빈 문자열.
+   *
+   * ★★사장님 2026-09-16 「기간 **조건** 대여료 보증금 분납 연간주행거리 · **만기협의** ·
+   *   이럴 수도 있으니까 **조건을 넣어주고 그 조건별로 묶어** 주면 되잖아」.
+   *   ⇒ 갈래가 «둘»이라고 못 박지 않는다. 원천이 준 이름을 그대로 들고 나가고, 화면은 그 값으로 묶는다.
+   *     그러면 「만기협의」가 새로 와도 화면 코드를 안 고친다.
+   * ⚠ **화면이 `condition` 글자를 쪼개게 하지 않는다.** 표기가 바뀌는 순간 갈래가 통째로 무너진다
+   *   (그 사고를 막으려고 `acquisition` 을 글자 대신 변형키로 판정하게 해 뒀다 — 아래).
+   * ★주행거리 변형(`24_3만`)은 갈래가 아니다 — 그건 `mileage` 가 든다.
+   */
+  branch: string;
+  /**
+   * **연간 주행거리 표시값** — 「연 3만km」. 요금 변형에 있으면 그것, 없으면 정책 약정값.
+   * ★사장님 칸 구성에서 «제 칸»을 받았다(위 `branch` 인용). 그동안 `condition` 안에 섞여 있었다.
+   */
+  mileage: string;
+  /**
    * 만기 **인수형**인가 — 화면에서 반납형과 갈라 세우는 근거(사장님 2026-08-28
    * 「반납형 기본하고 인수형 정보가 있으면 구분해서 써주기로 했잖아 · 구분되게」).
    * ⚠ 조건 **글자**(「만기인수」)로 판정하지 않는다 — 표기가 바뀌면 갈래가 통째로 무너진다.
@@ -413,6 +430,24 @@ export function pricePlanList(p: EntityRecord): PricePlan[] {
     if (!raw) return '';
     return /별도|개인|고객직접/.test(raw) ? '보험 별도' : '보험 포함';
   })();
+  /**
+   * **기본 갈래 이름 — 「만기에 이 차를 어떻게 하나」.**
+   *
+   * ★★★사장님 2026-09-16 「**보통 다 만기협의**야」 · 「**손오공은 반납형 인수형이 확실한** 거고
+   *   **오플은 다 반납형**이고」.
+   *
+   *   · 구독(신차·중고·픽업) = **반납형** — 만기에 반납하는 것이 상품의 정의다.
+   *     손오공은 여기에 «인수형» 요금까지 따로 들고 온다(`12_인수형` 꼴) — 그건 아래 `branch` 가 받는다.
+   *   · 렌트(신차·중고)   = **만기협의** — 정해 둔 것이 없고 만기에 이야기한다.
+   *     ⚠ 여기에 「반납형」을 적으면 **안 정한 것을 정했다고 말하는 것**이다. 손님이 그걸 믿고
+   *       만기에 반납을 요구하면 다툼이 된다.
+   *
+   * ⚠⚠ **공급사 코드를 박지 않는다**(집 규칙 — 「정책은 데이터주도 자동연결, 코드 하드코딩 금지」).
+   *   가르는 잣대는 **상품구분 캐논**(`PRODUCT_TYPES`)이다. 공급사가 늘어도 이 줄은 안 고친다.
+   * ★**임시다.** 진짜 자리는 공급사 정책의 «만기 처리» 칸인데 아직 없다(정책엔 `buyout_notice_days`
+   *   뿐이다). 그 칸이 생기면 **여기 한 곳만** 그 값을 읽게 바꾼다 — 화면은 그대로다.
+   */
+  const baseBranch = /구독/.test(canonProductType((p as Record<string, unknown>).product_type)) ? '반납형' : '만기협의';
   const out: PricePlan[] = [];
   for (const [k, v] of Object.entries(price)) {
     const rawRent = num(v?.rent); if (rawRent <= 0) continue;
@@ -430,7 +465,17 @@ export function pricePlanList(p: EntityRecord): PricePlan[] {
      * 인수형만 표현하면 되고」).
      */
     const condition = [km || policyMileage, insLabel].filter(Boolean).join(' · ');
-    out.push({ m, condition, rent, deposit, standard: !variant || !!km, acquisition: variant === ACQUISITION_VARIANT });
+    out.push({
+      m, condition, rent, deposit,
+      /*
+       * 갈래 = 주행거리가 «아닌» 변형(「인수형」 등). 주행거리 변형은 갈래가 아니라 `mileage` 다.
+       * ★변형이 없으면 **상품구분이 정한 기본**(위 `baseBranch`) — 「반납형」이거나 「만기협의」다.
+       */
+      branch: km ? baseBranch : (variant || baseBranch),
+      mileage: km || policyMileage,
+      standard: !variant || !!km,
+      acquisition: variant === ACQUISITION_VARIANT,
+    });
   }
   // 기간 오름차순 → 같은 기간이면 싼 것 먼저(조건이 헐한 쪽이 위로).
   out.sort((a, b) => a.m - b.m || a.rent - b.rent);
