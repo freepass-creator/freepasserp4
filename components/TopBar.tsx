@@ -65,6 +65,11 @@ const GROUPS: { title: string; items: { href?: string; label: string; icon: Luci
   // ② 관리자 — 일이 이어지는 차례대로(계약을 보내고 → 정산하고 → 사람·회사를 관리한다).
   { title: '', items: [
     { href: '/esign', label: NAV_LABEL.esign, icon: NAV_ICON.esign, roles: ['admin'] },
+    /* 접수 — 정산관리 «바로 앞»의 걸음이라 그 위에 둔다(일이 이어지는 차례가 곧 메뉴 차례다).
+       ⚠ **관리자만**이다. 이 그룹의 규칙 그대로 — 관리자가 보는 정산은 «입력하는 곳»이고,
+         영업자·공급사가 보는 것은 위 그룹의 «정산확인»(/contract)이다. 접수는 그 입력의 첫 칸이라
+         금액이 다 보인다. 그래서 위 그룹(roles: agent·provider)에 두지 않는다. */
+    { href: '/settlement/intake', label: NAV_LABEL.intake, icon: NAV_ICON.intake, roles: ['admin'] },
     { href: '/settlement/ledger', label: NAV_LABEL.ledger, icon: NAV_ICON.ledger, roles: ['admin'] },
     { href: '/members?tab=partner', label: NAV_LABEL.partners, icon: Users, roles: ['admin'] },
     { href: '/members?tab=user', label: NAV_LABEL.members, icon: Users, roles: ['admin'] },

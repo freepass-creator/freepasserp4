@@ -2,7 +2,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import {
   CarFront, MessageCircleMore, FileText, FileSignature, Box, Settings, Star, type LucideIcon, Banknote,
-  Search as SearchIcon, Calculator,
+  Search as SearchIcon, Calculator, ClipboardList,
 } from 'lucide-react';
 import type { Role } from '@/lib/domain/deal';
 
@@ -39,6 +39,8 @@ export const NAV_ICON = {
   inventory: Box,
   settlement: FileText,
   ledger: Banknote,
+  /** 접수 = 원장에 «넣는» 걸음이라 «받아 적는» 그림으로 정산관리(지폐)와 갈라 놓는다. */
+  intake: ClipboardList,
   settings: Settings,
   interest: Star,
   estimate: Calculator,
@@ -86,6 +88,15 @@ export const NAV_LABEL = {
    * ⚠ 월별정산(/settlement)과 다르다. 저건 옛 엔티티 위의 관리자 정산서고, 이건 «정산원장»이다.
    */
   ledger: '정산관리',
+  /**
+   * 접수(/settlement/intake) = 정산관리 «앞»의 걸음. 계약이 들어오면 여기서 재고 차를 골라
+   * 접수 줄을 만들고, 그 줄이 원장(/settlement/ledger)으로 이어진다.
+   * ★**관리자 것이다.** TopBar 주석의 갈래를 그대로 따랐다 — 「관리자가 보는 정산은 «정산관리»
+   *   (**입력하는 곳**)다」. 접수는 그 «입력»의 첫 칸이라 영업자·공급사에게 보이면 안 된다.
+   *   그들이 보는 것은 «정산확인»(/contract)이고, 거기엔 금액이 애초에 안 실린다.
+   * ⚠ 그전에는 메뉴에 없어 `/dev` 개발자 버튼으로만 도달했다 — 「주소를 아는 사람만 쓰는 화면」이었다.
+   */
+  intake: '접수',
   /** 관리자 월별정산(RTDB). 공급사·영업자의 «정산확인»은 계약·정산확인(/contract) 안으로 합쳤다. */
   settlement: '월별정산',
   members: '회원사관리',   // 2026-09-06 사장님 메뉴 재정립 — 그전 이름은 「회원관리」

@@ -170,6 +170,52 @@ const RAW_ALLOW_PAIRS: [string, Allow][] = [
   ['components/PhotoUpload.tsx', { counts: { input: 1 }, reason: '숨김 사진 선택기' }],
   ['features/inventory/InventoryEditorPanes.tsx', { counts: { input: 1 }, reason: '숨김 OCR 파일 선택기' }],
   ['app/settlement/page.tsx', { counts: { input: 1 }, reason: '숨김 정산 엑셀 선택기' }],
+  /*
+   * ★★**정산 접수·콕핏은 «고전 ERP 규격»이다** — 옥상(`sign`)·가게(`shop-ui`)·견적(`welrix`)과 같은 갈래.
+   *   대표 2026-09-05 「되게 **투박하지만** 「아 이런 게 ERP구나」 하는 그냥 사무용 ERP 느낌」
+   *          ·「**이 모바일 버전 필요 없고** … 조금만 더 **고도화**」
+   *   대표 2026-09-10 「레트로 화면은 **입체감 jpkwork랑 맞춰야 함**」·「**jpkwork처럼 똑같이** 하라고」
+   *   ⇒ `components/settlement/classic.css`(2,140줄)·`board.css` 가 통째로 입힌다.
+   *     그 파일이 스스로 못박고 있다 — 「이 파일은 이 화면에만 걸린다. `lib/erp/화면규격.ts` 와
+   *     «섞지 않는다» — 규격은 지금 화면(모바일·PC 한 몸)의 것이다. 섞으면 둘 다 어중간해진다.」
+   *
+   * ★★**왜 원자로 «못» 가나 — 취향이 아니라 «덮어쓰기» 문제다.**
+   *   ㉠ classic 은 **raw 태그 자체**에 규격을 건다:
+   *        `.cl button, .cl input, .cl select { font-family: inherit; font-size: 12px; border-radius: 0 }`
+   *        `.cl .cl-ipt input`·`.cl-cap input`·`.cl-filter select` 가 잔높이·오목·초점을 준다.
+   *        `board.css` 도 `.stl-head select`·`.stl-tab`·`.stl-hit`·`.stl-checks input` 이 그렇다.
+   *   ㉡ 업무동 원자(`Input`/`Select`/`Btn`)는 높이·`borderRadius: R`·배경·글자를
+   *        **인라인 style 로 박는다**(form-controls.tsx · buttons.tsx:68-80).
+   *        인라인은 클래스를 **무조건** 이긴다 — 끼우는 순간 위 규격이 전부 꺼진다.
+   *   ㉢ `Btn variant="bare"` 도 탈출구가 아니다 — bare 도 `padding:0`·`background:none`·
+   *        `borderRadius:0` 을 인라인으로 박는다(`buttons.tsx:59-66`). `SheetView` 예외가
+   *        바로 그 문제로 났고, 여기서도 똑같이 난다.
+   *   ⇒ 원자로 갈면 「각진 모서리 — 둥글면 «앱» 처럼 보인다. ERP 는 «서류» 다」가 깨진다.
+   *     대표가 고른 얼굴이 «앱»이 된다.
+   *
+   * ★★**래칫은 산다** — 개수를 못 박았다. 이 화면에서 raw 가 «하나라도» 늘면 그대로 걸린다.
+   *   ⚠ 예외를 `all: true` 로 열지 마라. 그러면 이 화면만 규칙 밖으로 나가 버리고,
+   *     raw 가 52 에서 100 이 돼도 아무도 모른다. 숫자가 지키는 것이 그것이다.
+   * ⚠ 숫자가 달라지면 「얼굴이 바뀌었다」는 뜻이다 — 고치기 전에 **무엇이 늘었는지 먼저 본다.**
+   *   갚을 빚: classic 규격을 담은 제 원자층(`shop-ui`·`sign/atoms` 같은 지위)으로 모으면
+   *   예외가 파일 하나로 줄어든다. 지금은 화면이 아직 굳는 중이라 미룬다.
+   */
+  ['components/settlement/IntakeStation.tsx', {
+    counts: { button: 14, select: 19, input: 19 },
+    reason: '접수 워크스테이션 — 고전 ERP 규격(classic.css)이 raw 태그에 직접 입힌다. '
+      + 'button 14 = 도구줄 넷(새로고침·직접접수·출력·엑셀) + 조건 지우기 둘 + 홈으로 + 재고 찾기 + '
+      + '「자세히」 펴기 + 직접접수·공유·접수하기·이전·저장 · '
+      + 'select 19 = 달·공급사·채널·수납·발행 다섯(실적/청구 조건) + 재고 조건 열(요금·보증금·제조사·차급·색상·연식·주행·연료·우대·상품·공급사) + 접수 칸 셋(접수구분·상품구분·수납방식) · '
+      + 'input 19 = 찾기칸 둘 + 출고가능만 체크 + 목록 체크 셋(계약서·인도완료·청구) + '
+      + '접수 칸 열셋(차번(datalist)·모델·공급사·고객·채널·영업자·기간·접수일·청구월·대여료·보증금·비고)',
+  }],
+  ['components/settlement/SettlementBoard.tsx', {
+    counts: { select: 1, button: 2, input: 2 },
+    reason: '정산 콕핏 — ERP 껍데기를 벗은 제 얼굴(board.css). 대표 2026-09-09 「프리패스랑 안 붙이고」. '
+      + 'select 1 = 달 고르기(.stl-head select 가 제 높이·색을 준다) · '
+      + 'button 2 = 탭 넷을 그리는 한 자리(.stl-tab) + 재고 히트 줄(.stl-hit — 줄 전체가 누름 영역이라 원자로 못 감싼다) · '
+      + 'input 2 = 계약서·인도완료 체크(.stl-checks input 이 15px·accent-color 를 준다)',
+  }],
   /**
    * 우클릭 메뉴 한 장 안에서 «상세 보기»는 <a>, «ERP 상세 미연결»은 <span>, 복사 둘은 <button>이다.
    * 셋이 .fp-sheet-view__context-action 한 클래스로 **똑같이 보여야** 하는데, Btn은 bare에서도

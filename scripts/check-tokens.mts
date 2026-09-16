@@ -128,14 +128,33 @@ for (const root of ROOTS) {
        * ⚠ **면제는 파일이 아니라 «그 한 줄»이다.** 같은 파일에서 다른 식으로 다시 걸면 그대로 막힌다 —
        *   면제를 파일 단위로 주면 그 파일이 규칙 밖으로 나가 버린다.
        */
+      /*
+       * ★★**주석을 걷고 «본문»만 본다** — 이 검사는 CSS 를 글자로 훑는다.
+       *   그래서 「여기서 다시 걸지 마라」라고 **제대로 적어 둔 설명**까지 위반으로 셌다.
+       *   ⚠ 2026-09-16 실측 — `components/settlement/classic.css` 는 **선언이 0개**인데
+       *     (주석 걷고 재면 0, 안 걷으면 2) 주석 두 줄 때문에 빨간불이 떴다.
+       *     그 주석은 규격을 «지키려고» 적힌 것이다. 지킨 사람이 벌을 받으면
+       *     다음 사람은 «설명을 안 적는» 쪽을 배운다 — 검사가 문서를 갉아먹는다.
+       * ★이 원칙은 아래 whitelabel 예외가 **이미 쓰고 있던 것**이다
+       *   (「주석은 걷고 본다 … 설명까지 위반으로 세면 제대로 적어 둔 자리가 벌을 받는다」).
+       *   한쪽에만 적용돼 있던 것이 결함이었다 — 이제 «한 함수»가 둘을 다 본다.
+       * ⚠ 걷는 것은 «주석»뿐이다. 선언은 그대로 남으므로 규칙이 느슨해지지 않는다
+       *   — 진짜 선언을 심으면 여전히 잡힌다(회귀 탐침으로 확인).
+       */
+      const isCss = r.endsWith('.css');
+      const 본문 = (s: string) => {
+        const noBlock = s.replace(/\/\*[\s\S]*?\*\//g, '');     // /* … */ — CSS·TS 공통
+        /* `//` 주석은 CSS 에 «없다». ts·tsx 에서만 걷고, 그것도 «줄 전체가 주석인» 줄만 —
+           `https://` 같은 것이 코드 한가운데 있어도 안 건드린다. */
+        return isCss ? noBlock : noBlock.replace(/^[ \t]*\/\/.*$/gm, '');
+      };
+
       const SHOP_OFF = ".fp-wl { font-feature-settings: normal; }";
       if (r === 'app/whitelabel.css' && src.includes(SHOP_OFF)) {
-        /* ⚠ 주석은 걷고 본다 — 왜 껐는지 «설명»에도 그 낱말이 나온다. 설명까지 위반으로 세면
-             제대로 적어 둔 자리가 벌을 받는다. */
-        const rest = src.split(SHOP_OFF).join('').replace(/\/\*[\s\S]*?\*\//g, '');
+        const rest = 본문(src.split(SHOP_OFF).join(''));
         if (!/font-feature-settings/.test(rest)) continue;
       }
-      if (/font-feature-settings/.test(src)) {
+      if (/font-feature-settings/.test(본문(src))) {
         hits.push(`  ${r}\n    font-feature-settings 를 다시 걸었습니다 — 뿌리의 «사선 0» 이 이 가지에서 꺼집니다\n    → 꼭 걸어야 하면 'zero' 1 을 함께 적으세요`);
       }
     }
