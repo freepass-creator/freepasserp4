@@ -494,7 +494,7 @@ PR #294의 `docs/예약작업-지도.md`는:
 - 운영 쓰기 문지기 `lib/server/production-sheet-write-gate.ts`는 current main에는 없고 production pin `fb4872dd` 엔진에 있다.
 - `sales-erp-hourly.yml`은 current main을 checkout해서 `cloud-hourly-sync` → `run-hourly-with-ssot-gate` → `hourly-sync`를 실행한다.
 - 그 old path는 `sync-mirror-all.mts`와 `publish-origin-tab.mts`를 다시 호출한다.
-- `mirror-sync.yml`도 current main의 `MIRROR_SOURCES`를 사용하며 RP023 옛 Google Sheet `1TJBG4PABg...`가 아직 `from`으로 남아 있다.
+- `mirror-sync.yml`도 current main의 `MIRROR_SOURCES`를 사용하며 RP023 옛 Google Sheet `1TJBG4PABgly7EtGG6Os5GcY9La7kDR_yex56KHhXe2U`가 아직 `from`으로 남아 있다.
 
 따라서 두 workflow가 GitHub UI에서 정말 disabled인 동안은 active writer 충돌이 아니지만, **누군가 UI에서 재-enable하면 repository CI가 막지 못한 채 legacy writer가 다시 살아날 수 있는 latent conflict**다.
 
@@ -1036,3 +1036,71 @@ PR #312는 production pin/allowlist만 바꾼 것이며 F86 builder의 표시 �
 5. legacy writer latent risk는 별도 구현 판단을 유지한다.
 
 이번 감사에서는 애플리케이션 코드나 비즈니스 로직을 수정하지 않았다.
+
+---
+
+## 2026-09-16(10) — ChatGPT 독립 감사: PR #312 새 production pin 실발행 PASS — HOLD 해소, F86 표시 drift는 유지
+
+### A. 해소됨 — run `35044774559`가 끝까지 `success`, `308511563...`을 최신 완전검증 production pin으로 확정
+
+`2026-09-16(9)-B`에서 HOLD였던 workflow_dispatch run `35044774559`(run #14)를 다시 확인했다.
+
+- workflow: `ERP5 SSOT 원천 최신화(매시간)`
+- head: `59e45d8d69ae94ea7edb0e77e10fa3640bfe0bec`
+- production checkout ref: `308511563d8e8f56dbd94f715469d8ae7ed9171a`
+- job `refresh`: **completed / success**
+- 완료 시각: 2026-09-16 01:51:05 UTC
+
+실제 job의 핵심 단계가 모두 success다.
+
+- 원천 계약 검사 / 현재 원천 재수집 / 티카 유료옵션 감사
+- ERP5 현재 원자 계산 / 정책 참조 정합화
+- ERP5 발행 스냅샷 고정 / 공개 카탈로그 발행 대사
+- **동일 스냅샷으로 F01 판매시트 게시**
+- **F86 발행 직전 백업 / 동일 스냅샷으로 F86 게시**
+- **F86 ↔ 원자 칸 대조·신선도**
+- **원자 ↔ F01 ↔ F86 칸 단위 대조**
+- **차번 셀 사진 링크 대조**
+- 회차 증거 보존
+
+따라서 `(9)-B`의 운영 실발행 HOLD는 **해소됨**이다. PR #312가 복구한 `PR #303 색상 SSOT + PR #308 조건부서식 누적정리 + PR #310 fields-mask 수정` 계보가 실제 운영 F01/F86 회차까지 통과했다.
+
+### B. 확인됨 — 이후 main 변경은 감사/문서 계열이며 production app 회귀 증거 없음
+
+감사 시점 current `main`은 run #14 이후 문서/감사 인계 변경이 추가됐지만, production workflow의 checkout ref는 계속 `308511563...`이다. 최근 `main` CI도 success가 확인됐다.
+
+따라서 이번 감사에서 run #14 PASS 이후 애플리케이션 코드나 비즈니스 로직이 다시 바뀌어 production 계약을 회귀시켰다는 증거는 찾지 못했다.
+
+### C. 충돌 유지 — F86 표시계약 drift는 run PASS로 해소되지 않음
+
+run #14가 성공했다는 것은 **현재 builder가 의도한 규칙대로 정상 발행했다**는 뜻이지, 최신 표시 요구가 구현됐다는 뜻은 아니다.
+
+`308511563...`에는 여전히:
+
+- `scripts/build-channel-supplier-sheet.mts`의 `ensureNoticeTab()` — 공지사항 탭 보장
+- `lib/server/channel-f86-plan.ts`의 공급사 탭 `회사 + 시각 + 대수` 제목
+
+이 남아 있다.
+
+따라서 “공지사항 제거 / 종합만 시간+대수 / 공급사 탭은 이름+대수” F86 presentation contract drift는 **미해소 유지**다. 해결 위치는 F86 projection/builder이며 ERP5 Atom·canonical source·가격/기간 의미는 건드리지 않는다.
+
+### D. 변화 없음 — canonical source·특수탭·legacy writer latent risk 판정 유지
+
+이번 재검증에서 다음 기존 판정을 뒤집을 신규 근거는 없었다.
+
+- canonical registry: RP006=ironrentcar.com, RP012=sokrc.com API, RP023=RebornCar
+- 손오공=`손오공구독`, 오토플러스=`오플구독`, 공급사 고유 기간/요금 축 보존
+- `sales-erp-hourly.yml` / `mirror-sync.yml` cron 잔존과 UI-disable 의존성
+- `MIRROR_SOURCES` RP023 옛 Google Sheet 잔존
+- `docs/예약작업-지도.md`의 engine pin stale
+
+### 최종 판정
+
+1. **`308511563...` = 최신 완전검증 production pin.** run `35044774559`의 F01/F86/cross-audit/photo-audit 전체 PASS.
+2. **PR #312 계보 복구의 운영 검증 HOLD 해소.**
+3. **F86 공지/탭명 presentation drift는 미해소.**
+4. canonical source/손오공·오토플러스 전용탭/legacy writer latent risk는 기존 판정 유지.
+
+상세 보강 근거는 `docs/ai-ssot-audit/2026-09-16-chatgpt-run14-production-pass.md`를 함께 본다.
+
+이번 감사에서도 애플리케이션 코드나 비즈니스 로직은 수정하지 않았다.
