@@ -56,6 +56,24 @@ const pass = (message: string) => passes.push(message);
 const fail = (message: string) => failures.push(message);
 const check = (condition: boolean, message: string) => condition ? pass(message) : fail(message);
 
+// ★2026-09-16 — 이 게이트를 CI 에 걸려고 실측하니 FAIL 21 중 «20 건이 운영 환경변수»였다.
+//   CI 는 운영 시크릿을 갖고 있지 않고, 가져서도 안 된다. 그대로 걸면 상시 빨간불이고
+//   상시 빨간 CI 는 아무도 안 본다(오늘 renman 12일 연속 실패 방치에서 본 그것).
+//   반대로 서비스계정 private key 모양의 «가짜값»을 CI 에 심으면 게이트가 거짓 통과를 낸다 —
+//   이 파일이 2026-08-05 product 브리지에서 이미 한 번 당한 종류다(「실패보다 나쁜 거짓 통과」).
+//   그래서 갈래를 나눈다. --code-only 는 «저장소 안에서 판단 가능한 코드 계약»만 본다.
+//   env 와 후보 Rules 는 SKIP 으로 «명시»하고(조용히 건너뛰지 않는다), 출시 직전에 사람이
+//   인자 없이 한 번 더 돌려 전량을 확인한다.
+const codeOnly = process.argv.includes('--code-only');
+const skipped: string[] = [];
+const envCheck = (condition: boolean, message: string) => {
+  if (codeOnly) {
+    skipped.push(message);
+    return;
+  }
+  check(condition, message);
+};
+
 const hasActiveAssignedUserGate = (rule: string): boolean => (
   rule.includes("child('status').val() !== 'pending'")
   && rule.includes("child('status').val() !== 'deleted'")
@@ -81,7 +99,7 @@ for (const name of [
   'NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET',
   'NEXT_PUBLIC_FIREBASE_APP_ID',
 ]) {
-  check(present(name), `환경변수 ${name}`);
+  envCheck(present(name), `환경변수 ${name}`);
 }
 // ★예전엔 «NEXT_PUBLIC_DATA_BACKEND === 'rtdb'» 를 «필수 PASS 조건»으로 요구했다. 그 검사는 뒤집었다.
 //   · RTDB 는 2026-09-14 대표 직접 결정으로 영구 폐기됐고, 2026-09-15 컷오버(381ea02e)가
@@ -89,7 +107,7 @@ for (const name of [
 //   · 그대로 두면 «폐기한 백엔드를 다시 켜야만 출시가 통과»한다 — 게이트가 폐기물을 강제하는 꼴이다.
 //   지우지 않고 반대를 본다: rtdb 로 «되돌아가 있으면» 출시를 막는다.
 //   (같은 파일의 'product v3 브리지 미설정(폐기 상태 유지)' 검사와 같은 방식)
-check(String(envValue('NEXT_PUBLIC_DATA_BACKEND') || '').trim().toLowerCase() !== 'rtdb', '폐기된 RTDB 백엔드 미복귀(NEXT_PUBLIC_DATA_BACKEND)');
+envCheck(String(envValue('NEXT_PUBLIC_DATA_BACKEND') || '').trim().toLowerCase() !== 'rtdb', '폐기된 RTDB 백엔드 미복귀(NEXT_PUBLIC_DATA_BACKEND)');
 
 for (const [name, label] of [
   ['NEXT_PUBLIC_OPERATOR_COMPANY', '상호'],
@@ -99,9 +117,9 @@ for (const [name, label] of [
   ['NEXT_PUBLIC_OPERATOR_EMAIL', '문의 이메일'],
   ['NEXT_PUBLIC_OPERATOR_PRIVACY_OFFICER', '개인정보 보호책임자'],
 ] as const) {
-  check(present(name), `법적 운영자 정보 ${label}`);
+  envCheck(present(name), `법적 운영자 정보 ${label}`);
 }
-check(
+envCheck(
   String(envValue('NEXT_PUBLIC_REQUIRE_LEGAL_RECONSENT') || '').trim().toLowerCase() === 'true',
   '기존 회원 약관 재동의 게이트 ON',
 );
@@ -112,7 +130,7 @@ for (const name of [
   'GOOGLE_DRIVE_REFRESH_TOKEN',
   'GOOGLE_DRIVE_BACKUP_FOLDER_ID',
 ]) {
-  check(present(name), `Drive 백업 환경변수 ${name}`);
+  envCheck(present(name), `Drive 백업 환경변수 ${name}`);
 }
 let serviceProject = '';
 let serviceAccountValid = false;
@@ -129,16 +147,16 @@ try {
     && /BEGIN PRIVATE KEY/.test(String(service.private_key || ''))
   );
 } catch { /* 형식 실패 */ }
-check(serviceAccountValid, '서버 전용 FIREBASE_SERVICE_ACCOUNT_JSON 유효 형식');
-if (serviceAccountValid) {
+envCheck(serviceAccountValid, '서버 전용 FIREBASE_SERVICE_ACCOUNT_JSON 유효 형식');
+if (serviceAccountValid && !codeOnly) {
   check(serviceProject === String(envValue('NEXT_PUBLIC_FIREBASE_PROJECT_ID') || '').trim(), '클라이언트·서버 Firebase project_id 일치');
 }
-check(String(envValue('VEHICLE_CLAIM_SERVER_ENABLED') || '').trim().toLowerCase() === 'true', '차량 원자 선점 서버 kill switch ON');
-check(String(envValue('NEXT_PUBLIC_ATOMIC_VEHICLE_CLAIMS') || '').trim().toLowerCase() === 'true', '차량 원자 선점 클라이언트 경로 ON');
-check(String(envValue('IRONRENTCAR_SYNC_ENABLED') || '').trim().toLowerCase() === 'true', '아이언 홈페이지 재고 연동 ON');
+envCheck(String(envValue('VEHICLE_CLAIM_SERVER_ENABLED') || '').trim().toLowerCase() === 'true', '차량 원자 선점 서버 kill switch ON');
+envCheck(String(envValue('NEXT_PUBLIC_ATOMIC_VEHICLE_CLAIMS') || '').trim().toLowerCase() === 'true', '차량 원자 선점 클라이언트 경로 ON');
+envCheck(String(envValue('IRONRENTCAR_SYNC_ENABLED') || '').trim().toLowerCase() === 'true', '아이언 홈페이지 재고 연동 ON');
 
 const daily = String(envValue('SHEET_DAILY_SYNC_ENABLED') || '').trim().toLowerCase();
-check(daily !== 'true', '미결 Sheet 충돌 동안 일일 자동동기화 OFF');
+envCheck(daily !== 'true', '미결 Sheet 충돌 동안 일일 자동동기화 OFF');
 
 try {
   const lock = JSON.parse(readFileSync('package-lock.json', 'utf8')) as {
@@ -163,12 +181,21 @@ try {
 //  이제는 반대를 본다: 환경변수에 product 를 적어도 브리지가 열리지 않아야 한다.
 const bridgeSetting = envValue('NEXT_PUBLIC_BRIDGE_V3');
 const bridged = (bridgeSetting || '').split(',').map((value) => value.trim()).filter(Boolean);
-check(!bridged.includes('product'), 'product v3 브리지 미설정(폐기 상태 유지)');
+envCheck(!bridged.includes('product'), 'product v3 브리지 미설정(폐기 상태 유지)');
 
 // 후보 Rules 는 .gitignore(39행) 된 «생성물»이다 — 저장소에 없는 게 정상이고,
 // scripts/ruleprobe/build-release-candidate.mjs 가 database.rules.json 에서 만든다.
 // 없으면 아래 Rules 검사 4건이 «안 돈다» — 그러니 FAIL 은 유지하되 무엇을 해야 하는지 적는다.
-if (!existsSync(rulesFile)) {
+// ★--code-only(=CI)에서는 이 4건을 «안 돈다»고 명시하고 넘어간다. 근거:
+//   ① 후보 Rules 는 database.rules.json(= RTDB 보안 규칙)에서 만들어 RTDB 콘솔에 붙여넣는
+//      물건이다(OPEN_RUNSHEET.md 97행). RTDB 는 2026-09-14 대표 직접 결정으로 영구 폐기됐다.
+//   ② 즉 CI 가 이걸 생성해 검사하면 «폐기한 백엔드의 규칙»을 매 push 마다 지키게 된다.
+//   ③ 생성 스크립트를 CI 에 넣는 것은 CI 가 .gitignore 된 산출물을 만들어 검사하는 꼴이라
+//      검사 대상이 저장소에 없다 — 무엇을 지켰는지 diff 로 확인할 수 없다.
+//   ⇒ 이 4건은 «수동 전용»으로 둔다. RTDB 를 실제로 다시 쓸 일이 생기면 그때 되살린다.
+if (codeOnly) {
+  skipped.push(`후보 Rules 검사 4건 (RTDB 보안 규칙 대상 · RTDB 폐기로 수동 전용: ${rulesFile})`);
+} else if (!existsSync(rulesFile)) {
   fail(`후보 Rules 파일 존재: ${rulesFile} (생성물 — \`node scripts/ruleprobe/build-release-candidate.mjs\` 실행 후 다시 돌려라. 이 파일이 없으면 아래 Rules 검사 4건은 실행되지 않는다)`);
 } else {
   try {
@@ -278,8 +305,16 @@ if (!missingRequired.length) {
   );
 }
 
-console.log(`B2B 출시 게이트 · env=${envFile} · rules=${rulesFile}`);
+console.log(
+  codeOnly
+    ? 'B2B 출시 게이트 · --code-only(코드 계약만) · env·후보 Rules 는 SKIP'
+    : `B2B 출시 게이트 · env=${envFile} · rules=${rulesFile}`,
+);
 for (const message of passes) console.log(`PASS ${message}`);
+for (const message of skipped) console.log(`SKIP ${message}`);
 for (const message of failures) console.log(`FAIL ${message}`);
-console.log(`\n결과: ${failures.length ? 'NO-GO' : 'GO-CANDIDATE'} · PASS ${passes.length} · FAIL ${failures.length}`);
+console.log(
+  `\n결과: ${failures.length ? 'NO-GO' : codeOnly ? 'CODE-OK(출시 판정 아님 — 인자 없이 다시 돌려라)' : 'GO-CANDIDATE'}`
+  + ` · PASS ${passes.length} · SKIP ${skipped.length} · FAIL ${failures.length}`,
+);
 if (failures.length) process.exitCode = 1;
