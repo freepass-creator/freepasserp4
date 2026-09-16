@@ -61,7 +61,24 @@ export async function loadMenuBadges(role: Role, co = getCompanyId()): Promise<M
     if (inProgress > 0) out['/contract'] = inProgress;
   } catch { /* ignore */ }
 
-  if (role === 'admin') {
+  /*
+   * ★★**«붙을 자리»가 없으면 세지도 않는다** — 2026-09-16.
+   *   이 숫자는 `HAMBURGER_KEYS`(위)가 `/chat` 하나만 통과시켜서 **어디에도 안 붙는다.**
+   *   `menuItemBadge`·`menuBadgeTotal` 둘 다 그 Set 으로 거르고, `AppTabBar` 의 `badgeKey` 는
+   *   정의된 탭이 하나도 없다(`lib/tabbar.tsx` 실측). 그런데도 `store.list('settlement', co)` 는
+   *   **정산 컬렉션을 통째로** 읽었다 — 관리자마다, 포커스·가시성 전환마다, 소비자 0 인 채로.
+   *   ⇒ 「계산만 하고 버려지는」 낭비만 걷는다. **화면은 한 픽셀도 안 바뀐다.**
+   *
+   * ⚠⚠ **배지를 «띄우는» 것은 다른 일이다 — 대표 확인이 먼저다.**
+   *   `/settlement` 를 `HAMBURGER_KEYS` 에 넣으면 관리자에게 「정산대기 N건」 배지가 **새로 생긴다.**
+   *   그건 관리자가 하루를 여는 숫자를 하나 더 만드는 일이라, 무엇을 «내 차례»로 셀지
+   *   (`settlementNeedsAttention` 의 뜻)까지 같이 정해야 한다. 여기서 몰래 켜지 않는다.
+   *   ★켜기로 하면 이 `if` 와 `HAMBURGER_KEYS` 를 **같이** 고친다 — 한쪽만 고치면 또 버려진다.
+   *
+   * ⚠ `/contract` 쪽(위)은 그대로 둔다 — 거긴 이미 읽어 온 `contracts` 를 «거를» 뿐이라
+   *   아낄 읽기가 없다. 없애도 얻는 게 없고, 배지를 켤 때 다시 짜야 한다.
+   */
+  if (role === 'admin' && HAMBURGER_KEYS.has('/settlement')) {
     try {
       const setts = await store.list('settlement', co);
       const pending = setts.filter((s) => s._deleted !== true && settlementNeedsAttention(s)).length;
