@@ -33,7 +33,12 @@ CLI 연결 여부와 무관하게 이 저장소를 여는 누구나 여기부터
 git checkout -b feat/cherry-picks main
 git cherry-pick d96d0a0f                    # source-snapshot-engine, 충돌 없이 깨끗하게 적용됨
 git checkout df92c014 -- sonokong/lib/tcar-options.mjs scripts/fix-tcar-description-options.mts
-git checkout 16b565a2 -- sonokong/lib/tcar-options.mjs sonokong/scripts/손오공.mjs   # 손오공.mjs는 수동 병합 필요
+git checkout 16b565a2 -- sonokong/lib/tcar-options.mjs sonokong/scripts/손오공.mjs   # 그대로 checkout이 정답 — 수동 병합 불필요
+#   ★2026-09-16 정정: 위 줄에 원래 「손오공.mjs는 수동 병합 필요」라고 적혀 있었으나 근거 없는 보수적 경고였다.
+#   blob 3자 대조 결과 16b565a2는 df92c014의 직계 자식(사이 커밋 0개)이라 두 변경은 누적 관계이고,
+#   main은 fork 이후 손오공.mjs·tcar-options.mjs를 한 줄도 건드리지 않았다(공통조상과 blob 동일).
+#   따라서 3-way 병합의 정답이 16b565a2 버전 그대로다. 덮어쓰기는 손실이 아니라 의도된 최신화다.
+#   실행 결과: 브랜치 feat/cherry-picks, tsc --noEmit 에러 0 경고 0 통과.
 git checkout 18338c6d -- lib/domain/inventory-contract.ts lib/server/sales-publish-snapshot.ts
 git checkout c01944f6 -- lib/domain/photo-projection.ts
 npm ci && npm run typecheck
