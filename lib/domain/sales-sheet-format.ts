@@ -393,8 +393,11 @@ export function buildSalesFormatRequests(input: FormatInput): Record<string, unk
   };
   byValue('구분', GUBUN_INK);
   // 손오공 구독과 T카 픽업구독은 같은 공급사여도 서로 다른 매물 갈래다.
-  // 상태 색(green·amber·blue·orange·red)과 겹치지 않게 보라/자홍으로 가른다.
-  byValue('분류', [['중고구독', '7E57C2'], ['픽업구독', 'C2185B']]);
+  // 상태 색(green·amber·blue·orange·red)과 겹치지 않게 가른다.
+  // ★픽업구독 색은 임의 hex 를 새로 만들지 않고 이미 쓰는 토큰을 그대로 가져온다 —
+  //   components/ui/badges.tsx `productTypeStyle['픽업구독'] = 'teal'`(하늘/청록 계열) 의 글자색
+  //   `--bdg-teal-fg`(라이트 `#0F766E`)와 같은 값. 이전 자홍(`C2185B`)은 폐기(2026-09-16).
+  byValue('분류', [['중고구독', '7E57C2'], ['픽업구독', '0F766E']]);
   byValue('배차상태', STATE_INK);
   byValue('상태', STATE_INK);
   /**
