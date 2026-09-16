@@ -4,8 +4,9 @@
   --bg:#f2f6fe; --panel:#fff; --soft:#eaf1fc; --navy:#0e1f3d;
   --ink:#0f1c34; --ink2:#54627c; --ink3:#94a0b6; --line:rgba(20,45,90,.09);
   --blue:#1763d6; --blue2:#3b8df0; --cyan:#19b6e8; --blue-soft:rgba(23,99,214,.08);
-  --sh:0 2px 6px rgba(23,60,130,.05),0 16px 40px -18px rgba(23,60,130,.22);
-  --shh:0 26px 60px -22px rgba(23,60,130,.34);
+  --sh:0 2px 6px rgba(23,60,130,.05),0 18px 44px -20px rgba(23,60,130,.24);
+  --shh:0 28px 64px -24px rgba(23,60,130,.36);
+  --r:20px;
   --grad:linear-gradient(120deg,#1763d6,#3b8df0 60%,#19b6e8);
   --nav-h:64px; --wrap:1200px;
 }
@@ -16,15 +17,17 @@ a{color:inherit;text-decoration:none} img,svg,canvas{display:block}
 .wrap{max-width:var(--wrap);margin:0 auto;padding:0 28px}
 .ex,.kicker,.eyebrow,.num,.logo,.foot-logo,.step-n,.k{font-family:"Exo 2","Pretendard",sans-serif}
 
-/* 버튼 */
-.btn{display:inline-flex;align-items:center;gap:9px;font-size:15px;font-weight:700;cursor:pointer;border:0;background:none;font-family:inherit;color:var(--ink);position:relative;padding:6px 0}
-.btn svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:transform .25s}
-.btn::after{content:"";position:absolute;left:0;bottom:0;height:2px;width:0;background:currentColor;transition:width .28s cubic-bezier(.2,.7,.2,1)}
+/* 버튼 — 필 형태(모빌리티 시안 기준) */
+.btn{display:inline-flex;align-items:center;gap:9px;font-size:15px;font-weight:700;cursor:pointer;border:0;background:none;font-family:inherit;color:var(--ink);position:relative;padding:15px 26px;border-radius:999px;transition:.22s cubic-bezier(.2,.7,.2,1)}
+.btn svg{width:17px;height:17px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:transform .25s}
 .btn:hover svg{transform:translateX(4px)}
-.btn:hover::after{width:100%}
-.btn-fill{color:var(--blue)}.btn-fill::after{width:100%;opacity:.3}.btn-fill:hover::after{opacity:1}
-.btn-ghost{color:var(--ink2)}
-.btn-link{color:var(--blue)}
+.btn-fill{color:#fff;background:var(--navy);box-shadow:0 14px 28px -14px rgba(14,31,61,.55)}
+.btn-fill:hover{background:var(--blue);box-shadow:0 16px 34px -14px rgba(23,99,214,.6);transform:translateY(-2px)}
+.btn-ghost{color:var(--ink);background:var(--panel);box-shadow:inset 0 0 0 1.5px var(--line)}
+.btn-ghost:hover{box-shadow:inset 0 0 0 1.5px var(--blue);color:var(--blue);transform:translateY(-2px)}
+.btn-link{display:inline-flex;align-items:center;gap:9px;font-size:15px;font-weight:700;color:var(--blue);padding:6px 0;position:relative}
+.btn-link::after{content:"";position:absolute;left:0;bottom:0;height:2px;width:0;background:currentColor;transition:width .28s cubic-bezier(.2,.7,.2,1)}
+.btn-link:hover::after{width:100%}.btn-link:hover svg{transform:translateX(4px)}
 
 /* NAV */
 .nav{position:fixed;top:0;left:0;right:0;z-index:100;padding-top:env(safe-area-inset-top,0px);background:rgba(242,246,254,.8);backdrop-filter:blur(16px) saturate(1.4);transition:box-shadow .25s}
@@ -66,6 +69,23 @@ a{color:inherit;text-decoration:none} img,svg,canvas{display:block}
 .hero-net .tagL{left:0;top:33%;color:var(--ink2)}
 .hero-net .tagR{right:0;top:6%;color:var(--blue)}
 .hero-net .tagC{left:40%;top:50%;transform:translate(-50%,-50px);font-family:"Exo 2";font-weight:800;font-size:14px;color:var(--blue)}
+
+/* HERO 키 비주얼 — 겹쳐진 다이아몬드 판(시안 01 기준), 네트워크 점선은 그 위에 얹는다 */
+.diagrid{position:absolute;inset:8% 4% 10% 4%;z-index:0;pointer-events:none}
+.diagrid .dg{position:absolute;border-radius:22px;transform-origin:50% 50%}
+.diagrid .dg1{inset:8% 30% 46% 0;background:linear-gradient(155deg,rgba(23,99,214,.16),rgba(59,141,240,.05));transform:rotate(-14deg);box-shadow:var(--sh)}
+.diagrid .dg2{inset:0 14% 30% 22%;background:linear-gradient(155deg,rgba(23,99,214,.28),rgba(25,182,232,.08));transform:rotate(-8deg);box-shadow:var(--sh)}
+.diagrid .dg3{inset:20% 0 14% 40%;background:linear-gradient(155deg,#fff,rgba(234,241,252,.7));transform:rotate(-5deg);box-shadow:var(--shh)}
+.diagrid .dg4{inset:38% -4% 0 54%;background:var(--grad);opacity:.92;transform:rotate(-11deg);box-shadow:0 24px 54px -20px rgba(23,99,214,.5)}
+@media(prefers-reduced-motion:no-preference){
+  .diagrid .dg{animation:dgfloat 7s ease-in-out infinite}
+  .diagrid .dg1{animation-name:dgfloat1}.diagrid .dg2{animation-name:dgfloat2;animation-delay:-1.4s}
+  .diagrid .dg3{animation-name:dgfloat3;animation-delay:-2.8s}.diagrid .dg4{animation-name:dgfloat4;animation-delay:-4.2s}
+}
+@keyframes dgfloat1{0%,100%{transform:translateY(0) rotate(-14deg)}50%{transform:translateY(-9px) rotate(-14deg)}}
+@keyframes dgfloat2{0%,100%{transform:translateY(0) rotate(-8deg)}50%{transform:translateY(-11px) rotate(-8deg)}}
+@keyframes dgfloat3{0%,100%{transform:translateY(0) rotate(-5deg)}50%{transform:translateY(-8px) rotate(-5deg)}}
+@keyframes dgfloat4{0%,100%{transform:translateY(0) rotate(-11deg)}50%{transform:translateY(-10px) rotate(-11deg)}}
 
 /* SECTIONS */
 .sec{padding:clamp(72px,9vw,118px) 0}
@@ -133,6 +153,20 @@ a{color:inherit;text-decoration:none} img,svg,canvas{display:block}
 .field input:focus,.field textarea:focus,.field select:focus{outline:none;background:#fff;box-shadow:0 0 0 2px var(--blue)}
 .field textarea{min-height:118px;resize:vertical}
 .send{grid-column:1/-1;justify-self:start;margin-top:4px}
+
+/* CTA 배너 (푸터 위, 시안 08 기준) */
+.cta-band{background:var(--navy);position:relative;overflow:hidden;padding:clamp(56px,7vw,84px) 0}
+.cta-band::before{content:"";position:absolute;inset:0;background:
+  radial-gradient(50% 90% at 14% 30%,rgba(59,141,240,.24),transparent 60%),
+  radial-gradient(45% 80% at 88% 80%,rgba(25,182,232,.16),transparent 60%)}
+.cta-band-in{position:relative;z-index:1;display:flex;align-items:center;justify-content:space-between;gap:32px;flex-wrap:wrap}
+.cta-band h2{color:#fff;font-size:clamp(24px,3.2vw,36px);font-weight:800;letter-spacing:-1px;line-height:1.3}
+.cta-band p{color:rgba(255,255,255,.6);margin-top:10px;font-size:15.5px}
+.cta-band .acts{display:flex;gap:12px;flex-wrap:wrap}
+.cta-band .btn-fill{background:#fff;color:var(--navy);box-shadow:0 14px 30px -14px rgba(0,0,0,.4)}
+.cta-band .btn-fill:hover{background:var(--cyan);color:#fff}
+.cta-band .btn-ghost{background:transparent;color:#fff;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.3)}
+.cta-band .btn-ghost:hover{box-shadow:inset 0 0 0 1.5px #fff;color:#fff}
 
 /* FOOTER (딥네이비 대비) */
 .foot{background:var(--navy);color:rgba(255,255,255,.55);padding:56px 0 64px;font-size:13.5px;line-height:1.95}
