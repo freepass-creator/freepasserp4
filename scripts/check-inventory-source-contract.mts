@@ -65,6 +65,21 @@ const VALIDATED_ENGINES = [
   'a0b5a66c94870ea843a7a9f15daba986954c788e',   // + F01 발행 시 옛 조건부서식 삭제(PR #308 cherry-pick) — 수집기 미변경
   '0c4ec76b605c3ac50efcd9483dd2294bd89e22c0',   // + fields 마스크 400 긴급수정(PR #310 cherry-pick) — 수집기 미변경
   '308511563d8e8f56dbd94f715469d8ae7ed9171a',   // + (2)+(3)+(4) 재정렬 — (4)가 (2) 없는 가지에서 갈라져 색 SSOT가 빠졌던 것 수정
+  '1939018a8edb0f4993d61e12e5e0df4864ca9cb8',   // + F86 표시규격 다섯(구분·배차상태 값별색 공유 · 공지사항 탭 없음 · 탭이름은 종합만 시각 · 장기요금 없는 차도 실음 · 하이픈류도 미입력) — 수집기 미변경
+  '1f923d27bb9b6a8327afe0f7f5aa38eac8d6cd8f',   // + 「미입력」·「해당없음」 연한 회색(MISSING_INK) — 수집기 미변경
+  /**
+   * ★2026-09-16 — **이 엔진은 수집기를 «건드렸다».** 위 항목들과 달라서 따로 적는다.
+   *   사장님 지시 「정산원장에 차량번호가 접수에 들어온다는건 계약중으로 바뀐다는거지, 그러다가
+   *   공급사 원천시트에서 불가가 되거나 삭제되면 출고불가 되는거고」로
+   *   `ingest-supplier-to-firestore.mts` 의 「계약중(락)은 원천에서 빠져도 안 내린다」 예외를 없앴다.
+   *   ⇒ 계약중이던 차가 원천에서 사라지면 이제 출고불가(계약완료)가 된다. 출고협의·상품화중은 그대로 지킨다
+   *     (손오공 API 는 `계약가능=Y` 인 차만 주므로 그 상태는 원래 안 보여 준다).
+   *   ★fail-closed 가드 셋(SSOT HARD GUARD · inventory-source-registry · process.exit(2))은 그대로다
+   *     — 위 43~49행이 그것을 검사하고 통과한다. canonical registry·원천 주소도 안 건드렸다.
+   *   함께 든 것: 차량번호 고정 링크색 제거(링크 있는 줄만 파랑) · 정산원장 접수→락
+   *     (sync-vehicle-lock-from-ledger.mts 신설) · 색·표시낱말 SSOT 통일과 잠금(check:color-ssot).
+   */
+  '2e880cefa96e3fa4bfc79902fed448d5bd74abdb',
 ];
 const pinnedEngine = VALIDATED_ENGINES.find((engine) => workflow.includes(`ref: ${engine}`));
 assert(pinnedEngine, '검증 엔진 pin이 제거됐습니다. main collector 이식 완료 전에는 pin을 풀면 안 됩니다(새 엔진은 VALIDATED_ENGINES 에 적는다).');
