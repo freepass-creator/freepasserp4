@@ -49,11 +49,17 @@ current `.github/workflows/erp5-ssot-refresh.yml` production checkout ref:
 
 Source Contract allowlist drift는 PR #325 이후 해소됐고 run `35067923610`이 green이었다.
 
-current application/checker main 기준점은 PR #337 merge:
+`check:shop-data-parity` 해소 기준점은 PR #337 merge:
 
 - `7535c581245f89b2da95f910e05fead4d14a24e2`
 
-그 뒤 ChatGPT 감사 문서 commit만 추가됐다. PR #337은 `scripts/sim-shop-data-parity.mts` 한 파일만 수정했으며 application business logic, production pin, writer, canonical source, F01/F86 projection 구현은 변경하지 않았다.
+그 뒤 PR #336이 이 commit을 base로 merge되어 실제 application main은 다음까지 전진했다.
+
+- `d9cbc3f98577a18048a37657d7ddd1955433d4ee` — 업무동 `ProductRowCard` 모바일 카드에 웹과 같은 출고상태·상품구분·옵션 표시 + `check-design-locked` 잠금 갱신
+
+PR #336은 `components/ProductRowCard.tsx`, `scripts/check-design-locked.mts` 두 파일만 바꾼 **UI presentation parity 변경**이다. canonical source, ERP5 writer, production pin, F01/F86 projection writer, special-tab routing, mirror/RTDB 경로는 변경하지 않았다. main push CI run `35118126431`도 success다.
+
+따라서 audit `(21)`의 parity-checker 해소 판정은 그대로 유효하고, PR #336은 SSOT source/writer 판정을 뒤집지 않는다. 이후 current main에는 ChatGPT 감사 문서 commit만 추가됐다.
 
 `2e880cef...` current collector semantics 기준 **정규 scheduled F01/F86 full-audit 성공은 여전히 HOLD**다. schedule dispatch 자체가 2026-09-16 16:18:54 KST 이후 관측되지 않은 상태가 이어지고 있다.
 
@@ -116,10 +122,9 @@ PR #337이 audit `(18)~(20)`의 checker-contract drift를 해소했다.
 검증:
 
 - PR head `ff02d8f662e84290c949d1b3a3e1a2c388d9dacd` `verify` success
-- main push CI run `35117788232` / head `7535c581...` **success**
-- `웹·모바일이 같은 Firestore 피드를 쓰는가` success
-- `RTDB 스왑점 밖 직접 열기` success
-- Production build success
+- PR #337 main push CI run `35117788232` / head `7535c581...` success
+- 후속 PR #336 main push CI run `35118126431` / head `d9cbc3f...`도 success
+- `웹·모바일이 같은 Firestore 피드를 쓰는가` / `RTDB 스왑점 밖 직접 열기` / Production build ratchet은 green 상태 유지
 
 따라서 이전 `latest main CI red / parity checker 수리 필요` 지시는 **폐기**한다. 현재 ratchet 의미를 약화시키지 않는다.
 
