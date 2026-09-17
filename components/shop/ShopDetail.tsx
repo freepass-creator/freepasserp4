@@ -16,8 +16,6 @@ import {
 import { useIsMobile } from '@/lib/use-mobile';
 import { useProductPhotos } from '@/components/use-product-photos';
 import { haptic } from '@/lib/haptics';
-import { getAuthClient } from '@/lib/firebase/client';
-import { useSession, useAuthReady } from '@/lib/auth-context';
 import { canonProductType, creditDisplay, CREDIT_UNSET, parseProductOptions, pricePlanList } from '@/lib/domain/product';
 import { PERKS, hasPerk } from '@/lib/domain/product-filters';
 import { displacementL } from '@/components/product-card-identity';
@@ -1365,17 +1363,6 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
           : <Missing />}
       </Sec>
 
-      {/*
-        ★★**맨 밑 — 영업자 전용 칸.** 손님에게는 «없는 것»이고, 로그인한 우리 식구에게만 생긴다
-          (사장님 2026-09-06 「손님한테 보여주는 그 페이지에 **영업자들만 보는 섹션**을 하나 둬서
-          **공급사가 어딘지** … **맨 마지막 밑에다가**. 고거는 **로그인한 사람만** 보고,
-          로그인은 **영업자·직원만** 할 수 있고」).
-        ★자리가 «맨 밑»인 이유 — 손님과 마주 앉아 화면을 같이 보는 일이 있다. 위에 있으면
-          스크롤 도중에 우리끼리 볼 값이 손님 눈에 스친다. 맨 밑은 내려야만 나온다.
-        ⚠ 값은 손님 응답에 «실려 오지 않는다» — 따로 문(`/api/shop/inside`)을 두고 토큰을 든
-          사람에게만 준다. 화면에서 가리는 것은 막은 게 아니다(집 규격).
-      */}
-      <ShopInside code={String(p._key || p.product_code || '')} mobile={mobile} />
 
       {hasPolicy ? (
         <p style={{ margin: `${SHOP.sp.part}px 0 0`, fontSize: SHOP.fs.cap, color: C.faint, lineHeight: 1.7 }}>
@@ -1887,129 +1874,18 @@ function DefList({ rows, mobile, strongFirst }: {
  *   나이는 「메인에 올라갈 필요가 없다」 하셔서 칸으로 내렸고, 보증금·면책금도 각자 자리를 찾았다.
  *   ★이 화면에서 «면 위 큰 값»은 **대여료 한 줄뿐**이다. 그래야 그 줄이 선다.
  */
-/**
- * **영업자 전용 칸** — 상세 맨 밑. 손님에게는 «아예 안 그려진다».
+/*
+ * ⚠⚠ **여기 「영업자 전용 칸」(`ShopInside` + `InsideBody`)이 있었다 — 걷었다**
+ *   (사장님 2026-09-17 「화이트라벨에서 erp4 아예 분리해서 **로그인 기능 아예 없는 거야**」 ·
+ *    공급사 칸은 「없앤다」 확정).
  *
- * ★사장님 2026-09-06 「그 **영업자들만 보는 섹션**을 하나 둬서 **공급사가 어딘지** …
- *   고거는 **로그인한 사람만** 보고, 로그인은 **영업자·직원만** 할 수 있고」.
- *
- * ★★**«가리는» 게 아니라 «안 받는» 것이다.** 손님 응답(`/api/catalog/feed`·`/api/catalog/quote`)에는
- *   공급사·원천이 애초에 없다(`sanitizeProductForGuest` 의 명단 밖). 이 칸은 **다른 문**
- *   (`/api/shop/inside`)에 **토큰을 들고** 물어서 받는다 — 로그아웃한 브라우저에는 값이 «내려가지도»
- *   않는다. 화면에서 CSS 로 감추는 것은 개발자도구 한 번이면 끝이다.
- * ★공급사 계정은 «제 차»만 본다 — 여러 공급사의 차가 한 판에 서는 곳이라, 남의 공급사 이름을
- *   보여 주면 경쟁사에게 매입처를 알려 주는 꼴이 된다(라우트가 403 으로 막는다).
- * ⚠ **원가·마진은 여기 없다.** 그건 견적(`/estimate`)의 몫이고 명단이 다르다(관리자·공급사).
+ * ★그 칸은 2026-09-06 에 「영업자들만 보는 섹션 — 공급사가 어딘지」로 만든 것이고,
+ *   **로그인한 사람에게만** 보이도록 문(`/api/shop/inside`)까지 따로 두고 있었다.
+ *   손님 동에서 로그인을 통째로 걷었으므로 이 칸은 설 자리가 없다 — 로그인 없이 공급사를
+ *   보여 주면 손님·경쟁사·영업채널이 다 본다(그 라우트가 403 으로 막던 바로 그것이다).
+ * ★**공급사는 업무동에서 본다** — `/m/[code]` 상세가 그 자리다(거기는 로그인이 있다).
+ * ⚠ 문(`app/api/shop/inside`)은 **그대로 둔다** — 업무동이 쓰고, 토큰 없이는 401 이다.
  */
-type InsideBody = {
-  provider: string; providerCode: string; source: string;
-  vehicleStatus: string; productType: string; lockedBy: string;
-  updatedAt: number; location: string;
-  penalty: string; penaltyUnder1y: string; penaltyOver1y: string;
-  lateFeeRate: string; overdueRounds: string; autoTerminateDays: string; engineControlDays: string;
-  depositReturnDays: string; buyoutNoticeDays: string; impoundKeepDays: string;
-  commissionClawback: string; age21Cost: string; age23Cost: string;
-  creditGrade: string; gpsInstalled: string; disqualification: string; salesNotes: string;
-};
-function ShopInside({ code, mobile }: { code: string; mobile?: boolean }) {
-  const [inside, setInside] = useState<InsideBody | null>(null);
-  /*
-   * ★★**로그인 상태를 «구독»한다 — 한 번 물어보고 마는 게 아니다**(2026-09-06 코덱스 검수).
-   *   ㉠ 처음 그릴 때 `currentUser` 는 **대개 null 이다.** 인증 복원은 비동기라 한 박자 늦게 온다 —
-   *     그 순간만 보고 판단하면 **로그인한 영업자에게도 칸이 영영 안 뜬다.**
-   *   ㉡ 반대로 다른 탭에서 «로그아웃»하면, 이미 그려 둔 칸에 내부값이 그대로 남는다.
-   *   ⇒ `useSession`/`useAuthReady` 를 의존성에 걸어 **로그인하면 받아오고 · 나가면 지운다.**
-   */
-  const session = useSession();
-  const authReady = useAuthReady();
-  useEffect(() => {
-    if (!code || !authReady) return;
-    if (!session) { setInside(null); return; }   // 나가면 그 자리에서 지운다
-    let alive = true;
-    (async () => {
-      try {
-        const user = getAuthClient()?.currentUser;
-        if (!user) return;
-        const res = await fetch(`/api/shop/inside?code=${encodeURIComponent(code)}`, {
-          headers: { Authorization: `Bearer ${await user.getIdToken()}` }, cache: 'no-store',
-        });
-        if (!alive) return;
-        if (!res.ok) { setInside(null); return; }   // 403(남의 공급사 차)도 여기로 온다
-        setInside(await res.json() as InsideBody);
-      } catch { /* 못 받으면 칸이 안 생긴다 — 손님 화면이 깨지는 쪽이 훨씬 나쁘다 */ }
-    })();
-    return () => { alive = false; };
-  }, [code, authReady, session]);
-
-  if (!inside) return null;
-  const when = inside.updatedAt
-    ? new Date(inside.updatedAt).toLocaleString('ko-KR', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
-    : '';
-  /*
-   * 무리 셋 — ① 이 차가 «어디서 온 무엇인가» ② 손님이 물으면 답해야 하는 «조건»
-   * ③ 우리끼리 아는 «메모». 무리 사이는 `GROUP_BREAK` 로 한 줄 쉰다.
-   * ★전부 **손님 화면에 없는 값**이다 — 있는 값을 여기 또 두지 않는다(카드·분납은 손님 「납부」에 있다).
-   */
-  const groups: FactRow[][] = [
-    [
-      ['공급사', inside.provider || inside.providerCode],
-      ['원천', inside.source],
-      ['차량상태', inside.vehicleStatus],
-      ['상품구분', inside.productType],
-      ['선점계약', inside.lockedBy],
-      ['차고지', inside.location],
-      ['원자 갱신', when],
-    ],
-    [
-      ['중도해지 위약금', inside.penalty],
-      ['위약금 1년 미만', inside.penaltyUnder1y],
-      ['위약금 1년 이상', inside.penaltyOver1y],
-      ['연체료율', inside.lateFeeRate],
-      ['연체 회차', inside.overdueRounds],
-      ['자동해지', inside.autoTerminateDays],
-      ['시동제어', inside.engineControlDays],
-      ['보증금 반환', inside.depositReturnDays],
-      ['인수 통지', inside.buyoutNoticeDays],
-      ['차량 보관', inside.impoundKeepDays],
-      ['만 21세 비용', inside.age21Cost],
-      ['만 23세 비용', inside.age23Cost],
-    ],
-    [
-      ['수수료 환수', inside.commissionClawback],
-      ['신용등급 기준', inside.creditGrade],
-      ['결격 조건', inside.disqualification],
-      ['GPS', inside.gpsInstalled],
-      ['영업 메모', inside.salesNotes],
-    ],
-  ];
-  const rows: FactRow[] = [];
-  for (const g of groups) {
-    const live = (g as FactRow[]).filter((r) => String(r[1] || '').trim());
-    if (!live.length) continue;                       // 값이 하나도 없는 무리는 통째로 건너뛴다
-    if (rows.length) rows.push([GROUP_BREAK, '']);    // 무리 사이 한 줄 쉼
-    rows.push(...live);
-  }
-  if (!rows.length) return null;
-
-  return (
-    <div style={{ marginTop: SHOP.sp.pane }}>
-      {/* 손님 화면 «안»의 우리 칸이라 경계를 분명히 한다 — 색이 아니라 «선과 말»로 가른다. */}
-      <div style={{
-        border: `1px dashed ${C.line2}`, borderRadius: SHOP.r.card,
-        padding: `${SHOP.sp.snug}px ${SHOP.sp.edge}px ${SHOP.sp.edge}px`,
-      }}>
-        <div style={{
-          display: 'flex', alignItems: 'center', gap: SHOP.sp.snug,
-          fontSize: SHOP.fs.cap, color: C.mute, padding: `${SHOP.sp.snug}px 0`,
-        }}>
-          <Lock size={BADGE.icon} aria-hidden />
-          영업자 전용 — 손님에게는 보이지 않습니다
-        </div>
-        <Facts rows={rows} cols={mobile ? 2 : 4} mobile={mobile} />
-      </div>
-    </div>
-  );
-}
 
 /**
  * **아직 못 받은 구역** — 값이 하나도 없어도 «구역은 세운다».

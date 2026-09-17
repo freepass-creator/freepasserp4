@@ -1,13 +1,12 @@
 'use client';
 import { useCallback, useEffect, useLayoutEffect, useState, type ReactNode } from 'react';
-import { LogIn, Phone, SquareArrowOutUpRight, X, Sheet } from 'lucide-react';
+import { Phone, SquareArrowOutUpRight, X, Sheet } from 'lucide-react';
 import { C, FW, ICON, R_CARD, fmtPhone } from '@/components/ui';
 import { todayKst } from '@/lib/format';
 import { PRODUCT_SHEET_ID } from '@/lib/product-sheet';
 import { SHOP, ShopDock, ShopDockAction } from '@/components/shop/shop-ui';
 import { ChannelSign, ChannelWordmark, CoBrandFreepass } from '@/components/brand-ci';
 import { CORP } from '@/lib/domain/corporate-ci';
-import { useSession } from '@/lib/auth-context';
 import { useIsMobile } from '@/lib/use-mobile';
 import { nowLabelKo, todayLabelKo, useNowKst, useShopHeadStatus } from '@/lib/shop/head-status';
 import { hasBrand, hasShopFrame, labelKind, whitelabelVars, type Whitelabel } from '@/lib/whitelabel';
@@ -550,10 +549,7 @@ export function WhitelabelFrame({
             ★크기는 안 키운다 — 손님 화면의 주인공은 차다. 이 줄이 커지면 그 순간 우리 사정이 앞선다.
           */}
           {/* 담당자 줄 — 표준라벨이면 그 옆에 「구글시트 열기」가 나란히 선다(위 `SheetLink` 머리말). */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: SHOP.sp.snug, flexWrap: 'wrap' }}>
-            <StaffLink />
-            {wl.plain ? <SheetLink /> : null}
-          </div>
+          {wl.plain ? <SheetLink /> : null}
         </div>
       </footer>
     </div>
@@ -667,30 +663,14 @@ function WhitelabelNotice({ wl, mobile }: { wl: Whitelabel; mobile: boolean }) {
 /** 판매시트에서 «상품리스트» 탭 — 열면 여기서 시작해야 한다(다른 탭에서 열면 매번 옮겨야 한다). */
 const SALES_LIST_GID = 205661918;
 
-/**
- * 담당자(영업자·직원)만 쓰는 한 줄 — 손님 화면의 **맨 밑, 제일 조용한 자리**.
- * ★로그인 전이면 「담당자 로그인」, 뒤면 「업무 화면으로」. 자리는 그대로고 말만 바뀐다.
- * ★가는 곳은 `/finder`(상품찾기) — 역할과 무관하게 누구나 들어가는 층이라 여기서 갈리지 않는다.
+/*
+ * ⚠⚠ **여기 「담당자 로그인 / 업무 화면으로」(`StaffLink`)가 있었다 — 걷었다**
+ *   (사장님 2026-09-17 「화이트라벨에서 erp4 아예 분리해서 **로그인 기능 아예 없는 거야**」).
+ *
+ * ★손님 동에는 이제 **로그인이 없다.** 로그인 화면으로 가는 문도, 세션을 읽는 코드도 없다 —
+ *   「감춘다」가 아니라 «없다»다. 영업자·직원은 업무동 주소(`/login` · `/finder`)로 들어간다.
+ * ★영업사원이 이 얼굴에서 쓰는 것은 **「구글시트 열기」** 하나로 남는다(표준라벨 전용 · `SheetLink`).
  */
-function StaffLink() {
-  const session = useSession();
-  const inside = !!session;
-  return (
-    <a
-      href={inside ? '/finder' : '/login'}
-      style={{
-        display: 'inline-flex', alignItems: 'center', gap: SHOP.sp.tight,
-        marginTop: SHOP.sp.edge, padding: '6px 10px',
-        border: `1px solid ${C.line}`, borderRadius: SHOP.r.chip,
-        fontSize: SHOP.fs.cap, color: C.faint, textDecoration: 'none',
-      }}
-    >
-      {inside
-        ? <><SquareArrowOutUpRight size={13} aria-hidden />업무 화면으로</>
-        : <><LogIn size={13} aria-hidden />담당자 로그인</>}
-    </a>
-  );
-}
 
 /**
  * 영업사원이 여는 **판매시트(프리패스 상품리스트)** — 담당자 줄 «옆»에 같은 모양으로 선다
