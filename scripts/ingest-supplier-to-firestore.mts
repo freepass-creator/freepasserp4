@@ -323,7 +323,7 @@ async function readRows(): Promise<Row[]> {
        */
       const 선택옵션 = S(c.유료옵션);
       const 상세링크 = /^https?:\/\/.*(?:lotte|tcar|mycarsave)/i.test(S(c.상세url)) ? S(c.상세url) : '';
-      push({ car, depNote: sonokongDepositRuleText(), link: 상세링크, rawLink: S(c.상세url원문), imageUrls: c.사진들, photoCollectedAt: c.상세시각 || dumpCollectedAt, rawDescription: S(c.설명), rawPaidOptions: c.유료옵션원문, rawMirroredPaidOptions: c.손오공유료옵션원문, rawSonokongOptionNote: c.손오공출고옵션원문, rawOptionEvidence: c.유료옵션근거, optionSource: S(c.유료옵션출처), status, kind, maker: S(c.제조사), model: S(c.모델), vname: S(c.차명) || S(c.세부), fuel: S(c.연료), ext: S(c.외장), int: S(c.내장), km: c.주행거리 == null ? '' : String(c.주행거리), opt: 선택옵션, firstReg: S(c.최초등록) || S(c.연식), cc: c.배기량 == null ? '' : String(c.배기량), klass: '', price, tab: '손오공API', row: S(c.id) });
+      push({ car, depNote: sonokongDepositRuleText(), link: 상세링크, rawLink: S(c.상세url원문), imageUrls: c.사진들, photoCollectedAt: c.상세시각 || dumpCollectedAt, rawDescription: S(c.설명), rawPaidOptions: c.유료옵션원문, rawMirroredPaidOptions: c.손오공유료옵션원문, rawSonokongOptionNote: c.손오공출고옵션원문, rawOptionEvidence: c.유료옵션근거, optionSource: S(c.유료옵션출처), status, kind, maker: S(c.제조사), model: S(c.모델), vname: S(c.차명) || S(c.세부), fuel: S(c.연료), ext: S(c.외장), int: S(c.내장), km: c.주행거리 == null ? '' : String(c.주행거리), opt: 선택옵션, firstReg: S(c.최초등록) || S(c.연식), cc: c.배기량 == null ? '' : String(c.배기량), klass: '', price, carPrice: S(c.차량가격), tab: '손오공API', row: S(c.id) });
     }
     return out;
   }
