@@ -805,10 +805,24 @@ export default function EstimateApp({ surface = "work", kind }: { surface?: Esti
       <div className="step-title">차량 정보</div>
       <div className="vfields">
         {isNew ? (
-          <div className="cs-field cs-field--wide">
-            <label>차량가</label>
-            <span className="pin w"><input value={man(listPrice)} disabled /><i>만원</i></span>
-          </div>
+          <>
+            <div className="cs-field cs-field--wide">
+              <label>차량가</label>
+              <span className="pin w"><input value={man(listPrice)} disabled /><i>만원</i></span>
+            </div>
+            {/* ★★**차량가가 어떻게 쌓였는지 보여 준다**(사장님 2026-09-17 「신차는 옵션을 디테일하게 골라야 되고」).
+                   제조사 「내 차 만들기」가 그렇게 센다 — 트림값 + 유료색 + 고른 옵션.
+                 ⚠ 지어내지 않는다 — 0 인 칸은 안 적는다(색상값이 없는 트림이 3분의 1이다). */}
+            {picked.price ? (
+              <div className="wx-sum">
+                <span>트림 {man(picked.price)}</span>
+                {colorAdd ? <span>+ 색상 {man(colorAdd)}</span> : null}
+                {optSum ? <span>+ 옵션 {ruled ? optIds.size : optChosen.length}개 {man(optSum)}</span> : null}
+                {/* ⚠ `man()` 이 이미 「만」을 붙인다 — 뒤에 「만원」을 또 쓰면 «2,443만만원»이 된다(2026-09-17 실측). */}
+                <b>= {man(listPrice)}원</b>
+              </div>
+            ) : null}
+          </>
         ) : (
           <>
             {/* 취득 경로 — 기보유면 등록·탁송·상품화가 «원가»에서 빠진다. 그래서 원가 보는 사람만 고른다.
@@ -1120,12 +1134,19 @@ export default function EstimateApp({ surface = "work", kind }: { surface?: Esti
              · 신차 = 제조사가 준 이름 그대로(「어비스 블랙 펄」). **값이 붙는 색은 차량가에 더한다.**
              · 중고 = 우리 규격색 12색(색상마스터) — 실제 차의 색을 적는 칸이라 이름이 규격이면 된다.
              ⚠ 제조사 색은 트림의 67% 에만 있다(2026-09-08 실측). 없으면 그렇다고 «말하고» 규격색을 쓴다. ══ */}
+        {/* ★★**결이 갈린다**(사장님 2026-09-17 「신차는 옵션을 디테일하게 골라야 되고 좀 달라 중고차하고는.
+               그래서 결을 조금 다르게 — **셈은 같지만 결은 다르게** 간다」).
+             · 중고 = «시세»가 주인공 — 차를 고르면 **바로 밑에** 시세·연식·주행이 온다. 색상은 그 아래.
+             · 신차 = «옵션»이 주인공 — 색상 → 옵션 → 차량가(트림값 + 옵션 + 색상) 차례 그대로.
+             ⚠ 갈리는 것은 **차례뿐**이다. 같은 조각을 같은 엔진으로 그린다 — 조각을 복사하면 한쪽만 고쳐진다. */}
+        {isNew ? null : secCarinfo}
+
         {secColor}
 
         {/* ══ 선택 옵션 — 원본 `#sec-options`. 신차에만 선다(중고는 이미 달려 나온 차다). ══ */}
         {secOptions}
 
-        {secCarinfo}
+        {isNew ? secCarinfo : null}
 
       </div>
 

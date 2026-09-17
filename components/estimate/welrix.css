@@ -4368,6 +4368,14 @@
 .wx-root .vfields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
 .wx-root .vfields .cs-field--wide { grid-column: 1 / -1; }
 .wx-root .color-wrap:has(.color-swatch-mini) .step-dd { padding-left: 30px; }
+/* 신차 «차량가 구성» — 트림값 + 색상 + 옵션이 어떻게 합쳐졌는지 한 줄로(2026-09-17).
+   ⚠ 값이 아니라 «셈의 자취»다 — 굵게 쓰지 않고, 마지막 합계만 진하게 둔다. */
+.wx-root .wx-sum {
+  grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px;
+  font-size: 11px; color: var(--ink-3); line-height: 1.7;
+  font-variant-numeric: tabular-nums slashed-zero;
+}
+.wx-root .wx-sum b { color: var(--ink-1); font-weight: 600; font-size: 12px; }
 .wx-root .vfields .unit { font-size: 11px; color: var(--ink-4); margin-left: 4px; white-space: nowrap; }
 
 /* ★★차량 정보 칸을 «원본 얼굴»로 되돌린다 (사장님 2026-09-16 「너무 허옇고 정렬도 잘 안된거 같고」).
