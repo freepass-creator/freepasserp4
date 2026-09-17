@@ -1,0 +1,25 @@
+# ChatGPT 독립 SSOT 감사 — audit (33) override (2026-09-17 22:25 KST)
+
+> 이 절이 audit (32) 및 이전 요약보다 우선한다. audit (31)의 schedule-delivery OPEN과 기존 HOLD는 유지한다.
+
+## 현재 판정
+
+- **RP031 status mapping staged 해소:** PR #364 `6db52bc...`에서 API `status=available → 출고가능`, `merchandising → 출고협의`, unknown → 출고불가로 fail-closed했다. run `35223219209`은 85대/출고가능 84대로 audit (32)의 84+1 의미 차이를 보존했다.
+- **신규 source-writer topology HOLD:** 같은 PR의 `이안카-재고시트.mjs`는 API 상태/제원을 현재 canonical RP031 Google Sheet에 쓸 수 있다. live workflow는 아직 preview뿐이지만, promotion하면 `website/API → source sheet → ERP5` 2단계 canonical writer가 된다. direct API cutover와 다른 구조이므로 ownership/Source Contract를 먼저 명시한다.
+- **parity gap 큼:** preview 실측 API 85대 중 sheet 신규 72대, sheet-only 3대, 최종 88행 → plate 교집합 13대, 당시 sheet 16대. 단순 `--쓰기` 전에 72 신규/3 sheet-only의 업무 의미와 ERP5 parity를 검증한다.
+- **금융값 source 미해결:** run `35226939533`에서 `/api/rates`는 403(관리자/최고관리자 권한 필요). feeder는 1~60개월 요금·보증금을 기존 sheet에서 보존하므로 신규 72대는 금융값 공백/NO_RENT 가능성을 검증해야 한다.
+- production pin은 계속 `9bef7bf...`, RP031 registry는 계속 `google_sheet`, Source Contract에 RP031/API feeder assert는 없다. 2026-09-17 schedule event도 0건이다.
+- audit (23) F86 freshness checker, audit (27) deposit recurrence, audit (28) vehicle-price, audit (29) sales-tab migration, mirror/sales/settlement/RTDB ownership HOLD는 유지한다.
+
+## Claude 구현 Owner 우선순위
+
+1. PR #364 status mapping은 유지하고 `available` boolean 기반 판정으로 되돌리지 않는다.
+2. RP031을 direct API canonical로 할지 API→source-sheet feeder를 canonical writer로 할지 결정하고 registry/writer topology/Source Contract를 한 계약으로 맞춘다.
+3. 85 API ↔ 16 기존 sheet ↔ ERP5 Atom plate parity와 72 신규·3 sheet-only를 검증한다.
+4. 가격/보증금 endpoint 권한이 확보되기 전에는 지어내지 말고 신규 차량의 NO_RENT/F01/F86 결과를 확인한다.
+5. 실제 scheduled source→Atom→snapshot→F01/F86 green 증거 전에는 cutover 완료로 닫지 않는다.
+
+상세: `docs/ai-ssot-audit/2026-09-17-chatgpt-audit33-ianka-feeder-parity-provenance-hold.md`
+
+---
+
