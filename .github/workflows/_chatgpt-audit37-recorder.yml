@@ -1,0 +1,173 @@
+name: ChatGPT audit37 recorder
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/_chatgpt-audit37-recorder.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  record:
+    if: contains(github.event.head_commit.message, '[audit37-recorder]')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Append audit37, refresh Claude entry point, and remove recorder
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'ChatGPT SSOT Auditor'
+          git config user.email 'actions@users.noreply.github.com'
+          git pull --rebase origin main
+
+          if ! grep -q '2026-09-18(37)' docs/AI-SSOT-AUDIT-LOG.md; then
+            cat >> docs/AI-SSOT-AUDIT-LOG.md <<'EOF'
+
+---
+## 2026-09-18(37) — ChatGPT 독립 감사: RP031 금융값은 실 브라우저에서 보이지만 별도 rate API 없이 렌더링됨; authority/provenance HOLD 유지
+
+**판정: 신규 진단 증거 확인 / 기존 RP031 promotion HOLD 유지.** audit (36) 이후 main에 병합된 read-only 진단 PR #383~#385와 실제 Actions 로그를 교차검증했다. 이 진단들은 production writer/adapter/projection을 바꾸지 않지만, Claude가 RP031 금융값 source를 판단할 때 중요한 경계를 새로 확정한다.
+
+- PR #383 merge `a10c440e75fc44b7a2c14907ed6d6f91e550ba21`, run `35285455412` / job `105416656871`: 동일 세션에서 `/api/members`가 현재 계정을 `b2b` role로 확인했고, 브라우저형 헤더를 붙인 `GET /api/rates`도 403 `관리자 권한이 필요합니다`였다. 따라서 audit (36)의 `/api/rates` 403를 단순 cookie/header 누락으로 되돌리면 안 된다. 현재 자격증명에서는 관리자 전용 endpoint다.
+- PR #384 merge `f5e738f5e838fd914e11f6c6731679495f1a259a`, run `35285926665` / job `105418111697`: 인증된 홈 HTML 200 응답을 직접 스캔했지만, 화면에서 확인된 요금 숫자와 `보증금`/`월 대여료`/`일 대여료`/`rate`/`deposit` 계열은 원본 HTML에 없었다. 즉 금융값을 raw initial HTML의 권위 source로 볼 근거도 없다.
+- PR #385 merge `46f2d828fe0f4488e908b90fe7d729a518828666`, run `35286380178` / job `105419530750`: 같은 로그인 세션을 주입한 headless browser에서는 실제 화면에 `월대여`, `보증금`과 원화 금액이 렌더링됐다. 그 회차의 네트워크 캡처에서 API 요청은 `GET /api/inventory` 200 하나였고 `/api/rates` 호출은 없었다.
+- 따라서 현재 검증된 사실은 **금융값이 브라우저 실행 후 UI에는 존재하지만 `/api/rates`, sampled `/api/vehicle-detail`, raw home HTML 중 어느 것도 그 값을 공급하지 않았고, 별도 rate API 호출도 관측되지 않았다**는 것이다. `/api/inventory` 자체가 권위 금융 source인지, 번들/static data 또는 client-side 계산이 개입하는지는 아직 증명되지 않았다. PR #387의 “브라우저 헤더면 `/api/inventory`가 더 풍부한 응답을 줄 수 있다”는 설명은 현재 open diagnostic hypothesis이지 확정 사실이 아니다.
+- current main HEAD는 audit 시점 `1a6fc606cd2acca71e5aa51e0067ad18bb808c44`이며 PR #386은 `/shop` 보증금 규칙 문구 줄바꿈 UI만 바꿨다. SSOT source/writer/projection authority 변화는 아니다. PR #387은 open 상태로 main에 병합되지 않았다.
+- production canonical workflow는 계속 `9bef7bf0ffd21a96e3098a6f31adf1b1a0258c60`을 checkout하고, RP031 canonical registry는 계속 `google_sheet`다. F01/F86는 같은 Atom row 계약을 사용하며 production F86는 RP012→`오공구독`, RP023→`오플구독`, pickup→`픽업구독`, 나머지→`상품리스트`; F86 「종합」은 손오공/오토플러스를 제외하는 기존 규칙 그대로다. 이번 진단으로 audit (35)의 F86 freshness-checker drift나 audit (27)/(28)/(29)/(34), mirror/sales/settlement/RTDB legacy writer HOLD도 해소되지 않았다.
+
+### Claude 구현 Owner 인계
+
+1. RP031 금융값 provenance를 찾는 동안 `/api/rates` 403를 cookie/header 문제로 재해석하지 않는다. 현재 B2B role에서 admin-only라는 runtime 증거가 있다.
+2. 화면에 값이 보인다는 이유만으로 rendered DOM 또는 `/api/inventory`를 canonical 금융 source로 승격하지 않는다. source primitive와 계산 규칙을 먼저 식별하고 Google Sheet와 차량별/기간별 parity를 증명한다.
+3. PR #387 같은 진단은 read-only로 사용한다. 브라우저 헤더 재현 결과가 나오기 전 “inventory가 요금 source”라고 확정하지 않는다.
+4. RP031 canonical writer 변경은 registry/Source Contract/writer topology와 plate+finance provenance, Atom→snapshot→F01/F86 cross-audit를 함께 닫은 뒤에만 한다.
+
+상세 근거: `docs/ai-ssot-audit/2026-09-18-chatgpt-audit37-ianka-rendered-finance-provenance.md`.
+
+이번 ChatGPT 감사에서는 application code/business logic을 수정하지 않았다.
+EOF
+          fi
+
+          mkdir -p docs/ai-ssot-audit
+          cat > docs/ai-ssot-audit/2026-09-18-chatgpt-audit37-ianka-rendered-finance-provenance.md <<'EOF'
+# ChatGPT 독립 SSOT 감사 — audit 37: RP031 rendered finance provenance
+
+검수일: 2026-09-18 KST
+
+## 판정
+
+**새 진단 증거는 생겼지만 RP031 source promotion은 계속 HOLD다.** 실제 B2B 브라우저에서는 월대여료·보증금이 보이지만, 현재 확인된 `/api/rates`, sampled `/api/vehicle-detail`, raw home HTML은 그 금융값 source가 아니며, 실 브라우저 네트워크에서는 별도 rate API 호출도 관측되지 않았다. 정확한 authoritative primitive는 아직 미확정이다.
+
+## 실제 증거
+
+### 1. `/api/rates` 403는 현재 B2B role의 권한 경계
+
+PR #383 merge `a10c440e75fc44b7a2c14907ed6d6f91e550ba21`, Actions run `35285455412`, job `105416656871`:
+
+- 로그인 성공
+- `/api/members` 200에서 현재 session role=`b2b`
+- `/api/admin?scope=permissions` 403
+- 브라우저형 header로 호출한 `/api/rates`도 403 `관리자 권한이 필요합니다`
+
+따라서 기존 403를 단순 cookie/header 누락으로 설명할 수 없다.
+
+### 2. raw authenticated home HTML에는 금융값이 없음
+
+PR #384 merge `f5e738f5e838fd914e11f6c6731679495f1a259a`, Actions run `35285926665`, job `105418111697`:
+
+- authenticated home GET 200
+- 화면에서 확인된 known rate exact-value match 0
+- `보증금`, `월 대여료`, `일 대여료`, `rate`, `deposit` 계열도 raw HTML에서 0
+
+즉 initial HTML 자체는 금융값 authority가 아니다.
+
+### 3. 실 브라우저에서는 금융값이 렌더링되지만 별도 rate API가 보이지 않음
+
+PR #385 merge `46f2d828fe0f4488e908b90fe7d729a518828666`, Actions run `35286380178`, job `105419530750`:
+
+- 같은 세션을 headless browser에 주입해 home 진입 성공
+- 실제 DOM에 `월대여`, `보증금`과 원화 금액이 존재
+- 캡처된 요청 중 API 호출은 `GET /api/inventory` 200 하나
+- `/api/rates` network call 없음
+
+이 결과는 “UI에 금융값이 실제 존재한다”는 사실과 “현재 알려진 rate endpoint는 그 값을 공급하지 않는다”는 사실을 동시에 확정한다.
+
+### 4. 아직 확정하면 안 되는 것
+
+- `/api/inventory`가 금융값의 canonical source라는 결론: **미증명**. plain diagnostic 응답에서는 금융값이 확인되지 않았고, browser-header 차이인지 client calculation/static bundle인지 아직 확정되지 않았다.
+- rendered DOM을 canonical source로 삼는 것: **보류**. DOM은 소비 결과일 수 있으므로 source primitive와 계산 규칙 provenance가 먼저 필요하다.
+- RP031 API→sheet feeder production promotion: **보류**. current registry는 계속 Google Sheet다.
+
+open PR #387 (`diag/ianka-inventory-browser-headers`)은 browser-like headers로 `/api/inventory`를 재검증하는 read-only diagnostic이다. PR 설명의 header hypothesis는 결과가 나오기 전까지 가설로 취급한다.
+
+## 다른 SSOT 축 재대조
+
+- production pin: `9bef7bf0ffd21a96e3098a6f31adf1b1a0258c60` 유지
+- canonical RP031: `lib/domain/inventory-source-registry.ts` = `google_sheet`
+- F01/F86 row source: 같은 Atom row 계약(`lib/domain/sales-atom-row.ts`)
+- special tabs: RP012→`오공구독`, RP023→`오플구독`, pickup→`픽업구독`, 나머지→`상품리스트`
+- F86 summary: 손오공·오토플러스 제외 규칙 유지
+- mirror/RTDB legacy paths: 기존 HOLD 유지
+- audit (35) F86 freshness checker false-positive: 미해소
+- audit (27)/(28)/(29)/(34): 별도 증거 없으므로 미해소
+
+## Claude 구현 Owner 인계
+
+1. `/api/rates`는 현 B2B credential에서 admin-only로 취급한다.
+2. `/api/inventory` browser-header diagnostic 결과 전에는 richer-response 가설을 사실로 만들지 않는다.
+3. source primitive가 밝혀지면 Google Sheet와 plate별·기간별 rent/deposit parity를 먼저 증명한다.
+4. authority 변경은 registry + Source Contract + writer topology + Atom/snapshot/F01/F86 cross-audit까지 함께 닫는다.
+
+이번 감사에서는 application code/business logic을 수정하지 않았다.
+EOF
+
+          cat > CLAUDE-AUDIT.md <<'EOF'
+# ChatGPT 독립 SSOT 감사 — audit (37) override (2026-09-18 KST)
+
+> 이 파일은 Claude 구현 Owner의 **최신 진입점 요약**이다. 과거 판정과 상세 증거는 `docs/AI-SSOT-AUDIT-LOG.md`와 최신 `docs/ai-ssot-audit/` 문서를 우선한다. 실제 application/business logic 수정은 Claude 단일 SSOT 세션만 수행한다.
+
+## 현재 판정
+
+- **RP031 금융값 delivery 경로가 더 좁혀짐:** PR #383 run `35285455412`에서 현재 authenticated session role이 `b2b`로 확인됐고 browser-like header의 `/api/rates`도 403 `관리자 권한이 필요합니다`. cookie/header 누락으로 되돌려 해석하지 않는다.
+- **raw HTML도 금융 source가 아님:** PR #384 run `35285926665`의 authenticated home HTML에는 실제 화면에서 보이는 known rate, `보증금`/`월 대여료`/`일 대여료`/`rate`/`deposit` 값이 없었다.
+- **실 브라우저에는 값이 보임:** PR #385 run `35286380178`은 headless browser DOM에서 `월대여`, `보증금`과 원화 금액을 확인했다. 같은 캡처에서 API 요청은 `/api/inventory` 200 하나였고 `/api/rates` 호출은 없었다.
+- **따라서 authority는 아직 미확정:** UI 금융값은 client execution 후 생기지만 `/api/inventory` 자체가 source인지, bundle/static data 또는 client-side 계산인지 아직 증명되지 않았다. open PR #387의 browser-header 설명은 diagnostic hypothesis다. 결과 전에는 사실로 취급하지 않는다.
+- **RP031 production promotion 계속 HOLD:** registry는 여전히 `google_sheet`; API→sheet feeder/DOM scrape는 canonical writer가 아니다. sampled `/api/vehicle-detail` 금융키 0건(audit 36)도 그대로 유효하다.
+- production canonical workflow pin은 계속 `9bef7bf0ffd21a96e3098a6f31adf1b1a0258c60`. current main의 PR #386은 `/shop` 보증금 규칙 문구 wrapping UI 변경일 뿐 source/writer authority 변화가 아니다.
+- audit (35) F86 freshness checker false-positive, audit (27) Sonogong deposit recurrence, audit (28) vehicle-price lineage, audit (29) sales-tab naming migration, audit (34) newest-Atom freshness semantics, mirror/sales/settlement/RTDB legacy writer HOLD는 그대로다.
+
+## Claude 구현 Owner 우선순위
+
+1. audit (35)의 F86 freshness parser를 실제 `channel-f86-plan` 탭명 계약과 정렬하고 actual `event=schedule` full-run green을 증명한다.
+2. RP031에서는 `/api/rates`를 현 B2B credential의 admin-only endpoint로 취급한다. browser-header/cookie 문제로 재가정하지 않는다.
+3. `/api/inventory` browser-header diagnostic 결과를 확인하되, richer-response가 증명되기 전에는 source로 승격하지 않는다.
+4. 금융 source primitive/계산 규칙을 식별한 뒤 Google Sheet와 plate별·기간별 rent/deposit parity를 증명한다. rendered DOM 값만으로 canonical authority를 바꾸지 않는다.
+5. RP031 writer promotion은 registry/Source Contract/writer topology와 Atom→snapshot→F01/F86 cross-audit까지 함께 닫은 뒤 판정한다.
+6. production pin/current main을 같은 계보라고 가정하지 않는다.
+
+## 상세 근거
+
+- `docs/AI-SSOT-AUDIT-LOG.md` — 최신 audit (37)
+- `docs/ai-ssot-audit/2026-09-18-chatgpt-audit37-ianka-rendered-finance-provenance.md`
+- PR #383 merge `a10c440e75fc44b7a2c14907ed6d6f91e550ba21`, run `35285455412`, job `105416656871`
+- PR #384 merge `f5e738f5e838fd914e11f6c6731679495f1a259a`, run `35285926665`, job `105418111697`
+- PR #385 merge `46f2d828fe0f4488e908b90fe7d729a518828666`, run `35286380178`, job `105419530750`
+- production pin `9bef7bf0ffd21a96e3098a6f31adf1b1a0258c60`
+
+이번 ChatGPT 감사에서는 application code/business logic을 수정하지 않았다.
+EOF
+
+          rm -f .github/workflows/_chatgpt-audit37-recorder.yml
+          git add docs/AI-SSOT-AUDIT-LOG.md docs/ai-ssot-audit/2026-09-18-chatgpt-audit37-ianka-rendered-finance-provenance.md CLAUDE-AUDIT.md .github/workflows/_chatgpt-audit37-recorder.yml
+          git commit -m 'audit: record audit37 RP031 rendered-finance provenance'
+          for i in 1 2 3; do
+            if git push origin HEAD:main; then exit 0; fi
+            git pull --rebase origin main
+            sleep $((i*2))
+          done
+          exit 1
