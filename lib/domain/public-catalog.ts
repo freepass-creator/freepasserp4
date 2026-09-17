@@ -226,3 +226,28 @@ export function sanitizeAgentForGuest(u: Rec | null | undefined): Rec | null {
   if (!name && !phone) return null;
   return { name, phone, company_name: S(u.company_name), title: S(u.title || u.position) };
 }
+
+/**
+ * ★★★**목록에 안 싣는 칸 — 사진 «전부»(`image_urls`)**.
+ *
+ * 사장님 2026-09-17 「빠릿빠릿한지 이런 게 좀 중요」.
+ *
+ * ⚠⚠ **운영 실측(2026-09-17 746대).** 목록 응답이 원문 2,662KB · gzip 300KB 였다. 그중
+ *   `image_urls` 만 **원문 1,042KB(39%)** 이고, 주소가 전부 제각각인 난수 문자열이라
+ *   **압축이 거의 안 먹는다** — 빼고 다시 재니 gzip **300KB → 126KB(-58%)**.
+ *   («`_policy` 는 847KB(32%)인데 20종이 746번 되풀이라 압축이 먹는다 — 빼도 300→270KB(-10%).
+ *     게다가 조건 축(`product-filters` `polGet`)이 읽는 값이라 **빼면 안 된다.**»)
+ * ⇒ **목록은 사진을 한 장만 쓴다**(카드 썸네일 하나). 나머지 아홉 장은 상세에서 쓴다.
+ *   `image_url`(첫 장)·`photo_link` 는 그대로 나가므로 **카드 사진은 하나도 안 바뀐다** —
+ *   사진 모으개(`product-photos` 118줄)가 `image_url` 도 같이 훑기 때문이다.
+ *
+ * ★★**상세(`/api/catalog/quote`)는 손대지 않는다** — 거기는 갤러리가 열 장을 다 쓴다.
+ *   그래서 자르는 자리가 «정제기»가 아니라 **목록 문(`loadGuestListing`)** 이다.
+ * ⚠ 되돌리려면 이 함수를 안 부르면 된다. 다만 그때는 폰에서 첫 화면이 그만큼 늦어진다 —
+ *   `npm run check:speed` 가 이 규칙을 지킨다.
+ */
+export function slimForList(p: EntityRecord): EntityRecord {
+  if (!p || !('image_urls' in p)) return p;
+  const { image_urls: _drop, ...rest } = p as Rec;
+  return rest as EntityRecord;
+}
