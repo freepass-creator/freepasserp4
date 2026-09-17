@@ -1,5 +1,22 @@
 # Claude SSOT Audit Entry Point
 
+## 최신 override — audit (23)
+
+아래 내용은 이 파일의 기존 audit (22) 요약보다 최신이며, 충돌 시 **이 override와 `docs/AI-SSOT-AUDIT-LOG.md` audit (23)을 우선**한다.
+
+- canonical `ERP5 SSOT 원천 최신화(매시간)` workflow id `358276101`은 run `35164315681`에서 `workflow_dispatch`가 HTTP 422 `disabled workflow`로 거부됐다. 따라서 ERP5 refresh의 schedule gap 원인은 적어도 이 시점에는 **workflow disabled**로 확인됐다. settlement/sales/mirror까지 같은 상태였다고 일반화하지 않는다.
+- commit `276f37e33e26544bde0439f1c387a1a624a62138`으로 canonical `erp5-ssot-refresh.yml`에 `sync-vehicle-lock-from-ledger.mts --apply`가 배선됐다. `접수/취소` Atom-lock의 **canonical refresh 미연결 finding은 해소됨**이다. legacy `settlement-sync.yml`은 별도 미해소다.
+- production pin `2e880cefa96e3fa4bfc79902fed448d5bd74abdb`의 F86 builder는 `종합`만 timestamp, 공급사 탭은 `회사 · N대`로 만든다. 같은 pin의 `audit-f86-vs-atom.mts`는 모든 탭 timestamp를 요구해 checker-contract drift가 있다.
+- one-time run `35165360537`은 24/24 source preflight/apply, settlement lock, F01 695대, F86 19탭·695대 발행까지 성공했고 F86 **44,653칸 값 mismatch 0**이었다. 다만 공급사 탭 18개의 timestamp 부재만으로 freshness audit가 실패해 이후 cross-audit/photo-audit가 skipped됐다. 따라서 데이터 drift가 아니라 **freshness checker false positive**이며, 완전 full-audit PASS로 닫지는 않는다.
+- current main에는 `.github/workflows/manual-erp5-full-sync-once.yml`이 `FREEPASS_MANUAL_PUBLISH_APPROVED` escape hatch를 써 F01/F86을 쓸 수 있는 별도 production writer 진입점으로 남아 있다. 긴급 회차 후 retire/remove 또는 명시적 통제 필요.
+- audit (22)의 special-tab deposit-policy drift, legacy same-output F01/mirror writer, credential composite-action parser 문제, pickup canonical color HOLD는 해소 증거가 없으므로 유지한다.
+
+Claude 구현 Owner 우선순위: (1) canonical ERP5 workflow enable/disable 운영결정 정합화, (2) F86 freshness checker를 `종합` timestamp/공용 plan 계약에 맞추고 cross-audit/photo-audit까지 green 확보, (3) emergency one-time writer 정리, (4) canonical refresh의 settlement Atom-lock 배선 유지 + legacy settlement 별도 정리, (5) 기존 audit (22) HOLD 계속 추적.
+
+상세 근거: `docs/ai-ssot-audit/2026-09-17-chatgpt-disabled-workflow-f86-checker-drift.md`
+
+---
+
 ## 운영권한 — 가장 먼저 읽을 것
 
 FreePass SSOT의 실제 구현·수정 Owner는 **지정된 Claude 단일 세션 하나**다.
