@@ -1,0 +1,24 @@
+name: 이안카 출고가능 대수 진단(읽기전용, 수동)
+
+# scripts/diag-ianka-availability.mts — /api/inventory 최상위 숫자와 status별 실측을 대조한다.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - name: 이안카 출고가능 대수 진단
+        env:
+          IANKA_ACCOUNT_JSON: ${{ secrets.IANKA_ACCOUNT_JSON }}
+        run: npx tsx scripts/diag-ianka-availability.mts
