@@ -1,0 +1,119 @@
+name: ChatGPT audit33 recorder
+
+on:
+  push:
+    paths:
+      - '.github/workflows/chatgpt-audit33-recorder.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Record audit 33 only
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          detail = '''# ChatGPT 독립 SSOT 감사 — audit 33: RP031 API→원천시트 feeder 구현은 진전됐지만 parity/가격 provenance 때문에 production promotion은 아직 HOLD
+
+검수일: 2026-09-17 22:25 KST
+
+## 판정
+
+**의미 있는 구현 진전 + 새로운 writer/provenance 경계. audit (32)의 status 의미 미확정은 staged collector에서 해소됐지만, production source cutover는 아직 HOLD다.**
+
+## 증거 1 — audit (32)의 status/available 의미 충돌은 staged collector에서 명시적으로 해결됨
+
+current main commit `6db52bc746823b4fe84e1ee55965075cda7a3ced`(PR #364)은 `ianka/scripts/이안카.mjs`를 추가했다.
+
+- API `status=available` → `출고가능`
+- API `status=merchandising` → `출고협의`
+- 그 밖의 미지 status → `출고불가` fail-closed
+- `available` boolean은 상태 판정에 사용하지 않는다.
+
+workflow run `35223219209`에서 실제 수집은 85대, `출고가능` 84대로 끝까지 성공했다. 이는 audit (32)에서 확인한 `status available 84 + merchandising 1`과 정확히 맞는다. 따라서 **상태 우선순위 자체는 staged 구현에서 해결됐다.**
+
+## 증거 2 — 구현된 topology는 direct ERP5 cutover가 아니라 website/API → 기존 canonical sheet feeder다
+
+같은 PR #364의 `ianka/scripts/이안카-재고시트.mjs`는 API 덤프를 현재 RP031 Google Sheet `1fJuFSdaW559niD0ow7vVC3qcgjy8KRb8Cr3U8Of01vs`, 탭 `이안카`로 쓰는 `--쓰기` 경로를 갖는다.
+
+이 writer는 API가 사실로 제공하는 차량번호·배차상태·연식·연료·주행거리·차명(원문)만 갱신하고, 제조사/모델 정제·상품구분·보증금·1~60개월 요금은 기존 sheet 값을 그대로 보존한다. API에서 사라진 기존 sheet 차량은 삭제하지 않고 `출고불가`로 남긴다.
+
+반면 current main과 active production pin `9bef7bf0ffd21a96e3098a6f31adf1b1a0258c60`의 `inventory-source-registry.ts`는 RP031을 계속 `kind:'google_sheet'`로 정의하고 production ingest도 그 sheet를 읽는다. 따라서 이 feeder가 live write가 되면 실제 계보는:
+
+`xn--le5bt3bwxk.com /api/inventory → RP031 Google Sheet → IankaAdapter → ERP5 Atom`
+
+이 된다. 이것은 audit (32)에서 예상한 direct website/API canonical adapter와 다른, **중간 source-sheet writer를 둔 구조**다. 나쁜 구조라고 단정할 수는 없지만, 이 방식을 택한다면 feeder가 canonical-source writer임을 writer topology/Source Contract에 명시해야 한다.
+
+현재 `.github/workflows/diag-ianka-collector.yml`은 `workflow_dispatch` 전용이며 `--쓰기`를 주지 않는 **미리보기만** 실행한다. 즉 capability는 생겼지만 live production writer로 승격된 것은 아니다.
+
+## 증거 3 — parity는 아직 확보되지 않았고 preview에서 대수 차이가 매우 큼
+
+run `35223219209`의 실제 로그:
+
+- API units = 85대
+- 현재 sheet에 없어서 `신규`로 계산된 API 차량 = 72대
+- API에는 없지만 기존 sheet에 있어 보존되는 차량 = 3대
+- preview 최종 = 88행
+
+따라서 plate 기준 교집합은 13대이고, 당시 기존 sheet plate row는 16대(교집합 13 + sheet-only 3)로 역산된다. 즉 새 API feeder를 쓰면 canonical sheet가 단순 소폭 갱신되는 것이 아니라 **16대 → 88행 규모로 재구성**되는 변화다.
+
+이 차이가 현재 sheet가 심하게 stale/불완전했기 때문일 수는 있다. 하지만 바로 `--쓰기`를 실행하기 전에 72 신규 차량의 판매대상 여부와 3 sheet-only 차량의 의미를 차량번호 기준으로 확정해야 한다. audit (32)의 parity 요구는 아직 해소되지 않았다.
+
+## 증거 4 — 기간별 요금/보증금 provenance가 아직 website/API로 닫히지 않음
+
+latest diagnostic run `35226939533`은 인증 후 `/api/rates` 경로가 존재하는 것을 확인했지만 현재 계정으로:
+
+- GET `/api/rates?...` → HTTP 403, `관리자 권한이 필요합니다.`
+- POST `/api/rates` → HTTP 403, `최고관리자만 기준 요금표를 교체할 수 있습니다.`
+
+였다. 홈/RSC와 다른 후보 endpoint에서도 1~60개월 요금 데이터는 찾지 못했다.
+
+따라서 PR #364 feeder는 의도적으로 금융 필드를 기존 sheet에서 보존한다. 기존 13개 교집합 차량에는 혼합 provenance(API 상태/제원 + sheet 금융값)가 생기고, **72개 신규 API 차량은 기존 row가 없으므로 기간별 요금/보증금이 비어 있을 가능성이 높다.** IankaAdapter는 요금이 하나도 없으면 `NO_RENT` warning을 낸다. cutover 전에 이 72대가 F01/F86 판매 노출에서 어떤 결과를 내는지 검증해야 한다.
+
+## 증거 5 — current Source Contract/production/schedule은 아직 audit (32) 상태
+
+- `scripts/check-inventory-source-contract.mts`는 여전히 RP031 kind/location 또는 API feeder ownership을 별도 assert하지 않는다.
+- canonical `erp5-ssot-refresh.yml` production checkout ref는 계속 `9bef7bf0ffd21a96e3098a6f31adf1b1a0258c60`이다.
+- 2026-09-17 GitHub Actions `event=schedule` 재조회는 여전히 0건으로 audit (31)의 schedule-delivery OPEN이 유지된다.
+- audit (32) 이후 main은 7 commits ahead이며 core SSOT 관련 신규 파일은 RP031 feeder/diagnostic 계열이다. F01/F86 projection, 손오공/오토플러스 특수탭, mirror/RTDB ownership에 직접 해소 변경은 없다.
+
+## 관측성 보완점
+
+`diag-ianka-collector.yml`은 artifact에 `tmp/이안카재고시트-preview.json`을 올리려 하지만 script는 실제로 `ianka/tmp/이안카재고시트-preview.json`을 쓴다. run `35223219209` artifact에는 원문 `이안카차량.json`만 들어가고 sheet preview JSON은 빠졌다. production blocker는 아니지만 parity 감사를 반복하려면 경로를 맞추는 편이 안전하다.
+
+## Claude 구현 Owner 인계
+
+1. PR #364의 status 매핑(`available → 출고가능`, `merchandising → 출고협의`, unknown → 출고불가)은 staged 해소로 유지한다. `available` boolean으로 되돌리지 않는다.
+2. RP031 architecture를 하나로 명시한다. (a) website/API를 registry의 canonical source로 직접 승격할지, 또는 (b) API→source-sheet feeder를 canonical writer로 인정할지 결정한다. (b)를 택하면 writer topology와 Source Contract가 feeder를 검사해야 한다.
+3. `--쓰기` promotion 전 85 API ↔ 16 기존 sheet ↔ ERP5 Atom을 plate 기준으로 대조하고, 72 신규·3 sheet-only의 업무 의미를 확정한다.
+4. 가격/보증금은 현재 API credential로 읽을 수 없음이 확인됐다. 관리자 read 권한/다른 endpoint가 확보되기 전에는 값을 지어내지 말고, 신규 72대의 NO_RENT/판매 projection 결과를 먼저 검증한다.
+5. current production pin과 canonical schedule은 그대로 HOLD다. live cutover 완료 판정은 source feeder/adapter promotion + ERP5 snapshot + F01/F86 cross-audit + 실제 scheduled run 증거가 모두 생긴 뒤 한다.
+6. audit (23) F86 freshness checker, audit (27) deposit recurrence, audit (28) vehicle-price semantics, audit (29) sales-tab migration, legacy mirror/sales/settlement/RTDB ownership은 별도 OPEN/HOLD로 유지한다.
+
+이번 감사에서는 application code/business logic을 수정하지 않았다.
+'''
+
+          log_entry = '''\n\n---\n\n## 2026-09-17(33) — ChatGPT 독립 감사: RP031 API feeder/status mapping은 구현됐지만 85↔16 parity gap·금융값 provenance 때문에 promotion HOLD\n\n**판정: 구현 진전 + source-writer/provenance HOLD. audit (32)의 status mapping 미확정은 staged 구현에서 해소됐지만 live canonical cutover는 아직 아니다.**\n\n- PR #364 / `6db52bc746823b4fe84e1ee55965075cda7a3ced`는 `ianka/scripts/이안카.mjs`에서 API `status`를 명시적으로 매핑한다: `available → 출고가능`, `merchandising → 출고협의`, unknown → `출고불가`. `available` boolean은 상태 판정에 쓰지 않는다. run `35223219209` 실측 85대 중 출고가능 84대로 audit (32)의 84+1 의미 차이를 보존했다. **status 우선순위는 staged 해소.**\n- 동시에 `ianka/scripts/이안카-재고시트.mjs`에 `--쓰기` 가능한 writer가 생겼다. 구조는 direct API→ERP5가 아니라 **website/API → 현재 RP031 canonical Google Sheet → IankaAdapter → ERP5 Atom**이다. API가 주는 상태/제원만 갱신하고 1~60개월 요금·보증금/정제값은 기존 sheet에서 보존한다. 현재 workflow `diag-ianka-collector.yml`은 수동 preview만이라 live write는 아직 아니다.\n- preview run `35223219209`: API 85대, 그중 기존 sheet에 없는 `신규` 72대, API에는 없고 sheet에만 있어 보존 3대, 최종 88행. plate 교집합은 13대이고 당시 sheet plate row는 16대로 역산된다. **85 API ↔ 16 sheet의 큰 parity gap**이므로 `--쓰기`를 단순 동기화로 취급하면 안 된다.\n- latest run `35226939533`에서 `/api/rates`는 실제 endpoint지만 GET은 `관리자 권한이 필요합니다` 403, POST는 `최고관리자만 기준 요금표를 교체할 수 있습니다` 403이었다. 금융값 API source는 아직 닫히지 않았다. 따라서 72 신규 API 차량은 기존 sheet row가 없어 기간별 요금/보증금이 비어 F01/F86에 NO_RENT/미노출이 될 수 있으므로 promotion 전에 검증해야 한다.\n- current registry와 active production pin `9bef7bf...`는 여전히 RP031=`google_sheet`; Source Contract도 RP031/API feeder ownership을 assert하지 않는다. 2026-09-17 `event=schedule`은 재조회 0건으로 audit (31)도 유지한다. audit (23)/(27)/(28)/(29) 및 mirror/RTDB legacy HOLD에도 직접 해소 변경은 없다.\n- 관측성: `diag-ianka-collector.yml` artifact 경로는 `tmp/이안카재고시트-preview.json`인데 script는 `ianka/tmp/...`에 써서 run artifact에 sheet preview JSON이 빠졌다. parity 감사 전에 경로 정렬이 필요하다.\n\nClaude 구현 Owner: status mapping은 유지하고, RP031을 direct API canonical로 갈지 API→source-sheet canonical writer로 갈지 명시한다. 후자를 택하면 feeder를 writer topology/Source Contract에 포함한다. 85↔16↔ERP5 plate parity와 72 신규의 금융값/판매 projection을 확인한 뒤에만 write/pin/schedule promotion을 진행한다.\n\n상세 근거: `docs/ai-ssot-audit/2026-09-17-chatgpt-audit33-ianka-feeder-parity-provenance-hold.md`.\n\n이번 ChatGPT 감사에서는 application code/business logic을 수정하지 않았다.\n'''
+
+          override = '''# ChatGPT 독립 SSOT 감사 — audit (33) override (2026-09-17 22:25 KST)\n\n> 이 절이 audit (32) 및 이전 요약보다 우선한다. audit (31)의 schedule-delivery OPEN과 기존 HOLD는 유지한다.\n\n## 현재 판정\n\n- **RP031 status mapping staged 해소:** PR #364 `6db52bc...`에서 API `status=available → 출고가능`, `merchandising → 출고협의`, unknown → 출고불가로 fail-closed했다. run `35223219209`은 85대/출고가능 84대로 audit (32)의 84+1 의미 차이를 보존했다.\n- **신규 source-writer topology HOLD:** 같은 PR의 `이안카-재고시트.mjs`는 API 상태/제원을 현재 canonical RP031 Google Sheet에 쓸 수 있다. live workflow는 아직 preview뿐이지만, promotion하면 `website/API → source sheet → ERP5` 2단계 canonical writer가 된다. direct API cutover와 다른 구조이므로 ownership/Source Contract를 먼저 명시한다.\n- **parity gap 큼:** preview 실측 API 85대 중 sheet 신규 72대, sheet-only 3대, 최종 88행 → plate 교집합 13대, 당시 sheet 16대. 단순 `--쓰기` 전에 72 신규/3 sheet-only의 업무 의미와 ERP5 parity를 검증한다.\n- **금융값 source 미해결:** run `35226939533`에서 `/api/rates`는 403(관리자/최고관리자 권한 필요). feeder는 1~60개월 요금·보증금을 기존 sheet에서 보존하므로 신규 72대는 금융값 공백/NO_RENT 가능성을 검증해야 한다.\n- production pin은 계속 `9bef7bf...`, RP031 registry는 계속 `google_sheet`, Source Contract에 RP031/API feeder assert는 없다. 2026-09-17 schedule event도 0건이다.\n- audit (23) F86 freshness checker, audit (27) deposit recurrence, audit (28) vehicle-price, audit (29) sales-tab migration, mirror/sales/settlement/RTDB ownership HOLD는 유지한다.\n\n## Claude 구현 Owner 우선순위\n\n1. PR #364 status mapping은 유지하고 `available` boolean 기반 판정으로 되돌리지 않는다.\n2. RP031을 direct API canonical로 할지 API→source-sheet feeder를 canonical writer로 할지 결정하고 registry/writer topology/Source Contract를 한 계약으로 맞춘다.\n3. 85 API ↔ 16 기존 sheet ↔ ERP5 Atom plate parity와 72 신규·3 sheet-only를 검증한다.\n4. 가격/보증금 endpoint 권한이 확보되기 전에는 지어내지 말고 신규 차량의 NO_RENT/F01/F86 결과를 확인한다.\n5. 실제 scheduled source→Atom→snapshot→F01/F86 green 증거 전에는 cutover 완료로 닫지 않는다.\n\n상세: `docs/ai-ssot-audit/2026-09-17-chatgpt-audit33-ianka-feeder-parity-provenance-hold.md`\n\n---\n\n'''
+
+          Path('docs/ai-ssot-audit/2026-09-17-chatgpt-audit33-ianka-feeder-parity-provenance-hold.md').write_text(detail, encoding='utf-8')
+          p = Path('docs/AI-SSOT-AUDIT-LOG.md')
+          p.write_text(p.read_text(encoding='utf-8').rstrip() + log_entry + '\n', encoding='utf-8')
+          c = Path('CLAUDE-AUDIT.md')
+          c.write_text(override + c.read_text(encoding='utf-8'), encoding='utf-8')
+          PY
+          git config user.name 'ChatGPT SSOT Auditor'
+          git config user.email 'chatgpt-audit@users.noreply.github.com'
+          git add docs/AI-SSOT-AUDIT-LOG.md CLAUDE-AUDIT.md docs/ai-ssot-audit/2026-09-17-chatgpt-audit33-ianka-feeder-parity-provenance-hold.md
+          git rm .github/workflows/chatgpt-audit33-recorder.yml
+          git commit -m 'audit: record RP031 feeder parity and provenance hold'
+          git push origin HEAD:main
