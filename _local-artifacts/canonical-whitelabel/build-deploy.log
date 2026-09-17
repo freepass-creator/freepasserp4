@@ -1,0 +1,291 @@
+Vercel CLI 58.9.0 (Node.js 24.19.0)
+WARNING! Build not running on Vercel. System environment variables will not be available.
+WARNING: You should not upload the `.next` directory.
+Installing dependencies...
+
+up to date in 543ms
+
+72 packages are looking for funding
+  run `npm fund` for details
+npm warn allow-scripts 4 packages have install scripts not yet covered by allowScripts:
+npm warn allow-scripts   @firebase/util@1.15.1 (postinstall: node ./postinstall.js)
+npm warn allow-scripts   esbuild@0.28.1 (postinstall: node install.js)
+npm warn allow-scripts   protobufjs@7.6.5 (postinstall: node scripts/postinstall)
+npm warn allow-scripts   sharp@0.34.5 (install: node install/check.js || npm run build)
+npm warn allow-scripts
+npm warn allow-scripts Run `npm approve-scripts --allow-scripts-pending` to review, or `npm approve-scripts <pkg>` to allow.
+Detected Next.js version: 15.5.21
+Running "npm run build"
+
+> freepasserp4@4.0.0-alpha build
+> node --max-old-space-size=8192 ./node_modules/next/dist/bin/next build
+
+   ▲ Next.js 15.5.21
+   - Environments: .env.local
+
+   Creating an optimized production build ...
+ ✓ Compiled successfully in 7.1s
+   Linting and checking validity of types ...
+   Collecting page data ...
+   Generating static pages (0/47) ...
+   Generating static pages (11/47) 
+   Generating static pages (23/47) 
+   Generating static pages (35/47) 
+ ✓ Generating static pages (47/47)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                                                             Size  First Load JS
+┌ ƒ /                                                                  261 B         103 kB
+├ ƒ /_not-found                                                        261 B         103 kB
+├ ƒ /api/admin/members/[uid]/active                                    261 B         103 kB
+├ ƒ /api/auth/self-activate                                            261 B         103 kB
+├ ƒ /api/auth/session                                                  261 B         103 kB
+├ ƒ /api/carmaster                                                     261 B         103 kB
+├ ƒ /api/catalog/feed                                                  261 B         103 kB
+├ ƒ /api/catalog/quote                                                 261 B         103 kB
+├ ƒ /api/chakhandeal/contracts/[contractCode]/document               2.27 kB         257 kB
+├ ƒ /api/chakhandeal/contracts/[contractCode]/handover               2.27 kB         257 kB
+├ ƒ /api/chakhandeal/contracts/[contractCode]/preview                2.27 kB         257 kB
+├ ƒ /api/chakhandeal/contracts/[contractCode]/supplement             2.27 kB         257 kB
+├ ƒ /api/chakhandeal/contracts/[contractCode]/template-fields        2.27 kB         257 kB
+├ ƒ /api/chakhandeal/contracts/send                                  2.27 kB         257 kB
+├ ƒ /api/chakhandeal/contracts/status                                2.27 kB         257 kB
+├ ƒ /api/contracts/[contractCode]/settlement                         2.27 kB         257 kB
+├ ƒ /api/contracts/[contractCode]/term-freeze                        2.27 kB         257 kB
+├ ƒ /api/contracts/vehicle-claim                                     2.27 kB         257 kB
+├ ƒ /api/dev/migration-backup                                          261 B         103 kB
+├ ƒ /api/drive-backup                                                  261 B         103 kB
+├ ƒ /api/estimate/cost                                                 261 B         103 kB
+├ ƒ /api/extract-photos                                                261 B         103 kB
+├ ƒ /api/freepass-esign/contracts                                    2.27 kB         257 kB
+├ ƒ /api/freepass-esign/contracts/[contractCode]                     2.27 kB         257 kB
+├ ƒ /api/freepass-esign/contracts/[contractCode]/asset/[kind]        2.27 kB         257 kB
+├ ƒ /api/freepass-esign/contracts/[contractCode]/document            2.27 kB         257 kB
+├ ƒ /api/freepass-esign/contracts/[contractCode]/handover            2.27 kB         257 kB
+├ ƒ /api/freepass-esign/import                                       2.27 kB         257 kB
+├ ƒ /api/freepass-esign/issuance/rental-fact                         2.27 kB         257 kB
+├ ƒ /api/freepass-esign/manual-offers                                2.27 kB         257 kB
+├ ƒ /api/freepass-esign/manual-offers/create                         2.27 kB         257 kB
+├ ƒ /api/freepass-esign/public/[token]                               2.27 kB         257 kB
+├ ƒ /api/freepass-esign/public/[token]/document                      2.27 kB         257 kB
+├ ƒ /api/freepass-esign/public/[token]/supporting-document/[docKey]  2.27 kB         257 kB
+├ ƒ /api/img                                                           261 B         103 kB
+├ ƒ /api/inventory/duplicate-plan                                      261 B         103 kB
+├ ƒ /api/inventory/ironrentcar/apply                                   261 B         103 kB
+├ ƒ /api/inventory/ironrentcar/preview                                 261 B         103 kB
+├ ƒ /api/inventory/ironrentcar/rollback                                261 B         103 kB
+├ ƒ /api/inventory/reconcile-state                                     261 B         103 kB
+├ ƒ /api/inventory/sheet-export                                        261 B         103 kB
+├ ƒ /api/newcar                                                        261 B         103 kB
+├ ƒ /api/newcar/config                                                 261 B         103 kB
+├ ƒ /api/ocr/extract                                                   261 B         103 kB
+├ ƒ /api/ops/inventory                                                 261 B         103 kB
+├ ƒ /api/ops/pipeline                                                  261 B         103 kB
+├ ƒ /api/ops/trace                                                     261 B         103 kB
+├ ƒ /api/products                                                      261 B         103 kB
+├ ƒ /api/products/bridge                                               261 B         103 kB
+├ ƒ /api/products/sheet                                                261 B         103 kB
+├ ƒ /api/settlement/agents                                             261 B         103 kB
+├ ƒ /api/settlement/confirm                                            261 B         103 kB
+├ ƒ /api/settlement/invoice                                            261 B         103 kB
+├ ƒ /api/settlement/ledger                                             261 B         103 kB
+├ ƒ /api/settlement/ledger/import                                      261 B         103 kB
+├ ƒ /api/settlement/mine                                               261 B         103 kB
+├ ƒ /api/settlement/vehicles                                           261 B         103 kB
+├ ƒ /api/sheet                                                         261 B         103 kB
+├ ƒ /api/sheet/conflict-decisions                                      261 B         103 kB
+├ ƒ /api/sheet/conflict-resolutions                                    261 B         103 kB
+├ ƒ /api/sheet/hub                                                     261 B         103 kB
+├ ƒ /api/sheet/identity-decisions                                      261 B         103 kB
+├ ƒ /api/sheet/live-status                                             261 B         103 kB
+├ ƒ /api/sheet/sync-daily                                              261 B         103 kB
+├ ƒ /api/sheet/sync-status                                             261 B         103 kB
+├ ƒ /api/shop/inside                                                   261 B         103 kB
+├ ƒ /api/shop/quick                                                    261 B         103 kB
+├ ƒ /api/shop/status                                                   261 B         103 kB
+├ ƒ /api/version                                                       261 B         103 kB
+├ ƒ /audit                                                           2.43 kB         307 kB
+├ ƒ /catalog                                                           261 B         103 kB
+├ ƒ /chat                                                            16.1 kB         339 kB
+├ ƒ /connectors                                                      4.49 kB         284 kB
+├ ƒ /connectors/in/[code]                                            4.84 kB         284 kB
+├ ƒ /connectors/out/[key]                                            4.16 kB         283 kB
+├ ƒ /contract                                                        29.3 kB         354 kB
+├ ƒ /data-check                                                      3.02 kB         312 kB
+├ ƒ /dev                                                             10.1 kB         319 kB
+├ ƒ /diag                                                            4.57 kB         304 kB
+├ ƒ /erp5                                                            6.26 kB         321 kB
+├ ƒ /erp5/[section]                                                   6.2 kB         308 kB
+├ ƒ /erp5/compare                                                      167 B         315 kB
+├ ƒ /erp5/esign                                                        318 B         360 kB
+├ ƒ /erp5/esign/issuance                                             3.05 kB         267 kB
+├ ƒ /erp5/products/[code]                                            1.91 kB         317 kB
+├ ƒ /erp5/proposal                                                     166 B         315 kB
+├ ƒ /esign                                                             311 B         360 kB
+├ ƒ /esign/preview/[contractCode]                                    8.76 kB         313 kB
+├ ƒ /esign/sample-contract                                           2.27 kB         257 kB
+├ ƒ /estimate                                                        21.5 kB         304 kB
+├ ƒ /estimate/cost                                                   9.62 kB         293 kB
+├ ƒ /faq                                                             6.36 kB         306 kB
+├ ƒ /finder                                                          34.1 kB         362 kB
+├ ƒ /hub                                                             4.84 kB         269 kB
+├ ƒ /interest                                                        4.86 kB         307 kB
+├ ƒ /inventory                                                       14.8 kB         337 kB
+├ ƒ /login                                                           13.8 kB         314 kB
+├ ƒ /m                                                               2.07 kB         184 kB
+├ ƒ /m/[code]                                                        11.2 kB         342 kB
+├ ○ /manifest.webmanifest                                              261 B         103 kB
+├ ƒ /members                                                           31 kB         359 kB
+├ ƒ /policy                                                          7.38 kB         330 kB
+├ ƒ /privacy                                                           138 B         188 kB
+├ ƒ /q/[code]                                                        12.9 kB         354 kB
+├ ○ /robots.txt                                                        261 B         103 kB
+├ ƒ /settings                                                        8.64 kB         319 kB
+├ ƒ /settlement                                                        12 kB         326 kB
+├ ƒ /settlement/invoice                                              2.44 kB         267 kB
+├ ƒ /settlement/ledger                                               10.3 kB         314 kB
+├ ƒ /share                                                           3.01 kB         188 kB
+├ ƒ /shop                                                            13.4 kB         312 kB
+├ ƒ /sign/[token]                                                    15.7 kB         198 kB
+├ ○ /sitemap.xml                                                       261 B         103 kB
+├ ƒ /sonogong                                                          163 B         319 kB
+├ ƒ /spring                                                          6.23 kB         312 kB
+├ ƒ /terms                                                             138 B         188 kB
+├ ƒ /verify/[sealHash]                                                 714 B         183 kB
+└ ƒ /welrix                                                            163 B         319 kB
++ First Load JS shared by all                                         103 kB
+  ├ chunks/1255-f5767ca0d1da046a.js                                    46 kB
+  ├ chunks/4bd1b696-100b9d70ed4e49c1.js                              54.2 kB
+  └ other shared chunks (total)                                      2.88 kB
+
+
+ƒ Middleware                                                         35.2 kB
+
+○  (Static)   prerendered as static content
+ƒ  (Dynamic)  server-rendered on demand
+
+Traced Next.js server files in: 48.767ms
+Tracing entries due to missing build traces:
+[
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/_not-found/page.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/audit/page.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/connectors/in/[code]/page.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/chat/page.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/connectors/out/[key]/page.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/dev/page.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/contract/page.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/connectors/page.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/data-check/page.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/erp5/[section]/page.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/diag/page.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/erp5/compare/page.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/erp5/esign/issuance/page.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/erp5/products/[code]/page.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/erp5/esign/page.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/erp5/page.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/erp5/proposal/page.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/esign/page.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/faq/page.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/esign/preview/[contractCode]/page.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/finder/page.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/estimate/cost/page.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/hub/page.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/interest/page.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/inventory/page.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/estimate/page.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/m/[code]/page.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/login/page.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/m/page.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/members/page.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/policy/page.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/settlement/invoice/page.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/share/page.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/sonogong/page.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/settings/page.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/settlement/page.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/settlement/ledger/page.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/welrix/page.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/spring/page.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/(shop)/shop/page.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/catalog/page.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/privacy/page.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/terms/page.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/verify/[sealHash]/page.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/q/[code]/page.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/sign/[token]/page.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/img/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/sitemap.xml/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/manifest.webmanifest/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/robots.txt/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/admin/members/[uid]/active/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/auth/self-activate/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/auth/session/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/catalog/quote/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/chakhandeal/contracts/[contractCode]/document/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/catalog/feed/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/carmaster/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/chakhandeal/contracts/[contractCode]/handover/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/chakhandeal/contracts/[contractCode]/preview/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/chakhandeal/contracts/[contractCode]/supplement/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/contracts/[contractCode]/settlement/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/chakhandeal/contracts/status/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/contracts/[contractCode]/term-freeze/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/contracts/vehicle-claim/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/dev/migration-backup/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/drive-backup/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/chakhandeal/contracts/[contractCode]/template-fields/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/chakhandeal/contracts/send/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/freepass-esign/contracts/[contractCode]/asset/[kind]/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/extract-photos/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/freepass-esign/contracts/[contractCode]/document/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/estimate/cost/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/freepass-esign/import/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/freepass-esign/contracts/[contractCode]/handover/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/freepass-esign/issuance/rental-fact/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/freepass-esign/contracts/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/freepass-esign/manual-offers/create/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/freepass-esign/manual-offers/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/inventory/duplicate-plan/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/freepass-esign/public/[token]/supporting-document/[docKey]/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/freepass-esign/public/[token]/document/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/inventory/ironrentcar/preview/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/inventory/ironrentcar/apply/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/inventory/reconcile-state/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/inventory/sheet-export/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/inventory/ironrentcar/rollback/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/newcar/config/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/ocr/extract/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/ops/inventory/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/freepass-esign/public/[token]/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/ops/pipeline/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/products/bridge/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/products/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/newcar/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/settlement/agents/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/freepass-esign/contracts/[contractCode]/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/ops/trace/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/settlement/ledger/import/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/products/sheet/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/settlement/ledger/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/settlement/vehicles/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/settlement/mine/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/settlement/confirm/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/sheet/hub/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/settlement/invoice/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/sheet/live-status/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/sheet/conflict-decisions/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/sheet/conflict-resolutions/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/sheet/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/sheet/sync-daily/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/sheet/sync-status/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/sheet/identity-decisions/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/shop/quick/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/version/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/shop/status/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/api/shop/inside/route.js",
+  "C:/dev/freepasserp4-canonical-whitelabel/.next/server/app/esign/sample-contract/route.js"
+]: 6.424s
+Created all serverless functions in: 7.766s
+Collected static files (public/, static/, .next/static): 23.901ms
+Error: EPERM: operation not permitted, symlink '_not-found.func' -> 'C:\dev\freepasserp4-canonical-whitelabel\.vercel\output\functions\audit.func'

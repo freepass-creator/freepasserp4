@@ -1,0 +1,13 @@
+
+> freepasserp4@4.0.0-alpha start
+> next start -p 4004 -p 3011
+
+   ▲ Next.js 15.5.21
+   - Local:        http://localhost:3011
+   - Network:      http://39.120.205.169:3011
+
+ ✓ Starting...
+ ✓ Ready in 398ms
+[catalog/feed] ERP5_FIREBASE_SERVICE_ACCOUNT_JSON 형식 오류
+[catalog/feed] ERP5_FIREBASE_SERVICE_ACCOUNT_JSON 형식 오류
+[catalog/feed] ERP5_FIREBASE_SERVICE_ACCOUNT_JSON 형식 오류

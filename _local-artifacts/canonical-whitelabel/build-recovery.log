@@ -1,0 +1,104 @@
+
+> freepasserp4@4.0.0-alpha build
+> node --max-old-space-size=8192 ./node_modules/next/dist/bin/next build
+
+   ▲ Next.js 15.5.21
+   - Environments: .env.local
+
+   Creating an optimized production build ...
+ ✓ Compiled successfully in 7.5s
+   Linting and checking validity of types ...
+   Collecting page data ...
+Error: [fp4] 필수 Firebase 환경변수 누락: NEXT_PUBLIC_FIREBASE_API_KEY, NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN, NEXT_PUBLIC_FIREBASE_DATABASE_URL, NEXT_PUBLIC_FIREBASE_PROJECT_ID, NEXT_PUBLIC_FIREBASE_APP_ID — Vercel/로컬 환경변수 확인
+    at 30216 (C:\dev\freepasserp4-canonical-whitelabel\.next\server\chunks\3897.js:1:1874)
+    at c (C:\dev\freepasserp4-canonical-whitelabel\.next\server\webpack-runtime.js:1:143)
+    at 33420 (C:\dev\freepasserp4-canonical-whitelabel\.next\server\chunks\3897.js:1:2091)
+    at c (C:\dev\freepasserp4-canonical-whitelabel\.next\server\webpack-runtime.js:1:143)
+    at 52117 (C:\dev\freepasserp4-canonical-whitelabel\.next\server\chunks\1869.js:1:22430)
+    at c (C:\dev\freepasserp4-canonical-whitelabel\.next\server\webpack-runtime.js:1:143)
+    at 56439 (C:\dev\freepasserp4-canonical-whitelabel\.next\server\chunks\2622.js:1:6695)
+    at c (C:\dev\freepasserp4-canonical-whitelabel\.next\server\webpack-runtime.js:1:143)
+    at <unknown> (C:\dev\freepasserp4-canonical-whitelabel\.next\server\app\api\chakhandeal\contracts\[contractCode]\template-fields\route.js:1:7459)
+    at c.a (C:\dev\freepasserp4-canonical-whitelabel\.next\server\webpack-runtime.js:1:715)
+Error: [fp4] 필수 Firebase 환경변수 누락: NEXT_PUBLIC_FIREBASE_API_KEY, NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN, NEXT_PUBLIC_FIREBASE_DATABASE_URL, NEXT_PUBLIC_FIREBASE_PROJECT_ID, NEXT_PUBLIC_FIREBASE_APP_ID — Vercel/로컬 환경변수 확인
+    at 30216 (C:\dev\freepasserp4-canonical-whitelabel\.next\server\chunks\3897.js:1:1874)
+    at c (C:\dev\freepasserp4-canonical-whitelabel\.next\server\webpack-runtime.js:1:143)
+    at 33420 (C:\dev\freepasserp4-canonical-whitelabel\.next\server\chunks\3897.js:1:2091)
+    at c (C:\dev\freepasserp4-canonical-whitelabel\.next\server\webpack-runtime.js:1:143)
+    at 61842 (C:\dev\freepasserp4-canonical-whitelabel\.next\server\chunks\3897.js:1:2698)
+    at c (C:\dev\freepasserp4-canonical-whitelabel\.next\server\webpack-runtime.js:1:143)
+    at <unknown> (C:\dev\freepasserp4-canonical-whitelabel\.next\server\app\api\catalog\feed\route.js:1:6732)
+    at c.a (C:\dev\freepasserp4-canonical-whitelabel\.next\server\webpack-runtime.js:1:715)
+    at 47910 (C:\dev\freepasserp4-canonical-whitelabel\.next\server\app\api\catalog\feed\route.js:1:6610)
+    at c (C:\dev\freepasserp4-canonical-whitelabel\.next\server\webpack-runtime.js:1:143)
+Error: [fp4] 필수 Firebase 환경변수 누락: NEXT_PUBLIC_FIREBASE_API_KEY, NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN, NEXT_PUBLIC_FIREBASE_DATABASE_URL, NEXT_PUBLIC_FIREBASE_PROJECT_ID, NEXT_PUBLIC_FIREBASE_APP_ID — Vercel/로컬 환경변수 확인
+    at 30216 (C:\dev\freepasserp4-canonical-whitelabel\.next\server\chunks\3897.js:1:1874)
+    at c (C:\dev\freepasserp4-canonical-whitelabel\.next\server\webpack-runtime.js:1:143)
+    at 33420 (C:\dev\freepasserp4-canonical-whitelabel\.next\server\chunks\3897.js:1:2091)
+    at c (C:\dev\freepasserp4-canonical-whitelabel\.next\server\webpack-runtime.js:1:143)
+    at 52117 (C:\dev\freepasserp4-canonical-whitelabel\.next\server\chunks\1869.js:1:22430)
+    at c (C:\dev\freepasserp4-canonical-whitelabel\.next\server\webpack-runtime.js:1:143)
+    at 56439 (C:\dev\freepasserp4-canonical-whitelabel\.next\server\chunks\2622.js:1:6695)
+    at c (C:\dev\freepasserp4-canonical-whitelabel\.next\server\webpack-runtime.js:1:143)
+    at <unknown> (C:\dev\freepasserp4-canonical-whitelabel\.next\server\app\api\chakhandeal\contracts\send\route.js:1:7089)
+    at c.a (C:\dev\freepasserp4-canonical-whitelabel\.next\server\webpack-runtime.js:1:715)
+Error: [fp4] 필수 Firebase 환경변수 누락: NEXT_PUBLIC_FIREBASE_API_KEY, NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN, NEXT_PUBLIC_FIREBASE_DATABASE_URL, NEXT_PUBLIC_FIREBASE_PROJECT_ID, NEXT_PUBLIC_FIREBASE_APP_ID — Vercel/로컬 환경변수 확인
+    at 30216 (C:\dev\freepasserp4-canonical-whitelabel\.next\server\chunks\3897.js:1:1874)
+    at c (C:\dev\freepasserp4-canonical-whitelabel\.next\server\webpack-runtime.js:1:143)
+    at 33420 (C:\dev\freepasserp4-canonical-whitelabel\.next\server\chunks\3897.js:1:2091)
+    at c (C:\dev\freepasserp4-canonical-whitelabel\.next\server\webpack-runtime.js:1:143)
+    at 52117 (C:\dev\freepasserp4-canonical-whitelabel\.next\server\chunks\1869.js:1:22430)
+    at c (C:\dev\freepasserp4-canonical-whitelabel\.next\server\webpack-runtime.js:1:143)
+    at 56439 (C:\dev\freepasserp4-canonical-whitelabel\.next\server\chunks\2622.js:1:6695)
+    at c (C:\dev\freepasserp4-canonical-whitelabel\.next\server\webpack-runtime.js:1:143)
+    at 92622 (C:\dev\freepasserp4-canonical-whitelabel\.next\server\chunks\2622.js:1:10216)
+    at c (C:\dev\freepasserp4-canonical-whitelabel\.next\server\webpack-runtime.js:1:143)
+Error: [fp4] 필수 Firebase 환경변수 누락: NEXT_PUBLIC_FIREBASE_API_KEY, NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN, NEXT_PUBLIC_FIREBASE_DATABASE_URL, NEXT_PUBLIC_FIREBASE_PROJECT_ID, NEXT_PUBLIC_FIREBASE_APP_ID — Vercel/로컬 환경변수 확인
+    at 30216 (C:\dev\freepasserp4-canonical-whitelabel\.next\server\chunks\3897.js:1:1874)
+    at c (C:\dev\freepasserp4-canonical-whitelabel\.next\server\webpack-runtime.js:1:143)
+    at 33420 (C:\dev\freepasserp4-canonical-whitelabel\.next\server\chunks\3897.js:1:2091)
+    at c (C:\dev\freepasserp4-canonical-whitelabel\.next\server\webpack-runtime.js:1:143)
+    at 52117 (C:\dev\freepasserp4-canonical-whitelabel\.next\server\chunks\1869.js:1:22430)
+    at c (C:\dev\freepasserp4-canonical-whitelabel\.next\server\webpack-runtime.js:1:143)
+    at 56439 (C:\dev\freepasserp4-canonical-whitelabel\.next\server\chunks\2622.js:1:6695)
+    at c (C:\dev\freepasserp4-canonical-whitelabel\.next\server\webpack-runtime.js:1:143)
+    at 92622 (C:\dev\freepasserp4-canonical-whitelabel\.next\server\chunks\2622.js:1:10216)
+    at c (C:\dev\freepasserp4-canonical-whitelabel\.next\server\webpack-runtime.js:1:143)
+Error: [fp4] 필수 Firebase 환경변수 누락: NEXT_PUBLIC_FIREBASE_API_KEY, NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN, NEXT_PUBLIC_FIREBASE_DATABASE_URL, NEXT_PUBLIC_FIREBASE_PROJECT_ID, NEXT_PUBLIC_FIREBASE_APP_ID — Vercel/로컬 환경변수 확인
+    at 30216 (C:\dev\freepasserp4-canonical-whitelabel\.next\server\chunks\3897.js:1:1874)
+    at c (C:\dev\freepasserp4-canonical-whitelabel\.next\server\webpack-runtime.js:1:143)
+    at 33420 (C:\dev\freepasserp4-canonical-whitelabel\.next\server\chunks\3897.js:1:2091)
+    at c (C:\dev\freepasserp4-canonical-whitelabel\.next\server\webpack-runtime.js:1:143)
+    at 52117 (C:\dev\freepasserp4-canonical-whitelabel\.next\server\chunks\1869.js:1:22430)
+    at c (C:\dev\freepasserp4-canonical-whitelabel\.next\server\webpack-runtime.js:1:143)
+    at 56439 (C:\dev\freepasserp4-canonical-whitelabel\.next\server\chunks\2622.js:1:6695)
+    at c (C:\dev\freepasserp4-canonical-whitelabel\.next\server\webpack-runtime.js:1:143)
+    at 92622 (C:\dev\freepasserp4-canonical-whitelabel\.next\server\chunks\2622.js:1:10216)
+    at c (C:\dev\freepasserp4-canonical-whitelabel\.next\server\webpack-runtime.js:1:143)
+Error: [fp4] 필수 Firebase 환경변수 누락: NEXT_PUBLIC_FIREBASE_API_KEY, NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN, NEXT_PUBLIC_FIREBASE_DATABASE_URL, NEXT_PUBLIC_FIREBASE_PROJECT_ID, NEXT_PUBLIC_FIREBASE_APP_ID — Vercel/로컬 환경변수 확인
+    at 30216 (C:\dev\freepasserp4-canonical-whitelabel\.next\server\chunks\3897.js:1:1874)
+    at c (C:\dev\freepasserp4-canonical-whitelabel\.next\server\webpack-runtime.js:1:143)
+    at 33420 (C:\dev\freepasserp4-canonical-whitelabel\.next\server\chunks\3897.js:1:2091)
+    at c (C:\dev\freepasserp4-canonical-whitelabel\.next\server\webpack-runtime.js:1:143)
+    at 52117 (C:\dev\freepasserp4-canonical-whitelabel\.next\server\chunks\1869.js:1:22430)
+    at c (C:\dev\freepasserp4-canonical-whitelabel\.next\server\webpack-runtime.js:1:143)
+    at 56439 (C:\dev\freepasserp4-canonical-whitelabel\.next\server\chunks\2622.js:1:6695)
+    at c (C:\dev\freepasserp4-canonical-whitelabel\.next\server\webpack-runtime.js:1:143)
+    at 92622 (C:\dev\freepasserp4-canonical-whitelabel\.next\server\chunks\2622.js:1:10216)
+    at c (C:\dev\freepasserp4-canonical-whitelabel\.next\server\webpack-runtime.js:1:143)
+Error: [fp4] 필수 Firebase 환경변수 누락: NEXT_PUBLIC_FIREBASE_API_KEY, NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN, NEXT_PUBLIC_FIREBASE_DATABASE_URL, NEXT_PUBLIC_FIREBASE_PROJECT_ID, NEXT_PUBLIC_FIREBASE_APP_ID — Vercel/로컬 환경변수 확인
+    at 30216 (C:\dev\freepasserp4-canonical-whitelabel\.next\server\chunks\3897.js:1:1874)
+    at c (C:\dev\freepasserp4-canonical-whitelabel\.next\server\webpack-runtime.js:1:143)
+    at 33420 (C:\dev\freepasserp4-canonical-whitelabel\.next\server\chunks\3897.js:1:2091)
+    at c (C:\dev\freepasserp4-canonical-whitelabel\.next\server\webpack-runtime.js:1:143)
+    at 52117 (C:\dev\freepasserp4-canonical-whitelabel\.next\server\chunks\1869.js:1:22430)
+    at c (C:\dev\freepasserp4-canonical-whitelabel\.next\server\webpack-runtime.js:1:143)
+    at 56439 (C:\dev\freepasserp4-canonical-whitelabel\.next\server\chunks\2622.js:1:6695)
+    at c (C:\dev\freepasserp4-canonical-whitelabel\.next\server\webpack-runtime.js:1:143)
+    at 92622 (C:\dev\freepasserp4-canonical-whitelabel\.next\server\chunks\2622.js:1:10216)
+    at c (C:\dev\freepasserp4-canonical-whitelabel\.next\server\webpack-runtime.js:1:143)
+
+> Build error occurred
+[Error: Failed to collect page data for /api/catalog/feed] {
+  type: 'Error'
+}
