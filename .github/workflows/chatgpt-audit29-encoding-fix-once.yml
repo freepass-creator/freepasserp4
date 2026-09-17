@@ -1,0 +1,31 @@
+name: ChatGPT audit 29 encoding fix once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/chatgpt-audit29-encoding-fix-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Repair audit text only
+        shell: bash
+        run: |
+          python3 -c "from pathlib import Path; p=Path('docs/AI-SSOT-AUDIT-LOG.md'); s=p.read_text(); old='production workflowk\ufffd\ufffd'; new='production workflow\ub294'; assert old in s; p.write_text(s.replace(old,new))"
+          python3 -c "from pathlib import Path; p=Path('docs/ai-ssot-audit/2026-09-17-chatgpt-audit29-sales-tab-kind-staging.md'); s=p.read_text(); old='legacy \uc774\ubb84\uc740'; new='legacy \uc774\ub984\uc740'; assert old in s; p.write_text(s.replace(old,new))"
+          python3 -c "from pathlib import Path; p=Path('CLAUDE-AUDIT.md'); s=p.read_text(); old='\uc0c8 \uc774\ubb84\uc73c\ub85c'; new='\uc0c8 \uc774\ub984\uc73c\ub85c'; assert old in s; p.write_text(s.replace(old,new))"
+          rm -f .github/workflows/chatgpt-audit29-encoding-fix-once.yml
+          git config user.name 'ChatGPT SSOT Auditor'
+          git config user.email 'noreply@openai.com'
+          git add docs/AI-SSOT-AUDIT-LOG.md docs/ai-ssot-audit/2026-09-17-chatgpt-audit29-sales-tab-kind-staging.md CLAUDE-AUDIT.md .github/workflows/chatgpt-audit29-encoding-fix-once.yml
+          git commit -m 'audit: repair audit 29 text encoding'
+          git push origin HEAD:main
