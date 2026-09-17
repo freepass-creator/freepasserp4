@@ -80,6 +80,15 @@ const VALIDATED_ENGINES = [
    *     (sync-vehicle-lock-from-ledger.mts 신설) · 색·표시낱말 SSOT 통일과 잠금(check:color-ssot).
    */
   '2e880cefa96e3fa4bfc79902fed448d5bd74abdb',
+  /**
+   * ★2026-09-17 — 이 엔진도 수집기를 «건드렸다»(위 2e880cef 와 같은 성격이라 이어서 적는다).
+   *   사장님 「손오공 보증금 ssot에 제대로 반영 안된거 같음」·「규칙 글자로」로
+   *   `ingest-supplier-to-firestore.mts` 의 손오공 보증금을 «계산 숫자»(dep3) 대신 규칙 글자로 바꿨다
+   *   (`deposit: 0` · API 경로에 `sonokongDepositRuleText()` 배선). 셈법은 글자로 남는다.
+   *   함께: 차량가격 빈칸도 「미입력」 · 보증금 규격을 발행 문지기(inventory-contract)에 박음.
+   *   ★fail-closed 가드 셋과 canonical registry·원천 주소는 그대로다 — 43~49행 검사가 통과한다.
+   */
+  '6a6f3f75c065143ad14286d08baa28e382535eea',
 ];
 const pinnedEngine = VALIDATED_ENGINES.find((engine) => workflow.includes(`ref: ${engine}`));
 assert(pinnedEngine, '검증 엔진 pin이 제거됐습니다. main collector 이식 완료 전에는 pin을 풀면 안 됩니다(새 엔진은 VALIDATED_ENGINES 에 적는다).');
