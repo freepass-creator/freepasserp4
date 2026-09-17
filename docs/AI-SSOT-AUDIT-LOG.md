@@ -280,7 +280,7 @@ F86 실제 구현 위치(main 아님):
 
 재검증 결과 (`git show origin/main:...`):
 
-- `lib/domain/mirror-sources.ts` RP023 — 옛 Google Sheet ID(`1TJBG4PABgly7EtGG6Os5GcY9La7kDR_yex56KHhXe2U`) 그대로 잔존.
+- `lib/domain/mirror-sources.ts` RP023 — 옛 Google Sheet ID(`1TJBG4PABg...`) 그대로 잔존.
 - `.github/workflows/mirror-sync.yml` — `cron: '*/30 * * * *'`로 `sync-mirror-all.mts` 자동 실행, 그대로 살아 있음.
 - `.github/workflows/sales-erp-hourly.yml` — `cron: '0 0-9 * * 1-5'`(평일 KST 09~18시)로 `cloud-hourly-sync.mts --apply` → `hourly-sync.mts` 자동 실행, 그대로 살아 있음.
 
@@ -453,7 +453,7 @@ PR #294가 merge commit `470b6ed2c41b074483e0426a35098b23903635e6`으로 main에
 
 현재 production F86 규칙:
 
-- 장기 요금이 없는 차도 **제외하지 않는다**.
+- 장기요금이 없는 차도 **제외하지 않는다**.
 - `shortOnly`는 알림/관측용으로만 센다.
 - 요금 칸은 빈 채로 싣고 **F86 대수 = F01 대수**를 목표로 한다.
 - 공급사명이 없는 차만 운영 발행을 막는다.
@@ -903,7 +903,7 @@ legacy 경로도 변화 없음.
 - 현재 원천 재수집
 - ERP5 현재 원자 계산
 - 정책 참조 정합화
-- 발행 snapshot 고정
+- ERP5 발행 스냅샷 고정
 - public catalog 발행 대사
 - **F01 판매시트 게시**
 - F86 백업 및 게시
@@ -1822,7 +1822,7 @@ latest observed main CI run `35080449988`도 **failure**다. 다만 실패 step�
 - mirror/sales scheduled writer ownership
 - current `2e880cef...` semantics의 정상 scheduled F01/F86 full-audit PASS 확인 HOLD
 
-`CLAUDE-AUDIT.md`는 실제 PR #334 SHA로 정정하고 latest main이 audit 문서 계열임을 명시한다. 이번 감사에서도 애플리케이션 코드나 비즈니스 로직은 수정하지 않았다.
+`CLAUDE-AUDIT.md`는 실제 PR #334 SHA로 정정하고 latest main이 audit 문서 계열임을 명시한다. 이번 감사에서도 애플리케이션 코드나 비즈니스 로직을 수정하지 않았다.
 
 ---
 
@@ -2343,8 +2343,28 @@ F01 발행기(`make-sample-sheet-google.mts` `titleOf`)는 이미 `.replace(/:\d
 - current registry와 active production pin `9bef7bf...`는 여전히 RP031=`google_sheet`; Source Contract도 RP031/API feeder ownership을 assert하지 않는다. 2026-09-17 `event=schedule`은 재조회 0건으로 audit (31)도 유지한다. audit (23)/(27)/(28)/(29) 및 mirror/RTDB legacy HOLD에도 직접 해소 변경은 없다.
 - 관측성: `diag-ianka-collector.yml` artifact 경로는 `tmp/이안카재고시트-preview.json`인데 script는 `ianka/tmp/...`에 써서 run artifact에 sheet preview JSON이 빠졌다. parity 감사 전에 경로 정렬이 필요하다.
 
-Claude 구현 Owner: status mapping은 유지하고, RP031을 direct API canonical로 갈지 API→source-sheet canonical writer로 갈지 명시한다. 후자를 택하면 feeder를 writer topology/Source Contract에 포함한다. 85↔16↔ERP5 plate parity와 72 신규의 금융값/판매 projection을 확인한 뒤에만 write/pin/schedule promotion을 진행한다.
+Claude 구현 Owner: status mapping은 유지하고, RP031을 direct API canonical로 갈지 API→source-sheet feeder를 canonical writer로 갈지 명시한다. 후자를 택하면 feeder를 writer topology/Source Contract에 포함한다. 85↔16↔ERP5 plate parity와 72 신규의 금융값/판매 projection을 확인한 뒤에만 write/pin/schedule promotion을 진행한다.
 
 상세 근거: `docs/ai-ssot-audit/2026-09-17-chatgpt-audit33-ianka-feeder-parity-provenance-hold.md`.
+
+이번 ChatGPT 감사에서는 application code/business logic을 수정하지 않았다.
+
+---
+
+## 2026-09-17(34) — ChatGPT 독립 감사: PR #375 ERP5 Atom freshness source 정렬 + newest-Atom observability gap
+
+**판정: source alignment 개선 / canonical full-run freshness로는 사용 금지.**
+
+- audit (33) 이후 current main `8b7a417578e6e2b2b2fac673588cf1b0db9e59a9`까지의 delta는 PR #372 read-only Ianka detail 진단, PR #373 ERP5 Atom freshness 진단, PR #375 shop freshness 표시 변경뿐이다. production pin/registry/F01/F86/special-tab/mirror writer core contract는 이 delta에서 바뀌지 않았다.
+- PR #375는 `/shop`의 `⟳ 시각`을 ERP4 `v4/system_status/sheet_daily_sync` / `v4/ops/pipeline`에서 실제 화면 재고가 읽는 ERP5 `products` Atom의 `_direct_ingest_at` / `_var_polled_at`으로 옮겼다. **화면 데이터와 시각 source가 서로 다른 문제는 이 UI 경로에서 개선됐다.** 옛 ERP4 시각은 fallback으로만 남는다.
+- 그러나 current `readErp5StockFreshness()`는 각 timestamp field를 `orderBy(...,'desc').limit(1)`로 한 문서씩 읽고 둘 중 `Math.max()`만 반환한다. 즉 이 값은 **재고 전체의 freshness가 아니라 가장 최근에 쓰인 Atom 하나의 시각**이다.
+- PR #375가 추가한 전수 진단은 반대로 field coverage, newest/median/oldest, timestamp 없는 row, >3h/>12h/>24h/>72h stale 분포를 따로 센다. PR 기록상 운영 1,615대 중 `_direct_ingest_at` 보유 1,153대, `_var_polled_at` 897대다. newest 한 건이 최신이어도 전체 cohort가 최신이라는 증거가 아니다.
+- 확정 디자인 문서는 이 머리띠를 **“재고가 지금 것인가”**를 말하는 자리로 규정한다. 현재 구현은 partial/manual ingest 한 건만으로도 시각이 앞으로 움직일 수 있으므로, 그 문구대로 **inventory/full-run freshness**로 해석하면 과대표현이다.
+- 2026-09-17 GitHub Actions `event=schedule`은 이번 재조회에서도 0건이다. PR #375 commit 자체도 09-17 10:04 Atom 쓰기는 GitHub Actions 기록이 없는 수동 실행이라고 명시한다. 따라서 audit (31)의 canonical schedule-delivery OPEN은 **전혀 해소되지 않았고**, 새 머리띠 시각을 scheduled source→Atom→snapshot→F01/F86 성공 증거로 사용하면 안 된다.
+- PR #375는 파이프라인 자체를 수정하지 않았다. audit (23) F86 freshness checker, audit (27) deposit recurrence, audit (28) vehicle-price, audit (29) sales-tab migration, audit (33) RP031 feeder/provenance 및 mirror/sales/settlement/RTDB ownership HOLD는 직접 해소 증거가 없어 유지한다.
+
+Claude 구현 Owner: ERP5 Atom을 freshness source로 쓰는 방향은 유지하고 ERP4 status timestamp와 다시 섞지 않는다. 다만 현 값의 의미를 `가장 최근 원자 갱신`으로 제한하거나, “재고가 지금 것인가”를 말하려면 coverage/stale distribution 또는 검증된 canonical run/snapshot sentinel과 연결한다. **audit (31)은 실제 `event=schedule` full-run이 생기기 전까지 OPEN 유지한다.**
+
+상세 근거: `docs/ai-ssot-audit/2026-09-17-chatgpt-audit34-erp5-freshness-observability-gap.md` (evidence commit `0f359c8b48d89f3f5ed7b579a540db9882561716`).
 
 이번 ChatGPT 감사에서는 application code/business logic을 수정하지 않았다.
