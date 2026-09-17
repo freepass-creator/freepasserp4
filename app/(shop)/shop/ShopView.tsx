@@ -22,7 +22,8 @@ import { resolveAttr } from '@/lib/shop/attribution';
 import {
   AXIS_LABEL, DEFAULT_QUICK, SHOP_SORTS, activeTokens, clearAxis, emptyQuery, queryCount,
   readQuery, runShopQuery, soloLabel, toggleAxis, writeQuery,
-  type ShopAxis, type ShopQuery, type ShopQuickChip, type ShopSort as ShopSortKey,
+  type ShopAxis, type ShopFacets, type ShopQuery, type ShopQuickChip, type ShopResult,
+  type ShopSort as ShopSortKey,
 } from '@/lib/shop/query';
 
 /**
@@ -71,7 +72,14 @@ const PAGE = 60;
  *   담아 둔 것을 다시 꺼내 볼 «내 목록»이 없는데 담는 단추만 있었다. 공유는 남는다(§1-2).
  */
 
-export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
+export function ShopView({ wl = FREEPASS, initial = null }: {
+  wl?: Whitelabel;
+  /**
+   * 서버가 미리 낸 **필터 집계와 건수** — 목록이 오기 전 첫 그림에만 쓴다(아래 `facets` 머리말).
+   * ⚠ 곁다리다. `null` 이면 예전처럼 브라우저가 받아 그린다 — 없어서 화면이 멈추면 안 된다.
+   */
+  initial?: { facets: ShopFacets; total: number; list: EntityRecord[] } | null;
+}) {
   /*
    * ★★**빠른필터·조건칸 축은 «채널»이 정한다**(사장님 2026-09-08 「그 회사별로 필터값이나
    *   빠른필터나 원하는 게 달라서 그걸 구현해 주려고 해」). 안 적은 채널은 집 기본 그대로다 —
@@ -335,7 +343,26 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
    * ★연달아 누르면 앞의 목록 그리기는 버리고 마지막 조건만 그린다 — 누를수록 밀리지 않는다.
    */
   const liveQuery = useDeferredValue(query);
-  const { list, total, facets } = useMemo(() => runShopQuery(rows, liveQuery), [rows, liveQuery]);
+  const computed = useMemo(() => runShopQuery(rows, liveQuery), [rows, liveQuery]);
+  /*
+   * ★★★**목록이 오기 «전»에는 서버가 낸 집계를 쓴다**(사장님 2026-09-16 「**필터는 바로 열려야지**」).
+   *
+   * ⚠ `rows` 는 목록 응답이 올 때까지 `null` 이다. 그동안 집계가 비어서 **왼쪽 기둥(조건칸)이
+   *   통째로 안 그려졌다** — 새로고침하면 필터가 없다가 나타난다.
+   * ⇒ 서버 껍데기(`page.tsx`)가 **같은 함수**(`loadGuestListing`+`runShopQuery`)로 낸 집계를
+   *   넘겨 준다. 같은 모수·같은 읽개라 숫자가 안 튄다.
+   * ★행이 오면 그때부터는 «계산한 것»이 이긴다 — 45초 폴링으로 재고가 바뀌면 그게 반영돼야 한다.
+   * ★`total` 도 같이 받는다 — 「전체차량 N대」가 0 으로 한 번 떴다가 바뀌는 것을 막는다.
+   */
+  const { list, total, facets }: ShopResult = rows === null && initial
+    /*
+     * ★**첫 화면 카드도 서버 것을 쓴다**(사장님 2026-09-16 「눈에 보이는 사진은 좀 빠르게」).
+     *   카드가 HTML 에 있어야 `<img>` 가 생기고, 그래야 브라우저가 그림을 **바로** 받기 시작한다.
+     *   실측 — 전에는 사진이 6.4초에 «출발»했다(받는 건 0.07초였다).
+     * ★서버가 주는 것은 «보이는 만큼»(6장)이다 — 나머지는 목록이 오면 이어 그린다.
+     */
+    ? { list: initial.list, total: initial.total, facets: initial.facets }
+    : computed;
 
   /*
    * ★★**한 대도 없는 빠른 조건은 세우지 않는다.**
@@ -738,7 +765,13 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
                 ⚠ 「조건 모두 지우기」는 여기 안 둔다 — 걸린 조건 줄에 이미 있다(같은 문을 둘 두지 않는다).
               */}
               <div style={{ height: HEAD_H, display: 'flex', alignItems: 'center' }}>
-                <ShopCount value={rows === null ? '—' : String(total)} />
+                {/*
+                  ★**서버가 낸 건수가 있으면 «—» 을 안 보여준다**(2026-09-16).
+                    `total` 은 위에서 이미 서버 값(`initial.total`)을 받는다 — 그런데 이 자리가
+                    `rows === null` 만 보고 하이픈을 그려서, 숫자를 들고 있으면서도 「—」 를 띄웠다.
+                  ⚠ 서버 값이 «없을» 때는 하이픈이 맞다 — 0 을 그리면 「차가 없다」는 거짓말이 된다.
+                */}
+                <ShopCount value={rows === null && !initial ? '—' : String(total)} />
                 {/*
                   ★★**재고 갱신 시각은 «전체차량 대수» 줄 오른쪽 끝이다**
                     (사장님 2026-09-09 「이거 업데이트 위치 찾았다 — **전체차량 대수 우측정렬로
@@ -820,7 +853,12 @@ export function ShopView({ wl = FREEPASS }: { wl?: Whitelabel }) {
             </div>
 
 
-            {rows === null ? (
+            {/*
+              ★**서버가 첫 화면 카드를 줬으면 뼈대를 안 그린다**(2026-09-16).
+                뼈대는 «줄 것이 없을 때»의 표시다. 카드가 이미 HTML 에 있는데 뼈대를 그리면
+                그림이 한 번 지워지고 다시 들어온다 — 그게 더 느려 보인다.
+            */}
+            {rows === null && !initial?.list.length ? (
               <Grid mobile={mobile}>
                 {Array.from({ length: 6 }, (_, i) => <Skeleton key={i} />)}
               </Grid>

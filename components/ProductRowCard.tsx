@@ -117,8 +117,16 @@ function WebRow({ p, focusMonth }: { p: EntityRecord; focusMonth?: number }) {
 }
 
 /**
- * 모바일 4줄 — 영업 스캔: 차명 / 차번·연식 / 대여·보증·기간범위 / 우대.
- * 출고·상품·심사·연료·주행·옵션 = /m.
+ * 모바일 — **웹 카드에 있는 것은 폰에도 다 있다**(사장님 2026-09-17 「그냥 웹앱 웹에서 보이는 거랑
+ * 모바일 동일하게 하자고」).
+ *
+ * ⚠ 전에는 「출고·상품·옵션 = /m(상세)」였다. 폰 목록을 4줄로 좁혀 한 화면에 행을 더 넣으려던 것인데,
+ *   그 바람에 **웹에서는 「출고가능·픽업구독」이 보이는 차가 폰에서는 아무 표시가 없었다.**
+ *   영업자가 폰으로 훑을 때 지금 팔 수 있는 차인지, 어떤 상품인지를 카드에서 못 읽는다.
+ * ★자리만 폰답게 둔다 — 웹은 차명 «오른쪽»에 신호를 세우지만 폰은 가로가 300px 남짓이라
+ *   차명이 통째로 잘린다. 그래서 **차명 바로 밑 제 줄**에 세운다. 내용·차례(HEAD_BADGE_KEYS)는 웹과 같다.
+ *
+ * 줄: 차명 / 출고·상품 / 옵션 / 차번·연식·주행·연료 / 대여·보증·기간범위 / 심사·우대
  */
 function MobileRow({ p, focusMonth }: { p: EntityRecord; focusMonth?: number }) {
   const href = `/m/${encodeURIComponent(String(p.product_code || p._key))}`;
@@ -152,7 +160,14 @@ function MobileRow({ p, focusMonth }: { p: EntityRecord; focusMonth?: number }) 
             650 이면 바로 아래 금액이 더 굵어서 이름이 부제처럼 밀린다. */}
         <CardTitle p={p} weight={FW.head} />
 
-        {/* 2 차량번호 · 연식 */}
+        {/* 2 출고상태 · 상품구분 — 웹 1행 우측과 «같은 것»(SignalMarks). 폰은 폭이 좁아 제 줄로 내린다.
+            dense = 좁은 자리용 치수(최대폭 200) — 차명 줄을 밀지 않는다. */}
+        <CardRailBadges p={p} dense />
+
+        {/* 3 옵션 — 웹 2행과 같다. 한 줄에 들어가는 만큼만 채우고 나머지는 …(OptionChips 가 재서 자른다) */}
+        <OptionChips p={p} clamp />
+
+        {/* 4 차량번호 · 연식 · 주행 · 연료 */}
         <CardSpecs p={p} plateYear />
 
         {/* 3 대여료 · 보증금 · 최저~최대 운영기간

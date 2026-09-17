@@ -377,7 +377,7 @@ Error: SSOT gate: 오토플러스 원천 차량이 발행 예정표와 한 대�
 2. 그런데 `ssot-prepublish-gate.mts`는 `lib/adapters/source-registry.ts`의 `SUPPLIER_SOURCES`(IANKA·IRON·AUTOPLUS·SONOGONG) **전부를 기본으로** 방금 만든 `prepublish-main.json`(일반 탭 전용 덤프)과 대조한다. `--only=`로 좁히지 않는 한 AUTOPLUS도 포함된다.
 3. AUTOPLUS는 애초에 그 덤프에 없으니 **당연히 0건 매칭**이고, `scripts/ssot-prepublish-gate.mts:188`이 하드 throw한다.
 
-**즉 이건 데이터 사고가 아니라 게이트 설계가 "오토플러스는 전용 탭"이라는 이미 확정된 운영결정을 반영하지 못해서 생기는 구조적 오탐(false positive)이다.** 정제시트 5~6일 미동기화(원 로그의 별도 경고)는 진짜 문제이지만, 게이트가 **죽는 이유** 자체는 이것과 무관하다.
+**즉 이건 데이터 사고가 아니라 게이트 설계가 "오토플러스는 전용 `오플구독` 탭"이라는 이미 확정된 운영결정을 반영하지 못해서 생기는 구조적 오탐(false positive)이다.** 정제시트 5~6일 미동기화(원 로그의 별도 경고)는 진짜 문제이지만, 게이트가 **죽는 이유** 자체는 이것과 무관하다.
 
 RP023을 그대로 실은 `MIRROR_SOURCES`(`from: 1TJBG4PABg...`)와 canonical registry(RebornCar)의 이중정의(충돌 D)는 여전히 실재하는 별개 문제이지만, **이 특정 게이트 실패의 원인은 아니다** — B 문단의 추정은 정정한다(append-only 원칙상 지우지 않고 이 항목으로 덮어쓴다).
 
@@ -397,6 +397,7 @@ RP023을 그대로 실은 `MIRROR_SOURCES`(`from: 1TJBG4PABg...`)와 canonical r
 `ssot-live-gate.yml`은 `lib/adapters/**` 등 특정 경로가 바뀐 push에서만 돈다(`workflow_dispatch`도 가능). 매 커밋마다 도는 필수 체크가 아니라서, **다음에 그 경로가 바뀔 때까지 이 실패가 그대로 잠들어 있을 수 있다.**
 
 ### D. 판정
+
 - **판정(갱신, B-1 참고): 원인 확인됨 — 게이트 설계 결함(오탐), 데이터 사고 아님.** 오토플러스 매칭 실패는 오토플러스가 전용 `오플구독` 탭을 쓴다는 이미 확정된 결정을 `ssot-prepublish-gate.mts`가 반영 못 해서 생긴다. 4개 공급사 정제시트 5~6일째 미동기화는 이것과 별개의 **진짜 문제**로 남아 있다.
 - 이 세션은 Codex처럼 대량 구현/수정을 하지 않는다(`freepasserp4/AGENTS.md` 역할 분담). **수정 자체는 Codex/Cursor 오더로 넘긴다** — 위 B-1의 두 제안 중 택일.
 - 즉시 필요한 것: (1) `ssot-live-gate.yml`/`ssot-prepublish-gate.mts`에 AUTOPLUS 제외 반영, (2) 정제시트 4곳 재동기화(`npx tsx scripts/sync-mirror-sheet.mts --code=... --apply`, 로그가 이미 제시한 명령).
@@ -1023,7 +1024,7 @@ PR #312는 production pin/allowlist만 바꾼 것이며 F86 builder의 표시 �
 - 손오공=`손오공구독`, 오토플러스=`오플구독`, 고유 기간/요금 유지 결정에 신규 회귀 없음
 - `docs/예약작업-지도.md`는 production engine을 아직 `3a334ddf...`로 적어 실제 `308511563...`와 불일치
 - `sales-erp-hourly.yml` cron `0 0-9 * * 1-5`, `mirror-sync.yml` cron `*/30 * * * *`가 repository에 계속 남아 있음
-- `MIRROR_SOURCES` RP023의 옛 Google Sheet `1TJBG4PABgly7EtGG6Os5GcY9La7kDR_yex56KHhXe2U`도 잔존
+- `MIRROR_SOURCES` RP023의 옛 Google Sheet `from` 잔존
 
 따라서 예약지도 pin drift와 legacy writer UI-disable 의존성/재활성화 위험은 기존 판정을 유지한다.
 
@@ -1103,7 +1104,7 @@ run #14가 성공했다는 것은 **현재 builder가 의도한 규칙대로 정
 
 상세 보강 근거는 `docs/ai-ssot-audit/2026-09-16-chatgpt-run14-production-pass.md`를 함께 본다.
 
-이번 감사에서도 애플리케이션 코드나 비즈니스 로직은 수정하지 않았다.
+이번 감사에서도 애플리케이션 코드나 비즈니스 로직을 수정하지 않았다.
 
 ---
 
@@ -1261,7 +1262,7 @@ head `5e39d7d...` push로 시작된 Actions run `35053821352`(`.github/workflows
 이번 재감사에서 다음 기존 계약을 뒤집는 신규 근거는 없었다.
 
 - canonical source: RP006=`ironrentcar.com`, RP012=`sokrc.com/api`, RP023=RebornCar
-- 손오공=`손오공구독`, 오토플러스=`오플구독`, 공급사 고유 기간/요금 축 보존
+- 손오공=`손오공구독`, 오토플러스=`오플구독`, 공급사 고유 기간·주행거리·요금 축 보존
 - `sales-erp-hourly.yml` cron `0 0-9 * * 1-5`와 `mirror-sync.yml` cron `*/30 * * * *`가 main에 잔존
 - `MIRROR_SOURCES` RP023의 옛 Google Sheet `from` 잔존
 - UI-disable에 의존하는 legacy writer 재활성화 위험 판정 유지
@@ -1702,3 +1703,400 @@ mirror는 projection/legacy일 뿐 canonical inventory source가 아니다.
 5. 정산 lock scheduled orchestration gap과 mirror writer ownership도 기존 미해소 항목으로 유지한다.
 
 이번 ChatGPT 감사에서는 애플리케이션 코드나 비즈니스 로직을 수정하지 않았다.
+
+---
+
+## 2026-09-16(18) — ChatGPT 독립 감사: required checker drift + shared credential action runtime break + settlement scheduled failure
+
+### A. 충돌(신규) — required `check:shop-data-parity`가 cache helper refactor를 이해하지 못해 current main CI가 red
+
+**판정: checker-contract drift / 현재 증거만으로 데이터 경로 회귀로 단정하지 않음**
+
+감사 시작 시 application/code main HEAD는 `1769d36cf0cda806f9f1b89561e637e62693b1ad`였다. current CI run `35077840002`의 required step `웹·모바일이 같은 Firestore 피드를 쓰는가`가 failure다.
+
+`scripts/sim-shop-data-parity.mts`는 `lib/server/whitelabel-erp5-catalog.ts` 소스 안에 literal `collection('products')`, `collection('policy')`가 있어야 통과하도록 검사한다. 그러나 PR #329/#330의 60초 cache/inflight refactor 후 실제 reader는:
+
+- `collection('products', 'products')`
+- `collection('policies', 'policy')`
+- helper 내부 `erp5Firestore().collection(name).get()`
+
+형태로 같은 ERP5 Firestore collection을 읽는다.
+
+따라서 현재 관측 failure는 **helper를 모르는 정적 regex checker drift**로 보는 것이 근거에 맞다. 이 사실만으로 guest/catalog가 ERP5 Firestore 이외 소스로 회귀했다고 단정하지 않는다. 다만 PR #327의 checker manifest가 이 검사를 required로 올렸기 때문에, checker를 실제 코드 구조에 맞추기 전까지 main CI가 red이고 해당 parity ratchet의 보증도 사용할 수 없다.
+
+### B. 충돌(신규/운영) — 공통 credential composite action 자체가 GitHub Actions load 단계에서 깨짐
+
+current `.github/actions/prepare-credentials/action.yml`의 input description에는 다음 문자열이 있다.
+
+- `` `${{ secrets.GOOGLE_SA_JSON }}` ``
+
+GitHub Actions는 composite action metadata의 이 표현도 해석하지만 그 위치에서는 `secrets` context를 허용하지 않는다. 실제 최신 관측 scheduled `계약중 표기(30분)` run `35067894061`은 checkout 이후 local action을 읽는 순간:
+
+- `Unrecognized named-value: 'secrets'. Located expression: secrets.GOOGLE_SA_JSON`
+
+로 failure했고 `mark-contract-in-listings.mts`는 실행되지 않았다. 이 shared action 도입 commit은 `330adaf32ccf3e69f67fc4a649cb5c03cabe5231`이다.
+
+중요한 경계: 이것은 writer ownership이 안전하게 닫힌 것이 아니라 **writer가 우연히 실행 전 깨진 운영 회귀**다. repository에는 schedule/`--apply` 가능 경로가 그대로 있으므로 이를 governance retirement로 간주하지 않는다.
+
+또 current generic CI의 `check:workflows`는 이 상태에서도 통과했다. 즉 현재 workflow checker는 local composite action metadata expression 유효성까지 검증하지 못한다는 coverage gap도 확인됐다.
+
+### C. 충돌 유지 + 운영 증거 강화 — settlement scheduled 경로는 current ledger contract와 실제로 실패 중
+
+latest observed scheduled `정산 접수 반영(1시간)` run `35056578656`은 legacy `scripts/sync-contract-from-ledger.mts` 단계까지 갔지만:
+
+- `시트 "정산"을(를) 찾지 못했습니다.`
+
+로 실패했다.
+
+current `.github/workflows/settlement-sync.yml`은 여전히 이 옛 스크립트를 호출한다. 반면 current ledger contract는 `접수`, `취소`, `분납실적`, `완납실적`, `청구` 탭을 사용하며, production pin `2e880cef...`의 새 `scripts/sync-vehicle-lock-from-ledger.mts`는 `접수`/`취소`를 ERP5 Atom lock/unlock으로 해석하지만 scheduled orchestration에는 연결되지 않았다.
+
+따라서 `(16)/(17)`의 settlement Atom-lock gap은 단순 코드 추론이 아니라 **실제 scheduled failure로 계속 재현되는 미해소 운영 충돌**이다.
+
+### D. 기존 SSOT HOLD/충돌은 닫지 않음
+
+이번 감사에서 다음을 해소하는 신규 근거는 없었다.
+
+- production pin은 `2e880cefa96e3fa4bfc79902fed448d5bd74abdb` 유지
+- current main의 legacy F01 projection은 여전히 `손오공구독`/5-product-type 계약, production pin은 `오공구독`/7-canonical/color-lock 계약 — `(17)` same-output conflict 유지
+- current main `lib/domain/category-colors.ts`의 픽업구독은 계속 `#C2185B`
+- `mirror-sync.yml`은 `*/30` schedule + schedule `--apply`, `sales-erp-hourly.yml`도 scheduled `--apply` 경로가 repository에 남아 있음
+- canonical inventory source는 RP006=`ironrentcar.com`, RP012=`sokrc.com/api`, RP023=RebornCar; RP023 old Google Sheet mirror는 canonical source가 아님
+- `2e880cef...` current semantics 기준 정상 scheduled F01/F86 full-audit PASS는 이번 감사에서도 새로 독립 확정하지 못함
+
+상세 증거:
+
+- `docs/ai-ssot-audit/2026-09-16-chatgpt-ci-runtime-regressions.md`
+
+### Claude 구현 Owner에게 넘기는 즉시 지시
+
+1. `(17)`의 **same-output F01 writer/contract conflict를 최우선 SSOT ownership 문제로 계속 유지**한다. 우연한 schedule failure를 writer retirement로 착각하지 않는다.
+2. `check:shop-data-parity`를 helper-mediated ERP5 Firestore 경로까지 의미적으로 검증하도록 고쳐 required ratchet을 다시 유효하게 만든다.
+3. `.github/actions/prepare-credentials/action.yml`의 metadata runtime 오류를 고치고, local composite action도 실제 Actions parser 관점에서 검증하는 CI/정적 검사를 추가한다.
+4. settlement scheduled path를 current ledger/ERP5 Atom lock 계약에 맞춰 정리하고 `접수` lock + `취소` unlock이 실제 scheduled run에서 성공하는지 확인한다.
+5. production pin full-run, 픽업구독 canonical 색, mirror/RTDB legacy ownership HOLD는 직접 해소 증거가 생길 때까지 유지한다.
+
+이번 ChatGPT 감사에서도 애플리케이션 코드나 비즈니스 로직을 수정하지 않았다.
+
+---
+
+## 2026-09-16(19) — ChatGPT 독립 감사: Claude entry point의 존재하지 않는 application SHA 정정, audit `(18)` 실질 판정 유지
+
+### A. 충돌/정정 — `CLAUDE-AUDIT.md`가 존재하지 않는 application SHA를 최신 기준점으로 적고 있었음
+
+**판정: 감사 entry-point drift / 구현계약 자체의 신규 회귀는 아님**
+
+current main `7f942cb59bd0cf77838c31681aae18f1a81bc1a5`의 `CLAUDE-AUDIT.md`는 audit `(18)` 이후 application change를:
+
+- `b7942ed59026041e29e21cbd80ec28b19da32840`
+
+로 적고 있었다. GitHub commit 조회 결과 이 SHA는 `freepass-creator/freepasserp4`에 존재하지 않는다.
+
+실제 PR #334 application commit은:
+
+- `b794345499bbcbc467462dfd1e25a46bea42c6d9`
+
+이다. 실제 diff는 `app/(shop)/shop/ShopView.tsx`, `app/(shop)/shop/page.tsx` 중심의 첫 화면 SSR/상품사진 preload UI 개선이며, SSOT source registry, production engine pin, F01/F86 writer, ERP5 collector, mirror topology, settlement orchestration, canonical product-type/color 계약을 변경하지 않는다.
+
+따라서 Claude가 Git lineage를 재검증할 때 존재하지 않는 SHA를 따라가게 만드는 **감사 진입점 자체의 drift**는 정정하지만, audit `(18)`의 실질 SSOT finding은 그대로 유지한다.
+
+상세 근거:
+
+- `docs/ai-ssot-audit/2026-09-16-chatgpt-entrypoint-sha-drift.md`
+
+### B. 확인됨 — latest main CI red는 audit `(18)`과 동일한 checker-contract drift
+
+latest observed main CI run `35080449988`도 **failure**다. 다만 실패 step은 audit `(18)`에서 이미 기록한 required `check:shop-data-parity` 하나이며, 원인도 동일하다.
+
+- actual guest catalog reader는 helper를 거쳐 ERP5 Firestore를 읽음
+- checker는 literal `collection('products')` / `collection('policy')` 형태를 요구해 helper refactor를 오탐함
+
+같은 run에서 그 앞의 workflow/schedule checks와 `check:store`는 통과하며 RTDB direct-open baseline은 계속 0이다. 이번 재검수에서 새로운 SSOT implementation regression은 확인되지 않았다.
+
+### C. 기존 미해소 항목은 그대로 유지
+
+- production pin `2e880cefa96e3fa4bfc79902fed448d5bd74abdb`
+- production과 current-main legacy writer의 same-output F01 contract conflict
+- 공통 credential composite action load-time failure
+- settlement `접수/취소` → ERP5 Atom lock scheduled orchestration gap
+- 픽업구독 canonical 색 `#C2185B`
+- mirror/sales scheduled writer ownership
+- current `2e880cef...` semantics의 정상 scheduled F01/F86 full-audit PASS 확인 HOLD
+
+`CLAUDE-AUDIT.md`는 실제 PR #334 SHA로 정정하고 latest main이 audit 문서 계열임을 명시한다. 이번 감사에서도 애플리케이션 코드나 비즈니스 로직은 수정하지 않았다.
+
+---
+
+## 2026-09-16(20) — ChatGPT 독립 감사: 선언된 cron 대비 GitHub `schedule` event가 16:18 KST 이후 끊김
+
+### A. 충돌(신규/운영) — repository cron과 실제 schedule dispatch가 장시간 불일치
+
+**판정: schedule-delivery/enablement drift / 원인 미확정**
+
+2026-09-16 21:36 KST 기준 GitHub Actions API의 `event=schedule&created=2026-09-16` 실행 기록은 하루 전체에 **4건뿐**이었다.
+
+- 10:32:35 KST — `계약중 표기(30분)` run `35044497887` — success
+- 12:46:35 KST — `ERP5 SSOT 원천 최신화(매시간)` run `35053074482` — success
+- 13:41:34 KST — `정산 접수 반영(1시간)` run `35056578656` — failure
+- 16:18:54 KST — `계약중 표기(30분)` run `35067894061` — failure
+
+추가 API 조회에서도 2026-09-16 17:00 KST 이후 `schedule` run은 0건이었다. 즉 마지막 관측 schedule event 이후 약 5시간 17분 동안 새 scheduled run이 기록되지 않았다.
+
+하지만 current main의 workflow 원문에는 여전히 다음 cron이 선언돼 있다.
+
+- `.github/workflows/erp5-ssot-refresh.yml`: `5 0-10 * * 1-6`
+- `.github/workflows/settlement-sync.yml`: `5 0-9 * * 1-6`
+- `.github/workflows/sales-erp-hourly.yml`: `0 0-9 * * 1-5`
+- `.github/workflows/mirror-sync.yml`: `*/30 * * * *`
+
+수요일 기준 마지막 관측 run 뒤에도 ERP5 refresh 17:05/18:05/19:05 KST, settlement 17:05/18:05 KST, sales 17:00/18:00 KST, mirror 30분 주기의 다수 회차가 repository 선언상 기대된다. 그러나 실제 Actions run 목록에는 없다.
+
+이번 감사 도구 범위에서는 각 workflow의 GitHub Actions UI enabled/disabled 상태나 GitHub scheduler 내부 지연/누락 원인을 직접 확정하지 못했다. 따라서 “workflow가 disabled됐다” 또는 “GitHub scheduler 장애다”라고 단정하지 않는다. 다만 **선언된 cadence대로 scheduled publisher/writer가 계속 실행 중이라는 운영 가정은 현재 실행 기록으로 뒷받침되지 않는다.**
+
+### B. 기존 runtime failure와 구분 — 새 코드는 안 바뀌었지만 scheduled operation의 실행 증거가 끊김
+
+current main의 애플리케이션/SSOT 구현은 audit `(19)` 이후 새로 바뀌지 않았다. latest main CI run `35085813150`의 failure도 audit `(18)/(19)`에서 이미 기록한 `check:shop-data-parity` checker-contract drift와 동일하다.
+
+또 다음 기존 미해소 항목도 그대로다.
+
+- 공통 credential composite action의 `${{ secrets.GOOGLE_SA_JSON }}` metadata 오류
+- settlement의 옛 `sync-contract-from-ledger.mts` / `정산` 탭 scheduled failure
+- production pin `2e880cefa96e3fa4bfc79902fed448d5bd74abdb`
+- production과 current-main legacy writer의 same-output F01 contract conflict
+- 픽업구독 canonical 색 `#C2185B`
+- `mirror-sync.yml`/`sales-erp-hourly.yml`의 write-capable cron 선언
+- RP023 legacy mirror의 옛 Google Sheet `from`
+
+새로운 점은 **그 scheduled workflow들이 실제로 dispatch되고 있다는 증거 자체가 끊겼다**는 것이다. 우발적인 미기동을 writer retirement나 SSOT 단일화로 해석하면 안 된다.
+
+### C. Claude 구현 Owner에게 넘기는 즉시 지시
+
+1. GitHub Actions에서 `erp5-ssot-refresh`, `settlement-sync`, `sales-erp-hourly`, `mirror-sync`, `contract-status` 각각의 실제 enabled/disabled 상태를 먼저 확인한다.
+2. intentional disable이라면 repository cron/예약지도/writer ownership 계약을 그 상태와 맞춰 코드로 증명 가능하게 만든다.
+3. intentional disable이 아니라면 schedule event 미발생 원인을 확인하고, 특히 production `2e880cef...`의 다음 정상 scheduled F01/F86 full-audit run을 확보한다.
+4. schedule 미발생을 이유로 legacy writer ownership 문제를 `해소됨`으로 닫지 않는다.
+5. application code/business logic 수정은 Claude 단일 구현 세션만 수행한다.
+
+상세 근거:
+
+- `docs/ai-ssot-audit/2026-09-16-chatgpt-schedule-delivery-gap.md`
+
+이번 ChatGPT 감사에서는 애플리케이션 코드나 비즈니스 로직을 수정하지 않았다.
+
+---
+
+## 2026-09-17(21) — ChatGPT 독립 감사: PR #337로 required parity checker drift 해소, main CI green 복구
+
+### A. 해소됨 — `check:shop-data-parity`가 current helper 구조를 따라가도록 수정됨
+
+**판정: audit `(18)~(20)`의 checker-contract drift 해소**
+
+current application/checker main 기준점은 PR #337 merge commit:
+
+- `7535c581245f89b2da95f910e05fead4d14a24e2`
+
+PR #337은 `scripts/sim-shop-data-parity.mts` 한 파일만 수정했다. 기존 checker가 cache/helper refactor 이전 형태인 `collection('products')`, `collection('policy')`와 feed route 내부 직접 reader 호출을 요구하던 것을 current implementation에 맞춰 다음을 검증하도록 변경했다.
+
+- `collection('products', 'products')`
+- `collection('policies', 'policy')`
+- `app/api/catalog/feed/route.ts`가 `loadGuestListing` 사용
+- `lib/server/guest-listing.ts`가 `readWhitelabelCatalogFromErp5` 사용
+- `includePartners: !!providerCode`, `includeUsers: !!share` 유지
+- feed/listing 양쪽의 `firebaseAdminApp`, `firestore-ref-shim`, `.ref(` 직접 경로 금지 유지
+
+즉 required ratchet을 제거하거나 느슨하게 만든 것이 아니라, helper 아래로 이동한 ERP5 Firestore 읽기 계약을 따라 검사 위치를 이동한 수정이다.
+
+### B. 실제 CI 증거 — main red 해소
+
+PR head `ff02d8f662e84290c949d1b3a3e1a2c388d9dacd`의 `verify` check는 success였다.
+
+merge 뒤 main push CI:
+
+- run `35117788232`
+- head `7535c581245f89b2da95f910e05fead4d14a24e2`
+- conclusion: **success**
+
+job `104867526238`에서 다음 단계가 실제 success다.
+
+- `RTDB 스왑점 밖 직접 열기`
+- `웹·모바일이 같은 Firestore 피드를 쓰는가`
+- `Production build`
+
+따라서 `CLAUDE-AUDIT.md`의 기존 “latest main CI red / parity checker를 고쳐야 함” 요약은 stale였고 이번 감사에서 갱신했다.
+
+상세 근거:
+
+- `docs/ai-ssot-audit/2026-09-17-chatgpt-parity-checker-resolution.md`
+
+### C. schedule-delivery HOLD는 미해소 유지
+
+2026-09-17 00:50 KST 근처에 `event=schedule` 기록을 다시 조회했지만 2026-09-16 실행은 여전히 4건뿐이며 마지막은 16:18:54 KST run `35067894061`이었다. repository cron 선언은 그대로다.
+
+따라서 audit `(20)`의 schedule-delivery/enablement drift는 **미해소 유지**다. workflow disable인지 scheduler delivery 누락/지연인지 원인을 단정하지 않는다.
+
+### D. 나머지 SSOT/운영 HOLD는 변화 없음
+
+PR #337은 checker 파일 하나만 바꿨으므로 다음 기존 판정은 닫지 않는다.
+
+- production pin `2e880cefa96e3fa4bfc79902fed448d5bd74abdb`
+- production과 current-main legacy writer의 same-output F01 contract conflict
+- `.github/actions/prepare-credentials/action.yml`의 composite-action metadata `${{ secrets.GOOGLE_SA_JSON }}` 문제
+- settlement `접수/취소` → ERP5 Atom lock scheduled orchestration gap
+- 픽업구독 canonical 색 `#C2185B`
+- `mirror-sync.yml` / `sales-erp-hourly.yml` write-capable cron 및 RP023 legacy mirror source
+- `2e880cef...` current semantics 기준 정상 scheduled F01/F86 full-audit 확인 HOLD
+
+canonical inventory source도 그대로다.
+
+- RP006 = `ironrentcar.com`
+- RP012 = `sokrc.com/api`
+- RP023 = RebornCar
+
+### Claude 구현 Owner에게 넘기는 즉시 지시
+
+1. `check:shop-data-parity` checker drift는 **해소됨**으로 닫고 현재 ERP5 Firestore 의미 검사를 약화시키지 않는다.
+2. schedule-delivery gap과 same-output F01 writer ownership을 우선 미해소 항목으로 유지한다.
+3. credential composite action과 settlement Atom-lock scheduled orchestration을 실제 Actions 기준으로 고친다.
+4. 픽업구독 색은 production `MASTER_CATEGORY_COLORS['분류']` 한 곳에서만 처리한다.
+5. mirror/RTDB legacy 경로를 canonical source로 승격시키지 않는다.
+
+이번 ChatGPT 감사에서는 애플리케이션 코드나 비즈니스 로직을 수정하지 않았다.
+
+---
+
+## 2026-09-17(22) — ChatGPT 독립 감사: production 특수탭 보증금 규칙이 main canonical deposit-policy SSOT를 우회
+
+### A. 충돌(신규 발견) — production pin에 current main 보증금 정책 SSOT가 없음
+
+**판정: Sonogong/AutoPlus special-tab projection contract drift / Claude 구현 Owner 확인 필요**
+
+current main에는 `lib/domain/deposit-policy.ts`가 있고, commit `110bb75935688dc6b01d361d1e6dcac335e65b50`가 손오공/오토플러스 보증금 규칙을 한 곳으로 모았다. 이어 `aae377d048181f09edbeaa7546ae0afb71c09be4`가 제조사 미입력 오토플러스를 국산으로 추정하지 않도록 `undefined`로 fail-closed했고, `80a0d82317fc84b80dd7b5e7ff4d45426966e9b0`가 `sales-published-tabs.ts`가 이 SSOT를 소비하도록 바꿨다.
+
+current main 계약:
+
+- 손오공 `보증금 반납형`은 원본 문자열 복사가 아니라 `SONOGONG_DEPOSIT_POLICY.label` 발행
+- 오토플러스는 `resolveAutoplusDepositPolicy(maker)?.label ?? ''`
+- maker가 비어 있으면 정책 미확정으로 두고 국산 ×2를 추정하지 않음
+
+반면 current production pin `2e880cefa96e3fa4bfc79902fed448d5bd74abdb`에는 `lib/domain/deposit-policy.ts` 자체가 없다. production `lib/domain/sales-published-tabs.ts`는:
+
+- `오공구독`의 `보증금 반납형`을 원본 special-tab block에서 계속 복사하고,
+- AutoPlus 규칙을 로컬 하드코딩해 `isImportBrand(String(maker ?? '')) ? 수입규칙 : 국산규칙`으로 표시한다.
+
+따라서 maker가 빈 문자열이면 production은 **`국산: 월 대여료×2`로 추정**하지만 current main canonical resolver는 **정책 미확정/빈 표시**다. 이 부분은 코드상 실제 의미 차이다.
+
+`110bb759...` ↔ `2e880cef...` 비교도 `diverged`이고 merge-base는 `4bab085d30181612cbf47624a76006c57065dccd`라 production lineage가 main의 보증금 정책 centralization을 상속했다고 볼 수 없다.
+
+### B. 범위 — 기존 source/tab/F86 판정을 뒤집는 것은 아님
+
+- canonical inventory source는 계속 RP012=`sokrc.com/api`, RP023=RebornCar다.
+- production 특수탭의 `오공구독 / 픽업구독 / 오플구독` naming과 F86 projection 계약은 기존 판정을 유지한다.
+- 이번 finding은 특수탭 **보증금 정책 SSOT/표시 projection**에 한정한다.
+- 손오공 원본 `보증금 반납형` 문자열이 현재 canonical 규칙과 실제 값까지 다른지는 이번 감사에서 단정하지 않는다. 다만 production projection이 canonical policy object에 잠겨 있지 않은 것은 확정이다.
+- AutoPlus maker 누락 동작은 current main과 production이 명확히 다르다.
+
+### C. 함께 재확인된 기존 상태
+
+- latest main CI run `35127816502`는 success이며 `check:store`, Firestore parity, Production build가 모두 green이다.
+- production pin은 계속 `2e880cef...`이다.
+- `event=schedule` 최신 run은 여전히 2026-09-16 16:18:54 KST의 `35067894061`이라 audit `(20)/(21)`의 schedule gap은 미해소다.
+- credential composite action, settlement Atom-lock, same-output F01 legacy writer, 픽업구독 색, mirror writer ownership HOLD도 해소 증거가 없다.
+
+상세 근거:
+
+- `docs/ai-ssot-audit/2026-09-17-chatgpt-special-tab-deposit-policy-drift.md`
+
+### Claude 구현 Owner에게 넘기는 즉시 지시
+
+1. production lineage에 current main `deposit-policy.ts`의 canonical rules를 선택적으로 이식/병합하되 production의 7-canonical 상품구분, `오공구독` naming, F86, collector semantics를 되돌리지 않는다.
+2. 손오공/오토플러스 adapter 및 special-tab publisher가 같은 deposit policy object/resolver를 소비하도록 정리한다.
+3. 특히 AutoPlus maker 누락을 국산으로 추정하지 않는 current canonical fail-closed semantics를 current business rule 기준으로 확인하고 production publish/audit에서 검증한다.
+4. 기존 schedule gap, same-output F01 writer, credential action, settlement Atom-lock, pickup color, mirror ownership HOLD는 별도로 유지한다.
+
+이번 ChatGPT 감사에서는 application code나 business logic을 수정하지 않았다.
+
+---
+
+## 2026-09-17(23) — ChatGPT 독립 감사: ERP5 workflow disabled 확인 + settlement lock 배선 진전 + F86 freshness checker drift
+
+### A. 확인됨 — audit `(20)~(22)`의 schedule-gap 원인이 적어도 ERP5 canonical workflow에 대해서는 좁혀짐
+
+**판정: `ERP5 SSOT 원천 최신화(매시간)` workflow disabled 확인 / 다른 scheduled writer 상태는 별도 HOLD**
+
+current main은 `392ebff47d30fdfea3e579bb66c7cc77565d8a9a`이고 main CI run `35165360527`은 success다. 다만 canonical workflow를 수동 dispatch하려 한 run `35164315681` / job `105021859423`은 GitHub API에서 정확히 다음 오류를 받았다.
+
+`HTTP 422: Cannot trigger a 'workflow_dispatch' on a disabled workflow`
+
+대상 workflow id는 `358276101`이며 `.github/workflows/erp5-ssot-refresh.yml`이다. 따라서 audit `(20)~(22)`의 “workflow disable인지 scheduler delivery 문제인지 원인 미확정” 중 **ERP5 refresh는 실제 disabled였음이 확정**됐다. 이 증거를 `settlement-sync`, `sales-erp-hourly`, `mirror-sync`까지 같은 상태였다고 일반화하지 않는다.
+
+### B. 해소됨/진전 — canonical ERP5 refresh에 정산원장 `접수/취소` Atom lock step이 실제 배선됨
+
+commit `276f37e33e26544bde0439f1c387a1a624a62138`은 current `.github/workflows/erp5-ssot-refresh.yml`에 다음 실행 step을 추가했다.
+
+- schedule 또는 `apply=true`일 때 `scripts/sync-vehicle-lock-from-ledger.mts --apply`
+- `접수` → ERP5 Atom 계약락
+- `취소` → Atom 락 해제
+
+이 commit의 `SSOT Source Contract` run `35164053755`는 success다. 따라서 audit `(16)~(22)`의 “새 Atom-lock tool이 canonical ERP5 refresh에 연결되지 않았다”는 부분은 **해소됨**으로 갱신한다.
+
+단, `.github/workflows/settlement-sync.yml`의 옛 `sync-contract-from-ledger.mts` / `정산` 탭 경로가 별도로 남아 있는 문제까지 해소됐다는 뜻은 아니다. legacy settlement workflow의 ownership/retirement는 별도 미해소다.
+
+### C. 충돌(신규) — 같은 production pin 안에서 F86 builder와 freshness 감사기가 서로 반대의 탭명 계약을 가짐
+
+**판정: checker-contract drift / F86 데이터 발행 실패로 오인하면 안 됨**
+
+production pin은 계속 `2e880cefa96e3fa4bfc79902fed448d5bd74abdb`다. 이 pin의 `lib/server/channel-f86-plan.ts`는 현재 승인 규칙대로:
+
+- `종합`만 `MM.DD HH:MM:SS · N대`
+- 공급사 탭은 `회사 · N대`로 **시간 없이** 발행
+
+하도록 `f86TabTitle()`을 구현한다.
+
+그런데 같은 pin의 `scripts/audit-f86-vs-atom.mts` freshness 검사는 **모든 탭**에 `MM.DD HH:MM:SS · N대`가 있어야 한다는 regex를 적용하고, 공급사 탭에 시간이 없으면 failure를 추가한다.
+
+실제 one-time full sync run `35165360537`에서 이 모순이 그대로 재현됐다.
+
+- canonical source preflight: 24/24 success
+- 실제 Atom 반영: 24/24 success
+- settlement lock step: success
+- policy reconcile: 1,592 products / 81 policies / dangling 0
+- snapshot: 재고 695대
+- public catalog: expected/actual 687대, hash 및 mismatch 0
+- F01 publish: success, 695대
+- F86 backup/publish: success, 19탭 / 695대 / 90열
+- F86 칸 대조: **44,653칸, 값 어긋남 0**
+- 그러나 공급사 탭 18개가 `회사 · N대`라서 “탭 이름에 발행 시각이 없다” 18건으로 audit step failure
+- 그 결과 이후 Atom↔F01↔F86 cross-audit와 photo-link audit는 skipped
+
+즉 이 run의 F86 failure는 **builder의 최신 탭명 계약을 freshness checker가 따라가지 못한 false positive**다. Claude 구현 Owner는 freshness를 `종합` timestamp 하나에서 판정하거나 plan의 timestamp contract를 공유하도록 고치되, 칸/차례/값 대조를 약화시키지 않는다.
+
+### D. 충돌(신규 governance) — current main에 별도 write-capable one-time F01/F86 workflow가 남음
+
+current main에는 `.github/workflows/manual-erp5-full-sync-once.yml`이 존재한다.
+
+- 도입: `05a3b53540130873d38d175e032bc48055b31d1e`
+- manual publish 승인 추가: `392ebff47d30fdfea3e579bb66c7cc77565d8a9a`
+- production pin `2e880cef...`을 checkout해 source→Atom→snapshot→F01/F86을 직접 수행
+- `FREEPASS_MANUAL_PUBLISH_APPROVED='2026-09-17 morning manual sync'`로 normal workflow-name allowlist 밖에서 운영 F01/F86 쓰기 gate를 연다
+
+긴급 수동 발행 자체는 owner 승인 escape hatch 계약에 존재하지만, 이 workflow가 main에 상주하면 기존 `ERP5 SSOT 원천 최신화(매시간)` 외 **두 번째 production writer 진입점**이 된다. prior writer topology 문서에도 없던 신규 경로다. 감사자는 이를 애플리케이션 로직으로 확장하지 않고, Claude 단일 구현 Owner가 긴급 사용 후 retire/remove 또는 명시적 통제 경로로 정리할 대상으로 넘긴다.
+
+### E. 기존 미해소 항목
+
+이번 변경으로 아래를 닫지 않는다.
+
+- production ↔ current-main legacy `sales-erp-hourly` same-output F01 contract conflict
+- RP023 legacy mirror source / `mirror-sync` ownership
+- composite credential action metadata `${{ secrets.GOOGLE_SA_JSON }}` parser 문제
+- special-tab deposit-policy drift(audit `(22)`)
+- 픽업구독 canonical 색 HOLD
+
+### Claude 구현 Owner에게 넘기는 즉시 지시
+
+1. canonical ERP5 workflow `358276101`의 intended enabled/disabled 상태를 운영 결정과 맞춘다. 자동 시동을 다시 켤 경우 current `2e880cef...` full path를 기준으로 검증한다.
+2. `audit-f86-vs-atom.mts` freshness contract를 현재 `channel-f86-plan.ts` 탭명 규칙(종합만 시간)과 맞추고, same snapshot cross-audit/photo-audit까지 다시 green을 확보한다.
+3. `manual-erp5-full-sync-once.yml`은 긴급 회차 후 permanent second writer가 되지 않게 retire/remove 또는 명시적 통제 방식으로 정리한다.
+4. canonical refresh에 settlement Atom-lock 배선은 **해소됨**으로 취급하되 legacy `settlement-sync.yml`은 별도 정리한다.
+5. audit `(22)` deposit-policy, legacy F01/mirror, credential action, pickup color HOLD는 직접 해소 증거가 생길 때까지 유지한다.
+
+이번 ChatGPT 감사에서는 application code/business logic을 수정하지 않았다. 감사 문서와 Claude entry point만 갱신한다.
+
