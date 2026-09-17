@@ -1030,6 +1030,30 @@ must(/wl\.tel/.test(read('app/q/[code]/ShopDetailView.tsx')),
     `퀵필터 칩과 «같은 조건»이 토큰으로 또 섭니다 — 누르면 자리가 눌려야지 새 줄이 생기면 안 됩니다(지금 ${tokenGuards.length}곳만 걸림 · 웹·폰 둘 다여야 합니다).`,
     'app/(shop)/shop/ShopView.tsx · docs/DESIGN_CONFIRMED_SHOP.md §15');}
 
+/* ── 머리띠 오른쪽 — 표준라벨과 영업채널이 «딱 한 칸» 다르다 ─────────────────
+ *
+ * 사장님 2026-09-16 「**표준라벨은 날짜 시간 날씨**로 하고 · **화이트라벨(영업채널용) 상단
+ *   상담 및 문의 대표번호로** 하고 · **딱 그거만 다르게**」
+ * 사장님 2026-09-17 「이거 **매뉴얼 좀 해놔라 어딘가에 박아놔야지** — 코드나 SSOT 에」.
+ *
+ * ⚠ 그때까지 이 규칙은 **화면 파일 주석에만** 있었다. 주석은 지워져도 아무도 모른다 —
+ *   이 저장소의 「고쳐 놓으면 또 바뀐다」가 대부분 그렇게 났다.
+ * ★그래서 셋을 «기계»가 지킨다:
+ *   ㉠ 가르는 잣대는 **`self`** 다 — 「번호가 있나」로 가르면 폰에 문의 단추를 단 순간 웹 날짜가 사라진다(겪었다).
+ *   ㉡ 채널 쪽 말은 **한 곳**(`CONTACT_LABEL`)에서 온다 — 손으로 적으면 웹·폰이 갈린다.
+ *   ㉢ 표준라벨 쪽은 **날짜·시각**(`nowLabelKo`)과 **날씨**(`head.weather`)를 든다.
+ * ★폰 둘째 줄(날짜·날씨)은 2026-09-17 에 걷었다 — 그건 «없는 것»이 규격이라 여기서 안 센다.
+ */
+must(/const webContact = !mobile && !!phone && \(!!who \|\| !wl\.self\)/.test(wlFrame),
+  '머리띠 오른쪽을 가르는 잣대가 바뀌었습니다 — 표준라벨(self)은 날짜·시각·날씨, 영업채널은 상담 대표번호입니다.',
+  'components/WhitelabelFrame.tsx webContact · docs/DESIGN_CONFIRMED_SHOP.md 「머리띠 오른쪽」');
+must(/const CONTACT_LABEL = '상담 및 문의'/.test(wlFrame) && /\{CONTACT_LABEL\}/.test(wlFrame),
+  '채널 머리띠의 「상담 및 문의」가 한 곳(CONTACT_LABEL)에서 안 옵니다 — 손으로 적으면 웹·폰이 갈립니다.',
+  'components/WhitelabelFrame.tsx CONTACT_LABEL · docs/DESIGN_CONFIRMED_SHOP.md 「머리띠 오른쪽」');
+must(/nowLabelKo\(now\)/.test(wlFrame) && /head\.weather/.test(wlFrame),
+  '표준라벨 머리띠에서 날짜·시각·날씨가 빠졌습니다 — 「재고가 지금 것」임을 말하는 자리입니다.',
+  'components/WhitelabelFrame.tsx · docs/DESIGN_CONFIRMED_SHOP.md 「머리띠 오른쪽」');
+
 if (fails.length) {
   console.error(`\n✗ 확정 디자인이 바뀌었습니다 — ${fails.length}건\n`);
   for (const f of fails) console.error(`   · ${f}\n`);
