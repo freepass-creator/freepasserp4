@@ -1,8 +1,9 @@
 'use client';
 import { useCallback, useEffect, useLayoutEffect, useState, type ReactNode } from 'react';
-import { LogIn, Phone, SquareArrowOutUpRight, X } from 'lucide-react';
+import { LogIn, Phone, SquareArrowOutUpRight, X, Sheet } from 'lucide-react';
 import { C, FW, ICON, R_CARD, fmtPhone } from '@/components/ui';
 import { todayKst } from '@/lib/format';
+import { PRODUCT_SHEET_ID } from '@/lib/product-sheet';
 import { SHOP, ShopDock, ShopDockAction } from '@/components/shop/shop-ui';
 import { ChannelSign, ChannelWordmark, CoBrandFreepass } from '@/components/brand-ci';
 import { CORP } from '@/lib/domain/corporate-ci';
@@ -538,7 +539,11 @@ export function WhitelabelFrame({
                  주소를 쳐야 했다. 같은 자리에서 말만 바뀐다.
             ★크기는 안 키운다 — 손님 화면의 주인공은 차다. 이 줄이 커지면 그 순간 우리 사정이 앞선다.
           */}
-          <StaffLink />
+          {/* 담당자 줄 — 표준라벨이면 그 옆에 「구글시트 열기」가 나란히 선다(위 `SheetLink` 머리말). */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: SHOP.sp.snug, flexWrap: 'wrap' }}>
+            <StaffLink />
+            {wl.plain ? <SheetLink /> : null}
+          </div>
         </div>
       </footer>
     </div>
@@ -649,6 +654,9 @@ function WhitelabelNotice({ wl, mobile }: { wl: Whitelabel; mobile: boolean }) {
   );
 }
 
+/** 판매시트에서 «상품리스트» 탭 — 열면 여기서 시작해야 한다(다른 탭에서 열면 매번 옮겨야 한다). */
+const SALES_LIST_GID = 205661918;
+
 /**
  * 담당자(영업자·직원)만 쓰는 한 줄 — 손님 화면의 **맨 밑, 제일 조용한 자리**.
  * ★로그인 전이면 「담당자 로그인」, 뒤면 「업무 화면으로」. 자리는 그대로고 말만 바뀐다.
@@ -670,6 +678,40 @@ function StaffLink() {
       {inside
         ? <><SquareArrowOutUpRight size={13} aria-hidden />업무 화면으로</>
         : <><LogIn size={13} aria-hidden />담당자 로그인</>}
+    </a>
+  );
+}
+
+/**
+ * 영업사원이 여는 **판매시트(프리패스 상품리스트)** — 담당자 줄 «옆»에 같은 모양으로 선다
+ * (사장님 2026-09-17 「구글시트 열기는 아래쪽에 넣어야겠다 · 로그인 하는 곳 거기 근처에 적정하게」).
+ *
+ * ★★**표준라벨(freepasserp.com)에만 선다**(사장님 같은 날 「아 표준에만 들어가야지」).
+ *   채널 간판(차슝·이안카…)은 **남의 가게**다 — 거기에 우리 내부 시트로 가는 문을 세우지 않는다.
+ *   판정은 표의 `plain` 한 칸이 한다(채널이 늘어도 이 파일은 안 고친다).
+ * ★탭까지 지정해 연다 — 시트를 열면 「상품리스트」가 바로 떠야 한다. 다른 탭에서 시작하면
+ *   영업사원이 매번 탭을 찾아 옮겨야 한다.
+ * ⚠ 주소는 `PRODUCT_SHEET_ID` 한 곳에서 온다 — 여기 아이디를 손으로 적으면 시트를 옮기는 날 갈린다.
+ *
+ * ⚠⚠ **이 시트는 2026-09-17 실측 기준 «링크만 알면 누구나» 읽힌다**(CSV 375줄이 로그인 없이 내려온다 —
+ *   배차상태·차번·기간별 대여료·보증금·차고지·공급사 링크까지). 단추를 여기 세우는 것과 무관하게,
+ *   시트 공유를 「teamjpk.com 계정만」으로 좁히는 것이 진짜 빗장이다(사장님께 보고함).
+ *   ★단추를 감춰도 가려지지 않는다 — 아이디는 `NEXT_PUBLIC_` 이라 이미 화면 번들 안에 있다.
+ *     그래서 «감추는 시늉»을 하지 않고, 자리는 담당자 줄 옆(조용한 자리)에 둔다.
+ */
+function SheetLink() {
+  return (
+    <a
+      href={`https://docs.google.com/spreadsheets/d/${PRODUCT_SHEET_ID}/edit?gid=${SALES_LIST_GID}#gid=${SALES_LIST_GID}`}
+      target="_blank" rel="noopener noreferrer"
+      style={{
+        display: 'inline-flex', alignItems: 'center', gap: SHOP.sp.tight,
+        marginTop: SHOP.sp.edge, padding: '6px 10px',
+        border: `1px solid ${C.line}`, borderRadius: SHOP.r.chip,
+        fontSize: SHOP.fs.cap, color: C.faint, textDecoration: 'none',
+      }}
+    >
+      <Sheet size={13} aria-hidden />구글시트 열기
     </a>
   );
 }
