@@ -20,6 +20,7 @@ export default function EstimateGate({ children }: { children: ReactNode }) {
   const ready = useAuthReady();
   const session = useSession();
 
+  if (process.env.NEXT_PUBLIC_ESTIMATE_TEST === '1') return <>{children}</>;   // ★로컬 검사용 · 커밋 안 함
   if (!ready) return null;                       // 판정 전에는 아무것도 말하지 않는다
   if (canSeeEstimate(session?.role)) return <>{children}</>;
 
