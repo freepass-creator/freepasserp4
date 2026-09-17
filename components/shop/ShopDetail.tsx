@@ -12,7 +12,7 @@ import type { EntityRecord } from '@/lib/intake/entities';
 import { C, ColorMark, FW, FS, ICON, NUM, SCRIM } from '@/components/ui';
 import {
   BADGE, PerkMarks, SHOP, ShopDock, ShopDockAction, ShopIconBtn, StateChip, markIconFor,
-  type ShopMark, ShopPhoto, PHOTO_SIZES } from '@/components/shop/shop-ui';
+  type ShopMark, ShopPhoto, PHOTO_SIZES, vehicleStatusMark } from '@/components/shop/shop-ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { useProductPhotos } from '@/components/use-product-photos';
 import { haptic } from '@/lib/haptics';
@@ -784,7 +784,8 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
    *   그리고 우측 정렬로 출고가능·상품구분**을 하고」). 이름과 같은 줄에 서야 «이 차의 신원»으로 읽힌다.
    */
   const stateMarks: Mark[] = [
-    ...(status ? [{ text: status, icon: CircleCheck, good: /출고가능|즉시출고/.test(status) }] : []),
+    /* 상태 → 모양·색은 원자가 정한다(`vehicleStatusMark`) — 여기서 또 적으면 목록과 상세가 갈린다. */
+    ...(vehicleStatusMark(status) ? [vehicleStatusMark(status)!] : []),
     ...(kind ? [{ text: kind, icon: Tag }] : []),
   ];
   /**

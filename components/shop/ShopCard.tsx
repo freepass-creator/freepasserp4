@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { Check, CircleCheck, ImageOff, ShieldCheck, Tag } from 'lucide-react';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { C, FW, NUM } from '@/components/ui';
-import { BADGE, PerkMarks, SHOP, markIconFor, type ShopMark, ShopPhoto, PHOTO_SIZES } from '@/components/shop/shop-ui';
+import { BADGE, PerkMarks, SHOP, markIconFor, type ShopMark, ShopPhoto, PHOTO_SIZES, vehicleStatusMark } from '@/components/shop/shop-ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { useInView } from '@/lib/use-in-view';
 import { useFirstPhoto } from '@/components/use-product-photos';
@@ -165,7 +165,8 @@ export const ShopCard = memo(function ShopCard({ p, href, rank = 99 }: {
    */
   const kind = canonProductType(p.product_type);
   const stateMarks: ShopMark[] = [
-    ...(status ? [{ text: status, icon: CircleCheck, good: /출고가능|즉시출고/.test(status) }] : []),
+    /* 상태 → 모양·색은 원자가 정한다(`vehicleStatusMark`) — 여기서 또 적으면 목록과 상세가 갈린다. */
+    ...(vehicleStatusMark(status) ? [vehicleStatusMark(status)!] : []),
     ...(kind ? [{ text: kind, icon: Tag }] : []),
   ];
 

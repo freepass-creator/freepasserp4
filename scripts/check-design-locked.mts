@@ -1032,6 +1032,36 @@ must(/wl\.tel/.test(read('app/q/[code]/ShopDetailView.tsx')),
     `퀵필터 칩과 «같은 조건»이 토큰으로 또 섭니다 — 누르면 자리가 눌려야지 새 줄이 생기면 안 됩니다(지금 ${tokenGuards.length}곳만 걸림 · 웹·폰 둘 다여야 합니다).`,
     'app/(shop)/shop/ShopView.tsx · docs/DESIGN_CONFIRMED_SHOP.md §15');}
 
+/* ── 출고상태는 «모양»으로 갈린다 — 다섯이 다 체크면 못 가른다 ─────────────────
+ *
+ * 사장님 2026-09-17 「이 화이트라벨은 **영업자들이 차를 쉽게 찾고 빠르게 보이고, 내가 이 차가
+ *   어떤 상태에 있는 차인지를 명확하게 바라보는 것**이거든」.
+ *
+ * ⚠ 다섯 상태가 전부 같은 체크(✓)였고 색만 갈렸다. 실측(2026-09-17 운영 746대) —
+ *   출고가능 468 · **출고협의 245(33%)** · 즉시출고 25 · 계약중 4 · 상품화중 2.
+ *   셋에 하나가 「일정 조율이 필요한 차」인데 출고가능과 같은 모양으로 서 있었다.
+ * ⇒ 상태 → 아이콘·색은 **원자 한 곳**(`vehicleStatusMark`)이 정하고, 목록·상세가 그것만 부른다.
+ *   ★전에는 같은 줄이 두 파일에 손으로 적혀 있었다 — 한쪽만 고치면 목록과 상세가 갈린다.
+ */
+/*
+ * ⚠ 처음엔 「파일에 Clock·Lock·Wrench 글자가 있나」로 셌다 — **가짜 초록**이었다.
+ *   import 줄에 이름이 남아 있어서, 정작 «짝지은 줄»을 지워도 검사가 통과했다(자기시험에서 잡았다).
+ *   개발센터 사고원장 `INC-FALSE-GREEN` 과 같은 종류다. ⇒ **상태 ↔ 모양의 «짝»**을 본다.
+ */
+must(/export function vehicleStatusMark/.test(shopUi),
+  '출고상태 마크를 정하는 원자(vehicleStatusMark)가 사라졌습니다 — 목록·상세가 각자 짜게 됩니다.',
+  'components/shop/shop-ui.tsx vehicleStatusMark');
+for (const [state, icon] of [['출고협의', 'Clock'], ['계약중', 'Lock'], ['상품화중', 'Wrench']] as const) {
+  must(new RegExp(`${state}[^\\n]*\\n?[^\\n]*icon: ${icon}\\b`).test(shopUi),
+    `출고상태 「${state}」가 제 모양(${icon})을 잃었습니다 — 다섯 상태가 다 체크면 영업자가 못 가릅니다.`,
+    'components/shop/shop-ui.tsx vehicleStatusMark');
+}
+for (const [file, src] of [['components/shop/ShopCard.tsx', shopCard], ['components/shop/ShopDetail.tsx', shopDetail]] as const) {
+  must(/vehicleStatusMark\(status\)/.test(src),
+    `${file} 이 상태 마크를 손으로 다시 짭니다 — 목록과 상세가 갈립니다(원자 vehicleStatusMark 를 부르세요).`,
+    'components/shop/shop-ui.tsx vehicleStatusMark');
+}
+
 /* ── 머리띠 오른쪽 — 표준라벨과 영업채널이 «딱 한 칸» 다르다 ─────────────────
  *
  * 사장님 2026-09-16 「**표준라벨은 날짜 시간 날씨**로 하고 · **화이트라벨(영업채널용) 상단

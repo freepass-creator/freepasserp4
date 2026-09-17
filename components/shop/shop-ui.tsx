@@ -4,7 +4,7 @@ import { useCallback, useState } from 'react';
 import Link from 'next/link';
 import NextImage from 'next/image';
 import {
-  Banknote, Calendar, Car, CarFront, Check, ChevronDown, Coins, Factory, FileText, Fuel, Gauge,
+  Banknote, Calendar, Car, CarFront, Check, ChevronDown, CircleCheck, Clock, Coins, Factory, FileText, Fuel, Gauge, Lock, Wrench,
   RefreshCw,
   Gift, IdCard, PiggyBank, Search, SearchCheck, ShieldCheck, UserRound, Wallet, X, Zap,
   type LucideIcon,
@@ -816,6 +816,41 @@ export type ShopMark = {
   /** 손님이 «해야 할 일»(흐린 회색) — 소득확인·신용조회. 혜택 색을 주면 서류가 혜택으로 보인다. */
   ask?: boolean;
 };
+
+/**
+ * ★★★**출고상태 마크 — 상태마다 «모양»이 다르다**(사장님 2026-09-17 확정).
+ *
+ * 사장님 「이 화이트라벨은 **영업자들이 차를 쉽게 찾고 빠르게 보이고, 내가 이 차가 어떤 상태에
+ *   있는 차인지를 명확하게 바라보는 것**이거든」.
+ *
+ * ⚠ **다섯 상태가 전부 같은 체크(✓)였다.** 색만 초록/회색으로 갈렸다. 그런데 실측(2026-09-17 운영
+ *   746대) — 출고가능 468 · **출고협의 245(33%)** · 즉시출고 25 · 계약중 4 · 상품화중 2.
+ *   **셋에 하나가 「일정 조율이 필요한 차」인데 출고가능과 같은 체크로 서 있었다.** 빠르게 훑는
+ *   영업자가 「지금 되는 차」와 「맞춰야 되는 차」를 못 가른다. 계약중(잡힌 차)도 회색 체크라
+ *   「문제 없음」처럼 읽혔다.
+ * ⇒ **모양으로 가른다.** 색 규칙(좋은 소식에만 색)은 그대로다 — 색은 밝은 햇빛·색약에서 안 보이고,
+ *   모양은 보인다. 글자도 그대로다(원자에 적힌 말을 화면이 고쳐 부르지 않는다).
+ *
+ * | 상태 | 모양 | 읽히는 뜻 |
+ * |---|---|---|
+ * | 출고가능 · 즉시출고 | `CircleCheck` 초록 | 지금 된다 |
+ * | 출고협의 | `Clock` | 일정 맞추면 된다 |
+ * | 계약중 | `Lock` | 잡혔다 |
+ * | 상품화중 | `Wrench` | 아직 준비 중이다 |
+ * | 그 밖 | `CircleCheck` | (모르는 값은 모양을 지어내지 않는다) |
+ *
+ * ★★**한 곳에서 정한다** — 전에는 목록 카드와 상세에 **같은 줄이 손으로 두 번** 적혀 있었다.
+ *   그러면 한쪽만 고치는 날이 오고, 같은 차가 목록과 상세에서 다른 얼굴이 된다(집 규칙 ①).
+ */
+export function vehicleStatusMark(status: string): ShopMark | null {
+  const s = String(status || '').trim();
+  if (!s) return null;
+  if (/즉시출고|출고가능/.test(s)) return { text: s, icon: CircleCheck, good: true };
+  if (/출고협의|협의/.test(s)) return { text: s, icon: Clock };
+  if (/계약중/.test(s)) return { text: s, icon: Lock };
+  if (/상품화중|준비/.test(s)) return { text: s, icon: Wrench };
+  return { text: s, icon: CircleCheck };
+}
 
 /**
  * **신원 칩** — 출고상태 · 상품구분. 「이 차가 지금 어떤 물건인가」를 통보하는 값이다.
