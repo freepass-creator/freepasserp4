@@ -24,11 +24,17 @@ export function salesPublishMark(snapshot: Pick<SalesPublishSnapshot, 'capturedA
   return `${salesPublishTabMark(snapshot)} · ${snapshot.snapshotId}`;
 }
 
-/** 탭 이름용 시각 문패 — 스냅샷ID 없이(사장님 2026-09-11 「탭이름…」). 사람이 보는 탭엔 시각만, ID는 발행 로그·검사(스냅샷 파일)에. */
+/**
+ * 탭 이름용 시각 문패 — 스냅샷ID 없이(사장님 2026-09-11 「탭이름…」). 사람이 보는 탭엔 시각만, ID는 발행 로그·검사(스냅샷 파일)에.
+ * ⚠ **초는 안 찍는다.** 콜론 두 개짜리 시각(`10:05:11`)을 탭 이름에 싱글쿼트로 감싸 A1 범위로 보내면
+ *   Sheets API가 "Unable to parse range"로 값 쓰기를 통째로 거부한다(실측 — 운영 F86 발행이 하루 동안
+ *   이 이유로 계속 실패했다: run 35164517528 등). F01(`make-sample-sheet-google.mts` `titleOf`)은 이미
+ *   `.replace(/:\d{2}$/, '')`로 초를 잘라 콜론을 하나만 남긴다 — 같은 값을 여기서도 만든다.
+ */
 export function salesPublishTabMark(snapshot: Pick<SalesPublishSnapshot, 'capturedAt'>): string {
   const d = new Date(new Date(snapshot.capturedAt).getTime() + 9 * 3600e3);
   const p = (n: number) => String(n).padStart(2, '0');
-  return `${p(d.getUTCMonth() + 1)}.${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())}`;
+  return `${p(d.getUTCMonth() + 1)}.${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`;
 }
 
 const hashPayload = (value: Omit<SalesPublishSnapshot, 'payloadHash'>) => createHash('sha256')
