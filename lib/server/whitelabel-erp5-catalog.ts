@@ -82,3 +82,51 @@ export async function readWhitelabelCatalogFromErp5(options: { includePartners?:
   ]);
   return { products, policies, partners, users };
 }
+
+/**
+ * ★★★**재고가 «언제 것»인가 — 원자에게 직접 묻는다.**
+ *
+ * 사장님 2026-09-17 「여기서 역으로 한번 그쪽으로 파봐」.
+ *
+ * ⚠⚠ **무엇이 틀렸나.** 가게 머리띠가 「⟳ 9. 14. 02:01」을 보여 주고 있었는데, 같은 날
+ *   원자를 직접 세어 보니 **절반이 그날 아침(09-17 09:53) 것**이었다. **80시간이 틀렸다.**
+ *   (진단 = `scripts/diag-erp5-atom-freshness.mts` · 운영 1,615대 전수)
+ *
+ *   뿌리는 «출처»다. 화면이 그리는 재고와 화면이 읽는 시각이 **서로 다른 파이프라인**이었다:
+ *   ```
+ *   화면이 읽던 시각  = erp4 파이어스토어  v4/system_status/sheet_daily_sync · v4/ops/pipeline
+ *   화면이 그리는 재고 = erp5 파이어스토어  products      ← 이 파일이 읽는 그것
+ *   ```
+ *   둘은 서로 모른다. 2026-09-10 에 같은 자리에서 한 번 어긋났었는데(그때는 `ops/pipeline` 만
+ *   보다가 `sheet_daily_sync` 를 «하나 더» 보게 고쳤다), **출처를 바꾼 게 아니라 늘린 것**이라
+ *   원장이 ERP5 로 옮겨 가자 같은 종류로 또 어긋났다. 하나 더 늘리면 다음에 또 어긋난다.
+ *
+ * ⇒ **정직한 답은 원자 자신이다.** 수집기가 차 한 대를 쓸 때마다 시각을 같이 찍는다:
+ *     `_direct_ingest_at` — 원천에서 직접 받아 쓴 시각 (운영 1,153대)
+ *     `_var_polled_at`    — 가변값(요금·상태)을 다시 물어본 시각 (운영 897대)
+ *   **화면이 그리는 그 데이터가 스스로 나이를 말하므로, 다시는 엉뚱한 파이프라인을 가리킬 수 없다.**
+ *
+ * ★★**컬렉션을 통째로 읽지 않는다 — 문서 «둘»만 읽는다.** 칸마다 내림차순 맨 앞 하나씩이다.
+ *   위 캐시(60초)를 쓰면 공짜지만, 머리띠는 목록과 «따로» 불릴 수 있어(CDN 이 60초마다 되물음)
+ *   캐시가 빈 순간에 1,615건을 통째로 읽는 길이 생긴다. 시각 하나 때문에 그럴 이유가 없다.
+ * ⚠ 두 칸은 **단일 필드 색인**으로 도는 질의다(파이어스토어 기본) — 복합 색인이 필요 없다.
+ * ⚠ 칸 이름이 바뀌면 여기가 조용히 0 을 준다 — `npm run check:speed` 가 그 이름을 지킨다.
+ */
+const ATOM_STAMP_FIELDS = ['_direct_ingest_at', '_var_polled_at'] as const;
+
+export async function readErp5StockFreshness(): Promise<number> {
+  if (!erp5WhitelabelCutoverRequested()) return 0;
+  const db = erp5Firestore();
+  const picks = await Promise.all(ATOM_STAMP_FIELDS.map(async (field) => {
+    try {
+      const snap = await readWithin(
+        db.collection('products').orderBy(field, 'desc').limit(1).get(),
+        `신선도 ${field}`,
+      );
+      const ms = Number(snap.docs[0]?.data()?.[field]);
+      /* 미래 시각은 안 믿는다 — 시계가 어긋난 기계가 쓴 값이 「방금 갱신」으로 굳으면 더 나쁘다. */
+      return Number.isFinite(ms) && ms > 0 && ms <= Date.now() + 3_600_000 ? ms : 0;
+    } catch { return 0; }
+  }));
+  return Math.max(0, ...picks);
+}

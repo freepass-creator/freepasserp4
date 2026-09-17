@@ -1094,6 +1094,47 @@ must(/nowLabelKo\(now\)/.test(wlFrame) && /head\.weather/.test(wlFrame),
   '표준라벨 머리띠에서 날짜·시각·날씨가 빠졌습니다 — 「재고가 지금 것」임을 말하는 자리입니다.',
   'components/WhitelabelFrame.tsx · docs/DESIGN_CONFIRMED_SHOP.md 「머리띠 오른쪽」');
 
+/*
+ * ★★★**재고 갱신 시각의 «출처» — 화면이 그리는 그 원자다.** (2026-09-17 확정)
+ *
+ * 사장님 「여기서 역으로 한번 그쪽으로 파봐」 → 실측: 화면은 「9. 14. 02:01」인데 원자 절반이
+ * 그날 아침(09-17 09:53) 것이었다. **80시간 틀렸다**(운영 1,615대 전수 ·
+ * `scripts/diag-erp5-atom-freshness.mts`). 화면이 그리는 재고(erp5 `products`)와 화면이 읽던
+ * 시각(erp4 `sheet_daily_sync`·`ops/pipeline`)이 **서로 다른 파이프라인**이었기 때문이다.
+ *
+ * ⚠⚠ 2026-09-10 에 같은 자리가 이미 한 번 어긋났고, 그때는 출처를 «바꾸지» 않고 «하나 더 늘려»
+ *   고쳤다. 늘리는 고침은 원장이 옮겨 가면 또 깨진다 — 그래서 이번엔 **출처를 원자로 옮겼다.**
+ * ★지켜야 할 것 셋 —
+ *   ㉠ 원자에게 **먼저** 묻고, 답이 있으면 **그것만** 쓴다
+ *   ㉡ 옛 두 기록과 `max()` 로 **섞지 않는다**(더 최근인 엉뚱한 기록이 묵은 재고를 가려 준다)
+ *   ㉢ 시각 하나 때문에 컬렉션을 통째로 읽지 않는다(`limit(1)`)
+ */
+{
+  const statusRoute = read('app/api/shop/status/route.ts');
+  const erp5 = read('lib/server/whitelabel-erp5-catalog.ts');
+
+  must(/export async function readErp5StockFreshness/.test(erp5)
+    && /_direct_ingest_at/.test(erp5) && /_var_polled_at/.test(erp5),
+    '재고 시각을 원자에서 읽는 자리가 사라졌습니다 — 수집기가 찍는 칸(_direct_ingest_at·_var_polled_at)이 출처입니다.',
+    'lib/server/whitelabel-erp5-catalog.ts readErp5StockFreshness');
+  must(/\.limit\(1\)/.test(erp5.slice(erp5.indexOf('readErp5StockFreshness'))),
+    '재고 시각을 읽으려고 컬렉션을 통째로 읽고 있습니다 — 시각 하나에 1,600건을 읽을 이유가 없습니다.',
+    'lib/server/whitelabel-erp5-catalog.ts readErp5StockFreshness · limit(1)');
+
+  /* ⚠ 잣대는 «뒷문이 시작되는 자리»로 잡는다 — Math.max 의 인자 차례가 바뀌어도 안 흔들리게. */
+  const atomAt = statusRoute.indexOf('readErp5StockFreshness()');
+  const maxAt = statusRoute.indexOf('pick(DAILY_SYNC_PATH');
+  must(atomAt > 0 && maxAt > 0 && atomAt < maxAt,
+    '머리띠 시각이 원자보다 옛 기록을 «먼저» 봅니다 — 화면이 그리는 데이터가 제 나이를 말해야 합니다.',
+    'app/api/shop/status/route.ts loadUpdated');
+  must(/if \(atom > 0\) return \{ ms: atom/.test(statusRoute),
+    '원자가 답했는데도 옛 기록을 계속 봅니다 — 답이 있으면 «그것만» 씁니다(뒤섞으면 2026-09-10 버그로 돌아갑니다).',
+    'app/api/shop/status/route.ts loadUpdated');
+  must(!/Math\.max\([^)]*atom/.test(statusRoute),
+    '원자 시각을 옛 기록과 max() 로 섞었습니다 — 더 최근인 «엉뚱한» 기록이 묵은 재고를 가려 줍니다.',
+    'app/api/shop/status/route.ts loadUpdated');
+}
+
 if (fails.length) {
   console.error(`\n✗ 확정 디자인이 바뀌었습니다 — ${fails.length}건\n`);
   for (const f of fails) console.error(`   · ${f}\n`);

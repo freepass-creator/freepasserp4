@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { firestorePathStore } from '@/lib/server/firestore-path-store';
 import { OPS_PIPELINE_PATH, type OpsPipelineStatus } from '@/lib/ops-status';
+import { readErp5StockFreshness } from '@/lib/server/whitelabel-erp5-catalog';
 
 /**
  * **가게 머리띠가 쓰는 «지금» 두 가지 — 재고를 언제 갱신했나 · 오늘 날씨.**
@@ -86,14 +87,37 @@ function stampKo(ms: number): string {
  *   「재고가 «언제 것»인가」다 — 실패한 회차를 세면 그 답이 거짓이 된다.
  * ⚠ 하나도 성공한 게 없으면 `null` — 오늘 날짜로 대신 채우지 않는다(위 머리말).
  *
- * ## ★★파이어스토어 «한 곳»만 읽는다 — RTDB 는 안 쓴다
+ * ## ★★★2026-09-17 — 출처를 «원자»로 옮긴다. 상태 기록을 더 늘리지 않는다
  *
- *   사장님 2026-09-10 「그냥 **RTDB 는 아예 안 쓴다**고 이제 좀 제발 좀」.
+ *   사장님 「여기서 역으로 한번 그쪽으로 파봐」.
+ *
+ * ⚠⚠ **또 어긋나 있었다.** 화면은 「9. 14. 02:01」인데 원자를 전수로 세어 보니 절반이
+ *   **그날 아침(09-17 09:53)** 것이었다 — **80시간이 틀렸다**
+ *   (`scripts/diag-erp5-atom-freshness.mts` · 운영 1,615대).
+ *   ```
+ *   화면이 읽던 시각  = erp4 파이어스토어  sheet_daily_sync · ops/pipeline
+ *                         ↑ 채우는 것: Vercel cron /api/sheet/sync-daily
+ *   화면이 그리는 재고 = erp5 파이어스토어  products
+ *                         ↑ 채우는 것: .github/workflows/erp5-ssot-refresh.yml
+ *   ```
+ *   **둘은 서로 모른다.** 그래서 재고가 오늘 아침 것이어도 시각은 나흘 전을 가리켰다.
+ *
+ * ⚠ 아래 2026-09-10 의 고침이 **왜 다시 어긋났나** — 그때 나는 출처를 «바꾸지» 않고 «하나 더
+ *   늘렸다»(`ops/pipeline` 에 `sheet_daily_sync` 를 보탬). 늘리는 고침은 원장이 옮겨 가면
+ *   같은 자리에서 또 깨진다. **하나 더 보태는 것으로는 이 종류가 안 끝난다.**
+ *
+ * ⇒ **재고를 그리는 그 데이터에게 직접 묻는다**(`readErp5StockFreshness`). 수집기가 차 한 대를
+ *   쓸 때마다 `_direct_ingest_at`·`_var_polled_at` 을 같이 찍어 둔다. 화면이 그리는 바로 그
+ *   원자가 스스로 나이를 말하므로 **엉뚱한 파이프라인을 가리킬 방법이 없다.**
+ * ★아래 둘은 **못 물어봤을 때의 뒷문**으로만 남긴다(전환 스위치 OFF·색인 없음·읽기 실패).
+ *   ⚠⚠ **`max()` 로 섞지 않는다.** 섞으면 «더 최근인 엉뚱한 기록»이 묵은 재고를 가려 준다 —
+ *     그게 방금 고친 그 버그다. 원자가 답하면 **원자만** 쓴다.
+ *
+ * ## 아래는 2026-09-10 의 기록 — 왜 그때 그렇게 고쳤는지 남겨 둔다
  *
  * ⚠ 한때 여기서 두 원장을 다 읽었다. 연동이 RTDB 에만 적고 파이어스토어 사본이 9/5 에 멈춰 있어
  *   화면이 엿새 묵은 날짜를 보여 줬기 때문이다. **그건 읽는 쪽에서 때울 일이 아니었다** —
  *   ⇒ **적는 쪽**(`lib/server/sheet-daily-sync` 의 `writeRun`)이 파이어스토어에도 남기도록 고쳤다.
- * ★그래서 여기는 한 곳만 본다. **원장이 하나면 「어느 게 맞나」를 물을 일이 없다.**
  */
 async function loadUpdated(): Promise<{ ms: number; at: string } | null> {
   const pick = async (path: string, read: (v: Record<string, unknown>) => number): Promise<number> => {
@@ -105,6 +129,14 @@ async function loadUpdated(): Promise<{ ms: number; at: string } | null> {
     } catch { return 0; }
   };
 
+  /* ★★먼저 «화면이 그리는 그 원자»에게 묻는다 — 답이 있으면 그것만 쓴다(머리말 ⇒). */
+  const atom = await readErp5StockFreshness().catch(() => 0);
+  if (atom > 0) return { ms: atom, at: stampKo(atom) };
+
+  /*
+   * 뒷문 — 원자가 답을 못 줬을 때만이다(전환 스위치 OFF·색인 없음·읽기 실패).
+   * ⚠ 위 값과 `max()` 로 섞지 않는다. 섞으면 엉뚱한 기록이 묵은 재고를 가려 준다.
+   */
   const [daily, ops] = await Promise.all([
     pick(DAILY_SYNC_PATH, (v) => (String(v.status) === 'completed' ? Number(v.finished_at) : 0)),
     pick(OPS_PIPELINE_PATH, (v) => {
