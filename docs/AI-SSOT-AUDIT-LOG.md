@@ -2138,3 +2138,25 @@ Claude 구현 Owner 우선순위: (1) run `35169123131`의 F86 publish failure �
 상세 근거: `docs/ai-ssot-audit/2026-09-17-chatgpt-audit24-concurrent-f86-writer-correction.md` (evidence commit `0c48501e5263f2bd5769355b225d9da5ba4190cd`).
 
 이번 ChatGPT 감사에서는 application code/business logic을 수정하지 않았다.
+
+
+---
+
+## 2026-09-17(26) — ChatGPT 독립 감사: F86 publish failure 원인 확정 — 보증금 SSOT는 정상, values A1 addressing에서 400
+
+**판정: audit (25)의 원인 미확정 OPEN을 구체화. 손오공 보증금 SSOT/gate는 정상이며, 현재 blocker는 validated F86의 values write-addressing runtime failure다.**
+
+- Actions run `35169123131`, job `105036728879`의 전체 로그를 독립 재확인했다. checkout은 production pin `6a6f3f75c065143ad14286d08baa28e382535eea`다.
+- Sonogong heal 결과는 **RP012 692대 중 고칠 차 0대**, `보증금 숫자가 남은 차 0대`, `규칙 글자가 다른 차 0대`였다. live Atom의 규칙 글자 정본은 `월 대여료 × 약정연수 (최대 3개월)`이며, 따라서 이번 failure를 deposit-rule regression으로 보면 안 된다.
+- 같은 run의 snapshot/deposit publication gate는 **PASS**했다. snapshot `20260917010511539-16123390d345`, 등록 1,615 / 출고불가 861 / 현재 재고 754. F86 backup도 PASS했다.
+- F86 plan은 754대(`상품리스트 391 · 오공구독 51 · 픽업구독 251 · 오플구독 61`)를 만들고 locked-format 검사와 수동 production-write approval까지 통과했다.
+- 실제 실패 지점은 `scripts/build-channel-supplier-sheet.mts`의 `values:batchUpdate`다. 정확한 Google Sheets 오류는 **HTTP 400 `INVALID_ARGUMENT`: `Invalid data[0]: Unable to parse range: '종합 09.17 10:05:11 · 391대'!A1`** 이다. 그 결과 F86 audit은 skipped됐다.
+- production builder는 탭의 structural/format `batchUpdate`를 먼저 보내고, 이후 동적 `title` 문자열로 `'<title>'!A1` range를 만들어 values batch를 보낸다. 따라서 Claude 구현 Owner가 고칠 대상은 **F86 summary/tab A1 addressing과 write ordering/원자성**이며, deposit gate를 완화하거나 되돌리는 것이 아니다.
+- 운영 F86 불변 ID `1hQtshpWKL4L0zSR3H3UQ36atICtHv9Ka7dQh7d7K5Vg`를 read-only로 확인한 현재 summary tab은 `종합 09.17 10:05:01 · 391대`이고 A1:H5가 정상 데이터로 채워져 있다. 실패 run이 시도한 `10:05:11` title은 live에 남아 있지 않으므로, 이번 증거만으로 failed run이 live sheet를 blank/corrupt했다고 단정하지 않는다. 다만 validated `10:05:11` snapshot이 정상 publish+audit까지 완료되지 않은 것은 확정이다.
+- audit (22)의 main-vs-production deposit-policy 이중정의, audit (23)의 F86 freshness checker contract drift, canonical ERP5 workflow disabled, one-time F86 writer ownership, legacy sales/mirror/settlement/credential/RP023 mirror/pickup-color HOLD는 직접 해소 증거가 없어 유지한다.
+
+Claude 구현 Owner 우선순위: (1) F86 summary/tab values range addressing 및 structural-before-values 비원자성 정리, (2) backup → publish → F86 audit/cross-audit까지 green 증명, (3) 성공 후 one-time writer retire/remove 또는 명시적 ownership 정리. **보증금 gate는 유지한다.**
+
+상세 근거: `docs/ai-ssot-audit/2026-09-17-chatgpt-audit26-f86-range-addressing.md`.
+
+이번 ChatGPT 감사에서는 application code/business logic을 수정하지 않았다.

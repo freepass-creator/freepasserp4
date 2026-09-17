@@ -1,3 +1,17 @@
+## 최신 override — audit (26)
+
+충돌 시 이 override와 `docs/AI-SSOT-AUDIT-LOG.md` audit (26)를 audit (25) 이하보다 우선한다.
+
+- audit (25)의 “run `35169123131` publish stderr 원인 확인 필요”는 **해결된 조사 과제**다. 정확한 실패는 Google Sheets values write의 HTTP 400 `INVALID_ARGUMENT`: `Invalid data[0]: Unable to parse range: '종합 09.17 10:05:11 · 391대'!A1`.
+- **손오공 보증금 SSOT는 이 run에서 정상 확인:** RP012 692대, 숫자 보증금 잔존 0대, 규칙 글자 불일치 0대. snapshot/deposit gate도 PASS(등록 1,615 / 출고불가 861 / 현재 재고 754). 보증금 gate를 약화/롤백하지 않는다.
+- F86 backup과 plan/locked-format/manual write approval까지 PASS했지만 values publish에서 멈춰 F86 audit은 skipped. 현재 blocker는 **F86 dynamic summary/tab A1 addressing + structural-before-values write ordering**이다.
+- 운영 F86 read-only 확인상 현재 summary는 `종합 09.17 10:05:01 · 391대`로 데이터가 채워져 있으며 failed `10:05:11` title은 남아 있지 않다. 따라서 live corruption은 단정하지 않고, 최신 validated snapshot 미발행으로 본다.
+- 구현 Owner 우선순위: range/write-order fix → backup/publish/F86 audit/cross-audit green → one-time writer retire/remove/ownership 정리.
+- audit (22) deposit-policy 이중정의, audit (23) freshness checker drift, canonical workflow disabled, legacy settlement/credential/sales/mirror/RP023/pickup-color HOLD는 미해소 유지.
+
+상세 근거: `docs/ai-ssot-audit/2026-09-17-chatgpt-audit26-f86-range-addressing.md`.
+
+---
 ## 최신 override — audit (25)
 
 충돌 시 이 override와 `docs/AI-SSOT-AUDIT-LOG.md` audit (25)를 audit (24) 이하보다 우선한다.
