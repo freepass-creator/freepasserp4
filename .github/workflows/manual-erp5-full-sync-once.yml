@@ -11,7 +11,7 @@ permissions:
 
 concurrency:
   group: erp5-inventory-publish
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   publish-f86:
