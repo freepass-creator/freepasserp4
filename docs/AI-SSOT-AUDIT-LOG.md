@@ -2118,3 +2118,23 @@ current main에는 `.github/workflows/manual-erp5-full-sync-once.yml`이 존재�
 Claude 구현 Owner 우선순위: stale one-time writer retire/remove 또는 canonical engine과 동일 계약으로 통제 → production deposit gate를 main canonical deposit-policy와 단일화 → F86 freshness checker contract 정렬. application/business logic은 이번 감사에서 수정하지 않았다.
 
 상세 근거: `docs/ai-ssot-audit/2026-09-17-chatgpt-production-6a6-emergency-writer-drift.md` (evidence commit `6b33cd420d0bab681bd4c0e521a19173a9ccc640`).
+
+
+---
+
+## 2026-09-17(25) — ChatGPT 독립 감사: audit (24) 동시변경 정정 + F86 emergency writer 현행화
+
+**판정: audit (24)의 stale-engine/F01 writer finding은 동시 구현으로 해소됨. 별도 F86 publish failure는 OPEN.**
+
+- audit (24) 작성 중 commit `78df24bb8d24a9bb85755cdaa2bc3e52c4c40704`가 `.github/workflows/manual-erp5-full-sync-once.yml`을 바꿨다. checkout은 옛 `2e880cef...`가 아니라 canonical production `6a6f3f75c065143ad14286d08baa28e382535eea`가 됐고, source/Atom/F01 writer 단계는 제거되어 **F86-only**가 됐다. 따라서 audit (24)의 “old pin으로 F01/F86을 다시 쓸 수 있다”는 문구는 현재 사실이 아니다.
+- commit `335d8e19a90ff30e93cb80f544cc8ea5c8fe6cde`는 `erp5-inventory-publish` concurrency를 `cancel-in-progress: true`로 바꿔 뒤의 validated F86 publish가 앞선 in-progress 회차를 supersede하게 했다.
+- run `35169013858`은 `Capture current ERP5 snapshot and enforce deposit-rule gate`에서 실패해 F86 write 전에 멈췄다. stderr를 독립 확보하지 못했으므로 원인을 deposit violation이라고 단정하지 않는다.
+- commit `0c6ac135027298a9d79a4b7f673ddbd3762a828e`가 `heal-sonokong-deposit-ssot.mts --apply`를 gate 앞에 추가했다. 그 뒤 run `35169123131`에서는 heal=success, snapshot/deposit gate=success, F86 backup=success까지 갔지만 **`Publish F86 from validated snapshot`이 failure**였고 audit은 skipped됐다. 따라서 현재 OPEN은 stale engine이 아니라 **validated snapshot을 만든 뒤 F86 실제 publish가 완료되지 않는 운영 실패**다.
+- current one-time workflow는 self-file push trigger, same-pin `6a6f3f75...`, Sonogong heal + deposit gate, F86-only write, `FREEPASS_MANUAL_PUBLISH_APPROVED`, F86 audit `continue-on-error: true` 구조다. canonical `erp5-ssot-refresh.yml`이 disabled인 동안 상시 대체 writer로 키우지 말고 성공 회차 확보 후 retire/remove 또는 명시적 ownership으로 정리한다.
+- audit (22) special-tab deposit-policy 이중정의와 audit (23) F86 freshness checker contract drift는 여전히 미해소다. production의 `depositRuleViolations` gate도 current main `inventory-contract.ts`에는 아직 없다. legacy sales/mirror/settlement/credential/RP023 mirror/pickup-color HOLD도 유지한다.
+
+Claude 구현 Owner 우선순위: (1) run `35169123131`의 F86 publish failure 실제 로그 원인 확인 및 정상 publish+audit 증명, (2) one-time writer retire/remove/ownership 정리, (3) production deposit gate를 main canonical deposit-policy와 단일화, (4) F86 freshness checker contract 정렬.
+
+상세 근거: `docs/ai-ssot-audit/2026-09-17-chatgpt-audit24-concurrent-f86-writer-correction.md` (evidence commit `0c48501e5263f2bd5769355b225d9da5ba4190cd`).
+
+이번 ChatGPT 감사에서는 application code/business logic을 수정하지 않았다.

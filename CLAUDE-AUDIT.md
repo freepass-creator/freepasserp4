@@ -1,3 +1,16 @@
+## 최신 override — audit (25)
+
+충돌 시 이 override와 `docs/AI-SSOT-AUDIT-LOG.md` audit (25)를 audit (24) 이하보다 우선한다.
+
+- **audit (24) 정정:** `manual-erp5-full-sync-once.yml`은 더 이상 old `2e880cef...` F01/F86 stale writer가 아니다. commit `78df24bb...`에서 current production `6a6f3f75...`로 repin되고 source/Atom/F01 단계를 제거한 **F86-only emergency writer**가 됐다. commit `335d8e19...`에서 shared concurrency `cancel-in-progress: true`도 적용됐다.
+- current workflow는 self-file push trigger, `6a6f3f75...`, Sonogong heal + snapshot/deposit gate, F86 backup/publish, `FREEPASS_MANUAL_PUBLISH_APPROVED` 구조다.
+- **현재 최우선 OPEN:** run `35169123131`은 heal=success, snapshot/deposit gate=success, F86 backup=success 뒤 **Publish F86 from validated snapshot=failure**, audit skipped. 정확한 publish stderr를 확인하고 정상 write + audit 증거를 확보할 것.
+- canonical ERP5 refresh workflow disabled 판정은 유지. one-time F86 writer를 장기 대체 writer로 키우지 말고 성공 회차 후 retire/remove 또는 ownership을 명시할 것.
+- audit (22) main-vs-production deposit-policy 이중정의, production gate의 main 미이식, audit (23) F86 freshness checker drift, legacy settlement/credential/sales/mirror/RP023/pickup-color HOLD는 미해소 유지.
+
+상세 근거: `docs/ai-ssot-audit/2026-09-17-chatgpt-audit24-concurrent-f86-writer-correction.md`.
+
+---
 ## 최신 override — audit (24)
 
 충돌 시 이 override와 `docs/AI-SSOT-AUDIT-LOG.md` audit (24)를 기존 audit (23) 요약보다 우선한다.
