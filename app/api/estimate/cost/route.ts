@@ -37,8 +37,8 @@ const RANGE: Record<keyof CostSettings, [number, number]> = {
   deliveryFee: [0, 5_000_000], initPrepFee: [0, 10_000_000],
   // 신용 구간 A(정상)·B(중신용)·C(저신용) — 항목은 같고 값만 다르다.
   interestAPct: [0, 30], interestBPct: [0, 30], interestCPct: [0, 30],
-  /* 중고 가산 — 신차 대비 몇 %p 더 비싼가(사장님 「평균 3%」). 음수는 받지 않는다. */
-  interestUsedAddPct: [0, 15],
+  /* 중고 조달금리 — 렌트사가 «신차 금리 / 중고 금리»로 적는다(사장님 2026-09-17). 실무 차이 평균 3%p. */
+  interestUsedAPct: [0, 30], interestUsedBPct: [0, 30], interestUsedCPct: [0, 30],
   loanAPct: [0, 100], loanBPct: [0, 100], loanCPct: [0, 100],
   maintMonthly: [0, 1_000_000], maintRatePct: [0, 20], gpsMonthly: [0, 200_000], parkingMonthly: [0, 1_000_000],
   inspectionFee: [0, 1_000_000],

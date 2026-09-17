@@ -44,11 +44,14 @@ const CHANNELS = [{ v: 'rent', label: '렌트' }, { v: 'sub', label: '구독' }]
 /** 신용 구간 — **A(정상) · B(중신용) · C(저신용)**. 항목은 같고 값만 다르다(사장님 2026-09-06). */
 const CREDITS = [{ v: '정상', label: 'A 정상' }, { v: '중신용', label: 'B 중신용' }, { v: '저신용', label: 'C 저신용' }] as const;
 const BAND_KEY = {
-  정상: { interest: 'interestAPct', loan: 'loanAPct', ret: 'retentionNormalPct', recovery: 'penaltyRecoveryAPct' },
-  중신용: { interest: 'interestBPct', loan: 'loanBPct', ret: 'retentionMidPct', recovery: 'penaltyRecoveryBPct' },
-  저신용: { interest: 'interestCPct', loan: 'loanCPct', ret: 'retentionLowPct', recovery: 'penaltyRecoveryCPct' },
+  정상: { interest: 'interestAPct', interestUsed: 'interestUsedAPct', loan: 'loanAPct', ret: 'retentionNormalPct', recovery: 'penaltyRecoveryAPct' },
+  중신용: { interest: 'interestBPct', interestUsed: 'interestUsedBPct', loan: 'loanBPct', ret: 'retentionMidPct', recovery: 'penaltyRecoveryBPct' },
+  저신용: { interest: 'interestCPct', interestUsed: 'interestUsedCPct', loan: 'loanCPct', ret: 'retentionLowPct', recovery: 'penaltyRecoveryCPct' },
 } as const satisfies Record<string, Record<string, keyof CostSettings>>;
 const MASTERS = [{ v: 'new', label: '신차마스터' }, { v: 'used', label: '중고마스터' }] as const;
+/** 잔가 표준곡선 4년 값과 차종 델타 235건의 평균 — 화면이 세지 않고 «읽는다»(정본은 residual-lookup·delta 파일). */
+const RESID_STD4 = 58;
+const AVG_DELTA = -4.6;
 const YEARS = [1, 2, 3, 4, 5];
 
 const num = (v: string) => Number(String(v).replace(/[^\d.]/g, '')) || 0;
@@ -189,6 +192,18 @@ function EstimateCostPageInner() {
       <div className="backline"><Link href="/estimate">← 견적으로</Link></div>
       <div className="est-root cost">
       <div className="phone">
+
+        {/* ★★**「프리패스 평균」 한 줄** — 사장님 2026-09-17 「원가에 프리패스 평균 견적은 분명히 있어야 돼.
+              뭐 마진율 평균, 뭐 금리 평균, 잔가 평균 이런 게 나와야겠지. 보험료 평균」.
+            칸이 서른 넘어 스크롤하다 보면 «지금 기준이 뭐였더라»를 잃는다. 넷만 맨 위에 박아 둔다.
+            ⚠ 값을 여기서 «정하지» 않는다 — 아래 칸들이 정본이고 여기는 그걸 되짚어 보여 줄 뿐이다. */}
+        <div className="byrow" style={{ margin: '10px 12px 0' }}>
+          <b>프리패스 평균</b> — 금리 신차 {cs[BAND_KEY[polCr].interest]}% · 중고 {cs[BAND_KEY[polCr].interestUsed]}%
+          {' · '}마진 {isRent ? cs.marginRentPct : cs.marginSubPct}%
+          {' · '}잔가 4년 {RESID_STD4}% (차종 델타 평균 {AVG_DELTA >= 0 ? '+' : ''}{AVG_DELTA}%p → {(RESID_STD4 + AVG_DELTA).toFixed(1)}%)
+          {' · '}보험 연 {(cs.insRentYear / 10000).toLocaleString('ko-KR')}만 · 자차 {cs.selfRentPct}%
+          <br />지금 보는 조합 = <em>{polCr}</em> · {isRent ? '렌트' : '구독'}. 자차는 «해마다 줄어든 시세»에 건다.
+        </div>
 
         {/* ★비어 있는 실비를 «말한다» — 0 이라 원가에 안 잡히는 칸이 있으면 그 견적은 표준이 아니다.
             사장님 2026-09-06 「공통으로 들어가는 부분 중 얼마인지 모르는 부분들을 쭉 만들어 놓고
@@ -354,15 +369,18 @@ function EstimateCostPageInner() {
         <div className="card">
           <div className="step"><span className="no">7</span>금융비용 · 위약금<span className="veh dim">이자는 나가고 위약금은 들어온다</span></div>
           <div className="osub">나가는 돈 · 조합마다 갈린다 — 지금 <em>{polCr}</em></div>
-          <ORow label="조달금리" help={<>차 살 돈을 빌리는 <b>연 이자율</b>. 아래 대출비율만큼만 빌리므로 이자도 그만큼만 붙는다. 저신용 구간은 조달 조건이 나빠 높게 잡을 수 있다.</>}>
+          {/* ★★금리 칸은 **둘**이다 — 사장님 2026-09-17 「금리는 어차피 렌트사에서 입력을 하는 거니까
+                 그 금리 입력하는 칸에다가 **신차금리 중고금리**가 들어가겠지」. 가산(%p)이 아니라 각각 적는다. */}
+          <ORow label="조달금리 · 신차" help={<>신차를 살 돈을 빌리는 <b>연 이자율</b>. 아래 대출비율만큼만 빌리므로 이자도 그만큼만 붙는다. 저신용 구간은 조달 조건이 나빠 높게 잡을 수 있다.</>}>
             <Pin unit="%" value={cs[BAND_KEY[polCr].interest]} onChange={(v) => set(BAND_KEY[polCr].interest, num(v))} />
+          </ORow>
+          <ORow label="조달금리 · 중고" help={<>중고차는 조달금리가 <b>신차보다 높다</b>(사장님 「평균 3% 정도 차이」). 신차와 <b>따로</b> 적는다 — 중고 견적에만 쓰인다.</>}>
+            <Pin unit="%" value={cs[BAND_KEY[polCr].interestUsed]} onChange={(v) => set(BAND_KEY[polCr].interestUsed, num(v))} />
           </ORow>
           {/* ★★**금리는 신용만의 일이 아니다** — 사장님 2026-09-17
                  「기본적으로 중고차와 신차의 금리는 **평균 3% 정도 차이**가 난다」.
                  여태는 신용(A/B/C)만 보고 신차·중고를 같은 금리로 썼다 — 중고 원가가 그만큼 싼게 섬였다. */}
-          <ORow label="중고 가산" help={<>중고차는 조달금리가 <b>신차보다 높다</b>. 위 조달금리 위에 <b>몇 %p 더</b> 얹는지를 적는다(사장님 「평균 3%」). 신차 견적에는 안 붙는다.</>}>
-            <Pin unit="%p" value={cs.interestUsedAddPct} onChange={(v) => set('interestUsedAddPct', num(v))} />
-          </ORow>
+
           <ORow label="대출 비율" help={<>취득원가 중 <b>빌리는 비율</b>. 나머지는 <b>우리 현금</b>이다 — 3,000만 차를 80% 빌리면 545만(부가세 제외분)이 현금으로 들어가고, 그만큼 이자가 안 붙어 원가가 낮아진다. ⚠ 그 현금의 <b>기회비용은 원가에 안 넣는다</b> — 회사가 알아서 판단할 몫이다.</>}>
             <Pin unit="%" value={cs[BAND_KEY[polCr].loan]} onChange={(v) => set(BAND_KEY[polCr].loan, num(v))} />
           </ORow>

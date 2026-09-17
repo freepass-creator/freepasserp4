@@ -2608,15 +2608,40 @@ must((availableForEngine({ a: { name: '컴포트' } }, [], '가솔린 3.5 터보
   const gap = Math.round((us.interestRate.rent - nw.interestRate.rent) * 1000) / 10;
   must(gap > 0,
     `중고와 신차의 조달금리가 같습니다(차 ${gap}%p) — 중고는 금리가 더 높습니다`,
-    'lib/domain/estimate/cost-settings.ts interestUsedAddPct');
-  must(Math.abs(gap - COST_DEFAULTS.interestUsedAddPct) < 0.05,
-    `중고 가산이 설정값대로 안 먹습니다(설정 ${COST_DEFAULTS.interestUsedAddPct}%p · 실제 ${gap}%p)`,
+    'lib/domain/estimate/cost-settings.ts interestUsedAPct');
+  const want = COST_DEFAULTS.interestUsedBPct - COST_DEFAULTS.interestBPct;
+  must(Math.abs(gap - want) < 0.05,
+    `중고 금리 칸이 견적에 안 먹습니다(칸 차이 ${want}%p · 실제 ${gap}%p)`,
     'lib/domain/estimate/cost-settings.ts configFrom');
   /* 신차은 가산이 «안» 붙는다 — 붙으면 신차 견적이 통째로 비싸진다. */
-  const nw0 = configFrom({ ...COST_DEFAULTS, interestUsedAddPct: 9 }, { newCar: true, credit: '중신용' }) as { interestRate: { rent: number } };
+  const nw0 = configFrom({ ...COST_DEFAULTS, interestUsedBPct: 99 }, { newCar: true, credit: '중신용' }) as { interestRate: { rent: number } };
   must(Math.abs(nw0.interestRate.rent - nw.interestRate.rent) < 1e-9,
-    '중고 가산이 신차에도 붙었습니다',
+    '중고 금리가 신차 견적에도 쓰였습니다 — 신차는 신차 금리 칸을 봅니다',
     'lib/domain/estimate/cost-settings.ts configFrom');
+}
+
+/* == 44. ★★**자차 자체충당은 «해마다 줄어든 시세»에 걸린다**(정본 §3-3-2 · 2026-09-17)
+     사장님 「감가된 금액의 시세의 1.5%」. 첫해 값으로 연수를 곱하면 뒤로 갈수록 과대한다. */
+{
+  const base = { channel: 'rent' as const, type: 'return' as const, price: 30_000_000, cc: 1999,
+    fuel: 'gasoline', accident: 'none' as const, group: 'A',
+    residualRates: { 12: 0.88, 24: 0.77, 36: 0.67, 48: 0.58, 60: 0.50 },
+    selfRate: 0.015, insYear: 0, vatBase: 'included' as const };
+  const r4 = computeTerm(48, base) as { cost?: { selfIns?: number } };
+  const want = 30_000_000 * 0.015 * (1 + 0.88 + 0.77 + 0.67);      // 해마다 시세 × 1.5%
+  const flat = 30_000_000 * 0.015 * 4;                              // 예전 셈(날값 × 연수)
+  const got = Math.round(r4.cost?.selfIns ?? 0);
+  must(Math.abs(got - Math.round(want)) <= 1000,
+    `자차 충당이 해마다 줄어든 시세로 안 셀니다(${got.toLocaleString()} · 나와야 할 값 ${Math.round(want).toLocaleString()})`,
+    'lib/domain/estimate/calc.js selfIns');
+  must(got < flat - 1000,
+    '자차 충당이 «첫해 값 × 연수»로 돌아갔습니다 — 뒤로 갈수록 과대해집니다',
+    'lib/domain/estimate/calc.js selfIns');
+  /* 밑값은 «시세 그대로»다 — VAT 제외가로 나누면 첫해 충당이 45만이 아니라 40.9만이 된다. */
+  const r1 = computeTerm(12, base) as { cost?: { selfIns?: number } };
+  must(Math.abs(Math.round(r1.cost?.selfIns ?? 0) - 450_000) <= 1000,
+    `첫해 자차 충당이 차량가의 1.5%(45만)가 아닙니다(${Math.round(r1.cost?.selfIns ?? 0).toLocaleString()})`,
+    'lib/domain/estimate/calc.js selfIns 밑값');
 }
 
 if (fails.length) {
