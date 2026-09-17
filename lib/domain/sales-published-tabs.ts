@@ -149,3 +149,24 @@ export function publishedSalesColumns(prefix: SalesPublishedPrefix, baseColumns:
  * ★글자는 여기 한 곳 — 인제스터·치유 도구·시트가 같은 문장을 쓴다(따로 적으면 문장이 갈린다).
  */
 export const sonokongDepositRuleText = (): string => '월 대여료 × 약정연수 (최대 3개월)';
+
+/**
+ * ★★**보증금 규칙 글자가 있으면 요금맵의 보증금은 «무조건 0»으로 눕힌다** — 쓰기 직전 문지기.
+ *
+ * 사장님 2026-09-17 「ssot에 박아서 누가 업데이트하더라도 바뀌게끔」.
+ * ⚠ 실측 — 인제스터가 손오공 보증금을 `deposit: 0` 으로 만들도록 고쳤는데도 원자에 옛 계산 숫자가
+ *   **다시 박혔다**(274대). 요금맵을 쓰는 경로가 한 곳이 아니고, 그중 하나가 «기존 원자값»을 되살린다.
+ *   ⇒ 계산하는 자리를 고치는 것으로는 안 막힌다. **쓰기 직전에 한 번 더 눕힌다.**
+ * ★규칙 글자가 있다 = 「금액은 이 셈법으로 구한다」는 뜻이므로, 그 원자에 박힌 숫자는 어느 경로로 왔든
+ *   틀린 값이다. 글자가 없는 공급사(원천이 금액으로 주는 곳)는 그대로 둔다.
+ */
+export function levelDepositsForRuleText<T extends { deposit?: unknown }>(
+  price: Record<string, T> | null | undefined,
+  depositNote: unknown,
+): Record<string, T> | null | undefined {
+  if (String(depositNote ?? '').trim() !== sonokongDepositRuleText()) return price;
+  if (!price || typeof price !== 'object') return price;
+  const out: Record<string, T> = {};
+  for (const [term, value] of Object.entries(price)) out[term] = { ...value, deposit: 0 };
+  return out;
+}

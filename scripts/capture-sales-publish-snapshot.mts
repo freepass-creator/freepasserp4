@@ -21,7 +21,7 @@ if (ERP5) {
 const snapshot = await captureSalesPublishSnapshot(getFirestore());
 const output = arg('out') || `tmp/sales-publish-snapshots/${snapshot.snapshotId}.json`;
 if (hasInventoryPublicationViolations(snapshot.inventory)) {
-  throw new Error(`재고 계약 위반 — listable 드리프트 ${snapshot.inventory.listableDrift} · status_kind 드리프트 ${snapshot.inventory.statusKindDrift} · 원천 식별자 누락 ${snapshot.inventory.sourceIdentityViolations} · 삭제표식 ${snapshot.inventory.deletedMarkerViolations} · 빈 차량번호 ${snapshot.inventory.blankPlateViolations} · 잘못된 차량번호 ${snapshot.inventory.invalidPlateViolations} · 중복 차량번호 ${snapshot.inventory.duplicatePlateViolations}`);
+  throw new Error(`재고 계약 위반 — listable 드리프트 ${snapshot.inventory.listableDrift} · status_kind 드리프트 ${snapshot.inventory.statusKindDrift} · 원천 식별자 누락 ${snapshot.inventory.sourceIdentityViolations} · 삭제표식 ${snapshot.inventory.deletedMarkerViolations} · 빈 차량번호 ${snapshot.inventory.blankPlateViolations} · 잘못된 차량번호 ${snapshot.inventory.invalidPlateViolations} · 중복 차량번호 ${snapshot.inventory.duplicatePlateViolations} · 보증금규칙 ${snapshot.inventory.depositRuleViolations}`);
 }
 mkdirSync(dirname(output), { recursive: true });
 // 목적지는 한 번만 만들 수 있다. 같은 경로를 재사용해 F01과 F86 사이 내용을 바꾸는 일을 막는다.

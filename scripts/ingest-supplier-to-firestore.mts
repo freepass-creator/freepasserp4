@@ -33,7 +33,7 @@ import { getInventorySource } from '../lib/domain/inventory-source-registry';
 import { FUEL_EV, rawSeats, atomViolations, type MasterIndex } from '../lib/domain/atom-invariants';
 import { cleanTrim } from '../lib/domain/clean-trim';
 import { resolveStatus } from '../lib/domain/atom-status';
-import { sonokongDepositRuleText } from '../lib/domain/sales-published-tabs';
+import { levelDepositsForRuleText, sonokongDepositRuleText } from '../lib/domain/sales-published-tabs';
 import { isOpenInventoryAtom } from '../lib/domain/inventory-contract';
 import { mergeRawPhotoEvidence, photoAtomFields } from '../lib/domain/photo-atom';
 import { erp5InventoryAppOptions } from '../lib/server/erp5-inventory-service-account';
@@ -763,7 +763,8 @@ if (VARIABLE) {
       const ref = fs.collection('products').doc(docId(a.car_number));
       batch.set(ref, upd, { merge: true });
       /** ★요금은 갈아 끼운다 — merge 는 맵 키를 못 지워 «지금 안 파는 기간»이 남는다(위 전체 반영과 같은 규칙). */
-      if (!STATUS_ONLY && Object.keys(ap).length) batch.update(ref, { price: ap });
+      // ★보증금 규칙 글자가 있으면 요금맵의 보증금을 눕힌다(쓰기 직전 문지기 · levelDepositsForRuleText).
+      if (!STATUS_ONLY && Object.keys(ap).length) batch.update(ref, { price: levelDepositsForRuleText(ap as Record<string, { deposit?: unknown }>, upd.deposit_note ?? a.deposit_note) });
       if (원문갈이) batch.update(ref, { 원문: 원문갈이 });
       changed++; if (sMoved) sChg++; if (mMoved) mChg++; if (pMoved) pChg++; if (lMoved) lChg++; if (photoMoved) photoChg++; if (oMoved) oChg++; any = true;
     }
@@ -908,7 +909,8 @@ if (!VARIABLE) for (let i = 0; i < now.length; i += 400) {
      *   ⇒ 원천이 요금을 준 차만, `update` 로 맵을 통째 대체한다(같은 배치라 set 뒤에 온다).
      *   ⚠ 요금이 «아예 없는» 차는 안 건드린다 — 못 읽은 것과 없어진 것을 구별할 수 없기 때문이다.
      */
-    if (a.price && typeof a.price === 'object' && Object.keys(a.price as object).length) batch.update(ref, { price: a.price });
+    // ★같은 문지기 — 어느 경로로 쓰든 규칙 글자가 있으면 보증금은 0 이다.
+    if (a.price && typeof a.price === 'object' && Object.keys(a.price as object).length) batch.update(ref, { price: levelDepositsForRuleText(a.price as Record<string, { deposit?: unknown }>, (a as Record<string, unknown>).deposit_note) });
     wrote++;
   }
   await batch.commit();
