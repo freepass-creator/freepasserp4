@@ -2647,6 +2647,27 @@ must((availableForEngine({ a: { name: '컴포트' } }, [], '가솔린 3.5 터보
     'lib/domain/estimate/calc.js selfIns 밑값');
 }
 
+/* == 45. ★★**신차는 «렌트 · 반납형»뿐**(2026-09-17)
+     사장님 「신차는 렌트 견적만 할 거야. 신차는 당연히 렌트 견적이니까
+     **보험도 빠지고 뭐 반납이냐 인수냐 이런 것도 빠집니다. 그런 거 없어**」.
+     ⚠ 보험료는 «빠지는» 것이 아니라 **당연히 든** 것이다 — 원가에 그대로 남고 칸으로 안 물을 뿐이다. */
+{
+  const app = code('features/estimate/EstimateApp.tsx').replace(/\s+/g, '');
+  must(app.includes("constch=isNewKind?'rent':chPick") && app.includes("consttype=isNewKind?'return':typePick"),
+    '신차 견적이 렌트·반납형으로 박혀 있지 않습니다 — 신차은 그 둘뿐입니다',
+    'features/estimate/EstimateApp.tsx ch/type');
+  must(app.includes('{isNewKind?null:('),
+    '신차 화면에 「렌트/구독」·「반납/인수」 칸이 서 있습니다 — 고를 것이 하나면 묻지 않습니다',
+    'features/estimate/EstimateApp.tsx condRow');
+  /* 보험이 원가에서 «사라지지» 않았는지 — 돌려서 재는다(렌트는 보험이 원가에 든다). */
+  const r = computeTerm(48, { channel: 'rent', type: 'return', price: 30_000_000, cc: 1999,
+    fuel: 'gasoline', accident: 'none', group: 'A', insYear: 800_000,
+    residualRates: { 12: 0.85, 24: 0.75, 36: 0.66, 48: 0.58, 60: 0.51 } }) as { cost?: { insurance?: number } };
+  must((r.cost?.insurance ?? 0) > 0,
+    '렌트 원가에 보험료가 없습니다 — 「칸을 안 묻는다」와 「원가에서 뺀다」는 다릅니다',
+    'lib/domain/estimate/calc.js insurance');
+}
+
 if (fails.length) {
   console.error(`\n✗ 견적 로직이 정본과 다릅니다 — ${fails.length}건\n`);
   for (const f of fails) console.error(`  · ${f}\n`);

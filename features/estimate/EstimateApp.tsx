@@ -221,10 +221,21 @@ export default function EstimateApp({ surface = "work", kind }: { surface?: Esti
   const guest = surface === "guest";
   /** 갈래가 박혀 있는가 — 박혔으면 「상품」 세그를 안 그린다(손님 면은 항상 신차). */
   const fixedKind: EstimateKind | null = kind ?? (guest ? "new" : null);
+  /** 이 화면이 «신차 전용»인가 — 갈래가 박힌 신차 화면에서만 참이다(중고 화면·토글 화면은 거짓). */
+  const isNewKind = fixedKind === 'new';
   const nowYear = new Date().getFullYear();
   const [cond, setCond] = useState<'used' | 'new'>(fixedKind ?? 'used');   /* 손님은 신차만 — 중고는 시세를 사람이 넣어야 한다 */
-  const [ch, setCh] = useState<'rent' | 'sub'>('rent');
-  const [type, setType] = useState<'return' | 'acquire'>('return');
+  const [chPick, setCh] = useState<'rent' | 'sub'>('rent');
+  const [typePick, setType] = useState<'return' | 'acquire'>('return');
+  /**
+   * ★★**신차는 «렌트 · 반납형»뿐이다**(사장님 2026-09-17 「신차는 렌트 견적만 할 거야.
+   *   신차는 당연히 렌트 견적이니까 **보험도 빠지고 뭐 반납이냐 인수냐 이런 것도 빠집니다. 그런 거 없어**」).
+   *   ⇒ 고를 것이 하나뿐인 칸은 **묻지 않는다** — 세그 둘을 안 그리고 값을 박는다.
+   *   보험료는 «빠지는» 것이 아니라 **당연히 든 것**이다 — 원가에 그대로 들어가고 칸으로 묻지 않을 뿐이다.
+   * ⚠ 중고는 그대로다 — 렌트/구독·반납/인수를 다 고른다(픽업구독이 중고에만 있다).
+   */
+  const ch = isNewKind ? 'rent' : chPick;
+  const type = isNewKind ? 'return' : typePick;
   const [credit, setCredit] = useState('중신용');
   /** 고른 차 한 대 — 중고는 차종마스터, 신차는 신차마스터에서 온다(`features/estimate/CarPicker`). */
   const [picked, setPicked] = useState<PickedCar>(fixedKind === 'new' ? DEFAULT_NEW : DEFAULT_USED);
@@ -890,8 +901,13 @@ export default function EstimateApp({ surface = "work", kind }: { surface?: Esti
           그냥 **버튼만 있으면 되지** 뭐」. 「렌트|구독」·「반납형|인수형」·「고신용|중신용|저신용」은
           글자만 봐도 무엇을 고르는 칸인지 안다. 라벨을 세우면 그만큼 줄만 길어진다.
           ⚠ 숫자칸(보증금·선납·수수료)은 라벨을 남긴다 — 「10 %」만 있으면 무엇의 10% 인지 모른다. */}
-      <Seg tone="t3" opts={CHANNELS.map((o) => ({ v: o.v, label: o.label }))} cur={ch} onPick={setCh} />
-      <Seg tone="t3" opts={TYPES.map((o) => ({ v: o.v, label: o.label }))} cur={type} onPick={setType} />
+      {/* ★신차는 렌트·반납형이 «당연»이라 이 둘을 안 묻는다(사장님 2026-09-17). 중고는 그대로 고른다. */}
+      {isNewKind ? null : (
+        <>
+          <Seg tone="t3" opts={CHANNELS.map((o) => ({ v: o.v, label: o.label }))} cur={ch} onPick={setCh} />
+          <Seg tone="t3" opts={TYPES.map((o) => ({ v: o.v, label: o.label }))} cur={type} onPick={setType} />
+        </>
+      )}
       <Chips opts={CREDIT.map((c) => ({ v: c, label: c }))} cur={credit} onPick={setCredit} />
       <div className="qc-field">
         <label>보증금</label>
