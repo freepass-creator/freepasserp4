@@ -1,0 +1,25 @@
+name: 이안카 최신 JS 번들 전체 재스캔(읽기전용, 수동)
+
+# scripts/diag-ianka-fresh-bundle-scan.mts — 이전에 딴 자산 파일명이 재배포로 바뀌어
+# 404가 났다. 홈에서 지금 링크를 새로 받아 전체 JS 번들을 다시 훑는다.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - name: 이안카 최신 JS 번들 재스캔
+        env:
+          IANKA_ACCOUNT_JSON: ${{ secrets.IANKA_ACCOUNT_JSON }}
+        run: npx tsx scripts/diag-ianka-fresh-bundle-scan.mts
