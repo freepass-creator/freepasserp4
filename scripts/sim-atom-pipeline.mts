@@ -31,7 +31,7 @@ const EXPECT: { col: string; write: string; check: (p: any) => string }[] = [
   { col: '상태', write: '출고협의', check: (p) => S(p.vehicle_status) },
   { col: '분류', write: '중고렌트', check: (p) => S(p.product_type) },
   { col: '제조사', write: '현대', check: (p) => S(p.maker) },
-  { col: '차명(트림)', write: '쏘나타 디 엣지 DN8 2.0 가솔린 인스퍼레이션', check: (p) => S(p.sub_model) },
+  { col: '차명(세부모델+트림)', write: '쏘나타 디 엣지 DN8 2.0 가솔린 인스퍼레이션', check: (p) => S(p.sub_model) },
   { col: '옵션', write: '선루프, 통풍시트 / 후측방경보', check: (p) => parseProductOptions(p.options).join('|') },
   { col: '외부색상', write: '흰색', check: (p) => S(p.ext_color) },
   { col: '내부색상', write: '검정', check: (p) => S(p.int_color) },
