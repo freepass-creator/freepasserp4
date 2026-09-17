@@ -4,7 +4,6 @@ import { Search, Settings2, SlidersHorizontal } from 'lucide-react';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { C, SH } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
-import { getAuthClient } from '@/lib/firebase/client';
 import { ShopQuickEditor } from '@/components/shop/ShopQuickEditor';
 import { toast } from '@/components/Toaster';
 import { updatedLabelKo, useShopHeadStatus } from '@/lib/shop/head-status';
@@ -311,14 +310,14 @@ export function ShopView({ wl = FREEPASS, initial = null }: {
     setQuickSaving(true);
     try {
       /*
-       * ★토큰은 **막으려고가 아니라 «누가 고쳤나»를 남기려고** 싣는다 — 없으면 손님으로 남는다.
-       *   손님 화면이라 대개 없다(사장님 2026-09-05 「손님 로그인 하는 게 없거든」).
+       * ⚠ 여기서 로그인 토큰을 실어 「누가 고쳤나」를 남겼었다 — **걷었다**(사장님 2026-09-17
+       *   「화이트라벨에서 erp4 아예 분리해서 **로그인 기능 아예 없는 거야**」).
+       * ★막는 값이 아니었다 — 빠른조건은 원래 «누구나» 고친다(2026-09-10 확정). 토큰은 기록용이었고,
+       *   손님 동에 로그인이 없어졌으니 실을 것이 없다. 문은 그대로 열려 있고 기록은 `guest` 로 남는다.
        */
-      const user = getAuthClient()?.currentUser;
-      const token = user ? await user.getIdToken() : '';
       const res = await fetch('/api/shop/quick', {
         method: 'PUT',
-        headers: { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}) },
+        headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ wl: wl.key, quick: next }),
       });
       const body = await res.json().catch(() => ({}));
