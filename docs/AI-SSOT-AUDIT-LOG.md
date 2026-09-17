@@ -2013,3 +2013,90 @@ current main 계약:
 4. 기존 schedule gap, same-output F01 writer, credential action, settlement Atom-lock, pickup color, mirror ownership HOLD는 별도로 유지한다.
 
 이번 ChatGPT 감사에서는 application code나 business logic을 수정하지 않았다.
+
+---
+
+## 2026-09-17(23) — ChatGPT 독립 감사: ERP5 workflow disabled 확인 + settlement lock 배선 진전 + F86 freshness checker drift
+
+### A. 확인됨 — audit `(20)~(22)`의 schedule-gap 원인이 적어도 ERP5 canonical workflow에 대해서는 좁혀짐
+
+**판정: `ERP5 SSOT 원천 최신화(매시간)` workflow disabled 확인 / 다른 scheduled writer 상태는 별도 HOLD**
+
+current main은 `392ebff47d30fdfea3e579bb66c7cc77565d8a9a`이고 main CI run `35165360527`은 success다. 다만 canonical workflow를 수동 dispatch하려 한 run `35164315681` / job `105021859423`은 GitHub API에서 정확히 다음 오류를 받았다.
+
+`HTTP 422: Cannot trigger a 'workflow_dispatch' on a disabled workflow`
+
+대상 workflow id는 `358276101`이며 `.github/workflows/erp5-ssot-refresh.yml`이다. 따라서 audit `(20)~(22)`의 “workflow disable인지 scheduler delivery 문제인지 원인 미확정” 중 **ERP5 refresh는 실제 disabled였음이 확정**됐다. 이 증거를 `settlement-sync`, `sales-erp-hourly`, `mirror-sync`까지 같은 상태였다고 일반화하지 않는다.
+
+### B. 해소됨/진전 — canonical ERP5 refresh에 정산원장 `접수/취소` Atom lock step이 실제 배선됨
+
+commit `276f37e33e26544bde0439f1c387a1a624a62138`은 current `.github/workflows/erp5-ssot-refresh.yml`에 다음 실행 step을 추가했다.
+
+- schedule 또는 `apply=true`일 때 `scripts/sync-vehicle-lock-from-ledger.mts --apply`
+- `접수` → ERP5 Atom 계약락
+- `취소` → Atom 락 해제
+
+이 commit의 `SSOT Source Contract` run `35164053755`는 success다. 따라서 audit `(16)~(22)`의 “새 Atom-lock tool이 canonical ERP5 refresh에 연결되지 않았다”는 부분은 **해소됨**으로 갱신한다.
+
+단, `.github/workflows/settlement-sync.yml`의 옛 `sync-contract-from-ledger.mts` / `정산` 탭 경로가 별도로 남아 있는 문제까지 해소됐다는 뜻은 아니다. legacy settlement workflow의 ownership/retirement는 별도 미해소다.
+
+### C. 충돌(신규) — 같은 production pin 안에서 F86 builder와 freshness 감사기가 서로 반대의 탭명 계약을 가짐
+
+**판정: checker-contract drift / F86 데이터 발행 실패로 오인하면 안 됨**
+
+production pin은 계속 `2e880cefa96e3fa4bfc79902fed448d5bd74abdb`다. 이 pin의 `lib/server/channel-f86-plan.ts`는 현재 승인 규칙대로:
+
+- `종합`만 `MM.DD HH:MM:SS · N대`
+- 공급사 탭은 `회사 · N대`로 **시간 없이** 발행
+
+하도록 `f86TabTitle()`을 구현한다.
+
+그런데 같은 pin의 `scripts/audit-f86-vs-atom.mts` freshness 검사는 **모든 탭**에 `MM.DD HH:MM:SS · N대`가 있어야 한다는 regex를 적용하고, 공급사 탭에 시간이 없으면 failure를 추가한다.
+
+실제 one-time full sync run `35165360537`에서 이 모순이 그대로 재현됐다.
+
+- canonical source preflight: 24/24 success
+- 실제 Atom 반영: 24/24 success
+- settlement lock step: success
+- policy reconcile: 1,592 products / 81 policies / dangling 0
+- snapshot: 재고 695대
+- public catalog: expected/actual 687대, hash 및 mismatch 0
+- F01 publish: success, 695대
+- F86 backup/publish: success, 19탭 / 695대 / 90열
+- F86 칸 대조: **44,653칸, 값 어긋남 0**
+- 그러나 공급사 탭 18개가 `회사 · N대`라서 “탭 이름에 발행 시각이 없다” 18건으로 audit step failure
+- 그 결과 이후 Atom↔F01↔F86 cross-audit와 photo-link audit는 skipped
+
+즉 이 run의 F86 failure는 **builder의 최신 탭명 계약을 freshness checker가 따라가지 못한 false positive**다. Claude 구현 Owner는 freshness를 `종합` timestamp 하나에서 판정하거나 plan의 timestamp contract를 공유하도록 고치되, 칸/차례/값 대조를 약화시키지 않는다.
+
+### D. 충돌(신규 governance) — current main에 별도 write-capable one-time F01/F86 workflow가 남음
+
+current main에는 `.github/workflows/manual-erp5-full-sync-once.yml`이 존재한다.
+
+- 도입: `05a3b53540130873d38d175e032bc48055b31d1e`
+- manual publish 승인 추가: `392ebff47d30fdfea3e579bb66c7cc77565d8a9a`
+- production pin `2e880cef...`을 checkout해 source→Atom→snapshot→F01/F86을 직접 수행
+- `FREEPASS_MANUAL_PUBLISH_APPROVED='2026-09-17 morning manual sync'`로 normal workflow-name allowlist 밖에서 운영 F01/F86 쓰기 gate를 연다
+
+긴급 수동 발행 자체는 owner 승인 escape hatch 계약에 존재하지만, 이 workflow가 main에 상주하면 기존 `ERP5 SSOT 원천 최신화(매시간)` 외 **두 번째 production writer 진입점**이 된다. prior writer topology 문서에도 없던 신규 경로다. 감사자는 이를 애플리케이션 로직으로 확장하지 않고, Claude 단일 구현 Owner가 긴급 사용 후 retire/remove 또는 명시적 통제 경로로 정리할 대상으로 넘긴다.
+
+### E. 기존 미해소 항목
+
+이번 변경으로 아래를 닫지 않는다.
+
+- production ↔ current-main legacy `sales-erp-hourly` same-output F01 contract conflict
+- RP023 legacy mirror source / `mirror-sync` ownership
+- composite credential action metadata `${{ secrets.GOOGLE_SA_JSON }}` parser 문제
+- special-tab deposit-policy drift(audit `(22)`)
+- 픽업구독 canonical 색 HOLD
+
+### Claude 구현 Owner에게 넘기는 즉시 지시
+
+1. canonical ERP5 workflow `358276101`의 intended enabled/disabled 상태를 운영 결정과 맞춘다. 자동 시동을 다시 켤 경우 current `2e880cef...` full path를 기준으로 검증한다.
+2. `audit-f86-vs-atom.mts` freshness contract를 현재 `channel-f86-plan.ts` 탭명 규칙(종합만 시간)과 맞추고, same snapshot cross-audit/photo-audit까지 다시 green을 확보한다.
+3. `manual-erp5-full-sync-once.yml`은 긴급 회차 후 permanent second writer가 되지 않게 retire/remove 또는 명시적 통제 방식으로 정리한다.
+4. canonical refresh에 settlement Atom-lock 배선은 **해소됨**으로 취급하되 legacy `settlement-sync.yml`은 별도 정리한다.
+5. audit `(22)` deposit-policy, legacy F01/mirror, credential action, pickup color HOLD는 직접 해소 증거가 생길 때까지 유지한다.
+
+이번 ChatGPT 감사에서는 application code/business logic을 수정하지 않았다. 감사 문서와 Claude entry point만 갱신한다.
+
