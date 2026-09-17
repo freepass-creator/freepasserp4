@@ -28,7 +28,9 @@ import { WHITELABELS } from '@/lib/whitelabel';
  *   아래에서 표를 그대로 읽는다 — 적어 두면 **채널이 늘 때마다 이 줄도 고쳐야 하고**,
  *   빠뜨리면 그 채널 화면 위에만 업무동 남색 상단바가 얹힌다(화이트라벨에서 제일 나쁜 사고).
  */
-const GUEST_PREFIXES = ['/shop', '/catalog', '/q/', '/sign/'] as const;
+/* ★`/quote` = 손님 견적기(2026-09-17 · 사장님 「웰릭스 형태로 해서 손님들한테 견적기를 주려고」).
+   업무 견적기(`/estimate`)와 «같은 본체»인데 자리가 다르다 — 여기는 손님 면이라 껍데기를 통째로 걷는다. */
+const GUEST_PREFIXES = ['/shop', '/catalog', '/q/', '/sign/', '/quote'] as const;
 
 /**
  * ★★**채널을 하나 더 파는 일 = 표에 «한 줄»**(사장님 2026-09-06 「유니오토도 하나의 영업채널이고,

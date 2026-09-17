@@ -68,9 +68,18 @@ export default function EstimateWizard({ mode, onMode, picked, onPick, sections,
   const onCarState = useCallback((s: { step: CarStep; count: number; chosen: boolean }) =>
     setCarState((p) => (p && p.step === s.step && p.count === s.count && p.chosen === s.chosen ? p : s)), []);
   const onCarPicked = useCallback((from: CarStep) => {
-    // 지나온 걸음을 누르면 «그 걸음»으로 돌아가고, 방금 골랐으면 다음 걸음으로 간다.
-    setStep((cur) => (cur === from ? (CAR_STEPS[CAR_STEPS.indexOf(from) + 1] ?? 'colors') : from));
-  }, []);
+    /* 지나온 걸음을 누르면 «그 걸음»으로 돌아가고, 방금 골랐으면 다음 걸음으로 간다.
+       ⚠⚠ 2026-09-16 실측 — 마지막 차 걸음(트림)에서 «`colors` 로 못 박아» 보내고 있었다.
+         중고는 그 사이에 **차량 정보(시세·연식·주행)** 쪽이 있는데 통째로 건너뛰었다.
+         시세를 못 넣으면 견적이 «—» 로 선다(값을 모르면 안 낸다 — 정본 §3-4-1).
+       ⇒ 다음 걸음은 **이 마법사의 차례표**(`steps`)가 정한다. 갈래마다 쪽 수가 다르니 여기서 짐작하지 않는다. */
+    setStep((cur) => {
+      if (cur !== from) return from;
+      const inCar = CAR_STEPS[CAR_STEPS.indexOf(from) + 1];
+      if (inCar) return inCar;
+      return steps[steps.indexOf(from) + 1] ?? 'colors';
+    });
+  }, [steps]);
 
   const isCarStep = (CAR_STEPS as string[]).includes(step);
   /** 차 걸음을 떠나도 «마지막 차 걸음»을 쥐고 있는다 — 조각이 계속 붙어 있어야 해서다. */

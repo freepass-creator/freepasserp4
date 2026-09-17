@@ -5,9 +5,13 @@
  *   영업자랑 손님이 보는 거는 원가 정보 빠진 거 좋은 거야」 →
  *   이어서 「일단 **메뉴 자체를 관리자랑 공급사만** 보게 해요. **아직 해당 없어**」.
  *
- *   ⇒ 지금은 **관리자·공급사만**이다. 영업자용 «원가 뺀 화면»은 **아직 만들지 않는다** —
- *     안 쓰는 분기를 미리 넣어 두면 다음 사람이 그걸 규격으로 안다.
- *     필요해지면 그때 이 파일에 물음을 하나 더 둔다(「원가를 보여 주나」).
+ * ★★2026-09-16 — **영업자가 들어온다.** 사장님 「이거도 분리해서 freepass-견적기로 하자.
+ *   영업(자용으)로 해야 할 거고」. 2026-09-06 의 「아직 해당 없어」가 이날 풀렸다.
+ *   ⇒ 물음이 **둘로 갈린다** — 「화면을 보나」(`canSeeEstimate`)와 「원가를 보나」(`showsCost`).
+ *     영업자는 앞엣것만 참이다: 대여료·보증금·선납·만기인수는 보고,
+ *     원가·매출·영업이익·손바뀜·잔가는 **화면에도 응답에도 없다.**
+ *   ⚠ 숨기는 것만으로는 막은 게 아니다 — 원가를 못 보는 사람의 대여료는 **서버가 세서 값만** 보낸다
+ *     (`/api/estimate/quote`). 원가 설정 자체가 브라우저로 내려가지 않는다.
  *
  * ★막는 곳이 셋이다. 하나만 막으면 막은 게 아니다.
  *     ㉠ 메뉴(항목)   `components/TopBar` SIMPLE_GROUPS·GROUPS 의 `roles`
@@ -20,8 +24,12 @@
  *     갈리는 것을 하단에 두면 사람마다 탭 수가 달라진다.
  */
 
-/** 견적·원가 화면을 볼 수 있는 역할. */
-const ESTIMATE_ROLES = new Set<string>(['admin', 'provider']);
+/** 견적 «화면»을 볼 수 있는 역할 — 영업자도 든다(원가는 아래 `showsCost` 가 따로 가른다).
+ *  ⚠ 운영 역할값은 다섯이다(`lib/intake/entities` ROLES) — 영업자·공급사의 «관리자» 갈래까지 적는다. */
+const ESTIMATE_ROLES = new Set<string>(['admin', 'provider', 'provider_admin', 'agent', 'agent_admin', 'agent_manager']);
+
+/** **원가**(원가 분해·매출·영업이익·손바뀜·잔가)를 볼 수 있는 역할 — 관리자·공급사만. */
+const COST_ROLES = new Set<string>(['admin', 'provider', 'provider_admin']);
 
 /**
  * 이 사람이 견적을 보나.
@@ -30,4 +38,13 @@ const ESTIMATE_ROLES = new Set<string>(['admin', 'provider']);
  */
 export function canSeeEstimate(role: string | null | undefined): boolean {
   return ESTIMATE_ROLES.has(String(role ?? ''));
+}
+
+/**
+ * 이 사람에게 **원가를 보여 주나.**
+ * ⚠ 여기서 거짓이면 화면이 원가 칸을 안 그리는 것으로 끝나지 않는다 —
+ *   원가 설정을 **받아 오지도 않고**, 대여료는 서버가 세서 값만 받는다.
+ */
+export function showsCost(role: string | null | undefined): boolean {
+  return COST_ROLES.has(String(role ?? ''));
 }

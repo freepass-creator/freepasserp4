@@ -64,7 +64,9 @@ const RAW_ALLOW_PAIRS: [string, Allow][] = [
      (사장님 「옵션은 명확하게 다 구현하는 게 웰릭스 테이블에 있는데」).
      규칙이 있는 트림은 규칙판(배타 택1·선행·배제), 없는 트림은 옛 평면 목록 — 둘이 같이 산다.
      ⚠ 규칙 없는 트림을 못 고르게 만들면 «못 받은 것»이 «없는 것»이 되므로 평면 목록을 안 걷는다. */
-  ['app/estimate/page.tsx', {
+  /* ★2026-09-17 — 본체가 `features/estimate/EstimateApp.tsx` 로 옮겨 갔다(라우트 둘이 같은 화면을 쓴다: 업무 `/estimate` · 손님 `/quote`).
+     셀은 그대로고 **자리만** 옮긴다. */
+  ['features/estimate/EstimateApp.tsx', {
     counts: { button: 5, input: 19, select: 2 },
     reason: '견적 = 웰릭스 테이블 그대로 — 상품 카드·차종·**선택 옵션·색상**·차량정보·잔가·손님/담당자·조건·발송용 견적 + «견적서 보기»',
   }],
