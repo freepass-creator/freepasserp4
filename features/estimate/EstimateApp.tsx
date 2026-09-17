@@ -919,15 +919,19 @@ export default function EstimateApp({ surface = "work", kind }: { surface?: Esti
         <span className="pin"><input inputMode="numeric" value={pre}
           onChange={(e) => { const v = Math.max(0, Math.min(100, digits(e.target.value))); setPre(v); setScen((a) => a.map((x) => ({ ...x, pre: v }))); }} /><i>%</i></span>
       </div>
-      {/* 수수료는 «우리 원가» 칸이다 — 영업자 제 몫을 스스로 올려 대여료를 바꾸면 안 된다.
-          ⚠ `hidden` 이 아니라 **안 그린다**(이 줄도 CSS 가 `display:flex` 다). */}
-      {canCost ? (
+      {/* ★★**수수료 칸은 업무 화면에 «있다»**(사장님 2026-09-18 「신차는 보증금, 선납금, 수수료가 빠졌잖아.
+             **수수료가 있어야지**」) — 웰릭스 테이블도 조건 줄 오른쪽 끝에 수수료를 둔다.
+           ⚠ 2026-09-16 에는 「원가 칸이라 관리자·공급사만」으로 가렸다. **뒤엣것이 이긴다** —
+             영업자도 건별로 수수료를 잡고 그만큼 대여료가 움직인다.
+           ★단 **손님 면(`/quote`)에는 없다** — 손님은 「어떤 차가 얼마」만 본다(2026-09-17).
+           ⚠ `hidden` 이 아니라 **안 그린다**(이 줄도 CSS 가 `display:flex` 다). */}
+      {guest ? null : (
         <div className="qc-field">
           <label>수수료</label>
           <span className="pin"><input inputMode="numeric" value={fee}
             onChange={(e) => setFee(Math.max(0, Math.min(20, Number(e.target.value.replace(/[^0-9.]/g, '')) || 0)))} /><i>%</i></span>
         </div>
-      ) : null}
+      )}
     </div>
   );
   const termGrid = (
