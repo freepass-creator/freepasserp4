@@ -21,7 +21,10 @@ jobs:
       - name: Checkout validated ERP5 production engine
         uses: actions/checkout@v4
         with:
-          ref: 6a6f3f75c065143ad14286d08baa28e382535eea
+          # ★2026-09-17 — F86 발행이 이 ref 로 8회 연속 실패했다: 탭 이름의 초(콜론 두 개, 예 10:05:11)를
+          #   싱글쿼트로 감싸 A1 범위로 보내면 Sheets API 가 "Unable to parse range"로 거부한다
+          #   (run 35164517528 등). fix/f86-tab-title-colon-bug 에서 초를 뗀 커밋으로 재고정.
+          ref: 9bef7bf0ffd21a96e3098a6f31adf1b1a0258c60
       - name: Authenticate freepasserp5
         uses: google-github-actions/auth@v2
         with:
