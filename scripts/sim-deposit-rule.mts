@@ -11,6 +11,23 @@
  *   조용히 «틀린 금액»을 부르지 않고 규칙 글자를 그대로 보여 주는지를 지킨다.
  */
 import { depositFromRule } from '../lib/format';
+
+/**
+ * ## 자가진단 — 「이 표가 정말 «틀린 셈»을 잡나」
+ *
+ * ⚠⚠ 기대값 표는 **자기가 고장난 것을 스스로 못 본다.** 비교 한 줄만 무력화되면 열네 건이
+ *   전부 «통과»로 세어지고, 검사기는 초록인 채 아무것도 안 지킨다(거짓 초록).
+ * ⇒ `--자가진단` 은 셈을 **일부러 틀리게** 해 놓고 이 표가 그걸 잡는지 본다.
+ *   하나도 못 잡으면 **「검사기 고장」**으로 빨개진다. 정본 등재 = `scripts/ci-checker-manifest.json`.
+ */
+const 자가진단 = process.argv.includes('--자가진단');
+
+/** ★비교는 «한 줄»이다 — 이 줄이 무력화되면 자가진단이 곧바로 그것을 드러낸다. */
+function 맞나(got: number | null, want: number | null): boolean {
+  const ok = got === want;
+  return ok;
+}
+
 const cases: Array<[string, number, number, number | null, string]> = [
   ['월 대여료 × 약정연수 (최대 3개월)', 1262000, 12, 1262000, '12개월 → 1년치'],
   ['월 대여료 × 약정연수 (최대 3개월)', 994000, 24, 1988000, '24개월 → 2년치'],
@@ -27,10 +44,26 @@ const cases: Array<[string, number, number, number | null, string]> = [
   ['공급사가 새로 쓴 모르는 규칙', 650000, 36, null, '★모르면 null — 지어내지 않는다'],
   ['월 대여료 × 약정연수 (최대 2개월)', 1000000, 60, 2000000, '캡을 글자에서 읽는다'],
 ];
+
+if (자가진단) {
+  /* 셈을 1,000원 틀어 놓는다 — 금액이 나오는 자리는 «전부» 어긋나야 정상이다. */
+  const 틀린셈 = (note: string, rent: number, months: number): number | null => {
+    const v = depositFromRule(note, rent, months);
+    return v == null ? null : v + 1000;
+  };
+  const 잡힌수 = cases.filter(([note, rent, months, want]) => !맞나(틀린셈(note, rent, months), want)).length;
+  if (!잡힌수) {
+    console.error('\n  ✗ 검사기 고장 — 셈이 틀려도 이 표가 잡지 못한다(비교가 무력화됐다)\n');
+    process.exit(1);
+  }
+  console.log(`\n✓ 자가진단 — 틀린 셈을 ${잡힌수}건에서 잡는다\n`);
+  process.exit(0);
+}
+
 let bad = 0;
 for (const [note, rent, months, want, why] of cases) {
   const got = depositFromRule(note, rent, months);
-  const ok = got === want;
+  const ok = 맞나(got, want);
   if (!ok) bad++;
   console.log(`   ${ok ? '·' : '✗'} ${why.padEnd(28)} ${String(got).padStart(9)}  (기대 ${want})`);
 }
