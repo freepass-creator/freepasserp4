@@ -279,6 +279,13 @@ export const makeCell = (ctx: SalesRowContext) => (col: string, v: any): string 
    *     숫자를 지어 넣으면 그게 곧 «우리가 만든 오류»다 — 기간마다 다른 값을 한 칸에 못 담는다.
    */
   if (col === '보증금' && S(v.provider_company_code) === 'RP023') return autoplusDepositRuleText(S(v.maker));
+  // RP012 구독은 기간별 보증금이 다르다. 공통 칸에 60개월 금액을 대표값으로 넣지 않는다.
+  // 원 규격: 손오공-재고시트.mjs의 연수×대여료(최대 ×3). 기간별 숫자는 price에 유지한다.
+  if (S(v.provider_company_code) === 'RP012'
+    && ['오공구독', '픽업구독'].includes(S(v.product_type))
+    && /^(보증금반납형|반납형보증금|보증금인수형|인수형보증금)$/.test(NKEY(col))) {
+    return '연수×월대여료(최대 ×3)';
+  }
   if (/보증|개월|반납형|인수형|만km|장기보증/.test(col)) {
     const cell = priceCell(v.price, col);
     /**
