@@ -44,7 +44,7 @@ async function req(method: string, path: string, extraHeaders: Record<string, st
 
 function 요금패턴스캔(label: string, text: string) {
   const priceLike = [...text.matchAll(/"[\wㄱ-힣]*(?:rate|price|fare|fee|월대여료|요금|대여료|보증금|deposit)[\wㄱ-힣]*"\s*:\s*"?[\d,]+/gi)];
-  const wonNumbers = [...text.matchAll(/(\d{4,3}(?:,\d{3})+)\s*원/g)];
+  const wonNumbers = [...text.matchAll(/(\d{1,3}(?:,\d{3})+)\s*원/g)];
   console.log(`  [${label}] 요금 키 매칭 ${priceLike.length}건 · "N,NNN원" 패턴 ${wonNumbers.length}건`);
   for (const m of priceLike.slice(0, 5)) console.log(`    ${m[0]}`);
   for (const m of wonNumbers.slice(0, 5)) console.log(`    ${m[0]}`);
