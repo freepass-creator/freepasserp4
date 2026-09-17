@@ -2442,3 +2442,26 @@ Claude 구현 Owner: ERP5 Atom을 freshness source로 쓰는 방향은 유지하
 상세 근거: `docs/ai-ssot-audit/2026-09-18-chatgpt-audit37-ianka-rendered-finance-provenance.md`.
 
 이번 ChatGPT 감사에서는 application code/business logic을 수정하지 않았다.
+
+---
+## 2026-09-18(38) — ChatGPT 독립 감사: RP031 실 브라우저 `/api/inventory` 전체 본문에도 금융값 없음; browser-header 가설 기각, finance provenance HOLD 강화
+
+**판정: audit (37)의 임시 가설 해소 / RP031 production promotion HOLD 강화.** audit (37) 기록 직후 완료된 PR #387·#388의 실제 runtime 결과를 추가 대조했다. 두 PR은 read-only 진단이며 production writer/adapter/projection을 변경하지 않는다.
+
+- PR #387 merge `cb368cf560425b9ef815601e5ce6ae4dd03aaa1c`, run `35286958679` / job `105421310549`: 실제 브라우저형 Accept/sec-ch-ua/Referer 등을 재현한 `GET /api/inventory`도 200, **44,143자**였고 첫 unit의 금융 유사 필드는 `rateOverride: null`뿐이었다. 전체 응답에서 `term/rate/price/rental/요금` 계열 매칭은 85건 모두 `rateOverride`, `N,NNN원` 패턴은 0건이었다. 따라서 “plain fetch와 browser headers 차이 때문에 inventory에 요금이 빠졌다”는 가설은 기각한다.
+- PR #388 merge/current main `8773e7664dae75e77e353e6ad7a629654c1d3b75`, run `35287337178` / job `105422481330` (**success**): 같은 authenticated 세션을 실제 headless browser에 주입하고 `/api/inventory`의 **전체 response body**를 캡처했다. 실제 브라우저 세션 응답도 정확히 44,143자, 금융 유사 키 85건은 모두 `rateOverride`, `N,NNN원` 패턴 0건이었다. 반면 같은 회차의 렌더링된 DOM 텍스트는 21,300자이며 원화 금액 패턴 48건과 실제 `월 대여료`·`보증금` 값을 표시했다. 네트워크 캡처에서 API 요청은 `/api/inventory`였고 `/api/rates` 호출은 없었다.
+- audit (36)/(37)의 기존 증거와 합치면 현재 확인된 경계는 명확하다: 현 B2B session에서 `/api/rates`는 admin-only 403, sampled `/api/vehicle-detail`은 금융키 0, raw initial home HTML도 금융값 0, 그리고 이제 **실 브라우저가 받은 `/api/inventory` 전체 payload에도 표시 금융값이 없다.** 따라서 `/api/inventory`를 RP031 rent/deposit canonical source로 승격하면 안 된다.
+- 표시 금융값은 client execution 과정에서 다른 primitive 또는 계산으로 도입되는 것으로 보이지만, **정확한 authority는 아직 미확정**이다. 로드된 JS/static bundle, client-side calculation 또는 다른 비-API 전달 경로 중 무엇인지는 별도 증명이 필요하다. rendered DOM은 소비 결과이므로 그 자체를 canonical source로 삼지 않는다.
+- current production canonical workflow는 계속 `9bef7bf0ffd21a96e3098a6f31adf1b1a0258c60`을 checkout하고 RP031 registry는 계속 `google_sheet`다. F01/F86 Atom projection 계약, RP012/손오공·RP023/오토플러스 특수탭 규칙, F86 종합의 손오공/오토플러스 제외 규칙에는 이번 진단으로 인한 변화가 없다. audit (35) F86 freshness-checker false-positive, audit (27)/(28)/(29)/(34), mirror/sales/settlement/RTDB legacy writer HOLD도 그대로다.
+
+### Claude 구현 Owner 인계
+
+1. RP031 금융값 source 탐색에서 `/api/inventory`를 다시 후보로 두지 않는다. browser headers와 실제 browser session 전체 body 모두 금융값 부재가 실측됐다.
+2. rendered DOM을 scrape해 canonical finance를 만들거나 기존 시트 값을 근거 없이 합성하지 않는다.
+3. 실제 source primitive/계산 규칙을 찾아낸 뒤 Google Sheet와 **차종/연식/기간/약정거리/대여료/보증금** 단위 parity를 증명한다.
+4. RP031 writer promotion은 registry + Source Contract + writer topology + plate/finance provenance + Atom→snapshot→F01/F86 cross-audit를 함께 닫은 뒤에만 판정한다.
+5. audit (35)의 F86 freshness checker 문제는 RP031 진단과 별개로 계속 해결 대상으로 유지한다.
+
+상세 근거: `docs/ai-ssot-audit/2026-09-18-chatgpt-audit38-ianka-browser-inventory-no-finance.md`.
+
+이번 ChatGPT 감사에서는 application code/business logic을 수정하지 않았다.
