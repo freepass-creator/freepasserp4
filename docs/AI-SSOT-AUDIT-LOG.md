@@ -2368,3 +2368,29 @@ Claude 구현 Owner: ERP5 Atom을 freshness source로 쓰는 방향은 유지하
 상세 근거: `docs/ai-ssot-audit/2026-09-17-chatgpt-audit34-erp5-freshness-observability-gap.md` (evidence commit `0f359c8b48d89f3f5ed7b579a540db9882561716`).
 
 이번 ChatGPT 감사에서는 application code/business logic을 수정하지 않았다.
+---
+## 2026-09-18(35) — ChatGPT 독립 감사: canonical schedule delivery 재출현, 심한 지연 + known F86 freshness checker가 scheduled full-run을 red로 만듦
+
+**판정: audit (31)의 `event=schedule 0건` 사실은 해소/갱신되었지만, 정시 cadence와 full-run green은 아직 HOLD다. audit (23)의 F86 freshness checker drift는 이제 canonical scheduled production 실패로 직접 재현됐다.**
+
+- current main은 `c6f6c3e0253e6d6f172ce52067d7261358b3e4a9`, canonical `.github/workflows/erp5-ssot-refresh.yml`은 계속 `cron: '5 0-10 * * 1-6'`(월~토 KST 09:05~19:05)과 production pin `9bef7bf0ffd21a96e3098a6f31adf1b1a0258c60`을 선언한다.
+- audit (31)/(34) 당시 2026-09-17 `event=schedule`이 0건이었으나, 이후 실제 scheduled run **`35235961510`**이 생성됐다. event=`schedule`, created=`2026-09-17T14:47:38Z` = **2026-09-17 23:47:38 KST**, conclusion=`failure`다. 따라서 canonical workflow가 실제 schedule event를 전혀 받지 않는다는 이전 관측은 최신이 아니다.
+- 다만 이 시작 시각은 선언된 당일 마지막 cron 시각 19:05 KST보다 **4시간 42분 이상 늦다.** 어떤 원래 slot이 지연 전달된 것인지는 Actions metadata만으로 확정하지 않는다. 그러므로 “매시간 정시 운용 복구”로 판정하지 않고 **schedule delivery는 재출현 / cadence·timeliness는 HOLD**로 둔다.
+- 이 scheduled run은 production `9bef7bf...`를 실제 checkout해 canonical 경로를 수행했다. 공급사 preflight **24/24 success**, 실제 ingest **24/24 success**, settlement Atom-lock success, policy reconcile products 1,615 / policies 81 / dangling 0, snapshot `20260917145848487-344b1c66e52f` = 등록 1,615 / 출고불가 921 / 현재 재고 694였다.
+- public catalog는 expected/actual **687대 동일**, hash 동일, missing/extra/policy/photo mismatch 전부 0. F01은 **694대**(`상품리스트 394 · 오공구독 43 · 픽업구독 197 · 오플구독 60`) 발행 성공. F86도 backup 후 **19탭 / 694대 / 90열** 발행 성공했다.
+- F86 감사의 값 대조 자체는 **45,186칸 / 어긋남 0**, freshness 계산도 `가장 오래된 탭 0분 전 (허용 120분)`이었다. 그런데 같은 `audit-f86-vs-atom.mts`가 현재 builder 계약인 `종합 MM.DD HH:MM · N대`와 `회사 · N대`를 모두 “탭 이름에 발행 시각이 없다”로 판정해 19갈래 failure를 만들었다. 즉 audit (23)/(30)의 **builder↔freshness-checker contract drift가 canonical scheduled run에서 그대로 재현**됐다.
+- 그 뒤 cross-audit는 별도 조건으로 계속 실행되어 Atom↔F01에서 빠진 차 0 / 내려야 할 차 0 / 값 다른 칸 0, F01↔F86에서 빠진 차 0 / 추가 차 0 / 값 다른 칸 0을 확인했고 `보증금규칙 0`도 확인했다. photo-link audit도 전부 mismatch 0이었다. 따라서 run 전체 red를 데이터 발행 실패로 해석하면 안 된다. **publish/data parity는 PASS, workflow conclusion은 known checker false-positive 때문에 failure**다.
+- audit (27) 손오공 deposit recurrence guard는 이 한 회차에서 `보증금규칙 0`이 나왔다고 닫지 않는다. current production lineage에 feature-branch write-before-normalize guard가 이식됐다는 코드 증거가 없기 때문이다. audit (28) 차량가격도 SOURCE→ATOM 의미 대조가 아니라 Atom→F01/F86 대조만 통과한 것이므로 유지한다.
+- audit (29) sales-tab naming migration, audit (33) RP031 API feeder/provenance promotion HOLD, audit (34) newest-Atom freshness observability gap, mirror/sales/settlement/RTDB legacy writer ownership HOLD도 직접 해소 증거가 없어 유지한다. 이번 scheduled run의 RP031은 current canonical Google Sheet 경로로 ingest됐다.
+- canonical inventory source 계약은 계속 RP006=`ironrentcar.com`, RP012=`sokrc.com/api`, RP023=RebornCar이며 RP031은 아직 Google Sheet canonical이다.
+
+### Claude 구현 Owner 인계
+
+1. audit (31)의 “schedule event 자체가 없음”은 **해소/갱신**하되, 23:47 KST에 늦게 도착핔 한 회차만으로 hourly cadence 정상화를 선언하지 않는다.
+2. 최우선 runtime blocker는 audit (23)의 F86 freshness checker다. `channel-f86-plan`의 실제 탭명 계약과 freshness parser를 공유/정렬하되 차량/칸 값 대조는 약화하지 않는다.
+3. 수정 뒤 **실제 `event=schedule` 회차**에서 source→Atom→snapshot→public/F01/F86→F86 audit→cross-audit→photo-audit가 모두 green인지 확인한다. workflow_dispatch/one-time run으로 대체하지 않는다.
+4. audit (27)/(28)/(29)/(33)/(34)와 legacy writer ownership은 각각의 코드/runtime 증거가 생길 때만 닫는다.
+
+상세 근거: `docs/ai-ssot-audit/2026-09-18-chatgpt-audit35-scheduled-delivery-f86-checker.md`.
+
+이번 ChatGPT 감사에서는 application code/business logic을 수정하지 않았다.
