@@ -96,4 +96,12 @@ if (vehicleNo) {
     const { res, text } = await req('GET', path, rscHeaders);
     if (res.ok) 요금패턴스캔(path, text);
   }
+
+  // 6) /api/rates 는 파라미터를 바꿔도 계속 403 — 그 403 응답 본문과 POST 방식도 본다.
+  const getRates = await req('GET', `/api/rates?vehicleNo=${vehicleNo}`);
+  console.log(`■ GET /api/rates 403 본문: ${getRates.text}`);
+  const postRates = await req('POST', '/api/rates', {}, { vehicleNo, months: 12 });
+  console.log(`■ POST /api/rates 본문: ${postRates.text.slice(0, 300)}`);
+  const postRates2 = await req('POST', '/api/rates', {}, { vehicleNo, months: [1, 3, 6, 12, 24, 36, 48, 60] });
+  console.log(`■ POST /api/rates(배열) 본문: ${postRates2.text.slice(0, 300)}`);
 }
