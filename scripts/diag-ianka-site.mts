@@ -1,11 +1,13 @@
 /**
- * 진단 전용(읽기만) — ianka.com 실제 페이지 구조를 찍는다. 아무것도 쓰지 않는다.
+ * 진단 전용(읽기만) — 이안카 실제 페이지 구조를 찍는다. 아무것도 쓰지 않는다.
+ * ⚠ 2026-09-17 — ianka.com(로마자)은 도메인 판매 파킹 페이지였다(실측). 사장님이 다시 준 진짜
+ *   주소는 한글 도메인 https://xn--le5bt3bwxk.com/ (punycode) — 이걸로 다시 찍는다.
  * 이 세션(샌드박스)은 일반 웹사이트 접근이 막혀 있어(ironrentcar.com도 마찬가지) 여기서
  * GitHub Actions(열린 인터넷)로 한 번 열어보고, 그 결과로 실제 어댑터(lib/adapters/ianka-web.ts 류)를 짠다.
  *   npx tsx scripts/diag-ianka-site.mts
  */
 const S = (v: unknown) => String(v ?? '').trim();
-const BASE = 'https://ianka.com';
+const BASE = 'https://xn--le5bt3bwxk.com';
 
 async function fetchHtml(url: string): Promise<string> {
   const res = await fetch(url, {
