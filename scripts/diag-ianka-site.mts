@@ -9,7 +9,7 @@ const BASE = 'https://ianka.com';
 
 async function fetchHtml(url: string): Promise<string> {
   const res = await fetch(url, {
-    headers: { 'User-Agent': 'FreepassERP/4 diag (읽기전용)' },
+    headers: { 'User-Agent': 'FreepassERP/4 diag (readonly)' },
     redirect: 'follow',
     cache: 'no-store',
     signal: AbortSignal.timeout(20_000),
