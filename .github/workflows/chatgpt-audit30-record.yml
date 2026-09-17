@@ -1,0 +1,171 @@
+name: ChatGPT audit30 recorder
+
+on:
+  push:
+    paths:
+      - '.github/workflows/chatgpt-audit30-record.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Record independent SSOT audit 30
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if ! grep -q '2026-09-17(30)' docs/AI-SSOT-AUDIT-LOG.md; then
+            cat >> docs/AI-SSOT-AUDIT-LOG.md <<'AUDITEOF'
+
+---
+
+## 2026-09-17(30) — ChatGPT 독립 감사: audit (26) production 해소 확인 + F86 fix의 detached-lineage drift + freshness checker 미해소
+
+**판정: audit (26)의 F86 A1 values-write blocker는 active production에서 해소됐다. 다만 그 수정은 current `origin/main` 구현에 포함되지 않은 detached production lineage에만 있고, audit (23)의 F86 freshness checker contract drift도 그대로 남아 있다.**
+
+- current `origin/main` HEAD는 `21282cf41cb7d000d51509b5e8bb0a9238b73d2e`이고, canonical `.github/workflows/erp5-ssot-refresh.yml`은 production engine `9bef7bf0ffd21a96e3098a6f31adf1b1a0258c60`을 checkout한다.
+- production `9bef7bf...`의 `lib/server/sales-publish-snapshot.ts`에는 `salesPublishTabMark()`가 있으며 탭 시각을 `MM.DD HH:MM`으로 만든다. 초를 제거해 `10:05:11`처럼 콜론이 두 개 들어가던 audit (26)의 Sheets A1 parsing failure를 직접 막는다.
+- 반면 current main의 같은 파일에는 `salesPublishTabMark()`가 없고 `salesPublishMark()`가 여전히 `HH:MM:SS`를 직접 만든다. Git compare `9bef7bf...` ↔ current main은 `diverged`, merge-base=`4bab085d30181612cbf47624a76006c57065dccd`다. 즉 production fix는 current main의 조상이 아니며, 향후 main 기반 repin/이식 때 동등 수정이 누락되면 audit (26)이 재발할 수 있다.
+- one-time run `35208040283`은 실제로 production `9bef7bf...`를 checkout해 F86 **19탭 / 754대** 발행을 완료했다. 같은 run의 F86 값 대조는 **47,911칸 / 값 어긋남 0**이었다. 따라서 audit (26)의 values-write blocker는 active production 기준 **해소됨**으로 갱신한다.
+- 그러나 같은 `audit-f86-vs-atom.mts`는 탭명 freshness 검사에서 `종합 09.17 18:59 · 391대`와 공급사 탭 18개를 모두 `탭 이름에 발행 시각이 없다`고 판정하고 exit 1 했다. one-time workflow는 이 step을 `continue-on-error: true`로 마스킹해 job 전체가 green이었을 뿐이다. canonical `erp5-ssot-refresh.yml`의 동일 audit step에는 `continue-on-error`가 없다. 따라서 audit (23)의 **builder↔freshness checker contract drift는 여전히 OPEN**이며, canonical full-run은 F86 values write가 성공해도 이 checker 때문에 red가 될 수 있다.
+- 그러므로 run `35208040283`을 `F86 publish 성공 증거`로 쓰는 것은 맞지만 `F86 full-audit green 증거`로 쓰면 안 된다. Claude 구현 Owner의 직전 로그에서 미해소 목록에 audit (23)이 빠져 있었던 부분은 이 항목으로 보완한다.
+- audit (27) 손오공 deposit recurrence guard, audit (28) 차량별 price semantics, audit (29) `sales-tab-kinds` staged migration도 active production `9bef7bf...`에 승계되지 않았다. `9bef7bf...`는 해당 feature lineage들과 diverged 상태다.
+- canonical source 계약은 변화 없다: RP006=`ironrentcar.com`, RP012=`sokrc.com/api`, RP023=RebornCar. `MIRROR_SOURCES`의 RP023 옛 Google Sheet와 legacy mirror/RTDB scheduled paths는 canonical source 권한이 없으며 기존 ownership HOLD를 유지한다.
+
+### Claude 구현 Owner 인계
+
+1. audit (26)은 active production에서 **해소됨**으로 닫되, `9bef7bf...`의 초 제거와 동등한 tab-mark 계약을 canonical main lineage에도 보존한 뒤 future repin을 한다.
+2. `audit-f86-vs-atom.mts` freshness 판정을 현재 F86 plan 계약(종합에만 시각, 공급사 탭은 회사명+대수)과 공유/정렬한다. **차량/칸 값 대조는 약화하지 않는다.**
+3. 수정 뒤 canonical `erp5-ssot-refresh`에서 F01/F86 publish + F86 audit + Atom↔F01↔F86 cross-audit가 전부 green인 회차를 확보한다.
+4. audit (27)/(28)/(29)는 별도 promotion work로 유지하며 production의 기존 7-canonical/정산락/F86 계약을 되돌리지 않는다.
+
+상세 근거: `docs/ai-ssot-audit/2026-09-17-chatgpt-audit30-production-main-f86-lineage.md`.
+
+이번 ChatGPT 감사에서는 application code/business logic을 수정하지 않았다.
+AUDITEOF
+          fi
+
+          cat > docs/ai-ssot-audit/2026-09-17-chatgpt-audit30-production-main-f86-lineage.md <<'DETAILEOF'
+# ChatGPT 독립 SSOT 감사 — audit 30: production F86 A1 fix 해소와 main lineage/checker drift
+
+검수일: 2026-09-17
+
+## 판정
+
+**부분 해소 + 신규 lineage drift + 기존 checker drift 유지.**
+
+- audit (26)의 F86 A1 values-write 400은 production `9bef7bf0ffd21a96e3098a6f31adf1b1a0258c60`에서 초를 제거하는 방식으로 해소됐고, 실제 F86 발행 성공까지 확인됐다.
+- 그러나 해당 fix는 current `origin/main`의 구현에 들어 있지 않다. production과 main은 diverged다.
+- audit (23)의 F86 freshness checker는 현재 탭명 계약을 여전히 이해하지 못한다. one-time workflow가 `continue-on-error`로 실패를 가려 green으로 보였을 뿐이다.
+
+## 증거 1 — active production은 초 없는 tab mark를 사용
+
+current canonical workflow `.github/workflows/erp5-ssot-refresh.yml` checkout ref:
+
+- `9bef7bf0ffd21a96e3098a6f31adf1b1a0258c60`
+
+이 ref의 `lib/server/sales-publish-snapshot.ts`:
+
+- `salesPublishTabMark()` 신설
+- `MM.DD HH:MM`까지만 출력
+- 초를 제거하는 이유가 Sheets A1 parser의 `Unable to parse range` 운영 장애였다고 코드 주석으로 고정
+
+따라서 audit (26)의 `10:05:11` double-colon blocker는 active production 코드에서 제거됐다.
+
+## 증거 2 — run 35208040283은 F86 values publish 자체는 성공
+
+one-time run `35208040283`, job `105158550194`:
+
+- checkout `9bef7bf...`
+- Sonogong heal: RP012 692대, 고칠 차 0대, 숫자 보증금 0대, 규칙 글자 불일치 0대
+- snapshot: 등록 1,615 / 출고불가 861 / 현재 재고 754
+- F86 publish: 19탭 / 754대 / success
+- 값 대조: 47,911칸 / mismatch 0
+
+따라서 `Unable to parse range`는 재현되지 않았고 audit (26)은 production 기준 해소다.
+
+## 증거 3 — 같은 run의 F86 audit은 실제로 exit 1
+
+동일 로그에서 freshness checker는 다음을 오류로 냈다.
+
+- `종합 09.17 18:59 · 391대`
+- `손오공 · 302대`
+- 그 밖 공급사 탭 17개
+
+모두 `탭 이름에 발행 시각이 없다`고 판정하고 `하허호 F86 이 원자대로 «안» 서 있다 — 19갈래` 후 exit code 1.
+
+one-time workflow는 이 audit step을 `continue-on-error: true`로 실행해 job conclusion이 success로 남았다. 반면 canonical `erp5-ssot-refresh.yml`의 같은 audit command에는 `continue-on-error`가 없다.
+
+따라서 audit (23)의 builder/freshness checker contract drift는 미해소다. **F86 값 발행 성공과 full-audit green은 구분해야 한다.**
+
+## 증거 4 — production fix가 current main에는 없음
+
+current `origin/main` HEAD `21282cf41cb7d000d51509b5e8bb0a9238b73d2e`의 `lib/server/sales-publish-snapshot.ts`는:
+
+- `salesPublishTabMark()` 없음
+- `salesPublishMark()`가 `HH:MM:SS`를 직접 출력
+
+Git compare `9bef7bf...` ↔ main:
+
+- `diverged`
+- merge-base `4bab085d30181612cbf47624a76006c57065dccd`
+
+즉 production이 안전해졌다는 사실을 current main 구현의 해소로 일반화할 수 없다. main에서 production pin을 다시 만들거나 pin을 풀 때 동등 fix가 누락되면 재발 가능성이 있다.
+
+## 기존 OPEN/HOLD 재확인
+
+- audit (27): Sonogong deposit recurrence guard `e5fac1b...` — production 미포함
+- audit (28): vehicle-price source→Atom semantics `b6933732...`/`b0aedeee...` — production 미포함
+- audit (29): `sales-tab-kinds.ts` naming migration — staged only, current main에도 파일 없음
+- audit (22): main canonical deposit-policy와 production special-tab local policy 이중정의
+- canonical source: RP006 ironrentcar / RP012 sokrc API / RP023 RebornCar 유지
+- RP023 old Sheet mirror, mirror/RTDB legacy writer ownership은 기존 HOLD 유지
+
+## Claude 구현 Owner 인계
+
+1. production `9bef7bf...`의 tab mark fix와 동등한 계약을 canonical main lineage에도 보존한다.
+2. F86 freshness checker를 current builder/tab-title contract와 공유하도록 맞춘다. 값/칸 대조 강도는 낮추지 않는다.
+3. canonical full workflow에서 F01/F86 + freshness + cross-audit 전체 green을 증명한다.
+4. audits (27)/(28)/(29)는 서로 섞지 말고 별도 promotion으로 유지한다.
+
+이번 감사에서는 application code나 business logic을 수정하지 않았다.
+DETAILEOF
+
+          if ! grep -q 'audit (30) override' CLAUDE-AUDIT.md; then
+            cat > /tmp/claude-audit30 <<'CLAUDEEOF'
+# ChatGPT 독립 SSOT 감사 — audit (30) override (2026-09-17)
+
+> 이 절이 아래 audit (29) 및 이전 요약보다 우선한다.
+
+## 현재 판정
+
+- **active production pin:** `9bef7bf0ffd21a96e3098a6f31adf1b1a0258c60`.
+- **audit (26) F86 A1 blocker: production 해소.** `salesPublishTabMark()`가 초를 제거하며 run `35208040283`에서 F86 19탭/754대 values write가 실제 성공했다.
+- **audit (23) F86 freshness checker: OPEN.** 같은 run에서 47,911칸 값 mismatch 0인데도 탭명 시각 regex가 19탭 모두를 오류로 판정하고 exit 1 했다. one-time workflow가 `continue-on-error`로 가렸을 뿐이며 canonical workflow는 이 실패를 마스킹하지 않는다.
+- **신규 lineage drift:** current `origin/main` `21282cf41cb7d000d51509b5e8bb0a9238b73d2e`의 `sales-publish-snapshot.ts`에는 production의 `salesPublishTabMark()` fix가 없다. `9bef7bf...`와 main은 diverged(`merge-base=4bab085d...`). production 해소를 main 해소로 일반화하지 않는다.
+- **audit (27)/(28)/(29) 유지:** deposit recurrence guard, 차량별 가격 의미, sales-tab-kinds migration은 active production `9bef7bf...`에 승계되지 않았다.
+- canonical source는 계속 RP006=`ironrentcar.com`, RP012=`sokrc.com/api`, RP023=RebornCar. Mirror/RTDB legacy path는 noncanonical/HOLD다.
+
+## Claude 구현 Owner 우선순위
+
+1. `9bef7bf...`의 초 제거 동등 fix를 canonical main lineage에도 보존한 뒤 future repin한다.
+2. F86 freshness checker를 현 plan 계약(종합에만 시각, 공급사 탭은 회사명+대수)과 맞추되 차량/칸 대조는 약화하지 않는다.
+3. canonical `erp5-ssot-refresh`에서 F01/F86 publish + F86 audit + cross-audit 전체 green 회차를 확보한다.
+4. audit (27)/(28)/(29)는 별도 promotion work로 유지한다.
+CLAUDEEOF
+            cat CLAUDE-AUDIT.md >> /tmp/claude-audit30
+            mv /tmp/claude-audit30 CLAUDE-AUDIT.md
+          fi
+
+          git rm .github/workflows/chatgpt-audit30-record.yml
+          git config user.name 'ChatGPT SSOT Auditor'
+          git config user.email 'noreply@openai.com'
+          git add docs/AI-SSOT-AUDIT-LOG.md docs/ai-ssot-audit/2026-09-17-chatgpt-audit30-production-main-f86-lineage.md CLAUDE-AUDIT.md
+          git commit -m 'audit: record F86 production-main lineage drift'
+          git push origin HEAD:main
