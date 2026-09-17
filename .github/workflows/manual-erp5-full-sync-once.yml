@@ -1,0 +1,116 @@
+name: One-time ERP5 full sync
+
+on:
+  push:
+    paths:
+      - '.github/workflows/manual-erp5-full-sync-once.yml'
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: erp5-inventory-publish
+  cancel-in-progress: false
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - name: Checkout validated ERP5 production engine
+        uses: actions/checkout@v4
+        with:
+          ref: 2e880cefa96e3fa4bfc79902fed448d5bd74abdb
+      - name: Authenticate freepasserp5
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: projects/110304297079/locations/global/workloadIdentityPools/github-actions/providers/freepasserp4
+          service_account: github-inventory-writer@freepasserp5.iam.gserviceaccount.com
+          create_credentials_file: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - name: Source contract checks
+        run: npm run check:inventory-sources && npm run check:sonokong-options
+      - name: Prepare source credentials
+        env:
+          SHEETS_SA: ${{ secrets.GOOGLE_SA_JSON }}
+          SONOGONG: ${{ secrets.SONOGONG_ACCOUNT_JSON }}
+        run: |
+          test -n "$SHEETS_SA" || { echo '::error::GOOGLE_SA_JSON missing'; exit 1; }
+          test -n "$SONOGONG" || { echo '::error::SONOGONG_ACCOUNT_JSON missing'; exit 1; }
+          mkdir -p tmp/firebase-auth sonokong/lib/wonja
+          printf '%s' "$SHEETS_SA" > tmp/firebase-auth/sheets.json
+          printf '%s' "$SONOGONG" > sonokong/lib/wonja/.손오공계정.json
+      - name: Refresh Sonogong source
+        run: node sonokong/scripts/손오공.mjs --조용
+      - name: Audit Tcar paid options
+        run: npm run audit:sonokong-tcar-options
+      - name: Apply settlement ledger locks to ERP5 atoms
+        env:
+          ERP5_FIREBASE_USE_ADC: 'true'
+          GOOGLE_CLOUD_PROJECT: freepasserp5
+          GOOGLE_SHEETS_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sheets.json
+        run: npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/sync-vehicle-lock-from-ledger.mts --apply
+      - name: Refresh ERP5 atoms from canonical sources
+        env:
+          ERP5_FIREBASE_USE_ADC: 'true'
+          GOOGLE_CLOUD_PROJECT: freepasserp5
+          GOOGLE_SHEETS_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sheets.json
+          GOOGLE_SHEETS_SUBJECT: pyh@teamjpk.com
+        run: npx tsx scripts/ingest-all-suppliers.mts --apply --variable --retire
+      - name: Reconcile ERP5 policy references
+        env:
+          ERP5_FIREBASE_USE_ADC: 'true'
+          GOOGLE_CLOUD_PROJECT: freepasserp5
+        run: npx tsx scripts/reconcile-product-policy-references.mts --erp5 --apply
+      - name: Capture ERP5 publication snapshot
+        env:
+          ERP5_FIREBASE_USE_ADC: 'true'
+          GOOGLE_CLOUD_PROJECT: freepasserp5
+        run: npx tsx scripts/capture-sales-publish-snapshot.mts --erp5 --out=tmp/erp5-sales-publish.json
+      - name: Verify public catalog publication
+        env:
+          ERP5_FIREBASE_USE_ADC: 'true'
+          GOOGLE_CLOUD_PROJECT: freepasserp5
+        run: npx tsx scripts/verify-whitelabel-publication.mts --snapshot=tmp/erp5-sales-publish.json --write-receipt
+      - name: Publish F01 from same snapshot
+        env:
+          GOOGLE_SHEETS_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sheets.json
+          FREEPASS_MANUAL_PUBLISH_APPROVED: '2026-09-17 morning manual sync'
+        run: npx tsx scripts/make-sample-sheet-google.mts --main --snapshot=tmp/erp5-sales-publish.json
+      - name: Backup F86
+        env:
+          GOOGLE_SHEETS_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sheets.json
+        run: npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/backup-f86.mts --label=manual-${{ github.run_id }}
+      - name: Publish F86 from same snapshot
+        env:
+          GOOGLE_SHEETS_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sheets.json
+          FREEPASS_MANUAL_PUBLISH_APPROVED: '2026-09-17 morning manual sync'
+        run: npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/build-channel-supplier-sheet.mts --채널=하허호 --apply --snapshot=tmp/erp5-sales-publish.json
+      - name: Audit F86 vs atoms
+        env:
+          GOOGLE_SHEETS_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sheets.json
+        run: npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/audit-f86-vs-atom.mts --snapshot=tmp/erp5-sales-publish.json --max-age-min=120
+      - name: Audit atoms vs F01 vs F86
+        env:
+          GOOGLE_SHEETS_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sheets.json
+        run: npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/audit-sheet-vs-atom.mts --snapshot=tmp/erp5-sales-publish.json
+      - name: Audit plate photo links
+        env:
+          GOOGLE_SHEETS_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sheets.json
+        run: npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/check-plate-photo-link.mts
+      - name: Preserve sync snapshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: manual-erp5-ssot-snapshot-${{ github.run_id }}
+          path: tmp/erp5-sales-publish.json
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Cleanup credentials
+        if: always()
+        run: rm -rf tmp/firebase-auth sonokong/lib/wonja/.손오공계정.json sonokong/lib/wonja/.손오공토큰.json

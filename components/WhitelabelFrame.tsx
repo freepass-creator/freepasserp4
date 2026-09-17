@@ -362,21 +362,13 @@ export function WhitelabelFrame({
           ) : null}
         </div>
         {/*
-          웹·모바일은 같은 「지금」(날짜·시각·날씨)을 쓴다. 폰은 검색·조건 아이콘을
-          머리띠 오른쪽에 유지해야 하므로, 한 줄을 아래에 압축해 배치만 다르게 한다.
-          값의 출처와 갱신 주기는 `useShopHeadStatus` / `useNowKst`로 웹과 완전히 같다.
+          ⚠⚠ **폰 둘째 줄(날짜·시각·날씨)은 걷었다**(사장님 2026-09-17 「모바일은 날짜 날씨 안 해도 됨」).
+          ★여기 「웹·모바일은 같은 «지금»을 쓴다 — 폰은 한 줄 아래에 압축해 배치만 다르게」라고 적혀 있었다.
+            그 판단을 물린다. 폰 머리띠는 **붙박이**라 이 줄이 목록을 내내 그만큼 먹는데,
+            폰에서 그 자리는 「지금 몇 시·날씨」를 보러 온 자리가 아니다.
+          ★**재고가 지금 것임**은 폰에서도 그대로 말한다 — 목록의 「전체차량 N대 ⟳ 9. 14. 02:01」
+            줄이 그 몫이다(`ShopCount`). 날짜·날씨는 웹 머리띠 오른쪽에만 남는다(표준라벨 규격).
         */}
-        {mobile ? (
-          <div style={{
-            display: 'flex', alignItems: 'center', gap: SHOP.sp.tight,
-            padding: '0 12px 8px', color: C.faint,
-            fontSize: SHOP.fs.cap, fontWeight: FW.title,
-            fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap', overflow: 'hidden',
-          }}>
-            <span>{now ? nowLabelKo(now) : todayLabelKo()}</span>
-            {head.weather ? <span>{head.weather.text} {head.weather.temp}°</span> : null}
-          </div>
-        ) : null}
       </header>
 
       {notice ? <WhitelabelNotice wl={wl} mobile={mobile} /> : null}
