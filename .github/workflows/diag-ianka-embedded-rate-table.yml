@@ -1,0 +1,26 @@
+name: 이안카 JS 번들 내장 요금표 탐색(읽기전용, 수동)
+
+# scripts/diag-ianka-embedded-rate-table.mts — /api/inventory 응답에 요금이 전혀
+# 없는데(plain fetch·실 브라우저 세션 동일) 화면엔 요금이 뜬다. 요금이 JS 번들
+# 자체에 빌드 타임에 박혀있는지, 실제 차종명 문자열을 단서로 확인한다.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - name: 이안카 JS 번들 내장 요금표 탐색
+        env:
+          IANKA_ACCOUNT_JSON: ${{ secrets.IANKA_ACCOUNT_JSON }}
+        run: npx tsx scripts/diag-ianka-embedded-rate-table.mts
