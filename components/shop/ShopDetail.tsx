@@ -161,7 +161,11 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
   const [planIdx, setPlanIdx] = useState(0);
   const plan = plans[planIdx];
   /** 보증금 — 금액이 없고 규칙 글자만 있는 상품(`depositLine` 머리말). */
-  const dep = plan ? depositLine(plan.deposit, (p as Record<string, unknown>).deposit_note, wonKo) : null;
+  /* ★규칙 글자는 «금액»으로 바꿔 말한다(사장님 2026-09-18) — 고른 기간의 대여료로 센다. */
+  const dep = plan
+    ? depositLine(plan.deposit, (p as Record<string, unknown>).deposit_note, wonKo,
+        { rent: plan.rent, months: plan.m })
+    : null;
   /** 표에 세울 순서 — 기간 오름차순. 위 큰 숫자는 최저가로 시작하지만 표의 축은 «기간»이다. */
   /*
    * ★★**갈래로 «묶고», 그 안에서 기간 오름차순**(사장님 2026-09-16 「반납형 인수형은
@@ -1072,7 +1076,19 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
                     <td style={{
                       padding: '12px 8px', textAlign: 'right', whiteSpace: 'nowrap',
                       fontSize: rateFs, color: C.mute,
-                    }}>{x.deposit > 0 ? wonKo(x.deposit) : '없음'}</td>
+                    }}>{(() => {
+                      /*
+                       * ★★**줄마다 제 기간으로 센다** — 보증금이 기간에 딸린 값인 차가 있다
+                       *   (「월 대여료 × 약정연수(최대 3개월)」 240대 · 「수입: 12개월 ×3 · 18개월↑ ×6」 10대).
+                       * ⚠⚠ 2026-09-18 전까지 이 칸은 `x.deposit > 0 ? … : '없음'` 이라,
+                       *   금액이 0 이고 규칙 글자로만 오는 **285대에서 열 줄이 전부 「없음」**이었다.
+                       *   보증금이 있는 차를 「없음」이라고 말한 것이라 그냥 빈 게 아니라 **틀린 말**이었다.
+                       * ★셈은 한 곳에서만 한다(`depositLine`) — 카드·머리·이 표가 같은 답을 쓴다.
+                       */
+                      const d = depositLine(x.deposit, (p as Record<string, unknown>).deposit_note, wonKo,
+                        { rent: x.rent, months: x.m });
+                      return d.none ? '없음' : d.text.replace(/^보증금 /, '');
+                    })()}</td>
                     {/* ★정책 단위 값(보증금 분납) — 줄마다 같다. 돈이 아니므로 한 단 조용하게. */}
                     {payCols.map((c) => (
                       <td key={c.h} style={{

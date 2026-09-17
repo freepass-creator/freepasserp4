@@ -78,7 +78,7 @@ export async function generateMetadata({ params, searchParams }: Params): Promis
     ].filter(Boolean).join(' · ');
     const best = cheapest(product);
     const priceLine = best && best.rent > 0
-      ? [`${best.m}개월`, `월 ${man(best.rent)}`, (() => { const d = depositLine(best.deposit, (product as Record<string, unknown>).deposit_note, man); return d.none ? '무보증' : d.text.replace(/^보증금 /, '보증 '); })()].join(' · ')
+      ? [`${best.m}개월`, `월 ${man(best.rent)}`, (() => { const d = depositLine(best.deposit, (product as Record<string, unknown>).deposit_note, man, { rent: best.rent, months: best.m }); return d.none ? '무보증' : d.text.replace(/^보증금 /, '보증 '); })()].join(' · ')
       : '';
     const desc = [specLine, priceLine].filter(Boolean).join('\n') || '차량 상품 안내입니다.';
     // 사이트 이름 자리 = 담당자. 우리 브랜드(BRAND)는 손님 화면에 어디에도 쓰지 않는다.
