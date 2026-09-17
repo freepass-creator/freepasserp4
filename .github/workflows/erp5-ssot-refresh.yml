@@ -98,6 +98,13 @@ jobs:
         run: node sonokong/scripts/손오공.mjs --조용
       - name: 티카 유료옵션 차량번호·원문 감사
         run: npm run audit:sonokong-tcar-options
+      - name: 정산원장 접수·취소를 ERP5 원자 계약락에 반영
+        if: github.event_name == 'schedule' || inputs.apply
+        env:
+          ERP5_FIREBASE_USE_ADC: 'true'
+          GOOGLE_CLOUD_PROJECT: freepasserp5
+          GOOGLE_SHEETS_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sheets.json
+        run: npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/sync-vehicle-lock-from-ledger.mts --apply
       - name: 원천에서 ERP5 현재 원자 계산
         env:
           ERP5_FIREBASE_USE_ADC: 'true'

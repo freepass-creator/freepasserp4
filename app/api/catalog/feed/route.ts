@@ -1,16 +1,9 @@
 import { NextResponse } from 'next/server';
-import { readWhitelabelCatalogFromErp5 } from '@/lib/server/whitelabel-erp5-catalog';
-import { sanitizeAgentForGuest, sanitizeProductForGuest } from '@/lib/domain/public-catalog';
-import { isListableProduct } from '@/lib/domain/product';
-import { matchAgentByShareCode } from '@/lib/domain/product-share';
-import type { EntityRecord } from '@/lib/intake/entities';
-import { companyAlias } from '@/lib/domain/identity';
+import { loadGuestListing } from '@/lib/server/guest-listing';
 import { guestProviderFence, resolveGuestWhitelabel } from '@/lib/whitelabel';
 
 export const dynamic = 'force-dynamic';
-type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim();
-const dead = (p: Rec) => p?._deleted === true || !!p?.deletedAt || S(p?.status) === 'deleted';
 
 /**
  * 손님 공개 카탈로그 — `/catalog` 이 쓴다. **인증 없이** 호출된다.
@@ -56,40 +49,16 @@ export async function GET(request: Request) {
      * Firestore 장애는 오래된 RTDB 자료로 숨기지 않고 503으로 드러낸다. 그래야 웹과
      * 모바일이 서로 다른 원장을 보고 다른 재고를 표시하는 일이 없다.
      */
-    /* 공개 목록은 ERP5 Firestore 검증 발행본만 읽는다. 실패 시 다른 원장으로 우회하지 않는다. */
-    const src = await readWhitelabelCatalogFromErp5({ includePartners: !!providerCode, includeUsers: !!share });
-    const policies = Object.entries(src.policies).map(([policyKey, value]) => ({ ...(value || {}), _key: policyKey } as Rec));
-    const products: EntityRecord[] = [];
-    for (const [docKey, p] of Object.entries(src.products)) {
-      const key = S(p?._key) || S(p?.product_code) || docKey;
-      if (!p || typeof p !== 'object' || dead(p)) continue;
-      if (providerCode && S(p.provider_company_code) !== providerCode && S(p.partner_code) !== providerCode) continue;
-      const merged = { ...p, _key: key, product_code: S(p.product_code) || key } as EntityRecord;
-      // 목록에 실을 수 있는 것만 — 판정은 앱과 같은 SSOT 를 쓴다.
-      if (!isListableProduct(merged)) continue;
-      const policy = policies.find((value) => S(value.policy_code) === S(p.policy_code) || S(value._key) === S(p.policy_code)) || null;
-      products.push(sanitizeProductForGuest(key, p, policy));
-    }
-
-    // 화이트라벨 — 공급사를 지정했을 때만 그 회사 이름을 준다(전체 파트너 목록은 내보내지 않는다).
-    //  ★실데이터는 이름이 `name` 에 있고 `partner_code` 가 빈 레코드도 있다(RP004 실측 2026-08-08)
-    //   → 코드는 child 키까지 보고, 이름은 세 필드를 다 훑는다. 안 그러면 브랜드가 조용히 빈다.
-    let brand = '';
-    if (providerCode) {
-      const hit = Object.entries(src.partners)
-        .map(([id, value]) => ({ ...(value || {}), _id: id } as Rec)).find((x) => x && (
-          S(x._id) === providerCode || S(x.partner_code) === providerCode || S(x.company_code) === providerCode
-        ));
-      // 손님이 보는 이름에 법인격을 붙이지 않는다 — 표기 SSOT 는 companyAlias.
-      brand = companyAlias(S(hit?.partner_name || hit?.company_name || hit?.name), hit?.alias);
-    }
-
-    let agent = null;
-    if (share) {
-      const rows = Object.entries(src.users)
-        .map(([id, value]) => ({ ...(value || {}), _key: S(value?._key) || id, uid: S(value?.uid) || id })) as EntityRecord[];
-      agent = sanitizeAgentForGuest(matchAgentByShareCode(rows, share) as Rec | null);
-    }
+    /*
+     * 공개 목록은 ERP5 Firestore 검증 발행본만 읽는다. 실패 시 다른 원장으로 우회하지 않는다.
+     *
+     * ★★**세는 일은 `loadGuestListing` 한 곳이다**(2026-09-16 여기서 떼어냈다).
+     *   서버 껍데기(`app/(shop)/shop/page.tsx`)가 **필터 집계를 같이 그리려고** 같은 목록을
+     *   알아야 했는데, 거기에 이 셈을 한 번 더 적으면 두 곳이 갈린다 — 이 저장소가 겪은 그 사고다
+     *   (「대수가 두 군데서 세어져 어느 숫자도 못 믿게 된다」 · 「모수를 영업자 잣대로 세다 축 셋을 잃음」).
+     * ★비싼 읽기는 카탈로그 읽개가 60초 쥔다 — 껍데기가 또 불러도 Firestore 를 두 번 안 읽는다.
+     */
+    const { products, brand, agent } = await loadGuestListing({ providerCode, share });
 
     return NextResponse.json(
       { count: products.length, products, brand, agent },
