@@ -134,3 +134,18 @@ export function publishedSalesColumns(prefix: SalesPublishedPrefix, baseColumns:
   const block = [...(native.lead ? [native.lead.name] : []), ...labels];
   return [...kept.slice(0, insertAt), ...block, ...kept.slice(insertAt)];
 }
+
+/**
+ * ★★**손오공 보증금은 «숫자»가 아니라 «규칙 글자»다.**
+ *
+ * 사장님 2026-08-28 「손오공 규칙」 = 보증금 = 월 대여료 × 약정연수, **최대 3개월**(5년도 3개월치만).
+ * 사장님 2026-09-17 「손오공 보증금 ssot에 제대로 반영 안된거 같음」 · 「규칙 글자로」 —
+ *   그 셈을 «원자에 숫자로 박지 않고» 이 글자로 싣는다(`deposit_note`). `price[기간].deposit` 은 0 이다.
+ *
+ * ★왜 글자인가 — 계산값을 박으면 원천 대여료가 바뀔 때 보증금만 따로 늙는다. 그리고 「최대 3개월」 같은
+ *   캡은 금액만 봐서는 알 수 없다(48·60개월이 왜 같은 금액인지 영업자가 묻게 된다).
+ * ⚠ 실측 2026-09-17 — 258대 전부 이 글자가 들어 있었는데 `deposit` 숫자도 남아 있어서 글자가 «한 번도»
+ *   안 보였다(판매시트는 보증금 칸이 빈 때만 이 글자를 쓴다). 규칙이 두 번 바뀌며 절반만 반영된 자리였다.
+ * ★글자는 여기 한 곳 — 인제스터·치유 도구·시트가 같은 문장을 쓴다(따로 적으면 문장이 갈린다).
+ */
+export const sonokongDepositRuleText = (): string => '월 대여료 × 약정연수 (최대 3개월)';

@@ -33,6 +33,7 @@ import { getInventorySource } from '../lib/domain/inventory-source-registry';
 import { FUEL_EV, rawSeats, atomViolations, type MasterIndex } from '../lib/domain/atom-invariants';
 import { cleanTrim } from '../lib/domain/clean-trim';
 import { resolveStatus } from '../lib/domain/atom-status';
+import { sonokongDepositRuleText } from '../lib/domain/sales-published-tabs';
 import { isOpenInventoryAtom } from '../lib/domain/inventory-contract';
 import { mergeRawPhotoEvidence, photoAtomFields } from '../lib/domain/photo-atom';
 import { erp5InventoryAppOptions } from '../lib/server/erp5-inventory-service-account';
@@ -271,11 +272,21 @@ async function readRows(): Promise<Row[]> {
       //   직접 읽으므로 여기서 «같은 규칙»(round/1000×1000)을 건다. 보증금은 라운드된 대여료로 재계산돼 정합.
       // ★보증금 = 대여료 × 연수, «최대 3개월»(사장님 「손오공 규칙」 2026-08-28). 5년도 3개월치만 받는다.
       //   min(개월/12, 3) 로 캡 — 48·60개월이 4·5개월치로 부풀던 것을 막는다.
-      const dep3 = (p: string, r: number) => Math.round(Math.min(Number(p) / 12, 3) * r);
+      /**
+       * ★★2026-09-17 정정 — **보증금은 «숫자로 계산해 박지 않는다».** 사장님 「손오공 보증금 ssot에
+       *   제대로 반영 안된거 같음」 · 「규칙 글자로」.
+       *   위 2026-08-28 규칙(대여료 × 연수 · 최대 3개월)은 «셈법»으로 남고, 원자에는 그 «규칙 글자»만
+       *   싣는다(`deposit_note` = 「월 대여료 × 약정연수 (최대 3개월)」 — 아래 depNote).
+       *   ⇒ `deposit` 은 0 이다. 그래야 판매시트가 규칙 글자를 보여 준다
+       *     (`sales-atom-row.ts` — 보증금 칸이 «비었을 때만» deposit_note 를 쓴다).
+       *   ⚠ 실측 2026-09-17 — 글자는 258대 전부 들어 있었는데 숫자도 남아 있어서 규칙 글자가 한 번도
+       *     안 보였다. 규칙이 두 번 바뀌며 «절반만» 반영된 자리다. 숫자를 여기서 끊는다.
+       *   ★계산값을 원자에 박으면 원천 대여료가 바뀔 때 보증금만 따로 늙는다 — 규칙은 셈법으로 두는 게 맞다.
+       */
       const price: Price = {};
       const low = (c.저신용월납 || {}) as { SUBSCRIBE_RETURN?: Record<string, number>; SUBSCRIBE_BUYOUT?: Record<string, number> };
-      for (const [p, rent] of Object.entries(low.SUBSCRIBE_RETURN || {})) { const r = 라운드천(won(rent)); if (r > 0) price[p] = { rent: r, deposit: dep3(p, r) }; }
-      for (const [p, rent] of Object.entries(low.SUBSCRIBE_BUYOUT || {})) { const r = 라운드천(won(rent)); if (r > 0) price[`${p}_인수형`] = { rent: r, deposit: dep3(p, r) }; }
+      for (const [p, rent] of Object.entries(low.SUBSCRIBE_RETURN || {})) { const r = 라운드천(won(rent)); if (r > 0) price[p] = { rent: r, deposit: 0 }; }
+      for (const [p, rent] of Object.entries(low.SUBSCRIBE_BUYOUT || {})) { const r = 라운드천(won(rent)); if (r > 0) price[`${p}_인수형`] = { rent: r, deposit: 0 }; }
       /**
        * ★★**손오공 상품구분은 «버킷»이 말해 준다** — 원천이 진작 주고 있었는데 안 읽었다.
        * ```
@@ -302,7 +313,7 @@ async function readRows(): Promise<Row[]> {
        */
       const 선택옵션 = S(c.유료옵션);
       const 상세링크 = /^https?:\/\/.*(?:lotte|tcar|mycarsave)/i.test(S(c.상세url)) ? S(c.상세url) : '';
-      push({ car, link: 상세링크, rawLink: S(c.상세url원문), imageUrls: c.사진들, photoCollectedAt: c.상세시각 || dumpCollectedAt, rawDescription: S(c.설명), rawPaidOptions: c.유료옵션원문, rawMirroredPaidOptions: c.손오공유료옵션원문, rawSonokongOptionNote: c.손오공출고옵션원문, rawOptionEvidence: c.유료옵션근거, optionSource: S(c.유료옵션출처), status, kind, maker: S(c.제조사), model: S(c.모델), vname: S(c.차명) || S(c.세부), fuel: S(c.연료), ext: S(c.외장), int: S(c.내장), km: c.주행거리 == null ? '' : String(c.주행거리), opt: 선택옵션, firstReg: S(c.최초등록) || S(c.연식), cc: c.배기량 == null ? '' : String(c.배기량), klass: '', price, tab: '손오공API', row: S(c.id) });
+      push({ car, depNote: sonokongDepositRuleText(), link: 상세링크, rawLink: S(c.상세url원문), imageUrls: c.사진들, photoCollectedAt: c.상세시각 || dumpCollectedAt, rawDescription: S(c.설명), rawPaidOptions: c.유료옵션원문, rawMirroredPaidOptions: c.손오공유료옵션원문, rawSonokongOptionNote: c.손오공출고옵션원문, rawOptionEvidence: c.유료옵션근거, optionSource: S(c.유료옵션출처), status, kind, maker: S(c.제조사), model: S(c.모델), vname: S(c.차명) || S(c.세부), fuel: S(c.연료), ext: S(c.외장), int: S(c.내장), km: c.주행거리 == null ? '' : String(c.주행거리), opt: 선택옵션, firstReg: S(c.최초등록) || S(c.연식), cc: c.배기량 == null ? '' : String(c.배기량), klass: '', price, tab: '손오공API', row: S(c.id) });
     }
     return out;
   }

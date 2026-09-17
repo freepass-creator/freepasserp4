@@ -53,6 +53,13 @@ const REQUIRED_DISPLAY_FIELDS = new Set([
   'seats', '인승', 'supplier_vehicle_name', '차명(원문)',
   'first_registration_date', '최초등록', 'location', '차고지',
   'policy_code', '정책UID', 'provider_name', '공급사',
+  /**
+   * ★2026-09-17 — 사장님 「차량가격도 입력안된거는 미입력으로 해주고」.
+   *   차량가격(=소비자가격·차량가·차량가액 · 원자 `consumer_price`/`msrp`)은 차량 출고가이고
+   *   취등록세·인수금의 «기준»이라, 빈칸이면 계산이 안 되는 칸이다 — 비어 있다는 사실이 보여야 한다.
+   *   ⚠ 원천이 대부분 안 주는 칸이라 실측 절반(376대 중 188대)이 미입력으로 선다 — 그게 사실이다.
+   */
+  'consumer_price', 'msrp', '소비자가격', '차량가격',
 ]);
 
 function isPureEv(atom: Record<string, unknown>): boolean {
