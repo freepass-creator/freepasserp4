@@ -13,5 +13,7 @@ import EstimateGate from '@/features/estimate/EstimateGate';
 import EstimateApp from '@/features/estimate/EstimateApp';
 
 export default function EstimatePage() {
+  /* ★갈래를 안 박은 자리 — 예전 주소로 들어오는 사람을 막지 않는다.
+     새 길은 `/estimate/new`(신차) · `/estimate/used`(중고) 둘이다. */
   return <EstimateGate><EstimateApp surface="work" /></EstimateGate>;
 }

@@ -205,17 +205,29 @@ function TChips<T extends string>({ opts, cur, onPick, scroll, empty }: {
  * ★한 벌이라야 한다 — 두 벌이면 손님 견적과 우리 견적이 갈린다.
  */
 export type EstimateSurface = "work" | "guest";
+/** 이 화면이 다루는 갈래 — 신차 전용 · 중고 전용. */
+export type EstimateKind = "used" | "new";
 
-export default function EstimateApp({ surface = "work" }: { surface?: EstimateSurface }) {
+/**
+ * ★★**신차와 중고는 갈라서 선다**(사장님 2026-09-17 「중고차 견적기 따로, 신차 견적기 따로 해야함」 ·
+ *   「내가 애초에 견적기 욕심을 냈다.. 중고 견적기랑 신차 견적기를 나눠서 하려고 한게 실수」는
+ *   「한 화면에 둘을 얹어 둔 것」을 가리킨다 — 중고는 시세·연식을 사람이 넣고, 신차는 옵션·조합규칙이 붙는다.
+ *   ⇒ 「상품: 중고 | 신차」 세그를 지우고 **화면을 둘로** 가른다.
+ * ★단 **셀은 한 벌**이다(사장님 「SSOT 하나 두고 껍데기만 원하는 거대로 바꿔가지고 쓰면 되지」).
+ *   엔진·데이터는 그대로고, 이 조각을 `kind` 로 부르는 것만 다르다.
+ */
+export default function EstimateApp({ surface = "work", kind }: { surface?: EstimateSurface; kind?: EstimateKind }) {
   /** 손님 면인가 — 신차만 · 상품 세그 없음 · 원가는 애초에 `showsCost` 가 막는다. */
   const guest = surface === "guest";
+  /** 갈래가 박혀 있는가 — 박혔으면 「상품」 세그를 안 그린다(손님 면은 항상 신차). */
+  const fixedKind: EstimateKind | null = kind ?? (guest ? "new" : null);
   const nowYear = new Date().getFullYear();
-  const [cond, setCond] = useState<'used' | 'new'>(guest ? 'new' : 'used');   /* 손님은 신차만 — 중고는 시세를 사람이 넣어야 한다 */
+  const [cond, setCond] = useState<'used' | 'new'>(fixedKind ?? 'used');   /* 손님은 신차만 — 중고는 시세를 사람이 넣어야 한다 */
   const [ch, setCh] = useState<'rent' | 'sub'>('rent');
   const [type, setType] = useState<'return' | 'acquire'>('return');
   const [credit, setCredit] = useState('중신용');
   /** 고른 차 한 대 — 중고는 차종마스터, 신차는 신차마스터에서 온다(`features/estimate/CarPicker`). */
-  const [picked, setPicked] = useState<PickedCar>(guest ? DEFAULT_NEW : DEFAULT_USED);
+  const [picked, setPicked] = useState<PickedCar>(fixedKind === 'new' ? DEFAULT_NEW : DEFAULT_USED);
   /* 차 고르기가 «어디에 서는가»를 가른다 — 웹은 좌패널에 박히고(원본 캐스케이드 자리),
      폰은 시트로 뜬다. 원본도 ≤1024px 에서는 한 줄로 접힌다. */
   const mobile = useIsMobile();
@@ -1080,7 +1092,7 @@ export default function EstimateApp({ surface = "work" }: { surface?: EstimateSu
                오른쪽 조건 줄로 옮겼다. 여기 남는 것은 **어떤 차를 고를 것인가**뿐이다.
              ★그래서 이 칸 바로 밑이 차종 캐스케이드다 — 중고냐 신차냐에 따라 고를 목록이 갈린다. ══ */}
         {/* 손님에게는 «신차»만 판다 — 중고는 시세를 사람이 넣어야 해서 혼자 못 친다(사장님 2026-09-17). */}
-        {guest ? null : (
+        {fixedKind ? null : (
           <section id="sec-source">
             <div className="step-title">상품</div>
             <Seg tone="t2" opts={SOURCES.map((o) => ({ v: o.v, label: o.label }))} cur={cond} onPick={setSource} />

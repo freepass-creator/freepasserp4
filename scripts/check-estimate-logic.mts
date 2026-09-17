@@ -2563,8 +2563,24 @@ must((availableForEngine({ a: { name: '컴포트' } }, [], '가솔린 3.5 터보
   must(/EstimateApp surface="work"/.test(workRoute) && /EstimateGate/.test(workRoute),
     '업무 견적기가 본체를 안 쓰거나 문지기가 빠졌습니다',
     'app/estimate/page.tsx');
+  /* ★★**신차·중고는 갈라서 선다**(2026-09-17) — 화면은 둘, 셀은 한 벌.
+       두 라우트가 같은 본체를 `kind` 로 부르는지만 본다 — 본체를 두 벌로 베끼면 여기서 멈춘다. */
+  const newRoute = code('app/estimate/new/page.tsx');
+  const usedRoute = code('app/estimate/used/page.tsx');
+  must(/EstimateApp surface="work" kind="new"/.test(newRoute) && /EstimateGate/.test(newRoute),
+    '신차 견적 라우트가 본체를 안 쓰거나 문지기가 빠졌습니다',
+    'app/estimate/new/page.tsx');
+  must(/EstimateApp surface="work" kind="used"/.test(usedRoute) && /EstimateGate/.test(usedRoute),
+    '중고 견적 라우트가 본체를 안 쓰거나 문지기가 빠졌습니다',
+    'app/estimate/used/page.tsx');
   const app = code('features/estimate/EstimateApp.tsx').replace(/\s+/g, '');
-  must(app.includes("useState<'used'|'new'>(guest?'new':'used')"),
+  must(app.includes('constfixedKind:EstimateKind|null=kind??(guest?"new":null)'),
+    '갈래를 박는 길(`kind`)이 없습니다 — 신차·중고가 다시 한 화면으로 섮입니다',
+    'features/estimate/EstimateApp.tsx fixedKind');
+  must(app.includes('{fixedKind?null:('),
+    '갈래를 박고도 「상품: 중고|신차」 세그를 그립니다',
+    'features/estimate/EstimateApp.tsx sec-source');
+  must(app.includes("useState<'used'|'new'>(fixedKind??'used')"),
     '손님 견적기가 중고로 섬니다 — 중고는 시세를 사람이 넣어야 해서 손님이 혼자 못 칩니다',
     'features/estimate/EstimateApp.tsx cond');
   must(app.includes('{guest?null:('),

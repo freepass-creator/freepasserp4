@@ -61,7 +61,10 @@ const GROUPS: { title: string; items: { href?: string; label: string; icon: Luci
     /* 견적 — 2026-09-16 부터 **영업자도 든다**(사장님 「영업(자용으)로 해야 할 거고」).
        영업자 화면에는 원가·마진·잔가가 없다 — 명단 SSOT = lib/domain/estimate/audience
        (`canSeeEstimate` = 화면 · `showsCost` = 원가). */
-    { href: '/estimate', label: NAV_LABEL.estimate, icon: NAV_ICON.estimate, roles: ['agent', 'provider', 'admin'] },
+    /* ★★**신차·중고를 갈라 건다**(사장님 2026-09-17 「중고차 견적기 따로, 신차 견적기 따로」).
+       예전 주소(`/estimate`)는 살려 둔다 — 링크를 쉬는 사람을 막지 않는다. */
+    { href: '/estimate/used', label: NAV_LABEL.estimateUsed, icon: NAV_ICON.estimate, roles: ['agent', 'provider', 'admin'] },
+    { href: '/estimate/new', label: NAV_LABEL.estimateNew, icon: NAV_ICON.estimate, roles: ['agent', 'provider', 'admin'] },
   ] },
   // ② 관리자 — 일이 이어지는 차례대로(계약을 보내고 → 정산하고 → 사람·회사를 관리한다).
   { title: '', items: [
