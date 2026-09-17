@@ -1,0 +1,149 @@
+name: One-time audit 24 append
+
+on:
+  push:
+    paths:
+      - '.github/workflows/audit24-append-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  append:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Append audit 24 and refresh Claude entry point
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if ! grep -q '## 2026-09-17(24)' docs/AI-SSOT-AUDIT-LOG.md; then
+            cat >> docs/AI-SSOT-AUDIT-LOG.md <<'AUDIT24'
+
+---
+
+## 2026-09-17(24) — ChatGPT 독립 감사: production `6a6f3f75...` 전진 + stale emergency F01/F86 writer + deposit-policy 이중정의
+
+### A. 변경됨/확인됨 — canonical production pin이 `2e880cef...` → `6a6f3f75...`로 전진
+
+**판정: audit (23) production 요약 stale / Source Contract green**
+
+current `.github/workflows/erp5-ssot-refresh.yml`은 이제 다음 검증 엔진을 checkout한다.
+
+- `6a6f3f75c065143ad14286d08baa28e382535eea`
+
+PR #340 merge commit은 `7203c0ee703475f9f55cedf4c4d1034432d4069a`이며, `6a6f3f75...`는 직전 production `2e880cefa96e3fa4bfc79902fed448d5bd74abdb`의 직계 전진 계보(2 commits ahead / 0 behind)다.
+
+새 production engine의 의미 있는 변경:
+
+- 차량가격(`consumer_price`/`msrp`/소비자가격/차량가격) 빈칸도 `미입력`으로 표시
+- 손오공 보증금을 계산 숫자로 원자에 저장하지 않고 `deposit_note` 규칙 글자로 보존 (`price[기간].deposit = 0`)
+- 기존 손오공 숫자 보증금 치유 도구 추가
+- `inventory-contract`에 `depositRuleViolations`를 추가해 규칙 글자를 가진 손오공 원자에 숫자 보증금이 다시 들어오면 snapshot/F01/F86 발행을 막음
+
+main `scripts/check-inventory-source-contract.mts`는 `6a6f3f75...`를 `VALIDATED_ENGINES`에 승인했고 실제 Actions도:
+
+- `SSOT Source Contract` run `35168129260` — success
+- `verify` run `35168129290` — success
+
+다. 따라서 audit (23)의 “current production pin = `2e880cef...`”는 최신이 아니다.
+
+### B. 충돌(신규/중요) — one-time emergency writer가 옛 `2e880cef...`에 고정돼 같은 F01/F86을 stale engine으로 쓸 수 있음
+
+current main `.github/workflows/manual-erp5-full-sync-once.yml`은 여전히:
+
+- `ref: 2e880cefa96e3fa4bfc79902fed448d5bd74abdb`
+- `FREEPASS_MANUAL_PUBLISH_APPROVED`
+- F01 직접 publish
+- F86 backup/publish/audit
+
+를 가진 write-capable 경로다.
+
+canonical production은 이미 `6a6f3f75...`로 전진했으므로, 이 one-time workflow가 다시 트리거되면 **동일 F01/F86을 새 production보다 오래된 engine으로 다시 쓸 수 있다.** 특히 `6a6f3f75...`에 새로 들어간 차량가격 `미입력`, 손오공 보증금 규칙글자/0 정규화, `depositRuleViolations` publication gate가 빠진 상태로 발행할 수 있다.
+
+따라서 audit (23)의 “second production writer entry point”는 이번에는 더 구체적인 **same-output stale-engine writer conflict**로 상향한다. 긴급 회차용 임시 writer라면 retire/remove가 맞고, 유지할 이유가 있으면 canonical production engine 계약과 함께 움직이도록 명시적으로 통제해야 한다.
+
+### C. 충돌 유지/구체화 — audit (22)의 special-tab deposit-policy drift는 새 production에서도 해소되지 않았고 정책 정의가 둘로 갈림
+
+current main에는 `lib/domain/deposit-policy.ts`가 canonical policy object/resolver로 존재한다.
+
+- 손오공 label: `월 대여료 × 연수 (최대 ×3)`
+- AutoPlus maker 미입력: `undefined`로 fail-closed
+- current main `sales-published-tabs.ts`는 이 policy object/resolver를 직접 소비
+
+반면 active production `6a6f3f75...`에는 `lib/domain/deposit-policy.ts` 자체가 없다.
+
+- 손오공 규칙글자: production-local `sonokongDepositRuleText()` = `월 대여료 × 약정연수 (최대 3개월)`
+- AutoPlus 규칙: production-local `isImportBrand(maker) ? 수입 : 국산`, maker 빈값도 국산으로 fallback
+
+즉 PR #340은 손오공 숫자 보증금이 rule text를 가리는 운영 증상과 발행문지기는 개선했지만, **main canonical deposit-policy와 production special-tab이 하나의 정책 객체를 소비하도록 합치지는 않았다.** 오히려 production-local 손오공 rule text가 발행문지기의 기준까지 되면서 두 정의가 더 명확히 병존한다.
+
+또 current main `lib/domain/inventory-contract.ts`에는 production `6a6f3f75...`의 `depositRuleViolations` 필드/문지기가 아직 없다. production gate를 유지한 채 main canonical policy/resolver와 선택적으로 합쳐야 하며, production의 7-canonical/F86/collector 계약을 main 옛 계보로 되돌리면 안 된다.
+
+### D. 충돌 유지 — F86 freshness checker contract는 `6a6f3f75...`에서도 그대로 모순
+
+active production `6a6f3f75...`의 `lib/server/channel-f86-plan.ts`는 하허호에서:
+
+- `종합`만 timestamp + 대수
+- 공급사 탭은 `회사 · N대`
+
+로 만든다.
+
+하지만 같은 pin의 `scripts/audit-f86-vs-atom.mts`는 freshness 검사에서 모든 탭 제목에 timestamp regex를 요구한다. 따라서 audit (23)의 “F86 publish data mismatch가 아니라 freshness checker false positive” 판정은 **미해소 유지**다.
+
+### E. 최근 main/CI와 기존 HOLD
+
+감사 시점 main HEAD `a5407c53d806c89ad9a738f96809882426c23543`(PR #333)은 required checker에 known-bad fixture 증명을 붙이는 CI-governance 변경이며 verify run `35168190277`이 success다. 이 변경은 위 production/writer/policy drift를 직접 해소하지 않는다.
+
+다음 기존 판정도 해소 증거가 없어 유지한다.
+
+- canonical ERP5 workflow disabled 상태(audit 23); 이번 감사에서 re-enable 증거 없음
+- legacy `settlement-sync.yml`의 old `sync-contract-from-ledger.mts` 경로
+- `.github/actions/prepare-credentials/action.yml` metadata의 `${{ secrets.GOOGLE_SA_JSON }}` parser HOLD
+- `sales-erp-hourly.yml` / `mirror-sync.yml` write-capable cron ownership
+- RP023 legacy mirror Google Sheet는 canonical source가 아님; canonical RP023은 RebornCar
+- 픽업구독 canonical 색 HOLD
+
+canonical inventory source 자체에는 신규 회귀가 없다.
+
+- RP006 = `ironrentcar.com`
+- RP012 = `sokrc.com/api`
+- RP023 = RebornCar
+
+### Claude 구현 Owner에게 넘기는 즉시 지시
+
+1. current production pin을 `6a6f3f75...`로 갱신해 읽고, `2e880cef...`를 최신이라고 쓰는 문서/one-time writer를 그대로 두지 않는다.
+2. `manual-erp5-full-sync-once.yml`을 긴급 사용 후 retire/remove하거나, 불가피하게 유지한다면 canonical production과 동일 engine 계약으로 통제한다. **옛 pin으로 같은 F01/F86을 쓰게 두지 않는다.**
+3. production의 손오공 규칙글자 + `depositRuleViolations` 문지기는 유지하면서 main `deposit-policy.ts` canonical policy object/resolver와 합친다. AutoPlus maker blank fail-closed도 current canonical business rule 기준으로 production에 맞춘다.
+4. F86 freshness checker를 `종합` timestamp/shared plan contract와 맞추되 칸·차례·값 감사 강도는 줄이지 않는다.
+5. legacy writer/settlement/credential/pickup-color HOLD는 직접 해소 증거가 생길 때까지 유지한다.
+
+상세 근거: `docs/ai-ssot-audit/2026-09-17-chatgpt-production-6a6-emergency-writer-drift.md` (evidence commit `6b33cd420d0bab681bd4c0e521a19173a9ccc640`).
+
+이번 ChatGPT 감사에서는 application code/business logic을 수정하지 않았다.
+AUDIT24
+          fi
+
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('CLAUDE-AUDIT.md')
+          text = p.read_text(encoding='utf-8')
+          marker = '## 최신 override — audit (24)'
+          if marker not in text:
+              block = '''## 최신 override — audit (24)\n\n아래 내용이 이 파일의 기존 audit (23) 요약보다 최신이며, 충돌 시 **이 override와 `docs/AI-SSOT-AUDIT-LOG.md` audit (24)를 우선**한다.\n\n- **current canonical production pin = `6a6f3f75c065143ad14286d08baa28e382535eea`** (PR #340 merge `7203c0ee703475f9f55cedf4c4d1034432d4069a`). `2e880cef...`의 직계 전진 2커밋이며 Source Contract run `35168129260` / verify `35168129290`은 green.\n- 새 production 의미: 차량가격 빈칸 `미입력`; 손오공 보증금은 숫자 계산값이 아니라 규칙글자(`deposit_note`, deposit=0); `depositRuleViolations` publication gate로 숫자 보증금 회귀를 F01/F86/snapshot 전에 차단.\n- **신규 최우선 HOLD:** `.github/workflows/manual-erp5-full-sync-once.yml`은 아직 옛 pin `2e880cefa...`로 F01/F86을 직접 쓸 수 있다. audit (23)의 second writer가 이제 canonical `6a6f3f75...`보다 뒤처진 **same-output stale-engine writer**다. 긴급 회차 종료 후 retire/remove 또는 canonical engine과 동일 계약으로 통제.\n- audit (22) deposit-policy drift는 미해소: main canonical `deposit-policy.ts`와 active production의 local Sonogong rule text/AutoPlus fallback이 병존한다. production `6a6f3f75...`에는 `deposit-policy.ts`가 없고 AutoPlus maker blank를 국산으로 fallback하지만 main은 fail-closed. production의 새 deposit publication gate는 유지하면서 policy object/resolver를 하나로 합칠 것.\n- F86 freshness checker drift도 미해소: plan은 `종합`만 timestamp, checker는 여전히 모든 탭 timestamp를 요구. 칸/차례/값 대조는 유지한 채 freshness 계약만 shared plan과 맞춘다.\n- canonical ERP5 workflow disabled 판정, legacy settlement/credential-action, `sales-erp-hourly`/`mirror-sync` writer ownership, RP023 legacy mirror, 픽업구독 canonical 색 HOLD는 직접 해소 증거가 생길 때까지 유지.\n- current main `a5407c53...`(PR #333) verify `35168190277`은 green이며 checker known-bad fixture 증명 체계를 확장한 CI-governance 변경이다. 위 writer/policy HOLD를 닫는 변경은 아니다.\n\nClaude 구현 Owner 우선순위: **(1) stale one-time F01/F86 writer 정리 → (2) production deposit-rule/gate를 main canonical deposit-policy와 단일화 → (3) F86 freshness checker contract 정렬 → (4) audit (23) 이하 legacy HOLD 추적.**\n\n상세 근거: `docs/ai-ssot-audit/2026-09-17-chatgpt-production-6a6-emergency-writer-drift.md`.\n\n---\n\n'''
+              p.write_text(block + text, encoding='utf-8')
+          PY
+
+          git config user.name 'ChatGPT SSOT Auditor'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/AI-SSOT-AUDIT-LOG.md CLAUDE-AUDIT.md
+          git rm .github/workflows/audit24-append-once.yml
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m 'docs(audit): append audit 24 production 6a6 drift'
+          git push origin HEAD:main
