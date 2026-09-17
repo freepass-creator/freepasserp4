@@ -134,7 +134,7 @@ export async function buildF86Plan(p: {
   const docs = p.snapshot.products as any[];
   const inventory = inventoryCountSnapshot(docs);
   const inventoryViolation = hasInventoryPublicationViolations(inventory)
-    ? `listable ${inventory.listableDrift} · status_kind ${inventory.statusKindDrift} · 원천 식별자 ${inventory.sourceIdentityViolations} · 삭제표식 ${inventory.deletedMarkerViolations} · 차량번호 ${inventory.blankPlateViolations}/${inventory.invalidPlateViolations}/${inventory.duplicatePlateViolations}`
+    ? `listable ${inventory.listableDrift} · status_kind ${inventory.statusKindDrift} · 원천 식별자 ${inventory.sourceIdentityViolations} · 삭제표식 ${inventory.deletedMarkerViolations} · 차량번호 ${inventory.blankPlateViolations}/${inventory.invalidPlateViolations}/${inventory.duplicatePlateViolations} · 보증금규칙 ${inventory.depositRuleViolations}`
     : '';
   const listable = docs.filter(isOpenInventoryAtom);
   /** 차번이 아니면 싣지 않는다 — F01 과 같은 가드(오플 원본 배너 줄이 «차»로 실린 적이 있다). */

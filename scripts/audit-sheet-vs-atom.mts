@@ -107,7 +107,7 @@ const compareRows = compareSalesRows(modelSold, modelCount);
 const compareF86 = compareF86Rows(modelSold, modelCount, compareRows);
 console.log(`\n등록 원자 ${inventory.registered} · 출고불가 ${inventory.unavailable} · 시트에 실려야 할 현재 재고 ${inventory.open}`);
 console.log(`발행 스냅샷 ${publishSnapshot.snapshotId} · ${publishSnapshot.capturedAt}`);
-console.log(`파생값 드리프트 listable ${inventory.listableDrift} · status_kind ${inventory.statusKindDrift} · 원천 식별자 누락 ${inventory.sourceIdentityViolations} · 삭제표식 ${inventory.deletedMarkerViolations}`);
+console.log(`파생값 드리프트 listable ${inventory.listableDrift} · status_kind ${inventory.statusKindDrift} · 원천 식별자 누락 ${inventory.sourceIdentityViolations} · 삭제표식 ${inventory.deletedMarkerViolations} · 보증금규칙 ${inventory.depositRuleViolations}`);
 
 // ── ① 원자 ↔ F01 ────────────────────────────────────────────
 type Row = { tab: string; car: string; cells: Record<string, string> };

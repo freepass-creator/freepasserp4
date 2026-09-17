@@ -53,7 +53,7 @@ const docs = publishSnapshot.products;
 const inventory = inventoryCountSnapshot(docs);
 const listable = docs.filter(isOpenInventoryAtom);
 if (hasInventoryPublicationViolations(inventory)) {
-  console.error(`  ⛔ 재고 계약 위반 — listable ${inventory.listableDrift} · status_kind ${inventory.statusKindDrift} · 원천 식별자 ${inventory.sourceIdentityViolations} · 삭제표식 ${inventory.deletedMarkerViolations} · 차량번호 ${inventory.blankPlateViolations}/${inventory.invalidPlateViolations}/${inventory.duplicatePlateViolations}`);
+  console.error(`  ⛔ 재고 계약 위반 — listable ${inventory.listableDrift} · status_kind ${inventory.statusKindDrift} · 원천 식별자 ${inventory.sourceIdentityViolations} · 삭제표식 ${inventory.deletedMarkerViolations} · 차량번호 ${inventory.blankPlateViolations}/${inventory.invalidPlateViolations}/${inventory.duplicatePlateViolations} · 보증금규칙 ${inventory.depositRuleViolations}`);
   process.exit(1);
 }
 
