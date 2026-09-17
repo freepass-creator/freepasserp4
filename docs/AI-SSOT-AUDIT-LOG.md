@@ -2220,3 +2220,41 @@ Claude 구현 Owner 우선순위: (1) 이 1단계 정의를 **live 해소로 닫
 상세 근거: `docs/ai-ssot-audit/2026-09-17-chatgpt-audit29-sales-tab-kind-staging.md`.
 
 이번 ChatGPT 감사에서는 application code/business logic을 수정하지 않았다.
+
+## 2026-09-17(2) — Claude 구현 Owner: F86 발행 8회 연속 실패 — 원인 찾아 고침 · 정시 워크플로 재활성화
+
+사장님이 "SSOT 전담"으로 지정한 뒤 전수 점검하다가 실측: `manual-erp5-full-sync-once.yml`
+(1회성 비상 writer)이 2026-09-16 밤부터 오늘 아침까지 **8회 연속 실패**
+(`35164517528`·`35165360537`·`35167771132`·`35169013858`·`35169123131`).
+같은 이유로 canonical `erp5-ssot-refresh.yml`도 어제 낮부터 **수동으로 꺼진 채** 방치돼 있었다
+(ChatGPT audit (23)이 이미 잡았던 것 — 재확인).
+
+### 근본 원인
+
+`lib/server/sales-publish-snapshot.ts`의 `salesPublishTabMark()`가 시·분·초를 다 찍어
+F86 탭 이름에 콜론이 둘(`10:05:11`) 들어갔다. 그 이름을 `'...'!A1` 범위로 값쓰기를 보내면
+Sheets API가 `Unable to parse range`(400)로 거부해 **F86 발행 전체가 매번 죽었다.**
+F01 발행기(`make-sample-sheet-google.mts` `titleOf`)는 이미 `.replace(/:\d{2}$/, '')`로
+초를 잘라 콜론 하나만 남기고 있었다 — F86 쪽만 이 처리가 빠져 있었다. ChatGPT audit (26)이
+정확한 에러 문자열까지 이미 잡아 놨는데(`10:05:11`), 아직 아무도 콜론 두 개 자체를 원인으로
+지목하지 않고 있었다.
+
+### 조치
+
+1. `salesPublishTabMark()`에서 초를 떼 F01과 같은 꼴(시:분만)로 맞췄다(PR #345).
+2. `erp5-ssot-refresh.yml`·`manual-erp5-full-sync-once.yml` 둘 다 이 수정 커밋(`9bef7bf0`)으로
+   재고정, `VALIDATED_ENGINES`에도 등록.
+3. **실측 확인** — 머지 직후 `manual-erp5-full-sync-once.yml` run `35208040283` success로
+   F86이 실제로 발행됨(콜론 문제 재현 없음).
+4. `erp5-ssot-refresh.yml`을 **다시 활성화**했다(`disabled_manually` → `active`) — 꺼둔 이유이던
+   버그가 고쳐졌으므로 매시 정시 자동발행을 복구한다.
+
+### 아직 미해소 — 다음 우선순위로 유지
+
+- audit (22) deposit-policy 이중정의(main canonical vs production local 손오공/오토플러스 규칙 병존)
+- audit (27) 손오공 보증금 recurrence guard(`e5fac1b...`) — 아직 production lineage에 이식 안 됨
+- audit (28) vehicle-price lineage gap(`b6933732...`→`b0aedeee...`) — 아직 production lineage에 이식 안 됨
+- audit (29) `sales-tab-kinds` 이름 이관 — 1/3단계 정의만, 발행에 아직 안 붙음
+- 이안카(RP031) 등 4개 공급사 정제시트 5~7일 묵음(2026-09-15 실측, 아직 재확인 안 함)
+- 이안카를 구글시트 미러 대신 ERP API로 바꾸는 안 — 사장님이 "이안카 ERP에서 당겨오기로 했다"고
+  하셨으나 실제 ERP 접속 정보(주소·인증)를 아직 못 받아 구현 시작 못함
