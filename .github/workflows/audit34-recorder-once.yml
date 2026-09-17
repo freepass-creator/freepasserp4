@@ -20,64 +20,21 @@ jobs:
         shell: bash
         run: |
           python - <<'PY'
+          import base64
           from pathlib import Path
-
+          ENTRY_B64 = "CgotLS0KCiMjIDIwMjYtMDktMTcoMzQpIOKAlCBDaGF0R1BUIOuPheumvSDqsJDsgqw6IEVSUDUg66i466as652gIHNvdXJjZSBhbGlnbm1lbnQg6rCc7ISgLCBuZXdlc3QtQXRvbSBmcmVzaG5lc3PsnZggY29ob3J0IOyYpOyduCDsnITtl5ggSE9MRAoKKirtjJDsoJU6IOydmOuvuCDsnojripQgb2JzZXJ2YWJpbGl0eSDqsJzshKAgKyDsi6Dqt5wgZnJlc2huZXNzIOydmOuvuCBIT0xELiBhdWRpdCAoMzMp7J2YIFJQMDMxIHByb21vdGlvbiBIT0xE7JmAIGF1ZGl0ICgzMSnsnZggY2Fub25pY2FsIHNjaGVkdWxlLWRlbGl2ZXJ5IE9QRU7snYAg6re464yA66GcIOycoOyngO2VnOuLpC4qKgoKLSBQUiAjMzc1IC8gbWVyZ2UgYDhiN2E0MTc1NzhlNmUyYjJiMmZhYzY3MzU4OGNmMWIwZGI5ZTU5YTlg64qUIOyGkOuLmCDtmZTrqbTsnZgg6rCx7Iug7Iuc6rCB7J2EIEVSUDQgYHY0L3N5c3RlbV9zdGF0dXMvc2hlZXRfZGFpbHlfc3luY2DCt2B2NC9vcHMvcGlwZWxpbmVg7JeQ7IScIOuWvOyWtOuCtOqzoCwg7Iuk7KCcIO2ZlOuptOydtCDshozruYTtlZjripQgRVJQNSBgcHJvZHVjdHNgIEF0b23snZggYF9kaXJlY3RfaW5nZXN0X2F0YCAvIGBfdmFyX3BvbGxlZF9hdGDsnLzroZwg7Jiu6rK864ukLiAqKuyerOqzoCDtmZTrqbTqs7wg7Iuc6rCBIHNvdXJjZeqwgCDshJzroZwg64uk66W4IOusuOygnOuKlCDsnbQgVUkg6rK966Gc7JeQ7IScIOqwnOyEoOuQkOuLpC4qKgotIOuLpOunjCBjdXJyZW50IGByZWFkRXJwNVN0b2NrRnJlc2huZXNzKClg64qUIOuRkCDtlYTrk5wg6rCB6rCBIGBvcmRlckJ5KGRlc2MpLmxpbWl0KDEpYOunjCDsnb3qs6Ag6re4IOuRmOydmCDstZzrjIDqsJLsnYQg67CY7ZmY7ZWc64ukLiDspokgKirsoITssrQg7J6s6rOgL3NuYXBzaG907J2YIGZyZXNobmVzc+qwgCDslYTri4jrnbwg6rCA7J6lIOy1nOq3vOyXkCDsk7DsnbggQXRvbSDstZzrjIAgMuqwnOydmCDsi5zqsIEqKuydtOuLpC4g67aA67aEIGluZ2VzdOuCmCDtlZwg6rO16riJ7IKsIOqwseyLoOunjOycvOuhnOuPhCDsi5zqsIHsnYAg7JWe7Jy866GcIOqwiCDsiJgg7J6I7Jy866+A66GcIGNhbm9uaWNhbCBmdWxsLXJ1biBmcmVzaG5lc3Mg65iQ64qUIEYwMS9GODYgY29ob3J0IGNvbXBsZXRlbmVzc+ydmCDspp3qsbDroZwg7IKs7Jqp7ZWY66m0IOyViCDrkJzri6QuCi0gUFIgIzM3NSDsnpDssrQg7Iuk7Lih64+EIOyatOyYgSBBdG9tIDEsNjE164yAIOykkSBgX2RpcmVjdF9pbmdlc3RfYXRgIDEsMTUz64yALCBgX3Zhcl9wb2xsZWRfYXRgIDg5N+uMgOuhnCBmaWVsZOuzhCBjb3ZlcmFnZeqwgCDsoITrn4nsnbQg7JWE64uY7J2EIOq4sOuhne2VnOuLpC4g6rCZ7J2AIOqzhOuztOydmCDsoITsiJgg7KeE64uo7J2AIG5ld2VzdC9tZWRpYW4vb2xkZXN0LCB0aW1lc3RhbXAgY292ZXJhZ2UsIHN0YWxlIOu2hO2PrOulvCDrs4Trj4TroZwg6rOE7IKw7ZWc64ukLiDrqLjrpqzrnaDsnZggbmV3ZXN0IOqwkuqzvCDsoITsiJggZnJlc2huZXNzIOydmOuvuOulvCDrtoTrpqztlbTslbwg7ZWc64ukLgotIGNhbm9uaWNhbCBgLmdpdGh1Yi93b3JrZmxvd3MvZXJwNS1zc290LXJlZnJlc2gueW1sYOydgCDsl6zsoITtnoggcHJvZHVjdGlvbiBwaW4gYDliZWY3YmYwZmZkMjFhOTZlMzA5OGE2ZjMxYWRmMWIxYTAyNThjNjBg6rO8IOyblH7thqAgS1NUIDA5OjA1fjE5OjA1IGNyb27snYQg7ISg7Ja47ZWc64ukLiBQUiAjMzc1IOq4sOuhneydgCAyMDI2LTA5LTE2IDEyOjQ2IEtTVCDsnbTtm4Qg7JiI7JW9IOyLpO2WieydtCDsl4bqs6AgMjAyNi0wOS0xNyAxMDowNCBBdG9tIHdyaXRl6rCAIEdpdEh1YiBBY3Rpb25zIOq4sOuhnSDsl4bripQg7IiY64+ZIOyLpO2WieydtOudvOqzoCDrqoXsi5ztlZzri6QuIOuUsOudvOyEnCBhdWRpdCAoMzEp7J2YICoqc2NoZWR1bGVkIHNvdXJjZeKGkkF0b23ihpJzbmFwc2hvdOKGkkYwMS9GODYgZGVsaXZlcnkgT1BFTuydgCDtlbTshozrkJjsp4Ag7JWK64qU64ukLioqCi0gYXVkaXQgKDMzKSDsnbTtm4QgcHJvZHVjdGlvbiB3b3JrZmxvdyBwaW4sIGNhbm9uaWNhbCBpbnZlbnRvcnkgcmVnaXN0cnksIEYwMS9GODYgcHVibGlzaGVyLCBTb25vZ29uZy9BdXRvUGx1cyBzcGVjaWFsLXRhYiB3cml0ZXIsIG1pcnJvci9SVERCIHdyaXRlciB0b3BvbG9neeulvCDrsJTqvrwgY29yZSBTU09UIOuzgOqyveydgCDtmZXsnbjrkJjsp4Ag7JWK7JWY64ukLiBjYW5vbmljYWwgc291cmNl64qUIFJQMDA2PWBpcm9ucmVudGNhci5jb21gLCBSUDAxMj1gc29rcmMuY29tL2FwaWAsIFJQMDIzPVJlYm9ybkNhcuydtOupsCBSUDAzMeydgCDslYTsp4EgR29vZ2xlIFNoZWV0IGNhbm9uaWNhbOydtOuLpC4KLSBhdWRpdCAoMjMpIEY4NiBmcmVzaG5lc3MgY2hlY2tlciBjb250cmFjdCBkcmlmdCwgYXVkaXQgKDI3KSBTb25vZ29uZyBkZXBvc2l0IHJlY3VycmVuY2UgZ3VhcmQsIGF1ZGl0ICgyOCkgdmVoaWNsZS1wcmljZSBsaW5lYWdlLCBhdWRpdCAoMjkpIHNhbGVzLXRhYiBuYW1pbmcgbWlncmF0aW9uLCBhdWRpdCAoMzEpIHNjaGVkdWxlIGRlbGl2ZXJ5LCBhdWRpdCAoMzMpIFJQMDMxIHBhcml0eS9wcmljaW5nIHByb3ZlbmFuY2Ug67CPIGxlZ2FjeSBtaXJyb3Ivc2FsZXMvc2V0dGxlbWVudC9SVERCIG93bmVyc2hpcCBIT0xE64qUIOyngeygkSDtlbTshowg7Kad6rGw6rCAIOyXhuyWtCDsnKDsp4DtlZzri6QuCgpDbGF1ZGUg6rWs7ZiEIE93bmVyOiBFUlA1IEF0b23snYQg7ZmU66m0IGZyZXNobmVzcyBzb3VyY2XroZwg7JOw64qUIOuwqe2WpeydgCDsnKDsp4DtlZjrkJgsIO2YhOyerCDrqLjrpqzrnaAg7J2Y66+466W8ICoqYOqwgOyepSDstZzqt7wg7JuQ7J6QIOqwseyLoGAqKuycvOuhnCDsoJztlZztlZzri6QuIOyghOyytCDsnqzqs6AgZnJlc2huZXNz6rCAIO2VhOyalO2VmOuptCBjb3ZlcmFnZS9zdGFsZSBkaXN0cmlidXRpb24g65iQ64qUIOqygOymneuQnCBjYW5vbmljYWwgcnVuL3NuYXBzaG90IHNlbnRpbmVs6rO8IOyXsOqysO2VnOuLpC4g7Iuk7KCcIGBldmVudD1zY2hlZHVsZWAgZnVsbC1ydW7snbQgc291cmNl4oaSQXRvbeKGknNuYXBzaG904oaSRjAxL0Y4NiBhdWRpdOq5jOyngCBncmVlbuydtCDrkJjquLAg7KCE7JeQ64qUIHNjaGVkdWxlIHJlY292ZXJ564KYIGludmVudG9yeS1jb2hvcnQgZnJlc2huZXNz66GcIOuLq+yngCDslYrripTri6QuCgrsg4HshLgg6re86rGwOiBgZG9jcy9haS1zc290LWF1ZGl0LzIwMjYtMDktMTctY2hhdGdwdC1hdWRpdDM0LWVycDUtZnJlc2huZXNzLW9ic2VydmFiaWxpdHktZ2FwLm1kYCAoZXZpZGVuY2UgY29tbWl0IGAwZjM1OWM4YjQ4ZDg5ZjNmNWVkN2I1NzlhNTQwZGI5ODgyNTYxNzE2YCkuCgrsnbTrsoggQ2hhdEdQVCDqsJDsgqzsl5DshJzripQgYXBwbGljYXRpb24gY29kZS9idXNpbmVzcyBsb2dpY+ydhCDsiJjsoJXtlZjsp4Ag7JWK7JWY64ukLgo="
+          PREFIX_B64 = "IyBDaGF0R1BUIOuPheumvSBTU09UIOqwkOyCrCDigJQgYXVkaXQgKDM0KSBvdmVycmlkZSAoMjAyNi0wOS0xNyAyMzoyMiBLU1QpCgo+IOydtCDsoIjsnbQgYXVkaXQgKDMzKSDrsI8g7J207KCEIOyalOyVveuztOuLpCDsmrDshKDtlZzri6QuIGF1ZGl0ICgzMSnsnZggc2NoZWR1bGUtZGVsaXZlcnkgT1BFTuqzvCDquLDsobQgSE9MROuKlCDsnKDsp4DtlZzri6QuCgojIyDtmITsnqwg7YyQ7KCVCgotICoqZnJlc2huZXNzIHNvdXJjZSBhbGlnbm1lbnQg6rCc7ISgOioqIFBSICMzNzUgLyBtZXJnZSBgOGI3YTQxNzU3OGU2ZTJiMmIyZmFjNjczNTg4Y2YxYjBkYjllNTlhOWDqsIAgc2hvcCDqsLHsi6Dsi5zqsIHsnYQgRVJQNCDrs4Trj4Qgc3RhdHVzIOq4sOuhneydtCDslYTri4jrnbwg7Iuk7KCcIO2ZlOuptOydtCDsnb3ripQgRVJQNSBgcHJvZHVjdHNgIEF0b23snZggYF9kaXJlY3RfaW5nZXN0X2F0YCAvIGBfdmFyX3BvbGxlZF9hdGDsl5DshJwg7J2964+E66GdIOuwlOq/qOuLpC4g7J20IFVJIOqyveuhnOydmCBzb3VyY2Ugc3BsaXTsnYAg7ZW07IaM65CQ64ukLgotICoq7Iug6recIG9ic2VydmFiaWxpdHkgSE9MRDoqKiBgcmVhZEVycDVTdG9ja0ZyZXNobmVzcygpYOuKlCDrkZAgdGltZXN0YW1wIGZpZWxk7JeQ7IScIOqwgeqwgSDstZzsi6Ag66y47IScIDHqsJzrp4wg7J296rOgIOy1nOuMgOqwkuydhCDrsJjtmZjtlZzri6QuIOydtOuKlCBg6rCA7J6lIOy1nOq3vCDsm5DsnpAg6rCx7IugYOydtOyngCDsoITssrQgaW52ZW50b3J5IGNvaG9ydC9zbmFwc2hvdC9mdWxsLXJ1biBmcmVzaG5lc3PqsIAg7JWE64uI64ukLiDrtoDrtoQgaW5nZXN066eM7Jy866Gc64+EIOyLnOqwgeydtCDslZ7snLzroZwg6rCIIOyImCDsnojsnLzrr4DroZwgY2Fub25pY2FsIHNjaGVkdWxlIOygleyDge2ZlCDrmJDripQgRjAxL0Y4NiDstZzsi6DshLEg7Kad6rGw66GcIOyCrOyaqe2VmOyngCDslYrripTri6QuCi0gUFIgIzM3NSDquLDroZ3sg4EgZmllbGQgY292ZXJhZ2XripQg7Jq07JiBIDEsNjE164yAIOykkSBgX2RpcmVjdF9pbmdlc3RfYXRgIDEsMTUz64yAIC8gYF92YXJfcG9sbGVkX2F0YCA4OTfrjIDri6QuIOyghOyytCBmcmVzaG5lc3Mg7YyQ64uo7JeQ64qUIGNvdmVyYWdlICsgc3RhbGUgZGlzdHJpYnV0aW9uIOuYkOuKlCBqsoDspp3rkJwgY2Fub25pY2FsIHJ1bi9zbmFwc2hvdCBzZW50aW5lbOydtCDrs4Trj4TroZwg7ZWE7JqU7ZWY64ukLgotIHByb2R1Y3Rpb24gcGlu7J2AIOqzhOyGjSBgOWJlZjdiZjBmZmQyMWE5NmUzMDk4YTZmMzFhZGYxYjFhMDI1OGM2MGA7IGNhbm9uaWNhbCBjcm9uIOyEoOyWuOuPhCDsnKDsp4DrkJzri6QuIFBSICMzNzUg6riw66Gd7J2AIDIwMjYtMDktMTYgMTI6NDYgS1NUIOydtO2bhCDsmIjslb0g7ZqM7LCoIOu2gOyerOyZgCAyMDI2LTA5LTE3IDEwOjA0IOyImOuPmSBBdG9tIHdyaXRl66W8IO2ZleyduO2VnOuLpC4gKiphdWRpdCAoMzEpIHNjaGVkdWxlLWRlbGl2ZXJ5IE9QRU7snYAg7Jyg7KeA7ZWc64ukLioqCi0gYXVkaXQgKDMzKSBSUDAzMSBzdGF0dXMgbWFwcGluZy9mZWVkZXIg7KeE7KCE7J2AIOq3uOuMgOuhnOydtOuCmCBSUDAzMeydgCDslYTsp4EgR29vZ2xlIFNoZWV0IGNhbm9uaWNhbOydtOqzoCBwYXJpdHkv6riI7Jy16rCSIHByb21vdGlvbiBIT0xE64ukLiBhdWRpdCAoMjMpLygyNykvKDI4KS8oMjkpIOuwjyBtaXJyb3Ivc2FsZXMvc2V0dGxlbWVudC9SVERCIG93bmVyc2hpcCBIT0xE64+EIOycoOyngO2VnOuLpC4KCiMjIENsYXVkZSDqtaztmIQgT3duZXIg7Jqw7ISg7Iic7JyECgoxLiBFUlA1IEF0b20gZnJlc2huZXNzIHNvdXJjZSDrsKntlqXsnYAg7Jyg7KeA7ZWY6rOgIEVSUDQgc3RhdHVzIHRpbWVzdGFtcOyZgCDri6Tsi5wg7ISe7KeAIOyViuuKlOuLpC4KMi4g7ZiEIOuouOumrOudoOulvCBg6rCA7J6lIOy1nOq3vCDsm5DsnpAg6rCx7IugYOycvOuhnCDrqoXtmZXtnogg7KCc7ZWc7ZWc64ukLiDsoITssrQg7J6s6rOgIGZyZXNobmVzc+uhnCDtkZzsi5ztlZjroKTrqbQgY292ZXJhZ2Uvc3RhbGUgZGlzdHJpYnV0aW9uIOuYkOuKlCBjYW5vbmljYWwgcnVuL3NuYXBzaG90IHNlbnRpbmVs7J2EIO2VqOq7mCDsgqzsmqntlZzri6QuCjMuIOyLpOygnCBgZXZlbnQ9c2NoZWR1bGVgIHNvdXJjZeKGkkF0b23ihpJzbmFwc2hvdOKGkkYwMS9GODYgZnVsbC1ydW4gZ3JlZW4g7KCE7JeQ64qUIGF1ZGl0ICgzMSnsnYQg64ur7KeAIOyViuuKlOuLpC4KNC4gUlAwMzEvQVBJIGZlZWRlciwgZGVwb3NpdCByZWN1cnJlbmNlLCB2ZWhpY2xlLXByaWNlLCBGODYgY2hlY2tlciwgc2FsZXMtdGFiIG1pZ3JhdGlvbiDrk7Eg6riw7KG0IEhPTETripQg6rCB6rCB7J2YIHByb21vdGlvbiDspp3qsbDqsIAg7IOd6ri4IOuVjOunjCDri6vripTri6QuCgrsg4HshLg6IGBkb2NzL2FpLXNzb3QtYXVkaXQvMjAyNi0wOS0xNy1jaGF0Z3B0LWF1ZGl0MzQtZXJwNS1mcmVzaG5lc3Mtb2JzZXJ2YWJpbGl0eS1nYXAubWRgCgotLS0KCg=="
+          entry = base64.b64decode(ENTRY_B64).decode('utf-8')
+          prefix = base64.b64decode(PREFIX_B64).decode('utf-8')
           log = Path('docs/AI-SSOT-AUDIT-LOG.md')
           text = log.read_text(encoding='utf-8')
           marker = '## 2026-09-17(34) — ChatGPT 독립 감사: ERP5 머리띠 source alignment 개선, newest-Atom freshness의 cohort 오인 위험 HOLD'
-          entry = r'''
-
----
-
-## 2026-09-17(34) — ChatGPT 독립 감사: ERP5 머리띠 source alignment 개선, newest-Atom freshness의 cohort 오인 위험 HOLD
-
-**판정: 의미 있는 observability 개선 + 신규 freshness 의미 HOLD. audit (33)의 RP031 promotion HOLD와 audit (31)의 canonical schedule-delivery OPEN은 그대로 유지한다.**
-
-- PR #375 / merge `8b7a417578e6e2b2b2fac673588cf1b0db9e59a9`는 손님 화면의 갱신시각을 ERP4 `v4/system_status/sheet_daily_sync`·`v4/ops/pipeline`에서 떼어내고, 실제 화면이 소비하는 ERP5 `products` Atom의 `_direct_ingest_at` / `_var_polled_at`으로 옮겼다. **재고 화면과 시각 source가 서로 다른 문제는 이 UI 경로에서 개선됐다.**
-- 다만 current `readErp5StockFreshness()`는 두 필드 각각 `orderBy(desc).limit(1)`만 읽고 그 둘의 최대값을 반환한다. 즉 **전체 재고/snapshot의 freshness가 아니라 가장 최근에 쓰인 Atom 최대 2개의 시각**이다. 부분 ingest나 한 공급사 갱신만으로도 시각은 앞으로 갈 수 있으므로 canonical full-run freshness 또는 F01/F86 cohort completeness의 증거로 사용하면 안 된다.
-- PR #375 자체 실측도 운영 Atom 1,615대 중 `_direct_ingest_at` 1,153대, `_var_polled_at` 897대로 field별 coverage가 전량이 아님을 기록한다. 같은 계보의 전수 진단은 newest/median/oldest, timestamp coverage, stale 분포를 별도로 계산한다. 머리띠의 newest 값과 전수 freshness 의미를 분리해야 한다.
-- canonical `.github/workflows/erp5-ssot-refresh.yml`은 여전히 production pin `9bef7bf0ffd21a96e3098a6f31adf1b1a0258c60`과 월~토 KST 09:05~19:05 cron을 선언한다. PR #375 기록은 2026-09-16 12:46 KST 이후 예약 실행이 없고 2026-09-17 10:04 Atom write가 GitHub Actions 기록 없는 수동 실행이라고 명시한다. 따라서 audit (31)의 **scheduled source→Atom→snapshot→F01/F86 delivery OPEN은 해소되지 않는다.**
-- audit (33) 이후 production workflow pin, canonical inventory registry, F01/F86 publisher, Sonogong/AutoPlus special-tab writer, mirror/RTDB writer topology를 바꾼 core SSOT 변경은 확인되지 않았다. canonical source는 RP006=`ironrentcar.com`, RP012=`sokrc.com/api`, RP023=RebornCar이며 RP031은 아직 Google Sheet canonical이다.
-- audit (23) F86 freshness checker contract drift, audit (27) Sonogong deposit recurrence guard, audit (28) vehicle-price lineage, audit (29) sales-tab naming migration, audit (31) schedule delivery, audit (33) RP031 parity/pricing provenance 및 legacy mirror/sales/settlement/RTDB ownership HOLD는 직접 해소 증거가 없어 유지한다.
-
-Claude 구현 Owner: ERP5 Atom을 화면 freshness source로 쓰는 방향은 유지하되, 현재 머리띠 의미를 **`가장 최근 원자 갱신`**으로 제한한다. 전체 재고 freshness가 필요하면 coverage/stale distribution 또는 검증된 canonical run/snapshot sentinel과 연결한다. 실제 `event=schedule` full-run이 source→Atom→snapshot→F01/F86 audit까지 green이 되기 전에는 schedule recovery나 inventory-cohort freshness로 닫지 않는다.
-
-상세 근거: `docs/ai-ssot-audit/2026-09-17-chatgpt-audit34-erp5-freshness-observability-gap.md` (evidence commit `0f359c8b48d89f3f5ed7b579a540db9882561716`).
-
-이번 ChatGPT 감사에서는 application code/business logic을 수정하지 않았다.
-'''
           if marker not in text:
               log.write_text(text.rstrip() + entry + '\n', encoding='utf-8')
-
           claude = Path('CLAUDE-AUDIT.md')
           old = claude.read_text(encoding='utf-8')
-          prefix = r'''# ChatGPT 독립 SSOT 감사 — audit (34) override (2026-09-17 23:22 KST)
-
-> 이 절이 audit (33) 및 이전 요약보다 우선한다. audit (31)의 schedule-delivery OPEN과 기존 HOLD는 유지한다.
-
-## 현재 판정
-
-- **freshness source alignment 개선:** PR #375 / merge `8b7a417578e6e2b2b2fac673588cf1b0db9e59a9`가 shop 갱신시각을 ERP4 별도 status 기록이 아니라 실제 화면이 읽는 ERP5 `products` Atom의 `_direct_ingest_at` / `_var_polled_at`에서 읽도록 바꿨다. 이 UI 경로의 source split은 해소됐다.
-- **신규 observability HOLD:** `readErp5StockFreshness()`는 두 timestamp field에서 각각 최신 문서 1개만 읽고 최대값을 반환한다. 이는 `가장 최근 원자 갱신`이지 전체 inventory cohort/snapshot/full-run freshness가 아니다. 부분 ingest만으로도 시각이 앞으로 갈 수 있으므로 canonical schedule 정상화 또는 F01/F86 최신성 증거로 사용하지 않는다.
-- PR #375 기록상 field coverage는 운영 1,615대 중 `_direct_ingest_at` 1,153대 / `_var_polled_at` 897대다. 전체 freshness 판단에는 coverage + stale distribution 또는 검증된 canonical run/snapshot sentinel이 별도로 필요하다.
-- production pin은 계속 `9bef7bf0ffd21a96e3098a6f31adf1b1a0258c60`; canonical cron 선언도 유지된다. PR #375 기록은 2026-09-16 12:46 KST 이후 예약 회차 부재와 2026-09-17 10:04 수동 Atom write를 확인한다. **audit (31) schedule-delivery OPEN은 유지한다.**
-- audit (33) RP031 status mapping/feeder 진전은 그대로이나 RP031은 아직 Google Sheet canonical이고 parity/금융값 promotion HOLD다. audit (23)/(27)/(28)/(29) 및 mirror/sales/settlement/RTDB ownership HOLD도 유지한다.
-
-## Claude 구현 Owner 우선순위
-
-1. ERP5 Atom freshness source 방향은 유지하고 ERP4 status timestamp와 다시 섞지 않는다.
-2. 현 머리띠를 `가장 최근 원자 갱신`으로 명확히 제한한다. 전체 재고 freshness로 표시하려면 coverage/stale distribution 또는 canonical run/snapshot sentinel을 함께 사용한다.
-3. 실제 `event=schedule` source→Atom→snapshot→F01/F86 full-run green 전에는 audit (31)을 닫지 않는다.
-4. RP031/API feeder, deposit recurrence, vehicle-price, F86 checker, sales-tab migration 등 기존 HOLD는 각각의 promotion 증거가 생길 때만 닫는다.
-
-상세: `docs/ai-ssot-audit/2026-09-17-chatgpt-audit34-erp5-freshness-observability-gap.md`
-
----
-
-'''
           if not old.startswith('# ChatGPT 독립 SSOT 감사 — audit (34) override'):
               claude.write_text(prefix + old, encoding='utf-8')
-
           wf = Path('.github/workflows/audit34-recorder-once.yml')
           if wf.exists():
               wf.unlink()
