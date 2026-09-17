@@ -169,6 +169,16 @@ function resolveCols(hdr: string[]) {
     fuel: find(aliasOf('연료')), ext: find(aliasOf('외부색상')), int: find(aliasOf('내부색상')),
     km: find(aliasOf('주행거리')), opt: find(aliasOf('옵션')), firstReg: find(aliasOf('최초등록일')),
     cc: find(aliasOf('배기량')), klass: find(['차급', '차종크기', '차급분류', '차종분류']),
+    /**
+     * ★★2026-09-17 — **차량가격(소비자가격)을 읽는다.** 사장님 「차량가격도 입력안된거는 미입력으로」·
+     *   「f01에는 맞게 들어갔는데 저러네 … 같게 뿌려지게 하면 되는거잖아」.
+     *   ⚠ 실측: 인제스터가 이 칸을 «아예 안 읽고» 있었다(원자 consumer_price 전 공급사 빈값).
+     *     그래서 판매시트가 대신 «공급사 정책의 한 값»을 전 차량에 뿌렸다 — 손오공 258대가 전부
+     *     36,000,000 이었다. 원천에는 차마다 값이 있다(아이카 109호1821=21,480,000 · 2145=20,080,000).
+     *   ⇒ 차량별 값을 원자에 싣는다. 없는 차는 「미입력」(missing-value-display)이 답한다.
+     *   ★별칭은 sheet-import 계보를 따른다 — 「차량가격」이 정본이고 소비자가격·차량가·차량가액은 같은 말.
+     */
+    price0: find(['차량가격', '소비자가격', '차량가', '차량가액', '차량금액']),
     dep: find(['장기보증', '보증금']), periods: Object.fromEntries(PERIOD_ALIAS.map(([k, c]) => [k, find(c)])) as Record<string, number>,
   };
 }
@@ -199,7 +209,7 @@ const depositNote = (raw: string) => {
 };
 
 // ── 원천 리더 — 종류마다 «우리필드 키 행(Row)»을 낸다. 원자화는 하나로 공유한다. ──────
-type Row = { car: string; link?: string; rawLink?: string; imageUrls?: unknown; photoCollectedAt?: unknown; rawDescription?: string; rawPaidOptions?: unknown; rawMirroredPaidOptions?: unknown; rawSonokongOptionNote?: unknown; rawOptionEvidence?: unknown; optionSource?: string; status: string; kind: string; maker: string; model: string; vname: string; trim: string; fuel: string; ext: string; int: string; km: string; opt: string; firstReg: string; cc: string; klass: string; price: Price; depNote: string; tab: string; row: string };
+type Row = { car: string; link?: string; rawLink?: string; imageUrls?: unknown; photoCollectedAt?: unknown; rawDescription?: string; rawPaidOptions?: unknown; rawMirroredPaidOptions?: unknown; rawSonokongOptionNote?: unknown; rawOptionEvidence?: unknown; optionSource?: string; status: string; kind: string; maker: string; model: string; vname: string; trim: string; fuel: string; ext: string; int: string; km: string; opt: string; firstReg: string; cc: string; klass: string; price: Price; depNote: string; carPrice?: string; tab: string; row: string };
 const blank: Omit<Row, 'car' | 'tab' | 'row'> = { status: '', kind: '', maker: '', model: '', vname: '', trim: '', fuel: '', ext: '', int: '', km: '', opt: '', rawDescription: '', rawPaidOptions: null, rawMirroredPaidOptions: null, rawSonokongOptionNote: null, rawOptionEvidence: null, optionSource: '', firstReg: '', cc: '', klass: '', price: {}, depNote: '', imageUrls: [], photoCollectedAt: 0 };
 
 // 번호판 꼴만 차로 본다 — 헤더 밑 제목·프로모 배너·빈 행이 «차»로 새는 걸 막는다(오토플러스 실측).
@@ -396,7 +406,7 @@ async function readRows(): Promise<Row[]> {
       const price = sheetPrice((i) => S(r[i]), ci);
       const depNote = depositNote(ci.dep >= 0 ? S(r[ci.dep]) : '');
       /** ★칸마다 «시트 오류 토큰»을 걷는다(`clean`) — 「#REF!」가 값처럼 실려 상품구분이 된 적이 있다. */
-      push({ car, status: clean(r[ci.status]), kind: ci.kind >= 0 ? clean(r[ci.kind]) : '', maker: maker0, model, vname, trim, fuel: ci.fuel >= 0 ? clean(r[ci.fuel]) : '', ext: ci.ext >= 0 ? clean(r[ci.ext]) : '', int: ci.int >= 0 ? clean(r[ci.int]) : '', km: ci.km >= 0 ? clean(r[ci.km]) : '', opt: ci.opt >= 0 ? clean(r[ci.opt]) : '', firstReg: ci.firstReg >= 0 ? clean(r[ci.firstReg]) : '', cc: ci.cc >= 0 ? clean(r[ci.cc]) : '', klass: ci.klass >= 0 ? clean(r[ci.klass]) : '', price, depNote, tab, row: String(rowNo) });
+      push({ car, status: clean(r[ci.status]), kind: ci.kind >= 0 ? clean(r[ci.kind]) : '', maker: maker0, model, vname, trim, fuel: ci.fuel >= 0 ? clean(r[ci.fuel]) : '', ext: ci.ext >= 0 ? clean(r[ci.ext]) : '', int: ci.int >= 0 ? clean(r[ci.int]) : '', km: ci.km >= 0 ? clean(r[ci.km]) : '', opt: ci.opt >= 0 ? clean(r[ci.opt]) : '', firstReg: ci.firstReg >= 0 ? clean(r[ci.firstReg]) : '', cc: ci.cc >= 0 ? clean(r[ci.cc]) : '', klass: ci.klass >= 0 ? clean(r[ci.klass]) : '', price, depNote, carPrice: ci.price0 >= 0 ? clean(r[ci.price0]) : '', tab, row: String(rowNo) });
     }
   }
   return out;
@@ -508,7 +518,21 @@ function atomize(row: Row, pinned: Map<string, Record<string, unknown>>): Atom {
     } : null),
     ...(rawSeats(vname) ? { seats: rawSeats(vname) } : null),   // 원문에 인승 있으면만
     ...(Object.keys(row.price).length ? { price: row.price } : null),
-    ...(row.depNote ? { deposit_note: row.depNote } : null),   // 「무보증」처럼 «말»로 적힌 보증금 — 빈칸으로 두지 않는다
+    /**
+     * 「무보증」처럼 «말»로 적힌 보증금 — 빈칸으로 두지 않는다.
+     * ★★2026-09-17 정정 — **말이 사라졌으면 «지운다».** 사장님 「무보증인데 숫자가 있다? 0이나 -
+     *   이런게 있지 않을까?」로 파 보니, 전엔 `depNote` 가 비면 «아무것도 안 써서»(merge) 옛 말이
+     *   영구히 남았다. 실측: RP004 109호1821·109호2145 는 정제시트 장기보증이 「500,000」인데
+     *   원자엔 옛 「무보증」이 그대로 있어, 원자가 «무보증인데 보증금 숫자가 있는» 모순이 됐다.
+     *   ⇒ 원천이 금액을 주면 그 말은 틀린 말이다. 빈 문자열로 덮어 지운다(유효한 값이 이긴다).
+     *   ⚠ 원천이 여전히 「무보증」이면 `depositNote()` 가 그 말을 다시 실으므로 멀쩡한 말은 안 지워진다.
+     */
+    deposit_note: row.depNote,
+    /**
+     * ★차량가격 — 원천이 준 차량별 값. 빈 값이면 «지운다»(정책 공통값이 차마다 다른 값을 흉내내면 안 된다).
+     *   보이는 글자는 판매시트가 만든다(없으면 「미입력」) — 원자는 원천 숫자만 담는다.
+     */
+    consumer_price: won(S(row.carPrice)) > 0 ? won(S(row.carPrice)) : '',
     ...(S(row.link) ? { tica_link: S(row.link) } : null),   // 픽업구독 「차번링크」 — 원천이 줄 때만(빈 값으로 아는 링크를 덮지 않는다)
     ...photoAtomFields(row.imageUrls, row.photoCollectedAt, src.kind === 'sonokong' ? 'https://sokrc.com' : ''),
     _pin_state: state,

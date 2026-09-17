@@ -217,6 +217,21 @@ export const makeCell = (ctx: SalesRowContext) => (col: string, v: any): string 
   if (col === '1만+') return fmtSurcharge(S(sp?.['1만+']) || S(pol.mileage_upcharge_per_10000km));
   if (col === '21세+' || col === '만21세') return fmtSurcharge(S(sp?.['21세']));
   if (col === '23세+' || col === '만23세') return fmtSurcharge(S(sp?.['23세']));
+  /**
+   * ★★**차량가격은 «차량번호별 원자»가 이긴다** — 사장님 2026-09-17 「모든 데이터를 각각 나눠서
+   *   구분해서 관리하고 뿌릴때 차량번호별로 매칭해서 뿌리면 되는데」.
+   *   ⚠ 실측: 아래 정책(sp) 우선 규칙 때문에 «공급사 정책의 한 값»이 전 차량에 뿌려졌다 —
+   *     손오공 258대가 전부 36,000,000 이었다. 차량가격은 차마다 다른 값이라 정책 공통값이
+   *     그 자리를 차지하면 «틀린 값을 일제히» 보여 준다.
+   *   ⇒ 원자에 그 차의 값이 있으면 그것을 쓰고, 없을 때만 정책으로 내려간다.
+   *     둘 다 없으면 「미입력」(missing-value-display)이 답한다.
+   *   ★다른 칸(보험 면책·정책 조건)은 정책이 이기는 게 맞다 — 그건 «공급사 단위» 약속이다.
+   *     가격만 예외인 이유는 그것이 «차량 단위» 사실이기 때문이다.
+   */
+  if (/소비자가격|차량가격/.test(col)) {
+    const 원자값 = S(v.consumer_price) || S(v.msrp);
+    if (원자값) return money(원자값);
+  }
   // 1) 공급사시트 정책이 그 열을 갖고 있으면 그걸 최우선. 면책금 단위표기·가격 콤마.
   if (sp && col !== '전용계좌' && S(sp[col])) {
     const raw = S(sp[col]);
