@@ -2394,3 +2394,28 @@ Claude 구현 Owner: ERP5 Atom을 freshness source로 쓰는 방향은 유지하
 상세 근거: `docs/ai-ssot-audit/2026-09-18-chatgpt-audit35-scheduled-delivery-f86-checker.md`.
 
 이번 ChatGPT 감사에서는 application code/business logic을 수정하지 않았다.
+
+
+---
+## 2026-09-18(36) — ChatGPT 독립 감사: RP031 `vehicle-detail` 금융값 후보는 진단으로 배제, 가격 provenance HOLD는 강화
+
+**판정: 해소된 진단 불확실성 + 기존 HOLD 유지.** audit (33)에서 남아 있던 이안카(RP031) 금융값 provenance 문제와 관련해, PR #374가 `/api/vehicle-detail` 성공 응답 전체를 검사하는 진단을 main에 병합했다. 이 변경은 production writer/adapter를 바꾸지 않지만 Claude가 다음 source 결정을 할 때 중요한 새 증거다.
+
+- current main은 PR #374 merge commit `42ca5541e4e92fc11b655fd330b6f324a59efe94` 이후 audit recorder staging만 추가된 상태다. PR #374의 변경 파일은 `scripts/diag-ianka-vehicle-detail.mts` 한 개뿐이며 read-only diagnostic이다.
+- 실제 diagnostic run `35228945659` / job `105227660941`은 인증 후 `GET /api/inventory` 200에서 표본 `vehicleNo=128896`을 고르고 `GET /api/vehicle-detail?vehicleNo=128896` 200, 응답 길이 **22,630자**를 끝까지 읽었다.
+- 그 성공 응답에서 rate/price/fare/fee/charge/amount/대여료/요금/보증금/deposit/months/개월 계열의 **요금 비슷한 키 0건**, `N,NNN원` 패턴 **0건**이었다. 실제 payload는 `vehicleNo`, `specs`, `summaries`, `photos`, `photosAllowed`, `emptyMessage` 성격으로 확인됐다.
+- 따라서 기존 진단이 앞 2,000자만 봐서 남겼던 “뒤쪽에 기간별 요금/보증금이 있을 수 있다”는 불확실성은 **검사한 성공 응답 기준으로 해소**됐다. 다만 한 차량 표본의 schema 확인이므로 모든 차량 payload를 전수 증명한 것으로 확대 해석하지 않는다.
+- audit (33)의 핵심 production HOLD는 오히려 더 명확해졌다. `/api/rates`는 현재 credential에서 GET 403(`관리자 권한이 필요합니다`)이고, 이제 `/api/vehicle-detail`도 기간별 금융값의 대체 source로 삼을 근거가 없다. 따라서 API-only 신규 차량에 1~60개월 rent/deposit 값을 임의 생성하거나 vehicle-detail에서 유추해서는 안 된다.
+- RP031 canonical source는 여전히 `inventory-source-registry.ts`의 Google Sheet이며, API→sheet feeder는 production canonical writer로 승격되지 않았다. production checkout pin도 `9bef7bf0ffd21a96e3098a6f31adf1b1a0258c60`으로 유지한다.
+- audit (35)의 scheduled-run 판정(F86 publish/data parity PASS, freshness checker false-positive로 workflow red), audit (27)/(28)/(29)/(34), mirror/sales/settlement/RTDB legacy writer ownership HOLD도 이번 diagnostic merge로 직접 해소되지 않았다.
+
+### Claude 구현 Owner 인계
+
+1. RP031 금융값 source 탐색에서 `/api/vehicle-detail`을 1~60개월 rent/deposit source로 다시 가정하지 않는다. 현재 검증된 사실은 `/api/rates` 권한 부족 + sampled `vehicle-detail` 금융키 없음이다.
+2. API feeder promotion 전 API-only 차량의 금융값 provenance를 별도로 확보하거나, 없으면 `NO_RENT`/미노출을 명시적으로 검증한다. 값을 추정·합성하지 않는다.
+3. RP031 feeder를 canonical writer로 채택한다면 writer topology와 Source Contract에 그 소유권을 명시하고, plate parity + Atom + F01/F86 cross-audit까지 production 증거로 닫는다.
+4. 다른 OPEN/HOLD는 각각 별도 runtime/code 증거가 생길 때만 닫는다.
+
+상세 근거: `docs/ai-ssot-audit/2026-09-18-chatgpt-audit36-ianka-vehicle-detail-no-rates.md`.
+
+이번 ChatGPT 감사에서는 application code/business logic을 수정하지 않았다.
