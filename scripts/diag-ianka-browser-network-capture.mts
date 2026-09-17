@@ -56,20 +56,22 @@ const context = await browser.newContext({ userAgent: 'Mozilla/5.0 (Windows NT 1
 await context.addCookies(pwCookies);
 const page = await context.newPage();
 
-const captured: { url: string; method: string; status?: number; bodySnippet?: string }[] = [];
+const captured: { url: string; method: string; status?: number; bodySnippet?: string; fullBody?: string }[] = [];
 page.on('response', async (res) => {
   const req = res.request();
   const url = req.url();
   if (url.includes(HOST)) {
     let bodySnippet = '';
+    let fullBody: string | undefined;
     try {
       const ct = res.headers()['content-type'] || '';
       if (ct.includes('json') || ct.includes('text') || url.includes('/api/') || req.postData()) {
         const text = await res.text();
         bodySnippet = text.slice(0, 500);
+        if (url.includes('/api/inventory')) fullBody = text;
       }
     } catch {}
-    captured.push({ url, method: req.method(), status: res.status(), bodySnippet });
+    captured.push({ url, method: req.method(), status: res.status(), bodySnippet, fullBody });
   }
 });
 
@@ -87,6 +89,25 @@ for (const c of captured) {
   if (c.bodySnippet && /(원|개월|rate|term|rental|요금|대여료)/i.test(c.bodySnippet)) {
     console.log(`  [${c.method} ${c.url} → ${c.status}]`);
     console.log(`    ${c.bodySnippet}`);
+  }
+}
+
+console.log('\n■ /api/inventory 전체 응답 바디(실 브라우저 세션)');
+for (const c of captured) {
+  if (c.fullBody) {
+    console.log(`  [${c.method} ${c.url} → ${c.status}] 전체길이 ${c.fullBody.length}자`);
+    const termsLike = [...c.fullBody.matchAll(/"[\wㄱ-힣]*(?:term|rate|price|fare|fee|rental|요금|대여료|보증금)[\wㄱ-힣]*"\s*:/gi)];
+    console.log(`    "term/rate/rental/요금" 키 매칭 ${termsLike.length}건: ${[...new Set(termsLike.map((m) => m[0]))].join(', ')}`);
+    const wonNumbers = [...c.fullBody.matchAll(/(\d{1,3}(?:,\d{3})+)\s*원/g)];
+    console.log(`    "N,NNN원" 패턴 ${wonNumbers.length}건`);
+    try {
+      const parsed = JSON.parse(c.fullBody);
+      const firstUnit = parsed.models?.[0]?.units?.[0];
+      console.log(`    첫 유닛 키: ${firstUnit ? Object.keys(firstUnit).join(', ') : '(없음)'}`);
+      console.log(`    첫 유닛 전체: ${JSON.stringify(firstUnit)}`);
+    } catch (e) {
+      console.log(`    JSON 파싱 실패: ${(e as Error).message}`);
+    }
   }
 }
 
