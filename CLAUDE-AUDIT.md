@@ -1,3 +1,17 @@
+## 최신 override — audit (24)
+
+충돌 시 이 override와 `docs/AI-SSOT-AUDIT-LOG.md` audit (24)를 기존 audit (23) 요약보다 우선한다.
+
+- **current canonical production pin = `6a6f3f75c065143ad14286d08baa28e382535eea`** (PR #340 merge `7203c0ee...`), Source Contract/verify green.
+- 새 production 의미: 차량가격 빈칸 `미입력`; 손오공 보증금은 숫자 대신 규칙글자; `depositRuleViolations` publication gate.
+- **최우선 HOLD:** `manual-erp5-full-sync-once.yml`은 여전히 옛 `2e880cef...`로 동일 F01/F86을 쓸 수 있는 stale-engine second writer다. retire/remove 또는 canonical engine과 동일 계약으로 통제.
+- audit (22) deposit-policy drift 미해소: main canonical policy와 production local Sonogong/AutoPlus 규칙이 병존. production gate를 유지하면서 하나의 policy object/resolver로 합칠 것.
+- F86 freshness checker drift 미해소: plan은 `종합`만 timestamp, checker는 모든 탭 timestamp를 요구.
+- legacy settlement/credential/sales/mirror/pickup-color HOLD와 canonical ERP5 workflow disabled 판정은 직접 해소 증거가 생길 때까지 유지.
+
+상세 근거: `docs/ai-ssot-audit/2026-09-17-chatgpt-production-6a6-emergency-writer-drift.md`.
+
+---
 # Claude SSOT Audit Entry Point
 
 ## 최신 override — audit (23)

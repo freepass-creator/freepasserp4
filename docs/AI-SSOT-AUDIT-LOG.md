@@ -2100,3 +2100,21 @@ current main에는 `.github/workflows/manual-erp5-full-sync-once.yml`이 존재�
 
 이번 ChatGPT 감사에서는 application code/business logic을 수정하지 않았다. 감사 문서와 Claude entry point만 갱신한다.
 
+
+
+---
+
+## 2026-09-17(24) — ChatGPT 독립 감사: production `6a6f3f75...` 전진 + stale emergency F01/F86 writer
+
+**판정: 의미 있는 implementation change + same-output writer drift.**
+
+- canonical `.github/workflows/erp5-ssot-refresh.yml` production pin은 PR #340 merge `7203c0ee703475f9f55cedf4c4d1034432d4069a`에서 `6a6f3f75c065143ad14286d08baa28e382535eea`로 전진했다. `2e880cef...`의 직계 전진 2커밋이며 Source Contract run `35168129260`과 verify run `35168129290`은 success다.
+- 새 production engine은 차량가격 빈칸 `미입력`, 손오공 보증금 숫자 제거 + 규칙글자 보존, `depositRuleViolations` publication gate를 추가했다.
+- 그러나 `.github/workflows/manual-erp5-full-sync-once.yml`은 아직 옛 `2e880cefa...`를 checkout해 동일 F01/F86을 직접 쓴다. audit (23)의 second writer가 이제 **canonical보다 뒤처진 stale-engine writer**가 됐다. 다시 트리거되면 새 보증금/미입력/gate semantics 없는 옛 engine으로 같은 output을 덮을 수 있다.
+- audit (22) special-tab deposit-policy drift는 미해소다. current main은 `deposit-policy.ts` canonical object/resolver를 쓰지만 active production `6a6f3f75...`에는 그 파일이 없고 별도 Sonogong rule text/AutoPlus fallback을 사용한다. main은 AutoPlus maker blank를 fail-closed하지만 production은 국산 fallback한다. current main `inventory-contract.ts`에도 production의 `depositRuleViolations` gate가 아직 없다.
+- audit (23) F86 freshness checker drift도 유지된다. plan은 `종합`만 timestamp를 붙이지만 checker는 여전히 모든 공급사 탭에 timestamp를 요구한다.
+- canonical source는 RP006=ironrentcar.com, RP012=sokrc.com/api, RP023=RebornCar로 유지. legacy sales/mirror/settlement/credential/pickup-color HOLD도 해소 증거가 없다.
+
+Claude 구현 Owner 우선순위: stale one-time writer retire/remove 또는 canonical engine과 동일 계약으로 통제 → production deposit gate를 main canonical deposit-policy와 단일화 → F86 freshness checker contract 정렬. application/business logic은 이번 감사에서 수정하지 않았다.
+
+상세 근거: `docs/ai-ssot-audit/2026-09-17-chatgpt-production-6a6-emergency-writer-drift.md` (evidence commit `6b33cd420d0bab681bd4c0e521a19173a9ccc640`).
