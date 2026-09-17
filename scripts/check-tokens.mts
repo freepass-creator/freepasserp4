@@ -53,6 +53,118 @@ function codeOf(ln: string): string {
   return ln.slice(0, i);
 }
 
+/**
+ * **이 «한 자»가 파일 하나의 토큰 드리프트를 답한다.**
+ * 실제 파일에도, `tests/known-bad/tokens/` 의 표본에도 «같은 자»를 쓴다 —
+ * 표본이 다른 길을 타면 그 표본은 이 검사기를 시험한 것이 아니다.
+ */
+function 토큰드리프트(r: string, src: string, allowHex: boolean): string[] {
+  const out: string[] = [];
+  src.split(/\r?\n/).forEach((ln, i) => {
+    const raw = ln.trim();
+    if (!raw || raw.startsWith('*') || raw.startsWith('/*') || raw.startsWith('//')) return;
+    const code = codeOf(ln);
+
+    const fsMatch = code.match(/fontSize:\s*([0-9]+(?:\.[0-9]+)?)\b/);
+    if (fsMatch && !allowHex) {
+      const n = Number(fsMatch[1]);
+      if (!FS_OK.has(n)) {
+        out.push(`  ${r}:${i + 1}\n    FS 6값 외 fontSize 금지 → FS.* (got ${n})\n    → ${raw.slice(0, 120)}`);
+      }
+    }
+
+    const fwMatch = code.match(/fontWeight:\s*([0-9]+)\b/);
+    if (fwMatch && !allowHex) {
+      const n = Number(fwMatch[1]);
+      if (!FW_OK.has(n)) {
+        out.push(`  ${r}:${i + 1}\n    FW 외 fontWeight 금지 → FW.* (got ${n})\n    → ${raw.slice(0, 120)}`);
+      }
+    }
+
+    if (!allowHex) {
+      if (/#[0-9a-fA-F]{3,8}\b/.test(code) && !/url\(|data:/.test(code)) {
+        out.push(`  ${r}:${i + 1}\n    생 hex 금지 → C.* / CSS var\n    → ${raw.slice(0, 120)}`);
+      }
+      if (/rgba?\(/.test(code)) {
+        out.push(`  ${r}:${i + 1}\n    생 rgba 금지 → SH.* / SCRIM.* / C.focusRing\n    → ${raw.slice(0, 120)}`);
+      }
+    }
+  });
+  return out;
+}
+
+/**
+ * **뿌리의 «사선 0» 을 이 가지에서 다시 끄는가.** 위와 같이 «한 자»로 둔다.
+ *
+ * ★★**주석을 걷고 «본문»만 본다** — 이 검사는 CSS 를 글자로 훑는다.
+ *   그래서 「여기서 다시 걸지 마라」라고 **제대로 적어 둔 설명**까지 위반으로 셌다.
+ *   ⚠ 2026-09-16 실측 — `components/settlement/classic.css` 는 **선언이 0개**인데
+ *     (주석 걷고 재면 0, 안 걷으면 2) 주석 두 줄 때문에 빨간불이 떴다.
+ *     그 주석은 규격을 «지키려고» 적힌 것이다. 지킨 사람이 벌을 받으면
+ *     다음 사람은 «설명을 안 적는» 쪽을 배운다 — 검사가 문서를 갉아먹는다.
+ * ⚠ 걷는 것은 «주석»뿐이다. 선언은 그대로 남으므로 규칙이 느슨해지지 않는다 —
+ *   진짜 선언을 심으면 여전히 잡힌다. ★이제 그것을 «주석이 아니라 표본»이 지킨다
+ *   (`tests/known-bad/tokens/잡아야/사선되걺.css` · `말아야/설명주석.css`).
+ *
+ * ★★**예외는 «하나», 그것도 이름으로 안다** — 손님 동은 사선 0 을 쓰지 않는다
+ *   (사장님 2026-09-10 「글꼴 숫자에 0 에 사선 없어야 해 여기서는」).
+ *   업무동은 차번·계좌를 «대조»하니 사선이 있어야 하고, 손님은 값을 «읽을» 뿐이다.
+ * ⚠ **면제는 파일이 아니라 «그 한 줄»이다.** 같은 파일에서 다른 식으로 다시 걸면 그대로 막힌다.
+ */
+function 사선을다시거는가(r: string, src: string): boolean {
+  const isCss = r.endsWith('.css');
+  const 본문 = (s: string) => {
+    const noBlock = s.replace(/\/\*[\s\S]*?\*\//g, '');     // /* … */ — CSS·TS 공통
+    /* `//` 주석은 CSS 에 «없다». ts·tsx 에서만 걷고, 그것도 «줄 전체가 주석인» 줄만 —
+       `https://` 같은 것이 코드 한가운데 있어도 안 건드린다. */
+    return isCss ? noBlock : noBlock.replace(/^[ \t]*\/\/.*$/gm, '');
+  };
+
+  const SHOP_OFF = ".fp-wl { font-feature-settings: normal; }";
+  if (r === 'app/whitelabel.css' && src.includes(SHOP_OFF)) {
+    const rest = 본문(src.split(SHOP_OFF).join(''));
+    if (!/font-feature-settings/.test(rest)) return false;
+  }
+  return /font-feature-settings/.test(본문(src));
+}
+
+/*
+ * ── 대조군 — 안 잡히면 «재는 쪽»이 틀린 것이다 ─────────────────────────
+ *
+ * ★왜 파일로, 왜 운영 파일과 «떼어» 두나(2026-09-16). check-store-canon 의 대조군은 한때
+ *   실제 운영 파일이었고, 그 파일이 컷오버로 깨끗해지자 자가진단이 깨진 채 방치됐다.
+ *   자가진단이 «운영 코드가 계속 더러울 것»에 기대면, 코드가 깨끗해지는 순간 자가진단이 깨진다.
+ * ★`잡아야/` 는 반드시 걸려야 하고 `말아야/` 는 절대 걸리면 안 된다 — **오탐도 결함이다.**
+ *   이 자는 실제로 오탐을 냈다(설명 주석을 위반으로 셈). 그래서 «말아야» 쪽이 특히 정본이다.
+ * ★FS_OK·FW_OK·HEX_WHITELIST 를 건드리면 여기 표본도 같이 손봐라.
+ */
+const 표본뿌리 = join(ROOT, 'tests/known-bad/tokens');
+const 틀린표본: string[] = [];
+for (const [갈래, 기대] of [['잡아야', true], ['말아야', false]] as const) {
+  const dir = join(표본뿌리, 갈래);
+  const names = readdirSync(dir).filter((n) => /\.(tsx?|css)$/.test(n));
+  if (!names.length) 틀린표본.push(`tests/known-bad/tokens/${갈래} — 표본이 «하나도 없다». 빈 대조군은 통과가 아니라 고장이다`);
+  for (const n of names) {
+    const src = readFileSync(join(dir, n), 'utf8');
+    const 잡혔나 = n.endsWith('.css')
+      ? 사선을다시거는가(`표본/${n}`, src)
+      : 토큰드리프트(`표본/${n}`, src, false).length > 0 || 사선을다시거는가(`표본/${n}`, src);
+    if (잡혔나 !== 기대) {
+      틀린표본.push(`${갈래}/${n} — ${기대 ? '잡아야 하는데 안 잡힌다' : '안 잡아야 하는데 잡힌다'}`);
+    }
+  }
+}
+if (틀린표본.length) {
+  console.error(`\n✗ 검사기 고장 — 대조군 ${틀린표본.length}개가 어긋난다. 표본이 아니라 이 자를 고쳐라.\n`);
+  for (const t of 틀린표본) console.error(`  ${t}`);
+  console.error('');
+  process.exit(1);
+}
+if (process.argv.includes('--자가진단')) {
+  console.log('✓ 대조군만 봤다 — tests/known-bad/tokens 표본이 전부 기대대로다(저장소는 안 훑었다)');
+  process.exit(0);
+}
+
 function walk(dir: string) {
   for (const e of readdirSync(dir, { withFileTypes: true })) {
     const p = join(dir, e.name);
@@ -63,39 +175,7 @@ function walk(dir: string) {
     }
     if (!/\.(tsx|ts)$/.test(e.name)) continue;
     const r = rel(p);
-    const lines = readFileSync(p, 'utf8').split(/\r?\n/);
-    const allowHex = HEX_WHITELIST.has(r);
-
-    lines.forEach((ln, i) => {
-      const raw = ln.trim();
-      if (!raw || raw.startsWith('*') || raw.startsWith('/*') || raw.startsWith('//')) return;
-      const code = codeOf(ln);
-
-      const fsMatch = code.match(/fontSize:\s*([0-9]+(?:\.[0-9]+)?)\b/);
-      if (fsMatch && !allowHex) {
-        const n = Number(fsMatch[1]);
-        if (!FS_OK.has(n)) {
-          hits.push(`  ${r}:${i + 1}\n    FS 6값 외 fontSize 금지 → FS.* (got ${n})\n    → ${raw.slice(0, 120)}`);
-        }
-      }
-
-      const fwMatch = code.match(/fontWeight:\s*([0-9]+)\b/);
-      if (fwMatch && !allowHex) {
-        const n = Number(fwMatch[1]);
-        if (!FW_OK.has(n)) {
-          hits.push(`  ${r}:${i + 1}\n    FW 외 fontWeight 금지 → FW.* (got ${n})\n    → ${raw.slice(0, 120)}`);
-        }
-      }
-
-      if (!allowHex) {
-        if (/#[0-9a-fA-F]{3,8}\b/.test(code) && !/url\(|data:/.test(code)) {
-          hits.push(`  ${r}:${i + 1}\n    생 hex 금지 → C.* / CSS var\n    → ${raw.slice(0, 120)}`);
-        }
-        if (/rgba?\(/.test(code)) {
-          hits.push(`  ${r}:${i + 1}\n    생 rgba 금지 → SH.* / SCRIM.* / C.focusRing\n    → ${raw.slice(0, 120)}`);
-        }
-      }
-    });
+    hits.push(...토큰드리프트(r, readFileSync(p, 'utf8'), HEX_WHITELIST.has(r)));
   }
 }
 
@@ -141,20 +221,7 @@ for (const root of ROOTS) {
        * ⚠ 걷는 것은 «주석»뿐이다. 선언은 그대로 남으므로 규칙이 느슨해지지 않는다
        *   — 진짜 선언을 심으면 여전히 잡힌다(회귀 탐침으로 확인).
        */
-      const isCss = r.endsWith('.css');
-      const 본문 = (s: string) => {
-        const noBlock = s.replace(/\/\*[\s\S]*?\*\//g, '');     // /* … */ — CSS·TS 공통
-        /* `//` 주석은 CSS 에 «없다». ts·tsx 에서만 걷고, 그것도 «줄 전체가 주석인» 줄만 —
-           `https://` 같은 것이 코드 한가운데 있어도 안 건드린다. */
-        return isCss ? noBlock : noBlock.replace(/^[ \t]*\/\/.*$/gm, '');
-      };
-
-      const SHOP_OFF = ".fp-wl { font-feature-settings: normal; }";
-      if (r === 'app/whitelabel.css' && src.includes(SHOP_OFF)) {
-        const rest = 본문(src.split(SHOP_OFF).join(''));
-        if (!/font-feature-settings/.test(rest)) continue;
-      }
-      if (/font-feature-settings/.test(본문(src))) {
+      if (사선을다시거는가(r, src)) {
         hits.push(`  ${r}\n    font-feature-settings 를 다시 걸었습니다 — 뿌리의 «사선 0» 이 이 가지에서 꺼집니다\n    → 꼭 걸어야 하면 'zero' 1 을 함께 적으세요`);
       }
     }

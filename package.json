@@ -125,6 +125,7 @@
     "newcar:options:welrix": "tsx scripts/ingest-newcar-options.mts",
     "check:whitelabel": "tsx scripts/check-whitelabel-surface.mts",
     "check:store": "tsx scripts/check-store-canon.mts",
+    "check:known-bad": "tsx scripts/check-known-bad.mts",
     "check:options": "tsx scripts/check-options-parse.mts",
     "check:fence": "tsx scripts/check-guest-fence.mts",
     "sim:erp5-product-ssot": "tsx scripts/sim-erp5-product-ssot.mts",

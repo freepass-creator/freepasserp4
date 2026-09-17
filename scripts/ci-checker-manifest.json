@@ -14,47 +14,271 @@
   "$형식": {
     "required": "CI 에 반드시 걸려야 한다. workflow 를 안 적으면 ci.yml 의 run: 블록에서 호출돼야 한다.",
     "manual": "수동 전용. reason 필수 — 외부 접속·자격증명·인자·상태의존 등 «못 거는 까닭».",
-    "pending": "지금은 못 건다. reason 필수 — 실패 중이거나 통과를 실측하지 못했다."
+    "pending": "지금은 못 건다. reason 필수 — 실패 중이거나 통과를 실측하지 못했다.",
+    "known_bad": "known-bad 표본이 «그 봉쇄를 실제로 시험한다»는 증명. 봉쇄를 하나 빼면 빨개져야 하고, 빨개진 이유가 그 대조군(표시)이어야 한다. 검사: npm run check:known-bad",
+    "known_bad_pending": "아직 known-bad 가 없다. reason 대신 «무엇이 없는지·왜 아직인지»를 적는다. ★숨기지 않는다 — check:known-bad 가 매번 소리 내어 센다."
   },
   "ci_workflow": ".github/workflows/ci.yml",
   "required": {
-    "check:fonts": { "why": "폰트 토큰 가드" },
-    "check:tokens": { "why": "디자인 토큰 가드" },
-    "check:finder-rows": { "why": "상품찾기 격자 행 수 = 자식 수" },
-    "check:design": { "why": "확정 디자인 규격" },
-    "check:building": { "why": "건물도면 등록" },
-    "check:ui": { "why": "UI 계약 — 원자·radius" },
-    "check:speed": { "why": "조건칸 비싼 칸 열람 횟수 예산" },
-    "check:brand": { "why": "채널 간판 투명·여백 0·공유 미리보기" },
-    "check:workflows": { "why": "워크플로가 읽히는가 + 자격증명 준비 + 이 정본 대조" },
-    "check:schedules": { "why": "예약 지도" },
-    "check:erp5-firebase": { "why": "ERP4·ERP5 같은 Firebase" },
-    "check:store": { "why": "★RTDB 스왑점 밖 직접 열기. 오늘 빠져 있던 바로 그 자다" },
-    "check:estimate": { "why": "견적·원가 로직 정본" },
-    "test:estimate": { "why": "견적 회귀 엑셀 대조 39건" },
-    "check:no-client-sheet-live-status": { "why": "화면이 시트를 직접 읽지 않는가" },
-    "check:nortdb": { "why": "정산 원자가 RTDB 를 안 본다 — RTDB 영구 폐기 빗장. 읽기 전용·실측 통과" },
-    "check:shop-data-parity": { "why": "웹·모바일이 같은 Firestore 피드를 쓰는가. 외부 접속 없음·실측 통과" },
-    "check:guest": { "why": "손님 동 간판을 갈아쳐도 업무동이 안 물드는가. 읽기 전용·실측 통과" },
-    "check:guest-fields": { "why": "손님 화면이 샘의 공통 칸을 다 싣는가. 읽기 전용·실측 통과" },
-    "check:template-drift": { "why": "공유 부속서식 표류. 읽기 전용·실측 통과" },
-    "check:axes": { "why": "축 레지스트리 ↔ 코드 여섯 곳. 외부 접속 없음·실측 통과" },
-    "check:pipeline": { "why": "판매시트 @매핑·공급사 행렬 규칙. 외부 접속 없음·실측 통과" },
-    "check:manual": { "why": "매뉴얼이 코드와 어긋났는가. sheet-sync.yml 은 예약 동기라 PR 을 못 막는다 — ci.yml 에도 건다" },
-    "check:crosscheck": { "why": "찾은 사람이 자기 건을 검증했는가. 문서만 읽는다·실측 통과" },
-    "check:options": { "why": "선택옵션 파서가 없는 옵션을 만들지 않는가. 읽기 전용·실측 통과" },
-    "check:fence": { "why": "공급사 채널 울타리가 모든 문에 섰는가. 읽기 전용·실측 통과" },
-    "check:whitelabel": { "why": "채널이 바꿀 수 있는 것과 문서의 일치. 읽기 전용·실측 통과" },
+    "check:fonts": {
+      "why": "폰트 토큰 가드",
+      "known_bad_pending": "표본 없음. 판정이 walk() 안에 박혀 있어 합성 표본을 먹일 «이음매»가 없다 — 이음매부터 내야 한다."
+    },
+    "check:tokens": {
+      "why": "디자인 토큰 가드",
+      "known_bad": {
+        "표본": "tests/known-bad/tokens",
+        "표시": "검사기 고장",
+        "인자": [
+          "--자가진단"
+        ],
+        "봉쇄": [
+          {
+            "이름": "생 hex",
+            "무력화": [
+              "if (/#[0-9a-fA-F]{3,8}\\b/.test(code) && !/url\\(|data:/.test(code)) {",
+              "if (false) {"
+            ]
+          },
+          {
+            "이름": "생 rgba",
+            "무력화": [
+              "if (/rgba?\\(/.test(code)) {",
+              "if (false) {"
+            ]
+          },
+          {
+            "이름": "FS 눈금",
+            "무력화": [
+              "if (!FS_OK.has(n)) {",
+              "if (false) {"
+            ]
+          },
+          {
+            "이름": "FW 눈금",
+            "무력화": [
+              "if (!FW_OK.has(n)) {",
+              "if (false) {"
+            ]
+          },
+          {
+            "이름": "줄끝 주석 걷기(오탐 방지)",
+            "무력화": [
+              "const code = codeOf(ln);",
+              "const code = ln;"
+            ]
+          },
+          {
+            "이름": "블록 주석 걷기(오탐 방지)",
+            "무력화": [
+              "s.replace(/\\/\\*[\\s\\S]*?\\*\\//g, '')",
+              "s"
+            ]
+          },
+          {
+            "이름": "사선 되걺 탐지",
+            "무력화": [
+              "return /font-feature-settings/.test(본문(src));",
+              "return false;"
+            ]
+          }
+        ]
+      }
+    },
+    "check:finder-rows": {
+      "why": "상품찾기 격자 행 수 = 자식 수",
+      "known_bad_pending": "표본 없음. 실제 globals.css·finder/page.tsx 의 «자기 일치»만 본다(대조군이 운영 파일이라 check:store 가 겪은 무늬 그대로다)."
+    },
+    "check:design": {
+      "why": "확정 디자인 규격",
+      "known_bad_pending": "표본 없음. must(/정규식/.test(src)) 319건이 전부 최상위 인라인 — 이음매가 없다. 주석이 과거 거짓 초록을 여럿 적어 두었으나 어느 것도 코드로 못 박혀 있지 않다."
+    },
+    "check:building": {
+      "why": "건물도면 등록",
+      "known_bad_pending": "표본 없음. readTable()·compare() 는 순수하나 측정 자체가 저장소 census 라 합성 표본을 못 먹인다."
+    },
+    "check:ui": {
+      "why": "UI 계약 — 원자·radius",
+      "known_bad_pending": "부분만 있음. 449줄에 「검사기 고장」 대조군이 있으나 대조군이 «실제 저장소 export»(PriceHero·TopBar)다 — 합성 표본이 아니고, 「잡으면 안 되는 것」 쪽이 없다."
+    },
+    "check:speed": {
+      "why": "조건칸 비싼 칸 열람 횟수 예산",
+      "known_bad_pending": "부분만 있음. 입력은 합성(fakeRows 700)이나 그것을 «작업량»으로 쓸 뿐, 「탐지기가 죽으면 빨개진다」는 대조군이 없다."
+    },
+    "check:brand": {
+      "why": "채널 간판 투명·여백 0·공유 미리보기",
+      "known_bad_pending": "표본 없음. 합성 PNG 대조군(투명·여백·미리보기)이 없다."
+    },
+    "check:workflows": {
+      "why": "워크플로가 읽히는가 + 자격증명 준비 + 이 정본 대조",
+      "known_bad_pending": "표본 없음. ★주석에 「일부러 깨 보고 고쳤다」가 두 번 적혀 있다(rm 줄을 「준비」로 오인 · 파일 아무 데나 if: always()). 그 둘 다 «한 번의 손 실험»이고 되풀이되지 않는다 — 이 저장소에서 known-bad 가 가장 급한 자리다. 판정이 최상위 인라인이라 이음매부터 내야 한다."
+    },
+    "check:schedules": {
+      "why": "예약 지도",
+      "known_bad_pending": "표본 없음. 합성 예약표·yml 쌍이 없다. 최상위 인라인."
+    },
+    "check:erp5-firebase": {
+      "why": "ERP4·ERP5 같은 Firebase",
+      "known_bad_pending": "표본 없음. 실제 워크플로 문자열 includes() 만 본다."
+    },
+    "check:store": {
+      "why": "★RTDB 스왑점 밖 직접 열기. 오늘 빠져 있던 바로 그 자다",
+      "known_bad": {
+        "표본": "인라인",
+        "표시": "검사기 고장",
+        "봉쇄": [
+          {
+            "이름": "정적 import 문",
+            "무력화": [
+              "if (DOORS.some((d) => d.test(n.moduleSpecifier.getText().slice(1, -1)))) { opens = true; return; }",
+              "if (false) { opens = true; return; }"
+            ]
+          },
+          {
+            "이름": "재노출(export … from) 문",
+            "무력화": [
+              "if (DOORS.some((d) => d.test(n.moduleSpecifier!.getText().slice(1, -1)))) { opens = true; return; }",
+              "if (false) { opens = true; return; }"
+            ]
+          },
+          {
+            "이름": "이어 붙인 주소",
+            "무력화": [
+              "if (!ts.isStringLiteral(arg) && /firebase|database/i.test(arg.getText())) { opens = true; return; }",
+              "if (false) { opens = true; return; }"
+            ]
+          },
+          {
+            "이름": "동적 import()·require()",
+            "무력화": [
+              "const dynamic = callee === 'require' || n.expression.kind === ts.SyntaxKind.ImportKeyword;",
+              "const dynamic = false;"
+            ]
+          }
+        ]
+      }
+    },
+    "check:estimate": {
+      "why": "견적·원가 로직 정본",
+      "known_bad_pending": "부분만 있음. 불러온 순수 함수에 합성 인자를 먹이는 자리는 여럿이나(availableForEngine·trimSaleTaxRate 등), 저장소를 훑는 절반의 정규식 탐지기는 대조군이 없다. ★§27 주석이 「지어낸 fixture 를 지웠다」고 적고 있다 — 표본을 더할 때 그 무늬를 되풀이하지 마라."
+    },
+    "test:estimate": {
+      "why": "견적 회귀 엑셀 대조 39건",
+      "known_bad_pending": "해당 없음에 가깝다. 엑셀 대조 39건이 전부 «통과해야 하는» 기대값이라 탐지기가 눈머는 사고 모양이 다르다 — 기대값이 곧 탐지기다. 그래도 「계산이 바뀌면 빨개지는가」를 못 박는 변이 실험은 아직 안 했다."
+    },
+    "check:no-client-sheet-live-status": {
+      "why": "화면이 시트를 직접 읽지 않는가",
+      "known_bad": {
+        "표본": "tests/known-bad/client-sheet",
+        "표시": "검사기 고장",
+        "인자": [
+          "--자가진단"
+        ],
+        "봉쇄": [
+          {
+            "이름": "시트 주소·옛 이름 자취",
+            "무력화": [
+              "const SMELLS = [/\\/api\\/sheet\\/live-status/, /sheet-live-status-client/, /fetchSheetLiveStatuses/];",
+              "const SMELLS: RegExp[] = [/(?!)/];"
+            ]
+          },
+          {
+            "이름": "블록 주석 걷기(오탐 방지)",
+            "무력화": [
+              "const code = 글.replace(/\\/\\*[\\s\\S]*?\\*\\//g, '').replace(/^\\s*\\/\\/.*$/gm, '');",
+              "const code = 글;"
+            ]
+          }
+        ]
+      }
+    },
+    "check:nortdb": {
+      "why": "정산 원자가 RTDB 를 안 본다 — RTDB 영구 폐기 빗장. 읽기 전용·실측 통과",
+      "known_bad_pending": "표본 없음. stripComments()·boundToNode() 는 순수하나 hits()·rtdbImport() 가 «경로»를 받아 디스크를 읽는다 — 합성 원문을 못 먹인다. 이음매를 내면 가장 싸게 붙는 자리다."
+    },
+    "check:shop-data-parity": {
+      "why": "웹·모바일이 같은 Firestore 피드를 쓰는가. 외부 접속 없음·실측 통과",
+      "known_bad_pending": "표본 없음. 실제 파일 5개에 assert.match 를 걸 뿐이다."
+    },
+    "check:guest": {
+      "why": "손님 동 간판을 갈아쳐도 업무동이 안 물드는가. 읽기 전용·실측 통과",
+      "known_bad_pending": "표본 없음. 운영 함수를 부르지만 「잡아야/말아야」 대조군이 없다."
+    },
+    "check:guest-fields": {
+      "why": "손님 화면이 샘의 공통 칸을 다 싣는가. 읽기 전용·실측 통과",
+      "known_bad_pending": "부분만 있음. 합성 상품을 sanitizeProductForGuest 에 먹여 origin 이 안 새는 것까지 본다 — 그러나 시험 대상이 «운영 함수»지 이 검사기의 판정(missing/leaked 계산)이 아니다."
+    },
+    "check:template-drift": {
+      "why": "공유 부속서식 표류. 읽기 전용·실측 통과",
+      "known_bad_pending": "표본 없음. 외부 저장소($CHAKHANDEAL_REPO)와 대조한다 — 합성 표류 쌍을 만들어야 한다."
+    },
+    "check:axes": {
+      "why": "축 레지스트리 ↔ 코드 여섯 곳. 외부 접속 없음·실측 통과",
+      "known_bad_pending": "표본 없음. 불러온 레지스트리를 최상위에서 훑는다."
+    },
+    "check:pipeline": {
+      "why": "판매시트 @매핑·공급사 행렬 규칙. 외부 접속 없음·실측 통과",
+      "known_bad_pending": "부분만 있음. 인라인 @매핑 표본과 assert.throws(/중복 열/) 음성 사례, compareSheetMatrices 양·음성 쌍까지 있다 — 그러나 운영 파서를 시험하지 이 검사기의 탐지기를 시험하지 않는다. 승격 후보 1순위."
+    },
+    "check:manual": {
+      "why": "매뉴얼이 코드와 어긋났는가. sheet-sync.yml 은 예약 동기라 PR 을 못 막는다 — ci.yml 에도 건다",
+      "known_bad_pending": "표본 없음. 매뉴얼 문서와 scripts/*.mts 를 정규식으로 맞대 본다 — 합성 문서·코드 쌍이 없다."
+    },
+    "check:crosscheck": {
+      "why": "찾은 사람이 자기 건을 검증했는가. 문서만 읽는다·실측 통과",
+      "known_bad_pending": "표본 없음. docs/ 의 실제 보드를 센다."
+    },
+    "check:options": {
+      "why": "선택옵션 파서가 없는 옵션을 만들지 않는가. 읽기 전용·실측 통과",
+      "known_bad_pending": "★표본은 «진짜»다(191대를 깨뜨린 실값 포함 양·음성 11건). 그러나 봉쇄가 검사기가 아니라 lib/domain/product.ts 의 parseProductOptions 안에 있어, 검사기 소스만 무력화하는 지금 기계장치로는 「그 봉쇄를 시험한다」를 증명하지 못한다. — 「없다」가 아니라 «아직 증명 못 함»이다. 기계장치에 «무력화 대상 파일» 축을 더하면 바로 승격된다."
+    },
+    "check:fence": {
+      "why": "공급사 채널 울타리가 모든 문에 섰는가. 읽기 전용·실측 통과",
+      "known_bad_pending": "표본 없음. 84줄 주석이 2026-09-12 손 자기시험으로 「가짜 초록」을 잡았다고 적고 있으나, 그 고침(괄호 세기)이 아무 표본으로도 못 박혀 있지 않다."
+    },
+    "check:whitelabel": {
+      "why": "채널이 바꿀 수 있는 것과 문서의 일치. 읽기 전용·실측 통과",
+      "known_bad_pending": "표본 없음. 살아 있는 타입·상수와 문서를 맞대 본다."
+    },
     "check:settlement": {
-      "why": "정산 시트 규격 빗장. ci.yml 옛 주석은 「아직 빨간불이라 안 건다」였으나 2026-09-16 origin/main 에서 실측 exit 0 — 빨간불이 풀렸으므로 건다"
+      "why": "정산 시트 규격 빗장. ci.yml 옛 주석은 「아직 빨간불이라 안 건다」였으나 2026-09-16 origin/main 에서 실측 exit 0 — 빨간불이 풀렸으므로 건다",
+      "known_bad_pending": "표본 없음. 파일 6개에 정규식·includes 만 건다. 대조군 없음."
     },
     "sim:erp5-product-ssot": {
       "workflow": ".github/workflows/publish-erp5-ssot.yml",
-      "why": "ERP5 상품 공개 경계 회귀. 발행 워크플로가 발행 직전에 돌린다"
+      "why": "ERP5 상품 공개 경계 회귀. 발행 워크플로가 발행 직전에 돌린다",
+      "known_bad_pending": "부분만 있음. 합성 상품 표본으로 경계를 재나 운영 함수 회귀지 탐지기 대조군이 아니다. ★그리고 이 작업의 실행 허가 밖이라 이 자리에서 실측하지 못했다 — 「없다」가 아니라 「모른다」."
     },
     "sim:erp5-vehicle-master-ssot": {
       "workflow": ".github/workflows/publish-erp5-ssot.yml",
-      "why": "ERP5 차종마스터 경계 회귀. 발행 워크플로가 발행 직전에 돌린다"
+      "why": "ERP5 차종마스터 경계 회귀. 발행 워크플로가 발행 직전에 돌린다",
+      "known_bad_pending": "부분만 있음. 「FL 표기·needs-review 는 잡히고 괄호 표기는 안 잡힌다」는 양·음성 쌍이 실제로 있다 — 셋 중 가장 표본다운 자다. ★다만 실행 허가 밖이라 실측하지 못했다 — 「모른다」."
+    },
+    "check:known-bad": {
+      "why": "★검사기가 «잡기는 하는가»를 기계로 증명한다 — 봉쇄를 하나씩 빼서 그것이 지키는 검사만 빨개지는지 본다",
+      "known_bad": {
+        "표본": "tests/known-bad/_harness",
+        "표시": "기계장치 고장",
+        "인자": [
+          "--자가진단"
+        ],
+        "봉쇄": [
+          {
+            "이름": "「빨개졌는가」 판정(exit≠0)",
+            "무력화": [
+              "if (r.code === 0) {",
+              "if (false) {"
+            ]
+          },
+          {
+            "이름": "「빨개진 이유가 그 대조군인가」 판정(표시)",
+            "무력화": [
+              "} else if (!r.out.includes(kb.표시)) {",
+              "} else if (false) {"
+            ]
+          }
+        ]
+      }
     }
   },
   "manual": {
@@ -64,14 +288,30 @@
     "check:atoms": {
       "reason": "서비스 계정 열쇠(tmp/firebase-auth/sa.json)가 있어야 실제로 잰다. 없으면 «건너뛰고 exit 0» 이라 CI 에 걸어도 초록불만 주는 거짓 안심이 된다"
     },
-    "check:columns": { "reason": "Firebase 서비스 계정 열쇠 필요 — 없으면 ENOENT tmp/firebase-auth/sa.json 로 죽는다" },
-    "check:photo-link": { "reason": "Firebase 서비스 계정 열쇠 필요 — 없으면 ENOENT tmp/firebase-auth/sa.json 로 죽는다" },
-    "check:party-code": { "reason": "Firebase 서비스 계정 열쇠 필요 — 없으면 ENOENT tmp/firebase-auth/sa.json 로 죽는다" },
-    "check:vehicle-trim-master": { "reason": "생성기(--check). Firebase 서비스 계정 열쇠 필요 — 없으면 ENOENT tmp/firebase-auth/sa.json" },
-    "check:deployed": { "reason": "--fetch 로 원격을 당겨 «운영에 없는 화면 커밋»을 센다. 배포 상황판이지 PR 게이트가 아니다" },
-    "check:branches": { "reason": "열린 가지의 충돌·묵음을 재는 상황판. 원격 가지 상태에 따라 매번 답이 바뀌어 PR 을 막는 잣대가 못 된다" },
-    "check:order": { "reason": "오더 문서 경로를 «인자로» 받는다(<오더.md>). 인자 없이는 사용법만 찍고 exit 1" },
-    "check:sync": { "reason": "check:axes + check:pipeline + check:manual 묶음 별칭. 셋이 각각 required 라 CI 에서 또 부르지 않는다" }
+    "check:columns": {
+      "reason": "Firebase 서비스 계정 열쇠 필요 — 없으면 ENOENT tmp/firebase-auth/sa.json 로 죽는다"
+    },
+    "check:photo-link": {
+      "reason": "Firebase 서비스 계정 열쇠 필요 — 없으면 ENOENT tmp/firebase-auth/sa.json 로 죽는다"
+    },
+    "check:party-code": {
+      "reason": "Firebase 서비스 계정 열쇠 필요 — 없으면 ENOENT tmp/firebase-auth/sa.json 로 죽는다"
+    },
+    "check:vehicle-trim-master": {
+      "reason": "생성기(--check). Firebase 서비스 계정 열쇠 필요 — 없으면 ENOENT tmp/firebase-auth/sa.json"
+    },
+    "check:deployed": {
+      "reason": "--fetch 로 원격을 당겨 «운영에 없는 화면 커밋»을 센다. 배포 상황판이지 PR 게이트가 아니다"
+    },
+    "check:branches": {
+      "reason": "열린 가지의 충돌·묵음을 재는 상황판. 원격 가지 상태에 따라 매번 답이 바뀌어 PR 을 막는 잣대가 못 된다"
+    },
+    "check:order": {
+      "reason": "오더 문서 경로를 «인자로» 받는다(<오더.md>). 인자 없이는 사용법만 찍고 exit 1"
+    },
+    "check:sync": {
+      "reason": "check:axes + check:pipeline + check:manual 묶음 별칭. 셋이 각각 required 라 CI 에서 또 부르지 않는다"
+    }
   },
   "pending": {
     "check:release": {
@@ -80,12 +320,26 @@
     "check:b2b-release": {
       "reason": "지금 FAIL — NO-GO · PASS 12 · FAIL 24(브리지 구성 파일 lib/firebase/rtdb-adapter.ts 등, 2026-09-16 origin/main 실측). RTDB 폐기와 얽혀 있어 판정부터 정리해야 한다"
     },
-    "sim:vehicle-trim-operational": { "reason": "순수 회귀(외부 접속 없음)로 보이나 이 작업의 실행 허가 밖이라 통과를 실측하지 못했다 — 「없다」가 아니라 「모른다」" },
-    "sim:vehicle-master-seat-axis": { "reason": "순수 회귀로 보이나 통과를 실측하지 못했다 — 실측 후 required 로 올린다" },
-    "sim:vehicle-master-review-adoption": { "reason": "순수 회귀로 보이나 통과를 실측하지 못했다 — 실측 후 required 로 올린다" },
-    "sim:erp5-codes": { "reason": "순수 회귀로 보이나 통과를 실측하지 못했다 — 실측 후 required 로 올린다" },
-    "sim:sales-pending-identity": { "reason": "순수 회귀로 보이나 통과를 실측하지 못했다 — 실측 후 required 로 올린다" },
-    "sim:sales-authoritative": { "reason": "순수 회귀로 보이나 통과를 실측하지 못했다 — 실측 후 required 로 올린다" },
-    "sim:sales-backup": { "reason": "순수 회귀(server-only shim)로 보이나 통과를 실측하지 못했다 — 실측 후 required 로 올린다" }
+    "sim:vehicle-trim-operational": {
+      "reason": "순수 회귀(외부 접속 없음)로 보이나 이 작업의 실행 허가 밖이라 통과를 실측하지 못했다 — 「없다」가 아니라 「모른다」"
+    },
+    "sim:vehicle-master-seat-axis": {
+      "reason": "순수 회귀로 보이나 통과를 실측하지 못했다 — 실측 후 required 로 올린다"
+    },
+    "sim:vehicle-master-review-adoption": {
+      "reason": "순수 회귀로 보이나 통과를 실측하지 못했다 — 실측 후 required 로 올린다"
+    },
+    "sim:erp5-codes": {
+      "reason": "순수 회귀로 보이나 통과를 실측하지 못했다 — 실측 후 required 로 올린다"
+    },
+    "sim:sales-pending-identity": {
+      "reason": "순수 회귀로 보이나 통과를 실측하지 못했다 — 실측 후 required 로 올린다"
+    },
+    "sim:sales-authoritative": {
+      "reason": "순수 회귀로 보이나 통과를 실측하지 못했다 — 실측 후 required 로 올린다"
+    },
+    "sim:sales-backup": {
+      "reason": "순수 회귀(server-only shim)로 보이나 통과를 실측하지 못했다 — 실측 후 required 로 올린다"
+    }
   }
 }
