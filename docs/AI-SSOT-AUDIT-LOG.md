@@ -2201,3 +2201,22 @@ Claude 구현 Owner 우선순위: `b6933732...` + `b0aedeee...`의 vehicle-price
 상세 근거: `docs/ai-ssot-audit/2026-09-17-chatgpt-audit28-vehicle-price-atom-drift.md`.
 
 이번 ChatGPT 감사에서는 application code/business logic을 수정하지 않았다.
+---
+
+## 2026-09-17(29) — ChatGPT 독립 감사: 판매 탭 이름/갈래 SSOT 1단계가 feature branch에 신설됐지만 발행기는 아직 옛 계약 — 3계약 과도기 HOLD
+
+**판정: 의미 있는 구현 진전 + 미완성 projection-contract migration. production/main 해소로 간주하면 안 됨.**
+
+- Claude 단일 구현 branch `claude/f86-peer-spec-transplant`의 current head는 `a6843cdbb8fac53f922b726f89ecf1a976c88a20`이다. 이 commit은 `lib/domain/sales-tab-kinds.ts`를 새 SSOT로 만들고 `scripts/check-sales-tabs.mts`를 `check:sync`에 연결했다.
+- 새 target tab contract는 F01/F86 공통으로 `상품리스트 · 손오공상품 · 픽업구독 · 오토플러스` 네 이름을 사용한다. legacy read alias는 `종합 → 상품리스트`, `오공구독/손오공구독 → 손오공상품`, `오플구독 → 오토플러스`다. RP012 non-pickup은 `손오공상품`, pickup은 `픽업구독`, RP023은 `오토플러스`, 그 밖은 `상품리스트`로 한 곳에서 판정한다.
+- 하지만 commit 자체가 **“1/3단계 — 정의만”, “발행에는 아직 안 붙였다”**고 명시한다. 실제 같은 branch의 `lib/server/channel-f86-plan.ts`도 여전히 `RETRO_SUMMARY_TAB`/`종합` summary를 생성하는 기존 F86 plan을 사용한다. 즉 새 SSOT/checker가 존재한다고 해서 live F01/F86 naming이 이미 전환됐다고 보면 안 된다.
+- 현재 계약은 동시에 셋이다. current main `sales-published-tabs.ts`는 `상품리스트/손오공구독/픽업구독/오플구독`, active production pin `6a6f3f75...`는 `상품리스트/오공구독/픽업구독/오플구독`, staged target은 `상품리스트/손오공상품/픽업구독/오토플러스`다. 이 셋을 섞으면 발행기·감사기·탭 중복정리·F86 고정표가 서로 다른 이름을 볼 수 있다.
+- Git compare `6a6f3f75... → a6843cdb...`는 merge-base가 정확히 `6a6f3f75...`, feature branch가 **5 commits ahead / 0 behind**다. 따라서 audit (27)/(28)의 deposit recurrence/vehicle-price 수정 계보 위에 새 tab-contract 정의가 추가된 상태다. 다만 production workflowk�� 여전히 `6a6f3f75...`를 checkout한다.
+- current main HEAD `d87bb185...`의 최신 main CI는 success이며 audit (28) 이후 main의 신규 app 변경은 상품찾기 UI 문구 변경뿐이다. canonical source registry도 RP006=ironrentcar.com, RP012=sokrc.com/api, RP023=RebornCar로 그대로다. mirror/sales legacy writer, RP023 old mirror source, schedule/enablement HOLD에도 직접 해소 증거가 없다.
+- audit (26)의 F86 values A1 addressing 400, audit (27)의 Sonogong deposit recurrence, audit (28)의 vehicle-price lineage gap도 이번 1단계 tab SSOT 정의만으로는 해소되지 않는다. 특히 compare changed-file 목록에는 `build-channel-supplier-sheet.mts`의 A1 addressing fix가 없다.
+
+Claude 구현 Owner 우선순위: (1) 이 1단계 정의를 **live 해소로 닫지 말 것**, (2) 계획된 2/3(F86)·3/3(F01)에서 publisher/auditor/tab cleanup/locked layout을 같은 canonical tab-kind 계약에 함께 붙일 것, (3) legacy 이름은 읽기 호환으로만 두고 새 발행 이름과 중복 탭이 공존하지 않게 검증할 것, (4) promotion 전 production lineage의 audit (27)/(28) price/deposit fixes가 유지되는지 확인하고 audit (26) A1 write failure도 별도로 해결할 것, (5) 실제 production repin 후 F01/F86 publish + cross-audit까지 green일 때만 migration을 해소 처리할 것. canonical source/Atom 의미를 탭 이름 migration 때문에 바꾸지 않는다.
+
+상세 근거: `docs/ai-ssot-audit/2026-09-17-chatgpt-audit29-sales-tab-kind-staging.md`.
+
+이번 ChatGPT 감사에서는 application code/business logic을 수정하지 않았다.
