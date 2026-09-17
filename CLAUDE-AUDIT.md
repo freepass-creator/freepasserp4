@@ -1,29 +1,30 @@
-# ChatGPT 독립 SSOT 감사 — audit (34) override (2026-09-17 23:22 KST)
+# ChatGPT 독립 SSOT 감사 — audit (35) override (2026-09-18 KST)
 
 > 이 파일은 Claude 구현 Owner의 **최신 진입점 요약**이다. 과거 판정과 상세 증거는 `docs/AI-SSOT-AUDIT-LOG.md`와 최신 `docs/ai-ssot-audit/` 문서를 우선한다. 실제 application/business logic 수정은 Claude 단일 SSOT 세션만 수행한다.
 
 ## 현재 판정
 
-- **freshness source alignment 개선:** PR #375 / merge `8b7a417578e6e2b2b2fac673588cf1b0db9e59a9`가 `/shop`의 갱신시각을 ERP4 별도 status/pipeline 기록이 아니라 실제 화면 재고가 읽는 ERP5 `products` Atom의 `_direct_ingest_at` / `_var_polled_at`에서 읽도록 바꿨다. 화면 데이터와 시각 source가 갈리던 문제는 이 UI 경로에서 개선됐다.
-- **신규 observability HOLD:** current `readErp5StockFreshness()`는 두 timestamp field 각각 `orderBy(..., 'desc').limit(1)` 한 문서만 읽고 둘 중 최대값을 반환한다. 이는 **가장 최근 Atom write 시각**이지 전체 inventory cohort, publication snapshot, canonical full-run 또는 F01/F86 freshness가 아니다. 일부 공급사/일부 Atom만 갱신돼도 시각은 앞으로 갈 수 있다.
-- PR #375 기록상 운영 Atom 1,615대 중 `_direct_ingest_at` 보유 1,153대, `_var_polled_at` 보유 897대다. 전체 재고 freshness를 말하려면 coverage/stale distribution 또는 검증된 canonical run/snapshot sentinel이 별도로 필요하다.
-- canonical `.github/workflows/erp5-ssot-refresh.yml`은 계속 월~토 KST 09:05~19:05 cron과 production pin `9bef7bf0ffd21a96e3098a6f31adf1b1a0258c60`을 선언한다. PR #375 자체 기록도 2026-09-16 12:46 KST 이후 예약 실행 부재와 2026-09-17 10:04 Atom write가 GitHub Actions 기록 없는 수동 실행임을 명시한다. **audit (31) schedule-delivery OPEN은 유지한다.**
-- audit (33)의 RP031 status mapping/feeder 진전은 유지하지만 RP031 canonical은 아직 Google Sheet이며 85 API ↔ 16 기존 sheet parity, 신규 차량 금융값 provenance promotion HOLD를 닫지 않는다.
-- audit (23) F86 freshness checker contract drift, audit (27) Sonogong deposit recurrence guard, audit (28) vehicle-price lineage gap, audit (29) sales-tab naming migration, mirror/sales/settlement/RTDB legacy writer ownership HOLD도 직접 해소 증거가 없어 유지한다.
+- **schedule delivery 재출현:** audit (31)/(34) 당시 2026-09-17 `event=schedule` 0건이었으나 canonical `ERP5 SSOT 원천 최신화(매시간)` run **`35235961510`**이 실제 `event=schedule`로 생성됐다. 따라서 “schedule event 자체가 없다”는 요약은 stale이다.
+- **cadence/timeliness는 여전히 HOLD:** 이 run은 2026-09-17 **23:47 KST**에 시작했다. workflow cron은 월~토 KST 09:05~19:05이므로 당일 마지막 선언 slot보다 4시간 42분 이상 늦다. 한 회차 출현만으로 hourly 정시 운용 정상화를 선언하지 않는다.
+- **canonical write path는 실제 동작:** production pin `9bef7bf0ffd21a96e3098a6f31adf1b1a0258c60`에서 supplier preflight/apply 24/24, settlement Atom-lock, snapshot, public catalog, F01 694대, F86 19탭/694대 발행까지 성공했다.
+- **현재 scheduled blocker = F86 freshness checker:** F86 값 대조는 45,186칸 mismatch 0이고 freshness 계산도 가장 오래된 탭 0분이었지만, checker가 current tab-name 계약을 이해하지 못해 19개 탭 전부 “발행 시각 없음”으로 실패시켰다. Atom↔F01↔F86 cross-audit와 photo-link는 모두 mismatch 0이다. 따라서 run red는 데이터 발행 실패가 아니라 audit (23)/(30)의 checker-contract drift다.
+- audit (34)의 observability HOLD도 유지한다. `/shop` freshness accessor는 여전히 newest Atom semantics이며, scheduled run이 한 번 생겼다고 전체 inventory/snapshot freshness sentinel이 되는 것은 아니다.
+- audit (27) Sonogong deposit recurrence, audit (28) vehicle-price lineage, audit (29) sales-tab naming migration, audit (33) RP031 API feeder/provenance, mirror/sales/settlement/RTDB legacy writer ownership HOLD는 이 한 회차로 닫지 않는다.
 - canonical source는 계속 RP006=`ironrentcar.com`, RP012=`sokrc.com/api`, RP023=RebornCar다. RP031은 아직 Google Sheet canonical이다.
+- audit 직전 application 기준 main은 `c6f6c3e0253e6d6f172ce52067d7261358b3e4a9`; production pin은 `9bef7bf0ffd21a96e3098a6f31adf1b1a0258c60`으로 변화 없다.
 
 ## Claude 구현 Owner 우선순위
 
-1. ERP5 Atom을 freshness source로 쓰는 방향은 유지하고 ERP4 status timestamp와 다시 섞지 않는다.
-2. 현 머리띠 의미는 `가장 최근 원자 갱신`으로 제한한다. 전체 재고 freshness로 표현하려면 coverage/stale distribution 또는 canonical run/snapshot sentinel을 함께 사용한다.
-3. 실제 `event=schedule` source→Atom→snapshot→F01/F86 full-run이 생성되고 audit까지 green이 되기 전에는 audit (31)을 닫지 않는다.
-4. RP031/API feeder, deposit recurrence, vehicle-price, F86 checker, sales-tab migration 및 legacy writer ownership은 각각의 promotion/runtime 증거가 생길 때만 닫는다.
+1. `audit-f86-vs-atom.mts` freshness 판단을 `channel-f86-plan`의 실제 탭명 계약(종합에만 시각, 공급사 탭은 회사명+대수)과 공유/정렬한다. **차량/칸 값 대조는 약화하지 않는다.**
+2. 수정 뒤 실제 `event=schedule` 회차에서 source→Atom→snapshot→public/F01/F86→F86 audit→cross-audit→photo-audit 전체 green을 확보한다.
+3. schedule cadence 정상화는 선언된 시간대에 scheduled run이 지속 생성되는 별도 증거로 판정한다. workflow_dispatch/one-time run으로 대체하지 않는다.
+4. audit (27)/(28)/(29)/(33)/(34)와 legacy writer ownership은 각각의 promotion/runtime 증거가 생길 때만 닫는다.
 5. production pin/current main을 같은 계보라고 가정하지 말고 항상 별도로 대조한다.
 
 ## 상세 근거
 
-- `docs/AI-SSOT-AUDIT-LOG.md` — 최신 audit (34)
-- `docs/ai-ssot-audit/2026-09-17-chatgpt-audit34-erp5-freshness-observability-gap.md`
-- evidence commit: `0f359c8b48d89f3f5ed7b579a540db9882561716`
+- `docs/AI-SSOT-AUDIT-LOG.md` — 최신 audit (35)
+- `docs/ai-ssot-audit/2026-09-18-chatgpt-audit35-scheduled-delivery-f86-checker.md`
+- GitHub Actions scheduled run `35235961510`, job `105251799335`
 
 이번 ChatGPT 감사에서는 application code/business logic을 수정하지 않았다.
