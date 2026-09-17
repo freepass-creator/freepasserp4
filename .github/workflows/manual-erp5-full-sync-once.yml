@@ -80,6 +80,7 @@ jobs:
       - name: Publish F01 from same snapshot
         env:
           GOOGLE_SHEETS_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sheets.json
+          FREEPASS_MANUAL_PUBLISH_APPROVED: '2026-09-17 morning manual sync'
         run: npx tsx scripts/make-sample-sheet-google.mts --main --snapshot=tmp/erp5-sales-publish.json
       - name: Backup F86
         env:
@@ -88,6 +89,7 @@ jobs:
       - name: Publish F86 from same snapshot
         env:
           GOOGLE_SHEETS_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sheets.json
+          FREEPASS_MANUAL_PUBLISH_APPROVED: '2026-09-17 morning manual sync'
         run: npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/build-channel-supplier-sheet.mts --채널=하허호 --apply --snapshot=tmp/erp5-sales-publish.json
       - name: Audit F86 vs atoms
         env:
