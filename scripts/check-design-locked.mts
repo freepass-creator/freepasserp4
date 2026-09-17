@@ -1135,6 +1135,38 @@ must(/nowLabelKo\(now\)/.test(wlFrame) && /head\.weather/.test(wlFrame),
     'app/api/shop/status/route.ts loadUpdated');
 }
 
+/*
+ * ★★★**보증금은 «자르지도 넘치지도» 않는다.** (2026-09-05 확정 + 2026-09-18 실측 보강)
+ *
+ * ㉠ 자르지 않는다 — 「보증금 103만 5,…」로 끝이 잘려 있던 것을 2026-09-05 에 고쳤다.
+ *   보증금은 저신용 손님이 제일 먼저 재는 «지금 드는 돈»이라, 자리에 안 맞으면 줄을 바꾼다.
+ * ㉡ 넘치지도 않는다 — 그런데 «규칙 글자»(「보증금 월 대여료 × 약정연수 (최대 3개월)」)는
+ *   금액보다 훨씬 길어(웹 실측 210px) `nowrap` 으로는 접히지도 줄지도 못하고 **칸 밖으로 흘렀다.**
+ *   2026-09-18 운영 실측 — 창 900px · 카드폭 167px → **45px 가 옆 카드 위로 넘어가 글자가 겹쳤다**
+ *   (카드폭 210 미만 = 창 약 1010px 밑에서 늘). 노트북 반쪽 화면이 딱 그 폭이다.
+ * ⇒ 「금액이냐 문장이냐」를 `depositLine` 이 `rule` 로 알려 주고, 카드가 그때만 줄을 바꾼다.
+ *   ⚠ ellipsis 로 막으면 ㉠ 을 되돌리는 것이다 — «자르기»가 아니라 «줄바꿈»으로만 막는다.
+ */
+{
+  const fmt = read('lib/format.ts');
+  must(/depositLine\([^)]*\)[\s\S]{0,200}?rule: boolean/.test(fmt),
+    '`depositLine` 이 「금액인지 규칙 문장인지」를 안 알려 줍니다 — 부르는 쪽이 둘을 같은 폭으로 세우면 문장이 칸을 넘칩니다.',
+    'lib/format.ts depositLine');
+
+  const depAt = shopCard.indexOf('dep && dep.rule');
+  must(depAt > 0, '카드가 보증금 «규칙 문장»을 금액과 구분해 세우지 않습니다 — 좁은 창에서 옆 카드로 넘칩니다.',
+    'components/shop/ShopCard.tsx · lib/format.ts depositLine');
+  if (depAt > 0) {
+    const near = shopCard.slice(depAt, depAt + 260);
+    must(/whiteSpace: 'normal'/.test(near),
+      '보증금 규칙 문장이 줄바꿈을 못 합니다 — 접히지 못하면 칸 밖으로 흐릅니다.',
+      'components/shop/ShopCard.tsx 보증금 줄');
+    must(!/textOverflow: 'ellipsis'/.test(near),
+      '보증금을 … 로 잘랐습니다 — 2026-09-05 에 고친 것을 되돌린 것입니다(자르지 말고 줄을 바꿉니다).',
+      'components/shop/ShopCard.tsx 보증금 줄 · DESIGN_CONFIRMED_SHOP.md');
+  }
+}
+
 if (fails.length) {
   console.error(`\n✗ 확정 디자인이 바뀌었습니다 — ${fails.length}건\n`);
   for (const f of fails) console.error(`   · ${f}\n`);
