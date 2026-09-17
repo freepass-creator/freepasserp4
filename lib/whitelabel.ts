@@ -1118,6 +1118,34 @@ export function channelSellsProduct(wl: Whitelabel, product: unknown): boolean {
  * ★코드가 없는 채널에서만 `?p=` 를 쓴다 — 그 채널은 이미 재고 전체를 파는 곳이라
  *   거기서 `?p=` 는 «울타리»가 아니라 그냥 «추림»이다(새는 것이 없다).
  */
+/**
+ * ★★★**라벨은 세 갈래다 — 이름을 여기 박는다**(사장님 2026-09-17 「표준라벨, 채널라벨,
+ *   공급라벨(자기네회사차만) 이렇게 있는 거야」 · 「이거 매뉴얼 좀 해놔라 어딘가에 박아놔야지」).
+ *
+ * | 갈래 | 무엇 | 간판(CI) | 머리띠 오른쪽 | 배너 색 | 싣는 재고 |
+ * |---|---|---|---|---|---|
+ * | `standard` **표준라벨** | `freepasserp.com` 대표 얼굴 | **없다**(자리를 비운다) | **날짜 · 시각 · 날씨** | 집 기본 | 전체 |
+ * | `channel` **채널라벨** | 영업채널 전용 | 그 회사 CI | **대표번호**(날짜 대신) | 그 회사 색 | 전체 |
+ * | `supplier` **공급라벨** | 채널라벨인데 **그 회사 차만** | 그 회사 CI | **대표번호** | 그 회사 색 | `providerCode` 한 곳 |
+ *
+ * ★**공급라벨은 채널라벨의 «갈래»다** — 사장님 말 그대로 「채널라벨인데 그 회사 차만 붙여서 나감」.
+ *   그래서 화면 규칙(CI·대표번호·배너색)은 채널과 **같고**, 다른 것은 **재고 울타리 하나**뿐이다
+ *   (`providerCode` → `guestProviderFence`). 화면에서 갈라 적지 않는다.
+ * ⚠⚠ **우리 브랜드 가게(`freepassmobility`)도 «채널라벨»이다**(사장님 2026-09-17 확인).
+ *   ⚠ 전에는 `self`(우리 것이냐)로 갈라서 우리 가게에도 날짜·날씨가 섰다. 그 잣대를 물린다 —
+ *     가르는 것은 「우리 것이냐」가 아니라 **「간판이 서 있느냐」**다. 간판이 선 화면에서 손님이
+ *     찾는 것은 **거는 번호**지 날씨가 아니다.
+ * ★`self` 는 그대로 산다 — 그건 «동반 표기(✕ freepass)·푸터 회사 소개»가 보는 값이라 뜻이 다르다.
+ */
+export type LabelKind = 'standard' | 'channel' | 'supplier';
+export const LABEL_KIND_KO: Record<LabelKind, string> = {
+  standard: '표준라벨', channel: '채널라벨', supplier: '공급라벨',
+};
+export function labelKind(wl: Whitelabel): LabelKind {
+  if (wl.plain) return 'standard';
+  return String(wl.providerCode || '').trim() ? 'supplier' : 'channel';
+}
+
 export function guestProviderFence(wl: Whitelabel, askedProviderCode?: string | null): string {
   const only = String(wl.providerCode || '').trim();
   return only || String(askedProviderCode ?? '').trim();
