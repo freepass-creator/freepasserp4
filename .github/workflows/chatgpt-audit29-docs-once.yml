@@ -1,0 +1,107 @@
+name: ChatGPT audit 29 docs once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/chatgpt-audit29-docs-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Append audit 29 and refresh Claude entry point
+        shell: bash
+        run: |
+          cat >> docs/AI-SSOT-AUDIT-LOG.md <<'AUDIT_LOG'
+
+---
+
+## 2026-09-17(29) — ChatGPT 독립 감사: 판매 탭 이름/갈래 SSOT 1단계가 feature branch에 신설됐지만 발행기는 아직 옛 계약 — 3계약 과도기 HOLD
+
+**판정: 의미 있는 구현 진전 + 미완성 projection-contract migration. production/main 해소로 간주하면 안 됨.**
+
+- Claude 단일 구현 branch `claude/f86-peer-spec-transplant`의 current head는 `a6843cdbb8fac53f922b726f89ecf1a976c88a20`이다. 이 commit은 `lib/domain/sales-tab-kinds.ts`를 새 SSOT로 만들고 `scripts/check-sales-tabs.mts`를 `check:sync`에 연결했다.
+- 새 target tab contract는 F01/F86 공통으로 `상품리스트 · 손오공상품 · 픽업구독 · 오토플러스` 네 이름을 사용한다. legacy read alias는 `종합 → 상품리스트`, `오공구독/손오공구독 → 손오공상품`, `오플구독 → 오토플러스`다. RP012 non-pickup은 `손오공상품`, pickup은 `픽업구독`, RP023은 `오토플러스`, 그 밖은 `상품리스트`로 한 곳에서 판정한다.
+- 하지만 commit 자체가 **“1/3단계 — 정의만”, “발행에는 아직 안 붙였다”**고 명시한다. 실제 같은 branch의 `lib/server/channel-f86-plan.ts`도 여전히 `RETRO_SUMMARY_TAB`/`종합` summary를 생성하는 기존 F86 plan을 사용한다. 즉 새 SSOT/checker가 존재한다고 해서 live F01/F86 naming이 이미 전환됐다고 보면 안 된다.
+- 현재 계약은 동시에 셋이다. current main `sales-published-tabs.ts`는 `상품리스트/손오공구독/픽업구독/오플구독`, active production pin `6a6f3f75...`는 `상품리스트/오공구독/픽업구독/오플구독`, staged target은 `상품리스트/손오공상품/픽업구독/오토플러스`다. 이 셋을 섞으면 발행기·감사기·탭 중복정리·F86 고정표가 서로 다른 이름을 볼 수 있다.
+- Git compare `6a6f3f75... → a6843cdb...`는 merge-base가 정확히 `6a6f3f75...`, feature branch가 **5 commits ahead / 0 behind**다. 따라서 audit (27)/(28)의 deposit recurrence/vehicle-price 수정 계보 위에 새 tab-contract 정의가 추가된 상태다. 다만 production workflow는 여전히 `6a6f3f75...`를 checkout한다.
+- current main HEAD `d87bb185...`의 최신 main CI는 success이며 audit (28) 이후 main의 신규 app 변경은 상품찾기 UI 문구 변경뿐이다. canonical source registry도 RP006=ironrentcar.com, RP012=sokrc.com/api, RP023=RebornCar로 그대로다. mirror/sales legacy writer, RP023 old mirror source, schedule/enablement HOLD에도 직접 해소 증거가 없다.
+- audit (26)의 F86 values A1 addressing 400, audit (27)의 Sonogong deposit recurrence, audit (28)의 vehicle-price lineage gap도 이번 1단계 tab SSOT 정의만으로는 해소되지 않는다. 특히 compare changed-file 목록에는 `build-channel-supplier-sheet.mts`의 A1 addressing fix가 없다.
+
+Claude 구현 Owner 우선순위: (1) 이 1단계 정의를 **live 해소로 닫지 말 것**, (2) 계획된 2/3(F86)·3/3(F01)에서 publisher/auditor/tab cleanup/locked layout을 같은 canonical tab-kind 계약에 함께 붙일 것, (3) legacy 이름은 읽기 호환으로만 두고 새 발행 이름과 중복 탭이 공존하지 않게 검증할 것, (4) promotion 전 production lineage의 audit (27)/(28) price/deposit fixes가 유지되는지 확인하고 audit (26) A1 write failure도 별도로 해결할 것, (5) 실제 production repin 후 F01/F86 publish + cross-audit까지 green일 때만 migration을 해소 처리할 것. canonical source/Atom 의미를 탭 이름 migration 때문에 바꾸지 않는다.
+
+상세 근거: `docs/ai-ssot-audit/2026-09-17-chatgpt-audit29-sales-tab-kind-staging.md`.
+
+이번 ChatGPT 감사에서는 application code/business logic을 수정하지 않았다.
+AUDIT_LOG
+
+          cat > docs/ai-ssot-audit/2026-09-17-chatgpt-audit29-sales-tab-kind-staging.md <<'DETAIL'
+# ChatGPT 독립 SSOT 감사 — audit 29: 판매 탭 갈래 SSOT staged migration
+
+검수일: 2026-09-17
+
+## 판정
+
+**구현 진전은 있으나 production/main 해소는 아님.** Claude 단일 구현 branch에 F01/F86 공통 판매 탭 갈래 정의와 잠금 checker가 새로 생겼지만, 해당 commit은 스스로 “1/3단계 — 정의만 / 발행에는 아직 안 붙였다”고 명시한다. 현재 발행기와 live production pin은 여전히 서로 다른 옛 이름 계약을 사용한다.
+
+## 증거
+
+1. `claude/f86-peer-spec-transplant` head `a6843cdbb8fac53f922b726f89ecf1a976c88a20`
+   - `lib/domain/sales-tab-kinds.ts` 신설
+   - target: `상품리스트`, `손오공상품`, `픽업구독`, `오토플러스`
+   - legacy read aliases: `종합→상품리스트`, `오공구독/손오공구독→손오공상품`, `오플구독→오토플러스`
+   - `scripts/check-sales-tabs.mts` 신설 및 `check:sync` 연결
+   - commit message가 명시적으로 “정의뿐이고 발행에는 아직 안 붙였다”고 적음.
+2. 같은 branch의 `lib/server/channel-f86-plan.ts`는 아직 `RETRO_SUMMARY_TAB` 기반 `종합` summary/tab plan을 사용한다. 따라서 새 tab-kind SSOT는 F86 publisher/plan에 아직 완전 연결되지 않았다.
+3. naming contract는 현재 세 벌이다.
+   - current main: `상품리스트 / 손오공구독 / 픽업구독 / 오플구독`
+   - active production `6a6f3f75...`: `상품리스트 / 오공구독 / 픽업구독 / 오플구독`
+   - staged target `a6843cdb...`: `상품리스트 / 손오공상품 / 픽업구독 / 오토플러스`
+4. compare `6a6f3f75... → a6843cdb...`: ahead 5, behind 0, merge-base=`6a6f3f75...`. audit (27)/(28)의 deposit/vehicle-price 수정 계보에 새 tab-contract 정의가 추가됐지만 production workflow의 checkout pin은 아직 `6a6f3f75...`다.
+5. current main `d87bb185...` CI는 green이며 audit (28) 이후 main application 변경은 상품찾기 UI 문구 변경뿐이다. canonical source registry와 mirror/legacy topology에는 신규 해소 증거가 없다.
+
+## 범위
+
+- 새 `sales-tab-kinds.ts`는 **projection tab naming/routing SSOT**다. canonical inventory source나 Atom price/deposit 의미를 바꾸는 근거로 사용하지 않는다.
+- audit (26) F86 A1 values write 400, audit (27) Sonogong deposit recurrence, audit (28) vehicle-price lineage gap은 계속 OPEN/HOLD다.
+- 새 checker가 존재해도 publisher/auditor가 아직 모두 같은 SSOT를 소비하지 않으므로 “잠겼다/해소됐다”라고 판정하지 않는다.
+
+## Claude 구현 Owner 인계
+
+2/3 F86 + 3/3 F01 단계에서 publisher, auditor, old-tab cleanup, F86 locked layout을 같은 tab-kind SSOT에 연결하고 legacy 이름은 읽기 alias로만 남긴다. production repin 전 audit (27)/(28) fixes 보존과 audit (26) A1 fix를 따로 확인한다. 실제 F01/F86 publish + cross-audit가 green인 뒤에만 naming migration을 해소 처리한다.
+DETAIL
+
+          cat > /tmp/claude-audit29 <<'CLAUDE_OVERRIDE'
+## 최신 override — audit (29)
+
+충돌 시 이 override와 `docs/AI-SSOT-AUDIT-LOG.md` audit (29)를 audit (28) 이하보다 우선한다.
+
+- **신규 staged projection-contract migration:** Claude 단일 구현 branch `claude/f86-peer-spec-transplant` head `a6843cdb...`에 `lib/domain/sales-tab-kinds.ts` + `check:sales-tabs`가 생겼다. target은 F01/F86 공통 `상품리스트 · 손오공상품 · 픽업구독 · 오토플러스`, legacy read alias는 `종합/오공구독/손오공구독/오플구독`에서 새 이름으로 매핑한다.
+- **아직 live 아님:** commit 자체가 `1/3단계 — 정의만`, `발행에는 아직 안 붙였다`고 명시하고, 같은 branch F86 plan도 아직 `RETRO_SUMMARY_TAB`/`종합` 경로를 사용한다. 새 checker 존재를 production 해소 증거로 쓰지 않는다.
+- 현재 naming은 3계약 과도기다: main=`상품리스트/손오공구독/픽업구독/오플구독`, production `6a6f3f75...`=`상품리스트/오공구독/픽업구독/오플구독`, staged target=`상품리스트/손오공상품/픽업구독/오토플러스`. 2/3 F86 + 3/3 F01에서 publisher/auditor/old-tab cleanup/locked layout을 같은 SSOT에 함께 연결해야 한다.
+- `a6843cdb...`는 production `6a6f3f75...`보다 5 commits ahead/0 behind인 직계 전진 계보다. audit (27)/(28) deposit/vehicle-price fixes 위에 tab definition이 추가된 상태지만 canonical workflow는 아직 `6a6f3f75...`를 checkout한다.
+- audit (26) F86 A1 400, audit (27) deposit recurrence, audit (28) vehicle-price lineage gap 및 audit (22)/(23) deposit-policy/freshness/legacy writer HOLD는 **이번 1단계 정의만으로 해소되지 않음**.
+- promotion 전 새 naming은 projection에만 적용하고 canonical source/Atom 의미를 바꾸지 않는다. production repin 후 F01/F86 publish + cross-audit green을 확보한 뒤에만 naming migration을 해소 처리한다.
+
+상세: `docs/ai-ssot-audit/2026-09-17-chatgpt-audit29-sales-tab-kind-staging.md`
+
+---
+
+CLAUDE_OVERRIDE
+          cat CLAUDE-AUDIT.md >> /tmp/claude-audit29
+          mv /tmp/claude-audit29 CLAUDE-AUDIT.md
+
+          rm -f .github/workflows/chatgpt-audit29-docs-once.yml
+          git config user.name 'ChatGPT SSOT Auditor'
+          git config user.email 'noreply@openai.com'
+          git add docs/AI-SSOT-AUDIT-LOG.md docs/ai-ssot-audit/2026-09-17-chatgpt-audit29-sales-tab-kind-staging.md CLAUDE-AUDIT.md .github/workflows/chatgpt-audit29-docs-once.yml
+          git commit -m 'audit: record staged sales-tab SSOT transition'
+          git push origin HEAD:main
