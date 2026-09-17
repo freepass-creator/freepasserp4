@@ -252,7 +252,9 @@ export default function EstimateApp({ surface = "work" }: { surface?: EstimateSu
    * ★첫 그림은 «캐시»로 즉시 그리고(대여료가 서 있어야 한다), 곧바로 **회사 값**을 받아 덮는다.
    */
   const [cost, setCost] = useState(() => cachedCost());
-  const [fee, setFee] = useState(() => cachedCost().salesFeePct);
+  /* ★손님 화면은 **수수료 7% 고정**(사장님 2026-09-17 「수수료 7%에 세팅해놓으면 되고」) — 칸을 보지도 고치지도 않는다. */
+  const GUEST_FEE_PCT = 7;
+  const [fee, setFee] = useState(() => (surface === 'guest' ? GUEST_FEE_PCT : cachedCost().salesFeePct));
   /**
    * ★★**원가를 보는 사람인가** — 관리자·공급사만 참이다(SSOT = `lib/domain/estimate/audience`).
    *   거짓이면 원가 설정을 **받아 오지도 않고**, 대여료는 서버가 세서 값만 받는다.
@@ -323,7 +325,7 @@ export default function EstimateApp({ surface = "work" }: { surface?: EstimateSu
   useEffect(() => {
     if (!canCost) return;
     let alive = true;
-    fetchSharedCost().then((r) => { if (alive) { setCost(r.cost); setFee(r.cost.salesFeePct); } }).catch(() => {});
+    fetchSharedCost().then((r) => { if (alive) { setCost(r.cost); if (!guest) setFee(r.cost.salesFeePct); } }).catch(() => {});
     return () => { alive = false; };
   }, [canCost]);
 
@@ -1151,7 +1153,9 @@ export default function EstimateApp({ surface = "work" }: { surface?: EstimateSu
                내용 폭대로 흐르게 했다 — 격자에 맞추니 「10 %」 하나가 칸을 다 먹어 늘어났다.
              ★보증금·선납은 여기서 바꾸면 다섯 칸이 한꺼번에 따라온다(칸마다 따로도 잡는다). ══ */}
         <div className="qp-terms__title">조건 <small>· 보증금·선납은 다섯 칸에 한꺼번에</small></div>
-        {condRow}
+        {/* ★「손님들이 보는건 다 필요없어 그냥 **어떤 차가 얼마구나** 이거만 알면돼」(사장님 2026-09-17).
+            조건(렌트/구독·반납/인수·신용·보증금·선납)은 기본값으로 두고 **칸을 안 그린다.** */}
+        {guest ? null : condRow}
 
         {/* ══ 1년 ~ 5년 — **가로로 쭉**(폰에서는 위아래로) ═══════════════════════════
                사장님 2026-09-08 「**1~5년은 가로로 쭉** 나와야지」 · 「**모바일에서는 그게 위아래로 분리**되는 거고」
@@ -1167,31 +1171,38 @@ export default function EstimateApp({ surface = "work" }: { surface?: EstimateSu
                이름 칸부터 지나가야 한다(사장님 2026-09-08 「입력칸들 동선 안 꼬이게」).
              ⚠ 원본 웰릭스는 이 줄이 위에 있다 — 거기서는 조건이 넷뿐이라 위든 아래든 같았다.
                우리는 조건이 세 단이라 차례가 뜻을 갖는다. ══ */}
-        <div className="qp-terms__title">손님 · 담당자 <small>· 견적서에 찍힙니다</small></div>
-        <div className="cs-form">
-          <div className="cs-field">
-            <label>손님</label>
-            <input value={custName} onChange={(e) => setCustName(e.target.value)} placeholder="VIP 고객" />
+        {/* ★손님 자리에는 **이름칸도 견적서도 없다** — 사장님 2026-09-17
+            「그냥 손님이 보는 용이야 **견적서 보내고 이런거 뭐 없고**」.
+            손님은 스스로 차를 고르고 값만 본다 — 보내는 일은 우리 화면(`/estimate`)이 한다. */}
+        {guest ? null : (
+          <>
+          <div className="qp-terms__title">손님 · 담당자 <small>· 견적서에 찍힙니다</small></div>
+          <div className="cs-form">
+            <div className="cs-field">
+              <label>손님</label>
+              <input value={custName} onChange={(e) => setCustName(e.target.value)} placeholder="VIP 고객" />
+            </div>
+            <div className="cs-field">
+              <label>담당자</label>
+              <input value={staffName} onChange={(e) => setStaffName(e.target.value)} placeholder="홍길동 과장" />
+            </div>
+            <div className="cs-field">
+              <label>연락처</label>
+              <input value={staffTel} onChange={(e) => setStaffTel(fmtTel(e.target.value))}
+                placeholder="010-0000-0000" inputMode="tel" />
+            </div>
           </div>
-          <div className="cs-field">
-            <label>담당자</label>
-            <input value={staffName} onChange={(e) => setStaffName(e.target.value)} placeholder="홍길동 과장" />
-          </div>
-          <div className="cs-field">
-            <label>연락처</label>
-            <input value={staffTel} onChange={(e) => setStaffTel(fmtTel(e.target.value))}
-              placeholder="010-0000-0000" inputMode="tel" />
-          </div>
-        </div>
 
-        {/* ★손님에게 나가는 길 — 체크한 기간만 담아 견적서로 편다. */}
-        <div className="qdock">
-          <button type="button" className="qdock__go" disabled={!priceKnown || !quoteDoc.lines.length}
-            onClick={() => setDocOpen(true)}>
-            견적서 보기
-            <em>{quoteDoc.lines.length ? `${quoteDoc.lines.length}개 기간` : '보낼 기간을 체크하세요'}</em>
-          </button>
-        </div>
+          {/* ★손님에게 나가는 길 — 체크한 기간만 담아 견적서로 편다. */}
+          <div className="qdock">
+            <button type="button" className="qdock__go" disabled={!priceKnown || !quoteDoc.lines.length}
+              onClick={() => setDocOpen(true)}>
+              견적서 보기
+              <em>{quoteDoc.lines.length ? `${quoteDoc.lines.length}개 기간` : '보낼 기간을 체크하세요'}</em>
+            </button>
+          </div>
+          </>
+        )}
 
         {/* ⚠ 원가를 못 보는 사람에게 「원가설정」 링크를 주지 않는다 — 눌러도 막히는 문이고,
                우리 원가 화면이 있다는 것을 굳이 알릴 자리도 아니다. */}
