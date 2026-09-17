@@ -217,15 +217,18 @@ must(/if \(!admin\) return NextResponse\.json\(\{ error: 'forbidden' \}/.test(co
 must(/const OWN_HEADER_PREFIXES = \['\/estimate'\] as const;/.test(guestSurface),
   '견적이 ERP 상단바를 다시 입고 있습니다 — 「별도 페이지」가 규격입니다',
   'lib/guest-surface.ts');
-/* ★★머리 띠가 «없는» 것이 규격이다 — 사장님 2026-09-08
-     「**상단바 없고 그냥 이거 자체가 별도 페이지야**」.
-   ERP 상단바도, 견적기 «자체» 머리 띠(`.global-topbar`)도 없다. 화면이 곧 페이지다.
-   ★길은 끊기지 않았다 — 견적은 맨 아래 주석 줄의 「원가설정」, 원가는 「← 견적으로」 한 줄.
-   ⚠ 판의 «행»도 하나여야 한다 — 원본은 `48px 1fr`(첫 행이 머리 자리)이라, 머리를 걷고 그 행을
-     그대로 두면 왼쪽 기둥이 48px 칸에 갇혀 통째로 잘린다(2026-09-08 실측으로 잡음). */
-must(!/className="global-topbar"/.test(page) && !/className="global-topbar"/.test(costPage),
-  '머리 띠가 다시 섰습니다 — 「그냥 이거 자체가 별도 페이지」가 규격입니다',
-  'app/estimate/**/page.tsx');
+/* ★★**머리 띠가 «있는» 것이 규격이다** — 사장님 2026-09-17
+     「일단 웰릭스 거 UI UX에 **그대로 맞추고 색깔만 우리 걸로 남색으로** 맞추면 될 것 같아」.
+   웰릭스 테이블 원본의 `.global-topbar`(높이 48 · 아래 선 하나 · 왼쪽 이름 · 오른쪽 `.gt-btn`) 짜임이다.
+   ⚠ 2026-09-08 에는 반대였다(「상단바 없고 그냥 이거 자체가 별도 페이지야」). **뒤엣것이 이긴다.**
+   ★★단 **브랜드 표식은 안 세운다**(CLAUDE.md 노브랜드) — 웰릭스는 CI 를 세우지만 우리는 화면 이름만.
+   ⚠ 판의 행이 `48px 1fr` 이라 띠를 다시 걷을 때는 **행도 같이** 걷어야 한다(2026-09-08 실측). */
+must(/className="global-topbar"/.test(page),
+  '머리 띠가 없습니다 — 웰릭스 테이블 짜임(머리 48 · 오른쪽 동작들)이 규격입니다(2026-09-17)',
+  'features/estimate/EstimateApp.tsx .global-topbar');
+must(!/global-topbar__brand[^<]*<img|welrix-ci|프리패스<\/|freepass<\//i.test(page),
+  '머리 띠에 브랜드 표식이 섰습니다 — 노브랜드입니다(화면 이름만 씁니다)',
+  'features/estimate/EstimateApp.tsx .global-topbar__brand');
 must(/\.wx-root \{ grid-template-rows: 1fr; \}/.test(wxCss),
   '판의 행이 아직 «머리 자리»를 남기고 있습니다 — 왼쪽 기둥이 48px 에 갇혀 잘립니다',
   'components/estimate/welrix.css');
