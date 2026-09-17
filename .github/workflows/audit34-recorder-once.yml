@@ -1,0 +1,93 @@
+name: One-shot audit 34 recorder
+
+on:
+  push:
+    paths:
+      - '.github/workflows/audit34-recorder-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Append audit 34 and refresh Claude entry point
+        shell: bash
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          log = Path('docs/AI-SSOT-AUDIT-LOG.md')
+          text = log.read_text(encoding='utf-8')
+          marker = '## 2026-09-17(34) — ChatGPT 독립 감사: ERP5 머리띠 source alignment 개선, newest-Atom freshness의 cohort 오인 위험 HOLD'
+          entry = r'''
+
+---
+
+## 2026-09-17(34) — ChatGPT 독립 감사: ERP5 머리띠 source alignment 개선, newest-Atom freshness의 cohort 오인 위험 HOLD
+
+**판정: 의미 있는 observability 개선 + 신규 freshness 의미 HOLD. audit (33)의 RP031 promotion HOLD와 audit (31)의 canonical schedule-delivery OPEN은 그대로 유지한다.**
+
+- PR #375 / merge `8b7a417578e6e2b2b2fac673588cf1b0db9e59a9`는 손님 화면의 갱신시각을 ERP4 `v4/system_status/sheet_daily_sync`·`v4/ops/pipeline`에서 떼어내고, 실제 화면이 소비하는 ERP5 `products` Atom의 `_direct_ingest_at` / `_var_polled_at`으로 옮겼다. **재고 화면과 시각 source가 서로 다른 문제는 이 UI 경로에서 개선됐다.**
+- 다만 current `readErp5StockFreshness()`는 두 필드 각각 `orderBy(desc).limit(1)`만 읽고 그 둘의 최대값을 반환한다. 즉 **전체 재고/snapshot의 freshness가 아니라 가장 최근에 쓰인 Atom 최대 2개의 시각**이다. 부분 ingest나 한 공급사 갱신만으로도 시각은 앞으로 갈 수 있으므로 canonical full-run freshness 또는 F01/F86 cohort completeness의 증거로 사용하면 안 된다.
+- PR #375 자체 실측도 운영 Atom 1,615대 중 `_direct_ingest_at` 1,153대, `_var_polled_at` 897대로 field별 coverage가 전량이 아님을 기록한다. 같은 계보의 전수 진단은 newest/median/oldest, timestamp coverage, stale 분포를 별도로 계산한다. 머리띠의 newest 값과 전수 freshness 의미를 분리해야 한다.
+- canonical `.github/workflows/erp5-ssot-refresh.yml`은 여전히 production pin `9bef7bf0ffd21a96e3098a6f31adf1b1a0258c60`과 월~토 KST 09:05~19:05 cron을 선언한다. PR #375 기록은 2026-09-16 12:46 KST 이후 예약 실행이 없고 2026-09-17 10:04 Atom write가 GitHub Actions 기록 없는 수동 실행이라고 명시한다. 따라서 audit (31)의 **scheduled source→Atom→snapshot→F01/F86 delivery OPEN은 해소되지 않는다.**
+- audit (33) 이후 production workflow pin, canonical inventory registry, F01/F86 publisher, Sonogong/AutoPlus special-tab writer, mirror/RTDB writer topology를 바꾼 core SSOT 변경은 확인되지 않았다. canonical source는 RP006=`ironrentcar.com`, RP012=`sokrc.com/api`, RP023=RebornCar이며 RP031은 아직 Google Sheet canonical이다.
+- audit (23) F86 freshness checker contract drift, audit (27) Sonogong deposit recurrence guard, audit (28) vehicle-price lineage, audit (29) sales-tab naming migration, audit (31) schedule delivery, audit (33) RP031 parity/pricing provenance 및 legacy mirror/sales/settlement/RTDB ownership HOLD는 직접 해소 증거가 없어 유지한다.
+
+Claude 구현 Owner: ERP5 Atom을 화면 freshness source로 쓰는 방향은 유지하되, 현재 머리띠 의미를 **`가장 최근 원자 갱신`**으로 제한한다. 전체 재고 freshness가 필요하면 coverage/stale distribution 또는 검증된 canonical run/snapshot sentinel과 연결한다. 실제 `event=schedule` full-run이 source→Atom→snapshot→F01/F86 audit까지 green이 되기 전에는 schedule recovery나 inventory-cohort freshness로 닫지 않는다.
+
+상세 근거: `docs/ai-ssot-audit/2026-09-17-chatgpt-audit34-erp5-freshness-observability-gap.md` (evidence commit `0f359c8b48d89f3f5ed7b579a540db9882561716`).
+
+이번 ChatGPT 감사에서는 application code/business logic을 수정하지 않았다.
+'''
+          if marker not in text:
+              log.write_text(text.rstrip() + entry + '\n', encoding='utf-8')
+
+          claude = Path('CLAUDE-AUDIT.md')
+          old = claude.read_text(encoding='utf-8')
+          prefix = r'''# ChatGPT 독립 SSOT 감사 — audit (34) override (2026-09-17 23:22 KST)
+
+> 이 절이 audit (33) 및 이전 요약보다 우선한다. audit (31)의 schedule-delivery OPEN과 기존 HOLD는 유지한다.
+
+## 현재 판정
+
+- **freshness source alignment 개선:** PR #375 / merge `8b7a417578e6e2b2b2fac673588cf1b0db9e59a9`가 shop 갱신시각을 ERP4 별도 status 기록이 아니라 실제 화면이 읽는 ERP5 `products` Atom의 `_direct_ingest_at` / `_var_polled_at`에서 읽도록 바꿨다. 이 UI 경로의 source split은 해소됐다.
+- **신규 observability HOLD:** `readErp5StockFreshness()`는 두 timestamp field에서 각각 최신 문서 1개만 읽고 최대값을 반환한다. 이는 `가장 최근 원자 갱신`이지 전체 inventory cohort/snapshot/full-run freshness가 아니다. 부분 ingest만으로도 시각이 앞으로 갈 수 있으므로 canonical schedule 정상화 또는 F01/F86 최신성 증거로 사용하지 않는다.
+- PR #375 기록상 field coverage는 운영 1,615대 중 `_direct_ingest_at` 1,153대 / `_var_polled_at` 897대다. 전체 freshness 판단에는 coverage + stale distribution 또는 검증된 canonical run/snapshot sentinel이 별도로 필요하다.
+- production pin은 계속 `9bef7bf0ffd21a96e3098a6f31adf1b1a0258c60`; canonical cron 선언도 유지된다. PR #375 기록은 2026-09-16 12:46 KST 이후 예약 회차 부재와 2026-09-17 10:04 수동 Atom write를 확인한다. **audit (31) schedule-delivery OPEN은 유지한다.**
+- audit (33) RP031 status mapping/feeder 진전은 그대로이나 RP031은 아직 Google Sheet canonical이고 parity/금융값 promotion HOLD다. audit (23)/(27)/(28)/(29) 및 mirror/sales/settlement/RTDB ownership HOLD도 유지한다.
+
+## Claude 구현 Owner 우선순위
+
+1. ERP5 Atom freshness source 방향은 유지하고 ERP4 status timestamp와 다시 섞지 않는다.
+2. 현 머리띠를 `가장 최근 원자 갱신`으로 명확히 제한한다. 전체 재고 freshness로 표시하려면 coverage/stale distribution 또는 canonical run/snapshot sentinel을 함께 사용한다.
+3. 실제 `event=schedule` source→Atom→snapshot→F01/F86 full-run green 전에는 audit (31)을 닫지 않는다.
+4. RP031/API feeder, deposit recurrence, vehicle-price, F86 checker, sales-tab migration 등 기존 HOLD는 각각의 promotion 증거가 생길 때만 닫는다.
+
+상세: `docs/ai-ssot-audit/2026-09-17-chatgpt-audit34-erp5-freshness-observability-gap.md`
+
+---
+
+'''
+          if not old.startswith('# ChatGPT 독립 SSOT 감사 — audit (34) override'):
+              claude.write_text(prefix + old, encoding='utf-8')
+
+          wf = Path('.github/workflows/audit34-recorder-once.yml')
+          if wf.exists():
+              wf.unlink()
+          PY
+      - name: Commit audit-only changes and self-remove recorder
+        shell: bash
+        run: |
+          git config user.name 'freepass-creator'
+          git config user.email 'dudguq@gmail.com'
+          git add docs/AI-SSOT-AUDIT-LOG.md CLAUDE-AUDIT.md .github/workflows/audit34-recorder-once.yml
+          git diff --cached --quiet && exit 0
+          git commit -m 'audit: register audit 34 freshness observability hold'
+          git push origin HEAD:main
