@@ -18,6 +18,7 @@
  * ⚠ 기계마다 빠르기가 다르므로 예산은 **넉넉히** 잡는다 — 잡으려는 것은 「조금 느려짐」이 아니라
  *   **「열 배 느려짐」**이다. 예산을 조이면 CI 가 남의 기계 사정으로 빨개져 아무도 안 믿게 된다.
  */
+import { readFileSync } from 'node:fs';
 import { runShopQuery, emptyQuery, toggleAxis, SHOP_SORTS } from '../lib/shop/query';
 import type { EntityRecord } from '../lib/intake/entities';
 
@@ -160,6 +161,47 @@ for (const [name, q] of cases) {
   const per = parsed / ROWS;
   console.log(`   ${per <= 0.05 ? '·' : '✗'} 다시 누름     사진 주소 뜯기 줄당 ${per.toFixed(2)}번`);
   if (per > 0.05) fails.push(`다시 누름 — 사진 주소를 줄당 ${per.toFixed(1)}번 새로 뜯었다 (차가 그대로면 0 이어야 한다 · product-photos 캐시)`);
+}
+
+/*
+ * ㉣ **목록이 «안 쓰는 것»을 들고 오나** — 2026-09-17 사장님 「빠릿빠릿한지 이런 게 좀 중요」.
+ *
+ * ⚠ 운영 실측(746대) — 목록 응답 gzip 300KB 중 `image_urls`(상세 갤러리용 사진 열 장)가
+ *   빼면 **126KB(-58%)** 가 되는 몫이었다. 주소가 난수라 압축이 안 먹어, 원문 39% 가
+ *   거의 그대로 전선을 탄다. 카드는 사진을 **한 장**만 그린다.
+ * ★이건 «셈»이 아니라 «무게»라 위 예산으로는 절대 안 잡힌다 — 그래서 따로 본다.
+ *   자르는 자리는 목록 문(`loadGuestListing`)이다. 정제기에서 자르면 상세 갤러리가 같이 죽는다.
+ */
+{
+  const listing = readFileSync(new URL('../lib/server/guest-listing.ts', import.meta.url), 'utf8');
+  const catalog = readFileSync(new URL('../lib/domain/public-catalog.ts', import.meta.url), 'utf8');
+  const quote = readFileSync(new URL('../lib/server/guest-quote.ts', import.meta.url), 'utf8');
+  if (!/slimForList\s*\(\s*sanitizeProductForGuest/.test(listing)) {
+    fails.push('목록 문 — `loadGuestListing` 이 `slimForList` 를 안 지난다 (사진 열 장이 목록에 그대로 실린다 · public-catalog `slimForList` 머리말)');
+  }
+  if (!/image_urls:\s*_drop/.test(catalog)) {
+    fails.push('`slimForList` — `image_urls` 를 안 떼고 있다 (떼는 칸이 바뀌면 이 검사도 같이 고친다)');
+  }
+  if (/slimForList/.test(quote)) {
+    fails.push('상세 — `guest-quote` 가 `slimForList` 를 쓴다. 상세 갤러리는 사진 열 장을 다 써야 한다');
+  }
+}
+
+/*
+ * ㉤ **사진을 «칸보다 크게» 받아 오나** — `sizes` 는 브라우저가 몇 px 짜리를 받을지 고르는 근거다.
+ *
+ * ⚠ 운영 실측(2026-09-17 웹 1440) — 카드 칸은 297px 인데 `33vw`(475px)라 적혀 있어 **640px**
+ *   사진을 받았다(픽셀로 4.6배). 웹 목록은 본문이 1280 에서 멈추고 조건칸(260)을 빼고 셋으로
+ *   나누므로 **화면이 아무리 넓어도 320 을 안 넘는다** — 여기는 «화면 비율»이 아니라 «상한»이다.
+ * ★폰(`100vw`)은 맞다 — 칸이 진짜 화면 폭이다. 그래서 웹 쪽만 본다.
+ */
+{
+  const ui = readFileSync(new URL('../components/shop/shop-ui.tsx', import.meta.url), 'utf8');
+  const m = ui.match(/card:\s*'\(max-width:\s*760px\)\s*100vw,\s*([^']+)'/);
+  if (!m) fails.push('PHOTO_SIZES.card — 폰 100vw · 웹 상한 꼴이 아니다 (모양이 바뀌면 이 검사도 같이 고친다)');
+  else if (/vw/.test(m[1])) {
+    fails.push(`PHOTO_SIZES.card 웹 쪽이 «${m[1].trim()}» — 화면 비율(vw)로 적혀 있다. 웹 칸은 320px 가 상한이라 vw 로 적으면 늘 크게 받는다`);
+  }
 }
 
 if (fails.length) {

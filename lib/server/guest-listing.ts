@@ -1,7 +1,7 @@
 import 'server-only';
 
 import { readWhitelabelCatalogFromErp5 } from '@/lib/server/whitelabel-erp5-catalog';
-import { sanitizeAgentForGuest, sanitizeProductForGuest } from '@/lib/domain/public-catalog';
+import { sanitizeAgentForGuest, sanitizeProductForGuest, slimForList } from '@/lib/domain/public-catalog';
 import { isListableProduct } from '@/lib/domain/product';
 import { matchAgentByShareCode } from '@/lib/domain/product-share';
 import { companyAlias } from '@/lib/domain/identity';
@@ -57,7 +57,12 @@ export async function loadGuestListing(options: { providerCode?: string; share?:
     // 목록에 실을 수 있는 것만 — 판정은 앱과 같은 SSOT 를 쓴다.
     if (!isListableProduct(merged)) continue;
     const policy = policies.find((value) => S(value.policy_code) === S(p.policy_code) || S(value._key) === S(p.policy_code)) || null;
-    products.push(sanitizeProductForGuest(key, p, policy));
+    /*
+     * ★목록은 «사진 한 장»만 싣는다(`slimForList` 머리말) — 상세 갤러리용 열 장을 빼면
+     *   응답이 gzip 300KB → 126KB 로 준다(2026-09-17 운영 746대 실측).
+     *   자르는 자리가 여기인 이유: 정제기(`sanitizeProductForGuest`)는 상세도 같이 쓴다.
+     */
+    products.push(slimForList(sanitizeProductForGuest(key, p, policy)));
   }
 
   /*
