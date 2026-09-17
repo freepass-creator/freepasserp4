@@ -64,26 +64,41 @@ function dump(label: string) {
   seen.clear();
 }
 
-// 1) 로그인
+// 1) 로그인 — Cloudflare 챌린지 등으로 첫 시도가 씹힐 수 있어 로그인 성공(URL이 /login을 벗어남)까지 최대 3회 재시도한다.
 console.log('■ /login 이동 및 로그인');
-await page.goto(`${HOME}/login`, { waitUntil: 'networkidle', timeout: 30_000 });
-await page.waitForTimeout(1000);
-const inputs = page.locator('input');
-await inputs.nth(0).fill(account.email);
-await inputs.nth(1).fill(account.password);
-await Promise.all([
-  page.waitForLoadState('networkidle', { timeout: 15_000 }).catch(() => {}),
-  inputs.nth(1).press('Enter'),
-]);
-await page.waitForTimeout(1500);
-dump('로그인 직후');
-console.log(`■ 로그인 뒤 URL: ${page.url()}`);
+let loggedIn = false;
+for (let attempt = 1; attempt <= 3 && !loggedIn; attempt++) {
+  await page.goto(`${HOME}/login`, { waitUntil: 'networkidle', timeout: 30_000 });
+  await page.waitForTimeout(1500);
+  const inputs = page.locator('input');
+  await inputs.nth(0).fill(account.email);
+  await inputs.nth(1).fill(account.password);
+  const loginButton = page.getByRole('button', { name: '로그인', exact: true }).first();
+  try {
+    await Promise.all([
+      page.waitForURL((url) => !url.pathname.includes('/login'), { timeout: 15_000 }).catch(() => {}),
+      loginButton.count().then((c) => (c ? loginButton.click({ timeout: 5000 }) : inputs.nth(1).press('Enter'))),
+    ]);
+  } catch (e) {
+    console.log(`■ 로그인 시도 ${attempt} 중 에러: ${(e as Error).message}`);
+  }
+  await page.waitForTimeout(1500);
+  loggedIn = !page.url().includes('/login');
+  console.log(`■ 로그인 시도 ${attempt} 뒤 URL: ${page.url()} (성공=${loggedIn})`);
+}
+dump('로그인 시도 전체');
+if (!loggedIn) {
+  console.log('■ 로그인 실패 — 중단');
+  await screenshot('pricing-00-login-failed');
+  await browser.close();
+  process.exit(1);
+}
 
 // 2) 계약(약정)기간 칩을 하나씩 눌러본다
 const periods = ['1개월', '3개월', '5개월', '12개월', '24개월', '36개월', '48개월', '60개월'];
 for (const p of periods) {
   const chip = page.getByText(p, { exact: true }).first();
-  const count = await chip.count();
+  const count = await chip.count().catch(() => 0);
   if (!count) {
     console.log(`■ "${p}" 칩을 못 찾음`);
     continue;
@@ -101,7 +116,7 @@ await screenshot('pricing-01-after-period-clicks');
 // 3) 차량 카드 하나를 눌러 상세로 들어가본다
 console.log('\n■ 차량 카드 클릭 시도');
 const cardLink = page.locator('a').filter({ hasText: /레이|아반떼|투싼|K5|그랜저|카니발|스포티지|쏘렌토/ }).first();
-const cardCount = await cardLink.count();
+const cardCount = await cardLink.count().catch(() => 0);
 if (cardCount) {
   const href = await cardLink.getAttribute('href');
   console.log(`■ 카드 링크 href=${href}`);
@@ -117,7 +132,7 @@ if (cardCount) {
   // 상세 페이지에서도 기간 칩이 있으면 눌러본다
   for (const p of periods) {
     const chip = page.getByText(p, { exact: true }).first();
-    const count = await chip.count();
+    const count = await chip.count().catch(() => 0);
     if (!count) continue;
     try {
       await chip.click({ timeout: 5000 });
