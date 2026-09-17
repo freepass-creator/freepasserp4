@@ -1,3 +1,17 @@
+## 최신 override — audit (27)
+
+충돌 시 이 override와 `docs/AI-SSOT-AUDIT-LOG.md` audit (27)를 audit (26) 이하보다 우선한다.
+
+- **audit (26) 정정/보강:** run `35169123131`에서 live RP012 Atom이 숫자 보증금 0대/규칙글자 불일치 0대이고 snapshot gate가 PASS한 사실은 그대로 맞다. 그러나 이것은 ingest recurrence까지 해소됐다는 뜻이 아니다.
+- Claude feature-branch commit `e5fac1b40de282f0a59dc22a39cc42a2e01de8d3`에서 production pin `6a6f3f75...` 계보의 ingest를 다시 돌리자 **274대에 옛 숫자 보증금이 재생성되는 경로가 실제 재현**됐다. 두 price-write 지점 중 하나가 기존 값을 되살렸다.
+- `e5fac1b...`는 `levelDepositsForRuleText()` 쓰기 직전 guard를 두 ingest write 지점에 적용하고 heal → 동일 ingest 재실행 후 violation 0을 검증했다. 하지만 `6a6f3f75...`보다 3 commits ahead인 feature-branch commit이며 current main에도 이 함수가 없다.
+- current canonical `erp5-ssot-refresh.yml`은 아직 `6a6f3f75...`를 checkout한다. workflow가 다시 enabled되거나 같은 pin ingest를 실행하면 recurrence risk는 미해소다. F86-only emergency writer의 heal-before-gate는 그 경로의 완충책일 뿐 canonical ingest fix가 아니다.
+- **보증금 publication gate는 유지한다.** 구현 Owner는 `e5fac1b...`의 normalization guard만 current production lineage에 선택적으로 이식하고 `heal → ingest --apply → snapshot`에서 `depositRuleViolations=0`을 다시 증명한다.
+- audit (26)의 F86 A1 range-addressing HTTP 400 blocker는 별도 OPEN으로 유지한다. audit (22) deposit-policy 이중정의, audit (23) freshness checker drift/workflow disabled, legacy sales/mirror/settlement/credential/RP023/pickup-color HOLD도 유지한다.
+
+상세 근거: `docs/ai-ssot-audit/2026-09-17-chatgpt-audit27-sonogong-deposit-recurrence.md`.
+
+---
 ## 최신 override — audit (26)
 
 충돌 시 이 override와 `docs/AI-SSOT-AUDIT-LOG.md` audit (26)를 audit (25) 이하보다 우선한다.
