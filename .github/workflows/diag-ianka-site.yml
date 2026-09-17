@@ -1,0 +1,23 @@
+name: 이안카 사이트 구조 진단(읽기전용, 수동)
+
+# scripts/diag-ianka-site.mts 를 실행하는 1회성 진단 버튼.
+# ianka.com 을 읽기만 한다 — 아무 자격증명도 안 쓴다.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - name: 이안카 사이트 구조 진단
+        run: npx tsx scripts/diag-ianka-site.mts
