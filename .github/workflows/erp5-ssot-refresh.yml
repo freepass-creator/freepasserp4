@@ -76,7 +76,14 @@ jobs:
           #   ㉫ 그 규격을 «발행 문지기»에 박았다 — inventory-contract 에 depositRuleViolations 추가.
           #      규격 어긴 원자로는 스냅샷 캡처·F01·F86 세 곳이 다 멈춘다(누가 되살려도 시트로 못 나간다).
           #   ⚠ 스냅샷 스키마가 바뀌어(카운터 1개) 이전 스냅샷 파일은 무효 — 무결성 검사가 잡는다.
-          ref: 6a6f3f75c065143ad14286d08baa28e382535eea
+          # ★2026-09-17(10) — 긴급수정. 이 ref로 F86 발행이 2026-09-16 밤부터 8회 연속 실패했다:
+          #   salesPublishTabMark()가 초까지 찍어 탭 이름에 콜론이 둘(예 10:05:11) 들어갔고,
+          #   그 이름을 싱글쿼트로 감싼 A1 범위(`'종합 09.17 10:05:11 · 391대'!A1`)를 Sheets API가
+          #   "Unable to parse range"로 거부했다(run 35164517528·35165360537·35167771132·
+          #   35169013858·35169123131 등). F01 발행기(make-sample-sheet-google.mts titleOf)는 이미
+          #   `.replace(/:\d{2}$/, '')`로 초를 잘라 콜론 하나만 남기고 있었다 — F86만 빠져 있었다.
+          #   같은 꼴(시:분만)로 맞춘 커밋으로 재고정. 데이터/판정 로직은 안 건드렸다.
+          ref: 9bef7bf0ffd21a96e3098a6f31adf1b1a0258c60
       - name: freepasserp5 OIDC 인증
         uses: google-github-actions/auth@v2
         with:

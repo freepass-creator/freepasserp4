@@ -89,6 +89,12 @@ const VALIDATED_ENGINES = [
    *   ★fail-closed 가드 셋과 canonical registry·원천 주소는 그대로다 — 43~49행 검사가 통과한다.
    */
   '6a6f3f75c065143ad14286d08baa28e382535eea',
+  /**
+   * ★2026-09-17 — 긴급수정. F86 탭 이름 시각 문패의 초를 뗐다(콜론 두 개가 Sheets API A1 파싱을
+   * "Unable to parse range"로 깨뜨려 발행이 8회 연속 실패했다 — 위 erp5-ssot-refresh.yml 주석 참고).
+   * 수집기(ingest-all-suppliers·ingest-supplier-to-firestore)는 이번에도 안 건드렸다.
+   */
+  '9bef7bf0ffd21a96e3098a6f31adf1b1a0258c60',
 ];
 const pinnedEngine = VALIDATED_ENGINES.find((engine) => workflow.includes(`ref: ${engine}`));
 assert(pinnedEngine, '검증 엔진 pin이 제거됐습니다. main collector 이식 완료 전에는 pin을 풀면 안 됩니다(새 엔진은 VALIDATED_ENGINES 에 적는다).');
