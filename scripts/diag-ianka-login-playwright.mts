@@ -21,7 +21,7 @@ page.on('request', (req) => {
   const url = req.url();
   if (url.includes('/login') || url.includes('/api') || url.includes('/auth') || url.includes('/signin')) {
     const body = req.postData();
-    const masked = body ? body.replace(new RegExp(account.password!, 'g'), '***') : '';
+    const masked = body ? body.split(account.password!).join('***') : '';
     requests.push(`${req.method()} ${url}${masked ? ` body=${masked.slice(0, 300)}` : ''}`);
   }
 });
