@@ -217,11 +217,19 @@ export function todayKo(now: Date = new Date()): string {
  *   시트·하허호 시트는 규칙 글자로 나가는데 손님 화면만 «없다»고 한 것이다 — 그건 곧 약속이 된다.
  * ⇒ 금액이 있으면 금액 · 0인데 규칙 글자가 있으면 그 글자 · 둘 다 없으면 「보증금 없음」.
  *   「무보증」이라고 적힌 규칙은 말 그대로 없는 것이라 「보증금 없음」으로 둔다(색·굵기도 그대로).
+ *
+ * ★★**`rule` 을 같이 돌려준다 — 「금액」과 「문장」은 «폭이 다른 물건»이기 때문이다.**
+ *   금액은 「보증금 178만원」처럼 짧아 한 줄에 붙지만, 규칙은 「보증금 월 대여료 × 약정연수
+ *   (최대 3개월)」로 **210px** 이나 된다(웹 실측). 부르는 쪽이 둘을 같은 규칙으로 세우면
+ *   좁은 카드에서 문장이 칸을 넘어 **옆 카드 위로 흘러 글자가 겹친다**(2026-09-18 운영 실측:
+ *   창 900px · 카드폭 167px · 45px 넘침). 그래서 «무엇인지»를 여기서 알려 준다.
+ * ⚠ 자르라는 뜻이 아니다 — 보증금은 **안 자른다**(2026-09-05 확정: 「보증금 103만 5,…」로
+ *   끝이 잘려 있던 것을 그때 고쳤다). 넘치면 **줄을 바꾼다.**
  */
-export function depositLine(deposit: unknown, note: unknown, money: (n: unknown) => string): { text: string; none: boolean } {
+export function depositLine(deposit: unknown, note: unknown, money: (n: unknown) => string): { text: string; none: boolean; rule: boolean } {
   const amount = Number(deposit) || 0;
   const rule = String(note ?? '').trim();
-  if (amount > 0) return { text: `보증금 ${money(amount)}`, none: false };
-  if (rule && !/무보증/.test(rule)) return { text: `보증금 ${rule}`, none: false };
-  return { text: '보증금 없음', none: true };
+  if (amount > 0) return { text: `보증금 ${money(amount)}`, none: false, rule: false };
+  if (rule && !/무보증/.test(rule)) return { text: `보증금 ${rule}`, none: false, rule: true };
+  return { text: '보증금 없음', none: true, rule: false };
 }

@@ -323,8 +323,22 @@ export const ShopCard = memo(function ShopCard({ p, href, rank = 99 }: {
                   이게 대신한다(같은 사실을 두 번 말하지 않으면서 눈에는 선다).
                 ⚠ 보증금이 «있는» 차는 흐린 회색 그대로다. 금액마다 색을 주면 그건 강조가 아니라 소란이다.
               */}
+              {/*
+                ★★**금액은 안 접고, «규칙 문장»만 접는다.**
+                ⚠⚠ 2026-09-18 운영 실측 — 규칙 글자(「보증금 월 대여료 × 약정연수 (최대 3개월)」)가
+                  `nowrap` + `flex:0 0 auto` 라 **줄지도 접히지도 못하고 칸 밖으로 흘렀다.**
+                  창 900px 에서 카드폭 167px · 그 줄 210px → **45px 가 옆 카드 위로 넘어가** 글자가 겹쳤다
+                  (카드폭 210 미만, 즉 창 약 1010px 밑에서 늘 일어난다). 다른 줄은 다 … 처리가 돼 있었다.
+                ⇒ **자르지 않는다**(2026-09-05 확정 — 「보증금 103만 5,…」로 끝이 잘려 있던 것을 그때 고쳤다).
+                  규칙일 때만 **제 줄을 통째로 쓰고 자연스럽게 두 줄로 흐르게** 둔다.
+                  넓은 화면에서는 어차피 이 줄이 혼자 내려와 있어(실측 카드폭 297) 보이는 그림이 안 바뀐다.
+                ★금액(「보증금 178만원」)·「보증금 없음」은 그대로 한 줄이다 — 2026-09-04 「한 줄에 셋」이 산다.
+              */}
               <span style={{
-                fontSize: SHOP.fs.sub, flex: '0 0 auto', whiteSpace: 'nowrap',
+                fontSize: SHOP.fs.sub,
+                ...(dep && dep.rule
+                  ? { flex: '1 1 100%', minWidth: 0, whiteSpace: 'normal' as const }
+                  : { flex: '0 0 auto', whiteSpace: 'nowrap' as const }),
                 fontVariantNumeric: 'tabular-nums',
                 color: dep && dep.none ? C.ok : C.mute,
                 fontWeight: dep && dep.none ? 700 : 400,
