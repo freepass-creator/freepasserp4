@@ -13,7 +13,7 @@ const VIEWS = [
    * 예전 「엑셀」(우리가 그리던 표)을 **대체**한다 — 상품리스트의 정본이 시트라 우리가 흉내 낼 이유가 없다.
    * 키는 `excel` 그대로 둔다: 저장된 세션·즐겨찾기 링크가 그 값을 들고 있어서 바꾸면 뷰가 초기화된다.
    */
-  { key: 'excel', label: '시트', Icon: Sheet },
+  { key: 'excel', label: '엑셀', Icon: Sheet },
 ];
 
 type Props = {

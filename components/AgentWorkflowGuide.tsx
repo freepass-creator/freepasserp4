@@ -22,7 +22,7 @@ export function AgentWorkflowGuide() {
         </div>
       </div>
       <div className="fp-agent-workflow-actions">
-        <Btn title="ERP 안의 상품리스트 보기" onClick={() => { localStorage.setItem('fp4_finder_view_v2', 'excel'); window.location.assign('/finder'); }}>
+        <Btn title="ERP 안의 상품리스트 보기" onClick={() => { localStorage.setItem('fp4_finder_view_v3', 'excel'); window.location.assign('/finder'); }}>
           <ButtonLabel icon={<FileSpreadsheet size={ICON.md} aria-hidden />}>상품리스트 보기</ButtonLabel>
         </Btn>
         <Btn title="전자계약 만들기" variant="ghost" onClick={() => router.push('/esign')}>

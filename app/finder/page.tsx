@@ -59,7 +59,8 @@ const useIsoLayoutEffect = typeof window !== 'undefined' ? useLayoutEffect : use
  */
 type FinderView = 'card' | 'list' | 'excel';
 /** 판매시트 직접 보기로 전환한 뒤의 개인 보기 설정 키. 기존 카드/엑셀 설정은 한 번만 무시해 전원이 새 기본 화면을 본다. */
-const FINDER_VIEW_STORAGE_KEY = 'fp4_finder_view_v2';
+// v3: 이전에 저장된 카드/목록 선택을 한 번 무시하고 판매시트(엑셀) 보기를 기본으로 복귀한다.
+const FINDER_VIEW_STORAGE_KEY = 'fp4_finder_view_v3';
 function isFinderView(value: unknown): value is FinderView {
   return value === 'card' || value === 'list' || value === 'excel';
 }
