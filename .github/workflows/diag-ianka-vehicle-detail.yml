@@ -1,0 +1,25 @@
+name: 이안카 vehicle-detail API 확인(읽기전용, 수동)
+
+# scripts/diag-ianka-vehicle-detail.mts — /api/vehicle-detail·/api/vehicle-engagement 를 두들겨
+# 차량별 요금이 여기서 나오는지 확인한다(JS 번들 스캔에서 새로 찾은 경로, 2026-09-17).
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - name: 이안카 vehicle-detail API 확인
+        env:
+          IANKA_ACCOUNT_JSON: ${{ secrets.IANKA_ACCOUNT_JSON }}
+        run: npx tsx scripts/diag-ianka-vehicle-detail.mts
