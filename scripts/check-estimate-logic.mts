@@ -64,7 +64,7 @@ const carIndex = read('lib/domain/estimate/car-index.ts');
 const settings = read('lib/domain/estimate/cost-settings.ts');
 const turnover = read('lib/domain/estimate/turnover-cost.js');
 const quoteInput = read('lib/domain/estimate/quote-input.js');
-const page = read('app/estimate/page.tsx');
+const page = read('features/estimate/EstimateApp.tsx');
 const costPage = read('app/estimate/cost/page.tsx');
 const residual = read('lib/domain/estimate/residual-lookup.js');
 
@@ -110,7 +110,7 @@ must(/const fromLabel = ccFromFuelLabel\(fuel\);/.test(carIndex) && /if \(fromLa
   'lib/domain/estimate/car-index.ts guessCc');
 must(/const needCc = !picked\.cc;/.test(page) && /\{needCc \?/.test(page),
   '배기량이 없을 때 화면이 «묻지» 않습니다 — `Number(null)=0` 이라 자동차세가 조용히 0 으로 빠집니다',
-  'app/estimate/page.tsx needCc');
+  'features/estimate/EstimateApp.tsx needCc');
 
 /* ── 3-1. 손잡이가 겹치지 않게 ───────────────────────────────────────── */
 must(/markupUsedPct:\s*0,\s*markupNewPct:\s*0/.test(settings),
@@ -273,19 +273,19 @@ must(/inline\?: boolean;/.test(picker) && /est-picker inline/.test(picker),
        두고 하신 말이고, 지금은 왼쪽에서 고르고 끝난다. */
 must(/<VehicleCascade mode=\{cond\}/.test(page),
   '왼쪽이 «딱딱 눌러 이어지는» 차종 캐스케이드가 아닙니다 — 판을 박으면 왼쪽이 굵어집니다',
-  'app/estimate/page.tsx VehicleCascade');
+  'features/estimate/EstimateApp.tsx VehicleCascade');
 must(/id="sec-manufacturer"/.test(cascade) && /id="sec-model"/.test(cascade)
   && /id="sec-variant"/.test(cascade) && /id="sec-trim"/.test(cascade),
   '캐스케이드 칸 이름이 원본 것이 아닙니다 — 웰릭스 CSS 가 그 이름에 「라벨 96 + 한 줄」을 겁니다',
   'features/estimate/VehicleCascade.tsx');
 must(!/<CarPicker open inline/.test(page),
   '차 고르기 «판»이 왼쪽에 다시 박혔습니다 — 그게 「굵다」의 정체였습니다(2026-09-08)',
-  'app/estimate/page.tsx');
+  'features/estimate/EstimateApp.tsx');
 
 /* ㉣ 원본에 있던 것이 사라지지 않았나 — 손님·담당자 줄과 「손님 발송용 견적」 */
 must(/className="cs-form"/.test(page),
   '손님·담당자 줄이 없습니다 — 원본 `CustomerStaffForm` 자리입니다(견적서에 찍혀 나갈 이름)',
-  'app/estimate/page.tsx .cs-form');
+  'features/estimate/EstimateApp.tsx .cs-form');
 /* ★★2026-09-08 — 「기본 견적(고정 3장)」·「손님 발송용(자유 3열)」·「오른쪽 손익(기간 탭)」 셋을
      **다섯 줄 한 벌**로 합쳤다.
      사장님 「우측에서 **1년부터 5년까지 설계**되게끔 해주고, 각 기간별로 **수익이나 원가 볼 수 있게끔
@@ -293,7 +293,7 @@ must(/className="cs-form"/.test(page),
    ⇒ 같은 숫자를 세 군데서 세면 어디를 봐야 하는지가 흐려지고, 다섯 해를 나란히 못 견준다. */
 must(/className="qgrid"/.test(page),
   '1~5년이 «가로로» 서 있지 않습니다 — 다섯 해를 나란히 견주는 것이 이 화면의 일입니다',
-  'app/estimate/page.tsx .qgrid');
+  'features/estimate/EstimateApp.tsx .qgrid');
 must(/grid-template-columns: repeat\(5, minmax\(0, 1fr\)\)/.test(wxCss),
   '기간 칸이 다섯이 아닙니다 — 1년부터 5년까지 가로로 쭉 섭니다',
   'components/estimate/welrix.css .qgrid');
@@ -302,13 +302,13 @@ must(/@media \(max-width: 760px\) \{ \.wx-root \.qgrid \{ grid-template-columns:
   'components/estimate/welrix.css .qgrid 폰');
 must(/const cogs = v\.rev - v\.opProfit;/.test(page),
   '칸에서 「매출 − 원가 = 영업이익」이 안 맞습니다 — 원가는 «총원가»(매출원가+판관비)입니다',
-  'app/estimate/page.tsx cogs');
+  'features/estimate/EstimateApp.tsx cogs');
 must(/className="qdetail"/.test(page) && /className="qopen"/.test(page),
   '「원가 펼치기」가 없습니다 — 그 칸 «안»에서 열리는 것이 규격입니다(탭으로 옮겨 다니지 않습니다)',
-  'app/estimate/page.tsx .qdetail');
+  'features/estimate/EstimateApp.tsx .qdetail');
 must(/term-card__check/.test(page),
   '「발송」 체크가 없습니다 — 보낼 기간만 고르는 것이 원본 `TermsGrid` 의 핵심입니다',
-  'app/estimate/page.tsx .term-card__check');
+  'features/estimate/EstimateApp.tsx .term-card__check');
 /* ★고르는 것은 «버튼»이다 — 사장님 2026-09-08 「드랍다운보다는 버튼으로 할 수 있으면 버튼으로 해」.
    드롭다운은 열고 고르느라 두 번 누른다. 통화 중에 그 한 걸음이 그대로 느려짐이 된다. */
 /* ★★색상은 «둘»이다 — 사장님 2026-09-08
@@ -323,10 +323,10 @@ must(/extColors/.test(newcarApi) && /intColors/.test(newcarApi),
   'app/api/newcar/route.ts');
 must(/isNew && extColors\.length/.test(page) && /EXT_COLORS\.map/.test(page),
   '색상이 갈래별로 갈리지 않습니다 — 신차는 제조사 색, 중고는 규격색입니다',
-  'app/estimate/page.tsx #sec-color');
+  'features/estimate/EstimateApp.tsx #sec-color');
 must(/\+ optSum \+ colorAdd/.test(page),
   '유료 색상이 차량가에 «안 붙습니다» — 「+30만」을 골라도 대여료가 그대로입니다',
-  'app/estimate/page.tsx listPrice');
+  'features/estimate/EstimateApp.tsx listPrice');
 
 /* ★★고르는 «방식»은 **목록 길이**가 정한다(2026-09-08 오후 확정):
      **두셋 = 버튼** — 상품(중고/신차) · 채널 · 만기 · 신용 · 취득
@@ -336,10 +336,10 @@ must(/\+ optSum \+ colorAdd/.test(page),
         칩으로 펴면 열일곱·수십·열둘이 왼쪽을 두세 줄씩 먹는다(실측). */
 must(/<Seg tone="t2"/.test(page) && /<Chips opts={CREDIT/.test(page) && /<Chips opts={ACQ/.test(page),
   '두셋 중 하나를 고르는 칸이 버튼이 아닙니다 — 상품·신용·취득은 버튼입니다',
-  'app/estimate/page.tsx');
+  'features/estimate/EstimateApp.tsx');
 must(/className="color-wrap"/.test(page) && /className="step-dd" value={colorExt}/.test(page),
   '색상이 «드롭다운»이 아닙니다 — 열두 색을 펴면 왼쪽을 두 줄 먹습니다',
-  'app/estimate/page.tsx #sec-color');
+  'features/estimate/EstimateApp.tsx #sec-color');
 /* ★★고르는 «방식»은 목록 길이가 정한다 — 사장님 2026-09-08
      오전 「드랍다운보다는 **버튼**으로 할 수 있으면 버튼으로 해」
      오후 「**차 고르는 거는 드랍다운으로 해야지… 한 줄 한 줄.** 신차 같은 경우나 중고차도」
@@ -365,13 +365,13 @@ must(/\.wx-root\.est-root \{[\s\S]{0,300}--accent: #1B2A4A/.test(wxCss),
    `.mkrow`·`.tchips`·`.oprow`(picker.css). 새로 만들면 규격이 둘이 되고, 그러면 또 갈린다. */
 must(/className={`seg /.test(page) && /className="chips"/.test(page) && /tchips/.test(page),
   '고르는 칸이 «기존 것»이 아닙니다 — `.seg`·`.chips`·`.tchips` 를 씁니다(새로 만들지 않습니다)',
-  'app/estimate/page.tsx');
+  'features/estimate/EstimateApp.tsx');
 must(/className="pin w"/.test(page),
   '숫자칸이 «기존 것»(`.pin`)이 아닙니다',
-  'app/estimate/page.tsx');
+  'features/estimate/EstimateApp.tsx');
 must(/est-root/.test(page) && /estimate\.css/.test(page) && /picker\.css/.test(page),
   '기존 견적기 규격을 안 싣고 있습니다 — 칩·세그·숫자칸과 **사선 0** 이 거기 있습니다',
-  'app/estimate/page.tsx');
+  'features/estimate/EstimateApp.tsx');
 /* ★숫자에 «사선 0» — 사장님 2026-09-08 「숫자 있는 거는 숫자에 사선 나오는 프리텐다드 써야 함」.
    0 과 O 가 안 갈리면 차번·금액을 잘못 읽는다. 원본은 `tabular-nums` 만 걸어 사선이 꺼져 있었다. */
 must(!/font-variant-numeric:\s*tabular-nums(?!\s+slashed-zero)/.test(wxCss),
@@ -381,7 +381,7 @@ must(!/font-variant-numeric:\s*tabular-nums(?!\s+slashed-zero)/.test(wxCss),
 /* ㉤ 옵션·색상은 «왼쪽 별도 칸»이다 — 원본과 같은 자리(사장님 2026-09-08 「1번으로」) */
 must(/id="sec-options"/.test(page) && /id="sec-color"/.test(page),
   '선택 옵션·색상 칸이 왼쪽에 없습니다 — 원본은 차종 밑에 «별도 칸»으로 세웁니다',
-  'app/estimate/page.tsx #sec-options / #sec-color');
+  'features/estimate/EstimateApp.tsx #sec-options / #sec-color');
 /* ⚠⚠ 예전에는 `optionsOutside` «깃발이 있나»만 봤다. 그 깃발은 옵션 칸을 걷어낸 뒤로
    **아무 일도 안 하므로**, 누가 시트에 평면 옵션 목록을 다시 넣어도 깃발만 남기면 초록이었다
    (2026-09-10 개발센터 4-AI 관문 · 독립 Claude 발견 7). ⇒ 깃발이 아니라 «없는지»를 잰다. */
@@ -396,11 +396,11 @@ must(/id="sec-options"/.test(page) && /id="sec-color"/.test(page),
 }
 must(/const listPrice = isNew \? \(picked\.price \?\? 0\) \+ optSum \+ colorAdd : usedPrice;/.test(page),
   '신차 차량가에 고른 옵션이 «안 더해집니다» — 옵션을 밖에서 고르면 더하는 일은 화면 몫입니다',
-  'app/estimate/page.tsx listPrice');
+  'features/estimate/EstimateApp.tsx listPrice');
 /* 색은 화면이 지어내지 않는다 — 규격색·색칩은 색상마스터 한 곳에서만 온다(로컬 색맵 금지). */
 must(/from '@\/lib\/domain\/color-master'/.test(page) && !/#[0-9a-fA-F]{6}/.test(page),
   '색을 화면이 지어냈습니다 — 규격색·색칩은 색상마스터(SSOT)에서만 당깁니다',
-  'app/estimate/page.tsx lib/domain/color-master');
+  'features/estimate/EstimateApp.tsx lib/domain/color-master');
 
 /* ★★좌 = «차» · 우 = «견적» — 화면의 뼈대다(사장님 2026-09-08
      「차에 관련된 거만 좌측에서 선택, 우측은 견적에 관련된 거」).
@@ -409,10 +409,10 @@ must(/from '@\/lib\/domain\/color-master'/.test(page) && !/#[0-9a-fA-F]{6}/.test
 const leftRail = page.slice(page.indexOf('className="wrap"'), page.indexOf('className="total-bar"'));
 must(!/CHANNELS\.map/.test(leftRail) && !/TYPES\.map/.test(leftRail) && !/CREDIT\.map/.test(leftRail),
   '채널·만기·신용이 왼쪽에 있습니다 — 왼쪽은 «차», 오른쪽이 «견적»입니다',
-  'app/estimate/page.tsx .wrap');
+  'features/estimate/EstimateApp.tsx .wrap');
 must(/qp-form--conds[\s\S]{0,900}CHANNELS\.map[\s\S]{0,900}CREDIT\.map/.test(page),
   '오른쪽 조건 줄에 채널·만기·신용이 없습니다 — 견적의 조건은 오른쪽에 모입니다',
-  'app/estimate/page.tsx .qp-form--conds');
+  'features/estimate/EstimateApp.tsx .qp-form--conds');
 
 /* ㉦ 원가에 속한 것은 견적 화면에서 «접어» 둔다 + 시세는 «채워 주되 잠그지 않는다»
      사장님 2026-09-08 「기존 웰릭스 손오공거 감안해서 **원가페이지에 들어갈 거는 안 보여주는** 거야」
@@ -425,13 +425,13 @@ must(/qp-form--conds[\s\S]{0,900}CHANNELS\.map[\s\S]{0,900}CREDIT\.map/.test(pag
    ⚠ 둘을 한 값으로 묶으면 「손님에게 싸게 넘기려고 잔가를 올렸더니 대여료가 같이 싸지는」 사고가 난다. */
 must(/const buyoutPct = /.test(page) && /buyoutOverride/.test(page),
   '잔가가 하나뿐입니다 — 견적용과 손님 인수용은 «다른 값»입니다',
-  'app/estimate/page.tsx buyoutPct');
+  'features/estimate/EstimateApp.tsx buyoutPct');
 must(/className="term-card__cond resid2"/.test(page),
   '기간 칸에서 잔가를 «직접» 못 넣습니다 — 그 해당 기간에 넣는 것이 규격입니다',
-  'app/estimate/page.tsx .resid2');
+  'features/estimate/EstimateApp.tsx .resid2');
 must(!/id="sec-resid"/.test(page),
   '잔가가 아직 왼쪽에 있습니다 — 왼쪽은 «차량가격을 확정짓는 곳», 잔가는 견적이라 오른쪽입니다',
-  'app/estimate/page.tsx');
+  'features/estimate/EstimateApp.tsx');
 /* ★인수 잔가가 대여료를 «건드리지 않는지» — 엔진에 들어가는 것은 견적용뿐이다.
    ⚠ 2026-09-16 에 셈이 `lib/domain/estimate/quote-lines.ts` 로 옮겨 갔다(화면·서버 한 벌).
      문자열로 «어느 파일에 있나»를 묻는 대신 **돌려 보고 값이 갈리는지**를 잰다. */
@@ -463,7 +463,7 @@ must(/powertrain\?: string \| null/.test(carIndexSrc) && /engineFuel\(powertrain
   'lib/domain/estimate/car-index.ts guessMarketPrice');
 must(/picked\.powertrain\)/.test(page),
   '화면이 고른 차의 파워트레인을 «안 넘깁니다»',
-  'app/estimate/page.tsx guessMarketPrice');
+  'features/estimate/EstimateApp.tsx guessMarketPrice');
 
 must(/koModel\(al, m\.sub_model\)/.test(carIndexSrc),
   '신차 이름을 «한글로도» 안 맞춥니다 — 기아가 영문 슬러그(ray)로 와서 통째로 안 잡힙니다',
@@ -472,7 +472,7 @@ must(/koModel\(al, m\.sub_model\)/.test(carIndexSrc),
 /* ㉥ 기둥은 «둘»이다 — 셋째 칸을 두지 않는 것이 규격이다(2026-09-08 사장님 「우측에 따로 놓지 말고」) */
 must(!/className="contract-panel"/.test(page),
   '셋째 칸이 다시 섰습니다 — 원가는 «각 줄 안»에 있습니다(따로 두면 다섯 해를 못 견줍니다)',
-  'app/estimate/page.tsx');
+  'features/estimate/EstimateApp.tsx');
 must(/\.wx-root:not\(\.cost\) \{ grid-template-columns: 400px minmax\(0, 1fr\); \}/.test(wxCss)
   && /@media \(min-width: 1025px\) \{[\s\S]{0,400}?\.wx-root:not\(\.cost\)/.test(wxCss),
   '견적 기둥이 둘이 아닙니다 — 좌 400(차량 선택) : 우 나머지(조건 + 1~5년 설계)',
@@ -534,7 +534,7 @@ must(noCc.incompleteCc === true,
   'lib/domain/estimate/calc.js incompleteCc');
 must(/incompleteCc/.test(page),
   '화면이 배기량 미확정을 «말하지» 않습니다 — 깃발만 세우고 안 보여 주면 없는 것과 같습니다',
-  'app/estimate/page.tsx');
+  'features/estimate/EstimateApp.tsx');
 
 /* 전기차는 배기량이 없는 것이 정상이라 깃발이 서면 안 된다. */
 const evNoCc = safeComputeTerm(48, {
@@ -640,10 +640,10 @@ must(wxCss.includes('#quote-doc-print'),
 /* 5-5. 화면에서 문서로 가는 길이 실제로 걸려 있는가. */
 must(page.includes('QuotePreview') && page.includes('setDocOpen(true)'),
   '견적서 버튼이 문서를 안 엽니다',
-  'app/estimate/page.tsx');
+  'features/estimate/EstimateApp.tsx');
 must(page.includes("scen.filter((x) => x.send)"),
   '체크하지 않은 기간까지 손님 견적서에 담깁니다 — 「체크한 칸만 나갑니다」가 화면의 약속입니다',
-  'app/estimate/page.tsx');
+  'features/estimate/EstimateApp.tsx');
 
 /* ══ 6. 마스터의 «구멍»을 화면이 삼키지 않는가 ═══════════════════════════════
      2026-09-08 실측 — 제네시스 여덟 모델은 트림명이 «비어» 있고(BTO 가 기본 한 대 + 옵션),
@@ -660,13 +660,13 @@ must(!/\{ v: t\.trim, label: t\.trim \}/.test(cascade),
 /* 6-2. 옵션은 «이름»이 아니라 «줄»로 센다 — 같은 이름 두 줄이 한 칸을 같이 쥐면 값이 틀어진다. */
 must(page.includes('const optKey =') && page.includes('optSel[optKey(o, i)]'),
   '옵션을 이름으로 셉니다 — 같은 이름이 두 줄인 트림에서 하나를 누르면 둘이 켜집니다',
-  'app/estimate/page.tsx');
+  'features/estimate/EstimateApp.tsx');
 must(!/optSel\[o\.name\]/.test(page),
   '옵션 선택이 아직 이름 키를 씁니다',
-  'app/estimate/page.tsx');
+  'features/estimate/EstimateApp.tsx');
 must(page.includes('setOptSel({})'),
   '차를 바꿔도 고른 옵션이 안 지워집니다 — 앞 차의 옵션이 다음 차에 붙습니다',
-  'app/estimate/page.tsx');
+  'features/estimate/EstimateApp.tsx');
 
 /* ══ 7. 신차 «내 차 만들기» — 고르는 차례와 값 쌓는 차례 ═══════════════════════
      ★★사장님 2026-09-09 「신차는 제조사에서 **차량 가격 산출까지 어떻게 하는지 그 로직을 동일하게**」
@@ -679,19 +679,19 @@ must(page.includes('setOptSel({})'),
     .map((id) => page.indexOf(`id="${id}"`));
   must(order.every((n) => n >= 0) && order[0] < order[1] && order[1] < order[2],
     '왼쪽 칸 차례가 제조사 「내 차 만들기」와 다릅니다 — 색상 → 옵션 → 차량정보 여야 합니다',
-    'app/estimate/page.tsx');
+    'features/estimate/EstimateApp.tsx');
 }
 
 /* 7-2. 값 쌓는 차례도 같은가 — 트림 → 색상 → 옵션. */
 must(page.indexOf('+ 색상 <b>') < page.indexOf('+ 옵션 <b>'),
   '차량가 식이 «색상 → 옵션» 차례가 아닙니다 — 고르는 차례와 같아야 합니다',
-  'app/estimate/page.tsx');
+  'features/estimate/EstimateApp.tsx');
 
 /* 7-3. ★내장 유료색도 차량가에 든다 — 제네시스 「시그니쳐 디자인 셀렉션Ⅰ +150만」.
      2026-09-08 판은 외장만 더해, 유료 내장을 골라도 차량가가 그대로였다. */
 must(/intColors\.find\(\(c\) => c\.name === colorInt\)/.test(page),
   '내장 유료색이 차량가에 안 듭니다 — 제조사는 내장에도 값을 매깁니다',
-  'app/estimate/page.tsx');
+  'features/estimate/EstimateApp.tsx');
 
 /* ══ 8. 제네시스 라인업 펴기 — «모델 한 줄»을 엔진 × 변형으로 ═══════════════════
      ⚠ 2026-09-08 에 나는 제네시스 트림 빈칸을 「기본」이라 적어 덮었다. 데이터를 안 찾고 화면을 덮은 것이다.
@@ -820,10 +820,10 @@ must(/est-root--wiz \.m-footer \{ bottom: var\(--fp-bar-h/.test(wxCss),
      (CLAUDE.md 절대원칙 3 · 사장님 「작업을 하고 배포까지 했는데 왜 또 얼레벌레 자꾸 바뀌는거여」). */
 must(/sections=\{\{ carinfo: secCarinfo, colors: secColor, options: secOptions, conditions: condRow, terms: termGrid \}\}/.test(page),
   '폰이 데스크톱과 다른 조각을 씁니다 — 같은 변수를 넘겨야 두 화면이 안 갈립니다',
-  'app/estimate/page.tsx');
+  'features/estimate/EstimateApp.tsx');
 for (const v of ['const secColor = (', 'const secOptions = (', 'const secCarinfo = (', 'const condRow = (', 'const termGrid = (']) {
   must(page.includes(v), `화면 조각 「${v.slice(6, -4)}」 이 변수로 안 뽑혀 있습니다 — 두 껍데기가 나눠 쓸 수 없습니다`,
-    'app/estimate/page.tsx');
+    'features/estimate/EstimateApp.tsx');
 }
 
 /* 9-4. ⚠⚠ 차 걸음이 아닐 때도 캐스케이드는 «붙어» 있어야 한다.
@@ -847,7 +847,7 @@ must(/}, \[wStep, wOnState, wCount, wChosen\]\)/.test(cascade),
 /* 9-6. 갈래를 바꾸면 앞 갈래 찌꺼기를 안 물려준다 — 「2026년식 0km 중고차」가 나오던 것. */
 must(page.includes('const setSource = useCallback(') && /onPick=\{setSource\}/.test(page),
   '상품을 바꿔도 연식·주행이 안 되돌아갑니다 — 신차를 봤다 오면 「올해식 0km 중고차」가 됩니다',
-  'app/estimate/page.tsx');
+  'features/estimate/EstimateApp.tsx');
 
 /* ══ 10. 이름 정제 — 원천마다 다른 표기를 «한 규격»으로 ═══════════════════════
      ★★사장님 2026-09-09 「**여기도 SSOT 에서 제대로 갖고와야 한다**」 · 「**제대로 쌓아올려봐**」
@@ -949,14 +949,14 @@ must(!OR.hasRules({}), '규칙이 없는데 있다고 봅니다', 'lib/domain/es
 /* 11-6. 화면이 실제로 그 규칙을 쓰는가. */
 must(page.includes('hasRules(optSpec)') || page.includes('const ruled = hasRules'),
   '화면이 조합 규칙을 안 씁니다 — 규칙을 실어 놓고 안 쓰면 실은 뜻이 없습니다',
-  'app/estimate/page.tsx');
+  'features/estimate/EstimateApp.tsx');
 must(page.includes('toggleOption(optSpec, id, prev)') && page.includes('whyBlocked(optSpec, id, optIds)'),
   '옵션 줄이 규칙대로 «막지» 않습니다',
-  'app/estimate/page.tsx');
+  'features/estimate/EstimateApp.tsx');
 /* ⚠ 규칙판에서 고른 것이 차량가·견적서에 그대로 들어가야 한다. */
 must(page.includes('ruled ? optionSum(optSpec, optIds)'),
   '규칙판에서 고른 옵션이 차량가에 안 들어갑니다',
-  'app/estimate/page.tsx');
+  'features/estimate/EstimateApp.tsx');
 
 /* 11-7. 피드가 규칙을 내보내는가 — 화면이 아니라 «피드»가 실어야 견적기(netlify)도 같이 낫는다. */
 {
@@ -1198,7 +1198,7 @@ for (const f of ['scripts/backfill-newcar-names.mts', 'scripts/ingest-newcar-opt
      ⇒ 문(`car-index.ts`) 밖에서는 `priceAfter` 라는 낱말이 **아예 안 나와야** 한다.
        대괄호·구조분해·변수 경유를 다 막으려면 「쓰지 마라」가 「이렇게 쓰지 마라」보다 낫다. */
   for (const f of ['features/estimate/VehicleCascade.tsx', 'features/estimate/CarPicker.tsx',
-    'app/estimate/page.tsx']) {
+    'features/estimate/EstimateApp.tsx']) {
     must(!code(f).includes('priceAfter'),
       '차량가를 «문 밖에서» 꺼냅니다 — 고를 때와 견적서의 값이 갈립니다(`trimPrice` 를 쓰세요)', f);
   }
@@ -1438,8 +1438,8 @@ for (const f of ['scripts/backfill-newcar-names.mts', 'scripts/ingest-newcar-opt
     'lib/domain/estimate/calc.js acqTax');
   must(code('lib/domain/estimate/quote-input.js').includes('saleTaxCredit'),
     '견적 입력이 감면을 엔진에 안 넘깁니다', 'lib/domain/estimate/quote-input.js');
-  must(code('app/estimate/page.tsx').includes('saleTaxCredit'),
-    '화면이 고른 차의 감면을 안 싣습니다', 'app/estimate/page.tsx');
+  must(code('features/estimate/EstimateApp.tsx').includes('saleTaxCredit'),
+    '화면이 고른 차의 감면을 안 싣습니다', 'features/estimate/EstimateApp.tsx');
 
   /* 19-3. ★손님이 보는 값은 «안 움직인다» — 표시는 「전」 하나, 감면은 원가에서만.
        고른 차량가에서 감면을 빼 버리면 제조사 표시가와 달라져 손님이 못 믿는다. */
@@ -1647,22 +1647,22 @@ must(impliedOf({ htrac: { name: 'HTRAC' } }, '전기 롱레인지 2WD', 'Prestig
      띄어쓰기를 지우면 다른 줄이 잡히고 부정검사도 안 맞아 **초록**이 됐다.
      ⇒ 공백을 걷어 «글자»로 만든 뒤 잰다. */
 {
-  const pg = code('app/estimate/page.tsx').replace(/\s+/g, '');
+  const pg = code('features/estimate/EstimateApp.tsx').replace(/\s+/g, '');
   for (const what of ['sc.pre/100', 'buyoutPct[sc.term]/100']) {
     const hits = pg.split(what).length - 1;
-    must(hits > 0, `화면 카드에서 「${what}」 셈이 사라졌습니다`, 'app/estimate/page.tsx');
+    must(hits > 0, `화면 카드에서 「${what}」 셈이 사라졌습니다`, 'features/estimate/EstimateApp.tsx');
   }
   /* «감면 전» 값으로 세는 자리가 하나라도 있으면 안 된다 — 공백을 걷었으니 띄어쓰기로 못 피한다. */
   must(!pg.includes('Math.round(price*sc.pre') && !pg.includes('Math.round(price*buyoutPct'),
     '화면 카드가 «감면 전» 값으로 셉니다 — 견적서와 갈립니다(띄어쓰기로 피할 수 없습니다)',
-    'app/estimate/page.tsx');
+    'features/estimate/EstimateApp.tsx');
   /* ★★**제품 코드가 판정에 들어와야 한다.** §26 은 문서를 직접 만들어 재느라, `page.tsx` 의
      `netPrice` 정의를 되돌려도 초록이었다(2026-09-10 독립 Claude 5회차 강권).
      ⇒ 그 «정의 줄» 자체를 못 박는다 — 손님 기준은 `price − taxCredit` 이고 보조금은 «안» 뺀다. */
   must(pg.includes('constnetPrice=Math.max(0,price-taxCredit)'),
     '손님 기준(netPrice) 정의가 바뀌었습니다 — 보조금까지 빼면 만기인수가 348만 깎이고 '
     + '견적서의 「차량가 − 세제혜택 = 적용가」 뺄셈이 안 맞습니다',
-    'app/estimate/page.tsx netPrice');
+    'features/estimate/EstimateApp.tsx netPrice');
   /* ★선납금은 «화면이 보여 준 값»으로 엔진에 간다 — 엔진이 다시 세면 월납이 낮아진다. */
   must(code('lib/domain/estimate/quote-input.js').replace(/\s+/g, '').includes('form.netPrice??form.price'),
     '엔진이 선납금을 «감면 전»으로 다시 셉니다 — 손님이 낸다고 적힌 값보다 더 받은 것으로 계산합니다',
@@ -1735,10 +1735,10 @@ must(code('app/api/newcar/route.ts').includes('genesisPrices(S(v.sub_model)'),
 {
   const 차량가 = 83290000; const 보조금 = 6000000; const 감면 = 4120000;
   const net = 차량가 - 감면;                    // ★손님 기준 — 화면·견적서·보증금이 딛는 값
-  must(net === 79170000, `적용가 셈이 틀렸습니다 — ${net}`, 'app/estimate/page.tsx netPrice');
+  must(net === 79170000, `적용가 셈이 틀렸습니다 — ${net}`, 'features/estimate/EstimateApp.tsx netPrice');
   /* 선납 10% · 인수 58% 가 «같은 값»에서 나와야 한다. */
   must(Math.round(net * 0.1) === 7917000 && Math.round(net * 0.58) === 45918600,
-    '선납·인수가 손님 기준에서 안 나옵니다', 'app/estimate/page.tsx');
+    '선납·인수가 손님 기준에서 안 나옵니다', 'features/estimate/EstimateApp.tsx');
   /* ★그리고 엔진이 딛는 값과 «같은지» — 엔진을 실제로 돌려 본다. */
   const base = {
     channel: 'rent', type: 'return', price: 차량가, cc: 0, fuel: 'ev', accident: 'none',
@@ -1777,9 +1777,9 @@ must(impliedOf({ s: { name: '중량짐용 후륜 현가장치' } }, 'II LPDi 2WD
 }
 
 /* 25-5. ★차량가는 «세 자리»가 한 값 — 폰 요약도(Codex 4회차 2 · 독립 Claude 3) */
-must(!code('app/estimate/page.tsx').replace(/\s+/g, '').includes('`차량가${man(listPrice)}`'),
+must(!code('features/estimate/EstimateApp.tsx').replace(/\s+/g, '').includes('`차량가${man(listPrice)}`'),
   '폰 고정요약만 «할인 전» 차량가를 씁니다 — 한 카드에 두 값이 뜹니다',
-  'app/estimate/page.tsx vMeta');
+  'features/estimate/EstimateApp.tsx vMeta');
 
 /* ══ 26. ★★★손님 문서의 «셈이 맞는지»를 잰다 ═════════════════════════════════
      ⚠⚠ 2026-09-10 4회차 · 독립 Claude 발견 1. 화면 `netPrice` 에 전기차 보조금까지 넣어 놓고
@@ -1819,7 +1819,7 @@ must(!code('app/estimate/page.tsx').replace(/\s+/g, '').includes('`차량가${ma
         `[${label}] 적용가 ${man(net)}이 문서에 안 적힙니다`, 'features/estimate/QuotePreview.tsx');
       must(price - credit - sub === net,
         `[${label}] 문서의 셈이 안 맞습니다 — ${man(price)} − ${man(credit)} − ${man(sub)} ≠ ${man(net)}`,
-        'app/estimate/page.tsx netPrice');
+        'features/estimate/EstimateApp.tsx netPrice');
     } else {
       must(!t.includes('적용가'),
         `[${label}] 깎인 것이 없는데 적용가를 적습니다`, 'features/estimate/QuotePreview.tsx');
@@ -1830,19 +1830,19 @@ must(!code('app/estimate/page.tsx').replace(/\s+/g, '').includes('`차량가${ma
 /* 26-2. ★★**화면이 그 셋을 «넘기는가»** — §26 은 문서를 직접 만들어 재므로 «다리»는 못 본다.
      넘기는 줄이 빠지면 견적서는 멀쩡한데 손님 문서에 보조금이 안 찍힌다(변이시험에서 안 잡혔다). */
 {
-  const pg = code('app/estimate/page.tsx').replace(/\s+/g, '');
+  const pg = code('features/estimate/EstimateApp.tsx').replace(/\s+/g, '');
   /* ★★**보조금은 손님 문서에 «안» 적는다**(2026-09-10 결정) — 우리가 받는 돈이고,
      적으면 달라는 이야기가 된다. 그래서 넘기는 것은 세제감면과 적용가 둘뿐이다. */
   must(!pg.includes('evSubsidy:evSub'),
     '손님 견적서에 전기차 보조금을 넘깁니다 — 우리가 받는 돈은 손님 문서에 안 적습니다',
-    'app/estimate/page.tsx quoteDoc');
+    'features/estimate/EstimateApp.tsx quoteDoc');
   for (const [field, why] of [
     ['saleTaxCredit:taxCredit', '세제혜택'],
     ['netPrice,', '적용가'],
   ] as [string, string][]) {
     must(pg.includes(field),
       `화면이 견적서에 «${why}»를 안 넘깁니다 — 문서의 셈이 안 맞게 됩니다`,
-      'app/estimate/page.tsx quoteDoc');
+      'features/estimate/EstimateApp.tsx quoteDoc');
   }
 }
 
@@ -1889,19 +1889,19 @@ must((availableForEngine({ a: { name: '컴포트' } }, [], '가솔린 3.5 터보
   const 차값만 = 전 + 옵션 - (전 - 후);
   must(Math.abs(비례 - 공식) < 10000,
     `감면을 옵션까지 비례로 붙이면 공식과 달라집니다 — ${비례.toLocaleString('ko-KR')} vs 공식 ${공식.toLocaleString('ko-KR')}`,
-    'app/estimate/page.tsx taxCredit');
+    'features/estimate/EstimateApp.tsx taxCredit');
   must(차값만 - 공식 === 150000,
     '기준 반례가 흔들렸습니다 — 차값에만 붙이면 공식보다 15만이 높아야 합니다',
     'scripts/check-estimate-logic.mts');
 
   /* 29-4. 화면이 «비례»로 세는가 — 전기는 비율, 하이브리드는 정액. */
-  const pg = code('app/estimate/page.tsx').replace(/\s+/g, '');
+  const pg = code('features/estimate/EstimateApp.tsx').replace(/\s+/g, '');
   must(pg.includes("picked.fuel==='ev'") && pg.includes('picked.saleTaxRate'),
     '전기차 감면을 옵션에 비례로 안 붙입니다 — 제조사 계산과 어긋납니다',
-    'app/estimate/page.tsx taxCredit');
+    'features/estimate/EstimateApp.tsx taxCredit');
   must(pg.includes('picked.saleTaxCredit??0)*(price/listPrice)'),
     '하이브리드 감면을 «정액»으로 안 둡니다 — 실데이터 35줄이 1,001,000 으로 같습니다',
-    'app/estimate/page.tsx taxCredit');
+    'features/estimate/EstimateApp.tsx taxCredit');
 
   /* 29-5. 비율이 «제조사가 준 두 값»에서 나오는가 — 우리가 법정 요율을 지어내지 않는다. */
   const r = trimSaleTaxRate({ priceBefore: 전, priceAfter: 후 });
@@ -2035,7 +2035,7 @@ must((availableForEngine({ a: { name: '컴포트' } }, [], '가솔린 3.5 터보
     ['scripts/ingest-newcar-options.mts', 'requiresInTrim:', '인제스터가 원본의 `requires_in_trim` 을 안 싣습니다'],
     ['scripts/ingest-newcar-options.mts', 'trim_id', '인제스터가 트림 «열쇠»(`trim_id`)를 안 싣습니다 — 이름으로는 못 찾습니다'],
     ['app/api/newcar/route.ts', 'trimKey', '피드가 트림 열쇠를 안 내보냅니다'],
-    ['app/estimate/page.tsx', 'trimKey: picked.newTrim?.trimKey', '화면이 트림 열쇠를 안 넘깁니다'],
+    ['features/estimate/EstimateApp.tsx', 'trimKey: picked.newTrim?.trimKey', '화면이 트림 열쇠를 안 넘깁니다'],
   ];
   for (const [f, needle, why] of bridges) {
     must(code(f).includes(needle), `${why} — 옮긴 규칙이 아무 일도 안 합니다`, f);
@@ -2461,23 +2461,23 @@ must((availableForEngine({ a: { name: '컴포트' } }, [], '가솔린 3.5 터보
   const want18 = (amt[12] + amt[24]) / 2 / 1.1;   // VAT 제외 밑값 위에서 선다
   must(Math.abs(r18.residualAmt - want18) < 10,
     `18개월 약정 잔가가 일정표 값이 아닙니다(${Math.round(r18.residualAmt).toLocaleString()} vs ${Math.round(want18).toLocaleString()}) — 1~60개월 율을 다 넘겨야 합니다`,
-    'app/estimate/page.tsx raw · residual-schedule.ts monthlyRates');
+    'features/estimate/EstimateApp.tsx raw · residual-schedule.ts monthlyRates');
 
   /* 화면 — 중고는 금액 칸, 율을 곡선에서 가져온 기본값은 «예전 그대로», 밑값은 엔진의 것. */
-  const pg = code('app/estimate/page.tsx').replace(/\s+/g, '');
+  const pg = code('features/estimate/EstimateApp.tsx').replace(/\s+/g, '');
   must(pg.includes('setResidAmtOverride') && pg.includes('setBuyoutAmtOverride'),
     '중고 잔가를 금액으로 못 적습니다 — 정본은 「구매가격 + 1~5년 잔존가격(금액)」입니다',
-    'app/estimate/page.tsx');
+    'features/estimate/EstimateApp.tsx');
   const ql = code('lib/domain/estimate/quote-lines.ts').replace(/\s+/g, '');
   must(ql.includes('monthlyRates(residualSchedule(ask.residBase,anchors),ask.residBase)'),
     '엔진에 1~60개월 잔가를 안 넘깁니다 — 1년 6개월 잔존가를 모릅니다',
     'lib/domain/estimate/quote-lines.ts quoteCards');
   must(pg.includes("constresidBase=Math.max(0,netPrice-(picked.fuel==='ev'?Math.max(0,cost.evSubsidy||0):0))"),
     '잔존가 밑값이 엔진이 곱하는 값과 다릅니다 — 전기차에서 적은 금액이 그대로 안 섭니다',
-    'app/estimate/page.tsx residBase');
+    'features/estimate/EstimateApp.tsx residBase');
   must(pg.includes('residAmtOverride[t]??residBase*autoResid[t]/100'),
     '안 적은 해의 기본 잔존가가 곡선(표준+델타)에서 안 옵니다 — 손 안 댄 견적의 대여료가 바뀝니다',
-    'app/estimate/page.tsx residAmt');
+    'features/estimate/EstimateApp.tsx residAmt');
 }
 
 /* == 41. ★★★**영업자는 원가를 «못 받는다»** (2026-09-16 · 정본 §6) ========================
@@ -2535,19 +2535,51 @@ must((availableForEngine({ a: { name: '컴포트' } }, [], '가솔린 3.5 터보
     'app/api/estimate/quote/route.ts');
 
   /* 화면 — 원가를 못 보는 사람에게는 **받아 오지도 않는다**(숨기기만 하면 개발자도구에 보인다). */
-  const pg2 = code('app/estimate/page.tsx').replace(/\s+/g, '');
+  const pg2 = code('features/estimate/EstimateApp.tsx').replace(/\s+/g, '');
   must(pg2.includes('if(!canCost)return;') && pg2.includes('fetchSharedCost()'),
     '원가 설정을 역할과 무관하게 받아 옵니다 — 영업자 브라우저에 원가가 내려갑니다',
-    'app/estimate/page.tsx fetchSharedCost');
+    'features/estimate/EstimateApp.tsx fetchSharedCost');
   must(pg2.includes('{canCost?(') && pg2.includes('canCost&&isOpen?('),
     '손익·원가 분해가 역할과 무관하게 그려집니다 — 영업자 화면에는 그 줄이 없어야 합니다',
-    'app/estimate/page.tsx termGrid');
+    'features/estimate/EstimateApp.tsx termGrid');
   /* ⚠⚠ 2026-09-16 실측 — `hidden={!canCost}` 로 감췄더니 **그대로 보였다.**
        이 줄들의 CSS 가 `display:flex`·`grid` 라 `hidden` 의 기본 `display:none` 을 덮는다.
        ⇒ 안 보여야 하는 것은 «안 그린다». 감추기로 되돌아가면 여기서 멈춘다. */
   must(!pg2.includes('hidden={!canCost}'),
     '원가 칸을 `hidden` 으로 감췄습니다 — 이 줄들은 CSS 가 display 를 덮어 **그대로 보입니다**. 안 그려야 합니다',
+    'features/estimate/EstimateApp.tsx');
+}
+
+/* == 42. ★★★**손님 견적기(`/quote`)** — 웰릭스 짜임 · 우리 데이터 · 옵션까지 (2026-09-17)
+     사장님 「웰릭스 형태로 해서 **손님들한테 견적기를 주려고** 하는거임」 ·
+     「나는 **옵션까지 다 넣어서** 견적을 넣고 싶은거야」 · 「**우리걸로**」.
+     ⚠ 화면 본체는 **한 벌**이어야 한다 — 손님용을 따로 지으면 고칠 때 한쪽만 고쳐진다. */
+{
+  const guestRoute = code('app/quote/page.tsx');
+  const workRoute = code('app/estimate/page.tsx');
+  must(/EstimateApp surface="guest"/.test(guestRoute) && !/EstimateGate/.test(guestRoute),
+    '손님 견적기가 본체를 안 쓰거나 문지기가 섬니다 — 손님 자리는 열려 있고, 화면은 업무와 같은 한 벌입니다',
+    'app/quote/page.tsx');
+  must(/EstimateApp surface="work"/.test(workRoute) && /EstimateGate/.test(workRoute),
+    '업무 견적기가 본체를 안 쓰거나 문지기가 빠졌습니다',
     'app/estimate/page.tsx');
+  const app = code('features/estimate/EstimateApp.tsx').replace(/\s+/g, '');
+  must(app.includes("useState<'used'|'new'>(guest?'new':'used')"),
+    '손님 견적기가 중고로 섬니다 — 중고는 시세를 사람이 넣어야 해서 손님이 혼자 못 칩니다',
+    'features/estimate/EstimateApp.tsx cond');
+  must(app.includes('{guest?null:('),
+    '손님에게 「중고/신차」 세그를 줍니다 — 손님 견적기는 신차 고정입니다',
+    'features/estimate/EstimateApp.tsx sec-source');
+  must(app.includes('{canCost?(<divclassName="cs-field"><label>매입할인</label>'),
+    '「매입 할인」이 손님에게 보입니다 — 우리가 싸게 샀다는 말이라 원가 칸입니다',
+    'features/estimate/EstimateApp.tsx 매입 할인');
+  /* 손님 면은 공개이고 껍데기를 통째로 걷는다 — 둘 중 하나만 등록하면 머리가 둘이 되거나 로그인으로 튀긴다. */
+  must(/'\/quote'/.test(read('lib/public-access.ts')),
+    '손님 견적기가 공개 명단에 없습니다 — 손님이 로그인으로 튀깁니다',
+    'lib/public-access.ts');
+  must(/'\/quote'/.test(read('lib/guest-surface.ts')),
+    '손님 견적기가 손님 면 명단에 없습니다 — 업무동 상단바·하단바가 얹힙니다',
+    'lib/guest-surface.ts');
 }
 
 if (fails.length) {
