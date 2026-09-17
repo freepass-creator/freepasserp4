@@ -17,7 +17,11 @@ export const NOT_APPLICABLE_LABEL = '해당없음' as const;
  *   (사장님 「ssot 규격 통일하고 이거 이제 잠그자」 2026-09-16).
  * ★「없음」은 옵션의 «업무 값»이라 눕히지 않는다 — 아래 `MISSING_DISPLAY_LABELS` 에 안 넣는다.
  */
-export const MISSING_INK = 'B7B7B7' as const;
+export const MISSING_INK = 'D9D9D9' as const;
+/* ⚠ 2026-09-17 — 처음 B7B7B7 로 뒀는데 배차상태 회색(999999)과 ΔE 11 이라 «구별이 안 됐다»
+     (사장님 「비슷한 새깔 있으면 안 되고」 · check:color-ssot 의 ΔE 검사가 잡았다).
+     D9D9D9 로 한 칸 더 내려 ΔE 23 을 확보한다 — 구글시트 표준 팔레트의 연회색이고,
+     「미입력」은 눈에 덜 띄어야 하는 값이라 흐린 쪽이 맞다(사장님 「연하게」). */
 /** 연한 회색으로 눕히는 «표시 전용» 낱말들 — 시트 조건부서식·화면이 같은 목록을 본다. */
 export const MISSING_DISPLAY_LABELS: readonly string[] = [MISSING_VALUE_LABEL, NOT_APPLICABLE_LABEL];
 

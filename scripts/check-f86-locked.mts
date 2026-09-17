@@ -96,7 +96,7 @@ must(!reqs.some((r) => r.addConditionalFormatRule), '레트로 입력엔 「구�
   must(r2.some((r) => r.addConditionalFormatRule === 미입력조건부.addConditionalFormatRule), '「미입력」 연한 회색 조건부서식이 레트로에서 걷힙니다 — 사장님 「미입력은 좀 색깔이 회색이어야지」(2026-09-16) 위반.', `${SKIN} · applyRetroSkin ① 예외 — ${MANUAL} 4`);
   must(!r2.some((r) => r.addConditionalFormatRule === 다른칸조건부.addConditionalFormatRule), '「구분」·「배차상태」가 아닌 칸의 조건부서식까지 살아남습니다 — 레트로 「옛 시트 느낌」이 깨집니다.', `${SKIN} · applyRetroSkin ① 예외 — ${MANUAL} 4`);
 }
-must(MISSING_INK === 'B7B7B7', `「미입력」 연한 회색(B7B7B7)이 바뀌었습니다: ${MISSING_INK}`, `lib/domain/sales-sheet-format.ts · MISSING_INK — ${MANUAL} 4`);
+must(MISSING_INK === 'D9D9D9', `「미입력」 연한 회색(D9D9D9)이 바뀌었습니다: ${MISSING_INK}`, `lib/domain/sales-sheet-format.ts · MISSING_INK — ${MANUAL} 4`);
 const whole = reqs.find((r) => r.repeatCell && r.repeatCell.range?.startColumnIndex === undefined && r.repeatCell.range?.startRowIndex === undefined)?.repeatCell?.cell?.userEnteredFormat;
 must(!!whole && whole.textFormat?.italic === true && whole.textFormat?.bold === false && whole.horizontalAlignment === 'CENTER' && whole.wrapStrategy === 'OVERFLOW_CELL',
   '탭 전체 겉(기울임 · 굵기 없음 · 가운데 · 넘침)이 바뀌었습니다.', `${SKIN} · applyRetroSkin ③ — ${MANUAL} 4`);

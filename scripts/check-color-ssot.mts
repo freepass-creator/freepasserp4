@@ -65,11 +65,50 @@ for (const v of ['즉시출고', '출고가능', '상품화중', '출고협의',
 const 겹침 = Object.entries(분류).filter(([, hex]) => [...상태색.values()].includes(hex.replace(/^#/, '').toUpperCase()));
 must(겹침.length === 0, `상품구분과 배차상태가 같은 색을 씁니다: ${겹침.map(([v, h]) => `${v} ${h}`).join(' · ')}`, `${CAT} ↔ ${FMT} · STATE_INK`);
 
+/* ── ②½ **비슷한 색도 안 된다** — 같은 헥스만 막으면 못 잡는다 ─────────────────
+   사장님 2026-09-17 「어떤 시트에 가더라도 시트는 같아야 하고 … 비슷한 새깔 있으면 안 되고」.
+   ⚠ 그때까지 이 검사는 «똑같은 헥스»만 봤다. 그래서 중고구독(6B3DB3)과 오공구독(5B21B6)처럼
+     눈으로 구별이 안 되는 쌍이 그냥 통과했다. 사람 눈의 거리(ΔE)로 잰다.
+   ★잰 축: 판매시트 한 줄에 «나란히 서는» 것 — 상품구분 · 배차상태 · 미입력.
+     제조사·연료는 «다른 칸»이라 여기서 빼둔다(그쪽과의 근접은 category-colors 머리말에 적어 두었다).
+   ★ΔE 기준 — 같은 축 안 28(값이 헷갈리면 안 되는 자리) · 축끼리 22(사장님 「출고협의 주황 옆 중고구독 주황」).
+     CIE76 근사다. 정확한 CIEDE2000 까지 갈 일은 아니고, 이 거리면 9pt 글자에서 갈린다. */
+const LAB = (hex: string): [number, number, number] => {
+  const n = parseInt(hex.replace(/^#/, ''), 16);
+  const g = (v: number) => { const x = v / 255; return x <= 0.04045 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; };
+  const r = g((n >> 16) & 255), gg = g((n >> 8) & 255), b = g(n & 255);
+  const X = (r * 0.4124 + gg * 0.3576 + b * 0.1805) / 0.95047;
+  const Y = r * 0.2126 + gg * 0.7152 + b * 0.0722;
+  const Z = (r * 0.0193 + gg * 0.1192 + b * 0.9505) / 1.08883;
+  const k = (t: number) => (t > 0.008856 ? Math.cbrt(t) : 7.787 * t + 16 / 116);
+  return [116 * k(Y) - 16, 500 * (k(X) - k(Y)), 200 * (k(Y) - k(Z))];
+};
+const ΔE = (a: string, b: string) => {
+  const p = LAB(a), q = LAB(b);
+  return Math.sqrt((p[0] - q[0]) ** 2 + (p[1] - q[1]) ** 2 + (p[2] - q[2]) ** 2);
+};
+const 한줄 = [
+  ...Object.entries(분류).map(([v, h]) => ({ 축: '상품구분', 값: v, hex: h.replace(/^#/, '') })),
+  ...STATE_INK.map(([v, h]) => ({ 축: '배차상태', 값: v, hex: h })),
+  { 축: '표시', 값: '미입력', hex: MISSING_INK },
+];
+for (let i = 0; i < 한줄.length; i++) {
+  for (let j = i + 1; j < 한줄.length; j++) {
+    const a = 한줄[i], b = 한줄[j];
+    if (a.hex.toUpperCase() === b.hex.toUpperCase() && a.축 === b.축) continue;   // 같은 축의 같은 뜻(즉시출고=출고가능 파랑)은 정상
+    const d = ΔE(a.hex, b.hex);
+    const 기준 = a.축 === b.축 ? 28 : 22;
+    must(d >= 기준,
+      `색이 너무 비슷합니다(ΔE ${Math.round(d)} < ${기준}): ${a.축}:${a.값}(${a.hex}) ↔ ${b.축}:${b.값}(${b.hex}) — 9pt 글자에서 구별이 안 됩니다.`,
+      `${CAT} ↔ ${FMT} · STATE_INK ↔ ${MVD}`);
+  }
+}
+
 /* ── ③ 미입력 — 낱말과 색이 한 곳인가 · 배차상태 회색과 구별되는가 ─────────── */
 must(MISSING_VALUE_LABEL === '미입력' && NOT_APPLICABLE_LABEL === '해당없음', '표시 낱말이 바뀌었습니다.', MVD);
 must(J([...MISSING_DISPLAY_LABELS]) === J(['미입력', '해당없음']),
   `연한 회색으로 눕히는 낱말 목록이 바뀌었습니다: ${J([...MISSING_DISPLAY_LABELS])} — 「없음」은 업무 값이라 넣지 않습니다.`, MVD);
-must(MISSING_INK === 'B7B7B7', `「미입력」 연한 회색이 바뀌었습니다: ${MISSING_INK}`, `${MVD} · MISSING_INK`);
+must(MISSING_INK === 'D9D9D9', `「미입력」 연한 회색(D9D9D9)이 바뀌었습니다: ${MISSING_INK}`, `${MVD} · MISSING_INK`);
 must(!([...상태색.values()].includes(MISSING_INK)),
   `「미입력」 색이 배차상태 색과 같습니다(${MISSING_INK}) — 「값 없는 칸」과 「못 파는 차」가 같은 무게로 보입니다.`, `${MVD} ↔ ${FMT}`);
 
@@ -86,6 +125,25 @@ const 봐준다 = new Set([
   'lib/domain/missing-value-display.ts',        // ③ 정본
   'scripts/check-color-ssot.mts',               // 이 검사(정본 값을 글로 적어 잠근다)
   'scripts/check-f86-locked.mts',               // F86 확정 규격 잠금(같은 성격)
+  /**
+   * ★**탭 색은 «글자색»이 아니다** — 같은 헥스가 겹쳐도 다른 물건이다(2026-09-17).
+   *   `RETRO_TAB_COLOR` 는 F86 회사 탭의 «탭 꼬리 색»으로, 옛 시트에서 잰 값이다
+   *   (아이언·우리캐피탈 FF00FF). 글자색 정본에서 가져올 수 있는 값이 아니라 우연히 같은 것이다.
+   */
+  'lib/domain/channel-retro-skin.ts',
+  /**
+   * ★**옛 발행기라 손대지 않는다** — `publish-jonghap-tab.mts` 는 폐기 계열이다
+   *   (`publish-handover-tab.mts` 가 「옛 손오공 발행기 … 쓰지 마라」로 못 박아 두었다).
+   *   그 안 551행에 옛 상품구분 색표가 남아 있다:
+   *     ['신차','FF00FF'] ['재렌트','34A853'] ['재구독','FF9900'] ['신차구독','FF9900']
+   *   ★이 표가 사장님이 「거기에 이미 다 정의해놨었어」 하신 원래 색의 «흔적»이다 —
+   *     신차=분홍(FF00FF)이 여기서도 확인된다. 다만 재구독·신차구독이 둘 다 주황(FF9900)이라
+   *     배차상태 「출고협의」와 겹쳤고, 그게 사장님 2026-08-18 「출고협의 주황 옆에 중고구독 주황 —
+   *     이렇게 색깔이 비슷하면 안 되지」로 갈라진 자리다(→ 보라·청록).
+   *   ⇒ 지금 정본은 그 «갈라진 뒤» 값이 맞다. 옛 발행기를 고치면 쓰지도 않는 길에 손대는 것이라
+   *     기록만 남기고 둔다. 되살릴 일이 생기면 그때 정본에서 가져오게 고친다.
+   */
+  'scripts/publish-jonghap-tab.mts',
 ]);
 const 파일들: string[] = [];
 const 훑기 = (dir: string) => {
