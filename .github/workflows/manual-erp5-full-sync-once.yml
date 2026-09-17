@@ -40,6 +40,11 @@ jobs:
           test -n "$SHEETS_SA" || { echo '::error::GOOGLE_SA_JSON missing'; exit 1; }
           mkdir -p tmp/firebase-auth
           printf '%s' "$SHEETS_SA" > tmp/firebase-auth/sheets.json
+      - name: Heal Sonogong deposit atoms to SSOT rule
+        env:
+          ERP5_FIREBASE_USE_ADC: 'true'
+          GOOGLE_CLOUD_PROJECT: freepasserp5
+        run: npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/heal-sonokong-deposit-ssot.mts --apply
       - name: Capture current ERP5 snapshot and enforce deposit-rule gate
         env:
           ERP5_FIREBASE_USE_ADC: 'true'
