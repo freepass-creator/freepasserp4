@@ -2,10 +2,76 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "wt",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "C:/dev/welrixtable/node_modules/vite/bin/vite.js",
+        "C:/dev/welrixtable",
+        "--port",
+        "4055",
+        "--strictPort"
+      ],
+      "port": 4055
+    },
+    {
       "name": "freepasserp4",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
       "port": 4004
+    },
+    {
+      "name": "fpm",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "--max-old-space-size=8192",
+        "C:/dev/fp-freepass/node_modules/next/dist/bin/next",
+        "dev",
+        "C:/dev/fp-freepass",
+        "-p",
+        "4088"
+      ],
+      "port": 4088
+    },
+    {
+      "name": "rec",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "--max-old-space-size=8192",
+        "C:/dev/fp-shop-pr/node_modules/next/dist/bin/next",
+        "dev",
+        "C:/dev/_wt-recheck",
+        "-p",
+        "4023"
+      ],
+      "port": 4023
+    },
+    {
+      "name": "est",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "C:/dev/.wt-newcar/node_modules/next/dist/bin/next",
+        "start",
+        "C:/dev/.wt-newcar",
+        "-p",
+        "4041"
+      ],
+      "port": 4041
+    },
+    {
+      "name": "cs",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "--max-old-space-size=8192",
+        "C:/dev/fp-shop-pr/node_modules/next/dist/bin/next",
+        "dev",
+        "C:/dev/_wt-cs",
+        "-p",
+        "4033"
+      ],
+      "port": 4033
     }
   ]
 }
