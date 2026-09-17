@@ -58,6 +58,16 @@ const candidates = [
 ];
 for (const path of candidates) {
   const { res, text } = await req('GET', path);
-  if (res.ok) console.log(`  본문: ${text.slice(0, 2000)}`);
-  else console.log(`  본문: ${text.slice(0, 200)}`);
+  if (res.ok) {
+    console.log(`  본문 전체길이: ${text.length}자`);
+    const rateLike = [...text.matchAll(/"[\wㄱ-힣]*(?:rate|price|fare|fee|charge|amount|월대여료|요금|대여료|보증금|deposit|months?|개월)[\wㄱ-힣]*"\s*:\s*"?[\d,\[{]/gi)];
+    console.log(`  요금 비슷한 키 ${rateLike.length}건`);
+    for (const m of rateLike.slice(0, 30)) console.log(`    ${m[0]}`);
+    const wonNumbers = [...text.matchAll(/(\d{1,3}(?:,\d{3})+)\s*원/g)];
+    console.log(`  "N,NNN원" 패턴 ${wonNumbers.length}건`);
+    for (const m of wonNumbers.slice(0, 10)) console.log(`    ${m[0]}`);
+    console.log(`  전체 본문:\n${text}`);
+  } else {
+    console.log(`  본문: ${text.slice(0, 200)}`);
+  }
 }
