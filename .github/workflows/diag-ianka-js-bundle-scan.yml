@@ -1,0 +1,25 @@
+name: 이안카 JS 번들 속 API 경로 스캔(읽기전용, 수동)
+
+# scripts/diag-ianka-js-bundle-scan.mts — 홈 HTML의 JS 파일들을 받아 "/api/..." 문자열을 뽑아
+# 요금 조회용 별도 엔드포인트가 있는지 찾는다. /api/rates 는 관리자 전용 쓰기 API로 확인됨(2026-09-17).
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - name: 이안카 JS 번들 API 경로 스캔
+        env:
+          IANKA_ACCOUNT_JSON: ${{ secrets.IANKA_ACCOUNT_JSON }}
+        run: npx tsx scripts/diag-ianka-js-bundle-scan.mts
