@@ -1,0 +1,25 @@
+name: 이안카 요금 API 흔적 진단(읽기전용, 수동)
+
+# scripts/diag-ianka-pricing-api.mts — plain fetch로 로그인 뒤 인증된 홈 HTML·재고 API에서
+# 요금(rate/price/quote) 관련 API 경로 흔적을 찾고, 후보 엔드포인트를 직접 두들겨본다.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - name: 이안카 요금 API 흔적 진단
+        env:
+          IANKA_ACCOUNT_JSON: ${{ secrets.IANKA_ACCOUNT_JSON }}
+        run: npx tsx scripts/diag-ianka-pricing-api.mts
