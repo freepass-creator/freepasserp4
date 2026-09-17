@@ -30,4 +30,4 @@
 
 ## Claude 구현 Owner 인계
 
-2/3 F86 + 3/3 F01 단계에서 publisher, auditor, old-tab cleanup, F86 locked layout을 같은 tab-kind SSOT에 연결하고 legacy 이뮄은 읽기 alias로만 남긴다. production repin 전 audit (27)/(28) fixes 보존과 audit (26) A1 fix를 따로 확인한다. 실제 F01/F86 publish + cross-audit가 green인 뒤에만 naming migration을 해소 처리한다.
+2/3 F86 + 3/3 F01 단계에서 publisher, auditor, old-tab cleanup, F86 locked layout을 같은 tab-kind SSOT에 연결하고 legacy 이름은 읽기 alias로만 남긴다. production repin 전 audit (27)/(28) fixes 보존과 audit (26) A1 fix를 따로 확인한다. 실제 F01/F86 publish + cross-audit가 green인 뒤에만 naming migration을 해소 처리한다.

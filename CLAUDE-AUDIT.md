@@ -2,7 +2,7 @@
 
 충돌 시 이 override와 `docs/AI-SSOT-AUDIT-LOG.md` audit (29)를 audit (28) 이하보다 우선한다.
 
-- **신규 staged projection-contract migration:** Claude 단일 구현 branch `claude/f86-peer-spec-transplant` head `a6843cdb...`에 `lib/domain/sales-tab-kinds.ts` + `check:sales-tabs`가 생겼다. target은 F01/F86 공통 `상품리스트 · 손오공상품 · 픽업구독 · 오토플러스`, legacy read alias는 `종합/오공구독/손오공구독/오플구독`에서 새 이뮄으로 매핑한다.
+- **신규 staged projection-contract migration:** Claude 단일 구현 branch `claude/f86-peer-spec-transplant` head `a6843cdb...`에 `lib/domain/sales-tab-kinds.ts` + `check:sales-tabs`가 생겼다. target은 F01/F86 공통 `상품리스트 · 손오공상품 · 픽업구독 · 오토플러스`, legacy read alias는 `종합/오공구독/손오공구독/오플구독`에서 새 이름으로 매핑한다.
 - **아직 live 아님:** commit 자체가 `1/3단계 — 정의만`, `발행에는 아직 안 붙였다`고 명시하고, 같은 branch F86 plan도 아직 `RETRO_SUMMARY_TAB`/`종합` 경로를 사용한다. 새 checker 존재를 production 해소 증거로 쓰지 않는다.
 - 현재 naming은 3계약 과도기다: main=`상품리스트/손오공구독/픽업구독/오플구독`, production `6a6f3f75...`=`상품리스트/오공구독/픽업구독/오플구독`, staged target=`상품리스트/손오공상품/픽업구독/오토플러스`. 2/3 F86 + 3/3 F01에서 publisher/auditor/old-tab cleanup/locked layout을 같은 SSOT에 함께 연결해야 한다.
 - `a6843cdb...`는 production `6a6f3f75...`보다 5 commits ahead/0 behind인 직계 전진 계보다. audit (27)/(28) deposit/vehicle-price fixes 위에 tab definition이 추가된 상태지만 canonical workflow는 아직 `6a6f3f75...`를 checkout한다.
