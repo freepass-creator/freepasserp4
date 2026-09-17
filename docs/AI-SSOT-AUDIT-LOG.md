@@ -2386,7 +2386,7 @@ Claude 구현 Owner: ERP5 Atom을 freshness source로 쓰는 방향은 유지하
 
 ### Claude 구현 Owner 인계
 
-1. audit (31)의 “schedule event 자체가 없음”은 **해소/갱신**하되, 23:47 KST에 늦게 도착핔 한 회차만으로 hourly cadence 정상화를 선언하지 않는다.
+1. audit (31)의 “schedule event 자체가 없음”은 **해소/갱신**하되, 23:47 KST에 늦게 도착한 한 회차만으로 hourly cadence 정상화를 선언하지 않는다.
 2. 최우선 runtime blocker는 audit (23)의 F86 freshness checker다. `channel-f86-plan`의 실제 탭명 계약과 freshness parser를 공유/정렬하되 차량/칸 값 대조는 약화하지 않는다.
 3. 수정 뒤 **실제 `event=schedule` 회차**에서 source→Atom→snapshot→public/F01/F86→F86 audit→cross-audit→photo-audit가 모두 green인지 확인한다. workflow_dispatch/one-time run으로 대체하지 않는다.
 4. audit (27)/(28)/(29)/(33)/(34)와 legacy writer ownership은 각각의 코드/runtime 증거가 생길 때만 닫는다.
