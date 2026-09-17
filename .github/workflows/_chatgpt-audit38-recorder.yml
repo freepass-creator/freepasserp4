@@ -16,168 +16,19 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Record audit38 and self-remove
+      - name: Append audit38 and self-remove
         shell: bash
+        env:
+          AUDIT_B64: Ci0tLQojIyAyMDI2LTA5LTE4KDM4KSDigJQgQ2hhdEdQVCDrj4Xrpr0g6rCQ7IKsOiBSUDAzMSDsi6Qg67iM65287Jqw7KCAIGAvYXBpL2ludmVudG9yeWAg7KCE7LK0IOuzuOusuOyXkOuPhCDquIjsnLXqsJIg7JeG7J2MOyBicm93c2VyLWhlYWRlciDqsIDshKQg6riw6rCBLCBmaW5hbmNlIHByb3ZlbmFuY2UgSE9MRCDqsJXtmZQKCioq7YyQ7KCVOiBhdWRpdCAoMzcp7J2YIOyehOyLnCDqsIDshKQg7ZW07IaMIC8gUlAwMzEgcHJvZHVjdGlvbiBwcm9tb3Rpb24gSE9MRCDqsJXtmZQuKiogYXVkaXQgKDM3KSDquLDroZ0g7KeB7ZuEIOyZhOujjOuQnCBQUiAjMzg3wrcjMzg47J2YIOyLpOygnCBydW50aW1lIOqysOqzvOulvCDstpTqsIAg64yA7KGw7ZaI64ukLiDrkZAgUFLsnYAgcmVhZC1vbmx5IOynhOuLqOydtOupsCBwcm9kdWN0aW9uIHdyaXRlci9hZGFwdGVyL3Byb2plY3Rpb27snYQg67OA6rK97ZWY7KeAIOyViuuKlOuLpC4KCi0gUFIgIzM4NyBtZXJnZSBgY2IzNjhjZjU2MDQyNWI5ZWY4MTU2MDFlNWNlNmFlNGRkMDNhYWExY2AsIHJ1biBgMzUyODY5NTg2NzlgIC8gam9iIGAxMDU0MjEzMTA1NDlgOiDsi6TsoJwg67iM65287Jqw7KCA7ZiVIEFjY2VwdC9zZWMtY2gtdWEvUmVmZXJlciDrk7HsnYQg7J6s7ZiE7ZWcIGBHRVQgL2FwaS9pbnZlbnRvcnlg64+EIDIwMCwgKio0NCwxNDPsnpAqKuyYgOqzoCDssqsgdW5pdOydmCDquIjsnLUg7Jyg7IKsIO2VhOuTnOuKlCBgcmF0ZU92ZXJyaWRlOiBudWxsYOu/kOydtOyXiOuLpC4g7KCE7LK0IOydkeuLteyXkOyEnCBgdGVybS9yYXRlL3ByaWNlL3JlbnRhbC/smpTquIhgIOqzhOyXtCDrp6Tsua3snYAgODXqsbQg66qo65GQIGByYXRlT3ZlcnJpZGVgLCBgTixOTk7sm5BgIO2MqO2EtOydgCAw6rG07J207JeI64ukLiDrlLDrnbzshJwg4oCccGxhaW4gZmV0Y2jsmYAgYnJvd3NlciBoZWFkZXJzIOywqOydtCDrlYzrrLjsl5AgaW52ZW50b3J57JeQIOyalOq4iOydtCDruaDsoYzri6TigJ3ripQg6rCA7ISk7J2AIOq4sOqwge2VnOuLpC4KLSBQUiAjMzg4IG1lcmdlL2N1cnJlbnQgbWFpbiBgODc3M2U3NjY0ZGFlNzVlNzdlMzUzZTZhZDdhNjI5NjU0YzFkM2I3NWAsIHJ1biBgMzUyODczMzcxNzhgIC8gam9iIGAxMDU0MjI0ODEzMzBgICgqKnN1Y2Nlc3MqKik6IOqwmeydgCBhdXRoZW50aWNhdGVkIOyEuOyFmOydhCDsi6TsoJwgaGVhZGxlc3MgYnJvd3NlcuyXkCDso7zsnoXtlZjqs6AgYC9hcGkvaW52ZW50b3J5YOydmCAqKuyghOyytCByZXNwb25zZSBib2R5Kirrpbwg7Lqh7LKY7ZaI64ukLiDsi6TsoJwg67iM65287Jqw7KCAIOyEuOyFmCDsnZHri7Xrj4Qg7KCV7ZmV7Z6IIDQ0LDE0M+yekCwg6riI7Jy1IOycoOyCrCDtgqQgODXqsbTsnYAg66qo65GQIGByYXRlT3ZlcnJpZGVgLCBgTixOTk7sm5BgIO2MqO2EtCAw6rG07J207JeI64ukLiDrsJjrqbQg6rCZ7J2AIO2ajOywqOydmCDroIzrjZTrp4HrkJwgRE9NIO2FjeyKpO2KuOuKlCAyMSwzMDDsnpDsnbTrqbAg7JuQ7ZmUIOq4iOyVoSDtjKjthLQgNDjqsbTqs7wg7Iuk7KCcIGDsm5Qg64yA7Jes66OMYMK3YOuztOymneq4iGAg6rCS7J2EIO2RnOyLnO2WiOuLpC4g64Sk7Yq47JuM7YGsIOy6oeyymOyXkOyEnCBBUEkg7JqU7LKt7J2AIGAvYXBpL2ludmVudG9yeWDsmIDqs6AgYC9hcGkvcmF0ZXNgIO2YuOy2nOydgCDsl4bsl4jri6QuCi0gYXVkaXQgKDM2KS8oMzcp7J2YIOq4sOyhtCDspp3qsbDsmYAg7ZWp7LmY66m0IO2YhOyerCDtmZXsnbjrkJwg6rK96rOE64qUIOuqhe2Zle2VmOuLpDog7ZiEIEIyQiBzZXNzaW9u7JeQ7IScIGAvYXBpL3JhdGVzYOuKlCBhZG1pbi1vbmx5IDQwMywgc2FtcGxlZCBgL2FwaS92ZWhpY2xlLWRldGFpbGDsnYAg6riI7Jy17YKkIDAsIHJhdyBpbml0aWFsIGhvbWUgSFRNTOuPhCDquIjsnLXqsJIgMCwg6re466as6rOgIOydtOygnCAqKuyLpCDruIzrnbzsmrDsoIDqsIAg67Cb7J2AIGAvYXBpL2ludmVudG9yeWAg7KCE7LK0IHBheWxvYWTsl5Drj4Qg7ZGc7IucIOq4iOycteqwkuydtCDsl4bri6QuKiog65Sw65287IScIGAvYXBpL2ludmVudG9yeWDrpbwgUlAwMzEgcmVudC9kZXBvc2l0IGNhbm9uaWNhbCBzb3VyY2XroZwg7Iq56rKp7ZWY66m0IOyViCDrkJzri6QuCi0g7ZGc7IucIOq4iOycteqwkuydgCBjbGllbnQgZXhlY3V0aW9uIOqzvOygleyXkOyEnCDri6TrpbggcHJpbWl0aXZlIOuYkOuKlCDqs4TsgrDsnLzroZwg64+E7J6F65CY64qUIOqyg+ycvOuhnCDrs7TsnbTsp4Drp4wsICoq7KCV7ZmV7ZWcIGF1dGhvcml0eeuKlCDslYTsp4Eg66+47ZmV7KCVKirsnbTri6QuIOuhnOuTnOuQnCBKUy9zdGF0aWMgYnVuZGxlLCBjbGllbnQtc2lkZSBjYWxjdWxhdGlvbiDrmJDripQg64uk66W4IOu5hC1BUEkg7KCE64usIOqyveuhnCDspJEg66y07JeH7J247KeA64qUIOuzhOuPhCDspp3rqoXsnbQg7ZWE7JqU7ZWY64ukLiByZW5kZXJlZCBET03snYAg7IaM67mEIOqysOqzvOydtOuvgOuhnCDqt7gg7J6Q7LK066W8IGNhbm9uaWNhbCBzb3VyY2XroZwg7IK87KeAIOyViuuKlOuLpC4KLSBjdXJyZW50IHByb2R1Y3Rpb24gY2Fub25pY2FsIHdvcmtmbG9364qUIOqzhOyGjSBgOWJlZjdiZjBmZmQyMWE5NmUzMDk4YTZmMzFhZGYxYjFhMDI1OGM2MGDsnYQgY2hlY2tvdXTtlZjqs6AgUlAwMzEgcmVnaXN0cnnripQg6rOE7IaNIGBnb29nbGVfc2hlZXRg64ukLiBGMDEvRjg2IEF0b20gcHJvamVjdGlvbiDqs4Tslb0sIFJQMDEyL+yGkOyYpOqztcK3UlAwMjMv7Jik7Yag7ZSM65+s7IqkIO2KueyImO2DrSDqt5zsuZksIEY4NiDsooXtlansnZgg7IaQ7Jik6rO1L+yYpO2GoO2UjOufrOyKpCDsoJzsmbgg6rec7LmZ7JeQ64qUIOydtOuyiCDsp4Tri6jsnLzroZwg7J247ZWcIOuzgO2ZlOqwgCDsl4bri6QuIGF1ZGl0ICgzNSkgRjg2IGZyZXNobmVzcy1jaGVja2VyIGZhbHNlLXBvc2l0aXZlLCBhdWRpdCAoMjcpLygyOCkvKDI5KS8oMzQpLCBtaXJyb3Ivc2FsZXMvc2V0dGxlbWVudC9SVERCIGxlZ2FjeSB3cml0ZXIgSE9MROuPhCDqt7jrjIDroZzri6QuCgojIyMgQ2xhdWRlIOq1rO2YhCBPd25lciDsnbjqs4QKCjEuIFJQMDMxIOq4iOycteqwkiBzb3VyY2Ug7YOQ7IOJ7JeQ7IScIGAvYXBpL2ludmVudG9yeWDrpbwg64uk7IucIO2bhOuztOuhnCDrkZDsp4Ag7JWK64qU64ukLiBicm93c2VyIGhlYWRlcnPsmYAg7Iuk7KCcIGJyb3dzZXIgc2Vzc2lvbiDsoITssrQgYm9keSDrqqjrkZAg6riI7Jy16rCSIOu2gOyerOqwgCDsi6TsuKHrkJDri6QuCjIuIHJlbmRlcmVkIERPTeydhCBzY3JhcGXtlbQgY2Fub25pY2FsIGZpbmFuY2Xrpbwg66eM65Ok6rGw64KYIOq4sOyhtCDsi5ztirgg6rCS7J2EIOq3vOqxsCDsl4bsnbQg7ZWp7ISx7ZWY7KeAIOyViuuKlOuLpC4KMy4g7Iuk7KCcIHNvdXJjZSBwcmltaXRpdmUv6rOE7IKwIOq3nOy5meydhCDssL7slYTrgrgg65KkIEdvb2dsZSBTaGVldOyZgCAqKuywqOyihS/sl7Dsi50v6riw6rCEL+yVveygleqxsOumrC/rjIDsl6zro4wv67O07Kad6riIKiog64uo7JyEIHBhcml0eeulvCDspp3rqoXtlZzri6QuCjQuIFJQMDMxIHdyaXRlciBwcm9tb3Rpb27snYAgcmVnaXN0cnkgKyBTb3VyY2UgQ29udHJhY3QgKyB3cml0ZXIgdG9wb2xvZ3kgKyBwbGF0ZS9maW5hbmNlIHByb3ZlbmFuY2UgKyBBdG9t4oaSc25hcHNob3TihpJGMDEvRjg2IGNyb3NzLWF1ZGl066W8IO2VqOq7mCDri6vsnYAg65Kk7JeQ66eMIO2MkOygle2VnOuLpC4KNS4gYXVkaXQgKDM1KeydmCBGODYgZnJlc2huZXNzIGNoZWNrZXIg66y47KCc64qUIFJQMDMxIOynhOuLqOqzvCDrs4TqsJzroZwg6rOE7IaNIO2VtOqysCDrjIDsg4HsnLzroZwg7Jyg7KeA7ZWc64ukLgoK7IOB7IS4IOq3vOqxsDogYGRvY3MvYWktc3NvdC1hdWRpdC8yMDI2LTA5LTE4LWNoYXRncHQtYXVkaXQzOC1pYW5rYS1icm93c2VyLWludmVudG9yeS1uby1maW5hbmNlLm1kYC4KCuydtOuyiCBDaGF0R1BUIOqwkOyCrOyXkOyEnOuKlCBhcHBsaWNhdGlvbiBjb2RlL2J1c2luZXNzIGxvZ2lj7J2EIOyImOygle2VmOyngCDslYrslZjri6QuCg==
         run: |
           set -euo pipefail
           git config user.name 'ChatGPT SSOT Auditor'
           git config user.email 'actions@users.noreply.github.com'
           git pull --rebase origin main
-
           if ! grep -q '2026-09-18(38)' docs/AI-SSOT-AUDIT-LOG.md; then
-            cat >> docs/AI-SSOT-AUDIT-LOG.md <<'EOF'
-
----
-## 2026-09-18(38) — ChatGPT 독립 감사: RP031 실 브라우저 `/api/inventory` 전체 본문에도 금융값 없음; browser-header 가설 기각, finance provenance HOLD 강화
-
-**판정: audit (37)의 임시 가설 해소 / RP031 production promotion HOLD 강화.** audit (37) 기록 직후 완료된 PR #387·#388의 실제 runtime 결과를 추가 대조했다. 두 PR은 read-only 진단이며 production writer/adapter/projection을 변경하지 않는다.
-
-- PR #387 merge `cb368cf560425b9ef815601e5ce6ae4dd03aaa1c`, run `35286958679` / job `105421310549`: 실제 브라우저형 Accept/sec-ch-ua/Referer 등을 재현한 `GET /api/inventory`도 200, **44,143자**였고 첫 unit의 금융 유사 필드는 `rateOverride: null`뿐이었다. 전체 응답에서 `term/rate/price/rental/요금` 계열 매칭은 85건 모두 `rateOverride`, `N,NNN원` 패턴은 0건이었다. 따라서 “plain fetch와 browser headers 차이 때문에 inventory에 요금이 빠졌다”는 가설은 기각한다.
-- PR #388 merge/current main `8773e7664dae75e77e353e6ad7a629654c1d3b75`, run `35287337178` / job `105422481330` (**success**): 같은 authenticated 세션을 실제 headless browser에 주입하고 `/api/inventory`의 **전체 response body**를 캡처했다. 실제 브라우저 세션 응답도 정확히 44,143자, 금융 유사 키 85건은 모두 `rateOverride`, `N,NNN원` 패턴 0건이었다. 반면 같은 회차의 렌더링된 DOM 텍스트는 21,300자이며 원화 금액 패턴 48건과 실제 `월 대여료`·`보증금` 값을 표시했다. 네트워크 캡처에서 API 요청은 `/api/inventory`였고 `/api/rates` 호출은 없었다.
-- audit (36)/(37)의 기존 증거와 합치면 현재 확인된 경계는 명확하다: 현 B2B session에서 `/api/rates`는 admin-only 403, sampled `/api/vehicle-detail`은 금융키 0, raw initial home HTML도 금융값 0, 그리고 이제 **실 브라우저가 받은 `/api/inventory` 전체 payload에도 표시 금융값이 없다.** 따라서 `/api/inventory`를 RP031 rent/deposit canonical source로 승격하면 안 된다.
-- 표시 금융값은 client execution 과정에서 다른 primitive 또는 계산으로 도입되는 것으로 보이지만, **정확한 authority는 아직 미확정**이다. 로드된 JS/static bundle, client-side calculation 또는 다른 비-API 전달 경로 중 무엇인지는 별도 증명이 필요하다. rendered DOM은 소비 결과이므로 그 자체를 canonical source로 삼지 않는다.
-- current production canonical workflow는 계속 `9bef7bf0ffd21a96e3098a6f31adf1b1a0258c60`을 checkout하고 RP031 registry는 계속 `google_sheet`다. F01/F86 Atom projection 계약, RP012/손오공·RP023/오토플러스 특수탭 규칙, F86 종합의 손오공/오토플러스 제외 규칙에는 이번 진단으로 인한 변화가 없다. audit (35) F86 freshness-checker false-positive, audit (27)/(28)/(29)/(34), mirror/sales/settlement/RTDB legacy writer HOLD도 그대로다.
-
-### Claude 구현 Owner 인계
-
-1. RP031 금융값 source 탐색에서 `/api/inventory`를 다시 후보로 두지 않는다. browser headers와 실제 browser session 전체 body 모두 금융값 부재가 실측됐다.
-2. rendered DOM을 scrape해 canonical finance를 만들거나 기존 시트 값을 근거 없이 합성하지 않는다.
-3. 실제 source primitive/계산 규칙을 찾아낸 뒤 Google Sheet와 **차종/연식/기간/약정거리/대여료/보증금** 단위 parity를 증명한다.
-4. RP031 writer promotion은 registry + Source Contract + writer topology + plate/finance provenance + Atom→snapshot→F01/F86 cross-audit를 함께 닫은 뒤에만 판정한다.
-5. audit (35)의 F86 freshness checker 문제는 RP031 진단과 별개로 계속 해결 대상으로 유지한다.
-
-상세 근거: `docs/ai-ssot-audit/2026-09-18-chatgpt-audit38-ianka-browser-inventory-no-finance.md`.
-
-이번 ChatGPT 감사에서는 application code/business logic을 수정하지 않았다.
-EOF
+            printf '%s' "$AUDIT_B64" | base64 -d >> docs/AI-SSOT-AUDIT-LOG.md
           fi
-
-          mkdir -p docs/ai-ssot-audit
-          cat > docs/ai-ssot-audit/2026-09-18-chatgpt-audit38-ianka-browser-inventory-no-finance.md <<'EOF'
-# ChatGPT 독립 SSOT 감사 — audit 38: RP031 real-browser inventory has no finance payload
-
-검수일: 2026-09-18 KST
-
-## 판정
-
-**RP031의 표시 금융값은 `/api/inventory` payload에서 오지 않는다.** browser-like headers로 호출한 응답뿐 아니라 실제 authenticated headless-browser session이 받은 `/api/inventory` 전체 response body까지 확인했지만 rent/deposit 금액이 없었다. 반면 같은 browser session의 rendered DOM에는 월 대여료·보증금이 명확히 존재했다. 따라서 audit (37)의 “inventory가 richer response를 줄 수 있다”는 임시 가설은 기각하고, finance provenance 미확정 HOLD를 강화한다.
-
-## 1. PR #387 — browser headers 재현으로도 inventory 금융값 없음
-
-- merge: `cb368cf560425b9ef815601e5ce6ae4dd03aaa1c`
-- workflow run: `35286958679`
-- job: `105421310549`
-- result: success
-- authenticated `GET /api/inventory` → 200, body length 44,143 chars
-- first unit keys: name, plate, vehicleNo, year, fuel, color, mileage, available, status, affiliation, maintenanceRef, `rateOverride`, thumbnail, dispatchLocation
-- first unit `rateOverride: null`
-- `term/rate/price/rental/요금` 계열 매칭 85건: 모두 `rateOverride`
-- `N,NNN원` pattern: 0
-
-이 결과로 “plain fetch가 browser headers를 흉내 내지 않아 요금이 빠졌다”는 가설은 기각된다.
-
-## 2. PR #388 — real browser session 전체 inventory body도 동일
-
-- merge/current-main diagnostic commit: `8773e7664dae75e77e353e6ad7a629654c1d3b75`
-- workflow run: `35287337178`
-- job: `105422481330`
-- result: success
-
-실제 로그인 쿠키를 headless browser에 주입해 화면을 실행하면서 `/api/inventory` **전체 응답 본문**을 캡처했다.
-
-### Network/payload
-
-- captured API request: `GET /api/inventory` → 200
-- `/api/rates` network call: 없음
-- `/api/inventory` full body length: 44,143 chars
-- finance-like key matches: 85, 모두 `rateOverride`
-- won-amount pattern: 0
-- first unit `rateOverride: null`
-
-### Rendered consumer output
-
-- rendered page text length: 21,300 chars
-- `N,NNN원` pattern: 48
-- DOM에는 실제 `월 대여료`, `보증금`, 계약기간/약정거리 UI와 금액들이 표시됨
-
-즉 **같은 browser session에서 network inventory payload에는 금액이 없는데 rendered consumer output에는 금액이 생긴다.** `/api/inventory`는 표시 금융값의 transport payload가 아니다.
-
-## 3. 기존 진단과 합친 source boundary
-
-현재까지 runtime으로 배제되거나 제한된 후보는 다음과 같다.
-
-- `/api/rates`: 현재 B2B role에서 403 admin-only (audit 37)
-- sampled `/api/vehicle-detail`: finance/rate/deposit/month 계열 키 0 (audit 36)
-- authenticated raw initial home HTML: 표시 금융값/관련 token 0 (audit 37)
-- browser-header `/api/inventory`: 금액 0 (PR #387)
-- real-browser-session full `/api/inventory`: 금액 0 (PR #388)
-
-따라서 실제 표시 금액이 어디서 오는지는 아직 미확정이다. 로드된 JS/static asset의 embedded table, client-side calculation 또는 별도 비-API 전달 primitive 가능성이 남아 있다. **이 가능성들은 아직 가설이며 source로 확정하면 안 된다.**
-
-## 4. SSOT 구조 재대조
-
-- production canonical engine pin: `9bef7bf0ffd21a96e3098a6f31adf1b1a0258c60`
-- RP031 canonical registry: `google_sheet`
-- F01/F86 row source: ERP5 Atom row contract
-- production F86 special tabs: RP012→`오공구독`, RP023→`오플구독`, pickup→`픽업구독`, else→`상품리스트`
-- F86 종합: 손오공·오토플러스 제외 규칙 유지
-- audit (35) F86 freshness checker false-positive: OPEN
-- audit (27) deposit recurrence / (28) vehicle-price lineage / (29) sales-tab naming / (34) freshness semantics: OPEN/HOLD 유지
-- mirror/sales/settlement/RTDB legacy writer ownership: HOLD 유지
-
-이번 PR #387/#388은 read-only diagnostic이므로 production source/writer/projection authority를 변경하지 않았다.
-
-## 5. Claude 구현 Owner 인계
-
-1. `/api/inventory`를 RP031 finance canonical source 후보에서 제외한다.
-2. rendered DOM은 소비 결과이므로 scrape source로 승격하지 않는다.
-3. 로드된 client asset/계산 경로를 추적해 실제 finance primitive와 formula를 식별한다.
-4. primitive가 밝혀지면 Google Sheet와 차종·연식·기간·약정거리·대여료·보증금 단위 parity matrix를 만든다.
-5. authority 변경은 registry/Source Contract/writer topology와 Atom→snapshot→F01/F86 cross-audit까지 함께 닫는다.
-
-이번 감사에서는 application code/business logic을 수정하지 않았다.
-EOF
-
-          cat > CLAUDE-AUDIT.md <<'EOF'
-# ChatGPT 독립 SSOT 감사 — audit (38) override (2026-09-18 KST)
-
-> 이 파일은 Claude 구현 Owner의 **최신 진입점 요약**이다. 과거 판정과 상세 증거는 `docs/AI-SSOT-AUDIT-LOG.md`와 최신 `docs/ai-ssot-audit/` 문서를 우선한다. 실제 application/business logic 수정은 Claude 단일 SSOT 세션만 수행한다.
-
-## 현재 판정
-
-- **RP031 `/api/inventory` finance-source 가설 기각:** PR #387 run `35286958679`에서 browser-like headers로 받은 `/api/inventory`는 44,143자, finance-like key는 `rateOverride`뿐이고 won pattern 0이었다.
-- **실 browser session도 동일:** PR #388 run `35287337178` / job `105422481330`은 실제 browser가 받은 `/api/inventory` 전체 44,143자를 검사했고 역시 `rateOverride`만 존재, won pattern 0이었다. 반면 같은 rendered DOM은 21,300자에 won pattern 48건과 실제 월 대여료·보증금이 보였다. `/api/rates` network call도 없었다.
-- **따라서 finance authority는 여전히 미확정:** 현 B2B credential의 `/api/rates`는 admin-only 403, sampled `/api/vehicle-detail`도 finance 키 0, raw initial home HTML도 finance 값 0이다. 표시값은 client execution 과정의 다른 primitive/계산에서 생기지만 exact source는 아직 증명되지 않았다.
-- **RP031 production promotion 계속 HOLD:** registry는 계속 `google_sheet`; API→sheet feeder, `/api/inventory`, rendered DOM 어느 것도 canonical finance writer가 아니다. 값을 추정·합성하거나 DOM scrape로 대체하지 않는다.
-- production canonical workflow pin은 계속 `9bef7bf0ffd21a96e3098a6f31adf1b1a0258c60`. F01/F86 Atom projection, RP012/손오공·RP023/오토플러스 특수탭, F86 종합의 손오공/오토플러스 제외 규칙은 유지된다.
-- audit (35) F86 freshness checker false-positive, audit (27) Sonogong deposit recurrence, audit (28) vehicle-price lineage, audit (29) sales-tab naming migration, audit (34) newest-Atom freshness semantics, mirror/sales/settlement/RTDB legacy writer HOLD는 그대로다.
-
-## Claude 구현 Owner 우선순위
-
-1. audit (35)의 F86 freshness parser를 실제 `channel-f86-plan` 탭명 계약과 정렬하고 actual `event=schedule` full-run green을 증명한다.
-2. RP031 finance 탐색에서 `/api/inventory`와 browser-header 가설을 다시 되돌리지 않는다. 실제 browser full body까지 금액 부재가 증명됐다.
-3. 로드된 JS/static asset 또는 client calculation 경로에서 실제 finance primitive/formula를 식별하되, rendered DOM을 canonical source로 삼지 않는다.
-4. primitive 식별 후 Google Sheet와 차종·연식·기간·약정거리·대여료·보증금 단위 parity를 증명한다.
-5. RP031 writer promotion은 registry + Source Contract + writer topology + plate/finance provenance + Atom→snapshot→F01/F86 cross-audit를 함께 닫은 뒤 판정한다.
-6. production pin/current main을 같은 계보라고 가정하지 않는다.
-
-## 상세 근거
-
-- `docs/AI-SSOT-AUDIT-LOG.md` — 최신 audit (38)
-- `docs/ai-ssot-audit/2026-09-18-chatgpt-audit38-ianka-browser-inventory-no-finance.md`
-- PR #387 merge `cb368cf560425b9ef815601e5ce6ae4dd03aaa1c`, run `35286958679`, job `105421310549`
-- PR #388 merge `8773e7664dae75e77e353e6ad7a629654c1d3b75`, run `35287337178`, job `105422481330`
-- production pin `9bef7bf0ffd21a96e3098a6f31adf1b1a0258c60`
-
-이번 ChatGPT 감사에서는 application code/business logic을 수정하지 않았다.
-EOF
-
           rm -f .github/workflows/_chatgpt-audit38-recorder.yml
-          git add docs/AI-SSOT-AUDIT-LOG.md docs/ai-ssot-audit/2026-09-18-chatgpt-audit38-ianka-browser-inventory-no-finance.md CLAUDE-AUDIT.md .github/workflows/_chatgpt-audit38-recorder.yml
-          git commit -m 'audit: record audit38 RP031 browser inventory provenance'
-          for i in 1 2 3; do
-            if git push origin HEAD:main; then exit 0; fi
-            git pull --rebase origin main
-            sleep $((i*2))
-          done
-          exit 1
+          git add docs/AI-SSOT-AUDIT-LOG.md .github/workflows/_chatgpt-audit38-recorder.yml
+          git commit -m 'audit: append audit38 RP031 browser inventory provenance'
+          git push origin HEAD:main
