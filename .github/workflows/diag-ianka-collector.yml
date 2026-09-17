@@ -41,7 +41,7 @@ jobs:
           name: ianka-collector-preview
           path: |
             ianka/lib/wonja/이안카차량.json
-            tmp/이안카재고시트-preview.json
+            ianka/tmp/이안카재고시트-preview.json
           if-no-files-found: warn
           retention-days: 7
       - name: 자격증명 삭제
