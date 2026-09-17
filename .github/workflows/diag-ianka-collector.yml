@@ -1,0 +1,49 @@
+name: 이안카 수집기 시험(미리보기만, 수동)
+
+# ianka/scripts/이안카.mjs → ianka/scripts/이안카-재고시트.mjs(미리보기, --쓰기 없음)를 실제로 돌려
+# 로그인·재고 조회·시트 매핑이 끝까지 되는지 확인한다. 라이브 시트는 안 건드린다.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - name: 자격증명 준비
+        env:
+          SHEETS_SA: ${{ secrets.GOOGLE_SA_JSON }}
+        run: |
+          test -n "$SHEETS_SA" || { echo '::error::GOOGLE_SA_JSON 누락'; exit 1; }
+          mkdir -p tmp/firebase-auth
+          printf '%s' "$SHEETS_SA" > tmp/firebase-auth/sa.json
+      - name: 이안카 재고 수집(정본 lib/wonja/이안카차량.json)
+        env:
+          IANKA_ACCOUNT_JSON: ${{ secrets.IANKA_ACCOUNT_JSON }}
+        run: node ianka/scripts/이안카.mjs
+      - name: 원천시트 매핑 미리보기(라이브 안 건드림)
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sa.json
+        run: node ianka/scripts/이안카-재고시트.mjs
+      - name: 미리보기 결과 업로드
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ianka-collector-preview
+          path: |
+            ianka/lib/wonja/이안카차량.json
+            tmp/이안카재고시트-preview.json
+          if-no-files-found: warn
+          retention-days: 7
+      - name: 자격증명 삭제
+        if: always()
+        run: rm -rf tmp/firebase-auth ianka/lib/wonja
