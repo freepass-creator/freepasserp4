@@ -60,12 +60,20 @@ async function main() {
   });
   const allRows = rows.concat(보존행);
 
-  console.log(`[${탭}] 총 ${allRows.length}행 (API ${차량.length}: 신규 ${차량.filter((c) => !기존맵.has(씻(c.차번))).length} · API에없어 보존 ${보존행.length})`);
+  const 신규차번 = 차량.filter((c) => !기존맵.has(씻(c.차번))).map((c) => c.차번);
+  const 교집합차번 = 차량.filter((c) => 기존맵.has(씻(c.차번))).map((c) => c.차번);
+  const 보존차번 = 보존행.map((r) => r[plateCol]);
+
+  console.log(`[${탭}] 총 ${allRows.length}행 (API ${차량.length}: 신규 ${신규차번.length} · API에없어 보존 ${보존행.length})`);
   console.log('  헤더칸:', header.length);
   if (rows[0]) {
     const idx = (n) => header.indexOf(n);
     console.log('  샘플:', ['차량번호', '배차상태', '연식', '연료'].filter((n) => idx(n) >= 0).map((n) => `${n}=${rows[0][idx(n)]}`).join(' · '));
   }
+  console.log(`\n  기존 시트 행 수(차번 있는 행): ${기존행.length}`);
+  console.log(`  교집합(API∩기존시트) ${교집합차번.length}대: ${교집합차번.join(', ') || '(없음)'}`);
+  console.log(`  신규(API에만 있음) ${신규차번.length}대: ${신규차번.join(', ') || '(없음)'}`);
+  console.log(`  보존(기존시트에만 있음, 출고불가 처리) ${보존차번.length}대: ${보존차번.join(', ') || '(없음)'}`);
 
   if (!쓰기) {
     const p = path.join(루트, 'tmp', '이안카재고시트-preview.json');
