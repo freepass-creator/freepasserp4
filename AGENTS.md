@@ -1,9 +1,14 @@
 # AGENTS.md — freepasserp4 작업원칙 (모든 AI·작업자 공통)
 
+> **2026-09-09 사용자 확정 — RTDB는 프리패스 SSOT에서 제외.**
+> 결정 정본: `C:\dev\devcenter\ssot\FREEPASS-SSOT-SCOPE.md` (FREEPASS-SSOT-SCOPE-20260909-01).
+> 아래 과거 지침과 연결 문서의 RTDB/v4/products 정본·미러 기준 및 “코드가 정답” 표현은 이 확정 결정을 대체하지 않는다. Firestore 원자를 기준으로 검수하며, 남아 있는 RTDB 읽기·미러·fallback은 제거·전환 대상이다. 실제 코드와 운영 전환 완료는 별도 검증한다. 계약 잠금·정산 통제의 의미를 없애거나 RTDB 데이터를 삭제하라는 지시가 아니다.
+
 > ★★**예약·자동 발행은 `docs/예약작업-지도.md` 한 장이 정본이다**(사장님 2026-09-16 「예약자를 하나로 통일, 어느 AI든 통일」).
 > 프리패스 시트·원장을 쓰는 예약은 GitHub Actions(main) 한 곳에만 — PC 작업 스케줄러·Codex 자동화·Claude 예약·Vercel cron 에 새로 만들지 않는다.
 > 운영 판매시트 F01·하허호 F86 쓰기는 지도에 «운영 쓰기 허용»으로 적힌 워크플로만(발행기 문지기 `production-sheet-write-gate` 가 막는다) — 로컬·다른 AI 는 미리보기 사본만.
 > 예약을 더하거나 끄거나 cron 을 바꾸면 지도를 같은 커밋에서 고친다 — `npm run check:schedules`(CI).
+
 
 이 저장소에서 작업하는 **모든 AI(Claude Code·Cursor·Codex 등)와 사람**은 시작 전 이 원칙을 확인한다.
 사용자가 "**프리패스erp4 작업원칙 확인**"이라 하면 이 파일 + 아래 문서를 읽고 역할·규칙을 재확인한다.
