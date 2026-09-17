@@ -1,0 +1,37 @@
+name: 이안카 요금표 스크랩 시험(읽기전용, 수동)
+
+# ianka/scripts/이안카-요금스크랩.mjs 를 실제로 돌려 1~60개월 요금표가 제대로
+# 긁히는지 확인한다. 라이브 시트는 안 건드린다(결과 JSON을 로그·artifact로만 남김).
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: 이안카 요금표 스크랩 시험
+        env:
+          IANKA_ACCOUNT_JSON: ${{ secrets.IANKA_ACCOUNT_JSON }}
+        run: node ianka/scripts/이안카-요금스크랩.mjs
+      - name: 결과 업로드
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ianka-rate-scrape-preview
+          path: ianka/lib/wonja/이안카요금.json
+          if-no-files-found: warn
+          retention-days: 7
+      - name: 자격증명 삭제
+        if: always()
+        run: rm -rf ianka/lib/wonja
