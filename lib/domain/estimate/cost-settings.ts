@@ -71,6 +71,9 @@ export type CostSettings = {
    *   ⇒ 구간은 셋 — **A(정상) · B(중신용) · C(저신용)**. 항목은 같고 값만 다르다.
    */
   interestAPct: number; interestBPct: number; interestCPct: number;
+  /** 중고 가산 — **중고차 조달금리는 신차보다 높다**(사장님 2026-09-17 「기본적으로
+   *  중고차와 신차의 금리는 **평균 3% 정도 차이**가 난다」). 신용(A/B/C) 위에 «더해진다». */
+  interestUsedAddPct: number;
   loanAPct: number; loanBPct: number; loanCPct: number;
   // 직접 운영비
   /** 정비비 — **정액(원/월) ＋ 비율(연 %)**. 둘 다 넣으면 더해진다(항목마다 맞는 쪽이 있다). */
@@ -199,6 +202,7 @@ export const COST_DEFAULTS: CostSettings = {
   initPrepFee: 500000,    // 초기 상품화 — 손바뀜 회당 상품화와 같은 일(사장님 2026-09-05 「상품화 50」)
   // A(정상) · B(중신용) · C(저신용) — 지금은 셋 다 같은 값이다. 회사가 구간을 벌리면 여기서 벌어진다.
   interestAPct: pct(D.interestRate.rent), interestBPct: pct(D.interestRate.rent), interestCPct: pct(D.interestRate.rent),
+  interestUsedAddPct: 3,   // 중고 가산 3%p(사장님 실무 값) — 신차은 0
   loanAPct: 90, loanBPct: 90, loanCPct: 90,   // ← 손오공 운영값(코드 기본 80)
   // 정비 = 정액 월 1만(소모품·관제 최소분) + 차값 **연 2%**(업계 통상 · 우리 신차 견적기도 2%).
   //   둘은 더해진다 — 2,500만 차면 월 1만 + 41,700 ≈ 5만/월로, 렌터카 통상 정비비(월 3~5만) 자리다.
@@ -273,7 +277,11 @@ export function configFrom(cs: CostSettings, opts: { newCar?: boolean; path?: Ac
   const r = (v: number) => (v || 0) / 100;
   // 금융은 신용 구간(A/B/C)에서 고른다 — 항목은 같고 값만 다르다.
   const band = bandOf(opts.credit);
-  const interestPct = band === 'C' ? cs.interestCPct : band === 'B' ? cs.interestBPct : cs.interestAPct;
+  const interestBase = band === 'C' ? cs.interestCPct : band === 'B' ? cs.interestBPct : cs.interestAPct;
+  /* ★★**금리는 축이 둘이다** — 신용(A/B/C) × 신차/중고.
+       사장님 2026-09-17 「중고차와 신차의 금리는 평균 3% 정도 차이가 난다」.
+       여태는 신용만 보고 같은 금리를 썼다 — 그래서 중고 원가가 그만큼 싼게 섬였다. */
+  const interestPct = interestBase + (opts.newCar ? 0 : (cs.interestUsedAddPct || 0));
   const loanPct = band === 'C' ? cs.loanCPct : band === 'B' ? cs.loanBPct : cs.loanAPct;
   const recoveryPct = band === 'C' ? cs.penaltyRecoveryCPct : band === 'B' ? cs.penaltyRecoveryBPct : cs.penaltyRecoveryAPct;
   const markupRate = r(opts.newCar ? cs.markupNewPct : cs.markupUsedPct);

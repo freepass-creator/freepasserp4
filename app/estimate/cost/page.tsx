@@ -357,6 +357,12 @@ function EstimateCostPageInner() {
           <ORow label="조달금리" help={<>차 살 돈을 빌리는 <b>연 이자율</b>. 아래 대출비율만큼만 빌리므로 이자도 그만큼만 붙는다. 저신용 구간은 조달 조건이 나빠 높게 잡을 수 있다.</>}>
             <Pin unit="%" value={cs[BAND_KEY[polCr].interest]} onChange={(v) => set(BAND_KEY[polCr].interest, num(v))} />
           </ORow>
+          {/* ★★**금리는 신용만의 일이 아니다** — 사장님 2026-09-17
+                 「기본적으로 중고차와 신차의 금리는 **평균 3% 정도 차이**가 난다」.
+                 여태는 신용(A/B/C)만 보고 신차·중고를 같은 금리로 썼다 — 중고 원가가 그만큼 싼게 섬였다. */}
+          <ORow label="중고 가산" help={<>중고차는 조달금리가 <b>신차보다 높다</b>. 위 조달금리 위에 <b>몇 %p 더</b> 얹는지를 적는다(사장님 「평균 3%」). 신차 견적에는 안 붙는다.</>}>
+            <Pin unit="%p" value={cs.interestUsedAddPct} onChange={(v) => set('interestUsedAddPct', num(v))} />
+          </ORow>
           <ORow label="대출 비율" help={<>취득원가 중 <b>빌리는 비율</b>. 나머지는 <b>우리 현금</b>이다 — 3,000만 차를 80% 빌리면 545만(부가세 제외분)이 현금으로 들어가고, 그만큼 이자가 안 붙어 원가가 낮아진다. ⚠ 그 현금의 <b>기회비용은 원가에 안 넣는다</b> — 회사가 알아서 판단할 몫이다.</>}>
             <Pin unit="%" value={cs[BAND_KEY[polCr].loan]} onChange={(v) => set(BAND_KEY[polCr].loan, num(v))} />
           </ORow>

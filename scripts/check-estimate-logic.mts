@@ -2598,6 +2598,27 @@ must((availableForEngine({ a: { name: '컴포트' } }, [], '가솔린 3.5 터보
     'lib/guest-surface.ts');
 }
 
+/* == 43. ★★**금리는 신용 × 신차/중고 두 축**(정본 §3-3-1 · 2026-09-17)
+     사장님 「중고차와 신차의 금리는 평균 3% 정도 차이가 난다」.
+     ⚠ 신용만 보면 중고 원가가 싼게 선다 — 문자열이 아니라 **돌려서** 재는다. */
+{
+  const { configFrom, COST_DEFAULTS } = await import('../lib/domain/estimate/cost-settings');
+  const nw = configFrom(COST_DEFAULTS, { newCar: true, credit: '중신용' }) as { interestRate: { rent: number } };
+  const us = configFrom(COST_DEFAULTS, { newCar: false, credit: '중신용' }) as { interestRate: { rent: number } };
+  const gap = Math.round((us.interestRate.rent - nw.interestRate.rent) * 1000) / 10;
+  must(gap > 0,
+    `중고와 신차의 조달금리가 같습니다(차 ${gap}%p) — 중고는 금리가 더 높습니다`,
+    'lib/domain/estimate/cost-settings.ts interestUsedAddPct');
+  must(Math.abs(gap - COST_DEFAULTS.interestUsedAddPct) < 0.05,
+    `중고 가산이 설정값대로 안 먹습니다(설정 ${COST_DEFAULTS.interestUsedAddPct}%p · 실제 ${gap}%p)`,
+    'lib/domain/estimate/cost-settings.ts configFrom');
+  /* 신차은 가산이 «안» 붙는다 — 붙으면 신차 견적이 통째로 비싸진다. */
+  const nw0 = configFrom({ ...COST_DEFAULTS, interestUsedAddPct: 9 }, { newCar: true, credit: '중신용' }) as { interestRate: { rent: number } };
+  must(Math.abs(nw0.interestRate.rent - nw.interestRate.rent) < 1e-9,
+    '중고 가산이 신차에도 붙었습니다',
+    'lib/domain/estimate/cost-settings.ts configFrom');
+}
+
 if (fails.length) {
   console.error(`\n✗ 견적 로직이 정본과 다릅니다 — ${fails.length}건\n`);
   for (const f of fails) console.error(`  · ${f}\n`);
