@@ -1167,6 +1167,51 @@ must(/nowLabelKo\(now\)/.test(wlFrame) && /head\.weather/.test(wlFrame),
   }
 }
 
+/*
+ * ★★★**화이트라벨은 보증금을 «금액»으로 말한다.** (2026-09-18 확정)
+ *
+ * 사장님 「화이트라벨에는 실제로 그 보증금을 입력해 두자는 거지 · **계산해서 그렇게 넣어 주자** ·
+ * 모든 게 다 화이트라벨에는 **금액이 들어가니까**」.
+ *
+ * ⚠⚠ 그 전에는 규칙 글자(「월 대여료 × 약정연수 (최대 3개월)」)가 손님 화면에 그대로 나갔고,
+ *   상세 요금표는 더 나빴다 — 금액이 0 인 **285대에서 보증금 칸 열 줄이 전부 「없음」**이었다.
+ *   보증금이 있는 차를 「없음」이라고 말한 것이라 빈 게 아니라 **틀린 말**이었다.
+ * ★원자(SSOT)는 그대로 규칙 글자를 싣는다 — 바뀌는 것은 «손님이 보는 말»뿐이다
+ *   (2026-09-17 판단 유지: 「계산값을 원자에 박으면 원천 대여료가 바뀔 때 보증금만 따로 늙는다」).
+ * ★셈은 **한 곳**(`lib/format.ts` `depositFromRule`) — 카드·상세 머리·요금표·공유가 같은 답을 쓴다.
+ *   셈이 맞는지는 `npm run check:deposit` 가 운영 실측값으로 매번 다시 푼다.
+ * ⚠ **모르는 규칙은 지어내지 않는다**(`null` → 규칙 글자 그대로). 돈을 틀리게 부르는 것보다 낫다.
+ */
+{
+  const fmt = read('lib/format.ts');
+  const detail = read('components/shop/ShopDetail.tsx');
+
+  must(/export function depositFromRule/.test(fmt),
+    '보증금 규칙을 금액으로 바꾸는 셈이 사라졌습니다 — 손님 화면에 「월 대여료 × 약정연수」가 그대로 나갑니다.',
+    'lib/format.ts depositFromRule · npm run check:deposit');
+  must(/return null;\s*\}\s*$/m.test(fmt.slice(fmt.indexOf('export function depositFromRule'), fmt.indexOf('export function depositLine'))),
+    '`depositFromRule` 이 모르는 규칙에도 숫자를 냅니다 — 모르면 null 이어야 규칙 글자로 안전하게 나갑니다.',
+    'lib/format.ts depositFromRule');
+
+  /* 네 화면이 전부 «기간»을 넘겨야 셈이 된다 — 하나라도 빠지면 그 화면만 글자로 남는다. */
+  for (const [file, src] of [
+    ['components/shop/ShopCard.tsx', shopCard],
+    ['components/shop/ShopDetail.tsx', detail],
+    ['app/q/[code]/page.tsx', read('app/q/[code]/page.tsx')],
+  ] as const) {
+    /* ⚠ 괄호로 잘라 세지 않는다 — 인자 안에 `(p as Record<…>)` 가 있어 첫 `)` 에서 끊긴다. */
+    const at: number[] = [];
+    for (let i = src.indexOf('depositLine('); i >= 0; i = src.indexOf('depositLine(', i + 1)) at.push(i);
+    must(at.length > 0 && at.every((i) => /months:/.test(src.slice(i, i + 300))),
+      `${file} 이 보증금을 셀 «기간»을 안 넘깁니다 — 그 화면만 규칙 글자로 남습니다.`,
+      `${file} · lib/format.ts depositLine`);
+  }
+
+  must(!/x\.deposit > 0 \? wonKo\(x\.deposit\) : '없음'/.test(detail),
+    '요금표 보증금 칸이 다시 「없음」으로 굳었습니다 — 규칙으로 오는 285대가 보증금 없는 차로 보입니다.',
+    'components/shop/ShopDetail.tsx 요금표 보증금 칸');
+}
+
 if (fails.length) {
   console.error(`\n✗ 확정 디자인이 바뀌었습니다 — ${fails.length}건\n`);
   for (const f of fails) console.error(`   · ${f}\n`);

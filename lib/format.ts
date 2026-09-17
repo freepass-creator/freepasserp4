@@ -226,10 +226,83 @@ export function todayKo(now: Date = new Date()): string {
  * ⚠ 자르라는 뜻이 아니다 — 보증금은 **안 자른다**(2026-09-05 확정: 「보증금 103만 5,…」로
  *   끝이 잘려 있던 것을 그때 고쳤다). 넘치면 **줄을 바꾼다.**
  */
-export function depositLine(deposit: unknown, note: unknown, money: (n: unknown) => string): { text: string; none: boolean; rule: boolean } {
+/**
+ * **보증금 규칙 글자 → 금액.** 아는 규칙만 센다 — **모르는 말은 지어내지 않고 `null`** 이다.
+ *
+ * ★★★사장님 2026-09-18 「화이트라벨에는 실제로 그 보증금을 입력해 두자는 거지 · **계산해서 그렇게
+ *   넣어 주자** · 모든 게 다 화이트라벨에는 **금액이 들어가니까**」.
+ *
+ * ## 왜 «원자»가 아니라 «화면»이 세나
+ *
+ * 원자(SSOT)에는 **규칙 글자만** 싣는다(2026-09-17 확정 — `ingest-supplier-to-firestore` 머리말:
+ * 「계산값을 원자에 박으면 원천 대여료가 바뀔 때 보증금만 따로 늙는다 — 규칙은 셈법으로 두는 게 맞다」).
+ * 그 판단은 그대로다. **바뀌는 것은 «손님이 보는 말»뿐**이다 — 화이트라벨은 금액으로 말한다.
+ * ⇒ 셈은 **부르는 순간** 그때의 대여료로 한다. 대여료가 바뀌면 보증금도 저절로 따라온다.
+ *
+ * ## 아는 규칙 — 운영 전수 실측(2026-09-18 · 687대 · 규칙 글자는 **다섯 가지뿐**)
+ *
+ * | 규칙 글자 | 대수 | 셈법 | 검증 |
+ * |---|---|---|---|
+ * | (빈칸) | 364 | 원천이 준 금액을 그대로(343대) · 없으면 「보증금 없음」(21대) | — |
+ * | 「월 대여료 × 약정연수 (최대 3개월)」 | 240 | `대여료 × min(개월/12, 3)` | 기간키가 **전부 12의 배수**(12·24·36·48·60)라 곱이 정수 |
+ * | 「국산: 월 대여료×2」 | 35 | `대여료 × 2` | 제조사 **전부 국산**(기아·현대·제네시스·KG) |
+ * | 「수입: 12개월 대여료×3 · 18개월↑ ×6」 | 10 | 12개월 `×3` · 그 위 `×6` | 제조사 **전부 수입**(BMW·볼보·포드·벤츠) |
+ * | 「무보증」 | 38 | 「보증금 없음」 | — |
+ *
+ * ★「월 대여료 × 약정연수 (최대 3개월)」의 셈법은 **수집기가 쓰던 그 공식 그대로**다
+ *   (`ingest-supplier-to-firestore`: 「보증금 = 대여료 × 연수, 최대 3개월 · **min(개월/12, 3)** 로 캡 —
+ *   48·60개월이 4·5개월치로 부풀던 것을 막는다」 · 사장님 「손오공 규칙」 2026-08-28).
+ *   내가 새로 지은 셈이 아니다.
+ * ★「국산:」·「수입:」은 **그 차에 해당하는 갈래만** 원자에 실려 온다(위 제조사 검증) —
+ *   화면이 국산·수입을 다시 판정하지 않는다.
+ *
+ * ⚠⚠ **모르는 규칙은 `null`.** 그러면 부르는 쪽이 예전처럼 «규칙 글자 그대로» 보여 준다.
+ *   돈을 틀리게 부르는 것보다 규칙을 그대로 보여 주는 편이 낫다 — 영업자가 손님에게 불러 줄 값이다.
+ *   ★새 공급사가 새 규칙 글자를 들고 오면 **여기 한 줄을 보태기 전까지는 글자로 나간다**(조용히 안 틀린다).
+ */
+export function depositFromRule(note: unknown, rent: number, months: number): number | null {
+  const rule = String(note ?? '').trim();
+  const r = Number(rent) || 0;
+  const m = Number(months) || 0;
+  if (!rule || r <= 0 || m <= 0) return null;
+  /* 「대여료 × 약정연수(최대 3개월)」 — 연수 캡은 수집기와 같은 min(개월/12, 3). */
+  if (/약정\s*연수/.test(rule)) {
+    const cap = /최대\s*(\d+)\s*개월/.exec(rule);
+    const years = Math.min(m / 12, cap ? Number(cap[1]) : 3);
+    return years > 0 ? Math.round(r * years) : null;
+  }
+  /* 「수입: 12개월 대여료×3 · 18개월↑ ×6」 — 기간이 가른다. */
+  if (/수입/.test(rule)) {
+    const low = /(\d+)\s*개월[^×x]*[×x]\s*(\d+)/.exec(rule);
+    const high = /[·,]\s*(\d+)\s*개월[↑이상]*\s*[×x]\s*(\d+)/.exec(rule);
+    if (!low || !high) return null;
+    return m <= Number(low[1]) ? Math.round(r * Number(low[2])) : Math.round(r * Number(high[2]));
+  }
+  /* 「국산: 월 대여료×2」 — 기간과 무관한 곱. */
+  if (/[×x]\s*(\d+)\s*$/.test(rule)) {
+    const mul = Number(/[×x]\s*(\d+)\s*$/.exec(rule)![1]);
+    return mul > 0 ? Math.round(r * mul) : null;
+  }
+  return null;
+}
+
+/**
+ * ★`plan` 을 주면 규칙 글자를 **금액으로 바꿔** 말한다(`depositFromRule` 머리말 — 사장님 2026-09-18).
+ *   안 주거나 모르는 규칙이면 예전처럼 규칙 글자 그대로다.
+ */
+export function depositLine(
+  deposit: unknown,
+  note: unknown,
+  money: (n: unknown) => string,
+  plan?: { rent: number; months: number },
+): { text: string; none: boolean; rule: boolean } {
   const amount = Number(deposit) || 0;
   const rule = String(note ?? '').trim();
   if (amount > 0) return { text: `보증금 ${money(amount)}`, none: false, rule: false };
-  if (rule && !/무보증/.test(rule)) return { text: `보증금 ${rule}`, none: false, rule: true };
+  if (rule && !/무보증/.test(rule)) {
+    const computed = plan ? depositFromRule(rule, plan.rent, plan.months) : null;
+    if (computed && computed > 0) return { text: `보증금 ${money(computed)}`, none: false, rule: false };
+    return { text: `보증금 ${rule}`, none: false, rule: true };
+  }
   return { text: '보증금 없음', none: true, rule: false };
 }

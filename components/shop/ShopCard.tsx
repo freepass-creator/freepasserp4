@@ -71,7 +71,11 @@ export const ShopCard = memo(function ShopCard({ p, href, rank = 99 }: {
   const mobile = useIsMobile();
   const price = cheapest(p);
   /** 보증금 — 금액이 없고 규칙 글자(`deposit_note`)만 있는 상품이 있다(`depositLine` 머리말). */
-  const dep = price ? depositLine(price.deposit, (p as Record<string, unknown>).deposit_note, manShort) : null;
+  /* ★규칙 글자는 «금액»으로 바꿔 말한다(사장님 2026-09-18) — 기간을 줘야 셈이 된다. */
+  const dep = price
+    ? depositLine(price.deposit, (p as Record<string, unknown>).deposit_note, manShort,
+        { rent: price.rent, months: price.m })
+    : null;
   /*
    * ② 줄 — 세부모델 · 세부트림. **연식을 앞에 붙이지 않는다**(사장님 2026-09-04 — 연식은 아래
    * ③ 줄로 갔다). 「2026 현대 베뉴 QX1 프리미엄」처럼 앞에 숫자가 서면 그게 트림 숫자와 섞여
