@@ -10,7 +10,7 @@ import { CORP } from '@/lib/domain/corporate-ci';
 import { useSession } from '@/lib/auth-context';
 import { useIsMobile } from '@/lib/use-mobile';
 import { nowLabelKo, todayLabelKo, useNowKst, useShopHeadStatus } from '@/lib/shop/head-status';
-import { hasBrand, hasShopFrame, whitelabelVars, type Whitelabel } from '@/lib/whitelabel';
+import { hasBrand, hasShopFrame, labelKind, whitelabelVars, type Whitelabel } from '@/lib/whitelabel';
 
 /**
  * 화이트라벨 껍데기 — 손님 카탈로그를 «그 회사 사이트»로 보이게 하는 머리띠·안내 블록·푸터.
@@ -169,7 +169,17 @@ export function WhitelabelFrame({
    *   보낸 링크로 들어온 사람이라, 날씨보다 「누구에게 말하나」가 먼저다(이 자리의 원래 규칙).
    *   그때만 표준라벨도 날짜를 양보한다.
    */
-  const webContact = !mobile && !!phone && (!!who || !wl.self);
+  /*
+   * ★★★**가르는 것은 «라벨 갈래»다**(`labelKind` — 사장님 2026-09-17 「표준라벨, 채널라벨,
+   *   공급라벨 이렇게 있는 거야」 · 「채널라벨 = 날짜 대신 대표번호」).
+   *   · 표준라벨(`standard`) = 날짜 · 시각 · 날씨
+   *   · 채널라벨 · 공급라벨   = **상담 및 문의 대표번호**(공급라벨은 채널라벨의 갈래다 — 화면은 같다)
+   * ⚠ 전에는 `self`(우리 것이냐)로 갈랐다. 그래서 **우리 브랜드 가게(`/freepass`)에도 날씨가 섰다.**
+   *   사장님이 우리 가게를 «채널라벨 묶음»으로 확정하셨다(2026-09-17) — 간판이 선 화면에서
+   *   손님이 찾는 것은 거는 번호다. 잣대를 「간판이 서 있느냐」로 물린다.
+   * ★담당자(`?a=`)가 붙어 오면 표준라벨도 사람이 이긴다 — 그 손님은 특정 영업자가 보낸 링크로 왔다.
+   */
+  const webContact = !mobile && !!phone && (!!who || labelKind(wl) !== 'standard');
   return (
     <div className="fp-wl" style={whitelabelVars(wl) as React.CSSProperties}>
       {/*

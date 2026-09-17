@@ -566,6 +566,8 @@ must(/const useRows = grouped\(/.test(shopDetail)
   'docs/DESIGN_CONFIRMED_SHOP.md §1-2-3');
 
 const wlFrame = read('components/WhitelabelFrame.tsx');
+/** 채널 표 — 라벨 세 갈래(표준·채널·공급)의 이름이 여기 산다(`labelKind`). */
+const wlTable = read('lib/whitelabel.ts');
 /*
  * 폰 상세 머리띠는 «채널 간판»이 아니라 「상품 상세」다 — 손님은 이미 그 가게 안이다.
  * 그리고 차번은 «차명 뒤»에 붙는다 — 제 줄을 하나 차지하지도, 머리띠로 올라가지도 않는다.
@@ -1044,9 +1046,17 @@ must(/wl\.tel/.test(read('app/q/[code]/ShopDetailView.tsx')),
  *   ㉢ 표준라벨 쪽은 **날짜·시각**(`nowLabelKo`)과 **날씨**(`head.weather`)를 든다.
  * ★폰 둘째 줄(날짜·날씨)은 2026-09-17 에 걷었다 — 그건 «없는 것»이 규격이라 여기서 안 센다.
  */
-must(/const webContact = !mobile && !!phone && \(!!who \|\| !wl\.self\)/.test(wlFrame),
-  '머리띠 오른쪽을 가르는 잣대가 바뀌었습니다 — 표준라벨(self)은 날짜·시각·날씨, 영업채널은 상담 대표번호입니다.',
-  'components/WhitelabelFrame.tsx webContact · docs/DESIGN_CONFIRMED_SHOP.md 「머리띠 오른쪽」');
+/*
+ * ⚠ 2026-09-17 잣대가 `self` → **`labelKind`** 로 바뀌었다(사장님 「표준라벨, 채널라벨, 공급라벨
+ *   이렇게 있는 거야」 · 우리 브랜드 가게는 **채널라벨 묶음**). `self` 로 가르던 때는 우리 가게에도
+ *   날씨가 섰다. 세 갈래의 이름·표는 `lib/whitelabel.ts` `labelKind` 머리말이 정본이다.
+ */
+must(/labelKind\(wl\) !== 'standard'/.test(wlFrame),
+  '머리띠 오른쪽을 가르는 잣대가 바뀌었습니다 — 표준라벨만 날짜·시각·날씨, 채널·공급라벨은 상담 대표번호입니다.',
+  'components/WhitelabelFrame.tsx webContact · lib/whitelabel.ts labelKind');
+must(/export function labelKind/.test(wlTable) && /supplier/.test(wlTable),
+  '라벨 세 갈래(표준·채널·공급)의 이름이 표에서 사라졌습니다 — 규칙을 갈래 이름으로 적을 수 없게 됩니다.',
+  'lib/whitelabel.ts labelKind · docs/DESIGN_CONFIRMED_SHOP.md 「머리띠 오른쪽」');
 must(/const CONTACT_LABEL = '상담 및 문의'/.test(wlFrame) && /\{CONTACT_LABEL\}/.test(wlFrame),
   '채널 머리띠의 「상담 및 문의」가 한 곳(CONTACT_LABEL)에서 안 옵니다 — 손으로 적으면 웹·폰이 갈립니다.',
   'components/WhitelabelFrame.tsx CONTACT_LABEL · docs/DESIGN_CONFIRMED_SHOP.md 「머리띠 오른쪽」');
