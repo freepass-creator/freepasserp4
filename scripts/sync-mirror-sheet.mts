@@ -106,7 +106,7 @@ for (const p of visible) {
   let v: { values?: string[][] };
   try { v = await call(`${SH}/${TO}/values/${encodeURIComponent(`'${title.replace(/'/g, "''")}'`)}`) as { values?: string[][] }; } catch { continue; }
   const rows = (v.values || []) as string[][];
-  const hi = rows.findIndex((r) => r.some((c) => norm(c) === norm('차명(트림)')));
+  const hi = rows.findIndex((r) => r.some((c) => norm(c) === norm('차명(세부모델+트림)')));
   if (hi < 0) continue;
   const hdr = rows[hi].map(S);
   const pi = hdr.findIndex((h) => norm(h) === '차량번호');
@@ -115,7 +115,7 @@ for (const p of visible) {
    *   «새 차»가 되고 머리행 바로 아래부터 통째로 덮어쓴다 — 122줄이 한 번에 갈린다.
    */
   if (pi < 0) throw new Error(`「${title}」 에 차량번호 열이 없다 — 덮어쓰면 기존 줄이 통째로 갈린다`);
-  tabs.push({ title, rows, hdr, hi, pi, si: hdr.findIndex((h) => norm(h) === '상태'), ti: hdr.findIndex((h) => norm(h) === norm('차명(트림)')) });
+  tabs.push({ title, rows, hdr, hi, pi, si: hdr.findIndex((h) => norm(h) === '상태'), ti: hdr.findIndex((h) => norm(h) === norm('차명(세부모델+트림)')) });
 }
 if (!tabs.length) throw new Error('우리 시트에서 재고 탭을 못 찾았다');
 console.log(`  우리 시트 「${book}」 ${tabs.map((t) => `「${t.title}」 ${t.rows.length - t.hi - 1}줄`).join(' · ')}

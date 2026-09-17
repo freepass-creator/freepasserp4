@@ -99,7 +99,7 @@ function yearOf(rec: Rec): number | '' {
   return n >= 1000 ? n : 2000 + n;
 }
 
-/** 차명(트림) — 한 칸에 이어 쓴다. 파서가 문장 전체를 보고 세대·사양까지 잡는다. */
+/** 차명(세부모델+트림) — 한 칸에 이어 쓴다. 파서가 문장 전체를 보고 세대·사양까지 잡는다. */
 function carName(p: Rec): string {
   const parts = [S(p.sub_model) || S(p.model), S(p.variant), S(p.trim_name)].map(S).filter(Boolean);
   const out: string[] = [];
@@ -297,7 +297,7 @@ for (const f of ((found.files || []) as Rec[])) {
     //   남아 있는데 그대로 내보내면 공급사 시트에 목록 밖 값이 박힌다.
     put('분류', S(canonProductType(rec.product_type)) || S(rec.product_type));
     put('제조사', S(rec.maker));
-    put('차명(트림)', carName(rec));
+    put('차명(세부모델+트림)', carName(rec));
     put('옵션', S(rec.options));
     put('외부색상', S(rec.ext_color));
     put('내부색상', S(rec.int_color));
