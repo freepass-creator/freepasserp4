@@ -76,7 +76,7 @@ const ALIAS: Record<string, string[]> = {
   차량번호: ['차량번호', '차번'],
   제조사: ['제조사', '메이커'],
   모델: ['차종', '차종분류', '모델'],
-  세부모델: ['차명(트림)', '세부모델', '모델명'],
+  세부모델: ['차명(세부모델+트림)', '세부모델', '모델명'],
   파워트레인: ['파워트레인'],
   세부트림: ['세부트림', '트림'],
   외장: ['외부색상', '외장색', '외장'],
@@ -107,8 +107,8 @@ const rowMeta = (data.rowMetadata || []) as Rec[];
 const grid = ((data.rowData || []) as Rec[]).map((r) => ((r.values || []) as Rec[]).map((v) => S(v.formattedValue)));
 const linkRow = ((data.rowData || []) as Rec[]).map((r) => ((r.values || []) as Rec[]).map((v) => S(v.hyperlink)));
 
-const hi = grid.findIndex((r) => r.some((c) => norm(c) === norm('차명(트림)')));
-if (hi < 0) throw new Error('제공시트에서 머리행(「차명(트림)」)을 못 찾았다');
+const hi = grid.findIndex((r) => r.some((c) => norm(c) === norm('차명(세부모델+트림)')));
+if (hi < 0) throw new Error('제공시트에서 머리행(「차명(세부모델+트림)」)을 못 찾았다');
 const hdr = grid[hi].map(S);
 const pick = (name: string) => {
   for (const cand of ALIAS[name] || []) { const i = hdr.findIndex((h) => norm(h) === norm(cand)); if (i >= 0) return i; }
