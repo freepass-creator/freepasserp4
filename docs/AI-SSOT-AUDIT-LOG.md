@@ -2760,3 +2760,36 @@ Claude 구현 Owner: audit (40)의 기술 finding은 유지하되 `pre-merge` �
 - **아직 runtime 해소로 닫지 않음:** 새 pin `cf940df6...`을 실제 checkout한 scheduled/full-apply 운영 run의 freshness green 증거는 아직 없다. 이를 증명하려고 불필요한 `apply=true` 수동 쓰기를 실행하지 않았다.
 - **schedule delivery HOLD 유지:** 2026-09-18 17:17/18:17/19:17 scheduled event 미관측 문제는 #412와 별개다. 다음 실제 scheduled event가 생성되는지 확인하기 전에는 cadence 정상화로 판정하지 않는다.
 
+---
+
+## 2026-09-18(54) — ChatGPT 독립 감사/구현: downstream 실제 분배 정합성 + 내부 ERP canonical 소비 전환
+
+**판정: F01/F86/public 분배는 live full-apply로 증명됨. downstream UI의 ERP4 product drift는 수정 staged. 전체 “실시간 정상”은 schedule delivery 미해소 때문에 아직 아니다.**
+
+- 실제 full apply run `35320568657` / snapshot `20260918074946904-1eb68b19bbd1`(16:49 KST):
+  - ERP5 현재 재고 671대
+  - public catalog 664대 expected=actual PASS
+  - F01 671대
+  - F86 671대 / 19탭 / 90열
+  - F86 43,925칸 어긋남 0
+  - Atom↔F01 missing/extra/value drift 0
+  - F01↔F86 missing/extra/value drift 0
+  - 차량번호 사진링크 mismatch 0
+- 따라서 마지막 실제 운영 회차 기준 **ERP5 → public/F01/F86 값 분배는 정상**으로 판정한다. 당시 workflow red는 데이터가 아니라 PR #411로 이미 수정한 F86 freshness checker false-positive였다.
+- 감사 중 내부 Finder가 `getFirebaseApp()`의 기본 Firebase `products`를 onSnapshot하고 있어 canonical ERP5와 직접 연결되지 않은 것을 확인했다. `/api/products`도 ERP4 `v4/products`를 읽었다.
+- branch `chatgpt/erp5-downstream-canonical-20260918`에서:
+  - 로그인 Finder → 인증 `/api/products` → `readCanonicalCatalogFromErp5`
+  - Finder 30초 poll + focus/visibility refresh, ERP4 fallback 금지
+  - `/m/[code]` 상세 → ERP5 single-product API, 60초 refresh
+  - Finder 시트의 상세 href mapping → ERP5 products/partners
+  - `/api/shop/inside` policy/partner → ERP5
+  - 읽기전용 `/api/ops/inventory` → ERP5
+  - `useShopHeadStatus` → 60초 + focus/visibility refresh
+  - 첫 Finder paint에 ERP4 product cache를 재사용하지 않음
+  - `check:erp5-firebase`에 위 소비 경로 회귀가드 추가
+- 서버 ERP5 catalog cache는 60초, 손님 목록은 45초 poll, Finder는 30초 poll이므로 **ERP5 Atom이 갱신된 뒤 downstream 반영은 대략 1~2분 내 near-real-time** 계약이다.
+- 그러나 upstream 공급사→ERP5 canonical ingest는 시간당 schedule이고, 2026-09-18 `:17` 전환 뒤 17:17/18:17/19:17 scheduled event가 모두 미관측이었다. 오늘 마지막 실제 canonical write 증거는 위 16:49 snapshot이다. 따라서 전체 시스템을 “실시간 정상”이라고 닫지 않는다.
+- `/inventory` 편집은 **HOLD**다. 현재 ERP4 Store read/write가 한 묶음이므로 읽기만 ERP5로 바꾸면 저장이 다른 DB로 가는 더 위험한 split-brain이 된다. ERP5 authenticated write API/권한/감사/CAS를 만든 뒤 read/write를 함께 전환해야 한다.
+- 오래된 `docs/원자-뻗어나가는-지도.md`, `docs/자동동기-매뉴얼.md`에는 ERP5 최신 계약 우선 경고를 추가했다.
+- 상세 근거: `docs/ai-ssot-audit/2026-09-18-chatgpt-audit54-downstream-distribution-live.md`.
+
