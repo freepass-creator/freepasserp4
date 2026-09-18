@@ -1,99 +1,152 @@
-# ChatGPT → Claude SSOT 감사 진입점 — audit (60) override
+# ChatGPT → Claude SSOT 감사 진입점 — audit (61) override
 
-> 구현 Owner는 Claude 단일 SSOT 세션이다. ChatGPT는 독립 감사·운영상태 정렬·증거 기록만 한다. application/business logic은 이 감사에서 수정하지 않았다.
+> 사용자의 명시적 지시로 ChatGPT가 **운영 workflow/config + CI governance**까지 자동화 정리를 수행했다. application/business logic 구현 Owner는 계속 Claude 단일 SSOT 세션이다.
 
-## 1) 운영상태 확정 — 자동 writer 재개 전 OFF/HOLD
+## 1) 현재 운영 판정 — GO(config/topology) / WATCH(runtime)
+
+자동 writer 충돌 P0는 repository 수준에서 해소했다.
+
+### 자동으로 도는 경로
+
+#### A. 정산 intake
+- workflow: `.github/workflows/settlement-intake-sync.yml`
+- KST 월~토 09:05~18:05
+- 계약접수 시트 → canonical 정산원장 `접수`
+- ledger 서식/용어 정리
+- inventory / supplier sheet / F01 상태를 직접 쓰지 않음
+
+#### B. canonical ERP5
+- workflow: `.github/workflows/erp5-ssot-refresh.yml`
+- KST 월~토 09:17~19:17
+- production pin: `cf940df642edf315adbc6da2b4134fbad53da160`
+- 원장 접수/취소 → ERP5 contract lock
+- 24 source ingest → Atom → fixed snapshot → F01 → F86 → freshness/cross-parity/photo audit
+
+자동 흐름:
+
+```text
+09:05 settlement-intake-sync
+  intake → ledger 접수
+       ↓
+09:17 erp5-ssot-refresh
+  ledger lock → Atom → snapshot → F01/F86 → audits
+```
+
+## 2) RESOLVED — legacy automatic writers
+
+PR #418 merge:
+- `27adad84d0fd1d980e51eb00394de11afa48dbed`
+
+다음은 automatic writer가 아니다.
 
 ### contract-status
-- last-proven runtime: `disabled_manually`
-- current conflict: canonical `LEDGER` vs contract-status `정산원장` dual lock ownership
-- `docs/예약작업-지도.md`: **꺼짐/HOLD**
-- **#415 완료 전 재활성화 금지**
+- schedule 제거
+- 운영 `--apply` 제거
+- manual dry-run only
+- 따라서 `LEDGER` vs `정산원장` **scheduled dual writer**는 제거됨
 
-### settlement-sync
-- last-proven runtime: `disabled_manually`
-- current conflict: legacy `sync-contract-from-ledger.mts` / `SETTLEMENT_LEDGER_TAB='정산'`
-- canonical ledger = `접수 / 취소 / 분납실적 / 완납실적 / 청구`
-- `docs/예약작업-지도.md`: **꺼짐/HOLD**
-- **#416 완료 전 재활성화 금지**
+### sales-erp-hourly
+- schedule 제거
+- push trigger 제거
+- `cloud-hourly-sync --apply` 제거
+- manual dry-run only
 
-### sales-erp-hourly / mirror-sync
-- last-proven runtime: `disabled_manually`
-- 예약지도: 꺼짐
-- YAML cron/`--apply` path는 남아 있음
-- **#417에서 repository-level retirement/fail-closed까지 정리**
+### mirror-sync
+- schedule 제거
+- scheduled `--apply` 제거
+- manual dry-run only
 
-## 2) 구현 순서 — 그대로 진행
+### CI guard
+`check-schedule-map.mts`가:
+- retired 3개 workflow에 schedule이 다시 생기면 FAIL
+- settlement intake에서 `sync-intake-to-ledger.mts`가 사라지면 FAIL
+- legacy `sync-contract-from-ledger.mts`가 다시 연결되면 FAIL
 
-### P0-1 #415 계약락 dual-writer 단일화
-목표:
-- ERP5 Atom 계약락 owner 1개
-- `LEDGER` vs `정산원장` 이중 marker 제거
-- 접수/취소/인도완료 lifecycle 단일화
-- F01 빠른표시는 필요 시 Atom projection-only
-- 공급사 원천 직접 mutation이 canonical ownership을 침범하지 않게 정리
-- dual-writer 회귀를 CI/sim으로 차단
+PR #418 검증:
+- SSOT adapter contract `35386792417` success
+- CI `35386792385` success
+- workflow parse / schedule map / ERP5 boundary / RTDB / settlement / vehicle-lock / settlement E2E / production build PASS
+- Vercel success
 
-### P0-2 #416 settlement legacy writer retire/rewire
-목표:
-- scheduled path에서 legacy `정산` alias 의존 제거
-- intake→ledger 이후 partial-run 위험 제거
-- current 5-tab ledger contract 강제
-- inventory status/lock은 #415의 canonical owner와 동일한 규칙 사용
+## 3) RESOLVED — legacy settlement workflow identity
 
-### P0-3 #417 legacy scheduled writers retirement proof
-대상:
-- `sales-erp-hourly.yml`
-- `mirror-sync.yml`
+과거 `settlement-sync.yml`은 `disabled_manually` 상태가 증명됐고 GitHub connector에는 workflow-enable API가 없다.
 
-목표:
-- UI disable에만 의존하지 않는 fail-closed/retirement
-- legacy F01/special-tab/RTDB/mirror chain이 실수로 canonical output을 쓰지 못하게 차단
-- RP023 old mirror source를 canonical source로 오인하지 않게 ownership 명시
+그래서 PR #419로 safe automation을 **새 workflow identity**로 등록했다.
 
-## 3) 그 다음 검증
+PR #419 merge:
+- `8583e640a30b058e152443fdf1bfce24f873b0aa`
 
-#415/#416/#417 완료 후 controlled full run 1회:
+변경:
+- 추가 `.github/workflows/settlement-intake-sync.yml`
+- 삭제 `.github/workflows/settlement-sync.yml`
+- 예약지도 및 CI guard도 새 path로 전환
 
-1. source registry/preflight 24/24
-2. contract lock
-3. ingest 24/24
-4. Atom publication contract
-5. fixed snapshot
-6. F01
-7. F86 backup/publish
-8. F86 freshness
-9. Atom↔F01↔F86 parity
-10. photo-link audit
+PR #419 검증:
+- CI `35387211356` success
+- production build 포함 전체 green
+- Vercel success
 
-전부 green이어야 한다.
+## 4) Runtime WATCH — 새 settlement schedule 첫 회차
 
-그 뒤 필요한 workflow만 명시적으로 re-enable하고 실제 `event=schedule` 연속 green을 확인한다.
+새 `settlement-intake-sync.yml`은 2026-09-19 새벽 main에 처음 등록됐다.
 
-## 4) 이미 해소된 핵심
+따라서 **첫 실제 `event=schedule` 성공은 아직 미증명**이다.
+첫 선언 슬롯은 KST 09:05 이후다.
 
-- downstream read split-brain: PR #414 main 반영
-- F86 freshness false-positive: PR #411/#412 + scheduled run `35347508078`으로 runtime green
-- production pin: `cf940df642edf315adbc6da2b4134fbad53da160`
-- canonical Firebase boundary fail-closed 유지
+중요:
+- 수동 `apply=true`를 scheduled proof로 대체하지 않는다.
+- 다음 실제 scheduled run이 생기면 intake→ledger 성공 여부와 이어지는 :17 canonical ERP5 run을 함께 확인한다.
 
-## 5) 기존 HOLD 유지
+canonical ERP5 자체는 이미 scheduled full-green 증거가 있다:
+- run `35347508078`
+- source→Atom→snapshot→F01/F86→freshness/cross-parity/photo 전부 green
 
-- RP023 canonical RebornCar vs old mirror Sheet
+## 5) GitHub issue 상태
+
+- #416 settlement legacy `정산` writer — **CLOSED / completed**
+- #417 legacy scheduled writers retirement — **CLOSED / completed**
+- #415 contract-lock owner/marker code cleanup — **OPEN**
+
+#415 경계:
+- automatic production dual-writer는 #418로 제거됐다.
+- 다만 `scripts/mark-contract-in-listings.mts` 내부 legacy marker `정산원장` 자체는 남아 있다.
+- application/business logic code cleanup은 Claude가 판단해서 처리한다.
+- 현재 자동화 GO를 막는 P0는 아니다.
+
+## 6) 기존 HOLD 유지
+
+이번 automation cutover로 해결됐다고 확대 해석하지 않는다.
+
+- RP023 canonical RebornCar vs legacy mirror old Sheet **code debt** (자동 writer는 retired)
 - RP031 API/DOM feeder provenance/canonical migration
-- main deposit-policy vs production special-tab deposit rule single-definition
+- main `deposit-policy.ts` vs production special-tab deposit rule single-definition
 - Sonogong/AutoPlus deposit lineage
 - vehicle-price source→Atom lineage
 - sales-tab naming migration
 - newest-Atom freshness semantics
 - `/inventory` ERP4 read/write boundary
 
+## 7) 다음 Claude 우선순위
+
+자동화 P0를 다시 뜯지 말고 다음 순서:
+
+1. #415 legacy marker/code cleanup 필요성 판단 및 정리
+2. RP023/RP031 source/provenance debt
+3. deposit-policy single-definition
+4. vehicle-price lineage
+5. sales-tab/newest-Atom freshness
+6. `/inventory` ERP5 authenticated write boundary
+
+단, 새 settlement schedule의 첫 실제 runtime evidence에서 문제가 나오면 그것이 최우선 override다.
+
 ## 기준
 
-- central audit: `docs/AI-SSOT-AUDIT-LOG.md` → audit (60)
-- detailed evidence: `docs/ai-ssot-audit/2026-09-19-chatgpt-audit60-ops-hold-alignment.md`
-- GitHub issues: #415 / #416 / #417
-- last successful scheduled production evidence: run `35347508078`
-- production pin: `cf940df642edf315adbc6da2b4134fbad53da160`
+- central audit: `docs/AI-SSOT-AUDIT-LOG.md` → audit (61)
+- 상세: `docs/ai-ssot-audit/2026-09-19-chatgpt-audit61-safe-automation-cutover.md`
+- PR #418 merge: `27adad84d0fd1d980e51eb00394de11afa48dbed`
+- PR #419 merge: `8583e640a30b058e152443fdf1bfce24f873b0aa`
+- canonical production pin: `cf940df642edf315adbc6da2b4134fbad53da160`
+- canonical scheduled green: `35347508078`
 
-**다음 구현은 #415부터 시작한다.**
+**현재 상태: 자동화 구성/소유권 정리는 완료. 새 settlement intake의 첫 scheduled runtime만 WATCH.**
