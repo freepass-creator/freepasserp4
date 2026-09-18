@@ -1,0 +1,173 @@
+name: ChatGPT audit44 recorder
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/chatgpt-audit44-recorder.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Record audit 44
+        shell: bash
+        run: |
+          set -euo pipefail
+          git pull --ff-only origin main
+
+          if grep -q '^## 2026-09-18(44)' docs/AI-SSOT-AUDIT-LOG.md; then
+            echo 'audit 44 already present'
+          else
+            cat >> docs/AI-SSOT-AUDIT-LOG.md <<'AUDIT_EOF'
+
+## 2026-09-18(44) — ChatGPT 독립 감사: RP031 canonical Sheet 실제 write + 상품구분 색 production-pin drift
+
+**판정: MATERIAL / OPEN.** audit (43) 이후 application/business code의 핵심 canonical workflow 구조는 그대로지만, 두 가지 중요한 상태 변화가 확인됐다.
+
+1. **RP031 HOLD 경계를 실제 운영 write가 넘어갔다.** PR #404/#405 이후 수동 run `35301987039`(head `9ce3bb6815d09c9bc2b9158183b9b4839c835e68`)이 `apply=true`로 성공했다. raw job log는 `node ianka/scripts/이안카-재고시트.mjs --쓰기` 실행, API 82대 + 기존시트-only 3대 = **85행**, rendered-DOM 요금표 27모델을 blank-only로 **53행·389칸** 채운 뒤 `✅ 이안카 ← 85행`을 확인한다. 스크립트 write path는 RP031 시트의 기존 data range를 clear한 뒤 전체 행을 다시 쓴다. `inventory-source-registry.ts`는 여전히 RP031의 canonical source를 그 Google Sheet로 선언하므로, audit (42)/(43)의 identity/finance provenance HOLD 중인 bootstrap DOM finance가 **canonical source Sheet에 실제 반영된 상태**다. 이는 registry cutover나 production pin 변경은 아니지만 writer-topology상 material crossing이다.
+2. **상품구분 색은 main에서 복구됐지만 production lineage가 아직 다르다.** PR #406 `ae41fb87bf9e4028ea207c6822e88f014ec50810`은 `신차렌트`를 `#B81A8C`에서 기존 밝은 분홍 `#FF00FF`로 복구했다. PR #407 `e8956bcac84e87f8bcf4a0b3b212119c7642be8c`은 `prepare-credentials` composite action parser 오류를 고쳤고, manual repaint run `35302940384`은 `apply=true`로 성공하여 **27개 공급사 탭**의 조건부서식을 재도색했다. 따라서 audit (18)의 composite-action load 오류는 이 경로에서 RESOLVED다.
+3. 그러나 canonical `erp5-ssot-refresh.yml` production pin은 여전히 `9bef7bf0ffd21a96e3098a6f31adf1b1a0258c60`이고, 그 pin의 `category-colors.ts`에는 `신차렌트: #B81A8C`가 남아 있다. current main은 `#FF00FF`다. 즉 **one-time repaint와 production-pinned publisher의 색 SSOT가 서로 다르다.** schedule delivery가 복구된 뒤 pin 기반 F01/F86 발행/서식 재생성이 실행되면 밝은 분홍을 다시 어두운 자주로 되돌릴 수 있으므로, 이번 repaint만으로 색 문제를 CLOSED 처리하면 안 된다.
+4. audit (43)의 schedule-delivery 회귀도 유지된다. 본 감사 재조회에서도 repository 최신 `event=schedule`은 run `35235961510`(2026-09-17 23:47:38 KST) 그대로다. audit (35) F86 freshness checker, audit (27)/(28)/(29)/(34), Sonogong/AutoPlus 특수탭 규칙, mirror/sales/settlement/RTDB legacy writer HOLD는 별도 해소 증거가 없다.
+5. audit (43) 이후 main diff는 `.github/actions/prepare-credentials/action.yml`, `.github/workflows/diag-ianka-collector.yml`, `ianka/scripts/이안카-재고시트.mjs`, `lib/domain/category-colors.ts` 네 파일뿐이다. ERP5 registry/F01/F86 canonical workflow/Sonogong·AutoPlus routing/mirror·sales·RTDB core paths 자체는 이 구간에서 변경되지 않았다.
+
+**Claude 구현 owner에게:** (a) RP031 write 전 backup과 write 후 live Sheet를 대조해 DOM-derived 389칸의 provenance/authority를 검증하고, 증명 전에는 이 값이 canonical authority가 되었다고 간주하지 말 것. 필요하면 canonical manual 값 보존/복구 경계를 먼저 세울 것. (b) `신차렌트=#FF00FF`를 current main만이 아니라 실제 production-pinned publisher lineage에도 보존한 뒤 full publish에서 색이 재역전되지 않는 것을 증명할 것. (c) one-time repaint success를 schedule/F01/F86 복구 증거로 쓰지 말 것.
+
+상세 근거: `docs/ai-ssot-audit/2026-09-18-chatgpt-audit44-rp031-write-color-pin-drift.md`
+
+이번 독립 감사에서는 application code/business logic을 수정하지 않았다.
+AUDIT_EOF
+          fi
+
+          cat > docs/ai-ssot-audit/2026-09-18-chatgpt-audit44-rp031-write-color-pin-drift.md <<'DETAIL_EOF'
+# ChatGPT 독립 SSOT 감사 (44) — RP031 canonical write + 상품구분 색 production-pin drift
+
+- 날짜: 2026-09-18 KST
+- 역할: 독립 auditor. application/business logic 비수정.
+- 비교 기준: audit (43) 기록 commit `38f04df6b6e6f4077b17277d64f8de2589741d06` → 관측 main `e8956bcac84e87f8bcf4a0b3b212119c7642be8c`.
+- production pin: `9bef7bf0ffd21a96e3098a6f31adf1b1a0258c60` 유지.
+
+## 1. audit (43) 이후 main 변화 범위
+
+`38f04df...` → `e8956bca...` compare는 4 commits / 4 files만 변경한다.
+
+- `.github/workflows/diag-ianka-collector.yml` — RP031 collector에 `apply` 입력과 `--쓰기` 경로 추가.
+- `ianka/scripts/이안카-재고시트.mjs` — valid lease taskId 보정.
+- `lib/domain/category-colors.ts` — `신차렌트 #B81A8C → #FF00FF`.
+- `.github/actions/prepare-credentials/action.yml` — composite-action description 안의 잘못된 literal secrets expression 제거.
+
+이 구간에서 `erp5-ssot-refresh.yml`, ERP5 canonical source registry, F01/F86 publisher 핵심 경로, Sonogong/AutoPlus special-tab routing, mirror/sales/RTDB core workflow 자체는 변경되지 않았다.
+
+## 2. RP031 — HOLD 중 canonical source Sheet에 실제 write 발생
+
+PR #404가 이안카 API inventory + rendered-DOM finance bootstrap을 기존 RP031 Google Sheet에 합치는 feeder를 만들었고, PR #405가 `--쓰기`를 막던 invalid taskId를 수정했다.
+
+성공 run `35301987039`(head `9ce3bb6815d09c9bc2b9158183b9b4839c835e68`)의 raw job log:
+
+- workflow input 분기: `if [ "true" = "true" ]; then node ianka/scripts/이안카-재고시트.mjs --쓰기`.
+- API inventory: 82대, 기존 Sheet 차량번호 행 16대.
+- 교집합 13대, API-only 69대, Sheet-only 보존 3대 → 최종 **85행**.
+- rendered-DOM 요금표: 27모델.
+- blank-only finance fill: **53행 · 389칸**.
+- write 직전 backup 생성 로그가 있고 최종 `✅ 이안카 ← 85행`.
+
+현재 `이안카-재고시트.mjs --쓰기`는 기존 RP031 data range(A2~)를 clear하고 최종 allRows를 다시 쓰는 full-sheet writer다. `inventory-source-registry.ts`는 RP031을 계속 `google_sheet` canonical source로 지정한다. 따라서 DOM finance를 “부트스트랩, SSOT 아님”이라고 주석 처리했더라도, 실행 결과는 canonical source Sheet 내부로 들어갔다.
+
+**감사 판정:** audit (42)/(43)의 identity/finance provenance HOLD가 운영상 crossing 됐다. 이는 API가 canonical로 승격됐다는 뜻은 아니다. 오히려 registered canonical Sheet가 feeder 산출물을 포함하게 되었으므로, Claude는 write 전 backup ↔ 현재 live Sheet diff를 기준으로 389칸의 출처와 deterministic model/plate/term/deposit mapping을 증명해야 한다. 검증 전 DOM-derived 값 자체를 authoritative finance SSOT로 승격하면 안 된다.
+
+## 3. 상품구분 색 — live repaint 성공, 그러나 durable하지 않음
+
+### main 수정과 live repaint
+
+PR #406 merge `ae41fb87bf9e4028ea207c6822e88f014ec50810`은 `MASTER_CATEGORY_COLORS['분류']['신차렌트']`를 `#B81A8C`에서 기존 판매시트의 밝은 분홍 `#FF00FF`로 되돌렸다.
+
+첫 repaint run `35302572900`은 old composite-action metadata parser 문제 때문에 실패했다. PR #407 merge `e8956bcac84e87f8bcf4a0b3b212119c7642be8c`은 `.github/actions/prepare-credentials/action.yml` description의 literal secrets expression을 제거했다.
+
+그 직후 repaint run `35302940384`은 input `apply=true`로 실행됐고 raw log는 다음을 확인한다.
+
+- `prepare-credentials` success.
+- `npx tsx scripts/repaint-type-chip-colors.mts --apply` 실행.
+- 손오공 `렌트재고/구독재고/픽업재고`, 오토플러스 `재고`, 이안카 `재고` 등을 포함하여 **27개 탭 반영**.
+- job conclusion success.
+
+따라서 audit (18)의 composite action “Unrecognized named-value: secrets” 로딩 오류는 적어도 이 동일 action 소비 경로에서 해소됐다.
+
+### production pin과의 충돌
+
+하지만 canonical `erp5-ssot-refresh.yml`은 여전히 pin `9bef7bf0ffd21a96e3098a6f31adf1b1a0258c60`을 checkout한다. 해당 pin의 `lib/domain/category-colors.ts`에는:
+
+- `신차렌트: #B81A8C`
+
+가 남아 있다. 반면 current main은:
+
+- `신차렌트: #FF00FF`
+
+다. `sales-sheet-format.ts`는 `MASTER_CATEGORY_COLORS`를 import해 판매시트 조건부서식 색을 만든다. 즉 main 기준 one-time supplier-sheet repaint와 production-pinned F01/F86 publisher가 동일 상품에 서로 다른 색을 가진 상태다.
+
+**감사 판정:** 지금 27개 공급사 탭의 live repaint는 성공했지만, 색 SSOT lineage는 아직 OPEN이다. audit (43)의 schedule delivery가 복구되고 production pin publisher가 다시 발행/서식 재생성하면 F01/F86 쪽에서 `#B81A8C`가 재출현할 위험이 있다. `#FF00FF` 수정을 production engine lineage에 보존하고, 실제 full publish 후 재역전이 없는 것을 확인하기 전에는 색 문제를 CLOSED로 처리하지 않는다.
+
+## 4. 기존 OPEN/HOLD 재검증
+
+- repository-wide 최신 `event=schedule`은 여전히 `35235961510`(2026-09-17 23:47:38 KST). audit (43) schedule-delivery OPEN 유지.
+- audit (35) F86 freshness checker drift 유지.
+- audit (27) Sonogong deposit recurrence, audit (28) vehicle price lineage, audit (29) sales-tab naming, audit (34) newest-Atom freshness semantics 유지.
+- Sonogong/AutoPlus special-tab 분리 규칙 변경 없음.
+- mirror/sales/settlement/RTDB legacy writer HOLD 변경 없음.
+
+## Claude 구현 owner 우선순위
+
+1. RP031 write 전 backup을 기준으로 current Sheet와 diff하여 DOM-derived 389칸 및 신규 69대의 identity/finance provenance를 확정한다. provenance가 증명되지 않은 값은 canonical authority로 승격하지 않는다.
+2. `신차렌트=#FF00FF`를 production-pinned publisher lineage에도 반영/보존한다. 단순 one-time repaint가 아니라 full F01/F86 publish 뒤에도 FF00FF가 유지됨을 증명한다.
+3. schedule delivery와 F86 freshness checker는 별도 OPEN으로 계속 추적한다.
+4. 그 외 기존 audit HOLD는 별도 해소 증거가 생길 때까지 유지한다.
+
+이 감사에서 application code/business logic은 수정하지 않았다.
+DETAIL_EOF
+
+          cat > CLAUDE-AUDIT.md <<'CLAUDE_EOF'
+# ChatGPT 독립 SSOT 감사 — audit (44) override (2026-09-18 KST)
+
+> Claude 구현 세션은 이 파일을 최신 독립 감사 진입점으로 본다. audit (44)은 audit (43)의 schedule/HOLD를 유지하면서 **RP031 canonical Sheet actual write**와 **상품구분 색 main ↔ production-pin drift**를 최우선으로 추가한다.
+
+## 현재 판정
+
+- **OPEN / RP031 writer-boundary crossing.** run `35301987039`(head `9ce3bb6815d09c9bc2b9158183b9b4839c835e68`)이 `apply=true`로 `이안카-재고시트.mjs --쓰기`를 실제 실행했다. API 82대 + Sheet-only 3대 = 85행을 canonical RP031 Google Sheet에 썼고, rendered-DOM 요금표로 blank finance **53행·389칸**을 채웠다. registry는 여전히 그 Google Sheet를 RP031 canonical source로 본다. audit (42)/(43)의 identity/finance provenance HOLD 중 값이 canonical source Sheet 안으로 들어간 상태이므로 write 전 backup ↔ current Sheet diff와 authority 검증이 필요하다.
+- **RESOLVED / PARTIAL — 상품구분 색 manual repaint 경로.** PR #406 `ae41fb87...`가 `신차렌트`를 원래 밝은 분홍 `#FF00FF`로 복구했고, PR #407 `e8956bca...`가 credential composite-action parser 오류를 고쳤다. run `35302940384`은 `apply=true`로 성공해 27개 공급사 탭의 조건부서식을 재도색했다. audit (18)의 composite-action load 오류는 이 경로에서 해소됐다.
+- **OPEN / 색 SSOT production-pin drift.** canonical `erp5-ssot-refresh.yml` pin은 여전히 `9bef7bf0...`; 그 pin의 `category-colors.ts`는 `신차렌트=#B81A8C`다. current main은 `#FF00FF`다. one-time repaint만으로는 durable하지 않으며, schedule 복구 후 pinned F01/F86 publisher가 재발행하면 어두운 자주색이 다시 나타날 수 있다.
+- **OPEN / audit (43) schedule delivery.** 본 감사 재조회에서도 repository 최신 `event=schedule`은 `35235961510`(2026-09-17 23:47:38 KST) 그대로다. manual/push success를 schedule 복구 증거로 쓰지 않는다.
+- audit (35) F86 freshness checker, audit (27) Sonogong deposit recurrence, audit (28) vehicle-price lineage, audit (29) sales-tab naming, audit (34) newest-Atom freshness semantics, mirror/sales/settlement/RTDB legacy writer HOLD는 그대로다.
+- audit (43) 이후 main 변경은 credential action, Ianka diag/write path, Ianka lease taskId, category-colors 네 파일뿐이다. ERP5 canonical registry/F01/F86 core workflow/Sonogong·AutoPlus routing/mirror·sales·RTDB core는 이 구간에서 변하지 않았다.
+
+## Claude 구현 Owner 우선순위
+
+1. **RP031 current canonical Sheet를 write 전 backup과 diff**해 신규 69대 및 DOM-derived 389 finance cells의 provenance/authority를 확정한다. 검증 전 DOM finance를 authoritative canonical 값으로 간주하지 않는다.
+2. **`신차렌트=#FF00FF`를 실제 production-pinned publisher lineage에도 보존**한다. one-time supplier repaint로 끝내지 말고 full F01/F86 publish 뒤에도 색이 재역전되지 않는 것을 증명한다.
+3. audit (43)의 schedule delivery와 audit (35)의 F86 freshness parser는 별도 OPEN으로 계속 닫는다.
+4. 기존 audit (27)/(28)/(29)/(34) 및 legacy writer HOLD는 별도 해소 증거가 생길 때까지 유지한다.
+
+## 상세 근거
+
+- `docs/AI-SSOT-AUDIT-LOG.md` — audit (44)
+- `docs/ai-ssot-audit/2026-09-18-chatgpt-audit44-rp031-write-color-pin-drift.md`
+- RP031 actual apply run `35301987039`
+- color repaint apply run `35302940384`
+- main color fix `ae41fb87bf9e4028ea207c6822e88f014ec50810`
+- credential action fix/current observed main `e8956bcac84e87f8bcf4a0b3b212119c7642be8c`
+- production pin `9bef7bf0ffd21a96e3098a6f31adf1b1a0258c60` — `신차렌트=#B81A8C`
+- latest repository schedule run `35235961510`
+
+이번 독립 감사에서는 application code/business logic을 수정하지 않는다. 구현 변경은 Claude 단일 SSOT 세션만 수행한다.
+CLAUDE_EOF
+
+          git rm .github/workflows/chatgpt-audit44-recorder.yml
+          git config user.name 'chatgpt-auditor'
+          git config user.email 'chatgpt-auditor@users.noreply.github.com'
+          git add docs/AI-SSOT-AUDIT-LOG.md docs/ai-ssot-audit/2026-09-18-chatgpt-audit44-rp031-write-color-pin-drift.md CLAUDE-AUDIT.md
+          git commit -m 'audit: record SSOT audit 44 RP031 write and color pin drift'
+          git push origin HEAD:main
