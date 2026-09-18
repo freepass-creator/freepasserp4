@@ -1,8 +1,9 @@
 name: 정산 접수 반영(1시간)
 
 # ★사장님 2026-08-25 「깃허브로 반영될수 있게끔 로직 짜봐」.
-#   강지수 팀장이 「프리패스 당월 계약접수」에 차번을 올리면 → 정산원장으로 나르고
-#   → 공급사 시트 상태를 「계약중」으로 세운다. 사장님 PC 가 꺼져 있어도 돌아야 하므로 여기서 돈다.
+#   강지수 팀장이 「프리패스 당월 계약접수」에 차번을 올리면 → 정산원장 「접수」로 나른다.
+#   재고 계약락/상태는 이 workflow가 직접 쓰지 않는다.
+#   매시 :17 canonical ERP5 workflow가 정산원장 「접수/취소」를 읽어 Atom에 반영하고 F01/F86을 발행한다.
 #
 # ★**접수일은 «그 차번을 처음 본 날»이다.** 이 워크플로가 도는 주기만큼만 정확하다 —
 #   그래서 하루 한 번이 아니라 **영업시간에 1시간마다** 돈다. 정산월·수수료가 이 날짜에서 나온다.
@@ -51,10 +52,9 @@ jobs:
         run: |
           npx tsx scripts/sync-intake-to-ledger.mts ${{ (github.event_name == 'schedule' || inputs.apply) && '--apply' || '' }}
 
-      # ② 원장에 손으로 적은 줄도 같이 본다 — 팀장이 원장에 바로 적는 날이 있다.
-      - name: 원장에서 계약중 세우기
-        run: |
-          npx tsx scripts/sync-contract-from-ledger.mts ${{ (github.event_name == 'schedule' || inputs.apply) && '--apply' || '' }}
+      # ② 계약상태/재고상태는 여기서 직접 쓰지 않는다.
+      #    옛 sync-contract-from-ledger.mts는 legacy 「정산」 탭과 공급사 시트를 직접 수정해
+      #    canonical ERP5 Atom writer와 충돌했다. canonical :17 회차가 「접수/취소」를 이어받는다.
 
       # ③ 서식·용어는 값이 아니라 «보이는 방식»이라 매번 다시 세워도 안전하다(멱등).
       #    사람이 손으로 넣은 줄이 옛 서식·옛 말로 들어오는 것을 여기서 바로잡는다.
