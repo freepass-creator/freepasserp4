@@ -2576,3 +2576,20 @@ Claude 구현 Owner: audit (40)의 기술 finding은 유지하되 `pre-merge` �
 상세 근거: `docs/ai-ssot-audit/2026-09-18-chatgpt-audit43-schedule-delivery-regression.md`.
 
 이번 ChatGPT 감사에서는 application code/business logic을 수정하지 않았다.
+
+
+## 2026-09-18(44) — ChatGPT 독립 감사: RP031 canonical Sheet 실제 write + 상품구분 색 production-pin drift
+
+**판정: MATERIAL / OPEN.** audit (43) 이후 두 가지 중요한 상태 변화가 확인됐다.
+
+1. **RP031 HOLD 경계를 실제 운영 write가 넘어갔다.** run `35301987039`(head `9ce3bb6815d09c9bc2b9158183b9b4839c835e68`)은 `apply=true`로 `이안카-재고시트.mjs --쓰기`를 실행해 API 82대 + Sheet-only 3대 = **85행**을 registered canonical RP031 Google Sheet에 썼다. rendered-DOM 요금표 27모델로 blank finance **53행·389칸**도 채웠다. registry는 여전히 그 Sheet를 RP031 canonical source로 지정하므로 audit (42)/(43)의 identity/finance provenance HOLD 중 bootstrap 값이 canonical source Sheet 내부로 실제 진입했다. API canonical cutover로 보지는 않지만 writer-topology상 material crossing이다.
+2. **상품구분 색 manual repaint는 성공했지만 production lineage는 아직 충돌한다.** PR #406 `ae41fb87bf9e4028ea207c6822e88f014ec50810`은 current main의 `신차렌트`를 `#FF00FF`로 복구했다. PR #407 `e8956bcac84e87f8bcf4a0b3b212119c7642be8c`은 credential composite-action parser 오류를 고쳤고 run `35302940384`은 `apply=true`로 **27개 공급사 탭**을 재도색했다. audit (18)의 composite-action load 오류는 이 경로에서 RESOLVED다.
+3. canonical `erp5-ssot-refresh.yml` production pin은 여전히 `9bef7bf0ffd21a96e3098a6f31adf1b1a0258c60`이고 그 pin의 `category-colors.ts`는 `신차렌트=#B81A8C`다. current main은 `#FF00FF`다. 따라서 one-time repaint와 pinned F01/F86 publisher의 색 SSOT가 다르며, schedule 복구 후 pin 기반 발행/서식 재생성이 old 자주색을 다시 만들 수 있어 색 문제는 OPEN이다.
+4. audit (43)의 schedule-delivery 회귀도 유지된다. 본 감사 재조회에서도 repository 최신 `event=schedule`은 run `35235961510`(2026-09-17 23:47:38 KST) 그대로다. audit (35) F86 freshness checker, audit (27)/(28)/(29)/(34), Sonogong/AutoPlus special-tab 규칙, mirror/sales/settlement/RTDB legacy writer HOLD는 별도 해소 증거가 없다.
+5. audit (43) 이후 implementation diff는 credential action, Ianka diag/write path, Ianka lease taskId, category-colors 네 파일뿐이다. ERP5 canonical registry/F01/F86 core workflow/Sonogong·AutoPlus routing/mirror·sales·RTDB core는 이 구간에서 바뀌지 않았다.
+
+**Claude 구현 owner에게:** RP031 write 전 backup ↔ current Sheet를 대조해 신규 69대와 DOM-derived 389칸의 provenance/authority를 먼저 확정할 것. `신차렌트=#FF00FF`를 실제 production-pinned publisher lineage에도 보존하고 full F01/F86 publish 뒤 색 재역전이 없음을 증명할 것. one-time repaint success를 schedule/F01/F86 복구 증거로 쓰지 말 것.
+
+상세 근거: `docs/ai-ssot-audit/2026-09-18-chatgpt-audit44-rp031-write-color-pin-drift.md`
+
+이번 독립 감사에서는 application code/business logic을 수정하지 않았다.
