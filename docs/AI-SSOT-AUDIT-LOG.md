@@ -2528,3 +2528,29 @@ Claude 구현 Owner: audit (40)의 기술 finding은 유지하되 `pre-merge` �
 상세 근거: `docs/ai-ssot-audit/2026-09-18-chatgpt-audit41-ianka-submodel-merged-main.md` (evidence commit `b1c6672104dedb4039e336a3ed1fb425d62868d8`).
 
 이번 ChatGPT 감사에서는 application code/business logic을 수정하지 않았다.
+---
+## 2026-09-18(42) — ChatGPT 독립 감사: PR #403가 audit (41)의 `세부모델` 파괴적 overwrite를 해소 — identity/finance boundary는 부분 OPEN
+
+**판정: 해소됨(부분) + 기존 HOLD 유지.**
+
+- PR #403은 `2026-09-18T01:12:33Z` main에 merge됐고 merge commit은 `88b16da5c07a1091eba401540891c41280731408`이다. PR head CI run `35294178908`은 success다.
+- audit (41) 이후 main delta는 정확히 1 commit / 2 files다: `ianka/scripts/이안카-재고시트.mjs` 수정과 manual read-only `.github/workflows/diag-supplier-counts.yml` 추가. production workflow, canonical registry, F01/F86, Sonogong/AutoPlus special-tab, mirror/RTDB writer 파일은 이 delta에서 바뀌지 않았다.
+- `이안카-재고시트.mjs`는 더 이상 `put(['차명(원문)', '차명', '차량명', '세부모델'], c.차명원문)`으로 기존 비어있지 않은 canonical `세부모델`을 덮지 않는다. 전용 `차명(원문)/차명/차량명` 칸이 없을 때 `세부모델` fallback은 **빈 칸일 때만** 채운다(FILLIFEMPTY). 따라서 audit (41)의 “기존 정제 `세부모델` 파괴적 overwrite” finding은 **해소됨**이다.
+- 다만 blank `세부모델`에는 API `차명원문`이 들어갈 수 있고, 동일 `세부모델`이 rendered-DOM finance lookup alias로 사용되는 구조는 유지된다. `rawName=subModel` business identity 계약, deterministic `model/plate/term/mileage/deposit` mapping, finance provenance/authority는 아직 증명되지 않았으므로 identity/finance boundary는 **OPEN/HOLD**다.
+- 실제 RP031 Sheet에 `연식` 칼럼이 없다는 schema gap도 그대로다.
+- main diagnostic run `35294388217`은 success했다. 실측은 API 85대(출고가능 84대), DOM 요금표 27종, preview 88행(신규 72 / 기존시트에만 있어 보존 3), 요금 FILLIFEMPTY 56행·413칸이며 마지막에 `[미리보기만] 라이브 안 건드림`을 명시했다. 즉 mitigation의 preview path는 정상이나 live write/canonical promotion 증거는 아니다.
+- canonical production workflow는 계속 pin `9bef7bf0ffd21a96e3098a6f31adf1b1a0258c60`을 checkout한다. RP031 registry와 production Atom/F01/F86 path는 이번 main commit에서 변하지 않았다.
+- audit (35) F86 freshness, audit (27) Sonogong deposit recurrence, audit (28) vehicle-price lineage, audit (29) sales-tab naming, audit (34) newest-Atom freshness 및 mirror/sales/settlement/RTDB legacy writer HOLD는 직접 해소 증거가 없으므로 유지한다.
+
+### Claude 구현 Owner에게 넘기는 즉시 지시
+
+1. 기존 non-empty `세부모델` 보존은 **해소됨**으로 취급하고 FILLIFEMPTY 안전화를 되돌리지 않는다.
+2. FILLIFEMPTY를 곧바로 canonical identity 계약으로 확대하지 않는다. blank 신규행의 `rawName → subModel` 의미와 보존/마이그레이션 계약을 먼저 확정한다.
+3. finance join을 identity fallback과 분리해 deterministic model/plate/term/mileage/deposit key와 source provenance/parity를 증명한다.
+4. `연식` 칼럼 부재를 별도 schema gap으로 닫는다.
+5. 위 경계가 닫힌 뒤에만 `--쓰기` / scheduled promotion / production repin을 검토하고 Sheet → Atom → snapshot → F01/F86 cross-audit로 승격을 증명한다.
+6. 기존 audit (35)/(27)/(28)/(29)/(34) 및 legacy writer HOLD는 별도 해소 증거가 생길 때까지 유지한다.
+
+상세 근거: `docs/ai-ssot-audit/2026-09-18-chatgpt-audit42-ianka-fillifempty-resolution.md`.
+
+이번 ChatGPT 감사에서는 application code/business logic을 수정하지 않았다.
