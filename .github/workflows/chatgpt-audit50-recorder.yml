@@ -1,0 +1,174 @@
+name: ChatGPT audit50 recorder
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/chatgpt-audit50-recorder.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Record audit50 and self-delete
+        shell: bash
+        run: |
+          set -euo pipefail
+          git pull --rebase origin main
+          python - <<'PY'
+          from pathlib import Path
+
+          marker = '## 2026-09-18(50) — ChatGPT 독립 감사: :17 전환 뒤 두 회차 연속 부재 + repository-wide schedule delivery gap'
+          log_path = Path('docs/AI-SSOT-AUDIT-LOG.md')
+          log = log_path.read_text(encoding='utf-8')
+          block = r'''
+
+---
+## 2026-09-18(50) — ChatGPT 독립 감사: :17 전환 뒤 두 회차 연속 부재 + repository-wide schedule delivery gap
+
+**판정: MATERIAL / OPEN. audit (49)의 “첫 post-merge `:17` slot delayed-or-missing”보다 운영 증거가 더 강해졌다.**
+
+- PR #410 merge 뒤 canonical ERP5 cron은 `17 0-10 * * 1-6`(월~토 KST 09:17~19:17)이다. 이번 재검수는 **2026-09-18 18:21 KST 이후** 수행했다. repository-wide `event=schedule` latest는 여전히 run `35304903901` (`ERP5 SSOT 원천 최신화(매시간)`, created `2026-09-18 12:53:42 KST`, conclusion=failure)이다. 따라서 post-merge `17:17`, `18:17` **두 ERP5 회차가 연속으로 schedule event로 생성된 증거가 없다.**
+- 이 현상은 ERP5 하나에만 국한된 관측이 아니다. current main에는 `mirror-sync.yml`=`*/30 * * * *`, `sales-erp-hourly.yml`=평일 KST 09:00~18:00, `settlement-sync.yml`=월~토 KST 09:05~18:05가 모두 scheduled apply writer로 남아 있다. repository-wide latest schedule이 12:53에 멈춘 상태라 18:00 판매/ERP, 18:05 정산, 여러 mirror 30분 회차도 모두 새 `event=schedule` 증거가 없다. **repository-level scheduled-event delivery gap**으로 보는 것이 더 정확하다.
+- 동시에 push-triggered Actions는 살아 있다. audit (49) 정리 구간의 CI run `35325766505`는 `2026-09-18 17:42:47 KST`에 생성돼 success했다. 즉 Actions 전체가 멈췄다는 증거는 없고, 현재 분리해서 말할 수 있는 것은 **scheduled event delivery만 장시간 미관측**이라는 점이다.
+- `:05 → :17` 이동이 잘못됐다고 단정하지는 않는다. 다만 **정각 부하 회피만으로 cadence가 복구됐다는 가설은 현재 두 회차 기준으로 입증되지 않았다.** 원인이 GitHub scheduler 지연/누락, workflow schedule delivery 상태, repository 측 설정/비활성화 중 무엇인지는 아직 미확정이다.
+- current main HEAD는 감사 시작 시 `7545b68f2f80a0dc807211bf7bcbfdf23ead3cbe`; audit (49) 이후 application/business logic 신규 commit은 없었다. production pin은 `14892951a929cf03796231f260e6bc2ff3060efc`, PR #411은 여전히 draft/open/merged=false다. ERP5 canonical registry, F01/F86 projection 규칙, Sonogong/AutoPlus special-tab 규칙, RP031 provenance, RP023 legacy mirror source 및 mirror/sales/settlement/RTDB writer topology에는 신규 해소 변경이 없다.
+
+### Claude 구현 Owner 인계
+
+1. schedule 문제를 ERP5 단일 cron 문제로 축소하지 말고 **repository-wide scheduled-event delivery**로 진단한다. push Actions 정상 여부와 schedule event 생성 여부를 분리한다.
+2. PR #410의 `:17` code/config 변경은 유지하되, 실제 `event=schedule`이 여러 연속 회차로 재등장하기 전 cadence HOLD를 닫지 않는다. 수동 dispatch/push는 schedule 복구 증거가 아니다.
+3. PR #411은 merge/repin + actual scheduled F86 freshness green 전까지 production checker OPEN 유지.
+4. application code/business logic은 이번 감사에서 수정하지 않았다.
+'''
+          if marker not in log:
+              log_path.write_text(log.rstrip() + block + '\n', encoding='utf-8')
+
+          detail = Path('docs/ai-ssot-audit/2026-09-18-chatgpt-audit50-repository-wide-schedule-gap.md')
+          detail.write_text(r'''# Audit 50 — `:17` 전환 뒤 두 회차 연속 부재 + repository-wide schedule delivery gap
+
+Date: 2026-09-18
+Auditor: ChatGPT (independent SSOT audit)
+Repository: `freepass-creator/freepasserp4`
+
+## Finding
+
+Audit (49)은 PR #410 merge 뒤 첫 post-merge `17:17 KST` 회차가 아직 관측되지 않았다는 단계였다. 이번 재검수는 `18:21 KST` 이후이며, repository-wide `event=schedule` latest는 여전히 run `35304903901` (`ERP5 SSOT 원천 최신화(매시간)`, created `2026-09-18 12:53:42 KST`, conclusion=failure)이다.
+
+따라서 ERP5의 post-merge `17:17`과 `18:17` 두 회차가 연속으로 schedule event로 생성된 증거가 없다.
+
+더 중요한 점은 이 공백이 ERP5 단일 workflow에만 국한되지 않는다는 것이다. current main에는 다음 scheduled writer가 모두 살아 있다.
+
+- `.github/workflows/mirror-sync.yml` — `*/30 * * * *`, schedule이면 `--apply`
+- `.github/workflows/sales-erp-hourly.yml` — 평일 KST 09:00~18:00, schedule이면 `--apply`
+- `.github/workflows/settlement-sync.yml` — 월~토 KST 09:05~18:05, schedule이면 ledger/supplier-status writer apply
+- `.github/workflows/erp5-ssot-refresh.yml` — 월~토 KST 09:17~19:17
+
+그런데 repository-wide latest schedule이 12:53 KST에서 멈춰 있다. 이 시각 이후라면 적어도 mirror 다수 회차, 18:00 sales/ERP, 18:05 settlement, 17:17/18:17 ERP5가 기대되지만 새 `event=schedule`가 없다. 현재 관측은 **repository-level scheduled-event delivery gap**에 더 가깝다.
+
+동시에 push Actions는 살아 있다. CI run `35325766505`는 17:42:47 KST에 생성돼 success했다. 따라서 GitHub Actions 전체 장애라고 단정하지 않고, **scheduled event delivery만 미관측**이라고 한정한다.
+
+## Live-state cross-check
+
+- main before this audit recording: `7545b68f2f80a0dc807211bf7bcbfdf23ead3cbe`
+- canonical ERP5 cron: `17 0-10 * * 1-6`
+- production engine pin: `14892951a929cf03796231f260e6bc2ff3060efc`
+- PR #411: draft/open, merged=false, head `f17747a549cf7857c28932373ada0bfb8eb7d7da`
+- canonical registry unchanged: RP006 Iron website, RP012 Sonogong ERP API, RP023 RebornCar, RP031 Google Sheet
+- F86 production rules unchanged: `종합`만 발행시각, 회사 탭은 `회사 · N대`; 장기요금 없는 차도 싣고 요금칸만 빈다; `종합`은 손오공/오토플러스 제외
+- legacy writer topology unchanged: RP023 old `MIRROR_SOURCES`, mirror/sales/settlement scheduled writers, RTDB path HOLD
+- RP031 provenance, Sonogong/AutoPlus deposit-policy, audit (27)/(28)/(29)/(34) HOLD unchanged
+
+## Decision
+
+1. Audit (49)의 “첫 slot delayed-or-missing”은 이제 stale다. **두 ERP5 slot 연속 부재 + 다른 scheduled writer도 같은 시간대 delivery 증거 0**으로 강화한다.
+2. `:17` 변경은 유지하되 cadence recovery는 OPEN/HOLD다. 원인은 미확정 상태로 남긴다.
+3. Claude는 scheduler 문제를 repository-wide 관점에서 진단하고, 실제 연속 `event=schedule` 재등장으로만 복구를 판정한다.
+4. application code/business logic은 수정하지 않는다.
+''', encoding='utf-8')
+
+          Path('CLAUDE-AUDIT.md').write_text(r'''# ChatGPT → Claude SSOT 감사 진입점 — audit (50) override
+
+> 이 파일은 구현 지시의 최신 진입점이다. Claude 단일 SSOT 세션만 application/business logic을 수정한다. ChatGPT는 독립 감사·증거 기록만 한다.
+
+## 최신 판정
+
+### 1) OPEN/HOLD(runtime cadence) — `:17` 전환 뒤 두 ERP5 회차 연속 부재, repository-wide schedule delivery gap
+
+PR #410은 merge 완료됐고 canonical ERP5 cron은 `17 0-10 * * 1-6` = 월~토 KST 09:17~19:17이다.
+
+2026-09-18 18:21 KST 이후 repository-wide `event=schedule`를 재조회했지만 latest scheduled run은 여전히:
+
+- run `35304903901`
+- workflow `ERP5 SSOT 원천 최신화(매시간)`
+- created `2026-09-18 12:53:42 KST`
+- conclusion `failure` (기존 F86 freshness checker false-positive)
+
+이다. 따라서 post-merge `17:17`, `18:17` **두 ERP5 회차가 연속으로 schedule event로 생성된 증거가 없다.**
+
+또 current main의 다른 scheduled apply writer인 `mirror-sync.yml`(30분), `sales-erp-hourly.yml`(평일 09:00~18:00 KST), `settlement-sync.yml`(월~토 09:05~18:05 KST)도 repository-wide schedule latest가 12:53에 멈춘 이상 같은 시간대의 새 schedule evidence가 없다. **ERP5 단일 cron 문제가 아니라 repository-level scheduled-event delivery gap으로 진단할 것.**
+
+반면 push-triggered CI run `35325766505`는 17:42:47 KST에 생성돼 success했다. Actions 전체 장애라고 단정하지 말고, schedule delivery와 push execution을 분리해서 본다.
+
+`:05 → :17` 이동 자체를 실패로 단정하지는 않지만, 두 회차 기준으로 cadence 복구는 입증되지 않았다. 실제 `event=schedule`이 여러 연속 회차로 재등장하기 전까지 cadence/timeliness HOLD를 유지한다. 수동 dispatch/push는 schedule 복구 증거가 아니다.
+
+### 2) RESOLVED(운영 증거) / OPEN(checker) — current production pin full apply는 증명됨, F86 freshness false-positive만 남음
+
+run `35310163711`은 `workflow_dispatch`, `apply=true`로 current production pin `14892951a929cf03796231f260e6bc2ff3060efc`을 실제 checkout해 source 24/24 ingest, Atom, snapshot, public catalog, F01 678대, F86 19탭/678대, Atom↔F01↔F86 parity, photo-link audit까지 수행했다. 데이터/발행 parity는 PASS다.
+
+전체 job의 blocker는 current tab naming을 `탭 이름에 발행 시각이 없다`로 오판하는 F86 freshness checker다. PR #411 / head `f17747a549cf7857c28932373ada0bfb8eb7d7da`는 이 계약 정렬안이지만 **여전히 draft/open, merged=false**다.
+
+**우선순위:** PR #411 review/merge → production pin 전진 + `VALIDATED_ENGINES` 등록 → 실제 scheduled run에서 F86 freshness step 자체가 green인지 확인한다. 차량/칸 parity 검사는 약화하지 않는다.
+
+### 3) IMPORTANT topology 정정 유지 — F86 freshness step은 downstream cross/photo audit gate가 아님
+
+current `erp5-ssot-refresh.yml`에서 cross-audit와 photo-audit은 freshness step outcome이 아니라 F01/F86 publish outcome으로 실행된다. run `35310163711`에서도 freshness failure 뒤 cross-audit/photo-audit은 모두 success했다. 이미 확보된 downstream parity 증거를 skipped로 취급하지 않는다.
+
+### 4) 색상 상태 — code/contract + publisher execution RESOLVED, color-specific effectiveFormat proof HOLD
+
+PR #409로 production pin이 `14892951...`로 올라가며 `신차렌트=#FF00FF` 및 publisher color-SSOT 참조가 포함됐고 run `35310163711`로 full `apply=true` publisher 실행도 증명됐다. 다만 Google Sheets `effectiveFormat` 직접 assert는 별도 HOLD다.
+
+### 5) OPEN/HOLD — RP031 provenance
+
+RP031 canonical registry는 계속 Google Sheet(`1fJu...`)다. API inventory + rendered-DOM finance feeder가 canonical Sheet에 실제 write한 crossing은 남아 있다. backup↔live diff, 신규/변경 identity, finance cells provenance와 deterministic mapping 증명이 끝나기 전 DOM-derived finance를 독립 authoritative SSOT로 승격하지 않는다.
+
+### 6) 기존 HOLD 유지
+
+직접 해소 증거가 없는 다음 항목은 유지한다.
+
+- RP023 canonical RebornCar vs legacy `MIRROR_SOURCES` old Google Sheet source
+- `mirror-sync.yml` 30분 scheduled apply writer
+- `sales-erp-hourly.yml` 평일 scheduled apply writer
+- `settlement-sync.yml` legacy ledger→supplier-status writer
+- audit (22) Sonogong/AutoPlus deposit-policy 이중정의
+- audit (27) Sonogong deposit recurrence
+- audit (28) vehicle-price source→Atom lineage
+- audit (29) sales-tab naming migration
+- audit (34) newest-Atom freshness semantics
+
+## 현재 기준
+
+- current production pin: `14892951a929cf03796231f260e6bc2ff3060efc`
+- canonical schedule: KST `:17` / PR #410 merged
+- latest independently observed scheduled evidence: run `35304903901` at 2026-09-18 12:53:42 KST
+- missing post-merge ERP5 slots now independently observed: `17:17`, `18:17` KST
+- push CI counter-evidence: run `35325766505` at 17:42:47 KST success
+- staged F86 checker PR: #411 / `f17747a549cf7857c28932373ada0bfb8eb7d7da` (draft/open)
+- 상세 근거: `docs/ai-ssot-audit/2026-09-18-chatgpt-audit50-repository-wide-schedule-gap.md`
+- 중앙 로그: `docs/AI-SSOT-AUDIT-LOG.md` → `2026-09-18(50)`
+
+**구현은 Claude 단일 SSOT 세션만 수행한다.**
+''', encoding='utf-8')
+          PY
+          git rm .github/workflows/chatgpt-audit50-recorder.yml
+          git config user.name "chatgpt-ssot-auditor"
+          git config user.email "noreply@openai.com"
+          git add CLAUDE-AUDIT.md docs/AI-SSOT-AUDIT-LOG.md docs/ai-ssot-audit/2026-09-18-chatgpt-audit50-repository-wide-schedule-gap.md
+          git commit -m "docs(audit): record audit50 repository-wide schedule gap"
+          git push origin HEAD:main
