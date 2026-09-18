@@ -1,0 +1,48 @@
+name: audit57 one-shot recorder
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/audit57-recorder.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+      - name: Append audit 57
+        shell: bash
+        run: |
+          if grep -q '^## 2026-09-18(57)' docs/AI-SSOT-AUDIT-LOG.md; then
+            echo 'audit57 already recorded'
+            exit 0
+          fi
+          cat >> docs/AI-SSOT-AUDIT-LOG.md <<'EOF'
+
+---
+
+## 2026-09-18(57) — ChatGPT 독립 감사: scheduled production full-run 첫 green — delivery 0건 판정 해소, cadence HOLD
+
+**판정: 해소됨/부분해소 — audit (56)의 “12:53 이후 scheduled event 0건”은 폐기한다. production pin의 scheduled end-to-end green은 확인됨. cadence/punctuality와 legacy writer runtime은 계속 보류한다.**
+
+- 감사 대상 application HEAD는 `5f6a144b89e0638527e6f73cedc3560a3a36677d`이며 audit (56) 이후 application/business logic commit은 없다.
+- repository-wide 최신 `event=schedule`은 run **`35347508078`**, workflow `ERP5 SSOT 원천 최신화(매시간)`, created **2026-09-18 21:58:18 KST**, conclusion **success**다. 직전 scheduled evidence는 run `35304903901`(12:53:42 KST, failure)이므로 audit (56)의 “그 뒤 schedule 0건”은 현재 기준 stale다.
+- run `35347508078`은 production engine **`cf940df642edf315adbc6da2b4134fbad53da160`**을 실제 checkout했다. source registry 24 providers PASS, ingest preflight/apply 24/24, policy dangling 0, snapshot 등록 1,615 / 출고불가 944 / 현재 재고 671, public expected=actual 664/hash 동일, F01 671대, F86 19탭/671대를 완료했다.
+- PR #412의 F86 checker도 scheduled runtime에서 실제 green이 확인됐다. `종합 09.18 22:09 · 388대` freshness 1분(허용 120분), F86 **43,925 cells mismatch 0**, Atom↔F01 및 F01↔F86 missing/extra/value diff 0, photo-link mismatch 0, publication contract의 deposit-rule/listable/status/source/deleted drift도 0이었다. 따라서 old F86 freshness false-positive는 code/config뿐 아니라 scheduled production runtime에서도 해소됨이다.
+- 그러나 cadence는 해소하지 않는다. current ERP5 cron은 `17 0-10 * * 1-6`(KST 09:17~19:17)인데 이번 event는 **21:58 KST**, 마지막 선언 슬롯 19:17보다 약 2시간 41분 늦게 생성됐다. post-gap scheduled success도 아직 1회뿐이다. declared window에서 연속 `event=schedule`이 실제 생성·성공하기 전에는 `:17` punctuality/cadence와 자동운영 GO를 닫지 않는다.
+- `docs/예약작업-지도.md`상 꺼짐인 `sales-erp-hourly` / `mirror-sync`는 YAML에 cron + scheduled `--apply`가 계속 남아 있고, `contract-status` / `settlement-sync`도 별도 scheduled writer다. 이 run 하나는 이들의 GitHub UI runtime enabled/disabled 상태를 증명하지 않는다.
+- 기존 HOLD는 유지한다: `LEDGER` vs `정산원장` contract-lock dual writer, `settlement-sync` legacy `정산` writer, RP023 RebornCar vs old mirror Sheet, RP031 feeder provenance, special-tab deposit single-definition/recurrence·lineage, vehicle-price lineage, sales-tab naming, newest-Atom freshness, `/inventory` ERP4 read/write boundary.
+- 상세 근거: `docs/ai-ssot-audit/2026-09-18-chatgpt-audit57-scheduled-green-cadence-hold.md`.
+- 이번 감사에서는 application code/business logic을 수정하지 않았다.
+EOF
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/AI-SSOT-AUDIT-LOG.md
+          git commit -m 'docs(audit): append audit57 scheduled green verdict'
+          git push origin HEAD:main
