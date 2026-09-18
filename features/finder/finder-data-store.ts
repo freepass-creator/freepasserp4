@@ -5,7 +5,7 @@ import { getStore, peekList } from '@/lib/store';
 import { seedIfEmpty } from '@/lib/seed';
 import { firebaseReady, getAuthClient } from '@/lib/firebase/client';
 import { withProviderNames } from '@/lib/domain/identity';
-import { finderFromFirestoreEnabled, subscribeFirestoreProducts, shapeFinderRows } from '@/lib/firebase/firestore-products-client';
+import { shapeFinderRows } from '@/lib/firebase/firestore-products-client';
 
 export type FinderDataParams = {
   companyId: string;
@@ -31,8 +31,8 @@ type FinderDataEntry = {
   key: string; companyId: string; sessionUid?: string; rows: EntityRecord[] | null;
   listeners: Set<() => void>;
   loading: boolean; loadedAt: number; retryAfter: number; requestId: number;
-  /** Firestore 읽기 경로(플래그 ON)일 때 onSnapshot 해지 핸들 + 공급사명 조인용 파트너 캐시. */
-  fsUnsub?: () => void; partners?: EntityRecord[];
+  /** canonical ERP5 API 폴링/포커스 갱신 해지 핸들. */
+  stopErp5?: () => void;
 };
 
 const entries = new Map<string, FinderDataEntry>();
@@ -108,48 +108,67 @@ async function loadProducts(entry: FinderDataEntry) {
 }
 
 /**
- * Firestore 읽기 경로(플래그 ON) — onSnapshot 로 구독해 «바뀐 문서만」 받는다(RTDB 대역폭 컷).
- * 가시성·원가 규칙은 shapeFinderRows(=listForFinder 와 동일 함수)로 재적용, 공급사명은 후속 조인.
+ * 로그인 ERP의 상품찾기는 인증은 ERP4 Firebase로 확인하되, 상품 값은 서버 `/api/products`
+ * 를 통해 canonical ERP5에서 직접 받는다.
+ *
+ * ★중요: 실패 시 옛 ERP4 products로 폴백하지 않는다. 서로 다른 원장을 조용히 섞는 것보다
+ * 마지막 정상 목록을 유지하고 재시도하는 편이 SSOT에 맞다.
  */
-function startFirestore(entry: FinderDataEntry) {
-  if (entry.fsUnsub) return;
-  entry.fsUnsub = subscribeFirestoreProducts(
-    (raw) => {
-      if (entries.get(entry.key) !== entry) return;
-      const shaped = shapeFinderRows(raw);
-      entry.rows = entry.partners ? withProviderNames(shaped, entry.partners) : shaped;
-      entry.loadedAt = Date.now();
-      entry.retryAfter = 0;
+async function loadErp5Products(entry: FinderDataEntry) {
+  if (entry.loading) return;
+  const user = getAuthClient()?.currentUser;
+  if (!user) return;
+  entry.loading = true;
+  const requestId = ++entry.requestId;
+  try {
+    const token = await user.getIdToken();
+    const res = await fetch('/api/products', {
+      headers: { Authorization: `Bearer ${token}` },
+      cache: 'no-store',
+    });
+    if (!res.ok) throw new Error(`ERP5 Finder feed HTTP ${res.status}`);
+    const raw = await res.json() as EntityRecord[];
+    if (!Array.isArray(raw)) throw new Error('ERP5 Finder feed shape 오류');
+    if (entries.get(entry.key) !== entry || requestId !== entry.requestId) return;
+    entry.rows = shapeFinderRows(raw);
+    entry.loadedAt = Date.now();
+    entry.retryAfter = 0;
+    notify(entry);
+  } catch (error) {
+    console.warn('[finder] ERP5 canonical feed 실패:', error);
+    if (entries.get(entry.key) === entry && requestId === entry.requestId) {
+      entry.rows = entry.rows ?? [];
+      entry.retryAfter = Date.now() + RETRY_AFTER_ERROR_MS;
       notify(entry);
-      if (!entry.partners) void loadFinderPartners(entry);
-    },
-    (err) => {
-      // ㉡ 핸들 완전 해제(다음 재구독이 다시 시도할 수 있게) · ㉢ RTDB 단발 폴백(빈 화면 방지).
-      if (entries.get(entry.key) !== entry) return;
-      entry.fsUnsub = undefined;
-      console.warn('[finder] Firestore 실패 → RTDB 폴백:', err);
-      void loadProducts(entry);
-    },
-  );
+    }
+  } finally {
+    if (entries.get(entry.key) === entry && requestId === entry.requestId) entry.loading = false;
+  }
 }
 
-/** 공급사명 조인용 파트너를 한 번 읽어 캐시(작고 드물게 바뀜). 실패해도 상품 표시는 유지. */
-async function loadFinderPartners(entry: FinderDataEntry) {
-  try {
-    const partners = await getStore().list('partner', entry.companyId);
-    if (entries.get(entry.key) !== entry) return;
-    entry.partners = partners;
-    if (entry.rows) { entry.rows = withProviderNames(entry.rows, partners); notify(entry); }
-  } catch (error) {
-    console.warn('[finder] 공급사명 보정 실패(상품 목록은 유지):', error);
-  }
+/** 열린 상품찾기 = 30초 주기 + 포커스/탭 복귀 즉시 재확인. 서버 ERP5 캐시는 최대 60초다. */
+function startErp5(entry: FinderDataEntry) {
+  if (entry.stopErp5) return;
+  const tick = () => {
+    if (document.visibilityState === 'visible' && Date.now() >= entry.retryAfter) void loadErp5Products(entry);
+  };
+  void loadErp5Products(entry);
+  const timer = window.setInterval(tick, REVALIDATE_AFTER_MS);
+  const onVisible = () => { if (document.visibilityState === 'visible') tick(); };
+  window.addEventListener('focus', tick);
+  document.addEventListener('visibilitychange', onVisible);
+  entry.stopErp5 = () => {
+    window.clearInterval(timer);
+    window.removeEventListener('focus', tick);
+    document.removeEventListener('visibilitychange', onVisible);
+  };
 }
 
 /** 현재 세션 외의 목록은 메모리에서 즉시 폐기해 역할/사용자 전환 때 재사용하지 않는다. */
 export function discardOtherFinderData(sessionUid?: string, sessionScope?: string) {
   for (const [key, entry] of entries) {
     if (entry.sessionUid === sessionUid && entry.key === entryKey({ companyId: entry.companyId, authReady: true, sessionUid, sessionScope })) continue;
-    entry.fsUnsub?.();
+    entry.stopErp5?.();
     entries.delete(key);
   }
 }
@@ -162,18 +181,20 @@ export function subscribeFinderData(params: FinderDataParams, listener: () => vo
   const firebaseUserReady = !!params.sessionUid
     && getAuthClient()?.currentUser?.uid === params.sessionUid;
   const canLoad = !firebaseReady() || firebaseUserReady;
-  // Firestore 읽기 경로(플래그 ON): 실 UID 복원 뒤에만 onSnapshot 한 번 걸고 poll 은 안 탄다.
-  //   아직 인증 전이면 «안 건다» — sessionUid 가 실 UID 로 바뀌면 store 키가 바뀌어 재구독되고, 그때 시작한다(㉠).
-  if (finderFromFirestoreEnabled() && firebaseReady()) {
-    if (canLoad) startFirestore(entry);
-    return () => { entry.listeners.delete(listener); };
+  // 운영 Firebase가 준비된 로그인 세션은 canonical ERP5 API만 쓴다.
+  if (firebaseReady()) {
+    if (canLoad) startErp5(entry);
+    return () => {
+      entry.listeners.delete(listener);
+      if (!entry.listeners.size) { entry.stopErp5?.(); entry.stopErp5 = undefined; }
+    };
   }
+
+  // 로컬 미리보기(Firebase 미설정)만 기존 LocalAdapter를 쓴다.
   const now = Date.now();
   const stale = entry.loadedAt === 0 || now - entry.loadedAt >= REVALIDATE_AFTER_MS;
   if (canLoad && stale && now >= entry.retryAfter) void loadProducts(entry);
-  return () => {
-    entry.listeners.delete(listener);
-  };
+  return () => { entry.listeners.delete(listener); };
 }
 
 export function getFinderDataSnapshot(params: FinderDataParams): EntityRecord[] | null {
