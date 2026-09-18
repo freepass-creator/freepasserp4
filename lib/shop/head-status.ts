@@ -38,10 +38,17 @@ export function useShopHeadStatus(): ShopHeadStatus {
   const [s, setS] = useState<ShopHeadStatus>(EMPTY);
   useEffect(() => {
     let alive = true;
-    if (cached && Date.now() - cached.at < FRESH_MS) { setS(cached.value); return () => { alive = false; }; }
-    (async () => {
+    let loading = false;
+
+    const load = async (force = false) => {
+      if (!alive || loading) return;
+      if (!force && cached && Date.now() - cached.at < FRESH_MS) {
+        setS(cached.value);
+        return;
+      }
+      loading = true;
       try {
-        const res = await fetch('/api/shop/status');
+        const res = await fetch('/api/shop/status', { cache: 'no-store' });
         if (!res.ok) return;
         const j = await res.json() as { updated?: { ms?: number } | null; weather?: { temp?: number; text?: string } | null };
         if (!alive) return;
@@ -54,8 +61,21 @@ export function useShopHeadStatus(): ShopHeadStatus {
         cached = { at: Date.now(), value };
         setS(value);
       } catch { /* 곁다리다 — 조용히 비운다 */ }
-    })();
-    return () => { alive = false; };
+      finally { loading = false; }
+    };
+
+    void load();
+    const tick = () => { if (document.visibilityState === 'visible') void load(true); };
+    const timer = window.setInterval(tick, FRESH_MS);
+    const onVisible = () => { if (document.visibilityState === 'visible') tick(); };
+    window.addEventListener('focus', tick);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+      window.removeEventListener('focus', tick);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, []);
   return s;
 }
