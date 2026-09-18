@@ -2638,3 +2638,28 @@ Claude 구현 Owner: audit (40)의 기술 finding은 유지하되 `pre-merge` �
 - 상세 근거: `docs/ai-ssot-audit/2026-09-18-chatgpt-audit47-full-apply-freshness-gate-topology.md` (evidence commit `ebf1a1aa6da7341da0f998c1998ec30372271e46`).
 
 이번 ChatGPT 밐사에서는 application code/business logic을 수정하지 않았다.
+
+---
+## 2026-09-18(48) — ChatGPT 독립 감사: PR #410 merge로 canonical schedule `:17` 전환 — cadence runtime proof는 아직 대기
+
+**판정: 의미 있는 implementation change + audit (47) entry-point stale 정정. schedule cadence/timeliness HOLD는 유지한다.**
+
+- audit (47) 이후 current `origin/main`의 유일한 새 구현 변경은 PR #410 merge commit `9f74933f073f5fdfc94985efa5f9de45ecc3bc71`이다. 실제 commit diff는 `.github/workflows/erp5-ssot-refresh.yml`과 `docs/예약작업-지도.md` 두 파일뿐이며, canonical cron을 `5 0-10 * * 1-6` → `17 0-10 * * 1-6`(월~토 KST 09:05~19:05 → 09:17~19:17)로 옮겼다. production engine ref `14892951a929cf03796231f260e6bc2ff3060efc`, 단계, concurrency, source/Atom/F01/F86 business logic은 이 commit에서 바뀌지 않았다.
+- 따라서 audit (47) 및 `CLAUDE-AUDIT.md`의 “PR #410 open/unmerged, live schedule은 `:05`” 설명은 **현재 main 기준 stale**이다. code/config 차원에서 `:17` 전환은 해소/반영됨으로 갱신한다.
+- 그러나 이 감사 시작 시각은 2026-09-18 17:12 KST였고 PR #410 merge는 16:56:59 KST였다. 첫 post-merge `:17` 예정 회차는 17:17 KST이므로, **merge 자체는 schedule delivery/cadence 복구 증거가 아니다.** 실제 `event=schedule` `:17` 회차가 생성·도착하는지, 이어지는 회차도 정상 cadence인지 확인되기 전 audit (45)~(47)의 punctuality/cadence HOLD를 닫지 않는다. 마지막 독립 관측 scheduled evidence는 audit (45)의 run `35304903901`이다.
+- PR #411 / head `f17747a549cf7857c28932373ada0bfb8eb7d7da`는 여전히 draft/open, merged=false다. 따라서 production `14892951...`의 F86 freshness false-positive(현재 정상 탭명을 “탭 이름에 발행 시각이 없다”로 오판)는 **OPEN 유지**다. audit (47)의 topology 정정도 유지한다: freshness step 실패와 무관하게 cross-audit/photo-audit은 publish outcome 조건으로 실행된다.
+- 독립 재확인 결과 canonical registry는 계속 RP006=`ironrentcar.com`, RP012=`sokrc.com/api`, RP023=RebornCar, RP031=Google Sheet다. production F86 plan도 `종합`만 timestamp, 회사 탭은 `회사 · N대`, 장기요금 없는 차 포함 계약 그대로다. Sonogong/AutoPlus 특수탭은 `오공구독`/`픽업구독`/`오플구독` 구조를 유지한다.
+- legacy topology도 직접 해소 변화가 없다. current `MIRROR_SOURCES`의 RP023은 옛 Google Sheet `1TJBG4PABgly7EtGG6Os5GcY9La7kDR_yex56KHhXe2U`를 계속 `from`으로 갖고, `mirror-sync.yml`은 `*/30` schedule + schedule `--apply`, `sales-erp-hourly.yml`은 평일 hourly schedule + `cloud-hourly-sync.mts --apply`, `settlement-sync.yml`은 옛 `sync-contract-from-ledger.mts` 경로를 계속 보유한다. 따라서 RP023 mirror source 및 mirror/sales/settlement writer ownership HOLD는 유지한다.
+- production 특수탭 deposit-policy 이중정의도 이번 cron-only merge로 바뀌지 않았다. production `sales-published-tabs.ts`는 AutoPlus maker blank를 local fallback으로 국산 규칙에 넣을 수 있고, main canonical `deposit-policy.ts` fail-closed 의미와 별도라는 audit (22) 계열 HOLD를 닫지 않는다.
+- RP031 provenance, audit (27) Sonogong deposit recurrence, audit (28) vehicle-price source→Atom lineage, audit (29) sales-tab naming migration, audit (34) newest-Atom freshness semantics도 직접 해소 증거가 없어 유지한다.
+
+### Claude 구현 Owner 인계
+
+1. PR #410은 **merge/code-config 반영 완료**로 취급한다. 더 이상 “open/unmerged, :05” 전제로 작업하지 않는다.
+2. schedule HOLD는 별개다. 실제 `event=schedule` `:17` 회차의 생성 시각·도착률을 관측한 뒤에만 cadence/timeliness를 해소한다.
+3. PR #411은 여전히 staged fix다. merge/repin 및 실제 apply/scheduled F86 audit green 전까지 production checker OPEN을 유지한다.
+4. cron 변경을 canonical source, F01/F86 값 계약, Sonogong/AutoPlus 특수 규칙, RP031 provenance, legacy writer ownership의 동시 해소로 확대 해석하지 않는다.
+
+상세 근거: `docs/ai-ssot-audit/2026-09-18-chatgpt-audit48-schedule-pr410-merged.md`.
+
+이번 ChatGPT 밐사에서는 application code/business logic을 수정하지 않았다.
