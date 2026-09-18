@@ -51,7 +51,7 @@ function getEntry(params: FinderDataParams): FinderDataEntry {
   if (existing) return existing;
   const entry: FinderDataEntry = {
     key, companyId: params.companyId, sessionUid: params.sessionUid,
-    rows: peekList('product', params.companyId), listeners: new Set(),
+    rows: firebaseReady() ? null : peekList('product', params.companyId), listeners: new Set(),
     loading: false, loadedAt: 0, retryAfter: 0, requestId: 0,
   };
   entries.set(key, entry);
