@@ -27,7 +27,7 @@ export async function GET(request: Request) {
     const actor = await verifyActiveBearer(request);
     if (!actor) return NextResponse.json({ error: '인증이 필요합니다.' }, { status: 401 });
 
-    const src = await readWhitelabelCatalogFromErp5({ includePartners: true });
+    const src = await readCanonicalCatalogFromErp5({ includePartners: true });
     const products = Object.entries(src.products).map(([docId, raw]) => {
       const product = {
         ...(raw || {}),
