@@ -66,6 +66,26 @@ for (const path of LEGACY_WRITE_WORKFLOWS) {
   }
 }
 
+const finderStorePath = 'features/finder/finder-data-store.ts';
+const productApiPath = 'app/api/products/route.ts';
+if (existsSync(finderStorePath) && existsSync(productApiPath)) {
+  const finderStore = readFileSync(finderStorePath, 'utf8');
+  const productApi = readFileSync(productApiPath, 'utf8');
+
+  if (finderStore.includes('subscribeFirestoreProducts(') || finderStore.includes('startFirestore(')) {
+    failures.push(`${finderStorePath}: Finder가 ERP4 기본 Firestore products를 직접 구독하면 안 됨. 로그인은 ERP4여도 상품 값은 canonical ERP5 서버 피드만 소비한다.`);
+  }
+  if (!finderStore.includes("fetch('/api/products'") || !finderStore.includes('loadErp5Products')) {
+    failures.push(`${finderStorePath}: canonical ERP5 /api/products 소비 경로가 없음`);
+  }
+  if (!productApi.includes('readCanonicalCatalogFromErp5')) {
+    failures.push(`${productApiPath}: 로그인 ERP 상품 피드가 canonical ERP5 reader를 사용하지 않음`);
+  }
+  if (productApi.includes("firebaseAdminStore().ref('v4/products')")) {
+    failures.push(`${productApiPath}: ERP4 products를 상품 정본으로 읽는 레거시 경로가 되살아남`);
+  }
+}
+
 for (const path of ['firebase.erp5.json', 'firestore.erp5.rules']) {
   if (existsSync(path)) {
     failures.push(`${path}: 별도 legacy Firebase 설정 파일이 repo root에 남아 있음. canonical 프로젝트는 workflow/OIDC로 고정한다.`);
