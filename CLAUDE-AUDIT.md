@@ -13,7 +13,7 @@
 ## Claude 구현 Owner 우선순위
 
 1. RP031 DOM finance를 `--쓰기`/schedule/canonical Sheet/Atom promotion에서 분리한 채 primitive·provenance·formula를 먼저 확정한다.
-2. real Sheet schema에 `차명`이 없다는 사실부터 해결하고, display-name/fuzzy guess뉼 canonical join으로 쓰지 말고 deterministic model/plate/term/mileage/deposit mapping과 parity를 증명한다.
+2. real Sheet schema에 `차명`이 없다는 사실부터 해결하고, display-name/fuzzy guess를 canonical join으로 쓰지 말고 deterministic model/plate/term/mileage/deposit mapping과 parity를 증명한다.
 3. DOM finance가 실제 권위 source로 승인될 때만 registry + Source Contract + writer topology를 명시적으로 변경하고 source-sheet parity → Atom → snapshot → F01/F86 cross-audit까지 한 promotion으로 닫는다.
 4. production pin/current main lineage를 혼동하지 않는다. 현 canonical production은 `9bef7bf...`이고 RP031은 Google Sheet canonical이다.
 5. RP031과 별개로 audit (35) F86 freshness checker 등 기존 OPEN/HOLD를 독립적으로 유지한다.
