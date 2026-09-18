@@ -10,7 +10,8 @@
  * 화면에서만 감추면 응답에는 값이 그대로 실려 개발자도구로 다 보인다.
  */
 import { NextResponse } from 'next/server';
-import { firebaseAdminStore, verifyActiveBearer } from '@/lib/server/firebase-admin';
+import { verifyActiveBearer } from '@/lib/server/firebase-admin';
+import { readCanonicalCatalogFromErp5 } from '@/lib/server/whitelabel-erp5-catalog';
 import { readSheetGrid, listSheetTabs } from '@/lib/server/google-sheets';
 import { SALES_PUBLISHED_TAB_PREFIXES } from '@/lib/domain/sales-published-tabs';
 import { PRODUCT_SHEET_ID } from '@/lib/product-sheet';
@@ -49,32 +50,19 @@ async function rowDetailHrefs(grid: { header: string[]; rows: string[][] }): Pro
   const providerAt = grid.header.findIndex((header) => /^(공급사|렌트사|제공사|업체명)$/.test(S(header)));
   if (plateAt < 0 || providerAt < 0) return empty();
 
-  const db = firebaseAdminStore();
-  const [productsSnap, partnersSnap, partnersV4Snap] = await Promise.all([
-    db.ref('v4/products').get(),
-    db.ref('partners').get(),
-    db.ref('v4/partners').get(),
-  ]);
-
-  const partnerRows = new Map<string, EntityRecord>();
-  for (const snapshot of [partnersSnap, partnersV4Snap]) {
-    for (const [key, raw] of Object.entries((snapshot.val() || {}) as Record<string, Record<string, unknown>>)) {
-      if (!raw || typeof raw !== 'object') continue;
-      partnerRows.set(key, { ...(partnerRows.get(key) || {}), ...raw, _key: key } as EntityRecord);
-    }
-  }
-  const providerIndex = salesSheetProviderIndex([...partnerRows.values()]);
+  const src = await readCanonicalCatalogFromErp5({ includePartners: true });
+  const partnerRows = Object.entries(src.partners)
+    .map(([key, raw]) => ({ ...(raw || {}), _key: S(raw?._key) || key } as EntityRecord));
+  const providerIndex = salesSheetProviderIndex(partnerRows);
 
   // 같은 product_code가 우연히 중복된 서로 다른 record도 "한 건"으로 오인하지 않는다.
   // Set으로 dedupe하면 그 경우 잘못된 상세 링크가 생기므로 record 수를 그대로 보존한다.
   const productKeysByVehicle = new Map<string, string[]>();
-  for (const [key, raw] of Object.entries((productsSnap.val() || {}) as Record<string, Record<string, unknown>>)) {
+  for (const [docId, raw] of Object.entries(src.products)) {
     if (!raw || typeof raw !== 'object' || isDeleted(raw)) continue;
     const provider = S(raw.provider_company_code || raw.partner_code);
     const plate = plateKey(raw.car_number);
-    // `v4/products`의 child key가 상품 화면·Finder adapter의 논리키다. 이관 잔재의
-    // raw.product_code를 쓰면 같은 행의 상세 href와 현재 Finder record가 어긋날 수 있다.
-    const productKey = S(key);
+    const productKey = S(raw.product_code || raw._key || raw.car_number || docId);
     if (!provider || !plate || !productKey) continue;
     const identity = `${provider}\u0000${plate}`;
     const keys = productKeysByVehicle.get(identity) || [];
