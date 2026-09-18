@@ -2844,3 +2844,16 @@ PR #412 premerge Source Contract / generic CI는 success였다. 다만 **새 pin
 - 오래된 `docs/원자-뻗어나가는-지도.md`, `docs/자동동기-매뉴얼.md`에는 ERP5 최신 계약 우선 경고를 추가했다.
 - 상세 근거: `docs/ai-ssot-audit/2026-09-18-chatgpt-audit55-downstream-distribution-live.md`.
 
+
+---
+
+## 2026-09-18(56) — PR #414 downstream ERP5 canonical 소비 경로 main 병합 확인
+
+**판정: 해소됨(code/main) / 보류(runtime)**
+
+- audit (55)에서 staged였던 PR #414가 main merge `817865d732b92b284c1db78a183325c6bfb12a1f`로 병합됐다. authenticated `/api/products`, Finder, `/m/[code]`, F01 상세링크 매핑, 영업자 내부정보 policy/partner, read-only ops inventory의 ERP4 product-read split-brain은 code/main 기준 RESOLVED다. PR head CI `35343147167`, merge-main CI `35343414676`은 success.
+- `/inventory` 편집은 ERP5 authenticated write boundary가 생길 때까지 ERP4 read/write 한 묶음으로 HOLD한다. 읽기만 ERP5로 바꾸지 않는다.
+- 2026-09-18 21:23 KST 기준 repository-wide 최신 `event=schedule`은 여전히 run `35304903901`(12:53:42 KST)이며 이후 scheduled event가 없다. 따라서 ERP5 17:17/18:17/19:17 및 이후 예약 delivery recovery는 미증명이다.
+- audit (54)의 pre-automation HOLD는 유지한다: `LEDGER` vs `정산원장` contract-lock dual writer, settlement legacy `정산` writer, mirror/sales runtime-disabled proof, RP023/RP031 및 deposit/price/tab/freshness HOLD.
+- production pin `cf940df642edf315adbc6da2b4134fbad53da160`, F01/F86 fixed-snapshot projection, Sonogong/AutoPlus special-tab 규칙은 PR #414에서 변경되지 않았다.
+- 상세 근거: `docs/ai-ssot-audit/2026-09-18-chatgpt-audit56-pr414-merged-runtime-hold.md`. Claude entry point: `CLAUDE-AUDIT.md` audit (56) override.
