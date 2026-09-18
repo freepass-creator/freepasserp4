@@ -86,6 +86,39 @@ if (existsSync(finderStorePath) && existsSync(productApiPath)) {
   }
 }
 
+const canonicalConsumerContracts: Array<{ path: string; require: string[]; forbid?: string[] }> = [
+  {
+    path: 'app/api/products/sheet/route.ts',
+    require: ['readCanonicalCatalogFromErp5'],
+    forbid: ['firebaseAdminStore()', "ref('v4/products')"],
+  },
+  {
+    path: 'app/m/[code]/page.tsx',
+    require: ["/api/products?code=", 'getAuthClient'],
+    forbid: ["getStore().get('product'", "getStore().list('product'"],
+  },
+  {
+    path: 'app/api/shop/inside/route.ts',
+    require: ['readCanonicalCatalogFromErp5'],
+    forbid: ['firestorePathStore()'],
+  },
+  {
+    path: 'app/api/ops/inventory/route.ts',
+    require: ['readCanonicalCatalogFromErp5'],
+    forbid: ['firebaseAdminStore()', "ref('v4/products')"],
+  },
+];
+for (const contract of canonicalConsumerContracts) {
+  if (!existsSync(contract.path)) continue;
+  const source = readFileSync(contract.path, 'utf8');
+  for (const required of contract.require) {
+    if (!source.includes(required)) failures.push(`${contract.path}: ERP5 canonical 소비 계약 누락 「${required}」`);
+  }
+  for (const forbidden of contract.forbid || []) {
+    if (source.includes(forbidden)) failures.push(`${contract.path}: ERP4/legacy 상품 원장 소비가 되살아남 「${forbidden}」`);
+  }
+}
+
 for (const path of ['firebase.erp5.json', 'firestore.erp5.rules']) {
   if (existsSync(path)) {
     failures.push(`${path}: 별도 legacy Firebase 설정 파일이 repo root에 남아 있음. canonical 프로젝트는 workflow/OIDC로 고정한다.`);
