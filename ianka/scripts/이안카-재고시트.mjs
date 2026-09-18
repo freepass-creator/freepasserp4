@@ -127,6 +127,7 @@ async function main() {
     if (요금채운행 === 0) {
       const 개월칸 = header.filter((h) => /개월|보증/.test(h));
       console.log(`  [디버그] 헤더의 개월/보증 칸: ${JSON.stringify(개월칸)}`);
+      console.log(`  [디버그] 헤더 전체(${header.length}칸): ${JSON.stringify(header)}`);
       console.log(`  [디버그] 차명col=${차명col} 샘플 차명 3개: ${JSON.stringify(rows.slice(0, 3).map((r) => r[차명col]))}`);
       console.log(`  [디버그] 요금표 모델명 5개: ${JSON.stringify(Object.keys(모델요금).slice(0, 5))}`);
       if (rows[0]) {
