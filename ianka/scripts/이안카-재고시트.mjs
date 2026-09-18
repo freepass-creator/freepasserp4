@@ -183,7 +183,7 @@ async function main() {
     return;
   }
 
-  const taskId = 'OPS-' + new Date().toISOString().slice(0, 10).replace(/-/g, '') + '-IANKA';
+  const taskId = 'OPS-' + new Date().toISOString().slice(0, 10).replace(/-/g, '') + '-031';
   await withLease(`sheet:${ID}`, { agent: 'claude', taskId, purpose: '이안카 원천시트 배차상태·제원 반영' }, async () => {
     const bp = await s.backup(path.join(루트, 'backups', 'ianka-stock'));
     console.log('백업:', bp);
