@@ -81,11 +81,21 @@ export async function 요금표긁기({ headless = true } = {}) {
       let 정체횟수 = 0;
       for (let i = 0; i < 60 && 정체횟수 < 3; i++) {
         const before = await page.locator('article.rateCard').count();
-        const more = page.locator('button:has-text("더보기"), button:has-text("더 보기")');
-        if (await more.count() > 0) await more.first().click().catch(() => {});
+        const more = page.locator('.results button, .resultsInventory button, section.results button');
+        const clicked = await more.evaluateAll((els) => {
+          for (const el of els) {
+            const t = (el.textContent || '').trim();
+            if (/더\s*보기|더\s*불러오기|load\s*more|more/i.test(t)) { el.click(); return t; }
+          }
+          return null;
+        });
         await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-        await page.waitForTimeout(600);
+        await page.waitForTimeout(700);
         const after = await page.locator('article.rateCard').count();
+        if (months === 1 && i < 3) {
+          const btnTexts = await page.evaluate(() => Array.from(document.querySelectorAll('section.results button, .results button')).map((b) => b.textContent?.trim()));
+          console.log(`    [디버그 라운드${i}] before=${before} after=${after} clicked=${clicked} 버튼목록=${JSON.stringify(btnTexts)}`);
+        }
         정체횟수 = after <= before ? 정체횟수 + 1 : 0;
       }
 
