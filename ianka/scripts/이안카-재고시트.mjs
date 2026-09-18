@@ -17,6 +17,11 @@
  *
  *  API에 더는 없는 기존 차는 삭제하지 않고 「출고불가」로 내린다(손오공과 동일 원칙).
  *
+ *  ⚠ 실제 시트엔 「차명(원문)」·「연식」 칸이 없다(2026-09-18 실측). 차명원문은 대신
+ *  「세부모델」에 채우는데, ChatGPT 독립 감사(audit 40·41)가 지적한 대로 그 칸은 사람이
+ *  정제해 둔 identity 값일 수 있어 «비어 있을 때만» 채운다(FILLIFEMPTY) — 절대 덮지 않는다.
+ *  연식은 채울 칸이 아예 없어 그대로 둔다(시트에 칸을 새로 만드는 건 별도 승인 필요).
+ *
  *    node scripts/이안카-재고시트.mjs            미리보기(라이브 안 건드림)
  *    node scripts/이안카-재고시트.mjs --쓰기      백업 후 반영
  */
@@ -48,8 +53,22 @@ function 행빌드(header, 기존, c) {
   // 상태·입고일자·구분·차량번호·차종분류·세부모델·연료·외장·내장·Km·단기보증·1~60개월·
   // 장기보증·트림·옵션·최초등록·소비자가격·제조사·배기량 등만 있음). 어댑터(lib/adapters/ianka.ts)가
   // rawName 못 찾으면 「세부모델」을 subModel로 읽으므로, 차명원문을 세부모델에 채운다.
+  // ⚠⚠ ChatGPT 독립 감사(audit 40·41) 지적 — 「세부모델」은 사람이 정제해 둔 identity 칸일 수
+  // 있다. put()처럼 무조건 덮으면 기존 13대의 정제값을 API 원문으로 갈아칠 위험이 있다.
+  // 「차명(원문)/차명/차량명」이 진짜로 있으면(다른 공급사) 그대로 ALWAYS 덮어쓰되, 세부모델로
+  // fallback할 때는 «비어 있을 때만» 채운다(FILLIFEMPTY) — 정제값은 절대 안 건드린다.
+  {
+    const exact = header.findIndex((h) => ['차명(원문)', '차명', '차량명'].includes(h));
+    if (exact >= 0 && c.차명원문) {
+      row[exact] = c.차명원문;
+    } else {
+      const fallback = header.findIndex((h) => h === '세부모델');
+      if (fallback >= 0 && c.차명원문 && (row[fallback] === '' || row[fallback] == null)) {
+        row[fallback] = c.차명원문;
+      }
+    }
+  }
   // 연식은 채울 곳이 없다 — 칸을 새로 만드는 건 시트 구조 변경이라 사장님 확인 필요(따로 보고).
-  put(['차명(원문)', '차명', '차량명', '세부모델'], c.차명원문);
   return row;
 }
 
@@ -142,6 +161,18 @@ async function main() {
     }
   } else {
     console.log('\n  요금표(이안카요금.json) 없음 — 요금칸은 손 안 댐(기존 수기값 그대로)');
+  }
+
+  // ★쓰기 전 눈으로 대조 — 실제로 채워진 행 몇 개를 차번·세부모델·요금과 함께 찍는다.
+  if (모델요금 && 차명col >= 0) {
+    const 표본 = rows.filter((r) => r[차명col] && 모델요금[r[차명col]]).slice(0, 5);
+    console.log(`\n  [표본검수] 요금 매칭된 행 ${표본.length}개(최대 5개 표시):`);
+    const idx = (n) => header.indexOf(n);
+    for (const r of 표본) {
+      const 칸 = ['차량번호', '세부모델', '단기보증', '1개월', '12개월', '60개월', '장기보증']
+        .filter((n) => idx(n) >= 0).map((n) => `${n}=${r[idx(n)]}`).join(' · ');
+      console.log(`    ${칸}`);
+    }
   }
 
   if (!쓰기) {
