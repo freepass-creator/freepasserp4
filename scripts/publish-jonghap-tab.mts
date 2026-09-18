@@ -32,6 +32,7 @@ import { photoUrlFromCell, type SheetGridCell } from '../lib/domain/sheet-visibl
 import { SHEET_GRID_FIELDS, readSupplierSheet } from '../lib/domain/supplier-sheet-read';
 import { EMPTY_BOOK, applyAlias, type AliasBook } from '../lib/domain/master-alias';
 import type { EntityRecord } from '../lib/intake/entities';
+import { MASTER_CATEGORY_COLORS } from '../lib/domain/category-colors';
 
 type Rec = Record<string, any>;
 const S = (v: unknown) => String(v ?? '').trim();
@@ -546,9 +547,12 @@ const COL_INK: Record<string, string> = {
  *   나머지(상태·차번·돈·기간)는 가운데 그대로 — 자리수를 세로로 견줘야 한다.
  */
 const LEFT = ['모델', '세부모델', '파워트레인', '세부트림', '옵션'];
-/** 구분은 값마다 글자색이 다르다 — 원본에서 세 색이 나왔다. */
+/** 구분은 값마다 글자색이 다르다 — 원본에서 세 색이 나왔다.
+ *  ⚠ '신차' 색은 category-colors.ts '분류'.신차렌트와 같은 실제 값(FF00FF)이라 정본에서 가져온다
+ *  (check:color-ssot — 소비처에 리터럴로 다시 적으면 위반). */
 const GUBUN_INK = new Map<string, string>([
-  ['신차', 'FF00FF'], ['재렌트', '34A853'], ['재구독', 'FF9900'], ['신차구독', 'FF9900'],
+  ['신차', MASTER_CATEGORY_COLORS['분류']['신차렌트'].replace(/^#/, '')],
+  ['재렌트', '34A853'], ['재구독', 'FF9900'], ['신차구독', 'FF9900'],
 ]);
 /** 머리행 배경 — 대여료 블록만 색이 있다. 단기 → 장기로 갈수록 진해진다(원본 실측). */
 const HEAD_BG: Record<string, string> = {

@@ -86,6 +86,9 @@ const 봐준다 = new Set([
   'lib/domain/missing-value-display.ts',        // ③ 정본
   'scripts/check-color-ssot.mts',               // 이 검사(정본 값을 글로 적어 잠근다)
   'scripts/check-f86-locked.mts',               // F86 확정 규격 잠금(같은 성격)
+  // 회사(채널) 탭 배경색 — 2026-09-15 옛 시트를 실측해 그대로 옮긴 값이라 상품구분과 무관하다.
+  // '아이언'·'우리캐피탈' 탭이 우연히 신차렌트와 같은 FF00FF를 쓰는 것뿐, 같은 사실의 복제가 아니다.
+  'lib/domain/channel-retro-skin.ts',
 ]);
 const 파일들: string[] = [];
 const 훑기 = (dir: string) => {

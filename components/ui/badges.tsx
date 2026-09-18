@@ -9,7 +9,7 @@ import { useIsMobile } from '@/lib/use-mobile';
  * 상태/라벨 SSOT — ERP 절제형.
  * 파스텔 필·좌측 | 바 금지. 헤어라인 + 톤 글자색.
  */
-export type BadgeTone = 'gray' | 'green' | 'red' | 'amber' | 'blue' | 'orange' | 'purple' | 'teal';
+export type BadgeTone = 'gray' | 'green' | 'red' | 'amber' | 'blue' | 'orange' | 'purple' | 'teal' | 'pink';
 
 /** [text, softBg, accent] — accent=아이콘·점·솔리드 틴트용.
  * 값 = globals.css --bdg-* 변수(라이트/다크 SSOT). 여기 hex 직접 금지(다크모드 깨짐 원흉이었음). */
@@ -22,6 +22,7 @@ const BADGE: Record<BadgeTone, [string, string, string]> = {
   orange: ['var(--bdg-orange-fg)', 'var(--bdg-orange-bg)', 'var(--bdg-orange-ac)'],
   purple: ['var(--bdg-purple-fg)', 'var(--bdg-purple-bg)', 'var(--bdg-purple-ac)'],
   teal: ['var(--bdg-teal-fg)', 'var(--bdg-teal-bg)', 'var(--bdg-teal-ac)'],
+  pink: ['var(--bdg-pink-fg)', 'var(--bdg-pink-bg)', 'var(--bdg-pink-ac)'],
 };
 
 export function toneText(tone: BadgeTone): string { return (BADGE[tone] || BADGE.gray)[0]; }
@@ -188,7 +189,8 @@ export function SevTag({ high }: { high: boolean }) {
 }
 
 export const PRODUCT_TYPE_TONE: Record<string, BadgeTone> = {
-  '신차렌트': 'blue', '신차구독': 'blue', '중고렌트': 'gray', '중고구독': 'gray',
+  // 신차렌트 = category-colors.ts '분류' SSOT 확정 밝은 분홍(FF00FF)과 맞춘다(2026-09-18).
+  '신차렌트': 'pink', '신차구독': 'blue', '중고렌트': 'gray', '중고구독': 'gray',
   // 픽업구독(손오공 T카)·오플구독(오토플러스)·오공구독(손오공 픽업이 부러져 재판매) = 중고구독과 다른 갈래라 색도 가른다(2026-08-28·09-08).
   '픽업구독': 'teal', '오플구독': 'amber', '오공구독': 'purple',
   '신차': 'blue', '중고': 'gray',
