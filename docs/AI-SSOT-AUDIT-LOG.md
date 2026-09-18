@@ -2490,3 +2490,23 @@ Claude 구현 Owner: ERP5 Atom을 freshness source로 쓰는 방향은 유지하
 상세 근거: `docs/ai-ssot-audit/2026-09-18-chatgpt-audit39-ianka-dom-finance-writer-boundary.md`.
 
 이번 ChatGPT 감사에서는 application code/business logic을 수정하지 않았다.
+
+---
+## 2026-09-18(40) — ChatGPT 독립 감사: PR #402가 RP031 `차명원문`을 canonical `세부모델`에 덮어쓰는 pre-merge identity/writer conflict
+
+**판정: 의미 있는 pre-merge OPEN/HOLD. live corruption 증거는 없지만 audit (39)의 DOM-finance writer 경계가 identity/model 칸까지 확장될 수 있으므로 현재 형태 그대로 canonical write에 사용하면 안 된다.**
+
+- 감사 기준 `origin/main`은 `f3e07b81557ebfc487c867f1edc86f871fcb329f`, production pin은 계속 `9bef7bf0ffd21a96e3098a6f31adf1b1a0258c60`이다. RP031 registry도 계속 Google Sheet canonical이다.
+- PR #402 `fix: 이안카 차명(원문) 칼럼 부재 — 세부모델로 채운다`는 이 감사 시점 **open / unmerged**, head `af041f83661cf1959f9405424ef80bff17436802`다.
+- 새 실측으로 current RP031 Sheet 40-column header에 `차명(원문)`·`차명`·`차량명`이 없고 `세부모델`만 있으며, **`연식` 칼럼도 없음**이 확인됐다.
+- PR #402 patch는 `행빌드()`가 API `차명원문`을 `세부모델` alias에 쓰도록 바꾸고, finance `차명col`도 `세부모델`을 lookup key로 사용한다.
+- `행빌드()`는 기존 row를 복사한 뒤 API 값이 비어 있지 않으면 해당 칸을 다시 쓰므로, 향후 `--쓰기` 시 기존 canonical Sheet의 `세부모델`을 API `차명원문`으로 **덮어쓸 수 있다.** 이는 audit (39)의 `FILLIFEMPTY` finance writer보다 강한 identity/model mutation이다.
+- 같은 덮어쓴 `세부모델`이 rendered-DOM 요금표 model join key가 되므로 **identity mutation과 finance authority lookup이 결합**된다. API `차명원문`과 canonical `세부모델`이 동일 business identity인지, 기존 수동/정제값을 대체해도 되는지, DOM 27개 차종과 deterministic하게 대응되는지는 아직 증명되지 않았다.
+- audit (39)은 display-name/fuzzy guess를 canonical join으로 쓰지 말고 deterministic `model/plate/term/mileage/deposit` mapping·provenance·parity를 먼저 증명하라고 했다. PR #402는 이 경계를 우회할 수 있으므로 그대로 merge/write하지 않는다.
+- **live 영향은 아직 없다.** PR #402는 미머지이고 `diag-ianka-collector.yml`은 계속 manual preview-only이며 `--쓰기`를 주지 않는다. production pin도 이 변경을 사용하지 않는다.
+
+Claude 구현 Owner: (1) `차명원문 → 세부모델 overwrite`를 canonical join 해결책으로 쓰지 말고 두 필드의 의미/보존·마이그레이션 계약을 먼저 증명, (2) finance join을 deterministic key로 분리하고 plate/model/term/mileage/deposit source parity를 입증, (3) `연식` 칼럼 부재도 별도 schema gap으로 처리, (4) authority 승인 전에는 DOM finance를 Sheet writer/Atom/promotion에 연결하지 않는다. audit (38)/(39)의 consumer/bootstrap-only 원칙과 기존 F86/deposit/vehicle-price/sales-tab/freshness/legacy-writer HOLD를 유지한다.
+
+상세 근거: `docs/ai-ssot-audit/2026-09-18-chatgpt-audit40-ianka-submodel-identity-boundary.md` (evidence commit `5c8fed2fb5074d7fe102eb96e2b3ee3d756355ef`).
+
+이번 ChatGPT 감사에서는 application code/business logic을 수정하지 않았다.
