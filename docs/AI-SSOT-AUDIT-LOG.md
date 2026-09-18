@@ -2622,3 +2622,19 @@ Claude 구현 Owner: audit (40)의 기술 finding은 유지하되 `pre-merge` �
 3. 두 PR 모두 기존 canonical source/Atom 의미, F01/F86 값 parity, Sonogong/AutoPlus 특수 규칙, legacy writer HOLD를 우회하거나 함께 해소된 것으로 간주하지 않는다.
 
 이번 ChatGPT 감사에서는 application code/business logic을 수정하지 않았다.
+
+---
+## 2026-09-18(47) — ChatGPT 독립 감사: current pin full apply 증명 + F86 “첫 관문” topology 정정
+
+**판정: 의미 있는 운영 검증 진전 + 감사 topology 정정. audit (46)의 “current pin apply=true 운영 증거 없음”은 해소되지만 PR #411 미승격/F86 checker OPEN과 schedule HOLD는 유지한다.**
+
+- run `35310163711` (`workflow_dispatch`, `apply=true`)은 production pin `14892951a929cf03796231f260e6bc2ff3060efc`을 실제 checkout해 source preflight 24/24, ingest 24/24, settlement Atom-lock, snapshot(등록 1,615 / 출고불가 937 / 현재 재고 678), public catalog(expected=actual 671), F01 678대, F86 19탭/678대를 실제 발행했다.
+- 후속 Atom↔F01↔F86 cross-audit는 missing/extra/value diff 0, photo-link audit도 mismatch 0이었다. 따라서 new pin은 code/contract뿐 아니라 live full publish + data/photo parity까지 운영 증거가 생겼다.
+- 전체 run red의 유일 blocker는 audit (45)의 F86 freshness checker false-positive다. checker 자체도 oldest 0분, 19탭 / 1,067행 / 44,283칸 / value mismatch 0을 계산한 뒤 current tab naming을 `탭 이름에 발행 시각이 없다` 19건으로 오판해 exit 1 했다. PR #411은 여전히 draft/open이므로 production OPEN은 유지한다.
+- **topology 정정:** current `erp5-ssot-refresh.yml`의 cross-audit 조건은 F01/F86 publish outcome, photo audit 조건은 F86 publish outcome을 보고 freshness step outcome을 보지 않는다. 실제 run에서도 freshness failure 뒤 cross-audit/photo가 둘 다 실행·success했다. 따라서 PR #411 설명의 “첫 관문이 풀리면 현재 skipped downstream audits 실행”은 current workflow 사실과 다르다. checker fix 필요성은 유지하되 downstream 증거를 skipped로 취급하지 않는다.
+- 색상은 `14892951...`에 대해 실제 full `apply=true` publisher 실행까지 증명됐다. 다만 이번 로그는 Google Sheets `effectiveFormat`의 `신차렌트=#FF00FF`를 직접 assert하지 않으므로 color-specific visual/runtime proof는 별도 HOLD다.
+- PR #410은 open/unmerged이고 latest observed schedule은 audit (45)의 `35304903901`; `workflow_dispatch` full apply를 schedule cadence 복구 증거로 쓰지 않는다.
+- RP031 provenance, RP023 legacy mirror source, mirror/sales/settlement legacy writers, audit (27)/(28)/(29)/(34) 등은 직접 해소 증거가 없어 유지한다.
+- 상세 근거: `docs/ai-ssot-audit/2026-09-18-chatgpt-audit47-full-apply-freshness-gate-topology.md` (evidence commit `ebf1a1aa6da7341da0f998c1998ec30372271e46`).
+
+이번 ChatGPT 밐사에서는 application code/business logic을 수정하지 않았다.
