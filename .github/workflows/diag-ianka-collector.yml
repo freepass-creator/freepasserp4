@@ -30,6 +30,11 @@ jobs:
         env:
           IANKA_ACCOUNT_JSON: ${{ secrets.IANKA_ACCOUNT_JSON }}
         run: node ianka/scripts/이안카.mjs
+      - run: npx playwright install --with-deps chromium
+      - name: 이안카 요금표 스크랩(부트스트랩, SSOT 아님 — lib/wonja/이안카요금.json)
+        env:
+          IANKA_ACCOUNT_JSON: ${{ secrets.IANKA_ACCOUNT_JSON }}
+        run: node ianka/scripts/이안카-요금스크랩.mjs
       - name: 원천시트 매핑 미리보기(라이브 안 건드림)
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sa.json
@@ -41,6 +46,7 @@ jobs:
           name: ianka-collector-preview
           path: |
             ianka/lib/wonja/이안카차량.json
+            ianka/lib/wonja/이안카요금.json
             ianka/tmp/이안카재고시트-preview.json
           if-no-files-found: warn
           retention-days: 7

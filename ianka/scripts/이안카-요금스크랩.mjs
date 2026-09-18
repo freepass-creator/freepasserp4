@@ -76,26 +76,19 @@ export async function 요금표긁기({ headless = true } = {}) {
       await select.selectOption(String(months));
       await page.waitForTimeout(800);
 
-      // 목록이 "더보기" 버튼이나 스크롤형 지연로딩으로 잘려 있을 수 있다 —
-      // 더 늘지 않을 때까지 버튼 클릭 + 맨 아래로 스크롤을 반복한다.
+      // 목록이 "요금표 더 보기" 버튼으로 한 번 잘려 있다(2026-09-18 실측 — 재고 유무를
+      // "예약 가능"으로 둔 기본 필터 기준 24→35장, 그 뒤로는 버튼이 사라지고 더 안 늘어난다).
+      // 더 늘지 않을 때까지(3회 연속 정체) 버튼 클릭 + 맨 아래 스크롤을 반복한다.
       let 정체횟수 = 0;
-      for (let i = 0; i < 60 && 정체횟수 < 3; i++) {
+      for (let i = 0; i < 10 && 정체횟수 < 3; i++) {
         const before = await page.locator('article.rateCard').count();
-        const more = page.locator('.results button, .resultsInventory button, section.results button');
-        const clicked = await more.evaluateAll((els) => {
-          for (const el of els) {
-            const t = (el.textContent || '').trim();
-            if (/더\s*보기|더\s*불러오기|load\s*more|more/i.test(t)) { el.click(); return t; }
-          }
-          return null;
+        await page.locator('.results button, section.results button').evaluateAll((els) => {
+          const btn = els.find((el) => /더\s*보기|더\s*불러오기|load\s*more/i.test(el.textContent || ''));
+          btn?.click();
         });
         await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
         await page.waitForTimeout(700);
         const after = await page.locator('article.rateCard').count();
-        if (months === 1 && i < 3) {
-          const btnTexts = await page.evaluate(() => Array.from(document.querySelectorAll('section.results button, .results button')).map((b) => b.textContent?.trim()));
-          console.log(`    [디버그 라운드${i}] before=${before} after=${after} clicked=${clicked} 버튼목록=${JSON.stringify(btnTexts)}`);
-        }
         정체횟수 = after <= before ? 정체횟수 + 1 : 0;
       }
 
