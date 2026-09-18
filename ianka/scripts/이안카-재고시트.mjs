@@ -124,6 +124,16 @@ async function main() {
   console.log(`  보존(기존시트에만 있음, 출고불가 처리) ${보존차번.length}대: ${보존차번.join(', ') || '(없음)'}`);
   if (모델요금) {
     console.log(`\n  요금표(lib/wonja/이안카요금.json, 모델 ${Object.keys(모델요금).length}종) 발견 → 빈 칸만 채움: ${요금채운행}행 · ${요금채운칸}칸`);
+    if (요금채운행 === 0) {
+      const 개월칸 = header.filter((h) => /개월|보증/.test(h));
+      console.log(`  [디버그] 헤더의 개월/보증 칸: ${JSON.stringify(개월칸)}`);
+      console.log(`  [디버그] 차명col=${차명col} 샘플 차명 3개: ${JSON.stringify(rows.slice(0, 3).map((r) => r[차명col]))}`);
+      console.log(`  [디버그] 요금표 모델명 5개: ${JSON.stringify(Object.keys(모델요금).slice(0, 5))}`);
+      if (rows[0]) {
+        const 샘플차명 = rows[0][차명col];
+        console.log(`  [디버그] 첫 행 차명="${샘플차명}" → 매칭됨? ${!!모델요금[샘플차명]}`);
+      }
+    }
   } else {
     console.log('\n  요금표(이안카요금.json) 없음 — 요금칸은 손 안 댐(기존 수기값 그대로)');
   }
