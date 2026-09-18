@@ -138,6 +138,11 @@ for (const f of ['scripts/backup-f86.mts', 'scripts/restore-f86-from-backup.mts'
   must(ok, `${f} 가 없습니다 — 운영 F86 되돌리기 준비가 사라졌습니다.`, `${f} — ${MANUAL} 6`);
 }
 must(/--max-age-min/.test(auditF86), 'F86 감사기에 신선도(--max-age-min) 검사가 없습니다.', `scripts/audit-f86-vs-atom.mts — ${MANUAL} 6`);
+/** ★2026-09-18 — 신선도 검사가 탭명 규격을 제 손으로 적어(전 탭 · 초까지) 정시 회차를 매번 빨간불로 만들었다. 발행기와 같은 한 줄(`f86TabCarriesMark`)을 쓴다. */
+const auditChecks = read('lib/server/f86-audit-checks.ts');
+must(/checkF86TabFreshness\(/.test(auditF86) && /compareF86Cells\(/.test(auditF86) && /f86TabCarriesMark\(/.test(auditChecks)
+  && /return f86TabCarriesMark\(company, retro\)/.test(planSrc),
+  'F86 감사기 신선도가 발행기의 탭 이름 규칙(f86TabCarriesMark)을 안 씁니다 — 「종합」만 시각·회사 탭 「회사 · N대」를 두 벌로 적으면 또 어긋납니다.', `lib/server/f86-audit-checks.ts · scripts/audit-f86-vs-atom.mts — ${MANUAL} 6`);
 must(/retroTabLayout\(company\)/.test(audit) && /탭 차례가 굳힌 표와 다르다/.test(audit),
   '감사기가 «굳힌 표»로 머리글·탭 차례를 안 봅니다.', `scripts/audit-sheet-vs-atom.mts — ${MANUAL} 5`);
 for (const name of ['retroTabLayout', 'retroHasLongFee', 'RETRO_SUMMARY_TAB']) {
