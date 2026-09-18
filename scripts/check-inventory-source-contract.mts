@@ -95,6 +95,14 @@ const VALIDATED_ENGINES = [
    * 수집기(ingest-all-suppliers·ingest-supplier-to-firestore)는 이번에도 안 건드렸다.
    */
   '9bef7bf0ffd21a96e3098a6f31adf1b1a0258c60',
+  /**
+   * ★2026-09-18 — category-colors.ts '분류'.신차렌트가 (2)의 통일 작업에서 잘못 골라진 값
+   * (B81A8C, 어두운 자주)을 원래 판매시트 확정값(FF00FF, 밝은 분홍)으로 되돌렸다. 웹 화면
+   * (파인더·영업자홈피) 카드 배지도 같은 색을 내도록 badges.tsx에 'pink' 톤을 새로 추가했다.
+   * publish-jonghap-tab.mts의 리터럴 참조를 정본으로 바꿔 check:color-ssot 위반도 없앴다.
+   * 수집기(ingest-all-suppliers·ingest-supplier-to-firestore)는 안 건드렸다 — 색·표시 전용 수정.
+   */
+  '14892951a929cf03796231f260e6bc2ff3060efc',
 ];
 const pinnedEngine = VALIDATED_ENGINES.find((engine) => workflow.includes(`ref: ${engine}`));
 assert(pinnedEngine, '검증 엔진 pin이 제거됐습니다. main collector 이식 완료 전에는 pin을 풀면 안 됩니다(새 엔진은 VALIDATED_ENGINES 에 적는다).');
