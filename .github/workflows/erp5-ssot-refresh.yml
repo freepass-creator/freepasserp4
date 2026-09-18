@@ -83,7 +83,15 @@ jobs:
           #   35169013858·35169123131 등). F01 발행기(make-sample-sheet-google.mts titleOf)는 이미
           #   `.replace(/:\d{2}$/, '')`로 초를 잘라 콜론 하나만 남기고 있었다 — F86만 빠져 있었다.
           #   같은 꼴(시:분만)로 맞춘 커밋으로 재고정. 데이터/판정 로직은 안 건드렸다.
-          ref: 9bef7bf0ffd21a96e3098a6f31adf1b1a0258c60
+          # ★2026-09-18(11) — 사장님 확인: category-colors.ts '분류'.신차렌트가 (2)의 통일 작업에서
+          #   공급사시트 쪽 값(B81A8C, 어두운 자주)으로 잘못 골라졌었다. 원래 판매시트 GUBUN_INK
+          #   값(FF00FF, 밝은 분홍)으로 되돌리고, 웹 화면(파인더·영업자홈피) 카드 배지도 같은 색을
+          #   내게 badges.tsx에 'pink' 톤을 새로 추가했다(예전엔 'blue'로 따로 놀아 시트만 고치면
+          #   웹은 안 바뀌는 상태였다). publish-jonghap-tab.mts의 리터럴 FF00FF도 정본 참조로 바꿔
+          #   check:color-ssot 위반을 없앴고, channel-retro-skin.ts(회사 탭 배경색, 상품구분과 무관한
+          #   우연한 FF00FF 일치)는 그 검사 허용목록에 추가했다. 데이터/판정 로직은 안 건드렸다 —
+          #   검증: check:inventory-sources·check:sonokong-options·check:color-ssot 전부 PASS.
+          ref: 14892951a929cf03796231f260e6bc2ff3060efc
       - name: freepasserp5 OIDC 인증
         uses: google-github-actions/auth@v2
         with:
