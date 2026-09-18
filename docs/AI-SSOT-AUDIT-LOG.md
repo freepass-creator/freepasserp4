@@ -2874,3 +2874,21 @@ PR #412 premerge Source Contract / generic CI는 success였다. 다만 **새 pin
 - 기존 HOLD는 유지한다: `LEDGER` vs `정산원장` contract-lock dual writer, `settlement-sync` legacy `정산` writer, RP023 RebornCar vs old mirror Sheet, RP031 feeder provenance, special-tab deposit single-definition/recurrence·lineage, vehicle-price lineage, sales-tab naming, newest-Atom freshness, `/inventory` ERP4 read/write boundary.
 - 상세 근거: `docs/ai-ssot-audit/2026-09-18-chatgpt-audit57-scheduled-green-cadence-hold.md`.
 - 이번 감사에서는 application code/business logic을 수정하지 않았다.
+
+
+---
+
+## 2026-09-19(58) — ChatGPT 독립 감사: scheduled green 직후 다시 repository-wide schedule 공백 — 켜짐 contract-status 30분 회차 미생성
+
+**판정: 신규 운영 회귀/드리프트 증거 — audit (57)의 scheduled full-run green 자체는 유효하지만 cadence 복구로 확대할 수 없고, `contract-status`의 선언된 ON 상태와 실제 schedule event가 다시 불일치한다.**
+
+- current `origin/main` application 기준점은 audit (57) 이후 그대로 `dc6c5cf16146c7439f5a5293383d503e8e30d00d` 계열이며, 새 application/business-logic commit은 없다. latest main push CI run `35350559341`은 success다.
+- audit (57)의 ERP5 scheduled full-run run `35347508078`(2026-09-18 21:58:18 KST, success, production pin `cf940df642edf315adbc6da2b4134fbad53da160`)은 그대로 유효하다. source→Atom→snapshot→F01/F86→cross-audit green 판정은 되돌리지 않는다.
+- 그러나 2026-09-19 02:25 KST 재조회에서 GitHub Actions API `event=schedule&created=>2026-09-18T13:00:00Z`는 **`total_count: 0`**이다. 즉 2026-09-18 22:00 KST 이후 repository-wide scheduled event가 한 건도 생성되지 않았다.
+- `docs/예약작업-지도.md`는 `contract-status.yml`을 **켜짐**으로 기록하고, 실제 YAML도 `*/30 * * * *` 및 schedule일 때 `scripts/mark-contract-in-listings.mts --apply`를 실행한다. 따라서 22:00·22:30·23:00·23:30·00:00·00:30·01:00·01:30·02:00 KST의 **9개 30분 회차**가 선언상 기대되지만 모두 없다.
+- `mirror-sync`와 `sales-erp-hourly`는 예약지도상 꺼짐이고, `settlement-sync`는 해당 야간 시간대 밖이다. 따라서 이번 post-22:00 공백은 최소한 **켜짐으로 문서화된 `contract-status`의 runtime state 또는 GitHub scheduled-event delivery가 repository 선언과 맞지 않는다**는 새 운영 증거다.
+- 원인은 아직 단정하지 않는다. GitHub UI에서 `contract-status`가 실제 disabled되어 예약지도와 drift했을 수도 있고, GitHub scheduler delivery가 다시 낔겼을 수도 있다. 어느 쪽이든 자동운영 GO 조건은 충족되지 않는다.
+- ERP5 `:17` cadence도 계속 HOLD다. 한 번의 21:58 delayed green 뒤 repository-wide schedule가 다시 4시간 이상 비어 있어 연속 cadence 복구 증거가 없다.
+- canonical registry(RP006 website / RP012 ERP API / RP023 RebornCar / RP031 Google Sheet), F01/F86 fixed-snapshot projection, `신차렌트=#FF00FF` production color, Sonogong/AutoPlus special-tab 규칙, RP023 legacy mirror source, RP031 provenance, settlement legacy `정산`, `LEDGER` vs `정산원장` dual-writer, RTDB/legacy writer HOLD는 이번 구간에서 code change가 없어 기존 판정을 유지한다.
+- 상세 근거: `docs/ai-ssot-audit/2026-09-19-chatgpt-audit58-post-green-schedule-gap.md`.
+- 이번 감사에서는 application code/business logic을 수정하지 않았다.
