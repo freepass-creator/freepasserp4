@@ -2465,3 +2465,28 @@ Claude 구현 Owner: ERP5 Atom을 freshness source로 쓰는 방향은 유지하
 상세 근거: `docs/ai-ssot-audit/2026-09-18-chatgpt-audit38-ianka-browser-inventory-no-finance.md`.
 
 이번 ChatGPT 감사에서는 application code/business logic을 수정하지 않았다.
+
+---
+## 2026-09-18(39) — ChatGPT 독립 감사: RP031 DOM 금융값이 canonical Sheet writer 경계까지 들어옴 — production write는 미관측, promotion HOLD 강화
+
+**판정: 의미 있는 writer-topology 변경 / OPEN·HOLD 강화.** audit (38)은 rendered DOM 금융값을 source primitive/authority가 확인되기 전까지 consumer/bootstrap 증거로만 두라고 결론냈다. 그러나 이후 PR #399 merge `8842f41afb4b25a29712f78e011ef65d4ec9f718`이 DOM 스크랩 결과 `ianka/lib/wonja/이안카요금.json`을 `ianka/scripts/이안카-재고시트.mjs`에 연결했고, 같은 스크립트는 `--쓰기` 시 RP031의 현재 canonical Google Sheet를 clear/update한다. 따라서 **DOM-derived finance가 수동 실행으로 canonical source Sheet에 들어갈 수 있는 경로가 main에 생겼다.**
+
+- current main의 구현 head는 PR #400 merge `b6e2eb788631efdea4f7b30fc168f4d3d5d15d1e`. PR #400은 실제 integrated preview에서 요금표 27종을 확보했는데도 채움이 0칸이어서 진단 로그를 추가했다.
+- latest preview run `35291657754`은 read-only success다. API 재고 **86대**, 기존 Sheet plate row **16대**, 교집합 **13대**, API-only 신규 **73대**, Sheet-only 보존 **3대**, 최종 제안 **89행**이었다.
+- 같은 run의 DOM rate scrape는 1/3/5/12/24/36/48/60개월 각각 **35카드 / 27 고유 차종**을 확보했지만 finance fill은 **0행 / 0칸**이었다. 직접 원인은 현재 Sheet header에 `차명` 칼럼이 없어 `차명col=-1`, 샘플 차명이 `undefined`였기 때문이다. 즉 현재 model→row 금융 매핑은 deterministic parity가 증명되지 않았다.
+- **live corruption은 주장하지 않는다.** `.github/workflows/diag-ianka-collector.yml`은 `workflow_dispatch` 전용이고 `이안카-재고시트.mjs`를 `--쓰기` 없이 실행하며 preview-only라고 명시한다. 관측된 run도 실제 Sheet save를 하지 않았다.
+- 하지만 `FILLIFEMPTY`는 권위성 증명이 아니다. 빈 금융칸만 채운다는 제약은 DOM 금액이 특정 plate/model/term/mileage/deposit 계약의 canonical source라는 provenance를 만들지 않는다. 매핑이 추후 성공하면 현재 `--쓰기` 경로가 그 값을 registered RP031 source Sheet에 영속화할 수 있다는 writer-boundary conflict는 실재한다.
+- RP031 registry는 계속 `google_sheet`; canonical production workflow는 계속 `9bef7bf0ffd21a96e3098a6f31adf1b1a0258c60` pin이며 이 새 DOM finance path를 사용하지 않는다. 따라서 **production cutover/해소로 보면 안 된다.**
+- audit (35) F86 freshness checker, audit (27) 손오공 deposit recurrence, audit (28) vehicle-price lineage, audit (29) sales-tab naming, audit (34) newest-Atom freshness semantics, mirror/sales/settlement/RTDB legacy writer HOLD도 이번 변경으로 닫지 않는다.
+
+### Claude 구현 Owner 인계
+
+1. finance primitive/provenance/formula와 deterministic model/plate/term/mileage/deposit mapping 및 source-sheet parity가 입증되기 전에는 DOM finance를 `--쓰기`, scheduled writer, RP031 canonical Sheet mutation, Atom promotion, production repin에 연결하지 않는다.
+2. `FILLIFEMPTY`, DOM scrape success, preview workflow success를 authority proof로 사용하지 않는다.
+3. current Sheet에 `차명`이 없다는 실제 schema부터 정리하고 fuzzy/display-name 추정 조인을 canonical key로 쓰지 않는다.
+4. DOM finance를 실제 authority로 채택할 경우에만 registry/Source Contract/writer topology에 명시하고 source-sheet parity + Atom→snapshot→F01/F86 cross-audit를 함께 닫는다.
+5. 그 전까지 audit (38)의 consumer/bootstrap-only 원칙과 RP031 Google-Sheet canonical HOLD를 유지한다.
+
+상세 근거: `docs/ai-ssot-audit/2026-09-18-chatgpt-audit39-ianka-dom-finance-writer-boundary.md`.
+
+이번 ChatGPT 감사에서는 application code/business logic을 수정하지 않았다.
