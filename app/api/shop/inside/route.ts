@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server';
 import { resolveProduct } from '@/lib/server/guest-quote';
-import { firestorePathStore } from '@/lib/server/firestore-path-store';
 import { providerNameMap } from '@/lib/domain/identity';
 import { withUnit } from '@/lib/format';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { verifyActiveBearer } from '@/lib/server/firebase-admin';
+import { readCanonicalCatalogFromErp5 } from '@/lib/server/whitelabel-erp5-catalog';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -67,9 +67,9 @@ export async function GET(request: Request) {
    * 코드(`RP021`)만 있다. 그대로 내면 영업자가 「RP021이 어디였지」를 또 찾아야 한다.
    * ★코드 → 이름 규칙은 `providerNameMap` 한 곳이다 — 화면마다 이름을 새로 짓지 않는다.
    */
-  const db = firestorePathStore();
-  const partners = Object.entries(((await db.ref('v4/partners').get()).val() || {}) as Record<string, Rec>)
-    .map(([k, v]) => ({ ...(v || {}), _key: k })) as EntityRecord[];
+  const canonical = await readCanonicalCatalogFromErp5({ includePartners: true });
+  const partners = Object.entries(canonical.partners)
+    .map(([k, v]) => ({ ...(v || {}), _key: S(v?._key) || k })) as EntityRecord[];
   const providerName = S(p.provider_name) || providerNameMap(partners)[providerCode] || '';
 
   /*
@@ -84,8 +84,7 @@ export async function GET(request: Request) {
   const policyCode = S(p.policy_code);
   let policy: Rec | null = null;
   if (policyCode) {
-    const pool = ((await db.ref('policies').get()).val() || {}) as Record<string, Rec>;
-    policy = Object.entries(pool)
+    policy = Object.entries(canonical.policies)
       .map(([k, v]) => ({ ...(v || {}), _key: k } as Rec))
       .find((x) => S(x.policy_code) === policyCode || S(x._key) === policyCode) || null;
   }
