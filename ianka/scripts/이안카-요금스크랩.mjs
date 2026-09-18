@@ -76,15 +76,17 @@ export async function 요금표긁기({ headless = true } = {}) {
       await select.selectOption(String(months));
       await page.waitForTimeout(800);
 
-      // 목록이 "더보기"로 잘려 있을 수 있다 — 더 늘지 않을 때까지 계속 누른다.
-      for (let i = 0; i < 30; i++) {
+      // 목록이 "더보기" 버튼이나 스크롤형 지연로딩으로 잘려 있을 수 있다 —
+      // 더 늘지 않을 때까지 버튼 클릭 + 맨 아래로 스크롤을 반복한다.
+      let 정체횟수 = 0;
+      for (let i = 0; i < 60 && 정체횟수 < 3; i++) {
         const before = await page.locator('article.rateCard').count();
         const more = page.locator('button:has-text("더보기"), button:has-text("더 보기")');
-        if (await more.count() === 0) break;
-        await more.first().click().catch(() => {});
-        await page.waitForTimeout(500);
+        if (await more.count() > 0) await more.first().click().catch(() => {});
+        await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+        await page.waitForTimeout(600);
         const after = await page.locator('article.rateCard').count();
-        if (after <= before) break;
+        정체횟수 = after <= before ? 정체횟수 + 1 : 0;
       }
 
       const cards = await page.evaluate(() => {
