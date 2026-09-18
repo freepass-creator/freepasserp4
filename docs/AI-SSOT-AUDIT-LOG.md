@@ -2593,3 +2593,12 @@ Claude 구현 Owner: audit (40)의 기술 finding은 유지하되 `pre-merge` �
 상세 근거: `docs/ai-ssot-audit/2026-09-18-chatgpt-audit44-rp031-write-color-pin-drift.md`
 
 이번 독립 감사에서는 application code/business logic을 수정하지 않았다.
+
+## 2026-09-18(45) — ChatGPT 독립 감사: schedule 재도착 + color production pin 해소 + F86 checker false-negative
+
+- **RESOLVED(code/contract) — audit (44) 상품구분 색 production-pin drift:** PR #409 / main `5bfc9ad5d6e5269d2217f60552cf8c5df402aa9c`가 canonical `erp5-ssot-refresh.yml` pin을 `14892951a929cf03796231f260e6bc2ff3060efc`로 올렸고 Source Contract allowlist에도 등록했다. 신규 pin은 `신차렌트=#FF00FF`와 publisher의 color SSOT 참조를 포함하며 `SSOT Source Contract` run `35305111467`은 green이다. 다만 신규 pin run `35305115126`은 manual `apply=false` dry-run이라 실제 F01/F86 publish는 skip됐다. **신규 pin full apply 뒤 FF00FF 유지 운영 증명은 아직 필요하다.**
+- **RESOLVED/PARTIAL — audit (43)/(44) schedule-delivery gap:** 최신 `event=schedule`에 canonical ERP5 run `35304903901`이 `2026-09-18T03:53:42Z`(12:53:42 KST)에 실제 도착했다. 따라서 “2026-09-17 23:47 KST 이후 scheduled event 0건”은 더 이상 사실이 아니다. 다만 cron `:05` 대비 큰 지연이므로 punctuality 정상화까지 증명된 것으로 보지 않는다.
+- **CONFIRMED OPEN — audit (35) F86 freshness checker false-negative가 scheduled production을 실제 red로 만듦:** run `35304903901`은 ingest/Atom lock/snapshot/F01/F86 publish를 완료했고 snapshot/F01/F86는 682대, 후속 원자↔F01↔F86 감사 missing/extra/value diff 0, 사진 링크 diff 0이었다. `audit-f86-vs-atom` 자체도 freshness `oldest 0분(허용 120분)` 및 `19 tabs / 1,071 rows / 44,462 cells / mismatch 0`을 계산한 뒤, 현재 publisher 규격의 tab names를 `탭 이름에 발행 시각이 없다`로 19갈래 오판해 exit 1을 냈다. **publisher naming을 되돌리지 말고 checker가 현재 발행 metadata/시각 계약을 읽도록 고쳐야 한다.**
+- audit (44) 이후 compare에서 ERP5 canonical source registry, F01/F86 projection core, Sonogong/AutoPlus deposit/special-tab 규칙, mirror/sales/settlement legacy writer workflow 자체의 신규 변경은 없었다. RP031 provenance HOLD, RP023 mirror legacy source, scheduled mirror/sales/settlement writer HOLD 및 audit (27)/(28)/(29)/(34) 등은 직접 해소 증거가 없어 유지한다.
+- 상세 근거: `docs/ai-ssot-audit/2026-09-18-chatgpt-audit45-schedule-resume-color-pin-f86-checker.md`.
+- 이 감사에서 application code/business logic은 수정하지 않았다.
