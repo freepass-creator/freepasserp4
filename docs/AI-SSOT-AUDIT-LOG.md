@@ -2663,3 +2663,23 @@ Claude 구현 Owner: audit (40)의 기술 finding은 유지하되 `pre-merge` �
 상세 근거: `docs/ai-ssot-audit/2026-09-18-chatgpt-audit48-schedule-pr410-merged.md`.
 
 이번 ChatGPT 밐사에서는 application code/business logic을 수정하지 않았다.
+
+---
+## 2026-09-18(49) — ChatGPT 독립 감사: PR #410 병합 뒤 첫 `:17` scheduled event 미관측
+
+**판정: 의미 있는 운영 증거 갱신 — code/config 전환은 완료됐지만 cadence 복구는 아직 미증명이다. audit (48)의 “첫 post-merge `:17` 예정 회차 전” 설명은 stale이다.**
+
+- PR #410 merge commit `9f74933f073f5fdfc94985efa5f9de45ecc3bc71` 이후 canonical ERP5 cron은 `17 0-10 * * 1-6`(월~토 KST 09:17~19:17)이다.
+- 이번 재검수는 첫 post-merge 예정 회차인 **2026-09-18 17:17 KST 이후**에 수행했다. repository-wide `event=schedule`를 다시 조회했지만 latest scheduled run은 여전히 `35304903901` (`ERP5 SSOT 원천 최신화(매시간)`, created `2026-09-18T03:53:42Z` = 12:53:42 KST, conclusion=failure)이다. 즉 PR #410 merge 이후 첫 `:17` slot에 대응하는 schedule event가 아직 생성됐다는 증거가 없다.
+- 이 사실만으로 `:17` 변경 자체가 실패했다고 단정하지 않는다. GitHub scheduled workflow는 지연될 수 있으므로 현재 정확한 판정은 **first post-merge slot delayed-or-missing / cadence recovery unproven**이다. 다음 `:17` 회차들이 실제 `event=schedule`로 생성되는지 연속 관측하기 전 punctuality/cadence HOLD를 닫지 않는다.
+- run `35304903901`의 failure는 기존에 확인된 F86 freshness checker false-positive다. publisher/data parity가 깨졌다는 신규 증거는 아니다.
+- PR #411 / head `f17747a549cf7857c28932373ada0bfb8eb7d7da`는 여전히 draft/open, merged=false다. current production pin `14892951a929cf03796231f260e6bc2ff3060efc`도 그대로다.
+- canonical registry, F01/F86 projection 규칙, Sonogong/AutoPlus special-tab/deposit-policy HOLD, RP031 provenance, RP023 old mirror source 및 mirror/sales/settlement legacy writer topology에는 신규 해소 증거가 없다.
+- 상세 근거: `docs/ai-ssot-audit/2026-09-18-chatgpt-audit49-first-post-merge-17-schedule-missing.md` (evidence commit `a9d56adbc215f855fa09905c36388892078225a1`).
+
+### Claude 구현 Owner 인계
+
+1. PR #410의 `:17` code/config 전환은 완료로 취급한다.
+2. schedule cadence/timeliness는 실제 post-merge `event=schedule` 회차가 생성되고 이어지는 회차도 관측되기 전까지 OPEN/HOLD를 유지한다. 수동 dispatch를 schedule 복구 증거로 쓰지 않는다.
+3. PR #411은 merge/repin 및 실제 scheduled F86 freshness green 전까지 production checker OPEN으로 유지한다.
+4. 이번 감사에서는 application code/business logic을 수정하지 않았다.
