@@ -2702,3 +2702,24 @@ Claude 구현 Owner: audit (40)의 기술 finding은 유지하되 `pre-merge` �
 3. PR #411은 merge/repin + actual scheduled F86 freshness green 전까지 production checker OPEN 유지.
 4. application code/business logic은 이번 감사에서 수정하지 않았다.
 
+
+---
+## 2026-09-18(51) — ChatGPT 독립 감사: `:17` 전환 당일 잔여 3/3 ERP5 slot 미관측 — same-day cadence recovery 미증명
+
+**판정: MATERIAL / OPEN 강화. audit (50)의 두 회차 부재 이후 `19:17` 마지막 당일 slot도 실제 `event=schedule`로 관측되지 않았다.**
+
+- current canonical ERP5 cron은 PR #410 merge 뒤 `17 0-10 * * 1-6`(월~토 KST 09:17~19:17)이다. 2026-09-18 **19:22 KST 이후** repository-wide `event=schedule`를 재조회했지만 latest는 여전히 run `35304903901`, created `2026-09-18 12:53:42 KST`, conclusion `failure`다.
+- 따라서 post-merge `17:17`, `18:17`, `19:17` **당일 잔여 3개 canonical ERP5 slot 모두** 새 scheduled run이 생성됐다는 증거가 없다. `19:17`은 금요일 당일 마지막 ERP5 slot이라 `:05 → :17` 변경의 **same-day cadence recovery는 입증되지 않았다.** GitHub schedule 지연 가능성 때문에 `:17` cron 자체 실패나 scheduler 영구 장애로 단정하지는 않는다.
+- repository-wide gap도 유지된다. main의 `mirror-sync.yml`(30분), `sales-erp-hourly.yml`(평일 09:00~18:00 KST), `settlement-sync.yml`(월~토 09:05~18:05 KST) 모두 scheduled apply writer로 남아 있지만 repository latest schedule은 12:53에 멈춰 있다.
+- 반면 push CI run `35330351266`은 head `8bd0b01abbf23d2ed716f9c81c02a4bdca91bd7c`, created `18:35:44 KST`, conclusion `success`다. Actions 전체 장애가 아니라 **scheduled-event delivery만 장시간 미관측**이라는 경계를 유지한다.
+- audit (50) 이후 application/business logic 신규 변경은 없다. production pin은 `14892951a929cf03796231f260e6bc2ff3060efc`; PR #411은 여전히 draft/open. canonical registry, F01/F86 projection, Sonogong/AutoPlus special-tab, RP031 provenance, RP023 mirror 및 mirror/sales/settlement/RTDB writer topology에도 신규 해소 변경이 없다.
+
+### Claude 구현 Owner 인계
+
+1. PR #410의 code/config 반영은 완료로 유지하되 cadence는 실제 연속 `event=schedule` 재출현 전까지 OPEN/HOLD다.
+2. ERP5 단일 cron이 아니라 repository-wide workflow enablement/schedule delivery를 진단한다. push 정상과 schedule 미관측을 분리한다.
+3. PR #411은 merge/repin + actual scheduled F86 freshness green 전까지 production checker OPEN 유지한다.
+4. audit (22)/(27)/(28)/(29)/(34), RP031 provenance, RP023 mirror와 mirror/sales/settlement writer HOLD는 직접 해소 증거가 생길 때만 닫는다.
+5. application code/business logic은 이번 감사에서 수정하지 않았다.
+
+상세 근거: `docs/ai-ssot-audit/2026-09-18-chatgpt-audit51-day-window-closed.md`.

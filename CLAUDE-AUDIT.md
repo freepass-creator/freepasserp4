@@ -1,27 +1,27 @@
-# ChatGPT → Claude SSOT 감사 진입점 — audit (50) override
+# ChatGPT → Claude SSOT 감사 진입점 — audit (51) override
 
 > 이 파일은 구현 지시의 최신 진입점이다. Claude 단일 SSOT 세션만 application/business logic을 수정한다. ChatGPT는 독립 감사·증거 기록만 한다.
 
 ## 최신 판정
 
-### 1) OPEN/HOLD(runtime cadence) — `:17` 전환 뒤 두 ERP5 회차 연속 부재, repository-wide schedule delivery gap
+### 1) OPEN/HOLD(runtime cadence) — `:17` 전환 당일 post-merge 잔여 3/3 ERP5 slot 미관측, repository-wide schedule delivery gap
 
 PR #410은 merge 완료됐고 canonical ERP5 cron은 `17 0-10 * * 1-6` = 월~토 KST 09:17~19:17이다.
 
-2026-09-18 18:21 KST 이후 repository-wide `event=schedule`를 재조회했지만 latest scheduled run은 여전히:
+2026-09-18 19:22 KST 이후 repository-wide `event=schedule`를 재조회했지만 latest scheduled run은 여전히:
 
 - run `35304903901`
 - workflow `ERP5 SSOT 원천 최신화(매시간)`
 - created `2026-09-18 12:53:42 KST`
 - conclusion `failure` (기존 F86 freshness checker false-positive)
 
-이다. 따라서 post-merge `17:17`, `18:17` **두 ERP5 회차가 연속으로 schedule event로 생성된 증거가 없다.**
+이다. 따라서 post-merge `17:17`, `18:17`, `19:17` **당일 잔여 세 ERP5 slot 모두 schedule event가 생성됐다는 증거가 없다.** `19:17`은 오늘 마지막 canonical ERP5 slot이므로 `:05 → :17` 이동으로 **same-day cadence recovery가 됐다는 증거는 확보되지 않았다.**
 
 또 current main의 다른 scheduled apply writer인 `mirror-sync.yml`(30분), `sales-erp-hourly.yml`(평일 09:00~18:00 KST), `settlement-sync.yml`(월~토 09:05~18:05 KST)도 repository-wide schedule latest가 12:53에 멈춘 이상 같은 시간대의 새 schedule evidence가 없다. **ERP5 단일 cron 문제가 아니라 repository-level scheduled-event delivery gap으로 진단할 것.**
 
-반면 push-triggered CI run `35325766505`는 17:42:47 KST에 생성돼 success했다. Actions 전체 장애라고 단정하지 말고, schedule delivery와 push execution을 분리해서 본다.
+반면 push-triggered CI run `35330351266`은 18:35:44 KST에 current main head `8bd0b01...`로 생성돼 success했다. Actions 전체 장애라고 단정하지 말고, schedule delivery와 push execution을 분리해서 본다.
 
-`:05 → :17` 이동 자체를 실패로 단정하지는 않지만, 두 회차 기준으로 cadence 복구는 입증되지 않았다. 실제 `event=schedule`이 여러 연속 회차로 재등장하기 전까지 cadence/timeliness HOLD를 유지한다. 수동 dispatch/push는 schedule 복구 증거가 아니다.
+GitHub scheduled workflow는 지연될 수 있으므로 `:17` 변경 자체가 실패했다고 단정하지 않는다. 정확한 판정은 **same-day cadence recovery unproven / scheduled-event delivery OPEN**이다. 실제 `event=schedule`이 여러 연속 회차로 재등장하기 전까지 cadence/timeliness HOLD를 유지한다. 수동 dispatch/push는 schedule 복구 증거가 아니다.
 
 ### 2) RESOLVED(운영 증거) / OPEN(checker) — current production pin full apply는 증명됨, F86 freshness false-positive만 남음
 
@@ -62,10 +62,10 @@ RP031 canonical registry는 계속 Google Sheet(`1fJu...`)다. API inventory + r
 - current production pin: `14892951a929cf03796231f260e6bc2ff3060efc`
 - canonical schedule: KST `:17` / PR #410 merged
 - latest independently observed scheduled evidence: run `35304903901` at 2026-09-18 12:53:42 KST
-- missing post-merge ERP5 slots now independently observed: `17:17`, `18:17` KST
-- push CI counter-evidence: run `35325766505` at 17:42:47 KST success
+- missing post-merge ERP5 slots independently observed: `17:17`, `18:17`, `19:17` KST (오늘 잔여 3/3)
+- push CI counter-evidence: run `35330351266` at 18:35:44 KST success
 - staged F86 checker PR: #411 / `f17747a549cf7857c28932373ada0bfb8eb7d7da` (draft/open)
-- 상세 근거: `docs/ai-ssot-audit/2026-09-18-chatgpt-audit50-repository-wide-schedule-gap.md`
-- 중앙 로그: `docs/AI-SSOT-AUDIT-LOG.md` → `2026-09-18(50)`
+- 상세 근거: `docs/ai-ssot-audit/2026-09-18-chatgpt-audit51-day-window-closed.md`
+- 중앙 로그: `docs/AI-SSOT-AUDIT-LOG.md` → `2026-09-18(51)`
 
 **구현은 Claude 단일 SSOT 세션만 수행한다.**
