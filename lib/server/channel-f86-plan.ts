@@ -96,8 +96,12 @@ export type F86Plan = {
  *   같은 회차라 종합 하나만 봐도 시각을 안다. 하허호 밖 채널 시트는 예전대로 전 탭에 시각을 박는다.
  */
 export function f86TabTitle(company: string, count: number, mark: string, retro: boolean): string {
-  const 시각없이 = retro && company !== RETRO_SUMMARY_TAB;
-  return 시각없이 ? `${company} · ${count}대` : `${company} ${mark} · ${count}대`;
+  return f86TabCarriesMark(company, retro) ? `${company} ${mark} · ${count}대` : `${company} · ${count}대`;
+}
+
+/** 이 탭 이름에 발행 시각을 다는가 — 발행기(`f86TabTitle`)·신선도 감사(`f86-audit-checks`)가 같은 한 줄을 쓴다. */
+export function f86TabCarriesMark(company: string, retro: boolean): boolean {
+  return !(retro && company !== RETRO_SUMMARY_TAB);
 }
 
 /** 인기순(계약 실적) — 발행기·감사기가 같은 파일을 읽는다. 없으면 인기 축 없이 정렬. */
