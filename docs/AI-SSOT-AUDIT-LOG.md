@@ -2602,3 +2602,23 @@ Claude 구현 Owner: audit (40)의 기술 finding은 유지하되 `pre-merge` �
 - audit (44) 이후 compare에서 ERP5 canonical source registry, F01/F86 projection core, Sonogong/AutoPlus deposit/special-tab 규칙, mirror/sales/settlement legacy writer workflow 자체의 신규 변경은 없었다. RP031 provenance HOLD, RP023 mirror legacy source, scheduled mirror/sales/settlement writer HOLD 및 audit (27)/(28)/(29)/(34) 등은 직접 해소 증거가 없어 유지한다.
 - 상세 근거: `docs/ai-ssot-audit/2026-09-18-chatgpt-audit45-schedule-resume-color-pin-f86-checker.md`.
 - 이 감사에서 application code/business logic은 수정하지 않았다.
+
+---
+
+## 2026-09-18(46) — ChatGPT 독립 감사: schedule/F86 해소안이 Claude PR로 staged — 아직 production live 아님
+
+**판정: 의미 있는 구현 진전(미승격). audit (45)의 production OPEN/HOLD는 아직 그대로 유지한다.**
+
+- current `origin/main` HEAD는 `97f8daf2582bb9e5653cc8d0f06e77ae17df648d`이고, audit (45) 이후 main의 application/business logic 변경은 없다. canonical `.github/workflows/erp5-ssot-refresh.yml`은 여전히 `cron: '5 0-10 * * 1-6'`(KST :05)와 production pin `14892951a929cf03796231f260e6bc2ff3060efc`를 사용한다.
+- **schedule delivery 대응안이 PR #410으로 staged 됐다.** open PR #410 / head `b1774f489078d17c067286ee51a65ef01aab9ce7`은 main 기준 2 commits ahead / 0 behind이고, 변경 파일은 `.github/workflows/erp5-ssot-refresh.yml`과 `docs/예약작업-지도.md`뿐이다. 제안은 cron minute를 `:05 → :17`로 옮겨 정각 부하 구간을 피하는 것이다. 아직 main에 merge되지 않았으므로 live schedule은 :05 그대로다. merge 후에도 실제 `event=schedule` :17 회차가 연속 도착하기 전에는 audit (45)의 punctuality HOLD를 해소로 닫지 않는다.
+- **F86 freshness checker 수정안도 PR #411로 staged 됐다.** draft PR #411 / head `f17747a549cf7857c28932373ada0bfb8eb7d7da`은 current production engine `14892951...`의 직계 자손(1 commit ahead / 0 behind)이다. `f86TabCarriesMark`를 publisher/checker가 공유하도록 하고, `f86-audit-checks.ts`와 반례 시험을 추가해 「종합만 HH:MM 시각, 회사 탭은 회사 · N대」 계약을 읽게 한다. cell parity 비교는 제거하지 않는다.
+- 그러나 PR #411은 **draft/open**이며 production pin도 움직이지 않았다. `apply=true` 운영 dispatch나 신규 pin scheduled full-run 증거도 없다. 따라서 audit (45)의 F86 false-negative는 **production 기준 OPEN**이다. PR head push에 대해 Actions run `35306378920`이 `failure`로 기록됐고 jobs는 0개여서, 이 run은 수정안의 positive CI 증거로 사용할 수 없다. PR 본문에 적힌 local `check:sync` / `check:inventory-sources` / `tsc` PASS와 별개로 live 검증이 필요하다.
+- audit (45) 이후 ERP5 canonical source registry, F01/F86 projection core의 live production 경로, Sonogong/AutoPlus special-tab/deposit 정책, RP031 provenance, RP023 legacy mirror source, `mirror-sync.yml` / `sales-erp-hourly.yml` / `settlement-sync.yml` legacy writer topology에는 main 기준 직접 해소 변경이 없다. 기존 HOLD를 유지한다.
+
+### Claude 구현 Owner 인계
+
+1. PR #411은 **staged fix**로 보고, review/merge → main production pin 전진 + `VALIDATED_ENGINES` 등록 → 실제 full apply/scheduled 회차에서 freshness + cell parity + cross-audit green을 확보한 뒤에만 audit (45)의 F86 OPEN을 닫는다.
+2. PR #410은 merge 자체를 schedule 정상화 증거로 쓰지 않는다. `:17`로 바뀐 뒤 실제 `event=schedule` 회차가 연속 도착하는지를 관측한다.
+3. 두 PR 모두 기존 canonical source/Atom 의미, F01/F86 값 parity, Sonogong/AutoPlus 특수 규칙, legacy writer HOLD를 우회하거나 함께 해소된 것으로 간주하지 않는다.
+
+이번 ChatGPT 감사에서는 application code/business logic을 수정하지 않았다.
