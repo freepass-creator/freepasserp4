@@ -55,9 +55,9 @@ for (const f of ['contract-status.yml', 'sales-erp-hourly.yml', 'mirror-sync.yml
 
 /** settlement 자동화는 접수→원장까지만. legacy 「정산」 writer가 다시 붙으면 canonical ERP5와 충돌한다. */
 {
-  const src = readFileSync(`${WF}/settlement-sync.yml`, 'utf8');
-  if (!src.includes('scripts/sync-intake-to-ledger.mts')) fails.push('settlement-sync에서 접수→원장 단계가 사라졌다');
-  if (src.includes('scripts/sync-contract-from-ledger.mts')) fails.push('settlement-sync에 legacy 정산→공급사 writer가 다시 연결됐다');
+  const src = readFileSync(`${WF}/settlement-intake-sync.yml`, 'utf8');
+  if (!src.includes('scripts/sync-intake-to-ledger.mts')) fails.push('settlement-intake-sync에서 접수→원장 단계가 사라졌다');
+  if (src.includes('scripts/sync-contract-from-ledger.mts')) fails.push('settlement-intake-sync에 legacy 정산→공급사 writer가 다시 연결됐다');
 }
 
 /** 규칙 문장 — 지워지면 «어느 AI든 통일»이 문서에서 사라진 것이다. */
