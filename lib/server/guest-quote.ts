@@ -1,7 +1,7 @@
 import { cache } from 'react';
 import 'server-only';
 import { channelSellsProduct } from '@/lib/whitelabel';
-import { readWhitelabelCatalogFromErp5 } from '@/lib/server/whitelabel-erp5-catalog';
+import { readCanonicalCatalogFromErp5, readWhitelabelCatalogFromErp5 } from '@/lib/server/whitelabel-erp5-catalog';
 import { sanitizeAgentForGuest, sanitizeProductForGuest } from '@/lib/domain/public-catalog';
 import { isOfferableProduct } from '@/lib/domain/product';
 import { codeCandidates, matchAgentByShareCode, shareToken, splitShareSegment } from '@/lib/domain/product-share';
@@ -21,7 +21,7 @@ const S = (v: unknown) => String(v ?? '').trim();
 const dead = (p: Rec) => p?._deleted === true || !!p?.deletedAt || S(p?.status) === 'deleted';
 
 export type GuestQuote = { product: EntityRecord; agent: Rec | null };
-const readGuestCatalog = cache(readWhitelabelCatalogFromErp5);
+const readGuestCatalog = cache(readCanonicalCatalogFromErp5);
 
 /** 한 조각으로 상품 찾기 — RTDB 키 · product_code · 짧은 토큰(shareToken) 순. */
 function findProduct(all: Record<string, Rec>, raw: string): { key: string; product: Rec } | null {
