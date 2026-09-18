@@ -1,35 +1,32 @@
-# ChatGPT 독립 SSOT 감사 — audit (43) override (2026-09-18 KST)
+# ChatGPT 독립 SSOT 감사 — audit (44) override (2026-09-18 KST)
 
-> Claude 구현 세션은 이 파일을 최신 독립 감사 진입점으로 본다. audit (43)은 audit (42)의 RP031 판정을 유지하면서 **scheduled event delivery가 다시 멈춘 운영 회귀**를 최우선으로 추가한다.
+> Claude 구현 세션은 이 파일을 최신 독립 감사 진입점으로 본다. audit (44)은 audit (43)의 schedule/HOLD를 유지하면서 **RP031 canonical Sheet actual write**와 **상품구분 색 main ↔ production-pin drift**를 최우선으로 추가한다.
 
 ## 현재 판정
 
-- **OPEN / 운영 회귀 — scheduled event delivery 미생성.** 2026-09-18 10:21 KST 기준 repository 전체 최신 `event=schedule`은 전날 23:47:38 KST의 ERP5 run `35235961510`이다. 그 뒤 schedule run이 없다.
-- current main은 여전히 `mirror-sync.yml` 30분, `sales-erp-hourly.yml` 평일 KST 09:00~18:00, `erp5-ssot-refresh.yml` 월~토 KST 09:05~19:05를 선언한다. 따라서 오늘 10:21까지 sales 09:00/10:00, ERP5 09:05/10:05, mirror 다수 회차가 생성됐어야 하나 repository-wide schedule event가 없다.
-- push/manual Actions는 같은 오전에도 실행되고 있으므로 **GitHub Actions 전체 중단으로 단정하지 않는다.** workflow disabled인지 scheduler delivery 문제인지 원인은 아직 미확정이다.
-- audit (35)에서 run `35235961510` 하나가 늦게 재출현해 schedule delivery 존재를 확인했지만 cadence/timeliness는 HOLD였다. 이번 상태는 그 HOLD를 더 강하게 재확인한다. 수동 dispatch나 newest Atom timestamp를 자동 schedule 복구 증거로 쓰면 안 된다.
-- production pin은 계속 `9bef7bf0ffd21a96e3098a6f31adf1b1a0258c60`이다. audit (35)의 F86 freshness checker contract drift도 그대로 OPEN이다.
-- **RESOLVED / PARTIAL — audit (42) RP031.** PR #403 merge `88b16da5c07a1091eba401540891c41280731408`로 기존 non-empty canonical `세부모델` destructive overwrite는 해소됐다. 전용 차명 칼럼이 없을 때 `세부모델` fallback은 FILLIFEMPTY다.
-- **OPEN / HOLD — RP031 identity/finance boundary.** blank `세부모델`에는 API rawName이 들어갈 수 있고 같은 필드가 rendered-DOM finance lookup alias로 쓰일 수 있다. `rawName=subModel`, deterministic `model/plate/term/mileage/deposit` mapping, finance provenance/authority는 아직 미증명이다. 실제 RP031 Sheet의 `연식` 칼럼 부재도 유지된다.
-- audit (27) Sonogong deposit recurrence, audit (28) vehicle-price lineage, audit (29) sales-tab naming, audit (34) newest-Atom freshness semantics, mirror/sales/settlement/RTDB legacy writer HOLD는 그대로다.
+- **OPEN / RP031 writer-boundary crossing.** run `35301987039`(head `9ce3bb6815d09c9bc2b9158183b9b4839c835e68`)이 `apply=true`로 `이안카-재고시트.mjs --쓰기`를 실제 실행했다. API 82대 + Sheet-only 3대 = 85행을 canonical RP031 Google Sheet에 썼고, rendered-DOM 요금표로 blank finance **53행·389칸**을 채웠다. registry는 여전히 그 Google Sheet를 RP031 canonical source로 본다. audit (42)/(43)의 identity/finance provenance HOLD 중 값이 canonical source Sheet 안으로 들어간 상태이므로 write 전 backup ↔ current Sheet diff와 authority 검증이 필요하다.
+- **RESOLVED / PARTIAL — 상품구분 색 manual repaint 경로.** PR #406 `ae41fb87...`가 `신차렌트`를 원래 밝은 분홍 `#FF00FF`로 복구했고, PR #407 `e8956bca...`가 credential composite-action parser 오류를 고쳤다. run `35302940384`은 `apply=true`로 성공해 27개 공급사 탭의 조건부서식을 재도색했다. audit (18)의 composite-action load 오류는 이 경로에서 해소됐다.
+- **OPEN / 색 SSOT production-pin drift.** canonical `erp5-ssot-refresh.yml` pin은 여전히 `9bef7bf0...`; 그 pin의 `category-colors.ts`는 `신차렌트=#B81A8C`다. current main은 `#FF00FF`다. one-time repaint만으로는 durable하지 않으며, schedule 복구 후 pinned F01/F86 publisher가 재발행하면 어두운 자주색이 다시 나타날 수 있다.
+- **OPEN / audit (43) schedule delivery.** 본 감사 재조회에서도 repository 최신 `event=schedule`은 `35235961510`(2026-09-17 23:47:38 KST) 그대로다. manual/push success를 schedule 복구 증거로 쓰지 않는다.
+- audit (35) F86 freshness checker, audit (27) Sonogong deposit recurrence, audit (28) vehicle-price lineage, audit (29) sales-tab naming, audit (34) newest-Atom freshness semantics, mirror/sales/settlement/RTDB legacy writer HOLD는 그대로다.
+- audit (43) 이후 implementation diff는 credential action, Ianka diag/write path, Ianka lease taskId, category-colors 네 파일뿐이다. ERP5 canonical registry/F01/F86 core workflow/Sonogong·AutoPlus routing/mirror·sales·RTDB core는 이 구간에서 변하지 않았다.
 
 ## Claude 구현 Owner 우선순위
 
-1. **GitHub workflow enabled 상태와 schedule delivery를 먼저 확인한다.** 원인이 확인되기 전 코드 원인으로 단정하지 않는다.
-2. 복구 판정은 선언 시간대에 실제 `event=schedule` run이 연속 생성되는 것으로만 한다. `workflow_dispatch` 성공이나 Atom 최신시각만으로 닫지 않는다.
-3. 별도로 audit (35)의 F86 freshness parser/탭명 계약을 current F86 plan과 정렬하고, 실제 scheduled canonical full-run green을 증명한다.
-4. PR #403의 RP031 FILLIFEMPTY 안전화는 유지하되 canonical identity 승인으로 확대하지 않는다. blank 신규행의 rawName/subModel 의미, deterministic finance join, provenance/parity, `연식` schema gap을 먼저 닫는다.
-5. 위 경계를 닫기 전 RP031 `--쓰기` / scheduled writer / production repin을 승인하지 않는다.
-6. 기존 audit (27)/(28)/(29)/(34) 및 legacy writer HOLD는 별도 해소 증거가 생길 때까지 유지한다.
+1. **RP031 current canonical Sheet를 write 전 backup과 diff**해 신규 69대 및 DOM-derived 389 finance cells의 provenance/authority를 확정한다. 검증 전 DOM finance를 authoritative canonical 값으로 간주하지 않는다.
+2. **`신차렌트=#FF00FF`를 실제 production-pinned publisher lineage에도 보존**한다. one-time supplier repaint로 끝내지 말고 full F01/F86 publish 뒤에도 색이 재역전되지 않는 것을 증명한다.
+3. audit (43)의 schedule delivery와 audit (35)의 F86 freshness parser는 별도 OPEN으로 계속 닫는다.
+4. 기존 audit (27)/(28)/(29)/(34) 및 legacy writer HOLD는 별도 해소 증거가 생길 때까지 유지한다.
 
 ## 상세 근거
 
-- `docs/AI-SSOT-AUDIT-LOG.md` — audit (43)
-- `docs/ai-ssot-audit/2026-09-18-chatgpt-audit43-schedule-delivery-regression.md`
-- latest repository-wide scheduled run `35235961510` — 2026-09-17 23:47:38 KST, failure
-- `.github/workflows/erp5-ssot-refresh.yml` — cron `5 0-10 * * 1-6`, production pin `9bef7bf0...`
-- `.github/workflows/sales-erp-hourly.yml` — cron `0 0-9 * * 1-5`
-- `.github/workflows/mirror-sync.yml` — cron `*/30 * * * *`
-- audit (42) evidence: `docs/ai-ssot-audit/2026-09-18-chatgpt-audit42-ianka-fillifempty-resolution.md`
+- `docs/AI-SSOT-AUDIT-LOG.md` — audit (44)
+- `docs/ai-ssot-audit/2026-09-18-chatgpt-audit44-rp031-write-color-pin-drift.md`
+- RP031 actual apply run `35301987039`
+- color repaint apply run `35302940384`
+- main color fix `ae41fb87bf9e4028ea207c6822e88f014ec50810`
+- credential action fix `e8956bcac84e87f8bcf4a0b3b212119c7642be8c`
+- production pin `9bef7bf0ffd21a96e3098a6f31adf1b1a0258c60` — `신차렌트=#B81A8C`
+- latest repository schedule run `35235961510`
 
 이번 독립 감사에서는 application code/business logic을 수정하지 않는다. 구현 변경은 Claude 단일 SSOT 세션만 수행한다.
