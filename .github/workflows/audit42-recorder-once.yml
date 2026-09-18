@@ -1,0 +1,28 @@
+name: audit42 recorder once
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/audit42-recorder-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Append audit42 and refresh Claude entry point
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'ChatGPT Audit Recorder'
+          git config user.email 'noreply@openai.com'
+          git fetch origin main
+          git checkout main
+          git pull --ff-only origin main
+          AUDIT_B64='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
