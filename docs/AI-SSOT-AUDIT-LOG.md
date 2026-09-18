@@ -2760,3 +2760,52 @@ Claude 구현 Owner: audit (40)의 기술 finding은 유지하되 `pre-merge` �
 - **아직 runtime 해소로 닫지 않음:** 새 pin `cf940df6...`을 실제 checkout한 scheduled/full-apply 운영 run의 freshness green 증거는 아직 없다. 이를 증명하려고 불필요한 `apply=true` 수동 쓰기를 실행하지 않았다.
 - **schedule delivery HOLD 유지:** 2026-09-18 17:17/18:17/19:17 scheduled event 미관측 문제는 #412와 별개다. 다음 실제 scheduled event가 생성되는지 확인하기 전에는 cadence 정상화로 판정하지 않는다.
 
+
+
+---
+
+## 2026-09-18(54) — ChatGPT pre-automation readiness audit
+
+**판정: 전체 automatic writer 재개 NO-GO/HOLD. F86 checker/Firebase boundary hardening은 진전됐지만 계약락 dual-writer와 legacy settlement path를 먼저 정리해야 한다.**
+
+### A. 충돌(신규/최우선) — canonical ERP5 refresh와 30분 contract-status가 같은 계약락을 다른 ownership marker로 씀
+
+current main `.github/workflows/erp5-ssot-refresh.yml`은 production engine `cf940df642edf315adbc6da2b4134fbad53da160`을 checkout하고 schedule/`apply=true`에서 `scripts/sync-vehicle-lock-from-ledger.mts --apply`를 실행한다.
+
+production engine의 해당 script는 ERP5 `products.locked_by_contract`를 **`LEDGER`**로 쓰며 `취소` 시 현재 marker가 `LEDGER`인 lock만 해제한다.
+
+반면 current main `.github/workflows/contract-status.yml`은 예약지도상 **켜짐 / 30분 schedule**이고 `scripts/mark-contract-in-listings.mts --apply`를 실행한다. 이 script는 같은 ERP5 `products.locked_by_contract`를 **`정산원장`**으로 쓰고, 해제도 현재 marker가 `정산원장`인 경우만 수행한다. 동시에 공급사 시트 상태와 F01 배차상태도 직접 수정한다.
+
+두 workflow가 같은 `erp5-inventory-publish` concurrency group을 쓰는 것은 **동시실행만 직렬화**할 뿐, 서로 다른 ownership marker/lifecycle로 같은 필드를 순차 mutation하는 충돌을 해소하지 않는다. 자동운영 전에 계약상태/락 owner를 단일화하고 접수·취소·인도완료/F01 임시표시 책임을 하나의 계약으로 정리해야 한다.
+
+### B. 충돌 유지 — enabled settlement-sync는 여전히 legacy `정산` 탭 writer를 호출
+
+current `settlement-sync.yml`은 예약지도상 켜짐이며 `sync-intake-to-ledger.mts` 뒤에 `sync-contract-from-ledger.mts`를 호출한다. 후자는 `SETTLEMENT_LEDGER_TAB='정산'`을 읽는다.
+
+하지만 current ledger canonical tabs는 `접수 / 취소 / 분납실적 / 완납실적 / 청구` 다섯이고 `정산`은 옛 도구 호환 상수다. 과거 scheduled run에서도 이 단계는 실제 `정산` 탭 부재로 실패했다. schedule delivery만 복구하면 1단계 intake write 뒤 2단계가 실패하는 partial-run 위험이 남는다.
+
+### C. governance gap 재확인 — schedule map CI는 GitHub UI enabled/disabled를 검증하지 않음
+
+예약지도는 `sales-erp-hourly.yml`과 `mirror-sync.yml`을 꺼짐으로 적지만 YAML에는 cron/`--apply` 경로가 남아 있다. `check-schedule-map.mts`는 cron 문자열의 map↔YAML 일치만 검사하고 workflow UI enable/disable 상태는 확인하지 않는다.
+
+따라서 CI green만으로 legacy writers가 실제 retired라고 증명할 수 없다. 특히 `sales-erp-hourly`가 재활성화되면 `hourly-sync.mts`의 mirror→legacy F01/special-tab→sheet-daily-sync→RTDB/Firestore mirror→main publish 체인이 다시 실행 가능하다.
+
+### D. 해소/진전 — F86 freshness checker + Firebase canonical boundary
+
+PR #412 merge commit `dbba38212a0f026c593733dc7ca87bfebc19bc6b`으로 production pin은 `cf940df6...`로 전진했고 `VALIDATED_ENGINES`도 같은 SHA를 승인한다. PR #411의 F86 freshness contract fix가 포함돼 publisher/auditor가 `f86TabCarriesMark`를 공유하며, root `.firebaserc` default가 `freepasserp5`가 되는 경우 CI가 fail-closed한다.
+
+PR #412 premerge Source Contract / generic CI는 success였다. 다만 **새 pin의 actual scheduled/full-apply green runtime proof는 아직 없다.**
+
+### E. 자동운영 재개 gate
+
+1. contract lock writer 1개로 단일화(`LEDGER` vs `정산원장` 제거).
+2. `settlement-sync` legacy `정산` writer retire/rewire.
+3. `sales-erp-hourly` / `mirror-sync` 실제 runtime disabled 확인 또는 repository-level retirement.
+4. 새 production pin `cf940df6...`로 source→Atom→snapshot→F01→F86→freshness→cross parity→photo까지 controlled full run green.
+5. 실제 `event=schedule`이 연속 회차로 생성되고 같은 감사가 green인지 확인.
+
+기존 RP023 mirror source, RP031 provenance, special-tab deposit-policy, vehicle-price lineage, sales-tab naming/newest-Atom freshness HOLD는 해소 증거가 없어 유지한다.
+
+상세 근거: `docs/ai-ssot-audit/2026-09-18-chatgpt-audit54-preautomation-dual-writer-hold.md`.
+
+이번 감사에서는 application code/business logic을 수정하지 않았다.
