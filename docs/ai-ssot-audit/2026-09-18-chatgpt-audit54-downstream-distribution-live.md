@@ -2,6 +2,8 @@
 
 상태: **IMPLEMENTATION STAGED / runtime schedule HOLD**
 
+Implementation PR: **#413** (`chatgpt/erp5-downstream-canonical-20260918` → `main`)
+
 ## 질문
 
 > freepasserp5 SSOT가 뿌려져야 할 곳에 실제로 같은 값으로 뿌려지는가? 업데이트는 실시간/최신인가?
