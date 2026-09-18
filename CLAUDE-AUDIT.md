@@ -1,71 +1,134 @@
-# ChatGPT → Claude SSOT 감사 진입점 — audit (51) override
+# ChatGPT → Claude SSOT 감사 진입점 — audit (54) override
 
-> 이 파일은 구현 지시의 최신 진입점이다. Claude 단일 SSOT 세션만 application/business logic을 수정한다. ChatGPT는 독립 감사·증거 기록만 한다.
+> 구현 Owner는 Claude 단일 SSOT 세션이다. ChatGPT는 독립 감사·증거 기록만 한다. application/business logic은 이 감사에서 수정하지 않았다.
 
-## 최신 판정
+## 최우선 판정
 
-### 1) OPEN/HOLD(runtime cadence) — `:17` 전환 당일 post-merge 잔여 3/3 ERP5 slot 미관측, repository-wide schedule delivery gap
+### 1) NO-GO/HOLD — 자동 writer 전체 재개 전에 계약락 dual-writer를 단일화
 
-PR #410은 merge 완료됐고 canonical ERP5 cron은 `17 0-10 * * 1-6` = 월~토 KST 09:17~19:17이다.
+현재 canonical ERP5 refresh와 30분 `contract-status`가 **같은 ERP5 `products.locked_by_contract`를 서로 다른 ownership marker로 쓴다.**
 
-2026-09-18 19:22 KST 이후 repository-wide `event=schedule`를 재조회했지만 latest scheduled run은 여전히:
+#### canonical production engine
 
-- run `35304903901`
-- workflow `ERP5 SSOT 원천 최신화(매시간)`
-- created `2026-09-18 12:53:42 KST`
-- conclusion `failure` (기존 F86 freshness checker false-positive)
+- current workflow: `.github/workflows/erp5-ssot-refresh.yml`
+- current production pin: `cf940df642edf315adbc6da2b4134fbad53da160`
+- 실행: `scripts/sync-vehicle-lock-from-ledger.mts --apply`
+- marker: `LEDGER`
+- `접수` → Atom lock/status
+- `취소` → 현재 marker가 `LEDGER`일 때만 unlock
 
-이다. 따라서 post-merge `17:17`, `18:17`, `19:17` **당일 잔여 세 ERP5 slot 모두 schedule event가 생성됐다는 증거가 없다.** `19:17`은 오늘 마지막 canonical ERP5 slot이므로 `:05 → :17` 이동으로 **same-day cadence recovery가 됐다는 증거는 확보되지 않았다.**
+#### 별도 30분 writer
 
-또 current main의 다른 scheduled apply writer인 `mirror-sync.yml`(30분), `sales-erp-hourly.yml`(평일 09:00~18:00 KST), `settlement-sync.yml`(월~토 09:05~18:05 KST)도 repository-wide schedule latest가 12:53에 멈춘 이상 같은 시간대의 새 schedule evidence가 없다. **ERP5 단일 cron 문제가 아니라 repository-level scheduled-event delivery gap으로 진단할 것.**
+- workflow: `.github/workflows/contract-status.yml`
+- 예약지도: **켜짐**, `*/30 * * * *`
+- 실행: `scripts/mark-contract-in-listings.mts --apply`
+- marker: `정산원장`
+- unlock도 현재 marker가 `정산원장`인 경우만
+- Atom 외에 공급사 시트 `상태` + F01 `배차상태`까지 직접 mutation
 
-반면 push-triggered CI run `35330351266`은 18:35:44 KST에 current main head `8bd0b01...`로 생성돼 success했다. Actions 전체 장애라고 단정하지 말고, schedule delivery와 push execution을 분리해서 본다.
+두 workflow가 `erp5-inventory-publish` concurrency group을 공유하므로 simultaneous write는 직렬화되지만 **ownership/lifecycle 충돌은 그대로**다. marker 문자열만 맞추지 말고 계약상태 owner, 접수/취소/인도완료 lifecycle, F01 임시표시 책임을 한 경로로 정리한다.
 
-GitHub scheduled workflow는 지연될 수 있으므로 `:17` 변경 자체가 실패했다고 단정하지 않는다. 정확한 판정은 **same-day cadence recovery unproven / scheduled-event delivery OPEN**이다. 실제 `event=schedule`이 여러 연속 회차로 재등장하기 전까지 cadence/timeliness HOLD를 유지한다. 수동 dispatch/push는 schedule 복구 증거가 아니다.
+**자동 schedule을 넓게 다시 켜기 전에 이 항목을 먼저 닫는다.**
 
-### 2) RESOLVED(운영 증거) / OPEN(checker) — current production pin full apply는 증명됨, F86 freshness false-positive만 남음
+## 2) HOLD — settlement-sync는 아직 legacy `정산` 탭 writer
 
-run `35310163711`은 `workflow_dispatch`, `apply=true`로 current production pin `14892951a929cf03796231f260e6bc2ff3060efc`을 실제 checkout해 source 24/24 ingest, Atom, snapshot, public catalog, F01 678대, F86 19탭/678대, Atom↔F01↔F86 parity, photo-link audit까지 수행했다. 데이터/발행 parity는 PASS다.
+`.github/workflows/settlement-sync.yml`은 예약지도상 켜짐이며:
 
-전체 job의 blocker는 current tab naming을 `탭 이름에 발행 시각이 없다`로 오판하는 F86 freshness checker다. PR #411 / head `f17747a549cf7857c28932373ada0bfb8eb7d7da`는 이 계약 정렬안이지만 **여전히 draft/open, merged=false**다.
+1. `sync-intake-to-ledger.mts`
+2. `sync-contract-from-ledger.mts`
+3. format/unify
 
-**우선순위:** PR #411 review/merge → production pin 전진 + `VALIDATED_ENGINES` 등록 → 실제 scheduled run에서 F86 freshness step 자체가 green인지 확인한다. 차량/칸 parity 검사는 약화하지 않는다.
+순서로 돈다.
 
-### 3) IMPORTANT topology 정정 유지 — F86 freshness step은 downstream cross/photo audit gate가 아님
+하지만 current ledger canonical tabs는:
 
-current `erp5-ssot-refresh.yml`에서 cross-audit와 photo-audit은 freshness step outcome이 아니라 F01/F86 publish outcome으로 실행된다. run `35310163711`에서도 freshness failure 뒤 cross-audit/photo-audit은 모두 success했다. 이미 확보된 downstream parity 증거를 skipped로 취급하지 않는다.
+- `접수`
+- `취소`
+- `분납실적`
+- `완납실적`
+- `청구`
 
-### 4) 색상 상태 — code/contract + publisher execution RESOLVED, color-specific effectiveFormat proof HOLD
+이고 `SETTLEMENT_LEDGER_TAB='정산'`은 옛 도구 호환용이다. legacy `sync-contract-from-ledger.mts`는 여전히 그 `정산` 탭을 읽고 공급사 시트를 직접 쓴다. 과거 scheduled run에서 실제 missing-`정산` failure도 확인됐다.
 
-PR #409로 production pin이 `14892951...`로 올라가며 `신차렌트=#FF00FF` 및 publisher color-SSOT 참조가 포함됐고 run `35310163711`로 full `apply=true` publisher 실행도 증명됐다. 다만 Google Sheets `effectiveFormat` 직접 assert는 별도 HOLD다.
+**부분반영 위험:** intake→ledger 1단계는 성공한 뒤 legacy contract step이 실패할 수 있다. canonical Atom-lock path와 ownership을 맞추고 retire/rewire한다.
 
-### 5) OPEN/HOLD — RP031 provenance
+## 3) HOLD — “예약지도에 꺼짐”은 runtime proof가 아님
 
-RP031 canonical registry는 계속 Google Sheet(`1fJu...`)다. API inventory + rendered-DOM finance feeder가 canonical Sheet에 실제 write한 crossing은 남아 있다. backup↔live diff, 신규/변경 identity, finance cells provenance와 deterministic mapping 증명이 끝나기 전 DOM-derived finance를 독립 authoritative SSOT로 승격하지 않는다.
+`docs/예약작업-지도.md`:
 
-### 6) 기존 HOLD 유지
+- `sales-erp-hourly.yml` = 꺼짐
+- `mirror-sync.yml` = 꺼짐
 
-직접 해소 증거가 없는 다음 항목은 유지한다.
+하지만 YAML cron/`--apply` 경로는 repo에 남아 있다.
 
-- RP023 canonical RebornCar vs legacy `MIRROR_SOURCES` old Google Sheet source
-- `mirror-sync.yml` 30분 scheduled apply writer
-- `sales-erp-hourly.yml` 평일 scheduled apply writer
-- `settlement-sync.yml` legacy ledger→supplier-status writer
-- audit (22) Sonogong/AutoPlus deposit-policy 이중정의
-- audit (27) Sonogong deposit recurrence
-- audit (28) vehicle-price source→Atom lineage
-- audit (29) sales-tab naming migration
-- audit (34) newest-Atom freshness semantics
+`scripts/check-schedule-map.mts`는 map↔YAML cron 문자열만 비교하며 **GitHub Actions UI enabled/disabled 상태는 검증하지 않는다.**
 
-## 현재 기준
+따라서 자동운영 전 실제 workflow runtime state를 확인한다. 특히 `sales-erp-hourly`는 재활성화되면 legacy `hourly-sync.mts` 체인(mirror → F01/special tabs → ERP/RTDB/Firestore mirror → main publish)을 다시 실행할 수 있다.
 
-- current production pin: `14892951a929cf03796231f260e6bc2ff3060efc`
-- canonical schedule: KST `:17` / PR #410 merged
-- latest independently observed scheduled evidence: run `35304903901` at 2026-09-18 12:53:42 KST
-- missing post-merge ERP5 slots independently observed: `17:17`, `18:17`, `19:17` KST (오늘 잔여 3/3)
-- push CI counter-evidence: run `35330351266` at 18:35:44 KST success
-- staged F86 checker PR: #411 / `f17747a549cf7857c28932373ada0bfb8eb7d7da` (draft/open)
-- 상세 근거: `docs/ai-ssot-audit/2026-09-18-chatgpt-audit51-day-window-closed.md`
-- 중앙 로그: `docs/AI-SSOT-AUDIT-LOG.md` → `2026-09-18(51)`
+## 4) RESOLVED(code/config) — F86 freshness checker / Firebase boundary
 
-**구현은 Claude 단일 SSOT 세션만 수행한다.**
+PR #412 merge commit:
+
+- `dbba38212a0f026c593733dc7ca87bfebc19bc6b`
+
+으로 다음은 코드/거버넌스 수준에서 해소됐다.
+
+- production pin → `cf940df642edf315adbc6da2b4134fbad53da160`
+- `VALIDATED_ENGINES` allowlist도 같은 SHA
+- PR #411 F86 freshness checker fix 포함
+- F86 publisher/auditor가 `f86TabCarriesMark` 공유
+- root `.firebaserc` default=`freepasserp5`이면 CI fail-closed
+- PR #412 premerge Source Contract / generic CI success
+
+따라서 audit (51)의 “production pin 14892951 / PR #411 draft/open” 설명은 폐기한다.
+
+## 5) OPEN(runtime proof) — 새 pin + scheduled delivery
+
+아직 닫지 않는다.
+
+- `cf940df6...`을 실제 checkout한 scheduled/full-apply **전체 green** 증거
+- 2026-09-18 오후 repository-wide `event=schedule` delivery gap 복구
+- `mirror-sync` / `sales-erp-hourly` 실제 runtime disabled 증거
+
+수동 dry-run/push CI는 scheduled-event 복구 증거가 아니다.
+
+## 6) 자동화 재개 gate
+
+Claude 구현 Owner는 아래 순서로 닫는다.
+
+1. **contract lock writer 1개** — `LEDGER` vs `정산원장` dual ownership 제거.
+2. `settlement-sync` legacy `정산` writer retire/rewire.
+3. legacy `sales-erp-hourly` / `mirror-sync` runtime disabled 확인 또는 fail-closed retirement.
+4. production pin `cf940df6...` controlled full run:
+   - source preflight
+   - settlement/contract lock
+   - 24-source ingest
+   - fixed snapshot
+   - F01 publish
+   - F86 backup/publish
+   - F86 freshness
+   - Atom↔F01↔F86 cross parity
+   - photo-link audit
+   전부 green.
+5. 이후 실제 `event=schedule` 연속 회차가 같은 검사로 green인지 확인한 뒤 자동운영 GO를 판단.
+
+## 기존 HOLD 유지
+
+직접 해소 증거가 없는 항목:
+
+- RP023 canonical RebornCar vs legacy mirror old Google Sheet
+- RP031 API/DOM feeder provenance / canonical migration
+- main `deposit-policy.ts` vs production special-tab deposit-rule single-definition 미완료
+- Sonogong/AutoPlus deposit recurrence/lineage
+- vehicle-price source→Atom lineage
+- sales-tab naming migration
+- newest-Atom freshness semantics
+
+## 기준
+
+- current main audit log: `docs/AI-SSOT-AUDIT-LOG.md` → **2026-09-18(54)**
+- 상세 근거: `docs/ai-ssot-audit/2026-09-18-chatgpt-audit54-preautomation-dual-writer-hold.md`
+- current production pin: `cf940df642edf315adbc6da2b4134fbad53da160`
+- PR #412 merge: `dbba38212a0f026c593733dc7ca87bfebc19bc6b`
+
+**자동운영은 위 gate가 닫히기 전에는 넓게 재개하지 않는다.**
