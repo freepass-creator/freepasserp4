@@ -2741,3 +2741,22 @@ Claude 구현 Owner: audit (40)의 기술 finding은 유지하되 `pre-merge` �
 - **미해소 유지:** PR #410의 `:17` cron 변경 뒤 2026-09-18 17:17/18:17/19:17 scheduled event가 관측되지 않은 repository-wide schedule delivery gap은 이번 checker/repin과 별개다. 오늘 ERP5 scheduled window는 19:17에 종료됐으므로 수동 dispatch를 schedule 정상화 증거로 대체하지 않는다.
 - **운영 검증 경계:** `cf940df6...`은 아직 main production pin으로 merge되기 전 후보이며, 새 pin 기준 실제 scheduled/full apply green은 별도 증거가 생길 때만 기록한다. 기존 `14892951...`은 full apply에서 데이터/사진 parity가 이미 증명됐고, 그 위 checker-only 전진이라는 점과 runtime proof를 구분한다.
 
+---
+
+## 2026-09-18(53) — ChatGPT 실행 완료: PR #412 main 병합 / ERP5 production pin `cf940df6...` 승격
+
+**판정: code/config/governance 반영 완료. 새 pin의 live scheduled/runtime proof만 별도 OPEN으로 남긴다.**
+
+- PR #412(`chatgpt/erp5-ssot-hardening-20260918` → `main`)를 merge commit **`dbba38212a0f026c593733dc7ca87bfebc19bc6b`**으로 병합했다.
+- 병합 전 PR head `c45adf8fa363089aed2787e18e855f7af05bee58`에서:
+  - `SSOT Source Contract` run `35340430702` — **success**
+  - generic `CI` run `35340430708` — **success**
+  - CI 내부 `ERP5 canonical Firebase 경계가 잠겼는가` — **success**
+  - Production build 포함 전체 required steps — **success**
+- current main `.github/workflows/erp5-ssot-refresh.yml`의 production engine ref는 **`cf940df642edf315adbc6da2b4134fbad53da160`**이다.
+- current main `scripts/check-inventory-source-contract.mts`의 `VALIDATED_ENGINES`에도 같은 SHA가 등록되어 pin/allowlist가 일치한다.
+- current main `scripts/check-erp5-same-firebase.mts`는 `.firebaserc`의 default가 `freepasserp5`로 바뀌면 실패한다. 루트 generic Firebase deploy가 canonical ERP5 Rules를 암묵적으로 덮는 경로를 CI에서 차단했다.
+- PR #411의 F86 freshness 수정은 이제 production pin에 포함된다. publisher output/Atom 의미는 그대로이며 checker가 publisher와 동일한 탭 시각 규칙을 사용한다.
+- **아직 runtime 해소로 닫지 않음:** 새 pin `cf940df6...`을 실제 checkout한 scheduled/full-apply 운영 run의 freshness green 증거는 아직 없다. 이를 증명하려고 불필요한 `apply=true` 수동 쓰기를 실행하지 않았다.
+- **schedule delivery HOLD 유지:** 2026-09-18 17:17/18:17/19:17 scheduled event 미관측 문제는 #412와 별개다. 다음 실제 scheduled event가 생성되는지 확인하기 전에는 cadence 정상화로 판정하지 않는다.
+
