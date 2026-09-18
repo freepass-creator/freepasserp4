@@ -1,10 +1,10 @@
-# ChatGPT → Claude SSOT 감사 진입점 — audit (56) override
+# ChatGPT → Claude SSOT 감사 진입점 — audit (57) override
 
 > 구현 Owner는 Claude 단일 SSOT 세션이다. ChatGPT는 독립 감사·증거 기록만 한다. application/business logic은 이 감사에서 수정하지 않았다.
 
 ## 1) RESOLVED(code/main) — downstream read split-brain
 
-Audit (55)에서 staged였던 PR #414가 main에 merge됐다.
+PR #414가 main에 merge됐다.
 
 - merge commit: **`817865d732b92b284c1db78a183325c6bfb12a1f`**
 - PR head CI: **`35343147167` success**
@@ -53,20 +53,27 @@ main의 authenticated `/api/products`, Finder, `/m/[code]`, F01 상세링크 매
 
 current canonical ledger tabs는 `접수 / 취소 / 분납실적 / 완납실적 / 청구`다. `SETTLEMENT_LEDGER_TAB='정산'`은 옛 도구 호환 alias인데 `sync-contract-from-ledger.mts`가 아직 이 alias를 읽고 공급사 시트를 직접 쓴다. intake 1단계 성공 뒤 legacy 2단계 실패/오염 가능성이 있으므로 retire/rewire한다.
 
-## 4) HOLD — scheduled-event delivery / runtime enabled proof
+## 4) PARTIAL RESOLVED / HOLD — scheduled-event delivery / cadence
 
-2026-09-18 **21:23 KST** 재확인 기준 repository-wide 최신 `event=schedule`은 여전히:
+Audit (56)의 **“2026-09-18 12:53 KST 이후 scheduled event가 없다”**는 문장은 이제 stale다.
 
-- run **`35304903901`**
-- **12:53:42 KST**
-- ERP5 SSOT workflow
-- conclusion failure
+새 repository-wide `event=schedule`이 실제 도착했다.
 
-이다. 이후 scheduled event가 없다. ERP5 `:17` 전략은 실제 17:17/18:17/19:17 event가 생성되지 않아 recovery proof가 없다. push/manual CI는 schedule 복구 증거가 아니다.
+- run **`35347508078`**
+- created **2026-09-18 21:58:18 KST**
+- workflow `ERP5 SSOT 원천 최신화(매시간)`
+- conclusion **success**
+- 실제 checkout production pin **`cf940df642edf315adbc6da2b4134fbad53da160`**
 
-`docs/예약작업-지도.md`는 `sales-erp-hourly` / `mirror-sync`를 꺼짐으로 적지만 두 YAML에는 cron + scheduled `--apply` 경로가 남아 있다. map checker는 GitHub UI enabled/disabled state를 검증하지 않으므로 runtime state를 별도로 확인한다.
+이 회차는 source preflight 24/24 → ledger lock → ingest apply 24/24 → snapshot → public verify → F01 → F86 backup/publish → freshness → Atom/F01/F86 parity → photo-link까지 전부 green이었다.
 
-## 5) RESOLVED(code/config) — F86 checker / Firebase canonical boundary
+따라서 **scheduled delivery 0건 상태는 해소/부분해소**, production pin의 **scheduled full-run green은 확인 완료**다.
+
+다만 current cron은 월~토 KST `09:17~19:17`인데 이 event는 **21:58 KST**에 생성됐다. 마지막 선언 슬롯 19:17보다 약 2시간 41분 늦고, post-gap scheduled success도 아직 이 1회뿐이다. **`:17` 전략의 cadence/punctuality 정상화와 자동운영 GO는 계속 HOLD**다. declared window에서 연속 `event=schedule` 회차가 실제 생성·성공해야 닫는다.
+
+또한 `docs/예약작업-지도.md`는 `sales-erp-hourly` / `mirror-sync`를 꺼짐으로 적지만 두 YAML에는 cron + scheduled `--apply` 경로가 남아 있다. map checker는 GitHub UI enabled/disabled state를 검증하지 않으므로 runtime state를 별도로 확인한다.
+
+## 5) RESOLVED(code/config + scheduled runtime proof) — F86 checker / canonical publication boundary
 
 PR #412 + production pin `cf940df...` 기준:
 
@@ -75,7 +82,15 @@ PR #412 + production pin `cf940df...` 기준:
 - cell/plate/header/tab-order 대조 유지
 - root generic Firebase config가 canonical freepasserp5를 가리키면 CI fail-closed
 
-이 부분은 code/config RESOLVED다. 다만 새 pin의 scheduled full-apply green은 schedule delivery와 함께 runtime OPEN이다.
+이제 run `35347508078`에서 scheduled runtime proof도 생겼다.
+
+- F86 **19탭 / 671대** publish success
+- freshness `종합 09.18 22:09 · 388대` → **1분 전 / 허용 120분**
+- F86 Atom audit **43,925 cells / mismatch 0**
+- Atom↔F01 / F01↔F86 missing·extra·value diff 모두 0
+- photo-link mismatch 0
+
+따라서 audit (35)의 old freshness false-positive는 **code/config뿐 아니라 실제 scheduled production run에서도 해소됨**이다. 이 checker를 다시 구현하지 않는다.
 
 ## 6) 기존 HOLD 유지
 
@@ -94,15 +109,15 @@ PR #412 + production pin `cf940df...` 기준:
 1. contract lock writer/marker ownership 1개로 통합.
 2. `settlement-sync` legacy `정산` writer retire/rewire.
 3. `sales-erp-hourly` / `mirror-sync` 실제 runtime disabled 확인 또는 fail-closed retirement.
-4. production pin `cf940df...` controlled full run에서 source preflight → lock → ingest → snapshot → F01 → F86 → freshness → cross parity → photo-link 전부 green.
-5. 실제 `event=schedule` 연속 회차 green 확인 후 자동운영 GO 판단.
-6. `/inventory`는 ERP5 authenticated write boundary 설계가 끝나면 read/write 함께 이관.
+4. declared schedule window에서 실제 `event=schedule` 연속 회차 green을 확인한 뒤 cadence/timeliness·자동운영 GO 판단.
+5. `/inventory`는 ERP5 authenticated write boundary 설계가 끝나면 read/write 함께 이관.
 
 ## 기준
 
-- current audit log: `docs/AI-SSOT-AUDIT-LOG.md` → **2026-09-18(56)**
-- 상세 근거: `docs/ai-ssot-audit/2026-09-18-chatgpt-audit56-pr414-merged-runtime-hold.md`
-- PR #414 merge: `817865d732b92b284c1db78a183325c6bfb12a1f`
-- production pin: `cf940df642edf315adbc6da2b4134fbad53da160`
+- audited application HEAD: `5f6a144b89e0638527e6f73cedc3560a3a36677d`
+- current audit log: `docs/AI-SSOT-AUDIT-LOG.md` → **2026-09-18(57)**
+- 상세 근거: `docs/ai-ssot-audit/2026-09-18-chatgpt-audit57-scheduled-green-cadence-hold.md`
+- scheduled production evidence: run **`35347508078`**
+- production pin: **`cf940df642edf315adbc6da2b4134fbad53da160`**
 
 **application code/business logic은 이 감사에서 수정하지 않는다.**
