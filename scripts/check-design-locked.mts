@@ -1212,6 +1212,52 @@ must(/nowLabelKo\(now\)/.test(wlFrame) && /head\.weather/.test(wlFrame),
     'components/shop/ShopDetail.tsx 요금표 보증금 칸');
 }
 
+/*
+ * ★★★**배너 = 손님에게 말을 거는 자리 — 글도 그림도 받고, 눌러서 «그 차들»로 보낸다.** (2026-09-18 확정)
+ *
+ * 사장님 「표준라벨에서 배너를 조금 **적극적으로 활용**해 볼 생각이거든 · **닫기 버튼도 확실하게
+ * 누르는 거를** 좀 해주고 · 어떤 상품이 좋다 · 무보증 상품이 있다 이런 것들 · **앞으로 이미지 또는
+ * 텍스트로 넣을 거야**」.
+ *
+ * 지킬 것 넷 —
+ *  ㉠ **그림 배너**를 받는다(`notice.image`) — 웹·폰 두 벌 · `alt` 필수
+ *  ㉡ **면 전체가 링크**다(`notice.link`) — 주소가 곧 조건이라 `/?perk=무보증` 이면 그 341대 앞에 내려놓는다
+ *  ㉢ **닫기가 «단추»로 보인다** — 테두리 + 흰 면. 그 전에는 테두리도 면도 없는 잔글씨라
+ *     배너가 통째로 눌리는 면이 된 지금은 닫으려다 목록으로 끌려간다
+ *  ㉣ **글도 그림도 없으면 안 그린다** — 빈 띠가 첫 화면을 118~161px 먹는 것보다 없는 편이 낫다
+ * ★「오늘 하루 안 보기」 글자는 그대로 남는다(2026-09-09 확정 — 안 보이는 약속은 없는 약속이다).
+ */
+{
+  const wlTableSrc = read('lib/whitelabel.ts');
+
+  must(/image\?: \{ web: string; mobile\?: string; alt: string \}/.test(wlTableSrc),
+    '배너가 «그림»을 못 받습니다 — 사장님이 이미지로 넣으실 자리입니다(웹·폰 두 벌 · alt 필수).',
+    'lib/whitelabel.ts notice.image · docs/DESIGN_CONFIRMED_SHOP.md 「배너」');
+  must(/link\?: \{ href: string; label\?: string \}/.test(wlTableSrc),
+    '배너가 «누르면 갈 곳»을 못 받습니다 — 「무보증 상품이 있다」고 말만 하고 끝납니다.',
+    'lib/whitelabel.ts notice.link');
+
+  const banner = wlFrame.slice(wlFrame.indexOf('function WhitelabelNotice'));
+  must(/src=\{\(mobile && img\.mobile\) \|\| img\.web\}/.test(banner),
+    '그림 배너가 폰·웹을 안 가릅니다 — 배너 폭이 1280 대 343 이라 한 장을 늘리면 글자가 뭉개집니다.',
+    'components/WhitelabelFrame.tsx WhitelabelNotice');
+  must(/if \(!notice \|\| closed \|\| \(!img && !hasText\)\) return null;/.test(banner),
+    '글도 그림도 없는데 배너를 그립니다 — 빈 띠가 첫 화면을 먹습니다.',
+    'components/WhitelabelFrame.tsx WhitelabelNotice');
+  must(/<a href=\{href\}/.test(banner),
+    '배너 면 «전체»가 링크가 아닙니다 — 손님을 그 조건이 걸린 목록 앞에 내려놓지 못합니다.',
+    'components/WhitelabelFrame.tsx WhitelabelNotice · lib/whitelabel.ts notice.link');
+
+  /* 닫기 단추 — 테두리·면이 있어야 «단추»로 읽힌다. 글자는 그대로 남는다. */
+  const btn = banner.slice(banner.indexOf('aria-label="오늘 하루 안 보기"'));
+  must(/border: `1px solid \$\{C\.line\}`/.test(btn) && /background: C\.inverse/.test(btn),
+    '배너 닫기가 다시 «맨 글자»가 됐습니다 — 배너가 통째로 눌리는 면이라 닫으려다 목록으로 끌려갑니다.',
+    'components/WhitelabelFrame.tsx 닫기 단추 · 사장님 2026-09-18 「닫기 버튼도 확실하게」');
+  must(btn.includes('오늘 하루 안 보기') && /<span[^>]*>[\s\S]{0,120}오늘 하루 안 보기/.test(btn),
+    '「오늘 하루 안 보기」 글자가 사라졌습니다 — 안 보이는 약속은 없는 약속입니다(2026-09-09).',
+    'components/WhitelabelFrame.tsx 닫기 단추');
+}
+
 if (fails.length) {
   console.error(`\n✗ 확정 디자인이 바뀌었습니다 — ${fails.length}건\n`);
   for (const f of fails) console.error(`   · ${f}\n`);

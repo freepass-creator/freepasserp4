@@ -599,39 +599,85 @@ function WhitelabelNotice({ wl, mobile }: { wl: Whitelabel; mobile: boolean }) {
     } catch { /* 못 읽으면 보여준다 — 안내를 못 보는 것보다 낫다 */ }
   }, [wl.key]);
 
-  if (!notice || closed) return null;
+  /*
+   * ★★**글도 그림도 없으면 안 그린다.** 빈 띠가 첫 화면을 118~161px 먹는 것보다 없는 편이 낫다.
+   *   (표 `notice` 머리말 — 「글이냐 그림이냐 둘 중 하나」.)
+   */
+  const img = notice?.image;
+  const hasText = !!(notice?.title || notice?.body);
+  if (!notice || closed || (!img && !hasText)) return null;
 
   const close = () => {
     setClosed(true);
     try { localStorage.setItem(NOTICE_OFF(wl.key), todayKst()); } catch { /* 못 적어도 이번 화면은 닫힌다 */ }
   };
 
+  /*
+   * ★★**면 «전체»가 누르는 자리다**(사장님 2026-09-18 「어떤 상품이 좋다 · 무보증 상품이 있다 …
+   *   제대로 활용할 수 있게끔」). 주소가 곧 조건이라 `/?perk=무보증` 하나면 그 차들 앞에 내려놓는다.
+   * ⚠ 닫는 단추는 이 링크 «밖»에 둔다 — 안에 넣으면 닫으려다 목록으로 끌려간다.
+   */
+  const href = notice.link?.href;
+  const 안쪽 = (
+    <>
+      {img ? (
+        /*
+         * ★그림 배너 — 웹·폰 두 벌(표 `image` 머리말). 폰 것이 없으면 웹 것을 쓴다.
+         * ⚠ `next/image` 를 안 쓴다 — 크기를 미리 모르는 «채널이 넣는 그림»이라 width/height 를
+         *   박을 수 없고, fill 로 두면 비율을 여기서 정해야 해서 채널마다 다른 그림이 잘린다.
+         *   ⇒ 제 비율대로 폭에 맞춰 눕힌다. 첫 화면이라 `eager` 로 받는다.
+         */
+        <img
+          src={(mobile && img.mobile) || img.web}
+          alt={img.alt}
+          loading="eager"
+          style={{ display: 'block', width: '100%', height: 'auto', borderRadius: SHOP.r.card }}
+        />
+      ) : (
+        <>
+          <div style={{ fontSize: SHOP.fs.h1, fontWeight: FW.head, letterSpacing: '-0.04em', lineHeight: 1.3, color: C.ink,
+            /* ⚠ 닫는 단추가 «글자 + ✕» 로 넓어졌다 — 제목이 그 밑으로 들어가지 않게 자리를 준다. */
+            paddingRight: mobile ? 130 : 150 }}>
+            {notice.title}
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginTop: 8 }}>
+            <span style={{ fontSize: SHOP.fs.body, color: C.sub, lineHeight: 1.6 }}>{notice.body}</span>
+            {notice.link?.label ? (
+              /* ★꼬리 링크는 «글 배너»에만. 그림은 면이 곧 단추라 같은 말을 두 번 하는 셈이다. */
+              <span style={{ fontSize: SHOP.fs.body, fontWeight: FW.title, color: C.brand, whiteSpace: 'nowrap' }}>
+                {notice.link.label} ›
+              </span>
+            ) : null}
+          </div>
+        </>
+      )}
+    </>
+  );
+
   return (
     /* 면(brandSoft)이 이미 경계를 만든다 — 그 위에 선을 또 그으면 테두리가 두 겹이 된다. */
     <div style={{ background: C.brandSoft }}>
       {/* ⚠ 폰 여백을 한 단 줄였다(사장님 2026-09-05 「간격이 너무 막 멀게 떨어져 있거나」) —
-           이 블록이 폰 첫 화면에서 상품 앞에 서는 마지막 덩어리라, 여기서 번 세로가 곧 카드다. */}
-      <div style={{ maxWidth: 1280, margin: '0 auto', padding: mobile ? '12px 16px 12px' : '24px 24px 24px', position: 'relative' }}>
-        <div style={{ fontSize: SHOP.fs.h1, fontWeight: FW.head, letterSpacing: '-0.04em', lineHeight: 1.3, color: C.ink,
-          /* ⚠ 닫는 단추가 «글자 + ✕» 로 넓어졌다 — 제목이 그 밑으로 들어가지 않게 자리를 준다. */
-          paddingRight: mobile ? 120 : 140 }}>
-          {notice.title}
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 12, marginTop: 8 }}>
-          <span style={{ fontSize: SHOP.fs.body, color: C.sub, lineHeight: 1.6 }}>{notice.body}</span>
-          {notice.moreLabel && notice.moreHref ? (
-            <a href={notice.moreHref} style={{ fontSize: 14.5, fontWeight: FW.title, color: C.brand }}>
-              {notice.moreLabel} ›
-            </a>
-          ) : null}
-        </div>
+           이 블록이 폰 첫 화면에서 상품 앞에 서는 마지막 덩어리라, 여기서 번 세로가 곧 카드다.
+           ★그림 배너는 제 여백을 제가 들고 있다(그림 안에 여백이 그려져 있다) — 위아래만 남긴다. */}
+      <div style={{
+        maxWidth: 1280, margin: '0 auto', position: 'relative',
+        padding: img
+          ? (mobile ? '12px 16px' : '16px 24px')
+          : (mobile ? '12px 16px 12px' : '24px 24px 24px'),
+      }}>
+        {href ? (
+          <a href={href} style={{ display: 'block', textDecoration: 'none', color: 'inherit' }}>{안쪽}</a>
+        ) : 안쪽}
         {/*
           ★★**«오늘 하루 안 보기»를 글자로 보여준다**(사장님 2026-09-09 「배너 x 표시에
             **오늘 하루 안 보기 살짝 보이게** 해줘야지」).
-          ⚠ 동작은 진작 그랬는데 **읽어 주는 이름(aria)에만** 적혀 있었다. 눈으로 보는 손님에게는
-            그냥 「닫기」라, 누르면 오늘 안 뜬다는 걸 알 길이 없었다 — 안 보이는 약속은 없는 약속이다.
-          ★말은 «살짝» — `faint` 한 톤에 잔글씨(`fs.cap`)다. 이 자리의 주인공은 안내문이지
-            닫는 단추가 아니다.
+          ★★★**2026-09-18 — «확실하게 누르는» 단추로 세운다**(사장님 「닫기 버튼도 확실하게
+            누르는 거를 좀 해주고」). 그 전에는 테두리도 면도 없이 `faint` 잔글씨라, 배너 위에
+            얹힌 «글자»인지 «단추»인지가 눈으로 안 갈렸다. 배너가 통째로 눌리는 면이 되면서
+            더 중요해졌다 — 여기가 단추로 안 보이면 닫으려다 목록으로 끌려간다.
+          ⇒ 흰 면 + 1px 테두리 + 라운드. 글자도 한 단 올린다(`cap` → `sub`).
+          ★그래도 «주인공은 아니다» — 면은 흰색이고 글자는 `mute` 다. 배너 내용보다 세지 않다.
           ★글자와 ✕ 를 **한 단추**로 묶는다. 둘로 나누면 「글자는 오늘 하루, ✕ 는 지금만」처럼
             읽혀 손님이 무엇을 누른 건지 모른다.
           ★누름 높이는 그대로다(폰 44 · 웹 32) — 보이는 것만 늘리고 손가락 규격은 안 줄인다.
@@ -641,16 +687,16 @@ function WhitelabelNotice({ wl, mobile }: { wl: Whitelabel; mobile: boolean }) {
           onClick={close}
           aria-label="오늘 하루 안 보기"
           style={{
-            position: 'absolute', right: mobile ? 10 : 18, top: mobile ? 12 : 22,
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'flex-end',
+            position: 'absolute', right: mobile ? 10 : 18, top: mobile ? 12 : 18, zIndex: 1,
+            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
             gap: SHOP.sp.tight,
             /* ★폰 44 — 손가락 규격(HIG 44 · 머티리얼 48). 32 는 그 밑이라 X 를 몇 번 헛누른다. */
-            height: mobile ? 44 : 32, padding: `0 ${SHOP.sp.tight}px`, borderRadius: R_CARD,
-            border: 'none', background: 'transparent', color: C.mute, cursor: 'pointer',
+            height: mobile ? 44 : 32, padding: `0 ${SHOP.sp.snug}px`, borderRadius: SHOP.r.ctrl,
+            border: `1px solid ${C.line}`, background: C.inverse, color: C.mute, cursor: 'pointer',
             fontFamily: 'inherit',
           }}
         >
-          <span style={{ fontSize: SHOP.fs.cap, color: C.faint, whiteSpace: 'nowrap' }}>
+          <span style={{ fontSize: SHOP.fs.sub, color: C.mute, whiteSpace: 'nowrap' }}>
             오늘 하루 안 보기
           </span>
           <X size={ICON.md} aria-hidden />
