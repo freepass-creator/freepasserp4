@@ -1,0 +1,281 @@
+name: ChatGPT audit56 recorder
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/chatgpt-audit56-recorder.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Record independent SSOT audit 56
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git pull --ff-only origin main
+
+          if ! grep -q '^## 2026-09-18(56)' docs/AI-SSOT-AUDIT-LOG.md; then
+            cat >> docs/AI-SSOT-AUDIT-LOG.md <<'EOF'
+
+---
+
+## 2026-09-18(56) — PR #414 downstream ERP5 canonical 소비 경로 main 병합 확인
+
+**판정: 해소됨(code/main) / 보류(runtime)**
+
+### A. 해소됨 — audit (55)의 downstream read split-brain 수정이 main에 병합됨
+
+- audit (55)는 PR #414를 `IMPLEMENTATION STAGED`로 기록했다.
+- 이후 PR #414가 main에 merge commit **`817865d732b92b284c1db78a183325c6bfb12a1f`**로 병합됐다.
+- main 기준으로 authenticated `/api/products`, Finder 목록, `/m/[code]` 상세, F01 상세링크 매핑, 영업자 내부정보의 policy/partner, read-only ops inventory가 canonical **freepasserp5**를 읽도록 전환됐다.
+- ERP4 Firebase Auth는 인증 경계로 유지하고, ERP5 상품 읽기 실패를 옛 ERP4 상품값으로 조용히 fallback하지 않는다.
+- PR head CI **`35343147167`** 및 merge-main push CI **`35343414676`**은 모두 green이다.
+
+따라서 audit (55)의 "수정 중/staged" 상태는 더 이상 최신이 아니다. **internal read-only consumer split-brain은 code/main 수준에서 해소됨**으로 올린다.
+
+### B. 보류 — `/inventory` 편집 read/write 경계는 의도적으로 ERP4에 남음
+
+`/inventory` 편집 화면은 ERP5 write API·권한·감사로그·CAS/field ownership이 확정되기 전까지 ERP4 read/write 한 묶음으로 유지한다. 읽기만 ERP5로 바꾸면 화면 원장과 저장 원장이 갈리므로 audit (55)의 HOLD를 그대로 유지한다.
+
+### C. 보류 — scheduled-event delivery는 아직 복구 증거가 없음
+
+2026-09-18 21:23 KST 재확인 기준 repository-wide 최신 `event=schedule`은 여전히:
+
+- run **`35304903901`**
+- 2026-09-18 **12:53:42 KST** 생성
+- workflow `ERP5 SSOT 원천 최신화(매시간)`
+- conclusion `failure`
+
+이다. 그 뒤 `event=schedule` 실행이 없다. 따라서 PR #410 이후 ERP5 **17:17 / 18:17 / 19:17** 회차와 그 사이 `contract-status`/기타 예약 회차의 실제 event delivery도 증명되지 않았다. push/manual CI 성공은 schedule 복구 증거가 아니다.
+
+### D. 기존 pre-automation HOLD는 그대로
+
+이번 PR #414는 소비 read 경로 통일이며 아래 writer topology를 건드리지 않았다.
+
+1. **계약락 dual writer** — canonical production engine의 `LEDGER` marker와 30분 `contract-status`의 `정산원장` marker가 같은 ERP5 `products.locked_by_contract`를 서로 다른 ownership으로 쓴다.
+2. **settlement-sync legacy writer** — canonical 원장 탭은 `접수/취소/분납실적/완납실적/청구`인데 `sync-contract-from-ledger.mts`는 아직 legacy `정산` alias를 읽어 공급사 시트를 직접 쓴다.
+3. **runtime disabled proof 부족** — 예약지도는 `sales-erp-hourly`/`mirror-sync`를 꺼짐으로 적지만 YAML cron/`--apply` 경로는 남아 있고, 지도는 GitHub Actions UI enabled/disabled를 검증하지 않는다.
+4. RP023 old mirror source, RP031 provenance/canonical migration, special-tab deposit single-definition, 손오공/오토플러스 보증금 lineage, vehicle-price lineage, sales-tab naming, newest-Atom freshness HOLD도 직접 해소 증거가 없어 유지한다.
+
+### E. production F01/F86 계약은 이번 변경에서 불변
+
+- ERP5 canonical workflow production pin: **`cf940df642edf315adbc6da2b4134fbad53da160`**
+- F01/F86는 같은 fixed ERP5 snapshot을 사용한다.
+- F86 publisher/auditor는 `f86TabCarriesMark`를 공유한다.
+- 손오공/오토플러스 special-tab 및 F86 projection rule은 PR #414에서 변경되지 않았다.
+
+### Claude 구현 Owner에게
+
+이번 항목을 근거로 **downstream read split-brain은 다시 고치지 말고 RESOLVED(code/main)**로 취급한다. 다음 구현 우선순위는 audit (54)의 pre-automation gate 그대로다: contract lock owner 단일화 → settlement legacy writer retire/rewire → legacy schedule runtime state fail-closed 확인 → `cf940df...` controlled full run → 실제 `event=schedule` 연속 green. `/inventory`는 ERP5 authenticated write boundary가 생길 때 read/write를 함께 옮긴다.
+
+상세 근거: `docs/ai-ssot-audit/2026-09-18-chatgpt-audit56-pr414-merged-runtime-hold.md`
+EOF
+          fi
+
+          cat > docs/ai-ssot-audit/2026-09-18-chatgpt-audit56-pr414-merged-runtime-hold.md <<'EOF'
+# 2026-09-18 ChatGPT audit 56 — PR #414 merged / runtime schedule hold
+
+상태: **RESOLVED(code/main) / runtime HOLD**
+
+## 1. 새로 바뀐 사실
+
+이전 audit (55)는 downstream ERP5 consumer 통일을 PR #414의 staged implementation으로 기록했다. 현재 main HEAD 계보에서는 PR #414가 merge commit `817865d732b92b284c1db78a183325c6bfb12a1f`로 병합됐다.
+
+PR #414가 main에 넣은 경계:
+
+- authenticated `/api/products` → canonical freepasserp5
+- Finder 목록 → 위 API를 통해 ERP5, 30초 poll + focus/visibility
+- `/m/[code]` 상세 → ERP5 single-product lookup
+- F01 상세링크 identity join → ERP5 products/partners
+- 영업자 내부정보 policy/partner → ERP5
+- read-only ops inventory → ERP5
+- 장애 시 옛 ERP4 product store로 silent fallback 금지
+- ERP4 Firebase Auth는 인증/회원 경계로 유지
+
+CI 증거:
+
+- PR head `655959962ccb30c0a4061952ddba91d0539b5500` — CI run `35343147167` success
+- merge main `817865d732b92b284c1db78a183325c6bfb12a1f` — push CI run `35343414676` success
+
+따라서 internal read-only downstream split-brain은 **code/main 기준 해소**로 판정한다.
+
+## 2. 일부러 안 옮긴 `/inventory`
+
+편집 화면 `/inventory`는 ERP4 read/write 한 묶음이다. ERP5 authenticated write API, 권한, audit log, field ownership/CAS가 없는 상태에서 읽기만 ERP5로 옮기면 read/write DB가 갈린다. 이 경계는 PR #414가 의도적으로 HOLD했다.
+
+## 3. production pipeline은 그대로
+
+`.github/workflows/erp5-ssot-refresh.yml`은 계속:
+
+- cron `17 0-10 * * 1-6`
+- production pin `cf940df642edf315adbc6da2b4134fbad53da160`
+- ledger lock → 24-source ingest → policy reconcile → fixed snapshot → public verify → F01 → F86 backup/publish/audit → Atom/F01/F86 cross parity → photo-link audit
+
+를 수행하도록 선언되어 있다. PR #414는 이 writer/publisher engine을 바꾸지 않았다.
+
+Canonical source registry도 그대로다: RP006 Iron website, RP012 Sonogong ERP API, RP023 RebornCar website, RP031 Google Sheet canonical. Legacy `MIRROR_SOURCES`의 RP023 old Google Sheet도 여전히 별도로 남아 있다.
+
+## 4. schedule runtime은 여전히 OPEN
+
+2026-09-18 21:23 KST에 repository-wide Actions `event=schedule`을 다시 조회했다. 최신은 여전히 run `35304903901`, 12:53:42 KST다. 이후 scheduled event가 없다.
+
+따라서:
+
+- ERP5 17:17 / 18:17 / 19:17
+- contract-status 매 30분
+- settlement 영업시간 회차
+- runtime enabled라면 mirror/sales 회차
+
+중 어느 것도 이후 `event=schedule` delivery 증거가 없다. push/manual 성공은 예약 복구 증거로 사용하지 않는다.
+
+## 5. writer topology HOLD 재확인
+
+### 계약락
+
+canonical production pin의 `sync-vehicle-lock-from-ledger.mts`는 marker `LEDGER`를 쓰고, 자기 marker만 취소 시 푼다.
+
+main `contract-status.yml`은 매 30분 `mark-contract-in-listings.mts --apply`를 선언한다. 이 스크립트는 같은 ERP5 products에 marker `정산원장`을 쓰고 자기 marker를 별도로 푼다. concurrency group 공유는 동시 실행만 직렬화할 뿐 ownership/lifecycle을 하나로 만들지 않는다.
+
+### settlement legacy
+
+`settlement-sync.yml`은 `sync-intake-to-ledger.mts` 다음 `sync-contract-from-ledger.mts`를 실행한다. current canonical ledger는 `접수/취소/분납실적/완납실적/청구`인데 legacy script는 호환 alias `SETTLEMENT_LEDGER_TAB='정산'`을 읽는다. 1단계 이후 2단계가 실패하거나 옛 경계를 쓰는 partial-apply 위험은 그대로다.
+
+### mirror / sales legacy
+
+`docs/예약작업-지도.md`는 `mirror-sync`와 `sales-erp-hourly`를 꺼짐으로 표시한다. 하지만 두 YAML에는 cron과 scheduled `--apply` 경로가 여전히 있다. schedule map checker는 GitHub Actions UI runtime enabled/disabled를 증명하지 않으므로 자동운영 전 runtime state 확인이 필요하다.
+
+## 6. 최종 판정
+
+새 material change는 **PR #414의 main merge**다. audit (55)의 staged 상태는 폐기하고 downstream read split-brain을 code/main RESOLVED로 올린다.
+
+그러나 이것은 자동 writer GO가 아니다. audit (54)의 pre-automation writer gate와 schedule runtime HOLD는 그대로다. Claude 구현 Owner는 동일 소비 read 경로를 다시 손대기보다 contract writer 단일화와 legacy writer retirement/runtime proof에 집중한다.
+EOF
+
+          cat > CLAUDE-AUDIT.md <<'EOF'
+# ChatGPT → Claude SSOT 감사 진입점 — audit (56) override
+
+> 구현 Owner는 Claude 단일 SSOT 세션이다. ChatGPT는 독립 감사·증거 기록만 한다. application/business logic은 이 감사에서 수정하지 않았다.
+
+## 1) RESOLVED(code/main) — downstream read split-brain
+
+Audit (55)에서 staged였던 PR #414가 main에 merge됐다.
+
+- merge commit: **`817865d732b92b284c1db78a183325c6bfb12a1f`**
+- PR head CI: **`35343147167` success**
+- merge-main CI: **`35343414676` success**
+
+main의 authenticated `/api/products`, Finder, `/m/[code]`, F01 상세링크 매핑, 영업자 내부정보 policy/partner, read-only ops inventory는 canonical **freepasserp5**를 읽는다. ERP4 Firebase Auth는 인증 경계로 남고, ERP5 product read 실패를 ERP4 상품값으로 silent fallback하지 않는다.
+
+**이 항목은 다시 구현하지 않는다.**
+
+### `/inventory`는 별도 HOLD
+
+편집 `/inventory`는 아직 ERP4 read/write 한 묶음이다. ERP5 authenticated write API + 권한 + audit log + field ownership/CAS가 생길 때 read/write를 함께 전환한다. 읽기만 ERP5로 옮기지 않는다.
+
+## 2) NO-GO/HOLD — 계약락 dual writer
+
+같은 ERP5 `products.locked_by_contract`를 두 owner가 쓴다.
+
+### canonical production engine
+
+- `.github/workflows/erp5-ssot-refresh.yml`
+- production pin: **`cf940df642edf315adbc6da2b4134fbad53da160`**
+- `scripts/sync-vehicle-lock-from-ledger.mts --apply`
+- marker: **`LEDGER`**
+- 접수 lock / 취소 시 자기 `LEDGER` lock만 해제
+
+### 별도 30분 writer
+
+- `.github/workflows/contract-status.yml`
+- YAML cron `*/30 * * * *`
+- `scripts/mark-contract-in-listings.mts --apply`
+- marker: **`정산원장`**
+- 같은 ERP5 Atom + 공급사 시트 상태 + F01 배차상태를 직접 mutation
+- 자기 `정산원장` lock을 별도로 해제
+
+같은 `erp5-inventory-publish` concurrency group은 simultaneous write만 직렬화한다. ownership/lifecycle 충돌은 해결하지 않는다. **자동 writer를 넓게 재개하기 전에 contract lock owner를 1개로 만든다.**
+
+## 3) HOLD — settlement-sync legacy `정산` writer
+
+`.github/workflows/settlement-sync.yml`은 YAML상 예약 쓰기 경로가 있고:
+
+1. `sync-intake-to-ledger.mts`
+2. `sync-contract-from-ledger.mts`
+3. format/unify
+
+순서다.
+
+current canonical ledger tabs는 `접수 / 취소 / 분납실적 / 완납실적 / 청구`다. `SETTLEMENT_LEDGER_TAB='정산'`은 옛 도구 호환 alias인데 `sync-contract-from-ledger.mts`가 아직 이 alias를 읽고 공급사 시트를 직접 쓴다. intake 1단계 성공 뒤 legacy 2단계 실패/오염 가능성이 있으므로 retire/rewire한다.
+
+## 4) HOLD — scheduled-event delivery / runtime enabled proof
+
+2026-09-18 **21:23 KST** 재확인 기준 repository-wide 최신 `event=schedule`은 여전히:
+
+- run **`35304903901`**
+- **12:53:42 KST**
+- ERP5 SSOT workflow
+- conclusion failure
+
+이다. 이후 scheduled event가 없다. ERP5 `:17` 전략은 실제 17:17/18:17/19:17 event가 생성되지 않아 recovery proof가 없다. push/manual CI는 schedule 복구 증거가 아니다.
+
+`docs/예약작업-지도.md`는 `sales-erp-hourly` / `mirror-sync`를 꺼짐으로 적지만 두 YAML에는 cron + scheduled `--apply` 경로가 남아 있다. map checker는 GitHub UI enabled/disabled state를 검증하지 않으므로 runtime state를 별도로 확인한다.
+
+## 5) RESOLVED(code/config) — F86 checker / Firebase canonical boundary
+
+PR #412 + production pin `cf940df...` 기준:
+
+- F86 publisher/auditor가 `f86TabCarriesMark` 공유
+- 하허호 종합만 `MM.DD HH:MM`, 회사탭은 `회사 · N대`
+- cell/plate/header/tab-order 대조 유지
+- root generic Firebase config가 canonical freepasserp5를 가리키면 CI fail-closed
+
+이 부분은 code/config RESOLVED다. 다만 새 pin의 scheduled full-apply green은 schedule delivery와 함께 runtime OPEN이다.
+
+## 6) 기존 HOLD 유지
+
+직접 해소 증거가 없는 항목:
+
+- RP023 canonical RebornCar vs legacy mirror old Google Sheet
+- RP031 API/DOM feeder provenance / canonical migration
+- main `deposit-policy.ts` vs production special-tab deposit-rule single-definition
+- Sonogong/AutoPlus deposit recurrence/lineage
+- vehicle-price source→Atom lineage
+- sales-tab naming migration
+- newest-Atom freshness semantics
+
+## 7) Claude 구현 Owner 다음 순서
+
+1. contract lock writer/marker ownership 1개로 통합.
+2. `settlement-sync` legacy `정산` writer retire/rewire.
+3. `sales-erp-hourly` / `mirror-sync` 실제 runtime disabled 확인 또는 fail-closed retirement.
+4. production pin `cf940df...` controlled full run에서 source preflight → lock → ingest → snapshot → F01 → F86 → freshness → cross parity → photo-link 전부 green.
+5. 실제 `event=schedule` 연속 회차 green 확인 후 자동운영 GO 판단.
+6. `/inventory`는 ERP5 authenticated write boundary 설계가 끝나면 read/write 함께 이관.
+
+## 기준
+
+- current audit log: `docs/AI-SSOT-AUDIT-LOG.md` → **2026-09-18(56)**
+- 상세 근거: `docs/ai-ssot-audit/2026-09-18-chatgpt-audit56-pr414-merged-runtime-hold.md`
+- PR #414 merge: `817865d732b92b284c1db78a183325c6bfb12a1f`
+- production pin: `cf940df642edf315adbc6da2b4134fbad53da160`
+
+**application code/business logic은 이 감사에서 수정하지 않는다.**
+EOF
+
+          git add docs/AI-SSOT-AUDIT-LOG.md docs/ai-ssot-audit/2026-09-18-chatgpt-audit56-pr414-merged-runtime-hold.md CLAUDE-AUDIT.md
+          if git diff --cached --quiet; then
+            echo 'No audit changes to commit.'
+            exit 0
+          fi
+          git commit -m 'docs(audit): record PR414 merge and runtime hold'
+          git push origin HEAD:main
