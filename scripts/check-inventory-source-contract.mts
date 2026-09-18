@@ -103,6 +103,12 @@ const VALIDATED_ENGINES = [
    * 수집기(ingest-all-suppliers·ingest-supplier-to-firestore)는 안 건드렸다 — 색·표시 전용 수정.
    */
   '14892951a929cf03796231f260e6bc2ff3060efc',
+  /**
+   * ★2026-09-18 — PR #411 merge. F86 publisher 결과는 그대로 두고 freshness checker가
+   *   publisher의 f86TabCarriesMark를 공유하도록 정렬했다. 「종합」만 HH:MM 시각, 회사 탭은
+   *   「회사 · N대」이며, 칸/차번/머리글/탭 차례 대조와 반례 시험은 유지·강화했다.
+   */
+  'cf940df642edf315adbc6da2b4134fbad53da160',
 ];
 const pinnedEngine = VALIDATED_ENGINES.find((engine) => workflow.includes(`ref: ${engine}`));
 assert(pinnedEngine, '검증 엔진 pin이 제거됐습니다. main collector 이식 완료 전에는 pin을 풀면 안 됩니다(새 엔진은 VALIDATED_ENGINES 에 적는다).');
