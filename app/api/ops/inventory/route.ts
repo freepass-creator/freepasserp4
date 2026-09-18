@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { firebaseAdminStore, verifyAdminBearer } from '@/lib/server/firebase-admin';
+import { verifyAdminBearer } from '@/lib/server/firebase-admin';
+import { readCanonicalCatalogFromErp5 } from '@/lib/server/whitelabel-erp5-catalog';
 import { sheetCellLink, type OpsInventoryRow } from '@/lib/ops-status';
 import { vehicleNameOf } from '@/lib/domain/vehicle-name';
 import type { EntityRecord } from '@/lib/intake/entities';
@@ -33,17 +34,11 @@ export async function GET(request: Request): Promise<Response> {
   if (!admin) return NextResponse.json({ error: 'forbidden' }, { status: 403 });
 
   try {
-    const db = firebaseAdminStore();
-    const [pSnap, v3, v4] = await Promise.all([
-      db.ref('v4/products').get(),
-      db.ref('partners').get().catch(() => null),
-      db.ref('v4/partners').get().catch(() => null),
-    ]);
+    const canonical = await readCanonicalCatalogFromErp5({ includePartners: true });
 
-    // 공급사 코드 → {이름, 시트주소}. 한 번만 만들어 두고 매물마다 찾아 쓴다.
-    const pool = { ...((v3?.val() || {}) as Record<string, Rec>), ...((v4?.val() || {}) as Record<string, Rec>) };
+    // 공급사 코드 → {이름, 시트주소}. canonical ERP5 partner 한 벌만 사용한다.
     const byCode = new Map<string, { name: string; sheetUrl: string }>();
-    for (const [key, x] of Object.entries(pool)) {
+    for (const [key, x] of Object.entries(canonical.partners)) {
       if (!x || typeof x !== 'object') continue;
       const name = S(x.partner_name) || S(x.company_name) || S(x.name);
       const sheetUrl = S(x.sheet_url);
@@ -53,7 +48,7 @@ export async function GET(request: Request): Promise<Response> {
     }
 
     const rows: OpsInventoryRow[] = [];
-    for (const [key, raw] of Object.entries((pSnap.val() || {}) as Record<string, Rec>)) {
+    for (const [key, raw] of Object.entries(canonical.products)) {
       if (!raw || typeof raw !== 'object' || dead(raw)) continue;
       const p = raw as Rec;
       const code = S(p.provider_company_code) || S(p.partner_code) || S(p.source_schema);
