@@ -1,9 +1,16 @@
-name: 이안카 수집기 시험(미리보기만, 수동)
+name: 이안카 수집기(수동)
 
-# ianka/scripts/이안카.mjs → ianka/scripts/이안카-재고시트.mjs(미리보기, --쓰기 없음)를 실제로 돌려
-# 로그인·재고 조회·시트 매핑이 끝까지 되는지 확인한다. 라이브 시트는 안 건드린다.
+# ianka/scripts/이안카.mjs → 이안카-요금스크랩.mjs → 이안카-재고시트.mjs 를 돌린다.
+# apply=false(기본)면 미리보기만(라이브 안 건드림). apply=true 면 원천시트(RP031,
+# 1fJuFSdaW…)에 --쓰기 로 반영한다 — FILLIFEMPTY(빈 칸만 채움)라 기존 수기값은 안 건드리되,
+# 실제 쓰기이므로 사람이 workflow_dispatch 로 켤 때만 실행된다(자동 스케줄 없음).
 on:
   workflow_dispatch:
+    inputs:
+      apply:
+        description: '실제로 반영(--쓰기). 기본은 미리보기만.'
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -35,11 +42,16 @@ jobs:
         env:
           IANKA_ACCOUNT_JSON: ${{ secrets.IANKA_ACCOUNT_JSON }}
         run: node ianka/scripts/이안카-요금스크랩.mjs
-      - name: 원천시트 매핑 미리보기(라이브 안 건드림)
+      - name: 원천시트 매핑(apply=true 면 --쓰기)
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sa.json
-        run: node ianka/scripts/이안카-재고시트.mjs
-      - name: 미리보기 결과 업로드
+        run: |
+          if [ "${{ inputs.apply }}" = "true" ]; then
+            node ianka/scripts/이안카-재고시트.mjs --쓰기
+          else
+            node ianka/scripts/이안카-재고시트.mjs
+          fi
+      - name: 결과 업로드
         if: always()
         uses: actions/upload-artifact@v4
         with:
