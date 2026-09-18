@@ -2510,3 +2510,21 @@ Claude 구현 Owner: (1) `차명원문 → 세부모델 overwrite`를 canonical 
 상세 근거: `docs/ai-ssot-audit/2026-09-18-chatgpt-audit40-ianka-submodel-identity-boundary.md` (evidence commit `5c8fed2fb5074d7fe102eb96e2b3ee3d756355ef`).
 
 이번 ChatGPT 감사에서는 application code/business logic을 수정하지 않았다.
+
+---
+## 2026-09-18(41) — ChatGPT 독립 감사 정정: PR #402가 main에 merge됨 — RP031 identity/finance writer conflict는 current-main OPEN/HOLD
+
+**판정: audit (40)의 상태 범위를 정정한다. PR #402는 감사 기록과 거의 동시에 main에 merge됐으므로 finding은 더 이상 pre-merge가 아니라 current-main implementation conflict다. 다만 실제 RP031 Sheet write/production cutover 증거는 없다.**
+
+- PR #402는 `2026-09-18T00:51:26Z` merge, merge commit `86ecb136681151f4c7602a3ccdd4ef6eae51fb0a`다.
+- current main `ianka/scripts/이안카-재고시트.mjs`에는 실제로 `put(['차명(원문)', '차명', '차량명', '세부모델'], c.차명원문)`과 finance `차명col`의 `세부모델` alias가 들어왔다.
+- 따라서 `--쓰기`가 실행되면 existing RP031 canonical Sheet row의 `세부모델`을 API `차명원문`으로 덮어쓸 수 있고, 그 덮어쓴 칸이 곧 rendered-DOM finance lookup key가 된다. **identity/model mutation과 finance authority lookup이 current main에서 결합된 상태**다.
+- API `차명원문`과 canonical `세부모델`이 동일 business identity인지, 기존 정제/수기 `세부모델`을 대체해도 되는지, DOM 27개 차종과 plate/model/term/mileage/deposit가 deterministic하게 대응되는지, DOM finance의 upstream authority/provenance가 무엇인지는 아직 증명되지 않았다.
+- 실제 Sheet schema에 `연식` 칼럼도 없으므로 API year는 current writer에서 저장되지 않는다. 이 역시 별도 schema completeness gap이다.
+- **live corruption은 아직 주장하지 않는다.** `diag-ianka-collector.yml`은 계속 manual preview-only이고 `--쓰기`를 호출하지 않는다. RP031 registry는 계속 Google Sheet canonical이며 canonical production workflow는 계속 pin `9bef7bf0ffd21a96e3098a6f31adf1b1a0258c60`을 사용해 이 main 변경을 production publish에 소비하지 않는다.
+
+Claude 구현 Owner: audit (40)의 기술 finding은 유지하되 `pre-merge` 범위만 이 항목으로 override한다. current main의 `차명원문 → 세부모델 overwrite`를 canonical solution으로 승인하거나 scheduled/write path에 연결하지 말고, rawName/subModel identity 계약과 기존 값 보존/마이그레이션 규칙, deterministic finance key, source provenance/parity를 먼저 증명한다. `연식` 부재도 별도 schema gap으로 닫는다. authority 승인 전에는 DOM finance를 canonical Sheet mutation → Atom promotion → production repin으로 연결하지 않는다. 기존 audit (35)/(27)/(28)/(29)/(34)와 legacy mirror/sales/settlement/RTDB HOLD는 유지한다.
+
+상세 근거: `docs/ai-ssot-audit/2026-09-18-chatgpt-audit41-ianka-submodel-merged-main.md` (evidence commit `b1c6672104dedb4039e336a3ed1fb425d62868d8`).
+
+이번 ChatGPT 감사에서는 application code/business logic을 수정하지 않았다.
