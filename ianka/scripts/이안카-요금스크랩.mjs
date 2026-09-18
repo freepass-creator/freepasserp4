@@ -75,6 +75,18 @@ export async function 요금표긁기({ headless = true } = {}) {
     for (const months of PERIODS) {
       await select.selectOption(String(months));
       await page.waitForTimeout(800);
+
+      // 목록이 "더보기"로 잘려 있을 수 있다 — 더 늘지 않을 때까지 계속 누른다.
+      for (let i = 0; i < 30; i++) {
+        const before = await page.locator('article.rateCard').count();
+        const more = page.locator('button:has-text("더보기"), button:has-text("더 보기")');
+        if (await more.count() === 0) break;
+        await more.first().click().catch(() => {});
+        await page.waitForTimeout(500);
+        const after = await page.locator('article.rateCard').count();
+        if (after <= before) break;
+      }
+
       const cards = await page.evaluate(() => {
         return Array.from(document.querySelectorAll('article.rateCard')).map((el) => {
           const name = el.querySelector('.vehicleName')?.getAttribute('title') || el.querySelector('.vehicleName')?.textContent || '';
@@ -88,7 +100,8 @@ export async function 요금표긁기({ headless = true } = {}) {
         if (!모델별.has(c.name)) 모델별.set(c.name, {});
         모델별.get(c.name)[months] = { rental: 숫자(c.rentalText), deposit: 숫자(c.depositText) };
       }
-      console.log(`  [${months}개월] 카드 ${cards.length}개 긁음`);
+      const uniqueNames = new Set(cards.map((c) => c.name)).size;
+      console.log(`  [${months}개월] 카드 ${cards.length}개(고유 차종 ${uniqueNames}종) 긁음`);
     }
 
     return Object.fromEntries(모델별);
