@@ -85,6 +85,28 @@ ERP4 고유 업무 데이터와 ERP5 상품 원자는 논리적으로 분리한�
 - 레거시 workflow가 ERP4 -> ERP5 역방향 writer를 호출하지 않는지
 - 문서가 동일-Firebase 전제를 다시 도입하지 않는지
 
+## 소비처와 갱신 계약
+
+상품 원자 기준 소비처는 다음 한 방향만 허용한다.
+
+| 소비처 | ERP5를 읽는 방법 | 갱신 계약 |
+|---|---|---|
+| F01 판매시트 | 고정 ERP5 snapshot 발행 | canonical refresh 한 회차 안에서 발행 |
+| F86 하허호 | F01과 같은 고정 ERP5 snapshot 발행 | canonical refresh 한 회차 안에서 발행 |
+| 손님/화이트라벨 | 서버가 `freepasserp5/products` 직접 조회 | 서버 공용 캐시 최대 60초 + 열린 목록 45초 폴링/포커스 복귀 |
+| ERP5/상품찾기 Finder | 인증은 ERP4, 상품 값은 `GET /api/products` → ERP5 | 30초 폴링 + 포커스/탭 복귀, 서버 ERP5 캐시 최대 60초 |
+| 내부 상품상세 `/m/[code]` | 인증 `GET /api/products?code=...` → ERP5 | 60초 재확인 + 포커스/탭 복귀 |
+| Finder 시트 상세링크 매핑 | F01 + ERP5 products/partners | 요청 시 canonical ERP5 대조 |
+| 영업자 내부정보 | ERP5 product/policy/partner | 요청 시 canonical ERP5 대조 |
+| 읽기전용 관제 재고 | ERP5 product/partner | 요청 시 canonical ERP5 대조 |
+
+중요한 구분:
+
+- **downstream 반영 속도**와 **upstream 원천수집 주기**는 다르다. ERP5 Atom이 갱신된 뒤 웹/Finder가 따라오는 시간은 대체로 1~2분 이내지만, 공급사 원천 → ERP5 수집 자체가 시간당이면 그보다 더 신선해질 수 없다.
+- 소비처 장애 시 ERP4/RTDB/판매시트 값을 ERP5 대체 정본처럼 자동 폴백하지 않는다. 마지막 정상 화면을 유지하거나 오류를 드러내고 재시도한다.
+- `/inventory` 편집 화면은 **별도 HOLD**다. 현재 읽기/쓰기가 ERP4 Store에 함께 묶여 있어 읽기만 ERP5로 바꾸면 저장은 다른 DB로 가는 더 위험한 반쪽 전환이 된다. ERP5 write API/권한/감사로그 경계를 만든 뒤 읽기·쓰기를 함께 전환한다.
+- 차종마스터는 별도의 ERP5 version/pointer 계약을 따른다. 상품 원자 소비 경로와 섞지 않는다.
+
 ## Firebase 프로젝트 배포 경계
 
 루트 `.firebaserc` / `firebase.json`은 **ERP5 canonical writer 설정이 아니다.**
