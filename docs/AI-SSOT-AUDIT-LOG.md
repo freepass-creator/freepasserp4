@@ -2910,3 +2910,25 @@ PR #412 premerge Source Contract / generic CI는 success였다. 다만 **새 pin
 상세 근거: `docs/ai-ssot-audit/2026-09-19-chatgpt-audit59-manual-disable-evidence.md`.
 
 이번 감사에서는 application code/business logic을 수정하지 않았다.
+
+
+---
+
+## 2026-09-19(60) — ChatGPT 운영상태 정렬
+
+**판정: application/business logic 미변경. 자동운영 재개 전 운영문서와 last-proven runtime state를 일치시켰다.**
+
+- `contract-status.yml`: last-proven `disabled_manually` + `LEDGER` vs `정산원장` dual-writer가 남아 있어 **OFF/HOLD**로 확정. `docs/예약작업-지도.md`를 `꺼짐/HOLD`로 정정.
+- `settlement-sync.yml`: last-proven `disabled_manually` + legacy `SETTLEMENT_LEDGER_TAB='정산'` writer가 남아 있어 **OFF/HOLD**로 확정. `docs/예약작업-지도.md`를 `꺼짐/HOLD`로 정정.
+- `sales-erp-hourly.yml` / `mirror-sync.yml`: last-proven manual-disabled 및 지도상 꺼짐을 유지. YAML cron/`--apply` 경로는 남아 있으므로 repository-level retirement/fail-closed가 별도 필요.
+- current GitHub connector는 workflow enabled/disabled state를 직접 조회하지 못하고 공개 Actions URL 외부 fetch도 차단돼 current UI state는 독립 확인 불가. 따라서 last-proven runtime evidence를 운영 기준으로 사용하고, re-enable은 구현/검증 완료 뒤 명시적 운영행위로 처리한다.
+- Claude 구현 Owner용 GitHub issue를 분리 생성:
+  - #415 `P0 SSOT: 계약락 dual-writer 단일화`
+  - #416 `P0 SSOT: settlement-sync legacy 정산 writer retire/rewire`
+  - #417 `P0 Ops: legacy scheduled writers retirement proof`
+- 자동운영 GO 순서: #415 → #416 → #417 → controlled full run green → 필요한 workflow만 re-enable → 실제 `event=schedule` 연속 green.
+- 기존 audit (57)의 ERP5 scheduled full-green run `35347508078`은 유효하며 canonical production pin `cf940df642edf315adbc6da2b4134fbad53da160`도 변경 없음.
+
+상세 근거: `docs/ai-ssot-audit/2026-09-19-chatgpt-audit60-ops-hold-alignment.md`.
+
+이번 감사에서도 application code/business logic은 수정하지 않았다.
