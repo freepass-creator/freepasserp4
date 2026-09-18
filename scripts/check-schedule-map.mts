@@ -47,6 +47,19 @@ for (const r of rows) {
   if (!seen.has(`${r.file} ${r.cron}`)) fails.push(`지도에만 있는 예약(파일에 없음) — ${r.file} '${r.cron}' — 지도가 낡았다`);
 }
 
+/** ★2026-09-19 — RETIRED writer는 GitHub UI disable에만 기대지 않는다. YAML 자체에 schedule이 다시 생기면 CI가 막는다. */
+for (const f of ['contract-status.yml', 'sales-erp-hourly.yml', 'mirror-sync.yml']) {
+  const src = readFileSync(`${WF}/${f}`, 'utf8');
+  if (/^\s*schedule\s*:/m.test(src)) fails.push(`RETIRED workflow에 schedule이 되살아났다 — ${f}`);
+}
+
+/** settlement 자동화는 접수→원장까지만. legacy 「정산」 writer가 다시 붙으면 canonical ERP5와 충돌한다. */
+{
+  const src = readFileSync(`${WF}/settlement-sync.yml`, 'utf8');
+  if (!src.includes('scripts/sync-intake-to-ledger.mts')) fails.push('settlement-sync에서 접수→원장 단계가 사라졌다');
+  if (src.includes('scripts/sync-contract-from-ledger.mts')) fails.push('settlement-sync에 legacy 정산→공급사 writer가 다시 연결됐다');
+}
+
 /** 규칙 문장 — 지워지면 «어느 AI든 통일»이 문서에서 사라진 것이다. */
 for (const phrase of [
   'GitHub Actions(이 저장소 main) 한 곳에만 둔다',

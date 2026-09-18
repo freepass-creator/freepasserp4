@@ -3,23 +3,10 @@ name: 판매·천이·ERP 시간별 동기
 # GitHub Actions가 이 파이프라인의 단일 클라우드 오케스트레이터다.
 # 평일 KST 09:00~18:00 정각 = UTC 00:00~09:00.
 # 로컬 scripts/hourly-sync.cmd 는 쓰기 동작이 없는 RETIRED 상태다.
+# ★2026-09-19 — ERP5 canonical writer로 대체되어 RETIRED.
+#   자동 schedule/push 및 운영 --apply를 제거한다. 수동 dry-run 진단만 허용한다.
 on:
-  schedule:
-    - cron: '0 0-9 * * 1-5'
-  push:
-    branches: [main]
-    paths:
-      - 'scripts/cloud-hourly-sync.mts'
-      - 'scripts/run-hourly-with-ssot-gate.mts'
-      - 'scripts/ssot-prepublish-gate.mts'
-      - '.github/workflows/sales-erp-hourly.yml'
   workflow_dispatch:
-    inputs:
-      apply:
-        description: '실제로 반영'
-        type: boolean
-        default: false
-
 concurrency:
   group: sales-erp-hourly
   cancel-in-progress: false
@@ -64,14 +51,9 @@ jobs:
       - name: SSOT 어댑터 계약 테스트
         run: npx tsx scripts/test-ssot-adapters.mts
 
-      - name: SOURCE → ADAPTER → ATOM → F01 → ERP
+      - name: RETIRED 경로 dry-run 진단
         shell: bash
-        run: |
-          if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ inputs.apply }}" = "true" ]; then
-            npx tsx scripts/cloud-hourly-sync.mts --apply
-          else
-            npx tsx scripts/cloud-hourly-sync.mts
-          fi
+        run: npx tsx scripts/cloud-hourly-sync.mts
 
       # 실패한 회차의 기록을 남긴다 — 로그가 지워져도 무엇이 어디서 멈췄는지 읽을 수 있게.
       - name: 실패 기록 올리기
