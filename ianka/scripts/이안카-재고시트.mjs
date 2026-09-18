@@ -44,7 +44,12 @@ function 행빌드(header, 기존, c) {
   put(['연식', '년식'], c.연식);
   put(['연료'], c.연료);
   put(['Km', 'KM', '주행거리'], c.주행거리 ?? '');
-  put(['차명(원문)', '차명', '차량명'], c.차명원문);
+  // ⚠ 실제 시트 헤더엔 「차명(원문)」·「연식」 칸 자체가 없다(2026-09-18 실측 — 헤더 40칸에
+  // 상태·입고일자·구분·차량번호·차종분류·세부모델·연료·외장·내장·Km·단기보증·1~60개월·
+  // 장기보증·트림·옵션·최초등록·소비자가격·제조사·배기량 등만 있음). 어댑터(lib/adapters/ianka.ts)가
+  // rawName 못 찾으면 「세부모델」을 subModel로 읽으므로, 차명원문을 세부모델에 채운다.
+  // 연식은 채울 곳이 없다 — 칸을 새로 만드는 건 시트 구조 변경이라 사장님 확인 필요(따로 보고).
+  put(['차명(원문)', '차명', '차량명', '세부모델'], c.차명원문);
   return row;
 }
 
@@ -89,7 +94,7 @@ async function main() {
   if (fs.existsSync(요금파일)) {
     try { 모델요금 = JSON.parse(fs.readFileSync(요금파일, 'utf8')).모델요금 ?? null; } catch {}
   }
-  const 차명col = header.findIndex((h) => ['차명(원문)', '차명', '차량명'].includes(h));
+  const 차명col = header.findIndex((h) => ['차명(원문)', '차명', '차량명', '세부모델'].includes(h));
 
   const apiPlates = new Set(차량.map((c) => 씻(c.차번)));
   const rows = 차량.map((c) => 행빌드(header, 기존맵.get(씻(c.차번)), c));
