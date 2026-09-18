@@ -2683,3 +2683,22 @@ Claude 구현 Owner: audit (40)의 기술 finding은 유지하되 `pre-merge` �
 2. schedule cadence/timeliness는 실제 post-merge `event=schedule` 회차가 생성되고 이어지는 회차도 관측되기 전까지 OPEN/HOLD를 유지한다. 수동 dispatch를 schedule 복구 증거로 쓰지 않는다.
 3. PR #411은 merge/repin 및 실제 scheduled F86 freshness green 전까지 production checker OPEN으로 유지한다.
 4. 이번 감사에서는 application code/business logic을 수정하지 않았다.
+
+---
+## 2026-09-18(50) — ChatGPT 독립 감사: :17 전환 뒤 두 회차 연속 부재 + repository-wide schedule delivery gap
+
+**판정: MATERIAL / OPEN. audit (49)의 “첫 post-merge `:17` slot delayed-or-missing”보다 운영 증거가 더 강해졌다.**
+
+- PR #410 merge 뒤 canonical ERP5 cron은 `17 0-10 * * 1-6`(월~토 KST 09:17~19:17)이다. 이번 재검수는 **2026-09-18 18:21 KST 이후** 수행했다. repository-wide `event=schedule` latest는 여전히 run `35304903901` (`ERP5 SSOT 원천 최신화(매시간)`, created `2026-09-18 12:53:42 KST`, conclusion=failure)이다. 따라서 post-merge `17:17`, `18:17` **두 ERP5 회차가 연속으로 schedule event로 생성된 증거가 없다.**
+- 이 현상은 ERP5 하나에만 국한된 관측의 아니다. current main에는 `mirror-sync.yml`=`*/30 * * * *`, `sales-erp-hourly.yml`=평일 KST 09:00~18:00, `settlement-sync.yml`=월~토 KST 09:05~18:05가 모두 scheduled apply writer로 남아 있다. repository-wide latest schedule이 12:53에 멈춘 상태라 18:00 판매/ERP, 18:05 정산, 여러 mirror 30분 회차도 모두 새 `event=schedule` 증거가 없다. **repository-level scheduled-event delivery gap**으로 보는 것이 더 정확하다.
+- 동시에 push-triggered Actions는 살아 있다. audit (49) 정리 구간의 CI run `35325766505`는 `2026-09-18 17:42:47 KST`에 생성돼 success했다. 즉 Actions 전체가 멈췄다는 증거는 없고, 현재 분리해서 말할 수 있는 것은 **scheduled event delivery만 장시간 미관측**이라는 점이다.
+- `:05 → :17` 이동이 잘못됐다고 단정하지는 않는다. 다만 **정각 부하 회피만으로 cadence가 복구됐다는 가설은 현재 두 회차 기준으로 입증되지 않았다.** 원인이 GitHub scheduler 지연/누락, workflow schedule delivery 상태, repository 측 설정/비활성화 중 무엇인지는 아직 미확정이다.
+- current main HEAD는 감사 시작 시 `7545b68f2f80a0dc807211bf7bcbfdf23ead3cbe`; audit (49) 이후 application/business logic 신규 commit은 없었다. production pin은 `14892951a929cf03796231f260e6bc2ff3060efc`, PR #411은 여전히 draft/open/merged=false다. ERP5 canonical registry, F01/F86 projection 규칙, Sonogong/AutoPlus special-tab 규칙, RP031 provenance, RP023 legacy mirror source 및 mirror/sales/settlement/RTDB writer topology에는 신규 해소 변경이 없다.
+
+### Claude 구현 Owner 인계
+
+1. schedule 문제를 ERP5 단일 cron 문제로 축소하지 말고 **repository-wide scheduled-event delivery**로 진단한다. push Actions 정상 여부와 schedule event 생성 여부를 분리한다.
+2. PR #410의 `:17` code/config 변경은 유지하되, 실제 `event=schedule`이 여러 연속 회차로 재등장하기 전 cadence HOLD를 닫지 않는다. 수동 dispatch/push는 schedule 복구 증거가 아니다.
+3. PR #411은 merge/repin + actual scheduled F86 freshness green 전까지 production checker OPEN 유지.
+4. application code/business logic은 이번 감사에서 수정하지 않았다.
+
