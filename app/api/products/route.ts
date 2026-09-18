@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { verifyActiveBearer } from '@/lib/server/firebase-admin';
-import { readWhitelabelCatalogFromErp5 } from '@/lib/server/whitelabel-erp5-catalog';
+import { readCanonicalCatalogFromErp5 } from '@/lib/server/whitelabel-erp5-catalog';
 import { stripProductCost } from '@/lib/firebase/rtdb-products';
 import { withProviderNames } from '@/lib/domain/identity';
 import type { EntityRecord } from '@/lib/intake/entities';
