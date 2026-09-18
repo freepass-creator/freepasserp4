@@ -44,7 +44,19 @@ export async function GET(request: Request) {
       _key: S(raw?._key) || id,
     } as EntityRecord));
 
-    return NextResponse.json(withProviderNames(products, partners), {
+    const named = withProviderNames(products, partners);
+    const code = S(new URL(request.url).searchParams.get('code'));
+    if (code) {
+      const found = named.find((product) =>
+        [S(product._key), S(product.product_code), S(product.car_number)].includes(code),
+      );
+      if (!found) return NextResponse.json({ error: '매물을 찾을 수 없습니다.' }, { status: 404 });
+      return NextResponse.json(found, {
+        headers: { 'Cache-Control': 'private, no-store, max-age=0' },
+      });
+    }
+
+    return NextResponse.json(named, {
       headers: { 'Cache-Control': 'private, no-store, max-age=0' },
     });
   } catch (error) {
