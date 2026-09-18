@@ -1,11 +1,19 @@
-/** 이안카 API → 이안카 원천시트(1fJuFSdaW…, 탭 「이안카」) ALWAYS 칸 채우기.
+/** 이안카 API → 이안카 원천시트(1fJuFSdaW…, 탭 「이안카」) ALWAYS 칸 채우기
+ *  + (있으면) 화면 스크랩 요금표로 빈 요금칸만 FILLIFEMPTY.
  *
  *  손오공-재고시트.mjs 와 같은 역할이다 — 있는 값만 매번 갱신하고, 없는 값(요금·보증금·
  *  제조사/모델 정제)은 절대 지어내지 않는다. 그 칸들은 손대지 않아 기존 값(수기 입력분)을 보존한다.
  *
  *  ALWAYS = API가 사실로 주는 값만: 차량번호(신규 행 키)·배차상태·연식·연료·주행거리·차명(원문).
- *  건드리지 않는 칸: 제조사·모델·세부모델·세부트림·구분·단기보증·장기보증·1~60개월
- *    (2026-09-17 기준 API에 없다 — ianka.mjs 머리말 참고. 생기면 그때 FILLIFEMPTY로 추가한다).
+ *
+ *  요금(단기보증/장기보증/1~60개월)은 API에 없다(2026-09-17 다각도 실측 — /api/rates 는
+ *  role:b2b 계정에 진짜 403, /api/inventory 는 어떤 방식으로 불러도 요금 0건, JS 번들에도
+ *  차종명 자체가 없음. ChatGPT 독립 감사 audit 38도 같은 결론). 대신 이안카-요금스크랩.mjs가
+ *  로그인 화면(DOM)에서 차종별 1~60개월 요금을 긁어 lib/wonja/이안카요금.json에 남기면,
+ *  그 파일이 있을 때만 «빈 칸만» 채운다 — 기존 수기 입력값은 절대 덮지 않는다(FILLIFEMPTY).
+ *  이 요금표는 사람이 수기로 하던 걸 대신하는 부트스트랩 값이지 API 실측이 아니다 —
+ *  차종명 매칭이 안 되거나 그 개월 수(사이트 필터가 1·3·5·12·24·36·48·60만 제공 — 6개월은
+ *  못 채운다)가 없으면 조용히 건너뛴다.
  *
  *  API에 더는 없는 기존 차는 삭제하지 않고 「출고불가」로 내린다(손오공과 동일 원칙).
  *
@@ -40,6 +48,32 @@ function 행빌드(header, 기존, c) {
   return row;
 }
 
+function 요금채우기(header, row, 차명, 모델요금) {
+  if (!모델요금 || !차명) return 0;
+  const 요금 = 모델요금[차명];
+  if (!요금) return 0;
+  let 채운칸 = 0;
+  header.forEach((h, i) => {
+    if (row[i] !== '' && row[i] != null) return; // 기존 값(수기 포함) 있으면 손 안 댐
+    const m = String(h).trim().match(/^(\d+)개월$/);
+    if (m) {
+      const rental = 요금[Number(m[1])]?.rental;
+      if (rental != null) { row[i] = rental; 채운칸++; }
+      return;
+    }
+    if (h === '단기보증') {
+      const deposit = 요금[1]?.deposit ?? 요금[3]?.deposit;
+      if (deposit != null) { row[i] = deposit; 채운칸++; }
+      return;
+    }
+    if (h === '장기보증') {
+      const 긴기간 = [60, 48, 36, 24, 12].find((n) => 요금[n]?.deposit != null);
+      if (긴기간) { row[i] = 요금[긴기간].deposit; 채운칸++; }
+    }
+  });
+  return 채운칸;
+}
+
 async function main() {
   const 차량 = JSON.parse(fs.readFileSync(path.join(루트, 'lib/wonja/이안카차량.json'), 'utf8')).차량;
   const s = await sheet(ID);
@@ -50,8 +84,22 @@ async function main() {
   const 기존행 = v.slice(1).filter((r) => 씻(r[plateCol]));
   const 기존맵 = new Map(기존행.map((r) => [씻(r[plateCol]), r]));
 
+  let 모델요금 = null;
+  const 요금파일 = path.join(루트, 'lib/wonja/이안카요금.json');
+  if (fs.existsSync(요금파일)) {
+    try { 모델요금 = JSON.parse(fs.readFileSync(요금파일, 'utf8')).모델요금 ?? null; } catch {}
+  }
+  const 차명col = header.findIndex((h) => ['차명(원문)', '차명', '차량명'].includes(h));
+
   const apiPlates = new Set(차량.map((c) => 씻(c.차번)));
   const rows = 차량.map((c) => 행빌드(header, 기존맵.get(씻(c.차번)), c));
+  let 요금채운행 = 0, 요금채운칸 = 0;
+  if (모델요금 && 차명col >= 0) {
+    for (const row of rows) {
+      const 칸수 = 요금채우기(header, row, row[차명col], 모델요금);
+      if (칸수 > 0) { 요금채운행++; 요금채운칸 += 칸수; }
+    }
+  }
   const 상태col = header.findIndex((h) => ['배차상태', '상태', '판매상태', '출고상태'].includes(h));
   const 보존행 = 기존행.filter((r) => !apiPlates.has(씻(r[plateCol]))).map((r) => {
     const c = r.slice();
@@ -74,6 +122,11 @@ async function main() {
   console.log(`  교집합(API∩기존시트) ${교집합차번.length}대: ${교집합차번.join(', ') || '(없음)'}`);
   console.log(`  신규(API에만 있음) ${신규차번.length}대: ${신규차번.join(', ') || '(없음)'}`);
   console.log(`  보존(기존시트에만 있음, 출고불가 처리) ${보존차번.length}대: ${보존차번.join(', ') || '(없음)'}`);
+  if (모델요금) {
+    console.log(`\n  요금표(lib/wonja/이안카요금.json, 모델 ${Object.keys(모델요금).length}종) 발견 → 빈 칸만 채움: ${요금채운행}행 · ${요금채운칸}칸`);
+  } else {
+    console.log('\n  요금표(이안카요금.json) 없음 — 요금칸은 손 안 댐(기존 수기값 그대로)');
+  }
 
   if (!쓰기) {
     const p = path.join(루트, 'tmp', '이안카재고시트-preview.json');
