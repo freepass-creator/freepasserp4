@@ -4,7 +4,7 @@
 
 ## 최신 판정
 
-### 1) OPEN/HOND(runtime cadence) — `:17` 전환 뒤 두 ERP5 회차 연속 부재, repository-wide schedule delivery gap
+### 1) OPEN/HOLD(runtime cadence) — `:17` 전환 뒤 두 ERP5 회차 연속 부재, repository-wide schedule delivery gap
 
 PR #410은 merge 완료됐고 canonical ERP5 cron은 `17 0-10 * * 1-6` = 월~토 KST 09:17~19:17이다.
 
