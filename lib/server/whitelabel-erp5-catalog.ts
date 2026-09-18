@@ -69,11 +69,13 @@ function collection(key: keyof typeof cells, name: string): Promise<Record<strin
   return work;
 }
 
-/** 목록·상세가 반드시 같은 ERP5 상품·정책·채널 데이터를 읽는다. */
-export async function readWhitelabelCatalogFromErp5(options: { includePartners?: boolean; includeUsers?: boolean } = {}): Promise<{
+type Erp5CatalogReadOptions = { includePartners?: boolean; includeUsers?: boolean };
+type Erp5CatalogRead = {
   products: Record<string, Rec>; policies: Record<string, Rec>; partners: Record<string, Rec>; users: Record<string, Rec>;
-}> {
-  if (!erp5WhitelabelCutoverRequested()) throw new Error('ERP5 화이트라벨 전환 요청이 OFF입니다.');
+};
+
+/** canonical ERP5 컬렉션 읽기 공통부 — 60초 캐시/inflight는 손님면·내부 ERP가 한 벌을 공유한다. */
+async function readCanonicalCatalog(options: Erp5CatalogReadOptions = {}): Promise<Erp5CatalogRead> {
   const [products, policies, partners, users] = await Promise.all([
     collection('products', 'products'),
     collection('policies', 'policy'),
@@ -81,6 +83,17 @@ export async function readWhitelabelCatalogFromErp5(options: { includePartners?:
     options.includeUsers ? collection('users', 'user') : Promise.resolve({}),
   ]);
   return { products, policies, partners, users };
+}
+
+/** 내부 ERP/Finder용 canonical 읽기. ERP5는 선택 기능이 아니므로 화이트라벨 cutover 스위치에 묶지 않는다. */
+export async function readCanonicalCatalogFromErp5(options: Erp5CatalogReadOptions = {}): Promise<Erp5CatalogRead> {
+  return readCanonicalCatalog(options);
+}
+
+/** 손님 목록·상세는 배포 cutover 스위치가 켜진 경우에만 ERP5를 공개 소비한다. */
+export async function readWhitelabelCatalogFromErp5(options: Erp5CatalogReadOptions = {}): Promise<Erp5CatalogRead> {
+  if (!erp5WhitelabelCutoverRequested()) throw new Error('ERP5 화이트라벨 전환 요청이 OFF입니다.');
+  return readCanonicalCatalog(options);
 }
 
 /**
