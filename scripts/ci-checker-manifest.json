@@ -118,7 +118,7 @@
       "known_bad_pending": "표본 없음. 합성 예약표·yml 쌍이 없다. 최상위 인라인."
     },
     "check:erp5-firebase": {
-      "why": "ERP4·ERP5 같은 Firebase",
+      "why": "ERP5 canonical Firebase 경계 — production OIDC target 고정 + 루트 generic Firebase deploy의 ERP5 기본 타깃 금지",
       "known_bad_pending": "표본 없음. 실제 워크플로 문자열 includes() 만 본다."
     },
     "check:store": {

@@ -2723,3 +2723,21 @@ Claude 구현 Owner: audit (40)의 기술 finding은 유지하되 `pre-merge` �
 5. application code/business logic은 이번 감사에서 수정하지 않았다.
 
 상세 근거: `docs/ai-ssot-audit/2026-09-18-chatgpt-audit51-day-window-closed.md`.
+
+---
+
+## 2026-09-18(52) — ChatGPT 실행: PR #411 운영 엔진 병합 + repin 후보 + Firebase canonical 배포 경계 잠금
+
+**판정: F86 checker 수정은 운영 엔진 계보에 병합 완료. main production repin은 이 변경 묶음의 PR/CI 확인 후 반영한다. schedule delivery HOLD는 유지한다.**
+
+- 사용자 지시에 따라 이번 회차부터 단순 감사가 아니라 확인된 안전 수정은 직접 처리했다.
+- PR #411(`claude/f86-freshness-checker-spec` → `claude/f86-pink-color-ssot`)을 독립 검토했다. base는 당시 production pin `14892951a929cf03796231f260e6bc2ff3060efc`, head는 그 직계 후속 `f17747a549cf7857c28932373ada0bfb8eb7d7da`였고 mergeable 상태였다.
+- PR #411을 ready로 전환하고 merge했다. 새 검증 엔진 merge SHA는 **`cf940df642edf315adbc6da2b4134fbad53da160`**이다.
+- 변경의 본질은 publisher 결과/Atom 의미 변경이 아니라 checker-contract 정합화다. `f86TabTitle`과 freshness checker가 `f86TabCarriesMark`를 공유해 하허호는 「종합 MM.DD HH:MM · N대」 하나만 시각을 갖고 회사 탭은 「회사 · N대」여야 한다. 칸·차번·머리글·탭 차례 대조는 유지되고 반례 시험이 추가됐다.
+- audit (47)에서 이미 정정했듯, 기존 run `35310163711`에서는 freshness failure 뒤에도 Atom↔F01↔F86 cross-audit와 photo-link audit가 실제 실행·success했다. 따라서 PR #411 본문의 “freshness가 풀려야 downstream audit이 다시 돈다”는 문구는 stale 설명이며, 수정의 필요성/정당성과는 무관하다.
+- main 반영 후보 가지 `chatgpt/erp5-ssot-hardening-20260918`에서 production workflow ref를 `cf940df6...`으로 전진시키고 `scripts/check-inventory-source-contract.mts`의 `VALIDATED_ENGINES`에도 같은 SHA를 등록했다. pin과 governance allowlist를 한 묶음으로 움직인다.
+- Firebase 경계도 강화했다. 루트 `firebase.json`은 RTDB·Firestore·Storage Rules를 함께 담으므로 `.firebaserc` default를 `freepasserp5`로 바꾸는 것은 오히려 위험하다. `check:erp5-firebase`에 **루트 default가 `freepasserp5`이면 CI 실패**하는 fail-closed 검사를 추가했다. canonical ERP5 쓰기는 기존대로 OIDC production workflow에서만 project를 명시한다.
+- CI step/manifest의 오래된 “ERP4·ERP5 같은 Firebase” 표현도 실제 역할인 **ERP5 canonical Firebase 경계 검사**로 정정했다.
+- **미해소 유지:** PR #410의 `:17` cron 변경 뒤 2026-09-18 17:17/18:17/19:17 scheduled event가 관측되지 않은 repository-wide schedule delivery gap은 이번 checker/repin과 별개다. 오늘 ERP5 scheduled window는 19:17에 종료됐으므로 수동 dispatch를 schedule 정상화 증거로 대체하지 않는다.
+- **운영 검증 경계:** `cf940df6...`은 아직 main production pin으로 merge되기 전 후보이며, 새 pin 기준 실제 scheduled/full apply green은 별도 증거가 생길 때만 기록한다. 기존 `14892951...`은 full apply에서 데이터/사진 parity가 이미 증명됐고, 그 위 checker-only 전진이라는 점과 runtime proof를 구분한다.
+

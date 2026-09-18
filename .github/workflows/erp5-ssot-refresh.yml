@@ -94,7 +94,11 @@ jobs:
           #   check:color-ssot 위반을 없앴고, channel-retro-skin.ts(회사 탭 배경색, 상품구분과 무관한
           #   우연한 FF00FF 일치)는 그 검사 허용목록에 추가했다. 데이터/판정 로직은 안 건드렸다 —
           #   검증: check:inventory-sources·check:sonokong-options·check:color-ssot 전부 PASS.
-          ref: 14892951a929cf03796231f260e6bc2ff3060efc
+          # ★2026-09-18(12) — PR #411을 운영 엔진 계보에 병합한 cf940df6으로 전진.
+          #   F86 발행 결과/Atom 의미는 바꾸지 않고, 신선도 감사기가 발행기와 같은 f86TabCarriesMark를
+          #   사용하게 해 「종합 MM.DD HH:MM · N대」만 시각, 회사 탭 「회사 · N대」 규격을 그대로 판정한다.
+          #   칸·차번·머리글·탭 차례 대조는 유지하고 반례 시험을 check:f86에 연결했다.
+          ref: cf940df642edf315adbc6da2b4134fbad53da160
       - name: freepasserp5 OIDC 인증
         uses: google-github-actions/auth@v2
         with:

@@ -85,6 +85,15 @@ ERP4 고유 업무 데이터와 ERP5 상품 원자는 논리적으로 분리한�
 - 레거시 workflow가 ERP4 -> ERP5 역방향 writer를 호출하지 않는지
 - 문서가 동일-Firebase 전제를 다시 도입하지 않는지
 
+## Firebase 프로젝트 배포 경계
+
+루트 `.firebaserc` / `firebase.json`은 **ERP5 canonical writer 설정이 아니다.**
+
+- `firebase.json`은 RTDB·Firestore·Storage 규칙을 함께 담고 있으므로 루트의 generic `firebase deploy` 기본 타깃을 `freepasserp5`로 두지 않는다.
+- `freepasserp5` canonical 쓰기는 검증된 production workflow의 OIDC 서비스계정과 `GOOGLE_CLOUD_PROJECT=freepasserp5` 경계로만 지정한다.
+- `npm run check:erp5-firebase`는 `.firebaserc`의 default가 `freepasserp5`로 바뀌면 실패한다. 즉 누가 편의상 ERP5를 루트 기본 프로젝트로 바꿔도 CI가 canonical Rules 오배포 위험을 차단한다.
+- 별도 배포가 필요하면 목적별 명시적 project/config를 사용하고, canonical 원자 writer와 일반 Firebase Rules 배포를 같은 암묵적 default에 의존시키지 않는다.
+
 ## 변경 원칙
 
 새로운 상품/가격/보증금/공급사/차종 기능을 만들 때 먼저 다음 질문에 답한다.

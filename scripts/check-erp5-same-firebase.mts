@@ -25,6 +25,18 @@ const LEGACY_REVERSE_WRITERS = [
 const failures: string[] = [];
 const refresh = readFileSync(REFRESH_WORKFLOW, 'utf8');
 
+const firebaseRcPath = '.firebaserc';
+if (existsSync(firebaseRcPath)) {
+  try {
+    const firebaseRc = JSON.parse(readFileSync(firebaseRcPath, 'utf8')) as { projects?: { default?: string } };
+    if (firebaseRc.projects?.default === CANONICAL_PROJECT_ID) {
+      failures.push(`${firebaseRcPath}: 루트 기본 Firebase 프로젝트가 ${CANONICAL_PROJECT_ID}이면 안 됨. firebase.json은 RTDB·Firestore·Storage 규칙을 함께 담으므로 generic firebase deploy가 canonical ERP5를 덮을 수 있다. ERP5 writer는 workflow/OIDC 경계로만 지정한다.`);
+    }
+  } catch {
+    failures.push(`${firebaseRcPath}: JSON을 읽을 수 없음 — Firebase 기본 프로젝트 경계를 검증할 수 없다.`);
+  }
+}
+
 for (const required of [
   `GOOGLE_CLOUD_PROJECT: ${CANONICAL_PROJECT_ID}`,
   'github-inventory-writer@freepasserp5.iam.gserviceaccount.com',
