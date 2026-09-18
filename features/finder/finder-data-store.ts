@@ -4,7 +4,6 @@ import type { EntityRecord } from '@/lib/intake/entities';
 import { getStore, peekList } from '@/lib/store';
 import { seedIfEmpty } from '@/lib/seed';
 import { firebaseReady, getAuthClient } from '@/lib/firebase/client';
-import { withProviderNames } from '@/lib/domain/identity';
 import { shapeFinderRows } from '@/lib/firebase/firestore-products-client';
 
 export type FinderDataParams = {
