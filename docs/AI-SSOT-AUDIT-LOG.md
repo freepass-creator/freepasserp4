@@ -2932,3 +2932,39 @@ PR #412 premerge Source Contract / generic CI는 success였다. 다만 **새 pin
 상세 근거: `docs/ai-ssot-audit/2026-09-19-chatgpt-audit60-ops-hold-alignment.md`.
 
 이번 감사에서도 application code/business logic은 수정하지 않았다.
+
+
+---
+
+## 2026-09-19(61) — ChatGPT 실행: canonical safe automation cutover 완료
+
+**판정: GO(config/topology) / WATCH(runtime). 자동 writer 충돌 P0는 repository 수준에서 해소했고, 새 settlement intake workflow의 첫 실제 scheduled run만 runtime proof로 남긴다.**
+
+- 사용자 명시적 지시(“알아서 판단하고 자동화”)에 따라 application/business logic은 건드리지 않고 GitHub Actions 운영 topology를 정리했다.
+- PR #418 merge **`27adad84d0fd1d980e51eb00394de11afa48dbed`**:
+  - `contract-status.yml`: schedule 및 운영 `--apply` 제거 → manual dry-run only.
+  - `sales-erp-hourly.yml`: schedule/push/운영 `--apply` 제거 → manual dry-run only.
+  - `mirror-sync.yml`: schedule/운영 `--apply` 제거 → manual dry-run only.
+  - settlement path에서 legacy `sync-contract-from-ledger.mts` 제거.
+  - `check-schedule-map.mts`에 retired schedule 재생성 및 legacy settlement writer 재연결 회귀가드 추가.
+- PR #418 검증:
+  - SSOT adapter contract run `35386792417` success
+  - CI run `35386792385` success
+  - workflow parse / schedule map / ERP5 Firebase boundary / RTDB / settlement / vehicle lock / settlement E2E / production build 전부 PASS
+  - Vercel success
+- 옛 `settlement-sync.yml`은 repository history상 `disabled_manually`이었고 connector에 workflow-enable API가 없으므로, 안전한 automation을 **새 workflow identity**로 등록했다.
+- PR #419 merge **`8583e640a30b058e152443fdf1bfce24f873b0aa`**:
+  - 추가 `.github/workflows/settlement-intake-sync.yml`
+  - 삭제 `.github/workflows/settlement-sync.yml`
+  - cron `5 0-9 * * 1-6` = KST 월~토 09:05~18:05
+  - 책임은 계약접수 시트 → 정산원장 `접수` + 서식/용어 정리뿐이며 inventory/supplier/F01 상태를 직접 쓰지 않음
+  - KST :17 canonical ERP5 refresh가 원장 접수/취소 → Atom → 24 source ingest → fixed snapshot → F01/F86 → audits를 이어받음
+- PR #419 CI run **`35387211356`** success, Vercel success.
+- issue #416(legacy `정산` writer) / #417(legacy scheduled writers) closed completed.
+- issue #415는 OPEN 유지. automatic production dual-writer는 제거됐지만 `mark-contract-in-listings.mts` 내부 legacy marker `정산원장` 코드 debt 자체는 남아 있음.
+- 기존 canonical scheduled full-green run **`35347508078`** / production pin **`cf940df642edf315adbc6da2b4134fbad53da160`**은 유효하며 이번 cutover에서 canonical publisher/collector logic은 변경하지 않았다.
+- **아직 증명하지 않은 것:** 새 `settlement-intake-sync.yml`은 2026-09-19 새벽 main에 처음 등록됐다. 첫 선언 슬롯(KST 09:05) 이전이므로 실제 `event=schedule` 성공은 아직 관측할 수 없다. 수동 apply를 scheduled proof로 대체하지 않는다.
+
+상세 근거: `docs/ai-ssot-audit/2026-09-19-chatgpt-audit61-safe-automation-cutover.md`.
+
+이번 변경은 application/business logic이 아니라 운영 workflow/config + CI governance 범위다.
