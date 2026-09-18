@@ -83,7 +83,7 @@ jobs:
       - name: 예약 지도 — 도는 예약이 모두 지도에 있는가
         run: npm run check:schedules
 
-      - name: ERP4·ERP5가 같은 Firebase를 쓰는가
+      - name: ERP5 canonical Firebase 경계가 잠겼는가
         run: npm run check:erp5-firebase
 
       # ★2026-09-16 — 이 자는 CI 에 걸려 있지 «않았다». 그래서 자가진단이 깨진 채로
