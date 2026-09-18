@@ -8,7 +8,7 @@ description: >
 
 inputs:
   google-sa-json:
-    description: GOOGLE_SA_JSON 시크릿 값. 호출부에서 `${{ secrets.GOOGLE_SA_JSON }}` 로 넘긴다.
+    description: "GOOGLE_SA_JSON 시크릿 값. 호출부에서 secrets.GOOGLE_SA_JSON (중괄호 표현식) 으로 넘긴다."
     required: false
     default: ''
   google-sa-path:
