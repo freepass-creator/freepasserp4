@@ -8,13 +8,14 @@
  *  ① 부트스트랩: 상세 HTML 을 GET → 세션쿠키(JSESSIONID…) + `RB_TOKEN`(JWT, 페이지 인라인) + `_csrf`(input) 확보.
  *  ② 목록(전수): `sitemap-ext.xml` 의 `/rent/…/C########### ` URL = 렌트/구독 전 상품(실측 75). LP API(rentCarLpData)는
  *     «추천 20» 고정이라 페이징이 안 된다 — 그래서 사이트맵으로 전수를 잡는다.
- *  ③ 상세: `POST /api/v1/car/getRentCarDetail.rb` (form-urlencoded `productId=…`) + `carOption.rb` 로 옵션.
+ *  ③ 상세: `POST /api/v1/car/getRentCarDetail.rb` + `carOption.rb` + `getCarImageList.rb`.
+ *     사진은 mainImage 한 장이 아니라 getCarImageList의 photoDomain+photoPath **전부**를 원자 image_urls에 보존한다.
  *     헤더: `X-Ajax-call:true` · `Authorization:<RB_TOKEN>` · `X-CSRF-TOKEN:<_csrf>` · `Cookie:<세션>`.
  *     resultCode 1020 = 토큰만료 → msg 의 새 토큰으로 재시도(내장).
  *
  * ── 필드 매핑(reborncar → 우리 오플구독 원자) ─────────────────────────────────────────
  *  carNumber→차번 · bmname→제조사 · boname→모델 · gradename→세부트림 · carYear→연식 · releaseDate(epoch)→최초등록 ·
- *  carNavi→Km · carFuel→연료 · carColor→외장 · displace→배기량 · seaterInfo→인승 · ideNumber→VIN · mainImage→사진 ·
+ *  carNavi→Km · carFuel→연료 · carColor→외장 · displace→배기량 · seaterInfo→인승 · ideNumber→VIN · getCarImageList 전부→사진 ·
  *  rentPriceObjs→대여료(rentMonth 별 rentPrice2=2만km·rentPrice3=3만km·originPriceN=정가) · carOption.codeNm→옵션.
  *  정책은 reborncar 약관이 «전 상품 동일»: 대인 무제한·대물/자손 1억·세금·보험 포함·보증금(국산 2개월·수입 3~6개월)·
  *  약정초과 1km당 100원·중도해지 잔여 30%.
@@ -27,6 +28,7 @@ import { initializeApp } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { erp5InventoryAppOptions } from '../lib/server/erp5-inventory-service-account';
 import { resolveStatus } from '../lib/domain/atom-status';
+import { photoAtomFields } from '../lib/domain/photo-atom';
 
 const APPLY = process.argv.includes('--apply');
 const STATUS_ONLY = process.argv.includes('--status-only');
@@ -79,8 +81,32 @@ function makeCaller(ctx: { cookie: string; token: string; csrf: string }) {
 }
 
 // ── 매핑: reborncar 상세+옵션 → 우리 오플 원자 필드 ────────────
-function mapCar(detail: Record<string, unknown>, optionResponse: Record<string, unknown>): Record<string, unknown> {
+function rebornImageUrls(detail: Record<string, unknown>, imageResponse: Record<string, unknown>): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  const add = (raw: unknown) => {
+    const value = S(raw);
+    if (!value) return;
+    let url = value;
+    try { url = new URL(value, 'https://cdn.autoplus.co.kr').toString(); } catch { return; }
+    if (!/^https?:\/\//i.test(url) || seen.has(url)) return;
+    seen.add(url); out.push(url);
+  };
+  // 대표사진 순서는 유지하되, 뒤에 갤러리 전부를 붙인다. API가 대표사진을 다시 주면 dedup.
+  add(detail.mainImage);
+  const images = Array.isArray(imageResponse.data) ? imageResponse.data as Array<Record<string, unknown>> : [];
+  for (const row of images) {
+    const domain = S(row.photoDomain);
+    const path = S(row.photoPath);
+    if (!path) continue;
+    try { add(new URL(path, domain || 'https://cdn.autoplus.co.kr').toString()); } catch { /* 잘못된 한 줄만 제외 */ }
+  }
+  return out;
+}
+
+function mapCar(detail: Record<string, unknown>, optionResponse: Record<string, unknown>, imageResponse: Record<string, unknown>): Record<string, unknown> {
   const options = Array.isArray(optionResponse.data) ? optionResponse.data as Array<Record<string, unknown>> : [];
+  const imageUrls = rebornImageUrls(detail, imageResponse);
   const rel = Number(detail.releaseDate);
   const firstReg = Number.isFinite(rel) && rel > 0 ? new Date(rel).toISOString().slice(0, 10) : '';
   // 대여료: rentPriceObjs (JSON string) → { "<개월>_2만": rent, "<개월>_3만": rent } (특가=rentPriceN, 정가=originPriceN)
@@ -109,14 +135,15 @@ function mapCar(detail: Record<string, unknown>, optionResponse: Record<string, 
     engine_cc: S(detail.displace),
     seats: S(detail.seaterInfo),
     vin: S(detail.ideNumber),
-    photo_link: S(detail.mainImage),
+    photo_link: imageUrls[0] || S(detail.mainImage),
+    ...photoAtomFields(imageUrls, Date.now()),
     price,
     options: options.map((o) => S(o.codeNm)).filter(Boolean).join(', '),
     product_type: '오플구독',
     provider_name: '오토플러스',
     source_url: BASE,
     source_external_id: S(detail.productId),
-    _source_raw: { detail, optionResponse },
+    _source_raw: { detail, optionResponse, imageResponse },
   };
 }
 
@@ -145,12 +172,24 @@ for (let i = 0; i < ids.length; i++) {
       fail++; await sleep(150); continue;
     }
     const o = await call('carOption.rb', { productId }, url);
-    cars.push(mapCar(d.data, o && typeof o === 'object' ? o : {}));
+    const images = await call('getCarImageList.rb', { productId }, url);
+    if (images?.__err || images?.header?.isSuccessful === false || !Array.isArray(images?.data)) {
+      const code = S(images?.header?.resultCode || images?.resultCode || images?.__status);
+      const message = S(images?.header?.resultMessage || images?.message || images?.msg || images?.__err).slice(0, 100);
+      failures.push({ productId, reason: ['image-list', code, message].filter(Boolean).join(':') || 'image-list-empty' });
+      fail++; await sleep(150); continue;
+    }
+    cars.push(mapCar(d.data, o && typeof o === 'object' ? o : {}, images));
   } catch (e) { failures.push({ productId, reason: S(e instanceof Error ? e.message : e).slice(0, 100) }); fail++; }
   if ((i + 1) % 10 === 0) process.stdout.write(`.${i + 1}`);
   await sleep(150);
 }
 console.log(`\n  당김 완료 — ${cars.length}대 성공 · ${fail}대 실패`);
+{
+  const counts = cars.map((car) => Array.isArray(car.image_urls) ? (car.image_urls as unknown[]).length : 0);
+  const total = counts.reduce((sum, n) => sum + n, 0);
+  console.log(`  사진 갤러리 — 총 ${total}장 · 차량당 최소 ${counts.length ? Math.min(...counts) : 0} / 최대 ${counts.length ? Math.max(...counts) : 0} / 평균 ${counts.length ? (total / counts.length).toFixed(1) : '0'}장`);
+}
 if (staleSitemapIds.length) console.log(`  사이트맵 폐기 주소 ${staleSitemapIds.length}건 제외 — ${staleSitemapIds.join(', ')}`);
 for (const failure of failures) console.log(`  ✗ ${failure.productId} — ${failure.reason}`);
 
@@ -228,8 +267,19 @@ let batch = db.batch(), inB = 0;
 for (const c of matched) {
   const { id, x } = ours.get(S(c.car_number))!;
   const patch: Record<string, unknown> = {};
-  if (!STATUS_ONLY) for (const k of ['seats', 'ext_color', 'mileage', 'vin', 'fuel_type', 'first_registration_date', 'photo_link']) {
+  if (!STATUS_ONLY) for (const k of ['seats', 'ext_color', 'mileage', 'vin', 'fuel_type', 'first_registration_date']) {
     if (!S(x[k]) && S(c[k])) patch[k] = c[k];
+  }
+  if (!STATUS_ONLY) {
+    const incomingPhotos = Array.isArray(c.image_urls) ? c.image_urls as unknown[] : [];
+    if (incomingPhotos.length && S(c.photo_source_hash) !== S(x.photo_source_hash)) {
+      patch.image_urls = incomingPhotos;
+      patch.photo_source_hash = c.photo_source_hash;
+      patch.photo_collected_at = c.photo_collected_at;
+      patch.photo_link = c.photo_link;
+    } else if (!S(x.photo_link) && S(c.photo_link)) {
+      patch.photo_link = c.photo_link;
+    }
   }
   if (!STATUS_ONLY && !S(x.options) && S(c.options)) patch.options = c.options;
   /** ★이미 원자에 박힌 «카탈로그»는 걷어낸다 — 빈칸 보완만으로는 옛 쓰레기가 안 지워진다(실측 14대). */
