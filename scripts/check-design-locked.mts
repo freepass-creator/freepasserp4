@@ -286,7 +286,11 @@ for (const f of ['색상', '연식', '주행거리', '배기량', '연료', '구
  *   그래서 차명 밑에 있든 차량 정보 안에 있든 빨간불이 안 떴다. 구간을 «구역 안»으로 좁혔다.
  */
 {
-  const vi = Math.max(shopDetail.indexOf('<Sec title="차량 정보"'), shopDetail.indexOf('<section aria-label="차량 정보">'));
+  const vi = Math.max(
+    shopDetail.indexOf('<Sec title="차량 정보"'),
+    shopDetail.indexOf('<Sec id="detail-vehicle" title="차량 정보"'),
+    shopDetail.indexOf('<section aria-label="차량 정보">'),
+  );
   const opt = shopDetail.indexOf('aria-label="선택 옵션"');
   const model = shopDetail.indexOf('>세부모델 및 트림<');
   must(vi >= 0 && opt > vi && model > vi && opt > model,
