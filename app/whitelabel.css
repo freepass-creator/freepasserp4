@@ -207,6 +207,14 @@
   .fp-shop-card:active { box-shadow: none; }
 }
 
+/* 검색 결과의 «왜 나왔는지» — 새 배지를 만들지 않고 이미 보이는 글자만 아주 옅게 표시한다. */
+.fp-shop-match {
+  background: color-mix(in srgb, var(--brand) 10%, transparent);
+  color: inherit;
+  border-radius: 3px;
+  padding-inline: 1px;
+}
+
 /* ③ 불러오는 자리 — 회색 판을 «가만히» 두면 고장 난 것처럼 보인다. 빛이 한 번씩 흐르면 「오는 중」이 된다. */
 @keyframes fp-shop-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 .fp-shop-skel {
@@ -266,16 +274,9 @@
 }
 .fp-wl .fp-shop-search:hover .fp-shop-search__ico { color: var(--brand); }
 .fp-wl .fp-shop-search:focus-within .fp-shop-search__ico { color: var(--brand); }
-.fp-wl .fp-shop-search:focus-within .fp-shop-search__ico::after {
-  opacity: .16;
-  animation: fp-shop-hum 2.6s ease-in-out infinite;
-}
-@keyframes fp-shop-hum {
-  0%, 100% { opacity: .08; transform: scale(.92); }
-  50%      { opacity: .22; transform: scale(1.06); }
-}
+.fp-wl .fp-shop-search:focus-within .fp-shop-search__ico::after { opacity: .14; }
 @media (prefers-reduced-motion: reduce) {
-  .fp-wl .fp-shop-search:focus-within .fp-shop-search__ico::after { animation: none; opacity: .14; }
+  .fp-wl .fp-shop-search:focus-within .fp-shop-search__ico::after { opacity: .14; }
 }
 
 /*
