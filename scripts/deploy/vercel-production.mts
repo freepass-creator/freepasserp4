@@ -45,7 +45,9 @@ function git(...argv: string[]): string {
 }
 
 function vercel(...argv: string[]): string {
-  return run(npx, ['vercel', ...argv], { quiet: true });
+  const token = String(process.env.VERCEL_TOKEN || '').trim();
+  const withAuth = token && !argv.includes('--token') ? [...argv, '--token', token] : argv;
+  return run(npx, ['vercel', ...withAuth], { quiet: true });
 }
 
 function currentBranch(): string {
