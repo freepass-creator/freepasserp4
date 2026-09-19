@@ -235,9 +235,49 @@ const axisMatch: Record<ShopAxis, (p: EntityRecord, key: string) => boolean> = {
   mile: (p, k) => { const b = bandOf(MILE_BANDS, k); const km = Number(p.mileage) || 0; return !!b && km > 0 && km > b.lo && km <= b.hi; },
 };
 
+/**
+ * 가격축(기간·월대여료·보증금)은 **같은 price[term] 행에서** 맞아야 한다.
+ *
+ * 예: 12개월을 골랐는데 36개월 보증금이 0원이라는 이유로 「12개월 + 보증 없음」을 통과시키면
+ * 단기보증/장기보증 SSOT를 화면에서 다시 섞는 것이다. 세 축은 독립 `some()` 이 아니라
+ * 한 가격행 후보를 놓고 동시에 판정한다.
+ */
+const PRICE_AXES = ['term', 'rent', 'dep'] as const;
+type PriceAxis = (typeof PRICE_AXES)[number];
+type ShopPriceRow = ReturnType<typeof priceList>[number];
+
+const isPriceAxis = (axis: ShopAxis): axis is PriceAxis =>
+  (PRICE_AXES as readonly ShopAxis[]).includes(axis);
+
+const priceRowMatches = (row: ShopPriceRow, axis: PriceAxis, key: string): boolean => {
+  if (axis === 'term') return isOperatedPeriod(row.m) && TERM_LABEL(row.m) === key;
+  const bands = axis === 'rent' ? RENT_BANDS : DEP_BANDS;
+  const band = bandOf(bands, key);
+  if (!band) return false;
+  const value = axis === 'rent' ? row.rent : row.deposit;
+  return value > band.lo && value <= band.hi;
+};
+
+const priceSelectionsMatch = (p: EntityRecord, sel: ShopSel, skip?: ShopAxis): boolean => {
+  const active = PRICE_AXES.filter((axis) => axis !== skip && sel[axis].length);
+  if (!active.length) return true;
+  return priceList(p).some((row) =>
+    active.every((axis) => sel[axis].some((key) => priceRowMatches(row, axis, key))));
+};
+
+/** 후보 칩 하나를 셀 때도 나머지 가격조건과 **같은 가격행**에서 맞는지 본다. */
+const priceFacetMatch = (p: EntityRecord, sel: ShopSel, axis: PriceAxis, key: string): boolean =>
+  priceList(p).some((row) =>
+    priceRowMatches(row, axis, key)
+    && PRICE_AXES
+      .filter((other) => other !== axis && sel[other].length)
+      .every((other) => sel[other].some((selected) => priceRowMatches(row, other, selected))));
+
 /** 같은 축 안은 OR(기아 «또는» 현대), 축끼리는 AND(기아 «이면서» SUV) — 마켓의 상식대로. */
 const passes = (p: EntityRecord, sel: ShopSel, skip?: ShopAxis) =>
-  SHOP_AXES.every((a) => a === skip || !sel[a].length || sel[a].some((k) => axisMatch[a](p, k)));
+  priceSelectionsMatch(p, sel, skip)
+  && SHOP_AXES.every((a) =>
+    isPriceAxis(a) || a === skip || !sel[a].length || sel[a].some((k) => axisMatch[a](p, k)));
 
 /**
  * 「같은 차」를 세는 열쇠 — **제조사 + 모델**.
@@ -334,8 +374,11 @@ export function runShopQuery(rows: EntityRecord[] | null, query: ShopQuery): Sho
   /** 값 목록이 정해진 축 — 순서를 재고 대수가 아니라 «손님이 말하는 순서»로 고정한다. */
   const fixedTally = (axis: ShopAxis, order: readonly string[]): ShopOption[] =>
     standingFixed(order,
+      /* 명단·기본대수는 전체 재고의 원래 축 값. 선택 조건 때문에 줄 자체가 사라지면 안 된다. */
       tallyMatch(pool, order, (p, k) => axisMatch[axis](p, k)),
-      tallyMatch(baseFor(axis), order, (p, k) => axisMatch[axis](p, k)))
+      /* 가격축의 현재 건수는 기간·대여료·보증금이 같은 price 행에서 맞아야 한다. */
+      tallyMatch(baseFor(axis), order, (p, k) =>
+        isPriceAxis(axis) ? priceFacetMatch(p, sel, axis, k) : axisMatch[axis](p, k)))
       .map((o) => ({ ...o, label: o.key }));
   const bandTally = (axis: ShopAxis, bands: Band[]): ShopOption[] => {
     const keys = bands.map((b) => b.k);
@@ -343,7 +386,8 @@ export function runShopQuery(rows: EntityRecord[] | null, query: ShopQuery): Sho
     const name = new Map(bands.map((b) => [b.k, b.shop || b.label]));
     return standingFixed(keys,
       tallyMatch(pool, keys, (p, k) => axisMatch[axis](p, k)),
-      tallyMatch(baseFor(axis), keys, (p, k) => axisMatch[axis](p, k)))
+      tallyMatch(baseFor(axis), keys, (p, k) =>
+        isPriceAxis(axis) ? priceFacetMatch(p, sel, axis, k) : axisMatch[axis](p, k)))
       .map((o) => ({ ...o, label: name.get(o.key) || o.key }));
   };
 
