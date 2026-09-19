@@ -21,6 +21,7 @@ import { existsSync, readFileSync } from 'node:fs';
 const args = new Set(process.argv.slice(2));
 const verifyOnly = args.has('--verify-only');
 const repairAlias = args.has('--repair-alias');
+const once = args.has('--once');
 const npx = process.platform === 'win32' ? 'npx.cmd' : 'npx';
 
 function run(cmd: string, argv: string[], opts: { quiet?: boolean } = {}): string {
@@ -136,7 +137,7 @@ async function main() {
   const expectedSha = shortSha('HEAD');
 
   if (verifyOnly) {
-    const ok = await verifyLive(expectedSha, 1, 0);
+    const ok = await verifyLive(expectedSha, once ? 1 : 12, once ? 0 : 5000);
     if (!ok) process.exitCode = 1;
     return;
   }
