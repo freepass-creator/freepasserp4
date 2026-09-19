@@ -344,8 +344,9 @@ export function ChannelWordmark({ wl, fs, color = C.ink, after }: {
  * ⚠ «글자의 중심»은 줄상자 가운데가 **아니다** — 대문자뿐이라 밑으로 내려가는 획이 없어 둘이
  *   어긋난다(`CAP_NUDGE`). 거기에 심볼 제 무게중심 보정(`MARK_OPTICAL`)을 더해 «보이는» 가운데를 맞춘다.
  */
-export function ChannelSign({ wl, fs, gap, after }: {
-  wl: Whitelabel; fs: number; gap: number;
+export function ChannelSign({ wl, fs, headlineFs, gap, after }: {
+  wl: Whitelabel; fs: number; headlineFs?: number; gap: number;
+  /** 라벨 없는 표준 얼굴의 설명 글 크기. 상단바에서는 웹/모바일 동일값을 직접 넘긴다. */
   /** 워드마크 «뒤»에 같은 밑선으로 붙는 것 — 동반 표기(위 `ChannelWordmark.after`). */
   after?: ReactNode;
 }) {
@@ -360,7 +361,7 @@ export function ChannelSign({ wl, fs, gap, after }: {
   if (!hasBrand(wl)) {
     return wl.headline ? (
       <span style={{
-        fontSize: Math.round(fs * HEADLINE_RATIO), fontWeight: FW.title,
+        fontSize: headlineFs ?? Math.round(fs * HEADLINE_RATIO), fontWeight: FW.title,
         letterSpacing: '-0.02em', lineHeight: 1, color: C.ink, whiteSpace: 'nowrap',
       }}>{wl.headline}</span>
     ) : null;
