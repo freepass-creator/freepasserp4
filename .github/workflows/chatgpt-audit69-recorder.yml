@@ -1,0 +1,150 @@
+name: ChatGPT Audit 69 Recorder
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/chatgpt-audit69-recorder.yml'
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  record:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Record audit 69 and self-remove recorder
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          git fetch origin main
+          git checkout main
+          git pull --ff-only origin main
+
+          if grep -F "audit (69)" docs/AI-SSOT-AUDIT-LOG.md >/dev/null; then
+            echo "Audit 69 already recorded; refusing duplicate." >&2
+            exit 1
+          fi
+
+          # Fail closed unless all three newly material runtime facts still hold.
+          SETTLEMENT_JSON="$(gh api repos/${{ github.repository }}/actions/runs/35421466467)"
+          CHAIN_JSON="$(gh api repos/${{ github.repository }}/actions/runs/35421496262)"
+          NATIVE_JSON="$(gh api repos/${{ github.repository }}/actions/runs/35421826100)"
+
+          test "$(printf '%s' "$SETTLEMENT_JSON" | jq -r '.event')" = "schedule"
+          test "$(printf '%s' "$SETTLEMENT_JSON" | jq -r '.conclusion')" = "success"
+          test "$(printf '%s' "$SETTLEMENT_JSON" | jq -r '.created_at')" = "2026-09-19T04:30:22Z"
+          test "$(printf '%s' "$CHAIN_JSON" | jq -r '.event')" = "workflow_run"
+          test "$(printf '%s' "$CHAIN_JSON" | jq -r '.conclusion')" = "success"
+          test "$(printf '%s' "$NATIVE_JSON" | jq -r '.event')" = "schedule"
+          test "$(printf '%s' "$NATIVE_JSON" | jq -r '.conclusion')" = "success"
+          test "$(printf '%s' "$NATIVE_JSON" | jq -r '.created_at')" = "2026-09-19T04:38:19Z"
+
+          # Confirm the live topology and core source/projection boundaries still match the audited contract.
+          grep -F "cron: '5 0-9 * * 1-6'" .github/workflows/settlement-intake-sync.yml >/dev/null
+          grep -F "cron: '17 0-10 * * 1-6'" .github/workflows/erp5-ssot-refresh.yml >/dev/null
+          grep -F "cf940df642edf315adbc6da2b4134fbad53da160" .github/workflows/erp5-ssot-refresh.yml >/dev/null
+          grep -F "sourceUrl: 'https://sokrc.com/api'" lib/domain/inventory-source-registry.ts >/dev/null
+          grep -F "sourceUrl: 'https://www.reborncar.co.kr'" lib/domain/inventory-source-registry.ts >/dev/null
+          grep -F "RETIRED mirror dry-run" .github/workflows/mirror-sync.yml >/dev/null
+          grep -F "RETIRED 경로 dry-run" .github/workflows/sales-erp-hourly.yml >/dev/null
+          grep -F "workflow_dispatch:" .github/workflows/contract-status.yml >/dev/null
+
+          cat > docs/ai-ssot-audit/2026-09-19-chatgpt-audit69-native-settlement-chain-erp5-green.md <<'EOF'
+          # ChatGPT Audit (69) — native settlement chain + ERP5 native slot completed green
+
+          Date: 2026-09-19 KST
+
+          ## Finding
+
+          Audit (68) captured the first resumed native ERP5 schedule while it was still in progress. The live runtime has now advanced materially: the safe settlement schedule has also produced its first real native success, that success chained into ERP5 successfully, and the audit (68) native ERP5 run itself finished successfully.
+
+          ## Evidence
+
+          - `35421466467` — `정산 접수→원장(1시간)`, `event=schedule`, created `2026-09-19T04:30:22Z` = **13:30:22 KST**, completed **success**. The current settlement cron is `5 0-9 * * 1-6`; relative to the nearest declared 13:05 slot this is about **25m 22s late**.
+          - `35421496262` — `ERP5 SSOT 원천 최신화(매시간)`, `event=workflow_run`, created at 13:30:58 KST after that settlement run, completed **success**. This proves the safe settlement→ERP5 chain from a *real native settlement schedule*, not only from the heartbeat `push` fallback.
+          - `35421826100` — `ERP5 SSOT 원천 최신화(매시간)`, `event=schedule`, created **13:38:19 KST**, completed **success** at 13:50:23 KST. This resolves audit (68)'s recorder-time `in_progress/pending` state. The live ERP5 cron remains `:17`, so this native slot arrived about **21m 19s late**.
+          - Canonical production pin remains `cf940df642edf315adbc6da2b4134fbad53da160`.
+          - Current canonical source registry and fixed-snapshot F01/F86 contract are unchanged; RP012 remains Sonogong ERP/API and RP023 remains RebornCar. Retired `contract-status`, `sales-erp-hourly`, and `mirror-sync` automatic writer paths remain schedule-free/manual diagnostic paths.
+
+          ## Audit conclusion
+
+          **판정: PARTIAL RESOLVED / native scheduled runtime success confirmed; cadence·timeliness HOLD remains**
+
+          - The safe settlement native schedule and settlement→ERP5 chaining now have real runtime success evidence.
+          - Audit (68)'s pending ERP5 native run is now a completed success.
+          - Do **not** close native cadence/timeliness yet: both observed native deliveries were still roughly 20–25 minutes late, and one successful slot per workflow is not enough to prove consecutive punctual cadence.
+          - Do not classify the next 14:05/14:17 slots as missing from this audit snapshot; the observed scheduler delay envelope has already exceeded 20 minutes.
+          - Audit (67)'s `standard-quote-defaults.snapshot.json` source-trigger/freshness HOLD remains open.
+          - Existing RP023/RP031 provenance, deposit/price/tab/freshness, `/inventory`, and other separately tracked HOLDs remain unchanged absent direct new evidence.
+
+          No application code or business logic was modified by this audit.
+          EOF
+
+          cat >> docs/AI-SSOT-AUDIT-LOG.md <<'EOF'
+
+          ---
+
+          ## 2026-09-19 — ChatGPT audit (69): native settlement chain + ERP5 native slot completed green
+
+          **판정: PARTIAL RESOLVED / native scheduled runtime success 확인, cadence·timeliness HOLD 유지**
+
+          - audit (68)은 ERP5 native `event=schedule` run `35421826100`을 **진행 중** 상태로 기록했다. 이 run은 이후 `completed / success`로 종료됐다(13:38:19 KST 생성 → 13:50:23 KST 완료). production pin `cf940df642edf315adbc6da2b4134fbad53da160`의 native scheduled runtime 성공 증거가 생겼다.
+          - safe settlement automation도 첫 실제 native schedule 성공을 만들었다. run **`35421466467`**은 `정산 접수→원장(1시간)`, `event=schedule`, **13:30:22 KST**, conclusion `success`다. 현재 cron `:05` 기준 가장 가까운 13:05 slot 대비 약 **25분 22초 지연**이다.
+          - 그 settlement 성공 직후 ERP5 run **`35421496262`**가 `event=workflow_run`으로 13:30:58 KST 생성돼 `success`로 끝났다. 따라서 heartbeat `push`가 아니라 **실제 native settlement schedule → ERP5 safe-chain**도 runtime에서 증명됐다.
+          - ERP5 native run `35421826100`은 `:17` cron 대비 약 **21분 19초 지연**이었다. settlement/ERP5 모두 native 성공 증거가 생겼지만 각각 1회이고 20분대 지연이므로 **연속 cadence·정시성 정상화는 아직 입증되지 않았다.** native schedule HOLD는 유지한다.
+          - 현재 시점의 다음 14:05/14:17 slot은 최근 실제 지연폭을 충분히 넘기지 않았으므로 이 감사에서 `missing`으로 판정하지 않는다.
+          - production pin, 24-source canonical registry, fixed-snapshot F01/F86, Sonogong/AutoPlus special-tab 규칙, retired contract/sales/mirror automatic writers 및 RTDB/mirror non-canonical boundary에는 신규 회귀 증거가 없다.
+          - audit (67)의 standard quote-defaults freshness trigger gap과 기존 RP023/RP031/deposit/price/tab/freshness/`/inventory` HOLD는 별도 해소 증거가 없어 유지한다.
+
+          Detail: `docs/ai-ssot-audit/2026-09-19-chatgpt-audit69-native-settlement-chain-erp5-green.md`
+          EOF
+
+          tmp="$(mktemp)"
+          cat > "$tmp" <<'EOF'
+          # CLAUDE-AUDIT — latest SSOT audit entry point
+
+          ## Audit (69) override — 2026-09-19 KST
+
+          Claude is the sole implementation owner. ChatGPT is an independent auditor only.
+
+          ### New material delta
+
+          - **PARTIAL RESOLUTION:** safe settlement run `35421466467` is a real native `event=schedule` and completed **success** at 13:30 KST. Its success triggered ERP5 run `35421496262` as `event=workflow_run`, which also completed **success**. Native settlement→ERP5 chaining is now proven in runtime, not only via heartbeat recovery.
+          - Audit (68)'s native ERP5 run `35421826100` is no longer pending: it completed **success**. The production pin remains `cf940df642edf315adbc6da2b4134fbad53da160`.
+          - **HOLD remains:** settlement arrived about 25m after the nearest `:05` slot and ERP5 about 21m after its `:17` slot. One native success each does not prove consecutive cadence or acceptable punctuality.
+          - Do not call the next 14:05/14:17 slots missing until they exceed the observed delay envelope; keep heartbeat/`workflow_run` recovery evidence distinct from native cadence evidence.
+          - Audit (67)'s standard quote-defaults source-trigger/freshness HOLD remains open. Core registry, F01/F86 fixed-snapshot projection, Sonogong/AutoPlus rules, retired legacy automatic writers, and RTDB/mirror boundary show no new regression in this delta.
+
+          ### Claude handoff
+
+          1. Treat native settlement→ERP5 chaining and the audit (68) ERP5 run completion as **runtime PASS evidence**.
+          2. Keep native cadence/timeliness on WATCH/HOLD until consecutive native schedule slots arrive successfully with an acceptable delay pattern.
+          3. Keep audit (67) quote-defaults freshness and the other independently tracked HOLDs separate.
+
+          Detail: `docs/ai-ssot-audit/2026-09-19-chatgpt-audit69-native-settlement-chain-erp5-green.md`
+
+          No application code or business logic was modified by the auditor.
+
+          ---
+
+          EOF
+          cat CLAUDE-AUDIT.md >> "$tmp"
+          mv "$tmp" CLAUDE-AUDIT.md
+
+          git rm .github/workflows/chatgpt-audit69-recorder.yml
+          git add CLAUDE-AUDIT.md docs/AI-SSOT-AUDIT-LOG.md docs/ai-ssot-audit/2026-09-19-chatgpt-audit69-native-settlement-chain-erp5-green.md
+          git config user.name 'chatgpt-auditor'
+          git config user.email 'actions@users.noreply.github.com'
+          git commit -m 'docs(audit): record native scheduled chain green'
+          git push origin HEAD:main
