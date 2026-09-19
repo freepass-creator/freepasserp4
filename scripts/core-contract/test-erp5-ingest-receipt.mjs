@@ -1,4 +1,9 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { buildIngestReceipt, parseIngestSummary } from './build-erp5-ingest-receipt.mjs';
 
 const engine='cf940df642edf315adbc6da2b4134fbad53da160';
@@ -40,3 +45,32 @@ assert.equal(unknown.reason_code,'INGEST_LOG_UNPARSEABLE');
 assert.equal(unknown.output.digest,null);
 
 console.log('✓ ERP5 ingest Core receipt parser — success/partial/preflight/preview/unknown');
+
+
+const dir=mkdtempSync(join(tmpdir(),'erp5-core-receipt-'));
+try{
+  const logPath=join(dir,'ingest.log');
+  const outPath=join(dir,'receipt.json');
+  writeFileSync(logPath,okLog,'utf8');
+  const helper=fileURLToPath(new URL('./build-erp5-ingest-receipt.mjs',import.meta.url));
+  const cli=spawnSync(process.execPath,[
+    helper,
+    '--log='+logPath,
+    '--out='+outPath,
+    '--engine-revision='+engine,
+    '--run-id=456',
+    '--run-attempt=2',
+    '--outcome=success',
+    '--event=schedule',
+    '--started-at='+time,
+    '--ended-at='+time,
+  ],{encoding:'utf8'});
+  assert.equal(cli.status,0,cli.stderr||cli.stdout);
+  const written=JSON.parse(readFileSync(outPath,'utf8'));
+  assert.equal(written.schema_version,'core-receipt/v1');
+  assert.equal(written.status,'SUCCEEDED');
+  assert.equal(written.metrics.supplier_total,24);
+  assert.equal(written.correlation_id,'github-actions-456-2');
+}finally{
+  rmSync(dir,{recursive:true,force:true});
+}
