@@ -3202,3 +3202,22 @@ No application code or business logic was modified by the auditor.
 상세: `docs/ai-ssot-audit/2026-09-19-chatgpt-audit74-native-erp5-overlap.md`
 
 No application code or business logic was modified by the auditor.
+
+---
+
+## 2026-09-19 — ChatGPT audit (75): audit (74) overlap pair both green + ERP4 MAIN public canonical-read lock
+
+**판정: PARTIAL RESOLVED / IMPLEMENTATION CHANGE / STRUCTURAL HOLD.**
+
+- audit (74)의 live overlap pair는 종료됐다. settlement-chain ERP5 `35434667030`(`event=workflow_run`)과 direct native ERP5 `35434923578`(`event=schedule`) 모두 `completed / success`다. 이번 pair에서는 direct run이 running chain 뒤에서 실제로 직렬화돼 완료됐고 신규 data corruption/duplicate-row/projection drift 증거는 확인되지 않았다.
+- 그러나 audit (71)의 burst/backfill queue hazard는 **OPEN 유지**다. Current `.github/workflows/erp5-ssot-refresh.yml`은 `schedule` / settlement `workflow_run` / heartbeat `push`를 같은 `erp5-inventory-publish` concurrency group으로 보내고 `cancel-in-progress:false`를 사용하며 trigger-level dedupe/coalescing은 없다. 15:05 ERP5 `35427915834` cancelled-before-job failure도 해당 slot reconciliation evidence가 없다.
+- Native cadence/timeliness도 HOLD다. 18:05 settlement는 약 20분, 18:17 ERP5 direct는 약 14분 늦게 도착했다. 이번 audit snapshot의 newest native `event=schedule`은 `35434923578`; 19:17 slot은 아직 충분한 delay envelope를 넘지 않아 missing으로 단정하지 않는다.
+- audit (74) 이후 main에는 두 implementation commit이 추가됐다. `d041da248fa131e62043ed3c66bbace98cda4e44`가 ERP4 MAIN public Product Browse 안정화 규격과 required `check:erp4-main`을 추가했고, `scripts/check-erp4-main-lock.mts`가 public guest listing의 `readWhitelabelCatalogFromErp5` 사용을 강제하며 legacy ERP4 store/RTDB fallback을 금지한다. `2d9fd07075aae7d6d64687fabbf61126e166c34c`는 기간·월대여료·보증금/facet/정렬/대표가격이 동일 price row를 사용하도록 잠갔다. Current head verify run `35437192663`은 success다.
+- 이는 downstream public read/projection hardening이며 canonical inventory writer/source authority 변경은 아니다. Production pin `cf940df642edf315adbc6da2b4134fbad53da160`, 24-source registry, same fixed-snapshot F01/F86, Sonogong `오공구독`/`픽업구독`, AutoPlus `오플구독`, retired legacy automatic writers 및 RTDB/mirror non-canonical boundary는 unchanged다.
+- audit (67)의 `standard-quote-defaults.snapshot.json` trigger/freshness HOLD도 그대로다. Current exporter workflow는 actual source `lib/domain/estimate/cost-settings.ts`와 `scripts/export-standard-quote-defaults.mts`를 `push.paths`로 감시하지 않고 cron도 없다.
+
+**Claude 인계:** audit (74)의 specific pair는 both-green으로 닫되 audit (71)의 third-trigger/burst queue safety와 15:05 reconciliation을 닫지 않는다. Native cadence는 연속 real `event=schedule` 증거로만 해소한다. ERP4 MAIN의 ERP5-only public read boundary와 `check:erp4-main` lock을 유지하고 canonical source/F01-F86/special-tab/legacy-retirement 규칙은 이번 runtime 이슈 때문에 변경하지 않는다.
+
+Detail: `docs/ai-ssot-audit/2026-09-19-chatgpt-audit75-overlap-green-public-main-lock.md`
+
+No application code or business logic was modified by the auditor.
