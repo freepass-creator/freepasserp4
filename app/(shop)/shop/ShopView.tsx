@@ -858,7 +858,7 @@ export function ShopView({ wl = FREEPASS, initial = null }: {
                 그림이 한 번 지워지고 다시 들어온다 — 그게 더 느려 보인다.
             */}
             {rows === null && !initial?.list.length ? (
-              <Grid mobile={mobile}>
+              <Grid>
                 {Array.from({ length: 6 }, (_, i) => <Skeleton key={i} />)}
               </Grid>
             ) : feedError ? (
@@ -870,7 +870,7 @@ export function ShopView({ wl = FREEPASS, initial = null }: {
               <ShopEmpty onClear={() => { setTyped(''); setQuery(emptyQuery()); }} />
             ) : (
               <>
-                <Grid mobile={mobile}>
+                <Grid>
                   {/* ★순번을 넘긴다 — 첫 화면 카드는 사진을 «기다리지 않고» 받는다(`ShopCard` `rank`). */}
                   {shown.map((p, i) => (
                     <ShopCard key={String(p.product_code)} p={p} href={href(p)} rank={i} />
@@ -910,7 +910,7 @@ export function ShopView({ wl = FREEPASS, initial = null }: {
  * «훑어야 하는» 곳이다. 우리는 716대고 손님은 조건으로 좁혀서 온다.
  * 좁혀 놓고 보는 화면이면 한 대를 **제대로** 보여 주는 편이 낫다.
  */
-function Grid({ mobile, children }: { mobile: boolean; children: React.ReactNode }) {
+function Grid({ children }: { children: React.ReactNode }) {
   return (
     <div className="fp-shop-grid">
       {children}
