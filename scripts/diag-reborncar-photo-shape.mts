@@ -39,7 +39,8 @@ for(const url of urls){
       shape[k]=Array.isArray(v)?{type:'array',length:v.length,sample:v.slice(0,3)}:
         (v && typeof v==='object'?{type:'object',keys:Object.keys(v as object).slice(0,30)}:S(v).slice(0,300));
     }
-    console.log(JSON.stringify({productId,url,carNumber:detail.carNumber,photoKeys:keys,shape},null,2));
+    const imageResp=await call(ctx,'getCarImageList.rb',{productId},url).catch((e)=>({__err:String(e)}));
+    console.log(JSON.stringify({productId,url,carNumber:detail.carNumber,photoKeys:keys,shape,imageResponse:imageResp},null,2));
     shown++;
     if(shown>=3) break;
   }catch(e){console.error('ERR',productId,String(e).slice(0,120));}
