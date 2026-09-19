@@ -294,8 +294,8 @@ export function WhitelabelFrame({
                   ⇒ 대신 **두 표기를 가른다** — 간판은 국문 CI(프리패스모빌리티), 동반은 영문 CI
                     (freepassmobility). 둘 다 CI 정본이고, 글자가 갈리니 자리가 눈에 보인다.
               */}
-              <ChannelSign wl={wl} fs={mobile ? 17 : 23} gap={mobile ? 8 : 10}
-                after={<CoBrandFreepass fs={mobile ? 11 : 13} gap={mobile ? 9 : 12} />} />
+              <ChannelSign wl={wl} fs={SHOP.top.title} headlineFs={SHOP.top.title} gap={mobile ? 8 : 10}
+                after={<CoBrandFreepass fs={SHOP.top.cobrand} gap={mobile ? 9 : 12} />} />
             </a>
           )}
           <div style={{ flex: 1 }} />
