@@ -2988,3 +2988,23 @@ PR #412 premerge Source Contract / generic CI는 success였다. 다만 **새 pin
 상세 근거: `docs/ai-ssot-audit/2026-09-19-chatgpt-audit62-first-safe-schedule-delivery-gap.md`.
 
 이번 감사에서는 application code/business logic을 수정하지 않았다.
+
+---
+
+## 2026-09-19(63) — ChatGPT 독립 감사: heartbeat recovery가 production trigger topology를 확장, intake bootstrap은 복구됐으나 native schedule WATCH 유지
+
+**판정: MATERIAL / PARTIAL RESOLVED + GOVERNANCE DRIFT + WATCH(native schedule).**
+
+- audit 기준 current main은 `dde2268bb651cf6be9fba58e148f89008dc41024`다. audit (62) 이후 application/business logic을 건드리지 않은 채 automation recovery topology가 바뀌었다. `settlement-intake-sync.yml`은 path-restricted heartbeat `push`를 production apply trigger로 받아들이고, 성공한 settlement 뒤 ERP5가 `workflow_run`으로 이어지며, ERP5 자체에도 path-restricted heartbeat `push` fallback이 추가됐다.
+- 첫 settlement heartbeat recovery run `35412968175`는 `Error: 「프리패스 당월 계약접수」를 못 찾았다 — create-contract-intake-sheet.mts 먼저`로 실제 실패했다. 즉 새 safe automation의 canonical intake sheet bootstrap gap이 runtime에서 확인됐다.
+- commit `15e56c262ac5c95d8dde4edc6dd3c82c5e8733d7`이 해당 missing-sheet 오류에 한해 canonical intake sheet를 1회 생성하고 재시도하도록 auto-heal을 추가했다. current retry run **`35413059063`은 push event로 success**했고 canonical intake sheet가 실제 생성됐다. 당시 접수 행은 0대였다. 따라서 “intake sheet 자체가 없어 settlement automation이 즉시 죽는 문제”는 current recovery path에서 **해소됨**이다.
+- 성공한 settlement recovery 뒤 canonical ERP5 `workflow_run` **`35413099804`**가 실제 생성됐다. 감사 시점에는 checkout/OIDC/source contract/source collection/contract-lock까지 success했고 `원천에서 ERP5 현재 원자 계산`이 in progress였다. snapshot → F01/F86 → freshness/cross-parity/photo까지 full green 완료는 아직 확정하지 않는다. current main CI `35413059072`은 success다.
+- **native schedule WATCH는 해소되지 않았다.** repository-wide `event=schedule` 최신은 여전히 `35347508078`(2026-09-18 21:58:18 KST, ERP5 canonical, success)이다. heartbeat `push` recovery나 `workflow_run` chain을 native cron delivery 복구 증거로 대체하지 않는다.
+- 신규 governance drift가 있다. current `docs/예약작업-지도.md`는 자동운영을 cron 중심으로 설명하며 heartbeat `push.paths`, settlement→ERP5 `workflow_run`, ERP5 direct heartbeat fallback을 trigger map에 기록하지 않는다. `scripts/check-schedule-map.mts`도 cron map/retired schedule/legacy settlement 재연결은 검사하지만 이 non-cron production trigger plane은 검증하지 않는다. 따라서 CI green이어도 운영지도와 실제 production writer trigger topology가 갈릴 수 있다.
+- production pin `cf940df642edf315adbc6da2b4134fbad53da160`, 24-source canonical registry, F01/F86 fixed-snapshot projection, Sonogong/AutoPlus special-tab 규칙, retired mirror/sales/contract writers 및 RTDB boundary에는 이번 delta에서 신규 회귀 증거가 없다. 기존 RP023/RP031/deposit/price/tab/freshness `/inventory` HOLD도 직접 해소 증거가 없어 유지한다.
+
+**Claude 구현 Owner:** heartbeat recovery를 임의로 되돌리지 말고 이 trigger plane을 승인된 production architecture로 둘지 먼저 결정한다. 승인한다면 `docs/예약작업-지도.md`와 CI guard가 heartbeat `push.paths` / `workflow_run`까지 fail-closed로 검증하도록 정합화한다. 승인하지 않는다면 native `event=schedule` 연속 green을 먼저 확보한 뒤 fallback을 retire한다. `35413099804`의 full completion도 확인한다.
+
+상세 근거: `docs/ai-ssot-audit/2026-09-19-chatgpt-audit63-heartbeat-recovery-topology-drift.md` (detail commit `eddf29a594040bb926098ce38e57c19c9b5150f0`).
+
+이번 ChatGPT 감사에서는 application code/business logic을 수정하지 않았다.
