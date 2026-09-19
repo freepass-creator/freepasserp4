@@ -41,3 +41,5 @@ jobs:
         run: npx tsx scripts/check-ai-core-contract-shadow.mts
       - name: ERP5 Core receipt parser
         run: node scripts/core-contract/test-erp5-ingest-receipt.mjs
+      - name: Workflow contract regression
+        run: npm run check:workflows
