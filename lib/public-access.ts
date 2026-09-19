@@ -1,6 +1,9 @@
 /**
- * 손님 공개면 — Auth·RTDB 세션 게이트 우회용.
- * /shop · /q · /catalog · /sign 은 로그인 없이 매물·서명 조회 가능해야 함.
+ * 레거시 업무 셸의 Auth·RTDB 공개 예외 목록.
+ *
+ * ★ ERP4 MAIN / 화이트라벨 공개 상품면은 이 목록으로 «인증을 우회»하지 않는다.
+ * 미들웨어가 x-fp-guest를 붙인 요청은 app/layout.tsx에서 AuthProvider 자체를 마운트하지 않는다.
+ * 이 파일은 같은 저장소의 레거시/미리보기 업무 셸에서 공개 라우트를 열어야 할 때만 쓰는 호환 경계다.
  */
 import { WHITELABELS, homeIsShop } from '@/lib/whitelabel';
 
@@ -21,9 +24,9 @@ const PUBLIC_EXACT = [
  * 지금 보고 있는 주소의 «첫 화면»이 가게인가 — 브라우저에서만 답한다.
  * 서버에서는 각 층의 서버 껍데기가 `headers()` 로 이미 판정하므로 여기서 알 필요가 없다.
  *
- * ★★**미들웨어와 «같은 함수»를 본다**(`homeIsShop`). 전에는 두 곳이 각자 계산해서,
- *   한쪽만 고치면 **서버는 가게를 그리는데 이 게이트가 로그인으로 튕기는** 반쪽 상태가 났다.
- *   그래서 우리 도메인을 가게로 켜는 스위치(`HOME_IS_SHOP`)도 저절로 양쪽에 같이 걸린다.
+ * ★★ 레거시/미리보기 업무 셸에서만 미들웨어와 같은 `homeIsShop` 판정을 공유한다.
+ * ERP4 MAIN 실제 공개 요청은 루트 레이아웃에서 AuthProvider를 올리지 않으므로 이 게이트를 타지 않는다.
+ * 이 함수는 미들웨어가 없는 임시 호스트/레거시 셸 호환을 위한 안전망이다.
  */
 function homeIsShopHere(): boolean {
   if (typeof window === 'undefined') return false;
