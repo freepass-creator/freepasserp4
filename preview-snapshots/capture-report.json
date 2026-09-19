@@ -1,0 +1,36 @@
+{
+  "capturedAt": "2026-09-19T05:02:41.171Z",
+  "base": "https://freepasserp.com",
+  "shots": [
+    {
+      "name": "desktop",
+      "requestedUrl": "https://freepasserp.com",
+      "finalUrl": "https://freepasserp.com/",
+      "status": 200,
+      "title": "freepasserp.com — 장기렌터카 상품찾기",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "screenshot": "artifacts/erp4-live-desktop.png"
+    },
+    {
+      "name": "mobile",
+      "requestedUrl": "https://freepasserp.com",
+      "finalUrl": "https://freepasserp.com/",
+      "status": 200,
+      "title": "freepasserp.com — 장기렌터카 상품찾기",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "screenshot": "artifacts/erp4-live-mobile.png"
+    }
+  ],
+  "loginProbe": {
+    "requestedUrl": "https://freepasserp.com/login",
+    "finalUrl": "https://freepasserp.com/",
+    "status": 200,
+    "title": "freepasserp.com — 장기렌터카 상품찾기"
+  }
+}
