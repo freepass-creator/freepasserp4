@@ -3299,3 +3299,22 @@ No application code or business logic was modified by the auditor.
 Detail: `docs/ai-ssot-audit/2026-09-20-chatgpt-audit79-ledger-gap-correction.md`
 
 No application code or business logic was modified by the auditor.
+
+---
+
+## 2026-09-20 — ChatGPT audit (79): stale audit-78 central-ledger-gap claim corrected
+
+**판정: 해소됨 / AUDIT-METADATA CORRECTION. Application/business logic 변화 없음.**
+
+- `docs/ai-ssot-audit/2026-09-19-chatgpt-audit78-central-ledger-gap.md`의 “중앙 원장이 audit (77)에서 끝난다”는 주장은 그 파일이 commit될 당시 이미 stale이었다. 중앙 원장은 commit `4188379f63cbaccccd8cb35d9359fbf9f9b122f4`에서 audit (78)을 이미 append한 상태였다.
+- 그 뒤 commit `03d504f7501cfeeaf9645d292bf4ed0662afa6c1`이 옛 blob/state를 근거로 존재하지 않는 audit-78 ledger gap을 OPEN처럼 기록했다. commit `629b0e1e28bd92099609a64b20e6f871830d8cd7`의 `docs/ai-ssot-audit/2026-09-20-chatgpt-audit79-ledger-gap-correction.md`가 이를 정정했다.
+- 따라서 **audit (78)을 중앙 원장에 다시 append하지 않는다.** 이 항목은 잘못된 metadata finding을 닫는 정정이며, audit (78)의 운영 판정 자체는 유지한다.
+- Fresh runtime recheck에서 newest native `event=schedule`은 여전히 ERP5 `35447185563`(2026-09-19 22:55:32 KST 생성, 23:05:39 KST success)이다. native delivery 재출현은 확인됐지만 연속 cadence·timeliness 복구 증거는 아니므로 HOLD를 유지한다.
+- Current production pin은 `cf940df642edf315adbc6da2b4134fbad53da160`; 24-source canonical registry, 동일 fixed-snapshot F01/F86, F86 `종합`의 손오공·오토플러스 제외 + 각 special tab 유지, retired `sales-erp-hourly`/`mirror-sync` automatic writers, RTDB/mirror non-canonical boundary에는 신규 drift가 없다.
+- 기존 OPEN은 그대로다: audit (71) shared-concurrency/pending-replacement + 15:05 cancelled-before-job reconciliation, audit (76) successful native 18:05 settlement false replay, audit (67) standard quote-defaults freshness trigger gap, native cadence/timeliness HOLD.
+- `CLAUDE-AUDIT.md`는 이미 정확한 Audit (78) 운영 요약을 담고 있고 false ledger-gap 주장을 반복하지 않으므로 **변경하지 않는다.**
+- audit (79) head CI `35451995270`은 `success`다.
+
+Detail: `docs/ai-ssot-audit/2026-09-20-chatgpt-audit79-ledger-gap-correction.md`
+
+No application code or business logic was modified by the auditor.
