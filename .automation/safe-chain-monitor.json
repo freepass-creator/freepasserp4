@@ -5,7 +5,7 @@
   "lastMeaningfulEventKey": "erp5-cancelled:35427915834",
   "lastKnownSettlementRunId": 35428022102,
   "lastKnownErp5RunId": 35428047106,
-  "lastKnownGoodErp5RunId": 35421496262,
+  "lastKnownGoodErp5RunId": 35428047106,
   "lastHeartbeatSlot": "2026-09-19T09:05:00+09:00",
   "policy": {
     "settlementWorkflow": ".github/workflows/settlement-intake-sync.yml",
@@ -17,7 +17,14 @@
     "2026-09-19T09:05:00+09:00": {
       "settlementRunId": 35428022102,
       "erp5RunId": 35428047106,
-      "status": "erp5-pending"
+      "status": "success",
+      "settlementProductionWritesCompleted": true,
+      "erp5ProductionWritesCompleted": true,
+      "audits": {
+        "f86Freshness": "pass",
+        "f01F86Parity": "pass",
+        "platePhoto": "pass"
+      }
     },
     "2026-09-19T10:05:00+09:00": {
       "settlementRunId": 35413059063,
@@ -39,7 +46,14 @@
     "2026-09-19T14:05:00+09:00": {
       "settlementRunId": 35427840415,
       "erp5RunId": 35427865515,
-      "status": "erp5-in-progress"
+      "status": "success",
+      "settlementProductionWritesCompleted": true,
+      "erp5ProductionWritesCompleted": true,
+      "audits": {
+        "f86Freshness": "pass",
+        "f01F86Parity": "pass",
+        "platePhoto": "pass"
+      }
     },
     "2026-09-19T15:05:00+09:00": {
       "settlementRunId": 35427890549,
@@ -55,17 +69,17 @@
     "failureReason": "scheduled trigger missing after 20-minute grace",
     "recoveredRunId": 35428022102,
     "erp5RunId": 35428047106,
-    "status": "erp5-pending",
+    "status": "success",
     "settlementProductionWrites": {
       "intakeStepCompleted": true,
       "formatStepCompleted": true,
       "result": "success"
     },
-    "erp5ProductionWritesCompleted": false,
+    "erp5ProductionWritesCompleted": true,
     "audits": {
-      "f86Freshness": "pending",
-      "f01F86Parity": "pending",
-      "platePhoto": "pending"
+      "f86Freshness": "pass",
+      "f01F86Parity": "pass",
+      "platePhoto": "pass"
     }
   },
   "lastChainFailure": {
