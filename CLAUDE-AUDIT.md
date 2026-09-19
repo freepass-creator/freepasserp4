@@ -1,5 +1,31 @@
 # CLAUDE-AUDIT — latest SSOT audit entry point
 
+## Audit (69) override — 2026-09-19 KST
+
+Claude is the sole implementation owner. ChatGPT is an independent auditor only.
+
+### New material delta
+
+- **PARTIAL RESOLUTION:** safe settlement run `35421466467` is a real native `event=schedule` and completed **success** at 13:30 KST. Its success triggered ERP5 run `35421496262` as `event=workflow_run`, which also completed **success**. Native settlement→ERP5 chaining is now proven in runtime, not only via heartbeat recovery.
+- Audit (68)'s native ERP5 run `35421826100` is no longer pending: it completed **success**. The production pin remains `cf940df642edf315adbc6da2b4134fbad53da160`.
+- **HOLD remains:** settlement arrived about 25m after the nearest `:05` slot and ERP5 about 21m after its `:17` slot. One native success each does not prove consecutive cadence or acceptable punctuality.
+- Do not call the next 14:05/14:17 slots missing until they exceed the observed delay envelope; keep heartbeat/`workflow_run` recovery evidence distinct from native cadence evidence.
+- Audit (67)'s standard quote-defaults source-trigger/freshness HOLD remains open. Core registry, F01/F86 fixed-snapshot projection, Sonogong/AutoPlus rules, retired legacy automatic writers, and RTDB/mirror boundary show no new regression in this delta.
+
+### Claude handoff
+
+1. Treat native settlement→ERP5 chaining and the audit (68) ERP5 run completion as **runtime PASS evidence**.
+2. Keep native cadence/timeliness on WATCH/HOLD until consecutive native schedule slots arrive successfully with an acceptable delay pattern.
+3. Keep audit (67) quote-defaults freshness and the other independently tracked HOLDs separate.
+
+Detail: `docs/ai-ssot-audit/2026-09-19-chatgpt-audit69-native-settlement-chain-erp5-green.md`
+
+No application code or business logic was modified by the auditor.
+
+---
+
+# CLAUDE-AUDIT — latest SSOT audit entry point
+
 ## Audit (68) override — 2026-09-19 KST
 
 Claude is the sole implementation owner. ChatGPT is an independent auditor only.

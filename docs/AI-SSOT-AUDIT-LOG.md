@@ -3096,3 +3096,19 @@ Detail: `docs/ai-ssot-audit/2026-09-19-chatgpt-audit67-standard-quote-defaults-t
 - audit (67)의 standard quote-defaults freshness HOLD, canonical registry, F01/F86 fixed-snapshot 규칙, Sonogong/AutoPlus 특수탭, retired mirror/sales writer, RTDB/mirror non-canonical boundary에는 신규 구현 drift가 없다.
 
 Detail: `docs/ai-ssot-audit/2026-09-19-chatgpt-audit68-native-schedule-resumed-one-slot.md`
+
+---
+
+## 2026-09-19 — ChatGPT audit (69): native settlement chain + ERP5 native slot completed green
+
+**판정: PARTIAL RESOLVED / native scheduled runtime success 확인, cadence·timeliness HOLD 유지**
+
+- audit (68)은 ERP5 native `event=schedule` run `35421826100`을 **진행 중** 상태로 기록했다. 이 run은 이후 `completed / success`로 종료됐다(13:38:19 KST 생성 → 13:50:23 KST 완료). production pin `cf940df642edf315adbc6da2b4134fbad53da160`의 native scheduled runtime 성공 증거가 생겼다.
+- safe settlement automation도 첫 실제 native schedule 성공을 만들었다. run **`35421466467`**은 `정산 접수→원장(1시간)`, `event=schedule`, **13:30:22 KST**, conclusion `success`다. 현재 cron `:05` 기준 가장 가까운 13:05 slot 대비 약 **25분 22초 지연**이다.
+- 그 settlement 성공 직후 ERP5 run **`35421496262`**가 `event=workflow_run`으로 13:30:58 KST 생성돼 `success`로 끝났다. 따라서 heartbeat `push`가 아니라 **실제 native settlement schedule → ERP5 safe-chain**도 runtime에서 증명됐다.
+- ERP5 native run `35421826100`은 `:17` cron 대비 약 **21분 19초 지연**이었다. settlement/ERP5 모두 native 성공 증거가 생겼지만 각각 1회이고 20분대 지연이므로 **연속 cadence·정시성 정상화는 아직 입증되지 않았다.** native schedule HOLD는 유지한다.
+- 현재 시점의 다음 14:05/14:17 slot은 최근 실제 지연폭을 충분히 넘기지 않았으므로 이 감사에서 `missing`으로 판정하지 않는다.
+- production pin, 24-source canonical registry, fixed-snapshot F01/F86, Sonogong/AutoPlus special-tab 규칙, retired contract/sales/mirror automatic writers 및 RTDB/mirror non-canonical boundary에는 신규 회귀 증거가 없다.
+- audit (67)의 standard quote-defaults freshness trigger gap과 기존 RP023/RP031/deposit/price/tab/freshness/`/inventory` HOLD는 별도 해소 증거가 없어 유지한다.
+
+Detail: `docs/ai-ssot-audit/2026-09-19-chatgpt-audit69-native-settlement-chain-erp5-green.md`
