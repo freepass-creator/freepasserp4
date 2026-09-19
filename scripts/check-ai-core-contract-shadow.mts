@@ -23,6 +23,16 @@ assert.match(workflow, /GOOGLE_CLOUD_PROJECT:\s*freepasserp5/);
 assert.match(workflow, /github-inventory-writer@freepasserp5\.iam\.gserviceaccount\.com/);
 assert.match(workflow, /capture-sales-publish-snapshot\.mts --erp5 --out=tmp\/erp5-sales-publish\.json/);
 
+assert.match(workflow, /name: Core receipt helper checkout/);
+assert.match(workflow, /ref: \$\{\{ github\.workflow_sha \}\}/);
+assert.match(workflow, /id: ingest/);
+assert.match(workflow, /set -o pipefail/);
+assert.match(workflow, /tee tmp\/core-contract\/erp5-ingest\.log/);
+assert.match(workflow, /name: ERP5 ingest Core receipt 생성\(Shadow\)/);
+assert.match(workflow, /continue-on-error: true/);
+assert.match(workflow, /build-erp5-ingest-receipt\.mjs/);
+assert.match(workflow, /erp5-ingest-core-receipt-\$\{\{ github\.run_id \}\}-\$\{\{ github\.run_attempt \}\}/);
+
 assert.match(mainIngest, /SSOT HARD GUARD/);
 assert.match(mainIngest, /process\.exit\(2\)/);
 assert.match(mainIngest, /실제 반영은 ERP5 SSOT workflow만 사용하세요/);
