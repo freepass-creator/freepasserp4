@@ -3,7 +3,7 @@ name: Audit 66 recorder once
 on:
   push:
     paths:
-      - '.github/workflows/audit66-recorder-once.yml'
+      - .github/workflows/audit66-recorder-once.yml
 
 permissions:
   contents: write
@@ -11,47 +11,27 @@ permissions:
 jobs:
   record:
     runs-on: ubuntu-latest
+    env:
+      AUDIT66_B64: CgotLS0KCiMjIDIwMjYtMDktMTkoNjYpIOKAlCBDaGF0R1BUIOuPheumvSDqsJDsgqw6IDEyOjA1IG5hdGl2ZSBzY2hlZHVsZSDsnqzriITrnb0gKyByZWNvdmVyeS1wbGFuZSDsnqztmZXsnbgKCioq7YyQ7KCVOiBNQVRFUklBTCAvIG5hdGl2ZSBjcm9uIEhPTEQg6rCV7ZmUICsgcmVjb3ZlcnkgcGxhbmUg7KCV7IOBIOyekeuPmS4qKgoKLSBhdWRpdCAoNjUp64qUIDExOjA1IEtTVCBzZXR0bGVtZW50IG5hdGl2ZSBzbG907J20IGBldmVudD1zY2hlZHVsZWDroZwg7IOd7ISx65CY7KeAIOyViuyVhCBoZWFydGJlYXQgcmVjb3ZlcnnqsIAg7ZWE7JqU7ZaI64uk6rOgIOq4sOuhne2WiOuLpC4g64uk7J2MIOyEoOyWuCBzbG907J24ICoqMTI6MDUgS1NU64+EIG5hdGl2ZSBzY2hlZHVsZWQgZXZlbnTroZwg6rSA7Lih65CY7KeAIOyViuyVmOqzoCoqLCBjb21taXQgYDRiMzZiZmE1YjNiYzdhMGI3MTJmMmUyMWQ3YzNiYzQ1Y2ZlODliNzlgKGBjaG9yZShhdXRvbWF0aW9uKTogcmVjb3ZlciBtaXNzaW5nIHNldHRsZW1lbnQgc2xvdCAyMDI2LTA5LTE5IDEyOjA1IEtTVGAp7J20IGhlYXJ0YmVhdCByZWNvdmVyeeulvCDri6Tsi5wg7Iuk7ZaJ7ZaI64ukLgotIHNldHRsZW1lbnQgcmVjb3ZlcnkgcnVuICoqYDM1NDE4ODk4NjMyYCoq7J2AIHdvcmtmbG93IGDsoJXsgrAg7KCR7IiY4oaS7JuQ7J6lKDHsi5zqsIQpYCwgYGV2ZW50PXB1c2hgLCBjb25jbHVzaW9uICoqc3VjY2Vzcyoq7JiA64ukLiDspokgbWlzc2VkIG5hdGl2ZSBzbG907J2EIHJlY292ZXJ5IHBsYW5l7J20IHNpbGVudCBuby1vcOycvOuhnCDrkZDsp4Ag7JWK6rOgIOyLpOygnCBpbnRha2Ug6rK966Gc66GcIOuzteq1rO2WiOuLpC4KLSDsnbQgc3VjY2VzcyDrkqQgRVJQNSBydW4gKipgMzU0MTg5MjY1MzFgKirsnbQgYGV2ZW50PXdvcmtmbG93X3J1bmDsnLzroZwgMTI6MzQ6MjQgS1NUIOyDneyEseuQkOuLpC4g67O4IOqwkOyCrCDsiqTrg4Xsg7cg7Iuc7KCQ7JeQ64qUIGBpbl9wcm9ncmVzc2DsmIDri6QuIOydtOqyg+ydgCByZWNvdmVyeS1jaGFpbiDrj5nsnpEg7Kad6rGw7J207KeAIG5hdGl2ZSBjcm9uIGRlbGl2ZXJ5IOymneqxsOqwgCDslYTri4jri6QuCi0gZnJlc2ggcmVwb3NpdG9yeS13aWRlIGBldmVudD1zY2hlZHVsZWAg7KGw7ZqM7JeQ7IScIG5ld2VzdCBuYXRpdmUgc2NoZWR1bGVkIHJ1buydgCDsl6zsoITtnoggKipgMzUzNDc1MDgwNzhgKiooMjAyNi0wOS0xOCAyMTo1ODoxOCBLU1QsIEVSUDUgY2Fub25pY2FsLCBzdWNjZXNzKeydtOuLpC4g65Sw65287IScIGF1ZGl0ICg2NSnsnZggbmF0aXZlIHNjaGVkdWxlIEhPTETripQg64ur7Z6I7KeAIOyViuqzoCAqKuyXsOyGjSBuYXRpdmUgbWlzcyDspp3qsbDroZwg642UIOqwle2VtOyhjOuLpC4qKgotIGF1ZGl0ICg2NSkg7J207ZuEIGNvcmUgU1NPVCDqs4Tslb3sl5DripQg7Iug6recIO2ajOq3gOqwgCDsl4bri6QuIHByb2R1Y3Rpb24gcGlu7J2AIGBjZjk0MGRmNjQyZWRmMzE1YWRiYzZkYTJiNDEzNGZiYWQ1M2RhMTYwYDsgMjQtc291cmNlIHJlZ2lzdHJ564qUIFJQMDA2PUlyb24gd2Vic2l0ZSwgUlAwMTI9U29ub2dvbmcgRVJQL0FQSSwgUlAwMjM9UmVib3JuQ2FyLCBSUDAzMT1jdXJyZW50IEdvb2dsZSBTaGVldDsgRjAxL0Y4NuydgCDrj5nsnbwgZml4ZWQgc25hcHNob3TsnYQg7IaM67mE7ZWc64ukLgotIEY4NiDsi6TsoJwgc3VtbWFyeSDqt5zsuZnsnYAgYOyihe2VqWDsl5DshJwgKirshpDsmKTqs7XCt+yYpO2GoO2UjOufrOyKpCoq66W8IOygnOyZuO2VmOqzoCDqsIHsnpAg7YOt7J2AIOycoOyngO2VmOuKlCDqsoPsnbTri6QuIGF1ZGl0ICg2NSkgZW50cnktcG9pbnTsnZggYFJQMDEyL1JQMDAzYCDtkZzquLDripQg7Jik6riw7JiA7Jy866mwIGBDTEFVREUtQVVESVQubWRg7JeQ7IScIFJQMDEyL1JQMDIzIOydmOuvuOuhnCDsoJXsoJXtlojri6QuCi0gYGNvbnRyYWN0LXN0YXR1cy55bWxgLCBgc2FsZXMtZXJwLWhvdXJseS55bWxgLCBgbWlycm9yLXN5bmMueW1sYOydgCByZXBvc2l0b3J5IOyImOykgOyXkOyEnCBzY2hlZHVsZS1mcmVlL21hbnVhbCBkcnktcnVuIOyDge2DnOulvCDsnKDsp4DtlZjqs6AsIHNldHRsZW1lbnQgc2NoZWR1bGVkIGFwcGx564qUIGludGFrZeKGkmxlZGdlcuunjCDsiJjtlontlZjrqbAgbGVnYWN5IGBzeW5jLWNvbnRyYWN0LWZyb20tbGVkZ2VyLm10c2Drpbwg7J6s7Jew6rKw7ZWY7KeAIOyViuyVmOuLpC4gUlREQi9taXJyb3IgbGVnYWN5IHBhdGhz64+EIGNhbm9uaWNhbCBpbnZlbnRvcnkgYXV0aG9yaXR566GcIOuQmOuPjOyVhOqwhCDspp3qsbDqsIAg7JeG64ukLgotIGF1ZGl0ICg2MykvKDY1KeydmCBnb3Zlcm5hbmNlIGdhcOydgCDsnKDsp4DrkJzri6QuIGBkb2NzL+yYiOyVveyekeyXhS3sp4Drj4QubWRg7JmAIGBzY3JpcHRzL2NoZWNrLXNjaGVkdWxlLW1hcC5tdHNg64qUIGNyb24vcmV0aXJlZC13cml0ZXIgZ3VhcmTripQg7J6YIOyeoeyngOunjCBoZWFydGJlYXQgYHB1c2gucGF0aHNgICsgc2V0dGxlbWVudOKGkkVSUDUgYHdvcmtmbG93X3J1bmAgcmVjb3ZlcnkgcGxhbmUg7KCE7LK066W8IHRyaWdnZXIgdG9wb2xvZ3nroZwg7Lap67aE7Z6IIOuqqOuNuOunge2VmOyngCDslYrripTri6QuCi0gYXVkaXQgKDY1KeydmCBGaXJlc3RvcmUgYG5ld19jYXJfdHJpbWAg4oaSIGdpdCBzbmFwc2hvdCB3cml0ZXLripQg7J2067KIIGRlbHRh7JeQ7ISc64+EICoqZGVyaXZlZC9wdWJsaWMtcHJvZHVjdCBwcm9qZWN0aW9uKirsnbTrqbAgY2Fub25pY2FsIGludmVudG9yeSBhdXRob3JpdHnroZwg7Iq56rKp65CY7KeAIOyViuyVmOuLpC4KCioqQ2xhdWRlIOq1rO2YhCBPd25lcjoqKiBuYXRpdmUgY3JvbiBHT+uKlCDsi6TsoJwg7Jew7IaNIGBldmVudD1zY2hlZHVsZWAg7ZqM7LCo6rCAIOq0gOy4oeuQoCDrlYzquYzsp4Ag64ur7KeAIOyViuuKlOuLpC4gd29ya2luZyByZWNvdmVyeSBwbGFuZeydgCDsnKDsp4DtlZjrkJggbm9uLWNyb24gcHJvZHVjdGlvbiB0cmlnZ2VyIHBsYW5l7J2EIOyYiOyVveyekeyXhSDsp4Drj4TsmYAgQ0nsl5AgZmFpbC1jbG9zZWTroZwg66qo642466eB7ZWc64ukLiBjb3JlIHNvdXJjZS9GMDEvRjg2L3NwZWNpYWwtdGFiL2xlZ2FjeS1yZXRpcmVtZW50IOqzhOyVveydgCDrs4Trj4Qg7Kad6rGwIOyXhuydtCDrs4Dqsr3tlZjsp4Ag7JWK64qU64ukLgoK7IOB7IS4IOq3vOqxsDogYGRvY3MvYWktc3NvdC1hdWRpdC8yMDI2LTA5LTE5LWNoYXRncHQtYXVkaXQ2Ni0xMjA1LW5hdGl2ZS1taXNzLXJlY292ZXJ5Lm1kYCAoZGV0YWlsIGNvbW1pdCBgNDc1MTlhZjQ2NjI2MGQwZWFiOTE2YjFiNjU5ZTc2ZTc0YzE4OWRjY2ApLgoK7J2067KIIOqwkOyCrOyXkOyEnOuKlCBhcHBsaWNhdGlvbiBjb2RlL2J1c2luZXNzIGxvZ2lj7J2EIOyImOygle2VmOyngCDslYrslZjri6QuCg==
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Append audit 66 and remove recorder
+      - name: Append ledger and self-delete
         shell: bash
         run: |
           python3 - <<'PY'
+          import base64
           from pathlib import Path
           p = Path('docs/AI-SSOT-AUDIT-LOG.md')
           s = p.read_text(encoding='utf-8')
-          marker = '## 2026-09-19(66) — ChatGPT 독립 감사: 12:05 native schedule 재누락 + recovery-plane 재확인'
-          entry = r'''
-
----
-
-## 2026-09-19(66) — ChatGPT 독립 감사: 12:05 native schedule 재누락 + recovery-plane 재확인
-
-**판정: MATERIAL / native cron HOLD 강화 + recovery plane 정상 작동.**
-
-- audit (65)는 11:05 KST settlement native slot이 `event=schedule`로 생성되지 않아 heartbeat recovery가 필요했다고 기록했다. 다음 선언 slot인 **12:05 KST도 native scheduled event로 관측되지 않았고**, commit `4b36bfa5b3bc7a0b712f2e21d7c3bc45cfe89b79`(`chore(automation): recover missing settlement slot 2026-09-19 12:05 KST`)이 heartbeat recovery를 다시 실행했다.
-- settlement recovery run **`35418898632`**은 workflow `정산 접수→원장(1시간)`, `event=push`, conclusion **success**였다. 즉 missed native slot을 recovery plane이 silent no-op으로 두지 않고 실제 intake 경로로 복구했다.
-- 이 success 뒤 ERP5 run **`35418926531`**이 `event=workflow_run`으로 12:34:24 KST 생성됐다. 본 감사 스냅샷 시점에는 `in_progress`였다. 이것은 recovery-chain 동작 증거이지 native cron delivery 증거가 아니다.
-- fresh repository-wide `event=schedule` 조회에서 newest native scheduled run은 여전히 **`35347508078`**(2026-09-18 21:58:18 KST, ERP5 canonical, success)이다. 따라서 audit (65)의 native schedule HOLD는 닫히지 않고 **연속 native miss 증거로 더 강해졌다.**
-- audit (65) 이후 core SSOT 계약에는 신규 회귀가 없다. production pin은 `cf940df642edf315adbc6da2b4134fbad53da160`; 24-source registry는 RP006=Iron website, RP012=Sonogong ERP/API, RP023=RebornCar, RP031=current Google Sheet; F01/F86은 동일 fixed snapshot을 소비한다.
-- F86 실제 summary 규칙은 `종합`에서 **손오공·오토플러스**를 제외하고 각자 탭은 유지하는 것이다. audit (65) entry-point의 `RP012/RP003` 표기는 오기였으며 `CLAUDE-AUDIT.md`에서 RP012/RP023 의미로 정정했다.
-- `contract-status.yml`, `sales-erp-hourly.yml`, `mirror-sync.yml`은 repository 수준에서 schedule-free/manual dry-run 상태를 유지하고, settlement scheduled apply는 intake→ledger만 수행하며 legacy `sync-contract-from-ledger.mts`를 재연결하지 않았다. RTDB/mirror legacy paths도 canonical inventory authority로 되돌아간 증거가 없다.
-- audit (63)/(65)의 governance gap은 유지된다. `docs/예약작업-지도.md`와 `scripts/check-schedule-map.mts`는 cron/retired-writer guard는 잘 잡지만 heartbeat `push.paths` + settlement→ERP5 `workflow_run` recovery plane 전체를 trigger topology로 충분히 모델링하지 않는다.
-- audit (65)의 Firestore `new_car_trim` → git snapshot writer는 이번 delta에서도 **derived/public-product projection**이며 canonical inventory authority로 승격되지 않았다.
-
-**Claude 구현 Owner:** native cron GO는 실제 연속 `event=schedule` 회차가 관측될 때까지 닫지 않는다. working recovery plane은 유지하되 non-cron production trigger plane을 예약작업 지도와 CI에 fail-closed로 모델링한다. core source/F01/F86/special-tab/legacy-retirement 계약은 별도 증거 없이 변경하지 않는다.
-
-상세 근거: `docs/ai-ssot-audit/2026-09-19-chatgpt-audit66-1205-native-miss-recovery.md` (detail commit `47519af466260d0eab916b1b659e76e74c189dcc`).
-
-이번 감사에서는 application code/business logic을 수정하지 않았다.
-'''
+          marker = '## 2026-09-19(66) — ChatGPT 독립 감사:'
           if marker not in s:
-              p.write_text(s.rstrip() + entry + '\n', encoding='utf-8')
+              s = s.rstrip() + base64.b64decode(__import__('os').environ['AUDIT66_B64']).decode('utf-8') + '\n'
+              p.write_text(s, encoding='utf-8')
           PY
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
           git add docs/AI-SSOT-AUDIT-LOG.md
           git rm .github/workflows/audit66-recorder-once.yml
           git commit -m 'docs(audit): append audit66 to SSOT ledger'
