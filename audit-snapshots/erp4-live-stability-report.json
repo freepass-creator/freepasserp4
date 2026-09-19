@@ -1,5 +1,5 @@
 {
-  "auditedAt": "2026-09-19T10:25:29.351Z",
+  "auditedAt": "2026-09-19T10:28:30.869Z",
   "base": "https://freepasserp.com",
   "shots": [
     {
@@ -21,10 +21,24 @@
       },
       "detail": {
         "href": "/q/fhwfhsgknu",
-        "finalUrl": "https://freepasserp.com/",
-        "title": "freepasserp.com — 장기렌터카 상품찾기",
+        "clickNavigated": true,
+        "afterClickUrl": "https://freepasserp.com/q/fhwfhsgknu",
+        "linkDiagnostics": {
+          "rect": {
+            "left": 391,
+            "top": 369.1875,
+            "width": 223,
+            "height": 296.90625
+          },
+          "pointerEvents": "auto",
+          "hitTag": "IMG",
+          "hitClass": null,
+          "hitInsideLink": true
+        },
+        "finalUrl": "https://freepasserp.com/q/fhwfhsgknu",
+        "title": "기아 쏘렌토 MQ4 프레스티지",
         "hasProductDetailTitle": false,
-        "imageCount": 65,
+        "imageCount": 34,
         "bodyScrollWidth": 1440,
         "hasHorizontalOverflow": false
       },
@@ -50,6 +64,20 @@
       },
       "detail": {
         "href": "/q/fhwfhsgknu",
+        "clickNavigated": true,
+        "afterClickUrl": "https://freepasserp.com/q/fhwfhsgknu",
+        "linkDiagnostics": {
+          "rect": {
+            "left": 16,
+            "top": 306.1875,
+            "width": 358,
+            "height": 335.53125
+          },
+          "pointerEvents": "auto",
+          "hitTag": "IMG",
+          "hitClass": null,
+          "hitInsideLink": true
+        },
         "finalUrl": "https://freepasserp.com/q/fhwfhsgknu",
         "title": "기아 쏘렌토 MQ4 프레스티지",
         "hasProductDetailTitle": true,
