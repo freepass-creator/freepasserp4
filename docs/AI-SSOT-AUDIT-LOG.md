@@ -2323,7 +2323,7 @@ F01 발행기(`make-sample-sheet-google.mts` `titleOf`)는 이미 `.replace(/:\d
 - 반면 current main과 active production pin `9bef7bf0ffd21a96e3098a6f31adf1b1a0258c60`의 `inventory-source-registry.ts`는 RP031을 여전히 `kind:'google_sheet'`, spreadsheet `1fJuFSdaW559niD0ow7vVC3qcgjy8KRb8Cr3U8Of01vs`로 고정한다. production generic ingest도 이 registry를 따라 RP031을 sheet collector로 읽는다. **website/API 진단 성공은 아직 production source cutover가 아니다.**
 - `check-inventory-source-contract.mts`는 RP006/RP012/RP023은 source kind/location을 별도 assert하지만 RP031은 별도 source intent를 잠그지 않는다. current main CI run `35221347225` green을 RP031 cutover 완료 증거로 쓰면 안 된다.
 - Claude 구현 Owner는 website/API↔sheet↔ERP5 Atom을 차량번호 기준으로 대조하고 상태/가격 필드 의미를 확정한 뒤, RP031 registry + collector/production pin + Source Contract assert를 한 promotion으로 전환해야 한다. projection/policy sheet 역할과 재고 canonical 역할은 분리한다.
-- audit (31)의 2026-09-17 `event=schedule` 0건은 재조회에서도 그대로이며 schedule-delivery OPEN을 유지한다. audit (23)/(27)/(28)/(29)와 legacy mirror/sales/settlement/RTDB HOLD도 해소 증거가 없다.
+- audit (31)의 2026-09-17 `event=schedule` 0건은 재조회에서도 그대로이며 schedule-delivery OPEN을 유지한다. audit (23)/(27)/(28)/(29) 및 mirror/RTDB legacy HOLD에도 직접 해소 변경은 없다.
 
 상세 근거: `docs/ai-ssot-audit/2026-09-17-chatgpt-audit32-ianka-source-migration-hold.md`.
 
@@ -3112,3 +3112,18 @@ Detail: `docs/ai-ssot-audit/2026-09-19-chatgpt-audit68-native-schedule-resumed-o
 - audit (67)의 standard quote-defaults freshness trigger gap과 기존 RP023/RP031/deposit/price/tab/freshness/`/inventory` HOLD는 별도 해소 증거가 없어 유지한다.
 
 Detail: `docs/ai-ssot-audit/2026-09-19-chatgpt-audit69-native-settlement-chain-erp5-green.md`
+
+---
+
+## 2026-09-19 — ChatGPT audit (70): next native schedule gap recurred after one green cycle
+
+**판정: MATERIAL / WATCH 강화 — native cadence가 안정화됐다는 증거 없음.**
+
+- 2026-09-19 14:59 KST 기준 latest native `event=schedule`은 여전히 ERP5 run `35421826100`(13:38:19 KST, success)이다.
+- 다음 settlement `14:05` slot은 약 **54분**, ERP5 `14:17` slot은 약 **42분**이 지났지만 새 native run이 없다. 이는 audit (69)의 관측 지연폭(약 25분 / 약 21분)을 넘었다.
+- latest `event=workflow_run`도 `35421496262`(13:30:58 KST, success) 그대로다. 현재 시간대의 새 native settlement→ERP5 chain은 없다.
+- 따라서 audit (69)의 한 번의 green cycle은 안정적인 cadence 복구를 증명하지 못했다. `delayed-or-missing / WATCH`로 유지하며 영구 scheduler failure로 단정하지 않는다.
+- audit (69) 이후 main의 SSOT 관련 구현 변화는 없고, post-audit UI typography/presentation 변경은 canonical writer topology, ERP5 registry, F01/F86 same-snapshot rules, Sonogong/AutoPlus special tabs, mirror/RTDB boundary를 바꾸지 않았다.
+- audit (67) quote-defaults freshness HOLD는 별도 유지한다.
+
+Detail: `docs/ai-ssot-audit/2026-09-19-chatgpt-audit70-next-native-slots-gap-recurred.md`
