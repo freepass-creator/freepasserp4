@@ -207,6 +207,17 @@
   .fp-shop-card:active { box-shadow: none; }
 }
 
+/* 상세 웹 길잡이 — 내용을 감추는 탭이 아니라 현재 페이지 안에서 이동하는 텍스트 링크다. */
+.fp-shop-detail-anchor { transition: color .14s ease; }
+@media (hover: hover) and (pointer: fine) {
+  .fp-shop-detail-anchor:hover { color: var(--brand) !important; }
+}
+.fp-shop-detail-anchor:focus-visible {
+  outline: 2px solid var(--brand);
+  outline-offset: 3px;
+  border-radius: 3px;
+}
+
 /* 검색 결과의 «왜 나왔는지» — 새 배지를 만들지 않고 이미 보이는 글자만 아주 옅게 표시한다. */
 .fp-shop-match {
   background: color-mix(in srgb, var(--brand) 10%, transparent);
