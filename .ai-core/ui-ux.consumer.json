@@ -1,0 +1,179 @@
+{
+  "contract": "ai-core-ui-ux-consumer/v1",
+  "version": "1.0.0",
+  "product": {
+    "id": "freepasserp4",
+    "repository": "freepass-creator/freepasserp4",
+    "profile": "PUBLIC_PRODUCT_BROWSE",
+    "mapping_base_revision": "44a67cedc5f0d3e38efc68f1e8f84e6c28ab97b3"
+  },
+  "ai_core": {
+    "repository": "freepass-creator/ai-core",
+    "revision": "f5f1fa9af4231cec4a7c32b31beab6213513f362",
+    "feature_registry_version": "1.3.0",
+    "status": "CANDIDATE_PR",
+    "pull_request": 95
+  },
+  "adoption_status": "MAPPED",
+  "local_authorities": [
+    "AGENTS.md",
+    "docs/ERP4-MAIN-UI-STANDARD.md",
+    "docs/ERP4-MAIN-STABILITY-LOCK.md"
+  ],
+  "required_feature_ids": [
+    "navigation.header",
+    "navigation.bottom-action",
+    "form.search",
+    "data.filter",
+    "data.sort",
+    "data.list",
+    "data.card",
+    "data.table",
+    "data.detail",
+    "feedback.empty",
+    "feedback.inline-error",
+    "system.responsive",
+    "system.focus",
+    "system.safe-area-keyboard",
+    "system.motion-preference"
+  ],
+  "feature_bindings": [
+    {
+      "feature_id": "navigation.header",
+      "implementation": "NATIVE_PRODUCT",
+      "local_evidence": [
+        "docs/ERP4-MAIN-UI-STANDARD.md"
+      ]
+    },
+    {
+      "feature_id": "navigation.bottom-action",
+      "implementation": "NATIVE_PRODUCT",
+      "local_evidence": [
+        "docs/ERP4-MAIN-UI-STANDARD.md"
+      ]
+    },
+    {
+      "feature_id": "form.search",
+      "implementation": "NATIVE_PRODUCT",
+      "local_evidence": [
+        "docs/ERP4-MAIN-UI-STANDARD.md"
+      ]
+    },
+    {
+      "feature_id": "data.filter",
+      "implementation": "NATIVE_PRODUCT",
+      "local_evidence": [
+        "docs/ERP4-MAIN-STABILITY-LOCK.md"
+      ]
+    },
+    {
+      "feature_id": "data.sort",
+      "implementation": "NATIVE_PRODUCT",
+      "local_evidence": [
+        "docs/ERP4-MAIN-STABILITY-LOCK.md"
+      ]
+    },
+    {
+      "feature_id": "data.list",
+      "implementation": "NATIVE_PRODUCT",
+      "local_evidence": [
+        "docs/ERP4-MAIN-UI-STANDARD.md"
+      ]
+    },
+    {
+      "feature_id": "data.card",
+      "implementation": "NATIVE_PRODUCT",
+      "local_evidence": [
+        "docs/ERP4-MAIN-UI-STANDARD.md"
+      ]
+    },
+    {
+      "feature_id": "data.table",
+      "implementation": "NATIVE_PRODUCT",
+      "local_evidence": [
+        "docs/ERP4-MAIN-UI-STANDARD.md"
+      ]
+    },
+    {
+      "feature_id": "data.detail",
+      "implementation": "NATIVE_PRODUCT",
+      "local_evidence": [
+        "docs/ERP4-MAIN-UI-STANDARD.md"
+      ]
+    },
+    {
+      "feature_id": "feedback.empty",
+      "implementation": "NATIVE_PRODUCT",
+      "local_evidence": [
+        "docs/ERP4-MAIN-STABILITY-LOCK.md"
+      ]
+    },
+    {
+      "feature_id": "feedback.inline-error",
+      "implementation": "NATIVE_PRODUCT",
+      "local_evidence": [
+        "docs/ERP4-MAIN-STABILITY-LOCK.md"
+      ]
+    },
+    {
+      "feature_id": "system.responsive",
+      "implementation": "NATIVE_PRODUCT",
+      "local_evidence": [
+        "docs/ERP4-MAIN-UI-STANDARD.md"
+      ]
+    },
+    {
+      "feature_id": "system.focus",
+      "implementation": "NATIVE_PRODUCT",
+      "local_evidence": [
+        "docs/ERP4-MAIN-UI-STANDARD.md"
+      ]
+    },
+    {
+      "feature_id": "system.safe-area-keyboard",
+      "implementation": "NATIVE_PRODUCT",
+      "local_evidence": [
+        "docs/ERP4-MAIN-STABILITY-LOCK.md"
+      ]
+    },
+    {
+      "feature_id": "system.motion-preference",
+      "implementation": "NATIVE_PRODUCT",
+      "local_evidence": [
+        "docs/ERP4-MAIN-UI-STANDARD.md"
+      ]
+    }
+  ],
+  "verification": {
+    "commands": [
+      "npm run typecheck",
+      "npm run check:tokens",
+      "npm run check:design",
+      "npm run check:ui",
+      "npm run check:erp4-main",
+      "npm run uiux:map"
+    ],
+    "viewports": [
+      360,
+      390,
+      412,
+      1280,
+      1440
+    ],
+    "input_modes": [
+      "keyboard",
+      "touch",
+      "pointer"
+    ],
+    "locales": [
+      "ko-KR"
+    ],
+    "pending_conformance": [
+      "de-DE/ar-SA localization probes",
+      "IME composition browser receipt",
+      "fresh B2 visual regression receipt"
+    ]
+  },
+  "exceptions": [],
+  "conformance_receipts": []
+}
