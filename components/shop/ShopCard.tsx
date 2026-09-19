@@ -9,7 +9,7 @@ import { useIsMobile } from '@/lib/use-mobile';
 import { useInView } from '@/lib/use-in-view';
 import { useFirstPhoto } from '@/components/use-product-photos';
 import { haptic } from '@/lib/haptics';
-import { canonProductType, cheapest, creditDisplay, CREDIT_UNSET } from '@/lib/domain/product';
+import { canonProductType, cheapest, creditDisplay, CREDIT_UNSET, type Price } from '@/lib/domain/product';
 import { PERKS, hasPerk } from '@/lib/domain/product-filters';
 import { vehicleNameOf } from '@/lib/domain/vehicle-name';
 import { displacementL } from '@/components/product-card-identity';
@@ -53,9 +53,11 @@ import { isEvFuel, kmDisplay, kmValue, manShort, wonKo, depositLine } from '@/li
  *     같이 되돌려야 한다. 한쪽만 바꾸면 다시 갈린다.
  *   ★색은 아이콘에만(무심사 초록 · 소득확인·신용조회는 흐림 · 나머지 채널색), 글자는 먹색.
  */
-export const ShopCard = memo(function ShopCard({ p, href, rank = 99 }: {
+export const ShopCard = memo(function ShopCard({ p, href, rank = 99, displayPrice }: {
   p: EntityRecord;
   href: string;
+  /** 현재 필터의 기간·대여료·보증금을 같은 행에서 만족한 대표가격. 미지정이면 전체 최저가. */
+  displayPrice?: Price | null;
   /**
    * **목록에서 몇 번째인가** — 첫 화면에 이미 보이는 카드는 «기다리지 않게» 하려고 받는다.
    *
@@ -69,7 +71,8 @@ export const ShopCard = memo(function ShopCard({ p, href, rank = 99 }: {
   rank?: number;
 }) {
   const mobile = useIsMobile();
-  const price = cheapest(p);
+  /* 기간 필터가 켜졌는데 전체 최저가를 다시 쓰면 카드의 기간·대여료·보증금이 필터와 갈린다. */
+  const price = displayPrice === undefined ? cheapest(p) : displayPrice;
   /** 보증금 — 금액이 없고 규칙 글자(`deposit_note`)만 있는 상품이 있다(`depositLine` 머리말). */
   /* ★규칙 글자는 «금액»으로 바꿔 말한다(사장님 2026-09-18) — 기간을 줘야 셈이 된다. */
   const dep = price
