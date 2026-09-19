@@ -1,0 +1,614 @@
+{
+  "schema_version": 1,
+  "source": "freepasserp4/lib/domain/estimate/cost-settings.ts",
+  "generated_at": "2026-09-19T04:25:43.988Z",
+  "mode": "code-defaults",
+  "live_override_present": false,
+  "live_override_updated_at": null,
+  "cost_defaults": {
+    "bondPct": 0.3,
+    "regFee": 150000,
+    "deliveryFee": 250000,
+    "initPrepFee": 500000,
+    "interestAPct": 6.5,
+    "interestBPct": 6.5,
+    "interestCPct": 6.5,
+    "loanAPct": 90,
+    "loanBPct": 90,
+    "loanCPct": 90,
+    "maintMonthly": 10000,
+    "maintRatePct": 2,
+    "gpsMonthly": 10000,
+    "parkingMonthly": 0,
+    "inspectionFee": 60000,
+    "overheadPct": 3,
+    "badDebtPct": 0,
+    "salesFeePct": 3,
+    "acqTaxRentPct": 4,
+    "acqTaxSubPct": 7,
+    "insRentYear": 800000,
+    "insSubYear": 0,
+    "selfRentPct": 1.5,
+    "selfSubPct": 0,
+    "selfInsRentYear": 0,
+    "selfInsSubYear": 0,
+    "marginRentPct": 10,
+    "marginSubPct": 10,
+    "markupUsedPct": 0,
+    "markupNewPct": 0,
+    "ewYear": 80000,
+    "retentionNormalPct": 97,
+    "retentionMidPct": 75,
+    "retentionLowPct": 30,
+    "turnoverPrepFee": 500000,
+    "turnoverDeliveryFee": 500000,
+    "turnoverFeePct": 3,
+    "turnoverVacancyMonths": 1,
+    "depositMonths": 2,
+    "penaltyRecoveryAPct": 80,
+    "penaltyRecoveryBPct": 50,
+    "penaltyRecoveryCPct": 10,
+    "evSubsidy": 6000000,
+    "residualAdjustPct": 0,
+    "returnDeliveryFee": 250000,
+    "disposalFeePct": 3
+  },
+  "engine_configs": {
+    "정상": {
+      "interestRate": {
+        "rent": 0.065,
+        "sub": 0.065
+      },
+      "marginRate": {
+        "rent": 0.1,
+        "sub": 0.1
+      },
+      "loanRatio": 0.9,
+      "depositRatio": 0.1,
+      "depositMode": {
+        "rent": "payMultiple",
+        "sub": "payMultiple"
+      },
+      "acquireResidualRate": 0.1,
+      "adjust": {
+        "baselineAge": 5,
+        "kmPerYear": 20000,
+        "mileagePer10k": 0.005,
+        "agePerYear": 0.02,
+        "accident": {
+          "none": 1,
+          "simple": 0.97,
+          "frame": 0.9,
+          "total": 0.7
+        },
+        "maxResidualCut": 0.2
+      },
+      "benefit": {
+        "creditRate": 0
+      },
+      "residualTable": {
+        "24": {
+          "A": 0.75,
+          "B": 0.7,
+          "C": 0.6
+        },
+        "36": {
+          "A": 0.65,
+          "B": 0.6,
+          "C": 0.45
+        },
+        "48": {
+          "A": 0.55,
+          "B": 0.5,
+          "C": 0.37
+        },
+        "60": {
+          "A": 0.45,
+          "B": 0.4,
+          "C": 0.3
+        }
+      },
+      "gradeCount": 3,
+      "markup": {
+        "rent": {
+          "rate": 0
+        },
+        "sub": {
+          "rate": 0
+        }
+      },
+      "priceRange": {
+        "min": 10000000,
+        "max": 50000000
+      },
+      "acqTaxRate": {
+        "rent": 0.04,
+        "sub": 0.07
+      },
+      "cartaxRate": {
+        "rent": [
+          18,
+          19,
+          24
+        ],
+        "sub": [
+          104,
+          182,
+          260
+        ]
+      },
+      "setting": {
+        "bondRate": 0.003,
+        "regFee": 150000,
+        "insYear": 800000,
+        "selfRate": 0.012,
+        "gpsMonthly": 10000,
+        "maintMonthly": 10000,
+        "parkingMonthly": 0,
+        "salesFeeRate": {
+          "rent": 0.03,
+          "sub": 0.03
+        },
+        "ewYear": 80000,
+        "maintRate": 0.02,
+        "deliveryFee": 250000,
+        "initPrepFee": 0,
+        "inspectionFee": 60000,
+        "returnDeliveryFee": 250000,
+        "disposalFeeRate": 0.03
+      },
+      "vatBase": "excluded",
+      "insYear": {
+        "rent": 800000,
+        "sub": 0
+      },
+      "selfRate": {
+        "rent": 0.015,
+        "sub": 0
+      },
+      "selfInsuredYear": {
+        "rent": 0,
+        "sub": 0
+      },
+      "ewPerYear": {
+        "rent": 80000,
+        "sub": 0
+      },
+      "overheadRate": 0.03,
+      "badDebtRate": 0,
+      "turnover": {
+        "retention": {
+          "고신용": 0.97,
+          "정상": 0.97,
+          "중신용": 0.75,
+          "저신용": 0.3,
+          "무신용": 0.3
+        },
+        "productization": 500000,
+        "deliveryRoundTrip": 500000,
+        "feeRateOfRent": 0.03,
+        "vacancyMonths": 1,
+        "depositMonths": 2,
+        "penaltyRecoveryRate": 0.8
+      },
+      "evSubsidy": 6000000
+    },
+    "중신용": {
+      "interestRate": {
+        "rent": 0.065,
+        "sub": 0.065
+      },
+      "marginRate": {
+        "rent": 0.1,
+        "sub": 0.1
+      },
+      "loanRatio": 0.9,
+      "depositRatio": 0.1,
+      "depositMode": {
+        "rent": "payMultiple",
+        "sub": "payMultiple"
+      },
+      "acquireResidualRate": 0.1,
+      "adjust": {
+        "baselineAge": 5,
+        "kmPerYear": 20000,
+        "mileagePer10k": 0.005,
+        "agePerYear": 0.02,
+        "accident": {
+          "none": 1,
+          "simple": 0.97,
+          "frame": 0.9,
+          "total": 0.7
+        },
+        "maxResidualCut": 0.2
+      },
+      "benefit": {
+        "creditRate": 0
+      },
+      "residualTable": {
+        "24": {
+          "A": 0.75,
+          "B": 0.7,
+          "C": 0.6
+        },
+        "36": {
+          "A": 0.65,
+          "B": 0.6,
+          "C": 0.45
+        },
+        "48": {
+          "A": 0.55,
+          "B": 0.5,
+          "C": 0.37
+        },
+        "60": {
+          "A": 0.45,
+          "B": 0.4,
+          "C": 0.3
+        }
+      },
+      "gradeCount": 3,
+      "markup": {
+        "rent": {
+          "rate": 0
+        },
+        "sub": {
+          "rate": 0
+        }
+      },
+      "priceRange": {
+        "min": 10000000,
+        "max": 50000000
+      },
+      "acqTaxRate": {
+        "rent": 0.04,
+        "sub": 0.07
+      },
+      "cartaxRate": {
+        "rent": [
+          18,
+          19,
+          24
+        ],
+        "sub": [
+          104,
+          182,
+          260
+        ]
+      },
+      "setting": {
+        "bondRate": 0.003,
+        "regFee": 150000,
+        "insYear": 800000,
+        "selfRate": 0.012,
+        "gpsMonthly": 10000,
+        "maintMonthly": 10000,
+        "parkingMonthly": 0,
+        "salesFeeRate": {
+          "rent": 0.03,
+          "sub": 0.03
+        },
+        "ewYear": 80000,
+        "maintRate": 0.02,
+        "deliveryFee": 250000,
+        "initPrepFee": 0,
+        "inspectionFee": 60000,
+        "returnDeliveryFee": 250000,
+        "disposalFeeRate": 0.03
+      },
+      "vatBase": "excluded",
+      "insYear": {
+        "rent": 800000,
+        "sub": 0
+      },
+      "selfRate": {
+        "rent": 0.015,
+        "sub": 0
+      },
+      "selfInsuredYear": {
+        "rent": 0,
+        "sub": 0
+      },
+      "ewPerYear": {
+        "rent": 80000,
+        "sub": 0
+      },
+      "overheadRate": 0.03,
+      "badDebtRate": 0,
+      "turnover": {
+        "retention": {
+          "고신용": 0.97,
+          "정상": 0.97,
+          "중신용": 0.75,
+          "저신용": 0.3,
+          "무신용": 0.3
+        },
+        "productization": 500000,
+        "deliveryRoundTrip": 500000,
+        "feeRateOfRent": 0.03,
+        "vacancyMonths": 1,
+        "depositMonths": 2,
+        "penaltyRecoveryRate": 0.5
+      },
+      "evSubsidy": 6000000
+    },
+    "저신용": {
+      "interestRate": {
+        "rent": 0.065,
+        "sub": 0.065
+      },
+      "marginRate": {
+        "rent": 0.1,
+        "sub": 0.1
+      },
+      "loanRatio": 0.9,
+      "depositRatio": 0.1,
+      "depositMode": {
+        "rent": "payMultiple",
+        "sub": "payMultiple"
+      },
+      "acquireResidualRate": 0.1,
+      "adjust": {
+        "baselineAge": 5,
+        "kmPerYear": 20000,
+        "mileagePer10k": 0.005,
+        "agePerYear": 0.02,
+        "accident": {
+          "none": 1,
+          "simple": 0.97,
+          "frame": 0.9,
+          "total": 0.7
+        },
+        "maxResidualCut": 0.2
+      },
+      "benefit": {
+        "creditRate": 0
+      },
+      "residualTable": {
+        "24": {
+          "A": 0.75,
+          "B": 0.7,
+          "C": 0.6
+        },
+        "36": {
+          "A": 0.65,
+          "B": 0.6,
+          "C": 0.45
+        },
+        "48": {
+          "A": 0.55,
+          "B": 0.5,
+          "C": 0.37
+        },
+        "60": {
+          "A": 0.45,
+          "B": 0.4,
+          "C": 0.3
+        }
+      },
+      "gradeCount": 3,
+      "markup": {
+        "rent": {
+          "rate": 0
+        },
+        "sub": {
+          "rate": 0
+        }
+      },
+      "priceRange": {
+        "min": 10000000,
+        "max": 50000000
+      },
+      "acqTaxRate": {
+        "rent": 0.04,
+        "sub": 0.07
+      },
+      "cartaxRate": {
+        "rent": [
+          18,
+          19,
+          24
+        ],
+        "sub": [
+          104,
+          182,
+          260
+        ]
+      },
+      "setting": {
+        "bondRate": 0.003,
+        "regFee": 150000,
+        "insYear": 800000,
+        "selfRate": 0.012,
+        "gpsMonthly": 10000,
+        "maintMonthly": 10000,
+        "parkingMonthly": 0,
+        "salesFeeRate": {
+          "rent": 0.03,
+          "sub": 0.03
+        },
+        "ewYear": 80000,
+        "maintRate": 0.02,
+        "deliveryFee": 250000,
+        "initPrepFee": 0,
+        "inspectionFee": 60000,
+        "returnDeliveryFee": 250000,
+        "disposalFeeRate": 0.03
+      },
+      "vatBase": "excluded",
+      "insYear": {
+        "rent": 800000,
+        "sub": 0
+      },
+      "selfRate": {
+        "rent": 0.015,
+        "sub": 0
+      },
+      "selfInsuredYear": {
+        "rent": 0,
+        "sub": 0
+      },
+      "ewPerYear": {
+        "rent": 80000,
+        "sub": 0
+      },
+      "overheadRate": 0.03,
+      "badDebtRate": 0,
+      "turnover": {
+        "retention": {
+          "고신용": 0.97,
+          "정상": 0.97,
+          "중신용": 0.75,
+          "저신용": 0.3,
+          "무신용": 0.3
+        },
+        "productization": 500000,
+        "deliveryRoundTrip": 500000,
+        "feeRateOfRent": 0.03,
+        "vacancyMonths": 1,
+        "depositMonths": 2,
+        "penaltyRecoveryRate": 0.1
+      },
+      "evSubsidy": 6000000
+    },
+    "무신용": {
+      "interestRate": {
+        "rent": 0.065,
+        "sub": 0.065
+      },
+      "marginRate": {
+        "rent": 0.1,
+        "sub": 0.1
+      },
+      "loanRatio": 0.9,
+      "depositRatio": 0.1,
+      "depositMode": {
+        "rent": "payMultiple",
+        "sub": "payMultiple"
+      },
+      "acquireResidualRate": 0.1,
+      "adjust": {
+        "baselineAge": 5,
+        "kmPerYear": 20000,
+        "mileagePer10k": 0.005,
+        "agePerYear": 0.02,
+        "accident": {
+          "none": 1,
+          "simple": 0.97,
+          "frame": 0.9,
+          "total": 0.7
+        },
+        "maxResidualCut": 0.2
+      },
+      "benefit": {
+        "creditRate": 0
+      },
+      "residualTable": {
+        "24": {
+          "A": 0.75,
+          "B": 0.7,
+          "C": 0.6
+        },
+        "36": {
+          "A": 0.65,
+          "B": 0.6,
+          "C": 0.45
+        },
+        "48": {
+          "A": 0.55,
+          "B": 0.5,
+          "C": 0.37
+        },
+        "60": {
+          "A": 0.45,
+          "B": 0.4,
+          "C": 0.3
+        }
+      },
+      "gradeCount": 3,
+      "markup": {
+        "rent": {
+          "rate": 0
+        },
+        "sub": {
+          "rate": 0
+        }
+      },
+      "priceRange": {
+        "min": 10000000,
+        "max": 50000000
+      },
+      "acqTaxRate": {
+        "rent": 0.04,
+        "sub": 0.07
+      },
+      "cartaxRate": {
+        "rent": [
+          18,
+          19,
+          24
+        ],
+        "sub": [
+          104,
+          182,
+          260
+        ]
+      },
+      "setting": {
+        "bondRate": 0.003,
+        "regFee": 150000,
+        "insYear": 800000,
+        "selfRate": 0.012,
+        "gpsMonthly": 10000,
+        "maintMonthly": 10000,
+        "parkingMonthly": 0,
+        "salesFeeRate": {
+          "rent": 0.03,
+          "sub": 0.03
+        },
+        "ewYear": 80000,
+        "maintRate": 0.02,
+        "deliveryFee": 250000,
+        "initPrepFee": 0,
+        "inspectionFee": 60000,
+        "returnDeliveryFee": 250000,
+        "disposalFeeRate": 0.03
+      },
+      "vatBase": "excluded",
+      "insYear": {
+        "rent": 800000,
+        "sub": 0
+      },
+      "selfRate": {
+        "rent": 0.015,
+        "sub": 0
+      },
+      "selfInsuredYear": {
+        "rent": 0,
+        "sub": 0
+      },
+      "ewPerYear": {
+        "rent": 80000,
+        "sub": 0
+      },
+      "overheadRate": 0.03,
+      "badDebtRate": 0,
+      "turnover": {
+        "retention": {
+          "고신용": 0.97,
+          "정상": 0.97,
+          "중신용": 0.75,
+          "저신용": 0.3,
+          "무신용": 0.3
+        },
+        "productization": 500000,
+        "deliveryRoundTrip": 500000,
+        "feeRateOfRent": 0.03,
+        "vacancyMonths": 1,
+        "depositMonths": 2,
+        "penaltyRecoveryRate": 0.1
+      },
+      "evSubsidy": 6000000
+    }
+  }
+}
