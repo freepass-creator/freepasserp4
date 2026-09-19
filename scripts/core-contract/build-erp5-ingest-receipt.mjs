@@ -106,6 +106,12 @@ export function buildIngestReceipt({
         evidence_refs: ['github-actions:run/' + runId + '#ingest'],
       },
     ],
+    metrics: summary ? {
+      phase: summary.phase,
+      supplier_success: summary.success,
+      supplier_failed: summary.failed,
+      supplier_total: summary.total,
+    } : {},
     reproducibility: {
       deterministic: false,
       executor_version: engineRevision,
@@ -114,7 +120,6 @@ export function buildIngestReceipt({
         ? 'scripts/ingest-all-suppliers.mts'
         : 'scripts/ingest-all-suppliers.mts --apply --variable --retire',
     },
-    batch_summary: summary,
   };
 }
 
@@ -149,6 +154,6 @@ if (import.meta.url === new URL('file:' + process.argv[1]).href) {
     receipt: a.out,
     status: receipt.status,
     reason_code: receipt.reason_code,
-    batch_summary: receipt.batch_summary,
+    metrics: receipt.metrics,
   }));
 }
