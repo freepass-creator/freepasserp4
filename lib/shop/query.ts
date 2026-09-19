@@ -16,7 +16,7 @@
  *   **무엇을 모수로 삼고 어떻게 세는가**뿐이다.
  */
 import type { EntityRecord } from '@/lib/intake/entities';
-import { cheapest, creditDisplay, isListableProduct, isOperatedPeriod, priceList } from '@/lib/domain/product';
+import { creditDisplay, isListableProduct, isOperatedPeriod, priceList } from '@/lib/domain/product';
 import { matchProductQuery } from '@/lib/domain/search';
 import {
   standingFixed, standingRanked, tallyBy, tallyMatch,
@@ -273,6 +273,21 @@ const priceFacetMatch = (p: EntityRecord, sel: ShopSel, axis: PriceAxis, key: st
       .filter((other) => other !== axis && sel[other].length)
       .every((other) => sel[other].some((selected) => priceRowMatches(row, other, selected))));
 
+/** 화면 카드·정렬이 써야 하는 가격 후보. 활성 가격조건을 **모두 같은 행에서** 만족한 행만 남긴다. */
+export function priceRowsForShopSelection(p: EntityRecord, sel: ShopSel): ShopPriceRow[] {
+  const active = PRICE_AXES.filter((axis) => sel[axis].length);
+  const rows = priceList(p);
+  if (!active.length) return rows;
+  return rows.filter((row) =>
+    active.every((axis) => sel[axis].some((key) => priceRowMatches(row, axis, key))));
+}
+
+/** 카드 대표가격 — 선택 조건 안에서 월대여료가 가장 낮은 행. 조건이 없으면 기존 `cheapest`와 같다. */
+export function priceForShopSelection(p: EntityRecord, sel: ShopSel): ShopPriceRow | null {
+  const rows = priceRowsForShopSelection(p, sel);
+  return rows.length ? rows.reduce((a, b) => (b.rent < a.rent ? b : a)) : null;
+}
+
 /** 같은 축 안은 OR(기아 «또는» 현대), 축끼리는 AND(기아 «이면서» SUV) — 마켓의 상식대로. */
 const passes = (p: EntityRecord, sel: ShopSel, skip?: ShopAxis) =>
   priceSelectionsMatch(p, sel, skip)
@@ -287,14 +302,16 @@ const passes = (p: EntityRecord, sel: ShopSel, skip?: ShopAxis) =>
 const sameCarKey = (p: EntityRecord): string =>
   `${makerDisplay(p.maker) || ''}|${String(p.model ?? '').trim()}`.toLowerCase().replace(/\s+/g, '');
 
-const sortValue = (p: EntityRecord, sort: ShopSort): number => {
-  const price = cheapest(p);
+const sortValue = (p: EntityRecord, sort: ShopSort, sel: ShopSel): number => {
+  const rows = priceRowsForShopSelection(p, sel);
+  const price = rows.length ? rows.reduce((a, b) => (b.rent < a.rent ? b : a)) : null;
   /*
    * ★인기순 — 순위(0,1,2…)가 잣대다. 같은 모델끼리는 «싼 것부터»(아래 tie-break).
    *   순위 밖은 `MAX_SAFE_INTEGER` 라 통째로 뒤에 서고, 그 안에서 다시 싼 것부터 선다.
    */
   if (sort === 'popular') return popularRank(p.model);
-  if (sort === 'dep') return price?.deposit ?? Number.MAX_SAFE_INTEGER;
+  /* 보증금 낮은순도 **선택 가격행 안에서** 가장 낮은 보증금을 쓴다. */
+  if (sort === 'dep') return rows.length ? Math.min(...rows.map((row) => row.deposit)) : Number.MAX_SAFE_INTEGER;
   if (sort === 'year') return -(Number(yearFullDisplay(p.year)) || 0);
   if (sort === 'mile') return Number(p.mileage) || Number.MAX_SAFE_INTEGER;
   const rent = price?.rent ?? 0;
@@ -464,9 +481,9 @@ export function runShopQuery(rows: EntityRecord[] | null, query: ShopQuery): Sho
     list.map((p) => ({
       p,
       photo: photoRank(p),
-      v: sortValue(p, sort),
+      v: sortValue(p, sort, sel),
       /* 인기순은 같은 값이 무더기라 2차 잣대(싼 것부터)가 필요하다 — 그것도 미리 잰다. */
-      tie: sort === 'popular' || sort === 'many' ? sortValue(p, 'asc') : 0,
+      tie: sort === 'popular' || sort === 'many' ? sortValue(p, 'asc', sel) : 0,
       same: withSame ? sameCarKey(p) : '',
     }));
 
