@@ -2,11 +2,11 @@
   "schemaVersion": 1,
   "timezone": "Asia/Seoul",
   "firstScheduledSettlementSuccessNotified": true,
-  "lastMeaningfulEventKey": "missing-schedule-fallback:2026-09-19T17:05:00+09:00",
-  "lastKnownSettlementRunId": 35431960855,
-  "lastKnownErp5RunId": 35431989989,
+  "lastMeaningfulEventKey": "missing-schedule-fallback:2026-09-19T18:05:00+09:00",
+  "lastKnownSettlementRunId": 35439018911,
+  "lastKnownErp5RunId": 35439046831,
   "lastKnownGoodErp5RunId": 35431989989,
-  "lastHeartbeatSlot": "2026-09-19T17:05:00+09:00",
+  "lastHeartbeatSlot": "2026-09-19T18:05:00+09:00",
   "policy": {
     "settlementWorkflow": ".github/workflows/settlement-intake-sync.yml",
     "erp5Workflow": ".github/workflows/erp5-ssot-refresh.yml",
@@ -85,25 +85,37 @@
         "f01F86Parity": "pass",
         "platePhoto": "pass"
       }
+    },
+    "2026-09-19T18:05:00+09:00": {
+      "settlementRunId": 35439018911,
+      "erp5RunId": 35439046831,
+      "status": "erp5-in-progress",
+      "settlementProductionWritesCompleted": true,
+      "erp5ProductionWritesCompleted": false,
+      "audits": {
+        "f86Freshness": "pending",
+        "f01F86Parity": "pending",
+        "platePhoto": "pending"
+      }
     }
   },
   "lastRecovery": {
-    "expectedSlot": "2026-09-19T17:05:00+09:00",
+    "expectedSlot": "2026-09-19T18:05:00+09:00",
     "failedRunId": null,
     "failureReason": "scheduled trigger missing after 20-minute grace",
-    "recoveredRunId": 35431960855,
-    "erp5RunId": 35431989989,
-    "status": "success",
+    "recoveredRunId": 35439018911,
+    "erp5RunId": 35439046831,
+    "status": "erp5-in-progress",
     "settlementProductionWrites": {
       "intakeStepCompleted": true,
       "formatStepCompleted": true,
       "result": "success"
     },
-    "erp5ProductionWritesCompleted": true,
+    "erp5ProductionWritesCompleted": false,
     "audits": {
-      "f86Freshness": "pass",
-      "f01F86Parity": "pass",
-      "platePhoto": "pass"
+      "f86Freshness": "pending",
+      "f01F86Parity": "pending",
+      "platePhoto": "pending"
     }
   },
   "lastChainFailure": {
