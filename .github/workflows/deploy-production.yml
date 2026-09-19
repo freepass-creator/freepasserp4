@@ -1,6 +1,10 @@
 name: Production Deploy Recovery
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/deploy-production.trigger"
   workflow_dispatch:
     inputs:
       repair_alias:
@@ -53,7 +57,7 @@ jobs:
 
       - name: 강제 production 배포 + 운영 SHA 검증
         run: |
-          if [ "${{ inputs.repair_alias }}" = "true" ]; then
+          if [ "${{ github.event_name == 'workflow_dispatch' && inputs.repair_alias || false }}" = "true" ]; then
             npm run deploy:prod -- --repair-alias
           else
             npm run deploy:prod
