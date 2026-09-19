@@ -5,13 +5,15 @@
 
 ## 1. 제품 정의
 
-**freepasserp.com의 ERP4 메인은 로그인 시스템이 아니라 상품 조회·검색 화면이다.**
+**freepasserp.com의 ERP4 메인은 인증 시스템과 분리된 공개 상품 조회·검색 화면이다.**
 
 - `freepasserp.com/` → 주소를 유지한 채 상품 목록(`/shop`)을 보여준다.
 - 미들웨어가 없는 로컬·미리보기 fallback도 `/shop`으로 간다.
 - 공개 메인에는 로그인, 업무 화면 이동, 내부 구글시트, 관리자 도구의 진입 링크를 두지 않는다.
 - `/finder` 등 과거 ERP4 업무 화면은 기존 링크 호환·보관 목적의 **레거시 경로**일 뿐 메인 IA가 아니다.
-- **`freepasserp.com` 및 화이트라벨 상품 호스트에서는 `/login` 화면 자체를 노출하지 않는다.** 직접 접근·옛 북마크도 `/` 상품 메인으로 보낸다.
+- **`freepasserp.com` 및 화이트라벨 상품 호스트에서 `/login`은 ERP4 경로가 아니다.** 직접 접근은 **404**이며 상품 메인으로 리다이렉트하지도 않는다.
+- 공개 상품 요청에서는 **`AuthProvider`를 마운트하지 않는다.** Firebase Auth 부팅·세션 복원·로그인 게이트·자동 로그아웃이 ERP4 MAIN에서 실행되면 구조 위반이다.
+- 로그인/회원/세션 구현 파일이 저장소에 남아 있어도 그것은 **별도·레거시 업무 인증 기능**이며 ERP4 MAIN의 IA·라우팅·제품 기능으로 취급하지 않는다.
 - 상품 상세 `/q/[code]`, 채널 주소, 공유 링크는 기존 호환성을 유지한다.
 
 ## 2. 화면의 역할
@@ -86,7 +88,8 @@ freepass-admin의 최신 Product Experience Principles와 같은 철학을 쓰�
 ## 7. 금지
 
 - ERP4 루트에서 `/login`으로 보내기
-- ERP4 MAIN/화이트라벨 상품 호스트에서 `/login` UI를 노출하기
+- ERP4 MAIN/화이트라벨 상품 호스트에서 `/login` UI를 노출하거나 `/`로 리다이렉트해 연결을 남기기
+- ERP4 MAIN 공개 상품면에서 `AuthProvider`·Firebase Auth 세션 부팅을 실행하기
 - 공개 푸터/헤더에 로그인·업무화면·내부 시트 링크 추가
 - 웹/모바일 상호 영향 확인 없이 한쪽만 임의 수정
 - 페이지 한 곳에서 새 높이·색·radius를 임의로 만들기
@@ -96,4 +99,4 @@ freepass-admin의 최신 Product Experience Principles와 같은 철학을 쓰�
 
 ## 한 문장
 
-> **ERP4는 freepasserp.com에서 바로 상품을 찾고 보는 공개 Product Browse이며, 구 ERP4 업무 화면은 메인 제품이 아니다.**
+> **ERP4는 freepasserp.com에서 바로 상품을 찾고 보는 공개 Product Browse이며, 로그인·회원·세션은 ERP4 MAIN과 분리된 별도 업무 인증 기능이다.**
