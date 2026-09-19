@@ -1,20 +1,30 @@
-name: DIAG reborncar photo shape
+name: VERIFY photo all-sources
 
 on:
   push:
     branches:
       - fix/photo-all-sources-20260919
     paths:
-      - 'scripts/diag-reborncar-photo-shape.mts'
+      - 'scripts/check-photo-all-sources.mts'
+      - 'scripts/ingest-reborncar-to-firestore.mts'
+      - 'scripts/ingest-supplier-to-firestore.mts'
+      - 'scripts/cache-photo-urls.mts'
+      - 'app/api/extract-photos/route.ts'
+      - 'package.json'
       - '.github/workflows/diag-reborncar-photo-shape.yml'
 
 jobs:
-  inspect:
+  verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - run: npx --yes tsx scripts/diag-reborncar-photo-shape.mts
+          cache: 'npm'
+      - run: npm ci
+      - name: 사진 전량 보존 계약
+        run: npm run check:photo-all
+      - name: 오토플러스 전수 갤러리 crawl
+        run: npx tsx scripts/ingest-reborncar-to-firestore.mts --crawl-only
