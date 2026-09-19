@@ -1,5 +1,9 @@
 # AGENTS.md — freepasserp4 작업원칙 (모든 AI·작업자 공통)
 
+
+## AI Core 공통 UI 매뉴얼
+
+UI/UX 작업은 이 저장소의 제품 정본만 보지 말고 루트 `AI_CORE_UI.md`를 먼저 확인한다. 공통 행동 문법은 AI Core `docs/FREEPASS_UI_STANDARD.md`, 접근성 baseline은 `docs/SCREEN_DESIGN_STANDARD.md`를 따른다. 제품 고유 업무·브랜드·데이터 정본은 이 저장소가 계속 소유한다. 프로젝트 구현이 공통 매뉴얼보다 앞서면 되돌리지 말고 Learning Packet 후보로 남긴다.
 > ★★**예약·자동 발행은 `docs/예약작업-지도.md` 한 장이 정본이다**(사장님 2026-09-16 「예약자를 하나로 통일, 어느 AI든 통일」).
 > 프리패스 시트·원장을 쓰는 예약은 GitHub Actions(main) 한 곳에만 — PC 작업 스케줄러·Codex 자동화·Claude 예약·Vercel cron 에 새로 만들지 않는다.
 > 운영 판매시트 F01·하허호 F86 쓰기는 지도에 «운영 쓰기 허용»으로 적힌 워크플로만(발행기 문지기 `production-sheet-write-gate` 가 막는다) — 로컬·다른 AI 는 미리보기 사본만.
