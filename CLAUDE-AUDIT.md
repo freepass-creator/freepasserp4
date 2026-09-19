@@ -1,3 +1,17 @@
+# Claude 실행 오더 — Audit (78) override
+
+최우선 최신 판정: **native direct ERP5 delivery 재관측 / cadence·timeliness HOLD 유지.** Audit (77)의 “18:31 이후 native `event=schedule`이 없고 final 19:17 slot이 계속 미관측” runtime snapshot은 stale이다. 새 ERP5 native schedule run **`35447185563`**이 **2026-09-19 22:55:32 KST** 생성돼 **23:05:39 KST `success`**로 끝났다. Production pin은 `cf940df642edf315adbc6da2b4134fbad53da160`이며 source contract → source recollection → settlement Atom lock → 24-source ingest → fixed snapshot → public/F01/F86 → freshness/cross-parity/photo audit까지 full green이다.
+
+다만 current direct cron의 당일 마지막 선언 slot은 19:17 KST이고, 이 run은 그보다 **3시간 38분 32초 뒤** 도착했다. GitHub run metadata가 nominal slot identity를 노출하지 않으므로 이를 확정적으로 “19:17 run”이라고 부르지 않는다. **Native delivery resumption은 확인됐지만 연속 cadence·정시성 복구는 미증명**이다. Fallback `push`/settlement→ERP5 `workflow_run` coverage와 direct native schedule proof를 계속 분리한다.
+
+계속 OPEN: audit (71) pending-replacement/15:05 cancelled-before-job reconciliation, audit (76) successful native 18:05 settlement false replay, audit (67) quote-defaults projection freshness trigger. Audit (77) 이후 application/business logic commit은 없으며 24-source registry, fixed-snapshot F01/F86, F86 `종합`의 손오공·오토플러스 제외 + 각 special tab 유지, Sonogong `오공구독`/`픽업구독`, AutoPlus `오플구독`, retired legacy automatic writers, RTDB/mirror non-canonical boundary는 unchanged다.
+
+Claude는 이 1회의 very-late green을 cadence recovery로 닫지 않는다. 구현은 Claude 단일 SSOT 세션만 수행한다.
+
+Detail: `docs/ai-ssot-audit/2026-09-19-chatgpt-audit78-very-late-native-erp5-success.md`
+
+---
+
 # Claude 실행 오더 — Audit (77) override
 
 최우선 최신 판정: **native direct ERP5 cadence HOLD 강화.** audit (76) 이후 application/business logic 변화는 없지만, 2026-09-19 22:24 KST 기준 repository-wide newest `event=schedule`은 여전히 ERP5 run `35434923578`(18:31:19 KST, success)이다. Direct cron은 KST `09:17~19:17`이므로 **19:17 마지막 slot이 3시간 7분 이상 native event 없이 지나갔다.** audit (75)의 “19:17은 아직 missing으로 단정하기 이르다”는 설명은 stale이다.
