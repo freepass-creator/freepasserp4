@@ -168,8 +168,10 @@ export type Whitelabel = {
      */
     nameBand?: number;
   };
-  /** 브랜드색 — `.fp-wl` 안에서 `--brand`/`--text-link` 를 이 값으로 뒤집는다. 빈 값이면 안 뒤집는다. */
+  /** 브랜드 주색 — `.fp-wl` 안에서 `--brand`/`--text-link` 를 이 값으로 뒤집는다. */
   brandColor: string;
+  /** 선택 보조색 — 검색 매칭·focus glow 같은 2차 반응에만 쓴다. 없으면 브랜드 주색을 따른다. */
+  accentColor?: string;
   /** 대표번호 — 담당 영업자(`?a=`)가 없을 때 손님이 걸 번호. */
   tel: string;
   /**
@@ -294,11 +296,12 @@ export const WHITELABELS: Whitelabel[] = [
     name: '',
     wordmark: { main: '', sub: '' },
     /*
-     * ★색도 «안 뒤집는다» — 색은 라벨의 일부다. 브랜드색을 칠하면 이름을 안 적어도
-     *   「어느 회사 색」이 드러난다. 집 기본색으로 두면 그게 노브랜드의 얼굴이다.
-     * ★바탕은 그래도 흰색이다(`whitelabelVars` — 손님 화면은 흰 바탕이 규격).
+     * ERP4 MAIN은 회사 라벨은 비우되 **서비스 BI 팔레트는 쓴다.**
+     * 주색은 freepasserp.com BI 네이비, 보조색은 BI 전용 블루다.
+     * 이름·로고를 드러내는 것이 아니라 UI 반응색을 서비스 정본에 맞추는 것이다.
      */
-    brandColor: '',
+    brandColor: ERP_COLOR.main,
+    accentColor: ERP_COLOR.accent,
     /*
      * 공개 메인의 연락처. 모바일 하단 문의 동작에만 쓰며, 내부 업무 진입 수단이 아니다.
      * 사업자 표기는 plain에서 비워 둔다. 캠페인 안내(notice)는 상품 탐색을 방해하지 않는 범위에서만 쓴다.
@@ -1161,6 +1164,8 @@ export function whitelabelVars(wl: Whitelabel): Record<string, string> {
     '--brand': wl.brandColor,
     '--brand-h': wl.brandColor,
     '--text-link': wl.brandColor,
+    '--brand-accent': wl.accentColor || wl.brandColor,
+    '--brand-accent-soft': `color-mix(in srgb, ${wl.accentColor || wl.brandColor} 12%, white)`,
     /**
      * ★손님 화면 바탕은 **흰색**이다. 업무동 기본값(`--bg-page: #eaedf2`)은 하루 종일 보는
      * 콕핏이라 눈이 덜 부시게 회색으로 깔아 둔 것인데, 손님 카탈로그에 그대로 나오면
