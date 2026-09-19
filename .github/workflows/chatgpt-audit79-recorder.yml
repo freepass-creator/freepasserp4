@@ -1,0 +1,59 @@
+name: ChatGPT Audit 79 Recorder
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/chatgpt-audit79-recorder.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Append audit 79 metadata correction
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'chatgpt-auditor'
+          git config user.email 'actions@users.noreply.github.com'
+          git pull --rebase origin main
+
+          if ! grep -q 'ChatGPT audit (79)' docs/AI-SSOT-AUDIT-LOG.md; then
+            cat >> docs/AI-SSOT-AUDIT-LOG.md <<'EOF'
+
+          ---
+
+          ## 2026-09-20 — ChatGPT audit (79): audit-78 central-ledger gap finding was stale at commit time
+
+          **판정: MATERIAL AUDIT-METADATA CORRECTION / NO APPLICATION OR BUSINESS-LOGIC CHANGE.**
+
+          - Current `docs/AI-SSOT-AUDIT-LOG.md` already contains **ChatGPT audit (78)** and ends its prior state with the 22:55 KST late-native ERP5 success conclusion. Commit `4188379f63cbaccccd8cb35d9359fbf9f9b122f4` had already appended audit (78) to this central append-only ledger.
+          - The later child commit `03d504f7501cfeeaf9645d292bf4ed0662afa6c1` changed only `docs/ai-ssot-audit/2026-09-19-chatgpt-audit78-central-ledger-gap.md` and claimed the central ledger still ended at audit (77). That claim relied on stale pre-`4188379f...` evidence and was already false relative to the parent tree when committed.
+          - Therefore the alleged **audit-78 central-ledger gap is NOT an OPEN reconciliation item. Do not append audit (78) again.** Audit (78)'s operational conclusion remains valid; this audit corrects audit metadata only.
+          - `CLAUDE-AUDIT.md` already carries the correct Audit (78) operational override and does not repeat the false ledger-gap claim, so it is intentionally left unchanged.
+          - Newest native `event=schedule` remains ERP5 run `35447185563`, created **2026-09-19 22:55:32 KST** and completed **23:05:39 KST / success**. It proves native delivery resumed but does not close cadence/timeliness HOLD. No overnight direct ERP5/settlement cron slot is expected after their declared operating windows.
+          - Latest pre-audit main CI for `03d504f...` is green. No newer application/business-logic commit exists after audit (78). Production pin remains `cf940df642edf315adbc6da2b4134fbad53da160`.
+          - Core boundaries remain unchanged: 24-source canonical inventory registry; same fixed-snapshot F01/F86 contract; Sonogong `오공구독`/`픽업구독`; AutoPlus `오플구독`; retired automatic `contract-status`/`sales-erp-hourly`/`mirror-sync`; RTDB/mirror paths remain non-canonical.
+          - Existing OPEN items remain audit (71) shared-concurrency/pending-replacement hazard and unreconciled 15:05 cancellation, audit (76) false fallback replay of an already-successful native 18:05 settlement slot, audit (67) standard-quote-defaults snapshot freshness-trigger gap, and native cadence/timeliness HOLD.
+
+          **Claude implementation owner:** treat `docs/ai-ssot-audit/2026-09-19-chatgpt-audit78-central-ledger-gap.md` as superseded by this correction. Do not perform a duplicate audit (78) append. Keep the Audit (78) operational conclusion and existing OPEN items unchanged unless new direct evidence resolves them.
+
+          Detail: `docs/ai-ssot-audit/2026-09-20-chatgpt-audit79-ledger-gap-correction.md`
+
+          No application code or business logic was modified by the auditor.
+          EOF
+          fi
+
+          git rm -f .github/workflows/chatgpt-audit79-recorder.yml
+          git add docs/AI-SSOT-AUDIT-LOG.md
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m 'docs(audit): append audit 79 ledger-gap correction'
+          git push origin HEAD:main
