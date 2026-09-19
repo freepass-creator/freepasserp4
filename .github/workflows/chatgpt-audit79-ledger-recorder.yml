@@ -1,0 +1,52 @@
+name: ChatGPT audit 79 central-ledger recorder
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/chatgpt-audit79-ledger-recorder.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Append audit 79 correction to central ledger
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import base64
+          from pathlib import Path
+          audit_path = Path('docs/AI-SSOT-AUDIT-LOG.md')
+          marker = 'ChatGPT audit (79): stale audit-78 central-ledger-gap claim corrected'
+          entry = base64.b64decode('LS0tCgojIyAyMDI2LTA5LTIwIOKAlCBDaGF0R1BUIGF1ZGl0ICg3OSk6IHN0YWxlIGF1ZGl0LTc4IGNlbnRyYWwtbGVkZ2VyLWdhcCBjbGFpbSBjb3JyZWN0ZWQKCioq7YyQ7KCVOiDtlbTshozrkKggLyBBVURJVC1NRVRBREFUQSBDT1JSRUNUSU9OLiBBcHBsaWNhdGlvbi9idXNpbmVzcyBsb2dpYyDrs4DtmZQg7JeG7J2MLioqCgotIGBkb2NzL2FpLXNzb3QtYXVkaXQvMjAyNi0wOS0xOS1jaGF0Z3B0LWF1ZGl0NzgtY2VudHJhbC1sZWRnZXItZ2FwLm1kYOydmCDigJzspJHslaDsm5DsnpDslIAgYXVkaXQgKDc3KeuCmCDslYjtlITrqbDrk6Qg7JW464uk4oCd64qUIOyjvOyepOydgCDqt7gg7YyM7J287J20IGNvbW1pdOuQnCDri7nsi5wg7J207KCAIHN0YWxl7J2064ukLiDspJHslaDsm5DsnbQgY29tbWl0IGA0MTg4Mzc5ZjYzY2JhY2NjY2Q4Y2IzNWQ5MzU5ZmJmOWY5YjEyMmY0YOyXkOyEnCBhdWRpdCAoNzgp7J2EIOydtOuvuCDhcHBlbmTtlZwg7IOB7YOI7JiA64ukLgotIOq3uCDrkrQgY29tbWl0IGAwM2Q1MDRmNzUwMWNmZWVhZjk2NDVkMjkyYmY0ZWQwNjYyYWZhNmMxYOydtCDsmJsgYmxvYi9zdGF0ZeulvCDqt7zqsbD로 존재하지 않는 audit-78 ledger gap을 OPEN처럼 기록했다. commit `629b0e1e28bd92099609a64b20e6f871830d8cd7`의 `docs/ai-ssot-audit/2026-09-20-chatgpt-audit79-ledger-gap-correction.md`가 이를 정정했다.
+- 따라서 **audit (78)을 중앙 원장에 다시 append하지 않는다.** 이 항목은 잘못된 metadata finding을 닫는 정정이며, audit (78)의 운영 판정 자체는 유지한다.
+- Fresh runtime recheck에서 newest native `event=schedule`은 여전히 ERP5 `35447185563`(2026-09-19 22:55:32 KST 생성, 23:05:39 KST success)이다. native delivery 재출현은 확인됐지만 연속 cadence·timeliness 복구 증거는 아니므로 HOLD를 유지한다.
+- Current production pin은 `cf940df642edf315adbc6da2b4134fbad53da160`; 24-source canonical registry, 동일 fixed-snapshot F01/F86, F86 `종합`의 손오공·오토플러스 제외 + 각 special tab 유지, retired `sales-erp-hourly`/`mirror-sync` automatic writers, RTDB/mirror non-canonical boundary에는 신규 drift가 없다.
+- 기존 OPEN은 그대로다: audit (71) shared-concurrency/pending-replacement + 15:05 cancelled-before-job reconciliation, audit (76) successful native 18:05 settlement false replay, audit (67) standard quote-defaults freshness trigger gap, native cadence/timeliness HOLD.
+- `CLAUDE-AUDIT.md`는 이미 정확한 Audit (78) 운영 요약을 담고 있고 false ledger-gap 주장을 반복하지 않으므로 **변경하지 않는다.**
+- audit (79) head CI `35451995270`은 `success`다.
+
+Detail: `docs/ai-ssot-audit/2026-09-20-chatgpt-audit79-ledger-gap-correction.md`
+
+No application code or business logic was modified by the auditor.').decode('utf-8')
+          text = audit_path.read_text(encoding='utf-8')
+          if marker not in text:
+              audit_path.write_text(text.rstrip() + '\n\n' + entry.rstrip() + '\n', encoding='utf-8')
+          PY
+          git rm .github/workflows/chatgpt-audit79-ledger-recorder.yml
+          git config user.name "chatgpt-auditor"
+          git config user.email "actions@users.noreply.github.com"
+          git add docs/AI-SSOT-AUDIT-LOG.md
+          if git diff --cached --quiet; then
+            echo "No ledger delta; recorder removed only."
+          fi
+          git commit -m "docs(audit): append audit 79 correction to central ledger"
+          git push origin HEAD:main
