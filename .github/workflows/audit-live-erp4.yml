@@ -88,14 +88,38 @@ jobs:
               let detail = null;
               if (await firstCard.count()) {
                 const href = await firstCard.getAttribute('href');
-                await Promise.all([
-                  page.waitForLoadState('domcontentloaded').catch(() => {}),
-                  firstCard.click(),
-                ]);
+                const linkDiagnostics = await firstCard.evaluate((el) => {
+                  const r = el.getBoundingClientRect();
+                  const cx = r.left + Math.min(r.width / 2, 80);
+                  const cy = r.top + Math.min(r.height / 2, 80);
+                  const hit = document.elementFromPoint(cx, cy);
+                  return {
+                    rect: { left: r.left, top: r.top, width: r.width, height: r.height },
+                    pointerEvents: getComputedStyle(el).pointerEvents,
+                    hitTag: hit?.tagName || null,
+                    hitClass: hit?.className || null,
+                    hitInsideLink: !!(hit && el.contains(hit)),
+                  };
+                });
+
+                await firstCard.click();
+                const clickNavigated = await page.waitForURL('**/q/**', { timeout: 7000 })
+                  .then(() => true)
+                  .catch(() => false);
+                const afterClickUrl = page.url();
+
+                // 클릭 판정과 상세 자체의 생존 여부를 분리한다.
+                // 클릭이 안 갔어도 직접 URL로 들어가 상세 렌더가 성한지 별도로 기록한다.
+                if (!clickNavigated && href) {
+                  await page.goto(new URL(href, base).toString(), { waitUntil: 'domcontentloaded', timeout: 60000 });
+                }
                 await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
                 await page.waitForTimeout(1500);
                 detail = {
                   href,
+                  clickNavigated,
+                  afterClickUrl,
+                  linkDiagnostics,
                   finalUrl: page.url(),
                   title: await page.title(),
                   hasProductDetailTitle: (await page.getByText('상품 상세', { exact: true }).count()) > 0,
@@ -140,6 +164,7 @@ jobs:
               if (shot.root.hasHorizontalOverflow) failures.push(`${shot.name}: root horizontal overflow`);
               if (!shot.detail) failures.push(`${shot.name}: detail link missing`);
               else {
+                if (!shot.detail.clickNavigated) failures.push(`${shot.name}: card click did not navigate`);
                 if (!shot.detail.hasProductDetailTitle) failures.push(`${shot.name}: 상품 상세 title missing`);
                 if (shot.detail.hasHorizontalOverflow) failures.push(`${shot.name}: detail horizontal overflow`);
               }
