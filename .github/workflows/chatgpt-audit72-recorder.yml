@@ -22,69 +22,21 @@ jobs:
         run: |
           set -euo pipefail
           python3 - <<'PY'
+          import base64
           from pathlib import Path
-
+          audit_b64 = 'CgotLS0KCiMjIDIwMjYtMDktMTkg4oCUIENoYXRHUFQgYXVkaXQgKDcyKTogcmVjb3ZlcnkgY3Vyc29yIOygleyDge2ZlCwgYnVyc3QgY2FuY2VsbGF0aW9uIGhhemFyZOuKlCDrr7jtlbTshowKCioq7YyQ7KCVOiBQQVJUSUFMIFJFU09MVkVEIC8gT1BFTi4qKiBhdWRpdCAoNzEp7J2YIO2YhOyerOyDge2DnCDsmpTslb0g7KSRIGBsYXN0SGVhcnRiZWF0U2xvdGAvYGxhc3RSZWNvdmVyeWDqsIAgMDk6MDXroZwg65CY6rCQ6rKoIOyeiOuLpOuKlCDrtoDrtoTsnYAg642UIOydtOyDgSDstZzsi6DsnbQg7JWE64uI64ukLiDqt7jrn6zrgpggMTU6MDUgY2hhaW4gbG9zcyDsm5Dsnbgg7J6Q7LK064qUIOqzoOyzkOyngOyngCDslYrslZjri6QuCgotIGF1ZGl0ICg3MSkg7J207ZuEIGZhbGxiYWNrIHJlY292ZXJ56rCAIOuLpOydjCDsiqzroa/snLzroZwg64uk7IucIOyghOynhO2WiOuLpC4gMTY6MDUgc2V0dGxlbWVudCByZWNvdmVyeSBydW4gKipgMzU0MzE1MDc0MTJgKirsnYAgYGV2ZW50PXB1c2hgLCBjb25jbHVzaW9uIGBzdWNjZXNzYDsgZG93bnN0cmVhbSBFUlA1ICoqYDM1NDMxNTMyMjA5YCoq7J2AIGBldmVudD13b3JrZmxvd19ydW5gLCBjb25jbHVzaW9uIGBzdWNjZXNzYOyYgOqzoCBzb3VyY2UvaW5nZXN0L3NuYXBzaG90L0YwMS9GODYvZnJlc2huZXNzL2Nyb3NzLXBhcml0eS9waG90byBhdWRpdOydtCDrqqjrkZAgUEFTU+2WiOuLpC4KLSAxNzowNSBzZXR0bGVtZW50IHJlY292ZXJ5IOuSpCBFUlA1ICoqYDM1NDMxOTg5OTg5YCoq64+EIGBldmVudD13b3JrZmxvd19ydW5gLCBjb25jbHVzaW9uIGBzdWNjZXNzYOuhnCDrgZ3rgqzqs6Ag64+Z7J28IHByb2R1Y3Rpb24gYXVkaXQgY2hhaW7snbQgUEFTU+2WiOuLpC4gY3VycmVudCBgLmF1dG9tYXRpb24vc2FmZS1jaGFpbi1tb25pdG9yLmpzb25g7J2AIGBsYXN0SGVhcnRiZWF0U2xvdD0yMDI2LTA5LTE5VDE3OjA1OjAwKzA5OjAwYCwgYGxhc3RSZWNvdmVyeS5leHBlY3RlZFNsb3Q9MTc6MDVgLCBgbGFzdEtub3duR29vZEVycDVSdW5JZD0zNTQzMTk4OTk4OWDroZwg7KCE7KeE7ZW0IOyeiOuLpC4KLSDrlLDrnbzshJwgYXVkaXQgKDcxKeydmCAqKm5vbi1tb25vdG9uaWMgY3Vyc29y6rCAIO2YhOyerCAwOTowNeyXkCDrqLjrrLjri6TripQg7Kad7IOB7J2AIOyatOyYgSDsg4Htg5wg6riw7KSAIO2VtOyGjOuQqCoq7Jy866GcIOqwseyLoO2VnOuLpC4KLSDtlZjsp4Drp4wg7J206rKD7J2AIHF1ZXVlL2NvbmN1cnJlbmN5IHNhZmV0eeqwgCDqtaztmITrkJDri6TripQg65y77J20IOyVhOuLiOuLpC4gYXVkaXQgKDcxKSDsnbTtm4QgbWFpbiBkZWx0YeuKlCBoZWFydGJlYXQvc3RhdGUg6riw66Gd67+Q7J206rOgIEVSUDXripQg6rOE7IaNIGBjb25jdXJyZW5jeS5ncm91cD1lcnA1LWludmVudG9yeS1wdWJsaXNoYCwgYGNhbmNlbC1pbi1wcm9ncmVzczpmYWxzZWDri6QuIGN1cnJlbnQgbW9uaXRvcuuPhCBgbGFzdENoYWluRmFpbHVyZWDrpbwgKioxNTowNSAvIEVSUDUgYDM1NDI3OTE1ODM0YCAvIGNhbmNlbGxlZC1iZWZvcmUtam9iIC8gYXV0b21hdGljIHJldHJ5IOyXhuydjCoq7Jy866GcIOq3uOuMgOuhnCDrs7TsobTtlZzri6QuIOymiSDsiJzssKjsoIHsnbggMTY6MDXCtzE3OjA1IOyEseqzteydgCBidXJzdCDsg4HtmansnZgg6riw7KG0IHBlbmRpbmcgRVJQNeqwgCDrjZQg7IOI66Gc7Jq0IHBlbmRpbmfsl5Ag7J2Y7ZW0IOuMgOyytOuQoCDsiJgg7J6I64qUIOq1rOyhsOyggSBoYXphcmTrpbwg7ZW07IaM7ZWY7KeAIOyViuycvOupsCwgMTU6MDUgc2xvdCByZWNvbmNpbGlhdGlvbuuPhCDslYTri4jri6QuCi0gbmF0aXZlIGNhZGVuY2XripQg67OE64+EIEhPTETri6QuIGZyZXNoIGBldmVudD1zY2hlZHVsZWAg7KGw7ZqM7J2YIG5ld2VzdCBuYXRpdmUgcnVu7J2AIOyXrOyghO2eiCBFUlA1ICoqYDM1NDIxODI2MTAwYCoqKDEzOjM4OjE5IEtTVCwgc3VjY2VzcynsnbTri6QuIOydtOuyiCAxNjowNS8xNzowNSDshLHqs7XsnYAgaGVhcnRiZWF0IGBwdXNoYC9gd29ya2Zsb3dfcnVuYCByZWNvdmVyeSBwbGFuZSDspp3qsbDsnbTsp4AgbmF0aXZlIGNyb24g7ZqM67O1IOymneqxsOqwgCDslYTri4jri6QuCi0gY3VycmVudCBtYWluIGBiNDVhNDY3ZDAyZmQ2NzI3Zjc2OWQ0YmYzNTQ5MGMxMzhhODE0M2I5YOydmCBwdXNoIENJIHJ1biAqKmAzNTQzNDQyMTQ4NmAqKuydgCBzdWNjZXNz7JiA64ukLiBwcm9kdWN0aW9uIHBpbiBgY2Y5NDBkZjY0MmVkZjMxNWFkYmM2ZGEyYjQxMzRmYmFkNTNkYTE2MGAsIDI0LXNvdXJjZSBjYW5vbmljYWwgcmVnaXN0cnksIOuPmeydvCBmaXhlZC1zbmFwc2hvdCBGMDEvRjg2LCBTb25vZ29uZy9BdXRvUGx1cyBzcGVjaWFsLXRhYiDqt5zsuZksIFJFVElSRUQgY29udHJhY3Qvc2FsZXMvbWlycm9yIGF1dG9tYXRpYyB3cml0ZXJzLCBSVERCL21pcnJvciBub24tY2Fub25pY2FsIGJvdW5kYXJ57JeQ64qUIOyLoOq3nCBkcmlmdOqwgCDsl4bri6QuIGF1ZGl0ICg2NynsnZggc3RhbmRhcmQgcXVvdGUtZGVmYXVsdHMgZnJlc2huZXNzIHRyaWdnZXIgSE9MROuPhCDqt7jrjIDroZzri6QuCgoqKkNsYXVkZSDsnbjqs4Q6KiogY3Vyc29y6rCAIDE3OjA166GcIOygleyDge2ZlOuQnCDsgqzsi6Trp4zsnLzroZwgYXVkaXQgKDcxKeydhCDri6vsp4Ag66eQIOqygy4gMTU6MDUgYGxhc3RDaGFpbkZhaWx1cmVg64qUIO2VtOuLuSBzbG90IHJlY29uY2lsaWF0aW9uIOymneqxsOqwgCDsg53quLgg65WM6rmM7KeAIE9QRU7snLzroZwg7Jyg7KeA7ZWY6rOgLCBidXJzdC9iYWNrZmlsbOydtCBwZW5kaW5nIEVSUDUgY2hhaW7snYQg64yA7LK07ZWY7KeAIOyViuuPhOuhnSBzZXJpYWwgcXVldWUvY29hbGVzY2luZy9kZWR1cGUg7KSRIO2VmOuCmOydmCDrqoXsi5zsoIEgY29udHJhY3Trpbwg6rWs7ZiE7ZWgIOqygy4gbmF0aXZlIGNhZGVuY2XripQgcmVjb3ZlcnkgcGxhbmXqs7wg6rOE7IaNIOu2hOumrO2VtOyEnCDtjJDsoJXtlZzri6QuCgpObyBhcHBsaWNhdGlvbiBjb2RlIG9yIGJ1c2luZXNzIGxvZ2ljIHdhcyBtb2RpZmllZCBieSB0aGUgYXVkaXRvci4K'
+          claude_b64 = 'IyBDTEFVREUtQVVESVQg4oCUIGxhdGVzdCBTU09UIGF1ZGl0IGVudHJ5IHBvaW50CgojIyBBdWRpdCAoNzIpIG92ZXJyaWRlIOKAlCAyMDI2LTA5LTE5IEtTVAoKQ2xhdWRlIGlzIHRoZSBzb2xlIGltcGxlbWVudGF0aW9uIG93bmVyLiBDaGF0R1BUIGlzIGFuIGluZGVwZW5kZW50IGF1ZGl0b3Igb25seS4KCiMjIyBOZXcgbWF0ZXJpYWwgZGVsdGEKCi0gKipQQVJUSUFMIFJFU09MVVRJT046KiogYXVkaXQgKDcxKeydmCDtmITsnqwgY3Vyc29y6rCAIDA5OjA166GcIOuQmOqwkOqyqCDsnojri6TripQg7IOB7YOc64qUIHN0YWxl7J2064ukLiAxNjowNSByZWNvdmVyeSBjaGFpbuqzvCAxNzowNSByZWNvdmVyeSBjaGFpbuydtCDsl7Dsho0gZ3JlZW7snLzroZwg7JmE66OM65CQ6rOgIGAuYXV0b21hdGlvbi9zYWZlLWNoYWluLW1vbml0b3IuanNvbmDsnZggY3VycmVudCBjdXJzb3IvcmVjb3ZlcnnripQgMTc6MDUsIGBsYXN0S25vd25Hb29kRXJwNVJ1bklkPTM1NDMxOTg5OTg5YOuhnCDsoITsp4Ttlojri6QuCi0gRVJQNSBgMzU0MzE1MzIyMDlgKDE2OjA1IGNoYWluKeqzvCBgMzU0MzE5ODk5ODlgKDE3OjA1IGNoYWluKeuKlCBzb3VyY2XihpJBdG9t4oaSc25hcHNob3TihpJGMDEvRjg24oaSZnJlc2huZXNzL2Nyb3NzLXBhcml0eS9waG90b+q5jOyngCBzdWNjZXNz64ukLgotICoqT1BFTiDsnKDsp4A6KiogdW5kZXJseWluZyBidXJzdCBjYW5jZWxsYXRpb24gaGF6YXJk64qUIOqzoOyzkOyngOyngCDslYrslZjri6QuIEVSUDUgY29uY3VycmVuY3kgY29udHJhY3TripQg6re464yA66Gc7J206rOgLCAxNTowNSBgbGFzdENoYWluRmFpbHVyZWDripQgRVJQNSBgMzU0Mjc5MTU4MzRg6rCAIGpvYiDsg53shLEg7KCEIGNhbmNlbGxlZCwgYXV0b21hdGljIHJldHJ5IOyXhuydjOycvOuhnCDrgqjslYQg7J6I64ukLiDrkqTsnZgg7Iic7LCoIGdyZWVu7J2AIOydtCBzbG907J2EIHJlY29uY2lsZe2VmOyngCDslYrripTri6QuCi0gKipOYXRpdmUgY2FkZW5jZSBIT0xEOioqIG5ld2VzdCBuYXRpdmUgYGV2ZW50PXNjaGVkdWxlYOydgCDsl6zsoITtnoggRVJQNSBgMzU0MjE4MjYxMDBgKDEzOjM4OjE5IEtTVCnsnbTri6QuIDE2OjA1LzE3OjA1IHJlY292ZXJ5IOyEseqzteydhCBuYXRpdmUgY2FkZW5jZSBwcm9vZuuhnCDsk7Dsp4Ag7JWK64qU64ukLgotIFByb2R1Y3Rpb24gcGluLzI0LXNvdXJjZSByZWdpc3RyeS9maXhlZC1zbmFwc2hvdCBGMDEvRjg2L1Nvbm9nb25nwrdBdXRvUGx1cyBzcGVjaWFsLXRhYi9yZXRpcmVkIGxlZ2FjeSBhdXRvbWF0aWMgd3JpdGVycy9SVERCLW1pcnJvciBib3VuZGFyeeyXkOuKlCDsi6Dqt5wgZHJpZnTqsIAg7JeG64ukLiBBdWRpdCAoNjcp7J2YIHN0YW5kYXJkIHF1b3RlLWRlZmF1bHRzIGZyZXNobmVzcyBIT0xE64+EIOuzhOqwnOuhnCDsnKDsp4DtlZzri6QuCgojIyMgQ2xhdWRlIGhhbmRvZmYKCjEuIGN1cnNvciByZXdpbmQg7Kad7IOB7J2AIGN1cnJlbnQtc3RhdGUg6riw7KSAIO2VtOyGjOuQqOycvOuhnCDst6jquIntlZjrkJggYXVkaXQgKDcxKeydmCBidXJzdC1sb3NzIGZpbmRpbmcg7J6Q7LK064qUIOuLq+yngCDslYrripTri6QuCjIuIG1pc3NlZC1zbG90IGJ1cnN06rCAIGV4aXN0aW5nIHBlbmRpbmcgRVJQNSBjaGFpbuydhCDrjIDssrTtlZjsp4Ag7JWK64+E66GdIHNlcmlhbGl6YXRpb24vY29hbGVzY2luZy9kZWR1cGUvZXhwbGljaXQgcXVldWUg7KSRIO2VmOuCmOulvCDqtaztmITtlZzri6QuCjMuIDE1OjA1IGBsYXN0Q2hhaW5GYWlsdXJlYOuKlCDtlbTri7kgc2xvdCByZWNvbmNpbGlhdGlvbiBldmlkZW5jZeqwgCDsg53quLgg65WM6rmM7KeAIE9QRU7snLzroZwg7Jyg7KeA7ZWc64ukLgo0LiBOYXRpdmUgY2FkZW5jZS90aW1lbGluZXNz64qUIHJlY292ZXJ5IHBsYW5l6rO8IOu2hOumrO2VtOyEnCDqs4Tsho0gV0FUQ0gvSE9MRO2VnOuLpC4KCkRldGFpbDogYGRvY3MvQUktU1NPVC1BVURJVC1MT0cubWRgIGF1ZGl0ICg3MikuCgpObyBhcHBsaWNhdGlvbiBjb2RlIG9yIGJ1c2luZXNzIGxvZ2ljIHdhcyBtb2RpZmllZCBieSB0aGUgYXVkaXRvci4KCi0tLQoK'
+          audit_entry = base64.b64decode(audit_b64).decode('utf-8')
+          claude_entry = base64.b64decode(claude_b64).decode('utf-8')
           audit_path = Path('docs/AI-SSOT-AUDIT-LOG.md')
           claude_path = Path('CLAUDE-AUDIT.md')
-
-          audit_entry = r'''
-
----
-
-## 2026-09-19 — ChatGPT audit (72): recovery cursor 정상화, burst cancellation hazard는 미해소
-
-**판정: PARTIAL RESOLVED / OPEN.** audit (71)의 현재상태 요약 중 `lastHeartbeatSlot`/`lastRecovery`가 09:05로 되감겨 있다는 부분은 더 이상 최신이 아니다. 그러나 15:05 chain loss 원인 자체는 고쳐지지 않았다.
-
-- audit (71) 이후 fallback recovery가 다음 슬롯으로 다시 전진했다. 16:05 settlement recovery run **`35431507412`**은 `event=push`, conclusion `success`; downstream ERP5 **`35431532209`**은 `event=workflow_run`, conclusion `success`였고 source/ingest/snapshot/F01/F86/freshness/cross-parity/photo audit이 모두 PASS했다.
-- 17:05 settlement recovery 뒤 ERP5 **`35431989989`**도 `event=workflow_run`, conclusion `success`로 끝났고 동일 production audit chain이 PASS했다. current `.automation/safe-chain-monitor.json`은 `lastHeartbeatSlot=2026-09-19T17:05:00+09:00`, `lastRecovery.expectedSlot=17:05`, `lastKnownGoodErp5RunId=35431989989`로 전진해 있다.
-- 따라서 audit (71)의 **non-monotonic cursor가 현재 09:05에 머문다는 증상은 운영 상태 기준 해소됨**으로 갱신한다.
-- 하지만 이것은 queue/concurrency safety가 구현됐다는 뜻이 아니다. audit (71) 이후 main delta는 heartbeat/state 기록뿐이고 ERP5는 계속 `concurrency.group=erp5-inventory-publish`, `cancel-in-progress:false`다. current monitor도 `lastChainFailure`를 **15:05 / ERP5 `35427915834` / cancelled-before-job / automatic retry 없음**으로 그대로 보존한다. 즉 순차적인 16:05·17:05 성공은 burst 상황의 기존 pending ERP5가 더 새로운 pending에 의해 대체될 수 있는 구조적 hazard를 해소하지 않으며, 15:05 slot reconciliation도 아니다.
-- native cadence는 별도 HOLD다. fresh `event=schedule` 조회의 newest native run은 여전히 ERP5 **`35421826100`**(13:38:19 KST, success)이다. 이번 16:05/17:05 성공은 heartbeat `push`/`workflow_run` recovery plane 증거이지 native cron 회복 증거가 아니다.
-- current main `b45a467d02fd6727f769d4bf35490c138a8143b9`의 push CI run **`35434421486`**은 success였다. production pin `cf940df642edf315adbc6da2b4134fbad53da160`, 24-source canonical registry, 동일 fixed-snapshot F01/F86, Sonogong/AutoPlus special-tab 규칙, RETIRED contract/sales/mirror automatic writers, RTDB/mirror non-canonical boundary에는 신규 drift가 없다. audit (67)의 standard quote-defaults freshness trigger HOLD도 그대로다.
-
-**Claude 인계:** cursor가 17:05로 정상화된 사실만으로 audit (71)을 닫지 말 것. 15:05 `lastChainFailure`는 해당 slot reconciliation 증거가 생길 때까지 OPEN으로 유지하고, burst/backfill이 pending ERP5 chain을 대체하지 않도록 serial queue/coalescing/dedupe 중 하나의 명시적 contract를 구현할 것. native cadence는 recovery plane과 계속 분리해서 판정한다.
-
-No application code or business logic was modified by the auditor.
-'''
-
-          claude_entry = r'''# CLAUDE-AUDIT — latest SSOT audit entry point
-
-## Audit (72) override — 2026-09-19 KST
-
-Claude is the sole implementation owner. ChatGPT is an independent auditor only.
-
-### New material delta
-
-- **PARTIAL RESOLUTION:** audit (71)의 현재 cursor가 09:05로 되감겨 있다는 상태는 stale이다. 16:05 recovery chain과 17:05 recovery chain이 연속 green으로 완료됐고 `.automation/safe-chain-monitor.json`의 current cursor/recovery는 17:05, `lastKnownGoodErp5RunId=35431989989`로 전진했다.
-- ERP5 `35431532209`(16:05 chain)과 `35431989989`(17:05 chain)는 source→Atom→snapshot→F01/F86→freshness/cross-parity/photo까지 success다.
-- **OPEN 유지:** underlying burst cancellation hazard는 고쳐지지 않았다. ERP5 concurrency contract는 그대로이고, 15:05 `lastChainFailure`는 ERP5 `35427915834`가 job 생성 전 cancelled, automatic retry 없음으로 남아 있다. 뒤의 순차 green은 이 slot을 reconcile하지 않는다.
-- **Native cadence HOLD:** newest native `event=schedule`은 여전히 ERP5 `35421826100`(13:38:19 KST)이다. 16:05/17:05 recovery 성공을 native cadence proof로 쓰지 않는다.
-- Production pin/24-source registry/fixed-snapshot F01/F86/Sonogong·AutoPlus special-tab/retired legacy automatic writers/RTDB-mirror boundary에는 신규 drift가 없다. Audit (67)의 standard quote-defaults freshness HOLD도 별개로 유지한다.
-
-### Claude handoff
-
-1. cursor rewind 증상은 current-state 기준 해소됨으로 취급하되 audit (71)의 burst-loss finding 자체는 닫지 않는다.
-2. missed-slot burst가 existing pending ERP5 chain을 대체하지 않도록 serialization/coalescing/dedupe/explicit queue 중 하나를 구현한다.
-3. 15:05 `lastChainFailure`는 해당 slot reconciliation evidence가 생길 때까지 OPEN으로 유지한다.
-4. Native cadence/timeliness는 recovery plane과 분리해서 계속 WATCH/HOLD한다.
-
-Detail: `docs/AI-SSOT-AUDIT-LOG.md` audit (72).
-
-No application code or business logic was modified by the auditor.
-
----
-
-'''
-
           audit = audit_path.read_text(encoding='utf-8')
           if 'ChatGPT audit (72): recovery cursor 정상화' not in audit:
               audit_path.write_text(audit.rstrip() + audit_entry + '\n', encoding='utf-8')
-
           claude = claude_path.read_text(encoding='utf-8')
           if '## Audit (72) override' not in claude:
               claude_path.write_text(claude_entry + claude, encoding='utf-8')
           PY
-
           git rm .github/workflows/chatgpt-audit72-recorder.yml
           git config user.name "chatgpt-auditor"
           git config user.email "actions@users.noreply.github.com"
