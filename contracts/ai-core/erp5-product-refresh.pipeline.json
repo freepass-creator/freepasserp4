@@ -1,0 +1,19 @@
+{
+  "schema_version": "core-data-pipeline-contract/v1",
+  "pipeline_id": "freepasserp5.product.refresh",
+  "direction": "IMPORT",
+  "version": "shadow-v1",
+  "source": "inventory-source-registry@cf940df642edf315adbc6da2b4134fbad53da160",
+  "target": "freepasserp5/firestore/products",
+  "stages": [
+    "RAW_SNAPSHOT",
+    "PARSE",
+    "NORMALIZE",
+    "VALIDATE",
+    "IDENTITY_RESOLVE",
+    "COMMIT"
+  ],
+  "commit_policy": "BEST_EFFORT_BATCH",
+  "partial_failure_policy": "ALLOW_PARTIAL_WITH_RECEIPT",
+  "receipt_required": true
+}

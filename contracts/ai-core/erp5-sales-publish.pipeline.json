@@ -1,0 +1,17 @@
+{
+  "schema_version": "core-data-pipeline-contract/v1",
+  "pipeline_id": "freepasserp5.sales-publish",
+  "direction": "EXPORT",
+  "version": "shadow-v1",
+  "source": "freepasserp5/firestore fixed sales publish snapshot",
+  "target": "F01/F86/public catalog",
+  "stages": [
+    "PROJECT",
+    "PRIVACY_FILTER",
+    "SERIALIZE",
+    "DELIVER"
+  ],
+  "commit_policy": "READ_ONLY",
+  "partial_failure_policy": "NOT_APPLICABLE",
+  "receipt_required": true
+}
