@@ -58,7 +58,7 @@ export function isPublicPath(pathname: string | null | undefined): boolean {
    *   회사가 뭘 팔고 있는지 그냥 다 보이는 거라고」).
    *   `uniautofreepass.com/` 은 미들웨어가 `/shop` 으로 rewrite 하지만 **브라우저 주소는 `/` 그대로**라,
    *   여기서 `/` 를 공개로 안 열면 손님이 첫 화면에서 로그인으로 튕긴다 — 그 손님은 거기서 끝이다.
-   * ⚠ 우리 도메인(freepasserp.com)의 `/` 는 예전 그대로 로그인이다. 채널 호스트일 때만 연다.
+   * ERP4 MAIN 도메인(freepasserp.com)도 같은 판정으로 공개 상품 화면을 연다.
    */
   if (pathname === '/' && homeIsShopHere()) return true;
   if (PUBLIC_EXACT.some((p) => pathname === p)) return true;
