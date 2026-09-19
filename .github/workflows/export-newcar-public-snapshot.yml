@@ -36,13 +36,17 @@ jobs:
         env:
           GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sa.json
         run: npx tsx scripts/export-newcar-public-snapshot.mts
+      - name: 표준견적 코드 기본값 스냅샷
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sa.json
+        run: npx tsx scripts/export-standard-quote-defaults.mts
       - name: 스냅샷 커밋
         shell: bash
         run: |
           set -euo pipefail
           git config user.name "freepass-newcar-bot"
           git config user.email "actions@users.noreply.github.com"
-          git add data/new-car/current-feed.snapshot.json
+          git add data/new-car/current-feed.snapshot.json data/new-car/standard-quote-defaults.snapshot.json
           if git diff --cached --quiet; then exit 0; fi
           git commit -m "data(newcar): refresh public product-master snapshot [skip ci]"
           git push origin HEAD:main
