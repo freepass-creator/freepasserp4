@@ -218,6 +218,17 @@ must(/pathname === '\/'\s*&&\s*homeIsShop\(host\)/.test(mw), '가게 판정은 �
 must(/isShopHome\(host[\s\S]{0,600}?GUEST_HEADER,\s*'1'/.test(mw), '첫 화면 다시쓰기에 손님 표시',
   '표시를 안 붙이면 겉은 가게인데 메타·JSON-LD 는 업무동 것이 실려 나갑니다(2026-09-06 사고).');
 
+/*
+ * ERP4 MAIN/화이트라벨 상품 호스트에는 로그인 화면이 없다.
+ * 옛 북마크나 직접 /login 입력도 루트 상품 메인으로 되돌린다.
+ */
+must(/pathname === '\/login'\s*&&\s*homeIsShop\(host\)/.test(mw),
+  '상품 호스트에서 /login 차단',
+  'ERP4 MAIN/화이트라벨에서 로그인 UI가 다시 노출될 수 있습니다.');
+must(/target\.pathname = '\/'[\s\S]{0,120}?NextResponse\.redirect\(target, 307\)/.test(mw),
+  '/login 은 상품 메인으로 복귀',
+  '로그인 차단은 됐지만 상품 메인으로 돌아가지 않습니다.');
+
 must(/homeIsShop/.test(read('lib/public-access.ts')), '공개 판정도 같은 함수를 본다',
   '미들웨어와 게이트가 각자 계산하면 «서버는 가게 · 게이트는 로그인»인 반쪽 상태가 납니다.');
 
