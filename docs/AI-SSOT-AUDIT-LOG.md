@@ -3008,3 +3008,38 @@ PR #412 premerge Source Contract / generic CI는 success였다. 다만 **새 pin
 상세 근거: `docs/ai-ssot-audit/2026-09-19-chatgpt-audit63-heartbeat-recovery-topology-drift.md` (detail commit `eddf29a594040bb926098ce38e57c19c9b5150f0`).
 
 이번 ChatGPT 감사에서는 application code/business logic을 수정하지 않았다.
+
+---
+
+## 2026-09-19(64) — ChatGPT 독립 감사: chained ERP5 full green, native schedule WATCH
+
+**판정: PARTIAL RESOLVED / recovery-plane PASS + native schedule WATCH.**
+
+- audit (63)에서 in-progress였던 settlement heartbeat recovery 이후 canonical ERP5 `workflow_run` **`35413099804`**가 full pipeline까지 success로 완료됐다. production pin은 `cf940df642edf315adbc6da2b4134fbad53da160`이며 24-source ingest → Atom/snapshot → F01/F86 → freshness/cross-parity/photo checks가 green이었다.
+- settlement bootstrap gap도 recovery path에서 해소됐다. canonical intake sheet missing 오류를 auto-heal한 뒤 settlement recovery run **`35413059063`**이 success였다.
+- 단, heartbeat `push`와 settlement→ERP5 `workflow_run`은 native cron delivery 증거가 아니다. repository-wide newest native `event=schedule`은 계속 **`35347508078`**(2026-09-18 21:58:18 KST, success)이므로 native schedule/cadence는 WATCH/HOLD를 유지한다.
+- `docs/예약작업-지도.md`와 `scripts/check-schedule-map.mts`가 heartbeat `push.paths` / `workflow_run` recovery plane을 충분히 모델링하지 않는 governance drift도 유지한다.
+- production pin, 24-source canonical registry, F01/F86 fixed-snapshot projection, Sonogong/AutoPlus special-tab rules, retired legacy automatic writers 및 RTDB/mirror non-canonical boundary에는 신규 회귀가 없다.
+- 상세 근거: `docs/ai-ssot-audit/2026-09-19-chatgpt-audit64-chained-erp5-full-green-native-schedule-watch.md`.
+
+이번 감사에서는 application code/business logic을 수정하지 않았다.
+
+---
+
+## 2026-09-19(65) — ChatGPT 독립 감사: 11:05 native schedule 반복 누락 + derived product snapshot writer 추가
+
+**판정: MATERIAL / native cron HOLD 강화 + 신규 derived writer topology.**
+
+- audit (64)의 recovery-plane PASS는 유효하지만 native cron delivery는 복구되지 않았다. **2026-09-19 11:05 KST settlement slot**이 다시 native event로 생성되지 않아 commit `3bba8325681b8b55770a54e48ec1f453a6eaee36`의 heartbeat recovery가 필요했고, run **`35416904804`**이 success였다.
+- 후속 safe-chain ERP5 recovery는 commit `7d16ac4a3a6f36628dfe685733676f20f6d60f6f` 이후 run **`35416937797`**로 success였다. recovery plane은 동작하지만 heartbeat `push`/`workflow_run`을 native `event=schedule` proof로 대체하지 않는다.
+- fresh repository-wide schedule 조회에서도 newest native `event=schedule`은 여전히 **`35347508078`**(2026-09-18 21:58:18 KST, ERP5, success)이다. 원인을 scheduler outage/disabled로 단정하지 않고 native cadence를 HOLD한다.
+- audit (64) 이후 새 writer topology가 main에 추가됐다: Firestore `new_car_trim` → `scripts/export-newcar-public-snapshot.mts` → `data/new-car/current-feed.snapshot.json` → `.github/workflows/export-newcar-public-snapshot.yml` → main bot commit. 관련 commits: `df3a97db3dbd181612b5f8a486bdd29318342efa`, `dbf0f2cda8c82ad70c36a19bb89a0244cbf8d321`, `aa2c8e6b5ca87f48c86b48afc1bd94411c8fd9ef`.
+- 이 새 경로는 ERP5 canonical inventory registry를 변경하지 않은 **derived/public-product projection**으로 분류한다. workflow 자체에는 cron/Firestore-change trigger가 없으므로 freshness/trigger contract를 별도로 문서화·검증해야 하며, main에 commit된다는 이유로 inventory authority로 승격하면 안 된다.
+- production pin `cf940df642edf315adbc6da2b4134fbad53da160`, 24-source registry, F01/F86 fixed-snapshot projection, F86 `종합`의 RP012/RP003 제외, Sonogong/AutoPlus special-tab rules, retired contract/sales/mirror automatic schedules, RTDB/mirror non-canonical boundary는 변경 없음이다.
+- 기존 RP023/RP031/deposit/price/tab/freshness/`/inventory` HOLD도 직접 해소 증거가 없어 유지한다.
+- 중앙 로그가 audit (63)에서 끝나 audit (64)가 빠져 있던 append-only ledger gap은 이번 append에서 audit (64) 요약을 먼저 backfill해 복구했다.
+- 상세 근거: `docs/ai-ssot-audit/2026-09-19-chatgpt-audit65-repeated-native-schedule-miss-derived-product-snapshot-writer.md` (detail commit `163aea70441c9cac318bef054d6f2ea813516ffd`).
+
+**Claude 구현 Owner:** native schedule GO는 실제 `event=schedule` 연속 관측 전까지 닫지 않는다. heartbeat/`workflow_run` recovery plane을 예약작업 지도/CI guard에 반영하고, Firestore→git snapshot writer는 canonical inventory와 분리된 derived product projection으로 writer topology/freshness contract를 명시한다.
+
+이번 ChatGPT 감사에서는 application code/business logic을 수정하지 않았다.
