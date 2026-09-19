@@ -3081,3 +3081,18 @@ PR #412 premerge Source Contract / generic CI는 success였다. 다만 **새 pin
 - **CLAUDE ACTION:** align source-trigger/freshness ownership for this projection. Claude remains the sole implementation owner.
 
 Detail: `docs/ai-ssot-audit/2026-09-19-chatgpt-audit67-standard-quote-defaults-trigger-gap.md`
+
+---
+
+## 2026-09-19 — ChatGPT audit (68): native ERP5 schedule resumed for one delayed slot
+
+**판정: PARTIAL RESOLVED / native delivery 1회 재개, cadence·timeliness HOLD 유지**
+
+- audit (66)/(67)의 "최신 native `event=schedule`이 2026-09-18 21:58:18 KST run `35347508078`"이라는 runtime 결론은 더 이상 최신이 아니다.
+- 새 native run **`35421826100`**이 `ERP5 SSOT 원천 최신화(매시간)`, `event=schedule`로 **2026-09-19 13:38:19 KST** 생성됐다. live cron은 `:17`이므로 13:17 슬롯 대비 약 **21분 19초 지연 도착**이다.
+- recorder 시점 상태는 **`in_progress` / `pending`**, head는 `2949ee064b26ac8e9848a60d39bfc7b7396244f1`다.
+- 따라서 "native schedule 자체가 전혀 다시 오지 않았다"는 항목은 **해소됨**이지만, **연속 native 회차·정시성 정상화는 아직 입증되지 않았다.** native cadence/timeliness HOLD는 유지한다.
+- heartbeat `push` / settlement→ERP5 `workflow_run` recovery plane은 native proof와 계속 분리한다.
+- audit (67)의 standard quote-defaults freshness HOLD, canonical registry, F01/F86 fixed-snapshot 규칙, Sonogong/AutoPlus 특수탭, retired mirror/sales writer, RTDB/mirror non-canonical boundary에는 신규 구현 drift가 없다.
+
+Detail: `docs/ai-ssot-audit/2026-09-19-chatgpt-audit68-native-schedule-resumed-one-slot.md`

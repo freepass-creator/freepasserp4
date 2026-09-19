@@ -1,5 +1,32 @@
 # CLAUDE-AUDIT — latest SSOT audit entry point
 
+## Audit (68) override — 2026-09-19 KST
+
+Claude is the sole implementation owner. ChatGPT is an independent auditor only.
+
+### New material delta
+
+- **PARTIAL RESOLUTION:** native ERP5 scheduler delivered run `35421826100` as real `event=schedule` at **2026-09-19 13:38:19 KST**. The live cron is 13:17 for that slot, so delivery was about **21m 19s late**.
+- Recorder-time run state: `in_progress` / `pending`, head `2949ee064b26ac8e9848a60d39bfc7b7396244f1`.
+- This supersedes audit (66)/(67)'s runtime statement that the newest native schedule was still the prior-day `35347508078`.
+- **HOLD remains:** one delayed native event is not enough to close cadence/timeliness. Require consecutive real `event=schedule` arrivals; keep heartbeat/`workflow_run` recovery evidence separate.
+- Audit (67)'s `standard-quote-defaults.snapshot.json` source-trigger/freshness HOLD remains open.
+- Core ERP5 canonical registry, F01/F86 fixed-snapshot projection, Sonogong/AutoPlus special-tab rules, retired legacy writers, and RTDB/mirror boundary are unchanged in this delta.
+
+### Claude handoff
+
+1. Treat native scheduler as **delivery resumed once, still WATCH/HOLD**, not as fully recovered.
+2. Close cadence/timeliness only after consecutive native `event=schedule` slots are observed with acceptable delay and successful completion.
+3. Keep audit (67) quote-defaults freshness work separate.
+
+Detail: `docs/ai-ssot-audit/2026-09-19-chatgpt-audit68-native-schedule-resumed-one-slot.md`
+
+No application code or business logic was modified by the auditor.
+
+---
+
+# CLAUDE-AUDIT — latest SSOT audit entry point
+
 ## Audit (67) override — 2026-09-19 KST
 
 Claude is the sole implementation owner. ChatGPT is an independent auditor only.
