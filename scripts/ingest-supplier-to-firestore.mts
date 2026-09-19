@@ -169,7 +169,7 @@ function resolveCols(hdr: string[]) {
     fuel: find(aliasOf('연료')), ext: find(aliasOf('외부색상')), int: find(aliasOf('내부색상')),
     km: find(aliasOf('주행거리')), opt: find(aliasOf('옵션')), firstReg: find(aliasOf('최초등록일')),
     cc: find(aliasOf('배기량')), klass: find(['차급', '차종크기', '차급분류', '차종분류']),
-    dep: find(['장기보증', '보증금']), periods: Object.fromEntries(PERIOD_ALIAS.map(([k, c]) => [k, find(c)])) as Record<string, number>,
+    dep: find(['장기보증', '보증금']), photo: find(aliasOf('사진링크')), periods: Object.fromEntries(PERIOD_ALIAS.map(([k, c]) => [k, find(c)])) as Record<string, number>,
   };
 }
 // 시트/홈피 행에서 요금 = {개월: {rent, deposit}}. rent=개월열(원화) · deposit=장기보증(무보증=0, 전 기간 공통).
@@ -199,7 +199,7 @@ const depositNote = (raw: string) => {
 };
 
 // ── 원천 리더 — 종류마다 «우리필드 키 행(Row)»을 낸다. 원자화는 하나로 공유한다. ──────
-type Row = { car: string; link?: string; rawLink?: string; imageUrls?: unknown; photoCollectedAt?: unknown; rawDescription?: string; rawPaidOptions?: unknown; rawMirroredPaidOptions?: unknown; rawSonokongOptionNote?: unknown; rawOptionEvidence?: unknown; optionSource?: string; status: string; kind: string; maker: string; model: string; vname: string; trim: string; fuel: string; ext: string; int: string; km: string; opt: string; firstReg: string; cc: string; klass: string; price: Price; depNote: string; tab: string; row: string };
+type Row = { car: string; link?: string; rawLink?: string; photoLink?: string; imageUrls?: unknown; photoCollectedAt?: unknown; rawDescription?: string; rawPaidOptions?: unknown; rawMirroredPaidOptions?: unknown; rawSonokongOptionNote?: unknown; rawOptionEvidence?: unknown; optionSource?: string; status: string; kind: string; maker: string; model: string; vname: string; trim: string; fuel: string; ext: string; int: string; km: string; opt: string; firstReg: string; cc: string; klass: string; price: Price; depNote: string; tab: string; row: string };
 const blank: Omit<Row, 'car' | 'tab' | 'row'> = { status: '', kind: '', maker: '', model: '', vname: '', trim: '', fuel: '', ext: '', int: '', km: '', opt: '', rawDescription: '', rawPaidOptions: null, rawMirroredPaidOptions: null, rawSonokongOptionNote: null, rawOptionEvidence: null, optionSource: '', firstReg: '', cc: '', klass: '', price: {}, depNote: '', imageUrls: [], photoCollectedAt: 0 };
 
 // 번호판 꼴만 차로 본다 — 헤더 밑 제목·프로모 배너·빈 행이 «차»로 새는 걸 막는다(오토플러스 실측).
@@ -396,7 +396,7 @@ async function readRows(): Promise<Row[]> {
       const price = sheetPrice((i) => S(r[i]), ci);
       const depNote = depositNote(ci.dep >= 0 ? S(r[ci.dep]) : '');
       /** ★칸마다 «시트 오류 토큰»을 걷는다(`clean`) — 「#REF!」가 값처럼 실려 상품구분이 된 적이 있다. */
-      push({ car, status: clean(r[ci.status]), kind: ci.kind >= 0 ? clean(r[ci.kind]) : '', maker: maker0, model, vname, trim, fuel: ci.fuel >= 0 ? clean(r[ci.fuel]) : '', ext: ci.ext >= 0 ? clean(r[ci.ext]) : '', int: ci.int >= 0 ? clean(r[ci.int]) : '', km: ci.km >= 0 ? clean(r[ci.km]) : '', opt: ci.opt >= 0 ? clean(r[ci.opt]) : '', firstReg: ci.firstReg >= 0 ? clean(r[ci.firstReg]) : '', cc: ci.cc >= 0 ? clean(r[ci.cc]) : '', klass: ci.klass >= 0 ? clean(r[ci.klass]) : '', price, depNote, tab, row: String(rowNo) });
+      push({ car, photoLink: ci.photo >= 0 ? S(r[ci.photo]) : '', status: clean(r[ci.status]), kind: ci.kind >= 0 ? clean(r[ci.kind]) : '', maker: maker0, model, vname, trim, fuel: ci.fuel >= 0 ? clean(r[ci.fuel]) : '', ext: ci.ext >= 0 ? clean(r[ci.ext]) : '', int: ci.int >= 0 ? clean(r[ci.int]) : '', km: ci.km >= 0 ? clean(r[ci.km]) : '', opt: ci.opt >= 0 ? clean(r[ci.opt]) : '', firstReg: ci.firstReg >= 0 ? clean(r[ci.firstReg]) : '', cc: ci.cc >= 0 ? clean(r[ci.cc]) : '', klass: ci.klass >= 0 ? clean(r[ci.klass]) : '', price, depNote, tab, row: String(rowNo) });
     }
   }
   return out;
@@ -510,6 +510,7 @@ function atomize(row: Row, pinned: Map<string, Record<string, unknown>>): Atom {
     ...(Object.keys(row.price).length ? { price: row.price } : null),
     ...(row.depNote ? { deposit_note: row.depNote } : null),   // 「무보증」처럼 «말»로 적힌 보증금 — 빈칸으로 두지 않는다
     ...(S(row.link) ? { tica_link: S(row.link) } : null),   // 픽업구독 「차번링크」 — 원천이 줄 때만(빈 값으로 아는 링크를 덮지 않는다)
+    ...(S(row.photoLink) ? { photo_link: S(row.photoLink) } : null), // 공급사별 사진 원천(Drive 폴더/상세페이지/직접 URL). 빈칸은 기존값을 지우지 않는다.
     ...photoAtomFields(row.imageUrls, row.photoCollectedAt, src.kind === 'sonokong' ? 'https://sokrc.com' : ''),
     _pin_state: state,
     원문: rawEvidence,
@@ -595,7 +596,7 @@ const docId = (car: string) => car.replace(/\s/g, '').replace(/[/#.$[\]]/g, '_')
  *   `vehicle_status` 는 옛 값에 머물러 **상태가 두 벌**이 됐다(시트·손님 면은 `vehicle_status` 를 읽는다).
  */
 /** ★`tica_link` 도 «변동»이다 — 손오공이 차를 넣고 빼면 링크도 따라 바뀐다(발행기가 시트를 다시 읽지 않게 원자에 둔다). */
-const VAR_FIELDS_ALL = ['vehicle_status', 'status', 'status_kind', 'status_reason', 'listable', 'status_label_raw', 'mileage', 'price', 'tica_link', 'image_urls', 'photo_collected_at', 'photo_source_hash'] as const;
+const VAR_FIELDS_ALL = ['vehicle_status', 'status', 'status_kind', 'status_reason', 'listable', 'status_label_raw', 'mileage', 'price', 'tica_link', 'photo_link', 'image_urls', 'photo_collected_at', 'photo_source_hash'] as const;
 /** 상태 칸만 — `--status-only` 일 때. 주행·요금은 빼고 «안 건드린다». */
 const VAR_FIELDS_STATUS = ['vehicle_status', 'status', 'status_kind', 'status_reason', 'listable', 'status_label_raw'] as const;
 const VAR_FIELDS: readonly string[] = STATUS_ONLY ? VAR_FIELDS_STATUS : VAR_FIELDS_ALL;
@@ -652,7 +653,7 @@ if (!APPLY) { console.log(`\n미리보기 — Firestore 안 씀. 쓰려면 --app
 //   사장님 「한 번 정확히 가져오면 그 다음은 상태값만 읽어 바뀐 거 체크. 제일 바뀌는 게 차량상태.」
 if (VARIABLE) {
   const items = now.filter((a) => cur.has(a.car_number)); // 아는 차만(새 차는 --apply 몫)
-  let changed = 0, sChg = 0, mChg = 0, pChg = 0, lChg = 0, photoChg = 0, oChg = 0;
+  let changed = 0, sChg = 0, mChg = 0, pChg = 0, lChg = 0, photoLinkChg = 0, photoChg = 0, oChg = 0;
   for (let i = 0; i < items.length; i += 400) {
     const batch = fs.batch(); let any = false;
     for (const a of items.slice(i, i + 400)) {
@@ -674,6 +675,7 @@ if (VARIABLE) {
        */
       const lMoved = !STATUS_ONLY && S(a.tica_link) !== S(c.tica_link)
         && (src.kind === 'sonokong' || S(a.tica_link) !== '');
+      const photoLinkMoved = !STATUS_ONLY && S(a.photo_link) !== '' && S(a.photo_link) !== S(c.photo_link);
       const photoMoved = !STATUS_ONLY && Array.isArray(a.image_urls) && a.image_urls.length > 0
         && jsonSorted(a.image_urls) !== jsonSorted(c.image_urls);
       /**
@@ -702,7 +704,7 @@ if (VARIABLE) {
         || jsonSorted(새원문.옵션근거) !== jsonSorted(옛원문.옵션근거)
         || S(새원문.티카링크원문) !== S(옛원문.티카링크원문)
       );
-      if (!sMoved && !mMoved && !pMoved && !lMoved && !photoMoved && !oMoved && !rawMoved) continue;
+      if (!sMoved && !mMoved && !pMoved && !lMoved && !photoLinkMoved && !photoMoved && !oMoved && !rawMoved) continue;
       const upd: Record<string, unknown> = { _var_polled_at: Date.now() };
       for (const f of VAR_FIELDS) if (a[f] !== undefined && a[f] !== '') upd[f] = a[f];
       if (lMoved && src.kind === 'sonokong') upd.tica_link = S(a.tica_link);
@@ -741,11 +743,11 @@ if (VARIABLE) {
       /** ★요금은 갈아 끼운다 — merge 는 맵 키를 못 지워 «지금 안 파는 기간»이 남는다(위 전체 반영과 같은 규칙). */
       if (!STATUS_ONLY && Object.keys(ap).length) batch.update(ref, { price: ap });
       if (원문갈이) batch.update(ref, { 원문: 원문갈이 });
-      changed++; if (sMoved) sChg++; if (mMoved) mChg++; if (pMoved) pChg++; if (lMoved) lChg++; if (photoMoved) photoChg++; if (oMoved) oChg++; any = true;
+      changed++; if (sMoved) sChg++; if (mMoved) mChg++; if (pMoved) pChg++; if (lMoved) lChg++; if (photoLinkMoved) photoLinkChg++; if (photoMoved) photoChg++; if (oMoved) oChg++; any = true;
     }
     if (any) await batch.commit();
   }
-  console.log(`\n변동 폴링 완료 — ${PROV} 아는 차 ${items.length} 중 바뀐 ${changed} 씀 (상태 ${sChg} · 주행 ${mChg} · 요금 ${pChg} · T카링크 ${lChg} · 사진목록 ${photoChg} · 옵션 ${oChg}). 불변 안 건드림.`);
+  console.log(`\n변동 폴링 완료 — ${PROV} 아는 차 ${items.length} 중 바뀐 ${changed} 씀 (상태 ${sChg} · 주행 ${mChg} · 요금 ${pChg} · T카링크 ${lChg} · 사진원천링크 ${photoLinkChg} · 사진목록 ${photoChg} · 옵션 ${oChg}). 불변 안 건드림.`);
 
   /**
    * ★★**덤프에 없는데 시트에는 있는 차의 링크도 챙긴다.**
