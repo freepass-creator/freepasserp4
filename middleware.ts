@@ -50,8 +50,8 @@ export function middleware(request: NextRequest) {
    *
    * ★`redirect` 가 아니라 **`rewrite`** 다. 주소창이 `uniautofreepass.com` 그대로 남아야
    *   그 회사 사이트로 보인다. `/shop` 이 붙으면 「어디 시스템에 얹힌 것」처럼 읽힌다.
-   * ⚠ 브라우저 주소는 `/` 그대로라 클라이언트 인증 게이트가 `/` 를 본다 —
-   *   `lib/public-access` 가 채널 호스트의 `/` 를 공개로 연다. 둘이 짝이라 한쪽만 고치면 튕긴다.
+   * ★ 공개 상품 요청은 루트 레이아웃에서 AuthProvider를 아예 마운트하지 않는다.
+   *   공개/인증의 관계는 «게이트 우회»가 아니라 «서브시스템 분리»다.
    */
   /*
    * ⚠⚠ **손님 표시(`x-fp-guest`)를 «여기서도» 붙인다**(2026-09-09).
@@ -62,15 +62,19 @@ export function middleware(request: NextRequest) {
    * ★채널 도메인에도 붙는다 — 거기도 손님 화면이라 붙는 편이 정확하다(지금과 결과가 같다).
    */
   /*
-   * ERP4 MAIN / 화이트라벨 도메인에는 로그인 화면이 **존재하지 않는다**.
-   * 과거 /login 파일은 레거시 업무 도구 호환을 위해 저장소에만 남길 수 있지만,
-   * 상품 호스트에서 직접 주소를 입력하거나 옛 북마크를 눌러도 절대 로그인 UI를 보여주지 않는다.
+   * ERP4 MAIN / 화이트라벨 상품 호스트와 인증 시스템은 **서로 다른 제품면**이다.
+   * /login 을 상품 메인으로 돌려주면 «ERP4 안에 로그인 기능이 있는데 숨겨 둔 것»처럼 연결이 남는다.
+   * 따라서 상품 호스트에서는 인증 경로 자체를 노출하지 않는다: /login = 404.
+   * 로그인 구현은 별도/레거시 업무 호스트에서만 사용할 수 있고, 상품 호스트의 IA·라우팅과 연결하지 않는다.
    */
   if (request.nextUrl.pathname === '/login' && homeIsShop(host)) {
-    const target = request.nextUrl.clone();
-    target.pathname = '/';
-    target.search = '';
-    return NextResponse.redirect(target, 307);
+    return new NextResponse('Not Found', {
+      status: 404,
+      headers: {
+        'Content-Type': 'text/plain; charset=utf-8',
+        'Cache-Control': 'no-store',
+      },
+    });
   }
 
   if (isCompanyHomeRoot(host, request.nextUrl.pathname)) {
