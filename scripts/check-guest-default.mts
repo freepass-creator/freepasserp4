@@ -161,6 +161,20 @@ for (const wl of WHITELABELS) {
  * 사장님 2026-09-09 「화이트라벨은 회사 라벨이 붙는 거고, **프리패스erp.com 기본은 라벨이 없는 거**지.
  * 그걸 일단 모빌리티.com 에 구현해 놓고 도메인갈이 하자고」 · 「들어왔을 때 **브랜드 안 떠야 함**」.
  */
+/*
+ * ERP4 MAIN 서비스 BI 색 계약 — 회사 라벨은 비워도 서비스 팔레트는 정확히 쓴다.
+ * 주색 네이비는 freepass CI/BI 공통, 보조 블루는 freepasserp.com BI 전용이다.
+ */
+{
+  const src = read('lib/whitelabel.ts');
+  must(/brandColor: ERP_COLOR\.main/.test(src) && /accentColor: ERP_COLOR\.accent/.test(src),
+    'ERP4 MAIN 기본 팔레트가 서비스 BI 정본에서 벗어났습니다.',
+    'lib/domain/corporate-ci.ts ERP_COLOR');
+  must(/'--brand-accent': wl\.accentColor \|\| wl\.brandColor/.test(src),
+    '화이트라벨 보조색 토큰 연결이 사라졌습니다.',
+    'lib/whitelabel.ts whitelabelVars');
+}
+
 const plains = WHITELABELS.filter((w) => w.plain);
 console.log(`
   ── 라벨 없는 얼굴 ${plains.length}벌`);
