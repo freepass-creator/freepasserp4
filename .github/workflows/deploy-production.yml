@@ -1,0 +1,71 @@
+name: Production Deploy Recovery
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/deploy-production.trigger"
+  workflow_dispatch:
+    inputs:
+      repair_alias:
+        description: "검증된 deployment를 freepasserp.com / www alias에 다시 연결"
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: freepasserp4-production-release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Vercel token 확인
+        run: |
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "::error::GitHub Actions secret VERCEL_TOKEN 이 없습니다."
+            echo "::error::Vercel 토큰을 repository secret VERCEL_TOKEN 으로 등록해야 수동 복구 배포를 쓸 수 있습니다."
+            exit 1
+          fi
+
+      - name: Install
+        run: npm ci
+
+      - name: main 상태 확인
+        run: |
+          git fetch origin main
+          test "$(git rev-parse HEAD)" = "$(git rev-parse origin/main)"
+
+      - name: Vercel 프로젝트 연결
+        run: npx vercel link --yes --project freepasserp4 --scope freepass-projects --token "$VERCEL_TOKEN"
+
+      - name: 강제 production 배포 + 운영 SHA 검증
+        run: |
+          if [ "${{ github.event_name == 'workflow_dispatch' && inputs.repair_alias || false }}" = "true" ]; then
+            npm run deploy:prod -- --repair-alias
+          else
+            npm run deploy:prod
+          fi
+
+      - name: 배포 증거
+        if: always()
+        run: |
+          echo "expected_sha=$(git rev-parse --short=7 HEAD)"
+          echo "production=https://freepasserp.com"
+          echo "production_www=https://www.freepasserp.com"
