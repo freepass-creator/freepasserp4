@@ -4,19 +4,16 @@
  * 사장님 2026-09-09 「프리패스도 화이트라벨처럼 만들어서 **프리패스 기본이 화이트라벨식**이 되게
  * 할 거야」 · 「일단 구현해 놓고 **일시에 갈아치울 수 있게끔** 테스트 충분히 하고」.
  *
- * ## 갈아치는 길은 «하나»뿐이다
+ * 현재 목적은 ERP4 MAIN 공개 상품 화면과 레거시 업무 경로의 브랜드/chrome 경계를 지키는 것이다.
+ * `freepasserp.com` 루트가 상품 메인이라는 사실은 `plain.hosts` + `homeIsShop`이 정하고,
+ * 이 검사는 채널 간판을 바꿔도 별도 업무 경로까지 잘못 물들지 않는지만 확인한다.
  *
- * `lib/whitelabel.ts` 의 **`GUEST_FALLBACK_KEY` 한 줄**. 그 값만 바꾸면 호스트·`?wl=` 어디에도
- * 안 걸린 손님 화면이 전부 그 채널 간판으로 선다. 화면 코드는 한 줄도 안 고친다.
- *
- * ## ⚠ 막아야 하는 «그럴듯한 다른 길»
- *
- * 노브랜드 기본값(`FREEPASS`)에 이름을 채워 넣는 방식이 제일 쉬워 보인다. 그런데 그러면
- * `hasBrand(FREEPASS)` 가 true 가 되고, **업무동 셋이 같은 판정을 쓰고 있어서 같이 물든다** —
+ * 노브랜드 기본값(`FREEPASS`)에 이름을 채워 넣으면 레거시 업무 화면의 chrome까지 바뀔 수 있으므로
+ * 그 경계는 계속 막는다 —
  *
  * | 어디 | 무엇을 하나 | 물들면 |
  * |---|---|---|
- * | `middleware.ts` `isShopHome` | 채널 도메인의 `/` 를 `/shop` 으로 rewrite | **로그인 현관이 사라진다** |
+ * | `middleware.ts` `isShopHome` | 공개 도메인의 `/` 를 `/shop` 으로 rewrite | **공개/레거시 경계가 섞인다** |
  * | `app/layout.tsx` | 브랜드면 업무동 상단바를 안 그린다 | 콕핏에서 상단바가 없어진다 |
  * | `lib/public-access.ts` | 브랜드 호스트의 `/` 를 공개로 연다 | 업무동 첫 화면이 로그인 없이 열린다 |
  *
@@ -107,7 +104,7 @@ if (dflt) ok('지금 기본 간판', `${dflt.name} (${dflt.key})`);
 const WORK_HOSTS = ['freepasserp.com', 'www.freepasserp.com', 'localhost', 'sign.freepasserp.com'];
 for (const h of WORK_HOSTS) {
   must(!hasBrand(resolveWhitelabel(h)), `업무동 노브랜드 · ${h}`,
-    '이 호스트가 브랜드로 잡히면 로그인 현관이 /shop 으로 다시 쓰이고 상단바가 사라집니다.');
+    '레거시 업무 호스트 판정에 공개 채널 브랜드가 섞이면 업무 chrome이 사라집니다.');
 }
 must(!hasBrand(FREEPASS), '노브랜드 기본값이 비어 있다',
   'FREEPASS 에 이름·워드마크를 채우면 업무동 셋이 같이 물듭니다(이 파일 머리말의 표).');
@@ -180,7 +177,7 @@ for (const w of plains) {
  *   `FREEPASS` 는 콕핏이라 껍데기조차 없고, `plain` 은 가게라 껍데기가 있다.
  */
 must(!hasShopFrame(FREEPASS), '업무동 기본값에는 껍데기가 없다',
-  'FREEPASS 에 plain 을 달면 freepasserp.com/ 이 가게로 바뀌어 로그인 현관이 사라집니다.');
+  'FREEPASS 에 plain 을 달면 공개/레거시 껍데기 경계가 섞입니다.');
 
 /* ── ⑦ 진화 스위치 ② — `freepasserp.com/` 를 가게로 바꿀 준비가 돼 있나 ────── */
 /*
@@ -202,8 +199,8 @@ must(homeIsShop('some-preview.vercel.app') === HOME_IS_SHOP, '표에 없는 호�
   '표에 없는 호스트가 스위치와 다르게 굴면, 미리보기 주소에서 옛 얼굴을 확인할 수 없습니다.');
 
 /*
- * ★★**로그인 길은 스위치와 무관하다.** 이게 막히면 켠 순간 아무도 업무 화면에 못 들어온다.
- *   `/` 말고 다른 경로까지 가게로 다시 쓰면 그 순간 문이 잠긴다.
+ * 레거시 업무 경로는 루트 상품 rewrite와 별개다. `/` 말고 다른 경로까지 상품 화면으로
+ * 다시 쓰면 보관 중인 업무 도구까지 공개 메인에 섞이므로 막는다.
  */
 const mw = read('middleware.ts');
 must(/pathname === '\/'\s*&&\s*homeIsShop\(host\)/.test(mw), '가게 판정은 «루트에서만»',
