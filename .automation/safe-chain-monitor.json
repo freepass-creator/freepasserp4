@@ -2,11 +2,11 @@
   "schemaVersion": 1,
   "timezone": "Asia/Seoul",
   "firstScheduledSettlementSuccessNotified": true,
-  "lastMeaningfulEventKey": "missing-schedule-fallback:2026-09-19T14:05:00+09:00,2026-09-19T15:05:00+09:00",
-  "lastKnownSettlementRunId": 35427890549,
-  "lastKnownErp5RunId": 35427915834,
+  "lastMeaningfulEventKey": "erp5-cancelled:35427915834",
+  "lastKnownSettlementRunId": 35428022102,
+  "lastKnownErp5RunId": 35428047106,
   "lastKnownGoodErp5RunId": 35421496262,
-  "lastHeartbeatSlot": "2026-09-19T15:05:00+09:00",
+  "lastHeartbeatSlot": "2026-09-19T09:05:00+09:00",
   "policy": {
     "settlementWorkflow": ".github/workflows/settlement-intake-sync.yml",
     "erp5Workflow": ".github/workflows/erp5-ssot-refresh.yml",
@@ -14,6 +14,23 @@
     "missingScheduleGraceMinutes": 20
   },
   "recoveredSettlementSlots": {
+    "2026-09-19T09:05:00+09:00": {
+      "settlementRunId": 35428022102,
+      "erp5RunId": 35428047106,
+      "status": "erp5-pending"
+    },
+    "2026-09-19T10:05:00+09:00": {
+      "settlementRunId": 35413059063,
+      "erp5RunId": 35413099804,
+      "status": "success",
+      "initialFailedSettlementRunId": 35412968175,
+      "initialSkippedErp5RunId": 35413001737
+    },
+    "2026-09-19T11:05:00+09:00": {
+      "settlementRunId": 35416904804,
+      "erp5RunId": 35416937797,
+      "status": "success"
+    },
     "2026-09-19T12:05:00+09:00": {
       "settlementRunId": 35418898632,
       "erp5RunId": 35418926531,
@@ -27,15 +44,17 @@
     "2026-09-19T15:05:00+09:00": {
       "settlementRunId": 35427890549,
       "erp5RunId": 35427915834,
-      "status": "erp5-pending"
+      "status": "erp5-cancelled-before-job",
+      "settlementProductionWritesCompleted": true,
+      "erp5ProductionWritesCompleted": false
     }
   },
   "lastRecovery": {
-    "expectedSlot": "2026-09-19T15:05:00+09:00",
+    "expectedSlot": "2026-09-19T09:05:00+09:00",
     "failedRunId": null,
     "failureReason": "scheduled trigger missing after 20-minute grace",
-    "recoveredRunId": 35427890549,
-    "erp5RunId": 35427915834,
+    "recoveredRunId": 35428022102,
+    "erp5RunId": 35428047106,
     "status": "erp5-pending",
     "settlementProductionWrites": {
       "intakeStepCompleted": true,
@@ -48,5 +67,16 @@
       "f01F86Parity": "pending",
       "platePhoto": "pending"
     }
+  },
+  "lastChainFailure": {
+    "expectedSlot": "2026-09-19T15:05:00+09:00",
+    "settlementRunId": 35427890549,
+    "erp5RunId": 35427915834,
+    "erp5Conclusion": "cancelled",
+    "failingStep": "before job creation; no ERP5 job or step instantiated",
+    "settlementProductionWritesCompleted": true,
+    "erp5ProductionWritesCompleted": false,
+    "automaticRetryPerformed": false,
+    "reason": "ERP5 workflow_run appeared, so ERP5 heartbeat fallback is not permitted by the missing-trigger-only policy"
   }
 }
