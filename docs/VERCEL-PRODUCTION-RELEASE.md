@@ -73,6 +73,8 @@ npx vercel link --yes --project freepasserp4 --scope freepass-projects
 워크플로는 main을 checkout하고 `freepasserp4` Vercel 프로젝트에 명시적으로 link한 뒤,
 같은 `deploy:prod` 스크립트를 실행한다. 즉 로컬 경로와 GitHub 복구 경로가 서로 다른 배포 로직을 갖지 않는다.
 
+ChatGPT/자동화에서 강제 배포가 필요하면 `.github/deploy-production.trigger`의 nonce를 갱신해 main에 반영한다. 이 파일 변경은 같은 복구 워크플로를 자동 실행한다.
+
 `repair_alias=true`는 deployment 자체가 정상인데 custom domain alias만 늦거나 잘못 붙은 것이 명확할 때만 쓴다.
 
 ## 5. deployment는 성공했는데 custom domain만 옛 화면일 때
