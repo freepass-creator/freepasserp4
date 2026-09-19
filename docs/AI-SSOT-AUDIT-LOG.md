@@ -3221,3 +3221,21 @@ No application code or business logic was modified by the auditor.
 Detail: `docs/ai-ssot-audit/2026-09-19-chatgpt-audit75-overlap-green-public-main-lock.md`
 
 No application code or business logic was modified by the auditor.
+---
+## 2026-09-19 — ChatGPT audit (76): fallback replayed already-successful native 18:05 settlement slot
+
+**판정: NEW LIVE CONFLICT / RECOVERY RECONCILIATION HOLD.**
+
+- Native settlement run `35434637121` (`event=schedule`) had already completed `success` after being created at **2026-09-19 18:25:08 KST** for the logical 18:05 settlement slot. Its downstream ERP5 run `35434667030` also completed `success`.
+- At **20:02:30 KST**, commit `a6293e5845adde5bf4a86e384fc025bbf4fc73d8` nevertheless classified the same logical **18:05** slot as missing and advanced `.automation/heartbeats/settlement-intake-sync.txt` to that slot with reason `watchdog-missing-schedule-after-grace`.
+- That heartbeat push caused a second settlement production invocation, run `35439018911` (`event=push`, `success`), and a second downstream ERP5 publication, run `35439046831` (`event=workflow_run`, `success`). The recovery monitor now records 18:05 under `recoveredSettlementSlots` and `lastRecovery` using these fallback run IDs.
+- This is a **recovery eligibility/reconciliation drift**: a slot with an already-successful native run was replayed as missing roughly 1h37m later. It creates avoidable production writes/triggers and can amplify audit (71)'s pending-replacement/concurrency hazard.
+- **No duplicate rows or data corruption are proven.** The finding is redundant replay of the same logical settlement slot, not a claim that settlement intake is non-idempotent.
+- Audit (75) core SSOT boundaries remain unchanged. Compare `bfbed354604c57d4ce9d37e8e77d95479be38783` → `159b1970d5751386136ff9a58797b86a443087ee` shows only `.automation/heartbeats/settlement-intake-sync.txt` and `.automation/safe-chain-monitor.json` changed. Production pin remains `cf940df642edf315adbc6da2b4134fbad53da160`; the 24-source canonical registry, same fixed-snapshot F01/F86 contract, Sonogong `오공구독`/`픽업구독`, AutoPlus `오플구독`, retired legacy automatic writers, and RTDB/mirror non-canonical boundary are unchanged.
+- Audit (67) quote-defaults freshness HOLD, audit (71) queue hazard / unreconciled 15:05 ERP5 cancellation, and native cadence/timeliness HOLD remain OPEN.
+
+**Claude implementation owner:** reconcile a logical slot against successful native schedule runs and prior recovery history before heartbeat eligibility; keep the recovery cursor monotonic/no-replay and preserve explicit slot identity. Avoid redundant fallback production triggers while audit (71) queue safety is unresolved.
+
+Detail: `docs/ai-ssot-audit/2026-09-19-chatgpt-audit76-false-settlement-recovery-replayed-successful-native-slot.md`
+
+No application code or business logic was modified by the auditor.
