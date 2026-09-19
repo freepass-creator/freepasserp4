@@ -144,6 +144,7 @@ function resolveSsrMobile(tip: string | undefined, chMobile: string | null): boo
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const jar = await cookies();
   const hdrs = await headers();
+  const guestSurface = hdrs.get('x-fp-guest') === '1';
   const tip = jar.get('fp_m')?.value;
   const ssrMobile = resolveSsrMobile(tip, hdrs.get('sec-ch-ua-mobile'));
   const dataFpM = ssrMobile == null ? undefined : ssrMobile ? '1' : '0';
@@ -152,7 +153,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const htmlClass = ssrMobile ? 'fp-pending-m' : undefined;
   const hostWhitelabel = resolveWhitelabel(hdrs.get('host'));
   // 공개면은 WhitelabelFrame이 맡고, 업무 웹·앱은 기존 골격 위에 chrome만 얹는다.
-  const internalWhiteLabel = hdrs.get('x-fp-guest') !== '1' && hasShopFrame(hostWhitelabel);
+  const internalWhiteLabel = !guestSurface && hasShopFrame(hostWhitelabel);
   const internalChrome = { enabled: internalWhiteLabel, headline: internalWhiteLabel ? (hostWhitelabel.headline || '') : '' };
 
   return (
@@ -186,7 +187,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           ⚠ **손님 라우트에서도 안 내보낸다**(2026-09-06). 예전엔 «호스트»만 봐서, ERP 도메인 안의
             유니오토 화면(`/uniauto`)에 이 블록이 그대로 붙었다 — 소스를 열면 우리 법인명이 나왔다.
         */}
-        {hdrs.get('x-fp-guest') === '1' || hasBrand(resolveWhitelabel(hdrs.get('host'))) ? null : (
+        {guestSurface || hasBrand(resolveWhitelabel(hdrs.get('host'))) ? null : (
         <script
           type="application/ld+json"
           // eslint-disable-next-line react/no-danger
@@ -209,22 +210,43 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         )}
         <MobileBpProvider ssrMobile={ssrMobile}>
           <InternalWhitelabelProvider value={internalChrome}>
-          <AuthProvider>
+          {guestSurface ? (
+            /*
+             * ERP4 MAIN / 화이트라벨 공개 상품면.
+             * ★ 인증을 «통과»시키는 게 아니라 **인증 서브시스템을 아예 올리지 않는다**.
+             * AuthProvider가 없으므로 Firebase Auth 부팅·세션 복원·/login 게이트·idle logout도 실행되지 않는다.
+             * AppBar/TabBar context는 공유 UI 원자의 안전한 context 용도로만 남기고,
+             * 업무 chrome(TopBar/AppTabBar)은 렌더하지 않는다.
+             */
             <AppBarProvider>
               <TabBarProvider>
                 <MobileBoot />
                 <ClientErrorReporter />
-                <div className={`fp-shell${internalWhiteLabel ? ' fp-internal-wl' : ''}`} style={internalWhiteLabel ? internalWhitelabelVars(hostWhitelabel) : undefined}>
-                  <TopBar />
+                <div className="fp-shell">
                   <main className="fp-main-pad">{children}</main>
-                  <AppTabBar />
                 </div>
                 <Toaster />
-                {/* 배포 자동 반영 — 살아 있는 탭이 새 배포를 감지해 스스로 새로고침(입력 중엔 미룸). */}
                 <VersionWatcher />
               </TabBarProvider>
             </AppBarProvider>
-          </AuthProvider>
+          ) : (
+            <AuthProvider>
+              <AppBarProvider>
+                <TabBarProvider>
+                  <MobileBoot />
+                  <ClientErrorReporter />
+                  <div className={`fp-shell${internalWhiteLabel ? ' fp-internal-wl' : ''}`} style={internalWhiteLabel ? internalWhitelabelVars(hostWhitelabel) : undefined}>
+                    <TopBar />
+                    <main className="fp-main-pad">{children}</main>
+                    <AppTabBar />
+                  </div>
+                  <Toaster />
+                  {/* 배포 자동 반영 — 살아 있는 탭이 새 배포를 감지해 스스로 새로고침(입력 중엔 미룸). */}
+                  <VersionWatcher />
+                </TabBarProvider>
+              </AppBarProvider>
+            </AuthProvider>
+          )}
           </InternalWhitelabelProvider>
         </MobileBpProvider>
       </body>
