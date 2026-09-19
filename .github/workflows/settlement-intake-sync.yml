@@ -20,6 +20,12 @@ on:
   schedule:
     # 영업시간 09:05~18:05 KST 매시(UTC 00:05~09:05). 저녁·새벽은 안 돈다 — 그때는 아무도 안 올린다.
     - cron: '5 0-9 * * 1-6'
+  # GitHub schedule event가 누락될 때 외부 watchdog이 이 heartbeat 파일만 갱신해 같은 정본 로직을 실행한다.
+  # main + 단일 path로 제한해 일반 push가 production write를 만들지 않게 한다.
+  push:
+    branches: [main]
+    paths:
+      - '.automation/heartbeats/settlement-intake-sync.txt'
   workflow_dispatch:
     inputs:
       apply:
@@ -51,8 +57,13 @@ jobs:
 
       # ① 접수 시트 → 정산원장. 접수일·모델명·공급사·반영·확인을 채운다.
       - name: 접수 시트 반영
+        shell: bash
         run: |
-          npx tsx scripts/sync-intake-to-ledger.mts ${{ (github.event_name == 'schedule' || inputs.apply) && '--apply' || '' }}
+          ARGS=()
+          if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ github.event_name }}" = "push" ] || [ "${{ inputs.apply }}" = "true" ]; then
+            ARGS+=(--apply)
+          fi
+          npx tsx scripts/sync-intake-to-ledger.mts "${ARGS[@]}"
 
       # ② 계약상태/재고상태는 여기서 직접 쓰지 않는다.
       #    옛 sync-contract-from-ledger.mts는 legacy 「정산」 탭과 공급사 시트를 직접 수정해
@@ -61,7 +72,7 @@ jobs:
       # ③ 서식·용어는 값이 아니라 «보이는 방식»이라 매번 다시 세워도 안전하다(멱등).
       #    사람이 손으로 넣은 줄이 옛 서식·옛 말로 들어오는 것을 여기서 바로잡는다.
       - name: 서식·상태 용어 다듬기
-        if: github.event_name == 'schedule' || inputs.apply
+        if: github.event_name == 'schedule' || github.event_name == 'push' || inputs.apply
         run: |
           npx tsx scripts/unify-ledger-state.mts --apply
           npx tsx scripts/format-ledger.mts --apply
