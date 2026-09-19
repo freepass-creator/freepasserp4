@@ -2968,3 +2968,23 @@ PR #412 premerge Source Contract / generic CI는 success였다. 다만 **새 pin
 상세 근거: `docs/ai-ssot-audit/2026-09-19-chatgpt-audit61-safe-automation-cutover.md`.
 
 이번 변경은 application/business logic이 아니라 운영 workflow/config + CI governance 범위다.
+
+---
+
+## 2026-09-19(62) — ChatGPT 독립 감사: first safe scheduled slots delayed-or-missing
+
+**판정: MATERIAL / WATCH(runtime) 유지. audit (61)의 “첫 선언 slot 이전” 설명은 stale이지만 code/config 회귀 증거는 없다.**
+
+- audit 시작 시 current main HEAD는 `59455403b4140d2728a0f4cd37d77f41cbfef535`이며 audit (61) 이후 application/business logic commit은 없었다. latest main CI run `35387663829`도 success다.
+- safe schedule은 그대로다: `settlement-intake-sync.yml` = `5 0-9 * * 1-6`(KST 09:05~18:05), canonical `erp5-ssot-refresh.yml` = `17 0-10 * * 1-6`(KST 09:17~19:17).
+- 2026-09-19 09:37 KST repository-wide `event=schedule` 재조회에서 newest run은 여전히 **`35347508078`**, created **2026-09-18 21:58:18 KST**, ERP5 canonical, conclusion **success**다.
+- 따라서 오늘 첫 settlement `09:05` slot과 ERP5 `09:17` slot은 이번 감사 시점까지 새 scheduled event로 관측되지 않았다. 새 settlement automation의 scheduled runtime success도 아직 미증명이다.
+- 이 사실만으로 cron/workflow가 broken/disabled라고 단정하지 않는다. 이 repository에는 과거 GitHub scheduled event가 수 시간 늦게 생성된 실측 이력이 있으므로 정확한 상태는 **delayed-or-missing / runtime proof pending**이다.
+- writer topology에는 신규 회귀가 없다. `contract-status` / `sales-erp-hourly` / `mirror-sync`는 schedule-free manual dry-run only이고, settlement intake는 `sync-intake-to-ledger.mts`만 scheduled apply하며 legacy `sync-contract-from-ledger.mts`를 호출하지 않는다. `check-schedule-map.mts`의 fail-closed 회귀가드도 유지된다.
+- production pin `cf940df642edf315adbc6da2b4134fbad53da160`, ERP5 canonical registry, F01/F86 fixed-snapshot projection, Sonogong/AutoPlus special-tab 규칙, mirror/RTDB legacy boundary는 audit (61) 이후 변경되지 않았다.
+- last proven canonical scheduled full-green run `35347508078`의 source 24/24 → Atom → snapshot → F01/F86 → freshness/cross-parity/photo PASS 증거는 계속 유효하다.
+- **운영 지시:** audit (61)의 config/topology GO는 유지하고 runtime만 WATCH한다. manual dispatch/apply를 scheduled proof로 대체하지 않는다. 다음 실제 `event=schedule`이 나타나면 settlement-intake와 canonical ERP5를 각각 확인한 뒤 WATCH 해제 여부를 판정한다.
+
+상세 근거: `docs/ai-ssot-audit/2026-09-19-chatgpt-audit62-first-safe-schedule-delivery-gap.md`.
+
+이번 감사에서는 application code/business logic을 수정하지 않았다.
