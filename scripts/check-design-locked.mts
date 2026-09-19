@@ -727,7 +727,7 @@ must(/export const BADGE = \{/.test(shopUi)
 must(/export function markIconFor/.test(shopUi)
   && /무심사: ShieldCheck/.test(shopUi) && /분납가능: Coins/.test(shopUi)
   && /만21세: UserRound/.test(shopUi) && /경력무관: IdCard/.test(shopUi)
-  && /background: C\.zebra, padding: `\$\{BADGE\.padY\}px \$\{BADGE\.padX\}px`/.test(shopUi)
+  && /background: (?:C\.zebra|highlighted \? C\.brandSoft : C\.zebra), padding: `\$\{BADGE\.padY\}px \$\{BADGE\.padX\}px`/.test(shopUi)
   && /icon: markIconFor\(k\)/.test(shopCard) && /icon: markIconFor\(k\)/.test(shopDetail),
   '우대조건 뱃지의 면이 사라졌거나 아이콘이 다시 한 그림으로 돌아갔습니다.',
   'components/shop/shop-ui.tsx MARK_ICON · PerkMark');
