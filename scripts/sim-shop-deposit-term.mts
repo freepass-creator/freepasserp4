@@ -45,6 +45,25 @@ assert.equal(longPrice?.m, 36);
 assert.equal(longPrice?.rent, 400_000);
 assert.equal(longPrice?.deposit, 2_000_000, '카드 대표가격도 36개월 가격행의 월대여료·보증금을 써야 한다');
 
+const other: EntityRecord = {
+  ...product,
+  _key: 'TEST_34나5678',
+  product_code: 'TEST_34나5678',
+  car_number: '34나5678',
+  price: {
+    '12': { rent: 450_000, deposit: 1_000_000 },
+    '36': { rent: 300_000, deposit: 0 },
+  },
+};
+
+/* 보증금 낮은순도 선택한 12개월 행을 봐야 한다. 전체 최저가 행(36개월)을 보면 순서가 뒤집힌다. */
+const depSort = emptyQuery();
+depSort.sel.term = ['12개월'];
+depSort.sort = 'dep';
+const depSorted = runShopQuery([product, other], depSort).list;
+assert.equal(depSorted[0]?.product_code, product.product_code,
+  '12개월 보증금 낮은순은 12개월 deposit=0 차량이 먼저여야 한다(36개월 deposit을 섞지 않는다)');
+
 const depFacetOn12 = shortFree.facets.dep;
 assert.equal(depFacetOn12.find((x) => x.key === 'd0')?.count, 1,
   '12개월 조건의 보증금 facet도 12개월 가격행을 세야 한다');
