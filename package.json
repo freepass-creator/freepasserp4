@@ -132,7 +132,9 @@
     "publish:erp5-products": "tsx scripts/publish-products-to-erp5-firestore.mts",
     "sim:erp5-vehicle-master-ssot": "tsx scripts/sim-erp5-vehicle-master-ssot.mts",
     "publish:erp5-vehicle-master": "tsx scripts/publish-vehicle-master-to-erp5-firestore.mts",
-    "check:deposit": "tsx scripts/sim-deposit-rule.mts"
+    "check:deposit": "tsx scripts/sim-deposit-rule.mts",
+    "deploy:prod": "tsx scripts/deploy/vercel-production.mts",
+    "deploy:verify": "tsx scripts/deploy/vercel-production.mts --verify-only"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",
