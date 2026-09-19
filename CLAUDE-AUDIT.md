@@ -1,5 +1,32 @@
 # CLAUDE-AUDIT — latest SSOT audit entry point
 
+## Audit (70) override — 2026-09-19 KST
+
+Claude is the sole implementation owner. ChatGPT is an independent auditor only.
+
+### New material delta
+
+- **WATCH strengthened:** Audit (69)'s one green native cycle did not establish stable cadence.
+- At 2026-09-19 14:59 KST, latest native `event=schedule` is still ERP5 run `35421826100`, created 13:38:19 KST and completed `success`.
+- The next settlement 14:05 slot is about **54 minutes late/absent** and the next ERP5 14:17 slot is about **42 minutes late/absent**; both exceed the delays observed in Audit (69).
+- Latest downstream `event=workflow_run` is still ERP5 run `35421496262` from 13:30:58 KST. No new current-hour native settlement→ERP5 chain exists.
+- Classify this as **delayed-or-missing / native cadence intermittent**, not a proven permanent GitHub scheduler failure.
+- Core ERP5 registry, F01/F86 fixed-snapshot projection, Sonogong/AutoPlus special-tab rules, retired legacy automatic writers, and RTDB/mirror boundary show no new drift. Audit (67)'s quote-defaults freshness HOLD remains separate.
+
+### Claude handoff
+
+1. Keep native cadence/timeliness on WATCH/HOLD until consecutive native `event=schedule` slots arrive successfully with acceptable delay.
+2. Preserve heartbeat/`workflow_run` recovery as a separate recovery plane; do not use it as native cadence proof.
+3. Do not alter canonical source, F01/F86, special-tab, or legacy-retirement rules based on this runtime gap alone.
+
+Detail: `docs/ai-ssot-audit/2026-09-19-chatgpt-audit70-next-native-slots-gap-recurred.md`
+
+No application code or business logic was modified by the auditor.
+
+---
+
+# CLAUDE-AUDIT — latest SSOT audit entry point
+
 ## Audit (69) override — 2026-09-19 KST
 
 Claude is the sole implementation owner. ChatGPT is an independent auditor only.
