@@ -13,8 +13,8 @@ const product: EntityRecord = {
   maker: '기아',
   model: '테스트차',
   price: {
-    '12': { rent: 500_000, deposit: 0 },
-    '36': { rent: 400_000, deposit: 2_000_000 },
+    '12': { rent: 550_000, deposit: 0 },
+    '36': { rent: 450_000, deposit: 2_000_000 },
   },
 };
 
@@ -31,7 +31,7 @@ assert.equal(shortFree.list.length, 1, '12개월 무보증은 12개월 가격행
 
 const shortPrice = priceForShopSelection(product, shortFreeQ.sel);
 assert.equal(shortPrice?.m, 12);
-assert.equal(shortPrice?.rent, 500_000);
+assert.equal(shortPrice?.rent, 550_000);
 assert.equal(shortPrice?.deposit, 0, '카드도 12개월 행의 월대여료·보증금을 표시해야 한다');
 
 const impossible = runShopQuery([product], selected('12개월', 'd2'));
@@ -44,7 +44,7 @@ assert.equal(long.list.length, 1, '36개월 + 200만원은 같은 36개월 가�
 
 const longPrice = priceForShopSelection(product, longQ.sel);
 assert.equal(longPrice?.m, 36);
-assert.equal(longPrice?.rent, 400_000);
+assert.equal(longPrice?.rent, 450_000);
 assert.equal(longPrice?.deposit, 2_000_000);
 
 const other: EntityRecord = {
@@ -73,14 +73,14 @@ assert.equal(depFacet.find((x) => x.key === 'd0')?.count, 1,
 assert.equal(depFacet.find((x) => x.key === 'd2')?.count, 0,
   '12개월 조건의 facet에 36개월 보증금이 섞이면 안 된다');
 
-/* 월 대여료도 기간과 같은 행이어야 한다. 12개월 50만원, 36개월 40만원을 섞지 않는다. */
+/* 월 대여료도 기간과 같은 행이어야 한다. 12개월 50~60만원, 36개월 50만원 이하를 섞지 않는다. */
 const rentQ = emptyQuery();
 rentQ.sel.term = ['12개월'];
-rentQ.sel.rent = ['r50'];
-assert.equal(runShopQuery([product], rentQ).list.length, 1, '12개월 월 50만원대는 통과해야 한다');
+rentQ.sel.rent = ['r60'];
+assert.equal(runShopQuery([product], rentQ).list.length, 1, '12개월 월 50~60만원은 통과해야 한다');
 
-rentQ.sel.rent = ['r40'];
+rentQ.sel.rent = ['r50'];
 assert.equal(runShopQuery([product], rentQ).list.length, 0,
-  '12개월 필터가 36개월 월 40만원대를 끌어오면 안 된다');
+  '12개월 필터가 36개월 월 50만원 이하를 끌어오면 안 된다');
 
 console.log('PASS ERP4 term/rent/deposit same-price-row contract');
