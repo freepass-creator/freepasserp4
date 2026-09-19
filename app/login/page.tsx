@@ -1,7 +1,11 @@
 ﻿'use client';
 /**
- * 로그인 — freepasserp3 v3 화면 그대로(똑같이). 실 Firebase Auth(회원 공유).
+ * 별도/레거시 업무 인증 화면 — 실 Firebase Auth(회원 공유).
  *   login / 즉시 이용 가능한 개인 영업자 가입 / 재설정.
+ *
+ * ★ ERP4 MAIN(freepasserp.com 공개 상품면)의 기능이 아니다.
+ * 상품 호스트에서는 middleware가 /login 자체를 404로 차단하고,
+ * 공개 상품 레이아웃은 AuthProvider도 마운트하지 않는다.
  */
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
