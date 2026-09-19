@@ -5,7 +5,7 @@
   "lastMeaningfulEventKey": "missing-schedule-fallback:2026-09-19T12:05:00+09:00:35418898632:35418926531",
   "lastKnownSettlementRunId": 35418898632,
   "lastKnownErp5RunId": 35418926531,
-  "lastKnownGoodErp5RunId": 35416937797,
+  "lastKnownGoodErp5RunId": 35418926531,
   "lastHeartbeatSlot": "2026-09-19T12:05:00+09:00",
   "policy": {
     "settlementWorkflow": ".github/workflows/settlement-intake-sync.yml",
@@ -19,17 +19,17 @@
     "failureReason": "scheduled trigger missing after 20-minute grace",
     "recoveredRunId": 35418898632,
     "erp5RunId": 35418926531,
-    "status": "erp5_in_progress",
+    "status": "success",
     "settlementProductionWrites": {
       "intakeStepCompleted": true,
       "formatStepCompleted": true,
       "result": "success"
     },
-    "erp5ProductionWritesCompleted": false,
+    "erp5ProductionWritesCompleted": true,
     "audits": {
-      "f86Freshness": "pending",
-      "f01F86Parity": "pending",
-      "platePhoto": "pending"
+      "f86Freshness": "pass",
+      "f01F86Parity": "pass",
+      "platePhoto": "pass"
     }
   }
 }
