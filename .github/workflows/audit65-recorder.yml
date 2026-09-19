@@ -21,13 +21,91 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git pull --rebase origin main
-      - name: Record audits 64 and 65
-        env:
-          ENTRY_B64: 'Ci0tLQoKIyMgMjAyNi0wOS0xOSg2NCkg4oCUIENoYXRHUFQg64+F66a9IOqwkOyCrDogY2hhaW5lZCBFUlA1IGZ1bGwgZ3JlZW4sIG5hdGl2ZSBzY2hlZHVsZSBXQVRDSAoKKirtjJDsoJU6IFBBUlRJQUwgUkVTT0xWRUQgLyByZWNvdmVyeS1wbGFuZSBQQVNTICsgbmF0aXZlIHNjaGVkdWxlIFdBVENILioqCgotIGF1ZGl0ICg2Mynsl5DshJwgaW4tcHJvZ3Jlc3PsmIDrjZggc2V0dGxlbWVudCBoZWFydGJlYXQgcmVjb3Zlcnkg7J207ZuEIGNhbm9uaWNhbCBFUlA1IGB3b3JrZmxvd19ydW5gICoqYDM1NDEzMDk5ODA0YCoq6rCAIGZ1bGwgcGlwZWxpbmXquYzsp4Agc3VjY2Vzc+uhnCDsmYTro4zrkJDri6QuIHByb2R1Y3Rpb24gcGlu7J2AIGBjZjk0MGRmNjQyZWRmMzE1YWRiYzZkYTJiNDEzNGZiYWQ1M2RhMTYwYOydtOupsCAyNC1zb3VyY2UgaW5nZXN0IOKGkiBBdG9tL3NuYXBzaG90IOKGkiBGMDEvRjg2IOKGkiBmcmVzaG5lc3MvY3Jvc3MtcGFyaXR5L3Bob3RvIGNoZWNrc+qwgCBncmVlbuydtOyXiOuLpC4KLSBzZXR0bGVtZW50IGJvb3RzdHJhcCBnYXDrj4QgcmVjb3ZlcnkgcGF0aOyXkOyEnCDtlbTshozrkJDri6QuIGNhbm9uaWNhbCBpbnRha2Ugc2hlZXQgbWlzc2luZyDsmKTrpZjrpbwgYXV0by1oZWFs7ZWcIOuSpCBzZXR0bGVtZW50IHJlY292ZXJ5IHJ1biAqKmAzNTQxMzA1OTA2M2AqKuydtCBzdWNjZXNz7JiA64ukLgotIOuLqCwgaGVhcnRiZWF0IGBwdXNoYOyZgCBzZXR0bGVtZW504oaSRVJQNSBgd29ya2Zsb3dfcnVuYOydgCBuYXRpdmUgY3JvbiBkZWxpdmVyeSDspp3qsbDqsIAg7JWE64uI64ukLiByZXBvc2l0b3J5LXdpZGUgbmV3ZXN0IG5hdGl2ZSBgZXZlbnQ9c2NoZWR1bGVg7J2AIOqzhOyGjSAqKmAzNTM0NzUwODA3OGAqKigyMDI2LTA5LTE4IDIxOjU4OjE4IEtTVCwgc3VjY2VzcynsnbTrr4DroZwgbmF0aXZlIHNjaGVkdWxlL2NhZGVuY2XripQgV0FUQ0gvSE9MROulvCDsnKDsp4DtlZzri6QuCi0gYGRvY3Mv7JiI7JW97J6R7JeFLeyngOuPhC5tZGDsmYAgYHNjcmlwdHMvY2hlY2stc2NoZWR1bGUtbWFwLm10c2DqsIAgaGVhcnRiZWF0IGBwdXNoLnBhdGhzYCAvIGB3b3JrZmxvd19ydW5gIHJlY292ZXJ5IHBsYW5l7J2EIOy2qeu2hO2eiCDrqqjrjbjrp4HtlZjsp4Ag7JWK64qUIGdvdmVybmFuY2UgZHJpZnTrj4Qg7Jyg7KeA7ZWc64ukLgotIHByb2R1Y3Rpb24gcGluLCAyNC1zb3VyY2UgY2Fub25pY2FsIHJlZ2lzdHJ5LCBGMDEvRjg2IGZpeGVkLXNuYXBzaG90IHByb2plY3Rpb24sIFNvbm9nb25nL0F1dG9QbHVzIHNwZWNpYWwtdGFiIHJ1bGVzLCByZXRpcmVkIGxlZ2FjeSBhdXRvbWF0aWMgd3JpdGVycyDrsI8gUlREQi9taXJyb3Igbm9uLWNhbm9uaWNhbCBib3VuZGFyeeyXkOuKlCDsi6Dqt5wg7ZqM6reA6rCAIOyXhuuLpC4KLSDsg4HshLgg6re86rGwOiBgZG9jcy9haS1zc290LWF1ZGl0LzIwMjYtMDktMTktY2hhdGdwdC1hdWRpdDY0LWNoYWluZWQtZXJwNS1mdWxsLWdyZWVuLW5hdGl2ZS1zY2hlZHVsZS13YXRjaC5tZGAuCgrsnbTrsogg6rCQ7IKs7JeQ7ISc64qUIgfwcGxpY2F0aW9uIGNvZGUvYnVzaW5lc3MgbG9naWPsnYQg7IiY7KCV7ZWY7KeAIOyViuyVmOuLpC4KCi0tLQoKIyMgMjAyNi0wOS0xOSg2NSkg4oCUIENoYXRHUFQg64+F66a9IOqwkOyCrDogMTE6MDUgbmF0aXZlIHNjaGVkdWxlIOuwmOuztSDriITrnb0gKyBkZXJpdmVkIHByb2R1Y3Qgc25hcHNob3Qgd3JpdGVyIOy2lOqwgAoKKirtjJDsoJU6IE1BVEVSSUFMIC8gbmF0aXZlIGNyb24gSE9MRCDqsJXtmZQgKyDsi6Dqt5wgZGVyaXZlZCB3cml0ZXIgdG9wb2xvZ3kuKioKCi0gYXVkaXQgKDY0KeydmCByZWNvdmVyeS1wbGFuZSBQQVNT64qUIOycoO2aqO2VmOyngOunjCBuYXRpdmUgY3JvbiBkZWxpdmVyeeuKlCDrs7XqtazrkJjsp4Ag7JWK7JWY64ukLiAqKjIwMjYtMDktMTkgMTE6MDUgS1NUIHNldHRsZW1lbnQgc2xvdCoq7J20IOuLpOyLnCBuYXRpdmUgZXZlbnTroZwg7IOd7ISx65CY7KeAIOyViuyVhCBjb21taXQgYDNiYmE4MzI1NjgxYjhiNTU3NzBhNTRlNDhlYzFmNDUzYTZlYWVlMzZg7J2YIGhlYXJ0YmVhdCByZWNvdmVyeeqwgCDtlYTsmpTtlojqs6AsIHJ1biAqKmAzNTQxNjkwNDgwNGAqKuydtCBzdWNjZXNz7JiA64ukLgotIO2bhOyGjSBzYWZlLWNoYWluIEVSUDUgcmVjb3ZlcnnripQgY29tbWl0IGA3ZDE2YWM0YTNhNmYzNjYyOGRmZTY4NTczMzY3NmYyMGY2ZDYwZjZmYCDsnbTtm4QgcnVuICoqYDM1NDE2OTM3Nzk3YCoq66GcIHN1Y2Nlc3PsmIDri6QuIHJlY292ZXJ5IHBsYW5l7J2AIOuPmeyeke2VmOyngOunjCBoZWFydGJlYXQgYHB1c2hgL2B3b3JrZmxvd19ydW5g7J2EIG5hdGl2ZSBgZXZlbnQ9c2NoZWR1bGVgIHByb29m66GcIOuMgOyytO2VmOyngCDslYrripTri6QuCi0gZnJlc2ggcmVwb3NpdG9yeS13aWRlIHNjaGVkdWxlIOyhsO2ajOyXkOyEnOuPhCBuZXdlc3QgbmF0aXZlIGBldmVudD1zY2hlZHVsZWDsnYAg7Jes7KCE7Z6IICoqYDM1MzQ3NTA4MDc4YCoqKDIwMjYtMDktMTggMjE6NTg6MTggS1NULCBFUlA1LCBzdWNjZXNzKeydtOuLpC4g7JuQ7J247J2EIHNjaGVkdWxlciBvdXRhZ2UvZGlzYWJsZWTroZwg64uo7KCV7ZWY7KeAIOyViuqzoCBuYXRpdmUgY2FkZW5jZeulvCBIT0xE7ZWc64ukLgotIGF1ZGl0ICg2NCkg7J207ZuEIOyDiCB3cml0ZXIgdG9wb2xvZ3nqsIAgbWFpbuyXkCDstpTqsIDrkJDri6Q6IEZpcmVzdG9yZSBgbmV3X2Nhcl90cmltYCDihpIgYHNjcmlwdHMvZXhwb3J0LW5ld2Nhci1wdWJsaWMtc25hcHNob3QubXRzYCDihpIgYGRhdGEvbmV3LWNhci9jdXJyZW50LWZlZWQuc25hcHNob3QuanNvbmAg4oaSIGAuZ2l0aHViL3dvcmtmbG93cy9leHBvcnQtbmV3Y2FyLXB1YmxpYy1zbmFwc2hvdC55bWxgIOKGkiBtYWluIGJvdCBjb21taXQuIOq0gOugqCBjb21taXRzOiBgZGYzYTk3ZGIzZGJkMTgxNjEyYjVmOGE0ODZiZGQyOTMxODM0MmVmYWAsIGBkYmYwZjJjZGE4YzgyYWQ3MGMzNmExOWJiODlhMDI0NGNiZjhkMzIxYCwgYGFhMmM4ZTZiNWNhODdmNDhjODZiNDhhZmMxYmQ5NDQxMWM4ZmQ5ZWZgLgotIOydtCDsg4gg6rK966Gc64qUIEVSUDUgY2Fub25pY2FsIGludmVudG9yeSByZWdpc3RyeeulvCDrs4Dqsr3tlZjsp4Ag7JWK7J2AICoqZGVyaXZlZC9wdWJsaWMtcHJvZHVjdCBwcm9qZWN0aW9uKirsnLzroZwg67aE66WY7ZWc64ukLiB3b3JrZmxvdyDsnpDssrTsl5DripQgY3Jvbi9GaXJlc3RvcmUtY2hhbmdlIHRyaWdnZXLqsIAg7JeG7Jy866+A66GcIGZyZXNobmVzcy90cmlnZ2VyIGNvbnRyYWN066W8IOuzhOuPhOuhnCDrrLjshJztmZTCt+qygOymne2VtOyVvCDtlZjrqbAsIG1haW7sl5AgY29tbWl065Cc64uk64qUIOydtOycoOuhnCBpbnZlbnRvcnkgYXV0aG9yaXR566GcIOyKueqyqe2VmOuptCDslYgg65Cc64ukLgotIHByb2R1Y3Rpb24gcGluIGBjZjk0MGRmNjQyZWRmMzE1YWRiYzZkYTJiNDEzNGZiYWQ1M2RhMTYwYCwgMjQtc291cmNlIHJlZ2lzdHJ5LCBGMDEvRjg2IGZpeGVkLXNuYXBzaG90IHByb2plY3Rpb24sIEY4NiBg7KKF7ZWpYOydmCBSUDAxMi9SUDAwMyDsoJzsmbgsIFNvbm9nb25nL0F1dG9QbHVzIHNwZWNpYWwtdGFiIHJ1bGVzLCByZXRpcmVkIGNvbnRyYWN0L3NhbGVzL21pcnJvciBhdXRvbWF0aWMgc2NoZWR1bGVzLCBSVERCL21pcnJvciBub24tY2Fub25pY2FsIGJvdW5kYXJ564qUIOuzgOqyvSDsl4bsnYzsnbTri6QuCi0g6riw7KG0IFJQMDIzL1JQMDMxL2RlcG9zaXQvcHJpY2UvdGFiL2ZyZXNobmVzcy9gL2ludmVudG9yeWAgSE9MROuPhCDsp4HsoJEg7ZW07IaMIOymneqxsOqwgCDsl4bslrQg7Jyg7KeA7ZWc64ukLgotIOykkeyVmSDroZzqt7jqsIAgYXVkaXQgKDYzKeyXkOyEnCDrgZ3rgpggYXVkaXQgKDY0KeqwgCDruaDsoLgg7J6I642YIGFwcGVuZC1vbmx5IGxlZGdlciBnYXDsnYAg7J2067KIIGFwcGVuZOyXkOyEnCBhdWRpdCAoNjQpIOyalOyVveydhCDrqLzsoIAgYmFja2ZpbGztlbQg67O16rWs7ZaI64ukLgotIOyDgeyEuCDqt7zqsbA6IGBkb2NzL2FpLXNzb3QtYXVkaXQvMjAyNi0wOS0xOS1jaGF0Z3B0LWF1ZGl0NjUtcmVwZWF0ZWQtbmF0aXZlLXNjaGVkdWxlLW1pc3MtZGVyaXZlZC1wcm9kdWN0LXNuYXBzaG90LXdyaXRlci5tZGAgKGRldGFpbCBjb21taXQgYDE2M2FlYTcwNDQxYzljYWMzMThiZWYwNTRkNmYyZWE4MTM1MTZmZmRgKS4KCioqQ2xhdWRlIOq1rO2YhCBPd25lcjoqKiBuYXRpdmUgc2NoZWR1bGUgR0/ripQg7Iuk7KCcIGBldmVudD1zY2hlZHVsZWAg7Jew7IaNIOq0gOy4oSDsoITquYzsp4Ag64ur7KeAIOyViuuKlOuLpC4gaGVhcnRiZWF0L2B3b3JrZmxvd19ydW5gIHJlY292ZXJ5IHBsYW5l7J2EIOyYiOyVveyekeyXhSDsp4Drj4QvQ0kgZ3VhcmTsl5Ag67CY7JiB7ZWY6rOgLCBGaXJlc3RvcmXihpJnaXQgc25hcHNob3Qgd3JpdGVy64qUIGNhbm9uaWNhbCBpbnZlbnRvcnnsmYAg67aE66as65CcIGRlcml2ZWQgcHJvZHVjdCBwcm9qZWN0aW9u7Jy866GcIHdyaXRlciB0b3BvbG9neS9mcmVzaG5lc3MgY29udHJhY3Trpbwg66qF7Iuc7ZWc64ukLgoK7J2067KIIENoYXRHUFQg6rCQ7IKs7JeQ7ISc64qUIgfwcGxpY2F0aW9uIGNvZGUvYnVzaW5lc3MgbG9naWPsnYQg7IiY7KCV7ZWY7KeAIOyViuyVmOuLpC4K'
+      - name: Record audit 65 and refresh Claude entry point
+        shell: bash
         run: |
-          python -c "import base64,os,pathlib; p=pathlib.Path('docs/AI-SSOT-AUDIT-LOG.md'); t=p.read_text(); e=base64.b64decode(os.environ['ENTRY_B64']).decode(); marker='## 2026-09-19(65)'; p.write_text(t if marker in t else t+e)"
-          git add docs/AI-SSOT-AUDIT-LOG.md
+          if ! grep -q '^## 2026-09-19(65)' docs/AI-SSOT-AUDIT-LOG.md; then
+            cat >> docs/AI-SSOT-AUDIT-LOG.md <<'AUDIT_ENTRY'
+
+---
+
+## 2026-09-19(64) — ChatGPT 독립 감사: chained ERP5 full green, native schedule WATCH
+
+**판정: PARTIAL RESOLVED / recovery-plane PASS + native schedule WATCH.**
+
+- audit (63)에서 in-progress였던 settlement heartbeat recovery 이후 canonical ERP5 `workflow_run` **`35413099804`**가 full pipeline까지 success로 완료됐다. production pin은 `cf940df642edf315adbc6da2b4134fbad53da160`이며 24-source ingest → Atom/snapshot → F01/F86 → freshness/cross-parity/photo checks가 green이었다.
+- settlement bootstrap gap도 recovery path에서 해소됐다. canonical intake sheet missing 오류를 auto-heal한 뒤 settlement recovery run **`35413059063`**이 success였다.
+- 단, heartbeat `push`와 settlement→ERP5 `workflow_run`은 native cron delivery 증거가 아니다. repository-wide newest native `event=schedule`은 계속 **`35347508078`**(2026-09-18 21:58:18 KST, success)이므로 native schedule/cadence는 WATCH/HOLD를 유지한다.
+- `docs/예약작업-지도.md`와 `scripts/check-schedule-map.mts`가 heartbeat `push.paths` / `workflow_run` recovery plane을 충분히 모델링하지 않는 governance drift도 유지한다.
+- production pin, 24-source canonical registry, F01/F86 fixed-snapshot projection, Sonogong/AutoPlus special-tab rules, retired legacy automatic writers 및 RTDB/mirror non-canonical boundary에는 신규 회귀가 없다.
+- 상세 근거: `docs/ai-ssot-audit/2026-09-19-chatgpt-audit64-chained-erp5-full-green-native-schedule-watch.md`.
+
+이번 감사에서는 application code/business logic을 수정하지 않았다.
+
+---
+
+## 2026-09-19(65) — ChatGPT 독립 감사: 11:05 native schedule 반복 누락 + derived product snapshot writer 추가
+
+**판정: MATERIAL / native cron HOLD 강화 + 신규 derived writer topology.**
+
+- audit (64)의 recovery-plane PASS는 유효하지만 native cron delivery는 복구되지 않았다. **2026-09-19 11:05 KST settlement slot**이 다시 native event로 생성되지 않아 commit `3bba8325681b8b55770a54e48ec1f453a6eaee36`의 heartbeat recovery가 필요했고, run **`35416904804`**이 success였다.
+- 후속 safe-chain ERP5 recovery는 commit `7d16ac4a3a6f36628dfe685733676f20f6d60f6f` 이후 run **`35416937797`**로 success였다. recovery plane은 동작하지만 heartbeat `push`/`workflow_run`을 native `event=schedule` proof로 대체하지 않는다.
+- fresh repository-wide schedule 조회에서도 newest native `event=schedule`은 여전히 **`35347508078`**(2026-09-18 21:58:18 KST, ERP5, success)이다. 원인을 scheduler outage/disabled로 단정하지 않고 native cadence를 HOLD한다.
+- audit (64) 이후 새 writer topology가 main에 추가됐다: Firestore `new_car_trim` → `scripts/export-newcar-public-snapshot.mts` → `data/new-car/current-feed.snapshot.json` → `.github/workflows/export-newcar-public-snapshot.yml` → main bot commit. 관련 commits: `df3a97db3dbd181612b5f8a486bdd29318342efa`, `dbf0f2cda8c82ad70c36a19bb89a0244cbf8d321`, `aa2c8e6b5ca87f48c86b48afc1bd94411c8fd9ef`.
+- 이 새 경로는 ERP5 canonical inventory registry를 변경하지 않은 **derived/public-product projection**으로 분류한다. workflow 자체에는 cron/Firestore-change trigger가 없으므로 freshness/trigger contract를 별도로 문서화·검증해야 하며, main에 commit된다는 이유로 inventory authority로 승격하면 안 된다.
+- production pin `cf940df642edf315adbc6da2b4134fbad53da160`, 24-source registry, F01/F86 fixed-snapshot projection, F86 `종합`의 RP012/RP003 제외, Sonogong/AutoPlus special-tab rules, retired contract/sales/mirror automatic schedules, RTDB/mirror non-canonical boundary는 변경 없음이다.
+- 기존 RP023/RP031/deposit/price/tab/freshness/`/inventory` HOLD도 직접 해소 증거가 없어 유지한다.
+- 중앙 로그가 audit (63)에서 끝나 audit (64)가 빠져 있던 append-only ledger gap은 이번 append에서 audit (64) 요약을 먼저 backfill해 복구했다.
+- 상세 근거: `docs/ai-ssot-audit/2026-09-19-chatgpt-audit65-repeated-native-schedule-miss-derived-product-snapshot-writer.md` (detail commit `163aea70441c9cac318bef054d6f2ea813516ffd`).
+
+**Claude 구현 Owner:** native schedule GO는 실제 `event=schedule` 연속 관측 전까지 닫지 않는다. heartbeat/`workflow_run` recovery plane을 예약작업 지도/CI guard에 반영하고, Firestore→git snapshot writer는 canonical inventory와 분리된 derived product projection으로 writer topology/freshness contract를 명시한다.
+
+이번 ChatGPT 감사에서는 application code/business logic을 수정하지 않았다.
+AUDIT_ENTRY
+          fi
+
+          cat > CLAUDE-AUDIT.md <<'CLAUDE_ENTRY'
+# CLAUDE-AUDIT — latest SSOT audit entry point
+
+## Audit (65) override — 2026-09-19 KST
+
+Claude is the sole implementation owner. ChatGPT is an independent auditor only.
+
+### New material findings
+
+- **Native schedule remains HOLD.** The configured 2026-09-19 11:05 KST settlement slot again did not produce a native `event=schedule`; commit `3bba8325681b8b55770a54e48ec1f453a6eaee36` advanced the heartbeat recovery and run `35416904804` succeeded. Follow-on ERP5 safe-chain run `35416937797` also succeeded. The latest repository-wide native scheduled event is still `35347508078` (2026-09-18 21:58:18 KST). Recovery-plane success is not native-cron proof.
+- **A new derived writer topology exists.** Firestore `new_car_trim` → `scripts/export-newcar-public-snapshot.mts` → `data/new-car/current-feed.snapshot.json` → `.github/workflows/export-newcar-public-snapshot.yml` → main bot commit. Treat this as a downstream/public-product projection, not ERP5 canonical inventory authority. Its freshness/trigger contract must be explicit; the workflow itself has no cron or Firestore-change trigger.
+- The central append-only audit ledger had ended at audit (63) while this entry point already referenced audit (64). Audit (64) has now been backfilled immediately before audit (65).
+
+### Still authoritative
+
+- Production engine pin: `cf940df642edf315adbc6da2b4134fbad53da160`.
+- ERP5 canonical inventory registry: 24 providers; RP006 website, RP012 Sonogong ERP/API, RP023 RebornCar, RP031 current Google Sheet source.
+- F01/F86 publish from the fixed canonical snapshot path.
+- F86 `종합` excludes RP012/RP003; Sonogong/AutoPlus special-tab rules are unchanged.
+- Retired automatic contract/sales/mirror writers remain retired at repository level; RTDB/mirror paths are not canonical inventory authority.
+- Existing RP023/RP031/deposit/vehicle-price/sales-tab/newest-Atom freshness/`/inventory` HOLDs remain open absent separate evidence.
+
+### Claude next work
+
+1. Do not close native schedule GO until multiple real `event=schedule` slots are observed.
+2. Model and guard the heartbeat `push.paths` + settlement→ERP5 `workflow_run` recovery plane in `docs/예약작업-지도.md` and the schedule CI.
+3. Document and guard the Firestore→git product snapshot writer as a derived projection with explicit freshness/trigger semantics.
+4. Preserve canonical source/projection rules unless separate evidence changes them.
+
+Detail: `docs/ai-ssot-audit/2026-09-19-chatgpt-audit65-repeated-native-schedule-miss-derived-product-snapshot-writer.md`
+
+Detail commit: `163aea70441c9cac318bef054d6f2ea813516ffd`
+
+No application code or business logic was modified by the auditor.
+CLAUDE_ENTRY
+
+          git add docs/AI-SSOT-AUDIT-LOG.md CLAUDE-AUDIT.md
+          git rm .github/workflows/audit65-recorder.yml
           if ! git diff --cached --quiet; then
-            git commit -m 'docs(audit): backfill audit64 and append audit65'
-            git push origin HEAD:main
+            git commit -m 'docs(audit): record audit65 and refresh Claude entry point'
+            if ! git push origin HEAD:main; then
+              git pull --rebase origin main
+              git push origin HEAD:main
+            fi
           fi
