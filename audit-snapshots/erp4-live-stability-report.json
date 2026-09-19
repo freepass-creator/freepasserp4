@@ -1,0 +1,70 @@
+{
+  "auditedAt": "2026-09-19T10:25:29.351Z",
+  "base": "https://freepasserp.com",
+  "shots": [
+    {
+      "name": "desktop",
+      "viewport": {
+        "width": 1440,
+        "height": 1000
+      },
+      "root": {
+        "requestedUrl": "https://freepasserp.com",
+        "finalUrl": "https://freepasserp.com/",
+        "status": 200,
+        "title": "freepasserp.com — 장기렌터카 상품찾기",
+        "cardCount": 60,
+        "visibleImages": 60,
+        "bodyScrollWidth": 1440,
+        "viewportWidth": 1440,
+        "hasHorizontalOverflow": false
+      },
+      "detail": {
+        "href": "/q/fhwfhsgknu",
+        "finalUrl": "https://freepasserp.com/",
+        "title": "freepasserp.com — 장기렌터카 상품찾기",
+        "hasProductDetailTitle": false,
+        "imageCount": 65,
+        "bodyScrollWidth": 1440,
+        "hasHorizontalOverflow": false
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    },
+    {
+      "name": "mobile",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "root": {
+        "requestedUrl": "https://freepasserp.com",
+        "finalUrl": "https://freepasserp.com/",
+        "status": 200,
+        "title": "freepasserp.com — 장기렌터카 상품찾기",
+        "cardCount": 60,
+        "visibleImages": 60,
+        "bodyScrollWidth": 390,
+        "viewportWidth": 390,
+        "hasHorizontalOverflow": false
+      },
+      "detail": {
+        "href": "/q/fhwfhsgknu",
+        "finalUrl": "https://freepasserp.com/q/fhwfhsgknu",
+        "title": "기아 쏘렌토 MQ4 프레스티지",
+        "hasProductDetailTitle": true,
+        "imageCount": 24,
+        "bodyScrollWidth": 390,
+        "hasHorizontalOverflow": false
+      },
+      "consoleErrors": [],
+      "pageErrors": []
+    }
+  ],
+  "loginProbe": {
+    "requestedUrl": "https://freepasserp.com/login",
+    "finalUrl": "https://freepasserp.com/login",
+    "status": 404,
+    "body": "Not Found"
+  }
+}
