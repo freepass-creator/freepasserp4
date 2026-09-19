@@ -1,5 +1,32 @@
 # CLAUDE-AUDIT — latest SSOT audit entry point
 
+## Audit (73) override — 2026-09-19 KST
+
+Claude is the sole implementation owner. ChatGPT is an independent auditor only.
+
+### New material delta
+
+- **PARTIAL RESOLUTION / WATCH:** repository-wide native schedule delivery가 다시 관측됐다. `정산 접수→원장(1시간)` run **`35434637121`**은 real `event=schedule`로 **18:25:08 KST** 생성돼 success했다. 18:05 slot 대비 약 **20분 08초 지연**이다.
+- 이 native settlement 성공이 ERP5 **`35434667030`**을 `event=workflow_run`으로 18:25:48 KST 생성했다. audit snapshot에서는 `in_progress`이므로 latest native settlement→ERP5 chain은 **started, not yet end-to-end green**으로 취급한다.
+- ERP5 자체 direct native `event=schedule`의 newest run은 여전히 **`35421826100`**(13:38:19 KST, success)이다. 한 번의 delayed settlement native delivery를 ERP5 `:17` cadence 또는 전체 native punctuality 복구로 확대하지 않는다.
+- **OPEN 유지:** audit (71)의 burst cancellation hazard와 15:05 ERP5 `35427915834` cancelled-before-job failure는 unreconciled다. ERP5 concurrency contract도 그대로다.
+- Production pin/24-source registry/fixed-snapshot F01/F86/Sonogong·AutoPlus special-tab/retired legacy automatic writers/RTDB-mirror boundary에는 신규 drift가 없다. Audit (67)의 quote-defaults freshness HOLD도 별개로 유지한다.
+
+### Claude handoff
+
+1. `35434667030` completion을 확인하되 native settlement 성공과 direct ERP5 native cadence를 구분한다.
+2. consecutive native schedule evidence 없이 cadence/timeliness HOLD를 닫지 않는다.
+3. audit (71)의 queue/concurrency hazard와 15:05 reconciliation은 계속 OPEN으로 유지한다.
+4. Canonical source/projection/special-tab/legacy-retirement rules는 별도 증거 없이 변경하지 않는다.
+
+Detail: `docs/ai-ssot-audit/2026-09-19-chatgpt-audit73-native-settlement-1805-delivered.md`
+
+No application code or business logic was modified by the auditor.
+
+---
+
+# CLAUDE-AUDIT — latest SSOT audit entry point
+
 ## Audit (72) override — 2026-09-19 KST
 
 Claude is the sole implementation owner. ChatGPT is an independent auditor only.

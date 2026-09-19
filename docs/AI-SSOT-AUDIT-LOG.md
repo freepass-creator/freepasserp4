@@ -3165,3 +3165,21 @@ No application code or business logic was modified by the auditor.
 
 No application code or business logic was modified by the auditor.
 
+---
+
+## 2026-09-19 — ChatGPT audit (73): 18:05 native settlement slot delivered, ERP5 chain started; cadence HOLD remains
+
+**판정: PARTIAL RESOLVED / WATCH.** audit (72)의 repository-wide newest native `event=schedule`이 ERP5 `35421826100`이라는 runtime 요약은 더 이상 최신이 아니다.
+
+- 새 native settlement run **`35434637121`**이 workflow `정산 접수→원장(1시간)`, `event=schedule`로 **2026-09-19 18:25:08 KST** 생성됐고 **success**로 끝났다(18:25:46 KST). live cron의 마지막 영업시간 slot인 **18:05 KST 대비 약 20분 08초 지연**이며 heartbeat `push`가 아닌 실제 native schedule이다.
+- 이 native settlement success는 downstream ERP5 **`35434667030`**을 `event=workflow_run`으로 **18:25:48 KST** 생성했다. 감사 스냅샷에서는 `in_progress`; 따라서 최신 native settlement→ERP5 chain이 실제 시작됐다는 증거는 생겼지만 end-to-end green으로는 아직 닫지 않는다.
+- fresh `event=schedule` 상위 결과에서 ERP5 자체의 newest direct native scheduled run은 여전히 **`35421826100`**(13:38:19 KST, success)이다. 즉 repository-wide native delivery는 18:25 settlement로 다시 관측됐지만 ERP5 `:17` direct cadence 회복과 연속 정시성은 별개다. **native cadence/timeliness HOLD는 유지**한다.
+- audit (71)의 burst/backfill cancellation hazard도 **OPEN 유지**다. ERP5 workflow의 `concurrency.group=erp5-inventory-publish`, `cancel-in-progress:false` 계약은 그대로이고 15:05 ERP5 `35427915834` cancelled-before-job failure는 별도 reconciliation 증거가 없다.
+- current main `d42bc57fcbf791d8b5fb00b7d8610149eb44e49d`은 audit (72) recorder 완료 상태이며, audit (71) 기준 application tree `b45a467d02fd6727f769d4bf35490c138a8143b9` 대비 실제 변경은 `CLAUDE-AUDIT.md`와 `docs/AI-SSOT-AUDIT-LOG.md`뿐이다. application/business logic 변경은 없다.
+- production pin `cf940df642edf315adbc6da2b4134fbad53da160`, 24-source canonical registry(RP006 Iron website / RP012 Sonogong ERP API / RP023 RebornCar / RP031 current Google Sheet), 동일 fixed-snapshot F01/F86, Sonogong/AutoPlus special-tab 규칙, RETIRED `sales-erp-hourly`/`mirror-sync` automatic writer, RTDB/mirror non-canonical boundary에는 신규 drift가 없다. audit (67)의 standard quote-defaults freshness HOLD도 유지한다.
+
+**Claude 인계:** 18:25 native settlement 성공을 cadence 완전복구로 확대하지 말 것. `35434667030`의 최종 결과를 다음 감사에서 확인하고, direct ERP5 native schedule/연속 native settlement 회차와는 분리해서 판정한다. audit (71)의 burst-loss와 15:05 reconciliation은 계속 OPEN으로 유지한다.
+
+상세: `docs/ai-ssot-audit/2026-09-19-chatgpt-audit73-native-settlement-1805-delivered.md`
+
+No application code or business logic was modified by the auditor.
