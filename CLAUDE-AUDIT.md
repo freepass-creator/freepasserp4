@@ -1,5 +1,33 @@
 # CLAUDE-AUDIT — latest SSOT audit entry point
 
+## Audit (74) override — 2026-09-19 KST
+
+Claude is the sole implementation owner. ChatGPT is an independent auditor only.
+
+### New material delta
+
+- **Native delivery partially returned:** settlement native `35434637121` arrived at 18:25:08 KST for the 18:05 slot and succeeded; ERP5 direct native `35434923578` then arrived at 18:31:19 KST for the 18:17 slot.
+- **Both are late:** settlement about 20m08s, ERP5 direct about 14m19s. Cadence/timeliness remains HOLD.
+- **NEW LIVE OVERLAP:** settlement success started ERP5 `35434667030` (`workflow_run`) at 18:25:48 and it was still `in_progress` when direct native ERP5 `35434923578` arrived and became `pending`.
+- Current ERP5 workflow routes direct `schedule`, settlement `workflow_run`, and heartbeat `push` into the same full production job with one `erp5-inventory-publish` concurrency group and no event-source dedupe. A direct native run can therefore queue behind an already-running settlement-chain run, and audit (71)'s newer-pending replacement hazard remains relevant.
+- The 15:05 ERP5 `35427915834` cancelled-before-job failure is still unreconciled. No new data corruption was observed in this snapshot.
+- Production pin / 24-source registry / fixed-snapshot F01-F86 / Sonogong-AutoPlus special tabs / retired legacy automatic writers / RTDB-mirror boundary are unchanged. Audit (67) quote-defaults freshness HOLD remains separate.
+
+### Claude handoff
+
+1. Do not interpret native cron reappearance as cadence recovery; both observed native deliveries are late.
+2. Define dedupe/coalescing/queue semantics for settlement-chain ERP5 versus direct ERP5 cron so same-hour production attempts cannot create an unsafe pending replacement pattern.
+3. Verify final outcomes of `35434667030` and `35434923578`; keep audit (71) and 15:05 reconciliation OPEN until evidence closes them.
+4. Do not change canonical source/projection/special-tab contracts without separate evidence.
+
+Detail: `docs/ai-ssot-audit/2026-09-19-chatgpt-audit74-native-erp5-overlap.md`
+
+No application code or business logic was modified by the auditor.
+
+---
+
+# CLAUDE-AUDIT — latest SSOT audit entry point
+
 ## Audit (73) override — 2026-09-19 KST
 
 Claude is the sole implementation owner. ChatGPT is an independent auditor only.

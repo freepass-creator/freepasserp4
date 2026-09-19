@@ -3183,3 +3183,22 @@ No application code or business logic was modified by the auditor.
 상세: `docs/ai-ssot-audit/2026-09-19-chatgpt-audit73-native-settlement-1805-delivered.md`
 
 No application code or business logic was modified by the auditor.
+
+---
+
+## 2026-09-19 — ChatGPT audit (74): direct ERP5 native cron returned while settlement-chain ERP5 was running
+
+**판정: PARTIAL RESOLVED / NEW LIVE OVERLAP / HOLD.** audit (73)의 “ERP5 direct native schedule newest = 13:38” 요약은 수분 내 stale해졌다.
+
+- ERP5 direct native scheduled run **`35434923578`**이 `event=schedule`로 **2026-09-19 18:31:19 KST** 생성됐다. 선언된 `:17` slot 대비 약 **14분 19초 지연**이며 감사 스냅샷에서는 `pending`이다.
+- 이 run이 생성될 당시 18:05 native settlement `35434637121`(18:25:08 KST 생성, success)이 만든 downstream ERP5 **`35434667030`** (`event=workflow_run`, 18:25:48 KST 생성)이 이미 `in_progress`였다. 즉 이번 시간대에는 **native settlement→ERP5 chain과 ERP5 direct native cron이 동시에 살아 있는 실제 overlap**이 관측됐다.
+- current `.github/workflows/erp5-ssot-refresh.yml`은 두 event source 모두 같은 full production `refresh` job으로 들어가며 `concurrency.group=erp5-inventory-publish`, `cancel-in-progress:false`를 공유한다. direct `schedule`을 최근 성공한 settlement-chain과 중복제거하는 event-level gate는 없다. 따라서 direct native run은 running chain 뒤에서 pending이 되고, 슬롯이 비면 동일 production pipeline을 다시 실행할 수 있으며 더 새로운 pending이 오면 audit (71)과 같은 replacement 위험도 남는다.
+- **Native delivery 자체는 부분 복구 증거가 강화됐다.** 18:05 settlement native schedule과 18:17 ERP5 direct native schedule이 둘 다 실제로 도착했다. 다만 각각 약 20분·14분 늦었고, ERP5 direct run은 아직 pending이며 settlement-chain ERP5도 아직 in-progress라 **cadence/timeliness 및 end-to-end GO는 계속 HOLD**다.
+- audit (71)의 15:05 ERP5 `35427915834` cancelled-before-job failure는 여전히 unreconciled다. 이번 overlap에서 새 data corruption/duplicate-row 증거는 확인하지 않았다.
+- production pin `cf940df642edf315adbc6da2b4134fbad53da160`, 24-source registry, fixed-snapshot F01/F86, Sonogong/AutoPlus special-tab, RETIRED sales/mirror/contract automatic writers, RTDB/mirror non-canonical boundary에는 신규 drift가 없다. audit (67)의 standard quote-defaults freshness HOLD도 유지한다.
+
+**Claude 인계:** native cron이 돌아왔다는 사실과 schedule 품질 회복을 구분할 것. settlement-chain ERP5와 direct ERP5 cron이 같은 시간대에 중복 production attempt를 만들 때의 dedupe/coalescing contract를 audit (71)의 queue safety와 함께 정리하고, `35434667030`/`35434923578`의 최종 결과를 확인한 뒤에만 이번 회차를 닫을 것.
+
+상세: `docs/ai-ssot-audit/2026-09-19-chatgpt-audit74-native-erp5-overlap.md`
+
+No application code or business logic was modified by the auditor.
