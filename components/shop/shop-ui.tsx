@@ -888,8 +888,8 @@ export function StateChip({ mark, fs = SHOP.fs.cap }: { mark: ShopMark; fs?: num
  *   세울 수 있어 **오히려 더 또렷하다** — 회색 면에 회색 글자로 눕히면 셀링포인트가 딱지로 보인다.
  * ★**색은 아이콘에만**, 글자는 먹색(집 규칙 · `DESIGN_CONFIRMED_LIST_CARD` §카드).
  */
-export function PerkMark({ mark, fs = SHOP.fs.cap, size = BADGE.icon }: {
-  mark: ShopMark; fs?: number | string; size?: number;
+export function PerkMark({ mark, fs = SHOP.fs.cap, size = BADGE.icon, highlighted = false }: {
+  mark: ShopMark; fs?: number | string; size?: number; highlighted?: boolean;
 }) {
   const Icon = mark.icon;
   return (
@@ -905,7 +905,7 @@ export function PerkMark({ mark, fs = SHOP.fs.cap, size = BADGE.icon }: {
        *   **누를 수 있는 것이 더 진하다.** 이건 읽기만 하는 표식이라 뒤로 물러나야 한다.
        */
       /* 치수는 «한 벌»(`BADGE`) — 사진 위 신원 칩과 같은 값이다. 그 머리말 참고. */
-      background: C.zebra, padding: `${BADGE.padY}px ${BADGE.padX}px`, borderRadius: SHOP.r.chip,
+      background: highlighted ? C.brandSoft : C.zebra, padding: `${BADGE.padY}px ${BADGE.padX}px`, borderRadius: SHOP.r.chip,
       lineHeight: BADGE.lineHeight,
       /*
        * ★★**두껍게 하지 않는다**(사장님 2026-09-07 「**무심사 분납가능 이런 거 두껍게 안 하는 게
@@ -1007,13 +1007,13 @@ export function markIconFor(text: string): LucideIcon {
 }
 
 /** 조건 칩 줄 — 사이를 넉넉히 벌린다(붙여 놓으면 다시 «칩 줄»로 보인다). */
-export function PerkMarks({ marks, fs, size, columnGap = SHOP.sp.edge }: {
-  marks: ShopMark[]; fs?: number | string; size?: number; columnGap?: number;
+export function PerkMarks({ marks, fs, size, columnGap = SHOP.sp.edge, highlightTexts }: {
+  marks: ShopMark[]; fs?: number | string; size?: number; columnGap?: number; highlightTexts?: Set<string>;
 }) {
   if (!marks.length) return null;
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', columnGap, rowGap: SHOP.sp.snug }}>
-      {marks.map((m) => <PerkMark key={m.text} mark={m} fs={fs} size={size} />)}
+      {marks.map((m) => <PerkMark key={m.text} mark={m} fs={fs} size={size} highlighted={highlightTexts?.has(m.text)} />)}
     </div>
   );
 }

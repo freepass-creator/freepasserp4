@@ -845,7 +845,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
      *   **면이 한 줄로 줄어들수록 그 줄이 더 선다.**
      */
     /* 제목이 「대여료」만이면 보증금이 딸린 값처럼 보인다 — 둘 다 이 구역의 주인공이다(사장님 2026-09-05). */
-    <Sec title="대여료 및 보증금" icon={Coins} accent mobile={mobile}>
+    <Sec id="detail-price" title="대여료 및 보증금" icon={Coins} accent mobile={mobile}>
       <>
       {plan ? (
         <>
@@ -1165,7 +1165,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
         선택 옵션은 이 구역이 아니라 차명 바로 아래에서 먼저 읽는다.
       */}
       {(modelLine || specs.length || options.length || colorText) ? (
-        <Sec title="차량 정보" icon={Car} mobile={mobile}>
+        <Sec id="detail-vehicle" title="차량 정보" icon={Car} mobile={mobile}>
           <>
 
             {/*
@@ -1302,10 +1302,10 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
              다른 영역이니까 격자에 안 섞고, 그렇다고 본문에 또 한 줄을 쓰지도 않는다.
       */}
       {!(insuranceFee || ownDamageDeductible || otherDeductibles.length || coverage.length || roadside) ? (
-        <Sec title="보험" icon={ShieldCheck} mobile={mobile}><Missing /></Sec>
+        <Sec id="detail-insurance" title="보험" icon={ShieldCheck} mobile={mobile}><Missing /></Sec>
       ) : null}
       {(insuranceFee || ownDamageDeductible || otherDeductibles.length || coverage.length || roadside) ? (
-        <Sec title="보험" icon={ShieldCheck} tag={insuranceFee} mobile={mobile}>
+        <Sec id="detail-insurance" title="보험" icon={ShieldCheck} tag={insuranceFee} mobile={mobile}>
           <>
             {/* ② 보상 한도 — 어디까지 보상되나. 넷이 나란한 값이라 격자로 편다. */}
             {coverage.length ? (
@@ -1370,8 +1370,8 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
           하나만 크게 세우면 나머지가 곁다리로 보인다.
       */}
       {useRows.length
-        ? <Tiles title="이용 조건" rows={useRows} cols={mobile ? 2 : 4} mobile={mobile} icon={IdCard} />
-        : <Sec title="이용 조건" icon={IdCard} mobile={mobile}><Missing /></Sec>}
+        ? <Tiles id="detail-terms" title="이용 조건" rows={useRows} cols={mobile ? 2 : 4} mobile={mobile} icon={IdCard} />
+        : <Sec id="detail-terms" title="이용 조건" icon={IdCard} mobile={mobile}><Missing /></Sec>}
 
       {/* ⑥ 기타 — 참고만 하는 값. 제일 조용하게 한 줄로 흘린다. */}
       <Sec title="기타 사항" icon={Info} mobile={mobile}>
@@ -1557,7 +1557,25 @@ function TopBar({ code, title, listHref }: { code: string; title: string; listHr
         }}>
         <ArrowLeft size={ICON.lg} aria-hidden />목록으로
       </Link>
-      <div style={{ flex: 1 }} />
+      <nav aria-label="상세 구역 이동" style={{
+        flex: 1, display: 'flex', justifyContent: 'center', gap: SHOP.sp.edge,
+        minWidth: 0, overflow: 'hidden',
+      }}>
+        {[
+          ['#detail-price', '대여료'],
+          ['#detail-vehicle', '차량정보'],
+          ['#detail-insurance', '보험'],
+          ['#detail-terms', '이용조건'],
+        ].map(([href, label]) => (
+          <a key={href} href={href} className="fp-shop-detail-anchor"
+            style={{
+              color: C.mute, textDecoration: 'none', fontSize: SHOP.fs.cap,
+              fontWeight: FW.meta, whiteSpace: 'nowrap',
+            }}>
+            {label}
+          </a>
+        ))}
+      </nav>
       <FavShare title={title} />
     </div>
   );
@@ -1620,16 +1638,19 @@ function TopBar({ code, title, listHref }: { code: string; title: string; listHr
  *   보는 사람은 규칙을 못 읽고 「여기는 왜 붙었지」만 느낀다.
  * ★새 무리를 더할 때는 **표의 값만** 쓴다. 숫자를 직접 적지 않는다(`SHOP.sp`).
  */
-function Sec({ title, icon, accent, tag, mobile, children }: {
-  title: string; icon?: LucideIcon; accent?: boolean; tag?: string;
+function Sec({ id, title, icon, accent, tag, mobile, children }: {
+  id?: string; title: string; icon?: LucideIcon; accent?: boolean; tag?: string;
   mobile?: boolean; children: React.ReactNode;
 }) {
   return (
     <>
       <Rule mobile={mobile} />
-      <section aria-label={title} style={mobile ? undefined : {
-        display: 'grid', gridTemplateColumns: '200px minmax(0, 1fr)',
-        columnGap: SHOP.sp.wide, alignItems: 'start',
+      <section id={id} aria-label={title} style={{
+        ...(mobile ? {} : {
+          display: 'grid', gridTemplateColumns: '200px minmax(0, 1fr)',
+          columnGap: SHOP.sp.wide, alignItems: 'start',
+        }),
+        scrollMarginTop: 'calc(var(--fp-wl-head-h, 0px) + 72px)',
       }}>
         <SecTitle icon={icon} accent={accent} tag={tag}>{title}</SecTitle>
         <div style={{ minWidth: 0 }}>{children}</div>
@@ -1924,12 +1945,12 @@ function Missing() {
   );
 }
 
-function Tiles({ title, rows, cols, mobile, icon }: {
-  title: string; rows: FactRow[]; cols: number; mobile?: boolean; icon?: LucideIcon;
+function Tiles({ id, title, rows, cols, mobile, icon }: {
+  id?: string; title: string; rows: FactRow[]; cols: number; mobile?: boolean; icon?: LucideIcon;
 }) {
   if (!rows.length) return null;
   return (
-    <Sec title={title} icon={icon} mobile={mobile}>
+    <Sec id={id} title={title} icon={icon} mobile={mobile}>
       <Facts rows={rows} cols={cols} mobile={mobile} />
     </Sec>
   );

@@ -1,9 +1,8 @@
 'use client';
 import { useCallback, useEffect, useLayoutEffect, useState, type ReactNode } from 'react';
-import { Phone, SquareArrowOutUpRight, X, Sheet } from 'lucide-react';
+import { Phone, SquareArrowOutUpRight, X } from 'lucide-react';
 import { C, FW, ICON, R_CARD, fmtPhone } from '@/components/ui';
 import { todayKst } from '@/lib/format';
-import { PRODUCT_SHEET_ID } from '@/lib/product-sheet';
 import { SHOP, ShopDock, ShopDockAction } from '@/components/shop/shop-ui';
 import { ChannelSign, ChannelWordmark, CoBrandFreepass } from '@/components/brand-ci';
 import { CORP } from '@/lib/domain/corporate-ci';
@@ -531,25 +530,6 @@ export function WhitelabelFrame({
             </div>
           </div>
           ) : null}
-          {/*
-            영업자·직원 로그인 — **푸터 맨 밑에 조용히**(사장님 2026-09-05 「그 주소로 들어가면 상품부터
-            다 보이는 거라고. 거길 들어가서 영업자는 로그인을 하는 거야」).
-            손님은 로그인할 일이 없으니 위로 올리지 않는다. 그렇다고 없애면 영업자가 주소를 외워
-            쳐야 한다 — 사업자 표기 밑 한 줄이 그 둘을 다 만족한다(회사 사이트가 흔히 그러는 자리다).
-
-            ★★**조용한 것과 «못 찾는» 것은 다르다**(사장님 2026-09-07 「직원들 로그인할 수 있게 하는
-              **버튼이 있어야 하는데**」 — 이미 있는데 못 보셨다).
-            ⚠ 실측 — 「로그인」 넉 자, 12px, `C.faint`, 상자 31×18. 글자만 있어 **누를 것으로 안 읽혔고**,
-              말도 「로그인」이라 손님은 「내 계정이 있나?」로, 직원은 제 것인지 모르고 지나쳤다.
-            ⇒ 셋을 고친다. 조용함은 그대로 두고 «찾을 수 있게»만 한다:
-              ㉠ 말 — 「**담당자 로그인**」. 손님은 제 것이 아님을 알고 지나가고, 직원은 제 것임을 안다.
-              ㉡ 모양 — 옅은 테두리 + 아이콘. 글자만이면 링크인 줄 모른다. 색은 여전히 `faint` 다.
-              ㉢ 로그인돼 있으면 **「업무 화면으로」**. 영업자가 손님 화면을 보다가 돌아갈 길이 없어
-                 주소를 쳐야 했다. 같은 자리에서 말만 바뀐다.
-            ★크기는 안 키운다 — 손님 화면의 주인공은 차다. 이 줄이 커지면 그 순간 우리 사정이 앞선다.
-          */}
-          {/* 담당자 줄 — 표준라벨이면 그 옆에 「구글시트 열기」가 나란히 선다(위 `SheetLink` 머리말). */}
-          {wl.plain ? <SheetLink /> : null}
         </div>
       </footer>
     </div>
@@ -703,51 +683,5 @@ function WhitelabelNotice({ wl, mobile }: { wl: Whitelabel; mobile: boolean }) {
         </button>
       </div>
     </div>
-  );
-}
-
-/** 판매시트에서 «상품리스트» 탭 — 열면 여기서 시작해야 한다(다른 탭에서 열면 매번 옮겨야 한다). */
-const SALES_LIST_GID = 205661918;
-
-/*
- * ⚠⚠ **여기 「담당자 로그인 / 업무 화면으로」(`StaffLink`)가 있었다 — 걷었다**
- *   (사장님 2026-09-17 「화이트라벨에서 erp4 아예 분리해서 **로그인 기능 아예 없는 거야**」).
- *
- * ★손님 동에는 이제 **로그인이 없다.** 로그인 화면으로 가는 문도, 세션을 읽는 코드도 없다 —
- *   「감춘다」가 아니라 «없다»다. 영업자·직원은 업무동 주소(`/login` · `/finder`)로 들어간다.
- * ★영업사원이 이 얼굴에서 쓰는 것은 **「구글시트 열기」** 하나로 남는다(표준라벨 전용 · `SheetLink`).
- */
-
-/**
- * 영업사원이 여는 **판매시트(프리패스 상품리스트)** — 담당자 줄 «옆»에 같은 모양으로 선다
- * (사장님 2026-09-17 「구글시트 열기는 아래쪽에 넣어야겠다 · 로그인 하는 곳 거기 근처에 적정하게」).
- *
- * ★★**표준라벨(freepasserp.com)에만 선다**(사장님 같은 날 「아 표준에만 들어가야지」).
- *   채널 간판(차슝·이안카…)은 **남의 가게**다 — 거기에 우리 내부 시트로 가는 문을 세우지 않는다.
- *   판정은 표의 `plain` 한 칸이 한다(채널이 늘어도 이 파일은 안 고친다).
- * ★탭까지 지정해 연다 — 시트를 열면 「상품리스트」가 바로 떠야 한다. 다른 탭에서 시작하면
- *   영업사원이 매번 탭을 찾아 옮겨야 한다.
- * ⚠ 주소는 `PRODUCT_SHEET_ID` 한 곳에서 온다 — 여기 아이디를 손으로 적으면 시트를 옮기는 날 갈린다.
- *
- * ⚠⚠ **이 시트는 2026-09-17 실측 기준 «링크만 알면 누구나» 읽힌다**(CSV 375줄이 로그인 없이 내려온다 —
- *   배차상태·차번·기간별 대여료·보증금·차고지·공급사 링크까지). 단추를 여기 세우는 것과 무관하게,
- *   시트 공유를 「teamjpk.com 계정만」으로 좁히는 것이 진짜 빗장이다(사장님께 보고함).
- *   ★단추를 감춰도 가려지지 않는다 — 아이디는 `NEXT_PUBLIC_` 이라 이미 화면 번들 안에 있다.
- *     그래서 «감추는 시늉»을 하지 않고, 자리는 담당자 줄 옆(조용한 자리)에 둔다.
- */
-function SheetLink() {
-  return (
-    <a
-      href={`https://docs.google.com/spreadsheets/d/${PRODUCT_SHEET_ID}/edit?gid=${SALES_LIST_GID}#gid=${SALES_LIST_GID}`}
-      target="_blank" rel="noopener noreferrer"
-      style={{
-        display: 'inline-flex', alignItems: 'center', gap: SHOP.sp.tight,
-        marginTop: SHOP.sp.edge, padding: '6px 10px',
-        border: `1px solid ${C.line}`, borderRadius: SHOP.r.chip,
-        fontSize: SHOP.fs.cap, color: C.faint, textDecoration: 'none',
-      }}
-    >
-      <Sheet size={13} aria-hidden />구글시트 열기
-    </a>
   );
 }

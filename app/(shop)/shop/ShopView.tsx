@@ -858,7 +858,7 @@ export function ShopView({ wl = FREEPASS, initial = null }: {
                 그림이 한 번 지워지고 다시 들어온다 — 그게 더 느려 보인다.
             */}
             {rows === null && !initial?.list.length ? (
-              <Grid mobile={mobile}>
+              <Grid>
                 {Array.from({ length: 6 }, (_, i) => <Skeleton key={i} />)}
               </Grid>
             ) : feedError ? (
@@ -870,10 +870,10 @@ export function ShopView({ wl = FREEPASS, initial = null }: {
               <ShopEmpty onClear={() => { setTyped(''); setQuery(emptyQuery()); }} />
             ) : (
               <>
-                <Grid mobile={mobile}>
+                <Grid>
                   {/* ★순번을 넘긴다 — 첫 화면 카드는 사진을 «기다리지 않고» 받는다(`ShopCard` `rank`). */}
                   {shown.map((p, i) => (
-                    <ShopCard key={String(p.product_code)} p={p} href={href(p)} rank={i} />
+                    <ShopCard key={String(p.product_code)} p={p} href={href(p)} rank={i} searchQuery={liveQuery.q} />
                   ))}
                 </Grid>
                 {/* 「몇 장 보는 중」은 그리는 순서와 무관하게 «한 장에 담은 수»로 말한다(숫자가 깜빡이지 않게). */}
@@ -902,7 +902,7 @@ export function ShopView({ wl = FREEPASS, initial = null }: {
 }
 
 /**
- * 목록 — 웹 3열 격자 · **폰은 한 줄에 한 대(세로 큰 카드)**.
+ * 목록 — 웹은 폭에 따라 3→4열 · **폰은 한 줄에 한 대(세로 큰 카드)**.
  *
  * 사장님 2026-09-04 「세로 타입으로 크게 사진 그리고 차량 스펙 대여료 뭐 우대사항 이런 하자.
  * 가로로 할 필요가 없을 것 같다. **어차피 검색해서 찾을 놈은 거고 우리가 뭐 몇 만 몇 만 개
@@ -910,30 +910,11 @@ export function ShopView({ wl = FREEPASS, initial = null }: {
  * «훑어야 하는» 곳이다. 우리는 716대고 손님은 조건으로 좁혀서 온다.
  * 좁혀 놓고 보는 화면이면 한 대를 **제대로** 보여 주는 편이 낫다.
  */
-function Grid({ mobile, children }: { mobile: boolean; children: React.ReactNode }) {
+function Grid({ children }: { children: React.ReactNode }) {
   return (
-    <div style={{
-      display: 'grid',
-      /*
-       * ⚠ 폰 한 열도 반드시 `minmax(0, 1fr)` 이다. 맨 `1fr` 은 `minmax(auto, 1fr)` 이라
-       *   칸의 최소폭이 «내용의 min-content»가 되는데, 카드 안에 안 줄어드는 것(옵션 칩·
-       *   nowrap 금액)이 있으면 칸이 그만큼 벌어진다. 실측으로 main 이 375 화면에서 864px 이 됐고,
-       *   카드는 멀쩡해 보이는데 **하트가 화면 밖(x=822)** 에 나가 있었다. 눈으로는 안 보이는 고장이다.
-       */
-      gridTemplateColumns: mobile ? 'minmax(0, 1fr)' : 'repeat(3, minmax(0, 1fr))',
-      /*
-       * 테두리를 걷었으니 카드를 나누는 것은 **여백**뿐이다 — 좁으면 두 카드가 한 덩어리로 붙어 보인다.
-       * 세로가 가로보다 넓다(글자 줄이 카드 아래쪽에 몰려 있어 그만큼 더 떼야 갈린다).
-       */
-      /*
-       * ★★**카드끼리는 «안»의 최대(12)보다 확실히 커야 한다** — 그래야 「여기까지가 한 대」가
-       *   테두리 없이 여백만으로 읽힌다(사장님 2026-09-06 「다음 장이랑 떨어질 건 떨어져야」).
-       * ⚠ 24 였다. 안을 4~12 로 잡은 상태에서 24 는 2배라 층이 약했다 — 카드가 353px 이나 되는데
-       *   그 아래 24 만 비면 다음 사진이 «같은 덩어리의 다음 줄»처럼 붙어 보인다.
-       * ⇒ 세로 32(안의 최대 12의 2.7배). 가로(웹)는 24 그대로 — 옆 칸은 세로선처럼 이미 갈린다.
-       */
-      gap: mobile ? '32px 12px' : '32px 24px',
-    }}>{children}</div>
+    <div className="fp-shop-grid">
+      {children}
+    </div>
   );
 }
 
