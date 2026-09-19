@@ -1,0 +1,110 @@
+name: Capture Live ERP4 UI
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/capture-live-ui.yml"
+      - ".github/capture-live-ui.trigger"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Capture live desktop and mobile
+        run: |
+          mkdir -p artifacts
+          node <<'NODE'
+          const { chromium } = require('playwright');
+          const fs = require('fs');
+
+          (async () => {
+            const browser = await chromium.launch({ headless: true });
+            const base = 'https://freepasserp.com';
+
+            const shots = [
+              { name: 'desktop', viewport: { width: 1440, height: 1000 } },
+              { name: 'mobile', viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true },
+            ];
+
+            const report = {
+              capturedAt: new Date().toISOString(),
+              base,
+              shots: [],
+              loginProbe: null,
+            };
+
+            for (const shot of shots) {
+              const context = await browser.newContext({
+                viewport: shot.viewport,
+                isMobile: !!shot.isMobile,
+                hasTouch: !!shot.hasTouch,
+                deviceScaleFactor: 1,
+                locale: 'ko-KR',
+              });
+              const page = await context.newPage();
+              const response = await page.goto(base, { waitUntil: 'domcontentloaded', timeout: 60000 });
+              await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+              await page.waitForTimeout(3000);
+              const path = `artifacts/erp4-live-${shot.name}.png`;
+              await page.screenshot({ path, fullPage: false });
+              report.shots.push({
+                name: shot.name,
+                requestedUrl: base,
+                finalUrl: page.url(),
+                status: response?.status() ?? null,
+                title: await page.title(),
+                viewport: shot.viewport,
+                screenshot: path,
+              });
+              await context.close();
+            }
+
+            {
+              const context = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'ko-KR' });
+              const page = await context.newPage();
+              const response = await page.goto(base + '/login', { waitUntil: 'domcontentloaded', timeout: 60000 });
+              await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+              await page.waitForTimeout(1500);
+              report.loginProbe = {
+                requestedUrl: base + '/login',
+                finalUrl: page.url(),
+                status: response?.status() ?? null,
+                title: await page.title(),
+              };
+              await context.close();
+            }
+
+            fs.writeFileSync('artifacts/capture-report.json', JSON.stringify(report, null, 2));
+            console.log(JSON.stringify(report, null, 2));
+            await browser.close();
+          })().catch((err) => {
+            console.error(err);
+            process.exit(1);
+          });
+          NODE
+
+      - name: Upload screenshots
+        uses: actions/upload-artifact@v4
+        with:
+          name: erp4-live-ui-capture
+          path: artifacts/
+          if-no-files-found: error
+          retention-days: 7
