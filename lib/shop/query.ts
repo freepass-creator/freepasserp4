@@ -16,7 +16,7 @@
  *   **무엇을 모수로 삼고 어떻게 세는가**뿐이다.
  */
 import type { EntityRecord } from '@/lib/intake/entities';
-import { cheapest, creditDisplay, isListableProduct, isOperatedPeriod, priceList } from '@/lib/domain/product';
+import { creditDisplay, isListableProduct, isOperatedPeriod, priceList } from '@/lib/domain/product';
 import { matchProductQuery } from '@/lib/domain/search';
 import {
   standingFixed, standingRanked, tallyBy, tallyMatch,
@@ -235,9 +235,63 @@ const axisMatch: Record<ShopAxis, (p: EntityRecord, key: string) => boolean> = {
   mile: (p, k) => { const b = bandOf(MILE_BANDS, k); const km = Number(p.mileage) || 0; return !!b && km > 0 && km > b.lo && km <= b.hi; },
 };
 
-/** 같은 축 안은 OR(기아 «또는» 현대), 축끼리는 AND(기아 «이면서» SUV) — 마켓의 상식대로. */
+/**
+ * 기간·월대여료·보증금은 **같은 price[term] 행**에서 맞아야 한다.
+ *
+ * 12개월을 고른 손님에게 36개월의 싼 대여료나 보증금을 섞어 보여 주면,
+ * 필터는 맞는 것처럼 보여도 실제 계약조건은 존재하지 않는 조합이 된다.
+ */
+const PRICE_AXES = ['term', 'rent', 'dep'] as const;
+type PriceAxis = (typeof PRICE_AXES)[number];
+type ShopPriceRow = ReturnType<typeof priceList>[number];
+
+const isPriceAxis = (axis: ShopAxis): axis is PriceAxis =>
+  (PRICE_AXES as readonly ShopAxis[]).includes(axis);
+
+const priceRowMatches = (row: ShopPriceRow, axis: PriceAxis, key: string): boolean => {
+  if (axis === 'term') return isOperatedPeriod(row.m) && TERM_LABEL(row.m) === key;
+  const bands = axis === 'rent' ? RENT_BANDS : DEP_BANDS;
+  const band = bandOf(bands, key);
+  if (!band) return false;
+  const value = axis === 'rent' ? row.rent : row.deposit;
+  return value > band.lo && value <= band.hi;
+};
+
+const priceSelectionsMatch = (p: EntityRecord, sel: ShopSel, skip?: ShopAxis): boolean => {
+  const active = PRICE_AXES.filter((axis) => axis !== skip && sel[axis].length);
+  if (!active.length) return true;
+  return priceList(p).some((row) =>
+    active.every((axis) => sel[axis].some((key) => priceRowMatches(row, axis, key))));
+};
+
+/** facet 후보도 현재의 다른 가격조건과 같은 행에서 성립해야 한다. */
+const priceFacetMatch = (p: EntityRecord, sel: ShopSel, axis: PriceAxis, key: string): boolean =>
+  priceList(p).some((row) =>
+    priceRowMatches(row, axis, key)
+    && PRICE_AXES
+      .filter((other) => other !== axis && sel[other].length)
+      .every((other) => sel[other].some((selected) => priceRowMatches(row, other, selected))));
+
+/** 카드·정렬이 사용할 가격행 후보. 활성 가격조건을 한 행에서 모두 만족하는 행만 남긴다. */
+export function priceRowsForShopSelection(p: EntityRecord, sel: ShopSel): ShopPriceRow[] {
+  const active = PRICE_AXES.filter((axis) => sel[axis].length);
+  const rows = priceList(p);
+  if (!active.length) return rows;
+  return rows.filter((row) =>
+    active.every((axis) => sel[axis].some((key) => priceRowMatches(row, axis, key))));
+}
+
+/** 카드 대표가격: 현재 가격조건 안에서 월 대여료가 가장 낮은 실제 가격행. */
+export function priceForShopSelection(p: EntityRecord, sel: ShopSel): ShopPriceRow | null {
+  const rows = priceRowsForShopSelection(p, sel);
+  return rows.length ? rows.reduce((a, b) => (b.rent < a.rent ? b : a)) : null;
+}
+
+/** 같은 축 안은 OR, 축끼리는 AND. 가격 3축만 추가로 «같은 행» 계약을 지킨다. */
 const passes = (p: EntityRecord, sel: ShopSel, skip?: ShopAxis) =>
-  SHOP_AXES.every((a) => a === skip || !sel[a].length || sel[a].some((k) => axisMatch[a](p, k)));
+  priceSelectionsMatch(p, sel, skip)
+  && SHOP_AXES.every((a) =>
+    isPriceAxis(a) || a === skip || !sel[a].length || sel[a].some((k) => axisMatch[a](p, k)));
 
 /**
  * 「같은 차」를 세는 열쇠 — **제조사 + 모델**.
@@ -247,18 +301,17 @@ const passes = (p: EntityRecord, sel: ShopSel, skip?: ShopAxis) =>
 const sameCarKey = (p: EntityRecord): string =>
   `${makerDisplay(p.maker) || ''}|${String(p.model ?? '').trim()}`.toLowerCase().replace(/\s+/g, '');
 
-const sortValue = (p: EntityRecord, sort: ShopSort): number => {
-  const price = cheapest(p);
+const sortValue = (p: EntityRecord, sort: ShopSort, sel: ShopSel): number => {
+  const rows = priceRowsForShopSelection(p, sel);
+  const price = rows.length ? rows.reduce((a, b) => (b.rent < a.rent ? b : a)) : null;
   /*
-   * ★인기순 — 순위(0,1,2…)가 잣대다. 같은 모델끼리는 «싼 것부터»(아래 tie-break).
-   *   순위 밖은 `MAX_SAFE_INTEGER` 라 통째로 뒤에 서고, 그 안에서 다시 싼 것부터 선다.
+   * ★인기순 — 순위(0,1,2…)가 잣대다. 같은 모델끼리는 선택 조건 안의 싼 가격행을 2차 잣대로 쓴다.
    */
   if (sort === 'popular') return popularRank(p.model);
-  if (sort === 'dep') return price?.deposit ?? Number.MAX_SAFE_INTEGER;
+  if (sort === 'dep') return rows.length ? Math.min(...rows.map((row) => row.deposit)) : Number.MAX_SAFE_INTEGER;
   if (sort === 'year') return -(Number(yearFullDisplay(p.year)) || 0);
   if (sort === 'mile') return Number(p.mileage) || Number.MAX_SAFE_INTEGER;
   const rent = price?.rent ?? 0;
-  // 값이 없는 차는 «뒤로». 앞에 세우면 빈 카드가 첫 화면을 덮는다.
   if (!rent) return Number.MAX_SAFE_INTEGER;
   return sort === 'desc' ? -rent : rent;
 };
@@ -335,7 +388,8 @@ export function runShopQuery(rows: EntityRecord[] | null, query: ShopQuery): Sho
   const fixedTally = (axis: ShopAxis, order: readonly string[]): ShopOption[] =>
     standingFixed(order,
       tallyMatch(pool, order, (p, k) => axisMatch[axis](p, k)),
-      tallyMatch(baseFor(axis), order, (p, k) => axisMatch[axis](p, k)))
+      tallyMatch(baseFor(axis), order, (p, k) =>
+        isPriceAxis(axis) ? priceFacetMatch(p, sel, axis, k) : axisMatch[axis](p, k)))
       .map((o) => ({ ...o, label: o.key }));
   const bandTally = (axis: ShopAxis, bands: Band[]): ShopOption[] => {
     const keys = bands.map((b) => b.k);
@@ -343,7 +397,8 @@ export function runShopQuery(rows: EntityRecord[] | null, query: ShopQuery): Sho
     const name = new Map(bands.map((b) => [b.k, b.shop || b.label]));
     return standingFixed(keys,
       tallyMatch(pool, keys, (p, k) => axisMatch[axis](p, k)),
-      tallyMatch(baseFor(axis), keys, (p, k) => axisMatch[axis](p, k)))
+      tallyMatch(baseFor(axis), keys, (p, k) =>
+        isPriceAxis(axis) ? priceFacetMatch(p, sel, axis, k) : axisMatch[axis](p, k)))
       .map((o) => ({ ...o, label: name.get(o.key) || o.key }));
   };
 
@@ -420,9 +475,9 @@ export function runShopQuery(rows: EntityRecord[] | null, query: ShopQuery): Sho
     list.map((p) => ({
       p,
       photo: photoRank(p),
-      v: sortValue(p, sort),
-      /* 인기순은 같은 값이 무더기라 2차 잣대(싼 것부터)가 필요하다 — 그것도 미리 잰다. */
-      tie: sort === 'popular' || sort === 'many' ? sortValue(p, 'asc') : 0,
+      v: sortValue(p, sort, sel),
+      /* 인기순은 같은 값이 무더기라 2차 잣대(선택 조건 안의 싼 것부터)가 필요하다. */
+      tie: sort === 'popular' || sort === 'many' ? sortValue(p, 'asc', sel) : 0,
       same: withSame ? sameCarKey(p) : '',
     }));
 
