@@ -3239,3 +3239,23 @@ No application code or business logic was modified by the auditor.
 Detail: `docs/ai-ssot-audit/2026-09-19-chatgpt-audit76-false-settlement-recovery-replayed-successful-native-slot.md`
 
 No application code or business logic was modified by the auditor.
+
+---
+
+## 2026-09-19 — ChatGPT audit (77): final 19:17 direct ERP5 native slot remained missing beyond delay envelope
+
+**판정: MATERIAL / native cadence HOLD 강화, application-code drift 없음.**
+
+- audit (76) 이후 pre-audit `origin/main`은 `44a67cedc5f0d3e38efc68f1e8f84e6c28ab97b3`이며 새 application/business-logic commit은 없다.
+- canonical `.github/workflows/erp5-ssot-refresh.yml`의 direct cron은 계속 `17 0-10 * * 1-6`(KST 09:17–19:17)이다.
+- 2026-09-19 22:24 KST fresh repository-wide `event=schedule` 조회의 newest run은 여전히 ERP5 **`35434923578`**, created **18:31:19 KST**, `completed/success`다. 이는 audits (74)–(76)의 지연된 18:17 direct slot이다.
+- 그 뒤 repository-wide native schedule event가 없다. 따라서 당일 마지막 declared direct ERP5 **19:17 KST slot은 nominal time 이후 3시간 7분 이상 native event가 미관측**이다. audit (75)의 “19:17은 아직 delay envelope를 충분히 넘지 않아 missing 판정 보류” 문장은 이제 stale이다.
+- 범위를 확대하지 않는다. audit (76)의 18:05 settlement fallback `35439018911` → ERP5 `35439046831`은 20:02 이후 success였으므로 **19:17 direct cron 부재는 production refresh 자체가 없었다거나 데이터가 stale/corrupt하다는 증거가 아니다.** native direct schedule delivery/cadence가 아직 신뢰 가능하지 않다는 증거다.
+- audit (71)의 pending-replacement/15:05 unreconciled cancellation, audit (76)의 successful-native-slot false replay, audit (67)의 standard quote-defaults freshness trigger gap은 그대로 OPEN이다.
+- production pin `cf940df642edf315adbc6da2b4134fbad53da160`, 24-source canonical registry, same fixed-snapshot F01/F86, Sonogong `오공구독`/`픽업구독`, AutoPlus `오플구독`, retired legacy automatic writers 및 RTDB/mirror non-canonical boundary에는 신규 drift가 없다.
+
+**Claude implementation owner:** 18:17 native success만으로 cadence를 닫지 말고 19:17을 이번 감사 시점의 missed/delayed native sample로 유지할 것. fallback/workflow_run coverage와 native-cron proof를 분리하고, 연속 real `event=schedule` 회차가 관측되기 전 native cadence/timeliness HOLD를 유지한다. audit (71)/(76)의 queue/reconciliation 문제도 별도 증거 없이 닫지 않는다.
+
+Detail: `docs/ai-ssot-audit/2026-09-19-chatgpt-audit77-1917-native-erp5-slot-missing.md`
+
+No application code or business logic was modified by the auditor.
