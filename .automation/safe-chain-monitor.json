@@ -5,7 +5,7 @@
   "lastMeaningfulEventKey": "missing-schedule-fallback:2026-09-19T18:05:00+09:00",
   "lastKnownSettlementRunId": 35439018911,
   "lastKnownErp5RunId": 35439046831,
-  "lastKnownGoodErp5RunId": 35431989989,
+  "lastKnownGoodErp5RunId": 35439046831,
   "lastHeartbeatSlot": "2026-09-19T18:05:00+09:00",
   "policy": {
     "settlementWorkflow": ".github/workflows/settlement-intake-sync.yml",
@@ -89,13 +89,13 @@
     "2026-09-19T18:05:00+09:00": {
       "settlementRunId": 35439018911,
       "erp5RunId": 35439046831,
-      "status": "erp5-in-progress",
+      "status": "success",
       "settlementProductionWritesCompleted": true,
-      "erp5ProductionWritesCompleted": false,
+      "erp5ProductionWritesCompleted": true,
       "audits": {
-        "f86Freshness": "pending",
-        "f01F86Parity": "pending",
-        "platePhoto": "pending"
+        "f86Freshness": "pass",
+        "f01F86Parity": "pass",
+        "platePhoto": "pass"
       }
     }
   },
@@ -105,17 +105,17 @@
     "failureReason": "scheduled trigger missing after 20-minute grace",
     "recoveredRunId": 35439018911,
     "erp5RunId": 35439046831,
-    "status": "erp5-in-progress",
+    "status": "success",
     "settlementProductionWrites": {
       "intakeStepCompleted": true,
       "formatStepCompleted": true,
       "result": "success"
     },
-    "erp5ProductionWritesCompleted": false,
+    "erp5ProductionWritesCompleted": true,
     "audits": {
-      "f86Freshness": "pending",
-      "f01F86Parity": "pending",
-      "platePhoto": "pending"
+      "f86Freshness": "pass",
+      "f01F86Parity": "pass",
+      "platePhoto": "pass"
     }
   },
   "lastChainFailure": {
