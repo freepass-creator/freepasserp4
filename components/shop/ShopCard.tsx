@@ -1,5 +1,5 @@
 'use client';
-import { memo } from 'react';
+import { memo, type ReactNode } from 'react';
 import Link from 'next/link';
 import { Check, CircleCheck, ImageOff, ShieldCheck, Tag } from 'lucide-react';
 import type { EntityRecord } from '@/lib/intake/entities';
@@ -199,18 +199,24 @@ export const ShopCard = memo(function ShopCard({ p, href, rank = 99, searchQuery
   const searchTokens = queryTokens(searchQuery);
   const markText = (text: string) => {
     if (!text || !searchTokens.length) return text;
-    const escaped = searchTokens
-      .filter((t) => t.length > 0)
-      .map((t) => t.replace(/[.*+?^$\\{}()|[\]\\]/g, '\\  return (
-    <div style={{ position: 'relative' }}>'))
-      .sort((a, b) => b.length - a.length);
-    if (!escaped.length) return text;
-    const re = new RegExp(`(${escaped.join('|')})`, 'ig');
-    return text.split(re).map((part, i) =>
-      searchTokens.some((t) => part.toLowerCase() === t.toLowerCase())
-        ? <mark key={`${part}-${i}`} className="fp-shop-match">{part}</mark>
-        : part
-    );
+    const lower = text.toLowerCase();
+    const hits = searchTokens
+      .map((token) => ({ token, at: lower.indexOf(token.toLowerCase()) }))
+      .filter((hit) => hit.at >= 0)
+      .sort((a, b) => a.at - b.at);
+    if (!hits.length) return text;
+
+    const out: ReactNode[] = [];
+    let cursor = 0;
+    for (const hit of hits) {
+      if (hit.at < cursor) continue;
+      if (hit.at > cursor) out.push(text.slice(cursor, hit.at));
+      const matched = text.slice(hit.at, hit.at + hit.token.length);
+      out.push(<mark key={hit.at} className="fp-shop-match">{matched}</mark>);
+      cursor = hit.at + hit.token.length;
+    }
+    if (cursor < text.length) out.push(text.slice(cursor));
+    return out;
   };
   const lowCreditAlias = /저신용|신용무관|심사없음|심사x/i.test(searchQuery) && credit === '무심사';
   const noDepositAlias = /무보증|보증금\s*(?:0|없)/i.test(searchQuery) && !!dep?.none;
