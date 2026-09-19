@@ -62,7 +62,20 @@ npm run deploy:prod
 npx vercel link --yes --project freepasserp4 --scope freepass-projects
 ```
 
-## 4. deployment는 성공했는데 custom domain만 옛 화면일 때
+## 4. GitHub에서 버튼으로 강제 배포
+
+로컬 운영 PC가 없어도 GitHub Actions의 **Production Deploy Recovery** 워크플로를 수동 실행할 수 있다.
+
+필수 repository secret:
+
+- `VERCEL_TOKEN`
+
+워크플로는 main을 checkout하고 `freepasserp4` Vercel 프로젝트에 명시적으로 link한 뒤,
+같은 `deploy:prod` 스크립트를 실행한다. 즉 로컬 경로와 GitHub 복구 경로가 서로 다른 배포 로직을 갖지 않는다.
+
+`repair_alias=true`는 deployment 자체가 정상인데 custom domain alias만 늦거나 잘못 붙은 것이 명확할 때만 쓴다.
+
+## 5. deployment는 성공했는데 custom domain만 옛 화면일 때
 
 먼저:
 
@@ -86,7 +99,7 @@ npm run deploy:prod -- --repair-alias
 DNS가 다른 프로젝트/서비스를 가리키는 경우 alias 재설정만으로 해결되지 않을 수 있다.  
 그 경우 Vercel project domain 설정과 DNS를 먼저 바로잡는다.
 
-## 5. 환경변수 문제
+## 6. 환경변수 문제
 
 배포가 실패하거나 preview/production 결과가 다르면:
 
@@ -100,7 +113,7 @@ npm run env:diff
 - `NEXT_PUBLIC_FIREBASE_DATABASE_URL` 누락
 - Git main은 최신인데 Vercel build가 실패해 운영은 이전 deployment 유지
 
-## 6. 판정 규칙
+## 7. 판정 규칙
 
 다음 표현은 금지한다.
 
@@ -115,7 +128,7 @@ main SHA == freepasserp.com/api/version.sha
          == www.freepasserp.com/api/version.sha
 ```
 
-## 7. AI Core와의 역할
+## 8. AI Core와의 역할
 
 - ERP4 저장소: 실제 배포 명령·도메인·환경·release 규칙의 정본
 - AI Core: 공통 release gate / proof / rollback 원칙을 관리
