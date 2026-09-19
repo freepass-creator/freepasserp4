@@ -1087,7 +1087,7 @@ run #14가 성공했다는 것은 **현재 builder가 의도한 규칙대로 정
 
 ### D. 변화 없음 — canonical source·특수탭·legacy writer latent risk 판정 유지
 
-이번 재검증에서 다음 기존 판정을 뒤집을 신규 근거는 없었다.
+이번 재검증에서 다음 기존 판정을 뒤집는 신규 근거는 없었다.
 
 - canonical registry: RP006=ironrentcar.com, RP012=sokrc.com API, RP023=RebornCar
 - 손오공=`손오공구독`, 오토플러스=`오플구독`, 공급사 고유 기간/요금 축 보존
@@ -1497,7 +1497,7 @@ current main `scripts/check-inventory-source-contract.mts`의 `VALIDATED_ENGINES
 4. current pin 기준 정규 scheduled F01/F86 full-audit 성공 회차를 확인한다.
 5. 픽업구독 색은 `MASTER_CATEGORY_COLORS['분류']` 한 곳에서만 해결하고 정규 publish 뒤 live `effectiveFormat`까지 확인한다.
 
-이번 ChatGPT 감사에서는 애플리케이션 코드나 비즈니스 로직을 수정하지 않았다.
+이번 ChatGPT 감사에서는 application code/business logic을 수정하지 않았다.
 
 ---
 
@@ -2361,7 +2361,7 @@ Claude 구현 Owner: status mapping은 유지하고, RP031을 direct API canonic
 - PR #375가 추가한 전수 진단은 반대로 field coverage, newest/median/oldest, timestamp 없는 row, >3h/>12h/>24h/>72h stale 분포를 따로 센다. PR 기록상 운영 1,615대 중 `_direct_ingest_at` 보유 1,153대, `_var_polled_at` 897대다. newest 한 건이 최신이어도 전체 cohort가 최신이라는 증거가 아니다.
 - 확정 디자인 문서는 이 머리띠를 **“재고가 지금 것인가”**를 말하는 자리로 규정한다. 현재 구현은 partial/manual ingest 한 건만으로도 시각이 앞으로 움직일 수 있으므로, 그 문구대로 **inventory/full-run freshness**로 해석하면 과대표현이다.
 - 2026-09-17 GitHub Actions `event=schedule`은 이번 재조회에서도 0건이다. PR #375 commit 자체도 09-17 10:04 Atom 쓰기는 GitHub Actions 기록이 없는 수동 실행이라고 명시한다. 따라서 audit (31)의 canonical schedule-delivery OPEN은 **전혀 해소되지 않았고**, 새 머리띠 시각을 scheduled source→Atom→snapshot→F01/F86 성공 증거로 사용하면 안 된다.
-- PR #375는 파이프라인 자체를 수정하지 않았다. audit (23) F86 freshness checker, audit (27) deposit recurrence, audit (28) vehicle-price, audit (29) sales-tab migration, audit (33) RP031 feeder/provenance 및 mirror/sales/settlement/RTDB ownership HOLD는 직접 해소 증거가 없어 유지한다.
+- PR #375는 파이프라인 자체를 수정하지 않았다. audit (23) F86 freshness checker, audit (27) deposit recurrence, audit (28) vehicle-price, audit (29) sales-tab migration, audit (33) RP031 feeder/provenance 및 mirror/sales/settlement/RTDB legacy writer ownership HOLD는 직접 해소 증거가 없어 유지한다.
 
 Claude 구현 Owner: ERP5 Atom을 freshness source로 쓰는 방향은 유지하고 ERP4 status timestamp와 다시 섞지 않는다. 다만 현 값의 의미를 `가장 최근 원자 갱신`으로 제한하거나, “재고가 지금 것인가”를 말하려면 coverage/stale distribution 또는 검증된 canonical run/snapshot sentinel과 연결한다. **audit (31)은 실제 `event=schedule` full-run이 생기기 전까지 OPEN 유지한다.**
 
@@ -2428,7 +2428,7 @@ Claude 구현 Owner: ERP5 Atom을 freshness source로 쓰는 방향은 유지하
 - PR #383 merge `a10c440e75fc44b7a2c14907ed6d6f91e550ba21`, run `35285455412` / job `105416656871`: 동일 세션에서 `/api/members`가 현재 계정을 `b2b` role로 확인했고, 브라우저형 헤더를 붙인 `GET /api/rates`도 403 `관리자 권한이 필요합니다`였다. 따라서 audit (36)의 `/api/rates` 403를 단순 cookie/header 누락으로 되돌리면 안 된다. 현재 자격증명에서는 관리자 전용 endpoint다.
 - PR #384 merge `f5e738f5e838fd914e11f6c6731679495f1a259a`, run `35285926665` / job `105418111697`: 인증된 홈 HTML 200 응답을 직접 스캔했지만, 화면에서 확인된 요금 숫자와 `보증금`/`월 대여료`/`일 대여료`/`rate`/`deposit` 계열은 원본 HTML에 없었다. 즉 금융값을 raw initial HTML의 권위 source로 볼 근거도 없다.
 - PR #385 merge `46f2d828fe0f4488e908b90fe7d729a518828666`, run `35286380178` / job `105419530750`: 같은 로그인 세션을 주입한 headless browser에서는 실제 화면에 `월대여`, `보증금`과 원화 금액이 렌더링됐다. 그 회차의 네트워크 캡처에서 API 요청은 `GET /api/inventory` 200 하나였고 `/api/rates` 호출은 없었다.
-- 따라서 현재 검증된 사실은 **금융값이 브라우저 실행 후 UI에는 존재하지만 `/api/rates`, sampled `/api/vehicle-detail`, raw home HTML 중 어느 것도 그 값을 공급하지 않았고, 별도 rate API 호출도 관측되지 않았다**는 것이다. `/api/inventory` 자체가 권위 금융 source인지, 번들/static data 또는 client-side 계산이 개입하는지는 아직 증명되지 않았다. PR #387의 browser-header 설명은 현재 open diagnostic hypothesis이지 확정 사실이 아니다.
+- 따라서 현재 검증된 사실은 **금융값이 브라우저 실행 후 UI에는 존재하지만 `/api/rates`, sampled `/api/vehicle-detail`, raw home HTML 중 어느 것도 그 값을 공급하지 않았고, 별도 rate API 호출도 관측되지 않았다**는 것이다. `/api/inventory` 자체가 권위 금융 source인지, 번들/static data 또는 client-side calculation이 개입하는지는 아직 증명되지 않았다. PR #387의 browser-header 설명은 현재 open diagnostic hypothesis이지 확정 사실이 아니다.
 - current main HEAD는 audit 시점 `1a6fc606cd2acca71e5aa51e0067ad18bb808c44`이며 PR #386은 `/shop` 보증금 규칙 문구 줄바꿈 UI만 바꿨다. SSOT source/writer/projection authority 변화는 아니다. PR #387은 open 상태로 main에 병합되지 않았다.
 - production canonical workflow는 계속 `9bef7bf0ffd21a96e3098a6f31adf1b1a0258c60`을 checkout하고, RP031 canonical registry는 계속 `google_sheet`다. F01/F86는 같은 Atom row 계약을 사용하며 production F86는 RP012→`오공구독`, RP023→`오플구독`, pickup→`픽업구독`, 나머지→`상품리스트`; F86 「종합」은 손오공/오토플러스를 제외하는 기존 규칙 그대로다. 이번 진단으로 audit (35)의 F86 freshness-checker drift나 audit (27)/(28)/(29)/(34), mirror/sales/settlement/RTDB legacy writer HOLD도 해소되지 않았다.
 
@@ -3257,5 +3257,24 @@ No application code or business logic was modified by the auditor.
 **Claude implementation owner:** 18:17 native success만으로 cadence를 닫지 말고 19:17을 이번 감사 시점의 missed/delayed native sample로 유지할 것. fallback/workflow_run coverage와 native-cron proof를 분리하고, 연속 real `event=schedule` 회차가 관측되기 전 native cadence/timeliness HOLD를 유지한다. audit (71)/(76)의 queue/reconciliation 문제도 별도 증거 없이 닫지 않는다.
 
 Detail: `docs/ai-ssot-audit/2026-09-19-chatgpt-audit77-1917-native-erp5-slot-missing.md`
+
+No application code or business logic was modified by the auditor.
+
+---
+
+## 2026-09-19 — ChatGPT audit (78): post-audit native ERP5 schedule arrived 22:55 and completed full green
+
+**판정: PARTIAL RESOLVED / very-late native delivery; cadence·timeliness HOLD 유지.**
+
+- Audit (77)의 runtime snapshot은 stale이다. Fresh `event=schedule` evidence now shows ERP5 run **`35447185563`**, created **2026-09-19 22:55:32 KST**, completed **23:05:39 KST**, conclusion **success**, head `e1f196ff93e4ecc2c570b58fa6296c2346062455`.
+- Current direct cron의 당일 마지막 declared slot은 19:17 KST다. 이번 native event는 그 시각보다 **3시간 38분 32초 뒤** 도착했다. GitHub Actions metadata는 nominal cron slot identity를 노출하지 않으므로 이를 확정적으로 “19:17 run”이라고 부르지 않는다. 다만 Audit (77) 이후 첫 post-audit native direct ERP5 schedule이며 극단적으로 지연된 final-window dispatch와 일치한다.
+- Run `35447185563`의 `refresh` job은 source contract, source recollection, settlement Atom lock, 24-source ingest, policy reconciliation, fixed snapshot, public catalog reconcile, F01 publish, F86 backup/publish, F86 freshness, Atom↔F01↔F86 cross-audit, photo-link audit, snapshot artifact까지 **전부 success**였다.
+- 따라서 Audit (77)의 “18:31 이후 native schedule event가 아직 없다” / “19:17이 계속 unobserved” live wording은 **late native success로 superseded**됐다. 그러나 이 1회만으로 healthy cadence나 punctuality를 증명하지 않는다. Run은 declared window 밖에 도착했고 연속 predictable native series가 없다. **native cadence/timeliness HOLD는 유지**한다.
+- Audit (71)의 pending-replacement/15:05 cancelled-before-job reconciliation, Audit (76)의 successful-native 18:05 settlement false replay, Audit (67)의 standard quote-defaults freshness trigger gap은 그대로 OPEN이다.
+- Audit (77) 이후 application/business logic commit은 없다. Production pin `cf940df642edf315adbc6da2b4134fbad53da160`, 24-source canonical registry, fixed-snapshot F01/F86, F86 `종합`의 손오공·오토플러스 제외 + 각 special tab 유지, Sonogong `오공구독`/`픽업구독`, AutoPlus `오플구독`, retired legacy automatic writers 및 RTDB/mirror non-canonical boundary에는 신규 drift가 없다.
+
+**Claude implementation owner:** 이번 finding은 native delivery resumption으로만 반영하고 cadence recovery로 닫지 않는다. Fallback/`workflow_run` coverage와 direct native `event=schedule` proof를 계속 분리하고 Audit (71)/(76)/(67)은 직접 해소 evidence 없이 닫지 않는다.
+
+Detail: `docs/ai-ssot-audit/2026-09-19-chatgpt-audit78-very-late-native-erp5-success.md`
 
 No application code or business logic was modified by the auditor.
