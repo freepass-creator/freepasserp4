@@ -2,10 +2,10 @@
   "schemaVersion": 1,
   "timezone": "Asia/Seoul",
   "firstScheduledSettlementSuccessNotified": false,
-  "lastMeaningfulEventKey": "recovery-settlement-success:35413059063",
+  "lastMeaningfulEventKey": "recovery-chain-success:35413059063:35413099804",
   "lastKnownSettlementRunId": 35413059063,
   "lastKnownErp5RunId": 35413099804,
-  "lastKnownGoodErp5RunId": 35347508078,
+  "lastKnownGoodErp5RunId": 35413099804,
   "lastHeartbeatSlot": "2026-09-19T10:05:00+09:00",
   "policy": {
     "settlementWorkflow": ".github/workflows/settlement-intake-sync.yml",
@@ -18,6 +18,17 @@
     "failedRunId": 35412968175,
     "recoveredRunId": 35413059063,
     "erp5RunId": 35413099804,
-    "status": "erp5_in_progress"
+    "status": "completed_success",
+    "settlementProductionWrites": {
+      "intakeSheetCreated": true,
+      "ledgerRowsWritten": 0,
+      "reason": "no intake vehicles"
+    },
+    "erp5ProductionWritesCompleted": true,
+    "audits": {
+      "f86Freshness": "pass",
+      "f01F86Parity": "pass",
+      "platePhoto": "pass"
+    }
   }
 }
