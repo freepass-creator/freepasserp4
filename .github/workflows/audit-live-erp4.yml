@@ -1,0 +1,186 @@
+name: Audit Live ERP4 Stability
+
+on:
+  pull_request:
+    paths:
+      - ".github/workflows/audit-live-erp4.yml"
+      - ".github/audit-live-erp4.trigger"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.head_ref || github.ref_name }}
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Audit live desktop mobile detail and login boundary
+        run: |
+          mkdir -p artifacts
+          node <<'NODE'
+          const { chromium } = require('playwright');
+          const fs = require('fs');
+
+          (async () => {
+            const browser = await chromium.launch({ headless: true });
+            const base = 'https://freepasserp.com';
+            const report = {
+              auditedAt: new Date().toISOString(),
+              base,
+              shots: [],
+              loginProbe: null,
+            };
+
+            const shots = [
+              { name: 'desktop', viewport: { width: 1440, height: 1000 }, mobile: false },
+              { name: 'mobile', viewport: { width: 390, height: 844 }, mobile: true },
+            ];
+
+            for (const shot of shots) {
+              const context = await browser.newContext({
+                viewport: shot.viewport,
+                isMobile: shot.mobile,
+                hasTouch: shot.mobile,
+                deviceScaleFactor: 1,
+                locale: 'ko-KR',
+              });
+              const page = await context.newPage();
+              const consoleErrors = [];
+              const pageErrors = [];
+              page.on('console', (msg) => { if (msg.type() === 'error') consoleErrors.push(msg.text()); });
+              page.on('pageerror', (err) => pageErrors.push(String(err?.message || err)));
+
+              const response = await page.goto(base, { waitUntil: 'domcontentloaded', timeout: 60000 });
+              await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+              await page.waitForTimeout(2500);
+
+              const root = {
+                requestedUrl: base,
+                finalUrl: page.url(),
+                status: response?.status() ?? null,
+                title: await page.title(),
+                cardCount: await page.locator('.fp-shop-grid a').count(),
+                visibleImages: await page.locator('.fp-shop-grid img:visible').count(),
+                bodyScrollWidth: await page.evaluate(() => document.documentElement.scrollWidth),
+                viewportWidth: shot.viewport.width,
+                hasHorizontalOverflow: await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 2),
+              };
+              await page.screenshot({ path: `artifacts/erp4-${shot.name}-root.png`, fullPage: false });
+
+              const firstCard = page.locator('.fp-shop-grid a[href*="/q/"]').first();
+              let detail = null;
+              if (await firstCard.count()) {
+                const href = await firstCard.getAttribute('href');
+                await Promise.all([
+                  page.waitForLoadState('domcontentloaded').catch(() => {}),
+                  firstCard.click(),
+                ]);
+                await page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => {});
+                await page.waitForTimeout(1500);
+                detail = {
+                  href,
+                  finalUrl: page.url(),
+                  title: await page.title(),
+                  hasProductDetailTitle: (await page.getByText('상품 상세', { exact: true }).count()) > 0,
+                  imageCount: await page.locator('img:visible').count(),
+                  bodyScrollWidth: await page.evaluate(() => document.documentElement.scrollWidth),
+                  hasHorizontalOverflow: await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth + 2),
+                };
+                await page.screenshot({ path: `artifacts/erp4-${shot.name}-detail.png`, fullPage: false });
+              }
+
+              report.shots.push({
+                name: shot.name,
+                viewport: shot.viewport,
+                root,
+                detail,
+                consoleErrors,
+                pageErrors,
+              });
+              await context.close();
+            }
+
+            {
+              const context = await browser.newContext({ viewport: { width: 390, height: 844 }, locale: 'ko-KR' });
+              const page = await context.newPage();
+              const response = await page.goto(base + '/login', { waitUntil: 'domcontentloaded', timeout: 60000 });
+              report.loginProbe = {
+                requestedUrl: base + '/login',
+                finalUrl: page.url(),
+                status: response?.status() ?? null,
+                body: (await page.locator('body').innerText().catch(() => '')).trim().slice(0, 200),
+              };
+              await context.close();
+            }
+
+            fs.writeFileSync('artifacts/erp4-live-stability-report.json', JSON.stringify(report, null, 2));
+
+            const failures = [];
+            for (const shot of report.shots) {
+              if (shot.root.status !== 200) failures.push(`${shot.name}: root status ${shot.root.status}`);
+              if (shot.root.finalUrl !== base + '/') failures.push(`${shot.name}: root finalUrl ${shot.root.finalUrl}`);
+              if (shot.root.cardCount < 1) failures.push(`${shot.name}: no product cards`);
+              if (shot.root.hasHorizontalOverflow) failures.push(`${shot.name}: root horizontal overflow`);
+              if (!shot.detail) failures.push(`${shot.name}: detail link missing`);
+              else {
+                if (!shot.detail.hasProductDetailTitle) failures.push(`${shot.name}: 상품 상세 title missing`);
+                if (shot.detail.hasHorizontalOverflow) failures.push(`${shot.name}: detail horizontal overflow`);
+              }
+              if (shot.pageErrors.length) failures.push(`${shot.name}: page errors ${shot.pageErrors.join(' | ')}`);
+            }
+            if (report.loginProbe?.status !== 404) failures.push(`login: expected 404, got ${report.loginProbe?.status}`);
+
+            console.log(JSON.stringify(report, null, 2));
+            if (failures.length) {
+              console.error('\nLIVE AUDIT FAIL\n' + failures.map((x) => ' - ' + x).join('\n'));
+              process.exitCode = 1;
+            } else {
+              console.log('\nLIVE AUDIT PASS');
+            }
+            await browser.close();
+          })().catch((err) => {
+            console.error(err);
+            process.exit(1);
+          });
+          NODE
+
+      - name: Commit audit report
+        if: always()
+        run: |
+          mkdir -p audit-snapshots
+          if [ -f artifacts/erp4-live-stability-report.json ]; then
+            cp artifacts/erp4-live-stability-report.json audit-snapshots/erp4-live-stability-report.json
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add audit-snapshots/erp4-live-stability-report.json
+            if ! git diff --cached --quiet; then
+              git commit -m "chore(audit): record live ERP4 stability report"
+              git push origin HEAD:${{ github.head_ref || github.ref_name }}
+            fi
+          fi
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: erp4-live-stability
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 7
