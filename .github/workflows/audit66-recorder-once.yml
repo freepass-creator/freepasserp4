@@ -1,0 +1,59 @@
+name: Audit 66 recorder once
+
+on:
+  push:
+    paths:
+      - '.github/workflows/audit66-recorder-once.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Append audit 66 and remove recorder
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path('docs/AI-SSOT-AUDIT-LOG.md')
+          s = p.read_text(encoding='utf-8')
+          marker = '## 2026-09-19(66) — ChatGPT 독립 감사: 12:05 native schedule 재누락 + recovery-plane 재확인'
+          entry = r'''
+
+---
+
+## 2026-09-19(66) — ChatGPT 독립 감사: 12:05 native schedule 재누락 + recovery-plane 재확인
+
+**판정: MATERIAL / native cron HOLD 강화 + recovery plane 정상 작동.**
+
+- audit (65)는 11:05 KST settlement native slot이 `event=schedule`로 생성되지 않아 heartbeat recovery가 필요했다고 기록했다. 다음 선언 slot인 **12:05 KST도 native scheduled event로 관측되지 않았고**, commit `4b36bfa5b3bc7a0b712f2e21d7c3bc45cfe89b79`(`chore(automation): recover missing settlement slot 2026-09-19 12:05 KST`)이 heartbeat recovery를 다시 실행했다.
+- settlement recovery run **`35418898632`**은 workflow `정산 접수→원장(1시간)`, `event=push`, conclusion **success**였다. 즉 missed native slot을 recovery plane이 silent no-op으로 두지 않고 실제 intake 경로로 복구했다.
+- 이 success 뒤 ERP5 run **`35418926531`**이 `event=workflow_run`으로 12:34:24 KST 생성됐다. 본 감사 스냅샷 시점에는 `in_progress`였다. 이것은 recovery-chain 동작 증거이지 native cron delivery 증거가 아니다.
+- fresh repository-wide `event=schedule` 조회에서 newest native scheduled run은 여전히 **`35347508078`**(2026-09-18 21:58:18 KST, ERP5 canonical, success)이다. 따라서 audit (65)의 native schedule HOLD는 닫히지 않고 **연속 native miss 증거로 더 강해졌다.**
+- audit (65) 이후 core SSOT 계약에는 신규 회귀가 없다. production pin은 `cf940df642edf315adbc6da2b4134fbad53da160`; 24-source registry는 RP006=Iron website, RP012=Sonogong ERP/API, RP023=RebornCar, RP031=current Google Sheet; F01/F86은 동일 fixed snapshot을 소비한다.
+- F86 실제 summary 규칙은 `종합`에서 **손오공·오토플러스**를 제외하고 각자 탭은 유지하는 것이다. audit (65) entry-point의 `RP012/RP003` 표기는 오기였으며 `CLAUDE-AUDIT.md`에서 RP012/RP023 의미로 정정했다.
+- `contract-status.yml`, `sales-erp-hourly.yml`, `mirror-sync.yml`은 repository 수준에서 schedule-free/manual dry-run 상태를 유지하고, settlement scheduled apply는 intake→ledger만 수행하며 legacy `sync-contract-from-ledger.mts`를 재연결하지 않았다. RTDB/mirror legacy paths도 canonical inventory authority로 되돌아간 증거가 없다.
+- audit (63)/(65)의 governance gap은 유지된다. `docs/예약작업-지도.md`와 `scripts/check-schedule-map.mts`는 cron/retired-writer guard는 잘 잡지만 heartbeat `push.paths` + settlement→ERP5 `workflow_run` recovery plane 전체를 trigger topology로 충분히 모델링하지 않는다.
+- audit (65)의 Firestore `new_car_trim` → git snapshot writer는 이번 delta에서도 **derived/public-product projection**이며 canonical inventory authority로 승격되지 않았다.
+
+**Claude 구현 Owner:** native cron GO는 실제 연속 `event=schedule` 회차가 관측될 때까지 닫지 않는다. working recovery plane은 유지하되 non-cron production trigger plane을 예약작업 지도와 CI에 fail-closed로 모델링한다. core source/F01/F86/special-tab/legacy-retirement 계약은 별도 증거 없이 변경하지 않는다.
+
+상세 근거: `docs/ai-ssot-audit/2026-09-19-chatgpt-audit66-1205-native-miss-recovery.md` (detail commit `47519af466260d0eab916b1b659e76e74c189dcc`).
+
+이번 감사에서는 application code/business logic을 수정하지 않았다.
+'''
+          if marker not in s:
+              p.write_text(s.rstrip() + entry + '\n', encoding='utf-8')
+          PY
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add docs/AI-SSOT-AUDIT-LOG.md
+          git rm .github/workflows/audit66-recorder-once.yml
+          git commit -m 'docs(audit): append audit66 to SSOT ledger'
+          git pull --rebase origin main
+          git push origin HEAD:main
