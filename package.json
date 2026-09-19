@@ -159,7 +159,8 @@
     "check:ssot": "tsx scripts/check-settlement-ssot.mts",
     "check:chain": "tsx scripts/check-settlement-chain.mts",
     "check:settlement-workstation": "tsx scripts/check-settlement-workstation.mts",
-    "check:nortdb": "tsx scripts/check-no-rtdb-settlement.mts"
+    "check:nortdb": "tsx scripts/check-no-rtdb-settlement.mts",
+    "check:photo-all": "tsx scripts/check-photo-all-sources.mts"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",
