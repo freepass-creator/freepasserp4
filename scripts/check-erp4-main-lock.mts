@@ -26,6 +26,7 @@ const shopView = read('app/(shop)/shop/ShopView.tsx');
 const shopUi = read('components/shop/shop-ui.tsx');
 const shopCard = read('components/shop/ShopCard.tsx');
 const shopDetail = read('components/shop/ShopDetail.tsx');
+const wlFrame = read('components/WhitelabelFrame.tsx');
 const guestListing = read('lib/server/guest-listing.ts');
 const query = read('lib/shop/query.ts');
 const pkg = read('package.json');
@@ -96,6 +97,9 @@ must(/sp:\s*\{\s*tight:\s*4,\s*snug:\s*8,\s*cozy:\s*12,\s*edge:\s*16,\s*part:\s*
 
 must(/fontSize:\s*SHOP\.top\.title[\s\S]{0,140}?fontWeight:\s*FW\.title[\s\S]{0,160}?letterSpacing:\s*'-0\.02em'[\s\S]{0,80}?lineHeight:\s*1/.test(shopDetail),
   '상세 「상품 상세」 헤더가 목록 상단 타이포 정본과 갈렸다.');
+must(/\{headerLead \? headerLead : \(/.test(wlFrame)
+  && !/mobile && headerLead \? headerLead/.test(wlFrame),
+  '상세 headerLead가 모바일에만 적용됩니다 — 웹·모바일 상세 상단 역할명이 다시 갈렸습니다.');
 must(/aspectRatio:\s*'16 \/ 10'[\s\S]{0,100}?borderRadius:\s*SHOP\.r\.card/.test(shopCard),
   '목록 카드 사진 16:10 / 카드 radius 규격이 바뀌었다.');
 must(/width:\s*260,\s*flexShrink:\s*0/.test(shopView),
