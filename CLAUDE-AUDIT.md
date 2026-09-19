@@ -1,28 +1,53 @@
-# ChatGPT → Claude SSOT 감사 진입점 — audit (62) override
+# ChatGPT → Claude SSOT 감사 진입점 — audit (63) override
 
-> 사용자의 명시적 지시로 ChatGPT가 **운영 workflow/config + CI governance**까지 자동화 정리를 수행했다. application/business logic 구현 Owner는 계속 Claude 단일 SSOT 세션이다.
+> application/business logic 구현 Owner는 계속 Claude 단일 SSOT 세션이다. 이번 ChatGPT 감사는 repository/runtime 증거를 독립 대조하고 감사 문서만 갱신했다.
 
-## 1) 현재 운영 판정 — GO(config/topology) / WATCH(runtime)
+## 1) 현재 운영 판정 — recovery PARTIAL PASS / native schedule WATCH / governance drift
 
-자동 writer 충돌 P0는 repository 수준에서 해소된 상태를 유지한다. audit (61) 이후 application/business logic 회귀는 확인되지 않았다.
+Audit (62) 이후 automation recovery topology가 실제로 확장됐다. 기존 legacy automatic writer retirement는 유지되며 canonical source/F01/F86 business contract 회귀는 확인되지 않았다. 다만 native GitHub `event=schedule` delivery는 아직 복구 증거가 없고, 새 heartbeat/workflow-run trigger topology를 예약지도와 CI guard가 아직 완전히 표현하지 못한다.
 
-### 자동으로 도는 경로
+## 2) 현재 production trigger topology
 
-#### A. 정산 intake
+### A. settlement intake
 - workflow: `.github/workflows/settlement-intake-sync.yml`
-- KST 월~토 09:05~18:05
-- 계약접수 시트 → canonical 정산원장 `접수`
-- ledger 서식/용어 정리
-- inventory / supplier sheet / F01 상태를 직접 쓰지 않음
+- native cron: KST 월~토 09:05~18:05
+- canonical 역할: 계약접수 → 정산원장 `접수` + ledger 서식/용어 정리
+- legacy `sync-contract-from-ledger.mts`는 호출하지 않음
+- 추가 recovery trigger: main의 `.automation/heartbeats/settlement-intake-sync.txt` 전용 `push`
+- 이 heartbeat `push`도 production `--apply` 경로를 탄다.
 
-#### B. canonical ERP5
+첫 recovery run `35412968175`는 `프리패스 당월 계약접수` 시트 부재로 실패했다.
+
+commit `15e56c262ac5c95d8dde4edc6dd3c82c5e8733d7` 이후 missing intake sheet만 1회 canonical 생성 후 retry하도록 auto-heal됐다. retry run **`35413059063`은 push event로 success**했고 canonical intake sheet가 실제 생성됐다. 당시 접수 행은 0대였다.
+
+### B. canonical ERP5
 - workflow: `.github/workflows/erp5-ssot-refresh.yml`
-- KST 월~토 09:17~19:17
+- native cron: KST 월~토 09:17~19:17
 - production pin: `cf940df642edf315adbc6da2b4134fbad53da160`
-- 원장 접수/취소 → ERP5 contract lock
-- 24 source ingest → Atom → fixed snapshot → F01 → F86 → freshness/cross-parity/photo audit
+- settlement success 뒤 `workflow_run` chain 추가
+- ERP5 direct heartbeat fallback: `.automation/heartbeats/erp5-ssot-refresh.txt` 전용 main `push`
+- native schedule / settlement-chain `workflow_run` / heartbeat `push` / approved manual apply가 모두 canonical production path를 탈 수 있음
 
-자동 흐름:
+settlement recovery `35413059063` 뒤 chained ERP5 run **`35413099804`**가 실제 생성됐다. 감사 시점에는 checkout/OIDC/source contract/원천 재수집/contract-lock까지 success, `원천에서 ERP5 현재 원자 계산`이 in progress다. snapshot → F01/F86 → freshness/cross-parity/photo full green 완료는 아직 확정하지 않는다.
+
+current main CI run `35413059072`은 success다.
+
+## 3) native schedule WATCH는 그대로
+
+repository-wide `event=schedule` 최신 run은 여전히:
+
+- `35347508078`
+- ERP5 canonical
+- 2026-09-18 21:58:18 KST
+- success
+
+이다. 2026-09-19 native `schedule` event는 아직 새로 관측되지 않았다.
+
+따라서 heartbeat `push` recovery나 `workflow_run` chain을 **native cron delivery 복구 증거로 바꾸지 않는다.** native schedule 판정은 계속 `delayed-or-missing / WATCH`다.
+
+## 4) 신규 governance drift — 예약지도/check:schedules가 non-cron production trigger를 못 봄
+
+current `docs/예약작업-지도.md`는 자동 흐름을 사실상 cron 중심으로 설명한다.
 
 ```text
 09:05 settlement-intake-sync
@@ -32,105 +57,53 @@
   ledger lock → Atom → snapshot → F01/F86 → audits
 ```
 
-## 2) RESOLVED — legacy automatic writers
+하지만 실제 current topology에는 다음이 추가됐다.
 
-PR #418 merge:
-- `27adad84d0fd1d980e51eb00394de11afa48dbed`
+```text
+external watchdog
+  → heartbeat file push
+  → settlement production apply
+  → workflow_run
+  → ERP5 canonical production
 
-다음은 automatic writer가 아니다.
+ERP5 heartbeat file push
+  → ERP5 canonical production fallback
+```
 
-### contract-status
-- schedule 제거
-- 운영 `--apply` 제거
-- manual dry-run only
-- 따라서 `LEDGER` vs `정산원장` **scheduled dual writer**는 제거됨
+`scripts/check-schedule-map.mts`는 cron map, retired schedule 재생성, legacy settlement writer 재연결은 검사하지만 `push.paths` heartbeat trigger와 `workflow_run` production trigger를 검증하지 않는다. 따라서 CI green만으로 실제 production trigger plane과 운영지도의 정합성을 보장할 수 없다.
 
-### sales-erp-hourly
-- schedule 제거
-- push trigger 제거
-- `cloud-hourly-sync --apply` 제거
-- manual dry-run only
+**Claude가 판단할 것:** 이 recovery plane을 승인된 production architecture로 둘지 결정한다. 승인하면 예약지도와 CI guard가 heartbeat path/workflow_run까지 fail-closed로 검증하게 정합화한다. 승인하지 않으면 native `event=schedule` 연속 green을 먼저 증명한 뒤 fallback을 retire한다. auditor가 application/workflow logic을 대신 수정하지 않는다.
 
-### mirror-sync
-- schedule 제거
-- scheduled `--apply` 제거
-- manual dry-run only
+## 5) RESOLVED 유지 — legacy automatic writers
 
-### CI guard
-`check-schedule-map.mts`가:
-- retired 3개 workflow에 schedule이 다시 생기면 FAIL
-- settlement intake에서 `sync-intake-to-ledger.mts`가 사라지면 FAIL
-- legacy `sync-contract-from-ledger.mts`가 다시 연결되면 FAIL
+PR #418 merge `27adad84d0fd1d980e51eb00394de11afa48dbed` 기준:
 
-PR #418 검증:
-- SSOT adapter contract `35386792417` success
-- CI `35386792385` success
-- workflow parse / schedule map / ERP5 boundary / RTDB / settlement / vehicle-lock / settlement E2E / production build PASS
-- Vercel success
+- `contract-status.yml`: schedule/apply 제거, manual dry-run only
+- `sales-erp-hourly.yml`: schedule/push/apply 제거, manual dry-run only
+- `mirror-sync.yml`: schedule/apply 제거, manual dry-run only
+- legacy settlement writer 자동 연결 제거
 
-## 3) RESOLVED — legacy settlement workflow identity
+PR #419 merge `8583e640a30b058e152443fdf1bfce24f873b0aa` 기준 옛 `settlement-sync.yml`은 삭제되고 새 `settlement-intake-sync.yml` identity가 사용된다.
 
-과거 `settlement-sync.yml`은 `disabled_manually` 상태가 증명됐고 GitHub connector에는 workflow-enable API가 없다.
+이 retirement를 heartbeat recovery topology와 혼동해 되돌리지 않는다.
 
-그래서 PR #419로 safe automation을 **새 workflow identity**로 등록했다.
+## 6) canonical / projection 경계 유지
 
-PR #419 merge:
-- `8583e640a30b058e152443fdf1bfce24f873b0aa`
+이번 automation delta에서 신규 회귀 없음:
 
-변경:
-- 추가 `.github/workflows/settlement-intake-sync.yml`
-- 삭제 `.github/workflows/settlement-sync.yml`
-- 예약지도 및 CI guard도 새 path로 전환
-
-PR #419 검증:
-- CI `35387211356` success
-- production build 포함 전체 green
-- Vercel success
-
-## 4) Runtime WATCH — 첫 safe scheduled slots가 지났지만 event 미관측
-
-새 `settlement-intake-sync.yml`은 2026-09-19 새벽 main에 처음 등록됐다.
-
-audit (61) 작성 당시에는 첫 선언 슬롯(KST 09:05) 전이었지만, **2026-09-19 09:37 KST 기준 09:05 settlement slot과 09:17 canonical ERP5 slot이 모두 지났다.**
-
-그런데 repository-wide `event=schedule` 최신 run은 여전히:
-
-- run `35347508078`
-- workflow `ERP5 SSOT 원천 최신화(매시간)`
-- created 2026-09-18 21:58:18 KST
-- conclusion `success`
-
-이다. 따라서 새 settlement automation의 scheduled success와 오늘 첫 ERP5 scheduled delivery는 아직 미증명이다.
-
-정확한 판정은 **delayed-or-missing / runtime proof pending**이다. 과거 이 repository에서 GitHub scheduled event가 수 시간 늦게 생성된 실측 이력이 있으므로, 현재 증거만으로 workflow broken/disabled라고 단정하지 않는다.
-
-중요:
-- 수동 `apply=true`를 scheduled proof로 대체하지 않는다.
-- 실제 `event=schedule`이 나타나면 settlement-intake와 이어지는 canonical ERP5를 각각 확인한다.
-- code/config/topology GO는 유지하고 runtime만 WATCH한다.
-
-canonical ERP5 자체의 last proven scheduled full-green 증거는 유효하다:
-- run `35347508078`
 - production pin `cf940df642edf315adbc6da2b4134fbad53da160`
-- source 24/24 → Atom → snapshot → F01/F86 → freshness/cross-parity/photo 전부 green
+- 24-source canonical registry
+- RP006 = Iron website
+- RP012 = Sonogong ERP/API
+- RP023 = RebornCar
+- F01/F86 fixed-snapshot projection
+- F86 `종합`은 손오공/오토플러스 제외, 두 공급사는 자기 탭/고유 요금축 유지
+- RTDB/mirror는 canonical inventory source/writer 권한 없음
 
-## 5) GitHub issue 상태
+## 7) 기존 HOLD 유지
 
-- #416 settlement legacy `정산` writer — **CLOSED / completed**
-- #417 legacy scheduled writers retirement — **CLOSED / completed**
-- #415 contract-lock owner/marker code cleanup — **OPEN**
-
-#415 경계:
-- automatic production dual-writer는 #418로 제거됐다.
-- 다만 `scripts/mark-contract-in-listings.mts` 내부 legacy marker `정산원장` 자체는 남아 있다.
-- application/business logic code cleanup은 Claude가 판단해서 처리한다.
-- 현재 자동화 GO를 막는 P0는 아니다.
-
-## 6) 기존 HOLD 유지
-
-이번 automation cutover나 첫 schedule 미관측으로 해결됐다고 확대 해석하지 않는다.
-
-- RP023 canonical RebornCar vs legacy mirror old Sheet **code debt** (자동 writer는 retired)
+- #415 `mark-contract-in-listings.mts` legacy marker `정산원장` code cleanup
+- RP023 canonical RebornCar vs legacy mirror old Sheet code debt
 - RP031 API/DOM feeder provenance/canonical migration
 - main `deposit-policy.ts` vs production special-tab deposit rule single-definition
 - Sonogong/AutoPlus deposit lineage
@@ -139,28 +112,23 @@ canonical ERP5 자체의 last proven scheduled full-green 증거는 유효하다
 - newest-Atom freshness semantics
 - `/inventory` ERP4 read/write boundary
 
-## 7) 다음 Claude 우선순위
+## 8) 다음 Claude 우선순위
 
-자동화 P0를 다시 뜯지 말고 다음 순서:
-
-1. 실제 `event=schedule` delivery가 나타나면 settlement-intake 및 ERP5 scheduled runtime 검증
-2. #415 legacy marker/code cleanup 필요성 판단 및 정리
-3. RP023/RP031 source/provenance debt
-4. deposit-policy single-definition
-5. vehicle-price lineage
-6. sales-tab/newest-Atom freshness
-7. `/inventory` ERP5 authenticated write boundary
-
-단, scheduled runtime evidence에서 실제 failure가 나오면 그것이 최우선 override다.
+1. chained ERP5 run `35413099804` full completion 확인 — snapshot/F01/F86/freshness/cross-parity/photo까지 green인지 확인
+2. heartbeat + `workflow_run` recovery plane의 승인 여부 결정
+3. 승인 시 `docs/예약작업-지도.md` + CI trigger-topology guard 정합화
+4. native `event=schedule`이 실제 연속 green으로 재출현하는지 별도 관측; recovery push로 대체하지 않음
+5. 그 뒤 기존 #415/RP023/RP031/deposit/price/tab/freshness debt 순차 처리
 
 ## 기준
 
-- central audit: `docs/AI-SSOT-AUDIT-LOG.md` → audit (62)
-- 상세: `docs/ai-ssot-audit/2026-09-19-chatgpt-audit62-first-safe-schedule-delivery-gap.md`
-- audit62 evidence commit: `4f6283e6a840eca1c0f2bfea396e742dfe3f11d6`
-- PR #418 merge: `27adad84d0fd1d980e51eb00394de11afa48dbed`
-- PR #419 merge: `8583e640a30b058e152443fdf1bfce24f873b0aa`
+- central audit: `docs/AI-SSOT-AUDIT-LOG.md` → audit (63)
+- 상세: `docs/ai-ssot-audit/2026-09-19-chatgpt-audit63-heartbeat-recovery-topology-drift.md`
+- audit63 detail commit: `eddf29a594040bb926098ce38e57c19c9b5150f0`
+- automation state commit: `dde2268bb651cf6be9fba58e148f89008dc41024`
+- settlement recovered run: `35413059063`
+- chained ERP5 run: `35413099804`
+- last native scheduled green: `35347508078`
 - canonical production pin: `cf940df642edf315adbc6da2b4134fbad53da160`
-- canonical scheduled green: `35347508078`
 
-**현재 상태: 자동화 구성/소유권 정리는 완료. 첫 safe scheduled slots는 지났지만 event가 아직 관측되지 않아 runtime WATCH 유지.**
+**현재 상태: settlement heartbeat recovery/bootstrap은 실제 success. ERP5 chain은 실행 중. native schedule은 WATCH. 새 non-cron production trigger plane을 예약지도/CI가 아직 못 잡는 governance drift가 남아 있다.**
