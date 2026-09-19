@@ -6,17 +6,15 @@ import { WHITELABELS, homeIsShop } from '@/lib/whitelabel';
 
 export const PUBLIC_PATH_PREFIXES = ['/q/', '/sign/'] as const;
 
-/** 로그인 없이 열리는 단일 경로(임베드 견적/구독 앱 등). 접두 프리픽스와 별도.
- *  /terms·/privacy 는 가입 화면에서 동의하기 전에 읽어야 하므로 반드시 비로그인 통과. */
+/** 로그인 없이 열리는 단일 경로. 접두 프리픽스와 별도.
+ *
+ * ERP4 MAIN(2026-09-19)은 상품 조회·검색 공개면만 메인으로 둔다.
+ * 과거 업무 화면인 /finder와 원가설정 /estimate/cost는 공개 목록에 두지 않는다.
+ * /estimate는 독립 견적 화면으로서 정확히 그 경로만 공개하며, 하위 /estimate/cost까지
+ * prefix로 함께 열리지 않게 PUBLIC_EXACT는 반드시 exact match로 판정한다.
+ */
 const PUBLIC_EXACT = [
-  '/welrix', '/sonogong', '/terms', '/privacy',
-  /* ★★2026-09-08 «임시 공개» — 사장님 「일단 **모두 공개**로 해주고 **로그인할지 말지는 나중에**」.
-     견적기(`/estimate`)·원가설정(`/estimate/cost`)·상품찾기(`/finder`) 셋을 로그인 없이 연다.
-     ⚠⚠ **원가·마진·손익이 그대로 보인다.** 주소를 아는 사람은 우리 조달금리·수수료·손바뀜 비용까지
-       다 본다. 「나중에」 정하실 때 **원가설정만이라도 먼저 닫는 것**을 권한다.
-     ⚠ 관리자 동(계약·정산·손님정보)은 여기 **안 넣었다** — 개인정보라 되돌리기 어려운 노출이다.
-     ⇒ 닫을 때는 이 줄 셋만 지우면 된다(문지기 `EstimateGate` 는 그대로 살아 있다). */
-  '/estimate', '/estimate/cost', '/finder',
+  '/welrix', '/sonogong', '/terms', '/privacy', '/estimate',
 ] as const;
 
 /**
@@ -63,7 +61,7 @@ export function isPublicPath(pathname: string | null | undefined): boolean {
    * ⚠ 우리 도메인(freepasserp.com)의 `/` 는 예전 그대로 로그인이다. 채널 호스트일 때만 연다.
    */
   if (pathname === '/' && homeIsShopHere()) return true;
-  if (PUBLIC_EXACT.some((p) => pathname === p || pathname.startsWith(p + '/'))) return true;
+  if (PUBLIC_EXACT.some((p) => pathname === p)) return true;
   return PUBLIC_PATH_PREFIXES.some((p) => pathname === p.slice(0, -1) || pathname.startsWith(p));
 }
 
