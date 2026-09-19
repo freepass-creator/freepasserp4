@@ -1,0 +1,133 @@
+name: ChatGPT Audit 71 Recorder
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/chatgpt-audit71-recorder.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Record audit 71 and self-clean
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cat > docs/ai-ssot-audit/2026-09-19-chatgpt-audit71-fallback-burst-cancels-pending-erp5.md <<'EOF'
+          # ChatGPT Independent SSOT Audit 71 — fallback burst can cancel a pending ERP5 chain
+
+          Verified: 2026-09-19 16:21 KST
+
+          ## Finding
+
+          **MATERIAL / CONFLICT.** Audit 70 correctly kept native cron cadence on HOLD, but the recovery plane has now exposed a separate loss-of-chain condition.
+
+          - Repository-wide newest native `event=schedule` is still ERP5 run `35421826100`, created 2026-09-19 13:38:19 KST and completed `success`. No later native scheduled event was present at this audit snapshot.
+          - Watchdog heartbeat commit `5a5ec065b9dca6f26ac04c9e44951b97f8719b8a` recovered the missing 14:05 settlement slot. Settlement run `35427840415` (`event=push`) completed `success`, then ERP5 run `35427865515` (`event=workflow_run`) started at 15:54:11 KST and completed `success` at 16:07:36 KST.
+          - One minute later heartbeat commit `517e9a9ad7b86c67a29c2a9549e66133527e7129` recovered the 15:05 settlement slot. Settlement run `35427890549` completed `success`, but its downstream ERP5 run `35427915834` was `cancelled` before any job was created.
+          - At 15:57:40 KST, commit `a39ceb9fa5dcdac8a657e9e9f6f390c95f41aaa6` rewound the single heartbeat marker from 15:05 to 09:05 and triggered another production settlement recovery. Settlement run `35428022102` completed `success`; its downstream ERP5 run `35428047106` was created at 15:58:17 KST and later completed `success` with F86 freshness, F01↔F86 parity, and plate-photo audits passing.
+          - The timing is consistent with the declared ERP5 workflow concurrency contract. `erp5-ssot-refresh.yml` uses one `erp5-inventory-publish` concurrency group with `cancel-in-progress: false`; GitHub Actions permits only one pending run in a concurrency group by default, so a newer pending run replaces/cancels an older pending run. The 15:05 ERP5 run was cancelled at 15:58:18 KST, one second after the 09:05-replay ERP5 run was created, while the 14:05 ERP5 run was still running.
+          - Current `.automation/safe-chain-monitor.json` therefore contains a real chain hole: recovered 15:05 settlement production writes are marked complete, but ERP5 production writes are false and `lastChainFailure` preserves the cancelled run. At the same time `lastHeartbeatSlot` and `lastRecovery.expectedSlot` are now 09:05 even though later 14:05/15:05 recovery records already exist. Current heartbeat file also points to 09:05.
+
+          ## Why this matters
+
+          The recovery plane is not merely telemetry. A heartbeat `push` is an apply path in `settlement-intake-sync.yml`: it runs intake→ledger with `--apply` and then applies ledger state/format normalization. Bursting or replaying old slots can therefore trigger live production work repeatedly, and multiple downstream ERP5 workflow runs can compete for the single pending concurrency slot. No duplicate ledger row or data corruption is proven in this audit, but **lossless recovery is not guaranteed under burst/backfill execution**.
+
+          A later green ERP5 replay proves the canonical engine still works; it does **not** retroactively make the cancelled 15:05 chain successful and must not be counted as native cadence proof.
+
+          ## Repository comparison
+
+          - Current main before this audit write: `ce77d8504a66be51802f2f47c13f78e2dcce689a`.
+          - Production ERP5 pin remains `cf940df642edf315adbc6da2b4134fbad53da160`.
+          - Canonical inventory registry remains 24 providers; RP006 website, RP012 Sonogong ERP/API, RP023 AutoPlus/RebornCar, RP031 current Google Sheet source remain unchanged.
+          - F01 and F86 still publish from the same fixed ERP5 snapshot. F86 `종합` still excludes Sonogong and AutoPlus while their dedicated tabs remain available.
+          - `contract-status.yml`, `sales-erp-hourly.yml`, and `mirror-sync.yml` remain RETIRED/manual dry-run only. `MIRROR_SOURCES` still contains the RP023 old-sheet legacy mapping but has no automatic writer authority.
+          - RTDB/mirror paths remain non-canonical. The Vercel daily sheet sync remains separately env-gated by `SHEET_DAILY_SYNC_ENABLED=true`.
+          - Audit 67's standard quote-defaults source-trigger/freshness HOLD remains separate and unresolved.
+
+          ## Claude handoff
+
+          1. Treat the fallback scheduler as **not lossless under burst/backfill** until slot selection and downstream serialization are made explicit.
+          2. Preserve monotonic/current recovery state; do not let an older slot overwrite `lastHeartbeatSlot`/`lastRecovery` after newer recovery slots have already been emitted unless that backfill is explicitly modeled separately.
+          3. Ensure multiple missed slots cannot cause an earlier pending ERP5 chain to be silently replaced. Claude should choose the implementation (serialize one recovery through completion, deduplicate/coalesce, or use an explicit multi-pending queue contract) and keep the existing canonical write gates intact.
+          4. Keep `lastChainFailure` for 15:05 open until that specific chain is reconciled with evidence; a later green replay is evidence of engine health, not evidence that the cancelled chain ran.
+          5. Native cron cadence/timeliness remains HOLD/WATCH independently.
+
+          No application code or business logic was modified by the auditor.
+          EOF
+
+          cat >> docs/AI-SSOT-AUDIT-LOG.md <<'EOF'
+
+          ---
+
+          ## 2026-09-19 — ChatGPT audit (71): fallback burst가 pending ERP5 chain을 취소할 수 있음
+
+          **판정: 충돌 / 보류**
+
+          - audit (70) 이후 native `event=schedule`은 여전히 ERP5 run `35421826100`(13:38:19 KST)이 최신이라 native cadence HOLD는 유지한다.
+          - watchdog이 14:05와 15:05 settlement 누락 슬롯을 heartbeat `push`로 연속 복구했다. 14:05 settlement `35427840415` → ERP5 `35427865515`는 성공했지만, 15:05 settlement `35427890549` 뒤 ERP5 `35427915834`는 **job 생성 전 cancelled** 됐다.
+          - 그 직후 heartbeat commit `a39ceb9fa5dcdac8a657e9e9f6f390c95f41aaa6`가 marker를 15:05에서 **09:05로 되감아** 또 production recovery를 만들었고, downstream ERP5 `35428047106`은 성공했다.
+          - ERP5 workflow는 단일 `erp5-inventory-publish` concurrency group + `cancel-in-progress: false`다. GitHub Actions 기본 concurrency는 running 1개 + pending 1개만 유지하고 더 새 pending이 오면 기존 pending을 취소한다. 실제로 15:05 ERP5는 09:05 replay ERP5 생성 1초 뒤 취소됐고, 당시 14:05 ERP5는 계속 실행 중이었다. **따라서 burst/backfill recovery가 lossless하다는 보장은 깨졌다.**
+          - 현재 `.automation/safe-chain-monitor.json`도 15:05 chain failure를 보존하면서 `lastHeartbeatSlot`/`lastRecovery.expectedSlot`은 더 오래된 09:05로 돌아가 있다. heartbeat `push`는 settlement workflow에서 실제 `--apply` 경로이므로 단순 관제 표기 문제가 아니다.
+          - 실제 중복행/데이터 훼손은 이번 감사에서 확인되지 않았다. 이후 09:05 replay chain의 ERP5 `35428047106`은 성공했고 F86 freshness/F01↔F86 parity/photo audit도 PASS했다. 다만 이 성공은 **15:05 cancelled chain을 소급해 성공으로 만들지 않으며 native cadence 증거도 아니다.**
+          - production pin `cf940df642edf315adbc6da2b4134fbad53da160`, 24-source registry, 동일 fixed snapshot F01/F86, Sonogong/AutoPlus special-tab, RETIRED contract/sales/mirror writer 및 RTDB/mirror non-canonical 경계에는 신규 drift가 없다. audit (67) quote-defaults freshness HOLD도 별개로 유지한다.
+
+          **Claude 인계:** recovery slot 상태를 monotonic/current로 모델링하고, missed-slot burst가 기존 pending ERP5 chain을 대체·취소하지 않도록 직렬화/중복제거/명시적 queue contract 중 하나로 정리할 것. 15:05 `lastChainFailure`는 해당 slot reconciliation 근거가 생길 때까지 닫지 말 것.
+
+          상세: `docs/ai-ssot-audit/2026-09-19-chatgpt-audit71-fallback-burst-cancels-pending-erp5.md`
+
+          No application code or business logic was modified by the auditor.
+          EOF
+
+          python - <<'PY'
+          from pathlib import Path
+          p = Path('CLAUDE-AUDIT.md')
+          old = p.read_text(encoding='utf-8')
+          block = '''# CLAUDE-AUDIT — latest SSOT audit entry point
+
+          ## Audit (71) override — 2026-09-19 KST
+
+          Claude is the sole implementation owner. ChatGPT is an independent auditor only.
+
+          ### New material delta
+
+          - **CONFLICT:** recovery is not lossless under burst/backfill. The 14:05 fallback settlement→ERP5 chain succeeded, but the immediately following 15:05 settlement succeeded while its ERP5 `workflow_run` `35427915834` was cancelled before any job was created.
+          - A later watchdog commit rewound the heartbeat marker from 15:05 to 09:05 and created another production recovery. Its ERP5 `35428047106` succeeded, but that later green replay does not make the cancelled 15:05 chain successful.
+          - The cancellation matches the current `erp5-inventory-publish` concurrency contract: `cancel-in-progress: false` protects the running job, but GitHub's default concurrency keeps only one pending run; a newer pending run replaces the older pending one. At cancellation time the 14:05 ERP5 run was still running and the 09:05-replay ERP5 run had just been created.
+          - Current recovery state is also non-monotonic: `.automation/safe-chain-monitor.json` keeps a 15:05 chain failure but `lastHeartbeatSlot` and `lastRecovery.expectedSlot` have moved backward to 09:05. The heartbeat `push` path performs real settlement `--apply` work.
+          - Native cadence remains HOLD: newest native `event=schedule` is still ERP5 `35421826100` from 13:38:19 KST.
+          - Canonical registry/pin, fixed-snapshot F01/F86 projection, Sonogong/AutoPlus special-tab rules, RETIRED legacy automatic writers, and RTDB/mirror boundary show no new drift. Audit (67)'s quote-defaults freshness HOLD remains separate.
+
+          ### Claude handoff
+
+          1. Make fallback slot state monotonic/current or model historical backfill separately; an older recovery must not overwrite the current-slot cursor.
+          2. Prevent missed-slot bursts from replacing/cancelling an already pending ERP5 chain. Choose the implementation in Claude's SSOT session (serialize through completion, coalesce/dedupe, or an explicit queue contract) without weakening the canonical write gates.
+          3. Keep the 15:05 `lastChainFailure` open until that specific slot is reconciled with evidence. Do not treat a later green replay as proof that the cancelled chain executed.
+          4. Keep native cadence/timeliness on WATCH/HOLD independently.
+
+          Detail: `docs/ai-ssot-audit/2026-09-19-chatgpt-audit71-fallback-burst-cancels-pending-erp5.md`
+
+          No application code or business logic was modified by the auditor.
+
+          ---
+
+          '''
+          p.write_text(block + old, encoding='utf-8')
+          PY
+
+          rm -f .github/workflows/chatgpt-audit71-recorder.yml
+
+          git config user.name 'chatgpt-auditor'
+          git config user.email 'actions@users.noreply.github.com'
+          git add docs/AI-SSOT-AUDIT-LOG.md docs/ai-ssot-audit/2026-09-19-chatgpt-audit71-fallback-burst-cancels-pending-erp5.md CLAUDE-AUDIT.md .github/workflows/chatgpt-audit71-recorder.yml
+          git commit -m 'docs(audit): record fallback concurrency chain loss'
+          git push origin HEAD:main
