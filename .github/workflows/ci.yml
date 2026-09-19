@@ -64,6 +64,9 @@ jobs:
       - name: UI 계약 — 원자·radius 정합
         run: npm run check:ui
 
+      - name: AI Core UI/UX consumer mapping
+        run: npm run uiux:map
+
       # ★★2026-09-10 — 사장님 「**버벅이거나 뭐가 안 되거나 막 찜빠 나는 거 같거나 그러면
       #   안 된다고. 착착착착 대야지**」. 같은 날 조건칸 셈이 **292ms** 였는데 게이트·빌드·
       #   타입검사가 전부 초록이었다. 굼뜬 것은 **사장님이 먼저 알아채셨다** — 그러면 늦다.
