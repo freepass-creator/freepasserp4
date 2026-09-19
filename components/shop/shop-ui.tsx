@@ -32,8 +32,8 @@ import { haptic } from '@/lib/haptics';
 
 /** 가게 치수 — 손님 화면의 규격. 업무동 `CTRL` 과 «일부러» 다르다. */
 export const SHOP = {
-  /** 컨트롤 높이 — 웹 44 / 모바일 48(엄지). 업무동 md(32/40)보다 한 단 크다. */
-  h: { web: 44, mobile: 48 },
+  /** 컨트롤 높이 — 웹 44 / 모바일 44. 보이는 면은 조밀하게, 터치영역은 최소 44를 지킨다. */
+  h: { web: 44, mobile: 44 },
   /**
    * **누르는 «영역»의 최소 크기** — 웹 36 / 모바일 44. ★**보이는 크기가 아니다.**
    *
@@ -106,12 +106,12 @@ export const SHOP = {
     h1: 'var(--shop-fs-h1)',       // 30 / 22  화면 제목
     num: 'var(--shop-fs-num)',     // 26 / 16  건수 숫자
     sec: 'var(--shop-fs-sec)',     // 20 / 20  구역 제목
-    price: 'var(--shop-fs-price)', // 20 / 21  목록 대여료(폰이 더 크다)
+    price: 'var(--shop-fs-price)', // 웹 19 / 폰 18  목록 대여료
     lead: 'var(--shop-fs-lead)',   // 18 / 17  앞세우는 값
     h2: 'var(--shop-fs-h2)',       // 16 / 16  카드 차명 · 시트 제목
     body: 'var(--shop-fs-body)',   // 14.5 / 15
-    sub: 'var(--shop-fs-sub)',     // 13 / 13.5
-    cap: 'var(--shop-fs-cap)',     // 12 / 12.5
+    sub: 'var(--shop-fs-sub)',     // 웹 13 / 폰 13
+    cap: 'var(--shop-fs-cap)',     // 웹 12 / 폰 12
     tag: 'var(--shop-fs-tag)',     // 10.5 / 10
   },
   /**

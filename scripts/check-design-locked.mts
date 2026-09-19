@@ -659,20 +659,22 @@ must(/tight=\{columns > 1\}/.test(read('components/shop/ShopFilters.tsx'))
 /*
  * **카드는 디자인을 유지하고, 넓은 웹에서만 밀도를 한 단계 올린다.**
  *
- * 카드 내부 넉 줄은 8 균등을 유지한다. 모바일은 1열/32px 세로 간격 그대로.
+ * 카드 내부 넉 줄은 8 균등을 유지한다. 모바일은 1열/24px 세로 간격으로 한 단계 조밀화한다.
+ * 모바일 카드 타이포는 차명 15 · 대여료 18 · 보조정보 13 · 캡션 12, 컨트롤은 44다.
  * 웹은 기본 3열, 1280px 이상 4열이며 카드끼리 가로 16·세로 24를 쓴다.
- * 4열에서만 카드 타이포를 차명 14 · 대여료 18 · 보조정보 12.5 · 캡션 11.5로 한 단계 낮춘다.
- * 상세·필터·모바일은 이 조밀화의 영향을 받지 않는다.
+ * 넓은 웹 카드 타이포는 차명 14 · 대여료 18 · 보조정보 12.5 · 캡션 11.5다.
  */
 must(/fontSize: SHOP\.fs\.price, fontWeight: FW\.head/.test(shopCard)
   && /className="fp-shop-grid"/.test(shopView)
   && /\.fp-shop-grid\s*\{[\s\S]*?grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\)[\s\S]*?row-gap:\s*24px[\s\S]*?column-gap:\s*16px/.test(css)
   && /@media \(min-width: 1280px\)[\s\S]*?\.fp-shop-grid\s*\{[\s\S]*?grid-template-columns:\s*repeat\(4, minmax\(0, 1fr\)\)[\s\S]*?--shop-fs-price:\s*18px[\s\S]*?--shop-fs-h2:\s*14px[\s\S]*?--shop-fs-sub:\s*12\.5px[\s\S]*?--shop-fs-cap:\s*11\.5px/.test(css)
-  && /@media \(max-width: 759px\)[\s\S]*?\.fp-shop-grid\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\)[\s\S]*?row-gap:\s*32px[\s\S]*?column-gap:\s*12px/.test(css)
+  && /@media \(max-width: 759px\)[\s\S]*?\.fp-shop-grid\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\)[\s\S]*?row-gap:\s*24px[\s\S]*?column-gap:\s*12px/.test(css)
+  && /h: \{ web: 44, mobile: 44 \}/.test(shopUi)
+  && /@media \(max-width: 760px\)[\s\S]*?--shop-fs-price:\s*18px[\s\S]*?--shop-fs-h2:\s*15px[\s\S]*?--shop-fs-body:\s*15px[\s\S]*?--shop-fs-sub:\s*13px[\s\S]*?--shop-fs-cap:\s*12px/.test(css)
   /* 넉 줄은 8 균등 — 위계는 글자 크기가 낸다. */
   && /gap: SHOP\.sp\.snug, minWidth: 0, flex: 1/.test(shopCard)
   && !/marginTop: 'auto', paddingTop/.test(shopCard),
-  'ERP4 MAIN 카드 밀도 규격이 어긋났습니다 — 모바일 1열 유지 · 웹 3→4열 · 넓은 웹 14/18/12.5/11.5 타이포입니다.',
+  'ERP4 MAIN 카드 밀도 규격이 어긋났습니다 — 모바일 1열·24 gap·15/18/13/12·44 control, 웹 3→4열입니다.',
   'docs/ERP4-MAIN-UI-STANDARD.md §4');
 
 /*
