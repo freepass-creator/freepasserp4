@@ -100,3 +100,16 @@ freepass-admin의 최신 Product Experience Principles와 같은 철학을 쓰�
 ## 한 문장
 
 > **ERP4는 freepasserp.com에서 바로 상품을 찾고 보는 공개 Product Browse이며, 로그인·회원·세션은 ERP4 MAIN과 분리된 별도 업무 인증 기능이다.**
+
+
+## AI Core B-session consumer binding — 2026-09-19
+
+ERP4 MAIN의 Product Browse 정의·SHOP 토큰·브랜드·상품 밀도는 이 문서와 Stability Lock이 계속 소유한다. AI Core B는 공통 Feature ID와 상호작용 의미의 상위 정본으로 참조한다.
+
+- consumer manifest: `.ai-core/ui-ux.consumer.json`
+- local gate: `npm run uiux:map`
+- 현재 adoption: `MAPPED`
+- AI Core pin: PR #95 validated head `f5f1fa9af4231cec4a7c32b31beab6213513f362`, Feature Registry v1.3.0
+- ERP4의 1280/1120 폭, 3→4열 카드, SHOP radius 등 제품값을 AI Core 공통 px로 덮어쓰지 않는다.
+- 공통 검색/필터/정렬 snapshot, responsive, focus, safe-area, bottom action 의미만 canonical Feature에 연결한다.
+- `CONFORMANT` 승격은 AI Core main canonical + 공통 locale/IME/browser receipt를 revision-bound로 확보한 뒤에만 허용한다.
