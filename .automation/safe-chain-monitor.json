@@ -1,0 +1,16 @@
+{
+  "schemaVersion": 1,
+  "timezone": "Asia/Seoul",
+  "firstScheduledSettlementSuccessNotified": false,
+  "lastMeaningfulEventKey": "missing-schedule:2026-09-19T10:05:00+09:00",
+  "lastKnownSettlementRunId": null,
+  "lastKnownErp5RunId": 35347508078,
+  "lastKnownGoodErp5RunId": 35347508078,
+  "lastHeartbeatSlot": null,
+  "policy": {
+    "settlementWorkflow": ".github/workflows/settlement-intake-sync.yml",
+    "erp5Workflow": ".github/workflows/erp5-ssot-refresh.yml",
+    "settlementExpectedKst": "09:05-18:05 Mon-Sat hourly",
+    "missingScheduleGraceMinutes": 20
+  }
+}
