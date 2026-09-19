@@ -3147,3 +3147,21 @@ Detail: `docs/ai-ssot-audit/2026-09-19-chatgpt-audit70-next-native-slots-gap-rec
 상세: `docs/ai-ssot-audit/2026-09-19-chatgpt-audit71-fallback-burst-cancels-pending-erp5.md`
 
 No application code or business logic was modified by the auditor.
+
+---
+
+## 2026-09-19 — ChatGPT audit (72): recovery cursor 정상화, burst cancellation hazard는 미해소
+
+**판정: PARTIAL RESOLVED / OPEN.** audit (71)의 현재상태 요약 중 `lastHeartbeatSlot`/`lastRecovery`가 09:05로 되감겨 있다는 부분은 더 이상 최신이 아니다. 그러나 15:05 chain loss 원인 자체는 고쳐지지 않았다.
+
+- audit (71) 이후 fallback recovery가 다음 슬롯으로 다시 전진했다. 16:05 settlement recovery run **`35431507412`**은 `event=push`, conclusion `success`; downstream ERP5 **`35431532209`**은 `event=workflow_run`, conclusion `success`였고 source/ingest/snapshot/F01/F86/freshness/cross-parity/photo audit이 모두 PASS했다.
+- 17:05 settlement recovery 뒤 ERP5 **`35431989989`**도 `event=workflow_run`, conclusion `success`로 끝났고 동일 production audit chain이 PASS했다. current `.automation/safe-chain-monitor.json`은 `lastHeartbeatSlot=2026-09-19T17:05:00+09:00`, `lastRecovery.expectedSlot=17:05`, `lastKnownGoodErp5RunId=35431989989`로 전진해 있다.
+- 따라서 audit (71)의 **non-monotonic cursor가 현재 09:05에 머문다는 증상은 운영 상태 기준 해소됨**으로 갱신한다.
+- 하지만 이것은 queue/concurrency safety가 구현됐다는 뜻이 아니다. audit (71) 이후 main delta는 heartbeat/state 기록뿐이고 ERP5는 계속 `concurrency.group=erp5-inventory-publish`, `cancel-in-progress:false`다. current monitor도 `lastChainFailure`를 **15:05 / ERP5 `35427915834` / cancelled-before-job / automatic retry 없음**으로 그대로 보존한다. 즉 순차적인 16:05·17:05 성공은 burst 상황의 기존 pending ERP5가 더 새로운 pending에 의해 대체될 수 있는 구조적 hazard를 해소하지 않으며, 15:05 slot reconciliation도 아니다.
+- native cadence는 별도 HOLD다. fresh `event=schedule` 조회의 newest native run은 여전히 ERP5 **`35421826100`**(13:38:19 KST, success)이다. 이번 16:05/17:05 성공은 heartbeat `push`/`workflow_run` recovery plane 증거이지 native cron 회복 증거가 아니다.
+- current main `b45a467d02fd6727f769d4bf35490c138a8143b9`의 push CI run **`35434421486`**은 success였다. production pin `cf940df642edf315adbc6da2b4134fbad53da160`, 24-source canonical registry, 동일 fixed-snapshot F01/F86, Sonogong/AutoPlus special-tab 규칙, RETIRED contract/sales/mirror automatic writers, RTDB/mirror non-canonical boundary에는 신규 drift가 없다. audit (67)의 standard quote-defaults freshness trigger HOLD도 그대로다.
+
+**Claude 인계:** cursor가 17:05로 정상화된 사실만으로 audit (71)을 닫지 말 것. 15:05 `lastChainFailure`는 해당 slot reconciliation 증거가 생길 때까지 OPEN으로 유지하고, burst/backfill이 pending ERP5 chain을 대체하지 않도록 serial queue/coalescing/dedupe 중 하나의 명시적 contract를 구현할 것. native cadence는 recovery plane과 계속 분리해서 판정한다.
+
+No application code or business logic was modified by the auditor.
+

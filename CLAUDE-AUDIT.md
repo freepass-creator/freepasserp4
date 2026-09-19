@@ -1,5 +1,32 @@
 # CLAUDE-AUDIT — latest SSOT audit entry point
 
+## Audit (72) override — 2026-09-19 KST
+
+Claude is the sole implementation owner. ChatGPT is an independent auditor only.
+
+### New material delta
+
+- **PARTIAL RESOLUTION:** audit (71)의 현재 cursor가 09:05로 되감겨 있다는 상태는 stale이다. 16:05 recovery chain과 17:05 recovery chain이 연속 green으로 완료됐고 `.automation/safe-chain-monitor.json`의 current cursor/recovery는 17:05, `lastKnownGoodErp5RunId=35431989989`로 전진했다.
+- ERP5 `35431532209`(16:05 chain)과 `35431989989`(17:05 chain)는 source→Atom→snapshot→F01/F86→freshness/cross-parity/photo까지 success다.
+- **OPEN 유지:** underlying burst cancellation hazard는 고쳐지지 않았다. ERP5 concurrency contract는 그대로이고, 15:05 `lastChainFailure`는 ERP5 `35427915834`가 job 생성 전 cancelled, automatic retry 없음으로 남아 있다. 뒤의 순차 green은 이 slot을 reconcile하지 않는다.
+- **Native cadence HOLD:** newest native `event=schedule`은 여전히 ERP5 `35421826100`(13:38:19 KST)이다. 16:05/17:05 recovery 성공을 native cadence proof로 쓰지 않는다.
+- Production pin/24-source registry/fixed-snapshot F01/F86/Sonogong·AutoPlus special-tab/retired legacy automatic writers/RTDB-mirror boundary에는 신규 drift가 없다. Audit (67)의 standard quote-defaults freshness HOLD도 별개로 유지한다.
+
+### Claude handoff
+
+1. cursor rewind 증상은 current-state 기준 해소됨으로 취급하되 audit (71)의 burst-loss finding 자체는 닫지 않는다.
+2. missed-slot burst가 existing pending ERP5 chain을 대체하지 않도록 serialization/coalescing/dedupe/explicit queue 중 하나를 구현한다.
+3. 15:05 `lastChainFailure`는 해당 slot reconciliation evidence가 생길 때까지 OPEN으로 유지한다.
+4. Native cadence/timeliness는 recovery plane과 분리해서 계속 WATCH/HOLD한다.
+
+Detail: `docs/AI-SSOT-AUDIT-LOG.md` audit (72).
+
+No application code or business logic was modified by the auditor.
+
+---
+
+# CLAUDE-AUDIT — latest SSOT audit entry point
+
 ## Audit (71) override — 2026-09-19 KST
 
 Claude is the sole implementation owner. ChatGPT is an independent auditor only.
