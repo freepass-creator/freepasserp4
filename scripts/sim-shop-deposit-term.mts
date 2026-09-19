@@ -1,6 +1,6 @@
 /** 화이트라벨 기간·대여료·보증금은 같은 price[term] 행에서 판정해야 한다. 외부 I/O 없음. */
 import assert from 'node:assert/strict';
-import { emptyQuery, runShopQuery } from '../lib/shop/query';
+import { emptyQuery, priceForShopSelection, runShopQuery } from '../lib/shop/query';
 import type { EntityRecord } from '../lib/intake/entities';
 
 const product: EntityRecord = {
@@ -25,15 +25,21 @@ const query = (term: string, dep: string) => {
   return q;
 };
 
-const shortFree = runShopQuery([product], query('12개월', 'd0'));
+const shortQuery = query('12개월', 'd0');
+const shortFree = runShopQuery([product], shortQuery);
 assert.equal(shortFree.list.length, 1, '12개월 무보증은 12개월 가격행으로 통과해야 한다');
+assert.deepEqual(priceForShopSelection(product, shortQuery.sel), { m: 12, rent: 500_000, deposit: 0 },
+  '카드 대표가격도 12개월 가격행의 월대여료·보증금을 써야 한다');
 
 const shortWrongLongDeposit = runShopQuery([product], query('12개월', 'd2'));
 assert.equal(shortWrongLongDeposit.list.length, 0,
   '12개월 필터가 36개월 장기보증 200만원을 끌어와 통과시키면 안 된다');
 
-const longDeposit = runShopQuery([product], query('36개월', 'd2'));
+const longQuery = query('36개월', 'd2');
+const longDeposit = runShopQuery([product], longQuery);
 assert.equal(longDeposit.list.length, 1, '36개월 보증금 200만원은 같은 36개월 가격행으로 통과해야 한다');
+assert.deepEqual(priceForShopSelection(product, longQuery.sel), { m: 36, rent: 400_000, deposit: 2_000_000 },
+  '카드 대표가격도 36개월 가격행의 월대여료·보증금을 써야 한다');
 
 const depFacetOn12 = shortFree.facets.dep;
 assert.equal(depFacetOn12.find((x) => x.key === 'd0')?.count, 1,
