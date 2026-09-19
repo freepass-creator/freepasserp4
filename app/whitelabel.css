@@ -112,6 +112,39 @@
   .fp-shop-rail { margin-inline: -16px; padding-inline: 16px; }
 }
 
+/*
+ * ERP4 MAIN 상품 목록 밀도 — 디자인은 유지하고 웹에서만 한 단계 조밀하게.
+ *
+ * 모바일은 기존 1열/폰트 그대로. 웹은 3열을 기본으로 두되 1280px 이상에서 4열로 전환한다.
+ * 1280 컨테이너 안에서 좌측 조건 260 + 간격 32를 빼면 카드가 약 220px대라,
+ * 기존 3열의 약 300px 카드보다 한 화면 비교량이 늘면서도 차명·요금이 읽히는 폭은 남는다.
+ *
+ * 카드 안 글자는 웹에서만 0.5~1px 정도 낮춘다. 상세·필터의 정보 위계는 건드리지 않는다.
+ * 즉 "작은 웹사이트"로 축소하는 게 아니라 **목록 카드의 밀도만** 올린다.
+ */
+.fp-shop-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  row-gap: 24px;
+  column-gap: 16px;
+}
+@media (min-width: 1280px) {
+  .fp-shop-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    --shop-fs-price: 18px;
+    --shop-fs-h2: 14px;
+    --shop-fs-sub: 12.5px;
+    --shop-fs-cap: 11.5px;
+  }
+}
+@media (max-width: 759px) {
+  .fp-shop-grid {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 32px;
+    column-gap: 12px;
+  }
+}
+
 /* ────────────────────────────────────────────────────────────────────────
  * 가게 마감 — «요즘 쓰는 것»만 얹는다(사장님 2026-09-04 「최신 트렌드만 반영해서 네가 꾸미고
  * 싶은 대로 꾸며. 제일 무난하고 평범하고 트렌드 따라가는 걸로」).
