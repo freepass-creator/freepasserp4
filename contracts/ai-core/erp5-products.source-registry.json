@@ -1,0 +1,33 @@
+{
+  "schema_version": "core-source-registry/v1",
+  "subject_type": "freepass.product",
+  "canonical_owner": "freepasserp5",
+  "canonical_writer": ".github/workflows/erp5-ssot-refresh.yml",
+  "authority_scope": [
+    {
+      "dimension": "consumer_project",
+      "value": "freepasserp4"
+    },
+    {
+      "dimension": "environment",
+      "value": "production"
+    }
+  ],
+  "sources": [
+    {
+      "source_id": "freepasserp5.firestore.products",
+      "role": "CANONICAL",
+      "priority": 1,
+      "authoritative": true,
+      "freshness": {
+        "max_age_seconds": null,
+        "on_stale": "HOLD"
+      }
+    }
+  ],
+  "fallback_policy": {
+    "mode": "NONE",
+    "requires_explicit_activation": true,
+    "evidence_required": true
+  }
+}
