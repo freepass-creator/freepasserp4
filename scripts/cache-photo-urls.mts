@@ -109,8 +109,8 @@ async function main() {
         if (!urls.length) { empty += 1; failures.push(`빈 결과 ${job.plate}  ${job.src}`); continue; }
         ok += 1;
         photos += urls.length;
-        // 열두 장이면 충분하다 — 상세 갤러리가 그 이상은 안 쓰고, 레코드만 무거워진다.
-        writes[job.key] = { urls: urls.slice(0, 12), at: new Date().toISOString(), src: job.src };
+        // 원천이 가진 사진은 전부 보존한다. 목록 카드는 첫 장만 쓰더라도 상세 갤러리는 전체를 쓴다.
+        writes[job.key] = { urls, at: new Date().toISOString(), src: job.src };
       } catch (e) {
         fail += 1;
         failures.push(`오류    ${job.plate}  ${String(e).slice(0, 60)}`);
