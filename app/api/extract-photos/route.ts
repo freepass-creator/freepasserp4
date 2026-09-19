@@ -62,21 +62,32 @@ async function driveAccessToken(): Promise<string> {
 async function driveServiceAccount(folderId: string, size: string): Promise<string[]> {
   const token = await driveAccessToken();
   if (!token) return [];
-  const params = new URLSearchParams({
-    q: `'${folderId}' in parents and mimeType contains 'image/' and trashed = false`,
-    fields: 'files(id)', pageSize: '1000', orderBy: 'name',
-    supportsAllDrives: 'true', includeItemsFromAllDrives: 'true',
-  });
-  const response = await fetch(`https://www.googleapis.com/drive/v3/files?${params}`, {
-    headers: { authorization: `Bearer ${token}` },
-    cache: 'no-store',
-    signal: AbortSignal.timeout(12_000),
-  });
-  if (!response.ok) return [];
-  const body = await response.json().catch(() => ({})) as { files?: { id?: string }[] };
-  return (body.files || []).flatMap((file) => file.id
-    ? [`https://drive.google.com/thumbnail?id=${file.id}&sz=w${size}`]
-    : []);
+  const urls: string[] = [];
+  let pageToken = '';
+  const seenTokens = new Set<string>();
+  do {
+    const params = new URLSearchParams({
+      q: `'${folderId}' in parents and mimeType contains 'image/' and trashed = false`,
+      fields: 'nextPageToken,files(id)', pageSize: '1000', orderBy: 'name',
+      supportsAllDrives: 'true', includeItemsFromAllDrives: 'true',
+    });
+    if (pageToken) params.set('pageToken', pageToken);
+    const response = await fetch(`https://www.googleapis.com/drive/v3/files?${params}`, {
+      headers: { authorization: `Bearer ${token}` },
+      cache: 'no-store',
+      signal: AbortSignal.timeout(12_000),
+    });
+    if (!response.ok) return [];
+    const body = await response.json().catch(() => ({})) as { files?: { id?: string }[]; nextPageToken?: string };
+    for (const file of body.files || []) if (file.id) {
+      urls.push(`https://drive.google.com/thumbnail?id=${file.id}&sz=w${size}`);
+    }
+    const next = String(body.nextPageToken || '').trim();
+    if (!next || seenTokens.has(next)) break;
+    seenTokens.add(next);
+    pageToken = next;
+  } while (pageToken);
+  return urls;
 }
 const DRIVE_KEY = process.env.DRIVE_API_KEY || ''; // 없으면 공개폴더 HTML 스크래핑만(키 불필요)
 
@@ -118,11 +129,30 @@ async function expandSupportedShortUrl(src: string): Promise<string> {
 
 async function driveApi(folderId: string, size: string): Promise<string[]> {
   const q = `'${folderId}' in parents and mimeType contains 'image/' and trashed = false`;
-  const api = `https://www.googleapis.com/drive/v3/files?q=${encodeURIComponent(q)}&key=${DRIVE_KEY}&fields=files(id)&pageSize=200&orderBy=name`;
-  const r = await fetch(api, { signal: AbortSignal.timeout(8000) });
-  if (!r.ok) throw new Error(`Drive API ${r.status}`);
-  const d = await r.json();
-  return (Array.isArray(d.files) ? d.files : []).filter((f: { id?: string }) => f?.id).map((f: { id: string }) => `https://drive.google.com/thumbnail?id=${f.id}&sz=w${size}`);
+  const urls: string[] = [];
+  let pageToken = '';
+  const seenTokens = new Set<string>();
+  do {
+    const params = new URLSearchParams({
+      q,
+      key: DRIVE_KEY,
+      fields: 'nextPageToken,files(id)',
+      pageSize: '1000',
+      orderBy: 'name',
+    });
+    if (pageToken) params.set('pageToken', pageToken);
+    const r = await fetch(`https://www.googleapis.com/drive/v3/files?${params}`, { signal: AbortSignal.timeout(8000) });
+    if (!r.ok) throw new Error(`Drive API ${r.status}`);
+    const d = await r.json() as { files?: { id?: string }[]; nextPageToken?: string };
+    for (const file of Array.isArray(d.files) ? d.files : []) if (file.id) {
+      urls.push(`https://drive.google.com/thumbnail?id=${file.id}&sz=w${size}`);
+    }
+    const next = String(d.nextPageToken || '').trim();
+    if (!next || seenTokens.has(next)) break;
+    seenTokens.add(next);
+    pageToken = next;
+  } while (pageToken);
+  return urls;
 }
 
 // 공개 폴더 HTML 스크래핑 — 키·활성화 불필요("링크 있는 모든 사용자" 공개 시 동작).
