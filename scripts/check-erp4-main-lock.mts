@@ -28,6 +28,7 @@ const shopCard = read('components/shop/ShopCard.tsx');
 const shopDetail = read('components/shop/ShopDetail.tsx');
 const guestListing = read('lib/server/guest-listing.ts');
 const query = read('lib/shop/query.ts');
+const pkg = read('package.json');
 const standard = read('docs/ERP4-MAIN-UI-STANDARD.md');
 const lockDoc = read('docs/ERP4-MAIN-STABILITY-LOCK.md');
 
@@ -107,6 +108,21 @@ must(/export function readQuery/.test(query) && /export function writeQuery/.tes
   '검색/필터 URL read/write 계약이 사라졌다.');
 must(/if \(query\.sort !== SHOP_DEFAULT_SORT\) out\.set\('sort', query\.sort\)/.test(query),
   '기본 정렬을 URL에 불필요하게 싣거나 URL 정렬 계약이 바뀌었다.');
+
+/* 가격 3축은 한 차량 안의 서로 다른 기간 행을 섞지 않는다. */
+must(/const PRICE_AXES = \['term', 'rent', 'dep'\] as const/.test(query)
+  && /const priceSelectionsMatch/.test(query)
+  && /const priceFacetMatch/.test(query),
+  '기간·월대여료·보증금의 동일 가격행 엔진이 사라졌다.');
+must(/export function priceForShopSelection/.test(query),
+  '카드 대표가격을 현재 가격행 조건에서 고르는 함수가 사라졌다.');
+must(/displayPrice=\{priceForShopSelection\(p, liveQuery\.sel\)\}/.test(shopView),
+  '목록과 카드 가격이 같은 liveQuery 가격조건을 쓰지 않는다.');
+must(/displayPrice === undefined \? cheapest\(p\) : displayPrice/.test(shopCard),
+  'ShopCard가 선택 가격행을 무시하고 전체 최저가를 다시 계산한다.');
+must(/sim-deposit-rule\.mts && tsx scripts\/sim-shop-deposit-term\.mts/.test(pkg),
+  'check:deposit에 동일 가격행 회귀 테스트가 연결되어 있지 않다.');
+
 must(/FIRST_SCREEN\s*=\s*6/.test(shopPage),
   '첫 화면 서버 선렌더 카드 수(6)가 바뀌었다 — 성능 검토 없이 변경 금지.');
 
@@ -134,6 +150,6 @@ if (failures.length) {
 console.log('✓ LOCK-01 제품/인증 경계');
 console.log('✓ LOCK-02 ERP5 공개 데이터 경계');
 console.log('✓ LOCK-03 목록·상세 디자인 토큰');
-console.log('✓ LOCK-04 URL 검색/필터/정렬 계약');
+console.log('✓ LOCK-04 URL 검색/필터/정렬 + 동일 가격행 계약');
 console.log('✓ LOCK-05 첫 화면 성능·로그인 진입점');
 console.log('\n✅ ERP4 MAIN 안정화 기준선 유지\n');
