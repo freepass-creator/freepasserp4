@@ -570,6 +570,7 @@ must(/const useRows = grouped\(/.test(shopDetail)
   'docs/DESIGN_CONFIRMED_SHOP.md §1-2-3');
 
 const wlFrame = read('components/WhitelabelFrame.tsx');
+const brandCi = read('components/brand-ci.tsx');
 /** 채널 표 — 라벨 세 갈래(표준·채널·공급)의 이름이 여기 산다(`labelKind`). */
 const wlTable = read('lib/whitelabel.ts');
 /*
@@ -581,6 +582,19 @@ must(/mobile && headerLead \? headerLead :/.test(wlFrame)
   && />상품 상세</.test(shopDetail),
   '폰 상세 머리띠가 다시 채널 간판을 들었습니다 — 상세는 「상품 상세」입니다.',
   'docs/DESIGN_CONFIRMED_SHOP.md §1-2-1');
+
+/*
+ * 상단바 타이포는 웹/모바일에서 같은 서비스 위계를 유지한다.
+ * 화면 폭에 따라 여백·아이콘 크기는 달라도 제목 글자 크기는 달라지지 않는다.
+ */
+must(/top: \{ title: 18, cobrand: 12 \}/.test(shopUi)
+  && /fs=\{SHOP\.top\.title\}/.test(wlFrame)
+  && /headlineFs=\{SHOP\.top\.title\}/.test(wlFrame)
+  && /CoBrandFreepass fs=\{SHOP\.top\.cobrand\}/.test(wlFrame)
+  && /fontSize: SHOP\.top\.title, fontWeight: FW\.title/.test(shopDetail)
+  && /headlineFs\?: number/.test(brandCi),
+  '상단바 제목 크기가 웹/모바일에서 갈렸습니다 — 제목 18, 동반표기 12를 공통으로 씁니다.',
+  'docs/ERP4-MAIN-UI-STANDARD.md §4');
 /* 차번은 차명 줄 «안»에 있다 — h1 이 닫히기 전에 나와야 이름의 끝으로 읽힌다. */
 must(/\{title\}[\s\S]{0,400}?\{facts \? \([\s\S]{0,400}?<\/h1>/.test(shopDetail),
   '차번이 차명에서 떨어졌습니다 — 「현대 그랜저 122두8108」처럼 이름 뒤에 붙습니다.',
