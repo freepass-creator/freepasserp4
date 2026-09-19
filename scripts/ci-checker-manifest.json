@@ -93,6 +93,10 @@
       "why": "확정 디자인 규격",
       "known_bad_pending": "표본 없음. must(/정규식/.test(src)) 319건이 전부 최상위 인라인 — 이음매가 없다. 주석이 과거 거짓 초록을 여럿 적어 두었으나 어느 것도 코드로 못 박혀 있지 않다."
     },
+    "check:erp4-main": {
+      "why": "ERP4 MAIN 상위 제품 잠금 — 인증 분리·ERP5 공개 원장·SHOP 토큰·URL 필터·첫 화면 기준",
+      "known_bad_pending": "표본 없음. 현재는 저장소 구조/토큰을 직접 대조하는 통합 잠금이다. 다음 단계에서 인증 재연결·토큰 드리프트·ERP4 fallback을 합성 fixture로 넣는 known-bad 이음매를 추가한다."
+    },
     "check:building": {
       "why": "건물도면 등록",
       "known_bad_pending": "표본 없음. readTable()·compare() 는 순수하나 측정 자체가 저장소 census 라 합성 표본을 못 먹인다."

@@ -26,6 +26,7 @@
     "check:ui": "tsx scripts/check-ui-contract.mts",
     "check:shop-data-parity": "tsx scripts/sim-shop-data-parity.mts",
     "check:design": "tsx scripts/check-design-locked.mts",
+    "check:erp4-main": "tsx scripts/check-erp4-main-lock.mts",
     "check:speed": "tsx scripts/check-shop-speed.mts",
     "channel:new": "tsx scripts/new-channel.mts",
     "channel:ci": "tsx scripts/channel-ci.mts",
