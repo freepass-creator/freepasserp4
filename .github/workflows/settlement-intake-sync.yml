@@ -60,10 +60,32 @@ jobs:
         shell: bash
         run: |
           ARGS=()
+          SHOULD_APPLY=false
           if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ github.event_name }}" = "push" ] || [ "${{ inputs.apply }}" = "true" ]; then
+            SHOULD_APPLY=true
             ARGS+=(--apply)
           fi
-          npx tsx scripts/sync-intake-to-ledger.mts "${ARGS[@]}"
+
+          # 접수 스프레드시트가 아직 한 번도 만들어지지 않은 경우만 자동 복구한다.
+          # 다른 오류는 그대로 실패시켜 원인 은폐/오작동을 막는다.
+          set +e
+          OUT=$(npx tsx scripts/sync-intake-to-ledger.mts "${ARGS[@]}" 2>&1)
+          RC=$?
+          set -e
+          printf '%s\n' "$OUT"
+
+          if [ "$RC" -eq 0 ]; then
+            exit 0
+          fi
+
+          if [ "$SHOULD_APPLY" = "true" ] && printf '%s\n' "$OUT" | grep -q 'create-contract-intake-sheet.mts 먼저'; then
+            echo '::notice::계약접수 시트가 없어 canonical 규격으로 1회 자동 생성 후 재시도합니다.'
+            npx tsx scripts/create-contract-intake-sheet.mts --apply
+            npx tsx scripts/sync-intake-to-ledger.mts --apply
+            exit 0
+          fi
+
+          exit "$RC"
 
       # ② 계약상태/재고상태는 여기서 직접 쓰지 않는다.
       #    옛 sync-contract-from-ledger.mts는 legacy 「정산」 탭과 공급사 시트를 직접 수정해
