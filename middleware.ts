@@ -61,6 +61,18 @@ export function middleware(request: NextRequest) {
    *   똑같이 샜던 그 사고다. 표시를 붙이면 레이아웃이 손님 판정(`resolveGuestWhitelabel`)을 탄다.
    * ★채널 도메인에도 붙는다 — 거기도 손님 화면이라 붙는 편이 정확하다(지금과 결과가 같다).
    */
+  /*
+   * ERP4 MAIN / 화이트라벨 도메인에는 로그인 화면이 **존재하지 않는다**.
+   * 과거 /login 파일은 레거시 업무 도구 호환을 위해 저장소에만 남길 수 있지만,
+   * 상품 호스트에서 직접 주소를 입력하거나 옛 북마크를 눌러도 절대 로그인 UI를 보여주지 않는다.
+   */
+  if (request.nextUrl.pathname === '/login' && homeIsShop(host)) {
+    const target = request.nextUrl.clone();
+    target.pathname = '/';
+    target.search = '';
+    return NextResponse.redirect(target, 307);
+  }
+
   if (isCompanyHomeRoot(host, request.nextUrl.pathname)) {
     const target = request.nextUrl.clone();
     target.pathname = '/company-home';
