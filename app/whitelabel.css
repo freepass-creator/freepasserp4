@@ -140,7 +140,7 @@
 @media (max-width: 759px) {
   .fp-shop-grid {
     grid-template-columns: minmax(0, 1fr);
-    row-gap: 32px;
+    row-gap: 24px;
     column-gap: 12px;
   }
 }
@@ -220,7 +220,7 @@
 
 /* 검색 결과의 «왜 나왔는지» — 새 배지를 만들지 않고 이미 보이는 글자만 아주 옅게 표시한다. */
 .fp-shop-match {
-  background: color-mix(in srgb, var(--brand) 10%, transparent);
+  background: color-mix(in srgb, var(--brand-accent, var(--brand)) 12%, transparent);
   color: inherit;
   border-radius: 3px;
   padding-inline: 1px;
@@ -268,7 +268,7 @@
 .fp-wl .fp-shop-search__ico > svg { position: relative; z-index: 1; }
 .fp-wl .fp-shop-search__ico::after {
   content: ''; position: absolute; inset: -9px; border-radius: 50%;
-  background: radial-gradient(closest-side, var(--brand), transparent 70%);
+  background: radial-gradient(closest-side, var(--brand-accent, var(--brand)), transparent 70%);
   opacity: 0; transition: opacity .22s ease; pointer-events: none;
 }
 .fp-wl .fp-shop-search:hover .fp-shop-search__ico { color: var(--brand); }
@@ -415,9 +415,9 @@
 @media (max-width: 760px) {
   .fp-wl {
     --shop-fs-hero: 32px; --shop-fs-h1: 22px;   --shop-fs-num: 16px;
-    --shop-fs-sec: 20px;  --shop-fs-price: 19px; --shop-fs-lead: 17px;
+    --shop-fs-sec: 20px;  --shop-fs-price: 18px; --shop-fs-lead: 17px;
     --shop-fs-h2: 15px;   --shop-fs-body: 15px;
-    --shop-fs-sub: 13.5px; --shop-fs-cap: 12.5px; --shop-fs-tag: 10px;
+    --shop-fs-sub: 13px;  --shop-fs-cap: 12px;  --shop-fs-tag: 10px;
   }
 }
 
