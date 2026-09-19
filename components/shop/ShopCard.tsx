@@ -15,6 +15,7 @@ import { vehicleNameOf } from '@/lib/domain/vehicle-name';
 import { displacementL } from '@/components/product-card-identity';
 import { yearFullDisplay, fuelDisplay } from '@/lib/domain/vehicle-master-format';
 import { isEvFuel, kmDisplay, kmValue, manShort, wonKo, depositLine } from '@/lib/format';
+import { queryTokens } from '@/lib/domain/search';
 
 /**
  * 가게 카드 — 손님이 이 화면에서 «고르는 단위».
@@ -53,9 +54,11 @@ import { isEvFuel, kmDisplay, kmValue, manShort, wonKo, depositLine } from '@/li
  *     같이 되돌려야 한다. 한쪽만 바꾸면 다시 갈린다.
  *   ★색은 아이콘에만(무심사 초록 · 소득확인·신용조회는 흐림 · 나머지 채널색), 글자는 먹색.
  */
-export const ShopCard = memo(function ShopCard({ p, href, rank = 99 }: {
+export const ShopCard = memo(function ShopCard({ p, href, rank = 99, searchQuery = '' }: {
   p: EntityRecord;
   href: string;
+  /** 현재 목록을 만든 검색어. 카드에서 «왜 걸렸는지» 보이는 값만 조용히 강조한다. */
+  searchQuery?: string;
   /**
    * **목록에서 몇 번째인가** — 첫 화면에 이미 보이는 카드는 «기다리지 않게» 하려고 받는다.
    *
@@ -188,6 +191,36 @@ export const ShopCard = memo(function ShopCard({ p, href, rank = 99 }: {
     ...(sameDay ? [{ text: '당일출고', icon: markIconFor('당일출고'), good: true }] : []),
   ];
 
+  /*
+   * 검색 결과에서 «왜 이 차가 나왔는지»를 다시 추리게 하지 않는다.
+   * 다만 새 라벨을 한 줄 더 만드는 대신, **이미 보이는 값** 중 검색어와 맞는 것만 옅게 표시한다.
+   * 검색어가 여러 단어면 보이는 자리마다 맞는 토큰만 표시한다.
+   */
+  const searchTokens = queryTokens(searchQuery);
+  const markText = (text: string) => {
+    if (!text || !searchTokens.length) return text;
+    const escaped = searchTokens
+      .filter((t) => t.length > 0)
+      .map((t) => t.replace(/[.*+?^$\\{}()|[\]\\]/g, '\\  return (
+    <div style={{ position: 'relative' }}>'))
+      .sort((a, b) => b.length - a.length);
+    if (!escaped.length) return text;
+    const re = new RegExp(`(${escaped.join('|')})`, 'ig');
+    return text.split(re).map((part, i) =>
+      searchTokens.some((t) => part.toLowerCase() === t.toLowerCase())
+        ? <mark key={`${part}-${i}`} className="fp-shop-match">{part}</mark>
+        : part
+    );
+  };
+  const lowCreditAlias = /저신용|신용무관|심사없음|심사x/i.test(searchQuery) && credit === '무심사';
+  const noDepositAlias = /무보증|보증금\s*(?:0|없)/i.test(searchQuery) && !!dep?.none;
+  const highlightMarks = new Set(
+    marks.filter((m) =>
+      searchTokens.some((t) => m.text.toLowerCase().includes(t))
+      || (lowCreditAlias && m.text === '무심사')
+    ).map((m) => m.text),
+  );
+
   return (
     <div style={{ position: 'relative' }}>
       {/*
@@ -263,12 +296,12 @@ export const ShopCard = memo(function ShopCard({ p, href, rank = 99 }: {
                */
               lineHeight: 1.2, letterSpacing: '-0.02em', minWidth: 0,
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-            }} title={title}>{title}</span>
+            }} title={title}>{markText(title)}</span>
             {plate ? (
               <span style={{
                 flex: '0 0 auto', fontSize: SHOP.fs.sub, fontWeight: FW.meta,
                 color: C.mute, fontFamily: NUM, letterSpacing: 0, whiteSpace: 'nowrap',
-              }}>{plate}</span>
+              }}>{markText(plate)}</span>
             ) : null}
           </div>
 
@@ -277,7 +310,7 @@ export const ShopCard = memo(function ShopCard({ p, href, rank = 99 }: {
               fontSize: SHOP.fs.sub, color: C.mute, fontVariantNumeric: 'tabular-nums',
               lineHeight: 1.2,  /* 위 차명 줄과 같은 이유 — 줄높이로 붙인다. */
               overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-            }}>{facts}</div>
+            }}>{markText(facts)}</div>
           ) : null}
 
           {/*
@@ -347,7 +380,7 @@ export const ShopCard = memo(function ShopCard({ p, href, rank = 99 }: {
                 color: dep && dep.none ? C.ok : C.mute,
                 fontWeight: dep && dep.none ? 700 : 400,
               }}>
-                {dep ? dep.text : ''}
+                {dep ? (noDepositAlias ? <mark className="fp-shop-match">{dep.text}</mark> : markText(dep.text)) : ''}
               </span>
             </div>
           ) : null}
@@ -362,7 +395,7 @@ export const ShopCard = memo(function ShopCard({ p, href, rank = 99 }: {
               marginTop: 'auto',
             }}>
               {/* 치수는 원자의 «한 벌»(`BADGE`)이 정한다 — 여기서 fs·size 를 박으면 또 갈린다. */}
-              <PerkMarks marks={marks} columnGap={SHOP.sp.snug} />
+              <PerkMarks marks={marks} columnGap={SHOP.sp.snug} highlightTexts={highlightMarks} />
             </div>
           ) : null}
         </div>
