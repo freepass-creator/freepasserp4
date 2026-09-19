@@ -2,34 +2,51 @@
   "schemaVersion": 1,
   "timezone": "Asia/Seoul",
   "firstScheduledSettlementSuccessNotified": true,
-  "lastMeaningfulEventKey": "first-scheduled-settlement-success:35421466467:35421496262",
-  "lastKnownSettlementRunId": 35421466467,
-  "lastKnownErp5RunId": 35421496262,
+  "lastMeaningfulEventKey": "missing-schedule-fallback:2026-09-19T14:05:00+09:00,2026-09-19T15:05:00+09:00",
+  "lastKnownSettlementRunId": 35427890549,
+  "lastKnownErp5RunId": 35427915834,
   "lastKnownGoodErp5RunId": 35421496262,
-  "lastHeartbeatSlot": "2026-09-19T12:05:00+09:00",
+  "lastHeartbeatSlot": "2026-09-19T15:05:00+09:00",
   "policy": {
     "settlementWorkflow": ".github/workflows/settlement-intake-sync.yml",
     "erp5Workflow": ".github/workflows/erp5-ssot-refresh.yml",
     "settlementExpectedKst": "09:05-18:05 Mon-Sat hourly",
     "missingScheduleGraceMinutes": 20
   },
+  "recoveredSettlementSlots": {
+    "2026-09-19T12:05:00+09:00": {
+      "settlementRunId": 35418898632,
+      "erp5RunId": 35418926531,
+      "status": "success"
+    },
+    "2026-09-19T14:05:00+09:00": {
+      "settlementRunId": 35427840415,
+      "erp5RunId": 35427865515,
+      "status": "erp5-in-progress"
+    },
+    "2026-09-19T15:05:00+09:00": {
+      "settlementRunId": 35427890549,
+      "erp5RunId": 35427915834,
+      "status": "erp5-pending"
+    }
+  },
   "lastRecovery": {
-    "expectedSlot": "2026-09-19T12:05:00+09:00",
+    "expectedSlot": "2026-09-19T15:05:00+09:00",
     "failedRunId": null,
     "failureReason": "scheduled trigger missing after 20-minute grace",
-    "recoveredRunId": 35418898632,
-    "erp5RunId": 35418926531,
-    "status": "success",
+    "recoveredRunId": 35427890549,
+    "erp5RunId": 35427915834,
+    "status": "erp5-pending",
     "settlementProductionWrites": {
       "intakeStepCompleted": true,
       "formatStepCompleted": true,
       "result": "success"
     },
-    "erp5ProductionWritesCompleted": true,
+    "erp5ProductionWritesCompleted": false,
     "audits": {
-      "f86Freshness": "pass",
-      "f01F86Parity": "pass",
-      "platePhoto": "pass"
+      "f86Freshness": "pending",
+      "f01F86Parity": "pending",
+      "platePhoto": "pending"
     }
   }
 }
