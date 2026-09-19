@@ -45,3 +45,25 @@ for(const url of urls){
   }catch(e){console.error('ERR',productId,String(e).slice(0,120));}
 }
 if(!shown) process.exit(2);
+
+
+/* 상세 페이지/JS에서 갤러리 API 후보를 읽기 전용 탐색 */
+{
+  const firstUrl = urls[0];
+  if (firstUrl) {
+    const html = await (await fetch(firstUrl,{headers:{'User-Agent':UA}})).text();
+    const scripts=[...html.matchAll(/<script[^>]+src=["']([^"']+)["']/gi)].map(m=>m[1]);
+    const abs=(u:string)=>{try{return new URL(u,BASE).toString()}catch{return ''}};
+    const found=new Set<string>();
+    const scan=(text:string)=>{
+      for(const m of text.matchAll(/(?:\/api\/v1\/car\/)?[A-Za-z0-9_-]*(?:image|img|photo|pic|gallery|detail|car)[A-Za-z0-9_-]*\.rb/gi)) found.add(m[0]);
+      for(const m of text.matchAll(/\/api\/v1\/car\/[A-Za-z0-9_-]+\.rb/gi)) found.add(m[0]);
+    };
+    scan(html);
+    for(const src of scripts.slice(0,80)){
+      const u=abs(src); if(!u) continue;
+      try{ const t=await (await fetch(u,{headers:{'User-Agent':UA}})).text(); scan(t); }catch{}
+    }
+    console.log('GALLERY_ENDPOINT_CANDIDATES',JSON.stringify([...found].sort(),null,2));
+  }
+}
