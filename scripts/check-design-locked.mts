@@ -653,24 +653,23 @@ must(/tight=\{columns > 1\}/.test(read('components/shop/ShopFilters.tsx'))
   'docs/DESIGN_CONFIRMED_SHOP.md §1-3');
 
 /*
- * **카드는 «안은 좁게 · 밖은 넓게»** — 대여료가 차명을 잡아먹지 않는다.
+ * **카드는 디자인을 유지하고, 넓은 웹에서만 밀도를 한 단계 올린다.**
  *
- * 사장님 2026-09-05 「목록에서 각 간격이 **너무 막 멀게 떨어져 있거나** 굳이 그렇게 간격을 멀리
- * 안 둬도 되는데 그렇게 해놨거나, **대여료만 굳이 너무 도드라지게 크거나**」.
- * ★한 카드 안의 넉 줄은 «같은 차를 설명하는 한 덩어리»라 사이가 좁아야 한다(8 균등). 카드끼리는
- *   테두리가 없어 여백만이 경계라 넓어야 한다(32 = 안의 4배). 안팎이 비슷해지면 넉 줄이 흩어진다.
- * ★★줄간격은 **균등**이다 — 위계는 여백이 아니라 «글자 크기»가 낸다(16/13.5/21/12.5).
- *   4·12·12 로 갈랐더니 들쭉날쭉했고, 4 로 다 붙였더니 한 문단으로 뭉갰다. 당근 실측도 8 균등이다.
- * ★대여료 21(`fs.price`) = 차명 16(`fs.h2`)의 1.3배 — 값은 사다리(globals.css)가 쥔다. 25 였을 때는 1.6배라 카드에서 **금액이 먼저 읽히고 차가 나중**이었다 —
- *   손님이 고르는 것은 차고, 금액은 그 차의 값이다.
+ * 카드 내부 넉 줄은 8 균등을 유지한다. 모바일은 1열/32px 세로 간격 그대로.
+ * 웹은 기본 3열, 1280px 이상 4열이며 카드끼리 가로 16·세로 24를 쓴다.
+ * 4열에서만 카드 타이포를 차명 14 · 대여료 18 · 보조정보 12.5 · 캡션 11.5로 한 단계 낮춘다.
+ * 상세·필터·모바일은 이 조밀화의 영향을 받지 않는다.
  */
 must(/fontSize: SHOP\.fs\.price, fontWeight: FW\.head/.test(shopCard)
-  && /gap: mobile \? '32px 12px' : '32px 24px'/.test(shopView)
-  /* 넉 줄은 «8 균등»이다(당근도 그렇다) — 위계는 여백이 아니라 글자 크기가 낸다. */
+  && /className="fp-shop-grid"/.test(shopView)
+  && /\.fp-shop-grid\s*\{[\s\S]*?grid-template-columns:\s*repeat\(3, minmax\(0, 1fr\)\)[\s\S]*?row-gap:\s*24px[\s\S]*?column-gap:\s*16px/.test(css)
+  && /@media \(min-width: 1280px\)[\s\S]*?\.fp-shop-grid\s*\{[\s\S]*?grid-template-columns:\s*repeat\(4, minmax\(0, 1fr\)\)[\s\S]*?--shop-fs-price:\s*18px[\s\S]*?--shop-fs-h2:\s*14px[\s\S]*?--shop-fs-sub:\s*12\.5px[\s\S]*?--shop-fs-cap:\s*11\.5px/.test(css)
+  && /@media \(max-width: 759px\)[\s\S]*?\.fp-shop-grid\s*\{[\s\S]*?grid-template-columns:\s*minmax\(0, 1fr\)[\s\S]*?row-gap:\s*32px[\s\S]*?column-gap:\s*12px/.test(css)
+  /* 넉 줄은 8 균등 — 위계는 글자 크기가 낸다. */
   && /gap: SHOP\.sp\.snug, minWidth: 0, flex: 1/.test(shopCard)
   && !/marginTop: 'auto', paddingTop/.test(shopCard),
-  '카드 줄간격이 다시 들쭉날쭉해졌거나 카드끼리가 좁아졌습니다 — 줄 8 균등 · 밖 32 · 대여료 21 입니다.',
-  'docs/DESIGN_CONFIRMED_SHOP.md §1-3');
+  'ERP4 MAIN 카드 밀도 규격이 어긋났습니다 — 모바일 1열 유지 · 웹 3→4열 · 넓은 웹 14/18/12.5/11.5 타이포입니다.',
+  'docs/ERP4-MAIN-UI-STANDARD.md §4');
 
 /*
  * **우대조건 줄 — 옅은 «면» 위 뱃지 · 아이콘은 값마다 다르다.**
