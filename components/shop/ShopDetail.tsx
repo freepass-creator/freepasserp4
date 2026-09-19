@@ -1456,7 +1456,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
 export function ShopDetailLead() {
   return (
     <span style={{
-      fontSize: SHOP.top.title, fontWeight: FW.title, color: C.ink, letterSpacing: '-0.02em', whiteSpace: 'nowrap',
+      fontSize: SHOP.top.title, fontWeight: FW.title, color: C.ink, letterSpacing: '-0.02em', lineHeight: 1, whiteSpace: 'nowrap',
     }}>상품 상세</span>
   );
 }
