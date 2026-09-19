@@ -10,7 +10,7 @@ assert.deepEqual(parseIngestSummary(okLog),{phase:'APPLY',success:24,failed:0,to
 const ok=buildIngestReceipt({log:okLog,workflowOutcome:'success',...common});
 assert.equal(ok.status,'SUCCEEDED');
 assert.equal(ok.reason_code,null);
-assert.equal(ok.batch_summary.failed,0);
+assert.equal(ok.metrics.supplier_failed,0);
 assert.match(ok.input.digest,/^sha256:[0-9a-f]{64}$/);
 
 const partial=buildIngestReceipt({
