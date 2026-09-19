@@ -873,7 +873,7 @@ export function ShopView({ wl = FREEPASS, initial = null }: {
                 <Grid>
                   {/* ★순번을 넘긴다 — 첫 화면 카드는 사진을 «기다리지 않고» 받는다(`ShopCard` `rank`). */}
                   {shown.map((p, i) => (
-                    <ShopCard key={String(p.product_code)} p={p} href={href(p)} rank={i} />
+                    <ShopCard key={String(p.product_code)} p={p} href={href(p)} rank={i} searchQuery={liveQuery.q} />
                   ))}
                 </Grid>
                 {/* 「몇 장 보는 중」은 그리는 순서와 무관하게 «한 장에 담은 수»로 말한다(숫자가 깜빡이지 않게). */}
