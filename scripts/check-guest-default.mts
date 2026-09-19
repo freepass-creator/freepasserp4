@@ -219,18 +219,39 @@ must(/isShopHome\(host[\s\S]{0,600}?GUEST_HEADER,\s*'1'/.test(mw), '첫 화면 �
   '표시를 안 붙이면 겉은 가게인데 메타·JSON-LD 는 업무동 것이 실려 나갑니다(2026-09-06 사고).');
 
 /*
- * ERP4 MAIN/화이트라벨 상품 호스트에는 로그인 화면이 없다.
- * 옛 북마크나 직접 /login 입력도 루트 상품 메인으로 되돌린다.
+ * ERP4 MAIN/화이트라벨 상품 호스트와 로그인 기능은 연결 자체가 없다.
+ * /login 을 / 로 돌려주는 것도 «같은 제품의 숨은 기능»이라는 연결이므로 금지한다.
+ * 상품 호스트에서 /login 은 존재하지 않는 경로(404)여야 한다.
  */
 must(/pathname === '\/login'\s*&&\s*homeIsShop\(host\)/.test(mw),
-  '상품 호스트에서 /login 차단',
+  '상품 호스트에서 /login 경로 차단',
   'ERP4 MAIN/화이트라벨에서 로그인 UI가 다시 노출될 수 있습니다.');
-must(/target\.pathname = '\/'[\s\S]{0,120}?NextResponse\.redirect\(target, 307\)/.test(mw),
-  '/login 은 상품 메인으로 복귀',
-  '로그인 차단은 됐지만 상품 메인으로 돌아가지 않습니다.');
+must(/pathname === '\/login'[\s\S]{0,500}?status:\s*404/.test(mw),
+  '/login 은 상품 호스트에서 404',
+  '상품 호스트의 /login 이 다른 ERP4 화면으로 이어집니다 — 인증 기능과 제품면 연결이 남았습니다.');
+must(!/pathname === '\/login'[\s\S]{0,500}?NextResponse\.redirect/.test(mw),
+  '/login 리다이렉트 연결 없음',
+  '/login 을 상품 메인으로 보내면 ERP4가 로그인 기능을 숨겨 가진 것처럼 연결이 남습니다.');
 
-must(/homeIsShop/.test(read('lib/public-access.ts')), '공개 판정도 같은 함수를 본다',
-  '미들웨어와 게이트가 각자 계산하면 «서버는 가게 · 게이트는 로그인»인 반쪽 상태가 납니다.');
+const layout = read('app/layout.tsx');
+const guestBranchAt = layout.indexOf('{guestSurface ? (');
+const authAt = layout.indexOf('<AuthProvider>');
+const elseAt = guestBranchAt >= 0 ? layout.indexOf(') : (', guestBranchAt) : -1;
+must(/const guestSurface = hdrs\.get\('x-fp-guest'\) === '1'/.test(layout),
+  '공개 상품면 경계가 서버 헤더로 고정',
+  '공개 상품면과 업무 인증면을 가르는 x-fp-guest 경계가 사라졌습니다.');
+must(guestBranchAt >= 0 && elseAt > guestBranchAt && authAt > elseAt,
+  '공개 상품면은 AuthProvider 밖',
+  'AuthProvider가 공개 상품면을 감싸면 Firebase Auth·세션 게이트가 ERP4 MAIN에서 다시 부팅됩니다.');
+if (guestBranchAt >= 0 && elseAt > guestBranchAt) {
+  const guestBranch = layout.slice(guestBranchAt, elseAt);
+  must(!guestBranch.includes('<AuthProvider>') && !guestBranch.includes('<TopBar') && !guestBranch.includes('<AppTabBar'),
+    '공개 상품면에 업무 인증/chrome 없음',
+    'ERP4 MAIN 공개 가지에 AuthProvider·TopBar·AppTabBar 중 하나가 다시 들어왔습니다.');
+}
+
+must(/homeIsShop/.test(read('lib/public-access.ts')), '레거시 공개 예외도 같은 호스트 판정',
+  '미들웨어 없는 레거시/미리보기 셸의 공개 예외가 다른 호스트 판정을 쓰면 경계가 갈립니다.');
 
 must(!/homeIsShop/.test(read('app/layout.tsx')), '루트 레이아웃은 호스트로 안 정한다',
   '레이아웃이 이 판정을 쓰면 스위치를 켠 순간 업무동 «전 층»에서 상단바가 사라집니다.');
