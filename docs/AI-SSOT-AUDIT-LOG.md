@@ -3127,3 +3127,23 @@ Detail: `docs/ai-ssot-audit/2026-09-19-chatgpt-audit69-native-settlement-chain-e
 - audit (67) quote-defaults freshness HOLD는 별도 유지한다.
 
 Detail: `docs/ai-ssot-audit/2026-09-19-chatgpt-audit70-next-native-slots-gap-recurred.md`
+
+---
+
+## 2026-09-19 — ChatGPT audit (71): fallback burst가 pending ERP5 chain을 취소할 수 있음
+
+**판정: 충돌 / 보류**
+
+- audit (70) 이후 native `event=schedule`은 여전히 ERP5 run `35421826100`(13:38:19 KST)이 최신이라 native cadence HOLD는 유지한다.
+- watchdog이 14:05와 15:05 settlement 누락 슬롯을 heartbeat `push`로 연속 복구했다. 14:05 settlement `35427840415` → ERP5 `35427865515`는 성공했지만, 15:05 settlement `35427890549` 뒤 ERP5 `35427915834`는 **job 생성 전 cancelled** 됐다.
+- 그 직후 heartbeat commit `a39ceb9fa5dcdac8a657e9e9f6f390c95f41aaa6`가 marker를 15:05에서 **09:05로 되감아** 또 production recovery를 만들었고, downstream ERP5 `35428047106`은 성공했다.
+- ERP5 workflow는 단일 `erp5-inventory-publish` concurrency group + `cancel-in-progress: false`다. GitHub Actions 기본 concurrency는 running 1개 + pending 1개만 유지하고 더 새 pending이 오면 기존 pending을 취소한다. 실제로 15:05 ERP5는 09:05 replay ERP5 생성 1초 뒤 취소됐고, 당시 14:05 ERP5는 계속 실행 중이었다. **따라서 burst/backfill recovery가 lossless하다는 보장은 깨졌다.**
+- 현재 `.automation/safe-chain-monitor.json`도 15:05 chain failure를 보존하면서 `lastHeartbeatSlot`/`lastRecovery.expectedSlot`은 더 오래된 09:05로 돌아가 있다. heartbeat `push`는 settlement workflow에서 실제 `--apply` 경로이므로 단순 관제 표기 문제가 아니다.
+- 실제 중복행/데이터 훼손은 이번 감사에서 확인되지 않았다. 이후 09:05 replay chain의 ERP5 `35428047106`은 성공했고 F86 freshness/F01↔F86 parity/photo audit도 PASS했다. 다만 이 성공은 **15:05 cancelled chain을 소급해 성공으로 만들지 않으며 native cadence 증거도 아니다.**
+- production pin `cf940df642edf315adbc6da2b4134fbad53da160`, 24-source registry, 동일 fixed snapshot F01/F86, Sonogong/AutoPlus special-tab, RETIRED contract/sales/mirror writer 및 RTDB/mirror non-canonical 경계에는 신규 drift가 없다. audit (67) quote-defaults freshness HOLD도 별개로 유지한다.
+
+**Claude 인계:** recovery slot 상태를 monotonic/current로 모델링하고, missed-slot burst가 기존 pending ERP5 chain을 대체·취소하지 않도록 직렬화/중복제거/명시적 queue contract 중 하나로 정리할 것. 15:05 `lastChainFailure`는 해당 slot reconciliation 근거가 생길 때까지 닫지 말 것.
+
+상세: `docs/ai-ssot-audit/2026-09-19-chatgpt-audit71-fallback-burst-cancels-pending-erp5.md`
+
+No application code or business logic was modified by the auditor.

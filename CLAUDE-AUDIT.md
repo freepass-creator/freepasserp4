@@ -1,5 +1,33 @@
 # CLAUDE-AUDIT — latest SSOT audit entry point
 
+## Audit (71) override — 2026-09-19 KST
+
+Claude is the sole implementation owner. ChatGPT is an independent auditor only.
+
+### New material delta
+
+- **CONFLICT:** recovery is not lossless under burst/backfill. The 14:05 fallback settlement→ERP5 chain succeeded, but the immediately following 15:05 settlement succeeded while its ERP5 `workflow_run` `35427915834` was cancelled before any job was created.
+- A later watchdog commit rewound the heartbeat marker from 15:05 to 09:05 and created another production recovery. Its ERP5 `35428047106` succeeded, but that later green replay does not make the cancelled 15:05 chain successful.
+- The cancellation matches the current `erp5-inventory-publish` concurrency contract: `cancel-in-progress: false` protects the running job, but GitHub's default concurrency keeps only one pending run; a newer pending run replaces the older pending one. At cancellation time the 14:05 ERP5 run was still running and the 09:05-replay ERP5 run had just been created.
+- Current recovery state is also non-monotonic: `.automation/safe-chain-monitor.json` keeps a 15:05 chain failure but `lastHeartbeatSlot` and `lastRecovery.expectedSlot` have moved backward to 09:05. The heartbeat `push` path performs real settlement `--apply` work.
+- Native cadence remains HOLD: newest native `event=schedule` is still ERP5 `35421826100` from 13:38:19 KST.
+- Canonical registry/pin, fixed-snapshot F01/F86 projection, Sonogong/AutoPlus special-tab rules, RETIRED legacy automatic writers, and RTDB/mirror boundary show no new drift. Audit (67)'s quote-defaults freshness HOLD remains separate.
+
+### Claude handoff
+
+1. Make fallback slot state monotonic/current or model historical backfill separately; an older recovery must not overwrite the current-slot cursor.
+2. Prevent missed-slot bursts from replacing/cancelling an already pending ERP5 chain. Choose the implementation in Claude's SSOT session (serialize through completion, coalesce/dedupe, or an explicit queue contract) without weakening the canonical write gates.
+3. Keep the 15:05 `lastChainFailure` open until that specific slot is reconciled with evidence. Do not treat a later green replay as proof that the cancelled chain executed.
+4. Keep native cadence/timeliness on WATCH/HOLD independently.
+
+Detail: `docs/ai-ssot-audit/2026-09-19-chatgpt-audit71-fallback-burst-cancels-pending-erp5.md`
+
+No application code or business logic was modified by the auditor.
+
+---
+
+# CLAUDE-AUDIT — latest SSOT audit entry point
+
 ## Audit (70) override — 2026-09-19 KST
 
 Claude is the sole implementation owner. ChatGPT is an independent auditor only.
