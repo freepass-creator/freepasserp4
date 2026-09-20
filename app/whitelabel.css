@@ -315,7 +315,7 @@
    */
   /* ★머리띠가 «웹에서도» 붙박이가 됐다(2026-09-07) — 그 실제 높이만큼 내려가 선다.
        변수는 `WhitelabelFrame` 이 재서 `.fp-wl` 에 걸어 준다. */
-  position: sticky; top: var(--fp-wl-head-h, 72px); z-index: 6;
+  position: sticky; top: var(--fp-wl-head-h, 48px); z-index: 6;
   background: var(--bg-page);
   margin-inline: -16px; padding-inline: 16px;
 }
