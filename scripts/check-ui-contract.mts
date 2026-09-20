@@ -149,10 +149,6 @@ const RAW_ALLOW_PAIRS: [string, Allow][] = [
     counts: { button: 1 },
     reason: '폰 조건 시트 — 축 고르는 왼쪽 기둥. 하단독은 ShopDock 원자다',
   }],
-  ['components/WhitelabelFrame.tsx', {
-    counts: { button: 1 },
-    reason: '채널 껍데기 — 안내 띠 닫기. 하단 전화독은 ShopDock 원자다',
-  }],
   /*
    * ⚠⚠ **2026-09-07 — 이 블록이 통째로 «두 번» 붙어 있었다**(주석까지 그대로).
    *   `new Map([...])` 은 **뒤엣것이 이긴다.** 그래서 앞 블록은 죽은 코드였고,
