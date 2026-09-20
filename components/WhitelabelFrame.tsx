@@ -1,6 +1,6 @@
 'use client';
 import { useCallback, useEffect, useLayoutEffect, useState, type ReactNode } from 'react';
-import { Phone, SquareArrowOutUpRight, X } from 'lucide-react';
+import { Phone, SquareArrowOutUpRight } from 'lucide-react';
 import { C, FW, ICON, R_CARD, fmtPhone } from '@/components/ui';
 import { todayKst } from '@/lib/format';
 import { SHOP, SHOP_MOBILE_BP, ShopDock, ShopDockAction } from '@/components/shop/shop-ui';
@@ -197,7 +197,7 @@ export function WhitelabelFrame({
           긴 목록에서 56px 를 내내 잡아먹기만 하고 손님이 거기서 할 수 있는 일이 없다.
       */}
       <header ref={headRef} style={{
-        borderBottom: `1px solid ${C.line}`, background: C.bg,
+        borderBottom: standardLabel ? `2px solid ${C.brandAccent}` : `1px solid ${C.line}`, background: C.bg,
         /*
          * ★폰 머리띠는 **고정**이다 — 오른쪽에 검색·조건·공유가 들어와 있어서,
          *   목록을 한참 내려간 손님이 맨 위로 되돌아가지 않아도 조건을 다시 건다.
@@ -652,37 +652,35 @@ function WhitelabelNotice({ wl, mobile }: { wl: Whitelabel; mobile: boolean }) {
           <a href={href} style={{ display: 'block', textDecoration: 'none', color: 'inherit' }}>{안쪽}</a>
         ) : 안쪽}
         {/*
-          ★★**«오늘 하루 안 보기»를 글자로 보여준다**(사장님 2026-09-09 「배너 x 표시에
-            **오늘 하루 안 보기 살짝 보이게** 해줘야지」).
-          ★★★**2026-09-18 — «확실하게 누르는» 단추로 세운다**(사장님 「닫기 버튼도 확실하게
-            누르는 거를 좀 해주고」). 그 전에는 테두리도 면도 없이 `faint` 잔글씨라, 배너 위에
-            얹힌 «글자»인지 «단추»인지가 눈으로 안 갈렸다. 배너가 통째로 눌리는 면이 되면서
-            더 중요해졌다 — 여기가 단추로 안 보이면 닫으려다 목록으로 끌려간다.
-          ⇒ 흰 면 + 1px 테두리 + 라운드. 글자도 한 단 올린다(`cap` → `sub`).
-          ★그래도 «주인공은 아니다» — 면은 흰색이고 글자는 `mute` 다. 배너 내용보다 세지 않다.
-          ★글자와 ✕ 를 **한 단추**로 묶는다. 둘로 나누면 「글자는 오늘 하루, ✕ 는 지금만」처럼
-            읽혀 손님이 무엇을 누른 건지 모른다.
-          ★누름 높이는 그대로다(폰 44 · 웹 32) — 보이는 것만 늘리고 손가락 규격은 안 줄인다.
+          ★★**닫기는 작은 체크박스 한 줄**(사장님 2026-09-21).
+          배너의 주인공은 안내 내용이고, 「오늘 하루 안 보기」는 보조 설정이다. 흰 단추 + X처럼
+          별도 액션 면을 크게 세우면 배너보다 닫기가 먼저 읽혀 촌스럽고 무겁다.
+          ⇒ 네이티브 checkbox + 흐린 보조문구로 바꾼다.
+          ★AI Core 원칙도 같이 지킨다 — native semantics 우선, 의미를 색 하나에만 맡기지 않고,
+            실제 체크박스는 18px이지만 label 전체가 최소 44px(모바일) 터치영역을 가진다.
+          ★체크 즉시 오늘 날짜를 저장하고 배너를 닫는다. 내일이면 같은 로직으로 다시 나타난다.
         */}
-        <button
-          type="button"
-          onClick={close}
-          aria-label="오늘 하루 안 보기"
+        <label
           style={{
-            position: 'absolute', right: mobile ? 10 : 18, top: mobile ? 12 : 18, zIndex: 1,
+            position: 'absolute', right: mobile ? 10 : 18, top: mobile ? 8 : 14, zIndex: 1,
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-            gap: SHOP.sp.tight,
-            /* ★폰 44 — 손가락 규격(HIG 44 · 머티리얼 48). 32 는 그 밑이라 X 를 몇 번 헛누른다. */
-            height: mobile ? 44 : 32, padding: `0 ${SHOP.sp.snug}px`, borderRadius: SHOP.r.ctrl,
-            border: `1px solid ${C.line}`, background: C.inverse, color: C.mute, cursor: 'pointer',
-            fontFamily: 'inherit',
+            gap: SHOP.sp.tight, minHeight: mobile ? 44 : 36, paddingInline: SHOP.sp.tight,
+            cursor: 'pointer', userSelect: 'none',
           }}
         >
-          <span style={{ fontSize: SHOP.fs.sub, color: C.mute, whiteSpace: 'nowrap' }}>
+          <input
+            type="checkbox"
+            aria-label="오늘 하루 안 보기"
+            onChange={(e) => { if (e.currentTarget.checked) close(); }}
+            style={{
+              width: 18, height: 18, margin: 0, accentColor: C.brand,
+              cursor: 'pointer', flex: '0 0 auto',
+            }}
+          />
+          <span style={{ fontSize: SHOP.fs.cap, color: C.faint, whiteSpace: 'nowrap', fontWeight: FW.meta }}>
             오늘 하루 안 보기
           </span>
-          <X size={ICON.md} aria-hidden />
-        </button>
+        </label>
       </div>
     </div>
   );
