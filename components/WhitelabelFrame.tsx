@@ -1,7 +1,7 @@
 'use client';
 import { useCallback, useEffect, useLayoutEffect, useState, type ReactNode } from 'react';
 import { Phone, SquareArrowOutUpRight } from 'lucide-react';
-import { C, FW, ICON, R_CARD, fmtPhone } from '@/components/ui';
+import { C, FW, ICON, R_CARD, Checkbox, fmtPhone } from '@/components/ui';
 import { todayKst } from '@/lib/format';
 import { SHOP, SHOP_MOBILE_BP, ShopDock, ShopDockAction } from '@/components/shop/shop-ui';
 import { ChannelSign, ChannelWordmark, CoBrandFreepass } from '@/components/brand-ci';
@@ -668,10 +668,10 @@ function WhitelabelNotice({ wl, mobile }: { wl: Whitelabel; mobile: boolean }) {
             cursor: 'pointer', userSelect: 'none',
           }}
         >
-          <input
-            type="checkbox"
-            aria-label="오늘 하루 안 보기"
-            onChange={(e) => { if (e.currentTarget.checked) close(); }}
+          <Checkbox
+            checked={false}
+            ariaLabel="오늘 하루 안 보기"
+            onChange={(checked) => { if (checked) close(); }}
             style={{
               width: ICON.lg, height: ICON.lg, margin: 0, accentColor: C.brand,
               cursor: 'pointer', flex: '0 0 auto',
