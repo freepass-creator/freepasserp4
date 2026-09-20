@@ -1276,14 +1276,17 @@ must(/nowLabelKo\(now\)/.test(wlFrame) && /head\.weather/.test(wlFrame),
     '배너 면 «전체»가 링크가 아닙니다 — 손님을 그 조건이 걸린 목록 앞에 내려놓지 못합니다.',
     'components/WhitelabelFrame.tsx WhitelabelNotice · lib/whitelabel.ts notice.link');
 
-  /* 닫기 단추 — 테두리·면이 있어야 «단추»로 읽힌다. 글자는 그대로 남는다. */
-  const btn = banner.slice(banner.indexOf('aria-label="오늘 하루 안 보기"'));
-  must(/border: `1px solid \$\{C\.line\}`/.test(btn) && /background: C\.inverse/.test(btn),
-    '배너 닫기가 다시 «맨 글자»가 됐습니다 — 배너가 통째로 눌리는 면이라 닫으려다 목록으로 끌려갑니다.',
-    'components/WhitelabelFrame.tsx 닫기 단추 · 사장님 2026-09-18 「닫기 버튼도 확실하게」');
-  must(btn.includes('오늘 하루 안 보기') && /<span[^>]*>[\s\S]{0,120}오늘 하루 안 보기/.test(btn),
-    '「오늘 하루 안 보기」 글자가 사라졌습니다 — 안 보이는 약속은 없는 약속입니다(2026-09-09).',
-    'components/WhitelabelFrame.tsx 닫기 단추');
+  /* 오늘 숨김 — 네이티브 체크박스 + 보조문구. 모바일은 label 전체가 44px 터치영역이다. */
+  const dismiss = banner.slice(banner.indexOf('<label'));
+  must(/type="checkbox"/.test(dismiss) && /accentColor: C\.brand/.test(dismiss),
+    '배너 오늘 숨김이 네이티브 체크박스 규격에서 벗어났습니다.',
+    'components/WhitelabelFrame.tsx 오늘 하루 안 보기 · 사장님 2026-09-21');
+  must(/minHeight: mobile \? 44 : 36/.test(dismiss),
+    '배너 오늘 숨김의 모바일 터치영역이 44px 아래로 줄었습니다.',
+    'components/WhitelabelFrame.tsx 오늘 하루 안 보기 · AI Core touch target');
+  must(dismiss.includes('오늘 하루 안 보기') && /fontSize: SHOP\.fs\.cap/.test(dismiss) && /color: C\.faint/.test(dismiss),
+    '「오늘 하루 안 보기」 보조문구가 사라지거나 너무 강해졌습니다.',
+    'components/WhitelabelFrame.tsx 오늘 하루 안 보기');
 }
 
 if (fails.length) {
