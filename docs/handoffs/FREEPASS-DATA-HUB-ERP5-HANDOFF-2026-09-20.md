@@ -1,16 +1,28 @@
-# 프리패스 데이터 허브 · ERP5 — GitHub Handoff
+# 프리패스 데이터 — GitHub Handoff
 
-- official_name: **프리패스 데이터 허브**
+- official_name: **프리패스 데이터**
 - technical_name: **ERP5 · Firebase/Firestore**
+- aliases / historical_names: `ERP5 데이터 허브`, `프리패스 데이터 허브`, `ERP5 상품 SSOT`
+- naming_decision: 사용자 공식 결정 — 화면·문서·대화의 프로젝트명은 `프리패스 데이터`; `ERP5 데이터 허브`는 기술 설명/과거 작업명으로만 사용
 - firebase_project_id: `freepasserp5`
 - current_owner_repo: `freepass-creator/freepasserp4`
 - project_form: 화면 제품이 아닌 공통 데이터 기반 / SSOT
 - observed_at: 2026-09-20T11:40:00Z
+- naming_decision_recorded_at: 2026-09-20T11:50:00Z
+- handoff_policy: decision + evidence revision + confirmed/unknown/conflict + next_start_here를 실제 소유 repo에 기록
 - document_scope: 조사·판정·인계만 수행. 코드 수정, 배포, 실데이터 읽기/쓰기, 자격증명 확인은 수행하지 않음.
+
+## 0. 명칭 결정
+
+- 사용자 노출 공식 프로젝트명은 **프리패스 데이터**다.
+- **ERP5 · Firebase/Firestore**는 기술 설명이다.
+- **ERP5 데이터 허브**와 **프리패스 데이터 허브**는 과거 작업명·검색용 alias로만 유지한다.
+- 저장소명, Firebase project ID(`freepasserp5`), 기존 파일명은 이번 명칭 결정만으로 변경하지 않는다.
+- 이 채팅의 모든 후속 결과는 프리패스 프로젝트 내부 **프리패스 데이터** 범위로 GitHub handoff에 누적한다.
 
 ## 1. 고정 경계
 
-프리패스 데이터 허브는 상품·차량·정책·공급사 조건을 여러 제품에 공급하는 공통 데이터 기반이다.
+프리패스 데이터는 상품·차량·정책·공급사 조건을 여러 제품에 공급하는 공통 데이터 기반이다.
 
 다음 화면 제품과 동일한 프로젝트로 취급하지 않는다.
 
@@ -19,9 +31,9 @@
 | 프리패스 어드민 | 관리자 UI와 접수·계약·정산 업무 처리 |
 | 프리패스 세일즈 | CRM, 고객·통화·영업 진행 |
 | 프리패스 견적기 | 상품 탐색과 견적 Domain/Engine/UX |
-| 프리패스 데이터 허브 | 공통 데이터 SSOT, schema, collection, index, rules, sync, freshness, backup/restore, consumer contract |
+| 프리패스 데이터 | 공통 데이터 SSOT, schema, collection, index, rules, sync, freshness, backup/restore, consumer contract |
 
-RTDB는 프리패스 데이터 허브 전 범위에서 영구 폐기한다. RTDB fallback, adapter, listener, API 또는 mirror를 재활성화하지 않는다. 남아 있는 RTDB 코드는 신규 경로의 후보가 아니라 제거·격리 대상 레거시다.
+RTDB는 프리패스 데이터 전 범위에서 영구 폐기한다. RTDB fallback, adapter, listener, API 또는 mirror를 재활성화하지 않는다. 남아 있는 RTDB 코드는 신규 경로의 후보가 아니라 제거·격리 대상 레거시다.
 
 ## 2. 현재 판정 요약
 
@@ -245,7 +257,7 @@ Do not start with UI work.
 Create a separate local Codex work packet with these ordered lanes:
 
 1. **ERP5 Project Capsule**
-   - add official name “프리패스 데이터 허브”
+   - add official name “프리패스 데이터”
    - technical name “ERP5 · Firebase/Firestore”
    - correct AI Core stale “candidate” wording
    - pin owner repo and revisions
