@@ -4,7 +4,7 @@ export const C = {
   line: 'var(--border)', line2: 'var(--border-soft)', lineStrong: 'var(--border-strong)',
   bg: 'var(--bg-page)', zebra: 'var(--bg-stripe)', head: 'var(--bg-header)', hover: 'var(--bg-hover)',
   danger: 'var(--red-text)', ok: 'var(--green-text)', warn: 'var(--orange-text)', accent: 'var(--text-link)',
-  brand: 'var(--brand)', brandDeep: 'var(--brand-h)',
+  brand: 'var(--brand)', brandDeep: 'var(--brand-h)', brandAccent: 'var(--brand-accent)', brandAccentSoft: 'var(--brand-accent-soft)',
   /** 브랜드 면(面) — 강조가 아니라 «바탕»으로 깔 때. 안내 블록·틴트 배경.
    *  globals.css 에 이미 있던 변수를 열어 준 것이라 지금 화면 값은 그대로다. */
   brandBg: 'var(--brand-bg)', brandSoft: 'var(--brand-soft)',
