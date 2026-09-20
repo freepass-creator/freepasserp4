@@ -1280,8 +1280,8 @@ must(/nowLabelKo\(now\)/.test(wlFrame) && /head\.weather/.test(wlFrame),
 
   /* 오늘 숨김 — 아주 연한 문구 + X. 별도 면/테두리 없이 모바일 44px 누름영역 유지. */
   const dismiss = banner.slice(banner.indexOf('aria-label="오늘 하루 안 보기"'));
-  must(/<button/.test(dismiss) && /background: 'transparent'/.test(dismiss) && /border: 0/.test(dismiss),
-    '배너 오늘 숨김이 다시 강한 버튼 면이나 테두리를 갖게 됐습니다.',
+  must(/<Btn/.test(dismiss) && /variant="bare"/.test(dismiss) && /background: 'transparent'/.test(dismiss),
+    '배너 오늘 숨김이 bare 공통 버튼 원자에서 벗어나거나 강한 버튼 면을 갖게 됐습니다.',
     'components/WhitelabelFrame.tsx 오늘 하루 안 보기 · 사장님 2026-09-21');
   must(/minHeight: mobile \? 44 : 36/.test(dismiss),
     '배너 오늘 숨김의 모바일 터치영역이 44px 아래로 줄었습니다.',
