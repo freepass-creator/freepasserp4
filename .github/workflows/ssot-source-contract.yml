@@ -9,6 +9,10 @@ on:
       - 'scripts/check-inventory-source-contract.mts'
       - '.github/workflows/erp5-ssot-refresh.yml'
       - '.github/workflows/ssot-source-contract.yml'
+      - 'scripts/core-contract/**'
+      - 'scripts/check-ai-core-contract-shadow.mts'
+      - 'lib/domain/ai-core-contract-shadow.ts'
+      - 'contracts/ai-core/**'
   push:
     branches: [main]
     paths:
@@ -18,6 +22,7 @@ on:
       - 'scripts/check-inventory-source-contract.mts'
       - '.github/workflows/erp5-ssot-refresh.yml'
       - '.github/workflows/ssot-source-contract.yml'
+      - 'scripts/core-contract/**'
 
 jobs:
   source-contract:
@@ -32,3 +37,9 @@ jobs:
       - run: npm ci
       - name: Canonical inventory source contract
         run: npx tsx scripts/check-inventory-source-contract.mts
+      - name: AI Core Core Contract shadow
+        run: npx tsx scripts/check-ai-core-contract-shadow.mts
+      - name: ERP5 Core receipt parser
+        run: node scripts/core-contract/test-erp5-ingest-receipt.mjs
+      - name: Workflow contract regression
+        run: npm run check:workflows
