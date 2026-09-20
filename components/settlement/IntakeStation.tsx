@@ -528,7 +528,11 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
     setPickedLine(r); setLineSpec(null); setMode('줄'); setPicked(null); setCar(null); setDirect('');
     if (!api.line) return;
     const got = await api.line(r.id);
-    if (got) setLineSpec(got);
+    if (!got) return;
+    setLineSpec(got.spec);
+    setPickedLine((current) => current?.id === r.id
+      ? { ...current, resource_revision: got.resource_revision || current.resource_revision }
+      : current);
   };
 
   /**
@@ -625,8 +629,16 @@ export default function IntakeStation({ api, preview = false }: { api: BoardApi;
     const patch = key === 'delivered' ? deliveryTransitionPatch(on, r, today)
       : key === 'billed' ? { billed: on, billedAt: on ? today : '' }
       : { paper: on };
-    const res = await api.edit(r.id, patch);
-    if (!res.ok) { toast(res.error || '못 바꿨습니다'); return; }
+    const res = await api.edit(r.id, patch, S(r.resource_revision));
+    if (!res.ok) {
+      if (res.code === 'VERSION_MISMATCH') {
+        toast('다른 수정이 먼저 저장되었습니다. 최신 목록을 다시 불러왔습니다.');
+        await load();
+        return;
+      }
+      toast(res.error || '못 바꿨습니다');
+      return;
+    }
     await load();
   };
 
