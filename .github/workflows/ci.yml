@@ -158,6 +158,9 @@ jobs:
       - name: 정산 시트 규격 빗장
         run: npm run check:settlement
 
+      - name: AI Core API SHADOW — 정산 신규접수
+        run: npx tsx scripts/check-ai-core-api-shadow.mts
+
       # ★★검사기가 «초록»인 것은 그것이 무언가를 «잡는다»는 증거가 아니다(GPT 독립검토 2026-09-16 (b)).
       #   봉쇄를 하나씩 빼내 「그것이 지키는 검사만 빨개지는지」를 기계가 재고,
       #   아직 known-bad 가 «없는» required 를 매번 소리 내어 센다 — 「모른다」를 「없다」로 바꾸지 않는다.
