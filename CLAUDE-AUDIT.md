@@ -1,3 +1,21 @@
+# Claude 실행 오더 — Audit (81) override
+
+최우선 최신 판정: **Audit (80)의 AI Core SHADOW main-push Source Contract coverage gap은 해소됐다. 동시에 정산 신규접수 API의 AI Core mapping이 새 SHADOW pilot으로 추가됐지만 runtime authority/cutover는 바뀌지 않았다.**
+
+PR #439 / commit `d81c97fccc37566aa97e67d133dca6341bf42721`이 `.github/workflows/ssot-source-contract.yml`의 `push.paths`에 `scripts/check-ai-core-contract-shadow.mts`, `lib/domain/ai-core-contract-shadow.ts`, `contracts/ai-core/**`를 추가했다. Current main `0b3f9d13ef12a86a6e83ac3c95d2c6985c08226c`은 실제로 `contracts/ai-core/**`를 변경했고, 그 resulting main push에서 `SSOT Source Contract` run **`35507383468`**이 `event=push / success`로 생성됐다. 따라서 audit (80)의 “AI Core shadow-only main change가 Source Contract 없이 들어갈 수 있음” finding은 **RESOLVED**로 닫는다.
+
+PR #440 / current main `0b3f9d13...`은 `contracts/ai-core/settlement-intake.api-shadow.json`, `scripts/check-ai-core-api-shadow.mts`와 generic CI step을 추가했다. 이 contract는 `runtime_owner=ERP4`, `runtime_authority_preserved=true`, `cutover_authorized=false`, `external_response_shape_changed=false`를 명시하며 request/correlation/idempotency/revision/result-envelope 미도입 부분은 `SHADOW_WITH_GAPS`로 남긴다. 같은 head의 generic CI run **`35507383421`**도 `success`다. **이 SHADOW를 production API cutover나 canonical writer 변경으로 해석하지 않는다.**
+
+Production engine pin은 계속 `cf940df642edf315adbc6da2b4134fbad53da160`이다. Core boundary는 unchanged: 24-source ERP5 runtime registry, 동일 fixed-snapshot F01/F86, F86 `종합`의 손오공·오토플러스 제외 + 각 dedicated tab 유지, Sonogong `오공구독`/`픽업구독`, AutoPlus `오플구독`, retired `mirror-sync`/`sales-erp-hourly` automatic writer, RTDB/mirror non-canonical boundary를 유지한다.
+
+계속 OPEN: audit (67) standard quote-defaults projection freshness trigger, audit (71) shared concurrency/pending-replacement 및 15:05 cancelled-before-job reconciliation, audit (76) 이미 성공한 native 18:05 settlement의 fallback false replay, native cadence/timeliness HOLD. 이번 audit은 이 항목들을 닫지 않는다.
+
+Claude는 audit (80)의 CI gap을 재수정하지 말고 **해소됨**으로 취급한다. 새 settlement-intake Core mapping은 SHADOW/non-authoritative 상태를 유지한다. Canonical source/writer, F01/F86, special-tab, mirror/RTDB, settlement business semantics 변경은 이번 audit에서 요구하지 않는다. 구현은 Claude 단일 SSOT 세션만 수행한다.
+
+Detail: `docs/ai-ssot-audit/2026-09-20-chatgpt-audit81-ai-core-push-guard-resolved-api-shadow.md`
+
+---
+
 # Claude 실행 오더 — Audit (80) override
 
 최우선 최신 판정: **AI Core Core Contract SHADOW가 main에 실제 병합됐고, production SSOT 의미는 유지되지만 main push CI path guard에 새 빈틈이 있다.** Current main implementation delta의 기준 merge는 `14056f8c2c3a7cc973d956b4f23929a4c420fb98`이다. 이 merge는 `contracts/ai-core/**`, `lib/domain/ai-core-contract-shadow.ts`, `scripts/check-ai-core-contract-shadow.mts`, `scripts/core-contract/**`와 ERP5 ingest Core receipt shadow를 추가했다.
