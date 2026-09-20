@@ -120,6 +120,198 @@ function runBodies(lines: string[]): string {
 
 const gaps: string[] = [];
 
+/**
+ * ─────────────────────────────────────────────────────────────────────
+ * ②-1 AI Core SSOT shadow trigger parity — 2026-09-20 audit 80.
+ *
+ * PR에서는 AI Core shadow 계약 파일을 감시했지만 push(main)에서는 빠져 있어,
+ * main-only 변경이 전용 SSOT Source Contract 검증을 건너뛸 수 있었다.
+ * "PR에서 잡는다"와 "main에서 잡는다"는 같은 보호 경계여야 한다.
+ */
+const triggerPathGaps: string[] = [];
+const SSOT_SOURCE_WORKFLOW = `${DIR}/ssot-source-contract.yml`;
+const AI_CORE_SHADOW_TRIGGER_PATHS = [
+  'scripts/core-contract/**',
+  'scripts/check-ai-core-contract-shadow.mts',
+  'lib/domain/ai-core-contract-shadow.ts',
+  'contracts/ai-core/**',
+] as const;
+
+function triggerPaths(raw: string, trigger: 'pull_request' | 'push'): Set<string> {
+  const lines = raw.split(/\r?\n/);
+  const triggerLine = lines.findIndex((line) => new RegExp(`^  ${trigger}:\\s*/**
+ * 워크플로 파일 검사 — 「돌기도 «전»에 죽는 워크플로」를 잡는다.
+ *
+ * 왜 있나(2026-09-08). `.github/workflows/sales-erp-hourly.yml` 의 **한 줄**이
+ *
+ *     env: { SA: ${{ secrets.GOOGLE_SA_JSON }} }
+ *
+ * 흐름형(`{ }`) 안에서 `${{` 의 `{` 를 YAML 이 «또 다른 흐름 매핑의 시작»으로 잡는다.
+ * 그러면 GitHub 은 스텝을 돌리기도 전에 런을 실패시킨다 —
+ * **그 워크플로는 첫 커밋부터 한 번도 성공한 적이 없었다(최근 100회 전부 failure).**
+ * 사람 눈에는 안 보인다. 로그가 없고, 실패 이유가 「workflow file issue」한 줄이기 때문이다.
+ *
+ * ★그래서 «YAML 로 읽히는가»를 기계가 본다. 읽히기만 하면 되므로 GitHub 문법까지는 안 본다 —
+ *   못 읽히는 것만으로도 워크플로는 죽어 있다.
+ *
+ * 쓰기: npm run check:workflows
+ */
+import { readdirSync, readFileSync } from 'node:fs';
+
+const DIR = '.github/workflows';
+
+/**
+ * 아주 작은 YAML 「읽히는가」 검사. 의존성을 새로 들이지 않으려고 **이 결함만** 정확히 본다.
+ * ⚠ 일반 YAML 파서가 아니다 — 흐름형 안의 맨몸 `${{ }}` 를 찾는 것이 목적이다.
+ *   (이 한 가지가 이 저장소에서 실제로 워크플로를 죽인 유일한 문법 사고다.)
+ */
+const FLOW_EXPR = /^\s*[\w.-]+:\s*\{[^}]*\$\{\{/;
+
+/** 흐름형 밖에서도 «값이 맨몸 ${{ }}» 이면 GitHub 은 읽지만 YAML 로는 위험하다 — 따옴표를 권한다. */
+const hits: string[] = [];
+let files = 0;
+
+for (const f of readdirSync(DIR)) {
+  if (!/\.ya?ml$/.test(f)) continue;
+  files++;
+  const lines = readFileSync(`${DIR}/${f}`, 'utf8').split(/\r?\n/);
+  lines.forEach((line, i) => {
+    if (line.trimStart().startsWith('#')) return;
+    if (FLOW_EXPR.test(line)) {
+      hits.push(`  ${DIR}/${f}:${i + 1}\n      ${line.trim()}\n      → 흐름형(\`{ }\`) 안의 \${{ }} 는 YAML 이 못 읽는다. 블록형으로 풀어라:\n            env:\n              KEY: \${{ secrets.X }}`);
+    }
+  });
+}
+
+/**
+ * ─────────────────────────────────────────────────────────────────────
+ * ② 자격증명 «준비 단계»가 빠진 워크플로 — 2026-09-16 사고.
+ *
+ * 시크릿 `GOOGLE_SA_JSON`·`SONOGONG_ACCOUNT_JSON` 은 «둘 다 등록돼 있었다».
+ * 죽은 이유는 시크릿을 러너의 «파일로 써 주는 준비 단계»가 워크플로마다 복붙돼 있었고
+ * `sales-erp-hourly.yml` 만 손오공 준비를 빠뜨렸기 때문이다 —
+ * 매 회차가 「⛔ 중단 — 손오공 계정 없음」으로 죽었다.
+ *
+ * ★「참조한다」가 아니라 「필요하다」를 본다. 워크플로가 손오공 API 를 타는 입구를
+ *   `--손오공없이` 없이 부르면 → 손오공 계정이 **필요**하다.
+ *   (scripts/hourly-sync.mts 가 .손오공계정.json 없으면 stop() 한다)
+ */
+const needsSonogongEntry = [
+  'scripts/cloud-hourly-sync.mts',
+  'scripts/run-hourly-with-ssot-gate.mts',
+  'scripts/hourly-sync.mts',
+  'sonokong/scripts/',
+];
+
+/**
+ * 준비가 돼 있다고 인정하는 형태 — 합성 액션에 값을 넘기거나, (레거시) 직접 파일로 **쓰거나**.
+ * ★일부러 깨 보고 고친 것: 처음엔 `.손오공계정.json` 이 파일 어디에든 있으면 준비된 걸로 쳤다.
+ *   그러면 erp5-ssot-refresh.yml 에서 **쓰는 줄을 지워도** 맨 끝 `rm -rf ... .손오공계정.json`
+ *   (삭제 단계)이 걸려 통과했다. 삭제는 준비의 증거가 아니다 — «쓰기»(`> 경로`)만 본다.
+ */
+const prepSonogongInput = /sonogong-account-json:/;
+const prepSonogongWrite = />\s*\S*\.손오공계정\.json/;
+const prepGoogleSaInput = /google-sa-json:/;
+const prepGoogleSaWrite = />\s*\S*tmp\/firebase-auth\/\S+/;
+
+/** 워크플로를 «스텝» 단위로 쪼갠다 — `if: always()` 가 «그 스텝»에 붙었는지 보려면 필요하다. */
+function stepBlocks(lines: string[]): string[] {
+  const blocks: string[] = [];
+  let cur: string[] | null = null;
+  for (const line of lines) {
+    if (/^\s+- \S/.test(line)) {
+      if (cur) blocks.push(cur.join('\n'));
+      cur = [line];
+    } else if (cur) {
+      cur.push(line);
+    }
+  }
+  if (cur) blocks.push(cur.join('\n'));
+  return blocks;
+}
+
+/**
+ * 「부른다」는 **`run:` 안에서만** 참이다.
+ * ★실측: 이 검사를 처음 켰을 때 ssot-contract.yml 이 걸렸는데,
+ *   거기 적힌 scripts/cloud-hourly-sync.mts 는 `on.push.paths` 의 **변경 감시 목록**이었다.
+ *   그 워크플로는 그 스크립트를 돌리지 않는다. `paths:` 를 「부른다」로 세면 안 된다.
+ */
+function runBodies(lines: string[]): string {
+  const out: string[] = [];
+  let indent = -1;
+  for (const line of lines) {
+    if (indent >= 0) {
+      // 빈 줄은 블록 스칼라 안에서 유효하다. 들여쓰기가 풀리면 블록이 끝난 것.
+      if (!line.trim()) continue;
+      const cur = line.length - line.trimStart().length;
+      if (cur > indent) {
+        out.push(line);
+        continue;
+      }
+      indent = -1;
+    }
+    const m = /^(\s*)-?\s*run:\s*(.*)$/.exec(line);
+    if (m) {
+      if (m[2] && m[2] !== '|' && m[2] !== '>' && !/^[|>][-+]?$/.test(m[2])) out.push(m[2]);
+      indent = m[1].length;
+    }
+  }
+  return out.join('\n');
+}
+
+).test(line));
+  if (triggerLine < 0) return new Set();
+
+  const out = new Set<string>();
+  let inPaths = false;
+
+  for (let i = triggerLine + 1; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+    const indent = line.length - line.trimStart().length;
+
+    if (trimmed && indent <= 2) break;
+
+    if (/^    paths:\s*$/.test(line)) {
+      inPaths = true;
+      continue;
+    }
+
+    if (!inPaths) continue;
+
+    const path = /^      - ['"](.+)['"]\s*$/.exec(line);
+    if (path) {
+      out.add(path[1]);
+      continue;
+    }
+
+    if (trimmed && indent <= 4) break;
+  }
+
+  return out;
+}
+
+{
+  const raw = readFileSync(SSOT_SOURCE_WORKFLOW, 'utf8');
+  const prPaths = triggerPaths(raw, 'pull_request');
+  const pushPaths = triggerPaths(raw, 'push');
+
+  for (const path of AI_CORE_SHADOW_TRIGGER_PATHS) {
+    if (!prPaths.has(path)) {
+      triggerPathGaps.push(
+        `  ${SSOT_SOURCE_WORKFLOW}\n      pull_request.paths 에 AI Core shadow 경로가 없다: ${path}`,
+      );
+    }
+    if (!pushPaths.has(path)) {
+      triggerPathGaps.push(
+        `  ${SSOT_SOURCE_WORKFLOW}\n      push(main).paths 에 AI Core shadow 경로가 없다: ${path}\n` +
+          '      → main-only 변경이 SSOT Source Contract 검증을 건너뛸 수 있다.',
+      );
+    }
+  }
+}
+
+
 for (const f of readdirSync(DIR)) {
   if (!/\.ya?ml$/.test(f)) continue;
   const raw = readFileSync(`${DIR}/${f}`, 'utf8');
@@ -296,7 +488,7 @@ for (const [name, entry] of Object.entries(manifest.required)) {
   }
 }
 
-if (!hits.length && !gaps.length && !manifestGaps.length) {
+if (!hits.length && !gaps.length && !triggerPathGaps.length && !manifestGaps.length) {
   console.log(
     `\n  ✓ 워크플로 ${files}개 — 「돌기 전에 죽는」 문법 없음 · 자격증명 준비 구멍 없음\n` +
       `  ✓ 검사기 정본 ${governed.length}개 전부 등재 — 필수 ${Object.keys(manifest.required).length}개가 모두 워크플로 run: 에서 불린다\n`,
@@ -316,6 +508,12 @@ if (gaps.length) {
   for (const g of gaps) console.log(g + '\n');
   console.log('  시크릿은 등록돼 있어도 «파일로 써 주는 준비 단계»가 없으면 아무 소용이 없다.');
   console.log('  (2026-09-16: sales-erp-hourly.yml 이 이것 하나로 매 회차 죽었다)\n');
+}
+
+if (triggerPathGaps.length) {
+  console.log(`\n  ✗ AI Core SSOT shadow 트리거 비대칭 — ${triggerPathGaps.length}건\n`);
+  for (const g of triggerPathGaps) console.log(g + '\n');
+  console.log('  PR과 main push가 같은 Core shadow 경계를 감시해야 전용 계약 검증이 빠지지 않는다.\n');
 }
 
 if (manifestGaps.length) {
