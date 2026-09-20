@@ -227,7 +227,7 @@ Required interpretation:
 ## 10. Repository and registry conflicts
 
 - The actual implementation owner is currently `freepasserp4`; no separate `freepasserp5` repo was found.
-- AI Core registry has no independent 프리패스 데이터 허브 capsule and still describes ERP5 as a “candidate pending source reconciliation”.
+- AI Core registry has no independent 프리패스 데이터 capsule and still describes ERP5 as a “candidate pending source reconciliation”.
 - Current ERP4 canonical documentation already declares `freepasserp5` the unique canonical owner.
 - Therefore AI Core registry wording is stale relative to the owner repo and must be corrected in a separate documentation/registry packet.
 - A separate repository should not be created until ownership, rules/index deployment and operating commands justify the split.
