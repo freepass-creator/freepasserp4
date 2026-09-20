@@ -388,55 +388,45 @@ export async function POST(req: Request) {
      * 즉 이 단계는 additive opt-in 이고, 기존 저장 동작을 갑자기 막지 않는다.
      */
     if (expectedRevision) {
-      type Guard =
-        | { kind: 'NOT_FOUND' }
-        | { kind: 'VERSION_MISMATCH'; actual_revision: string }
-        | { kind: 'DOMAIN_VALIDATION' };
-
-      let guard: Guard | null = null;
-      let writePatch: Record<string, unknown> = {};
-
-      await fs.runTransaction(async (tx) => {
+      const guarded = await fs.runTransaction(async (tx) => {
         const before = await tx.get(ref);
         if (!before.exists) {
-          guard = { kind: 'NOT_FOUND' };
-          return;
+          return { kind: 'NOT_FOUND' as const };
         }
 
         const actualRevision = revisionOf(before);
         if (!expectedRevisionMatches(expectedRevision, actualRevision)) {
-          guard = { kind: 'VERSION_MISMATCH', actual_revision: actualRevision };
-          return;
+          return { kind: 'VERSION_MISMATCH' as const, actual_revision: actualRevision };
         }
 
         const current = before.data() || {};
         if (hasDeliveryContradiction(patch, current)) {
-          guard = { kind: 'DOMAIN_VALIDATION' };
-          return;
+          return { kind: 'DOMAIN_VALIDATION' as const };
         }
 
-        writePatch = withDeliveryInvariant(patch, current, localSettlementDay());
+        const writePatch = withDeliveryInvariant(patch, current, localSettlementDay());
         tx.set(ref, { ...writePatch, updatedAt: Date.now() }, { merge: true });
+        return { kind: 'WRITTEN' as const, writePatch };
       });
 
-      if (guard?.kind === 'NOT_FOUND') {
+      if (guarded.kind === 'NOT_FOUND') {
         return NextResponse.json({ error: '그 줄이 없습니다' }, { status: 404 });
       }
-      if (guard?.kind === 'VERSION_MISMATCH') {
+      if (guarded.kind === 'VERSION_MISMATCH') {
         return NextResponse.json({
           error: '다른 수정이 먼저 저장되었습니다. 최신 내용을 다시 불러와 주세요.',
           code: 'VERSION_MISMATCH',
           expected_revision: expectedRevision,
-          actual_revision: guard.actual_revision,
+          actual_revision: guarded.actual_revision,
         }, { status: 409 });
       }
-      if (guard?.kind === 'DOMAIN_VALIDATION') {
+      if (guarded.kind === 'DOMAIN_VALIDATION') {
         return NextResponse.json({ error: '인도일·청구월을 넣으려면 인도완료 상태여야 합니다' }, { status: 400 });
       }
 
       const after = await ref.get();
       const back = after.data() || {};
-      const gap = Object.entries(writePatch).filter(([k, v]) => S(back[k]) !== S(v)).map(([k]) => k);
+      const gap = Object.entries(guarded.writePatch).filter(([k, v]) => S(back[k]) !== S(v)).map(([k]) => k);
       if (gap.length) return NextResponse.json({ error: `되읽으니 다릅니다 — ${gap.join(' · ')}` }, { status: 500 });
       return NextResponse.json({
         ok: true,
