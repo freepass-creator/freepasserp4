@@ -197,7 +197,7 @@ export function WhitelabelFrame({
           긴 목록에서 56px 를 내내 잡아먹기만 하고 손님이 거기서 할 수 있는 일이 없다.
       */}
       <header ref={headRef} style={{
-        borderBottom: `1px solid ${C.line}`, background: C.bg,
+        borderBottom: 'none', background: C.bg,
         /*
          * ★폰 머리띠는 **고정**이다 — 오른쪽에 검색·조건·공유가 들어와 있어서,
          *   목록을 한참 내려간 손님이 맨 위로 되돌아가지 않아도 조건을 다시 건다.
@@ -224,7 +224,7 @@ export function WhitelabelFrame({
            *   제 누름영역(40)이 이미 여백을 갖고 있어 바깥 패딩을 더 줄 이유가 없다.
            * ⇒ 왼쪽 12 · 오른쪽 6(아이콘의 40 정사각이 나머지를 만든다). 본문은 16 그대로다.
            */
-          padding: mobile ? '0 4px 0 12px' : '0 24px', height: mobile ? 56 : 72,
+          padding: mobile ? '0 4px 0 12px' : '0 24px', height: mobile ? 48 : 56,
           display: 'flex', alignItems: 'center', gap: mobile ? 4 : 12,
         }}>
           {/* 폰 상세는 간판 대신 «이 화면의 이름»을 든다(위 `headerLead` 참고). 웹·목록은 워드마크. */}
