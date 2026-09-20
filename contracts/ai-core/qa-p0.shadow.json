@@ -1,0 +1,41 @@
+{
+  "schema": "freepass-ai-core-qa-shadow/v1",
+  "status": "SHADOW_WITH_GAPS",
+  "core_source": {
+    "repository": "freepass-creator/ai-core",
+    "pull_request": 157,
+    "revision": "584026ecaaac40073aeac5a775a5144bf704d0c8",
+    "contracts": [
+      "qa-checker-manifest/v1",
+      "qa-result/v1",
+      "observability-health/v1",
+      "observability-job-status/v1",
+      "observability-context/v1"
+    ]
+  },
+  "project_source": {
+    "revision": "f01b91c7f68fc2f55d8d642bc3d39f5e07368967",
+    "checker_manifest": "scripts/ci-checker-manifest.json",
+    "primary_ci": ".github/workflows/ci.yml"
+  },
+  "expected_inventory": {
+    "required": 33,
+    "manual": 10,
+    "pending": 9,
+    "required_negative_control_proven": 5,
+    "required_negative_control_pending": 28
+  },
+  "classification_mapping": {
+    "required": "REQUIRED",
+    "manual": "MANUAL",
+    "pending": "PENDING"
+  },
+  "negative_control_mapping": {
+    "known_bad": "PROVEN",
+    "known_bad_pending": "PENDING"
+  },
+  "proof_boundary": {
+    "ci_and_synthetic_checks_do_not_prove_production": true,
+    "skip_or_unknown_is_not_pass": true
+  }
+}

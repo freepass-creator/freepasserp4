@@ -1,0 +1,36 @@
+{
+  "schema": "freepass-ai-core-governance-shadow/v1",
+  "status": "SHADOW_WITH_GAPS",
+  "core_source": {
+    "repository": "freepass-creator/ai-core",
+    "pull_request": 154,
+    "revision": "8bd7fb26338b32abca914995fcd767c8e131ab03",
+    "contracts": [
+      "governance-build-manifest/v1",
+      "governance-release-proof/v1",
+      "governance-rollback-plan/v1"
+    ]
+  },
+  "project_authority": {
+    "release_doc": "docs/VERCEL-PRODUCTION-RELEASE.md",
+    "release_script": "scripts/deploy/vercel-production.mts",
+    "version_endpoint": "app/api/version/route.ts",
+    "rollback_reference": "LAUNCH_GONOGO.md"
+  },
+  "release_mapping": {
+    "expected_revision": "git HEAD / origin/main",
+    "deployment_id_or_url": "Vercel production deployment output",
+    "production_targets": [
+      "https://freepasserp.com",
+      "https://www.freepasserp.com"
+    ],
+    "observed_revision": "/api/version.sha",
+    "runtime_smoke": "separate project evidence required",
+    "rollback": "previous known-good deployment plus data/rules recovery procedure"
+  },
+  "verification_state": "PARTIAL",
+  "gaps": [
+    "This shadow does not independently observe the current production revision.",
+    "Runtime smoke evidence is not represented by deploy:verify revision readback alone."
+  ]
+}
