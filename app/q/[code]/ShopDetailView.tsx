@@ -6,7 +6,7 @@ import { C, CenterNote, Loading } from '@/components/ui';
 import { SHOP } from '@/components/shop/shop-ui';
 import { WhitelabelFrame } from '@/components/WhitelabelFrame';
 import { FavShare, ShopDetail, ShopDetailLead } from '@/components/shop/ShopDetail';
-import type { Whitelabel } from '@/lib/whitelabel';
+import { labelKind, type Whitelabel } from '@/lib/whitelabel';
 import { vehicleNameOf } from '@/lib/domain/vehicle-name';
 import { resolveAttr } from '@/lib/shop/attribution';
 
@@ -87,7 +87,8 @@ export function ShopDetailView({ wl, initial }: {
     document.title = vehicleNameOf({ kind: 'product', product: p }, { tier: 'full', fallback: 'plate' }) || wl.name;
   }, [p, wl.name]);
 
-  const agentName = String(agent?.name || '').trim();
+  const standardLabel = labelKind(wl) === 'standard';
+  const agentName = standardLabel ? '' : String(agent?.name || '').trim();
   /*
    * ★★전화번호는 **담당자 → 대표번호** 순으로 떨어진다(2026-09-05 실측 사고).
    *
@@ -100,8 +101,10 @@ export function ShopDetailView({ wl, initial }: {
    * ★껍데기(`WhitelabelFrame`)는 원래부터 이 폴백을 갖고 있었는데 상세만 못 받고 있었다 —
    *   상세가 제 하단독을 가지느라 프레임 독을 껐기(`dock={false}`) 때문이다.
    */
-  const phone = String(agent?.phone || agent?.mobile || agent?.tel || agent?.contact || '').replace(/\s/g, '')
-    || String(wl.tel || '').replace(/\s/g, '');
+  const phone = standardLabel ? '' : (
+    String(agent?.phone || agent?.mobile || agent?.tel || agent?.contact || '').replace(/\s/g, '')
+      || String(wl.tel || '').replace(/\s/g, '')
+  );
   /** 목록으로 돌아가는 주소 — 담당 귀속을 물고 간다. 못 찾은 화면에서도 같은 문을 쓴다. */
   /*
    * ⚠ 채널 미리보기(`?wl=`)로 들어온 손님은 목록도 «그 채널»로 돌아가야 한다. 안 물고 가면
@@ -146,7 +149,7 @@ export function ShopDetailView({ wl, initial }: {
             이미 출고되었거나 안내가 끝난 차량입니다
           </div>
           <div style={{ fontSize: SHOP.fs.body, color: C.mute, lineHeight: 1.7, marginBottom: SHOP.sp.part }}>
-            같은 조건의 다른 차량을 보시거나, 담당자에게 문의해 주세요.
+            {standardLabel ? '같은 조건의 다른 차량을 확인해 주세요.' : '같은 조건의 다른 차량을 보시거나, 담당자에게 문의해 주세요.'}
           </div>
           <a href={listHref} style={{
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
