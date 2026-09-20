@@ -1,6 +1,7 @@
 import 'server-only';
 
 import { readWhitelabelCatalogFromErp5 } from '@/lib/server/whitelabel-erp5-catalog';
+import { observeFreepassDataShadow } from '@/lib/server/freepass-data-shadow';
 import { sanitizeAgentForGuest, sanitizeProductForGuest, slimForList } from '@/lib/domain/public-catalog';
 import { isListableProduct } from '@/lib/domain/product';
 import { matchAgentByShareCode } from '@/lib/domain/product-share';
@@ -63,6 +64,15 @@ export async function loadGuestListing(options: { providerCode?: string; share?:
      *   자르는 자리가 여기인 이유: 정제기(`sanitizeProductForGuest`)는 상세도 같이 쓴다.
      */
     products.push(slimForList(sanitizeProductForGuest(key, p, policy)));
+  }
+
+  /*
+   * FreePass Data는 아직 손님에게 값을 공급하지 않는다.
+   * 전체 카탈로그 요청에서만 Catalog V1 erp-public projection을 shadow로 읽어 수량/차번 parity를 관측한다.
+   * shadow 오류나 불일치는 현재 ERP5 손님 응답에 영향을 주지 않는다.
+   */
+  if (!providerCode && !share) {
+    await observeFreepassDataShadow(products);
   }
 
   /*

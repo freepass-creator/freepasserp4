@@ -1,0 +1,38 @@
+{
+  "schema_version": "freepass-data-consumer-pilot/v1",
+  "consumer": "freepasserp4",
+  "surface": "erp.com-public-catalog",
+  "active_read": {
+    "owner": "freepasserp5",
+    "mode": "PRODUCTION_READ",
+    "fallback": "NONE"
+  },
+  "target_read": {
+    "owner": "freepass-data",
+    "projection": "erp-public",
+    "mode": "SHADOW_READ"
+  },
+  "cutover_sequence": [
+    "OBSERVE",
+    "SHADOW_READ",
+    "PARITY_VERIFIED",
+    "FREEPASS_DATA_READ"
+  ],
+  "parity_required": [
+    "listable_product_count",
+    "vehicle_product_identity",
+    "supplier_offer_identity",
+    "monthly_rent_by_term",
+    "deposit_state_and_amount",
+    "mileage_limit",
+    "status_listability",
+    "freshness_release_metadata",
+    "missing_extra_records"
+  ],
+  "fail_policy": {
+    "shadow_failure": "DO_NOT_AFFECT_CUSTOMER_READ",
+    "production_failure": "FAIL_CLOSED_NO_LEGACY_FALLBACK"
+  },
+  "writer_cutover": "OUT_OF_SCOPE",
+  "rtdb": "NO_NEW_USAGE"
+}
