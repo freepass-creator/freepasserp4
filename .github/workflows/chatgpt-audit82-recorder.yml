@@ -1,0 +1,85 @@
+name: ChatGPT Audit 82 Recorder
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/chatgpt-audit82-recorder.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Record audit 82 and remove recorder
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'chatgpt-auditor'
+          git config user.email 'actions@users.noreply.github.com'
+          git pull --rebase origin main
+
+          if ! grep -q 'ChatGPT audit (82)' docs/AI-SSOT-AUDIT-LOG.md; then
+            cat >> docs/AI-SSOT-AUDIT-LOG.md <<'EOF'
+
+          ---
+
+          ## 2026-09-20 — ChatGPT audit (82): settlement revision guard + first-party UI adoption are live
+
+          **판정: MATERIAL IMPLEMENTATION CHANGE / CLAUDE ENTRY POINT STALE / production ERP5 SSOT boundary unchanged.**
+
+          - Audit (81)의 `0b3f9d13...` 기준 “정산 Core 작업은 route-unchanged SHADOW mapping” 요약은 더 이상 current가 아니다. PR #441 / merge `8e4bcb7a484f1ae024f05297923be100d8a21628`이 `POST /api/settlement/board` update 갈래에 Firestore `updateTime` 기반 `resource_revision`과 optional `expected_revision` transaction guard를 구현했다. stale revision은 write 없이 HTTP 409 `VERSION_MISMATCH`로 닫힌다.
+          - PR #442 / merge `1b31af44fac362085649c13d155e4e0c089ae929`이 이 guard를 두 first-party Settlement UI까지 활성화했다. Board/Intake 목록·line detail이 revision을 보존하고 edit 시 `expected_revision`을 보내며, mismatch면 안내 후 최신 데이터를 reload한다. Legacy/external caller의 revision 생략은 호환 목적으로 계속 허용된다.
+          - AI Core contract는 여전히 `SHADOW_WITH_GAPS`, `runtime_owner=ERP4`, `runtime_authority_preserved=true`, `cutover_authorized=false`다. 즉 active optimistic-concurrency가 생겼지만 AI Core runtime cutover 또는 settlement canonical owner 변경으로 해석하지 않는다.
+          - Main 검증은 green이다: #441 generic CI `35507964978` / Source Contract `35507965001`, #442 generic CI `35508944501` / Source Contract `35508944490` 모두 success.
+          - ERP5 production pin `cf940df642edf315adbc6da2b4134fbad53da160`, 24-source registry, 동일 fixed-snapshot F01/F86, F86 `종합`의 손오공·오토플러스 제외 + dedicated tabs, Sonogong `오공구독`/`픽업구독`, AutoPlus `오플구독`, retired mirror/sales automatic writers, RTDB/mirror non-canonical boundary에는 새 drift가 없다.
+          - 계속 OPEN: audit (67) quote-defaults freshness, audit (71) shared ERP5 concurrency/pending replacement + 15:05 cancelled-before-job reconciliation, audit (76) successful native 18:05 settlement false replay, native cadence/timeliness HOLD.
+
+          **Claude implementation owner:** 현재 active ERP4 revision guard/UI transport를 보존한다. 이 감사를 근거로 Core cutover·ERP5 writer 변경·settlement business semantics 확대를 하지 않는다. Legacy/external caller의 `expected_revision` 강제 여부는 별도 구현 결정으로 남긴다.
+
+          Detail: `docs/ai-ssot-audit/2026-09-20-chatgpt-audit82-settlement-revision-ui-active.md`
+
+          No application code or business logic was modified by the auditor.
+          EOF
+          fi
+
+          if ! grep -q '^# Claude 실행 오더 — Audit (82) override' CLAUDE-AUDIT.md; then
+            cat > .claude-audit82.tmp <<'EOF'
+          # Claude 실행 오더 — Audit (82) override
+
+          최우선 최신 판정: **Audit (81)의 “정산 Core 작업은 route-unchanged SHADOW mapping” 요약은 stale이다. PR #441과 #442로 ERP4 정산 update의 optimistic revision guard와 두 first-party UI transport가 실제 runtime에 활성화됐다. 다만 AI Core contract 자체는 계속 SHADOW_WITH_GAPS이며 ERP5 canonical SSOT 경계는 바뀌지 않았다.**
+
+          PR #441 / merge `8e4bcb7a484f1ae024f05297923be100d8a21628`은 Firestore `DocumentSnapshot.updateTime`을 `resource_revision=firestore:<seconds>:<nanoseconds>`로 사용하고, update 호출이 `expected_revision`을 보내면 transaction에서 read/compare/write한다. stale이면 write 없이 HTTP 409 `VERSION_MISMATCH`를 반환한다. Revision을 보내지 않는 legacy/external caller는 호환 경로가 유지된다.
+
+          PR #442 / merge `1b31af44fac362085649c13d155e4e0c089ae929`은 SettlementBoard와 IntakeStation이 list/line-detail revision을 보존하고 edit 시 `expected_revision`을 보내게 만들었다. mismatch는 사용자에게 알리고 즉시 최신 데이터를 reload한다. Contract는 `runtime_owner=ERP4`, `runtime_authority_preserved=true`, `cutover_authorized=false`, `OPTIONAL_EXPECTED_REVISION`; request/correlation ID와 full Core error/result envelope는 계속 gap이다. Main 검증은 #441 CI `35507964978` + Source Contract `35507965001`, #442 CI `35508944501` + Source Contract `35508944490` 모두 success다.
+
+          Production engine pin은 계속 `cf940df642edf315adbc6da2b4134fbad53da160`이다. Core boundary도 unchanged: 24-source ERP5 registry, 동일 fixed-snapshot F01/F86, F86 `종합`의 손오공·오토플러스 제외 + dedicated tabs, Sonogong `오공구독`/`픽업구독`, AutoPlus `오플구독`, retired `mirror-sync`/`sales-erp-hourly` automatic writer, RTDB/mirror non-canonical boundary를 유지한다. Commit `6188a9ea6b22a7513e51c325384c8558201708e2`의 FreePass Data Hub handoff는 docs-only이며 이 경계를 바꾸지 않는다.
+
+          계속 OPEN: audit (67) standard quote-defaults projection freshness, audit (71) shared ERP5 concurrency/pending-replacement + 15:05 cancelled-before-job reconciliation, audit (76) successful native 18:05 settlement false replay, native cadence/timeliness HOLD.
+
+          Claude는 active revision guard와 first-party UI transport를 보존한다. 이 감사를 AI Core runtime cutover, ERP5 canonical writer migration, settlement business semantics 확대의 근거로 사용하지 않는다. Legacy/external caller까지 `expected_revision`을 강제할지는 별도 구현 결정이다. 구현은 Claude 단일 SSOT 세션만 수행한다.
+
+          Detail: `docs/ai-ssot-audit/2026-09-20-chatgpt-audit82-settlement-revision-ui-active.md`
+
+          ---
+
+          EOF
+            cat CLAUDE-AUDIT.md >> .claude-audit82.tmp
+            mv .claude-audit82.tmp CLAUDE-AUDIT.md
+          fi
+
+          git rm -f .github/workflows/chatgpt-audit82-recorder.yml
+          git add docs/AI-SSOT-AUDIT-LOG.md CLAUDE-AUDIT.md
+
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+
+          git commit -m 'docs(audit): append audit 82 settlement revision activation'
+          git push origin HEAD:main
