@@ -27,6 +27,7 @@ import { settlementMonthOf } from '@/lib/domain/settlement-billing-month';
 import './board.css';
 
 export type Line = {
+  resource_revision?: string;
   payKind?: string; term?: number; rent?: number; ratio?: number; paper?: boolean; delivered?: boolean; model?: string;
   carryClaim?: number; carryPay?: number; prepaid?: number;
   id: string; code: string; plate: string; customer: string; supplier: string; channel: string; agent: string;
@@ -52,6 +53,7 @@ export type Car = {
 /** 재고 한 대 — «고르는 데 필요한 것»만. 요금표는 고른 뒤에 따로 묻는다. */
 /** 접수 줄의 밭 하나 — 이름표는 «원자 규격»이 준 것을 그대로 나른다. */
 export type LineSpec = { key: string; label: string; value: string };
+export type LineDetail = { spec: LineSpec[]; resource_revision: string };
 
 export type CarLite = {
   plate: string; name: string; trim: string; maker: string; supplier: string; product: string; year: string; status: string;
@@ -89,13 +91,17 @@ export type BoardApi = {
   /** 접수를 남긴다. 미리보기는 «안 쓴다»고 알려 준다. */
   save: (patch: Record<string, unknown>) => Promise<{ ok: boolean; error?: string; id?: string }>;
   /** 줄 하나를 고친다 — 체크를 켜고 끄는 일. */
-  edit?: (id: string, patch: Record<string, unknown>) => Promise<{ ok: boolean; error?: string }>;
+  edit?: (
+    id: string,
+    patch: Record<string, unknown>,
+    expectedRevision?: string,
+  ) => Promise<{ ok: boolean; error?: string; code?: string; resource_revision?: string }>;
   /** 차 한 대를 원자에서 끌어온다. */
   car: (plate: string) => Promise<Car | null>;
   /** 인증을 기다려야 하나 — 미리보기는 아니다. */
   ready: boolean;
   /** 접수 줄 하나를 «통째로» — 목록에 못 실은 시트 나머지 칸이 여기 온다. */
-  line?: (id: string) => Promise<LineSpec[] | null>;
+  line?: (id: string) => Promise<LineDetail | null>;
 };
 
 export default function SettlementBoard({ api, preview = false }: { api: BoardApi; preview?: boolean }) {
@@ -273,8 +279,16 @@ export default function SettlementBoard({ api, preview = false }: { api: BoardAp
   const flip = async (r: Line, key: 'paper' | 'delivered', on: boolean) => {
     if (!api.edit) { toast('미리보기라 바뀌지 않습니다'); return; }
     const patch = key === 'delivered' ? deliveryTransitionPatch(on, r, today) : { paper: on };
-    const res = await api.edit(r.id, patch);
-    if (!res.ok) { toast(res.error || '못 바꿨습니다'); return; }
+    const res = await api.edit(r.id, patch, S(r.resource_revision));
+    if (!res.ok) {
+      if (res.code === 'VERSION_MISMATCH') {
+        toast('다른 수정이 먼저 저장되었습니다. 최신 내용을 다시 불러왔습니다.');
+        await load(month);
+        return;
+      }
+      toast(res.error || '못 바꿨습니다');
+      return;
+    }
     toast(`${r.plate || r.customer} — ${key === 'paper' ? '계약서' : '인도완료'} ${on ? '켬' : '끔'}`);
     await load(month);
   };
