@@ -3337,3 +3337,22 @@ No application code or business logic was modified by the auditor.
 Detail: `docs/ai-ssot-audit/2026-09-20-chatgpt-audit81-ai-core-push-guard-resolved-api-shadow.md`
 
 No application code or business logic was modified by the auditor.
+
+---
+
+## 2026-09-20 — ChatGPT audit (82): settlement revision guard + first-party UI adoption are live
+
+**판정: MATERIAL IMPLEMENTATION CHANGE / CLAUDE ENTRY POINT STALE / production ERP5 SSOT boundary unchanged.**
+
+- Audit (81)의 `0b3f9d13...` 기준 “정산 Core 작업은 route-unchanged SHADOW mapping” 요약은 더 이상 current가 아니다. PR #441 / merge `8e4bcb7a484f1ae024f05297923be100d8a21628`이 `POST /api/settlement/board` update 갈래에 Firestore `updateTime` 기반 `resource_revision`과 optional `expected_revision` transaction guard를 구현했다. stale revision은 write 없이 HTTP 409 `VERSION_MISMATCH`로 닫힌다.
+- PR #442 / merge `1b31af44fac362085649c13d155e4e0c089ae929`이 이 guard를 두 first-party Settlement UI까지 활성화했다. Board/Intake 목록·line detail이 revision을 보존하고 edit 시 `expected_revision`을 보내며, mismatch면 안내 후 최신 데이터를 reload한다. Legacy/external caller의 revision 생략은 호환 목적으로 계속 허용된다.
+- AI Core contract는 여전히 `SHADOW_WITH_GAPS`, `runtime_owner=ERP4`, `runtime_authority_preserved=true`, `cutover_authorized=false`다. 즉 active optimistic-concurrency가 생겼지만 AI Core runtime cutover 또는 settlement canonical owner 변경으로 해석하지 않는다.
+- Main 검증은 green이다: #441 generic CI `35507964978` / Source Contract `35507965001`, #442 generic CI `35508944501` / Source Contract `35508944490` 모두 success.
+- ERP5 production pin `cf940df642edf315adbc6da2b4134fbad53da160`, 24-source registry, 동일 fixed-snapshot F01/F86, F86 `종합`의 손오공·오토플러스 제외 + dedicated tabs, Sonogong `오공구독`/`픽업구독`, AutoPlus `오플구독`, retired mirror/sales automatic writers, RTDB/mirror non-canonical boundary에는 새 drift가 없다.
+- 계속 OPEN: audit (67) quote-defaults freshness, audit (71) shared ERP5 concurrency/pending replacement + 15:05 cancelled-before-job reconciliation, audit (76) successful native 18:05 settlement false replay, native cadence/timeliness HOLD.
+
+**Claude implementation owner:** 현재 active ERP4 revision guard/UI transport를 보존한다. 이 감사를 근거로 Core cutover·ERP5 writer 변경·settlement business semantics 확대를 하지 않는다. Legacy/external caller의 `expected_revision` 강제 여부는 별도 구현 결정으로 남긴다.
+
+Detail: `docs/ai-ssot-audit/2026-09-20-chatgpt-audit82-settlement-revision-ui-active.md`
+
+No application code or business logic was modified by the auditor.

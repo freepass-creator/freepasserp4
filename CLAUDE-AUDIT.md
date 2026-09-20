@@ -1,3 +1,21 @@
+# Claude 실행 오더 — Audit (82) override
+
+최우선 최신 판정: **Audit (81)의 “정산 Core 작업은 route-unchanged SHADOW mapping” 요약은 stale이다. PR #441과 #442로 ERP4 정산 update의 optimistic revision guard와 두 first-party UI transport가 실제 runtime에 활성화됐다. 다만 AI Core contract 자체는 계속 SHADOW_WITH_GAPS이며 ERP5 canonical SSOT 경계는 바뀌지 않았다.**
+
+PR #441 / merge `8e4bcb7a484f1ae024f05297923be100d8a21628`은 Firestore `DocumentSnapshot.updateTime`을 `resource_revision=firestore:<seconds>:<nanoseconds>`로 사용하고, update 호출이 `expected_revision`을 보내면 transaction에서 read/compare/write한다. stale이면 write 없이 HTTP 409 `VERSION_MISMATCH`를 반환한다. Revision을 보내지 않는 legacy/external caller는 호환 경로가 유지된다.
+
+PR #442 / merge `1b31af44fac362085649c13d155e4e0c089ae929`은 SettlementBoard와 IntakeStation이 list/line-detail revision을 보존하고 edit 시 `expected_revision`을 보내게 만들었다. mismatch는 사용자에게 알리고 즉시 최신 데이터를 reload한다. Contract는 `runtime_owner=ERP4`, `runtime_authority_preserved=true`, `cutover_authorized=false`, `OPTIONAL_EXPECTED_REVISION`; request/correlation ID와 full Core error/result envelope는 계속 gap이다. Main 검증은 #441 CI `35507964978` + Source Contract `35507965001`, #442 CI `35508944501` + Source Contract `35508944490` 모두 success다.
+
+Production engine pin은 계속 `cf940df642edf315adbc6da2b4134fbad53da160`이다. Core boundary도 unchanged: 24-source ERP5 registry, 동일 fixed-snapshot F01/F86, F86 `종합`의 손오공·오토플러스 제외 + dedicated tabs, Sonogong `오공구독`/`픽업구독`, AutoPlus `오플구독`, retired `mirror-sync`/`sales-erp-hourly` automatic writer, RTDB/mirror non-canonical boundary를 유지한다. Commit `6188a9ea6b22a7513e51c325384c8558201708e2`의 FreePass Data Hub handoff는 docs-only이며 이 경계를 바꾸지 않는다.
+
+계속 OPEN: audit (67) standard quote-defaults projection freshness, audit (71) shared ERP5 concurrency/pending-replacement + 15:05 cancelled-before-job reconciliation, audit (76) successful native 18:05 settlement false replay, native cadence/timeliness HOLD.
+
+Claude는 active revision guard와 first-party UI transport를 보존한다. 이 감사를 AI Core runtime cutover, ERP5 canonical writer migration, settlement business semantics 확대의 근거로 사용하지 않는다. Legacy/external caller까지 `expected_revision`을 강제할지는 별도 구현 결정이다. 구현은 Claude 단일 SSOT 세션만 수행한다.
+
+Detail: `docs/ai-ssot-audit/2026-09-20-chatgpt-audit82-settlement-revision-ui-active.md`
+
+---
+
 # Claude 실행 오더 — Audit (81) override
 
 최우선 최신 판정: **Audit (80)의 AI Core SHADOW main-push Source Contract coverage gap은 해소됐다. 동시에 정산 신규접수 API의 AI Core mapping이 새 SHADOW pilot으로 추가됐지만 runtime authority/cutover는 바뀌지 않았다.**
