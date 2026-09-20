@@ -123,6 +123,6 @@
     "introduce request/correlation context without changing business semantics",
     "bind create idempotency to a Core request context while preserving deterministic receipt identity",
     "dual-emit or internally project stable Core error families",
-    "validate one update operation separately with expected_revision before widening scope"
+    "wire the settlement edit UI to send resource_revision as expected_revision before widening scope"
   ]
 }

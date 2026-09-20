@@ -39,6 +39,7 @@ import {
   localSettlementDay,
   withDeliveryInvariant,
 } from '@/lib/domain/settlement-intake';
+import { expectedRevisionMatches, firestoreResourceRevision } from '@/lib/domain/ai-core-revision';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -60,6 +61,12 @@ const db = () => getFirestore(firebaseAdminApp());
 
 type Row = Record<string, unknown>;
 const alive = (r: Row) => r.cancelled !== true;
+
+type RevisionSnapshot = { updateTime?: { seconds: number; nanoseconds: number } | null };
+const revisionOf = (snapshot: RevisionSnapshot) => {
+  const t = snapshot.updateTime;
+  return t ? firestoreResourceRevision(t.seconds, t.nanoseconds) : '';
+};
 
 /* ══════════════════════════════════════════════════════════════════
    GET — 그 달을 한 화면에
@@ -133,7 +140,7 @@ export async function GET(req: Request) {
     const spec = Object.entries(v)
       .filter(([k, x]) => !SKIP_LINE.test(k) && S(x) !== '' && x !== false)
       .map(([k, x]) => ({ key: k, label: atomField(k)?.label || k, value: S(x) }));
-    return NextResponse.json({ id: lineQ, found: true, spec });
+    return NextResponse.json({ id: lineQ, found: true, resource_revision: revisionOf(hit), spec });
   }
 
   const all = (await fs.collection('settlement_rows').get()).docs.map((d) => ({ id: d.id, ...d.data() })) as (Row & { id: string })[];
@@ -337,7 +344,11 @@ const NEVER = new Set(['collected', 'collectedAt', 'collectedAmt', 'paid', 'paid
 export async function POST(req: Request) {
   const who = await admin(req);
   if (!who) return NextResponse.json({ error: '관리자만 씁니다' }, { status: 403 });
-  const body = await req.json().catch(() => null) as { id?: string; patch?: Record<string, unknown> } | null;
+  const body = await req.json().catch(() => null) as {
+    id?: string;
+    patch?: Record<string, unknown>;
+    expected_revision?: string;
+  } | null;
   const patch = body?.patch;
   if (!patch || typeof patch !== 'object') return NextResponse.json({ error: '남길 것이 없습니다' }, { status: 400 });
 
@@ -369,22 +380,81 @@ export async function POST(req: Request) {
   /* ── 고치기 ─────────────────────────────────────────────── */
   if (S(body?.id)) {
     const ref = col.doc(S(body?.id));
+    const expectedRevision = S(body?.expected_revision);
+
+    /**
+     * AI Core expected_revision 을 보내는 호출은 낙관적 잠금을 건다.
+     * 기존 화면은 expected_revision 을 아직 보내지 않으므로 아래 legacy 경로를 그대로 탄다.
+     * 즉 이 단계는 additive opt-in 이고, 기존 저장 동작을 갑자기 막지 않는다.
+     */
+    if (expectedRevision) {
+      const guarded = await fs.runTransaction(async (tx) => {
+        const before = await tx.get(ref);
+        if (!before.exists) {
+          return { kind: 'NOT_FOUND' as const };
+        }
+
+        const actualRevision = revisionOf(before);
+        if (!expectedRevisionMatches(expectedRevision, actualRevision)) {
+          return { kind: 'VERSION_MISMATCH' as const, actual_revision: actualRevision };
+        }
+
+        const current = before.data() || {};
+        if (hasDeliveryContradiction(patch, current)) {
+          return { kind: 'DOMAIN_VALIDATION' as const };
+        }
+
+        const writePatch = withDeliveryInvariant(patch, current, localSettlementDay());
+        tx.set(ref, { ...writePatch, updatedAt: Date.now() }, { merge: true });
+        return { kind: 'WRITTEN' as const, writePatch };
+      });
+
+      if (guarded.kind === 'NOT_FOUND') {
+        return NextResponse.json({ error: '그 줄이 없습니다' }, { status: 404 });
+      }
+      if (guarded.kind === 'VERSION_MISMATCH') {
+        return NextResponse.json({
+          error: '다른 수정이 먼저 저장되었습니다. 최신 내용을 다시 불러와 주세요.',
+          code: 'VERSION_MISMATCH',
+          expected_revision: expectedRevision,
+          actual_revision: guarded.actual_revision,
+        }, { status: 409 });
+      }
+      if (guarded.kind === 'DOMAIN_VALIDATION') {
+        return NextResponse.json({ error: '인도일·청구월을 넣으려면 인도완료 상태여야 합니다' }, { status: 400 });
+      }
+
+      const after = await ref.get();
+      const back = after.data() || {};
+      const gap = Object.entries(guarded.writePatch).filter(([k, v]) => S(back[k]) !== S(v)).map(([k]) => k);
+      if (gap.length) return NextResponse.json({ error: `되읽으니 다릅니다 — ${gap.join(' · ')}` }, { status: 500 });
+      return NextResponse.json({
+        ok: true,
+        id: ref.id,
+        mode: '고침',
+        resource_revision: revisionOf(after),
+      });
+    }
+
+    /** 기존 호출 호환: expected_revision 이 없으면 기존 write path를 그대로 유지한다. */
     const before = await ref.get();
     if (!before.exists) return NextResponse.json({ error: '그 줄이 없습니다' }, { status: 404 });
     const current = before.data() || {};
     if (hasDeliveryContradiction(patch, current)) {
       return NextResponse.json({ error: '인도일·청구월을 넣으려면 인도완료 상태여야 합니다' }, { status: 400 });
     }
-    /**
-     * 인도완료는 서버에서도 인도일·청구월과 한 덩어리로 강제한다.
-     * 화면을 거치지 않는 호출도 같은 상태 전이를 지나야 접수 목록에 고아 줄이 남지 않는다.
-     */
     const writePatch = withDeliveryInvariant(patch, current, localSettlementDay());
     await ref.set({ ...writePatch, updatedAt: Date.now() }, { merge: true });
-    const back = (await ref.get()).data() || {};
+    const after = await ref.get();
+    const back = after.data() || {};
     const gap = Object.entries(writePatch).filter(([k, v]) => S(back[k]) !== S(v)).map(([k]) => k);
     if (gap.length) return NextResponse.json({ error: `되읽으니 다릅니다 — ${gap.join(' · ')}` }, { status: 500 });
-    return NextResponse.json({ ok: true, id: ref.id, mode: '고침' });
+    return NextResponse.json({
+      ok: true,
+      id: ref.id,
+      mode: '고침',
+      resource_revision: revisionOf(after),
+    });
   }
 
   /* ── 접수 (새 줄) ───────────────────────────────────────── */
