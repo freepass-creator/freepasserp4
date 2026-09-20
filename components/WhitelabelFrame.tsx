@@ -572,6 +572,7 @@ const useIsoLayoutEffect = typeof window === 'undefined' ? useEffect : useLayout
 
 function WhitelabelNotice({ wl, mobile }: { wl: Whitelabel; mobile: boolean }) {
   const notice = wl.notice;
+  const standardLabel = labelKind(wl) === 'standard';
   const [closed, setClosed] = useState(false);
 
   /* ⚠ 저장소는 «없을 수도» 있다(사생활 보호 창·차단 설정) — 못 읽으면 그냥 보여준다. */
@@ -637,8 +638,8 @@ function WhitelabelNotice({ wl, mobile }: { wl: Whitelabel; mobile: boolean }) {
   );
 
   return (
-    /* 면(brandSoft)이 이미 경계를 만든다 — 그 위에 선을 또 그으면 테두리가 두 겹이 된다. */
-    <div style={{ background: C.brandSoft }}>
+    /* 표준라벨은 BI 보조색에서 뽑은 아주 옅은 쿨블루 면을 쓴다. 채널라벨은 각 채널 brandSoft 유지. */
+    <div style={{ background: standardLabel ? C.brandAccentSoft : C.brandSoft }}>
       {/* ⚠ 폰 여백을 한 단 줄였다(사장님 2026-09-05 「간격이 너무 막 멀게 떨어져 있거나」) —
            이 블록이 폰 첫 화면에서 상품 앞에 서는 마지막 덩어리라, 여기서 번 세로가 곧 카드다.
            ★그림 배너는 제 여백을 제가 들고 있다(그림 안에 여백이 그려져 있다) — 위아래만 남긴다. */}
