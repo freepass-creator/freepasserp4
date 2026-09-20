@@ -1,0 +1,114 @@
+{
+  "schema_version": "erp4-ai-core-api-shadow/v1",
+  "status": "SHADOW_WITH_GAPS",
+  "observed_at": "2026-09-20",
+  "consumer": {
+    "project": "freepasserp4",
+    "repository": "freepass-creator/freepasserp4",
+    "route": "app/api/settlement/board/route.ts",
+    "method": "POST",
+    "operation": "settlement.intake.update",
+    "scope_selector": "body.id is present"
+  },
+  "ai_core": {
+    "repository": "freepass-creator/ai-core",
+    "revision": "ade9648774f2637eb822aaa97192858a66c29a55",
+    "contracts": {
+      "request_context": "core.request-context.v1",
+      "error": "core.error.v1",
+      "result": "core.result.v1"
+    }
+  },
+  "authority": {
+    "runtime_owner": "ERP4",
+    "runtime_authority_preserved": true,
+    "cutover_authorized": false,
+    "compatibility_mode": "OPTIONAL_EXPECTED_REVISION"
+  },
+  "project_semantics": {
+    "resource_revision_source": "Firestore DocumentSnapshot.updateTime",
+    "resource_revision_format": "firestore:<seconds>:<nanoseconds>",
+    "revision_exposure": [
+      "GET /api/settlement/board?line=<id> -> resource_revision",
+      "successful update response -> resource_revision"
+    ],
+    "legacy_update_without_expected_revision": "PRESERVED",
+    "guarded_update": {
+      "request_field": "expected_revision",
+      "transactional": true,
+      "compare_before_write": true,
+      "mismatch_http_status": 409,
+      "mismatch_code": "VERSION_MISMATCH"
+    }
+  },
+  "core_shadow_mapping": {
+    "request_context": {
+      "request_id": "MISSING",
+      "correlation_id": "MISSING",
+      "actor": "PROJECT_NATIVE_AVAILABLE",
+      "expected_revision": "OPTIONAL_IMPLEMENTED",
+      "idempotency": {
+        "state": "NOT_APPLICABLE_FOR_UPDATE_PILOT"
+      }
+    },
+    "errors": [
+      {
+        "project_http_status": 400,
+        "core_code": "VALIDATION_ERROR",
+        "category": "USER",
+        "retryable": false
+      },
+      {
+        "project_http_status": 400,
+        "core_code": "DOMAIN_VALIDATION_FAILED",
+        "category": "USER",
+        "retryable": false
+      },
+      {
+        "project_http_status": 403,
+        "core_code": "FORBIDDEN",
+        "category": "USER",
+        "retryable": false
+      },
+      {
+        "project_http_status": 404,
+        "core_code": "NOT_FOUND",
+        "category": "USER",
+        "retryable": false
+      },
+      {
+        "project_http_status": 409,
+        "core_code": "VERSION_MISMATCH",
+        "category": "USER",
+        "retryable": false
+      },
+      {
+        "project_http_status": 500,
+        "core_code": "PERSISTENCE_ERROR",
+        "category": "SYSTEM",
+        "retryable": true
+      }
+    ],
+    "result": "PROJECT_NATIVE_SUCCESS_WITH_RESOURCE_REVISION"
+  },
+  "gaps": [
+    "request_id is not accepted or emitted",
+    "correlation_id is not accepted or emitted",
+    "legacy clients do not yet send expected_revision",
+    "errors are not fully emitted as core.error.v1 / RFC 9457-compatible envelopes",
+    "success is not fully emitted as core.result.v1"
+  ],
+  "excluded_scope": [
+    "POST create branch when body.id is absent",
+    "automatic migration of existing clients to expected_revision",
+    "auth replacement",
+    "database migration",
+    "full API response-envelope cutover"
+  ],
+  "next_gate": [
+    "wire settlement UI edit flow to preserve and send resource_revision as expected_revision",
+    "add request_id and correlation_id",
+    "project stable Core error envelope internally before public cutover",
+    "extend optimistic concurrency only after this bounded operation remains green"
+  ]
+}
