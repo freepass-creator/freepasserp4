@@ -79,6 +79,6 @@ If ERP4 later adds request/correlation IDs or changes duplicate semantics, this 
 1. add request/correlation context without changing business behavior;
 2. bind Core idempotency semantics to the existing deterministic receipt identity rather than replacing it;
 3. internally project stable Core error envelopes while preserving the current client contract;
-4. pilot the update branch separately with `expected_revision` before widening adoption.
+4. wire the settlement edit UI to retain `resource_revision` and send it back as `expected_revision` before widening adoption.
 
 This document does not authorize runtime response changes, data writes, auth replacement, deployment, or Core cutover.
