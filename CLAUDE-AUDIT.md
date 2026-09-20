@@ -1,3 +1,21 @@
+# Claude 실행 오더 — Audit (83) override
+
+최우선 최신 판정: **Audit (82)의 settlement revision-guard/UI 활성화는 계속 유효하지만, current main은 SSOT 검증 체인 기준 CI HOLD다.** Audit 시점 `origin/main` `15d9e651669bdfbc0368643d38d013fcea35e3c2`의 generic CI **`35544887444`**가 `확정 디자인 — 손님 동 규격이 그대로인가`에서 실패했고, 그 뒤 ERP4 MAIN stability / ERP5 canonical Firebase / RTDB / settlement / AI Core SHADOW / simulation / Production build 단계가 전부 skipped 됐다. 따라서 **latest main에서 이 SSOT guards가 green이라고 가정하지 않는다.** Skipped는 failure 증거가 아니라 미실행 증거다.
+
+Current ShopCard/list-money code와 design checker는 목록만 `manShort(price.rent, { decimal: true })`로 축약하고 상세·계약·정산 실제 금액은 원 단위로 유지하는 계약으로 이미 맞춰져 있다. 이 audit은 canonical money corruption을 주장하지 않으며, direct log evidence 없이 남은 design-gate failure를 해당 formatter 탓으로 단정하지 않는다. Claude는 intended UI와 confirmed-design gate를 reconcile하고 **fresh main CI에서 downstream SSOT guards가 실제 실행되어 green**인 증거를 만든다.
+
+별도 운영 HOLD: `Production Deploy Recovery` run **`35544475310`**은 `배포 자격 확인`에서 실패해 install/main 검증/Deploy Hook/Vercel link/CLI production deploy가 모두 skipped 됐다. Workflow 정의상 `VERCEL_DEPLOY_HOOK` 또는 `VERCEL_TOKEN` 중 하나가 필요한데 이 run에서는 둘 다 사용할 수 없었다. 이는 **repo recovery workflow가 그 run에서 deploy를 수행하지 못했다는 뜻**이며, external/native Vercel Git deployment 상태까지 단정하지 않는다. 해당 recovery path를 운영용으로 유지할 것이면 선언된 credential path를 복구/승인하고 green evidence를 남긴다.
+
+ERP5 canonical boundary는 unchanged: production engine pin `cf940df642edf315adbc6da2b4134fbad53da160`, 24-source registry, 동일 fixed-snapshot F01/F86, Sonogong `오공구독`/`픽업구독`, AutoPlus `오플구독`, retired mirror/sales automatic writers, RTDB/mirror non-canonical boundary를 유지한다. Audit (82)의 ERP4 active optimistic revision guard/first-party expected_revision transport는 유지하고 AI Core는 SHADOW_WITH_GAPS/non-authoritative다.
+
+계속 OPEN: audit (67) quote-default freshness, audit (71) shared ERP5 concurrency/pending-replacement + 15:05 reconciliation, audit (76) already-successful native slot false replay, native cadence/timeliness HOLD.
+
+구현은 Claude 단일 SSOT 세션만 수행한다. 이 audit을 canonical source/writer migration 또는 settlement business semantics 변경 근거로 사용하지 않는다.
+
+Detail: `docs/ai-ssot-audit/2026-09-21-chatgpt-audit83-main-ci-and-deploy-recovery-red.md`
+
+---
+
 # Claude 실행 오더 — Audit (82) override
 
 최우선 최신 판정: **Audit (81)의 “정산 Core 작업은 route-unchanged SHADOW mapping” 요약은 stale이다. PR #441과 #442로 ERP4 정산 update의 optimistic revision guard와 두 first-party UI transport가 실제 runtime에 활성화됐다. 다만 AI Core contract 자체는 계속 SHADOW_WITH_GAPS이며 ERP5 canonical SSOT 경계는 바뀌지 않았다.**

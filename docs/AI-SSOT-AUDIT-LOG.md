@@ -3356,3 +3356,22 @@ No application code or business logic was modified by the auditor.
 Detail: `docs/ai-ssot-audit/2026-09-20-chatgpt-audit82-settlement-revision-ui-active.md`
 
 No application code or business logic was modified by the auditor.
+
+---
+
+## 2026-09-21 — ChatGPT audit (83): latest main CI verification chain red; Production Deploy Recovery blocked
+
+**판정: MATERIAL REGRESSION / CI-GOVERNANCE HOLD + PRODUCTION-RECOVERY HOLD. ERP5 canonical authority unchanged.**
+
+- Current `origin/main` at audit time is `15d9e651669bdfbc0368643d38d013fcea35e3c2`. Generic CI run **`35544887444`** is `failure`: Typecheck/token/grid checks passed, then `확정 디자인 — 손님 동 규격이 그대로인가` failed.
+- Because that gate failed, all later SSOT verification steps were **skipped**, including ERP4 MAIN stability lock, ERP5 canonical Firebase boundary, RTDB direct-open/retirement guards, Firestore feed checks, settlement lock, AI Core settlement-intake shadow check, simulations, and Production build. This is **missing verification on latest main**, not evidence that the skipped guards themselves fail.
+- Current ShopCard/list-money contract and checker both now encode list-only `manShort(price.rent, { decimal: true })` while preserving exact won values on detail/contract/settlement. Do not call this canonical money corruption or assign the remaining design-gate failure to that formatter without direct log evidence; the material defect is that current main remains red before the SSOT guards can run.
+- `Production Deploy Recovery` run **`35544475310`** for `34a7279edc502cd3e96d1a4973d946c416b42609` separately failed at `배포 자격 확인`. Install/main verification/Deploy Hook/Vercel link/CLI deploy were skipped. The workflow requires `VERCEL_DEPLOY_HOOK` or `VERCEL_TOKEN`, so this repository recovery run had neither available and performed no deploy. This finding does **not** establish external/native Vercel deployment state.
+- Core SSOT authority cross-check is unchanged: production engine pin `cf940df642edf315adbc6da2b4134fbad53da160`, 24-source ERP5 registry, same fixed-snapshot F01/F86, Sonogong `오공구독`/`픽업구독`, AutoPlus `오플구독`, retired automatic mirror/sales writers, and RTDB/mirror non-canonical boundary remain intact. Audit (82)'s ERP4 settlement revision guard/UI transport remains active; AI Core remains SHADOW/non-authoritative.
+- Audit (67)/(71)/(76) plus native cadence/timeliness HOLD remain OPEN.
+
+**Claude implementation owner:** reconcile the confirmed-design gate with intended current UI and obtain a fresh main CI where the downstream SSOT guards actually execute green. Separately restore/authorize the declared Production Deploy Recovery credential path if that recovery workflow is expected to operate. Do not change canonical business semantics merely to clear this audit.
+
+Detail: `docs/ai-ssot-audit/2026-09-21-chatgpt-audit83-main-ci-and-deploy-recovery-red.md`
+
+No application code or business logic was modified by the auditor.
