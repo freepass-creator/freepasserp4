@@ -115,7 +115,7 @@
 /*
  * ERP4 MAIN 상품 목록 밀도 — 디자인은 유지하고 웹에서만 한 단계 조밀하게.
  *
- * 모바일은 기존 1열/폰트 그대로. 웹은 3열을 기본으로 두되 1280px 이상에서 4열로 전환한다.
+ * 모바일은 기존 1열/폰트 그대로. 좁은 웹은 2열, 보통 웹은 3열, 1280px 이상은 4열이다.
  * 1280 컨테이너 안에서 좌측 조건 260 + 간격 32를 빼면 카드가 약 220px대라,
  * 기존 3열의 약 300px 카드보다 한 화면 비교량이 늘면서도 차명·요금이 읽히는 폭은 남는다.
  *
@@ -124,9 +124,14 @@
  */
 .fp-shop-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   row-gap: 24px;
   column-gap: 16px;
+}
+@media (min-width: 1024px) {
+  .fp-shop-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 @media (min-width: 1280px) {
   .fp-shop-grid {
