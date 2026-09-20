@@ -197,7 +197,7 @@ export function WhitelabelFrame({
           긴 목록에서 56px 를 내내 잡아먹기만 하고 손님이 거기서 할 수 있는 일이 없다.
       */}
       <header ref={headRef} style={{
-        borderBottom: standardLabel ? `2px solid ${C.brandAccent}` : `1px solid ${C.line}`, background: C.bg,
+        borderBottom: `1px solid ${C.line}`, background: C.bg,
         /*
          * ★폰 머리띠는 **고정**이다 — 오른쪽에 검색·조건·공유가 들어와 있어서,
          *   목록을 한참 내려간 손님이 맨 위로 되돌아가지 않아도 조건을 다시 건다.
