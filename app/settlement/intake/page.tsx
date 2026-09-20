@@ -33,14 +33,24 @@ export default function IntakePage() {
       const j = await r.json().catch(() => ({})) as { ok?: boolean; error?: string; id?: string };
       return { ok: r.ok && !!j.ok, error: j.error, id: j.id };
     },
-    edit: async (id, patch) => {
+    edit: async (id, patch, expectedRevision) => {
       const t = await bearer(); if (!t) return { ok: false, error: '로그인이 풀렸습니다' };
       const r = await fetch('/api/settlement/board', {
         method: 'POST', headers: { Authorization: `Bearer ${t}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, patch }),
+        body: JSON.stringify({ id, patch, expected_revision: expectedRevision || undefined }),
       });
-      const j = await r.json().catch(() => ({})) as { ok?: boolean; error?: string };
-      return { ok: r.ok && !!j.ok, error: j.error };
+      const j = await r.json().catch(() => ({})) as {
+        ok?: boolean;
+        error?: string;
+        code?: string;
+        resource_revision?: string;
+      };
+      return {
+        ok: r.ok && !!j.ok,
+        error: j.error,
+        code: j.code,
+        resource_revision: j.resource_revision,
+      };
     },
     car: async (plate) => {
       const t = await bearer(); if (!t) return null;
@@ -56,8 +66,10 @@ export default function IntakePage() {
       const r = await fetch(`/api/settlement/board?line=${encodeURIComponent(id)}`,
         { headers: { Authorization: `Bearer ${t}` }, cache: 'no-store' });
       if (!r.ok) return null;
-      const j = await r.json() as { found?: boolean; spec?: LineSpec[] };
-      return j.found ? (j.spec || []) : null;
+      const j = await r.json() as { found?: boolean; spec?: LineSpec[]; resource_revision?: string };
+      return j.found
+        ? { spec: j.spec || [], resource_revision: String(j.resource_revision || '') }
+        : null;
     },
   }), [ready, session]);
   if (!ready || !session) return null;
