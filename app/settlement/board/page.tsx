@@ -44,14 +44,24 @@ export default function SettlementBoardPage() {
       return { ok: r.ok && !!j.ok, error: j.error, id: j.id };
     },
     /** 체크 하나를 켜고 끈다 — 서버가 규격으로 재고 되읽어 확인한다. */
-    edit: async (id, patch) => {
+    edit: async (id, patch, expectedRevision) => {
       const t = await bearer(); if (!t) return { ok: false, error: '로그인이 풀렸습니다' };
       const r = await fetch('/api/settlement/board', {
         method: 'POST', headers: { Authorization: `Bearer ${t}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id, patch }),
+        body: JSON.stringify({ id, patch, expected_revision: expectedRevision || undefined }),
       });
-      const j = await r.json().catch(() => ({})) as { ok?: boolean; error?: string };
-      return { ok: r.ok && !!j.ok, error: j.error };
+      const j = await r.json().catch(() => ({})) as {
+        ok?: boolean;
+        error?: string;
+        code?: string;
+        resource_revision?: string;
+      };
+      return {
+        ok: r.ok && !!j.ok,
+        error: j.error,
+        code: j.code,
+        resource_revision: j.resource_revision,
+      };
     },
     car: async (plate) => {
       const t = await bearer(); if (!t) return null;
