@@ -134,9 +134,10 @@ export function useSampleApi(): BoardApi {
         paper: '계약서', delivered: '인도완료', billed: '청구서 나감', intakeKind: '접수 갈래', note: '비고',
         stage: '지금 어디', claimStage: '청구 축', payStage: '지급 축', code: '원자 코드',
       };
-      return Object.entries(r)
-        .filter(([k, v]) => k !== 'id' && v !== '' && v !== false && v !== 0 && v !== undefined)
+      const spec = Object.entries(r)
+        .filter(([k, v]) => k !== 'id' && k !== 'resource_revision' && v !== '' && v !== false && v !== 0 && v !== undefined)
         .map(([k, v]) => ({ key: k, label: 이름표[k] || k, value: String(v) }));
+      return { spec, resource_revision: String(r.resource_revision || `preview:${id}`) };
     },
     car: async (plate) => (plate === '11가1111'
       ? {
