@@ -594,8 +594,10 @@ must(/top: \{ title: 18, cobrand: 12 \}/.test(shopUi)
   && /headlineFs=\{SHOP\.top\.title\}/.test(wlFrame)
   && /CoBrandFreepass fs=\{SHOP\.top\.cobrand\}/.test(wlFrame)
   && /fontSize: SHOP\.top\.title, fontWeight: FW\.title, color: C\.ink, letterSpacing: '-0\.02em', lineHeight: 1/.test(shopDetail)
-  && /headlineFs\?: number/.test(brandCi),
-  '목록과 상세의 상단 헤더 규격이 갈렸습니다 — 제목 크기·굵기·자간·줄높이를 동일하게 씁니다.',
+  && /headlineFs\?: number/.test(brandCi)
+  && /height: mobile \? 48 : 56/.test(wlFrame)
+  && /borderBottom: 'none'/.test(wlFrame),
+  '목록과 상세의 상단 헤더 규격이 갈렸습니다 — 제목 타이포는 같고, 바는 웹 56/폰 48이며 하단 가름선이 없어야 합니다.',
   'docs/ERP4-MAIN-UI-STANDARD.md §4');
 /* 차번은 차명 줄 «안»에 있다 — h1 이 닫히기 전에 나와야 이름의 끝으로 읽힌다. */
 must(/\{title\}[\s\S]{0,400}?\{facts \? \([\s\S]{0,400}?<\/h1>/.test(shopDetail),
