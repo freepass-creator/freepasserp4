@@ -1,7 +1,7 @@
 'use client';
 import { useCallback, useEffect, useLayoutEffect, useState, type ReactNode } from 'react';
-import { Phone, SquareArrowOutUpRight } from 'lucide-react';
-import { C, FW, ICON, R_CARD, Checkbox, fmtPhone } from '@/components/ui';
+import { Phone, SquareArrowOutUpRight, X } from 'lucide-react';
+import { C, FW, ICON, R_CARD, fmtPhone } from '@/components/ui';
 import { todayKst } from '@/lib/format';
 import { SHOP, SHOP_MOBILE_BP, ShopDock, ShopDockAction } from '@/components/shop/shop-ui';
 import { ChannelSign, ChannelWordmark, CoBrandFreepass } from '@/components/brand-ci';
@@ -652,35 +652,29 @@ function WhitelabelNotice({ wl, mobile }: { wl: Whitelabel; mobile: boolean }) {
           <a href={href} style={{ display: 'block', textDecoration: 'none', color: 'inherit' }}>{안쪽}</a>
         ) : 안쪽}
         {/*
-          ★★**닫기는 작은 체크박스 한 줄**(사장님 2026-09-21).
-          배너의 주인공은 안내 내용이고, 「오늘 하루 안 보기」는 보조 설정이다. 흰 단추 + X처럼
-          별도 액션 면을 크게 세우면 배너보다 닫기가 먼저 읽혀 촌스럽고 무겁다.
-          ⇒ 네이티브 checkbox + 흐린 보조문구로 바꾼다.
-          ★AI Core 원칙도 같이 지킨다 — native semantics 우선, 의미를 색 하나에만 맡기지 않고,
-            실제 체크박스는 18px이지만 label 전체가 최소 44px(모바일) 터치영역을 가진다.
-          ★체크 즉시 오늘 날짜를 저장하고 배너를 닫는다. 내일이면 같은 로직으로 다시 나타난다.
+          ★★**2026-09-21 개정 — 체크박스는 걷고, 아주 연한 문구 + X만 둔다.**
+          「오늘 하루 안 보기」는 배너의 보조 설정이라 컨트롤처럼 세게 보이면 안 된다.
+          별도 흰 면·테두리·체크박스 없이 문구와 X만 아주 연하게 두고, 둘을 한 누름 영역으로 묶는다.
+          ★보이는 것은 가볍게, 누름 영역은 모바일 최소 44px을 유지한다.
+          ★누르면 즉시 오늘 날짜를 저장하고 배너를 닫는다. 내일이면 다시 나타난다.
         */}
-        <label
+        <button
+          type="button"
+          onClick={close}
+          aria-label="오늘 하루 안 보기"
           style={{
-            position: 'absolute', right: mobile ? 10 : 18, top: mobile ? 8 : 14, zIndex: 1,
+            position: 'absolute', right: mobile ? 8 : 16, top: mobile ? 6 : 12, zIndex: 1,
             display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
             gap: SHOP.sp.tight, minHeight: mobile ? 44 : 36, paddingInline: SHOP.sp.tight,
-            cursor: 'pointer', userSelect: 'none',
+            border: 0, background: 'transparent', cursor: 'pointer',
+            color: C.faint, fontFamily: 'inherit',
           }}
         >
-          <Checkbox
-            checked={false}
-            ariaLabel="오늘 하루 안 보기"
-            onChange={(checked) => { if (checked) close(); }}
-            style={{
-              width: ICON.lg, height: ICON.lg, margin: 0, accentColor: C.brand,
-              cursor: 'pointer', flex: '0 0 auto',
-            }}
-          />
           <span style={{ fontSize: SHOP.fs.cap, color: C.faint, whiteSpace: 'nowrap', fontWeight: FW.meta }}>
             오늘 하루 안 보기
           </span>
-        </label>
+          <X size={ICON.sm} aria-hidden style={{ color: C.faint }} />
+        </button>
       </div>
     </div>
   );
