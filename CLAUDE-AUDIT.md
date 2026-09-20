@@ -1,3 +1,19 @@
+# Claude 실행 오더 — Audit (80) override
+
+최우선 최신 판정: **AI Core Core Contract SHADOW가 main에 실제 병합됐고, production SSOT 의미는 유지되지만 main push CI path guard에 새 빈틈이 있다.** Current main implementation delta의 기준 merge는 `14056f8c2c3a7cc973d956b4f23929a4c420fb98`이다. 이 merge는 `contracts/ai-core/**`, `lib/domain/ai-core-contract-shadow.ts`, `scripts/check-ai-core-contract-shadow.mts`, `scripts/core-contract/**`와 ERP5 ingest Core receipt shadow를 추가했다.
+
+Production engine pin은 계속 `cf940df642edf315adbc6da2b4134fbad53da160`이다. `erp5-ssot-refresh.yml`의 새 receipt 경로는 helper만 `${{ github.workflow_sha }}`에서 sparse checkout하고 receipt build/upload를 `continue-on-error: true`로 수행하므로 canonical writer/publish 경계를 대체하지 않는다. Merge push run `35479442674`의 Source Contract CI는 canonical inventory contract, AI Core shadow, receipt parser, workflow regression까지 전부 success다.
+
+**새 OPEN:** `.github/workflows/ssot-source-contract.yml`의 `pull_request.paths`에는 `scripts/check-ai-core-contract-shadow.mts`, `lib/domain/ai-core-contract-shadow.ts`, `contracts/ai-core/**`가 포함되지만 `push.paths`에는 이 세 경로가 빠져 있다. 따라서 이 shadow 파일들만 바뀌는 future main push/merge는 resulting main commit에서 `SSOT Source Contract`를 트리거하지 않을 수 있다. 현재 `main`은 branch protection이 꺼져 있고 required status check도 없으므로 PR-only 실행을 fail-closed enforcement로 가정하면 안 된다. 이는 **CI/governance coverage gap**이며 현재 ERP5 canonical data 오류 증거는 아니다.
+
+Core boundary는 unchanged: 24-source ERP5 runtime registry, fixed-snapshot F01/F86, Sonogong `오공구독`/`픽업구독`, AutoPlus `오플구독`, F86 `종합`의 Sonogong/AutoPlus special-channel 제외, retired legacy automatic writers, RTDB/mirror non-canonical boundary를 유지한다. Audit (67), (71), (76), native cadence/timeliness HOLD도 직접 해소 evidence 없이 닫지 않는다.
+
+Claude는 SHADOW/non-authoritative 상태를 유지하면서 Source Contract의 main push path coverage를 PR path coverage와 동등하게 fail-closed로 맞춘다. 구현은 Claude 단일 SSOT 세션만 수행한다.
+
+Detail: `docs/ai-ssot-audit/2026-09-20-chatgpt-audit80-ai-core-shadow-ci-push-filter-gap.md`
+
+---
+
 # Claude 실행 오더 — Audit (78) override
 
 최우선 최신 판정: **native direct ERP5 delivery 재관측 / cadence·timeliness HOLD 유지.** Audit (77)의 “18:31 이후 native `event=schedule`이 없고 final 19:17 slot이 계속 미관측” runtime snapshot은 stale이다. 새 ERP5 native schedule run **`35447185563`**이 **2026-09-19 22:55:32 KST** 생성돼 **23:05:39 KST `success`**로 끝났다. Production pin은 `cf940df642edf315adbc6da2b4134fbad53da160`이며 source contract → source recollection → settlement Atom lock → 24-source ingest → fixed snapshot → public/F01/F86 → freshness/cross-parity/photo audit까지 full green이다.
