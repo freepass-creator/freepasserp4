@@ -673,7 +673,7 @@ function WhitelabelNotice({ wl, mobile }: { wl: Whitelabel; mobile: boolean }) {
             aria-label="오늘 하루 안 보기"
             onChange={(e) => { if (e.currentTarget.checked) close(); }}
             style={{
-              width: 18, height: 18, margin: 0, accentColor: C.brand,
+              width: ICON.lg, height: ICON.lg, margin: 0, accentColor: C.brand,
               cursor: 'pointer', flex: '0 0 auto',
             }}
           />
