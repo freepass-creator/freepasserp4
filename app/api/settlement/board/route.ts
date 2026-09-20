@@ -145,8 +145,9 @@ export async function GET(req: Request) {
 
   const all = (await fs.collection('settlement_rows').get()).docs.map((d) => ({
     id: d.id,
-    resource_revision: revisionOf(d),
     ...d.data(),
+    /** revision은 문서 payload가 아니라 Firestore 메타데이터가 정본이다. */
+    resource_revision: revisionOf(d),
   })) as (Row & { id: string; resource_revision: string })[];
   const claws = (await fs.collection('settlement_clawbacks').get()).docs.map((d) => d.data() as Row);
 
