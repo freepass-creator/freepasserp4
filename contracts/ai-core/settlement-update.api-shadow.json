@@ -30,6 +30,7 @@
     "resource_revision_format": "firestore:<seconds>:<nanoseconds>",
     "revision_exposure": [
       "GET /api/settlement/board?line=<id> -> resource_revision",
+      "GET /api/settlement/board list rows -> resource_revision",
       "successful update response -> resource_revision"
     ],
     "legacy_update_without_expected_revision": "PRESERVED",
@@ -39,6 +40,11 @@
       "compare_before_write": true,
       "mismatch_http_status": 409,
       "mismatch_code": "VERSION_MISMATCH"
+    },
+    "first_party_ui_adoption": {
+      "settlement_board": "ACTIVE",
+      "intake_station": "ACTIVE",
+      "stale_conflict_behavior": "TOAST_AND_RELOAD"
     }
   },
   "core_shadow_mapping": {
@@ -94,7 +100,7 @@
   "gaps": [
     "request_id is not accepted or emitted",
     "correlation_id is not accepted or emitted",
-    "legacy clients do not yet send expected_revision",
+    "legacy or external callers may still omit expected_revision by compatibility design",
     "errors are not fully emitted as core.error.v1 / RFC 9457-compatible envelopes",
     "success is not fully emitted as core.result.v1"
   ],
@@ -106,9 +112,9 @@
     "full API response-envelope cutover"
   ],
   "next_gate": [
-    "wire settlement UI edit flow to preserve and send resource_revision as expected_revision",
-    "add request_id and correlation_id",
+    "add request_id and correlation_id to the bounded settlement write surface",
     "project stable Core error envelope internally before public cutover",
+    "observe VERSION_MISMATCH behavior in real first-party edits",
     "extend optimistic concurrency only after this bounded operation remains green"
   ]
 }
