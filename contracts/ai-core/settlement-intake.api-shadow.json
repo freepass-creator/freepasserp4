@@ -1,0 +1,128 @@
+{
+  "schema_version": "erp4-ai-core-api-shadow/v1",
+  "status": "SHADOW_WITH_GAPS",
+  "observed_at": "2026-09-20",
+  "consumer": {
+    "project": "freepasserp4",
+    "repository": "freepass-creator/freepasserp4",
+    "route": "app/api/settlement/board/route.ts",
+    "method": "POST",
+    "operation": "settlement.intake.create",
+    "scope_selector": "body.id is absent"
+  },
+  "ai_core": {
+    "repository": "freepass-creator/ai-core",
+    "revision": "ade9648774f2637eb822aaa97192858a66c29a55",
+    "contracts": {
+      "request_context": "core.request-context.v1",
+      "error": "core.error.v1",
+      "result": "core.result.v1"
+    }
+  },
+  "authority": {
+    "runtime_owner": "ERP4",
+    "runtime_authority_preserved": true,
+    "cutover_authorized": false,
+    "external_response_shape_changed": false
+  },
+  "project_semantics": {
+    "actor_requirement": "ADMIN",
+    "auth_boundary": "verifyActiveBearer + role=admin",
+    "domain_normalization": [
+      "withDeliveryInvariant",
+      "shapeAtom"
+    ],
+    "create_identity": {
+      "fields": [
+        "plate",
+        "receivedAt",
+        "customer"
+      ],
+      "algorithm": "SHA-256",
+      "write_primitive": "Firestore DocumentReference.create"
+    },
+    "duplicate_behavior": {
+      "http_status": 409,
+      "message_family": "same plate + received day + customer already exists"
+    },
+    "success_shape": {
+      "ok": true,
+      "id": "stl_<sha256>",
+      "mode": "접수"
+    },
+    "project_error_shape": "{ error: string, id?: string }"
+  },
+  "core_shadow_mapping": {
+    "request_context": {
+      "request_id": "MISSING",
+      "correlation_id": "MISSING",
+      "actor": "PROJECT_NATIVE_AVAILABLE",
+      "expected_revision": "MISSING",
+      "idempotency": {
+        "state": "PROJECT_NATIVE_DEDUP_ONLY",
+        "core_key": "MISSING",
+        "semantic_payload_digest": "MISSING"
+      }
+    },
+    "errors": [
+      {
+        "project_http_status": 400,
+        "core_code": "VALIDATION_ERROR",
+        "category": "USER",
+        "retryable": false,
+        "evidence": "missing patch / field name or type / date format"
+      },
+      {
+        "project_http_status": 400,
+        "core_code": "DOMAIN_VALIDATION_FAILED",
+        "category": "USER",
+        "retryable": false,
+        "evidence": "delivery-state contradiction or missing create identity"
+      },
+      {
+        "project_http_status": 403,
+        "core_code": "FORBIDDEN",
+        "category": "USER",
+        "retryable": false,
+        "evidence": "admin-only boundary"
+      },
+      {
+        "project_http_status": 409,
+        "core_code": "IDEMPOTENCY_CONFLICT",
+        "category": "USER",
+        "retryable": false,
+        "evidence": "deterministic duplicate receipt identity"
+      },
+      {
+        "project_http_status": 500,
+        "core_code": "PERSISTENCE_ERROR",
+        "category": "SYSTEM",
+        "retryable": true,
+        "evidence": "post-write readback mismatch"
+      }
+    ],
+    "result": "PROJECT_NATIVE_SUCCESS_NOT_CORE_RESULT"
+  },
+  "gaps": [
+    "request_id is not accepted or emitted",
+    "correlation_id is not accepted or emitted",
+    "core idempotency key is not accepted",
+    "semantic payload digest is not bound to the request",
+    "expected_revision is not carried",
+    "errors are not emitted as core.error.v1 / RFC 9457-compatible envelopes",
+    "success is not emitted as core.result.v1"
+  ],
+  "excluded_scope": [
+    "POST update branch when body.id is present",
+    "GET settlement board operations",
+    "runtime auth replacement",
+    "response-shape cutover",
+    "database or workflow state migration"
+  ],
+  "next_gate": [
+    "introduce request/correlation context without changing business semantics",
+    "bind create idempotency to a Core request context while preserving deterministic receipt identity",
+    "dual-emit or internally project stable Core error families",
+    "validate one update operation separately with expected_revision before widening scope"
+  ]
+}
