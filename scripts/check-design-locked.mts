@@ -1280,8 +1280,8 @@ must(/nowLabelKo\(now\)/.test(wlFrame) && /head\.weather/.test(wlFrame),
 
   /* 오늘 숨김 — 네이티브 체크박스 + 보조문구. 모바일은 label 전체가 44px 터치영역이다. */
   const dismiss = banner.slice(banner.indexOf('<label'));
-  must(/type="checkbox"/.test(dismiss) && /accentColor: C\.brand/.test(dismiss),
-    '배너 오늘 숨김이 네이티브 체크박스 규격에서 벗어났습니다.',
+  must(/<Checkbox/.test(dismiss) && /accentColor: C\.brand/.test(dismiss),
+    '배너 오늘 숨김이 공통 체크박스 원자 규격에서 벗어났습니다.',
     'components/WhitelabelFrame.tsx 오늘 하루 안 보기 · 사장님 2026-09-21');
   must(/minHeight: mobile \? 44 : 36/.test(dismiss),
     '배너 오늘 숨김의 모바일 터치영역이 44px 아래로 줄었습니다.',
