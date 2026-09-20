@@ -3,7 +3,7 @@ import { useCallback, useEffect, useLayoutEffect, useState, type ReactNode } fro
 import { Phone, SquareArrowOutUpRight, X } from 'lucide-react';
 import { C, FW, ICON, R_CARD, fmtPhone } from '@/components/ui';
 import { todayKst } from '@/lib/format';
-import { SHOP, ShopDock, ShopDockAction } from '@/components/shop/shop-ui';
+import { SHOP, SHOP_MOBILE_BP, ShopDock, ShopDockAction } from '@/components/shop/shop-ui';
 import { ChannelSign, ChannelWordmark, CoBrandFreepass } from '@/components/brand-ci';
 import { CORP } from '@/lib/domain/corporate-ci';
 import { useIsMobile } from '@/lib/use-mobile';
@@ -89,7 +89,7 @@ export function WhitelabelFrame({
   headerActions?: ReactNode;
   children: ReactNode;
 }) {
-  const mobile = useIsMobile();
+  const mobile = useIsMobile(SHOP_MOBILE_BP);
   /* ★머리띠의 «지금» 값(재고 갱신 시각·날씨) — 곁다리라 브라우저가 붙은 뒤에 채워진다. */
   const head = useShopHeadStatus();
   /* ★시계는 분마다 스스로 돈다 — 첫 그림에는 `null` 이라 날짜만 선다(hydration 안전). */

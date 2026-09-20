@@ -11,6 +11,9 @@ import {
 } from 'lucide-react';
 import { C, FW, ICON, PILL_R, R_CARD } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
+
+/** 공개 상품면은 600px 미만에서만 전용 모바일 흐름으로 전환한다. */
+export const SHOP_MOBILE_BP = 600;
 import { haptic } from '@/lib/haptics';
 
 /**
@@ -249,7 +252,7 @@ export function ShopPill({ on, onClick, children, title, mark }: {
    */
   mark?: string;
 }) {
-  const mobile = useIsMobile();
+  const mobile = useIsMobile(SHOP_MOBILE_BP);
   return (
     <button type="button" onClick={() => { haptic.select(); onClick(); }}
       title={title} aria-pressed={!!on} data-chip={mark} className="fp-shop-press fp-shop-fill"
@@ -322,7 +325,7 @@ export function ShopIconBtn({ onClick, label, tone = 'mute', count, children, si
    */
   hint?: string;
 }) {
-  const mobile = useIsMobile();
+  const mobile = useIsMobile(SHOP_MOBILE_BP);
   const box = size === 'chip'
     ? (mobile ? SHOP.pill.mobile : SHOP.pill.web)
     : (mobile ? SHOP.icon.mobile : SHOP.icon.web);
@@ -436,7 +439,7 @@ export function ShopDock({ fixed, safe, side, sideWidth = 92, children }: {
   sideWidth?: number | 'auto';
   children: ReactNode;
 }) {
-  const mobile = useIsMobile();
+  const mobile = useIsMobile(SHOP_MOBILE_BP);
   const h = mobile ? SHOP.h.mobile : SHOP.h.web;
   const cell: CSSProperties = { height: h, display: 'flex', alignItems: 'center' };
   return (
@@ -549,7 +552,7 @@ export function ShopTokens({ tokens, onRemove, onClear, inline }: {
    *   걸린 조건은 손님이 **되돌릴 대상**이라 건수와 한 문장으로 뭉치면 안 된다 — 제 줄에 선다.
    * ★조건이 0개면 **아무것도 안 그린다.** 자리를 미리 비워 두지 않는다.
    */
-    const mobile = useIsMobile();
+    const mobile = useIsMobile(SHOP_MOBILE_BP);
   if (!tokens.length) return null;
   const body = (
     <>
@@ -635,7 +638,7 @@ export function ShopSort({ value, onChange, options }: {
   value: string; onChange: (v: string) => void;
   options: readonly { key: string; label: string }[];
 }) {
-  const mobile = useIsMobile();
+  const mobile = useIsMobile(SHOP_MOBILE_BP);
   return (
     /* 초점 상자를 이 화면 말투로 바꾸는 자리 — `.fp-shop-sort` (globals.css). */
     <div className="fp-shop-sort" style={{ position: 'relative', display: 'inline-flex', alignItems: 'center' }}>
@@ -724,7 +727,7 @@ export function ShopUpdatedStamp({ label }: { label: string }) {
 }
 
 export function ShopCount({ value, filtered }: { value: string; filtered?: boolean }) {
-  const mobile = useIsMobile();
+  const mobile = useIsMobile(SHOP_MOBILE_BP);
   return (
     /*
      * ⚠ 폰은 «머리 숫자»가 아니라 **한 줄의 한 조각**이다(사장님 2026-09-06 「모바일에서 각 항목들
@@ -773,7 +776,7 @@ export function ShopEmpty({ onClear }: { onClear: () => void }) {
 
 /** 더 보기 — 몇 대를 보고 있고 몇 대가 남았는지 같이 말한다(누르기 전에 알아야 누른다). */
 export function ShopMore({ shown, total, onMore }: { shown: number; total: number; onMore: () => void }) {
-  const mobile = useIsMobile();
+  const mobile = useIsMobile(SHOP_MOBILE_BP);
   if (shown >= total) return null;
   return (
     <div style={{ display: 'flex', justifyContent: 'center', padding: `${SHOP.sp.part}px 0 ${SHOP.sp.snug}px` }}>
@@ -1137,9 +1140,9 @@ export const PHOTO_SIZES = {
    *   ⚠ DPR 1 에서까지 줄이려면 `100vw` 를 걷어내야 하는데, 그러면 폰 칸을 px 로 못 박아야 한다
    *     (375 로 박으면 430 짜리 폰이 흐려진다). **폰을 흐리게 만들면서까지 살 이득이 아니다.**
    */
-  card: '(max-width: 760px) 100vw, 320px',
+  card: '(max-width: 599px) 100vw, 320px',
   /** 상세 큰 사진 — 폰은 화면 폭, 웹은 왼쪽 기둥 절반쯤. */
-  hero: '(max-width: 760px) 100vw, 60vw',
+  hero: '(max-width: 599px) 100vw, 60vw',
   /** 상세 아래 작은 사진 줄. */
   thumb: '120px',
 } as const;

@@ -10,7 +10,7 @@ import { updatedLabelKo, useShopHeadStatus } from '@/lib/shop/head-status';
 import { WhitelabelFrame } from '@/components/WhitelabelFrame';
 import { FREEPASS, hasBrand, type Whitelabel } from '@/lib/whitelabel';
 import {
-  SHOP, ShopCount, ShopEmpty, ShopIconBtn, ShopMore, ShopPill,
+  SHOP, SHOP_MOBILE_BP, ShopCount, ShopEmpty, ShopIconBtn, ShopMore, ShopPill,
   ShopRevealSearch, ShopSearch, ShopSort, ShopTextBtn, ShopTokens, ShopUpdatedStamp,
 } from '@/components/shop/shop-ui';
 import { ShopFilters } from '@/components/shop/ShopFilters';
@@ -104,7 +104,7 @@ export function ShopView({ wl = FREEPASS, initial = null }: {
    */
   /* 이 줄에 «단추가 있는» 조건 — 뒤에 토큰으로 또 세우지 않는다(아래 칩 줄 머리말). */
   const quickKeys = useMemo(() => new Set(quickAll.map((k) => `${k.axis}:${k.key}`)), [quickAll]);
-  const mobile = useIsMobile();
+  const mobile = useIsMobile(SHOP_MOBILE_BP);
   /* ★재고 갱신 시각 — 건수 줄 오른쪽에 선다(`ShopUpdatedStamp`). 곁다리라 없으면 안 그린다. */
   const head = useShopHeadStatus();
   const [rows, setRows] = useState<EntityRecord[] | null>(null);

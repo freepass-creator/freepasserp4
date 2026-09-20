@@ -108,14 +108,15 @@
  * 여백만큼 밖으로 빼고 같은 만큼 안쪽 패딩으로 돌려주면, 첫 칩 위치는 그대로면서 오른쪽으로만 이어진다.
  * (당근·네이버가 다 이렇게 한다. `--fp-bar-pad-x` 가 아니라 가게 본문 여백 16 을 쓴다.)
  */
-@media (max-width: 759px) {
+@media (max-width: 599px) {
   .fp-shop-rail { margin-inline: -16px; padding-inline: 16px; }
 }
 
 /*
  * ERP4 MAIN 상품 목록 밀도 — 디자인은 유지하고 웹에서만 한 단계 조밀하게.
  *
- * 모바일은 기존 1열/폰트 그대로. 좁은 웹은 2열, 보통 웹은 3열, 1280px 이상은 4열이다.
+ * 600~759px은 검색·조건을 유지한 웹 1열, 좁은 웹은 2열, 보통 웹은 3열,
+ * 1280px 이상은 4열이다. 600px 미만에서만 전용 모바일 흐름으로 바뀐다.
  * 1280 컨테이너 안에서 좌측 조건 260 + 간격 32를 빼면 카드가 약 220px대라,
  * 기존 3열의 약 300px 카드보다 한 화면 비교량이 늘면서도 차명·요금이 읽히는 폭은 남는다.
  *
@@ -124,9 +125,14 @@
  */
 .fp-shop-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   row-gap: 24px;
   column-gap: 16px;
+}
+@media (min-width: 760px) {
+  .fp-shop-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
 }
 @media (min-width: 1024px) {
   .fp-shop-grid {
@@ -142,7 +148,7 @@
     --shop-fs-cap: 11.5px;
   }
 }
-@media (max-width: 759px) {
+@media (max-width: 599px) {
   .fp-shop-grid {
     grid-template-columns: minmax(0, 1fr);
     row-gap: 24px;
@@ -313,7 +319,7 @@
   background: var(--bg-page);
   margin-inline: -16px; padding-inline: 16px;
 }
-@media (max-width: 760px) {
+@media (max-width: 599px) {
   /*
    * ⚠⚠ 여기 `56px` 을 «못 박아» 뒀다가 깨졌다(2026-09-07 실측).
    *   담당자가 없는 손님 화면에서는 머리띠가 «둘째 줄»(상담·문의 번호)을 얻어 **86px** 이 된다.
@@ -417,7 +423,7 @@
   --shop-fs-h2: 15px;   --shop-fs-body: 14.5px;
   --shop-fs-sub: 13px;  --shop-fs-cap: 12px;  --shop-fs-tag: 10.5px;
 }
-@media (max-width: 760px) {
+@media (max-width: 599px) {
   .fp-wl {
     --shop-fs-hero: 32px; --shop-fs-h1: 22px;   --shop-fs-num: 16px;
     --shop-fs-sec: 20px;  --shop-fs-price: 18px; --shop-fs-lead: 17px;
