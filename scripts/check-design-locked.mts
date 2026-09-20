@@ -1253,9 +1253,9 @@ must(/nowLabelKo\(now\)/.test(wlFrame) && /head\.weather/.test(wlFrame),
  * 지킬 것 넷 —
  *  ㉠ **그림 배너**를 받는다(`notice.image`) — 웹·폰 두 벌 · `alt` 필수
  *  ㉡ **면 전체가 링크**다(`notice.link`) — 주소가 곧 조건이라 `/?perk=무보증` 이면 그 341대 앞에 내려놓는다
- *  ㉢ **닫기는 네이티브 체크박스 + 흐린 보조문구** — 별도 버튼 면/X를 세우지 않는다(2026-09-21 개정)
+ *  ㉢ **닫기는 아주 연한 문구 + X** — 별도 체크박스·버튼 면·테두리를 세우지 않는다(2026-09-21 재개정)
  *  ㉣ **글도 그림도 없으면 안 그린다** — 빈 띠가 첫 화면을 118~161px 먹는 것보다 없는 편이 낫다
- * ★「오늘 하루 안 보기」 글자는 그대로 남고, 모바일 label 전체는 최소 44px 터치영역을 가진다.
+ * ★「오늘 하루 안 보기」 글자는 그대로 남고, 문구+X 전체 누름 영역은 모바일 최소 44px을 가진다.
  */
 {
   const wlTableSrc = read('lib/whitelabel.ts');
@@ -1278,16 +1278,16 @@ must(/nowLabelKo\(now\)/.test(wlFrame) && /head\.weather/.test(wlFrame),
     '배너 면 «전체»가 링크가 아닙니다 — 손님을 그 조건이 걸린 목록 앞에 내려놓지 못합니다.',
     'components/WhitelabelFrame.tsx WhitelabelNotice · lib/whitelabel.ts notice.link');
 
-  /* 오늘 숨김 — 네이티브 체크박스 + 보조문구. 모바일은 label 전체가 44px 터치영역이다. */
-  const dismiss = banner.slice(banner.indexOf('<label'));
-  must(/<Checkbox/.test(dismiss) && /accentColor: C\.brand/.test(dismiss),
-    '배너 오늘 숨김이 공통 체크박스 원자 규격에서 벗어났습니다.',
+  /* 오늘 숨김 — 아주 연한 문구 + X. 별도 면/테두리 없이 모바일 44px 누름영역 유지. */
+  const dismiss = banner.slice(banner.indexOf('aria-label="오늘 하루 안 보기"'));
+  must(/<button/.test(dismiss) && /background: 'transparent'/.test(dismiss) && /border: 0/.test(dismiss),
+    '배너 오늘 숨김이 다시 강한 버튼 면이나 테두리를 갖게 됐습니다.',
     'components/WhitelabelFrame.tsx 오늘 하루 안 보기 · 사장님 2026-09-21');
   must(/minHeight: mobile \? 44 : 36/.test(dismiss),
     '배너 오늘 숨김의 모바일 터치영역이 44px 아래로 줄었습니다.',
     'components/WhitelabelFrame.tsx 오늘 하루 안 보기 · AI Core touch target');
-  must(dismiss.includes('오늘 하루 안 보기') && /fontSize: SHOP\.fs\.cap/.test(dismiss) && /color: C\.faint/.test(dismiss),
-    '「오늘 하루 안 보기」 보조문구가 사라지거나 너무 강해졌습니다.',
+  must(dismiss.includes('오늘 하루 안 보기') && /color: C\.faint/.test(dismiss) && /<X size=\{ICON\.sm\}/.test(dismiss),
+    '「오늘 하루 안 보기 + X」의 연한 보조표현 규격이 바뀌었습니다.',
     'components/WhitelabelFrame.tsx 오늘 하루 안 보기');
 }
 
