@@ -1,0 +1,56 @@
+name: ChatGPT Audit 81 Recorder
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/chatgpt-audit81-recorder.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Append audit 81 resolution
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'chatgpt-auditor'
+          git config user.email 'actions@users.noreply.github.com'
+          git pull --rebase origin main
+
+          if ! grep -q 'ChatGPT audit (81)' docs/AI-SSOT-AUDIT-LOG.md; then
+            cat >> docs/AI-SSOT-AUDIT-LOG.md <<'EOF'
+
+          ---
+
+          ## 2026-09-20 — ChatGPT audit (81): AI Core main-push guard resolved; settlement intake API remains SHADOW
+
+          **판정: RESOLVED / MATERIAL IMPLEMENTATION CHANGE / production SSOT semantics unchanged.**
+
+          - Audit (80)의 AI Core SHADOW main-push Source Contract coverage gap은 **해소됨**이다. PR #439 / commit `d81c97fccc37566aa97e67d133dca6341bf42721`이 `.github/workflows/ssot-source-contract.yml`의 `push.paths`에 `scripts/check-ai-core-contract-shadow.mts`, `lib/domain/ai-core-contract-shadow.ts`, `contracts/ai-core/**`를 추가했다.
+          - 이 fix는 PR 단계만이 아니라 resulting `main`에서 실제 증명됐다. Commit `0b3f9d13ef12a86a6e83ac3c95d2c6985c08226c`이 `contracts/ai-core/**`를 변경했고, 그 push에서 `SSOT Source Contract` run **`35507383468`**이 `event=push / success`로 생성됐다. 따라서 audit (80)의 “AI Core shadow-only main change가 Source Contract 없이 들어갈 수 있음” finding은 더 이상 current가 아니다.
+          - 같은 commit은 정산 신규접수 API용 `contracts/ai-core/settlement-intake.api-shadow.json`과 `scripts/check-ai-core-api-shadow.mts`를 추가하고 generic CI에 checker를 연결했다. Contract는 `runtime_owner=ERP4`, `runtime_authority_preserved=true`, `cutover_authorized=false`, `external_response_shape_changed=false`, status `SHADOW_WITH_GAPS`를 명시한다. Generic CI run **`35507383421`**도 `success`다. 이 변화는 **SHADOW mapping/verification**이며 production API cutover 또는 canonical writer 변경이 아니다.
+          - Production engine pin은 계속 `cf940df642edf315adbc6da2b4134fbad53da160`이다. 24-source ERP5 registry, 동일 fixed-snapshot F01/F86, F86 `종합`의 손오공·오토플러스 제외 + dedicated tab, Sonogong `오공구독`/`픽업구독`, AutoPlus `오플구독`, retired `mirror-sync`/`sales-erp-hourly` automatic writer, RTDB/mirror non-canonical boundary에는 신규 drift가 없다.
+          - 계속 OPEN: audit (67) standard-quote-defaults freshness trigger, audit (71) shared ERP5 concurrency/pending-replacement + 15:05 cancelled-before-job reconciliation, audit (76) successful native 18:05 settlement false replay, native schedule cadence/timeliness HOLD.
+
+          **Claude implementation owner:** audit (80)의 main-push path gap은 RESOLVED로 취급하고 재수정하지 않는다. 새 settlement-intake Core mapping은 SHADOW/non-authoritative 상태를 유지한다. 이번 감사에서 canonical source/writer, F01/F86, special-tab, mirror/RTDB, settlement business semantics 변경은 요구하지 않는다.
+
+          Detail: `docs/ai-ssot-audit/2026-09-20-chatgpt-audit81-ai-core-push-guard-resolved-api-shadow.md`
+
+          No application code or business logic was modified by the auditor.
+          EOF
+          fi
+
+          git rm -f .github/workflows/chatgpt-audit81-recorder.yml
+          git add docs/AI-SSOT-AUDIT-LOG.md
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m 'docs(audit): append audit 81 AI Core guard resolution'
+          git push origin HEAD:main
