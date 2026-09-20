@@ -5,10 +5,18 @@ import { expectedRevisionMatches, firestoreResourceRevision } from '../lib/domai
 const CONTRACT = 'contracts/ai-core/settlement-intake.api-shadow.json';
 const UPDATE_CONTRACT = 'contracts/ai-core/settlement-update.api-shadow.json';
 const ROUTE = 'app/api/settlement/board/route.ts';
+const BOARD_PAGE = 'app/settlement/board/page.tsx';
+const INTAKE_PAGE = 'app/settlement/intake/page.tsx';
+const BOARD_UI = 'components/settlement/SettlementBoard.tsx';
+const INTAKE_UI = 'components/settlement/IntakeStation.tsx';
 
 const contract = JSON.parse(readFileSync(CONTRACT, 'utf8')) as any;
 const updateContract = JSON.parse(readFileSync(UPDATE_CONTRACT, 'utf8')) as any;
 const route = readFileSync(ROUTE, 'utf8');
+const boardPage = readFileSync(BOARD_PAGE, 'utf8');
+const intakePage = readFileSync(INTAKE_PAGE, 'utf8');
+const boardUi = readFileSync(BOARD_UI, 'utf8');
+const intakeUi = readFileSync(INTAKE_UI, 'utf8');
 
 assert.equal(contract.schema_version, 'erp4-ai-core-api-shadow/v1');
 assert.equal(contract.status, 'SHADOW_WITH_GAPS');
@@ -126,6 +134,35 @@ assert.ok(route.includes('resource_revision: revisionOf(hit)'));
 assert.ok(route.includes('tx.set(ref, { ...writePatch, updatedAt: Date.now() }, { merge: true });'));
 assert.ok(route.includes('await ref.set({ ...writePatch, updatedAt: Date.now() }, { merge: true });'), 'legacy update path must remain');
 
+assert.equal(updateContract.project_semantics.first_party_ui_adoption.settlement_board, 'ACTIVE');
+assert.equal(updateContract.project_semantics.first_party_ui_adoption.intake_station, 'ACTIVE');
+assert.equal(updateContract.project_semantics.first_party_ui_adoption.stale_conflict_behavior, 'TOAST_AND_RELOAD');
+
+/** First-party UI adoption: every edit path must carry the observed row revision. */
+assert.ok(route.includes('resource_revision: revisionOf(d)'));
+assert.ok(route.includes('resource_revision: S(r.resource_revision)'));
+
+assert.ok(boardPage.includes('edit: async (id, patch, expectedRevision) => {'));
+assert.ok(boardPage.includes('expected_revision: expectedRevision || undefined'));
+assert.ok(boardPage.includes('code: j.code'));
+assert.ok(boardPage.includes('resource_revision: j.resource_revision'));
+
+assert.ok(intakePage.includes('edit: async (id, patch, expectedRevision) => {'));
+assert.ok(intakePage.includes('expected_revision: expectedRevision || undefined'));
+assert.ok(intakePage.includes('resource_revision?: string'));
+assert.ok(intakePage.includes("resource_revision: String(j.resource_revision || '')"));
+
+assert.ok(boardUi.includes('resource_revision?: string;'));
+assert.ok(boardUi.includes('expectedRevision?: string'));
+assert.ok(boardUi.includes('api.edit(r.id, patch, S(r.resource_revision))'));
+assert.ok(boardUi.includes("res.code === 'VERSION_MISMATCH'"));
+assert.ok(boardUi.includes('await load(month)'));
+
+assert.ok(intakeUi.includes('api.edit(r.id, patch, S(r.resource_revision))'));
+assert.ok(intakeUi.includes("res.code === 'VERSION_MISMATCH'"));
+assert.ok(intakeUi.includes('resource_revision: got.resource_revision || current.resource_revision'));
+assert.ok(intakeUi.includes('await load()'));
+
 console.log(JSON.stringify({
   status: 'PASS',
   adoption_state: contract.status,
@@ -136,5 +173,6 @@ console.log(JSON.stringify({
   project_native_dedup: 'VERIFIED',
   update_expected_revision: 'OPTIONAL_IMPLEMENTED',
   update_version_mismatch: 'VERIFIED',
+  first_party_ui_revision_adoption: 'ACTIVE',
   cutover_authorized: contract.authority.cutover_authorized,
 }, null, 2));
