@@ -184,11 +184,13 @@ for (const sec of ['차량 정보', '대여료 및 보증금', '보험', '이용
  * ⚠ 지키는 것은 예나 지금이나 **「반올림 금지」 한 가지**다 — 함수 «이름»이 아니라.
  *   `wonKo` 는 천원 단위로 딱 떨어질 때만 만·천으로 적고, 아니면 원 단위 그대로 적는다.
  */
-for (const [f, name] of [[shopDetail, 'ShopDetail'], [shopCard, 'ShopCard']] as [string, string][]) {
-  must(/wonKo|manWon/.test(f) && !/\bman\(/.test(f),
-    `${name} 이 금액을 반올림합니다(man). 손님이 보는 금액은 «낼 금액»입니다 — wonKo 를 씁니다.`,
-    'lib/format.ts man vs manWon');
-}
+/* 2026-09-21 — 목록 카드는 훑는 자리라 만원 단위 한 자리까지 축약한다. 상세는 실제 원 단위 유지. */
+must(/manShort\(price\.rent, \{ decimal: true \}\)/.test(shopCard) && !/\bman\(price\.rent/.test(shopCard),
+  'ShopCard 대여료는 「67만원 · 67.5만원」 목록 축약 규격을 써야 합니다. man() 반올림은 금지입니다.',
+  'components/shop/ShopCard.tsx · 사장님 2026-09-21');
+must(/wonKo|manWon/.test(shopDetail) && !/\bman\(/.test(shopDetail),
+  'ShopDetail 금액이 축약/반올림됐습니다. 상세는 실제 원 단위 금액을 유지합니다.',
+  'lib/format.ts man vs manWon · 사장님 2026-09-21');
 
 // 조건은 주소에 실린다.
 must(/export function readQuery/.test(shopQuery) && /export function writeQuery/.test(shopQuery)
