@@ -1,7 +1,7 @@
 'use client';
 import { useCallback, useEffect, useLayoutEffect, useState, type ReactNode } from 'react';
 import { Phone, SquareArrowOutUpRight, X } from 'lucide-react';
-import { C, FW, ICON, R_CARD, fmtPhone } from '@/components/ui';
+import { C, FW, ICON, R_CARD, Btn, fmtPhone } from '@/components/ui';
 import { todayKst } from '@/lib/format';
 import { SHOP, SHOP_MOBILE_BP, ShopDock, ShopDockAction } from '@/components/shop/shop-ui';
 import { ChannelSign, ChannelWordmark, CoBrandFreepass } from '@/components/brand-ci';
@@ -658,23 +658,22 @@ function WhitelabelNotice({ wl, mobile }: { wl: Whitelabel; mobile: boolean }) {
           ★보이는 것은 가볍게, 누름 영역은 모바일 최소 44px을 유지한다.
           ★누르면 즉시 오늘 날짜를 저장하고 배너를 닫는다. 내일이면 다시 나타난다.
         */}
-        <button
-          type="button"
+        <Btn
+          variant="bare"
+          haptic={false}
           onClick={close}
           aria-label="오늘 하루 안 보기"
           style={{
             position: 'absolute', right: mobile ? 8 : 16, top: mobile ? 6 : 12, zIndex: 1,
-            display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
             gap: SHOP.sp.tight, minHeight: mobile ? 44 : 36, paddingInline: SHOP.sp.tight,
-            border: 0, background: 'transparent', cursor: 'pointer',
-            color: C.faint, fontFamily: 'inherit',
+            background: 'transparent', color: C.faint,
           }}
         >
           <span style={{ fontSize: SHOP.fs.cap, color: C.faint, whiteSpace: 'nowrap', fontWeight: FW.meta }}>
             오늘 하루 안 보기
           </span>
           <X size={ICON.sm} aria-hidden style={{ color: C.faint }} />
-        </button>
+        </Btn>
       </div>
     </div>
   );
