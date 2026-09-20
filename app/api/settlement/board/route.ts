@@ -143,7 +143,12 @@ export async function GET(req: Request) {
     return NextResponse.json({ id: lineQ, found: true, resource_revision: revisionOf(hit), spec });
   }
 
-  const all = (await fs.collection('settlement_rows').get()).docs.map((d) => ({ id: d.id, ...d.data() })) as (Row & { id: string })[];
+  const all = (await fs.collection('settlement_rows').get()).docs.map((d) => ({
+    id: d.id,
+    ...d.data(),
+    /** revision은 문서 payload가 아니라 Firestore 메타데이터가 정본이다. */
+    resource_revision: revisionOf(d),
+  })) as (Row & { id: string; resource_revision: string })[];
   const claws = (await fs.collection('settlement_clawbacks').get()).docs.map((d) => d.data() as Row);
 
   /** 달 목록 — 화면이 고르게. 원자에 있는 달만 준다(없는 달을 고르게 하면 빈 화면이 뜬다). */
@@ -186,8 +191,9 @@ export async function GET(req: Request) {
   const found = q ? all.filter((r) => alive(r) && [r.plate, r.customer, r.supplier, r.channel, r.agent]
     .some((v) => P(v).includes(P(q)))).slice(0, 40) : [];
 
-  const shape = (r: Row & { id: string }) => ({
-    id: r.id, code: S(r.code), plate: S(r.plate), customer: S(r.customer), model: S(r.model),
+  const shape = (r: Row & { id: string; resource_revision?: string }) => ({
+    id: r.id, resource_revision: S(r.resource_revision),
+    code: S(r.code), plate: S(r.plate), customer: S(r.customer), model: S(r.model),
     supplier: S(r.supplier), channel: S(r.channel), agent: S(r.agent),
     product: S(r.product), billMonth: S(r.billMonth), receivedAt: S(r.receivedAt), deliveredAt: S(r.deliveredAt),
     claim: claimOf(r as unknown as SettlementRow), pay: payOf(r as unknown as SettlementRow),
