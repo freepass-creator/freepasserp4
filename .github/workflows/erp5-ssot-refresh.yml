@@ -111,6 +111,15 @@ jobs:
           #   사용하게 해 「종합 MM.DD HH:MM · N대」만 시각, 회사 탭 「회사 · N대」 규격을 그대로 판정한다.
           #   칸·차번·머리글·탭 차례 대조는 유지하고 반례 시험을 check:f86에 연결했다.
           ref: cf940df642edf315adbc6da2b4134fbad53da160
+      - name: Core receipt helper checkout
+        uses: actions/checkout@v4
+        with:
+          # Production engine pin은 그대로 두고, receipt helper만 이 workflow 파일의 revision에서 읽는다.
+          ref: ${{ github.workflow_sha }}
+          path: .core-contract-helper
+          sparse-checkout: |
+            scripts/core-contract
+          persist-credentials: false
       - name: freepasserp5 OIDC 인증
         uses: google-github-actions/auth@v2
         with:
@@ -149,6 +158,7 @@ jobs:
           GOOGLE_SHEETS_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sheets.json
         run: npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/sync-vehicle-lock-from-ledger.mts --apply
       - name: 원천에서 ERP5 현재 원자 계산
+        id: ingest
         env:
           ERP5_FIREBASE_USE_ADC: 'true'
           GOOGLE_CLOUD_PROJECT: freepasserp5
@@ -156,11 +166,39 @@ jobs:
           GOOGLE_SHEETS_SUBJECT: pyh@teamjpk.com
         shell: bash
         run: |
+          set -o pipefail
+          mkdir -p tmp/core-contract
+          echo "started_at=$(date -u +'%Y-%m-%dT%H:%M:%S.000Z')" >> "$GITHUB_OUTPUT"
           ARGS=()
           if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ github.event_name }}" = "workflow_run" ] || [ "${{ github.event_name }}" = "push" ] || [ "${{ inputs.apply }}" = "true" ]; then
             ARGS+=(--apply --variable --retire)
           fi
-          npx tsx scripts/ingest-all-suppliers.mts "${ARGS[@]}"
+          npx tsx scripts/ingest-all-suppliers.mts "${ARGS[@]}" 2>&1 | tee tmp/core-contract/erp5-ingest.log
+      - name: ERP5 ingest Core receipt 생성(Shadow)
+        if: ${{ always() && steps.ingest.outcome != 'skipped' }}
+        continue-on-error: true
+        shell: bash
+        run: |
+          ENDED_AT="$(date -u +'%Y-%m-%dT%H:%M:%S.000Z')"
+          node .core-contract-helper/scripts/core-contract/build-erp5-ingest-receipt.mjs \
+            --log=tmp/core-contract/erp5-ingest.log \
+            --out=tmp/core-contract/erp5-ingest-receipt.json \
+            --engine-revision=cf940df642edf315adbc6da2b4134fbad53da160 \
+            --run-id=${{ github.run_id }} \
+            --run-attempt=${{ github.run_attempt }} \
+            --outcome=${{ steps.ingest.outcome }} \
+            --event=${{ github.event_name }} \
+            --started-at=${{ steps.ingest.outputs.started_at }} \
+            --ended-at="$ENDED_AT"
+      - name: ERP5 ingest Core receipt 보존(Shadow)
+        if: ${{ always() && steps.ingest.outcome != 'skipped' }}
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: erp5-ingest-core-receipt-${{ github.run_id }}-${{ github.run_attempt }}
+          path: tmp/core-contract/erp5-ingest-receipt.json
+          if-no-files-found: error
+          retention-days: 30
       - name: ERP5 정책 참조 정합화
         if: github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push' || inputs.apply
         env:
@@ -226,4 +264,4 @@ jobs:
           retention-days: 30
       - name: 자격증명 삭제
         if: always()
-        run: rm -rf tmp/firebase-auth sonokong/lib/wonja/.손오공계정.json sonokong/lib/wonja/.손오공토큰.json
+        run: rm -rf tmp/firebase-auth sonokong/lib/wonja/.손오공계정.json sonokong/lib/wonja/.손오공토큰.json .core-contract-helper
