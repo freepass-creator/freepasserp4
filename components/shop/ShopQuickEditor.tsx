@@ -2,7 +2,7 @@
 import { useMemo, useState } from 'react';
 import { C } from '@/components/ui';
 import { useIsMobile } from '@/lib/use-mobile';
-import { SHOP, ShopDockAction, ShopTextBtn } from '@/components/shop/shop-ui';
+import { SHOP, SHOP_MOBILE_BP, ShopDockAction, ShopTextBtn } from '@/components/shop/shop-ui';
 import { ShopFilters } from '@/components/shop/ShopFilters';
 import {
   SHOP_AXES, emptySel, soloLabel,
@@ -40,7 +40,7 @@ export function ShopQuickEditor({ facets, value, onSave, saving }: {
   saving?: boolean;
 }) {
   const [picked, setPicked] = useState<ShopQuickChip[]>(value);
-  const mobile = useIsMobile();
+  const mobile = useIsMobile(SHOP_MOBILE_BP);
 
   const id = (c: { axis: ShopAxis; key: string }) => `${c.axis}:${c.key}`;
   const dirty = picked.map(id).join('|') !== value.map(id).join('|');

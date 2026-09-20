@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { Check, CircleCheck, ImageOff, ShieldCheck, Tag } from 'lucide-react';
 import type { EntityRecord } from '@/lib/intake/entities';
 import { C, FW, NUM } from '@/components/ui';
-import { BADGE, PerkMarks, SHOP, markIconFor, type ShopMark, ShopPhoto, PHOTO_SIZES, vehicleStatusMark } from '@/components/shop/shop-ui';
+import { BADGE, PerkMarks, SHOP, SHOP_MOBILE_BP, markIconFor, type ShopMark, ShopPhoto, PHOTO_SIZES, vehicleStatusMark } from '@/components/shop/shop-ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { useInView } from '@/lib/use-in-view';
 import { useFirstPhoto } from '@/components/use-product-photos';
@@ -73,7 +73,7 @@ export const ShopCard = memo(function ShopCard({ p, href, rank = 99, searchQuery
    */
   rank?: number;
 }) {
-  const mobile = useIsMobile();
+  const mobile = useIsMobile(SHOP_MOBILE_BP);
   const price = displayPrice === undefined ? cheapest(p) : displayPrice;
   /** 보증금 — 금액이 없고 규칙 글자(`deposit_note`)만 있는 상품이 있다(`depositLine` 머리말). */
   /* ★규칙 글자는 «금액»으로 바꿔 말한다(사장님 2026-09-18) — 기간을 줘야 셈이 된다. */

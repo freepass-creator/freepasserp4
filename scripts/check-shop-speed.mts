@@ -200,7 +200,7 @@ for (const [name, q] of cases) {
  */
 {
   const ui = readFileSync(new URL('../components/shop/shop-ui.tsx', import.meta.url), 'utf8');
-  const m = ui.match(/card:\s*'\(max-width:\s*760px\)\s*100vw,\s*([^']+)'/);
+  const m = ui.match(/card:\s*'\(max-width:\s*599px\)\s*100vw,\s*([^']+)'/);
   if (!m) fails.push('PHOTO_SIZES.card — 폰 100vw · 웹 상한 꼴이 아니다 (모양이 바뀌면 이 검사도 같이 고친다)');
   else if (/vw/.test(m[1])) {
     fails.push(`PHOTO_SIZES.card 웹 쪽이 «${m[1].trim()}» — 화면 비율(vw)로 적혀 있다. 웹 칸은 320px 가 상한이라 vw 로 적으면 늘 크게 받는다`);

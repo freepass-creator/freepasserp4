@@ -11,7 +11,7 @@ import {
 import type { EntityRecord } from '@/lib/intake/entities';
 import { C, ColorMark, FW, FS, ICON, NUM, SCRIM } from '@/components/ui';
 import {
-  BADGE, PerkMarks, SHOP, ShopDock, ShopDockAction, ShopIconBtn, StateChip, markIconFor,
+  BADGE, PerkMarks, SHOP, SHOP_MOBILE_BP, ShopDock, ShopDockAction, ShopIconBtn, StateChip, markIconFor,
   type ShopMark, ShopPhoto, PHOTO_SIZES, vehicleStatusMark } from '@/components/shop/shop-ui';
 import { useIsMobile } from '@/lib/use-mobile';
 import { useProductPhotos } from '@/components/use-product-photos';
@@ -55,7 +55,7 @@ export function ShopDetail({ p, agentName, agentPhone, listHref = '/shop' }: {
   /** 「목록으로」가 가는 곳. 담당 귀속(`?a=`)을 물고 가야 손님이 돌아가도 담당자가 안 바뀐다. */
   listHref?: string;
 }) {
-  const mobile = useIsMobile();
+  const mobile = useIsMobile(SHOP_MOBILE_BP);
   /*
    * ★맨 위 제목은 차명 원자의 **`base` 단**이다 — 「현대 그랜저」에서 끝낸다
    *   (사장님 2026-09-05 「요약으로 보여주는 데는 **그냥 현대, 그랜저** 이렇게만 보여줘도 상관은 없어.

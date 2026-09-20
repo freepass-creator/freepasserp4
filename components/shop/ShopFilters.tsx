@@ -4,7 +4,7 @@ import type { LucideIcon } from 'lucide-react';
 import { Check, ChevronDown } from 'lucide-react';
 import { C } from '@/components/ui';
 import { haptic } from '@/lib/haptics';
-import { SHOP, ShopTextBtn, axisIconFor } from '@/components/shop/shop-ui';
+import { SHOP, SHOP_MOBILE_BP, ShopTextBtn, axisIconFor } from '@/components/shop/shop-ui';
 import { makerLogoSrc } from '@/lib/domain/maker-logo';
 import { useIsMobile } from '@/lib/use-mobile';
 import { AXIS_LABEL, SHOP_AXES, type ShopAxis, type ShopFacets, type ShopSel } from '@/lib/shop/query';
@@ -159,7 +159,7 @@ export function ShopFilters({ facets, sel, onToggle, onClearAxis, mobile: forceM
   openInit?: (axis: ShopAxis) => boolean;
 }) {
   const openByDefault = (a: ShopAxis) => (openInit ? openInit(a) : OPEN_BY_DEFAULT.includes(a));
-  const isMobile = useIsMobile();
+  const isMobile = useIsMobile(SHOP_MOBILE_BP);
   const mobile = forceMobile ?? isMobile;
   const axes = (only ?? SHOP_AXES).filter((a) => facets[a].length);
   const [open, setOpen] = useState<Record<string, boolean>>(
@@ -403,7 +403,7 @@ function CheckRow({ label, count, on, onClick, tight, logo }: {
    */
   tight?: boolean;
 }) {
-  const mobile = useIsMobile();
+  const mobile = useIsMobile(SHOP_MOBILE_BP);
   return (
     <button type="button" onClick={() => { haptic.select(); onClick(); }} aria-pressed={on} className="fp-shop-press fp-shop-check"
       style={{
