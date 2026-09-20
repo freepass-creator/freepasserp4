@@ -302,11 +302,8 @@ export const WHITELABELS: Whitelabel[] = [
      */
     brandColor: ERP_COLOR.main,
     accentColor: ERP_COLOR.accent,
-    /*
-     * 공개 메인의 연락처. 모바일 하단 문의 동작에만 쓰며, 내부 업무 진입 수단이 아니다.
-     * 사업자 표기는 plain에서 비워 둔다. 캠페인 안내(notice)는 상품 탐색을 방해하지 않는 범위에서만 쓴다.
-     */
-    tel: CORP.mobile,
+    /* 표준라벨은 연락처·담당 귀속을 노출하지 않는다. 상품 탐색만 제공한다. */
+    tel: '',
     bizLines: [],
     /*
      * ⚠ 「회사 소개」 링크는 **안 단다** — 누르면 프리패스 소개로 나가서 라벨이 드러난다.

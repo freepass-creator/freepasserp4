@@ -1104,9 +1104,15 @@ for (const [file, src] of [['components/shop/ShopCard.tsx', shopCard], ['compone
  *   이렇게 있는 거야」 · 우리 브랜드 가게는 **채널라벨 묶음**). `self` 로 가르던 때는 우리 가게에도
  *   날씨가 섰다. 세 갈래의 이름·표는 `lib/whitelabel.ts` `labelKind` 머리말이 정본이다.
  */
-must(/labelKind\(wl\) !== 'standard'/.test(wlFrame),
+must(/const standardLabel = labelKind\(wl\) === 'standard'/.test(wlFrame)
+  && /const who = standardLabel \? ''/.test(wlFrame)
+  && /const phone = standardLabel \? ''/.test(wlFrame)
+  && /const webContact = !mobile && !standardLabel && !!phone/.test(wlFrame),
   '머리띠 오른쪽을 가르는 잣대가 바뀌었습니다 — 표준라벨만 날짜·시각·날씨, 채널·공급라벨은 상담 대표번호입니다.',
   'components/WhitelabelFrame.tsx webContact · lib/whitelabel.ts labelKind');
+must(/key: 'plain'[\s\S]*?tel: ''[\s\S]*?bizLines: \[\]/.test(wlTable),
+  '표준라벨에 전화번호나 사업자 귀속이 다시 들어갔습니다 — freepasserp.com 하단은 비워 둡니다.',
+  'lib/whitelabel.ts plain · docs/ERP4-MAIN-UI-STANDARD.md §1');
 must(/export function labelKind/.test(wlTable) && /supplier/.test(wlTable),
   '라벨 세 갈래(표준·채널·공급)의 이름이 표에서 사라졌습니다 — 규칙을 갈래 이름으로 적을 수 없게 됩니다.',
   'lib/whitelabel.ts labelKind · docs/DESIGN_CONFIRMED_SHOP.md 「머리띠 오른쪽」');

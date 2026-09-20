@@ -134,8 +134,10 @@ export function WhitelabelFrame({
   /* ★라벨이 없어도 «가게»면 껍데기는 선다 — 머리띠를 없애면 검색·조건이 갈 데가 없다. */
   if (!hasShopFrame(wl)) return <>{children}</>;
 
-  const who = String(agentName || '').trim();
-  const phone = String(agentPhone || '').trim() || wl.tel;
+  /* 표준라벨(freepasserp.com)은 담당자·전화·소유 귀속을 어디에도 표시하지 않는다. */
+  const standardLabel = labelKind(wl) === 'standard';
+  const who = standardLabel ? '' : String(agentName || '').trim();
+  const phone = standardLabel ? '' : (String(agentPhone || '').trim() || wl.tel);
   const telHref = phone ? `tel:${phone.replace(/[^0-9+]/g, '')}` : '';
   /*
    * ★번호는 «읽는 값»이라 서식을 입힌다 — `01049943330` 은 사람이 못 읽는다.
@@ -177,7 +179,7 @@ export function WhitelabelFrame({
    *   손님이 찾는 것은 거는 번호다. 잣대를 「간판이 서 있느냐」로 물린다.
    * ★담당자(`?a=`)가 붙어 오면 표준라벨도 사람이 이긴다 — 그 손님은 특정 영업자가 보낸 링크로 왔다.
    */
-  const webContact = !mobile && !!phone && (!!who || labelKind(wl) !== 'standard');
+  const webContact = !mobile && !standardLabel && !!phone;
   return (
     <div className="fp-wl" style={whitelabelVars(wl) as React.CSSProperties}>
       {/*
