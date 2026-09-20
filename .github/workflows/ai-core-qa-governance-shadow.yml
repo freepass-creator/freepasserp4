@@ -1,0 +1,32 @@
+name: AI Core QA Governance P0 Shadow
+
+on:
+  pull_request:
+    paths:
+      - 'contracts/ai-core/qa-p0.shadow.json'
+      - 'contracts/ai-core/governance-p0.shadow.json'
+      - 'scripts/check-ai-core-qa-governance-shadow.mjs'
+      - '.github/workflows/ai-core-qa-governance-shadow.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'contracts/ai-core/qa-p0.shadow.json'
+      - 'contracts/ai-core/governance-p0.shadow.json'
+      - 'scripts/check-ai-core-qa-governance-shadow.mjs'
+      - '.github/workflows/ai-core-qa-governance-shadow.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  parity:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: node scripts/check-ai-core-qa-governance-shadow.mjs
