@@ -52,11 +52,14 @@ A transaction retry caused by a concurrent write re-reads the document. If the r
 
 ## Backward compatibility
 
-Existing clients currently do not send `expected_revision`.
+The two first-party Settlement UIs now send `expected_revision` on edits:
 
-For those calls, the pre-existing update path remains unchanged. This avoids turning on a new mandatory precondition before the UI has been migrated.
+- mobile/board flow: `SettlementBoard`;
+- PC workstation flow: `IntakeStation`.
 
-This is intentionally an **opt-in concurrency boundary first**, followed by client adoption.
+Both receive row revisions from the board payload, and the workstation also refreshes the revision from line-detail reads.
+
+Legacy or external callers may still omit `expected_revision`. For those calls, the pre-existing update path remains unchanged. This preserves compatibility without weakening first-party protection.
 
 ## Machine verification
 
@@ -69,15 +72,17 @@ This is intentionally an **opt-in concurrency boundary first**, followed by clie
 - update contract declares `VERSION_MISMATCH`;
 - the route uses `runTransaction`, transaction read, compare-before-write and transaction set;
 - legacy `ref.set` path still exists;
-- line detail and update response expose `resource_revision`.
+- board rows, line detail and update response expose `resource_revision`;
+- both first-party UI adapters serialize it as `expected_revision`;
+- stale 409 `VERSION_MISMATCH` triggers user feedback and a fresh reload.
 
 ## Remaining gaps
 
-- settlement UI does not yet send `expected_revision`;
+- legacy/external callers may still omit `expected_revision` by compatibility design;
 - request_id and correlation_id are still absent;
 - public errors are not fully `core.error.v1`;
 - success is not fully `core.result.v1`.
 
 ## Next gate
 
-Wire the settlement edit UI so the revision returned by line detail is retained and sent as `expected_revision` when saving. Only after that can optimistic concurrency be considered active for normal user edits.
+The next gate is request/correlation context plus observation of real `VERSION_MISMATCH` handling in first-party edits. Optimistic concurrency is now active for the known Settlement UI edit flows while legacy compatibility remains available.
