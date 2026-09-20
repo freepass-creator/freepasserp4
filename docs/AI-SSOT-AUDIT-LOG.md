@@ -2130,7 +2130,7 @@ Claude 구현 Owner 우선순위: stale one-time writer retire/remove 또는 can
 - commit `335d8e19a90ff30e93cb80f544cc8ea5c8fe6cde`는 `erp5-inventory-publish` concurrency를 `cancel-in-progress: true`로 바꿔 뒤의 validated F86 publish가 앞선 in-progress 회차를 supersede하게 했다.
 - run `35169013858`은 `Capture current ERP5 snapshot and enforce deposit-rule gate`에서 실패해 F86 write 전에 멈췄다. stderr를 독립 확보하지 못했으므로 원인을 deposit violation이라고 단정하지 않는다.
 - commit `0c6ac135027298a9d79a4b7f673ddbd3762a828e`가 `heal-sonokong-deposit-ssot.mts --apply`를 gate 앞에 추가했다. 그 뒤 run `35169123131`에서는 heal=success, snapshot/deposit gate=success, F86 backup=success까지 갔지만 **`Publish F86 from validated snapshot`이 failure**였고 audit은 skipped됐다. 따라서 현재 OPEN은 stale engine이 아니라 **validated snapshot을 만든 뒤 F86 실제 publish가 완료되지 않는 운영 실패**다.
-- current one-time workflow는 self-file push trigger, same-pin `6a6f3f75...`, Sonogong heal + deposit gate, F86-only write, `FREEPASS_MANUAL_PUBLISH_APPROVED`, F86 audit `continue-on-error: true` 구조다. canonical `erp5-ssot-refresh.yml`이 disabled인 동안 상시 대체 writer로 키우지 말고 성공 회차 확보 후 retire/remove 또는 명시적 ownership으로 정리한다.
+- current one-time workflow는 self-file push trigger, same-pin `6a6f75...`, Sonogong heal + deposit gate, F86-only write, `FREEPASS_MANUAL_PUBLISH_APPROVED`, F86 audit `continue-on-error: true` 구조다. canonical `erp5-ssot-refresh.yml`이 disabled인 동안 상시 대체 writer로 키우지 말고 성공 회차 확보 후 retire/remove 또는 명시적 ownership으로 정리한다.
 - audit (22) special-tab deposit-policy 이중정의와 audit (23) F86 freshness checker contract drift는 여전히 미해소다. production의 `depositRuleViolations` gate도 current main `inventory-contract.ts`에는 아직 없다. legacy sales/mirror/settlement/credential/RP023 mirror/pickup-color HOLD도 유지한다.
 
 Claude 구현 Owner 우선순위: (1) run `35169123131`의 F86 publish failure 실제 로그 원인 확인 및 정상 publish+audit 증명, (2) one-time writer retire/remove/ownership 정리, (3) production deposit gate를 main canonical deposit-policy와 단일화, (4) F86 freshness checker contract 정렬.
@@ -3297,5 +3297,25 @@ No application code or business logic was modified by the auditor.
 **Claude implementation owner:** treat `docs/ai-ssot-audit/2026-09-19-chatgpt-audit78-central-ledger-gap.md` as superseded by this correction. Do not perform a duplicate audit (78) append. Keep the Audit (78) operational conclusion and existing OPEN items unchanged unless new direct evidence resolves them.
 
 Detail: `docs/ai-ssot-audit/2026-09-20-chatgpt-audit79-ledger-gap-correction.md`
+
+No application code or business logic was modified by the auditor.
+
+---
+
+## 2026-09-20 — ChatGPT audit (80): AI Core shadow adoption + main push-path guard gap
+
+**판정: MATERIAL IMPLEMENTATION / GOVERNANCE DRIFT. Production SSOT semantics remain unchanged, but the new AI Core contract shadow is not fail-closed on main-only changes.**
+
+- Audit (79) 이후 current main에 merge `14056f8c2c3a7cc973d956b4f23929a4c420fb98` (`Merge C adoption refresh for ERP5 Core contracts and batch receipt`)가 들어왔다. It adds `contracts/ai-core/**`, `lib/domain/ai-core-contract-shadow.ts`, `scripts/check-ai-core-contract-shadow.mts`, `scripts/core-contract/**`, and a nonblocking ERP5 Core ingest receipt shadow.
+- `.github/workflows/erp5-ssot-refresh.yml` production engine pin remains `cf940df642edf315adbc6da2b4134fbad53da160`. New receipt helper uses `${{ github.workflow_sha }}` only for Core helper checkout; receipt build/upload are `continue-on-error: true`, so canonical writer/publish ownership is unchanged.
+- Main push Source Contract run `35479442674` for `14056f8...` is green, including canonical inventory contract, AI Core shadow, receipt parser, and workflow regression.
+- **NEW CI GOVERNANCE GAP:** `.github/workflows/ssot-source-contract.yml` `pull_request.paths` includes `scripts/check-ai-core-contract-shadow.mts`, `lib/domain/ai-core-contract-shadow.ts`, and `contracts/ai-core/**`, but `push.paths` omits all three. A future main push/merge changing only those shadow surfaces can therefore land without an `SSOT Source Contract` run on the resulting main commit.
+- This matters because current `main` is unprotected and has no required status checks. PR-only execution must not be treated as fail-closed main enforcement.
+- This is a CI/governance coverage gap, not evidence that ERP5 canonical data is currently wrong. Production pin, 24-source runtime registry, same fixed-snapshot F01/F86, Sonogong `오공구독`/`픽업구독`, AutoPlus `오플구독`, F86 aggregate special-source exclusions, retired legacy automatic writers, and RTDB/mirror non-canonical boundary remain unchanged.
+- Existing Audit (67)/(71)/(76) and native cadence/timeliness HOLDs remain open unless separate direct evidence resolves them.
+
+**Claude implementation owner:** preserve the new contracts/receipt as non-authoritative SHADOW. Make Source Contract main-push coverage include the AI Core shadow surfaces (or provide an equivalent fail-closed main enforcement path) without changing canonical business semantics.
+
+Detail: `docs/ai-ssot-audit/2026-09-20-chatgpt-audit80-ai-core-shadow-ci-push-filter-gap.md`
 
 No application code or business logic was modified by the auditor.
