@@ -55,7 +55,7 @@ if (MD) {
   console.log(`\n뺀 열(발행기가 세우지 않음): ${SALES_RETIRED_COLUMNS.join(' · ')}`);
 } else {
   console.log(`■ 상품리스트 연동 계약 — 판매시트 ${SALES_COLUMNS.length}열\n`);
-  console.log('공급사 정제시트 ──(publish-origin-tab)──▶ 중앙 판매시트 3탭 ──(sheet-daily-sync)──▶ ERP(v4/products)\n');
+  console.log('공급사 정제시트 ──(publish-origin-tab)──▶ 중앙 판매시트 4탭 ──(sheet-daily-sync)──▶ ERP(v4/products)\n');
   console.log('열'.padEnd(3) + '판매시트 열'.padEnd(18) + '← 공급사 칸'.padEnd(44) + 'ERP 필드'.padEnd(18) + '정렬');
   console.log('─'.repeat(104));
   SALES_MAPPING.forEach(([col, cands], i) => {

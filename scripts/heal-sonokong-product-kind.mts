@@ -14,7 +14,7 @@
  *   npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/heal-sonokong-product-kind.mts            드라이런
  *   npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/heal-sonokong-product-kind.mts --apply    반영
  */
-import { readFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { isRentPlate } from '../lib/domain/sonokong-product-kind';
@@ -43,6 +43,12 @@ for (const f of fixes) console.log(`  ${f.car}  ${f.from} → ${f.to}`);
 if (!fixes.length) { console.log('✓ 전부 번호판 규칙과 일치.'); process.exit(0); }
 if (!APPLY) { console.log('\n미리보기 — 반영하려면 --apply'); process.exit(0); }
 
+const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+const backup = `tmp/migration-backups/sonokong-product-kind-${stamp}.json`;
+mkdirSync('tmp/migration-backups', { recursive: true });
+const affected = new Set(fixes.map((fix) => fix.id));
+writeFileSync(backup, JSON.stringify({ captured_at: new Date().toISOString(), fixes, documents: docs.filter((doc) => affected.has(doc.id)).map((doc) => ({ id: doc.id, data: doc.data() })) }, null, 2), { encoding: 'utf8', flag: 'wx' });
+
 let w = 0;
 for (let i = 0; i < fixes.length; i += 400) {
   const batch = fs.batch();
@@ -52,5 +58,8 @@ for (let i = 0; i < fixes.length; i += 400) {
   }
   await batch.commit();
 }
-console.log(`\n반영 완료 — ${w}대 상품구분을 번호판 규칙으로 바로잡았다.`);
+const reread = await fs.getAll(...fixes.map((fix) => fs.collection('products').doc(fix.id)));
+const bad = reread.flatMap((doc, index) => S(doc.data()?.product_type) === fixes[index].to ? [] : [`${fixes[index].car}: ${S(doc.data()?.product_type) || '(빈칸)'} ≠ ${fixes[index].to}`]);
+if (bad.length) throw new Error(`반영 후 재조회 불일치 ${bad.length}대 — ${bad.slice(0, 10).join(' · ')} · 백업 ${backup}`);
+console.log(`\n반영 완료 — ${w}대 상품구분을 번호판 규칙으로 바로잡고 전부 재조회했다. · 백업 ${backup}`);
 process.exit(0);

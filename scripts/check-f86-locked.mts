@@ -16,6 +16,7 @@ import {
   RETRO_SUMMARY_EXCLUDE, RETRO_SUMMARY_TAB, retroCellValue, retroHasLongFee, retroTabColorRequest, retroUsesColumn,
   RETRO_TAB_FEES, RETRO_TAB_ORDER, retroTabLayout, retroWidthOf,
 } from '../lib/domain/channel-retro-skin';
+import { assignSalesTab, SALES_PUBLISHED_TAB_PREFIXES } from '../lib/domain/sales-published-tabs';
 
 const read = (f: string) => readFileSync(new URL(`../${f}`, import.meta.url), 'utf8');
 const fails: string[] = [];
@@ -24,6 +25,14 @@ const SKIN = 'lib/domain/channel-retro-skin.ts';
 const MANUAL = 'docs/영업자시트-매뉴얼.md §하허호 F86 «완전 커스텀 레트로»';
 const J = (v: unknown) => JSON.stringify(v);
 const hex = (c: any) => c ? ['red', 'green', 'blue'].map((k) => Math.round((c[k] || 0) * 255).toString(16).padStart(2, '0')).join('') : '';
+
+must(J(SALES_PUBLISHED_TAB_PREFIXES) === J(['상품리스트', '손오공상품', '픽업구독', '오플구독']),
+  `판매 기본 탭 이름·차례가 바뀌었습니다: ${J(SALES_PUBLISHED_TAB_PREFIXES)}`, 'lib/domain/sales-published-tabs.ts');
+must(assignSalesTab({ provider_company_code: 'RP012', product_type: '중고렌트' }) === '손오공상품' &&
+  assignSalesTab({ provider_company_code: 'RP012', product_type: '오공구독' }) === '손오공상품',
+  '손오공 기보유 중고렌트·오공구독이 손오공상품 한 탭으로 가지 않습니다.', 'lib/domain/sales-published-tabs.ts · assignSalesTab');
+must(assignSalesTab({ provider_company_code: 'RP012', product_type: '픽업구독' }) === '픽업구독',
+  'T카 외부재고가 픽업구독 탭으로 분리되지 않습니다.', 'lib/domain/sales-published-tabs.ts · assignSalesTab');
 
 /* ── ② 칸 — 이름·차례 ────────────────────────────────────────────
    사장님 「순서를 똑같이, 내용도 똑같이」 · 「맨 앞에 공급사명, 코드 말고」 · 「입고 일자는 빼도 된다」 · 「차량상태가 배차상태야」   */
@@ -71,7 +80,7 @@ must(!셀({ '12개월': '600,000' }) && !셀({ '36개월': '-' }) && !셀({}) &&
 
 /* ── ① 탭 — 기본 4탭 + 상품리스트 공급사 투영 ───────────────── */
 const buildText = read('scripts/build-channel-supplier-sheet.mts');
-must(buildText.includes("const F86_BASE_TABS = ['상품리스트', '손오공상품', '픽업구독', '오플구독']"), 'F86 기본 4탭이 바뀌었습니다.', `${MANUAL} 2026-09-21 탭 구성 확정`);
+must(buildText.includes('const F86_BASE_TABS = TAB_ORDER'), 'F86 기본 4탭이 판매 탭 SSOT를 따르지 않습니다.', `${MANUAL} 2026-09-21 탭 구성 확정`);
 must(/x\.kind === '상품리스트' && !\['손오공', '오토플러스'\]\.includes\(x\.company\)/.test(buildText), '기타 공급사 탭이 상품리스트 전용이 아니거나 손오공·오토플러스를 명시적으로 제외하지 않습니다.', `${MANUAL} 2026-09-21 탭 구성 확정`);
 
 /* ── ④ 겉 — 레트로 ───────────────────────────────────────────── */
@@ -117,7 +126,7 @@ const audit = read('scripts/audit-sheet-vs-atom.mts');
 must(/const RETRO = channel === '하허호'/.test(build), '레트로 분기가 «하허호 한 곳»에서만 켜지지 않습니다 — 다른 채널 시트로 번집니다.', `scripts/build-channel-supplier-sheet.mts · RETRO — ${MANUAL} 0`);
 must(/양식어긋남/.test(build) && /retroTabLayout\(company\)/.test(build) && /retroTabRank/.test(build),
   '발행기가 «굳힌 표»(탭 차례·요금 칸)를 안 쓰거나 표 밖 데이터에서 안 멈춥니다.', `scripts/build-channel-supplier-sheet.mts · 굳힌 양식 문지기 — ${MANUAL} 5`);
-must(/retroTabLayout\(company\)/.test(audit) && /const F86_BASE_TABS = \['상품리스트', '손오공상품', '픽업구독', '오플구독'\]/.test(audit),
+must(/retroTabLayout\(company\)/.test(audit) && /const F86_BASE_TABS = SALES_PUBLISHED_TAB_PREFIXES/.test(audit),
   '감사기가 기본 4탭과 공급사별 레트로 머리글을 함께 검사하지 않습니다.', `scripts/audit-sheet-vs-atom.mts — ${MANUAL} 5`);
 for (const name of ['retroTabLayout', 'retroHasLongFee']) {
   must(build.includes(name) && audit.includes(name), `발행기·감사기가 같은 «${name}» 를 안 씁니다 — 한쪽만 바뀌면 감사가 거짓말합니다.`, `build-channel-supplier-sheet.mts · audit-sheet-vs-atom.mts — ${MANUAL}`);
@@ -130,9 +139,9 @@ must(/if \(!RETRO\) \{\s*const tok = /.test(build),
 must(/RETRO \? \/안내\|이 시트\|시트 지도\/ : \/공지\|안내\|이 시트\|시트 지도\//.test(build),
   'F86 묵은 탭 청소가 공지사항을 계속 지켜 줍니다 — 남아 있던 공지사항이 안 지워집니다.', `scripts/build-channel-supplier-sheet.mts · 공지사항 청소 — ${MANUAL} 6`);
 must(/RETRO \? 0 : 1;/.test(build), 'F86 탭 index 가 공지사항 자리(1부터)를 그대로 씁니다 — 종합이 맨 앞(0)이어야 합니다.', `scripts/build-channel-supplier-sheet.mts · index — ${MANUAL} 6`);
-must(build.includes("const F86_BASE_TABS = ['상품리스트', '손오공상품', '픽업구독', '오플구독']") &&
-  /기본 \? `\$\{company\} \$\{mark\} · \$\{list\.length\}대` : `\$\{company\} · \$\{list\.length\}대`/.test(build),
-  'F86 탭 규칙이 바뀌었습니다 — 기본 4탭은 시각·대수, 기타 공급사 탭은 회사·대수여야 합니다.', `scripts/build-channel-supplier-sheet.mts · 탭 이름 — ${MANUAL} 6`);
+must(build.includes('const F86_BASE_TABS = TAB_ORDER') &&
+  /기본 \? company : `\$\{company\} · \$\{list\.length\}대`/.test(build),
+  'F86 탭 규칙이 바뀌었습니다 — 기본 4탭은 이름 고정, 기타 공급사 탭은 회사·대수여야 합니다.', `scripts/build-channel-supplier-sheet.mts · 탭 이름 — ${MANUAL} 6`);
 must(/`\$\{company\} · \$\{count\}대`/.test(audit), '감사기가 회사 탭 이름에서 시각을 계속 기대합니다 — 발행기와 어긋납니다.', `scripts/audit-sheet-vs-atom.mts · 탭 이름 — ${MANUAL} 6`);
 const pkg = read('package.json');
 must(/"check:sync": "[^"]*npm run check:f86/.test(pkg), '`check:sync`(→ check:release) 에서 check:f86 이 빠졌습니다.', `package.json — ${MANUAL}`);
@@ -140,7 +149,7 @@ must(!read('lib/domain/sales-sheet-format.ts').includes('channel-retro-skin'), '
 
 /* ── 매뉴얼 절 ───────────────────────────────────────────────── */
 const man = read('docs/영업자시트-매뉴얼.md');
-for (const phrase of ['2026-09-21 탭 구성 확정', '상품리스트 → 손오공상품 → 픽업구독 → 오플구독', '손오공과 오토플러스 탭은 만들지 않는다', 'npm run check:f86', 'retroHasLongFee', '맑은 고딕 9pt', '기간이 같은 옛 칸 색', '굳힌 양식', 'F86 엔 공지사항 탭이 없다', 'GUBUN_INK', 'STATE_INK']) {
+for (const phrase of ['2026-09-21 탭 구성 확정', '상품리스트 → 손오공상품 → 픽업구독 → 오플구독', '손오공상품 = 손오공 기보유 재고', '기본 탭 이름에는 날짜·시각·대수를 붙이지 않는다', '손오공과 오토플러스 탭은 만들지 않는다', 'npm run check:f86', 'retroHasLongFee', '맑은 고딕 9pt', '기간이 같은 옛 칸 색', '굳힌 양식', 'F86 엔 공지사항 탭이 없다', 'GUBUN_INK', 'STATE_INK']) {
   must(man.includes(phrase), `매뉴얼 F86 절에서 「${phrase}」가 사라졌습니다.`, MANUAL);
 }
 

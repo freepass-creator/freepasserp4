@@ -216,7 +216,7 @@ const f86대상차 = new Set(f01.map((r) => r.car));
   if (장기없음) console.log(`  (하허호) 장기 요금 없어 요금칸만 빈 채로 싣는 차 ${장기없음}대`);
 }
 type F86Row = { company: string; cells: Record<string, string> };
-const F86_BASE_TABS = ['상품리스트', '손오공상품', '픽업구독', '오플구독'] as const;
+const F86_BASE_TABS = SALES_PUBLISHED_TAB_PREFIXES;
 const f86 = new Map<string, F86Row>();
 const f86Counts = new Map<string, number>();
 const f86TabShapeViolations: string[] = [];
@@ -246,15 +246,15 @@ let f86줄 = 0;
   for (const title of 공급사제목) if (!expectedSupplierTitles.has(title)) f86TabShapeViolations.push(`예상 밖 공급사 탭: ${title}`);
   for (const title of expectedSupplierTitles.keys()) if (!공급사제목.includes(title)) f86TabShapeViolations.push(`빠진 공급사 탭: ${title}`);
   if (공급사제목.some((title) => /^(손오공|오토플러스)\s/.test(title))) f86TabShapeViolations.push('손오공 또는 오토플러스 공급사 탭이 남아 있다');
-  const 실제차례 = 모든탭.map((title) => 기본제목.has(title) ? F86_BASE_TABS.find((prefix) => title.startsWith(prefix + ' ')) || title : expectedSupplierTitles.get(title) || title);
+  const 실제차례 = 모든탭.map((title) => 기본제목.has(title) ? F86_BASE_TABS.find((prefix) => title === prefix || title.startsWith(prefix + ' ')) || title : expectedSupplierTitles.get(title) || title);
   const 기대차례 = [...F86_BASE_TABS, ...[...expectedCompanies.keys()].sort((a, b) => retroTabRank(a) - retroTabRank(b) || (expectedCompanies.get(b) || 0) - (expectedCompanies.get(a) || 0))];
   if (JSON.stringify(실제차례) !== JSON.stringify(기대차례)) f86TabShapeViolations.push(`탭 차례: 실제 ${실제차례.join('·')} ↔ 기대 ${기대차례.join('·')}`);
 
   const grids = await readTabs(F86, 모든탭);
   for (const { prefix, title } of 기본선택) {
     const expectedRows = 실릴차.filter((atom) => tabOf(atom) === prefix).sort(compareRows);
-    const expectedTitle = `${prefix} ${expectedMark} · ${expectedRows.length}대`;
-    if (expectedMark && title !== expectedTitle) f86TabShapeViolations.push(`${prefix} 탭 이름: ${title} ↔ 기대 ${expectedTitle}`);
+    const expectedTitle = prefix;
+    if (title !== expectedTitle) f86TabShapeViolations.push(`${prefix} 탭 이름: ${title} ↔ 기대 ${expectedTitle}`);
     const grid = grids.get(title) || [];
     const hdr = grid[0] || [];
     const expectedHeader = salesPublishedColumns(prefix);

@@ -3,8 +3,8 @@
  *
  * ★규칙
  *   · 열은 판매시트 «그대로» — 한 칸도 빼지 않는다(「데이터 완벽하게」). 탭마다 열이 달라 «합집합»으로 세운다.
- *   · **한 회사 = 한 탭.** 손오공은 오공구독·픽업구독·자체렌트가 한 탭에 모인다(공급사가 같으니 저절로).
- *     어느 갈래인지 알아야 하므로 맨 앞에 「갈래」 한 칸을 세운다.
+ *   · 하허호 F86 맨 앞은 `상품리스트 · 손오공상품 · 픽업구독 · 오플구독` 네 기본 탭으로 고정한다.
+ *     손오공상품은 RP012 기보유 재고(중고렌트+오공구독), 픽업구독은 T카 외부재고다.
  *   · 탭 차례 = 상품 많은 순.
  *   · 공급사 칸에 «코드»(RP031·PT-0023…)가 든 줄은 회사 이름으로 바꿔 모은다 —
  *     실측 2026-09-08 시트에 코드로 든 줄이 310대라, 그대로 두면 한 회사가 두 탭으로 갈린다.
@@ -178,7 +178,7 @@ const by = new Map<string, Row[]>();
  * F86 기본 4탭은 F01과 같은 갈래를 그대로 보인다. 공급사별 탭은 일반 상품리스트만 다시 나눈다.
  * 손오공(RP012)·오플(RP023)은 각각 전용 기본 탭에만 남고 공급사 탭으로 중복 발행하지 않는다.
  */
-const F86_BASE_TABS = ['상품리스트', '손오공상품', '픽업구독', '오플구독'] as const;
+const F86_BASE_TABS = TAB_ORDER;
 const isF86BaseTab = (name: string): boolean => (F86_BASE_TABS as readonly string[]).includes(name);
 /**
  * ★★**공급사를 모르는 차는 채널에 안 내보낸다.**
@@ -374,9 +374,9 @@ for (const [company, list] of 탭들) {
   const 기본칸 = 기본 ? headOf[company] : [];
   const cols = 기본 ? 기본칸 : 레트로 ? 레트로.map((c) => c.head) : 쓸칸;
   const title = RETRO
-    ? (기본 ? `${company} ${mark} · ${list.length}대` : `${company} · ${list.length}대`)
+    ? (기본 ? company : `${company} · ${list.length}대`)
     : `${company} ${mark} · ${list.length}대`;
-  const old = have.find(([t]) => t.startsWith(`${company} `));
+  const old = have.find(([t]) => 기본 ? t === company || t.startsWith(`${company} `) : t.startsWith(`${company} `));
   let gid: number;
   if (old) {
     gid = Number(old[1].sheetId);

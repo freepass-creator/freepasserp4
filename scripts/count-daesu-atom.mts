@@ -31,11 +31,16 @@ for (const t of TABS) bucket[t] = { listable: 0, 계약중: 0 };
 let total = 0, listable = 0, 계약중 = 0;
 const plates = new Set<string>(); let dup = 0;
 const allProviders: unknown[] = [];
+const sonokongKinds = new Map<string, number>();
 snap.forEach((d) => {
   const v = d.data() as Record<string, unknown>;
   total++;
   allProviders.push(v.provider_company_code);
   if (v.listable !== true) return;
+  if (S(v.provider_company_code) === 'RP012') {
+    const kind = S(v.product_type) || '(빈칸)';
+    sonokongKinds.set(kind, (sonokongKinds.get(kind) || 0) + 1);
+  }
   listable++;
   const t = tabOf(v); bucket[t] = bucket[t] || { listable: 0, 계약중: 0 }; bucket[t].listable++;
   const k = K(v.car_number); if (k) { if (plates.has(k)) dup++; else plates.add(k); }
@@ -58,6 +63,8 @@ console.log(`  계약중           ${계약중}`);
 console.log(`  ERP(=화면−계약중)  ${listable - 계약중}`);
 console.log(`  ── 버킷별(make-sample tabOf) ──`);
 for (const t of TABS) console.log(`    ${t.padEnd(6)} 화면 ${String(bucket[t].listable).padStart(4)} (계약중 ${bucket[t].계약중})`);
+console.log(`  ── 손오공(RP012) 상품구분 ──`);
+for (const [kind, count] of [...sonokongKinds].sort(([a], [b]) => a.localeCompare(b, 'ko'))) console.log(`    ${kind.padEnd(8)} ${String(count).padStart(4)}`);
 console.log(`  ★규칙: ERP + 계약중 = 화면  →  ${listable - 계약중} + ${계약중} = ${listable}`);
 if (unassigned.length) {
   console.log(`\n  ⚠⚠ PROVIDER_SALES_TAB 표에 없는 공급사코드 ${unassigned.length}개 — 조용히 「상품리스트」로 떨어지는 중: ${unassigned.join(', ')}`);
