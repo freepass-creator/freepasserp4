@@ -4,7 +4,7 @@ import { F86_BASE_TABS, f86BaseTabOf, f86TabTitle } from '../lib/server/channel-
 import { checkF86TabFreshness, compareF86Cells, compareF86TabTitles, parseF86TabName } from '../lib/server/f86-audit-checks';
 
 const NOW = Date.UTC(2026, 8, 21, 4, 10);
-const TITLES = [...F86_BASE_TABS, '이안카 · 12대', '아이카 · 3대'];
+const TITLES = F86_BASE_TABS.map((t) => f86TabTitle(t, 99, '09.21 13:03', true)).concat('이안카 · 12대', '아이카 · 3대');
 const fresh = (titles: string[], ageMin = 7) => checkF86TabFreshness({
   titles, retro: true, now: NOW, maxAgeMin: 120,
   modifiedAt: new Date(NOW - ageMin * 60000).toISOString(),
@@ -15,9 +15,11 @@ const ok = (name: string, fn: () => void) => { fn(); n++; console.log(`  ✓ ${n
 
 console.log('\n■ F86 감사 판정 반례');
 
-ok('기본 네 탭 이름·차례가 고정이다', () => {
+ok('기본 네 탭 이름·차례와 문패 규칙이 고정이다', () => {
   assert.deepEqual(F86_BASE_TABS, ['상품리스트', '손오공상품', '픽업구독', '오플구독']);
-  assert.deepEqual(F86_BASE_TABS.map((t) => f86TabTitle(t, 99, '09.21 13:03', true)), [...F86_BASE_TABS]);
+  assert.deepEqual(F86_BASE_TABS.map((t) => f86TabTitle(t, 99, '09.21 13:03', true)), [
+    '상품리스트 09.21 13:03 · 99대', '손오공상품 · 99대', '픽업구독 · 99대', '오플구독 · 99대',
+  ]);
   assert.equal(f86TabTitle('이안카', 12, '09.21 13:03', true), '이안카 · 12대');
 });
 
@@ -28,28 +30,28 @@ ok('손오공상품은 저신용 렌트+저신용 구독, 픽업은 별도다', 
   assert.equal(f86BaseTabOf({ provider_company_code: 'RP023', product_type: '오플구독' }), '오플구독');
 });
 
-ok('고정 탭+공급사 탭과 최신 문서 수정 시각은 통과한다', () => {
+ok('상품리스트 시각+나머지 대수 문패는 통과한다', () => {
   const r = fresh(TITLES);
   assert.deepEqual(r.fails, []);
   assert.equal(r.oldestMin, 7);
-  assert.equal(r.oldestTitle, '문서 수정 시각');
+  assert.equal(r.oldestTitle, '상품리스트 09.21 13:03 · 99대');
 });
 
 ok('고정 탭 누락·접미사·공급사 시각은 실패한다', () => {
-  assert.ok(has(fresh(TITLES.filter((t) => t !== '손오공상품')).fails, /고정 기본 탭이 없다.*손오공상품/));
-  assert.ok(has(fresh(['상품리스트 · 10대', ...TITLES.slice(1)]).fails, /규격.*밖이다/));
-  assert.ok(has(fresh([...F86_BASE_TABS, '이안카 09.21 13:03 · 12대']).fails, /규격.*밖이다/));
+  assert.ok(has(fresh(TITLES.filter((t) => !t.startsWith('손오공상품 '))).fails, /고정 기본 탭이 없다.*손오공상품/));
+  assert.ok(has(fresh(['상품리스트 · 99대', ...TITLES.slice(1)]).fails, /발행 시각이 없다/));
+  assert.ok(has(fresh([...TITLES.slice(0, 4), '이안카 09.21 13:03 · 12대']).fails, /회사 탭에 발행 시각/));
 });
 
-ok('문서 수정 시각 누락·노후는 실패한다', () => {
-  const missing = checkF86TabFreshness({ titles: TITLES, retro: true, now: NOW, maxAgeMin: 120 });
-  assert.ok(has(missing.fails, /수정 시각을 읽을 수 없다/));
-  assert.ok(has(fresh(TITLES, 121).fails, /121분째 멈춰 있다/));
+ok('상품리스트 시각 누락·노후는 실패한다', () => {
+  assert.ok(has(fresh(['상품리스트 · 99대', ...TITLES.slice(1)]).fails, /발행 시각이 없다/));
+  const stale = TITLES.map((t) => t.replace('09.21 13:03', '09.21 11:00'));
+  assert.ok(has(fresh(stale).fails, /130분째 멈춰 있다/));
 });
 
 ok('탭 이름 해석과 차례 대조', () => {
   assert.deepEqual(parseF86TabName('이안카 · 12대'), { company: '이안카', mark: null, count: 12 });
-  assert.equal(parseF86TabName('손오공상품'), null);
+  assert.deepEqual(parseF86TabName('상품리스트 09.21 13:03 · 99대'), { company: '상품리스트', mark: '09.21 13:03', count: 99 });
   assert.deepEqual(compareF86TabTitles(TITLES, TITLES), []);
   assert.ok(has(compareF86TabTitles([TITLES[1], TITLES[0], ...TITLES.slice(2)], TITLES), /차례만 다름/));
 });

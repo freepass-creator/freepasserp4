@@ -169,9 +169,9 @@ assert.match(auditSource, /const EQ = \(a: unknown, b: unknown\) => S\(a\) === S
 assert.match(auditSource, /valueRenderOption=UNFORMATTED_VALUE/);
 assert.match(readFileSync('scripts/run-sheet-daily-sync-local.mts', 'utf8'), /APPLY && !sheetArg/);
 assert.match(readFileSync('lib/server/sales-inventory-sheet.ts', 'utf8'), /process\.env\.SALES_INVENTORY_SHEET_ID/);
-assert.match(auditSource, /canonicalSalesTabName\(title\) !== prefix/);
-assert.match(auditSource, /expectedTitles\.has\(title\)/);
-assert.match(auditSource, /found\.company !== expectedCompany/);
+assert.match(auditSource, /salesPublishedTabTitle\(prefix, count, f86Mark\)/);
+assert.match(auditSource, /const 기대기본 = F86_BASE_TABS\.map/);
+assert.match(auditSource, /f86TabTitle\(/);
 assert.match(auditSource, /JSON\.stringify\(hdr\) !== JSON\.stringify\(expectedHeader\)/);
 assert.match(auditSource, /f01OrderViolations/);
 assert.match(auditSource, /f86OrderViolations/);

@@ -6,7 +6,7 @@
  *   SSOT(원자 스냅샷) 하나 → 이 계획 하나 → ① 발행기(`build-channel-supplier-sheet`)가 시트에 쓰고
  *   ② 감사기(`audit-f86-vs-atom`)가 시트를 «칸 단위»로 대조한다. 칸·줄·값·차례를 두 곳에 손으로 적지 않는다.
  *
- * 계획이 정하는 것: 실을 차(공급사명 없는 차만 뺌 · 장기 요금 없는 차는 요금 칸만 빈 채로 싣는다) ·회사 탭 · 「종합」 탭 · 탭 차례(굳힌 표) ·
+ * 계획이 정하는 것: 실을 차(공급사명 없는 차만 뺌 · 장기 요금 없는 차는 요금 칸만 빈 채로 싣는다) · 기본 상품 탭 · 회사 탭 · 탭 차례(굳힌 표) ·
  *   줄 차례(판매시트와 같은 `compareSalesRows`) · 칸(굳힌 표 `retroTabLayout`) · 칸 값(원자 → `makeCell` → 레트로 숫자·날짜).
  * 계획이 «안» 정하는 것: 서식·색·폭(`channel-retro-skin`) · 시트 문서 id · 쓰기.
  */
@@ -110,19 +110,18 @@ const salesKindOfF86Tab = (tab: string): (typeof TAB_ORDER)[number] => tab as (t
 /**
  * 탭 이름 — **발행기·감사기가 같은 함수를 쓴다**(두 군데서 따로 지으면 감사가 제 이름을 못 알아본다).
  *
- * ★★2026-09-16 (사장님 「원래 규칙은 회사명 또는 시트명 대수인데 시간만 어디에 쓸거냐인거야
- *   시간은 맨 앞에 탭 하나만 부여해서 수정하는거로하자」) — **하허호는 시각을 「종합」 하나에만** 박는다.
+ * ★★2026-09-21 (사장님 「기본 탭명(회사) 대수가 있는게 기본인데 맨 앞쪽탭 상품리스트 탭에는
+ *   업데이트 일자 시간이 있어야함」) — **하허호는 시각을 맨 앞 「상품리스트」 하나에만** 박는다.
  *   한동안 모든 탭 이름에 발행 시각을 박아, 재발행할 때마다 19개 탭 이름이 «전부» 바뀌어 보였다.
- *   같은 회차라 종합 하나만 봐도 시각을 안다. 하허호 밖 채널 시트는 예전대로 전 탭에 시각을 박는다.
+ *   같은 회차라 맨 앞 상품리스트 하나만 봐도 시각을 안다. 하허호 밖 채널 시트는 예전대로 전 탭에 시각을 박는다.
  */
 export function f86TabTitle(company: string, count: number, mark: string, retro: boolean): string {
-  if (retro && (F86_BASE_TABS as readonly string[]).includes(company)) return company;
   return f86TabCarriesMark(company, retro) ? `${company} ${mark} · ${count}대` : `${company} · ${count}대`;
 }
 
 /** 이 탭 이름에 발행 시각을 다는가 — 발행기(`f86TabTitle`)·신선도 감사(`f86-audit-checks`)가 같은 한 줄을 쓴다. */
 export function f86TabCarriesMark(company: string, retro: boolean): boolean {
-  return !retro;
+  return !retro || company === '상품리스트';
 }
 
 /** 인기순(계약 실적) — 발행기·감사기가 같은 파일을 읽는다. 없으면 인기 축 없이 정렬. */

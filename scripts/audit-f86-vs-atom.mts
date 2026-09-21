@@ -8,7 +8,7 @@
  *
  *   ① 탭 — 이름(회사·이번 회차 시각·대수)·차례가 계획과 같은가 (공지사항·안내는 뺀다)
  *   ② 신선도 — 회차 시각이 `--max-age-min`(기본 120분)보다 오래 멈춰 있지 않은가.
- *      하허호는 시각이 「종합 MM.DD HH:MM · N대」 하나에만 있고 회사 탭은 「회사 · N대」다(2026-09-16(6) ㉢ · 초 없음 9bef7bf0).
+ *      하허호는 시각이 「상품리스트 MM.DD HH:MM · N대」 하나에만 있고 나머지는 「탭명 · N대」다(초 없음).
  *      판정은 `lib/server/f86-audit-checks.ts` — 반례 시험 `scripts/sim-f86-audit-checks.mts`
  *   ③ 칸 — 탭마다 머리글 · 줄 수 · 차번 차례 · «모든 칸 값»이 계획과 같은가
  *
@@ -59,7 +59,7 @@ const titles: string[] = (meta.sheets || []).map((s: any) => s.properties).sort(
   .map((p: any) => S(p.title)).filter((t: string) => !/공지|안내|이 시트|시트 지도/.test(t));
 fails.push(...compareF86TabTitles(titles, plan.tabs.map((t) => t.title)));
 
-// ② 신선도 — 시각을 다는 탭(하허호 = 「종합」 하나, `f86TabCarriesMark`)의 시각(KST · 초 없음). 회사 탭 「회사 · N대」는 시각이 없어야 맞다.
+// ② 신선도 — 시각을 다는 탭(하허호 = 맨 앞 「상품리스트」 하나, `f86TabCarriesMark`)의 시각(KST · 초 없음). 나머지 「탭명 · N대」는 시각이 없어야 맞다.
 {
   const driveMeta = await api(`https://www.googleapis.com/drive/v3/files/${sheetId}?fields=modifiedTime`);
   const fresh = checkF86TabFreshness({ titles, retro: plan.retro, now: Date.now(), maxAgeMin, modifiedAt: S(driveMeta.modifiedTime) });

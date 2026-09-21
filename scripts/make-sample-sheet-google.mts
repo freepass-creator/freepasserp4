@@ -11,11 +11,11 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { JWT } from 'google-auth-library';
 import { buildSalesFormatRequests, columnWidths } from '../lib/domain/sales-sheet-format';
 import { makeCell, tabOf, TAB_ORDER, loadSalesRowContext, compareSalesRows } from '../lib/domain/sales-atom-row';
-import { salesTabMatches } from '../lib/domain/sales-published-tabs';
+import { salesPublishedTabTitle, salesTabMatches } from '../lib/domain/sales-published-tabs';
 import { companyAlias } from '../lib/domain/identity';
 import { isPlate } from '../lib/domain/plate-registry';
 import { hasInventoryPublicationViolations, inventoryCountSnapshot, isOpenInventoryAtom } from '../lib/domain/inventory-contract';
-import { captureSalesPublishSnapshot, readSalesPublishSnapshot } from '../lib/server/sales-publish-snapshot';
+import { captureSalesPublishSnapshot, readSalesPublishSnapshot, salesPublishTabMark } from '../lib/server/sales-publish-snapshot';
 import { salesPublishedColumns } from '../lib/domain/sales-published-tab-columns';
 import { assertProductionSheetWrite } from '../lib/server/production-sheet-write-gate';
 
@@ -113,8 +113,9 @@ const headerCache: Record<string, string[]> = Object.fromEntries(TAB_ORDER.map((
 for (const list of Object.values(groups)) for (const v of (list as any[])) {
   const m = S((v as any).model); if (m) modelCount.set(m, (modelCount.get(m) || 0) + 1);
 }
-// 상품 탭은 ERP 화면과 같은 네 이름으로 고정한다. 갱신시각은 실행 로그와 스냅샷에만 남긴다.
-const titleOf = (base: string) => base;
+// 맨 앞 상품리스트만 갱신시각을 표시하고, 나머지는 탭명과 대수만 표시한다.
+const tabMark = salesPublishTabMark(publishSnapshot);
+const titleOf = (base: string) => salesPublishedTabTitle(base, groups[base]?.length || 0, tabMark);
 
 let sheetId = SAMPLE_SHEET_ID, fresh = false;
 /**

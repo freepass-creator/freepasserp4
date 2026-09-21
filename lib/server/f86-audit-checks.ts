@@ -6,9 +6,9 @@
  *
  * ★2026-09-18 — 신선도 검사가 확정 탭명 규격(2026-09-16(6) ㉢ · 9bef7bf0 「초를 뗀다」)을 못 따라가
  *   정시 회차가 매번 빨간불이었다(run 35235961510 · 35304903901 — 칸 44,462개 어긋남 0 인데
- *   회사 탭 18장 + 종합이 「탭 이름에 발행 시각이 없다」). 옛 검사는 «모든» 탭에 `MM.DD HH:MM:SS` 를 요구했다.
+ *   회사 탭 18장 + 맨 앞 탭이 「탭 이름에 발행 시각이 없다」). 옛 검사는 «모든» 탭에 `MM.DD HH:MM:SS` 를 요구했다.
  *   확정 규격은 둘뿐이다:
- *     · 하허호 — 「종합 MM.DD HH:MM · N대」(시각은 종합 하나 · 초 없음) · 회사 탭은 「회사 · N대」(시각 없음)
+ *     · 하허호 — 「상품리스트 MM.DD HH:MM · N대」(시각은 맨 앞 한 장 · 초 없음) · 나머지는 「탭명 · N대」
  *     · 하허호 밖 채널 — 전 탭 「회사 MM.DD HH:MM · N대」
  *   어느 탭이 시각을 다는지는 발행기와 같은 규칙(`f86TabCarriesMark`)을 쓴다 — 두 벌로 적으면 또 어긋난다.
  */
@@ -53,7 +53,7 @@ export function compareF86TabTitles(titles: string[], expected: string[]): strin
 
 /**
  * ② 신선도 — 시각을 «다는» 탭만 시각을 읽고, 안 다는 탭은 시각이 «없어야» 한다.
- * 하허호는 「종합」 하나가 회차 시각이다. 그 시각이 `maxAgeMin` 보다 오래됐거나, 없거나, 규격(초 없음) 밖이면 실패.
+ * 하허호는 맨 앞 「상품리스트」 하나가 회차 시각이다. 그 시각이 `maxAgeMin` 보다 오래됐거나, 없거나, 규격(초 없음) 밖이면 실패.
  */
 export function checkF86TabFreshness(p: { titles: string[]; retro: boolean; now: number; maxAgeMin: number; modifiedAt?: string }): {
   fails: string[]; oldestMin: number | null; oldestTitle: string; markedTabs: number;
@@ -61,30 +61,16 @@ export function checkF86TabFreshness(p: { titles: string[]; retro: boolean; now:
   const fails: string[] = [];
   let oldestMin: number | null = null; let oldestTitle = ''; let markedTabs = 0;
   if (p.retro) {
-    for (const fixed of F86_BASE_TABS) if (!p.titles.includes(fixed)) fails.push(`고정 기본 탭이 없다 — 「${fixed}」`);
-    for (const t of p.titles) {
-      if ((F86_BASE_TABS as readonly string[]).includes(t)) continue;
-      const tab = parseF86TabName(t);
-      if (!tab || tab.mark || (F86_BASE_TABS as readonly string[]).includes(tab.company)) {
-        fails.push(`탭 이름이 F86 규격(고정 기본 탭 또는 「회사 · N대」) 밖이다 — 「${t}」`);
-      }
-    }
-    const at = Date.parse(S(p.modifiedAt));
-    if (!Number.isFinite(at)) fails.push('F86 문서 수정 시각을 읽을 수 없다');
-    else {
-      oldestMin = Math.max(0, Math.round((p.now - at) / 60000));
-      oldestTitle = '문서 수정 시각';
-      if (oldestMin > p.maxAgeMin) fails.push(`F86 이 ${oldestMin}분째 멈춰 있다(허용 ${p.maxAgeMin}분) — 문서 수정 시각`);
-    }
-    return { fails, oldestMin, oldestTitle, markedTabs };
+    const companies = p.titles.map(parseF86TabName).filter((v): v is F86TabName => !!v).map((v) => v.company);
+    for (const fixed of F86_BASE_TABS) if (!companies.includes(fixed)) fails.push(`고정 기본 탭이 없다 — 「${fixed}」`);
   }
-  /** 시각을 «달아야 하는» 탭(하허호=종합)이 시트에 서 있나 — 꼴이 틀려도 있기는 한 것과, 아예 없는 것을 가른다. */
+  /** 시각을 «달아야 하는» 탭(하허호=상품리스트)이 시트에 서 있나 — 꼴이 틀려도 있기는 한 것과, 아예 없는 것을 가른다. */
   let carrierSeen = false;
   for (const t of p.titles) {
     const tab = parseF86TabName(t);
     if (!tab) {
       if (f86TabCarriesMark(S(t).split(' ')[0], p.retro)) carrierSeen = true;
-      fails.push(`탭 이름이 F86 규격(「회사 · N대」 · 「종합 MM.DD HH:MM · N대」) 밖이다 — 「${t}」`);
+      fails.push(`탭 이름이 F86 규격(「탭명 · N대」 · 「상품리스트 MM.DD HH:MM · N대」) 밖이다 — 「${t}」`);
       continue;
     }
     const carries = f86TabCarriesMark(tab.company, p.retro);
@@ -101,7 +87,7 @@ export function checkF86TabFreshness(p: { titles: string[]; retro: boolean; now:
     if (oldestMin == null || age > oldestMin) { oldestMin = age; oldestTitle = t; }
   }
   if (!carrierSeen) {
-    fails.push(p.retro ? '「종합」 탭이 없다 — 하허호 F86 의 회차 시각은 종합 하나에만 있다' : '발행 시각이 달린 탭이 하나도 없다');
+    fails.push(p.retro ? '「상품리스트」 탭이 없다 — 하허호 F86 의 회차 시각은 맨 앞 상품리스트 하나에만 있다' : '발행 시각이 달린 탭이 하나도 없다');
   }
   if (oldestMin != null && oldestMin > p.maxAgeMin) fails.push(`F86 이 ${oldestMin}분째 멈춰 있다(허용 ${p.maxAgeMin}분) — 「${oldestTitle}」`);
   return { fails, oldestMin, oldestTitle, markedTabs };

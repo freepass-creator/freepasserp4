@@ -162,7 +162,7 @@ const 링크요청: any[] = [];
 const puts: { range: string; values: (string | number)[][] }[] = [];
 /** 이번 회차에 실제로 채운 탭 — 여기 없는 회사 탭은 묵은 것이라 지운다(아래). */
 const 쓴탭 = new Set<number>();
-/** 탭 자리 — 하허호는 「종합」이 맨 앞(공지사항이 없다) · 그 밖 채널은 0 번이 공지사항. */
+/** 탭 자리 — 하허호는 「상품리스트」가 맨 앞(공지사항이 없다) · 그 밖 채널은 0 번이 공지사항. */
 let index = RETRO ? 0 : 1;
 for (const tab of plan.tabs) {
   const { company, cols, body, values, title, rows } = tab;

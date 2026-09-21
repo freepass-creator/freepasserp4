@@ -21,11 +21,11 @@
  */
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
-import { SALES_PUBLISHED_TAB_PREFIXES, salesTabMatches, canonicalSalesTabName } from '../lib/domain/sales-published-tabs';
+import { SALES_PUBLISHED_TAB_PREFIXES, salesPublishedTabTitle, salesTabMatches } from '../lib/domain/sales-published-tabs';
 import { isDepositColumn, isMoneyColumn } from '../lib/domain/sales-sheet-format';
 import { inventoryCountSnapshot, isOpenInventoryAtom, isUnavailableInventoryAtom } from '../lib/domain/inventory-contract';
 import nextEnv from '@next/env';
-import { readSalesPublishSnapshot, salesPublishMark, salesPublishTabMark } from '../lib/server/sales-publish-snapshot';
+import { readSalesPublishSnapshot, salesPublishTabMark } from '../lib/server/sales-publish-snapshot';
 import { companyAlias } from '../lib/domain/identity';
 import { channelCompanyOf } from '../lib/domain/channel-company';
 import { compareSalesRows, loadSalesRowContext, makeCell, tabOf } from '../lib/domain/sales-atom-row';
@@ -82,8 +82,7 @@ const atomList: any[] = [];
 const snapshotPath = arg('snapshot');
 if (!snapshotPath) throw new Error('F01·F86 감사에는 --snapshot=<이번 회차 고정 스냅샷>이 반드시 필요하다.');
 const publishSnapshot = readSalesPublishSnapshot(snapshotPath);
-const expectedMark = salesPublishMark(publishSnapshot);
-/** F86 탭 이름은 시각만(스냅샷 ID 없이) — 발행기 `salesPublishTabMark` 와 같은 문패. F01 은 위 `expectedMark` 규칙 그대로. */
+/** F01/F86 모두 맨 앞 상품리스트만 `salesPublishTabMark` 시각을 달고 나머지는 탭명·대수만 단다. */
 const f86Mark = salesPublishTabMark(publishSnapshot);
 const staleTimestampTabs: string[] = [];
 for (const v of publishSnapshot.products as any[]) { atomList.push(v); atoms.set(K(v.car_number) || S(v._key), v); }
@@ -126,8 +125,9 @@ const f01Order = new Map<string, string[]>();
     return matches.map((title) => ({ prefix, title }));
   });
   for (const { prefix, title } of selected) {
-    // F01 상품 탭은 ERP와 같은 네 이름으로 고정한다. 회차 일치는 아래 전체 값 대조로 확인한다.
-    if (canonicalSalesTabName(title) !== prefix) staleTimestampTabs.push(`F01:${title} (기대: ${prefix})`);
+    const count = 실릴차.filter((atom) => tabOf(atom) === prefix).length;
+    const expectedTitle = salesPublishedTabTitle(prefix, count, f86Mark);
+    if (title !== expectedTitle) staleTimestampTabs.push(`F01:${title} (기대: ${expectedTitle})`);
   }
   const grids = await readTabs(F01, selected.map((x) => x.title));
   for (const { prefix, title } of selected) {
@@ -239,15 +239,21 @@ let f86줄 = 0;
   const meta = await api(`https://sheets.googleapis.com/v4/spreadsheets/${F86}?fields=sheets.properties.title`);
   const 모든탭: string[] = (meta.sheets || []).map((s: any) => S(s.properties?.title)).filter((t: string) => !/공지|안내|이 시트/.test(t));
   const 실제기본 = 모든탭.slice(0, F86_BASE_TABS.length);
-  if (JSON.stringify(실제기본) !== JSON.stringify(F86_BASE_TABS)) {
-    f86TabShapeViolations.push(`기본 탭 이름·차례: 실제 ${실제기본.join('·')} ↔ 기대 ${F86_BASE_TABS.join('·')}`);
+  const 기대기본 = F86_BASE_TABS.map((tab) => f86TabTitle(
+    tab,
+    실릴차.filter((atom) => f86BaseTabOf(atom) === tab).length,
+    f86Mark,
+    true,
+  ));
+  if (JSON.stringify(실제기본) !== JSON.stringify(기대기본)) {
+    f86TabShapeViolations.push(`기본 탭 이름·차례: 실제 ${실제기본.join('·')} ↔ 기대 ${기대기본.join('·')}`);
   }
-  const titles = F86_BASE_TABS.filter((t) => 모든탭.includes(t));
-  const grids = await readTabs(F86, titles);
-  for (const title of titles) {
+  const baseEntries = 실제기본.map((title, index) => ({ title, prefix: F86_BASE_TABS[index] })).filter((v) => !!v.prefix);
+  const grids = await readTabs(F86, baseEntries.map((v) => v.title));
+  for (const { title, prefix } of baseEntries) {
     const grid = grids.get(title) || [];
     const hdr = grid[0] || [];
-    const expectedHeader = salesPublishedColumns(title);
+    const expectedHeader = salesPublishedColumns(prefix);
     if (JSON.stringify(hdr) !== JSON.stringify(expectedHeader)) {
       f86HeaderViolations.push(`${title}: 실제 ${hdr.length}열 ↔ 기대 ${expectedHeader.length}열`);
     }
@@ -256,12 +262,12 @@ let f86줄 = 0;
     for (const r of grid.slice(1)) {
       const car = K(r[ci]);
       if (!car) { if (r.some((value) => S(value))) f86BlankPlateRows.push(`${title}: ${r.filter((value) => S(value)).slice(0, 3).join(' | ')}`); continue; }
-      f86Order.set(title, [...(f86Order.get(title) || []), car]);
+      f86Order.set(prefix, [...(f86Order.get(prefix) || []), car]);
       f86줄++;
       f86Counts.set(car, (f86Counts.get(car) || 0) + 1);
       const cells: Record<string, string> = {};
       hdr.forEach((h, i) => { if (S(h)) cells[channelColumnName(S(h))] = S(r[i]); });
-      f86.set(car, { company: title, cells });
+      f86.set(car, { company: prefix, cells });
     }
   }
   for (const title of F86_BASE_TABS) {
@@ -301,7 +307,7 @@ if (false) {
     /** ★2026-09-16 «굳힌 양식» — 기대 머리글은 데이터가 아니라 발행기와 같은 표(`retroTabLayout`)에서. */
     expectedHeaders.set(company, (retroTabLayout(company) || []).map((c) => c.head));
   }
-  if (expectedMark) {
+  if (f86Mark) {
     for (const title of titles) if (!expectedTitles.has(title)) f86TabShapeViolations.push(`예상 밖 탭: ${title}`);
     for (const title of expectedTitles.keys()) if (!titles.includes(title)) f86TabShapeViolations.push(`빠진 탭: ${title}`);
   }
