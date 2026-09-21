@@ -128,6 +128,8 @@ const VALIDATED_ENGINES = [
 ];
 const pinnedEngine = VALIDATED_ENGINES.find((engine) => workflow.includes(`ref: ${engine}`));
 assert(pinnedEngine, '검증 엔진 pin이 제거됐습니다. main collector 이식 완료 전에는 pin을 풀면 안 됩니다(새 엔진은 VALIDATED_ENGINES 에 적는다).');
+assert(/audit-supplementary-inventory-reference\.mts --snapshot=tmp\/erp5-sales-publish\.json[\s\S]*동일 스냅샷으로 판매시트 게시/.test(workflow),
+  '오플·손오공 보완참조 게이트는 F01/F86 쓰기 직전에 실행돼야 합니다.');
 const validatedEngine = pinnedEngine as string;
 assert(workflow.includes('GOOGLE_CLOUD_PROJECT: freepasserp5'), 'production target은 freepasserp5여야 합니다.');
 assert(workflow.includes('scripts/ingest-all-suppliers.mts'), 'production workflow가 검증된 일괄수집기를 호출하지 않습니다.');
