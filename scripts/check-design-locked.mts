@@ -1282,7 +1282,9 @@ must(/nowLabelKo\(now\)/.test(wlFrame) && /head\.weather/.test(wlFrame),
     'components/WhitelabelFrame.tsx WhitelabelNotice · lib/whitelabel.ts notice.link');
 
   /* 오늘 숨김 — 아주 연한 문구 + X. 별도 면/테두리 없이 모바일 44px 누름영역 유지. */
-  const dismiss = banner.slice(banner.indexOf('aria-label="오늘 하루 안 보기"'));
+  const dismissAt = banner.indexOf('aria-label="오늘 하루 안 보기"');
+  const dismissStart = banner.lastIndexOf('<Btn', dismissAt);
+  const dismiss = banner.slice(dismissStart >= 0 ? dismissStart : dismissAt);
   must(/<Btn/.test(dismiss) && /variant="bare"/.test(dismiss) && /background: 'transparent'/.test(dismiss),
     '배너 오늘 숨김이 bare 공통 버튼 원자에서 벗어나거나 강한 버튼 면을 갖게 됐습니다.',
     'components/WhitelabelFrame.tsx 오늘 하루 안 보기 · 사장님 2026-09-21');
