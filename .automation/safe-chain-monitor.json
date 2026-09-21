@@ -2,13 +2,13 @@
   "schemaVersion": 1,
   "timezone": "Asia/Seoul",
   "firstScheduledSettlementSuccessNotified": true,
-  "lastMeaningfulEventKey": "erp5-audit-failure:35556005697",
-  "lastKnownSettlementRunId": 35555988134,
-  "lastKnownErp5RunId": 35556051763,
-  "lastKnownGoodErp5RunId": 35550547914,
-  "lastHeartbeatSlot": "2026-09-21T11:05:00+09:00",
-  "lastCheckedAt": "2026-09-21T12:21:05+09:00",
-  "lastCheckedThroughSlot": "2026-09-21T11:05:00+09:00",
+  "lastMeaningfulEventKey": "missing-schedule-fallback:2026-09-21T13:05:00+09:00",
+  "lastKnownSettlementRunId": 35562020620,
+  "lastKnownErp5RunId": 35562059650,
+  "lastKnownGoodErp5RunId": 35556051763,
+  "lastHeartbeatSlot": "2026-09-21T13:05:00+09:00",
+  "lastCheckedAt": "2026-09-21T13:44:00+09:00",
+  "lastCheckedThroughSlot": "2026-09-21T13:05:00+09:00",
   "policy": {
     "settlementWorkflow": ".github/workflows/settlement-intake-sync.yml",
     "erp5Workflow": ".github/workflows/erp5-ssot-refresh.yml",
@@ -136,32 +136,62 @@
     "2026-09-21T11:05:00+09:00": {
       "settlementRunId": 35555988134,
       "erp5RunId": 35556051763,
-      "status": "erp5-in-progress",
+      "status": "success",
+      "settlementProductionWritesCompleted": true,
+      "erp5ProductionWritesCompleted": true,
+      "audits": {
+        "f86Freshness": "pass",
+        "f01F86Parity": "pass",
+        "platePhoto": "pass"
+      },
+      "updatedAt": "2026-09-21T13:44:00+09:00"
+    },
+    "2026-09-21T12:05:00+09:00": {
+      "settlementRunId": 35562013183,
+      "erp5RunId": 35562037889,
+      "status": "erp5-pending",
       "settlementProductionWritesCompleted": true,
       "erp5ProductionWritesCompleted": false,
-      "currentStep": "동일 스냅샷으로 판매시트 게시",
       "audits": {
         "f86Freshness": "pending",
         "f01F86Parity": "pending",
         "platePhoto": "pending"
       },
-      "updatedAt": "2026-09-21T12:21:05+09:00"
+      "recoveryReason": "scheduled trigger missing after 20-minute grace",
+      "automaticSettlementHeartbeat": true,
+      "automaticErp5Heartbeat": false,
+      "updatedAt": "2026-09-21T13:44:00+09:00"
+    },
+    "2026-09-21T13:05:00+09:00": {
+      "settlementRunId": 35562020620,
+      "erp5RunId": 35562059650,
+      "status": "erp5-pending",
+      "settlementProductionWritesCompleted": true,
+      "erp5ProductionWritesCompleted": false,
+      "audits": {
+        "f86Freshness": "pending",
+        "f01F86Parity": "pending",
+        "platePhoto": "pending"
+      },
+      "recoveryReason": "scheduled trigger missing after 20-minute grace",
+      "automaticSettlementHeartbeat": true,
+      "automaticErp5Heartbeat": false,
+      "updatedAt": "2026-09-21T13:44:00+09:00"
     }
   },
   "lastRecovery": {
-    "expectedSlot": "2026-09-21T11:05:00+09:00",
+    "expectedSlot": "2026-09-21T13:05:00+09:00",
     "failedRunId": null,
     "failureReason": "scheduled trigger missing after 20-minute grace",
-    "recoveredRunId": 35555988134,
-    "erp5RunId": 35556051763,
-    "status": "erp5-in-progress",
+    "recoveredRunId": 35562020620,
+    "erp5RunId": 35562059650,
+    "status": "erp5-pending",
     "settlementProductionWrites": {
       "intakeStepCompleted": true,
       "formatStepCompleted": true,
       "result": "success"
     },
     "erp5ProductionWritesCompleted": false,
-    "currentStep": "동일 스냅샷으로 판매시트 게시",
     "audits": {
       "f86Freshness": "pending",
       "f01F86Parity": "pending",
