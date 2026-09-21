@@ -1,0 +1,18 @@
+{
+  "version": 1,
+  "timeZone": "Asia/Seoul",
+  "displayTimestampFormat": "MM-dd HH:mm",
+  "separator": " ",
+  "titleSurface": "worksheet.properties.title",
+  "canonicalOrder": ["상품리스트", "손오공상품", "픽업구독", "오플구독"],
+  "displayNames": {"상품리스트": "상품리스트", "손오공상품": "손오공", "픽업구독": "픽업", "오플구독": "오플"},
+  "countBasis": "actual-output-data-rows-excluding-header",
+  "internalProvenance": ["capturedAt", "timeZone", "revision", "snapshotId"],
+  "sourceTextColumns": [
+    {"key": "sourceVehicleName", "headers": ["차명(원본)", "차명(원문)"], "minimumPixelSize": 180, "wrapStrategy": "CLIP"},
+    {"key": "sourceOptions", "headers": ["옵션(원본)", "옵션(원문)"], "minimumPixelSize": 320, "wrapStrategy": "CLIP"}
+  ],
+  "neverShrinkExistingWidths": true,
+  "preserve": ["sheetId", "sheetIndex", "data", "formulas", "sort", "rowOrder", "rowHeight", "filters", "frozenRows", "frozenColumns", "merges", "protectedRanges", "userFormattingOutsideWrapStrategy", "userAreas"],
+  "holdOn": ["duplicateCanonicalTab", "classificationDrift", "unknownCompanyName", "unknownColumnWidth", "incompleteFormulaAudit", "incompleteProtectionAudit", "unverifiedAppsScriptReferences", "unverifiedExternalConsumers", "concurrentDrift"]
+}
