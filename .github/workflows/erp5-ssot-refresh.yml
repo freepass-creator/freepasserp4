@@ -4,6 +4,18 @@ name: ERP5 SSOT 원천 최신화(매시간)
 # 검증된 기존 원자의 가변값과 상태만 자동 갱신하며 새 차번은 후보로 보고한다.
 # 한 회차가 읽은 ERP5 스냅샷 하나로 판매시트를 발행한다.
 on:
+  schedule:
+    # 월~토 KST 09:17~19:17. GitHub schedule 지연은 실행 증거로 별도 감시한다.
+    - cron: '17 0-10 * * 1-6'
+  # 정산 접수→원장 성공 뒤 동일 canonical writer를 이어서 실행한다.
+  workflow_run:
+    workflows: ["정산 접수→원장(1시간)"]
+    types: [completed]
+  # native schedule 누락 시 승인된 safe-chain monitor가 이 heartbeat만 전진시킨다.
+  push:
+    branches: [main]
+    paths:
+      - '.automation/heartbeats/erp5-ssot-refresh.txt'
   workflow_dispatch:
     inputs:
       apply:
