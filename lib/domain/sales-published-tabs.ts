@@ -8,7 +8,7 @@
  *   기간별 대여료만 · 오플은 12개월 3만Km 이렇게」, publish-sonogong-tab).
  *   그래서 «판매시트에 실린 차 = 네 탭의 합»이고, 상품마스터 맞춤(⑤′)·돈 대조·ERP 대조가 표준 칸(12·24·36개월…)을 찾을 땐 아래 별칭으로 되찾는다.
  *   상품리스트 한 탭만 읽으면 오플 88·손오공 구독 43대가 «없는 차»로 보인다(2026-08-18 저녁 하루는 한 탭이었다).
- * ★탭 이름은 「접두 MM.DD HH:MM · N대」. 접두마다 한 장만 산다(발행기가 같은 접두 탭을 갈아 끼움).
+ * ★탭 이름은 첫 탭만 「상품리스트 MM.DD HH:MM · N대」, 특수탭은 「이름 · N대」. 접두마다 한 장만 산다.
  */
 import { resolveAutoplusDepositPolicy, SONOGONG_DEPOSIT_POLICY } from './deposit-policy';
 
@@ -18,8 +18,8 @@ export type SalesPublishedPrefix = (typeof SALES_PUBLISHED_TAB_PREFIXES)[number]
 
 export function canonicalSalesTabName(value: string): string {
   return String(value ?? '').trim()
-    .replace(/^(?:오공구독|손오공상품)(?=\s|$|[·(])/, '손오공상품')
-    .replace(/^오토플러스(?=\s|$|[·(])/, '오토플러스');
+    .replace(/^(?:오공구독|손오공구독)(?=\s|$|[·(])/, '손오공상품')
+    .replace(/^오플구독(?=\s|$|[·(])/, '오토플러스');
 }
 
 export function salesTabMatches(title: string, prefix: string): boolean {
