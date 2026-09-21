@@ -115,6 +115,14 @@ const VALIDATED_ENGINES = [
    * 손오공 원천은 계속 ERP API이며 수집기 내용은 cf940df6과 같다.
    */
   'c3838708b84527db241f1985c140a3ec6ece6bff',
+  /**
+   * ★2026-09-21 — 손오공 API 응답 분류를 Firestore atom에 sonokong-product-v1로 명시 저장한다.
+   *   source_bucket·response_bucket·product_type·sales_group을 함께 남기며,
+   *   손오공상품=중고렌트+오공구독, 픽업구독=별도라는 F01/F86 공통 계약을 한 함수로 읽는다.
+   *   원천·fail-closed 가드는 그대로이고, 기존 문서는 가변 수집 때 분류를 backfill한다.
+   *   F01/F86 탭 문패는 맨 앞 상품리스트만 갱신시각·대수를, 나머지는 탭명·대수만 표시한다.
+   */
+  '0e0bfb3a6e227fd65b754c1d74f7ca5c8b1c327e',
 ];
 const pinnedEngine = VALIDATED_ENGINES.find((engine) => workflow.includes(`ref: ${engine}`));
 assert(pinnedEngine, '검증 엔진 pin이 제거됐습니다. main collector 이식 완료 전에는 pin을 풀면 안 됩니다(새 엔진은 VALIDATED_ENGINES 에 적는다).');
