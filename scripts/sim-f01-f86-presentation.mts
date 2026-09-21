@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
-import { SHEET_PRESENTATION as spec, presentationFormatRequests, presentationLabel, requirePrimaryBindings } from '../lib/domain/f01-f86-presentation';
+import { SHEET_PRESENTATION as spec, presentationFormatRequests, presentationLabel, requirePrimaryBindings, requireUniquePublicationKeys } from '../lib/domain/f01-f86-presentation';
 import { salesPublishedTabTitle, salesTabMatches } from '../lib/domain/sales-published-tabs';
 import { f86TabTitle } from '../lib/server/channel-f86-plan';
 import { planPresentation } from '../vendor/freepass-data/scripts/sheet-presentation.mjs';
@@ -34,4 +34,7 @@ for (const workbook of ['F01', 'F86'] as const) {
 }
 assert.equal(salesTabMatches('상품리스트추가', '상품리스트'), false);
 assert.equal(presentationLabel('회사 이름 · 10대'), '회사 이름');
+assert.throws(() => requireUniquePublicationKeys(['12가3456', '12 가-3456']), /duplicate/);
+assert.throws(() => requireUniquePublicationKeys(['미입력']), /missing/);
+requireUniquePublicationKeys(['12가3456', '34나5678']);
 console.log('PASS: pinned shared spec, stable IDs, exact F01/F86 publisher to local planner parity');

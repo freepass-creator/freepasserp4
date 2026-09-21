@@ -1,9 +1,9 @@
 {
   "repository": "freepass-creator/freepass-data",
-  "revision": "89efed27aaf00d12d9b63eb29b85537f27a3fbe7",
+  "revision": "7f6db2ed1c0bf231300854656744a045551b684d",
   "authority": "Generated pinned dependency; edit upstream and re-vendor, never edit this copy",
   "sha256": {
-    "contracts/f01-f86-sheet-spec.v1.json": "eccc5d1c905c6c842df1b184f912d218b9f724bbb60dd8361aa29cf3ee12ff2b",
+    "contracts/f01-f86-sheet-spec.v1.json": "d1570885cac35d5a637e4b43a645c4ebcc46e58631194cb6b806242541b683c7",
     "scripts/sheet-presentation.mjs": "20f315f05833ddc387346c7d6fd7f3f5f5abbfe12a2d825b81070f846b964a8b",
     "scripts/sheet-presentation-online.mjs": "76a4d4da41350c9917d77f6e7b7ebcd71cdab24e417c710e7057faf5d52c549d"
   }

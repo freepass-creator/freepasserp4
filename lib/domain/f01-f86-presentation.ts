@@ -2,6 +2,11 @@ import spec from '../../vendor/freepass-data/contracts/f01-f86-sheet-spec.v1.jso
 export const SHEET_PRESENTATION = spec;
 export type Workbook = keyof typeof spec.workbooks;
 
+export function requireUniquePublicationKeys(keys: string[]) {
+  const normalized = keys.map(key => String(key).replace(/[\s-]/g, ''));
+  if (normalized.some(key => !key || ['미입력', '미정', '해당없음'].includes(key)) || new Set(normalized).size !== normalized.length) throw new Error('HOLD: missing/duplicate publication vehicle key');
+}
+
 export function presentationTitle(label: string, count: number, mark: string): string {
   if (!Number.isSafeInteger(count) || count < 0) throw new Error('HOLD: invalid vehicle count');
   if (label === spec.primaryTabs[0].label) {

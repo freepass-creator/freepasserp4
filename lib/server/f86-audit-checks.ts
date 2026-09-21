@@ -72,13 +72,13 @@ export function checkF86TabFreshness(p: { titles: string[]; retro: boolean; now:
     const tab = parseF86TabName(t);
     if (!tab) {
       if (f86TabCarriesMark(S(t).split(' ')[0], p.retro)) carrierSeen = true;
-      fails.push(`탭 이름이 F86 규격(「탭명 · N대」 · 「상품리스트 MM.DD HH:MM · N대」) 밖이다 — 「${t}」`);
+      fails.push(`탭 이름이 F86 규격(「탭명 N대」 / 「MM.DD HH:mm 상품리스트 N대」) 밖이다 — 「${t}」`);
       continue;
     }
     const carries = f86TabCarriesMark(tab.company, p.retro);
     if (p.retro && (!carries || tab.mark) && t !== f86TabTitle(tab.company, tab.count, tab.mark || '', true)) fails.push(`확정 표시 규격 불일치 — 「${t}」`);
     if (!carries) {
-      if (tab.mark) fails.push(`회사 탭에 발행 시각이 붙어 있다(옛 규격) — 「${t}」 · 확정 규격은 「${tab.company} · ${tab.count}대」`);
+      if (tab.mark) fails.push(`회사 탭에 발행 시각이 붙어 있다(옛 규격) — 「${t}」 · 확정 규격은 「${tab.company} ${tab.count}대」`);
       continue;
     }
     carrierSeen = true;

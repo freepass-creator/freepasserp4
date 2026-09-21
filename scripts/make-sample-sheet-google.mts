@@ -12,7 +12,7 @@ import { JWT } from 'google-auth-library';
 import { buildSalesFormatRequests, columnWidths } from '../lib/domain/sales-sheet-format';
 import { makeCell, tabOf, TAB_ORDER, loadSalesRowContext, compareSalesRows } from '../lib/domain/sales-atom-row';
 import { salesPublishedTabTitle, salesTabMatches } from '../lib/domain/sales-published-tabs';
-import { SHEET_PRESENTATION, requirePrimaryBindings, presentationFormatRequests } from '../lib/domain/f01-f86-presentation';
+import { SHEET_PRESENTATION, requirePrimaryBindings, requireUniquePublicationKeys, presentationFormatRequests } from '../lib/domain/f01-f86-presentation';
 import { verifyPublishedPresentation } from '../lib/server/verify-published-presentation';
 import { companyAlias } from '../lib/domain/identity';
 import { isPlate } from '../lib/domain/plate-registry';
@@ -118,6 +118,7 @@ for (const list of Object.values(groups)) for (const v of (list as any[])) {
 // 맨 앞 상품리스트만 갱신시각을 표시하고, 나머지는 탭명과 대수만 표시한다.
 const tabMark = salesPublishTabMark(publishSnapshot);
 const titleOf = (base: string) => salesPublishedTabTitle(base, (groups[base] || []).filter(v => isPlate(S(v.car_number))).length, tabMark);
+requireUniquePublicationKeys(TAB_ORDER.flatMap(base => (groups[base] || []).filter(v => isPlate(S(v.car_number))).map(v => S(v.car_number))));
 
 let sheetId = SAMPLE_SHEET_ID, fresh = false;
 /**
@@ -227,6 +228,7 @@ for (const t of TAB_ORDER) {
     conditionalFormatCount: ((sheetMeta.conditionalFormats || []) as unknown[]).length,
   }));
   fmt.push(...presentationFormatRequests('F01', gid, t, HEAD));
+  fmt.push({ setBasicFilter: { filter: { range: { sheetId: gid, startRowIndex: 0, endRowIndex: bodies[t].length + 1, startColumnIndex: 0, endColumnIndex: HEAD.length } } } });
   fmt.push({ updateSheetProperties: { properties: { sheetId: gid, index: TAB_ORDER.indexOf(t) }, fields: 'index' } });
 }
 for (let i = 0; i < fmt.length; i += 200) await api(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests: fmt.slice(i, i + 200) }) });

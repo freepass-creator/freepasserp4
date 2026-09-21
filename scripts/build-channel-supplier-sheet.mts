@@ -19,7 +19,7 @@ import { HAHUHO_PRODUCT_SHEET_ID } from '../lib/domain/legacy-sheets';
 import { assertProductionSheetWrite } from '../lib/server/production-sheet-write-gate';
 import { ensureNoticeTab } from '../lib/server/channel-sheet-tabs';
 import { applyRetroSkin, retroTabColorRequest } from '../lib/domain/channel-retro-skin';
-import { SHEET_PRESENTATION, presentationLabel, requirePrimaryBindings, presentationFormatRequests } from '../lib/domain/f01-f86-presentation';
+import { SHEET_PRESENTATION, presentationLabel, requirePrimaryBindings, requireUniquePublicationKeys, presentationFormatRequests } from '../lib/domain/f01-f86-presentation';
 import { verifyPublishedPresentation } from '../lib/server/verify-published-presentation';
 import { buildF86Plan } from '../lib/server/channel-f86-plan';
 import { googleSheetsServiceAccount } from '../lib/server/google-service-account';
@@ -156,6 +156,12 @@ if (!RETRO) {
 const cur = await api(`https://sheets.googleapis.com/v4/spreadsheets/${id}?fields=sheets(properties(sheetId,title,hidden),conditionalFormats(ranges(sheetId)))`);
 const isProductionF86 = id === SHEET_PRESENTATION.workbooks.F86.spreadsheetId;
 if (isProductionF86) requirePrimaryBindings('F86', (cur.sheets || []).map((s: any) => s.properties));
+if (isProductionF86) {
+  for (const primary of [true, false]) {
+    const tabs = plan.tabs.filter(tab => SHEET_PRESENTATION.primaryTabs.some(t => t.label === tab.company) === primary);
+    requireUniquePublicationKeys(tabs.flatMap(tab => tab.values.map(row => String(row[tab.cols.indexOf('차량번호')] ?? ''))));
+  }
+}
 const have: [string, any][] = (cur.sheets || []).map((s: any) => [S(s.properties.title), s.properties]);
 /** ★탭에 쌓인 조건부서식 수 — 서식기는 규칙을 «더하기»만 한다(운영 손오공 탭에 7,034개 쌓였던 적 · 2026-09-15). 매 회차 먼저 걷는다. */
 const 규칙수 = new Map<number, number>((cur.sheets || []).map((s: any) => [Number(s.properties.sheetId), (s.conditionalFormats || []).length]));

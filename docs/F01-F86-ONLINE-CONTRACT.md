@@ -14,4 +14,6 @@ F01/F86 발행은 기존 production write gate와 기존 workflow concurrency �
 
 검증: data 측 검사20개 및 기존58개 PASS. 엔진 typecheck, check:sync, 공급사 registry PASS. 새 parity simulation은 양쪽 발행 서식 결과를 upstream planner로 검사하여 요청0개를 요구한다. Cursor 독립 검토에서 희소 셀 응답 정규화를 보완했다. 알 수 없는 열 너비는 추정하지 않고 HOLD한다. 자동 rollback은 동시 수동 편집을 덮을 수 있어 하지 않는다. Sheets의 마지막 조회와 쓰기 사이에 원자적 compare-and-swap은 제공하지 못한다.
 
-Claude는 weekly limit, Gemini는 계정 서비스403으로 검토 불가였다. 이들은 PASS가 아니다. 운영 pin 전환, 실제 온라인 readback, 필수 독립 검증이 남아 있으면 운영 자동화 완료로 보고하지 않는다. PR454의 이전 축약 이름/180·320px 규격은 이 규격과 충돌하므로 함께 병합하지 않는다.
+GitHub read-only run35576634024에서 실제 F01 4탭/F86 20탭 차이0 PASS를 확인했다. Cursor의 추가 검토에서 지적된 F01 필터 endRowIndex 누락을 보완했고, 정규화 차량키 중복을 양쪽 발행기 쓰기 전에 차단했다. 문패 시각은 발행 회차의 기준 시각임을 upstream 정본에도 일치시켰다.
+
+Claude는 weekly limit, Gemini는 계정 서비스403으로 검토 불가였다. 이들은 PASS가 아니다. 운영 pin 전환 및 필수 독립 검증이 남아 있으면 운영 자동화 완료로 보고하지 않는다. PR454의 이전 축약 이름/180·320px 규격은 이 규격과 충돌하므로 함께 병합하지 않는다.
