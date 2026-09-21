@@ -3414,3 +3414,23 @@ Detail: `docs/ai-ssot-audit/2026-09-21-chatgpt-audit85-0905-native-settlement-mi
 
 No application code or business logic was modified by the auditor.
 
+
+---
+
+## 2026-09-21 — ChatGPT audit (86): 10:05 settlement fallback did not advance; safe-chain state is stale
+
+**판정: MATERIAL REGRESSION / recovery-plane continuity HOLD + monitor-state reconciliation drift. ERP5 canonical authority unchanged.**
+
+- Audit (85)의 09:05 recovery chain full-green 판정 자체는 유효하다: settlement `35550513984`(push/success) → ERP5 `35550547914`(workflow_run/full success).
+- 그러나 current `settlement-intake-sync.yml`은 KST 09:05~18:05 hourly cron을 선언하고 safe-chain policy는 missing schedule grace를 20분으로 두는데, 2026-09-21 **10:05 logical slot은 11:21 KST까지 native `event=schedule`도, heartbeat fallback recovery도 관측되지 않았다.** Repository-wide newest native schedule은 계속 ERP5 `35447185563`(2026-09-19 22:55:32 KST / success)이다.
+- `.automation/heartbeats/settlement-intake-sync.txt`는 여전히 09:05 slot을 가리키고, `.automation/safe-chain-monitor.json`은 `lastCheckedAt=10:23:03`, `lastCheckedThroughSlot=09:05`, `lastHeartbeatSlot=09:05`에서 멈춰 있다.
+- 같은 monitor state는 실제 10:32:58 KST full-success한 ERP5 `35550547914`도 아직 `erp5-in-progress`, production writes false, audits pending으로 기록하며 `lastKnownGoodErp5RunId`를 옛 `35439046831`에 둔다. 즉 **persistent recovery state가 live Actions/Audit (85) 결과와 reconcile되지 않았다.**
+- 따라서 Audit (85)의 “09:05 recovery plane PASS”를 ongoing fallback continuity GO로 확대하면 안 된다. 정확한 current 판정은 native cadence HOLD + fallback continuity HOLD + stale monitor state다. 이것은 data corruption 증거도, scheduler/watchdog 영구 disable 증거도 아니다.
+- Core SSOT boundary에는 신규 drift가 없다: production pin `cf940df642edf315adbc6da2b4134fbad53da160`, 24-source registry, 동일 fixed-snapshot F01/F86, F86 `종합`의 손오공·오토플러스 제외 + dedicated tabs, Sonogong `오공구독`/`픽업구독`, AutoPlus `오플구독`, retired mirror/sales automatic writers, RTDB/mirror non-canonical boundary 유지.
+- 계속 OPEN: Audit (84) FreePass Data SHADOW latency/non-interference, Audit (83) Production Deploy Recovery credential path, Audit (67) quote-default freshness, Audit (71) shared ERP5 concurrency/pending replacement + 15:05 reconciliation, Audit (76) successful-native false replay.
+
+**Claude implementation owner:** 10:05 slot이 grace 뒤에도 recovery로 이어지지 않은 원인과 safe-chain monitor reconciliation 책임을 확인한다. 실제 후속 missed-slot recovery + completed-run state reconciliation 증거 전까지 recovery continuity를 HOLD한다. 이 운영 finding을 이유로 canonical business semantics를 변경하지 않는다.
+
+Detail: `docs/ai-ssot-audit/2026-09-21-chatgpt-audit86-1005-recovery-gap-stale-monitor-state.md`
+
+No application code or business logic was modified by the auditor.

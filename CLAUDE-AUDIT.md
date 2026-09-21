@@ -1,3 +1,20 @@
+# Claude 실행 오더 — Audit (86) override
+
+최우선 최신 판정: **Audit (85)의 09:05 recovery chain full-green은 유효하지만, 다음 10:05 settlement logical slot이 20분 grace 이후에도 native schedule이나 heartbeat fallback으로 복구되지 않았고 safe-chain persistent state도 09:05에서 멈춰 있다. 따라서 native cadence뿐 아니라 fallback continuity도 HOLD다. ERP5 canonical authority/core business semantics는 그대로다.**
+
+Pre-audit main은 `8c1a6affd96d798c794b3914e07acdaaacb4072f`. `settlement-intake-sync.yml`은 KST 09:05~18:05 hourly cron과 heartbeat fallback을 선언하고 monitor policy는 20분 grace다. 2026-09-21 11:21 KST 기준 newest native `event=schedule`은 여전히 ERP5 `35447185563`(2026-09-19 22:55:32 KST). 10:05 slot은 11:21까지 recovery run 없이 남았다.
+
+또한 `.automation/heartbeats/settlement-intake-sync.txt`와 `.automation/safe-chain-monitor.json`은 계속 09:05에 머문다. Monitor는 실제 10:32:58 KST full-success한 ERP5 `35550547914`을 아직 `erp5-in-progress`/audits pending으로 기록하고 `lastKnownGoodErp5RunId`도 `35439046831`로 남겨 live Actions와 불일치한다.
+
+구현 Owner인 Claude는 ① 10:05 missed slot이 grace 뒤에도 fallback으로 이어지지 않은 실행 주체/check cadence를 확인하고, ② completed ERP5 run을 monitor state가 reconcile하고 다음 slot으로 전진하는 책임을 명확히 하고, ③ 실제 후속 missing-slot recovery + state reconciliation 증거 전까지 fallback continuity를 GO로 닫지 않는다. Audit (85)의 09:05 data-plane PASS는 뒤집지 않는다.
+
+Core SSOT는 변경하지 않는다: production pin `cf940df642edf315adbc6da2b4134fbad53da160`, 24-source registry, same fixed-snapshot F01/F86, 손오공·오토플러스 special-tab rules, Sonogong `오공구독`/`픽업구독`, AutoPlus `오플구독`, retired mirror/sales writers, RTDB/mirror non-canonical boundary 유지.
+
+기존 OPEN 유지: Audit (84) FreePass Data SHADOW latency/non-interference, Audit (83) Production Deploy Recovery credentials, Audit (67) quote-default freshness, Audit (71) ERP5 concurrency/pending-replacement + 15:05 reconciliation, Audit (76) successful-native false replay.
+
+Detail: `docs/ai-ssot-audit/2026-09-21-chatgpt-audit86-1005-recovery-gap-stale-monitor-state.md`
+
+---
 # Claude 실행 오더 — Audit (85) override
 
 최우선 최신 판정: **2026-09-21 09:05 KST settlement native cron delivery가 새 영업일에도 다시 미관측됐고 safe recovery가 필요했다. Recovery plane과 downstream canonical data-plane은 full green이지만 native cadence/timeliness HOLD는 강화된다. ERP5 canonical authority/core business semantics는 그대로다.**
