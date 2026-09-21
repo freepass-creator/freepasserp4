@@ -23,67 +23,28 @@ jobs:
           set -euo pipefail
           git config user.name "chatgpt-ssot-auditor"
           git config user.email "actions@users.noreply.github.com"
-
           git fetch origin main
           git reset --hard origin/main
-
           python - <<'PY'
           from pathlib import Path
-
+          import base64
+          central_b64 = "CgotLS0KCiMjIDIwMjYtMDktMjEg4oCUIENoYXRHUFQgYXVkaXQgKDkyKTogYzM4MyBwcm9kdWN0aW9uIGZ1bGwtZ3JlZW47IDE0OjA1IHJlY292ZXJ5IGZ1bGwtZ3JlZW4sIG1vbml0b3Igc3RpbGwgc3RhbGUKCioq7YyQ7KCVOiDtlbTshozrkKgocnVudGltZSB2YWxpZGF0aW9uKSAvIOuztOulmChtb25pdG9yIHJlY29uY2lsaWF0aW9uKSAvIEF1ZGl0IDkw4oCTOTEgcnVudGltZeKGlG1haW4gc2VtYW50aWMgc2tld+uKlCDqs4Tsho0gT1BFTioqCgotIEF1ZGl0IDkx7JeQ7IScIOyVhOyngSDsp4Ttlokg7KSR7J20642YIGZpcnN0IHBvc3QtcGluIEVSUDUgcnVuIGAzNTU2NDI4NjY0N2DsnYAg7J207KCcIGBjb21wbGV0ZWQgLyBzdWNjZXNzYOuLpC4gcHJvZHVjdGlvbiBlbmdpbmUgYGMzODM4NzA4Yjg0NTI3ZGIyNDFmMTk4NWMxNDBhM2VjNmVjZTZiZmZg66GcIHNvdXJjZSBjb250cmFjdCDihpIg7JuQ7LKcIOyerOyImOynkSDihpIg7KCV7IKwIEF0b20gbG9jayDihpIgMjQtc291cmNlIGluZ2VzdCDihpIgZml4ZWQgc25hcHNob3Qg4oaSIHB1YmxpYyBjYXRhbG9nIOKGkiBGMDEg4oaSIEY4NiBiYWNrdXAvcHVibGlzaCDihpIgRjg2IGZyZXNobmVzcyDihpIgQXRvbeKGlEYwMeKGlEY4NiBjcm9zcy1hdWRpdCDihpIgcGhvdG8gYXVkaXTquYzsp4Ag7KCEIOuLqOqzhCBncmVlbuydtOuLpC4KLSDqsJnsnYAgcnVu7J2YIGDtmITsnqwg7IaQ7Jik6rO1IEFQSSDsoIQg7LCo65+JIOygleyLnSDrk7HroZ1gIHN0ZXDsnYAgKipza2lwcGVkKirsmIDri6QuIOuUsOudvOyEnCBBdWRpdCA5MeyXkOyEnCDtmZXsnbjtlZwgYHJlZ2lzdGVyX3Nvbm9nb25nX2N1cnJlbnRgIGRlZmF1bHQtb2ZmIG1hbnVhbCB3cml0ZXLripQg6rWs7ZiE64+8IOyeiOyngOunjCDslYTsp4Eg6rSA7LihIOyLpO2WieuQnCDqsoPsnLzroZwg67O07KeAIOyViuuKlOuLpC4KLSAxNDowNSB3YXRjaGRvZyByZWNvdmVyeSBjaGFpbuuPhCBzZXR0bGVtZW50IGAzNTU2NjQyODc3NGAg4oaSIEVSUDUgYDM1NTY2NDU4ODg0YOuhnCDsmYTro4zrkJDqs6AsIEVSUDXripQgMjAyNi0wOS0yMSAxNTowOTo1OCBLU1Tsl5AgZnVsbCBncmVlbiBzdWNjZXNz66GcIOuBneuCrOuLpC4KLSDqt7jrn6zrgpggY3VycmVudCBgLmF1dG9tYXRpb24vc2FmZS1jaGFpbi1tb25pdG9yLmpzb25g7J2AIDE0OjU4IEtTVOyXkCDrp4jsp4Drp4kg6riw66Gd65CY7Ja0IEVSUDUgYDM1NTY2NDU4ODg0YOydhCDsl6zsoITtnoggYGVycDUtaW4tcHJvZ3Jlc3NgLCBwcm9kdWN0aW9uIHdyaXRlcyBpbmNvbXBsZXRlLCBhdWRpdHMgcGVuZGluZ+ycvOuhnCDsoIDsnqXtlZzri6QuIOydtOuKlCBsaXZlIEFjdGlvbnPrs7Tri6Qg65Kk7LKY7KeEICoqbW9uaXRvciByZWNvbmNpbGlhdGlvbiBzdGFsZSBzdGF0ZSoq7J2066mwIGRhdGEtcGxhbmUgZmFpbHVyZeuhnCDtmZXrjIDtlZjsp4Ag7JWK64qU64ukLgotIOydtCBncmVlbiBydW50aW1l7J2AIEF1ZGl0IDkw4oCTOTHsnZggc2VtYW50aWMgc2tld+ulvCDtlbTshoztlZjsp4Ag7JWK64qU64ukLiBjdXJyZW50LW1haW4gUlAwMTIgcmVnaXN0cnnripQg7JWE7KeBIGBMT1dfU09OT0tPTkcgwrcgTE9XX1RDQVJgIOuRkCBjaGFubmVsICsgb2Jzb2xldGUgSE9MROydtOqzoCwgcHJvZHVjdGlvbiBgYzM4Mzg3MDguLi5g7J2AIGBMT1dfU09OT0tPTkdfREFJTFkgwrcgTE9XX1NPTk9LT05HIMK3IExPV19UQ0FSYCDshLggYnVja2V06rO8IEFQSS1zb3VyY2Utc3BlY2lmaWMgYOqzhOyVveykkWAg67O07KG0L2xpc3RhYmlsaXR5IHNlbWFudGljc+ulvCDsgqzsmqntlZzri6QuIFNvdXJjZSBDb250cmFjdOuPhCBSUDAxMiBjaGFubmVscy9ob2xkL3N0YXR1cyBwYXJpdHnrpbwgZmFpbC1jbG9zZWTroZwg7J6g6re47KeAIOyViuuKlOuLpC4KLSBBdWRpdCA5MSDsnbTtm4QgbWFpbuydmCDsi6Tsp4gg67OA6rK97J2AIGF1dG9tYXRpb24gaGVhcnRiZWF0L21vbml0b3Igc3RhdGXrv5DsnbTri6QuIEYwMS9GODYgcHVibGlzaGVyLCBTb25vZ29uZy9BdXRvUGx1cyBzcGVjaWFsLXRhYiwgY2Fub25pY2FsIHNvdXJjZSBhdXRob3JpdHksIHJldGlyZWQgbWlycm9yL3NhbGVzIHdyaXRlciwgUlREQi9taXJyb3Igbm9uLWNhbm9uaWNhbCBib3VuZGFyeeyXkOuKlCDsg4ggYnVzaW5lc3MtbG9naWMgZHJpZnTqsIAg7JeG64ukLiBBdWRpdCDsp4HsoIQgaGVhZCBgY2E1MzdmZDM4OGZlNjBjYzliMmUwNzA2OWQ2YzBkNzE5ODIyMWQxMmDsnZggdmVyaWZ5IHJ1biBgMzU1NjY1NzczNjZg7J2AIHN1Y2Nlc3Pri6QuCgoqKkNsYXVkZSBvd25lciBoYW5kb2ZmOioqIGBjMzgzODcwOC4uLmAgcnVudGltZSB2YWxpZGF0aW9u7J2AIO2VtOyGjOuhnCDrs7jri6QuIOuLpOunjCBwcm9kdWN0aW9u7J2YIHRocmVlLWJ1Y2tldC9zdGF0dXMgc2VtYW50aWNz66W8IHN0YWxlIG1haW7sl5Ag66ee7LawIOuQmOuPjOumrOyngCDrp5Dqs6AgY3VycmVudC1tYWluIFJQMDEyIHJlZ2lzdHJ5L3J1bnRpbWUgaGVscGVyL1NvdXJjZSBDb250cmFjdOulvCBwcm9kdWN0aW9uIHRydXRo7JeQIOygleugrO2VnOuLpC4gU2FmZS1jaGFpbiBtb25pdG9y64qUIGNvbXBsZXRlZCBBY3Rpb25zIHJlc3VsdOulvCDsnqzsobDtmoztlbQgYGluLXByb2dyZXNzL3BlbmRpbmdg7J20IOyYgeq1rCDsnpTrpZjtlZjsp4Ag7JWK6rKMIHJlY29uY2lsaWF0aW9u7J2EIOuztOyZhO2VnOuLpC4gU29ub2dvbmcgYnVsay1yZWdpc3RyYXRpb24gd3JpdGVy64qUIOyLpOygnCBzdGVwIOyLpO2WiSDspp3qsbDqsIAg7IOd6riw6riwIOyghOq5jOyngCBpbXBsZW1lbnRlZC1idXQtdW5leGVyY2lzZWTroZwg7Jyg7KeA7ZWc64ukLgoKRGV0YWlsOiBgZG9jcy9haS1zc290LWF1ZGl0LzIwMjYtMDktMjEtY2hhdGdwdC1hdWRpdDkyLWMzODMtZnVsbC1ncmVlbi1tb25pdG9yLXJlY29uY2lsaWF0aW9uLm1kYAoKTm8gYXBwbGljYXRpb24gY29kZSBvciBidXNpbmVzcyBsb2dpYyB3YXMgbW9kaWZpZWQgYnkgdGhlIGF1ZGl0b3IuCg=="
+          claude_b64 = "IyBDbGF1ZGUg7Iuk7ZaJIOyYpOuNlCDigJQgQXVkaXQgKDkyKSBvdmVycmlkZQoK7LWc7Jqw7ISgIOy1nOyLoCDtjJDsoJU6ICoqQXVkaXQgKDkxKeyXkOyEnCDsp4Ttlokg7KSR7J20642YIGZpcnN0IHBvc3QtcGluIEVSUDUgcnVuIGAzNTU2NDI4NjY0N2DsnYAgcHJvZHVjdGlvbiBlbmdpbmUgYGMzODM4NzA4Yjg0NTI3ZGIyNDFmMTk4NWMxNDBhM2VjNmVjZTZiZmZg66GcIGZ1bGwtZ3JlZW4g7JmE66OM65CQ64ukLiAxNDowNSB3YXRjaGRvZyByZWNvdmVyeSBFUlA1IGAzNTU2NjQ1ODg4NGDrj4QgZnVsbC1ncmVlbuydtOuLpC4g65Sw65287IScIGMzODMgcnVudGltZSB2YWxpZGF0aW9uIEhPTETripQg7ZW07IaM7ZWc64ukLiDri6Trp4wgY3VycmVudC1tYWluIFJQMDEyIHJlZ2lzdHJ5L3N0YXR1cyBzZW1hbnRpYyBza2V364qUIOq3uOuMgOuhnCBPUEVO7J2066mwLCBwZXJzaXN0ZW50IHNhZmUtY2hhaW4gbW9uaXRvcuuKlCAxNDowNSDshLHqs7UgcnVu7J2EIOyVhOyngSBpbi1wcm9ncmVzcy9wZW5kaW5n7Jy866GcIOq4sOuhne2VtCByZWNvbmNpbGlhdGlvbiBzdGFsZSBzdGF0ZeqwgCDrgqjripTri6QuKioKCmAzNTU2NDI4NjY0N2DsnYAgc291cmNlIGNvbnRyYWN0LCDsm5Dsspwg7J6s7IiY7KeRLCBsZWRnZXLihpJBdG9tIGxvY2ssIDI0LXNvdXJjZSBpbmdlc3QsIGZpeGVkIHNuYXBzaG90LCBwdWJsaWMgY2F0YWxvZywgRjAxLCBGODYgYmFja3VwL3B1Ymxpc2gsIEY4NiBmcmVzaG5lc3MsIEF0b23ihpRGMDHihpRGODYgY3Jvc3MtYXVkaXQsIHBob3RvIGF1ZGl06rmM7KeAIOuqqOuRkCBzdWNjZXNz64ukLiDri6ggYO2YhOyerCDshpDsmKTqs7UgQVBJIOyghCDssKjrn4kg7KCV7IudIOuTseuhnWDsnYAgc2tpcHBlZOyYgOycvOuvgOuhnCBgcmVnaXN0ZXJfc29ub2dvbmdfY3VycmVudGAgZGVmYXVsdC1vZmYgbWFudWFsIHdyaXRlcuqwgCDsi6TsoJwgYnVsayByZWdpc3RyYXRpb27snYQg7IiY7ZaJ7ZaI64uk6rOgIOuztOyngCDslYrripTri6QuCgoxNDowNSByZWNvdmVyeSBjaGFpbuydgCBzZXR0bGVtZW50IGAzNTU2NjQyODc3NGAg4oaSIEVSUDUgYDM1NTY2NDU4ODg0YOuhnCDsnbTslrTsoLggMTU6MDk6NTggS1NUIGZ1bGwtZ3JlZW4g7KKF66OM65CQ64ukLiDtlZjsp4Drp4wgYC5hdXRvbWF0aW9uL3NhZmUtY2hhaW4tbW9uaXRvci5qc29uYOydgCAxNDo1OCBLU1Qgc25hcHNob3Tsl5DshJwg7Jes7KCE7Z6IIOydtCBFUlA166W8IGBlcnA1LWluLXByb2dyZXNzYCwgd3JpdGVzIGluY29tcGxldGUsIGF1ZGl0cyBwZW5kaW5n7Jy866GcIOyggOyepe2VnOuLpC4gKiptb25pdG9yIHRydXRo66W8IGxpdmUgQWN0aW9ucyBjb21wbGV0aW9u6rO8IOyerOyhsOygle2VmOuQmCBhdWRpdCBnYXRl66W8IOyVve2ZlO2VmOyngCDslYrripTri6QuKioKCkF1ZGl0IDkw4oCTOTEgY29udHJhY3Qgc2tld+uKlCDqs4Tsho0gT1BFTuydtOuLpC4gUHJvZHVjdGlvbiBgYzM4Mzg3MDguLi5g7J2AIFNvbm9nb25nIFJQMDEyIGBMT1dfU09OT0tPTkdfREFJTFkgwrcgTE9XX1NPTk9LT05HIMK3IExPV19UQ0FSYCDshLggYnVja2V06rO8IEFQSS1zb3VyY2Utc3BlY2lmaWMgYOqzhOyVveykkWAg67O07KG0L2xpc3RhYmlsaXR5IHNlbWFudGljc+ulvCDsgqzsmqntlZjsp4Drp4wgY3VycmVudCBtYWluIHJlZ2lzdHJ564qUIOuRkCBjaGFubmVsICsgb2Jzb2xldGUgSE9MROydtOqzoCBTb3VyY2UgQ29udHJhY3TripQgY2hhbm5lbHMvaG9sZC9zdGF0dXMgcGFyaXR566W8IGZhaWwtY2xvc2Vk66GcIOqygOymne2VmOyngCDslYrripTri6QuCgpGODYgZml4ZWQgdGFicyBg7IOB7ZKI66as7Iqk7Yq4IMK3IOyGkOyYpOqzteyDge2SiCDCtyDtlL3sl4Xqtazrj4Ugwrcg7Jik7ZSM6rWs64+FYCwgRjAxIGDsg4HtkojrpqzsiqTtirggwrcg7Jik6rO16rWs64+FIMK3IO2UveyXheq1rOuPhSDCtyDsmKTtlIzqtazrj4VgLCBSUDAyMyBSZWJvcm5DYXIsIHJldGlyZWQgbWlycm9yL3NhbGVzIGF1dG9tYXRpYyB3cml0ZXIsIFJUREIvbWlycm9yIG5vbi1jYW5vbmljYWwgYm91bmRhcnnripQg7Jyg7KeA7ZWc64ukLgoKKipDbGF1ZGUgaW1wbGVtZW50YXRpb24gb3duZXI6KiogcHJvZHVjdGlvbiBgYzM4Mzg3MDguLi5g7J2EIHN0YWxlIG1haW7sl5Ag66ee7LawIOuQmOuPjOumrOyngCDrp5Dqs6AgY3VycmVudC1tYWluIFJQMDEyIHJlZ2lzdHJ5L3J1bnRpbWUgaGVscGVyL1NvdXJjZSBDb250cmFjdOulvCBwcm9kdWN0aW9uIHNlbWFudGljc+yXkCDsoJXroKztlZzri6QuIFNhZmUtY2hhaW4gbW9uaXRvcuuKlCBjb21wbGV0ZWQgQWN0aW9ucyByZXN1bHTrpbwg7J6s7KGw7ZqM7ZW0IGluLXByb2dyZXNzL3BlbmRpbmcgc3RhbGUgc3RhdGXqsIAg64Ko7KeAIOyViuuPhOuhnSByZWNvbmNpbGlhdGlvbuydhCDrs7TsmYTtlZzri6QuIFNvbm9nb25nIGJ1bGstcmVnaXN0cmF0aW9uIHdyaXRlcuuKlCDsi6TsoJwg7Iuk7ZaJIOymneqxsCDsoITquYzsp4AgaW1wbGVtZW50ZWQtYnV0LXVuZXhlcmNpc2Vk66GcIOycoOyngO2VnOuLpC4KCkRldGFpbDogYGRvY3MvYWktc3NvdC1hdWRpdC8yMDI2LTA5LTIxLWNoYXRncHQtYXVkaXQ5Mi1jMzgzLWZ1bGwtZ3JlZW4tbW9uaXRvci1yZWNvbmNpbGlhdGlvbi5tZGAKCi0tLQo="
+          central = base64.b64decode(central_b64).decode('utf-8')
+          centry = base64.b64decode(claude_b64).decode('utf-8')
           log = Path('docs/AI-SSOT-AUDIT-LOG.md')
           marker = '## 2026-09-21 — ChatGPT audit (92): c383 production full-green; 14:05 recovery full-green, monitor still stale'
-          entry = r'''
-
----
-
-## 2026-09-21 — ChatGPT audit (92): c383 production full-green; 14:05 recovery full-green, monitor still stale
-
-**판정: 해소됨(runtime validation) / 보류(monitor reconciliation) / Audit 90–91 runtime↔main semantic skew는 계속 OPEN**
-
-- Audit 91에서 아직 진행 중이던 first post-pin ERP5 run `35564286647`은 이제 `completed / success`다. production engine `c3838708b84527db241f1985c140a3ec6ece6bff`로 source contract → 원천 재수집 → 정산 Atom lock → 24-source ingest → fixed snapshot → public catalog → F01 → F86 backup/publish → F86 freshness → Atom↔F01↔F86 cross-audit → photo audit까지 전 단계 green이다.
-- 같은 run의 `현재 손오공 API 전 차량 정식 등록` step은 **skipped**였다. 따라서 Audit 91에서 확인한 `register_sonogong_current` default-off manual writer는 구현돼 있지만 아직 관측 실행된 것으로 보지 않는다.
-- 14:05 watchdog recovery chain도 settlement `35566428774` → ERP5 `35566458884`로 완료됐고, ERP5는 2026-09-21 15:09:58 KST에 full green success로 끝났다.
-- 그러나 current `.automation/safe-chain-monitor.json`은 14:58 KST에 마지막 기록되어 ERP5 `35566458884`을 여전히 `erp5-in-progress`, production writes incomplete, audits pending으로 저장한다. 이는 live Actions보다 뒤처진 **monitor reconciliation stale state**이며 data-plane failure로 확대하지 않는다.
-- 이 green runtime은 Audit 90–91의 semantic skew를 해소하지 않는다. current-main RP012 registry는 아직 `LOW_SONOKONG · LOW_TCAR` 두 channel + obsolete HOLD이고, production `c3838708...`은 `LOW_SONOKONG_DAILY · LOW_SONOKONG · LOW_TCAR` 세 bucket과 API-source-specific `계약중` 보존/listability semantics를 사용한다. Source Contract도 RP012 channels/hold/status parity를 fail-closed로 잠그지 않는다.
-- Audit 91 이후 main의 실질 변경은 automation heartbeat/monitor state뿐이다. F01/F86 publisher, Sonogong/AutoPlus special-tab, canonical source authority, retired mirror/sales writer, RTDB/mirror non-canonical boundary에는 새 business-logic drift가 없다. Audit 직전 head `ca537fd388fe60cc9b2e07069d6c0d7198221d12`의 verify run `35566577366`은 success다.
-
-**Claude owner handoff:** `c3838708...` runtime validation은 해소로 본다. 다만 production의 three-bucket/status semantics를 stale main에 맞춰 되돌리지 말고 current-main RP012 registry/runtime helper/Source Contract를 production truth에 정렬한다. Safe-chain monitor는 completed Actions result를 재조회해 `in-progress/pending`이 영구 잔류하지 않게 reconciliation을 보완한다. Sonogong bulk-registration writer는 실제 step 실행 증거가 생기기 전까지 implemented-but-unexercised로 유지한다.
-
-Detail: `docs/ai-ssot-audit/2026-09-21-chatgpt-audit92-c383-full-green-monitor-reconciliation.md`
-
-No application code or business logic was modified by the auditor.
-'''
           text = log.read_text(encoding='utf-8')
           if marker not in text:
-              log.write_text(text.rstrip() + entry + '\n', encoding='utf-8')
-
+              log.write_text(text.rstrip() + central + '\n', encoding='utf-8')
           claude = Path('CLAUDE-AUDIT.md')
           cmarker = '# Claude 실행 오더 — Audit (92) override'
-          centry = r'''# Claude 실행 오더 — Audit (92) override
-
-최우선 최신 판정: **Audit (91)에서 진행 중이던 first post-pin ERP5 run `35564286647`은 production engine `c3838708b84527db241f1985c140a3ec6ece6bff`로 full-green 완료됐다. 14:05 watchdog recovery ERP5 `35566458884`도 full-green이다. 따라서 c383 runtime validation HOLD는 해소한다. 다만 current-main RP012 registry/status semantic skew는 그대로 OPEN이며, persistent safe-chain monitor는 14:05 성공 run을 아직 in-progress/pending으로 기록해 reconciliation stale state가 남는다.**
-
-`35564286647`은 source contract, 원천 재수집, ledger→Atom lock, 24-source ingest, fixed snapshot, public catalog, F01, F86 backup/publish, F86 freshness, Atom↔F01↔F86 cross-audit, photo audit까지 모두 success다. 단 `현재 손오공 API 전 차량 정식 등록`은 skipped였으므로 `register_sonogong_current` default-off manual writer가 실제 bulk registration을 수행했다고 보지 않는다.
-
-14:05 recovery chain은 settlement `35566428774` → ERP5 `35566458884`로 이어져 15:09:58 KST full-green 종료됐다. 하지만 `.automation/safe-chain-monitor.json`은 14:58 KST snapshot에서 여전히 이 ERP5를 `erp5-in-progress`, writes incomplete, audits pending으로 저장한다. **monitor truth를 live Actions completion과 재조정하되 audit gate를 약화하지 않는다.**
-
-Audit 90–91 contract skew는 계속 OPEN이다. Production `c3838708...`은 Sonogong RP012 `LOW_SONOKONG_DAILY · LOW_SONOKONG · LOW_TCAR` 세 bucket과 API-source-specific `계약중` 보존/listability semantics를 사용하지만 current main registry는 두 channel + obsolete HOLD이고 Source Contract는 channels/hold/status parity를 fail-closed로 검증하지 않는다.
-
-F86 fixed tabs `상품리스트 · 손오공상품 · 픽업구독 · 오플구독`, F01 `상품리스트 · 오공구독 · 픽업구독 · 오플구독`, RP023 RebornCar, retired mirror/sales automatic writer, RTDB/mirror non-canonical boundary는 유지한다.
-
-**Claude implementation owner:** production `c3838708...`을 stale main에 맞춰 되돌리지 말고 current-main RP012 registry/runtime helper/Source Contract를 production semantics에 정렬한다. Safe-chain monitor는 completed Actions result를 재조회해 in-progress/pending stale state가 남지 않도록 reconciliation을 보완한다. Sonogong bulk-registration writer는 실제 실행 증거 전까지 implemented-but-unexercised로 유지한다.
-
-Detail: `docs/ai-ssot-audit/2026-09-21-chatgpt-audit92-c383-full-green-monitor-reconciliation.md`
-
----
-'''
           ctext = claude.read_text(encoding='utf-8')
           if cmarker not in ctext:
               claude.write_text(centry + ctext, encoding='utf-8')
           PY
-
           git rm -f .github/workflows/chatgpt-audit92-recorder.yml
-          git add docs/AI-SSOT-AUDIT-LOG.md CLAUDE-AUDIT.md
+          git add docs/AI-SSOT-AUDIT-LOG.md CLAUDE-AUDIT.md .github/workflows/chatgpt-audit92-recorder.yml
           if git diff --cached --quiet; then
             exit 0
           fi
