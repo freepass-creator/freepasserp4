@@ -1,0 +1,45 @@
+name: ChatGPT Audit 92 Recorder v2
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/chatgpt-audit92-recorder-v2.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Record docs and self-clean
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "chatgpt-ssot-auditor"
+          git config user.email "actions@users.noreply.github.com"
+          git fetch origin main
+          git reset --hard origin/main
+          python - <<'PY'
+          from pathlib import Path
+          log = Path('docs/AI-SSOT-AUDIT-LOG.md')
+          marker = '## 2026-09-21 — ChatGPT audit (92): c383 production full-green; monitor reconciliation stale'
+          central = "\n\n---\n\n## 2026-09-21 — ChatGPT audit (92): c383 production full-green; monitor reconciliation stale\n\n**판정: 해소됨(runtime validation) / 보류(monitor reconciliation) / Audit 90–91 runtime↔main semantic skew 계속 OPEN**\n\n- Audit 91에서 진행 중이던 post-pin ERP5 run `35564286647`은 production engine `c3838708b84527db241f1985c140a3ec6ece6bff`로 full-green 완료됐다. Source contract, 24-source ingest, fixed snapshot, public/F01/F86, F86 freshness, Atom↔F01↔F86 cross-audit, photo audit가 모두 success다. `현재 손오공 API 전 차량 정식 등록`은 skipped라 `register_sonogong_current` writer 실행 증거는 아니다.\n- 14:05 recovery settlement `35566428774` → ERP5 `35566458884`도 15:09:58 KST full-green 완료됐다. 반면 `.automation/safe-chain-monitor.json`은 14:58 snapshot에서 이를 아직 `erp5-in-progress`/audits pending으로 보므로 monitor reconciliation은 stale다.\n- Green runtime은 Audit 90–91 semantic skew를 닫지 않는다. Current-main RP012 registry는 두 channel + obsolete HOLD지만 production은 three-bucket + API-source-specific `계약중` listability semantics를 사용하고 Source Contract는 channels/hold/status parity를 fail-closed로 잠그지 않는다.\n- Audit 91 이후 business-logic drift는 없고 F01/F86, Sonogong/AutoPlus special-tab, mirror/RTDB legacy boundaries는 유지된다.\n\nDetail: `docs/ai-ssot-audit/2026-09-21-chatgpt-audit92-c383-full-green-monitor-reconciliation.md`\n\nNo application code or business logic was modified by the auditor.\n"
+          text = log.read_text(encoding='utf-8')
+          if marker not in text:
+              log.write_text(text.rstrip() + central, encoding='utf-8')
+          claude = Path('CLAUDE-AUDIT.md')
+          cmarker = '# Claude 실행 오더 — Audit (92) override'
+          centry = "# Claude 실행 오더 — Audit (92) override\n\n최우선 최신 판정: **production pin `c3838708b84527db241f1985c140a3ec6ece6bff`은 ERP5 run `35564286647`로 end-to-end full-green 검증됐다. 14:05 recovery ERP5 `35566458884`도 full-green이다. 다만 current-main RP012 registry/status semantic skew는 계속 OPEN이고 safe-chain monitor는 14:05 success를 아직 in-progress/pending으로 저장해 stale하다.**\n\n`35564286647`의 Sonogong bulk-registration step은 skipped였으므로 `register_sonogong_current`는 implemented-but-unexercised로 유지한다. Production three-bucket/status semantics를 stale main에 맞춰 되돌리지 말고 current-main RP012 registry/runtime helper/Source Contract를 production truth에 정렬한다. Monitor는 completed Actions result와 reconciliation한다.\n\nF86 fixed tabs `상품리스트 · 손오공상품 · 픽업구독 · 오플구독`, F01 `상품리스트 · 오공구독 · 픽업구독 · 오플구독`, RP023 RebornCar, retired mirror/sales automatic writer, RTDB/mirror non-canonical boundary는 유지한다.\n\nDetail: `docs/ai-ssot-audit/2026-09-21-chatgpt-audit92-c383-full-green-monitor-reconciliation.md`\n\n---\n"
+          ctext = claude.read_text(encoding='utf-8')
+          if cmarker not in ctext:
+              claude.write_text(centry + ctext, encoding='utf-8')
+          PY
+          git rm -f .github/workflows/chatgpt-audit92-recorder.yml .github/workflows/chatgpt-audit92-recorder-v2.yml
+          git add -A
+          git commit -m "docs(audit): record audit 92 runtime validation"
+          git push origin HEAD:main
