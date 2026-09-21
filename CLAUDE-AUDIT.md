@@ -1,3 +1,22 @@
+# Claude 실행 오더 — Audit (85) override
+
+최우선 최신 판정: **2026-09-21 09:05 KST settlement native cron delivery가 새 영업일에도 다시 미관측됐고 safe recovery가 필요했다. Recovery plane과 downstream canonical data-plane은 full green이지만 native cadence/timeliness HOLD는 강화된다. ERP5 canonical authority/core business semantics는 그대로다.**
+
+Pre-audit main은 `b5734e4d0f7dc1f248ab40bd45b94fda3dbac1bd`. `settlement-intake-sync.yml`은 계속 KST 월~토 09:05~18:05 native cron을 선언하지만 09:05 logical slot은 native `event=schedule`가 아니라 recovery commit `95a1f5084ec0ce60e7d165bdf5b75220b1afa3f7`로 복구됐다. Settlement run `35550513984`은 `event=push / success`였다.
+
+후속 ERP5 `35550547914`은 `event=workflow_run`, 10:19:50 KST 생성 → 10:32:58 KST completed/success. production pin 고정, source contract/recollection, settlement Atom-lock, 24-source ingest, fixed snapshot, public/F01/F86, F86 freshness, cross-audit, photo audit까지 전 단계 green이다. **따라서 recovery/data-plane은 PASS지만 native cron proof는 아니다.**
+
+Fresh repository-wide `event=schedule` newest는 여전히 ERP5 `35447185563`(2026-09-19 22:55:32 KST / success)이다. 2026-09-20/21 newer native scheduled event가 이번 audit window에서 관측되지 않았으므로 실제 연속 native 회차가 나타나기 전 cadence/timeliness HOLD를 유지한다. GitHub scheduler 영구 장애/disabled라고 단정하지 않는다.
+
+ERP5 canonical boundary는 unchanged: production engine pin `cf940df642edf315adbc6da2b4134fbad53da160`, 24-source registry, 동일 fixed-snapshot F01/F86, F86 `종합`의 손오공·오토플러스 제외 + dedicated tabs, Sonogong `오공구독`/`픽업구독`, AutoPlus `오플구독`, retired mirror/sales automatic writers, RTDB/mirror non-canonical boundary 유지.
+
+계속 OPEN: Audit (84) FreePass Data SHADOW latency/non-interference, Audit (83) Production Deploy Recovery credential path, Audit (67) quote-default freshness, Audit (71) shared ERP5 concurrency/pending-replacement + 15:05 reconciliation, Audit (76) already-successful native slot false replay.
+
+Claude는 fallback success를 native schedule recovery로 오인하지 않는다. Core source/writer, F01/F86, special-tab, mirror/RTDB, settlement business semantics를 이번 scheduler finding 때문에 변경하지 않는다.
+
+Detail: `docs/ai-ssot-audit/2026-09-21-chatgpt-audit85-0905-native-settlement-miss-recovery.md`
+
+---
 # Claude 실행 오더 — Audit (84) override
 
 최우선 최신 판정: **Audit (83)의 generic main CI chain-break는 해소됐다. 대신 PR #445로 ERP.com 전체 공개 카탈로그에 FreePass Data SHADOW observer가 실제 runtime에 연결됐고, 활성화 시 고객 응답 latency와 결합되는 새 gap이 있다. ERP5 canonical authority는 그대로다.**

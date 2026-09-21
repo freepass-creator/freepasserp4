@@ -3395,3 +3395,22 @@ Detail: `docs/ai-ssot-audit/2026-09-21-chatgpt-audit84-main-ci-recovered-freepas
 
 No application code or business logic was modified by the auditor.
 
+---
+
+## 2026-09-21 — ChatGPT audit (85): 09:05 native settlement slot missed; recovery chain full green
+
+**판정: MATERIAL / native cadence·timeliness HOLD 강화 / recovery plane + canonical data-plane PASS.**
+
+- 2026-09-21 09:05 KST settlement logical slot은 native `event=schedule`로 관측되지 않았고 recovery commit `95a1f5084ec0ce60e7d165bdf5b75220b1afa3f7`이 fallback을 실행했다.
+- settlement run `35550513984`은 `event=push` / `success`; downstream ERP5 run `35550547914`은 `event=workflow_run`, 10:19:50 KST 생성 → 10:32:58 KST `completed/success`였다.
+- ERP5 `35550547914`은 production pin 고정, source contract/recollection, settlement Atom-lock, 24-source ingest, policy reconcile, fixed snapshot, public catalog reconcile, F01/F86 publish, F86 freshness, Atom↔F01↔F86 cross-audit, photo-link audit, evidence preservation까지 전 단계 green이었다. 따라서 fallback safety net과 canonical data-plane은 PASS다.
+- 그러나 fresh repository-wide `event=schedule` 기준 newest native scheduled run은 여전히 ERP5 `35447185563`, created 2026-09-19 22:55:32 KST / success다. 2026-09-20/21의 newer native scheduled event는 이번 audit window에서 관측되지 않았다. Recovery `push`/`workflow_run` 성공을 native cron proof로 대체하지 않는다.
+- Core SSOT boundary에는 새 drift가 없다: production engine `cf940df642edf315adbc6da2b4134fbad53da160`, 24-source registry, 동일 fixed-snapshot F01/F86, F86 `종합`의 손오공·오토플러스 제외 + dedicated tabs, Sonogong `오공구독`/`픽업구독`, AutoPlus `오플구독`, retired mirror/sales automatic writers, RTDB/mirror non-canonical boundary 유지.
+- 계속 OPEN: Audit (84) FreePass Data SHADOW latency/non-interference, Audit (83) Production Deploy Recovery credential path, Audit (67) quote-default freshness, Audit (71) shared ERP5 concurrency/pending replacement + 15:05 reconciliation, Audit (76) successful-native slot false replay, native cadence/timeliness HOLD.
+
+**Claude implementation owner:** `35550513984`/`35550547914`을 recovery/data-plane PASS로 취급하되 native schedule 복구 증거로 쓰지 않는다. 실제 연속 `event=schedule` 회차가 관측되기 전 native cadence/timeliness HOLD를 유지하고, core source/F01-F86/special-tab/legacy-retirement business semantics는 이번 scheduler finding 때문에 변경하지 않는다.
+
+Detail: `docs/ai-ssot-audit/2026-09-21-chatgpt-audit85-0905-native-settlement-miss-recovery.md`
+
+No application code or business logic was modified by the auditor.
+
