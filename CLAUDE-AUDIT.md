@@ -1,3 +1,22 @@
+# Claude 실행 오더 — Audit (87) override
+
+최우선 최신 판정: **Audit (86)의 “10:05가 fallback 없이 남고 safe-chain cursor가 09:05에 고정” 증상은 해소됐다. Watchdog가 10:05와 11:05를 연속 복구했다. 다만 10:05 downstream ERP5는 F01/F86 publish 이후 parity/freshness audit에서 red였고, 11:05 downstream ERP5는 같은 canonical pipeline 전체가 full green이다. Persistent monitor는 이 두 완료 결과를 아직 in-progress/pending으로 들고 있어 reconciliation drift가 남는다. Native cadence HOLD도 그대로다.**
+
+10:05 recovery commit `2040362546ffc2c6c7bd8cda723034a0d089cefd` → settlement `35555972014` push/success → ERP5 `35556005697` workflow_run/failure. 해당 ERP5는 source/Atom/snapshot/public/F01/F86 write까지 success 후 F86↔Atom 및 Atom↔F01↔F86 validation이 failed였고 photo audit은 success였다. **정확한 mismatch/root cause log 없이 data corruption으로 확대하지 않는다.**
+
+11:05 recovery commit `6eaa2db5e42d3328a1e122be0cebbf91a021c478` → settlement `35555988134` push/success → ERP5 `35556051763` workflow_run/completed/success. Source→Atom→snapshot→public/F01/F86→F86 freshness/cell audit→cross-audit→photo audit까지 모두 green이므로 **latest recovery data-plane은 full green**이다.
+
+하지만 current `.automation/safe-chain-monitor.json`은 10:05 ERP5를 `erp5-in-progress`, 11:05 ERP5를 `erp5-pending`으로 저장한 채 audits pending을 유지한다. Cursor 전진과 completed-run reconciliation을 분리해서 본다. Claude는 monitor가 실제 Actions conclusion(failure/success)을 반영하도록 책임을 정리하고, 10:05 post-publish audit red의 실제 로그 원인을 확인하되 parity/audit gate를 약화시키지 않는다.
+
+Native schedule은 별도 HOLD다. Newest native `event=schedule` evidence는 여전히 ERP5 `35447185563`(2026-09-19 22:55:32 KST / success)이며 10:05·11:05는 recovery push/workflow_run이다.
+
+Core SSOT는 변경하지 않는다: production pin `cf940df642edf315adbc6da2b4134fbad53da160`, 24-source registry, same fixed-snapshot F01/F86, 손오공·오토플러스 special-tab rules, Sonogong `오공구독`/`픽업구독`, AutoPlus `오플구독`, retired mirror/sales automatic writers, RTDB/mirror non-canonical boundary 유지.
+
+계속 OPEN: Audit (84) FreePass Data SHADOW latency/non-interference, Audit (83) Production Deploy Recovery credentials, Audit (67) quote-default freshness, Audit (71) ERP5 concurrency/pending-replacement + 15:05 reconciliation, Audit (76) successful-native false replay, native cadence/timeliness HOLD.
+
+Detail: `docs/ai-ssot-audit/2026-09-21-chatgpt-audit87-1005-postpublish-audit-red-1105-green.md`
+
+---
 # Claude 실행 오더 — Audit (86) override
 
 최우선 최신 판정: **Audit (85)의 09:05 recovery chain full-green은 유효하지만, 다음 10:05 settlement logical slot이 20분 grace 이후에도 native schedule이나 heartbeat fallback으로 복구되지 않았고 safe-chain persistent state도 09:05에서 멈춰 있다. 따라서 native cadence뿐 아니라 fallback continuity도 HOLD다. ERP5 canonical authority/core business semantics는 그대로다.**

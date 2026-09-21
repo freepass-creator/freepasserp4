@@ -3434,3 +3434,24 @@ No application code or business logic was modified by the auditor.
 Detail: `docs/ai-ssot-audit/2026-09-21-chatgpt-audit86-1005-recovery-gap-stale-monitor-state.md`
 
 No application code or business logic was modified by the auditor.
+
+
+---
+
+## 2026-09-21 — ChatGPT audit (87): fallback continuity resumed; 10:05 post-publish audits red, 11:05 full green
+
+**판정: MATERIAL MIXED UPDATE / Audit (86) fallback-continuity symptom RESOLVED, monitor reconciliation drift remains OPEN, native cadence HOLD remains.**
+
+- Audit (86)의 “10:05 logical slot이 grace 뒤에도 heartbeat fallback으로 이어지지 않았고 safe-chain state가 09:05에 멈췄다”는 runtime snapshot은 더 이상 current가 아니다. Main에 recovery commits `2040362546ffc2c6c7bd8cda723034a0d089cefd`(10:05)와 `6eaa2db5e42d3328a1e122be0cebbf91a021c478`(11:05)가 들어와 heartbeat cursor가 11:05까지 전진했다.
+- 10:05 settlement recovery run **`35555972014`**은 `event=push / success`였고 downstream ERP5 **`35556005697`**은 `event=workflow_run / failure`였다. 이 ERP5 run은 source contract/recollection, settlement Atom lock, Atom 계산, fixed snapshot, public catalog reconcile, **F01 publish**, **F86 backup/publish**까지 success한 뒤 `하허호 F86 ↔ 원자 칸 대조·신선도`와 `원자 ↔ F01 ↔ F86 칸 단위 대조`에서 failure가 났다. Photo-link audit은 success였다. 따라서 이 run은 **post-publish validation failure**로 기록하며, 로그 근거 없이 data corruption이나 특정 mismatch/root cause로 확대하지 않는다.
+- 다음 11:05 settlement recovery run **`35555988134`**은 `event=push / success`, downstream ERP5 **`35556051763`**은 `event=workflow_run / completed / success`였다. 같은 production pin에서 source→Atom→fixed snapshot→public/F01/F86→F86 freshness/cell audit→Atom↔F01↔F86 cross-audit→photo audit까지 전부 green이었다. 따라서 **latest recovery data-plane은 full green**이며 10:05 failure를 현재 지속 중인 output-consistency failure로 취급하지 않는다. 다만 10:05의 intermittent post-publish audit red는 별도 조사 신호로 남긴다.
+- Persistent monitor reconciliation은 아직 stale하다. Current `.automation/safe-chain-monitor.json`은 10:05 ERP5 `35556005697`을 `erp5-in-progress`/audits pending, 11:05 ERP5 `35556051763`을 `erp5-pending`/audits pending으로 저장했지만 live Actions는 각각 **failure**와 **success**로 이미 종료됐다. 즉 Audit (86)의 “09:05에서 멈춤”은 해소됐지만 **completed-run 결과를 persistent state에 reconcile하는 책임은 여전히 미해소**다.
+- Native cadence/timeliness HOLD는 유지한다. Fresh repository-wide native `event=schedule`의 newest evidence는 여전히 ERP5 **`35447185563`**, created 2026-09-19 22:55:32 KST / success다. 10:05·11:05 회복은 heartbeat `push` + settlement→ERP5 `workflow_run` recovery plane 증거이지 native cron proof가 아니다.
+- Core SSOT boundary에는 신규 drift가 없다: production engine pin `cf940df642edf315adbc6da2b4134fbad53da160`, 24-source registry, same fixed-snapshot F01/F86, F86 `종합`의 손오공·오토플러스 제외 + dedicated tabs, Sonogong `오공구독`/`픽업구독`, AutoPlus `오플구독`, retired automatic `mirror-sync`/`sales-erp-hourly`, RTDB/mirror non-canonical boundary 유지.
+- 계속 OPEN: Audit (84) FreePass Data SHADOW latency/non-interference, Audit (83) Production Deploy Recovery credential path, Audit (67) quote-default freshness, Audit (71) shared ERP5 concurrency/pending replacement + 15:05 reconciliation, Audit (76) successful-native false replay, native cadence/timeliness HOLD.
+
+**Claude implementation owner:** Audit (86)의 fallback-continuity symptom은 RESOLVED로 갱신하되 monitor reconciliation은 닫지 않는다. 10:05 post-publish audit failure의 실제 mismatch/log 원인을 확인하되 audit/parity checks를 약화시키지 않는다. 11:05 full-green을 latest data-plane state로 사용하고, completed Actions 결과를 monitor가 failure/success로 정확히 reconcile하도록 responsibility를 정리한다. 이번 finding을 canonical source/writer, F01/F86, special-tab, mirror/RTDB business semantics 변경 근거로 사용하지 않는다.
+
+Detail: `docs/ai-ssot-audit/2026-09-21-chatgpt-audit87-1005-postpublish-audit-red-1105-green.md`
+
+No application code or business logic was modified by the auditor.
