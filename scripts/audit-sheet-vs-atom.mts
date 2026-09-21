@@ -21,20 +21,19 @@
  */
 import { readFileSync } from 'node:fs';
 import { JWT } from 'google-auth-library';
-import { SALES_PUBLISHED_TAB_PREFIXES, salesTabMatches, canonicalSalesTabName } from '../lib/domain/sales-published-tabs';
+import { SALES_PUBLISHED_TAB_PREFIXES, salesPublishedTabTitle, salesTabMatches } from '../lib/domain/sales-published-tabs';
 import { isDepositColumn, isMoneyColumn } from '../lib/domain/sales-sheet-format';
 import { inventoryCountSnapshot, isOpenInventoryAtom, isUnavailableInventoryAtom } from '../lib/domain/inventory-contract';
 import nextEnv from '@next/env';
 import { readSalesPublishSnapshot, salesPublishMark, salesPublishTabMark } from '../lib/server/sales-publish-snapshot';
 import { companyAlias } from '../lib/domain/identity';
-import { channelCompanyOf } from '../lib/domain/channel-company';
-import { compareSalesRows, loadSalesRowContext, makeCell, tabOf } from '../lib/domain/sales-atom-row';
+import { compareSalesRows, loadSalesRowContext, makeCell, salesTabsForAtom } from '../lib/domain/sales-atom-row';
 import { channelColumnName, salesPublishedColumns } from '../lib/domain/sales-published-tab-columns';
 import { HAHUHO_PRODUCT_SHEET_ID, SALES_SHEET_ID } from '../lib/domain/legacy-sheets';
 import { atomDisplayText } from '../lib/domain/missing-value-display';
-import { retroHeadToColumn, retroUsesColumn, retroSameValue, inRetroSummary, RETRO_SUMMARY_TAB, retroHasLongFee, retroHasValue, retroTabLayout, retroTabRank } from '../lib/domain/channel-retro-skin';
+import { retroHeadToColumn, retroUsesColumn, retroSameValue, retroHasLongFee, retroHasValue } from '../lib/domain/channel-retro-skin';
 import { googleSheetsServiceAccount } from '../lib/server/google-service-account';
-import { compareF86Rows, f86TabTitle } from '../lib/server/channel-f86-plan';
+import { buildF86Plan } from '../lib/server/channel-f86-plan';
 
 nextEnv.loadEnvConfig(process.cwd());
 const S = (v: unknown) => String(v ?? '').trim();
@@ -103,8 +102,6 @@ try {
 const modelCount = new Map<string, number>();
 for (const atom of 실릴차) { const model = S(atom.model); if (model) modelCount.set(model, (modelCount.get(model) || 0) + 1); }
 const compareRows = compareSalesRows(modelSold, modelCount);
-/** ★F86 만 «상품구분 → 모델» 차례다(사장님 2026-09-16) — 발행 계획과 같은 함수로 기대 차례를 만든다. */
-const compareF86 = compareF86Rows(modelSold, modelCount, compareRows);
 console.log(`\n등록 원자 ${inventory.registered} · 출고불가 ${inventory.unavailable} · 시트에 실려야 할 현재 재고 ${inventory.open}`);
 console.log(`발행 스냅샷 ${publishSnapshot.snapshotId} · ${publishSnapshot.capturedAt}`);
 console.log(`파생값 드리프트 listable ${inventory.listableDrift} · status_kind ${inventory.statusKindDrift} · 원천 식별자 누락 ${inventory.sourceIdentityViolations} · 삭제표식 ${inventory.deletedMarkerViolations} · 보증금규칙 ${inventory.depositRuleViolations}`);
@@ -126,10 +123,10 @@ const f01Order = new Map<string, string[]>();
     return matches.map((title) => ({ prefix, title }));
   });
   if (expectedMark) for (const { prefix, title } of selected) {
-    // 모바일 탭은 분까지만 표시한다. 스냅샷 ID·초·대수는 로그/아티팩트에 보존하고,
-    // 실제 회차 일치는 아래 658행 전체 값 대조로 확인한다.
-    const expectedTitle = `${prefix} ${expectedMark.split(' · ')[0].replace(/:\d{2}$/, '')}`;
-    if (canonicalSalesTabName(title) !== expectedTitle) staleTimestampTabs.push(`F01:${title} (기대: ${expectedTitle})`);
+    const mark = expectedMark.split(' · ')[0].replace(/:\d{2}$/, '');
+    const count = 실릴차.filter((atom) => salesTabsForAtom(atom).includes(prefix)).length;
+    const expectedTitle = salesPublishedTabTitle(prefix, count, mark);
+    if (title !== expectedTitle) staleTimestampTabs.push(`F01:${title} (기대: ${expectedTitle})`);
   }
   const grids = await readTabs(F01, selected.map((x) => x.title));
   for (const { prefix, title } of selected) {
@@ -152,14 +149,18 @@ const f01Order = new Map<string, string[]>();
   }
 }
 for (const prefix of SALES_PUBLISHED_TAB_PREFIXES) {
-  const expected = 실릴차.filter((atom) => tabOf(atom) === prefix).sort(compareRows).map((atom) => K(atom.car_number));
+  const expected = 실릴차.filter((atom) => salesTabsForAtom(atom).includes(prefix)).sort(compareRows).map((atom) => K(atom.car_number));
   const actual = f01Order.get(prefix) || [];
   if (JSON.stringify(actual) !== JSON.stringify(expected)) f01OrderViolations.push(`${prefix}: 실제 ${actual.length}줄 ↔ 기대 ${expected.length}줄`);
 }
 const f01Cars = new Set(f01.map((r) => r.car));
 const f01Counts = new Map<string, number>();
 for (const row of f01) f01Counts.set(row.car, (f01Counts.get(row.car) || 0) + 1);
-const f01Duplicates = [...f01Counts].filter(([, count]) => count > 1);
+const f01Duplicates = [...f01Counts].filter(([car, count]) => {
+  const atom = atoms.get(car);
+  const expectedCount = atom ? salesTabsForAtom(atom).length : 1;
+  return count !== expectedCount;
+});
 const 빠진차 = 실릴차.filter((v) => !f01Cars.has(K(v.car_number)));
 const 남는차 = f01.filter((r) => { const a = atoms.get(r.car); return !a || isUnavailableInventoryAtom(a); });
 const 어긋난칸 = new Map<string, { n: number; 표본: string[] }>();
