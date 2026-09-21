@@ -3495,3 +3495,24 @@ No application code or business logic was modified by the auditor.
 Detail: `docs/ai-ssot-audit/2026-09-21-chatgpt-audit89-f86-production-repin-cross-audit-red.md`
 
 No application code or business logic was modified by the auditor.
+
+
+---
+
+## 2026-09-21 — ChatGPT audit (90): Audit 89 cross-audit resolved; Sonogong full-bucket production pin now drifts from current-main registry
+
+**판정: RESOLVED AUDIT-89 VALIDATION + MATERIAL IMPLEMENTATION CHANGE + NEW RUNTIME/MAIN CANONICAL-REGISTRY VERSION SKEW.**
+
+- Audit (89)의 post-publish Atom↔F01↔F86 cross-audit red는 PR #448 / merge `ec120d3a39f63f4570d165dcabeeb687a085a169`의 engine `99167ee27a825e7f8588e49c004297fb019da17f`에서 해소됐다. ERP5 run `35561514414`은 source contract→원천 재수집→정산 Atom lock→ingest→fixed snapshot→public catalog→F01/F86 publish→F86 first gate→**Atom↔F01↔F86 cross-audit**→photo audit까지 전부 success다.
+- 이어 PR #449 / current application merge `663b65b54ab9af87de5178328a56b580e922735e`가 production pin을 `2478900272eb742035db5c3743c45a3683161219`로 전진시켰다. 이 engine은 RP012에 `LOW_SONOKONG_DAILY`를 추가하고 `LOW_SONOKONG_DAILY→중고렌트`, `LOW_SONOKONG→오공구독`, `LOW_TCAR→픽업구독`을 요청 버킷 기준으로 구분하며 Sonogong ingest 코드도 실제 변경한다. RP012 source authority는 계속 `sokrc.com/api`다.
+- **새 충돌:** current `main:lib/domain/inventory-source-registry.ts`는 여전히 RP012 channels를 `LOW_SONOKONG · LOW_TCAR` 둘만 적고 `일반 렌트재고 ERP API 버킷은 아직 코드에서 확인되지 않음` HOLD를 유지한다. 즉 production-pinned engine과 current-main의 claimed canonical registry가 세 번째 Sonogong bucket/hold 상태에 대해 서로 다른 사실을 말한다. 런타임 제2 원천이나 데이터 손상 증거는 아니며 **runtime/main registry version skew**다.
+- Current-main `check-inventory-source-contract.mts`는 RP012의 kind/adapter/source URL만 검사하고 channels/hold 또는 pinned-engine registry parity를 잠그지 않는다. 같은 파일의 `247890...` 주석은 collector 내용이 이전 lineage와 같다고 쓰지만 실제 `247890...`은 `scripts/ingest-supplier-to-firestore.mts`와 Sonogong helper를 변경한다. 그래서 current-head Source Contract `35562386495`와 generic CI `35562386522`가 green이어도 이 skew는 검출되지 않는다.
+- Scheduler/recovery 쪽은 부분 회복됐다. 12:05 recovery downstream ERP5 `35562037889`은 실제 **cancelled**, 13:05 downstream `35562059650`은 F01/F86/cross-audit/photo까지 **full green success**다. persistent monitor가 둘을 pending으로 두던 상태는 live Actions보다 stale이며, 기존 queued/cancelled ERP5 hazard는 계속 OPEN이다.
+- Native ERP5 `event=schedule` `35562733391`은 application head `663b65b...`에서 13:56:57 KST에 재출현해 14:06:54 KST **success**로 완료됐다. 새 production pin `247890...`이 native production chain에서 성공한 증거다. 다만 configured ERP5 cron은 `:17`이고 settlement slots는 heartbeat recovery를 계속 요구했으므로 settlement native cadence/timeliness HOLD 전체를 닫지는 않는다.
+- F86 fixed tabs `상품리스트 · 손오공상품 · 픽업구독 · 오플구독`, F01 `상품리스트 · 오공구독 · 픽업구독 · 오플구독`, RP023 RebornCar, retired mirror/sales automatic writer, RTDB/mirror non-canonical boundary에는 새 drift가 없다.
+
+**Claude implementation owner:** production `247890...`의 Sonogong third-bucket semantics를 임의로 되돌리지 말고 current-main registry와 Source Contract를 실제 runtime 의미와 재정렬한다. 특히 RP012 channels/hold parity와 pinned-engine collector-change detection을 강화하고 stale validated-engine 주석을 바로잡는다. Scheduler/recovery/cancellation은 별도 트랙으로 유지하며 F01/F86 parity gate를 약화하거나 F01 탭명을 임의 변경하지 않는다.
+
+Detail: `docs/ai-ssot-audit/2026-09-21-chatgpt-audit90-sonogong-full-bucket-runtime-main-registry-drift.md`
+
+No application code or business logic was modified by the auditor.

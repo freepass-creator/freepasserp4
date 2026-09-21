@@ -1,3 +1,20 @@
+# Claude 실행 오더 — Audit (90) override
+
+최우선 최신 판정: **Audit (89)의 Atom↔F01↔F86 cross-audit red는 PR #448 / engine `99167ee27a825e7f8588e49c004297fb019da17f`에서 full-green run `35561514414`로 해소됐다. 그러나 PR #449가 production engine을 `2478900272eb742035db5c3743c45a3683161219`로 다시 전진시키면서 current-main canonical registry와 runtime engine 사이에 새 Sonogong channel/hold version skew가 생겼다.**
+
+Production `247890...`은 RP012 `sokrc.com/api`에서 `LOW_SONOKONG_DAILY · LOW_SONOKONG · LOW_TCAR` 세 request bucket을 읽고 각각 `중고렌트 · 오공구독 · 픽업구독`으로 구분한다. 반면 current `main:lib/domain/inventory-source-registry.ts`는 아직 `LOW_SONOKONG · LOW_TCAR` 둘만 선언하고 `일반 렌트재고 ERP API 버킷은 아직 코드에서 확인되지 않음` HOLD를 유지한다. **source URL authority는 바뀐 것이 아니며, runtime/main canonical-registry version skew가 문제다.**
+
+Current-main Source Contract도 이 차이를 못 잡는다. RP012 kind/adapter/source URL만 검사하고 channel/hold parity를 잠그지 않으며, `247890...` validated-engine 주석은 collector가 이전 lineage와 같다고 쓰지만 실제 commit은 `scripts/ingest-supplier-to-firestore.mts`와 Sonogong helpers를 변경한다. 그래서 Source Contract `35562386495`와 generic CI `35562386522`가 green이어도 이 semantic skew는 OPEN이다.
+
+Scheduler/recovery는 별도 트랙이다. 12:05 recovery ERP5 `35562037889`은 실제 cancelled, 13:05 `35562059650`은 F01/F86/cross-audit/photo까지 full green success라 persisted monitor pending 상태가 stale하다. Native ERP5 schedule `35562733391`도 13:56:57 KST에 재출현해 14:06:54 KST **success**로 완료됐고 새 pin `247890...`의 native production chain 성공까지 확인됐다. 다만 settlement native cadence와 전체 timeliness HOLD는 여전히 OPEN이다.
+
+F86 fixed tabs는 `상품리스트 · 손오공상품 · 픽업구독 · 오플구독`, F01은 `상품리스트 · 오공구독 · 픽업구독 · 오플구독` 그대로다. RP023 RebornCar, retired mirror/sales automatic writer, RTDB/mirror non-canonical boundary도 유지한다.
+
+**Claude implementation owner:** production `247890...`의 third-bucket semantics를 stale main에 맞춰 되돌리지 말고 current-main registry와 Source Contract를 실제 runtime 의미와 정렬한다. RP012 channels/hold와 pinned-engine collector semantics를 fail-closed로 검사하고 stale validated-engine 설명을 바로잡는다. Scheduler/cancellation 문제는 별도로 처리하며 F01/F86 parity gate를 약화하거나 F01 명칭을 임의 변경하지 않는다.
+
+Detail: `docs/ai-ssot-audit/2026-09-21-chatgpt-audit90-sonogong-full-bucket-runtime-main-registry-drift.md`
+
+---
 # Claude 실행 오더 — Audit (89) override
 
 최우선 최신 판정: **Audit (88)의 scheduler/recovery HOLD는 유지되지만 Core SSOT 요약 중 production pin/F86 special-tab 부분은 stale이다. PR #447 / merge `6691b0f27c3df91ab07f3e0078903c69a1471f5e`가 ERP5 production engine을 `0c31f98d412d9e006e1894804ebe767fc91683f1`로 repin했고, F86 low-credit projection contract가 실제로 바뀌었다.**
