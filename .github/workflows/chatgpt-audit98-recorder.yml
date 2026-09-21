@@ -110,3 +110,5 @@ Canonical authority 경계는 유지한다: RP012 Sonogong ERP/API, RP023 Reborn
           git add docs/AI-SSOT-AUDIT-LOG.md CLAUDE-AUDIT.md docs/ai-ssot-audit/2026-09-21-chatgpt-audit98-pr457-repin-validation-watch.md .github/workflows/chatgpt-audit98-recorder.yml
           git commit -m 'docs(audit): record audit 98 PR457 repin watch'
           git push origin HEAD:main
+
+# trigger after initial workflow registration
