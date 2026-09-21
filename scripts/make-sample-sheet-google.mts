@@ -10,8 +10,8 @@ import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { JWT } from 'google-auth-library';
 import { buildSalesFormatRequests, columnWidths } from '../lib/domain/sales-sheet-format';
-import { makeCell, tabOf, TAB_ORDER, loadSalesRowContext, compareSalesRows } from '../lib/domain/sales-atom-row';
-import { salesTabMatches } from '../lib/domain/sales-published-tabs';
+import { makeCell, salesTabsForAtom, TAB_ORDER, loadSalesRowContext, compareSalesRows } from '../lib/domain/sales-atom-row';
+import { salesPublishedTabTitle, salesTabMatches } from '../lib/domain/sales-published-tabs';
 import { companyAlias } from '../lib/domain/identity';
 import { isPlate } from '../lib/domain/plate-registry';
 import { hasInventoryPublicationViolations, inventoryCountSnapshot, isOpenInventoryAtom } from '../lib/domain/inventory-contract';
@@ -89,7 +89,9 @@ const rowCtx = await loadSalesRowContext({
 const { unnamedProviders } = rowCtx;
 const cell = makeCell(rowCtx);
 const groups: Record<string, any[]> = {};
-for (const v of listable) { const t = tabOf(v); (groups[t] = groups[t] || []).push(v); }
+for (const v of listable) {
+  for (const t of salesTabsForAtom(v)) (groups[t] = groups[t] || []).push(v);
+}
 
 // 운영 시트를 비우기 전에 Firestore 원자만으로 전 행을 만들 수 있는지 확정한다.
 const invalidCars = listable.filter((v) => !isPlate(S(v.car_number)));
@@ -112,10 +114,14 @@ const headerCache: Record<string, string[]> = Object.fromEntries(TAB_ORDER.map((
 // 모바일/작은 화면에서 탭 하나가 화면 폭을 차지해 다른 탭으로 이동하기 어렵다.
 const kstNow = salesPublishMark(publishSnapshot);
 const tabUpdatedAt = kstNow.split(' · ')[0].replace(/:\d{2}$/, '');
-for (const list of Object.values(groups)) for (const v of (list as any[])) {
+for (const v of listable) {
   const m = S((v as any).model); if (m) modelCount.set(m, (modelCount.get(m) || 0) + 1);
 }
-const titleOf = (base: string) => `${base} ${tabUpdatedAt}`;
+const titleOf = (base: string) => salesPublishedTabTitle(
+  base as (typeof TAB_ORDER)[number],
+  groups[base]?.length || 0,
+  tabUpdatedAt,
+);
 
 let sheetId = SAMPLE_SHEET_ID, fresh = false;
 /**
@@ -225,8 +231,8 @@ for (const t of TAB_ORDER) {
 }
 for (let i = 0; i < fmt.length; i += 200) await api(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests: fmt.slice(i, i + 200) }) });
 
-const total = TAB_ORDER.reduce((a, t) => a + (groups[t]?.length || 0), 0);
-console.log(`\n★ ${TO_MAIN ? '본시트 반영 완료' : (fresh ? '새로 만든' : '제자리 갱신')} 상품시트(${total}대 · 기존시트 동일열):\nhttps://docs.google.com/spreadsheets/d/${sheetId}/edit`);
+const visibleRows = TAB_ORDER.reduce((a, t) => a + (groups[t]?.length || 0), 0);
+console.log(`\n★ ${TO_MAIN ? '본시트 반영 완료' : (fresh ? '새로 만든' : '제자리 갱신')} 상품시트(정본 ${listable.length}대 · 탭 표시행 ${visibleRows}줄):\nhttps://docs.google.com/spreadsheets/d/${sheetId}/edit`);
 console.log(`  스냅샷 ${publishSnapshot.snapshotId} · ${publishSnapshot.capturedAt}`);
 if (fresh) console.log(`\n※ 이 ID 를 SAMPLE_SHEET_ID 에 박으면 고정: ${sheetId}`);
 process.exit(0);
