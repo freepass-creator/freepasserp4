@@ -219,19 +219,16 @@ must(/isShopHome\(host[\s\S]{0,600}?GUEST_HEADER,\s*'1'/.test(mw), '첫 화면 �
   '표시를 안 붙이면 겉은 가게인데 메타·JSON-LD 는 업무동 것이 실려 나갑니다(2026-09-06 사고).');
 
 /*
- * ERP4 MAIN/화이트라벨 상품 호스트와 로그인 기능은 연결 자체가 없다.
- * /login 을 / 로 돌려주는 것도 «같은 제품의 숨은 기능»이라는 연결이므로 금지한다.
- * 상품 호스트에서 /login 은 존재하지 않는 경로(404)여야 한다.
+ * 대표 ERP 도메인에서 은퇴 업무 URL은 공개 상품 홈으로 정리한다.
+ * 화이트라벨 도메인까지 대표 홈으로 보내면 채널 홈을 삼키므로 대상 호스트를 분리한다.
  */
-must(/pathname === '\/login'\s*&&\s*homeIsShop\(host\)/.test(mw),
-  '상품 호스트에서 /login 경로 차단',
-  'ERP4 MAIN/화이트라벨에서 로그인 UI가 다시 노출될 수 있습니다.');
-must(/pathname === '\/login'[\s\S]{0,500}?status:\s*404/.test(mw),
-  '/login 은 상품 호스트에서 404',
-  '상품 호스트의 /login 이 다른 ERP4 화면으로 이어집니다 — 인증 기능과 제품면 연결이 남았습니다.');
-must(!/pathname === '\/login'[\s\S]{0,500}?NextResponse\.redirect/.test(mw),
-  '/login 리다이렉트 연결 없음',
-  '/login 을 상품 메인으로 보내면 ERP4가 로그인 기능을 숨겨 가진 것처럼 연결이 남습니다.');
+must(/MAIN_PUBLIC_HOSTS/.test(mw) && /RETIRED_MAIN_PATHS/.test(mw),
+  '대표 ERP 도메인의 은퇴 업무 경로 목록',
+  '은퇴한 /login·/finder 등이 404 또는 업무 화면으로 흩어질 수 있습니다.');
+must(/MAIN_PUBLIC_HOSTS\.has\(host\) && isRetiredMainPath\(request\.nextUrl\.pathname\)/.test(mw)
+  && /new URL\('https:\/\/freepasserp\.com\/'\)/.test(mw),
+  '대표 ERP 도메인 은퇴 경로 → canonical 홈',
+  '화이트라벨 도메인을 삼키지 않으면서 대표 ERP의 옛 URL을 홈으로 정리해야 합니다.');
 
 const layout = read('app/layout.tsx');
 const guestBranchAt = layout.indexOf('{guestSurface ? (');

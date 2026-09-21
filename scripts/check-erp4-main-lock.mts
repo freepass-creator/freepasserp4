@@ -66,15 +66,13 @@ must(/target\.pathname = '\/shop'/.test(middleware),
   '상품 홈이 /shop으로 rewrite되지 않는다.');
 must(/headers\.set\(GUEST_HEADER, '1'\)/.test(middleware),
   '공개 상품 요청에 x-fp-guest 경계가 붙지 않는다.');
-must(/pathname === '\/login'\s*&&\s*homeIsShop\(host\)/.test(middleware)
-  && /status:\s*404/.test(middleware),
-  '상품 호스트 /login이 404로 차단되지 않는다.');
-
-const loginFenceAt = middleware.indexOf("request.nextUrl.pathname === '/login'");
-const nextRouteAt = middleware.indexOf('if (isCompanyHomeRoot', loginFenceAt);
-const loginFence = loginFenceAt >= 0 ? middleware.slice(loginFenceAt, nextRouteAt > loginFenceAt ? nextRouteAt : loginFenceAt + 900) : '';
-must(loginFenceAt >= 0 && !/NextResponse\.redirect/.test(loginFence),
-  '상품 호스트 /login이 다른 ERP4 화면으로 redirect된다.');
+must(/MAIN_PUBLIC_HOSTS/.test(middleware)
+  && /RETIRED_MAIN_PATHS/.test(middleware)
+  && /isRetiredMainPath\(request\.nextUrl\.pathname\)/.test(middleware),
+  '대표 ERP 도메인의 은퇴 업무 경로 정리 목록이 없다.');
+must(/new URL\('https:\/\/freepasserp\.com\/'\)/.test(middleware)
+  && /NextResponse\.redirect\([^\n]+, 308\)/.test(middleware),
+  '대표 ERP 도메인의 은퇴 업무 경로가 canonical 홈으로 영구 이동하지 않는다.');
 
 const guestAt = layout.indexOf('{guestSurface ? (');
 const elseAt = guestAt >= 0 ? layout.indexOf(') : (', guestAt) : -1;

@@ -17,7 +17,7 @@ ERP4 MAIN은 더 이상 구조를 탐색하는 단계가 아니다.
 - `freepasserp.com` ERP4 MAIN = 공개 Product Browse.
 - 로그인·회원가입·세션은 ERP4 MAIN 기능이 아니다.
 - 공개 상품 요청은 `AuthProvider`를 마운트하지 않는다.
-- 상품 호스트의 `/login`은 404이며 `/` 또는 다른 ERP4 화면으로 연결하지 않는다.
+- 대표 ERP 도메인(`freepasserp.com`·`www`)의 `/login`과 은퇴한 업무 진입점은 canonical 공개 상품 홈으로 정리한다. 공개 상품·공유·전자계약 URL은 보존한다.
 - 로그인 구현을 저장소에 남기는 것은 허용하지만 별도/레거시 업무 인증 기능으로만 취급한다.
 
 ### LOCK-02 · ERP5 공개 데이터 경계

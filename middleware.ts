@@ -5,6 +5,21 @@ import { CORP } from '@/lib/domain/corporate-ci';
 
 const PUBLIC_SIGN_HOST = 'sign.freepasserp.com';
 /**
+ * ERP닷컴 공개 메인에서 더 이상 제공하지 않는 과거 업무 진입점.
+ *
+ * 저장소의 업무 화면·도구를 지우는 목록이 아니다. 외부에서 오래된 URL을 열었을 때
+ * 404나 로그인으로 보내지 않고, 현재 제품의 유일한 시작점인 공개 상품 홈으로 정리하는
+ * 웹 진입 경계다. 전자계약·공유·약관·공개 상품 URL은 여기에 넣지 않는다.
+ */
+const MAIN_PUBLIC_HOSTS = new Set(['freepasserp.com', 'www.freepasserp.com']);
+const RETIRED_MAIN_PATHS = [
+  '/login', '/finder', '/inventory', '/members', '/settings',
+  '/audit', '/dev', '/diag', '/data-check', '/erp5', '/settlement',
+  '/contract', '/hub', '/interest', '/chat', '/connectors', '/policy', '/verify',
+] as const;
+const isRetiredMainPath = (pathname: string) =>
+  RETIRED_MAIN_PATHS.some((base) => pathname === base || pathname.startsWith(`${base}/`));
+/**
  * **`freepassmobility.com` 대문 = 회사 소개 홈페이지**(가게가 아니다).
  *
  * ★2026-09-16 사장님 「모빌리티닷컴은 화이트라벨(가게) 말고 원래 홈페이지로 돌리고,
@@ -40,6 +55,19 @@ const LEGACY_TOKEN = /^[A-Za-z0-9_-]{22}$/;
  */
 export function middleware(request: NextRequest) {
   const host = String(request.headers.get('host') || '').split(':')[0].toLowerCase();
+
+  /*
+   * ★★ERP닷컴은 이제 공개 상품 홈 하나만 현관으로 쓴다(2026-09-21 사용자 확정).
+   * 과거 로그인·파인더·내부 업무 URL을 열어도 404나 인증 화면을 남기지 않고
+   * canonical `https://freepasserp.com/`으로 한 번만 보낸다. 이 목록은 공개 링크로
+   * 살아 있어야 하는 /shop · /q · /sign · /esign · /terms · /privacy와 분리돼 있다.
+   *
+   * 채널 전용 도메인은 대상이 아니다. 그쪽의 제품 진입 규칙을 이 도메인 정리가 삼키면
+   * 화이트라벨 홈까지 우리 대표 홈으로 빠질 수 있으므로 호스트를 먼저 좁힌다.
+   */
+  if (MAIN_PUBLIC_HOSTS.has(host) && isRetiredMainPath(request.nextUrl.pathname)) {
+    return NextResponse.redirect(new URL('https://freepasserp.com/'), 308);
+  }
 
   /*
    * 채널 도메인과 ERP4 MAIN의 **첫 화면은 상품**이다.
