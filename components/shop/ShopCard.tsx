@@ -250,7 +250,8 @@ export const ShopCard = memo(function ShopCard({ p, href, rank = 99, searchQuery
       <Link href={href} onClick={() => haptic.nav()} className="fp-shop-card fp-shop-press"
         style={{
           display: 'flex', flexDirection: 'column', height: '100%',
-          textDecoration: 'none', color: 'inherit',
+          textDecoration: 'none', color: 'inherit', background: C.taupeBg,
+          borderRadius: SHOP.r.card, overflow: 'hidden',
         }}>
         <ShopThumb p={p} marks={stateMarks} rank={rank} />
 
