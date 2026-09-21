@@ -1,4 +1,5 @@
 name: Audit 100 recorder
+# second push intentionally fires this one-shot recorder
 
 on:
   push:
