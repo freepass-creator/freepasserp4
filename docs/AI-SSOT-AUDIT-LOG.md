@@ -3375,3 +3375,23 @@ No application code or business logic was modified by the auditor.
 Detail: `docs/ai-ssot-audit/2026-09-21-chatgpt-audit83-main-ci-and-deploy-recovery-red.md`
 
 No application code or business logic was modified by the auditor.
+
+---
+
+## 2026-09-21 — ChatGPT audit (84): main CI chain recovered; FreePass Data shadow introduces conditional latency coupling
+
+**판정: RESOLVED(main CI HOLD) / MATERIAL IMPLEMENTATION CHANGE / OPEN(shadow runtime non-interference) / ERP5 canonical authority unchanged.**
+
+- Audit (83)의 generic main CI chain-break는 **해소됨**이다. Current pre-audit main `cd77fdfabce41a58612f1c92df0a598437b476c9`의 CI run **`35547094484`**가 `success`로 완료됐고, 이전에 skipped됐던 ERP4 MAIN stability, ERP5 canonical Firebase, RTDB direct-open/retirement, settlement, AI Core SHADOW, simulations, Production build까지 실제 실행되어 모두 green이다. 따라서 Audit (83)의 “latest main에서 downstream SSOT guards가 미실행” 판정은 더 이상 current가 아니다.
+- 별도 `Production Deploy Recovery` run **`35544475310`**의 credential-gate failure는 후속 green evidence가 없어 **OPEN 유지**다. Generic CI 회복과 deploy-recovery 경로 회복을 혼동하지 않는다.
+- PR #445 / merge **`757ec62ff521c3046d136ec8004ce38a1e4abf19`**가 ERP.com public catalog에 FreePass Data Catalog V1 **SHADOW_READ** observer를 연결했다. Contract `contracts/ai-core/freepass-data-erpcom-shadow.consumer.json`은 active owner를 `freepasserp5 / PRODUCTION_READ / fallback NONE`, target을 `freepass-data / SHADOW_READ`, writer cutover를 `OUT_OF_SCOPE`, RTDB를 `NO_NEW_USAGE`로 고정한다. Merge의 `SSOT Source Contract` run **`35545948422`**도 success다.
+- **새 OPEN / HOLD(shadow enablement):** `lib/server/guest-listing.ts`의 전체 카탈로그 경로는 `await observeFreepassDataShadow(products)`로 observer 완료를 기다린다. Observer는 flag `FREEPASS_DATA_ERP_COM_SHADOW_READ_ENABLED=true`일 때 FreePass Data endpoint를 네트워크로 호출하며 기본 timeout **1200ms**, 허용 범위 최대 **5000ms**다. 따라서 flag가 켜진 상태에서는 shadow가 느리거나 실패할 때 고객-visible 데이터 값/authority는 ERP5 그대로여도 응답 latency는 bounded하게 영향을 받을 수 있다. 이는 contract의 `shadow_failure: DO_NOT_AFFECT_CUSTOMER_READ`를 **데이터 비간섭**으로만 읽으면 맞지만, **runtime latency까지 비간섭**으로 요구한다면 현재 구현과 의미 gap이 있다. Production flag 활성 여부는 이번 감사에서 확인되지 않았으므로 현재 장애로 단정하지 않는다.
+- Canonical boundary에는 새 drift가 없다: ERP5 production engine pin `cf940df642edf315adbc6da2b4134fbad53da160`, 24-source registry, 동일 fixed-snapshot F01/F86, F86 `종합`의 RP012 손오공·RP023 오토플러스 제외 + Sonogong `오공구독`/`픽업구독` + AutoPlus `오플구독`, retired `mirror-sync`/`sales-erp-hourly` automatic writers, RTDB/mirror non-canonical boundary가 유지된다.
+- 계속 OPEN: audit (67) quote-default freshness, audit (71) shared ERP5 concurrency/pending-replacement + 15:05 reconciliation, audit (76) already-successful native slot false replay, native cadence/timeliness HOLD.
+
+**Claude implementation owner:** Audit (83)의 generic CI HOLD는 RESOLVED로 취급한다. FreePass Data observer는 ERP5를 active reader로 유지하고 writer/RTDB cutover를 하지 않는다. Shadow enablement 전에 `DO_NOT_AFFECT_CUSTOMER_READ`의 범위를 latency까지 포함하는지 명시적으로 맞추고, 포함한다면 observer를 고객 응답 critical path에서 분리하는 구현은 Claude 단일 SSOT 세션에서만 수행한다.
+
+Detail: `docs/ai-ssot-audit/2026-09-21-chatgpt-audit84-main-ci-recovered-freepass-data-shadow-latency-gap.md`
+
+No application code or business logic was modified by the auditor.
+

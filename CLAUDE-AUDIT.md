@@ -1,3 +1,22 @@
+# Claude 실행 오더 — Audit (84) override
+
+최우선 최신 판정: **Audit (83)의 generic main CI chain-break는 해소됐다. 대신 PR #445로 ERP.com 전체 공개 카탈로그에 FreePass Data SHADOW observer가 실제 runtime에 연결됐고, 활성화 시 고객 응답 latency와 결합되는 새 gap이 있다. ERP5 canonical authority는 그대로다.**
+
+Current pre-audit main `cd77fdfabce41a58612f1c92df0a598437b476c9`의 CI run **`35547094484`**가 success이며 ERP4 MAIN stability / ERP5 canonical Firebase / RTDB retirement / settlement / AI Core SHADOW / simulations / Production build가 실제 실행되어 모두 green이다. 따라서 Audit (83)의 “latest main에서 downstream SSOT guards가 skipped” HOLD는 **RESOLVED**다. 다만 `Production Deploy Recovery` run **`35544475310`**의 credential-gate failure는 별도 경로이며 후속 green evidence가 없어 OPEN 유지한다.
+
+PR #445 / merge `757ec62ff521c3046d136ec8004ce38a1e4abf19`의 FreePass Data consumer contract는 active read를 `freepasserp5 / PRODUCTION_READ / fallback NONE`, target을 `freepass-data / SHADOW_READ`, writer cutover를 `OUT_OF_SCOPE`, RTDB를 `NO_NEW_USAGE`로 고정한다. Source Contract run `35545948422`도 success다. 즉 **FreePass Data를 canonical read/write owner로 cutover한 것이 아니다.**
+
+새 OPEN: `lib/server/guest-listing.ts`의 unfiltered public catalog path가 `await observeFreepassDataShadow(products)`를 호출한다. Shadow flag가 true면 observer는 외부 endpoint를 fetch하고 default 1200ms, 최대 5000ms timeout을 기다린다. 오류는 잡고 FreePass Data 값을 고객에게 공급하지 않으므로 data authority/value는 ERP5 그대로지만, 활성 상태에서는 shadow latency가 고객 응답 latency에 영향을 줄 수 있다. Contract의 `shadow_failure=DO_NOT_AFFECT_CUSTOMER_READ`가 latency까지 포함한다면 **runtime non-interference gap**이다. Production flag 활성 여부는 이번 감사에서 증명하지 않았으므로 현재 장애로 단정하지 않는다. Shadow enablement는 HOLD/WATCH로 둔다.
+
+ERP5 canonical boundary는 unchanged: production engine pin `cf940df642edf315adbc6da2b4134fbad53da160`, 24-source registry, 동일 fixed-snapshot F01/F86, F86 `종합`의 RP012/RP023 제외 + Sonogong `오공구독`/`픽업구독` + AutoPlus `오플구독`, retired mirror/sales automatic writers, RTDB/mirror non-canonical boundary를 유지한다. Audit (82)의 settlement optimistic revision guard/UI transport도 유지된다.
+
+계속 OPEN: audit (67) quote-default freshness, audit (71) shared ERP5 concurrency/pending-replacement + 15:05 reconciliation, audit (76) already-successful native slot false replay, native cadence/timeliness HOLD, Audit (83)의 Production Deploy Recovery credential path.
+
+Claude는 FreePass Data를 non-authoritative SHADOW로 유지한다. `DO_NOT_AFFECT_CUSTOMER_READ`가 latency isolation까지 의미하는지 먼저 확정하고, 포함한다면 customer-response critical path에서 observer를 분리하는 구현만 Claude 단일 SSOT 세션에서 수행한다. 이 audit을 writer cutover, RTDB fallback, canonical source 변경 근거로 사용하지 않는다.
+
+Detail: `docs/ai-ssot-audit/2026-09-21-chatgpt-audit84-main-ci-recovered-freepass-data-shadow-latency-gap.md`
+
+---
 # Claude 실행 오더 — Audit (83) override
 
 최우선 최신 판정: **Audit (82)의 settlement revision-guard/UI 활성화는 계속 유효하지만, current main은 SSOT 검증 체인 기준 CI HOLD다.** Audit 시점 `origin/main` `15d9e651669bdfbc0368643d38d013fcea35e3c2`의 generic CI **`35544887444`**가 `확정 디자인 — 손님 동 규격이 그대로인가`에서 실패했고, 그 뒤 ERP4 MAIN stability / ERP5 canonical Firebase / RTDB / settlement / AI Core SHADOW / simulation / Production build 단계가 전부 skipped 됐다. 따라서 **latest main에서 이 SSOT guards가 green이라고 가정하지 않는다.** Skipped는 failure 증거가 아니라 미실행 증거다.
