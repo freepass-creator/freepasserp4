@@ -49,3 +49,5 @@ F01의 손오공상품/오공구독 중복 또는 분류 차이는 별도 HOLD�
 - 변경 파일의 private-key/API-token 패턴 및 민감 파일 경로 검사 0건. 이 패턴 검사는 모든 비밀 탐지를 보증하지 않는다.
 - AGENTS 추가 게이트 master-lock은 12건 실패, master-pass도 FAIL. 변경 없는 base 562ff11a detached worktree에서 두 결과를 재실행했고 각각의 전체 출력 SHA-256이 동일하다. 기존 실패를 PASS로 처리하지 않는다.
 - 이 PR은 기준 밖 차종마스터를 수정하지 않는다. live dry-run/apply 및 원격 CI 결과는 해당 Actions 실행 증거로 별도 판정한다.
+- Cursor 독립 파일 검토: 표시 전용 범위 및 UNAVAILABLE 차단에 동의. write-site도 executableRequests를 사용하도록 방어를 보강했다.
+- GITHUB 환경 검사는 실행 경로 가드이며 자격증명 소유자의 악의적 로컬 위조를 인증적으로 막는 장치는 아니다. 실제 실행은 공식 Actions만 사용하며 새 OIDC 권한·인증 체계는 이 변경에 추가하지 않는다.

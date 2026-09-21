@@ -118,7 +118,7 @@ try {
   if (immediatelyBefore.hash !== before.hash) throw new Error('HOLD: concurrent drift before apply');
   if (process.env.GITHUB_REF !== 'refs/heads/main' || process.env.GITHUB_REPOSITORY !== 'freepass-creator/freepasserp4' || process.env.GITHUB_SHA !== revision) throw new Error('HOLD: apply requires exact official main checkout');
   writeAttempted = true;
-  await api(`${base}:batchUpdate`, { requests: plan.proposedRequests }); // Exactly one mutation, no retry.
+  await api(`${base}:batchUpdate`, { requests: plan.executableRequests }); // Exactly one mutation, no retry.
   const after = await read();
   const stripOwned = (raw: any) => {
     const copy = structuredClone(raw);
