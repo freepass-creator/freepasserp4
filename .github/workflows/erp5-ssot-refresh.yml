@@ -1,0 +1,39 @@
+# Validation branch only. Never merge this replacement over the scheduled workflow.
+name: F01 F86 canonical presentation read-only validation
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: erp5-inventory-publish
+  cancel-in-progress: false
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fcb571813f787677afc7a57c3ab6aadbd2446fdc
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Shared planner parity
+        run: npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/sim-f01-f86-presentation.mts
+      - name: Read-only live Sheets audit
+        env:
+          SHEETS_SA: ${{ secrets.GOOGLE_SA_JSON }}
+          GOOGLE_SHEETS_APPLICATION_CREDENTIALS: ${{ runner.temp }}/f01-f86-sheets.json
+        shell: bash
+        run: |
+          test -n "$SHEETS_SA"
+          umask 077
+          printf '%s' "$SHEETS_SA" > "$GOOGLE_SHEETS_APPLICATION_CREDENTIALS"
+          npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/audit-sheet-presentation-online.mts
+      - name: Remove temporary credential
+        if: always()
+        env:
+          SHEETS_CREDENTIAL_PATH: ${{ runner.temp }}/f01-f86-sheets.json
+        run: rm -f -- "$SHEETS_CREDENTIAL_PATH"
