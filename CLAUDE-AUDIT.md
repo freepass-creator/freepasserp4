@@ -1,3 +1,20 @@
+# Claude 실행 오더 — Audit (89) override
+
+최우선 최신 판정: **Audit (88)의 scheduler/recovery HOLD는 유지되지만 Core SSOT 요약 중 production pin/F86 special-tab 부분은 stale이다. PR #447 / merge `6691b0f27c3df91ab07f3e0078903c69a1471f5e`가 ERP5 production engine을 `0c31f98d412d9e006e1894804ebe767fc91683f1`로 repin했고, F86 low-credit projection contract가 실제로 바뀌었다.**
+
+Current F86 첫 네 고정 탭은 정확히 `상품리스트 · 손오공상품 · 픽업구독 · 오플구독`이다. RP012 non-pickup 재고(중고렌트 + 오공구독)는 `손오공상품`, T카 pickup external stock은 `픽업구독`, RP023은 `오플구독`으로 간다. Special-tab 차량은 일반 공급사 탭에 중복하지 않으며 fixed 탭명에는 시간/대수 suffix가 없다. F86 freshness는 Drive `modifiedTime`을 사용한다.
+
+**F01은 의도적으로 그대로다.** F01 `TAB_ORDER`는 `상품리스트 · 오공구독 · 픽업구독 · 오플구독`; F01/F86은 동일 Atom/fixed snapshot 및 공통 row/cell builder를 쓰며 F86 `손오공상품`은 F01 `오공구독` column block을 재사용한다. 이 audit만으로 F01을 `손오공상품`으로 rename하지 않는다.
+
+Main push `SSOT Source Contract` run `35560310869`과 generic `CI` run `35560310925`은 green이다. 그러나 새 pin 검증 run **`35560321553`은 post-publish failure**다. Source→Atom→fixed snapshot→public catalog→F01 publish→F86 backup/publish→F86↔Atom freshness/cell first gate까지 성공한 뒤 **Atom↔F01↔F86 cell-level cross-audit에서 실패**했다. Photo audit와 evidence preservation은 성공했다. 즉 output publication은 됐지만 repin을 full-green으로 보지 않는다. `erp5-ssot-snapshot-35560321553` evidence를 사용해 mismatch를 원인 규명하고 audit gate는 약화하지 않는다.
+
+Canonical source authority는 변경 없다: 24-source registry, RP012 `sokrc.com/api`, RP023 RebornCar. Retired mirror/sales automatic writer와 RTDB non-canonical/runtime-retirement boundary도 유지한다.
+
+**Audit (88) native cadence + recovery continuity HOLD 및 monitor reconciliation WATCH는 계속 OPEN**이다. Projection repin/cross-audit 문제와 scheduler delivery 문제를 분리한다.
+
+Detail: `docs/ai-ssot-audit/2026-09-21-chatgpt-audit89-f86-production-repin-cross-audit-red.md`
+
+---
 # Claude 실행 오더 — Audit (88) override
 
 최우선 최신 판정: **Audit (87)의 10:05/11:05 watchdog recovery 연속 동작 뒤, 다음 12:05 settlement logical slot은 configured 20-minute grace를 넘긴 12:53 KST까지 native `schedule`도 heartbeat `push` recovery도 없었다. 따라서 native cadence HOLD에 더해 recovery continuity도 다시 HOLD다. ERP5 canonical authority/core business semantics는 그대로다.**
