@@ -179,11 +179,30 @@ export async function buildF86Plan(p: {
   const base = compareSalesRows(modelSold, modelCount);
   const cmp = retro ? compareF86Rows(modelSold, modelCount, base) : base;
   for (const list of by.values()) list.sort((a, b) => cmp(a.atom, b.atom));
-  /** 탭 차례 — 하허호는 «굳힌 표»(RETRO_TAB_ORDER), 그 밖은 상품 많은 순. */
+  /** 탭 차례 — 원 공급사 차례를 먼저 굳힌 뒤, 하허호의 공통 앞 4개를 별도로 조립한다. */
   const order = [...by.entries()].sort((a, b) => (retro ? retroTabRank(a[0]) - retroTabRank(b[0]) : 0) || b[1].length - a[1].length);
-  /** 「종합」 = 손오공·오토플러스 뺀 렌트사 규격 차 한 장(공지사항 바로 뒤). */
+  /** 「종합」 = 손오공·오토플러스 뺀 렌트사 규격 차 한 장. */
   const summary = retro ? order.filter(([co]) => inRetroSummary(co)).flatMap(([, l]) => l).sort((a, b) => cmp(a.atom, b.atom)) : [];
-  const tabList: [string, F86Row[]][] = retro ? [[RETRO_SUMMARY_TAB, summary], ...order] : order;
+
+  /**
+   * ★ F01/F86 공통 앞 4개:
+   *   1) 종합(=F01 상품리스트 대응)  2) 손오공상품  3) 픽업구독  4) 오토플러스
+   * 그 뒤에 나머지 공급사별 탭을 이어 붙인다.
+   * 손오공상품은 손오공 전체이고 픽업구독은 그 안의 부분집합이라 두 탭의 행은 의도적으로 겹친다.
+   */
+  const sonogong = by.get('손오공') || [];
+  const pickup = sonogong.filter((row) => row.kind === '픽업구독');
+  const autoplus = by.get('오토플러스') || [];
+  const remaining = order.filter(([co]) => co !== '손오공' && co !== '오토플러스');
+  const tabList: [string, F86Row[]][] = retro
+    ? [
+      [RETRO_SUMMARY_TAB, summary],
+      ['손오공상품', sonogong],
+      ['픽업구독', pickup],
+      ['오토플러스', autoplus],
+      ...remaining,
+    ]
+    : order;
 
   /** 굳힌 양식 문지기(양식어긋남) — 표 밖 회사 · 표 밖 요금 칸에 «값이 있는» 차. 칸을 몰래 늘리지도 요금을 감추지도 않는다. */
   const layoutViolations: string[] = [];
