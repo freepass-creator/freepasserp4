@@ -3,6 +3,8 @@ import { INVENTORY_SOURCES, getInventorySource, getPolicySource, inventorySource
 import { sheetsServiceAccountEmail } from '../lib/server/google-sheets';
 import { readErp5InventoryServiceAccount } from '../lib/server/erp5-inventory-service-account';
 import { sonokongProductKind } from '../lib/domain/sonokong-product-kind';
+import { directSourceStatusBase } from '../lib/domain/direct-source-status';
+import { resolveStatus } from '../lib/domain/atom-status';
 
 assert.equal(INVENTORY_SOURCES.length, 24, '현재 연동 공급사 코드는 24개여야 한다');
 assert.equal(inventorySourceLocationCount(), 21, '공유 시트를 합친 1차 원천 위치는 21곳이어야 한다');
@@ -14,6 +16,9 @@ assert.deepEqual(getInventorySource('RP012').channels, ['LOW_SONOKONG_DAILY', 'L
 assert.equal(sonokongProductKind({ sourceBucket: 'LOW_SONOKONG_DAILY', responseBucket: 'SON_NO_KONG' }), '중고렌트');
 assert.equal(sonokongProductKind({ sourceBucket: 'LOW_SONOKONG', responseBucket: 'SON_NO_KONG' }), '오공구독');
 assert.equal(sonokongProductKind({ sourceBucket: 'LOW_TCAR', responseBucket: 'TCAR_EXTERNAL' }), '픽업구독');
+assert.equal(directSourceStatusBase('계약중', 'sonokong'), '계약중');
+assert.equal(directSourceStatusBase('계약중', 'sheet'), '출고불가');
+assert.equal(resolveStatus({ base: directSourceStatusBase('계약중', 'sonokong'), raw: '계약중' }).listable, true);
 assert.equal(getInventorySource('RP004').spreadsheetId, '1LqWVs2o1-wpPqFiYkOjcQldmIXqtBMKYp0A1SKEir5w');
 assert.equal(getInventorySource('RP031').spreadsheetId, '1fJuFSdaW559niD0ow7vVC3qcgjy8KRb8Cr3U8Of01vs');
 assert.equal(INVENTORY_SOURCES.filter((source) => source.kind === 'google_sheet').length, 21);

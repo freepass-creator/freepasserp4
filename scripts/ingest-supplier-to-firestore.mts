@@ -25,12 +25,12 @@ import { snapToMaster, makerGroup } from '../lib/domain/vehicle-master-match';
 import type { MasterEntry } from '../lib/domain/vehicle-master-types';
 import type { EntityRecord } from '../lib/intake/entities';
 import { normFuel } from '../lib/domain/vehicle-master-format';
-import { canonSheetVehicleStatus } from '../lib/domain/sheet-import';
 import { canonProductType } from '../lib/domain/product';
 import { composeVehicleName, MIRROR_ALIAS } from '../lib/domain/mirror-sheet-mapping';
 import { snapColor } from '../lib/domain/color-master';
 import { getInventorySource } from '../lib/domain/inventory-source-registry';
 import { sonokongProductKind } from '../lib/domain/sonokong-product-kind';
+import { directSourceStatusBase } from '../lib/domain/direct-source-status';
 import { FUEL_EV, rawSeats, atomViolations, type MasterIndex } from '../lib/domain/atom-invariants';
 import { cleanTrim } from '../lib/domain/clean-trim';
 import { resolveStatus } from '../lib/domain/atom-status';
@@ -154,7 +154,7 @@ const evEngineCc = (fuel: string, cc: string): string => (FUEL_EV.test(fuel) ? '
 function statusDetail(rawStatus: string, locked?: unknown, lockedBase?: unknown) {
   // ★계약이 있으면(정산원장) base = «우리가 아는 현 상태(pin)» — 공급사 canon 이 아니다(계약이 이긴다).
   //   그래야 계약완료(출고불가)는 숨고, 계약중은 선점으로 남는다. 계약 없으면 공급사 원천대로.
-  const base = S(locked) ? S(lockedBase) : canonSheetVehicleStatus(S(rawStatus));
+  const base = S(locked) ? S(lockedBase) : directSourceStatusBase(rawStatus, src.kind);
   return resolveStatus({ base, raw: rawStatus, locked });
 }
 
