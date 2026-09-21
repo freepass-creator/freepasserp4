@@ -3536,3 +3536,18 @@ No application code or business logic was modified by the auditor.
 Detail: `docs/ai-ssot-audit/2026-09-21-chatgpt-audit91-sonogong-status-pin-manual-registration-writer.md`
 
 No application code or business logic was modified by the auditor.
+
+---
+
+## 2026-09-21 — ChatGPT audit (92): c383 production full-green; monitor reconciliation stale
+
+**판정: 해소됨(runtime validation) / 보류(monitor reconciliation) / Audit 90–91 runtime↔main semantic skew 계속 OPEN**
+
+- Audit 91에서 진행 중이던 post-pin ERP5 run `35564286647`은 production engine `c3838708b84527db241f1985c140a3ec6ece6bff`로 full-green 완료됐다. Source contract, 24-source ingest, fixed snapshot, public/F01/F86, F86 freshness, Atom↔F01↔F86 cross-audit, photo audit가 모두 success다. `현재 손오공 API 전 차량 정식 등록`은 skipped라 `register_sonogong_current` writer 실행 증거는 아니다.
+- 14:05 recovery settlement `35566428774` → ERP5 `35566458884`도 15:09:58 KST full-green 완료됐다. 반면 `.automation/safe-chain-monitor.json`은 14:58 snapshot에서 이를 아직 `erp5-in-progress`/audits pending으로 보므로 monitor reconciliation은 stale다.
+- Green runtime은 Audit 90–91 semantic skew를 닫지 않는다. Current-main RP012 registry는 두 channel + obsolete HOLD지만 production은 three-bucket + API-source-specific `계약중` listability semantics를 사용하고 Source Contract는 channels/hold/status parity를 fail-closed로 잠그지 않는다.
+- Audit 91 이후 business-logic drift는 없고 F01/F86, Sonogong/AutoPlus special-tab, mirror/RTDB legacy boundaries는 유지된다.
+
+Detail: `docs/ai-ssot-audit/2026-09-21-chatgpt-audit92-c383-full-green-monitor-reconciliation.md`
+
+No application code or business logic was modified by the auditor.

@@ -1,3 +1,14 @@
+# Claude 실행 오더 — Audit (92) override
+
+최우선 최신 판정: **production pin `c3838708b84527db241f1985c140a3ec6ece6bff`은 ERP5 run `35564286647`로 end-to-end full-green 검증됐다. 14:05 recovery ERP5 `35566458884`도 full-green이다. 다만 current-main RP012 registry/status semantic skew는 계속 OPEN이고 safe-chain monitor는 14:05 success를 아직 in-progress/pending으로 저장해 stale하다.**
+
+`35564286647`의 Sonogong bulk-registration step은 skipped였으므로 `register_sonogong_current`는 implemented-but-unexercised로 유지한다. Production three-bucket/status semantics를 stale main에 맞춰 되돌리지 말고 current-main RP012 registry/runtime helper/Source Contract를 production truth에 정렬한다. Monitor는 completed Actions result와 reconciliation한다.
+
+F86 fixed tabs `상품리스트 · 손오공상품 · 픽업구독 · 오플구독`, F01 `상품리스트 · 오공구독 · 픽업구독 · 오플구독`, RP023 RebornCar, retired mirror/sales automatic writer, RTDB/mirror non-canonical boundary는 유지한다.
+
+Detail: `docs/ai-ssot-audit/2026-09-21-chatgpt-audit92-c383-full-green-monitor-reconciliation.md`
+
+---
 # Claude 실행 오더 — Audit (91) override
 
 최우선 최신 판정: **Audit (90)의 Sonogong runtime/main registry drift는 아직 해소되지 않았고, PR #451이 production engine을 `c3838708b84527db241f1985c140a3ec6ece6bff`로 전진시키면서 status/listability 의미까지 skew가 깊어졌다. PR #450은 별도로 현재 Sonogong API 전 차량을 명시적으로 정식 등록하는 default-off 수동 ERP5 writer mode를 추가했다.**
