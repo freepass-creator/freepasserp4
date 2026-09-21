@@ -169,8 +169,6 @@ const 장기5: readonly string[] = ['장기보증', '24개월', '36개월', '48�
 export const RETRO_TAB_FEES: Record<string, readonly string[]> = {
   종합: 장기5,
   손오공: ['보증금 반납형', '12개월 반납형', '24개월 반납형', '36개월 반납형', '48개월 반납형', '60개월 반납형', '보증금 인수형', '36개월 인수형', '48개월 인수형', '60개월 인수형', '12개월 인수형', '24개월 인수형'],
-  손오공상품: ['보증금 반납형', '12개월 반납형', '24개월 반납형', '36개월 반납형', '48개월 반납형', '60개월 반납형', '보증금 인수형', '36개월 인수형', '48개월 인수형', '60개월 인수형', '12개월 인수형', '24개월 인수형'],
-  픽업구독: ['보증금 반납형', '12개월 반납형', '24개월 반납형', '36개월 반납형', '48개월 반납형', '60개월 반납형', '보증금 인수형', '36개월 인수형', '48개월 인수형', '60개월 인수형', '12개월 인수형', '24개월 인수형'],
   이안카: 장기5,
   아이카: ['장기보증', '36개월', '48개월'],
   오토플러스: ['보증금', '12개월 2만km', '12개월 3만km', '18개월 2만km', '18개월 3만km', '24개월 2만km', '24개월 3만km', '36개월 2만km', '36개월 3만km'],
@@ -191,7 +189,8 @@ export const RETRO_TAB_FEES: Record<string, readonly string[]> = {
 };
 /** 탭 하나의 칸 목록 — «굳힌 표»에서만 만든다(데이터를 보지 않는다). 표에 없는 탭이면 null → 발행기가 멈춘다. */
 export function retroTabLayout(tab: string): RetroColumn[] | null {
-  const fees = RETRO_TAB_FEES[tab];
+  const feeKey = tab === '손오공상품' || tab === '픽업구독' ? '손오공' : tab;
+  const fees = RETRO_TAB_FEES[feeKey];
   if (!fees) return null;
   const out: RetroColumn[] = [];
   for (const e of RETRO_LAYOUT) {
@@ -299,13 +298,14 @@ function fitWidth(name: string, values: string[]): number {
  */
 const RETRO_TAB_COLOR: Record<string, string> = {
   종합: '00FFFF',
-  손오공: '0000FF', 손오공상품: '0000FF', 픽업구독: '0000FF', 아이카: 'FF0000', 케이에이치: 'B7E1CD', KH: 'B7E1CD', 아이언: 'FF00FF', 퍼시픽: 'E4DCD3',
+  손오공: '0000FF', 아이카: 'FF0000', 케이에이치: 'B7E1CD', KH: 'B7E1CD', 아이언: 'FF00FF', 퍼시픽: 'E4DCD3',
   스타스카이: '3D85C6', 스타: '3D85C6', 웰릭스: '0000FF', 경진: 'FFFF00', 센트로: '0000FF', 에이스: '0000FF',
   우리캐피탈: 'FF00FF', 빌린카: 'B7E1CD', 엘씨렌트: 'B7E1CD', 스위치플랜: '0000FF', 스위치: '0000FF',
 };
 /** 회사 탭 색 요청 — 색이 없던 회사는 탭 색을 «지운다». */
 export function retroTabColorRequest(sheetId: number, company: string): Req {
-  const h = RETRO_TAB_COLOR[company];
+  const colorKey = company === '손오공상품' || company === '픽업구독' ? '손오공' : company;
+  const h = RETRO_TAB_COLOR[colorKey];
   return h
     ? { updateSheetProperties: { properties: { sheetId, tabColor: rgb(h) }, fields: 'tabColor' } }
     : { updateSheetProperties: { properties: { sheetId }, fields: 'tabColor' } };
