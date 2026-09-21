@@ -1,27 +1,22 @@
-# Claude 실행 오더 — Audit (99) current entry point
+# Claude 실행 오더 — Audit (100) current entry point
 
-최우선 최신 판정: **현재 repository의 configured ERP5 production engine은 PR #457 이후 `0e0bfb3a6e227fd65b754c1d74f7ca5c8b1c327e`지만, 이 re-pin은 아직 production-equivalent full-green을 확보하지 못했다.** Audit (97)의 `c3838708...` current-production 판정은 superseded다.
+최우선 최신 판정: **configured ERP5 production engine `0e0bfb3a6e227fd65b754c1d74f7ca5c8b1c327e`의 production-equivalent validation HOLD는 해소됐다.** ERP5 run `35580953322`이 pinned engine부터 source contract/source recollection/settlement→Atom/Atom calculation/fixed snapshot/public/F01/F86 backup+publish/freshness/cross-audit/photo/evidence까지 전부 success했다. `register_sonogong_current`는 skipped였다. Audit (99)의 “새 pin full-green 미확정” 요약은 superseded다.
 
-PR #457 merge `5266d634187493d871f4c5f13a07af0fb0f70698`가 ERP5 workflow/Core receipt/AI Core shadow/validated-engine allowlist를 `0e0bfb3...`로 전진시켰다. 이 lineage는 Sonogong three-bucket/source-specific classification과 F86 `손오공상품` projection 계약을 가진다. Stale current-main metadata에 맞추려고 임의 rollback하지 말고 검증 증거 기준으로 유지·정렬한다.
+**Persistent safe-chain monitor도 17:05 KST까지는 reconciliation PASS다.** current `.automation/safe-chain-monitor.json`은 settlement `35580899275`, ERP5 `35580953322`, production writes 및 F86 freshness/F01-F86 parity/photo audit PASS를 기록하고 `lastKnownGoodErp5RunId=35580953322`로 전진했다. 다만 **native cadence/recovery timeliness HOLD는 닫지 않는다.** 17:05 논리 슬롯은 20분 grace 뒤 fallback으로 복구됐고, 직전 16:05 ERP5 `35574765889`은 source calculation 중 cancelled됐다. 최신 data plane green과 scheduler 신뢰성은 별도 판정한다.
 
-**Post-repin ERP5 validation은 계속 HOLD다.** Runs `35572350744` 및 `35573163050`은 모두 cancelled돼 fixed snapshot → public/F01/F86 publish → freshness/cross-audit/photo/evidence의 full-green을 만들지 못했다. 이 run들을 published-data corruption으로 확대 해석하지도, Audit (95)의 historical full-green을 새 pin 검증으로 대체 사용하지도 않는다.
+**Dedicated SSOT Source Contract에는 새로 확인된 audit-infrastructure conflict가 있다.** current `.github/workflows/ssot-source-contract.yml` 안에 과거 감사용 `audit95-recorder` job이 그대로 남아 있고 `contents: write` 권한으로 `origin/main` reset → Audit 94/95 append → historical `cf71d4c...` workflow restore → commit/push를 수행한다. 이 job은 inventory authority는 아니지만 production contract gate 안의 latent repository writer다. Claude 구현 owner가 이 stale recorder를 제거/무력화하고 Source Contract를 pure fail-closed verifier로 복구한 뒤 실제 `source-contract` job green을 확보한다. Generic CI green은 전용 gate를 대체하지 않는다.
 
-**Audit 90–91 runtime↔main semantic skew는 계속 OPEN이다.** Current-main `lib/domain/inventory-source-registry.ts`는 RP012 channels를 아직 `LOW_SONOKONG · LOW_TCAR` 둘만 선언하고 일반 렌트 ERP API bucket HOLD를 남긴다. Active engine 의미와 registry/runtime helper/Source Contract를 fail-closed로 정렬한다. Canonical authority 자체는 RP012 Sonogong ERP/API, RP023 RebornCar로 유지한다.
+**Audit 90–91 RP012 runtime↔main semantic skew는 계속 OPEN이다.** Current-main `lib/domain/inventory-source-registry.ts`는 RP012 channels를 여전히 `LOW_SONOKONG · LOW_TCAR` 둘만 선언하고 `일반 렌트재고 ERP API 버킷은 아직 코드에서 확인되지 않음` HOLD를 남긴다. Validated production meaning에 맞춰 registry/runtime helper/Source Contract를 fail-closed로 정렬한다. Canonical authority는 RP012 Sonogong ERP/API, RP023 RebornCar로 유지한다.
 
-**Dedicated SSOT Source Contract gate도 계속 HOLD다.** Re-pin 이후에도 dedicated workflow가 pre-job failure를 반복해 실제 source-contract job green을 만들지 못했다. Generic CI는 이 전용 fail-closed gate를 대체하지 않는다.
+**F01/F86 projection 경계는 유지한다.** 같은 fixed snapshot에서 F01은 `상품리스트 · 오공구독 · 픽업구독 · 오플구독`, F86은 `상품리스트 · 손오공상품 · 픽업구독 · 오플구독` 규칙을 유지하고 latest full-green cross-audit도 통과했다. stale metadata에 맞추려고 production semantics를 rollback하지 않는다.
 
-**Sheet Contract writer 상태는 Audit (98)보다 진전됐다.** PR #459 merge `9a5a21e7fa5b71984f9761868722125c963e7054`가 delegated Workspace scope를 existing publisher의 DWD scope와 맞췄다. F01 widths dry-run `35573509757`은 `SHEET_FORMAT_APPLY=false`로 preflight/readback/evidence까지 success였다. 이어 F01 guarded apply-mode run `35573824838`도 `SHEET_FORMAT_APPLY=true`, expected snapshot hash/revision/timestamp를 건 상태에서 success했고 receipt가 `READBACK_PASS`, `beforeHash == afterHash`, `fails=[]`, `writes=0`이었다. 즉 **F01 widths mode의 auth·precondition·zero-op apply/readback 경로는 PASS**지만, 이미 폭이 규격에 맞아 실제 mutation은 0건이므로 실제 write/rollback 검증까지 PASS로 확대하지 않는다.
+**Sheet Contract writer 상태는 Audit (99)와 동일하다.** F01 widths mode auth·snapshot precondition·zero-op apply/readback은 PASS지만 실제 mutation/rollback 증거는 아직 없다. Fresh F86 post-fix validation과 `full` title/wrapping mode는 별도 HOLD이며 `contracts/sheets/reference-audit.json`이 VERIFIED되기 전 full apply는 fail-closed로 둔다.
 
-PR #458의 `.github/workflows/sheet-formatting-only.yml`은 계속 manual `workflow_dispatch` 표시 전용 writer다. Ingest/Firestore/row write를 하지 않으며 inventory SSOT authority로 승격하지 않는다. `full` title/wrapping mode는 `contracts/sheets/reference-audit.json`이 `VERIFIED`되기 전까지 fail-closed로 유지한다. Fresh F86 post-fix validation도 별도 확보한다.
-
-Legacy boundary는 유지한다. `mirror-sync.yml` / `sales-erp-hourly.yml`은 schedule-free manual dry-run retired 상태이며 RTDB/mirror는 non-canonical이다. F01/F86 fixed-snapshot parity, Sonogong/AutoPlus source authority, retired mirror/RTDB 경계를 약화하지 않는다.
-
-기존 native cadence/recovery timeliness, persistent monitor reconciliation, Production Deploy Recovery credential path 등 OPEN은 별도 트랙으로 유지한다.
+Legacy boundary는 유지한다. `mirror-sync.yml` / `sales-erp-hourly.yml`은 schedule-free manual dry-run retired 상태이며 RTDB/mirror는 non-canonical이다. Production Deploy Recovery credential path 등 다른 OPEN은 이번 Audit (100)으로 자동 해소하지 않는다.
 
 상세 근거:
+- `docs/ai-ssot-audit/2026-09-21-chatgpt-audit100-erp5-repin-full-green-source-contract-recorder-drift.md`
 - `docs/ai-ssot-audit/2026-09-21-chatgpt-audit99-sheet-auth-dryrun-partial-resolution.md`
-- `docs/ai-ssot-audit/2026-09-21-chatgpt-audit98-pr457-repin-pr458-sheet-contract-hold.md`
-- `docs/ai-ssot-audit/2026-09-21-chatgpt-audit97-pr455-safety-revert-audit96-race-correction.md`
 - `docs/AI-SSOT-AUDIT-LOG.md` — append-only 중앙 원장
 
 이 파일은 최신 실행 진입점이다. 과거 감사 이력은 중앙 원장과 `docs/ai-ssot-audit/` dated decisions를 따른다.

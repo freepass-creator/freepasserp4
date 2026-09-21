@@ -3685,3 +3685,22 @@ Detail: `docs/ai-ssot-audit/2026-09-21-chatgpt-audit99-sheet-auth-dryrun-partial
 
 No application code or business logic was modified by the auditor.
 
+---
+
+## 2026-09-21 — ChatGPT audit (100): `0e0bfb3...` full-green; monitor reconciled; stale Source Contract audit writer discovered
+
+**판정: RESOLVED(`0e0bfb3...` production-equivalent validation HOLD) / RESOLVED(monitor reconciliation through 17:05 KST) / HOLD(native cadence + recovery timeliness) / CONFLICT(stale `audit95-recorder` writer in Source Contract) / Audit 90–91 RP012 semantic skew OPEN.**
+
+- Configured ERP5 engine remains `0e0bfb3a6e227fd65b754c1d74f7ca5c8b1c327e`. ERP5 run `35580953322` completed full-green through pinned engine/source contract/source recollection/settlement→Atom/Atom calculation/fixed snapshot/public/F01/F86 backup+publish/F86 freshness/Atom↔F01↔F86 cross-audit/photo/evidence. `register_sonogong_current` stayed skipped. This satisfies Audit (99)'s production-equivalent validation requirement for the re-pin.
+- `.automation/safe-chain-monitor.json` now records 17:05 settlement `35580899275` + ERP5 `35580953322` as success with production writes and all tracked audits PASS, so persistent monitor reconciliation is current through that slot. Native schedule/recovery quality is still HOLD: 17:05 required fallback after the 20-minute grace and 16:05 ERP5 `35574765889` had been cancelled during source calculation.
+- Newly discovered current conflict: `.github/workflows/ssot-source-contract.yml` still contains prior audit infrastructure job `audit95-recorder` with `contents: write`; when the Source Contract workflow runs it can reset `origin/main`, append old audits, restore the workflow from historical `cf71d4c...`, commit, and push `main`. It is not an inventory writer, but it is an inappropriate latent repository writer inside the dedicated production contract gate. This predates Audit (100) but was not called out in Audit (99).
+- Dedicated Source Contract therefore remains HOLD until Claude removes/neutralizes that stale audit recorder and obtains an actual pure `source-contract` job green. Current generic CI `35582385004` is green but is not a substitute.
+- Audit 90–91 RP012 skew remains OPEN: current-main registry still has `LOW_SONOKONG · LOW_TCAR` plus the general-rental API-bucket HOLD while validated production semantics are broader/source-specific. RP012 remains Sonogong ERP/API; RP023 remains RebornCar.
+- F01/F86 same-fixed-snapshot projection and special-tab rules are unchanged; `mirror-sync.yml` / `sales-erp-hourly.yml` remain retired manual dry-run paths and RTDB/mirror remains non-canonical. Sheet Contract state is unchanged from Audit (99).
+
+**Claude implementation owner:** close the `0e0bfb3...` validation HOLD using run `35580953322`, but keep native cadence/recovery timeliness OPEN. Remove the stale `audit95-recorder` from the Source Contract workflow and restore that workflow to a pure fail-closed verifier before claiming the dedicated gate healthy. Keep RP012 semantic reconciliation and Sheet Contract real-write/F86/full-mode evidence HOLDs separate.
+
+Detail: `docs/ai-ssot-audit/2026-09-21-chatgpt-audit100-erp5-repin-full-green-source-contract-recorder-drift.md`
+
+No application code or business logic was modified by the auditor.
+
