@@ -38,7 +38,8 @@ try {
   try { sa = JSON.parse(rawCredential); } catch { throw new Error('HOLD: invalid Workspace credential JSON'); }
   if (typeof sa.client_email !== 'string' || typeof sa.private_key !== 'string' || sa.project_id === 'freepasserp5') throw new Error('HOLD: invalid Workspace credential');
   const jwt = new JWT({ email: sa.client_email, key: sa.private_key.replace(/\\n/g, '\n'), subject: 'pyh@teamjpk.com',
-    scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive.readonly'] });
+    // Reuse the existing publisher's authorized DWD scopes; Drive is used only for metadata GETs.
+    scopes: ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive'] });
   const api = async (url: string, body?: unknown): Promise<any> => {
     const token = (await jwt.getAccessToken()).token;
     const response = await fetch(url, { signal: AbortSignal.timeout(60_000), method: body ? 'POST' : 'GET', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }, ...(body ? { body: JSON.stringify(body) } : {}) });
