@@ -3551,3 +3551,38 @@ No application code or business logic was modified by the auditor.
 Detail: `docs/ai-ssot-audit/2026-09-21-chatgpt-audit92-c383-full-green-monitor-reconciliation.md`
 
 No application code or business logic was modified by the auditor.
+
+---
+
+## 2026-09-21 — ChatGPT audit (92): c383 runtime full-green; monitor reconciliation WATCH
+
+**판정: RESOLVED(runtime validation) / WATCH(monitor reconciliation) / Audit 90–91 Sonogong runtime↔main semantic skew OPEN**
+
+- First post-pin ERP5 run `35564286647` completed `success` on production engine `c3838708b84527db241f1985c140a3ec6ece6bff`; source contract through Atom/fixed snapshot/public/F01/F86/freshness/cross-audit/photo evidence all green. `register_sonogong_current` remained skipped, so the opt-in bulk-registration writer is still implemented-but-unexercised.
+- 14:05 recovery chain settlement `35566428774` → ERP5 `35566458884` also completed full-green at 15:09:58 KST.
+- Persistent `.automation/safe-chain-monitor.json` still records that completed ERP5 run as `erp5-in-progress` with writes/audits pending, so monitor reconciliation is stale; this is not a data-plane failure.
+- Green runtime does not close Audit 90–91: current-main RP012 registry still has only `LOW_SONOKONG · LOW_TCAR` plus the obsolete hold, while production uses `LOW_SONOKONG_DAILY · LOW_SONOKONG · LOW_TCAR` and API-source-specific `계약중` preservation/listability; Source Contract does not fail-closed on that parity.
+- F01/F86 fixed-snapshot publication rules, AutoPlus RP023 RebornCar authority, retired mirror/sales writers, and RTDB/mirror non-canonical boundary remain unchanged.
+
+Detail: `docs/ai-ssot-audit/2026-09-21-chatgpt-audit92-c383-full-green-monitor-reconciliation.md`
+
+No application code or business logic was modified by the auditor.
+
+---
+
+## 2026-09-21 — ChatGPT audit (93): 15:05 recovery continuity gap; monitor state still stale
+
+**판정: OPEN(recovery continuity) / Audit 92 c383 runtime validation RESOLVED / Audit 90–91 Sonogong semantic skew OPEN**
+
+- Settlement declares KST `09:05–18:05` Monday–Saturday and the safe-chain policy declares a 20-minute grace for fallback. At/after 15:30 KST, Actions still showed no native settlement run and no heartbeat fallback run for the `2026-09-21 15:05 KST` slot; latest settlement remained 14:05 fallback `35566428774` (`push / success`).
+- The last completed downstream ERP5 run `35566458884` was full-green, so this is scheduler/fallback continuity rather than corruption of the last Atom/F01/F86 publication.
+- `.automation/safe-chain-monitor.json` still stops at 14:05 and incorrectly leaves ERP5 `35566458884` in-progress/pending despite live success; persistent monitor reconciliation therefore remains OPEN and has not advanced into 15:05.
+- Audit 92 detail commit `7be59f27e1fc9ac86ac34218ed1213cebfee72d5` was followed by temporary recorder commit `7923a2b1a27df8fe66bae93d4a460285e573484f`; recorder run `35568877017` failed before any job because the temporary recorder YAML was invalid. Audit 93 repairs the audit-control integration without touching application/business logic.
+- Production pin `c3838708...`, F01 `상품리스트 · 오공구독 · 픽업구독 · 오플구독`, F86 `상품리스트 · 손오공상품 · 픽업구독 · 오플구독`, RP023 RebornCar, retired mirror/sales writers, and RTDB/mirror non-canonical boundaries are unchanged.
+
+**Claude owner handoff:** preserve Audit 92's full-green c383 runtime result; reconcile RP012 current-main registry/runtime helper/Source Contract to production truth; repair scheduler/watchdog/monitor reconciliation so every declared slot has native or fallback within grace and completed downstream Actions are persisted before the next slot.
+
+Detail: `docs/ai-ssot-audit/2026-09-21-chatgpt-audit93-1505-recovery-gap-audit-control-repair.md`
+
+No application code or business logic was modified by the auditor.
+

@@ -1,3 +1,17 @@
+# Claude 실행 오더 — Audit (93) override
+
+최우선 최신 판정: **Audit 92로 production engine `c3838708b84527db241f1985c140a3ec6ece6bff`의 end-to-end runtime validation은 RESOLVED다. 그러나 2026-09-21 15:05 KST settlement slot은 선언된 20분 grace를 넘긴 뒤에도 native schedule 또는 heartbeat fallback run이 관측되지 않아 recovery continuity는 다시 OPEN이다. Persistent safe-chain monitor도 14:05에서 멈추고 이미 full-green 종료된 ERP5 `35566458884`을 in-progress/pending으로 남겨 reconciliation drift가 계속된다.**
+
+Audit 90–91 Sonogong semantic skew도 계속 OPEN이다. Production은 RP012 `LOW_SONOKONG_DAILY · LOW_SONOKONG · LOW_TCAR` 3-bucket과 API-source-specific `계약중` 보존/listability를 사용하지만 current-main registry는 여전히 `LOW_SONOKONG · LOW_TCAR` + obsolete HOLD이며 Source Contract는 channels/hold/status parity를 fail-closed로 잠그지 않는다. **Production `c3838708...`을 stale main에 맞춰 되돌리지 말고 current-main registry/runtime helper/Source Contract를 production truth에 정렬한다.**
+
+14:05 recovery settlement `35566428774` → ERP5 `35566458884`은 full-green이므로 마지막 완료 데이터 plane은 정상이다. 15:05 finding은 scheduler/fallback continuity 문제로 한정한다. Safe-chain implementation은 각 declared slot이 grace 내 native 또는 fallback evidence를 갖도록 하고, completed Actions뉼 persistent monitor에 재조회/반영한 뒤 다음 slot으로 진행하게 만든다.
+
+`register_sonogong_current` opt-in writer는 observed runs에서 여전히 skipped이므로 implemented-but-unexercised로 유지한다. F01 `상품리스트 · 오공구독 · 픽업구독 · 오플구독`, F86 `상품리스트 · 손오공상품 · 픽업구독 · 오플구독`, RP023 RebornCar, retired mirror/sales writers, RTDB/mirror non-canonical boundary는 유지한다.
+
+Detail: `docs/ai-ssot-audit/2026-09-21-chatgpt-audit93-1505-recovery-gap-audit-control-repair.md`
+
+---
+
 # Claude 실행 오더 — Audit (92) override
 
 최우선 최신 판정: **production pin `c3838708b84527db241f1985c140a3ec6ece6bff`은 ERP5 run `35564286647`로 end-to-end full-green 검증됐다. 14:05 recovery ERP5 `35566458884`도 full-green이다. 다만 current-main RP012 registry/status semantic skew는 계속 OPEN이고 safe-chain monitor는 14:05 success를 아직 in-progress/pending으로 저장해 stale하다.**
