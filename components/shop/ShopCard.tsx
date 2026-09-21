@@ -398,8 +398,7 @@ export const ShopCard = memo(function ShopCard({ p, href, rank = 99, searchQuery
             */}
             {marks.length ? (
               <div style={{
-                /* 줄 사이(8)는 컨테이너 gap 이 이미 준다 — 여기서 더 벌리지 않는다(당근도 균등이다). */
-                marginTop: 'auto',
+                /* 대여료·기간 줄과 한 그룹이다. 위 그룹 gap(tight=4)만 쓴다. */
               }}>
                 {/* 치수는 원자의 «한 벌»(`BADGE`)이 정한다 — 여기서 fs·size 를 박으면 또 갈린다. */}
                 <PerkMarks marks={marks} columnGap={SHOP.sp.snug} highlightTexts={highlightMarks} />
