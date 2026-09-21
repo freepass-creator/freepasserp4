@@ -4,22 +4,6 @@ name: ERP5 SSOT 원천 최신화(매시간)
 # 검증된 기존 원자의 가변값과 상태만 자동 갱신하며 새 차번은 후보로 보고한다.
 # 한 회차가 읽은 ERP5 스냅샷 하나로 판매시트를 발행한다.
 on:
-  schedule:
-    # 월~토 KST 09:17~19:17
-    # ★2026-09-18 — :05 에서 :17 로 옮긴다. 실측: 하루 11회 기대인데 09-15 3 · 09-16 1 · 09-17 1(23:47, 창 밖)
-    #   · 09-18 은 09:05 회차가 12:53 에 왔다. GitHub 문서: 예약은 부하가 몰리는 «매시 정각 무렵» 에
-    #   늦어지거나 빠질 수 있다. :05 는 그 한복판이다. 분만 옮기고 회차 수·단계·고정 엔진은 그대로다.
-    - cron: '17 0-10 * * 1-6'
-  # 정산 접수→원장 성공 직후 같은 canonical refresh를 이어서 실행한다.
-  # manual preview(workflow_dispatch)는 upstream event 판별이 불가능하므로 자동 체인 대상에서 제외한다.
-  workflow_run:
-    workflows: ["정산 접수→원장(1시간)"]
-    types: [completed]
-  # upstream workflow_run 자체가 누락될 때 watchdog이 이 파일만 갱신해 같은 canonical 엔진을 실행한다.
-  push:
-    branches: [main]
-    paths:
-      - '.automation/heartbeats/erp5-ssot-refresh.txt'
   workflow_dispatch:
     inputs:
       apply:
