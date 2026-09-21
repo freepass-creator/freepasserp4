@@ -30,6 +30,7 @@ import { canonProductType } from '../lib/domain/product';
 import { composeVehicleName, MIRROR_ALIAS } from '../lib/domain/mirror-sheet-mapping';
 import { snapColor } from '../lib/domain/color-master';
 import { getInventorySource } from '../lib/domain/inventory-source-registry';
+import { sonokongProductKind } from '../lib/domain/sonokong-product-kind';
 import { FUEL_EV, rawSeats, atomViolations, type MasterIndex } from '../lib/domain/atom-invariants';
 import { cleanTrim } from '../lib/domain/clean-trim';
 import { resolveStatus } from '../lib/domain/atom-status';
@@ -284,14 +285,18 @@ async function readRows(): Promise<Row[]> {
        *   ★계산값을 원자에 박으면 원천 대여료가 바뀔 때 보증금만 따로 늙는다 — 규칙은 셈법으로 두는 게 맞다.
        */
       const price: Price = {};
-      const low = (c.저신용월납 || {}) as { SUBSCRIBE_RETURN?: Record<string, number>; SUBSCRIBE_BUYOUT?: Record<string, number> };
-      for (const [p, rent] of Object.entries(low.SUBSCRIBE_RETURN || {})) { const r = 라운드천(won(rent)); if (r > 0) price[p] = { rent: r, deposit: 0 }; }
-      for (const [p, rent] of Object.entries(low.SUBSCRIBE_BUYOUT || {})) { const r = 라운드천(won(rent)); if (r > 0) price[`${p}_인수형`] = { rent: r, deposit: 0 }; }
+      const low = (c.저신용월납 || {}) as Record<string, Record<string, number> | undefined>;
+      const 원천버킷 = S(c.원천버킷);
+      const 반환요금 = 원천버킷 === 'LOW_SONOKONG_DAILY' ? low.RENT_RETURN : low.SUBSCRIBE_RETURN;
+      const 인수요금 = 원천버킷 === 'LOW_SONOKONG_DAILY' ? low.RENT_BUYOUT : low.SUBSCRIBE_BUYOUT;
+      for (const [p, rent] of Object.entries(반환요금 || {})) { const r = 라운드천(won(rent)); if (r > 0) price[p] = { rent: r, deposit: 0 }; }
+      for (const [p, rent] of Object.entries(인수요금 || {})) { const r = 라운드천(won(rent)); if (r > 0) price[`${p}_인수형`] = { rent: r, deposit: 0 }; }
       /**
-       * ★★**손오공 상품구분은 «버킷»이 말해 준다** — 원천이 진작 주고 있었는데 안 읽었다.
+       * ★★**손오공 상품구분은 «요청한 화면 버킷»이 말해 준다.**
        * ```
-       *   TCAR_EXTERNAL  227대  →  픽업구독   (티카에서 온 차)
-       *   SON_NO_KONG     64대  →  오공구독   (손오공 제 물건)
+       *   LOW_SONOKONG_DAILY → 중고렌트 (저신용 렌트)
+       *   LOW_SONOKONG       → 오공구독 (저신용 구독)
+       *   LOW_TCAR           → 픽업구독 (저신용 픽업구독)
        * ```
        * ⚠ 2026-09-08 실측 — 여기서 「중고면 중고구독, 아니면 «빈칸»」으로 읽고 있었다. 그 빈칸이
        *   merge 로 나가 **이미 알던 픽업구독·오공구독을 246대나 지웠다**(상품구분 빈 차 4 → 312).
@@ -299,7 +304,7 @@ async function readRows(): Promise<Row[]> {
        * ★「오공구독」은 7캐논에 이미 있다 — 손오공 제 물건을 「중고구독」이라 부르던 옛 표기를 여기서 끝낸다.
        */
       const 버킷 = S(c.버킷);
-      const kind = 버킷 === 'TCAR_EXTERNAL' ? '픽업구독' : (버킷 === 'SON_NO_KONG' ? '오공구독' : (c.중고 ? '중고구독' : ''));
+      const kind = sonokongProductKind({ sourceBucket: 원천버킷, responseBucket: 버킷, used: c.중고 });
       /**
        * ★★**옵션 = 제조사 «선택»옵션만이다** — 사장님 2026-09-10 「옵션은 제조사선택옵션만 옵션이야」.
        *

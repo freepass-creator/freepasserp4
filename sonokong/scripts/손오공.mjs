@@ -15,7 +15,7 @@ import { normalizePlate, tcarPaidOptionNames } from '../lib/option-normalizer.mj
 const 루트 = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const 출력 = path.join(루트, 'lib', 'wonja', '손오공차량.json');
 const 조용 = process.argv.includes('--조용');
-const 캐시규격 = 'tcar-direct-paid-options-v3-current-identity';
+const 캐시규격 = 'sonokong-route-bucket-v4-current-identity';
 const N = (n) => (n == null ? '' : Number(n).toLocaleString('ko-KR'));
 const 날 = (s) => (s ? String(s).slice(0, 10) : '');
 
@@ -28,10 +28,11 @@ function 보증금뽑기(estimates) {
 }
 
 // 저신용 월납 — 상세 estimates(creditType LOW)에서. 목록보다 완전하다(인수형 12·24 포함).
-function 월납뽑기(estimates) {
+function 월납뽑기(estimates, 원천버킷) {
   const out = {};
+  const 상품접두사 = 원천버킷 === 'LOW_SONOKONG_DAILY' ? 'RENT_' : 'SUBSCRIBE_';
   for (const e of estimates || []) {
-    if (e.creditType !== 'LOW' || !/^SUBSCRIBE_/.test(e.estimateType || '')) continue;
+    if (e.creditType !== 'LOW' || !String(e.estimateType || '').startsWith(상품접두사)) continue;
     const m = {};
     for (const k of [12, 24, 36, 48, 60]) {
       const v = e['monthly' + k];
@@ -42,7 +43,7 @@ function 월납뽑기(estimates) {
   return out; // { SUBSCRIBE_RETURN:{12..60}, SUBSCRIBE_BUYOUT:{12..60} }
 }
 
-function 정규화(r, d, 버킷값) {
+function 정규화(r, d, 버킷값, 원천버킷) {
   const opts = (d?.options || []).filter((o) => o.isApplied).map((o) => o.optionName);
   const 티카직접원문 = d?.__lotte?.__paidOptList;
   const 티카직접확인 = Array.isArray(티카직접원문);
@@ -60,6 +61,7 @@ function 정규화(r, d, 버킷값) {
     : null;
   return {
     버킷: 버킷값,                     // SON_NO_KONG | TCAR_EXTERNAL
+    원천버킷,                         // LOW_SONOKONG_DAILY | LOW_SONOKONG | LOW_TCAR
     id: r.id, hashId: r.hashId,
     차번: r.carNumber,
     차명: r.carName,                  // 제조사_모델_세부 원문
@@ -108,7 +110,10 @@ function 정규화(r, d, 버킷값) {
     정제, // T카 롯데 정제값(차종·내장·구동·인승·변속·세부트림 등)
     썸네일: r.thumbnail || null,
     월납: r.monthlyPrice || null,
-    저신용월납: (() => { const e = 월납뽑기(d?.estimates); return (e.SUBSCRIBE_RETURN || e.SUBSCRIBE_BUYOUT) ? e : (r.lowCreditMonthlyPrices || null); })(), // 상세 estimates 우선(인수형 12·24 포함), 없으면 목록
+    저신용월납: (() => {
+      const e = 월납뽑기(d?.estimates, 원천버킷);
+      return Object.keys(e).length ? e : (r.lowCreditMonthlyPrices || null);
+    })(), // 렌트는 RENT_*, 구독/픽업은 SUBSCRIBE_* 상세 estimates 우선
     보증금: 보증금뽑기(d?.estimates),                    // {SUBSCRIBE_BUYOUT,SUBSCRIBE_RETURN}
   };
 }
@@ -167,14 +172,14 @@ async function main() {
       const x = details[i];
       if (x?.cached) {
         재사용 += 1;
-        const rec = { ...x.cached, 버킷: 값 };
+        const rec = { ...x.cached, 버킷: 값, 원천버킷: cs };
         // 리스트에서 오는 실시간 변동값만 갱신(계약이 실시간이므로)
         rec.노출 = r.webVisibility; rec.계약중 = r.hasActiveContract === true; rec.계약가능 = r.contractAvailable;
         rec.주행거리 = r.mileage == null ? null : Number(r.mileage); rec.차번 = r.carNumber; rec.차명 = r.carName;
         차량.push(rec);
       } else {
         if (x?.d) 신규 += 1;
-        const rec = 정규화(r, x?.d, 값);
+        const rec = 정규화(r, x?.d, 값, cs);
         rec.상세시각 = 지금;
         차량.push(rec);
       }

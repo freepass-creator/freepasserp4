@@ -16,8 +16,10 @@
  *  응답: { success, data:{ data:[...], attrs:{ totalCount, currentPage } } }
  *
  *  ── 버킷 (list 는 carSource 로 거른다; count 는 무시하고 전량을 준다)
- *    LOW_SONOKONG → 항목 carSource "SON_NO_KONG"   (손오공 저신용, ~72대)
- *    LOW_TCAR     → 항목 carSource "TCAR_EXTERNAL"  (T카 외부 저신용, ~340대)
+ *    LOW_SONOKONG_DAILY → 항목 carSource "SON_NO_KONG"   (저신용 렌트)
+ *    LOW_SONOKONG       → 항목 carSource "SON_NO_KONG"   (저신용 구독)
+ *    LOW_TCAR           → 항목 carSource "TCAR_EXTERNAL"  (저신용 픽업구독)
+ *  ★ 앞의 두 화면은 응답 carSource가 같으므로 요청 버킷을 버리면 렌트/구독을 구분할 수 없다.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -30,7 +32,11 @@ export const 계정경로 = String(process.env.SONOGONG_CREDENTIALS_PATH || '').
 export const API = 'https://sokrc.com/api';
 
 // 화면 탭 → list 쿼리 carSource 값
-export const 버킷 = { 손오공저신용: 'LOW_SONOKONG', T카저신용: 'LOW_TCAR' };
+export const 버킷 = {
+  저신용렌트: 'LOW_SONOKONG_DAILY',
+  저신용구독: 'LOW_SONOKONG',
+  저신용픽업구독: 'LOW_TCAR',
+};
 
 function 계정읽기() {
   try {

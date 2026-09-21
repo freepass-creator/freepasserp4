@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { INVENTORY_SOURCES, getInventorySource, getPolicySource, inventorySourceLocationCount, matchesSharedSourceTab, policySourceLocationCount } from '../lib/domain/inventory-source-registry';
 import { sheetsServiceAccountEmail } from '../lib/server/google-sheets';
 import { readErp5InventoryServiceAccount } from '../lib/server/erp5-inventory-service-account';
+import { sonokongProductKind } from '../lib/domain/sonokong-product-kind';
 
 assert.equal(INVENTORY_SOURCES.length, 24, '현재 연동 공급사 코드는 24개여야 한다');
 assert.equal(inventorySourceLocationCount(), 21, '공유 시트를 합친 1차 원천 위치는 21곳이어야 한다');
@@ -9,6 +10,10 @@ assert.equal(new Set(INVENTORY_SOURCES.map((v) => v.partnerCode)).size, 24, '공
 assert.equal(getInventorySource('RP006').sourceUrl, 'https://www.ironrentcar.com');
 assert.equal(getInventorySource('RP023').sourceUrl, 'https://www.reborncar.co.kr');
 assert.equal(getInventorySource('RP012').kind, 'erp_api');
+assert.deepEqual(getInventorySource('RP012').channels, ['LOW_SONOKONG_DAILY', 'LOW_SONOKONG', 'LOW_TCAR']);
+assert.equal(sonokongProductKind({ sourceBucket: 'LOW_SONOKONG_DAILY', responseBucket: 'SON_NO_KONG' }), '중고렌트');
+assert.equal(sonokongProductKind({ sourceBucket: 'LOW_SONOKONG', responseBucket: 'SON_NO_KONG' }), '오공구독');
+assert.equal(sonokongProductKind({ sourceBucket: 'LOW_TCAR', responseBucket: 'TCAR_EXTERNAL' }), '픽업구독');
 assert.equal(getInventorySource('RP004').spreadsheetId, '1LqWVs2o1-wpPqFiYkOjcQldmIXqtBMKYp0A1SKEir5w');
 assert.equal(getInventorySource('RP031').spreadsheetId, '1fJuFSdaW559niD0ow7vVC3qcgjy8KRb8Cr3U8Of01vs');
 assert.equal(INVENTORY_SOURCES.filter((source) => source.kind === 'google_sheet').length, 21);
