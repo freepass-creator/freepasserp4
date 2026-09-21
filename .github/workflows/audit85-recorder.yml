@@ -85,3 +85,5 @@ Detail: `docs/ai-ssot-audit/2026-09-21-chatgpt-audit85-0905-native-settlement-mi
           git add docs/AI-SSOT-AUDIT-LOG.md CLAUDE-AUDIT.md
           git commit -m "docs(audit): record audit 85 native recovery"
           git push origin HEAD:main
+
+# trigger one-shot recorder
