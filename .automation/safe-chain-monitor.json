@@ -5,9 +5,9 @@
   "lastMeaningfulEventKey": "missing-schedule-fallback:2026-09-21T17:05:00+09:00",
   "lastKnownSettlementRunId": 35580899275,
   "lastKnownErp5RunId": 35580953322,
-  "lastKnownGoodErp5RunId": 35569097238,
+  "lastKnownGoodErp5RunId": 35580953322,
   "lastHeartbeatSlot": "2026-09-21T17:05:00+09:00",
-  "lastCheckedAt": "2026-09-21T18:01:20+09:00",
+  "lastCheckedAt": "2026-09-21T18:13:42+09:00",
   "lastCheckedThroughSlot": "2026-09-21T17:05:00+09:00",
   "policy": {
     "settlementWorkflow": ".github/workflows/settlement-intake-sync.yml",
@@ -234,19 +234,19 @@
     "2026-09-21T17:05:00+09:00": {
       "settlementRunId": 35580899275,
       "erp5RunId": 35580953322,
-      "status": "erp5-in-progress",
+      "status": "success",
       "settlementProductionWritesCompleted": true,
-      "erp5ProductionWritesCompleted": false,
+      "erp5ProductionWritesCompleted": true,
       "audits": {
-        "f86Freshness": "pending",
-        "f01F86Parity": "pending",
-        "platePhoto": "pending"
+        "f86Freshness": "pass",
+        "f01F86Parity": "pass",
+        "platePhoto": "pass"
       },
       "recoveryReason": "scheduled trigger missing after 20-minute grace",
       "automaticSettlementHeartbeat": true,
       "automaticErp5Heartbeat": false,
       "heartbeatCommitSha": "eb5a2145545f346305701f88cceea61d0339f6a3",
-      "updatedAt": "2026-09-21T18:01:20+09:00"
+      "updatedAt": "2026-09-21T18:13:42+09:00"
     }
   },
   "scheduleObservations": {
@@ -263,17 +263,17 @@
     "failureReason": "scheduled trigger missing after 20-minute grace",
     "recoveredRunId": 35580899275,
     "erp5RunId": 35580953322,
-    "status": "erp5-in-progress",
+    "status": "success",
     "settlementProductionWrites": {
       "intakeStepCompleted": true,
       "formatStepCompleted": true,
       "result": "success"
     },
-    "erp5ProductionWritesCompleted": false,
+    "erp5ProductionWritesCompleted": true,
     "audits": {
-      "f86Freshness": "pending",
-      "f01F86Parity": "pending",
-      "platePhoto": "pending"
+      "f86Freshness": "pass",
+      "f01F86Parity": "pass",
+      "platePhoto": "pass"
     }
   },
   "lastChainFailure": {
