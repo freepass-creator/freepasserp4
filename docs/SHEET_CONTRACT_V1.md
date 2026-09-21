@@ -6,6 +6,11 @@
 PR454의 엔진·분류·ingest·발행기 변경을 포함하지 않는다. 운영 pin은 기존 `c3838708b84527db241f1985c140a3ec6ece6bff` 그대로다.
 정본은 `contracts/sheets/sheet-contract-v1.json`이다.
 
+후속 지시에 따라 기본 실행은 **mode=widths**다. 차명 원본 180px/옵션 원본 320px 최소 폭만 적용하고 기존 더 넓은 폭은 보존한다.
+이 모드의 request는 updateDimensionProperties.pixelSize뿐이며 탭 이름·CLIP·셀 값·수식·정렬·행은 변경하지 않는다.
+이름 의존성과 분류 중복은 제목 변경의 HOLD로 분리한다. 폭 변경은 metadata/protection/폭 확인과 전체 상태 보존 검증으로 판정한다.
+기본 폭 전용 dry-run/apply와 선택적 full 모드는 artifact의 mode로 구분한다. 적용할 때도 검토한 mode를 그대로 지정한다.
+
 실제 worksheet title만 바꾼다. 배너 행이나 셀은 추가하지 않는다.
 첫 탭은 `상품리스트 MM-dd HH:mm N대`, 다음은 `손오공 N대`, `픽업 N대`, `오플 N대`다.
 기타 회사 탭은 확인된 회사명 + 공백 + 실제 데이터 행 수다. 상품리스트 대수에 회사 탭을 더하지 않는다.
@@ -33,7 +38,7 @@ Actions artifact는 제목·열 폭 차이와 해시·판정·복구 서식 요�
 
 ## 현재 HOLD와 완료 경계
 
-reference-audit.json은 UNAVAILABLE이다. Apps Script 및 외부 소비자 검증을 통과한 것으로 바꾸지 않는다.
+reference-audit.json은 UNAVAILABLE이다. Apps Script 및 외부 소비자 검증을 통과한 것으로 바꾸지 않는다. 이는 full 모드를 차단하며 폭 전용 모드에서는 제목·수식을 건드리지 않는다.
 main의 기존 `lib/domain/sales-published-tabs.ts`는 옛 prefix로 탭을 선택하므로 새 표시명과 호환되지 않는다.
 그 선택기를 쓰는 감사/소비자 및 실제 고정 운영 엔진의 이름 의존성을 별도로 확인해야 한다.
 기존 발행기는 이 PR 범위 밖이며 후속 정기 발행이 표시를 덮을 수 있다. 지속 적용을 보장하지 않는다.

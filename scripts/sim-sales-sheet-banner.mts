@@ -57,3 +57,20 @@ assert.equal(companyTabMatches('Foo 12대', 'Foo'), true);
 
 
 assert.equal(planSheetContract({ ...base, tabs: [...base.tabs, { ...base.tabs[0], sheetId: 21, index: 4, title: '회사 1대', companyDisplayName: '회사' }, { ...base.tabs[0], sheetId: 22, index: 5, title: '회사 2대', companyDisplayName: '회사', rows: [['a'], ['b']] }] }).status, 'HOLD');
+
+// Width-only: title references and duplicate classification are unrelated, never authorize title/CLIP changes.
+const widthBase = { ...base, coverage: { formulas: false, protections: true, appsScript: false, externalConsumers: false },
+  tabs: [...base.tabs, { ...base.tabs[1], sheetId: 99, index: 9, title: '오공구독 09.21 15' }] };
+const widthPlan = planSheetContract(widthBase, 'widths');
+assert.equal(widthPlan.status, 'READY_FOR_REVIEW');
+assert.ok(widthPlan.diff.every(d => d.before === d.after));
+assert.equal(widthPlan.executableRequests.length, 5); // Only undersized vehicle-name columns; 480px options remain unchanged.
+assert.ok(widthPlan.executableRequests.every(r => Object.keys(r).join() === 'updateDimensionProperties'));
+const widthAfter = { ...widthBase, tabs: widthBase.tabs.map(t => ({ ...t, widths: [100, 480, 180] })) };
+assert.deepEqual(auditSheetContractReadback(widthBase, widthAfter, 'widths'), []);
+assert.ok(auditSheetContractReadback(widthBase, { ...widthAfter, tabs: widthAfter.tabs.map(t => ({ ...t, title: 'changed' })) }, 'widths').length);
+assert.ok(auditSheetContractReadback(widthBase, { ...widthAfter, preservedState: { wrap: 'changed' } }, 'widths').length);
+assert.equal(planSheetContract({ ...widthAfter, coverage: { ...widthAfter.coverage, protections: false } }, 'widths').executableRequests.length, 0);
+assert.equal(planSheetContract({ ...widthAfter, tabs: widthAfter.tabs.map(t => ({ ...t, widths: [] })) }, 'widths').executableRequests.length, 0);
+assert.equal(planSheetContract(widthAfter, 'widths').executableRequests.length, 0);
+console.log('PASS: width-only keeps legacy/duplicate titles, formulas, wrap and larger widths; missing widths/protections HOLD');

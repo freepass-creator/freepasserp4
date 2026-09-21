@@ -10,7 +10,8 @@ export type SheetContractSnapshot = {
 };
 
 /** Same read-only planner for F01 and F86. Unknown evidence never authorizes writes. */
-export function planSheetContract(snapshot: SheetContractSnapshot) {
+export function planSheetContract(snapshot: SheetContractSnapshot, mode: 'full' | 'widths' = 'full') {
+  if (mode === 'widths') return planSheetWidths(snapshot);
   const holds = Object.entries(snapshot.coverage).filter(([, complete]) => !complete).map(([key]) => `UNVERIFIED:${key}`);
   const tabs = [...snapshot.tabs].sort((a, b) => a.index - b.index);
   for (const [i, key] of SALES_PUBLISHED_TAB_PREFIXES.entries()) {
@@ -55,8 +56,8 @@ export function planSheetContract(snapshot: SheetContractSnapshot) {
   return { status: holds.length ? 'HOLD' : 'READY_FOR_REVIEW', holds, manifest, diff, proposedRequests, executableRequests: holds.length ? [] : proposedRequests };
 }
 
-export function auditSheetContractReadback(before: SheetContractSnapshot, after: SheetContractSnapshot): string[] {
-  const plan = planSheetContract(before);
+export function auditSheetContractReadback(before: SheetContractSnapshot, after: SheetContractSnapshot, mode: 'full' | 'widths' = 'full'): string[] {
+  const plan = planSheetContract(before, mode);
   const fails = [...plan.holds];
   if (before.target !== after.target || JSON.stringify(before.preservedState) !== JSON.stringify(after.preservedState)) fails.push('HOLD: preserved state changed');
   if (before.tabs.length !== after.tabs.length) fails.push('HOLD: worksheet count changed');
@@ -72,4 +73,37 @@ export function auditSheetContractReadback(before: SheetContractSnapshot, after:
     }
   }
   return fails;
+}
+
+/** Width-only operation has no title/classification/reference dependency. It never emits title or cell updates. */
+export function planSheetWidths(snapshot: SheetContractSnapshot) {
+  const holds: string[] = snapshot.coverage.protections ? [] : ['UNVERIFIED:protections'];
+  if (!snapshot.tabs.length) holds.push('HOLD: no vehicle worksheets');
+  if (new Set(snapshot.tabs.map(t => t.sheetId)).size !== snapshot.tabs.length) holds.push('HOLD: duplicate sheetId');
+  const proposedRequests: Record<string, unknown>[] = [];
+  const diff = snapshot.tabs.map(t => {
+    const columns = t.headers.flatMap((header, index) => {
+      const rule = sourceTextColumnRule(header);
+      if (!rule) return [];
+      const before = t.widths[index];
+      if (!Number.isFinite(before) || before <= 0) holds.push(`HOLD: unknown column width ${t.sheetId}:${header}`);
+      const after = Number.isFinite(before) && before > 0 ? Math.max(before, rule.minimumPixelSize) : null;
+      if (after !== null && after !== before) proposedRequests.push({ updateDimensionProperties: {
+        range: { sheetId: t.sheetId, dimension: 'COLUMNS', startIndex: index, endIndex: index + 1 },
+        properties: { pixelSize: after }, fields: 'pixelSize',
+      } });
+      return [{ index, header, before: before ?? null, after, wrapStrategy: 'UNCHANGED' }];
+    });
+    for (const rule of SHEET_CONTRACT.sourceTextColumns) {
+      const count = t.headers.filter(h => rule.headers.includes(h)).length;
+      if (count > 1) holds.push(`HOLD: duplicate source header ${t.sheetId}:${rule.key}`);
+      if (!count && SALES_PUBLISHED_TAB_PREFIXES.some(k => salesTabMatches(t.title, k))) holds.push(`HOLD: missing source header ${t.sheetId}:${rule.key}`);
+    }
+    return { sheetId: t.sheetId, before: t.title, after: t.title, count: t.rows.length, columns };
+  });
+  return { status: holds.length ? 'HOLD' : 'READY_FOR_REVIEW', holds,
+    manifest: { version: 1 as const, mode: 'widths' as const, capturedAt: snapshot.capturedAt, timeZone: SHEET_CONTRACT.timeZone,
+      revision: snapshot.revision, snapshotId: snapshot.snapshotId, contract: SHEET_CONTRACT,
+      tabs: snapshot.tabs.map(t => ({ canonicalKey: String(t.sheetId), count: t.rows.length, displayText: t.title })) },
+    diff, proposedRequests, executableRequests: holds.length ? [] : proposedRequests };
 }

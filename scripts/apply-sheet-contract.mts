@@ -11,6 +11,8 @@ const IDS = { F01: '1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs', F86: '1hQtshp
 const target = process.env.SHEET_FORMAT_TARGET as keyof typeof IDS;
 if (!Object.hasOwn(IDS, target)) throw new Error('HOLD: target outside F01/F86 allowlist');
 const id = IDS[target], apply = process.env.SHEET_FORMAT_APPLY === 'true';
+const mode = process.env.SHEET_FORMAT_MODE || 'widths';
+if (mode !== 'widths' && mode !== 'full') throw new Error('HOLD: invalid operation mode');
 const revision = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
 const out = 'tmp/sheet-contract';
 mkdirSync(out, { recursive: true });
@@ -61,7 +63,7 @@ try {
   const refs = referenceAudit.targets?.[id];
   const bound = referenceAudit.status === 'VERIFIED' && refs?.snapshotHash === before.hash && refs?.contractHash === hash(SHEET_CONTRACT);
   const extraHolds: string[] = [];
-  if (before.sheet.namedFunctions?.length) extraHolds.push('HOLD: named functions require dependency review');
+  if (mode === 'full' && before.sheet.namedFunctions?.length) extraHolds.push('HOLD: named functions require dependency review');
   const normalized: SheetContractSnapshot = {
     target, revision, capturedAt, snapshotId: before.hash, preservedState: {},
     coverage: { formulas: true, protections: true, appsScript: bound && refs.appsScript === 'VERIFIED_NO_TITLE_DEPENDENCY', externalConsumers: bound && refs.externalConsumers === 'VERIFIED_NO_TITLE_DEPENDENCY' },
@@ -70,11 +72,11 @@ try {
   // Scan all tabs including hidden/user tabs; INDIRECT/IMPORTRANGE and ordinary references fail closed.
   for (const sheet of before.sheet.sheets || []) {
     if ((sheet.protectedRanges || []).length) extraHolds.push(`HOLD: protected range requires conflict review ${sheet.properties.sheetId}`);
-    if (JSON.stringify(sheet.filterViews || []).includes('CUSTOM_FORMULA') || JSON.stringify(sheet.basicFilter || {}).includes('CUSTOM_FORMULA')) extraHolds.push(`HOLD: filter formula requires dependency review ${sheet.properties.sheetId}`);
-    if (JSON.stringify(sheet.conditionalFormats || []).includes('CUSTOM_FORMULA')) extraHolds.push(`HOLD: conditional formula requires dependency review ${sheet.properties.sheetId}`);
+    if (mode === 'full' && (JSON.stringify(sheet.filterViews || []).includes('CUSTOM_FORMULA') || JSON.stringify(sheet.basicFilter || {}).includes('CUSTOM_FORMULA'))) extraHolds.push(`HOLD: filter formula requires dependency review ${sheet.properties.sheetId}`);
+    if (mode === 'full' && JSON.stringify(sheet.conditionalFormats || []).includes('CUSTOM_FORMULA')) extraHolds.push(`HOLD: conditional formula requires dependency review ${sheet.properties.sheetId}`);
     for (const grid of sheet.data || []) for (const row of grid.rowData || []) for (const cell of row.values || []) {
-      if (cell.userEnteredValue?.formulaValue) extraHolds.push(`HOLD: formula requires dependency review on sheetId ${sheet.properties.sheetId}`);
-      if (cell.dataValidation?.condition?.type === 'CUSTOM_FORMULA') extraHolds.push(`HOLD: validation formula requires dependency review ${sheet.properties.sheetId}`);
+      if (mode === 'full' && cell.userEnteredValue?.formulaValue) extraHolds.push(`HOLD: formula requires dependency review on sheetId ${sheet.properties.sheetId}`);
+      if (mode === 'full' && cell.dataValidation?.condition?.type === 'CUSTOM_FORMULA') extraHolds.push(`HOLD: validation formula requires dependency review ${sheet.properties.sheetId}`);
     }
     const p = sheet.properties;
     if (p.hidden) continue;
@@ -92,15 +94,16 @@ try {
   }
   normalized.coverage.formulas = !extraHolds.some(h => /formula|unsupported grid|partial grid/.test(h));
   normalized.coverage.protections = !extraHolds.some(h => /protected/.test(h));
-  const plan = planSheetContract(normalized);
+  const plan = planSheetContract(normalized, mode);
   const holds = [...plan.holds, ...new Set(extraHolds)];
   if (apply && before.hash !== process.env.SHEET_FORMAT_EXPECTED_HASH) holds.push('HOLD: expected snapshot hash mismatch');
   const rollback: any[] = [];
   for (const change of plan.diff) {
     const sheet = before.sheet.sheets.find((s: any) => s.properties.sheetId === change.sheetId);
-    rollback.push({ updateSheetProperties: { properties: { sheetId: change.sheetId, title: change.before }, fields: 'title' } });
+    if (mode === 'full') rollback.push({ updateSheetProperties: { properties: { sheetId: change.sheetId, title: change.before }, fields: 'title' } });
     for (const col of change.columns) {
       if (col.before != null) rollback.push({ updateDimensionProperties: { range: { sheetId: change.sheetId, dimension: 'COLUMNS', startIndex: col.index, endIndex: col.index + 1 }, properties: { pixelSize: col.before }, fields: 'pixelSize' } });
+      if (mode === 'widths') continue;
       // Restore wrapping exactly, including originally unset fields. No value/formula is included.
       const rowData = sheet.data[0].rowData || [];
       const endRow = normalized.tabs.find(t => t.sheetId === change.sheetId)!.rows.length + 1;
@@ -110,15 +113,18 @@ try {
       }
     }
   }
-  save('plan', { status: holds.length ? 'HOLD' : 'READY_FOR_REVIEW', snapshotHash: before.hash, driveRevision: before.drive.version, modifiedTime: before.drive.modifiedTime, ...plan.manifest, diff: plan.diff, holds, requests: holds.length ? [] : plan.proposedRequests });
+  save('plan', { mode, status: holds.length ? 'HOLD' : 'READY_FOR_REVIEW', snapshotHash: before.hash, driveRevision: before.drive.version, modifiedTime: before.drive.modifiedTime, ...plan.manifest, diff: plan.diff, holds, requests: holds.length ? [] : plan.executableRequests });
   save('rollback', { status: 'REQUIRES_SEPARATE_APPROVAL_AND_CURRENT_POSTSTATE_HASH', requests: rollback });
   if (holds.length) throw new Error(holds.join('; '));
-  if (!apply) { save('receipt', { status: 'DRY_RUN', writes: 0, revision, snapshotHash: before.hash }); process.exit(0); }
+  if (!apply) { save('receipt', { mode, status: 'DRY_RUN', writes: 0, revision, snapshotHash: before.hash }); process.exit(0); }
   const immediatelyBefore = await read();
   if (immediatelyBefore.hash !== before.hash) throw new Error('HOLD: concurrent drift before apply');
   if (process.env.GITHUB_REF !== 'refs/heads/main' || process.env.GITHUB_REPOSITORY !== 'freepass-creator/freepasserp4' || process.env.GITHUB_SHA !== revision) throw new Error('HOLD: apply requires exact official main checkout');
-  writeAttempted = true;
-  await api(`${base}:batchUpdate`, { requests: plan.executableRequests }); // Exactly one mutation, no retry.
+  if (mode === 'widths' && plan.executableRequests.some(r => Object.keys(r).length !== 1 || !r.updateDimensionProperties)) throw new Error('HOLD: non-width request');
+  if (plan.executableRequests.length) {
+    writeAttempted = true;
+    await api(`${base}:batchUpdate`, { requests: plan.executableRequests }); // At most one mutation, no retry.
+  }
   const after = await read();
   const stripOwned = (raw: any) => {
     const copy = structuredClone(raw);
@@ -126,13 +132,14 @@ try {
       // Derived CellData may appear when a previously empty cell is formatted.
       // Preserve userEnteredValue/Format, validation, notes, runs and all sheet-level state.
       for (const grid of sheet.data || []) for (const row of grid.rowData || []) for (const cell of row.values || []) {
-        delete cell.effectiveFormat; delete cell.effectiveValue; delete cell.formattedValue;
+        if (mode === 'full') { delete cell.effectiveFormat; delete cell.effectiveValue; delete cell.formattedValue; }
       }
       const change = plan.diff.find(d => d.sheetId === sheet.properties.sheetId);
       if (!change) continue;
-      delete sheet.properties.title;
+      if (mode === 'full') delete sheet.properties.title;
       for (const grid of sheet.data || []) for (const col of change.columns) {
         if (grid.columnMetadata?.[col.index]) delete grid.columnMetadata[col.index].pixelSize;
+        if (mode === 'widths') continue;
         const endRow = normalized.tabs.find(t => t.sheetId === change.sheetId)!.rows.length + 1;
         for (const row of (grid.rowData || []).slice(0, endRow)) {
           const cell = row.values?.[col.index];
@@ -156,6 +163,7 @@ try {
     if (sheet?.properties.title !== change.after) fails.push(`HOLD: title readback ${change.sheetId}`);
     for (const col of change.columns) {
       if (sheet?.data?.[0]?.columnMetadata?.[col.index]?.pixelSize !== col.after) fails.push(`HOLD: width readback ${change.sheetId}:${col.index}`);
+      if (mode === 'widths') continue;
       const endRow = normalized.tabs.find(t => t.sheetId === change.sheetId)!.rows.length + 1;
       for (let row = 0; row < endRow; row++) {
         if (sheet?.data?.[0]?.rowData?.[row]?.values?.[col.index]?.userEnteredFormat?.wrapStrategy !== 'CLIP') fails.push(`HOLD: wrap readback ${change.sheetId}:${col.index}:${row}`);
@@ -170,8 +178,8 @@ try {
     // Formatting creates empty trailing CellData; compare semantic values without trailing empties.
     return { ...old, title: sheet?.properties.title, index: sheet?.properties.index, headers: (rows[0] || []).map(String), rows: rows.slice(1), widths: (grid?.columnMetadata || []).map((c: any) => c.pixelSize) };
   }) };
-  fails.push(...auditSheetContractReadback(normalized, afterNormalized));
-  save('receipt', { status: fails.length ? 'HOLD_AFTER_WRITE' : 'READBACK_PASS', revision, capturedAt, beforeHash: before.hash, afterHash: after.hash, diff: plan.diff, fails, writes: 1 });
+  fails.push(...auditSheetContractReadback(normalized, afterNormalized, mode));
+  save('receipt', { mode, status: fails.length ? 'HOLD_AFTER_WRITE' : 'READBACK_PASS', revision, capturedAt, beforeHash: before.hash, afterHash: after.hash, diff: plan.diff, fails, writes: writeAttempted ? 1 : 0 });
   save('rollback', { status: 'REQUIRES_SEPARATE_APPROVAL', expectedCurrentSnapshotHash: after.hash, requests: rollback });
   if (fails.length) throw new Error(fails.join('; '));
 } catch (error) {

@@ -12,6 +12,11 @@ on:
         description: Apply only after all evidence gates pass
         type: boolean
         default: false
+      mode:
+        description: Widths only preserves titles and wrapping; full requires reference audit
+        type: choice
+        options: [widths, full]
+        default: widths
       expected_snapshot_hash:
         description: Exact fresh dry-run snapshot hash (required for apply)
         type: string
@@ -54,6 +59,7 @@ jobs:
           GOOGLE_SHEETS_APPLICATION_CREDENTIALS: tmp/firebase-auth/sheet-format.json
           SHEET_FORMAT_TARGET: ${{ inputs.target }}
           SHEET_FORMAT_APPLY: ${{ inputs.apply }}
+          SHEET_FORMAT_MODE: ${{ inputs.mode }}
           SHEET_FORMAT_EXPECTED_HASH: ${{ inputs.expected_snapshot_hash }}
           SHEET_FORMAT_EXPECTED_REVISION: ${{ inputs.expected_revision }}
           SHEET_FORMAT_EXPECTED_TIMESTAMP: ${{ inputs.expected_timestamp }}
