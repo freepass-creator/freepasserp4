@@ -49,7 +49,7 @@ Current-main `scripts/check-inventory-source-contract.mts` verifies RP012 only a
 
 The current validated-engine comment for `247890...` also says the collector content is unchanged from the earlier lineage, but `247890...` in fact modifies `scripts/ingest-supplier-to-firestore.mts` and the Sonogong collector helpers. Accordingly, current-head `SSOT Source Contract` run `35562386495` and generic CI `35562386522` are both green, but that green state does **not** prove registry-semantic parity between current main and the pinned production engine.
 
-## 5. Scheduler/recovery update — partial recovery, cancellation hazard still open
+## 5. Scheduler/recovery update — native ERP5 recovered; settlement/cancellation HOLD remains
 
 The safe-chain monitor had still marked the 12:05 and 13:05 recovery ERP5 runs as pending at 13:44 KST. Live Actions now shows:
 
@@ -58,7 +58,7 @@ The safe-chain monitor had still marked the 12:05 and 13:05 recovery ERP5 runs a
 
 So Audit 88's statement that recovery had stopped entirely is no longer current, but the older queued/cancelled ERP5 hazard remains real and the persisted monitor is behind live Actions state.
 
-A native ERP5 `event=schedule` run also reappeared as `35562733391` on current head `663b65b...` at 13:56:57 KST. At audit cutoff it had successfully passed source contract, source recollection, settlement Atom lock, ingest, policy reconciliation, fixed snapshot and public-catalog reconciliation and was continuing into F01/F86 publication. This is evidence that native ERP5 schedule delivery reappeared; it is not proof that the settlement native cadence or overall timeliness HOLD is resolved.
+A native ERP5 `event=schedule` run also reappeared as `35562733391` on application head `663b65b...` at 13:56:57 KST and completed **success** at 14:06:54 KST. It ran the newly pinned `247890...` lineage through the production chain successfully. This confirms native ERP5 delivery and a successful production run of the new pin. It does **not** prove that settlement native cadence or overall schedule timeliness is healthy: the configured ERP5 cron is `:17`, and the delivery was still materially late relative to the nominal cadence while settlement slots continued to require heartbeat recovery.
 
 ## 6. Unchanged boundaries
 
@@ -70,7 +70,7 @@ A native ERP5 `event=schedule` run also reappeared as `35562733391` on current h
 
 ## Claude implementation-owner handoff
 
-1. Treat `247890...` as the current production engine while its run completes; do not revert the Sonogong third-bucket semantics merely to match stale main text.
+1. Treat `247890...` as the current production engine, now backed by successful native ERP5 run `35562733391`; do not revert the Sonogong third-bucket semantics merely to match stale main text.
 2. Reconcile current-main `inventory-source-registry.ts` with the production-pinned RP012 channel/hold semantics, then strengthen Source Contract so this version skew cannot stay green unnoticed.
 3. Correct the stale validated-engine comment that says the collector is unchanged; the pinned commit does change Sonogong collector behavior.
 4. Keep scheduler/recovery/cancellation state separate from source-registry semantics. Reconcile monitor state to live Actions and preserve fail-closed behavior for cancelled ERP5 chains.
