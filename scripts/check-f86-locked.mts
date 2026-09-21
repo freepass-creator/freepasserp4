@@ -26,6 +26,26 @@ const MANUAL = 'docs/영업자시트-매뉴얼.md §하허호 F86 «완전 커�
 const J = (v: unknown) => JSON.stringify(v);
 const hex = (c: any) => c ? ['red', 'green', 'blue'].map((k) => Math.round((c[k] || 0) * 255).toString(16).padStart(2, '0')).join('') : '';
 
+/* ── ⓪½ F01/F86 공통 앞 4개 — 2026-09-21 확정 ───────────────── */
+const salesTabsSrc = read('lib/domain/sales-published-tabs.ts');
+const atomRowSrc = read('lib/domain/sales-atom-row.ts');
+const f01PublisherSrc = read('scripts/make-sample-sheet-google.mts');
+must(/\['상품리스트', '손오공상품', '픽업구독', '오토플러스'\]/.test(salesTabsSrc)
+  && /TAB_ORDER = \['상품리스트', '손오공상품', '픽업구독', '오토플러스'\]/.test(atomRowSrc),
+  'F01 공통 앞 4개 차례가 바뀌었습니다 — 상품리스트·손오공상품·픽업구독·오토플러스 고정입니다.',
+  'sales-published-tabs.ts · sales-atom-row.ts');
+must(/prov === 'RP012'[\s\S]*\['손오공상품', '픽업구독'\]/.test(atomRowSrc),
+  '손오공 픽업이 「손오공상품 전체」와 「픽업구독 부분집합」에 동시에 실리지 않습니다.',
+  'lib/domain/sales-atom-row.ts · salesTabsForAtom');
+must(salesTabsSrc.includes("prefix === '상품리스트'")
+  && salesTabsSrc.includes('${prefix} ${mark} · ${count}대')
+  && salesTabsSrc.includes('${prefix} · ${count}대'),
+  'F01 탭명 규격이 바뀌었습니다 — 상품리스트만 시각+대수, 특수탭은 대수만 표시해야 합니다.',
+  'lib/domain/sales-published-tabs.ts · salesPublishedTabTitle');
+must(/salesTabsForAtom\(v\)/.test(f01PublisherSrc) && /salesPublishedTabTitle\(/.test(f01PublisherSrc),
+  'F01 발행기가 공통 탭 배정/탭명 정본을 사용하지 않습니다.',
+  'scripts/make-sample-sheet-google.mts');
+
 /* ── ② 칸 — 이름·차례 ────────────────────────────────────────────
    사장님 「순서를 똑같이, 내용도 똑같이」 · 「맨 앞에 공급사명, 코드 말고」 · 「입고 일자는 빼도 된다」 · 「차량상태가 배차상태야」   */
 const HEADS = [
