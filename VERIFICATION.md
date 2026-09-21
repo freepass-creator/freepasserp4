@@ -1,5 +1,9 @@
 # 독립 검증 결과
 
+## 2026-09-21 Sheet Contract v1 정정
+
+판정: **HOLD — 코드 회귀 검사 PASS, 전체 CI 및 실제 반영 미완료**. 정본/스냅샷/실행기/검증/독립 검토/잔여 게이트는 `docs/SHEET_CONTRACT_V1.md`에 기록한다. 기반 HEAD `0e0bfb3a6e227fd65b754c1d74f7ca5c8b1c327e`. F01/F86 운영 쓰기 0, RTDB 사용 0.
+
 ## 2026-09-05 손님 상세 최신 확정 반영 (Codex)
 
 결과: **로컬 구현 PASS / 운영 배포 미실행**

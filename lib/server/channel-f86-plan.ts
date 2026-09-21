@@ -23,6 +23,8 @@ import { canonProductType } from '../domain/product';
 import { PRODUCT_TYPES } from '../intake/entities';
 import type { SalesPublishSnapshot } from './sales-publish-snapshot';
 import { sonokongSalesGroup } from '../domain/sonokong-product-kind';
+import { salesSheetBanner } from '../domain/sales-sheet-banner';
+import { SALES_PUBLISHED_TAB_PREFIXES } from '../domain/sales-published-tabs';
 
 const S = (v: unknown) => String(v ?? '').trim();
 
@@ -66,7 +68,7 @@ export type F86TabPlan = {
   body: string[][];
   /** 시트에 넣는 값 — 하허호는 요금·Km·배기량·소비자가격 숫자 · 최초등록 날짜(`retroCellValue`) */
   values: (string | number)[][];
-  /** 탭 이름 — `f86TabTitle` (하허호 회사 탭은 시각 없이 「회사 · N대」) */
+  /** 탭 이름 — `f86TabTitle` (하허호 회사 탭은 시각 없이 「회사 N대」) */
   title: string;
 };
 export type F86Plan = {
@@ -89,7 +91,7 @@ export type F86Plan = {
 };
 
 /** 하허호 F86 맨 앞 네 장은 이름·차례·역할이 고정이다. */
-export const F86_BASE_TABS = ['상품리스트', '손오공상품', '픽업구독', '오플구독'] as const;
+export const F86_BASE_TABS = SALES_PUBLISHED_TAB_PREFIXES;
 export type F86BaseTab = (typeof F86_BASE_TABS)[number];
 
 /**
@@ -116,7 +118,8 @@ const salesKindOfF86Tab = (tab: string): (typeof TAB_ORDER)[number] => tab as (t
  *   같은 회차라 맨 앞 상품리스트 하나만 봐도 시각을 안다. 하허호 밖 채널 시트는 예전대로 전 탭에 시각을 박는다.
  */
 export function f86TabTitle(company: string, count: number, mark: string, retro: boolean): string {
-  return f86TabCarriesMark(company, retro) ? `${company} ${mark} · ${count}대` : `${company} · ${count}대`;
+  if (retro) return salesSheetBanner(company, count, mark, company);
+  return `${company} ${mark} ${count}대`;
 }
 
 /** 이 탭 이름에 발행 시각을 다는가 — 발행기(`f86TabTitle`)·신선도 감사(`f86-audit-checks`)가 같은 한 줄을 쓴다. */

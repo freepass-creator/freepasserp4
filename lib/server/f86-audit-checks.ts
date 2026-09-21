@@ -6,29 +6,31 @@
  *
  * ★2026-09-18 — 신선도 검사가 확정 탭명 규격(2026-09-16(6) ㉢ · 9bef7bf0 「초를 뗀다」)을 못 따라가
  *   정시 회차가 매번 빨간불이었다(run 35235961510 · 35304903901 — 칸 44,462개 어긋남 0 인데
- *   회사 탭 18장 + 맨 앞 탭이 「탭 이름에 발행 시각이 없다」). 옛 검사는 «모든» 탭에 `MM.DD HH:MM:SS` 를 요구했다.
+ *   회사 탭 18장 + 맨 앞 탭이 「탭 이름에 발행 시각이 없다」). 옛 검사는 «모든» 탭에 `MM-DD HH:MM:SS` 를 요구했다.
  *   확정 규격은 둘뿐이다:
- *     · 하허호 — 「상품리스트 MM.DD HH:MM · N대」(시각은 맨 앞 한 장 · 초 없음) · 나머지는 「탭명 · N대」
- *     · 하허호 밖 채널 — 전 탭 「회사 MM.DD HH:MM · N대」
+ *     · 하허호 — 「상품리스트 MM-DD HH:MM N대」(시각은 맨 앞 한 장 · 초 없음) · 나머지는 「회사명 N대」
+ *     · 하허호 밖 채널 — 전 탭 「회사 MM-DD HH:MM N대」
  *   어느 탭이 시각을 다는지는 발행기와 같은 규칙(`f86TabCarriesMark`)을 쓴다 — 두 벌로 적으면 또 어긋난다.
  */
 import { F86_BASE_TABS, f86TabCarriesMark, type F86TabPlan } from './channel-f86-plan';
+import { canonicalSalesTabName } from '../domain/sales-published-tabs';
+import { salesSheetBanner } from '../domain/sales-sheet-banner';
 
 const S = (v: unknown) => String(v ?? '').trim();
 const J = (v: unknown) => JSON.stringify(v);
 
-/** 탭 이름 한 장 — 「회사 · N대」 또는 「회사 MM.DD HH:MM · N대」. 이 밖(초가 붙은 옛 꼴 포함)은 null. */
+/** 탭 이름 한 장 — 「회사 N대」 또는 「회사 MM-DD HH:MM N대」. 이 밖(초가 붙은 옛 꼴 포함)은 null. */
 export type F86TabName = { company: string; mark: string | null; count: number };
-const TAB_NAME_RE = /^(\S+) (?:(\d{2}\.\d{2} \d{2}:\d{2}) )?· (\d+)대$/;
+const TAB_NAME_RE = /^([\p{L}\p{N}]+(?: [\p{L}\p{N}]+)*?) (?:(\d{2}-\d{2} \d{2}:\d{2}) )?(0|[1-9]\d*)대$/u;
 export function parseF86TabName(title: string): F86TabName | null {
-  const m = TAB_NAME_RE.exec(S(title));
-  return m ? { company: m[1], mark: m[2] ?? null, count: Number(m[3]) } : null;
+  const m = TAB_NAME_RE.exec(title);
+  return m && Number.isSafeInteger(Number(m[3])) ? { company: m[1], mark: m[2] ?? null, count: Number(m[3]) } : null;
 }
 
-/** 시각 문패(`salesPublishTabMark` 꼴 `MM.DD HH:MM`, KST)를 epoch ms 로. 연도는 문패에 없어 `now` 기준 «미래가 아닌» 가장 가까운 해로 잡는다. */
+/** 시각 문패(`salesPublishTabMark` 꼴 `MM-DD HH:MM`, KST)를 epoch ms 로. 연도는 문패에 없어 `now` 기준 «미래가 아닌» 가장 가까운 해로 잡는다. */
 const FUTURE_SKEW_MS = 5 * 60e3;
 export function f86MarkEpochMs(mark: string, now: number): number | null {
-  const m = /^(\d{2})\.(\d{2}) (\d{2}):(\d{2})$/.exec(mark);
+  const m = /^(\d{2})-(\d{2}) (\d{2}):(\d{2})$/.exec(mark);
   if (!m) return null;
   const [mo, d, h, mi] = [m[1], m[2], m[3], m[4]].map(Number);
   if (mo < 1 || mo > 12 || d < 1 || d > 31 || h > 23 || mi > 59) return null;
@@ -61,7 +63,7 @@ export function checkF86TabFreshness(p: { titles: string[]; retro: boolean; now:
   const fails: string[] = [];
   let oldestMin: number | null = null; let oldestTitle = ''; let markedTabs = 0;
   if (p.retro) {
-    const companies = p.titles.map(parseF86TabName).filter((v): v is F86TabName => !!v).map((v) => v.company);
+    const companies = p.titles.map(parseF86TabName).filter((v): v is F86TabName => !!v).map((v) => canonicalSalesTabName(v.company));
     for (const fixed of F86_BASE_TABS) if (!companies.includes(fixed)) fails.push(`고정 기본 탭이 없다 — 「${fixed}」`);
   }
   /** 시각을 «달아야 하는» 탭(하허호=상품리스트)이 시트에 서 있나 — 꼴이 틀려도 있기는 한 것과, 아예 없는 것을 가른다. */
@@ -70,10 +72,14 @@ export function checkF86TabFreshness(p: { titles: string[]; retro: boolean; now:
     const tab = parseF86TabName(t);
     if (!tab) {
       if (f86TabCarriesMark(S(t).split(' ')[0], p.retro)) carrierSeen = true;
-      fails.push(`탭 이름이 F86 규격(「탭명 · N대」 · 「상품리스트 MM.DD HH:MM · N대」) 밖이다 — 「${t}」`);
+      fails.push(`탭 이름이 F86 규격(「회사명 N대」 · 「상품리스트 MM-DD HH:MM N대」) 밖이다 — 「${t}」`);
       continue;
     }
     const carries = f86TabCarriesMark(tab.company, p.retro);
+    if (p.retro && tab.company !== '상품리스트') {
+      const expected = salesSheetBanner(canonicalSalesTabName(tab.company), tab.count, '', tab.company);
+      if (!tab.mark && t !== expected) fails.push(`회사 표시명 불일치 — 「${t}」 ↔ 「${expected}」`);
+    }
     if (!carries) {
       if (tab.mark) fails.push(`회사 탭에 발행 시각이 붙어 있다(옛 규격) — 「${t}」 · 확정 규격은 「${tab.company} · ${tab.count}대」`);
       continue;

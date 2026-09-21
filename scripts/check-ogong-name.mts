@@ -10,8 +10,8 @@ assert.throws(() => pickPublishedSalesTabs(['손오공구독 09.15', '오공구�
 assert.equal(salesTabForStockTab('RP012', '구독재고'), '손오공상품');
 assert.equal(salesTabForStockTab('RP012', '픽업재고'), '픽업구독');
 assert.equal(NATIVE_MONEY_BLOCK.손오공상품.block.includes('36개월 인수형'), true);
-assert.equal(salesPublishedTabTitle('상품리스트', 385, '09.21 15:30'), '상품리스트 09.21 15:30 · 385대');
-assert.equal(salesPublishedTabTitle('손오공상품', 59, '09.21 15:30'), '손오공상품 · 59대');
-assert.equal(salesPublishedTabTitle('픽업구독', 223, '09.21 15:30'), '픽업구독 · 223대');
-assert.equal(salesPublishedTabTitle('오플구독', 53, '09.21 15:30'), '오플구독 · 53대');
+assert.equal(salesPublishedTabTitle('상품리스트', 385, '09-21 15:30'), '상품리스트 09-21 15:30 385대');
+assert.equal(salesPublishedTabTitle('손오공상품', 59, '09-21 15:30'), '손오공 59대');
+assert.equal(salesPublishedTabTitle('픽업구독', 223, '09-21 15:30'), '픽업 223대');
+assert.equal(salesPublishedTabTitle('오플구독', 53, '09-21 15:30'), '오플 53대');
 console.log('손오공상품 명칭·구형탭 호환·중복 차단·요금블록·탭문패 13/13 PASS');

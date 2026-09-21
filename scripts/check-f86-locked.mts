@@ -81,8 +81,8 @@ must(f86BaseTabOf({ provider_company_code: 'RP012', product_type: '중고렌트'
   && f86BaseTabOf({ provider_company_code: 'RP012', product_type: '오공구독' }) === '손오공상품'
   && f86BaseTabOf({ provider_company_code: 'RP012', product_type: '픽업구독' }) === '픽업구독',
   '손오공 저신용 렌트·저신용 구독·픽업구독 분리가 바뀌었습니다.', `${MANUAL} 1 · lib/server/channel-f86-plan.ts`);
-must(J(F86_BASE_TABS.map((t) => f86TabTitle(t, 123, '09.21 13:00', true))) === J([
-  '상품리스트 09.21 13:00 · 123대', '손오공상품 · 123대', '픽업구독 · 123대', '오플구독 · 123대',
+must(J(F86_BASE_TABS.map((t) => f86TabTitle(t, 123, '09-21 13:00', true))) === J([
+  '상품리스트 09-21 13:00 123대', '손오공 123대', '픽업 123대', '오플 123대',
 ]), 'F86 탭 문패가 「상품리스트 시각·대수 / 나머지 탭명·대수」 규칙과 다릅니다.', `${MANUAL} 1 · f86TabTitle`);
 
 /* ── ④ 겉 — 레트로 ───────────────────────────────────────────── */
@@ -163,15 +163,15 @@ must(/RETRO \? \/안내\|이 시트\|시트 지도\/ : \/공지\|안내\|이 시
 must(/RETRO \? 0 : 1;/.test(build), 'F86 탭 index 가 공지사항 자리(1부터)를 그대로 씁니다 — 상품리스트가 맨 앞(0)이어야 합니다.', `scripts/build-channel-supplier-sheet.mts · index — ${MANUAL} 6`);
 /** 탭 이름 규칙은 계획 한 벌(`f86TabTitle`)에만 적는다 — 발행기·감사기가 그 함수를 부른다(두 벌로 적으면 한쪽만 바뀐다). */
 must(/export function f86TabTitle/.test(planSrc) && /F86_BASE_TABS/.test(planSrc)
-  && /`\$\{company\} · \$\{count\}대`/.test(planSrc) && /`\$\{company\} \$\{mark\} · \$\{count\}대`/.test(planSrc),
-  'F86 탭 이름 규칙이 바뀌었습니다 — 상품리스트만 갱신 시각, 나머지는 「탭명 · N대」입니다.', `lib/server/channel-f86-plan.ts · f86TabTitle — ${MANUAL} 6`);
+  && /salesSheetBanner\(company, count, mark, company\)/.test(planSrc),
+  'F86 탭 이름 규칙이 바뀌었습니다 — 상품리스트만 갱신 시각, 나머지는 「회사명 N대」입니다.', `lib/server/channel-f86-plan.ts · f86TabTitle — ${MANUAL} 6`);
 const pkg = read('package.json');
 must(/"check:sync": "[^"]*npm run check:f86/.test(pkg), '`check:sync`(→ check:release) 에서 check:f86 이 빠졌습니다.', `package.json — ${MANUAL}`);
 must(!read('lib/domain/sales-sheet-format.ts').includes('channel-retro-skin'), '공용 서식기가 레트로 스킨을 끌어 씁니다 — F01 모양이 같이 바뀝니다.', `lib/domain/sales-sheet-format.ts — ${MANUAL} 0`);
 
 /* ── 매뉴얼 절 ───────────────────────────────────────────────── */
 const man = read('docs/영업자시트-매뉴얼.md');
-for (const phrase of ['«완전 커스텀 레트로» 규격 (2026-09-16 픽스)', 'npm run check:f86', '상품리스트 → 손오공상품 → 픽업구독 → 오플구독', '손오공상품 = 저신용 렌트 + 저신용 구독', '상품리스트 MM.DD HH:MM · N대', 'retroHasLongFee', '맑은 고딕 9pt', '기간이 같은 옛 칸 색', '굳힌 양식', '빈 값 표기 = F01 과 같다', '지키는 장치', 'F86 엔 공지사항 탭이 없다', 'GUBUN_INK', 'STATE_INK']) {
+for (const phrase of ['«완전 커스텀 레트로» 규격 (2026-09-16 픽스)', 'npm run check:f86', '상품리스트 → 손오공상품 → 픽업구독 → 오플구독', '손오공상품 = 저신용 렌트 + 저신용 구독', '상품리스트 MM-DD HH:MM N대', 'retroHasLongFee', '맑은 고딕 9pt', '기간이 같은 옛 칸 색', '굳힌 양식', '빈 값 표기 = F01 과 같다', '지키는 장치', 'F86 엔 공지사항 탭이 없다', 'GUBUN_INK', 'STATE_INK']) {
   must(man.includes(phrase), `매뉴얼 F86 절에서 「${phrase}」가 사라졌습니다.`, MANUAL);
 }
 

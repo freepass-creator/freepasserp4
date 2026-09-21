@@ -1,0 +1,6 @@
+{
+  "version": 1,
+  "status": "UNAVAILABLE",
+  "reason": "Apps Script and external consumer title dependencies have not been exhaustively verified. No live write is permitted.",
+  "targets": {}
+}

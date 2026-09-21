@@ -1,3 +1,4 @@
+import { readSourceTextWidths, publisherSourceTextRequests } from '../lib/server/sheet-contract-format';
 /**
  * Firestore 원자 → «기존 판매시트와 동일한」 샘플 구글시트 (사장님 2026-09-03 「기존 시트 동일하게」).
  *   ★열은 기존 판매시트(1Y1Mx…)의 각 탭 헤더를 «런타임에 읽어» 그대로 쓴다(열 이름·순서 100% 동일).
@@ -136,6 +137,7 @@ const meta = PLACEHOLDER ? null : await api(`https://sheets.googleapis.com/v4/sp
   console.error('  «시트가 없다»가 아니라 «못 읽었다»다. 새로 만들지 않고 멈춘다(전체공개 새 문서가 생기는 사고를 막는다).');
   process.exit(1);
 });
+const previousTextWidths = await readSourceTextWidths(api, sheetId, meta?.sheets || []);
 const gidByBase: Record<string, number> = {};
 if (!meta) {
   const created = await api('https://sheets.googleapis.com/v4/spreadsheets', { method: 'POST', body: JSON.stringify({ properties: { title: '프리패스 — 상품리스트(영업자용)' }, sheets: TAB_ORDER.map((t, i) => ({ properties: { sheetId: i, title: titleOf(t) } })) }) });
@@ -152,6 +154,7 @@ if (!meta) {
     if (candidates.length > 1) throw new Error(`판매 탭 중복: ${base}`);
     const found = candidates[0];
     const nt = titleOf(base);
+    if (found) publisherSourceTextRequests(found.gid, headerCache[base], previousTextWidths.get(found.gid));
     const rowCount = 1 + (groups[base]?.length || 0) + 20;   // 밑 여유 20줄만(사장님 2026-09-04) — 쓰기 전에 그리드 맞춤
     if (found) { gidByBase[base] = found.gid; reqs.push({ updateSheetProperties: { properties: { sheetId: found.gid, title: nt, gridProperties: { rowCount } }, fields: 'title,gridProperties.rowCount' } }); }
     else { gidByBase[base] = nid; reqs.push({ addSheet: { properties: { sheetId: nid, title: nt, gridProperties: { rowCount } } } }); nid++; }
@@ -223,6 +226,7 @@ for (const t of TAB_ORDER) {
     conditionalFormatCount: ((sheetMeta.conditionalFormats || []) as unknown[]).length,
   }));
 }
+for (const t of TAB_ORDER) fmt.push(...publisherSourceTextRequests(gidByBase[t], headerCache[t], previousTextWidths.get(gidByBase[t]), !meta?.sheets?.some((s: any) => Number(s.properties.sheetId) === gidByBase[t])));
 for (let i = 0; i < fmt.length; i += 200) await api(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests: fmt.slice(i, i + 200) }) });
 
 const total = TAB_ORDER.reduce((a, t) => a + (groups[t]?.length || 0), 0);

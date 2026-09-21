@@ -4,7 +4,7 @@ on:
   push:
     branches: [main]
   pull_request:
-    branches: [main]
+    branches: [main, codex/f86-fixed-tabs-engine2-20260921]
 
 # 매 push/PR = typecheck + 폰트 토큰 가드 + 도메인 시뮬레이션 + 프로덕션 빌드.
 #  다중 도구 동시 작업의 회귀를 자동 차단. 시크릿 불필요(sim=LocalAdapter, build=비운영 CI placeholder).

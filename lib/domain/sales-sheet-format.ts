@@ -35,6 +35,8 @@ import { SALES_NOTES, SALES_HIDDEN_COLUMNS } from './sales-sheet-mapping';
 import { COLOR_INK } from './color-master';
 import { MASTER_CATEGORY_COLORS } from './category-colors';
 import { MISSING_DISPLAY_LABELS, MISSING_INK } from './missing-value-display';
+import { sourceTextColumnRule } from './sales-sheet-banner';
+import { canonicalSalesTabName } from './sales-published-tabs';
 
 export const FONT_DEFAULT = 'Roboto';
 export const FONT = FONT_DEFAULT;
@@ -153,7 +155,7 @@ export const SALES_TAB_COLORS: Record<string, string> = {
   픽업구독: String(MASTER_CATEGORY_COLORS['분류']?.픽업구독 || '').replace(/^#/, ''), 오플구독: '6AA84F',
 };
 export const salesTabColorFor = (tabTitle: string): string | undefined => {
-  const t = String(tabTitle ?? '').trim();
+  const t = canonicalSalesTabName(tabTitle);
   const key = Object.keys(SALES_TAB_COLORS).find((k) => t.startsWith(k));
   return key ? SALES_TAB_COLORS[key] : undefined;
 };
@@ -223,7 +225,7 @@ export function columnWidths(columns: string[], body: string[][], font = FONT): 
     const units = Math.max(p90, wide(name) + 1);
     const cap = NARROW.has(name) ? NARROW_PX : MAX_PX;
     // 여백 16px 은 오른쪽정렬 칸이 테두리에 붙지 않게 하는 몫이다.
-    return Math.min(cap, Math.max(62, Math.round(units * per) + 16));
+    return Math.max(sourceTextColumnRule(name)?.minimumPixelSize || 0, Math.min(cap, Math.max(62, Math.round(units * per) + 16)));
   });
 }
 

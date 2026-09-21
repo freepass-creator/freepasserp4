@@ -8,28 +8,40 @@
  *   기간별 대여료만 · 오플은 12개월 3만Km 이렇게」, publish-sonogong-tab).
  *   그래서 «판매시트에 실린 차 = 네 탭의 합»이고, 상품마스터 맞춤(⑤′)·돈 대조·ERP 대조가 표준 칸(12·24·36개월…)을 찾을 땐 아래 별칭으로 되찾는다.
  *   상품리스트 한 탭만 읽으면 오플 88·손오공 구독 43대가 «없는 차»로 보인다(2026-08-18 저녁 하루는 한 탭이었다).
- * ★탭 이름은 첫 장만 「상품리스트 MM.DD HH:MM · N대」, 나머지는 「탭명 · N대」.
+ * ★탭 이름은 첫 장만 「상품리스트 MM-DD HH:MM N대」, 나머지는 「회사명 N대」.
  *   접두마다 한 장만 산다(발행기가 같은 접두 탭을 갈아 끼움).
  */
 import { isImportBrand } from './vehicle-origin';
+import { salesSheetBanner, SHEET_CONTRACT } from './sales-sheet-banner';
 
 /** 보이는 탭 막대 왼쪽부터 이 차례. 발행기가 `--at` 없이 찍어도 이 자리를 지킨다. */
-export const SALES_PUBLISHED_TAB_PREFIXES = ['상품리스트', '손오공상품', '픽업구독', '오플구독'] as const;
+export const SALES_PUBLISHED_TAB_PREFIXES = SHEET_CONTRACT.canonicalOrder as ['상품리스트', '손오공상품', '픽업구독', '오플구독'];
 export type SalesPublishedPrefix = (typeof SALES_PUBLISHED_TAB_PREFIXES)[number];
 
 /** 이전 이름은 읽기 별칭으로만 허용하고 발행은 손오공상품으로 통일한다. */
 export function canonicalSalesTabName(value: string): string {
-  return String(value ?? '').trim().replace(/^(?:손오공구독|오공구독)(?=\s|$|[·(])/, '손오공상품');
+  return String(value ?? '').trim()
+    .replace(/^(?:손오공구독|오공구독|손오공)(?=\s|$|[·(])/, '손오공상품')
+    .replace(/^픽업(?=\s|$)/, '픽업구독').replace(/^오플(?=\s|$)/, '오플구독');
 }
 
 export function salesTabMatches(title: string, prefix: string): boolean {
-  return canonicalSalesTabName(title).startsWith(canonicalSalesTabName(prefix));
+  const candidate = canonicalSalesTabName(title);
+  const base = canonicalSalesTabName(prefix);
+  return candidate === base || candidate.startsWith(`${base} `);
+}
+
+/** Exact company identity; a company named Foo must never match Foo Bar. */
+export function companyTabMatches(title: string, company: string): boolean {
+  if (title === company) return true;
+  const match = /^(.+?) (?:(?:\d{2}[.-]\d{2} \d{2}:\d{2}(?::\d{2})?) )?(?:· )?\d+대$/.exec(title);
+  return match?.[1] === company;
 }
 
 /** 사람이 보는 판매 탭 문패. 업데이트 일시는 맨 앞 상품리스트 한 장에만 둔다. */
 export function salesPublishedTabTitle(prefix: string, count: number, mark: string): string {
   const base = canonicalSalesTabName(prefix);
-  return base === '상품리스트' ? `${base} ${mark} · ${count}대` : `${base} · ${count}대`;
+  return salesSheetBanner(base, count, mark);
 }
 
 export function salesPublishedTabIndex(prefix: string): number {

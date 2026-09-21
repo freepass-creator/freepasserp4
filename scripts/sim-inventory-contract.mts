@@ -195,7 +195,7 @@ const fakeDb = {
 const captured = await captureSalesPublishSnapshot(fakeDb);
 assert.equal(captured.inventory.open, 4);
 // 시각 문패는 초 없이 `MM.DD HH:MM`(9bef7bf0 — 콜론 둘은 탭 이름 A1 파싱을 깬다) · 뒤에 스냅샷 id.
-assert.match(salesPublishMark(captured), /^\d{2}\.\d{2} \d{2}:\d{2} · \d{17}-[0-9a-f]{12}$/);
+assert.match(salesPublishMark(captured), /^\d{2}-\d{2} \d{2}:\d{2} · \d{17}-[0-9a-f]{12}$/);
 const dir = mkdtempSync(join(tmpdir(), 'sales-publish-sim-'));
 const path = join(dir, 'snapshot.json');
 try {

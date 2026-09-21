@@ -15,8 +15,8 @@ export type ProductionSheet = 'F01' | 'F86';
 
 /** 운영 쓰기가 허용된 워크플로 «이름»(GITHUB_WORKFLOW). 바꾸면 예약 지도·check:schedules 도 같이 고친다. */
 export const PRODUCTION_WRITE_WORKFLOWS: Record<ProductionSheet, readonly string[]> = {
-  F01: ['ERP5 SSOT 원천 최신화(매시간)', '계약중 표기(30분)'],
-  F86: ['ERP5 SSOT 원천 최신화(매시간)'],
+  F01: ['ERP5 SSOT 원천 최신화(매시간)', '계약중 표기(30분)', 'Sheet Contract 표시 전용'],
+  F86: ['ERP5 SSOT 원천 최신화(매시간)', 'Sheet Contract 표시 전용'],
 };
 
 const S = (v: unknown) => String(v ?? '').trim();

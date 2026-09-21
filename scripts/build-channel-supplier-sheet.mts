@@ -1,3 +1,4 @@
+import { readSourceTextWidths, publisherSourceTextRequests } from '../lib/server/sheet-contract-format';
 /**
  * **하허호 전용 상품시트 F86 발행기** — 원자 스냅샷 하나 → «발행 계획»(`lib/server/channel-f86-plan`) → 시트.
  *
@@ -19,6 +20,7 @@ import { HAHUHO_PRODUCT_SHEET_ID } from '../lib/domain/legacy-sheets';
 import { assertProductionSheetWrite } from '../lib/server/production-sheet-write-gate';
 import { ensureNoticeTab } from '../lib/server/channel-sheet-tabs';
 import { applyRetroSkin, retroTabColorRequest } from '../lib/domain/channel-retro-skin';
+import { salesTabMatches, companyTabMatches, canonicalSalesTabName, SALES_PUBLISHED_TAB_PREFIXES } from '../lib/domain/sales-published-tabs';
 import { buildF86Plan } from '../lib/server/channel-f86-plan';
 import { googleSheetsServiceAccount } from '../lib/server/google-service-account';
 import nextEnv from '@next/env';
@@ -152,7 +154,16 @@ if (!RETRO) {
   console.log(`   ${made ? '+ 「공지사항」 만듦' : '○ 「공지사항」 있음 — 손대지 않음'}`);
 }
 const cur = await api(`https://sheets.googleapis.com/v4/spreadsheets/${id}?fields=sheets(properties(sheetId,title),conditionalFormats(ranges(sheetId)))`);
+if (new Set(plan.tabs.map(t => canonicalSalesTabName(t.company))).size !== plan.tabs.length) throw new Error('HOLD: display title collision');
 const have: [string, any][] = (cur.sheets || []).map((s: any) => [S(s.properties.title), s.properties]);
+// Validate every identity before the first addSheet/clear/update, including later tabs.
+const previousTextWidths = await readSourceTextWidths(api, id, cur.sheets || []);
+for (const { company, cols } of plan.tabs) {
+  const matches = have.filter(([t]) => (SALES_PUBLISHED_TAB_PREFIXES as readonly string[]).includes(company)
+    ? salesTabMatches(t, company) : companyTabMatches(t, company));
+  if (matches.length > 1) throw new Error(`HOLD: duplicate worksheet identity ${company}`);
+  if (matches[0]) publisherSourceTextRequests(Number(matches[0][1].sheetId), cols, previousTextWidths.get(Number(matches[0][1].sheetId)));
+}
 /** ★탭에 쌓인 조건부서식 수 — 서식기는 규칙을 «더하기»만 한다(운영 손오공 탭에 7,034개 쌓였던 적 · 2026-09-15). 매 회차 먼저 걷는다. */
 const 규칙수 = new Map<number, number>((cur.sheets || []).map((s: any) => [Number(s.properties.sheetId), (s.conditionalFormats || []).length]));
 
@@ -166,7 +177,10 @@ const 쓴탭 = new Set<number>();
 let index = RETRO ? 0 : 1;
 for (const tab of plan.tabs) {
   const { company, cols, body, values, title, rows } = tab;
-  const old = have.find(([t]) => title === company ? (t === company || t.startsWith(`${company} `)) : t.startsWith(`${company} `));
+  const candidates = have.filter(([t]) => (SALES_PUBLISHED_TAB_PREFIXES as readonly string[]).includes(company)
+    ? salesTabMatches(t, company) : companyTabMatches(t, company));
+  if (candidates.length > 1) throw new Error(`HOLD: duplicate worksheet identity ${company}`);
+  const old = candidates[0];
   let gid: number;
   if (old) {
     gid = Number(old[1].sheetId);
@@ -198,6 +212,7 @@ for (const tab of plan.tabs) {
   reqs.push(RETRO ? retroTabColorRequest(gid, company) : { updateSheetProperties: { properties: { sheetId: gid, tabColor: TAB_HUES[index % TAB_HUES.length] }, fields: 'tabColor' } });
   reqs.push({ setBasicFilter: { filter: { range: { sheetId: gid, startRowIndex: 0, endRowIndex: rows.length + 1, startColumnIndex: 0, endColumnIndex: cols.length } } } });
   puts.push({ range: `'${title}'!A1`, values: [cols, ...values] });
+  reqs.push(...publisherSourceTextRequests(gid, cols, previousTextWidths.get(gid), !old));
   쓴탭.add(gid);
   index++;
 }

@@ -1,5 +1,7 @@
 import { createHash, randomBytes } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { salesBannerMark } from '../domain/sales-sheet-banner';
 import { inventoryCountSnapshot, type InventoryCountSnapshot } from '@/lib/domain/inventory-contract';
 
 export const SALES_PUBLISH_SNAPSHOT_VERSION = 1 as const;
@@ -11,6 +13,9 @@ export type SalesPublishSnapshot = {
   version: typeof SALES_PUBLISH_SNAPSHOT_VERSION;
   snapshotId: string;
   capturedAt: string;
+  /** Optional only for backward-compatible reading of pre-contract snapshots. */
+  timeZone?: 'Asia/Seoul';
+  revision?: string;
   source: 'firestore';
   products: Record<string, unknown>[];
   policies: Record<string, unknown>[];
@@ -32,9 +37,7 @@ export function salesPublishMark(snapshot: Pick<SalesPublishSnapshot, 'capturedA
  *   `.replace(/:\d{2}$/, '')`로 초를 잘라 콜론을 하나만 남긴다 — 같은 값을 여기서도 만든다.
  */
 export function salesPublishTabMark(snapshot: Pick<SalesPublishSnapshot, 'capturedAt'>): string {
-  const d = new Date(new Date(snapshot.capturedAt).getTime() + 9 * 3600e3);
-  const p = (n: number) => String(n).padStart(2, '0');
-  return `${p(d.getUTCMonth() + 1)}.${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}`;
+  return salesBannerMark(snapshot.capturedAt);
 }
 
 const hashPayload = (value: Omit<SalesPublishSnapshot, 'payloadHash'>) => createHash('sha256')
@@ -61,6 +64,8 @@ export async function captureSalesPublishSnapshot(db: any): Promise<SalesPublish
     version: SALES_PUBLISH_SNAPSHOT_VERSION,
     snapshotId: `${capturedAt.replace(/[-:.TZ]/g, '').slice(0, 17)}-${randomBytes(6).toString('hex')}`,
     capturedAt,
+    timeZone: 'Asia/Seoul',
+    revision: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
     source: 'firestore',
     products,
     policies,
