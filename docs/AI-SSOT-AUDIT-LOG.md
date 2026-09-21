@@ -3665,3 +3665,23 @@ Detail: `docs/ai-ssot-audit/2026-09-21-chatgpt-audit98-pr457-repin-pr458-sheet-c
 
 No application code or business logic was modified by the auditor.
 
+---
+
+## 2026-09-21 — ChatGPT audit (99): F01 Sheet Contract auth resolved to guarded zero-op apply; ERP5 validation still HOLD
+
+**판정: PARTIAL RESOLUTION / Audit (98) Sheet Contract auth summary STALE / GUARDED F01 APPLY PATH PASS BUT ZERO ACTUAL WRITES / ERP5 REPIN VALIDATION HOLD / SOURCE CONTRACT HOLD / RP012 SEMANTIC SKEW OPEN.**
+
+- PR #459 merge `9a5a21e7fa5b71984f9761868722125c963e7054`가 Sheet Contract writer의 delegated Workspace scope를 existing publisher DWD scope와 맞췄다. F01 widths dry-run `35573509757`은 `SHEET_FORMAT_APPLY=false`로 credential/preflight/readback/evidence까지 success였다.
+- 이후 F01 guarded apply-mode run `35573824838`도 `SHEET_FORMAT_APPLY=true`, expected snapshot hash/revision/timestamp를 건 상태에서 success했다. Receipt는 `READBACK_PASS`, `beforeHash == afterHash`, `fails=[]`, `writes=0`이었다. 따라서 F01 widths mode의 auth·snapshot precondition·zero-op apply/readback 경로는 PASS지만, 실제 mutation/rollback 검증으로 확대하지 않는다.
+- 초기 F01/F86 `35572968635`, `35573151608`의 `unauthorized_client`는 F01 widths mode에 한해 superseded됐다. Fresh F86 post-fix validation은 아직 없고 `full` title/wrapping mode는 `contracts/sheets/reference-audit.json=UNAVAILABLE`인 동안 fail-closed HOLD다.
+- Configured ERP5 production engine은 PR #457 이후 `0e0bfb3a6e227fd65b754c1d74f7ca5c8b1c327e`지만, post-repin runs `35572350744`, `35573163050`은 둘 다 cancelled돼 fixed snapshot → public/F01/F86 → freshness/cross-audit/photo evidence full-green을 만들지 못했다. Audit (95)의 `c3838708...` full-green은 historical evidence일 뿐 새 pin 검증이 아니다.
+- Dedicated SSOT Source Contract pre-job failure와 Audit 90–91 RP012 registry/runtime semantic skew는 계속 OPEN이다. Current-main registry는 여전히 `LOW_SONOKONG · LOW_TCAR` + 일반렌트 API bucket HOLD를 유지한다.
+- Canonical authority/legacy boundary는 변경 없다. RP012는 Sonogong ERP/API, RP023은 RebornCar이고, F01/F86은 동일 fixed snapshot projection이다. `mirror-sync.yml` / `sales-erp-hourly.yml`은 retired/manual-dry-run, RTDB/mirror는 non-canonical이다.
+- Audit (99) detail/`CLAUDE-AUDIT.md`는 이미 최신 상태였으나, concurrent Audit (98) central-ledger append가 뒤늦게 main에 합쳐지면서 중앙 원장이 Audit (98)에서 끝나는 기록 순서 drift가 생겼다. 이 entry는 Audit (99)를 중앙 원장에 복원해 그 drift를 해소한다.
+
+**Claude implementation owner:** F01 widths zero-op apply PASS를 실제 write/rollback PASS로 확대하지 않는다. F86 fresh validation과 실제 diff write/readback/rollback은 별도 증거로 검증한다. `full`은 reference audit VERIFIED 전까지 fail-closed를 유지한다. ERP5 `0e0bfb3...`은 production-equivalent full-green까지 validation HOLD, dedicated Source Contract는 actual job green까지 HOLD, RP012 semantics는 validated production meaning에 fail-closed로 정렬한다.
+
+Detail: `docs/ai-ssot-audit/2026-09-21-chatgpt-audit99-sheet-auth-dryrun-partial-resolution.md`
+
+No application code or business logic was modified by the auditor.
+
