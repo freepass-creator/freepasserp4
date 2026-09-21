@@ -15,7 +15,7 @@ import { salesTabMatches } from '../lib/domain/sales-published-tabs';
 import { companyAlias } from '../lib/domain/identity';
 import { isPlate } from '../lib/domain/plate-registry';
 import { hasInventoryPublicationViolations, inventoryCountSnapshot, isOpenInventoryAtom } from '../lib/domain/inventory-contract';
-import { captureSalesPublishSnapshot, readSalesPublishSnapshot, salesPublishMark } from '../lib/server/sales-publish-snapshot';
+import { captureSalesPublishSnapshot, readSalesPublishSnapshot } from '../lib/server/sales-publish-snapshot';
 import { salesPublishedColumns } from '../lib/domain/sales-published-tab-columns';
 import { assertProductionSheetWrite } from '../lib/server/production-sheet-write-gate';
 
@@ -110,12 +110,11 @@ const headerCache: Record<string, string[]> = Object.fromEntries(TAB_ORDER.map((
 // ── 고정 시트 제자리 갱신 · 하단 탭에는 짧은 업데이트 분까지만 표시 ──
 // 스냅샷 ID·대수는 실행 로그와 회차 아티팩트에 보존한다. 탭 제목에 전부 넣으면
 // 모바일/작은 화면에서 탭 하나가 화면 폭을 차지해 다른 탭으로 이동하기 어렵다.
-const kstNow = salesPublishMark(publishSnapshot);
-const tabUpdatedAt = kstNow.split(' · ')[0].replace(/:\d{2}$/, '');
 for (const list of Object.values(groups)) for (const v of (list as any[])) {
   const m = S((v as any).model); if (m) modelCount.set(m, (modelCount.get(m) || 0) + 1);
 }
-const titleOf = (base: string) => `${base} ${tabUpdatedAt}`;
+// 상품 탭은 ERP 화면과 같은 네 이름으로 고정한다. 갱신시각은 실행 로그와 스냅샷에만 남긴다.
+const titleOf = (base: string) => base;
 
 let sheetId = SAMPLE_SHEET_ID, fresh = false;
 /**

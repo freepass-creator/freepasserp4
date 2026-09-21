@@ -125,11 +125,9 @@ const f01Order = new Map<string, string[]>();
     if (matches.length !== 1) f01TabShapeViolations.push(`${prefix} ${matches.length}장`);
     return matches.map((title) => ({ prefix, title }));
   });
-  if (expectedMark) for (const { prefix, title } of selected) {
-    // 모바일 탭은 분까지만 표시한다. 스냅샷 ID·초·대수는 로그/아티팩트에 보존하고,
-    // 실제 회차 일치는 아래 658행 전체 값 대조로 확인한다.
-    const expectedTitle = `${prefix} ${expectedMark.split(' · ')[0].replace(/:\d{2}$/, '')}`;
-    if (canonicalSalesTabName(title) !== expectedTitle) staleTimestampTabs.push(`F01:${title} (기대: ${expectedTitle})`);
+  for (const { prefix, title } of selected) {
+    // F01 상품 탭은 ERP와 같은 네 이름으로 고정한다. 회차 일치는 아래 전체 값 대조로 확인한다.
+    if (canonicalSalesTabName(title) !== prefix) staleTimestampTabs.push(`F01:${title} (기대: ${prefix})`);
   }
   const grids = await readTabs(F01, selected.map((x) => x.title));
   for (const { prefix, title } of selected) {
@@ -249,8 +247,7 @@ let f86줄 = 0;
   for (const title of titles) {
     const grid = grids.get(title) || [];
     const hdr = grid[0] || [];
-    const salesKind = title === '손오공상품' ? '오공구독' : title;
-    const expectedHeader = salesPublishedColumns(salesKind);
+    const expectedHeader = salesPublishedColumns(title);
     if (JSON.stringify(hdr) !== JSON.stringify(expectedHeader)) {
       f86HeaderViolations.push(`${title}: 실제 ${hdr.length}열 ↔ 기대 ${expectedHeader.length}열`);
     }

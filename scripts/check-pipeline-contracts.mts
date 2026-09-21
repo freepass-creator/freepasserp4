@@ -84,7 +84,7 @@ assert.throws(() => parsePublishedSalesMapping([
   ['@매핑', '', ''], ['', '차량번호', '차량번호'], ['', '차량번호', '차번'], ['', '공급사', '공급사'], ['@매핑끝', '', ''],
 ]), /중복 열/);
 
-const sonogong = publishedSalesColumns('오공구독', mapping.columns);
+const sonogong = publishedSalesColumns('손오공상품', mapping.columns);
 assert.ok(!sonogong.includes('단기보증'));
 assert.ok(!sonogong.includes('1개월'));
 assert.ok(sonogong.includes('보증금 반납형'));

@@ -22,12 +22,12 @@ export function findSalesBlock(header: readonly string[]): { start: number; colu
   return { start: dividerAt + 1, columns, dividerAt };
 }
 /** 재고 탭 → 그 줄이 실리는 판매 탭(블록 머리의 정본). 손오공 구독재고 → 오공구독 · 픽업재고 → 픽업구독 · 오토플러스(RP023) → 오플구독 · 그 밖 → 상품리스트. */
-export function salesTabForStockTab(providerCode: string, tabTitle: string): '상품리스트' | '오공구독' | '픽업구독' | '오플구독' {
+export function salesTabForStockTab(providerCode: string, tabTitle: string): '상품리스트' | '손오공상품' | '픽업구독' | '오플구독' {
   const t = String(tabTitle ?? '').trim();
   if (providerCode === 'RP023') return '오플구독';
   if (providerCode === 'RP012' && /픽업/.test(t)) return '픽업구독';
   /** 손오공은 픽업이 아니면 전부 오공구독(중고렌트 포함) — `tabOf` 와 같은 규칙(사장님 2026-09-16). */
-  if (providerCode === 'RP012') return '오공구독';
+  if (providerCode === 'RP012') return '손오공상품';
   return '상품리스트';
 }
 /** 블록 머리 배경(회청) — 기계 칸 표식. */

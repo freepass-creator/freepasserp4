@@ -34,7 +34,7 @@ export const FIELD_ROLE: Record<string, AtomRole> = {
   // ⑤ 정책 — policy_code 로 policy 문서 조인(별도 구역).
   policy_code: '정책',
   // 메타 — 내부·출처·게이트. 비공통 계산에서 제외(단 공급사·원천은 화면에 «출처»로 노출).
-  provider_company_code: '메타', partner_code: '메타', source: '메타', source_schema: '메타',
+  provider_company_code: '메타', partner_code: '메타', source: '메타', source_schema: '메타', sonokong_classification: '메타',
   sheet_source_tab: '메타', sheet_source_row: '메타', product_code: '메타', listable: '메타',
   photo_collected_at: '메타', photo_source_hash: '메타',
   확정: '메타', 검수상태: '메타', _key: '메타', companyId: '메타',

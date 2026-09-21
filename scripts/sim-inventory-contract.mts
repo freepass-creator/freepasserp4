@@ -46,7 +46,7 @@ assert.equal(inventoryCountSnapshot([
 ]).duplicatePlateViolations, 1);
 assert.equal(inventoryCountSnapshot([{ car_number: '차량번호아님1', vehicle_status: '출고불가', listable: false }]).invalidPlateViolations, 1);
 assert.equal(salesPublishedColumns('상품리스트').length, 69);
-for (const tab of ['상품리스트', '오공구독', '픽업구독', '오플구독']) {
+for (const tab of ['상품리스트', '손오공상품', '픽업구독', '오플구독']) {
   assert.ok(salesPublishedColumns(tab).includes('옵션(원문)'));
   assert.ok(salesPublishedColumns(tab).includes('세부모델'));
 }
@@ -169,7 +169,7 @@ assert.match(auditSource, /const EQ = \(a: unknown, b: unknown\) => S\(a\) === S
 assert.match(auditSource, /valueRenderOption=UNFORMATTED_VALUE/);
 assert.match(readFileSync('scripts/run-sheet-daily-sync-local.mts', 'utf8'), /APPLY && !sheetArg/);
 assert.match(readFileSync('lib/server/sales-inventory-sheet.ts', 'utf8'), /process\.env\.SALES_INVENTORY_SHEET_ID/);
-assert.match(auditSource, /canonicalSalesTabName\(title\) !== expectedTitle/);
+assert.match(auditSource, /canonicalSalesTabName\(title\) !== prefix/);
 assert.match(auditSource, /expectedTitles\.has\(title\)/);
 assert.match(auditSource, /found\.company !== expectedCompany/);
 assert.match(auditSource, /JSON\.stringify\(hdr\) !== JSON\.stringify\(expectedHeader\)/);

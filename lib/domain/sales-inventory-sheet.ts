@@ -19,7 +19,7 @@ import {
 
 export const DEFAULT_SALES_INVENTORY_SHEET_ID = '1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs';
 export const DEFAULT_SALES_INVENTORY_TAB_PREFIX = '상품리스트';
-export const SALES_SONOGONG_TAB_PREFIX = '오공구독';
+export const SALES_SONOGONG_TAB_PREFIX = '손오공상품';
 export const SALES_PICKUP_TAB_PREFIX = '픽업구독';
 export const SALES_AUTOPLUS_MAIN_TAB_PREFIX = '오플구독';
 export const SALES_AUTOPLUS_PROMO_TAB_PREFIX = '오플프로모션';

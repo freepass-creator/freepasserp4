@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { INVENTORY_SOURCES, getInventorySource, getPolicySource, inventorySourceLocationCount, matchesSharedSourceTab, policySourceLocationCount } from '../lib/domain/inventory-source-registry';
 import { sheetsServiceAccountEmail } from '../lib/server/google-sheets';
 import { readErp5InventoryServiceAccount } from '../lib/server/erp5-inventory-service-account';
-import { sonokongProductKind } from '../lib/domain/sonokong-product-kind';
+import { sonokongProductClassification, sonokongProductKind, sonokongSalesGroup } from '../lib/domain/sonokong-product-kind';
 import { directSourceStatusBase } from '../lib/domain/direct-source-status';
 import { resolveStatus } from '../lib/domain/atom-status';
 
@@ -16,6 +16,17 @@ assert.deepEqual(getInventorySource('RP012').channels, ['LOW_SONOKONG_DAILY', 'L
 assert.equal(sonokongProductKind({ sourceBucket: 'LOW_SONOKONG_DAILY', responseBucket: 'SON_NO_KONG' }), '중고렌트');
 assert.equal(sonokongProductKind({ sourceBucket: 'LOW_SONOKONG', responseBucket: 'SON_NO_KONG' }), '오공구독');
 assert.equal(sonokongProductKind({ sourceBucket: 'LOW_TCAR', responseBucket: 'TCAR_EXTERNAL' }), '픽업구독');
+assert.deepEqual(sonokongProductClassification({ sourceBucket: 'LOW_SONOKONG_DAILY', responseBucket: 'SON_NO_KONG' }), {
+  schema: 'sonokong-product-v1', source_bucket: 'LOW_SONOKONG_DAILY', response_bucket: 'SON_NO_KONG', product_type: '중고렌트', sales_group: '손오공상품',
+});
+assert.deepEqual(sonokongProductClassification({ sourceBucket: 'LOW_SONOKONG', responseBucket: 'SON_NO_KONG' }), {
+  schema: 'sonokong-product-v1', source_bucket: 'LOW_SONOKONG', response_bucket: 'SON_NO_KONG', product_type: '오공구독', sales_group: '손오공상품',
+});
+assert.deepEqual(sonokongProductClassification({ sourceBucket: 'LOW_TCAR', responseBucket: 'TCAR_EXTERNAL' }), {
+  schema: 'sonokong-product-v1', source_bucket: 'LOW_TCAR', response_bucket: 'TCAR_EXTERNAL', product_type: '픽업구독', sales_group: '픽업구독',
+});
+assert.equal(sonokongSalesGroup({ product_type: '중고렌트', sonokong_classification: sonokongProductClassification({ sourceBucket: 'LOW_TCAR' }) }), '픽업구독', '명시 Firestore 분류가 과거 product_type 추정보다 우선한다');
+assert.equal(sonokongSalesGroup({ product_type: '픽업구독', sonokong_classification: { schema: 'sonokong-product-v1', source_bucket: '', response_bucket: '', product_type: '', sales_group: '' } }), '픽업구독', '빈 명시 분류는 과거 product_type 하위호환을 막지 않는다');
 assert.equal(directSourceStatusBase('계약중', 'sonokong'), '계약중');
 assert.equal(directSourceStatusBase('계약중', 'sheet'), '출고불가');
 assert.equal(resolveStatus({ base: directSourceStatusBase('계약중', 'sonokong'), raw: '계약중' }).listable, true);

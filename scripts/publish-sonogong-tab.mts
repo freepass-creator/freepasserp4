@@ -31,7 +31,7 @@ const APPLY = process.argv.includes('--apply');
 const SHEET = arg('sheet', '1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs');
 const PRODUCTION_F01 = '1Y1Mx1EcEpAuNer0y50Dq4eK92CpVjThO_suZLmo2vVs';
 if (APPLY && SHEET === PRODUCTION_F01) throw new Error('구형 요금 발행기는 운영 F01을 쓸 수 없다. --sheet=<수집 스테이징 시트>를 지정하라.');
-const TAB = canonicalSalesTabName(arg('tab', '오공구독'));
+const TAB = canonicalSalesTabName(arg('tab', '손오공상품'));
 const NATIVE = (NATIVE_MONEY_BLOCK as Record<string, { src: string; srcTab: string; block: string[]; lead?: NativeLeadColumn } | undefined>)[TAB];
 /** 블록 앞에 두는 파생 칸(오플 「보증금」 = 산출 규칙 글자). */
 const LEAD = NATIVE?.lead;
@@ -48,7 +48,7 @@ const AFTER = arg('after', '60개월');
 const LABEL = BLOCK.map(nativeMoneyLabel);
 const normHead = (h: unknown) => S(h).replace(/\s+/g, '').replace(/km$/i, '').replace(/[()（）]/g, '');
 /** 지울 옛 탭 접두. */
-const LEGACY_TABS = arg('legacy', TAB === '오공구독' ? '손오공인수형구독' : '').split(',').map(S).filter(Boolean);
+const LEGACY_TABS = arg('legacy', TAB === '손오공상품' ? '손오공인수형구독' : '').split(',').map(S).filter(Boolean);
 /** 원본 시트에서 머리글이 다르게 적힌 경우의 별칭(정규식). */
 const ALIASES: Record<string, RegExp> = {
   '보증금 인수형': /^(장기보증|보증금)\s*인수형$/, '보증금 반납형': /^(장기보증|보증금)\s*반납형$/,

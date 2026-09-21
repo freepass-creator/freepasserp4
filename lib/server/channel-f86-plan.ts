@@ -22,6 +22,7 @@ import { companyAlias } from '../domain/identity';
 import { canonProductType } from '../domain/product';
 import { PRODUCT_TYPES } from '../intake/entities';
 import type { SalesPublishSnapshot } from './sales-publish-snapshot';
+import { sonokongSalesGroup } from '../domain/sonokong-product-kind';
 
 const S = (v: unknown) => String(v ?? '').trim();
 
@@ -98,15 +99,13 @@ export type F86BaseTab = (typeof F86_BASE_TABS)[number];
  */
 export function f86BaseTabOf(v: any): F86BaseTab {
   const provider = S(v?.provider_company_code);
-  const productType = canonProductType(v?.product_type) || S(v?.product_type);
-  if (provider === 'RP012') return productType === '픽업구독' ? '픽업구독' : '손오공상품';
+  if (provider === 'RP012') return sonokongSalesGroup(v) || '손오공상품';
   if (provider === 'RP023') return '오플구독';
   return '상품리스트';
 }
 
-/** F01 열 규격을 재사용할 때 손오공상품은 기존 오공구독 열 블록을 쓴다. */
-const salesKindOfF86Tab = (tab: string): (typeof TAB_ORDER)[number] =>
-  tab === '손오공상품' ? '오공구독' : tab as (typeof TAB_ORDER)[number];
+/** F01과 F86은 같은 네 상품 자리와 같은 열 계약을 쓴다. */
+const salesKindOfF86Tab = (tab: string): (typeof TAB_ORDER)[number] => tab as (typeof TAB_ORDER)[number];
 
 /**
  * 탭 이름 — **발행기·감사기가 같은 함수를 쓴다**(두 군데서 따로 지으면 감사가 제 이름을 못 알아본다).
@@ -156,7 +155,6 @@ export async function buildF86Plan(p: {
     headOf[prefix] = salesPublishedColumns(prefix);
     for (const h of headOf[prefix]) { const n = channelColumnName(h); if (n && !columns.includes(n)) columns.push(n); }
   }
-  headOf.손오공상품 = headOf.오공구독;
 
   const docs = p.snapshot.products as any[];
   const inventory = inventoryCountSnapshot(docs);

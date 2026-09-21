@@ -22,6 +22,7 @@ import { autoplusDepositRuleText } from './sales-published-tabs';
 import { isDepositColumn } from './sales-sheet-format';
 import { groupPoliciesByProvider, autoPolicyCode } from './supplier-policy-link';
 import { atomDisplayText } from './missing-value-display';
+import { sonokongSalesGroup } from './sonokong-product-kind';
 
 const S = (v: unknown) => String(v ?? '').trim();
 
@@ -107,18 +108,17 @@ export async function loadSalesRowContext(deps: SalesRowDeps): Promise<SalesRowC
 
 // 탭 배정 = 발행기 규칙
 export const tabOf = (v: any): string => {
-  const prov = S(v.provider_company_code), pt = S(v.product_type);
-  if (isPickupPhotoAtom(v)) return '픽업구독';
+  const prov = S(v.provider_company_code);
   /**
-   * ★손오공(RP012)은 픽업이 아니면 «전부» 오공구독 탭 — 반납형·인수형 칸으로 싣는다.
+   * ★손오공(RP012)은 Firestore `sonokong_classification.sales_group`만 보고 고정 탭에 싣는다.
    *   사장님 2026-09-16 「그냥 반납형 칸을 같이 써, F01에도 손오공 중고렌트는」 — 손오공API 중고렌트 7대가
-   *   상품구분에 「구독」이 없어 상품리스트(공통 대여료 칸)로 샜다. 가격 구조(12~60·인수형·보증금 규칙)는 오공구독과 같다.
+   *   상품구분에 「구독」이 없어 상품리스트(공통 대여료 칸)로 샜다. 가격 구조(12~60·인수형·보증금 규칙)는 손오공상품과 같다.
    */
-  if (prov === 'RP012') return '오공구독';
+  if (prov === 'RP012') return sonokongSalesGroup(v) || (isPickupPhotoAtom(v) ? '픽업구독' : '손오공상품');
   if (prov === 'RP023') return '오플구독';
   return '상품리스트';
 };
-export const TAB_ORDER = ['상품리스트', '오공구독', '픽업구독', '오플구독'] as const;
+export const TAB_ORDER = ['상품리스트', '손오공상품', '픽업구독', '오플구독'] as const;
 
 // ★옵션 정리(사장님 2026-09-04) — 「-」·「.」처럼 텍스트/영문/숫자가 없으면 선택옵션 없음(빈칸).
 const cleanOpt = (s: string): string => /[가-힣A-Za-z0-9]/.test(S(s)) ? S(s) : '';

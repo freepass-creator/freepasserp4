@@ -13,6 +13,7 @@
 import { readFileSync } from 'node:fs';
 import { initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
+import { tabOf } from '../lib/domain/sales-atom-row';
 
 const S = (v: unknown) => String(v ?? '').trim();
 const K = (v: unknown) => S(v).replace(/\s/g, '');
@@ -20,15 +21,7 @@ const sa = JSON.parse(readFileSync(S(process.env.GOOGLE_APPLICATION_CREDENTIALS)
 initializeApp({ credential: cert({ projectId: sa.project_id, clientEmail: sa.client_email, privateKey: S(sa.private_key).replace(/\\n/g, '\n') }) });
 const fs = getFirestore();
 
-/** make-sample-sheet-google 와 동일한 tabOf(= lib/domain/sales-atom-row). 한 벌만 쓴다. */
-const tabOf = (v: Record<string, unknown>): string => {
-  const prov = S(v.provider_company_code), pt = S(v.product_type);
-  if (prov === 'RP012' && pt === '픽업구독') return '픽업구독';
-  if (prov === 'RP012') return '오공구독';   // 중고렌트 포함 — sales-atom-row tabOf 와 같게(2026-09-16)
-  if (prov === 'RP023') return '오플구독';
-  return '상품리스트';
-};
-const TABS = ['상품리스트', '오공구독', '픽업구독', '오플구독'];
+const TABS = ['상품리스트', '손오공상품', '픽업구독', '오플구독'];
 
 const snap = await fs.collection('products').get();
 const bucket: Record<string, { listable: number; 계약중: number }> = {};

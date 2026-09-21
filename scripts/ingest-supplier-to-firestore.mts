@@ -29,7 +29,7 @@ import { canonProductType } from '../lib/domain/product';
 import { composeVehicleName, MIRROR_ALIAS } from '../lib/domain/mirror-sheet-mapping';
 import { snapColor } from '../lib/domain/color-master';
 import { getInventorySource } from '../lib/domain/inventory-source-registry';
-import { sonokongProductKind } from '../lib/domain/sonokong-product-kind';
+import { sonokongProductClassification, sonokongProductKind } from '../lib/domain/sonokong-product-kind';
 import { directSourceStatusBase } from '../lib/domain/direct-source-status';
 import { FUEL_EV, rawSeats, atomViolations, type MasterIndex } from '../lib/domain/atom-invariants';
 import { cleanTrim } from '../lib/domain/clean-trim';
@@ -200,7 +200,7 @@ const depositNote = (raw: string) => {
 };
 
 // ── 원천 리더 — 종류마다 «우리필드 키 행(Row)»을 낸다. 원자화는 하나로 공유한다. ──────
-type Row = { car: string; link?: string; rawLink?: string; imageUrls?: unknown; photoCollectedAt?: unknown; rawDescription?: string; rawPaidOptions?: unknown; rawMirroredPaidOptions?: unknown; rawSonokongOptionNote?: unknown; rawOptionEvidence?: unknown; optionSource?: string; status: string; kind: string; maker: string; model: string; vname: string; trim: string; fuel: string; ext: string; int: string; km: string; opt: string; firstReg: string; cc: string; klass: string; price: Price; depNote: string; tab: string; row: string };
+type Row = { car: string; sourceBucket?: string; responseBucket?: string; link?: string; rawLink?: string; imageUrls?: unknown; photoCollectedAt?: unknown; rawDescription?: string; rawPaidOptions?: unknown; rawMirroredPaidOptions?: unknown; rawSonokongOptionNote?: unknown; rawOptionEvidence?: unknown; optionSource?: string; status: string; kind: string; maker: string; model: string; vname: string; trim: string; fuel: string; ext: string; int: string; km: string; opt: string; firstReg: string; cc: string; klass: string; price: Price; depNote: string; tab: string; row: string };
 const blank: Omit<Row, 'car' | 'tab' | 'row'> = { status: '', kind: '', maker: '', model: '', vname: '', trim: '', fuel: '', ext: '', int: '', km: '', opt: '', rawDescription: '', rawPaidOptions: null, rawMirroredPaidOptions: null, rawSonokongOptionNote: null, rawOptionEvidence: null, optionSource: '', firstReg: '', cc: '', klass: '', price: {}, depNote: '', imageUrls: [], photoCollectedAt: 0 };
 
 // 번호판 꼴만 차로 본다 — 헤더 밑 제목·프로모 배너·빈 행이 «차»로 새는 걸 막는다(오토플러스 실측).
@@ -318,7 +318,7 @@ async function readRows(): Promise<Row[]> {
        */
       const 선택옵션 = S(c.유료옵션);
       const 상세링크 = /^https?:\/\/.*(?:lotte|tcar|mycarsave)/i.test(S(c.상세url)) ? S(c.상세url) : '';
-      push({ car, depNote: sonokongDepositRuleText(), link: 상세링크, rawLink: S(c.상세url원문), imageUrls: c.사진들, photoCollectedAt: c.상세시각 || dumpCollectedAt, rawDescription: S(c.설명), rawPaidOptions: c.유료옵션원문, rawMirroredPaidOptions: c.손오공유료옵션원문, rawSonokongOptionNote: c.손오공출고옵션원문, rawOptionEvidence: c.유료옵션근거, optionSource: S(c.유료옵션출처), status, kind, maker: S(c.제조사), model: S(c.모델), vname: S(c.차명) || S(c.세부), fuel: S(c.연료), ext: S(c.외장), int: S(c.내장), km: c.주행거리 == null ? '' : String(c.주행거리), opt: 선택옵션, firstReg: S(c.최초등록) || S(c.연식), cc: c.배기량 == null ? '' : String(c.배기량), klass: '', price, tab: '손오공API', row: S(c.id) });
+      push({ car, sourceBucket: 원천버킷, responseBucket: 버킷, depNote: sonokongDepositRuleText(), link: 상세링크, rawLink: S(c.상세url원문), imageUrls: c.사진들, photoCollectedAt: c.상세시각 || dumpCollectedAt, rawDescription: S(c.설명), rawPaidOptions: c.유료옵션원문, rawMirroredPaidOptions: c.손오공유료옵션원문, rawSonokongOptionNote: c.손오공출고옵션원문, rawOptionEvidence: c.유료옵션근거, optionSource: S(c.유료옵션출처), status, kind, maker: S(c.제조사), model: S(c.모델), vname: S(c.차명) || S(c.세부), fuel: S(c.연료), ext: S(c.외장), int: S(c.내장), km: c.주행거리 == null ? '' : String(c.주행거리), opt: 선택옵션, firstReg: S(c.최초등록) || S(c.연식), cc: c.배기량 == null ? '' : String(c.배기량), klass: '', price, tab: '손오공API', row: S(c.id) });
     }
     return out;
   }
@@ -491,6 +491,11 @@ function atomize(row: Row, pinned: Map<string, Record<string, unknown>>): Atom {
   if (S(row.rawSonokongOptionNote)) rawEvidence.손오공출고옵션 = S(row.rawSonokongOptionNote);
   if (row.rawOptionEvidence && typeof row.rawOptionEvidence === 'object') rawEvidence.옵션근거 = row.rawOptionEvidence;
   if (row.rawLink) rawEvidence.티카링크원문 = row.rawLink;
+  const classified = src.kind === 'sonokong'
+    ? sonokongProductClassification({ sourceBucket: row.sourceBucket, responseBucket: row.responseBucket, used: row.kind === '중고구독' })
+    : null;
+  // 원천 버킷을 못 받은 회차는 과거의 명시 분류를 빈 객체로 덮지 않는다.
+  const sonokongClassification = classified?.product_type && classified.sales_group ? classified : null;
   const atom: Atom = {
     car_number: car,
     maker: identity.maker, model: identity.model, sub_model: identity.sub_model, trim_name: identity.trim_name, origin: identity.origin, ...spec, engine_cc: evEngineCc(S(spec.fuel_type), S(spec.engine_cc)),
@@ -508,6 +513,7 @@ function atomize(row: Row, pinned: Map<string, Record<string, unknown>>): Atom {
     ...(S(row.status) || !pin ? statusDetail(row.status, pin?.locked_by_contract, pin?.vehicle_status) : null),
     mileage: row.km, options: row.opt,
     ...(src.kind === 'sonokong' ? {
+      ...(sonokongClassification ? { sonokong_classification: sonokongClassification } : null),
       option_evidence_status: ['tcarPaidOptions', 'sonokongCarOptionNote'].includes(row.optionSource || '') ? 'PASS' : 'HOLD',
       option_evidence_reason: ['tcarPaidOptions', 'sonokongCarOptionNote'].includes(row.optionSource || '') ? '' : '현재 선택옵션 원문 미확인',
     } : null),
@@ -600,7 +606,7 @@ const docId = (car: string) => car.replace(/\s/g, '').replace(/[/#.$[\]]/g, '_')
  *   `vehicle_status` 는 옛 값에 머물러 **상태가 두 벌**이 됐다(시트·손님 면은 `vehicle_status` 를 읽는다).
  */
 /** ★`tica_link` 도 «변동»이다 — 손오공이 차를 넣고 빼면 링크도 따라 바뀐다(발행기가 시트를 다시 읽지 않게 원자에 둔다). */
-const VAR_FIELDS_ALL = ['vehicle_status', 'status', 'status_kind', 'status_reason', 'listable', 'status_label_raw', 'mileage', 'price', 'tica_link', 'image_urls', 'photo_collected_at', 'photo_source_hash'] as const;
+const VAR_FIELDS_ALL = ['vehicle_status', 'status', 'status_kind', 'status_reason', 'listable', 'status_label_raw', 'product_type', 'sonokong_classification', 'mileage', 'price', 'tica_link', 'image_urls', 'photo_collected_at', 'photo_source_hash'] as const;
 /** 상태 칸만 — `--status-only` 일 때. 주행·요금은 빼고 «안 건드린다». */
 const VAR_FIELDS_STATUS = ['vehicle_status', 'status', 'status_kind', 'status_reason', 'listable', 'status_label_raw'] as const;
 const VAR_FIELDS: readonly string[] = STATUS_ONLY ? VAR_FIELDS_STATUS : VAR_FIELDS_ALL;
@@ -707,7 +713,9 @@ if (VARIABLE) {
         || jsonSorted(새원문.옵션근거) !== jsonSorted(옛원문.옵션근거)
         || S(새원문.티카링크원문) !== S(옛원문.티카링크원문)
       );
-      if (!sMoved && !mMoved && !pMoved && !lMoved && !photoMoved && !oMoved && !rawMoved) continue;
+      const classificationMoved = !STATUS_ONLY && src.kind === 'sonokong'
+        && jsonSorted(a.sonokong_classification) !== jsonSorted(c.sonokong_classification);
+      if (!sMoved && !classificationMoved && !mMoved && !pMoved && !lMoved && !photoMoved && !oMoved && !rawMoved) continue;
       const upd: Record<string, unknown> = { _var_polled_at: Date.now() };
       for (const f of VAR_FIELDS) if (a[f] !== undefined && a[f] !== '') upd[f] = a[f];
       if (lMoved && src.kind === 'sonokong') upd.tica_link = S(a.tica_link);
