@@ -3586,8 +3586,8 @@ Detail: `docs/ai-ssot-audit/2026-09-21-chatgpt-audit93-1505-recovery-gap-audit-c
 
 No application code or business logic was modified by the auditor.
 
-
 ---
+
 ## 2026-09-21 — ChatGPT audit (94): 15:05 late recovery; Audit (93) race correction
 
 **판정: RESOLVED(eventual 15:05 fallback creation) / OPEN(recovery timeliness + native cadence + monitor reconciliation) / WATCH(downstream ERP5 completion) / Audit 90–91 Sonogong semantic skew OPEN.**
@@ -3621,7 +3621,7 @@ No application code or business logic was modified by the auditor.
 **판정: POINT-IN-TIME MATERIAL CHANGE / immediately superseded by Audit (97).**
 
 - 16:04:42 KST Audit (96)은 main의 PR #453 merge `79db9988500d7fd7634f24c52f382016d8cb5730` 상태를 포착했다. ERP5 production pin은 당시 `c3838708...` → `0e0bfb3a6e227fd65b754c1d74f7ca5c8b1c327e`로 전진했다.
-- 그 engine은 `sonogong-product-v1`을 보존하고 F01/F86 canonical bases뉼 `상품리스트 · 손오공상품 · 픽업구독 · 오플구독`으로 정렬했다. 그러나 current-main RP012 registry의 two-bucket/obsolete HOLD는 그대로여서 Audit 90–91 skew는 해소되지 않았다.
+- 그 engine은 `sonogong-product-v1`을 보존하고 F01/F86 canonical bases를 `상품리스트 · 손오공상품 · 픽업구독 · 오플구독`으로 정렬했다. 그러나 current-main RP012 registry의 two-bucket/obsolete HOLD는 그대로여서 Audit 90–91 skew는 해소되지 않았다.
 - 첫 post-merge ERP5 run `35570499422`은 Atom/snapshot/F01/F86 단계 전에 cancelled됐고, main-push Source Contract `35570482765`는 job 생성 전 failure였다. generic CI `35570483614` green은 전용 gate를 대체하지 않는다.
 - 이 operational state는 1분이 채 지나기 전에 PR #455로 safety-revert됐다. **현재 실행 판정은 Audit (97)이 override한다.**
 
@@ -3639,7 +3639,7 @@ No application code or business logic was modified by the auditor.
 - current production engine은 다시 validated `c3838708b84527db241f1985c140a3ec6ece6bff`다. production projection baseline도 복구돼 F01=`상품리스트 · 오공구독 · 픽업구독 · 오플구독`, F86=`상품리스트 · 손오공상품 · 픽업구독 · 오플구독`이다. PR #453의 `sonogong-product-v1`/F01 `손오공상품` cutover는 current production이 아니다.
 - Audit 90–91은 여전히 OPEN이다. current-main RP012 registry는 `LOW_SONOKONG · LOW_TCAR` 둘만 선언하고 일반 렌트 ERP API bucket HOLD를 남긴다.
 - safety-revert head의 dedicated Source Contract run `35571305694`는 **jobs=0 / pre-job failure**였고 generic CI `35571307041`은 success였다. 따라서 전용 Source Contract gate는 별도 수리가 필요하다.
-- canonical authority는 RP012 Sonogong ERP/API, RP023 RebornCark�� 유지하며 retired mirror/sales automatic writers와 RTDB/mirror non-canonical 경계에도 신규 drift가 없다. Audit (95)의 15:05 full-green data-plane 증거는 유효하고 native cadence/recovery timeliness·monitor reconciliation 등 기존 OPEN은 이번 revert만으로 닫지 않는다.
+- canonical authority는 RP012 Sonogong ERP/API, RP023 RebornCar로 유지하며 retired mirror/sales automatic writers와 RTDB/mirror non-canonical 경계에도 신규 drift가 없다. Audit (95)의 15:05 full-green data-plane 증거는 유효하고 native cadence/recovery timeliness·monitor reconciliation 등 기존 OPEN은 이번 revert만으로 닫지 않는다.
 
 Detail: `docs/ai-ssot-audit/2026-09-21-chatgpt-audit97-pr455-safety-revert-audit96-race-correction.md`
 
