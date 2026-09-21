@@ -34,7 +34,7 @@ import { HAHUHO_PRODUCT_SHEET_ID, SALES_SHEET_ID } from '../lib/domain/legacy-sh
 import { atomDisplayText } from '../lib/domain/missing-value-display';
 import { retroHeadToColumn, retroUsesColumn, retroSameValue, inRetroSummary, RETRO_SUMMARY_TAB, retroHasLongFee, retroHasValue, retroTabLayout, retroTabRank } from '../lib/domain/channel-retro-skin';
 import { googleSheetsServiceAccount } from '../lib/server/google-service-account';
-import { compareF86Rows, f86TabTitle } from '../lib/server/channel-f86-plan';
+import { compareF86Rows, F86_BASE_TABS, f86BaseTabOf, f86TabTitle } from '../lib/server/channel-f86-plan';
 
 nextEnv.loadEnvConfig(process.cwd());
 const S = (v: unknown) => String(v ?? '').trim();
@@ -233,7 +233,48 @@ const f86BlankPlateRows: string[] = [];
 const f86WrongCompany: string[] = [];
 const f86Order = new Map<string, string[]>();
 let f86줄 = 0;
+/**
+ * 2026-09-21 이후 F01↔F86 교차대조는 F86의 기본 네 탭만 센다.
+ * 뒤의 공급사 탭은 상품리스트 차량을 다시 나눈 의도적 투영이므로 함께 세면 전부 중복으로 오판한다.
+ */
 {
+  const meta = await api(`https://sheets.googleapis.com/v4/spreadsheets/${F86}?fields=sheets.properties.title`);
+  const 모든탭: string[] = (meta.sheets || []).map((s: any) => S(s.properties?.title)).filter((t: string) => !/공지|안내|이 시트/.test(t));
+  const 실제기본 = 모든탭.slice(0, F86_BASE_TABS.length);
+  if (JSON.stringify(실제기본) !== JSON.stringify(F86_BASE_TABS)) {
+    f86TabShapeViolations.push(`기본 탭 이름·차례: 실제 ${실제기본.join('·')} ↔ 기대 ${F86_BASE_TABS.join('·')}`);
+  }
+  const titles = F86_BASE_TABS.filter((t) => 모든탭.includes(t));
+  const grids = await readTabs(F86, titles);
+  for (const title of titles) {
+    const grid = grids.get(title) || [];
+    const hdr = grid[0] || [];
+    const salesKind = title === '손오공상품' ? '오공구독' : title;
+    const expectedHeader = salesPublishedColumns(salesKind);
+    if (JSON.stringify(hdr) !== JSON.stringify(expectedHeader)) {
+      f86HeaderViolations.push(`${title}: 실제 ${hdr.length}열 ↔ 기대 ${expectedHeader.length}열`);
+    }
+    const ci = hdr.indexOf('차량번호');
+    if (ci < 0) continue;
+    for (const r of grid.slice(1)) {
+      const car = K(r[ci]);
+      if (!car) { if (r.some((value) => S(value))) f86BlankPlateRows.push(`${title}: ${r.filter((value) => S(value)).slice(0, 3).join(' | ')}`); continue; }
+      f86Order.set(title, [...(f86Order.get(title) || []), car]);
+      f86줄++;
+      f86Counts.set(car, (f86Counts.get(car) || 0) + 1);
+      const cells: Record<string, string> = {};
+      hdr.forEach((h, i) => { if (S(h)) cells[channelColumnName(S(h))] = S(r[i]); });
+      f86.set(car, { company: title, cells });
+    }
+  }
+  for (const title of F86_BASE_TABS) {
+    const expected = 실릴차.filter((atom) => f86BaseTabOf(atom) === title).sort(compareF86).map((atom) => K(atom.car_number));
+    const actual = f86Order.get(title) || [];
+    if (JSON.stringify(actual) !== JSON.stringify(expected)) f86OrderViolations.push(`${title}: 실제 ${actual.length}줄 ↔ 기대 ${expected.length}줄`);
+  }
+}
+/** 과거 종합+회사별 감사 규격은 기록으로 남기되 실행하지 않는다. */
+if (false) {
   const meta = await api(`https://sheets.googleapis.com/v4/spreadsheets/${F86}?fields=sheets.properties.title`);
   const 모든탭: string[] = (meta.sheets || []).map((s: any) => S(s.properties?.title)).filter((t: string) => !/공지|안내|이 시트/.test(t));
   /** 「종합」은 회사 탭이 아니다 — 같은 차가 회사 탭과 두 번 서는 게 정상이라 아래에서 따로 본다. */
@@ -331,7 +372,7 @@ const F86헛것 = [...f86.keys()].filter((c) => !f01Cars.has(c));
 const F86값차이 = new Map<string, { n: number; 표본: string[] }>();
 for (const r of f01) {
   const found = f86.get(r.car); if (!found) continue;
-  const expectedCompany = channelCompanyOf(r.cells['공급사'], rowCtx.nameByProvider);
+  const expectedCompany = f86BaseTabOf(atoms.get(r.car));
   if (expectedCompany && found.company !== expectedCompany) f86WrongCompany.push(`${r.car} ${found.company || '알 수 없는 탭'} ↔ ${expectedCompany}`);
   const b = found.cells;
   for (const [rawCol, v] of Object.entries(r.cells)) {
