@@ -2,13 +2,13 @@
   "schemaVersion": 1,
   "timezone": "Asia/Seoul",
   "firstScheduledSettlementSuccessNotified": true,
-  "lastMeaningfulEventKey": "missing-schedule-fallback:2026-09-21T09:05:00+09:00",
-  "lastKnownSettlementRunId": 35550513984,
-  "lastKnownErp5RunId": 35550547914,
-  "lastKnownGoodErp5RunId": 35439046831,
-  "lastHeartbeatSlot": "2026-09-21T09:05:00+09:00",
-  "lastCheckedAt": "2026-09-21T10:23:03+09:00",
-  "lastCheckedThroughSlot": "2026-09-21T09:05:00+09:00",
+  "lastMeaningfulEventKey": "missing-schedule-fallback:2026-09-21T11:05:00+09:00",
+  "lastKnownSettlementRunId": 35555988134,
+  "lastKnownErp5RunId": 35556051763,
+  "lastKnownGoodErp5RunId": 35550547914,
+  "lastHeartbeatSlot": "2026-09-21T11:05:00+09:00",
+  "lastCheckedAt": "2026-09-21T12:01:17+09:00",
+  "lastCheckedThroughSlot": "2026-09-21T11:05:00+09:00",
   "policy": {
     "settlementWorkflow": ".github/workflows/settlement-intake-sync.yml",
     "erp5Workflow": ".github/workflows/erp5-ssot-refresh.yml",
@@ -103,6 +103,19 @@
     "2026-09-21T09:05:00+09:00": {
       "settlementRunId": 35550513984,
       "erp5RunId": 35550547914,
+      "status": "success",
+      "settlementProductionWritesCompleted": true,
+      "erp5ProductionWritesCompleted": true,
+      "audits": {
+        "f86Freshness": "pass",
+        "f01F86Parity": "pass",
+        "platePhoto": "pass"
+      },
+      "updatedAt": "2026-09-21T10:32:57+09:00"
+    },
+    "2026-09-21T10:05:00+09:00": {
+      "settlementRunId": 35555972014,
+      "erp5RunId": 35556005697,
       "status": "erp5-in-progress",
       "settlementProductionWritesCompleted": true,
       "erp5ProductionWritesCompleted": false,
@@ -111,16 +124,29 @@
         "f01F86Parity": "pending",
         "platePhoto": "pending"
       },
-      "updatedAt": "2026-09-21T10:23:03+09:00"
+      "updatedAt": "2026-09-21T12:01:17+09:00"
+    },
+    "2026-09-21T11:05:00+09:00": {
+      "settlementRunId": 35555988134,
+      "erp5RunId": 35556051763,
+      "status": "erp5-pending",
+      "settlementProductionWritesCompleted": true,
+      "erp5ProductionWritesCompleted": false,
+      "audits": {
+        "f86Freshness": "pending",
+        "f01F86Parity": "pending",
+        "platePhoto": "pending"
+      },
+      "updatedAt": "2026-09-21T12:01:17+09:00"
     }
   },
   "lastRecovery": {
-    "expectedSlot": "2026-09-21T09:05:00+09:00",
+    "expectedSlot": "2026-09-21T11:05:00+09:00",
     "failedRunId": null,
     "failureReason": "scheduled trigger missing after 20-minute grace",
-    "recoveredRunId": 35550513984,
-    "erp5RunId": 35550547914,
-    "status": "erp5-in-progress",
+    "recoveredRunId": 35555988134,
+    "erp5RunId": 35556051763,
+    "status": "erp5-pending",
     "settlementProductionWrites": {
       "intakeStepCompleted": true,
       "formatStepCompleted": true,
