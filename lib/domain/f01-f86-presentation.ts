@@ -40,7 +40,8 @@ export function presentationFormatRequests(workbook: Workbook, sheetId: number, 
   const rgbColor = Object.fromEntries(['red', 'green', 'blue'].map((key, index) => [key, parseInt(color.slice(1 + index * 2, 3 + index * 2), 16) / 255]));
   const requests: any[] = [{ updateSheetProperties: { properties: { sheetId, tabColorStyle: { rgbColor }, gridProperties: { frozenRowCount: spec.appearance.headerRowsFrozen } }, fields: 'tabColorStyle,gridProperties.frozenRowCount' } }];
   headers.forEach((header, index) => {
-    const width = (spec.appearance.columnWidthsPx as Record<string, number>)[header];
+    const tabWidths = tab ? (spec.appearance.columnWidthsByTabPx as Record<string, Record<string, number>> | undefined)?.[tab.key] : undefined;
+    const width = tabWidths?.[header] ?? (spec.appearance.columnWidthsPx as Record<string, number>)[header];
     const range = { sheetId, dimension: 'COLUMNS', startIndex: index, endIndex: index + 1 };
     if (width) requests.push({ updateDimensionProperties: { range, properties: { pixelSize: width }, fields: 'pixelSize' } });
     const months = /^(\d+)\s*개월/.exec(header);
