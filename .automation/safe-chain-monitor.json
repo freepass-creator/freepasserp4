@@ -2,13 +2,13 @@
   "schemaVersion": 1,
   "timezone": "Asia/Seoul",
   "firstScheduledSettlementSuccessNotified": true,
-  "lastMeaningfulEventKey": "missing-schedule-fallback:2026-09-21T13:05:00+09:00",
-  "lastKnownSettlementRunId": 35562020620,
-  "lastKnownErp5RunId": 35562059650,
-  "lastKnownGoodErp5RunId": 35556051763,
-  "lastHeartbeatSlot": "2026-09-21T13:05:00+09:00",
-  "lastCheckedAt": "2026-09-21T13:44:00+09:00",
-  "lastCheckedThroughSlot": "2026-09-21T13:05:00+09:00",
+  "lastMeaningfulEventKey": "missing-schedule-fallback:2026-09-21T14:05:00+09:00",
+  "lastKnownSettlementRunId": 35566428774,
+  "lastKnownErp5RunId": 35566458884,
+  "lastKnownGoodErp5RunId": 35562059650,
+  "lastHeartbeatSlot": "2026-09-21T14:05:00+09:00",
+  "lastCheckedAt": "2026-09-21T14:58:00+09:00",
+  "lastCheckedThroughSlot": "2026-09-21T14:05:00+09:00",
   "policy": {
     "settlementWorkflow": ".github/workflows/settlement-intake-sync.yml",
     "erp5Workflow": ".github/workflows/erp5-ssot-refresh.yml",
@@ -149,23 +149,41 @@
     "2026-09-21T12:05:00+09:00": {
       "settlementRunId": 35562013183,
       "erp5RunId": 35562037889,
-      "status": "erp5-pending",
+      "status": "erp5-cancelled-before-job",
       "settlementProductionWritesCompleted": true,
       "erp5ProductionWritesCompleted": false,
       "audits": {
-        "f86Freshness": "pending",
-        "f01F86Parity": "pending",
-        "platePhoto": "pending"
+        "f86Freshness": "not-run",
+        "f01F86Parity": "not-run",
+        "platePhoto": "not-run"
       },
       "recoveryReason": "scheduled trigger missing after 20-minute grace",
       "automaticSettlementHeartbeat": true,
       "automaticErp5Heartbeat": false,
-      "updatedAt": "2026-09-21T13:44:00+09:00"
+      "failingStep": "workflow_run cancelled before job creation",
+      "automaticRetryPerformed": false,
+      "updatedAt": "2026-09-21T14:58:00+09:00"
     },
     "2026-09-21T13:05:00+09:00": {
       "settlementRunId": 35562020620,
       "erp5RunId": 35562059650,
-      "status": "erp5-pending",
+      "status": "success",
+      "settlementProductionWritesCompleted": true,
+      "erp5ProductionWritesCompleted": true,
+      "audits": {
+        "f86Freshness": "pass",
+        "f01F86Parity": "pass",
+        "platePhoto": "pass"
+      },
+      "recoveryReason": "scheduled trigger missing after 20-minute grace",
+      "automaticSettlementHeartbeat": true,
+      "automaticErp5Heartbeat": false,
+      "updatedAt": "2026-09-21T14:58:00+09:00"
+    },
+    "2026-09-21T14:05:00+09:00": {
+      "settlementRunId": 35566428774,
+      "erp5RunId": 35566458884,
+      "status": "erp5-in-progress",
       "settlementProductionWritesCompleted": true,
       "erp5ProductionWritesCompleted": false,
       "audits": {
@@ -176,16 +194,16 @@
       "recoveryReason": "scheduled trigger missing after 20-minute grace",
       "automaticSettlementHeartbeat": true,
       "automaticErp5Heartbeat": false,
-      "updatedAt": "2026-09-21T13:44:00+09:00"
+      "updatedAt": "2026-09-21T14:58:00+09:00"
     }
   },
   "lastRecovery": {
-    "expectedSlot": "2026-09-21T13:05:00+09:00",
+    "expectedSlot": "2026-09-21T14:05:00+09:00",
     "failedRunId": null,
     "failureReason": "scheduled trigger missing after 20-minute grace",
-    "recoveredRunId": 35562020620,
-    "erp5RunId": 35562059650,
-    "status": "erp5-pending",
+    "recoveredRunId": 35566428774,
+    "erp5RunId": 35566458884,
+    "status": "erp5-in-progress",
     "settlementProductionWrites": {
       "intakeStepCompleted": true,
       "formatStepCompleted": true,
@@ -199,20 +217,19 @@
     }
   },
   "lastChainFailure": {
-    "expectedSlot": "2026-09-21T10:05:00+09:00",
-    "settlementRunId": 35555972014,
-    "erp5RunId": 35556005697,
-    "erp5Conclusion": "failure",
-    "failingStep": "하허호 F86 ↔ 원자 칸 대조·신선도(첫 관문); 원자 ↔ F01 ↔ F86 칸 단위 대조",
+    "expectedSlot": "2026-09-21T12:05:00+09:00",
+    "settlementRunId": 35562013183,
+    "erp5RunId": 35562037889,
+    "erp5Conclusion": "cancelled",
+    "failingStep": "workflow_run cancelled before job creation",
     "settlementProductionWritesCompleted": true,
-    "erp5ProductionWritesCompleted": true,
+    "erp5ProductionWritesCompleted": false,
     "auditResults": {
-      "f86Freshness": "pass",
-      "f86Audit": "fail-tab-order",
-      "f01F86Parity": "fail-tab-order",
-      "platePhoto": "pass"
+      "f86Freshness": "not-run",
+      "f01F86Parity": "not-run",
+      "platePhoto": "not-run"
     },
     "automaticRetryPerformed": false,
-    "reason": "ERP5 production writes completed, then canonical tab-order integrity checks failed. Audit/data-integrity failures are not eligible for heartbeat retry."
+    "reason": "ERP5 workflow_run trigger appeared, but the run was cancelled before any job was created. Because the chain trigger existed, heartbeat fallback is not eligible under the safe-chain policy."
   }
 }
