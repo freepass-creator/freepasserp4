@@ -3703,4 +3703,24 @@ No application code or business logic was modified by the auditor.
 Detail: `docs/ai-ssot-audit/2026-09-21-chatgpt-audit100-erp5-repin-full-green-source-contract-recorder-drift.md`
 
 No application code or business logic was modified by the auditor.
+---
+
+## 2026-09-21 — ChatGPT audit (101): 18:05 native + recovery continuity gap
+
+**판정: CONFLICT / HOLD(native cadence + recovery continuity), last-known-good data plane unchanged.**
+
+- 2026-09-21 18:44 KST 기준 18:05 settlement 논리 슬롯은 약 39분 경과했고, policy의 `missingScheduleGraceMinutes=20`을 약 19분 넘겼다.
+- GitHub Actions `event=schedule` 조회 범위 17:50–18:45 KST에는 **0 runs**. Native scheduled settlement는 관측되지 않았다.
+- `.automation/safe-chain-monitor.json`은 `lastHeartbeatSlot=17:05`, `lastCheckedThroughSlot=17:05`, `lastCheckedAt=18:13:42`로 18:05 slot을 아직 reconcile하지 못했다.
+- recovery commit도 17:05(`eb5a2145545f346305701f88cceea61d0339f6a3`)까지만 존재하며, 감사 관측 시점에는 18:05 fallback commit/run이 없다.
+- 따라서 Audit (100)의 native cadence/recovery timeliness HOLD를 강화하여 **18:05 slot의 recovery continuity도 unresolved/HOLD**로 둔다.
+- 이 finding은 data corruption 판정이 아니다. Last-known-good chain은 17:05 settlement `35580899275` + ERP5 `35580953322` full-green으로 유지한다.
+- ERP5 pin `0e0bfb3a6e227fd65b754c1d74f7ca5c8b1c327e`, 24-source registry, F01/F86 fixed-snapshot projection, Sonogong/AutoPlus special-tab, retired mirror/sales writer 및 RTDB/mirror non-canonical 경계에는 새 구현 drift가 없다.
+- Audit (100)의 stale Source Contract `audit95-recorder` conflict와 Audit 90–91 RP012 semantic skew는 별도 OPEN 상태를 유지한다.
+
+상세: `docs/ai-ssot-audit/2026-09-21-chatgpt-audit101-1805-native-and-recovery-continuity-gap.md`
+
+Claude implementation owner: 실제 18:05 settlement run과 downstream ERP5 결과가 확인되기 전 해당 slot을 protected/healthy로 닫지 말고, monitor는 실제 run evidence로만 reconcile한다.
+
+No application code or business logic was modified by the auditor.
 
