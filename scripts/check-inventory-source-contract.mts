@@ -114,7 +114,7 @@ const VALIDATED_ENGINES = [
    *   손오공상품에, T카 외부재고를 픽업구독에 두는 기존 assignSalesTab 결정을 발행기·감사에 잠갔다.
    * 손오공 원천은 계속 ERP API이며 수집기 내용은 cf940df6과 같다.
    */
-  '2478900272eb742035db5c3743c45a3683161219',
+  'c3838708b84527db241f1985c140a3ec6ece6bff',
 ];
 const pinnedEngine = VALIDATED_ENGINES.find((engine) => workflow.includes(`ref: ${engine}`));
 assert(pinnedEngine, '검증 엔진 pin이 제거됐습니다. main collector 이식 완료 전에는 pin을 풀면 안 됩니다(새 엔진은 VALIDATED_ENGINES 에 적는다).');
