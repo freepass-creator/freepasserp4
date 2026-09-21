@@ -17,15 +17,6 @@ name: 정산 접수→원장(1시간)
 # ⚠ 쓰기(구글시트)를 한다. 실패를 삼키지 않는다 — Actions 기록에 빨간 불로 남는다.
 
 on:
-  schedule:
-    # 영업시간 09:05~18:05 KST 매시(UTC 00:05~09:05). 저녁·새벽은 안 돈다 — 그때는 아무도 안 올린다.
-    - cron: '5 0-9 * * 1-6'
-  # GitHub schedule event가 누락될 때 외부 watchdog이 이 heartbeat 파일만 갱신해 같은 정본 로직을 실행한다.
-  # main + 단일 path로 제한해 일반 push가 production write를 만들지 않게 한다.
-  push:
-    branches: [main]
-    paths:
-      - '.automation/heartbeats/settlement-intake-sync.txt'
   workflow_dispatch:
     inputs:
       apply:
