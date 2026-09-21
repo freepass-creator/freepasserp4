@@ -2,12 +2,12 @@
   "schemaVersion": 1,
   "timezone": "Asia/Seoul",
   "firstScheduledSettlementSuccessNotified": true,
-  "lastMeaningfulEventKey": "missing-schedule-fallback:2026-09-21T11:05:00+09:00",
+  "lastMeaningfulEventKey": "erp5-audit-failure:35556005697",
   "lastKnownSettlementRunId": 35555988134,
   "lastKnownErp5RunId": 35556051763,
   "lastKnownGoodErp5RunId": 35550547914,
   "lastHeartbeatSlot": "2026-09-21T11:05:00+09:00",
-  "lastCheckedAt": "2026-09-21T12:01:17+09:00",
+  "lastCheckedAt": "2026-09-21T12:21:05+09:00",
   "lastCheckedThroughSlot": "2026-09-21T11:05:00+09:00",
   "policy": {
     "settlementWorkflow": ".github/workflows/settlement-intake-sync.yml",
@@ -116,28 +116,36 @@
     "2026-09-21T10:05:00+09:00": {
       "settlementRunId": 35555972014,
       "erp5RunId": 35556005697,
-      "status": "erp5-in-progress",
+      "status": "erp5-audit-failure",
       "settlementProductionWritesCompleted": true,
-      "erp5ProductionWritesCompleted": false,
+      "erp5ProductionWritesCompleted": true,
       "audits": {
-        "f86Freshness": "pending",
-        "f01F86Parity": "pending",
-        "platePhoto": "pending"
+        "f86Freshness": "pass",
+        "f86Audit": "fail-tab-order",
+        "f01F86Parity": "fail-tab-order",
+        "platePhoto": "pass"
       },
-      "updatedAt": "2026-09-21T12:01:17+09:00"
+      "failingSteps": [
+        "하허호 F86 ↔ 원자 칸 대조·신선도(첫 관문)",
+        "원자 ↔ F01 ↔ F86 칸 단위 대조"
+      ],
+      "failureDetail": "F86 freshness age and cell values were current/matching, but the 19-tab order differed from the canonical plan. F01↔F86 row/value parity had zero missing/extra/value mismatches, but the same canonical tab-order check failed.",
+      "automaticRetryPerformed": false,
+      "updatedAt": "2026-09-21T12:21:05+09:00"
     },
     "2026-09-21T11:05:00+09:00": {
       "settlementRunId": 35555988134,
       "erp5RunId": 35556051763,
-      "status": "erp5-pending",
+      "status": "erp5-in-progress",
       "settlementProductionWritesCompleted": true,
       "erp5ProductionWritesCompleted": false,
+      "currentStep": "동일 스냅샷으로 판매시트 게시",
       "audits": {
         "f86Freshness": "pending",
         "f01F86Parity": "pending",
         "platePhoto": "pending"
       },
-      "updatedAt": "2026-09-21T12:01:17+09:00"
+      "updatedAt": "2026-09-21T12:21:05+09:00"
     }
   },
   "lastRecovery": {
@@ -146,13 +154,14 @@
     "failureReason": "scheduled trigger missing after 20-minute grace",
     "recoveredRunId": 35555988134,
     "erp5RunId": 35556051763,
-    "status": "erp5-pending",
+    "status": "erp5-in-progress",
     "settlementProductionWrites": {
       "intakeStepCompleted": true,
       "formatStepCompleted": true,
       "result": "success"
     },
     "erp5ProductionWritesCompleted": false,
+    "currentStep": "동일 스냅샷으로 판매시트 게시",
     "audits": {
       "f86Freshness": "pending",
       "f01F86Parity": "pending",
@@ -160,14 +169,20 @@
     }
   },
   "lastChainFailure": {
-    "expectedSlot": "2026-09-19T15:05:00+09:00",
-    "settlementRunId": 35427890549,
-    "erp5RunId": 35427915834,
-    "erp5Conclusion": "cancelled",
-    "failingStep": "before job creation; no ERP5 job or step instantiated",
+    "expectedSlot": "2026-09-21T10:05:00+09:00",
+    "settlementRunId": 35555972014,
+    "erp5RunId": 35556005697,
+    "erp5Conclusion": "failure",
+    "failingStep": "하허호 F86 ↔ 원자 칸 대조·신선도(첫 관문); 원자 ↔ F01 ↔ F86 칸 단위 대조",
     "settlementProductionWritesCompleted": true,
-    "erp5ProductionWritesCompleted": false,
+    "erp5ProductionWritesCompleted": true,
+    "auditResults": {
+      "f86Freshness": "pass",
+      "f86Audit": "fail-tab-order",
+      "f01F86Parity": "fail-tab-order",
+      "platePhoto": "pass"
+    },
     "automaticRetryPerformed": false,
-    "reason": "ERP5 workflow_run appeared, so ERP5 heartbeat fallback is not permitted by the missing-trigger-only policy"
+    "reason": "ERP5 production writes completed, then canonical tab-order integrity checks failed. Audit/data-integrity failures are not eligible for heartbeat retry."
   }
 }
