@@ -175,6 +175,12 @@ const rowsAll: Row[] = [];
 const OUT_COLS = [...COLUMNS];
 const by = new Map<string, Row[]>();
 /**
+ * F86 기본 4탭은 F01과 같은 갈래를 그대로 보인다. 공급사별 탭은 일반 상품리스트만 다시 나눈다.
+ * 손오공(RP012)·오플(RP023)은 각각 전용 기본 탭에만 남고 공급사 탭으로 중복 발행하지 않는다.
+ */
+const F86_BASE_TABS = ['상품리스트', '손오공상품', '픽업구독', '오플구독'] as const;
+const isF86BaseTab = (name: string): boolean => (F86_BASE_TABS as readonly string[]).includes(name);
+/**
  * ★★**공급사를 모르는 차는 채널에 안 내보낸다.**
  *   ⚠ 2026-09-08(적대 검토가 잡았다) — F01 은 이름을 못 찾으면 「공급사」 칸을 **일부러 비운다**
  *   (코드로 때우지 않는다는 규칙). 그 빈칸을 여기서 「(공급사 없음)」 탭으로 묶어 내보내고 있었다 —
@@ -192,7 +198,9 @@ const 단기만: Row[] = [];
 for (const x of rowsAll) {
   if (!x.company) { 이름없음.push(x); continue; }
   if (RETRO && !장기있음(x)) 단기만.push(x);
-  const l = by.get(x.company) || []; l.push(x); by.set(x.company, l);
+  if (!RETRO || (x.kind === '상품리스트' && !['손오공', '오토플러스'].includes(x.company))) {
+    const l = by.get(x.company) || []; l.push(x); by.set(x.company, l);
+  }
 }
 if (이름없음.length) console.log(`  ⚠ 공급사 이름을 모르는 차 ${이름없음.length}대 — 채널에 안 내보낸다(문패 「공급사명」을 채워라): ${이름없음.slice(0, 6).map((x) => S(x.cells['차량번호'])).join(' · ')}`);
 if (APPLY && 이름없음.length) {
@@ -220,11 +228,13 @@ const cmp = compareSalesRows(modelSold, modelCount);
 for (const list of by.values()) list.sort((a, b) => cmp(a.atom, b.atom));
 /** 탭 차례 — 하허호는 «굳힌 표»(RETRO_TAB_ORDER), 그 밖은 상품 많은 순. */
 const order = [...by.entries()].sort((a, b) => (RETRO ? retroTabRank(a[0]) - retroTabRank(b[0]) : 0) || b[1].length - a[1].length);
-/** ★하허호 레트로만 — 「종합」 탭(손오공·오토플러스 뺀 렌트사 규격 차)이 맨 앞(index 0)에 선다(F86 엔 공지사항이 없다). `RETRO_SUMMARY_TAB` 머리말. */
-const 종합줄 = RETRO ? order.filter(([co]) => inRetroSummary(co)).flatMap(([, l]) => l).sort((a, b) => cmp(a.atom, b.atom)) : [];
+/** ★하허호 F86 — F01 기본 4탭을 먼저 세우고, 상품리스트의 기타 공급사 탭을 뒤에 둔다. */
+const 기본탭: [string, Row[]][] = RETRO
+  ? F86_BASE_TABS.map((kind) => [kind, rowsAll.filter((x) => x.kind === kind).sort((a, b) => cmp(a.atom, b.atom))])
+  : [];
 if (RETRO && 단기만.length) console.log(`   ○ 장기 요금 없는 차 ${단기만.length}대 — 싣되 장기 요금 칸은 빈 채: ${단기만.slice(0, 6).map((x) => `${S(x.cells['차량번호'])}(${x.company})`).join(' · ')}`);
-const 탭들: [string, Row[]][] = RETRO ? [[RETRO_SUMMARY_TAB, 종합줄], ...order] : order;
-if (RETRO) console.log(`   ${String(종합줄.length).padStart(4)}  ${RETRO_SUMMARY_TAB} (손오공·오토플러스 뺀 렌트사 규격)`);
+const 탭들: [string, Row[]][] = RETRO ? [...기본탭, ...order] : order;
+if (RETRO) for (const [name, list] of 기본탭) console.log(`   ${String(list.length).padStart(4)}  ${name} (F01 기본 탭)`);
 console.log(`\n■ ${DOC_NAME} — 회사 ${order.length}곳 · 총 ${rowsAll.length}대 · 열 ${OUT_COLS.length}`);
 for (const [k, list] of order) {
   const g = new Map<string, number>(); for (const x of list) g.set(x.kind, (g.get(x.kind) || 0) + 1);
@@ -358,10 +368,14 @@ for (const [company, list] of 탭들) {
    */
   /** 회사 탭 = 쓰는 요금 칸만 · 「종합」 = 렌트사 규격 9칸 늘(`retroLayout` 머리말). */
   /** 하허호 = «굳힌 표»의 칸(데이터를 안 본다 · 표 밖이면 위 문지기가 이미 멈췄다). */
-  const 레트로 = RETRO ? retroTabLayout(company) : null;
-  if (RETRO && !레트로) throw new Error(`굳힌 양식 표에 없는 탭: ${company}`);
-  const cols = 레트로 ? 레트로.map((c) => c.head) : 쓸칸;
-  const title = (RETRO && company !== RETRO_SUMMARY_TAB) ? `${company} · ${list.length}대` : `${company} ${mark} · ${list.length}대`;
+  const 기본 = RETRO && isF86BaseTab(company);
+  const 레트로 = RETRO && !기본 ? retroTabLayout(company) : null;
+  if (RETRO && !기본 && !레트로) throw new Error(`굳힌 양식 표에 없는 탭: ${company}`);
+  const 기본칸 = 기본 ? headOf[company] : [];
+  const cols = 기본 ? 기본칸 : 레트로 ? 레트로.map((c) => c.head) : 쓸칸;
+  const title = RETRO
+    ? (기본 ? `${company} ${mark} · ${list.length}대` : `${company} · ${list.length}대`)
+    : `${company} ${mark} · ${list.length}대`;
   const old = have.find(([t]) => t.startsWith(`${company} `));
   let gid: number;
   if (old) {
@@ -387,7 +401,9 @@ for (const [company, list] of 탭들) {
   /** 본문 — 열너비를 재고 차번 셀 링크를 거는 데 쓴다(서식보다 «먼저» 있어야 한다). */
   const body = 레트로
     ? list.map((x) => 레트로.map((c) => (c.src.kind === 'col' ? S(x.cells[c.src.name]) : c.src.kind === 'atom' ? S(x.atom?.[c.src.field]) : c.src.kind === 'company' ? S(x.company) : '')))
-    : list.map((x) => cols.map((c) => S(x.cells[c])));
+    : 기본
+      ? list.map((x) => cols.map((c) => S(cell(c, x.atom))))
+      : list.map((x) => cols.map((c) => S(x.cells[c])));
   /**
    * ★★**차번 셀 링크는 «값을 쓴 뒤»에 건다** — 아래 `링크요청` 으로 따로 받아 둔다.
    *   ⚠⚠ 실측 2026-09-09 — 여기서 링크까지 `reqs` 에 담아 «먼저» 보내고 값을 나중에 썼더니,
@@ -404,7 +420,7 @@ for (const [company, list] of 탭들) {
     gid, columns: cols, headerAt: 0, widths: columnWidths(cols, body),
     columnCountNow: cols.length, tabTitle: title, body, linkOut: 링크요청,
   }) as any[];
-  reqs.push(...(RETRO ? applyRetroSkin(서식, 링크요청, { gid, columns: cols, headerAt: 0, body }) : 서식));
+  reqs.push(...(RETRO && !기본 ? applyRetroSkin(서식, 링크요청, { gid, columns: cols, headerAt: 0, body }) : 서식));
   /**
    * ★**탭 색은 회사마다 다르게** (사장님 2026-09-08 「각 회사별 탭 다르게 해주고」).
    *   차례대로 도는 색표라 회사가 늘어도 안 겹쳐 보인다. 서식(글꼴·값 색)은 위에서 이미 한 벌로 맞췄다.
@@ -415,9 +431,9 @@ for (const [company, list] of 탭들) {
     { red: 0.38, green: 0.24, blue: 0.53 }, { red: 0.13, green: 0.42, blue: 0.47 },
     { red: 0.58, green: 0.30, blue: 0.12 }, { red: 0.30, green: 0.30, blue: 0.30 },
   ];
-  reqs.push(RETRO ? retroTabColorRequest(gid, company) : { updateSheetProperties: { properties: { sheetId: gid, tabColor: TAB_HUES[index % TAB_HUES.length] }, fields: 'tabColor' } });
+  reqs.push(RETRO && !기본 ? retroTabColorRequest(gid, company) : { updateSheetProperties: { properties: { sheetId: gid, tabColor: TAB_HUES[index % TAB_HUES.length] }, fields: 'tabColor' } });
   reqs.push({ setBasicFilter: { filter: { range: { sheetId: gid, startRowIndex: 0, endRowIndex: list.length + 1, startColumnIndex: 0, endColumnIndex: cols.length } } } });
-  puts.push({ range: `'${title}'!A1`, values: [cols, ...(RETRO ? body.map((r) => r.map((v, k) => retroCellValue(cols[k], v))) : body)] as any });
+  puts.push({ range: `'${title}'!A1`, values: [cols, ...(RETRO && !기본 ? body.map((r) => r.map((v, k) => retroCellValue(cols[k], v))) : body)] as any });
   쓴탭.add(gid);
   index++;
 }
