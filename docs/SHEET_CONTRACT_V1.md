@@ -1,6 +1,6 @@
 # Sheet Contract v1 — 2026-09-21
 
-Status: HOLD, no production mutation, no merge, no workflow dispatched.
+Status: HOLD. This task made no production mutation, merge or dispatch. A concurrent actor merged #453 and dispatched the old full pipeline; see the incident note below.
 
 ## Contract and implementation
 
@@ -50,3 +50,10 @@ Immediate readback compares title/width/wrapping and a hash of every non-owned f
 ## Change history
 
 2026-09-21: Reject MM.DD, middle-dot separators and canonical-key-as-company display. Add exact worksheet title mapping, shared contract, source-width preservation and dispatch-only narrow execution. Earlier top-cell proposal was withdrawn; no top cells or rows were created.
+
+
+## Concurrent production change (not performed by this task)
+
+At 2026-09-21T06:54:31Z, #453 merged its original b1df8ac3 head as 79db9988500d7fd7634f24c52f382016d8cb5730. Main now pins the rejected 0e0bfb3 engine. At 06:54:49Z, workflow_dispatch run 35570499422 started the full ERP5 pipeline. This task did not merge or dispatch it, and notified the coordinating task immediately. The local withdrawal commit b4f18c88 was pushed after merge and is not applied to main. Earlier read-only snapshots may now be stale; do not execute their plans.
+
+GitHub CI run 35570386892 on 090b65b3 failed at the same four baseline font violations after typecheck passed. The remaining CI steps were skipped, not PASS. Cursor's final delta review found no new write-safety blockers in the corrected executor, but found a duplicate company identity gap in the shared planner; this was then closed with an adversarial test. The existing broad publishers retain full-column formatting semantics; the formatting-only workflow is bounded to header/data rows.

@@ -26,6 +26,8 @@ export function planSheetContract(snapshot: SheetContractSnapshot) {
     if (ci < 0 || rows.some(row => !String(row[ci] ?? '').trim())) holds.push(`HOLD: non-vehicle row ${t.sheetId}`);
     return { tab: t, canonicalKey, count: rows.length };
   });
+  const identities = entries.flatMap(e => e.canonicalKey ? [e.canonicalKey] : []);
+  if (new Set(identities).size !== identities.length) holds.push('HOLD: duplicate canonical identity');
   const manifest = salesBannerManifest({ ...snapshot, tabs: entries.filter(e => e.canonicalKey).map(e => ({ canonicalKey: e.canonicalKey!, count: e.count, companyDisplayName: e.tab.companyDisplayName })) });
   const diff: { sheetId: number; before: string; after: string; count: number; columns: { index: number; header: string; before: number | null; after: number | null; wrapStrategy: string }[] }[] = [];
   const proposedRequests: Record<string, unknown>[] = [];

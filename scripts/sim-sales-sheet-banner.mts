@@ -63,3 +63,5 @@ assert.equal(companyTabMatches('Foo 12대', 'Foo'), true);
 
 assert.throws(() => publisherSourceTextRequests(1, ['옵션(원문)']), /HOLD/);
 assert.equal(publisherSourceTextRequests(1, ['옵션(원문)'], undefined, true).length, 2);
+
+assert.equal(planSheetContract({ ...base, tabs: [...base.tabs, { ...base.tabs[0], sheetId: 21, index: 4, title: '회사 1대', companyDisplayName: '회사' }, { ...base.tabs[0], sheetId: 22, index: 5, title: '회사 2대', companyDisplayName: '회사', rows: [['a'], ['b']] }] }).status, 'HOLD');
