@@ -2,13 +2,13 @@
   "schemaVersion": 1,
   "timezone": "Asia/Seoul",
   "firstScheduledSettlementSuccessNotified": true,
-  "lastMeaningfulEventKey": "missing-schedule-fallback:2026-09-21T16:05:00+09:00",
-  "lastKnownSettlementRunId": 35574717419,
-  "lastKnownErp5RunId": 35574765889,
+  "lastMeaningfulEventKey": "missing-schedule-fallback:2026-09-21T17:05:00+09:00",
+  "lastKnownSettlementRunId": 35580899275,
+  "lastKnownErp5RunId": 35580953322,
   "lastKnownGoodErp5RunId": 35569097238,
-  "lastHeartbeatSlot": "2026-09-21T16:05:00+09:00",
-  "lastCheckedAt": "2026-09-21T16:50:00+09:00",
-  "lastCheckedThroughSlot": "2026-09-21T16:05:00+09:00",
+  "lastHeartbeatSlot": "2026-09-21T17:05:00+09:00",
+  "lastCheckedAt": "2026-09-21T18:01:20+09:00",
+  "lastCheckedThroughSlot": "2026-09-21T17:05:00+09:00",
   "policy": {
     "settlementWorkflow": ".github/workflows/settlement-intake-sync.yml",
     "erp5Workflow": ".github/workflows/erp5-ssot-refresh.yml",
@@ -215,6 +215,25 @@
     "2026-09-21T16:05:00+09:00": {
       "settlementRunId": 35574717419,
       "erp5RunId": 35574765889,
+      "status": "erp5-cancelled-during-source-calc",
+      "settlementProductionWritesCompleted": true,
+      "erp5ProductionWritesCompleted": false,
+      "audits": {
+        "f86Freshness": "not-run",
+        "f01F86Parity": "not-run",
+        "platePhoto": "not-run"
+      },
+      "recoveryReason": "scheduled trigger missing after 20-minute grace",
+      "automaticSettlementHeartbeat": true,
+      "automaticErp5Heartbeat": false,
+      "heartbeatCommitSha": "656c6a879a3aa1c07cad35cee3474a89c5037db2",
+      "failingStep": "원천에서 ERP5 현재 원자 계산",
+      "automaticRetryPerformed": false,
+      "updatedAt": "2026-09-21T17:00:59+09:00"
+    },
+    "2026-09-21T17:05:00+09:00": {
+      "settlementRunId": 35580899275,
+      "erp5RunId": 35580953322,
       "status": "erp5-in-progress",
       "settlementProductionWritesCompleted": true,
       "erp5ProductionWritesCompleted": false,
@@ -226,8 +245,8 @@
       "recoveryReason": "scheduled trigger missing after 20-minute grace",
       "automaticSettlementHeartbeat": true,
       "automaticErp5Heartbeat": false,
-      "heartbeatCommitSha": "656c6a879a3aa1c07cad35cee3474a89c5037db2",
-      "updatedAt": "2026-09-21T16:50:00+09:00"
+      "heartbeatCommitSha": "eb5a2145545f346305701f88cceea61d0339f6a3",
+      "updatedAt": "2026-09-21T18:01:20+09:00"
     }
   },
   "scheduleObservations": {
@@ -235,15 +254,15 @@
       "delayedScheduledSettlementRunId": 35562239965,
       "createdAt": "2026-09-21T13:47:04+09:00",
       "conclusion": "success",
-      "note": "A scheduled run eventually appeared 42 minutes after the 13:05 expected slot. It did not invalidate the already-eligible 13:05 heartbeat recovery and does not cover the later 14:05-16:05 slots."
+      "note": "A scheduled run eventually appeared 42 minutes after the 13:05 expected slot. It did not invalidate the already-eligible 13:05 heartbeat recovery and does not cover the later 14:05-17:05 slots."
     }
   },
   "lastRecovery": {
-    "expectedSlot": "2026-09-21T16:05:00+09:00",
+    "expectedSlot": "2026-09-21T17:05:00+09:00",
     "failedRunId": null,
     "failureReason": "scheduled trigger missing after 20-minute grace",
-    "recoveredRunId": 35574717419,
-    "erp5RunId": 35574765889,
+    "recoveredRunId": 35580899275,
+    "erp5RunId": 35580953322,
     "status": "erp5-in-progress",
     "settlementProductionWrites": {
       "intakeStepCompleted": true,
@@ -258,11 +277,11 @@
     }
   },
   "lastChainFailure": {
-    "expectedSlot": "2026-09-21T12:05:00+09:00",
-    "settlementRunId": 35562013183,
-    "erp5RunId": 35562037889,
+    "expectedSlot": "2026-09-21T16:05:00+09:00",
+    "settlementRunId": 35574717419,
+    "erp5RunId": 35574765889,
     "erp5Conclusion": "cancelled",
-    "failingStep": "workflow_run cancelled before job creation",
+    "failingStep": "원천에서 ERP5 현재 원자 계산",
     "settlementProductionWritesCompleted": true,
     "erp5ProductionWritesCompleted": false,
     "auditResults": {
@@ -271,6 +290,6 @@
       "platePhoto": "not-run"
     },
     "automaticRetryPerformed": false,
-    "reason": "ERP5 workflow_run trigger appeared, but the run was cancelled before any job was created. Because the chain trigger existed, heartbeat fallback is not eligible under the safe-chain policy."
+    "reason": "ERP5 workflow_run trigger existed and processing began, but the run was cancelled during source calculation before publish steps. Because the chain trigger existed, heartbeat fallback is not eligible under the safe-chain policy."
   }
 }
