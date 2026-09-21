@@ -333,71 +333,78 @@ export const ShopCard = memo(function ShopCard({ p, href, rank = 99, searchQuery
               · **보증금 = `manShort`(「178만원」)** — 기존처럼 만원 단위까지만 보여 준다.
             ★목록에서만 축약한다. 상세·계약·정산의 실제 금액은 원 단위 정본을 그대로 쓴다.
           */}
-          {price && price.rent > 0 ? (
-            /* ⚠ 잘라 내지 않는다 — 「보증금 103만 5,…」로 끝이 잘리고 있었다(2026-09-05 실측).
-                 보증금은 저신용 손님이 제일 먼저 재는 «지금 드는 돈»이라, 자리에 안 맞으면
-                 자르는 게 아니라 **다음 줄로 내린다**(`flexWrap`). 값은 줄이지 않는다. */
+          {((price && price.rent > 0) || marks.length) ? (
             <div style={{
-              display: 'flex', alignItems: 'baseline', flexWrap: 'wrap',
-              columnGap: SHOP.sp.snug, rowGap: SHOP.sp.tight, minWidth: 0,
+              display: 'flex', flexDirection: 'column', gap: SHOP.sp.tight,
+              minWidth: 0,
             }}>
-              <span style={{ fontSize: SHOP.fs.sub, color: C.mute, flex: '0 0 auto' }}>
-                {price.m}개월
-              </span>
-              <span style={{
-                /*
-                 * ★★**도드라지되 소리치지는 않는다** — 21(사장님 2026-09-05 「**대여료만 굳이
-                 *   너무 도드라지게 크거나**」). 25 는 차명(16)의 **1.6배**라 카드에서 금액이
-                 *   먼저 읽히고 차가 나중에 읽혔다 — 손님이 고르는 것은 «차»고, 금액은 그 차의 값이다.
-                 * ⇒ 21 = 차명의 1.3배. 여전히 이 줄에서 제일 큰 글자라 위계는 그대로다.
-                 */
-                fontSize: SHOP.fs.price, fontWeight: FW.head, color: C.ink, flex: '0 0 auto',
-                lineHeight: 1.15,  /* 큰 숫자일수록 기본 줄높이가 남긴 여백이 크다 — 여기서 제일 많이 붙는다. */
-                letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums',
-              }}>{manShort(price.rent, { decimal: true })}</span>
-              {/*
-                ★「보증금 없음」에만 색을 준다(2026-09-05). 저신용 손님의 1번 장벽은 월요금이 아니라
-                  **지금 당장 필요한 목돈**이라, 이 판에서 제일 센 말이 이거다.
-                  뱃지를 하나 더 세우는 대신 «있는 글자»에 색을 얹었다 — 「무보증」 뱃지를 뺀 자리를
-                  이게 대신한다(같은 사실을 두 번 말하지 않으면서 눈에는 선다).
-                ⚠ 보증금이 «있는» 차는 흐린 회색 그대로다. 금액마다 색을 주면 그건 강조가 아니라 소란이다.
-              */}
-              {/*
-                ★★**금액은 안 접고, «규칙 문장»만 접는다.**
-                ⚠⚠ 2026-09-18 운영 실측 — 규칙 글자(「보증금 월 대여료 × 약정연수 (최대 3개월)」)가
-                  `nowrap` + `flex:0 0 auto` 라 **줄지도 접히지도 못하고 칸 밖으로 흘렀다.**
-                  창 900px 에서 카드폭 167px · 그 줄 210px → **45px 가 옆 카드 위로 넘어가** 글자가 겹쳤다
-                  (카드폭 210 미만, 즉 창 약 1010px 밑에서 늘 일어난다). 다른 줄은 다 … 처리가 돼 있었다.
-                ⇒ **자르지 않는다**(2026-09-05 확정 — 「보증금 103만 5,…」로 끝이 잘려 있던 것을 그때 고쳤다).
-                  규칙일 때만 **제 줄을 통째로 쓰고 자연스럽게 두 줄로 흐르게** 둔다.
-                  넓은 화면에서는 어차피 이 줄이 혼자 내려와 있어(실측 카드폭 297) 보이는 그림이 안 바뀐다.
-                ★금액(「보증금 178만원」)·「보증금 없음」은 그대로 한 줄이다 — 2026-09-04 「한 줄에 셋」이 산다.
-              */}
-              <span style={{
-                fontSize: SHOP.fs.sub,
-                ...(dep && dep.rule
-                  ? { flex: '1 1 100%', minWidth: 0, whiteSpace: 'normal' as const }
-                  : { flex: '0 0 auto', whiteSpace: 'nowrap' as const }),
-                fontVariantNumeric: 'tabular-nums',
-                color: dep && dep.none ? C.ok : C.mute,
-                fontWeight: dep && dep.none ? 700 : 400,
+            {price && price.rent > 0 ? (
+              /* ⚠ 잘라 내지 않는다 — 「보증금 103만 5,…」로 끝이 잘리고 있었다(2026-09-05 실측).
+                   보증금은 저신용 손님이 제일 먼저 재는 «지금 드는 돈»이라, 자리에 안 맞으면
+                   자르는 게 아니라 **다음 줄로 내린다**(`flexWrap`). 값은 줄이지 않는다. */
+              <div style={{
+                display: 'flex', alignItems: 'baseline', flexWrap: 'wrap',
+                columnGap: SHOP.sp.snug, rowGap: SHOP.sp.tight, minWidth: 0,
               }}>
-                {dep ? (noDepositAlias ? <mark className="fp-shop-match">{dep.text}</mark> : markText(dep.text)) : ''}
-              </span>
-            </div>
-          ) : null}
-
-          {/*
-            ⑤ 우대조건 — **상세와 같은 원자**(`PerkMarks`). 위 `marks` 머리말 참고.
-            ★카드는 좁으니 한 단 작게 든다(글자 12 · 아이콘 13) — 꼴은 같고 치수만 준다.
-          */}
-          {marks.length ? (
-            <div style={{
-              /* 줄 사이(8)는 컨테이너 gap 이 이미 준다 — 여기서 더 벌리지 않는다(당근도 균등이다). */
-              marginTop: 'auto',
-            }}>
-              {/* 치수는 원자의 «한 벌»(`BADGE`)이 정한다 — 여기서 fs·size 를 박으면 또 갈린다. */}
-              <PerkMarks marks={marks} columnGap={SHOP.sp.snug} highlightTexts={highlightMarks} />
+                <span style={{ fontSize: SHOP.fs.sub, color: C.mute, flex: '0 0 auto' }}>
+                  {price.m}개월
+                </span>
+                <span style={{
+                  /*
+                   * ★★**도드라지되 소리치지는 않는다** — 21(사장님 2026-09-05 「**대여료만 굳이
+                   *   너무 도드라지게 크거나**」). 25 는 차명(16)의 **1.6배**라 카드에서 금액이
+                   *   먼저 읽히고 차가 나중에 읽혔다 — 손님이 고르는 것은 «차»고, 금액은 그 차의 값이다.
+                   * ⇒ 21 = 차명의 1.3배. 여전히 이 줄에서 제일 큰 글자라 위계는 그대로다.
+                   */
+                  fontSize: SHOP.fs.price, fontWeight: FW.head, color: C.ink, flex: '0 0 auto',
+                  lineHeight: 1.15,  /* 큰 숫자일수록 기본 줄높이가 남긴 여백이 크다 — 여기서 제일 많이 붙는다. */
+                  letterSpacing: '-0.03em', fontVariantNumeric: 'tabular-nums',
+                }}>{manShort(price.rent, { decimal: true })}</span>
+                {/*
+                  ★「보증금 없음」에만 색을 준다(2026-09-05). 저신용 손님의 1번 장벽은 월요금이 아니라
+                    **지금 당장 필요한 목돈**이라, 이 판에서 제일 센 말이 이거다.
+                    뱃지를 하나 더 세우는 대신 «있는 글자»에 색을 얹었다 — 「무보증」 뱃지를 뺀 자리를
+                    이게 대신한다(같은 사실을 두 번 말하지 않으면서 눈에는 선다).
+                  ⚠ 보증금이 «있는» 차는 흐린 회색 그대로다. 금액마다 색을 주면 그건 강조가 아니라 소란이다.
+                */}
+                {/*
+                  ★★**금액은 안 접고, «규칙 문장»만 접는다.**
+                  ⚠⚠ 2026-09-18 운영 실측 — 규칙 글자(「보증금 월 대여료 × 약정연수 (최대 3개월)」)가
+                    `nowrap` + `flex:0 0 auto` 라 **줄지도 접히지도 못하고 칸 밖으로 흘렀다.**
+                    창 900px 에서 카드폭 167px · 그 줄 210px → **45px 가 옆 카드 위로 넘어가** 글자가 겹쳤다
+                    (카드폭 210 미만, 즉 창 약 1010px 밑에서 늘 일어난다). 다른 줄은 다 … 처리가 돼 있었다.
+                  ⇒ **자르지 않는다**(2026-09-05 확정 — 「보증금 103만 5,…」로 끝이 잘려 있던 것을 그때 고쳤다).
+                    규칙일 때만 **제 줄을 통째로 쓰고 자연스럽게 두 줄로 흐르게** 둔다.
+                    넓은 화면에서는 어차피 이 줄이 혼자 내려와 있어(실측 카드폭 297) 보이는 그림이 안 바뀐다.
+                  ★금액(「보증금 178만원」)·「보증금 없음」은 그대로 한 줄이다 — 2026-09-04 「한 줄에 셋」이 산다.
+                */}
+                <span style={{
+                  fontSize: SHOP.fs.sub,
+                  ...(dep && dep.rule
+                    ? { flex: '1 1 100%', minWidth: 0, whiteSpace: 'normal' as const }
+                    : { flex: '0 0 auto', whiteSpace: 'nowrap' as const }),
+                  fontVariantNumeric: 'tabular-nums',
+                  color: dep && dep.none ? C.ok : C.mute,
+                  fontWeight: dep && dep.none ? 700 : 400,
+                }}>
+                  {dep ? (noDepositAlias ? <mark className="fp-shop-match">{dep.text}</mark> : markText(dep.text)) : ''}
+                </span>
+              </div>
+            ) : null}
+  
+            {/*
+              ⑤ 우대조건 — **상세와 같은 원자**(`PerkMarks`). 위 `marks` 머리말 참고.
+              ★카드는 좁으니 한 단 작게 든다(글자 12 · 아이콘 13) — 꼴은 같고 치수만 준다.
+            */}
+            {marks.length ? (
+              <div style={{
+                /* 줄 사이(8)는 컨테이너 gap 이 이미 준다 — 여기서 더 벌리지 않는다(당근도 균등이다). */
+                marginTop: 'auto',
+              }}>
+                {/* 치수는 원자의 «한 벌»(`BADGE`)이 정한다 — 여기서 fs·size 를 박으면 또 갈린다. */}
+                <PerkMarks marks={marks} columnGap={SHOP.sp.snug} highlightTexts={highlightMarks} />
+              </div>
+            ) : null}
             </div>
           ) : null}
         </div>
