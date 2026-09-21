@@ -3644,3 +3644,24 @@ No application code or business logic was modified by the auditor.
 Detail: `docs/ai-ssot-audit/2026-09-21-chatgpt-audit97-pr455-safety-revert-audit96-race-correction.md`
 
 No application code or business logic was modified by the auditor.
+
+---
+
+## 2026-09-21 — ChatGPT audit (98): PR #457 re-pin + Sheet Contract writer; PR #459 fixes F01 dry-run auth
+
+**판정: MATERIAL IMPLEMENTATION CHANGE / Audit (97) current-production summary STALE / HOLD(post-repin ERP5 full validation + dedicated Source Contract) / NEW MANUAL DISPLAY-WRITER TOPOLOGY / PR #458 AUTH FAILURE PARTIALLY RESOLVED BY PR #459 DRY-RUN / Audit 90–91 semantic skew OPEN.**
+
+- PR #457 merge `5266d634187493d871f4c5f13a07af0fb0f70698`가 configured ERP5 production engine, Core receipt revision, AI Core shadow source/revision, validated-engine allowlist뉼 `c3838708...`에서 `0e0bfb3a6e227fd65b754c1d74f7ca5c8b1c327e`로 다시 전진시켰다. 따라서 Audit (97)의 `c3838708...` current-production 판정은 stale이다.
+- 새 pin ERP5 run `35572350744`은 engine checkout/OIDC/source contract/source recollection/T-car audit/settlement→Atom contract lock까지 success였지만 `원천에서 ERP5 현재 원자 계산`이 cancelled됐다. AI Core shadow receipt 단계는 완료됐으나 fixed snapshot/public/F01/F86/freshness/cross-audit/photo/evidence는 skipped됐다. 새 pin은 **full-green 미확정**이며 publish 단계가 실행되지 않았으므로 이 run 자체를 published-data corruption 증거로 보지 않는다.
+- Audit 90–91 skew는 유지된다. Current-main RP012 registry는 아직 `LOW_SONOKONG · LOW_TCAR` + 일반렌트 API bucket HOLD를 유지하지만 active `0e0bfb3...` lineage는 three-bucket/source-specific Sonogong semantics뉼 사용한다. RP012 Sonogong ERP/API, RP023 RebornCar authority 자체는 변경되지 않았다.
+- Dedicated SSOT Source Contract는 re-pin 이후에도 pre-job failure가 반복됐고 later main run `35573667738`도 jobs-before-execution failure 상태다. Generic CI는 전용 fail-closed gate를 대체하지 않는다.
+- PR #458 merge `0366d714532ecbee86763716efa13279067675de`가 F01/F86용 manual `sheet-formatting-only.yml`을 추가했다. 이 경로는 ingest/Firestore/row write를 하지 않는 **opt-in 표시 전용 writer**다. `widths` mode는 column width만, `full`은 title/wrapping도 계획하지만 `reference-audit.json=UNAVAILABLE`인 동안 full apply는 fail-closed다. Inventory SSOT authority로 승격하지 않는다.
+- 초기 F01/F86 runs `35572968635`, `35573151608`은 snapshot/preflight에서 delegated auth `unauthorized_client`로 failure했고 receipts는 `writeAttempted=false`였다. PR #459 merge `9a5a21e7fa5b71984f9761868722125c963e7054`가 Drive scope를 existing publisher DWD scope와 맞춘 뒤 fresh F01 widths dry-run `35573509757`은 `SHEET_FORMAT_APPLY=false`로 credential prep, contract regression, snapshot/preflight/readback, evidence까지 `success` 완료했다. 따라서 **F01 width-only dry-run의 delegated-auth/preflight HOLD는 해소**됐다. 다만 live apply/write는 검증되지 않았고 F86 fresh validation도 없으며 `full`은 reference audit가 `VERIFIED`되기 전까지 계속 HOLD다.
+- `mirror-sync.yml` / `sales-erp-hourly.yml` retired manual-dry-run 상태와 RTDB/mirror non-canonical boundary에는 신규 drift가 없다.
+
+**Claude implementation owner:** active `0e0bfb3...`은 stale metadata에 맞추려고 임의 rollback하지 말고 full production-equivalent green을 확보해 검증한다. Dedicated Source Contract를 실제 job green까지 복구하고 RP012 registry/runtime helper/contract semantics뉼 fail-closed로 정렬한다. Sheet Contract writer는 별도 표시 전용 경로로 유지하고, F01 widths dry-run green을 live apply/F86/full 검증으로 확대 해석하지 않는다. `full`은 reference audit VERIFIED 전까지 fail-closed를 유지한다. F01/F86 parity, Sonogong/AutoPlus authority, retired mirror/RTDB boundary뉴 약화하지 않는다.
+
+Detail: `docs/ai-ssot-audit/2026-09-21-chatgpt-audit98-pr457-repin-pr458-sheet-contract-hold.md`
+
+No application code or business logic was modified by the auditor.
+
