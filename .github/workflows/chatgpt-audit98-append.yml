@@ -1,0 +1,72 @@
+name: ChatGPT Audit 98 Append
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/chatgpt-audit98-append.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  append:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Append audit 98 and self-remove
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git fetch origin main
+          git reset --hard origin/main
+          python - <<'PY'
+          from pathlib import Path
+
+          log = Path('docs/AI-SSOT-AUDIT-LOG.md')
+          text = log.read_text(encoding='utf-8')
+          marker = 'ChatGPT audit (98): PR #457 re-pin + PR #458 Sheet Contract writer'
+          entry = r'''
+
+---
+
+## 2026-09-21 — ChatGPT audit (98): PR #457 re-pin + PR #458 Sheet Contract writer; validation HOLD
+
+**판정: MATERIAL IMPLEMENTATION CHANGE / Audit (97) current-production summary STALE / HOLD(post-repin ERP5 full validation + dedicated Source Contract) / NEW MANUAL DISPLAY-WRITER TOPOLOGY / Audit 90–91 semantic skew OPEN.**
+
+- PR #457 merge `5266d634187493d871f4c5f13a07af0fb0f70698`가 configured ERP5 production engine, Core receipt revision, AI Core shadow source/revision, validated-engine allowlist를 `c3838708...`에서 `0e0bfb3a6e227fd65b754c1d74f7ca5c8b1c327e`로 다시 전진시켰다. 따라서 Audit (97)의 `c3838708...` current-production 판정은 stale이다.
+- 새 pin의 ERP5 run `35572350744`은 source recollection과 settlement→Atom contract lock까지 success였지만 `원천에서 ERP5 현재 원자 계산`에서 **cancelled**됐고 fixed snapshot/public/F01/F86/freshness/cross-audit/photo/evidence는 skipped됐다. 새 pin은 **full-green 미확정**이며, publish 단계가 실행되지 않았으므로 이 run 자체를 published-data corruption 증거로 보지 않는다.
+- Audit 90–91 skew는 유지된다. Current-main RP012 registry는 아직 `LOW_SONOKONG · LOW_TCAR` + 일반렌트 API bucket HOLD를 유지하지만 active `0e0bfb3...` lineage는 three-bucket/source-specific Sonogong semantics를 사용한다. RP012 Sonogong ERP/API, RP023 RebornCar authority 자체는 변경되지 않았다.
+- Dedicated SSOT Source Contract는 re-pin 이후에도 pre-job failure가 반복됐다(`35571946592`, `35572954687`, `35572965499`). Generic CI는 전용 fail-closed gate를 대체하지 않는다.
+- PR #458 merge `0366d714532ecbee86763716efa13279067675de`가 F01/F86용 manual `sheet-formatting-only.yml`을 추가했다. 이 경로는 ingest/Firestore/row write를 하지 않는 **opt-in 표시 전용 writer**다. `widths` mode는 column width만, `full`은 title/wrapping도 계획하지만 `reference-audit.json=UNAVAILABLE`인 동안 full apply는 fail-closed다. Inventory SSOT authority로 승격하지 않는다.
+- 첫 F01/F86 runs `35572968635`, `35573151608`은 둘 다 snapshot/preflight에서 `unauthorized_client`로 failure했고 receipts는 `writeAttempted=false`다. 따라서 두 run에서 live sheet mutation은 확인되지 않으며 Workspace delegated auth는 HOLD다.
+- `mirror-sync.yml` / `sales-erp-hourly.yml` retired manual-dry-run 상태와 RTDB/mirror non-canonical boundary에는 신규 drift가 없다.
+
+**Claude implementation owner:** active `0e0bfb3...`은 stale metadata에 맞추려고 임의 rollback하지 말고 full production-equivalent green을 확보해 검증한다. Dedicated Source Contract를 실제 job green까지 복구하고 RP012 registry/runtime helper/contract semantics를 fail-closed로 정렬한다. Sheet Contract writer는 별도 표시 전용 경로로 유지하며 delegated auth와 reference dependency를 해결하기 전 apply하지 않는다. F01/F86 parity, Sonogong/AutoPlus authority, retired mirror/RTDB boundary는 약화하지 않는다.
+
+Detail: `docs/ai-ssot-audit/2026-09-21-chatgpt-audit98-pr457-repin-pr458-sheet-contract-hold.md`
+
+No application code or business logic was modified by the auditor.
+'''
+          if marker not in text:
+              log.write_text(text.rstrip() + entry + '\n', encoding='utf-8')
+          Path('.github/workflows/chatgpt-audit98-append.yml').unlink(missing_ok=True)
+          PY
+          git add docs/AI-SSOT-AUDIT-LOG.md .github/workflows/chatgpt-audit98-append.yml
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m 'docs(audit): append audit 98 central ledger'
+          for attempt in 1 2 3; do
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+            git fetch origin main
+            git rebase origin/main
+          done
+          exit 1
