@@ -123,6 +123,7 @@ const VALIDATED_ENGINES = [
    *   F01/F86 탭 문패는 맨 앞 상품리스트만 갱신시각·대수를, 나머지는 탭명·대수만 표시한다.
    */
   '0e0bfb3a6e227fd65b754c1d74f7ca5c8b1c327e',
+  'fcb571813f787677afc7a57c3ab6aadbd2446fdc', // shared F01/F86 presentation; online readback 35576634024
 ];
 const pinnedEngine = VALIDATED_ENGINES.find((engine) => workflow.includes(`ref: ${engine}`));
 assert(pinnedEngine, '검증 엔진 pin이 제거됐습니다. main collector 이식 완료 전에는 pin을 풀면 안 됩니다(새 엔진은 VALIDATED_ENGINES 에 적는다).');
