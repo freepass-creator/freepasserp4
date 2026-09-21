@@ -23,88 +23,11 @@ jobs:
         run: |
           set -euo pipefail
           LOG='docs/AI-SSOT-AUDIT-LOG.md'
-
-          if ! grep -Fq 'ChatGPT audit (94)' "$LOG"; then
-            cat >> "$LOG" <<'EOF'
-
----
-
-## 2026-09-21 — ChatGPT audit (94): 15:05 late recovery; Audit (93) race correction
-
-**판정: RESOLVED(eventual 15:05 fallback creation) / OPEN(recovery timeliness + native cadence + monitor reconciliation) / WATCH(downstream ERP5 completion) / Audit 90–91 Sonogong semantic skew OPEN.**
-
-- Audit (93)의 cutoff 관측 뒤 15:05 settlement fallback run `35569054709`가 15:34:14 KST에 `event=push`로 생성돼 success했다. 논리 slot 대비 29m14s, 선언된 20분 grace보다 약 9m14s 늦었다.
-- downstream ERP5 `35569097238`은 15:34:51 KST `event=workflow_run`으로 생성됐고 당시 in-progress였다. 따라서 fallback 자체의 부재는 해소됐지만 recovery timeliness/native cadence와 monitor reconciliation은 OPEN으로 유지했다.
-- F01/F86 fixed-snapshot, RP023 RebornCar, retired mirror/sales automatic writers, RTDB/mirror non-canonical 경계에는 신규 drift가 없었다.
-
-Detail: `docs/ai-ssot-audit/2026-09-21-chatgpt-audit94-1505-late-recovery-audit93-race-correction.md`
-
-No application code or business logic was modified by the auditor.
-EOF
-          fi
-
-          if ! grep -Fq 'ChatGPT audit (95)' "$LOG"; then
-            cat >> "$LOG" <<'EOF'
-
----
-
-## 2026-09-21 — ChatGPT audit (95): 15:05 downstream ERP5 full-green
-
-**판정: RESOLVED(15:05 downstream data-plane) / HOLD(recovery timeliness + native cadence) / HOLD(monitor reconciliation) / Audit 90–91 Sonogong production↔main semantic skew OPEN.**
-
-- Audit (94)에서 in-progress였던 ERP5 `35569097238`이 15:45:52 KST `completed / success`로 종료됐다.
-- source contract → source recollection → settlement Atom lock → ERP5 Atom → fixed snapshot → public → F01 → F86 backup/publish → freshness → Atom↔F01↔F86 cross-audit → photo → evidence가 전부 green이었다. `register_sonogong_current`는 skipped였다.
-- 15:05 fallback 자체는 29m14s 늦었으므로 recovery timeliness/native cadence HOLD는 유지했고 persistent monitor reconciliation도 별도 OPEN으로 유지했다.
-
-Detail: `docs/ai-ssot-audit/2026-09-21-chatgpt-audit95-1505-downstream-erp5-full-green.md`
-
-No application code or business logic was modified by the auditor.
-EOF
-          fi
-
-          if ! grep -Fq 'ChatGPT audit (96)' "$LOG"; then
-            cat >> "$LOG" <<'EOF'
-
----
-
-## 2026-09-21 — ChatGPT audit (96): PR #453 merged; Sonogong projection contract changed; validation/Source Contract HOLD
-
-**판정: POINT-IN-TIME MATERIAL CHANGE / immediately superseded by Audit (97).**
-
-- 16:04:42 KST Audit (96)은 main의 PR #453 merge `79db9988500d7fd7634f24c52f382016d8cb5730` 상태를 포착했다. ERP5 production pin은 당시 `c3838708...` → `0e0bfb3a6e227fd65b754c1d74f7ca5c8b1c327e`로 전진했다.
-- 그 engine은 `sonogong-product-v1`을 보존하고 F01/F86 canonical bases를 `상품리스트 · 손오공상품 · 픽업구독 · 오플구독`으로 정렬했다. 그러나 current-main RP012 registry의 two-bucket/obsolete HOLD는 그대로여서 Audit 90–91 skew는 해소되지 않았다.
-- 첫 post-merge ERP5 run `35570499422`은 Atom/snapshot/F01/F86 단계 전에 cancelled됐고, main-push Source Contract `35570482765`는 job 생성 전 failure였다. generic CI `35570483614` green은 전용 gate를 대체하지 않는다.
-- 이 operational state는 1분이 채 지나기 전에 PR #455로 safety-revert됐다. **현재 실행 판정은 Audit (97)이 override한다.**
-
-Detail: `docs/ai-ssot-audit/2026-09-21-chatgpt-audit96-pr453-sonogong-classification-source-contract-prejob-red.md`
-
-No application code or business logic was modified by the auditor.
-EOF
-          fi
-
+          PAYLOAD='Ci0tLQojIyAyMDI2LTA5LTIxIOKAlCBDaGF0R1BUIGF1ZGl0ICg5NCk6IDE1OjA1IGxhdGUgcmVjb3Zlcnk7IEF1ZGl0ICg5MykgcmFjZSBjb3JyZWN0aW9uCgoqKu2MkOyglTogUkVTT0xWRUQoZXZlbnR1YWwgMTU6MDUgZmFsbGJhY2sgY3JlYXRpb24pIC8gT1BFTihyZWNvdmVyeSB0aW1lbGluZXNzICsgbmF0aXZlIGNhZGVuY2UgKyBtb25pdG9yIHJlY29uY2lsaWF0aW9uKSAvIFdBVENIKGRvd25zdHJlYW0gRVJQNSBjb21wbGV0aW9uKSAvIEF1ZGl0IDkw4oCTOTEgU29ub2dvbmcgc2VtYW50aWMgc2tldyBPUEVOLioqCgotIEF1ZGl0ICg5MynsnZggY3V0b2ZmIOq0gOy4oSDrkqQgMTU6MDUgc2V0dGxlbWVudCBmYWxsYmFjayBydW4gYDM1NTY5MDU0NzA5YOqwgCAxNTozNDoxNCBLU1Tsl5AgYGV2ZW50PXB1c2hg66GcIOyDneyEseuPvCBzdWNjZXNz7ZaI64ukLiDrhbzrpqwgc2xvdCDrjIDruYQgMjltMTRzLCDshKDslrjrkJwgMjDrtoQgZ3JhY2Xrs7Tri6Qg7JW9IDltMTRzIOuKpuyXiOuLpC4KLSBkb3duc3RyZWFtIEVSUDUgYDM1NTY5MDk3MjM4YOydgCAxNTozNDo1MSBLU1QgYGV2ZW50PXdvcmtmbG93X3J1bmDsnLzroZwg7IOd7ISx65CQ6rOgIOuLueyLnCBpbi1wcm9ncmVzc+yYgOuLpC4g65Sw65287IScIGZhbGxiYWNrIOyekOyytOydmCDrtoDsnqzripQg7ZW07IaM65CQ7KeA66eMIHJlY292ZXJ5IHRpbWVsaW5lc3MvbmF0aXZlIGNhZGVuY2XsmYAgbW9uaXRvciByZWNvbmNpbGlhdGlvbuydgCBPUEVO7Jy866GcIOycoOyngO2WiOuLpC4KLSBGMDEvRjg2IGZpeGVkLXNuYXBzaG90LCBSUDAyMyBSZWJvcm5DYXIsIHJldGlyZWQgbWlycm9yL3NhbGVzIGF1dG9tYXRpYyB3cml0ZXJzLCBSVERCL21pcnJvciBub24tY2Fub25pY2FsIOqyveqzhOyXkOuKlCDsi6Dqt5wgZHJpZnTqsIAg7JeG7JeI64ukLgoKRGV0YWlsOiBgZG9jcy9haS1zc290LWF1ZGl0LzIwMjYtMDktMjEtY2hhdGdwdC1hdWRpdDk0LTE1MDUtbGF0ZS1yZWNvdmVyeS1hdWRpdDkzLXJhY2UtY29ycmVjdGlvbi5tZGAKCk5vIGFwcGxpY2F0aW9uIGNvZGUgb3IgYnVzaW5lc3MgbG9naWMgd2FzIG1vZGlmaWVkIGJ5IHRoZSBhdWRpdG9yLgoKLS0tCgojIyAyMDI2LTA5LTIxIOKAlCBDaGF0R1BUIGF1ZGl0ICg5NSk6IDE1OjA1IGRvd25zdHJlYW0gRVJQNSBmdWxsLWdyZWVuCgoqKu2MkOyglTogUkVTT0xWRUQoMTU6MDUgZG93bnN0cmVhbSBkYXRhLXBsYW5lKSAvIEhPTEQocmVjb3ZlcnkgdGltZWxpbmVzcyArIG5hdGl2ZSBjYWRlbmNlKSAvIEhPTEQobW9uaXRvciByZWNvbmNpbGlhdGlvbikgLyBBdWRpdCA5MOKAkzkxIFNvbm9nb25nIHByb2R1Y3Rpb27ihpRtYWluIHNlbWFudGljIHNrZXcgT1BFTi4qKgoKLSBBdWRpdCAoOTQp7JeQ7IScIGluLXByb2dyZXNz7JiA642YIEVSUDUgYDM1NTY5MDk3MjM4YOydtCAxNTo0NTo1MiBLU1QgYGNvbXBsZXRlZCAvIHN1Y2Nlc3Ng66GcIOyiheujjOuQkOuLpC4KLSBzb3VyY2UgY29udHJhY3Qg4oaSIHNvdXJjZSByZWNvbGxlY3Rpb24g4oaSIHNldHRsZW1lbnQgQXRvbSBsb2NrIOKGkiBFUlA1IEF0b20g4oaSIGZpeGVkIHNuYXBzaG90IOKGkiBwdWJsaWMg4oaSIEYwMSDihpIgRjg2IGJhY2t1cC9wdWJsaXNoIOKGkiBmcmVzaG5lc3Mg4oaSIEF0b23ihpRGMDHihpRGODYgY3Jvc3MtYXVkaXQg4oaSIHBob3RvIOKGkiBldmlkZW5jZeqwgCDsoITrtoAgZ3JlZW7snbTsl4jri6QuIGByZWdpc3Rlcl9zb25vZ29uZ19jdXJyZW50YOuKlCBza2lwcGVk7JiA64ukLgotIDE1OjA1IGZhbGxiYWNrIOyekOyytOuKlCAyOW0xNHMg64qm7JeI7Jy866+A66GcIHJlY292ZXJ5IHRpbWVsaW5lc3MvbmF0aXZlIGNhZGVuY2UgSE9MROuKlCDsnKDsp4Dtlojqs6AgcGVyc2lzdGVudCBtb25pdG9yIHJlY29uY2lsaWF0aW9u64+EIOuzhOuPhCBPUEVO7Jy866GcIOycoOyngO2WiOuLpC4KCkRldGFpbDogYGRvY3MvYWktc3NvdC1hdWRpdC8yMDI2LTA5LTIxLWNoYXRncHQtYXVkaXQ5NS0xNTA1LWRvd25zdHJlYW0tZXJwNS1mdWxsLWdyZWVuLm1kYAoKTm8gYXBwbGljYXRpb24gY29kZSBvciBidXNpbmVzcyBsb2dpYyB3YXMgbW9kaWZpZWQgYnkgdGhlIGF1ZGl0b3IuCgotLS0KCiMjIDIwMjYtMDktMjEg4oCUIENoYXRHUFQgYXVkaXQgKDk2KTogUFIgIzQ1MyBtZXJnZWQ7IFNvbm9nb25nIHByb2plY3Rpb24gY29udHJhY3QgY2hhbmdlZDsgdmFsaWRhdGlvbi9Tb3VyY2UgQ29udHJhY3QgSE9MRAoKKirtjJDsoJU6IFBPSU5ULUlOLVRJTUUgTUFURVJJQUwgQ0hBTkdFIC8gaW1tZWRpYXRlbHkgc3VwZXJzZWRlZCBieSBBdWRpdCAoOTcpLioqCgotIDE2OjA0OjQyIEtTVCBBdWRpdCAoOTYp7J2AIG1haW7snZggUFIgIzQ1MyBtZXJnZSBgNzlkYjk5ODg1MDBkN2ZkNzYzNGYyNGM1MmYzODIwMTZkOGNiNTczMGAg7IOB7YOc66W8IO2PrOywqe2WiOuLpC4gRVJQNSBwcm9kdWN0aW9uIHBpbuydgCDri7nsi5wgYGMzODM4NzA4Li4uYCDihpIgYDBlMGJmYjNhNmUyMjdmZDY1Yjc1NGMxZDc0ZjdjYTVjOGIxYzMyN2Vg66GcIOyghOynhO2WiOuLpC4KLSDqt7ggZW5naW5l7J2AIGBzb25vZ29uZy1wcm9kdWN0LXYxYOydhCDrs7TsobTtlZjqs6AgRjAxL0Y4NiBjYW5vbmljYWwgYmFzZXPribwgYOyDge2SiOumrOyKpO2KuCDCtyDshpDsmKTqs7Xsg4Htkoggwrcg7ZS97JeF6rWs64+FIMK3IOyYpO2UjOq1rOuPhWDsnLzroZwg7KCV66Cs7ZaI64ukLiDqt7jrn6zrgpggY3VycmVudC1tYWluIFJQMDEyIHJlZ2lzdHJ57J2YIHR3by1idWNrZXQvb2Jzb2xldGUgSE9MROuKlCDqt7jrjIDroZzsl6zshJwgQXVkaXQgOTDigJM5MSBza2V364qUIO2VtOyGjOuQmOyngCDslYrslZjri6QuCi0g7LKrIHBvc3QtbWVyZ2UgRVJQNSBydW4gYDM1NTcwNDk5NDIyYOydgCBBdG9tL3NuYXBzaG90L0YwMS9GODYg64uo6rOEIOyghOyXkCBjYW5jZWxsZWTrkJDqs6AsIG1haW4tcHVzaCBTb3VyY2UgQ29udHJhY3QgYDM1NTcwNDgyNzY1YOuKlCBqb2Ig7IOd7ISxIOyghCBmYWlsdXJl7JiA64ukLiBnZW5lcmljIENJIGAzNTU3MDQ4MzYxNGAgZ3JlZW7snYAg7KCE7JqpIGdhdGXrpbwg64yA7LK07ZWY7KeAIOyViuuKlOuLpC4KLSDsnbQgb3BlcmF0aW9uYWwgc3RhdGXripQgMeu2hOydtCDssYQg7KeA64KY6riwIOyghOyXkCBQUiAjNDU166GcIHNhZmV0eS1yZXZlcnTrkJDri6QuICoq7ZiE7J6sIOyLpO2WiSDtjJDsoJXsnYAgQXVkaXQgKDk3KeydtCBvdmVycmlkZe2VnOuLpC4qKgoKRGV0YWlsOiBgZG9jcy9haS1zc290LWF1ZGl0LzIwMjYtMDktMjEtY2hhdGdwdC1hdWRpdDk2LXByNDUzLXNvbm9nb25nLWNsYXNzaWZpY2F0aW9uLXNvdXJjZS1jb250cmFjdC1wcmVqb2ItcmVkLm1kYAoKTm8gYXBwbGljYXRpb24gY29kZSBvciBidXNpbmVzcyBsb2dpYyB3YXMgbW9kaWZpZWQgYnkgdGhlIGF1ZGl0b3IuCgotLS0KCiMjIDIwMjYtMDktMjEg4oCUIENoYXRHUFQgYXVkaXQgKDk3KTogUFIgIzQ1NSBzYWZldHkgcmV2ZXJ0IHJlc3RvcmVkIGMzODM7IEF1ZGl0ICg5Nikgc3VwZXJzZWRlZAoKKirtjJDsoJU6IE1BVEVSSUFMIFNBRkVUWSBSRVZFUlQgLyBwcm9kdWN0aW9uIHBpbiBSRVNUT1JFRCAvIFNvdXJjZSBDb250cmFjdCBwcmUtam9iIGZhaWx1cmUgT1BFTiAvIEF1ZGl0IDkw4oCTOTEgc2VtYW50aWMgc2tldyBPUEVOLioqCgotIFBSICM0NTUgbWVyZ2UgYDAyNTc2NTQyNGVmNjBhMjMzNDc0ZTQ0N2M0YmI1YjY5NWFlMWQzNzZg6rCAIDE2OjA1OjI5IEtTVOyXkCDrk6TslrTsmYAgQXVkaXQgKDk2KSBwb2ludC1pbi10aW1lIOq4sOuhnSA0N+y0iCDrkqQgUFIgIzQ1MyBwcm9kdWN0aW9uLWVuZ2luZSBhZHZhbmNl66W8IHNhZmV0eS1yZXZlcnTtlojri6QuCi0gY3VycmVudCBwcm9kdWN0aW9uIGVuZ2luZeydgCDri6Tsi5wgdmFsaWRhdGVkIGBjMzgzODcwOGI4NDUyN2RiMjQxZjE5ODVjMTQwYTNlYzZlY2U2YmZmYOuLpC4gcHJvZHVjdGlvbiBwcm9qZWN0aW9uIGJhc2VsaW5l64+EIOuzteq1rOuPvCBGMDE9YOyDge2SiOumrOyKpO2KuCDCtyDsmKTqs7Xqtazrj4Ugwrcg7ZS97JeF6rWs64+FIMK3IOyYpO2UjOq1rOuPhWAsIEY4Nj1g7IOB7ZKI66as7Iqk7Yq4IMK3IOyGkOyYpOqzteyDge2SiCDCtyDtlL3sl4Xqtazrj4Ugwrcg7Jik7ZSM6rWs64+FYOydtOuLpC4gUFIgIzQ1M+ydmCBgc29ub2dvbmctcHJvZHVjdC12MWAvRjAxIGDshpDsmKTqs7Xsg4HtkohgIGN1dG92ZXLripQgY3VycmVudCBwcm9kdWN0aW9u7J20IOyVhOuLiOuLpC4KLSBBdWRpdCA5MOKAkzkx7J2AIOyXrOyghO2eiCBPUEVO7J2064ukLiBjdXJyZW50LW1haW4gUlAwMTIgcmVnaXN0cnnripQgYExPV19TT05PS09ORyDCtyBMT1dfVENBUmAg65GY66eMIOyEoOyWuO2VmOqzoCDsnbzrsJgg66CM7Yq4IEVSUCBBUEkgYnVja2V0IEhPTETrpbwg64Ko6ri064ukLgotIHNhZmV0eS1yZXZlcnQgaGVhZOydmCBkZWRpY2F0ZWQgU291cmNlIENvbnRyYWN0IHJ1biBgMzU1NzEzMDU2OTRg64qUICoqam9icz0wIC8gcHJlLWpvYiBmYWlsdXJlKirsmIDqs6AgZ2VuZXJpYyBDSSBgMzU1NzEzMDcwNDFg7J2AIHN1Y2Nlc3PsmIDri6QuIOuUsOudvOyEnCDsoITsmqkgU291cmNlIENvbnRyYWN0IGdhdGXripQg67OE64+EIOyImOumrOqwgCDtlYTsmpTtlZjri6QuCi0gY2Fub25pY2FsIGF1dGhvcml0eeuKlCBSUDAxMiBTb25vZ29uZyBFUlAvQVBJLCBSUDAyMyBSZWJvcm5DYXJroZwg7Jyg7KeA7ZWY66mwIHJldGlyZWQgbWlycm9yL3NhbGVzIGF1dG9tYXRpYyB3cml0ZXJz7JmAIFJUREIvbWlycm9yIG5vbi1jYW5vbmljYWwg6rK96rOE7JeQ64+EIOyLoOq3nCBkcmlmdOqwgCDsl4bri6QuIEF1ZGl0ICg5NSnsnZggMTU6MDUgZnVsbC1ncmVlbiBkYXRhLXBsYW5lIOymneqxsOuKlCDsnKDtmqjtlZjqs6AgbmF0aXZlIGNhZGVuY2UvcmVjb3ZlcnkgdGltZWxpbmVzc8K3bW9uaXRvciByZWNvbmNpbGlhdGlvbiDrk7Eg6riw7KG0IE9QRU7snYAg7J2067KIIHJldmVydOunjOycvOuhnCDri6vsp4Ag7JWK64qU64ukLgoKRGV0YWlsOiBgZG9jcy9haS1zc290LWF1ZGl0LzIwMjYtMDktMjEtY2hhdGdwdC1hdWRpdDk3LXByNDU1LXNhZmV0eS1yZXZlcnQtYXVkaXQ5Ni1yYWNlLWNvcnJlY3Rpb24ubWRgCgpObyBhcHBsaWNhdGlvbiBjb2RlIG9yIGJ1c2luZXNzIGxvZ2ljIHdhcyBtb2RpZmllZCBieSB0aGUgYXVkaXRvci4K'
           if ! grep -Fq 'ChatGPT audit (97)' "$LOG"; then
-            cat >> "$LOG" <<'EOF'
-
----
-
-## 2026-09-21 — ChatGPT audit (97): PR #455 safety revert restored c383; Audit (96) superseded
-
-**판정: MATERIAL SAFETY REVERT / production pin RESTORED / Source Contract pre-job failure OPEN / Audit 90–91 semantic skew OPEN.**
-
-- PR #455 merge `025765424ef60a233474e447c4bb5b695ae1d376`가 16:05:29 KST에 들어와 Audit (96) point-in-time 기록 47초 뒤 PR #453 production-engine advance를 safety-revert했다.
-- current production engine은 다시 validated `c3838708b84527db241f1985c140a3ec6ece6bff`다. production projection baseline도 복구돼 F01=`상품리스트 · 오공구독 · 픽업구독 · 오플구독`, F86=`상품리스트 · 손오공상품 · 픽업구독 · 오플구독`이다. PR #453의 `sonogong-product-v1`/F01 `손오공상품` cutover는 current production이 아니다.
-- Audit 90–91은 여전히 OPEN이다. current-main RP012 registry는 `LOW_SONOKONG · LOW_TCAR` 둘만 선언하고 일반 렌트 ERP API bucket HOLD를 남긴다.
-- safety-revert head의 dedicated Source Contract run `35571305694`는 **jobs=0 / pre-job failure**였고 generic CI `35571307041`은 success였다. 따라서 전용 Source Contract gate는 별도 수리가 필요하다.
-- canonical authority는 RP012 Sonogong ERP/API, RP023 RebornCar로 유지하며 retired mirror/sales automatic writers와 RTDB/mirror non-canonical 경계에도 신규 drift가 없다. Audit (95)의 15:05 full-green data-plane 증거는 유효하고 native cadence/recovery timeliness·monitor reconciliation 등 기존 OPEN은 이번 revert만으로 닫지 않는다.
-
-Detail: `docs/ai-ssot-audit/2026-09-21-chatgpt-audit97-pr455-safety-revert-audit96-race-correction.md`
-
-No application code or business logic was modified by the auditor.
-EOF
+            printf '%s' "$PAYLOAD" | base64 --decode >> "$LOG"
           fi
-
           rm -f .github/workflows/chatgpt-audit97-recorder.yml
-
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git add "$LOG" .github/workflows/chatgpt-audit97-recorder.yml
