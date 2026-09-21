@@ -1,0 +1,91 @@
+name: ChatGPT Audit 92 Recorder
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/chatgpt-audit92-recorder.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  record:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Append Audit 92 and refresh Claude entry point
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "chatgpt-ssot-auditor"
+          git config user.email "actions@users.noreply.github.com"
+
+          git fetch origin main
+          git reset --hard origin/main
+
+          python - <<'PY'
+          from pathlib import Path
+
+          log = Path('docs/AI-SSOT-AUDIT-LOG.md')
+          marker = '## 2026-09-21 — ChatGPT audit (92): c383 production full-green; 14:05 recovery full-green, monitor still stale'
+          entry = r'''
+
+---
+
+## 2026-09-21 — ChatGPT audit (92): c383 production full-green; 14:05 recovery full-green, monitor still stale
+
+**판정: 해소됨(runtime validation) / 보류(monitor reconciliation) / Audit 90–91 runtime↔main semantic skew는 계속 OPEN**
+
+- Audit 91에서 아직 진행 중이던 first post-pin ERP5 run `35564286647`은 이제 `completed / success`다. production engine `c3838708b84527db241f1985c140a3ec6ece6bff`로 source contract → 원천 재수집 → 정산 Atom lock → 24-source ingest → fixed snapshot → public catalog → F01 → F86 backup/publish → F86 freshness → Atom↔F01↔F86 cross-audit → photo audit까지 전 단계 green이다.
+- 같은 run의 `현재 손오공 API 전 차량 정식 등록` step은 **skipped**였다. 따라서 Audit 91에서 확인한 `register_sonogong_current` default-off manual writer는 구현돼 있지만 아직 관측 실행된 것으로 보지 않는다.
+- 14:05 watchdog recovery chain도 settlement `35566428774` → ERP5 `35566458884`로 완료됐고, ERP5는 2026-09-21 15:09:58 KST에 full green success로 끝났다.
+- 그러나 current `.automation/safe-chain-monitor.json`은 14:58 KST에 마지막 기록되어 ERP5 `35566458884`을 여전히 `erp5-in-progress`, production writes incomplete, audits pending으로 저장한다. 이는 live Actions보다 뒤처진 **monitor reconciliation stale state**이며 data-plane failure로 확대하지 않는다.
+- 이 green runtime은 Audit 90–91의 semantic skew를 해소하지 않는다. current-main RP012 registry는 아직 `LOW_SONOKONG · LOW_TCAR` 두 channel + obsolete HOLD이고, production `c3838708...`은 `LOW_SONOKONG_DAILY · LOW_SONOKONG · LOW_TCAR` 세 bucket과 API-source-specific `계약중` 보존/listability semantics를 사용한다. Source Contract도 RP012 channels/hold/status parity를 fail-closed로 잠그지 않는다.
+- Audit 91 이후 main의 실질 변경은 automation heartbeat/monitor state뿐이다. F01/F86 publisher, Sonogong/AutoPlus special-tab, canonical source authority, retired mirror/sales writer, RTDB/mirror non-canonical boundary에는 새 business-logic drift가 없다. Audit 직전 head `ca537fd388fe60cc9b2e07069d6c0d7198221d12`의 verify run `35566577366`은 success다.
+
+**Claude owner handoff:** `c3838708...` runtime validation은 해소로 본다. 다만 production의 three-bucket/status semantics를 stale main에 맞춰 되돌리지 말고 current-main RP012 registry/runtime helper/Source Contract를 production truth에 정렬한다. Safe-chain monitor는 completed Actions result를 재조회해 `in-progress/pending`이 영구 잔류하지 않게 reconciliation을 보완한다. Sonogong bulk-registration writer는 실제 step 실행 증거가 생기기 전까지 implemented-but-unexercised로 유지한다.
+
+Detail: `docs/ai-ssot-audit/2026-09-21-chatgpt-audit92-c383-full-green-monitor-reconciliation.md`
+
+No application code or business logic was modified by the auditor.
+'''
+          text = log.read_text(encoding='utf-8')
+          if marker not in text:
+              log.write_text(text.rstrip() + entry + '\n', encoding='utf-8')
+
+          claude = Path('CLAUDE-AUDIT.md')
+          cmarker = '# Claude 실행 오더 — Audit (92) override'
+          centry = r'''# Claude 실행 오더 — Audit (92) override
+
+최우선 최신 판정: **Audit (91)에서 진행 중이던 first post-pin ERP5 run `35564286647`은 production engine `c3838708b84527db241f1985c140a3ec6ece6bff`로 full-green 완료됐다. 14:05 watchdog recovery ERP5 `35566458884`도 full-green이다. 따라서 c383 runtime validation HOLD는 해소한다. 다만 current-main RP012 registry/status semantic skew는 그대로 OPEN이며, persistent safe-chain monitor는 14:05 성공 run을 아직 in-progress/pending으로 기록해 reconciliation stale state가 남는다.**
+
+`35564286647`은 source contract, 원천 재수집, ledger→Atom lock, 24-source ingest, fixed snapshot, public catalog, F01, F86 backup/publish, F86 freshness, Atom↔F01↔F86 cross-audit, photo audit까지 모두 success다. 단 `현재 손오공 API 전 차량 정식 등록`은 skipped였으므로 `register_sonogong_current` default-off manual writer가 실제 bulk registration을 수행했다고 보지 않는다.
+
+14:05 recovery chain은 settlement `35566428774` → ERP5 `35566458884`로 이어져 15:09:58 KST full-green 종료됐다. 하지만 `.automation/safe-chain-monitor.json`은 14:58 KST snapshot에서 여전히 이 ERP5를 `erp5-in-progress`, writes incomplete, audits pending으로 저장한다. **monitor truth를 live Actions completion과 재조정하되 audit gate를 약화하지 않는다.**
+
+Audit 90–91 contract skew는 계속 OPEN이다. Production `c3838708...`은 Sonogong RP012 `LOW_SONOKONG_DAILY · LOW_SONOKONG · LOW_TCAR` 세 bucket과 API-source-specific `계약중` 보존/listability semantics를 사용하지만 current main registry는 두 channel + obsolete HOLD이고 Source Contract는 channels/hold/status parity를 fail-closed로 검증하지 않는다.
+
+F86 fixed tabs `상품리스트 · 손오공상품 · 픽업구독 · 오플구독`, F01 `상품리스트 · 오공구독 · 픽업구독 · 오플구독`, RP023 RebornCar, retired mirror/sales automatic writer, RTDB/mirror non-canonical boundary는 유지한다.
+
+**Claude implementation owner:** production `c3838708...`을 stale main에 맞춰 되돌리지 말고 current-main RP012 registry/runtime helper/Source Contract를 production semantics에 정렬한다. Safe-chain monitor는 completed Actions result를 재조회해 in-progress/pending stale state가 남지 않도록 reconciliation을 보완한다. Sonogong bulk-registration writer는 실제 실행 증거 전까지 implemented-but-unexercised로 유지한다.
+
+Detail: `docs/ai-ssot-audit/2026-09-21-chatgpt-audit92-c383-full-green-monitor-reconciliation.md`
+
+---
+'''
+          ctext = claude.read_text(encoding='utf-8')
+          if cmarker not in ctext:
+              claude.write_text(centry + ctext, encoding='utf-8')
+          PY
+
+          git rm -f .github/workflows/chatgpt-audit92-recorder.yml
+          git add docs/AI-SSOT-AUDIT-LOG.md CLAUDE-AUDIT.md
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "docs(audit): record audit 92 runtime validation"
+          git push origin HEAD:main
