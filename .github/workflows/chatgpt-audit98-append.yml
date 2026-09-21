@@ -21,44 +21,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          # Audit 98 append trigger.
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git fetch origin main
           git reset --hard origin/main
-          python - <<'PY'
-          from pathlib import Path
-
-          log = Path('docs/AI-SSOT-AUDIT-LOG.md')
-          text = log.read_text(encoding='utf-8')
-          marker = 'ChatGPT audit (98): PR #457 re-pin + PR #458 Sheet Contract writer'
-          entry = r'''
-
----
-
-## 2026-09-21 — ChatGPT audit (98): PR #457 re-pin + PR #458 Sheet Contract writer; validation HOLD
-
-**판정: MATERIAL IMPLEMENTATION CHANGE / Audit (97) current-production summary STALE / HOLD(post-repin ERP5 full validation + dedicated Source Contract) / NEW MANUAL DISPLAY-WRITER TOPOLOGY / Audit 90–91 semantic skew OPEN.**
-
-- PR #457 merge `5266d634187493d871f4c5f13a07af0fb0f70698`가 configured ERP5 production engine, Core receipt revision, AI Core shadow source/revision, validated-engine allowlist를 `c3838708...`에서 `0e0bfb3a6e227fd65b754c1d74f7ca5c8b1c327e`로 다시 전진시켰다. 따라서 Audit (97)의 `c3838708...` current-production 판정은 stale이다.
-- 새 pin의 ERP5 run `35572350744`은 source recollection과 settlement→Atom contract lock까지 success였지만 `원천에서 ERP5 현재 원자 계산`에서 **cancelled**됐고 fixed snapshot/public/F01/F86/freshness/cross-audit/photo/evidence는 skipped됐다. 새 pin은 **full-green 미확정**이며, publish 단계가 실행되지 않았으므로 이 run 자체를 published-data corruption 증거로 보지 않는다.
-- Audit 90–91 skew는 유지된다. Current-main RP012 registry는 아직 `LOW_SONOKONG · LOW_TCAR` + 일반렌트 API bucket HOLD를 유지하지만 active `0e0bfb3...` lineage는 three-bucket/source-specific Sonogong semantics를 사용한다. RP012 Sonogong ERP/API, RP023 RebornCar authority 자체는 변경되지 않았다.
-- Dedicated SSOT Source Contract는 re-pin 이후에도 pre-job failure가 반복됐다(`35571946592`, `35572954687`, `35572965499`). Generic CI는 전용 fail-closed gate를 대체하지 않는다.
-- PR #458 merge `0366d714532ecbee86763716efa13279067675de`가 F01/F86용 manual `sheet-formatting-only.yml`을 추가했다. 이 경로는 ingest/Firestore/row write를 하지 않는 **opt-in 표시 전용 writer**다. `widths` mode는 column width만, `full`은 title/wrapping도 계획하지만 `reference-audit.json=UNAVAILABLE`인 동안 full apply는 fail-closed다. Inventory SSOT authority로 승격하지 않는다.
-- 첫 F01/F86 runs `35572968635`, `35573151608`은 둘 다 snapshot/preflight에서 `unauthorized_client`로 failure했고 receipts는 `writeAttempted=false`다. 따라서 두 run에서 live sheet mutation은 확인되지 않으며 Workspace delegated auth는 HOLD다.
-- `mirror-sync.yml` / `sales-erp-hourly.yml` retired manual-dry-run 상태와 RTDB/mirror non-canonical boundary에는 신규 drift가 없다.
-
-**Claude implementation owner:** active `0e0bfb3...`은 stale metadata에 맞추려고 임의 rollback하지 말고 full production-equivalent green을 확보해 검증한다. Dedicated Source Contract를 실제 job green까지 복구하고 RP012 registry/runtime helper/contract semantics를 fail-closed로 정렬한다. Sheet Contract writer는 별도 표시 전용 경로로 유지하며 delegated auth와 reference dependency를 해결하기 전 apply하지 않는다. F01/F86 parity, Sonogong/AutoPlus authority, retired mirror/RTDB boundary는 약화하지 않는다.
-
-Detail: `docs/ai-ssot-audit/2026-09-21-chatgpt-audit98-pr457-repin-pr458-sheet-contract-hold.md`
-
-No application code or business logic was modified by the auditor.
-'''
-          if marker not in text:
-              log.write_text(text.rstrip() + entry + '\n', encoding='utf-8')
-          Path('.github/workflows/chatgpt-audit98-append.yml').unlink(missing_ok=True)
-          PY
-          git add docs/AI-SSOT-AUDIT-LOG.md .github/workflows/chatgpt-audit98-append.yml
+          python -c 'from pathlib import Path; import base64; p=Path("docs/AI-SSOT-AUDIT-LOG.md"); t=p.read_text(encoding="utf-8"); e=base64.b64decode("CgotLS0KCiMjIDIwMjYtMDktMjEg4oCUIENoYXRHUFQgYXVkaXQgKDk4KTogUFIgIzQ1NyByZS1waW4gKyBTaGVldCBDb250cmFjdCB3cml0ZXI7IFBSICM0NTkgZml4ZXMgRjAxIGRyeS1ydW4gYXV0aAoKKirtjJDsoJU6IE1BVEVSSUFMIElNUExFTUVOVEFUSU9OIENIQU5HRSAvIEF1ZGl0ICg5NykgY3VycmVudC1wcm9kdWN0aW9uIHN1bW1hcnkgU1RBTEUgLyBIT0xEKHBvc3QtcmVwaW4gRVJQNSBmdWxsIHZhbGlkYXRpb24gKyBkZWRpY2F0ZWQgU291cmNlIENvbnRyYWN0KSAvIE5FVyBNQU5VQUwgRElTUExBWS1XUklURVIgVE9QT0xPR1kgLyBQUiAjNDU4IEFVVEggRkFJTFVSRSBQQVJUSUFMTFkgUkVTT0xWRUQgQlkgUFIgIzQ1OSBEUlktUlVOIC8gQXVkaXQgOTDigJM5MSBzZW1hbnRpYyBza2V3IE9QRU4uKioKCi0gUFIgIzQ1NyBtZXJnZSBgNTI2NmQ2MzQxODc0OTNkODcxZjRjNWYxM2EwN2FmMGZiMGY3MDY5OGDqsIAgY29uZmlndXJlZCBFUlA1IHByb2R1Y3Rpb24gZW5naW5lLCBDb3JlIHJlY2VpcHQgcmV2aXNpb24sIEFJIENvcmUgc2hhZG93IHNvdXJjZS9yZXZpc2lvbiwgdmFsaWRhdGVkLWVuZ2luZSBhbGxvd2xpc3TribwgYGMzODM4NzA4Li4uYOyXkOyEnCBgMGUwYmZiM2E2ZTIyN2ZkNjViNzU0YzFkNzRmN2NhNWM4YjFjMzI3ZWDroZwg64uk7IucIOyghOynhOyLnOy8sOuLpC4g65Sw65287IScIEF1ZGl0ICg5NynsnZggYGMzODM4NzA4Li4uYCBjdXJyZW50LXByb2R1Y3Rpb24g7YyQ7KCV7J2AIHN0YWxl7J2064ukLgotIOyDiCBwaW4gRVJQNSBydW4gYDM1NTcyMzUwNzQ0YOydgCBlbmdpbmUgY2hlY2tvdXQvT0lEQy9zb3VyY2UgY29udHJhY3Qvc291cmNlIHJlY29sbGVjdGlvbi9ULWNhciBhdWRpdC9zZXR0bGVtZW504oaSQXRvbSBjb250cmFjdCBsb2Nr6rmM7KeAIHN1Y2Nlc3PsmIDsp4Drp4wgYOybkOyynOyXkOyEnCBFUlA1IO2YhOyerCDsm5DsnpAg6rOE7IKwYOydtCBjYW5jZWxsZWTrkJDri6QuIEFJIENvcmUgc2hhZG93IHJlY2VpcHQg64uo6rOE64qUIOyZhOujjOuQkOycvOuCmCBmaXhlZCBzbmFwc2hvdC9wdWJsaWMvRjAxL0Y4Ni9mcmVzaG5lc3MvY3Jvc3MtYXVkaXQvcGhvdG8vZXZpZGVuY2XripQgc2tpcHBlZOuQkOuLpC4g7IOIIHBpbuydgCAqKmZ1bGwtZ3JlZW4g66+47ZmV7KCVKirsnbTrqbAgcHVibGlzaCDri6jqs4TqsIAg7Iuk7ZaJ65CY7KeAIOyViuyVmOycvOuvgOuhnCDsnbQgcnVuIOyekOyytOulvCBwdWJsaXNoZWQtZGF0YSBjb3JydXB0aW9uIOymneqxsOuhnCDrs7Tsp4Ag7JWK64qU64ukLgotIEF1ZGl0IDkw4oCTOTEgc2tld+uKlCDsnKDsp4DrkJzri6QuIEN1cnJlbnQtbWFpbiBSUDAxMiByZWdpc3RyeeuKlCDslYTsp4EgYExPV19TT05PS09ORyDCtyBMT1dfVENBUmAgKyDsnbzrsJjroIztirggQVBJIGJ1Y2tldCBIT0xE66W8IOycoOyngO2VmOyngOunjCBhY3RpdmUgYDBlMGJmYjMuLi5gIGxpbmVhZ2XripQgdGhyZWUtYnVja2V0L3NvdXJjZS1zcGVjaWZpYyBTb25vZ29uZyBzZW1hbnRpY3Pribwg7IKs7Jqp7ZWc64ukLiBSUDAxMiBTb25vZ29uZyBFUlAvQVBJLCBSUDAyMyBSZWJvcm5DYXIgYXV0aG9yaXR5IOyekOyytOuKlCDrs4Dqsr3rkJjsp4Ag7JWK7JWY64ukLgotIERlZGljYXRlZCBTU09UIFNvdXJjZSBDb250cmFjdOuKlCByZS1waW4g7J207ZuE7JeQ64+EIHByZS1qb2IgZmFpbHVyZeqwgCDrsJjrs7XrkJDqs6AgbGF0ZXIgbWFpbiBydW4gYDM1NTczNjY3NzM4YOuPhCBqb2JzLWJlZm9yZS1leGVjdXRpb24gZmFpbHVyZSDsg4Htg5zri6QuIEdlbmVyaWMgQ0nripQg7KCE7JqpIGZhaWwtY2xvc2VkIGdhdGXrpbwg64yA7LK07ZWY7KeAIOyViuuKlOuLpC4KLSBQUiAjNDU4IG1lcmdlIGAwMzY2ZDcxNDUzMmVjYmVlODY3NjM3MTZlZmExMzI3OTA2NzY3NWRlYOqwgCBGMDEvRjg27JqpIG1hbnVhbCBgc2hlZXQtZm9ybWF0dGluZy1vbmx5LnltbGDsnYQg7LaU6rCA7ZaI64ukLiDsnbQg6rK966Gc64qUIGluZ2VzdC9GaXJlc3RvcmUvcm93IHdyaXRl66W8IO2VmOyngCDslYrripQgKipvcHQtaW4g7ZGc7IucIOyghOyaqSB3cml0ZXIqKuuLpC4gYHdpZHRoc2AgbW9kZeuKlCBjb2x1bW4gd2lkdGjrp4wsIGBmdWxsYOydgCB0aXRsZS93cmFwcGluZ+uPhCDqs4Ttmo3tlZjsp4Drp4wgYHJlZmVyZW5jZS1hdWRpdC5qc29uPVVOQVZBSUxBQkxFYOyduCDrj5nslYggZnVsbCBhcHBseeuKlCBmYWlsLWNsb3NlZOuLpC4gSW52ZW50b3J5IFNTT1QgYXV0aG9yaXR566GcIOyKueqyqe2VmOyngCDslYrripTri6QuCi0g7LSI6riwIEYwMS9GODYgcnVucyBgMzU1NzI5Njg2MzVgLCBgMzU1NzMxNTE2MDhg7J2AIHNuYXBzaG90L3ByZWZsaWdodOyXkOyEnCBkZWxlZ2F0ZWQgYXV0aCBgdW5hdXRob3JpemVkX2NsaWVudGDroZwgZmFpbHVyZe2WiOqzoCByZWNlaXB0c+uKlCBgd3JpdGVBdHRlbXB0ZWQ9ZmFsc2Vg7JiA64ukLiBQUiAjNDU5IG1lcmdlIGA5YTVhMjFlN2ZhNWI3MTk4NGY5NzYxODY4NzIyMTI1Yzk2M2U3MDU0YOqwgCBEcml2ZSBzY29wZeulvCBleGlzdGluZyBwdWJsaXNoZXIgRFdEIHNjb3Bl7JmAIOunnuy2mCDrkqQgZnJlc2ggRjAxIHdpZHRocyBkcnktcnVuIGAzNTU3MzUwOTc1N2DsnYAgYFNIRUVUX0ZPUk1BVF9BUFBMWT1mYWxzZWDroZwgY3JlZGVudGlhbCBwcmVwLCBjb250cmFjdCByZWdyZXNzaW9uLCBzbmFwc2hvdC9wcmVmbGlnaHQvcmVhZGJhY2ssIGV2aWRlbmNl6rmM7KeAIGBzdWNjZXNzYCDsmYTro4ztlojri6QuIOuUsOudvOyEnCAqKkYwMSB3aWR0aC1vbmx5IGRyeS1ydW7snZggZGVsZWdhdGVkLWF1dGgvcHJlZmxpZ2h0IEhPTETripQg7ZW07IaMKirrkJDri6QuIOuLpOunjCBsaXZlIGFwcGx5L3dyaXRl64qUIOqygOymneuQmOyngCDslYrslZjqs6AgRjg2IGZyZXNoIHZhbGlkYXRpb27rj4Qg7JeG7Jy866mwIGBmdWxsYOydgCByZWZlcmVuY2UgYXVkaXTqsIAgYFZFUklGSUVEYOuQmOq4sCDsoITquYzsp4Ag6rOE7IaNIEhPTETri6QuCi0gYG1pcnJvci1zeW5jLnltbGAgLyBgc2FsZXMtZXJwLWhvdXJseS55bWxgIHJldGlyZWQgbWFudWFsLWRyeS1ydW4g7IOB7YOc7JmAIFJUREIvbWlycm9yIG5vbi1jYW5vbmljYWwgYm91bmRhcnnsl5DripQg7Iug6recIGRyaWZ06rCAIOyXhuuLpC4KCioqQ2xhdWRlIGltcGxlbWVudGF0aW9uIG93bmVyOioqIGFjdGl2ZSBgMGUwYmZiMy4uLmDsnYAgc3RhbGUgbWV0YWRhdGHsl5Ag66ee7LaU66Ck6rOgIOyehOydmCByb2xsYmFja+2VmOyngCDrp5Dqs6AgZnVsbCBwcm9kdWN0aW9uLWVxdWl2YWxlbnQgZ3JlZW7snYQg7ZmV67O07ZW0IOqygOymne2VnOuLpC4gRGVkaWNhdGVkIFNvdXJjZSBDb250cmFjdOulvCDsi6TsoJwgam9iIGdyZWVu6rmM7KeAIOuzteq1rO2VmOqzoCBSUDAxMiByZWdpc3RyeS9ydW50aW1lIGhlbHBlci9jb250cmFjdCBzZW1hbnRpY3PribwgZmFpbC1jbG9zZWTroZwg7KCV66Cs7ZWc64ukLiBTaGVldCBDb250cmFjdCB3cml0ZXLripQg67OE64+EIO2RnOyLnCDsoITsmqkg6rK966Gc66GcIOycoOyngO2VmOqzoCwgRjAxIHdpZHRocyBkcnktcnVuIGdyZWVu7J2EIGxpdmUgYXBwbHkvRjg2L2Z1bGwg6rKA7Kad7Jy866GcIO2ZleuMgCDtlbTshJ3tlZjsp4Ag7JWK64qU64ukLiBgZnVsbGDsnYAgcmVmZXJlbmNlIGF1ZGl0IFZFUklGSUVEIOyghOq5jOyngCBmYWlsLWNsb3NlZOulvCDsnKDsp4DtlZzri6QuIEYwMS9GODYgcGFyaXR5LCBTb25vZ29uZy9BdXRvUGx1cyBhdXRob3JpdHksIHJldGlyZWQgbWlycm9yL1JUREIgYm91bmRhcnnribQg7JW97ZmU7ZWY7KeAIOyViuuKlOuLpC4KCkRldGFpbDogYGRvY3MvYWktc3NvdC1hdWRpdC8yMDI2LTA5LTIxLWNoYXRncHQtYXVkaXQ5OC1wcjQ1Ny1yZXBpbi1wcjQ1OC1zaGVldC1jb250cmFjdC1ob2xkLm1kYAoKTm8gYXBwbGljYXRpb24gY29kZSBvciBidXNpbmVzcyBsb2dpYyB3YXMgbW9kaWZpZWQgYnkgdGhlIGF1ZGl0b3IuCg==").decode("utf-8"); marker="ChatGPT audit (98): PR #457 re-pin + Sheet Contract writer; PR #459 fixes F01 dry-run auth"; p.write_text(t.rstrip()+e+"\n", encoding="utf-8") if marker not in t else None'
+          rm -f .github/workflows/chatgpt-audit98-append.yml
+          git add -A
           if git diff --cached --quiet; then
             exit 0
           fi
