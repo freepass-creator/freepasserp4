@@ -3,7 +3,7 @@
   "pipeline_id": "freepasserp5.product.refresh",
   "direction": "IMPORT",
   "version": "shadow-v1",
-  "source": "inventory-source-registry@4b0c3b831d981ff344cd07dcf2ca699b4d42b29b",
+  "source": "inventory-source-registry@0c31f98d412d9e006e1894804ebe767fc91683f1",
   "target": "freepasserp5/firestore/products",
   "stages": [
     "RAW_SNAPSHOT",
