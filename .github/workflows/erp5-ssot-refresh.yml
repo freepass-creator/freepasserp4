@@ -26,6 +26,10 @@ on:
         description: '실제로 ERP5와 판매시트에 반영'
         type: boolean
         default: false
+      register_sonogong_current:
+        description: '현재 손오공 API 전 차량을 이번 회차에 정식 등록'
+        type: boolean
+        default: false
 
 concurrency:
   group: erp5-inventory-publish
@@ -154,6 +158,14 @@ jobs:
         run: node sonokong/scripts/손오공.mjs --조용
       - name: 티카 유료옵션 차량번호·원문 감사
         run: npm run audit:sonokong-tcar-options
+      - name: 현재 손오공 API 전 차량 정식 등록
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.apply && inputs.register_sonogong_current }}
+        env:
+          ERP5_FIREBASE_USE_ADC: 'true'
+          GOOGLE_CLOUD_PROJECT: freepasserp5
+          GOOGLE_SHEETS_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sheets.json
+          GOOGLE_SHEETS_SUBJECT: pyh@teamjpk.com
+        run: npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/ingest-supplier-to-firestore.mts --code=RP012 --apply
       - name: 정산원장 접수·취소를 ERP5 원자 계약락에 반영
         if: github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push' || inputs.apply
         env:
