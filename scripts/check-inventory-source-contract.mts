@@ -109,6 +109,12 @@ const VALIDATED_ENGINES = [
    *   「회사 · N대」이며, 칸/차번/머리글/탭 차례 대조와 반례 시험은 유지·강화했다.
    */
   'cf940df642edf315adbc6da2b4134fbad53da160',
+  /**
+   * ★2026-09-21 — F86 첫 네 탭 이름을 접미사 없이 고정하고, RP012 중고렌트+오공구독을
+   *   손오공상품에, T카 외부재고를 픽업구독에 두는 기존 assignSalesTab 결정을 발행기·감사에 잠갔다.
+   * 손오공 원천은 계속 ERP API이며 수집기 내용은 cf940df6과 같다.
+   */
+  '4b0c3b831d981ff344cd07dcf2ca699b4d42b29b',
 ];
 const pinnedEngine = VALIDATED_ENGINES.find((engine) => workflow.includes(`ref: ${engine}`));
 assert(pinnedEngine, '검증 엔진 pin이 제거됐습니다. main collector 이식 완료 전에는 pin을 풀면 안 됩니다(새 엔진은 VALIDATED_ENGINES 에 적는다).');
