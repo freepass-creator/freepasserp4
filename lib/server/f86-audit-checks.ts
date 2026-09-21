@@ -12,15 +12,17 @@
  *     · 하허호 밖 채널 — 전 탭 「회사 MM.DD HH:MM · N대」
  *   어느 탭이 시각을 다는지는 발행기와 같은 규칙(`f86TabCarriesMark`)을 쓴다 — 두 벌로 적으면 또 어긋난다.
  */
-import { F86_BASE_TABS, f86TabCarriesMark, type F86TabPlan } from './channel-f86-plan';
+import { F86_BASE_TABS, f86TabCarriesMark, f86TabTitle, type F86TabPlan } from './channel-f86-plan';
 
 const S = (v: unknown) => String(v ?? '').trim();
 const J = (v: unknown) => JSON.stringify(v);
 
 /** 탭 이름 한 장 — 「회사 · N대」 또는 「회사 MM.DD HH:MM · N대」. 이 밖(초가 붙은 옛 꼴 포함)은 null. */
 export type F86TabName = { company: string; mark: string | null; count: number };
-const TAB_NAME_RE = /^(\S+) (?:(\d{2}\.\d{2} \d{2}:\d{2}) )?· (\d+)대$/;
+const TAB_NAME_RE = /^(\S+) (?:(\d{2}\.\d{2} \d{2}:\d{2}) )?(?:· )?(\d+)대$/;
 export function parseF86TabName(title: string): F86TabName | null {
+  const front = /^(\d{2}\.\d{2} \d{2}:\d{2}) (상품리스트) (\d+)대$/.exec(S(title));
+  if (front) return { company: front[2], mark: front[1], count: Number(front[3]) };
   const m = TAB_NAME_RE.exec(S(title));
   return m ? { company: m[1], mark: m[2] ?? null, count: Number(m[3]) } : null;
 }
@@ -74,6 +76,7 @@ export function checkF86TabFreshness(p: { titles: string[]; retro: boolean; now:
       continue;
     }
     const carries = f86TabCarriesMark(tab.company, p.retro);
+    if (p.retro && (!carries || tab.mark) && t !== f86TabTitle(tab.company, tab.count, tab.mark || '', true)) fails.push(`확정 표시 규격 불일치 — 「${t}」`);
     if (!carries) {
       if (tab.mark) fails.push(`회사 탭에 발행 시각이 붙어 있다(옛 규격) — 「${t}」 · 확정 규격은 「${tab.company} · ${tab.count}대」`);
       continue;

@@ -17,6 +17,7 @@ import { hasInventoryPublicationViolations, inventoryCountSnapshot, isOpenInvent
 import { loadSalesRowContext, makeCell, tabOf, TAB_ORDER, compareSalesRows } from '../domain/sales-atom-row';
 import { isMoneyColumn } from '../domain/sales-sheet-format';
 import { channelColumnName, salesPublishedColumns } from '../domain/sales-published-tab-columns';
+import { presentationTitle } from '../domain/f01-f86-presentation';
 import { RETRO_SHORT, retroCellValue, retroHasLongFee, retroHasValue, retroTabLayout, retroTabRank } from '../domain/channel-retro-skin';
 import { companyAlias } from '../domain/identity';
 import { canonProductType } from '../domain/product';
@@ -116,6 +117,7 @@ const salesKindOfF86Tab = (tab: string): (typeof TAB_ORDER)[number] => tab as (t
  *   같은 회차라 맨 앞 상품리스트 하나만 봐도 시각을 안다. 하허호 밖 채널 시트는 예전대로 전 탭에 시각을 박는다.
  */
 export function f86TabTitle(company: string, count: number, mark: string, retro: boolean): string {
+  if (retro) return presentationTitle(company, count, mark);
   return f86TabCarriesMark(company, retro) ? `${company} ${mark} · ${count}대` : `${company} · ${count}대`;
 }
 

@@ -1,0 +1,37 @@
+import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { SHEET_PRESENTATION as spec, presentationFormatRequests, presentationLabel, requirePrimaryBindings } from '../lib/domain/f01-f86-presentation';
+import { salesPublishedTabTitle, salesTabMatches } from '../lib/domain/sales-published-tabs';
+import { f86TabTitle } from '../lib/server/channel-f86-plan';
+import { planPresentation } from '../vendor/freepass-data/scripts/sheet-presentation.mjs';
+
+const manifest = JSON.parse(readFileSync(new URL('../vendor/freepass-data/manifest.json', import.meta.url), 'utf8'));
+for (const [path, hash] of Object.entries(manifest.sha256)) {
+  const content = readFileSync(new URL(`../vendor/freepass-data/${path}`, import.meta.url), 'utf8').replace(/\r\n/g, '\n');
+  assert.equal(createHash('sha256').update(content).digest('hex'), hash, `Vendored source drift: ${path}`);
+}
+const at = '2026-09-21T07:28:00Z';
+for (const workbook of ['F01', 'F86'] as const) {
+  const sheets = spec.primaryTabs.map((tab, index) => {
+    const sheetId = spec.workbooks[workbook].primarySheetIds[index];
+    const headers = ['차량번호', '차명(원문)', '옵션(원문)', '12개월', '24개월'];
+    const title = workbook === 'F01' ? salesPublishedTabTitle(tab.label, 1, '09.21 16:28') : f86TabTitle(tab.label, 1, '09.21 16:28', true);
+    const sheet: any = { properties: { sheetId, title, index, gridProperties: { rowCount: 2, columnCount: 5 } }, data: [{ rowData: [{ values: headers.map(stringValue => ({ userEnteredValue: { stringValue } })) }, { values: [{ userEnteredValue: { stringValue: `FIXTURE${index}` } }] }], columnMetadata: headers.map(() => ({ pixelSize: 90 })) }], basicFilter: { range: { sheetId, startRowIndex: 0, endRowIndex: 2, startColumnIndex: 0, endColumnIndex: 5 } } };
+    for (const request of presentationFormatRequests(workbook, sheetId, tab.label, headers)) {
+      if (request.updateSheetProperties) Object.assign(sheet.properties, request.updateSheetProperties.properties, { gridProperties: { ...sheet.properties.gridProperties, ...request.updateSheetProperties.properties.gridProperties } });
+      if (request.updateDimensionProperties) Object.assign(sheet.data[0].columnMetadata[request.updateDimensionProperties.range.startIndex], request.updateDimensionProperties.properties);
+    }
+    assert.equal(presentationLabel(title), tab.label);
+    assert.ok(salesTabMatches(title, tab.label));
+    return sheet;
+  });
+  requirePrimaryBindings(workbook, sheets.map(s => s.properties));
+  const input = { capturedAt: at, sheetInventory: sheets.map(s => s.properties), coverage: sheets.map(s => ({ sheetId: s.properties.sheetId, endRowIndex: 2, endColumnIndex: 5 })), spreadsheet: { spreadsheetId: spec.workbooks[workbook].spreadsheetId, sheets } };
+  assert.equal(planPresentation(input, { workbook, updatedAt: at, now: Date.parse(at) }).status, 'PASS', `${workbook}: publisher output must match the local planner exactly`);
+  assert.throws(() => requirePrimaryBindings(workbook, sheets.slice(1).map(s => s.properties)), /HOLD/);
+  assert.throws(() => requirePrimaryBindings(workbook, [...sheets.map(s => s.properties), { sheetId: 999, title: '오공구독 1대' }]), /HOLD/);
+}
+assert.equal(salesTabMatches('상품리스트추가', '상품리스트'), false);
+assert.equal(presentationLabel('회사 이름 · 10대'), '회사 이름');
+console.log('PASS: pinned shared spec, stable IDs, exact F01/F86 publisher to local planner parity');

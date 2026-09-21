@@ -19,6 +19,8 @@ import { HAHUHO_PRODUCT_SHEET_ID } from '../lib/domain/legacy-sheets';
 import { assertProductionSheetWrite } from '../lib/server/production-sheet-write-gate';
 import { ensureNoticeTab } from '../lib/server/channel-sheet-tabs';
 import { applyRetroSkin, retroTabColorRequest } from '../lib/domain/channel-retro-skin';
+import { SHEET_PRESENTATION, presentationLabel, requirePrimaryBindings, presentationFormatRequests } from '../lib/domain/f01-f86-presentation';
+import { verifyPublishedPresentation } from '../lib/server/verify-published-presentation';
 import { buildF86Plan } from '../lib/server/channel-f86-plan';
 import { googleSheetsServiceAccount } from '../lib/server/google-service-account';
 import nextEnv from '@next/env';
@@ -151,7 +153,9 @@ if (!RETRO) {
   const made = await ensureNoticeTab(tok, id);
   console.log(`   ${made ? '+ 「공지사항」 만듦' : '○ 「공지사항」 있음 — 손대지 않음'}`);
 }
-const cur = await api(`https://sheets.googleapis.com/v4/spreadsheets/${id}?fields=sheets(properties(sheetId,title),conditionalFormats(ranges(sheetId)))`);
+const cur = await api(`https://sheets.googleapis.com/v4/spreadsheets/${id}?fields=sheets(properties(sheetId,title,hidden),conditionalFormats(ranges(sheetId)))`);
+const isProductionF86 = id === SHEET_PRESENTATION.workbooks.F86.spreadsheetId;
+if (isProductionF86) requirePrimaryBindings('F86', (cur.sheets || []).map((s: any) => s.properties));
 const have: [string, any][] = (cur.sheets || []).map((s: any) => [S(s.properties.title), s.properties]);
 /** ★탭에 쌓인 조건부서식 수 — 서식기는 규칙을 «더하기»만 한다(운영 손오공 탭에 7,034개 쌓였던 적 · 2026-09-15). 매 회차 먼저 걷는다. */
 const 규칙수 = new Map<number, number>((cur.sheets || []).map((s: any) => [Number(s.properties.sheetId), (s.conditionalFormats || []).length]));
@@ -166,7 +170,12 @@ const 쓴탭 = new Set<number>();
 let index = RETRO ? 0 : 1;
 for (const tab of plan.tabs) {
   const { company, cols, body, values, title, rows } = tab;
-  const old = have.find(([t]) => title === company ? (t === company || t.startsWith(`${company} `)) : t.startsWith(`${company} `));
+  const primaryIndex = SHEET_PRESENTATION.primaryTabs.findIndex(t => t.label === company);
+  const candidates = have.filter(([t, p]) => isProductionF86 && primaryIndex >= 0
+    ? p.sheetId === SHEET_PRESENTATION.workbooks.F86.primarySheetIds[primaryIndex]
+    : presentationLabel(t) === company);
+  if (candidates.length > 1) throw new Error(`HOLD: duplicate company tab ${company}`);
+  const old = candidates[0];
   let gid: number;
   if (old) {
     gid = Number(old[1].sheetId);
@@ -196,6 +205,7 @@ for (const tab of plan.tabs) {
     { red: 0.58, green: 0.30, blue: 0.12 }, { red: 0.30, green: 0.30, blue: 0.30 },
   ];
   reqs.push(RETRO ? retroTabColorRequest(gid, company) : { updateSheetProperties: { properties: { sheetId: gid, tabColor: TAB_HUES[index % TAB_HUES.length] }, fields: 'tabColor' } });
+  if (RETRO) reqs.push(...presentationFormatRequests('F86', gid, company, cols));
   reqs.push({ setBasicFilter: { filter: { range: { sheetId: gid, startRowIndex: 0, endRowIndex: rows.length + 1, startColumnIndex: 0, endColumnIndex: cols.length } } } });
   puts.push({ range: `'${title}'!A1`, values: [cols, ...values] });
   쓴탭.add(gid);
@@ -209,7 +219,7 @@ for (const tab of plan.tabs) {
 {
   /** ★★2026-09-16 — 하허호 F86 만 「공지사항」을 지킴에서 뺀다(사장님 「f86은 공지사항 탭 지워주시고」). 다른 채널 시트는 그대로 남긴다. */
   const 지킴 = RETRO ? /안내|이 시트|시트 지도/ : /공지|안내|이 시트|시트 지도/;
-  const 버릴 = 쓴탭.size === 0 ? [] : have.filter(([t, p]) => !지킴.test(t) && !쓴탭.has(Number(p.sheetId)));
+  const 버릴 = 쓴탭.size === 0 ? [] : have.filter(([t, p]) => !p.hidden && !지킴.test(t) && !쓴탭.has(Number(p.sheetId)));
   if (!쓴탭.size) console.log('   ⚠ 이번 회차에 채운 탭이 없다 — 묵은 탭 정리를 «건너뛴다»(못 읽은 회차일 수 있다).');
   if (버릴.length) {
     console.log(`   ○ 묵은 탭 ${버릴.length}장 지움 — ${버릴.map(([t]) => t).join(' · ')}`);
@@ -231,6 +241,7 @@ for (let i = 0; i < puts.length; i += 40) {
 for (let i = 0; i < 링크요청.length; i += 300) {
   await api(`https://sheets.googleapis.com/v4/spreadsheets/${id}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests: 링크요청.slice(i, i + 300) }) });
 }
+if (isProductionF86) await verifyPublishedPresentation(api, 'F86', publishSnapshot.capturedAt);
 console.log(`   ○ 구글 두드림 — 읽기 ${셈.읽기} · 쓰기 ${셈.쓰기} · 재시도 ${셈.재시도} · 서식요청 ${reqs.length} · 차번링크 ${링크요청.length} · ${Math.round((Date.now() - 셈.시작) / 1000)}초`);
 console.log(`\n✓ 반영 완료 — 탭 ${plan.tabs.length}장 · ${plan.order.reduce((n, [, l]) => n + l.length, 0)}대 · 열 ${plan.columns.length}`);
 console.log(`   https://docs.google.com/spreadsheets/d/${id}/edit`);

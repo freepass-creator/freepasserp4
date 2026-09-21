@@ -12,6 +12,7 @@
  *   접두마다 한 장만 산다(발행기가 같은 접두 탭을 갈아 끼움).
  */
 import { isImportBrand } from './vehicle-origin';
+import { presentationLabel, presentationTitle } from './f01-f86-presentation';
 
 /** 보이는 탭 막대 왼쪽부터 이 차례. 발행기가 `--at` 없이 찍어도 이 자리를 지킨다. */
 export const SALES_PUBLISHED_TAB_PREFIXES = ['상품리스트', '손오공상품', '픽업구독', '오플구독'] as const;
@@ -19,17 +20,18 @@ export type SalesPublishedPrefix = (typeof SALES_PUBLISHED_TAB_PREFIXES)[number]
 
 /** 이전 이름은 읽기 별칭으로만 허용하고 발행은 손오공상품으로 통일한다. */
 export function canonicalSalesTabName(value: string): string {
-  return String(value ?? '').trim().replace(/^(?:손오공구독|오공구독)(?=\s|$|[·(])/, '손오공상품');
+  return presentationLabel(String(value ?? '')).replace(/^(?:손오공구독|오공구독)(?=\s|$|[·(])/, '손오공상품');
 }
 
 export function salesTabMatches(title: string, prefix: string): boolean {
-  return canonicalSalesTabName(title).startsWith(canonicalSalesTabName(prefix));
+  const candidate = canonicalSalesTabName(title), base = canonicalSalesTabName(prefix);
+  return candidate === base || candidate.startsWith(`${base} `);
 }
 
 /** 사람이 보는 판매 탭 문패. 업데이트 일시는 맨 앞 상품리스트 한 장에만 둔다. */
 export function salesPublishedTabTitle(prefix: string, count: number, mark: string): string {
   const base = canonicalSalesTabName(prefix);
-  return base === '상품리스트' ? `${base} ${mark} · ${count}대` : `${base} · ${count}대`;
+  return presentationTitle(base, count, mark);
 }
 
 export function salesPublishedTabIndex(prefix: string): number {
