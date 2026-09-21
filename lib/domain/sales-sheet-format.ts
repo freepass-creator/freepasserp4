@@ -147,7 +147,7 @@ export function colBgFor(name: string): string | undefined {
 }
 
 /** 탭 색 — 상품리스트와 갈래 탭(손오공구독·오플구독)이 한눈에 갈리게(사장님 2026-08-19 「탭 색깔 약간 다르게」). */
-export const SALES_TAB_COLORS: Record<string, string> = { 상품리스트: '4A86E8', 손오공구독: '8E7CC3', 오플구독: '6AA84F' };
+export const SALES_TAB_COLORS: Record<string, string> = { 상품리스트: '4A86E8', 손오공상품: '8E7CC3', 픽업구독: '8E7CC3', 오토플러스: '6AA84F', 손오공구독: '8E7CC3', 오공구독: '8E7CC3', 오플구독: '6AA84F' };
 export const salesTabColorFor = (tabTitle: string): string | undefined => {
   const t = String(tabTitle ?? '').trim();
   const key = Object.keys(SALES_TAB_COLORS).find((k) => t.startsWith(k));
