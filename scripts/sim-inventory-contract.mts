@@ -154,6 +154,7 @@ assert.match(daily, /heal-atom-provenance\.mts'.*'--apply'/);
 assert.match(daily, /audit-pipeline-destinations\.mts/);
 assert.match(daily, /check-plate-photo-link\.mts/);
 assert.match(daily, /audit-photo-projection\.mts'.*--snapshot=/);
+assert.match(daily, /audit-supplementary-inventory-reference\.mts'.*--snapshot=/);
 for (const workflow of ['.github/workflows/sheet-sync.yml', '.github/workflows/sales-erp-hourly.yml']) {
   assert.match(readFileSync(workflow, 'utf8'), /group: freepass-sales-publish/);
 }

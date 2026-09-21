@@ -178,6 +178,8 @@ if (APPLY) {
   const snapshot = `tmp/sales-publish-snapshots/daily-${process.pid}-${Date.now()}.json`;
   const cap = run('⑩ 판매 원자 스냅샷', ['scripts/capture-sales-publish-snapshot.mts', `--out=${snapshot}`], /판매 스냅샷|Error/);
   if (!cap.ok) stop('판매 원자 스냅샷 실패');
+  const supplementary = run('⑩¼ 오플·손오공 보완참조', ['scripts/audit-supplementary-inventory-reference.mts', `--snapshot=${snapshot}`], /보완참조|PASS|HOLD|Error/);
+  if (!supplementary.ok) stop('오플·손오공 보완 시트와 현재 원자 대수가 허용 범위를 벗어남');
   const photoProjection = run('⑩½ 사진 투영 문지기', ['scripts/audit-photo-projection.mts', `--snapshot=${snapshot}`], /사진 투영|사진으로 해석할 수 없는|T카 링크 누락|Error/);
   if (!photoProjection.ok) stop('ERP 사진 또는 시트 공급사별 링크 규칙이 맞지 않음');
   const f01 = run('⑪ F01 원자 발행', ['scripts/make-sample-sheet-google.mts', '--main', `--snapshot=${snapshot}`], /본시트 반영 완료|Error|중단/);
