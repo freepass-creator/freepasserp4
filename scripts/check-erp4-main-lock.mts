@@ -31,8 +31,26 @@ const query = read('lib/shop/query.ts');
 const pkg = read('package.json');
 const standard = read('docs/ERP4-MAIN-UI-STANDARD.md');
 const lockDoc = read('docs/ERP4-MAIN-STABILITY-LOCK.md');
+const surfaceLock = read('docs/ERP4-MAIN-SURFACE-LOCK.md');
+const wlFrame = read('components/WhitelabelFrame.tsx');
 
 console.log('\nERP4 MAIN Stability Lock\n');
+
+
+/* 0. 운영 사용면 — 쓰는 것과 안 쓰는 것을 명시적으로 잠근다. */
+must(/ACTIVE_MAIN — 현재 ERP닷컴에서 쓰는 정본/.test(surfaceLock)
+  && /`\/`/.test(surfaceLock)
+  && /`\/shop`/.test(surfaceLock)
+  && /`\/q\/\[code\]`/.test(surfaceLock),
+  'ERP4 MAIN의 ACTIVE_MAIN 경로 잠금이 사라졌다.');
+must(/NOT_MAIN — ERP닷컴 메인에서는 안 쓰는 것/.test(surfaceLock)
+  && /`\/login`/.test(surfaceLock)
+  && /`\/finder`/.test(surfaceLock)
+  && /`\/settlement\/\*\*`/.test(surfaceLock)
+  && /`\/erp5\/\*\*`/.test(surfaceLock),
+  'ERP닷컴 메인 비사용 경로 구분이 사라졌다.');
+must(/찾기 → 비교 → 상세 확인/.test(surfaceLock),
+  'ERP4 MAIN의 사용자 흐름 잠금이 바뀌었다.');
 
 /* 1. 제품 정의 / 인증 완전 분리 */
 must(/상태:\s*\*\*CURRENT \/ ERP4 공개 메인 정본\*\*/.test(standard),
@@ -83,6 +101,10 @@ must(!/getStore\s*\(/.test(guestListing) && !/Realtime Database|RTDB.*fallback/i
 /* 3. UI 토큰 — 숫자를 화면 파일에서 새로 만들지 않고 SHOP 정본을 쓴다 */
 must(/top:\s*\{\s*title:\s*18,\s*cobrand:\s*12\s*\}/.test(shopUi),
   '상단 제목 18 / 동반표기 12 토큰이 바뀌었다.');
+must(/height: mobile \? 48 : 56/.test(wlFrame),
+  '상단바 높이 56/48 잠금이 바뀌었다.');
+must(/borderBottom: 'none'/.test(wlFrame),
+  '상단바 아래 구분선이 다시 생겼다.');
 must(/h:\s*\{\s*web:\s*44,\s*mobile:\s*44\s*\}/.test(shopUi),
   '기본 컨트롤 높이 44/44가 바뀌었다.');
 must(/pill:\s*\{\s*web:\s*26,\s*mobile:\s*32\s*\}/.test(shopUi),
@@ -147,6 +169,7 @@ if (failures.length) {
   process.exit(1);
 }
 
+console.log('✓ LOCK-00 운영 사용면 / 비사용면');
 console.log('✓ LOCK-01 제품/인증 경계');
 console.log('✓ LOCK-02 ERP5 공개 데이터 경계');
 console.log('✓ LOCK-03 목록·상세 디자인 토큰');
