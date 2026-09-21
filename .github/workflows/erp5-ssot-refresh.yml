@@ -116,10 +116,10 @@ jobs:
           #   칸·차번·머리글·탭 차례 대조는 유지하고 반례 시험을 check:f86에 연결했다.
           # ★2026-09-21(13) — 하허호 F86 첫 네 탭의 논리 이름·차례를
           #   「상품리스트 · 손오공상품 · 픽업구독 · 오플구독」으로 고정한다. 표시 문패는
-          #   맨 앞 상품리스트만 갱신시각·대수, 나머지는 탭명·대수다.
+          #   새 Sheet Contract v1은 PR #454의 별도 표시 전용 workflow 후보이며 아직 운영에 반영하지 않았다.
           #   손오공상품은 RP012 중고렌트+오공구독, 픽업구독은 T카 외부재고로 분리하며 같은
           #   assignSalesTab SSOT를 발행기·감사·회귀검사가 공유한다. 손오공 원천은 기존대로 ERP API뿐이다.
-          ref: 0e0bfb3a6e227fd65b754c1d74f7ca5c8b1c327e
+          ref: c3838708b84527db241f1985c140a3ec6ece6bff
       - name: Core receipt helper checkout
         uses: actions/checkout@v4
         with:
@@ -200,7 +200,7 @@ jobs:
           node .core-contract-helper/scripts/core-contract/build-erp5-ingest-receipt.mjs \
             --log=tmp/core-contract/erp5-ingest.log \
             --out=tmp/core-contract/erp5-ingest-receipt.json \
-            --engine-revision=0e0bfb3a6e227fd65b754c1d74f7ca5c8b1c327e \
+            --engine-revision=c3838708b84527db241f1985c140a3ec6ece6bff \
             --run-id=${{ github.run_id }} \
             --run-attempt=${{ github.run_attempt }} \
             --outcome=${{ steps.ingest.outcome }} \
