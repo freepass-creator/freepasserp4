@@ -2,13 +2,13 @@
   "schemaVersion": 1,
   "timezone": "Asia/Seoul",
   "firstScheduledSettlementSuccessNotified": true,
-  "lastMeaningfulEventKey": "missing-schedule-fallback:2026-09-21T14:05:00+09:00",
-  "lastKnownSettlementRunId": 35566428774,
-  "lastKnownErp5RunId": 35566458884,
-  "lastKnownGoodErp5RunId": 35562059650,
-  "lastHeartbeatSlot": "2026-09-21T14:05:00+09:00",
-  "lastCheckedAt": "2026-09-21T14:58:00+09:00",
-  "lastCheckedThroughSlot": "2026-09-21T14:05:00+09:00",
+  "lastMeaningfulEventKey": "missing-schedule-fallback:2026-09-21T16:05:00+09:00",
+  "lastKnownSettlementRunId": 35574717419,
+  "lastKnownErp5RunId": 35574765889,
+  "lastKnownGoodErp5RunId": 35569097238,
+  "lastHeartbeatSlot": "2026-09-21T16:05:00+09:00",
+  "lastCheckedAt": "2026-09-21T16:50:00+09:00",
+  "lastCheckedThroughSlot": "2026-09-21T16:05:00+09:00",
   "policy": {
     "settlementWorkflow": ".github/workflows/settlement-intake-sync.yml",
     "erp5Workflow": ".github/workflows/erp5-ssot-refresh.yml",
@@ -183,6 +183,38 @@
     "2026-09-21T14:05:00+09:00": {
       "settlementRunId": 35566428774,
       "erp5RunId": 35566458884,
+      "status": "success",
+      "settlementProductionWritesCompleted": true,
+      "erp5ProductionWritesCompleted": true,
+      "audits": {
+        "f86Freshness": "pass",
+        "f01F86Parity": "pass",
+        "platePhoto": "pass"
+      },
+      "recoveryReason": "scheduled trigger missing after 20-minute grace",
+      "automaticSettlementHeartbeat": true,
+      "automaticErp5Heartbeat": false,
+      "updatedAt": "2026-09-21T16:50:00+09:00"
+    },
+    "2026-09-21T15:05:00+09:00": {
+      "settlementRunId": 35569054709,
+      "erp5RunId": 35569097238,
+      "status": "success",
+      "settlementProductionWritesCompleted": true,
+      "erp5ProductionWritesCompleted": true,
+      "audits": {
+        "f86Freshness": "pass",
+        "f01F86Parity": "pass",
+        "platePhoto": "pass"
+      },
+      "recoveryReason": "scheduled trigger missing after 20-minute grace",
+      "automaticSettlementHeartbeat": true,
+      "automaticErp5Heartbeat": false,
+      "updatedAt": "2026-09-21T16:50:00+09:00"
+    },
+    "2026-09-21T16:05:00+09:00": {
+      "settlementRunId": 35574717419,
+      "erp5RunId": 35574765889,
       "status": "erp5-in-progress",
       "settlementProductionWritesCompleted": true,
       "erp5ProductionWritesCompleted": false,
@@ -194,15 +226,24 @@
       "recoveryReason": "scheduled trigger missing after 20-minute grace",
       "automaticSettlementHeartbeat": true,
       "automaticErp5Heartbeat": false,
-      "updatedAt": "2026-09-21T14:58:00+09:00"
+      "heartbeatCommitSha": "656c6a879a3aa1c07cad35cee3474a89c5037db2",
+      "updatedAt": "2026-09-21T16:50:00+09:00"
+    }
+  },
+  "scheduleObservations": {
+    "2026-09-21": {
+      "delayedScheduledSettlementRunId": 35562239965,
+      "createdAt": "2026-09-21T13:47:04+09:00",
+      "conclusion": "success",
+      "note": "A scheduled run eventually appeared 42 minutes after the 13:05 expected slot. It did not invalidate the already-eligible 13:05 heartbeat recovery and does not cover the later 14:05-16:05 slots."
     }
   },
   "lastRecovery": {
-    "expectedSlot": "2026-09-21T14:05:00+09:00",
+    "expectedSlot": "2026-09-21T16:05:00+09:00",
     "failedRunId": null,
     "failureReason": "scheduled trigger missing after 20-minute grace",
-    "recoveredRunId": 35566428774,
-    "erp5RunId": 35566458884,
+    "recoveredRunId": 35574717419,
+    "erp5RunId": 35574765889,
     "status": "erp5-in-progress",
     "settlementProductionWrites": {
       "intakeStepCompleted": true,
