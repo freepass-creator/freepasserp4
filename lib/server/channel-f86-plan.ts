@@ -17,7 +17,7 @@ import { hasInventoryPublicationViolations, inventoryCountSnapshot, isOpenInvent
 import { loadSalesRowContext, makeCell, tabOf, TAB_ORDER, compareSalesRows } from '../domain/sales-atom-row';
 import { isMoneyColumn } from '../domain/sales-sheet-format';
 import { channelColumnName, salesPublishedColumns } from '../domain/sales-published-tab-columns';
-import { inRetroSummary, RETRO_SHORT, RETRO_SUMMARY_TAB, retroCellValue, retroHasLongFee, retroHasValue, retroTabLayout, retroTabRank } from '../domain/channel-retro-skin';
+import { RETRO_SHORT, retroCellValue, retroHasLongFee, retroHasValue, retroTabLayout, retroTabRank } from '../domain/channel-retro-skin';
 import { companyAlias } from '../domain/identity';
 import { canonProductType } from '../domain/product';
 import { PRODUCT_TYPES } from '../intake/entities';
@@ -87,6 +87,27 @@ export type F86Plan = {
   acctCount: number;
 };
 
+/** 하허호 F86 맨 앞 네 장은 이름·차례·역할이 고정이다. */
+export const F86_BASE_TABS = ['상품리스트', '손오공상품', '픽업구독', '오플구독'] as const;
+export type F86BaseTab = (typeof F86_BASE_TABS)[number];
+
+/**
+ * 손오공은 ERP/API만 입력한다. F86은 그 원자를 자동 투영한다.
+ * - 손오공상품 = 저신용 렌트 + 저신용 구독(RP012 기보유)
+ * - 픽업구독 = 저신용 픽업구독(T카 외부재고)
+ */
+export function f86BaseTabOf(v: any): F86BaseTab {
+  const provider = S(v?.provider_company_code);
+  const productType = canonProductType(v?.product_type) || S(v?.product_type);
+  if (provider === 'RP012') return productType === '픽업구독' ? '픽업구독' : '손오공상품';
+  if (provider === 'RP023') return '오플구독';
+  return '상품리스트';
+}
+
+/** F01 열 규격을 재사용할 때 손오공상품은 기존 오공구독 열 블록을 쓴다. */
+const salesKindOfF86Tab = (tab: string): (typeof TAB_ORDER)[number] =>
+  tab === '손오공상품' ? '오공구독' : tab as (typeof TAB_ORDER)[number];
+
 /**
  * 탭 이름 — **발행기·감사기가 같은 함수를 쓴다**(두 군데서 따로 지으면 감사가 제 이름을 못 알아본다).
  *
@@ -96,12 +117,13 @@ export type F86Plan = {
  *   같은 회차라 종합 하나만 봐도 시각을 안다. 하허호 밖 채널 시트는 예전대로 전 탭에 시각을 박는다.
  */
 export function f86TabTitle(company: string, count: number, mark: string, retro: boolean): string {
+  if (retro && (F86_BASE_TABS as readonly string[]).includes(company)) return company;
   return f86TabCarriesMark(company, retro) ? `${company} ${mark} · ${count}대` : `${company} · ${count}대`;
 }
 
 /** 이 탭 이름에 발행 시각을 다는가 — 발행기(`f86TabTitle`)·신선도 감사(`f86-audit-checks`)가 같은 한 줄을 쓴다. */
 export function f86TabCarriesMark(company: string, retro: boolean): boolean {
-  return !(retro && company !== RETRO_SUMMARY_TAB);
+  return !retro;
 }
 
 /** 인기순(계약 실적) — 발행기·감사기가 같은 파일을 읽는다. 없으면 인기 축 없이 정렬. */
@@ -134,6 +156,7 @@ export async function buildF86Plan(p: {
     headOf[prefix] = salesPublishedColumns(prefix);
     for (const h of headOf[prefix]) { const n = channelColumnName(h); if (n && !columns.includes(n)) columns.push(n); }
   }
+  headOf.손오공상품 = headOf.오공구독;
 
   const docs = p.snapshot.products as any[];
   const inventory = inventoryCountSnapshot(docs);
@@ -147,14 +170,14 @@ export async function buildF86Plan(p: {
   const rowsAll: F86Row[] = [];
   const kindCount: Record<string, number> = {};
   for (const v of listable) {
-    const kind = tabOf(v);
+    const kind = retro ? f86BaseTabOf(v) : tabOf(v);
     const HEAD = headOf[kind]; if (!HEAD) continue;
     const cells: Record<string, string> = {};
     for (const h of HEAD) cells[channelColumnName(h)] = cell(h, v);
     rowsAll.push({ company: companyOf(cells['공급사'] || ''), kind, atom: v, cells });
     kindCount[kind] = (kindCount[kind] || 0) + 1;
   }
-  const kindSummary = TAB_ORDER.map((t) => `${t} ${kindCount[t] || 0}`).join(' · ');
+  const kindSummary = (retro ? F86_BASE_TABS : TAB_ORDER).map((t) => `${t} ${kindCount[t] || 0}`).join(' · ');
 
   /**
    * 공급사를 모르는 차는 채널에 안 내보낸다.
@@ -168,7 +191,10 @@ export async function buildF86Plan(p: {
   for (const x of rowsAll) {
     if (!x.company) { unnamed.push(x); continue; }
     if (retro && !retroHasLongFee((c) => x.cells[c], Object.keys(x.cells))) shortOnly.push(x);
-    const l = by.get(x.company) || []; l.push(x); by.set(x.company, l);
+    /** 기본 네 장 뒤의 공급사별 탭에는 일반 상품리스트 차량만 다시 싣는다. */
+    if (!retro || x.kind === '상품리스트') {
+      const l = by.get(x.company) || []; l.push(x); by.set(x.company, l);
+    }
   }
 
   /** 줄 차례 = 판매시트와 같은 함수 · 보조축(모델 대수)은 «판매 전체»로 센다(회사 안에서 세면 시트마다 차례가 갈린다). */
@@ -179,11 +205,12 @@ export async function buildF86Plan(p: {
   const base = compareSalesRows(modelSold, modelCount);
   const cmp = retro ? compareF86Rows(modelSold, modelCount, base) : base;
   for (const list of by.values()) list.sort((a, b) => cmp(a.atom, b.atom));
-  /** 탭 차례 — 하허호는 «굳힌 표»(RETRO_TAB_ORDER), 그 밖은 상품 많은 순. */
+  /** 탭 차례 — 하허호 공급사 탭은 «굳힌 표», 그 밖은 상품 많은 순. */
   const order = [...by.entries()].sort((a, b) => (retro ? retroTabRank(a[0]) - retroTabRank(b[0]) : 0) || b[1].length - a[1].length);
-  /** 「종합」 = 손오공·오토플러스 뺀 렌트사 규격 차 한 장(공지사항 바로 뒤). */
-  const summary = retro ? order.filter(([co]) => inRetroSummary(co)).flatMap(([, l]) => l).sort((a, b) => cmp(a.atom, b.atom)) : [];
-  const tabList: [string, F86Row[]][] = retro ? [[RETRO_SUMMARY_TAB, summary], ...order] : order;
+  const baseTabs: [string, F86Row[]][] = retro
+    ? F86_BASE_TABS.map((tab) => [tab, rowsAll.filter((x) => x.kind === tab).sort((a, b) => cmp(a.atom, b.atom))])
+    : [];
+  const tabList: [string, F86Row[]][] = retro ? [...baseTabs, ...order] : order;
 
   /** 굳힌 양식 문지기(양식어긋남) — 표 밖 회사 · 표 밖 요금 칸에 «값이 있는» 차. 칸을 몰래 늘리지도 요금을 감추지도 않는다. */
   const layoutViolations: string[] = [];
@@ -205,7 +232,11 @@ export async function buildF86Plan(p: {
   for (const [company, list] of tabList) {
     let cols: string[];
     let body: string[][];
-    if (retro) {
+    const base = retro && (F86_BASE_TABS as readonly string[]).includes(company);
+    if (base) {
+      cols = headOf[salesKindOfF86Tab(company)];
+      body = list.map((x) => cols.map((c) => S(x.cells[channelColumnName(c)])));
+    } else if (retro) {
       const lay = retroTabLayout(company);
       if (!lay) continue; // 표 밖 회사 — 위 layoutViolations 가 이미 말했다(발행기가 멈춘다)
       cols = lay.map((c) => c.head);

@@ -61,7 +61,8 @@ fails.push(...compareF86TabTitles(titles, plan.tabs.map((t) => t.title)));
 
 // ② 신선도 — 시각을 다는 탭(하허호 = 「종합」 하나, `f86TabCarriesMark`)의 시각(KST · 초 없음). 회사 탭 「회사 · N대」는 시각이 없어야 맞다.
 {
-  const fresh = checkF86TabFreshness({ titles, retro: plan.retro, now: Date.now(), maxAgeMin });
+  const driveMeta = await api(`https://www.googleapis.com/drive/v3/files/${sheetId}?fields=modifiedTime`);
+  const fresh = checkF86TabFreshness({ titles, retro: plan.retro, now: Date.now(), maxAgeMin, modifiedAt: S(driveMeta.modifiedTime) });
   fails.push(...fresh.fails);
   console.log(`  신선도 — ${fresh.oldestMin == null ? '읽은 시각 없음' : `「${fresh.oldestTitle}」 ${fresh.oldestMin}분 전`} (허용 ${maxAgeMin}분)`);
 }

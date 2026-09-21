@@ -166,7 +166,7 @@ const 쓴탭 = new Set<number>();
 let index = RETRO ? 0 : 1;
 for (const tab of plan.tabs) {
   const { company, cols, body, values, title, rows } = tab;
-  const old = have.find(([t]) => t.startsWith(`${company} `));
+  const old = have.find(([t]) => title === company ? (t === company || t.startsWith(`${company} `)) : t.startsWith(`${company} `));
   let gid: number;
   if (old) {
     gid = Number(old[1].sheetId);

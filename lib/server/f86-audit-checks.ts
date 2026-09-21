@@ -12,7 +12,7 @@
  *     · 하허호 밖 채널 — 전 탭 「회사 MM.DD HH:MM · N대」
  *   어느 탭이 시각을 다는지는 발행기와 같은 규칙(`f86TabCarriesMark`)을 쓴다 — 두 벌로 적으면 또 어긋난다.
  */
-import { f86TabCarriesMark, type F86TabPlan } from './channel-f86-plan';
+import { F86_BASE_TABS, f86TabCarriesMark, type F86TabPlan } from './channel-f86-plan';
 
 const S = (v: unknown) => String(v ?? '').trim();
 const J = (v: unknown) => JSON.stringify(v);
@@ -55,11 +55,29 @@ export function compareF86TabTitles(titles: string[], expected: string[]): strin
  * ② 신선도 — 시각을 «다는» 탭만 시각을 읽고, 안 다는 탭은 시각이 «없어야» 한다.
  * 하허호는 「종합」 하나가 회차 시각이다. 그 시각이 `maxAgeMin` 보다 오래됐거나, 없거나, 규격(초 없음) 밖이면 실패.
  */
-export function checkF86TabFreshness(p: { titles: string[]; retro: boolean; now: number; maxAgeMin: number }): {
+export function checkF86TabFreshness(p: { titles: string[]; retro: boolean; now: number; maxAgeMin: number; modifiedAt?: string }): {
   fails: string[]; oldestMin: number | null; oldestTitle: string; markedTabs: number;
 } {
   const fails: string[] = [];
   let oldestMin: number | null = null; let oldestTitle = ''; let markedTabs = 0;
+  if (p.retro) {
+    for (const fixed of F86_BASE_TABS) if (!p.titles.includes(fixed)) fails.push(`고정 기본 탭이 없다 — 「${fixed}」`);
+    for (const t of p.titles) {
+      if ((F86_BASE_TABS as readonly string[]).includes(t)) continue;
+      const tab = parseF86TabName(t);
+      if (!tab || tab.mark || (F86_BASE_TABS as readonly string[]).includes(tab.company)) {
+        fails.push(`탭 이름이 F86 규격(고정 기본 탭 또는 「회사 · N대」) 밖이다 — 「${t}」`);
+      }
+    }
+    const at = Date.parse(S(p.modifiedAt));
+    if (!Number.isFinite(at)) fails.push('F86 문서 수정 시각을 읽을 수 없다');
+    else {
+      oldestMin = Math.max(0, Math.round((p.now - at) / 60000));
+      oldestTitle = '문서 수정 시각';
+      if (oldestMin > p.maxAgeMin) fails.push(`F86 이 ${oldestMin}분째 멈춰 있다(허용 ${p.maxAgeMin}분) — 문서 수정 시각`);
+    }
+    return { fails, oldestMin, oldestTitle, markedTabs };
+  }
   /** 시각을 «달아야 하는» 탭(하허호=종합)이 시트에 서 있나 — 꼴이 틀려도 있기는 한 것과, 아예 없는 것을 가른다. */
   let carrierSeen = false;
   for (const t of p.titles) {
