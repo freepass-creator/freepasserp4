@@ -5,8 +5,8 @@ name: ERP5 SSOT 원천 최신화(매시간)
 # 한 회차가 읽은 ERP5 스냅샷 하나로 판매시트를 발행한다.
 on:
   schedule:
-    # 월~토 KST 09:17~19:17. GitHub schedule 지연은 실행 증거로 별도 감시한다.
-    - cron: '17 0-10 * * 1-6'
+    # 매일 24시간 매시 17분. GitHub schedule 지연은 실행 증거로 별도 감시한다.
+    - cron: '17 * * * *'
   # 정산 접수→원장 성공 뒤 동일 canonical writer를 이어서 실행한다.
   workflow_run:
     workflows: ["정산 접수→원장(1시간)"]
