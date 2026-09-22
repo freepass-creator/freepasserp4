@@ -117,8 +117,10 @@ const f01OrderViolations: string[] = [];
 const f01BlankPlateRows: string[] = [];
 const f01Order = new Map<string, string[]>();
 {
-  const meta = await api(`https://sheets.googleapis.com/v4/spreadsheets/${F01}?fields=sheets.properties.title`);
-  const titles: string[] = (meta.sheets || []).map((s: any) => S(s.properties?.title));
+  const meta = await api(`https://sheets.googleapis.com/v4/spreadsheets/${F01}?fields=sheets.properties(title,hidden)`);
+  const titles: string[] = (meta.sheets || [])
+    .filter((s: any) => s.properties?.hidden !== true)
+    .map((s: any) => S(s.properties?.title));
   const selected = SALES_PUBLISHED_TAB_PREFIXES.flatMap((prefix) => {
     const matches = titles.filter((x) => salesTabMatches(x, prefix));
     if (matches.length !== 1) f01TabShapeViolations.push(`${prefix} ${matches.length}장`);
