@@ -47,8 +47,12 @@ export function presentationFormatRequests(workbook: Workbook, sheetId: number, 
     if (width) requests.push({ updateDimensionProperties: { range, properties: { pixelSize: width }, fields: 'pixelSize' } });
     if (workbook === 'F86' && (isDepositColumn(header) || isRentColumn(header))) {
       const months = /^(\d+)\s*개월/.exec(header);
-      const isVisibleLongTermRent = !!months && Number(months[1]) >= spec.appearance.F86MinimumVisibleFeeMonths;
-      requests.push({ updateDimensionProperties: { range, properties: { hiddenByUser: !isVisibleLongTermRent }, fields: 'hiddenByUser' } });
+      const termMonths = months ? Number(months[1]) : undefined;
+      const shortDeposit = isDepositColumn(header) && (/단기/.test(header) || (termMonths !== undefined && termMonths <= 12));
+      const hiddenByUser = isRentColumn(header)
+        ? termMonths === undefined || termMonths < spec.appearance.F86MinimumVisibleFeeMonths
+        : shortDeposit;
+      requests.push({ updateDimensionProperties: { range, properties: { hiddenByUser }, fields: 'hiddenByUser' } });
     }
   });
   return requests;
