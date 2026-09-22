@@ -1,5 +1,5 @@
 export const CORE_SNAPSHOT_CONTRACT = 'core-snapshot/v1';
-export const ERP5_PRODUCTION_ENGINE_REVISION = '2be7207c2e5beed9cd8b63c169a06380eab3dd35';
+export const ERP5_PRODUCTION_ENGINE_REVISION = '46484b8cccfd3a1b55cf49aad4f6e67ebe983807';
 
 export type SalesPublishSnapshotLike = {
   version: number;
