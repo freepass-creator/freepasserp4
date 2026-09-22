@@ -34,6 +34,8 @@ import { pickPublishedSalesTabs } from '../lib/domain/sales-published-tabs';
 import { googleSheetsServiceAccount } from '../lib/server/google-service-account';
 
 const S = (v: unknown) => String(v ?? '').trim();
+const only = S(process.argv.find((value) => value.startsWith('--only='))?.slice('--only='.length)).toUpperCase();
+if (only && only !== 'F01' && only !== 'F86') throw new Error(`--only는 F01 또는 F86만 허용: ${only}`);
 let bad = 0;
 
 // ── ① 소스 — 발행기가 링크를 따로 걸면 안 된다
@@ -100,14 +102,16 @@ async function 재다(sheetId: string, title: string, wide: boolean): Promise<nu
 }
 
 // ── ② 판매시트 F01
-console.log('\n■ 판매시트 F01');
-const meta = await get(`${SH}/${SALES_SHEET_ID}?fields=sheets.properties(title,hidden)`);
-const titles = (meta.sheets || []).filter((s: any) => !s.properties.hidden).map((s: any) => S(s.properties.title));
-for (const t of pickPublishedSalesTabs(titles)) bad += await 재다(SALES_SHEET_ID, t.title, false);
+if (only !== 'F86') {
+  console.log('\n■ 판매시트 F01');
+  const meta = await get(`${SH}/${SALES_SHEET_ID}?fields=sheets.properties(title,hidden)`);
+  const titles = (meta.sheets || []).filter((s: any) => !s.properties.hidden).map((s: any) => S(s.properties.title));
+  for (const t of pickPublishedSalesTabs(titles)) bad += await 재다(SALES_SHEET_ID, t.title, false);
+}
 
 // ── ③ 채널시트 F86 — 여기를 안 봐서 703대 링크가 통째로 빠진 채 나갔다(2026-09-09)
-console.log('\n■ 채널시트 F86(하허호)');
-{
+if (only !== 'F01') {
+  console.log('\n■ 채널시트 F86(하허호)');
   const NAME = '[F86 사용중] 프리패스x하허호 전용 상품시트';
   const cid = HAHUHO_PRODUCT_SHEET_ID;
   const cmeta = await get(`${SH}/${cid}?fields=properties.title,sheets.properties(title,hidden)`);
@@ -121,5 +125,6 @@ console.log('\n■ 채널시트 F86(하허호)');
   }
 }
 
-console.log(bad ? `\n  ✗ ${bad}곳이 어긋났다 — 그 시트를 다시 발행해라` : '\n  ✓ 판매시트·채널시트 모두 규격대로 걸렸다');
+const targetLabel = only || '판매시트·채널시트';
+console.log(bad ? `\n  ✗ ${bad}곳이 어긋났다 — 그 시트를 다시 발행해라` : `\n  ✓ ${targetLabel} 사진 링크가 규격대로 걸렸다`);
 process.exit(bad ? 1 : 0);
