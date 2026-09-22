@@ -23,7 +23,7 @@ on:
         type: boolean
         default: false
       ready_run_id:
-        description: 'apply=true일 때 적용할 준비 완료 회차 ID'
+        description: 'apply=true일 때 적용할 준비 완료 회차 ID (비우면 최신 검증 회차 자동 선택)'
         type: string
         required: false
       target:
@@ -236,7 +236,15 @@ jobs:
         run: |
           set -euo pipefail
           READY_RUN_ID="${{ inputs.ready_run_id }}"
-          [[ "$READY_RUN_ID" =~ ^[0-9]+$ ]] || { echo '::error::HOLD: 적용할 준비 완료 회차 ID가 필요합니다.'; exit 1; }
+          if [[ -z "$READY_RUN_ID" ]]; then
+            while read -r CANDIDATE_RUN_ID; do
+              [[ "$CANDIDATE_RUN_ID" =~ ^[0-9]+$ ]] || continue
+              ARTIFACT_COUNT="$(gh api "repos/${{ github.repository }}/actions/runs/$CANDIDATE_RUN_ID/artifacts" --jq "[.artifacts[] | select(.name == \"erp5-ssot-snapshot-$CANDIDATE_RUN_ID\" and .expired == false)] | length")"
+              if [[ "$ARTIFACT_COUNT" == "1" ]]; then READY_RUN_ID="$CANDIDATE_RUN_ID"; break; fi
+            done < <(gh run list --workflow erp5-ssot-refresh.yml --status success --limit 50 --json databaseId --jq '.[].databaseId')
+          fi
+          [[ "$READY_RUN_ID" =~ ^[0-9]+$ ]] || { echo '::error::HOLD: 적용 가능한 최신 검증 스냅샷이 없습니다.'; exit 1; }
+          echo "선택한 READY 회차: $READY_RUN_ID"
           mkdir -p tmp/ready-snapshot
           gh run download "$READY_RUN_ID" --name "erp5-ssot-snapshot-$READY_RUN_ID" --dir tmp/ready-snapshot
           test -f tmp/ready-snapshot/erp5-sales-publish.json || { echo '::error::HOLD: 정시 회차 스냅샷이 없습니다.'; exit 1; }
