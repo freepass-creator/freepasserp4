@@ -30,7 +30,7 @@ export function requirePrimaryBindings(workbook: Workbook, sheets: { sheetId: nu
   spec.primaryTabs.forEach((tab, index) => {
     const sheet = sheets.find(s => s.sheetId === ids[index]);
     if (!sheet || sheet.hidden) throw new Error(`HOLD: missing/hidden stable ${workbook} ${tab.label}`);
-    if (sheets.some(s => s.sheetId !== sheet.sheetId && presentationLabel(s.title) === tab.label)) throw new Error(`HOLD: duplicate ${tab.label}`);
+    if (sheets.some(s => !s.hidden && s.sheetId !== sheet.sheetId && presentationLabel(s.title) === tab.label)) throw new Error(`HOLD: duplicate ${tab.label}`);
   });
 }
 
