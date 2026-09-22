@@ -140,8 +140,11 @@ assert(ingestStep.includes("if: github.event_name == 'schedule' || github.event_
 assert(ingestStep.includes("github.event_name == 'workflow_dispatch' && !inputs.apply"), '수동 준비 회차만 ERP5 원자를 갱신해야 합니다.');
 const captureStep = workflow.match(/- name: ERP5 발행 스냅샷 고정[\s\S]*?(?=\n      - name:)/)?.[0] ?? '';
 assert(captureStep.includes("github.event_name == 'workflow_dispatch' && !inputs.apply"), '준비 전용 회차가 고정 스냅샷을 남겨야 합니다.');
-assert(/ready_run_id:[\s\S]*READY_RUN_ID="\$\{\{ inputs\.ready_run_id \}\}"[\s\S]*gh run download/.test(workflow),
-  '수동 적용은 지정된 준비 완료 회차의 고정 스냅샷을 사용해야 합니다.');
+assert(/ready_run_id:[\s\S]*READY_RUN_ID="\$\{\{ inputs\.ready_run_id \}\}"/.test(workflow)
+  && workflow.includes('gh run list --workflow erp5-ssot-refresh.yml --status success')
+  && workflow.includes('.expired == false')
+  && workflow.includes('gh run download "$READY_RUN_ID"'),
+  '수동 적용은 지정 회차 또는 최신 성공 회차의 만료되지 않은 고정 스냅샷만 사용해야 합니다.');
 assert(workflow.includes("steps.snapshot_capture.outcome == 'success' || steps.snapshot_restore.outcome == 'success'"),
   '정시 캡처와 수동 READY 복원 경계를 발행 조건이 함께 확인해야 합니다.');
 assert(/id: supplementary[\s\S]*audit-supplementary-inventory-reference/.test(workflow), '보완참조 게이트 outcome을 식별해야 합니다.');
