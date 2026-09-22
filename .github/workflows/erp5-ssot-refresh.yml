@@ -16,6 +16,9 @@ on:
     branches: [main]
     paths:
       - '.automation/heartbeats/erp5-ssot-refresh.txt'
+  # GitHub native schedule가 누락됐을 때 같은 저장소의 read-only watchdog만 이 이벤트를 보낸다.
+  repository_dispatch:
+    types: [erp5_refresh_watchdog]
   workflow_dispatch:
     inputs:
       apply:
@@ -162,13 +165,13 @@ jobs:
           printf '%s' "$SHEETS_SA" > tmp/firebase-auth/sheets.json
           printf '%s' "$SONOGONG" > sonokong/lib/wonja/.손오공계정.json
       - name: 현재 원천 재수집
-        if: github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && !inputs.apply)
+        if: github.event_name == 'schedule' || github.event_name == 'repository_dispatch' || github.event_name == 'workflow_run' || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && !inputs.apply)
         run: node sonokong/scripts/손오공.mjs --조용
       - name: 티카 유료옵션 차량번호·원문 감사
-        if: github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && !inputs.apply)
+        if: github.event_name == 'schedule' || github.event_name == 'repository_dispatch' || github.event_name == 'workflow_run' || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && !inputs.apply)
         run: npm run audit:sonokong-tcar-options
       - name: 정산원장 접수·취소를 ERP5 원자 계약락에 반영
-        if: github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && !inputs.apply)
+        if: github.event_name == 'schedule' || github.event_name == 'repository_dispatch' || github.event_name == 'workflow_run' || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && !inputs.apply)
         env:
           ERP5_FIREBASE_USE_ADC: 'true'
           GOOGLE_CLOUD_PROJECT: freepasserp5
@@ -176,7 +179,7 @@ jobs:
         run: npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/sync-vehicle-lock-from-ledger.mts --apply
       - name: 원천에서 ERP5 현재 원자 계산
         id: ingest
-        if: github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && !inputs.apply)
+        if: github.event_name == 'schedule' || github.event_name == 'repository_dispatch' || github.event_name == 'workflow_run' || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && !inputs.apply)
         env:
           ERP5_FIREBASE_USE_ADC: 'true'
           GOOGLE_CLOUD_PROJECT: freepasserp5
@@ -215,14 +218,14 @@ jobs:
           if-no-files-found: error
           retention-days: 30
       - name: ERP5 정책 참조 정합화
-        if: github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && !inputs.apply)
+        if: github.event_name == 'schedule' || github.event_name == 'repository_dispatch' || github.event_name == 'workflow_run' || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && !inputs.apply)
         env:
           ERP5_FIREBASE_USE_ADC: 'true'
           GOOGLE_CLOUD_PROJECT: freepasserp5
         run: npx tsx scripts/reconcile-product-policy-references.mts --erp5 --apply
       - name: ERP5 발행 스냅샷 고정
         id: snapshot_capture
-        if: github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && !inputs.apply)
+        if: github.event_name == 'schedule' || github.event_name == 'repository_dispatch' || github.event_name == 'workflow_run' || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && !inputs.apply)
         env:
           ERP5_FIREBASE_USE_ADC: 'true'
           GOOGLE_CLOUD_PROJECT: freepasserp5
@@ -232,10 +235,11 @@ jobs:
         if: ${{ github.event_name == 'workflow_dispatch' && inputs.apply }}
         env:
           GH_TOKEN: ${{ github.token }}
+          READY_RUN_ID_INPUT: ${{ inputs.ready_run_id }}
         shell: bash
         run: |
           set -euo pipefail
-          READY_RUN_ID="${{ inputs.ready_run_id }}"
+          READY_RUN_ID="$READY_RUN_ID_INPUT"
           if [[ -z "$READY_RUN_ID" ]]; then
             while read -r CANDIDATE_RUN_ID; do
               [[ "$CANDIDATE_RUN_ID" =~ ^[0-9]+$ ]] || continue
@@ -266,7 +270,7 @@ jobs:
         run: npx tsx scripts/audit-supplementary-inventory-reference.mts --snapshot=tmp/erp5-sales-publish.json
       - name: 동일 스냅샷으로 판매시트 게시
         id: f01
-        if: github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push' || (inputs.apply && inputs.target != 'F86')
+        if: github.event_name == 'schedule' || github.event_name == 'repository_dispatch' || github.event_name == 'workflow_run' || github.event_name == 'push' || (inputs.apply && inputs.target != 'F86')
         env:
           GOOGLE_SHEETS_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sheets.json
         run: npx tsx scripts/make-sample-sheet-google.mts --main --snapshot=tmp/erp5-sales-publish.json
@@ -275,18 +279,18 @@ jobs:
       #   운영 F01·F86 쓰기는 이 워크플로 이름으로만 열린다(lib/server/production-sheet-write-gate.ts · docs/예약작업-지도.md).
       - name: 하허호 F86 발행 직전 백업
         id: f86_backup
-        if: ${{ always() && (steps.snapshot_capture.outcome == 'success' || steps.snapshot_restore.outcome == 'success') && (github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push' || (inputs.apply && inputs.target != 'F01')) }}
+        if: ${{ always() && (steps.snapshot_capture.outcome == 'success' || steps.snapshot_restore.outcome == 'success') && (github.event_name == 'schedule' || github.event_name == 'repository_dispatch' || github.event_name == 'workflow_run' || github.event_name == 'push' || (inputs.apply && inputs.target != 'F01')) }}
         env:
           GOOGLE_SHEETS_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sheets.json
         run: npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/backup-f86.mts --label=run-${{ github.run_id }}
       - name: 동일 스냅샷으로 하허호 F86 게시
         id: f86
-        if: ${{ always() && (steps.snapshot_capture.outcome == 'success' || steps.snapshot_restore.outcome == 'success') && (github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push' || (inputs.apply && inputs.target != 'F01')) }}
+        if: ${{ always() && (steps.snapshot_capture.outcome == 'success' || steps.snapshot_restore.outcome == 'success') && (github.event_name == 'schedule' || github.event_name == 'repository_dispatch' || github.event_name == 'workflow_run' || github.event_name == 'push' || (inputs.apply && inputs.target != 'F01')) }}
         env:
           GOOGLE_SHEETS_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sheets.json
         run: npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/build-channel-supplier-sheet.mts --채널=하허호 --apply --snapshot=tmp/erp5-sales-publish.json
       - name: 하허호 F86 ↔ 원자 칸 대조·신선도(첫 관문)
-        if: ${{ always() && (steps.snapshot_capture.outcome == 'success' || steps.snapshot_restore.outcome == 'success') && steps.f86.outcome == 'success' && (github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push' || (inputs.apply && inputs.target != 'F01')) }}
+        if: ${{ always() && (steps.snapshot_capture.outcome == 'success' || steps.snapshot_restore.outcome == 'success') && steps.f86.outcome == 'success' && (github.event_name == 'schedule' || github.event_name == 'repository_dispatch' || github.event_name == 'workflow_run' || github.event_name == 'push' || (inputs.apply && inputs.target != 'F01')) }}
         env:
           GOOGLE_SHEETS_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sheets.json
         run: npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/audit-f86-vs-atom.mts --snapshot=tmp/erp5-sales-publish.json --max-age-min=120
