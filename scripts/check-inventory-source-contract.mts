@@ -127,7 +127,7 @@ const VALIDATED_ENGINES = [
   '716aa5fe66a8f3512668bcaff4c769c2fe7f2775', // fixed widths, supplementary parity gate, and F86 long-term-rent-only presentation
   '3032fc955db9558051aac1f69aad80b027f4cc02', // legacy supplementary sheets are observation-only; new sources control publication
   'a1e5135a306aea344845b11ffe4cb467fd2d6764', // F86 hides short-term deposits through 12 months and keeps long-term deposits visible
-  '2be7207c2e5beed9cd8b63c169a06380eab3dd35', // archive the known legacy F01 catalog tab before publishing the stable IDs
+  '05f43fb14aabfc48f18092b4481dd31b0e71e3f7', // archive the known legacy F01 catalog tab before publishing the stable IDs
   '2be7207c2e5beed9cd8b63c169a06380eab3dd35', // ignore hidden retired F01 tabs when enforcing visible presentation uniqueness,
   '46484b8cccfd3a1b55cf49aad4f6e67ebe983807', // exclude hidden retired F01 tabs from Atom/F01/F86 parity audit
 ];
@@ -136,12 +136,13 @@ assert(pinnedEngine, '검증 엔진 pin이 제거됐습니다. main collector �
 assert(/audit-supplementary-inventory-reference\.mts --snapshot=tmp\/erp5-sales-publish\.json[\s\S]*동일 스냅샷으로 판매시트 게시/.test(workflow),
   '오플·손오공 보완참조 관측은 F01/F86 쓰기 직전에 기록돼야 합니다.');
 const ingestStep = workflow.match(/- name: 원천에서 ERP5 현재 원자 계산[\s\S]*?(?=\n      - name:)/)?.[0] ?? '';
-assert(ingestStep.includes("if: github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push'"),
+assert(ingestStep.includes("if: github.event_name == 'schedule' || github.event_name == 'repository_dispatch' || github.event_name == 'workflow_run' || github.event_name == 'push'"),
   '수동 적용은 원천 재수집/ERP5 원자 재계산을 실행하면 안 됩니다.');
+assert(workflow.includes('types: [erp5_refresh_watchdog]'), '예약 누락 watchdog 복구 이벤트 계약이 사라졌습니다.');
 assert(ingestStep.includes("github.event_name == 'workflow_dispatch' && !inputs.apply"), '수동 준비 회차만 ERP5 원자를 갱신해야 합니다.');
 const captureStep = workflow.match(/- name: ERP5 발행 스냅샷 고정[\s\S]*?(?=\n      - name:)/)?.[0] ?? '';
 assert(captureStep.includes("github.event_name == 'workflow_dispatch' && !inputs.apply"), '준비 전용 회차가 고정 스냅샷을 남겨야 합니다.');
-assert(/ready_run_id:[\s\S]*READY_RUN_ID="\$\{\{ inputs\.ready_run_id \}\}"/.test(workflow)
+assert(/ready_run_id:[\s\S]*READY_RUN_ID_INPUT: \$\{\{ inputs\.ready_run_id \}\}[\s\S]*READY_RUN_ID="\$READY_RUN_ID_INPUT"/.test(workflow)
   && workflow.includes('gh run list --workflow erp5-ssot-refresh.yml --status success')
   && workflow.includes('.expired == false')
   && workflow.includes('gh run download "$READY_RUN_ID"'),

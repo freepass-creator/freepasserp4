@@ -55,6 +55,33 @@ for (const r of rows) {
   }
 }
 
+/** native schedule 누락을 같은 GitHub Actions 안에서 감지하되, 두 번째 writer는 만들지 않는다. */
+{
+  const canonical = readFileSync(`${WF}/erp5-ssot-refresh.yml`, 'utf8');
+  const watchdog = readFileSync(`${WF}/erp5-ssot-watchdog.yml`, 'utf8');
+  if (!/^\s*-\s*cron:\s*['"]42 \* \* \* \*['"]/m.test(watchdog)) {
+    fails.push("ERP5 watchdog 규격이 바뀌었다 — 매시 42분('42 * * * *')이어야 한다");
+  }
+  if (!canonical.includes('types: [erp5_refresh_watchdog]') || !canonical.includes("github.event_name == 'repository_dispatch'")) {
+    fails.push('canonical ERP5 workflow가 watchdog repository_dispatch를 전체 갱신 경로로 받지 않는다');
+  }
+  for (const forbidden of ['ingest-all-suppliers.mts', 'make-sample-sheet-google.mts', 'build-channel-supplier-sheet.mts']) {
+    if (watchdog.includes(forbidden)) fails.push(`watchdog에 직접 writer가 들어갔다 — ${forbidden}`);
+  }
+  if (!watchdog.includes('repos/${{ github.repository }}/dispatches') || !watchdog.includes('event_type=erp5_refresh_watchdog')) {
+    fails.push('watchdog가 동일 canonical workflow 복구 이벤트만 호출하지 않는다');
+  }
+  if (!watchdog.includes("new Set(['schedule', 'repository_dispatch', 'push', 'workflow_run'])")) {
+    fails.push('watchdog가 수동 apply 성공을 원천 최신화 성공으로 오인할 수 있다');
+  }
+  for (const line of canonical.split(/\r?\n/).filter((row) => row.includes("if:") && row.includes("github.event_name == 'schedule'"))) {
+    if (!line.includes("github.event_name == 'repository_dispatch'")) {
+      fails.push('watchdog 복구 회차에서 빠지는 canonical 실행 단계가 있다');
+      break;
+    }
+  }
+}
+
 /** ★2026-09-19 — RETIRED writer는 GitHub UI disable에만 기대지 않는다. YAML 자체에 schedule이 다시 생기면 CI가 막는다. */
 for (const f of ['contract-status.yml', 'sales-erp-hourly.yml', 'mirror-sync.yml']) {
   const src = readFileSync(`${WF}/${f}`, 'utf8');
