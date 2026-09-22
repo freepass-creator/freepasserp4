@@ -19,11 +19,7 @@ on:
   workflow_dispatch:
     inputs:
       apply:
-        description: '실제로 ERP5와 판매시트에 반영'
-        type: boolean
-        default: false
-      register_sonogong_current:
-        description: '현재 손오공 API 전 차량을 이번 회차에 정식 등록'
+        description: '매시간 검증된 현재 ERP5 데이터를 재수집 없이 판매시트에 적용'
         type: boolean
         default: false
 
@@ -37,6 +33,7 @@ jobs:
     if: ${{ github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && (github.event.workflow_run.event == 'schedule' || github.event.workflow_run.event == 'push')) }}
     permissions:
       contents: read
+      actions: read
       id-token: write
     runs-on: ubuntu-latest
     timeout-minutes: 45
@@ -116,7 +113,7 @@ jobs:
           #   손오공상품은 RP012 중고렌트+오공구독, 픽업구독은 T카 외부재고로 분리하며 같은
           #   assignSalesTab SSOT를 발행기·감사·회귀검사가 공유한다. 손오공 원천은 기존대로 ERP API뿐이다.
           # F01/F86 presentation shares freepass-data 4005c5f; fixed-width regression and readback are mandatory.
-          ref: a1c47fe21026405f82cde8ba72b17fd55d314f63
+          ref: 716aa5fe66a8f3512668bcaff4c769c2fe7f2775
       - name: Core receipt helper checkout
         uses: actions/checkout@v4
         with:
@@ -153,19 +150,13 @@ jobs:
           printf '%s' "$SHEETS_SA" > tmp/firebase-auth/sheets.json
           printf '%s' "$SONOGONG" > sonokong/lib/wonja/.손오공계정.json
       - name: 현재 원천 재수집
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push'
         run: node sonokong/scripts/손오공.mjs --조용
       - name: 티카 유료옵션 차량번호·원문 감사
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push'
         run: npm run audit:sonokong-tcar-options
-      - name: 현재 손오공 API 전 차량 정식 등록
-        if: ${{ github.event_name == 'workflow_dispatch' && inputs.apply && inputs.register_sonogong_current }}
-        env:
-          ERP5_FIREBASE_USE_ADC: 'true'
-          GOOGLE_CLOUD_PROJECT: freepasserp5
-          GOOGLE_SHEETS_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sheets.json
-          GOOGLE_SHEETS_SUBJECT: pyh@teamjpk.com
-        run: npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/ingest-supplier-to-firestore.mts --code=RP012 --apply
       - name: 정산원장 접수·취소를 ERP5 원자 계약락에 반영
-        if: github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push' || inputs.apply
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push'
         env:
           ERP5_FIREBASE_USE_ADC: 'true'
           GOOGLE_CLOUD_PROJECT: freepasserp5
@@ -173,6 +164,7 @@ jobs:
         run: npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/sync-vehicle-lock-from-ledger.mts --apply
       - name: 원천에서 ERP5 현재 원자 계산
         id: ingest
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push'
         env:
           ERP5_FIREBASE_USE_ADC: 'true'
           GOOGLE_CLOUD_PROJECT: freepasserp5
@@ -183,10 +175,7 @@ jobs:
           set -o pipefail
           mkdir -p tmp/core-contract
           echo "started_at=$(date -u +'%Y-%m-%dT%H:%M:%S.000Z')" >> "$GITHUB_OUTPUT"
-          ARGS=()
-          if [ "${{ github.event_name }}" = "schedule" ] || [ "${{ github.event_name }}" = "workflow_run" ] || [ "${{ github.event_name }}" = "push" ] || [ "${{ inputs.apply }}" = "true" ]; then
-            ARGS+=(--apply --variable --retire)
-          fi
+          ARGS=(--apply --variable --retire)
           npx tsx scripts/ingest-all-suppliers.mts "${ARGS[@]}" 2>&1 | tee tmp/core-contract/erp5-ingest.log
       - name: ERP5 ingest Core receipt 생성(Shadow)
         if: ${{ always() && steps.ingest.outcome != 'skipped' }}
@@ -197,7 +186,7 @@ jobs:
           node .core-contract-helper/scripts/core-contract/build-erp5-ingest-receipt.mjs \
             --log=tmp/core-contract/erp5-ingest.log \
             --out=tmp/core-contract/erp5-ingest-receipt.json \
-            --engine-revision=a1c47fe21026405f82cde8ba72b17fd55d314f63 \
+            --engine-revision=716aa5fe66a8f3512668bcaff4c769c2fe7f2775 \
             --run-id=${{ github.run_id }} \
             --run-attempt=${{ github.run_attempt }} \
             --outcome=${{ steps.ingest.outcome }} \
@@ -214,18 +203,33 @@ jobs:
           if-no-files-found: error
           retention-days: 30
       - name: ERP5 정책 참조 정합화
-        if: github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push' || inputs.apply
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push'
         env:
           ERP5_FIREBASE_USE_ADC: 'true'
           GOOGLE_CLOUD_PROJECT: freepasserp5
         run: npx tsx scripts/reconcile-product-policy-references.mts --erp5 --apply
       - name: ERP5 발행 스냅샷 고정
-        id: snapshot
-        if: github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push' || inputs.apply
+        id: snapshot_capture
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push'
         env:
           ERP5_FIREBASE_USE_ADC: 'true'
           GOOGLE_CLOUD_PROJECT: freepasserp5
         run: npx tsx scripts/capture-sales-publish-snapshot.mts --erp5 --out=tmp/erp5-sales-publish.json
+      - name: 마지막 검증 완료 정시 스냅샷 고정
+        id: snapshot_restore
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.apply }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          READY_RUN_ID="$(gh run list --workflow erp5-ssot-refresh.yml --branch main --event schedule --status success --limit 1 --json databaseId --jq '.[0].databaseId')"
+          test -n "$READY_RUN_ID" || { echo '::error::HOLD: 검증 완료 정시 회차가 없습니다.'; exit 1; }
+          mkdir -p tmp/ready-snapshot
+          gh run download "$READY_RUN_ID" --name "erp5-ssot-snapshot-$READY_RUN_ID" --dir tmp/ready-snapshot
+          test -f tmp/ready-snapshot/erp5-sales-publish.json || { echo '::error::HOLD: 정시 회차 스냅샷이 없습니다.'; exit 1; }
+          mv tmp/ready-snapshot/erp5-sales-publish.json tmp/erp5-sales-publish.json
+          echo "ready_run_id=$READY_RUN_ID" >> "$GITHUB_OUTPUT"
       - name: ERP5 공개 카탈로그 발행 대사
         if: github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push' || inputs.apply
         env:
@@ -233,6 +237,7 @@ jobs:
           GOOGLE_CLOUD_PROJECT: freepasserp5
         run: npx tsx scripts/verify-whitelabel-publication.mts --snapshot=tmp/erp5-sales-publish.json --write-receipt
       - name: 오플·손오공 보완참조 대조
+        id: supplementary
         if: github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push' || inputs.apply
         env:
           GOOGLE_SHEETS_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sheets.json
@@ -245,22 +250,22 @@ jobs:
           GOOGLE_SHEETS_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sheets.json
         run: npx tsx scripts/make-sample-sheet-google.mts --main --snapshot=tmp/erp5-sales-publish.json
       # ★사장님 2026-09-16 「한 워크플로가 F01·F86 둘 다」 · 「하허호 시트는 제일 중요하게」 —
-      #   스냅샷만 제대로 떴으면 F01 이 실패해도 F86 은 백업 → 발행 → 감사(첫 관문)까지 간다.
+      #   같은 검증 스냅샷으로 F01/F86을 발행한다. 보완참조가 HOLD면 어느 시트에도 쓰지 않는다.
       #   운영 F01·F86 쓰기는 이 워크플로 이름으로만 열린다(lib/server/production-sheet-write-gate.ts · docs/예약작업-지도.md).
       - name: 하허호 F86 발행 직전 백업
         id: f86_backup
-        if: ${{ always() && steps.snapshot.outcome == 'success' && (github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push' || inputs.apply) }}
+        if: ${{ always() && (steps.snapshot_capture.outcome == 'success' || steps.snapshot_restore.outcome == 'success') && steps.supplementary.outcome == 'success' && (github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push' || inputs.apply) }}
         env:
           GOOGLE_SHEETS_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sheets.json
         run: npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/backup-f86.mts --label=run-${{ github.run_id }}
       - name: 동일 스냅샷으로 하허호 F86 게시
         id: f86
-        if: ${{ always() && steps.snapshot.outcome == 'success' && (github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push' || inputs.apply) }}
+        if: ${{ always() && (steps.snapshot_capture.outcome == 'success' || steps.snapshot_restore.outcome == 'success') && steps.supplementary.outcome == 'success' && (github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push' || inputs.apply) }}
         env:
           GOOGLE_SHEETS_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sheets.json
         run: npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/build-channel-supplier-sheet.mts --채널=하허호 --apply --snapshot=tmp/erp5-sales-publish.json
       - name: 하허호 F86 ↔ 원자 칸 대조·신선도(첫 관문)
-        if: ${{ always() && steps.snapshot.outcome == 'success' && (github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push' || inputs.apply) }}
+        if: ${{ always() && (steps.snapshot_capture.outcome == 'success' || steps.snapshot_restore.outcome == 'success') && steps.supplementary.outcome == 'success' && steps.f86.outcome == 'success' && (github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push' || inputs.apply) }}
         env:
           GOOGLE_SHEETS_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sheets.json
         run: npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/audit-f86-vs-atom.mts --snapshot=tmp/erp5-sales-publish.json --max-age-min=120
@@ -275,7 +280,7 @@ jobs:
           GOOGLE_SHEETS_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sheets.json
         run: npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/check-plate-photo-link.mts
       - name: 회차 증거 보존
-        if: ${{ always() && steps.snapshot.outcome == 'success' }}
+        if: ${{ always() && steps.snapshot_capture.outcome == 'success' }}
         uses: actions/upload-artifact@v4
         with:
           name: erp5-ssot-snapshot-${{ github.run_id }}

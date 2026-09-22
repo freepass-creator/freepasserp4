@@ -124,12 +124,25 @@ const VALIDATED_ENGINES = [
    */
   '0e0bfb3a6e227fd65b754c1d74f7ca5c8b1c327e',
   '6d9375a0d7fcf8e00d41712a3a154c6b1163f032', // shared F01/F86 presentation; online readback 35576634024
-  'a1c47fe21026405f82cde8ba72b17fd55d314f63', // fixed widths plus Oplus/Sonogong supplementary reference parity gate
+  '716aa5fe66a8f3512668bcaff4c769c2fe7f2775', // fixed widths, supplementary parity gate, and F86 long-term-rent-only presentation
 ];
 const pinnedEngine = VALIDATED_ENGINES.find((engine) => workflow.includes(`ref: ${engine}`));
 assert(pinnedEngine, '검증 엔진 pin이 제거됐습니다. main collector 이식 완료 전에는 pin을 풀면 안 됩니다(새 엔진은 VALIDATED_ENGINES 에 적는다).');
 assert(/audit-supplementary-inventory-reference\.mts --snapshot=tmp\/erp5-sales-publish\.json[\s\S]*동일 스냅샷으로 판매시트 게시/.test(workflow),
   '오플·손오공 보완참조 게이트는 F01/F86 쓰기 직전에 실행돼야 합니다.');
+const ingestStep = workflow.match(/- name: 원천에서 ERP5 현재 원자 계산[\s\S]*?(?=\n      - name:)/)?.[0] ?? '';
+assert(ingestStep.includes("if: github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push'"),
+  '수동 적용은 원천 재수집/ERP5 원자 재계산을 실행하면 안 됩니다.');
+assert(!ingestStep.includes('inputs.apply'), '수동 적용이 ERP5 원자 갱신 조건에 다시 연결됐습니다.');
+const captureStep = workflow.match(/- name: ERP5 발행 스냅샷 고정[\s\S]*?(?=\n      - name:)/)?.[0] ?? '';
+assert(!captureStep.includes('inputs.apply'), '수동 적용은 현재 Firestore를 다시 캡처하면 안 됩니다.');
+assert(/gh run list --workflow erp5-ssot-refresh\.yml[\s\S]*--event schedule --status success[\s\S]*gh run download/.test(workflow),
+  '수동 적용은 마지막 성공 정시 회차의 고정 스냅샷을 사용해야 합니다.');
+assert(workflow.includes("steps.snapshot_capture.outcome == 'success' || steps.snapshot_restore.outcome == 'success'"),
+  '정시 캡처와 수동 READY 복원 경계를 발행 조건이 함께 확인해야 합니다.');
+assert(/id: supplementary[\s\S]*audit-supplementary-inventory-reference/.test(workflow), '보완참조 게이트 outcome을 식별해야 합니다.');
+assert((workflow.match(/steps\.supplementary\.outcome == 'success'/g) ?? []).length >= 3,
+  '보완참조 HOLD 뒤 F86 백업/발행/감사가 실행되면 안 됩니다.');
 const validatedEngine = pinnedEngine as string;
 assert(workflow.includes('GOOGLE_CLOUD_PROJECT: freepasserp5'), 'production target은 freepasserp5여야 합니다.');
 assert(workflow.includes('scripts/ingest-all-suppliers.mts'), 'production workflow가 검증된 일괄수집기를 호출하지 않습니다.');
