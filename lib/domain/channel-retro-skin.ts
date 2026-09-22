@@ -9,9 +9,9 @@
  *
  * ★칸(이름·차례·내용)도 옛 「종합」 43칸이다 — 아래 `RETRO_LAYOUT`. 값은 erp5 원자에서 F01 과 같은 칸 만들기로.
  * ⚠ **공용 서식기(`sales-sheet-format`)는 안 고친다** — F01 모양이 같이 바뀐다. 그 서식 요청 «뒤»에 덮어 쓴다.
- * ⚠ 글자색도 원본 열 규격을 따른다 — 구분 초록, 배차상태·장기요금 파랑, 나머지 기본 검정. F01 값별 색을 섞지 않는다.
+ * ⚠ 글자색도 운영 정본을 따른다 — 상품구분은 값별 색(신차렌트 밝은 분홍 등), 배차상태·장기요금은 파랑, 나머지 기본 검정.
  */
-import { isMoneyColumn } from './sales-sheet-format';
+import { GUBUN_INK, isMoneyColumn } from './sales-sheet-format';
 import { EXPLICIT_NONE_LABEL, MISSING_VALUE_LABEL, NOT_APPLICABLE_LABEL } from './missing-value-display';
 
 type Req = Record<string, any>;
@@ -247,14 +247,14 @@ export const isRetroCustomFee = (name: string): boolean => 요금칸(name) && !(
 const BODY_INK: Record<string, string> = {
   /* ★2026-09-15 «회사 탭» 기준으로 고침 — F86 은 회사별 탭이라 옛 「종합」이 아니라 옛 회사 탭(손오공·아이언·스타·센트로·아이카 다수)을 따른다:
        구분 초록(#34A853) · 단기보증·1·6·12개월 청록(#46BDC6). 종합은 구분 자홍·단기보증 빨강이었다.
-     ★2026-09-22 최종 확인 — 실제 레트로 원본을 다시 대조해 「구분」 초록(#34A853),
-       「배차상태」 파랑(#0000FF)의 열 고정색으로 복원했다. F01 값별 의미색은 F86에 섞지 않는다.
+     ★2026-09-22 사용자 재확인 — 「구분」은 열 고정색이 아니라 상품값별 운영 색이다.
+       신차렌트 밝은 분홍(#FF00FF) 등 `MASTER_CATEGORY_COLORS['분류']`를 그대로 살린다.
      ★2026-09-16(2) 정정 — 사장님 「링크 잇는애들은 링크색깔 링크없으면 그냥 색깔 검정색이겟지?」.
        「차량번호」도 여기서 뺐다 — 칸 전체를 링크색(1155CC)으로 칠하니 **링크 없는 차도 파랗게** 보였다.
        F01 은 2026-08-19에 이미 「검정 굵게」로 정해 뒀다(사장님 「사진 링크 있는 것과 없는 게 같은 색이라
        … 검정에 진하게」). 링크 있는 줄만 그 셀의 textFormatRuns 가 파랑+밑줄로 덮는다 —
        그래서 «링크 있음/없음»이 눈으로 갈린다. F01·F86 같은 규칙. */
-  차량상태: '0000FF', 배차상태: '0000FF', 구분: '34A853', 입고일자: '1155CC',
+  차량상태: '0000FF', 배차상태: '0000FF', 입고일자: '1155CC',
   단기보증: '46BDC6', '1개월': '46BDC6', '6개월': '46BDC6', '12개월': '46BDC6',
   장기보증: '0000FF', '24개월': '0000FF', '36개월': '0000FF', '48개월': '0000FF', '60개월': '0000FF',
   차고지: '1F1F1F', 분납: 'FF0000', '21세': 'FF0000', '23세': 'FF0000', '21세+': 'FF0000', '23세+': 'FF0000',
@@ -316,18 +316,20 @@ export function applyRetroSkin(reqs: Req[], linkReqs: Req[], p: { gid: number; c
    * ⚠ 2026-09-15 한 번 더 — 사장님 「딱 과거 거로만, 느낌도 과거 느낌」. 옛 시트 실측: 회사 탭 조건부서식 **0개** · 머리글 메모 **0개**.
    *   ⇒ 조건부서식은 «전부» 걷는다(계약중 가운데줄 · 미입력 회색 포함). 머리글 메모(작은 삼각형)도 안 단다.
    */
-  /** 2026-09-22 원본 재확인: F01 값별 의미색은 전부 걷고 아래 BODY_INK 열 고정색으로 복원한다. */
+  /** 2026-09-22 사용자 재확인: 상품구분 값별 색은 운영 SSOT 그대로 살리고, 다른 F01 의미색은 걷는다. */
   /**
    * ★2026-09-16 하나 더 — 사장님 「미입력은 좀 색깔이 회색이어야지」·「연하게 미입력으로 가야지」.
    *   「미입력」·「해당없음」 연한 회색 규칙도 «표 전체»에 걸리는 조건부서식이라, 칸 예외(위)로는 안 걸린다.
    *   글자로 알아본다 — 그 두 낱말을 겨눈 규칙이면 살린다(F01 과 같은 회색으로 같이 눕는다).
    */
   const 표시전용낱말 = new Set<string>([MISSING_VALUE_LABEL, NOT_APPLICABLE_LABEL]);
+  const 상품구분낱말 = new Set<string>(GUBUN_INK.map(([word]) => word));
   reqs = reqs.filter((r) => {
     const cf = r?.addConditionalFormatRule;
     if (cf) {
       const word = String(cf.rule?.booleanRule?.condition?.values?.[0]?.userEnteredValue ?? '').trim();
       if (표시전용낱말.has(word)) return true;
+      if (상품구분낱말.has(word)) return true;
       return false;
     }
     return !(r?.repeatCell && r.repeatCell.fields === 'note');
