@@ -125,7 +125,7 @@ const VALIDATED_ENGINES = [
   '0e0bfb3a6e227fd65b754c1d74f7ca5c8b1c327e',
   '6d9375a0d7fcf8e00d41712a3a154c6b1163f032', // shared F01/F86 presentation; online readback 35576634024
   '716aa5fe66a8f3512668bcaff4c769c2fe7f2775', // fixed widths, supplementary parity gate, and F86 long-term-rent-only presentation
-  '298e9f3fa514d4d9bc50f77e6a88a26c395583db', // legacy supplementary sheets are observation-only; new sources control publication
+  '3032fc955db9558051aac1f69aad80b027f4cc02', // legacy supplementary sheets are observation-only; new sources control publication
 ];
 const pinnedEngine = VALIDATED_ENGINES.find((engine) => workflow.includes(`ref: ${engine}`));
 assert(pinnedEngine, '검증 엔진 pin이 제거됐습니다. main collector 이식 완료 전에는 pin을 풀면 안 됩니다(새 엔진은 VALIDATED_ENGINES 에 적는다).');
@@ -146,6 +146,8 @@ assert(/id: supplementary[\s\S]*continue-on-error: true/.test(workflow),
   '보완 시트는 새 원천 발행을 막지 않는 관측 증거여야 합니다.');
 assert(!workflow.includes("steps.supplementary.outcome == 'success'"),
   '과거 보완 시트와의 차이를 새 원천 발행 조건으로 사용하면 안 됩니다.');
+assert(workflow.includes("inputs.target == 'F86' && '--only=F86'"),
+  'F86 전용 적용은 사진 링크 감사도 F86에만 한정해야 합니다.');
 const validatedEngine = pinnedEngine as string;
 assert(workflow.includes('GOOGLE_CLOUD_PROJECT: freepasserp5'), 'production target은 freepasserp5여야 합니다.');
 assert(workflow.includes('scripts/ingest-all-suppliers.mts'), 'production workflow가 검증된 일괄수집기를 호출하지 않습니다.');
