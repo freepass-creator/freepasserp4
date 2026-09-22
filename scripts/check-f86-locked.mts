@@ -87,21 +87,25 @@ must(J(F86_BASE_TABS.map((t) => f86TabTitle(t, 123, '09.21 13:00', true))) === J
 
 /* ── ④ 겉 — 레트로 ───────────────────────────────────────────── */
 must(RETRO_FONT === 'Malgun Gothic' && RETRO_SIZE === 9 && RETRO_ROW_PX === 21, `글꼴·크기·줄 높이가 바뀌었습니다: ${RETRO_FONT} ${RETRO_SIZE}pt · 줄 ${RETRO_ROW_PX}`, `${SKIN} — ${MANUAL} 4`);
-const cols = ['구분', '36개월', '36개월 반납형', '분납', '최초등록', '배기량', '배차상태', '차량번호'];
+const cols = ['구분', '36개월', '36개월 반납형', '분납', '최초등록', '배기량', '배차상태', '차량번호', '제조사', '연료'];
 const reqs: any[] = applyRetroSkin([{ addConditionalFormatRule: { rule: {} } }, { repeatCell: { fields: 'note' } }], [], { gid: 0, columns: cols, headerAt: 0 });
 must(!reqs.some((r) => r.addConditionalFormatRule), '레트로 입력엔 「구분」 값별 조건부서식이 없는데도 살아남았습니다 — 필터가 열려 있습니다.', `${SKIN} · applyRetroSkin ① — ${MANUAL} 4`);
 {
   // ★2026-09-16 — 「구분」·「배차상태」 값별 색(GUBUN_INK·STATE_INK)은 예외로 살아야 한다(F01과 같은 뜻·같은 색).
   const 구분조건부 = { addConditionalFormatRule: { rule: { ranges: [{ sheetId: 0, startColumnIndex: 0, endColumnIndex: 1 }], booleanRule: { condition: { type: 'TEXT_EQ', values: [{ userEnteredValue: '픽업구독' }] }, format: { textFormat: { foregroundColor: { red: 0, green: 0, blue: 0 } } } } } } };
   const 배차상태조건부 = { addConditionalFormatRule: { rule: { ranges: [{ sheetId: 0, startColumnIndex: 6, endColumnIndex: 7 }], booleanRule: { condition: { type: 'TEXT_EQ', values: [{ userEnteredValue: '출고가능' }] }, format: { textFormat: { foregroundColor: { red: 0, green: 0, blue: 1 } } } } } } };
-  const 다른칸조건부 = { addConditionalFormatRule: { rule: { ranges: [{ sheetId: 0, startColumnIndex: 5, endColumnIndex: 6 }], booleanRule: { condition: { type: 'TEXT_EQ', values: [{ userEnteredValue: '가솔린' }] }, format: {} } } } };
+  const 다른칸조건부 = { addConditionalFormatRule: { rule: { ranges: [{ sheetId: 0, startColumnIndex: 5, endColumnIndex: 6 }], booleanRule: { condition: { type: 'TEXT_EQ', values: [{ userEnteredValue: '기타' }] }, format: {} } } } };
   // ★2026-09-16 — 「미입력」·「해당없음」 연한 회색(표 전체 범위)도 예외로 살아야 한다.
   const 미입력조건부 = { addConditionalFormatRule: { rule: { ranges: [{ sheetId: 0, startColumnIndex: 0, endColumnIndex: 7 }], booleanRule: { condition: { type: 'TEXT_EQ', values: [{ userEnteredValue: '미입력' }] }, format: { textFormat: { foregroundColor: { red: 0.72, green: 0.72, blue: 0.72 } } } } } } };
-  const r2 = applyRetroSkin([구분조건부, 배차상태조건부, 다른칸조건부, 미입력조건부], [], { gid: 0, columns: cols, headerAt: 0 });
+  const 제조사조건부 = { addConditionalFormatRule: { rule: { ranges: [{ startColumnIndex: cols.indexOf('제조사'), endColumnIndex: cols.indexOf('제조사') + 1 }], booleanRule: { condition: { values: [{ userEnteredValue: '현대' }] } } } } };
+  const 연료조건부 = { addConditionalFormatRule: { rule: { ranges: [{ startColumnIndex: cols.indexOf('연료'), endColumnIndex: cols.indexOf('연료') + 1 }], booleanRule: { condition: { values: [{ userEnteredValue: '가솔린' }] } } } } };
+  const r2 = applyRetroSkin([구분조건부, 배차상태조건부, 제조사조건부, 연료조건부, 다른칸조건부, 미입력조건부], [], { gid: 0, columns: cols, headerAt: 0 });
   must(r2.some((r) => r.addConditionalFormatRule === 구분조건부.addConditionalFormatRule), '「구분」 값별 조건부서식(GUBUN_INK)이 레트로에서 걷힙니다 — F01·F86 상품 갈래 색이 갈라집니다.', `${SKIN} · applyRetroSkin ① 예외 — ${MANUAL} 4`);
   must(r2.some((r) => r.addConditionalFormatRule === 배차상태조건부.addConditionalFormatRule), '「배차상태」 값별 조건부서식(STATE_INK)이 레트로에서 걷힙니다 — F01·F86 배차상태 색이 갈라집니다.', `${SKIN} · applyRetroSkin ① 예외 — ${MANUAL} 4`);
+  must(r2.some((r) => r.addConditionalFormatRule === 제조사조건부.addConditionalFormatRule), '「제조사」 의미색이 레트로에서 걷힙니다 — 같은 상품이 F01·F86에서 다른 색으로 보입니다.', `${SKIN} · applyRetroSkin ① 예외 — ${MANUAL} 4`);
+  must(r2.some((r) => r.addConditionalFormatRule === 연료조건부.addConditionalFormatRule), '「연료」 의미색이 레트로에서 걷힙니다 — 같은 상품이 F01·F86에서 다른 색으로 보입니다.', `${SKIN} · applyRetroSkin ① 예외 — ${MANUAL} 4`);
   must(r2.some((r) => r.addConditionalFormatRule === 미입력조건부.addConditionalFormatRule), '「미입력」 연한 회색 조건부서식이 레트로에서 걷힙니다 — 사장님 「미입력은 좀 색깔이 회색이어야지」(2026-09-16) 위반.', `${SKIN} · applyRetroSkin ① 예외 — ${MANUAL} 4`);
-  must(!r2.some((r) => r.addConditionalFormatRule === 다른칸조건부.addConditionalFormatRule), '「구분」·「배차상태」가 아닌 칸의 조건부서식까지 살아남습니다 — 레트로 「옛 시트 느낌」이 깨집니다.', `${SKIN} · applyRetroSkin ① 예외 — ${MANUAL} 4`);
+  must(!r2.some((r) => r.addConditionalFormatRule === 다른칸조건부.addConditionalFormatRule), '의미색 정본에 없는 칸의 조건부서식까지 살아남습니다 — 레트로 「옛 시트 느낌」이 깨집니다.', `${SKIN} · applyRetroSkin ① 예외 — ${MANUAL} 4`);
 }
 must(MISSING_INK === 'B7B7B7', `「미입력」 연한 회색(B7B7B7)이 바뀌었습니다: ${MISSING_INK}`, `lib/domain/sales-sheet-format.ts · MISSING_INK — ${MANUAL} 4`);
 const whole = reqs.find((r) => r.repeatCell && r.repeatCell.range?.startColumnIndex === undefined && r.repeatCell.range?.startRowIndex === undefined)?.repeatCell?.cell?.userEnteredFormat;

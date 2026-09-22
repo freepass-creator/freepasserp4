@@ -343,7 +343,16 @@ export function applyRetroSkin(reqs: Req[], linkReqs: Req[], p: { gid: number; c
    *   「미입력」·「해당없음」 연한 회색 규칙도 «표 전체»에 걸리는 조건부서식이라, 칸 예외(위)로는 안 걸린다.
    *   글자로 알아본다 — 그 두 낱말을 겨눈 규칙이면 살린다(F01 과 같은 회색으로 같이 눕는다).
    */
-  const 값별색유지 = new Set([columns.indexOf('구분'), columns.indexOf('배차상태')].filter((i) => i >= 0));
+  /**
+   * 레트로는 글꼴·기울임·정렬·기간 머리색만 뜻한다. 상품 자체의 의미색은 F01과 같아야 한다.
+   * 판매시트 공용 서식기가 만드는 값별 색 열을 여기서 빠뜨리면 같은 차량의 제조사·연료·차량색이
+   * F01에서는 색으로 보이고 F86에서는 검정으로 보여, 발행할 때마다 두 시트가 다시 갈라진다.
+   */
+  const 의미색열 = new Set([
+    '구분', '분류', '배차상태', '상태',
+    '제조사', '연료', '외장', '내장', '외장색상', '내장색상',
+  ]);
+  const 값별색유지 = new Set(columns.map((name, i) => 의미색열.has(name) ? i : -1).filter((i) => i >= 0));
   const 표시전용낱말 = new Set<string>([MISSING_VALUE_LABEL, NOT_APPLICABLE_LABEL]);
   reqs = reqs.filter((r) => {
     const cf = r?.addConditionalFormatRule;
