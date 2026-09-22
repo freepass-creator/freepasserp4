@@ -1,4 +1,5 @@
 import spec from '../../vendor/freepass-data/contracts/f01-f86-sheet-spec.v1.json';
+import { isDepositColumn, isRentColumn } from './sales-sheet-format';
 export const SHEET_PRESENTATION = spec;
 export type Workbook = keyof typeof spec.workbooks;
 
@@ -29,7 +30,7 @@ export function requirePrimaryBindings(workbook: Workbook, sheets: { sheetId: nu
   spec.primaryTabs.forEach((tab, index) => {
     const sheet = sheets.find(s => s.sheetId === ids[index]);
     if (!sheet || sheet.hidden) throw new Error(`HOLD: missing/hidden stable ${workbook} ${tab.label}`);
-    if (sheets.some(s => s.sheetId !== sheet.sheetId && presentationLabel(s.title) === tab.label)) throw new Error(`HOLD: duplicate ${tab.label}`);
+    if (sheets.some(s => !s.hidden && s.sheetId !== sheet.sheetId && presentationLabel(s.title) === tab.label)) throw new Error(`HOLD: duplicate ${tab.label}`);
   });
 }
 
@@ -44,8 +45,15 @@ export function presentationFormatRequests(workbook: Workbook, sheetId: number, 
     const width = tabWidths?.[header] ?? (spec.appearance.columnWidthsPx as Record<string, number>)[header];
     const range = { sheetId, dimension: 'COLUMNS', startIndex: index, endIndex: index + 1 };
     if (width) requests.push({ updateDimensionProperties: { range, properties: { pixelSize: width }, fields: 'pixelSize' } });
-    const months = /^(\d+)\s*개월/.exec(header);
-    if (workbook === 'F86' && (header === '단기보증' || (months && Number(months[1]) < spec.appearance.F86MinimumVisibleFeeMonths))) requests.push({ updateDimensionProperties: { range, properties: { hiddenByUser: true }, fields: 'hiddenByUser' } });
+    if (workbook === 'F86' && (isDepositColumn(header) || isRentColumn(header))) {
+      const months = /^(\d+)\s*개월/.exec(header);
+      const termMonths = months ? Number(months[1]) : undefined;
+      const shortDeposit = isDepositColumn(header) && (/단기/.test(header) || (termMonths !== undefined && termMonths <= 12));
+      const hiddenByUser = isRentColumn(header)
+        ? termMonths === undefined || termMonths < spec.appearance.F86MinimumVisibleFeeMonths
+        : shortDeposit;
+      requests.push({ updateDimensionProperties: { range, properties: { hiddenByUser }, fields: 'hiddenByUser' } });
+    }
   });
   return requests;
 }

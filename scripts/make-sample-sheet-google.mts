@@ -140,7 +140,17 @@ const meta = PLACEHOLDER ? null : await api(`https://sheets.googleapis.com/v4/sp
   process.exit(1);
 });
 const gidByBase: Record<string, number> = {};
-if (TO_MAIN) requirePrimaryBindings('F01', (meta?.sheets || []).map((s: any) => s.properties));
+if (TO_MAIN) {
+  const f01Binding = SHEET_PRESENTATION.workbooks.F01;
+  const retiredIds = 'retiredSheetIds' in f01Binding ? [...f01Binding.retiredSheetIds] : [];
+  const retiredVisible = (meta?.sheets || []).filter((s: any) => retiredIds.includes(s.properties.sheetId) && !s.properties.hidden);
+  if (retiredVisible.length) {
+    await api(`https://sheets.googleapis.com/v4/spreadsheets/${sheetId}:batchUpdate`, { method: 'POST', body: JSON.stringify({ requests: retiredVisible.map((s: any) => ({ updateSheetProperties: { properties: { sheetId: s.properties.sheetId, hidden: true }, fields: 'hidden' } })) }) });
+    for (const sheet of retiredVisible) sheet.properties.hidden = true;
+    console.log(`  ✓ 과거 F01 상품리스트 보관 숨김 — ${retiredVisible.map((s: any) => s.properties.sheetId).join(', ')}`);
+  }
+  requirePrimaryBindings('F01', (meta?.sheets || []).map((s: any) => s.properties));
+}
 if (!meta) {
   const created = await api('https://sheets.googleapis.com/v4/spreadsheets', { method: 'POST', body: JSON.stringify({ properties: { title: '프리패스 — 상품리스트(영업자용)' }, sheets: TAB_ORDER.map((t, i) => ({ properties: { sheetId: i, title: titleOf(t) } })) }) });
   sheetId = created.spreadsheetId; fresh = true;
