@@ -22,6 +22,10 @@ on:
         description: '매시간 검증된 현재 ERP5 데이터를 재수집 없이 판매시트에 적용'
         type: boolean
         default: false
+      ready_run_id:
+        description: 'apply=true일 때 적용할 준비 완료 회차 ID'
+        type: string
+        required: false
 
 concurrency:
   group: erp5-inventory-publish
@@ -150,13 +154,13 @@ jobs:
           printf '%s' "$SHEETS_SA" > tmp/firebase-auth/sheets.json
           printf '%s' "$SONOGONG" > sonokong/lib/wonja/.손오공계정.json
       - name: 현재 원천 재수집
-        if: github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push'
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && !inputs.apply)
         run: node sonokong/scripts/손오공.mjs --조용
       - name: 티카 유료옵션 차량번호·원문 감사
-        if: github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push'
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && !inputs.apply)
         run: npm run audit:sonokong-tcar-options
       - name: 정산원장 접수·취소를 ERP5 원자 계약락에 반영
-        if: github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push'
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && !inputs.apply)
         env:
           ERP5_FIREBASE_USE_ADC: 'true'
           GOOGLE_CLOUD_PROJECT: freepasserp5
@@ -164,7 +168,7 @@ jobs:
         run: npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/sync-vehicle-lock-from-ledger.mts --apply
       - name: 원천에서 ERP5 현재 원자 계산
         id: ingest
-        if: github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push'
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && !inputs.apply)
         env:
           ERP5_FIREBASE_USE_ADC: 'true'
           GOOGLE_CLOUD_PROJECT: freepasserp5
@@ -203,14 +207,14 @@ jobs:
           if-no-files-found: error
           retention-days: 30
       - name: ERP5 정책 참조 정합화
-        if: github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push'
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && !inputs.apply)
         env:
           ERP5_FIREBASE_USE_ADC: 'true'
           GOOGLE_CLOUD_PROJECT: freepasserp5
         run: npx tsx scripts/reconcile-product-policy-references.mts --erp5 --apply
       - name: ERP5 발행 스냅샷 고정
         id: snapshot_capture
-        if: github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push'
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && !inputs.apply)
         env:
           ERP5_FIREBASE_USE_ADC: 'true'
           GOOGLE_CLOUD_PROJECT: freepasserp5
@@ -223,22 +227,22 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          READY_RUN_ID="$(gh run list --workflow erp5-ssot-refresh.yml --branch main --event schedule --status success --limit 1 --json databaseId --jq '.[0].databaseId')"
-          test -n "$READY_RUN_ID" || { echo '::error::HOLD: 검증 완료 정시 회차가 없습니다.'; exit 1; }
+          READY_RUN_ID="${{ inputs.ready_run_id }}"
+          [[ "$READY_RUN_ID" =~ ^[0-9]+$ ]] || { echo '::error::HOLD: 적용할 준비 완료 회차 ID가 필요합니다.'; exit 1; }
           mkdir -p tmp/ready-snapshot
           gh run download "$READY_RUN_ID" --name "erp5-ssot-snapshot-$READY_RUN_ID" --dir tmp/ready-snapshot
           test -f tmp/ready-snapshot/erp5-sales-publish.json || { echo '::error::HOLD: 정시 회차 스냅샷이 없습니다.'; exit 1; }
           mv tmp/ready-snapshot/erp5-sales-publish.json tmp/erp5-sales-publish.json
           echo "ready_run_id=$READY_RUN_ID" >> "$GITHUB_OUTPUT"
       - name: ERP5 공개 카탈로그 발행 대사
-        if: github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push' || inputs.apply
+        if: steps.snapshot_capture.outcome == 'success' || steps.snapshot_restore.outcome == 'success'
         env:
           ERP5_FIREBASE_USE_ADC: 'true'
           GOOGLE_CLOUD_PROJECT: freepasserp5
         run: npx tsx scripts/verify-whitelabel-publication.mts --snapshot=tmp/erp5-sales-publish.json --write-receipt
       - name: 오플·손오공 보완참조 대조
         id: supplementary
-        if: github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push' || inputs.apply
+        if: steps.snapshot_capture.outcome == 'success' || steps.snapshot_restore.outcome == 'success'
         env:
           GOOGLE_SHEETS_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sheets.json
           GOOGLE_SHEETS_SUBJECT: pyh@teamjpk.com
