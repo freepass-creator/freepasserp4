@@ -130,6 +130,7 @@ const VALIDATED_ENGINES = [
   '05f43fb14aabfc48f18092b4481dd31b0e71e3f7', // archive the known legacy F01 catalog tab before publishing the stable IDs
   '2be7207c2e5beed9cd8b63c169a06380eab3dd35', // ignore hidden retired F01 tabs when enforcing visible presentation uniqueness,
   '46484b8cccfd3a1b55cf49aad4f6e67ebe983807', // exclude hidden retired F01 tabs from Atom/F01/F86 parity audit
+  'ea78781527635552f5c56a45be1531f3b2399c8b', // reject Shooting Brake pins when current raw name lacks that body-style evidence
 ];
 const pinnedEngine = VALIDATED_ENGINES.find((engine) => workflow.includes(`ref: ${engine}`));
 assert(pinnedEngine, '검증 엔진 pin이 제거됐습니다. main collector 이식 완료 전에는 pin을 풀면 안 됩니다(새 엔진은 VALIDATED_ENGINES 에 적는다).');
