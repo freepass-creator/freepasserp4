@@ -8,11 +8,17 @@
  *
  * npx tsx scripts/sim-snap-failure.mts
  */
+import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { snapToMaster, applySnap, type MasterEntry } from '../lib/domain/vehicle-master-match';
+import { pinnedSubModelSupportedByRawName, snapToMaster, applySnap, type MasterEntry } from '../lib/domain/vehicle-master-match';
 import type { EntityRecord } from '../lib/intake/entities';
 
 const S = (v: unknown) => String(v ?? '').trim();
+
+assert.equal(pinnedSubModelSupportedByRawName('더 뉴 G70 슈팅브레이크', 'G70 2.5T가솔린 2WD'), false,
+  '원문에 슈팅브레이크가 없는 일반 G70은 과거 슈팅브레이크 확정값을 재사용하지 않는다');
+assert.equal(pinnedSubModelSupportedByRawName('더 뉴 G70 슈팅브레이크', '더 뉴G70 2.0T 2WD 슈팅브레이크 프리미엄'), true,
+  '원문이 슈팅브레이크를 명시하면 기존 확정값을 유지한다');
 
 function master(): MasterEntry[] {
   const d = JSON.parse(readFileSync('public/data/vehicle-master.json', 'utf8'));
@@ -28,6 +34,19 @@ const CASES: { label: string; rec: EntityRecord }[] = [
 
 function main() {
   const entries = master();
+  const ironG70 = snapToMaster({
+    maker: '제네시스', model: 'G70', vehicle_name: 'G70 2.5T가솔린 2WD',
+    sub_model: 'G70 2.5T가솔린 2WD', fuel_type: '가솔린', year: '2024',
+  } as EntityRecord, entries);
+  assert.equal(ironG70?.sub_model, '더 뉴 G70', '아이언 일반 G70 원문은 슈팅브레이크가 아닌 더 뉴 G70으로 재매칭한다');
+  assert.equal(ironG70?.confidence, 'high');
+
+  const sonokongG70 = snapToMaster({
+    maker: '제네시스', model: 'G70', vehicle_name: '제네시스 더 뉴G70 가솔린 2.0T 2WD 슈팅브레이크 프리미엄',
+    sub_model: '제네시스 더 뉴G70 가솔린 2.0T 2WD 슈팅브레이크 프리미엄', fuel_type: '가솔린', year: '2022',
+  } as EntityRecord, entries);
+  assert.equal(sonokongG70?.sub_model, '더 뉴 G70 슈팅브레이크', '손오공 원문이 명시한 슈팅브레이크는 그대로 매칭한다');
+  assert.equal(sonokongG70?.confidence, 'high');
   console.log(`\n차종마스터 ${entries.length}세대 로드\n`);
 
   for (const { label, rec } of CASES) {

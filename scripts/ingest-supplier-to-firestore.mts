@@ -21,7 +21,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { listSheetTabs, readSheetGrid } from '../lib/server/google-sheets';
 import { isOurNonInventoryTab } from '../lib/domain/supplier-template-sheet';
 import { myStockTabs } from '../lib/domain/supplier-source';
-import { snapToMaster, makerGroup } from '../lib/domain/vehicle-master-match';
+import { snapToMaster, makerGroup, pinnedSubModelSupportedByRawName } from '../lib/domain/vehicle-master-match';
 import type { MasterEntry } from '../lib/domain/vehicle-master-types';
 import type { EntityRecord } from '../lib/intake/entities';
 import { normFuel } from '../lib/domain/vehicle-master-format';
@@ -440,7 +440,9 @@ type Atom = Record<string, unknown> & { car_number: string };
 function atomize(row: Row, pinned: Map<string, Record<string, unknown>>): Atom {
   const car = row.car, vname = row.vname;
   const pin = pinned.get(car);
-  const pinConfirmed = !!pin && !!S(pin.sub_model) && (pin.확정 === true || S(pin.검수상태) === '확정');
+  const pinConfirmed = !!pin && !!S(pin.sub_model)
+    && (pin.확정 === true || S(pin.검수상태) === '확정')
+    && pinnedSubModelSupportedByRawName(pin.sub_model, vname);
   let identity: { maker: string; model: string; sub_model: string; trim_name: string; origin: string };
   let confirmed: boolean;
   let state: 'pinned' | 'new-high' | 'new-review';

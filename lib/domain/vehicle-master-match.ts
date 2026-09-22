@@ -97,6 +97,15 @@ export type {
   SnapResult,
   VehicleFilter,
 } from '@/lib/domain/vehicle-master-types';
+
+/** A body-style-specific pin needs the same explicit body-style evidence in the current source name. */
+export function pinnedSubModelSupportedByRawName(subModel: unknown, rawName: unknown): boolean {
+  const compact = (value: unknown) => String(value ?? '').toLowerCase().replace(/[\s_-]+/g, '');
+  const pinned = compact(subModel);
+  const raw = compact(rawName);
+  if (pinned.includes('슈팅브레이크')) return raw.includes('슈팅브레이크');
+  return true;
+}
 export {
   fuelDisplay,
   fuelEmbeddedCc,
