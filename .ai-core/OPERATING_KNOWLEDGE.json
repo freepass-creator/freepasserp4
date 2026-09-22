@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0",
-  "updated_at": "2026-09-22T08:35:00+09:00",
+  "updated_at": "2026-09-22T10:10:00+09:00",
   "rules": {
     "use_confirmed_decisions_without_reasking": true,
     "ask_only_when_required_value_is_missing_or_changed": true,
@@ -53,15 +53,34 @@
         "gh"
       ],
       "canonical_refs": [
+        "memory/TOOL_CONNECTIONS.md",
         "docs/CHAT_GITHUB_HANDOFF_POLICY.md",
         "docs/shared-services/SHARED_RELEASE_GATE.md",
         "registry/projects.json"
+      ],
+      "connection": {
+        "account": "freepass-creator",
+        "mode": "reuse-host-auth",
+        "credential_store": "host-protected; never copy into repository or prompt"
+      },
+      "session_preflight": [
+        "Confirm git and gh are callable.",
+        "Run gh auth status without printing tokens, then gh api user --jq .login and require freepass-creator for account identity.",
+        "Resolve the target from git remote get-url origin or registry/projects.json; do not guess a similarly named repository.",
+        "Verify repository visibility with gh repo view OWNER/REPO and remote HEAD with git ls-remote before treating access as usable.",
+        "Treat Codex app GitHub access, shell gh authentication, Git credential-manager access, and browser login as separate capabilities; success in one does not prove another."
       ],
       "procedure": [
         "Confirm repository, remote, branch, HEAD, dirty state, and relevant AGENTS.md before editing.",
         "Use an isolated codex/ branch or worktree when needed; preserve unrelated dirty work.",
         "Run project checks, inspect the exact diff, commit selected files, push without force, open a PR, and attach it to the task.",
         "Merge only within existing authority, then verify the exact remote main commit and its CI run."
+      ],
+      "failure_recovery": [
+        "If gh is unavailable, first use any installed GitHub connector or existing authenticated git remote for read-only observation; do not claim private-repository access from public metadata.",
+        "If authentication is missing or expired, report the exact failed layer and continue local/read-only work that does not require it.",
+        "Do not reinstall gh, create a token, switch accounts, or repeat interactive login unless the existing host route was checked and user interaction is actually required.",
+        "Never ask for a token in chat or write credentials into Markdown, environment examples, logs, commits, or AI prompts."
       ],
       "completion_evidence": [
         "exact commit SHA",
@@ -70,8 +89,14 @@
         "remote main readback"
       ],
       "do_not_ask": [
+        "Which GitHub account to use when the existing authenticated identity is freepass-creator.",
+        "Whether to reuse a healthy existing gh or Git credential-manager session.",
         "Whether GitHub should hold durable development results.",
         "Whether to preserve existing branches, PR lineage, and dirty worktrees."
+      ],
+      "ask_only_if_missing": [
+        "user interaction when the existing GitHub authentication is absent or expired and no connected app can perform the required action",
+        "target repository only when remote and registry do not identify one consistently"
       ],
       "forbidden": [
         "force-push without direct authority",
