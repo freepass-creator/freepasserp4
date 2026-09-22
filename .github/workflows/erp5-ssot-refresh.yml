@@ -26,6 +26,14 @@ on:
         description: 'apply=true일 때 적용할 준비 완료 회차 ID'
         type: string
         required: false
+      target:
+        description: '수동 적용 대상 (준비 실행에는 영향 없음)'
+        type: choice
+        options:
+          - ALL
+          - F86
+          - F01
+        default: ALL
 
 concurrency:
   group: erp5-inventory-publish
@@ -249,7 +257,7 @@ jobs:
         run: npx tsx scripts/audit-supplementary-inventory-reference.mts --snapshot=tmp/erp5-sales-publish.json
       - name: 동일 스냅샷으로 판매시트 게시
         id: f01
-        if: github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push' || inputs.apply
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push' || (inputs.apply && inputs.target != 'F86')
         env:
           GOOGLE_SHEETS_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sheets.json
         run: npx tsx scripts/make-sample-sheet-google.mts --main --snapshot=tmp/erp5-sales-publish.json
@@ -258,18 +266,18 @@ jobs:
       #   운영 F01·F86 쓰기는 이 워크플로 이름으로만 열린다(lib/server/production-sheet-write-gate.ts · docs/예약작업-지도.md).
       - name: 하허호 F86 발행 직전 백업
         id: f86_backup
-        if: ${{ always() && (steps.snapshot_capture.outcome == 'success' || steps.snapshot_restore.outcome == 'success') && steps.supplementary.outcome == 'success' && (github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push' || inputs.apply) }}
+        if: ${{ always() && (steps.snapshot_capture.outcome == 'success' || steps.snapshot_restore.outcome == 'success') && steps.supplementary.outcome == 'success' && (github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push' || (inputs.apply && inputs.target != 'F01')) }}
         env:
           GOOGLE_SHEETS_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sheets.json
         run: npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/backup-f86.mts --label=run-${{ github.run_id }}
       - name: 동일 스냅샷으로 하허호 F86 게시
         id: f86
-        if: ${{ always() && (steps.snapshot_capture.outcome == 'success' || steps.snapshot_restore.outcome == 'success') && steps.supplementary.outcome == 'success' && (github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push' || inputs.apply) }}
+        if: ${{ always() && (steps.snapshot_capture.outcome == 'success' || steps.snapshot_restore.outcome == 'success') && steps.supplementary.outcome == 'success' && (github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push' || (inputs.apply && inputs.target != 'F01')) }}
         env:
           GOOGLE_SHEETS_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sheets.json
         run: npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/build-channel-supplier-sheet.mts --채널=하허호 --apply --snapshot=tmp/erp5-sales-publish.json
       - name: 하허호 F86 ↔ 원자 칸 대조·신선도(첫 관문)
-        if: ${{ always() && (steps.snapshot_capture.outcome == 'success' || steps.snapshot_restore.outcome == 'success') && steps.supplementary.outcome == 'success' && steps.f86.outcome == 'success' && (github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push' || inputs.apply) }}
+        if: ${{ always() && (steps.snapshot_capture.outcome == 'success' || steps.snapshot_restore.outcome == 'success') && steps.supplementary.outcome == 'success' && steps.f86.outcome == 'success' && (github.event_name == 'schedule' || github.event_name == 'workflow_run' || github.event_name == 'push' || (inputs.apply && inputs.target != 'F01')) }}
         env:
           GOOGLE_SHEETS_APPLICATION_CREDENTIALS: ${{ github.workspace }}/tmp/firebase-auth/sheets.json
         run: npx tsx --require ./scripts/lib/server-only-shim.cjs scripts/audit-f86-vs-atom.mts --snapshot=tmp/erp5-sales-publish.json --max-age-min=120
